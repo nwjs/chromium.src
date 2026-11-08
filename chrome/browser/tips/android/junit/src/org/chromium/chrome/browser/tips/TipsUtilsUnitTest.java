@@ -1,0 +1,450 @@
+// Copyright 2025 The Chromium Authors
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+package org.chromium.chrome.browser.tips;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.when;
+
+import android.app.Activity;
+
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.mockito.Mock;
+import org.mockito.junit.MockitoJUnit;
+import org.mockito.junit.MockitoRule;
+import org.robolectric.Robolectric;
+
+import org.chromium.base.DeviceInfo;
+import org.chromium.base.shared_preferences.SharedPreferencesManager;
+import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
+import org.chromium.chrome.browser.tips.TipsPromoProperties.FeatureTipPromoData;
+
+import java.util.concurrent.TimeUnit;
+
+/** Unit tests for {@link TipsUtils}. */
+@RunWith(BaseRobolectricTestRunner.class)
+public class TipsUtilsUnitTest {
+    @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
+
+    @Mock private SharedPreferencesManager mSharedPreferences;
+
+    private Activity mActivity;
+
+    @Before
+    public void setUp() {
+        mActivity = Robolectric.buildActivity(Activity.class).create().get();
+    }
+
+    @Test
+    public void testGetFeatureTipPromoDataForType_EnhancedSafeBrowsing() {
+        FeatureTipPromoData promoData =
+                TipsUtils.getFeatureTipPromoDataForType(
+                        mActivity,
+                        TipsNotificationsFeatureType.ENHANCED_SAFE_BROWSING,
+                        /* isUserSignedIn= */ false);
+        assertEquals(
+                mActivity.getString(R.string.tips_promo_bottom_sheet_positive_button_text),
+                promoData.positiveButtonText);
+        assertEquals(
+                mActivity.getString(R.string.tips_promo_bottom_sheet_title_esb),
+                promoData.mainPageTitle);
+        assertEquals(
+                mActivity.getString(R.string.tips_promo_bottom_sheet_description_esb),
+                promoData.mainPageDescription);
+        assertEquals(
+                mActivity.getString(R.string.tips_promo_bottom_sheet_first_step_esb),
+                promoData.detailPageSteps.get(0));
+        assertEquals(
+                mActivity.getString(R.string.tips_promo_bottom_sheet_second_step_esb),
+                promoData.detailPageSteps.get(1));
+        assertEquals(
+                mActivity.getString(R.string.tips_promo_bottom_sheet_third_step_esb),
+                promoData.detailPageSteps.get(2));
+        assertEquals(
+                mActivity.getString(R.string.tips_promo_bottom_sheet_title_esb),
+                promoData.detailPageTitle);
+    }
+
+    @Test
+    public void testGetFeatureTipPromoDataForType_QuickDelete() {
+        FeatureTipPromoData promoData =
+                TipsUtils.getFeatureTipPromoDataForType(
+                        mActivity,
+                        TipsNotificationsFeatureType.QUICK_DELETE,
+                        /* isUserSignedIn= */ false);
+        assertEquals(
+                mActivity.getString(R.string.tips_promo_bottom_sheet_positive_button_text),
+                promoData.positiveButtonText);
+        assertEquals(
+                mActivity.getString(R.string.tips_promo_bottom_sheet_title_quick_delete),
+                promoData.mainPageTitle);
+        assertEquals(
+                mActivity.getString(R.string.tips_promo_bottom_sheet_description_quick_delete),
+                promoData.mainPageDescription);
+        assertEquals(
+                mActivity.getString(R.string.tips_promo_bottom_sheet_first_step_quick_delete),
+                promoData.detailPageSteps.get(0));
+        assertEquals(
+                mActivity.getString(R.string.tips_promo_bottom_sheet_second_step_quick_delete),
+                promoData.detailPageSteps.get(1));
+        assertEquals(
+                mActivity.getString(R.string.tips_promo_bottom_sheet_third_step_quick_delete),
+                promoData.detailPageSteps.get(2));
+        assertEquals(
+                mActivity.getString(R.string.tips_promo_bottom_sheet_title_quick_delete_short),
+                promoData.detailPageTitle);
+    }
+
+    @Test
+    public void testGetFeatureTipPromoDataForType_GoogleLens() {
+        FeatureTipPromoData promoData =
+                TipsUtils.getFeatureTipPromoDataForType(
+                        mActivity,
+                        TipsNotificationsFeatureType.GOOGLE_LENS,
+                        /* isUserSignedIn= */ false);
+        assertEquals(
+                mActivity.getString(R.string.tips_promo_bottom_sheet_positive_button_text_lens),
+                promoData.positiveButtonText);
+        assertEquals(
+                mActivity.getString(R.string.tips_promo_bottom_sheet_title_lens),
+                promoData.mainPageTitle);
+        assertEquals(
+                mActivity.getString(R.string.tips_promo_bottom_sheet_description_lens),
+                promoData.mainPageDescription);
+        assertEquals(
+                mActivity.getString(R.string.tips_promo_bottom_sheet_first_step_lens),
+                promoData.detailPageSteps.get(0));
+        assertEquals(
+                mActivity.getString(R.string.tips_promo_bottom_sheet_second_step_lens),
+                promoData.detailPageSteps.get(1));
+        assertEquals(
+                mActivity.getString(R.string.tips_promo_bottom_sheet_third_step_lens),
+                promoData.detailPageSteps.get(2));
+        assertEquals(
+                mActivity.getString(R.string.tips_promo_bottom_sheet_title_lens),
+                promoData.detailPageTitle);
+    }
+
+    @Test
+    public void testGetFeatureTipPromoDataForType_BottomOmnibox() {
+        FeatureTipPromoData promoData =
+                TipsUtils.getFeatureTipPromoDataForType(
+                        mActivity,
+                        TipsNotificationsFeatureType.BOTTOM_OMNIBOX,
+                        /* isUserSignedIn= */ false);
+        assertEquals(
+                mActivity.getString(R.string.tips_promo_bottom_sheet_positive_button_text),
+                promoData.positiveButtonText);
+        assertEquals(
+                mActivity.getString(R.string.tips_promo_bottom_sheet_title_bottom_omnibox),
+                promoData.mainPageTitle);
+        assertEquals(
+                mActivity.getString(R.string.tips_promo_bottom_sheet_description_bottom_omnibox),
+                promoData.mainPageDescription);
+        assertEquals(
+                mActivity.getString(R.string.tips_promo_bottom_sheet_first_step_bottom_omnibox),
+                promoData.detailPageSteps.get(0));
+        assertEquals(
+                mActivity.getString(R.string.tips_promo_bottom_sheet_second_step_bottom_omnibox),
+                promoData.detailPageSteps.get(1));
+        assertEquals(
+                mActivity.getString(R.string.tips_promo_bottom_sheet_third_step_bottom_omnibox),
+                promoData.detailPageSteps.get(2));
+        assertEquals(
+                mActivity.getString(R.string.tips_promo_bottom_sheet_title_bottom_omnibox_short),
+                promoData.detailPageTitle);
+    }
+
+    @Test
+    public void testGetFeatureTipPromoDataForType_PasswordAutofill() {
+        FeatureTipPromoData promoData =
+                TipsUtils.getFeatureTipPromoDataForType(
+                        mActivity,
+                        TipsNotificationsFeatureType.PASSWORD_AUTOFILL,
+                        /* isUserSignedIn= */ false);
+        assertEquals(
+                mActivity.getString(R.string.tips_promo_bottom_sheet_positive_button_text_noop),
+                promoData.positiveButtonText);
+        assertEquals(
+                mActivity.getString(R.string.tips_promo_bottom_sheet_title_password_autofill),
+                promoData.mainPageTitle);
+        assertEquals(
+                mActivity.getString(R.string.tips_promo_bottom_sheet_description_password_autofill),
+                promoData.mainPageDescription);
+        assertEquals(
+                mActivity.getString(R.string.tips_promo_bottom_sheet_first_step_password_autofill),
+                promoData.detailPageSteps.get(0));
+        assertEquals(
+                mActivity.getString(R.string.tips_promo_bottom_sheet_second_step_password_autofill),
+                promoData.detailPageSteps.get(1));
+        assertEquals(
+                mActivity.getString(R.string.tips_promo_bottom_sheet_third_step_password_autofill),
+                promoData.detailPageSteps.get(2));
+        assertEquals(
+                mActivity.getString(R.string.tips_promo_bottom_sheet_title_password_autofill),
+                promoData.detailPageTitle);
+    }
+
+    @Test
+    public void testGetFeatureTipPromoDataForType_Signin() {
+        FeatureTipPromoData promoData =
+                TipsUtils.getFeatureTipPromoDataForType(
+                        mActivity,
+                        TipsNotificationsFeatureType.SIGNIN,
+                        /* isUserSignedIn= */ false);
+        assertEquals(
+                mActivity.getString(R.string.signin_promo_signin), promoData.positiveButtonText);
+        assertEquals(
+                mActivity.getString(R.string.educational_tip_sign_in_promo_title),
+                promoData.mainPageTitle);
+        assertEquals(
+                mActivity.getString(R.string.educational_tip_sign_in_promo_description),
+                promoData.mainPageDescription);
+        assertEquals(
+                mActivity.getString(R.string.tips_promo_bottom_sheet_first_step_signin),
+                promoData.detailPageSteps.get(0));
+        assertEquals(
+                mActivity.getString(R.string.tips_promo_bottom_sheet_second_step_signin),
+                promoData.detailPageSteps.get(1));
+        assertEquals(
+                mActivity.getString(R.string.tips_promo_bottom_sheet_third_step_signin),
+                promoData.detailPageSteps.get(2));
+        assertEquals(mActivity.getString(R.string.sign_in_to_chrome), promoData.detailPageTitle);
+    }
+
+    @Test
+    public void testGetFeatureTipPromoDataForType_Signin_UserAlreadySignedIn() {
+        FeatureTipPromoData promoData =
+                TipsUtils.getFeatureTipPromoDataForType(
+                        mActivity, TipsNotificationsFeatureType.SIGNIN, /* isUserSignedIn= */ true);
+        assertEquals(
+                mActivity.getString(R.string.tips_promo_bottom_sheet_positive_button_text_noop),
+                promoData.positiveButtonText);
+        assertEquals(
+                mActivity.getString(R.string.tips_promo_bottom_sheet_title_signin_signed_in),
+                promoData.mainPageTitle);
+    }
+
+    @Test
+    public void testGetFeatureTipPromoDataForType_CreateTabGroups() {
+        FeatureTipPromoData promoData =
+                TipsUtils.getFeatureTipPromoDataForType(
+                        mActivity,
+                        TipsNotificationsFeatureType.CREATE_TAB_GROUPS,
+                        /* isUserSignedIn= */ false);
+        assertEquals(
+                mActivity.getString(R.string.tips_promo_bottom_sheet_positive_button_text_try_now),
+                promoData.positiveButtonText);
+        assertEquals(
+                mActivity.getString(R.string.educational_tip_tab_group_title),
+                promoData.mainPageTitle);
+        assertEquals(
+                mActivity.getString(R.string.educational_tip_tab_group_description),
+                promoData.mainPageDescription);
+        assertEquals(
+                mActivity.getString(R.string.tips_promo_bottom_sheet_first_step_create_tab_groups),
+                promoData.detailPageSteps.get(0));
+        assertEquals(
+                mActivity.getString(R.string.tips_promo_bottom_sheet_second_step_create_tab_groups),
+                promoData.detailPageSteps.get(1));
+        assertEquals(
+                mActivity.getString(R.string.tips_promo_bottom_sheet_third_step_create_tab_groups),
+                promoData.detailPageSteps.get(2));
+        assertEquals(
+                mActivity.getString(R.string.educational_tip_tab_group_title),
+                promoData.detailPageTitle);
+    }
+
+    @Test
+    public void testGetFeatureTipPromoDataForType_CustomizeMVT() {
+        FeatureTipPromoData promoData =
+                TipsUtils.getFeatureTipPromoDataForType(
+                        mActivity,
+                        TipsNotificationsFeatureType.CUSTOMIZE_MVT,
+                        /* isUserSignedIn= */ false);
+        assertEquals(
+                mActivity.getString(R.string.tips_promo_bottom_sheet_positive_button_text_noop),
+                promoData.positiveButtonText);
+        assertEquals(
+                mActivity.getString(R.string.tips_promo_bottom_sheet_title_customize_mvt),
+                promoData.mainPageTitle);
+        assertEquals(
+                mActivity.getString(R.string.tips_promo_bottom_sheet_description_customize_mvt),
+                promoData.mainPageDescription);
+        assertEquals(
+                mActivity.getString(R.string.tips_promo_bottom_sheet_first_step_customize_mvt),
+                promoData.detailPageSteps.get(0));
+        assertEquals(
+                mActivity.getString(R.string.tips_promo_bottom_sheet_second_step_customize_mvt),
+                promoData.detailPageSteps.get(1));
+        assertEquals(
+                mActivity.getString(R.string.tips_promo_bottom_sheet_third_step_customize_mvt),
+                promoData.detailPageSteps.get(2));
+        assertEquals(
+                mActivity.getString(R.string.tips_promo_bottom_sheet_title_customize_mvt),
+                promoData.detailPageTitle);
+    }
+
+    @Test
+    public void testGetFeatureTipPromoDataForType_RecentTabs() {
+        FeatureTipPromoData promoData =
+                TipsUtils.getFeatureTipPromoDataForType(
+                        mActivity,
+                        TipsNotificationsFeatureType.RECENT_TABS,
+                        /* isUserSignedIn= */ false);
+        assertEquals(
+                mActivity.getString(
+                        R.string.tips_promo_bottom_sheet_positive_button_text_recent_tabs),
+                promoData.positiveButtonText);
+        assertEquals(
+                mActivity.getString(R.string.tips_promo_bottom_sheet_title_recent_tabs),
+                promoData.mainPageTitle);
+        assertEquals(
+                mActivity.getString(R.string.tips_promo_bottom_sheet_description_recent_tabs),
+                promoData.mainPageDescription);
+        assertEquals(
+                mActivity.getString(R.string.tips_promo_bottom_sheet_first_step_recent_tabs),
+                promoData.detailPageSteps.get(0));
+        assertEquals(
+                mActivity.getString(R.string.tips_promo_bottom_sheet_second_step_recent_tabs),
+                promoData.detailPageSteps.get(1));
+        assertEquals(
+                mActivity.getString(R.string.tips_promo_bottom_sheet_third_step_recent_tabs),
+                promoData.detailPageSteps.get(2));
+        assertEquals(
+                mActivity.getString(R.string.tips_promo_bottom_sheet_title_recent_tabs),
+                promoData.detailPageTitle);
+    }
+
+    @Test
+    public void testGetDetailStepBackground_SingleStep() {
+        assertEquals(
+                R.drawable.view_list_single_item_background,
+                TipsUtils.getDetailStepBackground(/* stepIndex= */ 0, /* stepCount= */ 1));
+    }
+
+    @Test
+    public void testGetDetailStepBackground_FirstStep() {
+        assertEquals(
+                R.drawable.view_list_top_item_background,
+                TipsUtils.getDetailStepBackground(/* stepIndex= */ 0, /* stepCount= */ 3));
+    }
+
+    @Test
+    public void testGetDetailStepBackground_LastStep() {
+        assertEquals(
+                R.drawable.view_list_bottom_item_background,
+                TipsUtils.getDetailStepBackground(/* stepIndex= */ 2, /* stepCount= */ 3));
+    }
+
+    @Test
+    public void testGetDetailStepBackground_MiddleStep() {
+        assertEquals(
+                R.drawable.view_list_normal_item_background,
+                TipsUtils.getDetailStepBackground(/* stepIndex= */ 1, /* stepCount= */ 3));
+    }
+
+    @Test
+    public void testShouldShowTipsOptInPromo_AllConditionsMet() {
+        assertTrue(
+                TipsUtils.shouldShowTipsOptInPromo(
+                        /* notificationsEnabled= */ false,
+                        mSharedPreferences,
+                        /* timeSinceLastBackgroundedMs= */ TimeUnit.HOURS.toMillis(
+                                TipsUtils.APP_BACKGROUNDED_HOURS_FOR_PROMO + 1)));
+    }
+
+    @Test
+    public void testShouldShowTipsOptInPromo_NotificationsEnabled() {
+        assertFalse(
+                TipsUtils.shouldShowTipsOptInPromo(
+                        /* notificationsEnabled= */ true,
+                        mSharedPreferences,
+                        /* timeSinceLastBackgroundedMs= */ TimeUnit.HOURS.toMillis(
+                                TipsUtils.APP_BACKGROUNDED_HOURS_FOR_PROMO + 1)));
+    }
+
+    @Test
+    public void testShouldShowTipsOptInPromo_AlreadyAccepted() {
+        when(mSharedPreferences.readBoolean(
+                        ChromePreferenceKeys.TIPS_NOTIFICATIONS_OPT_IN_PROMO_ACCEPTED, false))
+                .thenReturn(true);
+
+        assertFalse(
+                TipsUtils.shouldShowTipsOptInPromo(
+                        /* notificationsEnabled= */ false,
+                        mSharedPreferences,
+                        /* timeSinceLastBackgroundedMs= */ TimeUnit.HOURS.toMillis(
+                                TipsUtils.APP_BACKGROUNDED_HOURS_FOR_PROMO + 1)));
+    }
+
+    @Test
+    public void testShouldShowTipsOptInPromo_MaxCountReached() {
+        when(mSharedPreferences.readInt(
+                        ChromePreferenceKeys.TIPS_NOTIFICATIONS_OPT_IN_PROMO_SHOW_COUNT, 0))
+                .thenReturn(TipsUtils.getMaxTipsOptInPromoShowCount());
+
+        assertFalse(
+                TipsUtils.shouldShowTipsOptInPromo(
+                        /* notificationsEnabled= */ false,
+                        mSharedPreferences,
+                        /* timeSinceLastBackgroundedMs= */ TimeUnit.HOURS.toMillis(
+                                TipsUtils.APP_BACKGROUNDED_HOURS_FOR_PROMO + 1)));
+    }
+
+    @Test
+    public void testShouldShowTipsOptInPromo_CooldownNotPassed() {
+        when(mSharedPreferences.readLong(
+                        ChromePreferenceKeys.TIPS_NOTIFICATIONS_OPT_IN_PROMO_LAST_SHOWN_TIMESTAMP,
+                        0))
+                .thenReturn(
+                        System.currentTimeMillis()
+                                - TimeUnit.DAYS.toMillis(
+                                        TipsUtils.getTipsOptInPromoCooldownDays() - 1));
+
+        assertFalse(
+                TipsUtils.shouldShowTipsOptInPromo(
+                        /* notificationsEnabled= */ false,
+                        mSharedPreferences,
+                        /* timeSinceLastBackgroundedMs= */ TimeUnit.HOURS.toMillis(
+                                TipsUtils.APP_BACKGROUNDED_HOURS_FOR_PROMO + 1)));
+    }
+
+    @Test
+    public void testShouldShowTipsOptInPromo_TimeSinceBackgroundedTooShort() {
+        assertFalse(
+                TipsUtils.shouldShowTipsOptInPromo(
+                        /* notificationsEnabled= */ false,
+                        mSharedPreferences,
+                        /* timeSinceLastBackgroundedMs= */ TimeUnit.HOURS.toMillis(
+                                TipsUtils.APP_BACKGROUNDED_HOURS_FOR_PROMO - 1)));
+    }
+
+    @Test
+    public void testIsSupportedDeviceType() {
+        assertTrue(TipsUtils.isSupportedDeviceType());
+
+        DeviceInfo.setIsAutomotiveForTesting(true);
+        assertFalse(TipsUtils.isSupportedDeviceType());
+        DeviceInfo.setIsAutomotiveForTesting(false);
+
+        DeviceInfo.setIsTVForTesting(true);
+        assertFalse(TipsUtils.isSupportedDeviceType());
+        DeviceInfo.setIsTVForTesting(false);
+
+        DeviceInfo.setIsXrForTesting(true);
+        assertFalse(TipsUtils.isSupportedDeviceType());
+        DeviceInfo.setIsXrForTesting(false);
+
+        DeviceInfo.setIsDesktopForTesting(true);
+        assertFalse(TipsUtils.isSupportedDeviceType());
+        DeviceInfo.setIsDesktopForTesting(false);
+    }
+}

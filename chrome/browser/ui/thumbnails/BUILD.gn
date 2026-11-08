@@ -7,7 +7,6 @@ import("//build/config/chromeos/args.gni")
 if (!is_android) {
   source_set("thumbnails") {
     sources = [
-      "background_thumbnail_capturer.h",
       "background_thumbnail_video_capturer.cc",
       "background_thumbnail_video_capturer.h",
       "thumbnail_capture_driver.cc",
@@ -82,6 +81,7 @@ if (!is_android) {
         "//chrome/browser/performance_manager",
         "//chrome/browser/ui:browser_commands",
         "//chrome/browser/ui:browser_element_identifiers",
+        "//chrome/browser/ui:browser_tabstrip",
         "//chrome/browser/ui:ui_features",
         "//chrome/browser/ui/performance_controls/test_support",
         "//chrome/common",

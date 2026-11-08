@@ -5,6 +5,7 @@
 package org.chromium.chrome.browser.signin;
 
 import static androidx.test.espresso.Espresso.onView;
+import static androidx.test.espresso.Espresso.pressBack;
 import static androidx.test.espresso.action.ViewActions.click;
 import static androidx.test.espresso.action.ViewActions.scrollTo;
 import static androidx.test.espresso.assertion.ViewAssertions.doesNotExist;
@@ -21,6 +22,7 @@ import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.notNull;
 import static org.mockito.Mockito.atLeastOnce;
@@ -88,6 +90,7 @@ import org.chromium.chrome.browser.firstrun.FirstRunStatus;
 import org.chromium.chrome.browser.firstrun.FirstRunUtils;
 import org.chromium.chrome.browser.firstrun.FirstRunUtilsJni;
 import org.chromium.chrome.browser.firstrun.MobileFreProgress;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.preferences.Pref;
 import org.chromium.chrome.browser.prefs.LocalStatePrefs;
@@ -116,7 +119,6 @@ import org.chromium.components.signin.base.CoreAccountInfo;
 import org.chromium.components.signin.identitymanager.IdentityManager;
 import org.chromium.components.signin.identitymanager.IdentityManagerImpl;
 import org.chromium.components.signin.metrics.SigninAccessPoint;
-import org.chromium.components.signin.test.util.FakeAccountManagerFacade;
 import org.chromium.components.signin.test.util.SigninMatchers;
 import org.chromium.components.signin.test.util.TestAccounts;
 import org.chromium.components.user_prefs.UserPrefs;
@@ -447,6 +449,93 @@ public class SigninFirstRunFragmentTest {
         // TODO(crbug.com/40790332): For now we enable the buttons again to not block the users from
         // continuing to the next page. Should show a dialog with the signin error.
         checkFragmentWithSelectedAccount(TestAccounts.ACCOUNT1);
+    }
+
+    @Test
+    @MediumTest
+    @Restriction({DeviceRestriction.RESTRICTION_TYPE_NON_AUTO})
+    @EnableFeatures(ChromeFeatureList.ANDROID_NEW_MANAGEMENT_NOTICE)
+    public void testManagementNoticeAccepted() {
+        setUpManagedAccountSignin();
+        launchActivityWithFragment();
+        checkFragmentWithSelectedAccount(TestAccounts.MANAGED_ACCOUNT);
+
+        clickContinueButton(getContinueAsButtonText(TestAccounts.MANAGED_ACCOUNT, true));
+        checkManagementNoticeIsDisplayed();
+
+        onView(withId(R.id.disclaimer_accept_button)).perform(click());
+
+        onView(withId(R.id.disclaimer_title)).check(doesNotExist());
+        verify(mSigninManagerMock).setUserAcceptedAccountManagement(true);
+        verify(mSigninManagerMock)
+                .signin(eq(TestAccounts.MANAGED_ACCOUNT), anyInt(), any(SignInCallback.class));
+        verify(mFirstRunPageDelegateMock).acceptTermsOfService(true);
+        waitForEvent(mFirstRunPageDelegateMock).advanceToNextPage();
+    }
+
+    @Test
+    @MediumTest
+    @Restriction({DeviceRestriction.RESTRICTION_TYPE_NON_AUTO})
+    @EnableFeatures(ChromeFeatureList.ANDROID_NEW_MANAGEMENT_NOTICE)
+    public void testManagementNoticeDeclined() {
+        setUpManagedAccountSignin();
+        launchActivityWithFragment();
+        checkFragmentWithSelectedAccount(TestAccounts.MANAGED_ACCOUNT);
+
+        clickContinueButton(getContinueAsButtonText(TestAccounts.MANAGED_ACCOUNT, true));
+        checkManagementNoticeIsDisplayed();
+
+        onView(withId(R.id.disclaimer_cancel_button)).perform(click());
+
+        // Declining the notice should abort the sign-in and bring back the main FRE view.
+        onView(withId(R.id.disclaimer_title)).check(doesNotExist());
+        verify(mSigninManagerMock, never()).setUserAcceptedAccountManagement(true);
+        verify(mSigninManagerMock, never()).signin(any(), anyInt(), any());
+        verify(mFirstRunPageDelegateMock, never()).advanceToNextPage();
+        checkFragmentWithSelectedAccount(TestAccounts.MANAGED_ACCOUNT);
+    }
+
+    @Test
+    @MediumTest
+    @Restriction({DeviceRestriction.RESTRICTION_TYPE_NON_AUTO})
+    @EnableFeatures(ChromeFeatureList.ANDROID_NEW_MANAGEMENT_NOTICE)
+    public void testManagementNoticeDismissedWithBackPress() {
+        setUpManagedAccountSignin();
+        launchActivityWithFragment();
+        checkFragmentWithSelectedAccount(TestAccounts.MANAGED_ACCOUNT);
+
+        clickContinueButton(getContinueAsButtonText(TestAccounts.MANAGED_ACCOUNT, true));
+        checkManagementNoticeIsDisplayed();
+
+        pressBack();
+
+        // Back press should be treated as declining the notice: the sign-in is aborted and the
+        // main FRE view is brought back.
+        onView(withId(R.id.disclaimer_title)).check(doesNotExist());
+        verify(mSigninManagerMock, never()).setUserAcceptedAccountManagement(true);
+        verify(mSigninManagerMock, never()).signin(any(), anyInt(), any());
+        verify(mFirstRunPageDelegateMock, never()).advanceToNextPage();
+        checkFragmentWithSelectedAccount(TestAccounts.MANAGED_ACCOUNT);
+    }
+
+    @Test
+    @MediumTest
+    @Restriction({DeviceRestriction.RESTRICTION_TYPE_NON_AUTO})
+    @EnableFeatures(ChromeFeatureList.ANDROID_NEW_MANAGEMENT_NOTICE)
+    public void testManagementNoticeLearnMoreLinkClicked() {
+        setUpManagedAccountSignin();
+        launchActivityWithFragment();
+        checkFragmentWithSelectedAccount(TestAccounts.MANAGED_ACCOUNT);
+
+        clickContinueButton(getContinueAsButtonText(TestAccounts.MANAGED_ACCOUNT, true));
+        checkManagementNoticeIsDisplayed();
+
+        onView(withId(R.id.disclaimer_footer)).perform(ViewUtils.clickOnClickableSpan(0));
+
+        // The exact URL is verified in EnterpriseSignalsDisclaimerMediatorUnitTest.
+        verify(mFirstRunPageDelegateMock).showInfoPage(anyString());
+        checkManagementNoticeIsDisplayed();
+        verify(mSigninManagerMock, never()).signin(any(), anyInt(), any());
     }
 
     @Test
@@ -858,11 +947,7 @@ public class SigninFirstRunFragmentTest {
     @Restriction({DeviceRestriction.RESTRICTION_TYPE_NON_AUTO})
     public void testDismissButtonWhenUserIsSignedIn() {
         mSigninTestRule.addAccount(TestAccounts.ACCOUNT2);
-        final CoreAccountInfo primaryAccount = mSigninTestRule.addTestAccountThenSignin();
-        Assert.assertNotEquals(
-                "The primary account should be a different account!",
-                TestAccounts.ACCOUNT2.getEmail(),
-                primaryAccount.getEmail());
+        mSigninTestRule.addAccountThenSignin(TestAccounts.ACCOUNT1);
         launchActivityWithFragment();
 
         onScrollToView(withId(R.id.signin_fre_dismiss_button)).perform(click());
@@ -1396,13 +1481,13 @@ public class SigninFirstRunFragmentTest {
     @Test
     @MediumTest
     @Restriction({DeviceRestriction.RESTRICTION_TYPE_NON_AUTO})
+    @SigninTestRule.BlockGetAccounts
     public void testFragmentWhenAccountsAreLoadedAfterChildStatusAndNativeAndPolicy() {
-        FakeAccountManagerFacade.UpdateBlocker blocker = mSigninTestRule.blockGetAccountsUpdate();
         launchActivityWithFragment();
         checkFragmentWhenLoading();
 
         mSigninTestRule.addAccount(TestAccounts.ACCOUNT1);
-        blocker.close();
+        mSigninTestRule.unblockGetAccounts();
         checkFragmentWithSelectedAccount(TestAccounts.ACCOUNT1, LoadPoint.ACCOUNT_FETCHING);
     }
 
@@ -1751,6 +1836,30 @@ public class SigninFirstRunFragmentTest {
     private void clickContinueButton(String continueAsText) {
         onScrollToView(withText(continueAsText)).perform(click());
         SigninTestUtil.completeAutoDeviceLockForFirstRunIfNeeded(mFragment);
+    }
+
+    /**
+     * Adds {@link TestAccounts#MANAGED_ACCOUNT} and mocks the {@link SigninManager} so that the
+     * account is reported as managed and sign-in succeeds.
+     */
+    private void setUpManagedAccountSignin() {
+        IdentityServicesProvider.setSigninManagerForTesting(mSigninManagerMock);
+        mSigninTestRule.addAccount(TestAccounts.MANAGED_ACCOUNT);
+        doCallback(/* index= */ 1, (Callback<Boolean> callback) -> callback.onResult(true))
+                .when(mSigninManagerMock)
+                .isAccountManaged(eq(TestAccounts.MANAGED_ACCOUNT), any());
+        doCallback(/* index= */ 2, (SignInCallback callback) -> callback.onSignInComplete())
+                .when(mSigninManagerMock)
+                .signin(eq(TestAccounts.MANAGED_ACCOUNT), anyInt(), any());
+    }
+
+    private void checkManagementNoticeIsDisplayed() {
+        onViewWaiting(withId(R.id.disclaimer_title)).check(matches(isDisplayed()));
+        onView(withId(R.id.disclaimer_accept_button)).check(matches(isDisplayed()));
+        onView(withId(R.id.disclaimer_cancel_button)).check(matches(isDisplayed()));
+        // The main FRE view should be replaced by the notice.
+        onView(withId(R.id.signin_fre_continue_button)).check(doesNotExist());
+        verify(mSigninManagerMock, never()).signin(any(), anyInt(), any());
     }
 
     /**

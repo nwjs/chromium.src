@@ -4,6 +4,7 @@
 
 #include "components/search_engines/search_engine_settings_data_provider.h"
 
+#include <algorithm>
 #include <memory>
 
 #include "base/command_line.h"
@@ -15,6 +16,8 @@
 #include "components/country_codes/country_codes.h"
 #include "components/regional_capabilities/regional_capabilities_service.h"
 #include "components/regional_capabilities/regional_capabilities_switches.h"
+#include "components/search_engines/search_engine_choice/search_engine_choice_utils.h"
+#include "components/search_engines/choice_made_location.h"
 #include "components/search_engines/search_engine_split_metrics.h"
 #include "components/search_engines/search_engines_test_environment.h"
 #include "components/search_engines/template_url.h"
@@ -24,6 +27,7 @@
 #include "components/search_engines/template_url_service.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/search_engines_data/resources/definitions/prepopulated_engines.h"
 
 #if BUILDFLAG(IS_ANDROID)
 #include "base/android/jni_android.h"
@@ -665,6 +669,194 @@ TEST_F(
                                     HasShortName("Recent Site Search 2")));
 }
 
+TEST_F(SearchEngineSettingsDataProviderTest,
+       GetDefaultSearchEnginePickerData_Empty) {
+  auto provider = CreateProvider();
+  auto data = provider->GetDefaultSearchEnginePickerData();
+
+  EXPECT_THAT(data.primary, testing::IsEmpty());
+}
+
+TEST_F(SearchEngineSettingsDataProviderTest,
+       GetDefaultSearchEnginePickerData_Filtering) {
+  auto prepop_engines = prepopulate_data_resolver().GetPrepopulatedEngines();
+  ASSERT_FALSE(prepop_engines.empty());
+  int valid_prepopulate_id = prepop_engines.at(0)->prepopulate_id;
+
+  // Prepopulated engines (both active and inactive) are included.
+  AddTemplateURL(u"Active Prepop Engine", u"ape", /*prepopulate_id=*/1);
+  AddTemplateURL(u"Inactive Prepop Engine", u"ipe", /*prepopulate_id=*/2,
+                 /*created_by_policy=*/false,
+                 TemplateURLData::ActiveStatus::kFalse);
+
+  // Hidden custom engine shadowed by a prepopulated engine with the same
+  // keyword.
+  TemplateURL* hidden_custom = AddTemplateURL(u"Hidden Custom", u"@conflict");
+  TemplateURL* conflict_prepop =
+      AddTemplateURL(u"Conflict Prepop", u"@conflict", valid_prepopulate_id);
+  ASSERT_TRUE(template_url_service().HiddenFromLists(hidden_custom));
+  ASSERT_FALSE(template_url_service().HiddenFromLists(conflict_prepop));
+
+  // Non-default custom site search, starter pack, and extensions are excluded.
+  AddTemplateURL(u"Non-Default Custom Site Search", u"ndcss");
+  AddTemplateURL(u"Lens Starter Pack", u"lens", /*prepopulate_id=*/0,
+                 /*created_by_policy=*/false,
+                 TemplateURLData::ActiveStatus::kTrue,
+                 template_url_starter_pack_data::StarterPackId::kTabs);
+  AddExtension(u"Ext Feature", u"ext", TemplateURLData::ActiveStatus::kTrue);
+
+  auto provider = CreateProvider();
+  auto data = provider->GetDefaultSearchEnginePickerData();
+
+  EXPECT_THAT(data.primary, testing::UnorderedElementsAre(
+                                HasShortName("Active Prepop Engine"),
+                                HasShortName("Inactive Prepop Engine"),
+                                HasShortName("Conflict Prepop")));
+
+  // Verify the metric is recorded with the correct count (3 engines).
+  histogram_tester().ExpectUniqueSample(
+      search_engines::kSearchEngineCountInSettingsDsePickerHistogram,
+      /*sample=*/3,
+      /*expected_bucket_count=*/1);
+}
+
+TEST_F(SearchEngineSettingsDataProviderTest,
+       GetDefaultSearchEnginePickerData_CustomDefaultIncluded) {
+  template_url_service().Load();
+
+  TemplateURL* custom_default =
+      AddTemplateURL(u"Custom Default Engine", u"cde");
+  template_url_service().SetUserSelectedDefaultSearchProvider(custom_default);
+  AddTemplateURL(u"Non-Default Custom Site Search", u"ndcss");
+
+  auto provider = CreateProvider();
+  auto data = provider->GetDefaultSearchEnginePickerData();
+
+  EXPECT_THAT(data.primary,
+              testing::Contains(HasShortName("Custom Default Engine")));
+  EXPECT_THAT(data.primary, testing::Not(testing::Contains(HasShortName(
+                                "Non-Default Custom Site Search"))));
+}
+
+TEST_F(SearchEngineSettingsDataProviderNonSplitRegionTest,
+       GetDefaultSearchEnginePickerData_NonRegionalDefaultIncluded) {
+  template_url_service().Load();
+  const int id = TemplateURLPrepopulateData::naver.id;
+  ASSERT_FALSE(prepopulate_data_resolver().GetPrepopulatedEngine(id));
+
+  template_url_service().SetUserSelectedDefaultSearchProviderByPrepopulateId(
+      id, ChoiceMadeLocation::kSearchSettings);
+  const TemplateURL* dse = template_url_service().GetDefaultSearchProvider();
+  ASSERT_EQ(dse->prepopulate_id(), id);
+
+  auto provider = CreateProvider();
+  auto data = provider->GetDefaultSearchEnginePickerData();
+
+  EXPECT_THAT(data.primary, testing::Contains(dse));
+}
+
+// Engines shown in the picker must not be dropped because a custom or site
+// search policy engine claims the same keyword, since keywords are not shown in
+// the picker. This notably guarantees that the DSE is always present.
+TEST_F(SearchEngineSettingsDataProviderTest,
+       GetDefaultSearchEnginePickerData_ShadowedByNonPickerEngineIncluded) {
+  template_url_service().Load();
+
+  // Loading adds the fallback prepopulated engine as DSE. Real prepopulated
+  // engines are `safe_for_autoreplace`, so they lose keyword conflicts against
+  // user-edited custom engines and site search policy engines.
+  TemplateURL* prepop_dse = const_cast<TemplateURL*>(
+      template_url_service().GetDefaultSearchProvider());
+  ASSERT_TRUE(prepop_dse);
+  ASSERT_GT(prepop_dse->prepopulate_id(), 0);
+  ASSERT_TRUE(prepop_dse->safe_for_autoreplace());
+
+  auto prepop_engines = prepopulate_data_resolver().GetPrepopulatedEngines();
+  auto other_it = std::ranges::find_if(prepop_engines, [&](const auto& data) {
+    return data->prepopulate_id != prepop_dse->prepopulate_id();
+  });
+  ASSERT_NE(other_it, prepop_engines.end());
+  TemplateURL* prepop_other =
+      template_url_service().Add(std::make_unique<TemplateURL>(**other_it));
+  ASSERT_TRUE(prepop_other);
+
+  TemplateURL* custom = AddTemplateURL(u"Custom Engine", prepop_dse->keyword());
+  TemplateURL* site_search =
+      AddTemplateURL(u"Site Search Engine", prepop_other->keyword(),
+                     /*prepopulate_id=*/0, /*created_by_policy=*/true);
+  ASSERT_EQ(custom, template_url_service().GetTemplateURLForKeyword(
+                        prepop_dse->keyword()));
+  ASSERT_EQ(site_search, template_url_service().GetTemplateURLForKeyword(
+                             prepop_other->keyword()));
+  ASSERT_TRUE(template_url_service().HiddenFromLists(prepop_dse));
+  ASSERT_TRUE(template_url_service().HiddenFromLists(prepop_other));
+
+  auto provider = CreateProvider();
+  auto data = provider->GetDefaultSearchEnginePickerData();
+
+  EXPECT_THAT(data.primary,
+              testing::UnorderedElementsAre(prepop_dse, prepop_other));
+}
+
+// When an engine shown in the picker loses its keyword to another engine that
+// is also shown in the picker (e.g. a policy-provided default search engine
+// reusing a prepopulated keyword), only the winner is shown to avoid
+// duplicates.
+TEST_F(SearchEngineSettingsDataProviderTest,
+       GetDefaultSearchEnginePickerData_ShadowedByPickerEngineExcluded) {
+  auto prepop_engines = prepopulate_data_resolver().GetPrepopulatedEngines();
+  ASSERT_FALSE(prepop_engines.empty());
+
+  TemplateURL* prepop = template_url_service().Add(
+      std::make_unique<TemplateURL>(*prepop_engines.at(0)));
+  ASSERT_TRUE(prepop);
+
+  TemplateURLData policy_data;
+  policy_data.SetShortName(u"Recommended Policy Engine");
+  policy_data.SetKeyword(prepop->keyword());
+  policy_data.SetURL("https://policy.example/search?q={searchTerms}");
+  policy_data.policy_origin =
+      TemplateURLData::PolicyOrigin::kDefaultSearchProvider;
+  policy_data.enforced_by_policy = false;
+  policy_data.safe_for_autoreplace = false;
+  TemplateURL* policy_engine =
+      template_url_service().Add(std::make_unique<TemplateURL>(policy_data));
+  ASSERT_TRUE(policy_engine);
+  ASSERT_TRUE(template_url_service().ShowInDefaultList(policy_engine));
+  ASSERT_EQ(policy_engine,
+            template_url_service().GetTemplateURLForKeyword(prepop->keyword()));
+
+  auto provider = CreateProvider();
+  auto data = provider->GetDefaultSearchEnginePickerData();
+
+  EXPECT_THAT(data.primary, testing::Contains(policy_engine));
+  EXPECT_THAT(data.primary, testing::Not(testing::Contains(prepop)));
+}
+
+TEST_F(SearchEngineSettingsDataProviderTest,
+       GetDefaultSearchEnginePickerData_Sorting) {
+  // Add the prepopulated engines in reverse order.
+  auto prepop_engines = prepopulate_data_resolver().GetPrepopulatedEngines();
+  ASSERT_EQ(3u, prepop_engines.size());
+
+  for (int i = static_cast<int>(prepop_engines.size()) - 1; i >= 0; --i) {
+    AddTemplateURL(prepop_engines.at(i)->short_name(),
+                   prepop_engines.at(i)->keyword(),
+                   prepop_engines.at(i)->prepopulate_id);
+  }
+
+  auto provider = CreateProvider();
+  auto data = provider->GetDefaultSearchEnginePickerData();
+
+  EXPECT_THAT(data.primary,
+              testing::ElementsAre(HasShortName(base::UTF16ToASCII(
+                                       (prepop_engines.at(0)->short_name()))),
+                                   HasShortName(base::UTF16ToASCII(
+                                       (prepop_engines.at(1)->short_name()))),
+                                   HasShortName(base::UTF16ToASCII(
+                                       (prepop_engines.at(2)->short_name())))));
+}
+
 #if BUILDFLAG(IS_ANDROID)
 TEST_F(SearchEngineSettingsDataProviderTest,
        GetDisabledStarterPackIdsForAndroid) {
@@ -725,7 +917,7 @@ TEST_F(SearchEngineSettingsDataProviderSplitRegionTest,
   std::vector<int64_t> ids;
   ids.reserve(default_urls.size());
   for (const TemplateURL* turl : default_urls) {
-    ids.push_back(turl->id());
+    ids.push_back(turl->id().value());
   }
 
   JNIEnv* env = base::android::AttachCurrentThread();

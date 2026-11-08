@@ -29,7 +29,6 @@
 #include "content/public/renderer/render_thread.h"
 #include "services/service_manager/public/cpp/local_interface_provider.h"
 #include "third_party/blink/public/platform/browser_interface_broker_proxy.h"
-#include "third_party/blink/public/web/web_console_message.h"
 #include "third_party/blink/public/web/web_document.h"
 #include "third_party/blink/public/web/web_element.h"
 #include "third_party/blink/public/web/web_local_frame.h"
@@ -97,15 +96,7 @@ SpellCheckProvider::DictionaryUpdateObserverImpl::
 
 void SpellCheckProvider::DictionaryUpdateObserverImpl::OnDictionaryUpdated(
     const std::vector<WebString>& words_added) {
-  // Clear only cache. Current pending requests should continue as they are.
-  owner_->last_request_.clear();
-  owner_->last_results_.clear();
-
-  // owner_->render_frame() is nullptr in unit tests.
-  if (auto* render_frame = owner_->render_frame()) {
-    DCHECK(render_frame->GetWebFrame());
-    render_frame->GetWebFrame()->RemoveSpellingMarkersUnderWords(words_added);
-  }
+  owner_->OnDictionaryUpdated(words_added);
 }
 
 SpellCheckProvider::SpellCheckProvider(content::RenderFrame* render_frame,
@@ -120,6 +111,19 @@ SpellCheckProvider::SpellCheckProvider(content::RenderFrame* render_frame,
 }
 
 SpellCheckProvider::~SpellCheckProvider() {
+}
+
+void SpellCheckProvider::OnDictionaryUpdated(
+    const std::vector<WebString>& words_added) {
+  // Clear only cache. Current pending requests should continue as they are.
+  last_request_.clear();
+  last_results_.clear();
+
+  // render_frame() is nullptr in unit tests.
+  if (auto* frame = render_frame()) {
+    DCHECK(frame->GetWebFrame());
+    frame->GetWebFrame()->RemoveSpellingMarkersUnderWords(words_added);
+  }
 }
 
 void SpellCheckProvider::ResetDictionaryUpdateObserverForTesting() {
@@ -265,7 +269,6 @@ void SpellCheckProvider::DidCreateNewDocument() {
         static_cast<int>(document_custom_words_.size()));
   }
   document_custom_words_.clear();
-  document_custom_dictionary_overflow_warned_ = false;
 }
 
 void SpellCheckProvider::FocusedElementChanged(
@@ -379,6 +382,12 @@ void SpellCheckProvider::ApplyDocumentCustomWords(const std::u16string& word,
   }
 }
 
+std::vector<WebString> SpellCheckProvider::GetSpellCheckCustomDictionaryWords()
+    const {
+  // |document_custom_words_| is ordered, so the result is already sorted.
+  return base::ToVector(document_custom_words_, &WebString::FromUtf16);
+}
+
 void SpellCheckProvider::SpellCheckCustomDictionaryChanged(
     const std::vector<std::string>& words_added,
     const std::vector<std::string>& words_removed) {
@@ -391,16 +400,13 @@ void SpellCheckProvider::SpellCheckCustomDictionaryChanged(
 
   std::vector<std::string> effective_added;
   effective_added.reserve(words_added.size());
-  bool dropped_some = false;
   for (const std::string& word : words_added) {
     if (word.size() > spellcheck::kMaxDocumentCustomDictionaryWordBytes) {
-      dropped_some = true;
       continue;
     }
     if (document_custom_words_.size() >=
         spellcheck::kMaxDocumentCustomDictionaryWords) {
       // Once the cap is reached every later word would be rejected.
-      dropped_some = true;
       break;
     }
     // Below the cap: insert once and forward only words that were actually new.
@@ -409,20 +415,10 @@ void SpellCheckProvider::SpellCheckCustomDictionaryChanged(
     }
   }
 
-  if (dropped_some && !document_custom_dictionary_overflow_warned_) {
-    if (auto* frame = render_frame()) {
-      frame->GetWebFrame()->AddMessageToConsole(blink::WebConsoleMessage(
-          blink::mojom::ConsoleMessageLevel::kWarning,
-          blink::WebString::FromAscii(
-              "SpellCheckCustomDictionary: per-document word limit reached "
-              "or a word exceeded the maximum length; some additions were "
-              "ignored.")));
-    }
-    document_custom_dictionary_overflow_warned_ = true;
-  }
-
-  spellcheck_->SpellCheckCustomDictionaryChanged(effective_added,
-                                                 words_removed);
+  // The word set belongs to this frame's document, so update only this frame.
+  // Notifying through |spellcheck_| would reach every frame in the renderer
+  // process.
+  OnDictionaryUpdated(base::ToVector(effective_added, &WebString::FromUtf8));
 }
 
 #if BUILDFLAG(USE_RENDERER_SPELLCHECKER)

@@ -8,11 +8,15 @@
 
 #include <dwmapi.h>  // DWMWA_CLOAKED
 
+#include <algorithm>
+#include <array>
+#include <string_view>
+
+#include "base/compiler_specific.h"
 #include "base/debug/gdi_debug_util_win.h"
 #include "base/logging.h"
 #include "base/notreached.h"
 #include "base/strings/string_util.h"
-#include "base/win/scoped_gdi_object.h"
 #include "base/win/win_util.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/geometry/size.h"
@@ -64,6 +68,44 @@ NOINLINE void CrashAccessDenied(DWORD last_error) {
 NOINLINE void CrashOther(DWORD last_error) {
   LOG(FATAL) << last_error;
 }
+
+// Reads a window's class name at most once, into a stack buffer.
+// IsWindowVisibleAndFullyOpaque() runs for every top-level window on each
+// occlusion pass, and can need the class name for two of its checks.
+class WindowClassName {
+ public:
+  explicit WindowClassName(HWND hwnd) : hwnd_(hwnd) {}
+  WindowClassName(const WindowClassName&) = delete;
+  WindowClassName& operator=(const WindowClassName&) = delete;
+
+  // Returns an empty view if the class name cannot be read. The returned view
+  // points into this object's buffer.
+  std::wstring_view Get() LIFETIME_BOUND {
+    if (!fetched_) {
+      fetched_ = true;
+      // GetClassNameW() returns the length of the name without the terminator,
+      // or 0 on failure. It truncates a name that does not fit, and then
+      // returns `buffer_.size() - 1`, so treat that length as a failure too.
+      const int length = ::GetClassNameW(hwnd_, buffer_.data(),
+                                         static_cast<int>(buffer_.size()));
+      if (length > 0 && static_cast<size_t>(length) < buffer_.size() - 1) {
+        length_ = static_cast<size_t>(length);
+      }
+    }
+    return std::wstring_view(buffer_.data(), length_);
+  }
+
+ private:
+  // RegisterClassEx() rejects class names longer than 255 characters, or 256
+  // with the terminator. The buffer has room for one more character, so only a
+  // truncated name can fill it.
+  static constexpr size_t kMaxClassNameLength = 255;
+
+  const HWND hwnd_;
+  bool fetched_ = false;
+  size_t length_ = 0;
+  std::array<wchar_t, kMaxClassNameLength + 2> buffer_;
+};
 
 }  // namespace
 
@@ -123,6 +165,18 @@ bool IsWindowCloaked(HWND hwnd) {
          is_cloaked;
 }
 
+bool IsWindowLikelyTooltip(HWND hwnd, std::wstring_view classname) {
+  if (!(::GetWindowLong(hwnd, GWL_STYLE) & WS_POPUP)) {
+    return false;
+  }
+
+  return std::ranges::contains_subrange(
+      classname,
+      // NOTE: Without the explicit string construction, this would compile,
+      // but only match classnames containing the trailing '\0' as well.
+      std::wstring(L"tooltip"), base::CaseInsensitiveCompareASCII<wchar_t>());
+}
+
 bool IsWindowVisibleAndFullyOpaque(HWND hwnd, Rect* window_rect) {
   // Filter out windows that are not "visible", IsWindowVisible().
   if (!IsWindow(hwnd) || !IsWindowVisible(hwnd)) {
@@ -141,13 +195,15 @@ bool IsWindowVisibleAndFullyOpaque(HWND hwnd, Rect* window_rect) {
     return false;
   }
 
+  WindowClassName class_name(hwnd);
+
   // Filter out "tool windows", which are floating windows that do not appear on
   // the taskbar or ALT-TAB. Floating windows can have larger window rectangles
   // than what is visible to the user, so by filtering them out we will avoid
   // incorrectly marking native windows as occluded. We do not filter out the
   // Windows Taskbar.
   if (ex_styles & WS_EX_TOOLWINDOW) {
-    if (GetClassName(hwnd) != L"Shell_TrayWnd") {
+    if (class_name.Get() != L"Shell_TrayWnd") {
       return false;
     }
   }
@@ -177,8 +233,10 @@ bool IsWindowVisibleAndFullyOpaque(HWND hwnd, Rect* window_rect) {
   }
 
   // Filter out windows that do not have a simple rectangular region.
-  base::win::ScopedGDIObject<HRGN> region(CreateRectRgn(0, 0, 0, 0));
-  if (GetWindowRgn(hwnd, region.get()) == COMPLEXREGION) {
+  // GetWindowRgnBox() returns the same region type as GetWindowRgn(), without
+  // creating and deleting a GDI region for every window.
+  RECT region_box;
+  if (::GetWindowRgnBox(hwnd, &region_box) == COMPLEXREGION) {
     return false;
   }
 
@@ -200,23 +258,19 @@ bool IsWindowVisibleAndFullyOpaque(HWND hwnd, Rect* window_rect) {
     return false;
   }
 
-  // Ignore popup windows since they're transient unless it is a Chrome Widget
-  // Window or the Windows Taskbar
-  if (::GetWindowLong(hwnd, GWL_STYLE) & WS_POPUP) {
-    std::wstring hwnd_class_name = gfx::GetClassName(hwnd);
-    if (!hwnd_class_name.starts_with(L"Chrome_WidgetWin_") &&
-        hwnd_class_name != L"Shell_TrayWnd") {
-      return false;
-    }
+  // Filter out popup windows with "tooltip" in the classname, since they're
+  // likely transient.
+  if (IsWindowLikelyTooltip(hwnd, class_name.Get())) {
+    return false;
   }
 
   if (window_rect) {
     *window_rect = Rect(win_rect);
 
-    WINDOWPLACEMENT window_placement = {0};
-    window_placement.length = sizeof(WINDOWPLACEMENT);
-    ::GetWindowPlacement(hwnd, &window_placement);
-    if (window_placement.showCmd == SW_MAXIMIZE) {
+    // Minimized windows were filtered out above, so IsZoomed() gives the same
+    // answer as GetWindowPlacement(). IsZoomed() only reads the window's
+    // style, while GetWindowPlacement() is a syscall.
+    if (::IsZoomed(hwnd)) {
       // If the window is maximized the window border extends beyond the visible
       // region of the screen. Adjust the maximized window rect to fit the
       // screen dimensions to ensure that fullscreen windows, which do not

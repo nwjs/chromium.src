@@ -1207,7 +1207,7 @@ TEST_P(PaymentsDataManagerServerTest,
       {GURL("http://www.some-other-merchant.com")},
       GURL("https://pay.google.com"), display_strings, "CODE222"));
 
-  // Invalid wallet direct offers (empty value prop) should not be returned.
+  // Active wallet direct offers with empty value prop should still be returned.
   DisplayStrings empty_display_strings;
   AddOfferDataForTest(AutofillOfferData::WalletDirectOffer(
       /*offer_id=*/"333", AutofillClock::Now() + base::Days(35),
@@ -1226,12 +1226,13 @@ TEST_P(PaymentsDataManagerServerTest,
       {GURL("http://www.example.com")}, GURL("https://pay.google.com"),
       display_strings, "CODE555"));
 
-  // Only the valid, active, matching offer for example.com should be returned.
+  // Active matching offers for example.com should be returned.
   auto offers =
       payments_data_manager().GetActiveAutofillPromoCodeOffersForOrigin(
           GURL("http://www.example.com"));
-  ASSERT_EQ(offers.size(), 1U);
-  EXPECT_EQ(offers[0]->GetOfferId(), "555");
+  ASSERT_EQ(offers.size(), 2U);
+  EXPECT_EQ(offers[0]->GetOfferId(), "333");
+  EXPECT_EQ(offers[1]->GetOfferId(), "555");
 }
 
 // Tests that GetActiveAutofillPromoCodeOffersForOrigin does not return any
@@ -1626,6 +1627,54 @@ TEST_F(PaymentsDataManagerTest, LogStoredCreditCardMetrics) {
       "Autofill.StoredCreditCardCount.Server.WithVirtualCardMetadata", 1);
   histogram_tester.ExpectBucketCount(
       "Autofill.StoredCreditCardCount.Server.WithCardArtImage", 1, 1);
+}
+
+// Tests that the number of stored promo codes, in total and split by valid and
+// expired, is logged when payments data is loaded and Wallet direct offers are
+// enabled.
+TEST_F(PaymentsDataManagerTest,
+       LogStoredPaymentsDataMetrics_PromoCodes_WalletDirectOffersEnabled) {
+  base::test::ScopedFeatureList scoped_feature_list(
+      features::kAutofillEnableWalletDirectOffers);
+  profile_autofill_table_->SetAutofillOffers(
+      {test::GetPromoCodeOfferData(GURL("https://www.example.com"),
+                                   /*is_expired=*/false, /*offer_id=*/"333"),
+       test::GetPromoCodeOfferData(GURL("https://www.example.com"),
+                                   /*is_expired=*/true, /*offer_id=*/"444")});
+
+  // Reload the database, which will log the stored promo code counts.
+  base::HistogramTester histogram_tester;
+  ResetPaymentsDataManager();
+
+  ASSERT_EQ(payments_data_manager().GetAutofillOffers().size(), 2U);
+  histogram_tester.ExpectUniqueSample("Autofill.StoredPromoCodeCount", 2, 1);
+  histogram_tester.ExpectUniqueSample("Autofill.StoredPromoCodeCount.ValidCode",
+                                      1, 1);
+  histogram_tester.ExpectUniqueSample(
+      "Autofill.StoredPromoCodeCount.ExpiredCode", 1, 1);
+}
+
+// Tests that the number of stored promo codes is not logged when Wallet direct
+// offers are disabled.
+TEST_F(PaymentsDataManagerTest,
+       LogStoredPaymentsDataMetrics_PromoCodes_WalletDirectOffersDisabled) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndDisableFeature(
+      features::kAutofillEnableWalletDirectOffers);
+  profile_autofill_table_->SetAutofillOffers(
+      {test::GetPromoCodeOfferData(GURL("https://www.example.com"))});
+
+  // Reload the database, which would log the stored promo code counts if Wallet
+  // direct offers were enabled.
+  base::HistogramTester histogram_tester;
+  ResetPaymentsDataManager();
+
+  ASSERT_EQ(payments_data_manager().GetAutofillOffers().size(), 1U);
+  histogram_tester.ExpectTotalCount("Autofill.StoredPromoCodeCount", 0);
+  histogram_tester.ExpectTotalCount("Autofill.StoredPromoCodeCount.ValidCode",
+                                    0);
+  histogram_tester.ExpectTotalCount("Autofill.StoredPromoCodeCount.ExpiredCode",
+                                    0);
 }
 
 // Test that setting a null sync service returns only local credit cards.

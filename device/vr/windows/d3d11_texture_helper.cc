@@ -9,6 +9,7 @@
 #include "base/trace_event/common/trace_event_common.h"
 #include "base/trace_event/trace_event.h"
 #include "components/viz/common/gpu/context_provider.h"
+#include "gpu/command_buffer/client/client_shared_image.h"
 #include "gpu/command_buffer/client/gles2_interface.h"
 #include "gpu/command_buffer/common/constants.h"
 #include "mojo/public/c/system/platform_handle.h"
@@ -89,12 +90,14 @@ void D3D11TextureHelper::SetSourceAndOverlayVisible(bool source_visible,
     render_state_.source_.source_texture_ = nullptr;
     render_state_.source_.shader_resource_ = nullptr;
     render_state_.source_.sampler_ = nullptr;
+    render_state_.source_.shared_image_ = nullptr;
   }
   if (!overlay_visible_) {
     render_state_.overlay_.keyed_mutex_ = nullptr;
     render_state_.overlay_.source_texture_ = nullptr;
     render_state_.overlay_.shader_resource_ = nullptr;
     render_state_.overlay_.sampler_ = nullptr;
+    render_state_.overlay_.shared_image_ = nullptr;
   }
 }
 
@@ -103,11 +106,13 @@ void D3D11TextureHelper::CleanupNoSubmit() {
   render_state_.source_.source_texture_ = nullptr;
   render_state_.source_.shader_resource_ = nullptr;
   render_state_.source_.sampler_ = nullptr;
+  render_state_.source_.shared_image_ = nullptr;
 
   render_state_.overlay_.keyed_mutex_ = nullptr;
   render_state_.overlay_.source_texture_ = nullptr;
   render_state_.overlay_.shader_resource_ = nullptr;
   render_state_.overlay_.sampler_ = nullptr;
+  render_state_.overlay_.shared_image_ = nullptr;
 }
 
 void D3D11TextureHelper::CleanupLayerData(LayerData& layer) {
@@ -116,6 +121,7 @@ void D3D11TextureHelper::CleanupLayerData(LayerData& layer) {
     layer.sampler_ = nullptr;
     layer.shader_resource_ = nullptr;
     layer.source_texture_ = nullptr;
+    layer.shared_image_ = nullptr;
   }
 
   // Set up for the next frame so we know if we submitted again.
@@ -250,14 +256,13 @@ bool D3D11TextureHelper::CompositeToBackBuffer(
 
   HRESULT hr = S_OK;
   if (render_state_.source_.keyed_mutex_) {
-    if (render_state_.source_.sync_token_.HasData()) {
+    if (render_state_.source_.shared_image_) {
       // Ensure work has been issused to write to source texture by blocking
       // until GPU process has passed the sync token. This must happen before
       // AcquireSync(0) below otherwise the GPU process will be unable to
       // acquire the mutex and work will happen out of order.
-      gl->WaitSyncTokenCHROMIUM(
-          render_state_.source_.sync_token_.GetConstData());
-      gl->Finish();
+      render_state_.source_.shared_image_->WaitSyncTokenAndFinish(
+          gl, render_state_.source_.sync_token_);
       render_state_.source_.sync_token_.Clear();
     }
 
@@ -272,14 +277,13 @@ bool D3D11TextureHelper::CompositeToBackBuffer(
   }
 
   if (render_state_.overlay_.keyed_mutex_) {
-    if (render_state_.overlay_.sync_token_.HasData()) {
+    if (render_state_.overlay_.shared_image_) {
       // Ensure work has been issused to write to overlay texture by blocking
       // until GPU process has passed the sync token. This must happen before
       // AcquireSync(0) below otherwise the GPU process will be unable to
       // acquire the mutex and work will happen out of order.
-      gl->WaitSyncTokenCHROMIUM(
-          render_state_.overlay_.sync_token_.GetConstData());
-      gl->Finish();
+      render_state_.overlay_.shared_image_->WaitSyncTokenAndFinish(
+          gl, render_state_.overlay_.sync_token_);
       render_state_.overlay_.sync_token_.Clear();
     }
 
@@ -576,18 +580,26 @@ bool D3D11TextureHelper::CompositeLayer(LayerData& layer) {
 }
 
 void D3D11TextureHelper::SetSourceTexture(
-    base::win::ScopedHandle texture_handle,
+    scoped_refptr<gpu::ClientSharedImage> shared_image,
     const gpu::SyncToken& sync_token,
     gfx::RectF left,
     gfx::RectF right) {
   TRACE_EVENT0("xr", "SetSourceTexture");
   render_state_.source_.source_texture_ = nullptr;
   render_state_.source_.keyed_mutex_ = nullptr;
+  render_state_.source_.shared_image_ = nullptr;
   render_state_.source_.sync_token_.Clear();
   render_state_.source_.left_ = left;
   render_state_.source_.right_ = right;
   render_state_.source_.submitted_this_frame_ = true;
 
+  if (!shared_image) {
+    return;
+  }
+  base::win::ScopedHandle texture_handle =
+      shared_image->CloneGpuMemoryBufferHandle()
+          .dxgi_handle()
+          .TakeBufferHandle();
   if (!texture_handle.is_valid()) {
     return;
   }
@@ -608,20 +620,33 @@ void D3D11TextureHelper::SetSourceTexture(
     render_state_.source_.keyed_mutex_ = nullptr;
     return;
   }
+  render_state_.source_.shared_image_ = std::move(shared_image);
   render_state_.source_.sync_token_ = sync_token;
 }
 
 bool D3D11TextureHelper::SetOverlayTexture(
-    base::win::ScopedHandle texture_handle,
+    scoped_refptr<gpu::ClientSharedImage> shared_image,
     const gpu::SyncToken& sync_token,
     gfx::RectF left,
     gfx::RectF right) {
   render_state_.overlay_.source_texture_ = nullptr;
   render_state_.overlay_.keyed_mutex_ = nullptr;
+  render_state_.overlay_.shared_image_ = nullptr;
   render_state_.overlay_.sync_token_.Clear();
   render_state_.overlay_.left_ = left;
   render_state_.overlay_.right_ = right;
   render_state_.overlay_.submitted_this_frame_ = true;
+
+  if (!shared_image) {
+    return false;
+  }
+  base::win::ScopedHandle texture_handle =
+      shared_image->CloneGpuMemoryBufferHandle()
+          .dxgi_handle()
+          .TakeBufferHandle();
+  if (!texture_handle.is_valid()) {
+    return false;
+  }
 
   if (!EnsureInitialized())
     return false;
@@ -638,6 +663,7 @@ bool D3D11TextureHelper::SetOverlayTexture(
     render_state_.overlay_.keyed_mutex_ = nullptr;
     return false;
   }
+  render_state_.overlay_.shared_image_ = std::move(shared_image);
   render_state_.overlay_.sync_token_ = sync_token;
 
   return true;

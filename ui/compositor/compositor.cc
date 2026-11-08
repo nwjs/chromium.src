@@ -175,13 +175,11 @@ Compositor::Compositor(const viz::FrameSinkId& frame_sink_id,
   settings.initial_debug_state.SetRecordRenderingStats(
       command_line->HasSwitch(switches::kEnableGpuBenchmarking));
 
-  settings.use_zero_copy = IsUIZeroCopyEnabled() && !features::IsUsingRawDraw();
+  settings.use_zero_copy = IsUIZeroCopyEnabled();
 
   // UI compositor always uses partial raster if not using zero-copy. Zero copy
   // doesn't currently support partial raster.
-  // RawDraw doesn't support partial raster.
-  settings.use_partial_raster =
-      !(settings.use_zero_copy || features::IsUsingRawDraw());
+  settings.use_partial_raster = !settings.use_zero_copy;
 
   settings.prefer_rgba_4444 =
       command_line->HasSwitch(switches::kUIEnableRGBA4444Textures);
@@ -202,12 +200,6 @@ Compositor::Compositor(const viz::FrameSinkId& frame_sink_id,
   settings.use_gpu_memory_buffer_resources =
       features::IsDelegatedCompositingEnabled();
 #endif
-
-  // Set use_gpu_memory_buffer_resources to false to disable delegated
-  // compositing, if RawDraw is enabled.
-  if (settings.use_gpu_memory_buffer_resources && features::IsUsingRawDraw()) {
-    settings.use_gpu_memory_buffer_resources = false;
-  }
 
   settings.memory_policy.bytes_limit_when_visible =
       (memory_limit_when_visible_mb > 0 ? memory_limit_when_visible_mb : 512) *
@@ -367,7 +359,9 @@ void Compositor::SetLayerTreeFrameSink(
   // to match the Compositor's.
   if (display_private_) {
     display_private_->Resize(size());
-    display_private_->SetDisplayVisible(host_->IsVisible());
+    display_private_->SetDisplayVisible(
+        host_->IsVisible() ? viz::mojom::DisplayVisibility::kVisible
+                           : viz::mojom::DisplayVisibility::kInvisible);
     display_private_->SetDisplayColorSpaces(display_color_spaces_);
     display_private_->SetDisplayColorMatrix(
         gfx::SkM44ToTransform(display_color_matrix_));
@@ -606,8 +600,11 @@ void Compositor::SetVisible(bool visible) {
   // Visibility is reset when the output surface is lost, so this must also be
   // updated then. We need to call this even if the visibility hasn't changed,
   // for the same reason.
-  if (display_private_)
-    display_private_->SetDisplayVisible(visible);
+  if (display_private_) {
+    display_private_->SetDisplayVisible(
+        visible ? viz::mojom::DisplayVisibility::kVisible
+                : viz::mojom::DisplayVisibility::kInvisible);
+  }
 
   if (changed) {
     observer_list_.Notify(&CompositorObserver::OnCompositorVisibilityChanged,

@@ -874,7 +874,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Ash.Birch.Chip.ActivatedRanking" units="rank"
-    expires_after="2026-11-15">
+    expires_after="2027-02-15">
   <owner>jamescook@chromium.org</owner>
   <owner>chromeos-launcher@google.com</owner>
   <summary>
@@ -884,7 +884,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Ash.Birch.Chip.Activate{When}" enum="BirchItemType"
-    expires_after="2026-11-15">
+    expires_after="2027-02-15">
   <owner>jamescook@chromium.org</owner>
   <owner>chromeos-launcher@google.com</owner>
   <summary>
@@ -3704,7 +3704,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Ash.FocusMode.SessionDuration" units="minutes"
-    expires_after="2027-01-24">
+    expires_after="2027-03-28">
   <owner>hongyulong@chromium.org</owner>
   <owner>richui@chromium.org</owner>
   <owner>chromeos-wm@google.com</owner>
@@ -4005,52 +4005,6 @@ chromium-metrics-reviews@google.com.
     Recorded whenever glanceables UI fetches data from Google Classroom API. The
     recorded value indicates the number of student submissions fetched for a
     course, where the current user is enrolled as a student.
-  </summary>
-</histogram>
-
-<histogram name="Ash.Glanceables.Api.Tasks.ProcessedTasksCount" units="tasks"
-    expires_after="2025-12-31">
-  <owner>amitrokhin@google.com</owner>
-  <owner>chromeos-launcher@google.com</owner>
-  <summary>
-    Recorded whenever glanceables UI fetches data from Google Tasks API. The
-    recorded value indicates the number of tasks in a task list after processing
-    (only not completed root tasks).
-  </summary>
-</histogram>
-
-<histogram name="Ash.Glanceables.Api.Tasks.RawTasksCount" units="tasks"
-    expires_after="2025-12-31">
-  <owner>amitrokhin@google.com</owner>
-  <owner>chromeos-launcher@google.com</owner>
-  <summary>
-    Recorded whenever glanceables UI fetches data from Google Tasks API. The
-    recorded value indicates the number of fetched raw tasks in a task list. Raw
-    - means all individual tasks before processing, including all subtasks,
-    since the API returns them as a flat array.
-  </summary>
-</histogram>
-
-<histogram
-    name="Ash.Glanceables.Api.Tasks.SimultaneousMarkAsCompletedRequestsCount"
-    units="requests" expires_after="2025-12-31">
-  <owner>amitrokhin@google.com</owner>
-  <owner>chromeos-launcher@google.com</owner>
-  <summary>
-    Recorded whenever glanceables UI submits changes to Google Tasks API after
-    closing the bubble. The recorded value indicates the number of completed
-    tasks that require individiual requests to update their status.
-  </summary>
-</histogram>
-
-<histogram name="Ash.Glanceables.Api.Tasks.TaskListsCount" units="task lists"
-    expires_after="2025-12-31">
-  <owner>amitrokhin@google.com</owner>
-  <owner>chromeos-launcher@google.com</owner>
-  <summary>
-    Recorded whenever glanceables UI fetches data from Google Tasks API. The
-    recorded value indicates the number of task lists fetched for the current
-    user.
   </summary>
 </histogram>
 
@@ -4515,7 +4469,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Ash.Login.LoggedInStateChanged" units="ms"
-    expires_after="2027-02-01">
+    expires_after="2027-04-04">
   <owner>hidehiko@chromium.org</owner>
   <owner>junis@google.com</owner>
   <owner>cros-sw-perf@google.com</owner>
@@ -4538,7 +4492,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Ash.Login.Login.AuthMethod.Used.ClamShellMode"
-    enum="AuthMethod" expires_after="2027-01-24">
+    enum="AuthMethod" expires_after="2027-03-28">
   <owner>emaamari@google.com</owner>
   <owner>cros-lurs@google.com</owner>
   <summary>
@@ -8575,6 +8529,26 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="Ash.Window.InitToFirstPresentation.{AppType}" units="ms"
+    expires_after="M165">
+  <owner>achuith@chromium.org</owner>
+  <owner>cros-sw-perf@google.com</owner>
+  <summary>
+    Time from the aura::Window initialization of a new {AppType} window to the
+    first successfully presented frame after the window is first shown. For
+    browser windows this includes building the browser UI. Recorded once per
+    window, and only if the window is on screen when first shown (e.g. not on an
+    inactive desk).
+  </summary>
+  <token key="AppType">
+    <variant name="ArcApp" summary="ARC app"/>
+    <variant name="Browser" summary="browser"/>
+    <variant name="ChromeApp" summary="Chrome app"/>
+    <variant name="CrostiniApp" summary="Crostini app"/>
+    <variant name="SystemApp" summary="system web app"/>
+  </token>
+</histogram>
+
 <histogram name="Ash.Window.PartialSplitDuration" units="minutes"
     expires_after="2027-05-21">
   <owner>xdai@chromium.org</owner>
@@ -9620,7 +9594,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram name="Touchpad.HapticFeedback.Changed" enum="BooleanEnabled"
     expires_after="2027-09-01">
-  <owner>gavinwill@google.com</owner>
+  <owner>zhangwenyu@google.com</owner>
   <owner>cros-device-enablement@chromium.org</owner>
   <summary>
     Tracks touchpad haptic feedback setting changes by the user. Only reported
@@ -9630,7 +9604,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram name="Touchpad.HapticFeedback.Started" enum="BooleanEnabled"
     expires_after="2027-09-01">
-  <owner>gavinwill@google.com</owner>
+  <owner>zhangwenyu@google.com</owner>
   <owner>cros-device-enablement@chromium.org</owner>
   <summary>
     Tracks touchpad haptic feedback setting on startup. Only reported on Chrome

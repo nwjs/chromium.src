@@ -42,6 +42,7 @@
 #include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/browser/ui/page_action/page_action_icon_type.h"
 #include "chrome/browser/ui/performance_controls/performance_controls_metrics.h"
+#include "chrome/browser/ui/send_tab_to_self/send_tab_to_self_iph_controller.h"
 #include "chrome/browser/ui/singleton_tabs.h"
 #include "chrome/browser/ui/tabs/features.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/most_recent_shared_tab_update_store.h"
@@ -186,8 +187,8 @@ constexpr std::initializer_list<Platforms> kComposePlatforms{
 constexpr char kTabGroupHeaderElementName[] = "TabGroupHeader";
 constexpr char kChromeThemeBackElementName[] = "ChromeThemeBackElement";
 constexpr char kLastInactiveTabElementName[] = "LastInactiveTab";
-constexpr char kSendTabToSelfActiveTabElementName[] =
-    "SendTabToSelfActiveTabElement";
+constexpr char kSendTabToSelfPromoTabElementName[] =
+    "SendTabToSelfPromoTabElement";
 
 class IfView : public user_education::TutorialDescription::If {
  public:
@@ -271,24 +272,90 @@ bool IsInVerticalTabsMode(const BrowserView* browser_view) {
   return browser_view->ShouldDrawVerticalTabStrip();
 }
 
-ui::TrackedElement* FilterToActiveTab(
-    const ui::ElementTracker::ElementList& elements) {
-  for (ui::TrackedElement* const element : elements) {
-    if (const auto* const tracked_views =
-            element->AsA<views::TrackedElementViews>()) {
-      const views::View* const view = tracked_views->view();
-      if (const auto* const tab = views::AsViewClass<Tab>(view)) {
-        if (tab->IsActive()) {
-          return element;
-        }
-      } else if (const auto* const tab_view =
-                     views::AsViewClass<TabView>(view)) {
-        if (tab_view->IsActive()) {
-          return element;
-        }
-      }
+user_education::HelpBubbleArrow GetTabStripRegionBubbleArrow(
+    const ui::TrackedElement* anchor_element) {
+  const BrowserView* const browser_view =
+      views::ElementTrackerViews::GetInstance()
+          ->GetFirstMatchingViewAs<BrowserView>(kBrowserViewElementId,
+                                                anchor_element->context());
+  return browser_view && IsInVerticalTabsMode(browser_view)
+             ? user_education::HelpBubbleArrow::kLeftCenter
+             : user_education::HelpBubbleArrow::kNone;
+}
+
+// Returns the handle of the tab represented by `element`, or a null handle.
+// `Tab` is the legacy horizontal tab strip's tab view. `TabView` is used by the
+// vertical tab strip, and by the horizontal one when kTabStripUnification is
+// enabled.
+tabs::TabHandle GetTabHandle(const ui::TrackedElement* const element) {
+  const auto* const tracked_view = element->AsA<views::TrackedElementViews>();
+  const views::View* const view = tracked_view ? tracked_view->view() : nullptr;
+  if (const auto* const tab = views::AsViewClass<Tab>(view)) {
+    return tab->tab_handle();
+  }
+  if (const auto* const tab_view = views::AsViewClass<TabView>(view)) {
+    if (const tabs::TabInterface* const tab = tab_view->GetTabInterface()) {
+      return tab->GetHandle();
     }
   }
+  return tabs::TabHandle::Null();
+}
+
+// Chooses the anchor for the Send Tab to Self tutorial promo: the active tab,
+// if it is eligible. Records the chosen tab on SendTabToSelfIphController so
+// that Step 1 of the tutorial can anchor to the same tab. May run more than
+// once before the promo shows; the most recent choice wins.
+ui::TrackedElement* ChooseSendTabToSelfPromoAnchorTab(
+    const ui::ElementTracker::ElementList& elements) {
+  for (ui::TrackedElement* const element : elements) {
+    const tabs::TabHandle handle = GetTabHandle(element);
+    tabs::TabInterface* const tab = handle.Get();
+    if (!tab || !tab->IsActivated()) {
+      continue;
+    }
+
+    if (!send_tab_to_self::SendTabToSelfIphController::IsTabEligible(tab)) {
+      return nullptr;
+    }
+
+    auto* const controller = send_tab_to_self::SendTabToSelfIphController::From(
+        tab->GetBrowserWindowInterface());
+    if (!controller) {
+      return nullptr;
+    }
+
+    controller->SetPromoTab(handle);
+    return element;
+  }
+
+  return nullptr;
+}
+
+// Finds the anchor for Step 1 of the Send Tab to Self tutorial: the tab the
+// intro promo was shown on. Returns nullptr if there is no such tab (e.g. it
+// was closed) or it is no longer eligible, which aborts the tutorial.
+ui::TrackedElement* FindSendTabToSelfPromoTab(
+    const ui::ElementTracker::ElementList& elements) {
+  for (ui::TrackedElement* const element : elements) {
+    const tabs::TabHandle handle = GetTabHandle(element);
+    tabs::TabInterface* const tab = handle.Get();
+    if (!tab) {
+      continue;
+    }
+
+    const auto* const controller =
+        send_tab_to_self::SendTabToSelfIphController::From(
+            tab->GetBrowserWindowInterface());
+    if (controller && controller->IsPromoTab(handle)) {
+      // The promo stays open if its tab navigates, so the tab may have become
+      // ineligible (e.g. now showing the NTP). Its context menu then lacks the
+      // Send Tab to Self item, so abort rather than strand the user on Step 1.
+      return send_tab_to_self::SendTabToSelfIphController::IsTabEligible(tab)
+                 ? element
+                 : nullptr;
+    }
+  }
+
   return nullptr;
 }
 
@@ -1319,6 +1386,38 @@ void MaybeRegisterChromeFeaturePromos(
                        "Triggered to educate users about switching from "
                        "immersive mode to side panel mode in Reading Mode.")));
 
+  if (features::IsReadAnythingReadAloudExperimentalPlaybackUiEnabled()) {
+    // kIPHReadingModeAiPlaybackFeature:
+    registry.RegisterFeature(std::move(
+        user_education::FeaturePromoSpecification::CreateForToastPromo(
+            feature_engagement::kIPHReadingModeAiPlaybackFeature,
+            kReadAnythingAiPlaybackToggleElementId,
+            IDS_READING_MODE_AI_PLAYBACK_IPH_BODY,
+            IDS_READING_MODE_AI_PLAYBACK_IPH_SCREENREADER,
+            user_education::FeaturePromoSpecification::AcceleratorInfo())
+            .SetBubbleArrow(user_education::HelpBubbleArrow::kTopRight)
+            .SetInAnyContext(true)
+            .SetMetadata(
+                157, "alfredohiguera@google.com",
+                "Triggered to encourage users to use the AI playback feature "
+                "in Reading Mode.")));
+
+    // kIPHReadingModeAiPlaybackSettingsFeature:
+    registry.RegisterFeature(std::move(
+        user_education::FeaturePromoSpecification::CreateForToastPromo(
+            feature_engagement::kIPHReadingModeAiPlaybackSettingsFeature,
+            kReadAnythingSettingsButtonElementId,
+            IDS_READING_MODE_AI_PLAYBACK_SETTINGS_IPH_BODY,
+            IDS_READING_MODE_AI_PLAYBACK_SETTINGS_IPH_SCREENREADER,
+            user_education::FeaturePromoSpecification::AcceleratorInfo())
+            .SetBubbleArrow(user_education::HelpBubbleArrow::kTopRight)
+            .SetInAnyContext(true)
+            .SetMetadata(
+                157, "alfredohiguera@google.com",
+                "Triggered after trying AI playback to inform users they can "
+                "customize settings in Reading Mode.")));
+  }
+
   // kIPHReadingModeSidePanelFeature:
   registry.RegisterFeature(std::move(
       FeaturePromoSpecification::CreateForSnoozePromo(
@@ -1388,7 +1487,8 @@ void MaybeRegisterChromeFeaturePromos(
       FeaturePromoSpecification::CreateForTutorialPromo(
           feature_engagement::kIPHSendTabToSelfTutorialFeature, kTabElementId,
           IDS_SEND_TAB_TO_SELF_IPH_TUTORIAL_BODY, kSendTabToSelfTutorialId)
-          .SetAnchorElementFilter(base::BindRepeating(&FilterToActiveTab))
+          .SetAnchorElementFilter(
+              base::BindRepeating(&ChooseSendTabToSelfPromoAnchorTab))
           .SetBubbleArrow(HelpBubbleArrow::kTopLeft)
           .SetBubbleIcon(&(features::IsRoundedIconsEnabled() ? kDevicesIcon
                                                              : kDevicesOldIcon))
@@ -2081,9 +2181,7 @@ void MaybeRegisterChromeFeaturePromos(
 
   // kIPHVerticalTabsExpandOnHoverFeature:
   const auto expand_on_hover_iph_body_string_id =
-      tabs::kVerticalTabsExpandOnHoverDefaultEnabled.Get()
-          ? IDS_VERTICAL_TABS_EXPAND_ON_HOVER_DEFAULT_ENABLED_IPH_BODY
-          : IDS_VERTICAL_TABS_EXPAND_ON_HOVER_DEFAULT_DISABLED_IPH_BODY;
+      IDS_VERTICAL_TABS_EXPAND_ON_HOVER_DEFAULT_ENABLED_IPH_BODY;
   registry.RegisterFeature(std::move(
       FeaturePromoSpecification::CreateForSnoozePromo(
           feature_engagement::kIPHVerticalTabsExpandOnHoverFeature,
@@ -2165,6 +2263,65 @@ void MaybeRegisterChromeFeaturePromos(
                          "enabled with the direct access feature param off, "
                          "and the user creates a side by side split.")));
   }
+
+  // kIPHGlassFrameOptInFeature:
+  registry.RegisterFeature(std::move(
+      FeaturePromoSpecification::CreateForCustomAction(
+          feature_engagement::kIPHGlassFrameOptInFeature,
+          kTabStripRegionElementId, IDS_GLASS_FRAME_OPT_IN_IPH_BODY,
+          IDS_GLASS_FRAME_IPH_SETTINGS_BUTTON,
+          base::BindRepeating(
+              [](ContextPtr ctx,
+                 user_education::FeaturePromoHandle promo_handle) {
+                if (BrowserWindowInterface* const browser = GetBrowser(ctx)) {
+                  ShowPromoInPage::Params params;
+                  params.target_url =
+                      chrome::GetSettingsUrl(chrome::kAppearanceSubPage);
+                  params.bubble_anchor_id = kTabStylingSettingElementId;
+                  params.bubble_arrow = HelpBubbleArrow::kBottomRight;
+                  params.bubble_text = l10n_util::GetStringUTF16(
+                      IDS_GLASS_FRAME_IPH_SETTINGS_PAGE);
+                  params.close_button_alt_text_id = IDS_CLOSE_PROMO;
+                  ShowPromoInPage::Start(browser, std::move(params));
+                }
+              }))
+          .SetBubbleTitleText(IDS_GLASS_FRAME_OPT_IN_IPH_TITLE)
+          .SetBubbleArrowCallback(
+              base::BindRepeating(&GetTabStripRegionBubbleArrow))
+          .SetCustomActionDismissText(IDS_NO_THANKS)
+          .SetCustomActionIsDefault(true)
+          .SetMetadata(
+              156, "stluong@chromium.org",
+              "Triggered on startup when glass frame is available and the user "
+              "has not enabled it in settings.")));
+
+  // kIPHGlassFrameOptOutFeature:
+  registry.RegisterFeature(std::move(
+      FeaturePromoSpecification::CreateForCustomAction(
+          feature_engagement::kIPHGlassFrameOptOutFeature,
+          kTabStripRegionElementId, IDS_GLASS_FRAME_OPT_OUT_IPH_BODY,
+          IDS_GLASS_FRAME_IPH_SETTINGS_BUTTON,
+          base::BindRepeating(
+              [](ContextPtr ctx,
+                 user_education::FeaturePromoHandle promo_handle) {
+                if (BrowserWindowInterface* const browser = GetBrowser(ctx)) {
+                  ShowPromoInPage::Params params;
+                  params.target_url =
+                      chrome::GetSettingsUrl(chrome::kAppearanceSubPage);
+                  params.bubble_anchor_id = kTabStylingSettingElementId;
+                  params.bubble_arrow = HelpBubbleArrow::kBottomRight;
+                  params.bubble_text = l10n_util::GetStringUTF16(
+                      IDS_GLASS_FRAME_OPT_OUT_IPH_SETTINGS_PAGE);
+                  params.close_button_alt_text_id = IDS_CLOSE_PROMO;
+                  ShowPromoInPage::Start(browser, std::move(params));
+                }
+              }))
+          .SetBubbleTitleText(IDS_GLASS_FRAME_OPT_OUT_IPH_TITLE)
+          .SetBubbleArrowCallback(
+              base::BindRepeating(&GetTabStripRegionBubbleArrow))
+          .SetMetadata(156, "stluong@chromium.org",
+                       "Triggered when the browser window is shown with the "
+                       "glass frame enabled by default.")));
 }
 
 void MaybeRegisterChromeFeaturePromos(
@@ -2592,7 +2749,7 @@ void MaybeRegisterChromeTutorials(
   {  // Send Tab to Self tutorial
     auto send_tab_to_self_tutorial =
         TutorialDescription::Create<kSendTabToSelfTutorialMetricPrefix>(
-            // Hidden step - name the active tab (horizontal or vertical)
+            // Hidden step - name the promo tab (horizontal or vertical)
             HiddenStep::WaitForShown(kBrowserViewElementId)
                 .NameElements(
                     base::BindRepeating([](ui::InteractionSequence* sequence,
@@ -2601,17 +2758,15 @@ void MaybeRegisterChromeTutorials(
                           ui::ElementTracker::GetElementTracker()
                               ->GetAllMatchingElements(kTabElementId,
                                                        element->context());
-                      if (ui::TrackedElement* const active_tab =
-                              FilterToActiveTab(elements)) {
-                        sequence->NameElement(
-                            active_tab, kSendTabToSelfActiveTabElementName);
-                        return true;
-                      }
-                      return false;
+                      ui::TrackedElement* const promo_tab =
+                          FindSendTabToSelfPromoTab(elements);
+                      sequence->NameElement(promo_tab,
+                                            kSendTabToSelfPromoTabElementName);
+                      return promo_tab != nullptr;
                     })),
 
-            // Bubble step - Right-click on the active tab
-            BubbleStep(kSendTabToSelfActiveTabElementName)
+            // Bubble step - Right-click on the promo tab
+            BubbleStep(kSendTabToSelfPromoTabElementName)
                 .SetBubbleBodyText(IDS_TUTORIAL_SEND_TAB_TO_SELF_STEP_1_BODY)
                 .SetBubbleArrow(HelpBubbleArrow::kTopLeft)
                 .InAnyContext(),
@@ -2744,9 +2899,16 @@ void MaybeRegisterChromeNewBadges(user_education::NewBadgeRegistry& registry) {
                                "Shown on the Dictation context menu item.")));
 
   registry.RegisterFeature(user_education::NewBadgeSpecification(
-      features::kSkillsAppMenu,
-      user_education::Metadata(158, "xinlongyi@google.com",
-                               "Shown on the Skills item in the app menu.")));
+      features::kSkillsAndExtensionsAppMenu,
+      user_education::Metadata(
+          158, "xinlongyi@google.com",
+          "Shown on the Extensions and Skills item in the app menu.")));
+
+  registry.RegisterFeature(user_education::NewBadgeSpecification(
+      contextual_tasks::kContextualTasksUpdatedEntryPoints,
+      user_education::Metadata(
+          157, "nguyenbryan@google.com",
+          "Shown on Ask Google about this page in context and app menus.")));
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
   registry.RegisterFeature(user_education::NewBadgeSpecification(

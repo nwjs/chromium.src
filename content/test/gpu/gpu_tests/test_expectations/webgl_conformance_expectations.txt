@@ -458,8 +458,8 @@ crbug.com/542707343 [ fuchsia ] conformance/textures/misc/texture-srgb-upload.ht
 # Win failures     #
 ####################
 
-
-
+crbug.com/567281778 [ win angle-swiftshader arch-x86_64 passthrough ] conformance/extensions/oes-texture-float-linear.html [ RetryOnFailure ]
+crbug.com/564887537 [ win10 intel-0x9bc5 ] WebglExtension_ANGLE_instanced_arrays [ RetryOnFailure ]
 
 ## Win / AMD RX 5500 XT failures ##
 
@@ -514,6 +514,7 @@ crbug.com/354627705 [ mac amd-0x7340 angle-metal ] conformance/extensions/webgl-
 crbug.com/537387984 [ mac apple-angle-metal-renderer:-apple-m2 asan ] conformance/glsl/misc/shader-with-for-loop.html [ Slow ]
 crbug.com/544806579 [ mac angle-swiftshader arch-arm64 asan ] conformance/rendering/gl-drawelements.html [ RetryOnFailure ]
 crbug.com/527353878 [ mac apple-angle-metal-renderer:-apple-m2 asan ] conformance/extensions/khr-parallel-shader-compile.html [ RetryOnFailure ]
+crbug.com/564887537 [ mac apple-angle-metal-renderer:-apple-m2 asan ] WebglExtension_ANGLE_instanced_arrays [ RetryOnFailure ]
 
 ####################
 # Linux failures   #
@@ -523,9 +524,9 @@ crbug.com/527353878 [ mac apple-angle-metal-renderer:-apple-m2 asan ] conformanc
 
 crbug.com/1021428 [ linux angle-vulkan passthrough intel ] WebglExtension_WEBGL_depth_texture [ Failure ]  # finder:disable-unused Not tested in Chromium, but tested by Intel.
 
-## Linux / OpenGL / GTX 1660 ##
+## Linux / OpenGL / NVIDIA ##
 
-crbug.com/498282277 [ linux angle-opengl nvidia-0x2184 ] conformance/extensions/oes-texture-float-with-canvas.html [ RetryOnFailure ]
+crbug.com/498282277 [ linux angle-opengl nvidia ] conformance/extensions/oes-texture-float-with-canvas.html [ RetryOnFailure ]
 
 ####################
 # Android failures #
@@ -653,6 +654,10 @@ crbug.com/1185344 [ angle-opengles linux display-server-wayland intel ] WebglExt
 crbug.com/angleproject/5038 [ linux intel display-server-wayland ] conformance/extensions/ext-color-buffer-half-float.html [ Failure ]
 
 crbug.com/541251909 [ linux amd display-server-wayland ] conformance/extensions/ext-color-buffer-half-float.html [ Failure ]
+crbug.com/563391402 [ linux nvidia-0x2783 display-server-wayland ] WebglExtension_WEBGL_draw_buffers [ Failure ]
+crbug.com/563391402 [ linux nvidia-0x2783 display-server-wayland ] conformance/extensions/ext-color-buffer-half-float.html [ Failure ]
+crbug.com/563391402 [ linux nvidia-0x2783 display-server-wayland ] conformance/glsl/bugs/vector-matrix-constructor-scalarization.html [ Failure ]
+crbug.com/563391402 [ linux nvidia-0x2783 display-server-wayland ] conformance/rendering/draw-arrays-out-of-bounds.html [ Failure ]
 
 ###############################
 # New failures in WebGL rolls #
@@ -661,9 +666,11 @@ crbug.com/541251909 [ linux amd display-server-wayland ] conformance/extensions/
 # Roll WebGL d1b65aa..b934957.
 crbug.com/1448573 [ android angle-disabled no-passthrough qualcomm renderer-skia-gl ] conformance/extensions/oes-texture-float.html [ Failure ]
 
-
-
-
+########################################################################
+# Temporary suppressions for introduction of texElementSubImage2D
+########################################################################
+crbug.com/418089323 conformance/offscreencanvas/methods.html [ Failure ]
+crbug.com/418089323 conformance/offscreencanvas/methods-worker.html [ Failure ]
 
 #######################################################################
 # Automated Entries After This Point - Do Not Manually Add Below Here #

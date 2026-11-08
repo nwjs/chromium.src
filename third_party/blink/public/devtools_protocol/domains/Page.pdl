@@ -156,10 +156,6 @@ domain Page
       rewriter
       screen-wake-lock
       serial
-      # Deprecated.
-      shared-storage
-      # Deprecated.
-      shared-storage-select-url
       smart-card
       speaker-selection
       storage-access
@@ -852,6 +848,16 @@ domain Page
       # stack) to more distant ancestors (that created the immediately preceding
       # script). Only sent if frame is labelled as an ad and ids are available.
       optional Network.AdAncestry adScriptAncestry
+
+  # Returns the words that the frame's document added to its spell check custom
+  # dictionary with `document.spellCheckCustomDictionary.addWords()`, sorted.
+  # Page script cannot read the dictionary back; this lets developers inspect
+  # it.
+  experimental command getSpellCheckCustomDictionary
+    parameters
+      FrameId frameId
+    returns
+      array of string words
 
   # Returns present frame tree structure.
   command getFrameTree
@@ -1822,3 +1828,10 @@ domain Page
       # The format is defined by the `AnnotatedPageContent` message in
       # components/optimization_guide/proto/features/common_quality_data.proto
       binary content
+
+  # Configures input visualization on the page.
+  experimental command setInputVisualization
+    parameters
+      # Whether to enable click visualization.
+      optional boolean clicks
+

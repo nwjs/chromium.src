@@ -4,11 +4,15 @@
 
 #include "components/search_engines/ai_mode_button_service.h"
 
+#include <string>
 #include <string_view>
 #include <utility>
 
 #include "base/callback_list.h"
 #include "base/check.h"
+#include "base/strings/strcat.h"
+#include "base/strings/utf_string_conversions.h"
+#include "build/build_config.h"
 #include "components/omnibox/common/omnibox_features.h"
 #include "components/search_engines/ai_mode_button_config.h"
 #include "components/search_engines/search_engine_type.h"
@@ -34,8 +38,13 @@ AiModeButtonUiConfig::AiModeButtonUiConfig(
                                            dse_name)
               : l10n_util::GetStringFUTF16(IDS_AI_MODE_ENTRYPOINT_TOOLTIP_3P,
                                            name)),
+#if BUILDFLAG(IS_IOS)
+      a11y_label(
+          l10n_util::GetStringFUTF16(IDS_AI_MODE_ENTRYPOINT_ACC_LABEL, name)),
+#else
       a11y_label(
           l10n_util::GetStringFUTF16(IDS_AI_MODE_ENTRYPOINT_ACC_FOCUSED, name)),
+#endif
       context_menu_label(
           l10n_util::GetStringFUTF16(IDS_AI_MODE_ENTRYPOINT_CONTEXT_MENU_SHOW,
                                      name)),
@@ -43,7 +52,8 @@ AiModeButtonUiConfig::AiModeButtonUiConfig(
           l10n_util::GetStringFUTF16(IDS_AI_MODE_OMNIBOX_PLACEHOLDER, name)),
       favicon_url(favicon_url),
       navigation_url(navigation_url),
-      navigation_url_empty(navigation_url_empty) {}
+      navigation_url_empty(navigation_url_empty) {
+}
 AiModeButtonUiConfig::AiModeButtonUiConfig(const AiModeButtonUiConfig&) =
     default;
 AiModeButtonUiConfig::AiModeButtonUiConfig(AiModeButtonUiConfig&&) = default;
@@ -118,28 +128,33 @@ AiModeButtonService::GetUiConfigForTemplateUrl(
         /*navigation_url_empty=*/"");
   }
 
-  const ai_mode_button_config::AiModeButtonConfig* found_config = nullptr;
   for (const auto& config : ai_mode_button_config::kAiModeButtonConfigs) {
     if (config->id == type) {
-      // `kAiModeButtonConfigs` contains a debug config to allow for manual
-      // testing. Skip it if the debug param is false.
-      bool is_debug = config == &ai_mode_button_config::google_debug;
-      if (is_debug && !omnibox::kAim3pEntrypointDebug.Get()) {
-        continue;
-      }
-      found_config = config;
-      break;
+      CHECK(IsValidConfig(*config));
+      return AiModeButtonUiConfig(type, config->name, template_url.short_name(),
+                                  config->favicon_url, config->navigation_url,
+                                  config->navigation_url_empty);
     }
   }
-  if (!found_config) {
-    return std::nullopt;
+
+  if (type != SearchEngineType::SEARCH_ENGINE_OTHER &&
+      omnibox::kAim3pEntrypointDebug.Get()) {
+    std::string short_name = base::UTF16ToUTF8(template_url.short_name());
+    return AiModeButtonUiConfig(
+        type,
+        base::StrCat({u"AI Mode for ", template_url.short_name(), u" (ĄÜÔ)"}),
+        template_url.short_name(),
+        template_url.favicon_url().is_valid()
+            ? template_url.favicon_url().spec()
+            : "https://www.google.com/favicon.ico",
+        base::StrCat({"https://google.com/search?q=this opens aimode for ",
+                      short_name, " with search terms: {searchTerms}"}),
+        base::StrCat(
+            {"https://google.com/search?q=this opens aimode landing page for ",
+             short_name}));
   }
 
-  CHECK(IsValidConfig(*found_config));
-  return AiModeButtonUiConfig(
-      type, found_config->name, template_url.short_name(),
-      found_config->favicon_url, found_config->navigation_url,
-      found_config->navigation_url_empty);
+  return std::nullopt;
 }
 
 // static

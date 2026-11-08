@@ -11,14 +11,18 @@
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/clear_site_data_utils.h"
 #include "content/public/browser/network_service_util.h"
+#include "content/public/browser/render_process_host.h"
 #include "content/public/browser/storage_partition.h"
 #include "content/public/browser/storage_partition_config.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/content_features.h"
+#include "content/public/common/result_codes.h"
+#include "content/public/test/back_forward_cache_util.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
 #include "content/public/test/content_browser_test.h"
 #include "content/public/test/content_browser_test_utils.h"
+#include "content/public/test/no_renderer_crashes_assertion.h"
 #include "content/public/test/test_utils.h"
 #include "content/shell/browser/shell.h"
 #include "net/base/url_util.h"
@@ -92,7 +96,8 @@ class DeclarativePerformanceObserverBrowserTest : public ContentBrowserTest {
  private:
   std::unique_ptr<net::test_server::HttpResponse> HandleRequest(
       const net::test_server::HttpRequest& request) {
-    if (request.relative_url == "/dpo-page") {
+    if (request.relative_url == "/dpo-page" ||
+        request.relative_url == "/declarative-performance-observer-page") {
       auto response = std::make_unique<net::test_server::BasicHttpResponse>();
       response->set_code(net::HTTP_OK);
       response->set_content_type("text/html");
@@ -288,6 +293,70 @@ IN_PROC_BROWSER_TEST_F(DeclarativePerformanceObserverBrowserTest,
   reports = GetReceivedReports();
   ASSERT_EQ(reports.size(), 2u);
   EXPECT_TRUE(reports[1].contains("session-end"));
+}
+
+// Verifies that when a renderer process crashes or is killed
+// (crbug.com/558351483), DeclarativePerformanceObserver::OnFrameDeleted()
+// queues the performance-observer report before
+// RenderFrameHostImpl::RenderProcessGone() calls SendReportsAndRemoveSource(),
+// resulting in immediate delivery to the reporting endpoint.
+IN_PROC_BROWSER_TEST_F(DeclarativePerformanceObserverBrowserTest,
+                       SendsReportImmediatelyOnRendererCrash) {
+  GURL declarative_performance_observer_url =
+      https_server()->GetURL("origin1.com", "/dpo-page");
+  EXPECT_TRUE(NavigateToURL(shell(), declarative_performance_observer_url));
+
+  base::RunLoop report_loop;
+  SetReportQuitClosure(report_loop.QuitClosure());
+
+  RenderFrameHost* main_frame = shell()->web_contents()->GetPrimaryMainFrame();
+  ScopedAllowRendererCrashes allow_renderer_crashes(main_frame);
+  main_frame->GetProcess()->Shutdown(RESULT_CODE_KILLED);
+
+  report_loop.Run();
+
+  std::vector<std::string> reports = GetReceivedReports();
+  ASSERT_EQ(reports.size(), 1u);
+  EXPECT_TRUE(reports[0].contains("performance-observer"));
+  EXPECT_TRUE(reports[0].contains("session-end"));
+}
+
+// Verifies that when a cross-RenderFrameHost navigation destroys the previous
+// RenderFrameHost without storing it in BackForwardCache (crbug.com/558351483),
+// RenderFrameHostImpl::~RenderFrameHostImpl() flushes
+// DeclarativePerformanceObserver and invokes SendReportsAndRemoveSource(),
+// delivering the performance-observer report immediately without waiting for
+// the 1-minute ReportingDeliveryAgent timer.
+IN_PROC_BROWSER_TEST_F(DeclarativePerformanceObserverBrowserTest,
+                       SendsReportImmediatelyOnRFHDestructionWithoutBFCache) {
+  DisableBackForwardCacheForTesting(shell()->web_contents(),
+                                    BackForwardCache::TEST_REQUIRES_NO_CACHING);
+
+  GURL declarative_performance_observer_url = https_server()->GetURL(
+      "origin1.com", "/declarative-performance-observer-page");
+  GURL cross_site_url =
+      https_server()->GetURL("origin2.com", "/clear-site-data");
+
+  EXPECT_TRUE(NavigateToURL(shell(), declarative_performance_observer_url));
+  RenderFrameHostWrapper old_rfh(
+      shell()->web_contents()->GetPrimaryMainFrame());
+
+  base::RunLoop report_loop;
+  SetReportQuitClosure(report_loop.QuitClosure());
+
+  // Navigate cross-site so the old RenderFrameHost is unloaded and destroyed
+  // instead of entering BackForwardCache.
+  EXPECT_TRUE(NavigateToURL(shell(), cross_site_url));
+  ASSERT_TRUE(old_rfh.WaitUntilRenderFrameDeleted());
+
+  // The report should be dispatched immediately via SendReportsAndRemoveSource
+  // in ~RenderFrameHostImpl() without waiting for the 1-minute timer.
+  report_loop.Run();
+
+  std::vector<std::string> reports = GetReceivedReports();
+  ASSERT_EQ(reports.size(), 1u);
+  EXPECT_TRUE(reports[0].contains("performance-observer"));
+  EXPECT_TRUE(reports[0].contains("session-end"));
 }
 
 }  // namespace content

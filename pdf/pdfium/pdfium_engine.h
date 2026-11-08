@@ -132,9 +132,12 @@ enum class DocumentPermission {
 // Do one time initialization of the SDK.
 // If `enable_v8` is false, then PDFiumEngine will not be able to run
 // JavaScript.
+// If `enable_xfa` is true, then PDFium will create a dedicated V8 isolate for
+// each document.
 // When `use_skia` is true, the PDFiumEngine will use Skia renderer. Otherwise,
 // it will use AGG renderer.
 void InitializeSDK(bool enable_v8,
+                   bool enable_xfa,
                    bool use_skia,
                    FontMappingMode font_mapping_mode);
 // Tells the SDK that we're shutting down.
@@ -162,8 +165,8 @@ class PDFiumEngine : public DocumentLoader::Client,
 
   // Named destination in a document.
   struct NamedDestination {
-    // 0-based page number.
-    unsigned long page;
+    // 0-based page index.
+    unsigned long page_index;
 
     // View fit type (see table 8.2 "Destination syntax" on page 582 of PDF
     // Reference 1.7). Empty string if not present.
@@ -1118,7 +1121,9 @@ class PDFiumEngine : public DocumentLoader::Client,
   bool IsAnnotationAnEditableFormTextArea(FPDF_ANNOTATION annot,
                                           int form_type) const;
 
-  bool IsPageCharacterIndexInBounds(const PageCharacterIndex& index) const;
+  // Whether `index` is a valid selection boundary: a character index on an
+  // existing page, or the index just past that page's last character.
+  bool IsSelectionBoundaryInBounds(const PageCharacterIndex& index) const;
 
   void ScheduleTouchTimer(const blink::WebTouchEvent& event);
   void KillTouchTimer();

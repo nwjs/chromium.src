@@ -354,6 +354,20 @@ bool AppBrowserController::ShouldShowCustomTabBar() const {
       return false;
     }
 
+    // Special case for about:blank app popup windows. If an app window creates
+    // a popup window to about:blank from a document within app scope, the
+    // toolbar should not be shown.
+    if (url.IsAboutBlank() &&
+        browser()->GetType() == BrowserWindowInterface::Type::TYPE_APP_POPUP) {
+      content::RenderFrameHost* const primary_main_frame =
+          web_contents->GetPrimaryMainFrame();
+      if (primary_main_frame &&
+          IsOriginAllowedForAboutBlankPopup(
+              primary_main_frame->GetLastCommittedOrigin())) {
+        return false;
+      }
+    }
+
     // Show toolbar when not using 'https', unless this is an internal app,
     // or origin is secure (e.g. localhost).
     if (!is_internal_start_url_scheme && !url.SchemeIs(url::kHttpsScheme) &&
@@ -374,32 +388,26 @@ bool AppBrowserController::ShouldShowCustomTabBar() const {
     return should_show_toolbar_for_url(initial_url());
   }
 
-  // Special case for about:blank app popup windows. If an app window creates a
-  // popup window to about:blank from a document within app scope, the toolbar
-  // should not be shown.
-  if (last_committed_url.spec() == url::kAboutBlankURL) {
-    auto* primary_main_frame = web_contents->GetPrimaryMainFrame();
-    if (primary_main_frame &&
-        primary_main_frame->GetLastCommittedOrigin().IsSameOriginWith(
-            start_url) &&
-        browser()->GetType() == BrowserWindowInterface::Type::TYPE_APP_POPUP) {
-      return false;
-    }
-  }
-
   if (should_show_toolbar_for_url(visible_url) ||
       should_show_toolbar_for_url(last_committed_url)) {
     return true;
   }
 
-  // Insecure external web sites show the toolbar.
+  // Insecure external web sites show the toolbar. Qualifying about:blank popups
+  // were checked above using their inherited origin.
   // Note: IsContentSecure is false until a navigation is committed.
-  if (!last_committed_url.is_empty() && !is_internal_start_url_scheme &&
+  if (!last_committed_url.is_empty() && !last_committed_url.IsAboutBlank() &&
+      !is_internal_start_url_scheme &&
       !webapps::InstallableEvaluator::IsContentSecure(web_contents)) {
     return true;
   }
 
   return false;
+}
+
+bool AppBrowserController::IsOriginAllowedForAboutBlankPopup(
+    const url::Origin& origin) const {
+  return origin.IsSameOriginWith(GetAppStartUrl());
 }
 
 bool AppBrowserController::has_tab_strip() const {
@@ -587,6 +595,21 @@ std::u16string AppBrowserController::GetLaunchFlashText() const {
 #else   // !(BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX))
     return GetAppShortName();
 #endif  // BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX)
+  }
+
+  // Identify the document's inherited origin when an about:blank app popup
+  // does not need the custom tab bar, regardless of how it is in app scope.
+  if (browser()->GetType() == BrowserWindowInterface::Type::TYPE_APP_POPUP &&
+      !ShouldShowCustomTabBar()) {
+    content::WebContents* contents =
+        browser()->tab_strip_model()->GetActiveWebContents();
+    if (contents && contents->GetLastCommittedURL().IsAboutBlank()) {
+      const url::Origin& origin =
+          contents->GetPrimaryMainFrame()->GetLastCommittedOrigin();
+      if (!origin.opaque()) {
+        return FormatUrlOrigin(origin.GetURL());
+      }
+    }
   }
   return GetFormattedUrlOrigin();
 }

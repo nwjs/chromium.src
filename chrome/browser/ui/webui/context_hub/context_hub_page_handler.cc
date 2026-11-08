@@ -5,40 +5,78 @@
 #include "chrome/browser/ui/webui/context_hub/context_hub_page_handler.h"
 
 #include <algorithm>
+#include <memory>
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
+#include "base/barrier_closure.h"
 #include "base/check.h"
 #include "base/containers/flat_map.h"
+#include "base/containers/flat_set.h"
 #include "base/containers/to_vector.h"
+#include "base/feature_list.h"
+#include "base/files/file_enumerator.h"
+#include "base/files/file_util.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
+#include "base/metrics/field_trial.h"
+#include "base/metrics/field_trial_params.h"
+#include "base/notreached.h"
+#include "base/strings/strcat.h"
+#include "base/strings/string_util.h"
+#include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/task/thread_pool.h"
 #include "base/time/time.h"
 #include "base/uuid.h"
+#include "base/version_info/channel.h"
+#include "base/version_info/version_info.h"
 #include "build/build_config.h"
 #include "chrome/browser/context_hub/auto_todos/auto_todo_entry.h"
 #include "chrome/browser/context_hub/context_hub_service.h"
 #include "chrome/browser/context_hub/context_hub_service_factory.h"
+#include "chrome/browser/context_hub/features.h"
 #include "chrome/browser/context_hub/memory_bank/memory_bank_entry.h"
+#include "chrome/browser/context_hub/topics/topics_feedback_exporter.h"
 #include "chrome/browser/history/history_service_factory.h"
+#include "chrome/browser/page_image_service/image_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/ui/webui/context_hub/context_hub.mojom-features.h"
+#include "chrome/common/channel_info.h"
 #include "components/history/core/browser/history_service.h"
+#include "components/history/core/browser/history_types.h"
 #include "components/history/core/browser/journeys/journey.h"
 #include "components/history/core/browser/journeys/journey_row.h"
 #include "components/keyed_service/core/service_access_type.h"
+#include "components/page_image_service/image_service.h"
+#include "components/page_image_service/mojom/page_image_service.mojom.h"
 #include "components/sessions/core/session_id.h"
 #include "content/public/browser/web_contents.h"
+#include "mojo/public/cpp/bindings/message.h"
+#include "ui/base/clipboard/file_info.h"
+#include "ui/base/clipboard/scoped_clipboard_writer.h"
 #include "url/gurl.h"
 
 #if !BUILDFLAG(IS_ANDROID)
+#include "base/base_paths.h"
+#include "base/i18n/case_conversion.h"
+#include "base/i18n/file_util_icu.h"
+#include "base/path_service.h"
+#include "base/task/lazy_thread_pool_task_runner.h"
+#include "base/task/sequenced_task_runner.h"
 #include "chrome/browser/glic/host/context/glic_sharing_utils.h"  // nogncheck
 #include "chrome/browser/glic/host/glic.mojom.h"                  // nogncheck
 #include "chrome/browser/glic/public/glic_enabling.h"             // nogncheck
 #include "chrome/browser/glic/public/glic_instance.h"             // nogncheck
 #include "chrome/browser/glic/public/glic_invoke_options.h"       // nogncheck
 #include "chrome/browser/glic/public/glic_keyed_service.h"        // nogncheck
+#include "chrome/browser/glic/public/glic_passkeys.h"             // nogncheck
+#include "chrome/browser/ui/browser_tabstrip.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/profile_browser_collection.h"
+#include "chrome/browser/ui/singleton_tabs.h"
 #include "chrome/browser/ui/webui/context_hub/context_hub_tab_provider_desktop.h"
 #include "chrome/common/webui_url_constants.h"
 #include "components/tabs/public/tab_interface.h"  // nogncheck
@@ -46,6 +84,243 @@
 #include "net/base/url_util.h"  // nogncheck
 #endif
 #include "components/sessions/content/session_tab_helper.h"  // nogncheck
+
+#if !BUILDFLAG(IS_ANDROID)
+namespace {
+
+// Subdirectory in the system temp directory used to stage clipboard file
+// attachments. Staged batches (>1 hour old) are pruned when the UI opens
+// or on subsequent copy operations, with OS temp cleanup as a fallback.
+constexpr base::FilePath::CharType kMemoryBanksTempDir[] =
+    FILE_PATH_LITERAL("chrome_memory_banks");
+
+// All disk writes and pruning across all browser windows are queued onto a
+// single sequenced task runner to prevent concurrent filesystem races in the
+// shared staging directory.
+base::LazyThreadPoolSequencedTaskRunner g_clipboard_file_task_runner =
+    LAZY_THREAD_POOL_SEQUENCED_TASK_RUNNER_INITIALIZER(
+        base::TaskTraits(base::MayBlock(), base::TaskPriority::USER_VISIBLE));
+
+scoped_refptr<base::SequencedTaskRunner> GetClipboardFileTaskRunner() {
+  return g_clipboard_file_task_runner.Get();
+}
+
+// Resource limits for CopyAttachmentsToClipboard to prevent renderer-induced
+// resource exhaustion.
+constexpr size_t kMaxFilesToCopy = 10;
+constexpr size_t kMaxFileContentBytes = 10 * 1024 * 1024;  // 10 MB
+// Maximum filename length accepted over Mojo (matches filesystem NAME_MAX).
+constexpr size_t kMaxFilenameLength = 255;
+// Truncation limit for staged filenames to ensure full paths remain safely
+// within the Windows MAX_PATH limit across all platforms.
+constexpr size_t kMaxStagedFilenameLength = 128;
+// Maximum aggregate content size across all files in a batch to bound browser
+// memory usage and UI thread validation work.
+constexpr size_t kMaxTotalContentBytes = 10 * 1024 * 1024;  // 10 MB
+
+// Canonicalizes filenames to a standardized folded case for deduplication,
+// ensuring files that differ only by case (e.g., "Notes.md" and "NOTES.md")
+// do not collide on case-insensitive filesystems (such as Windows and macOS).
+std::string CanonicalizeFilenameForDeduplication(const std::string& filename) {
+  return base::UTF16ToUTF8(base::i18n::FoldCase(base::UTF8ToUTF16(filename)));
+}
+
+std::string SanitizeAttachmentFilename(std::string filename) {
+  base::FilePath::StringType sanitized_path =
+      base::FilePath::FromUTF8Unsafe(filename).value();
+
+  // Replace illegal filesystem characters (including OS-reserved characters,
+  // slashes, control chars, and illegal trailing/leading dots/spaces) while
+  // preserving valid international multi-byte UTF-8 code points.
+  base::i18n::ReplaceIllegalCharactersInPath(&sanitized_path, '_');
+
+  std::string sanitized_name =
+      base::FilePath(sanitized_path).BaseName().AsUTF8Unsafe();
+  base::TrimWhitespaceASCII(sanitized_name, base::TRIM_ALL, &sanitized_name);
+
+  // Strip .md extension if present so we can enforce length and re-append it.
+  if (base::EndsWith(sanitized_name, ".md",
+                     base::CompareCase::INSENSITIVE_ASCII)) {
+    sanitized_name.resize(sanitized_name.size() - 3);
+  }
+  base::TrimWhitespaceASCII(sanitized_name, base::TRIM_ALL, &sanitized_name);
+
+  // If empty or purely illegal characters replaced, fall back to "memory".
+  if (sanitized_name.empty()) {
+    sanitized_name = "memory";
+  }
+
+  // Enforce maximum staged filename length including .md suffix.
+  static constexpr size_t kMaxStemLength = kMaxStagedFilenameLength - 3;
+  if (sanitized_name.size() > kMaxStemLength) {
+    base::TruncateUTF8ToByteSize(sanitized_name, kMaxStemLength,
+                                 &sanitized_name);
+    if (sanitized_name.empty()) {
+      sanitized_name = "memory";
+    }
+  }
+
+  sanitized_name += ".md";
+  return sanitized_name;
+}
+
+bool ExceedsAttachmentResourceLimits(
+    base::span<const browser::context_hub::mojom::MemoryBankFileAttachmentPtr>
+        files) {
+  size_t total_content_bytes = 0;
+  for (const auto& file : files) {
+    if (file->filename.size() > kMaxFilenameLength ||
+        file->content.size() > kMaxFileContentBytes) {
+      return true;
+    }
+    total_content_bytes += file->content.size();
+  }
+  return total_content_bytes > kMaxTotalContentBytes;
+}
+
+bool HasValidUtf8Strings(
+    base::span<const browser::context_hub::mojom::MemoryBankFileAttachmentPtr>
+        files) {
+  return std::ranges::all_of(files, [](const auto& file) {
+    return base::IsStringUTF8(file->filename) &&
+           base::IsStringUTF8(file->content);
+  });
+}
+
+// Sanitizes `filename` and ensures it is unique (case-insensitively) within
+// `used_filenames`, appending a numeric suffix (e.g., "_2.md") on collision.
+std::string GetUniqueSanitizedFilename(
+    std::string filename,
+    base::flat_set<std::string>& used_filenames) {
+  std::string clean_name = SanitizeAttachmentFilename(std::move(filename));
+  std::string unique_name = clean_name;
+  bool inserted =
+      used_filenames.insert(CanonicalizeFilenameForDeduplication(unique_name))
+          .second;
+  if (inserted) {
+    return unique_name;
+  }
+
+  std::string stem = base::FilePath::FromUTF8Unsafe(clean_name)
+                         .RemoveExtension()
+                         .AsUTF8Unsafe();
+  int suffix = 2;
+  while (!inserted) {
+    std::string suffix_str = base::StringPrintf("_%d.md", suffix++);
+    size_t max_stem = kMaxStagedFilenameLength > suffix_str.size()
+                          ? kMaxStagedFilenameLength - suffix_str.size()
+                          : 0;
+    unique_name = base::StrCat(
+        {base::TruncateUTF8ToByteSize(stem, max_stem), suffix_str});
+    inserted =
+        used_filenames.insert(CanonicalizeFilenameForDeduplication(unique_name))
+            .second;
+  }
+  return unique_name;
+}
+
+std::vector<std::pair<std::string, std::string>>
+SanitizeAndDeduplicateAttachments(
+    std::vector<browser::context_hub::mojom::MemoryBankFileAttachmentPtr>
+        files) {
+  base::flat_set<std::string> used_filenames;
+  return base::ToVector(files, [&used_filenames](auto& file) {
+    return std::make_pair(
+        GetUniqueSanitizedFilename(std::move(file->filename), used_filenames),
+        std::move(file->content));
+  });
+}
+
+// Returns the clipboard staging root. Uses PathService rather than
+// base::GetTempDir() so tests can redirect it with base::ScopedPathOverride.
+bool GetStagingRootDir(base::FilePath* root_dir) {
+  base::FilePath temp_dir;
+  if (!base::PathService::Get(base::DIR_TEMP, &temp_dir)) {
+    return false;
+  }
+  *root_dir = temp_dir.Append(kMemoryBanksTempDir);
+  return true;
+}
+
+// Deletes batch directories older than 1 hour, bounding how long staged user
+// content remains on disk while preserving recent clipboard operations. Must
+// run on the sequence returned by GetClipboardFileTaskRunner().
+void PruneStaleBatchesIn(const base::FilePath& root_dir) {
+  DCHECK(GetClipboardFileTaskRunner()->RunsTasksInCurrentSequence());
+  const base::Time cutoff_time = base::Time::Now() - base::Hours(1);
+  base::FileEnumerator enumerator(root_dir, /*recursive=*/false,
+                                  base::FileEnumerator::DIRECTORIES);
+  for (base::FilePath entry = enumerator.Next(); !entry.empty();
+       entry = enumerator.Next()) {
+    if (enumerator.GetInfo().GetLastModifiedTime() < cutoff_time) {
+      base::DeletePathRecursively(entry);
+    }
+  }
+}
+
+std::vector<std::pair<std::string, base::FilePath>> WriteAttachmentFilesToDisk(
+    std::vector<std::pair<std::string, std::string>> files_to_write) {
+  base::FilePath root_dir;
+  if (!GetStagingRootDir(&root_dir) || !base::CreateDirectory(root_dir)) {
+    return {};
+  }
+
+  PruneStaleBatchesIn(root_dir);
+
+  // Create a unique subdirectory for this transaction to avoid races
+  // and maintain clipboard persistence across successive copy
+  // operations.
+  base::FilePath target_dir;
+  if (!base::CreateTemporaryDirInDir(root_dir, FILE_PATH_LITERAL("batch_"),
+                                     &target_dir)) {
+    return {};
+  }
+  std::vector<std::pair<std::string, base::FilePath>> written;
+  written.reserve(files_to_write.size());
+  for (const auto& [name, data] : files_to_write) {
+    base::FilePath file_path =
+        target_dir.Append(base::FilePath::FromUTF8Unsafe(name));
+    if (!base::WriteFile(file_path, data)) {
+      base::DeletePathRecursively(target_dir);
+      return {};
+    }
+    written.emplace_back(name, file_path);
+  }
+  return written;
+}
+
+void PruneStaleClipboardBatchDirectories() {
+  base::FilePath root_dir;
+  // Unlike the write path, this must not create the staging root: there is
+  // nothing to prune until the first copy happens.
+  if (!GetStagingRootDir(&root_dir) || !base::DirectoryExists(root_dir)) {
+    return;
+  }
+  PruneStaleBatchesIn(root_dir);
+}
+
+BrowserWindowInterface* GetBrowserWindowInterface(
+    content::WebContents* web_contents,
+    Profile* profile) {
+  if (web_contents) {
+    if (tabs::TabInterface* tab =
+            tabs::TabInterface::MaybeGetFromContents(web_contents)) {
+      if (BrowserWindowInterface* browser = tab->GetBrowserWindowInterface()) {
+        return browser;
+      }
+    }
+  }
+
+  if (ProfileBrowserCollection* collection =
+          ProfileBrowserCollection::GetForProfile(profile)) {
+    return collection->GetLastActiveBrowser();
+  }
+
+  return nullptr;
+}
+
+}  // namespace
+#endif
 
 ContextHubPageHandler::ContextHubPageHandler(
     mojo::PendingRemote<browser::context_hub::mojom::Page> page,
@@ -73,6 +348,13 @@ ContextHubPageHandler::ContextHubPageHandler(
       page_->OnFirstPartyAutoTodosGenerationStateChanged(true);
     }
   }
+#if !BUILDFLAG(IS_ANDROID)
+  // Proactively prune stale clipboard staging directories (>1 hour old)
+  // created during prior sessions so temporary user notes do not linger in
+  // the system temp directory until OS-level cleanup.
+  GetClipboardFileTaskRunner()->PostTask(
+      FROM_HERE, base::BindOnce(&PruneStaleClipboardBatchDirectories));
+#endif
 }
 
 ContextHubPageHandler::~ContextHubPageHandler() = default;
@@ -118,7 +400,15 @@ GURL ContextHubPageHandler::TabProvider::ResolveTopicUrl(
 
 void ContextHubPageHandler::OnAutoTodosChanged(
     base::span<const context_hub::AutoTodoEntry> entries) {
-  page_->OnAutoTodosChanged(base::ToVector(entries));
+  std::vector<context_hub::AutoTodoEntry> filtered_entries;
+  filtered_entries.reserve(entries.size());
+  // Filter out entries with chrome history references for now.
+  for (const context_hub::AutoTodoEntry& entry : entries) {
+    if (!entry.HasChromeHistoryReferences()) {
+      filtered_entries.push_back(entry);
+    }
+  }
+  page_->OnAutoTodosChanged(std::move(filtered_entries));
 }
 
 void ContextHubPageHandler::OnFirstPartyAutoTodosGenerationStateChanged(
@@ -129,6 +419,29 @@ void ContextHubPageHandler::OnFirstPartyAutoTodosGenerationStateChanged(
 void ContextHubPageHandler::OnThirdPartyAutoTodosGenerationStateChanged(
     bool is_generating) {
   page_->OnThirdPartyAutoTodosGenerationStateChanged(is_generating);
+}
+
+void ContextHubPageHandler::OnMemoryBankEntryAdded(
+    const context_hub::MemoryBankEntry& entry) {
+  page_->OnMemoryBankEntryAdded(entry);
+}
+
+void ContextHubPageHandler::OnMemoryBankEntryUpdated(
+    int64_t id,
+    const std::vector<std::string>& tags,
+    const std::optional<std::string>& note,
+    const std::optional<std::string>& collection) {
+  auto annotations =
+      browser::context_hub::mojom::MemoryBankEntryAnnotations::New();
+  annotations->collection = collection;
+  annotations->note = note;
+  annotations->tags = tags;
+  page_->OnMemoryBankEntryUpdated(id, std::move(annotations));
+}
+
+void ContextHubPageHandler::OnMemoryBankEntriesDeleted(
+    const std::vector<int64_t>& ids) {
+  page_->OnMemoryBankEntriesDeleted(ids);
 }
 
 void ContextHubPageHandler::GenerateFirstPartyAutoTodos(
@@ -164,9 +477,12 @@ void ContextHubPageHandler::GetAutoTodos(GetAutoTodosCallback callback) {
          std::vector<context_hub::AutoTodoEntry> entries) {
         std::vector<context_hub::AutoTodoEntry> first_party_todos;
         std::vector<context_hub::AutoTodoEntry> third_party_todos;
-        for (auto& entry : entries) {
+        for (context_hub::AutoTodoEntry& entry : entries) {
           if (entry.is_first_party()) {
-            first_party_todos.push_back(std::move(entry));
+            // Filter out entries with chrome history references for now.
+            if (!entry.HasChromeHistoryReferences()) {
+              first_party_todos.push_back(std::move(entry));
+            }
           } else if (entry.is_third_party()) {
             third_party_todos.push_back(std::move(entry));
           }
@@ -297,30 +613,7 @@ void ContextHubPageHandler::GetAllMemoryBankEntries(
   service->GetAllEntries(base::BindOnce(
       [](GetAllMemoryBankEntriesCallback callback,
          std::vector<context_hub::MemoryBankEntry> entries) {
-        std::vector<browser::context_hub::mojom::MemoryBankEntryPtr>
-            mojo_entries;
-        for (const auto& entry : entries) {
-          auto mojo_entry = browser::context_hub::mojom::MemoryBankEntry::New();
-          mojo_entry->id = entry.id;
-          switch (entry.type) {
-            case context_hub::MemoryBankType::kTab:
-              mojo_entry->type = browser::context_hub::mojom::EntryType::kTab;
-              break;
-            case context_hub::MemoryBankType::kTextSelection:
-              mojo_entry->type =
-                  browser::context_hub::mojom::EntryType::kTextSelection;
-              break;
-          }
-          mojo_entry->timestamp = entry.timestamp;
-          mojo_entry->url = entry.url;
-          mojo_entry->tab_title = entry.tab_title;
-          mojo_entry->selected_text = entry.selected_text;
-          mojo_entry->tags = entry.tags;
-          mojo_entry->note = entry.note;
-          mojo_entry->collection = entry.collection;
-          mojo_entries.push_back(std::move(mojo_entry));
-        }
-        std::move(callback).Run(std::move(mojo_entries));
+        std::move(callback).Run(entries);
       },
       std::move(callback)));
 }
@@ -425,6 +718,20 @@ std::vector<browser::context_hub::mojom::TabInfoPtr> ToMojoTabs(
     mojo_tabs.push_back(std::move(mojo_tab));
   }
   return mojo_tabs;
+}
+
+std::vector<browser::context_hub::mojom::ChatReferencePtr> ToMojoChatReferences(
+    base::span<const context_hub::ContextHubService::MemoryBankChatCitation>
+        citations) {
+  std::vector<browser::context_hub::mojom::ChatReferencePtr> references;
+  references.reserve(citations.size());
+  for (const auto& citation : citations) {
+    auto ref = browser::context_hub::mojom::ChatReference::New();
+    ref->title = citation.title;
+    ref->url = citation.url;
+    references.push_back(std::move(ref));
+  }
+  return references;
 }
 
 std::vector<browser::context_hub::mojom::ChatMessagePtr> ToMojoChatHistory(
@@ -614,6 +921,35 @@ void ContextHubPageHandler::ClearTabGroups(ClearTabGroupsCallback callback) {
   service->DeleteAllTabGroups(std::move(callback));
 }
 
+void ContextHubPageHandler::ReplaceTabGroups(
+    std::vector<browser::context_hub::mojom::TabGroupPtr> groups,
+    ReplaceTabGroupsCallback callback) {
+  context_hub::ContextHubService* service =
+      ContextHubServiceFactory::GetForProfile(profile_);
+  if (!service) {
+    std::move(callback).Run();
+    return;
+  }
+
+  std::vector<context_hub::TabGroupEntry> entries;
+  entries.reserve(groups.size());
+  for (auto& group : groups) {
+    if (group->tabs.empty()) {
+      continue;
+    }
+    context_hub::TabGroupEntry entry;
+    entry.label = std::move(group->label);
+    for (auto& tab : group->tabs) {
+      entry.tab_ids.push_back(tab->id);
+      entry.tabs.push_back({.id = tab->id,
+                            .title = std::move(tab->title),
+                            .url = std::move(tab->url)});
+    }
+    entries.push_back(std::move(entry));
+  }
+  service->ReplaceTabGroups(std::move(entries), std::move(callback));
+}
+
 void ContextHubPageHandler::ClearTabGroupChatHistory(
     ClearTabGroupChatHistoryCallback callback) {
   context_hub::ContextHubService* service =
@@ -635,7 +971,7 @@ void ContextHubPageHandler::AskGeminiWithContext(
     auto response = browser::context_hub::mojom::ChatMessage::New();
     response->role = browser::context_hub::mojom::ChatRole::kAssistant;
     response->content = "Service unavailable.";
-    std::move(callback).Run(std::move(response));
+    std::move(callback).Run(std::move(response), {});
     return;
   }
 
@@ -643,12 +979,15 @@ void ContextHubPageHandler::AskGeminiWithContext(
       memory_bank_entry_ids, user_command, save_to_history,
       base::BindOnce(
           [](AskGeminiWithContextCallback callback,
-             std::optional<std::string> response_text) {
+             std::optional<std::string> response_text,
+             std::vector<context_hub::ContextHubService::MemoryBankChatCitation>
+                 citations) {
             auto response = browser::context_hub::mojom::ChatMessage::New();
             response->role = browser::context_hub::mojom::ChatRole::kAssistant;
             response->content =
                 response_text.value_or("Failed to generate response.");
-            std::move(callback).Run(std::move(response));
+            std::move(callback).Run(std::move(response),
+                                    ToMojoChatReferences(citations));
           },
           std::move(callback)));
 }
@@ -804,6 +1143,15 @@ void ContextHubPageHandler::OpenUrlsInTabGroup(
     const std::string& group_label,
     const std::vector<GURL>& urls,
     OpenUrlsInTabGroupCallback callback) {
+  if (!base::FeatureList::IsEnabled(browser::context_hub::mojom::kTopics) &&
+      !base::FeatureList::IsEnabled(
+          browser::context_hub::mojom::kSmartSearch)) {
+    receiver_.ReportBadMessage(
+        "OpenUrlsInTabGroup cannot be called without Topics or SmartSearch "
+        "enabled.");
+    return;
+  }
+
   if (!tab_provider_) {
     std::move(callback).Run(false);
     return;
@@ -846,7 +1194,8 @@ browser::context_hub::mojom::TopicPtr ToMojoTopic(
   visits.reserve(journey.visits.size());
   for (history::journeys::JourneyVisit& visit : journey.visits) {
     visits.push_back(browser::context_hub::mojom::TopicVisit::New(
-        std::move(visit.url), base::UTF16ToUTF8(visit.title)));
+        std::move(visit.url), base::UTF16ToUTF8(visit.title),
+        visit.visit_time));
   }
 
   std::vector<browser::context_hub::mojom::TopicContinuationQueryPtr>
@@ -859,11 +1208,15 @@ browser::context_hub::mojom::TopicPtr ToMojoTopic(
             std::move(query.title), std::move(query.prompt)));
   }
 
+  // TODO(crbug.com/558572977): Send the topic's collections once the topic
+  // generation backend produces them.
   return browser::context_hub::mojom::Topic::New(
       /*id=*/std::move(journey.journey_id), std::move(journey.title),
       journey.creation_time, std::move(journey.emoji),
       std::move(journey.overview), std::move(journey.short_overview),
-      std::move(visits), std::move(continuation_queries));
+      std::move(visits), std::move(continuation_queries),
+      /*collections=*/
+      std::vector<browser::context_hub::mojom::TopicCollectionPtr>());
 }
 
 std::vector<browser::context_hub::mojom::TopicPtr> ToMojoTopics(
@@ -922,6 +1275,31 @@ void ContextHubPageHandler::GetTopic(const std::string& id,
       &topics_task_tracker_);
 }
 
+void ContextHubPageHandler::GetTopicPageImageUrl(
+    const GURL& page_url,
+    GetTopicPageImageUrlCallback callback) {
+  page_image_service::ImageService* image_service =
+      page_image_service::ImageServiceFactory::GetForBrowserContext(profile_);
+  if (!image_service || !page_url.is_valid() ||
+      !page_url.SchemeIsHTTPOrHTTPS()) {
+    std::move(callback).Run(std::nullopt);
+    return;
+  }
+
+  // The reply does not touch this handler, and the service always replies, so
+  // there is nothing to cancel if the handler goes away first.
+  image_service->FetchImageFor(
+      page_image_service::mojom::ClientId::ContextHubTopics, page_url,
+      page_image_service::mojom::Options(),
+      base::BindOnce(
+          [](GetTopicPageImageUrlCallback callback, const GURL& image_url) {
+            std::move(callback).Run(image_url.is_valid()
+                                        ? std::make_optional(image_url)
+                                        : std::nullopt);
+          },
+          std::move(callback)));
+}
+
 void ContextHubPageHandler::OpenTopic(
     browser::context_hub::mojom::TopicIdOrUrlPtr topic_id_or_url) {
   if (tab_provider_) {
@@ -969,33 +1347,45 @@ void ContextHubPageHandler::OpenGlicPanel(
 
   glic::GlicInvokeOptions options(
       glic::Target(*tab), glic::mojom::InvocationSource::kContextHubTopics);
-  // The topic page offers three suggestion chips; clamp defensively since the
-  // list comes from the renderer.
+  // The topic page offers up to three suggested prompts; clamp defensively
+  // since the list comes from the renderer.
   constexpr size_t kMaxPrompts = 3;
   base::span<const std::string> capped_prompts =
       base::span(prompts).first(std::min(prompts.size(), kMaxPrompts));
   options.prompts.assign(capped_prompts.begin(), capped_prompts.end());
-  // The page supplies its own topic-specific suggestions, so suppress the
-  // generic Zero State Suggestions to avoid two competing suggestion UIs. If
-  // the page had none to offer (e.g. a topic with no title), fall back to ZSS
-  // rather than showing a panel with no suggestions at all.
+  // The page supplies its own topic-specific prompts, so ask the web client to
+  // suppress the generic Zero State Suggestions in favor of them. If the page
+  // had none to offer (e.g. a topic with no title), fall back to ZSS rather
+  // than asking for a panel with no suggestions at all.
+  //
+  // TODO(crbug.com/567878517): The web client doesn't support this yet. It
+  // ignores `disable_zss`, and with more than one prompt it shows the generic
+  // ZSS rather than these prompts.
   options.disable_zss = !options.prompts.empty();
 
   if (already_showing) {
-    // The invoke is still delivered to the web client, which replaces the
-    // suggestion chips with this topic's. Since the user is already looking
-    // at the panel, refreshing it should not steal focus from the topic page,
-    // and should not fail if another invocation happens to be in flight.
+    // The invoke is still delivered to the web client, so it can replace its
+    // suggestions with this topic's once supported (see TODO above). Since the
+    // user is already looking at the panel, refreshing it should not steal
+    // focus from the topic page, and should not fail if another invocation
+    // happens to be in flight.
     options.focus_on_show = false;
     options.supersede_if_in_progress = true;
+  } else {
+    // The invoke is sent on page load, while the side panel is still sliding
+    // open. Delivering (and focusing) it before the panel and the tab have
+    // settled at their final size leaves the web client laid out for the
+    // in-progress size, which shows up as shifted content once the panel is
+    // re-laid out (e.g. after a navigation or tab switch).
+    options.wait_for_panel_open = true;
   }
 
   // The FRE is rendered inside the panel, so the panel opens either way. But
   // until the user consents, delivery of `prompts` is blocked on FRE
   // completion, and the invocation's default watchdog is only one minute;
   // far too short to read and accept a consent screen. Without a longer
-  // timeout the invocation is abandoned and the topic suggestions never
-  // arrive, even though the user did eventually consent.
+  // timeout the invocation is abandoned and `prompts` are never delivered,
+  // even though the user did eventually consent.
   //
   // TODO(crbug.com/564810188): This only narrows the window. If the user
   // abandons the FRE the invocation still fails silently, because the page has
@@ -1007,3 +1397,344 @@ void ContextHubPageHandler::OpenGlicPanel(
   glic_service->Invoke(std::move(options));
 #endif
 }
+
+void ContextHubPageHandler::SetTopicFeedback(
+    browser::context_hub::mojom::TopicFeedbackPtr feedback,
+    SetTopicFeedbackCallback callback) {
+  if (feedback->id.empty()) {
+    receiver_.ReportBadMessage("SetTopicFeedback requires a topic id.");
+    return;
+  }
+  context_hub::ContextHubService* service =
+      ContextHubServiceFactory::GetForProfile(profile_);
+  if (service) {
+    service->SetTopicFeedback(std::move(feedback));
+  }
+  std::move(callback).Run();
+}
+
+void ContextHubPageHandler::DeleteTopicFeedback(
+    const std::string& topic_id,
+    DeleteTopicFeedbackCallback callback) {
+  if (topic_id.empty()) {
+    receiver_.ReportBadMessage("DeleteTopicFeedback requires a topic id.");
+    return;
+  }
+  context_hub::ContextHubService* service =
+      ContextHubServiceFactory::GetForProfile(profile_);
+  if (service) {
+    service->DeleteTopicFeedback(topic_id);
+  }
+  std::move(callback).Run();
+}
+
+void ContextHubPageHandler::GetTopicFeedbacks(
+    GetTopicFeedbacksCallback callback) {
+  context_hub::ContextHubService* service =
+      ContextHubServiceFactory::GetForProfile(profile_);
+  if (service) {
+    std::move(callback).Run(service->GetTopicFeedbacks());
+    return;
+  }
+  std::move(callback).Run({});
+}
+
+void ContextHubPageHandler::ClearTopicFeedbacks(
+    ClearTopicFeedbacksCallback callback) {
+  context_hub::ContextHubService* service =
+      ContextHubServiceFactory::GetForProfile(profile_);
+  if (service) {
+    service->ClearTopicFeedbacks();
+  }
+  std::move(callback).Run();
+}
+
+namespace {
+
+// Returns the Chrome and Topics experiment state recorded in the export.
+context_hub::TopicsFeedbackExportContext BuildTopicsFeedbackExportContext(
+    base::Time now,
+    base::Time window_start,
+    int window_days) {
+  context_hub::TopicsFeedbackExportContext context;
+  context.exported_at = now;
+  context.window_start = window_start;
+  context.window_days = window_days;
+  context.chrome_version = std::string(version_info::GetVersionNumber());
+  context.chrome_channel =
+      std::string(version_info::GetChannelString(chrome::GetChannel()));
+  if (base::FieldTrial* trial = base::FeatureList::GetFieldTrial(
+          browser::context_hub::mojom::kTopics)) {
+    context.finch = context_hub::TopicsFeedbackExportContext::FinchGroup{
+        .trial = trial->trial_name(), .group = trial->group_name()};
+  }
+  base::GetFieldTrialParamsByFeature(browser::context_hub::mojom::kTopics,
+                                     &context.feature_params);
+  return context;
+}
+
+}  // namespace
+
+void ContextHubPageHandler::GetTopicsFeedbackExportPreview(
+    int32_t window_days,
+    GetTopicsFeedbackExportPreviewCallback callback) {
+  if (!context_hub::features::kTopicsFishfoodFeedback.Get()) {
+    receiver_.ReportBadMessage(
+        "GetTopicsFeedbackExportPreview requires fishfood feedback.");
+    return;
+  }
+
+  FetchTopicsFeedbackExportData(
+      base::Time::Now() -
+          base::Days(context_hub::ClampTopicsFeedbackWindowDays(window_days)),
+      base::BindOnce(
+          [](GetTopicsFeedbackExportPreviewCallback callback,
+             context_hub::TopicsFeedbackExportData data) {
+            std::move(callback).Run(
+                context_hub::BuildTopicsFeedbackExportPreview(data));
+          },
+          std::move(callback)));
+}
+
+void ContextHubPageHandler::GenerateTopicsFeedbackBundle(
+    browser::context_hub::mojom::TopicsFeedbackExportOptionsPtr options,
+    GenerateTopicsFeedbackBundleCallback callback) {
+  if (!context_hub::features::kTopicsFishfoodFeedback.Get()) {
+    receiver_.ReportBadMessage(
+        "GenerateTopicsFeedbackBundle requires fishfood feedback.");
+    return;
+  }
+
+  const int window_days =
+      context_hub::ClampTopicsFeedbackWindowDays(options->window_days);
+  const base::Time now = base::Time::Now();
+  const base::Time window_start = now - base::Days(window_days);
+  FetchTopicsFeedbackExportData(
+      window_start,
+      base::BindOnce(
+          [](GenerateTopicsFeedbackBundleCallback callback,
+             const context_hub::TopicsFeedbackExportContext& context,
+             browser::context_hub::mojom::TopicsFeedbackExportOptionsPtr
+                 options,
+             context_hub::TopicsFeedbackExportData data) {
+            std::move(callback).Run(context_hub::BuildTopicsFeedbackBundle(
+                data, context, *options));
+          },
+          std::move(callback),
+          BuildTopicsFeedbackExportContext(now, window_start, window_days),
+          std::move(options)));
+}
+
+void ContextHubPageHandler::FetchTopicsFeedbackExportData(
+    base::Time window_start,
+    base::OnceCallback<void(context_hub::TopicsFeedbackExportData)> callback) {
+  auto data = std::make_unique<context_hub::TopicsFeedbackExportData>();
+  if (context_hub::ContextHubService* service =
+          ContextHubServiceFactory::GetForProfile(profile_)) {
+    data->feedbacks = service->GetTopicFeedbacks();
+  }
+
+  history::HistoryService* history_service =
+      HistoryServiceFactory::GetForProfile(profile_,
+                                           ServiceAccessType::EXPLICIT_ACCESS);
+  if (!history_service) {
+    std::move(callback).Run(std::move(*data));
+    return;
+  }
+
+  // The three queries below fill in `data` and then run `barrier`, which owns
+  // `data` and runs `callback` once all three have replied. If this handler
+  // is destroyed first, `topics_task_tracker_` cancels the outstanding
+  // replies, which destroys `barrier` and `data` without running `callback`.
+  context_hub::TopicsFeedbackExportData* data_ptr = data.get();
+  base::RepeatingClosure barrier = base::BarrierClosure(
+      3, base::BindOnce(
+             [](std::unique_ptr<context_hub::TopicsFeedbackExportData> data,
+                base::OnceCallback<void(context_hub::TopicsFeedbackExportData)>
+                    callback) { std::move(callback).Run(std::move(*data)); },
+             std::move(data), std::move(callback)));
+
+  history_service->GetAllJourneys(
+      base::BindOnce(
+          [](context_hub::TopicsFeedbackExportData* data,
+             base::RepeatingClosure done,
+             std::vector<history::journeys::Journey> journeys) {
+            data->journeys = std::move(journeys);
+            done.Run();
+          },
+          base::Unretained(data_ptr), barrier),
+      &topics_task_tracker_);
+
+  history_service->GetUnresolvableJourneysCountForFishfood(
+      base::BindOnce(
+          [](context_hub::TopicsFeedbackExportData* data,
+             base::RepeatingClosure done, size_t count) {
+            data->unresolvable_topics = count;
+            done.Run();
+          },
+          base::Unretained(data_ptr), barrier),
+      &topics_task_tracker_);
+
+  history::QueryOptions options;
+  options.begin_time = window_start;
+  options.duplicate_policy = history::QueryOptions::KEEP_ALL_DUPLICATES;
+  options.policy_for_404_visits = history::VisitQuery404sPolicy::kInclude404s;
+  history_service->GetAnnotatedVisits(
+      options, /*compute_redirect_chain_start_properties=*/false,
+      /*get_unclustered_visits_only=*/false,
+      base::BindOnce(
+          [](context_hub::TopicsFeedbackExportData* data,
+             base::RepeatingClosure done,
+             std::vector<history::AnnotatedVisit> visits) {
+            data->visits.reserve(visits.size());
+            for (const history::AnnotatedVisit& visit : visits) {
+              data->visits.push_back(context_hub::TopicsFeedbackHistoryVisit{
+                  .url = visit.url_row.url(),
+                  .title = visit.url_row.title(),
+                  .visit_time = visit.visit_row.visit_time,
+                  .is_foreign = !visit.visit_row.originator_cache_guid.empty(),
+              });
+            }
+            done.Run();
+          },
+          base::Unretained(data_ptr), barrier),
+      &topics_task_tracker_);
+}
+
+void ContextHubPageHandler::RunTodoTask(const std::string& prompt,
+                                        RunTodoTaskCallback callback) {
+#if !BUILDFLAG(IS_ANDROID)
+  if (prompt.empty()) {
+    std::move(callback).Run(false);
+    return;
+  }
+
+  glic::GlicKeyedService* glic_service = GetGlicServiceIfEnabled(profile_);
+  if (!glic_service || !web_contents_) {
+    std::move(callback).Run(false);
+    return;
+  }
+
+  tabs::TabInterface* tab =
+      tabs::TabInterface::MaybeGetFromContents(web_contents_);
+  if (!tab) {
+    std::move(callback).Run(false);
+    return;
+  }
+
+  glic::GlicInvokeOptions options(
+      glic::mojom::InvocationSource::kContextHubAutoTodos);
+  options.prompts.push_back(prompt);
+  options.target.conversation = glic::NewConversation();
+  options.feature_mode = glic::mojom::FeatureMode::kActuation;
+  options.target.actuation_target = glic::mojom::ActuationTarget::kAgentDecides;
+  options.target.surface =
+      glic::DefaultSurface{tab->GetBrowserWindowInterface()};
+
+  glic::GlicInvokeWithAutoSubmitOptions auto_submit_options;
+  auto_submit_options.show_panel = true;
+
+  glic_service->InvokeWithAutoSubmit(
+      glic::InvokeWithAutoSubmitPasskeyProvider::GetPassKey(),
+      std::move(options), std::move(auto_submit_options));
+  std::move(callback).Run(true);
+#else
+  std::move(callback).Run(false);
+#endif
+}
+
+void ContextHubPageHandler::OpenWebUrl(const GURL& url,
+                                       OpenWebUrlCallback callback) {
+#if BUILDFLAG(IS_ANDROID)
+  NOTREACHED();
+#else
+  if (!url.is_valid() || !url.SchemeIsHTTPOrHTTPS()) {
+    receiver_.ReportBadMessage(
+        "Invalid or disallowed URL scheme in OpenWebUrl");
+    return;
+  }
+
+  if (BrowserWindowInterface* browser =
+          GetBrowserWindowInterface(web_contents_, profile_)) {
+    chrome::AddSelectedTabWithURL(browser, url, ui::PAGE_TRANSITION_LINK);
+  }
+  std::move(callback).Run();
+#endif
+}
+
+void ContextHubPageHandler::OpenContextHubPage(
+    OpenContextHubPageCallback callback) {
+#if BUILDFLAG(IS_ANDROID)
+  NOTREACHED();
+#else
+  if (BrowserWindowInterface* browser =
+          GetBrowserWindowInterface(web_contents_, profile_)) {
+    ShowSingletonTab(browser, GURL(chrome::kChromeUIContextHubURL));
+  }
+  std::move(callback).Run();
+#endif
+}
+
+void ContextHubPageHandler::CopyAttachmentsToClipboard(
+    std::vector<browser::context_hub::mojom::MemoryBankFileAttachmentPtr> files,
+    CopyAttachmentsToClipboardCallback callback) {
+#if BUILDFLAG(IS_ANDROID)
+  NOTREACHED();
+#else
+  if (files.empty() || files.size() > kMaxFilesToCopy) {
+    receiver_.ReportBadMessage(
+        "Invalid files count in CopyAttachmentsToClipboard");
+    return;
+  }
+
+  // Reject oversized inputs with kInvalidInput so the client can retry with
+  // smaller batches, rather than reporting a bad message.
+  if (ExceedsAttachmentResourceLimits(files)) {
+    std::move(callback).Run(
+        browser::context_hub::mojom::CopyAttachmentsToClipboardStatus::
+            kInvalidInput);
+    return;
+  }
+
+  if (!HasValidUtf8Strings(files)) {
+    receiver_.ReportBadMessage("Invalid UTF-8 in CopyAttachmentsToClipboard");
+    return;
+  }
+
+  std::vector<std::pair<std::string, std::string>> sanitized_files =
+      SanitizeAndDeduplicateAttachments(std::move(files));
+  CHECK(!sanitized_files.empty());
+
+  GetClipboardFileTaskRunner()->PostTaskAndReplyWithResult(
+      FROM_HERE,
+      base::BindOnce(&WriteAttachmentFilesToDisk, std::move(sanitized_files)),
+      base::BindOnce(
+          &ContextHubPageHandler::OnCopyAttachmentsToClipboardWritten,
+          weak_factory_.GetWeakPtr(), std::move(callback)));
+#endif  // !BUILDFLAG(IS_ANDROID)
+}
+
+#if !BUILDFLAG(IS_ANDROID)
+void ContextHubPageHandler::OnCopyAttachmentsToClipboardWritten(
+    CopyAttachmentsToClipboardCallback callback,
+    std::vector<std::pair<std::string, base::FilePath>> written_files) {
+  if (written_files.empty()) {
+    std::move(callback).Run(
+        browser::context_hub::mojom::CopyAttachmentsToClipboardStatus::
+            kFileWriteFailed);
+    return;
+  }
+
+  std::vector<ui::FileInfo> file_infos =
+      base::ToVector(written_files, [](const auto& entry) {
+        return ui::FileInfo(entry.second,
+                            base::FilePath::FromUTF8Unsafe(entry.first));
+      });
+
+  ui::ScopedClipboardWriter scw(ui::ClipboardBuffer::kCopyPaste);
+  scw.WriteFilenames(ui::FileInfosToURIList(file_infos));
+
+  std::move(callback).Run(
+      browser::context_hub::mojom::CopyAttachmentsToClipboardStatus::kSuccess);
+}
+#endif  // !BUILDFLAG(IS_ANDROID)

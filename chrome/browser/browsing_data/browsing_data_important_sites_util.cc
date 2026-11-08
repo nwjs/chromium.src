@@ -48,7 +48,7 @@ BrowsingDataTaskObserver::~BrowsingDataTaskObserver() = default;
 
 void BrowsingDataTaskObserver::OnBrowsingDataRemoverDone(
     uint64_t failed_data_types) {
-  DCHECK(task_count_);
+  CHECK(task_count_, base::NotFatalUntil::M161);
   failed_data_types_ |= failed_data_types;
   if (--task_count_)
     return;
@@ -65,6 +65,7 @@ DEFINE_CUSTOM_ELEMENT_EVENT_TYPE(
     kOpenClearBrowsingDataDialogViaAcceleratorEventId);
 DEFINE_CUSTOM_ELEMENT_EVENT_TYPE(kClearBrowsingDataHistoryEventId);
 DEFINE_CUSTOM_ELEMENT_EVENT_TYPE(kShowClearBrowsingDataDialogEventId);
+DEFINE_CUSTOM_ELEMENT_EVENT_TYPE(kDismissClearBrowsingDataDialogEventId);
 
 void Remove(uint64_t remove_mask,
             uint64_t origin_mask,

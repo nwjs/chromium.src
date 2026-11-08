@@ -9,6 +9,7 @@ import xml.dom.minidom
 
 import setup_modules  # pylint: disable=unused-import
 
+
 import chromium_src.tools.metrics.histograms.generate_expired_histograms_array as generate_expired_histograms_array
 
 _EXPECTED_HEADER_FILE_CONTENT = """// Generated from generate_expired_histograms_array.py. Do not edit!

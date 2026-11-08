@@ -2,11 +2,17 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "third_party/blink/renderer/core/css/resolver/style_adjuster.h"
+
 #include "base/test/scoped_feature_list.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/features.h"
+#include "third_party/blink/renderer/core/css/resolver/style_resolver.h"
+#include "third_party/blink/renderer/core/css/resolver/style_resolver_state.h"
 #include "third_party/blink/renderer/core/dom/shadow_root.h"
 #include "third_party/blink/renderer/core/frame/event_handler_registry.h"
+#include "third_party/blink/renderer/core/layout/layout_theme.h"
+#include "third_party/blink/renderer/core/style/computed_style.h"
 #include "third_party/blink/renderer/core/testing/core_unit_test_helper.h"
 #include "third_party/blink/renderer/platform/testing/runtime_enabled_features_test_helpers.h"
 #include "ui/base/ui_base_features.h"
@@ -392,6 +398,104 @@ TEST_F(StyleAdjusterTest, AdjustForSVGCrash) {
             text->GetComputedStyle()->CssDominantBaseline());
 }
 
+TEST_F(StyleAdjusterTest, IncrementalStyleBlocker) {
+  SetBodyInnerHTML(R"HTML(<div></div>)HTML");
+  UpdateAllLifecyclePhasesForTest();
+
+  const ComputedStyle& initial =
+      GetDocument().GetStyleResolver().InitialStyle();
+  ComputedStyleBuilder metadata_only(initial);
+  metadata_only.SetHasIncrementalStyleBlocker(true);
+  const ComputedStyle* blocked = metadata_only.TakeStyle();
+  EXPECT_TRUE(initial == *blocked);
+  ComputedStyleBuilder cloned(*blocked);
+  EXPECT_TRUE(cloned.TakeStyle()->HasIncrementalStyleBlocker());
+  ComputedStyleBuilder inherited(initial, *blocked);
+  EXPECT_FALSE(inherited.TakeStyle()->HasIncrementalStyleBlocker());
+}
+
+TEST_F(StyleAdjusterTest, RepeatedSVGAdjustment) {
+  ScopedSvgIncrementalStyleForTest incremental_style(true);
+  SetBodyInnerHTML(R"HTML(
+    <style>
+      #outer { display: block; position: relative; }
+      #absolute { position: absolute; }
+      #relative { position: relative; }
+      #foreign, #text { display: inline-block; }
+      #inline { display: inline; }
+      #contents { display: contents; }
+      .appearance { appearance: button; }
+      #unchanged, #appearance_unchanged { display: block; }
+    </style>
+    <svg id="outer"><g style="text-decoration: underline">
+      <rect id="absolute"/>
+      <rect id="relative"/>
+      <text id="text">Text</text>
+      <foreignObject id="foreign"/>
+      <foreignObject id="inline"/>
+      <rect id="contents"/>
+      <rect id="appearance" class="appearance"/>
+      <rect id="appearance_cached" class="appearance"/>
+      <rect id="appearance_unchanged" class="appearance"/>
+      <rect id="unchanged"/>
+    </g></svg>
+    <div id="html" style="position: absolute; display: inline-block"></div>
+  )HTML");
+  UpdateAllLifecyclePhasesForTest();
+
+  const bool appearance_adjusts_display =
+      !RuntimeEnabledFeatures::
+          AppearanceDisplayAdjustmentForWidgetsOnlyEnabled();
+  const struct {
+    const char* id;
+    EDisplay display;
+    EPosition position;
+    bool non_idempotent;
+    AppearanceValue appearance = AppearanceValue::kNone;
+  } cases[] = {
+      {"absolute", EDisplay::kInline, EPosition::kAbsolute, false},
+      {"relative", EDisplay::kInline, EPosition::kRelative, false},
+      {"foreign", EDisplay::kInlineBlock, EPosition::kStatic, false},
+      {"text", EDisplay::kInlineBlock, EPosition::kStatic, false},
+      {"inline", EDisplay::kInline, EPosition::kStatic, false},
+      {"contents", EDisplay::kContents, EPosition::kStatic, false},
+      {"appearance", EDisplay::kInline, EPosition::kStatic,
+       appearance_adjusts_display, AppearanceValue::kButton},
+      {"appearance_cached", EDisplay::kInline, EPosition::kStatic,
+       appearance_adjusts_display, AppearanceValue::kButton},
+      {"appearance_unchanged", EDisplay::kBlock, EPosition::kStatic, false,
+       AppearanceValue::kButton},
+      {"unchanged", EDisplay::kBlock, EPosition::kStatic, false},
+      {"outer", EDisplay::kBlock, EPosition::kRelative, false},
+      {"html", EDisplay::kInlineBlock, EPosition::kAbsolute, false},
+  };
+  for (const auto& test : cases) {
+    SCOPED_TRACE(test.id);
+    Element* element = GetElementById(test.id);
+    const ComputedStyle* original = element->EnsureComputedStyle();
+    ASSERT_TRUE(original);
+    EXPECT_FALSE(original->HasIncrementalStyleBlocker());
+
+    StyleResolverState state(GetDocument(), *element);
+    state.CreateNewClonedStyle(*original);
+    StyleAdjuster::AdjustComputedStyle(state, element);
+    EXPECT_EQ(test.non_idempotent, !(*original == *state.CloneStyle()));
+    EXPECT_EQ(test.non_idempotent,
+              original->BaseTextDecorationData() !=
+                  state.StyleBuilder().BaseTextDecorationData());
+
+    // Restore the discarded inputs before repeating adjustment.
+    state.CreateNewClonedStyle(*original);
+    state.StyleBuilder().SetDisplay(test.display);
+    state.StyleBuilder().SetPosition(test.position);
+    StyleAdjuster::AdjustComputedStyle(state, element);
+    if (test.appearance != AppearanceValue::kNone) {
+      LayoutTheme::GetTheme().AdjustStyle(*element, state.StyleBuilder());
+    }
+    EXPECT_TRUE(*original == *state.CloneStyle());
+  }
+}
+
 TEST_F(StyleAdjusterTest, AdjustForCanvasDrawableDescendant) {
   ScopedCanvasDrawElementForTest forced_canvas_draw_element_feature(true);
   SetBodyInnerHTML(R"HTML(
@@ -413,13 +517,11 @@ TEST_F(StyleAdjusterTest, AdjustForCanvasDrawableDescendant) {
       <div id="b" drawable style="background: blue;">
         <div id="ba" drawable></div>
       </div>
-      <span id="immediate_span">immediate</span>
+      <span id="immediate_span" drawable>immediate</span>
     </canvas>
   )HTML");
   UpdateAllLifecyclePhasesForTest();
-  // TODO(paint-dev): Uncomment this check when we stop treating direct children
-  // of a canvas as implicitly `drawable`.
-  // EXPECT_FALSE(GetLayoutObjectByElementId("a")->IsStackingContext());
+  EXPECT_FALSE(GetLayoutObjectByElementId("a")->IsStackingContext());
   EXPECT_TRUE(GetLayoutObjectByElementId("aa")->IsStackingContext());
   EXPECT_FALSE(GetLayoutObjectByElementId("aaa")->IsStackingContext());
   EXPECT_TRUE(GetLayoutObjectByElementId("aab")->IsStackingContext());
@@ -429,53 +531,51 @@ TEST_F(StyleAdjusterTest, AdjustForCanvasDrawableDescendant) {
   EXPECT_TRUE(GetLayoutObjectByElementId("b")->IsStackingContext());
   EXPECT_TRUE(GetLayoutObjectByElementId("ba")->IsStackingContext());
   EXPECT_EQ(EDisplay::kBlock,
-            GetLayoutObjectByElementId("immediate_span")->StyleRef().Display());
+            GetLayoutObjectByElementId("immediate_span")->Style().Display());
   EXPECT_TRUE(
       GetLayoutObjectByElementId("immediate_span")->IsStackingContext());
   EXPECT_TRUE(GetLayoutObjectByElementId("immediate_span")
                   ->CanContainFixedPositionObjects());
   EXPECT_EQ(EDisplay::kInline,
-            GetLayoutObjectByElementId("nested_span")->StyleRef().Display());
+            GetLayoutObjectByElementId("nested_span")->Style().Display());
   EXPECT_TRUE(GetLayoutObjectByElementId("nested_span")->IsStackingContext());
   EXPECT_TRUE(GetLayoutObjectByElementId("nested_span")
                   ->CanContainFixedPositionObjects());
+  EXPECT_TRUE(
+      GetLayoutObjectByElementId("a")->CanContainFixedPositionObjects());
   EXPECT_TRUE(
       GetLayoutObjectByElementId("aa")->CanContainFixedPositionObjects());
   EXPECT_FALSE(
       GetLayoutObjectByElementId("aaa")->CanContainFixedPositionObjects());
 
-  // TODO(paint-dev): Update this to kAuto when direct children are no longer
-  // implicitly drawable.
-  EXPECT_EQ(EIsolation::kIsolate,
-            GetLayoutObjectByElementId("a")->StyleRef().Isolation());
-  EXPECT_EQ(EIsolation::kIsolate,
-            GetLayoutObjectByElementId("aa")->StyleRef().Isolation());
   EXPECT_EQ(EIsolation::kAuto,
-            GetLayoutObjectByElementId("aaa")->StyleRef().Isolation());
+            GetLayoutObjectByElementId("a")->Style().Isolation());
   EXPECT_EQ(EIsolation::kIsolate,
-            GetLayoutObjectByElementId("aab")->StyleRef().Isolation());
+            GetLayoutObjectByElementId("aa")->Style().Isolation());
   EXPECT_EQ(EIsolation::kAuto,
-            GetLayoutObjectByElementId("aaba")->StyleRef().Isolation());
+            GetLayoutObjectByElementId("aaa")->Style().Isolation());
+  EXPECT_EQ(EIsolation::kIsolate,
+            GetLayoutObjectByElementId("aab")->Style().Isolation());
   EXPECT_EQ(EIsolation::kAuto,
-            GetLayoutObjectByElementId("aac")->StyleRef().Isolation());
+            GetLayoutObjectByElementId("aaba")->Style().Isolation());
   EXPECT_EQ(EIsolation::kAuto,
-            GetLayoutObjectByElementId("ab")->StyleRef().Isolation());
+            GetLayoutObjectByElementId("aac")->Style().Isolation());
+  EXPECT_EQ(EIsolation::kAuto,
+            GetLayoutObjectByElementId("ab")->Style().Isolation());
   EXPECT_EQ(EIsolation::kIsolate,
-            GetLayoutObjectByElementId("b")->StyleRef().Isolation());
+            GetLayoutObjectByElementId("b")->Style().Isolation());
   EXPECT_EQ(EIsolation::kIsolate,
-            GetLayoutObjectByElementId("ba")->StyleRef().Isolation());
-  EXPECT_EQ(
-      EIsolation::kIsolate,
-      GetLayoutObjectByElementId("immediate_span")->StyleRef().Isolation());
+            GetLayoutObjectByElementId("ba")->Style().Isolation());
   EXPECT_EQ(EIsolation::kIsolate,
-            GetLayoutObjectByElementId("nested_span")->StyleRef().Isolation());
+            GetLayoutObjectByElementId("immediate_span")->Style().Isolation());
+  EXPECT_EQ(EIsolation::kIsolate,
+            GetLayoutObjectByElementId("nested_span")->Style().Isolation());
 
+  EXPECT_EQ(kContainsNone, GetLayoutObjectByElementId("aa")->Style().Contain());
   EXPECT_EQ(kContainsNone,
-            GetLayoutObjectByElementId("aa")->StyleRef().Contain());
+            GetLayoutObjectByElementId("immediate_span")->Style().Contain());
   EXPECT_EQ(kContainsNone,
-            GetLayoutObjectByElementId("immediate_span")->StyleRef().Contain());
-  EXPECT_EQ(kContainsNone,
-            GetLayoutObjectByElementId("nested_span")->StyleRef().Contain());
+            GetLayoutObjectByElementId("nested_span")->Style().Contain());
 }
 
 }  // namespace blink

@@ -417,6 +417,8 @@ void MessagePumpEpoll::UnregisterInterest(
     const scoped_refptr<Interest>& interest) {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
 
+  interest->set_active(false);
+
   const int fd = interest->params().fd;
   auto entry_it = entries_.find(fd);
   CHECK(entry_it != entries_.end());
@@ -426,6 +428,14 @@ void MessagePumpEpoll::UnregisterInterest(
   auto it = std::ranges::find(interests, interest);
   CHECK(it != interests.end());
   interests.erase(it);
+
+  // OnEpollEvent() dispatches from a copy of `interests` and skips inactive
+  // ones. An interest that is unregistered while that copy is being iterated
+  // (e.g. because another watcher on the same fd called
+  // StopWatchingFileDescriptor() on this interest's controller from its own
+  // callback) must not be dispatched afterwards: its controller's `watcher_`
+  // has already been cleared.
+  interest->set_active(false);
 
   if (interests.empty()) {
     StopEpollEvent(entry);

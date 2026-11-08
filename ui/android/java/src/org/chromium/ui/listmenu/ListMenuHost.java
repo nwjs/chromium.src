@@ -256,7 +256,7 @@ public class ListMenuHost
                                 mView.getContext(),
                                 mView,
                                 new ColorDrawable(Color.TRANSPARENT),
-                                () -> contentView,
+                                (unused) -> contentView,
                                 mDelegate.getRectProvider(mView))
                         .setDismissOnScreenSizeChange(true)
                         .setVerticalOverlapAnchor(mMenuVerticalOverlapAnchor)
@@ -348,9 +348,10 @@ public class ListMenuHost
                                 mView.getContext(),
                                 rootView,
                                 new ColorDrawable(Color.TRANSPARENT),
-                                () -> contentView,
+                                (unused) -> contentView,
                                 new RectProvider(
                                         FlyoutController.calculateFlyoutAnchorRect(view, rootView)))
+                        .setDismissOnScreenSizeChange(true)
                         .setVerticalOverlapAnchor(true)
                         .setHorizontalOverlapAnchor(false)
                         .setMaxWidth(mMenuMaxWidth)

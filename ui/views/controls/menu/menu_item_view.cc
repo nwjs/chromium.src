@@ -11,11 +11,11 @@
 #include <memory>
 #include <numeric>
 #include <optional>
+#include <ranges>
 #include <string>
 #include <utility>
 
 #include "base/auto_reset.h"
-#include "base/containers/adapters.h"
 #include "base/i18n/case_conversion.h"
 #include "base/strings/utf_string_conversions.h"
 #include "build/build_config.h"
@@ -45,6 +45,7 @@
 #include "ui/gfx/geometry/vector2d.h"
 #include "ui/gfx/image/image.h"
 #include "ui/gfx/paint_vector_icon.h"
+#include "ui/gfx/scoped_canvas.h"
 #include "ui/gfx/text_utils.h"
 #include "ui/native_theme/native_theme.h"
 #include "ui/views/accessibility/ax_virtual_view.h"
@@ -131,6 +132,10 @@ MenuItemView::MenuItemView(MenuDelegate* delegate)
                    delegate) {}
 
 MenuItemView::~MenuItemView() {
+  CHECK(!inserting_into_menu_)
+      << "A menu item was synchronously destroyed while being inserted into a "
+         "menu, possibly by some consumer of the accessibility API. This "
+         "should never happen.";
   SetAnchorView(nullptr);
   // Only the root item holds `controller_`, so walk up to the root to also
   // cover destruction of a non-root subtree (e.g. via RemoveMenuItem()). This
@@ -398,6 +403,7 @@ std::u16string MenuItemView::GetAccessibleNameForMenuItem(
 }
 
 void MenuItemView::Cancel() {
+  CHECK(!parent_menu_item_);
   if (controller_ && !canceled_) {
     canceled_ = true;
     controller_->Cancel(MenuController::ExitType::kAll);
@@ -417,7 +423,31 @@ MenuItemView* MenuItemView::AddMenuItemAt(
     std::optional<ui::ColorId> submenu_background_color,
     std::optional<ui::ColorId> foreground_color,
     std::optional<ui::ColorId> selected_color_id) {
+  if (type == Type::kSeparator) {
+    AddSeparatorAt(index, separator_style);
+    return nullptr;
+  }
+  auto item = base::WrapUnique(new MenuItemView(this, item_id, type));
+  item->SetTitle(label.empty() && GetDelegate()
+                     ? GetDelegate()->GetLabel(item_id)
+                     : label);
+  item->SetSecondaryTitle(secondary_label);
+  item->SetMinorText(minor_text);
+  item->SetMinorIcon(minor_icon);
+  item->SetIcon(icon);
+  item->SetForegroundColorId(foreground_color);
+  item->SetSelectedColorId(selected_color_id);
+  return AddMenuItemViewImpl(std::move(item), index, submenu_background_color);
+}
+
+MenuItemView* MenuItemView::AddMenuItemViewImpl(
+    std::unique_ptr<MenuItemView> item,
+    std::optional<size_t> index,
+    std::optional<ui::ColorId> submenu_background_color) {
+  CHECK(item);
+  const Type type = item->GetType();
   DCHECK_NE(type, Type::kEmpty);
+  DCHECK_NE(type, Type::kSeparator);
   if (!submenu_) {
     CreateSubmenu();
     // Set the submenu border color to be the same as the first submenu
@@ -428,33 +458,21 @@ MenuItemView* MenuItemView::AddMenuItemAt(
           views::CreateSolidBackground(submenu_background_color.value()));
     }
   }
-  DCHECK_LE(index, submenu_->children().size());
-  if (type == Type::kSeparator) {
-    submenu_->AddChildViewAt(std::make_unique<MenuSeparator>(separator_style),
-                             index);
-    return nullptr;
-  }
-  MenuItemView* item = new MenuItemView(this, item_id, type);
-  item->SetTitle(label.empty() && GetDelegate()
-                     ? GetDelegate()->GetLabel(item_id)
-                     : label);
-  item->SetSecondaryTitle(secondary_label);
-  item->SetMinorText(minor_text);
-  item->SetMinorIcon(minor_icon);
-  item->SetIcon(icon);
-  item->SetForegroundColorId(foreground_color);
-  item->SetSelectedColorId(selected_color_id);
+  const size_t insert_index = index.value_or(submenu_->children().size());
+  DCHECK_LE(insert_index, submenu_->children().size());
+
   if (type == Type::kSubMenu || type == Type::kActionableSubMenu) {
     item->CreateSubmenu();
   }
   if (type == Type::kHighlighted) {
     item->set_vertical_margin(MenuConfig::instance().footnote_vertical_margin);
   }
-  if (GetDelegate() && !GetDelegate()->IsCommandVisible(item_id)) {
+  if (GetDelegate() && !GetDelegate()->IsCommandVisible(item->GetCommand())) {
     item->SetVisible(false);
   }
 
-  auto* added_item = submenu_->AddChildViewAt(item, index);
+  base::AutoReset inserting_auto_reset(&item->inserting_into_menu_, true);
+  auto* added_item = submenu_->AddChildViewAt(std::move(item), insert_index);
 
   added_item->UpdateTooltipText();
 
@@ -789,6 +807,17 @@ int MenuItemView::GetTrailingPadding() const {
          MenuConfig::instance().item_horizontal_padding;
 }
 
+void MenuItemView::SetController(MenuController* controller) {
+  // Only the root holds the controller; everything else goes through
+  // GetMenuController(), which walks up to the root.
+  CHECK(!parent_menu_item_);
+  if (controller) {
+    controller_ = controller->AsWeakPtr();
+  } else {
+    controller_.reset();
+  }
+}
+
 MenuController* MenuItemView::GetMenuController() {
   return GetRootMenuItem()->controller_.get();
 }
@@ -836,7 +865,9 @@ char16_t MenuItemView::GetMnemonic() {
         // from a 'dotted i'. Similar issues may exist for az and lt locales.
         return base::i18n::ToLower(char_array)[0];
       }
-      index++;
+      // "&&" shows a literal "&" and isn't a mnemonic marker. Skip both
+      // characters, so the second "&" isn't read as a marker for the next one.
+      index += 2;
     }
   } while (index != std::u16string::npos);
   return 0;
@@ -910,13 +941,16 @@ ProposedLayout MenuItemView::CalculateProposedLayout(
     layout.child_layouts.emplace_back(children().front(),
                                       children().front()->GetVisible(), bounds);
   } else {
-    // Child views are laid out right aligned and given the full height. To
-    // right align start with the last view and progress to the first.
+    // Child views are laid out right aligned and given the full height of the
+    // row, which excludes the background's padding. To right align start with
+    // the last view and progress to the first.
+    gfx::Rect row(layout.host_size);
+    row.Inset(GetBackgroundPadding());
     const SubmenuView* const submenu = GetContainingSubmenu();
     int child_end =
         layout.host_size.width() -
         (children_use_full_width_ ? 0 : submenu->trailing_padding());
-    for (View* child : base::Reversed(children())) {
+    for (View* child : std::views::reverse(children())) {
       if (icon_view_ == child) {
         continue;
       }
@@ -932,7 +966,7 @@ ProposedLayout MenuItemView::CalculateProposedLayout(
       int width = child->GetPreferredSize({}).width();
       layout.child_layouts.emplace_back(
           child, child->GetVisible(),
-          gfx::Rect(child_end - width, 0, width, layout.host_size.height()));
+          gfx::Rect(child_end - width, row.y(), width, row.height()));
       child_end -= width + kChildHorizontalPadding;
     }
 
@@ -941,7 +975,7 @@ ProposedLayout MenuItemView::CalculateProposedLayout(
 
     if (radio_check_image_view_) {
       const int x = CalculateIconX(radio_check_image_view_);
-      const int y = (layout.host_size.height() - kMenuCheckSize) / 2;
+      const int y = row.y() + (row.height() - kMenuCheckSize) / 2;
       layout.child_layouts.emplace_back(
           radio_check_image_view_.get(), radio_check_image_view_->GetVisible(),
           gfx::Rect(x, y, kMenuCheckSize, kMenuCheckSize));
@@ -949,7 +983,7 @@ ProposedLayout MenuItemView::CalculateProposedLayout(
     if (icon_view_) {
       const gfx::Size preferred_size = icon_view_->GetPreferredSize({});
       const int x = CalculateIconX(icon_view_);
-      const int y = (layout.host_size.height() - preferred_size.height()) / 2;
+      const int y = row.y() + (row.height() - preferred_size.height()) / 2;
       layout.child_layouts.emplace_back(
           icon_view_.get(), icon_view_->GetVisible(),
           gfx::Rect(x, y, preferred_size.width(), preferred_size.height()));
@@ -962,7 +996,7 @@ ProposedLayout MenuItemView::CalculateProposedLayout(
                ? config.actionable_submenu_arrow_to_edge_padding
                : config.arrow_to_edge_padding);
       const int x = layout.host_size.width() - right_border - config.arrow_size;
-      const int y = (layout.host_size.height() - config.arrow_size) / 2;
+      const int y = row.y() + (row.height() - config.arrow_size) / 2;
       layout.child_layouts.emplace_back(
           submenu_arrow_image_view_.get(),
           submenu_arrow_image_view_->GetVisible(),
@@ -974,7 +1008,7 @@ ProposedLayout MenuItemView::CalculateProposedLayout(
           vertical_separator_->GetPreferredSize({});
       const int x = layout.host_size.width() - config.actionable_submenu_width -
                     config.actionable_submenu_vertical_separator_width;
-      const int y = (layout.host_size.height() - preferred_size.height()) / 2;
+      const int y = row.y() + (row.height() - preferred_size.height()) / 2;
       layout.child_layouts.emplace_back(
           vertical_separator_.get(), vertical_separator_->GetVisible(),
           gfx::Rect(x, y, preferred_size.width(), preferred_size.height()));
@@ -982,6 +1016,12 @@ ProposedLayout MenuItemView::CalculateProposedLayout(
   }
 
   return layout;
+}
+
+bool MenuItemView::ShouldShowMnemonics() const {
+  const MenuItemView* root = GetRootMenuItem();
+  return root->has_mnemonics_ &&
+         (MenuConfig::instance().show_mnemonics || root->show_mnemonics_);
 }
 
 void MenuItemView::SetForcedVisualSelection(bool selected) {
@@ -1103,10 +1143,8 @@ int MenuItemView::GetDrawStringFlags() const {
                                   : gfx::Canvas::TEXT_ALIGN_LEFT;
 
   if (GetRootMenuItem()->has_mnemonics_ && may_have_mnemonics()) {
-    flags |= (MenuConfig::instance().show_mnemonics ||
-              GetRootMenuItem()->show_mnemonics_)
-                 ? gfx::Canvas::SHOW_PREFIX
-                 : gfx::Canvas::HIDE_PREFIX;
+    flags |= ShouldShowMnemonics() ? gfx::Canvas::SHOW_PREFIX
+                                   : gfx::Canvas::HIDE_PREFIX;
   }
   return flags;
 }
@@ -1213,13 +1251,17 @@ void MenuItemView::OnPaintImpl(gfx::Canvas* canvas, PaintMode mode) {
 
   const Colors colors = CalculateColors(paint_as_selected);
 
+  // The content is centered in the row, inside the background's padding.
+  const gfx::Insets padding = GetBackgroundPadding();
+
   // Paint the icon for drag handles. In normal mode, the icon is painted by
   // View::PaintChildren().
   if (icon_view_ && icon_view_->GetVisible() && mode == PaintMode::kForDrag) {
     const gfx::Size preferred_size = icon_view_->GetPreferredSize({});
     // Use the shared helper function to determine the X coordinate.
     const int x = CalculateIconX(icon_view_);
-    const int y = (height() - preferred_size.height()) / 2;
+    const int y = padding.top() +
+                  (height() - padding.height() - preferred_size.height()) / 2;
     gfx::Rect icon_bounds(x, y, preferred_size.width(),
                           preferred_size.height());
     AdjustBoundsForRTLUI(&icon_bounds);
@@ -1236,8 +1278,8 @@ void MenuItemView::OnPaintImpl(gfx::Canvas* canvas, PaintMode mode) {
   const gfx::FontList& font_list = GetFontList();
 
   // Calculate the margins.
-  const int top_margin_val = GetTopMargin();
-  const int bottom_margin_val = GetBottomMargin();
+  const int top_margin_val = padding.top() + GetTopMargin();
+  const int bottom_margin_val = padding.bottom() + GetBottomMargin();
   const int available_height = height() - top_margin_val - bottom_margin_val;
   const int text_height = font_list.GetHeight();
   const int total_text_height =
@@ -1282,6 +1324,8 @@ void MenuItemView::OnPaintImpl(gfx::Canvas* canvas, PaintMode mode) {
 void MenuItemView::PaintBackground(gfx::Canvas* canvas,
                                    PaintMode mode,
                                    bool paint_as_selected) {
+  // The background's shape, which the highlight may be clipped to below.
+  SkRRect background_rrect;
   if (menu_item_background_.has_value()) {
     MenuItemBackground background_info = menu_item_background_.value();
     const int horizontal_margin =
@@ -1304,9 +1348,8 @@ void MenuItemView::PaintBackground(gfx::Canvas* canvas,
         {SkIntToScalar(background_info.bottom_radius),
          SkIntToScalar(background_info.bottom_radius)},
     };
-    SkRRect rrect;
-    rrect.setRectRadii(gfx::RectToSkRect(bounds), radii);
-    canvas->sk_canvas()->drawRRect(rrect, flags);
+    background_rrect.setRectRadii(gfx::RectToSkRect(bounds), radii);
+    canvas->sk_canvas()->drawRRect(background_rrect, flags);
   }
   const auto& config = MenuConfig::instance();
   if (type_ == Type::kHighlighted || is_alerted_ ||
@@ -1339,11 +1382,15 @@ void MenuItemView::PaintBackground(gfx::Canvas* canvas,
     // highlighted item is at the bottom of the menu.
     gfx::RectF highlight_bounds(GetLocalBounds());
     SkVector radii[4]{{0, 0}, {0, 0}, {0, 0}, {0, 0}};
+    bool clip_to_background = false;
     if (menu_item_background_.has_value()) {
       const int horizontal_margin =
           menu_item_background_->horizontal_margin.value_or(
               GetItemHorizontalBorder());
-      highlight_bounds.Inset(gfx::InsetsF::VH(0, horizontal_margin));
+      // The highlight covers only the row, not the background's padding.
+      highlight_bounds.Inset(gfx::InsetsF::TLBR(
+          menu_item_background_->top_padding, horizontal_margin,
+          menu_item_background_->bottom_padding, horizontal_margin));
       const SkScalar top_r = SkIntToScalar(menu_item_background_->top_radius);
       const SkScalar bot_r =
           SkIntToScalar(menu_item_background_->bottom_radius);
@@ -1351,6 +1398,11 @@ void MenuItemView::PaintBackground(gfx::Canvas* canvas,
       radii[1] = {top_r, top_r};
       radii[2] = {bot_r, bot_r};
       radii[3] = {bot_r, bot_r};
+      // Padding next to a rounded corner moves the row's corner inside the
+      // curve, where the background's radius no longer fits the row.
+      clip_to_background =
+          (menu_item_background_->top_padding > 0 && top_r > 0) ||
+          (menu_item_background_->bottom_padding > 0 && bot_r > 0);
     } else {
       radii[2].set(bottom_rounded_corners_.lower_right(),
                    bottom_rounded_corners_.lower_right());
@@ -1358,16 +1410,27 @@ void MenuItemView::PaintBackground(gfx::Canvas* canvas,
                    bottom_rounded_corners_.lower_left());
     }
 
-    SkRRect rounded_rect;
-    rounded_rect.setRectRadii(gfx::RectFToSkRect(highlight_bounds), radii);
-    canvas->sk_canvas()->drawRRect(rounded_rect, flags);
+    if (clip_to_background) {
+      // Draw a plain rect clipped to the background, so the highlight follows
+      // the background's curve.
+      gfx::ScopedCanvas scoped_canvas(canvas);
+      canvas->sk_canvas()->clipRRect(background_rrect, /*do_anti_alias=*/true);
+      canvas->sk_canvas()->drawRect(gfx::RectFToSkRect(highlight_bounds),
+                                    flags);
+    } else {
+      SkRRect rounded_rect;
+      rounded_rect.setRectRadii(gfx::RectFToSkRect(highlight_bounds), radii);
+      canvas->sk_canvas()->drawRRect(rounded_rect, flags);
+    }
   } else if (paint_as_selected) {
     gfx::Rect item_bounds = GetLocalBounds();
     if (menu_item_background_.has_value()) {
       const int horizontal_margin =
           menu_item_background_->horizontal_margin.value_or(
               GetItemHorizontalBorder());
-      item_bounds.Inset(gfx::Insets::VH(0, horizontal_margin));
+      item_bounds.Inset(gfx::Insets::TLBR(
+          menu_item_background_->top_padding, horizontal_margin,
+          menu_item_background_->bottom_padding, horizontal_margin));
     }
     if (type_ == Type::kActionableSubMenu) {
       if (submenu_area_of_actionable_submenu_selected_) {
@@ -1411,12 +1474,14 @@ void MenuItemView::PaintMinorIconAndText(gfx::Canvas* canvas, SkColor color) {
   std::unique_ptr<gfx::RenderText> render_text =
       gfx::RenderText::CreateRenderText();
 
+  // Center the minor text and icon in the row, inside the background padding.
+  const gfx::Insets padding = GetBackgroundPadding();
   gfx::Rect minor_text_bounds(
       width() - submenu->trailing_padding() - max_minor_text_width,
-      vertical_margin,
+      padding.top() + vertical_margin,
       max_minor_text_width - submenu_arrow_width -
           (minor_icon_on_right_ ? minor_icon_width : 0),
-      height() - vertical_margin * 2);
+      height() - padding.height() - vertical_margin * 2);
   minor_text_bounds.set_x(GetMirroredXForRect(minor_text_bounds));
 
   auto paint_minor_icon = [&](bool paint_on_right) {
@@ -1613,6 +1678,7 @@ MenuItemView::MenuItemDimensions MenuItemView::CalculateDimensions() const {
                    icon_view_->GetPreferredSize({}).height() +
                        2 * config.vertical_touchable_menu_item_padding);
     }
+    dimensions.height += GetBackgroundPadding().height();
     return dimensions;
   }
 
@@ -1647,6 +1713,8 @@ MenuItemView::MenuItemDimensions MenuItemView::CalculateDimensions() const {
       std::max(dimensions.height, label_text_height + vertical_margins);
 
   ApplyMinimumDimensions(&dimensions);
+  // The background's padding is outside the row, so add it last.
+  dimensions.height += GetBackgroundPadding().height();
   return dimensions;
 }
 
@@ -1731,7 +1799,8 @@ gfx::Insets MenuItemView::GetContainerMargins() const {
   const int vertical_margin = GetVerticalMargin();
   margins.set_top(std::max(margins.top(), vertical_margin));
   margins.set_bottom(std::max(margins.bottom(), vertical_margin));
-  return margins;
+  // The child is laid out in the row, inside the background's padding.
+  return margins + GetBackgroundPadding();
 }
 
 int MenuItemView::NonIconChildViewsCount() const {
@@ -1900,6 +1969,14 @@ int MenuItemView::GetVerticalMargin() const {
              : config.item_vertical_margin;
 }
 
+gfx::Insets MenuItemView::GetBackgroundPadding() const {
+  if (!menu_item_background_.has_value()) {
+    return gfx::Insets();
+  }
+  return gfx::Insets::TLBR(menu_item_background_->top_padding, 0,
+                           menu_item_background_->bottom_padding, 0);
+}
+
 ViewAccessibility* MenuItemView::GetSubmenuViewAccessibility() {
   return submenu_ ? &submenu_->GetViewAccessibility() : nullptr;
 }
@@ -2064,7 +2141,7 @@ void MenuItemActionViewInterface::ActionItemChangedImpl(
   BaseActionViewInterface::ActionItemChangedImpl(action_item);
   auto* menu_item_view = views::AsViewClass<MenuItemView>(action_view());
   CHECK(menu_item_view);
-  menu_item_view->SetTitle(std::u16string(action_item->GetText()));
+  menu_item_view->SetTitle(std::u16string(action_item->GetTextWithMnemonic()));
   if (!action_item->GetImage().IsEmpty()) {
     menu_item_view->SetIcon(action_item->GetImage());
   }
@@ -2086,7 +2163,9 @@ BEGIN_METADATA(EmptyMenuMenuItem)
 END_METADATA
 
 DEFINE_UI_CLASS_PROPERTY_KEY(MenuItemView*, kSubmenuItemKey, nullptr)
+DEFINE_UI_CLASS_PROPERTY_KEY(char16_t, kMenuMnemonicKey, 0)
 
 }  // namespace views
 
+DEFINE_EXPORTED_UI_CLASS_PROPERTY_TYPE(VIEWS_EXPORT, char16_t)
 DEFINE_EXPORTED_UI_CLASS_PROPERTY_TYPE(VIEWS_EXPORT, views::MenuItemView*)

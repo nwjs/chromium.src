@@ -13,6 +13,7 @@
 #include "base/functional/callback_forward.h"
 #include "base/memory/weak_ptr.h"
 #include "base/task/cancelable_task_tracker.h"
+#include "chrome/browser/actor/actor_surface_handle.h"
 #include "chrome/browser/actor/tools/tool.h"
 #include "chrome/browser/actor/tools/tool_callbacks.h"
 #include "chrome/common/actor_webui.mojom-forward.h"
@@ -21,6 +22,12 @@
 #include "components/password_manager/core/browser/actor_login/actor_login_quality_logger.h"
 #include "components/password_manager/core/browser/actor_login/actor_login_service.h"
 #include "components/tabs/public/tab_interface.h"
+
+#if BUILDFLAG(IS_ANDROID)
+#include "base/scoped_observation.h"
+#include "chrome/browser/ui/browser_window/public/browser_collection_observer.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
+#endif
 
 class GURL;
 namespace favicon_base {
@@ -33,11 +40,18 @@ class Image;
 
 namespace actor {
 
-class AttemptLoginTool : public Tool {
+class ActorSurface;
+
+class AttemptLoginTool : public Tool
+#if BUILDFLAG(IS_ANDROID)
+    ,
+                         public BrowserCollectionObserver
+#endif
+{
  public:
   AttemptLoginTool(TaskId task_id,
                    ToolDelegate& tool_delegate,
-                   tabs::TabInterface& tab,
+                   ActorSurface& actor_surface,
                    std::optional<PageTarget> password_button,
                    std::optional<PageTarget> sign_in_with_google_button,
                    bool requires_opening_web_contents);
@@ -53,7 +67,12 @@ class AttemptLoginTool : public Tool {
       override;
   void UpdateTaskBeforeInvoke(ActorTask& task,
                               ToolCallback callback) const override;
-  tabs::TabHandle GetTargetTab() const override;
+  ActorSurfaceHandle GetTargetActorSurface() const override;
+
+#if BUILDFLAG(IS_ANDROID)
+  // BrowserCollectionObserver:
+  void OnBrowserActivated(BrowserWindowInterface* browser) override;
+#endif
 
  private:
   void OnGetCredentials(actor_login::CredentialsOrError credentials);
@@ -79,7 +98,9 @@ class AttemptLoginTool : public Tool {
   void OnWillDetach(tabs::TabInterface* tab,
                     tabs::TabInterface::DetachReason reason);
   void HandleTabActivatedChange(tabs::TabInterface* tab);
+#if !BUILDFLAG(IS_ANDROID)
   void HandleWindowActivatedChange(BrowserWindowInterface* browser_window);
+#endif
 
   void ObserveTabToAwaitFocus();
   void StopObservingTab();
@@ -87,7 +108,6 @@ class AttemptLoginTool : public Tool {
 
   actor_login::ActorLoginService& GetActorLoginService();
   actor_login::FrameFillingStartedCallback GetFrameFillingStartedCallback(
-      tabs::TabInterface* tab,
       const actor_login::Credential& credential);
 
   // Holds the credentials after they are returned from the login service. The
@@ -104,7 +124,12 @@ class AttemptLoginTool : public Tool {
   // `credential_awaiting_task_focus_`.
   base::CallbackListSubscription will_detach_subscription_;
   base::CallbackListSubscription tab_did_activate_subscription_;
+#if BUILDFLAG(IS_ANDROID)
+  base::ScopedObservation<GlobalBrowserCollection, BrowserCollectionObserver>
+      browser_observation_{this};
+#else
   base::CallbackListSubscription window_did_become_active_subscription_;
+#endif  // BUILDFLAG(IS_ANDROID)
 
   // Stores the icons for each unique `source_site_or_app` in `credentials_`.
   // Populated by `OnIconFetched()`.
@@ -112,7 +137,7 @@ class AttemptLoginTool : public Tool {
 
   std::vector<base::CancelableTaskTracker> favicon_requests_tracker_;
 
-  tabs::TabHandle tab_handle_;
+  ActorSurfaceHandle actor_surface_handle_;
 
   // Identifies a button to submit (or advance) a password form.
   std::optional<PageTarget> password_button_;

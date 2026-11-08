@@ -14,6 +14,8 @@ typedef NS_ENUM(NSUInteger, AppBarButtonType) {
   AppBarButtonTypeAssistant,
   AppBarButtonTypeNewTab,
   AppBarButtonTypeTabGrid,
+  AppBarButtonTypeBack,
+  AppBarButtonTypeForward,
 };
 
 // Consumer of the app bar.
@@ -53,6 +55,11 @@ typedef NS_ENUM(NSUInteger, AppBarButtonType) {
 
 // Sets whether the current page is the NTP and if it is the Start Surface.
 - (void)setNTPVisible:(BOOL)ntpVisible isStartSurface:(BOOL)isStartSurface;
+
+// Sets whether forward and back navigations are allowed on the current web
+// page.
+- (void)setCanNavigateBack:(BOOL)canNavigateBack
+                   forward:(BOOL)canNavigateForward;
 
 @end
 

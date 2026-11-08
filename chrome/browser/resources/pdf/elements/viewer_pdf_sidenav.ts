@@ -17,8 +17,11 @@ import type {Bookmark} from '../bookmark_type.js';
 import type {Attachment} from '../constants.js';
 import {record, UserAction} from '../metrics.js';
 
+import type {ViewerAttachmentBarElement} from './viewer_attachment_bar.js';
+import type {ViewerDocumentOutlineElement} from './viewer_document_outline.js';
 import {getCss} from './viewer_pdf_sidenav.css.js';
 import {getHtml} from './viewer_pdf_sidenav.html.js';
+import type {ViewerThumbnailBarElement} from './viewer_thumbnail_bar.js';
 
 enum TabId {
   THUMBNAIL = 0,
@@ -34,7 +37,11 @@ interface Tab {
 
 export interface ViewerPdfSidenavElement {
   $: {
+    attachmentBar: ViewerAttachmentBarElement,
+    content: HTMLElement,
     icons: HTMLElement,
+    outline: ViewerDocumentOutlineElement,
+    thumbnailBar: ViewerThumbnailBarElement,
   };
 }
 
@@ -58,6 +65,7 @@ export class ViewerPdfSidenavElement extends CrLitElement {
       bookmarks: {type: Array},
       clockwiseRotations: {type: Number},
       docLength: {type: Number},
+      sidenavCollapsed: {type: Boolean},
       strings: {type: Object},
       selectedTab_: {type: Number},
       tabs_: {type: Array},
@@ -69,6 +77,7 @@ export class ViewerPdfSidenavElement extends CrLitElement {
   accessor bookmarks: Bookmark[] = [];
   accessor clockwiseRotations: number = 0;
   accessor docLength: number = 0;
+  accessor sidenavCollapsed: boolean = false;
   accessor strings: {[key: string]: string}|undefined;
   private accessor selectedTab_: number = 0;
   protected accessor tabs_: Tab[] = [];

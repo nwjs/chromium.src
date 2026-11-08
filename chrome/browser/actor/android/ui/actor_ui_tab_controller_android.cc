@@ -20,6 +20,10 @@
 
 namespace actor::ui {
 
+namespace {
+bool g_suppress_navigation_dialogs_for_testing = false;
+}  // namespace
+
 DEFINE_USER_DATA(ActorUiTabControllerAndroid);
 
 ActorUiTabControllerAndroid::ActorUiTabControllerAndroid(
@@ -29,11 +33,7 @@ ActorUiTabControllerAndroid::ActorUiTabControllerAndroid(
       tab_(tab),
       actor_keyed_service_(actor_keyed_service),
       task_runner_(base::SingleThreadTaskRunner::GetCurrentDefault()),
-      scoped_unowned_user_data_(tab.GetUnownedUserDataHost(), *this) {
-  if (auto* task = actor_keyed_service_->GetTaskFromTab(*tab_)) {
-    task->SetNavigationDelegate(weak_factory_.GetWeakPtr());
-  }
-}
+      scoped_unowned_user_data_(tab.GetUnownedUserDataHost(), *this) {}
 
 ActorUiTabControllerAndroid::~ActorUiTabControllerAndroid() = default;
 
@@ -59,7 +59,7 @@ void ActorUiTabControllerAndroid::OnUiTabStateChange(
     NotifyActorTabIndicatorStateChanged(ui_tab_state.tab_indicator);
   }
 
-  DCHECK(tab_->GetContents());
+  CHECK(tab_->GetContents(), base::NotFatalUntil::M161);
   TabAndroid* tab_android = TabAndroid::FromWebContents(tab_->GetContents());
   bool success = false;
   if (tab_android) {
@@ -93,9 +93,16 @@ void ActorUiTabControllerAndroid::SetActorTaskResume() {
 }
 
 bool ActorUiTabControllerAndroid::MaybeDeferNavigation(
+    tabs::TabInterface* tab,
     const GURL& url,
     NavigationConfirmedCallback callback) {
-  DCHECK(tab_->GetContents());
+  if (tab && tab != &*tab_) {
+    return false;
+  }
+  if (g_suppress_navigation_dialogs_for_testing) {
+    return false;
+  }
+  CHECK(tab_->GetContents(), base::NotFatalUntil::M161);
   TabAndroid* tab_android = TabAndroid::FromWebContents(tab_->GetContents());
   if (!tab_android) {
     return false;
@@ -105,6 +112,17 @@ bool ActorUiTabControllerAndroid::MaybeDeferNavigation(
   return Java_ActorUiTabController_maybeDeferNavigation(
       env, tab_android->GetJavaObject(), url,
       base::android::ToJniCallback(env, std::move(callback)));
+}
+
+// static
+void ActorUiTabControllerAndroid::SetSuppressNavigationDialogsForTesting(
+    bool suppress) {
+  g_suppress_navigation_dialogs_for_testing = suppress;
+}
+
+// static
+bool ActorUiTabControllerAndroid::ShouldSuppressNavigationDialogsForTesting() {
+  return g_suppress_navigation_dialogs_for_testing;
 }
 
 base::WeakPtr<ActorUiTabControllerInterface>

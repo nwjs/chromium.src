@@ -4,6 +4,7 @@
 
 #include "remoting/host/terminal_session.h"
 
+#include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
 #include <stdlib.h>
@@ -14,7 +15,10 @@
 #include <cstdint>
 #include <memory>
 #include <optional>
+#include <string>
 #include <string_view>
+#include <utility>
+#include <vector>
 
 #include "base/base_paths.h"
 #include "base/check.h"
@@ -38,7 +42,9 @@
 #include "base/strings/string_util.h"
 #include "base/task/thread_pool.h"
 #include "base/thread_annotations.h"
+#include "base/types/expected.h"
 #include "remoting/base/logging.h"
+#include "remoting/host/terminal_error.h"
 #include "remoting/host/terminal_process_monitor_linux.h"
 #include "remoting/host/terminal_session_manager.h"
 
@@ -50,8 +56,26 @@ constexpr std::string_view kTmx2Path = "/usr/bin/tmx2";
 constexpr std::string_view kTmuxSessionPrefix = "chrome-remote-desktop-";
 constexpr std::string_view kTmuxSocketName = "chrome-remote-desktop";
 
+// When tmux attaches a VT100-like client, `tty_send_requests()` emits Primary
+// DA (`\x1b[c`), Secondary DA (`\x1b[>c`), and Extended DA (`\x1b[>q`) queries
+// and starts a 5-second timeout (`TTY_QUERY_TIMEOUT`). If the client's
+// responses arrive after the timeout (e.g. due to reconnect or scrollback
+// processing latency), tmux rejects them as device attribute responses and
+// forwards the raw escape sequences as literal keystrokes into the shell pane.
+// Intercepting the queries on the host and replying locally on the PTY avoids
+// the network round-trip and immediately satisfies `TTY_ALL_REQUEST_FLAGS` in
+// tmux (preventing tmux's 500ms `escape-time` query-wait override).
+constexpr std::string_view kTmuxDeviceAttributesQuery = "\x1b[c\x1b[>c\x1b[>q";
+constexpr char kTmuxDeviceAttributesReply[] =
+    "\x1b[?1;2c\x1b[>0;276;0c\x1bP>|xterm.js\x1b\\";
+
 std::string GetTmuxSessionName(int32_t id) {
   return base::StrCat({kTmuxSessionPrefix, base::NumberToString(id)});
+}
+
+base::unexpected<TerminalError> LogAndReturnError(TerminalError error) {
+  LOG(ERROR) << error;
+  return base::unexpected(std::move(error));
 }
 
 base::FilePath FindTmx2Path() {
@@ -69,7 +93,7 @@ void KillTmuxSession(int32_t id) {
   if (!tmx2_path.empty()) {
     std::vector<std::string> tmux_args = {
         tmx2_path.value(), "-L", std::string(kTmuxSocketName),
-        "kill-session", "-t", GetTmuxSessionName(id)};
+        "kill-session",    "-t", GetTmuxSessionName(id)};
     base::Process process =
         base::LaunchProcess(tmux_args, base::LaunchOptions());
     if (process.IsValid()) {
@@ -91,8 +115,8 @@ std::optional<pid_t> GetTmuxPaneShellPid(int32_t id) {
 
   std::string output;
   std::vector<std::string> args = {
-      tmx2_path.value(), "-L", std::string(kTmuxSocketName),
-      "display-message", "-p", "-t",
+      tmx2_path.value(),      "-L", std::string(kTmuxSocketName),
+      "display-message",      "-p", "-t",
       GetTmuxSessionName(id), "-F", "#{pane_pid}"};
 
   if (!base::GetAppOutput(args, &output)) {
@@ -115,11 +139,15 @@ std::string GetTmuxScrollback(int32_t id) {
 
   // Capture full pane history with -epJ flags.
   std::string scrollback_output;
-  std::vector<std::string> args = {
-      tmx2_path.value(), "-L", std::string(kTmuxSocketName),
-      "capture-pane",    "-epJ",
-      "-S",              "-",
-      "-t",              GetTmuxSessionName(id)};
+  std::vector<std::string> args = {tmx2_path.value(),
+                                   "-L",
+                                   std::string(kTmuxSocketName),
+                                   "capture-pane",
+                                   "-epJ",
+                                   "-S",
+                                   "-",
+                                   "-t",
+                                   GetTmuxSessionName(id)};
 
   if (!base::GetAppOutput(args, &scrollback_output) ||
       scrollback_output.empty()) {
@@ -162,27 +190,81 @@ class TerminalPreExecDelegate : public base::LaunchOptions::PreExecDelegate {
   }
 };
 
-base::Process LaunchShellProcess(int32_t id, base::ScopedFD subsidiary_fd) {
+base::expected<base::Process, TerminalError> LaunchShellProcess(
+    int32_t id,
+    base::ScopedFD subsidiary_fd) {
   base::FilePath tmx2_path = FindTmx2Path();
   // If tmx2 is not available, then we cannot launch the terminal session.
   if (tmx2_path.empty()) {
-    LOG(ERROR)
-        << "tmx2 binary not found. Cannot launch terminal session.";
-    return base::Process();
+    return base::unexpected(TerminalError(
+        FROM_HERE, TerminalError::Reason::kTmuxMissing,
+        base::StrCat(
+            {kTmx2Path, " not found. Cannot launch terminal session."})));
   }
 
+  static constexpr std::pair<std::string_view, std::string_view>
+      kTmuxOptions[] = {
+          // Set TERM=xterm-256color inside the pane (instead of tmux's default
+          // tmux-256color) so standard shell configs (e.g. ~/.bashrc) emit OSC
+          // title escape sequences in PS1 as if running directly in xterm.
+          {"default-terminal", "xterm-256color"},
+          // Disable the alternate screen buffer (smcup/rmcup) for xterm* so
+          // output flows into the outer terminal's (xterm.js) native scrollback
+          // buffer.
+          {"terminal-overrides", "xterm*:smcup@:rmcup@"},
+          // Tell tmux the outer terminal (xterm.js) supports OSC 8 hyperlinks
+          // so that they are forwarded to the client instead of being stripped.
+          // Use an explicit array index so that repeated launches against the
+          // same tmux server don't keep appending duplicate entries.
+          {"terminal-features[1000]", "xterm*:hyperlinks"},
+          // Forward pane title changes to the outer terminal via OSC escape
+          // sequences so the CRD client can update the tab title.
+          {"set-titles", "on"},
+          // Use only the inner pane's title (#T) without tmux's default
+          // session/window prefix.
+          {"set-titles-string", "#T"},
+          // Hide the tmux status bar so the persistence session is visually
+          // transparent.
+          {"status", "off"},
+          // Disable tmux mouse capture so the outer terminal (xterm.js) handles
+          // native text selection and scrolling directly.
+          {"mouse", "off"},
+          // Disable the prefix key on the outer tmux server so that shortcuts
+          // (such as Ctrl+b d to detach from an inner tmux session) are
+          // forwarded to the shell instead of detaching the CRD terminal tab.
+          {"prefix", "None"},
+          {"prefix2", "None"},
+      };
+
+  // clang-format off
   std::vector<std::string> tmux_cmd = {
-    tmx2_path.value(),
-    "-L", std::string(kTmuxSocketName),
-    "set-option", "-s", "terminal-overrides", "xterm*:smcup@:rmcup@", ";",
-    "new-session", "-A", "-s", GetTmuxSessionName(id),
-    "-e", base::StrCat({"CRD_TERMINAL_ID=", base::NumberToString(id)}),
-    "-e", "CLI_GRAPHICS=iterm2", ";",
-    "set-option", "set-titles", "on", ";",
-    "set-option", "set-titles-string", "#T", ";",
-    "set-option", "-g", "status", "off", ";",
-    "set-option", "-g", "mouse", "off"
+      tmx2_path.value(),
+      // Ignore the user's ~/.tmux.conf so custom keybindings, status bars, or
+      // plugins do not affect the outer CRD persistence wrapper.
+      "-f", "/dev/null",
+      // Use the CRD-specific tmux socket name to avoid conflicts with other
+      // tmux sessions.
+      "-L", std::string(kTmuxSocketName),
   };
+  for (const auto& [name, value] : kTmuxOptions) {
+    tmux_cmd.insert(tmux_cmd.end(), {"set-option", "-g", std::string(name),
+                                     std::string(value), ";"});
+  }
+  tmux_cmd.insert(
+      tmux_cmd.end(),
+      {
+          "unbind-key", "-a", "-T", "root", ";",
+          "new-session", "-A", "-s", GetTmuxSessionName(id),
+          "-e", base::StrCat({"CRD_TERMINAL_ID=", base::NumberToString(id)}),
+          "-e", "CLI_GRAPHICS=iterm2",
+          // Unset TMUX and TMUX_PANE before exec'ing the user's login shell so
+          // that users can create or attach to nested tmux/tmx2 sessions
+          // without hitting "sessions should be nested with care, unset $TMUX
+          // to force". Using exec preserves #{pane_pid} as the login shell PID
+          // for process monitoring.
+          "unset TMUX TMUX_PANE; exec \"${SHELL:-/bin/bash}\" -l", ";",
+      });
+  // clang-format on
 
   base::LaunchOptions options;
   base::FilePath home_dir;
@@ -198,7 +280,13 @@ base::Process LaunchShellProcess(int32_t id, base::ScopedFD subsidiary_fd) {
   options.pre_exec_delegate = &delegate;
   options.environment["TERM"] = "xterm-256color";
 
-  return base::LaunchProcess(tmux_cmd, options);
+  base::Process process = base::LaunchProcess(tmux_cmd, options);
+  if (!process.IsValid()) {
+    return base::unexpected(
+        TerminalError(FROM_HERE, TerminalError::Reason::kLaunchFailed,
+                      "Failed to launch terminal shell process"));
+  }
+  return process;
 }
 
 class TerminalSessionLinux : public TerminalSession {
@@ -220,97 +308,74 @@ class TerminalSessionLinux : public TerminalSession {
 
   // Start the terminal session. This will start a new PTY session and launch a
   // bash process in the subsidiary end of the PTY.
-  bool Start() override {
+  void Start(StartCallback callback) override {
     DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-    base::ScopedFD pty_fd(
-        HANDLE_EINTR(posix_openpt(O_RDWR | O_NOCTTY | O_CLOEXEC)));
-    if (!pty_fd.is_valid()) {
-      PLOG(ERROR) << "posix_openpt failed";
-      return false;
+    DCHECK(!start_callback_);
+    base::expected<base::ScopedFD, TerminalError> subsidiary_fd = OpenPty();
+    if (!subsidiary_fd.has_value()) {
+      std::move(callback).Run(
+          base::unexpected(std::move(subsidiary_fd).error()));
+      return;
     }
-    if (grantpt(pty_fd.get()) != 0) {
-      PLOG(ERROR) << "grantpt failed";
-      return false;
-    }
-    if (unlockpt(pty_fd.get()) != 0) {
-      PLOG(ERROR) << "unlockpt failed";
-      return false;
-    }
-
-    char subsidiary_name[TTY_NAME_MAX];
-    if (ptsname_r(pty_fd.get(), subsidiary_name, sizeof(subsidiary_name)) !=
-        0) {
-      PLOG(ERROR) << "ptsname_r failed";
-      return false;
-    }
-
-    base::ScopedFD subsidiary_fd(
-        HANDLE_EINTR(open(subsidiary_name, O_RDWR | O_NOCTTY | O_CLOEXEC)));
-    if (!subsidiary_fd.is_valid()) {
-      PLOG(ERROR) << "open subsidiary_fd failed";
-      return false;
-    }
-
-    struct termios ios;
-    if (tcgetattr(subsidiary_fd.get(), &ios) == 0) {
-      ios.c_iflag |= IUTF8;
-      tcsetattr(subsidiary_fd.get(), TCSANOW, &ios);
-    }
-
-    pty_fd_ = std::move(pty_fd);
+    start_callback_ = std::move(callback);
 
     writer_task_runner_->PostTaskAndReplyWithResult(
         FROM_HERE,
-        base::BindOnce(&LaunchShellProcess, id_, std::move(subsidiary_fd)),
+        base::BindOnce(&LaunchShellProcess, id_,
+                       std::move(subsidiary_fd).value()),
         base::BindOnce(
             [](base::WeakPtr<TerminalSessionLinux> weak_this,
                scoped_refptr<base::SequencedTaskRunner> writer_task_runner,
-               base::Process process) {
+               base::expected<base::Process, TerminalError> result) {
               if (weak_this) {
-                weak_this->OnProcessLaunched(std::move(process));
-              } else if (process.IsValid()) {
+                weak_this->OnProcessLaunched(std::move(result));
+              } else if (result.has_value()) {
                 writer_task_runner->PostTask(
                     FROM_HERE, base::BindOnce(&TerminateProcessInBackground,
-                                              std::move(process)));
+                                              std::move(result).value()));
               }
             },
             weak_factory_.GetWeakPtr(), writer_task_runner_));
-    return true;
   }
 
-  void OnProcessLaunched(base::Process process) {
+  void OnProcessLaunched(base::expected<base::Process, TerminalError> result) {
     DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-    if (!process.IsValid()) {
-      LOG(ERROR) << "Failed to launch terminal shell process asynchronously";
-      CleanupLocalSession();
-      if (exit_callback_) {
-        std::move(exit_callback_).Run(id_);
+    // Note that the owner may delete `this` in response to `callback`, so it
+    // must be run last.
+    StartCallback callback = std::move(start_callback_);
+    // If the session was detached or terminated before the process was
+    // launched, terminate the process (if any) and return without running
+    // `callback`.
+    if (detached_ || terminated_) {
+      if (result.has_value() && writer_task_runner_) {
+        writer_task_runner_->PostTask(
+            FROM_HERE, base::BindOnce(&TerminateProcessInBackground,
+                                      std::move(result).value()));
       }
       return;
     }
-    // If the session was detached or terminated before the process was
-    // launched, terminate the process and return.
-    if (detached_ || terminated_) {
-      if (writer_task_runner_) {
-        writer_task_runner_->PostTask(
-            FROM_HERE, base::BindOnce(&TerminateProcessInBackground,
-                                      std::move(process)));
-      }
+    if (!result.has_value()) {
+      LOG(ERROR) << result.error();
+      CleanupLocalSession();
+      std::move(callback).Run(base::unexpected(std::move(result).error()));
       return;
     }
     // process_ will never be valid here since it's only set by
     // OnProcessLaunched(), which is only called once by Start().
     CHECK(!process_.IsValid());
-    process_ = std::move(process);
+    process_ = std::move(result).value();
 
     // Asynchronously retrieve and forward existing scrollback history before
     // starting to watch live PTY output to avoid stream interleaving. Sequence
     // through writer_task_runner_ to preserve order with lifecycle commands.
+    // Since this is asynchronous, `callback` is guaranteed to run before any
+    // output is delivered.
     writer_task_runner_->PostTaskAndReplyWithResult(
-        FROM_HERE,
-        base::BindOnce(&GetTmuxScrollback, id_),
+        FROM_HERE, base::BindOnce(&GetTmuxScrollback, id_),
         base::BindOnce(&TerminalSessionLinux::OnScrollbackRetrieved,
                        weak_factory_.GetWeakPtr()));
+
+    std::move(callback).Run(base::ok());
   }
 
   static void WriteToPtyManager(int fd, std::string payload) {
@@ -368,8 +433,8 @@ class TerminalSessionLinux : public TerminalSession {
     }
     terminated_ = true;
     if (writer_task_runner_) {
-      writer_task_runner_->PostTask(
-        FROM_HERE, base::BindOnce(&KillTmuxSession, id_));
+      writer_task_runner_->PostTask(FROM_HERE,
+                                    base::BindOnce(&KillTmuxSession, id_));
     }
     CleanupLocalSession();
   }
@@ -382,6 +447,53 @@ class TerminalSessionLinux : public TerminalSession {
   }
 
  private:
+  // Opens a new PTY, storing the manager end in `pty_fd_` and returning the
+  // subsidiary end.
+  base::expected<base::ScopedFD, TerminalError> OpenPty() {
+    DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+    base::ScopedFD pty_fd(
+        HANDLE_EINTR(posix_openpt(O_RDWR | O_NOCTTY | O_CLOEXEC)));
+    if (!pty_fd.is_valid()) {
+      return LogAndReturnError(TerminalError::FromSystemError(
+          FROM_HERE, TerminalError::Reason::kPtyError, "posix_openpt", errno));
+    }
+    if (grantpt(pty_fd.get()) != 0) {
+      return LogAndReturnError(TerminalError::FromSystemError(
+          FROM_HERE, TerminalError::Reason::kPtyError, "grantpt", errno));
+    }
+    if (unlockpt(pty_fd.get()) != 0) {
+      return LogAndReturnError(TerminalError::FromSystemError(
+          FROM_HERE, TerminalError::Reason::kPtyError, "unlockpt", errno));
+    }
+
+    char subsidiary_name[TTY_NAME_MAX];
+    int ptsname_result =
+        ptsname_r(pty_fd.get(), subsidiary_name, sizeof(subsidiary_name));
+    if (ptsname_result != 0) {
+      // ptsname_r returns the error code rather than setting errno.
+      return LogAndReturnError(TerminalError::FromSystemError(
+          FROM_HERE, TerminalError::Reason::kPtyError, "ptsname_r",
+          ptsname_result));
+    }
+
+    base::ScopedFD subsidiary_fd(
+        HANDLE_EINTR(open(subsidiary_name, O_RDWR | O_NOCTTY | O_CLOEXEC)));
+    if (!subsidiary_fd.is_valid()) {
+      return LogAndReturnError(TerminalError::FromSystemError(
+          FROM_HERE, TerminalError::Reason::kPtyError, "open subsidiary PTY",
+          errno));
+    }
+
+    struct termios ios;
+    if (tcgetattr(subsidiary_fd.get(), &ios) == 0) {
+      ios.c_iflag |= IUTF8;
+      tcsetattr(subsidiary_fd.get(), TCSANOW, &ios);
+    }
+
+    pty_fd_ = std::move(pty_fd);
+    return subsidiary_fd;
+  }
+
   void CleanupLocalSession() {
     DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
     if (detached_) {
@@ -392,8 +504,8 @@ class TerminalSessionLinux : public TerminalSession {
     process_monitor_.reset();
     if (process_.IsValid() && writer_task_runner_) {
       writer_task_runner_->PostTask(
-          FROM_HERE, base::BindOnce(&TerminateProcessInBackground,
-                                    std::move(process_)));
+          FROM_HERE,
+          base::BindOnce(&TerminateProcessInBackground, std::move(process_)));
     }
     if (pty_fd_.is_valid() && writer_task_runner_) {
       // Post the destruction of pty_fd_ to the writer task runner
@@ -448,7 +560,18 @@ class TerminalSessionLinux : public TerminalSession {
             base::BindOnce(&TerminalSessionLinux::OnShellPidRetrieved,
                            weak_factory_.GetWeakPtr()));
       }
-      output_callback_.Run(id_, std::string(buffer, bytes_read));
+      std::string output(buffer, bytes_read);
+      if (!device_attributes_handled_) {
+        size_t pos = output.find(kTmuxDeviceAttributesQuery);
+        if (pos != std::string::npos) {
+          device_attributes_handled_ = true;
+          output.erase(pos, kTmuxDeviceAttributesQuery.size());
+          Write(kTmuxDeviceAttributesReply);
+        }
+      }
+      if (!output.empty()) {
+        output_callback_.Run(id_, std::move(output));
+      }
     } else {
       if (bytes_read < 0) {
         PLOG(ERROR) << "read from PTY manager failed";
@@ -491,8 +614,8 @@ class TerminalSessionLinux : public TerminalSession {
     }
     if (pid) {
       shell_pid_ = *pid;
-      HOST_LOG << "Retrieved shell PID " << *pid
-               << " for terminal session " << id_;
+      HOST_LOG << "Retrieved shell PID " << *pid << " for terminal session "
+               << id_;
       if (process_info_callback_) {
         process_monitor_ = std::make_unique<TerminalProcessMonitorLinux>(
             *pid,
@@ -505,9 +628,8 @@ class TerminalSessionLinux : public TerminalSession {
     }
   }
 
-  void OnProcessInfoChanged(
-      bool is_active,
-      const std::optional<std::string>& process_name) {
+  void OnProcessInfoChanged(bool is_active,
+                            const std::optional<std::string>& process_name) {
     DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
     if (detached_ || terminated_) {
       HOST_LOG << "OnProcessInfoChanged called after detach or terminate, "
@@ -530,6 +652,8 @@ class TerminalSessionLinux : public TerminalSession {
   std::unique_ptr<TerminalProcessMonitorLinux> process_monitor_
       GUARDED_BY_CONTEXT(sequence_checker_);
   TerminalSessionManager::OutputCallback output_callback_;
+  // Set by Start() while the shell process is being launched.
+  StartCallback start_callback_ GUARDED_BY_CONTEXT(sequence_checker_);
   TerminalSessionManager::ExitCallback exit_callback_
       GUARDED_BY_CONTEXT(sequence_checker_);
   TerminalSessionManager::ProcessInfoCallback process_info_callback_
@@ -539,8 +663,9 @@ class TerminalSessionLinux : public TerminalSession {
   bool terminated_ = false;
   scoped_refptr<base::SequencedTaskRunner> writer_task_runner_;
   std::optional<pid_t> shell_pid_ GUARDED_BY_CONTEXT(sequence_checker_);
-  bool shell_pid_retrieval_started_
-      GUARDED_BY_CONTEXT(sequence_checker_) = false;
+  bool shell_pid_retrieval_started_ GUARDED_BY_CONTEXT(sequence_checker_) =
+      false;
+  bool device_attributes_handled_ GUARDED_BY_CONTEXT(sequence_checker_) = false;
 
   SEQUENCE_CHECKER(sequence_checker_);
 
@@ -550,14 +675,18 @@ class TerminalSessionLinux : public TerminalSession {
 }  // namespace
 
 // static
+bool TerminalSession::IsSupported() {
+  return true;
+}
+
+// static
 std::unique_ptr<TerminalSession> TerminalSession::Create(
     TerminalSessionManager::OutputCallback output_cb,
     TerminalSessionManager::ExitCallback exit_cb,
     TerminalSessionManager::ProcessInfoCallback process_info_cb,
     int32_t id) {
   return std::make_unique<TerminalSessionLinux>(
-      std::move(output_cb), std::move(exit_cb), std::move(process_info_cb),
-      id);
+      std::move(output_cb), std::move(exit_cb), std::move(process_info_cb), id);
 }
 
 // static

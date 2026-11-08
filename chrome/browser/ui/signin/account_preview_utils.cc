@@ -33,10 +33,34 @@ std::optional<int> GetDeviceStringId(
   }
 }
 
+// Returns the string ID for `other_device_info.form_factor` if
+// `data_type` is in `other_device_info.enabled_data_types`, or
+// `std::nullopt` otherwise.
+std::optional<int> GetDeviceStringIdForDataType(
+    const PreferredDeviceInfo& other_device_info,
+    syncer::DataType data_type) {
+  if (!other_device_info.enabled_data_types.Has(data_type)) {
+    return std::nullopt;
+  }
+  return GetDeviceStringId(other_device_info.form_factor);
+}
+
+#if BUILDFLAG(ENABLE_DICE_SUPPORT)
+bool IsSupportedDeviceForExtensions(
+    const PreferredDeviceInfo& other_device_info) {
+  // Only allow using extensions data type with generic devices (no specific
+  // device) or with Desktop.
+  return !GetDeviceStringId(other_device_info.form_factor).has_value() ||
+         other_device_info.form_factor ==
+             sync_pb::SyncEnums_DeviceFormFactor_DEVICE_FORM_FACTOR_DESKTOP;
+}
+#endif
+
 std::optional<std::string> GetPromoSubtitleForDataType(
     syncer::DataType data_type,
-    sync_pb::SyncEnums_DeviceFormFactor form_factor) {
-  std::optional<int> device_string_id = GetDeviceStringId(form_factor);
+    const PreferredDeviceInfo& other_device_info) {
+  std::optional<int> device_string_id =
+      GetDeviceStringIdForDataType(other_device_info, data_type);
 
   auto format_promo = [&](int id_with_device, int id_without_device) {
     return device_string_id.has_value()
@@ -66,11 +90,7 @@ std::optional<std::string> GetPromoSubtitleForDataType(
           IDS_ACCOUNT_PREVIEW_PROMO_SUBTITLE_READING_LIST);
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
     case syncer::EXTENSIONS:
-      // Only allow using extensions data type with generic devices (no specific
-      // device) or with Desktop.
-      if (device_string_id.has_value() &&
-          form_factor !=
-              sync_pb::SyncEnums_DeviceFormFactor_DEVICE_FORM_FACTOR_DESKTOP) {
+      if (!IsSupportedDeviceForExtensions(other_device_info)) {
         return std::nullopt;
       }
       return format_promo(
@@ -84,9 +104,10 @@ std::optional<std::string> GetPromoSubtitleForDataType(
 
 std::optional<std::string> GetProfileMenuSubtitleForDataType(
     syncer::DataType data_type,
-    sync_pb::SyncEnums_DeviceFormFactor form_factor,
+    const PreferredDeviceInfo& other_device_info,
     const std::u16string& email) {
-  std::optional<int> device_string_id = GetDeviceStringId(form_factor);
+  std::optional<int> device_string_id =
+      GetDeviceStringIdForDataType(other_device_info, data_type);
 
   auto format_profile_menu = [&](int id_with_device, int id_without_device) {
     return device_string_id.has_value()
@@ -116,11 +137,7 @@ std::optional<std::string> GetProfileMenuSubtitleForDataType(
           IDS_ACCOUNT_PREVIEW_PROFILE_MENU_SUBTITLE_READING_LIST);
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
     case syncer::EXTENSIONS:
-      // Only allow using extensions data type with generic devices (no specific
-      // device) or with Desktop.
-      if (device_string_id.has_value() &&
-          form_factor !=
-              sync_pb::SyncEnums_DeviceFormFactor_DEVICE_FORM_FACTOR_DESKTOP) {
+      if (!IsSupportedDeviceForExtensions(other_device_info)) {
         return std::nullopt;
       }
       return format_profile_menu(
@@ -134,8 +151,9 @@ std::optional<std::string> GetProfileMenuSubtitleForDataType(
 
 std::optional<std::string> GetSettingsPromoSubtitleForDataType(
     syncer::DataType data_type,
-    sync_pb::SyncEnums_DeviceFormFactor form_factor) {
-  std::optional<int> device_string_id = GetDeviceStringId(form_factor);
+    const PreferredDeviceInfo& other_device_info) {
+  std::optional<int> device_string_id =
+      GetDeviceStringIdForDataType(other_device_info, data_type);
 
   auto format_promo = [&](int id_with_device, int id_without_device) {
     return device_string_id.has_value()
@@ -165,11 +183,7 @@ std::optional<std::string> GetSettingsPromoSubtitleForDataType(
           IDS_ACCOUNT_PREVIEW_SETTINGS_PROMO_SUBTITLE_READING_LIST);
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
     case syncer::EXTENSIONS:
-      // Only allow using extensions data type with generic devices (no specific
-      // device) or with Desktop.
-      if (device_string_id.has_value() &&
-          form_factor !=
-              sync_pb::SyncEnums_DeviceFormFactor_DEVICE_FORM_FACTOR_DESKTOP) {
+      if (!IsSupportedDeviceForExtensions(other_device_info)) {
         return std::nullopt;
       }
       return format_promo(
@@ -183,9 +197,10 @@ std::optional<std::string> GetSettingsPromoSubtitleForDataType(
 
 std::optional<std::string> GetHistoryPromoSubtitleForDataType(
     syncer::DataType data_type,
-    sync_pb::SyncEnums_DeviceFormFactor form_factor,
+    const PreferredDeviceInfo& other_device_info,
     const std::u16string& email) {
-  std::optional<int> device_string_id = GetDeviceStringId(form_factor);
+  std::optional<int> device_string_id =
+      GetDeviceStringIdForDataType(other_device_info, syncer::HISTORY);
 
   auto format_history_promo = [&](int id_with_device, int id_without_device) {
     return device_string_id.has_value()
@@ -215,11 +230,7 @@ std::optional<std::string> GetHistoryPromoSubtitleForDataType(
           IDS_ACCOUNT_PREVIEW_HISTORY_PROMO_SUBTITLE_READING_LIST);
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
     case syncer::EXTENSIONS:
-      // Only allow using extensions data type with generic devices (no specific
-      // device) or with Desktop.
-      if (device_string_id.has_value() &&
-          form_factor !=
-              sync_pb::SyncEnums_DeviceFormFactor_DEVICE_FORM_FACTOR_DESKTOP) {
+      if (!IsSupportedDeviceForExtensions(other_device_info)) {
         return std::nullopt;
       }
       return format_history_promo(
@@ -233,8 +244,9 @@ std::optional<std::string> GetHistoryPromoSubtitleForDataType(
 
 std::optional<std::string> GetRecentTabsPromoSubtitleForDataType(
     syncer::DataType data_type,
-    sync_pb::SyncEnums_DeviceFormFactor form_factor) {
-  std::optional<int> device_string_id = GetDeviceStringId(form_factor);
+    const PreferredDeviceInfo& other_device_info) {
+  std::optional<int> device_string_id =
+      GetDeviceStringIdForDataType(other_device_info, syncer::SESSIONS);
 
   auto format_recent_tabs_promo = [&](int id_with_device,
                                       int id_without_device) {
@@ -265,11 +277,7 @@ std::optional<std::string> GetRecentTabsPromoSubtitleForDataType(
           IDS_ACCOUNT_PREVIEW_RECENT_TABS_PROMO_SUBTITLE_READING_LIST);
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
     case syncer::EXTENSIONS:
-      // Only allow using extensions data type with generic devices (no specific
-      // device) or with Desktop.
-      if (device_string_id.has_value() &&
-          form_factor !=
-              sync_pb::SyncEnums_DeviceFormFactor_DEVICE_FORM_FACTOR_DESKTOP) {
+      if (!IsSupportedDeviceForExtensions(other_device_info)) {
         return std::nullopt;
       }
       return format_recent_tabs_promo(
@@ -283,10 +291,11 @@ std::optional<std::string> GetRecentTabsPromoSubtitleForDataType(
 
 std::optional<std::string> GetProfileSeparationSubtitleForDataType(
     syncer::DataType data_type,
-    sync_pb::SyncEnums_DeviceFormFactor form_factor,
+    const PreferredDeviceInfo& other_device_info,
     const std::u16string& existing_account_given_name,
     const std::u16string& new_account_email) {
-  std::optional<int> device_string_id = GetDeviceStringId(form_factor);
+  std::optional<int> device_string_id =
+      GetDeviceStringIdForDataType(other_device_info, data_type);
 
   auto format_separation = [&](int id_with_device, int id_without_device) {
     return device_string_id.has_value()
@@ -319,11 +328,7 @@ std::optional<std::string> GetProfileSeparationSubtitleForDataType(
           IDS_ACCOUNT_PREVIEW_PROFILE_SEPARATION_SUBTITLE_READING_LIST);
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
     case syncer::EXTENSIONS:
-      // Only allow using extensions data type with generic devices (no specific
-      // device) or with Desktop.
-      if (device_string_id.has_value() &&
-          form_factor !=
-              sync_pb::SyncEnums_DeviceFormFactor_DEVICE_FORM_FACTOR_DESKTOP) {
+      if (!IsSupportedDeviceForExtensions(other_device_info)) {
         return std::nullopt;
       }
       return format_separation(
@@ -340,9 +345,8 @@ std::optional<std::string> GetProfileSeparationSubtitleForDataType(
 std::optional<std::string> GetAccountPreviewPromoSubtitle(
     const AccountPreviewDataService::AccountPreviewPreference& preference) {
   for (const auto& preferred_data_type : preference.preferred_data_types) {
-    if (auto subtitle =
-            GetPromoSubtitleForDataType(preferred_data_type.data_type,
-                                        preference.other_device_form_factor)) {
+    if (auto subtitle = GetPromoSubtitleForDataType(
+            preferred_data_type.data_type, preference.other_device_info)) {
       return subtitle;
     }
   }
@@ -357,7 +361,7 @@ std::optional<std::string> GetAccountPreviewProfileMenuSubtitle(
 
   for (const auto& preferred_data_type : preference.preferred_data_types) {
     if (auto subtitle = GetProfileMenuSubtitleForDataType(
-            preferred_data_type.data_type, preference.other_device_form_factor,
+            preferred_data_type.data_type, preference.other_device_info,
             email_u16)) {
       return subtitle;
     }
@@ -370,8 +374,7 @@ std::optional<std::string> GetAccountPreviewSettingsPromoSubtitle(
     const AccountPreviewDataService::AccountPreviewPreference& preference) {
   for (const auto& preferred_data_type : preference.preferred_data_types) {
     if (auto subtitle = GetSettingsPromoSubtitleForDataType(
-            preferred_data_type.data_type,
-            preference.other_device_form_factor)) {
+            preferred_data_type.data_type, preference.other_device_info)) {
       return subtitle;
     }
   }
@@ -381,8 +384,8 @@ std::optional<std::string> GetAccountPreviewSettingsPromoSubtitle(
 
 std::string GetAccountPreviewHistorySignedInPromoSubtitle(
     const AccountPreviewDataService::AccountPreviewPreference& preference) {
-  std::optional<int> device_string_id =
-      GetDeviceStringId(preference.other_device_form_factor);
+  std::optional<int> device_string_id = GetDeviceStringIdForDataType(
+      preference.other_device_info, syncer::HISTORY);
   return device_string_id.has_value()
              ? l10n_util::GetStringFUTF8(
                    IDS_ACCOUNT_PREVIEW_HISTORY_SIGNED_IN_HISTORY_SYNC_PROMO_SUBTITLE_WITH_DEVICE,
@@ -398,7 +401,7 @@ std::optional<std::string> GetAccountPreviewHistoryPromoSubtitle(
 
   for (const auto& preferred_data_type : preference.preferred_data_types) {
     if (auto subtitle = GetHistoryPromoSubtitleForDataType(
-            preferred_data_type.data_type, preference.other_device_form_factor,
+            preferred_data_type.data_type, preference.other_device_info,
             email_u16)) {
       return subtitle;
     }
@@ -411,8 +414,8 @@ std::string GetAccountPreviewRecentTabsSignedInPromoSubtitle(
     std::string_view email,
     const AccountPreviewDataService::AccountPreviewPreference& preference) {
   std::u16string email_u16 = base::UTF8ToUTF16(email);
-  std::optional<int> device_string_id =
-      GetDeviceStringId(preference.other_device_form_factor);
+  std::optional<int> device_string_id = GetDeviceStringIdForDataType(
+      preference.other_device_info, syncer::SESSIONS);
   return device_string_id.has_value()
              ? l10n_util::GetStringFUTF8(
                    IDS_ACCOUNT_PREVIEW_RECENT_TABS_SIGNED_IN_PROMO_SUBTITLE_WITH_DEVICE,
@@ -426,8 +429,7 @@ std::optional<std::string> GetAccountPreviewRecentTabsPromoSubtitle(
     const AccountPreviewDataService::AccountPreviewPreference& preference) {
   for (const auto& preferred_data_type : preference.preferred_data_types) {
     if (auto subtitle = GetRecentTabsPromoSubtitleForDataType(
-            preferred_data_type.data_type,
-            preference.other_device_form_factor)) {
+            preferred_data_type.data_type, preference.other_device_info)) {
       return subtitle;
     }
   }
@@ -444,7 +446,7 @@ std::optional<std::string> GetAccountPreviewProfileSeparationSubtitle(
 
   for (const auto& preferred_data_type : preference.preferred_data_types) {
     if (auto subtitle = GetProfileSeparationSubtitleForDataType(
-            preferred_data_type.data_type, preference.other_device_form_factor,
+            preferred_data_type.data_type, preference.other_device_info,
             existing_user, new_user_email_u16)) {
       return subtitle;
     }
@@ -455,8 +457,8 @@ std::optional<std::string> GetAccountPreviewProfileSeparationSubtitle(
 
 std::u16string GetAccountPreviewBookmarkManagerPromoTitle(
     const AccountPreviewDataService::AccountPreviewPreference& preference) {
-  std::optional<int> device_string_id =
-      GetDeviceStringId(preference.other_device_form_factor);
+  std::optional<int> device_string_id = GetDeviceStringIdForDataType(
+      preference.other_device_info, syncer::BOOKMARKS);
   return device_string_id.has_value()
              ? l10n_util::GetStringFUTF16(
                    IDS_BOOKMARK_MANAGER_SIGNIN_PROMO_TITLE_WITH_DEVICE,
@@ -467,8 +469,8 @@ std::u16string GetAccountPreviewBookmarkManagerPromoTitle(
 
 std::u16string GetAccountPreviewPasswordManagerPromoTitle(
     const AccountPreviewDataService::AccountPreviewPreference& preference) {
-  std::optional<int> device_string_id =
-      GetDeviceStringId(preference.other_device_form_factor);
+  std::optional<int> device_string_id = GetDeviceStringIdForDataType(
+      preference.other_device_info, syncer::PASSWORDS);
   return device_string_id.has_value()
              ? l10n_util::GetStringFUTF16(
                    IDS_PASSWORD_MANAGER_UI_SIGNIN_PROMO_CARD_TITLE_WITH_DEVICE,

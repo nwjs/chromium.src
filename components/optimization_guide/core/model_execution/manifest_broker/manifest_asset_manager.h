@@ -13,9 +13,11 @@
 
 #include "base/byte_size.h"
 #include "base/containers/flat_map.h"
+#include "base/containers/flat_set.h"
 #include "base/files/file_path.h"
 #include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
+#include "base/memory/raw_ref.h"
 #include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
 #include "base/sequence_checker.h"
@@ -24,16 +26,15 @@
 #include "base/values.h"
 #include "base/version.h"
 #include "components/component_updater/component_updater_service.h"
-#include "components/crx_file/id_util.h"
 #include "components/optimization_guide/core/model_execution/component_download_observer.h"
 #include "components/optimization_guide/core/model_execution/manifest_broker/manifest.h"
+#include "components/optimization_guide/core/model_execution/manifest_broker/manifest_asset_manager_delegate.h"
 #include "components/optimization_guide/core/model_execution/manifest_broker/manifest_monitor.h"
 #include "components/optimization_guide/core/model_execution/manifest_broker/manifest_solution_factory.h"
 #include "components/optimization_guide/core/model_execution/on_device_model_download_progress_manager.h"
 #include "components/optimization_guide/core/model_execution/usage_tracker.h"
 #include "components/optimization_guide/core/optimization_guide_features.h"
 #include "components/optimization_guide/proto/manifest.pb.h"
-#include "components/prefs/pref_change_registrar.h"
 
 class PrefService;
 
@@ -42,6 +43,12 @@ namespace optimization_guide {
 // Controls whether installed assets with `AssetPriority::kEvictable` are
 // uninstalled.
 BASE_DECLARE_FEATURE(kOnDeviceModelEviction);
+
+// Controls whether to scan for orphaned assets on disk after initialization.
+BASE_DECLARE_FEATURE(kScanForOrphanedManifestAssets);
+
+// Delay after initialization before scanning for orphaned assets on disk.
+BASE_DECLARE_FEATURE_PARAM(base::TimeDelta, kOrphanedManifestAssetScanDelay);
 
 class UsageTracker;
 
@@ -76,38 +83,15 @@ class AssetPriorities {
 };
 
 // Manages the state of assets defined in the on-device model manifest.
-class ManifestAssetManager : public UsageTracker::Observer {
+class ManifestAssetManager : public UsageTracker::Observer,
+                             public ManifestAssetManagerDelegate::AssetManager {
  public:
-  // Delegate to bridge the gap to the platform-specific download mechanism
-  // (e.g., Chrome Component Updater on Desktop, AICore on Android).
-  class Delegate : public ManifestMonitor::Delegate {
-   public:
-    virtual ~Delegate() = default;
-
-    // Registers the component installer for `public_key`. The policy should
-    // hold a weak pointer to the manager and call its `OnAssetReady` and
-    // `OnAssetUninstalled` methods when appropriate.
-    virtual void RegisterOnDemandComponent(
-        const std::string& public_key_hex,
-        const std::string& target_version,
-        const std::string& component_name,
-        base::WeakPtr<ManifestAssetManager> manager) = 0;
-
-    // Uninstalls a component and frees disk space.
-    virtual void Uninstall(const std::string& public_key_hex,
-                           base::WeakPtr<ManifestAssetManager> manager) = 0;
-
-    // Triggers an immediate update check for a component.
-    virtual void RequestUpdate(const std::string& public_key_hex,
-                               bool is_background) = 0;
-  };
-
   // Constructs a ManifestAssetManager, and begins provide assets to the given
   // `factory`.
   explicit ManifestAssetManager(
       PrefService& local_state,
       UsageTracker& usage_tracker,
-      Delegate& delegate,
+      ManifestAssetManagerDelegate& delegate,
       component_updater::ComponentUpdateService* component_update_service,
       std::unique_ptr<ManifestSolutionFactory> factory);
   ~ManifestAssetManager() override;
@@ -138,9 +122,6 @@ class ManifestAssetManager : public UsageTracker::Observer {
   // Refreshes all solutions for the current factory, if any.
   void RefreshSolutions();
 
-  // Returns a list of properties for the broker state info.
-  std::vector<mojom::BrokerPropertyInfoPtr> GetBrokerProperties() const;
-
   // Returns a list of assets for the broker state info.
   std::vector<mojom::BrokerAssetInfoPtr> GetBrokerAssets() const;
 
@@ -148,26 +129,14 @@ class ManifestAssetManager : public UsageTracker::Observer {
   std::vector<std::pair<mojom::BrokerModelInfoPtr, base::FilePath>>
   GetBrokerModels() const;
 
-  // Returns whether the component installation is valid.
-  static bool VerifyInstallation(const base::FilePath& install_dir,
-                                 const base::DictValue& manifest);
-
-  // Called when a component has been successfully installed or updated.
+  // ManifestAssetManagerDelegate::AssetManager:
   void OnAssetReady(const std::string& public_key,
                     const base::Version& version,
-                    const base::FilePath& install_dir);
-
-  // Called when a component has been completely uninstalled.
-  void OnAssetUninstalled(const std::string& public_key);
-
-  // Called when the component installer has finished registering the asset.
+                    const base::FilePath& install_dir) override;
+  void OnAssetUninstalled(const std::string& public_key) override;
   void InstallerRegistered(const std::string& public_key,
                            const std::string& version,
-                           bool is_already_installed);
-
-  // Helper to resolve an asset name to its CRX ID.
-  std::optional<std::string> GetCrxIdForAsset(
-      const std::string& asset_name) const;
+                           bool is_already_installed) override;
 
   // Recomputes the priorities of assets required by use cases.
   void RecomputeAssetPriorities();
@@ -233,6 +202,7 @@ class ManifestAssetManager : public UsageTracker::Observer {
     void SetReady(const base::FilePath& install_dir,
                   const base::Version& version);
     void SetUninstalling();
+    void SetOrphaned(const std::optional<base::Version>& version);
 
    private:
     // Persistent state (saved to prefs)
@@ -281,16 +251,43 @@ class ManifestAssetManager : public UsageTracker::Observer {
     base::flat_map<std::string, ComponentContext> component_contexts_;
   };
 
+  struct UseCaseProgressManager {
+    base::flat_set<std::string> component_ids;
+    std::unique_ptr<OnDeviceModelDownloadProgressManager> manager;
+  };
+
   // UsageTracker::Observer:
   void OnPriorityIncrease(const std::string& use_case_name,
                           UsageTracker::Priority previous_priority) override;
 
+  // Scans disk for installed assets not tracked in the ledger.
+  void ScanForOrphanedAssets();
+  void OnOrphanedAssetsFound(
+      std::vector<ManifestAssetManagerDelegate::InstalledAsset>
+          installed_assets);
+
+  // Helper to resolve an asset name to its CRX ID.
+  std::optional<std::string> GetCrxIdForAsset(
+      const std::string& asset_name) const;
+
+  // Resolves the set of CRX component IDs required by `use_case` in the current
+  // manifest, or returns `std::nullopt` if `use_case` is unknown.
+  std::optional<base::flat_set<std::string>> GetRequiredComponentIdsForUseCase(
+      const std::string& use_case) const;
+
   // Get disk space, and call `UpdateRegistration` when done.
   void OnDiskSpaceEvaluated(std::optional<base::ByteSize> free_space);
 
-  // Returns whether the asset should be installed.
-  bool ShouldInstall(const ComponentContext& context,
-                     const proto::OnDemandComponent* component) const;
+  // Policy predicates governing component installation, retention, and
+  // foreground updates.
+  bool CanSupportProactiveDownload() const;
+  // Assuming the component is already registered for (or has installed) the
+  // target version, returns whether it should be retained rather than evicted.
+  bool ShouldRetain(const ComponentContext& context) const;
+  bool ShouldRegisterNewVersion(const ComponentContext& context) const;
+  bool ShouldInstallOrRetain(const ComponentContext& context,
+                             const proto::OnDemandComponent* component) const;
+  bool ShouldRequestForegroundDownload(const ComponentContext& context) const;
 
   bool IsEvictionEnabled() const;
 
@@ -313,7 +310,7 @@ class ManifestAssetManager : public UsageTracker::Observer {
 
   const raw_ref<PrefService> local_state_;
   const raw_ref<UsageTracker> usage_tracker_;
-  const raw_ref<Delegate> delegate_;
+  const raw_ref<ManifestAssetManagerDelegate> delegate_;
   raw_ptr<component_updater::ComponentUpdateService> component_update_service_;
 
   // Tracks the state of all components known to the manager. Keyed by the
@@ -321,9 +318,8 @@ class ManifestAssetManager : public UsageTracker::Observer {
   // manifest and persisted contexts.
   AssetLedger ledger_ GUARDED_BY_CONTEXT(sequence_checker_);
 
-  std::unordered_map<std::string,
-                     std::unique_ptr<OnDeviceModelDownloadProgressManager>>
-      progress_managers_ GUARDED_BY_CONTEXT(sequence_checker_);
+  std::unordered_map<std::string, UseCaseProgressManager> progress_managers_
+      GUARDED_BY_CONTEXT(sequence_checker_);
 
   std::map<std::string, std::unique_ptr<ComponentDownloadObserver>>
       asset_download_observers_ GUARDED_BY_CONTEXT(sequence_checker_);
@@ -336,9 +332,9 @@ class ManifestAssetManager : public UsageTracker::Observer {
     void Update(std::optional<base::ByteSize> free_space);
 
     bool IsFresh() const;
-    bool CanSupportOnDemandInstall() const;
-    bool CanSupportProactiveDownload() const;
-    std::optional<base::ByteSize> GetFreeSpace() const { return free_space_; }
+    bool IsSufficientForOnDemandInstall() const;
+    bool IsSufficientForBackgroundInstall() const;
+    std::optional<base::ByteSize> free_space() const { return free_space_; }
 
    private:
     std::optional<base::ByteSize> free_space_;

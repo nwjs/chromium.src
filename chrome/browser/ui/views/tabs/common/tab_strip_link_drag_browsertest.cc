@@ -42,8 +42,7 @@ class TabStripLinkDragTest
  public:
   const std::vector<base::test::FeatureRefAndParams> GetEnabledFeatures()
       override {
-    return {{tabs::kVerticalTabsExpandOnHover, {}},
-            {tabs::kTabStripUnification, {}}};
+    return {{tabs::kTabStripUnification, {}}};
   }
 
   void SetUpOnMainThread() override {
@@ -371,6 +370,10 @@ IN_PROC_BROWSER_TEST_P(TabStripLinkDragTest, DropInPinnedTabs) {
   RunScheduledLayouts();
 
   auto pinned_tab_views = WaitForPinnedTabs(2);
+
+  // Pinned tabs are laid out horizontally in both orientations (as a grid when
+  // the vertical tab strip is expanded), so the drop index is determined by the
+  // x-coordinate regardless of GetParam().
 
   // Drop at left edge of first pinned tab.
   {

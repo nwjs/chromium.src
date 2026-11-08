@@ -67,6 +67,31 @@ suite('TopToolbarTest', () => {
     assertEquals('Example', topToolbar.contextInfos[0]!.tab!.title);
   });
 
+  test(
+      'updates expand button visibility when setExpandButtonEnabled fires',
+      async () => {
+        loadTimeData.overrideValues({expandButtonEnabled: false});
+        document.body.innerHTML = window.trustedTypes!.emptyHTML;
+        topToolbar = document.createElement('top-toolbar');
+        document.body.appendChild(topToolbar);
+        await microtasksFinished();
+
+        assertFalse(
+            !!topToolbar.shadowRoot.querySelector('#openInNewTabButton'));
+
+        toolbarProxy.callbackRouterRemote.setExpandButtonEnabled(true);
+        await microtasksFinished();
+
+        assertTrue(
+            !!topToolbar.shadowRoot.querySelector('#openInNewTabButton'));
+
+        toolbarProxy.callbackRouterRemote.setExpandButtonEnabled(false);
+        await microtasksFinished();
+
+        assertFalse(
+            !!topToolbar.shadowRoot.querySelector('#openInNewTabButton'));
+      });
+
   (loadTimeData.getBoolean('isSmallDeviceFormFactor') ?
        suite.skip :
        suite)('Expand button enabled', () => {
@@ -155,7 +180,7 @@ suite('TopToolbarTest', () => {
       const closeButton = topToolbar.$.closeButton;
       assertTrue(!!closeButton);
       closeButton.click();
-      await proxy.handler.whenCalled('closeSidePanel');
+      await toolbarProxy.handler.whenCalled('closeSidePanel');
     });
 
     test('toggles sources button visibility', async () => {
@@ -403,33 +428,47 @@ suite('TopToolbarTest', () => {
       assertTrue(!!moreItems);
     });
 
-    test('logo click does not trigger page info when flag disabled', () => {
-      const logo = topToolbar.shadowRoot.querySelector<HTMLElement>(
-          '.top-toolbar-logo-button');
-      assertHTMLElement(logo);
-      assertFalse(logo.classList.contains('clickable'));
+    test(
+        'logo click does not trigger page info when flag disabled',
+        async () => {
+          document.body.innerHTML = window.trustedTypes!.emptyHTML;
+          loadTimeData.overrideValues({
+            contextualTasksSidePanelRearchitectureEnabled: false,
+          });
+          topToolbar = document.createElement('top-toolbar');
+          document.body.appendChild(topToolbar);
+          await microtasksFinished();
 
-      logo.click();
-      assertEquals(0, proxy.handler.getCallCount('showPageInfoBubble'));
-    });
+          const logo = topToolbar.shadowRoot.querySelector<HTMLElement>(
+              '.top-toolbar-logo-button');
+          assertHTMLElement(logo);
+          assertFalse(logo.classList.contains('clickable'));
 
-    test('logo click triggers page info when flag enabled', async () => {
-      document.body.innerHTML = window.trustedTypes!.emptyHTML;
-      loadTimeData.overrideValues({
-        contextualTasksSidePanelRearchitectureEnabled: true,
-      });
-      topToolbar = document.createElement('top-toolbar');
-      document.body.appendChild(topToolbar);
-      await microtasksFinished();
+          logo.click();
+          assertEquals(
+              0, toolbarProxy.handler.getCallCount('showPageInfoBubble'));
+        });
 
-      const logo = topToolbar.shadowRoot.querySelector<HTMLElement>(
-          '.top-toolbar-logo-button');
-      assertHTMLElement(logo);
-      assertTrue(logo.classList.contains('clickable'));
+    test(
+        'logo pointer click triggers page info when flag enabled', async () => {
+          document.body.innerHTML = window.trustedTypes!.emptyHTML;
+          loadTimeData.overrideValues({
+            contextualTasksSidePanelRearchitectureEnabled: true,
+          });
+          topToolbar = document.createElement('top-toolbar');
+          document.body.appendChild(topToolbar);
+          await microtasksFinished();
 
-      logo.click();
-      await proxy.handler.whenCalled('showPageInfoBubble');
-    });
+          const logo = topToolbar.shadowRoot.querySelector<HTMLElement>(
+              '.top-toolbar-logo-button');
+          assertHTMLElement(logo);
+          assertTrue(logo.classList.contains('clickable'));
+
+          logo.dispatchEvent(new PointerEvent('click', {pointerType: 'mouse'}));
+          const isPointer =
+              await toolbarProxy.handler.whenCalled('showPageInfoBubble');
+          assertTrue(isPointer);
+        });
 
     test('logo enter key triggers page info when flag enabled', async () => {
       document.body.innerHTML = window.trustedTypes!.emptyHTML;
@@ -445,7 +484,9 @@ suite('TopToolbarTest', () => {
       assertHTMLElement(logo);
 
       logo.dispatchEvent(new KeyboardEvent('keydown', {key: 'Enter'}));
-      await proxy.handler.whenCalled('showPageInfoBubble');
+      const isPointer =
+          await toolbarProxy.handler.whenCalled('showPageInfoBubble');
+      assertFalse(isPointer);
     });
 
     test('logo space key triggers page info when flag enabled', async () => {
@@ -463,7 +504,67 @@ suite('TopToolbarTest', () => {
 
       logo.dispatchEvent(new KeyboardEvent('keydown', {key: ' '}));
       logo.dispatchEvent(new KeyboardEvent('keyup', {key: ' '}));
-      await proxy.handler.whenCalled('showPageInfoBubble');
+      const isPointer =
+          await toolbarProxy.handler.whenCalled('showPageInfoBubble');
+      assertFalse(isPointer);
+    });
+
+    test(
+        'logo pointerdown triggers onLogoPointerDown when flag enabled',
+        async () => {
+          document.body.innerHTML = window.trustedTypes!.emptyHTML;
+          loadTimeData.overrideValues({
+            contextualTasksSidePanelRearchitectureEnabled: true,
+          });
+          topToolbar = document.createElement('top-toolbar');
+          document.body.appendChild(topToolbar);
+          await microtasksFinished();
+
+          const logo = topToolbar.shadowRoot.querySelector<HTMLElement>(
+              '.top-toolbar-logo-button');
+          assertHTMLElement(logo);
+
+          logo.dispatchEvent(new PointerEvent('pointerdown'));
+          await toolbarProxy.handler.whenCalled('onLogoPointerDown');
+        });
+
+    test(
+        'logo pointerdown does not trigger onLogoPointerDown when flag ' +
+            'disabled',
+        async () => {
+          document.body.innerHTML = window.trustedTypes!.emptyHTML;
+          loadTimeData.overrideValues({
+            contextualTasksSidePanelRearchitectureEnabled: false,
+          });
+          topToolbar = document.createElement('top-toolbar');
+          document.body.appendChild(topToolbar);
+          await microtasksFinished();
+
+          const logo = topToolbar.shadowRoot.querySelector<HTMLElement>(
+              '.top-toolbar-logo-button');
+          assertHTMLElement(logo);
+
+          logo.dispatchEvent(new PointerEvent('pointerdown'));
+          assertEquals(
+              0, toolbarProxy.handler.getCallCount('onLogoPointerDown'));
+        });
+
+    test('logo container has inline-end margin when flag enabled', async () => {
+      document.body.innerHTML = window.trustedTypes!.emptyHTML;
+      loadTimeData.overrideValues({
+        contextualTasksSidePanelRearchitectureEnabled: true,
+      });
+      topToolbar = document.createElement('top-toolbar');
+      topToolbar.title = 'Sample Thread Title';
+      document.body.appendChild(topToolbar);
+      await microtasksFinished();
+
+      const logoContainer = topToolbar.shadowRoot.querySelector<HTMLElement>(
+          '.top-toolbar-logo-container');
+      assertHTMLElement(logoContainer);
+      const computedStyle = getComputedStyle(logoContainer);
+      assertEquals('12px', computedStyle.marginInlineEnd);
+      assertEquals('12px', computedStyle.marginRight);
     });
   });
 
@@ -707,16 +808,17 @@ suite('TopToolbarTest', () => {
     test('calls maybeTriggerPinningPromo when AI page is shown', async () => {
       topToolbar.isAiPage = false;
       await microtasksFinished();
-      proxy.handler.reset();
+      toolbarProxy.handler.reset();
 
       topToolbar.isAiPage = true;
       await microtasksFinished();
 
       // <if expr="is_android">
-      assertEquals(0, proxy.handler.getCallCount('maybeTriggerPinningPromo'));
+      assertEquals(
+          0, toolbarProxy.handler.getCallCount('maybeTriggerPinningPromo'));
       // </if>
       // <if expr="not is_android">
-      await proxy.handler.whenCalled('maybeTriggerPinningPromo');
+      await toolbarProxy.handler.whenCalled('maybeTriggerPinningPromo');
       // </if>
     });
 
@@ -726,13 +828,13 @@ suite('TopToolbarTest', () => {
           topToolbar.isAiPage = false;
           topToolbar.onboardingTooltipShowing = true;
           await microtasksFinished();
-          proxy.handler.reset();
+          toolbarProxy.handler.reset();
 
           topToolbar.isAiPage = true;
           await microtasksFinished();
 
           assertEquals(
-              0, proxy.handler.getCallCount('maybeTriggerPinningPromo'));
+              0, toolbarProxy.handler.getCallCount('maybeTriggerPinningPromo'));
         });
   });
 
@@ -863,62 +965,6 @@ suite('TopToolbarTest', () => {
     assertEquals(moreItems.innerText, '+1');
   });
 
-  suite('Reopen Tabs', () => {
-    setup(() => {
-      document.body.innerHTML = window.trustedTypes!.emptyHTML;
-      topToolbar = document.createElement('top-toolbar');
-      document.body.appendChild(topToolbar);
-    });
-
-    test('shows reopen tabs section', async () => {
-      // Initially not in the DOM.
-      let reopenTabs =
-          topToolbar.shadowRoot.querySelector<HTMLElement>('reopen-tabs');
-      assertFalse(!!reopenTabs);
-
-      // Show via mojo.
-      proxy.callbackRouterRemote.setShowReopenTabs(true);
-      await microtasksFinished();
-      reopenTabs =
-          topToolbar.shadowRoot.querySelector<HTMLElement>('reopen-tabs');
-      assertHTMLElement(reopenTabs);
-    });
-
-    test('handles reopen tabs click', async () => {
-      proxy.callbackRouterRemote.setShowReopenTabs(true);
-      await microtasksFinished();
-
-      const reopenTabs =
-          topToolbar.shadowRoot.querySelector<HTMLElement>('reopen-tabs');
-      assertHTMLElement(reopenTabs);
-
-      const reopenButton =
-          reopenTabs.shadowRoot!.querySelector<HTMLElement>('cr-button');
-      assertHTMLElement(reopenButton);
-      reopenButton.click();
-
-      await proxy.handler.whenCalled('reopenTabs');
-    });
-
-    test('handles reopen tabs dismiss click', async () => {
-      proxy.callbackRouterRemote.setShowReopenTabs(true);
-      await microtasksFinished();
-
-      let reopenTabs =
-          topToolbar.shadowRoot.querySelector<HTMLElement>('reopen-tabs');
-      assertHTMLElement(reopenTabs);
-
-      const dismissButton =
-          reopenTabs.shadowRoot!.querySelector<HTMLElement>('#reopenDismiss');
-      assertHTMLElement(dismissButton);
-      dismissButton.click();
-
-      await microtasksFinished();
-      reopenTabs =
-          topToolbar.shadowRoot.querySelector<HTMLElement>('reopen-tabs');
-      assertFalse(!!reopenTabs);
-    });
-  });
 
   test('hides new thread button when isAimEligible is false', async () => {
     document.body.innerHTML = window.trustedTypes!.emptyHTML;
@@ -1009,10 +1055,15 @@ suite('TopToolbarTest', () => {
           const logoContainer =
               topRow.querySelector<HTMLElement>('.top-toolbar-logo-container');
           assertHTMLElement(logoContainer);
+          const dashboard = topRow.querySelector<HTMLElement&{delegate: any}>(
+              'permission-dashboard');
+          assertHTMLElement(dashboard);
 
-          // Initial state: `G` logo shows.
-          assertFalse(!!topRow.querySelector('permission-dashboard'));
+          // Initial state: `G` logo shows and permission-dashboard is hidden.
+          assertTrue(dashboard.hidden);
+          assertEquals('none', getComputedStyle(dashboard).display);
           assertFalse(logoContainer.hidden);
+          assertEquals('flex', getComputedStyle(logoContainer).display);
 
           // Create request chip.
           const fakeState = {
@@ -1022,19 +1073,19 @@ suite('TopToolbarTest', () => {
             isDividerVisible: false,
           };
 
-          // Verify `topToolbar` DOM (dashboard rendered, logo container hidden)
+          // Verify `topToolbar` DOM (dashboard visible, logo container hidden)
           // when request chip shows.
           topToolbar.permissionDashboardState = fakeState;
           await microtasksFinished();
 
-          const dashboard = topRow.querySelector<HTMLElement&{delegate: any}>(
-              'permission-dashboard');
-          assertTrue(!!dashboard);
+          assertFalse(dashboard.hidden);
+          assertEquals('flex', getComputedStyle(dashboard).display);
           assertTrue(!!dashboard.delegate);
           assertTrue(logoContainer.hidden);
+          assertEquals('none', getComputedStyle(logoContainer).display);
 
-          // Remove the visible chip, so that the permission dashboard no longer
-          // shows and the `G` logo is restored.
+          // Remove the visible chip, so that the permission dashboard is hidden
+          // and the `G` logo is restored.
           topToolbar.permissionDashboardState = {
             indicatorChip: createFakeChip(),
             requestChip: createFakeChip(),
@@ -1042,15 +1093,19 @@ suite('TopToolbarTest', () => {
           };
           await microtasksFinished();
 
-          assertFalse(!!topRow.querySelector('permission-dashboard'));
+          assertTrue(dashboard.hidden);
+          assertEquals('none', getComputedStyle(dashboard).display);
           assertFalse(logoContainer.hidden);
+          assertEquals('flex', getComputedStyle(logoContainer).display);
 
-          // Set state to dashboard to null. It should no longer show.
+          // Set state to dashboard to null. It should remain hidden.
           topToolbar.permissionDashboardState = null;
           await microtasksFinished();
 
-          assertFalse(!!topRow.querySelector('permission-dashboard'));
+          assertTrue(dashboard.hidden);
+          assertEquals('none', getComputedStyle(dashboard).display);
           assertFalse(logoContainer.hidden);
+          assertEquals('flex', getComputedStyle(logoContainer).display);
         });
 
     test(
@@ -1062,10 +1117,15 @@ suite('TopToolbarTest', () => {
           const logoContainer =
               topRow.querySelector<HTMLElement>('.top-toolbar-logo-container');
           assertHTMLElement(logoContainer);
+          const dashboard = topRow.querySelector<HTMLElement&{delegate: any}>(
+              'permission-dashboard');
+          assertHTMLElement(dashboard);
 
-          // Initial state: `G` logo shows.
-          assertFalse(!!topRow.querySelector('permission-dashboard'));
+          // Initial state: `G` logo shows and permission-dashboard is hidden.
+          assertTrue(dashboard.hidden);
+          assertEquals('none', getComputedStyle(dashboard).display);
           assertFalse(logoContainer.hidden);
+          assertEquals('flex', getComputedStyle(logoContainer).display);
 
           // Create indicator chip.
           const fakeState = {
@@ -1075,19 +1135,19 @@ suite('TopToolbarTest', () => {
             isDividerVisible: false,
           };
 
-          // Verify `topToolbar` DOM (dashboard rendered, logo container hidden)
+          // Verify `topToolbar` DOM (dashboard visible, logo container hidden)
           // when indicator chip shows.
           topToolbar.permissionDashboardState = fakeState;
           await microtasksFinished();
 
-          const dashboard = topRow.querySelector<HTMLElement&{delegate: any}>(
-              'permission-dashboard');
-          assertTrue(!!dashboard);
+          assertFalse(dashboard.hidden);
+          assertEquals('flex', getComputedStyle(dashboard).display);
           assertTrue(!!dashboard.delegate);
           assertTrue(logoContainer.hidden);
+          assertEquals('none', getComputedStyle(logoContainer).display);
 
-          // Remove the visible chip, so that the permission dashboard no longer
-          // shows and the `G` logo is restored.
+          // Remove the visible chip, so that the permission dashboard is hidden
+          // and the `G` logo is restored.
           topToolbar.permissionDashboardState = {
             indicatorChip: createFakeChip(),
             requestChip: createFakeChip(),
@@ -1095,8 +1155,10 @@ suite('TopToolbarTest', () => {
           };
           await microtasksFinished();
 
-          assertFalse(!!topRow.querySelector('permission-dashboard'));
+          assertTrue(dashboard.hidden);
+          assertEquals('none', getComputedStyle(dashboard).display);
           assertFalse(logoContainer.hidden);
+          assertEquals('flex', getComputedStyle(logoContainer).display);
         });
 
     test(
@@ -1106,7 +1168,10 @@ suite('TopToolbarTest', () => {
 
           const topRow = topToolbar.shadowRoot.querySelector('#top-row');
           assertTrue(!!topRow);
-          assertFalse(!!topRow.querySelector('permission-dashboard'));
+          const dashboard =
+              topRow.querySelector<HTMLElement>('permission-dashboard');
+          assertHTMLElement(dashboard);
+          assertTrue(dashboard.hidden);
 
           // Push an update over the observer callback router.
           const observerRemote = toolbarProxy.bindToolbarUiObserverRemote();
@@ -1121,7 +1186,7 @@ suite('TopToolbarTest', () => {
           await microtasksFinished();
 
           assertDeepEquals(pushedState, topToolbar.permissionDashboardState);
-          assertTrue(!!topRow.querySelector('permission-dashboard'));
+          assertFalse(dashboard.hidden);
         });
 
     test('forwards permission chip delegate calls to service', async () => {
@@ -1188,4 +1253,87 @@ suite('TopToolbarTest', () => {
         });
   });
   // </if>
+
+  suite('Profile indicator', () => {
+    setup(async () => {
+      loadTimeData.overrideValues({
+        contextualTasksSidePanelRearchitectureEnabled: true,
+      });
+      document.body.innerHTML = window.trustedTypes!.emptyHTML;
+      topToolbar = document.createElement('top-toolbar');
+      document.body.appendChild(topToolbar);
+      await microtasksFinished();
+    });
+
+    test(
+        'hides profile indicator when rearchitecture is disabled', async () => {
+          loadTimeData.overrideValues({
+            contextualTasksSidePanelRearchitectureEnabled: false,
+          });
+          document.body.innerHTML = window.trustedTypes!.emptyHTML;
+          topToolbar = document.createElement('top-toolbar');
+          topToolbar.profileAvatarUrl = 'data:image/png;base64,fakeImageData';
+          document.body.appendChild(topToolbar);
+          await microtasksFinished();
+
+          const profileIndicator =
+              topToolbar.shadowRoot.querySelector('#profileIndicator');
+          assertEquals(null, profileIndicator);
+        });
+
+    test(
+        'shows profile indicator with avatar image when avatar url is set',
+        async () => {
+          topToolbar.profileAvatarUrl = 'data:image/png;base64,fakeImageData';
+          await microtasksFinished();
+
+          const profileIndicator =
+              topToolbar.shadowRoot.querySelector<HTMLElement>(
+                  '#profileIndicator');
+          assertTrue(!!profileIndicator);
+
+          const avatarImg = profileIndicator.querySelector<HTMLImageElement>(
+              '.profile-avatar-img');
+          assertTrue(!!avatarImg);
+          assertEquals('data:image/png;base64,fakeImageData', avatarImg.src);
+        });
+
+    test(
+        'renders signed-out profile indicator with chrome placeholder avatar',
+        async () => {
+          topToolbar.profileAvatarUrl =
+              'chrome://theme/IDR_PROFILE_AVATAR_PLACEHOLDER_LARGE';
+          await microtasksFinished();
+
+          const profileIndicator =
+              topToolbar.shadowRoot.querySelector<HTMLElement>(
+                  '#profileIndicator');
+          assertTrue(!!profileIndicator);
+
+          const avatarImg = profileIndicator.querySelector<HTMLImageElement>(
+              '.profile-avatar-img');
+          assertTrue(!!avatarImg);
+          assertEquals(
+              'chrome://theme/IDR_PROFILE_AVATAR_PLACEHOLDER_LARGE',
+              avatarImg.src);
+        });
+
+    test('updates avatar url via mojo setProfileAvatarUrl', async () => {
+      topToolbar.profileAvatarUrl =
+          'chrome://theme/IDR_PROFILE_AVATAR_PLACEHOLDER_LARGE';
+      await microtasksFinished();
+
+      toolbarProxy.callbackRouterRemote.setProfileAvatarUrl(
+          'data:image/png;base64,pushedAvatar');
+      await microtasksFinished();
+
+      const profileIndicator =
+          topToolbar.shadowRoot.querySelector<HTMLElement>('#profileIndicator');
+      assertTrue(!!profileIndicator);
+      const avatarImg = profileIndicator.querySelector<HTMLImageElement>(
+          '.profile-avatar-img');
+      assertTrue(!!avatarImg);
+      assertEquals('data:image/png;base64,pushedAvatar', avatarImg.src);
+    });
+  });
 });

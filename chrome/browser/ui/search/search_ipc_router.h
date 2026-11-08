@@ -20,10 +20,6 @@
 #include "components/omnibox/common/omnibox_focus_state.h"
 #include "mojo/public/cpp/bindings/associated_receiver.h"
 
-#if BUILDFLAG(IS_ANDROID)
-#error "Instant is only used on desktop";
-#endif
-
 class GURL;
 
 namespace content {
@@ -139,6 +135,8 @@ class SearchIPCRouter : public search::mojom::EmbeddedSearch {
       std::unique_ptr<EmbeddedSearchClientFactory> factory) {
     embedded_search_client_factory_ = std::move(factory);
   }
+
+  bool is_active_tab_for_testing() const { return is_active_tab_; }
 
  private:
   friend class SearchIPCRouterPolicyBrowserTest;

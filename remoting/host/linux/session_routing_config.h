@@ -24,12 +24,13 @@ namespace remoting {
 class SessionRoutingConfig {
  public:
   enum class RoutingMode {
-    // Rejects all incoming connections (e.g. when config is `{}`).
+    // Rejects all incoming connections (e.g. when config is `{}` on a non-corp
+    // host).
     kRejectAll,
     // Routes all connections to `session_user()`.
     kSessionUser,
     // Routes connections to the local user matching the client's corporate
-    // username.
+    // username. Used on corp hosts when `sessionUser` is not set.
     kMatchCorpClientUsername,
   };
 
@@ -43,6 +44,8 @@ class SessionRoutingConfig {
   // - Returns `base::unexpected(Loggable)` if the file exists on disk but fails
   //   ownership/permission/symlink security checks, contains malformed JSON, or
   //   violates the schema.
+  // `is_corp_host` selects the routing mode when `sessionUser` is not set:
+  // `kMatchCorpClientUsername` on corp hosts, `kRejectAll` otherwise.
   static base::expected<std::optional<SessionRoutingConfig>, Loggable>
   LoadAndValidate(const base::FilePath& path = GetDefaultConfigFilePath(),
                   bool is_corp_host = false,
@@ -74,9 +77,10 @@ class SessionRoutingConfig {
   // `RoutingMode::kSessionUser`, or an empty string otherwise.
   const std::string& session_user() const { return session_user_; }
 
-  // Returns whether the host should create new headless remote user sessions
-  // (e.g. via GDM `CreateUserDisplay`) if an existing graphical session is not
-  // found for the resolved user. Defaults to `false`.
+  // Returns whether the host should create a new remote session for the
+  // resolved user, if supported, when the user has no graphical session.
+  // Created sessions are not terminated when the client disconnects or the
+  // host stops, and are reused by the next connection. Defaults to `false`.
   bool create_remote_user_sessions() const {
     return create_remote_user_sessions_;
   }

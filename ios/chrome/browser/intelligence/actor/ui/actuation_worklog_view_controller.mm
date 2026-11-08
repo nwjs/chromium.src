@@ -4,11 +4,9 @@
 
 #import "ios/chrome/browser/intelligence/actor/ui/actuation_worklog_view_controller.h"
 
-#import <algorithm>
-
 #import "components/strings/grit/components_strings.h"
 #import "ios/chrome/browser/intelligence/actor/ui/actuation_header_view.h"
-#import "ios/chrome/browser/intelligence/actor/ui/actuation_task_card_view.h"
+#import "ios/chrome/browser/intelligence/actor/ui/actuation_intervention_view.h"
 #import "ios/chrome/browser/intelligence/actor/ui/actuation_worklog_compact_view.h"
 #import "ios/chrome/browser/intelligence/actor/ui/actuation_worklog_constants.h"
 #import "ios/chrome/browser/intelligence/actor/ui/actuation_worklog_consumer.h"
@@ -28,34 +26,28 @@ constexpr CGFloat kCloseButtonPointSize = 14.0;
 }  // namespace
 
 using intelligence::actor::kSpacingLarge;
-using intelligence::actor::kSpacingMedium;
 
 @interface ActuationWorklogViewController () <
-    ActuationTaskCardViewDelegate,
+    ActuationInterventionViewDelegate,
     ActuationWorklogCompactViewDelegate>
 @end
 
 @implementation ActuationWorklogViewController {
   // Header view that sits right above the worklog.
   ActuationHeaderView* _headerView;
-  // Current step layout. Visible when `_compact` is true.
+  // Current step layout. Visible in `ActuationWorklogDisplayModeCompact`.
   ActuationWorklogCompactView* _compactView;
   // Timeline view embedded inside a scrollview to support vertical growth as
   // steps are added.
   ActuationWorklogView* _fullView;
-  // Scrollable container for the `_fullView`. Visible when `_compact` is false.
+  // Scrollable container for the `_fullView`. Visible in
+  // `ActuationWorklogDisplayModeExpanded`.
   UIScrollView* _scrollView;
-  // Interactive intervention card view presented below the worklog.
-  ActuationTaskCardView* _cardView;
-  // Container hosting interactive interventions at the bottom of the worklog.
-  UIView* _interventionContainer;
+  // Interactive intervention UI pinned to the bottom of the worklog.
+  ActuationInterventionView* _interventionView;
   // Height of `_compactView`. Adjusted dynamically when its content changes.
   NSLayoutConstraint* _compactHeightConstraint;
-  // Constraint collapsing `_interventionContainer` when no intervention is
-  // active.
-  NSLayoutConstraint* _containerHeightConstraint;
 
-  BOOL _compact;
   BOOL _actuationActive;
 }
 
@@ -64,18 +56,39 @@ using intelligence::actor::kSpacingMedium;
 - (instancetype)init {
   self = [super initWithNibName:nil bundle:nil];
   if (self) {
-    _compact = YES;
+    _displayMode = ActuationWorklogDisplayModeCompact;
     _actuationActive = NO;
   }
   return self;
 }
 
-- (void)setCompact:(BOOL)compact {
-  if (_compact == compact) {
+- (void)setDisplayMode:(ActuationWorklogDisplayMode)displayMode {
+  if (_displayMode == displayMode) {
     return;
   }
-  _compact = compact;
+  _displayMode = displayMode;
   [self updateVisibility];
+}
+
+- (CGFloat)heightForDisplayMode:(ActuationWorklogDisplayMode)mode {
+  CGFloat width = self.view.bounds.size.width;
+  // `_interventionView` owns its padding and collapses to zero height when no
+  // intervention is active.
+  CGFloat interventionHeight = [self fittingHeightForView:_interventionView
+                                              targetWidth:width];
+  switch (mode) {
+    case ActuationWorklogDisplayModeMinimized:
+      return [self headerHeight];
+    case ActuationWorklogDisplayModeCompact:
+      return [self headerHeight] + _compactHeightConstraint.constant +
+             interventionHeight;
+    case ActuationWorklogDisplayModeExpanded:
+      // Height needed to show the full timeline without scrolling, including
+      // the bottom inset applied to `_fullView` in its scroll view.
+      return [self headerHeight] +
+             [self fittingHeightForView:_fullView targetWidth:width] +
+             kSpacingLarge + interventionHeight;
+  }
 }
 
 #pragma mark - UIViewController
@@ -116,15 +129,7 @@ using intelligence::actor::kSpacingMedium;
 }
 
 - (void)setIntervention:(ActuationInterventionData*)intervention {
-  BOOL hasIntervention = (intervention != nil);
-  if (hasIntervention) {
-    _cardView.title = intervention.title;
-    _cardView.subtitle = intervention.subtitle;
-    _cardView.buttonTitle = intervention.primaryButtonText;
-  }
-  _cardView.hidden = !hasIntervention;
-  _interventionContainer.hidden = !hasIntervention;
-  _containerHeightConstraint.active = !hasIntervention;
+  [_interventionView configureWithData:intervention];
   [self notifyHeightDidChange];
 }
 
@@ -159,8 +164,8 @@ using intelligence::actor::kSpacingMedium;
   UIAction* closeAction = [UIAction actionWithHandler:^(UIAction*) {
     [weakSelf stopActuationButtonTapped];
   }];
-  return [[ActuationHeaderItem alloc]
-                 initWithIcon:SymbolWithPointSize(SymbolXMark,
+  return [ActuationHeaderItem
+                 itemWithIcon:SymbolWithPointSize(SymbolXMark,
                                                   kCloseButtonPointSize)
                         title:l10n_util::GetNSString(IDS_CLOSE)
       accessibilityIdentifier:kActuationHeaderCloseButtonAccessibilityIdentifier
@@ -195,28 +200,16 @@ using intelligence::actor::kSpacingMedium;
   _fullView.translatesAutoresizingMaskIntoConstraints = NO;
   [_scrollView addSubview:_fullView];
 
-  _cardView = [[ActuationTaskCardView alloc] initWithTitle:@""
-                                               buttonTitle:@""
-                                               collapsible:NO];
-  _cardView.accessibilityIdentifier =
-      kActuationInterventionCardAccessibilityIdentifier;
-  _cardView.delegate = self;
-  _cardView.hidden = YES;
-  _cardView.translatesAutoresizingMaskIntoConstraints = NO;
-
-  _interventionContainer = [[UIView alloc] initWithFrame:CGRectZero];
-  _interventionContainer.hidden = YES;
-  _interventionContainer.translatesAutoresizingMaskIntoConstraints = NO;
-  [_interventionContainer addSubview:_cardView];
-  [self.view addSubview:_interventionContainer];
+  _interventionView = [[ActuationInterventionView alloc] init];
+  _interventionView.delegate = self;
+  _interventionView.translatesAutoresizingMaskIntoConstraints = NO;
+  [self.view addSubview:_interventionView];
 }
 
 // Configures layout constraints.
 - (void)setupConstraints {
   _compactHeightConstraint =
       [_compactView.heightAnchor constraintEqualToConstant:0.0];
-  _containerHeightConstraint =
-      [_interventionContainer.heightAnchor constraintEqualToConstant:0.0];
 
   AddSameConstraintsToSides(_headerView, self.view,
                             LayoutSides::kTop | LayoutSides::kHorizontal);
@@ -224,61 +217,53 @@ using intelligence::actor::kSpacingMedium;
   AddSameConstraintsToSides(_scrollView, self.view, LayoutSides::kHorizontal);
   AddSameConstraintsWithInsets(_fullView, _scrollView.contentLayoutGuide,
                                NSDirectionalEdgeInsets{0, 0, kSpacingLarge, 0});
-  AddSameConstraintsToSides(_interventionContainer, self.view,
+  AddSameConstraintsToSides(_interventionView, self.view,
                             LayoutSides::kHorizontal | LayoutSides::kBottom);
-
-  NSLayoutConstraint* cardBottomConstraint = [_cardView.bottomAnchor
-      constraintEqualToAnchor:_interventionContainer.bottomAnchor
-                     constant:-kSpacingLarge];
-  cardBottomConstraint.priority = UILayoutPriorityDefaultHigh;
 
   [NSLayoutConstraint activateConstraints:@[
     [_compactView.topAnchor constraintEqualToAnchor:_headerView.bottomAnchor],
     _compactHeightConstraint,
     [_scrollView.topAnchor constraintEqualToAnchor:_headerView.bottomAnchor],
     [_scrollView.bottomAnchor
-        constraintEqualToAnchor:_interventionContainer.topAnchor],
+        constraintEqualToAnchor:_interventionView.topAnchor],
     [_fullView.widthAnchor
         constraintEqualToAnchor:_scrollView.frameLayoutGuide.widthAnchor],
-    [_cardView.topAnchor
-        constraintEqualToAnchor:_interventionContainer.topAnchor
-                       constant:kSpacingMedium],
-    [_cardView.leadingAnchor
-        constraintEqualToAnchor:_interventionContainer.leadingAnchor
-                       constant:kSpacingLarge],
-    [_cardView.trailingAnchor
-        constraintEqualToAnchor:_interventionContainer.trailingAnchor
-                       constant:-kSpacingLarge],
-    cardBottomConstraint,
-    _containerHeightConstraint,
   ]];
 }
 
-// Updates visibility of the view and switches between compact and full mode.
+// Updates visibility of the view and its subviews for `_displayMode`.
 - (void)updateVisibility {
   self.view.hidden = !_actuationActive;
-  _compactView.hidden = !_compact;
-  _scrollView.hidden = _compact;
+  _compactView.hidden = _displayMode != ActuationWorklogDisplayModeCompact;
+  _scrollView.hidden = _displayMode != ActuationWorklogDisplayModeExpanded;
+  // `_interventionView` drives its own `hidden` state from its data, so it is
+  // concealed through `alpha` instead while minimized.
+  // TODO(crbug.com/532204179): Handle interventions that arrive while
+  // minimized.
+  BOOL minimized = _displayMode == ActuationWorklogDisplayModeMinimized;
+  _interventionView.alpha = minimized ? 0.0 : 1.0;
+  _interventionView.accessibilityElementsHidden = minimized;
 }
 
-// Calculates current fitting height and notifies the delegate.
+// Calculates current fitting height and notifies the delegate. The reported
+// height always reflects the compact layout, regardless of `_displayMode`,
+// since only the compact layout has a dynamic height.
 - (void)notifyHeightDidChange {
-  CGFloat viewWidth = self.view.bounds.size.width;
+  [self.delegate
+      worklogViewController:self
+            didChangeHeight:
+                [self heightForDisplayMode:ActuationWorklogDisplayModeCompact]];
+}
+
+// Returns the height of `_headerView`, falling back to its fitting height
+// before the first layout pass.
+- (CGFloat)headerHeight {
   CGFloat headerHeight = _headerView.bounds.size.height;
-  if (headerHeight <= 0) {
-    headerHeight = [self fittingHeightForView:_headerView
-                                  targetWidth:viewWidth];
+  if (headerHeight > 0) {
+    return headerHeight;
   }
-
-  CGFloat totalHeight = headerHeight + _compactHeightConstraint.constant;
-  if (!_interventionContainer.hidden) {
-    CGFloat cardWidth = std::max<CGFloat>(0.0, viewWidth - 2 * kSpacingLarge);
-    CGFloat cardHeight = [self fittingHeightForView:_cardView
-                                        targetWidth:cardWidth];
-    totalHeight += cardHeight + kSpacingMedium + kSpacingLarge;
-  }
-
-  [self.delegate worklogViewController:self didChangeHeight:totalHeight];
+  return [self fittingHeightForView:_headerView
+                        targetWidth:self.view.bounds.size.width];
 }
 
 // Calculates fitting height for `view` constrained to `targetWidth`.
@@ -307,15 +292,11 @@ using intelligence::actor::kSpacingMedium;
   }
 }
 
-#pragma mark - ActuationTaskCardViewDelegate
+#pragma mark - ActuationInterventionViewDelegate
 
-- (void)taskCardViewDidTapActionButton:(ActuationTaskCardView*)view {
-  [self.mutator didTapInterventionButton];
-}
-
-- (void)taskCardView:(ActuationTaskCardView*)view
-    didChangeCollapsedState:(BOOL)isCollapsed {
-  // Non-collapsible card, required by ActuationTaskCardViewDelegate.
+- (void)interventionView:(ActuationInterventionView*)view
+        didTriggerAction:(ActuationInterventionAction)action {
+  [self.mutator didTriggerInterventionAction:action];
 }
 
 @end

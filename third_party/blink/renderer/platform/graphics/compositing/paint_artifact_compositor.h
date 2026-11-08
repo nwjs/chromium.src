@@ -115,7 +115,7 @@ class PLATFORM_EXPORT PaintArtifactCompositor final
   PaintArtifactCompositor& operator=(const PaintArtifactCompositor&) = delete;
   ~PaintArtifactCompositor() override;
 
-  void Trace(Visitor*) const;
+  void Trace(Visitor*) const override;
 
   struct ViewportProperties {
     STACK_ALLOCATED();
@@ -227,11 +227,10 @@ class PLATFORM_EXPORT PaintArtifactCompositor final
     get_canvas_snapshot_callback_ = std::move(callback);
   }
 
-  bool HasCanvasChildPaintRecord(DOMNodeId child_id) const;
-  std::optional<CanvasChildPaintRecord> GetCanvasChildPaintRecord(
-      DOMNodeId child_id) const;
-  const CanvasChildPaintState* GetCanvasChildPaintState(
-      DOMNodeId child_id) const;
+  std::optional<CanvasDrawablePaintRecord> GetCanvasDrawablePaintRecord(
+      DOMNodeId drawable_id) const;
+  const CanvasDrawablePaintState* GetCanvasDrawablePaintState(
+      DOMNodeId drawable_id) const;
 
   // Called when the local frame view that owns this compositor is
   // going to be removed from its frame.
@@ -264,10 +263,6 @@ class PLATFORM_EXPORT PaintArtifactCompositor final
   // Invalidates the scrollbar layer. Returns true if the scrollbar layer is
   // found by `element_id`.
   bool SetScrollbarNeedsDisplay(CompositorElementId element_id);
-
-  // Sets color for solid color scrollbar layer. Returns true if the scrollbar
-  // layer is found by `element_id`.
-  bool SetScrollbarSolidColor(CompositorElementId element_id, SkColor4f color);
 
   bool ShouldAlwaysUpdateOnScroll() const {
     return should_always_update_on_scroll_;
@@ -360,7 +355,7 @@ class PLATFORM_EXPORT PaintArtifactCompositor final
 
   class OldPendingLayerMatcher;
   PendingLayers pending_layers_;
-  HashMap<DOMNodeId, wtf_size_t> canvas_child_layer_map_;
+  HashMap<DOMNodeId, wtf_size_t> canvas_drawable_layer_map_;
   GetCanvasSnapshotCallback get_canvas_snapshot_callback_;
 
   class Layerizer;

@@ -890,6 +890,36 @@ TEST_F(FormInputAccessoryMediatorTest,
   EXPECT_OCMOCK_VERIFY(consumer_);
 }
 
+// Tests that focusing a form field updates `atMemoryButtonHidden` on the active
+// `WebState` when Gemini consent changes without switching tabs.
+TEST_F(FormInputAccessoryMediatorTest,
+       FormActivityUpdatesAtMemoryButtonVisibility) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeatures(
+      {autofill::features::kAutofillAtMemory,
+       autofill::features::debug::kAtMemorySkipEnablementChecks},
+      {});
+
+  autofill::TestAutofillClientIOS autofill_client(
+      web_state_list_.GetActiveWebState(), nil);
+  autofill_client.GetPrefs()->registry()->RegisterBooleanPref(
+      prefs::kIOSBwgConsent, false);
+
+  FormActivityParams focus_params =
+      CreateFormActivityParams(FormActivityParams::FieldType::kText);
+
+  OCMExpect([consumer_ setAtMemoryButtonHidden:YES]);
+  test_form_activity_tab_helper_.FormActivityRegistered(main_frame_.get(),
+                                                        focus_params);
+  EXPECT_OCMOCK_VERIFY(consumer_);
+
+  gemini::UpdateUserConsentPrefs(true, autofill_client.GetPrefs());
+  OCMExpect([consumer_ setAtMemoryButtonHidden:NO]);
+  test_form_activity_tab_helper_.FormActivityRegistered(main_frame_.get(),
+                                                        focus_params);
+  EXPECT_OCMOCK_VERIFY(consumer_);
+}
+
 // Tests that lastFocusedFieldGlobalId returns nullopt when no field is focused.
 TEST_F(FormInputAccessoryMediatorTest,
        LastFocusedFieldGlobalIdEmptyWhenNoFieldFocused) {
@@ -1029,4 +1059,52 @@ TEST_F(FormInputAccessoryMediatorTest,
   [mediator_ setSuggestionsEnabled:NO];
   [mediator_ setSuggestionsEnabled:YES];
   EXPECT_EQ(suggestions_completions.count, 3ul);
+}
+
+// Tests that `form_changed` events do not deactivate the input accessory view.
+TEST_F(FormInputAccessoryMediatorTest,
+       FormActivityFormChangedDoesNotDeactivateAccessoryView) {
+  FormActivityParams focus_params =
+      CreateFormActivityParams(FormActivityParams::FieldType::kText);
+  test_form_activity_tab_helper_.FormActivityRegistered(main_frame_.get(),
+                                                        focus_params);
+  EXPECT_TRUE(mediator_.inputAccessoryViewActive);
+
+  FormActivityParams form_changed_params;
+  form_changed_params.type = FormActivityParams::ActivityType::kFormChanged;
+  form_changed_params.field_type = FormActivityParams::FieldType::kUnknown;
+  form_changed_params.input_missing = false;
+  test_form_activity_tab_helper_.FormActivityRegistered(main_frame_.get(),
+                                                        form_changed_params);
+
+  EXPECT_TRUE(mediator_.inputAccessoryViewActive);
+}
+
+// Tests that focusing a text field reloads first responder input views if the
+// accessory view was previously deactivated (even when `_lastSeenParams`
+// already had a keyboard-triggering field type).
+TEST_F(FormInputAccessoryMediatorTest,
+       SubsequentFocusAfterInactiveAccessoryViewReloadsInputViews) {
+  FormActivityParams focus_params =
+      CreateFormActivityParams(FormActivityParams::FieldType::kText);
+  test_form_activity_tab_helper_.FormActivityRegistered(main_frame_.get(),
+                                                        focus_params);
+  EXPECT_TRUE(mediator_.inputAccessoryViewActive);
+
+  // Register an incomplete activity that deactivates the accessory view without
+  // resetting `_lastSeenParams`.
+  FormActivityParams missing_input_params = focus_params;
+  missing_input_params.input_missing = true;
+  test_form_activity_tab_helper_.FormActivityRegistered(main_frame_.get(),
+                                                        missing_input_params);
+  EXPECT_FALSE(mediator_.inputAccessoryViewActive);
+
+  // Focusing another text field should reactivate the accessory view and reload
+  // the first responder's input views.
+  FormInputAccessoryMediator* mock_mediator = OCMPartialMock(mediator_);
+  OCMExpect([mock_mediator reloadFirstResponderInputViews]);
+  test_form_activity_tab_helper_.FormActivityRegistered(main_frame_.get(),
+                                                        focus_params);
+  EXPECT_TRUE(mediator_.inputAccessoryViewActive);
+  EXPECT_OCMOCK_VERIFY((id)mock_mediator);
 }

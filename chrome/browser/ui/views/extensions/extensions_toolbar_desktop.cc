@@ -12,6 +12,7 @@
 #include "base/functional/callback_helpers.h"
 #include "base/no_destructor.h"
 #include "base/scoped_observation.h"
+#include "base/task/sequenced_task_runner.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
 #include "chrome/app/vector_icons/vector_icons.h"
@@ -374,20 +375,8 @@ void ExtensionsToolbarDesktop::ShowPinnedByDefaultIPH(
   }
 
   auto show_iph_closure = base::BindOnce(
-      [](base::WeakPtr<BrowserWindowInterface> browser,
+      [](base::WeakPtr<ExtensionsToolbarDesktop> extensions_toolbar,
          const extensions::ExtensionId& extension_id) {
-        if (!browser) {
-          return;
-        }
-
-        BrowserView* browser_view =
-            BrowserView::GetBrowserViewForBrowser(browser.get());
-        if (!browser_view->toolbar()) {
-          return;
-        }
-
-        ExtensionsToolbarDesktop* extensions_toolbar =
-            browser_view->toolbar()->extensions_container();
         if (!extensions_toolbar) {
           return;
         }
@@ -407,18 +396,31 @@ void ExtensionsToolbarDesktop::ShowPinnedByDefaultIPH(
             feature_engagement::kIPHExtensionsPinnedByDefaultFeature);
         params.close_callback = base::BindOnce(
             [](std::unique_ptr<views::ViewTracker> tracker) {
-              if (tracker->view()) {
-                tracker->view()->ClearProperty(views::kElementIdentifierKey);
-              }
+              // The promo may be closing because the anchor is being hidden,
+              // in which case ElementTracker is in the middle of notifying
+              // that kExtensionsPinnedByDefaultElementId was hidden. Clearing
+              // the identifier now would re-enter ElementTracker for the same
+              // element, so defer it.
+              base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+                  FROM_HERE,
+                  base::BindOnce(
+                      [](std::unique_ptr<views::ViewTracker> tracker) {
+                        if (tracker->view()) {
+                          tracker->view()->ClearProperty(
+                              views::kElementIdentifierKey);
+                        }
+                      },
+                      std::move(tracker)));
             },
             std::make_unique<views::ViewTracker>(extension_view));
-        bool promo_shown = BrowserUserEducationInterface::From(browser.get())
-                               ->MaybeShowFeaturePromo(std::move(params));
+        bool promo_shown =
+            BrowserUserEducationInterface::From(extensions_toolbar->browser_)
+                ->MaybeShowFeaturePromo(std::move(params));
         if (!promo_shown) {
           extension_view->ClearProperty(views::kElementIdentifierKey);
         }
       },
-      browser_->GetWeakPtr(), extension_id);
+      weak_ptr_factory_.GetWeakPtr(), extension_id);
 
   auto run_or_wait_for_active_widget = base::BindOnce(
       [](views::Widget* browser_widget, base::OnceClosure show_iph_closure) {

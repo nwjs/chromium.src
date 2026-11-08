@@ -14,10 +14,7 @@ import static androidx.test.espresso.matcher.ViewMatchers.withAlpha;
 import static androidx.test.espresso.matcher.ViewMatchers.withId;
 
 import static org.hamcrest.Matchers.allOf;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
 import static org.chromium.chrome.browser.customtabs.CustomTabsTestUtils.createTestBitmap;
@@ -47,7 +44,6 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
-import org.mockito.Spy;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 
@@ -137,11 +133,6 @@ public class CustomTabActivityRenderTest {
     @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
 
     @Mock private Tracker mTracker;
-
-    // Spy created inside individual tests; kept as a field so MockitoResetter picks it up and
-    // resets Mockito state on it, breaking the MockingProgress -> InvocationContainer retention
-    // chain.
-    @Spy private CustomTabsConnection mConnectionSpy;
 
     @Before
     public void setUp() {
@@ -262,17 +253,6 @@ public class CustomTabActivityRenderTest {
         mIntent.putExtra(EXTRA_CLOSE_BUTTON_POSITION, CLOSE_BUTTON_POSITION_END);
 
         startActivityAndRenderToolbar("cct_close_button_end");
-    }
-
-    @Test
-    @MediumTest
-    @Feature("RenderTest")
-    public void testCctToolbarWithOmnibox() throws IOException {
-        // Permit Omnibox for any upcoming intent(s).
-        mConnectionSpy = spy(CustomTabsConnection.getInstance());
-        doReturn(true).when(mConnectionSpy).shouldEnableOmniboxForIntent(any());
-        CustomTabsConnection.setInstanceForTesting(mConnectionSpy);
-        startActivityAndRenderToolbar("cct_omnibox");
     }
 
     @Test

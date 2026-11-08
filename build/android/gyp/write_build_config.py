@@ -469,7 +469,7 @@ def _CreateJavaLocaleListFromAssets(assets, locale_paks):
     locales = [
         os.path.basename(a)[:-4] for a in assets_paths if a in locale_paks
     ]
-    return '{%s}' % ','.join('"%s"' % l for l in sorted(locales))
+    return '{%s}' % ','.join('"%s"' % l for l in sorted(locales))  # noqa: E741
 
 
 def _AddJarMapping(jar_to_target, config):
@@ -759,9 +759,6 @@ def main():
 
     if is_apk:
         main_config['apk_path'] = params['apk_path']
-        if path := params.get('incremental_install_json_path'):
-            main_config['incremental_install_json_path'] = path
-            main_config['incremental_apk_path'] = params['incremental_apk_path']
 
     if is_bundle_module:
         main_config['unprocessed_jar_path'] = params['unprocessed_jar_path']

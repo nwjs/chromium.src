@@ -39,6 +39,13 @@ enum class TipIdentifier;
 // Indicates that the user has tapped the AIM module.
 - (void)didTapAIMModule;
 
+// Notifies the audience that the content suggestions size has been updated.
+- (void)contentSuggestionsWasUpdated;
+
+// Indicates that the user has tapped the photo picker button in the actionable
+// NTP Theme tip.
+- (void)didSelectNTPThemePhotoPicker;
+
 @end
 
 #endif  // IOS_CHROME_BROWSER_CONTENT_SUGGESTIONS_UI_CONTENT_SUGGESTIONS_VIEW_CONTROLLER_AUDIENCE_H_

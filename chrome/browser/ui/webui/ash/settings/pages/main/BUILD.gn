@@ -14,7 +14,6 @@ static_library("main") {
 
   public_deps = [
     "//base",
-    "//chrome/browser:browser_public_dependencies",
     "//chrome/browser/ui/webui/settings",
   ]
 
@@ -40,6 +39,7 @@ static_library("main") {
     "//chromeos/ash/components/browser_context_helper",
     "//chromeos/ash/components/browser_delegate",
     "//chromeos/ash/components/install_attributes",
+    "//components/session_manager/core",
     "//components/strings:components_strings",
     "//components/user_manager",
     "//content/public/browser",
@@ -56,7 +56,6 @@ source_set("unit_tests") {
 
   deps = [
     ":main",
-    "//chrome/browser/ui",
     "//chrome/test:test_support",
     "//content/test:test_support",
     "//testing/gmock",

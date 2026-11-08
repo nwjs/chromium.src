@@ -21,6 +21,7 @@ char kTSanDefaultSuppressions[] =
     // Since we don't instrument them, we cannot reason about the
     // synchronization in them.
     "race:libdbus*.so\n"
+    "deadlock:libdbus*.so\n"
     "race:libdconfsettings*.so\n"
     "race:libflashplayer.so\n"
     "race:libgio*.so\n"
@@ -66,7 +67,6 @@ char kTSanDefaultSuppressions[] =
 
     // http://crbug.com/695929
     "race:base::i18n::IsRTL\n"
-    "race:base::i18n::SetICUDefaultLocale\n"
 
     // http://crbug.com/927330
     "race:net::(anonymous namespace)::g_network_change_notifier\n"

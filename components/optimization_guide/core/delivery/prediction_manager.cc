@@ -39,12 +39,10 @@
 #include "components/optimization_guide/core/delivery/prediction_model_fetcher_impl.h"
 #include "components/optimization_guide/core/delivery/prediction_model_override.h"
 #include "components/optimization_guide/core/delivery/prediction_model_store.h"
-#include "components/optimization_guide/core/optimization_guide_enums.h"
 #include "components/optimization_guide/core/optimization_guide_features.h"
 #include "components/optimization_guide/core/optimization_guide_logger.h"
 #include "components/optimization_guide/core/optimization_guide_permissions_util.h"
 #include "components/optimization_guide/core/optimization_guide_prefs.h"
-#include "components/optimization_guide/core/optimization_guide_switches.h"
 #include "components/optimization_guide/core/optimization_guide_util.h"
 #include "components/optimization_guide/optimization_guide_internals/webui/optimization_guide_internals.mojom.h"
 #include "components/optimization_guide/proto/models.pb.h"
@@ -192,7 +190,7 @@ void PredictionManager::FetchModels() {
   // LINT.IfChange(TfliteEngineVersion)
   // There should only be one supported model engine version at a time.
   base_model_info.add_supported_model_engine_versions(
-      proto::MODEL_ENGINE_VERSION_TFLITE_2_22_0);
+      proto::MODEL_ENGINE_VERSION_TFLITE_2_22_1);
   // LINT.ThenChange(//components/component_updater/installer_policies/prediction_model_component_installer.cc:TfliteEngineVersion)
   // This histogram is used for integration tests. Do not remove.
   // Update this to be 10000 if/when we exceed 100 model engine versions.

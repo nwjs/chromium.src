@@ -4,26 +4,16 @@
 
 # This file contains common system config stuff for the Android build.
 
-# Some arguments that are needed across all builds that import this file, for
-# example by is_robolectric.
-declare_args() {
-  # Build incremental targets whenever possible.
-  # See //build/android/incremental_install/README.md for more details.
-  incremental_install = false
-}
-
 declare_args() {
   # Java debug on Android. Having this on enables multidexing, and turning it
   # off will enable proguard.
-  is_java_debug = is_debug || incremental_install
+  is_java_debug = is_debug
 }
 
-# These two combinations could theoretically be made to work, but they are
+# This combination could theoretically be made to work, but it is
 # not useful and so not worth the effort.
 assert(!(is_java_debug && is_official_build),
        "Cannot have is_official_build && is_java_debug")
-assert(!(incremental_install && !is_java_debug),
-       "Cannot have incremental_install without is_java_debug")
 
 # Toolchain used to create native libraries for robolectric_binary() targets.
 robolectric_toolchain = "//build/toolchain/android:robolectric_$host_cpu"
@@ -161,7 +151,7 @@ if (is_android) {
   android_ndk_root = "//third_party/android_toolchain/ndk"
 
   public_android_sdk_root = "//third_party/android_sdk/public"
-  public_android_sdk_platform_version = "37.0"
+  public_android_sdk_platform_version = "37.2"
   public_android_sdk_build_tools_version = "37.0.0"
   if (android_sdk_release == "public") {
     default_android_sdk_root = public_android_sdk_root
@@ -172,7 +162,7 @@ if (is_android) {
   }
 
   if (!defined(default_target_sdk_version)) {
-    default_target_sdk_version = "37"
+    default_target_sdk_version = "36"
   }
 
   if (!defined(default_lint_android_sdk_root)) {
@@ -391,8 +381,6 @@ if (is_android) {
     tiered_dex_partitions = read_file(tiered_dex_partitions_file, "json")
   }
 
-  assert(!incremental_install || is_java_debug,
-         "incremental_install=true && is_java_debug=false is not supported.")
   assert(!tiered_dex_assembly || is_java_debug,
          "tiered_dex_assembly=true && is_java_debug=false is not supported.")
 
@@ -515,6 +503,7 @@ if (is_android) {
   kotlinc_paths_for_inputs = [
     "//third_party/kotlinc",
     "//third_party/kotlinc/current/bin/kotlinc",
+    "//third_party/kotlinc/current/bin/kotlinc-graalvm",
     "//third_party/kotlinc/current/lib/jvm-abi-gen.jar",
     "//third_party/kotlinc/current/lib/annotations-13.0.jar",
     "//third_party/kotlinc/current/lib/kotlin-compiler.jar",

@@ -50,7 +50,6 @@ android_library("java") {
     "//base:supplier_java",
     "//chrome/browser/autofill/android:java",
     "//chrome/browser/flags:java",
-    "//chrome/browser/personal_context/first_run:java",
     "//chrome/browser/profiles/android:java",
     "//chrome/browser/ui/android/ephemeraltab:java",
     "//components/autofill/android:main_autofill_java",
@@ -77,7 +76,7 @@ android_library("java") {
 generate_jni("jni_headers") {
   visibility = [
     ":*",
-    "//chrome/browser/ui",
+    "//chrome/browser",
     "//chrome/browser/ui/android/autofill",
     "//chrome/browser/ui/android/autofill/payments",
   ]
@@ -118,7 +117,6 @@ robolectric_library("junit") {
     "//base/test:test_support_java",
     "//chrome/browser/autofill/android:java",
     "//chrome/browser/flags:java",
-    "//chrome/browser/personal_context/first_run:java",
     "//chrome/browser/profiles/android:java",
     "//chrome/browser/settings:factory_java",
     "//chrome/browser/ui/android/ephemeraltab:java",

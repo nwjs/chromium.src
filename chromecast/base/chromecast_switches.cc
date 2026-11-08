@@ -32,9 +32,6 @@ const char kCrashReportProductName[] = "product-name";
 // Switch to disable Crash reporting
 const char kDisableCrashReporter[] = "disable-crash-reporter";
 
-// Switch to disable Crashpad forwarding
-const char kDisableCrashpadForwarding[] = "disable-crashpad-forwarding";
-
 // Switch to dumpstate binary path.
 const char kDumpstateBinPath[] = "dumpstate-path";
 
@@ -55,92 +52,10 @@ const char kLastLaunchedApp[] = "last-launched-app";
 // started.
 const char kPreviousApp[] = "previous-app";
 
-// Flag indicating that a resource provider must be set up to provide cast
-// receiver with resources. Apps cannot start until provided resources.
-// This flag implies --alsa-check-close-timeout=0.
-const char kAcceptResourceProvider[] = "accept-resource-provider";
-
-// Name of the device the amp mixer should be opened on. If this flag is not
-// specified it will default to the same device as kAlsaVolumeDeviceName.
-const char kAlsaAmpDeviceName[] = "alsa-amp-device-name";
-
-// Name of the simple mixer control element that the ALSA-based media library
-// should use to toggle powersave mode on the system.
-const char kAlsaAmpElementName[] = "alsa-amp-element-name";
-
-// Time in ms to wait before closing the PCM handle when no more mixer inputs
-// remain. Assumed to be 0 if --accept-resource-provider is present.
-const char kAlsaCheckCloseTimeout[] = "alsa-check-close-timeout";
-
-// Flag that enables resampling audio with sample rate below 32kHz up to 48kHz.
-// Should be set to true for internal audio products.
-const char kAlsaEnableUpsampling[] = "alsa-enable-upsampling";
-
-// Optional flag to set a fixed sample rate for the alsa device.
-// Deprecated: Use --audio-output-sample-rate instead.
-const char kAlsaFixedOutputSampleRate[] = "alsa-fixed-output-sample-rate";
-
-// Name of the device the mute mixer should be opened on. If this flag is not
-// specified it will default to the same device as kAlsaVolumeDeviceName.
-const char kAlsaMuteDeviceName[] = "alsa-mute-device-name";
-
-// Name of the simple mixer control element that the ALSA-based media library
-// should use to mute the system.
-const char kAlsaMuteElementName[] = "alsa-mute-element-name";
-
-// Minimum number of available frames for scheduling a transfer.
-const char kAlsaOutputAvailMin[] = "alsa-output-avail-min";
-
-// Size of the ALSA output buffer in frames. This directly sets the latency of
-// the output device. Latency can be calculated by multiplying the sample rate
-// by the output buffer size.
-const char kAlsaOutputBufferSize[] = "alsa-output-buffer-size";
-
-// Size of the ALSA output period in frames. The period of an ALSA output device
-// determines how many frames elapse between hardware interrupts.
-const char kAlsaOutputPeriodSize[] = "alsa-output-period-size";
-
-// How many frames need to be in the output buffer before output starts.
-const char kAlsaOutputStartThreshold[] = "alsa-output-start-threshold";
-
-// Name of the device the volume control mixer should be opened on. Will use the
-// same device as kAlsaOutputDevice and fall back to "default" if
-// kAlsaOutputDevice is not supplied.
-const char kAlsaVolumeDeviceName[] = "alsa-volume-device-name";
-
-// Name of the simple mixer control element that the ALSA-based media library
-// should use to control the volume.
-const char kAlsaVolumeElementName[] = "alsa-volume-element-name";
-
 // Number of audio output channels. This will be used to send audio buffer with
 // specific number of channels to ALSA and generate loopback audio. Default
 // value is 2.
 const char kAudioOutputChannels[] = "audio-output-channels";
-
-// Specify fixed sample rate for audio output stream. If this flag is not
-// specified the StreamMixer will choose sample rate based on the sample rate of
-// the media stream.
-const char kAudioOutputSampleRate[] = "audio-output-sample-rate";
-
-// Calibrated max output volume dBa for voice content at 1 meter, if known.
-const char kMaxOutputVolumeDba1m[] = "max-output-volume-dba1m";
-
-// Enable dynamically changing the channel count in the mixer depending on the
-// input streams.
-const char kMixerEnableDynamicChannelCount[] =
-    "mixer-enable-dynamic-channel-count";
-
-// Specify the start threshold frames for audio output when using our mixer.
-// This is mostly used to override the default value to a larger value, for
-// platforms that can't handle the default start threshold without running into
-// audio underruns.
-const char kMixerSourceAudioReadyThresholdMs[] =
-    "mixer-source-audio-ready-threshold-ms";
-
-// Specify the buffer size for audio output when using our mixer. This is mostly
-// used to override the default value to a larger value, for platforms that
-// can't handle an audio buffer so small without running into audio underruns.
-const char kMixerSourceInputQueueMs[] = "mixer-source-input-queue-ms";
 
 // Some platforms typically have very little 'free' memory, but plenty is
 // available in buffers+cached.  For such platforms, configure this amount
@@ -197,14 +112,6 @@ const char kEnableTopDragGesture[] = "enable-top-drag-gesture";
 // Whether in hospitality mode
 const char kManagedMode[] = "managed-mode";
 
-// Endpoint that the mixer service listens on. This is a path for a UNIX domain
-// socket (default is /tmp/mixer-service).
-const char kMixerServiceEndpoint[] = "mixer-service-endpoint";
-
-// TCP port that the mixer service listens on on non-Linux platforms.
-// (default 12854).
-const char kMixerServicePort[] = "mixer-service-port";
-
 extern const char kCastMemoryPressureCriticalFraction[] =
     "memory-pressure-critical-fraction";
 extern const char kCastMemoryPressureModerateFraction[] =
@@ -253,6 +160,9 @@ const char kCastMojoBrokerPath[] = "cast-mojo-broker-path";
 
 // Allows specifying the base::ASSETS dir for Cast via commandline.
 const char kCastAssetsDir[] = "cast-assets-dir";
+
+const char kHomeEnvOverride[] = "home-env-override";
+
 
 }  // namespace switches
 

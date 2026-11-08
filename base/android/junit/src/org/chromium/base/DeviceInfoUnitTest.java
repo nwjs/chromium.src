@@ -186,6 +186,35 @@ public class DeviceInfoUnitTest {
         assertFalse(DeviceInfo.isFoldable());
     }
 
+    @Test
+    public void testInstanceIsCachedAndResetForTesting() {
+        ShadowPackageManager pm =
+                shadowOf(ContextUtils.getApplicationContext().getPackageManager());
+        assertFalse(DeviceInfo.isAutomotive());
+
+        pm.setSystemFeature(PackageManager.FEATURE_AUTOMOTIVE, true);
+        // Cached instance should still return false until resetInstanceForTesting() is called.
+        assertFalse(DeviceInfo.isAutomotive());
+
+        DeviceInfo.resetInstanceForTesting();
+        assertTrue(DeviceInfo.isAutomotive());
+    }
+
+    @Test
+    public void testForceDesktopSwitchAddedAfterCachingIsPickedUp() {
+        assertFalse(DeviceInfo.isDesktop());
+
+        // Native browser tests add this switch after DeviceInfo may already have been cached.
+        // CommandLineFlags.reset() only undoes flags applied via annotations, so remove the switch
+        // explicitly to avoid leaking it into later tests in the same JVM.
+        CommandLine.getInstance().appendSwitch(BaseSwitches.FORCE_DESKTOP_ANDROID);
+        try {
+            assertTrue(DeviceInfo.isDesktop());
+        } finally {
+            CommandLine.getInstance().removeSwitch(BaseSwitches.FORCE_DESKTOP_ANDROID);
+        }
+    }
+
     private static void setHasHingeAngleFeature(boolean hasFeature) {
         Shadows.shadowOf(ContextUtils.getApplicationContext().getPackageManager())
                 .setSystemFeature(PackageManager.FEATURE_SENSOR_HINGE_ANGLE, hasFeature);

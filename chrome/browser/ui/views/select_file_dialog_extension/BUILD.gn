@@ -12,8 +12,6 @@ static_library("select_file_dialog_extension") {
     "select_file_dialog_extension_factory.h",
   ]
 
-  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
-
   deps = [
     "//chrome/browser/app_mode",
     "//chrome/browser/apps/platform_apps",
@@ -50,7 +48,6 @@ source_set("browser_tests") {
     "//chrome/browser/ash/policy/dlp",
     "//chrome/browser/chromeos/policy/dlp",
     "//chrome/browser/chromeos/policy/dlp/test:test_support",
-    "//chrome/browser/ui",
     "//chrome/browser/ui:browser_select_file_dialog_controller",
     "//chrome/browser/ui/ash/keyboard",
     "//chrome/browser/ui/navigator",

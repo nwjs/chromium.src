@@ -15,6 +15,13 @@ namespace actor {
 BASE_DECLARE_FEATURE(kGlicActionUseOptimizationGuide);
 BASE_DECLARE_FEATURE(kActorBypassTOUValidationForGuestView);
 
+// Temporary migration flag: when enabled, a tab-backed ActorSurface uses its
+// TabHandle value as its ActorSurfaceHandle (> 0), and headless surfaces
+// allocate negative handles (< 0) so the two ranges never collide. When
+// disabled, every surface takes the next positive handle (> 0) from one shared
+// counter, independent of TabHandle.
+BASE_DECLARE_FEATURE(kUseTabHandleAsSurfaceHandle);
+
 BASE_DECLARE_FEATURE(kGlicExternalProtocolActionResultCode);
 
 BASE_DECLARE_FEATURE(kGlicBlockNavigationToDangerousContentTypes);
@@ -118,6 +125,11 @@ BASE_DECLARE_FEATURE(kGlicActorLoadAndExtractContentTool);
 extern const base::FeatureParam<base::TimeDelta>
     kGlicActorLoadAndExtractContentToolTimeout;
 
+// Enables the file upload tool, which lets the actor fulfill a page's file
+// chooser request with files downloaded from model-provided URLs instead of
+// showing the native file picker.
+BASE_DECLARE_FEATURE(kGlicActorFileUploadTool);
+
 BASE_DECLARE_FEATURE(kGlicActorTransientTasks);
 extern const base::FeatureParam<bool> kGlicActorTransientTasksForceTransient;
 extern const base::FeatureParam<base::TimeDelta> kGlicActorTransientTasksDelay;
@@ -130,10 +142,6 @@ extern const base::FeatureParam<base::TimeDelta>
 
 BASE_DECLARE_FEATURE(kActorScriptToolDelayObservation);
 extern const base::FeatureParam<int> kActorScriptToolDelayObservationMillis;
-
-// TODO(crbug.com/484367299): Implement a proper actor task state for
-// interrupt-with-user-control.
-BASE_DECLARE_FEATURE(kActorFormScriptToolInterrupt);
 
 BASE_DECLARE_FEATURE(kActorObserveScreenshotDefault);
 BASE_DECLARE_FEATURE(kActorObservePageContentDefault);

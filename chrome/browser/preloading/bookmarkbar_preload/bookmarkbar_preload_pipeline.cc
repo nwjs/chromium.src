@@ -6,7 +6,7 @@
 
 #include "base/metrics/histogram_functions.h"
 #include "chrome/browser/browser_features.h"
-#include "chrome/browser/page_load_metrics/chrome_initiator_location.h"
+#include "chrome/browser/page_load_metrics/chrome_navigation_initiator.h"
 #include "chrome/browser/preloading/chrome_preloading.h"
 #include "chrome/browser/preloading/preloading_features.h"
 #include "chrome/browser/preloading/preloading_utils.h"
@@ -14,8 +14,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "components/google/core/common/google_util.h"
-#include "components/page_load_metrics/browser/navigation_handle_user_data.h"
-#include "components/search_engines/template_url.h"
+#include "components/page_load_metrics/browser/navigation_initiator.h"
 #include "components/search_engines/template_url_service.h"
 #include "content/public/browser/preloading_data.h"
 #include "content/public/browser/preloading_trigger_type.h"
@@ -85,7 +84,7 @@ void BookmarkBarPreloadPipeline::StartPrefetch(
       /*holdback_status_override=*/
       content::PreloadingHoldbackStatus::kUnspecified, /*ttl=*/std::nullopt,
       /*should_ignore_saver_modes=*/false,
-      /*is_ahead_of_actual_navigation=*/false);
+      /*is_ahead_of_imminent_navigation=*/false);
 }
 
 void BookmarkBarPreloadPipeline::StartPrerender(
@@ -149,7 +148,8 @@ void BookmarkBarPreloadPipeline::StartPrerender(
 
   base::RepeatingCallback<void(content::NavigationHandle&)>
       prerender_navigation_handle_callback =
-          base::BindRepeating(&AttachBookmarkBarNavigationHandleUserData);
+          page_load_metrics::NavigationInitiatorHolder::AttacherCallback(
+              chrome_navigation_initiator::kBookmarkBar);
 
   prerender_handle_ = web_contents.StartPrerendering(
       url_, content::PreloadingTriggerType::kEmbedder,

@@ -15,8 +15,6 @@ source_set("platform_apps") {
     "chrome_apps_api_provider.h",
   ]
 
-  configs += [ "//build/config/compiler:wexit_time_destructors" ]
-
   deps = [
     "//chrome/common:resources_grit",
     "//chrome/common/apps/platform_apps/api",
@@ -30,6 +28,21 @@ source_set("platform_apps") {
       "media_galleries_permission.h",
       "media_galleries_permission_data.cc",
       "media_galleries_permission_data.h",
+    ]
+  }
+}
+
+source_set("unit_tests") {
+  testonly = true
+  sources = []
+  deps = []
+  if (is_chromeos) {
+    sources += [ "media_galleries_permission_unittest.cc" ]
+    deps += [
+      ":platform_apps",
+      "//base",
+      "//extensions/common",
+      "//testing/gtest",
     ]
   }
 }

@@ -161,6 +161,8 @@ AtomicString GetFrameOwnerType(HTMLFrameOwnerElement* frame_owner) {
       return html_names::kFrameTag.LocalName();
     case FrameOwnerElementType::kFencedframe:
       return html_names::kFencedframeTag.LocalName();
+    case FrameOwnerElementType::kPersistentwidget:
+      return html_names::kPersistentwidgetTag.LocalName();
   }
   NOTREACHED();
 }
@@ -1297,7 +1299,7 @@ void WindowPerformance::ReportEventTimingToPerformanceTimeline(
     NotifyObserversOfEntry(*entry);
   }
 
-  // TODO(npm): is 104 a reasonable buffering threshold or should it be
+  // TODO: is 104 a reasonable buffering threshold or should it be
   // relaxed?
   if (entry->duration() >= PerformanceObserver::kDefaultDurationThreshold) {
     AddToEventTimingBuffer(*entry);
@@ -1458,7 +1460,8 @@ void WindowPerformance::AddElementTiming(
     const AtomicString& identifier,
     const gfx::Size& intrinsic_size,
     const AtomicString& id,
-    Element* element) {
+    Element* element,
+    PerformanceTimelineEntryIdInfo navigation_id) {
   if (!DomWindow()) {
     return;
   }
@@ -1469,7 +1472,7 @@ void WindowPerformance::AddElementTiming(
   PerformanceElementTiming* entry = PerformanceElementTiming::Create(
       name, url, rect, paint_timing_info.presentation_time, coarsened_load_time,
       identifier, intrinsic_size.width(), intrinsic_size.height(), id, element,
-      DomWindow(), NavigationId().web_exposed_id);
+      DomWindow(), navigation_id.web_exposed_id);
   TRACE_EVENT2("loading", "PerformanceElementTiming", "data",
                entry->ToTracedValue(), "frame",
                GetFrameIdForTracing(DomWindow()->GetFrame()));

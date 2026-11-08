@@ -1,0 +1,98 @@
+// Copyright 2026 The Chromium Authors
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+import {html} from 'chrome://resources/lit/v3_0/lit.rollup.js';
+
+import type {CollapsibleAutofillSettingsCardElement} from './collapsible_autofill_settings_card.js';
+
+export function getHtml(this: CollapsibleAutofillSettingsCardElement) {
+  return html`<!--_html_template_start_-->
+<cr-expand-button class="cr-row first" ?expanded="${this.expanded_}"
+    @expanded-changed="${this.onExpandedChanged_}">
+  <div id="header-text">
+    <div>$i18n{yourSavedInfoAutofillSettingsLabel}</div>
+    <div class="cr-secondary-text">
+      $i18n{yourSavedInfoAutofillSettingsDescription}
+    </div>
+  </div>
+</cr-expand-button>
+<cr-collapse id="expandedContent" ?opened="${this.expanded_}">
+  <settings-toggle-button id="optInToggle"
+      @settings-boolean-control-change="${
+          this.onOptInToggleSettingsBooleanControlChange_}"
+      ?disabled="${this.optInToggleDisabled_()}"
+      .pref="${this.enhancedAutofillOptedIn_}" no-extension-indicator
+      label="$i18n{autofillAiPageTitle}"
+      sub-label="$i18n{autofillAiToggleSubLabel}">
+  </settings-toggle-button>
+  ${this.showExtensionControlledIndicator_() ? html`
+    <div class="cr-row continuation">
+      <extension-controlled-indicator class="flex"
+          id="autofillExtensionIndicator"
+          .extensionId="${this.profileEnabledPref_?.extensionId || ''}"
+          .extensionName="${this.profileEnabledPref_?.controlledByName || ''}"
+          .extensionCanBeDisabled="${
+              !!this.profileEnabledPref_?.extensionCanBeDisabled}">
+      </extension-controlled-indicator>
+    </div>
+  ` : ''}
+
+  <div class="settings-columned-section">
+    <div class="column">
+      <h3 class="description-header">$i18n{columnHeadingWhenOn}</h3>
+      <ul class="icon-bulleted-list">
+        <li>
+          <cr-icon icon="settings20:text-analysis" aria-hidden="true">
+          </cr-icon>
+          <div class="cr-secondary-text">
+            $i18n{autofillAiWhenOnCanFillDifficultFields}
+          </div>
+        </li>
+      </ul>
+    </div>
+    <div class="column">
+      <h3 class="description-header">$i18n{columnHeadingConsider}</h3>
+      <ul class="icon-bulleted-list">
+        <li>
+          <cr-icon icon="settings20:google" aria-hidden="true"></cr-icon>
+          <div class="cr-secondary-text">
+            $i18n{autofillAiToConsiderDataUsage}
+          </div>
+        </li>
+        ${this.showLoggingInfoBullet_() ? html`
+          <settings-ai-logging-info-bullet
+              id="enterpriseInfoBullet"
+              pref-key="optimization_guide.model_execution.autofill_prediction_improvements_enterprise_policy_allowed"
+              logging-managed-disabled-custom-label=
+                  "$i18n{autofillAiSubpageSublabelLoggingManagedDisabled}">
+          </settings-ai-logging-info-bullet>
+        ` : ''}
+      </ul>
+    </div>
+  </div>
+
+  <if expr="is_win or is_macosx or is_chromeos">
+    ${this.autofillAiReauthOnViewingSensitiveDataEnabled_ ? html`
+      <settings-toggle-button id="optInAuthenticationToggle"
+          ?disabled="${!this.enhancedAutofillEligibleUser_}"
+          pref-key="autofill.autofill_ai.reauth_before_viewing_sensitive_data"
+          no-extension-indicator
+          label="$i18n{autofillAiAuthenticationToggleTitle}"
+          sub-label="$i18n{autofillAiAuthenticationToggleSubtitle}"
+          no-toggle-on-host-click
+          @click="${this.onChangeAuthenticationRequirementClick_}"
+          @change="${this.onChangeAuthenticationRequirementChange_}">
+      </settings-toggle-button>
+    ` : ''}
+  </if>
+
+  ${this.isUserEligibleForWalletablePassDetection_ ? html`
+    <div class="hr"></div>
+    <settings-walletable-pass-detection-toggle
+        id="walletablePassDetectionToggle">
+    </settings-walletable-pass-detection-toggle>
+  ` : ''}
+</cr-collapse>
+<!--_html_template_end_-->`;
+}

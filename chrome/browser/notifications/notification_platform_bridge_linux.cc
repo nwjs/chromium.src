@@ -86,9 +86,7 @@
 namespace {
 
 // TODO(thomasanderson): Remove this feature flag in the future.
-BASE_FEATURE(kWebNotificationPortalFallback,
-             "WebNotificationPortalFallback",
-             base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kWebNotificationPortalFallback, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // DBus name / path.
 const char kFreedesktopNotificationsName[] = "org.freedesktop.Notifications";
@@ -326,14 +324,14 @@ void ForwardNotificationOperation(NotificationOperation operation,
                                   const std::optional<std::u16string>& reply,
                                   const std::string& profile_id,
                                   bool is_incognito) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M161);
 
   // Profile ID can be empty for system notifications, which are not bound to a
   // profile, but system notifications are transient and thus not handled by
   // this NotificationPlatformBridge.
   // When transient notifications are supported, this should route the
   // notification response to the system NotificationDisplayService.
-  DCHECK(!profile_id.empty());
+  CHECK(!profile_id.empty(), base::NotFatalUntil::M161);
 
   g_browser_process->profile_manager()->LoadProfile(
       NotificationPlatformBridge::GetProfileBaseNameFromProfileId(profile_id),
@@ -413,7 +411,7 @@ class NotificationPlatformBridgeLinuxImpl : public NotificationPlatformBridge {
       : file_task_runner_(base::ThreadPool::CreateSequencedTaskRunner(
             {base::MayBlock(), base::TaskPriority::USER_VISIBLE})),
         bus_(std::move(bus)) {
-    DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+    CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M161);
     CHECK(bus_);
 
     on_app_terminating_subscription_ =
@@ -428,13 +426,13 @@ class NotificationPlatformBridgeLinuxImpl : public NotificationPlatformBridge {
       const NotificationPlatformBridgeLinuxImpl&) = delete;
 
   ~NotificationPlatformBridgeLinuxImpl() override {
-    DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+    CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M161);
     CleanUp();
   }
 
   // Sets up the D-Bus connection.
   void Init() {
-    DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+    CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M161);
     dbus_utils::CheckForServiceAndStart(
         bus_, kFreedesktopNotificationsName,
         base::BindOnce(&NotificationPlatformBridgeLinuxImpl::OnServiceStarted,
@@ -447,7 +445,7 @@ class NotificationPlatformBridgeLinuxImpl : public NotificationPlatformBridge {
       Profile* profile,
       const message_center::Notification& notification,
       std::unique_ptr<NotificationCommon::Metadata> metadata) override {
-    DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+    CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M161);
     if (!connected_.value_or(false) || !notification_proxy_) {
       return;
     }
@@ -501,13 +499,13 @@ class NotificationPlatformBridgeLinuxImpl : public NotificationPlatformBridge {
   }
 
   void Close(Profile* profile, const std::string& notification_id) override {
-    DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+    CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M161);
     CloseImpl(GetProfileId(profile), notification_id);
   }
 
   void GetDisplayed(Profile* profile,
                     GetDisplayedNotificationsCallback callback) const override {
-    DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+    CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M161);
     std::set<std::string> displayed;
     for (const auto& pair : notifications_) {
       NotificationData* data = pair.first;
@@ -523,7 +521,7 @@ class NotificationPlatformBridgeLinuxImpl : public NotificationPlatformBridge {
       Profile* profile,
       const GURL& origin,
       GetDisplayedNotificationsCallback callback) const override {
-    DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+    CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M161);
     std::set<std::string> displayed;
     for (const auto& pair : notifications_) {
       NotificationData* data = pair.first;
@@ -537,7 +535,7 @@ class NotificationPlatformBridgeLinuxImpl : public NotificationPlatformBridge {
   }
 
   void SetReadyCallback(NotificationBridgeReadyCallback callback) override {
-    DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+    CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M161);
     if (connected_.has_value()) {
       std::move(callback).Run(connected_.value());
     } else {
@@ -548,7 +546,7 @@ class NotificationPlatformBridgeLinuxImpl : public NotificationPlatformBridge {
   void DisplayServiceShutDown(Profile* profile) override {}
 
   void CleanUp() {
-    DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+    CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M161);
     if (using_portal_ && notification_proxy_) {
       for (const auto& pair : notifications_) {
         NotificationData* data = pair.first;
@@ -626,13 +624,13 @@ class NotificationPlatformBridgeLinuxImpl : public NotificationPlatformBridge {
   };
 
   void OnAppTerminating() {
-    DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+    CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M161);
     // The browser process is about to exit.  Run CleanUp() while we still can.
     CleanUp();
   }
 
   void OnServiceStarted(std::optional<bool> service_started) {
-    DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+    CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M161);
     if (!service_started.value_or(false)) {
       InitPortal(ConnectionInitializationStatusCode::
                      NATIVE_NOTIFICATIONS_NOT_SUPPORTED);
@@ -652,7 +650,7 @@ class NotificationPlatformBridgeLinuxImpl : public NotificationPlatformBridge {
 
   void OnGetCapabilitiesResponse(
       dbus_utils::CallMethodResult<std::vector<std::string>> result) {
-    DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+    CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M161);
     if (!result.has_value()) {
       InitPortal(ConnectionInitializationStatusCode::
                      NATIVE_NOTIFICATIONS_NOT_SUPPORTED);
@@ -683,7 +681,7 @@ class NotificationPlatformBridgeLinuxImpl : public NotificationPlatformBridge {
       dbus_utils::
           CallMethodResult<std::string, std::string, std::string, std::string>
               result) {
-    DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+    CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M161);
     if (result.has_value()) {
       auto& [server_name, vendor, server_version, spec_version] =
           result.value();
@@ -735,7 +733,7 @@ class NotificationPlatformBridgeLinuxImpl : public NotificationPlatformBridge {
   }
 
   void InitPortal(ConnectionInitializationStatusCode fallback_reason) {
-    DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+    CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M161);
     if (using_portal_ ||
         !base::FeatureList::IsEnabled(kWebNotificationPortalFallback)) {
       OnConnectionInitializationFinished(fallback_reason);
@@ -753,7 +751,7 @@ class NotificationPlatformBridgeLinuxImpl : public NotificationPlatformBridge {
   }
 
   void OnPortalServiceStarted(std::optional<bool> service_started) {
-    DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+    CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M161);
     if (!service_started.value_or(false)) {
       OnConnectionInitializationFinished(portal_fallback_reason_.value_or(
           ConnectionInitializationStatusCode::
@@ -773,7 +771,7 @@ class NotificationPlatformBridgeLinuxImpl : public NotificationPlatformBridge {
 
   void OnPortalVersionResponse(
       dbus_utils::CallMethodResult<dbus_utils::Variant> result) {
-    DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+    CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M161);
     if (!result.has_value()) {
       OnConnectionInitializationFinished(portal_fallback_reason_.value_or(
           ConnectionInitializationStatusCode::
@@ -805,7 +803,7 @@ class NotificationPlatformBridgeLinuxImpl : public NotificationPlatformBridge {
 
   void OnPortalSupportedOptionsResponse(
       dbus_utils::CallMethodResult<dbus_utils::Variant> result) {
-    DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+    CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M161);
     if (result.has_value()) {
       auto& [variant] = result.value();
       auto options_opt =
@@ -837,7 +835,7 @@ class NotificationPlatformBridgeLinuxImpl : public NotificationPlatformBridge {
   }
 
   void OnPortalInitializationComplete() {
-    DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+    CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M161);
     dbus_utils::ConnectToSignal<"ssav">(
         notification_proxy_, kPortalNotificationInterface, kSignalActionInvoked,
         base::BindRepeating(
@@ -851,7 +849,7 @@ class NotificationPlatformBridgeLinuxImpl : public NotificationPlatformBridge {
   void OnPortalSignalConnected(const std::string& interface_name,
                                const std::string& signal_name,
                                bool success) {
-    DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+    CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M161);
     OnConnectionInitializationFinished(
         success ? ConnectionInitializationStatusCode::SUCCESS
                 : portal_fallback_reason_.value_or(
@@ -866,7 +864,7 @@ class NotificationPlatformBridgeLinuxImpl : public NotificationPlatformBridge {
       std::unique_ptr<message_center::Notification> notification,
       uint32_t dbus_id,
       NotificationResources files) {
-    DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+    CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M161);
 
     NotificationData* data =
         FindNotificationData(notification->id(), profile_id, is_incognito);
@@ -1025,8 +1023,9 @@ class NotificationPlatformBridgeLinuxImpl : public NotificationPlatformBridge {
     std::unique_ptr<base::Environment> env = base::Environment::Create();
     base::FilePath desktop_file(chrome::GetDesktopName(env.get()));
     static const char kDesktopFileSuffix[] = ".desktop";
-    DCHECK(base::EndsWith(desktop_file.value(), kDesktopFileSuffix,
-                          base::CompareCase::SENSITIVE));
+    CHECK(base::EndsWith(desktop_file.value(), kDesktopFileSuffix,
+                         base::CompareCase::SENSITIVE),
+          base::NotFatalUntil::M161);
     desktop_file = desktop_file.RemoveFinalExtension();
     hints.emplace("desktop-entry",
                   dbus_utils::Variant::Wrap<"s">(desktop_file.value()));
@@ -1073,7 +1072,7 @@ class NotificationPlatformBridgeLinuxImpl : public NotificationPlatformBridge {
                      bool is_incognito,
                      std::unique_ptr<message_center::Notification> notification,
                      NotificationData* data) {
-    DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+    CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M161);
 
     std::map<std::string, dbus_utils::Variant> portal_dict;
 
@@ -1268,7 +1267,7 @@ class NotificationPlatformBridgeLinuxImpl : public NotificationPlatformBridge {
                                        const std::string& profile_id,
                                        bool is_incognito,
                                        dbus_utils::CallMethodResult<> result) {
-    DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+    CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M161);
     NotificationData* data =
         FindNotificationData(notification_id, profile_id, is_incognito);
     if (!data) {
@@ -1297,7 +1296,7 @@ class NotificationPlatformBridgeLinuxImpl : public NotificationPlatformBridge {
                         const std::string& profile_id,
                         bool is_incognito,
                         dbus_utils::CallMethodResult<uint32_t> result) {
-    DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+    CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M161);
     NotificationData* data =
         FindNotificationData(notification_id, profile_id, is_incognito);
     if (!data) {
@@ -1346,7 +1345,7 @@ class NotificationPlatformBridgeLinuxImpl : public NotificationPlatformBridge {
   NotificationData* FindNotificationData(const std::string& notification_id,
                                          const std::string& profile_id,
                                          bool is_incognito) {
-    DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+    CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M161);
     for (const auto& pair : notifications_) {
       NotificationData* data = pair.first;
       if (data->notification_id == notification_id &&
@@ -1360,7 +1359,7 @@ class NotificationPlatformBridgeLinuxImpl : public NotificationPlatformBridge {
   }
 
   NotificationData* FindNotificationDataWithDBusId(uint32_t dbus_id) {
-    DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+    CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M161);
     if (!dbus_id) {
       return nullptr;
     }
@@ -1375,7 +1374,7 @@ class NotificationPlatformBridgeLinuxImpl : public NotificationPlatformBridge {
 
   NotificationData* FindNotificationDataWithPortalId(
       const std::string& portal_id) {
-    DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+    CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M161);
     if (portal_id.empty()) {
       return nullptr;
     }
@@ -1390,7 +1389,7 @@ class NotificationPlatformBridgeLinuxImpl : public NotificationPlatformBridge {
 
   void OnPortalActionInvoked(
       dbus_utils::ConnectToSignalResultSig<"ssav"> result) {
-    DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+    CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M161);
     if (!result.has_value()) {
       LOG(ERROR) << "Error parsing ActionInvoked portal signal";
       return;
@@ -1481,7 +1480,7 @@ class NotificationPlatformBridgeLinuxImpl : public NotificationPlatformBridge {
   }
 
   void OnActivationToken(dbus_utils::ConnectToSignalResultSig<"us"> result) {
-    DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+    CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M161);
     if (!result.has_value()) {
       LOG(ERROR) << "Error parsing ActivationToken signal";
       return;
@@ -1491,7 +1490,7 @@ class NotificationPlatformBridgeLinuxImpl : public NotificationPlatformBridge {
   }
 
   void OnActionInvoked(dbus_utils::ConnectToSignalResultSig<"us"> result) {
-    DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+    CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M161);
     if (!result.has_value()) {
       LOG(ERROR) << "Error parsing ActionInvoked signal";
       return;
@@ -1542,7 +1541,7 @@ class NotificationPlatformBridgeLinuxImpl : public NotificationPlatformBridge {
 
   void OnNotificationReplied(
       dbus_utils::ConnectToSignalResultSig<"us"> result) {
-    DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+    CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M161);
     if (!result.has_value()) {
       LOG(ERROR) << "Error parsing NotificationReplied signal";
       return;
@@ -1561,7 +1560,7 @@ class NotificationPlatformBridgeLinuxImpl : public NotificationPlatformBridge {
   }
 
   void OnNotificationClosed(dbus_utils::ConnectToSignalResultSig<"uu"> result) {
-    DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+    CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M161);
     if (!result.has_value()) {
       LOG(ERROR) << "Error parsing NotificationClosed signal";
       return;
@@ -1584,7 +1583,7 @@ class NotificationPlatformBridgeLinuxImpl : public NotificationPlatformBridge {
   // Called once the connection has been set up (or not).
   void OnConnectionInitializationFinished(
       ConnectionInitializationStatusCode status) {
-    DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+    CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M161);
     bool success = (status == ConnectionInitializationStatusCode::SUCCESS);
     connected_ = success;
     for (auto& callback : on_connected_callbacks_) {
@@ -1599,7 +1598,7 @@ class NotificationPlatformBridgeLinuxImpl : public NotificationPlatformBridge {
   void OnSignalConnected(const std::string& interface_name,
                          const std::string& signal_name,
                          bool success) {
-    DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+    CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M161);
     bool isNotificationRepliedSignal =
         (signal_name == kSignalNotificationReplied);
     if (isNotificationRepliedSignal) {

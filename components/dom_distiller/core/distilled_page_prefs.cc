@@ -11,6 +11,7 @@
 #include "base/task/single_thread_task_runner.h"
 #include "components/dom_distiller/core/dom_distiller_features.h"
 #include "components/dom_distiller/core/pref_names.h"
+#include "components/pref_registry/pref_registry_syncable.h"
 #include "components/prefs/pref_change_registrar.h"
 #include "components/prefs/pref_registry_simple.h"
 #include "components/prefs/pref_service.h"
@@ -54,7 +55,11 @@ void DistilledPagePrefs::RegisterProfilePrefs(PrefRegistrySimple* registry) {
       prefs::kFont, static_cast<int32_t>(mojom::FontFamily::kSansSerif));
   registry->RegisterDoublePref(prefs::kFontScale, kDefaultFontScale);
   registry->RegisterBooleanPref(prefs::kLinksEnabled, true);
-  registry->RegisterBooleanPref(prefs::kReaderForAccessibility, false);
+  registry->RegisterBooleanPref(
+      prefs::kReaderForAccessibility, false,
+      base::FeatureList::IsEnabled(kSyncReaderForAccessibility)
+          ? user_prefs::PrefRegistrySyncable::SYNCABLE_PREF
+          : PrefRegistry::NO_REGISTRATION_FLAGS);
 }
 
 void DistilledPagePrefs::SetFontFamily(mojom::FontFamily new_font_family) {
@@ -65,34 +70,17 @@ void DistilledPagePrefs::SetFontFamily(mojom::FontFamily new_font_family) {
                                 weak_ptr_factory_.GetWeakPtr()));
 }
 
-bool DistilledPagePrefs::IsUserPrefFontAvailable(
-    mojom::FontFamily font_family) {
-#if !(BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS))
-  return true;
-#else
-  bool new_fonts_enabled =
-      base::FeatureList::IsEnabled(dom_distiller::kReaderModeSupportNewFonts);
-  return new_fonts_enabled || font_family == mojom::FontFamily::kSansSerif ||
-         font_family == mojom::FontFamily::kSerif ||
-         font_family == mojom::FontFamily::kMonospace;
-#endif
-}
-
 mojom::FontFamily DistilledPagePrefs::GetFontFamily() {
   auto font_family =
       static_cast<mojom::FontFamily>(pref_service_->GetInteger(prefs::kFont));
-  auto default_font_family = mojom::FontFamily::kSansSerif;
-  if (!mojom::IsKnownEnumValue(font_family)) {
-    // Persisted data was incorrect, clean it up by storing the default.
-    SetFontFamily(default_font_family);
-    return default_font_family;
-  }
-
-  if (IsUserPrefFontAvailable(font_family)) {
-    // The user's preference font is admissible.
+  if (mojom::IsKnownEnumValue(font_family)) {
     return font_family;
   }
-  return default_font_family;
+
+  // Persisted data was incorrect, trying to clean it up by storing the
+  // default.
+  SetFontFamily(mojom::FontFamily::kSansSerif);
+  return mojom::FontFamily::kSansSerif;
 }
 
 void DistilledPagePrefs::SetUserPrefTheme(mojom::Theme new_theme) {

@@ -56,14 +56,14 @@ DISPLAY_CONFIG=${DISPLAY_RES[wxga]}
 GLIC_FEATURES=Glic,TabstripComboButton,GlicUserStatusCheck,\
 ContextualCueing,GlicKeyboardShortcutNewBadge,GlicRollout,\
 GlicZeroStateSuggestions,FeatureManagementGlic,GlicMultiInstance,\
-GlicDefaultTabContextSetting,GlicUnifiedFreScreen,GlicDaisyChainNewTabs,\
-GlicLiveModeOnlyGlow
+GlicDefaultTabContextSetting,GlicUnifiedFreScreen,GlicDaisyChainNewTabs
 
 # Webium feature flags.
 WEBIUM_FEATURES=Webium,AttachUnownedInnerWebContents,\
 ExtensionsMenuAccessControl
 
-ENABLE_FEATURES=VerticalTabs,FeatureManagementRoundedWindows,${GLIC_FEATURES}
+ENABLE_FEATURES=VerticalTabs,FeatureManagementRoundedWindows,${GLIC_FEATURES},\
+WindowPreviewOnShelf
 DISABLE_FEATURES=
 
 export XDG_RUNTIME_DIR=${USER_TMP_DIR}/xdg1
@@ -107,7 +107,7 @@ function build_args {
 
   ARGS="--user-data-dir=${USER_DATA_DIR} \
     --enable-wayland-server --ash-debug-shortcuts --overview-button-for-tests \
-    --enable-ui-devtools --ash-dev-shortcuts \
+    --use-system-clipboard --enable-ui-devtools --ash-dev-shortcuts \
     --ash-host-window-bounds=${DISPLAY_CONFIG} \
     --enable-features=${ENABLE_FEATURES} \
     ${DISABLE_FEATURES:+--disable-features=${DISABLE_FEATURES#,}} \

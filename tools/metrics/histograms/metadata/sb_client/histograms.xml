@@ -228,7 +228,7 @@ useful for Chirp alerts (go/crca-alerts). -->
 </histogram>
 
 <histogram name="SBClientDownload.DownloadRequestNetworkResult"
-    enum="CombinedHttpResponseAndNetErrorCode" expires_after="2027-01-31">
+    enum="CombinedHttpResponseAndNetErrorCode" expires_after="2027-04-04">
 <!-- Note to owner: This histogram can be renewed 1 full year if it is still
 useful for Chirp alerts (go/crca-alerts). -->
 
@@ -282,8 +282,8 @@ useful for Chirp alerts (go/crca-alerts). -->
 </histogram>
 
 <histogram name="SBClientDownload.ServerRequestsDeepScanningPrompt{Encryption}"
-    enum="BooleanRequested" expires_after="2026-11-16">
-  <owner>liu@chromium.org</owner>
+    enum="BooleanRequested" expires_after="2027-05-16">
+  <owner>yawfrempong@google.com</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
     Records how often users in a population consented to deep scanning are
@@ -297,8 +297,8 @@ useful for Chirp alerts (go/crca-alerts). -->
 </histogram>
 
 <histogram name="SBClientDownload.ServerRequestsImmediateDeepScan2"
-    enum="BooleanRequested" expires_after="2026-11-16">
-  <owner>liu@chromium.org</owner>
+    enum="BooleanRequested" expires_after="2027-05-16">
+  <owner>yawfrempong@google.com</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
     Records how often users in a population consented to immediate deep scans
@@ -308,8 +308,8 @@ useful for Chirp alerts (go/crca-alerts). -->
 </histogram>
 
 <histogram name="SBClientDownload.ServerRequestsLocalDecryptionPrompt"
-    enum="BooleanRequested" expires_after="2026-11-16">
-  <owner>liu@chromium.org</owner>
+    enum="BooleanRequested" expires_after="2027-05-16">
+  <owner>yawfrempong@google.com</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
     Records how often users in a population consented to local decryption are
@@ -500,7 +500,7 @@ useful for Chirp alerts (go/crca-alerts). -->
 </histogram>
 
 <histogram name="SBClientPhishing.BrowserReadyOnClassifierNotReady"
-    enum="BooleanReady" expires_after="2027-01-31">
+    enum="BooleanReady" expires_after="2027-04-04">
   <owner>nwokedi@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -615,7 +615,7 @@ useful for Chirp alerts (go/crca-alerts). -->
 
 <histogram
     name="SBClientPhishing.ClipboardCopyApi.PayloadExtraction.IsOverallSuspicious"
-    enum="Boolean" expires_after="2027-02-02">
+    enum="Boolean" expires_after="2027-04-04">
   <owner>liu@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -772,6 +772,9 @@ useful for Chirp alerts (go/crca-alerts). -->
   <summary>
     Records the duration it takes for high confidence allowlist check to
     complete. This occurs in the client side detection PreClassificationCheck.
+
+    Starting in M156, this check is skipped (and this metric is not recorded) if
+    the URL matches the CSD allowlist.
   </summary>
 </histogram>
 
@@ -834,7 +837,7 @@ useful for Chirp alerts (go/crca-alerts). -->
 </histogram>
 
 <histogram name="SBClientPhishing.ImageEmbeddingList.Version" units="YYMMDDRR"
-    expires_after="2027-01-24">
+    expires_after="2027-03-28">
   <owner>nwokedi@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -995,7 +998,7 @@ useful for Chirp alerts (go/crca-alerts). -->
 </histogram>
 
 <histogram name="SBClientPhishing.LocalModelDetectsPhishing{RequestType}"
-    enum="BooleanIsPhishing" expires_after="2027-01-31">
+    enum="BooleanIsPhishing" expires_after="2027-04-04">
   <owner>nwokedi@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -1009,7 +1012,7 @@ useful for Chirp alerts (go/crca-alerts). -->
 </histogram>
 
 <histogram name="SBClientPhishing.MatchCSDAllowlistOn{RequestType}"
-    enum="BooleanMatched" expires_after="2027-01-31">
+    enum="BooleanMatched" expires_after="2027-04-04">
   <owner>nwokedi@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -1028,6 +1031,10 @@ useful for Chirp alerts (go/crca-alerts). -->
   <summary>
     Record the match result of allowlists for specific {RequestType}. This is
     logged during the client side detection host PreClassificationCheck.
+
+    Starting in M156, if the URL matches the CSD allowlist, high confidence
+    allowlist checking is skipped, so the &quot;CSD and high confidence
+    match&quot; bucket is deprecated and no longer recorded.
   </summary>
   <token key="RequestType" variants="ClientSideDetectionRequestType"/>
 </histogram>
@@ -1067,7 +1074,7 @@ useful for Chirp alerts (go/crca-alerts). -->
 </histogram>
 
 <histogram name="SBClientPhishing.NetworkResult2"
-    enum="CombinedHttpResponseAndNetErrorCode" expires_after="2027-01-31">
+    enum="CombinedHttpResponseAndNetErrorCode" expires_after="2027-04-04">
 <!-- Note to owner: This histogram can be renewed 1 full year if it is still
 useful for Chirp alerts (go/crca-alerts). -->
 
@@ -1241,7 +1248,7 @@ useful for Chirp alerts (go/crca-alerts). -->
 </histogram>
 
 <histogram name="SBClientPhishing.PhishingDetectorResult{RequestType}"
-    enum="ClientSidePhishingResult" expires_after="2027-01-31">
+    enum="ClientSidePhishingResult" expires_after="2027-04-04">
 <!-- Note to owner: This histogram can be renewed 1 full year if it is still
 useful for Chirp alerts (go/crca-alerts). -->
 
@@ -1387,7 +1394,7 @@ useful for Chirp alerts (go/crca-alerts). -->
 </histogram>
 
 <histogram name="SBClientPhishing.ServerModelDetectsPhishing{RequestType}"
-    enum="BooleanIsPhishing" expires_after="2027-01-31">
+    enum="BooleanIsPhishing" expires_after="2027-04-04">
 <!-- Note to owner: This histogram can be renewed 1 full year if it is still
 useful for Chirp alerts (go/crca-alerts). -->
 
@@ -1521,7 +1528,7 @@ useful for Chirp alerts (go/crca-alerts). -->
 
 <histogram
     name="SBClientPhishing.UnfamiliarLoginPage.SiteEngagementScore.{Verdict}"
-    units="score" expires_after="2027-01-31">
+    units="score" expires_after="2027-04-04">
   <owner>nwokedi@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -1593,7 +1600,7 @@ useful for Chirp alerts (go/crca-alerts). -->
 
 <histogram name="SBClientPhishing.VisualExtractionFrameState"
     enum="SBClientPhishingVisualExtractionFrameState"
-    expires_after="2027-02-01">
+    expires_after="2027-04-04">
   <owner>nwokedi@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>

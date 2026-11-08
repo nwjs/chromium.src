@@ -33,16 +33,15 @@ void EntitySuppressionManagerImpl::RemoveObserver(
   observers_.RemoveObserver(observer);
 }
 
-bool EntitySuppressionManagerImpl::SuppressEntity(
-    const EntityInstance& entity) {
-  // Copy the ID because `Suppress()` notifies observers, which may destroy
-  // `entity`. For example, the `EntityDataManager` evicts suppressed
-  // personal-context entities.
-  const EntityInstance::EntityId entity_id = entity.guid();
+bool EntitySuppressionManagerImpl::SuppressEntity(EntityInstance entity) {
+  if (!sync_bridge_->IsLoaded()) {
+    return false;
+  }
   bool modified = false;
   for (EntitySuppressionEntry& entry : GetEntitySuppressionEntries(entity)) {
     if (sync_bridge_->Suppress(entry)) {
-      suppressed_entries_by_entity_id_[entity_id].push_back(std::move(entry));
+      suppressed_entries_by_entity_id_[entity.guid()].push_back(
+          std::move(entry));
       modified = true;
     }
   }
@@ -51,6 +50,9 @@ bool EntitySuppressionManagerImpl::SuppressEntity(
 
 bool EntitySuppressionManagerImpl::UndoInSessionSuppressedEntity(
     const EntityInstance::EntityId& entity_id) {
+  if (!sync_bridge_->IsLoaded()) {
+    return false;
+  }
   const std::vector<EntitySuppressionEntry>* entries =
       base::FindOrNull(suppressed_entries_by_entity_id_, entity_id);
   if (!entries) {
@@ -66,9 +68,24 @@ bool EntitySuppressionManagerImpl::UndoInSessionSuppressedEntity(
   return modified;
 }
 
-bool EntitySuppressionManagerImpl::ClearAllSuppressions() {
-  suppressed_entries_by_entity_id_.clear();
-  return sync_bridge_->ClearAllSuppressions();
+bool EntitySuppressionManagerImpl::ClearSuppressions(base::Time delete_begin,
+                                                     base::Time delete_end) {
+  if (!sync_bridge_->IsLoaded()) {
+    return false;
+  }
+  if (!sync_bridge_->ClearSuppressions(delete_begin, delete_end)) {
+    return false;
+  }
+  absl::erase_if(suppressed_entries_by_entity_id_,
+                 [this](std::pair<const EntityInstance::EntityId,
+                                  std::vector<EntitySuppressionEntry>>& pair) {
+                   std::erase_if(pair.second,
+                                 [this](const EntitySuppressionEntry& entry) {
+                                   return !sync_bridge_->IsSuppressed(entry);
+                                 });
+                   return pair.second.empty();
+                 });
+  return true;
 }
 
 bool EntitySuppressionManagerImpl::IsSuppressed(

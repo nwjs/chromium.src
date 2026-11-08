@@ -54,7 +54,9 @@ class LoopbackServer : public base::ImportantFileWriter::DataSerializer {
         const sync_pb::DeletionOrigin& deletion_origin) = 0;
   };
 
-  explicit LoopbackServer(const base::FilePath& persistent_file);
+  LoopbackServer(const base::FilePath& persistent_file,
+                 base::ImportantFileWriter::TaskRunnerOrBlockCurrentSequence
+                     writer_task_runner);
   ~LoopbackServer() override;
 
   // Handles a /command POST (with the given `message`) to the server.
@@ -268,6 +270,7 @@ class LoopbackServer : public base::ImportantFileWriter::DataSerializer {
   int64_t version_ = 0;
 
   int64_t store_birthday_ = 0;
+  bool bookmarks_migrated_to_client_tag_hash_ = false;
 
   DataTypeSet throttled_types_;
   DataTypeSet full_update_types_;

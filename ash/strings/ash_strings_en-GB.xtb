@@ -372,7 +372,6 @@
 <translation id="2079545284768500474">Undo</translation>
 <translation id="2086334242442703436">Open emoji picker</translation>
 <translation id="2089550919269323883">Installing <ph name="VM_NAME" /> is blocked by enterprise policy. Please contact your system administrator for support. The error code is <ph name="ERROR" />.</translation>
-<translation id="2093792000875799555">Steam for Chromebook news</translation>
 <translation id="209965399369889474">Not connected to network</translation>
 <translation id="2107581415810719320">Other button <ph name="BUTTON_NUMBER" /></translation>
 <translation id="2107914222138020205">Your USB-C cable does not support Thunderbolt. Device performance may be limited.</translation>
@@ -422,6 +421,7 @@
 <translation id="2293443480080733021">What would you like to focus on? Press enter to add the task.</translation>
 <translation id="229397294990920565">Mobile data is turning off…</translation>
 <translation id="2295777434187870477">Mic is on, toggling will mute input.</translation>
+<translation id="2296880470921996802">Clipboard history was disabled by your IT admin</translation>
 <translation id="2302092602801625023">This account is managed by Family Link</translation>
 <translation id="2303600792989757991">Toggle window overview</translation>
 <translation id="2304702218354340897">Are you sure that you want to turn off face control?</translation>
@@ -928,7 +928,6 @@ Connect your device to power.</translation>
 <translation id="3697991387880191195">Press the screenshot shortcut</translation>
 <translation id="3702809606464356667">Showing windows from the current desk; press the Up arrow key to show windows from all desks</translation>
 <translation id="3705722231355495246">-</translation>
-<translation id="3706423975342040244">Entertainment</translation>
 <translation id="370665806235115550">Loading...</translation>
 <translation id="3707093869106077605"><ph name="UNAVAILABLE_DLC_ONE" /> and <ph name="UNAVAILABLE_DLC_TWO" /> are not available.</translation>
 <translation id="3708186454126126312">Previously connected</translation>
@@ -975,7 +974,6 @@ Connect your device to power.</translation>
 <translation id="3824784079442479685">This allows camera access for <ph name="APP_NAME" /> and all apps and websites with the camera permission. You may need to refresh the web page or restart the app.</translation>
 <translation id="3826099427150913765">Switch to password</translation>
 <translation id="383058930331066723">Battery saver mode is on</translation>
-<translation id="3831226344927851293">Exit tutorial view</translation>
 <translation id="383629559565718788">Show keyboard settings</translation>
 <translation id="384082539148746321">Delete template?</translation>
 <translation id="3844627820291068572"><ph name="MODIFIER_ONE" /><ph name="MODIFIER_TWO" />, then <ph name="KEY_ONE" /> or <ph name="KEY_TWO" /> or <ph name="KEY_THREE" /> or <ph name="KEY_FOUR" /></translation>
@@ -1022,6 +1020,7 @@ Connect your device to power.</translation>
 <translation id="3977512764614765090">Battery at <ph name="PERCENTAGE" />% and charging.</translation>
 <translation id="3978162107953847778">Insert links from places such as your browsing history and Google Drive. You can also insert emojis, image files and more. <ph name="LINK_TO_LEARN_MORE" /></translation>
 <translation id="3982013579989864579">Switch audio output?</translation>
+<translation id="3983903378684256134">Steam on Chromebook</translation>
 <translation id="3984536049089846927">Next page</translation>
 <translation id="3986082989454912832">Answer</translation>
 <translation id="3990002060657467458">Frequently used controls like Wi-Fi, Bluetooth and volume are in Quick Settings. You can also go here to take screenshots.</translation>
@@ -1578,10 +1577,8 @@ No devices connected.</translation>
 <translation id="5551974246223970793">When searching a page, go to next match for search</translation>
 <translation id="5556459405103347317">Reload</translation>
 <translation id="5558091555391176027">Toggle Nearby Share high visibility</translation>
-<translation id="5558314826121965174">Creativity</translation>
 <translation id="556042886152191864">Button</translation>
 <translation id="5570122939431135380">Open new tab in new incognito window</translation>
-<translation id="5572632238877308040">Essentials</translation>
 <translation id="5575528586625653441">A problem with demo registration request occurred.</translation>
 <translation id="557563299383177668">Next paragraph</translation>
 <translation id="5577082622442191756">Toggle Bluetooth. <ph name="STATE_TEXT" />.</translation>
@@ -1616,7 +1613,6 @@ No devices connected.</translation>
 <translation id="5667546120811588575">Setting up Google Play…</translation>
 <translation id="5669267381087807207">Activating</translation>
 <translation id="5671658447180261823">Remove the suggestion <ph name="SUGGESTION_NAME" /></translation>
-<translation id="5672890847723042801">Utilities</translation>
 <translation id="5673434351075758678">From '<ph name="FROM_LOCALE" />' to '<ph name="TO_LOCALE" />' after syncing your settings.</translation>
 <translation id="5675363643668471212">Shelf item</translation>
 <translation id="5677022547882470786">Drag or press Space to select an area to search</translation>
@@ -1641,6 +1637,7 @@ No devices connected.</translation>
 <translation id="5727460725221669831">If you forgot your password or changed your Google Account password recently, try recovering this user.</translation>
 <translation id="5733630091161562207">Welcome notification</translation>
 <translation id="573413375004481890">This device couldn't support all of your displays, so one has been disconnected</translation>
+<translation id="5739548907438839901">Freed <ph name="SIZE" /> of disk space.</translation>
 <translation id="574392208103952083">Medium</translation>
 <translation id="5745612484876805746">Night Light turns on automatically at sunset</translation>
 <translation id="5749214722697335450">Send usage and diagnostic data. Help improve your Android experience by automatically sending diagnostic, device and app usage data to Google. This will help system and app stability and other improvements. Some aggregate data will also help Google apps and partners, such as Android developers. If your additional Web &amp; App Activity setting is turned on, this data may be saved to your Google Account. <ph name="BEGIN_LINK1" />Learn more about metrics<ph name="BEGIN_LINK1_END" />Learn more<ph name="END_LINK1" /></translation>
@@ -1791,7 +1788,6 @@ No devices connected.</translation>
 <translation id="6127395413317891856">You're offline. Check your connection and try again.</translation>
 <translation id="6129953537138746214">Space</translation>
 <translation id="6132714462430777655">Skip school enrolment?</translation>
-<translation id="6136872094979134163">Unable to retrieve Steam for Chromebook news.</translation>
 <translation id="6137566720514957455">Open remove dialogue for <ph name="USER_EMAIL_ADDRESS" /></translation>
 <translation id="6141205840878048728">What would you like to focus on?</translation>
 <translation id="6141988275892716286">Confirm download</translation>
@@ -1871,7 +1867,6 @@ No devices connected.</translation>
 <translation id="6348449481487610270"><ph name="MODIFIER_ONE" /><ph name="MODIFIER_TWO" /><ph name="KEY_ONE" />, then <ph name="MODIFIER_THREE" /><ph name="KEY_TWO" /> or <ph name="KEY_THREE" /></translation>
 <translation id="6352082849089527770">Unknown networks</translation>
 <translation id="6359587239691116345">Get the latest features and security improvements. If you decline this update, your device may no longer work properly and you may experience security and performance issues.</translation>
-<translation id="6362833380917912748">Get to know your built-in apps</translation>
 <translation id="6364386432014869981">Built-in touchpad is turned on</translation>
 <translation id="6376931439017688372">Bluetooth is on</translation>
 <translation id="6378515133128829137">Pin window to right</translation>
@@ -2096,7 +2091,6 @@ New install</translation>
 <translation id="7014684956566476813">Connected to a device named <ph name="DEVICE_NAME" /></translation>
 <translation id="7015766095477679451">Come back at <ph name="COME_BACK_TIME" />.</translation>
 <translation id="70168403932084660">Desk 6</translation>
-<translation id="702252130983202758">Your apps</translation>
 <translation id="7025533177575372252">Connect your <ph name="DEVICE_NAME" /> with your phone</translation>
 <translation id="7026338066939101231">Decrement</translation>
 <translation id="7029307918966275733">Crostini is not installed. Please install Crostini to view credits.</translation>
@@ -2219,6 +2213,7 @@ New install</translation>
 <translation id="7413851974711031813">Press escape to close</translation>
 <translation id="7416471219712049036">Save current page</translation>
 <translation id="742594950370306541">Camera is in use.</translation>
+<translation id="7430466159639897874">You have unused disk space (<ph name="SIZE" />) allocated for deprecated feature 'Steam on Chromebook'.</translation>
 <translation id="743058460480092004">Camera and microphone are in use.</translation>
 <translation id="7433708794692032816">Insert smart card to keep using your <ph name="DEVICE_TYPE" /></translation>
 <translation id="7440404390546433462">Google Search</translation>
@@ -2360,6 +2355,7 @@ To shut down the device, press and hold the power button on the device again.</t
 <translation id="7781335840981796660">All user accounts and local data will be removed.</translation>
 <translation id="7781829728241885113">Yesterday</translation>
 <translation id="7787212146956232129">Input and output devices are set. Go to Settings to change.</translation>
+<translation id="7790757511772316441">Free up disk space</translation>
 <translation id="7792590255364786396">Visible</translation>
 <translation id="7796735576426975947">New notification hidden</translation>
 <translation id="7798302898096527229">Press Search or Shift to cancel.</translation>
@@ -2535,7 +2531,6 @@ To shut down the device, press and hold the power button on the device again.</t
 <translation id="8277261673056602147">Highlight text on your screen</translation>
 <translation id="8281886186245836920">Skip</translation>
 <translation id="8282784978194352587">You did it!</translation>
-<translation id="8287009018010202411">Productivity</translation>
 <translation id="828708037801473432">Off</translation>
 <translation id="8289128870594824098">Disk size</translation>
 <translation id="8297006494302853456">Weak</translation>
@@ -2630,7 +2625,6 @@ To shut down the device, press and hold the power button on the device again.</t
 <translation id="8598235756057743477">Sort your apps by name or colour</translation>
 <translation id="8599864823732014237">Skip enterprise enrolment?</translation>
 <translation id="8609384513243082612">Open new tab</translation>
-<translation id="861045123704058818">Apps are organised by category temporarily</translation>
 <translation id="8612338981637220013">You're on a roll!</translation>
 <translation id="8613164732773110792">Lowercase characters, digits, underscores or dashes only</translation>
 <translation id="8614517853887502247"><ph name="APP_1_TITLE" /> and <ph name="APP_2_TITLE" /> notifications are hidden because viewing protection is on</translation>
@@ -2822,7 +2816,6 @@ To shut down the device, press and hold the power button on the device again.</t
 <translation id="9129245940793250979">Rear button</translation>
 <translation id="9133335900048457298">Can't record protected content</translation>
 <translation id="9139720510312328767">Delete next letter</translation>
-<translation id="9148058034647219655">Exit</translation>
 <translation id="9151906066336345901">end</translation>
 <translation id="9159421884295554245">Search Clipboard</translation>
 <translation id="9168436347345867845">Do it later</translation>

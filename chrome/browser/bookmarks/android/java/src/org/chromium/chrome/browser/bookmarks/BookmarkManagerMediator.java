@@ -42,7 +42,6 @@ import org.chromium.chrome.browser.bookmarks.BookmarkUiState.BookmarkUiMode;
 import org.chromium.chrome.browser.bookmarks.ImprovedBookmarkRow.Location;
 import org.chromium.chrome.browser.bookmarks.ImprovedBookmarkRowProperties.ImageVisibility;
 import org.chromium.chrome.browser.bookmarks.bar.BookmarkBarUtils;
-import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.incognito.IncognitoUtils;
 import org.chromium.chrome.browser.intents.BrowserIntentUtils;
 import org.chromium.chrome.browser.partnerbookmarks.PartnerBookmarksReader;
@@ -258,6 +257,7 @@ class BookmarkManagerMediator
                     onBackPressStateChanged();
 
                     BookmarkId currentId = assumeNonNull(getCurrentFolderId());
+                    mBookmarkModel.notifyBookmarkFolderViewed(currentId);
                     setBookmarks(
                             mBookmarkQueryHandler.buildBookmarkListForParent(
                                     currentId, mCurrentPowerFilter));
@@ -391,6 +391,7 @@ class BookmarkManagerMediator
     private final ImprovedBookmarkRowCoordinator mImprovedBookmarkRowCoordinator;
     private final Set<PowerBookmarkType> mCurrentPowerFilter = new HashSet<>();
     private final CallbackController mCallbackController = new CallbackController();
+    private final Callback<Boolean> mBackPressSupplierObserver = (x) -> onBackPressStateChanged();
     private final PendingRunnable mPendingRefresh =
             new PendingRunnable(
                     TaskTraits.UI_DEFAULT, mCallbackController.makeCancelable(this::refresh));
@@ -450,7 +451,7 @@ class BookmarkManagerMediator
         mSelectableListLayout = selectableListLayout;
         mSelectableListLayout
                 .getHandleBackPressChangedSupplier()
-                .addSyncObserverAndPostIfNonNull((x) -> onBackPressStateChanged());
+                .addSyncObserverAndPostIfNonNull(mBackPressSupplierObserver);
         mSelectionDelegate = selectionDelegate;
         mRecyclerView = recyclerView;
         mDragReorderableRecyclerViewAdapter = dragReorderableRecyclerViewAdapter;
@@ -531,6 +532,7 @@ class BookmarkManagerMediator
         mDragStateDelegate.onBookmarkDelegateInitialized(this);
 
         updateShoppingFilterVisible();
+        mBookmarkModel.notifyBookmarkManagerOpened();
 
         // TODO(https://crbug.com/40255666): This logic is here to keep the same execution order
         // from when it was in the original adapter. It doesn't conceptually make sense to be here,
@@ -562,10 +564,13 @@ class BookmarkManagerMediator
 
         mBookmarkUiPrefs.removeObserver(mBookmarkUiPrefsObserver);
 
-        if (mShoppingService != null
-                && CommerceFeatureUtils.isShoppingListEligible(mShoppingService)) {
+        if (mShoppingService != null) {
             mShoppingService.removeSubscriptionsObserver(mSubscriptionsObserver);
         }
+        mDragTouchHandler.removeDragListener(mDragListener);
+        mSelectableListLayout
+                .getHandleBackPressChangedSupplier()
+                .removeObserver(mBackPressSupplierObserver);
 
         for (BookmarkUiObserver observer : mUiObservers) {
             observer.onDestroy();
@@ -600,9 +605,7 @@ class BookmarkManagerMediator
         // Selectable list layout is not handling back presses for this condition
         // !mToolbar.isLargeScreenWithKeyboard(). That causes back press events not to be consumed.
         // TODO(crbug.com/444674420): Unify back press logic under SelectableListLayout.
-        if (ChromeFeatureList.isEnabled(
-                        ChromeFeatureList.ENABLE_ESCAPE_HANDLING_FOR_SECONDARY_ACTIVITIES)
-                && isTabletSearch()) {
+        if (isTabletSearch()) {
             onClearSearchTextRunnable();
             return true;
         }
@@ -624,10 +627,6 @@ class BookmarkManagerMediator
      * @return True if the event was consumed, false otherwise.
      */
     boolean onEscapePressed() {
-        assert ChromeFeatureList.isEnabled(
-                        ChromeFeatureList.ENABLE_ESCAPE_HANDLING_FOR_SECONDARY_ACTIVITIES)
-                : "This path should only be reached when the feature flag is enabled.";
-
         if (mIsDestroyed) return false;
 
         if (DeviceFormFactor.isNonMultiDisplayContextOnTablet(mContext)) {

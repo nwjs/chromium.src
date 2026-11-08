@@ -12,8 +12,8 @@ import {browserProxyFactory as userEducationProxyFactory} from '//resources/mojo
 
 import type {VisualBrowserProxy} from '../app/visual_browser_proxy.js';
 import {VisualBrowserProxyImpl} from '../app/visual_browser_proxy.js';
-import {DEFAULT_SETTINGS, LineFocusMovement, LineFocusStyle, ToolbarEvent} from '../content/read_anything_types.js';
-import type {SettingsPrefs, ShowAtConfigPrefs} from '../content/read_anything_types.js';
+import {LineFocusMovement, LineFocusStyle, ToolbarEvent} from '../content/read_anything_types.js';
+import type {ShowAtConfigPrefs} from '../content/read_anything_types.js';
 import {ReadAnythingSettingsChange} from '../shared/metrics_browser_proxy.js';
 import {ReadAnythingLogger} from '../shared/read_anything_logger.js';
 
@@ -44,7 +44,6 @@ export class LineFocusMenuElement extends LineFocusMenuElementBase implements
 
   static override get properties() {
     return {
-      settingsPrefs: {type: Object},
       nonModal: {type: Boolean},
       lineFocusStyle: {type: Object},
       lineFocusEnabled: {type: Boolean},
@@ -53,7 +52,6 @@ export class LineFocusMenuElement extends LineFocusMenuElementBase implements
     };
   }
 
-  accessor settingsPrefs: SettingsPrefs = DEFAULT_SETTINGS;
   accessor nonModal: boolean = false;
   accessor lineFocusStyle: LineFocusStyle|null = null;
   accessor lineFocusEnabled: boolean = false;
@@ -114,6 +112,7 @@ export class LineFocusMenuElement extends LineFocusMenuElementBase implements
       },
       items: this.toggleOptions_,
       eventName: ToolbarEvent.LINE_FOCUS_TOGGLE,
+      selectedValue: this.lineFocusEnabled,
     };
   }
 
@@ -125,6 +124,7 @@ export class LineFocusMenuElement extends LineFocusMenuElementBase implements
       },
       items: this.styleOptions_,
       eventName: ToolbarEvent.LINE_FOCUS_STYLE,
+      selectedValue: this.lineFocusStyle ?? undefined,
     };
   }
 
@@ -136,6 +136,7 @@ export class LineFocusMenuElement extends LineFocusMenuElementBase implements
       },
       items: this.movementOptions_,
       eventName: ToolbarEvent.LINE_FOCUS_MOVEMENT,
+      selectedValue: this.lineFocusMovement ?? undefined,
     };
   }
 
@@ -146,17 +147,6 @@ export class LineFocusMenuElement extends LineFocusMenuElementBase implements
   override willUpdate(changedProperties: PropertyValues<this>) {
     super.willUpdate(changedProperties);
 
-    if (changedProperties.has('lineFocusEnabled')) {
-      this.updateOptionsForToggle_(this.lineFocusEnabled);
-    }
-    if (changedProperties.has('lineFocusStyle') &&
-        this.lineFocusStyle !== null) {
-      this.updateOptionsForStyle_(this.lineFocusStyle);
-    }
-    if (changedProperties.has('lineFocusMovement') &&
-        this.lineFocusMovement !== null) {
-      this.updateOptionsForMovement_(this.lineFocusMovement);
-    }
     if (changedProperties.has('lineFocusEnabled') ||
         changedProperties.has('lineFocusStyle') ||
         changedProperties.has('lineFocusMovement')) {
@@ -203,24 +193,6 @@ export class LineFocusMenuElement extends LineFocusMenuElementBase implements
   protected onLineFocusMovementChange_() {
     this.logger_.logTextSettingsChange(
         ReadAnythingSettingsChange.LINE_FOCUS_MOVEMENT_CHANGE);
-  }
-
-  private updateOptionsForToggle_(isEnabled: boolean) {
-    this.toggleOptions_.forEach(option => {
-      option.selected = option.data === isEnabled;
-    });
-  }
-
-  private updateOptionsForStyle_(newStyle: LineFocusStyle) {
-    this.styleOptions_.forEach(option => {
-      option.selected = option.data === newStyle;
-    });
-  }
-
-  private updateOptionsForMovement_(newMovement: LineFocusMovement) {
-    this.movementOptions_.forEach(option => {
-      option.selected = option.data === newMovement;
-    });
   }
 }
 

@@ -195,6 +195,8 @@ SoundContentSettingObserver::GetSiteMutedReason() {
   host_content_settings_map_->GetWebsiteSetting(
       url, url, ContentSettingsType::SOUND, &info);
 
+  // TODO(crbug.com/570903630): CHECK-exclusion: Convert to a CHECK once we are
+  // confident it won't be triggered.
   DCHECK_EQ(SettingSource::kUser, info.source);
 
   if (info.primary_pattern == ContentSettingsPattern::Wildcard() &&

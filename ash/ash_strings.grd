@@ -1305,6 +1305,9 @@ Style notes:
       <message name="IDS_ASH_STATUS_TRAY_ACCESSIBILITY_FACEGAZE" desc="The label used in the accessibility menu of the system tray to toggle on/off the FaceGaze feature.">
         Face control
       </message>
+      <message name="IDS_ASH_STATUS_TRAY_ACCESSIBILITY_HOVER_TEXT" translateable="false" desc="The label used in the accessibility menu of the system tray to toggle on/off the Hover Text feature.">
+        Hover text
+      </message>
       <message name="IDS_ASH_STATUS_TRAY_ACCESSIBILITY_COLOR_CORRECTION" desc="The label used in the accessibility menu of the system tray to toggle on/off the color correction feature.">
         Color correction
       </message>
@@ -1823,9 +1826,6 @@ You can also use the keyboard shortcut. First, highlight text, then press <ph na
       </message>
       <message name="IDS_ASH_VIDEO_CONFERENCE_BUBBLE_BACKGROUND_BLUR_IMAGE_LIST_ITEM_DESCRIPTION" desc="Text for description of background image buttons in the VC bubble. Only for accessibility purpose.">
        Background
-      </message>
-      <message name="IDS_ASH_VIDEO_CONFERENCE_BUBBLE_PORTRAIT_RELIGHT_NAME" desc="Text for name of the portrait relight effect in the VC bubble, which is a toggle and effectively adjusts the users lighting.">
-        Improve lighting
       </message>
       <message name="IDS_ASH_VIDEO_CONFERENCE_BUBBLE_STUDIO_LOOK_NAME" desc="Text for name of the studio look effect in the VC bubble, which is a toggle for enabling or disabling face retouching and portrait relighting.">
         Appearance effects
@@ -4142,7 +4142,7 @@ No devices connected.
       <message name="IDS_ASH_ACCELERATOR_DESCRIPTION_SHOW_EMOJI_PICKER" desc="Label for accelerator action - Open Emoji Picker.">
         Open Emoji Picker
       </message>
-      <message name="IDS_ASH_ACCELERATOR_DESCRIPTION_QUICK_INSERT" desc="Label for accelerator action - Right alt.">
+      <message name="IDS_ASH_ACCELERATOR_DESCRIPTION_QUICK_INSERT" desc="Label for accelerator action - Quick Insert.">
         Quick Insert
       </message>
       <message name="IDS_ASH_ACCELERATOR_DESCRIPTION_STOP_SCREEN_RECORDING" desc="Label for accelerator action - Stop screen recording.">
@@ -6375,6 +6375,9 @@ No devices connected.
       <message name="IDS_ASH_MULTIPASTE_DUPLICATE_COPY_NUDGE" desc="The label used for the nudge that shows when something copied to clipboard already exists in clipboard.">
         Copied item already in clipboard. Use <ph name="SHORTCUT_KEY_NAME">$1<ex>Launcher</ex></ph> + V to view.
       </message>
+      <message name="IDS_ASH_CLIPBOARD_HISTORY_DISABLED_BY_POLICY" desc="The toast message that notifies the user that clipboard history tool was disabled by their administrator when they attempt to access it.">
+        Clipboard history was disabled by your IT admin
+      </message>
 
       <message name="IDS_APP_LIST_BLOCKED_APP" desc="The spoken feedback text when a focused app is blocked.">
         Blocked
@@ -6637,37 +6640,6 @@ No devices connected.
       </message>
       <message name="IDS_AUTH_FACTOR_LABEL_SIGNED_IN" desc="Label on user's login screen when a Chromebook is successfully logged in.">
         Signing in...
-      </message>
-      <!-- Launcher: Apps Collections -->
-      <message name="IDS_ASH_LAUNCHER_APPS_COLLECTIONS_ESSENTIALS_NAME" desc="Label for the 'Essentials' collection in the Launcher Apps Collections Tutorial View, which shows a subset of default apps that were categorized as belonging to the Essential apps.">
-        Essentials
-      </message>
-      <message name="IDS_ASH_LAUNCHER_APPS_COLLECTIONS_PRODUCTIVITY_NAME" desc="Label for the 'Productivity' collection in the Launcher Apps Collections Tutorial View, which shows a subset of default apps that were categorized as belonging to the Productivity apps.">
-        Productivity
-      </message>
-      <message name="IDS_ASH_LAUNCHER_APPS_COLLECTIONS_CREATIVITY_NAME" desc="Label for the 'Creativity' collection in the Launcher Apps Collections Tutorial View, which shows a subset of default apps that were categorized as belonging to the Creativity apps.">
-        Creativity
-      </message>
-      <message name="IDS_ASH_LAUNCHER_APPS_COLLECTIONS_ENTERTAINMENT_NAME" desc="Label for the 'Entertainment' collection in the Launcher Apps Collections Tutorial View, which shows a subset of default apps that were categorized as belonging to the Entertainment apps section.">
-        Entertainment
-      </message>
-      <message name="IDS_ASH_LAUNCHER_APPS_COLLECTIONS_UTILITIES_NAME" desc="Label for the 'Utilities' collection in the Launcher Apps Collections Tutorial View, which shows a subset of default apps that were categorized as belonging to the Utilities apps section.">
-        Utilities
-      </message>
-      <message name="IDS_ASH_LAUNCHER_APPS_COLLECTIONS_YOUR_APPS_NAME" desc="Label for the 'Your apps' collection in the Launcher Apps Collections Tutorial View, which shows a subset of apps that were downloaded by the user.">
-        Your apps
-      </message>
-      <message name="IDS_ASH_LAUNCHER_APPS_COLLECTIONS_NUDGE_TITLE" desc="Text for the Apps Collections Tutorial View nudge that is shown on top of the Apps Collections in the Launcher. The tutorial view displays apps categorized in different subsets.">
-        Get to know your built-in apps
-      </message>
-      <message name="IDS_ASH_LAUNCHER_APPS_COLLECTIONS_NUDGE_SUBTITLE" desc="Subtext for the Apps Collections Tutorial View nudge that is shown on top of the Apps Collections in the Launcher. The tutorial view displays apps categorized in different subsets.">
-        Apps are organized by category temporarily
-      </message>
-      <message name="IDS_ASH_LAUNCHER_APPS_COLLECTIONS_NUDGE_DISMISS_BUTTON" desc="Label for the Apps Collections Tutorial View nudge button that show on top of the Apps Collections in the Launcher. The tutorial view displays apps categorized in different subsets. Clicking the button will return users to the default launcher with apps displayed in a grid.">
-        Exit
-      </message>
-      <message name="IDS_ASH_LAUNCHER_APPS_COLLECTIONS_NUDGE_DISMISS_BUTTON_SPOKEN_TEXT" desc="Accessibility text read by chromevox when focusing the Apps Collections Tutorial View nudge button that show on top of the Apps Collections in the Launcher. The tutorial view displays apps categorized in different subsets. Clicking the button will return users to the default launcher with apps displayed in a grid.">
-        Exit tutorial view
       </message>
 
       <!-- Launcher: Continue Section -->
@@ -8329,20 +8301,6 @@ To shut down the device, press and hold the power button on the device again.
         Settings
       </message>
 
-      <!-- Borealis MOTD -->
-      <message name="IDS_ASH_BOREALIS_MOTD_DISMISS_TEXT" desc="Text on dismiss button in Borealis MOTD. Clicking on it will dismiss the dialog.">
-        Dismiss
-      </message>
-      <message name="IDS_ASH_BOREALIS_MOTD_PLACEHOLDER_TEXT" desc="Placeholder text for Borealis MOTD. Shown if the message of the day is unable to be retrieved from the Static Content Service.">
-        Unable to retrieve Steam for Chromebook news.
-      </message>
-      <message name="IDS_ASH_BOREALIS_MOTD_UNINSTALL_TEXT" desc="Text on button in Borealis MOTD. Clicking on it will trigger uninstallation of the borealis.">
-        Uninstall
-      </message>
-      <message name="IDS_ASH_BOREALIS_MOTD_TITLE_TEXT" desc="Title text for Borealis MOTD. Shown at the top of the dialog.">
-        Steam for Chromebook News
-      </message>
-
       <!-- Kiosk mode (app_mode) -->
       <message name="IDS_KIOSK_APP_ERROR_EXTENSIONS_LOAD_TIMEOUT" desc="Error message used when a kiosk app fails to load force-installed extensions within the time limit.">
         Failed to load extensions within the time limit. Please contact your administrator.
@@ -8810,6 +8768,21 @@ To shut down the device, press and hold the power button on the device again.
       </message>
       <message name="IDS_BOREALIS_APPLICATION_UNINSTALL_CONFIRM_BODY" desc="Confirmation dialog for uninstalling a game.">
           Data associated with this app may be removed from this device
+      </message>
+      <message name="IDS_BOREALIS_DISK_CLEANUP_DIALOG_TITLE" desc="Title for the Borealis disk cleanup confirmation dialog and completion notification.">
+        Steam on Chromebook
+      </message>
+      <message name="IDS_BOREALIS_DISK_CLEANUP_DIALOG_MESSAGE" desc="Message body for the Borealis disk cleanup confirmation dialog prompting the user to reclaim disk space.">
+        You have unused disk space (<ph name="SIZE">$1<ex>10.0 GB</ex></ph>) allocated for deprecated feature "Steam on Chromebook".
+      </message>
+      <message name="IDS_BOREALIS_DISK_CLEANUP_DIALOG_OK_BUTTON" desc="Button label on the Borealis disk cleanup confirmation dialog to proceed with deleting the unused disk image and freeing disk space.">
+        Free disk space
+      </message>
+      <message name="IDS_BOREALIS_DISK_CLEANUP_DIALOG_CANCEL_BUTTON" desc="Button label on the Borealis disk cleanup confirmation dialog to dismiss the dialog for now.">
+        Do it later
+      </message>
+      <message name="IDS_BOREALIS_DISK_CLEANUP_NOTIFICATION_MESSAGE" desc="Message for the notification shown after successfully freeing Borealis disk space.">
+        Freed <ph name="SIZE">$1<ex>10.0 GB</ex></ph> of disk space.
       </message>
 
       <!-- Bruschetta -->

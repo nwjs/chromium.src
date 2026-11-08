@@ -26,7 +26,10 @@
 #import "ios/chrome/browser/enterprise/connectors/device_trust/features.h"
 #import "ios/chrome/browser/enterprise/connectors/device_trust/model/device_trust_connector_service_factory_ios.h"
 #import "ios/chrome/browser/enterprise/connectors/device_trust/model/device_trust_service_factory_ios.h"
+#import "ios/chrome/browser/enterprise/proxy/model/enterprise_proxy_service_factory_ios.h"
 #import "ios/chrome/browser/enterprise/signals/model/ios_signals_aggregator_factory.h"
+#import "ios/chrome/browser/policy/model/browser_management_service.h"
+#import "ios/chrome/browser/policy/model/browser_management_service_factory.h"
 #import "ios/chrome/browser/policy/model/browser_policy_connector_ios.h"
 #import "ios/chrome/browser/policy/model/reporting/cloud_profile_reporting_service_factory_ios.h"
 #import "ios/chrome/browser/policy/model/reporting/cloud_profile_reporting_service_ios.h"
@@ -48,6 +51,17 @@ void ConnectorsInternalsPageHandler::GetDeviceTrustState(
 
   if (!base::FeatureList::IsEnabled(
           enterprise_connectors::features::kEnableIOSDeviceTrustConnector)) {
+    std::move(callback).Run(
+        enterprise_connectors::utils::CreateUnsupportedDeviceTrustState());
+    return;
+  }
+
+  // Device trust diagnostics are only shown for managed profiles. Check
+  // management rather than `IsEnabled()` so that managed profiles without an
+  // allowlist policy still see the signals.
+  policy::BrowserManagementService* management_service =
+      policy::BrowserManagementServiceFactory::GetForProfile(profile_);
+  if (!management_service || !management_service->IsManaged()) {
     std::move(callback).Run(
         enterprise_connectors::utils::CreateUnsupportedDeviceTrustState());
     return;
@@ -229,24 +243,14 @@ void ConnectorsInternalsPageHandler::OnReportGenerated(
 
 void ConnectorsInternalsPageHandler::GetProvisioningDomainState(
     GetProvisioningDomainStateCallback callback) {
-#if BUILDFLAG(ENTERPRISE_PROXY)
   std::move(callback).Run(
       enterprise_connectors::utils::GetProvisioningDomainState(
-          /*proxy_service=*/nullptr));
-#else
-  std::move(callback).Run(
-      connectors_internals::mojom::ProvisioningDomainState::New(
-          std::vector<
-              connectors_internals::mojom::ProvisioningDomainConfigPtr>()));
-#endif  // BUILDFLAG(ENTERPRISE_PROXY)
+          EnterpriseProxyServiceFactoryIOS::GetForProfile(profile_)));
 }
 
 void ConnectorsInternalsPageHandler::RefreshProvisioningDomainConfigs(
     RefreshProvisioningDomainConfigsCallback callback) {
-#if BUILDFLAG(ENTERPRISE_PROXY)
-  pvd_refresh_helper_.RefreshConfigs(/*proxy_service=*/nullptr,
-                                     std::move(callback));
-#else
-  GetProvisioningDomainState(std::move(callback));
-#endif  // BUILDFLAG(ENTERPRISE_PROXY)
+  pvd_refresh_helper_.RefreshConfigs(
+      EnterpriseProxyServiceFactoryIOS::GetForProfile(profile_),
+      std::move(callback));
 }

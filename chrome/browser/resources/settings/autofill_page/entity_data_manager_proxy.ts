@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+type AccountInfo = chrome.autofillPrivate.AccountInfo;
 type AttributeType = chrome.autofillPrivate.AttributeType;
 type EntityInstance = chrome.autofillPrivate.EntityInstance;
 type EntityInstanceWithLabels = chrome.autofillPrivate.EntityInstanceWithLabels;
@@ -16,6 +17,11 @@ export type EntityInstancesChangedListener =
  * manager related methods.
  */
 export interface EntityDataManagerProxy {
+  /**
+   * Gets currently signed-in user account info, or undefined if not signed-in.
+   */
+  getAccountInfo(): Promise<AccountInfo|undefined>;
+
   /**
    * Adds a new entity instance if it doesn't exist yet. Otherwise, it updates
    * the entity instance.
@@ -108,16 +114,21 @@ export interface EntityDataManagerProxy {
    * Preloads legal disclosure lines and context token for upserting a public
    * pass into the backend cache.
    */
-  preloadDetailsForUpsertPass(): void;
+  preloadDetailsForUpsertPass(entityTypeName: number): void;
 
   /**
    * Fetches legal disclosure lines and context token for upserting a public
    * pass.
    */
-  getDetailsForUpsertPass(): Promise<UpsertPassDetails|null>;
+  getDetailsForUpsertPass(entityTypeName: number):
+      Promise<UpsertPassDetails|null>;
 }
 
 export class EntityDataManagerProxyImpl implements EntityDataManagerProxy {
+  getAccountInfo(): Promise<AccountInfo|undefined> {
+    return chrome.autofillPrivate.getAccountInfo();
+  }
+
   addOrUpdateEntityInstance(entityInstance: EntityInstance): Promise<void> {
     return chrome.autofillPrivate.addOrUpdateEntityInstance(entityInstance);
   }
@@ -183,12 +194,13 @@ export class EntityDataManagerProxyImpl implements EntityDataManagerProxy {
         optedIn);
   }
 
-  preloadDetailsForUpsertPass(): void {
-    chrome.autofillPrivate.preloadDetailsForUpsertPass();
+  preloadDetailsForUpsertPass(entityTypeName: number): void {
+    chrome.autofillPrivate.preloadDetailsForUpsertPass(entityTypeName);
   }
 
-  getDetailsForUpsertPass(): Promise<UpsertPassDetails|null> {
-    return chrome.autofillPrivate.getDetailsForUpsertPass();
+  getDetailsForUpsertPass(entityTypeName: number):
+      Promise<UpsertPassDetails|null> {
+    return chrome.autofillPrivate.getDetailsForUpsertPass(entityTypeName);
   }
 
   static getInstance() {

@@ -326,13 +326,16 @@
                                    prefilledEmail:nil
                              continuationProvider:_continuationProvider];
   __weak __typeof(self) weakSelf = self;
-  _addAccountSigninCoordinator.signinCompletion =
-      ^(SigninCoordinator* coordinator, SigninCoordinatorResult result,
-        id<SystemIdentity> resultIdentity) {
-        [weakSelf addAccountDoneWithCoordinator:coordinator
-                                         result:result
-                                 resultIdentity:resultIdentity];
-      };
+  _addAccountSigninCoordinator.signinCompletion = ^(
+      SigninCoordinator* coordinator,
+      SigninCoordinatorResultOrIdentity result) {
+    SigninCoordinatorResult signinResult =
+        signin::SigninCoordinatorResultFromSigninCoordinatorResultOrIdentity(
+            result);
+    [weakSelf addAccountDoneWithCoordinator:coordinator
+                                     result:signinResult
+                             resultIdentity:result.value_or(nil)];
+  };
   [_addAccountSigninCoordinator start];
 }
 
@@ -341,8 +344,7 @@
 - (void)addAccountDoneWithCoordinator:(SigninCoordinator*)coordinator
                                result:(SigninCoordinatorResult)result
                        resultIdentity:(id<SystemIdentity>)resultIdentity {
-  CHECK_EQ(_addAccountSigninCoordinator, coordinator,
-           base::NotFatalUntil::M151);
+  CHECK_EQ(_addAccountSigninCoordinator, coordinator);
   CHECK(_addAccountSigninCoordinator)
       << base::SysNSStringToUTF8([self description]);
   [self stopAddAccountSigninCoordinator];

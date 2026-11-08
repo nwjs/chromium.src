@@ -134,6 +134,9 @@ public final class ChromePreferenceKeys {
     public static final String BOOKMARKS_SORT_ORDER = "Chrome.Bookmarks.BookmarkRowSortOrder";
     public static final String BOOKMARKS_VISUALS_PREF = "Chrome.Bookmarks.BookmarkRowDisplay";
 
+    /** Whether the bottom bar is enabled by the user. Default value is true. */
+    public static final String BOTTOM_BAR_ENABLED = "Chrome.BottomBar.Enabled";
+
     /** Whether the GLIC button is enabled by the user in the bottom bar. */
     public static final String BOTTOM_BAR_GLIC_BUTTON_ENABLED =
             "Chrome.BottomBar.GlicButtonEnabled";
@@ -482,7 +485,9 @@ public final class ChromePreferenceKeys {
     public static final String IMAGE_DESCRIPTIONS_DONT_ASK_AGAIN =
             "Chrome.ImageDescriptions.DontAskAgain";
 
-    public static final String INCOGNITO_SHORTCUT_ADDED = "incognito-shortcut-added";
+    // DYNAMIC_SHORTCUTS_ADDED used to only track the incognito launcher shortcut, thus the
+    // "incognito-" prefix. The string should NOT be changed without some sort of migration.
+    public static final String DYNAMIC_SHORTCUTS_ADDED = "incognito-shortcut-added";
 
     /** Indicates how many times the Incognito re-auth promo card was shown in the tab switcher. */
     public static final String INCOGNITO_REAUTH_PROMO_SHOW_COUNT =
@@ -653,6 +658,10 @@ public final class ChromePreferenceKeys {
     public static final String OMNIBOX_CACHED_ZERO_SUGGEST_GROUPS_INFO =
             "Chrome.Omnibox.CachedZeroSuggestGroupsInfo";
 
+    /** Wall-clock time (ms) of the most recent Fusebox Plus menu open. */
+    public static final String OMNIBOX_FUSEBOX_PLUS_MENU_LAST_OPEN_TIME =
+            "Chrome.Omnibox.FuseboxPlusMenuLastOpenTime";
+
     /**
      * Prefix of the preferences to persist pushed notifications when native is not initialized.
      * Each suffix pertains to a specific OptimizationType. All entries are cleared when native is
@@ -700,13 +709,6 @@ public final class ChromePreferenceKeys {
      */
     public static final String PERSISTENT_OFFLINE_CONTENT_AVAILABILITY_STATUS =
             "Chrome.OfflineIndicatorV2.HasPersistentOfflineContent";
-
-    /**
-     * Indicates whether Page Insights Hub's Privacy Notice has been closed by user; used to ensure
-     * user does not see it again.
-     */
-    public static final String PIH_PRIVACY_NOTICE_CLOSED =
-            "Chrome.PageInsightsHub.PrivacyNoticeClosedByUser";
 
     /** Whether NTP magic stack cards are enabled (if false, no cards can show). */
     public static final String HOME_MODULE_CARDS_ENABLED = "Chrome.HomeModules.Enabled";
@@ -906,8 +908,8 @@ public final class ChromePreferenceKeys {
     /**
      * Key prefix for boolean preferences indicating whether a specific Setup List item has been
      * completed by the user. The ModuleType integer is appended to this prefix to form the unique
-     * key for each item. For example, "Chrome.SetupList.Completed.15" would be the key for the
-     * SIGN_IN_PROMO.
+     * key for each item. For example, "Chrome.SetupList.Completed.10" would be the key for the
+     * HISTORY_SYNC_PROMO.
      */
     public static final KeyPrefix SETUP_LIST_COMPLETED_KEY_PREFIX =
             new KeyPrefix("Chrome.SetupList.Completed.*");
@@ -929,9 +931,6 @@ public final class ChromePreferenceKeys {
     /** Stores the timestamp of the last performed Safety check. */
     public static final String SETTINGS_SAFETY_CHECK_LAST_RUN_TIMESTAMP =
             "Chrome.SafetyCheck.LastRunTimestamp";
-
-    /** Stores the number of times the user has performed Safety check. */
-    public static final String SETTINGS_SAFETY_CHECK_RUN_COUNTER = "Chrome.SafetyCheck.RunCounter";
 
     public static final String SETTINGS_WEBSITE_FAILED_BUILD_VERSION =
             "ManagedSpace.FailedBuildVersion";
@@ -1101,6 +1100,12 @@ public final class ChromePreferenceKeys {
             "Chrome.VerticalTabs.EnabledTimestamp";
 
     /**
+     * Stores the user preference for expanding the collapsed vertical tabs rail when the pointer
+     * hovers over it.
+     */
+    public static final String VERTICAL_TABS_EXPAND_ON_HOVER = "Chrome.VerticalTabs.ExpandOnHover";
+
+    /**
      * Stores the expanded vertical tabs rail width, in dp, that the user last chose by dragging the
      * rail's resize handle. Unset (or non-positive) means the user has never resized the rail, so
      * its width is determined automatically from the window size.
@@ -1182,6 +1187,7 @@ public final class ChromePreferenceKeys {
                 BLUETOOTH_NOTIFICATION_IDS,
                 BOOKMARKS_SORT_ORDER,
                 BOOKMARKS_VISUALS_PREF,
+                BOTTOM_BAR_ENABLED,
                 BOTTOM_BAR_GLIC_BUTTON_ENABLED,
                 CLIPBOARD_SHARED_URI,
                 CLIPBOARD_SHARED_URI_TIMESTAMP,
@@ -1289,12 +1295,12 @@ public final class ChromePreferenceKeys {
                 OFFLINE_MEASUREMENTS_SYSTEM_STATE_LIST,
                 OFFLINE_MEASUREMENTS_USER_AGENT_STRING,
                 OMNIBOX_CACHED_ZERO_SUGGEST_GROUPS_INFO,
+                OMNIBOX_FUSEBOX_PLUS_MENU_LAST_OPEN_TIME,
                 OPTIMIZATION_GUIDE_PUSH_NOTIFICATION_CACHE.pattern(),
                 OS_ADVANCED_PROTECTION_SETTING,
                 OS_ADVANCED_PROTECTION_SETTING_UPDATED_TIME,
                 PASSWORD_PROTECTION_ACCOUNTS,
                 PERSISTENT_OFFLINE_CONTENT_AVAILABILITY_STATUS,
-                PIH_PRIVACY_NOTICE_CLOSED,
                 POLICY_USER_FEEDBACK_ALLOWED,
                 PRICE_TRACKING_ANNOTATIONS_ENABLED_METRICS_TIMESTAMP,
                 PRICE_TRACKING_CHROME_MANAGED_NOTIFICATIONS_TIMESTAMPS,
@@ -1329,7 +1335,6 @@ public final class ChromePreferenceKeys {
                 SETUP_LIST_COMPLETED_KEY_PREFIX.pattern(),
                 SETTINGS_RECENT_SEARCH_ENTRIES,
                 SETTINGS_SAFETY_CHECK_LAST_RUN_TIMESTAMP,
-                SETTINGS_SAFETY_CHECK_RUN_COUNTER,
                 SHARING_LAST_SHARED_COMPONENT_NAME,
                 SHARING_TABS_WITH_OS,
                 SHOW_HOME_BUTTON_POLICY_STATE,
@@ -1370,6 +1375,7 @@ public final class ChromePreferenceKeys {
                 VERTICAL_TABS_COLLAPSED,
                 VERTICAL_TABS_ENABLED,
                 VERTICAL_TABS_ENABLED_TIMESTAMP,
+                VERTICAL_TABS_EXPAND_ON_HOVER,
                 VERTICAL_TABS_USER_RESIZED_WIDTH_DP,
                 WEB_SIGNIN_ACCOUNT_PICKER_ACTIVE_DISMISSAL_COUNT,
                 WINDOW_CONTROLS_OVERLAY_ENABLED_PACKAGES);

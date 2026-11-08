@@ -20,6 +20,7 @@ import org.junit.runner.RunWith;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CommandLineFlags;
+import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Restriction;
 import org.chromium.chrome.R;
@@ -39,8 +40,7 @@ import org.chromium.ui.base.DeviceInput;
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
 @Batch(Batch.PER_CLASS)
 @Restriction({DeviceFormFactor.TABLET_OR_DESKTOP})
-// TODO(b/555414915): Update Android tests with WebUI NTP enabled on AL.
-@DisableFeatures(ChromeFeatureList.USE_WEB_UI_NTP_ANDROID)
+@DisableFeatures(ChromeFeatureList.ANDROID_DESKTOP_WEB_UI_HISTORY)
 public class HistoryPageOnLffTest {
     @Rule
     public AutoResetCtaTransitTestRule mCtaTestRule =
@@ -80,6 +80,7 @@ public class HistoryPageOnLffTest {
 
     @Test
     @MediumTest
+    @DisabledTest(message = "https://crbug.com/570738449")
     public void testAutoFocusOnHistoryPageByTabSwitching() {
         DeviceInput.setSupportsKeyboardForTesting(true);
 

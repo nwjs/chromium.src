@@ -32,8 +32,11 @@ public interface OmniboxStub {
      */
     void endInput();
 
-    /** Suspends the current Omnibox input session. */
-    void suspendInput();
+    /**
+     * Enter the DRAFTING_NO_FOCUS state; see {@link
+     * org.chromium.components.omnibox.AutocompleteInput.DisplayState}
+     */
+    void enterDraftingNoFocus();
 
     /** Handler for scrim clicks. */
     void onScrimClicked();

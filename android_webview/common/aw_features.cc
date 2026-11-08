@@ -308,6 +308,11 @@ BASE_FEATURE(kWebViewNavigateDrainPrefetch, base::FEATURE_ENABLED_BY_DEFAULT);
 // cookie loss and CHECK failures when cookies are set before WebView is fully
 // initialized.
 BASE_FEATURE(kWebViewNonBlockingCookieStoreHandoff,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Kill switch for using the low entropy source provided by the nonembedded
+// WebView service.
+BASE_FEATURE(kWebViewNonembeddedLowEntropySourceKillSwitch,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // When enabled, opts in WebView to GMSCore's bindService optimizations.
@@ -330,19 +335,12 @@ BASE_FEATURE(kWebViewPrefetchAheadOfPrerender,
 // Prefetches the native WebView code to memory during startup.
 BASE_FEATURE(kWebViewPrefetchNativeLibrary, base::FEATURE_ENABLED_BY_DEFAULT);
 
-// A parameter to trigger the prefetch from the renderer instead of the browser.
-const base::FeatureParam<bool> kWebViewPrefetchFromRenderer{
-    &kWebViewPrefetchNativeLibrary, "WebViewPrefetchFromRenderer", true};
-
 // This enables to start main resource prefetch request from off the main thread
 // for WebView Prefetch API. See crbug.com/452406598, crbug.com/452389538 for
 // more details. Only takes effect if `kPrefetchOffTheMainThread` is enabled
 // as well.
 BASE_FEATURE(kWebViewPrefetchOffTheMainThread,
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Prefetches the native WebView code to memory when renderer is reused.
-BASE_FEATURE(kWebViewPrefetchOnRendererReuse, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // When enabled, stale `AwPrefetchHandleWrapper`s in `AwPrefetchManagerData` are
 // proactively pruned when new prefetch requests are added or reserved.
@@ -351,6 +349,24 @@ BASE_FEATURE(kWebViewPrefetchPruneStaleWrappers,
 
 // Kill switch for reporting `PreloadServingMetrics` for WebView.
 BASE_FEATURE(kWebViewPreloadServingMetrics, base::FEATURE_ENABLED_BY_DEFAULT);
+
+// When enabled, preconnect requests trigger compression dictionary prewarming.
+BASE_FEATURE(kWebViewPrewarmDictionaryOnPreconnect,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+constexpr base::FeatureParam<AwPrewarmDictionaryCleanupMode>::Option
+    kAwPrewarmDictionaryCleanupModeOptions[] = {
+        {AwPrewarmDictionaryCleanupMode::kEventsOnly, "events_only"},
+        {AwPrewarmDictionaryCleanupMode::kTimerOnly, "timer_only"},
+        {AwPrewarmDictionaryCleanupMode::kHybrid, "hybrid"},
+};
+const base::FeatureParam<AwPrewarmDictionaryCleanupMode>
+    kWebViewPrewarmDictionaryCleanupMode{
+        &kWebViewPrewarmDictionaryOnPreconnect, "CleanupMode",
+        AwPrewarmDictionaryCleanupMode::kHybrid,
+        &kAwPrewarmDictionaryCleanupModeOptions};
+// Maximum number of prewarmed dictionaries retained concurrently.
+const base::FeatureParam<int> kWebViewPrewarmDictionaryOnPreconnectMaxEntries{
+    &kWebViewPrewarmDictionaryOnPreconnect, "MaxEntries", 4};
 
 // Enables lazy profile creation in WebView.
 BASE_FEATURE(kWebViewProfileStoreNotTriggerStartup,
@@ -385,6 +401,10 @@ BASE_FEATURE(kWebViewReducedSeedRequestPeriod,
 BASE_FEATURE(kWebViewReduceUAAndroidVersionDeviceModel,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Allow WebView initialization to continue in the case where an old instance of
+// the same app process is stuck holding the lock.
+BASE_FEATURE(kWebViewRelaxDataDirLocking, base::FEATURE_DISABLED_BY_DEFAULT);
+
 // When enabled, WebView support for Instant Apps is removed.
 BASE_FEATURE(kWebViewRemoveInstantAppSupport,
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -393,14 +413,6 @@ BASE_FEATURE(kWebViewRemoveInstantAppSupport,
 // iff both this feature flag and the content/public kRenderDocument flag is
 // enabled.
 BASE_FEATURE(kWebViewRenderDocument, base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Keeps the renderer process alive after the last WebView is destroyed to
-// allow for reuse.
-BASE_FEATURE(kWebViewRendererKeepAlive, base::FEATURE_ENABLED_BY_DEFAULT);
-
-const base::FeatureParam<base::TimeDelta> kWebViewRendererKeepAliveDuration{
-    &kWebViewRendererKeepAlive, "webview_renderer_keep_alive_duration",
-    base::Days(1000)};
 
 // Enables using a single shared gpu::SharedContextState across all
 // OutputSurfaceProviderWebView instances.

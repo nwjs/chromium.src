@@ -18,8 +18,6 @@ from pylib.local.emulator.proto import avd_pb2
 
 def CreateAvdSettings():
     # python generated codes are simplified since Protobuf v3.20.0 and cause
-    # pylint error: https://github.com/protocolbuffers/protobuf/issues/9730
-    # pylint: disable=no-member
     return avd_pb2.AvdSettings()
 
 
@@ -371,7 +369,6 @@ class AvdInstallCreateUninstallTest(unittest.TestCase):
         mock_rmtree.assert_not_called()
 
 
-# pylint: disable=protected-access
 class AvdEnsureSystemSettingsTest(unittest.TestCase):
     class _FakeDevice:
         build_version_sdk = avd.version_codes.MARSHMALLOW
@@ -781,6 +778,25 @@ class AvdProcessRawSystemImageTest(unittest.TestCase):
                 'google_apis',
                 'x86_64',
             ),
+        )
+
+    @patch('pylib.local.emulator.ini.load')
+    def testProcessSourcePropsCommaInTagId(self, mock_ini_load):
+        mock_ini_load.return_value = {
+            'AndroidVersion.ApiLevel': '35',
+            'SystemImage.TagId': 'android-desktop,google_apis_playstore',
+            'SystemImage.Abi': 'x86_64',
+        }
+        mock_open_obj = mock_open(read_data='template')
+        with patch('builtins.open', mock_open_obj):
+            package_path = avd._ProcessSourceProps(
+                '/fake/source.properties', '1.0'
+            )
+
+        self.assertEqual(
+            'system-images;android-35;'
+            'android-desktop_google_apis_playstore;x86_64',
+            package_path,
         )
 
 

@@ -4,6 +4,7 @@
 
 #include "components/autofill/core/browser/payments/multiple_request_payments_network_interface.h"
 
+#include "base/test/values_test_util.h"
 #include "components/autofill/core/browser/data_model/payments/credit_card.h"
 #include "components/autofill/core/browser/payments/payments_autofill_client.h"
 #include "components/autofill/core/browser/payments/payments_network_interface_test_base.h"
@@ -471,6 +472,160 @@ TEST_F(MultipleRequestGetDetailsForUpdateCardTest,
   ReturnResponse(net::HTTP_OK, "{\"error\":{\"code\":\"INTERNAL\"}}");
 
   EXPECT_EQ(PaymentsRpcResult::kTryAgainFailure, result_);
+}
+
+class MultipleRequestUpdateCardTest
+    : public MultipleRequestPaymentsNetworkInterfaceTest {
+ public:
+  MultipleRequestUpdateCardTest() = default;
+  ~MultipleRequestUpdateCardTest() override = default;
+
+ protected:
+  void SendUpdateCardRequest() {
+    UpdateCardRequestDetails request_details;
+    request_details.app_locale = "en-US";
+    request_details.billing_customer_number = 111222333444L;
+    request_details.instrument_id = 123456789L;
+    request_details.cardholder_name = u"John Doe";
+    request_details.cvc = u"123";
+    request_details.context_token = "some_context_token";
+    request_details.risk_data = "some_risk_data";
+
+    id_ = payments_network_interface_->UpdateCard(
+        request_details,
+        base::BindOnce(&MultipleRequestUpdateCardTest::OnDidUpdateCard,
+                       GetWeakPtr()));
+  }
+
+  PaymentsRpcResult result_ = PaymentsRpcResult::kNone;
+
+ private:
+  base::WeakPtr<MultipleRequestUpdateCardTest> GetWeakPtr() {
+    return weak_ptr_factory_.GetWeakPtr();
+  }
+
+  void OnDidUpdateCard(PaymentsRpcResult result) { result_ = result; }
+
+  base::WeakPtrFactory<MultipleRequestUpdateCardTest> weak_ptr_factory_{this};
+};
+
+TEST_F(MultipleRequestUpdateCardTest, UpdateCard_Success) {
+  SendUpdateCardRequest();
+  IssueOAuthToken();
+  ReturnResponse(net::HTTP_OK, "{\"card_info\":{}}");
+
+  EXPECT_EQ(PaymentsRpcResult::kSuccess, result_);
+}
+
+TEST_F(MultipleRequestUpdateCardTest, UpdateCard_Failure) {
+  SendUpdateCardRequest();
+  IssueOAuthToken();
+  ReturnResponse(
+      net::HTTP_OK,
+      "{\"error\":{\"user_error_message\":\"Failed to update card\"}}");
+
+  EXPECT_EQ(PaymentsRpcResult::kPermanentFailure, result_);
+}
+
+class MultipleRequestGetDataForAgentTest
+    : public MultipleRequestPaymentsNetworkInterfaceTest {
+ public:
+  MultipleRequestGetDataForAgentTest() = default;
+  ~MultipleRequestGetDataForAgentTest() override = default;
+
+ protected:
+  void SendGetDataForAgentRequest() {
+    GetDataForAgentRequestDetails request_details;
+    request_details.opaque_token = "OPAQUE_TOKEN";
+    request_details.app_locale = "en-US";
+
+    id_ = payments_network_interface_->GetDataForAgent(
+        request_details,
+        base::BindOnce(
+            &MultipleRequestGetDataForAgentTest::OnDidGetDataForAgent,
+            GetWeakPtr()));
+  }
+
+  GetDataForAgentResponseDetails response_details_;
+
+ private:
+  base::WeakPtr<MultipleRequestGetDataForAgentTest> GetWeakPtr() {
+    return weak_ptr_factory_.GetWeakPtr();
+  }
+
+  void OnDidGetDataForAgent(PaymentsRpcResult result,
+                            const GetDataForAgentResponseDetails& details) {
+    result_ = result;
+    response_details_ = details;
+  }
+
+  base::WeakPtrFactory<MultipleRequestGetDataForAgentTest> weak_ptr_factory_{
+      this};
+};
+
+TEST_F(MultipleRequestGetDataForAgentTest, GetDataForAgent_Success) {
+  SendGetDataForAgentRequest();
+  IssueOAuthToken();
+  base::DictValue upload_data = base::test::ParseJsonDict(GetUploadData());
+  EXPECT_THAT(upload_data.FindString("encrypted_token"),
+              testing::Pointee(std::string("OPAQUE_TOKEN")));
+
+  ReturnResponse(net::HTTP_OK,
+                 R"({"payment_token":"{\"paymentMethodDetails\":{)"
+                 R"(\"pan\":\"4111111111111111\",\"cvc\":\"123\",)"
+                 R"(\"expirationMonth\":12,\"expirationYear\":2030}}"})");
+
+  EXPECT_EQ(PaymentsRpcResult::kSuccess, result_);
+  EXPECT_EQ(response_details_.card_number, "4111111111111111");
+  EXPECT_EQ(response_details_.cvc, "123");
+  EXPECT_EQ(response_details_.expiration_month, 12);
+  EXPECT_EQ(response_details_.expiration_year, 2030);
+}
+
+TEST_F(MultipleRequestGetDataForAgentTest,
+       GetDataForAgent_AgenticPaymentCredentials) {
+  SendGetDataForAgentRequest();
+  IssueOAuthToken();
+  ReturnResponse(
+      net::HTTP_OK,
+      R"({"agentic_payment_credentials":{"token":"5555555555554444",)"
+      R"("cvv":"456","expiration_month":7,"expiration_year":2031}})");
+
+  EXPECT_EQ(PaymentsRpcResult::kSuccess, result_);
+  EXPECT_EQ(response_details_.card_number, "5555555555554444");
+  EXPECT_EQ(response_details_.cvc, "456");
+  EXPECT_EQ(response_details_.expiration_month, 7);
+  EXPECT_EQ(response_details_.expiration_year, 2031);
+}
+
+// The server attaches a test card to error responses. It must not be used.
+TEST_F(MultipleRequestGetDataForAgentTest,
+       GetDataForAgent_ServerErrorIgnoresMockPaymentToken) {
+  SendGetDataForAgentRequest();
+  IssueOAuthToken();
+  ReturnResponse(net::HTTP_OK,
+                 R"({"error":{"code":"FAILED_PRECONDITION"},)"
+                 R"("mock_payment_token":"{\"paymentMethodDetails\":{)"
+                 R"(\"pan\":\"371449635398431\",\"cvc\":\"2817\",)"
+                 R"(\"expirationMonth\":12,\"expirationYear\":2030}}"})");
+
+  EXPECT_EQ(PaymentsRpcResult::kPermanentFailure, result_);
+}
+
+TEST_F(MultipleRequestGetDataForAgentTest, GetDataForAgent_EmptyResponse) {
+  SendGetDataForAgentRequest();
+  IssueOAuthToken();
+  ReturnResponse(net::HTTP_OK, "{}");
+
+  EXPECT_EQ(PaymentsRpcResult::kPermanentFailure, result_);
+}
+
+TEST_F(MultipleRequestGetDataForAgentTest, GetDataForAgent_NetworkError) {
+  SendGetDataForAgentRequest();
+  IssueOAuthToken();
+  ReturnResponse(net::HTTP_REQUEST_TIMEOUT, "");
+
+  EXPECT_EQ(PaymentsRpcResult::kNetworkError, result_);
 }
 
 }  // namespace

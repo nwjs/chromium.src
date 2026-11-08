@@ -53,6 +53,7 @@
 #include "third_party/blink/renderer/platform/fonts/simple_font_data.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/scheduler/public/main_thread.h"
+#include "third_party/blink/renderer/platform/text/character.h"
 #include "third_party/blink/renderer/platform/web_test_support.h"
 #include "third_party/blink/renderer/platform/wtf/functional.h"
 #include "third_party/blink/renderer/platform/wtf/std_lib_extras.h"
@@ -124,16 +125,39 @@ bool IsAppleColorEmojiFont(CTFontRef font) {
                           kCFCompareCaseInsensitive) == kCFCompareEqualTo);
 }
 
+// Creates a copy of `font` configured with CoreText's default fallback cascade
+// list for `language`, so `CTFontCreateForString` resolves fallback fonts
+// preferred for that language.
+ScopedCFTypeRef<CTFontRef> CreateCopyWithCascadeListForLanguage(
+    CTFontRef font,
+    NSString* language,
+    float size) {
+  NSArray* cascade_list =
+      CFToNSOwnershipCast(CTFontCopyDefaultCascadeListForLanguages(
+          font, NSToCFPtrCast(@[ language ])));
+  if (!cascade_list) {
+    return ScopedCFTypeRef<CTFontRef>(nullptr);
+  }
+  NSDictionary* attributes = @{
+    CFToNSPtrCast(kCTFontCascadeListAttribute) : cascade_list,
+  };
+  ScopedCFTypeRef<CTFontDescriptorRef> descriptor(
+      CTFontDescriptorCreateWithAttributes(NSToCFPtrCast(attributes)));
+  return ScopedCFTypeRef<CTFontRef>(
+      CTFontCreateCopyWithAttributes(font, size, nullptr, descriptor.get()));
+}
+
 ScopedCFTypeRef<CTFontRef> GetSubstituteFont(CTFontRef ct_font,
                                              UChar32 character,
-                                             float size) {
+                                             float size,
+                                             const LayoutLocale* locale) {
   auto bytes = base::bit_cast<std::array<UInt8, 4>>(character);
   ScopedCFTypeRef<CFStringRef> string(CFStringCreateWithBytes(
       kCFAllocatorDefault, std::data(bytes), std::size(bytes),
       kCFStringEncodingUTF32LE, false));
   CFRange range = CFRangeMake(0, CFStringGetLength(string.get()));
 
-  ScopedCFTypeRef<CTFontRef> substitute_font;
+  ScopedCFTypeRef<CTFontRef> font_to_substitute;
   if (!ct_font) {
     // For some web fonts for which we use FreeType backend (for instance some
     // color fonts), `ct_font` is null. For these fonts we still want to have a
@@ -141,13 +165,22 @@ ScopedCFTypeRef<CTFontRef> GetSubstituteFont(CTFontRef ct_font,
     // standard font from user settings defined in
     // `chrome/app/resources/locale_settings_mac.grd` as the font to substitute
     // from in `CTFontCreateForString`.
-    ScopedCFTypeRef<CTFontRef> font_to_substitute(
+    font_to_substitute.reset(
         CTFontCreateWithName(CFSTR("Times"), size, nullptr));
-    substitute_font.reset(
-        CTFontCreateForString(font_to_substitute.get(), string.get(), range));
-  } else {
-    substitute_font.reset(CTFontCreateForString(ct_font, string.get(), range));
+    ct_font = font_to_substitute.get();
   }
+  if (locale && locale->GetScriptForFont() == USCRIPT_ARABIC_NASTALIQ &&
+      ct_font &&
+      Character::GetScriptBasedOnUnicodeBlock(character) == USCRIPT_ARABIC &&
+      RuntimeEnabledFeatures::NastaliqScriptEnabled()) [[unlikely]] {
+    if (ScopedCFTypeRef<CTFontRef> font_with_cascade_list =
+            CreateCopyWithCascadeListForLanguage(ct_font, @"ur", size)) {
+      font_to_substitute = std::move(font_with_cascade_list);
+      ct_font = font_to_substitute.get();
+    }
+  }
+  ScopedCFTypeRef<CTFontRef> substitute_font(
+      CTFontCreateForString(ct_font, string.get(), range));
 
   if (!substitute_font || IsLastResortFont(substitute_font.get())) {
     return ScopedCFTypeRef<CTFontRef>(nullptr);
@@ -160,8 +193,8 @@ ScopedCFTypeRef<CTFontRef> GetSubstituteFont(CTFontRef ct_font,
   // (text) presentation of emoji. To do that we will replace colored emoji font
   // with the "Apple Symbols" monochromatic emoji font with the color emoji
   // cascade list since it has better glyph coverage.
-  if (IsAppleColorEmojiFont(substitute_font.get()) &&
-      Character::IsEmoji(character)) {
+  if (unicode::IsEmoji(character) &&
+      IsAppleColorEmojiFont(substitute_font.get())) {
     NSArray* lang_list = @[ @"en" ];
     NSArray* cascade_list =
         CFToNSOwnershipCast(CTFontCopyDefaultCascadeListForLanguages(
@@ -205,7 +238,7 @@ const FontPlatformData* GetAlternateFontPlatformData(
   float size = font_description.ComputedPixelSize();
 
   ScopedCFTypeRef<CTFontRef> substitute_font(
-      GetSubstituteFont(ct_font, character, size));
+      GetSubstituteFont(ct_font, character, size, font_description.Locale()));
   if (!substitute_font) {
     return nullptr;
   }
@@ -253,14 +286,15 @@ const FontPlatformData* GetAlternateFontPlatformData(
           CTFontGetSymbolicTraits(best_variation.get());
       float best_variation_font_weight =
           get_ct_font_weight(best_variation.get());
-      ScopedCFTypeRef<CFCharacterSetRef> char_set(
-          CTFontCopyCharacterSet(best_variation.get()));
-      if ((!ct_font || best_variation_font_traits != substitute_font_traits ||
-           best_variation_font_weight != substitute_font_weight) &&
-          char_set &&
-          CFCharacterSetIsLongCharacterMember(char_set.get(), character)) {
-        substitute_font = best_variation;
-        substitute_font_traits = CTFontGetSymbolicTraits(substitute_font.get());
+      if (!ct_font || best_variation_font_traits != substitute_font_traits ||
+          best_variation_font_weight != substitute_font_weight) {
+        ScopedCFTypeRef<CFCharacterSetRef> char_set(
+            CTFontCopyCharacterSet(best_variation.get()));
+        if (char_set &&
+            CFCharacterSetIsLongCharacterMember(char_set.get(), character)) {
+          substitute_font = best_variation;
+          substitute_font_traits = best_variation_font_traits;
+        }
       }
     }
   }
@@ -327,31 +361,51 @@ const SimpleFontData* FontCache::PlatformFallbackFontForCharacter(
 
   std::optional<CharacterFallbackKey> key;
 
-  // Caching results of going through the cascade list can introduces
-  // context sensitivity of fallback for individual characters. The
-  // cache may return a font that was the result for a previous fallback
-  // request. But if we had asked CoreText for the fallback for the
-  // current character, the result might have been different. This is
-  // particularly striking for symbols or emoji. Emoji in particular
-  // also need to go through fallback uncached to handle variation
-  // selectors right. To minimize risk of context sensitivity, perform
-  // caching only for ideographic codepoints, Unicode property
-  // [:Ideographic=Yes:].
-  if (Character::IsIdeographic(character) &&
-      RuntimeEnabledFeatures::MacCharacterFallbackCacheEnabled()) {
+  // For ideographic codepoints (Unicode property [:Ideographic=Yes:]), share a
+  // single cache entry (character == 0) verified via unicharToGlyph(). For
+  // non-ideographic codepoints, include the exact codepoint and fallback
+  // priority in the key so repeated fallback lookups of the same character do
+  // not re-invoke CoreText cascade and typeface creation while avoiding any
+  // cross-character context sensitivity.
+  if (RuntimeEnabledFeatures::MacCharacterFallbackCacheEnabled()) {
+    constexpr uint8_t kFallbackPriorityMask = 0x1F;
+    constexpr uint8_t kSyntheticBoldFlag = 1 << 5;
+    constexpr uint8_t kSyntheticItalicFlag = 1 << 6;
+    constexpr uint8_t kNastaliqFlag = 1 << 7;
+    static_assert(static_cast<uint8_t>(FontFallbackPriority::kMaxEnumValue) <=
+                  kFallbackPriorityMask);
+
+    // U+3006 (IDEOGRAPHIC CLOSING MARK) is the lowest Unicode codepoint with
+    // [:Ideographic=Yes:].
+    const bool is_ideographic =
+        character >= 0x3006 && unicode::IsIdeographic(character);
+    const bool is_nastaliq =
+        !is_ideographic &&
+        font_description.GetScriptForFont() == USCRIPT_ARABIC_NASTALIQ &&
+        RuntimeEnabledFeatures::NastaliqScriptEnabled();
+    const UChar32 key_char = is_ideographic ? 0 : character;
+    const uint8_t key_flags = static_cast<uint8_t>(
+        (platform_data.synthetic_bold_ ? kSyntheticBoldFlag : 0) |
+        (platform_data.synthetic_italic_ ? kSyntheticItalicFlag : 0) |
+        (is_nastaliq ? kNastaliqFlag : 0) |
+        (is_ideographic ? 0
+                        : (static_cast<uint8_t>(fallback_priority) &
+                           kFallbackPriorityMask)));
     key = CharacterFallbackKey::Make(
         platform_data.CtFont(), font_description.Weight().RawValue(),
         font_description.Style().RawValue(),
         static_cast<uint8_t>(font_description.Orientation()),
-        font_description.EffectiveFontSize());
+        font_description.EffectiveFontSize(), key_char, key_flags);
   }
 
   if (key) {
     CharacterFallbackCache::iterator found =
         character_fallback_cache_.find(*key);
-    if (found != character_fallback_cache_.end() &&
+    if (found != character_fallback_cache_.end() && found->value &&
         found->value->PlatformData().TypefaceSp() &&
-        found->value->PlatformData().TypefaceSp()->unicharToGlyph(character)) {
+        (key->character != 0 ||
+         found->value->PlatformData().TypefaceSp()->unicharToGlyph(
+             character))) {
       return found->value;
     }
   }
@@ -366,6 +420,10 @@ const SimpleFontData* FontCache::PlatformFallbackFontForCharacter(
       FontDataFromFontPlatformData(alternate_font);
 
   if (key) {
+    constexpr wtf_size_t kMaxCharacterFallbackCacheEntries = 512;
+    if (character_fallback_cache_.size() >= kMaxCharacterFallbackCacheEntries) {
+      character_fallback_cache_.clear();
+    }
     character_fallback_cache_.insert(*key, fallback_font_data);
   }
 

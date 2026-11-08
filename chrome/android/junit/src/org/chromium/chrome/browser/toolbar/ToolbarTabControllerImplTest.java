@@ -27,6 +27,7 @@ import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
+import org.robolectric.Robolectric;
 
 import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.test.BaseRobolectricTestRunner;
@@ -78,7 +79,6 @@ public class ToolbarTabControllerImplTest {
     @Mock private Supplier<Tab> mTabSupplier;
     @Mock private Tab mTab;
     @Mock private Tab mTab2;
-    @Mock private Activity mActivity;
     @Mock private BottomControlsCoordinator mBottomControlsCoordinator;
     @Mock private Tracker mTracker;
     @Mock private Supplier<Tracker> mTrackerSupplier;
@@ -92,12 +92,14 @@ public class ToolbarTabControllerImplTest {
     @Mock private Supplier<Boolean> mIsOffTheRecordSupplier;
 
     private final GURL mGURL = new GURL("https://example.com");
+    private Activity mActivity;
     private ToolbarTabControllerImpl mToolbarTabController;
     private Tab mTabToBeReturned;
     private boolean mIsOffTheRecord;
 
     @Before
     public void setUp() {
+        mActivity = Robolectric.buildActivity(Activity.class).get();
         doReturn(mTab).when(mTabSupplier).get();
         doReturn(mTab).when(mActivityTabProvider).get();
         doReturn(mProfile).when(mTab).getProfile();

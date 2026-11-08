@@ -28,7 +28,8 @@ ContextualCueSurveyCategory GetSurveyCategory(CueTargetType cue_type,
     return ContextualCueSurveyCategory::kIndigo;
   }
 
-  if (cue_type == CueTargetType::kGlic) {
+  if (cue_type == CueTargetType::kGlic ||
+      cue_type == CueTargetType::kContextualSearch) {
     std::string cuj_upper = base::ToUpperASCII(cuj);
     if (cuj_upper.find("SHOP") != std::string::npos) {
       return ContextualCueSurveyCategory::kShopping;
@@ -69,7 +70,7 @@ ContextualCueingService::~ContextualCueingService() = default;
 
 void ContextualCueingService::WriteStatsToPref(CueTargetType type) {
   auto it = target_stats_.find(type);
-  DCHECK(it != target_stats_.end());
+  CHECK(it != target_stats_.end(), base::NotFatalUntil::M161);
   if (it == target_stats_.end()) {
     return;
   }

@@ -36,10 +36,7 @@ BUNDLE_ICON_PATTERNS_MAP = {
 }
 
 
-if sys.version_info.major < 3:
-    basestring_compat = basestring
-else:
-    basestring_compat = str
+basestring_compat = str
 
 
 class FileListAction(argparse.Action):
@@ -126,7 +123,7 @@ def LoadPlistFile(plist_path):
 
 def CreateSymlink(value, location):
     """Creates symlink with value at location if the target exists."""
-    target = os.path.join(os.path.dirname(location), value)
+    target = os.path.join(os.path.dirname(location), value)  # noqa: F841
     if os.path.exists(location):
         os.unlink(location)
     os.symlink(value, location)
@@ -250,20 +247,37 @@ class ProvisioningProfile(object):
     def __init__(self, provisioning_profile_path):
         """Initializes the ProvisioningProfile with data from profile file."""
         self._path = provisioning_profile_path
-        self._data = ReadPlistFromString(
-            subprocess.check_output(
-                [
-                    'xcrun',
-                    'security',
-                    'cms',
-                    '-D',
-                    '-u',
-                    'certUsageAnyCA',
-                    '-i',
-                    provisioning_profile_path,
-                ]
+        if sys.platform != 'darwin':
+            # CMS signature verification via `security cms` is macOS-only and
+            # intentionally skipped on non-Darwin hosts (codesigning is
+            # disabled on Linux).
+            with open(provisioning_profile_path, 'rb') as fp:
+                raw = fp.read()
+            start = raw.find(b'<?xml')
+            end = raw.find(b'</plist>')
+            if start == -1 or end == -1:
+                raise ValueError(
+                    'Failed to extract plist from %s'
+                    % provisioning_profile_path
+                )
+            self._data = ReadPlistFromString(
+                raw[start : end + len(b'</plist>')]
             )
-        )
+        else:
+            self._data = ReadPlistFromString(
+                subprocess.check_output(
+                    [
+                        'xcrun',
+                        'security',
+                        'cms',
+                        '-D',
+                        '-u',
+                        'certUsageAnyCA',
+                        '-i',
+                        provisioning_profile_path,
+                    ]
+                )
+            )
 
     @property
     def path(self):
@@ -426,6 +440,14 @@ def FindProvisioningProfile(
 
 
 def CodeSignBundle(bundle_path, identity, extra_args):
+    if sys.platform != 'darwin':
+        if identity and identity != '-':
+            sys.stderr.write(
+                'Note: skipping cryptographic codesign of %s on %s '
+                '(identity=%s).\n'
+                % (os.path.basename(bundle_path), sys.platform, identity)
+            )
+        return
     process = subprocess.Popen(
         ['xcrun', 'codesign', '--force', '--sign', identity, '--timestamp=none']
         + list(extra_args)
@@ -485,7 +507,7 @@ def VerifyBundleManifest(bundle, manifest):
         lambda p: p == bundle.relative_embedded_mobileprovision,
         lambda p: IsSubPath(p, bundle.relative_signature_dir),
     ]
-    filtered = lambda path: any(map(lambda pattern: pattern(path), patterns))
+    filtered = lambda path: any(map(lambda pattern: pattern(path), patterns))  # noqa: E731
     manifest = set(path for path in manifest if not filtered(path))
 
     # Create a set of all directories in the manifest. Used to avoid doing
@@ -551,7 +573,7 @@ def VerifyBundleManifest(bundle, manifest):
         # from an incremental build after changing the target dependencies).
         for filename in filenames:
             filepath = os.path.normpath(os.path.join(reldirpath, filename))
-            if not filepath in manifest:
+            if filepath not in manifest:
                 if not bundle_icon_pattern or not bundle_icon_pattern.match(
                     filename
                 ):
@@ -596,9 +618,24 @@ def VerifyLoadOrder(binary_path, expected_first_framework):
     """Verifies that the first LC_LOAD_DYLIB in binary_path matches
     expected_first_framework.
     """
+    otool_bin = 'otool'
+    if sys.platform != 'darwin':
+        otool_bin = os.path.abspath(
+            os.path.join(
+                os.path.dirname(__file__),
+                '..',
+                '..',
+                '..',
+                'third_party',
+                'llvm-build',
+                'Release+Asserts',
+                'bin',
+                'llvm-otool',
+            )
+        )
     try:
         output = subprocess.check_output(
-            ['otool', '-l', binary_path],
+            [otool_bin, '-l', binary_path],
             stderr=subprocess.STDOUT,
             universal_newlines=True,
         )
@@ -924,6 +961,18 @@ class CodeSignBundleAction(Action):
             VerifyLoadOrder(bundle.binary_path, args.verify_load_order_first)
 
         if args.no_signature:
+            if sys.platform != 'darwin' and (
+                args.platform and not args.platform.endswith('simulator')
+            ):
+                sys.stderr.write(
+                    'Note: skipping cryptographic codesign of %s on %s '
+                    '(%s).\n'
+                    % (
+                        os.path.basename(bundle.path),
+                        sys.platform,
+                        args.platform,
+                    )
+                )
             return
 
         codesign_extra_args = []

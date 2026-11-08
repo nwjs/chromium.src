@@ -14,7 +14,6 @@
 #include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/functional/callback_helpers.h"
-#include "base/memory/ptr_util.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/single_thread_task_runner.h"
@@ -23,6 +22,8 @@
 #include "base/time/clock.h"
 #include "base/time/time.h"
 #include "base/timer/timer.h"
+#include "components/fcm/engine/chrome_build_info.h"
+#include "components/fcm/engine/fcm_internals_builder.h"
 #include "google_apis/gcm/base/fake_encryptor.h"
 #include "google_apis/gcm/base/mcs_message.h"
 #include "google_apis/gcm/base/mcs_util.h"
@@ -157,8 +158,7 @@ FakeMCSClient::FakeMCSClient(
       last_security_token_(0u),
       last_message_tag_(kNumProtoTypes) {}
 
-FakeMCSClient::~FakeMCSClient() {
-}
+FakeMCSClient::~FakeMCSClient() = default;
 
 void FakeMCSClient::Login(uint64_t android_id, uint64_t security_token) {
   last_android_id_ = android_id;
@@ -195,11 +195,9 @@ class AutoAdvancingTestClock : public base::Clock {
 
 AutoAdvancingTestClock::AutoAdvancingTestClock(
     base::TimeDelta auto_increment_time_delta)
-    : call_count_(0), auto_increment_time_delta_(auto_increment_time_delta) {
-}
+    : call_count_(0), auto_increment_time_delta_(auto_increment_time_delta) {}
 
-AutoAdvancingTestClock::~AutoAdvancingTestClock() {
-}
+AutoAdvancingTestClock::~AutoAdvancingTestClock() = default;
 
 base::Time AutoAdvancingTestClock::Now() const {
   call_count_++;
@@ -211,7 +209,7 @@ void AutoAdvancingTestClock::Advance(base::TimeDelta delta) {
   now_ += delta;
 }
 
-class FakeGCMInternalsBuilder : public GCMInternalsBuilder {
+class FakeGCMInternalsBuilder : public fcm::FcmInternalsBuilder {
  public:
   explicit FakeGCMInternalsBuilder(base::TimeDelta clock_step);
   ~FakeGCMInternalsBuilder() override;
@@ -273,8 +271,7 @@ FakeGCMInternalsBuilder::BuildConnectionFactory(
 
 }  // namespace
 
-class GCMClientImplTest : public testing::Test,
-                          public GCMClient::Delegate {
+class GCMClientImplTest : public testing::Test, public GCMClient::Delegate {
  public:
   GCMClientImplTest();
   ~GCMClientImplTest() override;
@@ -289,10 +286,9 @@ class GCMClientImplTest : public testing::Test,
                 const std::vector<std::string>& senders);
   void Unregister(const std::string& app_id);
   void ReceiveMessageFromMCS(const MCSMessage& message);
-  void ReceiveOnMessageSentToMCS(
-      const std::string& app_id,
-      const std::string& message_id,
-      const MCSClient::MessageSendStatus status);
+  void ReceiveOnMessageSentToMCS(const std::string& app_id,
+                                 const std::string& message_id,
+                                 const MCSClient::MessageSendStatus status);
   void FailCheckin(net::HttpStatusCode response_code);
   void CompleteCheckin(uint64_t android_id,
                        uint64_t security_token,
@@ -336,9 +332,7 @@ class GCMClientImplTest : public testing::Test,
   void OnStoreReset() override {}
 
   GCMClientImpl* gcm_client() const { return gcm_client_.get(); }
-  GCMClientImpl::State gcm_client_state() const {
-    return gcm_client_->state_;
-  }
+  GCMClientImpl::State gcm_client_state() const { return gcm_client_->state_; }
   FakeMCSClient* mcs_client() const {
     return static_cast<FakeMCSClient*>(gcm_client_->mcs_client_.get());
   }
@@ -346,7 +340,7 @@ class GCMClientImplTest : public testing::Test,
     return gcm_client_->connection_factory_.get();
   }
 
-  const GCMClientImpl::CheckinInfo& device_checkin_info() const {
+  const fcm::CheckinInfo& device_checkin_info() const {
     return gcm_client_->device_checkin_info_;
   }
 
@@ -469,9 +463,8 @@ bool GCMClientImplTest::CreateUniqueTempDir() {
 }
 
 void GCMClientImplTest::BuildGCMClient(base::TimeDelta clock_step) {
-  gcm_client_ =
-      std::make_unique<GCMClientImpl>(base::WrapUnique<GCMInternalsBuilder>(
-          new FakeGCMInternalsBuilder(clock_step)));
+  gcm_client_ = std::make_unique<GCMClientImpl>(
+      std::make_unique<FakeGCMInternalsBuilder>(clock_step));
 }
 
 void GCMClientImplTest::FailCheckin(net::HttpStatusCode response_code) {
@@ -535,8 +528,7 @@ void GCMClientImplTest::CompleteRegistration(
   PumpLoopUntilIdle();
 }
 
-void GCMClientImplTest::CompleteUnregistration(
-    const std::string& app_id) {
+void GCMClientImplTest::CompleteUnregistration(const std::string& app_id) {
   std::string response(kUnregistrationResponsePrefix);
   response.append(app_id);
 
@@ -566,7 +558,7 @@ void GCMClientImplTest::InitializeGCMClient() {
   clock()->Advance(base::Milliseconds(1));
 
   // Actual initialization.
-  GCMClient::ChromeBuildInfo chrome_build_info;
+  fcm::ChromeBuildInfo chrome_build_info;
   chrome_build_info.version = kChromeVersion;
   chrome_build_info.product_category_for_subtypes = kProductCategoryForSubtypes;
   gcm_client_->Initialize(
@@ -607,9 +599,9 @@ void GCMClientImplTest::ReceiveMessageFromMCS(const MCSMessage& message) {
 }
 
 void GCMClientImplTest::ReceiveOnMessageSentToMCS(
-      const std::string& app_id,
-      const std::string& message_id,
-      const MCSClient::MessageSendStatus status) {
+    const std::string& app_id,
+    const std::string& message_id,
+    const MCSClient::MessageSendStatus status) {
   gcm_client_->OnMessageSentToMCS(0LL, app_id, message_id, status);
 }
 
@@ -676,9 +668,9 @@ TEST_F(GCMClientImplTest, LoadingCompleted) {
   EXPECT_EQ(kDeviceSecurityToken, mcs_client()->last_security_token());
 
   // Checking freshly loaded CheckinInfo.
-  EXPECT_EQ(kDeviceAndroidId, device_checkin_info().android_id);
-  EXPECT_EQ(kDeviceSecurityToken, device_checkin_info().secret);
-  EXPECT_TRUE(device_checkin_info().accounts_set);
+  EXPECT_EQ(kDeviceAndroidId, device_checkin_info().android_id());
+  EXPECT_EQ(kDeviceSecurityToken, device_checkin_info().secret());
+  EXPECT_TRUE(device_checkin_info().accounts_set());
 }
 
 TEST_F(GCMClientImplTest, LoadingBusted) {
@@ -759,16 +751,16 @@ TEST_F(GCMClientImplTest, DestroyStoreWhenNotNeeded) {
   PumpLoopUntilIdle();
 
   EXPECT_EQ(GCMClientImpl::LOADED, gcm_client_state());
-  EXPECT_TRUE(device_checkin_info().android_id);
-  EXPECT_TRUE(device_checkin_info().secret);
+  EXPECT_NE(0u, device_checkin_info().android_id());
+  EXPECT_NE(0u, device_checkin_info().secret());
 
   // Fast forward the clock to trigger the store destroying logic.
   FastForwardBy(base::Milliseconds(300000));
   PumpLoopUntilIdle();
 
   EXPECT_EQ(GCMClientImpl::INITIALIZED, gcm_client_state());
-  EXPECT_FALSE(device_checkin_info().android_id);
-  EXPECT_FALSE(device_checkin_info().secret);
+  EXPECT_EQ(0u, device_checkin_info().android_id());
+  EXPECT_EQ(0u, device_checkin_info().secret());
 }
 
 TEST_F(GCMClientImplTest, SerializeAndDeserialize) {
@@ -1125,11 +1117,9 @@ class GCMClientImplCheckinTest : public GCMClientImplTest {
   void SetUp() override;
 };
 
-GCMClientImplCheckinTest::GCMClientImplCheckinTest() {
-}
+GCMClientImplCheckinTest::GCMClientImplCheckinTest() = default;
 
-GCMClientImplCheckinTest::~GCMClientImplCheckinTest() {
-}
+GCMClientImplCheckinTest::~GCMClientImplCheckinTest() = default;
 
 void GCMClientImplCheckinTest::SetUp() {
   testing::Test::SetUp();
@@ -1228,14 +1218,14 @@ TEST_F(GCMClientImplCheckinTest, CheckinWithAccountsEmpty) {
   account_tokens.push_back(MakeAccountToken("test_user2@gmail.com", "token2"));
   gcm_client()->SetAccountTokens(account_tokens);
 
-  EXPECT_TRUE(device_checkin_info().accounts_set);
+  EXPECT_TRUE(device_checkin_info().accounts_set());
 
   PumpLoopUntilIdle();
   ASSERT_NO_FATAL_FAILURE(
       CompleteCheckin(kDeviceAndroidId, kDeviceSecurityToken,
                       GServicesSettings::CalculateDigest(settings), settings));
 
-  EXPECT_TRUE(device_checkin_info().accounts_set);
+  EXPECT_TRUE(device_checkin_info().accounts_set());
 }
 
 TEST_F(GCMClientImplCheckinTest, ResetStoreWhenCheckinRejected) {
@@ -1268,11 +1258,9 @@ class GCMClientImplStartAndStopTest : public GCMClientImplTest {
   void DefaultCompleteCheckin();
 };
 
-GCMClientImplStartAndStopTest::GCMClientImplStartAndStopTest() {
-}
+GCMClientImplStartAndStopTest::GCMClientImplStartAndStopTest() = default;
 
-GCMClientImplStartAndStopTest::~GCMClientImplStartAndStopTest() {
-}
+GCMClientImplStartAndStopTest::~GCMClientImplStartAndStopTest() = default;
 
 void GCMClientImplStartAndStopTest::SetUp() {
   testing::Test::SetUp();
@@ -1490,14 +1478,12 @@ TEST_F(GCMClientImplStartAndStopTest, OnGCMReadyAccountsAndTokenFetchingTime) {
             actual_mapping.status_change_timestamp);
 }
 
-
 class GCMClientInstanceIDTest : public GCMClientImplTest {
  public:
   GCMClientInstanceIDTest();
   ~GCMClientInstanceIDTest() override;
 
-  void AddInstanceID(const std::string& app_id,
-                     const std::string& instance_id);
+  void AddInstanceID(const std::string& app_id, const std::string& instance_id);
   void RemoveInstanceID(const std::string& app_id);
   void GetToken(const std::string& app_id,
                 const std::string& authorized_entity,
@@ -1511,11 +1497,9 @@ class GCMClientInstanceIDTest : public GCMClientImplTest {
                    const std::string& scope) const;
 };
 
-GCMClientInstanceIDTest::GCMClientInstanceIDTest() {
-}
+GCMClientInstanceIDTest::GCMClientInstanceIDTest() = default;
 
-GCMClientInstanceIDTest::~GCMClientInstanceIDTest() {
-}
+GCMClientInstanceIDTest::~GCMClientInstanceIDTest() = default;
 
 void GCMClientInstanceIDTest::AddInstanceID(const std::string& app_id,
                                             const std::string& instance_id) {

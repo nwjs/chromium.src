@@ -15,7 +15,6 @@ static_library("quick_pair") {
   public_deps = [
     "//ash/quick_pair/common",
     "//base",
-    "//chrome/browser:browser_public_dependencies",
     "//chromeos/ash/services/quick_pair/public/mojom",
     "//device/bluetooth",
     "//mojo/public/cpp/bindings",
@@ -33,7 +32,7 @@ static_library("quick_pair") {
     "//components/cross_device/logging",
     "//components/image_fetcher/core",
     "//components/services/app_service/public/cpp:app_types",
-    "//components/user_manager",
+    "//components/session_manager/core",
     "//content/public/browser",
     "//google_apis",
     "//services/network/public/cpp",

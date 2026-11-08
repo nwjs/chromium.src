@@ -576,8 +576,8 @@ void FeatureList::RuntimeMutableFeatureUpdate::RunPreMutationCallback() {
   stage_ = Stage::kPreMutationRun;
   if (!state_entry_->pre_mutation_callback.is_null()) {
     state_entry_->pre_mutation_callback.Run(
-        state_entry_->feature.get(), override_info_->trial_name,
-        override_info_->group_name, override_state_);
+        state_entry_->feature.get(), override_info_->trial_name(),
+        override_info_->group_name(), override_state_);
   }
 }
 
@@ -595,8 +595,8 @@ void FeatureList::RuntimeMutableFeatureUpdate::RunPostMutationCallback() {
   stage_ = Stage::kPostMutationRun;
   if (!state_entry_->post_mutation_callback.is_null()) {
     state_entry_->post_mutation_callback.Run(
-        state_entry_->feature.get(), override_info_->trial_name,
-        override_info_->group_name, override_state_);
+        state_entry_->feature.get(), override_info_->trial_name(),
+        override_info_->group_name(), override_state_);
   }
 }
 
@@ -611,8 +611,8 @@ FeatureList::PrepareRuntimeMutableFeatureStateUpdate(
 }
 
 std::optional<FeatureList::RuntimeMutableFeatureUpdate>
-FeatureList::PrepareRuntimeMutableFeatureStateUpdate(
-    base::PassKey<base::test::ScopedFeatureList>,
+FeatureList::PrepareRuntimeMutableFeatureStateUpdateForTesting(
+    base::PassKey<base::test::ScopedFeatureList, FeatureListTest>,
     const RuntimeFieldTrialInfo* override_info,
     std::string_view feature_name,
     OverrideState override_state) {
@@ -628,11 +628,9 @@ FeatureList::PrepareRuntimeMutableFeatureStateUpdateImpl(
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   CHECK(override_info);
 
-  // For V0 of runtime mutability, we only support disabling of features. This
-  // means we don't need to consider feature params (which are only supported
-  // for enabled features).
-  // TODO: http://crbug.com/536852160 - Remove to support enablement.
-  if (override_state != OVERRIDE_DISABLE_FEATURE) {
+  // Runtime overrides must explicitly enable or disable the feature; reverting
+  // to `OVERRIDE_USE_DEFAULT` is not supported.
+  if (override_state == OVERRIDE_USE_DEFAULT) {
     LogRuntimeMutabilityResult(
         feature_name,
         internal::RuntimeMutabilityResult::kFailure_StateNotSupported);
@@ -700,8 +698,9 @@ FeatureList::GetControllingTrialInfoByFeatureName(
   auto override_info =
       GetAssociatedRuntimeFieldTrialOverrideInfoByFeatureName(feature_name);
   if (override_info.has_value() && override_info.value()) {
-    return ControllingTrialInfo{.trial_name = override_info.value()->trial_name,
-                                .is_runtime_override = true};
+    return ControllingTrialInfo{
+        .trial_name = override_info.value()->trial_name(),
+        .is_runtime_override = true};
   }
 
   base::FieldTrial* trial = GetAssociatedFieldTrialByFeatureName(feature_name);
@@ -728,7 +727,7 @@ base::flat_set<std::string> FeatureList::GetFeaturesAssociatedWithTrial(
     for (const auto& [feature_name, runtime_override_info] :
          runtime_mutable_overrides_) {
       if (runtime_override_info.override_info &&
-          runtime_override_info.override_info->trial_name ==
+          runtime_override_info.override_info->trial_name() ==
               controlling_trial_info.trial_name) {
         associated_features.insert(feature_name);
       }

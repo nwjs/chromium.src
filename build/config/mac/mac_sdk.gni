@@ -48,12 +48,12 @@ declare_args() {
   # The SDK version used when making official builds. This is a single exact
   # version, not a minimum. If this version isn't available, official builds
   # will fail.
-  mac_sdk_official_version = "26.5"
+  mac_sdk_official_version = "27.0"
 
   # The SDK build version used when making official builds.  This is a single
   # exact version found at "System/Library/CoreServices/SystemVersion.plist"
   # inside the SDK.
-  mac_sdk_official_build_version = "25F70"
+  mac_sdk_official_build_version = "26A425"
 
   # The SDK version and build used for universal Xcode (e.g., Xcode 26.6), which
   # is required on Intel x86 hosts since Xcode 27+ is ARM-only.
@@ -84,8 +84,21 @@ if (is_chrome_branded && is_official_build && target_os != "ios") {
 
 # The path to the hermetic install of Xcode. Only relevant when
 # use_system_xcode = false.
+declare_args() {
+  # NW.js: root of an out-of-tree mac cross toolchain, for building mac targets
+  # on a non-mac host (use_system_xcode = false). The directory must contain an
+  # `xcode` tree laid out like Xcode.app (Contents/version.plist and
+  # Contents/Developer/...). Empty keeps the normal in-tree location.
+  #
+  # Set e.g. in args.gn:  nw_mac_toolchain_root = "/path/to/build/mac"
+  nw_mac_toolchain_root = ""
+}
+
 if (!use_system_xcode) {
   _hermetic_xcode_path = "//build/mac_files/xcode_binaries"
+  if (nw_mac_toolchain_root != "") {
+    _hermetic_xcode_path = nw_mac_toolchain_root + "/xcode"
+  }
 }
 
 script_name = "//build/config/apple/sdk_info.py"

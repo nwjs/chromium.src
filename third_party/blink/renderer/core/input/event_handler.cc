@@ -235,7 +235,7 @@ const ComputedStyle* GetComputedStyleFromScrollbar(
 
     if (const LayoutCustomScrollbarPart* scroll_corner_layout_object =
             scrollable_area->ScrollCorner()) {
-      return &scroll_corner_layout_object->StyleRef();
+      return &scroll_corner_layout_object->Style();
     }
   }
 
@@ -615,7 +615,7 @@ std::optional<ui::Cursor> EventHandler::SelectCursor(
   const LayoutObject& layout_object = *hit_layout_object;
   if (!area_style && ShouldShowResizeForNode(layout_object, location)) {
     const LayoutBox* box = layout_object.EnclosingLayer()->GetLayoutBox();
-    EResize resize = box->StyleRef().UsedResize();
+    EResize resize = box->Style().UsedResize();
     switch (resize) {
       case EResize::kVertical:
         return NorthSouthResizeCursor();
@@ -649,7 +649,7 @@ std::optional<ui::Cursor> EventHandler::SelectCursor(
 
   const ComputedStyle& style = area_style        ? *area_style
                                : scrollbar_style ? *scrollbar_style
-                                                 : layout_object.StyleRef();
+                                                 : layout_object.Style();
 
   if (const CursorList* cursors = style.Cursors()) {
     for (const auto& cursor : *cursors) {
@@ -2195,7 +2195,14 @@ WebInputEventResult EventHandler::SendContextMenuEvent(
 
   PhysicalOffset position_in_contents(v->ConvertFromRootFrame(
       gfx::ToFlooredPoint(event.PositionInRootFrame())));
-  HitTestRequest request(HitTestRequest::kActive);
+  HitTestRequest::HitTestRequestType hit_type = HitTestRequest::kActive;
+  if (RuntimeEnabledFeatures::LongPressReleasesActiveStateEnabled()) {
+    // This hit test must not modify the hover/active state. The input event
+    // handler calling into this method should have done it by now
+    // (https://crbug.com/358393574).
+    hit_type |= HitTestRequest::kReadOnly;
+  }
+  HitTestRequest request(hit_type);
   Document& document = *frame_->GetDocument();
   MouseEventWithHitTestResults mev =
       document.PerformMouseEventHitTest(request, position_in_contents, event);

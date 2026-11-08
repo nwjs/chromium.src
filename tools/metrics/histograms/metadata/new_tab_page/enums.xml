@@ -50,7 +50,7 @@ chromium-metrics-reviews@google.com.
   <int value="18" label="Image Create"/>
 </enum>
 
-<!-- LINT.ThenChange(//chrome/browser/ui/webui/new_tab_page/action_chips/action_chips.mojom:IconType) -->
+<!-- LINT.ThenChange(//components/omnibox/browser/suggest_template_info.mojom:IconType) -->
 
 <enum name="BooleanFromHTTPCache">
   <int value="0" label="Downloaded from network"/>
@@ -205,7 +205,7 @@ chromium-metrics-reviews@google.com.
 
 <enum name="NewTabPageLogoClick">
   <int value="0" label="Static logo clicked"/>
-  <int value="1" label="(Deprecated) CTA image clicked"/>
+  <int value="1" label="CTA image clicked"/>
   <int value="2" label="Animated logo clicked"/>
 </enum>
 
@@ -229,11 +229,11 @@ chromium-metrics-reviews@google.com.
 
 <enum name="NewTabPageLogoShown">
   <int value="0" label="Static logo shown"/>
-  <int value="1" label="(Deprecated) CTA image shown"/>
+  <int value="1" label="CTA image shown"/>
   <int value="2" label="Animated logo shown"/>
 </enum>
 
-<!-- LINT.ThenChange(//chrome/browser/ui/search/ntp_user_data_logger.h:LogoImpressionType) -->
+<!-- LINT.ThenChange(//chrome/browser/ui/search/ntp_user_data_logger.h:LogoImpressionType, //chrome/browser/ui/android/logo/java/src/org/chromium/chrome/browser/logo/LogoMediator.java:LogoShownId) -->
 
 <!-- LINT.IfChange(NewTabPageLogoShowniOSGoogleDSEEnum) -->
 
@@ -291,6 +291,21 @@ chromium-metrics-reviews@google.com.
   <int value="5" label="Suggest is disabled"/>
   <int value="6" label="URL blocked for supervised user"/>
 </enum>
+
+<!-- LINT.IfChange(NtpActionChips) -->
+
+<enum name="NtpActionChips">
+  <summary>
+    Buttons (action chips) on the composeplate of the Android New Tab Page.
+    Mirrors NewTabPageUtils.ActionChips.
+  </summary>
+  <int value="0" label="AI Mode button (default)"/>
+  <int value="1" label="Incognito button"/>
+  <int value="2" label="Create image button"/>
+  <int value="3" label="Gallery button"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/android/java/src/org/chromium/chrome/browser/ntp/NewTabPageUtils.java:ActionChips) -->
 
 <enum name="NTPBackgroundImageSource">
   <int value="0" label="No image"/>

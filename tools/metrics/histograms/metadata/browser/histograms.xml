@@ -81,7 +81,6 @@ chromium-metrics-reviews@google.com.
   <variant name="ShoppingInsights" summary="shopping insights"/>
   <variant name="SidePanelDev" summary="side panel dev feature"/>
   <variant name="SideSearch" summary="side search"/>
-  <variant name="TabsFromOtherDevices" summary="tabs from other devices"/>
   <variant name="TestTabScopedEntry" summary="test tab scoped entry"/>
   <variant name="WebView" summary="web view"/>
 </variants>
@@ -211,7 +210,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Browser.ChromeOS.HatsStatus" enum="HatsStatus"
-    expires_after="2027-01-24">
+    expires_after="2027-03-28">
   <owner>aalsum@chromium.org</owner>
   <owner>chromeos-data-eng@google.com</owner>
   <summary>
@@ -238,7 +237,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Browser.DarkModeStatus" enum="DarkModeStatus"
-    expires_after="2027-01-24">
+    expires_after="2027-03-28">
   <owner>lgrey@chromium.org</owner>
   <owner>robliao@chromium.org</owner>
   <summary>
@@ -705,6 +704,26 @@ chromium-metrics-reviews@google.com.
     <variant name="Request" summary="request"/>
     <variant name="Response" summary="response"/>
   </token>
+</histogram>
+
+<histogram name="Browser.GlassFrame.Enabled.Daily" enum="BooleanEnabled"
+    expires_after="2027-07-15">
+  <owner>stluong@chromium.org</owner>
+  <owner>top-chrome-desktop-ui@google.com</owner>
+  <summary>
+    Logs whether the glass frame pref is enabled. Logged once per day via
+    GlassFrameService.
+  </summary>
+</histogram>
+
+<histogram name="Browser.GlassFrame.IsDefault.Daily" enum="Boolean"
+    expires_after="2027-07-15">
+  <owner>stluong@chromium.org</owner>
+  <owner>top-chrome-desktop-ui@google.com</owner>
+  <summary>
+    Logs whether the glass frame pref is in its default state. Logged once per
+    day via GlassFrameService.
+  </summary>
 </histogram>
 
 <histogram name="Browser.MainThreadsCongestion.1MinAfterResume" units="janks"
@@ -1709,7 +1728,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="BrowserRenderProcessHost.SpareProcessMaybeTakeTime"
-    units="seconds" expires_after="2027-01-24">
+    units="seconds" expires_after="2027-03-28">
   <owner>gjc@google.com</owner>
   <owner>chrome-loading@google.com</owner>
   <summary>
@@ -1747,7 +1766,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="BrowserRenderProcessHost.SpareProcessStartupTime" units="ms"
-    expires_after="2027-01-31">
+    expires_after="2027-04-04">
   <owner>kerenzhu@chromium.org</owner>
   <owner>dayeung@chromium.org</owner>
   <owner>robliao@chromium.org</owner>
@@ -2191,6 +2210,7 @@ chromium-metrics-reviews@google.com.
     <variant name="Accept" summary="Accept/OK button click action"/>
     <variant name="Cancel" summary="Cancel button click action"/>
     <variant name="Dismiss" summary="Dismissal action"/>
+    <variant name="Extra" summary="Extra button click action"/>
     <variant name="Ignored"
         summary="Infobar went away without any user interaction, e.g. on tab
                  close or navigation expiry"/>
@@ -2361,7 +2381,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="{SidePanelType}.OpenOrChangeEntryTrigger"
-    enum="SidePanelOpenTrigger" expires_after="2027-01-27">
+    enum="SidePanelOpenTrigger" expires_after="2027-03-28">
   <owner>corising@chromium.org</owner>
   <owner>top-chrome-desktop-ui@google.com</owner>
   <summary>
@@ -2373,7 +2393,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="{SidePanelType}.OpenTrigger" enum="SidePanelOpenTrigger"
-    expires_after="2027-01-31">
+    expires_after="2027-04-04">
   <owner>corising@chromium.org</owner>
   <owner>top-chrome-desktop-ui@google.com</owner>
   <summary>
@@ -2436,7 +2456,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="{SidePanelType}.{SidePanelAnimationType}.TimeOfLongestAnimationStep"
-    units="ms" expires_after="2027-01-24">
+    units="ms" expires_after="2027-03-28">
   <owner>corising@chromium.org</owner>
   <owner>top-chrome-desktop-ui@google.com</owner>
   <summary>
@@ -2473,7 +2493,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="{SidePanelType}.{SidePanelEntry}.ShownDuration" units="ms"
-    expires_after="2027-01-31">
+    expires_after="2027-04-04">
   <owner>corising@chromium.org</owner>
   <owner>top-chrome-desktop-ui@google.com</owner>
   <summary>

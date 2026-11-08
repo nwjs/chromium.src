@@ -20,6 +20,25 @@ struct ScriptToolAnnotations {
 // See ModelContextTool in model_context_tool.idl for details of
 // this data structure.
 struct ScriptTool {
+  // A unique, unguessable, non-web-exposed ID for this tool, minted by the
+  // registering renderer process. The browser rejects a registration that omits
+  // it, or whose `tool_id` collides with an existing one in the same document.
+  //
+  // Today this is only used to unregister tools. Unregistering by ID (rather
+  // than by name) ensures that an unregistration only ever affects the exact
+  // tool it was intended for. For example, a declarative (form) tool whose
+  // registration was rejected because its name was already taken must not, when
+  // the form is later removed, attempt to unregister another tool that holds
+  // that name.
+  //
+  // This is optional because `ScriptTool` is also used outside of tool
+  // registration (for example, to describe tools to embedders), where an ID is
+  // not yet always available. See
+  // https://docs.google.com/document/d/1psoB7k71-Dgkxg2tTG62DYJDTg02x8zOS3jCEd0QlbM/edit?pli=1&tab=t.0#heading=h.n6mukb2ajzia
+  // and https://crbug.com/536063275 for more information about making this
+  // member required, once it is populated by all consumers of `ScriptTool` that
+  // execute tools.
+  mojo_base.mojom.UnguessableToken? tool_id;
   // These directly map to the corresponding fields in the web API.
   string name;
   // The optional title for the tool. This can be null if the tool is registered
@@ -62,10 +81,10 @@ interface ModelContextHost {
   // frames in the tree about the new tool.
   RegisterScriptTool(ScriptTool tool) => ();
 
-  // Unregisters a previously-declared tool. When this is called, `name` is
+  // Unregisters a previously-declared tool. When this is called, `tool_id` is
   // guaranteed to match an existing tool; if this invariant is not upheld, the
   // renderer process is killed.
-  UnregisterScriptTool(string name);
+  UnregisterScriptTool(mojo_base.mojom.UnguessableToken tool_id);
 
   // Returns all script tools visible to the caller document, optionally filtered
   // by `from_origins`. If `from_origins` is empty, it defaults to returning

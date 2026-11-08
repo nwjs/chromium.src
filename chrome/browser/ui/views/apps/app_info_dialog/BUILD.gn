@@ -55,6 +55,7 @@ source_set("impl") {
   if (is_chromeos) {
     sources += [ "arc_app_info_links_panel.cc" ]
     deps += [
+      "//ash/public/cpp",
       "//ash/strings",
       "//chrome/browser/ash/arc:arc_util",
       "//chrome/browser/ui/ash/shelf",
@@ -102,7 +103,6 @@ if (!is_android) {
       ":app_info_dialog",
       "//base",
       "//base/test:test_support",
-      "//chrome/browser/ui",
       "//chrome/browser/ui/tabs:tab_strip",
       "//chrome/browser/ui/test:dialog",
       "//chrome/test:test_support",

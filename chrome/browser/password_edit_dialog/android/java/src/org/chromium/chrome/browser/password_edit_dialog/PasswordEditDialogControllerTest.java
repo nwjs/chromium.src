@@ -16,9 +16,11 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
 
+import android.app.Activity;
 import android.content.res.Resources;
 
 import org.junit.Assert;
+import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -28,10 +30,12 @@ import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.robolectric.ParameterizedRobolectricTestRunner;
 import org.robolectric.ParameterizedRobolectricTestRunner.Parameters;
+import org.robolectric.Robolectric;
 import org.robolectric.RuntimeEnvironment;
 
 import org.chromium.base.Callback;
 import org.chromium.base.test.BaseRobolectricTestRule;
+import org.chromium.ui.base.TestActivity;
 import org.chromium.ui.modaldialog.ModalDialogProperties;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.test.util.modaldialog.FakeModalDialogManager;
@@ -60,7 +64,7 @@ public class PasswordEditDialogControllerTest {
 
     private final FakeModalDialogManager mModalDialogManager = new FakeModalDialogManager(0);
 
-    @Mock private PasswordEditDialogView mDialogViewMock;
+    private PasswordEditDialogView mDialogView;
 
     private PropertyModel mCustomViewModel;
     private PropertyModel mModalDialogModel;
@@ -75,6 +79,14 @@ public class PasswordEditDialogControllerTest {
 
     public PasswordEditDialogControllerTest(boolean isSignedIn) {
         mIsSignedIn = isSignedIn;
+    }
+
+    @Before
+    public void setUp() {
+        Activity activity = Robolectric.buildActivity(TestActivity.class).setup().get();
+        mDialogView =
+                (PasswordEditDialogView)
+                        activity.getLayoutInflater().inflate(R.layout.password_edit_dialog, null);
     }
 
     /**
@@ -377,7 +389,7 @@ public class PasswordEditDialogControllerTest {
                 new PasswordEditDialogCoordinator(
                         RuntimeEnvironment.getApplication(),
                         mModalDialogManager,
-                        mDialogViewMock,
+                        mDialogView,
                         mDelegateMock);
         mDialogCoordinator.showPasswordEditDialog(
                 new String[] {INITIAL_USERNAME, ""},
@@ -489,7 +501,7 @@ public class PasswordEditDialogControllerTest {
                 new PasswordEditDialogCoordinator(
                         RuntimeEnvironment.getApplication(),
                         mModalDialogManager,
-                        mDialogViewMock,
+                        mDialogView,
                         mDelegateMock);
         mDialogCoordinator.showPasswordEditDialog(
                 savedUserNames,

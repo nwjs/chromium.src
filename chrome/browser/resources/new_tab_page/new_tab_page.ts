@@ -24,6 +24,7 @@ export {MetricsReporterImpl} from 'chrome://resources/js/metrics_reporter/metric
 export {getTrustedHTML} from 'chrome://resources/js/static_types.js';
 export type {FuseboxAction} from 'chrome://resources/mojo/components/omnibox/browser/fusebox_action.mojom-webui.js';
 export {InputSource, QueryActionOverride, SearchboxOverride, SearchboxTutorial, SuggestInventory} from 'chrome://resources/mojo/components/omnibox/browser/fusebox_action.mojom-webui.js';
+export {IconType} from 'chrome://resources/mojo/components/omnibox/browser/suggest_template_info.mojom-webui.js';
 export {AppElement, CONTEXTUAL_ENTRYPOINT_ELEMENT_ID, CUSTOMIZE_CHROME_BUTTON_ELEMENT_ID, NtpCustomizeChromeEntryPoint, NtpElement} from './app.js';
 export {BackgroundManager} from './background_manager.js';
 export {CustomizeButtonsProxy} from './customize_buttons_proxy.js';
@@ -31,6 +32,7 @@ export {CustomizeDialogPage} from './customize_dialog_types.js';
 export {DoodleShareDialogElement} from './doodle_share_dialog.js';
 export {C2PA_MARKER, hasC2paMetadata, MAX_C2PA_PIXELS, MAX_C2PA_SEARCH_BYTES, processFile, SUPPORTED_C2PA_FILE_TYPES} from './image_processor.js';
 export type {ProcessedFile} from './image_processor.js';
+export {LeftHandSideElement, NtpLhsMessageType} from './left_hand_side.js';
 export {LogoElement} from './logo.js';
 export {recordBoolean, recordDuration, recordEnumeration, recordLinearValue, recordLoadDuration, recordLogValue, recordOccurrence, recordPerdecage, recordSmallCount, recordSparseValueWithPersistentHash} from './metrics_utils.js';
 export {NewTabPageProxy} from './new_tab_page_proxy.js';
@@ -42,7 +44,7 @@ export {WindowProxy} from './window_proxy.js';
 
 export * from './new_tab_page.mojom-webui.js';
 export type {ActionChip, PageRemote as ActionChipsPageRemote, TabInfo} from './action_chips.mojom-webui.js';
-export {ActionChipsHandlerRemote, IconType, PageCallbackRouter as ActionChipsPageCallbackRouter} from './action_chips.mojom-webui.js';
+export {ActionChipsHandlerRemote, PageCallbackRouter as ActionChipsPageCallbackRouter} from './action_chips.mojom-webui.js';
 export type {CalendarEvent, Attachment} from './calendar_data.mojom-webui.js';
 export type {Promo as NtpPromo, NtpPromoClientRemote, NtpPromoHandlerInterface} from './ntp_promo.mojom-webui.js';
 export {NtpPromoClientCallbackRouter} from './ntp_promo.mojom-webui.js';

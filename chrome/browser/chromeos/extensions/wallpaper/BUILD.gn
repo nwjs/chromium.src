@@ -8,8 +8,6 @@ assert(enable_extensions)
 assert(is_chromeos)
 
 static_library("wallpaper") {
-  configs += [ "//build/config/compiler:wexit_time_destructors" ]
-
   sources = [
     "wallpaper_api.cc",
     "wallpaper_api.h",
@@ -25,9 +23,7 @@ static_library("wallpaper") {
   deps = [
     "//base",
     "//chrome/browser:browser_process",
-    "//chrome/browser:browser_public_dependencies",
     "//chrome/browser/profiles:profile",
-    "//chrome/common:constants",
     "//chrome/common/extensions",
     "//components/user_manager",
     "//content/public/browser",

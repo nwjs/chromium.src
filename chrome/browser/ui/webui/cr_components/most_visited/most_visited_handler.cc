@@ -16,7 +16,7 @@
 #include "chrome/browser/new_tab_page/new_tab_page_util.h"
 #include "chrome/browser/new_tab_page/prefs/ntp_pref_names.h"
 #include "chrome/browser/ntp_tiles/chrome_most_visited_sites_factory.h"
-#include "chrome/browser/page_load_metrics/chrome_initiator_location.h"
+#include "chrome/browser/page_load_metrics/chrome_navigation_initiator.h"
 #include "chrome/browser/predictors/loading_predictor.h"
 #include "chrome/browser/predictors/loading_predictor_config.h"
 #include "chrome/browser/predictors/loading_predictor_factory.h"
@@ -37,9 +37,8 @@
 #include "components/ntp_tiles/constants.h"
 #include "components/ntp_tiles/most_visited_sites.h"
 #include "components/ntp_tiles/ntp_tile_impression.h"
-#include "components/ntp_tiles/pref_names.h"
 #include "components/ntp_tiles/tile_type.h"
-#include "components/page_load_metrics/browser/navigation_handle_user_data.h"
+#include "components/page_load_metrics/browser/navigation_initiator.h"
 #include "components/prefs/pref_service.h"
 #include "components/search/ntp_features.h"
 #include "components/search_engines/template_url_service.h"
@@ -293,7 +292,8 @@ void MostVisitedHandler::OnMostVisitedTileNavigation(
   // is enabled.
   base::OnceCallback<void(content::NavigationHandle&)>
       navigation_handle_callback =
-          base::BindRepeating(&AttachNewTabPageNavigationHandleUserData);
+          page_load_metrics::NavigationInitiatorHolder::AttacherCallback(
+              chrome_navigation_initiator::kNewTabPage);
   web_contents_->OpenURL(
       content::OpenURLParams::CreateBrowserInitiated(
           tile->url, disposition,

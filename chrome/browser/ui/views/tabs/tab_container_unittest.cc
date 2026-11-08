@@ -40,6 +40,7 @@
 #include "ui/gfx/animation/animation_test_api.h"
 #include "ui/views/accessibility/tree/widget_ax_manager_test_api.h"
 #include "ui/views/accessibility/view_accessibility.h"
+#include "ui/views/test/views_test_utils.h"
 #include "ui/views/view_utils.h"
 #include "ui/views/widget/widget.h"
 
@@ -246,6 +247,10 @@ class TabContainerTest : public ChromeViewsTestBase {
                                                    tab_slot_controller_.get()),
                              model_index, pinned);
     Tab* tab = tab_container_->AddTabs(std::move(tabs_params))[0];
+    // The test widget is never shown, so AddTabs() only invalidated the
+    // layout. Tests inspect tab bounds right after adding a tab, so lay out
+    // now, as showing the widget would.
+    tab_container_->CompleteAnimationAndLayout();
 
     tab_strip_controller_->AddTab(model_index, active, pinned);
 
@@ -379,6 +384,8 @@ class TabContainerTest : public ChromeViewsTestBase {
 
   // Makes sure that all tabs have the correct AX indices.
   void VerifyTabIndices() {
+    // The indices are refreshed by the next layout.
+    views::test::RunScheduledLayout(tab_container_.get());
     for (int i = 0; i < tab_container_->GetTabCount(); ++i) {
       ui::AXNodeData ax_node_data;
       tab_container_->GetTabAtModelIndex(i)

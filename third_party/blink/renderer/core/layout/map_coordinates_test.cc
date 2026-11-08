@@ -1976,9 +1976,10 @@ TEST_P(MapCoordinatesTest,
 }
 
 TEST_P(MapCoordinatesTest, ElementCanvasTransform) {
+  GetDocument().GetSettings()->SetScriptEnabled(true);
   SetBodyInnerHTML(R"HTML(
     <canvas content=drawable id="canvas" style="width: 200px; height: 200px">
-      <div id="target" style="width: 100px; height: 100px"></div>
+      <div id="target" drawable style="width: 100px; height: 100px"></div>
     </canvas>
   )HTML");
 
@@ -1996,6 +1997,7 @@ TEST_P(MapCoordinatesTest, ElementCanvasTransform) {
 }
 
 TEST_P(MapCoordinatesTest, NestedElementCanvasTransform) {
+  GetDocument().GetSettings()->SetScriptEnabled(true);
   SetBodyInnerHTML(R"HTML(
     <canvas content=drawable id="canvas" style="width: 400px; height: 200px">
       <div id="a" drawable style="width: 100px; height: 100px; background: blue;">
@@ -2020,6 +2022,7 @@ TEST_P(MapCoordinatesTest, NestedElementCanvasTransform) {
 }
 
 TEST_P(MapCoordinatesTest, NestedElementCanvasTransformWithOffset) {
+  GetDocument().GetSettings()->SetScriptEnabled(true);
   SetBodyInnerHTML(R"HTML(
     <canvas content=drawable id="canvas" style="width: 400px; height: 200px">
       <div id="a" drawable style="width: 100px; height: 100px; background: blue;">
@@ -2045,6 +2048,7 @@ TEST_P(MapCoordinatesTest, NestedElementCanvasTransformWithOffset) {
 
 TEST_P(MapCoordinatesTest,
        NestedElementCanvasTransformChildWithoutCanvasTransform) {
+  GetDocument().GetSettings()->SetScriptEnabled(true);
   SetBodyInnerHTML(R"HTML(
     <canvas content=drawable id="canvas" style="width: 400px; height: 200px">
       <div id="a" drawable style="width: 100px; height: 100px; background: blue;">
@@ -2066,6 +2070,7 @@ TEST_P(MapCoordinatesTest,
 }
 
 TEST_P(MapCoordinatesTest, NestedElementCanvasTransformNonDrawableChild) {
+  GetDocument().GetSettings()->SetScriptEnabled(true);
   SetBodyInnerHTML(R"HTML(
     <canvas content=drawable id="canvas" style="width: 400px; height: 200px">
       <div id="a" drawable style="width: 100px; height: 100px; background: blue;">
@@ -2089,6 +2094,7 @@ TEST_P(MapCoordinatesTest, NestedElementCanvasTransformNonDrawableChild) {
 }
 
 TEST_P(MapCoordinatesTest, NestedElementCanvasTransformInline) {
+  GetDocument().GetSettings()->SetScriptEnabled(true);
   LoadAhem();
   SetBodyInnerHTML(R"HTML(
     <style>span { font: 50px/1 Ahem; }</style>

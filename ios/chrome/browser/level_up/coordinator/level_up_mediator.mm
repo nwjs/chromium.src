@@ -129,14 +129,12 @@
       [[NSMutableArray alloc] init];
   NSMutableArray<LevelUpTask*>* safetyTasks = [[NSMutableArray alloc] init];
   NSMutableArray<LevelUpTask*>* searchTasks = [[NSMutableArray alloc] init];
-  NSMutableArray<LevelUpTask*>* allTasks = [[NSMutableArray alloc] init];
 
   const auto& tasks = _levelUpService->GetTasks();
   for (const auto& [type, info] : tasks) {
     BOOL completed = _levelUpService->IsTaskCompleted(type);
     LevelUpTask* task = [[LevelUpTask alloc] initWithTaskInfo:info.get()
                                                     completed:completed];
-    [allTasks addObject:task];
 
     switch (task.category) {
       case LevelUpTaskCategory::kProductivity:
@@ -166,10 +164,16 @@
   }
 
   _categories = @[
-    [[LevelUpCategory alloc] initWithTitle:@"Productivity"
-                                     tasks:productivityTasks],
-    [[LevelUpCategory alloc] initWithTitle:@"Safety" tasks:safetyTasks],
-    [[LevelUpCategory alloc] initWithTitle:@"Search" tasks:searchTasks]
+    [[LevelUpCategory alloc]
+        initWithTitle:l10n_util::GetNSString(
+                          IDS_IOS_LEVEL_UP_CATEGORY_PRODUCTIVITY)
+                tasks:productivityTasks],
+    [[LevelUpCategory alloc]
+        initWithTitle:l10n_util::GetNSString(IDS_IOS_LEVEL_UP_CATEGORY_SAFETY)
+                tasks:safetyTasks],
+    [[LevelUpCategory alloc]
+        initWithTitle:l10n_util::GetNSString(IDS_IOS_LEVEL_UP_CATEGORY_SEARCH)
+                tasks:searchTasks]
   ];
 
   if ([self.consumer respondsToSelector:@selector(addCategoryCard:)]) {
@@ -177,7 +181,7 @@
       [self.consumer addCategoryCard:category];
     }
   }
-  [self configureTaskStat:allTasks];
+  [self configureTaskStat];
 }
 
 - (void)configureAllTasksConsumer:(id<LevelUpConsumer>)allTasksConsumer {
@@ -216,28 +220,34 @@
 
 #pragma mark - Private
 
-// Configures the task stat.
-- (void)configureTaskStat:(NSArray<LevelUpTask*>*)allTasks {
+// Configures the task stats sorted in reverse order of their associated task's
+// completion recency (most recent first).
+- (void)configureTaskStat {
   if (![self.consumer respondsToSelector:@selector(setStats:)]) {
     return;
   }
 
   NSMutableArray<LevelUpStat*>* stats = [[NSMutableArray alloc] init];
 
-  if (LevelUpStat* stat = [self tabsDeclutteredStat]) {
-    [stats addObject:stat];
-  }
-
-  if (LevelUpStat* stat = [self passwordsAutofilledStat]) {
-    [stats addObject:stat];
-  }
-
-  if (LevelUpStat* stat = [self passwordsVerifiedStat]) {
-    [stats addObject:stat];
-  }
-
-  if (LevelUpStat* stat = [self photoSearchesPerformedStat]) {
-    [stats addObject:stat];
+  for (LevelUpTaskStatType statType : _levelUpService->GetOrderedStatTypes()) {
+    LevelUpStat* stat = nil;
+    switch (statType) {
+      case LevelUpTaskStatType::kTabsDecluttered:
+        stat = [self tabsDeclutteredStat];
+        break;
+      case LevelUpTaskStatType::kPasswordsAutofilled:
+        stat = [self passwordsAutofilledStat];
+        break;
+      case LevelUpTaskStatType::kPasswordsVerified:
+        stat = [self passwordsVerifiedStat];
+        break;
+      case LevelUpTaskStatType::kPhotoSearchesPerformed:
+        stat = [self photoSearchesPerformedStat];
+        break;
+    }
+    if (stat) {
+      [stats addObject:stat];
+    }
   }
 
   [self.consumer setStats:stats];
@@ -250,8 +260,13 @@
     return nil;
   }
 
-  NSString* title = l10n_util::GetPluralNSStringF(
-      IDS_IOS_LEVEL_UP_STAT_TABS_DECLUTTERED, tabsDecluttered);
+  NSString* title;
+  if (tabsDecluttered <= 15) {
+    title = l10n_util::GetPluralNSStringF(
+        IDS_IOS_LEVEL_UP_STAT_TABS_DECLUTTERED, tabsDecluttered);
+  } else {
+    title = l10n_util::GetNSString(IDS_IOS_LEVEL_UP_STAT_TABS_DECLUTTERED_MAX);
+  }
   NSString* subtitle =
       l10n_util::GetNSString(IDS_IOS_LEVEL_UP_STAT_SUBTITLE_TABS_DECLUTTERED);
   return
@@ -267,8 +282,15 @@
   if (passwordsAutofilled <= 0) {
     return nil;
   }
-  NSString* title = l10n_util::GetPluralNSStringF(
-      IDS_IOS_LEVEL_UP_STAT_PASSWORDS_AUTOFILLED, passwordsAutofilled);
+
+  NSString* title;
+  if (passwordsAutofilled <= 40) {
+    title = l10n_util::GetPluralNSStringF(
+        IDS_IOS_LEVEL_UP_STAT_PASSWORDS_AUTOFILLED, passwordsAutofilled);
+  } else {
+    title =
+        l10n_util::GetNSString(IDS_IOS_LEVEL_UP_STAT_PASSWORDS_AUTOFILLED_MAX);
+  }
   NSString* subtitle = l10n_util::GetNSString(
       IDS_IOS_LEVEL_UP_STAT_SUBTITLE_PASSWORDS_AUTOFILLED);
   return [[LevelUpStat alloc]
@@ -284,8 +306,16 @@
   if (passwordsVerified <= 0) {
     return nil;
   }
-  NSString* title = l10n_util::GetPluralNSStringF(
-      IDS_IOS_LEVEL_UP_STAT_PASSWORDS_VERIFIED, passwordsVerified);
+
+  NSString* title;
+  if (passwordsVerified <= 25) {
+    title = l10n_util::GetPluralNSStringF(
+        IDS_IOS_LEVEL_UP_STAT_PASSWORDS_VERIFIED, passwordsVerified);
+  } else {
+    title =
+        l10n_util::GetNSString(IDS_IOS_LEVEL_UP_STAT_PASSWORDS_VERIFIED_MAX);
+  }
+
   NSString* subtitle =
       l10n_util::GetNSString(IDS_IOS_LEVEL_UP_STAT_SUBTITLE_PASSWORDS_VERIFIED);
   return [[LevelUpStat alloc]
@@ -301,8 +331,14 @@
   if (photoSearchesPerformed <= 0) {
     return nil;
   }
-  NSString* title = l10n_util::GetPluralNSStringF(
-      IDS_IOS_LEVEL_UP_STAT_PHOTO_SEARCHES_PERFORMED, photoSearchesPerformed);
+  NSString* title;
+  if (photoSearchesPerformed <= 20) {
+    title = l10n_util::GetPluralNSStringF(
+        IDS_IOS_LEVEL_UP_STAT_PHOTO_SEARCHES_PERFORMED, photoSearchesPerformed);
+  } else {
+    title = l10n_util::GetNSString(
+        IDS_IOS_LEVEL_UP_STAT_PHOTO_SEARCHES_PERFORMED_MAX);
+  }
   NSString* subtitle = l10n_util::GetNSString(
       IDS_IOS_LEVEL_UP_STAT_SUBTITLE_PHOTO_SEARCHES_PERFORMED);
   return [[LevelUpStat alloc]

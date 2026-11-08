@@ -703,6 +703,12 @@ class CONTENT_EXPORT RenderProcessHostImpl
   void OnBoostForLoadingAdded() override;
   void OnBoostForLoadingRemoved() override;
 
+  // Called when the process enters a state where it is executing in the
+  // background but requires OS foreground priority. This is used to determine
+  // if the process should be backgrounded or not.
+  void OnBoostForBackgroundExecutionAdded();
+  void OnBoostForBackgroundExecutionRemoved();
+
   void OnImmersiveXrSessionStarted() override;
   void OnImmersiveXrSessionStopped() override;
   bool HasImmersiveXrSessionForTesting() const override;
@@ -1240,7 +1246,9 @@ class CONTENT_EXPORT RenderProcessHostImpl
 
   // Returns whether this RenderProcessHost contains at least one
   // RenderFrameHost, but all of its RenderFrameHosts are non-live. In this case
-  // the RenderProcessHost is needed but the renderer process is not.
+  // the RenderProcessHost is needed but the renderer process is not. As
+  // exceptions, this returns false if any RenderFrameHost is pending deletion
+  // or belongs to an inner WebContents for a guest.
   bool HasOnlyNonLiveRenderFrameHosts();
 
   // Get an existing RenderProcessHost associated with the given browser
@@ -1419,7 +1427,15 @@ class CONTENT_EXPORT RenderProcessHostImpl
   base::flat_set<raw_ptr<RenderProcessHostPriorityClient, CtnExperimental>>
       priority_clients_;
 
+  // The calculated priority of this process, which is exposed through
+  // GetPriority() and to observers.
   RenderProcessPriority priority_;
+
+  // The priority actually applied to the OS process and sent to the renderer.
+  // This matches `priority_`, except when --disable-renderer-backgrounding is
+  // set, in which case the process is kept visible and, on desktop, the
+  // priority override is ignored.
+  RenderProcessPriority applied_priority_;
 
   // On Desktop platforms, if this is set then the built-in process priority
   // calculation system is ignored, and an externally computed process priority
@@ -1636,6 +1652,10 @@ class CONTENT_EXPORT RenderProcessHostImpl
   // Tracks the count of render frame host that requested prioritize the
   // processing commit navigation and initial loading (crbug/351953350).
   int boost_for_loading_count_ = 0;
+
+  // Tracks the count of background execution environments (e.g. headless
+  // automation targets) that strictly require OS foreground priority.
+  int boost_for_background_execution_count_ = 0;
 
   // Tracks whether or not the current process is in an immersive webxr session.
   // Used to determine if a process should not be backgrounded.

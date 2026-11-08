@@ -44,10 +44,10 @@
 #include "chrome/browser/ash/file_manager/fileapi_util.h"
 #include "chrome/browser/ash/input_method/editor_mediator_factory.h"
 #include "chrome/browser/ash/lobster/lobster_service_provider.h"
-#include "chrome/browser/bookmarks/bookmark_model_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/ash/quick_insert/quick_insert_file_suggester.h"
 #include "chrome/browser/ui/ash/quick_insert/quick_insert_thumbnail_loader.h"
+#include "chromeos/ash/components/bookmarks/bookmark_model_provider.h"
 #include "chromeos/ash/components/browser_context_helper/annotated_account_id.h"
 #include "chromeos/ash/components/browser_context_helper/browser_context_helper.h"
 #include "chromeos/ash/components/drivefs/mojom/drivefs.mojom.h"
@@ -561,11 +561,14 @@ std::unique_ptr<app_list::SearchProvider>
 QuickInsertClientImpl::CreateOmniboxProvider(bool bookmarks,
                                              bool history,
                                              bool open_tabs) {
+  const AccountId& account_id = CHECK_DEREF(
+      ash::AnnotatedAccountId::Get(profile_->GetOriginalProfile()));
   return std::make_unique<app_list::OmniboxProvider>(
       profile_, GetEmptyAppListControllerDelegate(),
-      ash::TemplateURLServiceProvider::Get().Find(CHECK_DEREF(
-          ash::AnnotatedAccountId::Get(profile_->GetOriginalProfile()))),
-      BookmarkModelFactory::GetForBrowserContext(profile_),
+      ash::TemplateURLServiceProvider::Get().Find(account_id),
+      ash::BookmarkModelProvider::Get().Find(account_id),
+      ash::FaviconServiceProvider::Get().Find(account_id),
+      ash::HistoryServiceProvider::Get().Find(account_id),
       LauncherSearchProviderTypes(bookmarks, history, open_tabs));
 }
 

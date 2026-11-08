@@ -8,13 +8,17 @@
 #import "base/test/scoped_feature_list.h"
 #import "components/feature_engagement/public/feature_constants.h"
 #import "components/feature_engagement/test/mock_tracker.h"
+#import "components/segmentation_platform/embedder/home_modules/tips_manager/signal_constants.h"
 #import "components/sync/base/features.h"
 #import "components/sync/test/fake_sync_change_processor.h"
 #import "ios/chrome/browser/discover_feed/model/discover_feed_visibility_browser_agent.h"
 #import "ios/chrome/browser/feature_engagement/model/tracker_factory.h"
+#import "ios/chrome/browser/home_customization/coordinator/home_customization_background_photo_picker_coordinator.h"
 #import "ios/chrome/browser/home_customization/coordinator/home_customization_coordinator+Testing.h"
+#import "ios/chrome/browser/home_customization/coordinator/home_customization_delegate.h"
 #import "ios/chrome/browser/home_customization/model/home_background_customization_service.h"
 #import "ios/chrome/browser/home_customization/model/home_background_customization_service_factory.h"
+#import "ios/chrome/browser/home_customization/model/home_customization_seed_colors.h"
 #import "ios/chrome/browser/home_customization/model/theme_syncable_service_ios.h"
 #import "ios/chrome/browser/home_customization/ui/home_customization_background_picker_presentation_delegate.h"
 #import "ios/chrome/browser/home_customization/ui/home_customization_main_view_controller.h"
@@ -25,6 +29,8 @@
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
 #import "ios/chrome/browser/shared/public/commands/snackbar_commands.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
+#import "ios/chrome/browser/tips_manager/model/tips_manager_ios.h"
+#import "ios/chrome/browser/tips_manager/model/tips_manager_ios_factory.h"
 #import "ios/chrome/test/ios_chrome_scoped_testing_local_state.h"
 #import "ios/chrome/test/ios_chrome_scoped_testing_variations_service.h"
 #import "ios/web/public/test/web_task_environment.h"
@@ -53,6 +59,8 @@ class HomeCustomizationCoordinatorUnitTest : public PlatformTest {
     TestProfileIOS::Builder builder;
     builder.AddTestingFactory(feature_engagement::TrackerFactory::GetInstance(),
                               base::BindOnce(&CreateMockTracker));
+    builder.AddTestingFactory(TipsManagerIOSFactory::GetInstance(),
+                              TipsManagerIOSFactory::GetDefaultFactory());
     profile_ = std::move(builder).Build();
     browser_ = std::make_unique<TestBrowser>(profile_.get());
     DiscoverFeedVisibilityBrowserAgent::CreateForBrowser(browser_.get());
@@ -167,6 +175,65 @@ TEST_F(HomeCustomizationCoordinatorUnitTest,
   [coordinator_ start];
   [coordinator_ presentCustomizationMenuPage:CustomizationMenuPage::kMain];
 
+  OCMExpect([mock_snackbar_commands_handler_ dismissAllSnackbars]);
+  [coordinator_ stop];
+}
+
+// Tests that stopping the coordinator after selecting a background notifies
+// `TipsManagerIOS` with `kNTPBackgroundSelected`.
+TEST_F(HomeCustomizationCoordinatorUnitTest,
+       TestStopNotifiesTipsManagerWhenBackgroundSelected) {
+  [coordinator_ start];
+  TipsManagerIOS* tips_manager =
+      TipsManagerIOSFactory::GetForProfile(profile_.get());
+  ASSERT_TRUE(tips_manager);
+  EXPECT_FALSE(tips_manager->WasSignalFired(
+      segmentation_platform::tips_manager::signals::kNTPBackgroundSelected));
+  HomeBackgroundCustomizationService* background_service =
+      HomeBackgroundCustomizationServiceFactory::GetForProfile(profile_.get());
+  ASSERT_TRUE(background_service);
+  background_service->SetBackgroundColor(
+      kSeedColors[0].color,
+      sync_pb::UserColorTheme_BrowserColorVariant_TONAL_SPOT);
+  OCMExpect([mock_snackbar_commands_handler_ dismissAllSnackbars]);
+  [coordinator_ stop];
+  EXPECT_TRUE(tips_manager->WasSignalFired(
+      segmentation_platform::tips_manager::signals::kNTPBackgroundSelected));
+}
+
+// Tests that stopping the coordinator without selecting a background does not
+// notify `TipsManagerIOS`.
+TEST_F(HomeCustomizationCoordinatorUnitTest,
+       TestStopDoesNotNotifyTipsManagerWithoutBackgroundChange) {
+  [coordinator_ start];
+  TipsManagerIOS* tips_manager =
+      TipsManagerIOSFactory::GetForProfile(profile_.get());
+  ASSERT_TRUE(tips_manager);
+  OCMExpect([mock_snackbar_commands_handler_ dismissAllSnackbars]);
+  [coordinator_ stop];
+  EXPECT_FALSE(tips_manager->WasSignalFired(
+      segmentation_platform::tips_manager::signals::kNTPBackgroundSelected));
+}
+
+// Tests that presenting and finishing or canceling the photo picker notifies
+// the delegate to dismiss the customization menu.
+TEST_F(HomeCustomizationCoordinatorUnitTest, TestPresentPhotoPicker) {
+  id mock_delegate =
+      OCMStrictProtocolMock(@protocol(HomeCustomizationDelegate));
+  coordinator_.delegate = mock_delegate;
+  [coordinator_ start];
+  [coordinator_ presentPhotoPicker];
+  id<HomeCustomizationBackgroundPhotoPickerCoordinatorDelegate>
+      photo_picker_delegate = static_cast<
+          id<HomeCustomizationBackgroundPhotoPickerCoordinatorDelegate>>(
+          coordinator_);
+  OCMExpect([mock_delegate dismissCustomizationMenu]);
+  [photo_picker_delegate photoPickerCoordinatorDidFinish:nil];
+  EXPECT_OCMOCK_VERIFY(mock_delegate);
+  [coordinator_ presentPhotoPicker];
+  OCMExpect([mock_delegate dismissCustomizationMenu]);
+  [photo_picker_delegate photoPickerCoordinatorDidCancel:nil];
+  EXPECT_OCMOCK_VERIFY(mock_delegate);
   OCMExpect([mock_snackbar_commands_handler_ dismissAllSnackbars]);
   [coordinator_ stop];
 }

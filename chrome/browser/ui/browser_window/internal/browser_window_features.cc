@@ -40,6 +40,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/search_engines/ai_mode_button_service_factory.h"
 #include "chrome/browser/sessions/session_service_factory.h"
+#include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/skills/skills_ui_window_controller.h"
 #include "chrome/browser/tab_group_sync/tab_group_sync_service_factory.h"
 #include "chrome/browser/ttc/core/entrypoint_controller.h"
@@ -92,6 +93,7 @@
 #include "chrome/browser/ui/signin/signin_view_controller.h"
 #include "chrome/browser/ui/sync/browser_synced_window_delegate.h"
 #include "chrome/browser/ui/tabs/organizer/organizer_panel_controller.h"
+#include "chrome/browser/ui/tabs/organizer/organizer_panel_utils.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/most_recent_shared_tab_update_store.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_utils.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/session_service_tab_group_sync_observer.h"
@@ -112,6 +114,7 @@
 #include "chrome/browser/ui/tabs/vertical_tab_strip_state_controller_impl.h"
 #include "chrome/browser/ui/toasts/toast_features.h"
 #include "chrome/browser/ui/toasts/toast_service.h"
+#include "chrome/browser/ui/toolbar/avatar_toolbar_iph_controller.h"
 #include "chrome/browser/ui/toolbar/chrome_labs/chrome_labs_utils.h"
 #include "chrome/browser/ui/ui_controller_factory.h"
 #include "chrome/browser/ui/ui_features.h"
@@ -152,9 +155,7 @@
 #include "chrome/browser/ui/views/side_panel/history_clusters/history_clusters_side_panel_coordinator.h"
 #include "chrome/browser/ui/views/side_panel/reading_list/reading_list_side_panel_coordinator.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_coordinator.h"
-#include "chrome/browser/ui/views/side_panel/tabs_from_other_devices/tabs_from_other_devices_side_panel_coordinator.h"
 #include "chrome/browser/ui/views/tabs/groups/recent_activity_bubble_dialog_view.h"
-#include "chrome/browser/ui/views/tabs/organizer/organizer_panel_utils.h"
 #include "chrome/browser/ui/views/tabs/tab_strip_action_container.h"
 #include "chrome/browser/ui/views/toolbar/chrome_labs/chrome_labs_coordinator.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
@@ -568,13 +569,6 @@ void BrowserWindowFeatures::Init(BrowserWindowInterface* browser) {
               browser, tab_strip_model_),
           browser->GetUnownedUserDataHost());
 
-  if (TabsFromOtherDevicesSidePanelCoordinator::IsSupported(profile)) {
-    tabs_from_other_devices_side_panel_coordinator_ =
-        GetUserDataFactory()
-            .CreateInstance<TabsFromOtherDevicesSidePanelCoordinator>(
-                *browser, browser, profile);
-  }
-
   translate_bubble_controller_ =
       GetUserDataFactory().CreateInstance<TranslateBubbleController>(
           *browser, browser, browser_actions_->root_action_item());
@@ -705,6 +699,11 @@ void BrowserWindowFeatures::InitPostWindowConstruction(
   // BrowserView and WebUIBrowserWindow implementations of the same role are
   // co-located via inline if/else dispatch; dependency exceptions are called
   // out with `// Must be after X.` / `// Must be before X.` comments):
+
+  avatar_toolbar_iph_controller_ =
+      GetUserDataFactory().CreateInstance<AvatarToolbarIphController>(
+          *browser, *browser, *profile,
+          IdentityManagerFactory::GetForProfile(profile));
 
   if (browser_view) {
     bookmark_bar_controller_->SetDelegate(browser_view);
@@ -940,6 +939,7 @@ void BrowserWindowFeatures::InitPostWindowConstruction(
 
   if (browser_view) {
     user_education_->Init(browser_view);
+    avatar_toolbar_iph_controller_->MaybeShowSignInBenefitsIPH();
   }
 
 #if BUILDFLAG(IS_WIN)
@@ -1173,6 +1173,8 @@ void BrowserWindowFeatures::TearDownPreBrowserWindowDestruction() {
   }
 
   // Owned-by-all members.
+  // Must be before user_education_: cancel delayed avatar IPHs first.
+  avatar_toolbar_iph_controller_.reset();
   zoom_bubble_coordinator_.reset();
   zoom_bubble_manager_.reset();
 #if BUILDFLAG(IS_WIN)

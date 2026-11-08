@@ -12,10 +12,12 @@
 #import "components/signin/core/browser/account_preview_data_service_impl.h"
 #import "components/signin/ios/browser/wait_for_network_callback_helper_ios.h"
 #import "components/signin/public/base/signin_switches.h"
+#import "ios/chrome/app/tests_hook.h"
 #import "ios/chrome/browser/metrics/model/ios_profile_metrics_service_factory.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 #import "ios/chrome/browser/signin/model/identity_manager_factory.h"
+#import "ios/chrome/browser/signin/model/signin_client_factory.h"
 #import "ios/chrome/browser/sync/model/sync_service_factory.h"
 #import "ios/chrome/common/channel_info.h"
 #import "services/network/public/cpp/shared_url_loader_factory.h"
@@ -39,6 +41,7 @@ AccountPreviewDataServiceFactory::AccountPreviewDataServiceFactory()
     : ProfileKeyedServiceFactoryIOS("AccountPreviewDataService",
                                     ServiceCreation::kCreateWithProfile,
                                     TestingCreation::kNoServiceForTests) {
+  DependsOn(SigninClientFactory::GetInstance());
   DependsOn(IdentityManagerFactory::GetInstance());
   DependsOn(IOSProfileMetricsServiceFactory::GetInstance());
   DependsOn(SyncServiceFactory::GetInstance());
@@ -53,10 +56,17 @@ AccountPreviewDataServiceFactory::BuildServiceInstanceFor(
     return nullptr;
   }
 
+  std::unique_ptr<signin::AccountPreviewDataService> overridden_service =
+      tests_hook::GetOverriddenAccountPreviewDataService();
+  if (overridden_service) {
+    return overridden_service;
+  }
+
   metrics::ProfileMetricsService* profile_metrics_service =
       IOSProfileMetricsServiceFactory::GetForProfile(profile);
 
   return std::make_unique<signin::AccountPreviewDataServiceImpl>(
+      SigninClientFactory::GetForProfile(profile),
       IdentityManagerFactory::GetForProfile(profile),
       SyncServiceFactory::GetForProfile(profile),
       GetApplicationContext()->GetLocalState(), profile->GetPrefs(),

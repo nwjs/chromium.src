@@ -72,12 +72,20 @@ class InputStateModel {
   // entries for tools, models, or input types.
   static bool IsConfigPopulated(const omnibox::SearchboxConfig* config);
 
+  // Returns the tools from `config` that should be offered to the user, i.e.
+  // the tools that end up in `InputState::allowed_tools`. This is independent
+  // of any session state, so it can be used by surfaces that need to know
+  // which tools are available before a session is started.
+  static std::vector<ToolMode> GetAllowedTools(
+      const omnibox::SearchboxConfig& config,
+      bool is_off_the_record);
+
   // Returns the current input types from the session handle.
   static std::vector<InputType> GetCurrentInputTypes(
       const contextual_search::ContextualSearchSessionHandle* session_handle);
 
   // Add a subscriber to this model.
-  base::CallbackListSubscription subscribe(Subscriber callback);
+  base::CallbackListSubscription Subscribe(Subscriber callback);
 
   // Initializes the model and notifies subscribers of the initial state.
   void Initialize();
@@ -93,10 +101,10 @@ class InputStateModel {
                         bool browser_identity_matches_aim_identity);
 
   // Set a new tool.
-  void setActiveTool(ToolMode tool);
+  void SetActiveTool(ToolMode tool);
 
   // Set a new model.
-  void setActiveModel(ModelMode model);
+  void SetActiveModel(ModelMode model);
   void UpdateStateFromUrl(const GURL& url);
 
   // Called when an input of type `InputType` is added or deleted.
@@ -158,13 +166,13 @@ class InputStateModel {
 
  private:
   // Notify all subscribers of the current `state_`.
-  void notifySubscribers();
+  void NotifySubscribers();
 
   // Update the current value of `state_` based on new tool or model.
-  void updateSelectedState(ToolMode tool, ModelMode model);
+  void UpdateSelectedState(ToolMode tool, ModelMode model);
 
   // Update the currently disabled tools, models, and inputs.
-  void updateDisabledState();
+  void UpdateDisabledState();
 
   //  Helper method to update `disabled_tools` based on `rule_set_`.
   void UpdateDisabledTools();

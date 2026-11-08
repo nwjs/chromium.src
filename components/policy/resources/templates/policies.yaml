@@ -1486,8 +1486,15 @@ policies:
   1485: ShowInputOptionsInShelfEnabled
   1486: AdminInstalledChromeAppsForceAllowed
   1487: DeviceMaxUserProfiles
-  1488: ""
+  1488: AutoLaunchAndroidApps
   1489: LaunchOnStartupEnabled
+  1490: DynamicPatchingEnabled
+  1491: AllHttpAuthSchemesAllowedForProxies
+  1492: ClipboardHistoryEnabled
+  1493: ExtensionForceInstallWithSearchOrNewTabOverridesEnabled
+  1494: ManagedClientCertificateForBrowserConfig
+  1495: ManagedClientCertificateForUserConfig
+  1496: GeminiEnterpriseUrl
 
 atomic_groups:
   1: Homepage

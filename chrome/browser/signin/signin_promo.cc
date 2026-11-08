@@ -4,6 +4,8 @@
 
 #include "chrome/browser/signin/signin_promo.h"
 
+#include <algorithm>
+
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
@@ -24,12 +26,14 @@
 #include "components/signin/public/base/signin_metrics.h"
 #include "components/signin/public/base/signin_pref_names.h"
 #include "components/signin/public/base/signin_switches.h"
+#include "components/signin/public/identity_manager/accounts_in_cookie_jar_info.h"
 #include "components/sync/base/features.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/storage_partition_config.h"
 #include "device/bluetooth/bluetooth_adapter.h"
 #include "device/bluetooth/bluetooth_adapter_factory.h"
 #include "extensions/browser/guest_view/web_view/web_view_guest.h"
+#include "google_apis/gaia/gaia_auth_util.h"
 #include "google_apis/gaia/gaia_urls.h"
 #include "net/base/url_util.h"
 #include "url/gurl.h"
@@ -39,6 +43,17 @@
 #endif
 
 namespace signin {
+
+namespace {
+
+// Gaia "Proceed To Challenge" capability: skips the identifier page when the
+// account is known (via `Email`).
+constexpr char kProceedToChallengeQueryKey[] = "ptc";
+
+constexpr char kReauthProceedToChallengeResultHistogram[] =
+    "Signin.Reauth.ProceedToChallengeResult";
+
+}  // namespace
 
 const char kSignInPromoQueryKeyAccessPoint[] = "access_point";
 const char kSignInPromoQueryKeyAutoClose[] = "auto_close";
@@ -151,15 +166,55 @@ void IsHybridTransportSupportedForQrCodeSignin(
 }
 #endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
 
-GURL GetChromeReauthURL(ChromeSyncUrlArgs args) {
+GURL GetChromeReauthURL(ChromeReauthUrlArgs args) {
   GURL url = GaiaUrls::GetInstance()->reauth_chrome_dice();
   if (!args.email.empty()) {
     url = net::AppendQueryParameter(url, "Email", args.email);
+    // `ptc` needs a known identifier to proceed to the challenge page, so it
+    // is only meaningful together with `Email`.
+    if (args.proceed_to_challenge) {
+      url = net::AppendQueryParameter(url, kProceedToChallengeQueryKey, "1");
+    }
   }
   if (!args.continue_url.is_empty()) {
     url = net::AppendQueryParameter(url, "continue", args.continue_url.spec());
   }
   return url;
+}
+
+bool CanReauthProceedToChallenge(
+    const std::string& email,
+    const AccountsInCookieJarInfo& accounts_in_cookie_jar) {
+  if (email.empty()) {
+    return false;
+  }
+
+  const auto has_matching_email = [&email](const gaia::ListedAccount& account) {
+    return gaia::AreEmailsSame(account.email, email);
+  };
+
+  // Without fresh cookie info, it is unknown whether Gaia still has a valid
+  // session for `email`. If Gaia does have a valid session, `/AccountChooser`
+  // completes immediately without a new sign-in, so Chrome never receives a
+  // new refresh token and stays in the auth error state. In both cases, fall
+  // back to `/AddSession`, which always requires the challenge.
+  if (!accounts_in_cookie_jar.AreAccountsFresh() ||
+      std::ranges::any_of(accounts_in_cookie_jar.GetValidSignedInAccounts(),
+                          has_matching_email)) {
+    base::UmaHistogramEnumeration(
+        kReauthProceedToChallengeResultHistogram,
+        ReauthProceedToChallengeResult::kAddSessionFallback);
+    return false;
+  }
+
+  const bool account_in_cookies = std::ranges::any_of(
+      accounts_in_cookie_jar.GetAllAccounts(), has_matching_email);
+  base::UmaHistogramEnumeration(
+      kReauthProceedToChallengeResultHistogram,
+      account_in_cookies
+          ? ReauthProceedToChallengeResult::kProceedToChallenge
+          : ReauthProceedToChallengeResult::kAccountNotInCookies);
+  return true;
 }
 
 GURL GetAddAccountURLForDice(const std::string& email,
@@ -230,19 +285,6 @@ void RegisterProfilePrefs(
   registry->RegisterBooleanPref(
       prefs::kHistoryPageHistorySyncPromoShownAfterDismissalPerProfile, false);
 
-  // Signin promo limits experiment prefs.
-  registry->RegisterIntegerPref(
-      prefs::kAddressSignInPromoShownCountPerProfileForLimitsExperiment, 0);
-  registry->RegisterIntegerPref(
-      prefs::kBookmarkSignInPromoShownCountPerProfileForLimitsExperiment, 0);
-  registry->RegisterIntegerPref(
-      prefs::kPasswordSignInPromoShownCountPerProfileForLimitsExperiment, 0);
-  registry->RegisterIntegerPref(
-      prefs::kAddressSignInPromoDismissCountPerProfileForLimitsExperiment, 0);
-  registry->RegisterIntegerPref(
-      prefs::kPasswordSignInPromoDismissCountPerProfileForLimitsExperiment, 0);
-  registry->RegisterIntegerPref(
-      prefs::kBookmarkSignInPromoDismissCountPerProfileForLimitsExperiment, 0);
   registry->RegisterIntegerPref(
       prefs::kSearchAIModeSignInPromoShownCountPerProfile, 0);
   registry->RegisterIntegerPref(

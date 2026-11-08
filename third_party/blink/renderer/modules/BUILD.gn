@@ -82,6 +82,7 @@ component("modules") {
     "//third_party/blink/renderer/modules/content_index",
     "//third_party/blink/renderer/modules/cookie_store",
     "//third_party/blink/renderer/modules/credentialmanagement",
+    "//third_party/blink/renderer/modules/cross_origin_storage",
     "//third_party/blink/renderer/modules/crypto",
     "//third_party/blink/renderer/modules/csspaint",
     "//third_party/blink/renderer/modules/compression",
@@ -89,6 +90,7 @@ component("modules") {
     "//third_party/blink/renderer/modules/delegated_ink",
     "//third_party/blink/renderer/modules/device_orientation",
     "//third_party/blink/renderer/modules/device_posture",
+    "//third_party/blink/renderer/modules/dictation",
     "//third_party/blink/renderer/modules/document_metadata",
     "//third_party/blink/renderer/modules/document_picture_in_picture",
     "//third_party/blink/renderer/modules/donottrack",
@@ -144,7 +146,6 @@ component("modules") {
     "//third_party/blink/renderer/modules/serial",
     "//third_party/blink/renderer/modules/service_worker",
     "//third_party/blink/renderer/modules/shapedetection",
-    "//third_party/blink/renderer/modules/shared_storage",
     "//third_party/blink/renderer/modules/speech",
     "//third_party/blink/renderer/modules/srcobject",
     "//third_party/blink/renderer/modules/storage",
@@ -473,9 +474,11 @@ source_set("unit_tests") {
     "delegated_ink/delegated_ink_trail_presenter_unittest.cc",
     "device_orientation/device_motion_event_pump_unittest.cc",
     "device_orientation/device_orientation_event_pump_unittest.cc",
+    "dictation/dictation_agent_impl_test.cc",
     "document_metadata/document_metadata_extractor_test.cc",
     "document_metadata/document_metadata_server_test.cc",
     "document_picture_in_picture/picture_in_picture_controller_test.cc",
+    "encoding/text_decoder_test.cc",
     "eventsource/event_source_parser_test.cc",
     "filesystem/dom_file_system_base_test.cc",
     "filesystem/file_writer_test.cc",
@@ -628,6 +631,7 @@ source_set("unit_tests") {
     "push_messaging/push_subscription_test.cc",
     "remoteplayback/remote_playback_test.cc",
     "screen_orientation/screen_orientation_controller_test.cc",
+    "sensor/sensor_reading_remapper_test.cc",
     "sensor/sensor_test_utils.cc",
     "sensor/sensor_test_utils.h",
     "service_worker/service_worker_container_test.cc",
@@ -666,8 +670,10 @@ source_set("unit_tests") {
     "webaudio/dynamics_compressor_node_test.cc",
     "webaudio/media_element_audio_source_node_test.cc",
     "webaudio/media_stream_audio_destination_handler_test.cc",
+    "webaudio/media_stream_audio_source_node_test.cc",
     "webaudio/offline_audio_context_test.cc",
     "webaudio/oscillator_handler_test.cc",
+    "webaudio/recursive_mutex_test.cc",
     "webaudio/script_processor_node_test.cc",
     "webaudio/stereo_panner_node_test.cc",
     "webaudio/testing/fake_audio_thread.cc",
@@ -689,6 +695,7 @@ source_set("unit_tests") {
     "worklet/worklet_thread_test_common.h",
     "xr/xr_rigid_transform_test.cc",
     "xr/xr_test_utils.cc",
+    "xr/xr_view_geometry_test.cc",
     "xr/xr_view_test.cc",
   ]
 
@@ -705,6 +712,7 @@ source_set("unit_tests") {
       # Inline text box tests do not apply to Android, which only loads
       # AXInlineTextBox tests for the focused node.
       "accessibility/ax_inline_text_box_test.cc",
+      "ai/decision_model_test.cc",
     ]
   }
 

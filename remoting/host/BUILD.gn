@@ -123,7 +123,6 @@ source_set("common_headers") {
     "config_watcher.h",
     "create_desktop_interaction_strategy_factory.h",
     "delegating_desktop_display_info_monitor.h",
-    "desktop_and_cursor_conditional_composer.h",
     "desktop_display_info_monitor.h",
     "desktop_environment.h",
     "desktop_resizer_proxy.h",
@@ -437,7 +436,6 @@ static_library("common") {
     "cursor_visibility_notifier.cc",
     "cursor_visibility_notifier.h",
     "delegating_desktop_display_info_monitor.cc",
-    "desktop_and_cursor_conditional_composer.cc",
     "desktop_resizer_proxy.cc",
     "disconnect_window_base.cc",
     "disconnect_window_base.h",
@@ -506,6 +504,8 @@ static_library("common") {
     "session_policies_from_dict.h",
     "shutdown_watchdog.cc",
     "shutdown_watchdog.h",
+    "terminal_error.cc",
+    "terminal_error.h",
     "terminal_session.h",
     "terminal_session_manager.cc",
     "terminal_session_manager.h",
@@ -568,10 +568,7 @@ static_library("common") {
 
   libs = []
 
-  configs += [
-    "//build/config/compiler:wexit_time_destructors",
-    "//remoting/build/config:version",
-  ]
+  configs += [ "//remoting/build/config:version" ]
 
   defines = [ "WEBRTC_CHROMIUM_BUILD" ]
 
@@ -768,6 +765,7 @@ static_library("common") {
       "disconnect_window_mac.h",
       "disconnect_window_mac.mm",
       "input_injector_mac.cc",
+      "input_injector_mac.h",
       "keyboard_layout_monitor_mac.cc",
       "pairing_registry_delegate_mac.cc",
       "usage_stats_consent_mac.cc",
@@ -929,6 +927,7 @@ source_set("unit_tests") {
     "setup/host_starter_oauth_helper_unittest.cc",
     "setup/me2me_native_messaging_host_unittest.cc",
     "setup/pin_validator_unittest.cc",
+    "terminal_error_unittest.cc",
     "terminal_session_manager_unittest.cc",
     "webrtc_mouse_cursor_monitor_adaptor_unittest.cc",
     "zombie_host_detector_unittest.cc",
@@ -941,6 +940,7 @@ source_set("unit_tests") {
       "desktop_session_agent_unittest.cc",
       "ipc_desktop_environment_unittest.cc",
       "ipc_peer_session_unittest.cc",
+      "ipc_video_frame_capturer_unittest.cc",
       "mojo_video_capturer_list_unittest.cc",
       "mojom/remoting_mojom_traits_unittest.cc",
       "worker_process_launcher_unittest.cc",
@@ -1052,7 +1052,14 @@ source_set("unit_tests") {
   }
 
   if (is_mac) {
-    deps += [ "//remoting/host/mac:unit_tests" ]
+    sources += [
+      "input_injector_mac_unittest.cc",
+      "input_monitor/local_keyboard_input_monitor_mac_unittest.cc",
+    ]
+    deps += [
+      "//remoting/host/mac:unit_tests",
+      "//ui/events:dom_keycode_converter",
+    ]
   }
 
   if (remoting_use_x11) {
@@ -1152,8 +1159,6 @@ if (enable_me2me_host) {
       "//remoting/host/setup:start_host_main_headers",
     ]
 
-    configs += [ "//build/config/compiler:wexit_time_destructors" ]
-
     if (is_win) {
       defines = host_predefines +
                 [ "REMOTING_HOST_BINARY=BINARY_REMOTING_START_HOST" ]
@@ -1204,7 +1209,7 @@ if (enable_me2me_host) {
     }
 
     # LINT.ThenChange(/remoting/host/it2me/it2me_native_messaging_host_allowed_origins.h:it2me_origins,
-    # /remoting/host/webauthn/remote_webauthn_extension_notifier.cc:extension_ids,
+    # /remoting/host/webauthn/remote_webauthn_constants.cc:extension_ids,
     # /remoting/tools/register_local_nm_hosts.sh:extension_ids)
 
     companion_extension_ids_joined = string_join(",", companion_extension_ids)
@@ -1329,7 +1334,7 @@ if (enable_me2me_host) {
       defines += [ "REMOTING_USE_X11" ]
       deps += [
         "//remoting/host/linux:platform_impls",
-        "//ui/events/platform/x11",
+        "//remoting/host/linux:x11",
       ]
       if (is_linux) {
         deps += [ "//ui/gtk:gtk_config" ]

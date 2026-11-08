@@ -240,7 +240,7 @@ public class StripLayoutHelper
                 }
 
                 @Override
-                public void didMoveTabGroup(
+                public void onTabGroupMoved(
                         Token tabGroupId, int tabModelOldIndex, int tabModelNewIndex) {
                     mMovingGroup = false;
 
@@ -278,7 +278,7 @@ public class StripLayoutHelper
                     boolean removedHiddenLastTabInGroup =
                             oldTabGroupId.equals(groupIdToHide)
                                     && mModel != null
-                                    && !mModel.tabGroupExists(oldTabGroupId);
+                                    && !mModel.containsTabGroup(oldTabGroupId);
 
                     // Skip if the rebuild will be handled elsewhere after reaching a "proper" tab
                     // state, such as confirming the group deletion.
@@ -302,7 +302,7 @@ public class StripLayoutHelper
                 }
 
                 @Override
-                public void didCreateNewGroup(Tab destinationTab) {
+                public void onTabGroupCreated(Token tabGroupId) {
                     rebuildStripViews();
                 }
 
@@ -734,6 +734,7 @@ public class StripLayoutHelper
      *     TabGroupListBottomSheetCoordinator}.
      * @param snackbarManager The {@link SnackbarManager} used to show snackbar UI.
      * @param activityResultTracker The {@link ActivityResultTracker}.
+     * @param canActivateTabLayoutToggleMenuSupplier Whether the tab layout toggle menu can open.
      */
     public StripLayoutHelper(
             Context context,
@@ -812,7 +813,9 @@ public class StripLayoutHelper
                         /* keyboardFocusHandler= */ this,
                         R.drawable.ic_new_tab_button,
                         R.drawable.bg_circle_tab_strip_button,
-                        getButtonClickSlopDp(context));
+                        getButtonClickSlopDp(context),
+                        /* hasLongClickAction= */ true);
+        mNewTabButton.setOnLongClickHandler(this);
 
         @ColorRes
         int iconTintRes = incognito ? R.color.modern_white : R.color.default_icon_color_tint_list;
@@ -1129,40 +1132,40 @@ public class StripLayoutHelper
     }
 
     /**
-     * @return The gradient width of the left fade layer. When a button is visible on this side (LTR
-     *     for Tab Search button, RTL for trailing buttons), it returns the button-side gradient
-     *     width to ensure a sharper fade transition. Otherwise, it returns the standard edge fade
-     *     gradient width.
+     * Returns the gradient width of the left fade layer. When a button is visible on this side (LTR
+     * for Tab Search button, RTL for trailing buttons), it returns the button-side gradient width
+     * to ensure a sharper fade transition. Otherwise, it returns the standard edge fade gradient
+     * width.
      */
     public float getLeftFadeGradientWidth() {
         return mLeftFadeGradientWidth;
     }
 
     /**
-     * @return The gradient width of the right fade layer. When a button is visible on this side
-     *     (RTL for Tab Search button, LTR for trailing buttons), it returns the button-side
-     *     gradient width to ensure a sharper fade transition. Otherwise, it returns the standard
-     *     edge fade gradient width.
+     * Returns the gradient width of the right fade layer. When a button is visible on this side
+     * (RTL for Tab Search button, LTR for trailing buttons), it returns the button-side gradient
+     * width to ensure a sharper fade transition. Otherwise, it returns the standard edge fade
+     * gradient width.
      */
     public float getRightFadeGradientWidth() {
         return mRightFadeGradientWidth;
     }
 
     /**
-     * @return The opaque width of the left fade layer. When a button is visible on this side (LTR
-     *     for Tab Search button, RTL for trailing buttons), the opaque width covers the button's
-     *     touch target and a padding buffer to prevent scrolling tabs from showing behind the
-     *     button. Otherwise, it covers the standard margin width.
+     * Returns the opaque width of the left fade layer. When a button is visible on this side (LTR
+     * for Tab Search button, RTL for trailing buttons), the opaque width covers the button's touch
+     * target and a padding buffer to prevent scrolling tabs from showing behind the button.
+     * Otherwise, it covers the standard margin width.
      */
     public float getLeftFadeOpaqueWidth() {
         return mLeftFadeOpaqueWidth;
     }
 
     /**
-     * @return The opaque width of the right fade layer. When a button is visible on this side (RTL
-     *     for Tab Search button, LTR for trailing buttons), the opaque width covers the button's
-     *     touch target and a padding buffer to prevent scrolling tabs from showing behind the
-     *     button. Otherwise, it covers the standard margin width.
+     * Returns the opaque width of the right fade layer. When a button is visible on this side (RTL
+     * for Tab Search button, LTR for trailing buttons), the opaque width covers the button's touch
+     * target and a padding buffer to prevent scrolling tabs from showing behind the button.
+     * Otherwise, it covers the standard margin width.
      */
     public float getRightFadeOpaqueWidth() {
         return mRightFadeOpaqueWidth;
@@ -2087,6 +2090,8 @@ public class StripLayoutHelper
         // selected, scroll the currently selected tab to view. Skip auto-scrolling if the tab is
         // being created due to a tab closure being undone.
         if (stripTab != null && !closureCancelled && !collapsed) {
+            updateScrollOffsetLimits();
+            computeIdealViewPositions();
             boolean animate = !onStartup;
             if (selected) {
                 float delta = calculateDeltaToMakeViewVisible(stripTab);
@@ -2581,8 +2586,9 @@ public class StripLayoutHelper
         resetTabCloseButtonPressedState();
         StripLayoutView stripView = determineClickedView(x, y, /* buttons= */ 0);
 
-        if (stripView == null) {
-            // Show the tab strip context menu at the long-press position on the empty space.
+        if (stripView == null || stripView == mNewTabButton) {
+            // Show the tab strip context menu at the long-press position on the empty space or new
+            // tab button.
             showTabStripContextMenu(x, y);
             return;
         }
@@ -3288,7 +3294,9 @@ public class StripLayoutHelper
         clearLastHoveredTab();
         if (clickedView == null) {
             if (MotionEventUtils.isSecondaryClick(buttons)) {
-                // A right click on empty strip space should trigger the strip context menu.
+                // A right click on empty strip space or the new tab button (where
+                // determineClickedView returns null for secondary clicks) should trigger the strip
+                // context menu.
                 showTabStripContextMenu(x, y);
             }
             return;
@@ -3379,9 +3387,9 @@ public class StripLayoutHelper
     }
 
     /**
-     * Show the context menu originating at {@param clickedView}, and returns true if a context menu
-     * was shown. (Note: this will return false if there is no context menu to be shown at {@param
-     * clickedView}.
+     * Shows the context menu originating at {@code clickedView}, and returns {@code true} if a
+     * context menu was shown. (Note: this will return {@code false} if there is no context menu to
+     * be shown at {@code clickedView}.)
      *
      * @param clickedView The view for which to show a context menu.
      * @return Whether a context menu was shown.
@@ -3419,6 +3427,10 @@ public class StripLayoutHelper
             }
             showTabGroupContextMenu(groupTitle, /* shouldWaitForUpdate= */ false);
             return true;
+        } else if (clickedView instanceof CompositorButton button
+                && button.getType() == ButtonType.NEW_TAB) {
+            showTabStripContextMenu(button.getDrawX(), button.getDrawY() + mTopPadding);
+            return true;
         }
         return false;
     }
@@ -3426,8 +3438,8 @@ public class StripLayoutHelper
     /**
      * Shows the context menu originating at strip coordinates ({@code xDp}, {@code yDp}) to handle
      * a long-press or right-click event at this position. The coordinates are assumed to lie on the
-     * empty space of the tab strip. For context menus associated with gestures on a {@link
-     * StripLayoutView}, see {@link #showContextMenu(StripLayoutView)}.
+     * empty space of the tab strip or on the new tab button. For context menus associated with
+     * gestures on a {@link StripLayoutView}, see {@link #showContextMenu(StripLayoutView)}.
      *
      * @param xDp The x coordinate of the position of the gesture event.
      * @param yDp The y coordinate of the position of the gesture event.
@@ -3670,6 +3682,8 @@ public class StripLayoutHelper
     /** Returns Whether or not the tabs are moving. */
     public boolean isAnimatingForTesting() {
         return (mRunningAnimator != null && mRunningAnimator.isRunning())
+                || mCloseAnimationsRequested
+                || !mQueuedAnimators.isEmpty()
                 || !mScrollDelegate.isFinished();
     }
 
@@ -3701,6 +3715,9 @@ public class StripLayoutHelper
             mRunningAnimator.end();
         }
         mRunningAnimator = null;
+        for (StripLayoutTab tab : mStripTabs) {
+            tab.finishAnimations();
+        }
     }
 
     @Override
@@ -3821,14 +3838,12 @@ public class StripLayoutHelper
     /**
      * Finishes any outstanding animations.
      *
-     * <p>TODO(crbug.com/503472587): This (and finishAnimationsAndPushTabUpdates above) no longer
-     * explicitly post closures for dying tabs, and should now be safe to clean up now that the
-     * close refactor flag has been cleaned up. However, this method used to only trigger if there
-     * actually was a running animator (it didn't account for queued animations). Remove this method
-     * after verifying it's safe to just call #finishAnimations.
+     * <p>TODO(crbug.com/503472587): Remove this method and just call #finishAnimations.
      */
     private void finishAnimationsAndCloseDyingTabs() {
-        if (mRunningAnimator != null) finishAnimations();
+        if (mRunningAnimator != null || mCloseAnimationsRequested || !mQueuedAnimators.isEmpty()) {
+            finishAnimations();
+        }
     }
 
     private void updateSpinners(long time) {
@@ -4182,7 +4197,7 @@ public class StripLayoutHelper
     private void updateGroupTextAndSharedState(@Nullable StripLayoutGroupTitle groupTitle) {
         if (groupTitle == null
                 || mModel == null
-                || !mModel.tabGroupExists(groupTitle.getTabGroupId())) {
+                || !mModel.containsTabGroup(groupTitle.getTabGroupId())) {
             return;
         }
         updateGroupTextAndSharedStateUnchecked(groupTitle);
@@ -4375,7 +4390,7 @@ public class StripLayoutHelper
         // If we have tab group to hide due to running tab group delete dialog, then skip the tab
         // group when rebuilding StripViews.
         if (mGroupIdToHideSupplier.get() != null) {
-            if (mModel.tabGroupExists(mGroupIdToHideSupplier.get())) {
+            if (mModel.containsTabGroup(mGroupIdToHideSupplier.get())) {
                 if (numGroups > 0) numGroups--;
             } else {
                 assert false : "Rebuilding tab strip with a nonexistent group ID to hide.";
@@ -5012,9 +5027,13 @@ public class StripLayoutHelper
                 && closeButton.getParentView() instanceof StripLayoutTab stripTab) {
             view = stripTab;
         }
-        final float deltaToFarLeft = leftBound - view.getIdealX();
+        float optimalLeft = view.getIdealX();
+        if (LocalizationUtils.isLayoutRtl() && view instanceof StripLayoutTab) {
+            optimalLeft += view.getWidth() - getCachedTabWidth(/* isPinned= */ false);
+        }
+        final float deltaToFarLeft = leftBound - optimalLeft;
         final float deltaToFarRight =
-                rightBound - getCachedTabWidth(/* isPinned= */ false) - view.getIdealX();
+                rightBound - getCachedTabWidth(/* isPinned= */ false) - optimalLeft;
 
         // 3. The following case means the view is already completely in the visible area of the
         // strip, i.e., it needs to be:
@@ -5084,6 +5103,7 @@ public class StripLayoutHelper
 
     /**
      * @param id The id of the selected tab.
+     * @param shouldShowOutline Whether the tab outline should be shown.
      * @return The outline color if the selected tab will show its Tab Group Indicator outline.
      *     {@code Color.TRANSPARENT} otherwise.
      */
@@ -5149,11 +5169,11 @@ public class StripLayoutHelper
 
     /**
      * Distinct from {@link #getSelectedTabId}, since this doesn't find the ID for the tab selected
-     * in the {@link TabModel), but rather the ID of the {@link StripLayoutTab} that is currently
+     * in the {@link TabModel}, but rather the ID of the {@link StripLayoutTab} that is currently
      * locally marked as selected (through {@link StripLayoutTab#getIsSelected()}).
      *
      * @return the ID of the {@link StripLayoutTab} for which {@link StripLayoutTab#getIsSelected}
-     * was true.
+     *     was true.
      */
     private @TabId int findSelectedStripTabId() {
         for (int i = 0; i < mStripTabs.length; i++) {
@@ -5249,6 +5269,11 @@ public class StripLayoutHelper
         // Not implemented for tablet tab strip.
     }
 
+    @Override
+    public void updateTabGroupCardLabels(Map<Token, TabCardLabelData> labelData) {
+        // Not implemented for tablet tab strip.
+    }
+
     @SuppressLint("HandlerLeak")
     private class StripTabEventHandler extends Handler {
         @Override
@@ -5315,7 +5340,7 @@ public class StripLayoutHelper
         bringViewToVisibleArea(getSelectedStripTab(), time, animate);
     }
 
-    /** Scrolls to {@param view} if it's not fully visible. */
+    /** Scrolls to {@code view} if it's not fully visible. */
     private void bringViewToVisibleArea(
             @Nullable StripLayoutView view, long time, boolean animate) {
         if (mWidth == 0) return;
@@ -5472,6 +5497,7 @@ public class StripLayoutHelper
     }
 
     void finishScrollForTesting() {
+        updateScrollOffsetLimits();
         mScrollDelegate.finishScrollForTesting();
     }
 

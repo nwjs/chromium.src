@@ -76,12 +76,16 @@ class EventRewriterDelegateImpl;
 class FastTransitionObserver;
 class FwupdDownloadClientImpl;
 class GnubbyNotification;
+class BookmarkModelProvider;
 class ConsentAuditorProvider;
 class DeskSyncServiceProvider;
 class FaviconServiceProvider;
 class FeatureEngagementTrackerProvider;
 class HistoryServiceProvider;
 class IdentityManagerProvider;
+class MantaServiceProvider;
+class MediaDeviceSaltServiceProvider;
+class PasswordReuseManagerProvider;
 class SupervisedUserServiceProvider;
 class SyncServiceProvider;
 class TemplateURLServiceProvider;
@@ -227,6 +231,7 @@ class ChromeBrowserMainPartsAsh : public ChromeBrowserMainPartsLinux {
       doze_mode_power_status_scheduler_;
 
   std::unique_ptr<apps::AppServiceRegistry> app_service_registry_;
+  std::unique_ptr<BookmarkModelProvider> bookmark_model_provider_;
   std::unique_ptr<ConsentAuditorProvider> consent_auditor_provider_;
   std::unique_ptr<DeskSyncServiceProvider> desk_sync_service_provider_;
   std::unique_ptr<FaviconServiceProvider> favicon_service_provider_;
@@ -234,6 +239,11 @@ class ChromeBrowserMainPartsAsh : public ChromeBrowserMainPartsLinux {
       feature_engagement_tracker_provider_;
   std::unique_ptr<HistoryServiceProvider> history_service_provider_;
   std::unique_ptr<IdentityManagerProvider> identity_manager_provider_;
+  std::unique_ptr<MantaServiceProvider> manta_service_provider_;
+  std::unique_ptr<MediaDeviceSaltServiceProvider>
+      media_device_salt_service_provider_;
+  std::unique_ptr<PasswordReuseManagerProvider>
+      password_reuse_manager_provider_;
   std::unique_ptr<SupervisedUserServiceProvider>
       supervised_user_service_provider_;
   std::unique_ptr<SyncServiceProvider> sync_service_provider_;

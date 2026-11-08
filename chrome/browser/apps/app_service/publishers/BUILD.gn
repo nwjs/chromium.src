@@ -27,16 +27,13 @@ source_set("publishers") {
     "publisher_host_impl.h",
   ]
 
-  configs += [ "//build/config/compiler:wexit_time_destructors" ]
-
   deps = [
     "//base",
-    "//chrome/browser:browser_public_dependencies",
     "//chrome/browser/apps/app_service",
     "//chrome/browser/apps/app_service/app_icon",
     "//chrome/browser/extensions",
+    "//chrome/browser/policy",
     "//chrome/browser/prefs",
-    "//chrome/browser/ui",
     "//chrome/browser/ui:chrome_pages",
     "//chrome/browser/ui/browser_window",
     "//chrome/browser/ui/browser_window:create_browser_window",
@@ -109,7 +106,6 @@ source_set("publishers") {
       "//chromeos/ash/experiences/arc/intent_helper:arc_intent_helper_constants",
       "//chromeos/ash/experiences/arc/privacy_items",
       "//chromeos/ash/experiences/arc/session",
-      "//chromeos/ash/experiences/guest_os/borealis/motd",
       "//components/app_constants",
     ]
 

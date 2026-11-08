@@ -39,16 +39,24 @@ struct ToneMapInfo {
   float max_headroom = 0.f;
   float min_headroom = 0.f;
 
-  bool UseGlobalToneMappingFilter() const {
+  bool UseGlobalToneMappingFilter(
+      std::optional<float> targeted_hdr_headroom) const {
+    // If the white point must be scaled, then the tone mapping shader is
+    // employed to do this.
+    if (white_scale_factor != 1.f) {
+      return true;
+    }
+    // If `targeted_hdr_headroom` is specified, then clamp it to the range of
+    // available headrooms. If that equals the baseline headroom, then no tone
+    // mapping is needed.
+    if (targeted_hdr_headroom.has_value()) {
+      return std::clamp(targeted_hdr_headroom.value(), min_headroom,
+                        max_headroom) != baseline_headroom;
+    }
     // If there are two different image representations that use two different
     // headrooms, then the tone mapping filter should be used to map between
     // them.
     if (min_headroom != max_headroom) {
-      return true;
-    }
-    // If the white point must be scaled, then the tone mapping shader is
-    // employed to do this.
-    if (white_scale_factor != 1.f) {
       return true;
     }
     return false;
@@ -60,10 +68,10 @@ ToneMapInfo ComputeToneMapInfo(const skcms_TransferFunction& fn,
   const auto fn_type = skcms_TransferFunction_getType(&fn);
   ToneMapInfo info;
 
-  // The most common path is SDR content with no AGTM or extended range
-  // metadata, so handle that first.
+  // The most common path is SDR content with no AGTM metadata, so handle that
+  // first.
   if (fn_type != skcms_TFType_PQ && fn_type != skcms_TFType_HLG &&
-      !metadata.HasAgtm() && !metadata.extended_range) {
+      !metadata.HasAgtm()) {
     return info;
   }
 
@@ -73,9 +81,6 @@ ToneMapInfo ComputeToneMapInfo(const skcms_TransferFunction& fn,
   if (fn_type == skcms_TFType_PQ || fn_type == skcms_TFType_HLG) {
     if (metadata.HasAgtm()) {
       hdr_reference_white = metadata.GetAgtm().fHdrReferenceWhite;
-      info.white_scale_factor = hdr_reference_white / fn.a;
-    } else if (metadata.HasNDWL() && metadata.GetNDWL() > 0.f) {
-      hdr_reference_white = metadata.GetNDWL();
       info.white_scale_factor = hdr_reference_white / fn.a;
     } else {
       hdr_reference_white = fn.a;
@@ -102,14 +107,6 @@ ToneMapInfo ComputeToneMapInfo(const skcms_TransferFunction& fn,
     return info;
   }
 
-  // Extended range is next-highest priority. Note that `current_headroom` is
-  // linear, while ToneMapInfo headrooms are in log2 stops.
-  if (metadata.extended_range) {
-    info.baseline_headroom = info.min_headroom = info.max_headroom =
-        std::log2(std::max(metadata.extended_range->current_headroom, 1.f));
-    return info;
-  }
-
   // For HLG and PQ (which are the only ways we can reach here), compute the
   // baseline headroom using the CLLI and MDCV metadata.
   DCHECK(fn_type == skcms_TFType_PQ || fn_type == skcms_TFType_HLG);
@@ -123,22 +120,25 @@ ToneMapInfo ComputeToneMapInfo(const skcms_TransferFunction& fn,
 
 }  // namespace
 
-bool ToneMapUtil::UseGlobalToneMapFilter(const SkImage* image,
-                                         const gfx::HDRMetadata& metadata) {
-  if (!image) {
-    return false;
-  }
-  return UseGlobalToneMapFilter(image->colorSpace(), metadata);
-}
-
-bool ToneMapUtil::UseGlobalToneMapFilter(const SkColorSpace* cs,
-                                         const gfx::HDRMetadata& metadata) {
+bool ToneMapUtil::UseGlobalToneMapFilter(
+    const SkColorSpace* cs,
+    const gfx::HDRMetadata& metadata,
+    std::optional<float> targeted_hdr_headroom) {
   if (!cs) {
     return false;
   }
   skcms_TransferFunction fn;
   cs->transferFn(&fn);
-  return ComputeToneMapInfo(fn, metadata).UseGlobalToneMappingFilter();
+  return ComputeToneMapInfo(fn, metadata)
+      .UseGlobalToneMappingFilter(targeted_hdr_headroom);
+}
+
+bool ToneMapUtil::UseGlobalToneMapFilter(
+    const gfx::ColorSpace& cs,
+    const gfx::HDRMetadata& metadata,
+    std::optional<float> targeted_hdr_headroom) {
+  return UseGlobalToneMapFilter(cs.ToSkColorSpace().get(), metadata,
+                                targeted_hdr_headroom);
 }
 
 float ToneMapUtil::GetMaxHdrHeadroom(const SkColorSpace* cs,
@@ -156,6 +156,16 @@ float ToneMapUtil::GetMaxHdrHeadroom(const gfx::ColorSpace& cs,
   return GetMaxHdrHeadroom(cs.ToSkColorSpace().get(), metadata);
 }
 
+bool ToneMapUtil::IsHDR(const SkColorSpace* cs,
+                        const gfx::HDRMetadata& metadata) {
+  return GetMaxHdrHeadroom(cs, metadata) > 0.f;
+}
+
+bool ToneMapUtil::IsHDR(const gfx::ColorSpace& cs,
+                        const gfx::HDRMetadata& metadata) {
+  return GetMaxHdrHeadroom(cs, metadata) > 0.f;
+}
+
 void ToneMapUtil::AddGlobalToneMapFilterToPaint(
     SkPaint& paint,
     const SkImage* image,
@@ -167,20 +177,6 @@ void ToneMapUtil::AddGlobalToneMapFilterToPaint(
 
   skhdr::Metadata skia_metadata;
 
-  // Parse AGTM only if the feature is enabled.
-  skhdr::AdaptiveGlobalToneMap agtm;
-  bool agtm_valid = false;
-  if (gfx::HdrMetadataAgtm::IsEnabled() && metadata.HasAgtm()) {
-    agtm_valid = true;
-    agtm = metadata.GetAgtm();
-  }
-
-  // Use NDWL to specify HDR reference white only if AGTM was not present.
-  if (!agtm_valid && metadata.HasNDWL() && metadata.GetNDWL() > 0.f) {
-    agtm.fHdrReferenceWhite = metadata.GetNDWL();
-    agtm_valid = true;
-  }
-
   // Set the MDCV, CLLI, and AGTM values on `skia_metadata`.
   if (metadata.HasMDCV()) {
     skia_metadata.setMasteringDisplayColorVolume(metadata.GetMDCV());
@@ -188,8 +184,8 @@ void ToneMapUtil::AddGlobalToneMapFilterToPaint(
   if (metadata.HasCLLI()) {
     skia_metadata.setContentLightLevelInformation(metadata.GetCLLI());
   }
-  if (agtm_valid) {
-    skia_metadata.setAdaptiveGlobalToneMap(agtm);
+  if (metadata.HasAgtm()) {
+    skia_metadata.setAdaptiveGlobalToneMap(metadata.GetAgtm());
   }
 
   // Use skhdr::Metadata to compute the filter.

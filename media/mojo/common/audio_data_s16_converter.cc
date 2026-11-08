@@ -38,26 +38,14 @@ mojom::AudioDataS16Ptr AudioDataS16Converter::ConvertToAudioDataS16(
     signed_buffer->channel_count = buffer->channel_count();
     signed_buffer->frame_count = buffer->frame_count();
     signed_buffer->sample_rate = buffer->sample_rate();
-    auto audio_span =
-        base::subtle::reinterpret_span<const int16_t>(buffer->channels()[0]);
-    signed_buffer->data = base::ToVector(audio_span);
+    signed_buffer->data =
+        base::ToVector(buffer->interleaved_data_cast<const int16_t>());
     return signed_buffer;
   }
 
   CopyBufferToTempAudioBus(*buffer);
   return ConvertToAudioDataS16(*temp_audio_bus_, buffer->sample_rate(),
                                buffer->channel_layout(),
-                               is_multichannel_supported);
-}
-
-mojom::AudioDataS16Ptr AudioDataS16Converter::ConvertToAudioDataS16(
-    std::unique_ptr<AudioBus> audio_bus,
-    int sample_rate,
-    ChannelLayout channel_layout,
-    bool is_multichannel_supported) {
-  DCHECK_GT(audio_bus->frames(), 0);
-  DCHECK_GT(audio_bus->channels(), 0);
-  return ConvertToAudioDataS16(*audio_bus, sample_rate, channel_layout,
                                is_multichannel_supported);
 }
 

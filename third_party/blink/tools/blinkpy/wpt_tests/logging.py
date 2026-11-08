@@ -18,20 +18,21 @@ from blinkpy.common import path_finder
 from blinkpy.wpt_tests.test_loader import wpt_url_to_blink_test
 
 path_finder.bootstrap_wpt_imports()
-import mozlog
-from mozlog.formatters.base import BaseFormatter
+import mozlog  # noqa: E402
+from mozlog.formatters.base import BaseFormatter  # noqa: E402
 
 
 class GroupingFormatter(mozlog.formatters.GroupingFormatter):
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._start = datetime.now()
         self._driver_logging = False
         self.message_handler.register_message_handlers(
-            'driver_logging', {
+            'driver_logging',
+            {
                 'enable': self._enable_driver_logging,
-            })
+            },
+        )
 
     def _enable_driver_logging(self):
         self._driver_logging = True
@@ -76,15 +77,16 @@ class GroupingFormatter(mozlog.formatters.GroupingFormatter):
 
 
 class MachFormatter(mozlog.formatters.MachFormatter):
-
     def __init__(self, *args, reset_before_suite: bool = True, **kwargs):
         super().__init__(*args, **kwargs)
         self.reset_before_suite = reset_before_suite
         self._driver_logging = False
         self.message_handler.register_message_handlers(
-            'driver_logging', {
+            'driver_logging',
+            {
                 'enable': self._enable_driver_logging,
-            })
+            },
+        )
 
     def _enable_driver_logging(self):
         self._driver_logging = True
@@ -92,7 +94,6 @@ class MachFormatter(mozlog.formatters.MachFormatter):
     def __call__(self, data):
         self.summary(data)
 
-        # pylint: disable=bad-super-call; intentional call to grandparent class
         output = super(BaseFormatter, self).__call__(data)
         if output is None:
             return
@@ -145,7 +146,6 @@ def format_timestamp() -> str:
 
 
 class StructuredLogAdapter(logging.Handler):
-
     def __init__(self, logger, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._logger = logger
@@ -153,14 +153,19 @@ class StructuredLogAdapter(logging.Handler):
         self._fallback_handler.setFormatter(
             logging.Formatter(
                 fmt='%(asctime)s.%(msecs)03d %(levelname)s %(message)s',
-                datefmt='%Y-%m-%d %H:%M:%S'))
+                datefmt='%Y-%m-%d %H:%M:%S',
+            )
+        )
 
     def emit(self, record):
-        log = getattr(self._logger, record.levelname.lower(),
-                      self._logger.debug)
+        log = getattr(
+            self._logger, record.levelname.lower(), self._logger.debug
+        )
         try:
-            log(record.getMessage(),
+            log(
+                record.getMessage(),
                 component=record.name,
-                exc_info=record.exc_info)
+                exc_info=record.exc_info,
+            )
         except mozlog.structuredlog.LoggerShutdownError:
             self._fallback_handler.emit(record)

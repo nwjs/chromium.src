@@ -208,12 +208,11 @@ class WebViewGuest : public guest_view::GuestView<WebViewGuest> {
   void MaybeRecreateGuestContents(
       content::RenderFrameHost* outer_contents_frame) final;
   void EmbedderFullscreenToggled(bool entered_fullscreen) final;
-  void FindReply(content::WebContents* source,
-                 int request_id,
-                 int number_of_matches,
-                 const gfx::Rect& selection_rect,
-                 int active_match_ordinal,
-                 bool final_update) final;
+  void DidReceiveFindReply(int request_id,
+                           int number_of_matches,
+                           const gfx::Rect& selection_rect,
+                           int active_match_ordinal,
+                           bool final_update) final;
   bool ZoomPropagatesFromEmbedderToGuest() const final;
   const char* GetAPINamespace() const final;
   int GetTaskPrefix() const final;
@@ -228,7 +227,8 @@ class WebViewGuest : public guest_view::GuestView<WebViewGuest> {
   bool RequiresSslInterstitials() const final;
   bool IsPermissionRequestable(ContentSettingsType type) const final;
   std::optional<content::PermissionResult> OverridePermissionResult(
-      ContentSettingsType type) const final;
+      ContentSettingsType type,
+      const url::Origin& requesting_origin) const final;
   void GuestViewDocumentOnLoadCompleted() final;
   void GuestViewDidChangeLoadProgress(double progress) final;
   void GuestViewMainFrameProcessGone(base::TerminationStatus status) final;
@@ -351,6 +351,8 @@ class WebViewGuest : public guest_view::GuestView<WebViewGuest> {
   void ReportFrameNameChange(const std::string& name);
 
   void PushWebViewStateToIOThread(content::RenderFrameHost* guest_host);
+  void ApplyWebViewStateToRenderFrameHost(
+      content::RenderFrameHost* render_frame_host);
 
   // Loads the URL using the parameters provided in `load_url_params`.
   // `force_navigation` indicates whether to reload the content if the provided
@@ -390,6 +392,7 @@ class WebViewGuest : public guest_view::GuestView<WebViewGuest> {
 
   void ApplyAttributes(const base::DictValue& params);
 
+  void SetFrameName(content::RenderFrameHost* render_frame_host);
   void SetTransparency(content::RenderFrameHost* render_frame_host);
 
   void CreateInnerPageWithStoragePartition(

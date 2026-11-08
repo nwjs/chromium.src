@@ -9,6 +9,7 @@
 #include <iterator>
 #include <optional>
 #include <ostream>
+#include <ranges>
 #include <set>
 #include <sstream>
 #include <string>
@@ -19,7 +20,6 @@
 #include "base/check.h"
 #include "base/check_op.h"
 #include "base/command_line.h"
-#include "base/containers/adapters.h"
 #include "base/metrics/field_trial_params.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/not_fatal_until.h"
@@ -836,12 +836,15 @@ void AutocompleteResult::TrimOmniboxActions(bool is_zero_suggest) {
   //   (Android only)
   // - TAB_SWITCH actions are not considered because they're never attached.
   //   On Android, the tab switch match is attached as ACTION_IN_SUGGEST.
+  // - CROSS_DEVICE_TAB actions are permitted in all slots (they only appear on
+  //   dedicated CROSS_DEVICE_TAB matches, of which there is at most one).
   if constexpr (is_desktop) {
     return;
   }
 
   std::vector<OmniboxActionId> include_all{OmniboxActionId::ACTION_IN_SUGGEST,
-                                           OmniboxActionId::PEDAL};
+                                           OmniboxActionId::PEDAL,
+                                           OmniboxActionId::CROSS_DEVICE_TAB};
   std::vector<OmniboxActionId> include_pedals_and_others;
   std::vector<OmniboxActionId> exclude_pedals;
   if constexpr (is_android_any) {
@@ -849,6 +852,8 @@ void AutocompleteResult::TrimOmniboxActions(bool is_zero_suggest) {
     exclude_pedals.push_back(OmniboxActionId::ACTION_IN_SUGGEST);
   }
   include_pedals_and_others.push_back(OmniboxActionId::PEDAL);
+  include_pedals_and_others.push_back(OmniboxActionId::CROSS_DEVICE_TAB);
+  exclude_pedals.push_back(OmniboxActionId::CROSS_DEVICE_TAB);
 
   for (size_t index = 0u; index < matches_.size(); ++index) {
     matches_[index].FilterOmniboxActions(
@@ -919,7 +924,7 @@ void AutocompleteResult::GroupAndDemoteMatchesInGroups() {
     any_matches_in_groups = true;
 
     // Record suggestion group information into the additional_info field
-    // for chrome://omnibox.
+    // for chrome://omnibox-internals.
     match.RecordAdditionalInfo("group id", group_id);
     match.RecordAdditionalInfo("group header",
                                GetHeaderForSuggestionGroup(group_id));
@@ -1811,7 +1816,7 @@ void AutocompleteResult::MergeMatchesByProvider(ACMatches* old_matches,
   // "overwrite" the initial matches from that provider's previous results,
   // minimally disturbing the rest of the matches.
   size_t delta = old_matches->size() - new_matches.size();
-  for (const AutocompleteMatch& old_match : base::Reversed(*old_matches)) {
+  for (const AutocompleteMatch& old_match : std::views::reverse(*old_matches)) {
     if (delta == 0) {
       break;
     }

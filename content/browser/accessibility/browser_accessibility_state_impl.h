@@ -164,7 +164,6 @@ class CONTENT_EXPORT BrowserAccessibilityStateImpl
   ui::AXPlatform& ax_platform() { return ax_platform_; }
 
  private:
-
   // Stops tracking `web_contents` for disabling accessibility while it is
   // hidden.
   void OnDisablerDestroyedForWebContents(WebContentsImpl* web_contents);
@@ -213,6 +212,11 @@ class CONTENT_EXPORT BrowserAccessibilityStateImpl
   // Helper to disable and clean-up the accessibility performance experiment.
   void ExitPerformanceExperiment();
 
+  // Called whenever any accessibility mode changes; updates histograms, crash
+  // keys, assistive tech, and `AXModeObserver`s for the transition from
+  // `old_mode` to `new_mode`.
+  void OnAnyModeChanged(ui::AXMode old_mode, ui::AXMode new_mode);
+
   // The process's single AXPlatform instance.
   ui::AXPlatform ax_platform_{*this};
 
@@ -247,8 +251,10 @@ class CONTENT_EXPORT BrowserAccessibilityStateImpl
   base::RepeatingCallbackList<void(const FocusedNodeDetails&)>
       focus_changed_callbacks_;
 
-  // The collection of active ScopedAccessibilityMode instances targeting all
-  // WebContentses in the process.
+  // The collection of active `ScopedAccessibilityMode` instances created via
+  // `CreateScopedModeForProcess()`. Modes in this collection are inherited by
+  // every `BrowserContext` and `WebContents` in the process (forming the base
+  // of the `Process -> BrowserContext -> WebContents` hierarchy).
   ScopedModeCollection scoped_modes_for_process_{*this};
 
   // A ScopedAccessibilityMode that holds the process-wide mode flags modified

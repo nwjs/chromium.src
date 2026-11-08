@@ -14,10 +14,7 @@ static_library("intent_helper") {
     "chrome_arc_intent_helper_delegate.h",
   ]
 
-  public_deps = [
-    "//chrome/browser:browser_public_dependencies",
-    "//chrome/browser/ui/tabs:tab_strip_model_observer",
-  ]
+  public_deps = [ "//chrome/browser/ui/tabs:tab_strip_model_observer" ]
 
   deps = [
     "//ash",
@@ -68,10 +65,10 @@ source_set("unit_tests") {
     "//chrome/browser/ash/arc/session",
     "//chrome/browser/ash/arc/test:arc_test_support",
     "//chrome/browser/ash/settings",
-    "//chrome/browser/ui",
     "//chrome/browser/ui/zoom",
     "//chrome/common",
     "//chrome/test:test_support",
+    "//chrome/test/base:browser_with_test_window_test",
     "//chrome/test/base:testing_browser_process",
     "//chromeos/ash/components/dbus/concierge",
     "//chromeos/ash/components/network",
@@ -100,7 +97,6 @@ source_set("browser_tests") {
     "//chrome/browser/ash/arc:arc_util",
     "//chrome/browser/ash/policy/handlers",
     "//chrome/browser/profiles:profile",
-    "//chrome/browser/ui",
     "//chrome/common",
     "//chrome/test:test_support",
     "//chromeos/ash/components/dbus/shill",

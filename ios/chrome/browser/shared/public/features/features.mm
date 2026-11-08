@@ -21,7 +21,6 @@
 #import "components/variations/service/variations_service.h"
 #import "components/variations/service/variations_service_utils.h"
 #import "components/version_info/channel.h"
-#import "crypto/features.h"
 #import "ios/chrome/app/background_mode_buildflags.h"
 #import "ios/chrome/browser/ntp/shared/metrics/feed_metrics_constants.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
@@ -55,6 +54,9 @@ bool IsLevelUpEnabled() {
 
 BASE_FEATURE(kEnableLensInOmniboxCopiedImage,
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kEnableLensViewFinderUnifiedExperience,
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kLensLoadAIMInLensResultPage, base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -104,7 +106,7 @@ BASE_FEATURE(kIOSChooseFromDriveSignedOut, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kIOSDateToCalendarSignedOut, base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kIOSSaveToDriveSignedOut, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kIOSSaveToDriveSignedOut, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kIOSSaveToPhotosSignedOut, base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -355,10 +357,6 @@ bool IsPinnedTabsEnabled() {
 BASE_FEATURE(kEnableAppBackgroundRefresh, base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool IsAppBackgroundRefreshEnabled() {
-  if (!base::FeatureList::IsEnabled(
-          crypto::features::kMigrateIOSKeychainAccessibility)) {
-    return false;
-  }
   return base::FeatureList::IsEnabled(kEnableAppBackgroundRefresh);
 }
 
@@ -781,7 +779,7 @@ bool IsAIMEligibilityRefreshNTPModulesEnabled() {
   return base::FeatureList::IsEnabled(kAIMEligibilityRefreshNTPModules);
 }
 
-BASE_FEATURE(kIOSWebContextMenuNewTitle, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kIOSWebContextMenuNewTitle, base::FEATURE_ENABLED_BY_DEFAULT);
 
 bool IsIOSWebContextMenuNewTitleEnabled() {
   return base::FeatureList::IsEnabled(kIOSWebContextMenuNewTitle);
@@ -833,6 +831,13 @@ BASE_FEATURE(kComposeboxPlusButtonBottomSheet,
 
 bool IsComposeboxPlusButtonBottomSheet() {
   return base::FeatureList::IsEnabled(kComposeboxPlusButtonBottomSheet);
+}
+
+BASE_FEATURE(kComposeboxPlusButtonLargeCarousel,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool IsComposeboxPlusButtonLargeCarousel() {
+  return base::FeatureList::IsEnabled(kComposeboxPlusButtonLargeCarousel);
 }
 
 BASE_FEATURE(kChromeNextIa, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -988,7 +993,7 @@ bool IsAssistantSidePanelEnabled() {
          IsChromeNextIaEnabled() && IsFullscreenRefactoringEnabled();
 }
 
-BASE_FEATURE(kYourSavedInfoSettingsPageIos, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kYourSavedInfoSettingsPageIos, base::FEATURE_ENABLED_BY_DEFAULT);
 
 bool IsYourSavedInfoSettingsPageIosEnabled() {
   return base::FeatureList::IsEnabled(kYourSavedInfoSettingsPageIos);
@@ -1020,7 +1025,7 @@ BackgroundRefreshRegressionTestArm GetBackgroundRefreshRegressionTestArm() {
 }
 
 BASE_FEATURE(kOpenEditGroupViewByTappingTitle,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 bool IsOpenEditGroupViewByTappingTitleEnabled() {
   return base::FeatureList::IsEnabled(kOpenEditGroupViewByTappingTitle);
@@ -1038,12 +1043,42 @@ BASE_FEATURE(kPlusButtonMenuInFakebox, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Returns true if the plus button in NTP fakebox is enabled.
 bool IsPlusButtonInFakeboxEnabled() {
+  // Launched by default on phones.
+  if (ui::GetDeviceFormFactor() != ui::DEVICE_FORM_FACTOR_TABLET) {
+    return true;
+  }
   return base::FeatureList::IsEnabled(kPlusButtonInFakebox);
 }
 
 // Returns true if the plus button contextual menu in NTP fakebox is enabled.
 bool IsPlusButtonMenuInFakeboxEnabled() {
   return base::FeatureList::IsEnabled(kPlusButtonMenuInFakebox);
+}
+
+// Enables the submenu with more options in the plus menu.
+BASE_FEATURE(kPlusButtonMenuMoreOptionsSubmenu,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Returns true if the submenu groupping is enabled in the plus menu.
+bool IsPlusButtonMenuMoreOptionsSubmenu() {
+  return base::FeatureList::IsEnabled(kPlusButtonMenuMoreOptionsSubmenu);
+}
+
+// Enables the string updates in the plus button menu.
+BASE_FEATURE(kPlusButtonMenuStringUpdates, base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Returns true if the string updates in the plus button menu.
+bool IsPlusButtonMenuStringUpdatesEnabled() {
+  return base::FeatureList::IsEnabled(kPlusButtonMenuStringUpdates);
+}
+
+// Enables the string updates in the plus button menu.
+BASE_FEATURE(kPlusButtonMenuVerticalListView,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Returns true if the vertical list view is enabled in the plus button menu.
+bool IsPlusButtonMenuVerticalListView() {
+  return base::FeatureList::IsEnabled(kPlusButtonMenuVerticalListView);
 }
 
 BASE_FEATURE(kAssistantAimMinimizedState, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -1074,7 +1109,7 @@ bool IsIOSDarkModeDetectionEnabled() {
   return base::FeatureList::IsEnabled(kIOSDarkModeDetection);
 }
 
-BASE_FEATURE(kIdentityAwareness, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kIdentityAwareness, base::FEATURE_ENABLED_BY_DEFAULT);
 
 bool IsIdentityAwarenessEnabled() {
   return base::FeatureList::IsEnabled(kIdentityAwareness);
@@ -1084,6 +1119,13 @@ BASE_FEATURE(kAiSubscriptionAvatarRingIOS, base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool IsAiSubscriptionAvatarRingIOSEnabled() {
   return base::FeatureList::IsEnabled(kAiSubscriptionAvatarRingIOS);
+}
+
+BASE_FEATURE(kAiSubscriptionAvatarRingFollowupIOS,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool IsAiSubscriptionAvatarRingFollowupIOSEnabled() {
+  return base::FeatureList::IsEnabled(kAiSubscriptionAvatarRingFollowupIOS);
 }
 
 BASE_FEATURE(kInfobarBannerRevamp, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -1132,14 +1174,6 @@ BASE_FEATURE(kDefaultBottomOmniboxOnIOS, base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool IsDefaultBottomOmniboxOnIOSEnabled() {
   return base::FeatureList::IsEnabled(kDefaultBottomOmniboxOnIOS);
-}
-
-BASE_FEATURE(kClearRootViewControllerAfterSceneDisconnect,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-bool IsClearRootViewControllerAfterSceneDisconnectEnabled() {
-  return base::FeatureList::IsEnabled(
-      kClearRootViewControllerAfterSceneDisconnect);
 }
 
 BASE_FEATURE(kGlassToolbar, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -1201,6 +1235,27 @@ bool IsLightAppBarEnabled() {
   return base::FeatureList::IsEnabled(kLightAppBar);
 }
 
+BASE_FEATURE(kAssistantAimThreads, base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool IsAssistantAimThreadsEnabled() {
+  return base::FeatureList::IsEnabled(kAssistantAimThreads);
+}
+
+BASE_FEATURE(kVoiceSearchEvolutionPhase1, base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool IsVoiceSearchEvolutionPhase1Enabled() {
+  return base::FeatureList::IsEnabled(kVoiceSearchEvolutionPhase1);
+}
+
+BASE_FEATURE(kFiveButtonAppBarLayout, base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool IsFiveButtonAppBarLayoutEnabled() {
+  if (!IsNextOldDesignEnabled()) {
+    return false;
+  }
+  return base::FeatureList::IsEnabled(kFiveButtonAppBarLayout);
+}
+
 BASE_FEATURE(kLocationBarPerformanceImprovements,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -1218,4 +1273,12 @@ BASE_FEATURE(kAppBarDisableLongPress, base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool IsAppBarDisableLongPressEnabled() {
   return base::FeatureList::IsEnabled(kAppBarDisableLongPress);
+}
+
+BASE_FEATURE(kClearRootViewControllerAfterSceneDisconnect,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+bool IsClearRootViewControllerAfterSceneDisconnectEnabled() {
+  return base::FeatureList::IsEnabled(
+      kClearRootViewControllerAfterSceneDisconnect);
 }

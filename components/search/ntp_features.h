@@ -39,6 +39,7 @@ BASE_DECLARE_FEATURE(kEnergyEffect);
 BASE_DECLARE_FEATURE(kEnergyEffectAnimation);
 BASE_DECLARE_FEATURE(kRealboxCr23Theming);
 BASE_DECLARE_FEATURE(kRealboxMatchOmniboxTheme);
+BASE_DECLARE_FEATURE(kRealboxVirtualFocusNavigation);
 BASE_DECLARE_FEATURE(kNtpAlphaBackgroundCollections);
 BASE_DECLARE_FEATURE(kNtpAnimatedCaret);
 BASE_DECLARE_FEATURE(kNtpBackgroundImageErrorDetection);
@@ -66,6 +67,7 @@ BASE_DECLARE_FEATURE(kNtpOutlookCalendarModule);
 BASE_DECLARE_FEATURE(kNtpOneGoogleBar);
 BASE_DECLARE_FEATURE(kNtpScaledActionChips);
 BASE_DECLARE_FEATURE(kNtpScaledActionChipsSmall);
+BASE_DECLARE_FEATURE(kNtpActionChipsSuggestTimeout);
 BASE_DECLARE_FEATURE(kNtpSharepointModule);
 enum class NtpSharepointModuleDataType {
   kTrendingInsights,
@@ -279,12 +281,13 @@ extern const base::FeatureParam<bool> kAddTabUploadDelayOnActionChipClick;
 // Parameter determining the maximum number of small action chips to show.
 extern const base::FeatureParam<int> kNtpMaxSmallChips;
 
-// Parameter determining if in test mode for small action chips.
-extern const base::FeatureParam<bool> kNtpScaledActionChipsSmallInTestMode;
-
 // Parameter determining if fallback action chips should be shown.
 // Used for local testing.
 extern const base::FeatureParam<bool> kNtpScaledActionChipsShowFallback;
+
+// Parameter determining the timeout for action chips suggestions requests.
+extern const base::FeatureParam<base::TimeDelta>
+    kNtpActionChipsSuggestTimeoutParam;
 
 // Parameter determining the minimum amount of time that must pass before
 // shortcuts staleness counters will be incremented.
@@ -312,6 +315,11 @@ extern const base::FeatureParam<int> kBookmarkBarCountThreshold;
 // are updated.
 extern const base::FeatureParam<base::TimeDelta>
     kBookmarkBarMinStalenessTimeInterval;
+
+// Parameter determining whether the Threads Rail is shown in hybrid mode: the
+// folded state is rendered natively by Chrome, while the expanded state is
+// rendered by GWS.
+extern const base::FeatureParam<bool> kNtpThreadsRailHybridParam;
 
 // Returns the timeout after which the load of a module should be aborted.
 base::TimeDelta GetModulesLoadTimeout();

@@ -7,12 +7,21 @@
 
 #include <memory>
 
-#include "components/optimization_guide/core/model_execution/manifest_broker/manifest_asset_manager.h"
+#include "components/optimization_guide/core/model_execution/manifest_broker/manifest_asset_manager_delegate.h"
+
+namespace optimization_guide {
+
+// Overrides the task priority for getting free disk space in the context of the
+// on-device model eligibility check to base::TaskPriority::USER_VISIBLE.
+inline constexpr char kGetFreeDiskSpaceWithUserVisiblePriorityTaskSwitch[] =
+    "optimization-guide-get-free-disk-space-with-user-visible-priority-task";
+
+}  // namespace optimization_guide
 
 namespace component_updater {
 
 // Creates a generic delegate for Manifest Component.
-std::unique_ptr<optimization_guide::ManifestAssetManager::Delegate>
+std::unique_ptr<optimization_guide::ManifestAssetManagerDelegate>
 CreateManifestAssetManagerDelegate();
 
 }  // namespace component_updater

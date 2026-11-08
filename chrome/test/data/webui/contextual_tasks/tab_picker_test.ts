@@ -5,15 +5,19 @@
 import 'chrome://contextual-tasks/strings.m.js';
 import 'chrome://contextual-tasks/contextual_tasks_extension/tab_picker.js';
 
+import {ExtensionBrowserProxyImpl} from 'chrome://contextual-tasks/contextual_tasks_browser_proxy.js';
 import type {TabPickerAppElement} from 'chrome://contextual-tasks/contextual_tasks_extension/tab_picker.js';
 import {TabPickerBrowserProxyImpl} from 'chrome://contextual-tasks/contextual_tasks_extension/tab_picker.js';
 import type {TabPickerBrowserProxy} from 'chrome://contextual-tasks/contextual_tasks_extension/tab_picker.js';
 import {assert} from 'chrome://resources/js/assert.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
+import {PromiseResolver} from 'chrome://resources/js/promise_resolver.js';
 import type {TabInfo} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 import {assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import {TestBrowserProxy} from 'chrome://webui-test/test_browser_proxy.js';
 import {eventToPromise, isVisible, microtasksFinished} from 'chrome://webui-test/test_util.js';
+
+import {TestExtensionBrowserProxy} from './test_contextual_tasks_browser_proxy.js';
 
 class TestTabPickerBrowserProxy extends TestBrowserProxy implements
     TabPickerBrowserProxy {
@@ -70,6 +74,7 @@ function createTabInfo(id: number, title: string, url: string): TabInfo {
 suite('TabPickerTest', () => {
   let app: TabPickerAppElement;
   let testProxy: TestTabPickerBrowserProxy;
+  let extensionBrowserProxy: TestExtensionBrowserProxy;
   let recordedMetrics:
       Array<{metricName: string, value: number, enumSize: number}> = [];
   let originalRecordEnumerationValue: any;
@@ -116,20 +121,33 @@ suite('TabPickerTest', () => {
     recordedBooleans = [];
     document.body.innerHTML = window.trustedTypes!.emptyHTML;
 
-    if (!('showUnboundedElement' in HTMLElement.prototype)) {
-      (HTMLElement.prototype as unknown as
-       Record<string, unknown>)['showUnboundedElement'] = () =>
-          Promise.resolve();
-      (HTMLElement.prototype as unknown as
-       Record<string, unknown>)['hideUnboundedElement'] = () =>
-          Promise.resolve();
-    }
+    // Stub the Unbounded Element API in unit tests so opening the menu does
+    // not create an OS-level UnboundedSurfaceWindow (which can be dismissed by
+    // background window focus changes when browser_tests run in parallel),
+    // while setting visibility: visible to override the UA stylesheet rule
+    // `[unbounded]:not(:unbounded) { visibility: hidden }` so menu items remain
+    // focusable.
+    (HTMLElement.prototype as unknown as
+     Record<string, unknown>)['showUnboundedElement'] = function(
+        this: HTMLElement) {
+      this.style.visibility = 'visible';
+      return Promise.resolve();
+    };
+    (HTMLElement.prototype as unknown as
+     Record<string, unknown>)['hideUnboundedElement'] = function(
+        this: HTMLElement) {
+      this.style.visibility = '';
+      return Promise.resolve();
+    };
 
     loadTimeData.overrideValues({
       shareTabs: 'Add tabs',
       recentTabsSuffix: 'Recent',
       contextualTasksUnboundedMenuEnabled: true,
     });
+
+    extensionBrowserProxy = new TestExtensionBrowserProxy();
+    ExtensionBrowserProxyImpl.setInstance(extensionBrowserProxy);
 
     testProxy = new TestTabPickerBrowserProxy();
     testProxy.setRecentTabs(mockTabs);
@@ -166,13 +184,108 @@ suite('TabPickerTest', () => {
         await microtasksFinished();
         assertTrue(app.$.tabMenu.open);
 
-        app.$.shareTabsTrigger.dispatchEvent(new PointerEvent('pointerleave'));
-        // Menu remains open immediately after pointer leave due to close delay.
-        assertTrue(app.$.tabMenu.open);
+        const originalSetTimeout = window.setTimeout.bind(window);
+        const scheduledTimeouts: Array<number|undefined> = [];
+        window.setTimeout =
+            ((handler: TimerHandler, timeout?: number, ...args: unknown[]) => {
+              scheduledTimeouts.push(timeout);
+              return originalSetTimeout(handler, timeout, ...args);
+            }) as typeof window.setTimeout;
 
-        // Cancel timer with pointerenter.
-        app.$.shareTabsTrigger.dispatchEvent(new PointerEvent('pointerenter'));
-        assertTrue(app.$.tabMenu.open);
+        try {
+          app.$.shareTabsTrigger.dispatchEvent(
+              new PointerEvent('pointerleave'));
+          assertEquals(1, scheduledTimeouts.length);
+          assertEquals(50, scheduledTimeouts[0]);
+          // Menu remains open immediately after pointer leave due to close
+          // delay.
+          assertTrue(app.$.tabMenu.open);
+
+          // Cancel timer with pointerenter on trigger.
+          app.$.shareTabsTrigger.dispatchEvent(
+              new PointerEvent('pointerenter'));
+          assertTrue(app.$.tabMenu.open);
+
+          // Handoff from trigger to menu cancels close timer, and leaving menu
+          // schedules close timer.
+          app.$.shareTabsTrigger.dispatchEvent(
+              new PointerEvent('pointerleave'));
+          assertEquals(2, scheduledTimeouts.length);
+          assertEquals(50, scheduledTimeouts[1]);
+          app.$.tabMenu.dispatchEvent(new PointerEvent('pointerenter'));
+          await new Promise(resolve => originalSetTimeout(resolve, 60));
+          assertTrue(app.$.tabMenu.open);
+
+          const closePromise = eventToPromise('close', app.$.tabMenu);
+          app.$.tabMenu.dispatchEvent(new PointerEvent('pointerleave'));
+          assertEquals(3, scheduledTimeouts.length);
+          assertEquals(50, scheduledTimeouts[2]);
+          assertTrue(app.$.tabMenu.open);
+          await closePromise;
+          assertFalse(app.$.tabMenu.open);
+        } finally {
+          window.setTimeout = originalSetTimeout;
+        }
+      });
+
+  test(
+      'Does not open unbounded menu if pointer leaves while setUnbounded ' +
+          'is pending',
+      async () => {
+        const dialog = app.$.tabMenu.getDialog();
+        dialog.removeAttribute('unbounded');
+
+        let setUnboundedResolver = new PromiseResolver<boolean>();
+        const originalSetUnbounded =
+            app.$.tabMenu.setUnbounded.bind(app.$.tabMenu);
+        const originalShowAt = app.$.tabMenu.showAt.bind(app.$.tabMenu);
+        let showAtCalls = 0;
+        app.$.tabMenu.setUnbounded = async () => {
+          const result = await setUnboundedResolver.promise;
+          dialog.setAttribute('unbounded', '');
+          return result;
+        };
+        app.$.tabMenu.showAt = (...args) => {
+          showAtCalls++;
+          originalShowAt(...args);
+        };
+
+        try {
+          // Pointer enters and then leaves while setUnbounded() is still
+          // pending.
+          app.$.shareTabsTrigger.dispatchEvent(
+              new PointerEvent('pointerenter'));
+          app.$.shareTabsTrigger.dispatchEvent(
+              new PointerEvent('pointerleave'));
+
+          // Wait for the close timer to fire while setUnbounded() is still in
+          // flight, then resolve setUnbounded().
+          await new Promise(resolve => window.setTimeout(resolve, 60));
+          setUnboundedResolver.resolve(true);
+          await microtasksFinished();
+
+          assertFalse(app.$.tabMenu.open);
+          assertFalse(app.tabMenuOpen);
+          assertEquals(0, showAtCalls);
+
+          // Concurrent pointerenter and keyboard activation after a completed
+          // close timer open the menu once when setUnbounded() resolves.
+          dialog.removeAttribute('unbounded');
+          setUnboundedResolver = new PromiseResolver<boolean>();
+          app.$.shareTabsTrigger.dispatchEvent(
+              new PointerEvent('pointerenter'));
+          app.$.shareTabsTrigger.dispatchEvent(
+              new KeyboardEvent('keydown', {key: 'Enter', bubbles: true}));
+          setUnboundedResolver.resolve(true);
+          await microtasksFinished();
+
+          assertTrue(app.$.tabMenu.open);
+          assertTrue(app.tabMenuOpen);
+          assertEquals(1, showAtCalls);
+        } finally {
+          app.$.tabMenu.setUnbounded = originalSetUnbounded;
+          app.$.tabMenu.showAt = originalShowAt;
+        }
       });
 
   test(
@@ -229,6 +342,48 @@ suite('TabPickerTest', () => {
     assertTrue(app.$.tabMenu.open);
   });
 
+  test('Cycles through tab menu items with Tab and Shift+Tab', async () => {
+    app.$.shareTabsTrigger.focus();
+    app.$.shareTabsTrigger.dispatchEvent(
+        new KeyboardEvent('keydown', {key: 'Enter', bubbles: true}));
+    await microtasksFinished();
+    assertTrue(app.$.tabMenu.open);
+
+    const items =
+        app.$.tabMenu.querySelectorAll<HTMLButtonElement>('.dropdown-item');
+    assertEquals(3, items.length);
+    assertEquals(items[0], app.shadowRoot.activeElement);
+
+    // Tab forward through items and wrap around.
+    items[0]!.dispatchEvent(
+        new KeyboardEvent('keydown', {key: 'Tab', bubbles: true}));
+    assertTrue(app.$.tabMenu.open);
+    assertEquals(items[1], app.shadowRoot.activeElement);
+
+    items[1]!.dispatchEvent(
+        new KeyboardEvent('keydown', {key: 'Tab', bubbles: true}));
+    assertTrue(app.$.tabMenu.open);
+    assertEquals(items[2], app.shadowRoot.activeElement);
+
+    items[2]!.dispatchEvent(
+        new KeyboardEvent('keydown', {key: 'Tab', bubbles: true}));
+    assertTrue(app.$.tabMenu.open);
+    assertEquals(items[0], app.shadowRoot.activeElement);
+
+    // Shift+Tab backward and wrap around.
+    items[0]!.dispatchEvent(new KeyboardEvent(
+        'keydown', {key: 'Tab', shiftKey: true, bubbles: true}));
+    assertTrue(app.$.tabMenu.open);
+    assertEquals(items[2], app.shadowRoot.activeElement);
+
+    // Escape closes the menu and restores focus to trigger.
+    items[2]!.dispatchEvent(
+        new KeyboardEvent('keydown', {key: 'Escape', bubbles: true}));
+    await microtasksFinished();
+    assertFalse(app.$.tabMenu.open);
+    assertEquals(app.$.shareTabsTrigger, app.shadowRoot.activeElement);
+  });
+
   test('Selects tabs and updates trigger text and fires event', async () => {
     app.$.shareTabsTrigger.click();
     await microtasksFinished();
@@ -277,6 +432,9 @@ suite('TabPickerTest', () => {
     await microtasksFinished();
 
     assertEquals('Sharing 2 tabs', label.textContent.trim());
+    assertEquals(2, app.selectedTabs.length);
+    assertEquals(tab1.tabId, app.selectedTabs[0]!.tabId);
+    assertEquals(tab0.tabId, app.selectedTabs[1]!.tabId);
 
     // Deselect first tab.
     const deselectPromise1 =
@@ -406,14 +564,14 @@ suite('TabPickerTest', () => {
       });
 
   test('Dark mode reflects attribute correctly', async () => {
-    assertFalse(app.getDarkModeForTesting());
+    assertFalse(app.darkMode);
     assertFalse(app.hasAttribute('dark-mode'));
 
-    app.setDarkModeForTesting(true);
+    app.darkMode = true;
     await microtasksFinished();
     assertTrue(app.hasAttribute('dark-mode'));
 
-    app.setDarkModeForTesting(false);
+    app.darkMode = false;
     await microtasksFinished();
     assertFalse(app.hasAttribute('dark-mode'));
   });
@@ -428,7 +586,7 @@ suite('TabPickerTest', () => {
     const [item0] = items;
     assert(item0);
 
-    app.setDarkModeForTesting(true);
+    app.darkMode = true;
     await microtasksFinished();
 
     const color = window.getComputedStyle(item0).color;
@@ -491,6 +649,7 @@ suite('TabPickerTest', () => {
 
         // Deliberately put the active tab at position 1 rather than 0, so that
         // the two axes disagree and the test would fail if they were conflated.
+        testProxy.setRecentTabs([recentTab, activeTab]);
         app.tabSuggestions = [recentTab, activeTab];
         app.recentTabId = recentTab.tabId;
         await microtasksFinished();
@@ -539,5 +698,314 @@ suite('TabPickerTest', () => {
                     m => m.metricName ===
                         'ContextualSearch.TabPicker.SelectedTabPosition.ContextualTasksExtension')
                 ?.value);
+      });
+
+  test(
+      'Repopulates selected tabs when onTabContextUpdated is dispatched',
+      async () => {
+        extensionBrowserProxy.callbackRouterRemote.onTabContextUpdated(
+            [tab0, tab2], []);
+        await extensionBrowserProxy.callbackRouterRemote.$.flushForTesting();
+        await microtasksFinished();
+
+        assertEquals(2, app.selectedTabs.length);
+        assertEquals(tab0.tabId, app.selectedTabs[0]!.tabId);
+        assertEquals(tab2.tabId, app.selectedTabs[1]!.tabId);
+
+        const label = app.$.shareTabsTrigger.querySelector('.tab-title');
+        assert(label);
+        assertEquals('Sharing 2 tabs', label.textContent.trim());
+
+        app.$.shareTabsTrigger.click();
+        await microtasksFinished();
+
+        const items =
+            app.$.tabMenu.querySelectorAll<HTMLButtonElement>('.dropdown-item');
+        assertEquals(3, items.length);
+        assertTrue(isVisible(items[0]!.querySelector('.share-tabs-check')));
+        assertFalse(isVisible(items[1]!.querySelector('.share-tabs-check')));
+        assertTrue(isVisible(items[2]!.querySelector('.share-tabs-check')));
+
+        // Deselecting a repopulated tab deletes it from context.
+        items[0]!.click();
+        const deletedTabId = await testProxy.whenCalled('deleteTabContext');
+        assertEquals(tab0.tabId, deletedTabId);
+        await microtasksFinished();
+        assertEquals('Sharing 1 tab', label.textContent.trim());
+      });
+
+  test(
+      'Hides focus outline on pointer hover and shows on keyboard navigation',
+      async () => {
+        // Focus outlines start hidden when the element connects.
+        assertFalse(document.documentElement.classList.contains(
+            'focus-outline-visible'));
+
+        // Focusing the trigger row without a pointer press (e.g. via Tab)
+        // enables the focus outline on the trigger button.
+        app.$.shareTabsTrigger.focus();
+        if (!document.hasFocus()) {
+          app.$.shareTabsTrigger.dispatchEvent(new FocusEvent('focus'));
+        }
+        assertEquals(app.$.shareTabsTrigger, app.shadowRoot.activeElement);
+        assertTrue(document.documentElement.classList.contains(
+            'focus-outline-visible'));
+        if (document.hasFocus()) {
+          assertEquals(
+              'solid',
+              window.getComputedStyle(app.$.shareTabsTrigger).outlineStyle);
+        }
+
+        // Opening via pointerenter clears focus outlines and does not
+        // auto-focus the first tab item.
+        app.$.shareTabsTrigger.dispatchEvent(new PointerEvent('pointerenter'));
+        await microtasksFinished();
+        await new Promise(resolve => requestAnimationFrame(resolve));
+        assertTrue(app.$.tabMenu.open);
+        assertFalse(document.documentElement.classList.contains(
+            'focus-outline-visible'));
+        assertEquals(
+            'none',
+            window.getComputedStyle(app.$.shareTabsTrigger).outlineStyle);
+
+        const items =
+            app.$.tabMenu.querySelectorAll<HTMLButtonElement>('.dropdown-item');
+        const [item0, item1] = items;
+        assert(item0);
+        assert(item1);
+        assertFalse(app.shadowRoot.activeElement === item0);
+        assertEquals('none', window.getComputedStyle(item0).outlineStyle);
+
+        // Hovering a tab item focuses it via cr-action-menu mouseover without
+        // showing a keyboard focus outline.
+        item0.dispatchEvent(
+            new MouseEvent('mouseover', {bubbles: true, composed: true}));
+        await microtasksFinished();
+        assertEquals(item0, app.shadowRoot.activeElement);
+        assertFalse(document.documentElement.classList.contains(
+            'focus-outline-visible'));
+        assertEquals('none', window.getComputedStyle(item0).outlineStyle);
+
+        const closePromise1 = eventToPromise('close', app.$.tabMenu);
+        app.$.tabMenu.close();
+        await closePromise1;
+        await microtasksFinished();
+        assertFalse(app.$.tabMenu.open);
+        assertFalse(document.documentElement.classList.contains(
+            'focus-outline-visible'));
+
+        // Pointer press on the trigger row suppresses the focus outline when
+        // the browser focuses the button on pointerdown, and clicking clears
+        // focus-outline-visible.
+        app.$.shareTabsTrigger.focus();
+        if (!document.hasFocus()) {
+          app.$.shareTabsTrigger.dispatchEvent(new FocusEvent('focus'));
+        }
+        assertTrue(document.documentElement.classList.contains(
+            'focus-outline-visible'));
+        app.$.shareTabsTrigger.blur();
+        app.$.shareTabsTrigger.dispatchEvent(new PointerEvent('pointerdown'));
+        app.$.shareTabsTrigger.focus();
+        if (!document.hasFocus()) {
+          app.$.shareTabsTrigger.dispatchEvent(new FocusEvent('focus'));
+        }
+        assertFalse(document.documentElement.classList.contains(
+            'focus-outline-visible'));
+
+        app.$.shareTabsTrigger.dispatchEvent(
+            new KeyboardEvent('keydown', {key: 'Tab', bubbles: true}));
+        assertTrue(document.documentElement.classList.contains(
+            'focus-outline-visible'));
+        app.$.shareTabsTrigger.click();
+        await microtasksFinished();
+        await new Promise(resolve => requestAnimationFrame(resolve));
+        assertTrue(app.$.tabMenu.open);
+        assertFalse(document.documentElement.classList.contains(
+            'focus-outline-visible'));
+        assertFalse(app.shadowRoot.activeElement === item0);
+
+        const closePromise2 = eventToPromise('close', app.$.tabMenu);
+        app.$.tabMenu.close();
+        await closePromise2;
+        await microtasksFinished();
+        assertFalse(app.$.tabMenu.open);
+
+        // Opening via keyboard enables focus outlines and focuses the first
+        // tab item.
+        app.$.shareTabsTrigger.dispatchEvent(
+            new KeyboardEvent('keydown', {key: 'ArrowRight', bubbles: true}));
+        await microtasksFinished();
+        await new Promise(resolve => requestAnimationFrame(resolve));
+        assertTrue(app.$.tabMenu.open);
+        assertTrue(document.documentElement.classList.contains(
+            'focus-outline-visible'));
+        assertEquals(item0, app.shadowRoot.activeElement);
+        if (document.hasFocus()) {
+          assertEquals('solid', window.getComputedStyle(item0).outlineStyle);
+        }
+
+        // Moving the pointer over the menu clears the keyboard focus outline.
+        app.$.tabMenu.dispatchEvent(
+            new PointerEvent('pointermove', {bubbles: true}));
+        await microtasksFinished();
+        assertFalse(document.documentElement.classList.contains(
+            'focus-outline-visible'));
+        assertEquals('none', window.getComputedStyle(item0).outlineStyle);
+
+        // Pressing ArrowDown inside the menu re-enables the keyboard focus
+        // outline and advances focus to the second tab item.
+        app.$.tabMenu.dispatchEvent(
+            new KeyboardEvent('keydown', {key: 'ArrowDown', bubbles: true}));
+        await microtasksFinished();
+        assertTrue(document.documentElement.classList.contains(
+            'focus-outline-visible'));
+        assertEquals(item1, app.shadowRoot.activeElement);
+        if (document.hasFocus()) {
+          assertEquals('solid', window.getComputedStyle(item1).outlineStyle);
+        }
+
+        // Pressing ArrowLeft inside the menu closes the cascading submenu and
+        // preserves keyboard focus and outline on the trigger button.
+        const arrowLeftClosePromise = eventToPromise('close', app.$.tabMenu);
+        app.$.tabMenu.dispatchEvent(
+            new KeyboardEvent('keydown', {key: 'ArrowLeft', bubbles: true}));
+        await arrowLeftClosePromise;
+        await new Promise(resolve => requestAnimationFrame(resolve));
+        await microtasksFinished();
+        assertFalse(app.$.tabMenu.open);
+        assertEquals(app.$.shareTabsTrigger, app.shadowRoot.activeElement);
+        assertTrue(document.documentElement.classList.contains(
+            'focus-outline-visible'));
+        if (document.hasFocus()) {
+          assertEquals(
+              'solid',
+              window.getComputedStyle(app.$.shareTabsTrigger).outlineStyle);
+        }
+
+        // Pressing Escape inside the menu also preserves keyboard focus and
+        // outline on the trigger button.
+        app.$.shareTabsTrigger.dispatchEvent(
+            new KeyboardEvent('keydown', {key: 'Enter', bubbles: true}));
+        await microtasksFinished();
+        await new Promise(resolve => requestAnimationFrame(resolve));
+        assertTrue(app.$.tabMenu.open);
+
+        const escapeClosePromise = eventToPromise('close', app.$.tabMenu);
+        app.$.tabMenu.dispatchEvent(
+            new KeyboardEvent('keydown', {key: 'Escape', bubbles: true}));
+        await escapeClosePromise;
+        await new Promise(resolve => requestAnimationFrame(resolve));
+        await microtasksFinished();
+        assertFalse(app.$.tabMenu.open);
+        assertEquals(app.$.shareTabsTrigger, app.shadowRoot.activeElement);
+        assertTrue(document.documentElement.classList.contains(
+            'focus-outline-visible'));
+
+        // Moving the pointer over the trigger row clears the keyboard focus
+        // outline.
+        app.$.shareTabsTrigger.dispatchEvent(
+            new PointerEvent('pointermove', {bubbles: true}));
+        await microtasksFinished();
+        assertFalse(document.documentElement.classList.contains(
+            'focus-outline-visible'));
+        assertEquals(
+            'none',
+            window.getComputedStyle(app.$.shareTabsTrigger).outlineStyle);
+      });
+
+  test(
+      'Refreshes tab suggestions when hovering over trigger or menu',
+      async () => {
+        const newTab = createTabInfo(4, 'Tab Four', 'https://example.com/4');
+        testProxy.resetResolver('getRecentTabs');
+        testProxy.setRecentTabs([newTab, ...mockTabs]);
+
+        app.$.shareTabsTrigger.dispatchEvent(new PointerEvent('pointerenter'));
+        await testProxy.whenCalled('getRecentTabs');
+        await microtasksFinished();
+
+        assertTrue(app.$.tabMenu.open);
+        assertEquals(newTab.tabId, app.recentTabId);
+        let items =
+            app.$.tabMenu.querySelectorAll<HTMLButtonElement>('.dropdown-item');
+        assertEquals(4, items.length);
+        assertEquals(
+            'Tab Four',
+            items[0]!.querySelector('.tab-title')!.textContent.trim());
+        assertTrue(isVisible(items[0]!.querySelector('.recent-tabs-suffix')));
+        assertFalse(isVisible(items[1]!.querySelector('.recent-tabs-suffix')));
+
+        // While the menu remains open, another tab is opened and the pointer
+        // enters the menu.
+        const newerTab = createTabInfo(5, 'Tab Five', 'https://example.com/5');
+        testProxy.resetResolver('getRecentTabs');
+        testProxy.setRecentTabs([newerTab, newTab, ...mockTabs]);
+
+        app.$.tabMenu.dispatchEvent(new PointerEvent('pointerenter'));
+        await testProxy.whenCalled('getRecentTabs');
+        await microtasksFinished();
+
+        assertEquals(newerTab.tabId, app.recentTabId);
+        items =
+            app.$.tabMenu.querySelectorAll<HTMLButtonElement>('.dropdown-item');
+        assertEquals(5, items.length);
+        assertEquals(
+            'Tab Five',
+            items[0]!.querySelector('.tab-title')!.textContent.trim());
+        assertTrue(isVisible(items[0]!.querySelector('.recent-tabs-suffix')));
+
+        // If all eligible tabs are closed before hovering the menu, the menu
+        // closes and clears recentTabId.
+        testProxy.resetResolver('getRecentTabs');
+        testProxy.setRecentTabs([]);
+
+        app.$.tabMenu.dispatchEvent(new PointerEvent('pointerenter'));
+        await testProxy.whenCalled('getRecentTabs');
+        await microtasksFinished();
+
+        assertFalse(app.$.tabMenu.open);
+        assertEquals(null, app.recentTabId);
+      });
+
+  test(
+      'Opens tab menu on hover when tabs are added after empty initial load',
+      async () => {
+        app.remove();
+        testProxy.resetResolver('getRecentTabs');
+        testProxy.setRecentTabs([]);
+
+        app = document.createElement('tab-picker-app');
+        document.body.appendChild(app);
+        await testProxy.whenCalled('getRecentTabs');
+        await microtasksFinished();
+
+        assertEquals(0, app.tabSuggestions.length);
+        assertEquals(null, app.recentTabId);
+
+        // Hovering when there are still no tabs does not open the menu.
+        testProxy.resetResolver('getRecentTabs');
+        app.$.shareTabsTrigger.dispatchEvent(new PointerEvent('pointerenter'));
+        await testProxy.whenCalled('getRecentTabs');
+        await microtasksFinished();
+        assertFalse(app.$.tabMenu.open);
+
+        // A new tab is opened while the outer menu remains mounted, and the
+        // user hovers over the trigger again.
+        const newTab = createTabInfo(10, 'New Tab', 'https://example.com/new');
+        testProxy.resetResolver('getRecentTabs');
+        testProxy.setRecentTabs([newTab]);
+
+        app.$.shareTabsTrigger.dispatchEvent(new PointerEvent('pointerenter'));
+        await testProxy.whenCalled('getRecentTabs');
+        await microtasksFinished();
+
+        assertTrue(app.$.tabMenu.open);
+        assertEquals(newTab.tabId, app.recentTabId);
+        const items =
+            app.$.tabMenu.querySelectorAll<HTMLButtonElement>('.dropdown-item');
+        assertEquals(1, items.length);
+        assertEquals(
+            'New Tab',
+            items[0]!.querySelector('.tab-title')!.textContent.trim());
       });
 });

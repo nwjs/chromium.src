@@ -30,6 +30,7 @@ static_library("sync_tab_context") {
     "tab_context_sync_service.h",
     "tab_context_sync_service_impl.cc",
     "tab_context_sync_service_impl.h",
+    "upload_outcome.h",
   ]
 
   public_deps = [
@@ -49,6 +50,34 @@ static_library("sync_tab_context") {
     "//google_apis",
     "//net",
     "//services/network/public/cpp",
+    "//third_party/zlib/google:compression_utils",
+  ]
+}
+
+static_library("test_support") {
+  testonly = true
+
+  sources = [
+    "fake_ephemeral_key_server.cc",
+    "fake_ephemeral_key_server.h",
+    "mock_tab_context_sync_service.cc",
+    "mock_tab_context_sync_service.h",
+  ]
+
+  public_deps = [
+    ":sync_tab_context",
+    "//base",
+    "//components/sync/model",
+    "//components/sync/protocol",
+    "//net",
+    "//net:test_support",
+    "//testing/gmock",
+    "//url",
+  ]
+
+  deps = [
+    "//components/sync/model/crypto",
+    "//third_party/zlib/google:compression_utils",
   ]
 }
 
@@ -78,5 +107,6 @@ source_set("unit_tests") {
     "//services/network/public/cpp",
     "//testing/gmock",
     "//testing/gtest",
+    "//third_party/zlib/google:compression_utils",
   ]
 }

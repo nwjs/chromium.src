@@ -19,11 +19,8 @@ import os.path
 import sys
 
 from mojom.generate import compatibility_checker
-from mojom.generate import module
 from mojom.generate import translate
 from mojom.parse import parser
-
-# pylint: disable=raise-missing-from
 
 
 class ParseError(Exception):
@@ -39,8 +36,6 @@ def _ValidateDelta(root, delta):
   not produce or rely on cached module translations, but instead parses the full
   transitive closure of a mojom's input dependencies all at once.
   """
-
-  translate.is_running_backwards_compatibility_check_hack = True
 
   # First build a map of all files covered by the delta
   affected_files = set()

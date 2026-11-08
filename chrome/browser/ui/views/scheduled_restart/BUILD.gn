@@ -24,10 +24,7 @@ if (is_win || is_mac || is_linux) {
       "scheduled_restart_bubble_view.cc",
     ]
 
-    public_deps = [
-      ":scheduled_restart",
-      "//chrome/browser:browser_public_dependencies",
-    ]
+    public_deps = [ ":scheduled_restart" ]
 
     deps = [
       "//chrome/app:branded_strings",
@@ -95,7 +92,6 @@ if (is_win || is_mac || is_linux) {
       "//chrome/browser",
       "//chrome/browser/lifetime",
       "//chrome/browser/lifetime:test_support",
-      "//chrome/browser/ui",
       "//chrome/browser/ui:browser_commands",
       "//chrome/browser/ui/tabs:tab_strip",
       "//chrome/browser/ui/views/frame:browser_view_header",

@@ -1,0 +1,276 @@
+// Copyright 2012 The Chromium Authors
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+// Defines the Chrome Extensions Cookies API functions for accessing internet
+// cookies, as specified in the extension API JSON.
+
+#ifndef EXTENSIONS_BROWSER_API_COOKIES_COOKIES_API_H_
+#define EXTENSIONS_BROWSER_API_COOKIES_COOKIES_API_H_
+
+#include <memory>
+#include <optional>
+#include <string>
+
+#include "base/gtest_prod_util.h"
+#include "base/memory/raw_ptr.h"
+#include "base/values.h"
+#include "extensions/browser/api/cookies/cookies_api_delegate.h"
+#include "extensions/browser/browser_context_keyed_api_factory.h"
+#include "extensions/browser/browser_context_lifetime_observer.h"
+#include "extensions/browser/event_router.h"
+#include "extensions/browser/extension_function.h"
+#include "extensions/common/api/cookies.h"
+#include "mojo/public/cpp/bindings/receiver.h"
+#include "mojo/public/cpp/bindings/remote.h"
+#include "net/cookies/canonical_cookie.h"
+#include "net/cookies/cookie_access_result.h"
+#include "services/network/public/mojom/cookie_manager.mojom.h"
+#include "url/gurl.h"
+
+namespace extensions {
+
+class BrowserContextLifetimeTracker;
+
+// Observes CookieManager Mojo messages and routes them as events to the
+// extension system.
+class CookiesEventRouter : public BrowserContextLifetimeObserver {
+ public:
+  explicit CookiesEventRouter(content::BrowserContext* context);
+
+  CookiesEventRouter(const CookiesEventRouter&) = delete;
+  CookiesEventRouter& operator=(const CookiesEventRouter&) = delete;
+
+  ~CookiesEventRouter() override;
+
+  // BrowserContextLifetimeObserver:
+  void OnRelatedOffTheRecordBrowserContextCreated(
+      content::BrowserContext& off_the_record_context) override;
+  void OnRelatedOffTheRecordBrowserContextDestroyed(
+      content::BrowserContext& off_the_record_context) override;
+
+ private:
+  FRIEND_TEST_ALL_PREFIXES(ExtensionApiTest, OTRReceiverMojoConnectionError);
+
+  // This helper class connects to the CookieMonster over Mojo, and relays Mojo
+  // messages to the owning CookiesEventRouter. This rather clumsy arrangement
+  // is necessary to differentiate which CookieMonster the Mojo message comes
+  // from (that associated with the incognito profile vs the original profile),
+  // since it's not possible to tell the source from inside OnCookieChange().
+  class CookieChangeListener : public network::mojom::CookieChangeListener {
+   public:
+    CookieChangeListener(CookiesEventRouter* router, bool otr);
+
+    CookieChangeListener(const CookieChangeListener&) = delete;
+    CookieChangeListener& operator=(const CookieChangeListener&) = delete;
+
+    ~CookieChangeListener() override;
+
+    // network::mojom::CookieChangeListener:
+    void OnCookieChange(const net::CookieChangeInfo& change) override;
+
+   private:
+    raw_ptr<CookiesEventRouter> router_;
+    bool otr_;
+  };
+
+  void MaybeStartListening();
+  void BindToCookieManager(
+      mojo::Receiver<network::mojom::CookieChangeListener>* receiver,
+      content::BrowserContext& context);
+  void OnConnectionError(
+      mojo::Receiver<network::mojom::CookieChangeListener>* receiver);
+  void OnCookieChange(bool otr, const net::CookieChangeInfo& change);
+
+  // This method dispatches events to the extension message service.
+  void DispatchEvent(content::BrowserContext* context,
+                     events::HistogramValue histogram_value,
+                     const std::string& event_name,
+                     base::ListValue event_args,
+                     const GURL& cookie_domain);
+
+  raw_ptr<content::BrowserContext> browser_context_;
+
+  // May be null if this embedder doesn't support tracking off-the-record
+  // context lifetimes.
+  raw_ptr<BrowserContextLifetimeTracker> browser_context_lifetime_tracker_;
+
+  // To listen to cookie changes in both the original and the off the record
+  // profiles, we need a pair of bindings, as well as a pair of
+  // CookieChangeListener instances.
+  CookieChangeListener listener_{this, false};
+  mojo::Receiver<network::mojom::CookieChangeListener> receiver_{&listener_};
+
+  CookieChangeListener otr_listener_{this, true};
+  mojo::Receiver<network::mojom::CookieChangeListener> otr_receiver_{
+      &otr_listener_};
+};
+
+// Implements the cookies.get() extension function.
+class CookiesGetFunction : public ExtensionFunction {
+ public:
+  DECLARE_EXTENSION_FUNCTION("cookies.get", COOKIES_GET)
+
+  CookiesGetFunction();
+
+ protected:
+  ~CookiesGetFunction() override;
+
+  // ExtensionFunction:
+  ResponseAction Run() override;
+
+ private:
+  void GetCookieListCallback(
+      const net::CookieAccessResultList& cookie_list,
+      const net::CookieAccessResultList& excluded_cookies);
+
+  // Notify the extension telemetry service when API is called.
+  void NotifyExtensionTelemetry();
+
+  GURL url_;
+  mojo::Remote<network::mojom::CookieManager> store_browser_cookie_manager_;
+  std::optional<api::cookies::Get::Params> parsed_args_;
+};
+
+// Implements the cookies.getAll() extension function.
+class CookiesGetAllFunction : public ExtensionFunction {
+ public:
+  DECLARE_EXTENSION_FUNCTION("cookies.getAll", COOKIES_GETALL)
+
+  CookiesGetAllFunction();
+
+ protected:
+  ~CookiesGetAllFunction() override;
+
+  // ExtensionFunction:
+  ResponseAction Run() override;
+
+ private:
+  // For the two different callback signatures for getting cookies for a URL vs
+  // getting all cookies. They do the same thing.
+  void GetAllCookiesCallback(const net::CookieList& cookie_list);
+  void GetCookieListCallback(
+      const net::CookieAccessResultList& cookie_list,
+      const net::CookieAccessResultList& excluded_cookies);
+
+  // Notify the extension telemetry service when API is called.
+  void NotifyExtensionTelemetry();
+
+  GURL url_;
+  mojo::Remote<network::mojom::CookieManager> store_browser_cookie_manager_;
+  std::optional<api::cookies::GetAll::Params> parsed_args_;
+};
+
+// Implements the cookies.set() extension function.
+class CookiesSetFunction : public ExtensionFunction {
+ public:
+  DECLARE_EXTENSION_FUNCTION("cookies.set", COOKIES_SET)
+
+  CookiesSetFunction();
+
+ protected:
+  ~CookiesSetFunction() override;
+  ResponseAction Run() override;
+
+ private:
+  void SetCanonicalCookieCallback(net::CookieAccessResult set_cookie_result);
+  void GetCookieListCallback(
+      const net::CookieAccessResultList& cookie_list,
+      const net::CookieAccessResultList& excluded_cookies);
+
+  enum { NO_RESPONSE, SET_COMPLETED, GET_COMPLETED } state_;
+  GURL url_;
+  bool success_;
+  mojo::Remote<network::mojom::CookieManager> store_browser_cookie_manager_;
+  std::optional<api::cookies::Set::Params> parsed_args_;
+};
+
+// Implements the cookies.remove() extension function.
+class CookiesRemoveFunction : public ExtensionFunction {
+ public:
+  DECLARE_EXTENSION_FUNCTION("cookies.remove", COOKIES_REMOVE)
+
+  CookiesRemoveFunction();
+
+ protected:
+  ~CookiesRemoveFunction() override;
+
+  // ExtensionFunction:
+  ResponseAction Run() override;
+
+ private:
+  void RemoveCookieCallback(uint32_t /* num_deleted */);
+
+  GURL url_;
+  mojo::Remote<network::mojom::CookieManager> store_browser_cookie_manager_;
+  std::optional<api::cookies::Remove::Params> parsed_args_;
+};
+
+// Implements the cookies.getPartitionKey() extension function.
+class CookiesGetPartitionKeyFunction : public ExtensionFunction {
+ public:
+  DECLARE_EXTENSION_FUNCTION("cookies.getPartitionKey", COOKIES_GETPARTITIONKEY)
+
+  CookiesGetPartitionKeyFunction();
+
+ protected:
+  ~CookiesGetPartitionKeyFunction() override;
+
+  // ExtensionFunction:
+  ResponseAction Run() override;
+
+ private:
+  std::optional<api::cookies::GetPartitionKey::Params> parsed_args_;
+};
+
+// Implements the cookies.getAllCookieStores() extension function.
+class CookiesGetAllCookieStoresFunction : public ExtensionFunction {
+ public:
+  DECLARE_EXTENSION_FUNCTION("cookies.getAllCookieStores",
+                             COOKIES_GETALLCOOKIESTORES)
+
+ protected:
+  ~CookiesGetAllCookieStoresFunction() override = default;
+
+  // ExtensionFunction:
+  ResponseAction Run() override;
+};
+
+class CookiesAPI : public BrowserContextKeyedAPI, public EventRouter::Observer {
+ public:
+  explicit CookiesAPI(content::BrowserContext* context);
+
+  CookiesAPI(const CookiesAPI&) = delete;
+  CookiesAPI& operator=(const CookiesAPI&) = delete;
+
+  ~CookiesAPI() override;
+
+  // KeyedService implementation.
+  void Shutdown() override;
+
+  // BrowserContextKeyedAPI implementation.
+  static BrowserContextKeyedAPIFactory<CookiesAPI>* GetFactoryInstance();
+
+  // EventRouter::Observer implementation.
+  void OnListenerAdded(const EventListenerInfo& details) override;
+
+  CookiesEventRouter* GetCookiesEventRouterForTesting() {
+    return cookies_event_router_.get();
+  }
+
+ private:
+  friend class BrowserContextKeyedAPIFactory<CookiesAPI>;
+
+  raw_ptr<content::BrowserContext> browser_context_;
+
+  // BrowserContextKeyedAPI implementation.
+  static const char* service_name() { return "CookiesAPI"; }
+  static const bool kServiceIsNULLWhileTesting = true;
+
+  // Created lazily upon OnListenerAdded.
+  std::unique_ptr<CookiesEventRouter> cookies_event_router_;
+};
+
+}  // namespace extensions
+
+#endif  // EXTENSIONS_BROWSER_API_COOKIES_COOKIES_API_H_

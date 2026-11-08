@@ -60,11 +60,6 @@ chromium-metrics-reviews@google.com.
                their home screen (using a text bubble)"/>
   <variant name="IPH_AimActivationHint"
       summary="A hint to activate AI Mode on Android Desktop via keystrokes."/>
-  <variant name="IPH_AndroidBottomBarAim"
-      summary="Describes the AI Mode button added in the bottom bar."/>
-  <variant name="IPH_AndroidBottomBarAimPromoDialog"
-      summary="For the promo dialog shown to introduce AI Mode with the
-               bottom bar."/>
   <variant name="IPH_AndroidBottomBarGlic"
       summary="Describes the GLIC button added in the bottom bar."/>
   <variant name="IPH_AndroidBottomBarNewTab"
@@ -150,9 +145,13 @@ chromium-metrics-reviews@google.com.
       summary="What's New badge for Reading Mode"/>
   <variant name="IPH_BadgedReadingList" summary="badged reading list"/>
   <variant name="IPH_BatterySaverMode" summary="battery saver mode"/>
+  <variant name="IPH_BlueBubbleCooldownGroup"
+      summary="Cooldown group for blue bubble IPHs on Android."/>
   <variant name="IPH_Bookmark" summary="bookmark"/>
   <variant name="IPH_BookmarkBarSimplified"
       summary="bookmark bar simplified auto-hide toast"/>
+  <variant name="IPH_BookmarkBarVisibility"
+      summary="message shown to inform users about the bookmark bar"/>
   <variant name="IPH_BottomToolbarTip" summary="bottom toolbar"/>
   <variant name="IPH_CCTHistory" summary="CCT history action"/>
   <variant name="IPH_CCTMinimized" summary="CCT minimize action"/>
@@ -317,6 +316,10 @@ chromium-metrics-reviews@google.com.
       summary="generic feature to always show help Ui whenever asked"/>
   <variant name="IPH_GestureUserEducation"
       summary="IPH for gesture user education"/>
+  <variant name="IPH_GlassFrameOptIn"
+      summary="IPH for opting into the transparent glass frame tab styling"/>
+  <variant name="IPH_GlassFrameOptOut"
+      summary="IPH for opting out of the glass frame"/>
   <variant name="IPH_GlicPromo" summary="Glic promotion"/>
   <variant name="IPH_GlicPromoAndroid" summary="Glic promotion on Android"/>
   <variant name="IPH_GlicTrustFirstOnboardingShortcutSnoozePromo"
@@ -347,6 +350,8 @@ chromium-metrics-reviews@google.com.
   <variant name="IPH_IncognitoWindow" summary="incognito window"/>
   <variant name="IPH_InstanceSwitcher" summary="instance switcher"/>
   <variant name="IPH_IntentChip" summary="opening a webpage in an app"/>
+  <variant name="IPH_InterruptiveIphCooldownGroup"
+      summary="Cooldown group for interruptive IPHs on Android."/>
   <variant name="IPH_iOSAddressPromoDesktop"
       summary="showing the iOS address promo on desktop"/>
   <variant name="IPH_iOSAIHubNewBadge"
@@ -354,6 +359,8 @@ chromium-metrics-reviews@google.com.
   <variant name="IPH_iOSBackgroundNewBadge"
       summary="showing the new badge on a background tile in the home
                customization menu"/>
+  <variant name="IPH_iOSBottomOmniboxFeature"
+      summary="showing the IPH to move the omnibox to the bottom on iOS"/>
   <variant name="IPH_iOSBWGPromo" summary="shows users a promo for BWG"/>
   <variant name="IPH_iOSChoiceScreenFeature"
       summary="(obsolete) showing the Choice screen on iOS"/>
@@ -438,6 +445,8 @@ chromium-metrics-reviews@google.com.
       summary="showing the iOS post-default browser abandonment promo on iOS"/>
   <variant name="IPH_iOSPriceTrackingDesktop"
       summary="showing the price tracking desktop to mobile promo on desktop"/>
+  <variant name="IPH_iOSPromoAccountSwitching"
+      summary="showing the Smart Account Switching Promo on iOS"/>
   <variant name="IPH_iOSPromoAllTabs"
       summary="showing All Tabs default browser promo"/>
   <variant name="IPH_iOSPromoAppStore"
@@ -531,12 +540,6 @@ chromium-metrics-reviews@google.com.
       summary="showing the tab groups promo on desktop"/>
   <variant name="IPH_iOSWelcomeBack"
       summary="shows returning users features they may be interested in"/>
-  <variant name="IPH_KeyboardAccessoryAddressFilling"
-      summary="address autofill suggestions"/>
-  <variant name="IPH_KeyboardAccessoryPasswordFilling"
-      summary="password autofill suggestions"/>
-  <variant name="IPH_KeyboardAccessoryPaymentFilling"
-      summary="payments autofill suggestions"/>
   <variant name="IPH_KeyboardAccessoryPaymentOffer"
       summary="payments autofill suggestions that have an offer"/>
   <variant name="IPH_LauncherSearchHelpUi"
@@ -660,6 +663,10 @@ chromium-metrics-reviews@google.com.
   <variant name="IPH_ReadingMode"
       summary="educating users to click the side panel icon to open reading
                mode"/>
+  <variant name="IPH_ReadingModeAiPlayback"
+      summary="promotes the AI playback toggle in Reading Mode"/>
+  <variant name="IPH_ReadingModeAiPlaybackSettings"
+      summary="promotes Reading Mode settings after trying AI playback"/>
   <variant name="IPH_ReadingModeKeyboardShortcut"
       summary="promotes the keyboard shortcut for reading mode"/>
   <variant name="IPH_ReadingModeLineFocus"
@@ -714,8 +721,6 @@ chromium-metrics-reviews@google.com.
   <variant name="IPH_SharedHighlightingReceiver"
       summary="the in product help message encouraging users to create
                highlights"/>
-  <variant name="IPH_SharingHubLinkToggle"
-      summary="turning on link sharing in the Sharing Hub"/>
   <variant name="IPH_SharingHubWebnotesStylize"
       summary="informing users about the Webnotes Stylize feature in Sharing
                Hub"/>

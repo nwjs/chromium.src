@@ -23,6 +23,7 @@ import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
+import org.robolectric.Robolectric;
 
 import org.chromium.base.Callback;
 import org.chromium.base.test.BaseRobolectricTestRunner;
@@ -44,7 +45,6 @@ public class GlicTabPickerBridgeUnitTest {
     @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
 
     @Mock private WindowAndroid mWindowAndroidMock;
-    @Mock private Activity mActivityMock;
     @Mock private TabModelSelector mTabModelSelectorMock;
     @Mock private Tab mTab1Mock;
     @Mock private Tab mTab2Mock;
@@ -57,7 +57,8 @@ public class GlicTabPickerBridgeUnitTest {
 
     @Before
     public void setUp() {
-        when(mWindowAndroidMock.getActivity()).thenReturn(new WeakReference<>(mActivityMock));
+        Activity activity = Robolectric.buildActivity(Activity.class).get();
+        when(mWindowAndroidMock.getActivity()).thenReturn(new WeakReference<>(activity));
         when(mTab1Mock.getId()).thenReturn(30);
         when(mTab2Mock.getId()).thenReturn(40);
         when(mTab3Mock.getId()).thenReturn(50);

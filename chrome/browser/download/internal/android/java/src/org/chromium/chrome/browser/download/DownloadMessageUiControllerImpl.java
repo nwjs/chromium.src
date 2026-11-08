@@ -225,9 +225,8 @@ public class DownloadMessageUiControllerImpl implements DownloadMessageUiControl
         @Override
         public boolean equals(@Nullable Object obj) {
             if (obj == this) return true;
-            if (!(obj instanceof DownloadProgressMessageUiData)) return false;
+            if (!(obj instanceof DownloadProgressMessageUiData other)) return false;
 
-            DownloadProgressMessageUiData other = (DownloadProgressMessageUiData) obj;
             return Objects.equals(id, other.id)
                     && TextUtils.equals(message, other.message)
                     && TextUtils.equals(description, other.description)
@@ -305,9 +304,8 @@ public class DownloadMessageUiControllerImpl implements DownloadMessageUiControl
         @Override
         public boolean equals(@Nullable Object obj) {
             if (obj == this) return true;
-            if (!(obj instanceof DownloadCount)) return false;
+            if (!(obj instanceof DownloadCount other)) return false;
 
-            DownloadCount other = (DownloadCount) obj;
             return inProgress == other.inProgress
                     && pending == other.pending
                     && failed == other.failed
@@ -368,12 +366,16 @@ public class DownloadMessageUiControllerImpl implements DownloadMessageUiControl
     }
 
     /**
-     * Shows the message that download has started. Unlike other methods in this class, this
-     * method doesn't require an {@link OfflineItem} and is invoked by the backend to provide a
-     * responsive feedback to the users even before the download has actually started.
+     * Shows the message that download has started. Unlike other methods in this class, this method
+     * doesn't require an {@link OfflineItem} and is invoked by the backend to provide a responsive
+     * feedback to the users even before the download has actually started.
      */
     @Override
     public void onDownloadStarted() {
+        // The download toolbar button provides this feedback when enabled.
+        if (DownloadFeatures.isDownloadToolbarButtonEnabled()) {
+            return;
+        }
         computeNextStepForUpdate(null, true, false, false);
     }
 
@@ -575,6 +577,16 @@ public class DownloadMessageUiControllerImpl implements DownloadMessageUiControl
             return false;
         }
 
+        // When the download toolbar button is enabled it conveys progress and completion, so those
+        // messages are suppressed. Safety warnings above and failures (including enterprise
+        // FILE_BLOCKED) are still shown because the button has no way to communicate them.
+        // TODO(crbug.com/570647830): Split the progress/complete UI out of this controller so it
+        // can be skipped entirely instead of flag-guarded here and in onDownloadStarted().
+        if (DownloadFeatures.isDownloadToolbarButtonEnabled()
+                && offlineItem.state != OfflineItemState.FAILED) {
+            return false;
+        }
+
         if (LegacyHelpers.isLegacyDownload(offlineItem.id)) {
             boolean shouldNotify =
                     offlineItem.state == OfflineItemState.FAILED
@@ -614,11 +626,15 @@ public class DownloadMessageUiControllerImpl implements DownloadMessageUiControl
         }
 
         preProcessUpdatedItem(updatedItem);
+        // A download displayed as dangerous is held pending the user's decision, so it is a result
+        // (see getDownloadCount()) rather than a new download, even if this is the first update
+        // seen for it.
         boolean isNewDownload =
                 forceShowDownloadStarted
                         || (updatedItem != null
                                 && updatedItem.state == OfflineItemState.IN_PROGRESS
-                                && !mSeenItems.contains(updatedItem.id));
+                                && !mSeenItems.contains(updatedItem.id)
+                                && !shouldDisplayItemAsDangerousInMessage(updatedItem));
         boolean itemResumedFromPending = itemResumedFromPending(updatedItem);
         boolean itemValidatedAfterDangerous = itemValidatedAfterDangerous(updatedItem);
 

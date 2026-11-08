@@ -22,11 +22,11 @@
 #include "chrome/browser/ui/read_anything/read_anything_lifecycle_observer.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
 #include "chrome/browser/ui/toolbar/pinned_toolbar/pinned_toolbar_actions_model.h"
+#include "chrome/browser/ui/webui/side_panel/read_anything/read_anything_translate_observer.h"
 #include "chrome/common/read_anything/distillation_evaluator.mojom.h"
 #include "chrome/common/read_anything/read_anything.mojom.h"
 #include "components/dom_distiller/core/task_tracker.h"
 #include "components/translate/core/browser/translate_client.h"
-#include "components/translate/core/browser/translate_driver.h"
 #include "content/public/browser/tts_controller.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
@@ -163,8 +163,7 @@ class ReadAnythingUntrustedPageHandler :
     public ui::AXActionHandlerObserver,
     public read_anything::mojom::UntrustedPageHandler,
     public ReadAnythingLifecycleObserver,
-    public PinnedToolbarActionsModel::Observer,
-    public translate::TranslateDriver::LanguageDetectionObserver {
+    public PinnedToolbarActionsModel::Observer {
 
  public:
   ReadAnythingUntrustedPageHandler(
@@ -198,8 +197,6 @@ class ReadAnythingUntrustedPageHandler :
 
   bool ack_timed_out_for_testing() const { return ack_timed_out_for_testing_; }
 
-  static const int kMaxWordsDistilled = 25000;
-  static const int kWordsDistilledBuckets = 100;
   static const int kMaxNodesForDistillationQualityEvaluation = 5000;
   static constexpr base::TimeDelta kReadingModeHiddenAckTimeout =
       base::Seconds(2);
@@ -231,6 +228,7 @@ class ReadAnythingUntrustedPageHandler :
                      const std::string& lang) override;
   void OnLanguagePrefChange(const std::string& lang, bool enabled) override;
   void OnReadAloudAudioStateChange(bool playing) override;
+  void OnAiPlaybackStateChanged(bool enabled) override;
   void OnSpeechRateChange(double rate) override;
   void OnImageDataRequested(const ui::AXTreeID& target_tree_id,
                             ui::AXNodeID target_node_id) override;
@@ -264,6 +262,7 @@ class ReadAnythingUntrustedPageHandler :
       read_anything::mojom::ReadAnythingDistillationState new_state) override;
   void OnSpeechEngineStalled() override;
   void RequestReadabilityDistillation(
+      read_anything::mojom::ReadabilityDistillationReason reason,
       RequestReadabilityDistillationCallback callback) override;
 
   // PinnedToolbarModel::Observer
@@ -272,11 +271,6 @@ class ReadAnythingUntrustedPageHandler :
   // Checks toolbar pin status to assess whether or not to update the pin status
   // of read anything immersive
   void MaybeUpdateImmersivePinStatus();
-
-  // TranslateDriver::LanguageDetectionObserver:
-  void OnLanguageDetermined(
-      const translate::LanguageDetectionDetails& details) override;
-  void OnTranslateDriverDestroyed(translate::TranslateDriver* driver) override;
 
   // ReadAnythingLifecycleObserver:
   void OnDestroyed() override;
@@ -374,14 +368,18 @@ class ReadAnythingUntrustedPageHandler :
                          ui::AXNodeID anchor_node_id,
                          int anchor_offset,
                          ui::AXNodeID focus_node_id,
-                         int focus_offset) override;
-  void OnCollapseSelection() override;
+                         int focus_offset,
+                         OnSelectionChangeCallback callback) override;
+  void OnCollapseSelection(OnCollapseSelectionCallback callback) override;
 
   void SetDefaultLanguageCode(const std::string& code);
 
   // Sends the language code of the new page, or the default if a language can't
   // be determined.
   void SetLanguageCode(const std::string& code);
+
+  // Sends whether the tab is currently translated to the page.
+  void SendTranslationState(bool is_translated);
 
   void SetUpPdfObserver();
   void CheckIfActiveAXTreeChangedToPdf();
@@ -404,7 +402,8 @@ class ReadAnythingUntrustedPageHandler :
   // Restores settings from preferences.
   void RestoreSettingsFromPrefs();
 
-  void PerformActionInTargetTree(const ui::AXActionData& data);
+  // Returns false if the target tree has no action handler.
+  bool PerformActionInTargetTree(const ui::AXActionData& data);
 
   bool AreInnerContentsPdfContent(
       std::vector<content::WebContents*> inner_contents);
@@ -480,9 +479,6 @@ class ReadAnythingUntrustedPageHandler :
   const mojo::Receiver<read_anything::mojom::UntrustedPageHandler> receiver_;
   const mojo::Remote<read_anything::mojom::UntrustedPage> page_;
 
-  ReadAnythingOpenTrigger last_open_trigger_ =
-      ReadAnythingOpenTrigger::kUnknown;
-
   // Whether the Read Anything feature is currently active. The feature is
   // active when it is currently shown in the Side Panel.
   bool active_ = true;
@@ -491,6 +487,9 @@ class ReadAnythingUntrustedPageHandler :
 
   // The current language being used in the app.
   std::string current_language_code_ = "en-US";
+  // The translation state last sent to the page, or nullopt if none has been
+  // sent yet.
+  std::optional<bool> last_sent_is_translated_;
   const bool use_screen_ai_service_;
 
 #if BUILDFLAG(IS_CHROMEOS)
@@ -536,11 +535,8 @@ class ReadAnythingUntrustedPageHandler :
 
   base::ScopedClosureRunner audible_closure_;
 
-  // Observes LanguageDetectionObserver, which notifies us when the language of
-  // the contents of the current page has been determined.
-  base::ScopedObservation<translate::TranslateDriver,
-                          translate::TranslateDriver::LanguageDetectionObserver>
-      translate_observation_{this};
+  // Observes the page's language and translation state.
+  ReadAnythingTranslateObserver translate_observer_;
 
   // Timer used for checking for pdf contents after the page has loaded.
   // Otherwise, it may incorrectly return that the page is not a pdf if
@@ -562,8 +558,9 @@ class ReadAnythingUntrustedPageHandler :
 
   // Tracks the start time of a readability distillation triggered by an active
   // accessibility tree ID change. This is used to measure readability
-  // distilation latency from a tree change event and is null for SPA or manual
-  // redistillations.
+  // distillation latency from a tree change event. It is preserved across a
+  // renderer request with reason kTreeChanged and cleared for kRedistill
+  // (e.g. SPA) requests.
   base::TimeTicks readability_distillation_tree_change_start_time_;
 
   mojo::Remote<reading_mode::mojom::DistillationEvaluator>

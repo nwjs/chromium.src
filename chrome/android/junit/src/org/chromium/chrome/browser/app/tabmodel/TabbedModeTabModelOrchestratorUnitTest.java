@@ -28,6 +28,7 @@ import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
+import org.robolectric.Robolectric;
 import org.robolectric.shadows.ShadowLooper;
 
 import org.chromium.base.Holder;
@@ -78,7 +79,6 @@ import java.util.function.Supplier;
 @RunWith(BaseRobolectricTestRunner.class)
 public class TabbedModeTabModelOrchestratorUnitTest {
     @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
-    @Mock private ChromeTabbedActivity mChromeActivity;
     @Mock private ModalDialogManager mModalDialogManager;
     @Mock private TabCreatorManager mTabCreatorManager;
     @Mock private ProfileProvider mProfileProvider;
@@ -100,6 +100,7 @@ public class TabbedModeTabModelOrchestratorUnitTest {
     @Captor private ArgumentCaptor<Runnable> mRunnableCaptor;
     @Captor private ArgumentCaptor<Supplier<TabModel>> mSupplierCaptor;
 
+    private ChromeTabbedActivity mChromeActivity;
     private final OneshotSupplierImpl<ProfileProvider> mProfileProviderSupplier =
             new OneshotSupplierImpl<>();
     private CipherFactory mCipherFactory;
@@ -124,6 +125,7 @@ public class TabbedModeTabModelOrchestratorUnitTest {
 
     @Before
     public void setUp() {
+        mChromeActivity = Robolectric.buildActivity(ChromeTabbedActivity.class).get();
         mProfileProviderSupplier.set(mProfileProvider);
         when(mProfile.isNativeInitialized()).thenReturn(true);
         when(mProfileProvider.getOriginalProfile()).thenReturn(mProfile);

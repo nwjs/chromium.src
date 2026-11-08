@@ -159,8 +159,7 @@ public class AwContentsTest extends AwParameterizedTest {
         mActivityTestRule.startBrowserProcess();
         var histogramWatcher =
                 HistogramWatcher.newSingleRecordWatcher(
-                        "Android.WebView.WebContent.AdoptResult",
-                        AwContents.AdoptResult.SUCCESS);
+                        "Android.WebView.WebContent.AdoptResult", AwContents.AdoptResult.SUCCESS);
 
         MutableContextWrapper oldContext =
                 new MutableContextWrapper(mActivityTestRule.getActivity());
@@ -241,7 +240,7 @@ public class AwContentsTest extends AwParameterizedTest {
 
         Assert.assertNotNull(
                 "AwContents.adopt() must register an OnApplyWindowInsetsListener on the new"
-                    + " container.",
+                        + " container.",
                 newContainer.mInsetsListener);
     }
 
@@ -1407,70 +1406,6 @@ public class AwContentsTest extends AwParameterizedTest {
     @Test
     @Feature({"AndroidWebView"})
     @SmallTest
-    public void testLoadUrlRecordsScheme_http() {
-        // No need to spin up a web server, since we don't care if the load ever succeeds.
-        final String httpUrlWithNoRealPage = "http://some.origin.test/some/path.html";
-        loadUrlAndCheckScheme(httpUrlWithNoRealPage, AwContents.UrlScheme.HTTP_SCHEME);
-    }
-
-    @Test
-    @Feature({"AndroidWebView"})
-    @SmallTest
-    public void testLoadUrlRecordsScheme_javascript() {
-        loadUrlAndCheckScheme(
-                "javascript:console.log('message')", AwContents.UrlScheme.JAVASCRIPT_SCHEME);
-    }
-
-    @Test
-    @Feature({"AndroidWebView"})
-    @SmallTest
-    public void testLoadUrlRecordsScheme_fileAndroidAsset() {
-        loadUrlAndCheckScheme(
-                "file:///android_asset/some/asset/page.html",
-                AwContents.UrlScheme.FILE_ANDROID_ASSET_SCHEME);
-    }
-
-    @Test
-    @Feature({"AndroidWebView"})
-    @SmallTest
-    public void testLoadUrlRecordsScheme_fileRegular() {
-        loadUrlAndCheckScheme("file:///some/path/on/disk.html", AwContents.UrlScheme.FILE_SCHEME);
-    }
-
-    @Test
-    @Feature({"AndroidWebView"})
-    @SmallTest
-    public void testLoadUrlRecordsScheme_data() {
-        loadUrlAndCheckScheme(
-                "data:text/html,<html><body>foo</body></html>", AwContents.UrlScheme.DATA_SCHEME);
-    }
-
-    @Test
-    @Feature({"AndroidWebView"})
-    @SmallTest
-    public void testLoadUrlRecordsScheme_blank() {
-        loadUrlAndCheckScheme("about:blank", AwContents.UrlScheme.EMPTY);
-    }
-
-    private void loadUrlAndCheckScheme(String url, @AwContents.UrlScheme int expectedSchemeEnum) {
-        mActivityTestRule.startBrowserProcess();
-        AwTestContainerView testView =
-                mActivityTestRule.createAwTestContainerViewOnMainSync(mContentsClient);
-        final AwContents awContents = testView.getAwContents();
-
-        HistogramWatcher histogramExpectation =
-                HistogramWatcher.newSingleRecordWatcher(
-                        AwContents.LOAD_URL_SCHEME_HISTOGRAM_NAME, expectedSchemeEnum);
-
-        // Note: we use async because not all loads emit onPageFinished. This relies on the UMA
-        // metric being logged in the synchronous part of loadUrl().
-        mActivityTestRule.loadUrlAsync(awContents, url);
-        histogramExpectation.assertExpected();
-    }
-
-    @Test
-    @Feature({"AndroidWebView"})
-    @SmallTest
     public void testFindAllAsyncEmptySearchString() {
         mActivityTestRule.startBrowserProcess();
         AwTestContainerView testView =
@@ -2100,14 +2035,16 @@ public class AwContentsTest extends AwParameterizedTest {
         AwTestContainerView oldView =
                 mActivityTestRule.createAwTestContainerViewOnMainSync(client, false);
 
-        int oldColor = ThreadUtils.runOnUiThreadBlocking(
-                () -> oldView.getAwContents().getEdgeEffectColor());
+        int oldColor =
+                ThreadUtils.runOnUiThreadBlocking(
+                        () -> oldView.getAwContents().getEdgeEffectColor());
 
         AwTestContainerView newView =
                 mActivityTestRule.reparentAwContents(oldView, android.R.style.Theme_Black);
 
-        int newColor = ThreadUtils.runOnUiThreadBlocking(
-                () -> newView.getAwContents().getEdgeEffectColor());
+        int newColor =
+                ThreadUtils.runOnUiThreadBlocking(
+                        () -> newView.getAwContents().getEdgeEffectColor());
 
         Assert.assertNotEquals(oldColor, newColor);
     }
@@ -2151,9 +2088,10 @@ public class AwContentsTest extends AwParameterizedTest {
         AwTestContainerView oldView =
                 mActivityTestRule.createAwTestContainerViewOnMainSync(client, false);
 
-        ThreadUtils.runOnUiThreadBlocking(() -> {
-            oldView.getAwContents().getZoomControlsForTest().invokeZoomPicker();
-        });
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    oldView.getAwContents().getZoomControlsForTest().invokeZoomPicker();
+                });
 
         AwTestContainerView newView =
                 mActivityTestRule.reparentAwContents(oldView, android.R.style.Theme_Black);
@@ -2216,4 +2154,3 @@ public class AwContentsTest extends AwParameterizedTest {
                 "\"success\"", resultFuture.get(WAIT_TIMEOUT_MS, TimeUnit.MILLISECONDS));
     }
 }
-

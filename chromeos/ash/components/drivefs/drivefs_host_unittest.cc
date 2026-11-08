@@ -172,15 +172,6 @@ class TestingDriveFsHostDelegate : public DriveFsHost::Delegate,
         mojom::ExtensionConnectionStatus::kExtensionNotFound);
   }
 
-  const std::string GetMachineRootID() override { return ""; }
-
-  void PersistMachineRootID(const std::string& id) override {}
-
-  void PersistNotification(
-      mojom::DriveFsNotificationPtr notification) override {}
-
-  void PersistSyncErrors(mojom::MirrorSyncErrorListPtr error_list) override {}
-
   const AccountId account_id_;
   mojo::PendingRemote<mojom::DriveFsBootstrap> pending_bootstrap_;
   bool verbose_logging_enabled_ = false;
@@ -192,9 +183,6 @@ class MockDriveFsHostObserver : public DriveFsHost::Observer {
   MOCK_METHOD(void, OnUnmounted, ());
   MOCK_METHOD(void,
               OnSyncingStatusUpdate,
-              (const mojom::SyncingStatus& status));
-  MOCK_METHOD(void,
-              OnMirrorSyncingStatusUpdate,
               (const mojom::SyncingStatus& status));
   MOCK_METHOD(void,
               OnFilesChanged,
@@ -739,24 +727,6 @@ TEST_F(DriveFsHostTest, ConnectToExtension) {
       }));
   run_loop.Run();
   EXPECT_EQ("foo", host_delegate_->get_last_extension_params().extension_id);
-}
-
-TEST_F(DriveFsHostTest, OnMirrorSyncingStatusUpdate_ForwardToObservers) {
-  ASSERT_NO_FATAL_FAILURE(DoMount());
-  MockDriveFsHostObserver observer;
-  observer.Observe(host_.get());
-  auto status = mojom::SyncingStatus::New();
-  status->item_events.emplace_back(std::in_place, 12, 34, "filename.txt",
-                                   kInProgress, 123, 456,
-                                   mojom::ItemEventReason::kPin);
-  mojom::SyncingStatusPtr observed_status;
-  EXPECT_CALL(observer, OnMirrorSyncingStatusUpdate(_))
-      .WillOnce(CloneStruct(&observed_status));
-  delegate_->OnMirrorSyncingStatusUpdate(status.Clone());
-  delegate_.FlushForTesting();
-  testing::Mock::VerifyAndClear(&observer);
-
-  EXPECT_EQ(status, observed_status);
 }
 
 }  // namespace

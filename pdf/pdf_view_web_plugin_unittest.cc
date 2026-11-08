@@ -15,6 +15,7 @@
 #include <vector>
 
 #include "base/containers/span.h"
+#include "base/i18n/language_tag.h"
 #include "base/location.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
@@ -2233,6 +2234,7 @@ class PdfViewWebPluginWithDocInfoTest
                                             &metadata().creation_date));
       ASSERT_TRUE(base::Time::FromUTCString("2021-06-04 15:16:17",
                                             &metadata().mod_date));
+      metadata().language_tag = base::i18n::GetKnownLanguageTag("en-US");
     }
 
     // Note: In the metadata message `creation_date` and `mod_date` are
@@ -2315,6 +2317,13 @@ TEST_P(PdfViewWebPluginWithDocInfoTest, OnDocumentLoadComplete) {
   EXPECT_CALL(*client_ptr_, PostMessage(Eq(std::ref(expect_bookmarks))));
   EXPECT_CALL(*client_ptr_, PostMessage(Eq(std::ref(expect_metadata))));
   plugin_->DocumentLoadComplete();
+}
+
+TEST_P(PdfViewWebPluginWithDocInfoTest, GetAccessibilityDocInfo) {
+  std::unique_ptr<AccessibilityDocInfo> doc_info =
+      plugin_->GetAccessibilityDocInfoForTesting();
+  ASSERT_TRUE(doc_info);
+  EXPECT_EQ("en-US", doc_info->language);
 }
 
 INSTANTIATE_TEST_SUITE_P(All, PdfViewWebPluginWithDocInfoTest, testing::Bool());
@@ -2619,6 +2628,8 @@ TEST_F(PdfViewWebPluginInk2SaveInBlocksTest, AnnotationInEditModeMetrics) {
   EXPECT_TRUE(plugin_->IsSaveDataBufferEmptyForTesting());
   pdf_receiver_.FlushForTesting();
 
+  histograms.ExpectUniqueSample("PDF.Ink2SaveHasStrokes", false, 1);
+  histograms.ExpectUniqueSample("PDF.Ink2SaveHasTextAnnotations", false, 1);
   histograms.ExpectTotalCount("PDF.Ink2TextAnnotationAddedCountOnSave", 0);
   histograms.ExpectTotalCount("PDF.Ink2TextAnnotationRemovedCountOnSave", 0);
 }
@@ -2651,6 +2662,8 @@ TEST_F(PdfViewWebPluginInk2SaveInBlocksTest, AnnotationInEditModeMetricsAdded) {
   EXPECT_TRUE(plugin_->IsSaveDataBufferEmptyForTesting());
   pdf_receiver_.FlushForTesting();
 
+  histograms.ExpectUniqueSample("PDF.Ink2SaveHasStrokes", false, 1);
+  histograms.ExpectUniqueSample("PDF.Ink2SaveHasTextAnnotations", true, 1);
   histograms.ExpectUniqueSample("PDF.Ink2TextAnnotationAddedCountOnSave", 1, 1);
   histograms.ExpectTotalCount("PDF.Ink2TextAnnotationRemovedCountOnSave", 0);
 }
@@ -2688,6 +2701,8 @@ TEST_F(PdfViewWebPluginInk2SaveInBlocksTest,
   EXPECT_TRUE(plugin_->IsSaveDataBufferEmptyForTesting());
   pdf_receiver_.FlushForTesting();
 
+  histograms.ExpectUniqueSample("PDF.Ink2SaveHasStrokes", false, 1);
+  histograms.ExpectUniqueSample("PDF.Ink2SaveHasTextAnnotations", false, 1);
   histograms.ExpectTotalCount("PDF.Ink2TextAnnotationAddedCountOnSave", 0);
   histograms.ExpectUniqueSample("PDF.Ink2TextAnnotationRemovedCountOnSave", 1,
                                 1);
@@ -2890,6 +2905,8 @@ TEST_F(PdfViewWebPluginSaveInBlocksToGoogleDriveTest,
   FreeHandler(handler);
   EXPECT_EQ(plugin_->GetSaveToDriveBufferHandlerReceiverSizeForTesting(), 0u);
 
+  histograms.ExpectUniqueSample("PDF.Ink2SaveHasStrokes", false, 1);
+  histograms.ExpectUniqueSample("PDF.Ink2SaveHasTextAnnotations", false, 1);
   histograms.ExpectTotalCount("PDF.Ink2TextAnnotationAddedCountOnSave", 0);
   histograms.ExpectTotalCount("PDF.Ink2TextAnnotationRemovedCountOnSave", 0);
 }
@@ -2923,6 +2940,8 @@ TEST_F(PdfViewWebPluginSaveInBlocksToGoogleDriveTest,
   FreeHandler(handler);
   EXPECT_EQ(plugin_->GetSaveToDriveBufferHandlerReceiverSizeForTesting(), 0u);
 
+  histograms.ExpectUniqueSample("PDF.Ink2SaveHasStrokes", false, 1);
+  histograms.ExpectUniqueSample("PDF.Ink2SaveHasTextAnnotations", true, 1);
   histograms.ExpectUniqueSample("PDF.Ink2TextAnnotationAddedCountOnSave", 1, 1);
   histograms.ExpectTotalCount("PDF.Ink2TextAnnotationRemovedCountOnSave", 0);
 }
@@ -2960,6 +2979,8 @@ TEST_F(PdfViewWebPluginSaveInBlocksToGoogleDriveTest,
   FreeHandler(handler);
   EXPECT_EQ(plugin_->GetSaveToDriveBufferHandlerReceiverSizeForTesting(), 0u);
 
+  histograms.ExpectUniqueSample("PDF.Ink2SaveHasStrokes", false, 1);
+  histograms.ExpectUniqueSample("PDF.Ink2SaveHasTextAnnotations", false, 1);
   histograms.ExpectTotalCount("PDF.Ink2TextAnnotationAddedCountOnSave", 0);
   histograms.ExpectUniqueSample("PDF.Ink2TextAnnotationRemovedCountOnSave", 1,
                                 1);
@@ -4253,6 +4274,8 @@ TEST_F(PdfViewWebPluginInk2SaveTest, AnnotationInEditModeMetrics) {
     "token": "annotation-in-edit-mode",
   })"));
 
+  histograms.ExpectUniqueSample("PDF.Ink2SaveHasStrokes", false, 1);
+  histograms.ExpectUniqueSample("PDF.Ink2SaveHasTextAnnotations", false, 1);
   histograms.ExpectTotalCount("PDF.Ink2TextAnnotationAddedCountOnSave", 0);
   histograms.ExpectTotalCount("PDF.Ink2TextAnnotationRemovedCountOnSave", 0);
 }
@@ -4294,6 +4317,8 @@ TEST_F(PdfViewWebPluginInk2SaveTest, AnnotationInEditModeMetricsAdded) {
     "token": "annotation-in-edit-mode",
   })"));
 
+  histograms.ExpectUniqueSample("PDF.Ink2SaveHasStrokes", false, 1);
+  histograms.ExpectUniqueSample("PDF.Ink2SaveHasTextAnnotations", true, 1);
   histograms.ExpectUniqueSample("PDF.Ink2TextAnnotationAddedCountOnSave", 1, 1);
   histograms.ExpectTotalCount("PDF.Ink2TextAnnotationRemovedCountOnSave", 0);
 }
@@ -4339,6 +4364,8 @@ TEST_F(PdfViewWebPluginInk2SaveTest, AnnotationInEditModeMetricsRemoved) {
     "token": "annotation-in-edit-mode",
   })"));
 
+  histograms.ExpectUniqueSample("PDF.Ink2SaveHasStrokes", false, 1);
+  histograms.ExpectUniqueSample("PDF.Ink2SaveHasTextAnnotations", false, 1);
   histograms.ExpectTotalCount("PDF.Ink2TextAnnotationAddedCountOnSave", 0);
   histograms.ExpectUniqueSample("PDF.Ink2TextAnnotationRemovedCountOnSave", 1,
                                 1);

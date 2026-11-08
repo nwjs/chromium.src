@@ -67,7 +67,6 @@
 #import "ios/public/provider/chrome/browser/risk_data/risk_data_api.h"
 #import "ios/web/public/web_state.h"
 #import "services/network/public/cpp/weak_wrapper_shared_url_loader_factory.h"
-#import "url/gurl.h"
 
 namespace autofill::payments {
 namespace {
@@ -529,14 +528,6 @@ IOSChromePaymentsAutofillClient::GetMerchantPromoCodeManager() {
   return nullptr;
 }
 
-void IOSChromePaymentsAutofillClient::OpenPromoCodeOfferDetailsURL(
-    const GURL& url) {
-  web_state_->OpenURL(web::WebState::OpenURLParams(
-      url, web::Referrer(), WindowOpenDisposition::NEW_FOREGROUND_TAB,
-      ui::PageTransition::PAGE_TRANSITION_AUTO_TOPLEVEL,
-      /*is_renderer_initiated=*/false));
-}
-
 AutofillOfferManager*
 IOSChromePaymentsAutofillClient::GetAutofillOfferManager() {
   return nullptr;
@@ -547,6 +538,12 @@ void IOSChromePaymentsAutofillClient::UpdateOfferNotification(
     const OfferNotificationOptions& options) {}
 
 void IOSChromePaymentsAutofillClient::DismissOfferNotification() {}
+
+bool IOSChromePaymentsAutofillClient::IsTabVisibleForOfferNotification() const {
+  // Offer notifications are not supported on iOS.
+  NOTIMPLEMENTED();
+  return false;
+}
 
 bool IOSChromePaymentsAutofillClient::ShowTouchToFillCreditCard(
     base::WeakPtr<TouchToFillPaymentMethodDelegate> delegate,

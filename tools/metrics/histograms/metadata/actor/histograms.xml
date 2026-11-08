@@ -74,6 +74,7 @@ chromium-metrics-reviews@google.com.
   <variant name="AttemptFormFilling" summary="Attempt Form Filling"/>
   <variant name="AttemptLogin" summary="Attempt Login"/>
   <variant name="AttemptOtpFilling" summary="Attempt OTP Filling"/>
+  <variant name="ChangePassword" summary="Change Password"/>
   <variant name="Click" summary="Click"/>
   <variant name="CloseTab" summary="Close Tab"/>
   <variant name="CloseWindow" summary="Close Window"/>
@@ -84,16 +85,21 @@ chromium-metrics-reviews@google.com.
   <variant name="ExitFullscreen" summary="Exit Fullscreen"/>
   <variant name="FileUpload" summary="File Upload"/>
   <variant name="FindAndHighlight" summary="Find And Highlight"/>
-  <variant name="History" summary="History"/>
+  <variant name="HistoryBack" summary="History Back"/>
+  <variant name="HistoryForward" summary="History Forward"/>
   <variant name="LoadAndExtractContent" summary="Load And Extract Content"/>
-  <variant name="MediaControl" summary="Media Control"/>
   <variant name="MoveMouse" summary="MoveMouse"/>
   <variant name="Navigate" summary="Navigate"/>
+  <variant name="OpenKnownPage" summary="Open Known Page"/>
+  <variant name="PauseMedia" summary="Pause Media"/>
   <variant name="PerformSearch" summary="Perform Search"/>
+  <variant name="PlayMedia" summary="Play Media"/>
+  <variant name="ReloadPage" summary="Reload Page"/>
   <variant name="RemoveBookmark" summary="Remove Bookmark"/>
   <variant name="ScriptTool" summary="ScriptTool"/>
   <variant name="Scroll" summary="Scroll"/>
   <variant name="ScrollTo" summary="Scroll To"/>
+  <variant name="SeekMedia" summary="Seek Media"/>
   <variant name="Select" summary="Select"/>
   <variant name="SwitchTab" summary="Switch Tab"/>
   <variant name="TranslatePage" summary="Translate Page"/>
@@ -136,6 +142,71 @@ chromium-metrics-reviews@google.com.
   </token>
 </histogram>
 
+<histogram name="Actor.BackgroundActuation.Restore.ColdRestore.Latency"
+    units="ms" expires_after="2027-10-15">
+  <owner>bbetini@google.com</owner>
+  <owner>ritikagup@google.com</owner>
+  <owner>clank-actor@google.com</owner>
+  <summary>
+    Records the latency of restoring and attaching a background tab from
+    BackgroundTabPool during tab state initialization (via
+    BackgroundTabRestorationHelper.maybeRestoreBackgroundTab or
+    BackgroundTabRestorationHelper.restoreRemainingBackgroundTabs). Note that
+    this metric is only recorded on Android.
+  </summary>
+</histogram>
+
+<histogram name="Actor.BackgroundActuation.Restore.Latency.Total{StartupType}"
+    units="ms" expires_after="2027-10-14">
+  <owner>bbetini@google.com</owner>
+  <owner>ritikagup@google.com</owner>
+  <owner>clank-actor@google.com</owner>
+  <summary>
+    Records the total UI-thread latency spent restoring active background
+    actuation sessions into a foreground window{StartupType}. Excludes
+    synchronous disk flush time when saving tab state on background task
+    completion. Only recorded when at least one background tab is restored. Note
+    that this metric is only recorded on Android.
+  </summary>
+  <token key="StartupType">
+    <variant name="" summary="across both cold and warm starts"/>
+    <variant name=".ColdStart"
+        summary="when TabModel state is not yet initialized (cold start,
+                 including wait for tab state initialization)"/>
+    <variant name=".WarmStart"
+        summary="when TabModel state is already initialized (warm start)"/>
+  </token>
+</histogram>
+
+<histogram
+    name="Actor.BackgroundActuation.Restore.Latency.WaitForTabStateInitialized"
+    units="ms" expires_after="2027-10-14">
+  <owner>bbetini@google.com</owner>
+  <owner>ritikagup@google.com</owner>
+  <owner>clank-actor@google.com</owner>
+  <summary>
+    Records the time spent waiting for TabModelSelector tab state initialization
+    before restoring active window background tabs when ChromeTabbedActivity
+    starts with native and tab state was not already initialized. Only recorded
+    when at least one background tab is restored into the foreground window.
+    Note that this metric is only recorded on Android.
+  </summary>
+</histogram>
+
+<histogram name="Actor.BackgroundActuation.TabCreatedInBackground"
+    enum="ActorBackgroundTabCreationStatus" expires_after="2027-10-09">
+  <owner>bbetini@google.com</owner>
+  <owner>ritikagup@google.com</owner>
+  <owner>clank-actor@google.com</owner>
+  <summary>
+    Recorded each time an offscreen tab creation attempt completes during
+    background actuation, capturing whether the task was initiated by Chrome or
+    by FCM (message triggered) and whether the tab was successfully provisioned
+    (finished initial about:blank load) or failed. Note that this metric is only
+    recorded on Android.
+  </summary>
+</histogram>
+
 <histogram name="Actor.BackgroundActuation.Trigger"
     enum="ActorBackgroundActuationTrigger" expires_after="2027-10-01">
   <owner>bbetini@google.com</owner>
@@ -159,7 +230,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Actor.Download.DirectDownloadTriggered" enum="Boolean"
-    expires_after="2026-10-29">
+    expires_after="2027-09-28">
   <owner>masnoble@google.com</owner>
   <owner>johannhof@google.com</owner>
   <summary>
@@ -168,7 +239,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Actor.Download.SaveAsDialogTriggered" enum="Boolean"
-    expires_after="2026-10-29">
+    expires_after="2027-09-28">
   <owner>masnoble@google.com</owner>
   <owner>johannhof@google.com</owner>
   <summary>
@@ -177,7 +248,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Actor.EventDispatcher.ComputedTargetResult"
-    enum="ComputedTargetResult" expires_after="2026-10-11">
+    enum="ComputedTargetResult" expires_after="2027-09-28">
   <owner>kmg@google.com</owner>
   <owner>boujane@google.com</owner>
   <owner>koilos@google.com</owner>
@@ -188,7 +259,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Actor.EventDispatcher.ModelPageTargetType"
-    enum="ModelPageTargetType" expires_after="2026-10-11">
+    enum="ModelPageTargetType" expires_after="2027-09-28">
   <owner>kmg@google.com</owner>
   <owner>boujane@google.com</owner>
   <owner>koilos@google.com</owner>
@@ -282,7 +353,6 @@ chromium-metrics-reviews@google.com.
 
 <histogram name="Actor.Login.AccountAutoSelected" enum="Boolean"
     expires_after="2027-02-25">
-  <owner>npm@google.com</owner>
   <owner>ioanap@google.com</owner>
   <owner>otara@google.com</owner>
   <owner>web-identity-eng@google.com</owner>
@@ -296,7 +366,6 @@ chromium-metrics-reviews@google.com.
 
 <histogram name="Actor.Login.AccountTypesShown" enum="ActorLoginAccountTypes"
     expires_after="2027-02-25">
-  <owner>npm@google.com</owner>
   <owner>ioanap@google.com</owner>
   <owner>otara@google.com</owner>
   <owner>web-identity-eng@google.com</owner>
@@ -309,7 +378,6 @@ chromium-metrics-reviews@google.com.
 
 <histogram name="Actor.Login.DeduplicationOccurred" enum="Boolean"
     expires_after="2027-02-25">
-  <owner>npm@google.com</owner>
   <owner>ioanap@google.com</owner>
   <owner>otara@google.com</owner>
   <owner>web-identity-eng@google.com</owner>
@@ -323,7 +391,6 @@ chromium-metrics-reviews@google.com.
 
 <histogram name="Actor.Login.Federated.ContinuationShown" enum="Boolean"
     expires_after="2027-02-25">
-  <owner>npm@google.com</owner>
   <owner>ioanap@google.com</owner>
   <owner>otara@google.com</owner>
   <owner>web-identity-eng@google.com</owner>
@@ -337,7 +404,6 @@ chromium-metrics-reviews@google.com.
 
 <histogram name="Actor.Login.Federated.HangingFedCmRequestExists"
     enum="Boolean" expires_after="2027-02-25">
-  <owner>npm@google.com</owner>
   <owner>ioanap@google.com</owner>
   <owner>otara@google.com</owner>
   <owner>web-identity-eng@google.com</owner>
@@ -349,7 +415,6 @@ chromium-metrics-reviews@google.com.
 
 <histogram name="Actor.Login.Federated.LoginResult"
     enum="ActorLoginFederatedLoginResult" expires_after="2027-02-25">
-  <owner>npm@google.com</owner>
   <owner>ioanap@google.com</owner>
   <owner>otara@google.com</owner>
   <owner>web-identity-eng@google.com</owner>
@@ -361,7 +426,6 @@ chromium-metrics-reviews@google.com.
 
 <histogram name="Actor.Login.GetCredentialsCompletedToAccountChosen" units="ms"
     expires_after="2027-02-25">
-  <owner>npm@google.com</owner>
   <owner>ioanap@google.com</owner>
   <owner>otara@google.com</owner>
   <owner>web-identity-eng@google.com</owner>
@@ -373,7 +437,6 @@ chromium-metrics-reviews@google.com.
 
 <histogram name="Actor.Login.GetCredentialsLatency" units="ms"
     expires_after="2027-02-25">
-  <owner>npm@google.com</owner>
   <owner>ioanap@google.com</owner>
   <owner>otara@google.com</owner>
   <owner>web-identity-eng@google.com</owner>
@@ -386,7 +449,6 @@ chromium-metrics-reviews@google.com.
 
 <histogram name="Actor.Login.NumAccountsShown" units="count"
     expires_after="2027-02-25">
-  <owner>npm@google.com</owner>
   <owner>ioanap@google.com</owner>
   <owner>otara@google.com</owner>
   <owner>web-identity-eng@google.com</owner>
@@ -399,7 +461,6 @@ chromium-metrics-reviews@google.com.
 
 <histogram name="Actor.Login.SelectedAccountType"
     enum="ActorLoginSelectedAccountType" expires_after="2027-02-25">
-  <owner>npm@google.com</owner>
   <owner>ioanap@google.com</owner>
   <owner>otara@google.com</owner>
   <owner>web-identity-eng@google.com</owner>
@@ -448,7 +509,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Actor.NavigationGating.ConfirmedListSize2" units="origins"
-    expires_after="2027-02-02">
+    expires_after="2027-04-04">
   <owner>dylancutler@google.com</owner>
   <owner>johannhof@google.com</owner>
   <summary>
@@ -930,6 +991,18 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="Actor.SafetyListParseResult.PaymentIframeAllowed"
+    enum="SafetyListParseResult" expires_after="2027-03-07">
+  <owner>otara@google.com</owner>
+  <owner>cfredric@chromium.org</owner>
+  <owner>dylancutler@google.com</owner>
+  <summary>
+    Records the outcome of parsing the payment iframe allowed static safety
+    list. Recorded every time an attempt is made to parse the static safety
+    lists JSON, regardless of whether or not the parse was successful.
+  </summary>
+</histogram>
+
 <histogram name="Actor.Task.Count.{StoppedReason}" units="count"
     expires_after="2027-02-14">
   <owner>dtapuska@google.com</owner>
@@ -943,7 +1016,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Actor.Task.Count.{StoppedReason}.{GlicInvocationSource}"
-    units="count" expires_after="2026-10-11">
+    units="count" expires_after="2027-09-28">
   <owner>yuhengh@chromium.org</owner>
   <owner>nyquist@chromium.org</owner>
   <owner>dtrainor@chromium.org</owner>
@@ -1027,7 +1100,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Actor.Task.Duration.WallClock.{StoppedReason}.{GlicInvocationSource}"
-    units="ms" expires_after="2026-10-11">
+    units="ms" expires_after="2027-09-28">
   <owner>yuhengh@chromium.org</owner>
   <owner>nyquist@chromium.org</owner>
   <owner>dtrainor@chromium.org</owner>
@@ -1125,7 +1198,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Actor.Task.StoppedReason" enum="StoppedReasonEnum"
-    expires_after="2027-01-24">
+    expires_after="2027-03-28">
   <owner>dtapuska@google.com</owner>
   <owner>bokan@google.com</owner>
   <owner>chrome-synapse-team@google.com</owner>
@@ -1175,9 +1248,9 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Actor.Tools.ExecutionDuration.{ActorMode}.{ActorTaskState}"
-    units="ms" expires_after="2027-03-31">
+    units="ms" expires_after="2027-10-09">
   <owner>bbetini@google.com</owner>
-  <owner>ritkagup@google.com</owner>
+  <owner>ritikagup@google.com</owner>
   <summary>
     Recorded when a task is completed (Finished, Failed, or Cancelled). This
     captures the cumulative duration the task spent in the {ActorTaskState}
@@ -1185,6 +1258,7 @@ chromium-metrics-reviews@google.com.
   </summary>
   <token key="ActorTaskState" variants="ActorTaskState"/>
   <token key="ActorMode">
+    <variant name="Background" summary="Background"/>
     <variant name="Foreground" summary="standard Foreground"/>
     <variant name="Pip" summary="Picture-in-Picture"/>
   </token>
@@ -1279,7 +1353,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Actor.Tools.TimeOfUseValidation" enum="TimeOfUseResult"
-    expires_after="2027-01-24">
+    expires_after="2027-03-28">
   <owner>mfoltz@google.com</owner>
   <owner>rodneyding@google.com</owner>
   <summary>

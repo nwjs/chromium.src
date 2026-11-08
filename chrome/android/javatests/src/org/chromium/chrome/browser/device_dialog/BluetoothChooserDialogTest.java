@@ -8,7 +8,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import android.Manifest;
-import android.app.Activity;
 import android.app.Dialog;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -29,6 +28,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import org.chromium.base.ThreadUtils;
+import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.Criteria;
 import org.chromium.base.test.util.CriteriaHelper;
@@ -66,7 +66,7 @@ import java.util.concurrent.Callable;
  */
 @RunWith(ChromeJUnit4ClassRunner.class)
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
-// TODO(crbug.com/344665244): Failing when batched, batch this again.
+@Batch(Batch.PER_CLASS)
 public class BluetoothChooserDialogTest {
     public static final String DEVICE_DIALOG_BATCH_NAME = "device_dialog";
 
@@ -139,6 +139,12 @@ public class BluetoothChooserDialogTest {
     @After
     public void tearDown() {
         LocationUtils.setFactory(null);
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    if (mChooserDialog != null) {
+                        mChooserDialog.closeDialog();
+                    }
+                });
     }
 
     private BluetoothChooserDialog createDialog() {
@@ -457,7 +463,6 @@ public class BluetoothChooserDialogTest {
                 removeLinkTags(
                         mActivityTestRule.getActivity().getString(R.string.bluetooth_searching)),
                 statusView.getText().toString());
-        mChooserDialog.closeDialog();
     }
 
     @Test
@@ -513,8 +518,6 @@ public class BluetoothChooserDialogTest {
                 removeLinkTags(
                         mActivityTestRule.getActivity().getString(R.string.bluetooth_searching)),
                 statusView.getText().toString());
-
-        mChooserDialog.closeDialog();
     }
 
     // TODO(jyasskin): Test when the user denies Chrome the ability to ask for permission.
@@ -568,8 +571,6 @@ public class BluetoothChooserDialogTest {
         Assert.assertEquals(View.GONE, errorView.getVisibility());
         Assert.assertEquals(View.GONE, items.getVisibility());
         Assert.assertEquals(View.VISIBLE, progress.getVisibility());
-
-        mChooserDialog.closeDialog();
     }
 
     @Test
@@ -581,9 +582,9 @@ public class BluetoothChooserDialogTest {
                 .thenReturn(true);
         when(mockModalDialogManager.isSuspended(ModalDialogManager.ModalDialogType.TAB))
                 .thenReturn(true);
-        Activity mockActivity = mock(Activity.class);
         WindowAndroid mockWindowAndroid = mock(WindowAndroid.class);
-        when(mockWindowAndroid.getActivity()).thenReturn(new WeakReference<>(mockActivity));
+        when(mockWindowAndroid.getActivity())
+                .thenReturn(new WeakReference<>(mActivityTestRule.getActivity()));
         when(mockWindowAndroid.getModalDialogManager()).thenReturn(mockModalDialogManager);
         when(mockWindowAndroid.hasPermission(Manifest.permission.BLUETOOTH_SCAN)).thenReturn(true);
         when(mockWindowAndroid.hasPermission(Manifest.permission.BLUETOOTH_CONNECT))

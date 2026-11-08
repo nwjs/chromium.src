@@ -646,10 +646,10 @@ class PathBuilderDelegateImpl : public bssl::SimplePathBuilderDelegate {
     // to |policy|. Depending on the policy, errors will be added to the
     // respective certificates, so |errors->ContainsHighSeverityErrors()| will
     // reflect the revocation status of the chain after this call.
-    CheckValidatedChainRevocation(path->certs, policy, deadline_,
-                                  stapled_leaf_ocsp_response_, current_time_,
-                                  net_fetcher_, &path->errors,
-                                  &delegate_data->stapled_ocsp_verify_result);
+    CheckValidatedChainRevocation(
+        path->certs, policy, deadline_, stapled_leaf_ocsp_response_,
+        current_time_, net_fetcher_, /*delegate=*/this, &path->errors,
+        &delegate_data->stapled_ocsp_verify_result);
 
     CheckCertificateTransparency(path, cert_for_ct_verify.get(), delegate_data);
   }
@@ -663,7 +663,6 @@ class PathBuilderDelegateImpl : public bssl::SimplePathBuilderDelegate {
     // into a place that can be shared by both.
 #if BUILDFLAG(CHROME_ROOT_STORE_SUPPORTED)
     const bssl::MTCAnchor* mtc_anchor = path->trust_anchor.MTCAnchor().get();
-    CHECK_EQ(mtc_anchor->spec_version(), bssl::MTCAnchor::kPlants04);
     const TrustStoreChrome::MtcAnchorExtraData* mtc_anchor_data =
         trust_store_->GetMTCAnchorData(mtc_anchor->ca_id());
     if (!mtc_anchor_data) {
@@ -1172,9 +1171,7 @@ class TwoQwacPathBuilderDelegateImpl : public QwacPathBuilderDelegateImpl {
 std::shared_ptr<const bssl::ParsedCertificate> ParseCertificateFromBuffer(
     CRYPTO_BUFFER* cert_handle,
     bssl::CertErrors* errors) {
-  return bssl::ParsedCertificate::Create(
-      bssl::UpRef(cert_handle), x509_util::DefaultParseCertificateOptions(),
-      errors);
+  return x509_util::CreateParsedCertificate(bssl::UpRef(cert_handle), errors);
 }
 
 class CertVerifyProcBuiltin : public CertVerifyProc {

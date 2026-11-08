@@ -22,9 +22,9 @@
 dictionary CheckVisibilityOptions {
   boolean checkOpacity = false;
   boolean checkVisibilityCSS = false;
-  [RuntimeEnabled=CheckVisibilityExtraProperties] boolean contentVisibilityAuto = false;
-  [RuntimeEnabled=CheckVisibilityExtraProperties] boolean opacityProperty = false;
-  [RuntimeEnabled=CheckVisibilityExtraProperties] boolean visibilityProperty = false;
+  boolean contentVisibilityAuto = false;
+  boolean opacityProperty = false;
+  boolean visibilityProperty = false;
 };
 
 // Options dictionary for setHTML and setHTMLUnsafe.
@@ -34,11 +34,11 @@ dictionary SetHTMLOptions {
   (Sanitizer or SanitizerConfig or SanitizerPresets) sanitizer = "default";
 };
 dictionary SetHTMLUnsafeOptions {
-  (Sanitizer or SanitizerConfig or SanitizerPresets) sanitizer = {};
+  (Sanitizer or SanitizerConfig or SanitizerPresets) sanitizer;
   boolean runScripts = false;
 };
 dictionary ParseHTMLUnsafeOptions {
-  (Sanitizer or SanitizerConfig or SanitizerPresets) sanitizer = {};
+  (Sanitizer or SanitizerConfig or SanitizerPresets) sanitizer;
 };
 
 // https://dom.spec.whatwg.org/#interface-element
@@ -129,10 +129,10 @@ dictionary ParseHTMLUnsafeOptions {
     [NewObject, RuntimeEnabled=NewHTMLSettingMethods, CallWith=ScriptState, RaisesException, MeasureAs=HTMLStreaming] WritableStream streamAppendHTML(optional SetHTMLOptions options = {});
     [NewObject, CEReactions, RuntimeEnabled=NewHTMLSettingMethods, CallWith=ScriptState, RaisesException, MeasureAs=HTMLStreaming] WritableStream streamHTML(optional SetHTMLOptions options = {});
     [NewObject, RuntimeEnabled=NewHTMLSettingMethods, CallWith=ScriptState, RaisesException, MeasureAs=HTMLStreaming] WritableStream streamPrependHTML(optional SetHTMLOptions options = {});
-    [RuntimeEnabled=NewHTMLSettingMethods, RaisesException, MeasureAs=HTMLPositionalSetters] void appendHTML(DOMString html, optional SetHTMLOptions options = {});
-    [RuntimeEnabled=NewHTMLSettingMethods, RaisesException, MeasureAs=HTMLPositionalSetters] void appendHTMLUnsafe((TrustedHTML or DOMString) html, optional (SetHTMLUnsafeOptions or TrustedHTMLParserOptions) options = {});
-    [RuntimeEnabled=NewHTMLSettingMethods, RaisesException, MeasureAs=HTMLPositionalSetters] void prependHTML(DOMString html, optional SetHTMLOptions options = {});
-    [RuntimeEnabled=NewHTMLSettingMethods, RaisesException, MeasureAs=HTMLPositionalSetters] void prependHTMLUnsafe((TrustedHTML or DOMString) html, optional (SetHTMLUnsafeOptions or TrustedHTMLParserOptions) options = {});
+    [CEReactions, RuntimeEnabled=NewHTMLSettingMethods, RaisesException, MeasureAs=HTMLPositionalSetters] void appendHTML(DOMString html, optional SetHTMLOptions options = {});
+    [CEReactions, RuntimeEnabled=NewHTMLSettingMethods, RaisesException, MeasureAs=HTMLPositionalSetters] void appendHTMLUnsafe((TrustedHTML or DOMString) html, optional (SetHTMLUnsafeOptions or TrustedHTMLParserOptions) options = {});
+    [CEReactions, RuntimeEnabled=NewHTMLSettingMethods, RaisesException, MeasureAs=HTMLPositionalSetters] void prependHTML(DOMString html, optional SetHTMLOptions options = {});
+    [CEReactions, RuntimeEnabled=NewHTMLSettingMethods, RaisesException, MeasureAs=HTMLPositionalSetters] void prependHTMLUnsafe((TrustedHTML or DOMString) html, optional (SetHTMLUnsafeOptions or TrustedHTMLParserOptions) options = {});
 
     // Declarative Shadow DOM getHTML() function.
     [Affects=Nothing, MeasureAs=ElementGetHTML, RaisesException] DOMString getHTML(optional GetHTMLOptions options = {});
@@ -198,6 +198,9 @@ dictionary ParseHTMLUnsafeOptions {
 
     // Scoped Custom Element Registries
     [CallWith=ScriptState] readonly attribute CustomElementRegistry? customElementRegistry;
+
+    [RuntimeEnabled=SequentialFocusPrimitives] Focusable? nextFocusable();
+    [RuntimeEnabled=SequentialFocusPrimitives] Focusable? previousFocusable();
 };
 
 Element includes ParentNode;

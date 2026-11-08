@@ -22,7 +22,6 @@
 #include "base/containers/flat_map.h"
 #include "base/debug/leak_annotations.h"
 #include "base/environment.h"
-#include "base/files/file_path.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/logging.h"
@@ -37,7 +36,6 @@
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "third_party/skia/include/core/SkShader.h"
-#include "ui/base/cursor/cursor_factory.h"
 #include "ui/base/glib/glib_cast.h"
 #include "ui/base/ime/input_method.h"
 #include "ui/base/ime/linux/fake_input_method_context.h"
@@ -281,25 +279,6 @@ bool IsValidSchema(ui::LinuxUiBackend backend) {
   return true;
 }
 
-std::string GetSettingsStringProperty(const char* property_name) {
-  gchar* prop_value = nullptr;
-  g_object_get(gtk_settings_get_default(), property_name, &prop_value, nullptr);
-  std::string prop_string;
-  if (prop_value) {
-    prop_string = prop_value;
-    g_free(prop_value);
-  }
-  return prop_string;
-}
-
-std::string GetIconThemeName() {
-  return GetSettingsStringProperty("gtk-icon-theme-name");
-}
-
-std::string GetThemeName() {
-  return GetSettingsStringProperty("gtk-theme-name");
-}
-
 }  // namespace
 
 GtkUi::GtkUi() : window_frame_actions_() {}
@@ -321,11 +300,6 @@ bool GtkUi::Initialize() {
     return false;
   }
 
-  // The GtkSettings interceptor must be installed early (before GTK
-  // initialization like gtk_init_check()) to intercept and sanitize
-  // settings such as gtk-modules when initial XSETTINGS are read.
-  InstallGtkSettingsInterceptor();
-
   // Gtk initialization through pango may call FcInit() before we get to that.
   // Retrieve global FontConfig config here to call FcInit() with configuration
   // we control.
@@ -337,9 +311,6 @@ bool GtkUi::Initialize() {
   // do it once it is ready.
   std::unique_ptr<base::Environment> env(base::Environment::Create());
   env->SetVar("NO_AT_BRIDGE", "1");
-  // GTK's module loading mechanism can be bypassed with the GTK_MODULES
-  // environment variable, so unset it here.
-  env->UnSetVar("GTK_MODULES");
 
   // When GDK opens the display during gtk_init() it probes it for OpenGL
   // support (GLX/EGL version and extension queries), which loads the GL
@@ -392,22 +363,6 @@ bool GtkUi::Initialize() {
   };
 
   GtkSettings* settings = gtk_settings_get_default();
-  if (!GtkCheckVersion(4)) {
-    // Pin `gtk-modules` to an empty string with APPLICATION source priority
-    // to prevent XSETTINGS updates from loading GTK modules.  GTK4 does not
-    // have this property.
-    g_object_set(settings, "gtk-modules", "", nullptr);
-  }
-  SanitizeIconThemeName();
-  SanitizeThemeName();
-  SanitizeCursorThemeName();
-  SanitizeCursorThemeSize();
-
-  if (!GtkCheckVersion(4)) {
-    SanitizeKeyThemeName();
-    connect(settings, "notify::gtk-key-theme-name",
-            &GtkUi::OnKeyThemeNameChanged);
-  }
   connect(settings, "notify::gtk-theme-name", &GtkUi::OnThemeChanged);
   connect(settings, "notify::gtk-icon-theme-name", &GtkUi::OnThemeChanged);
   connect(settings, "notify::gtk-application-prefer-dark-theme",
@@ -560,11 +515,6 @@ void GtkUi::GetInactiveSelectionFgColor(SkColor* color) const {
 gfx::Image GtkUi::GetIconForContentType(const std::string& content_type,
                                         int dip_size,
                                         float scale) const {
-  if (!IsValidThemeName(ThemeProperty::kIconThemeName,
-                        GetIconThemeName().c_str())) {
-    return gfx::Image();
-  }
-
   // This call doesn't take a reference.
   GtkIconTheme* theme = GetDefaultIconTheme();
 
@@ -857,67 +807,6 @@ std::string GtkUi::GetCursorThemeName() {
   return theme_string;
 }
 
-bool GtkUi::SanitizeIconThemeName() {
-  std::string theme = GetIconThemeName();
-  if (!IsValidThemeName(ThemeProperty::kIconThemeName, theme.c_str())) {
-    g_object_set(gtk_settings_get_default(), "gtk-icon-theme-name", "hicolor",
-                 nullptr);
-    return true;
-  }
-  return false;
-}
-
-bool GtkUi::SanitizeThemeName() {
-  std::string theme = GetThemeName();
-  if (!IsValidThemeName(ThemeProperty::kThemeName, theme.c_str())) {
-    g_object_set(gtk_settings_get_default(), "gtk-theme-name", "Adwaita",
-                 nullptr);
-    return true;
-  }
-  return false;
-}
-
-bool GtkUi::SanitizeKeyThemeName() {
-  gchar* name = nullptr;
-  g_object_get(gtk_settings_get_default(), "gtk-key-theme-name", &name,
-               nullptr);
-  std::string name_str;
-  if (name) {
-    name_str = name;
-    g_free(name);
-  }
-  if (!IsValidThemeName(ThemeProperty::kKeyThemeName, name_str.c_str())) {
-    g_object_set(gtk_settings_get_default(), "gtk-key-theme-name", nullptr,
-                 nullptr);
-    return true;
-  }
-  return false;
-}
-
-bool GtkUi::SanitizeCursorThemeName() {
-  std::string theme = GetCursorThemeName();
-  if (!IsValidThemeName(ThemeProperty::kCursorThemeName, theme.c_str())) {
-    g_object_set(gtk_settings_get_default(), "gtk-cursor-theme-name", "Adwaita",
-                 nullptr);
-    return true;
-  }
-  return false;
-}
-
-bool GtkUi::SanitizeCursorThemeSize() {
-  int size = GetCursorThemeSize();
-  if (!ui::IsValidCursorThemeSize(size)) {
-    g_object_set(gtk_settings_get_default(), "gtk-cursor-theme-size", 24,
-                 nullptr);
-    return true;
-  }
-  return false;
-}
-
-void GtkUi::OnKeyThemeNameChanged(GtkSettings* settings, GtkParamSpec* param) {
-  SanitizeKeyThemeName();
-}
-
 int GtkUi::GetCursorThemeSize() {
   gint size = 0;
   g_object_get(gtk_settings_get_default(), "gtk-cursor-theme-size", &size,
@@ -969,9 +858,6 @@ gfx::Size GtkUi::GetPdfPaperSize(printing::PrintingContextLinux* context) {
 
 void GtkUi::OnThemeChanged(GtkSettings* settings, GtkParamSpec* param) {
   ClearStyleColorCache();
-  if (SanitizeIconThemeName() || SanitizeThemeName()) {
-    return;  // Exit early; modifying the setting re-triggered this function
-  }
   colors_.clear();
   custom_frame_colors_.clear();
   native_frame_colors_.clear();
@@ -981,9 +867,6 @@ void GtkUi::OnThemeChanged(GtkSettings* settings, GtkParamSpec* param) {
 
 void GtkUi::OnCursorThemeNameChanged(GtkSettings* settings,
                                      GtkParamSpec* param) {
-  if (SanitizeCursorThemeName()) {
-    return;
-  }
   std::string cursor_theme_name = GetCursorThemeName();
   if (cursor_theme_name.empty()) {
     return;
@@ -995,9 +878,6 @@ void GtkUi::OnCursorThemeNameChanged(GtkSettings* settings,
 
 void GtkUi::OnCursorThemeSizeChanged(GtkSettings* settings,
                                      GtkParamSpec* param) {
-  if (SanitizeCursorThemeSize()) {
-    return;
-  }
   int cursor_theme_size = GetCursorThemeSize();
   if (!cursor_theme_size) {
     return;

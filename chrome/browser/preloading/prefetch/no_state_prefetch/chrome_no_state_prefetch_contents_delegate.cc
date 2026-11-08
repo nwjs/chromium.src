@@ -5,12 +5,20 @@
 #include "chrome/browser/preloading/prefetch/no_state_prefetch/chrome_no_state_prefetch_contents_delegate.h"
 
 #include "build/build_config.h"
+#include "chrome/browser/page_load_metrics/page_load_metrics_initialize.h"
 #include "chrome/browser/preloading/prefetch/no_state_prefetch/no_state_prefetch_manager_factory.h"
 #include "chrome/browser/task_manager/web_contents_tags.h"
 #include "chrome/browser/ui/tab_helpers.h"
 #include "components/no_state_prefetch/browser/no_state_prefetch_contents.h"
 #include "components/no_state_prefetch/browser/no_state_prefetch_manager.h"
 #include "content/public/browser/web_contents.h"
+#include "extensions/buildflags/buildflags.h"
+
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+#include "chrome/browser/extensions/tab_helper.h"
+#include "extensions/browser/view_type_utils.h"
+#include "extensions/common/mojom/view_type.mojom.h"
+#endif
 
 namespace prerender {
 
@@ -33,6 +41,15 @@ void ChromeNoStatePrefetchContentsDelegate::OnNoStatePrefetchContentsCreated(
     content::WebContents* web_contents) {
   DCHECK(web_contents);
   TabHelpers::AttachTabHelpers(web_contents);
+  InitializePageLoadMetricsForWebContents(web_contents);
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+  if (extensions::GetViewType(web_contents) ==
+      extensions::mojom::ViewType::kInvalid) {
+    extensions::SetViewType(web_contents,
+                            extensions::mojom::ViewType::kTabContents);
+  }
+  extensions::TabHelper::CreateForWebContents(web_contents);
+#endif
 
   // Tag the NoStatePrefetch contents with the task manager specific prerender
   // tag, so that it shows up in the task manager.

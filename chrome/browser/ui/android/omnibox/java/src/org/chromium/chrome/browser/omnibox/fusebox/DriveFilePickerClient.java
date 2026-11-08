@@ -56,10 +56,15 @@ public class DriveFilePickerClient {
      * @param windowAndroid Window in which to display the picker.
      * @param profile The current user profile.
      * @param mimeTypes Optional list of MIME type filters.
-     * @return A promise resolved with {@link DriveAttachmentMetadata} or null if canceled.
+     * @param allowMultiSelect Whether multiple files can be selected.
+     * @return A promise resolved with the selected {@link DriveAttachmentMetadata} list, or an
+     *     empty list if canceled.
      */
-    public Promise<@Nullable DriveAttachmentMetadata> launchPicker(
-            WindowAndroid windowAndroid, Profile profile, @Nullable List<String> mimeTypes) {
-        return Promise.<@Nullable DriveAttachmentMetadata>fulfilled(null);
+    public Promise<List<DriveAttachmentMetadata>> launchPicker(
+            WindowAndroid windowAndroid,
+            Profile profile,
+            @Nullable List<String> mimeTypes,
+            boolean allowMultiSelect) {
+        return Promise.fulfilled(List.of());
     }
 }

@@ -52,12 +52,11 @@ source_set("impl") {
     ]
   }
 
-  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
-
   deps = [
     ":glic",
     "//chrome/app:command_ids",
     "//chrome/app:generated_resources",
+    "//chrome/app/vector_icons",
     "//chrome/browser:browser_process",
     "//chrome/browser:global_features",
     "//chrome/browser/background",
@@ -66,9 +65,9 @@ source_set("impl") {
     "//chrome/browser/lifetime",
     "//chrome/browser/profiles:profile",
     "//chrome/browser/profiles:profile_manager",
+    "//chrome/browser/profiles/keep_alive",
     "//chrome/browser/resources/glic:resources_grit",
     "//chrome/browser/status_icons",
-    "//chrome/browser/ui",
     "//chrome/browser/ui:browser_element_identifiers",
     "//ui/base",
     "//ui/base/accelerators/global_accelerator_listener",
@@ -105,12 +104,12 @@ source_set("unit_tests") {
       ":glic",
       ":impl",
       "//base/test:test_support",
+      "//chrome/browser",
       "//chrome/browser:global_features",
       "//chrome/browser/glic",
       "//chrome/browser/glic/test_support",
       "//chrome/browser/profiles",
       "//chrome/browser/status_icons",
-      "//chrome/browser/ui",
       "//chrome/browser/ui:ui_features",
       "//chrome/browser/ui/webui/whats_new",
       "//chrome/common:chrome_features",

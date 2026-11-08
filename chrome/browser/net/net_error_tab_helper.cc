@@ -16,6 +16,7 @@
 #include "components/error_page/common/net_error_info.h"
 #include "components/pref_registry/pref_registry_syncable.h"
 #include "components/prefs/pref_service.h"
+#include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/navigation_controller.h"
@@ -39,7 +40,6 @@
 #include "chrome/browser/ui/ash/network/network_portal_signin_controller.h"
 #elif BUILDFLAG(IS_ANDROID)
 #include "components/enterprise/net/content/enterprise_proxy_tab_helper.h"
-#include "components/tabs/public/tab_interface.h"
 #endif
 
 using content::BrowserContext;
@@ -59,7 +59,14 @@ static NetErrorTabHelper::TestingState testing_state_ =
 
 }  // namespace
 
+DEFINE_USER_DATA(NetErrorTabHelper);
+
 NetErrorTabHelper::~NetErrorTabHelper() = default;
+
+// static
+NetErrorTabHelper* NetErrorTabHelper::From(tabs::TabInterface* tab) {
+  return tab ? Get(tab->GetUnownedUserDataHost()) : nullptr;
+}
 
 // static
 void NetErrorTabHelper::BindNetErrorPageSupport(
@@ -69,7 +76,9 @@ void NetErrorTabHelper::BindNetErrorPageSupport(
   auto* web_contents = content::WebContents::FromRenderFrameHost(rfh);
   if (!web_contents)
     return;
-  auto* tab_helper = NetErrorTabHelper::FromWebContents(web_contents);
+  tabs::TabInterface* const tab =
+      tabs::TabInterface::MaybeGetFromContents(web_contents);
+  auto* tab_helper = tab ? NetErrorTabHelper::From(tab) : nullptr;
   if (!tab_helper)
     return;
   tab_helper->net_error_page_support_.Bind(rfh, std::move(receiver));
@@ -82,7 +91,9 @@ void NetErrorTabHelper::BindNetworkDiagnostics(
   auto* web_contents = content::WebContents::FromRenderFrameHost(rfh);
   if (!web_contents)
     return;
-  auto* tab_helper = NetErrorTabHelper::FromWebContents(web_contents);
+  tabs::TabInterface* const tab =
+      tabs::TabInterface::MaybeGetFromContents(web_contents);
+  auto* tab_helper = tab ? NetErrorTabHelper::From(tab) : nullptr;
   if (!tab_helper)
     return;
   tab_helper->network_diagnostics_receivers_.Bind(rfh, std::move(receiver));
@@ -95,7 +106,9 @@ void NetErrorTabHelper::BindNetworkEasterEgg(
   auto* web_contents = content::WebContents::FromRenderFrameHost(rfh);
   if (!web_contents)
     return;
-  auto* tab_helper = NetErrorTabHelper::FromWebContents(web_contents);
+  tabs::TabInterface* const tab =
+      tabs::TabInterface::MaybeGetFromContents(web_contents);
+  auto* tab_helper = tab ? NetErrorTabHelper::From(tab) : nullptr;
   if (!tab_helper)
     return;
   tab_helper->network_easter_egg_receivers_.Bind(rfh, std::move(receiver));
@@ -187,20 +200,20 @@ void NetErrorTabHelper::ShowPortalSignin() {
 }
 #endif
 
-NetErrorTabHelper::NetErrorTabHelper(WebContents* contents)
+NetErrorTabHelper::NetErrorTabHelper(tabs::TabInterface& tab,
+                                     WebContents* contents)
     : WebContentsObserver(contents),
-      content::WebContentsUserData<NetErrorTabHelper>(*contents),
       network_diagnostics_receivers_(contents, this),
       network_easter_egg_receivers_(contents, this),
       net_error_page_support_(contents, this),
-      is_error_page_(false),
       dns_error_active_(false),
       dns_error_page_committed_(false),
 #if BUILDFLAG(ENABLE_OFFLINE_PAGES)
       is_showing_download_button_in_error_page_(false),
 #endif  // BUILDFLAG(ENABLE_OFFLINE_PAGES)
-      dns_probe_status_(error_page::DNS_PROBE_POSSIBLE) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+      dns_probe_status_(error_page::DNS_PROBE_POSSIBLE),
+      scoped_unowned_user_data_(tab.GetUnownedUserDataHost(), *this) {
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M161);
 
   // If this helper is under test, it won't have a WebContents.
   if (contents)
@@ -220,9 +233,10 @@ void NetErrorTabHelper::OnMainFrameDnsError() {
 }
 
 void NetErrorTabHelper::StartDnsProbe() {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
-  DCHECK(dns_error_active_);
-  DCHECK_NE(error_page::DNS_PROBE_STARTED, dns_probe_status_);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M161);
+  CHECK(dns_error_active_, base::NotFatalUntil::M161);
+  CHECK_NE(error_page::DNS_PROBE_STARTED, dns_probe_status_,
+           base::NotFatalUntil::M161);
 
   DVLOG(1) << "Starting DNS probe.";
 
@@ -233,9 +247,11 @@ void NetErrorTabHelper::StartDnsProbe() {
 }
 
 void NetErrorTabHelper::OnDnsProbeFinished(DnsProbeStatus result) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
-  DCHECK_EQ(error_page::DNS_PROBE_STARTED, dns_probe_status_);
-  DCHECK(error_page::DnsProbeStatusIsFinished(result));
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M161);
+  CHECK_EQ(error_page::DNS_PROBE_STARTED, dns_probe_status_,
+           base::NotFatalUntil::M161);
+  CHECK(error_page::DnsProbeStatusIsFinished(result),
+        base::NotFatalUntil::M161);
 
   DVLOG(1) << "Finished DNS probe with result "
            << DnsProbeStatusToString(result) << ".";
@@ -257,7 +273,7 @@ void NetErrorTabHelper::RegisterProfilePrefs(
 }
 
 void NetErrorTabHelper::InitializePref(WebContents* contents) {
-  DCHECK(contents);
+  CHECK(contents, base::NotFatalUntil::M161);
 
   BrowserContext* browser_context = contents->GetBrowserContext();
   Profile* profile = Profile::FromBrowserContext(browser_context);
@@ -276,8 +292,9 @@ bool NetErrorTabHelper::ProbesAllowed() const {
 }
 
 void NetErrorTabHelper::SendInfo() {
-  DCHECK_NE(error_page::DNS_PROBE_POSSIBLE, dns_probe_status_);
-  DCHECK(dns_error_page_committed_);
+  CHECK_NE(error_page::DNS_PROBE_POSSIBLE, dns_probe_status_,
+           base::NotFatalUntil::M161);
+  CHECK(dns_error_page_committed_, base::NotFatalUntil::M161);
 
   DVLOG(1) << "Sending status " << DnsProbeStatusToString(dns_probe_status_);
   content::RenderFrameHost* rfh = web_contents()->GetPrimaryMainFrame();
@@ -380,7 +397,5 @@ void NetErrorTabHelper::ResetHighScore() {
   }
   easter_egg_high_score_.SetValue(0);
 }
-
-WEB_CONTENTS_USER_DATA_KEY_IMPL(NetErrorTabHelper);
 
 }  // namespace chrome_browser_net

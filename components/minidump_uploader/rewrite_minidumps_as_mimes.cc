@@ -185,8 +185,7 @@ void RewriteMinidumpsAsMIMEs(const base::FilePath& src_dir,
   for (const auto& report : reports) {
     std::unique_ptr<const crashpad::CrashReportDatabase::UploadReport>
         upload_report;
-    switch (db->GetReportForUploading(report.uuid,
-                                      &upload_report,
+    switch (db->GetReportForUploading(report.uuid, &upload_report,
                                       /* report_metrics= */ false)) {
       case crashpad::CrashReportDatabase::kBusyError:
       case crashpad::CrashReportDatabase::kReportNotFound:
@@ -229,7 +228,14 @@ void WriteAnrAsMime(crashpad::FileReader* anr_reader,
                     const std::string& anr_file_name) {
   crashpad::HTTPMultipartBuilder builder;
   builder.SetFormData("version", version_number);
-  builder.SetFormData("product", "Chrome_Android");
+  // LINT.IfChange(AndroidCrashProductName)
+  builder.SetFormData("product", base::android::device_info::is_desktop()
+                                     ? "Chrome_Android_Desktop"
+                                     : "Chrome_Android");
+  // LINT.ThenChange(
+  //   //chrome/android/java/src/org/chromium/chrome/browser/crash/ChromePureJavaExceptionReporter.java:AndroidCrashProductName,
+  //   //chrome/app/chrome_crash_reporter_client.cc:AndroidCrashProductName
+  // )
   std::string channel = std::string(
       version_info::GetChannelString(version_info::android::GetChannel()));
   if (channel == "stable") {
@@ -264,8 +270,6 @@ void WriteAnrAsMime(crashpad::FileReader* anr_reader,
   builder.SetFormData("installer_package_name",
                       base::android::apk_info::installer_package_name());
   builder.SetFormData("abi_name", base::android::android_info::abi_name());
-  builder.SetFormData("resources_version",
-                      base::android::apk_info::resources_version());
   builder.SetFormData("gms_core_version",
                       base::android::device_info::gms_version_code());
 

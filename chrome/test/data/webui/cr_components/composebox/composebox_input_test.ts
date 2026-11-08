@@ -80,8 +80,24 @@ suite('ComposeboxInputTest', () => {
         assertEquals('auto', window.getComputedStyle(cancelIcon).pointerEvents);
       });
 
+  test('hideCancel removes the cancel container', async () => {
+    assertFalse(inputElement.hideCancel);
+    assertTrue(!!inputElement.shadowRoot.querySelector('#cancelContainer'));
+
+    inputElement.hideCancel = true;
+    await inputElement.updateComplete;
+    assertEquals(
+        null, inputElement.shadowRoot.querySelector('#cancelContainer'));
+    assertEquals(null, inputElement.shadowRoot.querySelector('#cancelIcon'));
+
+    inputElement.hideCancel = false;
+    await inputElement.updateComplete;
+    assertTrue(!!inputElement.shadowRoot.querySelector('#cancelContainer'));
+  });
+
   test('Events are forwarded from input', () => {
-    const textArea = inputElement.$.input as HTMLTextAreaElement;
+    const textArea =
+        inputElement.shadowRoot.querySelector<HTMLTextAreaElement>('#input')!;
 
     let inputFired = false;
     inputElement.addEventListener('input-input', () => {
@@ -147,7 +163,7 @@ suite('ComposeboxInputTest', () => {
     inputElement.smartComposeInlineHint = 'first line\nsecond line';
     await inputElement.updateComplete;
 
-    const input = inputElement.$.input;
+    const input = inputElement.shadowRoot.querySelector<HTMLElement>('#input')!;
     await pollUntil(() => input.style.minHeight !== '');
 
     const smartCompose =
@@ -162,7 +178,7 @@ suite('ComposeboxInputTest', () => {
     inputElement.smartComposeInlineHint = 'first line\nsecond line';
     await inputElement.updateComplete;
 
-    const input = inputElement.$.input;
+    const input = inputElement.shadowRoot.querySelector<HTMLElement>('#input')!;
     await pollUntil(() => input.style.minHeight !== '');
     assertTrue(input.style.minHeight !== '');
 
@@ -196,7 +212,7 @@ suite('ComposeboxScrollCaret', () => {
   });
 
   test('TextareaDoesNotScrollInternally', () => {
-    const input = inputElement.$.input;
+    const input = inputElement.shadowRoot.querySelector<HTMLElement>('#input')!;
     assertTrue(!!input);
 
     const maxHeight = window.getComputedStyle(input).maxHeight;
@@ -204,7 +220,8 @@ suite('ComposeboxScrollCaret', () => {
   });
 
   test('CaretAnchorStableDuringScroll', async () => {
-    const input = inputElement.$.input as HTMLTextAreaElement;
+    const input =
+        inputElement.shadowRoot.querySelector<HTMLTextAreaElement>('#input')!;
     const mirror =
         inputElement.shadowRoot.querySelector<HTMLElement>('#mirror');
     const inputWrapper =
@@ -252,7 +269,7 @@ suite('ComposeboxScrollCaret', () => {
   });
 
   test('TextareaUsesFieldSizingContent', () => {
-    const input = inputElement.$.input;
+    const input = inputElement.shadowRoot.querySelector<HTMLElement>('#input')!;
     assertTrue(!!input);
 
     const fieldSizing =
@@ -264,7 +281,8 @@ suite('ComposeboxScrollCaret', () => {
   // #inputWrapper, not height-only changes that can feed back into a layout loop
   // e.g. Windows non-overlay scrollbar toggling.
   test('CaretAnchorUpdatesOnInputWrapperWidthChange', async () => {
-    const input = inputElement.$.input as HTMLTextAreaElement;
+    const input =
+        inputElement.shadowRoot.querySelector<HTMLTextAreaElement>('#input')!;
     const mirror =
         inputElement.shadowRoot.querySelector<HTMLElement>('#mirror');
     const inputWrapper =
@@ -299,7 +317,8 @@ suite('ComposeboxScrollCaret', () => {
   });
 
   test('CaretAnchorDoesNotUpdateOnHeightOnlyChange', async () => {
-    const input = inputElement.$.input as HTMLTextAreaElement;
+    const input =
+        inputElement.shadowRoot.querySelector<HTMLTextAreaElement>('#input')!;
     const mirror =
         inputElement.shadowRoot.querySelector<HTMLElement>('#mirror');
     const inputWrapper =
@@ -339,7 +358,9 @@ suite('ComposeboxScrollCaret', () => {
         document.body.style.height = '600px';
 
         const wrapper = inputElement.shadowRoot.getElementById('inputWrapper')!;
-        const input = inputElement.$.input as HTMLTextAreaElement;
+        const input =
+            inputElement.shadowRoot.querySelector<HTMLTextAreaElement>(
+                '#input')!;
 
         // Initially minHeight is empty.
         assertEquals('', wrapper.style.minHeight);
@@ -374,7 +395,8 @@ suite('ComposeboxScrollCaret', () => {
     document.body.style.height = '600px';
 
     const wrapper = inputElement.shadowRoot.getElementById('inputWrapper')!;
-    const input = inputElement.$.input as HTMLTextAreaElement;
+    const input =
+        inputElement.shadowRoot.querySelector<HTMLTextAreaElement>('#input')!;
 
     // Type some text to make the textarea grow.
     input.value = 'line 1\nline 2\nline 3\nline 4\nline 5';
@@ -402,7 +424,8 @@ suite('ComposeboxScrollCaret', () => {
 
     const wrapper =
         inputElement.shadowRoot.querySelector<HTMLElement>('#inputWrapper');
-    const input = inputElement.$.input as HTMLTextAreaElement;
+    const input =
+        inputElement.shadowRoot.querySelector<HTMLTextAreaElement>('#input')!;
     assertTrue(!!wrapper);
 
     // 1. Lock the wrapper's height by entering multiline text.
@@ -436,7 +459,9 @@ suite('ComposeboxScrollCaret', () => {
 
         const wrapper =
             inputElement.shadowRoot.querySelector<HTMLElement>('#inputWrapper');
-        const input = inputElement.$.input as HTMLTextAreaElement;
+        const input =
+            inputElement.shadowRoot.querySelector<HTMLTextAreaElement>(
+                '#input')!;
         assertTrue(!!wrapper);
 
         const capturedCallbacks: FrameRequestCallback[] = [];
@@ -527,7 +552,8 @@ suite('ComposeboxCaretGeometry', () => {
   // Verify the caret's rendered position aligns with its anchor span.
   test('CaretRenderedPositionMatchesAnchorSpanLtr', async () => {
     setDirection('ltr');
-    const input = inputElement.$.input as HTMLTextAreaElement;
+    const input =
+        inputElement.shadowRoot.querySelector<HTMLTextAreaElement>('#input')!;
     const caret = inputElement.shadowRoot.querySelector<HTMLElement>('#caret');
     const mirror =
         inputElement.shadowRoot.querySelector<HTMLElement>('#mirror');
@@ -561,7 +587,8 @@ suite('ComposeboxCaretGeometry', () => {
 
   test('CaretRenderedPositionMatchesAnchorSpanRtl', async () => {
     setDirection('rtl');
-    const input = inputElement.$.input as HTMLTextAreaElement;
+    const input =
+        inputElement.shadowRoot.querySelector<HTMLTextAreaElement>('#input')!;
     const caret = inputElement.shadowRoot.querySelector<HTMLElement>('#caret');
     const mirror =
         inputElement.shadowRoot.querySelector<HTMLElement>('#mirror');
@@ -594,7 +621,8 @@ suite('ComposeboxCaretGeometry', () => {
 
   test('CaretPositionedAtFarLeftOfLtrTextInRtl', async () => {
     setDirection('rtl');
-    const input = inputElement.$.input as HTMLTextAreaElement;
+    const input =
+        inputElement.shadowRoot.querySelector<HTMLTextAreaElement>('#input')!;
     const caret = inputElement.shadowRoot.querySelector<HTMLElement>('#caret');
     const mirror =
         inputElement.shadowRoot.querySelector<HTMLElement>('#mirror');
@@ -629,7 +657,8 @@ suite('ComposeboxCaretGeometry', () => {
   });
 
   test('CaretAtStartPositionedAtFirstSpanStart', async () => {
-    const input = inputElement.$.input as HTMLTextAreaElement;
+    const input =
+        inputElement.shadowRoot.querySelector<HTMLTextAreaElement>('#input')!;
     const caret = inputElement.shadowRoot.querySelector<HTMLElement>('#caret');
     const mirror =
         inputElement.shadowRoot.querySelector<HTMLElement>('#mirror');
@@ -661,7 +690,8 @@ suite('ComposeboxCaretGeometry', () => {
   });
 
   test('ResetCaretAnchorsToFirstSpan', async () => {
-    const input = inputElement.$.input as HTMLTextAreaElement;
+    const input =
+        inputElement.shadowRoot.querySelector<HTMLTextAreaElement>('#input')!;
     const caret = inputElement.shadowRoot.querySelector<HTMLElement>('#caret');
     const mirror =
         inputElement.shadowRoot.querySelector<HTMLElement>('#mirror');
@@ -697,7 +727,7 @@ suite('ComposeboxCaretGeometry', () => {
     inputElement.composeboxSkillsEnabled = true;
     await inputElement.updateComplete;
 
-    const input = inputElement.$.input;
+    const input = inputElement.shadowRoot.querySelector<HTMLElement>('#input')!;
     const caret = inputElement.shadowRoot.querySelector<HTMLElement>('#caret');
     const mirror =
         inputElement.shadowRoot.querySelector<HTMLElement>('#mirror');
@@ -722,7 +752,8 @@ suite('ComposeboxCaretGeometry', () => {
 
   test('CaretWrapsToNextLineOnConsecutiveSpaces', async () => {
     inputElement.style.width = '100px';
-    const input = inputElement.$.input as HTMLTextAreaElement;
+    const input =
+        inputElement.shadowRoot.querySelector<HTMLTextAreaElement>('#input')!;
     const caret = inputElement.shadowRoot.querySelector<HTMLElement>('#caret');
     const mirror =
         inputElement.shadowRoot.querySelector<HTMLElement>('#mirror');
@@ -766,7 +797,7 @@ suite('ComposeboxSkills', () => {
   });
 
   test('CaretPlacedAtEndWhenSkillsEnabledAndInputChanges', async () => {
-    const input = inputElement.$.input;
+    const input = inputElement.shadowRoot.querySelector<HTMLElement>('#input')!;
     const caret = inputElement.shadowRoot.querySelector<HTMLElement>('#caret');
     const mirror =
         inputElement.shadowRoot.querySelector<HTMLElement>('#mirror');
@@ -796,7 +827,9 @@ suite('ComposeboxSkills', () => {
     inputElement.insertSkillChip({id: 'chip1', text: '/Search'});
     await inputElement.updateComplete;
 
-    const chip = inputElement.$.input.querySelector(`.${CHIP_CLASS}`);
+    const chip =
+        inputElement.shadowRoot.querySelector<HTMLElement>(
+                                   '#input')!.querySelector(`.${CHIP_CLASS}`);
     assertTrue(isVisible(chip));
 
     const mirror =
@@ -817,7 +850,8 @@ suite('ComposeboxSkills', () => {
     inputElement.composeboxSkillsEnabled = true;
     await inputElement.updateComplete;
 
-    const inputDiv = inputElement.$.input;
+    const inputDiv =
+        inputElement.shadowRoot.querySelector<HTMLElement>('#input')!;
     inputElement.insertSkillChip({id: 'chip1', text: '/Translate'});
     await inputElement.updateComplete;
 
@@ -858,7 +892,8 @@ suite('ComposeboxSkills', () => {
     inputElement.composeboxSkillsEnabled = true;
     await inputElement.updateComplete;
 
-    const inputDiv = inputElement.$.input;
+    const inputDiv =
+        inputElement.shadowRoot.querySelector<HTMLElement>('#input')!;
     inputDiv.textContent = '\n';
     inputDiv.dispatchEvent(new Event('input', {bubbles: true}));
     await inputElement.updateComplete;
@@ -871,7 +906,8 @@ suite('ComposeboxSkills', () => {
     inputElement.composeboxSkillsEnabled = true;
     await inputElement.updateComplete;
 
-    const inputDiv = inputElement.$.input;
+    const inputDiv =
+        inputElement.shadowRoot.querySelector<HTMLElement>('#input')!;
     const chipEl = createChipElement({id: 'chip1', text: '/Search'});
     inputDiv.appendChild(chipEl);
     inputElement.input = '/Search';
@@ -899,7 +935,8 @@ suite('ComposeboxSkills', () => {
         inputElement.composeboxSkillsEnabled = true;
         await inputElement.updateComplete;
 
-        const inputDiv = inputElement.$.input;
+        const inputDiv =
+            inputElement.shadowRoot.querySelector<HTMLElement>('#input')!;
         const chipEl = createChipElement({id: 'chip1', text: '/Search'});
         inputDiv.appendChild(chipEl);
         inputElement.input = '/Search';
@@ -922,7 +959,8 @@ suite('ComposeboxSkills', () => {
         inputElement.composeboxSkillsEnabled = true;
         await inputElement.updateComplete;
 
-        const inputDiv = inputElement.$.input;
+        const inputDiv =
+            inputElement.shadowRoot.querySelector<HTMLElement>('#input')!;
         const chipEl = createChipElement({id: 'chip1', text: '/Search'});
         inputDiv.appendChild(chipEl);
         inputElement.input = '/Search';
@@ -1025,7 +1063,9 @@ suite('ComposeboxSkills', () => {
         inputElement.insertSkillChip({id: 'chip1', text: '/Search'});
         await inputElement.updateComplete;
 
-        let chip = inputElement.$.input.querySelector(`.${CHIP_CLASS}`);
+        const inputDiv =
+            inputElement.shadowRoot.querySelector<HTMLElement>('#input')!;
+        let chip = inputDiv.querySelector(`.${CHIP_CLASS}`);
         assertTrue(isVisible(chip));
 
         // When autocomplete selects the first match or updates input with
@@ -1033,7 +1073,7 @@ suite('ComposeboxSkills', () => {
         inputElement.input = '/Search ';
         await inputElement.updateComplete;
 
-        chip = inputElement.$.input.querySelector(`.${CHIP_CLASS}`);
+        chip = inputDiv.querySelector(`.${CHIP_CLASS}`);
         assertTrue(isVisible(chip));
         assertEquals('/Search ', inputElement.input);
       });
@@ -1047,7 +1087,9 @@ suite('ComposeboxSkills', () => {
         inputElement.insertSkillChip({id: 'chip1', text: '/Search'});
         await inputElement.updateComplete;
 
-        let chip = inputElement.$.input.querySelector(`.${CHIP_CLASS}`);
+        const inputDiv =
+            inputElement.shadowRoot.querySelector<HTMLElement>('#input')!;
+        let chip = inputDiv.querySelector(`.${CHIP_CLASS}`);
         assertTrue(isVisible(chip));
 
         // When autocomplete returns a match whose fillIntoEdit omits the
@@ -1055,7 +1097,7 @@ suite('ComposeboxSkills', () => {
         inputElement.input = '/Search';
         await inputElement.updateComplete;
 
-        chip = inputElement.$.input.querySelector(`.${CHIP_CLASS}`);
+        chip = inputDiv.querySelector(`.${CHIP_CLASS}`);
         assertTrue(isVisible(chip));
       });
 
@@ -1066,9 +1108,11 @@ suite('ComposeboxSkills', () => {
     inputElement.input = 'hello';
     await inputElement.updateComplete;
 
+    const inputDiv =
+        inputElement.shadowRoot.querySelector<HTMLElement>('#input')!;
     // Place selection at the start (offset 0).
     const range = document.createRange();
-    range.setStart(inputElement.$.input.firstChild!, 0);
+    range.setStart(inputDiv.firstChild!, 0);
     range.collapse(true);
     const sel = window.getSelection();
     sel?.removeAllRanges();
@@ -1077,13 +1121,13 @@ suite('ComposeboxSkills', () => {
     inputElement.insertSkillChip({id: 'chip1', text: '/Search'});
     await inputElement.updateComplete;
 
-    let chip = inputElement.$.input.querySelector(`.${CHIP_CLASS}`);
+    let chip = inputDiv.querySelector(`.${CHIP_CLASS}`);
     assertTrue(isVisible(chip));
 
     inputElement.input = '/Search hello';
     await inputElement.updateComplete;
 
-    chip = inputElement.$.input.querySelector(`.${CHIP_CLASS}`);
+    chip = inputDiv.querySelector(`.${CHIP_CLASS}`);
     assertTrue(isVisible(chip));
   });
 
@@ -1091,7 +1135,8 @@ suite('ComposeboxSkills', () => {
     inputElement.composeboxSkillsEnabled = true;
     await inputElement.updateComplete;
 
-    const inputDiv = inputElement.$.input;
+    const inputDiv =
+        inputElement.shadowRoot.querySelector<HTMLElement>('#input')!;
     inputElement.insertSkillChip({
       id: 'chip1',
       text: '/Search',
@@ -1161,7 +1206,8 @@ suite('ComposeboxSkills', () => {
     // Inline event handlers (e.g. onclick) are excluded because setHTML()
     // triggers a CSP violation report when parsing them, which crashes the
     // WebUI test runner.
-    const inputDiv = inputElement.$.input;
+    const inputDiv =
+        inputElement.shadowRoot.querySelector<HTMLElement>('#input')!;
     const clipboardData = new DataTransfer();
     clipboardData.setData(
         'text/html',

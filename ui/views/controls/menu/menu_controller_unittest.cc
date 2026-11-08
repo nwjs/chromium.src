@@ -49,6 +49,8 @@
 #include "ui/views/accessibility/ax_update_observer.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/controls/button/label_button.h"
+#include "ui/views/controls/button/menu_button.h"
+#include "ui/views/controls/button/menu_button_controller.h"
 #include "ui/views/controls/menu/menu_controller_delegate.h"
 #include "ui/views/controls/menu/menu_delegate.h"
 #include "ui/views/controls/menu/menu_host.h"
@@ -560,6 +562,10 @@ class MenuControllerTest : public ViewsTestBase,
 
   void DestroyMenuItem();
 
+  void SetHasMnemonics(bool has_mnemonics) {
+    menu_item_->has_mnemonics_ = has_mnemonics;
+  }
+
   Button* hot_button() { return menu_controller_->hot_button_; }
 
   void SetHotTrackedButton(Button* hot_button);
@@ -633,12 +639,12 @@ void MenuControllerTest::CreateMenu(const CreateMenuOptions& options) {
     menu_controller_ =
         new MenuController(for_drop(), menu_controller_delegate_.get());
   }
-  menu_item_->set_controller(menu_controller_);
+  menu_item_->SetController(menu_controller_);
 
   if (options.show) {
     MenuItemView* root_item =
         options.item ? options.item.get() : menu_item_.get();
-    root_item->set_controller(menu_controller_);
+    root_item->SetController(menu_controller_);
     menu_controller_->Run(owner(), nullptr, root_item, gfx::Rect(),
                           options.position, ui::mojom::MenuSourceType::kNone,
                           options.menu_type);
@@ -783,7 +789,7 @@ void MenuControllerTest::TestMenuControllerReplacementDuringDrag() {
   menu_item()->GetSubmenu()->Close();
   menu_controller_ =
       new MenuController(/*for_drop=*/false, menu_controller_delegate_.get());
-  menu_item_->set_controller(menu_controller_);
+  menu_item_->SetController(menu_controller_);
   menu_controller_->Run(owner_.get(), nullptr, menu_item(), gfx::Rect(),
                         MenuAnchorPosition::kTopLeft);
   EXPECT_TRUE(showing());
@@ -2211,6 +2217,50 @@ TEST_F(MenuControllerTest, AsynchronousRepostEvent) {
   EXPECT_EQ(MenuController::ExitType::kAll, menu_controller()->exit_type());
 }
 
+// Tests that clicking outside the menu (including on the owning MenuButton)
+// releases the button's pressed lock immediately while the Mac closure
+// animation runs, and that activating the MenuButton again interrupts any
+// in-progress closure animation so the menu can reopen.
+TEST_F(MenuControllerTest, RepostEventReleasesPressedLockAndAllowsReopen) {
+  CreateMenu();
+
+  bool reopened_while_not_showing = false;
+  auto* button = owner()->SetContentsView(
+      std::make_unique<MenuButton>(base::BindLambdaForTesting([&]() {
+                                     reopened_while_not_showing = !showing();
+                                   }),
+                                   u"Menu Button"));
+  button->SetBoundsRect(gfx::Rect(200, 0, 50, 50));
+
+  menu_controller()->Run(owner(), button->button_controller(), menu_item(),
+                         button->GetBoundsInScreen(),
+                         MenuAnchorPosition::kTopLeft);
+  EXPECT_EQ(Button::STATE_PRESSED, button->GetState());
+
+  ShowSubmenu();
+  SubmenuView* const submenu = menu_item()->GetSubmenu();
+  const gfx::Point button_loc = View::ConvertPointFromScreen(
+      submenu, button->GetBoundsInScreen().CenterPoint());
+
+  SetSelectionOnPointerDown(
+      submenu,
+      ui::MouseEvent(ui::EventType::kMousePressed, button_loc, button_loc,
+                     ui::EventTimeForNow(), ui::EF_LEFT_MOUSE_BUTTON, 0));
+
+  // The button's pressed lock should be released immediately (without waiting
+  // for MenuClosureAnimationMac) so the 100ms post-close debounce starts right
+  // away.
+  EXPECT_NE(Button::STATE_PRESSED, button->GetState());
+
+  // Activating the button while the closure animation may still be in flight
+  // should finish canceling the closing menu before running the button
+  // callback.
+  button->button_controller()->Activate(nullptr);
+  EXPECT_TRUE(reopened_while_not_showing);
+  EXPECT_FALSE(showing());
+  EXPECT_EQ(1, menu_controller_delegate()->on_menu_closed_called());
+}
+
 // Tests that an asynchronous menu reposts touch events that occur outside of
 // the bounds of the menu, and that the menu closes.
 TEST_F(MenuControllerTest, AsynchronousTouchEventRepostEvent) {
@@ -2607,7 +2657,7 @@ TEST_F(MenuControllerTest, MouseAtMenuItemOnShow) {
   auto menu_item = std::make_unique<MenuItemView>(menu_delegate());
   const MenuItemView* const first_item = menu_item->AppendMenuItem(1, u"One");
   menu_item->AppendMenuItem(2, u"Two");
-  menu_item->set_controller(menu_controller());
+  menu_item->SetController(menu_controller());
 
   // Move the mouse to where the first menu item will be shown,
   // and show the menu.
@@ -2822,7 +2872,7 @@ TEST_F(MenuControllerTest, RepostEventToEmptyMenuItem) {
   auto nested_menu_delegate_1 = std::make_unique<test::TestMenuDelegate>();
   auto nested_menu_item_1 =
       std::make_unique<MenuItemView>(nested_menu_delegate_1.get());
-  nested_menu_item_1->set_controller(menu_controller());
+  nested_menu_item_1->SetController(menu_controller());
   SubmenuView* const nested_menu_submenu = nested_menu_item_1->CreateSubmenu();
   ShowSubmenu(nested_menu_submenu);
   menu_host_for_submenu(nested_menu_submenu)
@@ -2875,7 +2925,7 @@ TEST_F(MenuControllerTest, RepostEventToEmptyMenuItem) {
   auto nested_menu_delegate_2 = std::make_unique<test::TestMenuDelegate>();
   auto nested_menu_item_2 =
       std::make_unique<MenuItemView>(nested_menu_delegate_2.get());
-  nested_menu_item_2->set_controller(menu_controller());
+  nested_menu_item_2->SetController(menu_controller());
   auto nested_controller_delegate_2 =
       std::make_unique<TestMenuControllerDelegate>();
   menu_controller()->AddNestedDelegate(nested_controller_delegate_2.get());
@@ -2925,7 +2975,7 @@ TEST_F(MenuControllerTest,
   // Create context menu
   auto context_menu = std::make_unique<MenuItemView>(menu_delegate());
   context_menu->AppendMenuItem(1, u"Action");
-  context_menu->set_controller(menu_controller());
+  context_menu->SetController(menu_controller());
 
   auto context_delegate = std::make_unique<TestMenuControllerDelegate>();
   menu_controller()->AddNestedDelegate(context_delegate.get());
@@ -3179,7 +3229,7 @@ TEST_F(MenuControllerTest, NoUseAfterFreeWhenMenuCanceledOnMousePress) {
 
   // Creating own MenuItem for a minimal test environment.
   auto item = std::make_unique<MenuItemView>(menu_delegate());
-  item->set_controller(menu_controller());
+  item->SetController(menu_controller());
   item->SetBounds(0, 0, 50, 50);
 
   SubmenuView* const submenu = item->CreateSubmenu();
@@ -4379,6 +4429,99 @@ TEST_F(MenuControllerTest, GetForOwnerWidgetAndCancelAllActive) {
 
   MenuController::CancelAllActive();
   EXPECT_EQ(MenuController::ExitType::kAll, menu_controller()->exit_type());
+}
+
+TEST_F(MenuControllerTest, SelectChildButtonViewByMnemonic) {
+  if (!MenuConfig::instance().use_mnemonics) {
+    GTEST_SKIP() << "Mnemonics are not enabled on this platform";
+  }
+
+  CreateMenu();
+  SetHasMnemonics(true);
+  MenuItemView* const buttons_item = AddButtonMenuItems(/*single_child=*/false);
+  SubmenuView* const submenu = menu_item()->GetSubmenu();
+  SubmenuView* const root_submenu = menu_item()->GetSubmenu();
+  root_submenu->GetMenuItemAt(0)->SetTitle(u"&One");
+  const View* const buttons_view = submenu->children()[4];
+  ASSERT_NE(nullptr, buttons_view);
+  GET_CHILD_BUTTON(button1, buttons_view, 0);
+  GET_CHILD_BUTTON(button2, buttons_view, 1);
+  GET_CHILD_BUTTON(button3, buttons_view, 2);
+
+  int button1_clicks = 0;
+  int button2_clicks = 0;
+  int button3_clicks = 0;
+  button1->SetCallback(base::BindRepeating([](int* count) { ++(*count); },
+                                           base::Unretained(&button1_clicks)));
+  button2->SetCallback(base::BindRepeating([](int* count) { ++(*count); },
+                                           base::Unretained(&button2_clicks)));
+  button3->SetCallback(base::BindRepeating([](int* count) { ++(*count); },
+                                           base::Unretained(&button3_clicks)));
+
+  button1->SetProperty(kMenuMnemonicKey, u'z');
+  button2->SetProperty(kMenuMnemonicKey, u'o');
+  button3->SetProperty(kMenuMnemonicKey, u'o');
+
+  // Unique match on button1 via mnemonic 'z' hot-tracks and activates button1.
+  SelectByChar('z');
+  EXPECT_EQ(buttons_item, pending_state_item());
+  EXPECT_EQ(button1, hot_button());
+  EXPECT_EQ(1, button1_clicks);
+
+  // Multiple matches: item 1 has mnemonic 'o', button2 has mnemonic 'o', and
+  // button3 has mnemonic 'o'. Pressing 'o' cycles from the currently
+  // hot-tracked button1 to button2 -> button3 -> item 1 without triggering any
+  // button.
+  SelectByChar('o');
+  EXPECT_EQ(buttons_item, pending_state_item());
+  EXPECT_EQ(button2, hot_button());
+  EXPECT_EQ(0, button2_clicks);
+
+  SelectByChar('o');
+  EXPECT_EQ(buttons_item, pending_state_item());
+  EXPECT_EQ(button3, hot_button());
+  EXPECT_EQ(0, button3_clicks);
+
+  // Wrap around back to item 1.
+  SelectByChar('o');
+  EXPECT_EQ(1, pending_state_item()->GetCommand());
+  EXPECT_EQ(nullptr, hot_button());
+
+  // Next 'o' advances to button2 again.
+  SelectByChar('o');
+  EXPECT_EQ(buttons_item, pending_state_item());
+  EXPECT_EQ(button2, hot_button());
+  EXPECT_EQ(0, button2_clicks);
+}
+
+TEST_F(MenuControllerTest, SelectChildButtonViewWithSubmenuByMnemonic) {
+  if (!MenuConfig::instance().use_mnemonics) {
+    GTEST_SKIP() << "Mnemonics are not enabled on this platform";
+  }
+
+  CreateMenu();
+  SetHasMnemonics(true);
+  MenuItemView* const buttons_item = AddButtonMenuItems(/*single_child=*/true);
+  SubmenuView* const submenu = menu_item()->GetSubmenu();
+  const View* const buttons_view = submenu->children()[4];
+  ASSERT_NE(nullptr, buttons_view);
+  GET_CHILD_BUTTON(button1, buttons_view, 0);
+
+  MenuItemView* const anchored_submenu =
+      menu_item()->AppendSubMenu(6, std::u16string());
+  anchored_submenu->SetVisible(false);
+  MenuItemView* const sub_item = anchored_submenu->AppendMenuItem(7, u"About");
+  anchored_submenu->SetAnchorView(button1);
+
+  button1->SetProperty(kMenuMnemonicKey, u'e');
+
+  // Pressing 'e' should open the anchored submenu and select its first item.
+  SelectByChar('e');
+  EXPECT_TRUE(anchored_submenu->SubmenuIsShowing());
+  EXPECT_EQ(sub_item, pending_state_item());
+  EXPECT_EQ(buttons_item, buttons_item);
+
+  anchored_submenu->SetAnchorView(nullptr);
 }
 
 }  // namespace views

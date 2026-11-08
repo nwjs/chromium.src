@@ -34,7 +34,7 @@
 #include "content/public/browser/cdm_registry.h"
 #include "content/public/common/cdm_info.h"
 #include "content/public/common/content_paths.h"
-#include "crypto/sha2.h"
+#include "crypto/hash.h"
 #include "media/base/cdm_capability.h"
 #include "media/cdm/cdm_paths.h"
 #include "third_party/widevine/cdm/buildflags.h"
@@ -63,7 +63,7 @@ const uint8_t kWidevineSha2Hash[] = {
     0xe8, 0xce, 0xcf, 0x42, 0x06, 0xd0, 0x93, 0x49, 0x6d, 0xd9, 0x89,
     0xe1, 0x41, 0x04, 0x86, 0x4a, 0x8f, 0xbd, 0x86, 0x12, 0xb9, 0x58,
     0x9b, 0xfb, 0x4f, 0xbb, 0x1b, 0xa9, 0xd3, 0x85, 0x37, 0xef};
-static_assert(std::size(kWidevineSha2Hash) == crypto::kSHA256Length);
+static_assert(std::size(kWidevineSha2Hash) == crypto::hash::kSha256Size);
 
 #if BUILDFLAG(IS_CHROMEOS)
 // On ChromeOS the component updated CDM comes as a disk image which must be
@@ -79,7 +79,7 @@ const char ImageLoaderComponentName[] = "WidevineCdm";
 void RegisterWidevineCdmWithChrome(const base::Version& cdm_version,
                                    const base::FilePath& cdm_path,
                                    base::DictValue manifest) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M161);
 
   // This check must be a subset of the check in VerifyInstallation() to
   // avoid the case where the CDM is accepted by the component updater
@@ -141,7 +141,7 @@ base::FilePath GetCdmPathFromInstallDir(const base::FilePath& install_dir) {
 #if BUILDFLAG(IS_CHROMEOS)
 // This is called when ImageLoaderClient::RegisterComponent() is done.
 void OnImageRegistered(std::optional<bool> result) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M161);
 
   // `result` is false if the component fails verification, nullopt if an error
   // occurred. If registration fails there is not much we can do other than
@@ -156,7 +156,7 @@ void OnImageRegistered(std::optional<bool> result) {
 // downloaded.
 void RegisterImage(const std::string& version,
                    const base::FilePath& install_dir) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M161);
   DVLOG(1) << __func__ << ": version=" << version << ", dir=" << install_dir;
 
   auto* loader = ash::ImageLoaderClient::Get();
@@ -207,7 +207,7 @@ void VerifyManifestAndUpdateHintFile(const std::string& image_dir) {
 // was successfully loaded, register it with Chrome via the hint file so that
 // it can be loaded next time ChromeOS restarts.
 void OnImageLoaded(std::optional<std::string> image_dir) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M161);
 
   // Mounting should not fail, but if it does simply log a message. This will
   // be tried again next time the device reboots.

@@ -16,6 +16,7 @@
 #include "chrome/browser/custom_handlers/chrome_protocol_handler_navigation_throttle.h"
 #include "chrome/browser/custom_handlers/protocol_handler_registry_factory.h"
 #include "chrome/browser/data_sharing/data_sharing_navigation_throttle.h"
+#include "chrome/browser/enterprise/connectors/device_trust/navigation_throttle.h"
 #include "chrome/browser/enterprise/data_protection/view_source_navigation_throttle.h"
 #include "chrome/browser/glic/glic_navigation_throttle.h"
 #include "chrome/browser/glic/host/glic_guest_navigation_throttle.h"
@@ -83,6 +84,7 @@
 #include "services/network/public/mojom/referrer_policy.mojom.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/mojom/loader/referrer.mojom.h"
+#include "ui/webui/buildflags.h"
 #include "url/gurl.h"
 
 #if BUILDFLAG(IS_ANDROID)
@@ -101,8 +103,6 @@
 #include "chrome/browser/themes/theme_service_factory.h"
 #include "chrome/browser/ui/lens/lens_overlay_side_panel_navigation_throttle.h"
 #include "chrome/browser/ui/read_anything/read_anything_side_panel_navigation_throttle.h"
-#include "chrome/browser/ui/search/chrome_search_navigation_throttle.h"
-#include "chrome/browser/ui/search/new_tab_page_navigation_throttle.h"
 #include "chrome/browser/ui/web_applications/tabbed_web_app_navigation_throttle.h"
 #include "chrome/browser/ui/web_applications/webui_web_app_navigation_throttle.h"
 #include "chrome/browser/ui/webui/image/image_navigation_throttle.h"
@@ -181,16 +181,17 @@
 #endif
 
 #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
-#if !BUILDFLAG(IS_ANDROID)
-#include "chrome/browser/enterprise/connectors/device_trust/navigation_throttle.h"
-#endif  // !BUILDFLAG(IS_ANDROID)
-
 #include "chrome/browser/enterprise/incognito/incognito_navigation_throttle.h"
 #include "chrome/browser/extensions/chrome_content_browser_client_extensions_part.h"
 #include "chrome/browser/extensions/user_script_listener.h"
 #include "extensions/browser/extension_navigation_throttle.h"
 #include "extensions/browser/extensions_browser_client.h"
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+
+#if BUILDFLAG(ENABLE_WEBUI_NTP)
+#include "chrome/browser/ui/search/chrome_search_navigation_throttle.h"
+#include "chrome/browser/ui/search/new_tab_page_navigation_throttle.h"
+#endif
 
 namespace {
 
@@ -434,12 +435,11 @@ void CreateAndAddChromeThrottlesForNavigation(
 
   // Before setting up SSL error detection, configure SSLErrorHandler to invoke
   // the relevant extension API whenever an SSL interstitial is shown.
-  SSLErrorHandler::SetClientCallbackOnInterstitialsShown(
-      base::BindRepeating([](content::WebContents* web_contents,
-                             const GURL& page_url, const std::string& reason,
-                             int net_error_code) {
-        MaybeTriggerSecurityInterstitialShownEvent(
-            web_contents, page_url, reason, net_error_code, "");
+  SSLErrorHandler::SetClientCallbackOnInterstitialsShown(base::BindRepeating(
+      [](content::WebContents* web_contents, const GURL& page_url,
+         const std::string& reason, int net_error_code) {
+        MaybeTriggerSecurityInterstitialShownEvent(web_contents, page_url,
+                                                   reason, net_error_code, "");
       }));
   registry.AddThrottle(std::make_unique<SSLErrorNavigationThrottle>(
       registry, base::BindOnce(&HandleSSLErrorWrapper),
@@ -470,12 +470,8 @@ void CreateAndAddChromeThrottlesForNavigation(
   }
 #endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
 
-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || \
-    BUILDFLAG(IS_CHROMEOS)
   enterprise_connectors::DeviceTrustNavigationThrottle::MaybeCreateAndAdd(
       registry);
-#endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) ||
-        // BUILDFLAG(IS_CHROMEOS)
 
   // AimEligibilityRefreshNavigationThrottle must be registered before
   // ContextualTasksNavigationThrottle so it can detect AIM URL navigations
@@ -495,13 +491,15 @@ void CreateAndAddChromeThrottlesForNavigation(
   DevToolsWindow::MaybeCreateAndAddNavigationThrottle(registry);
 #endif  // BUILDFLAG(ENABLE_DEVTOOLS_FRONTEND)
 
-#if !BUILDFLAG(IS_ANDROID)
+#if BUILDFLAG(ENABLE_WEBUI_NTP)
   if (base::FeatureList::IsEnabled(features::kInstantUsesSpareRenderer)) {
     ChromeSearchNavigationThrottle::MaybeCreateAndAdd(registry);
   }
 
   NewTabPageNavigationThrottle::MaybeCreateAndAdd(registry);
+#endif
 
+#if !BUILDFLAG(IS_ANDROID)
   web_app::TabbedWebAppNavigationThrottle::MaybeCreateAndAdd(registry);
 
   web_app::WebUIWebAppNavigationThrottle::MaybeCreateAndAdd(registry);
@@ -613,7 +611,6 @@ void CreateAndAddChromeThrottlesForNavigation(
   }
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 
-
   MaybeCreateAndAddVisitedLinkNavigationThrottle(registry);
 
   data_sharing::DataSharingNavigationThrottle::MaybeCreateAndAdd(registry);
@@ -653,4 +650,10 @@ void CreateAndAddChromeThrottlesForCommitWithoutUrlLoader(
   // navigations that commit without a URL loader (e.g. a subframe navigating
   // the main frame to about:blank), which never reach WillStartRequest().
   pwc::PwcNavigationThrottle::MaybeCreateAndAdd(registry);
+
+  glic::GlicGuestNavigationThrottle::MaybeCreateAndAdd(registry);
+
+#if !BUILDFLAG(ENABLE_EXTENSIONS_CORE) && BUILDFLAG(ENABLE_GUEST_VIEW)
+  guest_view::MaybeCreateAndAddSlimWebViewNavigationThrottle(registry);
+#endif
 }

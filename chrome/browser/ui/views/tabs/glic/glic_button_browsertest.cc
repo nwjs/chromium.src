@@ -10,7 +10,9 @@
 #include "chrome/browser/glic/public/features.h"
 #include "chrome/browser/glic/public/glic_keyed_service.h"
 #include "chrome/browser/glic/public/glic_keyed_service_factory.h"
+#include "chrome/browser/glic/public/glic_provider_spec.h"
 #include "chrome/browser/glic/public/service/glic_instance_coordinator.h"
+#include "chrome/browser/glic/resources/grit/glic_browser_resources.h"
 #include "chrome/browser/glic/suggestions/contextual_cueing_features.h"
 #include "chrome/browser/glic/test_support/glic_test_environment.h"
 #include "chrome/browser/glic/test_support/glic_test_util.h"
@@ -27,6 +29,7 @@
 #include "chrome/browser/ui/views/tabs/glic/tab_strip_glic_button.h"
 #include "chrome/browser/ui/views/tabs/tab_strip_action_container.h"
 #include "chrome/common/chrome_features.h"
+#include "chrome/common/webui_url_constants.h"
 #include "chrome/grit/branded_strings.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "components/keyed_service/content/browser_context_dependency_manager.h"
@@ -38,9 +41,13 @@
 #include "content/public/test/browser_test.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/base/models/image_model.h"
 #include "ui/base/mojom/menu_source_type.mojom-shared.h"
+#include "ui/base/resource/resource_bundle.h"
 #include "ui/events/event_constants.h"
+#include "ui/gfx/image/image_skia.h"
 #include "ui/views/controls/button/button.h"
+#include "ui/views/controls/button/label_button.h"
 #include "ui/views/view_utils.h"
 
 namespace glic {
@@ -84,6 +91,65 @@ class GlicButtonTest : public InProcessBrowserTest {
 
   GlicTestEnvironment glic_test_env_;
 };
+
+// Returns true if `button`'s normal-state icon is the image resource
+// `resource_id`. ResourceBundle caches one ImageSkia per resource id, so
+// comparing backing objects identifies which resource was selected. This
+// matters because in unbranded builds the Glic and GEiC resources
+// intentionally point at the same placeholder art, so a pixel comparison would
+// pass even if the wrong resource were chosen.
+bool NormalIconIsResource(views::LabelButton* button, int resource_id) {
+  const std::optional<ui::ImageModel>& model =
+      button->GetImageModel(views::Button::STATE_NORMAL);
+  if (!model.has_value() || !model->IsImage()) {
+    return false;
+  }
+  const gfx::ImageSkia* expected =
+      ui::ResourceBundle::GetSharedInstance().GetImageSkiaNamed(resource_id);
+  return expected &&
+         model->GetImage().AsImageSkia().BackedBySameObjectAs(*expected);
+}
+
+// By default the button shows the Glic spark.
+IN_PROC_BROWSER_TEST_F(GlicButtonTest, NormalIconIsGlicIcon) {
+  ASSERT_TRUE(glic_button());
+  EXPECT_TRUE(NormalIconIsResource(glic_button(), IDR_GLIC_BUTTON_ALT_ICON));
+  auto* service = glic::GlicKeyedService::Get(browser()->GetProfile());
+  ASSERT_TRUE(service);
+  EXPECT_EQ(service->provider_spec().GetSettingsSection(),
+            glic::GlicSettingsSection::kGemini);
+  EXPECT_EQ(service->provider_spec().GetSettingsSubpage(),
+            chrome::kGlicSettingsSubpage);
+  EXPECT_EQ(service->provider_spec().GetEntryPointIconId(),
+            IDR_GLIC_BUTTON_ALT_ICON);
+}
+
+// With Gemini Enterprise enabled for the profile, the button shows the GEiC
+// icon instead.
+class GlicButtonGeicIconTest : public GlicButtonTest {
+ public:
+  GlicButtonGeicIconTest() {
+    feature_list_.InitAndEnableFeatureWithParameters(
+        features::kGeic,
+        {{"geic-guest-url", "https://business.gemini.google/panel"}});
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_F(GlicButtonGeicIconTest, NormalIconIsGeicIcon) {
+  ASSERT_TRUE(glic_button());
+  EXPECT_TRUE(NormalIconIsResource(glic_button(), IDR_GEIC_BUTTON_ICON));
+  auto* service = glic::GlicKeyedService::Get(browser()->GetProfile());
+  ASSERT_TRUE(service);
+  EXPECT_EQ(service->provider_spec().GetSettingsSection(),
+            glic::GlicSettingsSection::kGeminiEnterprise);
+  EXPECT_EQ(service->provider_spec().GetSettingsSubpage(),
+            chrome::kGlicEnterpriseSettingsSubpage);
+  EXPECT_EQ(service->provider_spec().GetEntryPointIconId(),
+            IDR_GEIC_BUTTON_ICON);
+}
 
 IN_PROC_BROWSER_TEST_F(GlicButtonTest, ContextMenuPinned) {
   browser()->GetProfile()->GetPrefs()->SetBoolean(
@@ -287,11 +353,6 @@ class FakeThemeService : public ThemeService {
 
 class GlicButtonThemeTest : public GlicButtonTest {
  public:
-  GlicButtonThemeTest() {
-    feature_list_.InitAndEnableFeatureWithParameters(
-        features::kGlicButtonPressedState, {{"custom-theme-fallback", "true"}});
-  }
-
   void SetUpInProcessBrowserTestFixture() override {
     GlicButtonTest::SetUpInProcessBrowserTestFixture();
     create_services_subscription_ =
@@ -311,7 +372,6 @@ class GlicButtonThemeTest : public GlicButtonTest {
   }
 
  private:
-  base::test::ScopedFeatureList feature_list_;
   base::CallbackListSubscription create_services_subscription_;
 };
 

@@ -51,8 +51,9 @@
 #import "ios/chrome/browser/download/model/safari_download_tab_helper.h"
 #import "ios/chrome/browser/download/model/vcard_tab_helper.h"
 #import "ios/chrome/browser/drive/model/drive_tab_helper.h"
-#import "ios/chrome/browser/enterprise/connectors/device_trust/features.h"
 #import "ios/chrome/browser/enterprise/connectors/device_trust/model/device_trust_challenge_tab_helper.h"
+#import "ios/chrome/browser/enterprise/connectors/device_trust/model/device_trust_service_factory_ios.h"
+#import "ios/chrome/browser/enterprise/connectors/device_trust/model/device_trust_util.h"
 #import "ios/chrome/browser/enterprise/data_controls/model/data_controls_tab_helper.h"
 #import "ios/chrome/browser/enterprise/data_protection/model/data_protection_tab_helper.h"
 #import "ios/chrome/browser/favicon/model/favicon_service_factory.h"
@@ -85,7 +86,6 @@
 #import "ios/chrome/browser/optimization_guide/model/optimization_guide_service.h"
 #import "ios/chrome/browser/optimization_guide/model/optimization_guide_service_factory.h"
 #import "ios/chrome/browser/optimization_guide/model/optimization_guide_tab_helper.h"
-#import "ios/chrome/browser/optimization_guide/model/optimization_guide_validation_tab_helper.h"
 #import "ios/chrome/browser/overlays/model/public/overlay_request_queue.h"
 #import "ios/chrome/browser/overscroll_actions/model/overscroll_actions_tab_helper.h"
 #import "ios/chrome/browser/page_info/features/features.h"
@@ -95,11 +95,11 @@
 #import "ios/chrome/browser/passwords/model/password_controller.h"
 #import "ios/chrome/browser/passwords/model/password_tab_helper.h"
 #import "ios/chrome/browser/passwords/model/well_known_change_password_tab_helper.h"
+#import "ios/chrome/browser/payments/model/web_payments_metrics_recorder.h"
 #import "ios/chrome/browser/permissions/model/permissions_tab_helper.h"
 #import "ios/chrome/browser/policy/model/reporting/saas_usage/saas_usage_reporting_controller_factory_ios.h"
 #import "ios/chrome/browser/policy/model/reporting/saas_usage/saas_usage_tab_helper.h"
 #import "ios/chrome/browser/policy_url_blocking/model/policy_url_blocking_tab_helper.h"
-#import "ios/chrome/browser/reader_mode/model/features.h"
 #import "ios/chrome/browser/reader_mode/model/reader_mode_tab_helper.h"
 #import "ios/chrome/browser/reading_list/model/reading_list_model_factory.h"
 #import "ios/chrome/browser/reading_list/model/reading_list_web_state_observer.h"
@@ -176,6 +176,11 @@ void AttachTabHelpers(web::WebState* web_state, TabHelperFilter filter_flags) {
   // attach all tab helpers. (the method is idempotent, so it is okay to call it
   // multiple times for the same WebState).
 
+  // Created first so that policy deciders attached below cannot hide requests
+  // from WebPaymentsMetricsRecorder on a short circuit cancellation.
+  attacher.CreateWhen<WebPaymentsMetricsRecorder>(
+      attacher.IsForStandardNavigation());
+
   attacher.Create<OverlayRequestQueue>();
   attacher.Create<VoiceSearchNavigationTabHelper>();
   attacher.Create<InfoBarManagerImpl>();
@@ -244,7 +249,6 @@ void AttachTabHelpers(web::WebState* web_state, TabHelperFilter filter_flags) {
   attacher.Create<NewTabPageTabHelper>();
   attacher.Create<ShareFileDownloadTabHelper>();
   attacher.Create<OptimizationGuideTabHelper>();
-  attacher.Create<OptimizationGuideValidationTabHelper>();
 
   attacher.Create<favicon::WebFaviconDriver>(
       ios::FaviconServiceFactory::GetForProfile(
@@ -434,9 +438,10 @@ void AttachTabHelpers(web::WebState* web_state, TabHelperFilter filter_flags) {
   attacher.Create<NetExportTabHelper>();
   attacher.Create<TranslatePDFMetricLogger>();
 
-  attacher.CreateWhen<DeviceTrustChallengeTabHelper>(
-      base::FeatureList::IsEnabled(
-          enterprise_connectors::features::kEnableIOSDeviceTrustConnector));
+  attacher
+      .CreateDeferredWhen<DeviceTrustChallengeTabHelper>(
+          ShouldRegisterDeviceTrust(profile))
+      .WithFactory<DeviceTrustServiceFactoryIOS>(profile);
 
   if (web::features::IsCobaltEnabled()) {
     ios::provider::AttachCobaltTabHelpers(attacher);

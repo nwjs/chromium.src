@@ -27,13 +27,11 @@
 #include "third_party/blink/renderer/core/loader/progress_tracker.h"
 #include "third_party/blink/renderer/core/page/chrome_client.h"
 #include "third_party/blink/renderer/core/page/page.h"
-#include "third_party/blink/renderer/core/paint/timing/element_timing_info.h"
-#include "third_party/blink/renderer/core/paint/timing/image_element_timing.h"
+#include "third_party/blink/renderer/core/paint/timing/element_timing.h"
 #include "third_party/blink/renderer/core/paint/timing/image_paint_timing_detector.h"
 #include "third_party/blink/renderer/core/paint/timing/largest_contentful_paint_manager.h"
 #include "third_party/blink/renderer/core/paint/timing/paint_timing_client.h"
 #include "third_party/blink/renderer/core/paint/timing/paint_timing_utils.h"
-#include "third_party/blink/renderer/core/paint/timing/text_element_timing.h"
 #include "third_party/blink/renderer/core/paint/timing/text_paint_timing_detector.h"
 #include "third_party/blink/renderer/core/probe/core_probes.h"
 #include "third_party/blink/renderer/core/timing/animation_frame_timing_info.h"
@@ -273,10 +271,6 @@ void PaintTiming::MarkPaintTimingInternal() {
   HeapVector<Member<ImageRecord>> image_records =
       paint_timing_detector_->GetImagePaintTimingDetector()
           .TakeImageRecordsOnPaintFinished();
-  CHECK(image_element_timing_);
-  HeapVector<Member<ElementTimingInfo>> image_element_timings =
-      image_element_timing_->TakeElementTimingsOnPaintFinished();
-
   // Non-specced behavior: take the list of animated images that are ready for
   // the first animated frame timestamp. LCP uses this timestamp for metrics.
   HeapVector<Member<ImageRecord>> animated_images =
@@ -287,6 +281,26 @@ void PaintTiming::MarkPaintTimingInternal() {
   HeapVector<Member<TextRecord>> text_records =
       paint_timing_detector_->GetTextPaintTimingDetector()
           .TakeTextRecordsOnPaintFinished();
+
+  // Notify clients of all image and text elements painted in this frame and
+  // filter the records lists down to just those needed by clients.
+  //
+  // TODO(crbug.com/454082773): Currently, clients set the relevant flag/state
+  // for their use case and we filter records based on that, passing the
+  // filtered lists to the presentation callback. Instead, clients should return
+  // a PaintTimingCallback that they can use to assign the timestamps to
+  // performance entries or pending metrics entries.
+  Vector<PaintTimingCallback> client_callbacks;
+  ForEachClient([&](PaintTimingClient* client) {
+    if (OptionalPaintTimingCallback callback =
+            client->OnPaintFinished(image_records, text_records)) {
+      client_callbacks.push_back(std::move(*callback));
+    }
+  });
+  EraseIf(image_records,
+          [](const auto& record) { return !record->IsNeededForPaintTiming(); });
+  EraseIf(text_records,
+          [](const auto& record) { return !record->IsNeededForPaintTiming(); });
 
   // 7. Let reportedPaints be the document’s set of previously reported paints.
   PendingPaintTimingRecord paint_timing_record{
@@ -312,7 +326,7 @@ void PaintTiming::MarkPaintTimingInternal() {
           : nullptr;
 
   bool has_paint_timing_records =
-      !image_element_timings.empty() || !image_records.empty() ||
+      !client_callbacks.empty() || !image_records.empty() ||
       !animated_images.empty() || !text_records.empty();
 
   if (paint_timing_record.paint_events.empty() && !frame_timing_info &&
@@ -331,7 +345,7 @@ void PaintTiming::MarkPaintTimingInternal() {
     auto* data = MakeGarbageCollected<PresentationCallbackData>(
         callback_data_id, paint_timing_record, frame_timing_info,
         std::move(text_records), std::move(image_records),
-        std::move(image_element_timings), std::move(animated_images));
+        std::move(client_callbacks), std::move(animated_images));
     pending_presentation_data_.push_back(data);
   }
 
@@ -478,10 +492,12 @@ void PaintTiming::FlushPaintTimingsOnFramePresentedCallback(
     }
     SetPaintTimingInfoForPaintTimingRecords(*data, paint_timing_info,
                                             raw_presentation_timestamp);
+    for (auto& callback : data->client_callbacks) {
+      std::move(callback).Run(raw_presentation_timestamp, paint_timing_info);
+    }
     if (data->ShouldNotifyClientsOnFramePresented()) {
       ForEachClient([&](PaintTimingClient* client) {
         client->OnFramePresented(data->image_records, data->text_records,
-                                 data->image_element_timings,
                                  paint_timing_info);
       });
     }
@@ -591,10 +607,13 @@ void PaintTiming::FlushPaintTimingsOnFramePresented(
   //
   SetPaintTimingInfoForPaintTimingRecords(data, *data.paint_timing_info,
                                           data.raw_presentation_timestamp);
+  for (auto& callback : data.client_callbacks) {
+    std::move(callback).Run(data.raw_presentation_timestamp,
+                            *data.paint_timing_info);
+  }
   if (data.ShouldNotifyClientsOnFramePresented()) {
     ForEachClient([&](PaintTimingClient* client) {
       client->OnFramePresented(data.image_records, data.text_records,
-                               data.image_element_timings,
                                *data.paint_timing_info);
     });
   }
@@ -639,34 +658,35 @@ void PaintTiming::SetPaintTimingInfoForPaintTimingRecords(
 void PaintTiming::Trace(Visitor* visitor) const {
   visitor->Trace(paint_timing_detector_);
   visitor->Trace(fmp_detector_);
-  visitor->Trace(image_element_timing_);
-  visitor->Trace(text_element_timing_);
+  visitor->Trace(element_timing_);
   visitor->Trace(largest_contentful_paint_manager_);
   visitor->Trace(callback_manager_);
   visitor->Trace(clients_);
   visitor->Trace(pending_presentation_data_);
   Supplement<Document>::Trace(visitor);
+  ExecutionContextLifecycleObserver::Trace(visitor);
+}
+
+void PaintTiming::ContextDestroyed() {
+  pending_presentation_data_.clear();
 }
 
 PaintTiming::PaintTiming(Document& document)
     : Supplement<Document>(document),
+      ExecutionContextLifecycleObserver(document.GetExecutionContext()),
       paint_timing_detector_(MakeGarbageCollected<PaintTimingDetector>(this)),
       fmp_detector_(MakeGarbageCollected<FirstMeaningfulPaintDetector>(this)) {
   // `window` will be null if `document` has already been shut down (frame
   // detach). Typically `PaintTiming` will be created before this, but this
   // isn't guaranteed since it's created lazily.
   if (LocalDOMWindow* window = document.domWindow()) {
-    text_element_timing_ = MakeGarbageCollected<TextElementTiming>(*window);
-    image_element_timing_ = MakeGarbageCollected<ImageElementTiming>(
+    element_timing_ = MakeGarbageCollected<ElementTiming>(
         *window, paint_timing_detector_->GetImagePaintTimingDetector());
     largest_contentful_paint_manager_ =
         MakeGarbageCollected<LargestContentfulPaintManager>(
             document.domWindow());
-    // Note: these are added in the order that the spec calls out to the various
-    // other specs in https://w3c.github.io/paint-timing/#mark-paint-timing.
     AddClient(largest_contentful_paint_manager_);
-    AddClient(text_element_timing_);
-    AddClient(image_element_timing_);
+    AddClient(element_timing_);
   }
 }
 
@@ -957,8 +977,6 @@ void PaintTiming::NotifyPaintFinished() {
       ->OnPaintFinished();
   paint_timing_detector_->NotifyPaintFinished();
 
-  ForEachClient([](PaintTimingClient* client) { client->OnPaintFinished(); });
-
   MarkPaintTimingInternal();
 }
 
@@ -1009,10 +1027,17 @@ void PaintTiming::OnInputOrScroll() {
   paint_timing::NotifyLoaderPerformanceTimingChanged(GetSupplementable());
 }
 
-void PaintTiming::AddClient(PaintTimingClient* client) {
+void PaintTiming::AddClient(PaintTimingClient* new_client) {
   CHECK(allow_client_modifications_);
-  DCHECK(!clients_.Contains(client));
-  clients_.push_back(client);
+  DCHECK(!clients_.Contains(new_client));
+
+  // Insert clients in the order that the spec calls out to the various other
+  // specs in https://w3c.github.io/paint-timing/#mark-paint-timing.
+  auto it = std::find_if(clients_.begin(), clients_.end(),
+                         [new_client](const Member<PaintTimingClient>& client) {
+                           return client->GetType() > new_client->GetType();
+                         });
+  clients_.InsertAt(it, new_client);
 }
 
 void PaintTiming::RemoveClient(PaintTimingClient* client) {
@@ -1036,21 +1061,20 @@ PaintTiming::PresentationCallbackData::PresentationCallbackData(
     AnimationFrameTimingInfo* animation_frame_timing_info,
     HeapVector<Member<TextRecord>> text_records,
     HeapVector<Member<ImageRecord>> image_records,
-    HeapVector<Member<ElementTimingInfo>> image_element_timings,
+    Vector<PaintTimingCallback> client_callbacks,
     HeapVector<Member<ImageRecord>> animated_images)
     : id(id),
       paint_timing_record(record),
       animation_frame_timing_info(animation_frame_timing_info),
       text_records(std::move(text_records)),
       image_records(std::move(image_records)),
-      image_element_timings(std::move(image_element_timings)),
+      client_callbacks(std::move(client_callbacks)),
       animated_images(std::move(animated_images)) {}
 
 void PaintTiming::PresentationCallbackData::Trace(Visitor* visitor) const {
   visitor->Trace(animation_frame_timing_info);
   visitor->Trace(text_records);
   visitor->Trace(image_records);
-  visitor->Trace(image_element_timings);
   visitor->Trace(animated_images);
 }
 

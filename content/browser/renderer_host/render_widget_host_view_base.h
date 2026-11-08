@@ -53,6 +53,7 @@
 #include "ui/events/blink/did_overscroll_params.h"
 #include "ui/events/event_constants.h"
 #include "ui/gfx/geometry/rect.h"
+#include "ui/gfx/geometry/vector2d_f.h"
 #include "ui/gfx/native_ui_types.h"
 #include "ui/gfx/range/range.h"
 #include "url/origin.h"
@@ -128,6 +129,7 @@ class CONTENT_EXPORT RenderWidgetHostViewBase
   ui::TextInputClient* GetTextInputClient() override;
   std::u16string GetSelectedText() override;
   bool GetIsPointerLockedUnadjustedMovementForTesting() override;
+  void SetHasFocusForTesting(std::optional<bool> has_focus) override;
   bool CanBePointerLocked() override;
   bool AccessibilityHasFocus() override;
   bool LockKeyboard(std::optional<base::flat_set<ui::DomCode>> codes) override;
@@ -147,7 +149,13 @@ class CONTENT_EXPORT RenderWidgetHostViewBase
       const gfx::Size& output_size,
       base::TimeDelta timeout,
       base::OnceCallback<void(const content::CopyFromSurfaceResult&)> callback)
-      override;
+      final;
+  void CopyFromSurfaceSecure(
+      const gfx::Rect& src_rect,
+      const gfx::Size& output_size,
+      base::TimeDelta timeout,
+      base::OnceCallback<void(const content::CopyFromSurfaceResult&)> callback)
+      final;
   std::unique_ptr<viz::ClientFrameSinkVideoCapturer> CreateVideoCapturer()
       override;
   display::ScreenInfo GetScreenInfo() const override;
@@ -251,6 +259,7 @@ class CONTENT_EXPORT RenderWidgetHostViewBase
       const gfx::Rect& src_subrect,
       const gfx::Size& dst_size,
       float scale_factor,
+      bool is_copy_request_secure,
       base::TimeDelta timeout,
       base::OnceCallback<void(const content::CopyFromSurfaceResult&)> callback);
 
@@ -311,6 +320,7 @@ class CONTENT_EXPORT RenderWidgetHostViewBase
   bool ShouldInitiateStylusWriting() override;
   // Notify whether the hovered element action is stylus writable or not.
   void NotifyHoverActionStylusWritable(bool stylus_writable) override {}
+  std::optional<gfx::Vector2dF> GetStylusHandwritingPixelsPerInch() override;
 
   // Invalidates the `viz::SurfaceAllocationGroup` of this View. Also
   // invalidates `viz::SurfaceId` of it. This should be used when no previous
@@ -650,6 +660,13 @@ class CONTENT_EXPORT RenderWidgetHostViewBase
 
   virtual MouseWheelPhaseHandler* GetMouseWheelPhaseHandler();
 
+  virtual void CopyFromSurfaceImpl(
+      const gfx::Rect& src_rect,
+      const gfx::Size& output_size,
+      bool is_copy_request_secure,
+      base::TimeDelta timeout,
+      base::OnceCallback<void(const content::CopyFromSurfaceResult&)> callback);
+
   // RenderWidgetHostViewInput implementations.
   void UpdateFrameSinkIdRegistration() override;
 
@@ -741,6 +758,8 @@ class CONTENT_EXPORT RenderWidgetHostViewBase
   std::optional<SkColor> default_background_color_;
 
   raw_ptr<TooltipObserver> tooltip_observer_for_testing_ = nullptr;
+
+  std::optional<bool> has_focus_for_testing_;
 
   // Cursor size in logical pixels, obtained from the OS. This value is general
   // to all displays.

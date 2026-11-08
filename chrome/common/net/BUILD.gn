@@ -13,8 +13,6 @@ static_library("net") {
     "net_resource_provider.h",
   ]
 
-  configs += [ "//build/config/compiler:wexit_time_destructors" ]
-
   deps = [
     "//base",
     "//base:i18n",
@@ -44,5 +42,28 @@ static_library("net") {
       "x509_certificate_model_nss.h",
     ]
     configs += [ "//build/config/linux/nss" ]
+  }
+}
+
+source_set("unit_tests") {
+  testonly = true
+  sources = []
+  deps = [
+    ":net",
+    "//base",
+    "//net",
+    "//net:test_support",
+    "//testing/gtest",
+  ]
+
+  if (enable_webui_certificate_viewer) {
+    sources += [ "x509_certificate_model_unittest.cc" ]
+    deps += [ "//third_party/boringssl" ]
+  }
+
+  if (use_nss_certs) {
+    sources += [ "x509_certificate_model_nss_unittest.cc" ]
+    configs += [ "//build/config/linux/nss" ]
+    deps += [ "//crypto:test_support" ]
   }
 }

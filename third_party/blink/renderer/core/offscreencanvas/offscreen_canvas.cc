@@ -17,6 +17,7 @@
 #include "third_party/blink/public/platform/scheduler/web_agent_group_scheduler.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_dom_rect_init.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_element_geometry_update_event_init.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_element_image_default_size.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_union_element_elementimage.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_update_element_geometry_options.h"
 #include "third_party/blink/renderer/core/css/css_font_selector.h"
@@ -448,10 +449,9 @@ ScriptPromise<ImageBitmap> OffscreenCanvas::CreateImageBitmap(
       options, exception_state);
 }
 
-DOMMatrix* OffscreenCanvas::getElementTransform(
+ElementImageDefaultSize* OffscreenCanvas::getElementImageDefaultSize(
     const V8UnionElementOrElementImage* element_or_image,
-    DOMMatrix* draw_transform,
-    ExceptionState& exception_state) {
+    ExceptionState& exception_state) const {
   if (element_or_image->IsElement()) {
     exception_state.ThrowDOMException(
         DOMExceptionCode::kInvalidStateError,
@@ -474,15 +474,17 @@ DOMMatrix* OffscreenCanvas::getElementTransform(
           "The ElementImage was captured from a different canvas.");
       return nullptr;
     }
-    gfx::Transform transform = GetElementTransform(
-        paint_record->paint_state, Size(), draw_transform->Matrix(),
-        RuntimeEnabledFeatures::ElementCanvasTransformEnabled(
-            GetExecutionContext()));
-    return MakeGarbageCollected<DOMMatrix>(transform,
-                                           transform.Is2dTransform());
+    gfx::Vector2dF scale =
+        GetCanvasGridScaleFactor(paint_record->paint_state, Size());
+    auto* default_size = ElementImageDefaultSize::Create();
+    default_size->setWidth(paint_record->paint_state.box_size.width() *
+                           scale.x());
+    default_size->setHeight(paint_record->paint_state.box_size.height() *
+                            scale.y());
+    return default_size;
   }
 
-  return DOMMatrix::Create();
+  return ElementImageDefaultSize::Create();
 }
 
 void OffscreenCanvas::updateElementGeometry(
@@ -1070,7 +1072,7 @@ void OffscreenCanvas::Trace(Visitor* visitor) const {
   visitor->Trace(execution_context_);
   CanvasRenderingContextHost::Trace(visitor);
   EventTarget::Trace(visitor);
-  CanvasRenderingContextHost::Trace(visitor);
+  CanvasResourceDispatcherClient::Trace(visitor);
 }
 
 }  // namespace blink

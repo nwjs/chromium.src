@@ -16,14 +16,26 @@ and Web App Manifest processing in Chromium.
 
 ## Ecosystem Map (Directories & Spokes)
 
-- **Shared Components** (`components/webapps/`): [README](README.md)
-  Cross-platform installability, promotion, and identifiers shared by Desktop
-  and Android (delegates via `WebappsClient`). `browser/installable/` ·
-  `browser/banners/` · `browser/android/` · `common/` · `renderer/` ·
-  `isolated_web_apps/`
+- **Shared Components** (`components/webapps/`): [README](README.md) ·
+  [Security Notes](SECURITY.md) Cross-platform installability, promotion, and
+  identifiers shared by Desktop and Android (delegates via `WebappsClient`).
+  `browser/installable/` · `browser/banners/` · `browser/android/` · `common/` ·
+  `renderer/`
+- **Isolated Web Apps Component** (`components/webapps/isolated_web_apps/`):
+  [Rules](isolated_web_apps/AGENTS.md) · [README](isolated_web_apps/README.md)
+  Core browser-agnostic IWA runtime, bundle operations, reader registry, key
+  distribution, `isolated-app://` URL loading, and cryptographic identity
+  verification.
+- **Web Packaging & Signed Web Bundles** (`components/web_package/`):
+  [Rules](/components/web_package/AGENTS.md) ·
+  [Signed Web Bundles](/components/web_package/signed_web_bundles/AGENTS.md) ·
+  [README](/components/web_package/README.md) Memory-safe Rust/C++ Web Bundle
+  (`.wbn`) and Signed Web Bundle (`.swbn`) parsing, Integrity Block v2, and
+  signature verification.
 - **Desktop Engine** (`chrome/browser/web_applications/`):
   [Rules](/chrome/browser/web_applications/AGENTS.md) ·
-  [README](/chrome/browser/web_applications/README.md) Per-profile
+  [README](/chrome/browser/web_applications/README.md) ·
+  [Security Notes](/chrome/browser/web_applications/SECURITY.md) Per-profile
   `WebAppProvider` engine (commands, locks, DB storage, sync, and OS
   integration).
 - **Desktop UI** (`chrome/browser/ui/web_applications/`):
@@ -45,7 +57,7 @@ and Web App Manifest processing in Chromium.
 - **Android Native WebAPK** (`chrome/browser/android/webapk/`):
   [Rules](/chrome/browser/android/webapk/AGENTS.md) ·
   [README](/chrome/browser/android/webapk/README.md) Browser-process native
-  WebAPK services and sync.
+  WebAPK services, minting, and update dispatch.
 - **Manifest Parsing** (`third_party/blink/renderer/modules/manifest/`):
   [Rules](/third_party/blink/renderer/modules/manifest/AGENTS.md) ·
   [Common](/third_party/blink/public/common/manifest/AGENTS.md) ·

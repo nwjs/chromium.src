@@ -14,6 +14,7 @@ build_webui_tests("build") {
   ]
 
   files = [
+    "composebox_aim_button_test.ts",
     "composebox_audio_animation_test.ts",
     "composebox_audio_levels_test.ts",
     "composebox_autocomplete_test.ts",
@@ -39,12 +40,12 @@ build_webui_tests("build") {
     "file_thumbnail_test.ts",
     "current_tab_chip_test.ts",
     "composebox_tool_chip_test.ts",
-    "recording_wave_test.ts",
     "test_composebox_mixin.ts",
   ]
 
   ts_deps = [
     "//chrome/test/data/webui:build_ts",
+    "//chrome/test/data/webui/cr_components/searchbox:build_ts",
     "//third_party/lit/v3_0:build_ts",
     "//ui/webui/resources/cr_components/composebox:build_ts",
     "//ui/webui/resources/cr_components/search:build_ts",
@@ -63,5 +64,8 @@ build_webui_tests("build") {
     "chrome://new-tab-page/strings.m.js|" +
         rebase_path("//tools/typescript/definitions/strings.d.ts",
                     target_gen_dir),
+    "chrome://webui-test/cr_components/searchbox/*|" + rebase_path(
+            "$root_gen_dir/chrome/test/data/webui/cr_components/searchbox/tsc/*",
+            target_gen_dir),
   ]
 }

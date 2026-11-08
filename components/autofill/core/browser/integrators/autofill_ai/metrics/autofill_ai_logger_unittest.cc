@@ -21,6 +21,7 @@
 #include "components/autofill/core/browser/autofill_field.h"
 #include "components/autofill/core/browser/autofill_trigger_source.h"
 #include "components/autofill/core/browser/data_manager/autofill_ai/entity_data_manager.h"
+#include "components/autofill/core/browser/data_manager/autofill_ai/in_memory_entity_suppression_manager.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_instance.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_type.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_type_names.h"
@@ -43,6 +44,7 @@
 #include "components/autofill/core/common/autofill_features.h"
 #include "components/autofill/core/common/autofill_test_util.h"
 #include "components/optimization_guide/core/model_execution/model_execution_prefs.h"
+#include "components/optimization_guide/core/model_quality/model_quality_prefs.h"
 #include "components/optimization_guide/core/model_quality/test_model_quality_logs_uploader_service.h"
 #include "components/optimization_guide/proto/features/forms_classifications.pb.h"
 #include "components/prefs/testing_pref_service.h"
@@ -107,6 +109,10 @@ class MockAutofillClient : public TestAutofillClient {
 
   MOCK_METHOD(optimization_guide::ModelQualityLogsUploaderService*,
               GetMqlsUploadService,
+              (),
+              (override));
+  MOCK_METHOD(EntitySuppressionManager*,
+              GetEntitySuppressionManager,
               (),
               (override));
 };
@@ -618,28 +624,26 @@ class AutofillAiKeyMetricsTest
   void ExpectKeyMetricsRecording(const base::HistogramTester& histogram_tester,
                                  std::string_view key_metric_name,
                                  int sample) {
-    auto expect_correct_histogram = [&](std::optional<EntityType> entity_type,
-                                        std::optional<
-                                            EntityInstance::RecordType>
-                                            record_type) {
-      EXPECT_FALSE(!entity_type && record_type)
-          << "Only entity-type-specific histograms are split by record type.";
-      std::string histogram_name = base::StringPrintf(
-          kKeyMetricsUmaMask, key_metric_name,
-          entity_type
-              ? base::StrCat({".", EntityTypeToMetricsString(*entity_type)})
-              : "",
-          record_type ? base::StrCat({".", EntityRecordTypeToMetricsString(
-                                               *record_type)})
-                      : "");
-      histogram_tester.ExpectUniqueSample(histogram_name, sample, 1);
-      histogram_tester.ExpectUniqueSample(
-          base::StrCat({histogram_name, ".Profile1"}), sample, 1);
-    };
+    auto expect_correct_histogram =
+        [&](std::optional<EntityType> entity_type,
+            std::optional<EntityInstance::RecordType> record_type) {
+          std::string histogram_name = base::StringPrintf(
+              kKeyMetricsUmaMask, key_metric_name,
+              entity_type
+                  ? base::StrCat({".", EntityTypeToMetricsString(*entity_type)})
+                  : "",
+              record_type ? base::StrCat({".", EntityRecordTypeToMetricsString(
+                                                   *record_type)})
+                          : "");
+          histogram_tester.ExpectUniqueSample(histogram_name, sample, 1);
+          histogram_tester.ExpectUniqueSample(
+              base::StrCat({histogram_name, ".Profile1"}), sample, 1);
+        };
 
     expect_correct_histogram(/*entity_type=*/std::nullopt,
                              /*record_type=*/std::nullopt);
     expect_correct_histogram(entity_type(), /*record_type=*/std::nullopt);
+    expect_correct_histogram(/*entity_type=*/std::nullopt, record_type());
     expect_correct_histogram(entity_type(), record_type());
   }
 };
@@ -817,6 +821,213 @@ TEST_F(BaseAutofillAiTest, KeyMetrics_MixedForm) {
       "Autofill.Ai.KeyMetrics.FillingCorrectness", 0, 1);
 }
 
+// Tests that the entity-type-agnostic key metrics are split by record type and
+// aggregated across entity types: when a local driver's license and an ambient
+// (personal context) passport are stored and suggested on a form fillable by
+// both, and only the ambient suggestion is filled, assistance and acceptance
+// are recorded as true for PersonalContext and false for Local. Also tests that
+// acceptance is additionally split by whether suggestions of multiple record
+// types were shown.
+TEST_F(BaseAutofillAiTest, KeyMetrics_PerRecordType) {
+  std::unique_ptr<FormStructure> drivers_license_form =
+      CreateDriversLicenseForm();
+  std::unique_ptr<FormStructure> passport_form = CreatePassportForm();
+  std::unique_ptr<FormStructure> form =
+      CreateMergedForm({drivers_license_form.get(), passport_form.get()});
+  EntityInstance local_entity = test::GetDriversLicenseEntityInstance(
+      {.guid = "00000000-0000-4000-8000-100000000001",
+       .record_type = EntityInstance::RecordType::kLocal});
+  EntityInstance ambient_entity =
+      test::MaskEntityInstance(test::GetPassportEntityInstance(
+          {.guid = "00000000-0000-4000-8000-000000000002",
+           .record_type = EntityInstance::RecordType::kPersonalContext}));
+  AddOrUpdateEntityInstance(local_entity);
+  AddOrUpdateEntityInstance(ambient_entity);
+  manager().OnFormSeen(*form);
+  manager().OnAutofillAiSuggestionsShown(
+      *form, *form->field(0),
+      {GetSuggestion(local_entity), GetSuggestion(ambient_entity)},
+      /*ukm_source_id=*/{}, /*update_suggestions_callback=*/{});
+  manager().OnDidFillSuggestion(ambient_entity, *form, *form->field(0),
+                                /*filled_fields=*/{form->field(0)},
+                                /*ukm_source_id=*/{});
+
+  base::HistogramTester histogram_tester;
+  manager().OnFormSubmitted(*form, /*ukm_source_id=*/{});
+
+  histogram_tester.ExpectUniqueSample(
+      "Autofill.Ai.KeyMetrics.FillingReadiness.PersonalContext", 1, 1);
+  histogram_tester.ExpectUniqueSample(
+      "Autofill.Ai.KeyMetrics.FillingReadiness.Local", 1, 1);
+  histogram_tester.ExpectUniqueSample(
+      "Autofill.Ai.KeyMetrics.FillingReadiness.ServerWallet", 0, 1);
+  histogram_tester.ExpectUniqueSample(
+      "Autofill.Ai.KeyMetrics.FillingAssistance.PersonalContext", 1, 1);
+  histogram_tester.ExpectUniqueSample(
+      "Autofill.Ai.KeyMetrics.FillingAssistance.Local", 0, 1);
+  histogram_tester.ExpectUniqueSample(
+      "Autofill.Ai.KeyMetrics.FillingAcceptance.PersonalContext", 1, 1);
+  histogram_tester.ExpectUniqueSample(
+      "Autofill.Ai.KeyMetrics.FillingAcceptance.Local", 0, 1);
+  // Suggestions of multiple record types were shown on the form, so the
+  // entity-type-agnostic acceptance is split as "Mixed" and not as "Only".
+  histogram_tester.ExpectUniqueSample(
+      "Autofill.Ai.KeyMetrics.FillingAcceptance.PersonalContext.Mixed", 1, 1);
+  histogram_tester.ExpectUniqueSample(
+      "Autofill.Ai.KeyMetrics.FillingAcceptance.Local.Mixed", 0, 1);
+  histogram_tester.ExpectTotalCount(
+      "Autofill.Ai.KeyMetrics.FillingAcceptance.PersonalContext.Only", 0);
+  histogram_tester.ExpectTotalCount(
+      "Autofill.Ai.KeyMetrics.FillingAcceptance.Local.Only", 0);
+  histogram_tester.ExpectUniqueSample(
+      "Autofill.Ai.KeyMetrics.FillingCorrectness.PersonalContext", 1, 1);
+  histogram_tester.ExpectTotalCount(
+      "Autofill.Ai.KeyMetrics.FillingCorrectness.Local", 0);
+  // The entity-type-specific metrics only see a single record type each, so
+  // their acceptance is split as "Only" and not as "Mixed".
+  histogram_tester.ExpectUniqueSample(
+      "Autofill.Ai.KeyMetrics.FillingAcceptance.Passport.PersonalContext", 1,
+      1);
+  histogram_tester.ExpectUniqueSample(
+      "Autofill.Ai.KeyMetrics.FillingAcceptance.Passport.PersonalContext.Only",
+      1, 1);
+  histogram_tester.ExpectTotalCount(
+      "Autofill.Ai.KeyMetrics.FillingAcceptance.Passport.PersonalContext.Mixed",
+      0);
+  histogram_tester.ExpectTotalCount(
+      "Autofill.Ai.KeyMetrics.FillingAcceptance.Passport.Local", 0);
+  histogram_tester.ExpectUniqueSample(
+      "Autofill.Ai.KeyMetrics.FillingAcceptance.DriversLicense.Local", 0, 1);
+  histogram_tester.ExpectUniqueSample(
+      "Autofill.Ai.KeyMetrics.FillingAcceptance.DriversLicense.Local.Only", 0,
+      1);
+  histogram_tester.ExpectTotalCount(
+      "Autofill.Ai.KeyMetrics.FillingAcceptance.DriversLicense.Local.Mixed", 0);
+  histogram_tester.ExpectTotalCount(
+      "Autofill.Ai.KeyMetrics.FillingAcceptance.DriversLicense.PersonalContext",
+      0);
+}
+
+class AutofillAiPersonalContextSuppressionTest : public BaseAutofillAiTest {
+ public:
+  AutofillAiPersonalContextSuppressionTest() {
+    ON_CALL(autofill_client(), GetEntitySuppressionManager)
+        .WillByDefault(Return(&suppression_manager_));
+
+    // Recreate `AutofillAiManager` instance because its `AutofillAiLogger`
+    // member caches the current `EntitySuppressionManager` of `AutofillClient`
+    // upon construction.
+    RecreateManager();
+  }
+
+  ~AutofillAiPersonalContextSuppressionTest() override {
+    // `suppression_manager_` is a member of this fixture and would be destroyed
+    // before `manager_` of the base fixture without this explicit reset.
+    // `AutofillAiLogger` caches a pointer to `suppression_manager_` and may
+    // dereference it in its destructor. In production, the
+    // `EntitySuppressionManager` is a keyed service that outlives the logger.
+    manager_ptr().reset();
+  }
+
+  // Shows two personal context passports and one personal context driver's
+  // license on a form fillable by both entity types and suppresses the first
+  // passport. Returns the form.
+  std::unique_ptr<FormStructure> ShowPersonalContextEntitiesAndSuppressOne() {
+    std::unique_ptr<FormStructure> passport_form = CreatePassportForm();
+    std::unique_ptr<FormStructure> drivers_license_form =
+        CreateDriversLicenseForm();
+    std::unique_ptr<FormStructure> form =
+        CreateMergedForm({passport_form.get(), drivers_license_form.get()});
+    EntityInstance passport1 =
+        test::MaskEntityInstance(test::GetPassportEntityInstanceWithRandomGuid(
+            {.number = u"AA1111111",
+             .record_type = EntityInstance::RecordType::kPersonalContext}));
+    EntityInstance passport2 =
+        test::MaskEntityInstance(test::GetPassportEntityInstanceWithRandomGuid(
+            {.number = u"BB2222222",
+             .record_type = EntityInstance::RecordType::kPersonalContext}));
+    EntityInstance drivers_license = test::MaskEntityInstance(
+        test::GetDriversLicenseEntityInstanceWithRandomGuid(
+            {.record_type = EntityInstance::RecordType::kPersonalContext}));
+    AddOrUpdateEntityInstance(passport1);
+    AddOrUpdateEntityInstance(passport2);
+    AddOrUpdateEntityInstance(drivers_license);
+    manager().OnFormSeen(*form);
+    manager().OnAutofillAiSuggestionsShown(
+        *form, *form->field(0),
+        {GetSuggestion(passport1), GetSuggestion(passport2),
+         GetSuggestion(drivers_license)},
+        /*ukm_source_id=*/{}, /*update_suggestions_callback=*/{});
+    suppression_manager_.SuppressEntity(passport1);
+    return form;
+  }
+
+ private:
+  InMemoryEntitySuppressionManager suppression_manager_;
+};
+
+// Tests that, at form submission, one suppression sample is emitted per unique
+// personal context entity shown, with the value indicating whether it was
+// suppressed.
+TEST_F(AutofillAiPersonalContextSuppressionTest, Submitted) {
+  std::unique_ptr<FormStructure> form =
+      ShowPersonalContextEntitiesAndSuppressOne();
+
+  base::HistogramTester histogram_tester;
+  manager().OnFormSubmitted(*form, /*ukm_source_id=*/{});
+  EXPECT_THAT(histogram_tester.GetAllSamples(
+                  "Autofill.Ai.Suppression.Passport.PersonalContext"),
+              BucketsAre(Bucket(false, 1), Bucket(true, 1)));
+  EXPECT_THAT(histogram_tester.GetAllSamples(
+                  "Autofill.Ai.Suppression.DriversLicense.PersonalContext"),
+              BucketsAre(Bucket(false, 1)));
+  EXPECT_THAT(
+      histogram_tester.GetAllSamples("Autofill.Ai.Suppression.PersonalContext"),
+      BucketsAre(Bucket(false, 2), Bucket(true, 1)));
+}
+
+// Tests that the suppression samples are also emitted for abandoned forms.
+TEST_F(AutofillAiPersonalContextSuppressionTest, Abandoned) {
+  std::unique_ptr<FormStructure> form =
+      ShowPersonalContextEntitiesAndSuppressOne();
+
+  base::HistogramTester histogram_tester;
+  // Regression test for crbug.com/574445214: the logger is destroyed while the
+  // client is being destroyed, at which point the client must not be queried
+  // for keyed services anymore (enforced by `CHECK`).
+  EXPECT_CALL(autofill_client(), GetEntitySuppressionManager).Times(0);
+  manager_ptr().reset();
+  EXPECT_THAT(histogram_tester.GetAllSamples(
+                  "Autofill.Ai.Suppression.Passport.PersonalContext"),
+              BucketsAre(Bucket(false, 1), Bucket(true, 1)));
+  EXPECT_THAT(histogram_tester.GetAllSamples(
+                  "Autofill.Ai.Suppression.DriversLicense.PersonalContext"),
+              BucketsAre(Bucket(false, 1)));
+  EXPECT_THAT(
+      histogram_tester.GetAllSamples("Autofill.Ai.Suppression.PersonalContext"),
+      BucketsAre(Bucket(false, 2), Bucket(true, 1)));
+}
+
+// Tests that no suppression samples are emitted if no personal context
+// suggestions were shown, even if the form is submitted.
+TEST_F(AutofillAiPersonalContextSuppressionTest, NoneShown) {
+  std::unique_ptr<FormStructure> form = CreatePassportForm();
+  EntityInstance passport = test::GetPassportEntityInstance(
+      {.record_type = EntityInstance::RecordType::kLocal});
+  AddOrUpdateEntityInstance(passport);
+  manager().OnFormSeen(*form);
+  manager().OnAutofillAiSuggestionsShown(
+      *form, *form->field(0), {GetSuggestion(passport)},
+      /*ukm_source_id=*/{}, /*update_suggestions_callback=*/{});
+
+  base::HistogramTester histogram_tester;
+  manager().OnFormSubmitted(*form, /*ukm_source_id=*/{});
+  histogram_tester.ExpectTotalCount(
+      "Autofill.Ai.Suppression.Passport.PersonalContext", 0);
+  histogram_tester.ExpectTotalCount("Autofill.Ai.Suppression.PersonalContext",
+                                    0);
+}
+
 class AutofillAiPromptMetricsTest
     : public BaseAutofillAiTest,
       public testing::WithParamInterface<
@@ -886,7 +1097,7 @@ class AutofillAiMqlsMetricsTest : public BaseAutofillAiTest {
     logs_uploader_ = std::make_unique<
         optimization_guide::TestModelQualityLogsUploaderService>(&local_state_);
 
-    optimization_guide::model_execution::prefs::RegisterLocalStatePrefs(
+    optimization_guide::RegisterModelQualityLocalStatePrefs(
         local_state_.registry());
     optimization_guide::model_execution::prefs::RegisterProfilePrefs(
         local_state_.registry());

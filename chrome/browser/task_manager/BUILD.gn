@@ -120,8 +120,6 @@ source_set("task_manager") {
 # interface. This does have circular dependencies with //chrome/browser and
 # //chrome/browser/ui.
 source_set("impl") {
-  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
-
   sources = [
     "providers/browser_process_task.cc",
     "providers/browser_process_task_provider.cc",
@@ -270,10 +268,6 @@ source_set("impl") {
       "providers/web_contents/extension_task.cc",
     ]
   }
-
-  # TODO(crbug.com/40031409): Fix code that adds exit-time destructors and
-  # enable the diagnostic by removing this line.
-  configs += [ "//build/config/compiler:no_exit_time_destructors" ]
 }
 
 if (is_android) {
@@ -338,6 +332,7 @@ source_set("unit_tests") {
     "//base/test:test_support",
     "//chrome/browser/task_manager/common",
     "//chrome/test:test_support",
+    "//chrome/test/base:testing_browser_process",
     "//content/public/browser",
     "//content/test:test_support",
     "//testing/gmock",
@@ -369,6 +364,7 @@ source_set("browser_tests") {
     ":task_manager",
     ":test_support",
     "//base",
+    "//chrome/browser/ui/dialogs:browser_dialogs",
     "//chrome/test/base:testing_browser_process",
     "//content/public/browser",
     "//content/test:test_support",
@@ -390,7 +386,6 @@ source_set("browser_tests") {
       "//chrome/browser/background:test_support",
       "//chrome/browser/devtools:test_support",
       "//chrome/browser/task_manager/common",
-      "//chrome/browser/ui",
       "//chrome/browser/ui:browser_commands",
       "//chrome/browser/ui:browser_window_header",
       "//chrome/browser/ui/browser_window",

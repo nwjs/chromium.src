@@ -22,11 +22,13 @@
 #include "ash/constants/ash_pref_names.h"
 #include "ash/display/display_util.h"
 #include "ash/public/cpp/clipboard_image_model_factory.h"
+#include "ash/public/cpp/system/toast_data.h"
 #include "ash/public/cpp/window_tree_host_lookup.h"
 #include "ash/session/session_controller_impl.h"
 #include "ash/shell.h"
 #include "ash/strings/grit/ash_strings.h"
 #include "ash/style/color_util.h"
+#include "ash/system/toast/toast_manager_impl.h"
 #include "ash/wm/window_util.h"
 #include "base/barrier_closure.h"
 #include "base/check.h"
@@ -60,6 +62,7 @@
 #include "ui/base/data_transfer_policy/data_transfer_endpoint.h"
 #include "ui/base/ime/input_method.h"
 #include "ui/base/ime/text_input_client.h"
+#include "ui/base/l10n/l10n_util.h"
 #include "ui/base/models/image_model.h"
 #include "ui/base/mojom/menu_source_type.mojom.h"
 #include "ui/base/webui/web_ui_util.h"
@@ -442,6 +445,9 @@ void ClipboardHistoryControllerImpl::RegisterProfilePrefs(
     PrefRegistrySimple* registry) {
   ClipboardNudgeController::RegisterProfilePrefs(registry);
   registry->RegisterTimePref(prefs::kMultipasteMenuLastTimeShown, base::Time());
+  registry->RegisterIntegerPref(
+      prefs::kClipboardHistoryEnabled,
+      static_cast<int>(clipboard_history_util::PolicyValue::kEnabled));
 }
 
 void ClipboardHistoryControllerImpl::Shutdown() {
@@ -470,6 +476,17 @@ void ClipboardHistoryControllerImpl::ToggleMenuShownByAccelerator(
 
   // Do not allow the plain text shortcut to open the menu.
   if (is_plain_text_paste) {
+    return;
+  }
+
+  if (!clipboard_history_util::IsEnabledByPolicy()) {
+    ToastData toast(
+        /*id=*/"clipboard_history_disabled_by_policy",
+        ToastCatalogName::kClipboardHistoryDisabledByPolicy,
+        /*text=*/
+        l10n_util::GetStringUTF16(
+            IDS_ASH_CLIPBOARD_HISTORY_DISABLED_BY_POLICY));
+    Shell::Get()->toast_manager()->Show(std::move(toast));
     return;
   }
 
@@ -839,6 +856,25 @@ void ClipboardHistoryControllerImpl::OnLoginStatusChanged(
   PostItemUpdateNotificationTask();
 }
 
+void ClipboardHistoryControllerImpl::OnActiveUserPrefServiceChanged(
+    PrefService* pref_service) {
+  if (pref_service !=
+      Shell::Get()->session_controller()->GetPrimaryUserPrefService()) {
+    return;
+  }
+  if (pref_change_registrar_) {
+    return;
+  }
+  pref_change_registrar_ = std::make_unique<PrefChangeRegistrar>();
+  pref_change_registrar_->Init(pref_service);
+  pref_change_registrar_->Add(
+      prefs::kClipboardHistoryEnabled,
+      base::BindRepeating(
+          &ClipboardHistoryControllerImpl::OnClipboardHistoryEnabledPrefChanged,
+          base::Unretained(this)));
+  OnClipboardHistoryEnabledPrefChanged();
+}
+
 void ClipboardHistoryControllerImpl::PostItemUpdateNotificationTask() {
   // Uses the async task to debounce multiple clipboard history changes in
   // short duration. Restart the timer if it is running.
@@ -1136,6 +1172,16 @@ void ClipboardHistoryControllerImpl::OnMenuClosed() {
               controller_weak_ptr->context_menu_.reset();
           },
           weak_ptr_factory_.GetWeakPtr()));
+}
+
+void ClipboardHistoryControllerImpl::OnClipboardHistoryEnabledPrefChanged() {
+  if (!clipboard_history_util::IsEnabledByPolicy()) {
+    // Intentionally preserve the system clipboard buffer here: last copied item
+    // stays in the system buffer leaving plain Ctrl+C/Ctrl+V even if a policy
+    // disables multi-paste mid-session. Clearing the history also closes the
+    // menu because there's nothing to show.
+    clipboard_history_->Clear(/*reset_system_clipboard=*/false);
+  }
 }
 
 }  // namespace ash

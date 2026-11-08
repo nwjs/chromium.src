@@ -10,7 +10,6 @@
 #include "base/callback_list.h"
 #include "base/memory/raw_ptr.h"
 #include "components/ntp_tiles/enterprise/enterprise_shortcut.h"
-#include "components/ntp_tiles/pref_names.h"
 #include "components/prefs/pref_change_registrar.h"
 #include "components/prefs/pref_registry_simple.h"
 
@@ -59,8 +58,14 @@ class EnterpriseShortcutsStore {
   // Register EnterpriseShortcutsStore related prefs in the Profile prefs.
   static void RegisterProfilePrefs(PrefRegistrySimple* user_prefs);
 
+  // Returns whether the enterprise shortcuts policy in `prefs` provides at
+  // least one valid shortcut. Unlike constructing a store, this does not
+  // observe or modify `prefs`.
+  static bool HasPolicyLinks(const PrefService& prefs);
+
  private:
-  std::vector<EnterpriseShortcut> RetrieveLinksFromPrefs(
+  static std::vector<EnterpriseShortcut> RetrieveLinksFromPrefs(
+      const PrefService& prefs,
       std::string_view pref_path);
   std::vector<EnterpriseShortcut> RetrieveUserLinks();
   std::vector<EnterpriseShortcut> RetrievePolicyLinks();

@@ -1213,10 +1213,16 @@ class CONTENT_EXPORT NavigationRequest
   // Store a console message, which will be sent to the final RenderFrameHost
   // immediately after requesting the navigation to commit.
   //
+  // If `required_origin` is set, the message is only sent if the navigation
+  // commits a document whose origin is `required_origin`, or commits an error
+  // page in an isolated error page process. Otherwise, it is dropped.
+  //
   // /!\ WARNING /!\: Beware of not leaking cross-origin information to a
   // potentially compromised renderer when using this method.
-  void AddDeferredConsoleMessage(blink::mojom::ConsoleMessageLevel level,
-                                 std::string message);
+  void AddDeferredConsoleMessage(
+      blink::mojom::ConsoleMessageLevel level,
+      std::string message,
+      std::optional<url::Origin> required_origin = std::nullopt);
 
   bool is_deferred_on_fenced_frame_url_mapping_for_testing() const {
     return is_deferred_on_fenced_frame_url_mapping_;
@@ -1253,6 +1259,17 @@ class CONTENT_EXPORT NavigationRequest
   const std::optional<base::UnguessableToken> ComputeFencedFrameNonce() const;
 
   void RenderFallbackContentForObjectTag();
+
+  // Records that `feature` was used during the navigation. Recording is
+  // delayed until the new document commits, and the feature is attributed to
+  // that document. Nothing is recorded if the navigation doesn't commit.
+  //
+  // If `response_origin` is set to the origin of the response that used the
+  // feature, and the navigation is then redirected to a different origin, the
+  // feature is not attributed to the committed document and is dropped.
+  void AddWebFeatureToLog(
+      blink::mojom::WebFeature feature,
+      std::optional<url::Origin> response_origin = std::nullopt);
 
   // Returns the vector of web features used during the navigation, whose
   // recording was delayed until the new document that used them commits.
@@ -1977,6 +1994,14 @@ class CONTENT_EXPORT NavigationRequest
   struct ConsoleMessage {
     blink::mojom::ConsoleMessageLevel level;
     std::string message;
+    // See AddDeferredConsoleMessage().
+    std::optional<url::Origin> required_origin;
+  };
+
+  struct WebFeatureToLog {
+    blink::mojom::WebFeature feature;
+    // See AddWebFeatureToLog().
+    std::optional<url::Origin> response_origin;
   };
 
   NavigationRequest(
@@ -2625,7 +2650,10 @@ class CONTENT_EXPORT NavigationRequest
 
   // Called just after a navigation commits (also in case of error): it
   // sends all console messages to the final RenderFrameHost.
-  void SendDeferredConsoleMessages();
+  // `origin_to_commit` is the origin of the committed document, or
+  // std::nullopt if an error page is committed.
+  void SendDeferredConsoleMessages(
+      const std::optional<url::Origin>& origin_to_commit);
 
   bool ShouldRenderFallbackContentForResponse(
       const net::HttpResponseHeaders& response_head) const;
@@ -3479,7 +3507,7 @@ class CONTENT_EXPORT NavigationRequest
   // The list of web features that were used by the new document during
   // navigation. These can only be logged once the document commits, so they are
   // held in this vector until then.
-  std::vector<blink::mojom::WebFeature> web_features_to_log_;
+  std::vector<WebFeatureToLog> web_features_to_log_;
 
   // Messages to be printed on the console in the target RenderFrameHost of this
   // NavigationRequest.

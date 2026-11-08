@@ -170,6 +170,21 @@ TEST(ContextualCueingMetricsTest, CreateEvent_NoActiveTab) {
   EXPECT_EQ("test_cuj", event.cue_details().cuj_type());
 }
 
+TEST(ContextualCueingMetricsTest, CreateEvent_ContextualSearchSurface) {
+  optimization_guide::proto::ContextualCue cue;
+  cue.mutable_anchored_message_cue()->set_anchored_message_text("Message");
+  cue.mutable_anchored_message_cue()->set_action_text("Action");
+  cue.mutable_contextual_search_surface()->set_query("search query");
+
+  auto event = internal::CreateContextualCueLogEvent(
+      private_insights::events::ContextualCueLogEvent::SHOWN, "test_cue_id",
+      CueTargetType::kContextualSearch, cue, /*active_tab=*/nullptr,
+      /*tabs_to_show=*/{}, /*background_tabs=*/{}, /*cuj=*/"LEARNING");
+
+  EXPECT_EQ("ContextualSearch", event.cue_details().promoted_feature());
+  EXPECT_EQ("search query", event.cue_details().prompt());
+}
+
 // Verifies that `active_page.hostname` holds the host component of the active
 // tab's URL, as returned by `GURL::host()`.
 struct HostTestCase {
@@ -296,4 +311,51 @@ TEST(ContextualCueingMetricsTest, RecordContextualCueingInteraction_NonPdf) {
 }
 
 }  // namespace
+}  // namespace contextual_cueing
+
+namespace contextual_cueing {
+
+TEST(ContextualCueingMetricsTest, RecordCueFormFactorShown_EmptyCuj) {
+  base::HistogramTester histogram_tester;
+  RecordCueFormFactorShown("", CueFormFactor::kChip);
+
+  histogram_tester.ExpectUniqueSample("ContextualCueing.V2.CueFormFactor.Shown",
+                                      CueFormFactor::kChip, 1);
+  histogram_tester.ExpectTotalCount(
+      "ContextualCueing.V2.CueFormFactor.Shown.Chip", 0);
+}
+
+TEST(ContextualCueingMetricsTest, RecordCueFormFactorShown_WithCuj) {
+  base::HistogramTester histogram_tester;
+  RecordCueFormFactorShown("test_cuj", CueFormFactor::kIcon);
+
+  histogram_tester.ExpectUniqueSample("ContextualCueing.V2.CueFormFactor.Shown",
+                                      CueFormFactor::kIcon, 1);
+  histogram_tester.ExpectUniqueSample(
+      "ContextualCueing.V2.CueFormFactor.Shown.Icon",
+      base::HashMetricName("test_cuj"), 1);
+}
+
+TEST(ContextualCueingMetricsTest, RecordCueFormFactorHidden_EmptyCuj) {
+  base::HistogramTester histogram_tester;
+  RecordCueFormFactorHidden("", CueFormFactor::kChip);
+
+  histogram_tester.ExpectUniqueSample(
+      "ContextualCueing.V2.CueFormFactor.Hidden", CueFormFactor::kChip, 1);
+  histogram_tester.ExpectTotalCount(
+      "ContextualCueing.V2.CueFormFactor.Hidden.Chip", 0);
+}
+
+TEST(ContextualCueingMetricsTest, RecordCueFormFactorHidden_WithCuj) {
+  base::HistogramTester histogram_tester;
+  RecordCueFormFactorHidden("test_cuj", CueFormFactor::kAnchoredMessage);
+
+  histogram_tester.ExpectUniqueSample(
+      "ContextualCueing.V2.CueFormFactor.Hidden",
+      CueFormFactor::kAnchoredMessage, 1);
+  histogram_tester.ExpectUniqueSample(
+      "ContextualCueing.V2.CueFormFactor.Hidden.AnchoredMessage",
+      base::HashMetricName("test_cuj"), 1);
+}
+
 }  // namespace contextual_cueing

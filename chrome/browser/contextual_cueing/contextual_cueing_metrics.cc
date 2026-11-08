@@ -6,6 +6,7 @@
 
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/metrics_hashes.h"
+#include "base/strings/strcat.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/contextual_cueing/cue_target.h"
@@ -124,6 +125,9 @@ private_insights::events::ContextualCueLogEvent CreateContextualCueLogEvent(
   if (cue.has_gemini_in_chrome_surface()) {
     event.mutable_cue_details()->set_prompt(
         cue.gemini_in_chrome_surface().prompt());
+  } else if (cue.has_contextual_search_surface()) {
+    event.mutable_cue_details()->set_prompt(
+        cue.contextual_search_surface().query());
   }
 
   return event;
@@ -202,14 +206,27 @@ void RecordContextualCueingDecision(
   }
 }
 
-void RecordCueFormFactorShown(CueFormFactor form_factor) {
+void RecordCueFormFactorShown(std::string_view cuj, CueFormFactor form_factor) {
   base::UmaHistogramEnumeration("ContextualCueing.V2.CueFormFactor.Shown",
                                 form_factor);
+  if (!cuj.empty()) {
+    base::UmaHistogramSparse(
+        base::StrCat(
+            {"ContextualCueing.V2.CueFormFactor.Shown.", GetName(form_factor)}),
+        base::HashMetricName(cuj));
+  }
 }
 
-void RecordCueFormFactorHidden(CueFormFactor form_factor) {
+void RecordCueFormFactorHidden(std::string_view cuj,
+                               CueFormFactor form_factor) {
   base::UmaHistogramEnumeration("ContextualCueing.V2.CueFormFactor.Hidden",
                                 form_factor);
+  if (!cuj.empty()) {
+    base::UmaHistogramSparse(
+        base::StrCat({"ContextualCueing.V2.CueFormFactor.Hidden.",
+                      GetName(form_factor)}),
+        base::HashMetricName(cuj));
+  }
 }
 
 void RecordChipClickedCollapsedDuration(base::TimeDelta collapsed_duration) {

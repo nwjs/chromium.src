@@ -135,6 +135,7 @@ export class ComposeboxFile {
   iconUrl?: Url|null;
   origin?: TabAttachmentSource;
   delayUpload?: boolean;
+  singleTabType?: SingleTabType;
   // True if this is a placeholder ("ghost") entry created from an upload
   // status update for a token the frontend does not know about yet. Its
   // metadata, including `inputType`, is not yet known and must not be relied
@@ -160,6 +161,7 @@ export class ComposeboxFile {
     this.iconUrl = options?.iconUrl ?? null;
     this.origin = options?.origin;
     this.delayUpload = options?.delayUpload ?? false;
+    this.singleTabType = options?.singleTabType;
     this.isGhost = options?.isGhost ?? false;
   }
 
@@ -301,14 +303,19 @@ export class ComposeboxInputModel {
                tabId: file.tabId!,
                title: file.name,
                url: file.url!,
-               // Attached files carry no loading state; embedders fill it in
-               // from the latest tab suggestions.
-               isLoading: false,
+               // A tab coin is "loading" while its context upload is still in
+               // flight. This mirrors `pendingUploads`, which gates the submit
+               // button, so the skeleton and the disabled submit button agree.
+               isLoading: !isContextUploadStatusTerminal(file.status),
              } as TabInfo));
   }
 
   hasFiles(): boolean {
     return this.attachedContext.size > 0;
+  }
+
+  hasMultipleFiles(): boolean {
+    return this.attachedContext.size > 1 || this.smartTabSharingActive;
   }
 
   hasOnlyAutoAddedTabs(): boolean {
@@ -359,12 +366,18 @@ export function hasOnlyAutoAddedTabAttachments(
   return true;
 }
 
+export enum SingleTabType {
+  RECENT_TAB = 'RecentTab',
+  CURRENT_TAB = 'CurrentTab',
+}
+
 export interface TabUpload {
   tabId: number;
   url: Url;
   title: string;
   delayUpload: boolean;
   origin: TabAttachmentSource;
+  singleTabType?: SingleTabType;
 }
 
 export interface BrowserFileUpload {
@@ -399,6 +412,30 @@ export enum ContextualSearchInputStateDeletionType {
 }
 // LINT.ThenChange(//tools/metrics/histograms/metadata/contextual_search/enums.xml:ContextualSearchInputStateDeletionType)
 
+// LINT.IfChange(SingleTabMenuItemAction)
+
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+export enum SingleTabMenuItemAction {
+  RECENT_TAB_SELECTED = 0,
+  RECENT_TAB_DESELECTED = 1,
+  RECENT_TAB_SUBMITTED = 2,
+  CURRENT_TAB_SELECTED = 3,
+  CURRENT_TAB_DESELECTED = 4,
+  CURRENT_TAB_SUBMITTED = 5,
+  MAX_VALUE = CURRENT_TAB_SUBMITTED,
+}
+
+// LINT.ThenChange(//components/omnibox/common/omnibox_metrics_utils.h:SingleTabMenuItemAction,
+// //tools/metrics/histograms/metadata/contextual_search/enums.xml:ContextualSearchSingleTabMenuItemAction)
+
+export function recordSingleTabMenuItemAction(
+    action: SingleTabMenuItemAction, composeboxSource: string) {
+  recordEnumerationValue(
+      `ContextualSearch.SingleTabMenuItem.Action.${composeboxSource}`, action,
+      SingleTabMenuItemAction.MAX_VALUE + 1);
+}
+
 export function recordEnumerationValue(
     metricName: string, value: number, enumSize: number) {
   const metricsService = chrome.histograms || chrome.metricsPrivate;
@@ -418,6 +455,13 @@ export function recordBoolean(metricName: string, value: boolean) {
   const metricsService = chrome.histograms || chrome.metricsPrivate;
   if (metricsService) {
     metricsService.recordBoolean(metricName, value);
+  }
+}
+
+export function recordCount(metricName: string, value: number) {
+  const metricsService = chrome.histograms || chrome.metricsPrivate;
+  if (metricsService) {
+    metricsService.recordCount(metricName, value);
   }
 }
 
@@ -743,4 +787,14 @@ export function recordTabPickerTabSelected(
       `ContextualSearch.TabPicker.SelectedTabPosition.${surface}`,
       Math.min(index, TAB_PICKER_POSITION_HISTOGRAM_MAX),
       TAB_PICKER_POSITION_HISTOGRAM_MAX + 1);
+}
+
+// Returns a CSP-safe image URL using Chrome's SanitizedImageSource
+// (//image?...).
+export function computeImageUrl(url: string|undefined): string {
+  if (!url) {
+    return '';
+  }
+  return `//image?staticEncode=true&encodeType=webp&url=${
+      encodeURIComponent(url)}`;
 }

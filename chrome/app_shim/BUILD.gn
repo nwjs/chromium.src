@@ -31,7 +31,6 @@ source_set("app_shim") {
     "//chrome:strings",
     "//chrome/app:command_ids",
     "//chrome/browser/renderer_host:history_swiper",
-    "//chrome/browser/ui",
     "//chrome/browser/ui/cocoa",
     "//chrome/common",
     "//chrome/common:mojo_bindings",
@@ -77,8 +76,6 @@ bundle_data("app_mode_loader_plist_bundle_data") {
 }
 
 executable("app_mode_loader") {
-  configs += [ "//build/config/compiler:wexit_time_destructors" ]
-
   sources = [ "app_mode_loader_mac.mm" ]
 
   if (is_component_build || is_asan || is_ubsan_any) {
@@ -115,12 +112,25 @@ source_set("browser_tests") {
   defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
   deps = [
     "//chrome/app_shim",
-    "//chrome/browser/ui",
     "//chrome/browser/ui/web_applications/test:test_support_ui",
     "//chrome/browser/web_applications:web_applications_test_support",
     "//chrome/test/base:test_launcher_utils",
     "//chrome/test/base:test_utils_mac",
     "//components/remote_cocoa/app_shim",
     "//content/test:test_support",
+  ]
+}
+
+source_set("unit_tests") {
+  testonly = true
+  sources = [ "app_shim_controller_unittest.mm" ]
+  deps = [
+    "//base",
+    "//base/test:test_support",
+    "//chrome/app_shim",
+    "//chrome/common:app_mode_app_support",
+    "//chrome/common:constants",
+    "//components/variations",
+    "//testing/gtest",
   ]
 }

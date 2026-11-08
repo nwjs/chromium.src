@@ -151,10 +151,10 @@ void AllPasswordsBottomSheetController::OnCredentialSelected(
     // Both the `client_` and `PasswordAccessoryController` are attached to
     // WebContents. And AllPasswordBottomSheetController is owned by
     // PasswordAccessoryController.
-    DCHECK(client_);
+    CHECK(client_, base::NotFatalUntil::M161);
     std::unique_ptr<device_reauth::DeviceAuthenticator> authenticator =
         client_->GetDeviceAuthenticator();
-    if (client_->IsReauthBeforeFillingRequired(authenticator.get())) {
+    if (client_->IsReauthBeforeFillingRequiredLegacy(authenticator.get())) {
       authenticator_ = std::move(authenticator);
       authenticator_->AuthenticateWithMessage(
           u"",

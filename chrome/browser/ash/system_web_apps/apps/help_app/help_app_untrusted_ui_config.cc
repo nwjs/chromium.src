@@ -13,6 +13,7 @@
 #include "ash/webui/help_app_ui/help_app_prefs.h"
 #include "ash/webui/help_app_ui/help_app_untrusted_ui.h"
 #include "ash/webui/help_app_ui/url_constants.h"
+#include "base/check_deref.h"
 #include "base/check_is_test.h"
 #include "base/command_line.h"
 #include "base/containers/fixed_flat_set.h"
@@ -34,12 +35,15 @@
 #include "chrome/browser/policy/profile_policy_connector.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/chrome_constants.h"
+#include "chromeos/ash/components/browser_context_helper/browser_context_helper.h"
 #include "chromeos/ash/components/browser_context_helper/browser_context_types.h"
 #include "chromeos/ash/components/channel/channel_info.h"
 #include "chromeos/ash/components/system/statistics_provider.h"
 #include "chromeos/ash/services/multidevice_setup/public/cpp/prefs.h"
 #include "chromeos/constants/chromeos_features.h"
+#include "components/application_locale_storage/application_locale_storage.h"
 #include "components/prefs/pref_service.h"
+#include "components/user_manager/user.h"
 #include "components/user_manager/user_manager.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_ui.h"
@@ -64,27 +68,14 @@ constexpr auto kCrosSwitcherCountriesSet =
          "my", "ng", "nl", "no", "nz", "pe", "ph", "pl", "pt", "ro", "ru",
          "sa", "se", "sg", "sk", "th", "tr", "tw", "ua", "uy", "vn", "za"});
 
-bool IsCrosSwitcherEnabled(base::FeatureList* feature_list,
-                           variations::VariationsService* variations_service) {
-  if (!feature_list) {
-    // Disables Switcher as a fail-safe behavior.
-    return false;
-  }
-
-  // If feature flag is overridden, respect the value regardless of other
-  // conditions.
-  if (feature_list->IsFeatureOverridden(features::kCrosSwitcher.name)) {
-    return ash::features::IsCrosSwitcherEnabled();
-  }
-
+bool IsCrosSwitcherEnabled(variations::VariationsService* variations_service) {
   if (!variations_service) {
     // Disables Switcher as a fail-safe behavior.
     return false;
   }
 
-  return ash::features::IsCrosSwitcherEnabled() &&
-         kCrosSwitcherCountriesSet.contains(
-             variations_service->GetStoredPermanentCountry());
+  return kCrosSwitcherCountriesSet.contains(
+      variations_service->GetStoredPermanentCountry());
 }
 
 void PopulateLoadTimeData(content::WebUI* web_ui,
@@ -96,7 +87,6 @@ void PopulateLoadTimeData(content::WebUI* web_ui,
                      accessibility_manager->IsSpokenFeedbackEnabled() ||
                          accessibility_manager->IsSwitchAccessEnabled());
 
-  source->AddString("appLocale", g_browser_process->GetApplicationLocale());
   source->AddBoolean("isLowEndDevice", base::SysInfo::IsLowEndDevice());
   // Add strings that can be pulled in.
   source->AddString("boardName", base::SysInfo::GetLsbReleaseBoard());
@@ -150,8 +140,7 @@ void PopulateLoadTimeData(content::WebUI* web_ui,
             ash::personalization_app::IsEligibleForSeaPen(profile));
     source->AddBoolean(
         "isCrosSwitcherEnabled",
-        IsCrosSwitcherEnabled(base::FeatureList::GetInstance(),
-                              g_browser_process->variations_service()));
+        IsCrosSwitcherEnabled(g_browser_process->variations_service()));
     source->AddBoolean(
         "featureManagementShowoff",
         base::FeatureList::IsEnabled(ash::features::kFeatureManagementShowoff));
@@ -161,20 +150,13 @@ void PopulateLoadTimeData(content::WebUI* web_ui,
     // actively browsing the help app (such as UI-only features), avoid querying
     // them in the background page.
     source->AddBoolean("HelpAppAppsGamesBannerV2", true);
-    source->AddBoolean(
-        "HelpAppAppDetailPage",
-        base::FeatureList::IsEnabled(ash::features::kHelpAppAppDetailPage));
-    source->AddBoolean("HelpAppAppsList", base::FeatureList::IsEnabled(
-                                              ash::features::kHelpAppAppsList));
-    source->AddBoolean("HelpAppHomePageAppArticles",
-                       base::FeatureList::IsEnabled(
-                           ash::features::kHelpAppHomePageAppArticles));
+    source->AddBoolean("HelpAppAppDetailPage", true);
+    source->AddBoolean("HelpAppAppsList", true);
+    source->AddBoolean("HelpAppHomePageAppArticles", true);
     source->AddBoolean("HelpAppAutoTriggerInstallDialog",
                        base::FeatureList::IsEnabled(
                            features::kHelpAppAutoTriggerInstallDialog));
-    source->AddBoolean(
-        "HelpAppOnboardingRevamp",
-        base::FeatureList::IsEnabled(ash::features::kHelpAppOnboardingRevamp));
+    source->AddBoolean("HelpAppOnboardingRevamp", true);
     // TODO(crbug.com/370386104): Clean up flag in Showoff code.
     source->AddBoolean("HelpAppAppMall", true);
     // Only use the action URL if the install URI is enabled.
@@ -236,12 +218,13 @@ void PopulateLoadTimeData(content::WebUI* web_ui,
   user_manager::UserManager* user_manager = user_manager::UserManager::Get();
   source->AddBoolean("isManagedDevice",
                      profile->GetProfilePolicyConnector()->IsManaged());
-  if (user_manager->GetActiveUser()) {
-    source->AddInteger(
-        "userType", static_cast<int>(user_manager->GetActiveUser()->GetType()));
+  const user_manager::User* user =
+      BrowserContextHelper::Get()->GetUserByBrowserContext(profile);
+  if (user) {
+    source->AddInteger("userType", static_cast<int>(user->GetType()));
   } else {
-    // It's possible that there is no logged-in user. Set to -1 to indicate when
-    // this is the case.
+    // Null on non-user profiles (e.g. sign-in), where there is no logged-in
+    // user. Set to -1 to indicate when this is the case.
     source->AddInteger("userType", -1);
   }
   source->AddBoolean("isEphemeralUser",
@@ -250,8 +233,10 @@ void PopulateLoadTimeData(content::WebUI* web_ui,
 
 }  // namespace
 
-HelpAppUntrustedUIConfig::HelpAppUntrustedUIConfig()
-    : WebUIConfig(content::kChromeUIUntrustedScheme, kChromeUIHelpAppHost) {}
+HelpAppUntrustedUIConfig::HelpAppUntrustedUIConfig(
+    const ApplicationLocaleStorage* application_locale_storage)
+    : WebUIConfig(content::kChromeUIUntrustedScheme, kChromeUIHelpAppHost),
+      application_locale_storage_(CHECK_DEREF(application_locale_storage)) {}
 
 HelpAppUntrustedUIConfig::~HelpAppUntrustedUIConfig() = default;
 
@@ -264,10 +249,9 @@ bool HelpAppUntrustedUIConfig::IsWebUIEnabled(
 
 // static
 bool HelpAppUntrustedUIConfig::IsCrosSwitcherEnabledForTesting(
-    base::FeatureList* feature_list,
     variations::VariationsService* variations_service) {
   CHECK_IS_TEST();
-  return IsCrosSwitcherEnabled(feature_list, variations_service);
+  return IsCrosSwitcherEnabled(variations_service);
 }
 
 std::unique_ptr<content::WebUIController>
@@ -276,7 +260,8 @@ HelpAppUntrustedUIConfig::CreateWebUIController(content::WebUI* web_ui,
   base::RepeatingCallback<void(content::WebUIDataSource*)> callback =
       base::BindRepeating(&PopulateLoadTimeData, web_ui);
 
-  return std::make_unique<HelpAppUntrustedUI>(web_ui, callback);
+  return std::make_unique<HelpAppUntrustedUI>(
+      application_locale_storage_->GetTag(), web_ui, callback);
 }
 
 }  // namespace ash

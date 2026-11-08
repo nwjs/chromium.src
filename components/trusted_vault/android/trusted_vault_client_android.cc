@@ -10,7 +10,6 @@
 #include "base/android/jni_android.h"
 #include "base/check_op.h"
 #include "base/metrics/histogram_functions.h"
-#include "base/notreached.h"
 #include "components/sync/service/sync_service_utils.h"
 #include "content/public/browser/browser_thread.h"
 #include "google_apis/gaia/gaia_id.h"
@@ -50,7 +49,7 @@ TrustedVaultClientAndroid::OngoingGetIsRecoverabilityDegraded::
     ~OngoingGetIsRecoverabilityDegraded() = default;
 
 TrustedVaultClientAndroid::OngoingAddTrustedRecoveryMethod::
-    OngoingAddTrustedRecoveryMethod(base::OnceClosure callback)
+    OngoingAddTrustedRecoveryMethod(base::OnceCallback<void(bool)> callback)
     : callback(std::move(callback)) {}
 
 TrustedVaultClientAndroid::OngoingAddTrustedRecoveryMethod::
@@ -124,13 +123,14 @@ void TrustedVaultClientAndroid::GetIsRecoverabilityDegradedCompleted(
 
 void TrustedVaultClientAndroid::AddTrustedRecoveryMethodCompleted(
     JNIEnv* env,
-    int32_t request_id) {
+    int32_t request_id,
+    bool succeeded) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
 
   OngoingRequest ongoing_request = GetAndUnregisterOngoingRequest(request_id);
 
   std::move(std::get<OngoingAddTrustedRecoveryMethod>(ongoing_request).callback)
-      .Run();
+      .Run(!!succeeded);
 }
 
 void TrustedVaultClientAndroid::NotifyKeysChanged(
@@ -181,8 +181,13 @@ void TrustedVaultClientAndroid::StoreKeys(
     const std::vector<std::vector<uint8_t>>& keys,
     int last_key_version,
     std::optional<trusted_vault::TrustedVaultUserActionTriggerForUMA> trigger) {
-  // Not supported on Android, where keys are fetched outside the browser.
-  NOTREACHED();
+  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  JNIEnv* const env = base::android::AttachCurrentThread();
+  const base::android::ScopedJavaLocalRef<jobjectArray> java_keys =
+      base::android::ToJavaArrayOfByteArray(env, keys);
+  Java_TrustedVaultClient_storeKeys(env, reinterpret_cast<intptr_t>(this),
+                                    static_cast<int32_t>(security_domain_id_),
+                                    gaia_id, java_keys, last_key_version);
 }
 
 void TrustedVaultClientAndroid::MarkLocalKeysAsStale(
@@ -225,7 +230,7 @@ void TrustedVaultClientAndroid::AddTrustedRecoveryMethod(
     const GaiaId& gaia_id,
     const std::vector<uint8_t>& public_key,
     int method_type_hint,
-    base::OnceClosure cb) {
+    base::OnceCallback<void(bool)> cb) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   DCHECK(cb);
 
@@ -241,7 +246,7 @@ void TrustedVaultClientAndroid::AddTrustedRecoveryMethod(
   }
 
   if (account_info == CoreAccountInfo()) {
-    std::move(cb).Run();
+    std::move(cb).Run(false);
     return;
   }
 

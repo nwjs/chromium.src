@@ -23,6 +23,7 @@ class BrowserAccessibilityStateImplAndroid
   void RecordAccessibilityServiceInfoHistograms() override;
 
   // BrowserAccessibilityStateImpl implementation.
+  ui::AXMode GetAccessibilityMode() override;
   void RefreshAssistiveTech() override;
 
  protected:

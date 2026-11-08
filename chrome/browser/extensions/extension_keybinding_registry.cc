@@ -189,7 +189,7 @@ void ExtensionKeybindingRegistry::RemoveExtensionKeybinding(
             IsMediaKeysListenerManagerEnabled()) {
       content::MediaKeysListenerManager* media_keys_listener_manager =
           content::MediaKeysListenerManager::GetInstance();
-      DCHECK(media_keys_listener_manager);
+      CHECK(media_keys_listener_manager, base::NotFatalUntil::M161);
 
       media_keys_listener_manager->EnableInternalMediaKeyHandling();
     } else {
@@ -295,6 +295,8 @@ void ExtensionKeybindingRegistry::AddEventTarget(
   // Shortcuts except media keys have only one target in the list. See comment
   // about |event_targets_|.
   if (!accelerator.IsMediaKey()) {
+    // TODO(crbug.com/571680756): CHECK-exclusion: Convert to a CHECK once we
+    // are confident it won't be triggered.
     DCHECK_EQ(1u, event_targets_[accelerator].size());
   } else {
     if (media_keys_listener_)
@@ -306,7 +308,7 @@ void ExtensionKeybindingRegistry::AddEventTarget(
             IsMediaKeysListenerManagerEnabled()) {
       content::MediaKeysListenerManager* media_keys_listener_manager =
           content::MediaKeysListenerManager::GetInstance();
-      DCHECK(media_keys_listener_manager);
+      CHECK(media_keys_listener_manager, base::NotFatalUntil::M161);
 
       media_keys_listener_manager->DisableInternalMediaKeyHandling();
     } else {
@@ -326,7 +328,7 @@ bool ExtensionKeybindingRegistry::GetFirstTarget(
   if (targets == event_targets_.end())
     return false;
 
-  DCHECK(!targets->second.empty());
+  CHECK(!targets->second.empty(), base::NotFatalUntil::M161);
   auto first_target = targets->second.begin();
   *extension_id = first_target->first;
   *command_name = first_target->second;

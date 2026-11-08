@@ -14,13 +14,16 @@
 
 #import "base/memory/raw_ptr.h"
 #import "base/memory/weak_ptr.h"
+#import "components/actor/core/aggregated_journal.h"
 #import "components/keyed_service/core/keyed_service.h"
 #import "components/optimization_guide/proto/features/actions_data.pb.h"
 #import "ios/chrome/browser/intelligence/actor/public/actor_types.h"
 #import "ios/web/public/web_state_id.h"
 
+@class CRBProtocolObservers;
 @class PageContextWrapper;
 @protocol ActorTaskInterventionDelegate;
+@protocol ActorTaskLifecycleObserver;
 @protocol ActorTaskUpdatesObserver;
 class ProfileIOS;
 
@@ -31,9 +34,11 @@ class WebState;
 namespace actor {
 
 class ActorTask;
+class ActorTaskBackgroundWorker;
 class ActorToolRequest;
 class ActorToolFactory;
 class AggregatedJournal;
+struct TaskSourceInfo;
 
 // Service responsible for handling Actor requests. The normal flow is to
 // `CreateTask` and reuse this ID for an entire Actor task (journey).
@@ -46,8 +51,9 @@ class ActorService : public KeyedService {
   // KeyedService:
   void Shutdown() override;
 
-  // Creates a new task.
+  // Creates a new task. `source_info` identifies the client creating the task.
   ActorTaskId CreateTask(const std::string& title,
+                         const TaskSourceInfo& source_info,
                          bool allow_incognito_web_states);
 
   // Submits actions to an active task with a task update string (a short
@@ -57,6 +63,11 @@ class ActorService : public KeyedService {
   // Actions are validated and executed sequentially. If any action fails
   // validation or execution, the sequence is aborted immediately, and
   // subsequent actions will not be run.
+  //
+  // If the task does not exist, `callback` is posted with a single
+  // `kTaskWentAway` result. If the task is still executing a previous request,
+  // `callback` is posted with a single `kExecutionEngineExistingAction` result
+  // and the request's target WebStates are not added to the task.
   void PerformActions(
       ActorTaskId task_id,
       const std::vector<optimization_guide::proto::Action>& actions,
@@ -104,6 +115,21 @@ class ActorService : public KeyedService {
   // Removes a registered observer for task updates.
   void RemoveTaskUpdatesObserver(id<ActorTaskUpdatesObserver> observer);
 
+  // Registers `observer` for updates of the task identified by `task_id` only.
+  // Returns false if there is no active task with `task_id`.
+  bool AddTaskUpdatesObserver(ActorTaskId task_id,
+                              id<ActorTaskUpdatesObserver> observer);
+
+  // Removes `observer` from the task identified by `task_id`, if active.
+  void RemoveTaskUpdatesObserver(ActorTaskId task_id,
+                                 id<ActorTaskUpdatesObserver> observer);
+
+  // Registers `observer` for all task lifecycle events.
+  void AddTaskLifecycleObserver(id<ActorTaskLifecycleObserver> observer);
+
+  // Removes a registered task lifecycle observer.
+  void RemoveTaskLifecycleObserver(id<ActorTaskLifecycleObserver> observer);
+
   // Returns the execution state of the currently active task, or `std::nullopt`
   // if there are no active tasks.
   std::optional<ActorTaskState> GetActiveTaskState() const;
@@ -116,6 +142,10 @@ class ActorService : public KeyedService {
 
   // Adds a WebState to the set of controlled WebStates for the given task.
   void AddControlledWebState(ActorTaskId task_id, web::WebState* web_state);
+
+  // Returns a weak pointer to the background worker of each active task.
+  std::vector<base::WeakPtr<ActorTaskBackgroundWorker>>
+  GetWeakTaskBackgroundWorkers();
 
   // Returns a weak pointer to this service instance.
   base::WeakPtr<ActorService> GetWeakPtr() {
@@ -141,6 +171,11 @@ class ActorService : public KeyedService {
   // Observers for task updates.
   std::vector<__weak id<ActorTaskUpdatesObserver>> task_observers_;
 
+  // Observers notified of task start and stop. The container is held strongly,
+  // but the observers inside are held weakly.
+  __strong CRBProtocolObservers<ActorTaskLifecycleObserver>*
+      lifecycle_observers_;
+
   // Map of pending PageContext extractions ("observations"). Used to keep the
   // wrapper alive while the extraction is in progress.
   std::map<web::WebStateID, PageContextWrapper*> pending_observations_;
@@ -148,6 +183,9 @@ class ActorService : public KeyedService {
   // Callback for when PageContext extraction completes.
   void OnPageContextExtractionComplete(
       web::WebStateID web_state_id,
+      const GURL& last_committed_url,
+      std::unique_ptr<AggregatedJournal::PendingAsyncEntry>
+          pending_journal_entry,
       TabObservationCallback callback,
       PageContextWrapperCallbackResponse response);
 
@@ -166,12 +204,6 @@ class ActorService : public KeyedService {
   // if it cannot be found.
   web::WebState* GetWebState(web::WebStateID web_state_id,
                              bool allows_incognito);
-
-  // Creates and registers a background continued processing task with the
-  // system for `task`, and sets the context on `task` if available. Returns
-  // whether registration was successful (does not guarantee the task will be
-  // executed by the system).
-  bool RegisterBackgroundTask(ActorTask* task);
 
   // Generator for unique task IDs.
   ActorTaskId::Generator next_task_id_;

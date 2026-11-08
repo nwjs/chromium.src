@@ -302,13 +302,13 @@ public class Fido2CredentialRequestTest {
                         return mRequestCallback;
                     }
                 };
-        mRequest = new Fido2CredentialRequest(mAuthenticationContextProvider);
-        AuthenticatorImpl.overrideFido2CredentialRequestForTesting(mRequest);
-
         mFido2ApiCallHelper = new MockFido2ApiCallHelper();
         mFido2ApiCallHelper.setReturnedCredentialDetails(
                 Arrays.asList(Fido2ApiTestHelper.getCredentialDetails()));
         Fido2ApiCallHelper.overrideInstanceForTesting(mFido2ApiCallHelper);
+
+        mRequest = new Fido2CredentialRequest(mAuthenticationContextProvider);
+        AuthenticatorImpl.overrideFido2CredentialRequestForTesting(mRequest);
 
         sPasswordCredUsername16 =
                 WebauthnBrowserBridge.stringToMojoString16(PASSWORD_CRED_USERNAME);

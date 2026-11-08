@@ -11,6 +11,7 @@
 #include "base/strings/strcat.h"
 #include "net/quic/quic_chromium_packet_reader.h"
 #include "net/quic/quic_chromium_packet_writer.h"
+#include "net/quic/quic_socket_config_step.h"
 
 namespace net {
 
@@ -37,6 +38,10 @@ std::string_view QuicMigrationAttemptCauseToString(
       return "OnServerPreferredAddressAvailable";
     case QuicMigrationAttemptCause::kMultiPortPath:
       return "MultiPortPath";
+    case QuicMigrationAttemptCause::kWaitForNewNetworkPostNetworkDisconnected:
+      return "WaitForNewNetworkPostNetworkDisconnected";
+    case QuicMigrationAttemptCause::kWaitForNewNetworkPostWriteError:
+      return "WaitForNewNetworkPostWriteError";
   }
 }
 
@@ -52,6 +57,23 @@ void QuicMigrationAttemptContext::RecordIneligible(
       reason);
 }
 
+// static
+void QuicMigrationAttemptContext::RecordWaitForNewNetworkDuration(
+    QuicMigrationAttemptCause cause,
+    base::TimeDelta duration) {
+  CHECK(cause == QuicMigrationAttemptCause::
+                     kWaitForNewNetworkPostNetworkDisconnected ||
+        cause == QuicMigrationAttemptCause::kWaitForNewNetworkPostWriteError);
+  base::UmaHistogramCustomTimes(
+      "Net.Quic.Migration.Attempt.WaitForNewNetwork.Duration", duration,
+      base::Milliseconds(1), base::Minutes(1), 50);
+  base::UmaHistogramCustomTimes(
+      base::StrCat({"Net.Quic.Migration.Attempt.WaitForNewNetwork.Duration."
+                    "ByTrigger.",
+                    QuicMigrationAttemptCauseToString(cause)}),
+      duration, base::Milliseconds(1), base::Minutes(1), 50);
+}
+
 QuicMigrationAttemptContext::QuicMigrationAttemptContext(
     QuicMigrationAttemptCause cause,
     handles::NetworkHandle from_network,
@@ -59,14 +81,16 @@ QuicMigrationAttemptContext::QuicMigrationAttemptContext(
     const quic::QuicSocketAddress& target_peer_address,
     std::unique_ptr<QuicChromiumPacketReader> reader,
     std::unique_ptr<QuicChromiumPacketWriter> writer,
-    base::RepeatingCallback<bool()> is_session_alive)
+    base::RepeatingCallback<bool()> is_session_alive,
+    bool is_google_host)
     : cause_(cause),
       from_network_(from_network),
       target_network_(target_network),
       target_peer_address_(target_peer_address),
       reader_(std::move(reader)),
       writer_(std::move(writer)),
-      is_session_alive_(std::move(is_session_alive)) {
+      is_session_alive_(std::move(is_session_alive)),
+      is_google_host_(is_google_host) {
   CHECK(reader_);
   CHECK(writer_);
   CHECK(is_session_alive_);
@@ -102,14 +126,50 @@ QuicMigrationAttemptContext::~QuicMigrationAttemptContext() {
           base::StrCat(
               {"Net.Quic.Migration.Attempt.Eligible.ByTrigger.", trigger_str}),
           false);
-      auto failure_reason =
-          std::get<QuicMigrationAttemptFailureReason>(outcome_details_);
+      QuicMigrationAttemptFailureReason failure_reason;
+      if (const auto* socket_details =
+              std::get_if<SocketConfigFailureDetails>(&outcome_details_)) {
+        // General failure reason logging.
+        failure_reason = QuicMigrationAttemptFailureReason::kSocketConfigFailed;
+
+        // Detailed, socket specific, failure logging.
+        base::UmaHistogramEnumeration(
+            "Net.Quic.Migration.Attempt.SocketConfigError.Step",
+            socket_details->step);
+        base::UmaHistogramEnumeration(
+            base::StrCat({"Net.Quic.Migration.Attempt.SocketConfigError.Step."
+                          "ByTrigger.",
+                          trigger_str}),
+            socket_details->step);
+        base::UmaHistogramSparse(
+            "Net.Quic.Migration.Attempt.SocketConfigError.NetError",
+            -socket_details->net_error);
+        base::UmaHistogramSparse(
+            base::StrCat({"Net.Quic.Migration.Attempt.SocketConfigError."
+                          "NetError.ByStep.",
+                          QuicSocketConfigStepToString(socket_details->step)}),
+            -socket_details->net_error);
+        base::UmaHistogramSparse(
+            base::StrCat({"Net.Quic.Migration.Attempt.SocketConfigError."
+                          "NetError.ByTrigger.",
+                          trigger_str}),
+            -socket_details->net_error);
+      } else {
+        failure_reason =
+            std::get<QuicMigrationAttemptFailureReason>(outcome_details_);
+      }
+
       base::UmaHistogramEnumeration("Net.Quic.Migration.Attempt.FailureReason",
                                     failure_reason);
       base::UmaHistogramEnumeration(
           base::StrCat({"Net.Quic.Migration.Attempt.FailureReason.ByTrigger.",
                         trigger_str}),
           failure_reason);
+      if (is_google_host_) {
+        base::UmaHistogramEnumeration(
+            "Net.Quic.Migration.Attempt.FailureReason.GoogleHost",
+            failure_reason);
+      }
       break;
     }
     case Outcome::kIneligible:
@@ -143,6 +203,7 @@ void QuicMigrationAttemptContext::SetSuccess() {
 
 void QuicMigrationAttemptContext::SetFailure(
     QuicMigrationAttemptFailureReason reason) {
+  CHECK_NE(reason, QuicMigrationAttemptFailureReason::kSocketConfigFailed);
   // Since the connection migration code predates this class, err on the safe
   // side and record spurious outcomes for now.
   // TODO(crbug.com/557126867): Replace this UMA with a CHECK once we have
@@ -154,6 +215,23 @@ void QuicMigrationAttemptContext::SetFailure(
   }
   outcome_ = Outcome::kFailure;
   outcome_details_ = reason;
+}
+
+void QuicMigrationAttemptContext::SetSocketConfigFailure(
+    QuicSocketConfigStep step,
+    int net_error) {
+  CHECK_LT(net_error, 0);
+  // Since the connection migration code predates this class, err on the safe
+  // side and record spurious outcomes for now.
+  // TODO(crbug.com/557126867): Replace this UMA with a CHECK once we have
+  // confirmed that outcomes are never set more than once.
+  if (outcome_ != Outcome::kUnknown) {
+    base::UmaHistogramBoolean("Net.Quic.Migration.Attempt.SpuriousOutcome",
+                              true);
+    return;
+  }
+  outcome_ = Outcome::kFailure;
+  outcome_details_ = SocketConfigFailureDetails{step, net_error};
 }
 
 void QuicMigrationAttemptContext::SetIneligible(

@@ -78,6 +78,10 @@
 #include "chrome/browser/ui/signin/signin_qrcode_infobar_delegate.h"  // nogncheck
 #include "chrome/browser/ui/singleton_tabs.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
+#include "chrome/browser/ui/views/frame/browser_view.h"
+#include "chrome/browser/ui/views/frame/toolbar_button_provider.h"
+#include "chrome/browser/ui/views/profiles/dice_web_signin_interception_bubble_view.h"
+#include "chrome/browser/ui/views/toolbar/avatar_toolbar_button_interface.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/grit/branded_strings.h"
 #include "chrome/grit/generated_resources.h"
@@ -243,16 +247,6 @@ int FindDiceSigninTab(TabStripModel* tab_strip, const GURL& signin_url) {
   return -1;
 }
 
-// Returns the promo action to be used when signing with a new account.
-signin_metrics::PromoAction GetPromoActionForNewAccount(
-    signin::IdentityManager* identity_manager) {
-  return !identity_manager->GetAccountsWithRefreshTokens().empty()
-             ? signin_metrics::PromoAction::
-                   PROMO_ACTION_NEW_ACCOUNT_EXISTING_ACCOUNT
-             : signin_metrics::PromoAction::
-                   PROMO_ACTION_NEW_ACCOUNT_NO_EXISTING_ACCOUNT;
-}
-
 // Returns if account extensions should be shown in the signout confirmation
 // prompt. If true, this will force the prompt to show before signing out.
 bool ShowAccountExtensionsOnSignout(Profile* profile) {
@@ -329,8 +323,24 @@ GURL GetSigninUrlForDiceSigninTab(
   // secondary account and already have a primary account.
   // TODO(crbug.com/425645725): Investigates simplifying the params such as the
   // signin_reason and its available values.
+  const bool is_reauth =
+      signin_reason == signin_metrics::Reason::kReauthentication;
+
+  // For reauth, use `/AccountChooser` with the "Proceed To Challenge"
+  // capability so Gaia skips the identifier page and directly shows the
+  // challenge (e.g. password) page, unless the cookie jar shows that Gaia
+  // would complete the flow without a new sign-in.
+  if (is_reauth && !email_hint.empty() &&
+      base::FeatureList::IsEnabled(switches::kReauthSkipIdentifierPage) &&
+      signin::CanReauthProceedToChallenge(
+          email_hint, identity_manager.GetAccountsInCookieJar())) {
+    return signin::GetChromeReauthURL({.email = email_hint,
+                                       .continue_url = continue_url,
+                                       .proceed_to_challenge = true});
+  }
+
   bool use_add_account_url =
-      signin_reason == signin_metrics::Reason::kReauthentication ||
+      is_reauth ||
       (signin_reason == signin_metrics::Reason::kAddSecondaryAccount &&
        identity_manager.HasPrimaryAccount(signin::ConsentLevel::kSignin));
 
@@ -368,6 +378,23 @@ ChromeSignoutConfirmationPromptVariant GetSignoutConfirmationPromptVariant(
   return ChromeSignoutConfirmationPromptVariant::kTooManyBookmarks;
 }
 
+class ScopedInterceptBubbleHandle
+    : public ScopedWebSigninInterceptionBubbleHandle {
+ public:
+  explicit ScopedInterceptBubbleHandle(
+      base::WeakPtr<DiceWebSigninInterceptionBubbleView> bubble)
+      : bubble_(std::move(bubble)) {}
+
+  ~ScopedInterceptBubbleHandle() override {
+    if (bubble_) {
+      bubble_->Close();
+    }
+  }
+
+ private:
+  base::WeakPtr<DiceWebSigninInterceptionBubbleView> bubble_;
+};
+
 #endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
 
 }  // namespace
@@ -400,6 +427,9 @@ SigninViewController::~SigninViewController() = default;
 
 void SigninViewController::TearDownPreBrowserWindowDestruction() {
   CloseModalSignin();
+#if BUILDFLAG(ENABLE_DICE_SUPPORT)
+  CloseInterceptBubble();
+#endif
 }
 
 void SigninViewController::AddObserver(
@@ -413,6 +443,7 @@ void SigninViewController::RemoveObserver(
 }
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
+
 // static
 bool SigninViewController::IsNTPTab(content::WebContents* contents) {
   if (!contents) {
@@ -421,16 +452,6 @@ bool SigninViewController::IsNTPTab(content::WebContents* contents) {
   const GURL& contents_url = contents->GetVisibleURL();
   return contents_url == chrome::ChromeUINewTabURLAsGURL() ||
          search::IsInstantNTP(contents) || contents_url == url::kAboutBlankURL;
-}
-
-void SigninViewController::ShowSignin(signin_metrics::AccessPoint access_point,
-                                      const GURL& redirect_url) {
-  signin::IdentityManager* identity_manager =
-      IdentityManagerFactory::GetForProfile(GetProfile());
-  signin_metrics::PromoAction promo_action =
-      GetPromoActionForNewAccount(identity_manager);
-  ShowDiceSigninTab(signin_metrics::Reason::kSigninPrimaryAccount, access_point,
-                    promo_action, /*email_hint=*/std::string(), redirect_url);
 }
 
 void SigninViewController::ShowModalInterceptFirstRunExperienceDialog(
@@ -563,19 +584,85 @@ void SigninViewController::ShowModalSigninEmailConfirmationDialog(
           std::move(callback)),
       GetOnModalDialogClosedCallback());
 }
-#endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
 
-#if BUILDFLAG(ENABLE_DICE_SUPPORT)
 void SigninViewController::ShowCrossDeviceSigninQrBubble(
     GURL qr_code_url,
-    base::OnceClosure closing_callback) {
+    base::OnceClosure closing_callback,
+    CrossDeviceSigninPromoEntryPoint entry_point) {
   CloseBubbleSignin();
   auto delegate = ::CreateCrossDeviceSigninQrBubble(
-      &*browser_, std::move(qr_code_url), std::move(closing_callback));
+      &*browser_, std::move(qr_code_url), std::move(closing_callback),
+      entry_point);
   bubble_widget_ = views::BubbleDialogDelegate::CreateBubble(
       delegate.release(),
       base::BindOnce(&SigninViewController::OnBubbleClosed, AsWeakPtr()));
 }
+
+std::unique_ptr<ScopedWebSigninInterceptionBubbleHandle>
+SigninViewController::ShowSigninInterceptionBubble(
+    const WebSigninInterceptor::Delegate::BubbleParameters& bubble_parameters,
+    base::OnceCallback<void(SigninInterceptionResult)> callback) {
+  CloseInterceptBubble();
+  CreateInterceptionBubble(bubble_parameters, std::move(callback));
+  return std::make_unique<ScopedInterceptBubbleHandle>(intercept_bubble_);
+}
+
+void SigninViewController::ShowChromeSigninBubble(
+    const AccountInfo& account,
+    signin_metrics::AccessPoint access_point) {
+  CloseInterceptBubble();
+  chrome_signin_bubble_callback_.Reset(
+      base::BindOnce(&SigninViewController::OnChromeSigninBubbleResult,
+                     weak_ptr_factory_.GetWeakPtr(),
+                     account.GetCoreAccountInfo(), access_point));
+  WebSigninInterceptor::Delegate::BubbleParameters bubble_parameters(
+      WebSigninInterceptor::SigninInterceptionType::kChromeSignin,
+      /*intercepted_account=*/account,
+      /*primary_account=*/AccountInfo());
+  CreateInterceptionBubble(bubble_parameters,
+                           chrome_signin_bubble_callback_.callback());
+}
+
+void SigninViewController::CreateInterceptionBubble(
+    const WebSigninInterceptor::Delegate::BubbleParameters& bubble_parameters,
+    base::OnceCallback<void(SigninInterceptionResult)> callback) {
+  CHECK(!intercept_bubble_);
+  views::BubbleAnchor anchor =
+      BrowserView::GetBrowserViewForBrowser(&browser_.get())
+          ->toolbar_button_provider()
+          ->GetAvatarToolbarButtonInterface()
+          ->GetBubbleAnchor(*browser_);
+  intercept_bubble_ = DiceWebSigninInterceptionBubbleView::CreateBubble(
+      &browser_.get(), anchor, bubble_parameters, std::move(callback));
+}
+
+void SigninViewController::OnChromeSigninBubbleResult(
+    const CoreAccountInfo& account,
+    signin_metrics::AccessPoint access_point,
+    SigninInterceptionResult result) {
+  CloseInterceptBubble();
+  if (result == SigninInterceptionResult::kAccepted) {
+    signin_ui_util::SignInFromSingleAccountPromo(GetProfile(), account,
+                                                 access_point);
+  }
+}
+
+void SigninViewController::CloseInterceptBubble() {
+  // Cancel any pending `OnChromeSigninBubbleResult()` callback. Closing the
+  // bubble widget is asynchronous: if a Chrome Signin bubble is preempted by a
+  // second bubble, `intercept_bubble_` is updated to point to the second bubble
+  // before the first widget is destroyed. When the first widget's teardown
+  // completes, `DiceWebSigninInterceptionBubbleView` invokes its callback with
+  // `kIgnored`; if not cancelled, `OnChromeSigninBubbleResult()` would run for
+  // the first bubble and call `CloseInterceptBubble()`, closing the second
+  // bubble.
+  chrome_signin_bubble_callback_.Cancel();
+  if (intercept_bubble_) {
+    intercept_bubble_->Close();
+    intercept_bubble_.reset();
+  }
+}
+
 #endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
 
 void SigninViewController::OnBubbleClosed(views::Widget::ClosedReason reason) {

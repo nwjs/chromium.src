@@ -34,6 +34,7 @@ source_set("impl") {
 
   deps = [
     ":login",
+    "//chrome/browser/enterprise",
     "//chrome/browser/password_manager",
     "//chrome/browser/preloading/prefetch/no_state_prefetch",
     "//chrome/browser/tab_contents",
@@ -66,8 +67,6 @@ source_set("impl") {
   } else {
     deps += [ "//components/web_modal" ]
   }
-
-  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
 }
 
 if (!is_android) {

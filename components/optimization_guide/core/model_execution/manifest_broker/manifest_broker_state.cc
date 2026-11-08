@@ -54,7 +54,7 @@ base::flat_map<mojom::OnDeviceFeature, proto::Any> GetFeatureConfigs(
 
 ManifestBrokerState::ManifestBrokerState(
     PrefService& local_state,
-    std::unique_ptr<ManifestAssetManager::Delegate> delegate,
+    std::unique_ptr<ManifestAssetManagerDelegate> delegate,
     on_device_model::ServiceClient::LaunchFn launch_fn,
     component_updater::ComponentUpdateService* component_update_service)
     : local_state_(local_state),
@@ -192,8 +192,9 @@ void ManifestBrokerState::GetOnDeviceModelEligibilityAsync(
 
 void ManifestBrokerState::EnsureInitialization(
     ModelBrokerImpl::InitCallback callback) {
-  // Hurry the performance classifier.
+  // Hurry the performance classifier and manifest loading.
   performance_classifier_.EnsurePerformanceClassAvailable(base::DoNothing());
+  manifest_monitor_.RaiseLoadPriority();
   if (manifest_monitor_.manifest().has_value()) {
     // Initialization is already complete.
     std::move(callback).Run(GetPossibleOnDeviceCapabilities());

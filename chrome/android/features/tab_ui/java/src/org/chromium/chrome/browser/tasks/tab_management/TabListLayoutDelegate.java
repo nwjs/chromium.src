@@ -57,24 +57,6 @@ abstract class TabListLayoutDelegate implements TabGroupObserver, TabObserver {
     }
 
     /**
-     * Whether this layout requires a thumbnail cache invalidation fetch when a tab is deselected.
-     * Often required for multi-thumbnail cluster views (like Grouped layouts).
-     */
-    abstract boolean requiresThumbnailUpdateOnDeselect();
-
-    /**
-     * Whether this layout requires fetching a fresh thumbnail when a tab becomes selected. Should
-     * be false for layouts that do not support thumbnails (like Vertical Tabs).
-     */
-    abstract boolean requiresThumbnailUpdateOnSelect();
-
-    /**
-     * Whether this layout supports displaying tab groups (e.g. as group cards in GTS or group
-     * headers in Vertical Tabs). False for layouts that ignore tab groups (like Flat layout).
-     */
-    abstract boolean supportsTabGroups();
-
-    /**
      * Whether a child tab in a tab group is represented by a group card in the UI.
      *
      * @param tab The {@link Tab} to check.
@@ -114,7 +96,9 @@ abstract class TabListLayoutDelegate implements TabGroupObserver, TabObserver {
     @TabAlert
     int getAlertStateForTab(Tab tab) {
         @TabAlert int alertState = tab.getAlertState();
-        if (alertState == TabAlert.GLIC_ACCESSING || alertState == TabAlert.GLIC_SHARING) {
+        if (alertState == TabAlert.GLIC_ACCESSING
+                || alertState == TabAlert.GLIC_SHARING
+                || alertState == TabAlert.AI_MODE_SHARING) {
             // Glic accessing and sharing states use dedicated tab underlines on the vertical tab
             // strip and are not shown in the grid tab switcher.
             return TabAlert.NONE;
@@ -151,7 +135,7 @@ abstract class TabListLayoutDelegate implements TabGroupObserver, TabObserver {
      * has no tabs.
      */
     @Nullable Pair<Integer, Tab> getIndexAndTabForTabGroupId(@Nullable Token tabGroupId) {
-        if (!supportsTabGroups() || tabGroupId == null) return null;
+        if (!mMediator.supportsTabGroups() || tabGroupId == null) return null;
 
         // Look up the group card directly by group ID and return the first tab in the group.
         int headerIndex = mModelList.indexFromTabGroupId(tabGroupId);
@@ -421,7 +405,7 @@ abstract class TabListLayoutDelegate implements TabGroupObserver, TabObserver {
 
         // When pinning a tab in a group it will be removed from the group so the index
         // update is unnecessary.
-        if (!supportsTabGroups()) {
+        if (!mMediator.supportsTabGroups()) {
             mMediator.updateTab(index, tab, /* isUpdatingId= */ false, /* quickMode= */ false);
             return;
         }
@@ -551,14 +535,14 @@ abstract class TabListLayoutDelegate implements TabGroupObserver, TabObserver {
     }
 
     @Override
-    public void willRemoveTabGroup(Token tabGroupId) {
-        if (!supportsTabGroups()) return;
+    public void onTabGroupRemoving(Token tabGroupId) {
+        if (!mMediator.supportsTabGroups()) return;
         mRemovingTabGroupIds.add(tabGroupId);
     }
 
     @Override
     public void didRemoveTabGroup(Token tabGroupId, @DidRemoveTabGroupReason int removalReason) {
-        if (!supportsTabGroups()) return;
+        if (!mMediator.supportsTabGroups()) return;
         mRemovingTabGroupIds.remove(tabGroupId);
         int index = mModelList.indexFromTabGroupId(tabGroupId);
         if (index != TabModel.INVALID_TAB_INDEX) {

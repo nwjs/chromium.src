@@ -34,6 +34,11 @@ import org.chromium.components.signin.test.util.TestAccounts;
 import org.chromium.google_apis.gaia.CoreAccountId;
 import org.chromium.google_apis.gaia.GoogleServiceAuthError;
 
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+
 /**
  * This test rule mocks AccountManagerFacade and manages sign-in/sign-out.
  *
@@ -48,22 +53,52 @@ public class SigninTestRule implements TestRule {
     public static final Matcher<View> CANCEL_ADD_ACCOUNT_BUTTON_MATCHER =
             withId(FakeAccountManagerFacade.AddAccountActivityStub.CANCEL_BUTTON_ID);
 
+    /**
+     * Annotation for test methods to block updates to the account list returned by {@link
+     * AccountManagerFacade#getAccounts()} before native browser initialization begins. Use {@link
+     * #unblockGetAccounts()} in the test to release the blocker and allow accounts to load.
+     */
+    @Target(ElementType.METHOD)
+    @Retention(RetentionPolicy.RUNTIME)
+    public @interface BlockGetAccounts {}
+
+    // Shared facade across batched tests. SigninManagerImpl (a native profile singleton)
+    // registers an AccountsChangeObserver on the facade once during startup and never
+    // re-registers. A shared static instance prevents observer disconnect across batched
+    // test methods, while createWithCleanups() resets account state between runs.
+    private static final FakeAccountManagerFacade sSharedFakeAccountManagerFacade =
+            new FakeAccountManagerFacade(false);
+
+    private final boolean mAutomaticCleanupsEnabled;
     private boolean mIsSignedIn;
     private final SigninTestUtil.CustomDeviceLockActivityLauncher mDeviceLockActivityLauncher =
             new SigninTestUtil.CustomDeviceLockActivityLauncher();
 
     private final FakeAccountManagerFacade mFakeAccountManagerFacade;
+    private @Nullable FakeAccountManagerFacade.UpdateBlocker mGetAccountsBlocker;
 
     public SigninTestRule() {
-        this(new FakeAccountManagerFacade(false));
+        this(new FakeAccountManagerFacade(false), /* automaticCleanupsEnabled= */ false);
     }
 
     public SigninTestRule(boolean serializeToPrefs) {
-        this(new FakeAccountManagerFacade(serializeToPrefs));
+        this(new FakeAccountManagerFacade(serializeToPrefs), /* automaticCleanupsEnabled= */ false);
     }
 
     public SigninTestRule(FakeAccountManagerFacade fakeAccountManagerFacade) {
+        this(fakeAccountManagerFacade, /* automaticCleanupsEnabled= */ false);
+    }
+
+    private SigninTestRule(
+            FakeAccountManagerFacade fakeAccountManagerFacade, boolean automaticCleanupsEnabled) {
         mFakeAccountManagerFacade = fakeAccountManagerFacade;
+        mAutomaticCleanupsEnabled = automaticCleanupsEnabled;
+    }
+
+    /** Creates a {@link SigninTestRule} that supports test batching with automatic cleanups. */
+    public static SigninTestRule createWithCleanups() {
+        return new SigninTestRule(
+                sSharedFakeAccountManagerFacade, /* automaticCleanupsEnabled= */ true);
     }
 
     @Override
@@ -71,23 +106,82 @@ public class SigninTestRule implements TestRule {
         return new Statement() {
             @Override
             public void evaluate() throws Throwable {
-                setUpRule();
+                setUpRule(description);
+                Throwable testError = null;
                 try {
                     statement.evaluate();
-                } finally {
+                } catch (Throwable t) {
+                    testError = t;
+                }
+
+                Throwable teardownError = null;
+                try {
                     tearDownRule();
+                } catch (Throwable t) {
+                    teardownError = t;
+                }
+
+                // If both the test and teardown fail (e.g. sign-out timeout), attach the
+                // teardown error as suppressed so it does not mask the test's original failure.
+                if (teardownError != null) {
+                    if (testError != null) {
+                        testError.addSuppressed(teardownError);
+                    } else {
+                        throw teardownError;
+                    }
+                }
+
+                if (testError != null) {
+                    throw testError;
                 }
             }
         };
     }
 
     public void setUpRule() {
+        setUpRule(null);
+    }
+
+    private void setUpRule(@Nullable Description description) {
         AccountManagerFacadeProvider.setInstanceForTests(mFakeAccountManagerFacade);
         DeviceLockActivityLauncherImpl.setInstanceForTesting(mDeviceLockActivityLauncher);
+        if (description != null && description.getAnnotation(BlockGetAccounts.class) != null) {
+            mGetAccountsBlocker = blockGetAccountsUpdate();
+        }
     }
 
     public void tearDownRule() {
-        DeviceLockActivityLauncherImpl.setInstanceForTesting(null);
+        if (mGetAccountsBlocker != null) {
+            mGetAccountsBlocker.close();
+            mGetAccountsBlocker = null;
+        }
+        if (mAutomaticCleanupsEnabled) {
+            cleanUpAccountsAndSignOut();
+        }
+    }
+
+    /** Resets the fake account management and sign-in state to pristine condition. */
+    private void cleanUpAccountsAndSignOut() {
+        if (mIsSignedIn || (ProfileManager.isInitialized() && getPrimaryAccount() != null)) {
+            forceSignOut();
+        }
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    mFakeAccountManagerFacade.removeAllAccounts();
+                    mFakeAccountManagerFacade.setAddAccountFlowResult(null);
+                    // TODO(crbug.com/40743432): Also reset mDidAccountFetchingSucceed,
+                    // mBlockedGetAccountsPromise, and mGetAccessTokenError in
+                    // FakeAccountManagerFacade.
+                    // See crrev.com/c/8493752/comments/3bd13a48_85275c53
+                });
+        mIsSignedIn = false;
+    }
+
+    /** Unblocks account list updates that were blocked by {@link BlockGetAccounts}. */
+    public void unblockGetAccounts() {
+        assert mGetAccountsBlocker != null : "Accounts are not currently blocked!";
+        mGetAccountsBlocker.close();
+        mGetAccountsBlocker = null;
     }
 
     /** Adds an account to the fake AccountManagerFacade */
@@ -95,7 +189,11 @@ public class SigninTestRule implements TestRule {
         mFakeAccountManagerFacade.addAccount(accountInfo);
     }
 
-    /** Updates an account in the fake AccountManagerFacade */
+    /**
+     * Updates an account in the fake AccountManagerFacade
+     *
+     * <p>TODO(crbug.com/573071894): Allow to execute onExtendedAccountInfoUpdated() directly.
+     */
     public void updateAccount(AccountInfo accountInfo) {
         mFakeAccountManagerFacade.updateAccount(accountInfo);
     }
@@ -165,25 +263,15 @@ public class SigninTestRule implements TestRule {
                 accountId, TestAccounts.MINOR_MODE_REQUIRED);
     }
 
-    /**
-     * Adds and signs in an account with the default name.
-     *
-     * @deprecated Use the version with {@link AccountInfo}.
-     */
-    @Deprecated
-    public CoreAccountInfo addTestAccountThenSignin() {
-        assert !mIsSignedIn : "An account is already signed in!";
-        AccountInfo accountInfo = TestAccounts.ACCOUNT1;
-        addAccount(accountInfo);
-        SigninTestUtil.signin(accountInfo);
-        mIsSignedIn = true;
-        return accountInfo;
-    }
-
     /** Adds and signs in with the provided account. */
     public void addAccountThenSignin(AccountInfo accountInfo) {
-        assert !mIsSignedIn : "An account is already signed in!";
         addAccount(accountInfo);
+        signin(accountInfo);
+    }
+
+    /** Signs in with the provided account. */
+    public void signin(AccountInfo accountInfo) {
+        assert !mIsSignedIn : "An account is already signed in!";
         SigninTestUtil.signin(accountInfo);
         mIsSignedIn = true;
     }

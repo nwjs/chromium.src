@@ -36,11 +36,6 @@ BASE_DECLARE_FEATURE(kGlicDragAndDropFileUploadAndroid);
 BASE_DECLARE_FEATURE(kGlicAndroidOffscreenRendering);
 
 BASE_DECLARE_FEATURE(kGlicClearTurnIdOnPanelWillOpen);
-BASE_DECLARE_FEATURE(kGlicChromeStatusIcon);
-extern const base::FeatureParam<int> kGlicChromeStatusIconSizePx;
-extern const base::FeatureParam<bool> kGlicChromeStatusIconUseAltIcon;
-extern const base::FeatureParam<bool> kGlicChromeStatusIconLogOnly;
-extern const base::FeatureParam<std::string> kGlicChromeStatusIconOtherAppID;
 
 BASE_DECLARE_FEATURE(kGlicOSIconVariant);
 extern const base::FeatureParam<int> kGlicOSIconVariantParam;
@@ -52,7 +47,6 @@ extern const base::FeatureParam<bool> kAutoOpenGlicForPdfWithOnboarding;
 extern const base::FeatureParam<base::TimeDelta> kAutoOpenGlicCooldown;
 
 BASE_DECLARE_FEATURE(kGlicInvoke);
-BASE_DECLARE_FEATURE(kGlicOnboardingMetricsMigration);
 
 // Controls inline cue for text selection.
 BASE_DECLARE_FEATURE(kGlicSelectionPrompt);
@@ -61,18 +55,17 @@ extern const base::FeatureParam<bool> kGlicSelectionAutoSendPrompt;
 extern const base::FeatureParam<std::string> kGlicSelectionPromptCta;
 inline constexpr char kGlicSelectionPromptCtaTellMe[] = "tell_me_about_this";
 inline constexpr char kGlicSelectionPromptCtaExplain[] = "explain";
-extern const base::FeatureParam<bool> kGlicSelectionPromptInlineFulfillment;
-extern const base::FeatureParam<std::string>
-    kGlicSelectionPromptInlinePromptTemplate;
-extern const base::FeatureParam<bool> kGlicSelectionPromptSkills;
 extern const base::FeatureParam<std::string> kGlicSelectionDefaultBlockedSites;
 base::flat_set<std::string> GetGlicSelectionDefaultBlockedSites();
 
 BASE_DECLARE_FEATURE(kGlicSelectionOverlayPrompt);
 BASE_DECLARE_FEATURE(kGlicSelectionOverlayPromptBox);
+BASE_DECLARE_FEATURE(kGlicSelectionSuggestions);
 
 BASE_DECLARE_FEATURE(kGlicSelectionSmallChip);
 extern const base::FeatureParam<bool> kGlicSelectionSmallChipOnTop;
+
+BASE_DECLARE_FEATURE(kGlicSuggestionContextMenu);
 
 BASE_DECLARE_FEATURE(kGlicCreateTabAdjacent);
 
@@ -100,6 +93,9 @@ extern const base::FeatureParam<bool> kGlicTextSelectionContextMenuAutoSubmit;
 BASE_DECLARE_FEATURE(kGlicTieredRolloutV2);
 extern const base::FeatureParam<std::string> kGlicTieredRolloutV2EligibleTiers;
 const base::flat_set<int32_t>& GetGlicTieredRolloutV2EligibleTiers();
+
+// Exempts the user from ActorPolicyChecker.
+BASE_DECLARE_FEATURE(kGlicActorPolicyControlExemption);
 
 // When enabled, Glic and Autobrowse (web actuation) entitlement is determined
 // by the synced subscription benefits priority pref
@@ -156,6 +152,7 @@ extern const base::FeatureParam<base::TimeDelta>
     kGlicCookieSyncOnErrorMinInterval;
 BASE_DECLARE_FEATURE(kGlicCookieSyncOnOpenEvenIfNoSyncNeeded);
 BASE_DECLARE_FEATURE(kGlicCookieSyncEarlyNoStartup);
+BASE_DECLARE_FEATURE(kGlicReuseCookies);
 
 BASE_DECLARE_FEATURE(kGlicWebClientLoadTimes);
 extern const base::FeatureParam<int> kGlicPreLoadingTimeMs;
@@ -181,12 +178,9 @@ BASE_DECLARE_FEATURE(kGlicShowForSignedOut);
 BASE_DECLARE_FEATURE(kGlicAnchorEntryPointForOnboardedUsers);
 BASE_DECLARE_FEATURE(kGlicProcessCounterAbuseVerdict);
 BASE_DECLARE_FEATURE(kGlicNoWebUiLoader);
-BASE_DECLARE_FEATURE(kGlicGeminiEnterpriseSettingsEnabled);
-BASE_DECLARE_FEATURE(kGlicGeminiEnterpriseConsentEnabled);
 
 // Enables Gemini Enterprise in Chrome (GEiC), the standalone enterprise
-// surface. This is distinct from Gemini Enterprise as a Tool (GEaaT), which is
-// governed by kGlicGeminiEnterpriseSettingsEnabled above.
+// surface.
 BASE_DECLARE_FEATURE(kGeic);
 // Allows the GEiC surface to be turned off from within the kGeic study without
 // having to disable the study itself.
@@ -214,7 +208,11 @@ BASE_DECLARE_FEATURE(kGlicStructuredYieldMetadata);
 BASE_DECLARE_FEATURE(kGlicNoWebview);
 // Returns true if kGlicNoWebview is enabled or if GEiC is enabled.
 bool IsGlicNoWebviewEnabled();
+// When enabled, appends the primary account email as the authuser query
+// parameter to the guest URL when NoWebview is enabled.
+BASE_DECLARE_FEATURE(kGlicSetAuthUser);
 BASE_DECLARE_FEATURE(kGlicDisconnectedWebview);
+BASE_DECLARE_FEATURE(kGlicGuestInitialSize);
 
 BASE_DECLARE_FEATURE(kGlicShakeTrigger);
 extern const base::FeatureParam<bool> kGlicShakeTriggerOnlyOnSidePanel;
@@ -239,6 +237,10 @@ BASE_DECLARE_FEATURE(kGlicWarmOnIph);
 BASE_DECLARE_FEATURE(kGlicBackfillWarmingUsePerformanceManager);
 
 BASE_DECLARE_FEATURE(kGlicColdWarmingUsePerformanceManager);
+
+BASE_DECLARE_FEATURE(kGlicSsr);
+
+BASE_DECLARE_FEATURE(kGlicClientDataStorage);
 }  // namespace features
 
 #endif  // CHROME_BROWSER_GLIC_PUBLIC_FEATURES_H_

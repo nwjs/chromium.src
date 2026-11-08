@@ -23,7 +23,6 @@
 #include "cc/trees/layer_tree_settings.h"
 #include "components/viz/common/features.h"
 #include "components/viz/common/switches.h"
-#include "gpu/config/gpu_finch_features.h"
 #include "media/base/media_switches.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/switches.h"
@@ -32,6 +31,7 @@
 #include "third_party/blink/renderer/platform/web_test_support.h"
 #include "ui/base/ui_base_features.h"
 #include "ui/base/ui_base_switches.h"
+#include "ui/gl/gl_switches.h"
 #include "ui/native_theme/features/native_theme_features.h"
 #include "ui/native_theme/native_theme.h"
 #include "ui/native_theme/overlay_scrollbar_constants.h"
@@ -264,11 +264,13 @@ cc::LayerTreeSettings GenerateLayerTreeSettings(
       gfx::ScaleToFlooredSize(initial_screen_size, initial_device_scale_factor);
   int display_width = screen_size.width();
   int display_height = screen_size.height();
-  int numTiles = (display_width * display_height) / (256 * 256);
-  if (numTiles > 16)
+  int num_tiles = (display_width * display_height) / (256 * 256);
+  if (num_tiles > 16) {
     default_tile_size = 384;
-  if (numTiles >= 40)
+  }
+  if (num_tiles >= 40) {
     default_tile_size = 512;
+  }
 
   // Adjust for some resolutions that barely straddle an extra
   // tile when in portrait mode. This helps worst case scroll/raster
@@ -340,8 +342,6 @@ cc::LayerTreeSettings GenerateLayerTreeSettings(
   settings.can_use_lcd_text = platform->IsLcdTextEnabled();
   settings.use_zero_copy = cmd.HasSwitch(switches::kEnableZeroCopy);
   settings.use_partial_raster = !cmd.HasSwitch(switches::kDisablePartialRaster);
-  // Partial raster is not supported with RawDraw
-  settings.use_partial_raster &= !::features::IsUsingRawDraw();
 
   // Overscroll effect on the root scroller.
   settings.enable_elastic_overscroll_on_root =
@@ -497,12 +497,8 @@ cc::LayerTreeSettings GenerateLayerTreeSettings(
             : base::Milliseconds(200);
     if (!settings.enable_fluent_overlay_scrollbar) {
       // Set scrollbar flash behavior based on feature flags
-      const bool flash_once_enabled = base::FeatureList::IsEnabled(
-          ::features::kOverlayScrollbarFlashOnlyOnceVisibleOnViewport);
-      settings.scrollbar_flash_once_after_scroll_update = flash_once_enabled;
-      settings.scrollbar_flash_after_any_scroll_update = !flash_once_enabled;
-      settings.scrollbar_flash_once_visible_on_viewport =
-          settings.scrollbar_flash_once_after_scroll_update;
+      settings.scrollbar_flash_once_after_scroll_update = true;
+      settings.scrollbar_flash_once_visible_on_viewport = true;
       settings.scrollbar_flash_when_mouse_enter = base::FeatureList::IsEnabled(
           ::features::kOverlayScrollbarFlashWhenMouseEnter);
     }

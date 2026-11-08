@@ -20,6 +20,7 @@ import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 
+import org.chromium.base.ContextUtils;
 import org.chromium.base.FeatureOverrides;
 import org.chromium.base.SelectionActionMenuClientWrapper.MenuType;
 import org.chromium.base.test.BaseRobolectricTestRunner;
@@ -47,8 +48,8 @@ public class CopyLinkToHighlightTest {
     @Mock private RenderFrameHost mRenderFrameHost;
     @Mock private SelectionPopupControllerImpl mSelectionPopupController;
     @Mock private LinkToTextBridge.Natives mLinkToTextBridgeJniMock;
-    @Mock private View mContainerView;
 
+    private final View mContainerView = new View(ContextUtils.getApplicationContext());
     private TextSelectionActionMenuDelegate mDelegate;
     private static final GURL TEST_URL = new GURL("https://example.com");
 

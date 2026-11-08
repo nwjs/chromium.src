@@ -18,7 +18,6 @@
 #include "chrome/browser/new_tab_page/one_google_bar/one_google_bar_loader.h"
 #include "chrome/browser/new_tab_page/one_google_bar/one_google_bar_service.h"
 #include "chrome/browser/new_tab_page/one_google_bar/one_google_bar_service_factory.h"
-#include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "chrome/test/base/testing_profile.h"
 #include "components/search/ntp_features.h"
 #include "components/signin/public/identity_manager/identity_test_environment.h"

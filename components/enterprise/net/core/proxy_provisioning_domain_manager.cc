@@ -8,6 +8,7 @@
 
 #include "base/check.h"
 #include "base/functional/bind.h"
+#include "base/notreached.h"
 #include "base/values.h"
 #include "components/enterprise/net/core/enterprise_network_auth_service.h"
 #include "components/enterprise/net/core/provisioning_domain_fetcher.h"
@@ -21,39 +22,39 @@ namespace enterprise_net {
 
 namespace {
 
-bool IsTransientHttpError(int net_error, std::optional<int> response_code) {
+ProvisioningDomainProxyConfig::State ClassifyHttpError(
+    int net_error,
+    std::optional<int> response_code) {
   // Network / Socket errors
   if (net_error != net::OK) {
-    // Permanent network/client errors: certificate failures, browser blocks,
-    // invalid URLs, unknown URL scheme.
+    if (net_error == net::ERR_INVALID_URL ||
+        net_error == net::ERR_UNKNOWN_URL_SCHEME) {
+      return ProvisioningDomainProxyConfig::State::kFailedPermanent;
+    }
+
     if (net::IsCertificateError(net_error) ||
         net::IsClientCertificateError(net_error) ||
-        net::IsRequestBlockedError(net_error) ||
-        net_error == net::ERR_INVALID_URL ||
-        net_error == net::ERR_UNKNOWN_URL_SCHEME) {
-      return false;
+        net::IsRequestBlockedError(net_error)) {
+      return ProvisioningDomainProxyConfig::State::kFailedBlocked;
     }
 
     // Other net errors are considered to be transient.
-    return true;
+    return ProvisioningDomainProxyConfig::State::kFailedTransient;
   }
 
   // HTTP Status Codes
   if (response_code.has_value()) {
     int code = *response_code;
-    // 5xx errors are transient.
-    if (code / 100 == 5) {
-      return true;
-    }
-    // 408 and 429 are transient.
-    if (code == net::HTTP_TOO_MANY_REQUESTS ||
+    // 5xx, 401, 403, 408, and 429 are transient.
+    if (code / 100 == 5 || code == net::HTTP_UNAUTHORIZED ||
+        code == net::HTTP_FORBIDDEN || code == net::HTTP_TOO_MANY_REQUESTS ||
         code == net::HTTP_REQUEST_TIMEOUT) {
-      return true;
+      return ProvisioningDomainProxyConfig::State::kFailedTransient;
     }
-    return false;
+    return ProvisioningDomainProxyConfig::State::kFailedBlocked;
   }
 
-  return true;
+  return ProvisioningDomainProxyConfig::State::kFailedTransient;
 }
 
 ProvisioningDomainProxyConfig::State ClassifyFetchError(
@@ -85,11 +86,24 @@ ProvisioningDomainProxyConfig::State ClassifyFetchError(
       }
 
     case ProvisioningDomainFetchResultStatus::kHttpError:
-      if (IsTransientHttpError(error.net_error, error.response_code)) {
-        return ProvisioningDomainProxyConfig::State::kFailedTransient;
-      }
-      return ProvisioningDomainProxyConfig::State::kFailedPermanent;
+      return ClassifyHttpError(error.net_error, error.response_code);
 
+    case ProvisioningDomainFetchResultStatus::kSuccess:
+      NOTREACHED();
+  }
+}
+
+std::string_view FetchResultStatusToString(
+    ProvisioningDomainFetchResultStatus status) {
+  switch (status) {
+    case ProvisioningDomainFetchResultStatus::kInvalidUrl:
+      return "InvalidUrl";
+    case ProvisioningDomainFetchResultStatus::kTokenFetchError:
+      return "TokenFetchError";
+    case ProvisioningDomainFetchResultStatus::kHttpError:
+      return "HttpError";
+    case ProvisioningDomainFetchResultStatus::kParseError:
+      return "ParseError";
     case ProvisioningDomainFetchResultStatus::kSuccess:
       NOTREACHED();
   }
@@ -134,6 +148,9 @@ ProxyProvisioningDomainManager::ProxyProvisioningDomainManager(
     fetched_config_.pvd_id = policy_.pvd_id;
     fetched_config_.state =
         ProvisioningDomainProxyConfig::State::kFailedPermanent;
+    last_failure_ = FailureDetails{
+        .invalid_policy = true,
+    };
     return;
   }
 
@@ -194,6 +211,27 @@ base::DictValue ProxyProvisioningDomainManager::ToDict() const {
   dict.Set("policy", ProvisioningDomainConfigToDict(policy_));
   dict.Set("fetched_config",
            ProvisioningDomainProxyConfigToDict(fetched_config_));
+  if (last_failure_.has_value()) {
+    base::DictValue failure_dict;
+    if (last_failure_->invalid_policy) {
+      failure_dict.Set("failure_reason", "InvalidPolicy");
+    } else if (last_failure_->fetch_error.has_value()) {
+      const ProvisioningDomainFetchError& error = *last_failure_->fetch_error;
+      failure_dict.Set("failure_reason",
+                       FetchResultStatusToString(error.status));
+      if (error.token_fetch_error.has_value()) {
+        failure_dict.Set("token_fetch_error",
+                         TokenFetchErrorToString(*error.token_fetch_error));
+      }
+      if (error.net_error != net::OK) {
+        failure_dict.Set("net_error", net::ErrorToShortString(error.net_error));
+      }
+      if (error.response_code.has_value()) {
+        failure_dict.Set("http_response_code", *error.response_code);
+      }
+    }
+    dict.Set("last_failure", std::move(failure_dict));
+  }
   return dict;
 }
 
@@ -253,8 +291,13 @@ void ProxyProvisioningDomainManager::OnRefreshComplete(
     fetched_config_ = std::move(*result);
     TransitionToState(ProvisioningDomainProxyConfig::State::kValid);
   } else {
+    const ProvisioningDomainFetchError& error = result.error();
+    last_failure_ = FailureDetails{
+        .fetch_error = error,
+    };
+
     ProvisioningDomainProxyConfig::State error_state =
-        ClassifyFetchError(result.error());
+        ClassifyFetchError(error);
     if (error_state == ProvisioningDomainProxyConfig::State::kFailedTransient) {
       consecutive_transient_failures_++;
       if (consecutive_transient_failures_ >= kMaxTransientRetries) {
@@ -276,6 +319,7 @@ void ProxyProvisioningDomainManager::TransitionToState(
   switch (new_state) {
     case ProvisioningDomainProxyConfig::State::kValid:
       consecutive_transient_failures_ = 0;
+      last_failure_.reset();
       ScheduleProactiveRefresh();
       break;
 

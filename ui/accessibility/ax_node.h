@@ -76,8 +76,10 @@ class AX_EXPORT AXNode final {
     using pointer = NodeType*;
     using reference = NodeType&;
 
+    ChildIteratorBase() = default;
     ChildIteratorBase(const NodeType* parent, NodeType* child);
-    ChildIteratorBase(const ChildIteratorBase& it);
+    ChildIteratorBase(const ChildIteratorBase& it) = default;
+    ChildIteratorBase& operator=(const ChildIteratorBase& it) = default;
     ~ChildIteratorBase() = default;
     friend bool operator==(const ChildIteratorBase& lhs,
                            const ChildIteratorBase& rhs) {
@@ -90,8 +92,8 @@ class AX_EXPORT AXNode final {
     NodeType* operator->() const;
 
    protected:
-    raw_ptr<const NodeType> parent_;
-    raw_ptr<NodeType> child_;
+    raw_ptr<const NodeType> parent_ = nullptr;
+    raw_ptr<NodeType> child_ = nullptr;
     raw_ptr<NodeType> first_child_{nullptr};
     raw_ptr<NodeType> last_child_{nullptr};
   };
@@ -157,11 +159,8 @@ class AX_EXPORT AXNode final {
   AXNode* GetLastUnignoredChildCrossingTreeBoundary() const;
 
   AXNode* GetDeepestFirstDescendant() const;
-  AXNode* GetDeepestFirstDescendantCrossingTreeBoundary() const;
   AXNode* GetDeepestFirstUnignoredDescendant() const;
-  AXNode* GetDeepestFirstUnignoredDescendantCrossingTreeBoundary() const;
   AXNode* GetDeepestLastDescendant() const;
-  AXNode* GetDeepestLastDescendantCrossingTreeBoundary() const;
   AXNode* GetDeepestLastUnignoredDescendant() const;
   AXNode* GetDeepestLastUnignoredDescendantCrossingTreeBoundary() const;
 
@@ -253,6 +252,11 @@ class AX_EXPORT AXNode final {
   // kStaticText, kInlineTextBox and kListMarker (for Legacy Layout). Does not
   // include any text field roles.
   bool IsText() const;
+
+  // Returns the text node that holds this node's text-level attributes, or
+  // nullptr for non-text nodes. Inline text boxes use their text parent.
+  // Ignored nodes are not skipped.
+  const AXNode* GetTextAnchor() const;
 
   // Returns true if the node has any line break related roles or is the child
   // of a node with line break related roles.
@@ -455,6 +459,10 @@ class AX_EXPORT AXNode final {
   bool IsOrderedSet() const;
   std::optional<int> GetPosInSet() const;
   std::optional<int> GetSetSize() const;
+
+  // Returns true if this node is a <menubar> or <menulist> that was given the
+  // list role because its contents violate the menu content model.
+  bool IsContentViolatedMenu() const;
 
   // Helpers for GetPosInSet and GetSetSize.
   // Returns true if the role of ordered set matches the role of item.
@@ -855,19 +863,6 @@ AXNode::ChildIteratorBase<NodeType,
                           LastChild>::ChildIteratorBase(const NodeType* parent,
                                                         NodeType* child)
     : parent_(parent), child_(child) {}
-
-template <typename NodeType,
-          NodeType* (NodeType::*NextSibling)() const,
-          NodeType* (NodeType::*PreviousSibling)() const,
-          NodeType* (NodeType::*FirstChild)() const,
-          NodeType* (NodeType::*LastChild)() const>
-AXNode::ChildIteratorBase<NodeType,
-                          NextSibling,
-                          PreviousSibling,
-                          FirstChild,
-                          LastChild>::ChildIteratorBase(const ChildIteratorBase&
-                                                            it)
-    : parent_(it.parent_), child_(it.child_) {}
 
 template <typename NodeType,
           NodeType* (NodeType::*NextSibling)() const,

@@ -9,17 +9,11 @@ import {ToolbarEvent} from '../content/read_anything_types.js';
 import type {LineSpacingMenuElement} from './line_spacing_menu.js';
 
 export function getHtml(this: LineSpacingMenuElement) {
-  // clang-format off
   return html`<!--_html_template_start_-->
-<simple-action-menu
-    id="menu"
-    label="$i18n{lineSpacingTitle}"
-    event-name="${ToolbarEvent.LINE_SPACING}"
-    .menuItems="${this.options_}"
-    .nonModal="${this.nonModal}"
-    current-selected-index="${this.restoredLineSpacingIndex_()}"
+<simple-action-menu id="menu" label="$i18n{lineSpacingTitle}"
+    event-name="${ToolbarEvent.LINE_SPACING}" .menuItems="${this.options_}"
+    .nonModal="${this.nonModal}" .selectedValue="${this.lineSpacing}"
     @line-spacing-change="${this.onLineSpacingChange_}">
 </simple-action-menu>
 <!--_html_template_end_-->`;
-  // clang-format on
 }

@@ -6,6 +6,7 @@
 #define CHROME_BROWSER_GLIC_HOST_GLIC_WEB_CLIENT_MANAGER_H_
 
 #include <memory>
+#include <optional>
 
 #include "base/memory/raw_ptr.h"
 #include "base/memory/raw_ref.h"
@@ -73,6 +74,10 @@ class GlicWebClientManager : public content::WebContentsObserver {
   void AttachGuestContents(content::WebContents* guest_contents);
   void AttachToHost(Host* host);
 
+  // Sets whether the guest WebContents is currently shown in the panel, used
+  // to know when an actionable guest is on screen.
+  void SetGuestMounted(bool mounted);
+
   void OnGuestNavigationBlocked(
       mojom::GuestPageType page_type = mojom::GuestPageType::kLoadError);
 
@@ -80,6 +85,9 @@ class GlicWebClientManager : public content::WebContentsObserver {
   content::WebContents* web_client_contents() const;
 
   GlicWebClientAccess* web_client_access() const { return web_client_; }
+  bool has_pending_web_client_receiver_for_testing() const {
+    return pending_web_client_receiver_.is_valid();
+  }
 
   void SetPendingWebClientReceiver(
       mojo::PendingReceiver<glic::mojom::WebClientHandler> web_client_receiver);
@@ -88,6 +96,10 @@ class GlicWebClientManager : public content::WebContentsObserver {
   void WebClientInitialized();
   void UnsetWebClient(
       std::optional<GlicWebClientLifecycleEvent> event = std::nullopt);
+
+  void OnWebClientStateChangedForTesting(mojom::WebClientState state) {
+    OnWebClientStateChanged(state);
+  }
 
   // content::WebContentsObserver:
   void DidStartNavigation(
@@ -98,7 +110,13 @@ class GlicWebClientManager : public content::WebContentsObserver {
       base::TerminationStatus status) override;
 
  private:
+  class GuestPresentationTracker;
+  class Metrics;
+
   void OnWebClientStateChanged(mojom::WebClientState state);
+
+  std::unique_ptr<Metrics> metrics_;
+  std::unique_ptr<GuestPresentationTracker> guest_presentation_tracker_;
 
   raw_ptr<Host> host_ = nullptr;
   raw_ptr<Delegate> delegate_ = nullptr;

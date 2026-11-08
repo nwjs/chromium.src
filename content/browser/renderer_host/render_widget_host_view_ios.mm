@@ -168,9 +168,10 @@ bool RenderWidgetHostViewIOS::IsSurfaceAvailableForCopy() {
       ->CanCopyFromCompositingSurface();
 }
 
-void RenderWidgetHostViewIOS::CopyFromSurface(
+void RenderWidgetHostViewIOS::CopyFromSurfaceImpl(
     const gfx::Rect& src_rect,
     const gfx::Size& dst_size,
+    bool is_copy_request_secure,
     base::TimeDelta timeout,
     base::OnceCallback<void(const content::CopyFromSurfaceResult&)> callback) {
   base::WeakPtr<RenderWidgetHostImpl> popup_host;
@@ -178,8 +179,8 @@ void RenderWidgetHostViewIOS::CopyFromSurface(
   RenderWidgetHostViewBase::CopyMainAndPopupFromSurface(
       host()->GetWeakPtr(),
       browser_compositor_->GetDelegatedFrameHost()->GetWeakPtr(), popup_host,
-      popup_frame_host, src_rect, dst_size, GetDeviceScaleFactor(), timeout,
-      std::move(callback));
+      popup_frame_host, src_rect, dst_size, GetDeviceScaleFactor(),
+      is_copy_request_secure, timeout, std::move(callback));
 }
 
 ui::FilteredGestureProvider*
@@ -221,7 +222,7 @@ void RenderWidgetHostViewIOS::Focus() {
 }
 
 bool RenderWidgetHostViewIOS::HasFocus() {
-  return is_first_responder_;
+  return has_focus_for_testing_.value_or(is_first_responder_);
 }
 
 gfx::Rect RenderWidgetHostViewIOS::GetViewBounds() {

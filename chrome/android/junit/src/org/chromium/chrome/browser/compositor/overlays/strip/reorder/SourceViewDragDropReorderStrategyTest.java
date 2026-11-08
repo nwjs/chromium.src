@@ -9,7 +9,6 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyFloat;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
@@ -181,12 +180,7 @@ public class SourceViewDragDropReorderStrategyTest extends ReorderStrategyTestBa
         // Verify
         verify(mTabStripDragHandler)
                 .startGroupDragAction(
-                        mContainerView,
-                        GROUP_ID1,
-                        /* isGroupShared= */ false,
-                        DRAG_START_POINT,
-                        TAB_WIDTH,
-                        TAB_WIDTH);
+                        mContainerView, GROUP_ID1, DRAG_START_POINT, TAB_WIDTH, TAB_WIDTH);
     }
 
     @Test
@@ -535,7 +529,7 @@ public class SourceViewDragDropReorderStrategyTest extends ReorderStrategyTestBa
         mInteractingGroupTitle.setIsDraggedOffStrip(true);
 
         // Call. Simulate failed drop.
-        when(mModel.tabGroupExists(GROUP_ID1)).thenReturn(true);
+        when(mModel.containsTabGroup(GROUP_ID1)).thenReturn(true);
         mStrategy.stopReorderMode(mStripViews, mGroupTitles);
 
         // Verify restore.
@@ -605,7 +599,7 @@ public class SourceViewDragDropReorderStrategyTest extends ReorderStrategyTestBa
         dragOutOfStrip();
         verifyDragOutOfStrip(mGroupStrategy, /* isDragCancelled= */ false);
 
-        when(mModel.tabGroupExists(GROUP_ID1)).thenReturn(true);
+        when(mModel.containsTabGroup(GROUP_ID1)).thenReturn(true);
 
         // Cancel drag and verify group is in strip
         mStrategy.stopReorderMode(mStripViews, mGroupTitles, /* isDragCancelled= */ true);
@@ -682,7 +676,6 @@ public class SourceViewDragDropReorderStrategyTest extends ReorderStrategyTestBa
         when(mTabStripDragHandler.startGroupDragAction(
                         Mockito.eq(mContainerView),
                         eq(GROUP_ID1),
-                        anyBoolean(),
                         eq(DRAG_START_POINT),
                         anyFloat(),
                         anyFloat()))

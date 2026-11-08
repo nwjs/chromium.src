@@ -8,6 +8,7 @@
 
 #include "base/strings/utf_string_conversions.h"
 #include "base/time/time.h"
+#include "build/build_config.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/send_tab_to_self/send_tab_to_self_page_handler.h"
 #include "chrome/browser/send_tab_to_self/send_tab_to_self_util.h"
@@ -33,16 +34,22 @@
 #include "components/send_tab_to_self/metrics_util.h"
 #include "components/send_tab_to_self/send_tab_to_self_model.h"
 #include "components/send_tab_to_self/send_tab_to_self_sync_service.h"
-#include "components/send_tab_to_self/target_device_info.h"
 #include "components/send_tab_to_self/target_device_list_waiter.h"
 #include "components/signin/public/base/consent_level.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/sync/service/sync_service.h"
 #include "components/sync_device_info/device_info.h"
+#include "components/sync_device_info/remote_device_info.h"
 #include "content/public/browser/web_contents.h"
 #include "ui/base/window_open_disposition_utils.h"
 #include "ui/events/event.h"
 #include "ui/views/bubble/bubble_dialog_delegate_view.h"
+
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+#include "chrome/browser/signin/cross_device_signin_promo_manager.h"
+#include "chrome/browser/signin/signin_util.h"
+#include "components/signin/public/base/signin_switches.h"
+#endif
 
 namespace send_tab_to_self {
 
@@ -60,7 +67,7 @@ void SendTabToSelfBubbleController::HideBubble() {
 void SendTabToSelfBubbleController::ShowBubble(ShareEntryPoint entry_point,
                                                bool show_back_button) {
   // Avoid re-creation if a bubble is already being shown for this controller.
-  if (send_tab_to_self_bubble_view_) {
+  if (IsBubbleShown()) {
     return;
   }
 
@@ -87,6 +94,22 @@ void SendTabToSelfBubbleController::ShowBubbleImpl(
   BrowserWindowInterface* browser =
       GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(
           &GetWebContents());
+
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+  if (ShouldShowNoTargetDeviceQrBubble(reason, browser)) {
+    // Note: `entry_point_` should always be populated here, since it's set in
+    // ShowBubble() which must've been called earlier. If it's not (e.g. in some
+    // unit tests), `kShareSheet` is used as a generic fallback.
+    RecordTargetDeviceCount(entry_point_.value_or(ShareEntryPoint::kShareSheet),
+                            reason, /*device_count=*/0);
+    is_qr_bubble_showing_ = true;
+    OpenSigninToPhoneQrCodeBubble(
+        browser, CrossDeviceSigninPromoEntryPoint::kSendTabToSelf,
+        base::BindOnce(&SendTabToSelfBubbleController::OnQrBubbleClosed,
+                       weak_ptr_factory_.GetWeakPtr()));
+    return;
+  }
+#endif
 
   base::WeakPtr<BrowserWindowInterface> browser_weak_ptr;
   views::BubbleAnchor anchor;
@@ -182,7 +205,7 @@ void SendTabToSelfBubbleController::ShowBubbleWithAnchor(
 }
 
 bool SendTabToSelfBubbleController::IsBubbleShown() const {
-  return send_tab_to_self_bubble_view_;
+  return send_tab_to_self_bubble_view_ || is_qr_bubble_showing_;
 }
 
 SendTabToSelfBubbleView*
@@ -190,13 +213,14 @@ SendTabToSelfBubbleController::send_tab_to_self_bubble_view() const {
   return send_tab_to_self_bubble_view_;
 }
 
-std::vector<TargetDeviceInfo> SendTabToSelfBubbleController::GetValidDevices() {
+std::vector<syncer::RemoteDeviceInfo>
+SendTabToSelfBubbleController::GetValidDevices() {
   SendTabToSelfSyncService* const service =
       SendTabToSelfSyncServiceFactory::GetForProfile(GetProfile());
   SendTabToSelfModel* const model =
       service ? service->GetSendTabToSelfModel() : nullptr;
   return model ? model->GetTargetDeviceInfoSortedList()
-               : std::vector<TargetDeviceInfo>();
+               : std::vector<syncer::RemoteDeviceInfo>();
 }
 
 AccountInfo SendTabToSelfBubbleController::GetSharingAccountInfo() {
@@ -234,7 +258,7 @@ void SendTabToSelfBubbleController::OnDeviceSelected(
   syncer::DeviceInfo::FormFactor form_factor =
       syncer::DeviceInfo::FormFactor::kUnknown;
   if (send_tab_to_self::SendTabToSelfModel* model = GetModel()) {
-    std::optional<send_tab_to_self::TargetDeviceInfo> device =
+    std::optional<syncer::RemoteDeviceInfo> device =
         model->GetTargetDeviceInfo(target_device_guid);
     if (device) {
       form_factor = device->form_factor;
@@ -290,6 +314,35 @@ void SendTabToSelfBubbleController::OnWidgetDestroying(views::Widget* widget) {
   }
 }
 
+bool SendTabToSelfBubbleController::ShouldShowNoTargetDeviceQrBubble(
+    EntryPointDisplayReason reason,
+    BrowserWindowInterface* browser) {
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+  if (reason != EntryPointDisplayReason::kInformNoTargetDevice || !browser ||
+      !base::FeatureList::IsEnabled(switches::kCrossDeviceSigninFromDesktop) ||
+      !base::FeatureList::IsEnabled(
+          send_tab_to_self::kSendTabToSelfNoTargetDeviceQrCode)) {
+    return false;
+  }
+  signin::IdentityManager* identity_manager =
+      IdentityManagerFactory::GetForProfile(GetProfile());
+  if (!identity_manager) {
+    return false;
+  }
+  const signin_util::SignedInState signed_in_state =
+      signin_util::GetSignedInState(identity_manager);
+  return signed_in_state == signin_util::SignedInState::kSignedIn ||
+         signed_in_state == signin_util::SignedInState::kSyncing;
+#else
+  return false;
+#endif
+}
+
+void SendTabToSelfBubbleController::OnQrBubbleClosed() {
+  is_qr_bubble_showing_ = false;
+  entry_point_ = std::nullopt;
+}
+
 void SendTabToSelfBubbleController::OnBackButtonPressed() {
   sharing_hub::SharingHubBubbleController* controller =
       sharing_hub::SharingHubBubbleController::CreateOrGetFromWebContents(
@@ -336,7 +389,7 @@ void SendTabToSelfBubbleController::ShowBubbleWhenTargetDeviceListReady() {
   target_device_list_waiter_.reset();
 
   // Avoid duplicate bubble presentation if one is already showing.
-  if (send_tab_to_self_bubble_view_) {
+  if (IsBubbleShown()) {
     return;
   }
 

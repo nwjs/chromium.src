@@ -62,7 +62,6 @@ BASE_FEATURE(kEnableThirdPartyKeyboardWorkaround,
              base::FEATURE_ENABLED_BY_DEFAULT);
 NSString* const kTipsMagicStackLensShopWithImage =
     @"TipsMagicStackLensShopWithImage";
-NSString* const kTipsMagicStackStateOverride = @"TipsMagicStackStateOverride";
 NSString* const kUniversalOptOutEligibilityOverride =
     @"UniversalOptOutEligibilityOverride";
 NSString* const kInactiveTabsDemoMode = @"InactiveTabsDemoMode";
@@ -92,6 +91,13 @@ NSString* const kEnableAppSwitcherAISummarizationTestingExternalURL =
 }  // namespace
 
 namespace experimental_flags {
+
+NSString* const kWebExtensionLoadDelay = @"WebExtensionLoadDelay";
+NSString* const kWebExtensionLoadDelayNoDelayFail = @"NoDelayFail";
+NSString* const kWebExtensionLoadDelay1s = @"Delay1s";
+NSString* const kWebExtensionLoadDelay1sFail = @"Delay1sFail";
+NSString* const kWebExtensionLoadDelay5s = @"Delay5s";
+NSString* const kWebExtensionLoadDelay5sFail = @"Delay5sFail";
 
 bool AlwaysDisplayFirstRun() {
   return
@@ -323,17 +329,6 @@ std::optional<int> GetForcedInactivityThresholdForSafetyCheckNotifications() {
   return threshold;
 }
 
-std::optional<int> GetForcedTipsMagicStackState() {
-  int tipsIdentifier = [[NSUserDefaults standardUserDefaults]
-      integerForKey:kTipsMagicStackStateOverride];
-
-  if (tipsIdentifier == 0) {
-    return std::nullopt;
-  }
-
-  return tipsIdentifier;
-}
-
 bool ShouldDisplayLensShopTipWithImage() {
   return [[NSUserDefaults standardUserDefaults]
       boolForKey:kTipsMagicStackLensShopWithImage];
@@ -453,6 +448,34 @@ UniversalOptOutEligibilityOverride GetUniversalOptOutEligibilityOverride() {
     default:
       return UniversalOptOutEligibilityOverride::kDefault;
   }
+}
+
+base::TimeDelta GetWebExtensionLoadDelay() {
+  NSString* value = [[NSUserDefaults standardUserDefaults]
+      stringForKey:kWebExtensionLoadDelay];
+  if ([value isEqualToString:kWebExtensionLoadDelay1s] ||
+      [value isEqualToString:kWebExtensionLoadDelay1sFail]) {
+    return base::Seconds(1);
+  }
+  if ([value isEqualToString:kWebExtensionLoadDelay5s] ||
+      [value isEqualToString:kWebExtensionLoadDelay5sFail]) {
+    return base::Seconds(5);
+  }
+  return base::TimeDelta();
+}
+
+bool ShouldWebExtensionLoadFail() {
+  NSString* value = [[NSUserDefaults standardUserDefaults]
+      stringForKey:kWebExtensionLoadDelay];
+  return [value isEqualToString:kWebExtensionLoadDelayNoDelayFail] ||
+         [value isEqualToString:kWebExtensionLoadDelay1sFail] ||
+         [value isEqualToString:kWebExtensionLoadDelay5sFail];
+}
+
+bool IsWebExtensionLoadDelayDefault() {
+  NSString* value = [[NSUserDefaults standardUserDefaults]
+      stringForKey:kWebExtensionLoadDelay];
+  return value.length == 0;
 }
 
 bool IsAppSwitcherAISummarizationTestingExternalURLEnabled() {

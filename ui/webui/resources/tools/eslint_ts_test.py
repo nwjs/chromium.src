@@ -315,7 +315,6 @@ class EslintTsTest(unittest.TestCase):
     _EXPECTED_INCORRECT_DOM_NAME_SUFFIX_ERROR = (
       'DOM name \'%(domName)s\' should not end with the \'-element\' suffix'
     )
-    _EXPECTED_INCORRECT_DOLLAR_SIGN_NOTATION_ERROR = 'Use camelCase instead of dash-case for DOM ids, change this.$[\'%(dashCaseName)s\'] to this.$.%(camelCaseName)s'
     _EXPECTED_MISSING_CUSTOM_ELEMENTS_DEFINE_ERROR = (
       "Missing customElements.define(%(className)s.is, %(className)s) call"
     )
@@ -379,11 +378,6 @@ class EslintTsTest(unittest.TestCase):
         'className': 'TestError6Element',
         'expectedOrder': '[is, styles, render, properties, constructor, connectedCallback, disconnectedCallback, willUpdate, firstUpdated, updated]',
         'actualOrder': '[render, styles, is, properties, disconnectedCallback, connectedCallback, constructor, willUpdate, updated, firstUpdated]',
-      },
-      _EXPECTED_INCORRECT_DOLLAR_SIGN_NOTATION_ERROR
-      % {
-        'dashCaseName': 'hello-button',
-        'camelCaseName': 'helloButton',
       },
       _EXPECTED_MISSING_CUSTOM_EVENT_TYPE_PARAMETER_ERROR
       % {
@@ -520,11 +514,6 @@ class EslintTsTest(unittest.TestCase):
       % {
         'className': 'TestNoError3Element',
         'domName': 'test-no-error3',
-      },
-      _EXPECTED_INCORRECT_DOLLAR_SIGN_NOTATION_ERROR
-      % {
-        'dashCaseName': 'hello-other-button',
-        'camelCaseName': 'helloOtherButton',
       },
       _EXPECTED_MISSING_CUSTOM_EVENT_TYPE_PARAMETER_ERROR
       % {
@@ -749,6 +738,10 @@ class EslintTsTest(unittest.TestCase):
     _MISSING_ID_ERROR = "Id '%(domId)s' is listed in the interface definition for %(className)s, but no element with that ID was found in the template file 'with_webui_plugin_lit_element_invalid_interface_violations.html.ts'"
 
     _MISSING_ID_NO_TEMPLATE_ERROR = "Id '%(domId)s' is listed in the interface definition for %(className)s, but no element with that ID was found in the template"
+
+    _CONDITIONAL_ID_ERROR = "Id '%(domId)s' is listed in the interface definition for %(className)s, but the element is conditionally rendered in the template file 'with_webui_plugin_lit_element_invalid_interface_violations.html.ts'"
+
+    _CONDITIONAL_ID_NO_TEMPLATE_ERROR = "Id '%(domId)s' is listed in the interface definition for %(className)s, but the element is conditionally rendered in the template"
     # The following strings *should* appear in the error output.
     errors = [
       _INCORRECT_NOTATION_ERROR
@@ -771,6 +764,16 @@ class EslintTsTest(unittest.TestCase):
       _MISSING_ID_NO_TEMPLATE_ERROR
       % {
         'domId': 'doesNotExistTest',
+        'className': 'MyDummyTestElement',
+      },
+      _CONDITIONAL_ID_ERROR
+      % {
+        'domId': 'conditionalOne',
+        'className': 'MyDummyElement',
+      },
+      _CONDITIONAL_ID_NO_TEMPLATE_ERROR
+      % {
+        'domId': 'conditionalTwo',
         'className': 'MyDummyTestElement',
       },
     ]

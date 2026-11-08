@@ -17,7 +17,6 @@ import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.autofill.anchored_dialog.AnchoredDialogCoordinator;
 import org.chromium.chrome.browser.autofill.anchored_dialog.AnchoredDialogCoordinatorProvider;
-import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.components.autofill.EmailVerificationPermissionUiStatus;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetControllerProvider;
@@ -39,8 +38,7 @@ public class EmailVerificationBottomSheetBridge
 
     @CalledByNative
     @VisibleForTesting
-    /*package*/ EmailVerificationBottomSheetBridge(
-            long nativeBridge, WindowAndroid window, TabModel tabModel) {
+    /*package*/ EmailVerificationBottomSheetBridge(long nativeBridge, WindowAndroid window) {
         mNativeBridge = nativeBridge;
         mContext = window.getContext().get();
         mBottomSheetController = BottomSheetControllerProvider.from(window);
@@ -63,13 +61,14 @@ public class EmailVerificationBottomSheetBridge
         if (mContext == null
                 || mBottomSheetController == null
                 || mAnchoredDialogCoordinator == null) {
-            onUiDecision(EmailVerificationPermissionUiStatus.OTHER);
+            onUiDismissed(EmailVerificationPermissionUiStatus.OTHER);
             return;
         }
 
         if (mCoordinator != null) {
-            mCoordinator.hide(BottomSheetController.StateChangeReason.NONE);
-            mCoordinator = null;
+            // A bottom sheet is already showing. Do not replace it or disrupt an
+            // active loading state.
+            return;
         }
 
         mCoordinator =
@@ -86,10 +85,8 @@ public class EmailVerificationBottomSheetBridge
     /** Requests to hide the bottom sheet if showing. */
     @CalledByNative
     public void hide() {
-        if (mNativeBridge == 0) return;
-        if (mCoordinator != null) {
-            mCoordinator.hide(BottomSheetController.StateChangeReason.INTERACTION_COMPLETE);
-        }
+        if (mNativeBridge == 0 || mCoordinator == null) return;
+        mCoordinator.hide();
     }
 
     /** Called when the bottom sheet has been shown. */
@@ -99,17 +96,19 @@ public class EmailVerificationBottomSheetBridge
         EmailVerificationBottomSheetBridgeJni.get().onUiShown(mNativeBridge);
     }
 
-    /** Called when a UI decision has been made. */
+    /** Called when the confirm/verify button has been clicked. */
     @Override
-    public void onUiDecision(@EmailVerificationPermissionUiStatus int status) {
+    public void onUiAccepted() {
         if (mNativeBridge == 0) return;
-        EmailVerificationBottomSheetBridgeJni.get().onUiDecision(mNativeBridge, status);
+        EmailVerificationBottomSheetBridgeJni.get().onUiAccepted(mNativeBridge);
     }
 
     /** Called when the bottom sheet has been dismissed/hidden. */
     @Override
-    public void onUiDismissed() {
+    public void onUiDismissed(@EmailVerificationPermissionUiStatus int reason) {
         mCoordinator = null;
+        if (mNativeBridge == 0) return;
+        EmailVerificationBottomSheetBridgeJni.get().onUiDismissed(mNativeBridge, reason);
     }
 
     @CalledByNative
@@ -117,7 +116,7 @@ public class EmailVerificationBottomSheetBridge
     /*package*/ void destroy() {
         mNativeBridge = 0;
         if (mCoordinator == null) return;
-        mCoordinator.hide(BottomSheetController.StateChangeReason.NONE);
+        mCoordinator.destroy();
         mCoordinator = null;
     }
 
@@ -129,8 +128,10 @@ public class EmailVerificationBottomSheetBridge
     public interface Natives {
         void onUiShown(long nativeEmailVerificationBottomSheetBridge);
 
-        void onUiDecision(
+        void onUiAccepted(long nativeEmailVerificationBottomSheetBridge);
+
+        void onUiDismissed(
                 long nativeEmailVerificationBottomSheetBridge,
-                @EmailVerificationPermissionUiStatus int status);
+                @EmailVerificationPermissionUiStatus int reason);
     }
 }

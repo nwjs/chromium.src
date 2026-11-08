@@ -57,6 +57,10 @@ class OtpManagerImplTestApi {
     return manager_->currently_focused_field_id_;
   }
 
+  const std::string& last_triggered_otp_value() const LIFETIME_BOUND {
+    return manager_->last_triggered_otp_value_;
+  }
+
   const AutofillField* GetFocusedOtpField() const {
     return manager_->GetFocusedOtpField();
   }
@@ -71,6 +75,16 @@ class OtpManagerImplTestApi {
 
   void OnTickleReceived(one_time_tokens::OneTimeTokenSource source) {
     manager_->OnTickleReceived(source);
+  }
+
+  one_time_tokens::GmailOtpRetriever* gmail_otp_retriever() const {
+    return manager_->gmail_otp_retriever_.get();
+  }
+
+  void OnGmailOtpRetrieved(
+      base::expected<one_time_tokens::GmailOtpRetriever::Result,
+                     one_time_tokens::OneTimeTokenRetrievalError> result) {
+    manager_->OnGmailOtpRetrieved(std::move(result));
   }
 
  private:

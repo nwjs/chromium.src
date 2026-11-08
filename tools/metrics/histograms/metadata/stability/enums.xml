@@ -519,7 +519,7 @@ Called by update_bad_message_reasons.py.-->
   <int value="341" label="SWSI_CROSS_ORIGIN_SCRIPT_URL"/>
   <int value="342" label="RFH_INVALID_NAVIGATION_HEADERS"/>
   <int value="343" label="RFHI_WEBMCP_NOT_ENABLED"/>
-  <int value="344" label="RFHI_WEBMCP_UNKNOWN_TOOL_NAME"/>
+  <int value="344" label="RFHI_WEBMCP_UNREGISTER_INVALID_TOOL_ID"/>
   <int value="345" label="RFHI_WEBMCP_REGISTER_DUPLICATE_TOOL_NAME"/>
   <int value="346" label="RFHI_WEBMCP_DUPLICATE_BIND"/>
   <int value="347" label="RFHI_WEBMCP_DUPLICATE_SET_RECEIVER"/>
@@ -591,6 +591,8 @@ Called by update_bad_message_reasons.py.-->
       label="BIBI_BIND_PICTURE_IN_PICTURE_SERVICE_BLOCKED_BY_PERMISSIONS_POLICY"/>
   <int value="404" label="RFH_DETACH_WHILE_BFCACHED"/>
   <int value="405" label="RFH_DOWNLOAD_URL_BLOB_WITHOUT_TOKEN"/>
+  <int value="406" label="RPH_DUPLICATE_MEMORY_COORDINATOR_HOST"/>
+  <int value="407" label="RFHI_WEBMCP_REGISTER_INVALID_TOOL_ID"/>
 </enum>
 
 <enum name="BadMessageReasonExtensions">

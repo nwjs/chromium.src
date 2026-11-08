@@ -82,7 +82,7 @@ void DumpAccessibilityTreeTest::SetUpCommandLine(
   // Enable headingoffset/headingreset attributes
   command_line->AppendSwitchASCII(switches::kEnableBlinkFeatures,
                                   "HeadingOffset");
-  // Enable layout of canvas children with the layoutsubtree attribute.
+  // Enable layout of canvas descendants with the content=drawable attribute.
   command_line->AppendSwitchASCII(switches::kEnableBlinkFeatures,
                                   "CanvasDrawElement");
   // Enable MenuElements so that the new menu elements are recognized.
@@ -301,6 +301,11 @@ IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
                        AccessibilityCSSBackgroundColorTransparent) {
   RunCSSTest(FILE_PATH_LITERAL("background-color-transparent.html"));
+}
+
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
+                       AccessibilityCSSBackgroundColorNestedInlineSpan) {
+  RunCSSTest(FILE_PATH_LITERAL("background-color-nested-inline-span.html"));
 }
 
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
@@ -1638,6 +1643,13 @@ IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
   RunHtmlTest(FILE_PATH_LITERAL("menulist-violation-mode-setsize.html"));
 }
 
+IN_PROC_BROWSER_TEST_P(
+    DumpAccessibilityTreeTest,
+    AccessibilityMenuListViolationModeSetsizeNoDirectMenuitem) {
+  RunHtmlTest(FILE_PATH_LITERAL(
+      "menulist-violation-mode-setsize-no-direct-menuitem.html"));
+}
+
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
                        AccessibilityAriaMismatchedTableAttr) {
   RunAriaTest(FILE_PATH_LITERAL("aria-mismatched-table-attr.html"));
@@ -1675,6 +1687,11 @@ IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
                        AccessibilityAriaModalCloseVisibilityHidden) {
   RunAriaTest(FILE_PATH_LITERAL("aria-modal-close-visibility-hidden.html"));
+}
+
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
+                       AccessibilityAriaModalMoveBeforeCrash) {
+  RunCrashTest(FILE_PATH_LITERAL("aria-modal-move-before-crash.html"));
 }
 
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, AccessibilityAriaMultiline) {
@@ -5285,10 +5302,8 @@ IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
       FILE_PATH_LITERAL("dialog-modal/examples/dialog.html"));
 }
 
-// TODO(crbug.com/545647752): disabled due to flakiness
-IN_PROC_BROWSER_TEST_P(
-    DumpAccessibilityTreeTest,
-    DISABLED_AccessibilityApgPatternThirdPartyDisclosureCard) {
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
+                       AccessibilityApgPatternThirdPartyDisclosureCard) {
   RunApgPatternThirdPartyTest(
       FILE_PATH_LITERAL("disclosure/examples/disclosure-card.html"));
 }

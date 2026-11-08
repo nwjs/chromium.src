@@ -5,63 +5,38 @@
 #include "chrome/browser/page_load_metrics/observers/navigation_initiator_page_load_metrics_observer.h"
 
 #include "base/metrics/histogram_functions.h"
-#include "chrome/browser/page_load_metrics/chrome_initiator_location.h"
-#include "components/page_load_metrics/browser/navigation_handle_user_data.h"
-#include "components/page_load_metrics/google/browser/google_url_util.h"
-#include "content/public/browser/navigation_entry.h"
+#include "components/google/core/common/google_util.h"
+#include "components/page_load_metrics/browser/navigation_initiator.h"
 #include "content/public/browser/navigation_handle.h"
-#include "content/public/browser/web_contents.h"
 #include "ui/base/page_transition_types.h"
 
 namespace {
 
 void RecordInitiatorMetrics(content::NavigationHandle& navigation_handle) {
   const ui::PageTransition transition = navigation_handle.GetPageTransition();
-  bool is_srp =
-      page_load_metrics::IsGoogleSearchResultUrl(navigation_handle.GetURL());
-  auto* navigation_handle_user_data =
-      page_load_metrics::NavigationHandleUserData::GetForNavigationHandle(
-          navigation_handle);
-  const ChromeInitiatorLocation initiator_location = [&]() {
-    if (ui::PageTransitionCoreTypeIs(transition, ui::PAGE_TRANSITION_RELOAD)) {
-      return ChromeInitiatorLocation::kReload;
-    }
-    if ((transition & ui::PAGE_TRANSITION_FORWARD_BACK) ||
-        navigation_handle.IsServedFromBackForwardCache()) {
-      int history_offset = navigation_handle.GetNavigationEntryOffset();
-      CHECK_NE(history_offset, 0);
-      if (history_offset < 0) {
-        return ChromeInitiatorLocation::kBackward;
-      } else if (history_offset > 0) {
-        return ChromeInitiatorLocation::kForward;
-      }
-    }
-    if (navigation_handle_user_data) {
-      return GetChromeInitiatorLocation(
-          navigation_handle_user_data->navigation_type());
-    }
-    if (navigation_handle.IsRendererInitiated() &&
-        navigation_handle.HasUserGesture()) {
-      if (ui::PageTransitionCoreTypeIs(transition, ui::PAGE_TRANSITION_LINK)) {
-        return ChromeInitiatorLocation::kLinkClick;
-      }
+  // Note: This must be consistent with the SRP judgement of
+  // `PreloadServingMetricsPageLoadMetricsObserver` so that
+  // `Navigation.InitiatorType.SRP` and `PreloadServingMetrics.*.SRP` are
+  // comparable.
+  bool is_srp = google_util::IsGoogleSearchUrl(navigation_handle.GetURL());
 
-      if (ui::PageTransitionCoreTypeIs(transition,
-                                       ui::PAGE_TRANSITION_FORM_SUBMIT)) {
-        return ChromeInitiatorLocation::kFormSubmission;
-      }
-    }
-    return ChromeInitiatorLocation::kOther;
-  }();
+  const page_load_metrics::NavigationInitiator initiator =
+      page_load_metrics::GetNavigationInitiator(navigation_handle);
 
-  base::UmaHistogramEnumeration("Navigation.InitiatorType.All",
-                                initiator_location);
+  // Note: `UmaHistogramExactLinear()`, not `UmaHistogramEnumeration()`, as
+  // `page_load_metrics::NavigationInitiator` is an open enum whose values are
+  // defined across the layers.
+  base::UmaHistogramExactLinear(
+      "Navigation.InitiatorType.All", initiator.id(),
+      page_load_metrics::NavigationInitiator::kIdExclusiveMax);
+
   if (is_srp) {
-    base::UmaHistogramEnumeration("Navigation.InitiatorType.SRP",
-                                  initiator_location);
+    base::UmaHistogramExactLinear(
+        "Navigation.InitiatorType.SRP", initiator.id(),
+        page_load_metrics::NavigationInitiator::kIdExclusiveMax);
   }
 
-  if (initiator_location == ChromeInitiatorLocation::kOther) {
+  if (initiator == page_load_metrics::navigation_initiator::kOther) {
     base::UmaHistogramSparse("Navigation.UnknownInitiator.PageTransition.All",
                              transition);
     if (is_srp) {

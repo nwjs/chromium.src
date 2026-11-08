@@ -23,8 +23,6 @@
 #import "components/infobars/core/infobar_manager.h"
 #import "ios/chrome/browser/autofill/wallet_reminder_notice/ui/wallet_reminder_notice_ui_delegate_ios.h"
 
-class GURL;
-
 namespace web {
 class WebState;
 }  // namespace web
@@ -168,12 +166,12 @@ class IOSChromePaymentsAutofillClient : public PaymentsAutofillClient {
   IbanManager* GetIbanManager() override;
   IbanAccessManager* GetIbanAccessManager() override;
   MerchantPromoCodeManager* GetMerchantPromoCodeManager() override;
-  void OpenPromoCodeOfferDetailsURL(const GURL& url) override;
   AutofillOfferManager* GetAutofillOfferManager() override;
   void UpdateOfferNotification(
       const AutofillOfferData& offer,
       const OfferNotificationOptions& options) override;
   void DismissOfferNotification() override;
+  bool IsTabVisibleForOfferNotification() const override;
   bool ShowTouchToFillCreditCard(
       base::WeakPtr<TouchToFillPaymentMethodDelegate> delegate,
       base::span<const Suggestion> suggestions) override;

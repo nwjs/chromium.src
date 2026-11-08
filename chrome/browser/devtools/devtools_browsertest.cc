@@ -78,6 +78,7 @@
 #include "chrome/test/base/chrome_test_utils.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/platform_browser_test.h"
+#include "chrome/test/base/search_test_utils.h"
 #include "chrome/test/base/test_chrome_web_ui_controller_factory.h"
 #include "components/autofill/content/browser/content_autofill_driver.h"
 #include "components/autofill/core/browser/foundations/browser_autofill_manager.h"
@@ -131,7 +132,9 @@
 #include "extensions/buildflags/buildflags.h"
 #include "mojo/public/cpp/bindings/sync_call_restrictions.h"
 #include "net/base/filename_util.h"
+#include "net/base/mock_network_change_notifier.h"
 #include "net/base/net_errors.h"
+#include "net/base/network_change_notifier.h"
 #include "net/dns/mock_host_resolver.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
 #include "net/test/embedded_test_server/http_request.h"
@@ -383,6 +386,24 @@ class DevToolsTest : public PlatformBrowserTest {
   }
 
   void SetUpOnMainThread() override {
+    // On test environments without an active default network (e.g. Android
+    // emulators), NetworkChangeNotifier may report CONNECTION_NONE
+    // (IsOffline() == true, navigator.onLine == false). On Android, this
+    // causes OfflinePageRequestHandler to intercept reloads of tabs hidden
+    // behind an undocked DevTools tab and serve MHTML snapshots instead of
+    // live pages. It also prevents emulating offline conditions in DevTools
+    // from triggering an 'offline' transition event on existing renderer
+    // processes. Mock the connection as online (CONNECTION_WIFI) and notify
+    // BrowserOnlineStateObserver to update existing renderer processes.
+    scoped_mock_network_change_notifier_ =
+        std::make_unique<net::test::ScopedMockNetworkChangeNotifier>();
+    scoped_mock_network_change_notifier_->mock_network_change_notifier()
+        ->SetConnectionType(net::NetworkChangeNotifier::CONNECTION_WIFI);
+    net::NetworkChangeNotifier::NotifyObserversOfMaxBandwidthChangeForTests(
+        net::NetworkChangeNotifier::GetMaxBandwidthMbpsForConnectionSubtype(
+            net::NetworkChangeNotifier::SUBTYPE_UNKNOWN),
+        net::NetworkChangeNotifier::CONNECTION_WIFI);
+
     // A number of tests expect favicon requests to succeed - otherwise, they'll
     // generate console errors.
     embedded_test_server()->RegisterRequestHandler(
@@ -398,6 +419,7 @@ class DevToolsTest : public PlatformBrowserTest {
     if (window_) {
       CloseDevToolsWindow();
     }
+    scoped_mock_network_change_notifier_.reset();
   }
 
  protected:
@@ -500,6 +522,8 @@ class DevToolsTest : public PlatformBrowserTest {
   // existing tests run with the prewarm feature enabled.
   test::ScopedPrewarmFeatureList scoped_prewarm_feature_list_{
       test::ScopedPrewarmFeatureList::PrewarmState::kDisabled};
+  std::unique_ptr<net::test::ScopedMockNetworkChangeNotifier>
+      scoped_mock_network_change_notifier_;
 };
 
 class SitePerProcessDevToolsTest : public DevToolsTest {
@@ -2086,6 +2110,7 @@ IN_PROC_BROWSER_TEST_F(DevToolsExtensionTest,
 
   TemplateURLService* template_url_service =
       TemplateURLServiceFactory::GetForProfile(GetProfile());
+  search_test_utils::WaitForTemplateURLServiceToLoad(template_url_service);
   TemplateURLData data;
   data.SetShortName(u"example.com");
   data.SetURL("https://example.com/url?bar={searchTerms}");
@@ -2428,21 +2453,14 @@ IN_PROC_BROWSER_TEST_F(DevToolsTest, MAYBE_TestPauseWhenLoadingDevTools) {
 }
 
 // Tests network timing.
-// TODO(crbug.com/40218872): Enable this flaky test. This is flaky on Android
-// build.
-#if BUILDFLAG(IS_ANDROID)
-#define MAYBE_TestNetworkTiming DISABLED_TestNetworkTiming
-#else
-#define MAYBE_TestNetworkTiming TestNetworkTiming
-#endif
-IN_PROC_BROWSER_TEST_F(DevToolsTest, MAYBE_TestNetworkTiming) {
+IN_PROC_BROWSER_TEST_F(DevToolsTest, TestNetworkTiming) {
   RunTest("testNetworkTiming", kSlowTestPage);
 }
 
 // Tests network size.
-// TODO(crbug/40218872): Enable this flaky test. This is flaky on Linux debug
-// build and Android build. See also: https://crrev.com/c/2772698
-#if (BUILDFLAG(IS_LINUX) && !defined(NDEBUG)) || BUILDFLAG(IS_ANDROID)
+// TODO(crbug.com/40218872): Enable this flaky test. This is flaky on Linux
+// debug build. See also: https://crrev.com/c/2772698
+#if BUILDFLAG(IS_LINUX) && !defined(NDEBUG)
 #define MAYBE_TestNetworkSize DISABLED_TestNetworkSize
 #else
 #define MAYBE_TestNetworkSize TestNetworkSize
@@ -2453,8 +2471,8 @@ IN_PROC_BROWSER_TEST_F(DevToolsTest, MAYBE_TestNetworkSize) {
 
 // Tests raw headers text.
 // TODO(crbug.com/40218872): Enable this flaky test. This is flaky on Linux
-// debug build and Android build.
-#if (BUILDFLAG(IS_LINUX) && !defined(NDEBUG)) || BUILDFLAG(IS_ANDROID)
+// debug build.
+#if BUILDFLAG(IS_LINUX) && !defined(NDEBUG)
 #define MAYBE_TestNetworkSyncSize DISABLED_TestNetworkSyncSize
 #else
 #define MAYBE_TestNetworkSyncSize TestNetworkSyncSize
@@ -3444,17 +3462,16 @@ IN_PROC_BROWSER_TEST_F(DevToolsAllowedByCommandLineSwitch,
 class DevToolsNetInfoTest : public DevToolsTest {
  protected:
   void SetUpCommandLine(base::CommandLine* command_line) override {
+    DevToolsTest::SetUpCommandLine(command_line);
     command_line->AppendSwitch(switches::kEnableNetworkInformationDownlinkMax);
     command_line->AppendSwitch(
         switches::kEnableExperimentalWebPlatformFeatures);
   }
 };
 
-#if !BUILDFLAG(IS_ANDROID)
 IN_PROC_BROWSER_TEST_F(DevToolsNetInfoTest, EmulateNetworkConditions) {
   RunTest("testEmulateNetworkConditions", kEmulateNetworkConditionsPage);
 }
-#endif  // !BUILDFLAG(IS_ANDROID)
 
 IN_PROC_BROWSER_TEST_F(DevToolsNetInfoTest, OfflineNetworkConditions) {
   RunTest("testOfflineNetworkConditions", kEmulateNetworkConditionsPage);
@@ -4440,6 +4457,60 @@ IN_PROC_BROWSER_TEST_F(DevToolsPolicyTest,
 
   EXPECT_TRUE(agent_host->IsAttached());
   EXPECT_FALSE(client.closed());
+}
+
+// Verifies that a pending navigation to an allowlisted URL cannot be used to
+// bypass the policy while a non-allowlisted document is still committed. The
+// visible URL updates as soon as the navigation starts, but the policy must be
+// enforced against the committed document as well.
+IN_PROC_BROWSER_TEST_F(DevToolsPolicyTest,
+                       PendingNavigationToAllowlistedUrlDoesNotBypassPolicy) {
+  GURL blocked_url(embedded_test_server()->GetURL("a.com", "/title1.html"));
+  GURL allowed_url(
+      embedded_test_server()->GetURL("b.com", "/devtools/empty.html"));
+
+  // Allowlist only `allowed_url`; everything else is disallowed.
+  base::ListValue allowlist;
+  allowlist.Append(allowed_url.spec());
+
+  policy::PolicyMap policies;
+  policies.Set(policy::key::kDeveloperToolsAvailabilityAllowlist,
+               policy::POLICY_LEVEL_MANDATORY, policy::POLICY_SCOPE_USER,
+               policy::POLICY_SOURCE_CLOUD, base::Value(std::move(allowlist)),
+               nullptr);
+  provider_.UpdateChromePolicy(policies);
+  base::RunLoop().RunUntilIdle();
+
+  WebContents* web_contents = chrome_test_utils::GetActiveWebContents(this);
+  Profile* profile = chrome_test_utils::GetProfile(this);
+
+  // Commit a non-allowlisted page. DevTools must be disallowed.
+  ASSERT_TRUE(chrome_test_utils::NavigateToURL(web_contents, blocked_url));
+  EXPECT_FALSE(DevToolsWindow::AllowDevToolsFor(profile, web_contents));
+
+  // Start a navigation to the allowlisted URL but pause it before it commits.
+  content::TestNavigationManager manager(web_contents, allowed_url);
+  web_contents->GetController().LoadURL(allowed_url, content::Referrer(),
+                                        ui::PAGE_TRANSITION_TYPED,
+                                        std::string());
+  ASSERT_TRUE(manager.WaitForRequestStart());
+
+  // The visible URL already reflects the pending allowlisted navigation, while
+  // the committed document is still the non-allowlisted page.
+  EXPECT_EQ(web_contents->GetURL(), allowed_url);
+  EXPECT_EQ(web_contents->GetLastCommittedURL(), blocked_url);
+
+  // DevTools must still be disallowed and must not open.
+  EXPECT_FALSE(DevToolsWindow::AllowDevToolsFor(profile, web_contents));
+  DevToolsWindow::OpenDevToolsWindow(web_contents,
+                                     DevToolsOpenedByAction::kUnknown);
+  auto agent_host = GetOrCreateDevToolsHostForWebContents(web_contents);
+  EXPECT_FALSE(DevToolsWindow::FindDevToolsWindow(agent_host.get()));
+
+  // Once the allowlisted navigation commits, DevTools become allowed.
+  ASSERT_TRUE(manager.WaitForNavigationFinished());
+  EXPECT_EQ(web_contents->GetLastCommittedURL(), allowed_url);
+  EXPECT_TRUE(DevToolsWindow::AllowDevToolsFor(profile, web_contents));
 }
 
 class DevToolsPolicyBFCacheTest : public DevToolsPolicyTest {
@@ -5938,3 +6009,164 @@ INSTANTIATE_TEST_SUITE_P(,
                          [](const testing::TestParamInfo<bool>& info) {
                            return info.param ? "Enabled" : "Disabled";
                          });
+
+class DevToolsPopupOpenerTest : public PlatformBrowserTest {
+ public:
+  void SetUpOnMainThread() override {
+    PlatformBrowserTest::SetUpOnMainThread();
+    ASSERT_TRUE(embedded_test_server()->Start());
+    base::CommandLine::ForCurrentProcess()->AppendSwitchASCII(
+        switches::kCustomDevtoolsFrontend,
+        embedded_test_server()->GetURL("/devtools/").spec());
+  }
+
+ protected:
+  void VerifyRemoteOpenerHasRestrictedBindings(WebContents* opener) {
+    ASSERT_EQ("object", content::EvalJs(opener, "typeof DevToolsHost"));
+    auto* opener_bindings = DevToolsUIBindings::ForWebContents(opener);
+    ASSERT_TRUE(opener_bindings);
+    ASSERT_TRUE(opener_bindings->has_frontend_host_for_testing());
+
+    // Confirm the opener is classified as a remote frontend by checking that
+    // loading a file:// resource is rejected with 403.
+    EXPECT_EQ(403, content::EvalJs(opener, R"(
+      new Promise(resolve => {
+        window.DevToolsAPI = {
+          embedderMessageAck(id, res) {
+            resolve(res ? res.statusCode : -1);
+          },
+          streamWrite() {},
+        };
+        DevToolsHost.sendMessageToEmbedder(JSON.stringify({
+          id: 1,
+          method: 'loadNetworkResource',
+          params: ['file:///etc/passwd', '', 0],
+        }));
+      })
+    )"));
+  }
+
+  WebContents* OpenPopupFrom(WebContents* opener,
+                             const std::string& url,
+                             bool noopener = false) {
+    content::WebContentsAddedObserver popup_observer;
+    std::string script =
+        noopener ? content::JsReplace("window.open($1, '_blank', 'noopener');",
+                                      url)
+                 : content::JsReplace("window.open($1);", url);
+    EXPECT_TRUE(content::ExecJs(opener, script));
+    WebContents* popup = popup_observer.GetWebContents();
+    EXPECT_TRUE(content::WaitForLoadStop(popup));
+    return popup;
+  }
+};
+
+IN_PROC_BROWSER_TEST_F(DevToolsPopupOpenerTest,
+                       LocalFrontendPopupInheritsFrontendHost) {
+  WebContents* opener = chrome_test_utils::GetActiveWebContents(this);
+  ASSERT_TRUE(chrome_test_utils::NavigateToURL(
+      opener, GURL("devtools://devtools/bundled/empty.html")));
+  ASSERT_EQ("object", content::EvalJs(opener, "typeof DevToolsHost"));
+
+  WebContents* popup = OpenPopupFrom(opener, "devtools://devtools/blank");
+  ASSERT_TRUE(popup);
+  EXPECT_EQ("object", content::EvalJs(popup, "typeof DevToolsHost"));
+  auto* popup_bindings = DevToolsUIBindings::ForWebContents(popup);
+  ASSERT_TRUE(popup_bindings);
+  EXPECT_TRUE(popup_bindings->has_frontend_host_for_testing());
+}
+
+IN_PROC_BROWSER_TEST_F(DevToolsPopupOpenerTest,
+                       RemoteFrontendPopupDoesNotGetFrontendHost) {
+  WebContents* opener = chrome_test_utils::GetActiveWebContents(this);
+  ASSERT_TRUE(chrome_test_utils::NavigateToURL(
+      opener,
+      GURL("devtools://devtools/remote/serve_rev/@12345/empty.html")));
+  VerifyRemoteOpenerHasRestrictedBindings(opener);
+
+  WebContents* popup = OpenPopupFrom(opener, "devtools://devtools/blank");
+  ASSERT_TRUE(popup);
+  EXPECT_EQ("undefined", content::EvalJs(popup, "typeof DevToolsHost"));
+  auto* popup_bindings = DevToolsUIBindings::ForWebContents(popup);
+  ASSERT_TRUE(popup_bindings);
+  EXPECT_FALSE(popup_bindings->has_frontend_host_for_testing());
+}
+
+IN_PROC_BROWSER_TEST_F(DevToolsPopupOpenerTest,
+                       RemoteFrontendNoopenerPopupDoesNotGetFrontendHost) {
+  WebContents* opener = chrome_test_utils::GetActiveWebContents(this);
+  ASSERT_TRUE(chrome_test_utils::NavigateToURL(
+      opener,
+      GURL("devtools://devtools/remote/serve_rev/@12345/empty.html")));
+  VerifyRemoteOpenerHasRestrictedBindings(opener);
+
+  WebContents* popup =
+      OpenPopupFrom(opener, "devtools://devtools/blank", /*noopener=*/true);
+  ASSERT_TRUE(popup);
+  EXPECT_EQ("undefined", content::EvalJs(popup, "typeof DevToolsHost"));
+  auto* popup_bindings = DevToolsUIBindings::ForWebContents(popup);
+  ASSERT_TRUE(popup_bindings);
+  EXPECT_FALSE(popup_bindings->has_frontend_host_for_testing());
+}
+
+IN_PROC_BROWSER_TEST_F(DevToolsPopupOpenerTest,
+                       RemoteFrontendBundledPopupDoesNotGetFrontendHost) {
+  WebContents* opener = chrome_test_utils::GetActiveWebContents(this);
+  ASSERT_TRUE(chrome_test_utils::NavigateToURL(
+      opener,
+      GURL("devtools://devtools/remote/serve_rev/@12345/empty.html")));
+  VerifyRemoteOpenerHasRestrictedBindings(opener);
+
+  WebContents* popup =
+      OpenPopupFrom(opener, "devtools://devtools/bundled/devtools_app.html");
+  ASSERT_TRUE(popup);
+  EXPECT_EQ("undefined", content::EvalJs(popup, "typeof DevToolsHost"));
+  auto* popup_bindings = DevToolsUIBindings::ForWebContents(popup);
+  ASSERT_TRUE(popup_bindings);
+  EXPECT_FALSE(popup_bindings->has_frontend_host_for_testing());
+}
+
+IN_PROC_BROWSER_TEST_F(DevToolsPopupOpenerTest,
+                       RemoteFrontendSelfNavigationDoesNotGrantLocalBindings) {
+  WebContents* opener = chrome_test_utils::GetActiveWebContents(this);
+  ASSERT_TRUE(chrome_test_utils::NavigateToURL(
+      opener,
+      GURL("devtools://devtools/remote/serve_rev/@12345/empty.html")));
+  VerifyRemoteOpenerHasRestrictedBindings(opener);
+
+  content::TestNavigationObserver nav_observer(opener);
+  ASSERT_TRUE(
+      content::ExecJs(opener, "location.href = 'devtools://devtools/blank';"));
+  nav_observer.Wait();
+
+  VerifyRemoteOpenerHasRestrictedBindings(opener);
+}
+
+IN_PROC_BROWSER_TEST_F(
+    DevToolsPopupOpenerTest,
+    RemoteFrontendPopupWithClosedOpenerDoesNotGetFrontendHost) {
+  WebContents* opener = chrome_test_utils::GetActiveWebContents(this);
+  ASSERT_TRUE(chrome_test_utils::NavigateToURL(
+      opener,
+      GURL("devtools://devtools/remote/serve_rev/@12345/empty.html")));
+  VerifyRemoteOpenerHasRestrictedBindings(opener);
+
+  WebContents* popup = OpenPopupFrom(opener, "about:blank");
+  ASSERT_TRUE(popup);
+
+  content::WebContentsDestroyedWatcher destroyed_watcher(opener);
+  opener->Close();
+  destroyed_watcher.Wait();
+  EXPECT_FALSE(popup->HasLiveOriginalOpenerChain());
+
+  content::TestNavigationObserver nav_observer(popup);
+  ASSERT_TRUE(
+      content::ExecJs(popup, "location.href = 'devtools://devtools/blank';"));
+  nav_observer.Wait();
+
+  EXPECT_EQ("undefined", content::EvalJs(popup, "typeof DevToolsHost"));
+  auto* popup_bindings = DevToolsUIBindings::ForWebContents(popup);
+  ASSERT_TRUE(popup_bindings);
+  EXPECT_FALSE(popup_bindings->has_frontend_host_for_testing());
+}
+

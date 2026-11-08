@@ -50,6 +50,7 @@
 #include "chrome/browser/ash/extensions/default_app_order.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/sync/glue/sync_start_util.h"
 #include "chromeos/ash/components/file_manager/app_id.h"
 #include "components/app_constants/constants.h"
 #include "components/pref_registry/pref_registry_syncable.h"
@@ -1658,8 +1659,9 @@ void AppListSyncableService::SendSyncChange(
     // This can occur if an initial item is created before its folder item.
     // A sync item should already exist for the folder, so we do not want to
     // send an ADD event, since that would trigger a CHECK in the sync code.
-    CHECK(sync_item->item_type == sync_pb::AppListSpecifics::TYPE_FOLDER,
-          base::NotFatalUntil::M160);
+    // TODO(crbug.com/572957259): CHECK-exclusion: Convert to a CHECK once we
+    // are confident it won't be triggered.
+    DCHECK(sync_item->item_type == sync_pb::AppListSpecifics::TYPE_FOLDER);
     DVLOG(2) << this << " - SendSyncChange: ADD before initial data processed: "
              << sync_item->ToString();
     return;

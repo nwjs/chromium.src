@@ -24,7 +24,11 @@ mojom("mojo_bindings") {
         },
         {
           mojom = "browser.context_hub.mojom.GmailReference"
-          cpp = "::context_hub::SourceReference"
+          cpp = "::context_hub::GmailReference"
+        },
+        {
+          mojom = "browser.context_hub.mojom.ChromeHistoryEntry"
+          cpp = "::context_hub::ChromeHistoryEntry"
         },
         {
           mojom = "browser.context_hub.mojom.SourceReference"
@@ -51,6 +55,14 @@ mojom("mojo_bindings") {
           cpp = "::context_hub::AutoTodosGenerationMetadata"
         },
         {
+          mojom = "browser.context_hub.mojom.EntryType"
+          cpp = "::context_hub::MemoryBankType"
+        },
+        {
+          mojom = "browser.context_hub.mojom.MemoryBankEntry"
+          cpp = "::context_hub::MemoryBankEntry"
+        },
+        {
           mojom = "browser.context_hub.mojom.SmartSearchResult"
           cpp = "::personal_context::proto::SmartSearchItem"
         },
@@ -60,6 +72,7 @@ mojom("mojo_bindings") {
       traits_deps = [
         "//base",
         "//chrome/browser/context_hub/auto_todos",
+        "//chrome/browser/context_hub/memory_bank",
         "//components/personal_context/proto:personal_context_proto",
         "//mojo/public/mojom/base",
         "//third_party/abseil-cpp:absl",
@@ -86,11 +99,15 @@ source_set("context_hub_page_handler") {
   deps = [
     "//chrome/browser/context_hub",
     "//chrome/browser/history",
+    "//chrome/browser/page_image_service",
     "//chrome/browser/profiles:profile",
     "//chrome/browser/ui/browser_window",
     "//chrome/common",
+    "//chrome/common:channel_info",
     "//components/history/core/browser",
     "//components/keyed_service/core",
+    "//components/page_image_service",
+    "//components/page_image_service/mojom:mojo_bindings",
     "//components/sessions",
   ]
 
@@ -100,10 +117,12 @@ source_set("context_hub_page_handler") {
       "context_hub_tab_provider_desktop.h",
     ]
     deps += [
+      "//base:i18n",
       "//chrome/browser/glic",
       "//chrome/browser/tab_group_sync:factories",
-      "//chrome/browser/ui",
       "//chrome/browser/ui:browser_commands",
+      "//chrome/browser/ui:browser_tabstrip",
+      "//chrome/browser/ui:singleton_tabs",
       "//chrome/browser/ui/tabs:tab_strip",
       "//chrome/browser/ui/tabs/saved_tab_groups",
       "//components/saved_tab_groups/public",
@@ -137,7 +156,12 @@ source_set("context_hub") {
   ]
 
   if (!is_android) {
-    deps += [ "//chrome/browser/ui/webui:favicon_source" ]
+    deps += [
+      "//chrome/browser/glic",
+      "//chrome/browser/glic/actor",
+      "//chrome/browser/ui/webui:favicon_source",
+      "//chrome/browser/ui/webui/sanitized_image:sanitized_image_source",
+    ]
   }
 }
 
@@ -153,6 +177,7 @@ source_set("unit_tests") {
     "//chrome/browser/personal_context",
     "//chrome/browser/tab_group_sync:factories",
     "//chrome/test:test_support",
+    "//chrome/test/base:testing_browser_process",
     "//components/history/core/browser",
     "//components/history/core/test",
     "//components/personal_context/core:test_support",
@@ -174,6 +199,7 @@ source_set("unit_tests") {
       "//chrome/browser/ui/tabs:test_support",
       "//components/tabs:test_support",
       "//ui/base:test_support",
+      "//ui/base/clipboard:clipboard_test_support",
     ]
   }
 }

@@ -30,9 +30,9 @@
 #include "third_party/blink/renderer/core/css/style_engine.h"
 
 #include <algorithm>
+#include <ranges>
 
 #include "base/auto_reset.h"
-#include "base/containers/adapters.h"
 #include "base/functional/function_ref.h"
 #include "base/hash/hash.h"
 #include "base/rand_util.h"
@@ -348,7 +348,7 @@ void StyleEngine::RemoveInjectedSheet(const StyleSheetKey& key,
                                         : injected_author_style_sheets_;
   // Remove the last sheet that matches.
   const auto& it = std::ranges::find(
-      base::Reversed(injected_style_sheets), key,
+      std::views::reverse(injected_style_sheets), key,
       &std::pair<StyleSheetKey, Member<CSSStyleSheet>>::first);
   if (it != injected_style_sheets.rend()) {
     injected_style_sheets.erase(std::next(it).base());
@@ -647,12 +647,11 @@ void StyleEngine::MediaQueryAffectingValueChanged(MediaValueChange change) {
 
 void StyleEngine::PrepareUpdateActiveStyleSheetsInShadow(
     TreeScope* tree_scope,
-    UnorderedTreeScopeSet& tree_scopes_removed,
-    const MediaQueryEvaluator& medium) {
+    UnorderedTreeScopeSet& tree_scopes_removed) {
   DCHECK_NE(tree_scope, document_);
   auto* collection = StyleSheetCollectionFor(*tree_scope);
   DCHECK(collection);
-  collection->PrepareUpdateActiveStyleSheets(medium);
+  collection->PrepareUpdateActiveStyleSheets();
 }
 
 void StyleEngine::UpdateActiveUserStyleSheets() {
@@ -688,18 +687,83 @@ void StyleEngine::UpdateActiveStyleSheets() {
 
   // Prepare the stylesheet collections for update. This collects all the
   // stylesheets from the nodes in question and extracts mixins.
-  //
-  // Note that if mixins in a parent changes, we should invalidate all children
-  // (in addition to the parent itself), or at least all mixin-using children,
-  // but we do not do invalidation of mixins in general yet.
+  // Keep the original dirty set separate from scopes we're about to add
+  // that only depend on changed inherited mixins.
+  const UnorderedTreeScopeSet initially_dirty_tree_scopes = dirty_tree_scopes_;
+
+  UnorderedTreeScopeSet scopes_with_changed_mixins;
   if (ShouldUpdateDocumentStyleSheetCollection()) {
-    document_style_sheet_collection_->PrepareUpdateActiveStyleSheets(medium);
+    document_style_sheet_collection_->PrepareUpdateActiveStyleSheets();
+    document_style_sheet_collection_->UpdateMixins(medium,
+                                                   scopes_with_changed_mixins);
   }
   if (ShouldUpdateShadowTreeStyleSheetCollection()) {
     UnorderedTreeScopeSet tree_scopes_removed;
-    for (TreeScope* tree_scope : dirty_tree_scopes_) {
-      PrepareUpdateActiveStyleSheetsInShadow(tree_scope, tree_scopes_removed,
-                                             medium);
+    for (TreeScope* tree_scope : initially_dirty_tree_scopes) {
+      PrepareUpdateActiveStyleSheetsInShadow(tree_scope, tree_scopes_removed);
+      StyleSheetCollectionFor(*tree_scope)
+          ->UpdateMixins(medium, scopes_with_changed_mixins);
+    }
+  }
+
+  if (!scopes_with_changed_mixins.empty()) {
+    TRACE_EVENT0("blink,blink_style",
+                 "StyleEngine::invalidateMixinDependentTreeScopes");
+    UnorderedTreeScopeSet scopes_to_prepare;
+    UnorderedTreeScopeSet scopes_with_inherited_mixin_changes;
+    for (TreeScope* tree_scope : active_tree_scopes_) {
+      const ActiveStyleSheetVector& active_style_sheets =
+          StyleSheetCollectionFor(*tree_scope)->ActiveStyleSheets();
+      if (std::ranges::none_of(active_style_sheets, [](const auto& entry) {
+            return entry.second && entry.second->DependingOnMixins();
+          })) {
+        continue;
+      }
+
+      TreeScope* changed_ancestor = nullptr;
+      for (TreeScope* changed_scope : scopes_with_changed_mixins) {
+        // Use the nearest changed ancestor so only the affected path is
+        // considered when multiple ancestor scopes changed.
+        if (changed_scope != tree_scope &&
+            changed_scope->IsInclusiveAncestorOf(*tree_scope) &&
+            (!changed_ancestor ||
+             changed_ancestor->IsInclusiveAncestorOf(*changed_scope))) {
+          changed_ancestor = changed_scope;
+        }
+      }
+      if (!changed_ancestor) {
+        continue;
+      }
+
+      if (!initially_dirty_tree_scopes.Contains(tree_scope)) {
+        // Only scopes with mixin-dependent RuleSets need to rebuild them.
+        // Intermediate scopes only need their map identities refreshed.
+        scopes_to_prepare.insert(tree_scope);
+      }
+      // Local mixins supply the identity for a scope's effective map. Refresh
+      // identities along the path so they cannot hide an inherited change from
+      // nested RuleSet cache checks.
+      for (TreeScope* scope = tree_scope; scope != changed_ancestor;
+           scope = scope->ParentTreeScope()) {
+        if (!StyleSheetCollectionFor(*scope)) {
+          continue;
+        }
+        scopes_with_inherited_mixin_changes.insert(scope);
+      }
+    }
+
+    UnorderedTreeScopeSet tree_scopes_removed;
+    for (TreeScope* tree_scope : scopes_to_prepare) {
+      dirty_tree_scopes_.insert(tree_scope);
+      PrepareUpdateActiveStyleSheetsInShadow(tree_scope, tree_scopes_removed);
+      StyleSheetCollectionFor(*tree_scope)
+          ->UpdateMixins(medium, scopes_with_changed_mixins);
+    }
+    for (TreeScope* tree_scope : scopes_with_inherited_mixin_changes) {
+      StyleSheetCollection& collection = *StyleSheetCollectionFor(*tree_scope);
+      if (!scopes_with_changed_mixins.Contains(tree_scope)) {
+        collection.RefreshMixinMapIdentityForInheritedChange();
+      }
     }
   }
 
@@ -764,7 +828,7 @@ MixinMap StyleEngine::EffectiveMixinsForTreeScope(TreeScope& tree_scope) {
   // this scope's active stylesheets are recomputed. Otherwise the combination
   // is just the inherited map, and we can keep (and share) the inherited
   // identifier.
-  inherited_mixins.map_identifier = local_mixins.map_identifier.has_value()
+  inherited_mixins.map_identifier = local_mixins.HasScopeIdentity()
                                         ? local_mixins.map_identifier
                                         : inherited_id;
   return inherited_mixins;
@@ -3758,7 +3822,7 @@ bool ContainerStyleChangesAllowed(Element& container,
   // the highlight styles hangs off the originating element's ComputedStyle.
   const ComputedStyle* new_element_style = container.GetComputedStyle();
   const ComputedStyle* new_layout_style =
-      container.GetLayoutObject() ? &container.GetLayoutObject()->StyleRef()
+      container.GetLayoutObject() ? &container.GetLayoutObject()->Style()
                                   : nullptr;
 
   if (!new_element_style || !old_element_style) {
@@ -3802,7 +3866,7 @@ void StyleEngine::RecalcStyleForSizeContainer(Element& container,
 #if DCHECK_IS_ON()
   const ComputedStyle* old_element_style = container.GetComputedStyle();
   const ComputedStyle* old_layout_style =
-      container.GetLayoutObject() ? &container.GetLayoutObject()->StyleRef()
+      container.GetLayoutObject() ? &container.GetLayoutObject()->Style()
                                   : nullptr;
 #endif  // DCHECK_IS_ON()
 
@@ -3896,7 +3960,7 @@ void StyleEngine::UpdateStyleAndLayoutTreeForSizeContainer(
       std::in_place, &in_container_query_style_recalc_, true);
 
   DCHECK(container.GetLayoutObject()) << "Containers must have a LayoutObject";
-  const ComputedStyle& style = container.GetLayoutObject()->StyleRef();
+  const ComputedStyle& style = container.GetLayoutObject()->Style();
   DCHECK(style.IsContainerForSizeContainerQueries());
   WritingMode writing_mode = style.GetWritingMode();
   PhysicalSize physical_size = ToPhysicalSize(logical_size, writing_mode);
@@ -4285,11 +4349,27 @@ void StyleEngine::ViewportDefiningElementDidChange() {
     // This update is also necessary if the first body element changes because
     // another body element is inserted or removed.
     layout_object->SetStyle(
-        *ComputedStyleBuilder(layout_object->StyleRef()).TakeStyle());
+        *ComputedStyleBuilder(layout_object->Style()).TakeStyle());
   }
 }
 
 void StyleEngine::FirstBodyElementChanged(HTMLBodyElement* body) {
+  // Tables resolve '-internal-quirk-inherit' against the body color cached in
+  // TextLinkColors, and only the quirks UA sheet uses that value.
+  // https://quirks.spec.whatwg.org/#the-tables-inherit-color-from-body-quirk
+  if (GetDocument().InQuirksMode()) {
+    if (!body) {
+      // The last body is removed, so tables must use the initial color.
+      GetDocument().GetTextLinkColors().ResetTextColor();
+    }
+    // The matched properties cache does not track changes to the body color.
+    if (resolver_) {
+      resolver_->InvalidateMatchedPropertiesCache();
+    }
+    MarkAllElementsForStyleRecalc(StyleChangeReasonForTracing::Create(
+        style_change_reason::kBodyColorChange));
+  }
+
   // If a body element changed status as being the first body element or not,
   // it might have changed its needs for scrollbars even if the style didn't
   // change. Marking it for recalc here will make sure a new ComputedStyle is
@@ -4758,7 +4838,7 @@ void StyleEngine::UpdateViewportStyle() {
 
   const ComputedStyle& viewport_style = resolver_->StyleForViewport();
   if (ComputedStyle::ComputeDifference(
-          &viewport_style, &GetDocument().GetLayoutView()->StyleRef()) !=
+          &viewport_style, &GetDocument().GetLayoutView()->Style()) !=
       ComputedStyle::Difference::kEqual) {
     GetDocument().GetLayoutView()->SetStyle(viewport_style);
   }

@@ -50,13 +50,14 @@ import org.chromium.chrome.browser.autofill.settings.SettingsNavigationHelper;
 import org.chromium.chrome.browser.autofill.settings.options.AutofillOptionsReferrer;
 import org.chromium.chrome.browser.back_press.BackPressManager;
 import org.chromium.chrome.browser.compositor.CompositorViewHolder;
+import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
-import org.chromium.chrome.browser.fullscreen.BrowserControlsManager;
 import org.chromium.chrome.browser.fullscreen.FullscreenManager;
 import org.chromium.chrome.browser.fullscreen.FullscreenOptions;
 import org.chromium.chrome.browser.keyboard_accessory.ManualFillingProperties.KeyboardExtensionState;
 import org.chromium.chrome.browser.keyboard_accessory.ManualFillingProperties.StateProperty;
 import org.chromium.chrome.browser.keyboard_accessory.bar_component.KeyboardAccessoryCoordinator;
+import org.chromium.chrome.browser.keyboard_accessory.bar_component.KeyboardAccessoryIphUtils;
 import org.chromium.chrome.browser.keyboard_accessory.bar_component.KeyboardAccessoryStyle;
 import org.chromium.chrome.browser.keyboard_accessory.bar_component.KeyboardAccessoryStyle.NotchPosition;
 import org.chromium.chrome.browser.keyboard_accessory.data.KeyboardAccessoryData;
@@ -92,6 +93,7 @@ import org.chromium.components.browser_ui.widget.ActionConfirmationDialog.Dialog
 import org.chromium.components.browser_ui.widget.ActionConfirmationDialog.DialogHandle;
 import org.chromium.components.browser_ui.widget.StrictButtonPressController.ButtonClickResult;
 import org.chromium.components.browser_ui.widget.gesture.BackPressHandler;
+import org.chromium.components.feature_engagement.FeatureConstants;
 import org.chromium.content_public.browser.NavigationHandle;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.browser.WebContentsAccessibility;
@@ -165,7 +167,6 @@ class ManualFillingMediator
             mKeyboardAccessoryVisualStateSupplier = ObservableSuppliers.createMonotonic();
     private final SettableMonotonicObservableSupplier<AccessorySheetVisualStateProvider>
             mAccessorySheetVisualStateSupplier = ObservableSuppliers.createMonotonic();
-    private @Nullable BrowserControlsManager mControlsManager;
 
     private final TabObserver mTabObserver =
             new TabObserver() {
@@ -247,8 +248,7 @@ class ManualFillingMediator
             BooleanSupplier isContextualSearchOpened,
             BackPressManager backPressManager,
             Supplier<EdgeToEdgeController> edgeToEdgeControllerSupplier,
-            ManualFillingComponent.SoftKeyboardDelegate keyboardDelegate,
-            @Nullable BrowserControlsManager controlsManager) {
+            ManualFillingComponent.SoftKeyboardDelegate keyboardDelegate) {
         mActivity = (ChromeActivity) windowAndroid.getActivity().get();
         assert mActivity != null;
         mWindowAndroid = windowAndroid;
@@ -264,9 +264,7 @@ class ManualFillingMediator
         mAccessorySheet = accessorySheet;
         mKeyboardAccessoryVisualStateSupplier.set(mKeyboardAccessory);
         mAccessorySheetVisualStateSupplier.set(mAccessorySheet);
-        if (controlsManager != null) {
-            mAccessorySheet.setContentOffsetSupplier(controlsManager::getContentOffset);
-        }
+        mAccessorySheet.setContentOffsetSupplier(() -> Math.round(getVisibleViewport().top));
         mAccessorySheet.setHeight(getIdealSheetHeight());
         mApplicationViewportInsetTracker =
                 mWindowAndroid.getApplicationBottomInsetTracker().getSupplier();
@@ -276,7 +274,6 @@ class ManualFillingMediator
         mBackPressChangedSupplier.set(shouldHideOnBackPress());
         mBackPressManager.addHandler(this, Type.MANUAL_FILLING);
         mEdgeToEdgeControllerSupplier = edgeToEdgeControllerSupplier;
-        mControlsManager = controlsManager;
 
         mTabModelObserver =
                 new TabModelSelectorTabModelObserver(mActivity.getTabModelSelector()) {
@@ -411,11 +408,18 @@ class ManualFillingMediator
         mKeyboardAccessory.setSelectedSuggestion(suggestionIndex);
     }
 
-    boolean navigateSuggestions(@NavigationDirection int direction) {
+    boolean navigate(@NavigationAction int action) {
         if (!isInitialized() || mKeyboardAccessory == null) {
             return false;
         }
-        return mKeyboardAccessory.navigateSuggestions(direction);
+        return mKeyboardAccessory.navigate(action);
+    }
+
+    boolean acceptFallback() {
+        if (!isInitialized() || mKeyboardAccessory == null) {
+            return false;
+        }
+        return mKeyboardAccessory.acceptFallback();
     }
 
     void setFieldBounds(RectF bounds) {
@@ -539,6 +543,12 @@ class ManualFillingMediator
         if (webContents != null && !webContents.isDestroyed()) {
             ManualFillingMetricsRecorder.recordActionSelected(
                     AccessoryAction.SHOW_AT_MEMORY_BOTTOMSHEET);
+            Profile profile = Profile.fromWebContents(webContents);
+            if (profile != null) {
+                KeyboardAccessoryIphUtils.emitFillingEvent(
+                        TrackerFactory.getTrackerForProfile(profile),
+                        FeatureConstants.KEYBOARD_ACCESSORY_AT_MEMORY_FEATURE);
+            }
             ManualFillingComponentBridge.onOptionSelectedForWebContents(
                     webContents, AccessoryAction.SHOW_AT_MEMORY_BOTTOMSHEET);
         }
@@ -1028,14 +1038,11 @@ class ManualFillingMediator
     }
 
     /**
-     * Gets the keyboard accessory's top offset. Since these are viewport coordinates, the browser
-     * controls height must be added to position it correctly relative to the web content.
+     * Gets the keyboard accessory's top offset. Since these are viewport coordinates, the visible
+     * viewport's top offset must be added to position it correctly relative to the web content.
      */
     private @Px int getTopOffset() {
-        if (mControlsManager == null) {
-            return 0;
-        }
-        @Px int contentOffset = mControlsManager.getContentOffset();
+        @Px int contentOffset = Math.round(getVisibleViewport().top);
 
         if (ChromeFeatureList.isEnabled(
                 ChromeFeatureList.AUTOFILL_ANDROID_KEYBOARD_ACCESSORY_DYNAMIC_POSITIONING)) {
@@ -1071,12 +1078,7 @@ class ManualFillingMediator
     }
 
     private @NotchPosition int getNotchPositionForDynamicPositioning() {
-        CompositorViewHolder compositorViewHolder =
-                assumeNonNull(mActivity.getCompositorViewHolderSupplier().get());
-        RectF viewport = new RectF();
-        compositorViewHolder.getVisibleViewport(viewport);
-
-        @Px int viewportHeight = Math.round(viewport.height());
+        @Px int viewportHeight = Math.round(getVisibleViewport().height());
 
         // Display the notch below the bar.
         if (viewportHeight - getFocusedFieldBottomPx() > getBarWithNotchHeightPx()) {
@@ -1093,6 +1095,7 @@ class ManualFillingMediator
     private @Px int getHorizontalOffset() {
         if (ChromeFeatureList.isEnabled(
                 ChromeFeatureList.AUTOFILL_ANDROID_KEYBOARD_ACCESSORY_DYNAMIC_POSITIONING)) {
+            @Px int viewportLeft = Math.round(getVisibleViewport().left);
             @Px
             int leftBound =
                     Math.round(
@@ -1101,9 +1104,17 @@ class ManualFillingMediator
             final int marginResId =
                     R.dimen.keyboard_accessory_bar_dynamic_positioning_horizontal_margin;
             @Px int offset = mActivity.getResources().getDimensionPixelSize(marginResId);
-            return leftBound + offset;
+            return viewportLeft + leftBound + offset;
         }
         return 0;
+    }
+
+    private RectF getVisibleViewport() {
+        CompositorViewHolder compositorViewHolder =
+                assumeNonNull(mActivity.getCompositorViewHolderSupplier().get());
+        RectF viewport = new RectF();
+        compositorViewHolder.getVisibleViewport(viewport);
+        return viewport;
     }
 
     private @Px int getMaxWidth() {

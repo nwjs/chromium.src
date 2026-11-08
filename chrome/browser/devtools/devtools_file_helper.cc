@@ -69,7 +69,7 @@ base::FilePath& GetLastSavePath() {
 void WriteToFile(const base::FilePath& path,
                  const std::string& content,
                  bool is_base64) {
-  DCHECK(!path.empty());
+  CHECK(!path.empty(), base::NotFatalUntil::M161);
 
   std::optional<std::vector<uint8_t>> decoded_content;
   if (is_base64) {
@@ -95,7 +95,7 @@ void WriteToFile(const base::FilePath& path,
 }
 
 void AppendToFile(const base::FilePath& path, const std::string& content) {
-  DCHECK(!path.empty());
+  CHECK(!path.empty(), base::NotFatalUntil::M161);
 
   base::File file(path, base::File::FLAG_OPEN_ALWAYS | base::File::FLAG_APPEND);
   if (!file.IsValid()) {
@@ -167,15 +167,18 @@ void DevToolsFileHelper::Save(const std::string& url,
   }
 
   if (initial_path.empty()) {
-    // SECURITY: |url| is page-controlled. Derive the suggested filename via
-    // net::GenerateFileName(), which strips path separators, "..", BiDi
-    // control characters and shell-integrated extensions - the same
-    // sanitization the download stack applies. This prevents %2F / %5C
-    // traversal out of the default Save-As folder and U+202E filename
-    // spoofing.
+    // SECURITY: |url| is page-controlled and may be either a valid URL or a
+    // raw filename (e.g. "Trace-20261019T154233.json.gz"). Derive the
+    // suggested filename via net::GenerateFileName(), which strips path
+    // separators, "..", BiDi control characters and shell-integrated
+    // extensions - the same sanitization the download stack applies. This
+    // prevents %2F / %5C traversal out of the default Save-As folder and
+    // U+202E filename spoofing.
+    GURL gurl(url);
     base::FilePath suggested_file_name = net::GenerateFileName(
-        GURL(url), /*content_disposition=*/std::string(),
-        /*referrer_charset=*/std::string(), /*suggested_name=*/std::string(),
+        gurl, /*content_disposition=*/std::string(),
+        /*referrer_charset=*/std::string(),
+        /*suggested_name=*/gurl.is_valid() ? std::string() : url,
         /*mime_type=*/std::string(), /*default_name=*/"download");
 
     if (!GetLastSavePath().empty()) {
@@ -283,7 +286,7 @@ void DevToolsFileHelper::ConnectAutomaticFileSystem(
     bool add_if_missing,
     const HandlePermissionsCallback& handle_permissions_callback,
     ConnectCallback connect_callback) {
-  DCHECK(file_system_uuid.is_valid());
+  CHECK(file_system_uuid.is_valid(), base::NotFatalUntil::M161);
 
   // Reject unsafe network, relative, or parent-referencing paths synchronously
   // to avoid performing any filesystem existence/presence checks.
@@ -433,7 +436,7 @@ void DevToolsFileHelper::ConnectUserConfirmedAutomaticFileSystem(
 bool DevToolsFileHelper::IsUserConfirmedAutomaticFileSystem(
     const std::string& file_system_path,
     const base::Uuid& file_system_uuid) const {
-  DCHECK(file_system_uuid.is_valid());
+  CHECK(file_system_uuid.is_valid(), base::NotFatalUntil::M161);
   const base::DictValue& file_system_paths_value =
       profile_->GetPrefs()->GetDict(prefs::kDevToolsFileSystemPaths);
   const base::Value* value = file_system_paths_value.Find(file_system_path);
@@ -525,7 +528,7 @@ DevToolsFileHelper::GetFileSystems() {
 }
 
 void DevToolsFileHelper::RemoveFileSystem(const std::string& file_system_path) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M161);
   auto path = base::FilePath::FromUTF8Unsafe(file_system_path);
 
   if (connected_automatic_file_systems_.erase(file_system_path) == 1) {
@@ -541,12 +544,12 @@ void DevToolsFileHelper::RemoveFileSystem(const std::string& file_system_path) {
 
 bool DevToolsFileHelper::IsFileSystemAdded(
     const std::string& file_system_path) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M161);
   return file_system_paths_.contains(file_system_path);
 }
 
 bool DevToolsFileHelper::IsFileInFileSystem(const std::string& file_path) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M161);
   base::FilePath path = base::FilePath::FromUTF8Unsafe(file_path);
   if (path.ReferencesParent()) {
     return false;
@@ -564,14 +567,14 @@ bool DevToolsFileHelper::IsFileInFileSystem(const std::string& file_path) {
 void DevToolsFileHelper::OnOpenItemComplete(
     const base::FilePath& path,
     platform_util::OpenOperationResult result) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M161);
   if (result == platform_util::OPEN_FAILED_INVALID_TYPE) {
     platform_util::ShowItemInFolder(profile_, path);
   }
 }
 
 void DevToolsFileHelper::ShowItemInFolder(const std::string& file_system_path) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M161);
   if (file_system_path.empty()) {
     return;
   }
@@ -583,10 +586,10 @@ void DevToolsFileHelper::ShowItemInFolder(const std::string& file_system_path) {
 }
 
 void DevToolsFileHelper::UpdateFileSystemPathsOnUI() {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M161);
   PathToType remaining;
   remaining.swap(file_system_paths_);
-  DCHECK(file_watcher_.get());
+  CHECK(file_watcher_.get(), base::NotFatalUntil::M161);
 
   for (const auto& file_system_path : GetActiveFileSystemPaths()) {
     if (remaining.find(file_system_path.first) == remaining.end()) {

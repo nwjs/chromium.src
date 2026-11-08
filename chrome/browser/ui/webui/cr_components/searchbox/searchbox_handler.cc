@@ -8,6 +8,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <unordered_set>
 #include <utility>
 #include <vector>
@@ -57,11 +58,10 @@
 #include "components/omnibox/browser/aim_eligibility_service_features.h"
 #include "components/omnibox/browser/autocomplete_classifier.h"
 #include "components/omnibox/browser/autocomplete_controller_emitter.h"
+#include "components/omnibox/browser/autocomplete_input.h"
 #include "components/omnibox/browser/autocomplete_match.h"
 #include "components/omnibox/browser/autocomplete_result.h"
 #include "components/omnibox/browser/contextual_search_provider.h"
-#include "components/omnibox/browser/fusebox_action.mojom.h"
-#include "components/omnibox/browser/fusebox_action_mojo_utils.h"
 #include "components/omnibox/browser/omnibox_client.h"
 #include "components/omnibox/browser/omnibox_field_trial.h"
 #include "components/omnibox/browser/omnibox_metrics_constants.h"
@@ -69,12 +69,14 @@
 #include "components/omnibox/browser/omnibox_pref_names.h"
 #include "components/omnibox/browser/omnibox_prefs.h"
 #include "components/omnibox/browser/searchbox_utils.h"
+#include "components/omnibox/browser/suggest_template_info_mojo_utils.h"
 #include "components/omnibox/browser/vector_icons.h"
 #include "extensions/buildflags/buildflags.h"
 #include "ui/base/window_open_disposition.h"
 #if BUILDFLAG(ENABLE_EXTENSIONS)
 #include "extensions/common/extension_features.h"
 #endif
+#include "components/omnibox/common/composebox_features.h"
 #include "components/omnibox/common/input_state.h"
 #include "components/omnibox/common/omnibox_feature_configs.h"
 #include "components/omnibox/common/omnibox_features.h"
@@ -82,15 +84,16 @@
 #include "components/search_engines/template_url.h"
 #include "components/search_engines/template_url_service.h"
 #include "components/search_engines/template_url_starter_pack_data.h"
+#include "components/security_state/core/security_state.h"
 #include "components/strings/grit/components_strings.h"
 #include "components/variations/variations_client.h"
 #include "components/vector_icons/vector_icons.h"
 #include "content/public/browser/web_ui_data_source.h"
 #include "content/public/common/url_constants.h"
+#include "net/cert/cert_status_flags.h"
 #include "third_party/omnibox_proto/chrome_searchbox_stats.pb.h"
 #include "third_party/omnibox_proto/groups.pb.h"
 #include "third_party/omnibox_proto/input_type.pb.h"
-#include "third_party/omnibox_proto/rich_answer_template.pb.h"
 #include "third_party/omnibox_proto/rule_set.pb.h"
 #include "third_party/omnibox_proto/searchbox_config.pb.h"
 #include "third_party/omnibox_proto/suggest_template_info.pb.h"
@@ -102,11 +105,16 @@
 #include "ui/gfx/vector_icon_types.h"
 #include "ui/webui/resources/cr_components/composebox/composebox.mojom.h"
 #include "url/gurl.h"
+#include "url/url_constants.h"
 
 #if !BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/new_tab_page/new_tab_page_util.h"  // nogncheck
 #include "chrome/browser/ui/tabs/tab_strip_model.h"         // nogncheck
 #endif  // !BUILDFLAG(IS_ANDROID)
+
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+#include "extensions/common/constants.h"  // nogncheck
+#endif                                    // BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 
 namespace searchbox_internal {
 
@@ -114,6 +122,8 @@ const char* kSearchSparkIconResourceName =
     "//resources/cr_components/searchbox/icons/search_spark.svg";
 const char* kReplyRotated180IconResourceName =
     "//resources/cr_components/searchbox/icons/reply_rotated180.svg";
+const char* kDockToRightIconResourceName =
+    "//resources/cr_components/searchbox/icons/dock_to_right.svg";
 }  // namespace searchbox_internal
 
 namespace {
@@ -389,9 +399,12 @@ base::DictValue SearchboxHandler::GetWebUIDataSourceDict(
       {"addTab", IDS_NTP_COMPOSEBOX_TAB_PICKER_ADD_TABS_TITLE},
       {"shareTabs", IDS_COMPOSE_ADD_TABS},
       {"recentTabsSuffix", IDS_NTP_COMPOSEBOX_RECENT_TAB_SUFFIX},
-      {"currentTabSuffix", IDS_COMPOSE_CURRENT_TAB},
       {"sharingTabsWithGoogle", IDS_COMPOSE_SHARING_TABS_WITH_GOOGLE},
       {"addOpenTabsToAskAnything", IDS_COMPOSE_ADD_OPEN_TABS_TO_ASK_ANYTHING},
+      {"stsMegaplusAutomaticallyAddTabsHeader",
+       IDS_STS_MEGAPLUS_AUTOMATICALLY_ADD_TABS_HEADER},
+      {"stsMegaplusManuallyAddTabsHeader",
+       IDS_STS_MEGAPLUS_MANUALLY_ADD_TABS_HEADER},
       {"dismissButton", IDS_NTP_DISMISS},
       {"searchboxComposeButtonText", IDS_NTP_COMPOSE_ENTRYPOINT},
       {"searchboxComposeButtonTitle", IDS_NTP_COMPOSE_ENTRYPOINT_A11Y_LABEL},
@@ -500,9 +513,9 @@ base::DictValue SearchboxHandler::GetWebUIDataSourceDict(
            base::FeatureList::IsEnabled(ntp_features::kRealboxCr23Theming));
   dict.Set("searchboxCr23SteadyStateShadow",
            ntp_features::kNtpRealboxCr23SteadyStateShadow.Get());
-  dict.Set(
-      "realboxVirtualFocusNavigation",
-      base::FeatureList::IsEnabled(features::kRealboxVirtualFocusNavigation));
+  dict.Set("realboxVirtualFocusNavigation",
+           base::FeatureList::IsEnabled(
+               ntp_features::kRealboxVirtualFocusNavigation));
   dict.Set("lensOverlayVirtualFocusNavigation",
            base::FeatureList::IsEnabled(
                features::kLensOverlayVirtualFocusNavigation));
@@ -548,7 +561,7 @@ base::DictValue SearchboxHandler::GetWebUIDataSourceDict(
            options.session_allows_drag_and_drop);
 
 #if !BUILDFLAG(IS_ANDROID)
-  auto composebox_config = ntp_composebox::FeatureConfig::Get().config;
+  const auto& composebox_config = ntp_composebox::FeatureConfig::Get().config;
   dict.Set("searchboxShowComposeAnimation",
            profile->GetPrefs()->GetInteger(
                prefs::kNtpComposeButtonShownCountPrefName) <
@@ -565,12 +578,17 @@ base::DictValue SearchboxHandler::GetWebUIDataSourceDict(
       base::FeatureList::IsEnabled(omnibox::kAimUseSearchboxConfigIconIds));
   dict.Set("ShowContextMenuHeaders",
            ntp_composebox::kShowContextMenuHeaders.Get());
+  dict.Set("composeboxSingleTabMenuItemEnabled",
+           omnibox::IsSingleTabMenuItemInComposeboxEnabled());
   dict.Set("composeboxSmartTabSharingVisible",
            options.is_lens ? false
                            : contextual_tasks::ContextualTasksContextService::
                                  GetIsSmartTabSharingEnabled(profile));
   dict.Set("stsMegaplusShareRelevantOpenTabs",
            GetSmartTabSharingMegaplusString());
+  dict.Set(
+      "composeboxUnselectMatchOnTabExit",
+      base::FeatureList::IsEnabled(omnibox::kComposeboxUnselectMatchOnTabExit));
 
   return dict;
 }
@@ -868,6 +886,18 @@ SearchboxHandler::CreateAutocompleteMatches(
         mojom_match.value()->show_contextual_description = true;
         flagged_contextual = true;
       }
+      std::u16string emphasis_text = match.fill_into_edit;
+      if (line == 0 && match.allowed_to_be_default_match &&
+          autocomplete_controller() &&
+          !autocomplete_controller()->input().text().empty() &&
+          !autocomplete_controller()->input().in_keyword_mode()) {
+        emphasis_text = autocomplete_controller()->input().text() +
+                        match.inline_autocompletion;
+      }
+      mojom_match.value()->url_emphasis = ComputeUrlEmphasis(
+          emphasis_text,
+          /*text_is_url=*/!mojom_match.value()->is_search_type,
+          /*include_security_style=*/false, client());
       PopulateAccessibilityLabels(result, line, turl_service,
                                   mojom_match.value().get());
       matches.push_back(std::move(mojom_match.value()));
@@ -974,29 +1004,6 @@ SearchboxHandler::CreateAutocompleteMatch(
       searchbox::mojom::AutocompleteMatch::New();
   mojom_match->is_hidden = match.ShouldHideBasedOnStarterPack(turl_service);
   mojom_match->allowed_to_be_default_match = match.allowed_to_be_default_match;
-  // Resolve `swap_contents_and_description` here so the UI can always render
-  // `contents` as the primary text and `description` as the secondary text.
-  const bool swap = match.swap_contents_and_description;
-  const std::u16string& primary_text =
-      swap ? match.description : match.contents;
-  const ACMatchClassifications& primary_class =
-      swap ? match.description_class : match.contents_class;
-  const std::u16string& secondary_text =
-      swap ? match.contents : match.description;
-  const ACMatchClassifications& secondary_class =
-      swap ? match.contents_class : match.description_class;
-  mojom_match->contents = primary_text;
-  for (const auto& contents_class : primary_class) {
-    mojom_match->contents_class.push_back(
-        searchbox::mojom::ACMatchClassification::New(contents_class.offset,
-                                                     contents_class.style));
-  }
-  mojom_match->description = secondary_text;
-  for (const auto& description_class : secondary_class) {
-    mojom_match->description_class.push_back(
-        searchbox::mojom::ACMatchClassification::New(description_class.offset,
-                                                     description_class.style));
-  }
   mojom_match->destination_url = match.destination_url;
   mojom_match->suggestion_group_id =
       match.suggestion_group_id.value_or(omnibox::GROUP_INVALID);
@@ -1025,28 +1032,14 @@ SearchboxHandler::CreateAutocompleteMatch(
       mojom_match->icon_url = favicon_url;
     }
   }
-  mojom_match->image_dominant_color = match.image_dominant_color;
-  mojom_match->image_url = match.image_url.spec();
   mojom_match->fill_into_edit = match.fill_into_edit;
   mojom_match->inline_autocompletion = match.inline_autocompletion;
   mojom_match->is_search_type = AutocompleteMatch::IsSearchType(match.type);
   mojom_match->show_contextual_description = false;
   mojom_match->type = omnibox::AutocompleteMatchTypeToString(match.type);
   mojom_match->supports_deletion = match.SupportsDeletion();
-  mojom_match->is_two_row_suggestion =
-      !mojom_match->image_url.empty() ||
-      match.type == omnibox::AutocompleteMatchType::kCalculator ||
-      match.enterprise_search_aggregator_type ==
-          AutocompleteMatch::EnterpriseSearchAggregatorType::PEOPLE;
-  if (match.suggest_template) {
-    if (match.suggest_template->secondary_text_placement() ==
-        omnibox::SuggestTemplateInfo::BELOW_PRIMARY_TEXT) {
-      mojom_match->is_two_row_suggestion = true;
-    } else if (match.suggest_template->secondary_text_placement() ==
-               omnibox::SuggestTemplateInfo::IN_FRONT_OF_PRIMARY_TEXT) {
-      mojom_match->is_two_row_suggestion = false;
-    }
-  }
+  mojom_match->suggest_template =
+      suggest_template_info::CreateSuggestTemplateInfo(match);
   if (!match.from_keyword) {
     for (const auto& action : match.actions) {
 // TODO(b/544764632): Implement Pedals for Android.
@@ -1075,16 +1068,6 @@ SearchboxHandler::CreateAutocompleteMatch(
   mojom_match->tail_suggest_common_prefix = match.tail_suggest_common_prefix;
 
   mojom_match->is_contextual_suggestion = match.IsContextualSearchSuggestion();
-
-  if (match.suggest_template && match.suggest_template->has_fusebox_action()) {
-    mojom_match->fusebox_action = fusebox_action::SyncFuseboxActionProtoToMojo(
-        match.suggest_template->fusebox_action());
-  }
-
-  if (match.suggest_template && match.suggest_template->has_style()) {
-    mojom_match->suggest_style = static_cast<searchbox::mojom::SuggestStyle>(
-        match.suggest_template->style());
-  }
 
   if (SupportsKeywordMode()) {
     KeywordState keyword_state;
@@ -1123,6 +1106,87 @@ SearchboxHandler::CreateAutocompleteMatch(
   }
 
   return mojom_match;
+}
+
+// static
+searchbox::mojom::UrlEmphasisPtr SearchboxHandler::ComputeUrlEmphasis(
+    const std::u16string& text,
+    bool text_is_url,
+    bool include_security_style,
+    const OmniboxClient* client) {
+  auto emphasis = searchbox::mojom::UrlEmphasis::New();
+  emphasis->deemphasis_mode = searchbox::mojom::UrlDeemphasisMode::kNothing;
+  emphasis->text_is_url = false;
+  emphasis->scheme_strike_through = false;
+  emphasis->scheme_dangerous = false;
+
+  if (text.empty() || !client) {
+    return emphasis;
+  }
+
+  emphasis->text_is_url = text_is_url;
+  if (!text_is_url) {
+    return emphasis;
+  }
+
+  url::Component scheme;
+  url::Component host;
+  AutocompleteInput::ParseForEmphasizeComponents(
+      text, client->GetSchemeClassifier(), &scheme, &host);
+
+  const std::u16string_view url_scheme =
+      scheme.is_nonempty()
+          ? std::u16string_view(text).substr(scheme.begin, scheme.len)
+          : std::u16string_view();
+
+  const bool is_extension_url =
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+      base::EqualsASCII(url_scheme, extensions::kExtensionScheme);
+#else
+      false;
+#endif
+
+  // Extension IDs are not human-readable, so deemphasize everything to draw
+  // attention to the human-readable name in the location icon text.
+  // Data URLs are rarely human-readable and can be used for spoofing, so draw
+  // attention to the scheme to emphasize "this is just a bunch of data".
+  // For normal URLs, the host is the best proxy for "identity".
+  if (is_extension_url) {
+    emphasis->deemphasis_mode =
+        searchbox::mojom::UrlDeemphasisMode::kEverything;
+  } else if (url_scheme == url::kDataScheme16) {
+    emphasis->deemphasis_mode =
+        searchbox::mojom::UrlDeemphasisMode::kAllButScheme;
+  } else if (host.is_nonempty()) {
+    emphasis->deemphasis_mode =
+        searchbox::mojom::UrlDeemphasisMode::kAllButHost;
+  }
+
+  if (scheme.is_nonempty()) {
+    emphasis->scheme_range = gfx::Range(scheme.begin, scheme.end());
+
+    // Emphasize the scheme for security UI display purposes (if necessary).
+    //
+    // Do not style the scheme for non-http/https URLs. For such schemes,
+    // styling could be confusing or misleading. For example, the scheme isn't
+    // meaningful in about:blank URLs. Or in blob: or filesystem: URLs, which
+    // have an inner origin, the URL is likely too syntax-y to be able to
+    // meaningfully draw attention to any part of it.
+    if (include_security_style &&
+        client->GetNavigationEntryURL().SchemeIsHTTPOrHTTPS()) {
+      if (net::IsCertStatusError(client->GetCertStatus())) {
+        if (client->GetSecurityLevel() == security_state::DANGEROUS) {
+          emphasis->scheme_dangerous = true;
+        }
+        emphasis->scheme_strike_through = true;
+      }
+    }
+  }
+  if (host.is_nonempty()) {
+    emphasis->host_range = gfx::Range(host.begin, host.end());
+  }
+
+  return emphasis;
 }
 
 WindowOpenDisposition SearchboxHandler::ComputeWindowOpenDisposition(
@@ -1717,7 +1781,10 @@ void SearchboxHandler::OpenPopupSelection(
     AutocompleteMatch url_match = searchbox::GenerateDotComMatch(
         client(), autocomplete_controller(), input, text_for_tld);
     if (url_match.destination_url.is_valid()) {
-      OpenMatch(popup_selection, url_match, disposition, base::TimeTicks::Now(),
+      // `url_match` isn't in the result, so pass `kNoMatch` to log it as the
+      // only match, instead of logging the line that `popup_selection` is on.
+      OpenMatch(OmniboxPopupSelection(OmniboxPopupSelection::kNoMatch),
+                url_match, disposition, base::TimeTicks::Now(),
                 searchbox::MakeAutocompleteSnapshot(autocomplete_controller()));
       return;
     }
@@ -1790,7 +1857,7 @@ void SearchboxHandler::ActivateKeyword(
     uint8_t line,
     const GURL& url,
     base::TimeTicks match_selection_timestamp,
-    bool is_mouse_event) {
+    searchbox::mojom::KeywordActivationMethod activation_method) {
   // TODO(b/449785444): Allow embedders other than the Omnibox to activate
   // keyword mode.
   NOTREACHED();
@@ -2168,6 +2235,11 @@ void SearchboxHandler::SetSmartTabSharingActive(bool active) {}
 
 void SearchboxHandler::GetSmartTabSharingActive(
     GetSmartTabSharingActiveCallback callback) {
+  std::move(callback).Run(false);
+}
+
+void SearchboxHandler::ResetSmartTabSharing(
+    ResetSmartTabSharingCallback callback) {
   std::move(callback).Run(false);
 }
 #endif

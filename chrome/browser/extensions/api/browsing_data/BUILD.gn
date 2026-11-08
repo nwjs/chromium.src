@@ -13,15 +13,12 @@ source_set("browsing_data") {
     "browsing_data_api.h",
   ]
 
-  configs += [ "//build/config/compiler:wexit_time_destructors" ]
-
   deps = [
     "//base",
     "//chrome/browser/browsing_data:constants",
     "//chrome/browser/profiles",
     "//chrome/browser/signin",
     "//chrome/browser/sync",
-    "//chrome/browser/ui",
     "//components/browsing_data/content",
     "//components/browsing_data/core",
     "//components/history/core/common",

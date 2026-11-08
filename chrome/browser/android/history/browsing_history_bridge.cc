@@ -17,6 +17,8 @@
 #include "chrome/browser/sync/sync_service_factory.h"
 #include "components/history/core/browser/browsing_history_service.h"
 #include "components/history/core/browser/features.h"
+#include "components/history/core/browser/history_service.h"
+#include "components/history/core/browser/history_types.h"
 #include "components/keyed_service/core/service_access_type.h"
 #include "components/sync_device_info/device_info.h"
 #include "components/sync_device_info/device_info_sync_service.h"
@@ -75,8 +77,12 @@ BrowsingHistoryBridge::BrowsingHistoryBridge(JNIEnv* env,
       profile_, ServiceAccessType::EXPLICIT_ACCESS);
   syncer::SyncService* sync_service =
       SyncServiceFactory::GetForProfile(profile_);
-  browsing_history_service_ = std::make_unique<BrowsingHistoryService>(
-      this, local_history, sync_service);
+  auto* device_info_service =
+      DeviceInfoSyncServiceFactory::GetForProfile(profile_);
+  browsing_history_service_ = std::make_unique<history::BrowsingHistoryService>(
+      this, local_history, sync_service,
+      device_info_service ? device_info_service->GetDeviceInfoTracker()
+                          : nullptr);
 
   j_history_service_obj_.Reset(env, obj);
 }
@@ -93,7 +99,9 @@ void BrowsingHistoryBridge::QueryHistory(
     const std::u16string& query,
     const std::optional<std::string>& app_id,
     const std::optional<std::string>& hostname_suffix,
-    const std::optional<std::string>& client_id) {
+    const std::vector<std::string>& client_ids,
+    bool include_user_visits,
+    bool include_actor_visits) {
   j_query_result_obj_.Reset(env, j_result_obj);
   query_history_continuation_.Reset();
 
@@ -101,15 +109,13 @@ void BrowsingHistoryBridge::QueryHistory(
   options.max_count = kMaxQueryCount;
   options.policy_for_404_visits = history::VisitQuery404sPolicy::kExclude404s;
   options.duplicate_policy = history::QueryOptions::REMOVE_DUPLICATES_PER_DAY;
-  options.include_actor_visits =
-      history::IsBrowsingHistoryActorIntegrationM3Enabled();
+  options.include_user_visits = include_user_visits;
+  options.include_actor_visits = include_actor_visits;
   options.app_id = app_id;
   if (hostname_suffix.has_value()) {
     options.hostname_suffix = *hostname_suffix;
   }
-  if (client_id.has_value()) {
-    options.client_ids.push_back(*client_id);
-  }
+  options.client_ids = client_ids;
   browsing_history_service_->QueryHistory(query, options);
 }
 
@@ -286,6 +292,23 @@ static int64_t JNI_BrowsingHistoryBridge_Init(JNIEnv* env,
                                               Profile* profile) {
   BrowsingHistoryBridge* bridge = new BrowsingHistoryBridge(env, obj, profile);
   return reinterpret_cast<intptr_t>(bridge);
+}
+
+static void JNI_BrowsingHistoryBridge_AddPageToHistoryForTesting(
+    JNIEnv* env,
+    Profile* profile,
+    const GURL& url,
+    const std::u16string& title,
+    int64_t visit_time_ms) {
+  history::HistoryService* history_service =
+      HistoryServiceFactory::GetForProfile(profile,
+                                           ServiceAccessType::EXPLICIT_ACCESS);
+  CHECK(history_service);
+  history::HistoryAddPageArgs args;
+  args.url = url;
+  args.time = base::Time::FromMillisecondsSinceUnixEpoch(visit_time_ms);
+  args.title = title;
+  history_service->AddPage(std::move(args));
 }
 
 DEFINE_JNI(BrowsingHistoryBridge)

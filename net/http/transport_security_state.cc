@@ -57,7 +57,7 @@ const TransportSecurityStateSource* const kDefaultHSTSSource = nullptr;
 
 const TransportSecurityStateSource* g_hsts_source = kDefaultHSTSSource;
 
-#if BUILDFLAG(INCLUDE_TRANSPORT_SECURITY_STATE_PRELOAD_LIST)
+#if BUILDFLAG(CHROME_KEY_PINNING_SUPPORTED)
 // TODO(crbug.com/497882860): Remove pins include from this file.
 #include "net/http/transport_security_state_static_pins.h"  // nogncheck
 // Points to the pins source.
@@ -445,8 +445,6 @@ void TransportSecurityState::AddHPKP(std::string_view host,
   }
 
   PKPState pkp_state;
-  // No need to store |pkp_state.domain| since it is redundant.
-  // (|canonicalized_host| is the map key.)
   pkp_state.expiry = expiry;
   pkp_state.include_subdomains = include_subdomains;
   for (const auto& hash : hashes) {
@@ -585,7 +583,7 @@ size_t TransportSecurityState::num_sts_entries() const {
   return enabled_sts_hosts_.size();
 }
 
-#if BUILDFLAG(INCLUDE_TRANSPORT_SECURITY_STATE_PRELOAD_LIST)
+#if BUILDFLAG(CHROME_KEY_PINNING_SUPPORTED)
 // static
 base::Time TransportSecurityState::GetBuiltInPinsListTimestamp() {
   return kPinsListTimestamp;
@@ -667,7 +665,6 @@ bool TransportSecurityState::GetStaticPKPState(std::string_view host,
       // this is an exact match of the full hostname.
       if (iter != host_pins_->end() &&
           (iter->second.second || search_hostname == normalized_host)) {
-        pkp_result->domain = std::string(search_hostname);
         pkp_result->include_subdomains = iter->second.second;
         const PinSet* pinset = iter->second.first;
         for (const auto& hash : pinset->static_spki_hashes()) {
@@ -701,7 +698,6 @@ bool TransportSecurityState::GetStaticPKPState(std::string_view host,
     // this is an exact match of the full hostname.
     if (pin &&
         (pin->include_subdomains || search_hostname == normalized_host)) {
-      pkp_result->domain = std::string(search_hostname);
       pkp_result->include_subdomains = pin->include_subdomains;
       for (const SHA256HashValue* hash : pin->pinset->accepted_pins) {
         pkp_result->spki_hashes.insert(*hash);
@@ -809,14 +805,7 @@ bool TransportSecurityState::GetDynamicPKPState(std::string_view host,
     // implement HPKP, so this logic is only used via AddHPKP(), reachable from
     // Cronet.
     if (i == 0 || j->second.include_subdomains) {
-      std::optional<std::string> dotted_name =
-          dns_names_util::NetworkToDottedName(host_sub_chunk);
-      if (!dotted_name) {
-        return false;
-      }
-
       *result = j->second;
-      result->domain = std::move(dotted_name).value();
       return true;
     }
 
@@ -910,7 +899,7 @@ bool TransportSecurityState::IsStaticPKPListTimely() const {
   // If the list has not been updated via component updater, freshness depends
   // on the compiled-in list freshness.
   if (!host_pins_.has_value()) {
-#if BUILDFLAG(INCLUDE_TRANSPORT_SECURITY_STATE_PRELOAD_LIST)
+#if BUILDFLAG(CHROME_KEY_PINNING_SUPPORTED)
     return (base::Time::Now() - kPinsListTimestamp).InDays() < 70;
 #else
     return false;

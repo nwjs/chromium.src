@@ -20,6 +20,9 @@
 #import "components/subscription_eligibility/subscription_eligibility_service.h"
 #import "components/sync/protocol/theme_types.pb.h"
 #import "components/sync/test/test_sync_service.h"
+#import "ios/chrome/browser/aim/model/ai_mode_button_service_ios.h"
+#import "ios/chrome/browser/aim/model/ai_mode_button_service_ios_factory.h"
+#import "ios/chrome/browser/aim/model/ios_chrome_aim_eligibility_service_factory.h"
 #import "ios/chrome/browser/browser_view/model/browser_view_visibility_notifier_browser_agent.h"
 #import "ios/chrome/browser/browser_view/public/browser_view_visibility_state.h"
 #import "ios/chrome/browser/content_suggestions/coordinator/content_suggestions_mediator.h"
@@ -39,7 +42,6 @@
 #import "ios/chrome/browser/ntp/search_engine_logo/ui/search_engine_logo_state.h"
 #import "ios/chrome/browser/ntp/shared/metrics/feed_metrics_constants.h"
 #import "ios/chrome/browser/ntp/shared/metrics/feed_metrics_recorder.h"
-#import "ios/chrome/browser/ntp/ui_bundled/ai_mode_button_service_ios.h"
 #import "ios/chrome/browser/ntp/ui_bundled/feed_control_delegate.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_consumer.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_content_delegate.h"
@@ -133,7 +135,13 @@ class NewTabPageMediatorTest : public PlatformTest {
             [](ProfileIOS* profile) -> std::unique_ptr<KeyedService> {
               return std::make_unique<MockImageFetcherService>();
             }));
+    test_profile_builder.AddTestingFactory(
+        IOSChromeAimEligibilityServiceFactory::GetInstance(),
+        base::BindRepeating(
+            &NewTabPageMediatorTest::CreateMockAimEligibilityService,
+            base::Unretained(this)));
     profile_ = std::move(test_profile_builder).Build();
+    IOSChromeAimEligibilityServiceFactory::GetForProfile(profile_.get());
     browser_ = std::make_unique<TestBrowser>(profile_.get());
 
     initial_web_state_ = CreateWebStateWithURL(GURL("chrome://newtab"), 0.0);
@@ -163,11 +171,17 @@ class NewTabPageMediatorTest : public PlatformTest {
         DiscoverFeedServiceFactory::GetForProfile(profile_.get()));
     prefs_ = profile_->GetPrefs();
     histogram_tester_ = std::make_unique<base::HistogramTester>();
-    aim_eligibility_service_ =
+  }
+
+  std::unique_ptr<KeyedService> CreateMockAimEligibilityService(
+      ProfileIOS* profile) {
+    auto service =
         std::make_unique<testing::StrictMock<MockAimEligibilityService>>(
-            *profile_->GetPrefs(),
-            ios::TemplateURLServiceFactory::GetForProfile(profile_.get()),
-            nullptr, identity_manager_);
+            *profile->GetPrefs(),
+            ios::TemplateURLServiceFactory::GetForProfile(profile), nullptr,
+            IdentityManagerFactory::GetForProfile(profile));
+    aim_eligibility_service_ = service.get();
+    return service;
   }
 
   /// Creates mediator with optional `aim_eligibility_service` and
@@ -187,8 +201,9 @@ class NewTabPageMediatorTest : public PlatformTest {
     TemplateURLService* template_url_service =
         ios::TemplateURLServiceFactory::GetForProfile(profile_.get());
     AIModeButtonServiceIOS* ai_mode_button_service =
-        [[AIModeButtonServiceIOS alloc]
-            initWithTemplateURLService:template_url_service];
+        with_aim_eligibility_service
+            ? AIModeButtonServiceIOSFactory::GetForProfile(profile_.get())
+            : nullptr;
 
     mediator_ = [[NewTabPageMediator alloc]
                 initWithTemplateURLService:template_url_service
@@ -233,7 +248,10 @@ class NewTabPageMediatorTest : public PlatformTest {
   }
 
   // Explicitly disconnect the mediator.
-  ~NewTabPageMediatorTest() override { [mediator_ shutdown]; }
+  ~NewTabPageMediatorTest() override {
+    [mediator_ shutdown];
+    aim_eligibility_service_ = nullptr;
+  }
 
   // Creates a FakeWebState and simulates that it is loaded with a given `url`.
   std::unique_ptr<web::WebState> CreateWebStateWithURL(
@@ -287,7 +305,8 @@ class NewTabPageMediatorTest : public PlatformTest {
   raw_ptr<TestDiscoverFeedService> test_discover_feed_service_;
   std::unique_ptr<base::HistogramTester> histogram_tester_;
   base::test::ScopedFeatureList scoped_feature_list_;
-  std::unique_ptr<MockAimEligibilityService> aim_eligibility_service_;
+  raw_ptr<testing::StrictMock<MockAimEligibilityService>>
+      aim_eligibility_service_ = nullptr;
 };
 
 // Tests that the consumer has the right value set up.
@@ -431,6 +450,8 @@ TEST_F(NewTabPageMediatorTest, TestAIMNotEligible) {
 
   EXPECT_OCMOCK_VERIFY(header_consumer_);
   EXPECT_OCMOCK_VERIFY(ntp_consumer);
+  histogram_tester_->ExpectUniqueSample("Omnibox.AimEntrypoint.Shown", false,
+                                        1);
 }
 
 // Tests that the AIM is enabled if the user is eligible.
@@ -450,11 +471,15 @@ TEST_F(NewTabPageMediatorTest, TestAIMEligible) {
   id ntp_consumer = OCMProtocolMock(@protocol(NewTabPageConsumer));
   mediator_.consumer = ntp_consumer;
   OCMExpect([ntp_consumer setAIMAllowed:YES]);
+  OCMExpect([ntp_consumer setAIMTitle:[OCMArg isNotNil]
+                                 icon:[OCMArg isNotNil]
+                   accessibilityLabel:[OCMArg isNotNil]]);
   OCMExpect([header_consumer_ setAIMAllowed:YES]);
   [mediator_ setUp];
 
   EXPECT_OCMOCK_VERIFY(header_consumer_);
   EXPECT_OCMOCK_VERIFY(ntp_consumer);
+  histogram_tester_->ExpectUniqueSample("Omnibox.AimEntrypoint.Shown", true, 1);
 }
 
 // Tests that NTP modules are not updated if AIM eligibility changes before
@@ -496,6 +521,7 @@ TEST_F(NewTabPageMediatorTest, TestAIMBecomeEligibleBeforeSetUp) {
   callback.Run();
   // Consumer are updated but modules are not.
   EXPECT_OCMOCK_VERIFY(ntp_content_delegate);
+  histogram_tester_->ExpectTotalCount("Omnibox.AimEntrypoint.Shown", 0);
 
   // Consumer are updated during setup.
   OCMExpect([ntp_consumer setAIMAllowed:YES]);
@@ -504,6 +530,7 @@ TEST_F(NewTabPageMediatorTest, TestAIMBecomeEligibleBeforeSetUp) {
 
   EXPECT_OCMOCK_VERIFY(header_consumer_);
   EXPECT_OCMOCK_VERIFY(ntp_consumer);
+  histogram_tester_->ExpectUniqueSample("Omnibox.AimEntrypoint.Shown", true, 1);
 }
 
 // Tests that NTP modules are updated if AIM eligibility changes after setup.
@@ -537,6 +564,8 @@ TEST_F(NewTabPageMediatorTest, TestAIMBecomeEligibleAfterSetUp) {
       OCMProtocolMock(@protocol(NewTabPageContentDelegate));
   mediator_.NTPContentDelegate = ntp_content_delegate;
   [mediator_ setUp];
+  histogram_tester_->ExpectUniqueSample("Omnibox.AimEntrypoint.Shown", false,
+                                        1);
 
   // Becomes eligible after setup, modules should be updated.
   is_eligible = true;
@@ -548,6 +577,9 @@ TEST_F(NewTabPageMediatorTest, TestAIMBecomeEligibleAfterSetUp) {
   EXPECT_OCMOCK_VERIFY(header_consumer_);
   EXPECT_OCMOCK_VERIFY(ntp_consumer);
   EXPECT_OCMOCK_VERIFY(ntp_content_delegate);
+  histogram_tester_->ExpectBucketCount("Omnibox.AimEntrypoint.Shown", false, 1);
+  histogram_tester_->ExpectBucketCount("Omnibox.AimEntrypoint.Shown", true, 1);
+  histogram_tester_->ExpectTotalCount("Omnibox.AimEntrypoint.Shown", 2);
 }
 
 // Tests that fetchCustomBackground ignores duplicate requests for the same URL.

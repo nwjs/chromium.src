@@ -20,7 +20,6 @@
 #include "base/functional/bind.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/user_metrics_action.h"
-#include "base/no_destructor.h"
 #include "base/notreached.h"
 #include "base/process/current_process.h"
 #include "base/profiler/thread_group_profiler.h"
@@ -188,6 +187,7 @@
 #include "ui/base/page_transition_types.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/base/webui/jstemplate_builder.h"
+#include "ui/webui/buildflags.h"
 #include "url/origin.h"
 #include "v8/include/v8-isolate.h"
 
@@ -205,11 +205,8 @@
 #include "chrome/renderer/indigo/indigo_agent.h"
 #include "chrome/renderer/indigo/onboarding_agent.h"
 #include "chrome/renderer/password_manager/remote_actor_credential_sharing_extension.h"
-#include "chrome/renderer/searchbox/searchbox.h"
-#include "chrome/renderer/searchbox/searchbox_extension.h"
 #include "components/record_replay/content/renderer/record_replay_agent.h"
 #include "components/record_replay/core/common/record_replay_features.h"
-#include "components/search/ntp_features.h"  // nogncheck
 #endif
 
 #if BUILDFLAG(ENABLE_SPEECH_SERVICE)
@@ -276,6 +273,11 @@
 
 #if BUILDFLAG(ENABLE_LIBRARY_CDMS) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_ANDROID)
 #include "chrome/renderer/media/chrome_key_systems.h"
+#endif
+
+#if BUILDFLAG(ENABLE_WEBUI_NTP)
+#include "chrome/renderer/searchbox/searchbox.h"
+#include "chrome/renderer/searchbox/searchbox_extension.h"
 #endif
 
 #include "content/nw/src/nw_content.h"
@@ -486,8 +488,6 @@ void ChromeContentRendererClient::RenderThreadStarted() {
       WebString::FromAscii(webapps::kIsolatedAppScheme));
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) ||
         // BUILDFLAG(IS_CHROMEOS)
-  WebSecurityPolicy::RegisterURLSchemeAsCodeCacheWithHashing(
-      WebString::FromAscii(extensions::kExtensionScheme));
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 
 #if BUILDFLAG(ENABLE_SPELLCHECK)
@@ -808,7 +808,7 @@ void ChromeContentRendererClient::RenderFrameCreated(
     subresource_filter_agent->Initialize();
   }
 
-#if !BUILDFLAG(IS_ANDROID)
+#if BUILDFLAG(ENABLE_WEBUI_NTP)
   if (process_state::IsInstantProcess() && render_frame->IsMainFrame()) {
     new SearchBox(render_frame);
   }
@@ -844,9 +844,14 @@ void ChromeContentRendererClient::RenderFrameCreated(
   }
 #endif
 
-  if (base::FeatureList::IsEnabled(
-          wallet::features::kWalletablePassDetection) &&
-      render_frame->IsMainFrame()) {
+  // Shared by Wallet pass detection and payment QR code detection. The main
+  // frame check precedes the feature flag checks so that subframes never enroll
+  // into either experiment.
+  if (render_frame->IsMainFrame() &&
+      (base::FeatureList::IsEnabled(
+           wallet::features::kWalletablePassDetection) ||
+       base::FeatureList::IsEnabled(
+           payments::facilitated::kEnableDesktopQrCodeDetection))) {
     wallet::ImageExtractor::Create(render_frame, registry);
   }
 
@@ -1371,7 +1376,7 @@ void ChromeContentRendererClient::WillSendRequest(
     return;
   }
 
-#if !BUILDFLAG(IS_ANDROID)
+#if BUILDFLAG(ENABLE_WEBUI_NTP)
   SearchBox* search_box =
       SearchBox::Get(content::RenderFrame::FromWebFrame(frame->LocalRoot()));
   if (search_box) {
@@ -1381,7 +1386,7 @@ void ChromeContentRendererClient::WillSendRequest(
       search_box->GenerateImageURLFromTransientURL(target_url, new_url);
     }
   }
-#endif  // !BUILDFLAG(IS_ANDROID)
+#endif  // BUILDFLAG(ENABLE_WEBUI_NTP)
 }
 
 bool ChromeContentRendererClient::IsPrefetchOnly(
@@ -1569,6 +1574,10 @@ void ChromeContentRendererClient::
 #if !BUILDFLAG(IS_ANDROID)
     blink::WebRuntimeFeatures::EnableWebHIDOnServiceWorkers(true);
 #endif  // !BUILDFLAG(IS_ANDROID)
+    if (base::FeatureList::IsEnabled(
+            blink::features::kClipboardOnExtensionServiceWorker)) {
+      blink::WebRuntimeFeatures::EnableClipboardOnExtensionServiceWorker(true);
+    }
     blink::WebRuntimeFeatures::EnableAIPromptAPIForWorkers(true);
     blink::WebRuntimeFeatures::EnableAIPromptAPILegacyIdentifiers(true);
     blink::WebRuntimeFeatures::EnableAIPromptAPILegacyParams(true);
@@ -1741,11 +1750,13 @@ void ChromeContentRendererClient::AppendContentSecurityPolicy(
 
   // Append a minimum CSP to ensure the extension can't relax the default
   // applied CSP through means like Service Worker.
-  const std::string* default_csp = extensions::CSPInfo::GetMinimumCSPToAppend(
-      *extension, gurl.GetPath(),
-      /*is_service_worker=*/content::WorkerThread::GetCurrentId() != 0);
-  if (!default_csp)
+  std::optional<std::string_view> default_csp =
+      extensions::CSPInfo::GetMinimumCSPToAppend(
+          *extension, gurl.GetPath(),
+          /*is_service_worker=*/content::WorkerThread::GetCurrentId() != 0);
+  if (!default_csp) {
     return;
+  }
 
   csp->push_back({blink::WebString::FromUtf8(*default_csp),
                   network::mojom::ContentSecurityPolicyType::kEnforce,

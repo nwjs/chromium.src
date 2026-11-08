@@ -24,7 +24,7 @@ static_library("skyvault") {
   ]
 
   public_deps = [
-    "//chrome/browser:browser_public_dependencies",
+    "//ash/constants",
     "//chrome/browser/ui/webui/ash/system_web_dialog",
   ]
 
@@ -59,7 +59,6 @@ source_set("browser_tests") {
     ":skyvault",
     "//base/test:test_support",
     "//chrome/browser/ash/policy/skyvault",
-    "//chrome/browser/ui",
     "//chrome/browser/ui:browser_window_header",
     "//chrome/common",
     "//chrome/common:chrome_features",

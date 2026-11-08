@@ -14,7 +14,6 @@ import static org.mockito.Mockito.when;
 import android.app.Activity;
 import android.widget.FrameLayout;
 
-import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
@@ -55,8 +54,6 @@ public class PinnedTabStripCoordinatorTest {
             new ActivityScenarioRule<>(TestActivity.class);
 
     @Mock private TabListCoordinator mTabListCoordinator;
-    @Mock private TabListRecyclerView mTabGridListRecyclerView;
-    @Mock private GridLayoutManager mLayoutManager;
     @Mock private PinnedTabStripMediator mMediator;
     @Mock private ItemTouchHelper2 mItemTouchHelper;
     @Mock private BottomSheetController mBottomSheetController;
@@ -72,8 +69,6 @@ public class PinnedTabStripCoordinatorTest {
 
     @Before
     public void setUp() {
-        when(mTabListCoordinator.getContainerView()).thenReturn(mTabGridListRecyclerView);
-        when(mTabGridListRecyclerView.getLayoutManager()).thenReturn(mLayoutManager);
         mActivityScenarioRule.getScenario().onActivity(this::onActivity);
     }
 
@@ -84,6 +79,9 @@ public class PinnedTabStripCoordinatorTest {
 
     private void onActivity(TestActivity activity) {
         FrameLayout parentView = new FrameLayout(activity);
+        TabListRecyclerView tabGridListRecyclerView =
+                new TabListRecyclerView(activity, /* attributeSet= */ null);
+        when(mTabListCoordinator.getContainerView()).thenReturn(tabGridListRecyclerView);
         mCoordinator =
                 new PinnedTabStripCoordinator(
                         activity,

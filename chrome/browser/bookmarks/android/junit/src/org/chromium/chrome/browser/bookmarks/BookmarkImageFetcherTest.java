@@ -11,7 +11,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
@@ -134,7 +133,7 @@ public class BookmarkImageFetcherTest {
                 .getScenario()
                 .onActivity(
                         (activity) -> {
-                            mActivity = spy(activity);
+                            mActivity = activity;
 
                             // Setup BookmarkModel.
                             doReturn(true).when(mBookmarkModel).doesBookmarkExist(any());

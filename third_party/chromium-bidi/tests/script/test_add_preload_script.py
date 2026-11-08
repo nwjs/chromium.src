@@ -660,7 +660,6 @@ async def test_preloadScript_add_sandbox_existing_context(websocket, context_id,
     assert result["result"] == {"type": "string", "value": "MY_SANDBOX_PRELOAD_SCRIPT"}
 
 
-@pytest.mark.skip(reason="Failing after M150: #4165")
 @pytest.mark.asyncio
 async def test_preloadScript_add_withUserGesture_blankTargetLink(
     websocket, context_id, html, read_messages, url_example
@@ -949,3 +948,124 @@ async def test_preloadScript_add_respectContextsForNewContexts(
         },
     )
     assert result["result"] == {"type": "undefined"}
+
+
+@pytest.mark.asyncio
+async def test_preloadScript_channel_sandbox(
+    websocket, context_id, html, read_messages
+):
+    await subscribe(websocket, ["script.message"])
+
+    result = await execute_command(
+        websocket,
+        {
+            "method": "script.addPreloadScript",
+            "params": {
+                "functionDeclaration": """
+                    (channel) => {
+                        channel('from_sandbox');
+                    }""",
+                "arguments": [
+                    {
+                        "type": "channel",
+                        "value": {"channel": "sandbox_channel"},
+                    },
+                ],
+                "sandbox": "MY_SANDBOX",
+            },
+        },
+    )
+    assert result == {"script": ANY_UUID}
+
+    command_id = await send_JSON_command(
+        websocket,
+        {
+            "method": "browsingContext.navigate",
+            "params": {"url": html(), "wait": "complete", "context": context_id},
+        },
+    )
+
+    [command_result, channel_message] = await read_messages(2, sort=True)
+    assert command_result == {"type": "success", "id": command_id, "result": ANY_DICT}
+
+    assert channel_message == AnyExtending(
+        {
+            "type": "event",
+            "method": "script.message",
+            "params": {
+                "channel": "sandbox_channel",
+                "data": {"type": "string", "value": "from_sandbox"},
+            },
+        }
+    )
+
+
+@pytest.mark.asyncio
+async def test_preloadScript_channel_respectContexts(
+    websocket, context_id, html, get_cdp_session_id
+):
+    await execute_command(
+        websocket,
+        {
+            "method": "script.addPreloadScript",
+            "params": {
+                "functionDeclaration": """
+                    (channel) => {
+                        channel('from_context');
+                    }""",
+                "arguments": [
+                    {
+                        "type": "channel",
+                        "value": {"channel": "context_channel"},
+                    },
+                ],
+                "contexts": [context_id],
+            },
+        },
+    )
+
+    result = await execute_command(
+        websocket, {"method": "browsingContext.create", "params": {"type": "tab"}}
+    )
+    new_context_id = result["context"]
+
+    # Use CDP JS coverage to verify that BiDi Mapper does not evaluate an
+    # internal ChannelProxy listener script in the unrelated context.
+    session_id = await get_cdp_session_id(new_context_id)
+    await execute_command(
+        websocket,
+        {
+            "method": "goog:cdp.sendCommand",
+            "params": {
+                "method": "Profiler.enable",
+                "params": {},
+                "session": session_id,
+            },
+        },
+    )
+    await execute_command(
+        websocket,
+        {
+            "method": "goog:cdp.sendCommand",
+            "params": {
+                "method": "Profiler.startPreciseCoverage",
+                "params": {},
+                "session": session_id,
+            },
+        },
+    )
+
+    await goto_url(websocket, new_context_id, html())
+
+    coverage = await execute_command(
+        websocket,
+        {
+            "method": "goog:cdp.sendCommand",
+            "params": {
+                "method": "Profiler.takePreciseCoverage",
+                "params": {},
+                "session": session_id,
+            },
+        },
+    )
+    assert coverage["result"]["result"] == []

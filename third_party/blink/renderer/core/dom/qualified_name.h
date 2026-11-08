@@ -33,7 +33,9 @@
 namespace blink {
 
 struct QualifiedNameComponents {
-  DISALLOW_NEW();
+  STACK_ALLOCATED();
+
+ public:
   StringImpl* prefix_;
   StringImpl* local_name_;
   StringImpl* namespace_;
@@ -43,7 +45,9 @@ struct QualifiedNameComponents {
 // QNameTranslator.  For hashing and equality only the QualifiedNameComponents
 // fields are used.
 struct QualifiedNameData {
-  DISALLOW_NEW();
+  STACK_ALLOCATED();
+
+ public:
   QualifiedNameComponents components_;
   bool is_static_;
 };
@@ -55,10 +59,7 @@ class CORE_EXPORT QualifiedNameImpl : public RefCounted<QualifiedNameImpl> {
   static scoped_refptr<QualifiedNameImpl> Create(StringImpl* prefix,
                                                  StringImpl* local_name,
                                                  StringImpl* namespace_uri,
-                                                 bool is_static) {
-    return base::AdoptRef(
-        new QualifiedNameImpl(prefix, local_name, namespace_uri, is_static));
-  }
+                                                 bool is_static);
 
   ~QualifiedNameImpl();
 

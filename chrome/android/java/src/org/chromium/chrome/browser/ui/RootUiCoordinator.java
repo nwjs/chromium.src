@@ -102,7 +102,6 @@ import org.chromium.chrome.browser.findinpage.FindToolbarObserver;
 import org.chromium.chrome.browser.flags.ActivityType;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.fullscreen.BrowserControlsManager;
-import org.chromium.chrome.browser.fullscreen.FullscreenBackPressHandler;
 import org.chromium.chrome.browser.fullscreen.FullscreenManager;
 import org.chromium.chrome.browser.fullscreen.FullscreenOptions;
 import org.chromium.chrome.browser.glic.GlicKeyedService.GlicInvocationSource;
@@ -160,7 +159,7 @@ import org.chromium.chrome.browser.share.scroll_capture.ScrollCaptureManager;
 import org.chromium.chrome.browser.signin.SigninAndHistorySyncActivityLauncherImpl;
 import org.chromium.chrome.browser.signin.WebSigninRedirectCoordinator;
 import org.chromium.chrome.browser.signin.WebSigninRedirectCoordinatorSupplier;
-import org.chromium.chrome.browser.signin.services.WebSigninBridge;
+import org.chromium.chrome.browser.signin.services.WebSigninTrackerBridge;
 import org.chromium.chrome.browser.tab.AccessibilityVisibilityHandler;
 import org.chromium.chrome.browser.tab.AutofillSessionLifetimeController;
 import org.chromium.chrome.browser.tab.CurrentTabObserver;
@@ -430,10 +429,11 @@ public class RootUiCoordinator
     protected final SettableMonotonicObservableSupplier<EdgeToEdgeController>
             mEdgeToEdgeControllerSupplier;
     protected @Nullable Destroyable mEdgeToEdgeBottomChin;
+    protected @Nullable Destroyable mEdgeToEdgeTopScalp;
     protected final @ActivityType int mActivityType;
     protected final Supplier<Boolean> mIsInOverviewModeSupplier;
     private final AppMenuDelegate mAppMenuDelegate;
-    protected final Supplier<TabContentManager> mTabContentManagerSupplier;
+    protected final Supplier<@Nullable TabContentManager> mTabContentManagerSupplier;
     private final IntentRequestTracker mIntentRequestTracker;
     private final boolean mInitializeUiWithIncognitoColors;
     protected final SettableMonotonicObservableSupplier<EphemeralTabCoordinator>
@@ -480,7 +480,6 @@ public class RootUiCoordinator
     protected @Nullable OpenInAppEntryPoint mOpenInAppEntryPoint;
     protected @Nullable OmniboxChipManager mOmniboxChipManager;
     protected @Nullable ActionRegistry mActionRegistry;
-    protected @Nullable OneshotSupplierImpl<String> mCountrySupplier;
     protected @Nullable BottomBarHostManager mBottomBarHostManager;
     private @Nullable AnchoredDialogCoordinator mAnchoredDialogCoordinator;
 
@@ -563,7 +562,7 @@ public class RootUiCoordinator
             MonotonicObservableSupplier<TabCreatorManager> tabCreatorManagerSupplier,
             FullscreenManager fullscreenManager,
             MonotonicObservableSupplier<CompositorViewHolder> compositorViewHolderSupplier,
-            Supplier<TabContentManager> tabContentManagerSupplier,
+            Supplier<@Nullable TabContentManager> tabContentManagerSupplier,
             MonotonicObservableSupplier<SnackbarManager> snackbarManagerSupplier,
             SettableMonotonicObservableSupplier<EdgeToEdgeController> edgeToEdgeControllerSupplier,
             TopInsetProvider topInsetProvider,
@@ -815,8 +814,6 @@ public class RootUiCoordinator
                             }
                         });
 
-        // TODO(crbug.com/433576895): Remove useSlider parameter and legacy seekbar
-        // logic.
         mPageZoomBarCoordinator =
                 new PageZoomBarCoordinator(
                         new PageZoomBarCoordinatorDelegate() {
@@ -838,28 +835,18 @@ public class RootUiCoordinator
                             }
                         },
                         mPageZoomManager,
-                        /* useSlider= */ true,
                         getBottomSheetControllerSupplier());
 
-        if (ChromeFeatureList.sEnableExclusiveAccessManager.isEnabled()) {
-            mExclusiveAccessManager =
-                    new ExclusiveAccessManager(
-                            mFullscreenManager,
-                            mDesktopWindowStateManager);
-            mBackPressManager.addHandler(
-                    new ExclusiveAccessManagerBackPressHandler(mExclusiveAccessManager),
-                    BackPressHandler.Type.FULLSCREEN);
-            // Fullscreen manager state, not actual window state, has to be recreated as soon after
-            // RootUiCoordinator creations as possible. It is needed to keep renderer in the
-            // fullscreen state if recreation was caused by the window move to another display
-            // during full screen to another screen call
-            mExclusiveAccessManager.setFullscreenPendingState(savedInstanceState);
-        } else {
-            mExclusiveAccessManager = null;
-            mBackPressManager.addHandler(
-                    new FullscreenBackPressHandler(mBrowserControlsManager.getFullscreenManager()),
-                    BackPressHandler.Type.FULLSCREEN);
-        }
+        mExclusiveAccessManager =
+                new ExclusiveAccessManager(mFullscreenManager, mDesktopWindowStateManager);
+        mBackPressManager.addHandler(
+                new ExclusiveAccessManagerBackPressHandler(mExclusiveAccessManager),
+                BackPressHandler.Type.FULLSCREEN);
+        // Fullscreen manager state, not actual window state, has to be recreated as soon after
+        // RootUiCoordinator creations as possible. It is needed to keep renderer in the
+        // fullscreen state if recreation was caused by the window move to another display
+        // during full screen to another screen call
+        mExclusiveAccessManager.setFullscreenPendingState(savedInstanceState);
 
         mActivityRecreationController =
                 new ActivityRecreationController(
@@ -867,7 +854,8 @@ public class RootUiCoordinator
                         mLayoutManagerSupplier,
                         mActivityTabProvider,
                         new Handler(),
-                        mExclusiveAccessManager);
+                        mExclusiveAccessManager,
+                        this::getSidePanelContentView);
 
         mExpandedBottomSheetHelper =
                 new ExpandedSheetHelperImpl(
@@ -876,7 +864,10 @@ public class RootUiCoordinator
                 new BottomControlsStacker(mBrowserControlsManager, mActivity, mWindowAndroid);
         mTopControlsStacker =
                 new TopControlsStacker(
-                        mBrowserControlsManager, getAppBrowserControlsVisibilityDelegate());
+                        mBrowserControlsManager,
+                        getAppBrowserControlsVisibilityDelegate(),
+                        mActivity,
+                        mWindowAndroid);
         mIncognitoStateProvider = new IncognitoStateProvider();
         mBottomUiThemeColorProvider =
                 new BottomUiThemeColorProvider(
@@ -1188,6 +1179,12 @@ public class RootUiCoordinator
 
         if (mEdgeToEdgeBottomChin != null) {
             mEdgeToEdgeBottomChin.destroy();
+            mEdgeToEdgeBottomChin = null;
+        }
+
+        if (mEdgeToEdgeTopScalp != null) {
+            mEdgeToEdgeTopScalp.destroy();
+            mEdgeToEdgeTopScalp = null;
         }
 
         mTopInsetProvider.destroy();
@@ -1365,11 +1362,8 @@ public class RootUiCoordinator
                     mCallbackController.makeCancelable(this::initProfileDependentFeatures));
         }
 
-        if (ChromeFeatureList.sEnableExclusiveAccessManager.isEnabled()) {
-            assumeNonNull(mExclusiveAccessManager);
-            mExclusiveAccessManager.initialize(
-                    tabModelSelector, mWindowAndroid, mActivityTabProvider);
-        }
+        assumeNonNull(mExclusiveAccessManager);
+        mExclusiveAccessManager.initialize(tabModelSelector, mWindowAndroid, mActivityTabProvider);
 
         initMessagesInfra();
         initScrollCapture();
@@ -1385,7 +1379,8 @@ public class RootUiCoordinator
                     new EdgeToEdgeControllerCreator(
                             new WeakReference<Activity>(mActivity),
                             mWindowAndroid.getInsetObserver(),
-                            this::initializeEdgeToEdgeController);
+                            this::initializeEdgeToEdgeController,
+                            supportsTopInset());
         } else {
             initializeEdgeToEdgeController();
         }
@@ -1439,9 +1434,9 @@ public class RootUiCoordinator
         }
 
         // TODO(crbug.com/498302496): Remove TopInsetCoordinator creation and
-        // TransitiveTopInsetProvider once sEdgelessTopInset is fully launched and
+        // TransitiveTopInsetProvider once sEdgeToEdgeTopInset is fully launched and
         // TopInsetCoordinator is deleted.
-        if (!EdgeToEdgeUtils.isEdgelessTopInsetEnabled()
+        if (!EdgeToEdgeUtils.isEdgeToEdgeRefactorEnabled()
                 && mWindowAndroid.getInsetObserver() != null
                 && NtpCustomizationUtils.supportsEnableEdgeToEdgeOnTop(mWindowAndroid, mIsTablet)) {
             // Only create TopInsetCoordinator if there's a valid TransitiveTopInsetProvider
@@ -1463,6 +1458,7 @@ public class RootUiCoordinator
                 transitiveTopInsetProvider.set(topInsetCoordinator);
             }
         }
+
         // Temporarily disable LinkHoverStatusBar on non-desktop devices.
         // TODO(b/542488395): Enable this on non-desktop devices.
         if (DeviceInfo.isDesktop()
@@ -1797,7 +1793,7 @@ public class RootUiCoordinator
                                     new WebSigninAccountPickerDelegate(
                                             profile,
                                             mTabModelSelectorSupplier.asNonNull().get(),
-                                            new WebSigninBridge.Factory()),
+                                            new WebSigninTrackerBridge.Factory()),
                                     assertNonNull(mDeviceLockActivityLauncherSupplier.get()),
                                     profileSupplier,
                                     getBottomSheetControllerSupplier().asNonNull(),
@@ -2026,6 +2022,18 @@ public class RootUiCoordinator
                     return result != null && result;
                 }
             }
+        } else if (id == R.id.focus_app_menu_button || id == R.id.focus_toolbar) {
+            if (mToolbarManager == null) return false;
+            if (id == R.id.focus_app_menu_button) {
+                View menuButtonView = mToolbarManager.getMenuButtonView();
+                if (menuButtonView != null) {
+                    menuButtonView.requestFocus();
+                    return true;
+                }
+                return false;
+            }
+            mToolbarManager.requestFocus();
+            return true;
         }
         return false;
     }
@@ -2266,7 +2274,7 @@ public class RootUiCoordinator
                             mMultiWindowModeStateDispatcher,
                             assertNonNull(getBottomSheetController()),
                             getDataSharingTabManager(),
-                            mTabContentManagerSupplier.get(),
+                            assertNonNull(mTabContentManagerSupplier.get()),
                             mTabCreatorManagerSupplier.asNonNull().get(),
                             getMerchantTrustSignalsCoordinatorSupplier(),
                             omniboxActionDelegate,
@@ -2288,7 +2296,6 @@ public class RootUiCoordinator
                             mOmniboxChipManager,
                             mBottomBarHostManager,
                             mActionRegistry,
-                            mCountrySupplier,
                             (preventClose, invocationSource) ->
                                     toggleGlic(preventClose, invocationSource),
                             shouldSuppressTabStripAtStart(),
@@ -2510,6 +2517,9 @@ public class RootUiCoordinator
                 };
 
         manager.addObserver(mFindToolbarObserver);
+        if (mToolbarManager != null) {
+            mToolbarManager.setFindToolbarManager(manager);
+        }
         return manager;
     }
 
@@ -2640,6 +2650,14 @@ public class RootUiCoordinator
     }
 
     /**
+     * Returns whether top inset edge-to-edge is supported for the current activity. Overridden in
+     * {@link TabbedRootUiCoordinator} to return true.
+     */
+    protected boolean supportsTopInset() {
+        return false;
+    }
+
+    /**
      * Returns whether to suppress the tab strip when Chrome starts. Overridden by the subclass that
      * needs the behavior.
      */
@@ -2650,23 +2668,23 @@ public class RootUiCoordinator
     /** Setup drawing using Android Edge-to-Edge. */
     @CallSuper
     protected void initializeEdgeToEdgeController() {
+        if (mEdgeToEdgeControllerCreator != null) {
+            // Clean up the creator before creating the controller to ensure the creator doesn't
+            // receive insets again when the EdgeToEdgeController gets created, as the
+            // controller re-triggers inset consumption during its initialization.
+            mEdgeToEdgeControllerCreator.destroy();
+            mEdgeToEdgeControllerCreator = null;
+        }
+
         boolean eligible = EdgeToEdgeUtils.recordEligibilityOnCreate(mActivity);
 
         UmaSessionStats.registerSyntheticFieldTrial(
                 "EdgeToEdgeChinEligibility", eligible ? "Eligible" : "Not Eligible");
 
         if (supportsEdgeToEdge()) {
-            assert eligible
+            assert eligible || EdgeToEdgeUtils.isEdgelessTopInsetSupported(mActivity)
                     : "The edge-to-edge controller is being initialized, though it should not be"
                             + " eligible!";
-            if (mEdgeToEdgeControllerCreator != null) {
-                // Clean up the creator before creating the controller to ensure the creator doesn't
-                // receive insets again when the EdgeToEdgeController gets created, as the
-                // controller
-                // re-triggers inset consumption during its initialization.
-                mEdgeToEdgeControllerCreator.destroy();
-                mEdgeToEdgeControllerCreator = null;
-            }
 
             mEdgeToEdgeController =
                     EdgeToEdgeControllerFactory.create(
@@ -2681,14 +2699,18 @@ public class RootUiCoordinator
             // TODO(crbug.com/498302496): Pass mEdgeToEdgeController directly to downstream
             // consumers (e.g. ToolbarManager, NewTabAnimationLayout) instead of using
             // TransitiveTopInsetProvider.
-            if (EdgeToEdgeUtils.isEdgelessTopInsetEnabled()
+            if (EdgeToEdgeUtils.isEdgeToEdgeRefactorEnabled()
                     && mTopInsetProvider
                             instanceof TransitiveTopInsetProvider transitiveTopInsetProvider) {
                 transitiveTopInsetProvider.set(mEdgeToEdgeController);
             }
-            mEdgeToEdgeBottomChin = createEdgeToEdgeBottomChin();
-
-            recordIfMissingNavigationBar();
+            if (EdgeToEdgeUtils.isEdgeToEdgeBottomChinSupportedByDevice(mActivity)) {
+                mEdgeToEdgeBottomChin = createEdgeToEdgeBottomChin();
+                // Only check for missing navbar insets when the bottom chin is enabled to avoid
+                // false positives when initialized solely for top edge-to-edge (e.g. 3-button nav).
+                recordIfMissingNavigationBar();
+            }
+            mEdgeToEdgeTopScalp = createEdgeToEdgeTopScalp();
         }
     }
 
@@ -2729,6 +2751,11 @@ public class RootUiCoordinator
 
     /** Create a bottom chin for Edge-to-Edge. */
     protected @Nullable Destroyable createEdgeToEdgeBottomChin() {
+        return null;
+    }
+
+    /** Create a top scalp for Edge-to-Edge. */
+    protected @Nullable Destroyable createEdgeToEdgeTopScalp() {
         return null;
     }
 
@@ -2783,11 +2810,6 @@ public class RootUiCoordinator
         // must not be handed out either.
         if (mActivity == null) return null;
         return mFindToolbarManagerSupplier.get();
-    }
-
-    /** Returns the country {@link OneshotSupplier} for testing. */
-    public @Nullable OneshotSupplier<String> getCountrySupplierForTesting() {
-        return mCountrySupplier;
     }
 
     /**
@@ -2912,9 +2934,19 @@ public class RootUiCoordinator
         return null;
     }
 
-    /** Saves the relevant UI state when the activity is recreated on a device fold transition. */
+    /**
+     * Saves the relevant UI state when the activity is recreated (e.g. due to device fold or dark
+     * mode).
+     *
+     * @see ActivityRecreationController#prepareUiState().
+     */
     public void prepareUiState() {
         mActivityRecreationController.prepareUiState();
+    }
+
+    /** Returns the content {@link View} currently shown in the side panel, if any. */
+    protected @Nullable View getSidePanelContentView() {
+        return null;
     }
 
     /**

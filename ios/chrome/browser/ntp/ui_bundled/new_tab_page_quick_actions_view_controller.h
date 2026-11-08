@@ -20,8 +20,13 @@
 // Handles the actions for the NTP shortcuts, like Lens or voice search.
 @property(nonatomic, weak) id<NewTabPageShortcutsHandler> NTPShortcutsHandler;
 
-// Set icon and title for AIM button.
-- (void)setAIMTitle:(NSString*)title icon:(UIImage*)icon;
+// Sets icon, title, and accessibility label for the AIM button.
+- (void)setAIMTitle:(NSString*)title
+                  icon:(UIImage*)icon
+    accessibilityLabel:(NSString*)accessibilityLabel;
+
+// Sets whether AIM image generation is allowed.
+- (void)setAIMImageGenerationAllowed:(BOOL)imageGenerationAllowed;
 
 @end
 

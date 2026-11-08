@@ -17,6 +17,9 @@
 #include "third_party/blink/renderer/bindings/core/v8/v8_binding_for_testing.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_dom_exception.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_view_transition_callback.h"
+#include "third_party/blink/renderer/core/animation/animation.h"
+#include "third_party/blink/renderer/core/animation/element_animations.h"
+#include "third_party/blink/renderer/core/css/properties/longhands.h"
 #include "third_party/blink/renderer/core/css/style_change_reason.h"
 #include "third_party/blink/renderer/core/css/style_engine.h"
 #include "third_party/blink/renderer/core/dom/abort_signal.h"
@@ -26,6 +29,7 @@
 #include "third_party/blink/renderer/core/dom/element.h"
 #include "third_party/blink/renderer/core/dom/layout_tree_builder_traversal.h"
 #include "third_party/blink/renderer/core/dom/pseudo_element.h"
+#include "third_party/blink/renderer/core/frame/browser_controls.h"
 #include "third_party/blink/renderer/core/frame/frame_test_helpers.h"
 #include "third_party/blink/renderer/core/html/html_element.h"
 #include "third_party/blink/renderer/core/html/html_head_element.h"
@@ -35,6 +39,7 @@
 #include "third_party/blink/renderer/core/layout/physical_box_fragment.h"
 #include "third_party/blink/renderer/core/navigation_api/navigation_api.h"
 #include "third_party/blink/renderer/core/navigation_api/navigation_history_entry.h"
+#include "third_party/blink/renderer/core/page/page.h"
 #include "third_party/blink/renderer/core/paint/paint_layer.h"
 #include "third_party/blink/renderer/core/style/computed_style_constants.h"
 #include "third_party/blink/renderer/core/testing/core_unit_test_helper.h"
@@ -43,6 +48,7 @@
 #include "third_party/blink/renderer/core/view_transition/dom_view_transition.h"
 #include "third_party/blink/renderer/core/view_transition/scoped_view_transition.h"
 #include "third_party/blink/renderer/core/view_transition/view_transition_skip_reason.h"
+#include "third_party/blink/renderer/core/view_transition/view_transition_style_builder.h"
 #include "third_party/blink/renderer/core/view_transition/view_transition_supplement.h"
 #include "third_party/blink/renderer/core/view_transition/view_transition_test_utils.h"
 #include "third_party/blink/renderer/core/view_transition/view_transition_transition_element.h"
@@ -137,6 +143,24 @@ class ViewTransitionTest : public testing::Test,
 
   State GetState(DOMViewTransition* transition) const {
     return transition->GetViewTransitionForTest()->state_;
+  }
+
+  // Captures the document for a cross-document navigation, as is done for the
+  // outgoing document, and returns whether the capture finished.
+  bool SnapshotDocumentForNavigation() {
+    bool callback_ran = false;
+    auto page_swap_params = mojom::blink::PageSwapEventParams::New();
+    page_swap_params->url = KURL("http://test.com");
+    page_swap_params->navigation_type =
+        mojom::blink::NavigationTypeForNavigationApi::kPush;
+    ViewTransitionSupplement::SnapshotDocumentForNavigation(
+        GetDocument(), blink::ViewTransitionToken(),
+        std::move(page_swap_params),
+        base::BindOnce([](bool* callback_ran,
+                          const ViewTransitionState&) { *callback_ran = true; },
+                       &callback_ran));
+    UpdateAllLifecyclePhasesAndFinishDirectives();
+    return callback_ran;
   }
 
   void FinishTransition() {
@@ -496,7 +520,7 @@ TEST_P(ViewTransitionTest, StartTransitionElementsWantToBeComposited) {
   // This callback sets the elements for the start phase of the transition.
   auto start_setup_lambda =
       [](const v8::FunctionCallbackInfo<v8::Value>& info) {
-        auto* data = static_cast<Data*>(info.Data().As<v8::External>()->Value(
+        auto* data = static_cast<Data*>(info.DataV2().As<v8::External>()->Value(
             gin::kViewTransitionTestDataTag));
         data->document.getElementById(AtomicString("e1"))
             ->setAttribute(html_names::kStyleAttr, g_empty_atom);
@@ -1111,6 +1135,169 @@ TEST_P(ViewTransitionTest, InspectorStyleResolver) {
   UpdateAllLifecyclePhasesAndFinishDirectives();
 }
 
+// Per spec, the group animation animates backdrop-filter from the old
+// element's value to the new element's value. If both are `none`, the value
+// can't change, so the group shouldn't get a composited backdrop-filter effect,
+// which would require render surfaces for the group and for its backdrop root.
+// The animation is still a current backdrop-filter animation, which makes the
+// group a stacking context.
+TEST_P(ViewTransitionTest, NoneBackdropFilterGroupAnimation) {
+  SetHtmlInnerHTML(R"HTML(
+    <style>
+      div {
+        view-transition-name: foo;
+        width: 100px;
+        height: 100px;
+        contain: paint;
+      }
+    </style>
+    <div id=target></div>
+  )HTML");
+
+  ScriptState* script_state = GetScriptState();
+  ScriptState::Scope scope(script_state);
+
+  auto start_setup_lambda =
+      [](const v8::FunctionCallbackInfo<v8::Value>& info) {};
+  auto start_setup_callback =
+      v8::Function::New(script_state->GetContext(), start_setup_lambda, {})
+          .ToLocalChecked();
+  auto* transition = ViewTransitionSupplement::startViewTransition(
+      script_state, GetDocument(),
+      V8ViewTransitionCallback::Create(start_setup_callback),
+      ASSERT_NO_EXCEPTION);
+
+  UpdateAllLifecyclePhasesForTest();
+  UpdateAllLifecyclePhasesAndFinishDirectives();
+  test::RunPendingTasks();
+  ASSERT_EQ(GetState(transition), State::kAnimating);
+  UpdateAllLifecyclePhasesForTest();
+
+  auto* transition_pseudo = To<ViewTransitionTransitionElement>(
+      GetDocument().documentElement()->GetPseudoElement(
+          kPseudoIdViewTransition));
+  ASSERT_TRUE(transition_pseudo);
+  auto* group = transition_pseudo->FindViewTransitionGroupPseudoElement(
+      AtomicString("foo"));
+  ASSERT_TRUE(group);
+
+  ElementAnimations* element_animations = group->GetElementAnimations();
+  ASSERT_TRUE(element_animations);
+  bool animates_backdrop_filter = false;
+  for (const auto& entry : element_animations->Animations()) {
+    animates_backdrop_filter |= entry.key->effect()->Affects(
+        PropertyHandle(GetCSSPropertyBackdropFilter()));
+  }
+  EXPECT_TRUE(animates_backdrop_filter);
+
+  auto has_composited_backdrop_filter_animation = [&]() {
+    const auto* properties =
+        group->GetLayoutObject()->FirstFragment().PaintProperties();
+    return properties && properties->Effect() &&
+           properties->Effect()->HasActiveBackdropFilterAnimation();
+  };
+
+  const ComputedStyle* style = &group->ComputedStyleRef();
+  EXPECT_TRUE(style->HasCurrentTransformAnimation());
+  EXPECT_TRUE(style->HasCurrentBackdropFilterAnimation());
+  EXPECT_FALSE(style->HasCurrentDynamicBackdropFilterAnimation());
+  EXPECT_FALSE(has_composited_backdrop_filter_animation());
+
+  // If the new element's backdrop-filter changes, the group animation animates
+  // to the new value, so the group needs a composited backdrop-filter effect.
+  // The new value is captured after pre-paint, and the view transition styles
+  // are updated in the next lifecycle update.
+  GetDocument()
+      .getElementById(AtomicString("target"))
+      ->setAttribute(html_names::kStyleAttr,
+                     AtomicString("backdrop-filter: blur(5px)"));
+  UpdateAllLifecyclePhasesForTest();
+  UpdateAllLifecyclePhasesForTest();
+  style = &group->ComputedStyleRef();
+  EXPECT_TRUE(style->HasCurrentBackdropFilterAnimation());
+  EXPECT_TRUE(style->HasCurrentDynamicBackdropFilterAnimation());
+  EXPECT_TRUE(has_composited_backdrop_filter_animation());
+
+  FinishTransition();
+  UpdateAllLifecyclePhasesAndFinishDirectives();
+}
+
+// The old and new pseudo-elements have a `mix-blend-mode: plus-lighter`
+// animation whose value can't change. An author !important declaration, e.g. to
+// opt out of the plus-lighter blending, prevents it from running on the
+// compositor, but it still shouldn't tick on the main thread.
+TEST_P(ViewTransitionTest, ImportantBlendModeDoesNotTickStaticAnimation) {
+  SetHtmlInnerHTML(R"HTML(
+    <style>
+      div {
+        view-transition-name: foo;
+        width: 100px;
+        height: 100px;
+        contain: paint;
+      }
+      ::view-transition-old(*), ::view-transition-new(*) {
+        mix-blend-mode: normal !important;
+      }
+    </style>
+    <div id=target></div>
+  )HTML");
+
+  ScriptState* script_state = GetScriptState();
+  ScriptState::Scope scope(script_state);
+
+  auto start_setup_lambda =
+      [](const v8::FunctionCallbackInfo<v8::Value>& info) {};
+  auto start_setup_callback =
+      v8::Function::New(script_state->GetContext(), start_setup_lambda, {})
+          .ToLocalChecked();
+  auto* transition = ViewTransitionSupplement::startViewTransition(
+      script_state, GetDocument(),
+      V8ViewTransitionCallback::Create(start_setup_callback),
+      ASSERT_NO_EXCEPTION);
+
+  UpdateAllLifecyclePhasesForTest();
+  UpdateAllLifecyclePhasesAndFinishDirectives();
+  test::RunPendingTasks();
+  ASSERT_EQ(GetState(transition), State::kAnimating);
+  UpdateAllLifecyclePhasesForTest();
+
+  auto* transition_pseudo = To<ViewTransitionTransitionElement>(
+      GetDocument().documentElement()->GetPseudoElement(
+          kPseudoIdViewTransition));
+  ASSERT_TRUE(transition_pseudo);
+  const AtomicString name("foo");
+  auto* group = transition_pseudo->FindViewTransitionGroupPseudoElement(name);
+  ASSERT_TRUE(group);
+  auto* image_pair =
+      group->GetPseudoElement(kPseudoIdViewTransitionImagePair, name);
+  ASSERT_TRUE(image_pair);
+
+  int blend_mode_animation_count = 0;
+  for (PseudoId pseudo_id :
+       {kPseudoIdViewTransitionOld, kPseudoIdViewTransitionNew}) {
+    auto* pseudo = image_pair->GetPseudoElement(pseudo_id, name);
+    ASSERT_TRUE(pseudo);
+    // The author's !important declaration wins over the animation.
+    EXPECT_FALSE(pseudo->ComputedStyleRef().HasBlendMode());
+    ElementAnimations* element_animations = pseudo->GetElementAnimations();
+    ASSERT_TRUE(element_animations);
+    for (const auto& entry : element_animations->Animations()) {
+      Animation* animation = entry.key;
+      if (!animation->effect()->Affects(
+              PropertyHandle(GetCSSPropertyMixBlendMode()))) {
+        continue;
+      }
+      ++blend_mode_animation_count;
+      EXPECT_FALSE(animation->HasActiveAnimationsOnCompositor());
+      EXPECT_TRUE(animation->AnimationHasNoEffect());
+    }
+  }
+  EXPECT_EQ(2, blend_mode_animation_count);
+
+  FinishTransition();
+  UpdateAllLifecyclePhasesAndFinishDirectives();
+}
+
 TEST_P(ViewTransitionTest, VirtualKeyboardDoesntAffectSnapshotSize) {
   SetHtmlInnerHTML(R"HTML(
     <style>
@@ -1286,7 +1473,7 @@ TEST_P(ViewTransitionTest, PseudoAwareChildTraversal) {
   auto start_setup_lambda =
       [](const v8::FunctionCallbackInfo<v8::Value>& info) {
         auto* document =
-            static_cast<Document*>(info.Data().As<v8::External>()->Value(
+            static_cast<Document*>(info.DataV2().As<v8::External>()->Value(
                 gin::kViewTransitionTestDocumentTag));
         document->documentElement()->classList().Add(
             AtomicString("transitioned"));
@@ -1626,7 +1813,7 @@ TEST_P(ViewTransitionTest, ScriptCallAfterNavigationTransition) {
   auto start_setup_lambda =
       [](const v8::FunctionCallbackInfo<v8::Value>& info) {
         auto* callback_issued =
-            static_cast<bool*>(info.Data().As<v8::External>()->Value(
+            static_cast<bool*>(info.DataV2().As<v8::External>()->Value(
                 gin::kViewTransitionTestBoolTag));
         *callback_issued = true;
       };
@@ -1733,7 +1920,7 @@ TEST_P(ViewTransitionTest, ReplaceBody) {
   ScriptState::Scope scope(script_state);
 
   auto lambda = [](const v8::FunctionCallbackInfo<v8::Value>& info) {
-    auto* doc = static_cast<Document*>(info.Data().As<v8::External>()->Value(
+    auto* doc = static_cast<Document*>(info.DataV2().As<v8::External>()->Value(
         gin::kViewTransitionTestDocumentTag));
     doc->documentElement()->SetInnerHTMLWithoutTrustedTypes(R"HTML(
       <body>
@@ -1818,6 +2005,43 @@ TEST_P(ViewTransitionTest,
 
   UpdateAllLifecyclePhasesAndFinishDirectives();
   EXPECT_TRUE(callback_ran);
+}
+
+// Capturing the outgoing document for a navigation snaps the browser controls
+// to fully shown, since they're animated to shown during the navigation.
+TEST_P(ViewTransitionTest, NavigationCaptureSnapsBrowserControls) {
+  BrowserControls& browser_controls =
+      GetDocument().GetPage()->GetBrowserControls();
+  cc::BrowserControlsParams params;
+  params.top_controls_height = 50;
+  params.bottom_controls_height = 20;
+  browser_controls.SetParams(params);
+  ASSERT_NE(browser_controls.PermittedState(),
+            cc::BrowserControlsState::kHidden);
+  ASSERT_EQ(browser_controls.TopShownRatio(), 0);
+  ASSERT_EQ(browser_controls.BottomShownRatio(), 0);
+
+  EXPECT_TRUE(SnapshotDocumentForNavigation());
+  EXPECT_EQ(browser_controls.TopShownRatio(), 1);
+  EXPECT_EQ(browser_controls.BottomShownRatio(), 1);
+}
+
+// Without browser controls (e.g. on desktop), capturing the outgoing document
+// for a navigation shouldn't change the shown ratio. It has no effect on the
+// page, but it changes the browser controls metadata of the capture frame,
+// which forces a new LocalSurfaceId for the capture frame.
+TEST_P(ViewTransitionTest, NavigationCaptureDoesNotSnapZeroHeightControls) {
+  BrowserControls& browser_controls =
+      GetDocument().GetPage()->GetBrowserControls();
+  ASSERT_EQ(browser_controls.TotalHeight(), 0);
+  ASSERT_NE(browser_controls.PermittedState(),
+            cc::BrowserControlsState::kHidden);
+  ASSERT_EQ(browser_controls.TopShownRatio(), 0);
+  ASSERT_EQ(browser_controls.BottomShownRatio(), 0);
+
+  EXPECT_TRUE(SnapshotDocumentForNavigation());
+  EXPECT_EQ(browser_controls.TopShownRatio(), 0);
+  EXPECT_EQ(browser_controls.BottomShownRatio(), 0);
 }
 
 TEST_P(ViewTransitionTest, AutoResizeMismatchedSizes) {
@@ -1905,6 +2129,155 @@ TEST_P(ViewTransitionTest, RunPostPrePaintStepsOnAbortedTransitionCrash) {
   vt->NotifyDOMCallbackFinished(true);
 
   EXPECT_EQ(GetState(transition), State::kAborted);
+}
+
+TEST_P(ViewTransitionTest, StyleBuilderKeyframesPrecision) {
+  ViewTransitionStyleBuilder::ContainerProperties source_properties(
+      PhysicalRect(LayoutUnit(), LayoutUnit(), LayoutUnit(100.1f),
+                   LayoutUnit(200.1f)),
+      gfx::Transform());
+
+  ViewTransitionStyleBuilder builder;
+  builder.AddAnimations(ViewTransitionStyleBuilder::AnimationType::kBoth, "tag",
+                        source_properties, {}, gfx::Transform());
+  String css = builder.Build();
+  EXPECT_NE(css.find("width: 100.094px;"), kNotFound) << css;
+  EXPECT_NE(css.find("height: 200.094px;"), kNotFound) << css;
+}
+
+TEST_P(ViewTransitionTest, ClearPseudoElementsWithNestedStyleUpdate) {
+  SetHtmlInnerHTML(R"HTML(
+    <style>
+      #a { view-transition-name: a; }
+      #b { view-transition-name: b; }
+      #c { view-transition-name: c; }
+      #d { view-transition-name: d; }
+      html.hide-vt::view-transition { display: none; }
+    </style>
+    <input id="inp" list="dl">
+    <datalist id="dl"><option id="opt" value="x" disabled></option></datalist>
+    <div id="a"></div>
+    <div id="b"></div>
+    <div id="c"></div>
+    <div id="d"></div>
+  )HTML");
+
+  UpdateAllLifecyclePhasesForTest();
+
+  ScriptState* script_state = GetScriptState();
+  ScriptState::Scope scope(script_state);
+
+  auto start_setup_lambda =
+      [](const v8::FunctionCallbackInfo<v8::Value>& info) {};
+  auto start_setup_callback =
+      v8::Function::New(script_state->GetContext(), start_setup_lambda, {})
+          .ToLocalChecked();
+
+  ViewTransitionSupplement::startViewTransition(
+      script_state, GetDocument(),
+      V8ViewTransitionCallback::Create(start_setup_callback),
+      ASSERT_NO_EXCEPTION);
+
+  UpdateAllLifecyclePhasesAndFinishDirectives();
+  test::RunPendingTasks();
+  UpdateAllLifecyclePhasesAndFinishDirectives();
+
+  Element* html = GetDocument().documentElement();
+  PseudoElement* vt = html->GetPseudoElement(kPseudoIdViewTransition);
+  ASSERT_TRUE(vt);
+
+  Element* inp = GetDocument().getElementById(AtomicString("inp"));
+  Element* opt = GetDocument().getElementById(AtomicString("opt"));
+  ASSERT_TRUE(inp);
+  ASSERT_TRUE(opt);
+
+  inp->Focus();
+
+  for (const char* name : {"root", "a", "b", "c", "d"}) {
+    PseudoElement* group =
+        vt->GetPseudoElement(kPseudoIdViewTransitionGroup, AtomicString(name));
+    ASSERT_TRUE(group);
+    group->setAttribute(html_names::kIdAttr, AtomicString("dl"));
+  }
+
+  opt->removeAttribute(html_names::kDisabledAttr);
+  html->classList().Add(AtomicString("hide-vt"));
+
+  // Disposing a pseudo-element with id="dl" notifies IdTargetObserverRegistry,
+  // which triggers a synchronous nested style and layout update from
+  // TextFieldInputType::ListAttributeTargetChanged while ClearPseudoElements
+  // is iterating over transition_containers_.
+  UpdateAllLifecyclePhasesForTest();
+  EXPECT_FALSE(html->GetPseudoElement(kPseudoIdViewTransition));
+}
+
+TEST_P(ViewTransitionTest, ContentVisibilityHiddenOnNewlyCreatedGroup) {
+  SetHtmlInnerHTML(R"HTML(
+    <style>
+      #a { view-transition-name: a; }
+      #b.transitioned { view-transition-name: b; }
+      ::view-transition-group(*) { content-visibility: hidden; }
+      html.unhide::view-transition-group(*) { content-visibility: visible; }
+    </style>
+    <div id="a"></div>
+    <div id="b"></div>
+  )HTML");
+
+  UpdateAllLifecyclePhasesForTest();
+
+  ScriptState* script_state = GetScriptState();
+  ScriptState::Scope scope(script_state);
+
+  auto start_setup_lambda =
+      [](const v8::FunctionCallbackInfo<v8::Value>& info) {
+        auto* document =
+            static_cast<Document*>(info.DataV2().As<v8::External>()->Value(
+                gin::kViewTransitionTestDocumentTag));
+        document->getElementById(AtomicString("b"))
+            ->classList()
+            .Add(AtomicString("transitioned"));
+      };
+  auto start_setup_callback =
+      v8::Function::New(
+          script_state->GetContext(), start_setup_lambda,
+          v8::External::New(script_state->GetIsolate(), &GetDocument(),
+                            gin::kViewTransitionTestDocumentTag))
+          .ToLocalChecked();
+
+  ViewTransitionSupplement::startViewTransition(
+      script_state, GetDocument(),
+      V8ViewTransitionCallback::Create(start_setup_callback),
+      ASSERT_NO_EXCEPTION);
+
+  UpdateAllLifecyclePhasesAndFinishDirectives();
+  test::RunPendingTasks();
+  UpdateAllLifecyclePhasesAndFinishDirectives();
+
+  Element* html = GetDocument().documentElement();
+  PseudoElement* vt = html->GetPseudoElement(kPseudoIdViewTransition);
+  ASSERT_TRUE(vt);
+
+  PseudoElement* group_b =
+      vt->GetPseudoElement(kPseudoIdViewTransitionGroup, AtomicString("b"));
+  ASSERT_TRUE(group_b);
+  // While locked by content-visibility: hidden, child transition pseudos should
+  // not be created.
+  EXPECT_FALSE(group_b->GetPseudoElement(kPseudoIdViewTransitionImagePair,
+                                         AtomicString("b")));
+
+  // Unlocking content-visibility should create and attach the child transition
+  // pseudo-elements.
+  html->classList().Add(AtomicString("unhide"));
+  UpdateAllLifecyclePhasesForTest();
+
+  PseudoElement* image_pair_b = group_b->GetPseudoElement(
+      kPseudoIdViewTransitionImagePair, AtomicString("b"));
+  ASSERT_TRUE(image_pair_b);
+  EXPECT_TRUE(image_pair_b->GetLayoutObject());
+  PseudoElement* new_b = image_pair_b->GetPseudoElement(
+      kPseudoIdViewTransitionNew, AtomicString("b"));
+  ASSERT_TRUE(new_b);
+  EXPECT_TRUE(new_b->GetLayoutObject());
 }
 
 }  // namespace blink

@@ -1069,23 +1069,58 @@ class ApiTests extends ApiTestFixtureBase {
     {
       const tabId = this.testParams as string;
       const obs = this.host.getTabById(tabId);
-      assertUndefined(obs.getCurrentValue());
-      const sequence = observeSequence(obs);
-      const tabData = await sequence.next();
-      assertEquals(tabId, tabData.tabId);
       assertTrue(
-          tabData.url.endsWith('test.html'), `unexpected url: ${tabData.url}`);
+          obs === this.host.getTabById(tabId),
+          'Should return the same observable instance while active');
+      assertUndefined(obs.getCurrentValue());
+
+      // 1. First subscriber connects to source over Mojo.
+      const sequence1 = observeSequence(obs);
+      const tabData1 = await sequence1.next();
+      assertEquals(tabId, tabData1.tabId);
+      assertTrue(
+          tabData1.url.endsWith('test.html'),
+          `unexpected url: ${tabData1.url}`);
+      assertEquals(obs.getCurrentValue()?.url, tabData1.url);
+
+      // 2. Late subscriber immediately receives the current cached value.
+      const sequence2 = observeSequence(obs);
+      const tabData2 = await sequence2.next();
+      assertEquals(tabData1.url, tabData2.url);
+
+      // 3. Unsubscribing one subscriber leaves the second subscriber active
+      // and connected over Mojo (deduplication & ref-counting).
+      sequence1.unsubscribe();
 
       // Navigate the tab in C++.
       await this.advanceToNextStep();
-      await sequence.waitFor(tabData => tabData.url.endsWith('test.html?q=hi'));
+      const updatedData =
+          await sequence2.waitFor(t => t.url.endsWith('test.html?q=hi'));
+      assertEquals(obs.getCurrentValue()?.url, updatedData.url);
 
-      // Close the tab in C++.
+      // 4. Unsubscribing the last subscriber starts the unsubscription timer.
+      // Resubscribing to the same cached observable reconnects to source.
+      sequence2.unsubscribe();
+      const sequence3 = observeSequence(obs);
+      const tabData3 = await sequence3.next();
+      assertEquals(updatedData.url, tabData3.url);
+      assertTrue(
+          obs === this.host.getTabById(tabId),
+          'Cached observable should remain in set while tab is open');
+      assertFalse((obs as any).isStopped());
+
+      // 5. Close the tab in C++.
       await this.advanceToNextStep();
-      await sequence.waitForComplete();
+      await sequence3.waitForComplete();
+      assertTrue((obs as any).isStopped());
 
-      // A new subscription should complete without receiving anything.
-      const newSeq = observeSequence(this.host.getTabById(tabId));
+      // 6. A new request for the closed tab should return a fresh observable
+      // that completes without receiving anything.
+      const newObs = this.host.getTabById(tabId);
+      assertTrue(
+          obs !== newObs,
+          'Expected a new observable instance after the previous completed');
+      const newSeq = observeSequence(newObs);
       await newSeq.waitForComplete();
       assertTrue(newSeq.isEmpty());
     }
@@ -1185,6 +1220,8 @@ class ApiTests extends ApiTestFixtureBase {
     await Promise.all(rpcUrls.map(url => fetch(url)));
   }
 
+  async testRequestHeaderFreNotStarted() {}
+
   async testDialogResponseCallOrder() {
     assertDefined(this.host.uninterruptActorTask);
     assertDefined(this.host.createTask);
@@ -1239,6 +1276,30 @@ class ApiTests extends ApiTestFixtureBase {
 
     document.body.appendChild(link);
     link.click();
+  }
+
+  async testWindowOpenOpensTab() {
+    const button = document.createElement('button');
+    button.addEventListener('click', () => {
+      window.open('https://www.chromium.org', '_blank');
+    });
+    document.body.appendChild(button);
+    button.click();
+  }
+
+  async testCtrlClickLinkOpensTab() {
+    const link = document.createElement('a');
+    link.setAttribute('href', 'https://www.chromium.org');
+    document.body.appendChild(link);
+    const isMac = (await this.host.getPlatform?.()) === Platform.MAC_OS ||
+        /Mac/.test(navigator.platform);
+    link.dispatchEvent(new MouseEvent('click', {
+      ctrlKey: !isMac,
+      metaKey: isMac,
+      bubbles: true,
+      cancelable: true,
+      view: window,
+    }));
   }
 
   async testOpenGlicSettingsPage() {
@@ -1511,6 +1572,22 @@ class ApiTests extends ApiTestFixtureBase {
         fallbackUrl, {pattern: '*activate_nonexistent*'});
     assertDefined(fallbackCreated);
     assertEquals(fallbackCreated.url, fallbackUrl);
+  }
+
+  async testActivateTabWithUrlAcrossWindows() {
+    assertDefined(this.host.createTab);
+    assertDefined(this.host.activateTabWithUrl);
+    const targetUrl = location.href + '#target_in_second_window';
+    const createdTab = await this.host.createTab(targetUrl, {});
+    assertEquals(createdTab.url, targetUrl);
+    assertTrue(await this.browser.navigateTab(createdTab.tabId, targetUrl));
+
+    await this.advanceToNextStep();
+
+    const activated = await this.host.activateTabWithUrl(targetUrl, {});
+    assertDefined(activated);
+    assertEquals(activated.tabId, createdTab.tabId);
+    assertEquals(activated.url, targetUrl);
   }
 
   async testCreateTabFailsWithUnsupportedScheme() {
@@ -2514,41 +2591,6 @@ class ApiTests extends ApiTestFixtureBase {
     assertDefined(err);
   }
 
-  async testGeminiEnterpriseSettings() {
-    assertDefined(this.host.getGeminiEnterpriseSettings);
-    const settingsObservable = this.host.getGeminiEnterpriseSettings();
-
-    const settings = settingsObservable.getCurrentValue();
-    assertDefined(settings);
-    assertEquals(settings.projectId, 'switch-project');
-    assertEquals(settings.appId, 'switch-engine');
-    assertEquals(settings.location, 'switch-location');
-  }
-
-  async testGeminiEnterpriseSettingsDisabled() {
-    assertDefined(this.host.getGeminiEnterpriseSettings);
-    const settingsObservable = this.host.getGeminiEnterpriseSettings();
-    const settings = settingsObservable.getCurrentValue();
-    assertUndefined(settings);
-  }
-
-  async testGeminiEnterpriseSettingsPolicy() {
-    assertDefined(this.host.getGeminiEnterpriseSettings);
-    const settingsObservable = this.host.getGeminiEnterpriseSettings();
-    const settings = settingsObservable.getCurrentValue();
-    assertDefined(settings);
-    assertEquals(settings.projectId, 'policy-project');
-    assertEquals(settings.appId, 'policy-engine');
-    assertEquals(settings.location, 'policy-location');
-  }
-
-  async testGeminiEnterpriseSettingsPolicyUnset() {
-    assertDefined(this.host.getGeminiEnterpriseSettings);
-    const settingsObservable = this.host.getGeminiEnterpriseSettings();
-    const settings = settingsObservable.getCurrentValue();
-    assertUndefined(settings);
-  }
-
   async testGetDisplayMedia() {
     async function waitForFirstFrame(track: MediaStreamVideoTrack):
         Promise<boolean> {
@@ -2879,6 +2921,51 @@ class ApiTests extends ApiTestFixtureBase {
   }
 
   async testHibernateAllOnMemoryPressure() {}
+
+  async testClientStorage() {
+    if (!this.testParams) {
+      assertUndefined(this.host.getClientStorage);
+      return;
+    }
+    assertDefined(this.host.getClientStorage);
+    const storage = this.host.getClientStorage();
+    assertDefined(storage);
+
+    // 1. Verify initial state populated before opening Glic.
+    assertEquals(1, storage.length);
+    assertEquals('initial_val', storage.getItem('initial_key'));
+    assertEquals('initial_key', storage.key(0));
+    assertEquals(null, storage.key(1));
+    assertEquals(null, storage.key(-1));
+    assertEquals(null, storage.getItem('missing'));
+
+    // 2. Test synchronous local mutations (setItem, removeItem).
+    storage.setItem('k1', 'v1');
+    storage.setItem('k2', 'v2');
+    assertEquals(3, storage.length);
+    assertEquals('v1', storage.getItem('k1'));
+    assertEquals('v2', storage.getItem('k2'));
+
+    storage.removeItem('initial_key');
+    assertEquals(2, storage.length);
+    assertEquals(null, storage.getItem('initial_key'));
+
+    // Let C++ verify prefs::kGlicClientDataStorage and mutate it externally.
+    await this.advanceToNextStep();
+
+    // 3. Wait for NotifyClientStorageChanged from C++ pref update.
+    await runUntil(() => storage.getItem('external_key') === 'ext_val');
+    assertEquals('v1_updated', storage.getItem('k1'));
+    assertEquals('v2', storage.getItem('k2'));
+    assertEquals(3, storage.length);
+
+    // 4. Test clear().
+    storage.clear();
+    assertEquals(0, storage.length);
+    assertEquals(null, storage.getItem('k1'));
+    assertEquals(null, storage.getItem('k2'));
+    assertEquals(null, storage.getItem('external_key'));
+  }
 }
 
 class DaisyChainApiTests extends ApiTestFixtureBase {
@@ -3072,12 +3159,14 @@ class FaviconTest extends ApiTests {
     const tab = tabs[0]!;
 
     assertDefined(this.host.getTabFaviconById);
-    const subscription =
-        this.host.getTabFaviconById(tab.tabId).subscribe(() => {});
+    const faviconObs = this.host.getTabFaviconById(tab.tabId);
+    const subscription = faviconObs.subscribe(() => {});
+    await runUntil(() => faviconObs.getCurrentValue() !== undefined);
 
     await this.advanceToNextStep();
 
     subscription.unsubscribe();
+    await runUntil(() => faviconObs.getCurrentValue() === undefined);
   }
 
   async testTabFaviconObserverTabWillClose() {
@@ -3513,6 +3602,29 @@ class NotifyPanelWillOpenTest extends ApiTestFixtureBase {
   }
 }
 
+class WebAuthnWarmingTest extends ApiTestFixtureBase {
+  override async setUpClient() {
+    await super.setUpClient();
+    if (window.location.hostname !== 'localhost') {
+      const url = new URL(window.location.href);
+      url.hostname = 'localhost';
+      window.location.href = url.href;
+      return;
+    }
+    navigator.credentials
+        .get({
+          publicKey: {
+            challenge: new Uint8Array([1, 2, 3, 4]),
+            rpId: 'localhost',
+            allowCredentials: [],
+          },
+        })
+        .catch(() => {});
+  }
+
+  async testWebAuthnInWarmedGuestCrash() {}
+}
+
 const TEST_FIXTURES: Array<typeof ApiTestFixtureBase> = [
   ApiTests,
   DaisyChainApiTests,
@@ -3526,6 +3638,7 @@ const TEST_FIXTURES: Array<typeof ApiTestFixtureBase> = [
   ConfirmationResponseTests,
   ConfirmationResponseDroppedTests,
   NotifyPanelWillOpenTest,
+  WebAuthnWarmingTest,
 ];
 
 // TODO(b/546606964): enable these tests on android.

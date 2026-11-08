@@ -109,10 +109,11 @@ source_set("webrtc") {
     "//base",
     "//build:android_buildflags",
     "//build:buildflag_header_h",
-    "//chrome/browser:browser_public_dependencies",
+    "//chrome/app:branded_strings",
     "//chrome/browser/profiles:profile",
     "//chrome/browser/tab_contents",
     "//chrome/common:mojo_bindings",
+    "//chrome/common:non_code_constants",
     "//components/content_settings/core/common",
     "//components/keyed_service/core",
     "//components/permissions",
@@ -136,7 +137,6 @@ source_set("webrtc") {
 
   deps = [
     "//base:i18n",
-    "//chrome/app:branded_strings",
     "//chrome/app:branded_strings_grit",
     "//chrome/app:command_ids",
     "//chrome/app:generated_resources",
@@ -166,7 +166,6 @@ source_set("webrtc") {
     "//chrome/common:channel_info",
     "//chrome/common:chrome_features",
     "//chrome/common:constants",
-    "//chrome/common:non_code_constants",
     "//components/content_settings/browser",
     "//components/content_settings/core/browser",
     "//components/enterprise/buildflags",
@@ -218,6 +217,11 @@ source_set("webrtc") {
       "tab_capture_access_handler.cc",
       "tab_capture_access_handler.h",
     ]
+    public_deps += [ "//chrome/common/extensions/api" ]
+  }
+
+  if (is_android) {
+    public_deps += [ "//ui/android" ]
   }
 
   if (!is_android) {
@@ -403,6 +407,7 @@ if (!is_android) {
       "webrtc_browsertest_perf.h",
     ]
     deps = [
+      "//chrome/browser/ui:browser_tabstrip",
       "//chrome/browser/ui/tabs:tab_strip",
       "//chrome/test:test_support",
     ]
@@ -411,10 +416,6 @@ if (!is_android) {
   source_set("browser_tests") {
     testonly = true
     defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
-
-    # Some of these tests declare file-scope objects with non-trivial
-    # destructors (e.g. webrtc_getdisplaymedia_browsertest.cc).
-    configs += [ "//build/config/compiler:no_exit_time_destructors" ]
 
     sources = [
       "capture_handle_browsertest.cc",
@@ -449,8 +450,8 @@ if (!is_android) {
       "//chrome/browser/infobars:test_support",
       "//chrome/browser/permissions",
       "//chrome/browser/sessions:test_support",
-      "//chrome/browser/ui",
       "//chrome/browser/ui:browser_commands",
+      "//chrome/browser/ui:browser_tabstrip",
       "//chrome/browser/ui:browser_window_header",
       "//chrome/browser/ui/apps",
       "//chrome/browser/ui/tab_sharing",
@@ -640,7 +641,7 @@ if (!is_android && !is_chromeos_device) {
       "//chrome/browser/picture_in_picture",
       "//chrome/browser/preloading:test_support",
       "//chrome/browser/profiles:profile",
-      "//chrome/browser/ui",
+      "//chrome/browser/ui:browser_tabstrip",
       "//chrome/browser/ui/tabs:tab_strip",
       "//chrome/browser/ui/views/frame:browser_view_header",
       "//chrome/browser/ui/views/frame:browser_widget",

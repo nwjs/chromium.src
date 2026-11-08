@@ -47,11 +47,6 @@ namespace features {
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilityPdfOcrForSelectToSpeak);
 AX_BASE_EXPORT bool IsAccessibilityPdfOcrForSelectToSpeakEnabled();
 
-// A replacement algorithm for AbstractInlineTextBox + InlineCursor for
-// AXInlineTextBox creation.
-AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilityBlockFlowIterator);
-AX_BASE_EXPORT bool IsAccessibilityBlockFlowIteratorEnabled();
-
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(
     kAccessibilityPruneRedundantInlineConnectivity);
 AX_BASE_EXPORT bool IsAccessibilityPruneRedundantInlineConnectivityEnabled();
@@ -230,6 +225,10 @@ AX_BASE_EXPORT bool IsAccessibilityChromeVoxJapaneseBrailleEnabled();
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilityGoogleTtsAutomaticReconnect);
 AX_BASE_EXPORT bool IsAccessibilityGoogleTtsAutomaticReconnectEnabled();
 
+// Controls whether the ChromeOS Hover Text accessibility feature is available.
+AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilityHoverText);
+AX_BASE_EXPORT bool IsAccessibilityHoverTextEnabled();
+
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
 #if BUILDFLAG(IS_ANDROID)
@@ -355,6 +354,11 @@ AX_BASE_EXPORT bool IsReadAnythingDistillationQualityEvaluationEnabled();
 // distillation logic.
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kReadAnythingDistillerRefactor);
 AX_BASE_EXPORT bool IsReadAnythingDistillerRefactorEnabled();
+
+// Enables printing the distilled content from immersive Reading Mode. Immersive
+// Reading Mode itself has launched and is not gated by a feature flag.
+AX_BASE_EXPORT BASE_DECLARE_FEATURE(kImmersiveReadAnythingPrint);
+AX_BASE_EXPORT bool IsImmersiveReadAnythingPrintEnabled();
 
 // ScreenAI library's Main Content Extraction service is enabled.
 AX_BASE_EXPORT bool IsScreenAIMainContentExtractionEnabled();

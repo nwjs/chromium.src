@@ -25,6 +25,9 @@ namespace signin {
 class AvatarProvider;
 class IdentityManager;
 }  // namespace signin
+namespace subscription_eligibility {
+class SubscriptionEligibilityService;
+}  // namespace subscription_eligibility
 namespace syncer {
 class SyncService;
 }  // namespace syncer
@@ -62,6 +65,7 @@ class ReadingListBrowserAgent;
 class ReadingListModel;
 @protocol ReminderNotificationsCommands;
 @protocol SceneCommands;
+@class SceneState;
 @protocol SettingsCommands;
 class TabBasedIPHBrowserAgent;
 class TemplateURLService;
@@ -82,6 +86,9 @@ class WebStateList;
 // The WebStateList that this mediator listens for any changes on the current
 // WebState.
 @property(nonatomic, assign) WebStateList* webStateList;
+
+// The scene state of the current browser.
+@property(nonatomic, weak) SceneState* sceneState;
 
 // Command Handlers.
 @property(nonatomic, weak) id<ActivityServiceCommands> activityServiceHandler;
@@ -192,6 +199,11 @@ class WebStateList;
 
 // The AvatarProvider to get identity avatars.
 @property(nonatomic, assign) signin::AvatarProvider* identityAvatarProvider;
+
+// Service for checking AI subscription eligibility.
+@property(nonatomic, assign)
+    subscription_eligibility::SubscriptionEligibilityService*
+        subscriptionEligibilityService;
 
 // Disconnect the mediator.
 - (void)disconnect;

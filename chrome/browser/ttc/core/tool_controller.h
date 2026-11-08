@@ -16,15 +16,20 @@
 #include "base/values.h"
 #include "build/build_config.h"
 #include "chrome/browser/actor/actor_keyed_service.h"
-#include "chrome/browser/ttc/app/public/tool_types.h"
 #include "components/tabs/public/tab_interface.h"
+#include "components/ttc/app/public/tool_types.h"
 
 class Profile;
+
+namespace actor {
+class ToolRequest;
+}  // namespace actor
 
 namespace ttc {
 
 class SessionControllerImpl;
 
+// Executes the session's tool calls in an actor task.
 class ToolController {
  public:
   explicit ToolController(SessionControllerImpl& session_controller);
@@ -40,37 +45,63 @@ class ToolController {
  private:
   Profile* GetProfile();
 
-  // Creates the actor task used to invoke tools, if one isn't already active.
-  void EnsureTaskCreated(actor::ActorKeyedService* actor_service);
-
-#if !BUILDFLAG(IS_ANDROID)
   void OpenUrl(const base::DictValue& arguments, ToolResponseCallback callback);
   void PerformSearch(const base::DictValue& arguments,
                      ToolResponseCallback callback);
-  void CloseCurrentTab(ToolResponseCallback callback);
   void GoBack(ToolResponseCallback callback);
   void GoForward(ToolResponseCallback callback);
   void ReloadPage(ToolResponseCallback callback);
+  void FindAndHighlight(const base::DictValue& arguments,
+                        ToolResponseCallback callback);
+  void PlayVideo(ToolResponseCallback callback);
+  void PauseVideo(ToolResponseCallback callback);
+  void SeekToTimestamp(const base::DictValue& arguments,
+                       ToolResponseCallback callback);
+  void TranslatePage(const base::DictValue& arguments,
+                     ToolResponseCallback callback);
+  void ClickElement(const base::DictValue& arguments,
+                    ToolResponseCallback callback);
+  void SetText(const base::DictValue& arguments, ToolResponseCallback callback);
+  void SelectOption(const base::DictValue& arguments,
+                    ToolResponseCallback callback);
 
-  // Runs the tool request returned by `create_action` against the session's
-  // active tab, replying to `callback` with the result. Replies with an error
-  // if there's no window or tab to act on, or if the actor service is
-  // unavailable, in which case `create_action` isn't invoked.
-  void PerformActionOnActiveTab(
+  // TODO(crbug.com/470475787): The actor tools backing these haven't been
+  // ported to Android yet (see `skip_android_unmigrated_actor_files` in
+  // //chrome/browser/actor/BUILD.gn), so they're neither declared to the model
+  // nor dispatched there. Drop the guard once they are.
+#if !BUILDFLAG(IS_ANDROID)
+  void CloseCurrentTab(ToolResponseCallback callback);
+  void SwitchTab(const base::DictValue& arguments,
+                 ToolResponseCallback callback);
+  void OpenKnownPage(const base::DictValue& arguments,
+                     ToolResponseCallback callback);
+  void SetFullscreen(const base::DictValue& arguments,
+                     ToolResponseCallback callback);
+#endif
+
+  // Runs the tool request returned by `create_action` against the contents
+  // tracked by the session (see
+  // SessionControllerImpl::GetVoiceFocusedWebContents()), replying to
+  // `callback` with the result. Replies with an error if there's no tab to act
+  // on, in which case `create_action` isn't invoked.
+  void PerformActionOnTrackedContents(
       base::FunctionRef<std::unique_ptr<actor::ToolRequest>(tabs::TabHandle)>
           create_action,
       ToolResponseCallback callback);
+
+  // Runs `action` in the session's actor task and replies to `callback` with
+  // the result.
+  void PerformAction(std::unique_ptr<actor::ToolRequest> action,
+                     ToolResponseCallback callback);
 
   void OnActionsFinished(
       ToolResponseCallback callback,
       std::vector<actor::ActionResultWithLatencyInfo> results,
       actor::TabObservationStrategy strategy);
-#endif
 
   // Owns this object.
   const raw_ref<SessionControllerImpl> session_controller_;
 
-  actor::TaskId task_id_;
   base::WeakPtrFactory<ToolController> weak_factory_{this};
 };
 

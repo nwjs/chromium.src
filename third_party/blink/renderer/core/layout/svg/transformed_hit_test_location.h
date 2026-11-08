@@ -7,12 +7,14 @@
 
 #include <optional>
 
+#include "base/memory/raw_ptr.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/layout/hit_test_location.h"
 
 namespace blink {
 
 class AffineTransform;
+class LayoutObject;
 
 // Helper class handling the application of a AffineTransform to a
 // HitTestLocation - producing a new, transformed, HitTestLocation if needed.
@@ -30,6 +32,13 @@ class CORE_EXPORT TransformedHitTestLocation {
   // false, in which case the object cannot (must not) be used.
   TransformedHitTestLocation(const HitTestLocation&, const AffineTransform&);
 
+  // Applies the inverse of the object's local-to-parent transform. Under
+  // SvgCss3dTransforms, a 3D transform (and any inherited perspective) is
+  // applied using the same projection that rendering uses; otherwise this
+  // behaves like the AffineTransform constructor with
+  // object.LocalToSVGParentTransform().
+  TransformedHitTestLocation(const HitTestLocation&, const LayoutObject&);
+
   // The AffineTransform passed will be applied without computing the inverse.
   enum InverseTag { kDontComputeInverse };
   TransformedHitTestLocation(const HitTestLocation&,
@@ -44,11 +53,12 @@ class CORE_EXPORT TransformedHitTestLocation {
     DCHECK(location_);
     return *location_;
   }
-  explicit operator bool() const { return location_; }
+  explicit operator bool() const { return static_cast<bool>(location_); }
 
  private:
   std::optional<HitTestLocation> storage_;
-  const HitTestLocation* location_;
+  raw_ptr<const HitTestLocation, UnprotectedInRelease | DanglingUntriaged>
+      location_;
 };
 
 }  // namespace blink

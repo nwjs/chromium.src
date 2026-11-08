@@ -52,6 +52,7 @@ import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 
 import org.chromium.base.Callback;
+import org.chromium.base.ContextUtils;
 import org.chromium.base.Token;
 import org.chromium.base.supplier.LazyOneshotSupplier;
 import org.chromium.base.supplier.ObservableSuppliers;
@@ -122,11 +123,9 @@ public class TabGroupUiMediatorUnitTest {
     private static final int POSITION1 = 0;
     private static final int POSITION2 = 1;
     private static final int POSITION3 = 2;
-    private static final int TAB1_ROOT_ID = TAB1_ID;
-    private static final int TAB2_ROOT_ID = TAB2_ID;
-    private static final int TAB3_ROOT_ID = TAB2_ID;
     private static final String GROUP_TITLE = "My Group";
     private static final Token TAB2_GROUP_ID = new Token(1L, 2L);
+    private static final Token TAB3_GROUP_ID = new Token(2L, 3L);
 
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
 
@@ -146,7 +145,6 @@ public class TabGroupUiMediatorUnitTest {
     @Mock private LayoutStateProvider mLayoutManager;
     @Spy private TabModel mTabModel;
     @Mock private TabModel mIncognitoTabModel;
-    @Mock private View mView;
     @Mock private TabGridDialogMediator.DialogController mTabGridDialogController;
     @Mock private SharedImageTilesCoordinator mSharedImageTilesCoordinator;
     @Mock private SharedImageTilesConfig.Builder mSharedImageTilesConfigBuilder;
@@ -166,6 +164,7 @@ public class TabGroupUiMediatorUnitTest {
     @Captor private ArgumentCaptor<ThemeColorObserver> mThemeColorObserverCaptor;
     @Captor private ArgumentCaptor<TintObserver> mTintObserverCaptor;
 
+    private final View mView = new View(ContextUtils.getApplicationContext());
     private final SettableMonotonicObservableSupplier<TabModel> mTabModelSupplier =
             ObservableSuppliers.createMonotonic();
     private final SettableNonNullObservableSupplier<Boolean> mOmniboxFocusStateSupplier =
@@ -192,14 +191,14 @@ public class TabGroupUiMediatorUnitTest {
     private InOrder mVisibilityControllerInOrder;
     private LazyOneshotSupplier<TabGridDialogMediator.DialogController> mDialogControllerSupplier;
 
-    private Tab prepareTab(int tabId, int rootId) {
-        Tab tab = TabUiUnitTestUtils.prepareTab(tabId, rootId);
+    private Tab prepareTab(int tabId) {
+        Tab tab = TabUiUnitTestUtils.prepareTab(tabId);
         doReturn(tab).when(mTabModelSelector).getTabById(tabId);
         return tab;
     }
 
     private void prepareIncognitoTabModel() {
-        Tab newTab = prepareTab(TAB4_ID, TAB4_ID);
+        Tab newTab = prepareTab(TAB4_ID);
         List<Tab> tabs = new ArrayList<>(Arrays.asList(newTab));
         doReturn(tabs).when(mTabModel).getRelatedTabList(TAB4_ID);
     }
@@ -227,7 +226,6 @@ public class TabGroupUiMediatorUnitTest {
         if (currentTab == null) {
             doReturn(TabModel.INVALID_TAB_INDEX).when(mTabModel).index();
             doReturn(0).when(mTabModel).getCount();
-            doReturn(0).when(mTabModel).getIndividualTabAndGroupCount();
             doReturn(null).when(mTabModelSelector).getCurrentTab();
             when(mTabModel.iterator()).thenAnswer(inv -> Collections.emptyList().iterator());
         } else {
@@ -303,10 +301,10 @@ public class TabGroupUiMediatorUnitTest {
         when(mDataSharingService.getUiDelegate()).thenReturn(mDataSharingUiDelegate);
 
         // Set up Tabs.
-        mTab1 = prepareTab(TAB1_ID, TAB1_ROOT_ID);
-        mTab2 = prepareTab(TAB2_ID, TAB2_ROOT_ID);
+        mTab1 = prepareTab(TAB1_ID);
+        mTab2 = prepareTab(TAB2_ID);
         when(mTab2.getTabGroupId()).thenReturn(TAB2_GROUP_ID);
-        mTab3 = prepareTab(TAB3_ID, TAB3_ROOT_ID);
+        mTab3 = prepareTab(TAB3_ID);
         when(mTab3.getTabGroupId()).thenReturn(TAB2_GROUP_ID);
         mTabGroup1 = new ArrayList<>(Arrays.asList(mTab1));
         mTabGroup2 = new ArrayList<>(Arrays.asList(mTab2, mTab3));
@@ -335,7 +333,6 @@ public class TabGroupUiMediatorUnitTest {
         doNothing().when(mTab3).addObserver(mTabObserverCaptor.capture());
 
         // Setup TabModel.
-        doReturn(2).when(mTabModel).getIndividualTabAndGroupCount();
         doReturn(mTabGroup1).when(mTabModel).getRelatedTabList(TAB1_ID);
         doReturn(mTabGroup2).when(mTabModel).getRelatedTabList(TAB2_ID);
         doReturn(mTabGroup2).when(mTabModel).getRelatedTabList(TAB3_ID);
@@ -465,7 +462,7 @@ public class TabGroupUiMediatorUnitTest {
         initAndAssertProperties(mTab2);
 
         // Mock that tab 1 is not a single tab.
-        Tab newTab = prepareTab(TAB4_ID, TAB4_ID);
+        Tab newTab = prepareTab(TAB4_ID);
         List<Tab> tabs = new ArrayList<>(Arrays.asList(mTab1, newTab));
         doReturn(tabs).when(mTabModel).getRelatedTabList(TAB1_ID);
         doReturn(true).when(mTabModel).isTabInTabGroup(mTab1);
@@ -508,7 +505,7 @@ public class TabGroupUiMediatorUnitTest {
         initAndAssertProperties(mTab1);
 
         // Mock that new tab is a single tab.
-        Tab newTab = prepareTab(TAB4_ID, TAB4_ID);
+        Tab newTab = prepareTab(TAB4_ID);
         List<Tab> tabs = new ArrayList<>(Arrays.asList(newTab));
         doReturn(tabs).when(mTabModel).getRelatedTabList(TAB4_ID);
 
@@ -614,7 +611,7 @@ public class TabGroupUiMediatorUnitTest {
     public void tabAddition_SingleTab() {
         initAndAssertProperties(mTab1);
 
-        Tab newTab = prepareTab(TAB4_ID, TAB4_ID);
+        Tab newTab = prepareTab(TAB4_ID);
         List<Tab> tabs = new ArrayList<>(Arrays.asList(newTab));
         doReturn(tabs).when(mTabModel).getRelatedTabList(TAB4_ID);
 
@@ -641,7 +638,7 @@ public class TabGroupUiMediatorUnitTest {
     public void tabAddition_SingleTab_Refresh_WithoutAutoGroupCreation() {
         initAndAssertProperties(mTab1);
 
-        Tab newTab = prepareTab(TAB4_ID, TAB4_ID);
+        Tab newTab = prepareTab(TAB4_ID);
         List<Tab> tabs = new ArrayList<>(Arrays.asList(mTab1, newTab));
         doReturn(tabs).when(mTabModel).getRelatedTabList(TAB4_ID);
         doReturn(tabs).when(mTabModel).getRelatedTabList(TAB1_ID);
@@ -667,7 +664,7 @@ public class TabGroupUiMediatorUnitTest {
     public void tabAddition_TabGroup_NoRefresh() {
         initAndAssertProperties(mTab2);
 
-        Tab newTab = prepareTab(TAB4_ID, TAB4_ID);
+        Tab newTab = prepareTab(TAB4_ID);
         mTabGroup2.add(newTab);
         doReturn(mTabGroup1).when(mTabModel).getRelatedTabList(TAB4_ID);
 
@@ -703,7 +700,7 @@ public class TabGroupUiMediatorUnitTest {
         initAndAssertProperties(mTab2);
         assertThat(mModel.get(TabGroupUiProperties.INITIAL_SCROLL_INDEX), equalTo(0));
 
-        Tab newTab = prepareTab(TAB4_ID, TAB4_ID);
+        Tab newTab = prepareTab(TAB4_ID);
         mTabGroup2.add(newTab);
         when(newTab.getTabGroupId()).thenReturn(TAB2_GROUP_ID);
         doReturn(mTabGroup2).when(mTabModel).getRelatedTabList(TAB4_ID);
@@ -784,7 +781,7 @@ public class TabGroupUiMediatorUnitTest {
         initAndAssertProperties(mTab2);
 
         // Simulate that another member of this group, newTab, is being undone from closure.
-        Tab newTab = prepareTab(TAB4_ID, TAB4_ID);
+        Tab newTab = prepareTab(TAB4_ID);
         doReturn(new ArrayList<>(Arrays.asList(mTab2, mTab3, newTab)))
                 .when(mTabModel)
                 .getRelatedTabList(TAB4_ID);
@@ -826,7 +823,7 @@ public class TabGroupUiMediatorUnitTest {
 
         // Simulate that newTab which was a tab in the same group as mTab1 is being undone from
         // closure.
-        Tab newTab = prepareTab(TAB4_ID, TAB4_ID);
+        Tab newTab = prepareTab(TAB4_ID);
         List<Tab> tabs = new ArrayList<>(Arrays.asList(mTab1, newTab));
         doReturn(tabs).when(mTabModel).getRelatedTabList(TAB1_ID);
         doReturn(tabs).when(mTabModel).getRelatedTabList(TAB4_ID);
@@ -931,6 +928,18 @@ public class TabGroupUiMediatorUnitTest {
     }
 
     @Test
+    public void destroy_RemovesDialogBackPressObserver() {
+        initAndAssertProperties(mTab1);
+        mDialogControllerSupplier.get();
+        RobolectricUtil.runAllBackgroundAndUi();
+        assertTrue(mTabGridDialogBackPressSupplier.hasObservers());
+
+        mTabGroupUiMediator.destroy();
+
+        assertFalse(mTabGridDialogBackPressSupplier.hasObservers());
+    }
+
+    @Test
     public void uiNotVisibleAfterDragCurrentTabOutOfGroup() {
         initAndAssertProperties(mTab3);
 
@@ -949,7 +958,7 @@ public class TabGroupUiMediatorUnitTest {
         List<Tab> tabs = new ArrayList<>(Arrays.asList(mTab3));
         doReturn(tabs).when(mTabModel).getRelatedTabList(TAB3_ID);
         doReturn(true).when(mTabModel).isTabInTabGroup(mTab3);
-        doReturn(new Token(1L, TAB3_ROOT_ID)).when(mTab3).getTabGroupId();
+        doReturn(TAB3_GROUP_ID).when(mTab3).getTabGroupId();
         mTabGroupObserverArgumentCaptor.getValue().didMoveTabOutOfGroup(mTab3, TAB2_GROUP_ID);
 
         verifyResetStrip(true, tabs);
@@ -962,7 +971,7 @@ public class TabGroupUiMediatorUnitTest {
         List<Tab> tabs = new ArrayList<>(Arrays.asList(mTab1, mTab2));
         doReturn(tabs).when(mTabModel).getRelatedTabList(TAB1_ID);
         doReturn(true).when(mTabModel).isTabInTabGroup(mTab1);
-        doReturn(new Token(1L, TAB2_ROOT_ID)).when(mTab1).getTabGroupId();
+        doReturn(TAB2_GROUP_ID).when(mTab1).getTabGroupId();
         mTabGroupObserverArgumentCaptor
                 .getValue()
                 .didMergeTabToGroup(mTab1, /* isDestinationTab= */ true);

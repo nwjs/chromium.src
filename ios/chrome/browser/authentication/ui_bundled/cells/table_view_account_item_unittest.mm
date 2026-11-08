@@ -8,25 +8,26 @@
 #import <UIKit/UIKit.h>
 
 #import "base/apple/foundation_util.h"
-#import "ios/chrome/browser/shared/ui/table_view/content_configuration/image_content_configuration.h"
 #import "ios/chrome/browser/shared/ui/table_view/content_configuration/table_view_cell_content_configuration.h"
+#import "ios/chrome/browser/signin/ui/avatar/ai_tier_avatar_content_configuration.h"
+#import "ios/chrome/common/ui/table_view/table_view_cells_constants.h"
 #import "testing/gtest/include/gtest/gtest.h"
 #import "testing/gtest_mac.h"
 #import "testing/platform_test.h"
 
 using AccountControlTableViewItemTest = PlatformTest;
 
-// Tests that the UIImageView and UILabels are set properly after a call to
-// `configureCell:`.
+// Test that the avatar configuration and text labels are set properly after a
+// call to `configureCell:`.
 TEST_F(AccountControlTableViewItemTest, ImageViewAndTextLabels) {
   TableViewAccountItem* item = [[TableViewAccountItem alloc] initWithType:0];
   UIImage* image = [[UIImage alloc] init];
-  NSString* main_text = @"Main text";
-  NSString* detail_text = @"Detail text";
+  NSString* name = @"Name";
+  NSString* email = @"email";
 
   item.image = image;
-  item.text = main_text;
-  item.detailText = detail_text;
+  item.name = name;
+  item.email = email;
 
   LegacyTableViewCell* cell = [[[item cellClass] alloc] init];
   ASSERT_TRUE([cell isMemberOfClass:[LegacyTableViewCell class]]);
@@ -39,15 +40,55 @@ TEST_F(AccountControlTableViewItemTest, ImageViewAndTextLabels) {
       base::apple::ObjCCastStrict<TableViewCellContentConfiguration>(
           cell.contentConfiguration);
 
-  EXPECT_NSEQ(main_text, configuration.title);
-  EXPECT_NSEQ(detail_text, configuration.subtitle);
+  EXPECT_NSEQ(name, configuration.title);
+  EXPECT_NSEQ(email, configuration.subtitle);
 
   NSObject<ChromeContentConfiguration>* leading_config =
       configuration.leadingConfiguration;
-  ASSERT_TRUE(
-      [leading_config isMemberOfClass:[ImageContentConfiguration class]]);
+  ASSERT_TRUE([leading_config
+      isMemberOfClass:[AITierAvatarContentConfiguration class]]);
 
-  ImageContentConfiguration* image_config =
-      base::apple::ObjCCastStrict<ImageContentConfiguration>(leading_config);
-  EXPECT_NSEQ(image, image_config.image);
+  AITierAvatarContentConfiguration* avatar_config =
+      base::apple::ObjCCastStrict<AITierAvatarContentConfiguration>(
+          leading_config);
+  EXPECT_NSEQ(image, avatar_config.avatarImage);
+  EXPECT_EQ(kTableViewIconImageSize, avatar_config.diameter);
+  EXPECT_EQ(AITierAvatarSizeType::kFullView, avatar_config.sizeType);
+  EXPECT_FALSE(avatar_config.showsAITierRing);
+  EXPECT_TRUE(CGSizeEqualToSize(
+      CGSizeMake(kTableViewIconImageSize, kTableViewIconImageSize),
+      [avatar_config contentSize]));
+}
+
+// Test that `TableViewAccountDetailImage::kAITierRing` is forwarded to the
+// leading avatar configuration after a call to `configureCell:`.
+TEST_F(AccountControlTableViewItemTest, ShowsAITierRing) {
+  TableViewAccountItem* item = [[TableViewAccountItem alloc] initWithType:0];
+  UIImage* image = [[UIImage alloc] init];
+  NSString* name = @"Name";
+  NSString* email = @"email";
+
+  item.image = image;
+  item.name = name;
+  item.email = email;
+  item.detailImage = TableViewAccountDetailImage::kAITierRing;
+
+  LegacyTableViewCell* cell = [[[item cellClass] alloc] init];
+  ASSERT_TRUE([cell isMemberOfClass:[LegacyTableViewCell class]]);
+
+  [item configureCell:cell];
+
+  TableViewCellContentConfiguration* configuration =
+      base::apple::ObjCCastStrict<TableViewCellContentConfiguration>(
+          cell.contentConfiguration);
+  AITierAvatarContentConfiguration* avatar_config =
+      base::apple::ObjCCastStrict<AITierAvatarContentConfiguration>(
+          configuration.leadingConfiguration);
+  EXPECT_NSEQ(image, avatar_config.avatarImage);
+  EXPECT_EQ(kTableViewIconImageSize, avatar_config.diameter);
+  EXPECT_EQ(AITierAvatarSizeType::kFullView, avatar_config.sizeType);
+  EXPECT_TRUE(avatar_config.showsAITierRing);
+  EXPECT_TRUE(CGSizeEqualToSize(
+      CGSizeMake(kTableViewIconImageSize, kTableViewIconImageSize),
+      [avatar_config contentSize]));
 }

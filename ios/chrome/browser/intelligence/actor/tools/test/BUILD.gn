@@ -12,6 +12,7 @@ source_set("eg_app_support+eg2") {
   deps = [
     "//base",
     "//base/test:test_support",
+    "//components/actor/core",
     "//components/autofill/core/browser",
     "//components/autofill/core/common",
     "//components/autofill/ios/browser",
@@ -19,6 +20,8 @@ source_set("eg_app_support+eg2") {
     "//ios/chrome/browser/intelligence/actor/model",
     "//ios/chrome/browser/intelligence/actor/model:tab_helper",
     "//ios/chrome/browser/intelligence/actor/public:actor_control_state",
+    "//ios/chrome/browser/intelligence/actor/public:actor_task_ui_protocols",
+    "//ios/chrome/browser/intelligence/actor/test:test_support",
     "//ios/chrome/browser/intelligence/actor/tools/model:actor_tool_interface",
     "//ios/chrome/browser/intelligence/actor/tools/model:java_script_features",
     "//ios/chrome/browser/intelligence/actor/tools/public",

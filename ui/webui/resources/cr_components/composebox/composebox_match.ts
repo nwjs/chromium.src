@@ -9,9 +9,10 @@ import {loadTimeData} from '//resources/js/load_time_data.js';
 import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
 import type {PropertyValues} from '//resources/lit/v3_0/lit.rollup.js';
 import type {AutocompleteMatch, PageHandlerRemote as SearchboxPageHandlerRemote} from '//resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
-import {SuggestStyle} from '//resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
+import {SecondaryTextPlacement, SuggestStyle} from '//resources/mojo/components/omnibox/browser/suggest_template_info.mojom-webui.js';
 import {ToolMode} from '//resources/mojo/components/omnibox/composebox/composebox_query.mojom-webui.js';
 
+import {computeImageUrl} from './common.js';
 import {getCss} from './composebox_match.css.js';
 import {getHtml} from './composebox_match.html.js';
 import {ComposeboxProxyImpl, createAutocompleteMatch} from './composebox_proxy.js';
@@ -23,6 +24,11 @@ export interface ComposeboxMatchElement {
     remove: HTMLElement,
     textContainer: HTMLElement,
   };
+}
+
+export enum BaseLayout {
+  TEXT = 'text',
+  IMAGE = 'image',
 }
 
 // Displays an autocomplete match
@@ -44,17 +50,6 @@ export class ComposeboxMatchElement extends CrLitElement {
       //========================================================================
       // Public properties
       //========================================================================
-
-      /**
-       * Whether the match should be rendered in a two-row layout, i.e. with the
-       * description (secondary text) rendered below the contents (primary
-       * text). Mirrors `AutocompleteMatch::is_two_row_suggestion`, which the
-       * handler derives from `SuggestTemplateInfo::secondary_text_placement`.
-       */
-      isTwoRowSuggestion: {
-        type: Boolean,
-        reflect: true,
-      },
 
       match: {type: Object},
       overrideClampLineNum: {
@@ -82,10 +77,25 @@ export class ComposeboxMatchElement extends CrLitElement {
         reflect: true,
         attribute: 'suggest-style',
       },
+      baseLayout: {
+        type: String,
+        reflect: true,
+        attribute: 'base-layout',
+      },
+
+      /** Where the secondary text is rendered relative to the primary text. */
+      secondaryTextPlacement: {
+        type: String,
+        reflect: true,
+      },
+      loading: {
+        type: Boolean,
+        reflect: true,
+      },
     };
   }
 
-  accessor isTwoRowSuggestion: boolean = false;
+  accessor loading: boolean = false;
   accessor match: AutocompleteMatch = createAutocompleteMatch();
   accessor overrideClampLineNum: number = -1;
 
@@ -94,6 +104,8 @@ export class ComposeboxMatchElement extends CrLitElement {
   accessor toolMode: ToolMode = ToolMode.kUnspecified;
   accessor richImageSuggestionsEnabled: boolean = false;
   accessor suggestStyle: string = 'default';
+  accessor baseLayout: BaseLayout = BaseLayout.TEXT;
+  accessor secondaryTextPlacement: string = 'in-front-of-primary-text';
   private searchboxHandler_: SearchboxPageHandlerRemote;
   protected accessor removeButtonTitle_: string =
       loadTimeData.getString('removeSuggestion');
@@ -122,11 +134,15 @@ export class ComposeboxMatchElement extends CrLitElement {
     this.style.setProperty('--clamp-line-num', `${this.overrideClampLineNum}`);
   }
 
+  // Maps the backend SuggestStyle to a WebUI suggest-style string attribute.
+  // When adding support for new SuggestStyle enum values (e.g. kEnriched,
+  // kAnnotated), add a case here and define any variant-specific CSS overrides
+  // in composebox_match.css.
   private computeSuggestStyle_(): string {
-    switch (this.match.suggestStyle) {
+    switch (this.match.suggestTemplate.style) {
       case SuggestStyle.kRichImage:
         return (this.richImageSuggestionsEnabled &&
-                Boolean(this.match.imageUrl)) ?
+                Boolean(this.match.suggestTemplate.image?.url)) ?
             'rich-image' :
             'default';
       case SuggestStyle.kDefault:
@@ -135,12 +151,35 @@ export class ComposeboxMatchElement extends CrLitElement {
     }
   }
 
+  // Maps the current suggestion to its base layout category (TEXT vs IMAGE).
+  // New text-based suggestions automatically inherit the shared text layout
+  // (height, hover, selection, icons, and text clamping) from
+  // base-layout="text".
+  private computeBaseLayout_(): BaseLayout {
+    switch (this.suggestStyle) {
+      case 'rich-image':
+        return BaseLayout.IMAGE;
+      case 'default':
+      default:
+        return BaseLayout.TEXT;
+    }
+  }
+
+  private computeSecondaryTextPlacement_(): string {
+    if (this.match.suggestTemplate.secondaryTextPlacement ===
+        SecondaryTextPlacement.kBelowPrimaryText) {
+      return 'below-primary-text';
+    }
+    return 'in-front-of-primary-text';
+  }
+
   override willUpdate(changedProperties: PropertyValues<this>) {
     super.willUpdate(changedProperties);
     if (changedProperties.has('match') ||
         changedProperties.has('richImageSuggestionsEnabled')) {
       this.suggestStyle = this.computeSuggestStyle_();
-      this.isTwoRowSuggestion = this.match.isTwoRowSuggestion;
+      this.baseLayout = this.computeBaseLayout_();
+      this.secondaryTextPlacement = this.computeSecondaryTextPlacement_();
     }
   }
 
@@ -148,33 +187,27 @@ export class ComposeboxMatchElement extends CrLitElement {
     return this.match.iconPath || '';
   }
 
-  // Returns a CSP-safe image URL using Chrome's SanitizedImageSource
-  // (//image?...).
-  protected computeImageUrl_(url: string|undefined): string {
-    if (!url) {
-      return '';
-    }
-    return `//image?staticEncode=true&encodeType=webp&url=${
-        encodeURIComponent(url)}`;
-  }
-
   protected imageStyle_(): string {
-    if (!this.isRichImage) {
+    if (!this.isRichImage || this.loading) {
       return '';
     }
-    const src = this.computeImageUrl_(this.match.imageUrl);
+    const src = computeImageUrl(this.match.suggestTemplate.image?.url);
     return src ? `background-image: ${getUrlForCss(src)};` : '';
   }
 
   private onMatchFocusin_() {
+    if (this.loading) {
+      return;
+    }
     this.fire('match-focusin', {
       index: this.matchIndex,
     });
   }
 
   private onMouseClick_(e: MouseEvent) {
-    if (e.button > 1) {
-      // Only handle main (generally left) and middle button presses.
+    if (this.loading || e.button > 1) {
+      // Only handle main (generally left) and middle button presses, and ignore
+      // clicks while cards are in a loading state.
       return;
     }
 
@@ -224,6 +257,21 @@ export class ComposeboxMatchElement extends CrLitElement {
 
   protected onRemoveButtonMousedown_(e: Event) {
     e.preventDefault();  // Prevents default browser action (focus).
+  }
+
+  isRemoveButtonFocused(): boolean {
+    return this.shadowRoot?.activeElement === this.$.remove;
+  }
+
+  /**
+   * Returns whether pressing Tab (or Shift-Tab when `shiftKey` is true) while
+   * this match is active will move focus outside of this match element rather
+   * than between internal focusable controls (such as the remove button).
+   */
+  willTabExitMatch(shiftKey: boolean = false): boolean {
+    return shiftKey ?
+        !this.isRemoveButtonFocused() :
+        (!this.match.supportsDeletion || this.isRemoveButtonFocused());
   }
 }
 

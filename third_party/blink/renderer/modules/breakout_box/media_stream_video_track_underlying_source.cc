@@ -8,6 +8,7 @@
 #include "base/task/sequenced_task_runner.h"
 #include "base/threading/platform_thread.h"
 #include "media/capture/video/video_capture_buffer_pool_util.h"
+#include "third_party/blink/public/platform/modules/mediastream/web_media_stream_sink.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
 #include "third_party/blink/renderer/modules/breakout_box/frame_queue_transferring_optimizer.h"
@@ -71,12 +72,10 @@ std::unique_ptr<ReadableStreamTransferringOptimizer>
 MediaStreamVideoTrackUnderlyingSource::GetStreamTransferOptimizer() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   return std::make_unique<VideoFrameQueueTransferOptimizer>(
-      this, GetRealmRunner(), MaxQueueSize(),
+      this, GetRealmRunner(), Queue(), DeviceId(), FramePoolSize(),
+      ThreadType(),
       CrossThreadBindOnce(
           &MediaStreamVideoTrackUnderlyingSource::OnSourceTransferStarted,
-          WrapCrossThreadWeakPersistent(this)),
-      CrossThreadBindOnce(
-          &MediaStreamVideoTrackUnderlyingSource::ClearTransferredSource,
           WrapCrossThreadWeakPersistent(this)));
 }
 
@@ -86,7 +85,8 @@ void MediaStreamVideoTrackUnderlyingSource::OnSourceTransferStarted(
     base::TimeTicks time_origin,
     bool is_cross_origin_isolated) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  TransferSource(std::move(source), time_origin, is_cross_origin_isolated);
+  TransferSource(std::move(transferred_runner), std::move(source), time_origin,
+                 is_cross_origin_isolated);
   RecordBreakoutBoxUsage(BreakoutBoxUsage::kReadableVideoWorker);
 }
 
@@ -110,8 +110,8 @@ bool MediaStreamVideoTrackUnderlyingSource::StartFrameDelivery() {
                  ConvertToBaseRepeatingCallback(CrossThreadBindRepeating(
                      &MediaStreamVideoTrackUnderlyingSource::OnFrameFromTrack,
                      WrapCrossThreadPersistent(this))),
-                 MediaStreamVideoSink::IsSecure::kNo,
-                 MediaStreamVideoSink::UsesAlpha::kDefault);
+                 WebMediaStreamSink::IsSecure::kNo,
+                 WebMediaStreamSink::UsesAlpha::kDefault);
   return true;
 }
 

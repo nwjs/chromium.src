@@ -7,23 +7,14 @@
 
 #import <UIKit/UIKit.h>
 
-#include "base/time/time.h"
-#include "url/gurl.h"
-
 @class MostVisitedTilesCollectionView;
 @class NewTabPageColorPalette;
-class TemplateURLService;
 
 /// Block extracting a `UIColor` from a  `NewTabPageColorPalette`.
 typedef UIColor* (^PaletteColorProvider)(NewTabPageColorPalette*);
 
 // Whether the top of feed sync promo has met the criteria to be shown.
 bool ShouldShowTopOfFeedSyncPromo();
-
-// Retrieves the URL for the AIM web page. `query_start_time` is the time that
-// the user clicked the submit button.
-GURL GetUrlForAim(TemplateURLService* turl_service,
-                  base::Time query_start_time);
 
 /// Generates a `UIButtonConfigurationUpdateHandler` that will color its button
 /// correctly for the current NTP theming status.
@@ -47,10 +38,13 @@ UIView* CreateMostVisitedContainerView(
     MostVisitedTilesCollectionView* collectionView,
     BOOL hasBackground);
 
-/// Calculates the layout height of Most Visited Tiles given its container
-/// or inner collection view (using system layout fitting when bounds are zero).
-CGFloat MostVisitedContainerHeight(UIView* containerView,
-                                   UIView* mostVisitedView);
+/// Calculates the layout height of Most Visited Tiles given its inner
+/// collection view, falling back to system layout fitting on `fallbackView` or
+/// `collectionView.intrinsicContentSize` if `collectionView` is nil or has not
+/// calculated its content size.
+CGFloat MostVisitedContainerHeight(
+    MostVisitedTilesCollectionView* collectionView,
+    UIView* fallbackView = nil);
 
 /// Returns the height for the NTP Quick Actions button row.
 CGFloat QuickActionsHeight();

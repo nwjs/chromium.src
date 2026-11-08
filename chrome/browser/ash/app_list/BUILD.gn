@@ -56,7 +56,6 @@ static_library("app_list") {
   public_deps = [
     "//ash/public/cpp",
     "//base",
-    "//chrome/browser:browser_public_dependencies",
     "//chrome/browser/profiles:profile",
     "//components/feature_engagement/public",
     "//components/search_engines",
@@ -81,9 +80,9 @@ static_library("app_list") {
     "//chrome/browser/ash/arc:arc_util",
     "//chrome/browser/ui:chrome_pages",
     "//chrome/browser/ui/ash/app_icon_color_cache",
-    "//chrome/browser/ui/navigator",
     "//chrome/browser/web_applications",
     "//chrome/common",
+    "//chromeos/ash/components/bookmarks:bookmark_model_provider",
     "//chromeos/ash/components/browser_context_helper",
     "//chromeos/ash/components/browser_delegate",
     "//chromeos/ash/components/feature_engagement:feature_engagement_tracker_provider",
@@ -165,7 +164,6 @@ source_set("unit_tests") {
     "//chrome/browser/ash/login/users:test_support",
     "//chrome/browser/extensions",
     "//chrome/browser/profiles:profile",
-    "//chrome/browser/ui",
     "//chrome/browser/web_applications",
     "//chrome/browser/web_applications:web_applications_test_support",
     "//chrome/common:constants",
@@ -255,7 +253,6 @@ source_set("browser_tests") {
     "//chrome/browser/profiles:profile",
     "//chrome/browser/search_engines",
     "//chrome/browser/signin",
-    "//chrome/browser/ui",
     "//chrome/browser/ui:browser_window_header",
     "//chrome/browser/ui:settings_window_manager_chromeos",
     "//chrome/browser/ui/ash/assistant",
@@ -316,7 +313,6 @@ if (!is_chromeos_device) {
 
     deps = [
       "//chrome/browser/ash/app_list",
-      "//chrome/browser/ui",
       "//chrome/test:test_support_ui",
       "//content/test:test_support",
     ]

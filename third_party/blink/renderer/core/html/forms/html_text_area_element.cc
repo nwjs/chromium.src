@@ -156,7 +156,7 @@ HTMLTextAreaElement::HTMLTextAreaElement(Document& document)
       // default language should be fine for this purpose because most users set
       // the same family for all languages.
       FontCache::PrewarmFamily(settings->GetGenericFontFamilySettings().Fixed(
-          LayoutLocale::GetDefault().GetScript()));
+          LayoutLocale::GetDefault().GetScriptForFont()));
       g_is_default_font_prewarmed = true;
     }
   }
@@ -204,8 +204,7 @@ int HTMLTextAreaElement::scrollWidth() {
     return TextControlElement::scrollWidth();
   const LayoutUnit width = editor_box->PhysicalPaddingBoxRect().Width() +
                            box->PaddingOutsets().HorizontalSum();
-  return AdjustForAbsoluteZoom::AdjustLayoutUnit(width, box->StyleRef())
-      .Round();
+  return AdjustForAbsoluteZoom::AdjustLayoutUnit(width, box->Style()).Round();
 }
 
 int HTMLTextAreaElement::scrollHeight() {
@@ -222,8 +221,7 @@ int HTMLTextAreaElement::scrollHeight() {
     return TextControlElement::scrollHeight();
   const LayoutUnit height = editor_box->PhysicalPaddingBoxRect().Height() +
                             box->PaddingOutsets().VerticalSum();
-  return AdjustForAbsoluteZoom::AdjustLayoutUnit(height, box->StyleRef())
-      .Round();
+  return AdjustForAbsoluteZoom::AdjustLayoutUnit(height, box->Style()).Round();
 }
 
 double HTMLTextAreaElement::scrollLeft() {
@@ -627,6 +625,7 @@ void HTMLTextAreaElement::SetValueCommon(const String& new_value,
 
   // Clear the suggested value. Use the base class version to not trigger a view
   // update.
+  SetAutofillState(autofill_state);
   TextControlElement::SetSuggestedValue(String());
 
   // Return early because we don't want to trigger other side effects when the
@@ -685,7 +684,6 @@ void HTMLTextAreaElement::SetValueCommon(const String& new_value,
                       std::min(end_of_string, selection_end));
   }
 
-  SetAutofillState(autofill_state);
   NotifyFormStateChanged();
   switch (event_behavior) {
     case TextFieldEventBehavior::kDispatchChangeEvent:
@@ -736,9 +734,9 @@ void HTMLTextAreaElement::SetSuggestedValue(const String& value) {
     // information to javascript.
     sanitized_value = String();
   }
+  TextControlElement::SetSuggestedValue(sanitized_value);
   SetAutofillState(!sanitized_value.empty() ? WebAutofillState::kPreviewed
                                             : WebAutofillState::kNotFilled);
-  TextControlElement::SetSuggestedValue(sanitized_value);
   SetNeedsStyleRecalc(
       kSubtreeStyleChange,
       StyleChangeReasonForTracing::Create(style_change_reason::kControlValue));
@@ -967,9 +965,9 @@ WebFormControlElement::TextInfo HTMLTextAreaElement::GetTextInfo() const {
   }
 
   WebFormControlElement::TextInfo results;
-  results.effective_zoom = inner_layout->StyleRef().EffectiveZoom();
+  results.effective_zoom = inner_layout->Style().EffectiveZoom();
   results.primary_ascent =
-      inner_layout->StyleRef().GetFontHeight().ascent.ToFloat();
+      inner_layout->Style().GetFontHeight().ascent.ToFloat();
   for (LayoutObject* child = inner_layout->FirstChild(); child;
        child = child->NextSibling()) {
     const auto* paragraph_block = DynamicTo<LayoutBlockFlow>(child);

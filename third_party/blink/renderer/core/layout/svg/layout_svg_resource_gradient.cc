@@ -23,7 +23,9 @@
 #include "third_party/blink/renderer/core/layout/svg/layout_svg_resource_gradient.h"
 
 #include <memory>
+#include <utility>
 
+#include "base/check.h"
 #include "third_party/blink/renderer/core/svg/gradient_attributes.h"
 #include "third_party/blink/renderer/core/svg/svg_length.h"
 #include "third_party/blink/renderer/core/svg/svg_length_context.h"
@@ -131,7 +133,7 @@ std::unique_ptr<GradientData> LayoutSVGResourceGradient::BuildGradientData(
   // Create gradient object
   gradient_data->gradient = BuildGradient();
   gradient_data->gradient->SetColorInterpolationSpace(
-      StyleRef().ColorInterpolation() == EColorInterpolation::kLinearrgb
+      Style().ColorInterpolation() == EColorInterpolation::kLinearrgb
           ? Color::ColorSpace::kSRGBLinear
           : Color::ColorSpace::kNone,
       Color::HueInterpolationMethod::kShorter);
@@ -152,10 +154,15 @@ bool LayoutSVGResourceGradient::ApplyShader(
   NOT_DESTROYED();
   ClearInvalidationMask();
 
-  std::unique_ptr<GradientData>& gradient_data =
-      gradient_map_.insert(&client, nullptr).stored_value->value;
-  if (!gradient_data)
-    gradient_data = BuildGradientData(reference_box);
+  auto iter = gradient_map_.find(&client);
+  GradientData* gradient_data =
+      (iter == gradient_map_.end() ? nullptr : iter->value.get());
+  if (!gradient_data) {
+    auto new_gradient_data = BuildGradientData(reference_box);
+    gradient_data = new_gradient_data.get();
+    CHECK(gradient_data);
+    gradient_map_.Set(&client, std::move(new_gradient_data));
+  }
 
   if (!gradient_data->gradient)
     return false;
@@ -164,8 +171,7 @@ bool LayoutSVGResourceGradient::ApplyShader(
   if (additional_transform)
     transform = *additional_transform * transform;
   ImageDrawOptions draw_options;
-  draw_options.apply_dark_mode =
-      auto_dark_mode.enabled && StyleRef().ForceDark();
+  draw_options.apply_dark_mode = auto_dark_mode.enabled && Style().ForceDark();
   gradient_data->gradient->ApplyToFlags(flags, transform.ToSkMatrix(),
                                         draw_options);
   return true;

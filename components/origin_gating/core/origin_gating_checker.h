@@ -14,14 +14,21 @@
 #include "base/memory/weak_ptr.h"
 #include "base/sequence_checker.h"
 #include "base/thread_annotations.h"
+#include "base/types/pass_key.h"
+#include "components/origin_gating/core/decision.h"
+#include "components/origin_gating/core/decision_attribution.h"
+#include "components/origin_gating/core/decision_source.h"
+#include "components/origin_gating/core/gateable_event.h"
+#include "components/origin_gating/core/gating_decision.h"
 #include "components/origin_gating/core/origin_gating_cache.h"
 #include "components/origin_gating/core/origin_gating_configuration.h"
 #include "components/origin_gating/core/task_policy_config_slot.h"
-#include "components/origin_gating/core/types.h"
 #include "url/gurl.h"
 #include "url/origin.h"
 
 namespace origin_gating {
+
+class OriginGatingService;
 
 // Evaluates origin gating decisions for navigations and page actions against a
 // configured pipeline of predicates and embedder delegate callbacks.
@@ -81,10 +88,15 @@ class OriginGatingChecker {
         base::OnceCallback<void(NoVerdictResult)> callback) = 0;
   };
 
-  // TODO(http://b/545563794): Make this constructor take a
-  // `base::PassKey<OriginGatingService>` once
-  // DevToolsNavigationGatingRuleManager is migrated to a KeyedService.
-  OriginGatingChecker(base::WeakPtr<Delegate> delegate,
+  static std::unique_ptr<OriginGatingChecker> CreateForTesting(
+      base::WeakPtr<Delegate> delegate,
+      OriginGatingConfiguration config);
+
+  OriginGatingChecker(base::PassKey<OriginGatingChecker>,
+                      base::WeakPtr<Delegate> delegate,
+                      OriginGatingConfiguration config);
+  OriginGatingChecker(base::PassKey<OriginGatingService>,
+                      base::WeakPtr<Delegate> delegate,
                       OriginGatingConfiguration config);
   ~OriginGatingChecker();
 
@@ -102,20 +114,24 @@ class OriginGatingChecker {
   // `config_` does not include any predicates that consult the cache.
   void AllowNavigationTo(url::Origin origin, bool is_user_confirmed) {
     DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-    if (!config_.uses_cache()) {
-      return;
+    if (cache_) {
+      cache_->AllowNavigationTo(std::move(origin), is_user_confirmed);
     }
-    cache_.AllowNavigationTo(std::move(origin), is_user_confirmed);
   }
   void AllowNavigationTo(const absl::flat_hash_set<url::Origin>& origins) {
     DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-    if (!config_.uses_cache()) {
-      return;
+    if (cache_) {
+      cache_->AllowNavigationTo(origins);
     }
-    cache_.AllowNavigationTo(origins);
   }
 
-  const OriginGatingCache& cache() const { return cache_; }
+  OriginGatingCache::SizeMetrics GetCacheSizeMetrics() const {
+    DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+    if (cache_) {
+      return cache_->GetSizeMetrics();
+    }
+    return {};
+  }
 
   // Returns references to the task policy config slot.
   const TaskPolicyConfigSlot& task_policy_config_slot() const {
@@ -128,6 +144,9 @@ class OriginGatingChecker {
   }
 
  private:
+  OriginGatingChecker(base::WeakPtr<Delegate> delegate,
+                      OriginGatingConfiguration config);
+
   // Holds various inputs provided by the delegate (and data derived thereof),
   // to avoid needless recomputations.
   struct DelegateInputs {
@@ -217,7 +236,9 @@ class OriginGatingChecker {
   SEQUENCE_CHECKER(sequence_checker_);
   const base::WeakPtr<Delegate> delegate_ GUARDED_BY_CONTEXT(sequence_checker_);
   OriginGatingConfiguration config_ GUARDED_BY_CONTEXT(sequence_checker_);
-  OriginGatingCache cache_ GUARDED_BY_CONTEXT(sequence_checker_);
+  // Cache for origin gating decisions. This is nullopt if the list of
+  // predicates never consults the cache.
+  std::optional<OriginGatingCache> cache_ GUARDED_BY_CONTEXT(sequence_checker_);
   TaskPolicyConfigSlot task_policy_config_slot_
       GUARDED_BY_CONTEXT(sequence_checker_);
   base::WeakPtrFactory<OriginGatingChecker> weak_ptr_factory_

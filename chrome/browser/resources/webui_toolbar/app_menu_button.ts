@@ -8,8 +8,11 @@ import './icons.js';
 import '//resources/cr_elements/icons.html.js';
 
 import {loadTimeData} from '//resources/js/load_time_data.js';
+import {TrackedElementManager} from '//resources/js/tracked_element/tracked_element_manager.js';
 import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
 import type {PropertyValues} from '//resources/lit/v3_0/lit.rollup.js';
+import {TimerHelper} from '/shared/timer_helper.js';
+import {BUTTON_LEFT, getClickSourceType, getContextMenuPosition, HelpBubbleAnchorMixin} from '/shared/toolbar_button.js';
 import {AppMenuIconType, AppMenuSeverity, ContextMenuType, FocusRequestTarget} from '/shared/toolbar_ui_api_data_model.mojom-webui.js';
 import type {AppMenuControlState} from '/shared/toolbar_ui_api_data_model.mojom-webui.js';
 
@@ -17,14 +20,14 @@ import {getCss} from './app_menu_button.css.js';
 import {getHtml} from './app_menu_button.html.js';
 import {BrowserProxyImpl, INVALID_FOCUS_REQUEST_HANDLE} from './browser_proxy.js';
 import type {FocusRequestHandle} from './browser_proxy.js';
-import {TimerHelper} from './timer_helper.js';
-import {BUTTON_LEFT, getClickSourceType, getContextMenuPosition, HelpBubbleAnchorMixin, setHasHelpBubble} from './toolbar_button.js';
+import {CollapsibleLabelButtonMixin} from './collapsible_label_button.js';
 import type {ToolbarChipButtonElement} from './toolbar_chip_button.js';
 
 // Matches the 250ms animation in icons.ts and Views BrowserAppMenuButton.
 const APP_MENU_GLOW_UP_DURATION_MS = 250;
 
-const AppMenuButtonElementBase = HelpBubbleAnchorMixin(CrLitElement);
+const AppMenuButtonElementBase =
+    HelpBubbleAnchorMixin(CollapsibleLabelButtonMixin(CrLitElement));
 
 export interface AppMenuButtonElement {
   $: {
@@ -47,6 +50,7 @@ export class AppMenuButtonElement extends AppMenuButtonElementBase {
 
   static override get properties() {
     return {
+      ...super.properties,
       state: {type: Object},
       glowUpEnabled: {type: Boolean},
       glowUpActive: {
@@ -87,20 +91,12 @@ export class AppMenuButtonElement extends AppMenuButtonElementBase {
   // Manage the lifecycle of the focus listener.
   override connectedCallback() {
     super.connectedCallback();
-    this.registerHelpBubble('kToolbarAppMenuButtonElementId', this.$.button, {
-      onHighlightChanged: (highlighted: boolean) => {
-        this.classList.toggle('anchor-highlight', highlighted);
-      },
-      onHelpBubbleShown: () => setHasHelpBubble(this, true),
-      onHelpBubbleHidden: () => setHasHelpBubble(this, false),
-    });
     this.focusRequestHandle_ = this.browserProxy_.addFocusRequestListener(
         this.onFocusRequest_.bind(this));
   }
 
   override disconnectedCallback() {
     super.disconnectedCallback();
-    this.unregisterHelpBubble('kToolbarAppMenuButtonElementId');
     this.browserProxy_.removeFocusRequestListener(this.focusRequestHandle_);
     this.finishAnimation_();
   }
@@ -119,15 +115,21 @@ export class AppMenuButtonElement extends AppMenuButtonElementBase {
       this.toggleAttribute(
           'window-is-maximized-or-fullscreen',
           this.state.windowIsMaximizedOrFullscreen);
-      this.toggleAttribute('has-label', !!this.state.labelText);
 
       const oldState = changedProperties.get('state');
+      if (!oldState || oldState.labelText !== this.state.labelText) {
+        this.fire('request-layout');
+      }
       const oldShowing = oldState ? oldState.isContextMenuVisible : false;
       const newShowing = this.state.isContextMenuVisible;
       if (oldShowing !== newShowing) {
         this.onContextMenuVisibleChanged_();
       }
     }
+  }
+
+  protected override hasLabel_(): boolean {
+    return !!this.state.labelText;
   }
 
   private computeGlowUpActive_(changedProperties: PropertyValues<this>):
@@ -205,12 +207,13 @@ export class AppMenuButtonElement extends AppMenuButtonElementBase {
     // Handle keyboard (detail === 0) and touch clicks (tap/release) here.
     // Mouse clicks (detail > 0) are ignored here because they were already
     // handled immediately on pointerdown to match Views' behavior.
-    if (e.detail === 0 || e.pointerType !== 'mouse') {
+    if (e.detail === 0 || (e.pointerType && e.pointerType !== 'mouse')) {
       this.handleMenuClick_(e);
     }
   }
 
   private handleMenuClick_(e: Event) {
+    TrackedElementManager.getInstance().notifyElementActivated(this);
     this.browserProxy_.toolbarUIHandler.showContextMenu(
         ContextMenuType.kAppMenu, getContextMenuPosition(this),
         getClickSourceType(e), /*showMenuToken=*/ null);

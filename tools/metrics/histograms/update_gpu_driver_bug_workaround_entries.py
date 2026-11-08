@@ -17,6 +17,7 @@ import sys
 
 import setup_modules  # pylint: disable=unused-import
 
+
 import chromium_src.tools.metrics.common.path_util as path_util
 import chromium_src.tools.metrics.histograms.update_histogram_enum as update_histogram_enum
 

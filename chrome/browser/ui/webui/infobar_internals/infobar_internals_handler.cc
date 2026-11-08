@@ -20,6 +20,7 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/buildflags.h"
 #include "chrome/browser/devtools/devtools_infobar_delegate.h"
+#include "chrome/browser/devtools/devtools_remote_server_infobar_delegate.h"
 #include "chrome/browser/devtools/devtools_window.h"
 #include "chrome/browser/devtools/global_confirm_info_bar.h"
 #include "chrome/browser/devtools/process_sharing_infobar.h"
@@ -30,21 +31,25 @@
 #include "chrome/browser/infobars/infobar_features.h"
 #include "chrome/browser/infobars/infobar_spec.h"
 #include "chrome/browser/infobars/simple_alert_infobar_creator.h"
-#include "chrome/browser/omnibox/chrome_omnibox_navigation_observer_base.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ssl/known_interception_disclosure_infobar_delegate.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/collected_cookies_infobar_delegate.h"
+#include "chrome/browser/ui/omnibox/chrome_omnibox_navigation_observer.h"
 #include "chrome/browser/ui/page_info/page_info_infobar_delegate.h"
+#include "chrome/browser/ui/select_file_policy/chrome_select_file_policy.h"
 #include "chrome/browser/ui/startup/automation_infobar_delegate.h"
 #include "chrome/browser/ui/startup/bad_flags_prompt.h"
 #include "chrome/browser/ui/startup/google_api_keys_infobar_delegate.h"
 #include "chrome/browser/ui/startup/obsolete_system_infobar_delegate.h"
+#include "chrome/browser/ui/startup/oscryptasync_availability_infobar_delegate.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/ui_features.h"
+#include "chrome/browser/ui/views/js_optimization/js_optimizations_infobar_delegate.h"
 #include "chrome/browser/ui/views/site_data/page_specific_site_data_dialog_controller.h"
+#include "chrome/browser/ui/views/web_apps/web_app_blocked_migration_infobar_delegate.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/infobars/content/content_infobar_manager.h"
@@ -53,6 +58,7 @@
 #include "components/infobars/core/simple_alert_infobar_delegate.h"
 #include "components/omnibox/browser/autocomplete_match.h"
 #include "components/prefs/pref_service.h"
+#include "components/signin/public/base/signin_buildflags.h"
 #include "components/strings/grit/components_strings.h"
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/navigation_controller.h"
@@ -94,8 +100,8 @@
 #endif
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
-#include "chrome/browser/ui/startup/default_browser_prompt/default_browser_prompt_manager.h"  // nogncheck
-#include "chrome/browser/ui/startup/default_browser_prompt/default_browser_prompt_prefs.h"  // nogncheck
+#include "chrome/browser/ui/startup/default_browser_prompt/default_browser_prompt_manager.h"
+#include "chrome/browser/ui/startup/default_browser_prompt/default_browser_prompt_prefs.h"
 #include "chrome/browser/ui/views/session_restore_infobar/session_restore_infobar_manager.h"
 #include "chrome/browser/web_applications/web_app_provider.h"
 #include "chrome/browser/web_applications/web_app_registrar.h"
@@ -103,11 +109,19 @@
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
 #include "chrome/browser/ui/pdf/infobar/pdf_infobar_controller.h"
+#include "chrome/browser/ui/startup/default_browser_prompt/pin_infobar/pin_infobar_delegate.h"
 #endif
 
 #if BUILDFLAG(IS_WIN)
-#include "chrome/browser/startup/startup_launch_manager.h"  // nogncheck
+#include "chrome/browser/startup/startup_launch_manager.h"
 #include "chrome/browser/ui/startup/startup_launch_infobar_manager_impl.h"
+#endif
+
+#if BUILDFLAG(ENABLE_DICE_SUPPORT)
+#include "chrome/browser/signin/dice_tab_helper.h"
+#include "chrome/browser/ui/signin/signin_qrcode_infobar.h"
+#include "chrome/browser/ui/signin/signin_qrcode_infobar_delegate.h"
+#include "chrome/browser/ui/signin/signin_qrcode_model.h"
 #endif
 
 using InfoBarType = infobar_internals::mojom::InfoBarType;
@@ -134,12 +148,20 @@ TriggerRequirements RequirementsFor(InfoBarType type) {
     case InfoBarType::kCollectedCookies:
     case InfoBarType::kDevTools:
     case InfoBarType::kDevToolsSharedProcess:
+    case InfoBarType::kFileAccessDisabled:
     case InfoBarType::kGoogleApiKeys:
+    case InfoBarType::kJsOptimizations:
     case InfoBarType::kKnownInterception:
     case InfoBarType::kObsoleteSystem:
+    case InfoBarType::kOSCryptAsyncAvailability:
     case InfoBarType::kPageInfo:
+    case InfoBarType::kWebAppBlockedMigration:
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
     case InfoBarType::kPdf:
+    case InfoBarType::kPinToTaskbar:
+#endif
+#if BUILDFLAG(ENABLE_DICE_SUPPORT)
+    case InfoBarType::kSigninQRCode:
 #endif
       return {.web_contents = true};
 #if BUILDFLAG(ENABLE_EXTENSIONS)
@@ -164,6 +186,7 @@ TriggerRequirements RequirementsFor(InfoBarType type) {
 #if BUILDFLAG(CHROME_FOR_TESTING)
     case InfoBarType::kChromeForTesting:
 #endif
+    case InfoBarType::kDevToolsRemoteDebugging:
     case InfoBarType::kLocalTestPoliciesApplied:
 #if BUILDFLAG(IS_WIN) && BUILDFLAG(GOOGLE_CHROME_BRANDING)
     case InfoBarType::kInstallerDownloader:
@@ -176,6 +199,32 @@ TriggerRequirements RequirementsFor(InfoBarType type) {
 }
 
 }  // namespace
+
+#if BUILDFLAG(IS_WIN) && BUILDFLAG(GOOGLE_CHROME_BRANDING)
+class InfoBarInternalsHandler::
+    ScopedInstallerDownloaderBypassEligibilityCheck {
+ public:
+  ScopedInstallerDownloaderBypassEligibilityCheck() {
+    if (PrefService* prefs = g_browser_process->local_state()) {
+      prefs->SetBoolean(installer_downloader::prefs::
+                            kInstallerDownloaderBypassEligibilityCheck,
+                        true);
+    }
+  }
+
+  ScopedInstallerDownloaderBypassEligibilityCheck(
+      const ScopedInstallerDownloaderBypassEligibilityCheck&) = delete;
+  ScopedInstallerDownloaderBypassEligibilityCheck& operator=(
+      const ScopedInstallerDownloaderBypassEligibilityCheck&) = delete;
+
+  ~ScopedInstallerDownloaderBypassEligibilityCheck() {
+    if (PrefService* prefs = g_browser_process->local_state()) {
+      prefs->ClearPref(installer_downloader::prefs::
+                           kInstallerDownloaderBypassEligibilityCheck);
+    }
+  }
+};
+#endif
 
 InfoBarInternalsHandler::InfoBarInternalsHandler(
     mojo::PendingReceiver<infobar_internals::mojom::PageHandler> receiver)
@@ -256,6 +305,12 @@ void InfoBarInternalsHandler::GetInfoBars(GetInfoBarsCallback callback) {
             "The DevTools infobar is used to confirm that the user wants to "
             "allow DevTools to be used. This trigger shows the infobar.");
 
+  add_entry(InfoBarType::kDevToolsRemoteDebugging, "DevTools Remote Debugging",
+            "The DevTools Remote Debugging infobar globally warns users that "
+            "a remote CDP client is connected to the browser. This trigger "
+            "shows the infobar.",
+            InfoBarAction::kShowGlobally);
+
   add_entry(InfoBarType::kDevToolsSharedProcess, "DevTools Shared Process",
             "The DevTools shared process infobar warns that the inspected tab "
             "shares a renderer process and offers a restart with "
@@ -274,6 +329,11 @@ void InfoBarInternalsHandler::GetInfoBars(GetInfoBarsCallback callback) {
             "that an extension is debugging the browser. This trigger shows "
             "the infobar.",
             InfoBarAction::kShowGlobally);
+
+  add_entry(InfoBarType::kFileAccessDisabled, "File Access Disabled",
+            "The File Access Disabled infobar is shown when a page tries to "
+            "open a file selection dialog while the AllowFileSelectionDialogs "
+            "policy blocks them. This trigger shows the infobar.");
 
   add_entry(InfoBarType::kGoogleApiKeys, "Google API Keys",
             "The Google API Keys infobar warns users when Google API keys are "
@@ -294,6 +354,11 @@ void InfoBarInternalsHandler::GetInfoBars(GetInfoBarsCallback callback) {
             "trigger resets any browser state that prevents it from showing, "
             "then requests a show.");
 #endif
+
+  add_entry(InfoBarType::kJsOptimizations, "JS Optimizations",
+            "The JS Optimizations infobar asks the user to reload the page "
+            "after changing the JavaScript optimizations setting for a site. "
+            "This trigger shows the infobar.");
 
 #if BUILDFLAG(IS_MAC) && BUILDFLAG(ENABLE_UPDATER)
   add_entry(InfoBarType::kKeystone, "Keystone",
@@ -319,6 +384,13 @@ void InfoBarInternalsHandler::GetInfoBars(GetInfoBarsCallback callback) {
             "The Obsolete System infobar warns users when their operating "
             "system is no longer supported. This trigger shows the infobar.");
 
+  add_entry(InfoBarType::kOSCryptAsyncAvailability,
+            "OSCrypt Async Availability",
+            "The OSCrypt Async Availability infobar warns users that OS "
+            "encryption is unavailable and some profile data may not be "
+            "readable, suggesting a relaunch. This trigger shows the "
+            "infobar.");
+
   add_entry(InfoBarType::kPageInfo, "Page Info",
             "The Page Info infobar is shown when a user changes permissions, "
             "asking them to reload the page to apply settings.");
@@ -329,12 +401,25 @@ void InfoBarInternalsHandler::GetInfoBars(GetInfoBarsCallback callback) {
             "it's not already. This trigger resets any browser state that "
             "prevents the infobar from being shown, then shows the infobar. "
             "This can only be triggered on Windows or Mac.");
+  add_entry(InfoBarType::kPinToTaskbar, "Pin to Taskbar",
+            "The Pin to Taskbar infobar offers to pin Chrome to the taskbar "
+            "(Windows) or keep it in the Dock (Mac). This trigger shows the "
+            "infobar without checking whether Chrome is the default browser "
+            "or already pinned. This can only be triggered on Windows or "
+            "Mac.");
 #endif
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
   add_entry(InfoBarType::kSessionRestore, "Session Restore",
             "Triggers the session restore infobar. This infobar can only be "
             "triggered on Mac, Windows and Linux.");
+#endif
+
+#if BUILDFLAG(ENABLE_DICE_SUPPORT)
+  add_entry(InfoBarType::kSigninQRCode, "Sign-in QR Code",
+            "The Sign-in QR Code infobar is shown on the Chrome sign-in page "
+            "and offers a QR code to sign in from a phone. This trigger shows "
+            "the infobar.");
 #endif
 
 #if BUILDFLAG(IS_WIN)
@@ -349,6 +434,10 @@ void InfoBarInternalsHandler::GetInfoBars(GetInfoBarsCallback callback) {
             "The Theme Installed infobar is shown when a user installs a "
             "theme. This trigger shows the infobar for the current theme, "
             "allowing you to 'undo' to the state before this trigger.");
+  add_entry(InfoBarType::kWebAppBlockedMigration, "Web App Blocked Migration",
+            "The Web App Blocked Migration infobar tells users that a web app "
+            "migration was blocked. This trigger shows the infobar.");
+
   add_entry(InfoBarType::kWebAuthFlow, "Web Authentication Flow",
             "The Web Authentication Flow infobar is shown when an extension "
             "starts an interactive web authentication flow.");
@@ -385,7 +474,7 @@ bool InfoBarInternalsHandler::PerformInfoBarActionInternal(
       AutocompleteMatch match;
       match.destination_url = GURL("https://google.com/");
 
-      ChromeOmniboxNavigationObserverBase::ShowAlternativeNavInfoBar(
+      ChromeOmniboxNavigationObserver::ShowAlternativeNavInfoBar(
           web_contents, u"test", match, GURL("https://youtube.com/"));
       return true;
     }
@@ -482,6 +571,21 @@ bool InfoBarInternalsHandler::PerformInfoBarActionInternal(
               web_contents));
       return true;
     }
+    case InfoBarType::kDevToolsRemoteDebugging: {
+      if (infobars::IsInfoBarMigrated(
+              infobars::InfoBarDelegate::
+                  DEV_TOOLS_REMOTE_DEBUGGING_INFOBAR_DELEGATE)) {
+        if (!browser_infobar_manager) {
+          return false;
+        }
+        return browser_infobar_manager->ShowGlobally(
+            infobars::InfoBarDelegate::
+                DEV_TOOLS_REMOTE_DEBUGGING_INFOBAR_DELEGATE);
+      }
+      GlobalConfirmInfoBar::Show(
+          std::make_unique<DevToolsRemoteServerInfobarDelegate>());
+      return true;
+    }
     case InfoBarType::kDevToolsSharedProcess: {
       auto* infobar_manager =
           infobars::ContentInfoBarManager::FromWebContents(web_contents);
@@ -558,6 +662,10 @@ bool InfoBarInternalsHandler::PerformInfoBarActionInternal(
 #else
       return false;
 #endif
+    }
+    case InfoBarType::kFileAccessDisabled: {
+      ChromeSelectFilePolicy(web_contents).SelectFileDenied();
+      return true;
     }
     case InfoBarType::kGoogleApiKeys: {
       if (infobars::IsInfoBarMigrated(
@@ -652,23 +760,32 @@ bool InfoBarInternalsHandler::PerformInfoBarActionInternal(
                                  ->installer_downloader_controller()) {
         PrefService* prefs = g_browser_process->local_state();
 
-        // This manual triggering from the debug page will reset the state of
-        // the installer downloader.
-        prefs->SetInteger(
-            installer_downloader::prefs::kInstallerDownloaderInfobarShowCount,
-            0);
+        // Manual triggering from the debug page resets all persistent and
+        // in-memory state of the installer downloader so the infobar can be
+        // shown regardless of prior impression limits, cooldowns, or
+        // dismissals.
+        prefs->ClearPref(
+            installer_downloader::prefs::kInstallerDownloaderInfobarShowCount);
+        prefs->ClearPref(installer_downloader::prefs::
+                             kInstallerDownloaderInfobarLastShowTime);
+        prefs->ClearPref(installer_downloader::prefs::
+                             kInstallerDownloaderPreventFutureDisplay);
+        prefs->ClearPref(
+            installer_downloader::prefs::kInstallerDownloaderCycleCount);
+        prefs->ClearPref(
+            installer_downloader::prefs::kInstallerDownloaderDownloadCompleted);
+        prefs->ClearPref(
+            installer_downloader::prefs::kInstallerDownloaderTotalShowCount);
 
-        // Reset the prevent future display flag.
-        prefs->SetBoolean(installer_downloader::prefs::
-                              kInstallerDownloaderPreventFutureDisplay,
-                          false);
+        // Initialize once per handler so a second trigger doesn't destroy the
+        // previous instance (and clear the bypass pref) after constructing the
+        // new one.
+        if (!scoped_initializer_) {
+          scoped_initializer_ = std::make_unique<
+              ScopedInstallerDownloaderBypassEligibilityCheck>();
+        }
 
-        // Set bypass flag to instruct to the controller to skip/ignore
-        // eligibility check result since it may failed.
-        prefs->SetBoolean(installer_downloader::prefs::
-                              kInstallerDownloaderBypassEligibilityCheck,
-                          true);
-
+        controller->ResetSessionStateForTesting();  // IN-TEST
         controller->MaybeShowInfoBar();
 
         return true;
@@ -676,6 +793,23 @@ bool InfoBarInternalsHandler::PerformInfoBarActionInternal(
       return false;
     }
 #endif
+    case InfoBarType::kJsOptimizations: {
+      if (infobars::IsInfoBarMigrated(
+              infobars::InfoBarDelegate::JS_OPTIMIZATIONS_INFOBAR_DELEGATE)) {
+        CHECK(browser_infobar_manager);
+        browser_infobar_manager->Show(
+            active_tab,
+            infobars::InfoBarDelegate::JS_OPTIMIZATIONS_INFOBAR_DELEGATE);
+      } else {
+        infobars::ContentInfoBarManager* infobar_manager =
+            infobars::ContentInfoBarManager::FromWebContents(web_contents);
+        if (!infobar_manager) {
+          return false;
+        }
+        JsOptimizationsInfoBarDelegate::Create(infobar_manager);
+      }
+      return true;
+    }
 #if BUILDFLAG(IS_MAC)
     case InfoBarType::kKeystone: {
 #if BUILDFLAG(ENABLE_UPDATER)
@@ -758,6 +892,26 @@ bool InfoBarInternalsHandler::PerformInfoBarActionInternal(
       }
       return true;
     }
+    case InfoBarType::kOSCryptAsyncAvailability: {
+      if (infobars::IsInfoBarMigrated(
+              infobars::InfoBarDelegate::
+                  OSCRYPTASYNC_AVAILABILITY_INFOBAR_DELEGATE)) {
+        if (!browser_infobar_manager) {
+          return false;
+        }
+        browser_infobar_manager->Show(
+            active_tab, infobars::InfoBarDelegate::
+                            OSCRYPTASYNC_AVAILABILITY_INFOBAR_DELEGATE);
+      } else {
+        infobars::ContentInfoBarManager* infobar_manager =
+            infobars::ContentInfoBarManager::FromWebContents(web_contents);
+        if (!infobar_manager) {
+          return false;
+        }
+        OSCryptAsyncAvailabilityInfoBarDelegate::Create(infobar_manager);
+      }
+      return true;
+    }
     case InfoBarType::kPageInfo: {
       if (infobars::IsInfoBarMigrated(
               infobars::InfoBarDelegate::PAGE_INFO_INFOBAR_DELEGATE)) {
@@ -793,14 +947,48 @@ bool InfoBarInternalsHandler::PerformInfoBarActionInternal(
           shell_integration::DefaultWebClientState::NOT_DEFAULT);
       return true;
     }
+
+    case InfoBarType::kPinToTaskbar: {
+      if (infobars::IsInfoBarMigrated(
+              infobars::InfoBarDelegate::PIN_INFOBAR_DELEGATE)) {
+        if (!browser_infobar_manager) {
+          return false;
+        }
+        return browser_infobar_manager->ShowGlobally(
+            infobars::InfoBarDelegate::PIN_INFOBAR_DELEGATE);
+      }
+      auto* infobar_manager =
+          infobars::ContentInfoBarManager::FromWebContents(web_contents);
+      if (!infobar_manager) {
+        return false;
+      }
+      return default_browser::PinInfoBarDelegate::Create(infobar_manager) !=
+             nullptr;
+    }
 #endif
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
     case InfoBarType::kSessionRestore: {
       session_restore_infobar::SessionRestoreInfoBarManager::GetInstance()
-          ->ShowInfoBar(*profile,
-                        session_restore_infobar::InfobarMessageType::
-                            kTurnOffFromRestart);
+          ->ShowInfoBar(
+              *profile,
+              session_restore_infobar::InfobarMessageType::kTurnOffFromRestart);
+      return true;
+    }
+#endif
+#if BUILDFLAG(ENABLE_DICE_SUPPORT)
+    case InfoBarType::kSigninQRCode: {
+      infobars::ContentInfoBarManager* infobar_manager =
+          infobars::ContentInfoBarManager::FromWebContents(web_contents);
+      if (!infobar_manager) {
+        return false;
+      }
+      DiceTabHelper::CreateForWebContents(web_contents);
+      SigninQRCodeModel* model =
+          SigninQRCodeModel::GetOrCreateForWebContents(web_contents);
+      model->SetQrCode("https://example.com");
+      infobar_manager->AddInfoBar(std::make_unique<SigninQRCodeInfoBar>(
+          std::make_unique<SigninQRCodeInfoBarDelegate>(web_contents), model));
       return true;
     }
 #endif
@@ -849,6 +1037,22 @@ bool InfoBarInternalsHandler::PerformInfoBarActionInternal(
         ThemeInstalledInfoBarDelegate::CreateForLastActiveTab(
             profile, theme_name, theme_id,
             theme_service->BuildReinstallerForCurrentTheme());
+      }
+      return true;
+    }
+    case InfoBarType::kWebAppBlockedMigration: {
+      if (infobars::IsInfoBarMigrated(
+              infobars::InfoBarDelegate::
+                  WEB_APP_BLOCKED_MIGRATION_INFOBAR_DELEGATE)) {
+        if (!browser_infobar_manager) {
+          return false;
+        }
+        browser_infobar_manager->Show(
+            active_tab, infobars::InfoBarDelegate::
+                            WEB_APP_BLOCKED_MIGRATION_INFOBAR_DELEGATE);
+      } else {
+        web_app::WebAppBlockedMigrationInfoBarDelegate::Create(
+            web_contents, /*on_dismiss_callback=*/base::DoNothing());
       }
       return true;
     }

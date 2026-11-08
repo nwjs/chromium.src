@@ -5,8 +5,6 @@
 #import <UIKit/UIKit.h>
 
 #import "base/test/ios/wait_util.h"
-#import "base/test/scoped_feature_list.h"
-#import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/ui/util/util_swift.h"
 #import "ios/chrome/test/app/uikit_test_util.h"
 #import "testing/gtest/include/gtest/gtest.h"
@@ -168,20 +166,14 @@ TEST_F(UIViewWindowCoordinatesTest, WindowDeallocationRegressionTest) {
 // reassigning the callback multiple times or moving across windows reuses the
 // same mirror view instance without accumulating duplicates.
 TEST_F(UIViewWindowCoordinatesTest, ResetAndReassignRemovesMirrorView) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndEnableFeature(kChromeNextIa);
-
   [window_ addSubview:view_];
 
   auto find_notifying_views = ^NSArray<UIView*>*(UIWindow* window) {
-    NSMutableArray<UIView*>* views = [NSMutableArray array];
-    for (UIView* subview in window.subviews) {
-      if ([NSStringFromClass([subview class])
-              containsString:@"NotifyingView"]) {
-        [views addObject:subview];
-      }
-    }
-    return views;
+    return chrome_test_util::FindViewsWithPredicate(
+        window, ^BOOL(UIView* subview) {
+          return [NSStringFromClass([subview class])
+              containsString:@"NotifyingView"];
+        });
   };
 
   view_.cr_onWindowCoordinatesChanged = ^(UIView* view) {

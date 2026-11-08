@@ -2047,7 +2047,7 @@ TEST_P(HistoryBackendDBTest, MigrateReplaceClusterVisitsTable) {
 TEST_P(HistoryBackendDBTest, MigrateKeywordSearchTerms) {
   ASSERT_NO_FATAL_FAILURE(CreateDBVersion(41));
 
-  const KeywordID keyword_id = 12;
+  const KeywordID keyword_id(12);
   const URLID url_id = 34;
   const std::u16string term = u"WEEKLY  NEWS  ";
   const std::u16string lower_term = base::i18n::ToLower(term);
@@ -2060,7 +2060,7 @@ TEST_P(HistoryBackendDBTest, MigrateKeywordSearchTerms) {
     sql::Statement insert_statement(
         db.GetUniqueStatement("INSERT INTO keyword_search_terms (keyword_id, "
                               "url_id, lower_term, term) VALUES (?,?,?,?)"));
-    insert_statement.BindInt64(0, keyword_id);
+    insert_statement.BindInt64(0, keyword_id.value());
     insert_statement.BindInt64(1, url_id);
     insert_statement.BindString16(2, lower_term);
     insert_statement.BindString16(3, term);
@@ -3120,6 +3120,8 @@ TEST_P(HistoryBackendDBTest, InitJourneysTablesOnExistingDatabase) {
     ASSERT_FALSE(db.DoesTableExist("journeys"));
     ASSERT_FALSE(db.DoesTableExist("journey_history_entries"));
     ASSERT_FALSE(db.DoesTableExist("journey_continuation_queries"));
+    ASSERT_FALSE(db.DoesTableExist("journey_collections"));
+    ASSERT_FALSE(db.DoesTableExist("journey_collection_items"));
     ASSERT_FALSE(db.DoesTableExist("journey_sync_metadata"));
   }
 
@@ -3140,6 +3142,8 @@ TEST_P(HistoryBackendDBTest, InitJourneysTablesOnExistingDatabase) {
     EXPECT_TRUE(db.DoesTableExist("journeys"));
     EXPECT_TRUE(db.DoesTableExist("journey_history_entries"));
     EXPECT_TRUE(db.DoesTableExist("journey_continuation_queries"));
+    EXPECT_TRUE(db.DoesTableExist("journey_collections"));
+    EXPECT_TRUE(db.DoesTableExist("journey_collection_items"));
     EXPECT_TRUE(db.DoesTableExist("journey_sync_metadata"));
   }
 }

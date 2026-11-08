@@ -5,19 +5,23 @@
 #include "chrome/browser/signin/cross_device_signin_promo_manager.h"
 
 #include <algorithm>
+#include <memory>
 #include <optional>
 #include <string_view>
+#include <utility>
 
+#include "base/callback_list.h"
 #include "base/feature_list.h"
 #include "base/functional/callback.h"
-#include "base/json/values_util.h"
+#include "base/memory/weak_ptr.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/notreached.h"
+#include "base/numerics/clamped_math.h"
 #include "base/strings/escape.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_util.h"
+#include "base/supports_user_data.h"
 #include "base/time/time.h"
-#include "base/values.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/signin/signin_ui_util.h"
@@ -25,6 +29,7 @@
 #include "chrome/browser/sync/device_info_sync_service_factory.h"
 #include "chrome/browser/sync/sync_service_factory.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/signin/signin_view_controller.h"
 #include "components/signin/public/base/signin_prefs.h"
 #include "components/signin/public/base/signin_switches.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
@@ -34,6 +39,8 @@
 #include "components/sync_device_info/device_info.h"
 #include "components/sync_device_info/device_info_sync_service.h"
 #include "components/sync_device_info/device_info_tracker.h"
+#include "content/public/browser/browser_thread.h"
+#include "google_apis/gaia/gaia_id.h"
 #include "net/base/url_util.h"
 #include "url/gurl.h"
 
@@ -50,15 +57,8 @@ constexpr std::string_view kCrossDeviceProfileMenuCampaign =
     "XDeviceProfileMenu";
 constexpr std::string_view kCrossDeviceHistoryPageCampaign =
     "XDeviceHistoryPage";
-
-// Sub-dictionary serialization keys to be used per data type, defined in
-// `GetEntryPointPrefKey()` below.
-constexpr char kShownCountKey[] = "shown_count";
-constexpr char kLastDismissedTimeKey[] = "last_dismissed_time";
-constexpr char kShownAfterDismissalKey[] = "shown_after_dismissal";
-
-// Dictionary keys for data type specific promo data.
-constexpr char kHistoryDictionaryKey[] = "history";
+constexpr std::string_view kCrossDeviceSendTabToSelfCampaign =
+    "XDeviceSendTabToSelf";
 
 // Limits for the dismissible promo.
 constexpr int kMaxShownCount = 5;
@@ -78,6 +78,8 @@ std::string_view GetEntryPointHistogramSuffix(
       return "HistoryPage";
     case CrossDeviceSigninPromoEntryPoint::kProfileMenu:
       return "ProfileMenu";
+    case CrossDeviceSigninPromoEntryPoint::kSendTabToSelf:
+      return "SendTabToSelf";
   }
   // LINT.ThenChange(//tools/metrics/histograms/metadata/signin/histograms.xml:CrossDeviceSigninPromoEntryPointVariant)
 }
@@ -90,19 +92,9 @@ void RecordShouldShowResult(CrossDeviceSigninPromoEntryPoint entry_point,
       result);
 }
 
-// Key used for the data type specific sub-dictionary that holds the promo data.
-std::string_view GetEntryPointPrefKey(
-    CrossDeviceSigninPromoEntryPoint entry_point) {
-  switch (entry_point) {
-    case CrossDeviceSigninPromoEntryPoint::kHistoryPage:
-      return kHistoryDictionaryKey;
-    case CrossDeviceSigninPromoEntryPoint::kProfileMenu:
-      NOTREACHED() << "Entry point does not have any promo data";
-  }
-}
-
-// Gets the main promo pref dictionary for the primary account.
-base::DictValue& GetCrossDevicePromoPrefsForPrimaryAccount(Profile* profile) {
+// Returns the primary account's GaiaId. Expects the profile to be signed in
+// with a valid non-empty GaiaId (CHECK-enforced).
+GaiaId GetPrimaryAccountGaiaId(Profile* profile) {
   signin::IdentityManager* identity_manager =
       IdentityManagerFactory::GetForProfile(profile);
   CHECK(identity_manager);
@@ -110,47 +102,55 @@ base::DictValue& GetCrossDevicePromoPrefsForPrimaryAccount(Profile* profile) {
       identity_manager->GetPrimaryAccountInfo(signin::ConsentLevel::kSignin)
           .gaia;
   CHECK(!gaia_id.empty());
-
-  SigninPrefs signin_prefs(*profile->GetPrefs());
-  return signin_prefs.GetOrCreateCrossDevicePromoPrefs(gaia_id);
+  return gaia_id;
 }
 
 // Returns empty/defaulted data if the sub-dictionary is not set yet.
 CrossDeviceSigninPromoData ReadDismissiblePromoData(
     Profile* profile,
     CrossDeviceSigninPromoEntryPoint entry_point) {
-  CrossDeviceSigninPromoData data;
-  base::DictValue& promo_prefs =
-      GetCrossDevicePromoPrefsForPrimaryAccount(profile);
-  const base::DictValue* entry_dict =
-      promo_prefs.FindDict(GetEntryPointPrefKey(entry_point));
-  if (!entry_dict) {
-    return data;
+  GaiaId gaia_id = GetPrimaryAccountGaiaId(profile);
+  SigninPrefs signin_prefs(*profile->GetPrefs());
+  switch (entry_point) {
+    case CrossDeviceSigninPromoEntryPoint::kHistoryPage:
+      return {
+          .shown_count =
+              signin_prefs.GetCrossDeviceHistoryPromoShownCount(gaia_id),
+          .last_dismissed_time =
+              signin_prefs.GetCrossDeviceHistoryPromoLastDismissedTime(gaia_id)
+                  .value_or(base::Time()),
+          .shown_after_dismissal =
+              signin_prefs.GetCrossDeviceHistoryPromoShownAfterDismissal(
+                  gaia_id),
+      };
+    case CrossDeviceSigninPromoEntryPoint::kProfileMenu:
+    case CrossDeviceSigninPromoEntryPoint::kSendTabToSelf:
+      NOTREACHED() << "Entry point does not have any promo data";
   }
-  data.shown_count = entry_dict->FindInt(kShownCountKey).value_or(0);
-  data.shown_after_dismissal =
-      entry_dict->FindBool(kShownAfterDismissalKey).value_or(false);
-  const base::Value* time_val = entry_dict->Find(kLastDismissedTimeKey);
-  if (time_val) {
-    data.last_dismissed_time =
-        base::ValueToTime(time_val).value_or(base::Time());
-  }
-  return data;
 }
 
 void WriteDismissiblePromoData(Profile* profile,
                                CrossDeviceSigninPromoEntryPoint entry_point,
                                const CrossDeviceSigninPromoData& data) {
-  base::DictValue& promo_prefs =
-      GetCrossDevicePromoPrefsForPrimaryAccount(profile);
-  base::DictValue entry_dict;
-  entry_dict.Set(kShownCountKey, data.shown_count);
-  entry_dict.Set(kShownAfterDismissalKey, data.shown_after_dismissal);
-  if (!data.last_dismissed_time.is_null()) {
-    entry_dict.Set(kLastDismissedTimeKey,
-                   base::TimeToValue(data.last_dismissed_time));
+  GaiaId gaia_id = GetPrimaryAccountGaiaId(profile);
+  SigninPrefs signin_prefs(*profile->GetPrefs());
+  switch (entry_point) {
+    case CrossDeviceSigninPromoEntryPoint::kHistoryPage:
+      signin_prefs.SetCrossDeviceHistoryPromoShownCount(gaia_id,
+                                                        data.shown_count);
+      signin_prefs.SetCrossDeviceHistoryPromoShownAfterDismissal(
+          gaia_id, data.shown_after_dismissal);
+      if (!data.last_dismissed_time.is_null()) {
+        signin_prefs.SetCrossDeviceHistoryPromoLastDismissedTime(
+            gaia_id, data.last_dismissed_time);
+      } else {
+        signin_prefs.ClearCrossDeviceHistoryPromoLastDismissedTime(gaia_id);
+      }
+      return;
+    case CrossDeviceSigninPromoEntryPoint::kProfileMenu:
+    case CrossDeviceSigninPromoEntryPoint::kSendTabToSelf:
+      NOTREACHED() << "Entry point does not have any promo data";
   }
-  promo_prefs.Set(GetEntryPointPrefKey(entry_point), std::move(entry_dict));
 }
 
 // Returns std::nullopt for non-dismissible promo entry points.
@@ -161,6 +161,7 @@ std::optional<CrossDeviceSigninPromoData> GetPromoDataForDismissibleEntryPoint(
     case CrossDeviceSigninPromoEntryPoint::kHistoryPage:
       return ReadDismissiblePromoData(profile, entry_point);
     case CrossDeviceSigninPromoEntryPoint::kProfileMenu:
+    case CrossDeviceSigninPromoEntryPoint::kSendTabToSelf:
       return std::nullopt;
   }
 }
@@ -240,6 +241,8 @@ std::string_view GetCrossDevicePromoCampaign(
       return kCrossDeviceProfileMenuCampaign;
     case CrossDeviceSigninPromoEntryPoint::kHistoryPage:
       return kCrossDeviceHistoryPageCampaign;
+    case CrossDeviceSigninPromoEntryPoint::kSendTabToSelf:
+      return kCrossDeviceSendTabToSelfCampaign;
   }
 }
 
@@ -256,6 +259,96 @@ GURL GetCrossDeviceSigninQrCodeUrl(CrossDeviceSigninPromoEntryPoint entry_point,
       url, kCrossDevicePromoAndroidCampaignQueryParam, campaign);
   return url;
 }
+
+// Key for the `QrBubbleState` stored on the `Profile`. It points to itself so
+// that its address is unique and cannot be merged with another constant by
+// identical code folding.
+const void* const kQrBubbleStateUserDataKey = &kQrBubbleStateUserDataKey;
+
+// Returns whether opening the QR code bubble from `entry_point` replaces a
+// bubble that is already open for the profile (closing it and reopening it in
+// the requesting window), rather than doing nothing.
+bool ShouldReplaceExistingBubble(CrossDeviceSigninPromoEntryPoint entry_point) {
+  switch (entry_point) {
+    case CrossDeviceSigninPromoEntryPoint::kProfileMenu:
+    case CrossDeviceSigninPromoEntryPoint::kSendTabToSelf:
+      // Permanent entry point, which cannot observe the bubble state to disable
+      // itself: reopen the bubble where the user asked for it.
+      return true;
+    case CrossDeviceSigninPromoEntryPoint::kHistoryPage:
+      // Promo cards disable their CTA while a bubble is open, so a click here
+      // only races with the state update and must not steal the bubble.
+      return false;
+  }
+  NOTREACHED();
+}
+
+// Tracks the "Sign in to phone" QR code bubble for a profile (at most one open
+// across all browser windows).
+class QrBubbleState : public base::SupportsUserData::Data {
+ public:
+  QrBubbleState() = default;
+  QrBubbleState(const QrBubbleState&) = delete;
+  QrBubbleState& operator=(const QrBubbleState&) = delete;
+  ~QrBubbleState() override = default;
+
+  static QrBubbleState* Get(Profile* profile) {
+    if (QrBubbleState* existing = IfExists(profile)) {
+      return existing;
+    }
+    auto new_state = std::make_unique<QrBubbleState>();
+    QrBubbleState* state = new_state.get();
+    profile->SetUserData(kQrBubbleStateUserDataKey, std::move(new_state));
+    return state;
+  }
+
+  static QrBubbleState* IfExists(Profile* profile) {
+    return static_cast<QrBubbleState*>(
+        profile->GetUserData(kQrBubbleStateUserDataKey));
+  }
+
+  bool is_open() const { return active_bubble_weak_factory_.HasWeakPtrs(); }
+
+  base::CallbackListSubscription AddObserver(
+      base::RepeatingCallback<void(bool)> callback) {
+    return observers_.Add(std::move(callback));
+  }
+
+  base::OnceClosure OnBubbleOpening(
+      base::WeakPtr<SigninViewController> controller,
+      base::OnceClosure closing_callback) {
+    const bool was_open = is_open();
+    // Disarm the replaced bubble's `OnBubbleClosed()` before closing its
+    // widget.
+    active_bubble_weak_factory_.InvalidateWeakPtrs();
+    base::OnceClosure on_closed =
+        base::BindOnce(&QrBubbleState::OnBubbleClosed,
+                       active_bubble_weak_factory_.GetWeakPtr());
+    if (closing_callback) {
+      on_closed = std::move(on_closed).Then(std::move(closing_callback));
+    }
+
+    if (auto previous_controller =
+            std::exchange(open_controller_, std::move(controller))) {
+      previous_controller->CloseBubbleSignin();
+    }
+    if (!was_open) {
+      observers_.Notify(true);
+    }
+    return on_closed;
+  }
+
+ private:
+  void OnBubbleClosed() {
+    active_bubble_weak_factory_.InvalidateWeakPtrs();
+    open_controller_ = nullptr;
+    observers_.Notify(false);
+  }
+
+  base::WeakPtr<SigninViewController> open_controller_;
+  base::RepeatingCallbackList<void(bool)> observers_;
+  base::WeakPtrFactory<QrBubbleState> active_bubble_weak_factory_{this};
+};
 
 }  // namespace
 
@@ -289,6 +382,7 @@ bool ShouldShowCrossDeviceSigninPromo(
       }
       break;
     case CrossDeviceSigninPromoEntryPoint::kProfileMenu:
+    case CrossDeviceSigninPromoEntryPoint::kSendTabToSelf:
       // Permanent entry point, no data-type constraints.
       break;
   }
@@ -314,7 +408,7 @@ void OnCrossDeviceSigninPromoShown(CrossDeviceSigninPromoEntryPoint entry_point,
                     "non-dismissible entry point";
   }
 
-  data->shown_count++;
+  data->shown_count = base::ClampAdd(data->shown_count, 1);
   if (!data->last_dismissed_time.is_null()) {
     data->shown_after_dismissal = true;
   }
@@ -348,12 +442,17 @@ void OnCrossDeviceSigninPromoDismissed(
 void OpenSigninToPhoneQrCodeBubble(BrowserWindowInterface* browser_window,
                                    CrossDeviceSigninPromoEntryPoint entry_point,
                                    base::OnceClosure closing_callback) {
+  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   CHECK(base::FeatureList::IsEnabled(switches::kCrossDeviceSigninFromDesktop));
   if (!browser_window) {
     return;
   }
   Profile* profile = browser_window->GetProfile();
   if (!profile) {
+    return;
+  }
+  QrBubbleState* state = QrBubbleState::Get(profile);
+  if (state->is_open() && !ShouldReplaceExistingBubble(entry_point)) {
     return;
   }
   signin::IdentityManager* identity_manager =
@@ -371,6 +470,27 @@ void OpenSigninToPhoneQrCodeBubble(BrowserWindowInterface* browser_window,
       "Signin.CrossDeviceSigninPromo.OpenedQrCodeBubble", entry_point);
   GURL qr_code_url =
       GetCrossDeviceSigninQrCodeUrl(entry_point, primary_account_info.email);
+  SigninViewController* controller = SigninViewController::From(browser_window);
+  base::OnceClosure on_closed =
+      state->OnBubbleOpening(controller ? controller->AsWeakPtr() : nullptr,
+                             std::move(closing_callback));
   signin_ui_util::ShowCrossDeviceSigninQrBubble(
-      browser_window, std::move(qr_code_url), std::move(closing_callback));
+      browser_window, std::move(qr_code_url), std::move(on_closed),
+      entry_point);
+}
+
+bool IsCrossDeviceSigninPromoBubbleOpen(Profile* profile) {
+  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK(profile);
+  QrBubbleState* state = QrBubbleState::IfExists(profile);
+  return state && state->is_open();
+}
+
+base::CallbackListSubscription
+RegisterCrossDeviceSigninPromoBubbleStateCallback(
+    Profile* profile,
+    base::RepeatingCallback<void(bool)> callback) {
+  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK(profile);
+  return QrBubbleState::Get(profile)->AddObserver(std::move(callback));
 }

@@ -206,7 +206,7 @@ web_app::WebAppRegistrar& AppBannerManagerDesktop::registrar() const {
   auto* provider =
       web_app::WebAppProvider::GetForWebApps(Profile::FromBrowserContext(
           app_banner_manager_->web_contents()->GetBrowserContext()));
-  DCHECK(provider);
+  CHECK(provider, base::NotFatalUntil::M161);
   return provider->registrar_unsafe();
 }
 
@@ -275,7 +275,7 @@ void AppBannerManagerDesktop::CreateWebApp(
     WebappInstallSource install_source,
     web_app::WebAppInstalledCallback install_callback) {
   content::WebContents* contents = app_banner_manager_->web_contents();
-  DCHECK(contents);
+  CHECK(contents, base::NotFatalUntil::M161);
 
   web_app::CreateWebAppFromManifest(contents, install_source,
                                     std::move(install_callback));
@@ -291,8 +291,9 @@ void AppBannerManagerDesktop::DidFinishCreatingWebApp(
     return;
   }
 
-  // Catch only kSuccessNewInstall and kUserInstallDeclined. Report nothing on
-  // all other errors.
+  // Catch kSuccessNewInstall, kUserInstallDeclined, and pre-dialog tab-switch
+  // cancellations (kCancelledDueToMainFrameNavigation). Report nothing on all
+  // other errors.
   if (code == webapps::InstallResultCode::kSuccessNewInstall) {
     if (is_navigation_current) {
       app_banner_manager_->SendBannerAccepted();
@@ -307,6 +308,11 @@ void AppBannerManagerDesktop::DidFinishCreatingWebApp(
     TrackUserResponse(USER_RESPONSE_WEB_APP_DISMISSED);
     AppBannerSettingsHelper::RecordBannerDismissEvent(contents,
                                                       manifest_id.spec());
+  } else if (code ==
+             webapps::InstallResultCode::kCancelledDueToMainFrameNavigation) {
+    if (is_navigation_current) {
+      app_banner_manager_->SendBannerDismissed();
+    }
   }
 }
 

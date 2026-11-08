@@ -28,6 +28,7 @@ import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.robolectric.annotation.Config;
 
+import org.chromium.base.ContextUtils;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.RobolectricUtil;
 import org.chromium.base.test.util.Features.DisableFeatures;
@@ -64,12 +65,13 @@ public class InputMethodManagerWrapperImplTest {
     }
 
     @Mock private Context mContext;
-    @Mock private Activity mActivity;
     @Mock private Window mWindow;
     @Mock private WindowAndroid mWindowAndroid;
     @Mock private InputMethodManagerWrapper.Delegate mDelegate;
-    @Mock private View mView;
     @Mock private InputMethodManager mInputMethodManager;
+
+    private final View mView = new View(ContextUtils.getApplicationContext());
+    private Activity mActivity;
 
     private int mContextDisplayId = -1; // uninitialized
     private int mActivityDisplayId = -1; // uninitialized
@@ -85,9 +87,21 @@ public class InputMethodManagerWrapperImplTest {
         mImmw = new TestInputMethodManagerWrapperImpl(mContext, mWindowAndroid, mDelegate);
         when(mContext.getSystemService(Context.INPUT_METHOD_SERVICE))
                 .thenReturn(mInputMethodManager);
-        when(mActivity.getSystemService(Context.INPUT_METHOD_SERVICE))
-                .thenReturn(mInputMethodManager);
-        when(mActivity.getWindow()).thenReturn(mWindow);
+        mActivity =
+                new Activity() {
+                    @Override
+                    public Object getSystemService(String name) {
+                        if (Context.INPUT_METHOD_SERVICE.equals(name)) {
+                            return mInputMethodManager;
+                        }
+                        return super.getSystemService(name);
+                    }
+
+                    @Override
+                    public Window getWindow() {
+                        return mWindow;
+                    }
+                };
 
         mInOrder = inOrder(mInputMethodManager, mWindow);
     }

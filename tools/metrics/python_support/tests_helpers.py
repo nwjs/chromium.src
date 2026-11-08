@@ -11,6 +11,7 @@ from typing import Dict, Iterable, List, Set
 
 import setup_modules  # pylint: disable=unused-import
 
+
 import chromium_src.tools.metrics.common.path_util as path_util
 import chromium_src.tools.metrics.python_support.dependency_solver as dependency_solver
 

@@ -11,6 +11,7 @@
 #include "base/functional/callback.h"
 #include "base/memory/safe_ref.h"
 #include "base/state_transitions.h"
+#include "chrome/browser/actor/actor_surface.h"
 #include "chrome/browser/actor/actor_tab_data.h"
 #include "chrome/browser/actor/actor_task.h"
 #include "chrome/browser/actor/tools/tool.h"
@@ -22,7 +23,6 @@
 #include "chrome/common/chrome_features.h"
 #include "components/actor/core/aggregated_journal.h"
 #include "components/actor/core/journal_details_builder.h"
-#include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/web_contents.h"
 #include "third_party/abseil-cpp/absl/strings/str_format.h"
 #include "url/gurl.h"
@@ -139,14 +139,10 @@ void ToolController::CreateToolAndValidate(
 
   SetState(State::kValidating);
 
-  tabs::TabHandle target_tab_handle = active_state_->tool->GetTargetTab();
-  if (target_tab_handle != tabs::TabHandle::Null()) {
-    mojom::ActionResultPtr tab_result =
-        ValidateTargetTab(target_tab_handle.Get());
-    if (!IsOk(*tab_result)) {
-      PostValidate(std::move(tab_result));
-      return;
-    }
+  mojom::ActionResultPtr target_result = ValidateTarget(*active_state_->tool);
+  if (!IsOk(*target_result)) {
+    PostValidate(std::move(target_result));
+    return;
   }
 
   active_state_->tool->Validate(base::BindOnce(&ToolController::PostValidate,
@@ -197,25 +193,23 @@ void ToolController::Invoke(ResultCallback result_callback) {
 
   Tool& tool = *active_state_->tool;
 
-  tabs::TabHandle target_tab_handle = tool.GetTargetTab();
-  if (target_tab_handle != tabs::TabHandle::Null()) {
-    mojom::ActionResultPtr tab_result =
-        ValidateTargetTab(target_tab_handle.Get());
-    if (!IsOk(*tab_result)) {
-      journal().Log(
-          tool.JournalURL(), task_->id(), "Tab Validation Failed",
-          JournalDetailsBuilder().AddError(ToDebugString(*tab_result)).Build());
-      CompleteToolRequest(std::move(tab_result));
-      return;
-    }
+  ActorSurfaceHandle target_actor_surface_handle = tool.GetTargetActorSurface();
+  mojom::ActionResultPtr target_result = ValidateTarget(tool);
+  if (!IsOk(*target_result)) {
+    journal().Log(tool.JournalURL(), task_->id(), "Surface Validation Failed",
+                  JournalDetailsBuilder()
+                      .AddError(ToDebugString(*target_result))
+                      .Build());
+    CompleteToolRequest(std::move(target_result));
+    return;
   }
 
   const optimization_guide::proto::AnnotatedPageContent*
       last_observed_page_content = nullptr;
 
-  // Not all tools operate on a tab.
-  if (tabs::TabInterface* tab = tool.GetTargetTab().Get()) {
-    if (auto* tab_data = ActorTabData::From(tab)) {
+  // Not all tools operate on a surface.
+  if (ActorSurface* actor_surface = target_actor_surface_handle.Get()) {
+    if (ActorTabData* tab_data = actor_surface->GetActorTabData()) {
       last_observed_page_content = tab_data->GetLastObservedPageContent();
     }
   }
@@ -277,18 +271,19 @@ void ToolController::DidFinishToolInvoke(mojom::ActionResultPtr result) {
 }
 
 void ToolController::WaitForObservation(mojom::ActionResultPtr result) {
-  if (tabs::TabInterface* target_tab =
-          active_state_->tool->GetTargetTab().Get()) {
+  if (ActorSurface* target_actor_surface =
+          active_state_->tool->GetTargetActorSurface().Get()) {
     observation_delayer_->Wait(
-        *target_tab,
+        *target_actor_surface,
         base::BindOnce(&ToolController::ObservationDelayComplete,
                        weak_ptr_factory_.GetWeakPtr(), std::move(result)));
   } else {
-    journal().Log(active_state_->tool->JournalURL(), task_->id(),
-                  "ToolController DidFinishToolInvoke",
-                  JournalDetailsBuilder()
-                      .AddError("Tab is gone when tool finishes successfully")
-                      .Build());
+    journal().Log(
+        active_state_->tool->JournalURL(), task_->id(),
+        "ToolController DidFinishToolInvoke",
+        JournalDetailsBuilder()
+            .AddError("Surface is gone when tool finishes successfully")
+            .Build());
     PostInvokeTool(std::move(result));
   }
 }
@@ -301,14 +296,15 @@ void ToolController::ObservationDelayComplete(
       PostInvokeTool(std::move(action_result));
       break;
     case ObservationDelayController::Result::kPageNavigated: {
-      if (tabs::TabInterface* tab = active_state_->tool->GetTargetTab().Get()) {
+      if (ActorSurface* actor_surface =
+              active_state_->tool->GetTargetActorSurface().Get()) {
         size_t last_navigation_count = observation_delayer_->NavigationCount();
         // The page navigated, restart the observation.
         journal().Log(active_state_->tool->JournalURL(), task_->id(),
                       "ToolController Restarting Observation", {});
         observation_delayer_ = std::make_unique<ObservationDelayController>(
-            *tab->GetContents()->GetPrimaryMainFrame(), task_->id(), journal(),
-            observation_page_stability_config_);
+            *actor_surface->GetWebContents()->GetPrimaryMainFrame(),
+            task_->id(), journal(), observation_page_stability_config_);
         observation_delayer_->SetNavigationCount(last_navigation_count + 1);
         WaitForObservation(std::move(action_result));
       } else {
@@ -349,17 +345,26 @@ void ToolController::CompleteToolRequest(mojom::ActionResultPtr result) {
   active_state_.reset();
 }
 
-mojom::ActionResultPtr ToolController::ValidateTargetTab(
-    const tabs::TabInterface* tab) const {
-  if (!tab) {
+mojom::ActionResultPtr ToolController::ValidateTarget(const Tool& tool) const {
+  ActorSurfaceHandle actor_surface_handle = tool.GetTargetActorSurface();
+  if (actor_surface_handle.is_null()) {
+    // Not all tools target a surface.
+    return MakeOkResult();
+  }
+
+  ActorSurface* actor_surface = actor_surface_handle.Get();
+  if (!actor_surface) {
     return MakeResult(mojom::ActionResultCode::kTabWentAway,
                       /*requires_page_stabilization=*/false,
-                      "The target tab is no longer present.");
+                      "The target surface is no longer present.");
   }
-  if (tab->GetProfile() != &tool_delegate_->GetProfile()) {
+  // ActorSurfaceHandle::Get() is profile-agnostic, so verify the surface
+  // belongs to this profile.
+  if (actor_surface->GetWebContents()->GetBrowserContext() !=
+      &tool_delegate_->GetProfile()) {
     return MakeResult(mojom::ActionResultCode::kActionTargetCrossProfile,
                       /*requires_page_stabilization=*/false,
-                      "The target tab belongs to a different profile.");
+                      "The target surface belongs to a different profile.");
   }
   return MakeOkResult();
 }

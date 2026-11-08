@@ -23,7 +23,6 @@ export function getHtml(this: OmniboxEverywhereOmniboxElement) {
       <cr-searchbox-input id="input"
           exportparts="searchbox-input, icon"
           ?dropdown-is-visible="${this.dropdownIsVisible}"
-          input-aria-live="${this.inputAriaLive}"
           ?multi-line-enabled="${this.multiLineEnabled}"
           .singleLineOnInlineAutocomplete="${
               this.singleLineOnInlineAutocomplete}"
@@ -33,7 +32,7 @@ export function getHtml(this: OmniboxEverywhereOmniboxElement) {
           .selectedMatch="${this.selectedMatch}"
           .inputKeywordModel="${this.inputKeywordModel}"
           ?input-has-matches="${this.hasMatches()}"
-          ?allow-file-paste="${this.fileContextEnabled_}"
+          ?allow-file-paste="${this.canAddFileContext_()}"
           @focusin="${this.onInputFocusin_}"
           @searchbox-input-files-pasted="${this.onSearchboxInputFilesPasted_}"
           @searchbox-input-text-updated="${this.onSearchboxInputTextUpdated_}"

@@ -73,6 +73,8 @@
 #include "services/device/public/mojom/wake_lock.mojom.h"
 #include "services/device/public/mojom/wake_lock_provider.mojom.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
+#include "ui/base/ime/ash/component_extension_ime_manager.h"
+#include "ui/base/ime/ash/input_method_manager.h"
 #include "ui/base/l10n/l10n_util.h"
 
 // Enable VLOG level 1.
@@ -121,9 +123,12 @@ base::ListValue GetPublicSessionLocales(
 
   // Construct the list of available locales. This list consists of the
   // recommended locales, followed by all others.
-  auto available_locales =
-      GetUILanguageList(application_locale, &recommended_locales, std::string(),
-                        input_method::InputMethodManager::Get());
+  input_method::InputMethodManager& input_method_manager =
+      CHECK_DEREF(input_method::InputMethodManager::Get());
+  auto available_locales = GetUILanguageList(
+      application_locale, &recommended_locales, std::string(),
+      CHECK_DEREF(input_method_manager.GetComponentExtensionIMEManager())
+          .GetXkbIMEAsInputMethodDescriptor());
 
   // Select the the first recommended locale that is actually available or the
   // current UI locale if none of them are available.
@@ -629,7 +634,7 @@ void UserSelectionScreen::CheckUserStatus(const AccountId& account_id) {
 }
 
 void UserSelectionScreen::HandleFocusPod(const AccountId& account_id) {
-  DCHECK(!pending_focused_account_id_.has_value());
+  CHECK(!pending_focused_account_id_.has_value(), base::NotFatalUntil::M161);
   const session_manager::SessionState session_state =
       session_manager::SessionManager::Get()->session_state();
   if (session_state == session_manager::SessionState::ACTIVE) {
@@ -676,7 +681,8 @@ void UserSelectionScreen::HandleNoPodFocused() {
 }
 
 void UserSelectionScreen::OnAllowedInputMethodsChanged() {
-  DCHECK_EQ(display_type_, DisplayedScreen::SIGN_IN_SCREEN);
+  CHECK_EQ(display_type_, DisplayedScreen::SIGN_IN_SCREEN,
+           base::NotFatalUntil::M161);
   if (focused_pod_account_id_.is_valid()) {
     std::string user_input_method_id =
         lock_screen_utils::GetUserLastInputMethodId(local_state_.get(),
@@ -712,9 +718,11 @@ void UserSelectionScreen::SetAuthType(const AccountId& account_id,
     return;
   }
 
-  DCHECK(GetAuthType(account_id) !=
-             proximity_auth::mojom::AuthType::FORCE_OFFLINE_PASSWORD ||
-         auth_type == proximity_auth::mojom::AuthType::FORCE_OFFLINE_PASSWORD);
+  CHECK(
+      GetAuthType(account_id) !=
+              proximity_auth::mojom::AuthType::FORCE_OFFLINE_PASSWORD ||
+          auth_type == proximity_auth::mojom::AuthType::FORCE_OFFLINE_PASSWORD,
+      base::NotFatalUntil::M161);
   user_auth_type_map_[account_id] = auth_type;
 
   LoginScreen::Get()->GetModel()->SetTapToUnlockEnabledForUser(
@@ -768,7 +776,7 @@ void UserSelectionScreen::EnableInput() {
 }
 
 void UserSelectionScreen::Unlock(const AccountId& account_id) {
-  DCHECK_EQ(GetScreenType(), LOCK_SCREEN);
+  CHECK_EQ(GetScreenType(), LOCK_SCREEN, base::NotFatalUntil::M161);
 
   // TODO(crbug.com/539761804): Avoid circular dependency.
   ScreenLockerController::Get().HideLockScreen();
@@ -779,7 +787,8 @@ void UserSelectionScreen::OnSessionStateChanged() {
   if (!pending_focused_account_id_.has_value()) {
     return;
   }
-  DCHECK(session_manager::SessionManager::Get()->IsUserSessionBlocked());
+  CHECK(session_manager::SessionManager::Get()->IsUserSessionBlocked(),
+        base::NotFatalUntil::M161);
 
   AccountId focused_pod(pending_focused_account_id_.value());
   pending_focused_account_id_.reset();
@@ -902,10 +911,10 @@ UserSelectionScreen::UpdateAndReturnUserListForAsh() {
               : &public_session_recommended_locales_[account_id];
       std::string selected_locale;
       bool has_multiple_locales;
-      auto available_locales =
-          GetPublicSessionLocales(application_locale_storage_->Get(),
-                                  public_session_recommended_locales,
-                                  &selected_locale, &has_multiple_locales);
+      auto available_locales = GetPublicSessionLocales(
+          std::string(application_locale_storage_->GetTag().tag_string()),
+          public_session_recommended_locales, &selected_locale,
+          &has_multiple_locales);
       user_info.public_account_info->available_locales =
           lock_screen_utils::FromListValueToLocaleItem(
               std::move(available_locales));
@@ -959,7 +968,7 @@ SmartLockService* UserSelectionScreen::GetSmartLockServiceForUser(
   // some valid scenarios where |profile| exists but the active screen is not
   // the lock screen.
   if (GetScreenType() == LOCK_SCREEN) {
-    DCHECK(profile);
+    CHECK(profile, base::NotFatalUntil::M161);
   }
 
   if (!profile) {

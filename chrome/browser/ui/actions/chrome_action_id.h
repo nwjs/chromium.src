@@ -63,6 +63,7 @@
   E(kActionOpenInChrome, IDC_OPEN_IN_CHROME) \
   E(kActionWebAppSettings, IDC_WEB_APP_SETTINGS) \
   E(kActionWebAppMenuAppInfo, IDC_WEB_APP_MENU_APP_INFO) \
+  E(kActionUninstallWebApp, IDC_UNINSTALL_WEB_APP) \
   /* Page-related commands */ \
   E(kActionBookmarkThisTab, IDC_BOOKMARK_THIS_TAB) \
   E(kActionBookmarkAllTabs, IDC_BOOKMARK_ALL_TABS) \
@@ -193,6 +194,7 @@
   E(kActionShowFullUrls, IDC_SHOW_FULL_URLS) \
   E(kActionShowGoogleLensShortcut, IDC_SHOW_GOOGLE_LENS_SHORTCUT) \
   E(kActionShowLensOverlayFromAppMenu, IDC_CONTENT_CONTEXT_LENS_OVERLAY) \
+  E(kActionAskGoogleAboutThisPageFromAppMenu, IDC_ASK_GOOGLE_ABOUT_THIS_PAGE) \
   E(kActionShowAiModeOmniboxButton, IDC_SHOW_AI_MODE_OMNIBOX_BUTTON) \
   E(kActionRecordReplay) \
   E(kActionShowSearchTools, IDC_SHOW_SEARCH_TOOLS) \
@@ -262,6 +264,8 @@
     IDC_CONTENT_CONTEXT_SEARCHLENSFORIMAGE) \
   E(kActionContentContextGlicShareImage, \
     IDC_CONTENT_CONTEXT_GLICSHAREIMAGE) \
+  E(kActionContentContextGlicSmartSuggestion, \
+    IDC_CONTENT_CONTEXT_GLIC_SMART_SUGGESTION) \
   E(kActionContentContextTranslateImageWithWeb) \
   E(kActionContentContextTranslateImageWithLens) \
   /* Audio/video items. */ \
@@ -371,6 +375,8 @@
   /* Context menu items for Sharing */ \
   E(kActionContentContextGenerateQrCode, IDC_CONTENT_CONTEXT_GENERATE_QR_CODE) \
   E(kActionContentContextSharingSubmenu, IDC_CONTENT_CONTEXT_SHARING_SUBMENU) \
+  E(kActionContentContextSendTabToSelfSignIn, \
+    IDC_CONTENT_CONTEXT_SEND_TAB_TO_SELF_SIGN_IN) \
   /* Context menu item to show the clipboard history menu */ \
   E(kActionContentPasteFromClipboard, IDC_CONTENT_PASTE_FROM_CLIPBOARD) \
   /* Context menu items in the status tray */ \
@@ -511,15 +517,13 @@
   E(kActionSidePanelShowLens) \
   E(kActionSidePanelShowLensOverlayResults) \
   E(kActionSidePanelShowReadAnything) \
-  E(kActionShowReadingModeSidePanel, IDC_SHOW_READING_MODE_SIDE_PANEL) \
+  E(kActionShowReadingModeSidePanel, IDC_SHOW_READING_MODE) \
   E(kActionShowReadingModeKeyboard, IDC_SHOW_READING_MODE_KEYBOARD) \
   E(kActionSidePanelShowReadingList, IDC_READING_LIST_MENU_SHOW_UI) \
   E(kActionSidePanelShowSearchCompanion) \
   E(kActionSidePanelShowShoppingInsights) \
   E(kActionSidePanelShowSideSearch) \
-  E(kActionSidePanelShowMerchantTrust) \
-  E(kActionSidePanelShowTabsFromOtherDevices, \
-    IDC_SHOW_TABS_FROM_OTHER_DEVICES_SIDE_PANEL)
+  E(kActionSidePanelShowMerchantTrust)
 
 #define TOOLBAR_PINNABLE_ACTION_IDS \
   E(kActionHome, IDC_HOME) \
@@ -558,7 +562,6 @@
   E(kActionGlicTogglePin, IDC_GLIC_TOGGLE_PIN) \
   E(kActionOpenGlic, IDC_OPEN_GLIC) \
   E(kActionShowAiOverlayDialog) \
-  E(kActionWebAuthnAmbientSignin) \
   E(kActionAutofillPayment) \
   E(kActionWalletReminderNotice) \
   E(kActionTtcToolbar) \
@@ -578,7 +581,8 @@
   E(kActionRecentTabsSubmenu, IDC_RECENT_TABS_MENU)                       \
   E(kActionDeveloperSubmenu, IDC_DEVELOPER_MENU)                               \
   E(kActionExtensionsSubmenu, IDC_EXTENSIONS_SUBMENU)                          \
-  E(kActionSkillsSubmenu, IDC_SKILLS_MENU)
+  E(kActionSkillsAndExtensionsSubmenu, IDC_SKILLS_AND_EXTENSIONS_MENU)         \
+  E(kActionContextualTasksSubmenu, IDC_CONTEXTUAL_TASKS_MENU)
 
 #define CHROME_ACTION_IDS \
     CHROME_COMMON_ACTION_IDS \

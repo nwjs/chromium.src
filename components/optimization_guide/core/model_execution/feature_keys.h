@@ -63,7 +63,11 @@ enum class ModelBasedCapabilityKey {
       MODEL_EXECUTION_FEATURE_READ_ALOUD_GENERATE_TEXT,
   kReadAloudSynthesize = proto::ModelExecutionFeature::
       MODEL_EXECUTION_FEATURE_READ_ALOUD_SYNTHESIZE,
+  kSmartSelectionSuggestions = proto::ModelExecutionFeature::
+      MODEL_EXECUTION_FEATURE_SMART_SELECTION_SUGGESTIONS,
   kTtc = proto::ModelExecutionFeature::MODEL_EXECUTION_FEATURE_TTC,
+  kQuickAnswers =
+      proto::ModelExecutionFeature::MODEL_EXECUTION_FEATURE_QUICK_ANSWERS,
 };
 
 inline std::ostream& operator<<(std::ostream& out,
@@ -119,8 +123,12 @@ inline std::ostream& operator<<(std::ostream& out,
       return out << "ReadAloudGenerateText";
     case ModelBasedCapabilityKey::kReadAloudSynthesize:
       return out << "ReadAloudSynthesize";
+    case ModelBasedCapabilityKey::kSmartSelectionSuggestions:
+      return out << "SmartSelectionSuggestions";
     case ModelBasedCapabilityKey::kTtc:
       return out << "Ttc";
+    case ModelBasedCapabilityKey::kQuickAnswers:
+      return out << "QuickAnswers";
   }
   return out;
 }
@@ -239,8 +247,14 @@ inline proto::ModelExecutionFeature ToModelExecutionFeatureProto(
     case ModelBasedCapabilityKey::kReadAloudSynthesize:
       return proto::ModelExecutionFeature::
           MODEL_EXECUTION_FEATURE_READ_ALOUD_SYNTHESIZE;
+    case ModelBasedCapabilityKey::kSmartSelectionSuggestions:
+      return proto::ModelExecutionFeature::
+          MODEL_EXECUTION_FEATURE_SMART_SELECTION_SUGGESTIONS;
     case ModelBasedCapabilityKey::kTtc:
       return proto::ModelExecutionFeature::MODEL_EXECUTION_FEATURE_TTC;
+    case ModelBasedCapabilityKey::kQuickAnswers:
+      return proto::ModelExecutionFeature::
+          MODEL_EXECUTION_FEATURE_QUICK_ANSWERS;
   }
 }
 

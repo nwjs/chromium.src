@@ -59,14 +59,15 @@
 #import "ios/chrome/browser/incognito_reauth/ui_bundled/incognito_reauth_scene_agent.h"
 #import "ios/chrome/browser/intents/model/intents_donation_helper.h"
 #import "ios/chrome/browser/keyboard/ui_bundled/UIKeyCommand+Chrome.h"
+#import "ios/chrome/browser/menu/public/menu_histograms.h"
 #import "ios/chrome/browser/menu/ui_bundled/browser_action_factory.h"
-#import "ios/chrome/browser/menu/ui_bundled/menu_histograms.h"
 #import "ios/chrome/browser/metrics/model/new_tab_page_uma.h"
 #import "ios/chrome/browser/net/model/crurl.h"
 #import "ios/chrome/browser/policy/model/policy_util.h"
 #import "ios/chrome/browser/shared/coordinator/alert/action_sheet_coordinator.h"
 #import "ios/chrome/browser/shared/coordinator/alert/alert_coordinator.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_state.h"
+#import "ios/chrome/browser/shared/coordinator/scene/scene_state_observer.h"
 #import "ios/chrome/browser/shared/coordinator/scene/state/incognito_state.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
 #import "ios/chrome/browser/shared/model/browser/browser_provider.h"
@@ -168,6 +169,7 @@ BookmarkNodeIDSet GetBookmarkNodeIDSet(
     BookmarksFolderEditorCoordinatorDelegate,
     BookmarksHomeConsumer,
     BookmarkTableCellTitleEditDelegate,
+    SceneStateObserver,
     TableViewURLDragDataSource,
     TableViewURLDropDelegate,
     UIGestureRecognizerDelegate,
@@ -275,6 +277,7 @@ BookmarkNodeIDSet GetBookmarkNodeIDSet(
   self = [super initWithStyle:style];
   if (self) {
     _browser = browser->AsWeakPtr();
+    [browser->GetSceneState() addObserver:self];
     ProfileIOS* profile = self.profile;
     _webStateList = browser->GetWebStateList();
 
@@ -306,6 +309,9 @@ BookmarkNodeIDSet GetBookmarkNodeIDSet(
   _displayedFolderNode = nullptr;
   self.mediator.consumer = nil;
   self.mediator = nil;
+  if (_browser) {
+    [_browser->GetSceneState() removeObserver:self];
+  }
   _browser = nullptr;
   [self.searchController dismissViewControllerAnimated:YES completion:nil];
   [self dismissActionSheetCoordinator];
@@ -723,9 +729,11 @@ BookmarkNodeIDSet GetBookmarkNodeIDSet(
   [_signinCoordinator stop];
   __weak __typeof(self) weakSelf = self;
   [command addSigninCompletion:^(SigninCoordinator* coordinator,
-                                 SigninCoordinatorResult result,
-                                 id<SystemIdentity>) {
-    [weakSelf signinDidCompleteWithCoordinator:coordinator result:result];
+                                 SigninCoordinatorResultOrIdentity result) {
+    SigninCoordinatorResult signinResult =
+        signin::SigninCoordinatorResultFromSigninCoordinatorResultOrIdentity(
+            result);
+    [weakSelf signinDidCompleteWithCoordinator:coordinator result:signinResult];
   }];
   _signinCoordinator = [SigninCoordinator
       signinCoordinatorWithCommand:command
@@ -763,7 +771,7 @@ BookmarkNodeIDSet GetBookmarkNodeIDSet(
 
 - (void)signinDidCompleteWithCoordinator:(SigninCoordinator*)coordinator
                                   result:(SigninCoordinatorResult)result {
-  CHECK_EQ(_signinCoordinator, coordinator, base::NotFatalUntil::M151);
+  CHECK_EQ(_signinCoordinator, coordinator);
   [self.mediator signinDidCompleteWithResult:result];
   [self stopSigninCoordinator];
 }
@@ -2623,7 +2631,7 @@ BookmarkNodeIDSet GetBookmarkNodeIDSet(
                  style:UIAlertActionStyleDefault
                enabled:![self isIncognitoForced]];
 
-  if (base::ios::IsMultipleScenesSupported()) {
+  if (_browser && _browser->GetSceneState().multipleScenesAvailable) {
     titleString = GetNSString(IDS_IOS_CONTENT_CONTEXT_OPENINNEWWINDOW);
     auto action = ^{
       [weakSelf actionSheetOpenNewWindowActionWithURL:nodeURL];
@@ -3279,6 +3287,13 @@ BookmarkNodeIDSet GetBookmarkNodeIDSet(
               base::SysUTF8ToNSString(URL.spec()), URL,
               self.displayedFolderNode, index, _bookmarkModel.get(),
               self.profile)];
+}
+
+#pragma mark - SceneStateObserver
+
+- (void)sceneState:(SceneState*)sceneState
+    multipleScenesAvailabilityDidChange:(BOOL)multipleScenesAvailable {
+  [self dismissActionSheetCoordinator];
 }
 
 @end

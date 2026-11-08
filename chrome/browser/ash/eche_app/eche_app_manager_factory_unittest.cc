@@ -8,33 +8,19 @@
 #include <optional>
 
 #include "ash/constants/ash_features.h"
-#include "ash/public/cpp/notification_utils.h"
 #include "ash/system/eche/eche_tray.h"
 #include "ash/system/phonehub/phone_hub_tray.h"
 #include "ash/system/status_area_widget_test_helper.h"
 #include "ash/system/tray/tray_bubble_wrapper.h"
 #include "ash/test/test_ash_web_view_factory.h"
 #include "ash/webui/eche_app_ui/apps_launch_info_provider.h"
-#include "ash/webui/eche_app_ui/eche_alert_generator.h"
-#include "ash/webui/eche_app_ui/system_info.h"
-#include "base/check_deref.h"
 #include "base/memory/raw_ptr.h"
-#include "base/test/scoped_chromeos_version_info.h"
 #include "base/test/scoped_feature_list.h"
-#include "base/time/time.h"
-#include "chrome/browser/ash/eche_app/eche_app_notification_controller.h"
-#include "chrome/browser/ash/login/users/fake_chrome_user_manager.h"
 #include "chrome/test/base/chrome_ash_test_base.h"
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/testing_profile.h"
 #include "chrome/test/base/testing_profile_manager.h"
-#include "chromeos/ash/components/browser_context_helper/annotated_account_id.h"
-#include "chromeos/ash/components/browser_context_helper/browser_context_helper.h"
-#include "components/user_manager/scoped_user_manager.h"
-#include "components/user_manager/user.h"
-#include "components/user_manager/user_names.h"
 #include "ui/gfx/image/image_unittest_util.h"
-#include "ui/message_center/message_center.h"
 
 namespace ash {
 namespace eche_app {
@@ -77,22 +63,6 @@ class EcheAppManagerFactoryTest : public ChromeAshTestBase {
     ChromeAshTestBase::TearDown();
   }
 
-  const message_center::Notification* GetNotification(
-      const std::string& notification_id) {
-    const user_manager::User& user = CHECK_DEREF(
-        BrowserContextHelper::Get()->GetUserByBrowserContext(GetProfile()));
-    return message_center::MessageCenter::Get()->FindVisibleNotificationById(
-        CreateUserScopedNotificationId(notification_id, user.username_hash()));
-  }
-
-  FakeChromeUserManager* GetFakeUserManager() {
-    return fake_user_manager_.Get();
-  }
-
-  base::WeakPtr<EcheAppManagerFactory> GetEcheAppManagerFactoryWeakPtr() {
-    return EcheAppManagerFactory::GetInstance()->weak_ptr_factory_.GetWeakPtr();
-  }
-
   TestingProfile* GetProfile() { return profile_; }
   AppsLaunchInfoProvider* GetAppsLaunchInfoProvider() {
     return apps_launch_info_provider_.get();
@@ -101,8 +71,6 @@ class EcheAppManagerFactoryTest : public ChromeAshTestBase {
   PhoneHubTray* phone_hub_tray() { return phone_hub_tray_; }
 
  private:
-  user_manager::TypedScopedUserManager<FakeChromeUserManager>
-      fake_user_manager_{std::make_unique<FakeChromeUserManager>()};
   base::test::ScopedFeatureList scoped_feature_list_;
   std::unique_ptr<TestingProfileManager> profile_manager_;
   raw_ptr<TestingProfile> profile_;
@@ -212,54 +180,10 @@ TEST_F(EcheAppManagerFactoryTest, LaunchedAppInfo) {
   std::unique_ptr<LaunchedAppInfo> launched_app_info =
       EcheAppManagerFactory::GetInstance()->GetLastLaunchedAppInfo();
 
-  EXPECT_EQ(launched_app_info->user_id(), user_id);
-  EXPECT_EQ(launched_app_info->visible_name(), visible_name);
-  EXPECT_EQ(launched_app_info->package_name(), package_name);
-  EXPECT_EQ(launched_app_info->icon(), icon);
-}
-
-TEST_F(EcheAppManagerFactoryTest, CloseConnectionOrLaunchErrorNotifications) {
-  user_manager::User* user =
-      GetFakeUserManager()->AddUser(user_manager::StubAccountId());
-  GetFakeUserManager()->LoginUser(user->GetAccountId());
-  AnnotatedAccountId::Set(GetProfile(), user->GetAccountId());
-
-  base::WeakPtr<EcheAppManagerFactory> factory =
-      GetEcheAppManagerFactoryWeakPtr();
-  std::u16string title = u"title";
-  std::u16string message = u"message";
-  EcheAppManagerFactory::ShowNotification(
-      factory, GetProfile(), title, message,
-      std::make_unique<LaunchAppHelper::NotificationInfo>(
-          LaunchAppHelper::NotificationInfo::Category::kNative,
-          LaunchAppHelper::NotificationInfo::NotificationType::kScreenLock));
-  EcheAppManagerFactory::ShowNotification(
-      factory, GetProfile(), title, message,
-      std::make_unique<LaunchAppHelper::NotificationInfo>(
-          LaunchAppHelper::NotificationInfo::Category::kWebUI,
-          mojom::WebNotificationType::CONNECTION_FAILED));
-  EcheAppManagerFactory::ShowNotification(
-      factory, GetProfile(), title, message,
-      std::make_unique<LaunchAppHelper::NotificationInfo>(
-          LaunchAppHelper::NotificationInfo::Category::kWebUI,
-          mojom::WebNotificationType::DEVICE_IDLE));
-  EcheAppManagerFactory::ShowNotification(
-      factory, GetProfile(), title, message,
-      std::make_unique<LaunchAppHelper::NotificationInfo>(
-          LaunchAppHelper::NotificationInfo::Category::kWebUI,
-          mojom::WebNotificationType::INVALID_NOTIFICATION));
-  ASSERT_TRUE(factory);
-  factory->CloseConnectionOrLaunchErrorNotifications();
-
-  const message_center::Notification* notification =
-      GetNotification(kEcheAppScreenLockNotifierId);
-  ASSERT_TRUE(notification);
-  notification = GetNotification(kEcheAppRetryConnectionNotifierId);
-  ASSERT_FALSE(notification);
-  notification = GetNotification(kEcheAppInactivityNotifierId);
-  ASSERT_FALSE(notification);
-  notification = GetNotification(kEcheAppFromWebWithoutButtonNotifierId);
-  ASSERT_FALSE(notification);
+  EXPECT_EQ(launched_app_info->user_id, user_id);
+  EXPECT_EQ(launched_app_info->visible_name, visible_name);
+  EXPECT_EQ(launched_app_info->package_name, package_name);
+  EXPECT_EQ(launched_app_info->icon, icon);
 }
 
 TEST_F(EcheAppManagerFactoryWithBackgroundTest, LaunchEcheApp) {
@@ -277,20 +201,6 @@ TEST_F(EcheAppManagerFactoryWithBackgroundTest, LaunchEcheApp) {
   // Eche tray should be visible when streaming is active, not ative when
   // launch.
   EXPECT_FALSE(eche_tray()->is_active());
-}
-
-TEST_F(EcheAppManagerFactoryTest, GetSystemInfo) {
-  const char kLsbRelease[] =
-      "CHROMEOS_RELEASE_NAME=Non Chrome OS\n"
-      "CHROMEOS_RELEASE_VERSION=1.2.3.4\n";
-  const base::Time lsb_release_time(
-      base::Time::FromSecondsSinceUnixEpoch(12345.6));
-  base::test::ScopedChromeOSVersionInfo version(kLsbRelease, lsb_release_time);
-  std::unique_ptr<SystemInfo> system_info =
-      EcheAppManagerFactory::GetInstance()->GetSystemInfo(GetProfile());
-
-  EXPECT_EQ("1.2.3", system_info->GetOsVersion());
-  EXPECT_EQ("Chrome device", system_info->GetDeviceType());
 }
 
 }  // namespace eche_app

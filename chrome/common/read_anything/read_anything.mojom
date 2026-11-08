@@ -73,6 +73,14 @@ enum ReadabilityDistillationResult {
   kCancelled = 3,  // Superseded by a newer request, or cancelled on navigation.
 };
 
+// The reason for a renderer-initiated Readability distillation request. Only
+// kTreeChanged is measured by
+// Accessibility.ReadAnything.TimeFromTreeChangedToDistillationComplete.
+enum ReadabilityDistillationReason {
+  kTreeChanged = 0,  // Triggered by an active AXTree ID change.
+  kRedistill = 1,  // Triggered by a page event, e.g. load complete.
+};
+
 union VoicePackInstallationState {
   InstallationState installation_state;
   ErrorCode error_code;
@@ -299,6 +307,10 @@ interface UntrustedPageHandler {
   // playing.
   OnReadAloudAudioStateChange(bool playing);
 
+  // Informs the browser controller that the user has toggled AI playback
+  // via the webui toolbar.
+  OnAiPlaybackStateChanged(bool enabled);
+
   // Informs the browser controller that a link was clicked in the WebUI. The
   // browser controller responds by performing a click action on the link in
   // the target tree, which is in the main frame of the currently active web
@@ -316,16 +328,18 @@ interface UntrustedPageHandler {
   // Target_tree_id is the AXTreeID that contains the link to be clicked;
   // anchor_node_id and focus_node_id are AXNodeIDs which identify the anchor
   // and focus AXNodes of the selection; anchor_offset and focus_offset are
-  // integer offsets in the selection.
+  // integer offsets in the selection. `applied` is false if the browser
+  // dropped the request, in which case no selection event follows.
   OnSelectionChange(
     ax.mojom.AXTreeID target_tree_id,
     int32 anchor_node_id,
     int32 anchor_offset,
     int32 focus_node_id,
-    int32 focus_offset);
+    int32 focus_offset) => (bool applied);
 
   // Informs the browser to collapse the selection made in the WebUI.
-  OnCollapseSelection();
+  // `applied` is false if the browser dropped the request.
+  OnCollapseSelection() => (bool applied);
 
   // Informs the browser of the status of the latest distillation attempt.
   OnDistillationStatus(read_anything.mojom.DistillationStatus status,
@@ -371,9 +385,10 @@ interface UntrustedPageHandler {
   // the distillation result along with the distilled title and HTML content.
   // Returns empty strings on failure, cancellation, or if the page is
   // ineligible for distillation.
-  RequestReadabilityDistillation() => (ReadabilityDistillationResult result,
-                                       string title,
-                                       mojo_base.mojom.BigString content);
+  RequestReadabilityDistillation(ReadabilityDistillationReason reason)
+      => (ReadabilityDistillationResult result,
+          string title,
+          mojo_base.mojom.BigString content);
 };
 
 // Untrusted WebUI-side handler for requests from the browser.
@@ -488,4 +503,9 @@ interface UntrustedPage {
   // Called by the browser to trigger renderer-side actions after the webui is
   // shown.
   OnReadingModeShown(read_anything.mojom.ReadAnythingOpenTrigger open_trigger);
+
+  // Notifies the WebUI whether the contents of the active tab are currently
+  // translated (translate::LanguageState::IsPageTranslated()). Only sent when
+  // translate::kEnableTranslatePdf is enabled.
+  OnTranslationStateChanged(bool is_translated);
 };

@@ -26,6 +26,7 @@
 #import "components/autofill/core/browser/data_manager/autofill_ai/entity_suppression_manager.h"
 #import "components/autofill/core/browser/data_manager/personal_data_manager.h"
 #import "components/autofill/core/browser/data_model/autofill_ai/entity_instance.h"
+#import "components/autofill/core/browser/integrators/autofill_ai/metrics/personal_context_metrics.h"
 #import "components/autofill/core/browser/payments/payments_service_url.h"
 #import "components/autofill/core/common/autofill_features.h"
 #import "components/autofill/ios/browser/form_suggestion.h"
@@ -44,6 +45,7 @@
 #import "ios/chrome/browser/autofill/autofill_ai/ui/autofill_ai_source_item.h"
 #import "ios/chrome/browser/autofill/autofill_ai/ui/autofill_ai_sources_util.h"
 #import "ios/chrome/browser/autofill/autofill_ai/ui/autofill_ai_sources_view_controller.h"
+#import "ios/chrome/browser/autofill/branding/coordinator/branding_coordinator.h"
 #import "ios/chrome/browser/autofill/form_input_accessory/coordinator/form_input_accessory_mediator.h"
 #import "ios/chrome/browser/autofill/form_input_accessory/coordinator/form_input_accessory_mediator_handler.h"
 #import "ios/chrome/browser/autofill/form_input_accessory/public/autofill_suggestion_context_menu_handler.h"
@@ -64,7 +66,6 @@
 #import "ios/chrome/browser/autofill/model/features.h"
 #import "ios/chrome/browser/autofill/model/ios_autofill_entity_suppression_manager_factory.h"
 #import "ios/chrome/browser/autofill/model/personal_data_manager_factory.h"
-#import "ios/chrome/browser/autofill/ui_bundled/branding/branding_coordinator.h"
 #import "ios/chrome/browser/autofill/ui_bundled/util/autofill_credit_card_util.h"
 #import "ios/chrome/browser/bubble/ui_bundled/bubble_constants.h"
 #import "ios/chrome/browser/bubble/ui_bundled/bubble_view_controller_presenter.h"
@@ -85,6 +86,7 @@
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
 #import "ios/chrome/browser/shared/public/commands/browser_coordinator_commands.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
+#import "ios/chrome/browser/shared/public/commands/form_input_accessory_commands.h"
 #import "ios/chrome/browser/shared/public/commands/open_new_tab_command.h"
 #import "ios/chrome/browser/shared/public/commands/scene_commands.h"
 #import "ios/chrome/browser/shared/public/commands/security_alert_commands.h"
@@ -196,6 +198,7 @@ void UndoInSessionSuppressedEntity(
     AutofillSuggestionContextMenuHandler,
     CardCoordinatorDelegate,
     ExpandedManualFillCoordinatorDelegate,
+    FormInputAccessoryCommands,
     FormInputAccessoryMediatorHandler,
     FormInputAccessoryViewControllerDelegate,
     ManualFillAllPasswordCoordinatorDelegate,
@@ -255,6 +258,8 @@ void UndoInSessionSuppressedEntity(
                              forProtocol:@protocol(SecurityAlertCommands)];
     [dispatcher startDispatchingToTarget:self
                              forProtocol:@protocol(AtMemoryCommands)];
+    [dispatcher startDispatchingToTarget:self
+                             forProtocol:@protocol(FormInputAccessoryCommands)];
 
     _brandingCoordinator =
         [[BrandingCoordinator alloc] initWithBaseViewController:viewController
@@ -910,6 +915,14 @@ void UndoInSessionSuppressedEntity(
 // Called when the user has taken action to dismiss a popover.
 - (void)expandedManualFillCoordinatorDidDismissPopover:
     (ExpandedManualFillCoordinator*)coordinator {
+  // If a new coordinator has already been started before the previous popover
+  // finished its dismissal animation, only stop and remove the dismissed
+  // coordinator rather than resetting the newly started one.
+  if (self.childCoordinators.lastObject != coordinator) {
+    [coordinator stop];
+    [self.childCoordinators removeObject:coordinator];
+    return;
+  }
   [self reset];
 }
 
@@ -973,6 +986,12 @@ void UndoInSessionSuppressedEntity(
     presenter = presenter.presentedViewController;
   }
   [presenter presentViewController:alert animated:YES completion:nil];
+}
+
+#pragma mark - FormInputAccessoryCommands
+
+- (void)resetAutofillSuggestionsLoadingStates {
+  [self resetLoadingStates];
 }
 
 #pragma mark - CRWResponderInputView
@@ -1058,17 +1077,22 @@ void UndoInSessionSuppressedEntity(
 
   __weak __typeof__(self) weakSelf = self;
 
-  [_alertCoordinator addItemWithTitle:l10n_util::GetNSString(IDS_CANCEL)
-                               action:^{
-                                 [weakSelf dismissAlertCoordinator];
-                               }
-                                style:UIAlertActionStyleCancel];
+  [_alertCoordinator
+      addItemWithTitle:l10n_util::GetNSString(IDS_CANCEL)
+                action:^{
+                  autofill::LogEntitySuppressionConfirmationDialogResult(
+                      /*accepted=*/false);
+                  [weakSelf dismissAlertCoordinator];
+                }
+                 style:UIAlertActionStyleCancel];
 
   NSString* removeActionTitle =
       l10n_util::GetNSString(IDS_IOS_AUTOFILL_AI_REMOVE_ACTION);
   [_alertCoordinator
       addItemWithTitle:removeActionTitle
                 action:^{
+                  autofill::LogEntitySuppressionConfirmationDialogResult(
+                      /*accepted=*/true);
                   [weakSelf suppressEntityForSuggestion:suggestion];
                   [weakSelf dismissAlertCoordinator];
                 }
@@ -1094,9 +1118,13 @@ void UndoInSessionSuppressedEntity(
   // Copy the entity because suppressing it evicts it from the
   // `EntityDataManager`, which owns `*entity`.
   const autofill::EntityInstance entityCopy = *entity;
-  suppressionManager->SuppressEntity(entityCopy);
+  const bool suppressed = suppressionManager->SuppressEntity(entityCopy);
   [self resetSuggestions];
-  [self showUndoSnackbarForEntity:entityCopy];
+  // Only offer an undo if this call suppressed the entity, like on the other
+  // platforms.
+  if (suppressed) {
+    [self showUndoSnackbarForEntity:entityCopy];
+  }
 }
 
 // Shows a snackbar allowing the user to undo removing `entity`.
@@ -1114,6 +1142,8 @@ void UndoInSessionSuppressedEntity(
       self.profile ? self.profile->AsWeakPtr() : nullptr;
   autofill::EntityInstance::EntityId entityId = entity.guid();
   action.handler = ^{
+    base::UmaHistogramBoolean(
+        "Autofill.Snackbar.AutofillAiSuppressionUndo.ActionClicked", true);
     UndoInSessionSuppressedEntity(weakProfile, entityId);
     [weakSelf resetSuggestions];
   };
@@ -1124,6 +1154,8 @@ void UndoInSessionSuppressedEntity(
   message.action = action;
 
   [snackbarHandler showSnackbarMessageAfterDismissingKeyboard:message];
+  base::UmaHistogramBoolean("Autofill.Snackbar.AutofillAiSuppressionUndo.Shown",
+                            true);
 }
 
 // Resets suggestions in the form input accessory mediator.

@@ -55,6 +55,7 @@
 #include "third_party/blink/renderer/core/animation/document_timeline.h"
 #include "third_party/blink/renderer/core/animation/element_animations.h"
 #include "third_party/blink/renderer/core/animation/keyframe_effect.h"
+#include "third_party/blink/renderer/core/animation/keyframe_effect_model.h"
 #include "third_party/blink/renderer/core/animation/pending_animations.h"
 #include "third_party/blink/renderer/core/animation/scroll_timeline.h"
 #include "third_party/blink/renderer/core/animation/scroll_timeline_util.h"
@@ -316,6 +317,14 @@ class ScopedCommitStylesTiming {
 
 // Consider boundaries aligned if they round to the same integer pixel value.
 const double kScrollBoundaryTolerance = 0.5;
+
+// Returns true if none of the values of `effect` can change while it's in play,
+// e.g. for a `mix-blend-mode: plus-lighter` to `plus-lighter` animation. Such
+// an effect can only change at a phase boundary.
+bool HasOnlyStaticProperties(const KeyframeEffect* effect) {
+  const Element* target = effect ? effect->EffectTarget() : nullptr;
+  return target && effect->Model()->DynamicProperties(target).empty();
+}
 
 }  // namespace
 
@@ -860,9 +869,15 @@ bool Animation::PreCommit(
       compositor_property_animations_have_no_effect_ =
           compositing_decision_.disposition &
           CompositorAnimations::kAnimationHasNoVisibleChange;
+      // A static effect has no visible change until a phase boundary, so it
+      // doesn't need main thread ticks even if it can't be composited for
+      // another reason, e.g. because it affects an !important property.
       animation_has_no_effect_ =
           compositing_decision_.disposition ==
-          CompositorAnimations::kAnimationHasNoVisibleChange;
+              CompositorAnimations::kAnimationHasNoVisibleChange ||
+          (compositor_property_animations_have_no_effect_ &&
+           RuntimeEnabledFeatures::SkipTickingStaticAnimationsEnabled() &&
+           HasOnlyStaticProperties(keyframe_effect));
       compositing_decision_.ReportHistogramsAndTracing(*this);
 
       DCHECK_EQ(V8AnimationPlayState::Enum::kRunning,
@@ -1147,6 +1162,15 @@ void Animation::CommitPendingPlay(AnimationTimeDelta ready_time) {
   //     animation with the did seek flag set to false, and the synchronously
   //     notify flag set to false.
   UpdateFinishedState(UpdateType::kContinuous, NotificationType::kAsync);
+
+  // Events, e.g. animationstart, aren't dispatched while play-pending (see
+  // IsEventDispatchAllowed()). An animation that doesn't tick on the main
+  // thread (see TimeToEffectChange()) needs a frame to dispatch them now,
+  // rather than at its next effect change.
+  if (animation_has_no_effect_ && content_ && content_->GetEventDelegate() &&
+      RuntimeEnabledFeatures::SkipTickingStaticAnimationsEnabled()) {
+    ForceServiceOnNextFrame();
+  }
 }
 
 // Microtask for pausing an animation.
@@ -1448,7 +1472,8 @@ void Animation::setEffect(AnimationEffect* new_effect) {
   if (new_effect == old_effect)
     return;
 
-  if (old_effect) {
+  if (old_effect &&
+      !RuntimeEnabledFeatures::SyncCrossDocumentAnimationTimingEnabled()) {
     Element* old_target = nullptr;
     Element* new_target = nullptr;
     if (auto* keyframe_effect = DynamicTo<KeyframeEffect>(new_effect)) {
@@ -2454,8 +2479,23 @@ void Animation::SetOutdated() {
   if (outdated_)
     return;
   outdated_ = true;
-  if (timeline_)
+  if (timeline_) {
     timeline_->SetOutdatedAnimation(this);
+  }
+  KeyframeEffect* keyframe_effect = DynamicTo<KeyframeEffect>(content_.Get());
+  Element* target = keyframe_effect ? keyframe_effect->EffectTarget() : nullptr;
+  bool cross_document_target =
+      RuntimeEnabledFeatures::SyncCrossDocumentAnimationTimingEnabled() &&
+      target && timeline_ && timeline_->GetDocument() != &target->GetDocument();
+  if (!timeline_ || cross_document_target) {
+    // Animations without a timeline or targeting an element in a different
+    // document from the timeline will not be ticked when the target document
+    // updates its animation timing. Synchronously update so that the animation
+    // is not left in an outdated state, which could trigger a style
+    // invalidation post-style and layout, e.g. mid-paint (see
+    // crbug.com/567645136).
+    Update(kTimingUpdateOnDemand);
+  }
 }
 
 void Animation::ForceServiceOnNextFrame() {

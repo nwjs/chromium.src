@@ -6,17 +6,12 @@ import("//build/config/android/rules.gni")
 
 android_resources("java_resources") {
   sources = [
-    "android/java/res/drawable/rounded_corner_bottom_left.xml",
-    "android/java/res/drawable/rounded_corner_bottom_left_incognito.xml",
-    "android/java/res/drawable/rounded_corner_left.xml",
-    "android/java/res/drawable/rounded_corner_left_incognito.xml",
-    "android/java/res/drawable/rounded_corner_right.xml",
-    "android/java/res/drawable/rounded_corner_right_incognito.xml",
-    "android/java/res/drawable/vertical_hairline.xml",
-    "android/java/res/layout/side_ui_web_content_hairline_container.xml",
+    "android/java/res/drawable/side_ui_resize_handle_bar.xml",
+    "android/java/res/layout/side_ui_resize_handle.xml",
     "android/java/res/values/colors.xml",
     "android/java/res/values/dimens.xml",
   ]
+  deps = [ "//components/browser_ui/styles/android:java_resources" ]
 }
 
 android_library("java") {
@@ -34,8 +29,6 @@ android_library("java") {
     "android/java/src/org/chromium/chrome/browser/ui/side_ui/SideUiResizeHandler.java",
     "android/java/src/org/chromium/chrome/browser/ui/side_ui/SideUiTransitionListener.java",
     "android/java/src/org/chromium/chrome/browser/ui/side_ui/SideUiUpdateSpecs.java",
-    "android/java/src/org/chromium/chrome/browser/ui/side_ui/SideUiWebContentHairlineContainer.java",
-    "android/java/src/org/chromium/chrome/browser/ui/side_ui/SideUiWebContentHairlineManager.java",
   ]
 
   deps = [
@@ -43,7 +36,6 @@ android_library("java") {
     "//base:base_java",
     "//base:callback_java",
     "//base:supplier_java",
-    "//base:tasks_java",
     "//build/android:build_java",
     "//chrome/browser/android/lifecycle:java",
     "//chrome/browser/browser_controls/android:java",
@@ -55,7 +47,6 @@ android_library("java") {
     "//chrome/browser/ui/side_panel/android:java",
     "//chrome/browser/ui/side_ui/public:java",
     "//chrome/browser/ui/vertical_tabs:java",
-    "//components/browser_ui/styles/android:java",
     "//components/cached_flags:java",
     "//third_party/android_deps:com_google_errorprone_error_prone_annotations_java",
     "//third_party/androidx:androidx_annotation_annotation_java",
@@ -73,8 +64,6 @@ robolectric_library("junit") {
   sources = [
     "android/java/src/org/chromium/chrome/browser/ui/side_ui/SideUiCoordinatorImplTest.java",
     "android/java/src/org/chromium/chrome/browser/ui/side_ui/SideUiResizeHandlerTest.java",
-    "android/java/src/org/chromium/chrome/browser/ui/side_ui/SideUiWebContentHairlineContainerTest.java",
-    "android/java/src/org/chromium/chrome/browser/ui/side_ui/SideUiWebContentHairlineManagerTest.java",
   ]
   deps = [
     ":java",
@@ -93,7 +82,6 @@ robolectric_library("junit") {
     "//chrome/browser/ui/side_ui/public:java",
     "//chrome/browser/ui/side_ui/public:java_resources",
     "//chrome/browser/ui/side_ui/test/android:test_support_java",
-    "//components/browser_ui/styles/android:java",
     "//third_party/androidx:androidx_annotation_annotation_java",
     "//third_party/junit",
     "//third_party/mockito:mockito_java",

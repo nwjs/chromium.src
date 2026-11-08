@@ -5,11 +5,11 @@
 #include "extensions/common/manifest_handlers/csp_info.h"
 
 #include <memory>
+#include <optional>
 #include <string_view>
 #include <utility>
 
 #include "base/feature_list.h"
-#include "base/no_destructor.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
@@ -33,25 +33,36 @@ using csp_validator::SanitizeContentSecurityPolicy;
 
 namespace {
 
-const char kDefaultContentSecurityPolicy[] =
+constexpr char kDefaultContentSecurityPolicy[] =
     "script-src 'self' blob: filesystem:; "
     "object-src 'self' blob: filesystem:;";
 
-const char kDefaultSandboxedPageContentSecurityPolicy[] =
+constexpr char kDefaultSandboxedPageContentSecurityPolicy[] =
     "sandbox allow-scripts allow-forms allow-popups allow-modals; "
     "script-src 'self' 'unsafe-inline' 'unsafe-eval'; child-src 'self';";
 
 // The default CSP to be used if no CSP provided.
-static const char kDefaultMV3CSP[] = "script-src 'self';";
+constexpr char kDefaultMV3CSP[] = "script-src 'self';";
 
 // The minimum CSP to be used in order to prevent remote scripts.
-static const char kMinimumMV3CSP[] =
+constexpr char kMinimumMV3CSP[] =
     "script-src 'self' 'wasm-unsafe-eval' 'inline-speculation-rules'; "
     "object-src 'self';";
 // The minimum CSP for extensions that can access chrome://resources.
-static const char kMinimumMV3CSPWithChromeResources[] =
+constexpr char kMinimumMV3CSPWithChromeResources[] =
     "script-src 'self' chrome://resources 'wasm-unsafe-eval' "
     "'inline-speculation-rules'; "
+    "object-src 'self';";
+// The minimum CSP for component extensions that can access chrome://webui-test.
+static const char kMinimumMV3CSPWithWebUITest[] =
+    "script-src 'self' chrome://webui-test 'wasm-unsafe-eval' "
+    "'inline-speculation-rules'; "
+    "object-src 'self';";
+// The minimum CSP for component extensions that can access both
+// chrome://resources and chrome://webui-test.
+static const char kMinimumMV3CSPWithChromeResourcesAndWebUITest[] =
+    "script-src 'self' chrome://resources chrome://webui-test "
+    "'wasm-unsafe-eval' 'inline-speculation-rules'; "
     "object-src 'self';";
 // The minimum CSP to be used in isolated worlds. The placeholder is for the
 // extension's dynamic URL.
@@ -60,7 +71,7 @@ constexpr char kMinimumMV3IsolatedWorldCSPTemplate[] =
     "object-src 'self';";
 // For unpacked extensions, we additionally allow the use of localhost files to
 // aid in rapid local development.
-static const char kMinimumUnpackedMV3CSP[] =
+constexpr char kMinimumUnpackedMV3CSP[] =
     "script-src 'self' 'wasm-unsafe-eval' 'inline-speculation-rules' "
     "http://localhost:* http://127.0.0.1:*; object-src 'self';";
 // The minimum CSP to be used in isolated worlds for unpacked extensions. The
@@ -72,9 +83,9 @@ constexpr char kMinimumUnpackedMV3IsolatedWorldCSPTemplate[] =
 #define PLATFORM_APP_LOCAL_CSP_SOURCES "'self' blob: filesystem: data:"
 
 // clang-format off
-const char kDefaultNWAppContentSecurityPolicy[] = "unsafe-inline; default-src *;";
+constexpr char kDefaultNWAppContentSecurityPolicy[] = "unsafe-inline; default-src *;";
 
-const char kDefaultPlatformAppContentSecurityPolicy[] =
+constexpr char kDefaultPlatformAppContentSecurityPolicy[] =
     // Platform apps can only use local resources by default.
     "default-src 'self' blob: filesystem:;"
     // For remote resources, they can fetch them via XMLHttpRequest.
@@ -127,7 +138,7 @@ const base::Value* GetManifestPath(const Extension* extension,
   return extension->manifest()->FindPath(path);
 }
 
-const char* GetDefaultExtensionPagesCSP(const Extension& extension) {
+std::string_view GetDefaultExtensionPagesCSP(const Extension& extension) {
   if (extension.manifest_version() >= 3) {
     return kDefaultMV3CSP;
   }
@@ -140,26 +151,36 @@ const char* GetDefaultExtensionPagesCSP(const Extension& extension) {
 }
 
 // Returns the minimum CSP to apply for the given MV3 extension.
-const std::string* GetMinimumMV3CSPForExtension(const Extension& extension) {
+std::string_view GetMinimumMV3CSPForExtension(const Extension& extension) {
   CHECK_GE(extension.manifest_version(), 3);
 
-  if (csp_validator::IsExtensionAllowedToUseChromeResources(extension.id()) &&
-      extension.location() == mojom::ManifestLocation::kComponent) {
-    // The minimum CSP for these extensions should include access to
-    // chrome://resources. This is okay because they are built into the browser
-    // as component extensions.
-    static const base::NoDestructor<std::string> csp_with_resources(
-        kMinimumMV3CSPWithChromeResources);
-    return csp_with_resources.get();
+  if (extension.location() == mojom::ManifestLocation::kComponent) {
+    const bool allows_chrome_resources =
+        csp_validator::IsExtensionAllowedToUseChromeResources(extension.id());
+    // Listing chrome://webui-test in the manifest is not enough on its own;
+    // the test-only switch must also be set.
+    const bool allows_webui_test =
+        csp_validator::IsWebUITestAllowedForLocation(extension.location()) &&
+        CSPInfo::GetExtensionPagesCSP(&extension).find("chrome://webui-test") !=
+            std::string::npos;
+
+    // The minimum CSP for these extensions may include access to
+    // chrome://resources and chrome://webui-test. This is okay because they
+    // are built into the browser as component extensions.
+    if (allows_chrome_resources && allows_webui_test) {
+      return kMinimumMV3CSPWithChromeResourcesAndWebUITest;
+    }
+    if (allows_chrome_resources) {
+      return kMinimumMV3CSPWithChromeResources;
+    }
+    if (allows_webui_test) {
+      return kMinimumMV3CSPWithWebUITest;
+    }
   }
 
-  static const base::NoDestructor<std::string> default_csp(kMinimumMV3CSP);
-  static const base::NoDestructor<std::string> default_unpacked_csp(
-      kMinimumUnpackedMV3CSP);
-
   return Manifest::IsUnpackedLocation(extension.location())
-             ? default_unpacked_csp.get()
-             : default_csp.get();
+             ? kMinimumUnpackedMV3CSP
+             : kMinimumMV3CSP;
 }
 
 }  // namespace
@@ -180,12 +201,12 @@ const std::string& CSPInfo::GetExtensionPagesCSP(const Extension* extension) {
 }
 
 // static
-const std::string* CSPInfo::GetMinimumCSPToAppend(
+std::optional<std::string_view> CSPInfo::GetMinimumCSPToAppend(
     const Extension& extension,
     const std::string& relative_path,
     bool is_service_worker) {
   if (!extension.is_extension()) {
-    return nullptr;
+    return std::nullopt;
   }
 
   // For sandboxed pages and manifest V2 extensions, append the parsed CSP. This
@@ -195,11 +216,11 @@ const std::string* CSPInfo::GetMinimumCSPToAppend(
   // always be subject to the stricter extension CSP.
   if (!is_service_worker &&
       SandboxedPageInfo::IsSandboxedPage(&extension, relative_path)) {
-    return &GetSandboxContentSecurityPolicy(&extension);
+    return GetSandboxContentSecurityPolicy(&extension);
   }
 
   if (extension.manifest_version() <= 2) {
-    return &GetExtensionPagesCSP(&extension);
+    return GetExtensionPagesCSP(&extension);
   }
 
   // For manifest V3 extensions, append the minimum secure CSP. This
@@ -371,7 +392,7 @@ bool CSPHandler::ParseExtensionPagesCSP(
   }
 
   if (!content_security_policy) {
-    const char* default_extension_pages_csp =
+    std::string_view default_extension_pages_csp =
         GetDefaultExtensionPagesCSP(*extension);
     ValidateExtensionPagesCSP(*extension, manifest_key,
                               default_extension_pages_csp);
@@ -454,7 +475,7 @@ bool CSPHandler::ParseSandboxCSP(Extension* extension,
 void CSPHandler::ValidateExtensionPagesCSP(
     const Extension& extension,
     std::string_view manifest_key,
-    const std::string& content_security_policy) {
+    std::string_view content_security_policy) {
   if (extension.manifest()->type() == Manifest::Type::kNwjsApp)
     return;
   if (extension.manifest_version() >= 3) {

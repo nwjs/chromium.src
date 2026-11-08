@@ -31,11 +31,12 @@
 #include "chrome/browser/ash/guest_os/guest_os_share_path_factory.h"
 #include "chrome/browser/ash/guest_os/public/guest_os_service.h"
 #include "chrome/browser/ash/guest_os/public/guest_os_service_factory.h"
-#include "chrome/browser/ash/login/users/fake_chrome_user_manager.h"
+#include "chrome/browser/ash/login/test/chrome_user_session_test_environment_delegate.h"
 #include "chrome/browser/ash/settings/scoped_cros_settings_test_helper.h"
+#include "chrome/browser/profiles/profile.h"
 #include "chrome/test/base/browser_process_platform_part_test_api_chromeos.h"
 #include "chrome/test/base/testing_browser_process.h"
-#include "chrome/test/base/testing_profile.h"
+#include "chromeos/ash/components/browser_context_helper/browser_context_helper.h"
 #include "chromeos/ash/components/dbus/anomaly_detector/anomaly_detector_client.h"
 #include "chromeos/ash/components/dbus/anomaly_detector/fake_anomaly_detector_client.h"
 #include "chromeos/ash/components/dbus/chunneld/chunneld_client.h"
@@ -55,7 +56,8 @@
 #include "components/policy/proto/chrome_device_policy.pb.h"
 #include "components/prefs/pref_service.h"
 #include "components/prefs/scoped_user_pref_update.h"
-#include "components/user_manager/scoped_user_manager.h"
+#include "components/session_manager/test/user_session_test_environment.h"
+#include "components/user_manager/user.h"
 #include "content/public/test/browser_task_environment.h"
 #include "google_apis/gaia/gaia_id.h"
 #include "mojo/public/cpp/bindings/remote.h"
@@ -92,7 +94,7 @@ class CrostiniManagerTest : public testing::Test {
   void SendVmStoppedSignal() {
     vm_tools::concierge::VmStoppedSignal signal;
     signal.set_name(kVmName);
-    signal.set_owner_id("test");
+    signal.set_owner_id(CryptohomeIdForProfile(profile()));
     crostini_manager_->OnVmStopped(signal);
   }
 
@@ -186,16 +188,22 @@ class CrostiniManagerTest : public testing::Test {
         ->platform_part()
         ->InitializeSchedulerConfigurationManager();
 
-    fake_user_manager_.Reset(std::make_unique<ash::FakeChromeUserManager>());
+    user_session_test_environment_ = std::make_unique<
+        ash::test::UserSessionTestEnvironment>(
+        TestingBrowserProcess::GetGlobal()->local_state(),
+        std::make_unique<ash::test::ChromeUserSessionTestEnvironmentDelegate>(
+            TestingBrowserProcess::GetGlobal()));
 
     // Login user for crostini, link gaia for DriveFS.
-    AccountId account_id =
-        AccountId::FromUserEmailGaiaId("user@test", GaiaId("12345"));
-    fake_user_manager_->AddUser(account_id);
-    fake_user_manager_->LoginUser(account_id);
+    const user_manager::User* user =
+        user_session_test_environment_->AddRegularUser(
+            AccountId::FromUserEmailGaiaId("user@test", GaiaId("12345")));
+    ASSERT_TRUE(user);
+    user_session_test_environment_->LogIn(user->GetAccountId());
 
-    profile_ = std::make_unique<TestingProfile>();
-    crostini_manager_ = CrostiniManager::GetForProfile(profile_.get());
+    profile_ = Profile::FromBrowserContext(
+        ash::BrowserContextHelper::Get()->GetBrowserContextByUser(user));
+    crostini_manager_ = CrostiniManager::GetForProfile(profile_);
 
     mojo::Remote<device::mojom::UsbDeviceManager> fake_usb_manager;
     fake_usb_manager_.AddReceiver(
@@ -211,8 +219,9 @@ class CrostiniManagerTest : public testing::Test {
 
   void TearDown() override {
     crostini_manager_->Shutdown();
-    profile_.reset();
-    fake_user_manager_.Reset();
+    crostini_manager_ = nullptr;
+    profile_ = nullptr;
+    user_session_test_environment_.reset();
     TestingBrowserProcess::GetGlobal()
         ->platform_part()
         ->ShutdownSchedulerConfigurationManager();
@@ -231,7 +240,7 @@ class CrostiniManagerTest : public testing::Test {
   }
 
  protected:
-  Profile* profile() { return profile_.get(); }
+  Profile* profile() { return profile_; }
   CrostiniManager* crostini_manager() { return crostini_manager_; }
   const guest_os::GuestId& container_id() { return container_id_; }
 
@@ -240,10 +249,10 @@ class CrostiniManagerTest : public testing::Test {
   raw_ptr<ash::FakeAnomalyDetectorClient, DanglingUntriaged>
       fake_anomaly_detector_client_;
 
-  user_manager::TypedScopedUserManager<ash::FakeChromeUserManager>
-      fake_user_manager_;
-  std::unique_ptr<TestingProfile> profile_;
-  raw_ptr<CrostiniManager, DanglingUntriaged> crostini_manager_;
+  std::unique_ptr<ash::test::UserSessionTestEnvironment>
+      user_session_test_environment_;
+  raw_ptr<Profile> profile_ = nullptr;
+  raw_ptr<CrostiniManager> crostini_manager_ = nullptr;
   const guest_os::GuestId container_id_ =
       guest_os::GuestId(kCrostiniDefaultVmType, kVmName, kContainerName);
   device::FakeUsbDeviceManager fake_usb_manager_;
@@ -382,6 +391,38 @@ TEST_F(CrostiniManagerTest, StartTerminaVmSuccess) {
   histogram_tester.ExpectTotalCount(kCrostiniCorruptionHistogram, 0);
 }
 
+TEST_F(CrostiniManagerTest, StartTerminaVmDiskOpInProgressError) {
+  base::ScopedTempFile export_path;
+  ASSERT_TRUE(export_path.Create());
+  TestFuture<CrostiniResult> export_future;
+  crostini_manager()->ExportDiskImage(container_id(), "my_cool_user_id_hash",
+                                      export_path.path(), false,
+                                      export_future.GetCallback());
+  task_environment_.FastForwardBy(base::Seconds(2));
+  EXPECT_EQ(fake_concierge_client_->export_disk_image_call_count(), 1);
+  EXPECT_FALSE(export_future.IsReady());
+
+  vm_tools::concierge::StartVmResponse response;
+  response.set_status(vm_tools::concierge::VM_STATUS_DISK_OP_IN_PROGRESS);
+  fake_concierge_client_->set_start_vm_response(response);
+
+  EnsureTerminaInstalled();
+  TestFuture<bool> start_future;
+  crostini_manager()->StartTerminaVm(kVmName, base::FilePath("unused"), 0,
+                                     start_future.GetCallback());
+
+  EXPECT_FALSE(start_future.Get());
+  EXPECT_FALSE(crostini_manager()->IsVmRunning(kVmName));
+  // Starting a VM while a disk operation is in progress should not abort the
+  // ongoing disk operation.
+  EXPECT_FALSE(export_future.IsReady());
+
+  vm_tools::concierge::DiskImageStatusResponse done_signal;
+  done_signal.set_status(vm_tools::concierge::DISK_STATUS_CREATED);
+  fake_concierge_client_->NotifyDiskImageProgress(done_signal);
+  EXPECT_EQ(export_future.Get(), CrostiniResult::SUCCESS);
+}
+
 TEST_F(CrostiniManagerTest, StartTerminaVmLowDiskNotification) {
   const base::FilePath& disk_path = base::FilePath("unused");
   vm_tools::concierge::StartVmResponse response;
@@ -486,8 +527,7 @@ TEST_F(CrostiniManagerTest, StopVmSuccess) {
 }
 
 TEST_F(CrostiniManagerTest, RegisterCreateOptions) {
-  guest_os::AddContainerToPrefs(profile_.get(), crostini::DefaultContainerId(),
-                                {});
+  guest_os::AddContainerToPrefs(profile_, crostini::DefaultContainerId(), {});
   CrostiniManager::RestartOptions options;
   options.container_username = "penguininadesert";
   options.disk_size_bytes = 9001;
@@ -499,8 +539,7 @@ TEST_F(CrostiniManagerTest, RegisterCreateOptions) {
 }
 
 TEST_F(CrostiniManagerTest, RegisterCreateOptions_FalseWhenExists) {
-  guest_os::AddContainerToPrefs(profile_.get(), crostini::DefaultContainerId(),
-                                {});
+  guest_os::AddContainerToPrefs(profile_, crostini::DefaultContainerId(), {});
   CrostiniManager::RestartOptions options;
   options.container_username = "penguininadesert";
   options.disk_size_bytes = 9001;
@@ -514,8 +553,7 @@ TEST_F(CrostiniManagerTest, RegisterCreateOptions_FalseWhenExists) {
 }
 
 TEST_F(CrostiniManagerTest, SetCreateOptionsUsed) {
-  guest_os::AddContainerToPrefs(profile_.get(), crostini::DefaultContainerId(),
-                                {});
+  guest_os::AddContainerToPrefs(profile_, crostini::DefaultContainerId(), {});
   CrostiniManager::RestartOptions options;
 
   options.container_username = "penguininadesert";
@@ -526,9 +564,9 @@ TEST_F(CrostiniManagerTest, SetCreateOptionsUsed) {
       crostini::DefaultContainerId(), options));
   crostini_manager()->SetCreateOptionsUsed(crostini::DefaultContainerId());
 
-  const base::Value* create_options = guest_os::GetContainerPrefValue(
-      profile_.get(), crostini::DefaultContainerId(),
-      guest_os::prefs::kContainerCreateOptions);
+  const base::Value* create_options =
+      guest_os::GetContainerPrefValue(profile_, crostini::DefaultContainerId(),
+                                      guest_os::prefs::kContainerCreateOptions);
   ASSERT_NE(create_options, nullptr);
 
   EXPECT_TRUE(
@@ -536,8 +574,7 @@ TEST_F(CrostiniManagerTest, SetCreateOptionsUsed) {
 }
 
 TEST_F(CrostiniManagerTest, FetchCreateOptions_MergesSharePaths) {
-  guest_os::AddContainerToPrefs(profile_.get(), crostini::DefaultContainerId(),
-                                {});
+  guest_os::AddContainerToPrefs(profile_, crostini::DefaultContainerId(), {});
   CrostiniManager::RestartOptions options;
   options.share_paths = {base::FilePath("ah"), base::FilePath("ah"),
                          base::FilePath("ah"), base::FilePath("ah")};
@@ -565,8 +602,7 @@ TEST_F(CrostiniManagerTest, FetchCreateOptions_MergesSharePaths) {
 }
 
 TEST_F(CrostiniManagerTest, FetchCreateOptions_FalseWhenUnused) {
-  guest_os::AddContainerToPrefs(profile_.get(), crostini::DefaultContainerId(),
-                                {});
+  guest_os::AddContainerToPrefs(profile_, crostini::DefaultContainerId(), {});
   CrostiniManager::RestartOptions options;
   options.container_username = "penguininadesert";
   options.disk_size_bytes = 9001;
@@ -586,8 +622,7 @@ TEST_F(CrostiniManagerTest, FetchCreateOptions_FalseWhenUnused) {
 }
 
 TEST_F(CrostiniManagerTest, FetchCreateOptions_TrueWhenUsed) {
-  guest_os::AddContainerToPrefs(profile_.get(), crostini::DefaultContainerId(),
-                                {});
+  guest_os::AddContainerToPrefs(profile_, crostini::DefaultContainerId(), {});
   CrostiniManager::RestartOptions options;
   options.container_username = "penguininadesert";
   options.disk_size_bytes = 9001;
@@ -1102,9 +1137,8 @@ TEST_F(CrostiniManagerRestartTest, RestartFinishesOnContainerCreatedError) {
 
   // This pref entry is currently retained for the default container id and
   // removed for other containers.
-  EXPECT_GE(
-      guest_os::GetContainers(profile_.get(), guest_os::VmType::TERMINA).size(),
-      1uL);
+  EXPECT_GE(guest_os::GetContainers(profile_, guest_os::VmType::TERMINA).size(),
+            1uL);
   EXPECT_GE(fake_concierge_client_->create_disk_image_call_count(), 1);
   EXPECT_GE(fake_concierge_client_->start_vm_call_count(), 1);
   ExpectRestarterUmaCount(1);
@@ -1115,9 +1149,8 @@ TEST_F(CrostiniManagerRestartTest,
   TestFuture<CrostiniResult> restart_future;
   RestartCrostini(container_id(), restart_future.GetCallback());
   EXPECT_EQ(restart_future.Get(), CrostiniResult::SUCCESS);
-  EXPECT_GE(
-      guest_os::GetContainers(profile_.get(), guest_os::VmType::TERMINA).size(),
-      1uL);
+  EXPECT_GE(guest_os::GetContainers(profile_, guest_os::VmType::TERMINA).size(),
+            1uL);
 
   TestFuture<CrostiniResult> stop_future;
   crostini_manager()->StopLxdContainer(container_id(),
@@ -1131,9 +1164,8 @@ TEST_F(CrostiniManagerRestartTest,
   EXPECT_EQ(failed_restart_future.Get(), CrostiniResult::UNKNOWN_ERROR);
 
   // Expect container wasn't removed from prefs.
-  EXPECT_GE(
-      guest_os::GetContainers(profile_.get(), guest_os::VmType::TERMINA).size(),
-      1uL);
+  EXPECT_GE(guest_os::GetContainers(profile_, guest_os::VmType::TERMINA).size(),
+            1uL);
 }
 
 TEST_F(CrostiniManagerRestartTest, TimeoutDuringContainerSetup) {
@@ -1656,10 +1688,10 @@ TEST_F(CrostiniManagerRestartTest, StopAfterLxdAvailableThenFullRestart) {
 
 TEST_F(CrostiniManagerRestartTest, UninstallUnregistersContainers) {
   auto* terminal_registry =
-      guest_os::GuestOsServiceFactory::GetForProfile(profile_.get())
+      guest_os::GuestOsServiceFactory::GetForProfile(profile_)
           ->TerminalProviderRegistry();
   auto* share_service =
-      guest_os::GuestOsSharePathFactory::GetForProfile(profile_.get());
+      guest_os::GuestOsSharePathFactory::GetForProfile(profile_);
 
   TestFuture<CrostiniResult> restart_result;
   RestartCrostini(container_id(), restart_result.GetCallback());

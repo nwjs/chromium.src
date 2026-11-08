@@ -63,7 +63,6 @@ public class RecentTabsCoordinatorUnitTest {
     public ActivityScenarioRule<TestActivity> mActivityScenarios =
             new ActivityScenarioRule<>(TestActivity.class);
 
-    @Mock private Activity mActivity;
     @Mock private RecentTabsManager mRecentTabsManager;
     @Mock private NativePageNavigationDelegate mNavigationDelegate;
     @Mock private EdgeToEdgeController mEdgeToEdgeController;
@@ -76,6 +75,7 @@ public class RecentTabsCoordinatorUnitTest {
     private final SettableNonNullObservableSupplier<Integer> mTabStripHeightSupplier =
             ObservableSuppliers.createNonNull(0);
 
+    private Activity mActivity;
     private RecentTabsCoordinator mCoordinator;
 
     @Before

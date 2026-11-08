@@ -5,6 +5,8 @@
 #ifndef CHROME_BROWSER_GLIC_GLIC_ENUMS_H_
 #define CHROME_BROWSER_GLIC_GLIC_ENUMS_H_
 
+#include <iosfwd>
+
 namespace glic {
 
 // Add here Glic enums that should be visible to external code. If the enum is
@@ -18,6 +20,34 @@ enum class ZoomSource {
   kScroll,
   kMaxValue = kScroll,
 };
+
+// Represents the hotkey scope state when the user clears the hotkey in
+// settings.
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+// LINT.IfChange(GlicHotkeyCleared)
+enum class GlicHotkeyCleared {
+  kDefaultGlobalWithGlobalScope = 0,
+  kDefaultGlobalWithLocalScope = 1,
+  kDefaultLocalWithGlobalScope = 2,
+  kDefaultLocalWithLocalScope = 3,
+  kMaxValue = kDefaultLocalWithLocalScope,
+};
+// LINT.ThenChange(//tools/metrics/histograms/metadata/glic/enums.xml:GlicHotkeyCleared)
+
+// Represents hotkey scope changes in settings.
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+// LINT.IfChange(GlicHotkeyScopeChange)
+enum class GlicHotkeyScopeChange {
+  kDefaultGlobalToGlobal = 0,
+  kDefaultGlobalToLocal = 1,
+  kDefaultLocalToGlobal = 2,
+  kDefaultLocalToLocal = 3,
+  kNotMigrated = 4,
+  kMaxValue = kNotMigrated,
+};
+// LINT.ThenChange(//tools/metrics/histograms/metadata/glic/enums.xml:GlicHotkeyScopeChange)
 
 // Error types for when attempting to extract context from a tab.
 // LINT.IfChange(GlicGetContextFromTabError)
@@ -138,6 +168,8 @@ enum class ClientLoadState {
   kError,
 };
 
+std::ostream& operator<<(std::ostream& os, ClientLoadState state);
+
 // Why the Glic client failed to load, i.e. failed to become usable. Scoped to
 // failures that prevent the client from reaching a usable state; errors raised
 // by a client that is already running are a separate concept.
@@ -210,6 +242,28 @@ enum class ClientLoadErrorReason {
   kMaxValue = kWarmedTimeout,
 };
 // LINT.ThenChange(//tools/metrics/structured/sync/structured.xml)
+
+// Why a Glic instance was removed. Invocations still running on the instance
+// fail with the matching GlicInvokeError::kInstanceDestroyed* value.
+enum class InstanceRemovalReason {
+  // The panel of an instance without a conversation was closed, so the blank
+  // instance was cleaned up.
+  kBlankInstanceClosed,
+
+  // Nothing kept the instance alive anymore: it had no bound tabs, tab group
+  // or pinned tabs left, e.g. because its last tab was closed, unpinned or
+  // bound to another conversation.
+  kUnbound,
+
+  // The user manually deleted the instance.
+  kArchived,
+
+  // The user signed out of the primary account.
+  kSignedOut,
+
+  // The profile is shutting down.
+  kShutdown,
+};
 
 }  // namespace glic
 

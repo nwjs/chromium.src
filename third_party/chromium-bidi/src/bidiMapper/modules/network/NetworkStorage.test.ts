@@ -440,6 +440,65 @@ describe('NetworkStorage', () => {
   });
 
   describe('network.responseCompleted', () => {
+    for (const {name, encodedDataLength, encodedBodyLength} of [
+      {
+        name: 'uncompressed body',
+        encodedDataLength: 2151,
+        encodedBodyLength: 2000,
+      },
+      {
+        name: 'empty body',
+        encodedDataLength: 151,
+        encodedBodyLength: 0,
+      },
+      {
+        name: 'cached body',
+        encodedDataLength: 0,
+        encodedBodyLength: 2000,
+      },
+    ]) {
+      it(`should distinguish encoded body size from transferred bytes for ${name}`, async () => {
+        const request = new MockCdpNetworkEvents(cdpClient);
+
+        request.requestWillBeSent();
+        request.requestWillBeSentExtraInfo();
+        if (encodedDataLength === 0) {
+          request.requestServedFromCache();
+        }
+        request.responseReceived(false);
+        request.setJsonEvent({
+          method: 'Network.loadingFinished',
+          params: {
+            requestId: request.requestId,
+            timestamp: 279179.745291,
+            encodedDataLength,
+            encodedBodyLength,
+          },
+        });
+
+        const event = await getEvent('network.responseCompleted');
+        assert.deepNestedInclude(event, {
+          'response.bodySize': encodedBodyLength,
+          'response.bytesReceived': encodedDataLength,
+        });
+      });
+    }
+
+    it('should report an unknown body size when CDP does not provide it', async () => {
+      const request = new MockCdpNetworkEvents(cdpClient);
+
+      request.requestWillBeSent();
+      request.requestWillBeSentExtraInfo();
+      request.responseReceived(false);
+      request.loadingFinished();
+
+      const event = await getEvent('network.responseCompleted');
+      assert.deepNestedInclude(event, {
+        'response.bodySize': null,
+        'response.bytesReceived': 999,
+      });
+    });
+
     it('should work with data url', async () => {
       const request = new MockCdpNetworkEvents(cdpClient, {
         url: 'data:text/html,<div>yo</div>',
@@ -509,6 +568,37 @@ describe('NetworkStorage', () => {
       assert.deepNestedInclude(event, {
         'response.url': overrideUrl,
       });
+    });
+  });
+
+  describe('setCacheBehavior', () => {
+    const CONTEXT_1 = 'CONTEXT_1';
+    const CONTEXT_2 = 'CONTEXT_2';
+    const browsingContext1 = {id: CONTEXT_1} as BrowsingContextImpl;
+
+    it('should return default cache behavior initially', () => {
+      assert.equal(networkStorage.getCacheBehavior(CONTEXT_1), 'default');
+    });
+
+    it('should update cache behavior for specific contexts', () => {
+      networkStorage.setCacheBehavior('bypass', new Set([browsingContext1]));
+
+      assert.equal(networkStorage.getCacheBehavior(CONTEXT_1), 'bypass');
+      assert.equal(networkStorage.getCacheBehavior(CONTEXT_2), 'default');
+    });
+
+    it('should update default cache behavior and clear context overrides when contexts set is empty', () => {
+      networkStorage.setCacheBehavior('bypass', new Set([browsingContext1]));
+      networkStorage.setCacheBehavior('default', new Set());
+
+      assert.equal(networkStorage.getCacheBehavior(CONTEXT_1), 'default');
+      assert.equal(networkStorage.getCacheBehavior(CONTEXT_2), 'default');
+
+      networkStorage.setCacheBehavior('default', new Set([browsingContext1]));
+      networkStorage.setCacheBehavior('bypass', new Set());
+
+      assert.equal(networkStorage.getCacheBehavior(CONTEXT_1), 'bypass');
+      assert.equal(networkStorage.getCacheBehavior(CONTEXT_2), 'bypass');
     });
   });
 });

@@ -6,22 +6,25 @@ package org.chromium.chrome.browser.composeplate;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 import android.content.Context;
 import android.content.res.ColorStateList;
+import android.content.res.Resources;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.view.ContextThemeWrapper;
+import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.FrameLayout;
+import android.widget.ImageView;
+import android.widget.TextView;
 
 import androidx.test.core.app.ApplicationProvider;
 
@@ -29,10 +32,10 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
+import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Config;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
@@ -40,23 +43,31 @@ import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.incognito.IncognitoUtils;
+import org.chromium.chrome.browser.ntp.NewTabPageUtils.ActionChips;
 import org.chromium.chrome.browser.util.BrowserUiUtils.ModuleTypeOnStartAndNtp;
 import org.chromium.components.search_engines.AiModeButtonUiConfig;
+import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.url.JUnitTestGURLs;
 
 /** Unit tests for {@link ComposeplateCoordinator}. */
 @RunWith(BaseRobolectricTestRunner.class)
 public class ComposeplateCoordinatorUnitTest {
+    // A phone in full screen landscape mode.
+    private static final String LANDSCAPE_QUALIFIER = "+w731dp-h411dp-land";
+    // A phone in top/bottom split-screen mode: the window is in landscape, but as narrow as in
+    // portrait mode.
+    private static final String SPLIT_SCREEN_LANDSCAPE_QUALIFIER = "+w411dp-h360dp-land";
+
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
 
-    @Mock private ViewGroup mParentView;
-    @Mock private ComposeplateView mComposeplateView;
-    @Mock private View mIncognitoButton;
-    @Mock private View mComposeplateButton;
     @Mock private View.OnClickListener mOriginalOnClickListener;
 
     private Context mContext;
+    private ComposeplateView mComposeplateView;
+    private View mIncognitoButton;
+    private View mComposeplateButton;
+    private View mOptionalButton;
     private ComposeplateCoordinator mCoordinator;
     private PropertyModel mPropertyModel;
 
@@ -68,15 +79,19 @@ public class ComposeplateCoordinatorUnitTest {
                         R.style.Theme_BrowserUI_DayNight);
         IncognitoUtils.setEnabledForTesting(true);
 
-        when(mParentView.findViewById(R.id.composeplate_view)).thenReturn(mComposeplateView);
-        when(mParentView.getResources()).thenReturn(mContext.getResources());
-        when(mComposeplateView.getContext()).thenReturn(mContext);
-        when(mComposeplateView.getResources()).thenReturn(mContext.getResources());
-        when(mComposeplateView.findViewById(R.id.incognito_button)).thenReturn(mIncognitoButton);
-        when(mComposeplateView.findViewById(R.id.composeplate_button))
-                .thenReturn(mComposeplateButton);
+        FrameLayout parentView = new FrameLayout(mContext);
+        mComposeplateView =
+                (ComposeplateView)
+                        LayoutInflater.from(mContext)
+                                .inflate(R.layout.composeplate_view_layout, parentView, false);
+        parentView.addView(mComposeplateView);
+        mIncognitoButton = mComposeplateView.findViewById(R.id.incognito_button);
+        mComposeplateButton = mComposeplateView.findViewById(R.id.composeplate_button);
+        mOptionalButton = mComposeplateView.findViewById(R.id.optional_button);
 
-        mCoordinator = new ComposeplateCoordinator(mParentView);
+        mCoordinator =
+                new ComposeplateCoordinator(
+                        parentView, DeviceFormFactor.isNonMultiDisplayContextOnTablet(mContext));
         mPropertyModel = mCoordinator.getModelForTesting();
     }
 
@@ -86,48 +101,143 @@ public class ComposeplateCoordinatorUnitTest {
                 HistogramWatcher.newSingleRecordWatcher(
                         ComposeplateMetricsUtils.HISTOGRAM_COMPOSEPLATE_IMPRESSION, true);
         mCoordinator.setVisibility(/* visible= */ true, /* isCurrentPage= */ true);
-        verify(mComposeplateView).setVisibility(View.VISIBLE);
+        assertEquals(View.VISIBLE, mComposeplateView.getVisibility());
         histogramWatcher.assertExpected();
 
         histogramWatcher =
                 HistogramWatcher.newSingleRecordWatcher(
                         ComposeplateMetricsUtils.HISTOGRAM_COMPOSEPLATE_IMPRESSION, false);
         mCoordinator.setVisibility(/* visible= */ false, /* isCurrentPage= */ true);
-        verify(mComposeplateView).setVisibility(View.GONE);
+        assertEquals(View.GONE, mComposeplateView.getVisibility());
+        histogramWatcher.assertExpected();
+    }
+
+    @Test
+    public void testRecordButtonsImpression_optionalButtonHidden() {
+        testRecordButtonsImpressionImpl(
+                ActionChips.CREATE_IMAGE, /* isOptionalButtonVisible= */ false);
+    }
+
+    @Test
+    public void testRecordButtonsImpression_createImageButtonVisible() {
+        testRecordButtonsImpressionImpl(
+                ActionChips.CREATE_IMAGE, /* isOptionalButtonVisible= */ true);
+    }
+
+    @Test
+    public void testRecordButtonsImpression_galleryButtonVisible() {
+        testRecordButtonsImpressionImpl(ActionChips.GALLERY, /* isOptionalButtonVisible= */ true);
+    }
+
+    @Test
+    public void testRecordButtonsImpression_optionalButtonTypeNotSet() {
+        mCoordinator.setVisibility(/* visible= */ true, /* isCurrentPage= */ false);
+        mCoordinator.setOptionalButtonVisibility(/* visible= */ true);
+
+        String histogramName = ComposeplateMetricsUtils.HISTOGRAM_COMPOSEPLATE_BUTTONS_IMPRESSION;
+        HistogramWatcher histogramWatcher =
+                HistogramWatcher.newBuilder()
+                        .expectIntRecords(histogramName, ActionChips.DEFAULT, ActionChips.INCOGNITO)
+                        .build();
+
+        mCoordinator.recordButtonsImpression();
+
+        histogramWatcher.assertExpected();
+    }
+
+    @Test
+    public void testRecordButtonsImpression_composeplateHidden() {
+        mCoordinator.setOptionalButtonClickListener(
+                mOriginalOnClickListener, ActionChips.CREATE_IMAGE);
+        mCoordinator.setOptionalButtonVisibility(/* visible= */ true);
+        mCoordinator.setVisibility(/* visible= */ false, /* isCurrentPage= */ false);
+
+        HistogramWatcher histogramWatcher =
+                HistogramWatcher.newBuilder()
+                        .expectNoRecords(
+                                ComposeplateMetricsUtils.HISTOGRAM_COMPOSEPLATE_BUTTONS_IMPRESSION)
+                        .build();
+
+        mCoordinator.recordButtonsImpression();
+
+        histogramWatcher.assertExpected();
+    }
+
+    private void testRecordButtonsImpressionImpl(
+            @ActionChips int optionalButtonType, boolean isOptionalButtonVisible) {
+        mCoordinator.setVisibility(/* visible= */ true, /* isCurrentPage= */ false);
+        mCoordinator.setOptionalButtonClickListener(mOriginalOnClickListener, optionalButtonType);
+        mCoordinator.setOptionalButtonVisibility(isOptionalButtonVisible);
+
+        String histogramName = ComposeplateMetricsUtils.HISTOGRAM_COMPOSEPLATE_BUTTONS_IMPRESSION;
+        HistogramWatcher.Builder builder =
+                HistogramWatcher.newBuilder()
+                        .expectIntRecords(
+                                histogramName, ActionChips.DEFAULT, ActionChips.INCOGNITO);
+        if (isOptionalButtonVisible) {
+            builder.expectIntRecord(histogramName, optionalButtonType);
+        }
+        HistogramWatcher histogramWatcher = builder.build();
+
+        mCoordinator.recordButtonsImpression();
+
         histogramWatcher.assertExpected();
     }
 
     @Test
     public void testSetIncognitoClickListener() {
         mCoordinator.setIncognitoClickListener(mOriginalOnClickListener);
-        View.OnClickListener enhancedListener = getCapturedOnClickListener(mIncognitoButton);
 
         HistogramWatcher histogramWatcher =
                 HistogramWatcher.newSingleRecordWatcher(
                         "NewTabPage.Module.Click",
                         ModuleTypeOnStartAndNtp.COMPOSEPLATE_VIEW_INCOGNITO_BUTTON);
 
-        View clickedView = mock(View.class);
-        enhancedListener.onClick(clickedView);
+        mIncognitoButton.performClick();
 
         histogramWatcher.assertExpected();
-        verify(mOriginalOnClickListener).onClick(clickedView);
+        verify(mOriginalOnClickListener).onClick(mIncognitoButton);
     }
 
     @Test
     public void testComposeplateButtonClickListener() {
         mCoordinator.setComposeplateButtonClickListener(mOriginalOnClickListener);
-        View.OnClickListener enhancedListener = getCapturedOnClickListener(mComposeplateButton);
 
         HistogramWatcher histogramWatcher =
                 HistogramWatcher.newSingleRecordWatcher(
                         "NewTabPage.Module.Click", ModuleTypeOnStartAndNtp.COMPOSEPLATE_BUTTON);
 
-        View clickedView = mock(View.class);
-        enhancedListener.onClick(clickedView);
+        mComposeplateButton.performClick();
 
         histogramWatcher.assertExpected();
-        verify(mOriginalOnClickListener).onClick(clickedView);
+        verify(mOriginalOnClickListener).onClick(mComposeplateButton);
+    }
+
+    @Test
+    public void testOptionalButtonClickListener_CreateImage() {
+        testOptionalButtonClickListenerImpl(
+                ActionChips.CREATE_IMAGE,
+                ModuleTypeOnStartAndNtp.COMPOSEPLATE_VIEW_CREATE_IMAGE_BUTTON);
+    }
+
+    @Test
+    public void testOptionalButtonClickListener_Canvas() {
+        testOptionalButtonClickListenerImpl(
+                ActionChips.GALLERY, ModuleTypeOnStartAndNtp.COMPOSEPLATE_VIEW_GALLERY_BUTTON);
+    }
+
+    private void testOptionalButtonClickListenerImpl(
+            @ActionChips int actionChipsType, @ModuleTypeOnStartAndNtp int expectedModuleType) {
+        mCoordinator.setOptionalButtonClickListener(mOriginalOnClickListener, actionChipsType);
+
+        HistogramWatcher histogramWatcher =
+                HistogramWatcher.newSingleRecordWatcher(
+                        "NewTabPage.Module.Click", expectedModuleType);
+
+        mOptionalButton.performClick();
+
+        histogramWatcher.assertExpected();
+        verify(mOriginalOnClickListener).onClick(mOptionalButton);
     }
 
     @Test
@@ -155,7 +265,6 @@ public class ComposeplateCoordinatorUnitTest {
         assertTrue(mPropertyModel.get(ComposeplateProperties.APPLY_WHITE_BACKGROUND));
         assertEquals(colorStateList, mPropertyModel.get(ComposeplateProperties.COLOR_STATE_LIST));
         assertEquals(textStyleResId, mPropertyModel.get(ComposeplateProperties.TEXT_STYLE_RES_ID));
-        verify(mComposeplateView).applyWhiteBackground(eq(true));
 
         // Tests the case to remove the white background with shadow.
         apply = false;
@@ -165,7 +274,6 @@ public class ComposeplateCoordinatorUnitTest {
         assertFalse(mPropertyModel.get(ComposeplateProperties.APPLY_WHITE_BACKGROUND));
         assertEquals(colorStateList, mPropertyModel.get(ComposeplateProperties.COLOR_STATE_LIST));
         assertEquals(textStyleResId, mPropertyModel.get(ComposeplateProperties.TEXT_STYLE_RES_ID));
-        verify(mComposeplateView).applyWhiteBackground(eq(false));
     }
 
     @Test
@@ -204,7 +312,9 @@ public class ComposeplateCoordinatorUnitTest {
         assertEquals(
                 aiModeButtonUiConfig,
                 mPropertyModel.get(ComposeplateProperties.AI_MODE_BUTTON_UI_CONFIG));
-        verify(mComposeplateView).setAiModeButtonUiConfig(eq(aiModeButtonUiConfig));
+        TextView composeplateButtonText =
+                mComposeplateView.findViewById(R.id.composeplate_button_text);
+        assertEquals(aiModeButtonUiConfig.text, composeplateButtonText.getText().toString());
     }
 
     @Test
@@ -218,12 +328,158 @@ public class ComposeplateCoordinatorUnitTest {
                 mPropertyModel.get(ComposeplateProperties.AI_MODE_BUTTON_ICON);
         assertEquals(drawable, icon.drawable);
         assertFalse(icon.shouldTint);
-        verify(mComposeplateView).setAiModeButtonIcon(eq(icon));
+        ImageView iconView = mComposeplateView.findViewById(R.id.composeplate_button_icon);
+        assertEquals(drawable, iconView.getDrawable());
+    }
+
+    @Test
+    public void testSetOptionalButtonVisibility_visible() {
+        testSetOptionalButtonVisibilityImpl(/* visible= */ true);
+    }
+
+    @Test
+    public void testSetOptionalButtonVisibility_hidden() {
+        testSetOptionalButtonVisibilityImpl(/* visible= */ false);
+    }
+
+    @Test
+    @Config(qualifiers = "sw600dp")
+    public void testSetOptionalButtonVisibility_visible_tablet() {
+        testSetOptionalButtonVisibilityImpl(/* visible= */ true);
+    }
+
+    @Test
+    @Config(qualifiers = "sw600dp")
+    public void testSetOptionalButtonVisibility_hidden_tablet() {
+        testSetOptionalButtonVisibilityImpl(/* visible= */ false);
+    }
+
+    @Test
+    public void testSetOptionalButtonText() {
+        String text = "Create image";
+        mCoordinator.setOptionalButtonText(text);
+
+        assertEquals(text, mPropertyModel.get(ComposeplateProperties.OPTIONAL_BUTTON_TEXT));
+        assertEquals(text, mOptionalButton.getContentDescription());
+        TextView optionalButtonText = mComposeplateView.findViewById(R.id.optional_button_text);
+        assertEquals(text, optionalButtonText.getText().toString());
+    }
+
+    @Test
+    public void testOnDisplayStyleChanged_optionalButtonVisible() {
+        mCoordinator.setOptionalButtonVisibility(/* visible= */ true);
+        int portraitPadding =
+                mContext.getResources()
+                        .getDimensionPixelSize(R.dimen.composeplate_view_optional_button_padding);
+        assertEquals(
+                portraitPadding,
+                mPropertyModel.get(ComposeplateProperties.OPTIONAL_BUTTON_LATERAL_PADDING));
+
+        int landscapePadding = testOnDisplayStyleChangedImpl(LANDSCAPE_QUALIFIER);
+        assertNotEquals(portraitPadding, landscapePadding);
+    }
+
+    @Test
+    public void testOnDisplayStyleChanged_optionalButtonHidden() {
+        mCoordinator.setOptionalButtonVisibility(/* visible= */ false);
+        int paddingStart = mOptionalButton.getPaddingStart();
+        int marginEnd = getMarginEnd(mOptionalButton);
+
+        RuntimeEnvironment.setQualifiers(LANDSCAPE_QUALIFIER);
+        mCoordinator.onDisplayStyleChanged();
+
+        int defaultSpacing =
+                mContext.getResources()
+                        .getDimensionPixelSize(R.dimen.composeplate_view_button_margin);
+        verifyButtonSpacing(defaultSpacing, defaultSpacing);
+        assertEquals(paddingStart, mOptionalButton.getPaddingStart());
+        assertEquals(marginEnd, getMarginEnd(mOptionalButton));
+    }
+
+    @Test
+    public void testOnDisplayStyleChanged_fromLandscapeToSplitScreen_usesPortraitSpacing() {
+        mCoordinator.setOptionalButtonVisibility(/* visible= */ true);
+        int portraitPadding =
+                mContext.getResources()
+                        .getDimensionPixelSize(R.dimen.composeplate_view_optional_button_padding);
+
+        int landscapePadding = testOnDisplayStyleChangedImpl(LANDSCAPE_QUALIFIER);
+        assertNotEquals(portraitPadding, landscapePadding);
+
+        int splitScreenPadding = testOnDisplayStyleChangedImpl(SPLIT_SCREEN_LANDSCAPE_QUALIFIER);
+        assertEquals(portraitPadding, splitScreenPadding);
+    }
+
+    /**
+     * Applies the given qualifiers, notifies the coordinator of the display style change, and
+     * verifies the optional button's spacing matches the dimensions of the new configuration.
+     *
+     * @param qualifiers The Robolectric qualifiers to apply.
+     * @return The optional button's lateral padding in the new configuration.
+     */
+    private int testOnDisplayStyleChangedImpl(String qualifiers) {
+        RuntimeEnvironment.setQualifiers(qualifiers);
+        mCoordinator.onDisplayStyleChanged();
+
+        Resources res = mContext.getResources();
+        int padding = res.getDimensionPixelSize(R.dimen.composeplate_view_optional_button_padding);
+        int marginEnd = res.getDimensionPixelSize(R.dimen.composeplate_view_optional_button_margin);
+        verifyButtonSpacing(padding, marginEnd);
+        assertEquals(padding, mOptionalButton.getPaddingStart());
+        assertEquals(marginEnd, getMarginEnd(mOptionalButton));
+        return padding;
+    }
+
+    private void testSetOptionalButtonVisibilityImpl(boolean visible) {
+        boolean isLff = DeviceFormFactor.isNonMultiDisplayContextOnTablet(mContext);
+        assertEquals(isLff, mPropertyModel.get(ComposeplateProperties.IS_LFF));
+        mCoordinator.setOptionalButtonVisibility(visible);
+
+        assertEquals(
+                visible, mPropertyModel.get(ComposeplateProperties.IS_OPTIONAL_BUTTON_VISIBLE));
+        assertEquals(visible ? View.VISIBLE : View.GONE, mOptionalButton.getVisibility());
+        // The optional button's text is only shown on large form factors.
+        View optionalButtonText = mComposeplateView.findViewById(R.id.optional_button_text);
+        assertEquals(isLff ? View.VISIBLE : View.GONE, optionalButtonText.getVisibility());
+
+        // The incognito button's text is hidden only when the optional button is visible on
+        // phones.
+        boolean expectedIncognitoButtonTextVisible = !visible || isLff;
+        assertEquals(
+                expectedIncognitoButtonTextVisible,
+                mPropertyModel.get(ComposeplateProperties.IS_INCOGNITO_BUTTON_TEXT_VISIBLE));
+        View incognitoButtonText = mComposeplateView.findViewById(R.id.incognito_button_text);
+        assertEquals(
+                expectedIncognitoButtonTextVisible ? View.VISIBLE : View.GONE,
+                incognitoButtonText.getVisibility());
+
+        Resources res = mContext.getResources();
+        int defaultSpacing = res.getDimensionPixelSize(R.dimen.composeplate_view_button_margin);
+        int expectedOptionalButtonPadding = defaultSpacing;
+        int expectedOptionalButtonMarginEnd = defaultSpacing;
+        if (visible) {
+            expectedOptionalButtonPadding =
+                    res.getDimensionPixelSize(R.dimen.composeplate_view_optional_button_padding);
+            expectedOptionalButtonMarginEnd =
+                    res.getDimensionPixelSize(R.dimen.composeplate_view_optional_button_margin);
+        }
+        verifyButtonSpacing(expectedOptionalButtonPadding, expectedOptionalButtonMarginEnd);
+        assertEquals(expectedOptionalButtonPadding, mOptionalButton.getPaddingStart());
+        assertEquals(expectedOptionalButtonMarginEnd, getMarginEnd(mOptionalButton));
+    }
+
+    private void verifyButtonSpacing(int optionalButtonPadding, int optionalButtonMarginEnd) {
+        assertEquals(
+                optionalButtonPadding,
+                mPropertyModel.get(ComposeplateProperties.OPTIONAL_BUTTON_LATERAL_PADDING));
+        assertEquals(
+                optionalButtonMarginEnd,
+                mPropertyModel.get(ComposeplateProperties.OPTIONAL_BUTTON_MARGIN_END));
     }
 
     private void verifyComposeplateWidth(int lateralMargin) {
         ViewGroup.MarginLayoutParams layoutParams = new ViewGroup.MarginLayoutParams(100, 100);
-        when(mComposeplateView.getLayoutParams()).thenReturn(layoutParams);
+        mComposeplateView.setLayoutParams(layoutParams);
 
         int searchBoxWidth = 400;
         mCoordinator.setLayoutWidth(searchBoxWidth);
@@ -231,10 +487,7 @@ public class ComposeplateCoordinatorUnitTest {
         assertEquals(searchBoxWidth - 2 * lateralMargin, layoutParams.width);
     }
 
-    private View.OnClickListener getCapturedOnClickListener(View button) {
-        ArgumentCaptor<View.OnClickListener> listenerCaptor =
-                ArgumentCaptor.forClass(View.OnClickListener.class);
-        verify(button).setOnClickListener(listenerCaptor.capture());
-        return listenerCaptor.getValue();
+    private static int getMarginEnd(View view) {
+        return ((ViewGroup.MarginLayoutParams) view.getLayoutParams()).getMarginEnd();
     }
 }

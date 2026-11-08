@@ -33,6 +33,7 @@
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
 #include "chrome/browser/download/download_core_service_factory.h"
 #include "chrome/browser/download/download_core_service_impl.h"
+#include "chrome/browser/download/download_file_picker.h"
 #include "chrome/browser/download/download_item_model.h"
 #include "chrome/browser/download/download_prefs.h"
 #include "chrome/browser/download/insecure_download_blocking.h"
@@ -97,7 +98,6 @@
 #if BUILDFLAG(IS_ANDROID)
 #include "base/android/device_info.h"
 #include "chrome/browser/download/download_prompt_status.h"
-#include "components/enterprise/connectors/core/features.h"
 #endif
 
 using download::DownloadItem;
@@ -131,6 +131,14 @@ class MockWebContentsDelegate : public content::WebContentsDelegate {
               (const GURL&,
                const std::string&,
                base::OnceCallback<void(bool)> callback),
+              (override));
+  MOCK_METHOD(content::FullscreenState,
+              GetFullscreenState,
+              (const content::WebContents* web_contents),
+              (const, override));
+  MOCK_METHOD(void,
+              ExitFullscreenModeForTab,
+              (content::WebContents * web_contents),
               (override));
 };
 
@@ -337,7 +345,7 @@ class ChromeDownloadManagerDelegateTest
   raw_ptr<sync_preferences::TestingPrefServiceSyncable> pref_service_ = nullptr;
   std::unique_ptr<content::MockDownloadManager> download_manager_;
   raw_ptr<TestChromeDownloadManagerDelegate> delegate_ = nullptr;
-  MockWebContentsDelegate web_contents_delegate_;
+  testing::NiceMock<MockWebContentsDelegate> web_contents_delegate_;
   std::vector<uint32_t> download_ids_;
   TestingProfileManager testing_profile_manager_;
 };
@@ -2476,11 +2484,6 @@ TEST_F(ChromeDownloadManagerDelegateTestWithSafeBrowsing,
 
 TEST_F(ChromeDownloadManagerDelegateTestWithSafeBrowsing,
        CheckSavePackageAllowed_MalwareTagExempted) {
-#if BUILDFLAG(IS_ANDROID)
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeature(
-      enterprise_connectors::kEnableDownloadEnterpriseScanOnClank);
-#endif
   std::unique_ptr<download::MockDownloadItem> download_item =
       CreateActiveDownloadItem(0);
   EXPECT_CALL(*download_item, IsSavePackageDownload())
@@ -2520,11 +2523,6 @@ TEST_F(ChromeDownloadManagerDelegateTestWithSafeBrowsing,
 
 TEST_F(ChromeDownloadManagerDelegateTestWithSafeBrowsing,
        CheckSavePackageAllowed_TriggersScanAndSafeVerdict) {
-#if BUILDFLAG(IS_ANDROID)
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeature(
-      enterprise_connectors::kEnableDownloadEnterpriseScanOnClank);
-#endif
   std::unique_ptr<download::MockDownloadItem> download_item =
       CreateActiveDownloadItem(0);
   EXPECT_CALL(*download_item, IsSavePackageDownload())
@@ -2594,11 +2592,6 @@ TEST_F(ChromeDownloadManagerDelegateTestWithSafeBrowsing,
 
 TEST_F(ChromeDownloadManagerDelegateTestWithSafeBrowsing,
        CheckSavePackageScanningDone_BlockedVerdict) {
-#if BUILDFLAG(IS_ANDROID)
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeature(
-      enterprise_connectors::kEnableDownloadEnterpriseScanOnClank);
-#endif
   std::unique_ptr<download::MockDownloadItem> download_item =
       CreateActiveDownloadItem(0);
   EXPECT_CALL(*download_item, IsSavePackageDownload())
@@ -3473,3 +3466,44 @@ TEST_F(ChromeDownloadManagerDelegateTest, ChooseSavePath_AndroidDesktop) {
   }
 }
 #endif  // BUILDFLAG(IS_ANDROID)
+
+TEST_F(ChromeDownloadManagerDelegateTest,
+       DownloadFilePicker_DropsFullscreenForSecurity) {
+  ui::FakeSelectFileDialog::Factory* factory =
+      ui::FakeSelectFileDialog::RegisterFactory();
+  factory->SetOpenCallback(base::DoNothing());
+  base::ScopedClosureRunner reset_factory(
+      base::BindOnce([]() { ui::SelectFileDialog::SetFactory(nullptr); }));
+
+  std::unique_ptr<download::MockDownloadItem> download_item =
+      CreateActiveDownloadItem(1);
+  GURL url("https://example.com/file.pdf");
+  EXPECT_CALL(*download_item, GetURL()).WillRepeatedly(ReturnRef(url));
+
+  content::FullscreenState fullscreen_state;
+  fullscreen_state.target_mode = content::FullscreenMode::kContent;
+  ON_CALL(*web_contents_delegate(), GetFullscreenState(web_contents()))
+      .WillByDefault(Return(fullscreen_state));
+  EXPECT_CALL(*web_contents_delegate(),
+              ExitFullscreenModeForTab(web_contents()))
+      .Times(1);
+
+  base::FilePath suggested_path = GetPathInDownloadDir("file.pdf");
+  base::test::TestFuture<DownloadConfirmationResult,
+                         const ui::SelectedFileInfo&>
+      future;
+  DownloadFilePicker::ShowFilePicker(download_item.get(), suggested_path,
+                                     future.GetCallback());
+  ASSERT_NE(nullptr, factory->GetLastDialog());
+  factory->GetLastDialog()->CallFileSelectionCanceled();
+  EXPECT_EQ(DownloadConfirmationResult::CANCELED, future.Get<0>());
+
+  // If exiting fullscreen destroys WebContents, the picker cancels cleanly.
+  future.Clear();
+  EXPECT_CALL(*web_contents_delegate(),
+              ExitFullscreenModeForTab(web_contents()))
+      .WillOnce([this](content::WebContents*) { DeleteContents(); });
+  DownloadFilePicker::ShowFilePicker(download_item.get(), suggested_path,
+                                     future.GetCallback());
+  EXPECT_EQ(DownloadConfirmationResult::CANCELED, future.Get<0>());
+}

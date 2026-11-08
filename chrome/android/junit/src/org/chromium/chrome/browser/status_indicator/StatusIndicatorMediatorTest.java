@@ -25,6 +25,7 @@ import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 
 import org.chromium.base.Callback;
+import org.chromium.base.ContextUtils;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
 import org.chromium.chrome.browser.tab.TabObscuringHandler;
@@ -39,7 +40,6 @@ public class StatusIndicatorMediatorTest {
     @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
     @Mock BrowserControlsStateProvider mBrowserControlsStateProvider;
     @Mock TabObscuringHandler mTabObscuringHandler;
-    @Mock View mStatusIndicatorView;
     @Mock StatusIndicatorCoordinator.StatusIndicatorObserver mObserver;
     @Mock Runnable mRegisterResource;
     @Mock Runnable mUnregisterResource;
@@ -47,6 +47,7 @@ public class StatusIndicatorMediatorTest {
     @Mock Callback<Runnable> mInvalidateCompositorView;
     @Mock Runnable mRequestLayout;
 
+    private final View mStatusIndicatorView = new View(ContextUtils.getApplicationContext());
     private PropertyModel mModel;
     private StatusIndicatorMediator mMediator;
 
@@ -181,6 +182,6 @@ public class StatusIndicatorMediatorTest {
     }
 
     private void setViewHeight(int height) {
-        when(mStatusIndicatorView.getHeight()).thenReturn(height);
+        mStatusIndicatorView.layout(0, 0, 0, height);
     }
 }

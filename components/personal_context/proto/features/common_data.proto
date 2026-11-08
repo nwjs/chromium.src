@@ -141,6 +141,7 @@ message SourceReference {
     GmailReference gmail = 1;
     PhotosReference photos = 2;
     DriveFile drive = 3;
+    ChromeHistoryEntry chrome_history_entry = 4;
   }
 }
 
@@ -156,8 +157,8 @@ message MessageUrls {
 
 // Represents a reference to a Gmail message.
 message GmailReference {
-  // URL to the email message. Prefer using message_urls if populated.
-  string message_url = 1;
+  // URL to the email message. Deprecated: prefer using message_urls.
+  string message_url = 1 [deprecated = true];
 
   // Subject of the email message.
   string subject = 2;
@@ -190,6 +191,16 @@ message DriveFile {
   string name = 1;
   // Drive URL of the file.
   string url = 2;
+}
+
+// Represents a reference to a Chrome history entry.
+message ChromeHistoryEntry {
+  // URL of the visited page.
+  string url = 1;
+  // Title of the visited page.
+  string title = 2;
+  // UTC timestamp of when the page was visited.
+  Timestamp visit_timestamp = 3;
 }
 
 // Represents a completed purchase transaction from a retail merchant.
@@ -562,7 +573,6 @@ enum MemoryDataType {
   MEMORY_DATA_TYPE_SHIPMENT_CARRIER_NAME = 41;
   MEMORY_DATA_TYPE_SHIPMENT_CARRIER_DOMAIN = 42;
   MEMORY_DATA_TYPE_SHIPMENT_ESTIMATED_DELIVERY_DATE = 43;
-  MEMORY_DATA_TYPE_SHIPMENT_SHIP_DATE = 76;
   MEMORY_DATA_TYPE_NATIONAL_ID_CARD_FULL = 44;
   MEMORY_DATA_TYPE_NATIONAL_ID_CARD_NAME = 45;
   MEMORY_DATA_TYPE_NATIONAL_ID_CARD_COUNTRY = 46;
@@ -595,4 +605,8 @@ enum MemoryDataType {
   MEMORY_DATA_TYPE_CREDIT_CARD_SECURITY_CODE = 73;
   MEMORY_DATA_TYPE_CREDIT_CARD_NAME_ON_CARD = 74;
   MEMORY_DATA_TYPE_CREDIT_CARD_NICKNAME = 75;
+  MEMORY_DATA_TYPE_SHIPMENT_SHIP_DATE = 76;
+  MEMORY_DATA_TYPE_LOYALTY_MEMBERSHIP_ID = 77;
+  MEMORY_DATA_TYPE_LOYALTY_MEMBERSHIP_PROGRAM = 78;
+  MEMORY_DATA_TYPE_LOYALTY_MEMBERSHIP_PROVIDER = 79;
 }

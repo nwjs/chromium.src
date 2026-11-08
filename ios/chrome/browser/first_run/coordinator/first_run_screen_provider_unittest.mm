@@ -18,7 +18,9 @@
 #import "ios/chrome/browser/shared/model/profile/test/test_profile_ios.h"
 #import "ios/chrome/browser/signin/model/chrome_account_manager_service.h"
 #import "ios/chrome/browser/signin/model/chrome_account_manager_service_factory.h"
+#import "ios/chrome/test/ios_chrome_scoped_testing_local_state.h"
 #import "ios/web/public/test/web_task_environment.h"
+#import "testing/gmock/include/gmock/gmock.h"
 #import "testing/gtest/include/gtest/gtest.h"
 #import "testing/platform_test.h"
 
@@ -33,8 +35,6 @@ std::unique_ptr<KeyedService> BuildRegionalCapabilitiesServiceWithFakeClient(
 
 class FirstRunScreenProviderTest : public PlatformTest {
  protected:
-  void SetUp() override { PlatformTest::SetUp(); }
-
   std::unique_ptr<TestProfileIOS> CreateProfile(std::string country_code) {
     policy_service_ = std::make_unique<policy::MockPolicyService>();
     ON_CALL(*policy_service_.get(),
@@ -68,6 +68,7 @@ class FirstRunScreenProviderTest : public PlatformTest {
   }
 
   web::WebTaskEnvironment task_environment_;
+  IOSChromeScopedTestingLocalState scoped_testing_local_state_;
   base::test::ScopedFeatureList feature_list_;
   policy::SchemaRegistry schema_registry_;
   std::unique_ptr<policy::MockPolicyService> policy_service_;

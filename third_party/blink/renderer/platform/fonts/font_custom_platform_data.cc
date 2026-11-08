@@ -44,6 +44,7 @@
 #include "third_party/blink/renderer/platform/fonts/palette_interpolation.h"
 #include "third_party/blink/renderer/platform/fonts/web_font_decoder.h"
 #include "third_party/blink/renderer/platform/fonts/web_font_typeface_factory.h"
+#include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/wtf/shared_buffer.h"
 #include "third_party/blink/renderer/platform/wtf/wtf_size_t.h"
 #include "third_party/skia/include/core/SkTypeface.h"
@@ -51,6 +52,7 @@
 
 namespace {
 
+constexpr SkFourByteTag kItalTag = SkSetFourByteTag('i', 't', 'a', 'l');
 constexpr SkFourByteTag kOpszTag = SkSetFourByteTag('o', 'p', 's', 'z');
 constexpr SkFourByteTag kSlntTag = SkSetFourByteTag('s', 'l', 'n', 't');
 constexpr SkFourByteTag kWdthTag = SkSetFourByteTag('w', 'd', 't', 'h');
@@ -103,7 +105,8 @@ const FontPlatformData* FontCustomPlatformData::GetFontPlatformData(
     float size,
     float adjusted_specified_size,
     bool bold,
-    bool italic,
+    bool synthesize_italic,
+    bool is_italic_keyword,
     const FontSelectionRequest& selection_request,
     const FontSelectionCapabilities& selection_capabilities,
     const OpticalSizing& optical_sizing,
@@ -127,14 +130,14 @@ const FontPlatformData* FontCustomPlatformData::GetFontPlatformData(
   FontFormatCheck::VariableFontSubType font_sub_type =
       FontFormatCheck::ProbeVariableFont(base_typeface_);
   bool synthetic_bold = bold;
-  bool synthetic_italic = italic;
+  bool synthetic_italic = synthesize_italic;
   if (font_sub_type ==
           FontFormatCheck::VariableFontSubType::kVariableTrueType ||
       font_sub_type == FontFormatCheck::VariableFontSubType::kVariableCFF2) {
     Vector<SkFontArguments::VariationPosition::Coordinate, 0> variation;
 
     SkFontArguments::VariationPosition::Coordinate weight_coordinate = {
-        kWghtTag, SkFloatToScalar(selection_capabilities.weight.clampToRange(
+        kWghtTag, SkFloatToScalar(selection_capabilities.weight.ClampToRange(
                       selection_request.weight))};
     std::optional<SkFontParameters::Variation::Axis> wght_parameters =
         RetrieveVariationDesignParametersByTag(base_typeface_, kWghtTag);
@@ -145,7 +148,7 @@ const FontPlatformData* FontCustomPlatformData::GetFontPlatformData(
       if (wght_range.IsValid()) {
         weight_coordinate = {
             kWghtTag,
-            SkFloatToScalar(wght_range.clampToRange(selection_request.weight))};
+            SkFloatToScalar(wght_range.ClampToRange(selection_request.weight))};
         bool has_bold_variations = wght_range.maximum > kNormalWeightValue;
         synthetic_bold = bold && !has_bold_variations &&
                          selection_request.weight >= kBoldThreshold;
@@ -153,7 +156,7 @@ const FontPlatformData* FontCustomPlatformData::GetFontPlatformData(
     }
 
     SkFontArguments::VariationPosition::Coordinate width_coordinate = {
-        kWdthTag, SkFloatToScalar(selection_capabilities.width.clampToRange(
+        kWdthTag, SkFloatToScalar(selection_capabilities.width.ClampToRange(
                       selection_request.width))};
     std::optional<SkFontParameters::Variation::Axis> wdth_parameters =
         RetrieveVariationDesignParametersByTag(base_typeface_, kWdthTag);
@@ -164,32 +167,57 @@ const FontPlatformData* FontCustomPlatformData::GetFontPlatformData(
       if (wdth_range.IsValid()) {
         width_coordinate = {
             kWdthTag,
-            SkFloatToScalar(wdth_range.clampToRange(selection_request.width))};
+            SkFloatToScalar(wdth_range.ClampToRange(selection_request.width))};
       }
     }
+    std::optional<SkFontParameters::Variation::Axis> ital_parameters;
+    if (RuntimeEnabledFeatures::FontVariableItalicAxisEnabled()) {
+      ital_parameters =
+          RetrieveVariationDesignParametersByTag(base_typeface_, kItalTag);
+    }
+    bool use_ital_axis = is_italic_keyword && ital_parameters &&
+                         ital_parameters->min <= 1 && ital_parameters->max >= 1;
+    if (ital_parameters) {
+      // The italic keyword instantiates the ital axis at 1. Any other
+      // font-style value instantiates it at 0, as the matching algorithm
+      // selects italic value 0 within the axis range; in particular, the
+      // ital axis is not used to satisfy an oblique request. See
+      // https://drafts.csswg.org/css-fonts-4/#font-style-matching. Values
+      // outside the axis range are clamped by Skia.
+      SkFontArguments::VariationPosition::Coordinate italic_coordinate = {
+          kItalTag, SkFloatToScalar(use_ital_axis ? 1 : 0)};
+      variation.push_back(italic_coordinate);
+    }
+
     // CSS and OpenType have opposite definitions of direction of slant
     // angle. In OpenType positive values turn counter-clockwise, negative
     // values clockwise - in CSS positive values are clockwise rotations /
     // skew. See note in https://drafts.csswg.org/css-fonts/#font-style-prop -
     // map value from CSS to OpenType here.
     SkFontArguments::VariationPosition::Coordinate slant_coordinate = {
-        kSlntTag, SkFloatToScalar(-selection_capabilities.slope.clampToRange(
+        kSlntTag, SkFloatToScalar(-selection_capabilities.slope.ClampToRange(
                       selection_request.slope))};
     std::optional<SkFontParameters::Variation::Axis> slnt_parameters =
         RetrieveVariationDesignParametersByTag(base_typeface_, kSlntTag);
-    if (selection_capabilities.slope.IsRangeSetFromAuto() && slnt_parameters) {
+    if (use_ital_axis && slnt_parameters) {
+      slant_coordinate = {kSlntTag, SkFloatToScalar(slnt_parameters->def)};
+    } else if (selection_capabilities.slope.IsRangeSetFromAuto() &&
+               slnt_parameters) {
       FontSelectionRange slnt_range = {
           FontSelectionValue(slnt_parameters->min),
           FontSelectionValue(slnt_parameters->max)};
       if (slnt_range.IsValid()) {
         slant_coordinate = {
             kSlntTag,
-            SkFloatToScalar(slnt_range.clampToRange(-selection_request.slope))};
+            SkFloatToScalar(slnt_range.ClampToRange(-selection_request.slope))};
         bool has_right_slanted_variations =
             slnt_range.minimum < kNormalSlopeValue;
-        synthetic_italic = italic && !has_right_slanted_variations &&
+        synthetic_italic = synthesize_italic && !has_right_slanted_variations &&
                            selection_request.slope >= kItalicSlopeValue;
       }
+    }
+    if (use_ital_axis) {
+      synthetic_italic = false;
     }
 
     variation.push_back(weight_coordinate);
@@ -219,9 +247,9 @@ const FontPlatformData* FontCustomPlatformData::GetFontPlatformData(
         std::optional<SkFontParameters::Variation::Axis> opsz_parameters =
             RetrieveVariationDesignParametersByTag(return_typeface, kOpszTag);
         if (opsz_parameters) {
-          float opszDefault = opsz_parameters->def;
+          float opsz_default = opsz_parameters->def;
           SkFontArguments::VariationPosition::Coordinate opsz_coordinate = {
-              kOpszTag, SkFloatToScalar(opszDefault)};
+              kOpszTag, SkFloatToScalar(opsz_default)};
           variation.push_back(opsz_coordinate);
         }
       }

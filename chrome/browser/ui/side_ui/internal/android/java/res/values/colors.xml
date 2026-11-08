@@ -6,5 +6,5 @@ found in the LICENSE file.
 -->
 
 <resources>
-    <color name="web_content_hairline_divider_color_incognito">@color/divider_color_light</color>
+    <macro name="side_ui_resize_handle_bar_color">?attr/colorOutlineVariant</macro>
 </resources>

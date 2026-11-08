@@ -30,6 +30,7 @@
 #include "third_party/blink/renderer/core/css/selector_checker.h"
 
 #include <algorithm>
+#include <ranges>
 
 #include "base/auto_reset.h"
 #include "base/compiler_specific.h"
@@ -744,6 +745,7 @@ SelectorChecker::FeaturelessMatch SelectorChecker::MatchShadowHost(
     case CSSSelector::kPseudoOnlyChild:
     case CSSSelector::kPseudoOnlyOfType:
     case CSSSelector::kPseudoOptional:
+    case CSSSelector::kPseudoOverscrollClosed:
     case CSSSelector::kPseudoOverscrollOpen:
     case CSSSelector::kPseudoPart:
     case CSSSelector::kPseudoPermissionGranted:
@@ -1057,7 +1059,7 @@ SelectorChecker::MatchStatus SelectorChecker::MatchForScopeActivation(
   // for this element). We want to the most proximate match, hence traverse
   // activations in reverse order.
   for (const StyleScopeActivation& activation :
-       base::Reversed(activations.vector)) {
+       std::views::reverse(activations.vector)) {
     next_context.match_visited = context.match_visited;
     next_context.impact = context.impact;
     next_context.style_scope = nullptr;
@@ -2996,6 +2998,8 @@ bool SelectorChecker::CheckPseudoClass(const SelectorCheckingContext& context,
       return false;
     case CSSSelector::kPseudoOverscrollOpen:
       return element.MatchesOverscrollOpen();
+    case CSSSelector::kPseudoOverscrollClosed:
+      return element.MatchesOverscrollClosed();
     case CSSSelector::kPseudoOpen:
       probe::ForcePseudoState(&element, CSSSelector::kPseudoOpen,
                               &force_pseudo_state);

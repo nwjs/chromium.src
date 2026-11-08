@@ -8,11 +8,12 @@
 #include <memory>
 #include <optional>
 #include <string>
-#include <vector>
 
+#include "base/containers/span.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "chrome/browser/ui/fuzzy_search/fuzzy_search_item.h"
+#include "ui/base/models/image_model.h"
 
 namespace actions {
 class ActionItem;
@@ -43,6 +44,7 @@ class AppMenuSearchItem : public FuzzySearchItem {
     Builder& SetAction(actions::BaseAction* action);
     Builder& SetTitle(std::u16string title);
     Builder& SetSecondaryText(std::u16string secondary_text);
+    Builder& SetIconOverride(ui::ImageModel icon_override);
 
     [[nodiscard]] std::unique_ptr<AppMenuSearchItem> Build();
 
@@ -51,6 +53,7 @@ class AppMenuSearchItem : public FuzzySearchItem {
     raw_ptr<actions::BaseAction> action_ = nullptr;
     std::optional<std::u16string> title_;
     std::u16string secondary_text_;
+    std::optional<ui::ImageModel> icon_override_;
   };
 
   AppMenuSearchItem();
@@ -61,10 +64,13 @@ class AppMenuSearchItem : public FuzzySearchItem {
   // FuzzySearchItem:
   const std::u16string& GetTitle() const override;
   const std::u16string& GetSecondaryText() const override;
-  const std::vector<std::u16string>& GetSynonyms() const override;
+  base::span<const std::u16string> GetSynonyms() const override;
 
   actions::ActionItem* GetActionItem() const { return action_item_.get(); }
   Type GetType() const { return type_; }
+  const std::optional<ui::ImageModel>& GetIconOverride() const {
+    return icon_override_;
+  }
 
   void SetType(Type type) { type_ = type; }
   void SetActionItem(actions::ActionItem* action_item);
@@ -72,12 +78,16 @@ class AppMenuSearchItem : public FuzzySearchItem {
   void SetSecondaryText(std::u16string secondary_text) {
     secondary_text_ = std::move(secondary_text);
   }
+  void SetIconOverride(std::optional<ui::ImageModel> icon_override) {
+    icon_override_ = std::move(icon_override);
+  }
 
  private:
   Type type_;
   base::WeakPtr<actions::ActionItem> action_item_;
   std::u16string title_;
   std::u16string secondary_text_;
+  std::optional<ui::ImageModel> icon_override_;
 };
 
 #endif  // CHROME_BROWSER_UI_VIEWS_APP_MENU_APP_MENU_SEARCH_ITEM_H_

@@ -34,8 +34,6 @@ static_library("birch") {
     "refresh_token_waiter.h",
   ]
 
-  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
-
   deps = [
     "//ash",
     "//ash/constants",
@@ -109,6 +107,7 @@ source_set("unit_tests") {
     "//chrome/browser/ui/ash/holding_space:test_support",
     "//chrome/common",
     "//chrome/test:test_support",
+    "//chrome/test/base:browser_with_test_window_test",
     "//chrome/test/base:testing_browser_process",
     "//components/favicon/core/test:test_support",
     "//components/prefs",
@@ -164,7 +163,6 @@ source_set("browser_tests") {
     "//chrome/browser/apps/platform_apps:browser_test_support",
     "//chrome/browser/ash/app_restore:test_support",
     "//chrome/browser/profiles:profile",
-    "//chrome/browser/ui",
     "//chrome/browser/ui/ash/main_extra_parts",
     "//chrome/test:test_support",
     "//chrome/test/base/ash/util:test_support",

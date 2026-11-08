@@ -9,14 +9,31 @@
 #include <string_view>
 
 #include "base/callback_list.h"
+#include "base/containers/flat_map.h"
 #include "base/memory/raw_ref.h"
+#include "base/unguessable_token.h"
+#include "base/values.h"
 #include "chrome/browser/ui/webui/ai_overlay_dialog/ai_overlay_dialog_page_handler.h"
 #include "components/page_content_annotations/content/page_context_fetcher.h"
+#include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/web_contents_observer.h"
 
 class BrowserWindowInterface;
 
 namespace ttc {
+
+struct CachedWebMcpTool {
+  CachedWebMcpTool();
+  CachedWebMcpTool(CachedWebMcpTool&&);
+  CachedWebMcpTool& operator=(CachedWebMcpTool&&);
+  ~CachedWebMcpTool();
+
+  std::string name;
+  std::string description;
+  base::Value input_schema;
+  bool read_only = false;
+  bool consequential = true;
+};
 
 // Responsible for monitors for changes in the given window's active tab. Will
 // signal the page_handler whenever the tab changes and schedules a fetch page
@@ -29,6 +46,8 @@ class PageContextMonitor : public content::WebContentsObserver {
 
   // content::WebContentsObserver:
   void PrimaryPageChanged(content::Page& page) override;
+  void DidFinishNavigation(
+      content::NavigationHandle* navigation_handle) override;
   void DidStopLoading() override;
 
   std::string GetUrlForHash(const std::string& hash) const;
@@ -42,8 +61,14 @@ class PageContextMonitor : public content::WebContentsObserver {
     return last_page_content_;
   }
 
+  const base::UnguessableToken& active_document_id() const {
+    return active_document_id_;
+  }
+  const CachedWebMcpTool* GetWebMcpTool(const std::string& name) const;
+
  private:
   void OnActiveTabChanged(BrowserWindowInterface* window);
+  void ResetPageContextState();
   void StartNewFetch();
   void OnFetchComplete(
       page_content_annotations::FetchPageContextResultCallbackArg result);
@@ -60,6 +85,8 @@ class PageContextMonitor : public content::WebContentsObserver {
 
   std::optional<optimization_guide::proto::AnnotatedPageContent>
       last_page_content_;
+  base::UnguessableToken active_document_id_;
+  base::flat_map<std::string, CachedWebMcpTool> webmcp_tools_map_;
 
   base::WeakPtrFactory<PageContextMonitor> weak_ptr_factory_{this};
 };

@@ -17,7 +17,6 @@
 #include "components/autofill/core/browser/data_manager/payments/payments_data_manager.h"
 #include "components/autofill/core/browser/data_manager/personal_data_manager.h"
 #include "components/autofill/core/browser/data_model/payments/credit_card.h"
-#include "components/autofill/core/browser/form_qualifiers.h"
 #include "components/autofill/core/browser/form_structure.h"
 #include "components/autofill/core/browser/foundations/autofill_client.h"
 #include "components/autofill/core/browser/foundations/autofill_manager.h"
@@ -114,7 +113,6 @@ bool IsValidOmniboxAutofillSuggestion(SuggestionType type) {
     case SuggestionType::kRemoveAutofillAi:
     case SuggestionType::kSaveAndFillCreditCardEntry:
     case SuggestionType::kScanCreditCard:
-    case SuggestionType::kSeePromoCodeDetails:
     case SuggestionType::kSeparator:
     case SuggestionType::kTitle:
     case SuggestionType::kTroubleSigningInEntry:
@@ -580,7 +578,8 @@ void OmniboxAutofillDelegate::FillOrPreviewCard(
   payments::FillOrPreviewCard(action_persistence, suggestion.type,
                               suggestion.payload, *manager,
                               trigger_form_global_id_, trigger_field_global_id_,
-                              AutofillTriggerSource::kOmniboxAutofill);
+                              AutofillTriggerSource::kOmniboxAutofill,
+                              /*require_user_confirmation=*/false);
 }
 
 void OmniboxAutofillDelegate::Reset() {

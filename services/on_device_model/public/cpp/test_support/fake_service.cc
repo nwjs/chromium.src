@@ -53,6 +53,8 @@ std::string Placeholder(ml::Token token) {
       return "TC";
     case ml::Token::kToolResponse:
       return "TR";
+    case ml::Token::kThought:
+      return "T";
   }
 }
 
@@ -344,6 +346,13 @@ void FakeOnDeviceSession::GenerateImpl(
     remote->OnResponse(std::move(chunk));
   }
 
+  if (options->enable_thinking) {
+    auto chunk = mojom::ResponseChunk::New();
+    chunk->thought = "Thinking (budget=" +
+                     base::NumberToString(options->thinking_token_budget) + ")";
+    remote->OnResponse(std::move(chunk));
+  }
+
   uint32_t output_token_count = 0;
   if (settings_->model_execute_result.empty()) {
     for (const auto& context : context_) {
@@ -483,6 +492,24 @@ void FakeOnDeviceModel::LoadAdaptation(
               perfetto::Flow::FromPointer(this));
   Data data = data_;
   data.adaptation_model_weight = ReadFile(params->assets.weights);
+  auto test_model = std::make_unique<FakeOnDeviceModel>(
+      settings_, std::move(data), performance_hint_, backend_type_);
+  model_adaptation_receivers_.Add(std::move(test_model), std::move(model));
+  std::move(callback).Run(mojom::LoadModelResult::kSuccess);
+}
+
+void FakeOnDeviceModel::LoadPostProcessor(
+    mojom::LoadPostProcessorParamsPtr params,
+    mojo::PendingReceiver<mojom::OnDeviceModel> model,
+    LoadPostProcessorCallback callback) {
+  TRACE_EVENT("optimization_guide", "FakeOnDeviceModel::LoadPostProcessor",
+              perfetto::Flow::FromPointer(this));
+  if (!params || !params->weights.IsValid()) {
+    std::move(callback).Run(mojom::LoadModelResult::kFailedToLoadLibrary);
+    return;
+  }
+  Data data = data_;
+  data.postprocessor_weight = ReadFile(params->weights);
   auto test_model = std::make_unique<FakeOnDeviceModel>(
       settings_, std::move(data), performance_hint_, backend_type_);
   model_adaptation_receivers_.Add(std::move(test_model), std::move(model));

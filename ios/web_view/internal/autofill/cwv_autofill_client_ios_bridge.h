@@ -23,6 +23,7 @@
 namespace autofill {
 class AutofillProfile;
 class CreditCard;
+struct AutofillErrorDialogContext;
 }  // namespace autofill
 
 // WebView extension of AutofillClientIOSBridge.
@@ -106,6 +107,25 @@ class CreditCard;
 // Bridge for PaymentsAutofillClient's method `OnUnmaskOtpVerificationResult`.
 - (void)didReceiveUnmaskOtpVerificationResult:
     (autofill::OtpUnmaskResult)unmaskResult;
+
+// Returns whether the embedder is able to authenticate the user for mandatory
+// re-auth, i.e. whether `-authenticateUserWithReason:completion:` can do more
+// than fail immediately.
+- (BOOL)canAuthenticateUser;
+
+// Bridge for `device_reauth::DeviceAuthenticator::AuthenticateWithMessage`.
+// Asks the embedder to authenticate the user, showing `reason`. `completion`
+// is always run asynchronously on the calling sequence, with `false` if the
+// embedder cannot authenticate the user.
+- (void)authenticateUserWithReason:(NSString*)reason
+                        completion:(base::OnceCallback<void(bool)>)completion;
+
+// Bridge for PaymentsAutofillClient's method `IsMandatoryReauthEnabled`.
+- (BOOL)shouldRequireMandatoryReauth;
+
+// Bridge for PaymentsAutofillClient's method `ShowAutofillErrorDialog`.
+- (void)showAutofillErrorDialogWithContext:
+    (const autofill::AutofillErrorDialogContext&)context;
 
 @end
 

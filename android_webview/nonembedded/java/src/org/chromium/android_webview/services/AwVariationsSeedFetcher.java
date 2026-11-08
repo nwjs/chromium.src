@@ -16,6 +16,7 @@ import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
 import org.chromium.android_webview.common.AwSwitches;
+import org.chromium.android_webview.common.PlatformServiceBridge;
 import org.chromium.android_webview.common.VariationsFastFetchModeUtils;
 import org.chromium.android_webview.common.variations.VariationsServiceMetricsHelper;
 import org.chromium.android_webview.common.variations.VariationsUtils;
@@ -62,7 +63,8 @@ public class AwVariationsSeedFetcher extends JobService {
     @VisibleForTesting public static final String PERIODIC_FAST_MODE = "PeriodicFastMode";
 
     @VisibleForTesting
-    public static final String SEED_DATE_CLOCK_SKEW_HISTOGRAM_NAME = "Variations.SeedDateClockSkew";
+    public static final String SEED_REQUEST_HAS_RESTRICT_PARAM_HISTOGRAM_NAME =
+            "Variations.SeedRequestHasRestrictParam";
 
     private static final String TAG = "AwVariationsSeedFet-";
     private static final int JOB_ID = TaskIds.WEBVIEW_VARIATIONS_SEED_FETCH_JOB_ID;
@@ -89,6 +91,9 @@ public class AwVariationsSeedFetcher extends JobService {
     private static final int sJitter =
             new Random().nextInt((int) VariationsFastFetchModeUtils.MAX_ALLOWABLE_SEED_AGE_MS);
     private static boolean sUseSmallJitterForTesting;
+    // The value of the "restrict" param sent with seed requests. Null until first computed, then
+    // reused across jobs for the lifetime of the process.
+    private static volatile @Nullable String sRestrictMode;
 
     private static long currentTimeMillis() {
         if (sTestClock != null) {
@@ -380,9 +385,18 @@ public class AwVariationsSeedFetcher extends JobService {
                     sMockDownloader != null ? sMockDownloader : VariationsSeedFetcher.get();
             String milestone = String.valueOf(VersionConstants.PRODUCT_MAJOR_VERSION);
 
+            if (sRestrictMode == null) {
+                // This runs on a background thread, so it's OK for this call to block.
+                sRestrictMode = PlatformServiceBridge.getInstance().getVariationsRestrictMode();
+            }
+            String restrictMode = sRestrictMode;
+            RecordHistogram.recordBooleanHistogram(
+                    SEED_REQUEST_HAS_RESTRICT_PARAM_HISTOGRAM_NAME, !restrictMode.isEmpty());
+
             final VariationsSeedFetcher.SeedFetchParameters params =
                     VariationsSeedFetcher.SeedFetchParameters.Builder.newBuilder()
                             .setPlatform(VariationsSeedFetcher.VariationsPlatform.ANDROID_WEBVIEW)
+                            .setRestrictMode(restrictMode)
                             .setMilestone(milestone)
                             .setChannel(getChannelStr())
                             .setIsFastFetchMode(fastMode)
@@ -412,7 +426,6 @@ public class AwVariationsSeedFetcher extends JobService {
                 needsReschedule = (requestCount <= JOB_MAX_REQUEST_COUNT);
             }
             if (fetchInfo.seedInfo != null) {
-                recordSeedDateMetrics(fetchInfo.seedInfo);
                 VariationsSeedHolder.getInstance()
                         .updateSeed(
                                 fetchInfo.seedInfo,
@@ -511,16 +524,10 @@ public class AwVariationsSeedFetcher extends JobService {
         ResettersForTesting.register(() -> sDateForTesting = null);
     }
 
-    public static void recordSeedDateMetrics(SeedInfo seedInfo) {
-        if (seedInfo.date != 0) {
-            long diffMillis = Math.abs(currentTimeMillis() - seedInfo.date);
-            RecordHistogram.recordCustomCountHistogram(
-                    SEED_DATE_CLOCK_SKEW_HISTOGRAM_NAME,
-                    (int) Math.min(TimeUnit.MILLISECONDS.toSeconds(diffMillis), Integer.MAX_VALUE),
-                    /* min= */ 1,
-                    /* max= */ (int) TimeUnit.DAYS.toSeconds(30),
-                    /* numBuckets= */ 50);
-        }
+    /** Clears the cached restrict mode so that it's recomputed on the next seed request. */
+    public static void resetRestrictModeForTesting() {
+        sRestrictMode = null;
+        ResettersForTesting.register(() -> sRestrictMode = null);
     }
 
     /** Determines whether the currently scheduled job is in Fast Mode and periodic. */

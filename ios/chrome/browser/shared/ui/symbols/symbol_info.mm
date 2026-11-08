@@ -27,6 +27,8 @@ SymbolInfo InfoForSymbol(Symbol symbol) {
       return {@"google_full", SymbolType::kCustom};
     case SymbolGoogleIcon:
       return {@"google_icon", SymbolType::kCustom};
+    case SymbolGoogleIconMonochrome:
+      return {@"google_icon_monochrome", SymbolType::kCustom};
     case SymbolGoogleMaps:
       return {@"google_maps", SymbolType::kCustom};
     case SymbolGooglePay:
@@ -361,6 +363,8 @@ SymbolInfo InfoForSymbol(Symbol symbol) {
       return {@"pencil", SymbolType::kSystem};
     case SymbolEllipsis:
       return {@"ellipsis", SymbolType::kSystem};
+    case SymbolEllipsisCircle:
+      return {@"ellipsis.circle", SymbolType::kSystem};
     case SymbolEllipsisCircleFill:
       return {@"ellipsis.circle.fill", SymbolType::kSystem};
     case SymbolEllipsisRectangle:

@@ -64,7 +64,6 @@ tast.network.ARCEAPWifiProvisioning.eap_wifi_tls
 
 # b/409064294
 tast.apps.SystemWebAppsInstallGuest
-tast.peripherals.LaunchAppFromGuestSession.diagnostics
 
 # b/422132031
 tast.inputs.VirtualKeyboardHandwriting.docked
@@ -109,7 +108,18 @@ tast.health.RunCameraFrameAnalysisRoutine
 # b/559243046: Consistent failures with no obvious cause
 tast.crostini.AudioPlaybackConfigurations.bookworm_stable@brya
 
-# https://crbug.com/564071953
-tast.arc.Print.vm_t@betty
+# b/568738156
+# TODO(b/568738156): Re-enable tast.arc.Print.vm_t.
+tast.arc.Print.vm_t
+
+# b/569522120
+# TODO(b/569522120): Re-enable tast.shimlessrma.CancelFlow.select_components_none_next_cancel_critical.
+tast.shimlessrma.CancelFlow.select_components_none_next_cancel_critical
+
+# b/572833952
+# TODO(b/572833952): Re-enable tast.camera.CCAUISmoke.fake_hal and
+# tast.camera.CCAUISmoke.vivid.
+tast.camera.CCAUISmoke.fake_hal
+tast.camera.CCAUISmoke.vivid
 
 # READ COMMENT AT TOP BEFORE ADDING NEW TESTS HERE.

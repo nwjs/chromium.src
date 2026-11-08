@@ -38,61 +38,66 @@ bool IsAligned(const float* p) {
   return (reinterpret_cast<size_t>(p) & kAlignmentOffsetMask) == 0u;
 }
 
-void PrepareFilterForConv(const float* filter_p,
-                          size_t filter_size,
+void PrepareFilterForConv(base::span<const float> filter,
                           AudioFloatArray* prepared_filter) {
   // Only contiguous convolution is implemented.
   DCHECK(prepared_filter);
+  const size_t filter_size = filter.size();
 
   // Reverse the filter and repeat each value across a vector
   prepared_filter->Allocate(kReversedFilterStride * kPackedFloatsPerRegister *
                             filter_size);
-  MType* reversed_filter = reinterpret_cast<MType*>(prepared_filter->Data());
+  base::span<float> reversed_filter = prepared_filter->as_span();
   for (size_t i = 0; i < filter_size; ++i) {
-    UNSAFE_TODO(reversed_filter[kReversedFilterStride * i]) =
-        MM_PS(set1)(*(UNSAFE_TODO(filter_p - i)));
+    MM_PS(store)(
+        reversed_filter
+            .subspan(kReversedFilterStride * kPackedFloatsPerRegister * i,
+                     kPackedFloatsPerRegister)
+            .data(),
+        MM_PS(set1)(filter[filter_size - 1u - i]));
   }
 }
 
 // Direct vector convolution:
-// dest[k] = sum(source[k+m]*filter[m*filter_stride]) for all m
-// provided that |prepared_filter_p| is |prepared_filter->Data()| and that
-// |prepared_filter| is prepared with |PrepareFilterForConv|.
-void Conv(const float* source_p,
-          const float* prepared_filter_p,
-          float* dest_p,
-          size_t frames_to_process,
+// dest[k] = sum(source[k+m]*filter[filter.size()-1-m]) for all m
+// provided that |prepared_filter| is prepared with |PrepareFilterForConv|.
+void Conv(base::span<const float> source,
+          base::span<const float> prepared_filter,
+          base::span<float> dest,
           size_t filter_size) {
-  const float* const dest_end_p = UNSAFE_TODO(dest_p + frames_to_process);
+  const size_t frames_to_process = dest.size();
+  // CHECK allows the compiler to elide bounds checks (docs/unsafe_buffers.md).
+  CHECK_GT(filter_size, 0u);
+  CHECK_GE(source.size(), frames_to_process + filter_size - 1u);
+  CHECK_EQ(prepared_filter.size(),
+           kReversedFilterStride * kPackedFloatsPerRegister * filter_size);
 
   DCHECK_EQ(0u, frames_to_process % kPackedFloatsPerRegister);
   DCHECK_EQ(0u, filter_size % kPackedFloatsPerRegister);
 
-  const MType* reversed_filter =
-      reinterpret_cast<const MType*>(prepared_filter_p);
-
   // Do convolution with kPackedFloatsPerRegister inputs at a time.
-  while (dest_p < dest_end_p) {
+  for (size_t frame = 0; frame < frames_to_process;
+       frame += kPackedFloatsPerRegister) {
     MType m_convolution_sum = MM_PS(setzero)();
 
     // |filter_size| is a multiple of kPackedFloatsPerRegister so we can unroll
     // the loop by kPackedFloatsPerRegister, manually.
     for (size_t i = 0; i < filter_size; i += kPackedFloatsPerRegister) {
       for (size_t j = 0; j < kPackedFloatsPerRegister; ++j) {
-        size_t k = i + j;
-        MType m_product;
-        MType m_source;
-
-        m_source = MM_PS(loadu)(UNSAFE_TODO(source_p + k));
-        m_product = MM_PS(mul)(
-            UNSAFE_TODO(reversed_filter[kReversedFilterStride * k]), m_source);
+        const size_t k = i + j;
+        const MType m_source = MM_PS(loadu)(
+            source.subspan(frame + k, kPackedFloatsPerRegister).data());
+        const MType m_reversed_filter = MM_PS(load)(
+            prepared_filter
+                .subspan(kReversedFilterStride * kPackedFloatsPerRegister * k,
+                         kPackedFloatsPerRegister)
+                .data());
+        const MType m_product = MM_PS(mul)(m_reversed_filter, m_source);
         m_convolution_sum = MM_PS(add)(m_convolution_sum, m_product);
       }
     }
-    MM_PS(storeu)(dest_p, m_convolution_sum);
-
-    UNSAFE_TODO(source_p += kPackedFloatsPerRegister);
-    UNSAFE_TODO(dest_p += kPackedFloatsPerRegister);
+    MM_PS(storeu)(dest.subspan(frame, kPackedFloatsPerRegister).data(),
+                  m_convolution_sum);
   }
 }
 
@@ -390,35 +395,47 @@ float Vsvesq(base::span<const float> source) {
 
 // real_dest[k] = real1[k] * real2[k] - imag1[k] * imag2[k]
 // imag_dest[k] = real1[k] * imag2[k] + imag1[k] * real2[k]
-void Zvmul(const float* real1p,
-           const float* imag1p,
-           const float* real2p,
-           const float* imag2p,
-           float* real_dest_p,
-           float* imag_dest_p,
-           size_t frames_to_process) {
-  DCHECK(IsAligned(real1p));
-  DCHECK_EQ(0u, frames_to_process % kPackedFloatsPerRegister);
+void Zvmul(base::span<const float> real1,
+           base::span<const float> imag1,
+           base::span<const float> real2,
+           base::span<const float> imag2,
+           base::span<float> real_dest,
+           base::span<float> imag_dest) {
+  // CHECK allows the compiler to elide bounds checks (docs/unsafe_buffers.md).
+  CHECK_EQ(real1.size(), real_dest.size());
+  CHECK_EQ(imag1.size(), real_dest.size());
+  CHECK_EQ(real2.size(), real_dest.size());
+  CHECK_EQ(imag2.size(), real_dest.size());
+  CHECK_EQ(imag_dest.size(), real_dest.size());
+  DCHECK(IsAligned(real1.data()));
+  DCHECK_EQ(0u, real_dest.size() % kPackedFloatsPerRegister);
 
-#define MULTIPLY_ALL(loadOtherThanReal1, storeDest)                           \
-  for (size_t i = 0u; i < frames_to_process; i += kPackedFloatsPerRegister) { \
-    MType real1 = MM_PS(load)(real1p + i);                                    \
-    MType real2 = MM_PS(loadOtherThanReal1)(real2p + i);                      \
-    MType imag1 = MM_PS(loadOtherThanReal1)(imag1p + i);                      \
-    MType imag2 = MM_PS(loadOtherThanReal1)(imag2p + i);                      \
-    MType real =                                                              \
-        MM_PS(sub)(MM_PS(mul)(real1, real2), MM_PS(mul)(imag1, imag2));       \
-    MType imag =                                                              \
-        MM_PS(add)(MM_PS(mul)(real1, imag2), MM_PS(mul)(imag1, real2));       \
-    MM_PS(storeDest)(real_dest_p + i, real);                                  \
-    MM_PS(storeDest)(imag_dest_p + i, imag);                                  \
+#define MULTIPLY_ALL(loadOtherThanReal1, storeDest)                         \
+  for (size_t i = 0; i < real_dest.size(); i += kPackedFloatsPerRegister) { \
+    MType m_real1 =                                                         \
+        MM_PS(load)(real1.subspan(i, kPackedFloatsPerRegister).data());     \
+    MType m_real2 = MM_PS(loadOtherThanReal1)(                              \
+        real2.subspan(i, kPackedFloatsPerRegister).data());                 \
+    MType m_imag1 = MM_PS(loadOtherThanReal1)(                              \
+        imag1.subspan(i, kPackedFloatsPerRegister).data());                 \
+    MType m_imag2 = MM_PS(loadOtherThanReal1)(                              \
+        imag2.subspan(i, kPackedFloatsPerRegister).data());                 \
+    MType m_real = MM_PS(sub)(MM_PS(mul)(m_real1, m_real2),                 \
+                              MM_PS(mul)(m_imag1, m_imag2));                \
+    MType m_imag = MM_PS(add)(MM_PS(mul)(m_real1, m_imag2),                 \
+                              MM_PS(mul)(m_imag1, m_real2));                \
+    MM_PS(storeDest)(real_dest.subspan(i, kPackedFloatsPerRegister).data(), \
+                     m_real);                                               \
+    MM_PS(storeDest)(imag_dest.subspan(i, kPackedFloatsPerRegister).data(), \
+                     m_imag);                                               \
   }
 
-  if (IsAligned(imag1p) && IsAligned(real2p) && IsAligned(imag2p) &&
-      IsAligned(real_dest_p) && IsAligned(imag_dest_p)) {
-    UNSAFE_TODO(MULTIPLY_ALL(load, store));
+  if (IsAligned(imag1.data()) && IsAligned(real2.data()) &&
+      IsAligned(imag2.data()) && IsAligned(real_dest.data()) &&
+      IsAligned(imag_dest.data())) {
+    MULTIPLY_ALL(load, store);
   } else {
-    UNSAFE_TODO(MULTIPLY_ALL(loadu, storeu));
+    MULTIPLY_ALL(loadu, storeu);
   }
 
 #undef MULTIPLY_ALL

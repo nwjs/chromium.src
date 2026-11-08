@@ -24,6 +24,7 @@ import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
+import org.robolectric.Robolectric;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.Shadows;
 import org.robolectric.annotation.Config;
@@ -48,16 +49,17 @@ public class TabGroupingActionProviderTest {
 
     @Mock private Tab mTab;
     @Mock private WindowAndroid mWindowAndroid;
-    @Mock private Activity mActivity;
     @Mock private TabWindowManager mTabWindowManager;
 
     @Mock private GroupSuggestionsButtonController mController;
+    private Activity mActivity;
     private SettableNonNullObservableSupplier<GroupSuggestionsButtonController> mControllerSupplier;
 
     private static final int WINDOW_ID = 1234;
 
     @Before
     public void setUp() throws Exception {
+        mActivity = Robolectric.buildActivity(Activity.class).setup().get();
         TabWindowManagerSingleton.setTabWindowManagerForTesting(mTabWindowManager);
         when(mTab.getWindowAndroid()).thenReturn(mWindowAndroid);
         when(mWindowAndroid.getActivity()).thenReturn(new WeakReference<>(mActivity));

@@ -4,7 +4,10 @@
 
 #include "components/safe_browsing/core/browser/realtime/chrome_enterprise_url_lookup_service.h"
 
+#include <string_view>
+
 #include "base/command_line.h"
+#include "base/containers/fixed_flat_set.h"
 #include "base/functional/callback.h"
 #include "base/task/sequenced_task_runner.h"
 #include "build/build_config.h"
@@ -38,10 +41,13 @@ namespace {
 // From chrome/common/webui_url_constants.h
 inline constexpr char kChromeUINewTabPageURL[] = "chrome://new-tab-page/";
 inline constexpr char kChromeUINewTabURL[] = "chrome://newtab/";
+inline constexpr char kChromeNativeNewTabURL[] = "chrome-native://newtab/";
 inline constexpr char kChromeUIOmniboxPopupAimURL[] =
     "chrome://omnibox-popup.top-chrome/omnibox_popup_aim.html";
 inline constexpr char kChromeUIOmniboxPopupURL[] =
     "chrome://omnibox-popup.top-chrome/";
+
+// Search warmup page loaded in the background by the omnibox.
 inline constexpr char kWarmupURL[] =
     "https://www.google.com/search/warmup.html";
 
@@ -130,7 +136,9 @@ bool ChromeEnterpriseRealTimeUrlLookupService::CanPerformFullURLLookup() const {
 
 bool ChromeEnterpriseRealTimeUrlLookupService::
     CanPerformFullURLLookupWithToken() const {
-  DCHECK(CanPerformFullURLLookup());
+  if (!CanPerformFullURLLookup()) {
+    return false;
+  }
 
   // Don't allow using the access token if the managed profile doesn't match the
   // managed device and the URL check is set at device level.
@@ -240,21 +248,50 @@ std::string ChromeEnterpriseRealTimeUrlLookupService::GetMetricSuffix() const {
 
 bool ChromeEnterpriseRealTimeUrlLookupService::
     ShouldOverrideKnownSafeUrlDecision(const GURL& url) const {
-  // No need to check new tab to reduce number of rpc calls
-  bool new_tab = url == kChromeUINewTabPageURL || url == kChromeUINewTabURL;
-  bool omnibox_popup = url == kChromeUIOmniboxPopupURL ||
-                       url == kChromeUIOmniboxPopupAimURL;
-  bool warmup = url == kWarmupURL;
-  return url.SchemeIs(kChromeUIScheme) && !new_tab && !omnibox_popup && !warmup;
+  static constexpr auto kSkippedChromeUIUrls =
+      base::MakeFixedFlatSet<std::string_view>({
+          kChromeUINewTabPageURL,
+          kChromeUINewTabURL,
+          kChromeUIOmniboxPopupAimURL,
+          kChromeUIOmniboxPopupURL,
+      });
+
+  // Override safe chrome:// scheme decisions unless one of
+  // kSkippedChromeUIUrls. `GURL::spec()` must not be called on invalid URLs.
+  return url.is_valid() && url.SchemeIs(kChromeUIScheme) &&
+         !kSkippedChromeUIUrls.contains(url.spec());
 }
 
+// LINT.IfChange(CanCheckUrl)
 bool ChromeEnterpriseRealTimeUrlLookupService::CanCheckUrl(const GURL& url) {
-  // Any URL can be checked in the enterprise case since URLs that might return
-  // false when passed to `safe_browsing::CanGetReputationOfUrl` could still
-  // trigger DLP rules. For example, this includes publicly routable IP
-  // addresses.
+  // Any URL not on kSkippedChromeUIUrls or kSkippedUrls can be checked
+  // in the enterprise case since URLs that might return false when passed to
+  // `safe_browsing::CanGetReputationOfUrl` could still trigger DLP rules. For
+  // example, this includes publicly routable IP addresses.
+  if (url.SchemeIs(kChromeUIScheme)) {
+    return ShouldOverrideKnownSafeUrlDecision(url);
+  }
+  if (base::FeatureList::IsEnabled(kEnterpriseRealTimeUrlCheckUrlSkiplist)) {
+#if BUILDFLAG(IS_ANDROID)
+    // TODO(b/568906444): validate kEnterpriseRealTimeUrlCheckUrlSkiplist and
+    // clean up this check
+    if (url.IsAboutBlank()) {
+      return false;
+    }
+#endif  // BUILDFLAG(IS_ANDROID)
+
+    static constexpr auto kSkippedUrls =
+        base::MakeFixedFlatSet<std::string_view>({
+            kChromeNativeNewTabURL,
+            kWarmupURL,
+        });
+
+    // `GURL::spec()` must not be called on invalid URLs.
+    return url.is_valid() && !kSkippedUrls.contains(url.spec());
+  }
   return true;
 }
+// LINT.ThenChange(//chrome/browser/enterprise/data_protection/data_protection_navigation_observer_unittest.cc:CanCheckUrl)
 
 bool ChromeEnterpriseRealTimeUrlLookupService::ShouldIncludeCredentials()
     const {

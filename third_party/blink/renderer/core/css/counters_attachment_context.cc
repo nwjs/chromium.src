@@ -4,7 +4,8 @@
 
 #include "third_party/blink/renderer/core/css/counters_attachment_context.h"
 
-#include "base/containers/adapters.h"
+#include <ranges>
+
 #include "base/not_fatal_until.h"
 #include "third_party/blink/renderer/core/dom/element.h"
 #include "third_party/blink/renderer/core/dom/layout_tree_builder_traversal.h"
@@ -58,7 +59,7 @@ std::optional<std::pair<unsigned, int>> DetermineCounterTypeAndValue(
   if (layout_object.IsText() && !layout_object.IsBR()) {
     return std::nullopt;
   }
-  const ComputedStyle& style = layout_object.StyleRef();
+  const ComputedStyle& style = layout_object.Style();
   if (IsForbiddenForCounter(style.StyleType())) {
     return std::nullopt;
   }
@@ -209,7 +210,7 @@ void CountersAttachmentContext::EnterObject(const LayoutObject& layout_object,
   if (!attachment_root_is_document_element_) {
     return;
   }
-  const ComputedStyle& style = layout_object.StyleRef();
+  const ComputedStyle& style = layout_object.Style();
   const CounterDirectiveMap* counter_directives = style.GetCounterDirectives();
   if (counter_directives) {
     for (auto& [counter_name, directives] : *counter_directives) {
@@ -260,7 +261,7 @@ void CountersAttachmentContext::LeaveObject(const LayoutObject& layout_object,
   if (!attachment_root_is_document_element_) {
     return;
   }
-  const ComputedStyle& style = layout_object.StyleRef();
+  const ComputedStyle& style = layout_object.Style();
   // Remove style containment boundary if the element has contains style.
   // Doing it here as reverse to EnterObject().
   if (style.ContainsStyle()) {
@@ -357,7 +358,7 @@ Vector<int> CountersAttachmentContext::GetCounterValues(
   // of the same name within the document.
   bool is_page_counter = false;
 
-  for (const CounterEntry* entry : base::Reversed(counter_stack)) {
+  for (const CounterEntry* entry : std::views::reverse(counter_stack)) {
     // counter() and counters() can cross style containment boundaries.
     if (!entry) {
       if (is_page_counter) {

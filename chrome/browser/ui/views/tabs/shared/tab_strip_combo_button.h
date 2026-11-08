@@ -5,6 +5,7 @@
 #ifndef CHROME_BROWSER_UI_VIEWS_TABS_SHARED_TAB_STRIP_COMBO_BUTTON_H_
 #define CHROME_BROWSER_UI_VIEWS_TABS_SHARED_TAB_STRIP_COMBO_BUTTON_H_
 
+#include "base/callback_list.h"
 #include "base/memory/raw_ptr.h"
 #include "base/scoped_observation.h"
 #include "base/timer/timer.h"
@@ -98,6 +99,8 @@ class TabStripComboButton : public views::View,
 
   void OnTabSearchBubbleShown();
 
+  std::unique_ptr<TabStripFlatEdgeButton> CreateFlatEdgeButtonFor(
+      ui::ElementIdentifier element_id);
   std::unique_ptr<TabStripFlatEdgeButton> CreateFlatEdgeButtonFor(
       actions::ActionId action_id,
       ui::ElementIdentifier element_id);

@@ -33,6 +33,7 @@ import xml.etree.ElementTree as ET
 
 import setup_modules  # pylint: disable=unused-import
 
+
 import chromium_src.tools.metrics.common.etree_util as etree_util
 
 
@@ -592,7 +593,7 @@ class XmlStyle(object):
       s = s.rstrip()  # remove any trailing whitespace
 
     # Pretty-print the child nodes.
-    if len(node) > 0 or node.text:  # pylint: disable=g-explicit-length-test
+    if len(node) > 0 or node.text:
       s += '>'
       # Calculate the new indent level for child nodes.
       new_indent = indent

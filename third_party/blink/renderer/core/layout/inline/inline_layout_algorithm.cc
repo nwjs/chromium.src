@@ -5,9 +5,9 @@
 #include "third_party/blink/renderer/core/layout/inline/inline_layout_algorithm.h"
 
 #include <memory>
+#include <ranges>
 
 #include "base/compiler_specific.h"
-#include "base/containers/adapters.h"
 #include "base/metrics/histogram_macros.h"
 #include "third_party/blink/public/mojom/use_counter/metrics/web_feature.mojom-shared.h"
 #include "third_party/blink/renderer/core/css/resolver/style_resolver.h"
@@ -342,7 +342,7 @@ ALWAYS_INLINE InlineLayoutAlgorithm::LineClampState
 InlineLayoutAlgorithm::GetLineClampState(const LineInfo* line_info) const {
   const ConstraintSpace& space = GetConstraintSpace();
   LineClampData line_clamp_data = space.GetLineClampData();
-  if (line_clamp_data.ShouldHideForPaint()) {
+  if (line_clamp_data.IsHidden()) {
     return LineClampState::kHide;
   }
   if (!(line_info && line_info->IsBlockInInline()) &&
@@ -456,11 +456,11 @@ void InlineLayoutAlgorithm::CreateLine(const LineLayoutOpportunity& opportunity,
   }
 
   // With the CSSLineClamp feature, if we're past the clamp point, we mark every
-  // inline item in the line as hidden for paint.
+  // inline item in the line as hidden due to layout.
   if (line_clamp_state == LineClampState::kHide) [[unlikely]] {
-    container_builder_.SetIsHiddenForPaint(true);
+    container_builder_.SetIsHiddenDueToLayout(true);
     for (auto& child : *line_box) {
-      child.is_hidden_for_paint = true;
+      child.is_hidden_due_to_layout = true;
     }
   }
 
@@ -792,7 +792,8 @@ void InlineLayoutAlgorithm::PlaceOutOfFlowObjects(
   bool is_ltr = IsLtr(line_info.BaseDirection());
 
   for (LogicalLineItem& child : *line_box) {
-    has_preceding_inline_level_content |= child.HasInFlowFragment();
+    has_preceding_inline_level_content |=
+        child.HasInFlowFragment() || child.has_non_empty_inline_box_start;
 
     const LayoutObject* box = child.out_of_flow_positioned_box;
     if (!box)
@@ -801,7 +802,7 @@ void InlineLayoutAlgorithm::PlaceOutOfFlowObjects(
     // All children within the linebox are positioned relative to the baseline,
     // then shifted later using LineBoxFragmentBuilder::MoveInBlockDirection.
     LogicalOffset static_offset(LayoutUnit(), -metrics.ascent);
-    if (box->StyleRef().IsOriginalDisplayInlineType()) {
+    if (box->Style().IsOriginalDisplayInlineType()) {
       // An inline-level OOF element positions itself within the line, at the
       // position it would have been if it was in-flow.
       static_offset.inline_offset = child.rect.offset.inline_offset;
@@ -832,14 +833,15 @@ void InlineLayoutAlgorithm::PlaceOutOfFlowObjects(
 
   if (has_rtl_block_level_out_of_flow_objects) [[unlikely]] {
     has_preceding_inline_level_content = false;
-    for (LogicalLineItem& child : base::Reversed(*line_box)) {
+    for (LogicalLineItem& child : std::views::reverse(*line_box)) {
       const LayoutObject* box = child.out_of_flow_positioned_box;
       if (!box) {
-        has_preceding_inline_level_content |= child.HasInFlowFragment();
+        has_preceding_inline_level_content |=
+            child.HasInFlowFragment() || child.has_non_empty_inline_box_start;
         continue;
       }
       if (has_preceding_inline_level_content &&
-          !box->StyleRef().IsOriginalDisplayInlineType()) {
+          !box->Style().IsOriginalDisplayInlineType()) {
         child.rect.offset.block_offset += metrics.LineHeight();
       }
     }
@@ -1576,7 +1578,7 @@ InlineLayoutAlgorithm::DoesRemainderFitInLineWithoutEllipsis(
     // ellipsis. So we set `current` to the end of the last result that doesn't
     // hang (if any), or the start of the first result otherwise.
     current = line_info.Results()[0].Start();
-    for (auto& item_result : base::Reversed(line_info.Results())) {
+    for (auto& item_result : std::views::reverse(line_info.Results())) {
       if (item_result.item->EndCollapseType() !=
               InlineItem::kOpaqueToCollapsing &&
           !item_result.has_only_pre_wrap_trailing_spaces) {
@@ -1750,7 +1752,7 @@ void InlineLayoutAlgorithm::PositionLeadingFloats(
     }
 
     container_builder_.AddAdjoiningObjectTypes(
-        item.GetLayoutObject()->StyleRef().Floating(
+        item.GetLayoutObject()->Style().Floating(
             GetConstraintSpace().Direction()) == EFloat::kLeft
             ? kAdjoiningFloatLeft
             : kAdjoiningFloatRight);

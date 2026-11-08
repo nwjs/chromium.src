@@ -48,6 +48,16 @@ inline constexpr char kUsedGoogleTranslation[] = "UsedGoogleTranslation";
 // User has used Password Autofill.
 inline constexpr char kUsedPasswordAutofill[] = "UsedPasswordAutofill";
 
+// User has selected a NTP background.
+inline constexpr char kNTPBackgroundSelected[] = "NTPBackgroundSelected";
+
+// User has received a prompt to opt-in tips notification.
+inline constexpr char kTipsNotificationOptInPromptReceived[] =
+    "TipsNotificationOptInPromptReceived";
+
+// User customized their NTP.
+inline constexpr char kNTPCustomized[] = "NTPCustomized";
+
 // LINT.ThenChange(//components/segmentation_platform/embedder/home_modules/tips_manager/signal_constants.h:signal_registrations)
 
 // LINT.IfChange(signal_registrations)
@@ -61,6 +71,8 @@ inline constexpr auto kProfileSignalNames =
         signals::kSavedPasswords,
         signals::kUsedGoogleTranslation,
         signals::kUsedPasswordAutofill,
+        signals::kNTPBackgroundSelected,
+        signals::kNTPCustomized,
     });
 
 // Tips signals related to the device or application itself. These
@@ -69,6 +81,8 @@ inline constexpr auto kProfileSignalNames =
 inline constexpr auto kLocalSignalNames =
     base::MakeFixedFlatSet<std::string_view>({
         signals::kAddressBarPositionChoiceScreenDisplayed,
+        signals::kTipsNotificationOptInPromptReceived,
+
     });
 
 //  LINT.ThenChange(//components/segmentation_platform/embedder/home_modules/tips_manager/signal_constants.h:signal_declarations)

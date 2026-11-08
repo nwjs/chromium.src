@@ -43,6 +43,7 @@
 #include "services/network/public/mojom/network_context.mojom-blink-forward.h"
 #include "services/network/public/mojom/url_loader_factory.mojom-blink.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_registry.h"
+#include "third_party/blink/public/common/frame/delegated_capability_request_token.h"
 #include "third_party/blink/public/common/tokens/tokens.h"
 #include "third_party/blink/public/mojom/associated_interfaces/associated_interfaces.mojom-blink.h"
 #include "third_party/blink/public/mojom/cache_storage/cache_storage.mojom-blink-forward.h"
@@ -150,6 +151,12 @@ class MODULES_EXPORT ServiceWorkerGlobalScope final
   void NotifyWebSocketActivity() override;
 
   const blink::BlinkStorageKey& storage_key() const { return storage_key_; }
+
+  // Manages popup capability delegation from notification clicks.
+  // See crbug.com/542314185 for architectural details.
+  void AllowPopupCapabilityDelegation();
+  bool ConsumePopupCapabilityDelegation();
+  bool IsPopupCapabilityDelegationAllowed() const;
 
   // Implements WorkerGlobalScope:
   void Initialize(
@@ -424,7 +431,8 @@ class MODULES_EXPORT ServiceWorkerGlobalScope final
       const KURL& script_url,
       KURL* out_response_url,
       String* out_source_code,
-      std::unique_ptr<Vector<uint8_t>>* out_cached_meta_data) override;
+      std::unique_ptr<Vector<uint8_t>>* out_cached_meta_data,
+      TextEncoding* out_response_encoding) override;
 
   ResourceLoadScheduler::ThrottleOptionOverride GetThrottleOptionOverride()
       const override;
@@ -435,7 +443,8 @@ class MODULES_EXPORT ServiceWorkerGlobalScope final
       ExceptionState&) override;
   CachedMetadataHandler* CreateWorkerScriptCachedMetadataHandler(
       const KURL& script_url,
-      std::unique_ptr<Vector<uint8_t>> meta_data) override;
+      std::unique_ptr<Vector<uint8_t>> meta_data,
+      TextEncoding encoding) override;
   void ExceptionThrown(ErrorEvent*) override;
 
   // Loads and runs the installed top-level classic worker script.
@@ -916,6 +925,8 @@ class MODULES_EXPORT ServiceWorkerGlobalScope final
                              ServiceWorkerGlobalScope>
       associated_interfaces_receiver_{this, this};
   AssociatedInterfaceRegistry associated_inteface_registy_;
+
+  DelegatedCapabilityRequestToken popup_capability_token_;
 };
 
 template <>

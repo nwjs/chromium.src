@@ -1,0 +1,115 @@
+// Copyright 2026 The Chromium Authors
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+import {html} from 'chrome://resources/lit/v3_0/lit.rollup.js';
+
+import type {SettingsSuggestionsFromGeminiPageElement} from './suggestions_from_gemini_page.js';
+
+export function getHtml(this: SettingsSuggestionsFromGeminiPageElement) {
+  return html`<!--_html_template_start_-->
+<settings-subpage page-title="$i18n{autofillPersonalContextSettingsTitle}"
+    class="multi-card">
+  <div class="card">
+    <settings-toggle-button id="suggestionsFromGeminiToggle"
+        pref-key="generated.find_and_fill_with_gemini"
+        label="$i18n{autofillPersonalContextSettingsToggleTitle}"
+        sub-label="$i18n{autofillPersonalContextSettingsToggleSummary}"
+        @settings-boolean-control-change="${this.onToggleSettingsBooleanControlChange_}">
+    </settings-toggle-button>
+    <cr-link-row id="manageConnectedAppsLinkRow"
+        label="$i18n{autofillPersonalContextSettingsManageConnectedAppsTitle}"
+        sub-label="$i18n{autofillPersonalContextSettingsManageConnectedAppsSummary}"
+        @click="${this.onManageConnectedAppsClick_}"
+        external>
+    </cr-link-row>
+  </div>
+  <div class="card" ?hidden="${!this.showDoubleCtrlShortcut_()}">
+    <settings-toggle-button id="atMemoryDoubleCtrlTriggerToggle"
+        pref-key="autofill.at_memory.double_ctrl_trigger_enabled"
+        label="$i18n{atMemoryTriggerLabel}"
+        sub-label="$i18n{atMemoryTriggerSubLabel}">
+    </settings-toggle-button>
+    <div class="cr-row keyboard-shortcut-setting hr"
+        id="atMemoryShortcutSetting">
+      <div class="flex cr-padded-text">
+        <div class="shortcut-label" aria-hidden>
+          $i18n{atMemoryShortcutLabel}
+        </div>
+        <div class="secondary">
+          $i18n{atMemoryShortcutSubLabel}
+        </div>
+      </div>
+      <cr-shortcut-input class="cr-padded-text shortcut-input"
+          input-aria-label="$i18n{atMemoryShortcutInputAreaLabel}"
+          edit-button-aria-label="$i18n{atMemoryShortcutEditButtonLabel}"
+          clear-button-aria-label=
+              "$i18n{atMemoryShortcutClearButtonLabel}"
+          .shortcut="${this.atMemoryShortcutPref_?.value || ''}"
+          allow-ctrl-alt-shortcuts
+          @shortcut-updated="${this.onAtMemoryShortcutUpdated_}">
+      </cr-shortcut-input>
+    </div>
+  </div>
+  <div id="qualityLoggingCard" class="card"
+      ?hidden="${!this.showQualityLogging_()}">
+    <div class="cr-row first">
+      <div class="flex cr-padded-text">
+        <h2 class="flex">$i18n{suggestionsFromGeminiQualityLoggingTitle}</h2>
+        <div class="secondary">
+          $i18n{suggestionsFromGeminiQualityLoggingSubtitle}
+        </div>
+      </div>
+    </div>
+    <div class="settings-columned-section">
+      <div class="column">
+        <h3 class="description-header">
+          $i18n{columnHeadingWhenUsed}
+        </h3>
+        <ul class="icon-bulleted-list">
+          <li>
+            <cr-icon icon="settings20:finance" aria-hidden="true"></cr-icon>
+            <div class="cr-secondary-text">
+              $i18n{suggestionsFromGeminiWhenUsed1}
+            </div>
+          </li>
+          <li>
+            <cr-icon icon="settings20:personal-recommendations"
+                aria-hidden="true"></cr-icon>
+            <div class="cr-secondary-text">
+              $i18n{suggestionsFromGeminiWhenUsed2}
+            </div>
+          </li>
+        </ul>
+      </div>
+      <div class="column">
+        <h3 class="description-header">$i18n{columnHeadingConsider}</h3>
+        <ul class="icon-bulleted-list">
+          <li>
+            <cr-icon icon="settings20:insight-spark" aria-hidden="true">
+            </cr-icon>
+            <div class="cr-secondary-text">
+              $i18n{suggestionsFromGeminiConsider1}
+            </div>
+          </li>
+          <li>
+            <cr-icon icon="settings20:account-box" aria-hidden="true">
+            </cr-icon>
+            <div class="cr-secondary-text">
+              $i18n{suggestionsFromGeminiConsider2}
+            </div>
+          </li>
+          <li id="considerNoLoggingEnterprise"
+              ?hidden="${!this.showConsiderNoLoggingEnterprise_()}">
+            <cr-icon icon="cr20:domain" aria-hidden="true"></cr-icon>
+            <div class="cr-secondary-text">
+              $i18n{suggestionsFromGeminiConsider3}
+            </div>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</settings-subpage>
+<!--_html_template_end_-->`;
+}

@@ -323,6 +323,7 @@ class D3DImageBackingFactoryTest
       bool use_factory);
   void RunVideoTest(bool use_shared_handle, bool use_factory);
   void RunOverlayTest(bool use_shared_handle, bool use_factory);
+  void RunVideoEndAccessFenceTest(bool use_compound_backing);
   void RunCreateSharedImageFromHandleTest(DXGI_FORMAT dxgi_format);
   void RunCreateFromSharedMemoryMultiplanarTest(bool use_async_copy);
   void RunMultiplanarUploadAndReadback();
@@ -1172,6 +1173,99 @@ TEST_P(D3DImageBackingFactoryTest, InvalidExternalFence) {
   EXPECT_FALSE(scoped_access);
 }
 
+void D3DImageBackingFactoryTest::RunVideoEndAccessFenceTest(
+    bool use_compound_backing) {
+  Microsoft::WRL::ComPtr<ID3D11Device> d3d11_device =
+      shared_image_factory_->GetDeviceForTesting();
+  if (!gfx::D3DSharedFence::IsSupported(d3d11_device.Get())) {
+    GTEST_SKIP();
+  }
+
+  constexpr gfx::Size size(32, 32);
+  D3D11_TEXTURE2D_DESC desc = {
+      .Width = size.width(),
+      .Height = size.height(),
+      .MipLevels = 1,
+      .ArraySize = 1,
+      .Format = DXGI_FORMAT_B8G8R8A8_UNORM,
+      .SampleDesc = {.Count = 1},
+      .Usage = D3D11_USAGE_DEFAULT,
+      .BindFlags = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_RENDER_TARGET,
+      .MiscFlags =
+          D3D11_RESOURCE_MISC_SHARED_NTHANDLE | D3D11_RESOURCE_MISC_SHARED,
+  };
+  Microsoft::WRL::ComPtr<ID3D11Texture2D> texture;
+  ASSERT_HRESULT_SUCCEEDED(
+      d3d11_device->CreateTexture2D(&desc, nullptr, &texture));
+
+  Microsoft::WRL::ComPtr<IDXGIResource1> dxgi_resource;
+  ASSERT_HRESULT_SUCCEEDED(texture.As(&dxgi_resource));
+  HANDLE shared_handle = nullptr;
+  ASSERT_HRESULT_SUCCEEDED(dxgi_resource->CreateSharedHandle(
+      nullptr, DXGI_SHARED_RESOURCE_READ | DXGI_SHARED_RESOURCE_WRITE, nullptr,
+      &shared_handle));
+
+  const Mailbox mailbox = Mailbox::Generate();
+  gfx::GpuMemoryBufferHandle gmb_handle{
+      gfx::DXGIHandle(base::win::ScopedHandle(shared_handle))};
+  auto backing = shared_image_factory_->CreateSharedImage(
+      mailbox,
+      SharedImageInfo(
+          viz::SinglePlaneFormat::kBGRA_8888, size,
+          gfx::ColorSpace::CreateSRGB(), kTopLeft_GrSurfaceOrigin,
+          kPremul_SkAlphaType,
+          SHARED_IMAGE_USAGE_VIDEO_DECODE | SHARED_IMAGE_USAGE_GLES2_READ,
+          "VideoEndAccessFence"),
+      /*is_thread_safe=*/false, std::move(gmb_handle));
+  ASSERT_TRUE(backing);
+
+  if (use_compound_backing) {
+    backing->SetNotRefCounted();
+    auto buffer_usage = backing->buffer_usage();
+    backing = std::unique_ptr<CompoundImageBacking>(new CompoundImageBacking(
+        std::move(buffer_usage), std::move(backing), copy_manager_,
+        /*shared_image_factory=*/nullptr));
+  }
+
+  backing->SetCleared();
+  auto shared_image_ref = shared_image_manager_.Register(
+      std::move(backing), memory_type_tracker_.get());
+  ASSERT_TRUE(shared_image_ref);
+
+  auto video_representation = shared_image_manager_.ProduceVideo(
+      d3d11_device, mailbox, memory_type_tracker_.get());
+  ASSERT_TRUE(video_representation);
+  auto write_access = video_representation->BeginScopedWriteAccess();
+  ASSERT_TRUE(write_access);
+
+  HANDLE dummy_handle = ::CreateEvent(nullptr, FALSE, FALSE, nullptr);
+  ASSERT_NE(dummy_handle, nullptr);
+  write_access->SetEndAccessFence(gfx::D3DSharedFence::CreateFromScopedHandle(
+      base::win::ScopedHandle(dummy_handle), gfx::DXGIHandleToken()));
+  write_access.reset();
+
+  auto gl_representation =
+      shared_image_representation_factory_->ProduceGLTexturePassthrough(
+          mailbox);
+  ASSERT_TRUE(gl_representation);
+  auto read_access = gl_representation->BeginScopedAccess(
+      GL_SHARED_IMAGE_ACCESS_MODE_READ_CHROMIUM,
+      SharedImageRepresentation::AllowUnclearedAccess::kNo);
+  // The read access should fail because the video end-access fence has not been
+  // signaled yet.
+  EXPECT_FALSE(read_access);
+}
+
+// Verifies that video end-access fences are waited on by subsequent readers.
+TEST_P(D3DImageBackingFactoryTest, VideoEndAccessFence) {
+  RunVideoEndAccessFenceTest(/*use_compound_backing=*/false);
+}
+
+// Verifies that compound video representations forward end-access fences.
+TEST_P(D3DImageBackingFactoryTest, CompoundVideoEndAccessFence) {
+  RunVideoEndAccessFenceTest(/*use_compound_backing=*/true);
+}
+
 // Tests that writing to a Skia representation of a D3DImageBacking created
 // from a shared handle is reflected in a second backing created from the
 // same handle.
@@ -1750,6 +1844,71 @@ TEST_P(D3DImageBackingFactoryTest, CreateFromVideoTexture) {
 
 TEST_P(D3DImageBackingFactoryTest, CreateFromVideoTextureSharedHandle) {
   RunVideoTest(/*use_shared_handle=*/true, /*use_factory=*/false);
+}
+
+// Validates that a Dawn representation is successfully created in a Graphite
+// D3D12 context for a D3D11 texture with a keyed mutex.
+TEST_P(D3DImageBackingFactoryTest, KeyedMutexTextureSupportsDawnD3D12Access) {
+  if (!context_state_->IsGraphiteDawnD3D12()) {
+    GTEST_SKIP() << "This test requires the Graphite-Dawn D3D12 backend";
+  }
+
+  // Create a texture with the keyed mutex flag set.
+  constexpr gfx::Size size(32, 32);
+  D3D11_TEXTURE2D_DESC desc = {
+      .Width = size.width(),
+      .Height = size.height(),
+      .MipLevels = 1,
+      .ArraySize = 1,
+      .Format = DXGI_FORMAT_NV12,
+      .SampleDesc = {.Count = 1},
+      .Usage = D3D11_USAGE_DEFAULT,
+      .BindFlags = D3D11_BIND_SHADER_RESOURCE,
+      .MiscFlags = D3D11_RESOURCE_MISC_SHARED_NTHANDLE |
+                   D3D11_RESOURCE_MISC_SHARED_KEYEDMUTEX,
+  };
+  Microsoft::WRL::ComPtr<ID3D11Texture2D> texture;
+  ASSERT_HRESULT_SUCCEEDED(
+      shared_image_factory_->GetDeviceForTesting()->CreateTexture2D(
+          &desc, /*pInitialData=*/nullptr, &texture));
+
+  Microsoft::WRL::ComPtr<IDXGIResource1> dxgi_resource;
+  ASSERT_HRESULT_SUCCEEDED(texture.As(&dxgi_resource));
+  HANDLE handle = nullptr;
+  ASSERT_HRESULT_SUCCEEDED(dxgi_resource->CreateSharedHandle(
+      nullptr, DXGI_SHARED_RESOURCE_READ | DXGI_SHARED_RESOURCE_WRITE, nullptr,
+      &handle));
+  auto shared_handle_state = shared_image_manager_.dxgi_shared_handle_manager()
+                                 ->CreateAnonymousSharedHandleState(
+                                     base::win::ScopedHandle(handle), texture);
+  ASSERT_TRUE(shared_handle_state);
+
+  const Mailbox mailbox = Mailbox::Generate();
+  auto backing = D3DImageBacking::Create(
+      mailbox,
+      SharedImageInfo(
+          viz::MultiPlaneFormat::kNV12, size, gfx::ColorSpace(),
+          kTopLeft_GrSurfaceOrigin, kUnpremul_SkAlphaType,
+          SHARED_IMAGE_USAGE_VIDEO_DECODE | SHARED_IMAGE_USAGE_WEBGPU_READ,
+          "KeyedMutexVideoTexture"),
+      std::move(texture), std::move(shared_handle_state),
+      context_state_->GetGLFormatCaps(), GL_TEXTURE_EXTERNAL_OES,
+      /*array_slice=*/0);
+  ASSERT_TRUE(backing);
+  backing->SetCleared();
+  auto shared_image_ref = shared_image_manager_.Register(
+      std::move(backing), memory_type_tracker_.get());
+  ASSERT_TRUE(shared_image_ref);
+
+  auto dawn_representation = shared_image_representation_factory_->ProduceDawn(
+      mailbox, context_state_->dawn_context_provider()->GetDevice(),
+      wgpu::BackendType::D3D12, {}, context_state_);
+  ASSERT_TRUE(dawn_representation);
+
+  auto scoped_access = dawn_representation->BeginScopedAccess(
+      wgpu::TextureUsage::TextureBinding,
+      SharedImageRepresentation::AllowUnclearedAccess::kNo);
+  EXPECT_TRUE(scoped_access);
 }
 
 TEST_P(D3DImageBackingFactoryTest,

@@ -11,18 +11,24 @@
 
 #include "components/performance_manager/public/execution_context_priority/execution_context_priority.h"
 #include "components/performance_manager/public/execution_context_priority/max_vote_aggregator.h"
+#include "components/performance_manager/public/graph/frame_node.h"
 #include "components/performance_manager/public/graph/graph_registered.h"
+#include "components/performance_manager/public/graph/page_node.h"
+#include "components/performance_manager/public/graph/process_node.h"
+#include "components/performance_manager/public/graph/worker_node.h"
 
 namespace performance_manager {
 
 class Graph;
+class ProcessPriorityAggregator;
 
 namespace execution_context_priority {
 
-class RootVoteObserver;
+class PageToFrameVoteExpander;
+class PrioritySetter;
 
 // Base interface for creating a voter class that can submit a vote to influence
-// the priority of an execution context.
+// the priority of a graph node.
 //
 // Use `PriorityVotingSystem::AddPriorityVoter()` to register your voter.
 class PriorityVoter {
@@ -39,9 +45,25 @@ class PriorityVoter {
 };
 
 // This class owns the voters that are responsible for deciding the priority of
-// execution contexts.
+// graph nodes, and the MaxVoteAggregator that aggregates their votes. The top
+// vote of a node in the aggregator is its final priority. Each component is
+// built from the aggregator, observes the final priority of nodes in it, and/or
+// casts votes into it:
+//   - The PrioritySetter sets the priority of frames, workers and processes.
+//   - The PageToFrameVoteExpander casts the final vote of pages on all their
+//     frames.
+//   - The ProcessPriorityAggregator casts the highest priority of the frames
+//     and workers hosted by each process on that process.
+//
+// It also verifies that no votes are leaked.
+//
+// See README.md for an overview.
 class PriorityVotingSystem
-    : public GraphOwnedAndRegistered<PriorityVotingSystem> {
+    : public GraphOwnedAndRegistered<PriorityVotingSystem>,
+      private FrameNodeObserver,
+      private PageNodeObserver,
+      private ProcessNodeObserver,
+      private WorkerNodeObserver {
  public:
   PriorityVotingSystem();
   ~PriorityVotingSystem() override;
@@ -53,18 +75,42 @@ class PriorityVotingSystem
   }
 
   // GraphOwned:
-  void OnPassedToGraph(Graph* graph) override {}
+  void OnPassedToGraph(Graph* graph) override;
   void OnTakenFromGraph(Graph* graph) override;
 
  private:
   void AddPriorityVoter(std::unique_ptr<PriorityVoter> priority_voter);
 
-  // Takes in the aggregated votes and applies them to the execution contexts in
-  // the graph.
-  std::unique_ptr<RootVoteObserver> root_vote_observer_;
+  // FrameNodeObserver:
+  void OnFrameNodeRemoved(
+      const FrameNode* frame_node,
+      const FrameNode* previous_parent_frame_node,
+      const PageNode* previous_page_node,
+      const ProcessNode* previous_process_node,
+      const FrameNode* previous_parent_or_outer_document_or_embedder) override;
 
-  // Aggregates all the votes from the voters.
+  // PageNodeObserver:
+  void OnPageNodeRemoved(const PageNode* page_node) override;
+
+  // ProcessNodeObserver:
+  void OnProcessNodeRemoved(const ProcessNode* process_node) override;
+
+  // WorkerNodeObserver:
+  void OnWorkerNodeRemoved(const WorkerNode* worker_node,
+                           const ProcessNode* previous_process_node) override;
+
+  // Aggregates the votes from the voters, `page_to_frame_vote_expander_` and
+  // `process_priority_aggregator_`. Declared first, since everything else
+  // observes it or holds voting channels issued by it.
   MaxVoteAggregator max_vote_aggregator_;
+
+  // Observe `max_vote_aggregator_`, in this order.
+  std::unique_ptr<PrioritySetter> priority_setter_;
+  std::unique_ptr<PageToFrameVoteExpander> page_to_frame_vote_expander_;
+
+  // Follows the priority of frames and workers, and casts the highest one on
+  // their process.
+  std::unique_ptr<ProcessPriorityAggregator> process_priority_aggregator_;
 
   std::vector<std::unique_ptr<PriorityVoter>> priority_voters_;
 };

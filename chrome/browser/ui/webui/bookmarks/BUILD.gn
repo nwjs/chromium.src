@@ -19,7 +19,6 @@ if (!is_android) {
       "bookmarks_message_handler.h",
       "bookmarks_ui.h",
     ]
-    public_deps = [ "//chrome/browser:browser_public_dependencies" ]
     deps = [
       "//base",
       "//chrome/app:generated_resources",
@@ -42,6 +41,7 @@ if (!is_android) {
       "//chrome/browser/ui/webui:plural_string_handler",
       "//chrome/browser/ui/webui:theme_source",
       "//chrome/browser/ui/webui/page_not_available_for_guest",
+      "//chrome/browser/ui/webui/side_panel/bookmarks:mojo_bindings",
       "//chrome/browser/ui/webui/signin:signin_utils",
       "//chrome/common",
       "//components/bookmarks/browser",
@@ -94,7 +94,10 @@ if (!is_android) {
   source_set("browser_tests") {
     testonly = true
     defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
-    sources = [ "bookmarks_message_handler_browsertest.cc" ]
+    sources = [
+      "bookmarks_message_handler_browsertest.cc",
+      "bookmarks_ui_browsertest.cc",
+    ]
     deps = [
       ":bookmarks",
       "//chrome/browser/bookmarks",
@@ -102,7 +105,6 @@ if (!is_android) {
       "//chrome/browser/profiles/batch_upload:test_support",
       "//chrome/browser/signin:signin_browser_test_base",
       "//chrome/browser/sync",
-      "//chrome/browser/ui",
       "//chrome/browser/ui/views/bookmarks:test_support",
       "//chrome/test:test_support",
       "//components/bookmarks/browser",
@@ -118,6 +120,7 @@ if (!is_android) {
       "//content/public/browser",
       "//content/test:test_support",
       "//services/network:test_support",
+      "//ui/accessibility",
       "//ui/views",
     ]
   }

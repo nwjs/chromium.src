@@ -112,7 +112,8 @@ void SurfaceEmbedHost::SetSurfaceEmbed(
 }
 
 void SurfaceEmbedHost::AttachConnector(const base::UnguessableToken& content_id,
-                                       bool is_embed_element_focused) {
+                                       bool is_embed_element_focused,
+                                       bool allow_pinch_zoom) {
   has_received_attach_connector_for_testing_ = true;
 
   // Should never call attach without having a valid SurfaceEmbed remote already
@@ -120,6 +121,12 @@ void SurfaceEmbedHost::AttachConnector(const base::UnguessableToken& content_id,
   CHECK(surface_embed_);
 
   CHECK(!content_id.is_empty());
+
+  // If this host already has a child attached, we need to detach it first. Note
+  // that this request comes from the parent side, so we don't notify the
+  // SurfaceEmbed as it initiated the detachment.
+  DetachConnector();
+
   SurfaceEmbedHandle* handle = SurfaceEmbedHandle::FromID(content_id);
   if (!handle) {
     // The child may have been destroyed while the renderer was asynchronously
@@ -139,11 +146,6 @@ void SurfaceEmbedHost::AttachConnector(const base::UnguessableToken& content_id,
     CHECK(!web_contents_to_attach->GetSurfaceEmbedConnector());
   }
 
-  // If this host already has a child attached, we need to detach it first. Note
-  // that this request comes from the parent side, so we don't notify the
-  // SurfaceEmbed as it initiated the detachment.
-  DetachConnector();
-
   if (web_contents_to_attach->IsCrashed()) {
     // The child process may have crashed before the renderer for the parent
     // got the chance to attach it. We want to handle this early since attaching
@@ -153,8 +155,14 @@ void SurfaceEmbedHost::AttachConnector(const base::UnguessableToken& content_id,
   }
 
   child_contents_ = web_contents_to_attach->GetWeakPtr();
-  content::SurfaceEmbedConnector::Attach(
-      web_contents_to_attach, &collection_->render_frame_host(), this);
+  const auto pinch_gesture_mode =
+      allow_pinch_zoom ? content::SurfaceEmbedConnector::PinchGestureMode::
+                             kScaleChildWebContents
+                       : content::SurfaceEmbedConnector::PinchGestureMode::
+                             kDelegateToParentWebContents;
+  content::SurfaceEmbedConnector::Attach(web_contents_to_attach,
+                                         &collection_->render_frame_host(),
+                                         this, pinch_gesture_mode);
 
   // If accessibility info was received before the connector was attached,
   // pass it to the connector now.
@@ -165,6 +173,18 @@ void SurfaceEmbedHost::AttachConnector(const base::UnguessableToken& content_id,
   if (is_embed_element_focused) {
     FocusChildWebContents();
   }
+}
+
+void SurfaceEmbedHost::SetAllowPinchZoom(bool allow_pinch_zoom) {
+  content::SurfaceEmbedConnector* connector = GetConnector();
+  if (!connector) {
+    return;
+  }
+  connector->SetPinchGestureMode(
+      allow_pinch_zoom ? content::SurfaceEmbedConnector::PinchGestureMode::
+                             kScaleChildWebContents
+                       : content::SurfaceEmbedConnector::PinchGestureMode::
+                             kDelegateToParentWebContents);
 }
 
 void SurfaceEmbedHost::FocusChildWebContents() {

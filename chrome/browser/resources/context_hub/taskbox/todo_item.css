@@ -15,6 +15,7 @@
   border: 1px solid var(--cr-separator-color);
   box-shadow: none;
   overflow: hidden;
+  container-type: inline-size;
 }
 
 cr-expand-button,
@@ -46,7 +47,16 @@ cr-expand-button::part(icon) {
   gap: 20px;
 }
 
+.todo-main {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex: 1;
+  min-width: 0;
+}
+
 #check-circle {
+  flex-shrink: 0;
   margin-inline-start: 0;
   --cr-icon-button-margin-start: 0;
 }
@@ -62,6 +72,7 @@ cr-expand-button::part(icon) {
   align-items: flex-start;
   flex: 1;
   min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .todo-info h3 {
@@ -93,6 +104,45 @@ cr-expand-button::part(icon) {
   align-items: center;
   gap: 8px;
   flex-shrink: 0;
+}
+
+.split-button {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 100px;
+  height: var(--cr-button-height, 32px);
+}
+
+.split-button cr-button {
+  height: 100%;
+}
+
+.split-button .split-main-button {
+  border-start-start-radius: 100px;
+  border-end-start-radius: 100px;
+  border-start-end-radius: 0;
+  border-end-end-radius: 0;
+  padding-inline-start: 16px;
+  padding-inline-end: 12px;
+}
+
+.split-button .split-dropdown-button {
+  border-start-start-radius: 0;
+  border-end-start-radius: 0;
+  border-start-end-radius: 100px;
+  border-end-end-radius: 100px;
+  border-inline-start: 1px solid var(--cr-card-background-color);
+  min-width: 0;
+  width: 32px;
+  padding-inline-start: 4px;
+  padding-inline-end: 8px;
+  --iron-icon-height: 20px;
+  --iron-icon-width: 20px;
+}
+
+.split-button cr-button:focus-visible {
+  outline-offset: -2px;
+  z-index: 1;
 }
 
 .todo-actions cr-icon-button {
@@ -166,4 +216,35 @@ cr-expand-button::part(icon) {
 
 .dismiss-button {
   flex-shrink: 0;
+}
+
+@container (max-width: 520px) {
+  .todo-content {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .todo-main {
+    gap: 12px;
+  }
+
+  .tab-todo-content .todo-info h3 {
+    white-space: normal;
+  }
+
+  .todo-actions {
+    justify-content: flex-end;
+    flex-wrap: wrap;
+  }
+
+  .expanded-content {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .dismiss-button {
+    align-self: flex-end;
+  }
 }

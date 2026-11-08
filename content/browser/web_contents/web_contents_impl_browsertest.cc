@@ -1397,6 +1397,128 @@ IN_PROC_BROWSER_TEST_F(WebContentsImplBrowserTest,
   EXPECT_NEAR(initial_browser_scale_1, initial_renderer_scale_1, kEpsilon);
   EXPECT_NEAR(initial_browser_scale_2, initial_renderer_scale_2, kEpsilon);
 }
+
+namespace {
+
+// Stops the WebContents when it gets the navigation callback specified by
+// `stop_at`, which synchronously deletes the NavigationRequest. This simulates
+// e.g. an Android WebView app calling stopLoading() synchronously from its
+// navigation callback.
+class StopLoadingObserver : public WebContentsObserver {
+ public:
+  enum class StopAt { kStart, kRedirect };
+
+  StopLoadingObserver(WebContents* web_contents, StopAt stop_at)
+      : WebContentsObserver(web_contents), stop_at_(stop_at) {}
+
+  void DidStartNavigation(NavigationHandle*) override {
+    MaybeStop(StopAt::kStart);
+  }
+  void DidRedirectNavigation(NavigationHandle*) override {
+    MaybeStop(StopAt::kRedirect);
+  }
+
+  // Note that for `StopAt::kStart`, DidStartNavigation() is called
+  // synchronously from LoadURL(), so `run_loop_` might already be quit before
+  // this is called, in which case this returns immediately.
+  void WaitForStop() { run_loop_.Run(); }
+
+ private:
+  void MaybeStop(StopAt stop_at) {
+    if (stop_at != stop_at_) {
+      return;
+    }
+    web_contents()->Stop();
+    run_loop_.Quit();
+  }
+
+  const StopAt stop_at_;
+  base::RunLoop run_loop_;
+};
+
+// Counts the navigation callbacks it gets. Doesn't access the
+// NavigationHandle, since it might be dangling if the observer list keeps
+// notifying observers after the NavigationRequest got deleted.
+class NavigationCallbackCounter : public WebContentsObserver {
+ public:
+  explicit NavigationCallbackCounter(WebContents* web_contents)
+      : WebContentsObserver(web_contents) {}
+
+  void DidStartNavigation(NavigationHandle*) override { ++did_start_count_; }
+  void DidRedirectNavigation(NavigationHandle*) override {
+    ++did_redirect_count_;
+  }
+  void DidFinishNavigation(NavigationHandle*) override { ++did_finish_count_; }
+
+  int did_start_count() const { return did_start_count_; }
+  int did_redirect_count() const { return did_redirect_count_; }
+  int did_finish_count() const { return did_finish_count_; }
+
+ private:
+  int did_start_count_ = 0;
+  int did_redirect_count_ = 0;
+  int did_finish_count_ = 0;
+};
+
+}  // namespace
+
+// Tests that if an observer deletes the NavigationRequest in
+// DidStartNavigation(), the observers after it are not notified with the
+// deleted NavigationHandle. They still get DidFinishNavigation(), which is safe
+// because it's called from the NavigationRequest's destructor after its owner
+// released it, so it can't be deleted again from there. This can only happen
+// on Android, as other platforms CHECK that the NavigationRequest is not
+// deleted at this point. See https://crbug.com/574791491.
+IN_PROC_BROWSER_TEST_F(WebContentsImplBrowserTest,
+                       NavigationDeletedInDidStartNavigation) {
+  ASSERT_TRUE(embedded_test_server()->Start());
+  EXPECT_TRUE(
+      NavigateToURL(shell(), embedded_test_server()->GetURL("/title1.html")));
+
+  // `stopper` is added before `counter`, so it is notified first.
+  StopLoadingObserver stopper(shell()->web_contents(),
+                              StopLoadingObserver::StopAt::kStart);
+  NavigationCallbackCounter counter(shell()->web_contents());
+
+  shell()->LoadURL(embedded_test_server()->GetURL("/title2.html"));
+  stopper.WaitForStop();
+
+  // `counter` does not get notified in DidStartNavigation because the
+  // NavigationRequest is deleted by `stopper`.
+  EXPECT_EQ(0, counter.did_start_count());
+  EXPECT_EQ(1, counter.did_finish_count());
+  EXPECT_FALSE(static_cast<WebContentsImpl*>(shell()->web_contents())
+                   ->GetPrimaryFrameTree()
+                   .root()
+                   ->navigation_request());
+}
+
+// Same as above, but deletes the NavigationRequest in DidRedirectNavigation().
+IN_PROC_BROWSER_TEST_F(WebContentsImplBrowserTest,
+                       NavigationDeletedInDidRedirectNavigation) {
+  ASSERT_TRUE(embedded_test_server()->Start());
+  EXPECT_TRUE(
+      NavigateToURL(shell(), embedded_test_server()->GetURL("/title1.html")));
+
+  StopLoadingObserver stopper(shell()->web_contents(),
+                              StopLoadingObserver::StopAt::kRedirect);
+  NavigationCallbackCounter counter(shell()->web_contents());
+
+  shell()->LoadURL(embedded_test_server()->GetURL(
+      "/server-redirect?" +
+      embedded_test_server()->GetURL("/title2.html").spec()));
+  stopper.WaitForStop();
+
+  // `counter` does not get notified in DidRedirectNavigation because the
+  // NavigationRequest is deleted by `stopper`.
+  EXPECT_EQ(1, counter.did_start_count());
+  EXPECT_EQ(0, counter.did_redirect_count());
+  EXPECT_EQ(1, counter.did_finish_count());
+  EXPECT_FALSE(static_cast<WebContentsImpl*>(shell()->web_contents())
+                   ->GetPrimaryFrameTree()
+                   .root()
+                   ->navigation_request());
+}
 #endif  // BUILDFLAG(IS_ANDROID)
 
 // Test that a direct navigation to a view-source URL works.
@@ -1597,6 +1719,8 @@ void NavigateToDataURLAndCheckForTerminationDisabler(
   EXPECT_EQ(expect_unload || expect_beforeunload || expect_pagehide ||
                 expect_visibilitychange,
             shell->web_contents()->NeedToFireBeforeUnloadOrUnloadEvents());
+  EXPECT_EQ(expect_beforeunload,
+            shell->web_contents()->NeedToFireBeforeUnload());
   EXPECT_EQ(expect_unload,
             rfh->GetSuddenTerminationDisablerState(
                 blink::mojom::SuddenTerminationDisablerType::kUnloadHandler));
@@ -2649,7 +2773,6 @@ void DownloadImageTestInternal(Shell* shell,
       .WillByDefault(
           InvokeWithoutArgs(loop_runner.get(), &MessageLoopRunner::Quit));
 
-  ASSERT_TRUE(NavigateToURL(shell, GURL("about:blank")));
   shell->web_contents()->DownloadImage(
       image_url, false, gfx::Size(), 1024, false,
       base::BindOnce(&DownloadImageObserver::OnFinishDownloadImage,
@@ -2694,26 +2817,26 @@ void ExpectSingleValidImageCallback(base::OnceClosure quit_closure,
 IN_PROC_BROWSER_TEST_F(WebContentsImplBrowserTest, DownloadImage_HttpImage) {
   ASSERT_TRUE(embedded_test_server()->Start());
   const GURL kImageUrl = embedded_test_server()->GetURL("/single_face.jpg");
+  ASSERT_TRUE(NavigateToURL(shell(), GURL("about:blank")));
   DownloadImageTestInternal(shell(), kImageUrl, 200, 1);
 }
 
-// Disabled due to flakiness: https://crbug.com/1124349.
 IN_PROC_BROWSER_TEST_F(WebContentsImplBrowserTest,
-                       DISABLED_DownloadImage_Deny_FileImage) {
+                       DownloadImage_Deny_FileImage) {
   ASSERT_TRUE(embedded_test_server()->Start());
-  shell()->LoadURL(embedded_test_server()->GetURL("/simple_page.html"));
+  ASSERT_TRUE(NavigateToURL(
+      shell(), embedded_test_server()->GetURL("/simple_page.html")));
 
   const GURL kImageUrl = GetTestUrl("", "single_face.jpg");
   DownloadImageTestInternal(shell(), kImageUrl, 0, 0);
 }
 
-// Disabled due to flakiness: https://crbug.com/1124349.
 IN_PROC_BROWSER_TEST_F(WebContentsImplBrowserTest,
-                       DISABLED_DownloadImage_Allow_FileImage) {
-  shell()->LoadURL(GetTestUrl("", "simple_page.html"));
+                       DownloadImage_Allow_FileImage) {
+  ASSERT_TRUE(NavigateToURL(shell(), GetTestUrl("", "simple_page.html")));
 
   const GURL kImageUrl = GetTestUrl("", "image.jpg");
-  DownloadImageTestInternal(shell(), kImageUrl, 0, 0);
+  DownloadImageTestInternal(shell(), kImageUrl, 200, 0);
 }
 
 IN_PROC_BROWSER_TEST_F(WebContentsImplBrowserTest, DownloadImage_NoValidImage) {
@@ -2732,12 +2855,14 @@ IN_PROC_BROWSER_TEST_F(WebContentsImplBrowserTest, DownloadImage_DataImage) {
   const GURL kImageUrl = GURL(
       "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUAAAAFCAYAAACNbyblAAAAHE"
       "lEQVQI12P4//8/w38GIAXDIBKE0DHxgljNBAAO9TXL0Y4OHwAAAABJRU5ErkJggg==");
+  ASSERT_TRUE(NavigateToURL(shell(), GURL("about:blank")));
   DownloadImageTestInternal(shell(), kImageUrl, 0, 1);
 }
 
 IN_PROC_BROWSER_TEST_F(WebContentsImplBrowserTest,
                        DownloadImage_InvalidDataImage) {
   const GURL kImageUrl = GURL("data:image/png;invalid");
+  ASSERT_TRUE(NavigateToURL(shell(), GURL("about:blank")));
   DownloadImageTestInternal(shell(), kImageUrl, 0, 0);
 }
 
@@ -2745,6 +2870,7 @@ IN_PROC_BROWSER_TEST_F(WebContentsImplBrowserTest, DownloadImage_DataImageSVG) {
   const GURL kImageUrl(
       "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' "
       "width='64' height='64'></svg>");
+  ASSERT_TRUE(NavigateToURL(shell(), GURL("about:blank")));
   DownloadImageTestInternal(shell(), kImageUrl, 0, 1);
 }
 
@@ -6476,7 +6602,8 @@ class SurfaceEmbedConnectorWebContentsBrowserTest
     return base::WrapUnique(new SurfaceEmbedConnectorImpl(
         child_web_contents, parent_web_contents,
         parent_web_contents->GetPrimaryMainFrame(),
-        &surface_embed_connector_delegate_));
+        &surface_embed_connector_delegate_,
+        SurfaceEmbedConnector::PinchGestureMode::kDelegateToParentWebContents));
   }
 
   void ExpectRegisteredViews(
@@ -9952,6 +10079,7 @@ IN_PROC_BROWSER_TEST_F(WebContentsImplBrowserTest,
   EXPECT_EQ(opener_contents,
             popup_contents->GetFirstWebContentsInLiveOriginalOpenerChain());
 
+  opener_contents->GetRenderWidgetHostView()->SetHasFocusForTesting(true);
   FullscreenWebContentsObserver observer(
       opener_contents, opener_contents->GetPrimaryMainFrame());
   EXPECT_TRUE(ExecJs(opener_contents->GetPrimaryMainFrame(),
@@ -10034,6 +10162,7 @@ IN_PROC_BROWSER_TEST_F(WebContentsImplBrowserTest,
   EXPECT_EQ(opener_contents,
             popup_contents->GetFirstWebContentsInLiveOriginalOpenerChain());
 
+  opener_contents->GetRenderWidgetHostView()->SetHasFocusForTesting(true);
   FullscreenWebContentsObserver observer(
       opener_contents, opener_contents->GetPrimaryMainFrame());
   EXPECT_TRUE(ExecJs(opener_contents->GetPrimaryMainFrame(),
@@ -10090,6 +10219,7 @@ IN_PROC_BROWSER_TEST_F(WebContentsImplBrowserTest,
   EXPECT_EQ(opener_contents,
             popup_contents->GetFirstWebContentsInLiveOriginalOpenerChain());
 
+  opener_contents->GetRenderWidgetHostView()->SetHasFocusForTesting(true);
   FullscreenWebContentsObserver observer(
       opener_contents, opener_contents->GetPrimaryMainFrame());
   EXPECT_TRUE(ExecJs(opener_contents->GetPrimaryMainFrame(),
@@ -10166,6 +10296,7 @@ IN_PROC_BROWSER_TEST_F(WebContentsImplBrowserTest,
   EXPECT_EQ(opener_contents,
             popup_contents->GetFirstWebContentsInLiveOriginalOpenerChain());
 
+  opener_contents->GetRenderWidgetHostView()->SetHasFocusForTesting(true);
   FullscreenWebContentsObserver observer(
       opener_contents, opener_contents->GetPrimaryMainFrame());
   EXPECT_TRUE(ExecJs(opener_contents->GetPrimaryMainFrame(),

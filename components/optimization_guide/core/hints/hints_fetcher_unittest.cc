@@ -19,10 +19,10 @@
 #include "base/test/simple_test_clock.h"
 #include "base/test/task_environment.h"
 #include "components/optimization_guide/core/hints/hints_processing_util.h"
+#include "components/optimization_guide/core/hints/prefs.h"
 #include "components/optimization_guide/core/hints/store_update_data.h"
 #include "components/optimization_guide/core/optimization_guide_enums.h"
 #include "components/optimization_guide/core/optimization_guide_features.h"
-#include "components/optimization_guide/core/optimization_guide_prefs.h"
 #include "components/prefs/pref_service.h"
 #include "components/prefs/scoped_user_pref_update.h"
 #include "components/prefs/testing_pref_service.h"
@@ -655,11 +655,10 @@ TEST_P(HintsFetcherTest, MaxHostsForOptimizationGuideServiceHintsFetch) {
         WasHostCoveredByFetch("host" + base::NumberToString(i) + ".com"));
   }
 
-  // extra1.com and extra2.com should have been considered "dropped".
   histogram_tester.ExpectUniqueSample(
-      "OptimizationGuide.HintsFetcher.GetHintsRequest.DroppedHosts."
+      "OptimizationGuide.HintsFetcher.GetHintsRequest.HostCount."
       "BatchUpdateActiveTabs",
-      2, 1);
+      max_hosts_in_fetch_request, 1);
 }
 
 TEST_P(HintsFetcherTest, MaxUrlsForOptimizationGuideServiceHintsFetch) {
@@ -697,12 +696,6 @@ TEST_P(HintsFetcherTest, MaxUrlsForOptimizationGuideServiceHintsFetch) {
     EXPECT_EQ(last_request.urls(i).url(),
               "https://url" + base::NumberToString(i) + ".com/");
   }
-
-  // notfetched.com and notfetched-2.com should have been considered "dropped".
-  histogram_tester.ExpectUniqueSample(
-      "OptimizationGuide.HintsFetcher.GetHintsRequest.DroppedUrls."
-      "BatchUpdateActiveTabs",
-      2, 1);
 }
 
 TEST_P(HintsFetcherTest, OnlyURLsToFetch) {
@@ -722,11 +715,6 @@ TEST_P(HintsFetcherTest, OnlyURLsToFetch) {
       "OptimizationGuide.HintsFetcher.GetHintsRequest.RequestStatus."
       "BatchUpdateActiveTabs",
       static_cast<int>(FetcherRequestStatus::kSuccess), 1);
-  // Nothing was dropped so this shouldn't be recorded.
-  histogram_tester.ExpectTotalCount(
-      "OptimizationGuide.HintsFetcher.GetHintsRequest.DroppedHosts", 0);
-  histogram_tester.ExpectTotalCount(
-      "OptimizationGuide.HintsFetcher.GetHintsRequest.DroppedUrls", 0);
 }
 
 TEST_P(HintsFetcherTest, NoHostsOrURLsToFetch) {

@@ -86,7 +86,9 @@ SandboxGrantResult MaybeDeleteOldData(
     return SandboxGrantResult::kSuccess;
 
   // Check old path exists, and is a directory.
-  CHECK(base::DirectoryExists(old_path), base::NotFatalUntil::M159);
+  // TODO(crbug.com/571050903): CHECK-exclusion: Convert to a CHECK once we are
+  // confident it won't be triggered.
+  DCHECK(base::DirectoryExists(old_path));
 
   base::FilePath old_file_path = old_path.Append(*filename);
 
@@ -136,8 +138,9 @@ SandboxGrantResult MaybeCopyData(const base::FilePath& old_path,
     return SandboxGrantResult::kSuccess;
 
   // Check both paths exist, and are directories.
-  CHECK(base::DirectoryExists(old_path) && base::DirectoryExists(new_path),
-        base::NotFatalUntil::M159);
+  // TODO(crbug.com/571728864): CHECK-exclusion: Convert to a CHECK once we are
+  // confident it won't be triggered.
+  DCHECK(base::DirectoryExists(old_path) && base::DirectoryExists(new_path));
 
   base::FilePath old_file_path = old_path.Append(*filename);
   base::FilePath new_file_path = new_path.Append(*filename);
@@ -185,9 +188,10 @@ SandboxGrantResult MaybeCopyData(const base::FilePath& old_path,
 SandboxGrantResult CleanUpOldData(
     network::mojom::NetworkContextParams* params) {
   // Never delete old data unless the checkpoint file exists.
-  CHECK(base::PathExists(params->file_paths->data_directory.path().Append(
-            kCheckpointFileName)),
-        base::NotFatalUntil::M159);
+  // TODO(crbug.com/571386676): CHECK-exclusion: Convert to a CHECK once we are
+  // confident it won't be triggered.
+  DCHECK(base::PathExists(
+      params->file_paths->data_directory.path().Append(kCheckpointFileName)));
 
   SandboxGrantResult last_error = SandboxGrantResult::kSuccess;
   SandboxGrantResult result = MaybeDeleteOldData(

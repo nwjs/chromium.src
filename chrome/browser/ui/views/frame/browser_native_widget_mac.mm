@@ -8,6 +8,7 @@
 
 #include "ui/display/display.h"
 #import "base/apple/foundation_util.h"
+#include "base/check_op.h"
 #include "base/functional/bind.h"
 #include "base/i18n/rtl.h"
 #include "base/memory/raw_ptr.h"
@@ -39,13 +40,13 @@
 #include "chrome/browser/ui/tabs/split_tab_metrics.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/tabs/vertical_tab_strip_metrics.h"
+#include "chrome/browser/ui/tabs/vertical_tab_strip_state.h"
 #include "chrome/browser/ui/tabs/vertical_tab_strip_state_controller.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/frame/browser_frame_view.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/browser_widget.h"
 #include "chrome/browser/ui/views/frame/glass_frame_service.h"
-#include "chrome/browser/ui/views/frame/vertical_tab_strip_region_view.h"
 #include "chrome/browser/ui/views/web_apps/frame_toolbar/web_app_frame_toolbar_utils.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
 #include "chrome/common/pref_names.h"
@@ -111,7 +112,9 @@ bool ShouldHandleKeyboardEvent(const input::NativeWebKeyboardEvent& event) {
   return event.os_event && event.os_event.Get().type == NSEventTypeKeyDown;
 }
 
-double GetGlassFrameTintOpacity(bool is_dark_mode, bool is_vertical_tabs) {
+double GetGlassFrameTintOpacity(bool is_dark_mode,
+                                bool is_vertical_tabs,
+                                bool are_multiple_profiles_open) {
   // Default opacities mapped by [is_vertical_tabs][is_dark_mode]:
   // Values updated after discussion with UX.
   static constexpr std::array<std::array<double, 2>, 2> kDefaultOpacities = {{
@@ -119,7 +122,11 @@ double GetGlassFrameTintOpacity(bool is_dark_mode, bool is_vertical_tabs) {
       {0.65, 0.80},  // Vertical: light, dark
   }};
 
-  const double opacity = kDefaultOpacities[is_vertical_tabs][is_dark_mode];
+  double opacity = kDefaultOpacities[is_vertical_tabs][is_dark_mode];
+  if (are_multiple_profiles_open) {
+    const double multiple_open_profiles_opacity_increase = 0.05;
+    opacity += multiple_open_profiles_opacity_increase;
+  }
   return std::clamp(opacity, 0.0, 1.0);
 }
 
@@ -323,7 +330,7 @@ std::optional<int> BrowserNativeWidgetMac::GetGlassFrameWidth() const {
 
   const int corner_padding = GetGlassCornerPadding();
   const int max_width =
-      VerticalTabStripRegionView::kUncollapsedMaxWidth + corner_padding;
+      tabs::kVerticalTabStripUncollapsedMaxWidth + corner_padding;
 
   auto* const controller =
       tabs::VerticalTabStripStateController::From(browser_view_->browser());
@@ -338,7 +345,7 @@ std::optional<int> BrowserNativeWidgetMac::GetGlassFrameWidth() const {
   }
 
   const int width =
-      (controller->IsCollapsed() ? VerticalTabStripRegionView::kCollapsedWidth
+      (controller->IsCollapsed() ? tabs::kVerticalTabStripCollapsedWidth
                                  : controller->GetUncollapsedWidth()) +
       corner_padding;
   return std::min(width, max_width);
@@ -397,8 +404,10 @@ void BrowserNativeWidgetMac::OnWidgetDestroyed(views::Widget* widget) {
   browser_view_ = nullptr;
   last_theme_color_.reset();
   last_is_vertical_tabs_.reset();
+  has_multiple_profiles_open_ = false;
   last_is_glass_eligible_ = false;
-  glass_frame_service_subscription_ = {};
+  glass_eligibility_subscription_ = {};
+  multiple_open_profiles_subscription_ = {};
   NativeWidgetMac::OnWidgetDestroyed(widget);
 }
 
@@ -798,10 +807,14 @@ void BrowserNativeWidgetMac::OnWidgetInitDone() {
                               base::Unretained(this)));
   // GlassFrameService is only available if glass frame is enabled.
   if (auto* const glass_frame_service = GlassFrameService::GetInstance()) {
-    glass_frame_service_subscription_ =
+    glass_eligibility_subscription_ =
         glass_frame_service->RegisterGlassFrameEligibilityChangedCallback(
             browser_view_->browser(),
             base::BindRepeating(&BrowserNativeWidgetMac::UpdateGlassEligibility,
+                                base::Unretained(this)));
+    multiple_open_profiles_subscription_ =
+        glass_frame_service->RegisterMultipleOpenProfilesChangedCallback(
+            base::BindRepeating(&BrowserNativeWidgetMac::UpdateBackgroundColor,
                                 base::Unretained(this)));
     if (glass_frame_service->IsBrowserWindowEligible(
             browser_view_->browser())) {
@@ -979,6 +992,7 @@ void BrowserNativeWidgetMac::RemoveGlassBackground(
   }
   last_theme_color_.reset();
   last_is_vertical_tabs_.reset();
+  has_multiple_profiles_open_ = false;
 }
 
 bool BrowserNativeWidgetMac::IsGlassEligible() const {
@@ -1000,9 +1014,7 @@ void BrowserNativeWidgetMac::UpdateGlassEligibility(bool is_glass_eligible) {
     return;
   }
 
-  if (last_is_glass_eligible_ == is_glass_eligible) {
-    return;
-  }
+  CHECK_NE(last_is_glass_eligible_, is_glass_eligible);
 
   last_is_glass_eligible_ = is_glass_eligible;
   weak_ptr_factory_.InvalidateWeakPtrs();
@@ -1160,26 +1172,34 @@ void BrowserNativeWidgetMac::UpdateBackgroundColor() {
   const SkColor theme_color = browser_view_->GetColorProvider()->GetColor(
       is_active ? ui::kColorFrameActive : ui::kColorFrameInactive);
 
-  bool is_vertical_tabs = browser_view_->ShouldDrawVerticalTabStrip();
+  const bool is_vertical_tabs = browser_view_->ShouldDrawVerticalTabStrip();
 
-  // Avoid updating the background view if the theme colors and the tab strip
-  // orientation have not changed.
+  auto* const glass_frame_service = GlassFrameService::GetInstance();
+  const bool are_multiple_profiles_open =
+      glass_frame_service && glass_frame_service->HasMultipleOpenProfiles();
+
+  // Avoid updating the background view if the theme colors, tab strip
+  // orientation, and multiple open profiles state haven't changed.
   if (last_theme_color_ == theme_color &&
-      last_is_vertical_tabs_ == is_vertical_tabs) {
+      last_is_vertical_tabs_ == is_vertical_tabs &&
+      has_multiple_profiles_open_ == are_multiple_profiles_open) {
     return;
   }
 
   last_theme_color_ = theme_color;
   last_is_vertical_tabs_ = is_vertical_tabs;
+  has_multiple_profiles_open_ = are_multiple_profiles_open;
+
+  const double tint_opacity =
+      GetGlassFrameTintOpacity(color_utils::IsDark(theme_color),
+                               is_vertical_tabs, has_multiple_profiles_open_);
 
   const CGFloat r = SkColorGetR(theme_color) / 255.0;
   const CGFloat g = SkColorGetG(theme_color) / 255.0;
   const CGFloat b = SkColorGetB(theme_color) / 255.0;
-  const CGFloat a = GetGlassFrameTintOpacity(color_utils::IsDark(theme_color),
-                                             is_vertical_tabs);
 
   tint_view_.layer.backgroundColor =
-      [NSColor colorWithSRGBRed:r green:g blue:b alpha:a].CGColor;
+      [NSColor colorWithSRGBRed:r green:g blue:b alpha:tint_opacity].CGColor;
 
   if (opaque_background_view_) {
     opaque_background_view_.layer.backgroundColor =

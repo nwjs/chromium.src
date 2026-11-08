@@ -12,7 +12,6 @@ import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -240,11 +239,7 @@ public class SigninPromoMediatorTest {
         IdentityServicesProvider.setSigninManagerForTesting(mSigninManager);
         NtpSigninPromoDelegate delegate =
                 new NtpSigninPromoDelegate(
-                        ApplicationProvider.getApplicationContext(),
-                        mProfile,
-                        mLauncher,
-                        () -> {},
-                        () -> false);
+                        ApplicationProvider.getApplicationContext(), mProfile, mLauncher, () -> {});
 
         createSigninPromoMediator(delegate);
 
@@ -268,11 +263,7 @@ public class SigninPromoMediatorTest {
         IdentityServicesProvider.setSigninManagerForTesting(mSigninManager);
         NtpSigninPromoDelegate delegate =
                 new NtpSigninPromoDelegate(
-                        ApplicationProvider.getApplicationContext(),
-                        mProfile,
-                        mLauncher,
-                        () -> {},
-                        () -> false);
+                        ApplicationProvider.getApplicationContext(), mProfile, mLauncher, () -> {});
         createSigninPromoMediator(delegate);
 
         assertFalse(mMediator.getModel().get(SigninPromoProperties.SHOULD_HIDE_DISMISS_BUTTON));
@@ -316,11 +307,7 @@ public class SigninPromoMediatorTest {
         IdentityServicesProvider.setSigninManagerForTesting(mSigninManager);
         NtpSigninPromoDelegate delegate =
                 new NtpSigninPromoDelegate(
-                        ApplicationProvider.getApplicationContext(),
-                        mProfile,
-                        mLauncher,
-                        () -> {},
-                        () -> false);
+                        ApplicationProvider.getApplicationContext(), mProfile, mLauncher, () -> {});
         createSigninPromoMediator(delegate);
 
         assertFalse(mMediator.getModel().get(SigninPromoProperties.SHOULD_SHOW_LOADING_STATE));
@@ -392,9 +379,7 @@ public class SigninPromoMediatorTest {
 
     private void createSigninPromoMediator(SigninPromoDelegate delegate) {
         mProfileDataCache =
-                spy(
-                        ProfileDataCache.createWithDefaultImageSizeAndNoBadge(
-                                mContext, mIdentityManager));
+                ProfileDataCache.createWithDefaultImageSizeAndNoBadge(mContext, mIdentityManager);
         mMediator =
                 new SigninPromoMediator(
                         mIdentityManager,

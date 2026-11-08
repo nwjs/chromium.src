@@ -5,21 +5,35 @@
 #include "components/facilitated_payments/core/features/features.h"
 
 #include "base/metrics/field_trial_params.h"
+#include "build/build_config.h"
 
 namespace payments::facilitated {
 
-#if BUILDFLAG(IS_ANDROID)
 // When enabled, the check for matching the main frame domain with the
 // allowlisted domains will be disabled.
 BASE_FEATURE(kDisableFacilitatedPaymentsMerchantAllowlist,
              base::FEATURE_DISABLED_BY_DEFAULT);
-#endif  // BUILDFLAG(IS_ANDROID)
 
 // When enabled, QR code detection for facilitated payments will be supported on
 // Desktop.
 BASE_FEATURE(kEnableDesktopQrCodeDetection, base::FEATURE_DISABLED_BY_DEFAULT);
 
-#if BUILDFLAG(IS_ANDROID)
+// Regional tokens (e.g. for PromptPay or QRIS) are added via Finch rather than
+// a binary update.
+const base::FeatureParam<std::string> kQrCodeDetectionKeywords{
+    &kEnableDesktopQrCodeDetection, "keywords",
+    "checkout,pagamento,pix,payment"};
+
+// Excludes favicons, avatars and icons, which would otherwise make the square
+// candidate signal fire on nearly every page.
+const base::FeatureParam<int> kQrCodeDetectionMinImageSize{
+    &kEnableDesktopQrCodeDetection, "min_image_size", 50};
+
+// A QR code is square; the tolerance absorbs padding, borders and captions
+// that merchants often render around it.
+const base::FeatureParam<double> kQrCodeDetectionMaxAspectRatio{
+    &kEnableDesktopQrCodeDetection, "max_aspect_ratio", 1.2};
+
 // When enabled, Chrome will receive and cache eWallet creation options from
 // Chrome Sync.
 BASE_FEATURE(kEnableEwalletNewAccountLinking,
@@ -29,27 +43,30 @@ BASE_FEATURE(kEnableEwalletNewAccountLinking,
 // within iframe.
 BASE_FEATURE(kEnableIframeForPix, base::FEATURE_ENABLED_BY_DEFAULT);
 
+#if BUILDFLAG(IS_ANDROID)
 // When enabled, Chrome will prompt users without linked Pix accounts to link
 // their Pix accounts to Google Wallet.
 BASE_FEATURE(kEnablePixAccountLinking, base::FEATURE_DISABLED_BY_DEFAULT);
+#endif  // BUILDFLAG(IS_ANDROID)
 
 // When enabled, Chrome will offer a native Pix account linking flow for
 // users on Chrome, removing the Wallet app dependency.
 BASE_FEATURE(kEnablePixAccountLinkingNative, base::FEATURE_DISABLED_BY_DEFAULT);
 
-const base::FeatureParam<std::string> kPixAccountLinkingNativePromptVariant{
-    &kEnablePixAccountLinkingNative, "prompt_variant", "VariationA"};
-
 const base::FeatureParam<int> kPixAccountLinkingNativeTriggerDelaySeconds{
     &kEnablePixAccountLinkingNative, "trigger_delay_seconds", 3};
+
+#if BUILDFLAG(IS_ANDROID)
+const base::FeatureParam<std::string> kPixAccountLinkingNativePromptVariant{
+    &kEnablePixAccountLinkingNative, "prompt_variant", "VariationA"};
 
 const base::FeatureParam<std::string> kVideoUrlOnPrompt{
     &kEnablePixAccountLinkingNative, "video_url_on_prompt",
     "https://www.youtube.com/watch?v=zXMuvna_X4c"};
+#endif  // BUILDFLAG(IS_ANDROID)
 
 // When enabled, Pix code detection will be supported in Chrome Custom Tabs.
 BASE_FEATURE(kEnablePixInCct, base::FEATURE_ENABLED_BY_DEFAULT);
-#endif  // BUILDFLAG(IS_ANDROID)
 
 // When enabled, Chrome will offer to pay with accounts supporting Pix to users
 // using their devices in landscape mode. Chrome always offers to pay with Pix
@@ -57,19 +74,19 @@ BASE_FEATURE(kEnablePixInCct, base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kEnablePixPaymentsInLandscapeMode,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-#if BUILDFLAG(IS_ANDROID)
 // When enabled, static qr code will be supported for pix pay flow.
 BASE_FEATURE(kEnableStaticQrCodeForPix, base::FEATURE_DISABLED_BY_DEFAULT);
 
+#if BUILDFLAG(IS_ANDROID)
 // When enabled, Chrome will offer to pay with eWallet accounts if a payment
 // link is detected.
 BASE_FEATURE(kEwalletPayments, base::FEATURE_ENABLED_BY_DEFAULT);
+#endif  // BUILDFLAG(IS_ANDROID)
 
 // When enabled, Chrome will offer an app list when a supported payment link is
 // detected. Users can choose the payment app they want to
 // use and be redirected to the chosen app to complete the payment flow.
 BASE_FEATURE(kFacilitatedPaymentsEnableA2APayment,
              base::FEATURE_ENABLED_BY_DEFAULT);
-#endif  // BUILDFLAG(IS_ANDROID)
 
 }  // namespace payments::facilitated

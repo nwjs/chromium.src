@@ -9,6 +9,7 @@
 #include <stdint.h>
 
 #include <memory>
+#include <optional>
 #include <set>
 #include <string>
 #include <string_view>
@@ -46,6 +47,7 @@
 #include "ui/display/display_observer.h"
 #include "ui/gfx/geometry/insets.h"
 #include "ui/gfx/geometry/rect.h"
+#include "ui/gfx/geometry/vector2d_f.h"
 #include "ui/gfx/selection_bound.h"
 #include "ui/wm/public/activation_delegate.h"
 
@@ -169,9 +171,10 @@ class CONTENT_EXPORT RenderWidgetHostViewAura
                                  const gfx::Rect& bounds) override;
   void ClearKeyboardTriggeredTooltip() override;
   bool IsSurfaceAvailableForCopy() override;
-  void CopyFromSurface(
+  void CopyFromSurfaceImpl(
       const gfx::Rect& src_rect,
       const gfx::Size& output_size,
+      bool is_copy_request_secure,
       base::TimeDelta timeout,
       base::OnceCallback<void(const content::CopyFromSurfaceResult&)> callback)
       override;
@@ -230,6 +233,7 @@ class CONTENT_EXPORT RenderWidgetHostViewAura
                           const gfx::Rect& node_bounds_in_screen) override;
 #if BUILDFLAG(IS_WIN)
   bool ShouldInitiateStylusWriting() override;
+  std::optional<gfx::Vector2dF> GetStylusHandwritingPixelsPerInch() override;
   void OnStartStylusWriting() override;
   void OnEditElementFocusedForStylusWriting(
       blink::mojom::StylusWritingFocusResultPtr focus_result) override;

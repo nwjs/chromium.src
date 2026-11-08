@@ -30,6 +30,7 @@ import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 
+import org.chromium.base.ContextUtils;
 import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.SettableMonotonicObservableSupplier;
 import org.chromium.base.test.BaseRobolectricTestRunner;
@@ -48,15 +49,15 @@ public class MvtSettingsMediatorUnitTest {
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
 
     @Mock private BottomSheetDelegate mDelegate;
-    @Mock View mView;
     @Mock private PropertyModel mBottomSheetPropertyModel;
     @Mock private Profile mProfile;
     @Mock private PrefService mPrefService;
     @Captor private ArgumentCaptor<View.OnClickListener> mBackPressHandlerCaptor;
 
-    private MvtSettingsMediator mMediator;
+    private final View mView = new View(ContextUtils.getApplicationContext());
     private final SettableMonotonicObservableSupplier<Profile> mProfileSupplier =
             ObservableSuppliers.createMonotonic();
+    private MvtSettingsMediator mMediator;
 
     @Before
     public void setUp() {

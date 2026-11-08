@@ -242,8 +242,9 @@ chromium-metrics-reviews@google.com.
     The selected group does not exist in the given seed (e.g., if the group was
     forced from the command line).
   </int>
-  <int value="4" label="Not Strict Killswitch">
-    The experiment is not a strict killswitch (e.g., it enables features).
+  <int value="4" label="Not Strict Killswitch (Deprecated 09/2026)">
+    The experiment is not a strict killswitch (e.g., it enables features). No
+    longer recorded: runtime mutability now supports enabling features.
   </int>
   <int value="5" label="Not starts_active">
     The study is not activated on startup (starts_active).
@@ -287,8 +288,13 @@ chromium-metrics-reviews@google.com.
   <int value="16" label="Overridden Trial Has Google Web ID">
     The trial being overridden has a Google web experiment ID.
   </int>
-  <int value="17" label="Runtime Experiment Has Params">
-    The runtime mutable experiment has params.
+  <int value="17" label="Runtime Experiment Has Params (Deprecated 09/2026)">
+    The runtime mutable experiment has params. No longer recorded: runtime
+    mutability now supports experiment params.
+  </int>
+  <int value="18" label="Feature Both Enabled And Disabled">
+    The experiment specifies the same feature in both enable_feature and
+    disable_feature.
   </int>
 </enum>
 
@@ -308,6 +314,16 @@ chromium-metrics-reviews@google.com.
   <int value="0" label="All variations are applied"/>
   <int value="1" label="Only critical variations applied"/>
   <int value="2" label="All variations are restricted"/>
+</enum>
+
+<enum name="VariationsRestrictModeLookupResult">
+  <int value="0" label="Restrict mode set"/>
+  <int value="1" label="Restrict mode not set"/>
+  <int value="2" label="Platform services unavailable"/>
+  <int value="3" label="API unsupported"/>
+  <int value="4" label="API not connected"/>
+  <int value="5" label="Timeout"/>
+  <int value="6" label="Error"/>
 </enum>
 
 <!-- LINT.IfChange(VariationsRotateUmaLogResult) -->
@@ -352,12 +368,17 @@ chromium-metrics-reviews@google.com.
   <int value="4" label="Engaged - without safe values"/>
 </enum>
 
+<!-- LINT.IfChange(UpdateSeedDateResult) -->
+
 <enum name="VariationsSeedDateChange">
   <int value="0" label="No previous date"/>
   <int value="1" label="New date older than old date"/>
   <int value="2" label="Same day"/>
   <int value="3" label="Day changed"/>
+  <int value="4" label="No new date (untrusted or absent server date)"/>
 </enum>
+
+<!-- LINT.ThenChange(//components/variations/metrics.h:UpdateSeedDateResult) -->
 
 <!-- LINT.IfChange(VariationsSeedLoadResult) -->
 

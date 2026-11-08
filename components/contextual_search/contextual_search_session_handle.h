@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "base/callback_list.h"
+#include "base/containers/flat_map.h"
 #include "base/functional/callback.h"
 #include "base/gtest_prod_util.h"
 #include "base/memory/raw_ptr.h"
@@ -70,18 +71,23 @@ struct TabInfo {
   std::string title;
 
   // True if the tab is explicitly uploaded (no delay) or persisted in the
-  // session; false for tabs not uploaded: delayed/implicit uploads
-  // (uploaded at submit time) and restored tabs.
+  // session; false for tabs not uploaded: delayed/implicit uploads (e.g., smart
+  // tab, etc.), submitted but not confirmed uploaded tabs, and restored tabs.
   bool uploaded = false;
 
   // True if the tab was restored from durable task context (e.g. an AIM
   // thread's history) rather than attached in this session.
   bool restored_from_aim = false;
 
-  // True once the tab has been sent to the server in a submitted query AND
-  // the server has acknowledged it received it. Tabs are remembered after
-  // submitting so they can be removed if the user manually removes them.
-  bool ack_by_server = false;
+  // True once the tab has been sent to the server in a submitted query. Tabs
+  // are remembered after submitting so they can be removed if the user
+  // manually removes them.
+  bool submitted = false;
+
+  // True if the tab was added via `AddPendingDelayedTab()` and has not been
+  // uploaded yet. `context_token` is then not an uploaded context token. Reset
+  // once the tab is uploaded via `StartTabContextUploadFlow()`.
+  bool pending_delayed_upload = false;
 };
 
 // The set of tabs attached or restored as context for a session, as a snapshot.
@@ -102,13 +108,15 @@ struct TabContextState {
   bool operator==(const TabContextState& other) const;
 
   // Tabs attached in this session, in the order they were attached. Kept in
-  // sync by `StartTabContextUploadFlow()`, `AddDelayedTabContext()`,
-  // `DeleteFile()` and `RemoveUploadedContextToken()`. `ClearFiles()` only
-  // removes tabs that were never submitted, so tabs stay attached after
-  // submission. Delayed tabs are attached with `uploaded` false
-  // before their upload starts, and are changed to true once uploaded.
-  // Does not include restored tabs, only tabs manually attached in the
-  // current session. At most one entry per tab ID.
+  // sync by `StartTabContextUploadFlow()`, `AttachTabPendingUpload()`,
+  // `AddPendingDelayedTab()`, `DeleteFile()` and
+  // `RemoveUploadedContextToken()`. If `submitted=false` in `ClearFiles()`,
+  // all attached tabs should be cleared; otherwise, no change. Delayed tabs
+  // are attached with `uploaded` false before their upload starts, and are
+  // changed to true once uploaded. Does not include restored tabs, only
+  // tabs manually attached in the current session. Frontend or page will
+  // combine them/reverse order as needed based on current product
+  // requirements. At most one entry per tab ID.
   std::vector<TabInfo> attached;
 
   // Tabs carried from past history in this thread from the server, in the
@@ -345,7 +353,7 @@ class ContextualSearchSessionHandle {
   // Clear all context controller files from this particular instance of the
   // session handle. This does not clear the internal state of the context
   // controller, which may be shared with other session handles.
-  // Moves uploaded file tokens that are tabs into `persisted_tabs_` if
+  // Marks uploaded tabs in `tab_context_.attached` as 'submitted' if
   // `query_submitted` is true.
   void ClearFiles(bool query_submitted = false);
 
@@ -369,17 +377,17 @@ class ContextualSearchSessionHandle {
 
   // Returns the request IDs of contexts removed since the last query that the
   // server has not yet been told about: contexts dropped by a Smart Tab Sharing
-  // toggle, and persisted tabs that were deselected, closed, or navigated away
-  // from their uploaded page. Clears the returned contexts from this handle, so
-  // each removal is only reported once. Callers that submit queries outside of
-  // `CreateClientToAimRequest()` must call this on every submission and
-  // forward the result to the server as removed contexts.
+  // toggle, and persisted attached tabs that were deselected, closed, or
+  // navigated away from their uploaded page. Clears the returned contexts from
+  // this handle, so each removal is only reported once. Callers that submit
+  // queries outside of `CreateClientToAimRequest()` must call this on every
+  // submission and forward the result to the server as removed contexts.
   std::vector<lens::LensOverlayRequestId> TakeRemovedContexts();
 
   // Records that a query was submitted with `file_tokens` plus any uploaded
-  // context tokens not already in `file_tokens`. Moves submitted tabs into
-  // `persisted_tabs_`, clears `uploaded_context_tokens_`, appends to the
-  // submitted context tokens, and records query metrics when
+  // context tokens not already in `file_tokens`. Moves submitted tabs in
+  // `tab_context_.attached` as 'submitted', clears `uploaded_context_tokens_`,
+  // appends to the submitted context tokens, and records query metrics when
   // `query_text_length` is provided. Returns the full list of submitted
   // tokens in upload order. Callers that submit queries outside of
   // `CreateClientToAimRequest()` must call this on every submission.
@@ -427,9 +435,19 @@ class ContextualSearchSessionHandle {
   bool has_submitted_context() const { return has_submitted_context_; }
 
   // The multi-login account index for this session, received from the
-  // AIM/Search handshake response.
+  // AIM/Search handshake response (only populated post-rearchitecture when
+  // `kContextualTasksRearchitecture` is enabled; 0 otherwise).
   size_t auth_user_index() const { return auth_user_index_; }
   void set_auth_user_index(size_t auth_user_index);
+
+  // The current URL of the WebContents associated with the `InputStateModel`
+  // for this session. For the NTP composebox, this is `chrome://new-tab-page`;
+  // for the Omnibox, this is the active tab's URL; for the Contextual Tasks
+  // side panel, this is the AIM page URL (`www.google.com/search`), either from
+  // the embedded `<webview>` frame (pre-rearchitecture) or the page the
+  // extension is embedded into (post-rearchitecture).
+  const GURL& current_url() const { return current_url_; }
+  void set_current_url(const GURL& url) { current_url_ = url; }
 
   // Clears the list of submitted context tokens for this particular instance of
   // the session. This is intended to be invoked when the server has responded
@@ -437,18 +455,23 @@ class ContextualSearchSessionHandle {
   void ClearSubmittedContextTokens();
 
   // Sets the submitted context tokens.
-  void set_submitted_context_tokens(
+  void SetSubmittedContextTokens(
       const std::vector<base::UnguessableToken>& tokens);
 
   using PersistedTabsMap =
       std::map<SessionID,
                std::pair<base::UnguessableToken, lens::LensOverlayRequestId>>;
 
-  // Returns the map of persisted tabs.
-  const PersistedTabsMap& persisted_tabs() const { return persisted_tabs_; }
+  // Returns the tabs submitted in previous turns of this session, i.e. the
+  // entries of `tab_context_.attached` with `submitted` set.
+  PersistedTabsMap GetPersistedTabs() const;
 
-  // Sets the persisted tabs map.
-  void set_persisted_tabs(PersistedTabsMap persisted_tabs);
+  // Delete all tabs that have persisted across submissions.
+  void ClearAllPersistedTabs();
+
+  // Replaces the tabs submitted in previous turns of this session. Used for
+  // session handoff.
+  void SetPersistedTabs(PersistedTabsMap new_persisted_tabs);
 
   // Returns the list of submitted FileInfo for this particular instance
   // of the session. These are uploaded and submitted, but we have not received
@@ -486,28 +509,54 @@ class ContextualSearchSessionHandle {
   // changed.
   void SetRestoredTabs(std::vector<TabInfo> tabs);
 
-  // Records the URL, title, tab id for a tab whose upload is
-  // delayed until query submission. `tab_id` is the tab's SessionID
-  // (`SessionID::id()`). It is attached with `uploaded` set to false and is
-  // later updated in place when `StartTabContextUploadFlow()` is called for the
-  // same tab. No-op if `file_token` is not an uploaded context token. This is
-  // the only function that must be called outside of usual session handle
-  // workflow in order to update the `TabContextState`.
-  // TODO(crbug.com/568013317): Have the session handle own delayed tab IDs,
-  // remove the tab context snapshot code from
-  // `ContextualTasksExtensionHandler`, and upload delayed tabs at submit time
-  // via QueryContextualizer, like `ContextualTasksComposeboxHandler`. Then the
-  // session handle is the single source of truth for delayed tabs and nothing
-  // is tracked on the side, and this public `TabContextState` API is not
-  // needed.
-  void AddDelayedTabContext(const base::UnguessableToken& file_token,
-                            int32_t tab_id,
-                            const GURL& url,
-                            const std::string& title);
+  // Attaches a tab whose context, identified by `file_token`, is uploaded
+  // later, e.g. while its page context is being captured, or when the upload
+  // is delayed until query submission. Records the tab's URL, title and
+  // `tab_id`, its SessionID (`SessionID::id()`). It is attached with
+  // `uploaded` set to false and is updated in place when
+  // `StartTabContextUploadFlow()` is called for the same tab. No-op if
+  // `file_token` is not an uploaded context token. Along with
+  // `AddPendingDelayedTab()`, this is one of the only functions that must be
+  // called outside of usual session handle workflow in order to update the
+  // `TabContextState`. Use it when a context token already exists for the tab;
+  // otherwise use `AddPendingDelayedTab()`.
+  void AttachTabPendingUpload(const base::UnguessableToken& file_token,
+                              int32_t tab_id,
+                              const GURL& url,
+                              const std::string& title);
+
+  // Records a delayed tab that has no context token yet, because its context
+  // is captured and uploaded at submit time (e.g. via QueryContextualizer).
+  // The session handle creates a token for the tab, which identifies it until
+  // then (e.g. for its chip) but is not an uploaded context token, and sets
+  // `TabInfo::pending_delayed_upload`. The entry is updated in place when
+  // `StartTabContextUploadFlow()` is called for the same tab, and is removed by
+  // `DeleteFile()` or `RemoveUploadedContextToken()` with the returned token,
+  // or by `ClearFiles(/*query_submitted=*/false)`. Clears any deselection of
+  // the tab. Returns the token.
+  base::UnguessableToken AddPendingDelayedTab(int32_t tab_id,
+                                              const GURL& url,
+                                              const std::string& title);
+
+  // Returns the SessionIDs of attached tabs with
+  // `TabInfo::pending_delayed_upload`, in attach order.
+  std::vector<SessionID> GetPendingDelayedTabIds() const;
+
+  // Deletes the tab that `token` refers to, e.g. when the user removes its
+  // chip. Unlike `DeleteFile()`, which deletes exactly `token` and keeps the
+  // tab attached if `token` is no longer its current token, this also deletes
+  // the tab's current token. The chip's token may be stale: superseded by a
+  // re-upload of the tab (e.g. on submit), or returned by
+  // `AddPendingDelayedTab()` before the tab was uploaded. Each token is
+  // deleted via `DeleteFile()`, or else `RemoveUploadedContextToken()`, so
+  // non-tab tokens are just deleted. Returns the `TabInfo::tab_id` of the
+  // attached tab for `token`, if any.
+  std::optional<int32_t> DeleteTabContext(const base::UnguessableToken& token);
 
  private:
   friend class ContextualSearchService;
   friend class MockContextualSearchSessionHandle;
+
   FRIEND_TEST_ALL_PREFIXES(
       ContextualSearchSessionHandleTest,
       NotifyQuerySubmittedSessionState_TabAttachmentCount);
@@ -527,12 +576,17 @@ class ContextualSearchSessionHandle {
   // position; otherwise it is appended. `restored_from_aim` is forced to
   // false. Notifies tab context subscribers if the attached tabs changed.
   // Called by normal session handle workflow via `StartTabContextUploadFlow()`
-  // and `AddDelayedTabContext()`.
+  // and `AttachTabPendingUpload()`.
   void AddAttachedTab(TabInfo tab);
 
-  // Removes attached tabs whose `context_token` is `file_token`. Notifies tab
-  // context subscribers if any tabs were removed.
+  // Removes attached tabs whose `context_token` is `file_token`, moving any
+  // submitted entries to `displaced_submitted_tabs_`. Notifies tab context
+  // subscribers if any tabs were removed.
   void RemoveAttachedTabForToken(const base::UnguessableToken& file_token);
+
+  // Notifies tab context subscribers if tab context has been updated
+  // (`tab_context_dirty_` is set to `true`). Clears the dirty flag.
+  void MaybeNotifyTabContextSubscribers();
 
   // Notifies the metrics recorder that a query has been submitted, providing
   // information about the presence of tab and non-tab context.
@@ -543,8 +597,10 @@ class ContextualSearchSessionHandle {
   // or an empty token if not found.
   base::UnguessableToken GetActiveTokenForTab(SessionID tab_session_id) const;
 
-  // Tracks a persisted tab if it is not superceded, deduplicating history.
-  void MaybeAddTabToPersistedTabs(const base::UnguessableToken& token);
+  // Marks the tab for `token` in `tab_context_.attached` as `submitted`
+  // if it is not already done so. O(n) search to find duplicates is okay
+  // since tab number is small.
+  void MarkTabAckByServer(const base::UnguessableToken& token);
 
   // Returns true if the token corresponds to a tab context.
   bool IsTabToken(const base::UnguessableToken& token) const;
@@ -567,19 +623,31 @@ class ContextualSearchSessionHandle {
   // Whether any context tokens were submitted in a query in this session.
   bool has_submitted_context_ = false;
 
-  // Map of tab session IDs to their latest submitted token and request ID.
-  // Tracks active tabs in the session to detect their deletion or removal.
-  std::map<SessionID,
-           std::pair<base::UnguessableToken, lens::LensOverlayRequestId>>
-      persisted_tabs_;
+  // Tab of each token returned by `AddPendingDelayedTab()`, which is replaced
+  // in the attached tab once the tab is uploaded. Lets the token's chip delete
+  // the tab after that. Erased by `DeleteFile()` with the token.
+  base::flat_map<base::UnguessableToken, SessionID> delayed_tab_token_ids_;
 
-  // Current snapshot of attached, restored, and deselected tabs. Mutable
-  // because `IsTabDeselected()` lazily clears stale deselections.
+  // Current snapshot of attached, restored, and deselected tabs. Entries in
+  // `attached` with `submitted` are persistent tabs that are still tracked
+  // for the purpose of deleting them from server if manually removed by user.
   TabContextState tab_context_;
+
+  // Submitted tabs that were removed or replaced in `tab_context_.attached`
+  // and are awaiting server-side removal inspection in `TakeRemovedContexts()`.
+  // TODO(crbug.com/563055721): Consolidate persisted and submitted tab
+  // tracking out of `tab_context_.attached` into a unified submitted
+  // list and remove `displaced_submitted_tabs_`.
+  std::vector<TabInfo> displaced_submitted_tabs_;
 
   // Subscribers to changes in the tab context state.
   base::RepeatingCallbackList<void(const TabContextState&)>
       tab_context_subscribers_;
+
+  // This flag is set when `tab_context_.attached` and/or
+  // `tab_context_.restored` change. It is cleared by
+  // `MaybeNotifyTabContextSubscribers()`.
+  bool tab_context_dirty_ = false;
 
   // Whether the SearchContentSharingSettings policy has been checked.
   bool policy_checked_ = false;
@@ -620,6 +688,9 @@ class ContextualSearchSessionHandle {
 
   // The multi-login account index for this session.
   size_t auth_user_index_ = 0;
+
+  // The current URL of the composebox/AIM WebContents for this session.
+  GURL current_url_;
 
   // This needs to be the last member to ensure all outstanding WeakPtrs are
   // invalidated before the rest of the members.

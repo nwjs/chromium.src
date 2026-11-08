@@ -11,9 +11,11 @@
 #include <string>
 #include <string_view>
 
+#include "base/containers/span.h"
 #include "base/no_destructor.h"
 #include "ui/base/class_property.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
+#include "ui/gfx/text_utils.h"
 
 DEFINE_UI_CLASS_PROPERTY_TYPE(actions::ActionPinnableState)
 namespace actions {
@@ -52,6 +54,18 @@ ActionList::~ActionList() = default;
 BaseAction* ActionList::AddAction(std::unique_ptr<BaseAction> action_item) {
   BaseAction* result = action_item.get();
   children_.push_back(std::move(action_item));
+  if (delegate_) {
+    delegate_->ActionListChanged();
+  }
+  return result;
+}
+
+BaseAction* ActionList::AddActionAt(std::unique_ptr<BaseAction> action_item,
+                                    size_t index) {
+  CHECK_LE(index, children_.size());
+  BaseAction* result = action_item.get();
+  children_.insert(children_.begin() + static_cast<ptrdiff_t>(index),
+                   std::move(action_item));
   if (delegate_) {
     delegate_->ActionListChanged();
   }
@@ -116,6 +130,11 @@ void BaseAction::PopulateChildItems() {
 
 void BaseAction::AddChildInternal(std::unique_ptr<BaseAction> action_item) {
   children_.AddAction(std::move(action_item));
+}
+
+void BaseAction::AddChildAtInternal(std::unique_ptr<BaseAction> action_item,
+                                    size_t index) {
+  children_.AddActionAt(std::move(action_item), index);
 }
 
 BEGIN_METADATA_BASE(BaseAction)
@@ -285,11 +304,16 @@ std::u16string_view ActionItem::GetText() const {
 }
 
 void ActionItem::SetText(std::u16string_view text) {
-  if (text_ == text) {
+  if (raw_text_ == text) {
     return;
   }
-  text_ = std::u16string(text);
+  raw_text_ = std::u16string(text);
+  text_ = gfx::RemoveAccelerator(raw_text_);
   ActionItemChanged();
+}
+
+std::u16string_view ActionItem::GetTextWithMnemonic() const {
+  return raw_text_;
 }
 
 std::u16string_view ActionItem::GetTooltipText() const {
@@ -344,7 +368,7 @@ void ActionItem::AddSynonyms(std::initializer_list<std::u16string> synonyms) {
 }
 
 // Returns the synonyms for this action. Used for fuzzy search.
-const std::vector<std::u16string>& ActionItem::GetSynonyms() const {
+base::span<const std::u16string> ActionItem::GetSynonyms() const {
   return synonyms_;
 }
 
@@ -410,6 +434,7 @@ ADD_PROPERTY_METADATA(std::u16string, TooltipText)
 ADD_PROPERTY_METADATA(bool, Visible)
 ADD_READONLY_PROPERTY_METADATA(int, InvokeCount)
 ADD_READONLY_PROPERTY_METADATA(std::optional<base::TimeTicks>, LastInvokeTime)
+ADD_READONLY_PROPERTY_METADATA(std::u16string, TextWithMnemonic)
 END_METADATA
 
 StatefulImageActionItem::~StatefulImageActionItem() = default;

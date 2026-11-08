@@ -138,8 +138,6 @@ import java.util.concurrent.atomic.AtomicReference;
     // entry is covered by ChromeContextMenuPopulatorTest and
     // testContextMenuAddsAskGeminiForLink below.
     ChromeFeatureList.CLANK_GLIC_CONTEXT_MENU,
-    // TODO(b/555414915): Update Android tests with WebUI NTP enabled on AL.
-    ChromeFeatureList.USE_WEB_UI_NTP_ANDROID,
 })
 @Batch(Batch.PER_CLASS)
 @DisableIf.Device(DeviceFormFactor.DESKTOP_FREEFORM) // crbug.com/511288174
@@ -1440,8 +1438,12 @@ public class ContextMenuTest {
     }
 
     private Integer[] maybeAddPictureInPictureItem(Integer[] baseItems) {
+        // The item is only shown when web Picture-in-Picture is enabled, which also requires
+        // Android R. See ActivityTabWebContentsDelegateAndroid#isPictureInPictureEnabled.
+        // TODO(crbug.com/568761242): Remove the SDK check once the minimum SDK is Android R+.
         return addItemsIf(
-                PictureInPicture.isEnabled(mActivityTestRule.getActivity()),
+                VERSION.SDK_INT >= VERSION_CODES.R
+                        && PictureInPicture.isEnabled(mActivityTestRule.getActivity()),
                 baseItems,
                 new Integer[] {R.id.contextmenu_picture_in_picture});
     }

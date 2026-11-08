@@ -36,21 +36,13 @@
 #include "components/actor/core/aggregated_journal.h"
 #include "components/actor/core/journal_details_builder.h"
 #include "components/actor/core/task_id.h"
-#include "components/enterprise/buildflags/buildflags.h"
 #include "components/enterprise/connectors/core/features.h"
 #include "components/prefs/pref_service.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/signin/public/identity_manager/primary_account_change_event.h"
 #include "components/signin/public/identity_manager/tribool.h"
 #include "components/variations/service/variations_service.h"
-#include "content/public/browser/render_frame_host.h"
-#include "content/public/browser/web_contents.h"
 #include "google_apis/gaia/gaia_auth_util.h"
-
-#if BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS) || \
-    BUILDFLAG(ENTERPRISE_DATA_CONTROLS)
-#include "chrome/browser/enterprise/data_protection/data_protection_clipboard_utils.h"
-#endif
 
 // Traits for base::ToString(). They need to be in the corresponding namespace
 // of the enums.
@@ -218,10 +210,8 @@ bool AccountHasChromeBenefits(Profile& profile,
 }  // namespace
 
 GlicActorPolicyChecker::GlicActorPolicyChecker(Profile& profile)
-    : profile_(&profile),
-      url_blocklist_manager_(profile_->GetPrefs(),
-                             glic::prefs::kGlicActuationOnWebBlockedForURLs,
-                             glic::prefs::kGlicActuationOnWebAllowedForURLs),
+    : actor::ActorEnterprisePolicyChecker(&profile),
+      profile_(&profile),
       journal_(
           actor::ActorKeyedService::Get(profile_)->GetJournal().GetSafeRef()) {
   signin::IdentityManager* identity_manager =
@@ -248,7 +238,7 @@ GlicActorPolicyChecker::GlicActorPolicyChecker(Profile& profile)
       glic::prefs::kGlicActuationOnWeb,
       base::BindRepeating(&GlicActorPolicyChecker::OnPrefOrAccountChanged,
                           weak_ptr_factory_.GetWeakPtr()));
-  url_blocklist_subscription_ = url_blocklist_manager_.AddObserver(
+  url_blocklist_subscription_ = AddUrlListsUpdateObserver(
       base::BindRepeating(&GlicActorPolicyChecker::OnPrefOrAccountChanged,
                           weak_ptr_factory_.GetWeakPtr()));
   // Listens to user status changes.
@@ -405,17 +395,14 @@ GlicActorPolicyChecker::ComputeActOnWebCapability(bool disable_for_enterprise) {
                              : CannotActReason::kNone};
       };
 
-  if (features::kGlicActorPolicyControlExemption.Get()) {
+  if (base::FeatureList::IsEnabled(
+          features::kGlicActorPolicyControlExemption)) {
     return log_and_return(
         CanActOutcome::kYes,
-        "extempted via cmdline `glic_actor_policy_control_exemption`");
+        "exempted via cmdline `glic_actor_policy_control_exemption`");
   }
 
-  // If the main Glic check has been split to no longer use the
-  // can_use_model_execution_features capability (see
-  // kGlicEligibilitySeparateAccountCapability), then that capability must be
-  // checked here. This is because actuation currently implements stricter
-  // account checks.
+  // Actuation is currently restricted to users who can use adult features.
   signin::IdentityManager* identity_manager =
       IdentityManagerFactory::GetForProfile(profile_);
   CHECK(identity_manager);
@@ -533,13 +520,9 @@ GlicActorPolicyChecker::ComputeActOnWebCapability(bool disable_for_enterprise) {
 
 GlicActorPolicyChecker::UrlBlockReason GlicActorPolicyChecker::Evaluate(
     const GURL& url) const {
-  const policy::URLBlocklist::URLBlocklistState state =
-      url_blocklist_manager_.GetURLBlocklistState(url);
-  if (state == policy::URLBlocklist::URLBlocklistState::URL_IN_BLOCKLIST) {
-    return UrlBlockReason::kExplicitlyBlocked;
-  }
-  if (state == policy::URLBlocklist::URLBlocklistState::URL_IN_ALLOWLIST) {
-    return UrlBlockReason::kExplicitlyAllowed;
+  const UrlBlockReason reason = ActorEnterprisePolicyChecker::Evaluate(url);
+  if (reason != UrlBlockReason::kNotBlocked) {
+    return reason;
   }
 
   // If the general policy is set to disable acting, then if the url is not in
@@ -554,33 +537,7 @@ GlicActorPolicyChecker::UrlBlockReason GlicActorPolicyChecker::Evaluate(
 base::CallbackListSubscription
 GlicActorPolicyChecker::AddUrlListsUpdateObserverForTesting(
     base::RepeatingClosure callback) {
-  return url_blocklist_manager_.AddObserver(std::move(callback));
-}
-
-void GlicActorPolicyChecker::ValidateContentSentToRenderer(
-    content::RenderFrameHost* frame,
-    const std::string& content,
-    ContentValidationCallback callback) const {
-  content::WebContents* web_contents =
-      frame ? content::WebContents::FromRenderFrameHost(frame) : nullptr;
-  if (!web_contents || !profile_) {
-    std::move(callback).Run(ContentValidationReason::kAllowed);
-    return;
-  }
-
-#if BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS) || \
-    BUILDFLAG(ENTERPRISE_DATA_CONTROLS)
-  enterprise_data_protection::PasteFromGeminiIfAllowedByPolicy(
-      frame, content,
-      base::BindOnce(
-          [](ContentValidationCallback cb, bool allowed) {
-            std::move(cb).Run(allowed ? ContentValidationReason::kAllowed
-                                      : ContentValidationReason::kBlocked);
-          },
-          std::move(callback)));
-#else
-  std::move(callback).Run(ContentValidationReason::kAllowed);
-#endif
+  return AddUrlListsUpdateObserver(std::move(callback));
 }
 
 }  // namespace glic

@@ -41,8 +41,9 @@ bool VerifyDescription(const AudioDecoderConfig& config,
                        String* js_error_message) {
   // https://www.w3.org/TR/webcodecs-flac-codec-registration
   // https://www.w3.org/TR/webcodecs-vorbis-codec-registration
-  if ((config.codec() == "flac" || config.codec() == "vorbis") &&
-      !config.hasDescription()) {
+  const bool is_flac_or_vorbis =
+      config.codec() == "flac" || config.codec() == "vorbis";
+  if (is_flac_or_vorbis && !config.hasDescription()) {
     *js_error_message = "Invalid config; description is required.";
     return false;
   }
@@ -58,13 +59,28 @@ bool VerifyDescription(const AudioDecoderConfig& config,
   }
 
   if (config.hasDescription()) {
-    auto desc_wrapper = AsSpan<const uint8_t>(config.description());
+    base::span<const uint8_t> desc_wrapper =
+        AsSpan<SharedBufferPolicy::kAllow>(*config.description());
 
     // Detached buffers are already rejected in `IsValidAudioDecoderConfig()`,
     // which is called before `VerifyDescription()`.
     CHECK(desc_wrapper.data());
 
+    if (is_flac_or_vorbis && desc_wrapper.empty()) {
+      *js_error_message = "Invalid config; description must not be empty.";
+      return false;
+    }
+
     if (config.codec() == "opus") {
+      if (desc_wrapper.empty()) {
+        *js_error_message =
+            config.numberOfChannels() > 2
+                ? "Invalid config; description must not be empty."
+                : "Invalid config; description must not be empty (omit "
+                  "description if not needed).";
+        return false;
+      }
+
       // A size of 19 bytes corresponds to the minimum length of an Opus
       // Identification Header for a standard mono or stereo stream.
       constexpr size_t kMinDescriptionSize = 19;
@@ -84,7 +100,8 @@ AudioDecoderConfig* CopyConfig(const AudioDecoderConfig& config) {
   copy->setSampleRate(config.sampleRate());
   copy->setNumberOfChannels(config.numberOfChannels());
   if (config.hasDescription()) {
-    auto desc_wrapper = AsSpan<const uint8_t>(config.description());
+    base::span<const uint8_t> desc_wrapper =
+        AsSpan<SharedBufferPolicy::kAllow>(*config.description());
     if (!desc_wrapper.empty()) {
       DOMArrayBuffer* buffer_copy = DOMArrayBuffer::Create(desc_wrapper);
       copy->setDescription(
@@ -237,7 +254,8 @@ std::optional<media::AudioType> AudioDecoder::IsValidAudioDecoderConfig(
     return std::nullopt;
   }
   if (config.hasDescription()) {
-    auto desc_wrapper = AsSpan<const uint8_t>(config.description());
+    base::span<const uint8_t> desc_wrapper =
+        AsSpan<SharedBufferPolicy::kAllow>(*config.description());
     if (!desc_wrapper.data()) {
       *js_error_message = "Invalid config; description is detached.";
       return std::nullopt;
@@ -282,7 +300,8 @@ AudioDecoder::MakeMediaAudioDecoderConfig(const ConfigType& config,
 
   std::vector<uint8_t> extra_data;
   if (config.hasDescription()) {
-    auto desc_wrapper = AsSpan<const uint8_t>(config.description());
+    base::span<const uint8_t> desc_wrapper =
+        AsSpan<SharedBufferPolicy::kAllow>(*config.description());
     if (!desc_wrapper.empty()) {
       extra_data.assign(base::to_address(desc_wrapper.begin()),
                         base::to_address(desc_wrapper.end()));

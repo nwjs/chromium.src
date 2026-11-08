@@ -19,6 +19,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 
 from devil.utils import cmd_helper
+import psutil
 from py_utils import tempfile_ext
 from pylib import constants
 from pylib.base import base_test_result
@@ -26,9 +27,18 @@ from pylib.base import test_run
 from pylib.constants import host_paths
 from pylib.results import json_results
 
-# Chosen after timing test runs of chrome_junit_tests with 7,16,32,
-# and 64 workers in threadpool and different classes_per_job.
-_MAX_TESTS_PER_JOB = 128
+# Minimum target number of tests accumulated per job before starting a new
+# group (whole test classes are added until size >= _TARGET_TESTS_PER_JOB).
+# Tuned for chrome_junit_tests (~44,000 tests across 2 SDKs -> ~92 jobs,
+# running in 1 wave on a 96-core workstation or ~9-10 jobs per shard across 10
+# CQ shards). Kept as a fixed constant independent of cpu_count() so that
+# GroupTests() forms identical batches on 8-core bots and local workstations,
+# keeping cross-test side effects reproducible locally.
+_TARGET_TESTS_PER_JOB = 512
+
+# Chosen not as the minimum amount needed, but as a generous limit that fits
+# well on 8-core/32GB bots in order to minimize GCs.
+_MAX_MEM_PER_JOB_GB = 2
 
 _FAILURE_TYPES = (
     base_test_result.ResultType.FAIL,
@@ -99,7 +109,7 @@ class LocalMachineJunitTestRun(test_run.TestRun):
             # These values must be kept in sync with
             # BaseRobolectricTestRunner.java.
             min_sdk = '29'
-            max_sdk = '36'
+            max_sdk = '37'
 
             if self._test_instance.single_variant:
                 sdk_string = max_sdk
@@ -151,6 +161,7 @@ class LocalMachineJunitTestRun(test_run.TestRun):
             '-Drobolectric.logging=stdout',
             '-Drobolectric.enforceViewMethodsCalledOnMainThread=true',
             f'-Djava.library.path={self._test_instance.native_libs_dir}',
+            f'-Xmx{_MAX_MEM_PER_JOB_GB}G',
         ]
         extracted_dir = os.path.join(os.path.dirname(libs_dir), 'pre-extracted')
         # Check for existence to not break checkouts that have not
@@ -214,12 +225,16 @@ class LocalMachineJunitTestRun(test_run.TestRun):
         if self._test_instance.debug_socket:
             num_workers = 1
         elif (
-            self._test_instance.shards is not None
-            and self._test_instance.shards > 0
+            self._test_instance.jobs is not None
+            and self._test_instance.jobs > 0
         ):
-            num_workers = self._test_instance.shards
+            num_workers = self._test_instance.jobs
         else:
-            num_workers = multiprocessing.cpu_count()
+            available_gb = psutil.virtual_memory().available // (1024**3)
+            num_workers = min(
+                multiprocessing.cpu_count(),
+                max(1, available_gb // _MAX_MEM_PER_JOB_GB),
+            )
         return min(num_workers, num_jobs)
 
     def _ApplyExternalSharding(self, json_config):
@@ -234,7 +249,7 @@ class LocalMachineJunitTestRun(test_run.TestRun):
             total_shards,
         )
 
-        all_groups = GroupTests(json_config, _MAX_TESTS_PER_JOB)
+        all_groups = GroupTests(json_config, _TARGET_TESTS_PER_JOB)
         selected_groups = [
             g
             for i, g in enumerate(all_groups)
@@ -303,14 +318,16 @@ class LocalMachineJunitTestRun(test_run.TestRun):
         if self._test_instance.debug_socket:
             timeout = 999999
         else:
-            # 20 seconds for process init,
-            # 5 seconds per class,
-            # 3 seconds per method.
+            # 100 seconds for process init, 10 seconds per class, 5 seconds per
+            # method. The fixed part must exceed the per-test timeout
+            # (PER_TEST_TIMEOUT_MS in BaseRobolectricTestRunner.java) so that a
+            # hanging test in a small shard fails with a per-test timeout, which
+            # names the test, rather than with a shard timeout.
             num_classes = len(test_group.methods_by_class)
             num_tests = sum(
                 len(x) for x in test_group.methods_by_class.values()
             )
-            timeout = 60 + 10 * num_classes + num_tests * 5
+            timeout = 100 + 10 * num_classes + num_tests * 5
         return _Job(
             shard_id=shard_id,
             cmd=cmd,
@@ -369,7 +386,7 @@ class LocalMachineJunitTestRun(test_run.TestRun):
                     target_methods.extend(methods)
 
         json_config = self._ApplyExternalSharding(json_config)
-        test_groups = GroupTests(json_config, _MAX_TESTS_PER_JOB)
+        test_groups = GroupTests(json_config, _TARGET_TESTS_PER_JOB)
 
         shard_list = list(range(len(test_groups)))
         shard_filter = self._test_instance.shard_filter
@@ -431,7 +448,7 @@ class LocalMachineJunitTestRun(test_run.TestRun):
                 log_lines.append(line)
                 failed_test_logs[current_test] = ''.join(log_lines)
                 if self._test_instance.quiet:
-                    for l in log_lines:
+                    for l in log_lines:  # noqa: E741
                         sys.stdout.write(l)
                 current_test = None
             elif _TEST_FINISHED_RE.match(line) and current_test:
@@ -484,7 +501,7 @@ class LocalMachineJunitTestRun(test_run.TestRun):
 
             print(
                 f'To re-run the {len(failed_jobs)} failed shard(s), use: '
-                f'--shards {num_workers} --shard-filter',
+                f'-j {num_workers} --shard-filter',
                 ','.join(str(j.shard_id) for j in failed_jobs),
             )
 
@@ -537,12 +554,13 @@ class LocalMachineJunitTestRun(test_run.TestRun):
         pass
 
 
-def GroupTests(json_config, max_per_job):
+def GroupTests(json_config, target_tests_per_job):
     """Groups tests that will be run on each shard.
 
     Args:
       json_config: The result from _QueryTestJsonConfig().
-      max_per_job: Stop adding tests to a group once this limit has been passed.
+      target_tests_per_job: Stop adding classes to a group once its test count
+        reaches or exceeds this target.
 
     Return:
       Returns a list of _TestGroup.
@@ -556,7 +574,7 @@ def GroupTests(json_config, max_per_job):
             # class across multiple shards (unless configs differ).
             group[class_name] = methods
             size += len(methods)
-            if size >= max_per_job:
+            if size >= target_tests_per_job:
                 ret.append(_TestGroup(config, group))
                 group = {}
                 size = 0

@@ -38,7 +38,6 @@ static_library("emoji") {
   public_deps = [
     ":mojo_bindings",
     "//base",
-    "//chrome/browser:browser_public_dependencies",
     "//chrome/browser/profiles:profile",
     "//chrome/browser/ui/views/bubble",
     "//chrome/browser/ui/webui:webui_load_timer",
@@ -110,8 +109,4 @@ source_set("unit_tests") {
     "//ui/gfx/geometry",
     "//url",
   ]
-
-  # TODO(crbug.com/40031409): Fix code that adds exit-time destructors and
-  # enable the diagnostic by removing this line.
-  configs += [ "//build/config/compiler:no_exit_time_destructors" ]
 }

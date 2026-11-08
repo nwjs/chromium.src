@@ -7,15 +7,13 @@ import {html} from '//resources/lit/v3_0/lit.rollup.js';
 import type {PowerBookmarksContextMenuElement} from './power_bookmarks_context_menu.js';
 
 export function getHtml(this: PowerBookmarksContextMenuElement) {
-  // clang-format off
   return html`<!--_html_template_start_-->
 <cr-action-menu id="menu" auto-close-on-focusout
     @mousedown="${this.onMousedown_}">
   ${this.getMenuItemsForBookmarks_().map(item => html`
     ${!this.showDivider_(item) ? html`
       <button class="dropdown-item" data-id="${item.id}"
-          @click="${this.onMenuItemClick_}"
-          ?disabled="${!!item.disabled}">
+          @click="${this.onMenuItemClick_}" ?disabled="${!!item.disabled}">
         ${item.label}
       </button>
     ` : html`
@@ -24,5 +22,4 @@ export function getHtml(this: PowerBookmarksContextMenuElement) {
   `)}
 </cr-action-menu>
 <!--_html_template_end_-->`;
-  // clang-format on
 }

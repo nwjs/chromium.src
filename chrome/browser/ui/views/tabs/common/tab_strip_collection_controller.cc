@@ -6,6 +6,7 @@
 
 #include <variant>
 
+#include "base/check_deref.h"
 #include "base/memory/weak_ptr.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/user_metrics.h"
@@ -27,11 +28,9 @@
 #include "chrome/browser/ui/tabs/tab_strip_model_delegate.h"
 #include "chrome/browser/ui/tabs/vertical_tab_strip_state_controller.h"
 #include "chrome/browser/ui/ui_features.h"
-#include "chrome/browser/ui/views/frame/base_tab_strip_region_view.h"
 #include "chrome/browser/ui/views/frame/browser_frame_view.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/glass_frame_service.h"
-#include "chrome/browser/ui/views/frame/vertical_tab_strip_region_view.h"
 #include "chrome/browser/ui/views/tabs/common/root_tab_collection_node.h"
 #include "chrome/browser/ui/views/tabs/common/tab_collection_node.h"
 #include "chrome/browser/ui/views/tabs/common/tab_drag_handler.h"
@@ -68,7 +67,8 @@ TabStripCollectionController::TabStripCollectionController(
       browser_view_(browser_view),
       root_node_(root_node),
       drag_handler_(drag_handler),
-      hover_card_controller_(hover_card_controller) {
+      hover_card_controller_(hover_card_controller),
+      animation_coordinator_(CHECK_DEREF(browser_view)) {
   CHECK(browser_view_);
 
   if (orientation == TabStripOrientation::kHorizontal) {
@@ -298,11 +298,13 @@ void TabStripCollectionController::SelectTab(
 void TabStripCollectionController::CloseTab(
     const tabs::TabInterface* tab_interface,
     CloseTabSource source) {
-  if (tab_closing_helper_ && source != CloseTabSource::kFromNonUIEvent) {
-    tab_closing_helper_->MaybeEnterTabClosingMode(std::nullopt, source);
-  }
-
-  model_->delegate()->CloseTab(tab_interface, source);
+  base::OnceCallback<void(CloseTabSource)> on_approved =
+      tab_closing_helper_
+          ? base::BindOnce(
+                &HorizontalTabClosingHelper::MaybeEnterTabClosingMode,
+                base::Unretained(tab_closing_helper_.get()), std::nullopt)
+          : base::NullCallback();
+  model_->delegate()->CloseTab(tab_interface, source, std::move(on_approved));
 }
 
 void TabStripCollectionController::ToggleSelected(

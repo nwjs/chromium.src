@@ -103,15 +103,11 @@ void SystemInfoProvider::GetSystemInfo(
   json_dictionary.Set(
       kJsonMeasureLatencyKey,
       base::FeatureList::IsEnabled(features::kEcheSWAMeasureLatency));
-  json_dictionary.Set(
-      kJsonSendStartSignalingKey,
-      base::FeatureList::IsEnabled(features::kEcheSWASendStartSignaling));
+  json_dictionary.Set(kJsonSendStartSignalingKey, true);
   json_dictionary.Set(
       kJsonDisableStunServerKey,
       base::FeatureList::IsEnabled(features::kEcheSWADisableStunServer));
-  json_dictionary.Set(
-      kJsonCheckAndroidNetworkInfoKey,
-      base::FeatureList::IsEnabled(features::kEcheSWACheckAndroidNetworkInfo));
+  json_dictionary.Set(kJsonCheckAndroidNetworkInfoKey, true);
   json_dictionary.Set(kJsonProcessAndroidAccessibilityTreeKey, true);
 
   std::move(callback).Run(base::WriteJson(json_dictionary).value_or(""));

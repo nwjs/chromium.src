@@ -63,6 +63,12 @@ class BrowserInfoBarManager : public BrowserCollectionObserver,
       infobars::InfoBarDelegate::InfoBarIdentifier identifier,
       InfoBarShowParams params);
 
+  // Replaces `old_infobar` in place without reporting a result for it.
+  infobars::InfoBar* Replace(
+      infobars::InfoBar* old_infobar,
+      infobars::InfoBarDelegate::InfoBarIdentifier identifier,
+      InfoBarShowParams params = InfoBarShowParams());
+
   // Shows the infobar in every browser. Returns true if any instance was
   // added.
   bool ShowGlobally(infobars::InfoBarDelegate::InfoBarIdentifier identifier);
@@ -96,6 +102,8 @@ class BrowserInfoBarManager : public BrowserCollectionObserver,
   void OnManagerWillBeDestroyed(infobars::InfoBarManager* manager) override;
 
  private:
+  friend class RegistryInfoBarDelegate;
+
   void OnActiveTabChanged(BrowserWindowInterface* browser);
   bool IsTrackedGlobalInstance(infobars::InfoBar* infobar) const;
 
@@ -107,6 +115,7 @@ class BrowserInfoBarManager : public BrowserCollectionObserver,
   struct GlobalInfoBarContext {
     InfoBarSpec spec;
     InfoBarShowParams params;
+    std::optional<InfoBarResult> pending_result = InfoBarResult::kIgnored;
     std::map<infobars::InfoBarManager*, infobars::InfoBar*> active_instances;
   };
 

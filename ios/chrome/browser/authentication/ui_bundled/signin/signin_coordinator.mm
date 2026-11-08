@@ -402,7 +402,7 @@ using signin_metrics::PromoAction;
 - (void)start {
   // `signinCompletion` needs to be set by the owner to know when the sign-in
   // is finished.
-  CHECK(self.signinCompletion, base::NotFatalUntil::M151);
+  CHECK(self.signinCompletion);
   [_activityReporter reportActive];
 }
 
@@ -416,18 +416,27 @@ using signin_metrics::PromoAction;
 
 #pragma mark - Protected
 
-- (void)runCompletionWithSigninResult:(SigninCoordinatorResult)signinResult
-                   completionIdentity:(id<SystemIdentity>)completionIdentity {
-  signin::CheckSigninCoordinatorResultAndIdentity(signinResult,
-                                                  completionIdentity);
+- (void)runCompletionWithSigninResult:
+    (const SigninCoordinatorResultOrIdentity&)signinResult {
+  if (signinResult.has_value()) {
+    CHECK(signinResult.value());
+  }
   // If `self.signinCompletion` is nil, this method has been probably called
   // twice.
-  CHECK(self.signinCompletion, base::NotFatalUntil::M151);
+  CHECK(self.signinCompletion);
   SigninCoordinatorCompletionCallback signinCompletion = self.signinCompletion;
   // The owner should call the stop method, during the callback.
   // `self.signinCompletion` needs to be set to nil before calling it.
   self.signinCompletion = nil;
-  signinCompletion(self, signinResult, completionIdentity);
+  signinCompletion(self, signinResult);
+}
+
+- (void)runCompletionWithSigninResult:(SigninCoordinatorResult)signinResult
+                   completionIdentity:(id<SystemIdentity>)completionIdentity {
+  [self
+      runCompletionWithSigninResult:
+          signin::SigninCoordinatorResultOrIdentityFromSigninCoordinatorResult(
+              signinResult, completionIdentity)];
 }
 
 #pragma mark - BuggyAuthenticationViewOwner

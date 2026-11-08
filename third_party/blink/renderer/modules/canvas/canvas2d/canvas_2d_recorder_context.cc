@@ -985,9 +985,10 @@ void Canvas2DRecorderContext::setStrokeStyle(v8::Isolate* isolate,
 ColorParseResult Canvas2DRecorderContext::ParseColorOrCurrentColor(
     const String& color_string,
     Color& color) const {
-  const ColorParseResult parse_result =
-      ParseCanvasColorString(color_string, color_scheme_, color,
-                             GetColorProvider(), IsInWebAppScope());
+  const ColorParseResult parse_result = ParseCanvasColorString(
+      color_string, color_scheme_, color, GetColorProvider(),
+      /*can_expose_accent_color=*/IsInWebAppScope(),
+      /*has_style_context=*/HostAsHTMLCanvasElement() != nullptr);
   if (parse_result == ColorParseResult::kCurrentColor) {
     color = GetCurrentColor();
   }
@@ -1720,7 +1721,7 @@ void Canvas2DRecorderContext::fillRect(double x,
                                        double y,
                                        double width,
                                        double height) {
-  if (!ValidateRectForCanvas(x, y, width, height)) {
+  if (!CanvasRenderingContext::ValidateRectForCanvas(x, y, width, height)) {
     return;
   }
 
@@ -1783,7 +1784,7 @@ void Canvas2DRecorderContext::strokeRect(double x,
                                          double y,
                                          double width,
                                          double height) {
-  if (!ValidateRectForCanvas(x, y, width, height)) {
+  if (!CanvasRenderingContext::ValidateRectForCanvas(x, y, width, height)) {
     return;
   }
 
@@ -1802,8 +1803,8 @@ void Canvas2DRecorderContext::strokeRect(double x,
   gfx::RectF bounds = rect;
   InflateStrokeRect(bounds);
 
-  if (!ValidateRectForCanvas(bounds.x(), bounds.y(), bounds.width(),
-                             bounds.height())) {
+  if (!CanvasRenderingContext::ValidateRectForCanvas(
+          bounds.x(), bounds.y(), bounds.width(), bounds.height())) {
     return;
   }
 
@@ -1941,7 +1942,7 @@ void Canvas2DRecorderContext::clearRect(double x,
                                         double y,
                                         double width,
                                         double height) {
-  if (!ValidateRectForCanvas(x, y, width, height)) {
+  if (!CanvasRenderingContext::ValidateRectForCanvas(x, y, width, height)) {
     return;
   }
 

@@ -296,17 +296,9 @@ bool IsStateless() {
         _webStateObserverBridge =
             std::make_unique<web::WebStateObserverBridge>(self);
         webState->AddObserver(_webStateObserverBridge.get());
-
-        autofill::AutofillClientIOS* client =
-            autofill::AutofillClientIOS::FromWebState(webState);
-        consumer.atMemoryButtonHidden =
-            !autofill::IsAutofillAtMemorySearchUIEnabled(client);
-      } else {
-        consumer.atMemoryButtonHidden = YES;
       }
-    } else {
-      consumer.atMemoryButtonHidden = YES;
     }
+    [self updateAtMemoryButtonVisibility];
     _formNavigationHandler = [[FormInputAccessoryViewHandler alloc] init];
     _formNavigationHandler.webState = _webState;
 
@@ -531,6 +523,15 @@ bool IsStateless() {
     didRegisterFormActivity:(const autofill::FormActivityParams&)params
                     inFrame:(web::WebFrame*)frame {
   DCHECK_EQ(_webState, webState);
+
+  // Ignore form_changed events to prevent gestureless form changes from
+  // invalidating the accessory view or overwriting the active keyboard
+  // accessory's target web frame ID.
+  if (params.type == ActivityType::kFormChanged) {
+    return;
+  }
+
+  BOOL hadValidActivity = self.validActivityForAccessoryView;
   self.validActivityForAccessoryView = NO;
 
   // Return early if `params` is not complete.
@@ -554,12 +555,6 @@ bool IsStateless() {
   // Return early and reset if frame is missing or can't call JS.
   if (!frame) {
     [self reset];
-    return;
-  }
-
-  // Ignore form_changed events to prevent gestureless form changes from
-  // overwriting the active keyboard accessory's target web frame ID.
-  if (params.type == ActivityType::kFormChanged) {
     return;
   }
 
@@ -594,10 +589,11 @@ bool IsStateless() {
   }
 
   // Check if we need to reload input views after using an input which did not
-  // require the keyboard accessory to show up. Err on the side of calling
-  // "reloadInputViews" if the input field types are unrecognized.
-  if (!InputTriggersKeyboard(_lastSeenParams.field_type,
-                             /*default_value=*/false) &&
+  // require the keyboard accessory to show up, or if the accessory view was
+  // previously inactive. Err on the side of calling `reloadInputViews` if the
+  // input field types are unrecognized.
+  if ((!hadValidActivity || !InputTriggersKeyboard(_lastSeenParams.field_type,
+                                                   /*default_value=*/false)) &&
       InputTriggersKeyboard(params.field_type, /*default_value=*/true)) {
     [self reloadFirstResponderInputViews];
   }
@@ -684,6 +680,7 @@ bool IsStateless() {
     return;
   }
   [self reset];
+  [self updateAtMemoryButtonVisibility];
 }
 
 - (void)webStateDestroyed:(web::WebState*)webState {
@@ -788,17 +785,24 @@ bool IsStateless() {
       self.provider = tabHelper->GetAccessoryViewProvider();
     }
     _formNavigationHandler.webState = webState;
-
-    autofill::AutofillClientIOS* client =
-        autofill::AutofillClientIOS::FromWebState(webState);
-    self.consumer.atMemoryButtonHidden =
-        !autofill::IsAutofillAtMemorySearchUIEnabled(client);
   } else {
     self.webState = nullptr;
     self.provider = nil;
-    self.consumer.atMemoryButtonHidden = YES;
     self.consumer.contentEditable = NO;
   }
+  [self updateAtMemoryButtonVisibility];
+}
+
+// Updates the consumer's AtMemory button visibility for `_webState`.
+- (void)updateAtMemoryButtonVisibility {
+  if (!_webState) {
+    self.consumer.atMemoryButtonHidden = YES;
+    return;
+  }
+  autofill::AutofillClientIOS* client =
+      autofill::AutofillClientIOS::FromWebState(_webState);
+  self.consumer.atMemoryButtonHidden =
+      !autofill::IsAutofillAtMemorySearchUIEnabled(client);
 }
 
 // Resets the current provider, the consumer view and the navigation handler. As
@@ -823,6 +827,8 @@ bool IsStateless() {
                           webState:(web::WebState*)webState {
   DCHECK_EQ(webState, self.webState);
   DCHECK(_hasLastSeenParams);
+
+  [self updateAtMemoryButtonVisibility];
 
   _optionalUpdateScheduler->RestartCooldownTimer();
   _optionalUpdateScheduler->CancelOptionalUpdate();

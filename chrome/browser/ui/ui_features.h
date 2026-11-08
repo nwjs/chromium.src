@@ -26,6 +26,8 @@ BASE_DECLARE_FEATURE(kAllowEyeDropperWGCScreenCapture);
 
 BASE_DECLARE_FEATURE(kCtrlTabMru);
 
+BASE_DECLARE_FEATURE(kFastFaviconDisplay);
+
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 BASE_DECLARE_FEATURE(kDseIntegrity);
 BASE_DECLARE_FEATURE(kFeedbackDisabledDialog);
@@ -52,8 +54,13 @@ BASE_DECLARE_FEATURE(kWebuiRefresh2026);
 BASE_DECLARE_FEATURE(kAppMenuGlowUp);
 // Enables the redesigned Settings 2026 refresh features and search UX.
 BASE_DECLARE_FEATURE(kSettingsRefresh2026);
+// Enables the new chrome://settings search: the native (C++) search backend
+// and the search WebUI that consumes it. Only takes effect when
+// kSettingsRefresh2026 is also enabled.
+BASE_DECLARE_FEATURE(kSettingsSearch2026);
 // Enables search in the app Chrome menu.
 BASE_DECLARE_FEATURE(kChroMenuSearch);
+BASE_DECLARE_FEATURE_PARAM(std::string, kChroMenuSearchQuery);
 
 bool IsTabStripDeclutterEnabled();
 bool IsToolbarGlowUpEnabled();
@@ -64,6 +71,7 @@ bool IsMenuSimplificationEnabled();
 bool IsTabGroupColorRefreshEnabled();
 bool IsWebuiRefresh2026Enabled();
 bool IsSettingsRefresh2026Enabled();
+bool IsSettingsSearch2026Enabled();
 
 #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 
@@ -178,13 +186,15 @@ inline constexpr base::FeatureParam<std::string>
 
 BASE_DECLARE_FEATURE(kPreloadTopChromeWebUILessNavigations);
 
+// Kill switch: hide the preloaded WebContents once its page is ready to show.
+BASE_DECLARE_FEATURE(kPreloadTopChromeWebUIHideWhenReady);
+
 BASE_DECLARE_FEATURE(kPressAndHoldEscToExitBrowserFullscreen);
 
 #if BUILDFLAG(IS_WIN)
 BASE_DECLARE_FEATURE(kProcessIsolationSettings);
 #endif  // BUILDFLAG(IS_WIN)
 
-BASE_DECLARE_FEATURE(kRealboxVirtualFocusNavigation);
 BASE_DECLARE_FEATURE(kLensOverlayVirtualFocusNavigation);
 BASE_DECLARE_FEATURE(kOmniboxEverywhereVirtualFocusNavigation);
 BASE_DECLARE_FEATURE(kWebuiBrowserVirtualFocusNavigation);
@@ -320,13 +330,6 @@ bool IsPageActionsElevatedToolbarEnabled();
 // If enabled, the by date history will show in the side panel.
 BASE_DECLARE_FEATURE(kByDateHistoryInSidePanel);
 
-// If enabled, the "Tabs from other devices" side panel will be available.
-BASE_DECLARE_FEATURE(kTabsFromOtherDevicesSidePanel);
-
-// If enabled, the "Tabs from other devices" toolbar button will be pinned by
-// default.
-BASE_DECLARE_FEATURE(kTabsFromOtherDevicesSidePanelPinnedByDefault);
-
 #if !BUILDFLAG(IS_ANDROID)
 
 bool IsWebUIReloadButtonEnabled();
@@ -383,6 +386,7 @@ BASE_DECLARE_FEATURE(kAiOverlayDialogDev);
 BASE_DECLARE_FEATURE_PARAM(std::string, kAiOverlayDialogApiKey);
 BASE_DECLARE_FEATURE_PARAM(std::string, kAiOverlayDialogMockJsonPath);
 BASE_DECLARE_FEATURE_PARAM(bool, kAiOverlayDialogUseMes);
+BASE_DECLARE_FEATURE_PARAM(bool, kAiOverlayDialogPageTools);
 BASE_DECLARE_FEATURE(kAiOverlayDisableNavigationContext);
 
 BASE_DECLARE_FEATURE(kTabGroupsFocusing);

@@ -38,6 +38,7 @@
 #import "components/saved_tab_groups/internal/tab_group_sync_service_test_utils.h"
 #import "components/saved_tab_groups/public/features.h"
 #import "components/saved_tab_groups/public/tab_group_sync_service.h"
+#import "components/signin/core/browser/test_account_preview_data_service.h"
 #import "components/signin/internal/identity_manager/fake_profile_oauth2_token_service.h"
 #import "components/signin/internal/identity_manager/profile_oauth2_token_service.h"
 #import "components/signin/internal/identity_manager/profile_oauth2_token_service_delegate.h"
@@ -66,7 +67,7 @@
 #import "ios/chrome/browser/sync/model/device_info_sync_service_factory.h"
 #import "ios/chrome/browser/web_extension/model/extension_service.h"
 #import "ios/chrome/browser/web_extension/model/fake_extension_service.h"
-#import "ios/chrome/common/ui/reauthentication/mock_reauthentication_module.h"
+#import "ios/chrome/common/ui/reauthentication/fake_reauthentication_module.h"
 #import "ios/chrome/test/app/chrome_test_util.h"
 #import "ios/chrome/test/app/signin_test_util.h"
 #import "ios/chrome/test/earl_grey/test_switches.h"
@@ -404,6 +405,11 @@ std::unique_ptr<drive::DriveService> GetOverriddenDriveService() {
   return std::make_unique<drive::TestDriveService>();
 }
 
+std::unique_ptr<signin::AccountPreviewDataService>
+GetOverriddenAccountPreviewDataService() {
+  return std::make_unique<signin::TestAccountPreviewDataService>();
+}
+
 feature_engagement::FeatureActivation FETDemoModeOverride() {
   if (!base::CommandLine::ForCurrentProcess()->HasSwitch(
           test_switches::kEnableIPH)) {
@@ -501,7 +507,7 @@ void InjectFakeTabsInBrowser(Browser* browser) {
 }
 
 id<ReauthenticationProtocol> GetFakeReauthenticationModule() {
-  return [[MockReauthenticationModule alloc] init];
+  return [[FakeReauthenticationModule alloc] init];
 }
 
 namespace {

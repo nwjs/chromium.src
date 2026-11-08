@@ -11,6 +11,7 @@
 #include <unistd.h>
 
 #include <algorithm>
+#include <set>
 #include <string_view>
 
 #include "base/android/android_info.h"
@@ -37,6 +38,7 @@
 #include "build/branding_buildflags.h"
 #include "build/build_config.h"
 #include "components/crash/core/app/crash_reporter_client.h"
+#include "components/crash/core/app/shared_memory_user_stream_args.h"
 #include "content/public/common/content_descriptors.h"
 #include "partition_alloc/buildflags.h"
 #include "partition_alloc/tagging.h"
@@ -298,8 +300,6 @@ void SetBuildInfoAnnotations(std::map<std::string, std::string>* annotations) {
   (*annotations)["installer_package_name"] =
       base::android::apk_info::installer_package_name();
   (*annotations)["abi_name"] = base::android::android_info::abi_name();
-  (*annotations)["resources_version"] =
-      base::android::apk_info::resources_version();
   (*annotations)["gms_core_version"] =
       base::android::device_info::gms_version_code();
 
@@ -308,8 +308,6 @@ void SetBuildInfoAnnotations(std::map<std::string, std::string>* annotations) {
       base::android::apk_info::package_version_code() + " (" +
       base::android::apk_info::package_version_name() + ")";
 }
-
-
 
 #if defined(__arm__) && defined(__ARM_ARCH_7A__)
 #define CURRENT_ABI "armeabi-v7a"
@@ -345,8 +343,6 @@ void MakePackagePaths(std::string* classpath, std::string* libpath) {
       env, static_cast<jstring>(env->GetObjectArrayElement(paths.obj(), 1)),
       libpath);
 }
-
-
 
 void BuildHandlerArgs(CrashReporterClient* crash_reporter_client,
                       base::FilePath* database_path,
@@ -384,10 +380,12 @@ void BuildHandlerArgs(CrashReporterClient* crash_reporter_client,
 bool ShouldHandleCrashAndUpdateArguments(bool write_minidump_to_database,
                                          bool write_minidump_to_log,
                                          std::vector<std::string>* arguments) {
-  if (!write_minidump_to_database)
+  if (!write_minidump_to_database) {
     arguments->push_back("--no-write-minidump-to-database");
-  if (write_minidump_to_log)
+  }
+  if (write_minidump_to_log) {
     arguments->push_back("--write-minidump-to-log");
+  }
   return write_minidump_to_database || write_minidump_to_log;
 }
 
@@ -439,6 +437,17 @@ class HandlerStarter {
 
     internal::GetHandlerTrampoline(&handler_trampoline_, &handler_library_);
 
+    user_streams_ =
+        GetCrashReporterClient()->GetUserStreamSharedMemoryRegions();
+    for (const auto& region : user_streams_) {
+      if (region.IsValid()) {
+        // Those handles are kept open in the browser process throughout its
+        // lifetime and passed to the handler. Set `close-on-exec` to avoid
+        // passing them to other child processes.
+        base::SetCloseOnExec(region.GetPlatformHandle());
+      }
+    }
+
     if (!ShouldHandleCrashAndUpdateArguments(
             dump_at_crash, GetCrashReporterClient()->ShouldWriteMinidumpToLog(),
             &arguments)) {
@@ -451,9 +460,13 @@ class HandlerStarter {
         return database_path;
       }
 
+      std::set<crashpad::FileHandle> preserve_handles;
+      internal::AppendSharedMemoryUserStreamArgs(user_streams_, &arguments,
+                                                 &preserve_handles);
+
       bool result = GetCrashpadClient().StartHandlerWithLinkerAtCrash(
           handler_trampoline_, handler_library_, kUse64Bit, &env, database_path,
-          metrics_path, url, process_annotations, arguments);
+          metrics_path, url, process_annotations, arguments, preserve_handles);
       DCHECK(result);
       return database_path;
     }
@@ -484,9 +497,14 @@ class HandlerStarter {
         return false;
       }
 
+      std::set<crashpad::FileHandle> preserve_handles;
+      internal::AppendSharedMemoryUserStreamArgs(user_streams_, &arguments,
+                                                 &preserve_handles);
+
       return GetCrashpadClient().StartHandlerWithLinkerForClient(
           handler_trampoline_, handler_library_, kUse64Bit, &env, database_path,
-          metrics_path, url, process_annotations, arguments, fd);
+          metrics_path, url, process_annotations, arguments, fd,
+          preserve_handles);
     }
 
     return false;
@@ -499,6 +517,7 @@ class HandlerStarter {
   crashpad::SanitizationInformation browser_sanitization_info_;
   std::string handler_trampoline_;
   std::string handler_library_;
+  std::vector<base::ReadOnlySharedMemoryRegion> user_streams_;
 };
 
 bool g_is_browser = false;

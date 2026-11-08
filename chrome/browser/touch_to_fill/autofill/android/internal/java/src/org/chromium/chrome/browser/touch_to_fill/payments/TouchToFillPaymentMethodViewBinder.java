@@ -80,8 +80,8 @@ import android.widget.TextView;
 import androidx.annotation.IdRes;
 import androidx.appcompat.content.res.AppCompatResources;
 
+import org.chromium.build.annotations.NullMarked;
 import org.chromium.chrome.browser.autofill.AutofillUiUtils;
-import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.touch_to_fill.R;
 import org.chromium.chrome.browser.touch_to_fill.common.FillableItemCollectionInfo;
 import org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.AllLoyaltyCardsItemProperties;
@@ -93,6 +93,7 @@ import org.chromium.ui.modelutil.PropertyModel;
  * Provides functions that map {@link TouchToFillPaymentMethodProperties} changes in a {@link
  * PropertyModel} to the suitable method in {@link TouchToFillPaymentMethodView}.
  */
+@NullMarked
 final class TouchToFillPaymentMethodViewBinder {
     static final float GRAYED_OUT_OPACITY_ALPHA = 0.38f;
     static final float COMPLETE_OPACITY_ALPHA = 1.0f;
@@ -199,14 +200,7 @@ final class TouchToFillPaymentMethodViewBinder {
     static View createCardItemView(ViewGroup parent) {
         View cardItem =
                 LayoutInflater.from(parent.getContext())
-                        .inflate(
-                                ChromeFeatureList.isEnabled(
-                                                ChromeFeatureList
-                                                        .AUTOFILL_ENABLE_NEW_FOP_DISPLAY_ANDROID)
-                                        ? R.layout.touch_to_fill_credit_card_sheet_item_v2
-                                        : R.layout.touch_to_fill_credit_card_sheet_item,
-                                parent,
-                                false);
+                        .inflate(R.layout.touch_to_fill_credit_card_sheet_item, parent, false);
         AutofillUiUtils.setFilterTouchForSecurity(cardItem);
         return cardItem;
     }

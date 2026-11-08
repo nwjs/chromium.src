@@ -5,6 +5,8 @@
 package org.chromium.chrome.browser.browser_controls;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.anyBoolean;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doNothing;
@@ -14,6 +16,10 @@ import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+
+import android.content.Context;
+import android.content.res.Configuration;
+import android.content.res.Resources;
 
 import org.junit.Assert;
 import org.junit.Before;
@@ -26,18 +32,27 @@ import org.mockito.junit.MockitoRule;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.RobolectricUtil;
+import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.cc.input.BrowserControlsState;
 import org.chromium.chrome.browser.browser_controls.TopControlsStacker.ScrollBehavior;
 import org.chromium.chrome.browser.browser_controls.TopControlsStacker.TopControlType;
 import org.chromium.chrome.browser.browser_controls.TopControlsStacker.TopControlVisibility;
 import org.chromium.components.browser_ui.util.BrowserControlsVisibilityDelegate;
+import org.chromium.ui.base.WindowAndroid;
+import org.chromium.ui.display.DisplayAndroid;
 
 /** Unit tests for {@link TopControlsStacker}. */
 @RunWith(BaseRobolectricTestRunner.class)
 public class TopControlsStackerUnitTest {
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
     private static final int OFFSET_NOT_OBSERVED = -1024;
+    private static final String HISTOGRAM_NUMBER_OF_VISIBLE_LAYERS =
+            "Android.TopControlsStacker.NumberOfVisibleLayers";
+    private static final String HISTOGRAM_PERCENTAGE_MAX_HEIGHT =
+            "Android.TopControlsStacker.PercentageOfWindowUsedByTopControlsAtMaxHeight";
+    private static final String HISTOGRAM_PERCENTAGE_MIN_HEIGHT =
+            "Android.TopControlsStacker.PercentageOfWindowUsedByTopControlsAtMinHeight";
 
     /** Mock implementation of TestLayer for testing purposes. */
     private static class TestLayer implements TopControlLayer {
@@ -48,6 +63,7 @@ public class TopControlsStackerUnitTest {
         private static final int LAYER_HEIGHT_HAIRLINE = 1;
         private static final int LAYER_HEIGHT_PROGRESS_BAR = 5;
         private static final int LAYER_HEIGHT_TAB_SHARING_TOOLBAR = 48;
+        private static final int LAYER_HEIGHT_TOP_SCALP = 24;
 
         private final String mName;
         private final @TopControlType int mType;
@@ -231,18 +247,41 @@ public class TopControlsStackerUnitTest {
                     /* contributesToTotalHeight= */ true,
                     LAYER_HEIGHT_TAB_SHARING_TOOLBAR);
         }
+
+        static TestLayer topScalpLayer() {
+            return new TestLayer(
+                    "TOP_SCALP",
+                    TopControlType.TOP_SCALP,
+                    TopControlVisibility.VISIBLE,
+                    ScrollBehavior.NEVER_SCROLLABLE,
+                    /* contributesToTotalHeight= */ true,
+                    LAYER_HEIGHT_TOP_SCALP);
+        }
     }
 
     @Mock private BrowserControlsSizer mBrowserControlsSizer;
+    @Mock private Context mContext;
+    @Mock private WindowAndroid mWindowAndroid;
+    @Mock private Resources mResources;
+    @Mock private DisplayAndroid mDisplayAndroid;
 
+    private final Configuration mConfig = new Configuration();
     private BrowserControlsVisibilityDelegate mVisibilityDelegate;
     private TopControlsStacker mTopControlsStacker;
 
     @Before
     public void setUp() {
+        doReturn(mResources).when(mContext).getResources();
+        doReturn(mConfig).when(mResources).getConfiguration();
+        doReturn(mDisplayAndroid).when(mWindowAndroid).getDisplay();
+        doReturn(1.0f).when(mDisplayAndroid).getDipScale();
+        mConfig.screenHeightDp = 800;
+
         mVisibilityDelegate = new BrowserControlsVisibilityDelegate(BrowserControlsState.BOTH);
         doReturn(true).when(mBrowserControlsSizer).offsetOverridden();
-        mTopControlsStacker = new TopControlsStacker(mBrowserControlsSizer, mVisibilityDelegate);
+        mTopControlsStacker =
+                new TopControlsStacker(
+                        mBrowserControlsSizer, mVisibilityDelegate, mContext, mWindowAndroid);
     }
 
     @Test
@@ -1544,6 +1583,110 @@ public class TopControlsStackerUnitTest {
     }
 
     @Test
+    public void testTopScalp_StackingAndOrdering() {
+        TestLayer topScalp = TestLayer.topScalpLayer();
+        TestLayer statusIndicator = TestLayer.statusIndicatorLayer();
+        TestLayer tabStrip = TestLayer.tabStripLayer();
+        TestLayer toolbar = TestLayer.toolbarLayer();
+
+        mTopControlsStacker.addControl(toolbar);
+        mTopControlsStacker.addControl(tabStrip);
+        mTopControlsStacker.addControl(statusIndicator);
+        mTopControlsStacker.addControl(topScalp);
+
+        mTopControlsStacker.requestLayerUpdateSync(false);
+
+        // Top Scalp (24, minHeight) + Status Indicator (20, minHeight) + TabStrip (50) + Toolbar
+        // (100) = 194, minHeight = 44.
+        assertControlsHeight(194, 44);
+
+        // Top Scalp is at the very top (index 0 in STACK_ORDER).
+        assertEquals(0, mTopControlsStacker.getHeightFromLayerToTop(TopControlType.TOP_SCALP));
+        // Status Indicator is beneath Top Scalp (24).
+        assertEquals(
+                24, mTopControlsStacker.getHeightFromLayerToTop(TopControlType.STATUS_INDICATOR));
+        // TabStrip is beneath Top Scalp (24) + Status Indicator (20) = 44.
+        assertEquals(44, mTopControlsStacker.getHeightFromLayerToTop(TopControlType.TABSTRIP));
+        // Toolbar is beneath Top Scalp (24) + Status Indicator (20) + TabStrip (50) = 94.
+        assertEquals(94, mTopControlsStacker.getHeightFromLayerToTop(TopControlType.TOOLBAR));
+
+        topScalp.assertOffset(0).assertAtResting(true);
+        topScalp.assertHasNoOffsetTags();
+        statusIndicator.assertOffset(24).assertAtResting(true);
+        statusIndicator.assertHasNoOffsetTags();
+        tabStrip.assertOffset(44).assertAtResting(true);
+        toolbar.assertOffset(94).assertAtResting(true);
+
+        assertTrue(mTopControlsStacker.isLayerAtTop(TopControlType.TOP_SCALP));
+        assertFalse(mTopControlsStacker.isLayerAtTop(TopControlType.STATUS_INDICATOR));
+        assertFalse(mTopControlsStacker.isLayerAtTop(TopControlType.TABSTRIP));
+        assertFalse(mTopControlsStacker.isLayerAtTop(TopControlType.TOOLBAR));
+
+        // When Top Scalp is hidden, Status Indicator becomes the top layer at offset 0.
+        topScalp.mVisibility = TopControlVisibility.HIDDEN;
+        mTopControlsStacker.requestLayerUpdateSync(false);
+        assertControlsHeight(170, 20);
+        assertFalse(mTopControlsStacker.isLayerAtTop(TopControlType.TOP_SCALP));
+        assertTrue(mTopControlsStacker.isLayerAtTop(TopControlType.STATUS_INDICATOR));
+        assertFalse(mTopControlsStacker.isLayerAtTop(TopControlType.TABSTRIP));
+        assertFalse(mTopControlsStacker.isLayerAtTop(TopControlType.TOOLBAR));
+        assertEquals(
+                0, mTopControlsStacker.getHeightFromLayerToTop(TopControlType.STATUS_INDICATOR));
+        assertEquals(20, mTopControlsStacker.getHeightFromLayerToTop(TopControlType.TABSTRIP));
+        assertEquals(70, mTopControlsStacker.getHeightFromLayerToTop(TopControlType.TOOLBAR));
+    }
+
+    @Test
+    public void testTopScalp_Scroll() {
+        TestLayer topScalp = TestLayer.topScalpLayer();
+        TestLayer tabStrip = TestLayer.tabStripLayer();
+        TestLayer toolbar = TestLayer.toolbarLayer();
+
+        mTopControlsStacker.addControl(topScalp);
+        mTopControlsStacker.addControl(tabStrip);
+        mTopControlsStacker.addControl(toolbar);
+
+        var simulator = new TestBrowserControlsOffsetHelper(0, 24);
+        mTopControlsStacker.requestLayerUpdateSync(false);
+
+        // Resting position: Top Scalp (24, minHeight) + TabStrip (50) + Toolbar (100) = 174.
+        assertControlsHeight(174, 24);
+        topScalp.assertOffset(0).assertAtResting(true);
+        tabStrip.assertOffset(24).assertAtResting(true);
+        toolbar.assertOffset(74).assertAtResting(true);
+
+        // Scroll partially into TabStrip. Top Scalp stays pinned at 0.
+        simulator.scrollBy(-20);
+        topScalp.assertOffset(0).assertAtResting(false);
+        tabStrip.assertOffset(4).assertAtResting(false);
+        toolbar.assertOffset(54).assertAtResting(false);
+
+        // Scroll until TabStrip (50) is fully scrolled under Top Scalp (24).
+        simulator.scrollBy(-30);
+        topScalp.assertOffset(0).assertAtResting(false);
+        tabStrip.assertOffset(-26).assertAtResting(false);
+        toolbar.assertOffset(24).assertAtResting(false);
+
+        // Scroll until Toolbar (100) is also fully scrolled off (resting at minHeight = 24).
+        simulator.scrollBy(-100);
+        topScalp.assertOffset(0).assertAtResting(true);
+        tabStrip.assertOffset(-26).assertAtResting(true);
+        toolbar.assertOffset(-76).assertAtResting(true);
+
+        // Scroll back to partially show Toolbar.
+        simulator.scrollBy(80);
+        topScalp.assertOffset(0).assertAtResting(false);
+        tabStrip.assertOffset(-26).assertAtResting(false);
+        toolbar.assertOffset(4).assertAtResting(false);
+
+        // Scroll back to fully shown resting position.
+        simulator.scrollBy(70);
+        topScalp.assertOffset(0).assertAtResting(true);
+        tabStrip.assertOffset(24).assertAtResting(true);
+        toolbar.assertOffset(74).assertAtResting(true);
+    }
+
+    @Test
     public void testIsLayerAtTop() {
         Assert.assertFalse(mTopControlsStacker.isLayerAtTop(TopControlType.TAB_SHARING_TOOLBAR));
         mTopControlsStacker.addControl(TestLayer.toolbarLayer());
@@ -1555,5 +1698,51 @@ public class TopControlsStackerUnitTest {
         mTopControlsStacker.addControl(TestLayer.toolbarLayer());
         mTopControlsStacker.onTopControlsHeightChanged(100, 50);
         mTopControlsStacker.destroy();
+    }
+
+    @Test
+    public void testLayerMetrics() {
+        TestLayer toolbar = TestLayer.toolbarLayer();
+        TestLayer tabStrip = TestLayer.tabStripLayer();
+        mTopControlsStacker.addControl(toolbar);
+        mTopControlsStacker.addControl(tabStrip);
+        mTopControlsStacker.requestLayerUpdateSync(false);
+
+        HistogramWatcher histogramWatcher =
+                HistogramWatcher.newBuilder()
+                        .expectIntRecord(HISTOGRAM_NUMBER_OF_VISIBLE_LAYERS, 2)
+                        .expectIntRecord(HISTOGRAM_PERCENTAGE_MAX_HEIGHT, 19)
+                        .expectIntRecord(HISTOGRAM_PERCENTAGE_MIN_HEIGHT, 0)
+                        .build();
+
+        mTopControlsStacker.notifyDidFinishNavigationInPrimaryMainFrame();
+        histogramWatcher.assertExpected();
+
+        TestLayer topScalp = TestLayer.topScalpLayer();
+        mTopControlsStacker.addControl(topScalp);
+        mTopControlsStacker.requestLayerUpdateSync(false);
+
+        histogramWatcher =
+                HistogramWatcher.newBuilder()
+                        .expectIntRecord(HISTOGRAM_NUMBER_OF_VISIBLE_LAYERS, 3)
+                        .expectIntRecord(HISTOGRAM_PERCENTAGE_MAX_HEIGHT, 22)
+                        .expectIntRecord(HISTOGRAM_PERCENTAGE_MIN_HEIGHT, 3)
+                        .build();
+
+        mTopControlsStacker.notifyDidFinishNavigationInPrimaryMainFrame();
+        histogramWatcher.assertExpected();
+
+        tabStrip.mVisibility = TopControlVisibility.HIDDEN;
+        mTopControlsStacker.requestLayerUpdateSync(false);
+
+        histogramWatcher =
+                HistogramWatcher.newBuilder()
+                        .expectIntRecord(HISTOGRAM_NUMBER_OF_VISIBLE_LAYERS, 2)
+                        .expectIntRecord(HISTOGRAM_PERCENTAGE_MAX_HEIGHT, 16)
+                        .expectIntRecord(HISTOGRAM_PERCENTAGE_MIN_HEIGHT, 3)
+                        .build();
+
+        mTopControlsStacker.notifyDidFinishNavigationInPrimaryMainFrame();
+        histogramWatcher.assertExpected();
     }
 }

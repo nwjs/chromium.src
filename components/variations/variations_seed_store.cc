@@ -38,12 +38,7 @@
 
 #if BUILDFLAG(IS_ANDROID)
 #include "components/variations/android/variations_seed_bridge.h"
-#include "components/variations/metrics.h"
 #endif  // BUILDFLAG(IS_ANDROID)
-
-#if BUILDFLAG(IS_IOS)
-#include "components/variations/metrics.h"
-#endif  // BUILDFLAG(IS_IOS)
 
 namespace variations {
 namespace {
@@ -126,9 +121,11 @@ base::Time TruncateToUTCDay(base::Time time) {
   return out_time;
 }
 
-UpdateSeedDateResult GetSeedDateChangeState(
-    base::Time server_seed_date,
-    base::Time stored_seed_date) {
+UpdateSeedDateResult GetSeedDateChangeState(base::Time server_seed_date,
+                                            base::Time stored_seed_date) {
+  CHECK(!server_seed_date.is_null());
+  CHECK(!stored_seed_date.is_null());
+
   if (server_seed_date < stored_seed_date) {
     return UpdateSeedDateResult::kNewDateIsOlder;
   }
@@ -286,10 +283,9 @@ VariationsSeedStore::VariationsSeedStore(
                                              channel,
                                              entropy_providers,
                                              /*histogram_suffix=*/"Latest")) {
-#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
-  if (initial_seed)
+  if (initial_seed) {
     ImportInitialSeed(std::move(initial_seed));
-#endif  // BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
+  }
 }
 
 VariationsSeedStore::~VariationsSeedStore() = default;
@@ -494,8 +490,7 @@ int VariationsSeedStore::GetSafeSeedMilestone() const {
   return safe_seed_store_->GetMilestone();
 }
 
-base::Time VariationsSeedStore::GetLatestTimeForStudyDateChecks()
-    const {
+base::Time VariationsSeedStore::GetLatestTimeForStudyDateChecks() const {
   return seed_reader_writer_->GetSeedInfo().seed_date;
 }
 
@@ -531,14 +526,23 @@ void VariationsSeedStore::UpdateSeedDateAndLogDayChange(base::Time seed_date) {
   seed_reader_writer_->SetSeedDate(seed_date);
 }
 
-void VariationsSeedStore::LogSeedDayChange(base::Time seed_date) {
-  UpdateSeedDateResult result = UpdateSeedDateResult::kNoOldDate;
-  const base::Time stored_date = seed_reader_writer_->GetSeedInfo().seed_date;
-  if (!stored_date.is_null()) {
-    result = GetSeedDateChangeState(seed_date, stored_date);
+UpdateSeedDateResult VariationsSeedStore::GetSeedDateUpdateResult(
+    base::Time seed_date) const {
+  if (seed_date.is_null()) {
+    return UpdateSeedDateResult::kNoNewDate;
   }
 
-  base::UmaHistogramEnumeration("Variations.SeedDateChange", result);
+  const base::Time stored_date = seed_reader_writer_->GetSeedInfo().seed_date;
+  if (stored_date.is_null()) {
+    return UpdateSeedDateResult::kNoOldDate;
+  }
+
+  return GetSeedDateChangeState(seed_date, stored_date);
+}
+
+void VariationsSeedStore::LogSeedDayChange(base::Time seed_date) {
+  base::UmaHistogramEnumeration("Variations.SeedDateChange",
+                                GetSeedDateUpdateResult(seed_date));
 }
 
 const std::string& VariationsSeedStore::GetLatestSerialNumber() {
@@ -640,7 +644,6 @@ void VariationsSeedStore::ClearPrefs(SeedType seed_type) {
   safe_seed_store_->ClearState();
 }
 
-#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
 void VariationsSeedStore::ImportInitialSeed(
     std::unique_ptr<SeedResponse> initial_seed) {
   if (initial_seed->data.empty()) {
@@ -674,7 +677,6 @@ void VariationsSeedStore::ImportInitialSeed(
                 /*is_delta_compressed=*/false, initial_seed->is_gzip_compressed,
                 /*require_synchronous=*/true);
 }
-#endif  // BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
 
 // static
 std::optional<std::string> VariationsSeedStore::SeedBytesToCompressedBase64Seed(
@@ -943,6 +945,12 @@ void VariationsSeedStore::StoreValidatedSeed(
       });
   if (result == StoreSeedResult::kSuccess) {
     StoreLatestSerialNumber(seed.parsed.serial_number());
+    if (require_synchronous) {
+      // Synchronous stores happen during startup (e.g. importing the initial
+      // seed). Commit the write now instead of waiting for the scheduled write,
+      // which could be lost if the app is killed shortly after startup.
+      seed_reader_writer_->CommitPendingWrite();
+    }
   }
   RecordStoreSeedResult(result);
   std::move(done_callback).Run(true, std::move(seed.parsed));
@@ -1179,6 +1187,11 @@ bool VariationsSeedStore::ApplyDeltaPatch(const std::string& existing_data,
 void VariationsSeedStore::AllowToPurgeSeedsDataFromMemory() {
   seed_reader_writer_->AllowToPurgeSeedDataFromMemory();
   safe_seed_store_->AllowToPurgeSeedDataFromMemory();
+}
+
+void VariationsSeedStore::CommitPendingWrite() {
+  seed_reader_writer_->CommitPendingWrite();
+  safe_seed_store_->CommitPendingWrite();
 }
 
 void VariationsSeedStore::GetStoredSeedInfoForDebugging(

@@ -32,8 +32,6 @@ static_library("settings") {
     "supervised_user_cros_settings_provider.h",
   ]
 
-  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
-
   deps = [
     "//ash/constants",
     "//ash/public/cpp",
@@ -55,6 +53,7 @@ static_library("settings") {
     "//components/policy/core/common:common_constants",
     "//components/policy/proto",
     "//components/prefs",
+    "//components/session_manager/core",
     "//components/user_manager",
     "//components/webui/flags",
     "//content/public/browser",

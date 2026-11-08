@@ -16,17 +16,22 @@ found in the LICENSE file.
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:paddingStart="8dp"
-        android:paddingEnd="8dp"
         android:paddingTop="4dp"
         android:paddingBottom="4dp"
         android:importantForAccessibility="no">
 
+        <ImageView
+            android:id="@+id/fusebox_drag_handle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:src="@drawable/drag_handlebar"
+            android:importantForAccessibility="no"
+            android:visibility="gone" />
+
         <include
             layout="@layout/fusebox_list_item"
             android:id="@+id/fusebox_add_current_tab_top"
-            android:layout_width="match_parent"
-            android:layout_height="?attr/listItemHeight"
             android:visibility="gone" />
 
         <View
@@ -65,11 +70,26 @@ found in the LICENSE file.
             android:layout_width="match_parent"
             android:layout_height="wrap_content" />
 
+        <View
+            style="@style/Fusebox.PopupMenu.Divider"
+            android:id="@+id/fusebox_pinned_section_top_divider"
+            android:visibility="gone" />
+
         <include
             layout="@layout/fusebox_list_item"
             android:id="@+id/fusebox_add_current_tab_pinned"
+            android:visibility="gone" />
+
+        <LinearLayout
+            android:id="@+id/fusebox_pinned_tools_container"
             android:layout_width="match_parent"
-            android:layout_height="?attr/listItemHeight"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone" />
+
+        <View
+            style="@style/Fusebox.PopupMenu.Divider"
+            android:id="@+id/fusebox_pinned_section_bottom_divider"
             android:visibility="gone" />
 
         <include
@@ -85,15 +105,13 @@ found in the LICENSE file.
 
             <include
                 layout="@layout/fusebox_list_item"
-                android:id="@+id/fusebox_pick_file_button"
-                android:layout_width="match_parent"
-                android:layout_height="?attr/listItemHeight"/>
+                android:id="@+id/fusebox_pick_file_button_accordion"
+                android:visibility="gone"/>
 
             <include
                 layout="@layout/fusebox_list_item"
-                android:id="@+id/fusebox_pick_drive_button"
-                android:layout_width="match_parent"
-                android:layout_height="?attr/listItemHeight"/>
+                android:id="@+id/fusebox_pick_drive_button_accordion"
+                android:visibility="gone"/>
 
             <View
                 style="@style/Fusebox.PopupMenu.Divider"

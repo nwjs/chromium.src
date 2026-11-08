@@ -117,6 +117,7 @@ class CORE_EXPORT InspectorTraceEvents
                         DocumentLoader*,
                         base::TimeTicks monotonic_finish_time,
                         int64_t encoded_data_length,
+                        uint64_t encoded_body_length,
                         int64_t decoded_body_length);
   void DidFailLoading(
       CoreProbeSink* sink,
@@ -441,6 +442,15 @@ void Data(perfetto::TracedValue context,
           v8::Isolate*,
           LocalFrame*,
           const String& url,
+          const TextPosition&);
+}
+
+namespace inspector_evaluate_module_event {
+void Data(perfetto::TracedValue context,
+          v8::Isolate*,
+          LocalFrame*,
+          const String& url,
+          int script_id,
           const TextPosition&);
 }
 

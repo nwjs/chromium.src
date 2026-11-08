@@ -162,6 +162,8 @@ function hasCtrlModifierMaybeWithShift(e: KeyboardEvent): boolean {
 
 const LOCAL_STORAGE_SIDENAV_COLLAPSED_KEY: string = 'sidenavCollapsed';
 
+export const LOCAL_STORAGE_TWO_UP_VIEW_ENABLED_KEY: string = 'twoUpViewEnabled';
+
 /**
  * The background color used for the regular viewer.
  */
@@ -256,9 +258,7 @@ export class PdfViewerElement extends PdfViewerBaseElement {
 
   static override get properties() {
     return {
-      // from PdfViewerBaseElement
-      showErrorDialog: {type: Boolean},
-      strings: {type: Object},
+      ...super.properties,
 
       // <if expr="enable_pdf_ink2">
       annotationMode_: {type: String},
@@ -420,6 +420,35 @@ export class PdfViewerElement extends PdfViewerBaseElement {
         10));
   }
 
+  // <if expr="enable_pdf_ink2 or enable_pdf_save_to_drive">
+  override connectedCallback() {
+    super.connectedCallback();
+    this.tracker.add(window, 'beforeunload', this.onBeforeUnload_.bind(this));
+    // <if expr="enable_pdf_ink2">
+    const mediaQuery = window.matchMedia('(min-width: 960px)');
+    this.useSidePanelForInk_ = mediaQuery.matches;
+    this.tracker.add(mediaQuery, 'change', () => {
+      this.useSidePanelForInk_ = mediaQuery.matches;
+      // If in DRAW or TEXT annotation mode, record opening the
+      // UI that's opened by making the window narrower/wider.
+      if (this.annotationMode_ !== AnnotationMode.OFF) {
+        record(
+            this.useSidePanelForInk_ ? UserAction.OPEN_INK2_SIDE_PANEL :
+                                       UserAction.OPEN_INK2_BOTTOM_TOOLBAR);
+      }
+    });
+    this.tracker.add(
+        Ink2Manager.getInstance(), 'undo-redo-state-changed',
+        this.handleUndoRedoStateChanged_.bind(this));
+    // </if> enable_pdf_ink2
+  }
+
+  override disconnectedCallback() {
+    this.tracker.removeAll();
+    super.disconnectedCallback();
+  }
+  // </if> enable_pdf_ink2 or enable_pdf_save_to_drive
+
   // <if expr="enable_pdf_ink2">
   override willUpdate(changedProperties: PropertyValues<this>) {
     super.willUpdate(changedProperties);
@@ -450,35 +479,6 @@ export class PdfViewerElement extends PdfViewerBaseElement {
     }
     // </if>
   }
-
-  // <if expr="enable_pdf_ink2 or enable_pdf_save_to_drive">
-  override connectedCallback() {
-    super.connectedCallback();
-    this.tracker.add(window, 'beforeunload', this.onBeforeUnload_.bind(this));
-    // <if expr="enable_pdf_ink2">
-    const mediaQuery = window.matchMedia('(min-width: 960px)');
-    this.useSidePanelForInk_ = mediaQuery.matches;
-    this.tracker.add(mediaQuery, 'change', () => {
-      this.useSidePanelForInk_ = mediaQuery.matches;
-      // If in DRAW or TEXT annotation mode, record opening the
-      // UI that's opened by making the window narrower/wider.
-      if (this.annotationMode_ !== AnnotationMode.OFF) {
-        record(
-            this.useSidePanelForInk_ ? UserAction.OPEN_INK2_SIDE_PANEL :
-                                       UserAction.OPEN_INK2_BOTTOM_TOOLBAR);
-      }
-    });
-    this.tracker.add(
-        Ink2Manager.getInstance(), 'undo-redo-state-changed',
-        this.handleUndoRedoStateChanged_.bind(this));
-    // </if> enable_pdf_ink2
-  }
-
-  override disconnectedCallback() {
-    this.tracker.removeAll();
-    super.disconnectedCallback();
-  }
-  // </if> enable_pdf_ink2 or enable_pdf_save_to_drive
 
   getBackgroundColor(): number {
     return BACKGROUND_COLOR;
@@ -850,6 +850,16 @@ export class PdfViewerElement extends PdfViewerBaseElement {
   }
 
   /**
+   * @return Whether two up view was enabled when the user last toggled it,
+   *     and should be restored for this document.
+   */
+  private shouldRestoreTwoUpView_(): boolean {
+    const value = LocalStorageProxyImpl.getInstance().getItem(
+        LOCAL_STORAGE_TWO_UP_VIEW_ENABLED_KEY);
+    return value !== null && Boolean(Number.parseInt(value, 10));
+  }
+
+  /**
    * Changes two up view mode for the controller. Controller will trigger
    * layout update later, which will update the viewport accordingly.
    */
@@ -857,6 +867,8 @@ export class PdfViewerElement extends PdfViewerBaseElement {
     const twoUpViewEnabled = e.detail;
     assert(this.currentController);
     this.currentController.setTwoUpView(twoUpViewEnabled);
+    LocalStorageProxyImpl.getInstance().setItem(
+        LOCAL_STORAGE_TWO_UP_VIEW_ENABLED_KEY, twoUpViewEnabled ? '1' : '0');
     record(
         twoUpViewEnabled ? UserAction.TWO_UP_VIEW_ENABLE :
                            UserAction.TWO_UP_VIEW_DISABLE);
@@ -1232,6 +1244,17 @@ export class PdfViewerElement extends PdfViewerBaseElement {
 
   override setDocumentDimensions(documentDimensions:
                                      DocumentDimensionsMessageData): void {
+    // Restore the two up view mode from the previous session before the
+    // initial layout is applied, so that the document is never laid out and
+    // painted in single page view first.
+    if (!this.documentDimensions &&
+        !documentDimensions.layoutOptions?.twoUpViewEnabled &&
+        this.shouldRestoreTwoUpView_()) {
+      assert(this.currentController);
+      this.currentController.setTwoUpView(true);
+      return;
+    }
+
     super.setDocumentDimensions(documentDimensions);
 
     // If the document dimensions are received, the password was correct and the
@@ -1286,8 +1309,16 @@ export class PdfViewerElement extends PdfViewerBaseElement {
   }
   // </if>
 
-  /** Handles updating viewport params based on the `newUrl` provided. */
-  private handleMaybeUpdateViewport_(newUrl: string) {
+  /**
+   * Handles updating viewport params based on the `newUrl` provided.
+   * @param streamUrl Unique identifier for a PDF Viewer instance.
+   * @param newUrl The new URL to parse viewport params from.
+   */
+  private handleMaybeUpdateViewport_(streamUrl: string, newUrl: string) {
+    if (streamUrl !== this.browserApi!.getStreamInfo().streamUrl) {
+      return;
+    }
+
     assert(this.paramsParser);
     this.paramsParser.getViewportFromUrlParams(newUrl).then(
         params => this.handleUrlParams(params));

@@ -10,20 +10,25 @@
 #include "base/run_loop.h"
 #include "base/test/run_until.h"
 #include "base/test/scoped_feature_list.h"
+#include "chrome/browser/browser_process.h"
+#include "chrome/browser/profiles/profile_manager.h"
+#include "chrome/browser/profiles/profile_test_util.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/layout_constants.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
+#include "chrome/browser/ui/tabs/vertical_tab_strip_state.h"
 #include "chrome/browser/ui/tabs/vertical_tab_strip_state_controller.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/frame/browser_frame_view.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/browser_widget.h"
-#include "chrome/browser/ui/views/frame/vertical_tab_strip_region_view.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/interactive_test_utils.h"
 #include "chrome/test/base/ui_test_utils.h"
+#include "content/public/browser/web_contents_delegate.h"
 #include "content/public/test/browser_test.h"
+#include "third_party/blink/public/mojom/frame/fullscreen.mojom.h"
 #include "ui/base/ui_base_features.h"
 #include "ui/color/color_id.h"
 #include "ui/color/color_provider.h"
@@ -420,6 +425,37 @@ IN_PROC_BROWSER_TEST_F(BrowserNativeWidgetMacGlassTest,
 }
 
 IN_PROC_BROWSER_TEST_F(BrowserNativeWidgetMacGlassTest,
+                       TabFullscreenWindowIsOpaque) {
+  if (!features::IsGlassFrameEnabled()) {
+    GTEST_SKIP() << "Glass frame feature is disabled.";
+  }
+
+  BrowserView* browser_view = BrowserView::GetBrowserViewForBrowser(browser());
+  views::Widget* widget = browser_view->GetWidget();
+  NSWindow* ns_window = widget->GetNativeWindow().GetNativeNSWindow();
+  NSView* content_view = [ns_window contentView];
+
+  ASSERT_TRUE(ui_test_utils::BringBrowserWindowToFront(browser()));
+
+  EXPECT_FALSE([ns_window isOpaque]);
+  auto [glass_view, tint_view, opaque_view] = GetGlassViews(content_view);
+  EXPECT_NE(glass_view, nil);
+  EXPECT_NE(opaque_view, nil);
+
+  content::WebContents* web_contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+  web_contents->GetDelegate()->EnterFullscreenModeForTab(
+      web_contents->GetPrimaryMainFrame(), {});
+
+  // Wait for Cocoa window to become opaque in tab fullscreen
+  ASSERT_TRUE(base::test::RunUntil([&]() { return [ns_window isOpaque]; }));
+  auto [fs_glass_view, fs_tint_view, fs_opaque_view] =
+      GetGlassViews(content_view);
+  EXPECT_EQ(fs_glass_view, nil);
+  EXPECT_EQ(fs_opaque_view, nil);
+}
+
+IN_PROC_BROWSER_TEST_F(BrowserNativeWidgetMacGlassTest,
                        IneligibleBrowserWindowIsOpaque) {
   if (!features::IsGlassFrameEnabled()) {
     GTEST_SKIP() << "Glass frame feature is disabled.";
@@ -467,6 +503,75 @@ IN_PROC_BROWSER_TEST_F(BrowserNativeWidgetMacGlassTest,
 
   CloseBrowserSynchronously(third_browser);
   CloseBrowserSynchronously(second_browser);
+}
+
+IN_PROC_BROWSER_TEST_F(BrowserNativeWidgetMacGlassTest,
+                       MultipleProfilesTintOpacity) {
+  if (!features::IsGlassFrameEnabled()) {
+    GTEST_SKIP() << "Glass frame feature is disabled.";
+  }
+
+  auto get_tint_alpha = [](BrowserWindowInterface* target_browser) {
+    BrowserView* view = BrowserView::GetBrowserViewForBrowser(target_browser);
+    NSWindow* window = view->GetWidget()->GetNativeWindow().GetNativeNSWindow();
+    auto [glass_view, tint_view, opaque_view] =
+        GetGlassViews([window contentView]);
+    CHECK(tint_view);
+    CHECK(tint_view.layer.backgroundColor);
+    NSColor* ns_color =
+        [NSColor colorWithCGColor:tint_view.layer.backgroundColor];
+    NSColor* srgb_color =
+        [ns_color colorUsingColorSpace:[NSColorSpace sRGBColorSpace]];
+    return srgb_color.alphaComponent;
+  };
+
+  ASSERT_TRUE(ui_test_utils::BringBrowserWindowToFront(browser()));
+  const CGFloat single_profile_alpha = get_tint_alpha(browser());
+
+  // Opening a second window in the same profile keeps the original opacity.
+  BrowserWindowInterface* same_profile_browser =
+      CreateBrowser(browser()->GetProfile());
+  ASSERT_TRUE(base::test::RunUntil([&] {
+    return GlassFrameService::GetInstance()->IsBrowserWindowEligible(
+        same_profile_browser);
+  }));
+  EXPECT_NEAR(get_tint_alpha(same_profile_browser), single_profile_alpha,
+              0.001);
+  CloseBrowserSynchronously(same_profile_browser);
+  ASSERT_TRUE(base::test::RunUntil([&] {
+    return GlassFrameService::GetInstance()->IsBrowserWindowEligible(browser());
+  }));
+
+  // Opening a window in a second profile increases the tint opacity.
+  constexpr double kMultipleProfileOpacityIncrease = 0.05;
+  ProfileManager* const profile_manager = g_browser_process->profile_manager();
+  const base::FilePath new_path =
+      profile_manager->GenerateNextProfileDirectoryPath();
+  Profile& second_profile =
+      profiles::testing::CreateProfileSync(profile_manager, new_path);
+  BrowserWindowInterface* second_profile_browser =
+      CreateBrowser(&second_profile);
+  ASSERT_TRUE(base::test::RunUntil([&] {
+    return GlassFrameService::GetInstance()->IsBrowserWindowEligible(
+        second_profile_browser);
+  }));
+  EXPECT_NEAR(get_tint_alpha(second_profile_browser),
+              single_profile_alpha + kMultipleProfileOpacityIncrease, 0.001);
+
+  // Switching back to the first profile window while the second profile window
+  // is still open also uses the increased tint opacity.
+  browser()->GetWindow()->Activate();
+  ASSERT_TRUE(base::test::RunUntil([&] {
+    return GlassFrameService::GetInstance()->IsBrowserWindowEligible(browser());
+  }));
+  EXPECT_NEAR(get_tint_alpha(browser()),
+              single_profile_alpha + kMultipleProfileOpacityIncrease, 0.001);
+
+  // Closing the second profile window (while it is in the background and
+  // ineligible) restores the original tint opacity on the remaining active
+  // window.
+  CloseBrowserSynchronously(second_profile_browser);
+  EXPECT_NEAR(get_tint_alpha(browser()), single_profile_alpha, 0.001);
 }
 
 class BrowserNativeWidgetMacVerticalTabsGlassTest
@@ -559,7 +664,7 @@ IN_PROC_BROWSER_TEST_F(BrowserNativeWidgetMacVerticalTabsGlassTest,
   // During drag resizing, glass view expands up to the maximum possible
   // vertical tab strip width.
   const int expected_resizing_width =
-      VerticalTabStripRegionView::kUncollapsedMaxWidth + corner_padding;
+      tabs::kVerticalTabStripUncollapsedMaxWidth + corner_padding;
   controller->SetIsResizing(true);
   EXPECT_EQ(NSWidth(glass_view.frame), expected_resizing_width);
   EXPECT_EQ(NSMinX(opaque_view.frame), expected_resizing_width);
@@ -597,7 +702,7 @@ IN_PROC_BROWSER_TEST_F(BrowserNativeWidgetMacVerticalTabsGlassTest,
 
   const int corner_padding = GetGlassCornerPadding();
   const int expected_collapsed_width =
-      VerticalTabStripRegionView::kCollapsedWidth + corner_padding;
+      tabs::kVerticalTabStripCollapsedWidth + corner_padding;
   const int expected_uncollapsed_width =
       controller->GetUncollapsedWidth() + corner_padding;
 

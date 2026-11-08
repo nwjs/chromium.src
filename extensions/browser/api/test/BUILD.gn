@@ -16,15 +16,14 @@ source_set("test") {
     "test_api_observer_registry.h",
   ]
 
-  configs += [ "//build/config/compiler:wexit_time_destructors" ]
-
   public_deps = [
     "//base",
     "//extensions/browser:browser_sources",
   ]
 
   deps = [
-    "//content",
+    "//content/public/browser",
+    "//content/public/common",
     "//extensions/browser/api:extensions_api_client",
     "//extensions/common/api",
   ]

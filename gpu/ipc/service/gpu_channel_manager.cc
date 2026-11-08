@@ -451,6 +451,19 @@ gles2::Outputter* GpuChannelManager::outputter() {
 gles2::ProgramCache* GpuChannelManager::program_cache() {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
 
+  // When the workaround is active, never create the program cache. Creating a
+  // PassthroughProgramCache registers process-wide EGL blob cache callbacks on
+  // the display, which would be forwarded to the native driver even if no
+  // context group is attached to the cache.
+  //
+  // Note: GpuPreferences::disable_gpu_program_cache is intentionally not
+  // checked here. It is set whenever the shader *disk* cache is disabled
+  // (see service_utils.cc), and disabling the disk cache should not also
+  // disable the in-memory program cache in the GPU process.
+  if (gpu_driver_bug_workarounds_.disable_program_cache) {
+    return nullptr;
+  }
+
   if (!program_cache_.get()) {
     const GpuDriverBugWorkarounds& workarounds = gpu_driver_bug_workarounds_;
     bool disable_disk_cache =
@@ -504,9 +517,7 @@ GpuChannel* GpuChannelManager::EstablishChannel(
     const base::UnguessableToken& channel_token,
     int client_id,
     uint64_t client_tracing_id,
-    bool is_gpu_host,
-    bool enable_extra_handles_validation,
-    const gfx::GpuExtraInfo& gpu_extra_info,
+    viz::mojom::GpuClientType client_type,
     const gpu::GPUInfo& gpu_info,
     const gpu::GpuFeatureInfo& gpu_feature_info) {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
@@ -525,9 +536,8 @@ GpuChannel* GpuChannelManager::EstablishChannel(
 
   std::unique_ptr<GpuChannel> gpu_channel = GpuChannel::Create(
       this, channel_token, scheduler_, sync_point_manager_, share_group_,
-      task_runner_, io_task_runner_, client_id, client_tracing_id, is_gpu_host,
-      enable_extra_handles_validation, gpu_extra_info, gpu_info,
-      gpu_feature_info);
+      task_runner_, io_task_runner_, client_id, client_tracing_id, client_type,
+      gpu_info, gpu_feature_info);
 
   if (!gpu_channel)
     return nullptr;
@@ -835,11 +845,9 @@ void GpuChannelManager::PerformImmediateCleanup() {
   }
 
 #if BUILDFLAG(ENABLE_VULKAN)
-  if (shared_context_state_->GrContextIsVulkan()) {
-    // TODO(lizeb): Also perform this on GL devices.
-    if (auto* context = shared_context_state_->gr_context()) {
-      context->flushAndSubmit(GrSyncCpu::kYes);
-    }
+  if (shared_context_state_->GrContextIsVulkan() ||
+      shared_context_state_->IsGraphiteVulkan()) {
+    shared_context_state_->FlushAndSubmit(/*sync_to_cpu=*/true);
 
     DCHECK(vulkan_context_provider_);
     auto* fence_helper =
@@ -904,6 +912,10 @@ scoped_refptr<SharedContextState> GpuChannelManager::GetSharedContextState(
     *result = ContextResult::kSuccess;
     return shared_context_state_;
   }
+
+  // Cleanup the previous context if any.
+  SharedContextState::ClearForCurrentThread();
+  shared_context_state_.reset();
 
   scoped_refptr<gl::GLSurface> surface = default_offscreen_surface();
   bool use_virtualized_gl_contexts = false;
@@ -1026,7 +1038,9 @@ scoped_refptr<SharedContextState> GpuChannelManager::GetSharedContextState(
   shared_context_state_ = std::move(shared_context_state);
   // Register as the active SharedContextState on the GPU main thread so
   // downstream operations (e.g. CompoundImageBacking fallback copy strategies)
-  // can access the active context for this thread.
+  // can access the active context for this thread. Overwriting a live
+  // registration would leave a dangling thread-local pointer.
+  CHECK(!SharedContextState::GetForCurrentThread());
   SharedContextState::SetForCurrentThread(shared_context_state_.get());
 
   *result = ContextResult::kSuccess;

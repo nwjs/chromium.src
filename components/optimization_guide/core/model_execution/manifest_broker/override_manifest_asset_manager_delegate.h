@@ -8,9 +8,14 @@
 #include "base/containers/flat_map.h"
 #include "base/files/file_path.h"
 #include "base/version.h"
-#include "components/optimization_guide/core/model_execution/manifest_broker/manifest_asset_manager.h"
+#include "components/optimization_guide/core/model_execution/manifest_broker/manifest_asset_manager_delegate.h"
 
 namespace optimization_guide {
+
+// Command-line switch to override the On-Device Models Manifest path for
+// testing and benchmarking.
+inline constexpr char kOptimizationGuideManifestOverrideSwitch[] =
+    "optimization-guide-manifest-override";
 
 // This class enables integration testing by allowing overrides for all of the
 // assets that would be provided by component updater.
@@ -26,7 +31,7 @@ namespace optimization_guide {
 //   }
 // }
 class OverrideManifestAssetManagerDelegate final
-    : public ManifestAssetManager::Delegate {
+    : public ManifestAssetManagerDelegate {
  public:
   explicit OverrideManifestAssetManagerDelegate(
       const base::FilePath& override_path);
@@ -38,17 +43,20 @@ class OverrideManifestAssetManagerDelegate final
   void GetFreeDiskSpace(base::OnceCallback<void(std::optional<base::ByteSize>)>
                             callback) const override;
 
-  void RegisterOnDemandComponent(
-      const std::string& public_key_hex,
-      const std::string& target_version,
-      const std::string& component_name,
-      base::WeakPtr<ManifestAssetManager> manager) override;
+  void RegisterOnDemandComponent(const std::string& public_key_hex,
+                                 const std::string& target_version,
+                                 const std::string& component_name,
+                                 base::WeakPtr<AssetManager> manager) override;
 
   void Uninstall(const std::string& public_key_hex,
-                 base::WeakPtr<ManifestAssetManager> manager) override;
+                 base::WeakPtr<AssetManager> manager) override;
 
   void RequestUpdate(const std::string& public_key_hex,
                      bool is_background) override;
+
+  void GetInstalledAssets(
+      base::OnceCallback<void(std::vector<InstalledAsset>)> callback)
+      const override;
 
  private:
   base::FilePath manifest_path_;

@@ -5,6 +5,9 @@
 #include "chrome/browser/optimization_guide/chrome_hints_manager.h"
 
 #include "base/command_line.h"
+#include "base/location.h"
+#include "base/run_loop.h"
+#include "base/task/single_thread_task_runner.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "build/build_config.h"
@@ -15,10 +18,10 @@
 #include "components/optimization_guide/core/hints/hints_fetcher.h"
 #include "components/optimization_guide/core/hints/optimization_guide_decider.h"
 #include "components/optimization_guide/core/hints/optimization_guide_store.h"
+#include "components/optimization_guide/core/hints/prefs.h"
 #include "components/optimization_guide/core/optimization_guide_features.h"
 #include "components/optimization_guide/core/optimization_guide_logger.h"
 #include "components/optimization_guide/core/optimization_guide_permissions_util.h"
-#include "components/optimization_guide/core/optimization_guide_prefs.h"
 #include "components/optimization_guide/core/proto_database_provider_test_base.h"
 #include "components/sync_preferences/testing_pref_service_syncable.h"
 #include "components/unified_consent/unified_consent_service.h"
@@ -160,6 +163,7 @@ class ChromeHintsManagerFetchingTest
         OptimizationGuideWebContentsObserver::FromWebContents(web_contents);
     observer->FetchHintsUsingManager(
         hints_manager(), web_contents->GetPrimaryPage().GetWeakPtr());
+    WaitForAccessTokenCallbacks();
   }
 
   ChromeHintsManager* hints_manager() const { return hints_manager_.get(); }
@@ -173,6 +177,13 @@ class ChromeHintsManagerFetchingTest
   }
 
   void RunUntilIdle() { task_environment_.RunUntilIdle(); }
+
+  void WaitForAccessTokenCallbacks() {
+    base::RunLoop run_loop;
+    base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE, run_loop.QuitClosure());
+    run_loop.Run();
+  }
 
  private:
   content::BrowserTaskEnvironment task_environment_{

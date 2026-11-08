@@ -7,6 +7,10 @@ import("//components/vrp_flags/features.gni")
 import("//media/gpu/args.gni")
 import("//mojo/public/tools/bindings/mojom.gni")
 
+mojom("gpu_client_type") {
+  sources = [ "gpu_client_type.mojom" ]
+}
+
 mojom("gl") {
   sources = [
     "context_lost_reason.mojom",
@@ -18,10 +22,12 @@ mojom("gl") {
   parser_deps = [ "//components/viz/common:buildflags" ]
 
   public_deps = [
+    ":gpu_client_type",
     "//components/persistent_cache/mojom",
     "//gpu/ipc/common:interfaces",
     "//gpu/ipc/common:surface_handle",
     "//media/mojo/mojom",
+    "//media/mojo/mojom:video_encode",
     "//services/webnn/public/mojom",
     "//third_party/blink/public/mojom/tokens",
     "//ui/gfx/geometry/mojom",

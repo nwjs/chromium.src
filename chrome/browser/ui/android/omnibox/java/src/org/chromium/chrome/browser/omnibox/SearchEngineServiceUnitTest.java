@@ -41,6 +41,7 @@ import org.robolectric.shadow.api.Shadow;
 import org.chromium.base.Callback;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.chrome.browser.locale.LocaleManager;
 import org.chromium.chrome.browser.locale.LocaleManagerDelegate;
 import org.chromium.chrome.browser.omnibox.SearchEngineService.SearchEngineIconObserver;
@@ -56,6 +57,7 @@ import org.chromium.chrome.browser.url_constants.UrlConstantResolver;
 import org.chromium.components.image_fetcher.ImageFetcher;
 import org.chromium.components.metrics.OmniboxEventProtosIntDef.PageClassification;
 import org.chromium.components.omnibox.OmniboxCapabilities;
+import org.chromium.components.omnibox.OmniboxFeatureList;
 import org.chromium.components.omnibox.OmniboxFeatures;
 import org.chromium.components.search_engines.AiModeButtonUiConfig;
 import org.chromium.components.search_engines.StarterPackId;
@@ -222,6 +224,7 @@ public class SearchEngineServiceUnitTest {
     }
 
     @Test
+    @EnableFeatures(OmniboxFeatureList.SERVE_JAVA_CACHED_ZERO_SUGGEST)
     public void onTemplateUrlServiceChanged_newTemplateUrl_noPreviousEngine() {
         {
             // To Google
@@ -243,6 +246,7 @@ public class SearchEngineServiceUnitTest {
     }
 
     @Test
+    @EnableFeatures(OmniboxFeatureList.SERVE_JAVA_CACHED_ZERO_SUGGEST)
     public void onTemplateUrlServiceChanged_newTemplateUrl_withDifferentPreviousEngine() {
         {
             // To Google
@@ -274,6 +278,7 @@ public class SearchEngineServiceUnitTest {
     }
 
     @Test
+    @EnableFeatures(OmniboxFeatureList.SERVE_JAVA_CACHED_ZERO_SUGGEST)
     public void onTemplateUrlServiceChanged_newTemplateUrl_withSamePreviousEngine() {
         {
             // Google to Google
@@ -628,6 +633,7 @@ public class SearchEngineServiceUnitTest {
 
     @Test
     public void onAiModeButtonUiConfigChanged_retrievesFaviconAndIgnoresDuplicateConfig() {
+        OmniboxCapabilities.setIsDesktopPlatformForTesting(false);
         var searchEngineService = new SearchEngineService(mProfile, mFaviconHelper, mImageFetcher);
         var faviconUrl = new GURL(LOGO_URL);
         var config = createTestAiModeButtonUiConfig(faviconUrl);
@@ -637,8 +643,12 @@ public class SearchEngineServiceUnitTest {
                 new StatusIconResource(R.drawable.ic_search_spark_24dp, 0),
                 searchEngineService.getAiModeButtonIconSupplier().get());
 
+        int iconSizePx =
+                mContext.getResources()
+                        .getDimensionPixelSize(R.dimen.omnibox_search_engine_logo_composed_size);
         var expectedParams =
-                ImageFetcher.Params.create(faviconUrl, ImageFetcher.OMNIBOX_UMA_CLIENT_NAME);
+                ImageFetcher.Params.create(
+                        faviconUrl, ImageFetcher.OMNIBOX_UMA_CLIENT_NAME, iconSizePx, iconSizePx);
         verify(mImageFetcher).fetchImage(eq(expectedParams), mImageFetcherCallbackCaptor.capture());
         mImageFetcherCallbackCaptor.getValue().onResult(mBitmap);
         assertEquals(

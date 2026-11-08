@@ -113,18 +113,6 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="API.StorageAccess.DocumentLoadedWithStorageAccess"
-    enum="Boolean" expires_after="2026-11-15">
-  <owner>cfredric@chromium.org</owner>
-  <owner>johannhof@chromium.org</owner>
-  <summary>
-    Records whether or not a document was loaded with the `has_storage_access`
-    bit set to true.
-
-    Recorded once at document commit, for every document.
-  </summary>
-</histogram>
-
 <histogram name="API.StorageAccess.GrantIsImplicit" enum="BooleanAvailable"
     expires_after="2023-03-12">
   <owner>mkwst@chromium.org</owner>
@@ -304,6 +292,20 @@ chromium-metrics-reviews@google.com.
   </token>
 </histogram>
 
+<histogram
+    name="IndexedDB.BackingStore.DatabaseError.{IndexedDBBackingStoreType}"
+    enum="IndexedDbStatusType" expires_after="2027-10-01">
+  <owner>leimy@chromium.org</owner>
+  <owner>evanstade@microsoft.com</owner>
+  <owner>chrome-owp-storage@google.com</owner>
+  <summary>
+    Records the status of database operations. OK is logged after a database
+    task is successfully run, and an error status is logged when a database task
+    encounters failure, or failure is reported while doing work not contained
+    within an &quot;operation&quot;.
+  </summary>
+</histogram>
+
 <histogram name="IndexedDB.BackingStore.ReadBlob.{IndexedDBBackingStoreType}"
     enum="NetErrorCodes" expires_after="2027-09-18">
   <owner>leimy@chromium.org</owner>
@@ -318,6 +320,18 @@ chromium-metrics-reviews@google.com.
     successfully or otherwise. The source of the bytes may be a file as in the
     case of LevelDB, or a blob streaming handle as in the case of SQLite. This
     histogram gates rollout of the SQLite backing store.
+  </summary>
+</histogram>
+
+<histogram
+    name="IndexedDB.BackingStore.ResetReason.{IndexedDBBackingStoreType}"
+    enum="IndexedDbBackingStoreResetReason" expires_after="2027-10-01">
+  <owner>leimy@chromium.org</owner>
+  <owner>evanstade@microsoft.com</owner>
+  <owner>chrome-owp-storage@google.com</owner>
+  <summary>
+    Records why an initialized IndexedDB backing store is reset. Logged once
+    immediately before the backing store is destroyed.
   </summary>
 </histogram>
 
@@ -498,33 +512,6 @@ chromium-metrics-reviews@google.com.
   </token>
 </histogram>
 
-<histogram name="IndexedDB.GetUnacquirableLocksLongTimes" units="ms"
-    expires_after="2026-07-01">
-  <owner>estade@chromium.org</owner>
-  <owner>chrome-owp-storage@google.com</owner>
-  <summary>
-    Logs the duration of PartitionedLockManager::GetUnacquirableLocks, but only
-    if it takes over 2ms to execute. This is intended to facilitate tracking
-    down performance issues. See crbug.com/384476946.
-
-    Warning: this histogram was expired from 2025/04 to 2025/06; data may be
-    missing.
-  </summary>
-</histogram>
-
-<histogram name="IndexedDB.GetUnacquirableLocksRequestQueueSize" units="count"
-    expires_after="2026-10-02">
-  <owner>leimy@chromium.org</owner>
-  <owner>evanstade@microsoft.com</owner>
-  <owner>chrome-owp-storage@google.com</owner>
-  <summary>
-    Logs the number of queued lock requests that exist in the
-    PartitionedLockManager when GetUnacquirableLocks() takes over 2ms to
-    complete. This is intended to facilitate tracking down performance issues.
-    See crbug.com/384476946
-  </summary>
-</histogram>
-
 <histogram
     name="IndexedDB.IdleTasksCompletionToNextActivity.{IndexedDBBackingStoreType}"
     units="ms" expires_after="2027-09-18">
@@ -564,31 +551,6 @@ chromium-metrics-reviews@google.com.
   <summary>
     Records the number of tombstones entries which were found during the LevelDB
     cleanup task. Recorded when the LevelDbTombstoneSweeper is destroyed.
-  </summary>
-</histogram>
-
-<histogram name="IndexedDB.LockRequestCancelledLongTimes" units="ms"
-    expires_after="2026-10-02">
-  <owner>leimy@chromium.org</owner>
-  <owner>evanstade@microsoft.com</owner>
-  <owner>chrome-owp-storage@google.com</owner>
-  <summary>
-    Logs the duration of PartitionedLockManager::LockRequestCancelled, but only
-    if it takes over 2ms to execute. This is intended to facilitate tracking
-    down performance issues. See crbug.com/384476946
-  </summary>
-</histogram>
-
-<histogram name="IndexedDB.LockRequestCancelledRequestQueueSize" units="count"
-    expires_after="2026-10-02">
-  <owner>leimy@chromium.org</owner>
-  <owner>evanstade@microsoft.com</owner>
-  <owner>chrome-owp-storage@google.com</owner>
-  <summary>
-    Logs the number of queued lock requests that exist in the
-    PartitionedLockManager when LockRequestCancelled() takes over 2ms to
-    complete. This is intended to facilitate tracking down performance issues.
-    See crbug.com/384476946
   </summary>
 </histogram>
 
@@ -658,40 +620,6 @@ chromium-metrics-reviews@google.com.
     <variant name="QuotaError"/>
     <variant name="Success"/>
   </token>
-</histogram>
-
-<histogram name="IndexedDB.RemoveTransactionConnectionTxnCount" units="count"
-    expires_after="2026-07-19">
-  <owner>estade@chromium.org</owner>
-  <owner>chrome-owp-storage@google.com</owner>
-  <summary>
-    Logs the number of transactions remaining on a Connection when
-    Connection::RemoveTransaction() takes over 2ms to complete. This is intended
-    to facilitate tracking down performance issues. See crbug.com/384476946
-  </summary>
-</histogram>
-
-<histogram name="IndexedDB.RemoveTransactionLongTimes" units="ms"
-    expires_after="2026-07-19">
-  <owner>estade@chromium.org</owner>
-  <owner>chrome-owp-storage@google.com</owner>
-  <summary>
-    Logs the duration of Connection::RemoveTransaction(), but only if it takes
-    over 2ms to execute. This is intended to facilitate tracking down
-    performance issues. See crbug.com/384476946
-  </summary>
-</histogram>
-
-<histogram name="IndexedDB.RemoveTransactionRequestQueueSize" units="count"
-    expires_after="2026-07-19">
-  <owner>estade@chromium.org</owner>
-  <owner>chrome-owp-storage@google.com</owner>
-  <summary>
-    Logs the number of queued lock requests that exist in the
-    PartitionedLockManager when Connection::RemoveTransaction() takes over 2ms
-    to complete. This is intended to facilitate tracking down performance
-    issues. See crbug.com/384476946
-  </summary>
 </histogram>
 
 <histogram name="IndexedDB.SQLite.BlobServedFromLegacyFile" enum="Boolean"
@@ -1078,7 +1006,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="LocalStorage.DatabaseOnDiskSizeKB{DomStorageSqliteRolloutStage}"
-    units="KB" expires_after="2027-01-24">
+    units="KB" expires_after="2027-03-28">
   <owner>fergal@chromium.org</owner>
   <owner>rahsin@microsoft.com</owner>
   <owner>chrome-owp-storage@google.com</owner>
@@ -1258,6 +1186,39 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="Storage.Blob.RendererUuidAccess" enum="BlobUuidAccess"
+    expires_after="2027-09-22">
+  <owner>leimy@chromium.org</owner>
+  <owner>evanstade@microsoft.com</owner>
+  <owner>chrome-owp-storage@google.com</owner>
+  <summary>
+    Records whether BlobDataHandle::Uuid returns a UUID created synchronously,
+    an asynchronously created UUID that was already available, an asynchronously
+    created UUID requested synchronously from the blob, or that no UUID was
+    available because the blob's remote connection was not valid. Recorded each
+    time BlobDataHandle::Uuid is called.
+  </summary>
+</histogram>
+
+<histogram name="Storage.Blob.SideDataAccessType" enum="BlobSideDataAccessType"
+    expires_after="2027-04-05">
+  <owner>leimy@chromium.org</owner>
+  <owner>evanstade@microsoft.com</owner>
+  <owner>chrome-owp-storage@google.com</owner>
+  <summary>
+    Records metrics related to Blob side data (Cache API code cache).
+
+    Records when
+
+    (0) a Blob URL is served for a Blob that does not have side data.
+
+    (1) a Blob URL is served for a Blob that has side data.
+
+    (2) a service worker uses Cache API to serve a script resource request
+    (script src=&quot;/app.js&quot;) and accesses side data.
+  </summary>
+</histogram>
+
 <histogram name="Storage.Buckets.BucketCount" units="buckets"
     expires_after="2026-07-01">
   <owner>estade@chromium.org</owner>
@@ -1336,7 +1297,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Storage.DeclarativePerformanceObserver.DatabaseSize"
-    units="KB" expires_after="2026-12-19">
+    units="KB" expires_after="2027-04-04">
   <owner>sisidovski@chromium.org</owner>
   <owner>chrome-loading@google.com</owner>
   <summary>
@@ -1368,7 +1329,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram name="Storage.DeclarativePerformanceObserver.ReadReportResult"
     enum="DeclarativePerformanceObserverStoreReadResult"
-    expires_after="2026-12-19">
+    expires_after="2027-04-04">
   <owner>sisidovski@chromium.org</owner>
   <owner>chrome-loading@google.com</owner>
   <summary>
@@ -1379,7 +1340,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Storage.DeclarativePerformanceObserver.StoredOriginCount"
-    units="origins" expires_after="2026-12-19">
+    units="origins" expires_after="2027-04-04">
   <owner>sisidovski@chromium.org</owner>
   <owner>chrome-loading@google.com</owner>
   <summary>
@@ -1390,7 +1351,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Storage.DeclarativePerformanceObserver.StoredReportCount"
-    units="reports" expires_after="2026-12-19">
+    units="reports" expires_after="2027-04-04">
   <owner>sisidovski@chromium.org</owner>
   <owner>chrome-loading@google.com</owner>
   <summary>
@@ -1732,7 +1693,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Storage.InterestGroup.DBSize" units="KB"
-    expires_after="2027-01-31">
+    expires_after="2027-04-04">
   <owner>behamilton@google.com</owner>
   <owner>pauljensen@chromium.org</owner>
   <summary>
@@ -2074,6 +2035,18 @@ chromium-metrics-reviews@google.com.
     <variant name="UpdateMaps"
         summary="committing pending map updates via UpdateMaps"/>
   </token>
+</histogram>
+
+<histogram name="Storage.{DomStorageType}.MigrationDroppedChanges"
+    enum="Boolean" expires_after="2027-07-01">
+  <owner>leimy@chromium.org</owner>
+  <owner>stevebe@microsoft.com</owner>
+  <owner>chrome-owp-storage@google.com</owner>
+  <summary>
+    Records whether data loss occurs for {DomStorageType} because a database
+    migration was in progress during shutdown. Recorded once for each
+    {DomStorageType} when it shuts down.
+  </summary>
 </histogram>
 
 <histogram

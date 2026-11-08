@@ -64,6 +64,7 @@
 #include "content/public/browser/webid/native_idp_fetcher.h"
 #include "content/public/common/alternative_error_page_override_info.mojom.h"
 #include "content/public/common/content_features.h"
+#include "content/public/common/url_constants.h"
 #include "content/public/common/url_utils.h"
 #include "media/audio/audio_manager.h"
 #include "media/capture/content/screen_enumerator.h"
@@ -597,6 +598,17 @@ bool ContentBrowserClient::WebPreferencesNeedUpdateForColorRelatedStateChanges(
   return false;
 }
 
+ui::ColorProviderKey::ForcedColors
+ContentBrowserClient::GetForcedColorsForWebContents(
+    WebContents& web_contents) const {
+  return ui::ColorProviderKey::ForcedColors::kNone;
+}
+
+bool ContentBrowserClient::
+    ShouldUpdateFontRendererPreferencesFromSystemSettings() const {
+  return true;
+}
+
 bool ContentBrowserClient::IsDataSaverEnabled(BrowserContext* context) {
   DCHECK(context);
   return false;
@@ -677,8 +689,6 @@ bool ContentBrowserClient::IsPrivacySandboxReportingDestinationAttested(
     content::PrivacySandboxInvokingAPI invoking_api) {
   return false;
 }
-
-
 
 bool ContentBrowserClient::IsFullCookieAccessAllowed(
     content::BrowserContext* browser_context,
@@ -1007,10 +1017,17 @@ std::unique_ptr<NavigationUIData> ContentBrowserClient::GetNavigationUIData(
 
 #if BUILDFLAG(IS_WIN)
 
-bool ContentBrowserClient::PreSpawnChild(sandbox::TargetConfig* config,
-                                         sandbox::mojom::Sandbox sandbox_type,
-                                         ChildSpawnFlags flags) {
+bool ContentBrowserClient::PreSpawnChild(
+    sandbox::TargetConfig* config,
+    sandbox::mojom::Sandbox sandbox_type,
+    ChildSpawnFlags flags,
+    base::optional_ref<const ChildModule> child_module) {
   return true;
+}
+
+std::optional<ContentBrowserClient::ChildModule>
+ContentBrowserClient::GetChildModule() {
+  return std::nullopt;
 }
 
 bool ContentBrowserClient::IsUtilityCetCompatible(
@@ -1344,6 +1361,7 @@ std::unique_ptr<LoginDelegate> ContentBrowserClient::CreateLoginDelegate(
     const GURL& url,
     scoped_refptr<net::HttpResponseHeaders> response_headers,
     bool first_auth_attempt,
+    bool do_not_prompt_for_login,
     GuestPageHolder* guest,
     LoginDelegate::LoginAuthRequiredCallback auth_required_callback) {
   return nullptr;
@@ -1553,6 +1571,11 @@ ContentBrowserClient::MaybeOverrideSourceURLForClipboardAccess(
 bool ContentBrowserClient::IsClipboardPasteAllowed(
     content::RenderFrameHost* render_frame_host) {
   return true;
+}
+
+bool ContentBrowserClient::IsClipboardAllowedForServiceWorker(
+    const url::Origin& origin) {
+  return false;
 }
 
 void ContentBrowserClient::IsClipboardPasteAllowedByPolicy(
@@ -1850,12 +1873,13 @@ bool ContentBrowserClient::
   return true;
 }
 
-bool ContentBrowserClient::IsBlobUrlPartitioningEnabled(
-    content::BrowserContext* browser_context) {
+bool ContentBrowserClient::IsUrlAllowedForBackForwardCache(
+    content::BrowserContext* browser_context,
+    const GURL& url) {
   return true;
 }
 
-bool ContentBrowserClient::ShouldReduceAcceptLanguage(
+bool ContentBrowserClient::IsBlobUrlPartitioningEnabled(
     content::BrowserContext* browser_context) {
   return true;
 }
@@ -2087,5 +2111,9 @@ bool ContentBrowserClient::ShouldAllowSystemUiPopups(
   return true;
 }
 #endif
+
+bool ContentBrowserClient::IsExemptFromWindowSizeCheck(const GURL& url) {
+  return url.SchemeIs(kChromeUIScheme) || url.SchemeIs(kChromeDevToolsScheme);
+}
 
 }  // namespace content

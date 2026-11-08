@@ -35,6 +35,8 @@ class GlicWebUIContentsManager : public content::WebContentsObserver,
 
   // GlicWebContentsManager impl.
   void AttachToHost(Host* host) override;
+  void AttachModalDialogManagerDelegate(
+      ScopedModalDialogManagerDelegate& delegate) override;
   void SetVisibility(content::Visibility visibility) override;
   content::WebContents* active_web_contents() const override;
   content::WebContents* guest_contents() const override;
@@ -44,6 +46,7 @@ class GlicWebUIContentsManager : public content::WebContentsObserver,
       WebContentsChangedCallback callback) override;
   GlicWebClientManager& web_client_manager() override;
   bool ShouldReloadOnShow() const override;
+  bool IsCrashed() const override;
 
  private:
   // content::WebContentsObserver:
@@ -57,6 +60,7 @@ class GlicWebUIContentsManager : public content::WebContentsObserver,
 
   const base::TimeTicks creation_time_ = base::TimeTicks::Now();
   base::TimeTicks navigation_commit_time_;
+  bool has_recorded_load_complete_ = false;
   const raw_ptr<Profile> profile_;
   GlicWebClientManager web_client_manager_;
   std::unique_ptr<content::WebContents> web_contents_;

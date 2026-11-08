@@ -33,7 +33,7 @@ class TabModelOrderControllerImpl implements TabModelOrderController {
 
     @Override
     public int determineInsertionIndex(@TabLaunchType int type, int position, Tab newTab) {
-        if (type == TabLaunchType.FROM_BROWSER_ACTIONS || type == TabLaunchType.FROM_RECENT_TABS) {
+        if (TabLaunchTypeUtils.bypassesInsertionOrderCalculation(type)) {
             return TabList.INVALID_TAB_INDEX;
         }
         if (newTab.getIsPinned() && type != TabLaunchType.FROM_RESTORE) {
@@ -72,14 +72,6 @@ class TabModelOrderControllerImpl implements TabModelOrderController {
             // too confusing by having multiple groups active at the same time.
             forgetAllOpeners();
         }
-
-        // TODO(crbug.com/40877620): This is a bandaid fix to ensure tab groups are contiguous such
-        // that no tabs within a group are separate from one another and that no tab that is not
-        // part of a group can be added in-between members of a group. This doesn't address the
-        // issue of moving tabs to be between members of a group, however when a group is moved it
-        // is moved tab-by-tab so it is difficult to enforce anything there without significant
-        // refactoring.
-        position = getValidPositionConsideringRelatedTabs(newTab, position);
 
         return position;
     }
@@ -151,13 +143,8 @@ class TabModelOrderControllerImpl implements TabModelOrderController {
         return NO_TAB;
     }
 
-    private int getValidPositionConsideringRelatedTabs(Tab newTab, int position) {
-        TabModel tabModel = mTabModelSelector.getModel(newTab.isIncognito());
-        return tabModel.getValidPosition(newTab, position);
-    }
-
     /** Clear the opener attribute on all tabs in the model. */
-    void forgetAllOpeners() {
+    private void forgetAllOpeners() {
         TabModel currentModel = mTabModelSelector.getCurrentModel();
         for (Tab tab : currentModel) {
             TabAttributes.from(tab).set(TabAttributeKeys.GROUPED_WITH_PARENT, false);

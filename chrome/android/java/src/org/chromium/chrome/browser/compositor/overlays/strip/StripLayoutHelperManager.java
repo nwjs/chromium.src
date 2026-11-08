@@ -83,13 +83,13 @@ import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.share.ShareDelegate;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.Tab.LoadUrlResult;
-import org.chromium.chrome.browser.tab.TabClosingSource;
 import org.chromium.chrome.browser.tab.TabCreationState;
 import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tab.TabObscuringHandler;
 import org.chromium.chrome.browser.tab.TabSelectionType;
 import org.chromium.chrome.browser.tab_ui.ActionConfirmationManager;
 import org.chromium.chrome.browser.tab_ui.TabContentManager;
+import org.chromium.chrome.browser.tabmodel.TabClosingSource;
 import org.chromium.chrome.browser.tabmodel.TabCreatorManager;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelObserver;
@@ -113,6 +113,8 @@ import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.browser_ui.desktop_windowing.AppHeaderState;
 import org.chromium.components.browser_ui.desktop_windowing.DesktopWindowStateManager;
 import org.chromium.components.browser_ui.desktop_windowing.DesktopWindowStateManager.AppHeaderObserver;
+import org.chromium.components.browser_ui.widget.MenuOrKeyboardActionController;
+import org.chromium.components.browser_ui.widget.MenuOrKeyboardActionController.MenuOrKeyboardActionHandler;
 import org.chromium.components.browser_ui.widget.gesture.BackPressHandler;
 import org.chromium.components.tabs.TabAlert;
 import org.chromium.content_public.browser.LoadUrlParams;
@@ -144,7 +146,8 @@ public class StripLayoutHelperManager
                 TopResumedActivityChangedObserver,
                 AppHeaderObserver,
                 TabObscuringHandler.Observer,
-                MultiWindowModeObserver {
+                MultiWindowModeObserver,
+                MenuOrKeyboardActionHandler {
     /**
      * POD type that contains the necessary tab model info on startup. Used in the startup flicker
      * fix experiment where we create a placeholder tab strip on startup to mitigate jank as tabs
@@ -204,6 +207,7 @@ public class StripLayoutHelperManager
     private final LayoutUpdateHost mUpdateHost;
     private final LayoutRenderHost mRenderHost;
     private final TabObscuringHandler mTabObscuringHandler;
+    private final MenuOrKeyboardActionController mMenuOrKeyboardActionController;
     private @Nullable ResourceManager mResourceManager;
 
     // Event Filters
@@ -442,9 +446,7 @@ public class StripLayoutHelperManager
         }
     }
 
-    /**
-     * @return Returns layout observer for tab switcher.
-     */
+    /** Returns layout observer for tab switcher. */
     public LayoutStateObserver getTabSwitcherObserver() {
         return mTabSwitcherLayoutObserver;
     }
@@ -487,6 +489,8 @@ public class StripLayoutHelperManager
      * @param sideUiStateProviderSupplier Supplier of the {@link SideUiStateProvider}.
      * @param tabObscuringHandler The {@link TabObscuringHandler} to manage tab obscuring.
      * @param canActivateTabLayoutToggleMenuSupplier Whether the tab layout toggle menu can open.
+     * @param menuOrKeyboardActionController The {@link MenuOrKeyboardActionController} for
+     *     registering menu or keyboard action handlers.
      */
     // TODO(crbug.com/484116872): Suppressing to observe SharedPreferences, which is discouraged;
     // should use another messaging channel instead.
@@ -524,7 +528,8 @@ public class StripLayoutHelperManager
             LeadingButtonDelegate leadingButtonDelegate,
             OneshotSupplier<SideUiStateProvider> sideUiStateProviderSupplier,
             TabObscuringHandler tabObscuringHandler,
-            @Nullable BooleanSupplier canActivateTabLayoutToggleMenuSupplier) {
+            @Nullable BooleanSupplier canActivateTabLayoutToggleMenuSupplier,
+            MenuOrKeyboardActionController menuOrKeyboardActionController) {
         mContext = context;
         mWindowAndroid = windowAndroid;
         Resources res = context.getResources();
@@ -546,6 +551,8 @@ public class StripLayoutHelperManager
         mTabSwitcherLayoutObserver = new TabSwitcherLayoutObserver();
         mLifecycleDispatcher = lifecycleDispatcher;
         mLifecycleDispatcher.register(this);
+        mMenuOrKeyboardActionController = menuOrKeyboardActionController;
+        mMenuOrKeyboardActionController.registerMenuOrKeyboardActionHandler(this);
         mBrowserControlsStateProvider = browserControlsStateProvider;
         mDefaultTitle = context.getString(R.string.tab_loading_default_title);
         mControlContainer = controlContainerView;
@@ -847,6 +854,7 @@ public class StripLayoutHelperManager
         }
         mTrailingButtonsCoordinator.destroy();
         mLifecycleDispatcher.unregister(this);
+        mMenuOrKeyboardActionController.unregisterMenuOrKeyboardActionHandler(this);
         mBrowserControlsStateProvider.removeObserver(mBrowserControlsObserver);
         // Remove the observer to prevent any updates on a destroyed EventFilter.
         mStripVisibilityStateSupplier.removeObserver(mStripVisibilityStateObserver);
@@ -1305,9 +1313,7 @@ public class StripLayoutHelperManager
         return getActiveStripLayoutHelper().shouldShowTabOutline(tab);
     }
 
-    /**
-     * @return The touch target offset to be applied to the new tab button.
-     */
+    /** Returns the touch target offset to be applied to the new tab button. */
     public float getNewTabBtnVisualOffset() {
         return getActiveStripLayoutHelper().getNewTabButtonVisualOffset();
     }
@@ -1423,16 +1429,12 @@ public class StripLayoutHelperManager
         mControlContainer.setSystemGestureExclusionRects(rects);
     }
 
-    /**
-     * @return The opacity to use for the fade on the left side of the tab strip.
-     */
+    /** Returns the opacity to use for the fade on the left side of the tab strip. */
     public float getLeftFadeOpacity() {
         return getActiveStripLayoutHelper().getLeftFadeOpacity();
     }
 
-    /**
-     * @return The opacity to use for the fade on the right side of the tab strip.
-     */
+    /** Returns the opacity to use for the fade on the right side of the tab strip. */
     public float getRightFadeOpacity() {
         return getActiveStripLayoutHelper().getRightFadeOpacity();
     }
@@ -1544,9 +1546,7 @@ public class StripLayoutHelperManager
 
         mTabModelSelectorTabModelObserver =
                 new TabModelSelectorTabModelObserver(modelSelector) {
-                    /**
-                     * @return The actual current time of the app in ms.
-                     */
+                    /** Returns the actual current time of the app in ms. */
                     public long time() {
                         return SystemClock.uptimeMillis();
                     }
@@ -1667,7 +1667,9 @@ public class StripLayoutHelperManager
 
                     @Override
                     public void onLoadStarted(Tab tab, boolean toDifferentDocument) {
-                        if (!isSpinnerFixEnabled() && !toDifferentDocument) return;
+                        // Same-document navigations (e.g. pushState/fragment changes) should not
+                        // show a spinner; doing so replaces the favicon and causes it to flash.
+                        if (!toDifferentDocument) return;
                         StripLayoutHelper helper = getStripLayoutHelper(tab.isIncognitoBranded());
                         helper.tabLoadStarted(tab.getId());
                     }
@@ -1840,7 +1842,8 @@ public class StripLayoutHelperManager
         mUpdateHost.requestUpdate();
     }
 
-    private void updateHelperEndMargins() {
+    @VisibleForTesting
+    void updateHelperEndMargins() {
         float trailingButtonsTouchTargetSize =
                 mTrailingButtonsCoordinator.getTrailingButtonsWidthWithPadding();
         mNormalHelper.updateEndMarginForStripButtons(trailingButtonsTouchTargetSize);
@@ -1860,9 +1863,7 @@ public class StripLayoutHelperManager
         return incognito ? mIncognitoHelper : mNormalHelper;
     }
 
-    /**
-     * @return The currently visible strip layout helper.
-     */
+    /** Returns the currently visible strip layout helper. */
     @VisibleForTesting
     public StripLayoutHelper getActiveStripLayoutHelper() {
         return getStripLayoutHelper(mIsIncognito);
@@ -1938,19 +1939,26 @@ public class StripLayoutHelperManager
         mManagerHost.requestKeyboardFocus(this);
     }
 
-    /**
-     * @return Whether the tab strip contains keyboard focus.
-     */
+    /** Returns whether the tab strip contains keyboard focus. */
     public boolean containsKeyboardFocus() {
         return mManagerHost.containsKeyboardFocus(this);
     }
 
-    /**
-     * Opens the context menu for the currently keyboard-focused item, if applicable.
-     *
-     * @return Whether the context menu was successfully opened.
-     */
-    public boolean openKeyboardFocusedContextMenu() {
+    @Override
+    public boolean handleMenuOrKeyboardAction(int id, boolean fromMenu) {
+        if (id == R.id.open_tab_strip_context_menu) {
+            return openKeyboardFocusedContextMenu();
+        } else if (id == R.id.reorder_tab_strip_item_left) {
+            return reorderKeyboardFocusedItem(/* toLeft= */ true);
+        } else if (id == R.id.reorder_tab_strip_item_right) {
+            return reorderKeyboardFocusedItem(/* toLeft= */ false);
+        } else if (id == R.id.toggle_tab_strip_multiselect) {
+            return multiselectKeyboardFocusedItem();
+        }
+        return false;
+    }
+
+    private boolean openKeyboardFocusedContextMenu() {
         if (getActiveStripLayoutHelper().openKeyboardFocusedContextMenu()) {
             return true;
         }
@@ -1958,23 +1966,11 @@ public class StripLayoutHelperManager
         return mTrailingButtonsCoordinator.openKeyboardFocusedContextMenu(activity);
     }
 
-    /**
-     * Reorders the currently keyboard-focused item, if applicable.
-     *
-     * @param toLeft Whether the focused item should be reordered to the left (note: this is still
-     *     left in RTL).
-     * @return Whether the item was successfully reordered.
-     */
-    public boolean reorderKeyboardFocusedItem(boolean toLeft) {
+    private boolean reorderKeyboardFocusedItem(boolean toLeft) {
         return getActiveStripLayoutHelper().moveSelectedStripView(toLeft);
     }
 
-    /**
-     * Toggles multiselection on the keyboard focused tab.
-     *
-     * @return Whether the multiselect action was successfully performed.
-     */
-    public boolean multiselectKeyboardFocusedItem() {
+    private boolean multiselectKeyboardFocusedItem() {
         return getActiveStripLayoutHelper().multiselectKeyboardFocusedItem();
     }
 

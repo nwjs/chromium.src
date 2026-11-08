@@ -309,10 +309,19 @@ class EntityInstance final {
                            const LocalRecordTypePayload&) = default;
   };
   struct WalletRecordTypePayload {
+    // Returns `management_url` if `kAutofillAiWalletServerProvidedDeepLink` is
+    // enabled and `management_url` is provided. Otherwise, returns the fallback
+    // Wallet URL for an entity with `type` and `guid`.
+    GURL GetManagementUrlWithFallback(EntityType type,
+                                      const EntityId& guid) const;
+
     // Canonical management URL for this entity on wallet.google.com.
     // Empty if not provided by the server or before sync propagation.
-    // TODO(crbug.com/560061580): This field is not yet populated.
-    std::string management_url = internal::IsRequired();
+    // This field is only populated if the flag
+    // kAutofillAiWalletServerProvidedDeepLink is set.
+    // Prefer calling `GetManagementUrlWithFallback()` when resolving a URL for
+    // navigation.
+    GURL management_url = internal::IsRequired();
 
     friend bool operator==(const WalletRecordTypePayload&,
                            const WalletRecordTypePayload&) = default;
@@ -320,10 +329,14 @@ class EntityInstance final {
   struct PersonalContextRecordTypePayload {
     struct GmailSourceMetadata {
       std::string title;
+      // Timestamp of the email message. May be null if the server omitted it.
+      base::Time timestamp;
       friend bool operator==(const GmailSourceMetadata&,
                              const GmailSourceMetadata&) = default;
     };
     struct PhotosSourceMetadata {
+      // Timestamp of the photo. May be null if the server omitted it, though
+      // valid photos on mobile require a non-null timestamp.
       base::Time timestamp;
       friend bool operator==(const PhotosSourceMetadata&,
                              const PhotosSourceMetadata&) = default;
@@ -356,6 +369,19 @@ class EntityInstance final {
             absl::Overload{
                 [](const GmailSourceMetadata&) { return Type::kGmail; },
                 [](const PhotosSourceMetadata&) { return Type::kPhotos; }},
+            metadata);
+      }
+
+      // Timestamp of the underlying source record (email date or photo
+      // capture time). Null if unknown.
+      base::Time timestamp() const {
+        return std::visit(
+            absl::Overload{[](const GmailSourceMetadata& gmail) {
+                             return gmail.timestamp;
+                           },
+                           [](const PhotosSourceMetadata& photos) {
+                             return photos.timestamp;
+                           }},
             metadata);
       }
 

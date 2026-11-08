@@ -36,21 +36,23 @@
 #include "chrome/browser/ash/login/demo_mode/demo_components.h"
 #include "chrome/browser/ash/login/demo_mode/demo_mode_dimensions.h"
 #include "chrome/browser/ash/login/demo_mode/demo_session.h"
-#include "chrome/browser/feature_engagement/tracker_factory.h"
 #include "chrome/browser/metrics/chrome_metrics_service_accessor.h"
-#include "chrome/browser/profiles/profile_manager.h"
 #include "chromeos/ash/components/demo_mode/utils/demo_session_utils.h"
+#include "chromeos/ash/components/feature_engagement/feature_engagement_tracker_provider.h"
 #include "chromeos/ash/components/growth/campaigns_logger.h"
 #include "chromeos/ash/components/growth/campaigns_manager.h"
 #include "chromeos/ash/components/growth/campaigns_utils.h"
 #include "chromeos/ash/components/growth/growth_metrics.h"
 #include "chromeos/constants/chromeos_features.h"
+#include "components/account_id/account_id.h"
 #include "components/application_locale_storage/application_locale_storage.h"
 #include "components/component_updater/ash/component_manager_ash.h"
 #include "components/feature_engagement/public/feature_constants.h"
 #include "components/feature_engagement/public/tracker.h"
 #include "components/language/core/browser/pref_names.h"
 #include "components/prefs/pref_service.h"
+#include "components/user_manager/user.h"
+#include "components/user_manager/user_manager.h"
 #include "components/variations/service/variations_service.h"
 #include "components/variations/synthetic_trials.h"
 #include "ui/display/screen.h"
@@ -64,8 +66,16 @@ std::string AddEventPrefix(std::string_view event) {
   return base::StrCat({growth::GetGrowthCampaignsEventNamePrefix(), event});
 }
 
-Profile* GetProfile() {
-  return ProfileManager::GetActiveUserProfile();
+// Returns the feature_engagement::Tracker for `account_id`, or null when it is
+// unavailable. Feature engagement is per-user, so the tracker exists only while
+// a user is signed in. When there is no active user session `account_id` is
+// empty (initial state and after teardown); this returns null and growth runs
+// without the tracker, which it already tolerates.
+feature_engagement::Tracker* GetTracker(const AccountId& account_id) {
+  if (!account_id.is_valid()) {
+    return nullptr;
+  }
+  return ash::FeatureEngagementTrackerProvider::Get().Find(account_id);
 }
 
 }  // namespace
@@ -112,16 +122,21 @@ void CampaignsManagerClientImpl::LoadCampaignsComponent(
 
 void CampaignsManagerClientImpl::AddOnTrackerInitializedCallback(
     growth::OnTrackerInitializedCallback callback) {
-  auto* tracker =
-      feature_engagement::TrackerFactory::GetForBrowserContext(GetProfile());
+  auto* tracker = GetTracker(account_id_);
   if (!tracker) {
     CAMPAIGNS_LOG(ERROR) << "Feature Engagement tracer is not available";
     std::move(callback).Run(false);
+    return;
   }
 
   tracker->AddOnInitializedCallback(
       base::BindOnce(&CampaignsManagerClientImpl::OnTrackerInitialized,
                      weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
+}
+
+void CampaignsManagerClientImpl::SetActiveAccountId(
+    const AccountId& account_id) {
+  account_id_ = account_id;
 }
 
 bool CampaignsManagerClientImpl::IsDeviceInDemoMode() const {
@@ -195,8 +210,14 @@ const std::string& CampaignsManagerClientImpl::GetUserLocale() const {
   // The locale as selected by the user, such as "en-IN". This is different
   // from `GetApplication` locale which is actually platform locale that
   // resolved using `l10n_util::CheckAndResolveLocale`.
-  return GetProfile()->GetPrefs()->GetString(
-      language::prefs::kApplicationLocale);
+  const user_manager::User* user =
+      user_manager::UserManager::Get()->FindUser(account_id_);
+  const PrefService* prefs = user ? user->GetProfilePrefs() : nullptr;
+  if (!prefs) {
+    static const base::NoDestructor<std::string> empty_locale;
+    return *empty_locale;
+  }
+  return prefs->GetString(language::prefs::kApplicationLocale);
 }
 
 const std::string CampaignsManagerClientImpl::GetCountryCode() const {
@@ -262,8 +283,7 @@ void CampaignsManagerClientImpl::RegisterSyntheticFieldTrial(
 
 void CampaignsManagerClientImpl::RecordEvent(const std::string& event_name,
                                              bool trigger_campaigns) {
-  auto* tracker =
-      feature_engagement::TrackerFactory::GetForBrowserContext(GetProfile());
+  auto* tracker = GetTracker(account_id_);
   if (!tracker || !tracker->IsInitialized()) {
     CAMPAIGNS_LOG(ERROR) << "Feature Engagement tracer is not available";
     growth::RecordCampaignsManagerError(
@@ -287,8 +307,7 @@ void CampaignsManagerClientImpl::RecordEvent(const std::string& event_name,
 
 void CampaignsManagerClientImpl::ClearConfig(
     const std::map<std::string, std::string>& params) {
-  auto* tracker =
-      feature_engagement::TrackerFactory::GetForBrowserContext(GetProfile());
+  auto* tracker = GetTracker(account_id_);
   if (!tracker || !tracker->IsInitialized()) {
     CAMPAIGNS_LOG(ERROR) << "Feature Engagement tracer is not available";
     growth::RecordCampaignsManagerError(
@@ -305,8 +324,7 @@ void CampaignsManagerClientImpl::ClearConfig(
 
 bool CampaignsManagerClientImpl::WouldTriggerHelpUI(
     const std::map<std::string, std::string>& params) {
-  auto* tracker =
-      feature_engagement::TrackerFactory::GetForBrowserContext(GetProfile());
+  auto* tracker = GetTracker(account_id_);
   if (!tracker || !tracker->IsInitialized()) {
     CAMPAIGNS_LOG(ERROR) << "Feature Engagement tracer is not available";
     growth::RecordCampaignsManagerError(
@@ -406,8 +424,7 @@ void CampaignsManagerClientImpl::OnTrackerInitialized(
 
 void CampaignsManagerClientImpl::UpdateConfig(
     const std::map<std::string, std::string>& params) {
-  auto* tracker =
-      feature_engagement::TrackerFactory::GetForBrowserContext(GetProfile());
+  auto* tracker = GetTracker(account_id_);
   if (!tracker || !tracker->IsInitialized()) {
     CAMPAIGNS_LOG(ERROR) << "Feature Engagement tracer is not available";
     growth::RecordCampaignsManagerError(

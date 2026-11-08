@@ -24,10 +24,7 @@ static_library("app_service") {
     "app_service_promise_app_model_builder.h",
   ]
 
-  public_deps = [
-    "//chrome/browser:browser_public_dependencies",
-    "//components/app_icon_loader",
-  ]
+  public_deps = [ "//components/app_icon_loader" ]
 
   deps = [
     "//ash/constants",
@@ -91,7 +88,6 @@ source_set("unit_tests") {
     "//chrome/browser/ash/login/demo_mode:test_support",
     "//chrome/browser/extensions",
     "//chrome/browser/profiles:profile",
-    "//chrome/browser/ui",
     "//chrome/browser/web_applications",
     "//chrome/browser/web_applications:web_applications_test_support",
     "//chrome/browser/web_applications/mojom:mojom_web_apps_enum",
@@ -155,7 +151,6 @@ source_set("browser_tests") {
     "//chrome/browser/ash/arc/session",
     "//chrome/browser/ash/system_web_apps",
     "//chrome/browser/profiles:profile",
-    "//chrome/browser/ui",
     "//chrome/browser/ui/ash/shelf",
     "//chrome/browser/ui/web_applications",
     "//chrome/browser/web_applications",

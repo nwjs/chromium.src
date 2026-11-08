@@ -21,6 +21,7 @@ import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.app.tabwindow.TabWindowManagerSingleton;
 import org.chromium.chrome.browser.flags.ActivityType;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.CustomTabProfileType;
 import org.chromium.chrome.browser.multiwindow.MultiInstanceOrchestratorFactory;
 import org.chromium.chrome.browser.ntp.RecentlyClosedBridge;
@@ -33,13 +34,10 @@ import org.chromium.chrome.browser.tab.TabDestroyStatus;
 import org.chromium.chrome.browser.tab.TabHidingType;
 import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tab.TabSelectionType;
-import org.chromium.chrome.browser.tab_group_sync.TabGroupSyncServiceFactory;
 import org.chromium.chrome.browser.tab_ui.TabContentManager;
 import org.chromium.chrome.browser.tabmodel.NextTabPolicy.NextTabPolicySupplier;
 import org.chromium.chrome.browser.tabmodel.TabCreator.NeedsTabModel;
 import org.chromium.chrome.browser.tabmodel.TabCreator.NeedsTabModelOrderController;
-import org.chromium.chrome.browser.tasks.tab_management.TabShareUtils;
-import org.chromium.components.tab_group_sync.TabGroupSyncService;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.modaldialog.ModalDialogManager;
 import org.chromium.url.GURL;
@@ -54,7 +52,7 @@ import java.util.function.Supplier;
  * methods to the active model that it contains.
  */
 @NullMarked
-public class TabModelSelectorImpl extends TabModelSelectorBase implements TabModelDelegate {
+public class TabModelSelectorImpl extends TabModelSelectorBase {
     public static final int CUSTOM_TABS_SELECTOR_INDEX = -1;
 
     // Type of the Activity for this tab model. Used by sync to determine how to handle restore
@@ -233,7 +231,9 @@ public class TabModelSelectorImpl extends TabModelSelectorBase implements TabMod
                     @Override
                     public void onNewTabCreated(Tab tab) {
                         // Only invalidate if the tab exists in the currently selected model.
-                        if (getCurrentModel().getTabById(tab.getId()) != null) {
+                        if (getCurrentModel().getTabById(tab.getId()) != null
+                                && (!ChromeFeatureList.sClankStartupTabOptimizations.isEnabled()
+                                        || !tab.isFrozen())) {
                             mTabContentManager.invalidateIfChanged(tab.getId(), tab.getUrl());
                         }
                     }
@@ -283,9 +283,10 @@ public class TabModelSelectorImpl extends TabModelSelectorBase implements TabMod
 
                     @Override
                     public void onCloseContents(Tab tab) {
-                        tryCloseTab(
-                                TabClosureParams.closeTab(tab).allowUndo(false).build(),
-                                /* allowDialog= */ false);
+                        closeTab(
+                                TabClosureParams.closeTab(tab)
+                                        .allowUndo(/* allowUndo= */ false)
+                                        .build());
                     }
                 };
     }
@@ -370,27 +371,19 @@ public class TabModelSelectorImpl extends TabModelSelectorBase implements TabMod
     public boolean moveTabGroupToWindow(
             Token tabGroupId, Activity activity, int newIndex, boolean isIncognito) {
         TabModel tabModel = getModel(isIncognito);
-        if (!tabModel.tabGroupExists(tabGroupId)) return false;
+        if (!tabModel.containsTabGroup(tabGroupId)) return false;
 
         Tab currentTab = tabModel.getCurrentTabSupplier().get();
         assert currentTab != null;
         Activity currentActivity = ContextUtils.activityFromContext(currentTab.getContext());
         if (currentActivity == null) return false;
 
-        String collaborationId = null;
-        if (!isIncognito) {
-            TabGroupSyncService tabGroupSyncService =
-                    TabGroupSyncServiceFactory.getForProfile(assumeNonNull(tabModel.getProfile()));
-            collaborationId =
-                    TabShareUtils.getCollaborationIdOrNull(tabGroupId, tabGroupSyncService);
-        }
         TabGroupMetadata tabGroupMetadata =
                 TabGroupMetadataExtractor.extractTabGroupMetadata(
                         tabModel,
                         tabModel.getTabsInGroup(tabGroupId),
                         TabWindowManagerSingleton.getInstance().getIdForWindow(currentActivity),
-                        currentTab.getId(),
-                        TabShareUtils.isCollaborationIdValid(collaborationId));
+                        currentTab.getId());
         if (tabGroupMetadata == null) return false;
 
         int destWindowId = TabWindowManagerSingleton.getInstance().getIdForWindow(activity);
@@ -398,16 +391,6 @@ public class TabModelSelectorImpl extends TabModelSelectorBase implements TabMod
                 .moveTabGroupToWindowByIdChecked(
                         destWindowId, tabGroupMetadata, newIndex, /* bringToFront= */ false);
         return true;
-    }
-
-    /**
-     * Commits all pending tab closures for all {@link TabModel}s in this {@link TabModelSelector}.
-     */
-    @Override
-    public void commitAllTabClosures() {
-        for (int i = 0; i < getModels().size(); i++) {
-            getModels().get(i).commitAllTabClosures();
-        }
     }
 
     @Override
@@ -458,11 +441,6 @@ public class TabModelSelectorImpl extends TabModelSelectorBase implements TabMod
         if (tabToCache == null) return;
         assumeNonNull(mTabContentManager);
         mTabContentManager.cacheTabThumbnail(tabToCache);
-    }
-
-    @Override
-    public boolean isTabModelRestored() {
-        return isTabStateInitialized();
     }
 
     @Override

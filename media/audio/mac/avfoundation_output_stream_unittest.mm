@@ -11,12 +11,12 @@
 #include "base/test/scoped_feature_list.h"
 #include "base/test/test_message_loop.h"
 #include "media/audio/audio_device_info_accessor_for_tests.h"
-#include "media/audio/audio_features.h"
 #include "media/audio/audio_io.h"
 #include "media/audio/audio_manager.h"
 #include "media/audio/audio_unittest_util.h"
 #include "media/audio/mock_audio_source_callback.h"
 #include "media/audio/test_audio_thread.h"
+#include "media/base/media_switches.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -43,8 +43,7 @@ class AVFoundationOutputStreamTest : public testing::Test {
         manager_(AudioManager::CreateForTesting(
             std::make_unique<TestAudioThread>())),
         manager_device_info_(manager_.get()) {
-    scoped_feature_list_.InitAndEnableFeature(
-        features::kMacAVFoundationPlayback);
+    scoped_feature_list_.InitAndEnableFeature(kMacAVFoundationPlayback);
     // Wait for the AudioManager to finish any initialization on the audio loop.
     base::RunLoop().RunUntilIdle();
   }
@@ -87,6 +86,26 @@ class AVFoundationOutputStreamTest : public testing::Test {
   std::string log_message_;
   base::test::ScopedFeatureList scoped_feature_list_;
 };
+
+TEST_F(AVFoundationOutputStreamTest, QueuedOutputStreamRequiresPlaybackTag) {
+  AudioParameters params(AudioParameters::AUDIO_PCM_LOW_LATENCY,
+                         ChannelLayoutConfig::Stereo(), 48000, 480);
+  EXPECT_FALSE(manager_->UsesQueuedOutputStream(params));
+  params.set_latency_tag(AudioLatency::Type::kPlayback);
+  if (@available(macOS 27, *)) {
+    EXPECT_TRUE(manager_->UsesQueuedOutputStream(params));
+    params.set_format(AudioParameters::AUDIO_PCM_LINEAR);
+    EXPECT_TRUE(manager_->UsesQueuedOutputStream(params));
+  } else {
+    EXPECT_FALSE(manager_->UsesQueuedOutputStream(params));
+  }
+  params.set_format(AudioParameters::AUDIO_FAKE);
+  EXPECT_FALSE(manager_->UsesQueuedOutputStream(params));
+  params.set_format(AudioParameters::AUDIO_PCM_LOW_LATENCY);
+  base::test::ScopedFeatureList disabled_feature;
+  disabled_feature.InitAndDisableFeature(kMacAVFoundationPlayback);
+  EXPECT_FALSE(manager_->UsesQueuedOutputStream(params));
+}
 
 TEST_F(AVFoundationOutputStreamTest, CreateClose) {
   ABORT_AUDIO_TEST_IF_NOT(OutputDevicesAvailable());

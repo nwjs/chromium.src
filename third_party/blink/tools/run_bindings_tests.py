@@ -26,17 +26,20 @@
 import sys
 
 from blinkpy.common import path_finder
+
 path_finder.add_typ_dir_to_sys_path()
 
-import typ
+import typ  # noqa: E402
 
 
 def create_argument_parser():
     argument_parser = typ.ArgumentParser()
-    argument_parser.add_argument('--skip-unit-tests',
-                                 default=False,
-                                 action='store_true',
-                                 help='Skip running unit tests.')
+    argument_parser.add_argument(
+        '--skip-unit-tests',
+        default=False,
+        action='store_true',
+        help='Skip running unit tests.',
+    )
     return argument_parser
 
 

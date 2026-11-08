@@ -84,13 +84,10 @@ component("features") {
     "optimization_guide_features.h",
     "optimization_guide_prefs.cc",
     "optimization_guide_prefs.h",
-    "optimization_guide_switches.cc",
-    "optimization_guide_switches.h",
   ]
   public_deps = [
     "//base",
     "//components/optimization_guide/public/mojom",
-    "//ui/accessibility",
   ]
   deps = [
     "//components/optimization_guide:machine_learning_tflite_buildflags",
@@ -139,6 +136,8 @@ source_set("hints") {
     "hints/optimization_guide_store.h",
     "hints/optimization_metadata.cc",
     "hints/optimization_metadata.h",
+    "hints/prefs.cc",
+    "hints/prefs.h",
     "hints/push_notification_manager.cc",
     "hints/push_notification_manager.h",
     "hints/store_update_data.cc",
@@ -162,7 +161,6 @@ source_set("hints") {
     "//services/metrics/public/cpp:ukm_builders",
     "//third_party/re2",
   ]
-  visibility = [ ":*" ]
 }
 
 source_set("core_util") {
@@ -213,6 +211,8 @@ source_set("model_execution") {
     "model_quality/model_quality_log_entry.h",
     "model_quality/model_quality_logs_uploader_service.cc",
     "model_quality/model_quality_logs_uploader_service.h",
+    "model_quality/model_quality_prefs.cc",
+    "model_quality/model_quality_prefs.h",
     "model_quality/model_quality_util.cc",
     "model_quality/model_quality_util.h",
   ]
@@ -346,14 +346,6 @@ source_set("ondevice") {
       "model_execution/response_parser.h",
       "model_execution/response_parser_factory.cc",
       "model_execution/response_parser_factory.h",
-      "model_execution/safety_checker.cc",
-      "model_execution/safety_checker.h",
-      "model_execution/safety_client.cc",
-      "model_execution/safety_client.h",
-      "model_execution/safety_config.cc",
-      "model_execution/safety_config.h",
-      "model_execution/safety_model_info.cc",
-      "model_execution/safety_model_info.h",
       "model_execution/session_impl.cc",
       "model_execution/session_impl.h",
       "model_execution/simple_response_parser.cc",
@@ -386,6 +378,8 @@ source_set("ondevice") {
     }
     if (is_android) {
       sources += [
+        "model_execution/android/android_manifest.cc",
+        "model_execution/android/android_manifest.h",
         "model_execution/android/model_broker_android.cc",
         "model_execution/android/model_broker_android.h",
         "model_execution/on_device_model_adaptation_loader.cc",
@@ -393,6 +387,7 @@ source_set("ondevice") {
       ]
       deps += [
         "//build:branding_buildflags",
+        "//components/optimization_guide/core/model_execution/configs:summarize_config",
         "//services/on_device_model:on_device_model_service",
         "//services/on_device_model/android",
         "//services/on_device_model/android:mojom",
@@ -408,6 +403,8 @@ if (build_with_model_execution) {
       "model_execution/manifest_broker/manifest.h",
       "model_execution/manifest_broker/manifest_asset_manager.cc",
       "model_execution/manifest_broker/manifest_asset_manager.h",
+      "model_execution/manifest_broker/manifest_asset_manager_delegate.cc",
+      "model_execution/manifest_broker/manifest_asset_manager_delegate.h",
       "model_execution/manifest_broker/manifest_broker_state.cc",
       "model_execution/manifest_broker/manifest_broker_state.h",
       "model_execution/manifest_broker/manifest_monitor.cc",
@@ -433,6 +430,7 @@ if (build_with_model_execution) {
       "//components/optimization_guide/public/mojom",
       "//components/prefs",
       "//components/update_client",
+      "//crypto",
       "//services/on_device_model/public/cpp",
     ]
   }
@@ -451,8 +449,10 @@ if (build_with_model_execution) {
       "model_execution/manifest_broker/test/test_manifest_asset_manager_component_state.cc",
       "model_execution/manifest_broker/test/test_manifest_asset_manager_component_state.h",
     ]
-    public_deps =
-        [ "//components/optimization_guide/core/model_execution/configs" ]
+    public_deps = [
+      "//components/optimization_guide/core/model_execution/configs:manifest_builder",
+      "//components/optimization_guide/core/model_execution/configs:substitution_builders",
+    ]
     deps = [
       ":manifest_broker",
       ":model_execution_test_support",
@@ -532,6 +532,8 @@ static_library("prediction") {
     "delivery/prediction_model_override.h",
     "delivery/prediction_model_store.cc",
     "delivery/prediction_model_store.h",
+    "delivery/prefs.cc",
+    "delivery/prefs.h",
     "delivery/profile_download_service_tracker.h",
   ]
   public_deps = [ "//components/download/public/background_service:public" ]
@@ -662,8 +664,7 @@ static_library("model_execution_test_support") {
       "model_execution/test/response_holder.cc",
       "model_execution/test/response_holder.h",
     ]
-    public_deps =
-        [ "//components/optimization_guide/core/model_execution/configs" ]
+    public_deps = [ "//components/optimization_guide/core/model_execution/configs:substitution_builders" ]
     deps += [
       "//components/component_updater:test_support",
       "//components/optimization_guide/public/mojom",
@@ -698,7 +699,7 @@ group("test_support") {
   if (build_with_model_execution) {
     public_deps += [
       ":manifest_broker_test_support",
-      "//components/optimization_guide/core/model_execution/configs",
+      "//components/optimization_guide/core/model_execution/configs:substitution_builders",
     ]
   }
 }
@@ -706,20 +707,10 @@ group("test_support") {
 if (is_ios) {
   source_set("eg_test_support+eg2") {
     testonly = true
-    sources = [
-      "optimization_guide_enums.h",
-      "optimization_guide_switches.cc",
-      "optimization_guide_switches.h",
-    ]
+    sources = [ "optimization_guide_enums.h" ]
     public_deps = [
       ":core_util",
       ":hints_test_support",
-    ]
-    deps = [
-      "//base",
-      "//components/optimization_guide/proto:optimization_guide_proto",
-      "//google_apis",
-      "//url",
     ]
   }
 }
@@ -851,6 +842,7 @@ source_set("model_execution_unit_tests") {
   if (build_with_model_execution && !is_chrome_for_testing) {
     sources += [
       "model_execution/aqa_response_parser_unittest.cc",
+      "model_execution/configs/summarize_solution_config_unittest.cc",
       "model_execution/fieldwise_response_parser_unittest.cc",
       "model_execution/json_response_parser_unittest.cc",
       "model_execution/manifest_broker/manifest_asset_manager_unittest.cc",
@@ -877,7 +869,6 @@ source_set("model_execution_unit_tests") {
       "model_execution/remote_model_execution_session_impl_unittest.cc",
       "model_execution/repetition_checker_unittest.cc",
       "model_execution/response_parser_factory_unittest.cc",
-      "model_execution/safety_checker_unittest.cc",
       "model_execution/session_impl_unittest.cc",
       "model_execution/simple_response_parser_unittest.cc",
       "model_execution/substitution_unittest.cc",
@@ -890,7 +881,9 @@ source_set("model_execution_unit_tests") {
       ":prediction",
       "//components/component_updater",
       "//components/crx_file",
-      "//components/optimization_guide/core/model_execution/configs",
+      "//components/optimization_guide/core/model_execution/configs:manifest_builder",
+      "//components/optimization_guide/core/model_execution/configs:substitution_builders",
+      "//components/optimization_guide/core/model_execution/configs:summarize_config",
       "//components/optimization_guide/public/mojom",
       "//components/signin/public/identity_manager:test_support",
       "//components/sync_preferences:test_support",

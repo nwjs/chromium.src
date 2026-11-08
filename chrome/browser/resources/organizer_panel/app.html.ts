@@ -9,13 +9,24 @@ import type {OrganizerPanelAppElement} from './app.js';
 export function getHtml(this: OrganizerPanelAppElement) {
   // clang-format off
   return html`<!--_html_template_start_-->
-<cr-toolbar-search-field id="searchField" label="$i18n{searchTabs}"
-    clear-label="$i18n{clearSearch}" @search-changed="${this.onSearchChanged_}">
+<cr-toolbar-search-field autofocus="true" id="searchField"
+    label="$i18n{searchTabs}" clear-label="$i18n{clearSearch}"
+    @search-changed="${this.onSearchChanged_}">
   <div id="shortcut" slot="suffixElement">${this.shortcut_}</div>
 </cr-toolbar-search-field>
 <organizer-list id="list" .sectionDelegates="${this.sectionDelegates_}"
     .searchQuery="${this.searchQuery_}">
 </organizer-list>
+<cr-action-menu id="menu">
+  <button id="expandAllButton" class="dropdown-item"
+      @click="${this.onExpandAllClick_}">
+    $i18n{expandAll}
+  </button>
+  <button id="closeTabSearchButton" class="dropdown-item"
+      @click="${this.onCloseTabSearchClick_}">
+    $i18n{closeTabSearch}
+  </button>
+</cr-action-menu>
 <!--_html_template_end_-->`;
   // clang-format on
 }

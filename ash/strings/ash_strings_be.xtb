@@ -372,7 +372,6 @@
 <translation id="2079545284768500474">Адрабіць</translation>
 <translation id="2086334242442703436">Адкрыць акно выбару эмодзі</translation>
 <translation id="2089550919269323883">Усталяванне віртуальнай машыны "<ph name="VM_NAME" />" заблакіравана ў адпаведнасці з карпаратыўнай палітыкай. Па падтрымку звяртайцеся да сістэмнага адміністратара. Код памылкі: <ph name="ERROR" />.</translation>
-<translation id="2093792000875799555">Навіны пра Steam для Chromebook</translation>
 <translation id="209965399369889474">Няма падключэння да сеткі</translation>
 <translation id="2107581415810719320">Іншая кнопка <ph name="BUTTON_NUMBER" /></translation>
 <translation id="2107914222138020205">Ваш кабель USB-C не падыходзіць для выкарыстання з Thunderbolt. Прадукцыйнасць прылады можа быць абмежавана.</translation>
@@ -422,6 +421,7 @@
 <translation id="2293443480080733021">На чым бы вы хацелі сканцэнтраваць увагу? Каб дадаць задачу, націсніце Увод.</translation>
 <translation id="229397294990920565">Ідзе выключэнне мабільнай перадачы даных...</translation>
 <translation id="2295777434187870477">Мікрафон уключаны, выключыць яго можна з дапамогай гэтага пераключальніка.</translation>
+<translation id="2296880470921996802">Гісторыя буфера абмену адключана IT-адміністратарам</translation>
 <translation id="2302092602801625023">Гэты ўліковы запіс кіруецца праз Family Link</translation>
 <translation id="2303600792989757991">Уключэнне агляду вокнаў</translation>
 <translation id="2304702218354340897">Сапраўды выключыць кіраванне тварам?</translation>
@@ -928,7 +928,6 @@
 <translation id="3697991387880191195">Націсніце на элемент інтэрфейсу для хуткага стварэння здымка экрана</translation>
 <translation id="3702809606464356667">Паказаны вокны бягучага працоўнага стала. Каб пераключыцца на рэжым паказу вокнаў усіх працоўных сталоў, націсніце стрэлку ўверх</translation>
 <translation id="3705722231355495246">–</translation>
-<translation id="3706423975342040244">Забавы</translation>
 <translation id="370665806235115550">Загрузка…</translation>
 <translation id="3707093869106077605"><ph name="UNAVAILABLE_DLC_ONE" /> і <ph name="UNAVAILABLE_DLC_TWO" />: недаступныя</translation>
 <translation id="3708186454126126312">Падключаныя раней прылады</translation>
@@ -975,7 +974,6 @@
 <translation id="3824784079442479685">Доступ да камеры атрымае праграма "<ph name="APP_NAME" />" і ўсе праграмы і вэб-сайты, якія маюць дазвол выкарыстоўваць камеру. Магчыма, трэба будзе абнавіць вэб-старонку або перазапусціць праграму.</translation>
 <translation id="3826099427150913765">Пераключыцца на пароль</translation>
 <translation id="383058930331066723">Рэжым энергазберажэння ўключаны</translation>
-<translation id="3831226344927851293">Выйсці з рэжыму навучання</translation>
 <translation id="383629559565718788">Паказаць налады клавіятуры</translation>
 <translation id="384082539148746321">Выдаліць шаблон?</translation>
 <translation id="3844627820291068572"><ph name="MODIFIER_ONE" /><ph name="MODIFIER_TWO" />, затым <ph name="KEY_ONE" />, або <ph name="KEY_TWO" />, або <ph name="KEY_THREE" />, або <ph name="KEY_FOUR" /></translation>
@@ -1022,6 +1020,7 @@
 <translation id="3977512764614765090">Акумулятар зараджаецца, узровень зараду – <ph name="PERCENTAGE" /> %.</translation>
 <translation id="3978162107953847778">Устаўляйце спасылкі, напрыклад з гісторыі прагляду сайтаў і Google Дыска. Вы таксама можаце ўстаўляць эмодзі, графічныя файлы і іншае змесціва. <ph name="LINK_TO_LEARN_MORE" /></translation>
 <translation id="3982013579989864579">Пераключыць аўдыявыхад?</translation>
+<translation id="3983903378684256134">Steam на Chromebook</translation>
 <translation id="3984536049089846927">Наступная старонка</translation>
 <translation id="3986082989454912832">Адказаць</translation>
 <translation id="3990002060657467458">Параметры, якія часта выкарыстоўваюцца (напрыклад, звязаныя з Wi-Fi, Bluetooth і кіраваннем гукам), знаходзяцца ў меню хуткіх налад. З яго таксама можна рабіць здымкі экрана.</translation>
@@ -1581,10 +1580,8 @@
 <translation id="5551974246223970793">Пры пошуку на старонцы перайсці да наступнага супадзення</translation>
 <translation id="5556459405103347317">Перазагрузіць</translation>
 <translation id="5558091555391176027">Уключыць або выключыць рэжым высокай бачнасці для функцыі "Абагульванне паблізу"</translation>
-<translation id="5558314826121965174">Творчасць</translation>
 <translation id="556042886152191864">Кнопка</translation>
 <translation id="5570122939431135380">Адкрыць новую ўкладку ў новым акне ў рэжыме інкогніта</translation>
-<translation id="5572632238877308040">Асноўнае</translation>
 <translation id="5575528586625653441">Узнікла праблема з запытам рэгістрацыі ў дэманстрацыйным рэжыме.</translation>
 <translation id="557563299383177668">Наступны абзац</translation>
 <translation id="5577082622442191756">Уключыць або выключыць Bluetooth. <ph name="STATE_TEXT" />.</translation>
@@ -1619,7 +1616,6 @@
 <translation id="5667546120811588575">Наладжваецца Google Play...</translation>
 <translation id="5669267381087807207">Ідзе актывацыя</translation>
 <translation id="5671658447180261823">Выдаліць прапанову "<ph name="SUGGESTION_NAME" />"</translation>
-<translation id="5672890847723042801">Утыліты</translation>
 <translation id="5673434351075758678">З мовы "<ph name="FROM_LOCALE" />" на мову "<ph name="TO_LOCALE" />" пасля сінхранізацыі налад.</translation>
 <translation id="5675363643668471212">Элемент з паліцы</translation>
 <translation id="5677022547882470786">Каб выбраць вобласць пошуку, перацягніце курсор або націсніце клавішу прабелу</translation>
@@ -1644,6 +1640,7 @@
 <translation id="5727460725221669831">Калі вы забылі пароль або нядаўна мянялі пароль Уліковага запісу Google, паспрабуйце аднавіць доступ для гэтага карыстальніка.</translation>
 <translation id="5733630091161562207">Вітальнае апавяшчэнне</translation>
 <translation id="573413375004481890">Гэта прылада не можа падтрымліваць усе вашы дысплэі, таму адзін з іх быў адключаны</translation>
+<translation id="5739548907438839901">Вызвалена <ph name="SIZE" /> месца на дыску.</translation>
 <translation id="574392208103952083">Сярэдні</translation>
 <translation id="5745612484876805746">Начная падсветка ўключаецца аўтаматычна пасля захаду сонца</translation>
 <translation id="5749214722697335450">Адпраўка даных пра выкарыстанне і дыягностыку. Дапамажыце палепшыць функцыянальнасць прылады Android шляхам аўтаматычнай адпраўкі ў Google даных дыягностыкі і звестак аб выкарыстанні прылады і праграм. Яны будуць карыснымі для паляпшэння стабільнасці сістэмы і праграм, а таксама для іншых удасканаленняў. Некаторыя сукупныя даныя будуць карыснымі для праграм і партнёраў Google, напрыклад распрацоўшчыкаў Android. Калі ўключана налада "Дадатковая гісторыя дзеянняў у інтэрнэце і праграмах", адпаведныя даныя могуць захоўвацца ва Уліковым запісе Google. <ph name="BEGIN_LINK1" />Даведацца больш пра паказчыкі<ph name="BEGIN_LINK1_END" />Даведацца больш<ph name="END_LINK1" /></translation>
@@ -1797,7 +1794,6 @@
 <translation id="6127395413317891856">Вы па-за сеткай. Праверце падключэнне і паўтарыце спробу.</translation>
 <translation id="6129953537138746214">Прабел</translation>
 <translation id="6132714462430777655">Прапусціць рэгістрацыю ў навучальнай установе?</translation>
-<translation id="6136872094979134163">Не ўдалося атрымаць навіны пра Steam для Chromebook.</translation>
 <translation id="6137566720514957455">Адкрыць дыялогавае акно выдалення ўліковага запісу <ph name="USER_EMAIL_ADDRESS" /></translation>
 <translation id="6141205840878048728">На чым бы вы хацелі сканцэнтраваць увагу?</translation>
 <translation id="6141988275892716286">Пацвярджэнне спампоўвання</translation>
@@ -1877,7 +1873,6 @@
 <translation id="6348449481487610270"><ph name="MODIFIER_ONE" /><ph name="MODIFIER_TWO" /><ph name="KEY_ONE" />, затым <ph name="MODIFIER_THREE" /><ph name="KEY_TWO" /> або <ph name="KEY_THREE" /></translation>
 <translation id="6352082849089527770">Невядомыя сеткі</translation>
 <translation id="6359587239691116345">Усталюйце апошнія функцыі і паляпшэнні сістэмы бяспекі. Калі вы адмовіцеся ад гэтага абнаўлення, ваша прылада можа перастаць працаваць належным чынам. Магчымыя праблемы з прадукцыйнасцю і бяспекай.</translation>
-<translation id="6362833380917912748">Азнаёмцеся з убудаванымі праграмамі</translation>
 <translation id="6364386432014869981">Убудаваная сэнсарная панэль уключана</translation>
 <translation id="6376931439017688372">Bluetooth уключаны</translation>
 <translation id="6378515133128829137">Замацаваць акно справа</translation>
@@ -2102,7 +2097,6 @@
 <translation id="7014684956566476813">Устаноўлена падключэнне да прылады "<ph name="DEVICE_NAME" />"</translation>
 <translation id="7015766095477679451">Можна будзе прадоўжыць у <ph name="COME_BACK_TIME" />.</translation>
 <translation id="70168403932084660">Працоўны стол 6</translation>
-<translation id="702252130983202758">Вашы праграмы</translation>
 <translation id="7025533177575372252">Падключыце прыладу "<ph name="DEVICE_NAME" />" да тэлефона</translation>
 <translation id="7026338066939101231">Паменшыць</translation>
 <translation id="7029307918966275733">Crostini не ўсталяваны. Каб праглядаць баланс, усталюйце Crostini.</translation>
@@ -2225,6 +2219,7 @@
 <translation id="7413851974711031813">Каб закрыць, націсніце Escape</translation>
 <translation id="7416471219712049036">Захаваць бягучую старонку</translation>
 <translation id="742594950370306541">Камера выкарыстоўваецца.</translation>
+<translation id="7430466159639897874">У вас ёсць нявыкарыстанае месца на дыску (<ph name="SIZE" />), выдзеленае для ўстарэлай функцыі "Steam на Chromebook".</translation>
 <translation id="743058460480092004">Камера і мікрафон выкарыстоўваюцца.</translation>
 <translation id="7433708794692032816">Каб працягваць карыстацца прыладай <ph name="DEVICE_TYPE" />, устаўце разумную картку</translation>
 <translation id="7440404390546433462">Google Пошук</translation>
@@ -2366,6 +2361,7 @@
 <translation id="7781335840981796660">Усе ўліковыя запісы карыстальнікаў і лакальныя даныя будуць выдалены.</translation>
 <translation id="7781829728241885113">Учора</translation>
 <translation id="7787212146956232129">Прылады ўводу і вываду ўжо наладжаны. Каб змяніць іх, перайдзіце ў налады.</translation>
+<translation id="7790757511772316441">Вызваліць месца на дыску</translation>
 <translation id="7792590255364786396">Бачныя</translation>
 <translation id="7796735576426975947">Новае апавяшчэнне схавана</translation>
 <translation id="7798302898096527229">Каб скасаваць, націсніце "Пошук" або "Shift".</translation>
@@ -2541,7 +2537,6 @@
 <translation id="8277261673056602147">Вылучыць тэкст на экране</translation>
 <translation id="8281886186245836920">Прапусціць</translation>
 <translation id="8282784978194352587">У вас атрымалася!</translation>
-<translation id="8287009018010202411">Прадукцыйнасць</translation>
 <translation id="828708037801473432">Выключана</translation>
 <translation id="8289128870594824098">Памер дыска</translation>
 <translation id="8297006494302853456">Слабы</translation>
@@ -2636,7 +2631,6 @@
 <translation id="8598235756057743477">Сартаванне праграм па назве або колеры</translation>
 <translation id="8599864823732014237">Прапусціць рэгістрацыю для арганізацый?</translation>
 <translation id="8609384513243082612">Адкрыць новую ўкладку</translation>
-<translation id="861045123704058818">Яны ўпарадкаваны па катэгорыях часова</translation>
 <translation id="8612338981637220013">Вы справіліся!</translation>
 <translation id="8613164732773110792">Толькі малыя літары, лічбы, сімвалы падкрэслівання і злучкі</translation>
 <translation id="8614517853887502247">Апавяшчэнні ад праграм "<ph name="APP_1_TITLE" />" і "<ph name="APP_2_TITLE" />" схаваны, бо ўключаны рэжым абароненага прагляду</translation>
@@ -2828,7 +2822,6 @@
 <translation id="9129245940793250979">Задняя кнопка</translation>
 <translation id="9133335900048457298">Запіс немагчымы з-за наяўнасці на экране абароненага змесціва</translation>
 <translation id="9139720510312328767">Выдаліць наступную літару</translation>
-<translation id="9148058034647219655">Выйсці</translation>
 <translation id="9151906066336345901">End</translation>
 <translation id="9159421884295554245">Пошук у буферы абмену</translation>
 <translation id="9168436347345867845">Пазней</translation>

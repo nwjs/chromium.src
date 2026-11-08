@@ -267,12 +267,14 @@ public class Features {
     @Deprecated
     public static final String RESTRICT_SENSITIVE_WEB_CONTENT = "RESTRICT_SENSITIVE_WEB_CONTENT";
 
-    // WebContentBuilder
-    public static final String WEB_CONTENT = "WEB_CONTENT";
-
     // WebSettingsCompat.setUserAgentMetadataFromMap
     // WebSettingsCompat.getUserAgentMetadataMap
     public static final String USER_AGENT_METADATA = "USER_AGENT_METADATA";
+
+    // UserAgentMetadata.Builder.setFormFactors
+    // UserAgentMetadata.getFormFactors
+    public static final String USER_AGENT_METADATA_FORM_FACTORS =
+            "USER_AGENT_METADATA_FORM_FACTORS";
 
     // WebSettingsCompat.setAttributionBehavior
     // WebSettingsCompat.getAttributionBehavior
@@ -469,6 +471,7 @@ public class Features {
 
     // Profile.addQuicHints
     public static final String ADD_QUIC_HINTS_V1 = "ADD_QUIC_HINTS_V1";
+    public static final String ADD_QUIC_HINTS_WILDCARDS = "ADD_QUIC_HINTS_WILDCARDS";
 
     // JsReplyProxy.executeJavaScript
     // WebViewCompat.addJavaScriptOnEvent
@@ -487,7 +490,6 @@ public class Features {
     // Navigation.getWebResourceError
     public static final String NAVIGATION_GET_WEB_RESOURCE_ERROR =
             "NAVIGATION_GET_WEB_RESOURCE_ERROR";
-
 
     // WebViewCompat.navigate
     public static final String WEBVIEW_NAVIGATE_V1 = "WEBVIEW_NAVIGATE_V1";
@@ -513,10 +515,17 @@ public class Features {
     public static final String CROSS_ORIGIN_ISOLATED_ALLOW_LIST =
             "CROSS_ORIGIN_ISOLATED_ALLOW_LIST";
 
-    // Navigation.getResponseHeaders
+    // NavigationState.getResponseHeaders
+    //
+    // WebViewNavigationListener.onNavigationRedirected(WebViewNavigationState,
+    // NavigationRedirectParameters)
+    //
+    // NavigationRedirectParameters.getResponseHeaders
+    //
+    // NavigationRedirectParameters.getStatusCode
     public static final String NAVIGATION_GET_RESPONSE_HEADERS = "NAVIGATION_GET_RESPONSE_HEADERS";
 
-    // WebViewNavigation.getNavigationStartUptimeMillis
+    // WebViewNavigationState.getNavigationStartUptimeMillis
     public static final String NAVIGATION_GET_NAVIGATION_START_UPTIME_MILLIS =
             "NAVIGATION_GET_NAVIGATION_START_UPTIME_MILLIS";
 
@@ -524,6 +533,21 @@ public class Features {
     // WebMessagePayload.getAsSharedArrayBuffer
     public static final String WEB_MESSAGE_SHARED_ARRAY_BUFFER = "WEB_MESSAGE_SHARED_ARRAY_BUFFER";
 
-    // WebFeature.WEB_SURFACE
-    public static final String WEB_SURFACE = "WEB_SURFACE";
+    // WebChromeClientCompat.onReceivedThemeColor
+    public static final String THEME_COLOR_CALLBACK = "THEME_COLOR_CALLBACK";
+
+    // WebViewNavigationListener.onNavigationStarted(WebViewNavigationState)
+    // WebViewNavigationListener.onNavigationRedirected(WebViewNavigationState)
+    // WebViewNavigationListener.onNavigationCompleted(WebViewNavigationState)
+    // WebViewNavigationListener.onPageDeleted(WebViewPageState)
+    // WebViewNavigationListener.onPageLoadEventFired(WebViewPageState)
+    // WebViewNavigationListener.onPageDOMContentLoadedEventFired(WebViewPageState)
+    // WebViewNavigationListener.onFirstContentfulPaintMillis(WebViewPageState)
+    // WebViewNavigationListener.onLargestContentfulPaintMillis(WebViewPageState)
+    // WebViewNavigationListener.onPerformanceMarkMillis(WebViewPageState)
+    //
+    // Navigation.snapshotState
+    // Page.snapshotState
+    public static final String NAVIGATION_LISTENER_NAVIGATION_STATE =
+            "NAVIGATION_LISTENER_NAVIGATION_STATE";
 }

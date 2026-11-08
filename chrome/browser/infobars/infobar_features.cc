@@ -47,7 +47,17 @@ BASE_FEATURE_PARAM(bool,
                    false);
 
 BASE_FEATURE_PARAM(bool,
+                   kMigratedDevToolsRemoteDebugging,
+                   &kCentralizedInfoBarFramework,
+                   false);
+
+BASE_FEATURE_PARAM(bool,
                    kMigratedDevToolsSharedProcess,
+                   &kCentralizedInfoBarFramework,
+                   false);
+
+BASE_FEATURE_PARAM(bool,
+                   kMigratedFileAccessDisabled,
                    &kCentralizedInfoBarFramework,
                    false);
 
@@ -57,7 +67,17 @@ BASE_FEATURE_PARAM(bool,
                    false);
 
 BASE_FEATURE_PARAM(bool,
+                   kMigratedIncognitoConnectability,
+                   &kCentralizedInfoBarFramework,
+                   false);
+
+BASE_FEATURE_PARAM(bool,
                    kMigratedInstallerDownloader,
+                   &kCentralizedInfoBarFramework,
+                   false);
+
+BASE_FEATURE_PARAM(bool,
+                   kMigratedJsOptimizations,
                    &kCentralizedInfoBarFramework,
                    false);
 
@@ -123,7 +143,22 @@ BASE_FEATURE_PARAM(bool,
                    false);
 
 BASE_FEATURE_PARAM(bool,
+                   kMigratedStartupLaunch,
+                   &kCentralizedInfoBarFramework,
+                   false);
+
+BASE_FEATURE_PARAM(bool,
+                   kMigratedTabSharing,
+                   &kCentralizedInfoBarFramework,
+                   false);
+
+BASE_FEATURE_PARAM(bool,
                    kMigratedInstallationError,
+                   &kCentralizedInfoBarFramework,
+                   false);
+
+BASE_FEATURE_PARAM(bool,
+                   kMigratedWebAppBlockedMigration,
                    &kCentralizedInfoBarFramework,
                    false);
 
@@ -147,12 +182,20 @@ const base::FeatureParam<bool>* GetInfoBarMigrationParam(
       return &kMigratedDefaultBrowser;
     case InfoBarDelegate::DEV_TOOLS_INFOBAR_DELEGATE:
       return &kMigratedDevToolsConfirm;
+    case InfoBarDelegate::DEV_TOOLS_REMOTE_DEBUGGING_INFOBAR_DELEGATE:
+      return &kMigratedDevToolsRemoteDebugging;
     case InfoBarDelegate::DEV_TOOLS_SHARED_PROCESS_DELEGATE:
       return &kMigratedDevToolsSharedProcess;
+    case InfoBarDelegate::FILE_ACCESS_DISABLED_INFOBAR_DELEGATE:
+      return &kMigratedFileAccessDisabled;
     case InfoBarDelegate::GOOGLE_API_KEYS_INFOBAR_DELEGATE:
       return &kMigratedGoogleApiKeys;
+    case InfoBarDelegate::INCOGNITO_CONNECTABILITY_INFOBAR_DELEGATE:
+      return &kMigratedIncognitoConnectability;
     case InfoBarDelegate::INSTALLER_DOWNLOADER_INFOBAR_DELEGATE:
       return &kMigratedInstallerDownloader;
+    case InfoBarDelegate::JS_OPTIMIZATIONS_INFOBAR_DELEGATE:
+      return &kMigratedJsOptimizations;
     case InfoBarDelegate::KEYSTONE_PROMOTION_INFOBAR_DELEGATE_MAC:
       return &kMigratedKeystonePromotion;
     case InfoBarDelegate::KNOWN_INTERCEPTION_DISCLOSURE_INFOBAR_DELEGATE:
@@ -179,8 +222,14 @@ const base::FeatureParam<bool>* GetInfoBarMigrationParam(
       return &kMigratedExtensionDevTools;
     case InfoBarDelegate::SESSION_RESTORE_INFOBAR_DELEGATE:
       return &kMigratedSessionRestore;
+    case InfoBarDelegate::STARTUP_LAUNCH_INFOBAR_DELEGATE:
+      return &kMigratedStartupLaunch;
+    case InfoBarDelegate::TAB_SHARING_INFOBAR_DELEGATE:
+      return &kMigratedTabSharing;
     case InfoBarDelegate::INSTALLATION_ERROR_INFOBAR_DELEGATE:
       return &kMigratedInstallationError;
+    case InfoBarDelegate::WEB_APP_BLOCKED_MIGRATION_INFOBAR_DELEGATE:
+      return &kMigratedWebAppBlockedMigration;
     case InfoBarDelegate::EXTENSIONS_WEB_AUTH_FLOW_INFOBAR_DELEGATE:
       return &kMigratedWebAuthFlow;
     default:

@@ -1,4 +1,9 @@
 {
+  "android": {
+    "exclusions": [
+      "chrome/android/profiles/newest.txt"
+    ]
+  },
   "android_webview": {
     "exclusions": [
       "android_webview/.*"
@@ -15,10 +20,8 @@
       "build/get_landmines.py",
       "build/gn_helpers.py",
       "build/gyp_chromium",
-      "build/mac_toolchain.py",
       "build/toolchain/.*py",
       "build/util/lib/common/unittest_util.py",
-      "build/vs_toolchain.py",
       "DEPS",
       "infra/scripts/.*",
       "infra/orchestrator/BUILD.gn",
@@ -41,7 +44,6 @@
   "chromium": {
     "exclusions": [
       "buildtools/checkdeps/.*",
-      "chrome/android/profiles/newest.txt",
       "chrome/browser/resources/chromeos/about_os_credits.html",
       "chrome/browser/resources/chromeos/arc_overview_tracing/.*(css|html|js)",
       "chrome/browser/resources/chromeos/arc_power_control/.*(css|html|js)",
@@ -96,6 +98,7 @@
   },
   "ios": {
     "exclusions": [
+      "build/mac_toolchain.py",
       "ios/build/bots/.*",
       "tools/clang/dsymutil/bin/dsymutil.arm64.sha1",
       "tools/clang/dsymutil/bin/dsymutil.x64.sha1"
@@ -110,6 +113,7 @@
   },
   "mac": {
     "exclusions": [
+      "build/mac_toolchain.py",
       "tools/clang/dsymutil/bin/dsymutil.arm64.sha1",
       "tools/clang/dsymutil/bin/dsymutil.x64.sha1"
     ]
@@ -119,7 +123,8 @@
       "build/toolchain/win/rc/win/rc.exe.sha1",
       "build/toolchain/win/rc/rc.py",
       "build/toolchain/win/midl.py",
-      "build/toolchain/win/ml.py"
+      "build/toolchain/win/ml.py",
+      "build/vs_toolchain.py"
     ]
   }
 }

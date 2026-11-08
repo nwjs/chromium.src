@@ -11,6 +11,7 @@
 #include "base/numerics/safe_conversions.h"
 #include "mojo/public/cpp/system/simple_watcher.h"
 #include "partition_alloc/partition_alloc.h"
+#include "services/network/public/mojom/web_transport.mojom-blink.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise_resolver.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_binding_for_core.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_throw_dom_exception.h"
@@ -23,7 +24,7 @@
 #include "third_party/blink/renderer/core/streams/writable_stream.h"
 #include "third_party/blink/renderer/core/streams/writable_stream_default_controller.h"
 #include "third_party/blink/renderer/core/streams/writable_stream_transferring_optimizer.h"
-#include "third_party/blink/renderer/core/typed_arrays/dom_array_piece.h"
+#include "third_party/blink/renderer/core/typed_arrays/dom_array_buffer_util.h"
 #include "third_party/blink/renderer/modules/webtransport/web_transport_error.h"
 #include "third_party/blink/renderer/platform/bindings/exception_code.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
@@ -362,8 +363,8 @@ ScriptPromise<IDLUndefined> OutgoingStream::SinkWrite(
         script_state, CreateAbortException(IsLocalAbort(false)));
   }
 
-  DOMArrayPiece array_piece(buffer_source);
-  return WriteOrCacheData(script_state, array_piece.ByteSpan());
+  return WriteOrCacheData(
+      script_state, AsSpan<SharedBufferPolicy::kDisallow>(*buffer_source));
 }
 
 // Attempt to write |data|. Cache anything that could not be written
@@ -375,6 +376,7 @@ ScriptPromise<IDLUndefined> OutgoingStream::WriteOrCacheData(
            << static_cast<const void*>(data.data()) << ", " << data.size()
            << ")";
   size_t written = WriteDataSynchronously(data);
+  bytes_written_ += written;
 
   if (written == data.size())
     return ToResolvedUndefinedPromise(script_state);
@@ -405,6 +407,7 @@ void OutgoingStream::WriteCachedData() {
 
   auto data = cached_data_->span().subspan(offset_);
   size_t written = WriteDataSynchronously(data);
+  bytes_written_ += written;
 
   if (written == data.size()) {
     ScriptState::Scope scope(script_state_);
@@ -509,6 +512,21 @@ void OutgoingStream::ResetPipe() {
   data_pipe_.reset();
   if (cached_data_)
     cached_data_.reset();
+}
+
+void OutgoingStream::UpdateSendStats(
+    network::mojom::blink::WebTransportSendStreamStatsPtr stats) {
+  if (!stats) {
+    return;
+  }
+  bytes_sent_ = stats->bytes_sent;
+  bytes_acknowledged_ = stats->bytes_acknowledged;
+}
+
+void OutgoingStream::SetFinalSendStats(
+    network::mojom::blink::WebTransportSendStreamStatsPtr stats) {
+  UpdateSendStats(std::move(stats));
+  send_stats_finalized_ = true;
 }
 
 void OutgoingStream::Dispose() {

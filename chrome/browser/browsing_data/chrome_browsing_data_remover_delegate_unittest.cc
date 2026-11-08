@@ -44,6 +44,7 @@
 #include "base/uuid.h"
 #include "build/build_config.h"
 #include "chrome/browser/autocomplete/zero_suggest_cache_service_factory.h"
+#include "chrome/browser/autofill/entity_suppression_manager_factory.h"
 #include "chrome/browser/autofill/personal_data_manager_factory.h"
 #include "chrome/browser/bookmarks/bookmark_model_factory.h"
 #include "chrome/browser/browser_process.h"
@@ -79,6 +80,7 @@
 #include "chrome/browser/segmentation_platform/ukm_database_client.h"
 #include "chrome/browser/signin/chrome_signin_client_factory.h"
 #include "chrome/browser/signin/test_signin_client_builder.h"
+#include "chrome/browser/skills/skills_service_factory.h"
 #include "chrome/browser/spellchecker/spellcheck_custom_dictionary.h"
 #include "chrome/browser/spellchecker/spellcheck_factory.h"
 #include "chrome/browser/spellchecker/spellcheck_service.h"
@@ -102,6 +104,7 @@
 #include "chrome/test/base/testing_profile.h"
 #include "chrome/test/base/testing_profile_manager.h"
 #include "components/autofill/core/browser/data_manager/addresses/address_data_manager.h"
+#include "components/autofill/core/browser/data_manager/autofill_ai/mock_entity_suppression_manager.h"
 #include "components/autofill/core/browser/data_manager/payments/payments_data_manager.h"
 #include "components/autofill/core/browser/data_manager/personal_data_manager.h"
 #include "components/autofill/core/browser/data_manager/personal_data_manager_test_util.h"
@@ -175,6 +178,7 @@
 #include "components/segmentation_platform/public/features.h"
 #include "components/site_engagement/content/site_engagement_service.h"
 #include "components/site_isolation/pref_names.h"
+#include "components/skills/mocks/mock_skills_service.h"
 #include "components/strike_database/strike_database.h"
 #include "components/sync/test/test_sync_service.h"
 #include "components/ukm/test_ukm_recorder.h"
@@ -2193,6 +2197,82 @@ TEST_F(ChromeBrowsingDataRemoverDelegateTest, ExpireBookmarkFavicons) {
   EXPECT_TRUE(favicon_tester.HasExpiredFaviconForPageURL(bookmarked_page));
 }
 
+// Test that clearing the cache forgets favicons that failed to download.
+TEST_F(ChromeBrowsingDataRemoverDelegateTest,
+       ClearCacheClearsUnableToDownloadFavicons) {
+  favicon::FaviconService* favicon_service =
+      FaviconServiceFactory::GetForProfile(GetProfile(),
+                                           ServiceAccessType::EXPLICIT_ACCESS);
+  ASSERT_TRUE(favicon_service);
+  const GURL icon_url("https://example.com/missing.ico");
+  favicon_service->UnableToDownloadFavicon(icon_url);
+  ASSERT_TRUE(favicon_service->WasUnableToDownloadFavicon(icon_url));
+
+  BlockUntilBrowsingDataRemoved(base::Time(), base::Time::Max(),
+                                content::BrowsingDataRemover::DATA_TYPE_CACHE,
+                                false);
+  EXPECT_FALSE(favicon_service->WasUnableToDownloadFavicon(icon_url));
+}
+
+// Same as above, but for an origin-filtered cache deletion.
+TEST_F(ChromeBrowsingDataRemoverDelegateTest,
+       ClearCacheForOriginClearsUnableToDownloadFavicons) {
+  favicon::FaviconService* favicon_service =
+      FaviconServiceFactory::GetForProfile(GetProfile(),
+                                           ServiceAccessType::EXPLICIT_ACCESS);
+  ASSERT_TRUE(favicon_service);
+  const GURL icon_url("https://example.com/missing.ico");
+  favicon_service->UnableToDownloadFavicon(icon_url);
+  ASSERT_TRUE(favicon_service->WasUnableToDownloadFavicon(icon_url));
+
+  std::unique_ptr<BrowsingDataFilterBuilder> filter(
+      BrowsingDataFilterBuilder::Create(
+          BrowsingDataFilterBuilder::Mode::kDelete));
+  filter->AddRegisterableDomain("example.com");
+  BlockUntilOriginDataRemoved(base::Time(), base::Time::Max(),
+                              content::BrowsingDataRemover::DATA_TYPE_CACHE,
+                              std::move(filter));
+  EXPECT_FALSE(favicon_service->WasUnableToDownloadFavicon(icon_url));
+}
+
+// Test that clearing the cache forgets favicons that failed to download
+// regardless of the requested time range. The set of favicons that failed to
+// download is not timestamped, so it is cleared even when the deletion range
+// does not cover the time at which the failure was recorded.
+TEST_F(ChromeBrowsingDataRemoverDelegateTest,
+       ClearCacheClearsUnableToDownloadFaviconsIgnoringTimeRange) {
+  favicon::FaviconService* favicon_service =
+      FaviconServiceFactory::GetForProfile(GetProfile(),
+                                           ServiceAccessType::EXPLICIT_ACCESS);
+  ASSERT_TRUE(favicon_service);
+  const GURL icon_url("https://example.com/missing.ico");
+  favicon_service->UnableToDownloadFavicon(icon_url);
+  ASSERT_TRUE(favicon_service->WasUnableToDownloadFavicon(icon_url));
+
+  // Delete a time range that ended an hour ago, i.e. one that excludes the
+  // moment the download failure was recorded.
+  BlockUntilBrowsingDataRemoved(base::Time(), AnHourAgo(),
+                                content::BrowsingDataRemover::DATA_TYPE_CACHE,
+                                false);
+  EXPECT_FALSE(favicon_service->WasUnableToDownloadFavicon(icon_url));
+}
+
+// Test that clearing history forgets favicons that failed to download.
+TEST_F(ChromeBrowsingDataRemoverDelegateTest,
+       ClearHistoryClearsUnableToDownloadFavicons) {
+  favicon::FaviconService* favicon_service =
+      FaviconServiceFactory::GetForProfile(GetProfile(),
+                                           ServiceAccessType::EXPLICIT_ACCESS);
+  ASSERT_TRUE(favicon_service);
+  const GURL icon_url("https://example.com/missing.ico");
+  favicon_service->UnableToDownloadFavicon(icon_url);
+  ASSERT_TRUE(favicon_service->WasUnableToDownloadFavicon(icon_url));
+
+  BlockUntilBrowsingDataRemoved(base::Time(), base::Time::Max(),
+                                constants::DATA_TYPE_HISTORY, false);
+  EXPECT_FALSE(favicon_service->WasUnableToDownloadFavicon(icon_url));
+}
+
 TEST_F(ChromeBrowsingDataRemoverDelegateTest, DeleteBookmarks) {
   GURL bookmarked_page("http://a");
 
@@ -2221,6 +2301,63 @@ TEST_F(ChromeBrowsingDataRemoverDelegateTest, ClearReadingList) {
   BlockUntilBrowsingDataRemoved(base::Time(), base::Time::Max(),
                                 constants::DATA_TYPE_READING_LIST, false);
   EXPECT_EQ(0u, reading_list_model->size());
+}
+
+TEST_F(ChromeBrowsingDataRemoverDelegateTest, DeleteSkills) {
+  auto* skills_service = static_cast<skills::MockSkillsService*>(
+      skills::SkillsServiceFactory::GetInstance()->SetTestingFactoryAndUse(
+          GetProfile(),
+          base::BindRepeating([](content::BrowserContext* context)
+                                  -> std::unique_ptr<KeyedService> {
+            return std::make_unique<
+                testing::NiceMock<skills::MockSkillsService>>();
+          })));
+  ASSERT_TRUE(skills_service);
+
+  // Partial time range.
+  const base::Time delete_begin = AnHourAgo();
+  EXPECT_CALL(*skills_service,
+              DeleteSkillsModifiedBetween(delete_begin, base::Time::Max()));
+  BlockUntilBrowsingDataRemoved(delete_begin, base::Time::Max(),
+                                constants::DATA_TYPE_SKILLS, false);
+  EXPECT_EQ(constants::DATA_TYPE_SKILLS, GetRemovalMask());
+  testing::Mock::VerifyAndClearExpectations(skills_service);
+
+  // Full time range.
+  EXPECT_CALL(*skills_service,
+              DeleteSkillsModifiedBetween(base::Time(), base::Time::Max()));
+  BlockUntilBrowsingDataRemoved(base::Time(), base::Time::Max(),
+                                constants::DATA_TYPE_SKILLS, false);
+  EXPECT_EQ(constants::DATA_TYPE_SKILLS, GetRemovalMask());
+}
+
+TEST_F(ChromeBrowsingDataRemoverDelegateTest,
+       DeleteSkillsWithoutServiceDoesNotCrash) {
+  skills::SkillsServiceFactory::GetInstance()->SetTestingFactoryAndUse(
+      GetProfile(), base::BindRepeating([](content::BrowserContext* context)
+                                            -> std::unique_ptr<KeyedService> {
+        return nullptr;
+      }));
+  ASSERT_FALSE(skills::SkillsServiceFactory::GetForProfile(GetProfile()));
+
+  BlockUntilBrowsingDataRemoved(base::Time(), base::Time::Max(),
+                                constants::DATA_TYPE_SKILLS, false);
+}
+
+TEST_F(ChromeBrowsingDataRemoverDelegateTest, DoNotDeleteSkillsIfNotRequested) {
+  auto* skills_service = static_cast<skills::MockSkillsService*>(
+      skills::SkillsServiceFactory::GetInstance()->SetTestingFactoryAndUse(
+          GetProfile(),
+          base::BindRepeating([](content::BrowserContext* context)
+                                  -> std::unique_ptr<KeyedService> {
+            return std::make_unique<
+                testing::NiceMock<skills::MockSkillsService>>();
+          })));
+  ASSERT_TRUE(skills_service);
+
+  EXPECT_CALL(*skills_service, DeleteSkillsModifiedBetween).Times(0);
+  BlockUntilBrowsingDataRemoved(base::Time(), base::Time::Max(),
+                                constants::DATA_TYPE_READING_LIST, false);
 }
 
 TEST_F(ChromeBrowsingDataRemoverDelegateTest, DeleteBookmarkHistory) {
@@ -2312,6 +2449,12 @@ TEST_F(ChromeBrowsingDataRemoverDelegateTest, DeleteTabs) {
                                 false);
 
   EXPECT_EQ(chrome_browsing_data_remover::DATA_TYPE_TABS, GetRemovalMask());
+
+  // TabModelList is a process-wide singleton holding raw pointers, so the
+  // model must be unregistered before it goes out of scope. Otherwise it
+  // dangles and causes use-after-free crashes in unrelated tests that run
+  // later in the same process.
+  TabModelList::RemoveTabModel(&tab_model);
 }
 
 TEST_F(ChromeBrowsingDataRemoverDelegateTest,
@@ -2337,6 +2480,10 @@ TEST_F(ChromeBrowsingDataRemoverDelegateTest,
                                 false);
 
   EXPECT_EQ(chrome_browsing_data_remover::DATA_TYPE_TABS, GetRemovalMask());
+
+  // See the comment in DeleteTabs above.
+  TabModelList::SetArchivedTabModel(nullptr);
+  TabModelList::RemoveTabModel(&tab_model);
 }
 #endif  // BUILDFLAG(IS_ANDROID)
 
@@ -2545,6 +2692,35 @@ TEST_F(ChromeBrowsingDataRemoverDelegateTest,
   // All entries should be removed.
   EXPECT_TRUE(
       prefs->GetDict(autofill::prefs::kAutofillEmailVerificationState).empty());
+}
+
+TEST_F(ChromeBrowsingDataRemoverDelegateTest,
+       EntitySuppressionsClearedOnAutofillRemoval) {
+  base::test::ScopedFeatureList feature_list{
+      autofill::features::kAutofillAmbientAutofillSuppression};
+  auto* mock_suppression_manager =
+      static_cast<autofill::MockEntitySuppressionManager*>(
+          autofill::EntitySuppressionManagerFactory::GetInstance()
+              ->SetTestingFactoryAndUse(
+                  GetProfile(),
+                  base::BindOnce([](content::BrowserContext*)
+                                     -> std::unique_ptr<KeyedService> {
+                    return std::make_unique<
+                        autofill::MockEntitySuppressionManager>();
+                  })));
+
+  // Perform removal for the last hour.
+  const base::Time begin_time = AnHourAgo();
+  EXPECT_CALL(*mock_suppression_manager,
+              ClearSuppressions(begin_time, base::Time::Max()));
+  BlockUntilBrowsingDataRemoved(begin_time, base::Time::Max(),
+                                constants::DATA_TYPE_FORM_DATA, false);
+
+  // Perform removal for all-time.
+  EXPECT_CALL(*mock_suppression_manager,
+              ClearSuppressions(base::Time(), base::Time::Max()));
+  BlockUntilBrowsingDataRemoved(base::Time(), base::Time::Max(),
+                                constants::DATA_TYPE_FORM_DATA, false);
 }
 
 TEST_F(ChromeBrowsingDataRemoverDelegateTest, ZeroSuggestPrefsBasedCacheClear) {

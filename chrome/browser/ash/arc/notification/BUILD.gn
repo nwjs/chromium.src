@@ -14,8 +14,6 @@ static_library("notification") {
     "arc_provision_notification_service.h",
   ]
 
-  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
-
   deps = [
     "//ash/constants",
     "//ash/public/cpp",
@@ -74,6 +72,7 @@ source_set("unit_tests") {
     "//chrome/browser/ui/ash/login:test_support",
     "//chrome/test:test_support",
     "//chrome/test:test_support_unit",
+    "//chrome/test/base:browser_with_test_window_test",
     "//chrome/test/base:testing_browser_process",
     "//chromeos/ash/experiences/arc",
     "//chromeos/ash/experiences/arc:arc_test_support",

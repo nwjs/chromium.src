@@ -31,6 +31,8 @@ import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.preferences.Pref;
+import org.chromium.chrome.browser.prefs.LocalStatePrefs;
+import org.chromium.chrome.browser.prefs.LocalStatePrefsJni;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.segmentation_platform.SegmentationPlatformServiceFactory;
 import org.chromium.components.feature_engagement.FeatureConstants;
@@ -43,15 +45,22 @@ import org.chromium.components.segmentation_platform.SegmentationPlatformService
 import org.chromium.components.segmentation_platform.prediction_status.PredictionStatus;
 import org.chromium.components.user_prefs.UserPrefs;
 
+import java.util.Locale;
+
 /** Unit tests for {@link AppRatingPromoController}. */
 @RunWith(BaseRobolectricTestRunner.class)
 public class AppRatingPromoControllerTest {
+    private static final String ALLOWED_COUNTRY = Locale.CANADA.getCountry();
+    private static final String DISALLOWED_COUNTRY = Locale.US.getCountry();
+
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
 
     @Mock private Profile mProfile;
     @Mock private SegmentationPlatformService mSegmentationService;
     @Mock private AppRatingManager mAppRatingManager;
     @Mock private PrefService mPrefService;
+    @Mock private PrefService mLocalPrefService;
+    @Mock private LocalStatePrefs.Natives mLocalStateNatives;
     @Mock private Tracker mTracker;
     @Captor private ArgumentCaptor<Callback<ClassificationResult>> mCallbackCapturer;
     @Captor private ArgumentCaptor<Runnable> mRunnableCapturer;
@@ -61,11 +70,15 @@ public class AppRatingPromoControllerTest {
     @Before
     public void setUp() {
         UserPrefs.setPrefServiceForTesting(mPrefService);
+        LocalStatePrefsJni.setInstanceForTesting(mLocalStateNatives);
+        LocalStatePrefs.setNativePrefsLoadedForTesting(true);
+        when(mLocalStateNatives.getPrefService()).thenReturn(mLocalPrefService);
 
         mActivity = Robolectric.buildActivity(Activity.class).setup().get();
         SegmentationPlatformServiceFactory.setForTests(mSegmentationService);
         AppRatingManagerFactory.setInstanceForTesting(mAppRatingManager);
         TrackerFactory.setTrackerForTests(mTracker);
+        when(mLocalPrefService.getBoolean(Pref.APP_RATING_POLICY_ENABLED)).thenReturn(true);
         when(mTracker.wouldTriggerHelpUi(FeatureConstants.APP_RATING_PROMPT_FEATURE))
                 .thenReturn(true);
         when(mTracker.shouldTriggerHelpUi(FeatureConstants.APP_RATING_PROMPT_FEATURE))
@@ -77,7 +90,39 @@ public class AppRatingPromoControllerTest {
     public void testMaybeShowPromo_FeatureDisabled() {
         Assert.assertFalse(
                 "Promo should not be shown when feature is disabled.",
-                AppRatingPromoController.maybeShowPromo(mProfile, mActivity));
+                AppRatingPromoController.maybeShowPromo(mProfile, mActivity, ALLOWED_COUNTRY));
+        verify(mSegmentationService, never()).getClassificationResult(any(), any(), any(), any());
+        verify(mAppRatingManager, never()).requestAndShowReviewFlow(any(), any());
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.ANDROID_APP_RATING_PROMPT)
+    public void testMaybeShowPromo_PolicyDisabled() {
+        when(mLocalPrefService.getBoolean(Pref.APP_RATING_POLICY_ENABLED)).thenReturn(false);
+        Assert.assertFalse(
+                "Promo should not be shown when enterprise policy is disabled.",
+                AppRatingPromoController.maybeShowPromo(mProfile, mActivity, ALLOWED_COUNTRY));
+        verify(mSegmentationService, never()).getClassificationResult(any(), any(), any(), any());
+        verify(mAppRatingManager, never()).requestAndShowReviewFlow(any(), any());
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.ANDROID_APP_RATING_PROMPT)
+    public void testMaybeShowPromo_DisallowedCountry() {
+        Assert.assertFalse(
+                "Promo should not be shown outside of Canada.",
+                AppRatingPromoController.maybeShowPromo(mProfile, mActivity, DISALLOWED_COUNTRY));
+        verify(mSegmentationService, never()).getClassificationResult(any(), any(), any(), any());
+        verify(mAppRatingManager, never()).requestAndShowReviewFlow(any(), any());
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.ANDROID_APP_RATING_PROMPT)
+    public void testMaybeShowPromo_NullCountry() {
+        Assert.assertFalse(
+                "Promo should not be shown when country is null.",
+                AppRatingPromoController.maybeShowPromo(
+                        mProfile, mActivity, /* countryCode= */ null));
         verify(mSegmentationService, never()).getClassificationResult(any(), any(), any(), any());
         verify(mAppRatingManager, never()).requestAndShowReviewFlow(any(), any());
     }
@@ -88,17 +133,18 @@ public class AppRatingPromoControllerTest {
         when(mPrefService.getBoolean(Pref.APP_RATING_PROMPT_SHOWN)).thenReturn(true);
         Assert.assertFalse(
                 "Promo should not be shown when already shown before.",
-                AppRatingPromoController.maybeShowPromo(mProfile, mActivity));
+                AppRatingPromoController.maybeShowPromo(mProfile, mActivity, ALLOWED_COUNTRY));
         verify(mSegmentationService, never()).getClassificationResult(any(), any(), any(), any());
     }
 
     @Test
     @EnableFeatures(ChromeFeatureList.ANDROID_APP_RATING_PROMPT + ":bypass_checks/true")
     public void testMaybeShowPromo_BypassChecks() {
-        // Even if it was already shown, bypass_checks should trigger it.
+        // Even if it was already shown and in a disallowed country, bypass_checks should trigger
+        // it.
         when(mPrefService.getBoolean(Pref.APP_RATING_PROMPT_SHOWN)).thenReturn(true);
 
-        AppRatingPromoController.maybeShowPromo(mProfile, mActivity);
+        AppRatingPromoController.maybeShowPromo(mProfile, mActivity, DISALLOWED_COUNTRY);
 
         // Should bypass segmentation entirely.
         verify(mSegmentationService, never()).getClassificationResult(any(), any(), any(), any());
@@ -114,7 +160,7 @@ public class AppRatingPromoControllerTest {
                 .thenReturn(false);
         Assert.assertFalse(
                 "Promo should not be shown if Tracker says it would not trigger.",
-                AppRatingPromoController.maybeShowPromo(mProfile, mActivity));
+                AppRatingPromoController.maybeShowPromo(mProfile, mActivity, ALLOWED_COUNTRY));
         verify(mSegmentationService, never()).getClassificationResult(any(), any(), any(), any());
     }
 
@@ -123,7 +169,7 @@ public class AppRatingPromoControllerTest {
     public void testMaybeShowPromo_QueriesSegmentation() {
         Assert.assertTrue(
                 "Promo should potentially be shown if all conditions are met.",
-                AppRatingPromoController.maybeShowPromo(mProfile, mActivity));
+                AppRatingPromoController.maybeShowPromo(mProfile, mActivity, ALLOWED_COUNTRY));
         verify(mSegmentationService)
                 .getClassificationResult(
                         eq(SegmentationPlatformConstants.POWER_USER_KEY),
@@ -137,7 +183,7 @@ public class AppRatingPromoControllerTest {
     public void testOnSegmentationResultReceived_HighEngagement() {
         Assert.assertTrue(
                 "Promo should potentially be shown if all conditions are met.",
-                AppRatingPromoController.maybeShowPromo(mProfile, mActivity));
+                AppRatingPromoController.maybeShowPromo(mProfile, mActivity, ALLOWED_COUNTRY));
         verify(mSegmentationService)
                 .getClassificationResult(any(), any(), any(), mCallbackCapturer.capture());
 
@@ -165,7 +211,7 @@ public class AppRatingPromoControllerTest {
     public void testOnSegmentationResultReceived_LowEngagement() {
         Assert.assertTrue(
                 "Promo should potentially be shown if all conditions are met.",
-                AppRatingPromoController.maybeShowPromo(mProfile, mActivity));
+                AppRatingPromoController.maybeShowPromo(mProfile, mActivity, ALLOWED_COUNTRY));
         verify(mSegmentationService)
                 .getClassificationResult(any(), any(), any(), mCallbackCapturer.capture());
 
@@ -187,7 +233,7 @@ public class AppRatingPromoControllerTest {
     public void testOnSegmentationResultReceived_ShouldNotTriggerHelpUi() {
         Assert.assertTrue(
                 "Promo should potentially be shown if all conditions are met.",
-                AppRatingPromoController.maybeShowPromo(mProfile, mActivity));
+                AppRatingPromoController.maybeShowPromo(mProfile, mActivity, ALLOWED_COUNTRY));
         verify(mSegmentationService)
                 .getClassificationResult(any(), any(), any(), mCallbackCapturer.capture());
 
@@ -211,7 +257,7 @@ public class AppRatingPromoControllerTest {
     public void testOnSegmentationResultReceived_ActivityDestroyed() {
         Assert.assertTrue(
                 "Promo should potentially be shown if all conditions are met.",
-                AppRatingPromoController.maybeShowPromo(mProfile, mActivity));
+                AppRatingPromoController.maybeShowPromo(mProfile, mActivity, ALLOWED_COUNTRY));
         verify(mSegmentationService)
                 .getClassificationResult(any(), any(), any(), mCallbackCapturer.capture());
 

@@ -198,7 +198,7 @@ class PerProcessInitializer final {
     return *instance;
   }
 
-  void Acquire(bool use_skia) {
+  void Acquire(bool enable_xfa, bool use_skia) {
     DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
 
     DCHECK_GE(init_count_, 0);
@@ -207,7 +207,8 @@ class PerProcessInitializer final {
     }
 
     DCHECK(!IsSDKInitializedViaPlugin());
-    InitializeSDK(/*enable_v8=*/true, use_skia, FontMappingMode::kBlink);
+    InitializeSDK(/*enable_v8=*/true, enable_xfa, use_skia,
+                  FontMappingMode::kBlink);
     SetIsSDKInitializedViaPlugin(true);
   }
 
@@ -590,7 +591,10 @@ bool PdfViewWebPlugin::InitializeCommon() {
   base::debug::SetCrashKeyString(subresource_url, params->original_url);
 
   use_skia_renderer_ = params->use_skia;
-  PerProcessInitializer::GetInstance().Acquire(params->use_skia);
+  PerProcessInitializer::GetInstance().Acquire(
+      /*enable_xfa=*/params->script_option ==
+          PDFiumFormFiller::ScriptOption::kJavaScriptAndXFA,
+      params->use_skia);
   initialized_ = true;
 
   // Check if the PDF is being loaded in the PDF chrome extension. We only allow
@@ -1944,12 +1948,13 @@ void PdfViewWebPlugin::HandleGetNamedDestinationMessage(
   std::optional<PDFiumEngine::NamedDestination> named_destination =
       engine_->GetNamedDestination(*message.FindString("namedDestination"));
 
-  const int page_number = named_destination.has_value()
-                              ? base::checked_cast<int>(named_destination->page)
-                              : -1;
+  const int page_index =
+      named_destination.has_value()
+          ? base::checked_cast<int>(named_destination->page_index)
+          : -1;
 
   base::DictValue reply = PrepareReplyMessage(message);
-  reply.Set("pageNumber", page_number);
+  reply.Set("pageIndex", page_index);
 
   if (named_destination.has_value() && !named_destination->view.empty()) {
     std::ostringstream view_stream;
@@ -3316,6 +3321,10 @@ PdfViewWebPlugin::GetAccessibilityDocInfo() const {
   doc_info->text_accessible =
       engine_->HasPermission(DocumentPermission::kCopyAccessible);
   doc_info->text_copyable = engine_->HasPermission(DocumentPermission::kCopy);
+  const auto& language_tag = engine_->GetDocumentMetadata().language_tag;
+  if (language_tag.has_value()) {
+    doc_info->language = std::string(language_tag->tag_string());
+  }
   return doc_info;
 }
 

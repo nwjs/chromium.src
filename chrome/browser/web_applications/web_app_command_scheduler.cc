@@ -10,7 +10,6 @@
 #include "base/barrier_closure.h"
 #include "base/check_is_test.h"
 #include "base/command_line.h"
-#include "base/feature_list.h"
 #include "base/files/file_path.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
@@ -84,12 +83,14 @@
 #include "chrome/browser/web_applications/scheduler/fetch_install_info_from_install_url_result.h"
 #include "chrome/browser/web_applications/scheduler/manifest_silent_update_result.h"
 #include "chrome/browser/web_applications/scheduler/update_validated_origin_associations_result.h"
+#include "chrome/browser/web_applications/web_app.h"
 #include "chrome/browser/web_applications/web_app_command_manager.h"
 #include "chrome/browser/web_applications/web_app_constants.h"
 #include "chrome/browser/web_applications/web_app_install_params.h"
 #include "chrome/browser/web_applications/web_app_management_type.h"
 #include "chrome/browser/web_applications/web_app_proto_utils.h"
 #include "chrome/browser/web_applications/web_app_provider.h"
+#include "chrome/browser/web_applications/web_app_registrar.h"
 #include "chrome/browser/web_applications/web_app_sync_bridge.h"
 #include "chrome/browser/web_applications/web_app_ui_manager.h"
 #include "chrome/browser/web_applications/web_app_utils.h"
@@ -447,9 +448,7 @@ void WebAppCommandScheduler::InstallFromSync(const WebApp& web_app,
     theme_color = web_app.sync_proto().theme_color();
   }
   std::optional<webapps::ManifestId> migrated_from_manifest_id;
-  if (base::FeatureList::IsEnabled(
-          features::kWebAppHandleAppMigrationViaSync) &&
-      web_app.sync_proto().has_migrated_from_manifest_id()) {
+  if (web_app.sync_proto().has_migrated_from_manifest_id()) {
     migrated_from_manifest_id = webapps::ManifestId::Create(
         GURL(web_app.sync_proto().migrated_from_manifest_id()));
   }
@@ -874,10 +873,11 @@ void WebAppCommandScheduler::ScheduleResolveWebAppPendingMigrationInfo(
 void WebAppCommandScheduler::UpdateValidatedOriginAssociations(
     const webapps::AppId& app_id,
     base::OnceCallback<void(UpdateValidatedOriginAssociationsResult)> callback,
+    bool revalidate_migration_destination,
     const base::Location& location) {
   provider_->command_manager().ScheduleCommand(
       std::make_unique<UpdateValidatedOriginAssociationsCommand>(
-          app_id, std::move(callback)),
+          app_id, std::move(callback), revalidate_migration_destination),
       location);
 }
 

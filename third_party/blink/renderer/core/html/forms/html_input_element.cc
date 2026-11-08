@@ -1318,8 +1318,8 @@ void HTMLInputElement::SetSuggestedValue(const String& value) {
   if (!input_type_->CanSetSuggestedValue()) {
     // Clear the suggested value because it may have been set when
     // `input_type_->CanSetSuggestedValue()` was true.
-    SetAutofillState(WebAutofillState::kNotFilled);
     TextControlElement::SetSuggestedValue(String());
+    SetAutofillState(WebAutofillState::kNotFilled);
     return;
   }
   needs_to_update_view_value_ = true;
@@ -1331,9 +1331,9 @@ void HTMLInputElement::SetSuggestedValue(const String& value) {
     sanitized_value = String();
   }
 
+  TextControlElement::SetSuggestedValue(sanitized_value);
   SetAutofillState(sanitized_value.empty() ? WebAutofillState::kNotFilled
                                            : WebAutofillState::kPreviewed);
-  TextControlElement::SetSuggestedValue(sanitized_value);
 
   // Update the suggested value revelation.
   if (auto* placeholder = PlaceholderElement()) {
@@ -2248,12 +2248,12 @@ int HTMLInputElement::scrollWidth() {
   const auto* box = GetLayoutBox();
   if (!editor_box || !box)
     return TextControlElement::scrollWidth();
-  // Adjust scrollWidth to include input element horizontal paddings and
-  // decoration width.
-  LayoutUnit adjustment = box->PhysicalPaddingBoxRect().Width() -
+  // Adjust scrollWidth to include the horizontal paddings and decoration width
+  // in the client rect.
+  LayoutUnit adjustment = PhysicalClientRect(*box).Width() -
                           editor_box->PhysicalPaddingBoxRect().Width();
   return AdjustForAbsoluteZoom::AdjustLayoutUnit(
-             editor_box->ScrollWidth() + adjustment, box->StyleRef())
+             editor_box->ScrollWidth() + adjustment, box->Style())
       .Round();
 }
 
@@ -2273,12 +2273,12 @@ int HTMLInputElement::scrollHeight() {
   const auto* box = GetLayoutBox();
   if (!editor_box || !box)
     return TextControlElement::scrollHeight();
-  // Adjust scrollHeight to include input element vertical paddings and
-  // decoration height.
-  LayoutUnit adjustment = box->PhysicalPaddingBoxRect().Height() -
+  // Adjust scrollHeight to include the vertical paddings and decoration height
+  // in the client rect.
+  LayoutUnit adjustment = PhysicalClientRect(*box).Height() -
                           editor_box->PhysicalPaddingBoxRect().Height();
   return AdjustForAbsoluteZoom::AdjustLayoutUnit(
-             editor_box->ScrollHeight() + adjustment, box->StyleRef())
+             editor_box->ScrollHeight() + adjustment, box->Style())
       .Round();
 }
 

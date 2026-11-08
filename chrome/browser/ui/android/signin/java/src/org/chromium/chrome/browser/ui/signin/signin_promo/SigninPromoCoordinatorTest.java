@@ -29,6 +29,7 @@ import static org.mockito.Mockito.when;
 
 import android.app.Activity;
 import android.content.Context;
+import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -187,7 +188,6 @@ public class SigninPromoCoordinatorTest {
     private PersonalizedSigninPromoView mPromoView;
     private SigninPromoCoordinator mPromoCoordinator;
     private SigninPromoDelegate mDelegate;
-    private boolean mIsSetupListActive;
     private boolean mIsActivityStarted;
     private boolean mIsNativeInitialized;
 
@@ -691,6 +691,7 @@ public class SigninPromoCoordinatorTest {
             ThreadUtils.runOnUiThreadBlocking(() -> mPromoCoordinator.onSigninUndone());
         } else {
             // Dismiss the promo via [x] dismiss button.
+            ViewUtils.waitForVisibleView(withId(dismissButtonId));
             onView(withId(dismissButtonId)).perform(click());
         }
 
@@ -1023,6 +1024,11 @@ public class SigninPromoCoordinatorTest {
                     Activity activity = mActivityTestRule.getActivity();
                     View promoView = LayoutInflater.from(activity).inflate(layoutResId, null);
                     LinearLayout content = new LinearLayout(activity);
+                    content.setLayoutParams(
+                            new LinearLayout.LayoutParams(
+                                    ViewGroup.LayoutParams.MATCH_PARENT,
+                                    ViewGroup.LayoutParams.MATCH_PARENT));
+                    content.setGravity(Gravity.CENTER);
                     content.addView(
                             promoView,
                             new LinearLayout.LayoutParams(
@@ -1062,12 +1068,7 @@ public class SigninPromoCoordinatorTest {
                             mOnPromoStateChange,
                             /* isCreatedInCct= */ false);
             case SigninAccessPoint.NTP_FEED_TOP_PROMO ->
-                    new NtpSigninPromoDelegate(
-                            activity,
-                            mProfile,
-                            mLauncher,
-                            mOnPromoStateChange,
-                            () -> mIsSetupListActive);
+                    new NtpSigninPromoDelegate(activity, mProfile, mLauncher, mOnPromoStateChange);
             case SigninAccessPoint.RECENT_TABS ->
                     new RecentTabsSigninPromoDelegate(
                             activity, mProfile, mLauncher, mOnPromoStateChange);

@@ -40,10 +40,7 @@ source_set("impl") {
     "top_sites_factory.cc",
     "web_history_service_factory.cc",
   ]
-  public_deps = [
-    ":history",
-    "//chrome/browser:browser_public_dependencies",
-  ]
+  public_deps = [ ":history" ]
   deps = [
     "//base",
     "//chrome/browser:after_startup_task_utils",
@@ -95,6 +92,7 @@ source_set("impl") {
       ":jni_headers",
       "//chrome/browser/feed",
       "//chrome/browser/flags:flags_android",
+      "//chrome/browser/ui/android/tab_model",
       "//chrome/browser/ui/android/tab_model:impl",
     ]
   } else {
@@ -111,6 +109,16 @@ if (is_android) {
   import("//chrome/browser/buildflags.gni")
   import("//third_party/jni_zero/jni_zero.gni")
 
+  android_library("features_java") {
+    sources =
+        [ "java/src/org/chromium/chrome/browser/history/HistoryFeatures.java" ]
+
+    deps = [
+      "//base:base_java",
+      "//chrome/browser/flags:java",
+    ]
+  }
+
   android_library("java") {
     srcjar_deps = [ ":jni_headers" ]
     sources = [
@@ -125,6 +133,7 @@ if (is_android) {
     deps = [
       ":java_resources",
       "//base:base_java",
+      "//chrome/browser/flags:java",
       "//chrome/browser/tab:java",
       "//components/browser_ui/bottomsheet/android:java",
       "//content/public/android:content_java",
@@ -247,7 +256,6 @@ if (!is_android) {
       "//chrome/browser/renderer_host",
       "//chrome/browser/search_engines",
       "//chrome/browser/sync/test/integration:sync_integration_test_support",
-      "//chrome/browser/ui",
       "//chrome/browser/ui:browser_commands",
       "//chrome/browser/ui:ui_features",
       "//chrome/browser/ui:view_ids",

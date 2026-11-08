@@ -4,6 +4,7 @@
 
 package org.chromium.base.test.transit;
 
+import android.app.Activity;
 import android.util.Pair;
 
 import org.chromium.base.test.BaseJUnit4ClassRunner.ClassCleanupHook;
@@ -42,8 +43,7 @@ public class TrafficControl {
             // Happens when test is batched, but the Activity is not kept between tests; Public
             // Transit's Station/Facility state need to reflect that and start from a new
             // {@link EntryPointSentinelStation}.
-            station.setStateTransitioningFrom();
-            station.setStateFinished();
+            station.finishForcibly();
         }
         sActiveStations.clear();
     }
@@ -62,16 +62,44 @@ public class TrafficControl {
     }
 
     /**
-     * Hop off Public Transit - clear the active stations so that a subsequent test can go through
-     * an entry point again on the same process.
+     * Hop off Public Transit - abandon the active Stations so that a subsequent test, or a section
+     * of a test that does not use Public Transit, can go through an entry point again on the same
+     * process.
      *
-     * <p>Useful in Robolectric tests.
+     * <p>Exit Conditions are deliberately *not* checked. By the time a test hops off, it is about
+     * to do something Public Transit cannot see, so there is nothing trustworthy to verify. Use
+     * {@link TripBuilder#reachLastStop()} instead when the test is in a known state and the exit
+     * Conditions should be verified.
+     *
+     * <p>The Stations hopped off from, and their Facilities, are moved to {@link Phase#FINISHED},
+     * so that using their Elements afterwards fails loudly instead of returning stale objects. This
+     * is done from whatever phase they are in: a Station left in TRANSITIONING_FROM by a failed
+     * Transition is exactly the kind of state hopping off exists to abandon, and asserting on it
+     * would turn one failed test into a failed batch.
      */
     public static void hopOffPublicTransit() {
+        for (Station<?> station : sActiveStations) {
+            station.finishForcibly();
+        }
         sActiveStations.clear();
         for (Runnable listener : sHopOffListeners) {
             listener.run();
         }
+    }
+
+    /**
+     * Hop on Public Transit at |destination| in |activity|, without performing any action.
+     *
+     * <p>For test utils whose UI is already in the state |destination| models, which is the common
+     * case. Shorthand for {@code Triggers.noopTo().hopOnTo(activity, destination, facilities)}; use
+     * {@link TripBuilder#hopOnTo(Activity, Station, Facility[])} with a trigger to hop on as the
+     * result of an action.
+     *
+     * @return |destination|, now ACTIVE.
+     */
+    public static <T extends Station<?>> T hopOnAt(
+            Activity activity, T destination, Facility<?>... facilities) {
+        return Triggers.noopTo().hopOnTo(activity, destination, facilities);
     }
 
     public static List<Pair<String, String>> getAllStationsNames() {

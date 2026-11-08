@@ -45,7 +45,6 @@ source_set("impl") {
     ":navigator",
     "//base",
     "//chrome/browser:browser_about_handler",
-    "//chrome/browser:browser_public_dependencies",
     "//chrome/browser:primitives",
     "//chrome/browser/picture_in_picture",
     "//chrome/browser/prefs",
@@ -54,7 +53,6 @@ source_set("impl") {
     "//chrome/browser/search_engines",
     "//chrome/browser/tab_contents",
     "//chrome/browser/tab_list",
-    "//chrome/browser/ui",
     "//chrome/browser/ui:incognito_allowed_url",
     "//chrome/browser/ui/browser_window:create_browser_window",
     "//chrome/common:chrome_features",
@@ -71,9 +69,14 @@ source_set("impl") {
 
   if (is_chromeos) {
     deps += [
+      "//ash",
       "//chrome/browser/ash/boca/on_task",
       "//chrome/browser/ui/ash/system_web_apps",
     ]
+  }
+
+  if (is_android) {
+    deps += [ "//chrome/browser/android:tabs_public" ]
   }
 
   if (!is_android) {
@@ -120,6 +123,17 @@ source_set("unit_tests") {
     "//testing/gtest",
     "//ui/base/unowned_user_data",
   ]
+
+  if (is_android) {
+    deps += [
+      "//chrome/android:chrome_jni_headers",
+      "//chrome/browser/android:tabs_public",
+      "//chrome/browser/content_settings:content_settings_factory",
+      "//chrome/browser/ui/android/tab_model",
+      "//components/content_settings/core/browser",
+      "//components/content_settings/core/common",
+    ]
+  }
 }
 
 if (!is_android) {
@@ -145,6 +159,7 @@ if (!is_android) {
       "//chrome/browser/renderer_host",
       "//chrome/browser/ui:browser_commands",
       "//chrome/browser/ui:browser_init_state",
+      "//chrome/browser/ui:browser_tabstrip",
       "//chrome/browser/ui:browser_window_header",
       "//chrome/browser/ui:chrome_pages",
       "//chrome/browser/ui:singleton_tabs",

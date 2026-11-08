@@ -65,6 +65,34 @@
           ],
           "script": "//tools/perf/process_perf_results.py"
         },
+        "module_name": "//clank/java:resource_sizes_chrome_and_webview_google",
+        "module_scheme": "single",
+        "name": "resource_sizes_chrome_and_webview_google",
+        "resultdb": {
+          "has_native_resultdb_integration": true
+        },
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "dimensions": {
+            "cpu": "x86",
+            "os": "Ubuntu-22.04",
+            "pool": "chrome.tests"
+          },
+          "expiration": 7200,
+          "hard_timeout": 14400,
+          "io_timeout": 21600,
+          "service_account": "chrome-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test": "resource_sizes_chrome_and_webview_google"
+      },
+      {
+        "args": [],
+        "merge": {
+          "args": [
+            "--upload-skia-json"
+          ],
+          "script": "//tools/perf/process_perf_results.py"
+        },
         "module_name": "//clank/java:resource_sizes_system_webview_google_bundle",
         "module_scheme": "single",
         "name": "resource_sizes_system_webview_google_bundle",
@@ -84,102 +112,20 @@
           "service_account": "chrome-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "resource_sizes_system_webview_google_bundle"
-      },
-      {
-        "args": [],
-        "merge": {
-          "args": [
-            "--upload-skia-json"
-          ],
-          "script": "//tools/perf/process_perf_results.py"
-        },
-        "module_name": "//clank/java:resource_sizes_trichrome_google",
-        "module_scheme": "single",
-        "name": "resource_sizes_trichrome_google",
-        "resultdb": {
-          "has_native_resultdb_integration": true
-        },
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "dimensions": {
-            "cpu": "x86",
-            "os": "Ubuntu-22.04",
-            "pool": "chrome.tests"
-          },
-          "expiration": 7200,
-          "hard_timeout": 14400,
-          "io_timeout": 21600,
-          "service_account": "chrome-tester@chops-service-accounts.iam.gserviceaccount.com"
-        },
-        "test": "resource_sizes_trichrome_google"
       }
     ]
   },
   "android-builder-perf-pgo": {},
-  "android-corsola-steelix-8gb-perf": {
-    "isolated_scripts": [
-      {
-        "args": [
-          "-v",
-          "--browser=android-chrome-bundle",
-          "--upload-results",
-          "--test-shard-map-filename=android-corsola-steelix-8gb-perf_map.json",
-          "--ignore-benchmark-exit-code",
-          "--device",
-          "variable_lab_dut_hostname",
-          "--connect-to-device-over-network"
-        ],
-        "merge": {
-          "args": [
-            "--upload-skia-json"
-          ],
-          "script": "//tools/perf/process_perf_results.py"
-        },
-        "module_name": "//chrome/test:performance_test_suite_android_chrome_google_bundle",
-        "module_scheme": "flat",
-        "name": "performance_test_suite_android_chrome_google_bundle",
-        "resultdb": {
-          "enable": true
-        },
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "dimensions": {
-            "dut_state": "ready",
-            "label-hwid_sku": "steelix_MT8186_8GB",
-            "label-pool": "chrome.tests.perf",
-            "os": "Android",
-            "pool": "chrome"
-          },
-          "expiration": 7200,
-          "hard_timeout": 14400,
-          "io_timeout": 21600,
-          "realm": "chromeos:chrome",
-          "server": "https://chromeos-swarming.appspot.com",
-          "service_account": "chromeos-tester@chops-service-accounts.iam.gserviceaccount.com",
-          "shards": 7
-        },
-        "test": "performance_test_suite_android_chrome_google_bundle",
-        "trigger_script": {
-          "args": [
-            "--multiple-dimension-script-verbose",
-            "True"
-          ],
-          "requires_simultaneous_shard_dispatch": true,
-          "script": "//testing/trigger_scripts/perf_device_trigger.py"
-        }
-      }
-    ]
-  },
   "android-desktop-arm-builder-perf": {
     "additional_compile_targets": [
-      "trichrome_google_64_32_minimal_apks",
+      "chrome_minimal_apks",
       "system_webview_apk",
       "system_webview_google_apk"
     ]
   },
   "android-desktop-x64-builder-perf": {
     "additional_compile_targets": [
-      "trichrome_google_64_minimal_apks",
+      "chrome_minimal_apks",
       "system_webview_apk",
       "system_webview_google_apk"
     ]
@@ -270,60 +216,6 @@
           "shards": 5
         },
         "test": "performance_webview_test_suite",
-        "trigger_script": {
-          "args": [
-            "--multiple-dimension-script-verbose",
-            "True"
-          ],
-          "requires_simultaneous_shard_dispatch": true,
-          "script": "//testing/trigger_scripts/perf_device_trigger.py"
-        }
-      }
-    ]
-  },
-  "android-nissa-uldren-8gb-perf": {
-    "isolated_scripts": [
-      {
-        "args": [
-          "-v",
-          "--browser=android-chrome-bundle",
-          "--upload-results",
-          "--test-shard-map-filename=android-nissa-uldren-8gb-perf_map.json",
-          "--ignore-benchmark-exit-code",
-          "--device",
-          "variable_lab_dut_hostname",
-          "--connect-to-device-over-network"
-        ],
-        "merge": {
-          "args": [
-            "--upload-skia-json"
-          ],
-          "script": "//tools/perf/process_perf_results.py"
-        },
-        "module_name": "//chrome/test:performance_test_suite_android_chrome_google_bundle",
-        "module_scheme": "flat",
-        "name": "performance_test_suite_android_chrome_google_bundle",
-        "resultdb": {
-          "enable": true
-        },
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "dimensions": {
-            "dut_state": "ready",
-            "label-hwid_sku": "uldren_99C4LZ/Q1XT/6W_8GB",
-            "label-pool": "chrome.tests.perf",
-            "os": "Android",
-            "pool": "chrome"
-          },
-          "expiration": 7200,
-          "hard_timeout": 14400,
-          "io_timeout": 21600,
-          "realm": "chromeos:chrome",
-          "server": "https://chromeos-swarming.appspot.com",
-          "service_account": "chromeos-tester@chops-service-accounts.iam.gserviceaccount.com",
-          "shards": 7
-        },
-        "test": "performance_test_suite_android_chrome_google_bundle",
         "trigger_script": {
           "args": [
             "--multiple-dimension-script-verbose",
@@ -516,6 +408,52 @@
           "io_timeout": 21600,
           "service_account": "chrome-tester@chops-service-accounts.iam.gserviceaccount.com",
           "shards": 23
+        },
+        "test": "performance_webview_test_suite",
+        "trigger_script": {
+          "args": [
+            "--multiple-dimension-script-verbose",
+            "True"
+          ],
+          "requires_simultaneous_shard_dispatch": true,
+          "script": "//testing/trigger_scripts/perf_device_trigger.py"
+        }
+      }
+    ]
+  },
+  "android-pixel10_webview-perf-cq": {
+    "isolated_scripts": [
+      {
+        "args": [
+          "-v",
+          "--browser=android-webview-standalone-google",
+          "--upload-results",
+          "--test-shard-map-filename=android-pixel10_webview-perf-cq_map.json",
+          "--ignore-benchmark-exit-code"
+        ],
+        "merge": {
+          "script": "//tools/perf/process_perf_results.py"
+        },
+        "module_name": "//chrome/test:performance_webview_test_suite",
+        "module_scheme": "flat",
+        "name": "performance_webview_test_suite",
+        "resultdb": {
+          "enable": true
+        },
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "dimensions": {
+            "device_os": "BP4A.260105.004.E1",
+            "device_os_flavor": "google",
+            "device_type": "frankel",
+            "os": "Android",
+            "pool": "chrome.tests.perf-webview-pgo"
+          },
+          "expiration": 7200,
+          "hard_timeout": 14400,
+          "io_timeout": 21600,
+          "service_account": "chrome-tester@chops-service-accounts.iam.gserviceaccount.com",
+          "shards": 2
         },
         "test": "performance_webview_test_suite",
         "trigger_script": {
@@ -1072,6 +1010,34 @@
           ],
           "script": "//tools/perf/process_perf_results.py"
         },
+        "module_name": "//clank/java:resource_sizes_chrome_and_webview_google",
+        "module_scheme": "single",
+        "name": "resource_sizes_chrome_and_webview_google",
+        "resultdb": {
+          "has_native_resultdb_integration": true
+        },
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "dimensions": {
+            "cpu": "x86",
+            "os": "Ubuntu-22.04",
+            "pool": "chrome.tests"
+          },
+          "expiration": 7200,
+          "hard_timeout": 14400,
+          "io_timeout": 21600,
+          "service_account": "chrome-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test": "resource_sizes_chrome_and_webview_google"
+      },
+      {
+        "args": [],
+        "merge": {
+          "args": [
+            "--upload-skia-json"
+          ],
+          "script": "//tools/perf/process_perf_results.py"
+        },
         "module_name": "//clank/java:resource_sizes_system_webview_google_bundle",
         "module_scheme": "single",
         "name": "resource_sizes_system_webview_google_bundle",
@@ -1091,41 +1057,13 @@
           "service_account": "chrome-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "resource_sizes_system_webview_google_bundle"
-      },
-      {
-        "args": [],
-        "merge": {
-          "args": [
-            "--upload-skia-json"
-          ],
-          "script": "//tools/perf/process_perf_results.py"
-        },
-        "module_name": "//clank/java:resource_sizes_trichrome_google",
-        "module_scheme": "single",
-        "name": "resource_sizes_trichrome_google",
-        "resultdb": {
-          "has_native_resultdb_integration": true
-        },
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "dimensions": {
-            "cpu": "x86",
-            "os": "Ubuntu-22.04",
-            "pool": "chrome.tests"
-          },
-          "expiration": 7200,
-          "hard_timeout": 14400,
-          "io_timeout": 21600,
-          "service_account": "chrome-tester@chops-service-accounts.iam.gserviceaccount.com"
-        },
-        "test": "resource_sizes_trichrome_google"
       }
     ]
   },
   "android_arm64-builder-perf-pgo": {},
   "android_arm64_high_end-builder-perf": {
     "additional_compile_targets": [
-      "trichrome_google_64_32_minimal_apks",
+      "chrome_minimal_apks",
       "system_webview_apk",
       "system_webview_google_apk"
     ]
@@ -1279,7 +1217,7 @@
           "can_use_on_swarming_builders": true,
           "dimensions": {
             "cpu": "arm64",
-            "os": "Ubuntu-24.04.4",
+            "os": "Ubuntu-24.04",
             "pool": "chrome.tests.perf"
           },
           "expiration": 7200,

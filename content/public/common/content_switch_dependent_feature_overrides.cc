@@ -69,10 +69,16 @@ GetSwitchDependentFeatureOverrides(const base::CommandLine& command_line) {
        std::cref(blink::features::kResponsiveIframes),
        base::FeatureList::OVERRIDE_ENABLE_FEATURE},
       {switches::kEnableExperimentalWebPlatformFeatures,
-       std::cref(blink::features::kGlobalPrivacyControlTest),
+       std::cref(blink::features::kGlobalPrivacyControlApi),
        base::FeatureList::OVERRIDE_ENABLE_FEATURE},
       {switches::kEnableExperimentalWebPlatformFeatures,
        std::cref(blink::features::kSpecCompliantXmlMimeTypes),
+       base::FeatureList::OVERRIDE_ENABLE_FEATURE},
+      {switches::kEnableExperimentalWebPlatformFeatures,
+       std::cref(blink::features::kPermissionsPolicyForSharedWorkers),
+       base::FeatureList::OVERRIDE_ENABLE_FEATURE},
+      {switches::kEnableExperimentalWebPlatformFeatures,
+       std::cref(blink::features::kCapabilityDelegationPopup),
        base::FeatureList::OVERRIDE_ENABLE_FEATURE},
 
       // Overrides for --enable-experimental-cookie-features.

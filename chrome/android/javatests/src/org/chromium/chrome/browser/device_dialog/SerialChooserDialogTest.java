@@ -8,7 +8,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import android.Manifest;
-import android.app.Activity;
 import android.app.Dialog;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -29,6 +28,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import org.chromium.base.ThreadUtils;
+import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.Criteria;
 import org.chromium.base.test.util.CriteriaHelper;
@@ -57,7 +57,7 @@ import java.util.Arrays;
 /** Tests for the SerialChooserDialog class. */
 @RunWith(ChromeJUnit4ClassRunner.class)
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
-// TODO(crbug.com/344665244): Failing when batched, batch this again.
+@Batch(Batch.PER_CLASS)
 public class SerialChooserDialogTest {
     @Rule
     public final AutoResetCtaTransitTestRule mActivityTestRule =
@@ -106,6 +106,12 @@ public class SerialChooserDialogTest {
     @After
     public void tearDown() {
         LocationUtils.setFactory(null);
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    if (mChooserDialog != null && mChooserDialog.mItemChooserDialog != null) {
+                        mChooserDialog.mItemChooserDialog.dismiss();
+                    }
+                });
     }
 
     private SerialChooserDialog createDialog() {
@@ -434,9 +440,9 @@ public class SerialChooserDialogTest {
                 .thenReturn(true);
         when(mockModalDialogManager.isSuspended(ModalDialogManager.ModalDialogType.TAB))
                 .thenReturn(true);
-        Activity mockActivity = mock(Activity.class);
         WindowAndroid mockWindowAndroid = mock(WindowAndroid.class);
-        when(mockWindowAndroid.getActivity()).thenReturn(new WeakReference<>(mockActivity));
+        when(mockWindowAndroid.getActivity())
+                .thenReturn(new WeakReference<>(mActivityTestRule.getActivity()));
         when(mockWindowAndroid.getModalDialogManager()).thenReturn(mockModalDialogManager);
         when(mockWindowAndroid.hasPermission(Manifest.permission.BLUETOOTH_SCAN)).thenReturn(true);
         when(mockWindowAndroid.hasPermission(Manifest.permission.BLUETOOTH_CONNECT))

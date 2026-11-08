@@ -52,17 +52,22 @@ namespace glic {
 
 class AuthController;
 class ContextualCueingService;
-class GlicActivityManager;
+class LegacyGlicActivityManager;
 class GlicActorPolicyChecker;
 class GlicEnabling;
 class GlicMetrics;
 class GlicProfileManager;
+class GlicProviderSpec;
 class GlicShareImageHandler;
+class GlicClientDataStorage;
 class GlicTabDataObserver;
 class GlicTabFaviconObserver;
 class GlicInstanceCoordinator;
 class GlicExperimentalOptInController;
 class GlicExperimentalTriggeringTransportHandlerFactory;
+#if BUILDFLAG(IS_ANDROID)
+class MicPermissionUi;
+#endif
 
 enum class GlicPrewarmingChecksResult;
 
@@ -85,6 +90,10 @@ class GlicKeyedService : public KeyedService, public base::SupportsUserData {
   GlicKeyedService& operator=(const GlicKeyedService&) = delete;
   ~GlicKeyedService() override;
 
+  // Returns this profile's provider spec. Its values don't change for the
+  // lifetime of the profile.
+  const GlicProviderSpec& provider_spec();
+
 #if BUILDFLAG(IS_ANDROID)
   // Returns a Java object of the type GlicKeyedService for the given
   // GlicKeyedService.
@@ -95,6 +104,11 @@ class GlicKeyedService : public KeyedService, public base::SupportsUserData {
 
   class GlicNudgeController* GetOrCreateNudgeController(
       BrowserWindowInterface* browser);
+
+  // Returns the microphone permission UI used by Glic panels.
+  MicPermissionUi& GetMicPermissionUi();
+  void SetMicPermissionUiForTesting(
+      std::unique_ptr<MicPermissionUi> mic_permission_ui);
 #endif  // BUILDFLAG(IS_ANDROID)
 
   // Convenience method, may return nullptr.
@@ -251,6 +265,7 @@ class GlicKeyedService : public KeyedService, public base::SupportsUserData {
   GlicTabFaviconObserver& tab_favicon_observer() {
     return *tab_favicon_observer_;
   }
+  GlicClientDataStorage& client_data_storage() { return *client_data_storage_; }
 
   using ActOnWebCapabilityChangedCallback = base::RepeatingCallback<void(bool)>;
   base::CallbackListSubscription AddActOnWebCapabilityChangedCallback(
@@ -261,7 +276,7 @@ class GlicKeyedService : public KeyedService, public base::SupportsUserData {
 
   bool HasActorPolicyChecker() const { return !!actor_policy_checker_; }
 
-  GlicActivityManager& activity_manager();
+  LegacyGlicActivityManager& legacy_activity_manager();
 
  private:
   // A helper function to route GetZeroStateSuggestionsForFocusedTabCallback
@@ -291,16 +306,18 @@ class GlicKeyedService : public KeyedService, public base::SupportsUserData {
 
   raw_ptr<Profile> profile_;
 
-  // Never null - GlicActorTaskManager and GlicInstanceCoordinatorImpl hold a
-  // reference to this so it must be destroyed after them.
+  // Never null - GlicActorTaskManager, GlicInstanceCoordinatorImpl and
+  // GlicEnabling hold a reference to this so it must be destroyed after them.
   std::unique_ptr<GlicActorPolicyChecker> actor_policy_checker_;
 
   std::unique_ptr<GlicEnabling> enabling_;
+  std::unique_ptr<GlicProviderSpec> provider_spec_;
   std::unique_ptr<GlicMetrics> metrics_;
   std::unique_ptr<GlicExperimentalOptInController> opt_in_controller_;
+  std::unique_ptr<GlicClientDataStorage> client_data_storage_;
   // Is a GlicInstanceCoordinatorImpl.
   std::unique_ptr<GlicInstanceCoordinator> instance_coordinator_;
-  std::unique_ptr<GlicActivityManager> activity_manager_;
+  std::unique_ptr<LegacyGlicActivityManager> legacy_activity_manager_;
   std::unique_ptr<GlicShareImageHandler> share_image_handler_;
 
   std::unique_ptr<AuthController> auth_controller_;
@@ -324,6 +341,7 @@ class GlicKeyedService : public KeyedService, public base::SupportsUserData {
       button_controllers_;
   base::flat_map<BrowserWindowInterface*, base::CallbackListSubscription>
       window_close_subscriptions_;
+  std::unique_ptr<MicPermissionUi> mic_permission_ui_;
 #endif
 
   base::WeakPtrFactory<GlicKeyedService> weak_ptr_factory_{this};

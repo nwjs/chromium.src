@@ -21,95 +21,31 @@ def _CommonChecks(input_api, output_api, block_on_failure=False):
       don't want them to commit code with those failures, so we
       need to block the change on commit.
   """
-  results = []
-
-  results.extend(
+  commands = []
+  commands.extend(
     _CheckPerfDataCurrentness(input_api, output_api, block_on_failure)
   )
-  results.extend(_CheckPerfJsonConfigs(input_api, output_api, block_on_failure))
-  results.extend(_CheckShardMaps(input_api, output_api, block_on_failure))
-  return results
+  commands.extend(
+    _CheckPerfJsonConfigs(input_api, output_api, block_on_failure)
+  )
+  commands.extend(_CheckShardMaps(input_api, output_api, block_on_failure))
+  return input_api.RunTests(commands)
 
 
-def CheckPyLint(input_api, output_api):
-  if not input_api.HasAffectedFiles(extensions='.py'):
-    return []
-  disabled_warnings = [
-    'broad-exception-raised',
-    'consider-using-dict-items',
-    'consider-using-f-string',
-    'consider-using-from-import',
-    'consider-using-generator',
-    'consider-using-with',
-    'deprecated-module',
-    'possibly-used-before-assignment',
-    'redundant-u-string-prefix',
-    'superfluous-parens',
-    'unknown-option-value',
-    'unnecessary-lambda-assignment',
-    'unspecified-encoding',
-    'use-dict-literal',
-    'use-yield-from',
-    'used-before-assignment',
-    'useless-option-value',
-  ]
-  return input_api.RunTests(
-    input_api.canned_checks.GetPylint(
-      input_api,
-      output_api,
-      disabled_warnings=disabled_warnings,
-      extra_paths_list=_GetPathsToPrepend(input_api),
-      pylintrc='pylintrc',
-      version='3.2',
-    )
+def CheckPresubmitUnittests(input_api, output_api):
+  """Runs unittests for tools/perf/PRESUBMIT.py."""
+  return input_api.canned_checks.RunUnitTestsInDirectory(
+    input_api,
+    output_api,
+    input_api.PresubmitLocalPath(),
+    [r'^PRESUBMIT_test\.py$'],
   )
 
 
-def _GetPathsToPrepend(input_api):
-  perf_dir = input_api.PresubmitLocalPath()
-  chromium_src_dir = input_api.os_path.join(perf_dir, '..', '..')
-  telemetry_dir = input_api.os_path.join(
-    chromium_src_dir, 'third_party', 'catapult', 'telemetry'
-  )
-  typ_dir = input_api.os_path.join(
-    chromium_src_dir, 'third_party', 'catapult', 'third_party', 'typ'
-  )
-  experimental_dir = input_api.os_path.join(
-    chromium_src_dir, 'third_party', 'catapult', 'experimental'
-  )
-  tracing_dir = input_api.os_path.join(
-    chromium_src_dir, 'third_party', 'catapult', 'tracing'
-  )
-  py_utils_dir = input_api.os_path.join(
-    chromium_src_dir, 'third_party', 'catapult', 'common', 'py_utils'
-  )
-  android_pylib_dir = input_api.os_path.join(
-    chromium_src_dir, 'build', 'android'
-  )
-  testing_dir = input_api.os_path.join(chromium_src_dir, 'testing')
-  return [
-    telemetry_dir,
-    typ_dir,
-    experimental_dir,
-    tracing_dir,
-    py_utils_dir,
-    android_pylib_dir,
-    testing_dir,
-  ]
-
-
-def _RunArgs(args, input_api):
-  p = input_api.subprocess.Popen(
-    args, stdout=input_api.subprocess.PIPE, stderr=input_api.subprocess.STDOUT
-  )
-  out, _ = p.communicate()
-  return (out, p.returncode)
-
-
-def _RunValidationScript(
+def _GetValidationCommands(
   input_api, output_api, script_path, extra_args=None, block_on_failure=None
 ):
-  results = []
+  commands = []
   vpython = 'vpython3.bat' if input_api.is_windows else 'vpython3'
   perf_dir = input_api.PresubmitLocalPath()
   script_abs_path = input_api.os_path.join(perf_dir, script_path)
@@ -128,19 +64,32 @@ def _RunValidationScript(
   # I suspect that the latter error comes from CreateProcess hitting its 32768
   # character limit.
   files_per_command = 50 if input_api.is_windows else 1000
+  message_type = (
+    output_api.PresubmitError
+    if (block_on_failure is None or block_on_failure)
+    else output_api.PresubmitPromptWarning
+  )
   # Handle the case where extra_args is empty.
   for i in range(0, len(extra_args) if extra_args else 1, files_per_command):
     args = [vpython, script_abs_path] + extra_args[i : i + files_per_command]
-    out, return_code = _RunArgs(args, input_api)
-    if return_code:
-      error_msg = 'Script ' + script_path + ' failed.'
-      if block_on_failure is None or block_on_failure:
-        results.append(output_api.PresubmitError(error_msg, long_text=out))
-      else:
-        results.append(
-          output_api.PresubmitPromptWarning(error_msg, long_text=out)
-        )
-  return results
+    commands.append(
+      input_api.Command(
+        name='Script ' + script_path,
+        cmd=args,
+        kwargs={},
+        message=message_type,
+      )
+    )
+  return commands
+
+
+def _RunValidationScript(
+  input_api, output_api, script_path, extra_args=None, block_on_failure=None
+):
+  commands = _GetValidationCommands(
+    input_api, output_api, script_path, extra_args, block_on_failure
+  )
+  return input_api.RunTests(commands)
 
 
 def CheckExpectations(input_api, output_api):
@@ -152,7 +101,7 @@ def CheckExpectations(input_api, output_api):
 
 
 def _CheckPerfDataCurrentness(input_api, output_api, block_on_failure):
-  return _RunValidationScript(
+  return _GetValidationCommands(
     input_api,
     output_api,
     'generate_perf_data',
@@ -162,7 +111,7 @@ def _CheckPerfDataCurrentness(input_api, output_api, block_on_failure):
 
 
 def _CheckPerfJsonConfigs(input_api, output_api, block_on_failure):
-  return _RunValidationScript(
+  return _GetValidationCommands(
     input_api,
     output_api,
     'validate_perf_json_config',
@@ -187,7 +136,7 @@ def CheckWprShaFiles(input_api, output_api):
 
 
 def _CheckShardMaps(input_api, output_api, block_on_failure):
-  return _RunValidationScript(
+  return _GetValidationCommands(
     input_api,
     output_api,
     'generate_perf_sharding.py',

@@ -14,6 +14,8 @@
 #include "base/containers/flat_map.h"
 #include "base/mac/scoped_ionotificationportref.h"
 #include "base/mac/scoped_ioobject.h"
+#include "base/memory/raw_ptr.h"
+#include "base/memory/weak_ptr.h"
 #include "base/task/sequenced_task_runner.h"
 #include "device/gamepad/gamepad_data_fetcher.h"
 #include "device/gamepad/xbox_controller_mac.h"
@@ -60,6 +62,7 @@ class XboxDataFetcher : public GamepadDataFetcher,
   bool RegisterForDeviceNotifications(int vendor_id, int product_id);
   bool RegisterForInterestNotifications(io_service_t service);
   void PendingServiceBecameAvailable(io_service_t service);
+  void RetryOpenDevice(uint64_t entry_id);
   void UnregisterFromNotifications();
 
   void OnAddedToProvider() override;
@@ -75,7 +78,7 @@ class XboxDataFetcher : public GamepadDataFetcher,
   void XboxControllerError(XboxControllerMac* controller) override;
 
   // The set of connected controllers.
-  std::set<XboxControllerMac*> controllers_;
+  std::set<raw_ptr<XboxControllerMac>> controllers_;
 
   // The set of enumerated controllers that received an exclusive access error
   // on opening the device, keyed by registry entry ID. The data fetcher is
@@ -96,6 +99,8 @@ class XboxDataFetcher : public GamepadDataFetcher,
   // (disconnection) events. These iterators are not referenced directly but
   // must be kept alive in order to continue to receive notifications.
   std::vector<base::mac::ScopedIOObject<io_iterator_t>> device_event_iterators_;
+
+  base::WeakPtrFactory<XboxDataFetcher> weak_factory_{this};
 };
 
 }  // namespace device

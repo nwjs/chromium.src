@@ -122,10 +122,16 @@ public class AutofillUnitTest {
     public void openAutofillPopupAndWaitUntilReady(final AutofillDropdownItem[] suggestions) {
         ThreadUtils.runOnUiThreadBlocking(
                 () -> mAutofillPopup.filterAndShow(suggestions, /* isRtl= */ false));
-        CriteriaHelper.pollInstrumentationThread(
+        CriteriaHelper.pollUiThread(
                 () -> {
                     Criteria.checkThat(
                             mAutofillPopup.getListView().getChildCount(), Matchers.greaterThan(0));
+                    View firstChild = mAutofillPopup.getListView().getChildAt(0);
+                    Criteria.checkThat(firstChild, Matchers.notNullValue());
+                    Criteria.checkThat(firstChild.getWidth(), Matchers.greaterThan(0));
+                    Criteria.checkThat(firstChild.getHeight(), Matchers.greaterThan(0));
+                    Criteria.checkThat(
+                            mAutofillPopup.getListView().isLayoutRequested(), Matchers.is(false));
                 });
     }
 

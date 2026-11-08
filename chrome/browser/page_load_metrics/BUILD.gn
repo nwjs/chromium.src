@@ -11,7 +11,7 @@ if (is_android) {
 
 source_set("page_load_metrics") {
   public = [
-    "chrome_initiator_location.h",
+    "chrome_navigation_initiator.h",
     "observers/bookmark_bar_page_load_metrics_observer.h",
     "observers/captcha_metrics_observer.h",
     "observers/captcha_provider_manager.h",
@@ -91,7 +91,7 @@ source_set("page_load_metrics") {
 
 source_set("impl") {
   sources = [
-    "chrome_initiator_location.cc",
+    "chrome_navigation_initiator.cc",
     "observers/bookmark_bar_page_load_metrics_observer.cc",
     "observers/captcha_metrics_observer.cc",
     "observers/captcha_provider_manager.cc",
@@ -128,13 +128,11 @@ source_set("impl") {
     "page_load_metrics_initialize.cc",
   ]
 
-  public_deps = [
-    ":page_load_metrics",
-    "//chrome/browser:browser_public_dependencies",
-  ]
+  public_deps = [ ":page_load_metrics" ]
 
   deps = [
     "//chrome/browser:after_startup_task_utils",
+    "//chrome/browser:browser_process",
     "//chrome/browser/actor",
     "//chrome/browser/bookmarks",
     "//chrome/browser/content_settings",
@@ -160,6 +158,7 @@ source_set("impl") {
     "//components/ukm",
     "//services/metrics/public/cpp:metrics_cpp",
     "//third_party/blink/public/common",
+    "//ui/events/blink:blink_features",
   ]
 
   if (is_android) {
@@ -253,6 +252,7 @@ source_set("unit_tests") {
     "//base/test:test_support",
     "//chrome/browser:after_startup_task_utils",
     "//chrome/browser/actor:test_support",
+    "//chrome/browser/predictors",
     "//chrome/browser/search_engines",
     "//chrome/test:test_support",
     "//chrome/test/base:browser_test_waiters",
@@ -260,6 +260,7 @@ source_set("unit_tests") {
     "//components/page_load_metrics/browser",
     "//components/page_load_metrics/browser:test_support",
     "//components/page_load_metrics/common:test_support",
+    "//components/tabs:test_support",
     "//components/translate/core/browser:test_support",
     "//content/test:test_support",
     "//testing/gmock",
@@ -357,6 +358,7 @@ if (!is_android) {
       "//chrome/browser/ui:browser_command_controller",
       "//chrome/browser/ui:browser_commands",
       "//chrome/browser/ui:browser_live_tab_context",
+      "//chrome/browser/ui:browser_tabstrip",
       "//chrome/browser/ui:browser_window_header",
       "//chrome/browser/ui/browser_window",
       "//chrome/browser/ui/views/frame:browser_view_header",

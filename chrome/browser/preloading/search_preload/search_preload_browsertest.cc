@@ -2388,26 +2388,53 @@ IN_PROC_BROWSER_TEST_F(
                        {SearchPreloadSignalResult::kPrerenderTriggered});
 }
 
-// Test suite for `kDsePreload2AheadOfActualNavigation`.
-class SearchPreloadBrowserTest_AheadOfActualNavigation
+// Test suite for `kDsePreload2AheadOfImminentNavigation`.
+class SearchPreloadBrowserTest_AheadOfImminentNavigation
     : public SearchPreloadBrowserTestBase {
  public:
   void InitFeatures(
       base::test::ScopedFeatureList& scoped_feature_list) override {
-    // Note that `features::kPrefetchAheadOfActualNavigation` is not visible
-    // from chrome/, so enable features by their names.
-    scoped_feature_list.InitFromCommandLine(
-        "ForceWebRequestProxyForTest,"
-        "DsePreload2:kDsePreload2DeviceMemoryThresholdMiB/0,"
-        "DsePreload2OnPress:kDsePreload2OnPressMouseDown/true/"
-        "kDsePreload2OnPressUpOrDownArrowButton/true/"
-        "kDsePreload2OnPressTouchDown/true,"
-        "DsePreload2AheadOfActualNavigation,"
-        "PrefetchAheadOfActualNavigation:"
-        "force_wait_no_vary_search_header_policy/UseIfNoHint,"
-        "PrefetchUseContentRefactor:"
-        "block_until_head_timeout_embedder_prefetch/100",
-        /*disable_features=*/"");
+    scoped_feature_list.InitWithFeaturesAndParameters(
+        {
+            {
+                extensions_features::kForceWebRequestProxyForTest,
+                {},
+            },
+            {
+                features::kDsePreload2,
+                {
+                    {"kDsePreload2DeviceMemoryThresholdMiB", "0"},
+                },
+            },
+            {
+                features::kDsePreload2OnPress,
+                {
+                    {"kDsePreload2OnPressMouseDown", "true"},
+                    {"kDsePreload2OnPressUpOrDownArrowButton", "true"},
+                    {"kDsePreload2OnPressTouchDown", "true"},
+                },
+            },
+            {
+                features::kDsePreload2AheadOfImminentNavigation,
+                {},
+            },
+            {
+                features::kPrefetchAheadOfImminentNavigation,
+                {
+                    {features::
+                         kPrefetchAheadOfImminentNavigationForceWaitNVSHeaderPolicy
+                             .name,
+                     "UseIfNoHint"},
+                },
+            },
+            {
+                features::kPrefetchUseContentRefactor,
+                {
+                    {"block_until_head_timeout_embedder_prefetch", "100"},
+                },
+            },
+        },
+        /*disabled_features=*/{});
   }
 };
 
@@ -2418,7 +2445,7 @@ class SearchPreloadBrowserTest_AheadOfActualNavigation
 // delayed longer than the default block-until-head timeout. A user presses a
 // suggestion by mouse and then navigates. The navigation keeps blocked until
 // the head arrives, and the prefetch is used.
-IN_PROC_BROWSER_TEST_F(SearchPreloadBrowserTest_AheadOfActualNavigation,
+IN_PROC_BROWSER_TEST_F(SearchPreloadBrowserTest_AheadOfImminentNavigation,
                        OnNavigationLikely_MouseDown_MatchedByHeader) {
   HistogramTesterWrapper uma_tester;
 
@@ -2464,7 +2491,7 @@ IN_PROC_BROWSER_TEST_F(SearchPreloadBrowserTest_AheadOfActualNavigation,
 //
 // Scenario: Same as `OnNavigationLikely_MouseDown_MatchedByHeader`, but
 // triggered by touch down (`kTouchDown`).
-IN_PROC_BROWSER_TEST_F(SearchPreloadBrowserTest_AheadOfActualNavigation,
+IN_PROC_BROWSER_TEST_F(SearchPreloadBrowserTest_AheadOfImminentNavigation,
                        OnNavigationLikely_TouchDown_MatchedByHeader) {
   HistogramTesterWrapper uma_tester;
 
@@ -2503,9 +2530,9 @@ IN_PROC_BROWSER_TEST_F(SearchPreloadBrowserTest_AheadOfActualNavigation,
 }
 
 // `OnNavigationLikely()` with `kUpOrDownArrowButton` is not marked as ahead of
-// actual navigation, so it is not matched by the No-Vary-Search header without
-// a hint even when `kDsePreload2AheadOfActualNavigation` is enabled.
-IN_PROC_BROWSER_TEST_F(SearchPreloadBrowserTest_AheadOfActualNavigation,
+// imminent navigation, so it is not matched by the No-Vary-Search header
+// without a hint even when `kDsePreload2AheadOfImminentNavigation` is enabled.
+IN_PROC_BROWSER_TEST_F(SearchPreloadBrowserTest_AheadOfImminentNavigation,
                        OnNavigationLikely_ArrowButton_NotMatchedByHeader) {
   HistogramTesterWrapper uma_tester;
 
@@ -2537,37 +2564,59 @@ IN_PROC_BROWSER_TEST_F(SearchPreloadBrowserTest_AheadOfActualNavigation,
   NavigateAwayToRecordHistogram();
 
   // Prefetch is not used because arrow button predictions are not marked as
-  // ahead of actual navigation.
+  // ahead of imminent navigation.
   EXPECT_EQ(1, request_collector().CountByPath(urls.navigation));
 
   uma_tester.ExpectUma("Omnibox.DsePreload.SignalResult.OnPress.Prefetch",
                        {SearchPreloadSignalResult::kPrefetchTriggered});
 }
 
-// Test suite for the case that `kDsePreload2AheadOfActualNavigation` is
+// Test suite for the case that `kDsePreload2AheadOfImminentNavigation` is
 // disabled.
-class SearchPreloadBrowserTest_AheadOfActualNavigationDisabled
+class SearchPreloadBrowserTest_AheadOfImminentNavigationDisabled
     : public SearchPreloadBrowserTestBase {
  public:
   void InitFeatures(
       base::test::ScopedFeatureList& scoped_feature_list) override {
-    scoped_feature_list.InitFromCommandLine(
-        "ForceWebRequestProxyForTest,"
-        "DsePreload2:kDsePreload2DeviceMemoryThresholdMiB/0,"
-        "DsePreload2OnPress:kDsePreload2OnPressMouseDown/true/"
-        "kDsePreload2OnPressUpOrDownArrowButton/true/"
-        "kDsePreload2OnPressTouchDown/true,"
-        "PrefetchUseContentRefactor:"
-        "block_until_head_timeout_embedder_prefetch/100",
-        /*disable_features=*/
-        "DsePreload2AheadOfActualNavigation,PrefetchAheadOfActualNavigation");
+    scoped_feature_list.InitWithFeaturesAndParameters(
+        {
+            {
+                extensions_features::kForceWebRequestProxyForTest,
+                {},
+            },
+            {
+                features::kDsePreload2,
+                {
+                    {"kDsePreload2DeviceMemoryThresholdMiB", "0"},
+                },
+            },
+            {
+                features::kDsePreload2OnPress,
+                {
+                    {"kDsePreload2OnPressMouseDown", "true"},
+                    {"kDsePreload2OnPressUpOrDownArrowButton", "true"},
+                    {"kDsePreload2OnPressTouchDown", "true"},
+                },
+            },
+            {
+                features::kPrefetchUseContentRefactor,
+                {
+                    {"block_until_head_timeout_embedder_prefetch", "100"},
+                },
+            },
+        },
+        /*disabled_features=*/{
+            features::kDsePreload2AheadOfImminentNavigation,
+            features::kPrefetchAheadOfImminentNavigation,
+        });
   }
 };
 
 // Counterpart of `OnNavigationLikely_MouseDown_MatchedByHeader`. The prefetch
 // is not matched without a No-Vary-Search hint.
-IN_PROC_BROWSER_TEST_F(SearchPreloadBrowserTest_AheadOfActualNavigationDisabled,
-                       OnNavigationLikely_MouseDown_NotMatchedByHeader) {
+IN_PROC_BROWSER_TEST_F(
+    SearchPreloadBrowserTest_AheadOfImminentNavigationDisabled,
+    OnNavigationLikely_MouseDown_NotMatchedByHeader) {
   HistogramTesterWrapper uma_tester;
 
   SetUpTemplateURLService(/*prefetch_likely_navigations=*/true);

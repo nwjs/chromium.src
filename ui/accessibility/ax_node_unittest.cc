@@ -7,6 +7,7 @@
 #include <stdint.h>
 
 #include <memory>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -14,6 +15,7 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/accessibility/ax_enums.mojom.h"
 #include "ui/accessibility/ax_node_data.h"
+#include "ui/accessibility/ax_node_position.h"
 #include "ui/accessibility/ax_position.h"
 #include "ui/accessibility/ax_tree.h"
 #include "ui/accessibility/ax_tree_data.h"
@@ -35,6 +37,57 @@ MATCHER_P(HasAXNodeID, ax_node_data, "") {
 }  // namespace
 
 using ::testing::ElementsAre;
+
+TEST(AXNodeTest, GetTextAnchor) {
+  AXNodeData root;
+  root.id = 1;
+  root.role = ax::mojom::Role::kRootWebArea;
+  root.child_ids = {2, 4, 6, 7};
+  AXNodeData text;
+  text.id = 2;
+  text.role = ax::mojom::Role::kStaticText;
+  text.SetName("text");
+  text.child_ids = {3};
+  AXNodeData inline_box;
+  inline_box.id = 3;
+  inline_box.role = ax::mojom::Role::kInlineTextBox;
+  inline_box.SetName("text");
+  AXNodeData line_break;
+  line_break.id = 4;
+  line_break.role = ax::mojom::Role::kLineBreak;
+  line_break.SetName("\n");
+  line_break.child_ids = {5};
+  AXNodeData inline_break;
+  inline_break.id = 5;
+  inline_break.role = ax::mojom::Role::kInlineTextBox;
+  inline_break.SetName("\n");
+  AXNodeData field;
+  field.id = 6;
+  field.role = ax::mojom::Role::kTextField;
+  field.SetValue("value");
+  AXNodeData nontext_parent_inline = inline_box;
+  nontext_parent_inline.id = 7;
+
+  AXTreeUpdate update;
+  update.root_id = root.id;
+  update.nodes = {root,         text,  inline_box,           line_break,
+                  inline_break, field, nontext_parent_inline};
+  AXTree tree;
+  ASSERT_TRUE(tree.Unserialize(update)) << tree.error();
+
+  EXPECT_EQ(nullptr, tree.root()->GetTextAnchor());
+  EXPECT_EQ(tree.GetFromId(2), tree.GetFromId(2)->GetTextAnchor());
+  EXPECT_EQ(tree.GetFromId(2), tree.GetFromId(3)->GetTextAnchor());
+  EXPECT_EQ(tree.GetFromId(4), tree.GetFromId(4)->GetTextAnchor());
+  EXPECT_EQ(tree.GetFromId(4), tree.GetFromId(5)->GetTextAnchor());
+  EXPECT_EQ(nullptr, tree.GetFromId(6)->GetTextAnchor());
+  EXPECT_EQ(nullptr, tree.GetFromId(7)->GetTextAnchor());
+
+  text.AddState(ax::mojom::State::kIgnored);
+  update.nodes = {text};
+  ASSERT_TRUE(tree.Unserialize(update)) << tree.error();
+  EXPECT_EQ(tree.GetFromId(2), tree.GetFromId(3)->GetTextAnchor());
+}
 
 TEST(AXNodeTest, TreeWalking) {
   // ++kRootWebArea
@@ -396,6 +449,11 @@ TEST(AXNodeTest, TreeWalkingCrossingTreeBoundary) {
   EXPECT_EQ(root_node_1, root_node_2->GetParentCrossingTreeBoundary());
   EXPECT_EQ(nullptr, root_node_2->GetUnignoredParent());
   EXPECT_EQ(root_node_1, root_node_2->GetUnignoredParentCrossingTreeBoundary());
+
+  EXPECT_EQ(nullptr, root_node_1->GetDeepestLastUnignoredDescendant());
+  EXPECT_EQ(
+      root_node_2,
+      root_node_1->GetDeepestLastUnignoredDescendantCrossingTreeBoundary());
 }
 
 // Builds a parent tree whose middle child is an ignored host of a child tree.
@@ -655,6 +713,121 @@ TEST_F(AXNodeIgnoredChildTreeHostTest, AnUnignoredHostKeepsItsOwnPlace) {
             ParentRoot()->GetUnignoredChildAtIndexCrossingTreeBoundary(1));
   EXPECT_EQ(ChildRoot(),
             Host()->GetUnignoredChildAtIndexCrossingTreeBoundary(0));
+}
+
+// kRootWebArea
+// ++kIframe (hosts the child tree)
+//
+// kRootWebArea
+// ++kStaticText "Hello"
+class AXNodeChildTreeTextContentTest : public testing::Test {
+ protected:
+  void SetUp() override {
+    AXTreeData parent_tree_data;
+    parent_tree_data.tree_id = AXTreeID::CreateNewAXTreeID();
+    AXTreeData child_tree_data;
+    child_tree_data.tree_id = AXTreeID::CreateNewAXTreeID();
+    child_tree_data.parent_tree_id = parent_tree_data.tree_id;
+
+    AXNodeData parent_root;
+    parent_root.id = 1;
+    parent_root.role = ax::mojom::Role::kRootWebArea;
+    parent_root.child_ids = {2};
+
+    AXNodeData host;
+    host.id = 2;
+    host.role = ax::mojom::Role::kIframe;
+    host.AddChildTreeId(child_tree_data.tree_id);
+
+    AXTreeUpdate parent_update;
+    parent_update.root_id = parent_root.id;
+    parent_update.nodes = {parent_root, host};
+    parent_update.has_tree_data = true;
+    parent_update.tree_data = parent_tree_data;
+
+    AXNodeData child_root;
+    child_root.id = 1;
+    child_root.role = ax::mojom::Role::kRootWebArea;
+    child_root.child_ids = {2};
+
+    child_update_.root_id = child_root.id;
+    child_update_.nodes = {child_root, ChildText("Hello")};
+    child_update_.has_tree_data = true;
+    child_update_.tree_data = child_tree_data;
+
+    parent_manager_ = std::make_unique<TestSingleAXTreeManager>(
+        std::make_unique<AXTree>(parent_update));
+  }
+
+  static AXNodeData ChildText(const std::string& text) {
+    AXNodeData data;
+    data.id = 2;
+    data.role = ax::mojom::Role::kStaticText;
+    data.SetNameChecked(text);
+    return data;
+  }
+
+  void ConnectChildTree() {
+    child_manager_ = std::make_unique<ConnectableAXTreeManager>(
+        std::make_unique<AXTree>(child_update_));
+    child_manager_->ConnectToParentTree();
+  }
+
+  AXNode* ParentRoot() const { return parent_manager_->GetRoot(); }
+  AXNode* Host() const { return parent_manager_->GetTree()->GetFromId(2); }
+
+  AXTreeUpdate child_update_;
+  std::unique_ptr<TestSingleAXTreeManager> parent_manager_;
+  std::unique_ptr<ConnectableAXTreeManager> child_manager_;
+};
+
+TEST_F(AXNodeChildTreeTextContentTest, IncludesAChildTreeThatConnectsLater) {
+  EXPECT_EQ(u"", Host()->GetTextContentUTF16());
+  EXPECT_EQ(u"", ParentRoot()->GetTextContentUTF16());
+
+  ConnectChildTree();
+
+  EXPECT_EQ(u"Hello", Host()->GetTextContentUTF16());
+  EXPECT_EQ(u"Hello", ParentRoot()->GetTextContentUTF16());
+}
+
+TEST_F(AXNodeChildTreeTextContentTest, FollowsChangesToTheChildTree) {
+  ConnectChildTree();
+  EXPECT_EQ(u"Hello", Host()->GetTextContentUTF16());
+  EXPECT_EQ(u"Hello", ParentRoot()->GetTextContentUTF16());
+
+  AXTreeUpdate update;
+  update.nodes = {ChildText("Goodbye")};
+  ASSERT_TRUE(child_manager_->GetTree()->Unserialize(update));
+
+  EXPECT_EQ(u"Goodbye", Host()->GetTextContentUTF16());
+  EXPECT_EQ(u"Goodbye", ParentRoot()->GetTextContentUTF16());
+}
+
+TEST_F(AXNodeChildTreeTextContentTest, DropsAChildTreeThatGoesAway) {
+  ConnectChildTree();
+  EXPECT_EQ(u"Hello", Host()->GetTextContentUTF16());
+  EXPECT_EQ(u"Hello", ParentRoot()->GetTextContentUTF16());
+
+  child_manager_.reset();
+
+  EXPECT_EQ(u"", Host()->GetTextContentUTF16());
+  EXPECT_EQ(u"", ParentRoot()->GetTextContentUTF16());
+}
+
+TEST_F(AXNodeChildTreeTextContentTest, PositionsKeepTheirOffsetLeavingTheTree) {
+  ScopedAXEmbeddedObjectBehaviorSetter behavior(
+      AXEmbeddedObjectBehavior::kSuppressCharacter);
+  EXPECT_EQ(u"", Host()->GetTextContentUTF16());
+  ConnectChildTree();
+
+  AXNodePosition::AXPositionInstance position =
+      AXNodePosition::CreateTextPosition(*child_manager_->GetRoot(), 3,
+                                         ax::mojom::TextAffinity::kDownstream)
+          ->CreateAncestorPosition(ParentRoot(),
+                                   ax::mojom::MoveDirection::kForward);
+  EXPECT_EQ(ParentRoot(), position->GetAnchor());
+  EXPECT_EQ(3, position->text_offset());
 }
 
 TEST(AXNodeTest, GetValueForControlTextField) {

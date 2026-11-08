@@ -51,8 +51,6 @@ SharedImageFormatUMA GetSharedImageFormatUMA(SharedImageFormat format) {
       return SharedImageFormatUMA::kR_8;
     } else if (format == SinglePlaneFormat::kRG_88) {
       return SharedImageFormatUMA::kRG_88;
-    } else if (format == SinglePlaneFormat::kLUMINANCE_F16) {
-      return SharedImageFormatUMA::kLUMINANCE_F16;
     } else if (format == SinglePlaneFormat::kRGBA_F16) {
       return SharedImageFormatUMA::kRGBA_F16;
     } else if (format == SinglePlaneFormat::kR_16) {
@@ -161,8 +159,7 @@ SkColorType ToClosestSkColorType(SharedImageFormat format) {
     return kR16_unorm_SkColorType;
   } else if (format == SinglePlaneFormat::kRG_1616) {
     return kR16G16_unorm_SkColorType;
-  } else if (format == SinglePlaneFormat::kLUMINANCE_F16 ||
-             format == SinglePlaneFormat::kR_F16) {
+  } else if (format == SinglePlaneFormat::kR_F16) {
     return kA16_float_SkColorType;
   } else if (format == SinglePlaneFormat::kRG_88) {
     return kR8G8_unorm_SkColorType;
@@ -246,13 +243,9 @@ SharedImageFormat SkColorTypeToSinglePlaneSharedImageFormat(
 
 bool CanCreateNativeBufferForFormat(SharedImageFormat format) {
   return (format == SinglePlaneFormat::kBGRA_8888 ||
-          format == SinglePlaneFormat::kR_8 ||
-          format == SinglePlaneFormat::kRG_88 ||
 #if BUILDFLAG(IS_APPLE)
           format == SinglePlaneFormat::kBGRX_8888 ||
           format == SinglePlaneFormat::kRGBX_8888 ||
-          format == SinglePlaneFormat::kR_16 ||
-          format == SinglePlaneFormat::kRG_1616 ||
 #endif
           format == SinglePlaneFormat::kRGBA_4444 ||
           format == SinglePlaneFormat::kRGBA_8888 ||

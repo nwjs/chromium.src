@@ -21,6 +21,9 @@ namespace {
 #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
 const int k10YearsInDays = 365 * 10;
 #endif
+#if BUILDFLAG(IS_IOS)
+const uint32_t kSwipeBackForwardFirstRunRecencyInDays = 60;
+#endif
 }  // namespace
 
 namespace feature_engagement {
@@ -714,52 +717,6 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
 
 #if BUILDFLAG(IS_ANDROID)
   // CONFIGURATION_ANDROID_START
-  if (kIPHAndroidBottomBarAim.name == feature->name) {
-    FeatureConfig config;
-    config.valid = true;
-
-    // IPH is always available at start-up.
-    config.availability = kAlwaysAvailable;
-
-    // IPH only shows if no other IPH has shown this session.
-    config.session_rate = Comparator(EQUAL, 0);
-
-    // IPH only shows once per 360 days.
-    config.trigger = EventConfig("android_bottom_bar_aim_trigger",
-                                 Comparator(EQUAL, 0), 360, 360);
-
-    // IPH will not show if the user has interacted with the AI Mode button.
-    config.used = EventConfig("android_bottom_bar_aim_used",
-                              Comparator(EQUAL, 0), 360, 360);
-
-    // Require that the aim promo dialog IPH has been shown at least once.
-    config.event_configs.insert(
-        EventConfig("android_bottom_bar_aim_promo_dialog_trigger",
-                    Comparator(GREATER_THAN_OR_EQUAL, 1), 360, 360));
-    return config;
-  }
-
-  if (kIPHAndroidBottomBarAimPromoDialog.name == feature->name) {
-    FeatureConfig config;
-    config.valid = true;
-
-    // IPH is always available at start-up.
-    config.availability = kAlwaysAvailable;
-
-    // IPH only shows if no other IPH has shown this session.
-    config.session_rate = Comparator(EQUAL, 0);
-    config.session_rate_impact.type = SessionRateImpact::Type::NONE;
-
-    // IPH only shows once per 360 days.
-    config.trigger = EventConfig("android_bottom_bar_aim_promo_dialog_trigger",
-                                 Comparator(EQUAL, 0), 360, 360);
-
-    // IPH will not show if the user has interacted with the AIM Promo Dialog.
-    config.used = EventConfig("android_bottom_bar_aim_promo_dialog_used",
-                              Comparator(EQUAL, 0), 360, 360);
-    return config;
-  }
-
   if (kIPHAndroidBottomBarGlic.name == feature->name) {
     FeatureConfig config;
     config.valid = true;
@@ -859,6 +816,52 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
     config.used =
         EventConfig("android_vertical_tabs_promo_used", Comparator(EQUAL, 0),
                     k10YearsInDays, k10YearsInDays);
+    return config;
+  }
+
+  if (kIPH_BlueBubbleCooldownGroup.name == feature->name) {
+    FeatureConfig config;
+    config.valid = true;
+    config.availability = kAlwaysAvailable;
+    // The blue bubble IPH cooldown relies on the session rate to determine
+    // whether it is OK for an IPH to show (at most 1 per session).
+    config.session_rate = Comparator(EQUAL, 0);
+    config.session_rate_impact.type = SessionRateImpact::Type::EXPLICIT;
+    config.session_rate_impact.affected_features =
+        std::vector<std::string>{kIPH_BlueBubbleCooldownGroup.name};
+    config.blocked_by.type = BlockedBy::Type::NONE;
+    config.blocking.type = Blocking::Type::NONE;
+    // Use an always-true condition here because the cooldown rule is only
+    // decided by the session rate.
+    config.trigger =
+        EventConfig("blue_bubble_cooldown_group_trigger", kAlwaysTrue, 0, 360);
+    // Required for valid config; never fired (count == 0), so EQUAL 0 never
+    // blocks.
+    config.used =
+        EventConfig("cooldown_group_used", Comparator(EQUAL, 0), 360, 360);
+    return config;
+  }
+
+  if (kIPH_InterruptiveIphCooldownGroup.name == feature->name) {
+    FeatureConfig config;
+    config.valid = true;
+    config.availability = kAlwaysAvailable;
+    // Use a no-restrictions condition here because the cooldown rule is only
+    // decided by the trigger condition.
+    config.session_rate = kNoRestrictions;
+    config.session_rate_impact.type = SessionRateImpact::Type::EXPLICIT;
+    config.session_rate_impact.affected_features =
+        std::vector<std::string>{kIPH_InterruptiveIphCooldownGroup.name};
+    config.blocked_by.type = BlockedBy::Type::NONE;
+    config.blocking.type = Blocking::Type::NONE;
+    // The interruptive IPH cooldown relies on the trigger condition to
+    // determine whether it is OK for an IPH to show (at most 1 every 3 days).
+    config.trigger = EventConfig("interruptive_iph_cooldown_group_trigger",
+                                 Comparator(EQUAL, 0), 3, 360);
+    // Required for valid config; never fired (count == 0), so EQUAL 0 never
+    // blocks.
+    config.used =
+        EventConfig("cooldown_group_used", Comparator(EQUAL, 0), 360, 360);
     return config;
   }
 
@@ -1761,6 +1764,36 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
     return config;
   }
 
+  if (kIPHBookmarkBarVisibilityFeature.name == feature->name) {
+    // Allows an IPH telling the user they can show the Bookmark Bar on Android:
+    // * Only when no other session IPHs have been shown.
+    // * At most once per 7 days.
+    // * If the user has not opened the appearance settings page in the last
+    //   360 days.
+    // * Up to 3 times total (over 10 years).
+    IPHBookmarkBarVisibilityVariant variant =
+        kIPHBookmarkBarVisibilityVariantParam.Get();
+    bool is_tracking_only =
+        (variant == IPHBookmarkBarVisibilityVariant::kMediumTrackingOnly ||
+         variant == IPHBookmarkBarVisibilityVariant::kHighTrackingOnly);
+    std::string trigger_event =
+        is_tracking_only ? "bookmark_bar_visibility_iph_triggered_tracking_only"
+                         : "bookmark_bar_visibility_iph_triggered";
+    FeatureConfig config;
+    config.valid = true;
+    config.availability = kAlwaysAvailable;
+    config.session_rate = Comparator(EQUAL, 0);
+    config.trigger =
+        EventConfig(trigger_event, Comparator(EQUAL, 0), 7, kMaxStoragePeriod);
+    config.used = EventConfig("settings_appearance_opened",
+                              Comparator(EQUAL, 0), 360, 360);
+    config.event_configs.insert(
+        EventConfig(trigger_event, Comparator(LESS_THAN, 3), kMaxStoragePeriod,
+                    kMaxStoragePeriod));
+    config.tracking_only = is_tracking_only;
+    return config;
+  }
+
   if (kIPHInstanceSwitcherFeature.name == feature->name) {
     // A config that allows the 'Manage windows' text bubble IPH to be shown
     // only once when the user starts using the multi-instance feature by
@@ -1982,8 +2015,6 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
     config.session_rate_impact.affected_features.emplace();
     config.session_rate_impact.affected_features->push_back(
         "IPH_AutofillVirtualCardSuggestion");
-    config.session_rate_impact.affected_features->push_back(
-        "IPH_KeyboardAccessoryBarSwiping");
 
     return config;
   }
@@ -2086,13 +2117,11 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
                                  Comparator(LESS_THAN, 3), 90, 360);
     config.used =
         EventConfig("autofill_card_info_retrieval_suggestion_accepted",
-                    kAlwaysTrue, 90, 360);
+                    Comparator(EQUAL, 0), 90, 360);
 
     // This promo blocks specific promos in the same session.
     config.session_rate_impact.type = SessionRateImpact::Type::EXPLICIT;
     config.session_rate_impact.affected_features.emplace();
-    config.session_rate_impact.affected_features->push_back(
-        "IPH_KeyboardAccessoryBarSwiping");
     config.session_rate_impact.affected_features->push_back(
         "IPH_AutofillVirtualCardSuggestion");
 
@@ -2274,7 +2303,6 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
       feature->name) {
     // Externally created account profile suggestion IPH is shown:
     // * once for an installation, 10-year window is used as the maximum
-    // * if there was no address keyboard accessory IPH in the last 2 weeks
     // * if such a suggestion was not already accepted
     FeatureConfig config;
     config.valid = true;
@@ -2286,12 +2314,6 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
     config.used =
         EventConfig("autofill_external_account_profile_suggestion_accepted",
                     Comparator(EQUAL, 0), kMaxStoragePeriod, kMaxStoragePeriod);
-
-#if BUILDFLAG(IS_ANDROID)
-    config.event_configs.insert(
-        EventConfig("keyboard_accessory_address_filling_iph_trigger",
-                    Comparator(EQUAL, 0), 14, k10YearsInDays));
-#endif  // BUILDFLAG(IS_ANDROID)
 
     return config;
   }
@@ -2313,12 +2335,7 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
                               Comparator(LESS_THAN, 2), 90, 360);
 
 #if BUILDFLAG(IS_ANDROID)
-    SessionRateImpact session_rate_impact;
-    session_rate_impact.type = SessionRateImpact::Type::EXPLICIT;
-    std::vector<std::string> affected_features;
-    affected_features.push_back("IPH_KeyboardAccessoryBarSwiping");
-    session_rate_impact.affected_features = affected_features;
-    config.session_rate_impact = session_rate_impact;
+    config.session_rate_impact.type = SessionRateImpact::Type::NONE;
 #endif  // BUILDFLAG(IS_ANDROID)
 
     return config;
@@ -2349,10 +2366,6 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
     config.session_rate_impact.affected_features.emplace();
     config.session_rate_impact.affected_features->push_back(
         "IPH_AutofillVirtualCardSuggestion");
-#if BUILDFLAG(IS_ANDROID)
-    config.session_rate_impact.affected_features->push_back(
-        "IPH_KeyboardAccessoryBarSwiping");
-#endif  // BUILDFLAG(IS_ANDROID)
 
     return config;
   }
@@ -2857,6 +2870,10 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
 
   if (kIPHiOSSwipeBackForwardFeature.name == feature->name) {
     // The IPH of the swipe back/forward feature.
+    std::optional<uint32_t> first_run_recency_in_days =
+        kIPHiOSSwipeBackForwardForAllUsers.Get()
+            ? std::nullopt
+            : std::make_optional(kSwipeBackForwardFirstRunRecencyInDays);
     return CreateNewUserGestureInProductHelpConfig(
         *feature, /*action_event=*/
         events::kIOSBackForwardButtonTapped,
@@ -2864,7 +2881,7 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
         events::kIOSSwipeBackForwardUsed,
         /*dismiss_button_tap_event=*/
         events::kIOSSwipeBackForwardIPHDismissButtonTapped,
-        /*first_run_recency_in_days=*/60);
+        first_run_recency_in_days);
   }
 
   if (kIPHiOSSwipeToolbarToChangeTabFeature.name == feature->name) {
@@ -3264,6 +3281,22 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
     config.event_configs.insert(
         EventConfig(events::kIOSGeminiImageRemixIPHTrigger,
                     Comparator(EQUAL, 0), 3, kMaxStoragePeriod));
+    return config;
+  }
+
+  if (kIPHiOSBottomOmniboxFeature.name == feature->name) {
+    // Show the in-product help if 1) it has never been triggered, and 2) user
+    // has not moved the omnibox to the bottom.
+    FeatureConfig config;
+    config.valid = true;
+    config.availability = kAlwaysAvailable;
+    config.session_rate = Comparator(EQUAL, 0);
+    config.trigger =
+        EventConfig("ios_bottom_omnibox_triggered", Comparator(EQUAL, 0),
+                    /*window=*/kMaxStoragePeriod, /*storage=*/kMaxStoragePeriod);
+    config.used =
+        EventConfig(events::kIOSBottomOmniboxUsed, Comparator(EQUAL, 0),
+                    /*window=*/kMaxStoragePeriod, /*storage=*/kMaxStoragePeriod);
     return config;
   }
 

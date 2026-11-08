@@ -5,11 +5,15 @@
 package org.chromium.chrome.browser.signin.services;
 
 import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+
+import android.text.TextUtils;
 
 import org.junit.Assert;
 import org.junit.Before;
@@ -32,6 +36,7 @@ import org.chromium.chrome.browser.subscription_eligibility.SubscriptionEligibil
 import org.chromium.chrome.test.util.browser.signin.AccountManagerTestRule;
 import org.chromium.components.signin.SigninFeatures;
 import org.chromium.components.signin.base.AccountInfo;
+import org.chromium.components.signin.identitymanager.IdentityManager.RefreshTokensLoadingState;
 import org.chromium.components.signin.test.util.FakeAccountManagerFacade;
 import org.chromium.components.signin.test.util.FakeIdentityManager;
 import org.chromium.components.signin.test.util.TestAccounts;
@@ -39,6 +44,7 @@ import org.chromium.google_apis.gaia.CoreAccountId;
 
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.List;
 
 /** Unit tests for {@link ProfileDataCache} */
 @RunWith(ParameterizedRobolectricTestRunner.class)
@@ -201,20 +207,30 @@ public class ProfileDataCacheUnitTest {
 
     @Test
     public void cacheShouldBePopulatedOnIdentityManagerAccountsUpdate() {
-        mAccountManagerTestRule.blockGetAccountsUpdate();
         mProfileDataCache.addObserver(mObserverMock);
-
         Assert.assertTrue(mProfileDataCache.getAccounts().getResult().isEmpty());
 
-        mAccountManagerTestRule.addAccount(TestAccounts.ACCOUNT1);
+        // The account gets on the list with core info only, before IdentityManager has its
+        // extended info.
+        var accountInfoWithoutAvatar =
+                new AccountInfo.Builder(
+                                TestAccounts.ACCOUNT1.getEmail(), TestAccounts.ACCOUNT1.getGaiaId())
+                        .build();
+        mAccountManagerTestRule.addAccount(accountInfoWithoutAvatar);
+        Assert.assertTrue(
+                TextUtils.isEmpty(
+                        mProfileDataCache.getById(TestAccounts.ACCOUNT1.getId()).getFullName()));
 
-        Assert.assertEquals(1, mProfileDataCache.getAccounts().getResult().size());
-        Assert.assertEquals(
-                TestAccounts.ACCOUNT1.getEmail(),
-                mProfileDataCache.getAccounts().getResult().get(0).getAccountEmail());
-        Assert.assertEquals(
-                TestAccounts.ACCOUNT1.getId(),
-                mProfileDataCache.getAccounts().getResult().get(0).getAccountId());
+        mAccountManagerTestRule
+                .getIdentityManager()
+                .addOrUpdateExtendedAccountInfo(TestAccounts.ACCOUNT1);
+
+        var accounts = mProfileDataCache.getAccounts().getResult();
+        Assert.assertEquals(1, accounts.size());
+        Assert.assertEquals(TestAccounts.ACCOUNT1.getEmail(), accounts.get(0).getAccountEmail());
+        Assert.assertEquals(TestAccounts.ACCOUNT1.getId(), accounts.get(0).getAccountId());
+        Assert.assertEquals(TestAccounts.ACCOUNT1.getFullName(), accounts.get(0).getFullName());
+        Assert.assertEquals(TestAccounts.ACCOUNT1.getGivenName(), accounts.get(0).getGivenName());
     }
 
     @Test
@@ -230,18 +246,6 @@ public class ProfileDataCacheUnitTest {
     @Test
     public void cacheShouldBePopulatedOnAccountWithoutDisplayableInfoOnCoreAccountsUpdate() {
         mAccountManagerTestRule.blockExtendedAccountInfoUpdate();
-        mProfileDataCache.addObserver(mObserverMock);
-        Assert.assertTrue(mProfileDataCache.getAccounts().getResult().isEmpty());
-        mAccountManagerTestRule.addAccount(TestAccounts.TEST_ACCOUNT_NO_NAME);
-        Assert.assertTrue(
-                mProfileDataCache.hasProfileDataForTesting(
-                        TestAccounts.TEST_ACCOUNT_NO_NAME.getId()));
-    }
-
-    @Test
-    public void
-            cacheShouldBePopulatedOnAccountWithoutDisplayableInfoOnIdentityManagerAccountsUpdate() {
-        mAccountManagerTestRule.blockGetAccountsUpdate();
         mProfileDataCache.addObserver(mObserverMock);
         Assert.assertTrue(mProfileDataCache.getAccounts().getResult().isEmpty());
         mAccountManagerTestRule.addAccount(TestAccounts.TEST_ACCOUNT_NO_NAME);
@@ -268,27 +272,11 @@ public class ProfileDataCacheUnitTest {
     }
 
     @Test
-    public void
-            cacheShouldBePopulatedOnAccountWithoutDisplayableInfoWithCustomBadgeOnIdentityManagerAccountsUpdate() {
-        mAccountManagerTestRule.blockGetAccountsUpdate();
-        mProfileDataCache.setBadge(
-                TestAccounts.TEST_ACCOUNT_NO_NAME.getId(),
-                BadgeConfig.create(R.drawable.ic_error)
-                        .withDefaultSizeChildAccountConfig()
-                        .build(RuntimeEnvironment.application.getApplicationContext()));
-        mProfileDataCache.addObserver(mObserverMock);
-        Assert.assertTrue(mProfileDataCache.getAccounts().getResult().isEmpty());
-        mAccountManagerTestRule.addAccount(TestAccounts.TEST_ACCOUNT_NO_NAME);
-        Assert.assertTrue(
-                mProfileDataCache.hasProfileDataForTesting(
-                        TestAccounts.TEST_ACCOUNT_NO_NAME.getId()));
-    }
-
-    @Test
     public void getAccountsShouldReturnAccountsInGivenOrder() {
         mProfileDataCache.addObserver(mObserverMock);
         mAccountManagerTestRule.addAccount(TestAccounts.ACCOUNT2);
         mAccountManagerTestRule.addAccount(TestAccounts.CHILD_ACCOUNT);
+        clearInvocations(mObserverMock);
         mAccountManagerTestRule.addAccount(TestAccounts.ACCOUNT1);
 
         var profileData = mProfileDataCache.getAccounts().getResult();
@@ -300,6 +288,45 @@ public class ProfileDataCacheUnitTest {
         Assert.assertEquals(TestAccounts.CHILD_ACCOUNT.getId(), profileData.get(1).getAccountId());
         Assert.assertEquals(TestAccounts.ACCOUNT1.getEmail(), profileData.get(2).getAccountEmail());
         Assert.assertEquals(TestAccounts.ACCOUNT1.getId(), profileData.get(2).getAccountId());
+        if (mIsIdentityManagerSourceOfAccounts) {
+            // The refresh token update adds the new account to the cache, then its account info
+            // update refreshes it without changing the list. Other accounts aren't touched.
+            verify(mObserverMock).onAccountsUpdated(any());
+            verify(mObserverMock, times(2)).onProfileDataUpdated(any());
+        } else {
+            // Adding an account rebuilds the whole cache, notifying about all 3 accounts, and then
+            // notifies about the added account once more, for its account info update.
+            verify(mObserverMock).onAccountsUpdated(any());
+            verify(mObserverMock, times(4)).onProfileDataUpdated(any());
+        }
+    }
+
+    @Test
+    public void cacheShouldBeUpdatedWhenAccountIsUpdated() {
+        final String newFullName = "Updated Full Name";
+        mProfileDataCache.addObserver(mObserverMock);
+        mAccountManagerTestRule.addAccount(TestAccounts.ACCOUNT1);
+        mAccountManagerTestRule.addAccount(TestAccounts.ACCOUNT2);
+        clearInvocations(mObserverMock);
+
+        mAccountManagerTestRule.updateAccount(
+                new AccountInfo.Builder(TestAccounts.ACCOUNT1).fullName(newFullName).build());
+
+        Assert.assertEquals(2, mProfileDataCache.getAccounts().getResult().size());
+        Assert.assertEquals(
+                newFullName,
+                mProfileDataCache.getById(TestAccounts.ACCOUNT1.getId()).getFullName());
+        if (mIsIdentityManagerSourceOfAccounts) {
+            // The refresh token update of the known account is ignored, only its account info
+            // update refreshes it without changing the list.
+            verify(mObserverMock, never()).onAccountsUpdated(any());
+            verify(mObserverMock).onProfileDataUpdated(any());
+        } else {
+            // Updating a single account rebuilds the whole cache, notifying about both accounts,
+            // and then notifies about the updated account once more, for its account info update.
+            verify(mObserverMock).onAccountsUpdated(any());
+            verify(mObserverMock, times(3)).onProfileDataUpdated(any());
+        }
     }
 
     @Test
@@ -322,8 +349,13 @@ public class ProfileDataCacheUnitTest {
                 TestAccounts.ACCOUNT2.getId(),
                 mProfileDataCache.getById(TestAccounts.ACCOUNT2.getId()).getAccountId());
 
+        clearInvocations(mObserverMock);
         mAccountManagerTestRule.removeAccount(TestAccounts.ACCOUNT1.getId());
 
+        // Verified before getById() of the removed account below, which refreshes the cache.
+        // Removing an account rebuilds the whole cache, notifying about the remaining account.
+        verify(mObserverMock).onAccountsUpdated(any());
+        verify(mObserverMock).onProfileDataUpdated(any());
         Assert.assertEquals(1, mProfileDataCache.getAccounts().getResult().size());
         Assert.assertEquals(
                 TestAccounts.ACCOUNT2.getEmail(),
@@ -348,7 +380,10 @@ public class ProfileDataCacheUnitTest {
         mProfileDataCache.addObserver(mObserverMock);
         mAccountManagerTestRule.addAccount(accountInfo);
 
-        var expectedIdentityManagerCalls = mIsIdentityManagerSourceOfAccounts ? 2 : 0;
+        // The list of accounts is fetched at initialization. With the AccountManagerFacade, it's
+        // fetched again on the accounts change. With the IdentityManager, the refresh token
+        // update of the new account adds only that account to the cache.
+        var expectedIdentityManagerCalls = mIsIdentityManagerSourceOfAccounts ? 1 : 0;
         var expectedAccountManagerFacadeCalls = mIsIdentityManagerSourceOfAccounts ? 0 : 2;
 
         verify(
@@ -378,12 +413,23 @@ public class ProfileDataCacheUnitTest {
     @Test
     public void givenPrimaryAccountBeforeRefreshTokensLoadedWhenGetByIdThenShouldNotThrow() {
         FakeIdentityManager identityManager = mAccountManagerTestRule.getIdentityManager();
-        identityManager.setAreRefreshTokensLoaded(false);
+        identityManager.setRefreshTokensLoadingState(RefreshTokensLoadingState.IN_PROGRESS);
         identityManager.setPrimaryAccount(TestAccounts.ACCOUNT1);
 
         DisplayableProfileData profileData =
                 mProfileDataCache.getById(TestAccounts.ACCOUNT1.getId());
-        Assert.assertEquals(TestAccounts.ACCOUNT1.getEmail(), profileData.getAccountEmail());
+        Assert.assertEquals(TestAccounts.ACCOUNT1.getId(), profileData.getAccountId());
+    }
+
+    @Test
+    public void givenPrimaryAccountWhenRefreshTokensLoadingFailedThenShouldNotThrow() {
+        FakeIdentityManager identityManager = mAccountManagerTestRule.getIdentityManager();
+        identityManager.setRefreshTokensLoadingState(RefreshTokensLoadingState.FAILED);
+        identityManager.setPrimaryAccount(TestAccounts.ACCOUNT1);
+
+        DisplayableProfileData profileData =
+                mProfileDataCache.getById(TestAccounts.ACCOUNT1.getId());
+        Assert.assertEquals(TestAccounts.ACCOUNT1.getId(), profileData.getAccountId());
     }
 
     @Test
@@ -451,11 +497,23 @@ public class ProfileDataCacheUnitTest {
 
     @Test
     public void testObserverIsExecutedOnIdentityManagerAccountsUpdate() {
-        mAccountManagerTestRule.blockGetAccountsUpdate();
-        RobolectricUtil.runAllBackgroundAndUi();
         mProfileDataCache.addObserver(mObserverMock);
         mAccountManagerTestRule.addAccount(TestAccounts.ACCOUNT1);
-        RobolectricUtil.runAllBackgroundAndUi();
+        clearInvocations(mObserverMock);
+
+        // Only IdentityManager notifies about the change, like when the account name or avatar
+        // is fetched from the server. AccountManagerFacade is not involved.
+        var updatedAccount =
+                new AccountInfo.Builder(TestAccounts.ACCOUNT1)
+                        .fullName("Updated Full Name")
+                        .build();
+        // TODO(crbug.com/573071894): Should use dedicated method in AccountManagerTestRule instead.
+        mAccountManagerTestRule.getIdentityManager().addOrUpdateExtendedAccountInfo(updatedAccount);
+
+        Assert.assertEquals(1, mProfileDataCache.getAccounts().getResult().size());
+        Assert.assertEquals(
+                updatedAccount.getFullName(),
+                mProfileDataCache.getById(TestAccounts.ACCOUNT1.getId()).getFullName());
         verify(mObserverMock, never()).onAccountsUpdated(any());
         verify(mObserverMock).onProfileDataUpdated(any());
     }
@@ -472,19 +530,93 @@ public class ProfileDataCacheUnitTest {
                 ProfileDataCache.createWithDefaultImageSizeAndNoBadge(
                         RuntimeEnvironment.application.getApplicationContext(),
                         mAccountManagerTestRule.getIdentityManager());
-        var accounts = profileDataCache.getAccounts().getResult();
+        Assert.assertFalse(profileDataCache.getAccounts().isFulfilled());
         var profileData = profileDataCache.getById(TestAccounts.TEST_ACCOUNT_NO_NAME.getId());
 
-        Assert.assertEquals(1, accounts.size());
         Assert.assertEquals(
                 TestAccounts.TEST_ACCOUNT_NO_NAME.getEmail(), profileData.getAccountEmail());
         Assert.assertEquals(TestAccounts.TEST_ACCOUNT_NO_NAME.getId(), profileData.getAccountId());
     }
 
     @Test
+    public void testAccountsPromiseIsFulfilledOnlyWhenAccountsAreLoaded() {
+        var updateBlocker = mAccountManagerTestRule.blockGetAccountsUpdate();
+        mAccountManagerTestRule.blockExtendedAccountInfoUpdate();
+        mAccountManagerTestRule.addAccount(TestAccounts.ACCOUNT1);
+        mAccountManagerTestRule.addAccount(TestAccounts.ACCOUNT2);
+        mAccountManagerTestRule.getIdentityManager().setPrimaryAccount(TestAccounts.ACCOUNT1);
+        // Create a new ProfileDataCache to ensure that the accounts are not ready.
+        var profileDataCache =
+                ProfileDataCache.createWithDefaultImageSizeAndNoBadge(
+                        RuntimeEnvironment.application.getApplicationContext(),
+                        mAccountManagerTestRule.getIdentityManager());
+        profileDataCache.addObserver(mObserverMock);
+        clearInvocations(mObserverMock);
+
+        // The primary account resolves while the account list is still loading.
+        Assert.assertFalse(profileDataCache.getAccounts().isFulfilled());
+        Assert.assertEquals(
+                TestAccounts.ACCOUNT1.getId(),
+                profileDataCache.getById(TestAccounts.ACCOUNT1.getId()).getAccountId());
+
+        // Lookups of an already-cached account are retrieved from the cache without refreshing it.
+        profileDataCache.getById(TestAccounts.ACCOUNT1.getId());
+        verify(mObserverMock, never()).onAccountsUpdated(any());
+        verify(mObserverMock, never()).onProfileDataUpdated(any());
+
+        // Once the account list is loaded, the Promise is fulfilled.
+        updateBlocker.close();
+        RobolectricUtil.runAllBackgroundAndUi();
+
+        Assert.assertTrue(profileDataCache.getAccounts().isFulfilled());
+        Assert.assertEquals(2, profileDataCache.getAccounts().getResult().size());
+        verify(mObserverMock, atLeastOnce()).onAccountsUpdated(any());
+    }
+
+    @Test
+    public void testAccountsPromiseIsFulfilledWhenThereAreNoAccounts() {
+        RobolectricUtil.runAllBackgroundAndUi();
+        Assert.assertTrue(mProfileDataCache.getAccounts().isFulfilled());
+        Assert.assertTrue(mProfileDataCache.getAccounts().getResult().isEmpty());
+    }
+
+    @Test
+    public void testAccountsPromiseIsFulfilledOnInitializationWhenRefreshTokensLoadingFailed() {
+        mAccountManagerTestRule.setAccountFetchFailed();
+
+        var profileDataCache =
+                ProfileDataCache.createWithDefaultImageSizeAndNoBadge(
+                        RuntimeEnvironment.application.getApplicationContext(),
+                        mAccountManagerTestRule.getIdentityManager());
+
+        Assert.assertTrue(profileDataCache.getAccounts().isFulfilled());
+        Assert.assertTrue(profileDataCache.getAccounts().getResult().isEmpty());
+    }
+
+    @Test
+    public void testAccountsPromiseIsFulfilledWhenRefreshTokensLoadingFailsAfterInitialization() {
+        var updateBlocker = mAccountManagerTestRule.blockGetAccountsUpdate();
+        var profileDataCache =
+                ProfileDataCache.createWithDefaultImageSizeAndNoBadge(
+                        RuntimeEnvironment.application.getApplicationContext(),
+                        mAccountManagerTestRule.getIdentityManager());
+        profileDataCache.addObserver(mObserverMock);
+        Assert.assertFalse(profileDataCache.getAccounts().isFulfilled());
+
+        mAccountManagerTestRule.setAccountFetchFailed();
+        Assert.assertFalse(profileDataCache.getAccounts().isFulfilled());
+        updateBlocker.close();
+
+        Assert.assertTrue(profileDataCache.getAccounts().isFulfilled());
+        Assert.assertTrue(profileDataCache.getAccounts().getResult().isEmpty());
+        verify(mObserverMock).onAccountsUpdated(List.of());
+    }
+
+    @Test
     public void testUpdateShouldPutInCacheBothPrimaryAndCoreAccounts() {
         var updateBlocker = mAccountManagerTestRule.blockGetAccountsUpdate();
         mAccountManagerTestRule.blockExtendedAccountInfoUpdate();
+        mAccountManagerTestRule.addAccount(TestAccounts.ACCOUNT1);
         // Create a new ProfileDataCache to ensure that the accounts are not ready.
         mProfileDataCache =
                 ProfileDataCache.createWithDefaultImageSizeAndNoBadge(
@@ -492,7 +624,6 @@ public class ProfileDataCacheUnitTest {
                         mAccountManagerTestRule.getIdentityManager());
 
         updateBlocker.close();
-        mAccountManagerTestRule.addAccount(TestAccounts.ACCOUNT1);
         mAccountManagerTestRule.getIdentityManager().setPrimaryAccount(TestAccounts.ACCOUNT2);
         Assert.assertFalse(mProfileDataCache.getAccounts().isFulfilled());
 

@@ -74,8 +74,6 @@ std::string_view GetStringNameForModelExecutionFeature(
       return "Compose";
     case proto::ModelExecutionFeature::MODEL_EXECUTION_FEATURE_TEST:
       return "Test";
-    case proto::ModelExecutionFeature::MODEL_EXECUTION_FEATURE_TEXT_SAFETY:
-      return "TextSafety";
     case proto::ModelExecutionFeature::MODEL_EXECUTION_FEATURE_PROMPT_API:
       return "PromptApi";
     case proto::ModelExecutionFeature::MODEL_EXECUTION_FEATURE_SUMMARIZE:
@@ -158,8 +156,13 @@ std::string_view GetStringNameForModelExecutionFeature(
     case proto::ModelExecutionFeature::
         MODEL_EXECUTION_FEATURE_READ_ALOUD_SYNTHESIZE:
       return "ReadAloudSynthesize";
+    case proto::ModelExecutionFeature::
+        MODEL_EXECUTION_FEATURE_SMART_SELECTION_SUGGESTIONS:
+      return "SmartSelectionSuggestions";
     case proto::ModelExecutionFeature::MODEL_EXECUTION_FEATURE_TTC:
       return "Ttc";
+    case proto::ModelExecutionFeature::MODEL_EXECUTION_FEATURE_QUICK_ANSWERS:
+      return "QuickAnswers";
     case proto::ModelExecutionFeature::MODEL_EXECUTION_FEATURE_UNSPECIFIED:
       return "Unknown";
       // Must be in sync with the ModelExecutionFeature variant in

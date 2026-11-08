@@ -188,6 +188,7 @@ class PageInfoBubbleViewDialogBrowserTest : public DialogBrowserTest {
     constexpr char kInternalViewSource[] = "InternalViewSource";
     constexpr char kFile[] = "File";
     constexpr char kSecure[] = "Secure";
+    constexpr char kSecureLongUrl[] = "SecureLongUrl";
     constexpr char kSecureSubpage[] = "SecureSubpage";
     constexpr char kEvSecure[] = "EvSecure";
     constexpr char kEvSecureSubpage[] = "EvSecureSubpage";
@@ -214,8 +215,13 @@ class PageInfoBubbleViewDialogBrowserTest : public DialogBrowserTest {
     // versions of Page Info to appear, but are here to indicate the type of
     // URL each IdentityInfo type would normally be associated with.
     const GURL https_url("https://example.com");
+    const GURL https_long_url(
+        "https://www.example-long-domain-name-that-wraps-lines-in-page-info-"
+        "dialog.com/home/products");
     const GURL http_url("http://example.com");
     const std::string kSiteOrigin = "example.com";
+    const std::string kLongSiteOrigin =
+        "example-long-domain-name-that-wraps-lines-in-page-info-dialog.com";
 
     GURL url = http_url;
     if (name == kSecure || name == kEvSecure || name == kMixedContentForm ||
@@ -223,6 +229,8 @@ class PageInfoBubbleViewDialogBrowserTest : public DialogBrowserTest {
         name == kBlockAllPermissions || name == kMalwareAndBadCert ||
         name == kNotificationsEmbargoed) {
       url = https_url;
+    } else if (name == kSecureLongUrl) {
+      url = https_long_url;
     }
     if (name == kInternal) {
       url = internal_url;
@@ -270,8 +278,9 @@ class PageInfoBubbleViewDialogBrowserTest : public DialogBrowserTest {
     PageInfoUI::IdentityInfo identity;
     if (name == kInsecure) {
       identity.identity_status = PageInfo::SITE_IDENTITY_STATUS_NO_CERT;
-    } else if (name == kSecure || name == kAllowAllPermissions ||
-               name == kBlockAllPermissions || name == kSecureSubpage) {
+    } else if (name == kSecure || name == kSecureLongUrl ||
+               name == kAllowAllPermissions || name == kBlockAllPermissions ||
+               name == kSecureSubpage) {
       // Generate a valid mock HTTPS identity, with a certificate.
       identity.identity_status = PageInfo::SITE_IDENTITY_STATUS_CERT;
       constexpr char kGoodCertificateFile[] = "ok_cert.pem";
@@ -400,7 +409,8 @@ class PageInfoBubbleViewDialogBrowserTest : public DialogBrowserTest {
     }
 
     if (name != kInsecure && !name.contains(kInternal) && name != kFile) {
-      identity.site_identity = kSiteOrigin;
+      identity.site_identity =
+          (name == kSecureLongUrl) ? kLongSiteOrigin : kSiteOrigin;
       // The bubble may be PageInfoBubbleView or InternalPageInfoBubbleView. The
       // latter is only used for |kInternal|, so it is safe to static_cast here.
       PageInfo* presenter = GetPresenter();
@@ -444,6 +454,12 @@ IN_PROC_BROWSER_TEST_F(PageInfoBubbleViewDialogBrowserTest, InvokeUi_Insecure) {
 
 // Shows the Page Info bubble for a HTTPS page.
 IN_PROC_BROWSER_TEST_F(PageInfoBubbleViewDialogBrowserTest, InvokeUi_Secure) {
+  ShowAndVerifyUi();
+}
+
+// Shows the Page Info bubble for a HTTPS page with a long URL that wraps.
+IN_PROC_BROWSER_TEST_F(PageInfoBubbleViewDialogBrowserTest,
+                       InvokeUi_SecureLongUrl) {
   ShowAndVerifyUi();
 }
 
@@ -606,8 +622,7 @@ class PageInfoBubbleViewAboutThisSiteDialogBrowserTest
 
   void SetUpCommandLine(base::CommandLine* cmd) override {
     cmd->AppendSwitch(
-        optimization_guide::
-            kDisableCheckingUserPermissionsForTestingSwitch);
+        optimization_guide::kDisableCheckingUserPermissionsForTestingSwitch);
   }
 
   // DialogBrowserTest:
@@ -646,7 +661,6 @@ IN_PROC_BROWSER_TEST_F(PageInfoBubbleViewAboutThisSiteDialogBrowserTest,
   set_baseline("6730899");
   ShowAndVerifyUi();
 }
-
 
 class PageInfoBubbleViewCookiesSubpageBrowserTest : public DialogBrowserTest {
  public:
@@ -952,13 +966,12 @@ class PageInfoBubbleViewMerchantTrustDialogBrowserTest
     auto* optimization_guide_decider =
         OptimizationGuideKeyedServiceFactory::GetForProfile(
             browser()->GetProfile());
-    optimization_guide_decider->AddHintForTesting(
-        GetUrl(kAboutThisSiteUrl), optimization_guide::proto::ABOUT_THIS_SITE,
-        GetAboutThisSiteMetadata());
-    optimization_guide_decider->AddHintForTesting(
+    optimization_guide_decider->AddHintWithMultipleOptimizationsForTesting(
         GetUrl(kAboutThisSiteUrl),
-        optimization_guide::proto::MERCHANT_TRUST_SIGNALS_V2,
-        GetMerchantTrustMetadata());
+        {{optimization_guide::proto::ABOUT_THIS_SITE,
+          GetAboutThisSiteMetadata()},
+         {optimization_guide::proto::MERCHANT_TRUST_SIGNALS_V2,
+          GetMerchantTrustMetadata()}});
     optimization_guide_decider->AddHintForTesting(
         GetUrl(kMerchantTrustUrl),
         optimization_guide::proto::MERCHANT_TRUST_SIGNALS_V2,
@@ -971,8 +984,7 @@ class PageInfoBubbleViewMerchantTrustDialogBrowserTest
 
   void SetUpCommandLine(base::CommandLine* cmd) override {
     cmd->AppendSwitch(
-        optimization_guide::
-            kDisableCheckingUserPermissionsForTestingSwitch);
+        optimization_guide::kDisableCheckingUserPermissionsForTestingSwitch);
   }
 
   // DialogBrowserTest:
@@ -1036,10 +1048,8 @@ IN_PROC_BROWSER_TEST_F(PageInfoBubbleViewMerchantTrustDialogBrowserTest,
   ShowAndVerifyUi();
 }
 
-// TODO(crbug.com/383355629): Optimization guide doesn't support setting hints
-// for two optimization types.
 IN_PROC_BROWSER_TEST_F(PageInfoBubbleViewMerchantTrustDialogBrowserTest,
-                       DISABLED_InvokeUi_MerchantTrustAndAboutThisSite) {
+                       InvokeUi_MerchantTrustAndAboutThisSite) {
   set_baseline("6070208");
   ShowAndVerifyUi();
 }

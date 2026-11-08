@@ -16,7 +16,6 @@ source_set("wallpaper_search") {
     "wallpaper_search_string_map.h",
   ]
   public_deps = [
-    "//chrome/browser:browser_public_dependencies",
     "//chrome/browser/ui/webui/side_panel/customize_chrome:mojo_bindings",
     "//content/public/browser",
     "//mojo/public/cpp/bindings",
@@ -67,6 +66,7 @@ source_set("interactive_ui_tests") {
   deps = [
     ":wallpaper_search",
     "//chrome/browser/optimization_guide:test_support",
+    "//chrome/browser/ui/webui/feedback",
     "//chrome/test:test_support",
     "//chrome/test:test_support_ui",
     "//content/test:test_support",

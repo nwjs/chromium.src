@@ -148,8 +148,10 @@ void ContextMenuNativeDelegateImpl::SearchForImage(
   if (!render_frame_host)
     return;
 
-  CoreTabHelper::FromWebContents(web_contents_)
-      ->SearchByImage(render_frame_host, context_menu_params_->src_url);
+  if (auto* core_tab_helper = CoreTabHelper::FromWebContents(web_contents_)) {
+    core_tab_helper->SearchByImage(render_frame_host,
+                                   context_menu_params_->src_url);
+  }
 }
 
 void ContextMenuNativeDelegateImpl::InspectElement(
@@ -258,7 +260,7 @@ static int64_t JNI_ContextMenuNativeDelegateImpl_Init(
     JNIEnv* env,
     content::WebContents* web_contents,
     const JavaRef<jobject>& jcontext_menu_params) {
-  DCHECK(web_contents);
+  CHECK(web_contents, base::NotFatalUntil::M161);
   auto* params =
       context_menu::ContextMenuParamsFromJavaObject(jcontext_menu_params);
   return reinterpret_cast<intptr_t>(

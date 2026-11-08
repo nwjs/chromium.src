@@ -56,6 +56,8 @@ void JavaBooleanCallbackAdapter(base::OnceCallback<void(bool)> callback,
 int TabIdFromDirectoryKey(const DirectoryKey& key) {
   int out;
   bool success = base::StringToInt(key.AsciiDirname(), &out);
+  // TODO(crbug.com/574559903): CHECK-exclusion: Convert to a CHECK once we
+  // are confident it won't be triggered.
   DCHECK(success);
   return out;
 }

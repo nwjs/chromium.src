@@ -372,7 +372,6 @@
 <translation id="2079545284768500474">Annuler</translation>
 <translation id="2086334242442703436">Ouvrir le sélecteur d'émoji</translation>
 <translation id="2089550919269323883">L'installation de <ph name="VM_NAME" /> est bloquée par la politique d'entreprise. Veuillez communiquer avec votre administrateur système pour obtenir de l'aide. Le code d'erreur est <ph name="ERROR" />.</translation>
-<translation id="2093792000875799555">Actualités Steam pour Chromebook</translation>
 <translation id="209965399369889474">Aucune connexion réseau</translation>
 <translation id="2107581415810719320">Autre bouton <ph name="BUTTON_NUMBER" /></translation>
 <translation id="2107914222138020205">Votre câble USB-C ne prend pas en charge la norme Thunderbolt. La performance de l'appareil peut être limitée.</translation>
@@ -422,6 +421,7 @@
 <translation id="2293443480080733021">Sur quoi aimeriez-vous vous concentrer? Appuyez sur Entrée pour ajouter la tâche.</translation>
 <translation id="229397294990920565">Désactivation des données cellulaires en cours…</translation>
 <translation id="2295777434187870477">Le microphone est activé. Si vous le désactivez, l'entrée sonore sera aussi désactivée.</translation>
+<translation id="2296880470921996802">L'historique du presse-papiers a été désactivé par votre administrateur informatique</translation>
 <translation id="2302092602801625023">Ce compte est géré par Family Link</translation>
 <translation id="2303600792989757991">Activer ou désactiver la vue d'ensemble des fenêtres</translation>
 <translation id="2304702218354340897">Voulez-vous vraiment désactiver la commande par le visage?</translation>
@@ -928,7 +928,6 @@ Branchez votre appareil sur une source d'alimentation.</translation>
 <translation id="3697991387880191195">Appuyer sur le raccourci de capture d'écran</translation>
 <translation id="3702809606464356667">Affichage des fenêtres du bureau actuel. Appuyez sur la flèche vers le haut pour afficher les fenêtres de tous les bureaux.</translation>
 <translation id="3705722231355495246">–</translation>
-<translation id="3706423975342040244">Divertissements</translation>
 <translation id="370665806235115550">Chargement en cours...</translation>
 <translation id="3707093869106077605"><ph name="UNAVAILABLE_DLC_ONE" /> et <ph name="UNAVAILABLE_DLC_TWO" /> ne sont pas accessibles</translation>
 <translation id="3708186454126126312">Connectés précédemment</translation>
@@ -975,7 +974,6 @@ Branchez votre appareil sur une source d'alimentation.</translation>
 <translation id="3824784079442479685">Cela autorise l'accès à l'appareil photo pour <ph name="APP_NAME" /> et pour toutes les applications et tous les sites Web disposant de l'autorisation d'accès à l'appareil photo. Vous devrez peut-être actualiser la page Web ou redémarrer l'application.</translation>
 <translation id="3826099427150913765">Passer au mot de passe</translation>
 <translation id="383058930331066723">Le mode Économiseur de pile est activé</translation>
-<translation id="3831226344927851293">Quitter l'affichage de tutoriel</translation>
 <translation id="383629559565718788">Afficher les paramètres du clavier</translation>
 <translation id="384082539148746321">Supprimer le modèle?</translation>
 <translation id="3844627820291068572"><ph name="MODIFIER_ONE" /><ph name="MODIFIER_TWO" />, puis <ph name="KEY_ONE" /> ou <ph name="KEY_TWO" /> ou <ph name="KEY_THREE" /> ou <ph name="KEY_FOUR" /></translation>
@@ -1022,6 +1020,7 @@ Branchez votre appareil sur une source d'alimentation.</translation>
 <translation id="3977512764614765090">Pile chargée à <ph name="PERCENTAGE" /> % et en cours de recharge.</translation>
 <translation id="3978162107953847778">Insérez des liens à partir d'endroits tels que votre historique de navigation et Google Disque. Vous pouvez également insérer des émojis, des fichiers d'image et plus. <ph name="LINK_TO_LEARN_MORE" /></translation>
 <translation id="3982013579989864579">Changer la sortie audio?</translation>
+<translation id="3983903378684256134">Steam sur Chromebook</translation>
 <translation id="3984536049089846927">Page suivante</translation>
 <translation id="3986082989454912832">Répondre</translation>
 <translation id="3990002060657467458">Les commandes fréquemment utilisées comme le Wi-Fi, le Bluetooth et le volume se trouvent dans les paramètres rapides. Vous pouvez également y accéder pour prendre des captures d'écran.</translation>
@@ -1578,10 +1577,8 @@ Aucun appareil n'est connecté.</translation>
 <translation id="5551974246223970793">Lors de la recherche d'une page, passez à la correspondance suivante pour la recherche</translation>
 <translation id="5556459405103347317">Actualiser</translation>
 <translation id="5558091555391176027">Activer/désactiver la haute visibilité du partage à proximité</translation>
-<translation id="5558314826121965174">Créativité</translation>
 <translation id="556042886152191864">Bouton</translation>
 <translation id="5570122939431135380">Ouvrir un nouvel onglet dans une nouvelle fenêtre de navigation privée</translation>
-<translation id="5572632238877308040">Essentiels</translation>
 <translation id="5575528586625653441">Un problème avec la demande d'enregistrement du mode démo s'est produit.</translation>
 <translation id="557563299383177668">Paragraphe suivant</translation>
 <translation id="5577082622442191756">Activer/désactiver le Bluetooth. <ph name="STATE_TEXT" />.</translation>
@@ -1616,7 +1613,6 @@ Aucun appareil n'est connecté.</translation>
 <translation id="5667546120811588575">Configuration de Google Play en cours…</translation>
 <translation id="5669267381087807207">Activation…</translation>
 <translation id="5671658447180261823">Supprimer la suggestion <ph name="SUGGESTION_NAME" /></translation>
-<translation id="5672890847723042801">Utilitaires</translation>
 <translation id="5673434351075758678">De « <ph name="FROM_LOCALE" />  à « <ph name="TO_LOCALE" /> » après la synchronisation de vos paramètres.</translation>
 <translation id="5675363643668471212">Élément d'étagère</translation>
 <translation id="5677022547882470786">Faire glisser ou appuyer sur la barre d'espace pour sélectionner une zone de recherche</translation>
@@ -1641,6 +1637,7 @@ Aucun appareil n'est connecté.</translation>
 <translation id="5727460725221669831">Si vous avez oublié votre mot de passe ou modifié le mot de passe de votre compte Google récemment, essayez de récupérer cet utilisateur.</translation>
 <translation id="5733630091161562207">Notification de bienvenue</translation>
 <translation id="573413375004481890">Cet appareil ne prend pas en charge tous vos écrans, alors l'un d'eux a été déconnecté</translation>
+<translation id="5739548907438839901"><ph name="SIZE" /> d'espace disque libéré.</translation>
 <translation id="574392208103952083">Moyenne</translation>
 <translation id="5745612484876805746">La fonction Éclairage nocturne s'active automatiquement au coucher du soleil</translation>
 <translation id="5749214722697335450">Envoyez les données d'utilisation et de diagnostic. Aidez-nous à améliorer votre expérience Android en envoyant automatiquement à Google des données de diagnostic, de l'appareil et d'utilisation des applis. Cela nous permettra d'assurer la stabilité du système et des applis, et d'apporter d'autres améliorations. Certaines données agrégées contribueront également à améliorer les applis Google et elles aideront nos partenaires, comme les développeurs Android. Si le paramètre relatif aux autres activités sur le Web et dans les applis est activé, ces données peuvent être enregistrées dans votre compte Google. <ph name="BEGIN_LINK1" />En savoir plus sur les mesures<ph name="BEGIN_LINK1_END" />En savoir plus<ph name="END_LINK1" /></translation>
@@ -1792,7 +1789,6 @@ Aucun appareil n'est connecté.</translation>
 <translation id="6127395413317891856">Vous êtes hors ligne. Vérifiez votre connexion, puis réessayez.</translation>
 <translation id="6129953537138746214">Espace</translation>
 <translation id="6132714462430777655">Ignorer l'inscription scolaire?</translation>
-<translation id="6136872094979134163">Impossible de récupérer les actualités Steam pour Chromebook.</translation>
 <translation id="6137566720514957455">Ouvrir la boîte de dialogue de retrait pour <ph name="USER_EMAIL_ADDRESS" /></translation>
 <translation id="6141205840878048728">Sur quoi aimeriez-vous vous concentrer?</translation>
 <translation id="6141988275892716286">Confirmer le téléchargement</translation>
@@ -1872,7 +1868,6 @@ Aucun appareil n'est connecté.</translation>
 <translation id="6348449481487610270"><ph name="MODIFIER_ONE" /><ph name="MODIFIER_TWO" /><ph name="KEY_ONE" /><ph name="MODIFIER_THREE" /><ph name="KEY_TWO" />, puis <ph name="KEY_THREE" /></translation>
 <translation id="6352082849089527770">Réseaux inconnus</translation>
 <translation id="6359587239691116345">Bénéficiez des dernières fonctionnalités et améliorations de la sécurité. Si vous refusez cette mise à jour, votre appareil pourrait ne plus fonctionner correctement, et vous pourriez rencontrer des problèmes de sécurité et de performance.</translation>
-<translation id="6362833380917912748">Apprenez à connaître vos applications intégrées</translation>
 <translation id="6364386432014869981">Le pavé tactile intégré est activé</translation>
 <translation id="6376931439017688372">Le Bluetooth est activé</translation>
 <translation id="6378515133128829137">Épingler la fenêtre à droite</translation>
@@ -2097,7 +2092,6 @@ Nouvelle installation</translation>
 <translation id="7014684956566476813">Connecté à un appareil nommé <ph name="DEVICE_NAME" /></translation>
 <translation id="7015766095477679451">Revenez à <ph name="COME_BACK_TIME" />.</translation>
 <translation id="70168403932084660">Bureau 6</translation>
-<translation id="702252130983202758">Vos applications</translation>
 <translation id="7025533177575372252">Connectez votre <ph name="DEVICE_NAME" /> à votre téléphone</translation>
 <translation id="7026338066939101231">Diminuer</translation>
 <translation id="7029307918966275733">Crostini n'est pas installé. Veuillez installer Crostini pour voir le générique.</translation>
@@ -2220,6 +2214,7 @@ Nouvelle installation</translation>
 <translation id="7413851974711031813">Appuyez sur Échap pour fermer la fenêtre</translation>
 <translation id="7416471219712049036">Enregistrer la page actuelle</translation>
 <translation id="742594950370306541">La caméra est en cours d'utilisation.</translation>
+<translation id="7430466159639897874">Vous disposez d'un espace disque inutilisé (<ph name="SIZE" />) alloué à la fonctionnalité obsolète « Steam sur Chromebook ».</translation>
 <translation id="743058460480092004">La caméra et le microphone sont actuellement utilisés.</translation>
 <translation id="7433708794692032816">Insérez votre carte à puce pour continuer à utiliser votre <ph name="DEVICE_TYPE" /></translation>
 <translation id="7440404390546433462">Recherche Google</translation>
@@ -2361,6 +2356,7 @@ Pour éteindre l'appareil, appuyez à nouveau sur le bouton d'alimentation de l'
 <translation id="7781335840981796660">Tous les comptes utilisateur et toutes les données locales seront supprimés.</translation>
 <translation id="7781829728241885113">Hier</translation>
 <translation id="7787212146956232129">Les périphériques d'entrée et de sortie sont définis. Accédez aux paramètres pour effectuer des modifications.</translation>
+<translation id="7790757511772316441">Libérer de l'espace disque</translation>
 <translation id="7792590255364786396">Visible</translation>
 <translation id="7796735576426975947">Nouvelle notification masquée</translation>
 <translation id="7798302898096527229">Appuyez sur Recherche ou Majuscule pour le désactiver.</translation>
@@ -2536,7 +2532,6 @@ Pour éteindre l'appareil, appuyez à nouveau sur le bouton d'alimentation de l'
 <translation id="8277261673056602147">Mettre du texte en évidence sur votre écran</translation>
 <translation id="8281886186245836920">Ignorer</translation>
 <translation id="8282784978194352587">Vous avez réussi!</translation>
-<translation id="8287009018010202411">Productivité</translation>
 <translation id="828708037801473432">Désactivé</translation>
 <translation id="8289128870594824098">Taille du disque</translation>
 <translation id="8297006494302853456">Faible</translation>
@@ -2631,7 +2626,6 @@ Pour éteindre l'appareil, appuyez à nouveau sur le bouton d'alimentation de l'
 <translation id="8598235756057743477">Triez vos applications par nom ou par couleur</translation>
 <translation id="8599864823732014237">Ignorer l'inscription d'entreprise?</translation>
 <translation id="8609384513243082612">Ouvrir un nouvel onglet</translation>
-<translation id="861045123704058818">Les applications sont temporairement organisées par catégorie</translation>
 <translation id="8612338981637220013">Bravo!</translation>
 <translation id="8613164732773110792">Caractères minuscules, chiffres, traits de soulignement ou tirets uniquement</translation>
 <translation id="8614517853887502247">Les notifications de <ph name="APP_1_TITLE" /> et de <ph name="APP_2_TITLE" /> sont masquées parce que la protection de l'affichage est activée</translation>
@@ -2822,7 +2816,6 @@ Pour éteindre l'appareil, appuyez à nouveau sur le bouton d'alimentation de l'
 <translation id="9129245940793250979">Bouton arrière</translation>
 <translation id="9133335900048457298">Impossible d'enregistrer le contenu protégé</translation>
 <translation id="9139720510312328767">Supprimer la lettre suivante</translation>
-<translation id="9148058034647219655">Quitter</translation>
 <translation id="9151906066336345901">fin</translation>
 <translation id="9159421884295554245">Rechercher dans Presse-papiers</translation>
 <translation id="9168436347345867845">Plus tard</translation>

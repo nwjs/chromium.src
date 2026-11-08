@@ -22,7 +22,7 @@
   <uses-permission android:name="android.permission.USE_FINGERPRINT"/>
   <uses-permission android:name="com.google.android.apps.aicore.service.BIND_SERVICE"/>
   <uses-permission android:name="com.google.android.c2dm.permission.RECEIVE"/>
-  <uses-sdk android:minSdkVersion="29" android:targetSdkVersion="37"/>
+  <uses-sdk android:minSdkVersion="29" android:targetSdkVersion="36"/>
   <application>
     <activity  # DIFF-ANCHOR: f7a9141e
         android:name="androidx.core.pip.contentpip.ContentPipInternalActivity"
@@ -441,6 +441,7 @@
         android:exported="false"
         android:launchMode="singleInstance"
         android:theme="@style/Theme.Chromium.Activity">
+      <layout android:defaultHeight="524dp" android:defaultWidth="720dp"/>
     </activity>  # DIFF-ANCHOR: 6e34d703
     <activity  # DIFF-ANCHOR: 9bb1f409
         android:name="org.chromium.chrome.browser.webapps.ActivateWebApkActivity"
@@ -668,6 +669,10 @@
       <intent-filter>  # DIFF-ANCHOR: 83919a44
         <action android:name="com.sec.android.airview.HOVER"/>
       </intent-filter>  # DIFF-ANCHOR: 83919a44
+      <intent-filter>  # DIFF-ANCHOR: 5d980e94
+        <action android:name="org.chromium.chrome.browser.glic.EXTERNAL_TRIGGERING"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+      </intent-filter>  # DIFF-ANCHOR: 5d980e94
       <meta-data android:name="android.app.searchable" android:resource="@xml/searchable"/>
     </activity-alias>  # DIFF-ANCHOR: 9da0e5b6
     <activity-alias  # DIFF-ANCHOR: 5042984f

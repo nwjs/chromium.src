@@ -107,7 +107,7 @@ class CSPParser {
 // If `warnings` is not NULL, any validation errors are appended to `warnings`.
 // Returns the sanitized policy.
 std::string SanitizeContentSecurityPolicy(
-    const std::string& policy,
+    std::string_view policy,
     std::string manifest_key,
     int options,
     std::vector<InstallWarning>* warnings);
@@ -137,13 +137,21 @@ bool ContentSecurityPolicyIsSandboxed(
 // If not, populates `error`.
 bool DoesCSPDisallowRemoteCode(const std::string& extension_id,
                                mojom::ManifestLocation location,
-                               const std::string& content_security_policy,
+                               std::string_view content_security_policy,
                                std::string_view manifest_key,
                                std::u16string* error);
 
 // Returns true if the extension with the given `extension_id` is allowed to use
 // chrome://resources in its Content Security Policy.
 bool IsExtensionAllowedToUseChromeResources(const std::string& extension_id);
+
+// Returns true if extensions at `location` may use chrome://webui-test in their
+// Content Security Policy. This requires a built-in component extension and the
+// test-only --allow-webui-test-in-component-extensions switch. WebUI pages are
+// not subject to this check; see
+// `switches::kAllowWebUITestInComponentExtensions` for why extensions are
+// gated.
+bool IsWebUITestAllowedForLocation(mojom::ManifestLocation location);
 
 }  // namespace csp_validator
 

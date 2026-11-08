@@ -25,6 +25,7 @@ build_webui_tests("build") {
         "doodle_share_dialog_test.ts",
         "image_processor_test.ts",
         "image_processor_test_support.ts",
+        "left_hand_side_test.ts",
         "lens_form_test.ts",
         "lens_upload_dialog_test.ts",
         "logo_test.ts",
@@ -37,11 +38,8 @@ build_webui_tests("build") {
         "searchbox_focus_test.ts",
         "searchbox_lens_button_test.ts",
         "searchbox_ntp_test.ts",
-      ] + modules_test_files + ntp_promo_test_files + action_chips_test_files
-
-  if (!is_android) {
-    files += composebox_test_files
-  }
+      ] + modules_test_files + composebox_test_files + ntp_promo_test_files +
+      action_chips_test_files
 
   ts_tsconfig_base = "tsconfig_base.json"
 

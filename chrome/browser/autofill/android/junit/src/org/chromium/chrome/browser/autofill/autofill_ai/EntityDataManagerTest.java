@@ -22,7 +22,6 @@ import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 
-import org.chromium.base.Callback;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.components.autofill.autofill_ai.AutofillAiOptInStatus;
@@ -48,7 +47,6 @@ public class EntityDataManagerTest {
     @Mock private EntityDataManager.Natives mEntityDataManagerJniMock;
     @Mock private Profile mProfile;
     @Mock private EntityInstance mEntityInstance;
-    @Mock private Callback<DetailsForUpsertPass> mGetDetailsForUpsertPassCallback;
 
     private EntityDataManager mEntityDataManager;
     private static final long NATIVE_PTR = 12345L;
@@ -94,7 +92,7 @@ public class EntityDataManagerTest {
                 mEntityInstance,
                 descriptionStringId,
                 acceptButtonStringId,
-                /* contextToken= */ null,
+                /* legalMessageToken= */ null,
                 localSaveFallback);
         verify(mEntityDataManagerJniMock)
                 .addOrUpdateEntityInstance(
@@ -107,16 +105,16 @@ public class EntityDataManagerTest {
     }
 
     @Test
-    public void testAddOrUpdateEntityInstance_withContextToken() {
+    public void testAddOrUpdateEntityInstance_withLegalMessageToken() {
         Runnable localSaveFallback = () -> {};
         int descriptionStringId = 123;
         int acceptButtonStringId = 456;
-        String contextToken = "context_token";
+        byte[] legalMessageToken = new byte[] {1, 2, 3};
         mEntityDataManager.addOrUpdateEntityInstance(
                 mEntityInstance,
                 descriptionStringId,
                 acceptButtonStringId,
-                contextToken,
+                legalMessageToken,
                 localSaveFallback);
         verify(mEntityDataManagerJniMock)
                 .addOrUpdateEntityInstance(
@@ -124,7 +122,7 @@ public class EntityDataManagerTest {
                         mEntityInstance,
                         descriptionStringId,
                         acceptButtonStringId,
-                        contextToken,
+                        legalMessageToken,
                         localSaveFallback);
     }
 
@@ -142,12 +140,24 @@ public class EntityDataManagerTest {
     }
 
     @Test
-    public void testGetDetailsForUpsertPass() {
-        mEntityDataManager.getDetailsForUpsertPass(
-                EntityTypeName.VEHICLE, mGetDetailsForUpsertPassCallback);
+    public void testPreloadDetailsForUpsertPass() {
+        mEntityDataManager.preloadDetailsForUpsertPass(EntityTypeName.VEHICLE);
         verify(mEntityDataManagerJniMock)
-                .getDetailsForUpsertPass(
-                        NATIVE_PTR, EntityTypeName.VEHICLE, mGetDetailsForUpsertPassCallback);
+                .preloadDetailsForUpsertPass(NATIVE_PTR, EntityTypeName.VEHICLE);
+    }
+
+    @Test
+    public void testExtractPreloadedDetailsForUpsertPass() {
+        DetailsForUpsertPass details =
+                new DetailsForUpsertPass(Collections.emptyList(), new byte[] {1, 2, 3});
+        when(mEntityDataManagerJniMock.extractPreloadedDetailsForUpsertPass(
+                        NATIVE_PTR, EntityTypeName.VEHICLE))
+                .thenReturn(details);
+        assertEquals(
+                details,
+                mEntityDataManager.extractPreloadedDetailsForUpsertPass(EntityTypeName.VEHICLE));
+        verify(mEntityDataManagerJniMock)
+                .extractPreloadedDetailsForUpsertPass(NATIVE_PTR, EntityTypeName.VEHICLE);
     }
 
     @Test

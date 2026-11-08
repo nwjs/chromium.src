@@ -12,6 +12,7 @@
 #include "base/functional/bind.h"
 #include "base/location.h"
 #include "base/logging.h"
+#include "base/no_destructor.h"
 #include "base/path_service.h"
 #include "base/task/bind_post_task.h"
 #include "base/task/sequenced_task_runner.h"
@@ -23,12 +24,17 @@ namespace extensions {
 
 namespace {
 
+base::FilePath& GetSessionStateChangeDirOverride() {
+  static base::NoDestructor<base::FilePath> dir_override;
+  return *dir_override;
+}
+
 void OnSessionStateChangeFileUpdate(
     const base::FilePath& watched_path,
     const base::RepeatingCallback<void()>& update_callback,
     const base::FilePath& path,
     bool is_error) {
-  DCHECK_EQ(path, watched_path);
+  CHECK_EQ(path, watched_path, base::NotFatalUntil::M161);
   if (is_error) {
     DLOG(ERROR) << "OnRemoteSessionStateFileUpdate() error";
     return;
@@ -63,6 +69,10 @@ void WatchSessionStateChangeFile(
 
 bool WebAuthenticationProxyRemoteSessionStateChangeNotifier::
     GetSessionStateChangeDir(base::FilePath* out) {
+  if (!GetSessionStateChangeDirOverride().empty()) {
+    *out = GetSessionStateChangeDirOverride();
+    return true;
+  }
   // The path must be stable, i.e. the remote desktop app should not need to do
   // any sort of discovery, which rules out the User Data Directory. It also has
   // to be user-writable, because the app isn't expected to run as root.
@@ -75,12 +85,17 @@ bool WebAuthenticationProxyRemoteSessionStateChangeNotifier::
   return true;
 }
 
+void WebAuthenticationProxyRemoteSessionStateChangeNotifier::
+    SetSessionStateChangeDirForTesting(base::FilePath dir) {
+  GetSessionStateChangeDirOverride() = std::move(dir);
+}
+
 WebAuthenticationProxyRemoteSessionStateChangeNotifier::
     WebAuthenticationProxyRemoteSessionStateChangeNotifier(
         EventRouter* event_router,
         ExtensionId extension_id)
     : event_router_(event_router), extension_id_(std::move(extension_id)) {
-  DCHECK(event_router_);
+  CHECK(event_router_, base::NotFatalUntil::M161);
   auto broadcast_event_on_change =
       base::BindPostTaskToCurrentDefault(base::BindRepeating(
           &WebAuthenticationProxyRemoteSessionStateChangeNotifier::

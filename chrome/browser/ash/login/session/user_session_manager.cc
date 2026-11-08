@@ -115,7 +115,6 @@
 #include "chrome/browser/first_run/first_run.h"
 #include "chrome/browser/global_features.h"
 #include "chrome/browser/metrics/first_web_contents_profiler.h"
-#include "chrome/browser/password_manager/factories/password_reuse_manager_factory.h"
 #include "chrome/browser/prefs/session_startup_pref.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
@@ -143,6 +142,7 @@
 #include "chromeos/ash/components/login/auth/public/user_context.h"
 #include "chromeos/ash/components/login/auth/stub_authenticator_builder.h"
 #include "chromeos/ash/components/login/session/session_termination_manager.h"
+#include "chromeos/ash/components/password_manager/password_reuse_manager_provider.h"
 #include "chromeos/ash/components/settings/cros_settings.h"
 #include "chromeos/ash/components/settings/cros_settings_names.h"
 #include "chromeos/ash/components/tpm/prepare_tpm.h"
@@ -781,7 +781,7 @@ class UserSessionManager::DeviceAccountGaiaTokenObserver
 
 void UserSessionManager::SetNetworkConnectionTracker(
     network::NetworkConnectionTracker* network_connection_tracker) {
-  DCHECK(network_connection_tracker);
+  CHECK(network_connection_tracker, base::NotFatalUntil::M161);
   network_connection_tracker_ = network_connection_tracker;
   network_connection_tracker_->AddLeakyNetworkConnectionObserver(this);
 }
@@ -825,7 +825,7 @@ void UserSessionManager::CompleteGuestSessionLogin(const GURL& start_url) {
           user_manager::GuestAccountId()),
       /*feature_flags=*/{}, /*origin_list_flags=*/{});
 
-  RestartChrome(command_line, RestartChromeReason::kGuest);
+  RestartChrome(local_state_.get(), command_line, RestartChromeReason::kGuest);
 }
 
 scoped_refptr<Authenticator> UserSessionManager::CreateAuthenticator(
@@ -920,7 +920,7 @@ void UserSessionManager::RestoreAuthenticationSession(Profile* user_profile) {
   if (!account_id_valid)
     LOG(ERROR) << "No account is associated with sign-in manager on restore.";
 
-  DCHECK(user);
+  CHECK(user, base::NotFatalUntil::M161);
   if (network_connection_tracker_ &&
       !network_connection_tracker_->IsOffline()) {
     pending_signin_restore_sessions_.erase(user->GetAccountId());
@@ -970,7 +970,7 @@ void UserSessionManager::RestoreActiveSessions() {
 }
 
 bool UserSessionManager::UserSessionsRestored() const {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M161);
   return user_sessions_restored_;
 }
 
@@ -979,9 +979,9 @@ void UserSessionManager::SetFirstLoginPrefs(
     const std::string& public_session_locale,
     const std::string& public_session_input_method) {
   VLOG(1) << "Setting first login prefs";
-  InitLocaleAndInputMethodsForNewUser(application_locale_storage_->Get(), this,
-                                      profile, public_session_locale,
-                                      public_session_input_method);
+  InitLocaleAndInputMethodsForNewUser(
+      std::string(application_locale_storage_->GetTag().tag_string()), this,
+      profile, public_session_locale, public_session_input_method);
 
   // Turn on the feature of the low battery sound for all users on the device
   // when a new user login.
@@ -1056,9 +1056,9 @@ bool UserSessionManager::RespectLocalePreference(
     pref_locale = *account_locale;
   }
   if (pref_locale.empty()) {
-    pref_locale = application_locale_storage_->Get();
+    pref_locale = application_locale_storage_->GetTag().tag_string();
   }
-  DCHECK(!pref_locale.empty());
+  CHECK(!pref_locale.empty(), base::NotFatalUntil::M161);
   VLOG(1) << "RespectLocalePreference: "
           << "app_locale='" << pref_app_locale << "', "
           << "bkup_locale='" << pref_bkup_locale << "', "
@@ -1172,10 +1172,11 @@ void UserSessionManager::OnSessionRestoreStateChanged(
       if (identity_manager) {
         // SESSION_RESTORE_DONE state means that primary account has a valid
         // token.
-        DCHECK(
+        CHECK(
             !identity_manager->HasAccountWithRefreshTokenInPersistentErrorState(
                 identity_manager->GetPrimaryAccountInfo(ConsentLevel::kSignin)
-                    .account_id));
+                    .account_id),
+            base::NotFatalUntil::M161);
       }
       user_status = user_manager::User::OAUTH2_TOKEN_STATUS_VALID;
       break;
@@ -1237,7 +1238,7 @@ void UserSessionManager::OnConnectionChanged(
       continue;
 
     Profile* user_profile = ProfileHelper::Get()->GetProfileByUser(user);
-    DCHECK(user_profile);
+    CHECK(user_profile, base::NotFatalUntil::M161);
     OAuth2LoginManager* login_manager =
         OAuth2LoginManagerFactory::GetInstance()->GetForProfile(user_profile);
     if (login_manager->SessionRestoreIsRunning()) {
@@ -1368,7 +1369,8 @@ void UserSessionManager::StartCrosSession() {
 void UserSessionManager::VoteForSavingLoginPassword(
     PasswordConsumingService service,
     bool save_password) {
-  DCHECK_LT(service, PasswordConsumingService::kCount);
+  CHECK_LT(service, PasswordConsumingService::kCount,
+           base::NotFatalUntil::M161);
 
   // VoteForSavingLoginPassword should only be called for the primary user
   // session. It also should not be called when restarting the browser after a
@@ -1548,7 +1550,8 @@ void UserSessionManager::InitProfilePreferences(
           identity_manager->FindExtendedAccountInfoByEmailAddress(
               user_context.GetAccountId().GetUserEmail());
 
-      DCHECK(!account_info.IsEmpty() || IsRunningTest());
+      CHECK(!account_info.IsEmpty() || IsRunningTest(),
+            base::NotFatalUntil::M161);
       gaia_id = account_info.GetGaiaId();
       used_extended_account_info = true;
 
@@ -1574,7 +1577,7 @@ void UserSessionManager::InitProfilePreferences(
         AccountManagerFactory::Get()->GetAccountManager(
             profile->GetPath().value());
 
-    DCHECK(account_manager->IsInitialized());
+    CHECK(account_manager->IsInitialized(), base::NotFatalUntil::M161);
 
     const ::account_manager::AccountKey account_key =
         ::account_manager::AccountKey::FromGaiaId(gaia_id);
@@ -1603,7 +1606,8 @@ void UserSessionManager::InitProfilePreferences(
           account_key, user->GetDisplayEmail() /* raw_email */,
           account_manager::AccountManager::kInvalidToken);
     }
-    DCHECK(account_manager->IsTokenAvailable(account_key));
+    CHECK(account_manager->IsTokenAvailable(account_key),
+          base::NotFatalUntil::M161);
 
     // 2. Seed it into `IdentityManager`.
     // TODO(crbug.com/40176615): Check whether we should use
@@ -1663,8 +1667,9 @@ void UserSessionManager::InitProfilePreferences(
     CHECK_EQ(identity_manager->GetPrimaryAccountInfo(consent_level).gaia,
              gaia_id);
 
-    DCHECK_EQ(account_id,
-              identity_manager->GetPrimaryAccountId(ConsentLevel::kSignin));
+    CHECK_EQ(account_id,
+             identity_manager->GetPrimaryAccountId(ConsentLevel::kSignin),
+             base::NotFatalUntil::M161);
     VLOG(1) << "Seed IdentityManager with the authenticated account info, "
             << "success=" << !account_id.empty();
 
@@ -1689,8 +1694,9 @@ void UserSessionManager::InitProfilePreferences(
 
     user = user_manager->FindUser(user_context.GetAccountId());
     bool is_child = user->GetType() == user_manager::UserType::kChild;
-    DCHECK(is_child ==
-           (user_context.GetUserType() == user_manager::UserType::kChild));
+    CHECK(is_child ==
+              (user_context.GetUserType() == user_manager::UserType::kChild),
+          base::NotFatalUntil::M161);
 
     signin::Tribool is_under_advanced_protection = signin::Tribool::kUnknown;
     if (IsOnlineSignin(user_context)) {
@@ -1893,7 +1899,8 @@ void UserSessionManager::FinalizePrepareProfile(Profile* profile) {
     // These will be used to detect Gaia password reuses.
     if (user_context_.GetSyncPasswordData().has_value()) {
       login::SaveSyncPasswordDataToProfile(
-          user_context_, PasswordReuseManagerFactory::GetForProfile(profile));
+          user_context_, PasswordReuseManagerProvider::Get().Find(
+                             user_context_.GetAccountId()));
     }
 
     if (!user_context_.GetChallengeResponseKeys().empty()) {
@@ -1917,7 +1924,7 @@ void UserSessionManager::FinalizePrepareProfile(Profile* profile) {
     user_context_.ClearSecrets();
     if (user->GetType() == user_manager::UserType::kChild) {
       VLOG(1) << "Waiting for child policy refresh before showing session UI";
-      DCHECK(child_policy_observer_);
+      CHECK(child_policy_observer_, base::NotFatalUntil::M161);
       child_policy_observer_->NotifyWhenPolicyReady(
           base::BindOnce(&UserSessionManager::OnChildPolicyReady,
                          GetUserSessionManagerAsWeakPtr()),
@@ -2100,7 +2107,7 @@ void UserSessionManager::ProcessAppModeSwitches() {
           command_line->GetSwitchValueASCII(ash::switches::kAppModeAuthCode));
     }
 
-    DCHECK(!has_auth_cookies_);
+    CHECK(!has_auth_cookies_, base::NotFatalUntil::M161);
   }
 }
 
@@ -2306,8 +2313,9 @@ void UserSessionManager::OnRestoreActiveSessions(
 
   // One profile has been already loaded on browser start.
   user_manager::UserManager* user_manager = user_manager::UserManager::Get();
-  DCHECK_EQ(1u, user_manager->GetLoggedInUsers().size());
-  DCHECK(user_manager->GetActiveUser());
+  CHECK_EQ(1u, user_manager->GetLoggedInUsers().size(),
+           base::NotFatalUntil::M161);
+  CHECK(user_manager->GetActiveUser(), base::NotFatalUntil::M161);
   const cryptohome::Identification active_cryptohome_id(
       user_manager->GetActiveUser()->GetAccountId());
 
@@ -2339,8 +2347,8 @@ void UserSessionManager::RestorePendingUserSessions() {
   PendingUserSessions::const_iterator it = pending_user_sessions_.begin();
   const AccountId account_id = it->first;
   std::string user_id_hash = it->second;
-  DCHECK(account_id.is_valid());
-  DCHECK(!user_id_hash.empty());
+  CHECK(account_id.is_valid(), base::NotFatalUntil::M161);
+  CHECK(!user_id_hash.empty(), base::NotFatalUntil::M161);
   pending_user_sessions_.erase(account_id);
 
   // Check that this user is not logged in yet.
@@ -2352,7 +2360,7 @@ void UserSessionManager::RestorePendingUserSessions() {
   const bool user_already_logged_in = std::ranges::contains(
       user_manager::UserManager::Get()->GetLoggedInUsers(), account_id,
       &user_manager::User::GetAccountId);
-  DCHECK(!user_already_logged_in);
+  CHECK(!user_already_logged_in, base::NotFatalUntil::M161);
 
   if (!user_already_logged_in) {
     const user_manager::User* const user =
@@ -2376,7 +2384,7 @@ void UserSessionManager::RestorePendingUserSessions() {
 }
 
 void UserSessionManager::NotifyPendingUserSessionsRestoreFinished() {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M161);
   user_sessions_restored_ = true;
   if (on_pending_user_session_restore_finished_for_testsing_) {
     std::move(on_pending_user_session_restore_finished_for_testsing_).Run();
@@ -2388,7 +2396,7 @@ void UserSessionManager::OnChildPolicyReady(
     ChildPolicyObserver::InitialPolicyRefreshResult result) {
   VLOG(1) << "Child policy refresh finished with result "
           << static_cast<int>(result) << " - showing session UI";
-  DCHECK(profile->IsChild());
+  CHECK(profile->IsChild(), base::NotFatalUntil::M161);
 
   child_policy_observer_.reset();
 

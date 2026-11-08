@@ -70,10 +70,10 @@ import org.chromium.base.test.transit.ViewElement;
 import org.chromium.base.test.util.CallbackHelper;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.CriteriaHelper;
+import org.chromium.base.test.util.DisableIf;
 import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.Features;
-import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.base.test.util.Restriction;
 import org.chromium.chrome.R;
@@ -158,7 +158,6 @@ import java.util.function.Supplier;
     ChromeSwitches.DISABLE_STARTUP_PROMOS,
     ContentSwitches.HOST_RESOLVER_RULES + "=MAP * 127.0.0.1"
 })
-@DisableFeatures(ChromeFeatureList.SETTINGS_MULTI_COLUMN)
 public class PageInfoViewTest {
     private static final String sSimpleHtml = "/chrome/test/data/android/simple.html";
     private static final String sSiteDataHtml = "/content/test/data/browsing_data/site_data.html";
@@ -1078,6 +1077,7 @@ public class PageInfoViewTest {
     /** Tests clearing cookies on the cookies page of the PageInfo UI. */
     @Test
     @MediumTest
+    @DisableIf.Device(DeviceFormFactor.DESKTOP) // https://crbug.com/568493076
     public void clearCookiesOnSubpage() throws Exception {
         mActivityTestRule.loadUrl(mTestServerRule.getServer().getURL(sSiteDataHtml));
         // Create cookies.
@@ -1176,6 +1176,7 @@ public class PageInfoViewTest {
     /** Tests resetting permissions on the permissions page of the PageInfo UI. */
     @Test
     @MediumTest
+    @DisableIf.Device(DeviceFormFactor.DESKTOP) // https://crbug.com/568493076
     public void testResetPermissionsOnSubpage() throws Exception {
         mActivityTestRule.loadUrl(mTestServerRule.getServer().getURL(sSiteDataHtml));
         String url = mTestServerRule.getServer().getURL("/");
@@ -1206,6 +1207,7 @@ public class PageInfoViewTest {
      */
     @Test
     @MediumTest
+    @DisableIf.Device(DeviceFormFactor.DESKTOP) // https://crbug.com/568493076
     public void testClearFederatedIdentityEmbargoOnSubpage() throws Exception {
         String rpUrl = mTestServerRule.getServer().getURL(sSimpleHtml);
         mActivityTestRule.loadUrl(rpUrl);
@@ -1274,6 +1276,7 @@ public class PageInfoViewTest {
     @Test
     @MediumTest
     @Features.EnableFeatures(PermissionsAndroidFeatureList.APPROXIMATE_GEOLOCATION_PERMISSION)
+    @DisableIf.Device(DeviceFormFactor.DESKTOP) // https://crbug.com/568493076
     public void testShowLocationPermissionSubpage() throws IOException {
         addSomePermissions(mTestServerRule.getServer().getURL("/"));
         loadUrlAndOpenPageInfo(mTestServerRule.getServer().getURL(sSimpleHtml));

@@ -222,6 +222,10 @@ BASE_DECLARE_FEATURE(kClientSideDetectionSkipErrorPage);
 
 BASE_DECLARE_FEATURE(kClientSideDetectionTierSystem);
 
+// Enables showing the trick-to-bill (billing) interstitial when the
+// intelligent scan returns a SCAM_EXPERIMENT_VERDICT_BILLING verdict.
+BASE_DECLARE_FEATURE(kClientSideDetectionTrickToBill);
+
 // Set a RESIZE_BEST preference for image resizing algorithm in Client Side
 // Detection renderer processes for both image classification and image
 // embedding. This experiment is done to see if the resizing algorithm
@@ -283,6 +287,11 @@ BASE_DECLARE_FEATURE(kEnterprisePasswordReuseUiRefresh);
 
 // Use a new URL for the enterprise real-time URL check.
 BASE_DECLARE_FEATURE(kEnterpriseRealTimeUrlCheckNewUrl);
+
+// Skips enterprise real-time URL lookups for URLs in
+// `ChromeEnterpriseRealTimeUrlLookupService::CanCheckUrl` (about:blank on
+// Android, chrome-native://newtab/ and the search warmup URL).
+BASE_DECLARE_FEATURE(kEnterpriseRealTimeUrlCheckUrlSkiplist);
 
 // Makes the Enhanced Protection a syncable setting.
 // Check the design doc (go/esb-as-a-synced-setting-dd) for further details.
@@ -485,6 +494,13 @@ extern const base::FeatureParam<int> kSafeBrowsingDailyPhishingReportsLimitESB;
 // Enables automatic cleanup of unrecognized or deprecated Safe Browsing stores
 // and stale hash files on disk during database startup.
 BASE_DECLARE_FEATURE(kSafeBrowsingDeleteUnusedStores);
+
+// Suppresses dangerous file warnings when Safe Browsing is in No Protection
+// mode.
+BASE_DECLARE_FEATURE(kSafeBrowsingNoProtectionSuppressWarnings);
+
+// Skips Safe Browsing Real-Time URL lookups when the device is offline.
+BASE_DECLARE_FEATURE(kSafeBrowsingSkipRealTimeLookupIfOffline);
 
 #if BUILDFLAG(IS_ANDROID)
 // Enables sync checker to check allowlist first on Chrome on Android. This is

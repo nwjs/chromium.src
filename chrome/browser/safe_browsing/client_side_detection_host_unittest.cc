@@ -70,6 +70,7 @@
 #include "components/safe_browsing/core/browser/safe_browsing_token_fetcher.h"
 #include "components/safe_browsing/core/browser/sync/sync_utils.h"
 #include "components/safe_browsing/core/browser/verdict_cache_manager.h"
+#include "components/safe_browsing/core/common/client_side_detection_enums.h"
 #include "components/safe_browsing/core/common/features.h"
 #include "components/safe_browsing/core/common/proto/csd.pb.h"
 #include "components/safe_browsing/core/common/safe_browsing_prefs.h"
@@ -171,6 +172,11 @@ MATCHER_P(HasScamThreatSubtype, other, "") {
   return (other.threat_subtype == arg.threat_subtype);
 }
 
+MATCHER_P(HasThreatTypeAndSubtype, other, "") {
+  return (other.threat_type == arg.threat_type &&
+          other.threat_subtype == arg.threat_subtype);
+}
+
 MATCHER(EmptyLlamForcedTriggerInfoVerdict, "") {
   return !arg->has_llama_forced_trigger_info();
 }
@@ -253,6 +259,7 @@ class MockSafeBrowsingDatabaseManager : public TestSafeBrowsingDatabaseManager {
       CheckUrlForHighConfidenceAllowlistCallback callback) override {
     std::string url = gurl.spec();
     DCHECK(urls_allowlist_match_.contains(url));
+    hc_check_count_++;
 
     ui_task_runner()->PostTask(
         FROM_HERE,
@@ -267,11 +274,14 @@ class MockSafeBrowsingDatabaseManager : public TestSafeBrowsingDatabaseManager {
     urls_allowlist_match_[url] = match;
   }
 
+  int hc_check_count() const { return hc_check_count_; }
+
  protected:
   ~MockSafeBrowsingDatabaseManager() override = default;
 
  private:
   base::flat_map<std::string, bool> urls_allowlist_match_;
+  int hc_check_count_ = 0;
 };
 
 class MockClientSideDetectionHostDelegate
@@ -1591,13 +1601,97 @@ TEST_F(ClientSideDetectionHostTest,
       1);
 }
 
+// Tests that high confidence allowlist checking is skipped when CSD allowlist
+// matches, and no classification takes place.
 TEST_F(ClientSideDetectionHostTest,
        TestPreClassificationCheckMatchCSDAllowlist) {
+  base::HistogramTester histogram_tester;
   GURL url("http://host.com/");
-  database_manager_->SetAllowlistLookupDetailsForUrl(url, false);
   ExpectPreClassificationChecks(url, &kFalse, &kTrue, nullptr, nullptr);
   NavigateAndCommit(url);
   WaitAndCheckPreClassificationChecks();
+
+  EXPECT_EQ(database_manager_->hc_check_count(), 0);
+  histogram_tester.ExpectTotalCount(
+      "SBClientPhishing.HighConfidenceAllowlistCheckDuration", 0);
+  histogram_tester.ExpectUniqueSample(
+      "SBClientPhishing.MatchHighConfidenceAllowlist",
+      ClientSideAllowlistMatchResult::kCsdMatch, 1);
+  histogram_tester.ExpectUniqueSample(
+      "SBClientPhishing.MatchHighConfidenceAllowlist.TriggerModel",
+      ClientSideAllowlistMatchResult::kCsdMatch, 1);
+  histogram_tester.ExpectBucketCount(
+      "SBClientPhishing.PreClassificationCheckResult",
+      PreClassificationCheckResult::NO_CLASSIFY_MATCH_CSD_ALLOWLIST, 1);
+  histogram_tester.ExpectBucketCount(
+      "SBClientPhishing.PreClassificationCheckResult.TriggerModel",
+      PreClassificationCheckResult::NO_CLASSIFY_MATCH_CSD_ALLOWLIST, 1);
+}
+
+// Tests that high confidence allowlist checking is skipped when CSD allowlist
+// matches even if a sample ping is triggered.
+TEST_F(ClientSideDetectionHostTest,
+       TestPreClassificationCheckMatchCSDAllowlistWithSamplePing) {
+  SetEnhancedProtectionPrefForTests(profile()->GetPrefs(), true);
+  csd_host_->set_sample_ping_rate_for_testing(1.0f);
+  base::HistogramTester histogram_tester;
+
+  GURL url("http://host.com/");
+  ExpectPreClassificationChecks(url, &kFalse, &kTrue, &kFalse, &kFalse);
+  NavigateAndCommit(url);
+  WaitAndCheckPreClassificationChecks();
+
+  fake_phishing_detector_.CheckMessage(&url);
+
+  EXPECT_EQ(database_manager_->hc_check_count(), 0);
+  histogram_tester.ExpectTotalCount(
+      "SBClientPhishing.HighConfidenceAllowlistCheckDuration", 0);
+  histogram_tester.ExpectUniqueSample(
+      "SBClientPhishing.MatchHighConfidenceAllowlist",
+      ClientSideAllowlistMatchResult::kCsdMatch, 1);
+  histogram_tester.ExpectUniqueSample(
+      "SBClientPhishing.MatchHighConfidenceAllowlist.TriggerModel",
+      ClientSideAllowlistMatchResult::kCsdMatch, 1);
+  histogram_tester.ExpectBucketCount(
+      "SBClientPhishing.PreClassificationCheckResult",
+      PreClassificationCheckResult::CLASSIFY, 1);
+  histogram_tester.ExpectBucketCount(
+      "SBClientPhishing.PreClassificationCheckResult.TriggerModel",
+      PreClassificationCheckResult::CLASSIFY, 1);
+}
+
+// Tests that high confidence allowlist checking is skipped even when a sample
+// ping is triggered, and that an HC allowlist match no longer suppresses a
+// sampled CSD-allowlisted ping (classification proceeds).
+TEST_F(ClientSideDetectionHostTest,
+       TestPreClassificationCheckMatchCSDAllowlistWithSamplePingAndMatchHC) {
+  SetEnhancedProtectionPrefForTests(profile()->GetPrefs(), true);
+  csd_host_->set_sample_ping_rate_for_testing(1.0f);
+  SetHighConfidenceAllowlistAcceptanceRate(1.0f);
+  base::HistogramTester histogram_tester;
+
+  GURL url("http://host.com/");
+  ExpectPreClassificationChecks(url, &kFalse, &kTrue, &kFalse, &kFalse);
+  NavigateAndCommit(url);
+  WaitAndCheckPreClassificationChecks();
+
+  fake_phishing_detector_.CheckMessage(&url);
+
+  EXPECT_EQ(database_manager_->hc_check_count(), 0);
+  histogram_tester.ExpectTotalCount(
+      "SBClientPhishing.HighConfidenceAllowlistCheckDuration", 0);
+  histogram_tester.ExpectUniqueSample(
+      "SBClientPhishing.MatchHighConfidenceAllowlist",
+      ClientSideAllowlistMatchResult::kCsdMatch, 1);
+  histogram_tester.ExpectUniqueSample(
+      "SBClientPhishing.MatchHighConfidenceAllowlist.TriggerModel",
+      ClientSideAllowlistMatchResult::kCsdMatch, 1);
+  histogram_tester.ExpectBucketCount(
+      "SBClientPhishing.PreClassificationCheckResult",
+      PreClassificationCheckResult::CLASSIFY, 1);
+  histogram_tester.ExpectBucketCount(
+      "SBClientPhishing.PreClassificationCheckResult.TriggerModel",
+      PreClassificationCheckResult::CLASSIFY, 1);
 }
 
 TEST_F(ClientSideDetectionHostTest,
@@ -1678,13 +1772,25 @@ TEST_F(ClientSideDetectionHostTest, TestPreClassificationCheckTwoNavigations) {
 TEST_F(ClientSideDetectionHostTest, TestPreClassificationCheckCancelActor) {
   base::HistogramTester histogram_tester;
 
+  // Explicitly ensure that url1 and url2 do not match the CSD allowlist. Since
+  // matching the CSD allowlist skips high-confidence allowlist checking and
+  // completes preclassification synchronously, a CSD allowlist match would
+  // finish immediately and prevent url1 from staying in-flight and being
+  // cancelled by url2.
+  EXPECT_CALL(*database_manager_.get(), CanCheckUrl(_))
+      .WillRepeatedly(Return(true));
+
   // Although we'll navigate to url1 and keep loading, we will not complete the
   // preclassification check and continue loading, so that url2 can cancel it.
   GURL url1("http://host1.com/");
+  EXPECT_CALL(*database_manager_.get(), CheckCsdAllowlistUrl(url1, _))
+      .WillOnce(Return(AsyncMatch::NO_MATCH));
   database_manager_->SetAllowlistLookupDetailsForUrl(url1, false);
   NavigateAndCommit(url1);
 
   GURL url2("http://host2.com/");
+  EXPECT_CALL(*database_manager_.get(), CheckCsdAllowlistUrl(url2, _))
+      .WillOnce(Return(AsyncMatch::NO_MATCH));
   database_manager_->SetAllowlistLookupDetailsForUrl(url2, false);
   NavigateAndCommit(url2);
 
@@ -4606,8 +4712,21 @@ class ClientSideDetectionHostScamDetectionTest
       std::optional<IntelligentScanInfo::NoInfoReason> expected_no_info_reason,
       std::optional<std::string> expected_llama_forced_trigger_info_trigger_url,
       bool returned_is_phishing,
+      IntelligentScanVerdict returned_intelligent_scan_verdict) {
+    SetSendClientReportPhishingRequestCallback(
+        has_expected_brand_and_intent, expected_no_info_reason,
+        expected_llama_forced_trigger_info_trigger_url, returned_is_phishing,
+        returned_intelligent_scan_verdict,
+        has_expected_brand_and_intent ? example_scam_score_ : std::nullopt);
+  }
+
+  void SetSendClientReportPhishingRequestCallback(
+      bool has_expected_brand_and_intent,
+      std::optional<IntelligentScanInfo::NoInfoReason> expected_no_info_reason,
+      std::optional<std::string> expected_llama_forced_trigger_info_trigger_url,
+      bool returned_is_phishing,
       IntelligentScanVerdict returned_intelligent_scan_verdict,
-      std::optional<float> expected_scam_score = std::nullopt) {
+      std::optional<float> expected_scam_score) {
     EXPECT_CALL(*csd_service_, SendClientReportPhishingRequest(_, _, _))
         .Times(1)
         .WillOnce([=, this](std::unique_ptr<ClientPhishingRequest> request,
@@ -5402,6 +5521,77 @@ TEST_F(ClientSideDetectionHostScamDetectionTest,
       /*model_has_successful_response=*/true,
       /*intelligent_scan_verdict=*/
       IntelligentScanVerdict::SCAM_EXPERIMENT_CATCH_ALL_ENFORCEMENT);
+}
+
+TEST_F(ClientSideDetectionHostScamDetectionTest,
+       BillingScamExperimentVerdictShowsBillingWarning) {
+  SetFeatures({}, {});
+  SetIntelligentScanCallback(/*should_return_response=*/true);
+  SetSendClientReportPhishingRequestCallback(
+      /*has_expected_brand_and_intent=*/true,
+      /*expected_no_info_reason=*/std::nullopt,
+      /*expected_llama_forced_trigger_info_trigger_url=*/std::nullopt,
+      /*returned_is_phishing=*/false,
+      /*returned_intelligent_scan_verdict=*/
+      IntelligentScanVerdict::SCAM_EXPERIMENT_VERDICT_BILLING);
+  EXPECT_CALL(*intelligent_scan_delegate_,
+              ShouldShowScamWarning(std::optional<IntelligentScanVerdict>(
+                  IntelligentScanVerdict::SCAM_EXPERIMENT_VERDICT_BILLING)))
+      .WillOnce(Return(true));
+
+  UnsafeResource resource;
+  resource.threat_type = SBThreatType::SB_THREAT_TYPE_BILLING;
+  resource.threat_subtype = ThreatSubtype::SCAM_EXPERIMENT_VERDICT_BILLING;
+  // Because the callback responds with the billing verdict, we show the
+  // billing warning.
+  EXPECT_CALL(*ui_manager_.get(),
+              DisplayBlockingPage(HasThreatTypeAndSubtype(resource)))
+      .Times(1);
+
+  PhishingDetectionDone(/*is_phishing=*/false, /*client_score=*/0.8f,
+                        ClientSideDetectionType::KEYBOARD_LOCK_REQUESTED,
+                        /*did_match_high_confidence_allowlist=*/false);
+
+  VerifyExpectedCalls();
+  VerifyGeneralScamDetectionHistograms(
+      /*expected_request_type=*/ClientSideDetectionType::
+          KEYBOARD_LOCK_REQUESTED,
+      /*is_intelligent_scan_available=*/true,
+      /*model_has_successful_response=*/true,
+      /*intelligent_scan_verdict=*/
+      IntelligentScanVerdict::SCAM_EXPERIMENT_VERDICT_BILLING);
+}
+
+TEST_F(ClientSideDetectionHostScamDetectionTest,
+       BillingScamExperimentVerdictWithPhishingShowsPhishingWarning) {
+  SetFeatures({}, {});
+  SetIntelligentScanCallback(/*should_return_response=*/true);
+  SetSendClientReportPhishingRequestCallback(
+      /*has_expected_brand_and_intent=*/true,
+      /*expected_no_info_reason=*/std::nullopt,
+      /*expected_llama_forced_trigger_info_trigger_url=*/std::nullopt,
+      /*returned_is_phishing=*/true,
+      /*returned_intelligent_scan_verdict=*/
+      IntelligentScanVerdict::SCAM_EXPERIMENT_VERDICT_BILLING);
+  EXPECT_CALL(*intelligent_scan_delegate_,
+              ShouldShowScamWarning(std::optional<IntelligentScanVerdict>(
+                  IntelligentScanVerdict::SCAM_EXPERIMENT_VERDICT_BILLING)))
+      .WillOnce(Return(true));
+
+  UnsafeResource resource;
+  resource.threat_type = SBThreatType::SB_THREAT_TYPE_URL_CLIENT_SIDE_PHISHING;
+  resource.threat_subtype = ThreatSubtype::SCAM_EXPERIMENT_VERDICT_BILLING;
+  // The phishing warning takes precedence over the billing warning, but the
+  // billing subtype is kept for metrics.
+  EXPECT_CALL(*ui_manager_.get(),
+              DisplayBlockingPage(HasThreatTypeAndSubtype(resource)))
+      .Times(1);
+
+  PhishingDetectionDone(/*is_phishing=*/false, /*client_score=*/0.8f,
+                        ClientSideDetectionType::KEYBOARD_LOCK_REQUESTED,
+                        /*did_match_high_confidence_allowlist=*/false);
+
+  VerifyExpectedCalls();
 }
 
 TEST_F(ClientSideDetectionHostScamDetectionTest,

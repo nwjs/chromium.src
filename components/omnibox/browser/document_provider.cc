@@ -11,12 +11,12 @@
 #include <memory>
 #include <numeric>
 #include <optional>
+#include <ranges>
 #include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
 
-#include "base/containers/adapters.h"
 #include "base/containers/fixed_flat_map.h"
 #include "base/containers/fixed_flat_set.h"
 #include "base/containers/lru_cache.h"
@@ -235,7 +235,7 @@ bool IsCompletelyMatchedInTitleOrOwner(const std::u16string& input,
 
 // Derived from google3/apps/share/util/docs_url_extractor.cc.
 std::string ExtractDocIdFromUrl(const std::string& url) {
-  static const base::NoDestructor<RE2> docs_url_pattern(
+  static constexpr re2::LazyRE2 docs_url_pattern = {
       "\\b("  // The first groups matches the whole URL.
       // Domain.
       "(?:https?://)?(?:"
@@ -270,7 +270,7 @@ std::string ExtractDocIdFromUrl(const std::string& url) {
       // Other valid chars.
       "(?:[0-9a-zA-Z$\\-\\_\\.\\+\\!\\*\'\\,;:@&=/\\?]*)"
       "(?:(#[0-9a-zA-Z$\\-\\_\\.\\+\\!\\*\'\\,;:@&=/\\?]+)?)"  // Fragment
-      ")");
+      ")"};
 
   std::vector<std::string_view> matched_doc_ids(
       docs_url_pattern->NumberOfCapturingGroups() + 1);
@@ -649,8 +649,9 @@ bool DocumentProvider::UpdateResults(const std::string& json_data) {
   CopyCachedMatchesToMatches();
   // 5) Push the new matches to the cache. Keep their scores so that later
   // inputs continue showing them until the new doc response returns.
-  for (const AutocompleteMatch& match : base::Reversed(matches_))
+  for (const AutocompleteMatch& match : std::views::reverse(matches_)) {
     matches_cache_.Put(match.stripped_destination_url, match);
+  }
 
   return !matches_.empty();
 }

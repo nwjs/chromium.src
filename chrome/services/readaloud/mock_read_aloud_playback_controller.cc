@@ -9,6 +9,7 @@
 #include <utility>
 
 #include "base/strings/string_util.h"
+#include "chrome/services/readaloud/overview_response_parser.h"
 
 namespace readaloud {
 
@@ -22,10 +23,15 @@ MockReadAloudPlaybackController::MockReadAloudPlaybackController(
   ON_CALL(*this, SetTextContent)
       .WillByDefault(::testing::Invoke(
           this, &MockReadAloudPlaybackController::DefaultSetTextContent));
-  ON_CALL(*this, Play).WillByDefault(::testing::Invoke(
-      this, &MockReadAloudPlaybackController::DefaultPlay));
-  ON_CALL(*this, Pause).WillByDefault(::testing::Invoke(
-      this, &MockReadAloudPlaybackController::DefaultPause));
+  ON_CALL(*this, SetOverviewContent)
+      .WillByDefault(::testing::Invoke(
+          this, &MockReadAloudPlaybackController::DefaultSetOverviewContent));
+  ON_CALL(*this, Play)
+      .WillByDefault(::testing::Invoke(
+          this, &MockReadAloudPlaybackController::DefaultPlay));
+  ON_CALL(*this, Pause)
+      .WillByDefault(::testing::Invoke(
+          this, &MockReadAloudPlaybackController::DefaultPause));
   ON_CALL(*this, SeekToWord)
       .WillByDefault(::testing::Invoke(
           this, &MockReadAloudPlaybackController::DefaultSeekToWord));
@@ -49,7 +55,8 @@ void MockReadAloudPlaybackController::InitializeClient(
 
   if (client_.is_connected()) {
     client_->OnPlaybackStateChanged(state_);
-    client_->OnPlaybackDurationChanged(CalculateTotalDuration());
+    client_->OnPlaybackProgressChanged(base::TimeDelta(),
+                                       CalculateTotalDuration());
   }
 }
 
@@ -93,8 +100,22 @@ void MockReadAloudPlaybackController::DefaultSetTextContent(
   }
 
   if (client_.is_connected()) {
-    client_->OnPlaybackDurationChanged(CalculateTotalDuration());
+    client_->OnPlaybackProgressChanged(base::TimeDelta(),
+                                       CalculateTotalDuration());
   }
+}
+
+void MockReadAloudPlaybackController::DefaultSetOverviewContent(
+    mojo_base::BigBuffer response_bytes,
+    SetOverviewContentCallback callback) {
+  ParsedOverviewResult result =
+      ParseAndValidateOverviewResponse(std::move(response_bytes));
+  if (result.status != OverviewParseStatus::kOk) {
+    std::move(callback).Run(/*success=*/false, /*title=*/std::string());
+    return;
+  }
+  DefaultSetTextContent(std::move(result.segments));
+  std::move(callback).Run(/*success=*/true, std::move(result.title));
 }
 
 void MockReadAloudPlaybackController::DefaultPlay() {
@@ -223,7 +244,8 @@ void MockReadAloudPlaybackController::StartTimer() {
 
 void MockReadAloudPlaybackController::OnTimerFired() {
   if (current_boundary_index_ >= word_boundaries_.size()) {
-    Pause();
+    timer_.Stop();
+    UpdatePlaybackState(read_aloud::mojom::PlaybackState::kEndOfStream);
     return;
   }
   TriggerWordBoundary();
@@ -239,6 +261,8 @@ void MockReadAloudPlaybackController::TriggerWordBoundary() {
   client_->OnWordBoundaryReached(boundary.segment_index,
                                  boundary.character_offset,
                                  boundary.audio_timestamp);
+  client_->OnPlaybackProgressChanged(boundary.audio_timestamp,
+                                     CalculateTotalDuration());
 }
 
 void MockReadAloudPlaybackController::UpdatePlaybackState(

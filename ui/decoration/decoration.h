@@ -10,12 +10,15 @@
 #include <string>
 #include <string_view>
 
+#include "base/component_export.h"
 #include "base/memory/raw_ptr.h"
 #include "base/time/time.h"
+#include "third_party/skia/include/core/SkColor.h"
 #include "ui/compositor/layer_animation_observer.h"
 #include "ui/compositor/layer_nine_patch.h"
 #include "ui/compositor/layer_owner.h"
 #include "ui/decoration/decoration_source.h"
+#include "ui/decoration/shadow.h"
 #include "ui/gfx/geometry/insets.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/geometry/rounded_corners_f.h"
@@ -29,8 +32,9 @@ namespace ui {
 // Decoration is the only implementation of the nine-patch layer plumbing; what
 // the decoration actually looks like is entirely delegated to the
 // decoration::DecorationSource.
-class Decoration final : public ui::ImplicitAnimationObserver,
-                         public ui::LayerOwner {
+class COMPONENT_EXPORT(UI_DECORATION) Decoration final
+    : public ui::ImplicitAnimationObserver,
+      public ui::LayerOwner {
  public:
   // Creates an initialized decoration drawn by `source`.
   //
@@ -41,6 +45,22 @@ class Decoration final : public ui::ImplicitAnimationObserver,
   static std::unique_ptr<Decoration> Create(
       std::unique_ptr<decoration::DecorationSource> source,
       std::string_view debug_name = {});
+
+  // Creates an initialized decoration that draws a drop shadow with the given
+  // `elevation`, `style` and `color_map`.
+  static std::unique_ptr<Decoration> CreateShadow(
+      int elevation,
+      ui::decoration::Shadow::Style style =
+          ui::decoration::Shadow::Style::kMaterialDesign,
+      ui::decoration::Shadow::ElevationToColorsMap color_map = {});
+
+  // Creates an initialized decoration that frames its content with a 1px
+  // highlight border: an outer `border_color` ring hugging the content from the
+  // outside and an inner `highlight_color` ring just inside the content edge.
+  // See decoration::HighlightBorder.
+  static std::unique_ptr<Decoration> CreateHighlightBorder(
+      SkColor highlight_color,
+      SkColor border_color);
 
   explicit Decoration(std::unique_ptr<decoration::DecorationSource> source,
                       std::string_view debug_name = {});
@@ -144,6 +164,10 @@ class Decoration final : public ui::ImplicitAnimationObserver,
   // one. When non-null, this owns an old |decoration_layer()| that's being
   // animated out.
   ui::LayerOwner fading_layer_owner_;
+
+  // The appearance drawn by `fading_layer()`, used to keep it framing the
+  // content while it fades out.
+  std::optional<decoration::DecorationSource::Appearance> fading_appearance_;
 
   // The layer bounds since content bounds were last set.
   gfx::Rect last_layer_bounds_;

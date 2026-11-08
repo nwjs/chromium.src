@@ -148,14 +148,14 @@ gfx::RectF Font::TextInkBounds(const TextFragmentPaintInfo& text_info) const {
 
 namespace {  // anonymous namespace
 
-unsigned InterceptsFromBlobs(const ShapeResultBloberizer::BlobBuffer& blobs,
-                             const SkPaint& paint,
-                             const std::tuple<float, float>& bounds,
-                             base::span<SkScalar> intercepts_buffer) {
+wtf_size_t InterceptsFromBlobs(const ShapeResultBloberizer::BlobBuffer& blobs,
+                               const SkPaint& paint,
+                               const std::tuple<float, float>& bounds,
+                               base::span<SkScalar> intercepts_buffer) {
   std::array<SkScalar, 2> bounds_array = {std::get<0>(bounds),
                                           std::get<1>(bounds)};
 
-  unsigned num_intervals = 0;
+  wtf_size_t num_intervals = 0;
   for (const auto& blob_info : blobs) {
     DCHECK(blob_info.blob);
 
@@ -186,7 +186,7 @@ void GetTextInterceptsInternal(const ShapeResultBloberizer::BlobBuffer& blobs,
   // specifying nullptr for the buffer, following the Skia allocation model for
   // retrieving text intercepts.
   SkPaint paint = flags.ToSkPaint();
-  unsigned num_intervals = InterceptsFromBlobs(blobs, paint, bounds, {});
+  wtf_size_t num_intervals = InterceptsFromBlobs(blobs, paint, bounds, {});
   if (!num_intervals)
     return;
   DCHECK_EQ(num_intervals % 2, 0u);
@@ -195,7 +195,7 @@ void GetTextInterceptsInternal(const ShapeResultBloberizer::BlobBuffer& blobs,
   InterceptsFromBlobs(blobs, paint, bounds, scalar_buffer);
 
   intercepts.resize(num_intervals / 2u);
-  for (unsigned i = 0; i < num_intervals / 2; ++i) {
+  for (wtf_size_t i = 0; i < num_intervals / 2; ++i) {
     intercepts[i] = {scalar_buffer[i * 2], scalar_buffer[i * 2 + 1]};
   }
 }
@@ -234,13 +234,14 @@ bool Font::CanShapeWordByWord() const {
 }
 
 void Font::ReportNotDefGlyph() const {
-  FontSelector* fontSelector = EnsureFontFallbackList()->GetFontSelector();
+  FontSelector* font_selector = EnsureFontFallbackList()->GetFontSelector();
   // We have a few non-DOM usages of Font code, for example in DragImage::Create
   // and in EmbeddedObjectPainter::paintReplaced. In those cases, we can't
   // retrieve a font selector as our connection to a Document object to report
   // UseCounter metrics, and thus we cannot report notdef glyphs.
-  if (fontSelector)
-    fontSelector->ReportNotDefGlyph();
+  if (font_selector) {
+    font_selector->ReportNotDefGlyph();
+  }
 }
 
 void Font::WillUseFontData(const String& text) const {

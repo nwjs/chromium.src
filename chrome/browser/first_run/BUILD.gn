@@ -8,6 +8,7 @@ source_set("first_run") {
 
   public_deps = [
     "//base",
+    "//build:branding_buildflags",
     "//chrome/installer/util:with_no_strings",
     "//extensions/buildflags",
   ]
@@ -40,12 +41,11 @@ source_set("first_run") {
 source_set("impl") {
   sources = []
 
-  public_deps = [
-    ":first_run",
-    "//chrome/browser:browser_public_dependencies",
-  ]
+  public_deps = [ ":first_run" ]
 
   deps = [
+    "//chrome/browser:browser_features",
+    "//chrome/browser:shell_integration",
     "//chrome/browser/bookmarks",
     "//chrome/browser/favicon",
     "//chrome/browser/google",
@@ -206,5 +206,8 @@ source_set("browser_tests") {
 
   if (is_linux || is_mac) {
     sources += [ "first_run_internal_posix_browsertest.cc" ]
+  }
+  if (!is_android) {
+    deps += [ "//chrome/browser/importer" ]
   }
 }

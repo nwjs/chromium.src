@@ -23,8 +23,6 @@ source_set("extensions_zero_state_promo") {
     "zero_state_promo_ui.h",
   ]
 
-  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
-
   deps = [
     ":mojo_bindings",
     "//base",
@@ -72,7 +70,6 @@ source_set("interactive_ui_tests") {
     ":extensions_zero_state_promo",
     ":mojo_bindings",
     "//base/test:test_support",
-    "//chrome/browser/ui",
     "//chrome/browser/ui/views/extensions:extensions_toolbar_desktop",
     "//chrome/browser/ui/views/user_education:impl",
     "//chrome/common",

@@ -320,7 +320,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Prefetch.PrefetchContainer.InitialEligibilityToPrefetchStarted.{TriggerTypeAndEagerness}"
-    units="ms" expires_after="2027-01-31">
+    units="ms" expires_after="2027-04-04">
   <owner>taiyo@chromium.org</owner>
   <owner>kenoss@chromium.org</owner>
   <owner>chrome-loading@chromium.org</owner>
@@ -354,6 +354,20 @@ chromium-metrics-reviews@google.com.
     This histogram is only recorded for prefetches of {TriggerTypeAndEagerness}.
   </summary>
   <token key="TriggerTypeAndEagerness" variants="TriggerTypeAndEagerness"/>
+</histogram>
+
+<histogram name="Prefetch.PrefetchContainer.IsServed.BurstQueryParam"
+    enum="Boolean" expires_after="2027-02-07">
+  <owner>kenoss@chromium.org</owner>
+  <owner>chrome-loading@chromium.org</owner>
+  <summary>
+    Records whether a prefetch with a matching burst query parameter (e.g.,
+    pf=op) was served to a navigation.
+
+    Recorded on `PrefetchContainer::dtor()` for all prefetch containers whose
+    URL matches the configured query parameter when
+    `kPrefetchSchedulerBurstQueryParam` is enabled.
+  </summary>
 </histogram>
 
 <histogram
@@ -448,7 +462,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Prefetch.PrefetchContainer.PrefetchStartedToPrefetchCompletedSuccessfully.{TriggerTypeAndEagerness}"
-    units="ms" expires_after="2027-01-31">
+    units="ms" expires_after="2027-04-04">
   <owner>taiyo@chromium.org</owner>
   <owner>kenoss@chromium.org</owner>
   <owner>chrome-loading@chromium.org</owner>
@@ -468,7 +482,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Prefetch.PrefetchContainer.PrefetchStartedToURLRequestStarted.{TriggerTypeAndEagerness}"
-    units="ms" expires_after="2027-01-31">
+    units="ms" expires_after="2027-04-04">
   <owner>taiyo@chromium.org</owner>
   <owner>kenoss@chromium.org</owner>
   <owner>chrome-loading@chromium.org</owner>
@@ -801,7 +815,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="PrefetchProxy.AfterClick.RedirectChainSize" units="count"
-    expires_after="2027-01-24">
+    expires_after="2027-03-28">
   <owner>kouhei@chromium.org</owner>
   <owner>kenoss@chromium.org</owner>
   <owner>chrome-loading@chromium.org</owner>
@@ -981,7 +995,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="PrefetchProxy.Prefetch.Mainframe.NetError"
-    enum="NetErrorCodes" expires_after="2027-01-24">
+    enum="NetErrorCodes" expires_after="2027-03-28">
   <owner>kouhei@chromium.org</owner>
   <owner>chrome-loading@chromium.org</owner>
   <summary>

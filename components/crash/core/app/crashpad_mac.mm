@@ -17,12 +17,15 @@
 #include "base/apple/bridging.h"
 #include "base/apple/bundle_locations.h"
 #include "base/apple/foundation_util.h"
+#include "base/apple/scoped_mach_port.h"
 #include "base/check.h"
 #include "base/files/file_path.h"
+#include "base/no_destructor.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/sys_string_conversions.h"
 #include "build/branding_buildflags.h"
 #include "components/crash/core/app/crash_reporter_client.h"
+#include "components/crash/core/app/shared_memory_user_stream_mach_port.h"
 #include "third_party/crashpad/crashpad/client/crash_report_database.h"
 #include "third_party/crashpad/crashpad/client/crashpad_client.h"
 #include "third_party/crashpad/crashpad/client/crashpad_info.h"
@@ -36,7 +39,7 @@ namespace crash_reporter {
 namespace {
 
 std::map<std::string, std::string> GetProcessSimpleAnnotations() {
-  static std::map<std::string, std::string> annotations = []() -> auto {
+  auto build_annotations = []() {
     std::map<std::string, std::string> process_annotations;
     @autoreleasepool {
       NSBundle* outer_bundle = base::apple::OuterBundle();
@@ -91,8 +94,10 @@ std::map<std::string, std::string> GetProcessSimpleAnnotations() {
       process_annotations.insert_or_assign(key, std::move(value));
     }
     return process_annotations;
-  }();
-  return annotations;
+  };
+  static const base::NoDestructor<std::map<std::string, std::string>>
+      annotations(build_annotations());
+  return *annotations;
 }
 
 }  // namespace
@@ -197,10 +202,16 @@ bool PlatformCrashpadInitialization(
             "--reset-own-crash-exception-port-to-system-default");
       }
 
-      
+      base::apple::ScopedMachReceiveRight embedder_port;
+      if (browser_process) {
+        embedder_port = SendSharedMemoryUserStreamsToPort(
+            crash_reporter_client->GetUserStreamSharedMemoryRegions());
+      }
+
       bool result = GetCrashpadClient().StartHandler(
           handler_path, *database_path, metrics_path, url,
-          process_annotations, arguments, true, false);
+          process_annotations, arguments, true, false, {}, {},
+          std::move(embedder_port));
 
       // If this is an initial client that's not the browser process, it's
       // important to sever the connection to any existing handler. If

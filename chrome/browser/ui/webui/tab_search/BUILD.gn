@@ -34,10 +34,7 @@ source_set("tab_search") {
     "tab_search_sync_handler.h",
     "tab_search_ui.h",
   ]
-  public_deps = [
-    "//chrome/browser:browser_public_dependencies",
-    "//chrome/browser/ui:browser_live_tab_context",
-  ]
+  public_deps = [ "//chrome/browser/ui:browser_live_tab_context" ]
   deps = [
     ":mojo_bindings",
     "//base",
@@ -109,14 +106,15 @@ source_set("browser_tests") {
   deps = [
     ":tab_search",
     "//chrome/browser/tab_group_sync:factories",
-    "//chrome/browser/ui",
     "//chrome/browser/ui:browser_commands",
+    "//chrome/browser/ui:browser_tabstrip",
     "//chrome/browser/ui:recently_audible_helper",
     "//chrome/browser/ui:tab_ui_helper",
     "//chrome/browser/ui/browser_ui_controller",
     "//chrome/browser/ui/tabs/saved_tab_groups:test_support",
     "//chrome/browser/ui/webui:webui_util",
     "//chrome/browser/ui/webui/metrics_reporter:test_support",
+    "//chrome/browser/ui/webui/util",
     "//chrome/browser/vr",
     "//chrome/test:test_support",
     "//chrome/test:test_support_ui",

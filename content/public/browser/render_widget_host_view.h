@@ -144,6 +144,9 @@ class CONTENT_EXPORT RenderWidgetHostView {
   virtual void Focus() = 0;
   // Returns true if the View currently has the focus.
   virtual bool HasFocus() = 0;
+  // Overrides the return value of HasFocus() for testing. Passing
+  // `std::nullopt` clears the override.
+  virtual void SetHasFocusForTesting(std::optional<bool> has_focus) {}
 
   // Whether the view is showing.
   virtual bool IsShowing() = 0;
@@ -252,6 +255,16 @@ class CONTENT_EXPORT RenderWidgetHostView {
       base::TimeDelta timeout,
       base::OnceCallback<void(const CopyFromSurfaceResult&)> callback) = 0;
 
+  // Similar to `CopyFromSurface()`, but marks the copy request as secure.
+  // A capture is considered secure if the captured content is not easily
+  // accessible to JavaScript or users, and cannot be trivially shared or
+  // streamed out of the device. Used for capture prevention, e.g. for protected
+  // content or by enterprise policy.
+  virtual void CopyFromSurfaceSecure(
+      const gfx::Rect& src_rect,
+      const gfx::Size& output_size,
+      base::TimeDelta timeout,
+      base::OnceCallback<void(const CopyFromSurfaceResult&)> callback) = 0;
 
   // Creates a video capturer, which will allow the caller to receive a stream
   // of media::VideoFrames captured from this view. The capturer is configured

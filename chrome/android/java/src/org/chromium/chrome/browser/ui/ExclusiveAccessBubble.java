@@ -4,13 +4,18 @@
 
 package org.chromium.chrome.browser.ui;
 
+import android.app.Activity;
+
 import org.jni_zero.CalledByNative;
 import org.jni_zero.JniType;
 
+import org.chromium.base.DeviceInfo;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
+import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ui.messages.snackbar.Snackbar;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
+import org.chromium.ui.UiUtils;
 import org.chromium.ui.base.DeviceInput;
 
 /**
@@ -44,9 +49,13 @@ public class ExclusiveAccessBubble {
 
     @CalledByNative
     public void show() {
-        if (mText == null || mSnackbar != null) return;
+        if (mText == null || mSnackbar != null) {
+            return;
+        }
         SnackbarManager snackbarManager = mParentContext.getSnackbarManager();
-        if (snackbarManager == null) return;
+        if (snackbarManager == null || !snackbarManager.canShowSnackbar()) {
+            return;
+        }
 
         mSnackbar =
                 Snackbar.make(
@@ -68,17 +77,25 @@ public class ExclusiveAccessBubble {
 
     @CalledByNative
     public void update(@JniType("std::u16string") String text) {
-        if (mText != null && mText.equals(text) && mSnackbar != null) return;
+        SnackbarManager snackbarManager = mParentContext.getSnackbarManager();
+        if (snackbarManager == null || !snackbarManager.canShowSnackbar()) {
+            mText = text;
+            hide();
+            return;
+        }
+
+        // Avoid re-triggering the view or resetting the display timer if the text has not changed.
+        if (mText != null && mText.equals(text) && mSnackbar != null) {
+            return;
+        }
         mText = text;
 
-        SnackbarManager snackbarManager = mParentContext.getSnackbarManager();
-        if (snackbarManager != null && mSnackbar != null) {
+        if (mSnackbar != null) {
             mSnackbar.setText(text);
             // This will trigger SnackbarManager.updateView() and update the existing view.
             snackbarManager.showSnackbar(mSnackbar);
             return;
         }
-        hide();
         show();
     }
 
@@ -99,5 +116,32 @@ public class ExclusiveAccessBubble {
     @CalledByNative
     public boolean isKeyboardConnected() {
         return DeviceInput.supportsAlphabeticKeyboard();
+    }
+
+    @CalledByNative
+    public @JniType("std::optional<std::u16string>") @Nullable String
+            getCustomFullscreenExitInstruction(
+                    @JniType("std::optional<std::u16string>") @Nullable String origin) {
+        Activity activity = mParentContext.getActivity();
+        if (activity == null) return null;
+        if (DeviceInfo.isAutomotive()) {
+            return origin != null
+                    ? activity.getString(
+                            R.string
+                                    .immersive_fullscreen_automotive_toolbar_improvements_with_origin,
+                            origin)
+                    : activity.getString(
+                            R.string.immersive_fullscreen_automotive_toolbar_improvements);
+        }
+        if (activity.getWindow() != null && UiUtils.isGestureNavigationMode(activity.getWindow())) {
+            return origin != null
+                    ? activity.getString(
+                            R.string
+                                    .immersive_fullscreen_gesture_navigation_mode_api_notification_with_origin,
+                            origin)
+                    : activity.getString(
+                            R.string.immersive_fullscreen_gesture_navigation_mode_api_notification);
+        }
+        return null;
     }
 }

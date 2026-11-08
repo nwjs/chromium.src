@@ -121,9 +121,11 @@ void SessionRestoreInfoBarManager::OnInfoBarResult(
           RecordSettingChanged(false, message_type_);
         }
       }
+      CloseAllInfoBars();
       break;
     case infobars::InfoBarResult::kAccepted:
     case infobars::InfoBarResult::kCancelled:
+    case infobars::InfoBarResult::kExtraButtonPressed:
       break;
   }
 }

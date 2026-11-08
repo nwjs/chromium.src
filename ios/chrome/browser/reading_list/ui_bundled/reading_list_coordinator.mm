@@ -35,8 +35,8 @@
 #import "ios/chrome/browser/favicon/model/ios_chrome_large_icon_service_factory.h"
 #import "ios/chrome/browser/feature_engagement/model/tracker_factory.h"
 #import "ios/chrome/browser/incognito_reauth/ui_bundled/incognito_reauth_scene_agent.h"
+#import "ios/chrome/browser/menu/public/menu_histograms.h"
 #import "ios/chrome/browser/menu/ui_bundled/browser_action_factory.h"
-#import "ios/chrome/browser/menu/ui_bundled/menu_histograms.h"
 #import "ios/chrome/browser/metrics/model/new_tab_page_uma.h"
 #import "ios/chrome/browser/net/model/crurl.h"
 #import "ios/chrome/browser/policy/model/policy_util.h"
@@ -67,6 +67,7 @@
 #import "ios/chrome/browser/shared/ui/util/pasteboard_util.h"
 #import "ios/chrome/browser/sharing/ui_bundled/sharing_coordinator.h"
 #import "ios/chrome/browser/sharing/ui_bundled/sharing_params.h"
+#import "ios/chrome/browser/signin/model/account_preview_data_service_factory.h"
 #import "ios/chrome/browser/signin/model/authentication_service.h"
 #import "ios/chrome/browser/signin/model/authentication_service_factory.h"
 #import "ios/chrome/browser/signin/model/authentication_service_observer_bridge.h"
@@ -220,6 +221,8 @@
                   accountManagerService:accountManagerService
                             authService:_authService
                             prefService:_prefService
+              accountPreviewDataService:AccountPreviewDataServiceFactory::
+                                            GetForProfile(profile)
                             syncService:_syncService
                             accessPoint:signin_metrics::AccessPoint::
                                             kReadingList
@@ -537,9 +540,11 @@
   [_signinCoordinator stop];
   __weak __typeof(self) weakSelf = self;
   [command addSigninCompletion:^(SigninCoordinator* coordinator,
-                                 SigninCoordinatorResult result,
-                                 id<SystemIdentity>) {
-    [weakSelf signinDidCompleteWithCoordinator:coordinator result:result];
+                                 SigninCoordinatorResultOrIdentity result) {
+    SigninCoordinatorResult signinResult =
+        signin::SigninCoordinatorResultFromSigninCoordinatorResultOrIdentity(
+            result);
+    [weakSelf signinDidCompleteWithCoordinator:coordinator result:signinResult];
   }];
   _signinCoordinator = [SigninCoordinator
       signinCoordinatorWithCommand:command
@@ -552,7 +557,7 @@
 
 - (void)signinDidCompleteWithCoordinator:(SigninCoordinator*)coordinator
                                   result:(SigninCoordinatorResult)result {
-  CHECK_EQ(_signinCoordinator, coordinator, base::NotFatalUntil::M151);
+  CHECK_EQ(_signinCoordinator, coordinator);
   [_signinPromoViewMediator signinDidCompleteWithResult:result];
   [self updateSignInPromoVisibility];
   [self stopSigninCoordinator];
@@ -687,11 +692,9 @@
                                 promoDelegate:_signinPromoViewMediator
                                     promoText:[self promoTextForPromoAction]];
   if (shouldShowSignInPromo) {
-    [_signinPromoViewMediator signingPromoDidBecomeVisible];
+    [_signinPromoViewMediator signinPromoDidBecomeVisible];
   } else {
-    if (_signinPromoViewMediator.isUsable) {
-      [_signinPromoViewMediator signinPromoViewIsHidden];
-    }
+    [_signinPromoViewMediator signinPromoViewIsHidden];
   }
 }
 

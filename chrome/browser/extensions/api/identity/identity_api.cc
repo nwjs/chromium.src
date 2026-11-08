@@ -80,7 +80,7 @@ IdentityTokenCache& IdentityAPI::token_cache() {
 
 void IdentityAPI::SetGaiaIdForExtension(const std::string& extension_id,
                                         const GaiaId& gaia_id) {
-  DCHECK(!gaia_id.empty());
+  CHECK(!gaia_id.empty(), base::NotFatalUntil::M161);
   extension_prefs_->UpdateExtensionPref(extension_id, kIdentityGaiaIdPref,
                                         base::Value(gaia_id.ToString()));
 }
@@ -251,6 +251,7 @@ void IdentityAPI::OnPrimaryAccountChanged(
       }
       break;
     case signin::PrimaryAccountChangeEvent::Type::kCleared:
+      token_cache_.EraseAllTokens();
       EraseStaleGaiaIdsForAllExtensions();
       base::flat_set<GaiaId> tracked_accounts;
       std::swap(tracked_accounts, accounts_known_to_extensions_);
@@ -277,9 +278,19 @@ void IdentityAPI::OnRefreshTokenUpdatedForAccount(
   FireOnAccountSignInChanged(account_info.gaia, true);
 }
 
+void IdentityAPI::OnErrorStateOfRefreshTokenUpdatedForAccount(
+    const CoreAccountInfo& account_info,
+    const GoogleServiceAuthError& error,
+    signin_metrics::SourceForRefreshTokenOperation /*token_operation_source*/) {
+  if (error.IsPersistentError()) {
+    token_cache_.EraseAllTokensForAccount(account_info.account_id);
+  }
+}
+
 void IdentityAPI::OnExtendedAccountInfoRemoved(
     const AccountInfo& account_info) {
-  DCHECK(!account_info.GetGaiaId().empty());
+  CHECK(!account_info.GetGaiaId().empty(), base::NotFatalUntil::M161);
+  token_cache_.EraseAllTokensForAccount(account_info.GetAccountId());
   EraseStaleGaiaIdsForAllExtensions();
 
   auto it = accounts_known_to_extensions_.find(account_info.GetGaiaId());

@@ -28,8 +28,9 @@
 
 #include "third_party/blink/renderer/core/page/spatial_navigation.h"
 
+#include <ranges>
+
 #include "base/compiler_specific.h"
-#include "base/containers/adapters.h"
 #include "third_party/blink/public/mojom/scroll/scrollbar_mode.mojom-blink.h"
 #include "third_party/blink/renderer/core/dom/node_traversal.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
@@ -274,7 +275,7 @@ bool IsUnobscured(const FocusCandidate& candidate) {
                         HitTestRequest::kAllowChildFrameContent);
 
   const HitTestResult::NodeSet& nodes = result.ListBasedTestResult();
-  for (const auto& hit_node : base::Reversed(nodes)) {
+  for (const auto& hit_node : std::views::reverse(nodes)) {
     if (candidate.visible_node->ContainsIncludingHostElements(*hit_node))
       return true;
 
@@ -407,7 +408,7 @@ bool CanScrollInDirection(const Node* container,
     return false;
 
   DCHECK(container->GetLayoutObject());
-  const ComputedStyle& style = container->GetLayoutObject()->StyleRef();
+  const ComputedStyle& style = container->GetLayoutObject()->Style();
   switch (direction) {
     case SpatialNavigationDirection::kLeft:
       return (style.OverflowX() != EOverflow::kHidden &&
@@ -480,10 +481,10 @@ PhysicalRect NodeRectInRootFrame(const Node* node) {
   // Inset the bounding box by the border.
   // TODO(bokan): As far as I can tell, this is to work around empty iframes
   // that have a border. It's unclear if that's still useful.
-  rect.ContractEdges(LayoutUnit(object->StyleRef().BorderTopWidth()),
-                     LayoutUnit(object->StyleRef().BorderRightWidth()),
-                     LayoutUnit(object->StyleRef().BorderBottomWidth()),
-                     LayoutUnit(object->StyleRef().BorderLeftWidth()));
+  rect.ContractEdges(LayoutUnit(object->Style().BorderTopWidth()),
+                     LayoutUnit(object->Style().BorderRightWidth()),
+                     LayoutUnit(object->Style().BorderBottomWidth()),
+                     LayoutUnit(object->Style().BorderLeftWidth()));
 
   object->MapToVisualRectInAncestorSpace(/*ancestor=*/nullptr, rect);
   return rect;
@@ -837,7 +838,7 @@ PhysicalRect ShrinkInlineBoxToLineBox(const LayoutObject& layout_object,
   // anything. This is, for example, needed to not break
   // snav-stay-in-overflow-div.html where the link's inline box doesn't fill
   // the entire line box vertically.
-  LayoutUnit line_height = layout_object.StyleRef().ComputedLineHeightAsFixed();
+  LayoutUnit line_height = layout_object.Style().ComputedLineHeightAsFixed();
   LayoutUnit current_height = GetLogicalHeight(node_rect, layout_object);
   if (line_height >= current_height)
     return node_rect;

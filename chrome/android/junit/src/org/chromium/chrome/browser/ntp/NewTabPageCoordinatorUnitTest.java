@@ -45,6 +45,7 @@ import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.robolectric.Robolectric;
 import org.robolectric.annotation.Config;
+import org.robolectric.shadows.ShadowLooper;
 
 import org.chromium.base.DeviceInfo;
 import org.chromium.base.FakeTimeTestRule;
@@ -82,6 +83,8 @@ import org.chromium.chrome.browser.ntp_customization.NtpCustomizationCoordinator
 import org.chromium.chrome.browser.ntp_customization.NtpCustomizationCoordinatorFactory;
 import org.chromium.chrome.browser.ntp_customization.NtpCustomizationUtils;
 import org.chromium.chrome.browser.omnibox.SearchEngineService;
+import org.chromium.chrome.browser.omnibox.fusebox.ComposeboxQueryControllerBridge;
+import org.chromium.chrome.browser.omnibox.fusebox.ComposeboxQueryControllerBridgeJni;
 import org.chromium.chrome.browser.omnibox.status.StatusProperties.StatusIconResource;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactory;
@@ -101,6 +104,11 @@ import org.chromium.chrome.browser.tabmodel.TabRemover;
 import org.chromium.chrome.browser.tasks.HomeSurfaceTracker;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.chrome.browser.ui.native_page.TouchEnabledDelegate;
+import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.SideUiSpecs;
+import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.UiUpdateRequest;
+import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.UiUpdateRequest.UpdateReason;
+import org.chromium.chrome.browser.ui.side_ui.SideUiObserver;
+import org.chromium.chrome.browser.ui.side_ui.SideUiStateProvider;
 import org.chromium.chrome.test.util.browser.offlinepages.FakeOfflinePageBridge;
 import org.chromium.chrome.test.util.browser.suggestions.SuggestionsDependenciesRule;
 import org.chromium.chrome.test.util.browser.suggestions.mostvisited.FakeMostVisitedSites;
@@ -110,8 +118,9 @@ import org.chromium.components.browser_ui.widget.displaystyle.HorizontalDisplayS
 import org.chromium.components.browser_ui.widget.displaystyle.UiConfig;
 import org.chromium.components.browser_ui.widget.displaystyle.VerticalDisplayStyle;
 import org.chromium.components.omnibox.AutocompleteRequestType;
-import org.chromium.components.omnibox.OmniboxCapabilities;
 import org.chromium.components.omnibox.OmniboxFeatureList;
+import org.chromium.components.omnibox.OmniboxFocusReason;
+import org.chromium.components.omnibox.ToolModeProtoIntDef.ToolMode;
 import org.chromium.components.search_engines.AiModeButtonUiConfig;
 import org.chromium.components.search_engines.TemplateUrlService;
 import org.chromium.components.signin.SigninFeatures;
@@ -144,6 +153,7 @@ public class NewTabPageCoordinatorUnitTest {
     @Rule public FakeTimeTestRule mFakeTimeTestRule = new FakeTimeTestRule();
 
     @Mock private ComposeplateUtils.Natives mMockComposeplateUtilsJni;
+    @Mock private ComposeboxQueryControllerBridge.Natives mMockComposeboxQueryControllerBridgeJni;
     @Mock private HomeModulesRankingHelper.Natives mHomeModulesRankingHelperJniMock;
     @Mock private NewTabPageManager mManager;
     @Mock private Tab mTab;
@@ -175,16 +185,20 @@ public class NewTabPageCoordinatorUnitTest {
     @Mock private LogoCoordinator mMockLogo;
     @Mock private MostVisitedTilesCoordinator mMockTiles;
     @Mock private ComposeplateCoordinator mMockComposeplate;
-    @Mock private View mMockSearchBoxView;
     @Mock private BrowserControlsVisibilityManager mBrowserControlsVisibilityManager;
-    @Mock private RecyclerView mRecyclerView;
+    @Mock private SideUiStateProvider mSideUiStateProvider;
     @Captor private ArgumentCaptor<DisplayStyleObserver> mDisplayStyleObserverCaptor;
+    @Captor private ArgumentCaptor<SideUiObserver> mSideUiObserverCaptor;
 
     private Activity mActivity;
+    private View mSearchBoxView;
+    private RecyclerView mRecyclerView;
     private NewTabPageLayout mNewTabPageLayout;
     private NewTabPageCoordinator mCoordinator;
     private BrowserStateBrowserControlsVisibilityDelegate mVisibilityDelegate;
     private final OneshotSupplierImpl<ModuleRegistry> mModuleRegistrySupplier =
+            new OneshotSupplierImpl<>();
+    private final OneshotSupplierImpl<SideUiStateProvider> mSideUiStateProviderSupplier =
             new OneshotSupplierImpl<>();
     private final SettableNullableObservableSupplier<AiModeButtonUiConfig>
             mAiModeButtonUiConfigSupplier = ObservableSuppliers.createNullable();
@@ -196,6 +210,8 @@ public class NewTabPageCoordinatorUnitTest {
     public void setUp() {
         mActivity = Robolectric.buildActivity(Activity.class).setup().get();
         mActivity.setTheme(R.style.Theme_BrowserUI_DayNight);
+        mSearchBoxView = new View(mActivity);
+        mRecyclerView = new RecyclerView(mActivity);
 
         // Setup for MV tiles.
         mSuggestionsDeps.getFactory().mostVisitedSites = new FakeMostVisitedSites();
@@ -211,6 +227,11 @@ public class NewTabPageCoordinatorUnitTest {
         ComposeplateUtilsJni.setInstanceForTesting(mMockComposeplateUtilsJni);
         when(mMockComposeplateUtilsJni.isAimEntrypointEligible(mProfile)).thenReturn(true);
         when(mMockComposeplateUtilsJni.isEnabledByPolicy(mProfile)).thenReturn(true);
+        ComposeboxQueryControllerBridgeJni.setInstanceForTesting(
+                mMockComposeboxQueryControllerBridgeJni);
+        when(mMockComposeboxQueryControllerBridgeJni.isToolAllowedForProfile(
+                        mProfile, ToolMode.TOOL_MODE_IMAGE_GEN))
+                .thenReturn(true);
         IncognitoUtils.setEnabledForTesting(true);
 
         // Setup for home modules.
@@ -476,7 +497,7 @@ public class NewTabPageCoordinatorUnitTest {
                         mSnackbarManager,
                         isLff,
                         mTabStripHeightSupplier,
-                        new OneshotSupplierImpl<>(),
+                        mSideUiStateProviderSupplier,
                         mHomeSurfaceTracker,
                         mBackPressManager,
                         mTemplateUrlService);
@@ -539,29 +560,32 @@ public class NewTabPageCoordinatorUnitTest {
 
         View mvtView = layout.findViewById(R.id.mv_tiles_container);
         assertNotNull(mvtView);
-        int feedPadding =
-                -FeedStreamViewResizerUtils.getFeedNtpCompensationMargin(
-                        mActivity.getResources(), mUiConfig);
-        assertEquals(measureWidth - (feedPadding * 2), mvtView.getLayoutParams().width);
+        // On phones, MVT width matches the search box width to align visually in landscape.
+        assertEquals(expectedBoundedWidth, mvtView.getLayoutParams().width);
 
-        // Verify that the applied MVT margins are non-negative on Mobile
+        // Verify that the applied MVT margins are non-negative on Phone
         ViewGroup.MarginLayoutParams mvtMarginParams =
                 (ViewGroup.MarginLayoutParams) mvtView.getLayoutParams();
         assertTrue(mvtMarginParams.leftMargin >= 0);
         assertTrue(mvtMarginParams.rightMargin >= 0);
 
-        // On Desktop Android, the MVT width cap is applied
-        DeviceInfo.setIsDesktopForTesting(true);
-        OmniboxCapabilities.setIsDesktopPlatformForTesting(true);
+        // On tablet / LFF, MVT width expands to match the Feed bounds.
+        createCoordinator(/* isLff= */ true);
+        layout = mCoordinator.getNewTabPageLayout();
+        mvtView = layout.findViewById(R.id.mv_tiles_container);
+        assertNotNull(mvtView);
         mvtView.setVisibility(View.VISIBLE);
         mCoordinator.onMeasure(measureWidth);
-        assertEquals(expectedBoundedWidth, mvtView.getLayoutParams().width);
+        int feedPadding =
+                -FeedStreamViewResizerUtils.getFeedNtpCompensationMargin(
+                        mActivity.getResources(), mUiConfig);
+        assertEquals(measureWidth - (feedPadding * 2), mvtView.getLayoutParams().width);
 
-        // Verify that the applied MVT margins are non-negative on Desktop
-        ViewGroup.MarginLayoutParams desktopMarginParams =
+        // Verify that the applied MVT margins are non-negative on Tablet
+        ViewGroup.MarginLayoutParams tabletMarginParams =
                 (ViewGroup.MarginLayoutParams) mvtView.getLayoutParams();
-        assertTrue(desktopMarginParams.leftMargin >= 0);
-        assertTrue(desktopMarginParams.rightMargin >= 0);
+        assertTrue(tabletMarginParams.leftMargin >= 0);
+        assertTrue(tabletMarginParams.rightMargin >= 0);
     }
 
     @Test
@@ -693,7 +717,7 @@ public class NewTabPageCoordinatorUnitTest {
         assertNull(mCoordinator.getComposeplateCoordinatorForTesting());
 
         SearchBoxCoordinator mockSearchBox = mock(SearchBoxCoordinator.class);
-        when(mockSearchBox.getView()).thenReturn(mock(View.class));
+        when(mockSearchBox.getView()).thenReturn(new View(mActivity));
         mCoordinator.setSearchBoxCoordinatorForTesting(mockSearchBox);
 
         mCoordinator.initializeComposeplate();
@@ -766,8 +790,8 @@ public class NewTabPageCoordinatorUnitTest {
         // Setup mock SearchBoxCoordinator to verify side effect of
         // setSearchBoxHeightBoundsVerticalInset().
         SearchBoxCoordinator mockSearchBox = mock(SearchBoxCoordinator.class);
-        View mockView = mock(View.class);
-        when(mockSearchBox.getView()).thenReturn(mockView);
+        View view = new View(mActivity);
+        when(mockSearchBox.getView()).thenReturn(view);
         mCoordinator.setSearchBoxCoordinatorForTesting(mockSearchBox);
 
         // Enables composeplate eligibility so it is ready to be initialized.
@@ -891,20 +915,188 @@ public class NewTabPageCoordinatorUnitTest {
                 /* hasTargetConfig= */ true);
     }
 
+    /**
+     * Verifies that the optional button is shown on an existing NTP when switching back to Google
+     * from a third party search engine without an AI Mode entry point, even though Google's
+     * AiModeButtonUiConfig arrives after the search provider info is updated.
+     */
     @Test
-    public void testUpdateActionButtonVisibility_ComposeplateHiddenWhenIncognitoDisabled() {
-        setupMockSubCoordinators();
+    @EnableFeatures({
+        OmniboxFeatureList.AIM3P_ENTRYPOINT,
+        ChromeFeatureList.NTP_AURORA,
+        ChromeFeatureList.NTP_AURORA_V2 + ":action_chips/2"
+    })
+    public void testOptionalButtonVisibility_SwitchBackToGoogle_CreateImage() {
+        testOptionalButtonVisibilitySwitchBackToGoogleImpl();
+    }
 
-        mCoordinator.setIsComposeplateEnabledForTesting(TriState.TRUE);
-        mCoordinator.setSearchProviderInfo(/* hasLogo= */ true, /* isGoogle= */ true);
+    @Test
+    @EnableFeatures({
+        OmniboxFeatureList.AIM3P_ENTRYPOINT,
+        ChromeFeatureList.NTP_AURORA,
+        ChromeFeatureList.NTP_AURORA_V2 + ":action_chips/3"
+    })
+    public void testOptionalButtonVisibility_SwitchBackToGoogle_Canvas() {
+        testOptionalButtonVisibilitySwitchBackToGoogleImpl();
+    }
 
-        // Disables incognito mode.
+    /**
+     * Verifies that the Create image chip falls back to the canvas chip when image generation isn't
+     * allowed.
+     */
+    @Test
+    @EnableFeatures({
+        ChromeFeatureList.NTP_AURORA,
+        ChromeFeatureList.NTP_AURORA_V2 + ":action_chips/2"
+    })
+    public void testOptionalButton_CreateImage_ImageGenNotAllowed_FallsBackToCanvas() {
+        when(mMockComposeboxQueryControllerBridgeJni.isToolAllowedForProfile(
+                        mProfile, ToolMode.TOOL_MODE_IMAGE_GEN))
+                .thenReturn(false);
+        // Tool availability is checked when the composeplate is created, so recreate the
+        // coordinator.
+        mCoordinator.destroy();
+        createCoordinator();
+
+        assertNotNull(mCoordinator.getComposeplateCoordinatorForTesting());
+        View optionalButton = mNewTabPageLayout.findViewById(R.id.optional_button);
+        assertEquals(View.VISIBLE, optionalButton.getVisibility());
+
+        // The Create image text isn't applied, so the layout's default gallery text is kept.
+        assertEquals(
+                mActivity.getString(R.string.omnibox_navattach_gallery),
+                optionalButton.getContentDescription());
+
+        // Clicking doesn't enter image generation mode.
+        optionalButton.performClick();
+        verify(mManager, never())
+                .focusSearchBox(
+                        anyBoolean(),
+                        eq(AutocompleteRequestType.IMAGE_GENERATION),
+                        eq(OmniboxFocusReason.NTP_AI_MODE),
+                        any());
+    }
+
+    /**
+     * Verifies that clicking the AI Mode button focuses the search box in AI Mode when an action
+     * chip is enabled.
+     */
+    @Test
+    @EnableFeatures({
+        ChromeFeatureList.NTP_AURORA,
+        ChromeFeatureList.NTP_AURORA_V2 + ":action_chips/1"
+    })
+    public void testComposeplateButtonClicked_ActionChipsEnabled() {
+        testComposeplateButtonClickedImpl(/* expectedFocusSearchBox= */ true);
+    }
+
+    @Test
+    @DisableFeatures({ChromeFeatureList.NTP_AURORA_V2})
+    public void testComposeplateButtonClicked_ActionChipsDisabled() {
+        testComposeplateButtonClickedImpl(/* expectedFocusSearchBox= */ false);
+    }
+
+    /**
+     * Verifies that clicking the Create image chip focuses the search box in image generation mode.
+     */
+    @Test
+    @EnableFeatures({
+        ChromeFeatureList.NTP_AURORA,
+        ChromeFeatureList.NTP_AURORA_V2 + ":action_chips/2"
+    })
+    public void testCreateImageButtonClicked() {
+        // The composeplate is created in setUp() since the default search engine is Google.
+        assertNotNull(mCoordinator.getComposeplateCoordinatorForTesting());
+        View optionalButton = mNewTabPageLayout.findViewById(R.id.optional_button);
+
+        optionalButton.performClick();
+
+        verify(mManager)
+                .focusSearchBox(
+                        /* beginVoiceSearch= */ false,
+                        AutocompleteRequestType.IMAGE_GENERATION,
+                        OmniboxFocusReason.NTP_AI_MODE,
+                        /* pastedText= */ null);
+    }
+
+    /** Verifies that clicking the gallery chip focuses the search box to open the gallery. */
+    @Test
+    @EnableFeatures({
+        ChromeFeatureList.NTP_AURORA,
+        ChromeFeatureList.NTP_AURORA_V2 + ":action_chips/3"
+    })
+    public void testGalleryButtonClicked_focusesSearchBoxForGallery() {
+        // The composeplate is created in setUp() since the default search engine is Google.
+        assertNotNull(mCoordinator.getComposeplateCoordinatorForTesting());
+        View optionalButton = mNewTabPageLayout.findViewById(R.id.optional_button);
+
+        optionalButton.performClick();
+
+        verify(mManager)
+                .focusSearchBox(
+                        /* beginVoiceSearch= */ false,
+                        AutocompleteRequestType.AI_MODE,
+                        OmniboxFocusReason.NTP_GALLERY_CHIP_CLICKED,
+                        /* pastedText= */ null);
+    }
+
+    @Test
+    public void testComposeplateDisabledWhenIncognitoDisabled() {
+        // Incognito availability is read when the coordinator is created, so recreate it after
+        // disabling incognito mode.
+        mCoordinator.destroy();
         IncognitoUtils.setEnabledForTesting(false);
-        mCoordinator.updateActionButtonVisibility();
+        createCoordinator();
 
-        // Verifies that even when composeplate is enabled and Google is the search provider,
-        // disabling incognito mode hides the composeplate button.
-        verify(mMockComposeplate).setVisibility(eq(false), anyBoolean());
+        // Verifies that even when Google is the search provider and offers an AI Mode entry point,
+        // disabling incognito mode prevents the composeplate from being enabled or created.
+        assertEquals(TriState.FALSE, mCoordinator.getIsComposeplateEnabledForTesting());
+        assertNull(mCoordinator.getComposeplateCoordinatorForTesting());
+
+        // Switching the default search engine doesn't enable the composeplate either.
+        changeSearchEngine(/* isGoogle= */ false, /* hasAiModeButtonUiConfig= */ true);
+        changeSearchEngine(/* isGoogle= */ true, /* hasAiModeButtonUiConfig= */ true);
+        assertEquals(TriState.FALSE, mCoordinator.getIsComposeplateEnabledForTesting());
+        assertNull(mCoordinator.getComposeplateCoordinatorForTesting());
+    }
+
+    @Test
+    @EnableFeatures({
+        ChromeFeatureList.NTP_AURORA,
+        ChromeFeatureList.NTP_AURORA_V2 + ":layout_type/1"
+    })
+    public void testComposeplateEnabledWhenIncognitoDisabled_BesideMvtEnabled() {
+        mCoordinator.destroy();
+        IncognitoUtils.setEnabledForTesting(/* enabled= */ false);
+        createCoordinator();
+
+        assertEquals(TriState.TRUE, mCoordinator.getIsComposeplateEnabledForTesting());
+        assertNotNull(mCoordinator.getComposeplateCoordinatorForTesting());
+
+        View containerView = mNewTabPageLayout.findViewById(R.id.composeplate_and_mvt_container);
+        assertEquals(View.VISIBLE, containerView.getVisibility());
+
+        View composeplateView = mNewTabPageLayout.findViewById(R.id.composeplate_view);
+        assertEquals(View.VISIBLE, composeplateView.getVisibility());
+    }
+
+    @Test
+    @EnableFeatures({
+        ChromeFeatureList.NTP_AURORA,
+        ChromeFeatureList.NTP_AURORA_V2 + ":layout_type/1"
+    })
+    public void testInitializeComposeplate_BesideMvt_AlignsPaddingWithMvt() {
+        View mvTilesContainer = mNewTabPageLayout.findViewById(R.id.mv_tiles_container);
+        View aiModeButton = mNewTabPageLayout.findViewById(R.id.composeplate_button);
+        TextView buttonText = mNewTabPageLayout.findViewById(R.id.composeplate_button_text);
+
+        int buttonMargin =
+                mActivity
+                        .getResources()
+                        .getDimensionPixelSize(R.dimen.composeplate_view_button_margin);
+        assertEquals(buttonMargin + mvTilesContainer.getPaddingTop(), aiModeButton.getPaddingTop());
+        assertEquals(mvTilesContainer.getPaddingBottom(), aiModeButton.getPaddingBottom());
+        assertEquals(2, buttonText.getMaxLines());
     }
 
     /** Verifies that a monochrome resource icon is tinted like the other composeplate icons. */
@@ -1020,6 +1212,50 @@ public class NewTabPageCoordinatorUnitTest {
         assertEquals(config.text, buttonText.getText().toString());
     }
 
+    private void testOptionalButtonVisibilitySwitchBackToGoogleImpl() {
+        // The composeplate is created in setUp() since the default search engine is Google.
+        assertNotNull(mCoordinator.getComposeplateCoordinatorForTesting());
+        View optionalButton = mNewTabPageLayout.findViewById(R.id.optional_button);
+        assertEquals(View.VISIBLE, optionalButton.getVisibility());
+
+        // Third party search engine A offers an AI Mode entry point.
+        changeSearchEngine(/* isGoogle= */ false, /* hasAiModeButtonUiConfig= */ true);
+        assertEquals(View.GONE, optionalButton.getVisibility());
+
+        // Third party search engine B doesn't offer an AI Mode entry point, so the composeplate is
+        // hidden.
+        changeSearchEngine(/* isGoogle= */ false, /* hasAiModeButtonUiConfig= */ false);
+        assertEquals(TriState.FALSE, mCoordinator.getIsComposeplateEnabledForTesting());
+        assertEquals(View.GONE, optionalButton.getVisibility());
+
+        // Switches back to Google. The optional button must be shown, even though the composeplate
+        // isn't enabled yet when the search provider info is updated.
+        changeSearchEngine(/* isGoogle= */ true, /* hasAiModeButtonUiConfig= */ true);
+        assertEquals(TriState.TRUE, mCoordinator.getIsComposeplateEnabledForTesting());
+        assertEquals(View.VISIBLE, optionalButton.getVisibility());
+    }
+
+    private void testComposeplateButtonClickedImpl(boolean expectedFocusSearchBox) {
+        // The composeplate is created in setUp() since the default search engine is Google.
+        assertNotNull(mCoordinator.getComposeplateCoordinatorForTesting());
+        View composeplateButton = mNewTabPageLayout.findViewById(R.id.composeplate_button);
+
+        composeplateButton.performClick();
+
+        if (expectedFocusSearchBox) {
+            verify(mManager)
+                    .focusSearchBox(
+                            /* beginVoiceSearch= */ false,
+                            AutocompleteRequestType.AI_MODE,
+                            OmniboxFocusReason.NTP_AI_MODE,
+                            /* pastedText= */ null);
+        } else {
+            verify(mManager, never())
+                    .focusSearchBox(
+                            anyBoolean(), eq(AutocompleteRequestType.AI_MODE), anyInt(), any());
+        }
+    }
+
     private void testSwitchSearchEngineImpl(
             boolean initialIsGoogle,
             boolean hasInitialConfig,
@@ -1087,7 +1323,7 @@ public class NewTabPageCoordinatorUnitTest {
     }
 
     private void setupMockSubCoordinators() {
-        when(mMockSearchBox.getView()).thenReturn(mMockSearchBoxView);
+        when(mMockSearchBox.getView()).thenReturn(mSearchBoxView);
         mCoordinator.setSearchBoxCoordinatorForTesting(mMockSearchBox);
         mCoordinator.setLogoCoordinatorForTesting(mMockLogo);
         mCoordinator.setMostVisitedTilesCoordinatorForTesting(mMockTiles);
@@ -1257,6 +1493,25 @@ public class NewTabPageCoordinatorUnitTest {
         mCoordinator.onCustomizedBackgroundChanged();
 
         verify(mMockComposeplate, never()).applyWhiteBackground(anyBoolean());
+    }
+
+    @Test
+    public void testRecordNtpShown_recordsComposeplateButtonsImpression() {
+        setupMockSubCoordinators();
+
+        mCoordinator.recordNtpShown();
+
+        verify(mMockComposeplate).recordButtonsImpression();
+    }
+
+    @Test
+    public void testRecordNtpShown_composeplateCoordinatorNotInitialized() {
+        setupMockSubCoordinators();
+        mCoordinator.setComposeplateCoordinatorForTesting(null);
+
+        mCoordinator.recordNtpShown();
+
+        verify(mMockComposeplate, never()).recordButtonsImpression();
     }
 
     @Test
@@ -1484,6 +1739,7 @@ public class NewTabPageCoordinatorUnitTest {
         Resources resources = mActivity.getResources();
         int expectedTopMargin = LogoUtils.getTopMarginForLogo(resources);
         verify(mMockLogo).setTopMargin(eq(expectedTopMargin));
+        verify(mMockComposeplate).onDisplayStyleChanged();
     }
 
     @Test
@@ -1513,6 +1769,7 @@ public class NewTabPageCoordinatorUnitTest {
         Resources resources = mActivity.getResources();
         int expectedTopMargin = LogoUtils.getTopMarginForLogo(resources);
         verify(mMockLogo).setTopMargin(eq(expectedTopMargin));
+        verify(mMockComposeplate).onDisplayStyleChanged();
     }
 
     @Test
@@ -1526,6 +1783,33 @@ public class NewTabPageCoordinatorUnitTest {
         mDisplayStyleObserverCaptor.getValue().onDisplayStyleChanged(null);
 
         verify(mMockLogo).updateDoodleOnTablet(anyBoolean());
+        verify(mMockComposeplate, never()).onDisplayStyleChanged();
+    }
+
+    @Test
+    public void testSideUiObserver_liveResize_doesNotUpdateUiConfigInset() {
+        SideUiObserver observer = captureSideUiObserver();
+
+        observer.onSideUiSpecsChanged(
+                new SideUiSpecs(/* leftContainerWidth= */ 300, /* rightContainerWidth= */ 0),
+                UiUpdateRequest.getRequestForTesting(
+                        /* suppressAnimations= */ true, UpdateReason.RESIZE_LIVE));
+
+        verify(mUiConfig, never()).setHorizontalInset(anyInt());
+    }
+
+    @Test
+    public void testSideUiObserver_resizeCommitted_updatesUiConfigInset() {
+        SideUiObserver observer = captureSideUiObserver();
+
+        int leftWidthPx = 300;
+        observer.onSideUiSpecsChanged(
+                new SideUiSpecs(leftWidthPx, /* rightContainerWidth= */ 0),
+                UiUpdateRequest.getRequestForTesting(
+                        /* suppressAnimations= */ true, UpdateReason.RESIZE_COMMITTED));
+
+        float density = mActivity.getResources().getDisplayMetrics().density;
+        verify(mUiConfig).setHorizontalInset(Math.round(leftWidthPx / density));
     }
 
     @Test
@@ -1535,13 +1819,37 @@ public class NewTabPageCoordinatorUnitTest {
 
         searchBoxTextView.setText("first paste");
         verify(mManager)
-                .focusSearchBox(false, AutocompleteRequestType.SEARCH, false, "first paste");
+                .focusSearchBox(
+                        false,
+                        AutocompleteRequestType.SEARCH,
+                        OmniboxFocusReason.FAKE_BOX_LONG_PRESS,
+                        "first paste");
         assertEquals("", searchBoxTextView.getText().toString());
 
         clearInvocations(mManager);
         searchBoxTextView.setText("second paste");
         verify(mManager)
-                .focusSearchBox(false, AutocompleteRequestType.SEARCH, false, "second paste");
+                .focusSearchBox(
+                        false,
+                        AutocompleteRequestType.SEARCH,
+                        OmniboxFocusReason.FAKE_BOX_LONG_PRESS,
+                        "second paste");
         assertEquals("", searchBoxTextView.getText().toString());
+    }
+
+    /**
+     * Makes the {@link SideUiStateProvider} available to the coordinator created in {@link
+     * #setUp()}, and returns the {@link SideUiObserver} it registers. Invocations on {@link
+     * #mUiConfig} made during registration are cleared.
+     */
+    private SideUiObserver captureSideUiObserver() {
+        when(mSideUiStateProvider.getCurrentSideUiSpecs())
+                .thenReturn(
+                        new SideUiSpecs(/* leftContainerWidth= */ 0, /* rightContainerWidth= */ 0));
+        mSideUiStateProviderSupplier.set(mSideUiStateProvider);
+        ShadowLooper.idleMainLooper();
+        verify(mSideUiStateProvider).addObserver(mSideUiObserverCaptor.capture());
+        clearInvocations(mUiConfig);
+        return mSideUiObserverCaptor.getValue();
     }
 }

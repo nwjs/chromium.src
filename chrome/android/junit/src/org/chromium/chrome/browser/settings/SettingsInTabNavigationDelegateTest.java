@@ -31,6 +31,7 @@ import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.robolectric.Robolectric;
+import org.robolectric.Shadows;
 import org.robolectric.annotation.Config;
 import org.robolectric.shadows.ShadowLooper;
 
@@ -285,10 +286,10 @@ public class SettingsInTabNavigationDelegateTest {
 
     @Test
     public void testExecutePendingNavigations_NoHostFragment_DoesNotCrash() {
-        Activity mockActivity = mock(Activity.class);
+        Activity activity = Robolectric.buildActivity(Activity.class).get();
 
         // Verify calling executePendingNavigations with no active host fragment completes safely.
-        mDelegate.executePendingNavigations(mockActivity);
+        mDelegate.executePendingNavigations(activity);
     }
 
     @Test
@@ -345,27 +346,65 @@ public class SettingsInTabNavigationDelegateTest {
     }
 
     @Test
+    public void testNavigateUp_GoesBackWhenPreviousEntryIsSettings() {
+        setPreviousEntryUrl("chrome://settings");
+
+        mDelegate.navigateUp();
+
+        // Going back rather than loading keeps the page being left as a forward entry.
+        verify(mMockTab).goBack();
+        verify(mMockTab, never()).loadUrl(any());
+    }
+
+    @Test
+    public void testNavigateUp_ReplacesWithMainSettingsWhenPreviousEntryIsNotSettings() {
+        // E.g. the page was opened from "Edit homepage" on the NTP.
+        setPreviousEntryUrl("chrome-native://newtab/");
+
+        mDelegate.navigateUp();
+
+        // Going back would leave settings altogether.
+        verify(mMockTab, never()).goBack();
+        ArgumentCaptor<LoadUrlParams> captor = ArgumentCaptor.forClass(LoadUrlParams.class);
+        verify(mMockTab).loadUrl(captor.capture());
+        assertEquals(UrlConstants.SETTINGS_URL, captor.getValue().getUrl());
+        // Pushing would have the next back press return to the page being left, which would
+        // navigate up again, so that back presses could never leave settings.
+        assertTrue(captor.getValue().getShouldReplaceCurrentEntry());
+    }
+
+    @Test
+    public void testNavigateUp_ReplacesWithMainSettingsWhenThereIsNoPreviousEntry() {
+        mDelegate.navigateUp();
+
+        verify(mMockTab, never()).goBack();
+        ArgumentCaptor<LoadUrlParams> captor = ArgumentCaptor.forClass(LoadUrlParams.class);
+        verify(mMockTab).loadUrl(captor.capture());
+        assertEquals(UrlConstants.SETTINGS_URL, captor.getValue().getUrl());
+        assertTrue(captor.getValue().getShouldReplaceCurrentEntry());
+    }
+
+    @Test
     // SettingsHostFragment may only exist where settings-in-tab does: both flags on, tablet width.
-    @EnableFeatures({ChromeFeatureList.SETTINGS_IN_TAB, ChromeFeatureList.SETTINGS_MULTI_COLUMN})
+    @EnableFeatures(ChromeFeatureList.SETTINGS_IN_TAB)
     @Config(qualifiers = "w720dp-h1024dp")
     public void testStartSettings_UnmappedFragment_WithHostFragment_ShowsFragmentInHost() {
         RecordingHostFragment hostFragment = attachHostFragment();
 
-        Context mockContext = spy(hostFragment.requireActivity());
-        doNothing().when(mockContext).startActivity(any());
+        Activity activity = hostFragment.requireActivity();
 
-        mDelegate.startSettings(mockContext, UnmappedTestFragment.class);
+        mDelegate.startSettings(activity, UnmappedTestFragment.class);
 
         // A page with no Url belongs in the host that is already open. Launching an Intent would
         // open a second settings tab at the root Url instead.
-        verify(mockContext, never()).startActivity(any());
+        assertNull(Shadows.shadowOf(activity).getNextStartedActivity());
         verify(mMockTab, never()).loadUrl(any());
         assertTrue(hostFragment.mShownFragment instanceof UnmappedTestFragment);
         assertTrue(hostFragment.mShownAddToBackStack);
     }
 
     @Test
-    @EnableFeatures({ChromeFeatureList.SETTINGS_IN_TAB, ChromeFeatureList.SETTINGS_MULTI_COLUMN})
+    @EnableFeatures(ChromeFeatureList.SETTINGS_IN_TAB)
     @Config(qualifiers = "w720dp-h1024dp")
     public void testStartSettings_MappedFragment_WithSearchOpen_ShowsFragmentInHost() {
         RecordingHostFragment hostFragment = attachHostFragment();
@@ -381,7 +420,7 @@ public class SettingsInTabNavigationDelegateTest {
     }
 
     @Test
-    @EnableFeatures({ChromeFeatureList.SETTINGS_IN_TAB, ChromeFeatureList.SETTINGS_MULTI_COLUMN})
+    @EnableFeatures(ChromeFeatureList.SETTINGS_IN_TAB)
     @Config(qualifiers = "w720dp-h1024dp")
     public void testStartSettings_MappedFragment_WithSearchClosed_NavigatesTheTab() {
         RecordingHostFragment hostFragment = attachHostFragment();

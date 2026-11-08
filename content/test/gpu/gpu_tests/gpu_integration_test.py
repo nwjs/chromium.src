@@ -2,7 +2,6 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-# pylint: disable=too-many-lines
 
 import collections
 from collections.abc import Generator, Iterable
@@ -19,9 +18,10 @@ import os
 import pkgutil
 import re
 import types
-from typing import Any, Type
+from typing import Any, NamedTuple, Type
 import unittest
 
+import py_utils
 from telemetry.internal.actions import page_action
 from telemetry.internal.browser import browser_options as bo
 from telemetry.internal.platform import gpu_info as telemetry_gpu_info
@@ -97,6 +97,7 @@ class _BrowserLaunchInfo:
   browser_args: set[str] = ct.EmptySet()
   profile_dir: str | None = None
   profile_type: str | None = None
+  collect_dawn_info: bool = False
 
   def __eq__(self, other: Any):
     return (
@@ -104,10 +105,15 @@ class _BrowserLaunchInfo:
       and self.browser_args == other.browser_args
       and self.profile_dir == other.profile_dir
       and self.profile_type == other.profile_type
+      and self.collect_dawn_info == other.collect_dawn_info
     )
 
 
-# pylint: disable=too-many-public-methods
+class _CachedAboutGpu(NamedTuple):
+  content: str
+  test_that_started_browser: str
+
+
 class GpuIntegrationTest(
   serially_executed_browser_test_case.SeriallyExecutedBrowserTestCase
 ):
@@ -158,8 +164,9 @@ class GpuIntegrationTest(
   # determining whether the contents need to be retrieved again after a browser
   # restart. This caching is also shared with the tag generation code to avoid
   # unnecessary communication with the browser when args did not change.
-  _about_gpu_content = None
-  _test_that_started_browser = None
+  _about_gpu_content: str | None = None
+  _test_that_started_browser: str | None = None
+  _about_gpu_cache: dict[tuple[frozenset[str], bool], _CachedAboutGpu] = {}
   _args_changed_this_browser_start = True
   _cached_platform_tags: list[str] | None = None
 
@@ -203,11 +210,11 @@ class GpuIntegrationTest(
     """Returns whether the suite in general supports parallel tests."""
     return False
 
-  def _GetSerialGlobs(self) -> set[str]:  # pylint: disable=no-self-use
+  def _GetSerialGlobs(self) -> set[str]:
     """Returns a set of test name globs that should be run serially."""
     return set()
 
-  def _GetSerialTests(self) -> set[str]:  # pylint: disable=no-self-use
+  def _GetSerialTests(self) -> set[str]:
     """Returns a set of test names that should be run serially."""
     return set()
 
@@ -487,6 +494,7 @@ class GpuIntegrationTest(
     browser_args: list[str],
     profile_dir: str | None = None,
     profile_type: str | None = None,
+    collect_dawn_info: bool | None = None,
   ) -> None:
     """Sets the browser arguments to use for the next browser startup.
 
@@ -500,7 +508,12 @@ class GpuIntegrationTest(
           used. Valid examples are 'clean' which means the profile_dir will be
           used to seed a new temporary directory which is used, or 'exact' which
           means the exact specified directory will be used instead.
+      collect_dawn_info: Whether Dawn Info should be collected when retrieving
+          chrome://gpu for this browser startup. Defaults to
+          _ShouldCollectDawnInfoInAboutGpu().
     """
+    if collect_dawn_info is None:
+      collect_dawn_info = cls._ShouldCollectDawnInfoInAboutGpu()
     cls._finder_options = cls.GetOriginalFinderOptions().Copy()
     browser_options = cls._finder_options.browser_options
 
@@ -527,7 +540,7 @@ class GpuIntegrationTest(
 
     # Save the last set of options for comparison.
     cls._last_launched_browser_info = _BrowserLaunchInfo(
-      set(browser_args), profile_dir, profile_type
+      set(browser_args), profile_dir, profile_type, collect_dawn_info
     )
     cls.SetBrowserOptions(cls._finder_options)
 
@@ -537,6 +550,7 @@ class GpuIntegrationTest(
     force_restart: bool = False,
     profile_dir: str | None = None,
     profile_type: str | None = None,
+    collect_dawn_info: bool | None = None,
   ) -> None:
     """Restarts the browser if it is determined to be necessary.
 
@@ -556,23 +570,31 @@ class GpuIntegrationTest(
           used. Valid examples are 'clean' which means the profile_dir will be
           used to seed a new temporary directory which is used, or 'exact' which
           means the exact specified directory will be used instead.
+      collect_dawn_info: Whether Dawn Info should be collected when retrieving
+          chrome://gpu for this browser startup. Defaults to
+          _ShouldCollectDawnInfoInAboutGpu().
     """
     # cls is largely used here since this used to be a class method and we want
     # to maintain the previous behavior with regards to storing browser launch
     # information between tests. As such, we also disable protected access
     # checks since those would be allowed if this were actually a class method.
-    # pylint: disable=protected-access
     cls = self.__class__
     new_browser_args = cls._GenerateAndSanitizeBrowserArgs(additional_args)
+    if collect_dawn_info is None:
+      collect_dawn_info = cls._ShouldCollectDawnInfoInAboutGpu()
 
     new_browser_info = _BrowserLaunchInfo(
-      set(new_browser_args), profile_dir, profile_type
+      set(new_browser_args), profile_dir, profile_type, collect_dawn_info
     )
     args_differ = (
       new_browser_info.browser_args
       != cls._last_launched_browser_info.browser_args
     )
-    cls._args_changed_this_browser_start = args_differ
+    dawn_info_differs = (
+      new_browser_info.collect_dawn_info
+      != cls._last_launched_browser_info.collect_dawn_info
+    )
+    cls._args_changed_this_browser_start = args_differ or dawn_info_differs
     if force_restart or new_browser_info != cls._last_launched_browser_info:
       logging.info(
         'Restarting browser with arguments: %s, profile type %s, and profile '
@@ -583,7 +605,7 @@ class GpuIntegrationTest(
       )
       cls.StopBrowser()
       cls._SetBrowserArgsForNextStartup(
-        new_browser_args, profile_dir, profile_type
+        new_browser_args, profile_dir, profile_type, collect_dawn_info
       )
       cls.StartBrowser()
 
@@ -596,19 +618,20 @@ class GpuIntegrationTest(
         self.skipTest(
           'Determined that Skip expectation applies after browser restart'
         )
-    # pylint: enable=protected-access
 
   def RestartBrowserWithArgs(
     self,
     additional_args: list[str] | None = None,
     profile_dir: str | None = None,
     profile_type: str = 'clean',
+    collect_dawn_info: bool | None = None,
   ) -> None:
     self.RestartBrowserIfNecessaryWithArgs(
       additional_args,
       force_restart=True,
       profile_dir=profile_dir,
       profile_type=profile_type,
+      collect_dawn_info=collect_dawn_info,
     )
 
   # The following is the rest of the framework for the GPU integration tests.
@@ -644,7 +667,7 @@ class GpuIntegrationTest(
         cls._VerifyBrowserFeaturesMatchExpectedValues()
         cls._RetrieveAboutGpu()
         return
-      except Exception as e:  # pylint: disable=broad-except
+      except Exception as e:
         last_exception = e
         logging.exception(
           'Browser start failed (attempt %d of %d). Backtrace:',
@@ -691,6 +714,18 @@ class GpuIntegrationTest(
       )
 
   @classmethod
+  def _ShouldCollectDawnInfoInAboutGpu(cls) -> bool:
+    """Returns whether _RetrieveAboutGpu should request/wait for Dawn Info."""
+    return False
+
+  @classmethod
+  def _ShouldCollectDawnInfoForCurrentBrowser(cls) -> bool:
+    return (
+      cls._last_launched_browser_info.collect_dawn_info
+      or cls._ShouldCollectDawnInfoInAboutGpu()
+    ) and cba.DISABLE_GPU not in cls._last_launched_browser_info.browser_args
+
+  @classmethod
   def _RetrieveAboutGpu(cls) -> None:
     """Retrieves the plaintext representation of about:gpu / chrome://gpu.
 
@@ -714,13 +749,34 @@ class GpuIntegrationTest(
     if not hasattr(cls.tab, 'action_runner'):
       return
 
+    browser_args_key = frozenset(cls._last_launched_browser_info.browser_args)
+    collect_dawn_info = cls._ShouldCollectDawnInfoForCurrentBrowser()
+    about_gpu_cache_key = (browser_args_key, collect_dawn_info)
+    # TODO(crbug.com/568512619): Skipping the chrome://gpu navigation when
+    # --gpu-blocklist-test-group=2 triggers a SwiftShader fallback on Linux
+    # leaves the initial about:blank RasterDecoderImpl alive until WebGL
+    # context creation, tripping a DCHECK in RasterDecoderImpl::Destroy().
+    if (
+      '--gpu-blocklist-test-group=2' not in browser_args_key
+      and about_gpu_cache_key in cls._about_gpu_cache
+    ):
+      cached_about_gpu = cls._about_gpu_cache[about_gpu_cache_key]
+      cls._about_gpu_content = cached_about_gpu.content
+      cls._test_that_started_browser = (
+        cached_about_gpu.test_that_started_browser
+      )
+      return
+
     cls._about_gpu_content = None
     cls._test_that_started_browser = None
 
     # This is non-critical to actually running tests, so suppress any
     # exceptions.
     try:
-      cls.tab.Navigate('chrome://gpu')
+      about_gpu_url = (
+        'chrome://gpu' if collect_dawn_info else 'chrome://gpu?skip-dawn-info'
+      )
+      cls.tab.Navigate(about_gpu_url)
       # WaitForNavigate does not work properly on this page, so instead wait
       # until the relevant element is available with the relevant function
       # defined.
@@ -729,6 +785,24 @@ class GpuIntegrationTest(
         'document.getElementsByTagName("info-view")[0].getSelectionText '
         '!= undefined'
       )
+      if collect_dawn_info:
+        try:
+          # Navigating to chrome://gpu triggers asynchronous Dawn info
+          # collection on the GPU main thread. Wait for it to finish so that
+          # Dawn info is included in the artifact and does not block the GPU
+          # main thread while the first test runs. Poll EvaluateJavaScript via
+          # py_utils.WaitFor instead of WaitForJavaScriptCondition so that a
+          # timeout does not trigger Telemetry's heavy _CollectDebugData()
+          # screenshot/minidump collection.
+          py_utils.WaitFor(
+            lambda: cls.tab.action_runner.EvaluateJavaScript(
+              'document.getElementsByTagName("info-view")[0]'
+              '.getSelectionText(true).includes("Dawn Info")'
+            ),
+            timeout=15,
+          )
+        except py_utils.TimeoutException:
+          logging.warning('Timed out waiting for Dawn Info on chrome://gpu')
       about_gpu_content = cls.tab.action_runner.EvaluateJavaScript(
         'document.getElementsByTagName("info-view")[0].getSelectionText(true)'
       )
@@ -736,7 +810,7 @@ class GpuIntegrationTest(
       # whether we got back useful data.
       if about_gpu_content and len(about_gpu_content) > 1024:
         cls._about_gpu_content = about_gpu_content
-    except Exception as e:  # pylint: disable=broad-except
+    except Exception as e:
       logging.error('Exception while retrieving about:gpu: %s', e)
 
   @classmethod
@@ -767,6 +841,7 @@ class GpuIntegrationTest(
       cls.SetBrowserOptions(cls.GetOriginalFinderOptions())
       cls.StartBrowser()
     else:
+      cls._args_changed_this_browser_start = False
       is_cros = cls.browser.platform.GetOSName() == 'chromeos'
       if is_cros:
         logging.info('crbug.com/449866954: Stopping browser')
@@ -946,11 +1021,8 @@ class GpuIntegrationTest(
     if os_name == 'android':
       cls.browser.platform.android_action_runner.TurnScreenOn()
 
-  # pylint: disable=no-self-use
   def _ShouldForceRetryOnFailureFirstTest(self) -> bool:
     return False
-
-  # pylint: enable=no-self-use
 
   def _DetermineFirstTestRetryWorkaround(self, test_name: str) -> bool:
     """Potentially allows retries for the first test run on a shard.
@@ -971,13 +1043,10 @@ class GpuIntegrationTest(
     ):
       logging.warning('Forcing RetryOnFailure in test %s', test_name)
       # Notify typ that it should retry this test if necessary.
-      # pylint: disable=attribute-defined-outside-init
       self.retryOnFailure = True
-      # pylint: enable=attribute-defined-outside-init
       return True
     return False
 
-  # pylint: disable=no-self-use
   def _DetermineFirstBrowserStartWorkaround(self) -> bool:
     """Potentially allows retries for the first browser start on a shard.
 
@@ -990,9 +1059,6 @@ class GpuIntegrationTest(
       return False
     return host_information.IsMac()
 
-  # pylint: enable=no-self-use
-
-  # pylint: disable=no-self-use
   def _DetermineRetryWorkaround(self, exception: Exception) -> bool:
     """Potentially allows retries depending on the exception type.
 
@@ -1007,8 +1073,6 @@ class GpuIntegrationTest(
     """
     del exception
     return False
-
-  # pylint: enable=no-self-use
 
   def _RunGpuTest(self, url: str, test_name: str, args: ct.TestArgs) -> None:
     def _GetExpectedResultsAndShouldRetry():
@@ -1032,14 +1096,12 @@ class GpuIntegrationTest(
       # The re-raised exception isn't actually logged anywhere, so log it now
       # in order to notify users of why the test was skipped.
       logging.info('Programmatic skip reason: %s', e)
-      # pylint: disable=attribute-defined-outside-init
       self.programmaticSkipIsExpected = True
       # Only output associated bugs if the skip was due to an expectation, as
       # otherwise incorrect/confusing bugs can be associated with the skip. See
       # crbug.com/395919007 for more information.
       if not self._skip_was_due_to_expectation:
         self.shouldNotOutputAssociatedBugs = True
-      # pylint: enable=attribute-defined-outside-init
       raise
     except Exception as e:
       # We get these values here instead of at the beginning of the function
@@ -1052,9 +1114,7 @@ class GpuIntegrationTest(
       if not should_retry_on_failure and self._DetermineRetryWorkaround(e):
         should_retry_on_failure = True
         # Notify typ that it should retry this test.
-        # pylint: disable=attribute-defined-outside-init
         self.retryOnFailure = True
-        # pylint: enable=attribute-defined-outside-init
       if ResultType.Failure in expected_results or should_retry_on_failure:
         self._HandleExpectedFailureOrFlake(
           test_name, expected_crashes, should_retry_on_failure
@@ -1091,13 +1151,20 @@ class GpuIntegrationTest(
     Args:
       test_name: The name of the test that was run.
     """
-    # pylint: disable=protected-access
     cls = self.__class__
     if not cls._about_gpu_content:
       return
 
     if cls._test_that_started_browser is None:
       cls._test_that_started_browser = test_name
+      about_gpu_cache_key = (
+        frozenset(cls._last_launched_browser_info.browser_args),
+        cls._ShouldCollectDawnInfoForCurrentBrowser(),
+      )
+      cls._about_gpu_cache[about_gpu_cache_key] = _CachedAboutGpu(
+        content=cls._about_gpu_content,
+        test_that_started_browser=test_name,
+      )
       # Replacement is necessary to not create an invalid path on Windows.
       timestamp = datetime.datetime.now().isoformat().replace(':', '_')
       self.artifacts.CreateArtifact(
@@ -1113,7 +1180,6 @@ class GpuIntegrationTest(
       self.artifacts.CreateInMemoryTextArtifact(
         'about_gpu', f'See artifacts for {cls._test_that_started_browser}'
       )
-    # pylint: enable=protected-access
 
   def _HandleExpectedFailureOrFlake(
     self,
@@ -1168,7 +1234,7 @@ class GpuIntegrationTest(
     if self._ShouldRestartBrowserAfterFailure():
       self._RestartBrowser('unexpected test failure')
 
-  def _TestWasSlow(self) -> bool:  # pylint: disable=no-self-use
+  def _TestWasSlow(self) -> bool:
     return False
 
   def _ShouldRestartBrowserAfterFailure(self) -> bool:
@@ -1230,44 +1296,6 @@ class GpuIntegrationTest(
       self._RestartBrowser('Restarting browser to clear process crash count.')
     return retval
 
-  def _IsIntelGPUActive(self) -> bool:
-    gpu = self.browser.GetSystemInfo().gpu
-    # The implementation of GetSystemInfo guarantees that the first entry in the
-    # GPU devices list is the active GPU.
-    return gpu_helper.IsIntel(gpu.devices[0].vendor_id)
-
-  def IsDualGPUMacLaptop(self) -> bool:
-    if not host_information.IsMac():
-      return False
-    system_info = self.browser.GetSystemInfo()
-    if not system_info:
-      self.fail("Browser doesn't support GetSystemInfo")
-    gpu = system_info.gpu
-    if not gpu:
-      self.fail('Target machine must have a GPU')
-    if len(gpu.devices) != 2:
-      return False
-    if gpu_helper.IsIntel(gpu.devices[0].vendor_id) and not gpu_helper.IsIntel(
-      gpu.devices[1].vendor_id
-    ):
-      return True
-    if not gpu_helper.IsIntel(gpu.devices[0].vendor_id) and gpu_helper.IsIntel(
-      gpu.devices[1].vendor_id
-    ):
-      return True
-    return False
-
-  def AssertLowPowerGPU(self) -> None:
-    if self.IsDualGPUMacLaptop():
-      if not self._IsIntelGPUActive():
-        self.fail("Low power GPU should have been active but wasn't")
-
-  def AssertHighPerformanceGPU(self) -> None:
-    if self.IsDualGPUMacLaptop():
-      if self._IsIntelGPUActive():
-        self.fail("High performance GPU should have been active but wasn't")
-
-  # pylint: disable=too-many-return-statements
   def _ClearExpectedCrashes(self, expected_crashes: dict[str, int]) -> bool:
     """Clears any expected crash minidumps so they're not caught later.
 
@@ -1316,9 +1344,6 @@ class GpuIntegrationTest(
     )
     return False
 
-  # pylint: enable=too-many-return-statements
-
-  # pylint: disable=no-self-use
   def GetExpectedCrashes(self, args: ct.TestArgs) -> dict[str, int]:
     """Returns which crashes, per process type, to expect for the current test.
 
@@ -1336,8 +1361,6 @@ class GpuIntegrationTest(
     """
     del args
     return {}
-
-  # pylint: enable=no-self-use
 
   @classmethod
   def GenerateGpuTests(cls, options: ct.ParsedCmdArgs) -> ct.TestGenerator:
@@ -1533,7 +1556,7 @@ class GpuIntegrationTest(
     # cause of flakes on Macs is resolved.
     try:
       self._EnsureTabIsAvailable()
-    except Exception:  # pylint: disable=broad-except
+    except Exception:
       if self._DetermineFirstBrowserStartWorkaround():
         self._EnsureTabIsAvailable()
       else:

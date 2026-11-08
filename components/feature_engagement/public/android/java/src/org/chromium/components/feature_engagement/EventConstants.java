@@ -51,13 +51,6 @@ public final class EventConstants {
     public static final String ADAPTIVE_TOOLBAR_PAGE_SUMMARY_WEB_USED =
             "adaptive_toolbar_page_summary_web_used";
 
-    /** The user interacted with the promo dialog shown to introduce AI Mode with the bottom bar. */
-    public static final String ANDROID_BOTTOM_BAR_AIM_PROMO_DIALOG_USED =
-            "android_bottom_bar_aim_promo_dialog_used";
-
-    /** The user interacted with the AI Mode button on the new bottom bar. */
-    public static final String ANDROID_BOTTOM_BAR_AIM_USED = "android_bottom_bar_aim_used";
-
     /** The user interacted with the GLIC button on the new bottom bar. */
     public static final String ANDROID_BOTTOM_BAR_GLIC_USED = "android_bottom_bar_glic_used";
 
@@ -95,6 +88,10 @@ public final class EventConstants {
 
     /** AutoDark theme settings opened while feature enabled. */
     public static final String AUTO_DARK_SETTINGS_OPENED = "auto_dark_settings_opened";
+
+    /** Trigger event for the blue bubble IPH cooldown group. */
+    public static final String BLUE_BUBBLE_COOLDOWN_GROUP_TRIGGER =
+            "blue_bubble_cooldown_group_trigger";
 
     /** User has activated menu allowing them to move the toolbar to the bottom of the screen. */
     public static final String BOTTOM_TOOLBAR_MENU_TRIGGERED = "bottom_toolbar_menu_triggered";
@@ -143,6 +140,9 @@ public final class EventConstants {
     /** Fusebox attachment popup was toggled open by the user. */
     public static final String FUSEBOX_ATTACHMENT_POPUP_USED = "fusebox_attachment_popup_used";
 
+    /** A tab was attached from the Fusebox Tab Picker. */
+    public static final String FUSEBOX_TAB_PICKER_TAB_ATTACHED = "fusebox_tab_picker_tab_attached";
+
     /** Glic on Android used by the user. */
     public static final String GLIC_ANDROID_USED = "glic_android_used";
 
@@ -166,16 +166,16 @@ public final class EventConstants {
     /** 'Manage windows' menu for multi-instance support feature was tapped. */
     public static final String INSTANCE_SWITCHER_IPH_USED = "instance_switcher_iph_used";
 
+    /** Trigger event for the interruptive IPH cooldown group. */
+    public static final String INTERRUPTIVE_IPH_COOLDOWN_GROUP_TRIGGER =
+            "interruptive_iph_cooldown_group_trigger";
+
     /** Shared Highlighting button event */
     public static final String IPH_SHARED_HIGHLIGHTING_USED = "iph_shared_highlighting_used";
 
     /** The keyboard accessory was used to fill account name and email data into a form. */
     public static final String KEYBOARD_ACCESSORY_ACCOUNT_NAME_EMAIL_AUTOFILLED =
             "account_name_email_create_suggestion_feature_used";
-
-    /** The keyboard accessory was used to fill address data into a form. */
-    public static final String KEYBOARD_ACCESSORY_ADDRESS_AUTOFILLED =
-            "keyboard_accessory_address_suggestion_accepted";
 
     /** The keyboard accessory At Memory feature was used. */
     public static final String KEYBOARD_ACCESSORY_AT_MEMORY_USED = "autofill_at_memory_iph_used";
@@ -184,9 +184,6 @@ public final class EventConstants {
     public static final String KEYBOARD_ACCESSORY_AUTOFILL_AI_VALUABLES_AUTOFILLED =
             "autofill_ai_valuables_feature_used";
 
-    /** The keyboard accessory was swiped to reveal more suggestions. */
-    public static final String KEYBOARD_ACCESSORY_BAR_SWIPED = "keyboard_accessory_bar_swiped";
-
     /** The keyboard accessory was used to fill home and work address data into a form. */
     public static final String KEYBOARD_ACCESSORY_HOME_AND_WORK_ADDRESS_AUTOFILLED =
             "home_work_address_create_suggestion_feature_used";
@@ -194,10 +191,6 @@ public final class EventConstants {
     /** The keyboard accessory was used to fill loyalty card info into a form. */
     public static final String KEYBOARD_ACCESSORY_LOYALTY_CARDS_AUTOFILLED =
             "keyboard_accessory_loyalty_cards_autofilled";
-
-    /** The keyboard accessory was used to fill a password form. */
-    public static final String KEYBOARD_ACCESSORY_PASSWORD_AUTOFILLED =
-            "keyboard_accessory_password_suggestion_accepted";
 
     /** The keyboard accessory was used to fill payment data into a form. */
     public static final String KEYBOARD_ACCESSORY_PAYMENT_AUTOFILLED =
@@ -255,11 +248,11 @@ public final class EventConstants {
     /** The user clicked on the Sent Tab to Self entry point in the omnibox long-press menu. */
     public static final String SEND_TAB_TO_SELF_OMNIBOX_USED = "send_tab_to_self_omnibox_used";
 
+    /** Appearance settings page opened. */
+    public static final String SETTINGS_APPEARANCE_OPENED = "settings_appearance_opened";
+
     /** Screenshot events */
     public static final String SHARE_SCREENSHOT_SELECTED = "share_screenshot_clicked";
-
-    /** Sharing Hub link toggle events. */
-    public static final String SHARING_HUB_LINK_TOGGLE_CLICKED = "sharing_hub_link_toggle_clicked";
 
     /** The option to track the price of a product was selected from the main menu. */
     public static final String SHOPPING_LIST_PRICE_TRACK_FROM_MENU =

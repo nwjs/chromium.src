@@ -89,6 +89,33 @@ const READABILITY_TAG_TO_RM_TAG: Map<string, string> = new Map([
 const READABILITY_REPLACED_ELEMENTS_SELECTOR =
     [...READABILITY_TAG_TO_RM_TAG.keys(), ':not(:defined)'].join(',');
 
+// The tags of the elements that are registered as blocks in the NodeStore when
+// block tracking is enabled (see ContentController.buildSubtree_). A block
+// is an element whose text is translated as a unit, and which translation
+// doesn't replace, so it can be used to map selections of translated text to
+// the text in the AX tree. When blocks are nested, text belongs to the
+// innermost block. Only used when building content from the AX tree (see
+// buildSubtree_), not for Readability distillation.
+const SCREEN2X_BLOCK_TAGS: Set<string> = new Set([
+  'BLOCKQUOTE',
+  'CAPTION',
+  'DD',
+  'DIV',
+  'DT',
+  'FIGCAPTION',
+  'H1',
+  'H2',
+  'H3',
+  'H4',
+  'H5',
+  'H6',
+  'LI',
+  'P',
+  'PRE',
+  'TD',
+  'TH',
+]);
+
 export interface ContentListener {
   // Called when the current state changes between the different ContentTypes.
   onContentStateChange(): void;
@@ -389,7 +416,10 @@ export class ContentController {
       return null;
     }
 
-    const node = this.buildSubtree_(rootId);
+    const shouldTrackBlocks =
+        this.contentBrowserProxy_.isTranslatePdfEnabled() &&
+        this.visualBrowserProxy_.isPdf();
+    const node = this.buildSubtree_(rootId, shouldTrackBlocks);
     // If there is no text or images in the tree, do not proceed. The empty
     // state container will show instead.
     // We should only consider images as content when determining whether or
@@ -515,17 +545,27 @@ export class ContentController {
     });
   }
 
-  private buildSubtree_(nodeId: number): Node {
+  // `shouldTrackBlocks` is whether to register blocks and their text in the
+  // NodeStore, so that selections of translated content can be synced with the
+  // main panel. When tracking blocks, `blockId` is the AXNodeID of the
+  // innermost block containing the node, if any, and `parentId` is the
+  // AXNodeID of the node's parent, if any. Text nodes that aren't in a block
+  // are grouped by their parent instead.
+  private buildSubtree_(
+      nodeId: number, shouldTrackBlocks: boolean, blockId?: number,
+      parentId?: number): Node {
     let htmlTag = this.contentBrowserProxy_.getHtmlTag(nodeId);
     const dataAttributes = new Map<string, string>();
 
     // Text nodes do not have an html tag.
     if (!htmlTag.length) {
-      return this.createTextNode_(nodeId);
+      return this.createTextNode_(
+          nodeId, shouldTrackBlocks ? blockId ?? parentId : undefined);
     }
 
     // For Google Docs, we extract text from Annotated Canvas. The Annotated
-    // Canvas elements with text are leaf nodes with <rect> html tag.
+    // Canvas elements with text are leaf nodes with <rect> html tag. Blocks
+    // are only tracked for PDFs, so there's no block to pass here.
     if (this.contentBrowserProxy_.isGoogleDocs() &&
         this.contentBrowserProxy_.isLeafNode(nodeId)) {
       return this.createTextNode_(nodeId);
@@ -538,7 +578,9 @@ export class ContentController {
     const url = this.contentBrowserProxy_.getUrl(nodeId);
     if (!this.shouldShowLinks_() && htmlTag === LINKS_ON_TAG) {
       htmlTag = LINKS_OFF_TAG;
-      dataAttributes.set(LINK_DATA_ATTR, url ?? '');
+      if (url) {
+        dataAttributes.set(LINK_DATA_ATTR, url);
+      }
     }
 
     const element = document.createElement(htmlTag);
@@ -551,6 +593,9 @@ export class ContentController {
       element.dataset[attr] = val;
     }
     this.nodeStore_.setDomNode(element, nodeId);
+    if (shouldTrackBlocks && SCREEN2X_BLOCK_TAGS.has(element.tagName)) {
+      blockId = nodeId;
+    }
     const direction = this.contentBrowserProxy_.getTextDirection(nodeId);
     if (direction) {
       element.setAttribute('dir', direction);
@@ -564,11 +609,6 @@ export class ContentController {
       element.style.display = display;
       element.classList.add('downloaded-image');
     }
-
-    if (element.nodeName === 'FIGURE') {
-      element.style.display = display;
-    }
-
     if (url && element.nodeName === 'A') {
       this.setLinkAttributes_(element, url, nodeId);
     }
@@ -577,13 +617,24 @@ export class ContentController {
       element.setAttribute('lang', language);
     }
 
-    this.appendChildSubtrees_(element, nodeId);
+    this.appendChildSubtrees_(element, nodeId, shouldTrackBlocks, blockId);
+
+    // Check after the children are built so the figure's contents are in the
+    // node store.
+    if (element.nodeName === 'FIGURE') {
+      const showFigure = this.visualBrowserProxy_.isImagesEnabled() ||
+          this.isFigureSelected_(element);
+      element.style.display = showFigure ? '' : 'none';
+    }
     return element;
   }
 
-  private appendChildSubtrees_(node: Node, nodeId: number) {
+  private appendChildSubtrees_(
+      node: Node, nodeId: number, shouldTrackBlocks: boolean,
+      blockId?: number) {
     for (const childNodeId of this.contentBrowserProxy_.getChildren(nodeId)) {
-      const childNode = this.buildSubtree_(childNodeId);
+      const childNode =
+          this.buildSubtree_(childNodeId, shouldTrackBlocks, blockId, nodeId);
       node.appendChild(childNode);
     }
   }
@@ -667,12 +718,23 @@ export class ContentController {
     };
   }
 
-  private createTextNode_(nodeId: number): Node {
+  // `blockId` is the AXNodeID of the block that the text node belongs to. It's
+  // only set when tracking blocks, and the text is registered in the block if
+  // it's set. See buildSubtree_.
+  private createTextNode_(nodeId: number, blockId?: number): Node {
     const textContent = this.contentBrowserProxy_.getTextContent(nodeId);
     const textNode = document.createTextNode(textContent);
     this.nodeStore_.setDomNode(textNode, nodeId);
+    if (blockId !== undefined) {
+      this.nodeStore_.registerTextInBlock(nodeId, blockId, textContent.length);
+    }
     const isOverline = this.contentBrowserProxy_.isOverline(nodeId);
     const shouldBold = this.contentBrowserProxy_.shouldBold(nodeId);
+    const isPdf = this.visualBrowserProxy_.isPdf();
+    const isSuperscript =
+        isPdf && this.contentBrowserProxy_.isSuperscript(nodeId);
+    const isSubscript = isPdf && !isSuperscript &&
+        this.contentBrowserProxy_.isSubscript(nodeId);
 
     // When creating text nodes, save the first text node id. We need this
     // node id to call InitAXPosition in playSpeech. If it's not saved here,
@@ -684,17 +746,29 @@ export class ContentController {
       this.speechController_.initializeSpeechTree(textNode);
     }
 
-    if (!shouldBold && !isOverline) {
+    if (!shouldBold && !isOverline && !isSuperscript && !isSubscript) {
       return textNode;
     }
 
-    const htmlTag = shouldBold ? 'b' : 'span';
-    const parentElement = document.createElement(htmlTag);
-    if (isOverline) {
-      parentElement.style.textDecoration = 'overline';
+    let node: Node = textNode;
+    if (shouldBold || isOverline) {
+      const htmlTag = shouldBold ? 'b' : 'span';
+      const parentElement = document.createElement(htmlTag);
+      if (isOverline) {
+        parentElement.style.textDecoration = 'overline';
+      }
+      parentElement.appendChild(node);
+      node = parentElement;
     }
-    parentElement.appendChild(textNode);
-    return parentElement;
+    // Superscripts and subscripts are wrapped rather than given an html tag by
+    // getHtmlTag so that the text node itself, and not an element, stays mapped
+    // to the AXNode.
+    if (isSuperscript || isSubscript) {
+      const supOrSub = document.createElement(isSuperscript ? 'sup' : 'sub');
+      supOrSub.appendChild(node);
+      node = supOrSub;
+    }
+    return node;
   }
 
   updateLinks(shadowRoot?: ShadowRoot) {
@@ -768,11 +842,15 @@ export class ContentController {
 
     // Set the url information on the new element.
     if (showLinks) {
-      const url = elemToReplace.dataset[LINK_DATA_ATTR] ?? '';
-      this.setLinkAttributes_(newElem, url, nodeId);
+      const url = elemToReplace.dataset[LINK_DATA_ATTR];
+      if (url) {
+        this.setLinkAttributes_(newElem, url, nodeId);
+      }
     } else {
-      const url = elemToReplace.getAttribute('href') ?? '';
-      newElem.dataset[LINK_DATA_ATTR] = url;
+      const url = elemToReplace.getAttribute('href');
+      if (url) {
+        newElem.dataset[LINK_DATA_ATTR] = url;
+      }
     }
 
     // Remove the highlighting formatting when showing links, and add it back
@@ -846,6 +924,13 @@ export class ContentController {
   }
 
   onRenderedTextBlocksAvailable(container: HTMLElement) {
+    const renderedTextNodes = getReadingModeTextNodes(container);
+
+    // Final check to ensure there are actually visible text nodes.
+    // Otherwise, a blank screen may be shown instead of the empty state
+    // page.
+    this.setEmptyIfNoTextNodesAvailable(renderedTextNodes);
+
     if (!isDistilledByReadability() ||
         !this.contentBrowserProxy_.isReadabilitySelectTextEnabled()) {
       return;
@@ -854,13 +939,31 @@ export class ContentController {
     // Capture the specific node instances currently rendered in the UI.
     // We store them in an array so that the index becomes the identifier that
     // links this node to its AXTree mapping in the renderer.
-    this.renderedTextNodes_ = getReadingModeTextNodes(container);
+    this.renderedTextNodes_ = renderedTextNodes;
 
     // Extract the raw text content from each node to send to the mapping
     // algorithm in the renderer.
     const blocks = this.renderedTextNodes_.map(n => n.textContent || '');
 
     this.contentBrowserProxy_.onRenderedTextBlocksAvailable(blocks);
+  }
+
+  setEmptyIfNoTextNodesAvailable(nodes: Node[]) {
+    if (!nodes || nodes.length === 0) {
+      this.setEmpty();
+    }
+  }
+
+  onImagesVisibilityChanged(container: HTMLElement, shadowRoot?: ShadowRoot) {
+    this.updateImages(shadowRoot);
+
+    // Toggling the images toggle may mean that reading mode is going from
+    // no content to content or from content to no content (e.g. on pages
+    // with no text outside of image captions), so recompute if there's
+    // distillable content each time Images are toggled. This is called in
+    // a wrapper for updateImages instead of in updateImages directly to
+    // avoid creating new tree walkers each time updateImages is called.
+    this.setEmptyIfNoTextNodesAvailable(getReadingModeTextNodes(container));
   }
 
   updateImages(shadowRoot?: ShadowRoot) {
@@ -898,7 +1001,8 @@ export class ContentController {
       return;
     }
 
-    const anchors = Array.from(root.querySelectorAll<HTMLAnchorElement>('a'));
+    const anchors = Array.from(root.querySelectorAll<HTMLElement>(
+        `${LINKS_ON_TAG}, ${LINKS_OFF_SELECTOR}`));
     const originalAnchors: Record<string, AxTreeAnchorMetadata[]> =
         this.contentBrowserProxy_.getAxTreeAnchors();
     let successCount = 0;
@@ -907,7 +1011,8 @@ export class ContentController {
     let tooManyMatchesCount = 0;
     for (const anchor of anchors) {
       // Use raw href attribute to match axTreeAnchors keys correctly
-      const url = anchor.getAttribute('href') || '';
+      const url =
+          anchor.getAttribute('href') || anchor.dataset[LINK_DATA_ATTR] || '';
       if (!url) {
         noHrefCount++;
         this.transformLinkContainer_(anchor, false);
@@ -917,6 +1022,7 @@ export class ContentController {
       const options = originalAnchors[url];
       if (!options) {
         noMatchCount++;
+        anchor.removeAttribute('href');
         this.transformLinkContainer_(anchor, false);
         continue;
       }
@@ -934,6 +1040,7 @@ export class ContentController {
       if (matchIndex === null || matchIndex >= options.length) {
         tooManyMatchesCount++;
         // Convert the anchor to text if no match is found.
+        anchor.removeAttribute('href');
         this.transformLinkContainer_(anchor, false);
         continue;
       }
@@ -954,7 +1061,9 @@ export class ContentController {
 
       const nodeID = match.axId;
       this.nodeStore_.setDomNode(anchor, nodeID);
-      this.setLinkAttributes_(anchor, url, nodeID);
+      if (anchor.nodeName === 'A') {
+        this.setLinkAttributes_(anchor, url, nodeID);
+      }
       successCount++;
     }
 
@@ -969,8 +1078,7 @@ export class ContentController {
   }
 
   private findStrictMatch_(
-      domNode: HTMLAnchorElement, candidates: AxTreeAnchorMetadata[]): number
-      |null {
+      domNode: HTMLElement, candidates: AxTreeAnchorMetadata[]): number|null {
     let bestCandidateIndex: number|null = null;
     let highestScore = -1;
     let tieDetected = false;
@@ -1012,7 +1120,7 @@ export class ContentController {
   //    links (e.g., "Read More").
   // 4. Attributes (Title/Target): Micro tie-breakers for edge cases.
   private calculateMatchScore_(
-      domNode: HTMLAnchorElement, axLink: AxTreeAnchorMetadata): number {
+      domNode: HTMLElement, axLink: AxTreeAnchorMetadata): number {
     if (!domNode || !axLink) {
       return 0;
     }
@@ -1061,12 +1169,27 @@ export class ContentController {
     if (axLink.title && domNode.title && axLink.title === domNode.title) {
       score += 7;
     }
-    if (axLink.target && domNode.target &&
-        axLink.target.toLowerCase() === domNode.target.toLowerCase()) {
+    const target = domNode.getAttribute('target');
+    if (axLink.target && target &&
+        axLink.target.toLowerCase() === target.toLowerCase()) {
       score += 3;
     }
 
     return score;
+  }
+
+  // Returns true if the selection starts or ends inside the figure. This
+  // matches when the model switches to selection mode for figure selections.
+  private isFigureSelected_(figure: HTMLElement): boolean {
+    if (!this.contentBrowserProxy_.hasValidSelection()) {
+      return false;
+    }
+    const startNode =
+        this.nodeStore_.getDomNode(this.contentBrowserProxy_.getStartNodeId());
+    const endNode =
+        this.nodeStore_.getDomNode(this.contentBrowserProxy_.getEndNodeId());
+    return (!!startNode && figure.contains(startNode)) ||
+        (!!endNode && figure.contains(endNode));
   }
 
   private updateImagesForAxTree_(shadowRoot: ParentNode): boolean {
@@ -1078,8 +1201,12 @@ export class ContentController {
     // on canvases.
     const canvases = shadowRoot.querySelectorAll<HTMLElement>('canvas, figure');
     for (const canvas of canvases) {
-      canvas.style.display = imagesEnabled ? '' : 'none';
-      this.markTextNodesHiddenIfImagesHidden_(canvas);
+      const show = imagesEnabled ||
+          (canvas.nodeName === 'FIGURE' && this.isFigureSelected_(canvas));
+      canvas.style.display = show ? '' : 'none';
+      if (!show) {
+        this.markTextNodesHiddenIfImagesHidden_(canvas);
+      }
     }
     return canvases.length > 0;
   }

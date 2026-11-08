@@ -12,7 +12,7 @@
 #include <optional>
 #include <string>
 
-#include "base/compiler_specific.h"
+#include "base/containers/span.h"
 #include "base/functional/bind.h"
 #include "base/memory/raw_ptr.h"
 #include "base/run_loop.h"
@@ -30,7 +30,7 @@
 #include "chrome/browser/contextual_search/contextual_search_web_contents_helper.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_service_factory.h"
 #include "chrome/browser/history/history_service_factory.h"
-#include "chrome/browser/page_load_metrics/chrome_initiator_location.h"
+#include "chrome/browser/page_load_metrics/chrome_navigation_initiator.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "chrome/browser/signin/identity_test_environment_profile_adaptor.h"
@@ -69,7 +69,7 @@
 #include "components/omnibox/browser/omnibox_popup_selection.h"
 #include "components/omnibox/browser/test_location_bar_model.h"
 #include "components/omnibox/common/omnibox_features.h"
-#include "components/page_load_metrics/browser/navigation_handle_user_data.h"
+#include "components/page_load_metrics/browser/navigation_initiator.h"
 #include "components/policy/core/browser/browser_policy_connector.h"
 #include "components/policy/core/common/mock_configuration_policy_provider.h"
 #include "components/policy/policy_constants.h"
@@ -106,27 +106,25 @@ const char16_t kSearchKeyword[] = u"foo";
 const char16_t kSearchKeyword2[] = u"footest.com";
 const char16_t kSiteSearchPolicyKeyword[] = u"work";
 const char16_t kSiteSearchPolicyKeywordWithAtPrefix[] = u"@work";
-const ui::KeyboardCode kSearchKeywordKeys[] = {ui::VKEY_F, ui::VKEY_O,
-                                               ui::VKEY_O, ui::VKEY_UNKNOWN};
-const ui::KeyboardCode kSiteSearchPolicyKeywordKeys[] = {
-    ui::VKEY_W, ui::VKEY_O, ui::VKEY_R, ui::VKEY_K, ui::VKEY_UNKNOWN};
+constexpr std::array kSearchKeywordKeys = {ui::VKEY_F, ui::VKEY_O, ui::VKEY_O};
+constexpr std::array kSiteSearchPolicyKeywordKeys = {ui::VKEY_W, ui::VKEY_O,
+                                                     ui::VKEY_R, ui::VKEY_K};
 const char kSearchURL[] = "http://www.foo.com/search?q={searchTerms}";
 const char kSiteSearchPolicyURL[] =
     "http://www.work.com/search?q={searchTerms}";
 const char16_t kSearchShortName[] = u"foo";
 const char16_t kSiteSearchPolicyName[] = u"Work";
 const char16_t kSearchText[] = u"abc";
-const ui::KeyboardCode kSearchTextKeys[] = {ui::VKEY_A, ui::VKEY_B, ui::VKEY_C,
-                                            ui::VKEY_UNKNOWN};
+constexpr std::array kSearchTextKeys = {ui::VKEY_A, ui::VKEY_B, ui::VKEY_C};
 const char kSearchTextURL[] = "http://www.foo.com/search?q=abc";
 const char kSiteSearchPolicyTextURL[] = "http://www.work.com/search?q=abc";
 const char kSearchAggregatorPolicyIconUrl[] =
     "https://www.aggregator.com/icon.png";
 const char16_t kSearchAggregatorPolicyKeyword[] = u"aggregator";
 const char16_t kSearchAggregatorPolicyKeywordWithAtPrefix[] = u"@aggregator";
-const ui::KeyboardCode kSearchAggregatorPolicyKeywordKeys[] = {
-    ui::VKEY_A, ui::VKEY_G, ui::VKEY_G, ui::VKEY_R, ui::VKEY_E,      ui::VKEY_G,
-    ui::VKEY_A, ui::VKEY_T, ui::VKEY_O, ui::VKEY_R, ui::VKEY_UNKNOWN};
+constexpr std::array kSearchAggregatorPolicyKeywordKeys = {
+    ui::VKEY_A, ui::VKEY_G, ui::VKEY_G, ui::VKEY_R, ui::VKEY_E,
+    ui::VKEY_G, ui::VKEY_A, ui::VKEY_T, ui::VKEY_O, ui::VKEY_R};
 const char kSearchAggregatorPolicySearchUrl[] =
     "https://www.aggregator.com/search?q={searchTerms}";
 const char kSearchAggregatorPolicySuggestUrl[] =
@@ -136,8 +134,8 @@ const char kSearchAggregatorPolicyTextURL[] =
     "https://www.aggregator.com/search?q=abc";
 
 const char kInlineAutocompleteText[] = "def";
-const ui::KeyboardCode kInlineAutocompleteTextKeys[] = {
-    ui::VKEY_D, ui::VKEY_E, ui::VKEY_F, ui::VKEY_UNKNOWN};
+constexpr std::array kInlineAutocompleteTextKeys = {ui::VKEY_D, ui::VKEY_E,
+                                                    ui::VKEY_F};
 
 // Hostnames that shall be blocked by host resolver.
 constexpr const char* kBlockedHostnames[] = {
@@ -204,6 +202,7 @@ class OmniboxViewTest : public InProcessBrowserTest {
     ASSERT_TRUE(ui_test_utils::BringBrowserWindowToFront(browser()));
     ASSERT_NO_FATAL_FAILURE(SetupComponents());
     chrome::FocusLocationBar(browser());
+    ui_test_utils::WaitForViewFocus(browser(), VIEW_ID_OMNIBOX, true);
     ASSERT_TRUE(ui_test_utils::IsViewFocused(browser(), VIEW_ID_OMNIBOX));
 
     identity_test_env_adaptor_ =
@@ -220,6 +219,16 @@ class OmniboxViewTest : public InProcessBrowserTest {
               ->GetWebUIToolbarViewForTesting()
               ->GetWebViewForTesting(),
           kWebUIToolbarId);
+      OmniboxView* omnibox_view = nullptr;
+      ASSERT_NO_FATAL_FAILURE(GetOmniboxView(&omnibox_view));
+      // `chrome::FocusLocationBar(browser())` above selects all text in the
+      // omnibox. With WebUILocationBar enabled, wait for the select-all range
+      // both to be rendered in the WebUI `<input>` and to be reported back to
+      // the browser-side `WebUIReadOnlyOmnibox` via Mojo before tests run.
+      WaitTillSelectionRendered(omnibox_view, 0,
+                                omnibox_view->GetText().size());
+      ASSERT_TRUE(
+          base::test::RunUntil([&]() { return omnibox_view->IsSelectAll(); }));
     }
   }
 
@@ -391,9 +400,9 @@ class OmniboxViewTest : public InProcessBrowserTest {
     SendKeyForBrowser(browser(), key, modifiers);
   }
 
-  void SendKeySequence(const ui::KeyboardCode* keys) {
-    for (; *keys != ui::VKEY_UNKNOWN; UNSAFE_TODO(++keys)) {
-      ASSERT_NO_FATAL_FAILURE(SendKey(*keys, 0));
+  void SendKeySequence(base::span<const ui::KeyboardCode> keys) {
+    for (ui::KeyboardCode key : keys) {
+      ASSERT_NO_FATAL_FAILURE(SendKey(key, 0));
     }
   }
 
@@ -753,9 +762,8 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewTest, DISABLED_DesiredTLD) {
   ASSERT_TRUE(GetOmniboxController()->IsPopupOpen());
 
   // Test ctrl-Enter.
-  const ui::KeyboardCode kKeys[] = {ui::VKEY_B, ui::VKEY_A, ui::VKEY_R,
-                                    ui::VKEY_UNKNOWN};
-  ASSERT_NO_FATAL_FAILURE(SendKeySequence(kKeys));
+  ASSERT_NO_FATAL_FAILURE(
+      SendKeySequence({ui::VKEY_B, ui::VKEY_A, ui::VKEY_R}));
   ASSERT_NO_FATAL_FAILURE(WaitForAutocompleteControllerDone());
   ASSERT_TRUE(GetOmniboxController()->IsPopupOpen());
 
@@ -785,9 +793,7 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewTest, DISABLED_DesiredTLDWithTemporaryText) {
   template_url_service->Add(std::make_unique<TemplateURL>(data));
 
   // Send "ab", so that an "abc" entry appears in the popup.
-  const ui::KeyboardCode kSearchTextPrefixKeys[] = {ui::VKEY_A, ui::VKEY_B,
-                                                    ui::VKEY_UNKNOWN};
-  ASSERT_NO_FATAL_FAILURE(SendKeySequence(kSearchTextPrefixKeys));
+  ASSERT_NO_FATAL_FAILURE(SendKeySequence({ui::VKEY_A, ui::VKEY_B}));
   ASSERT_NO_FATAL_FAILURE(WaitForAutocompleteControllerDone());
   ASSERT_TRUE(GetOmniboxController()->IsPopupOpen());
 
@@ -937,12 +943,15 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewTest,
   // Input something to trigger inline autocomplete.
   ASSERT_NO_FATAL_FAILURE(SendKeySequence(kInlineAutocompleteTextKeys));
   ASSERT_NO_FATAL_FAILURE(WaitForAutocompleteControllerDone());
-  ASSERT_TRUE(GetOmniboxController()->IsPopupOpen());
+  WaitTillPopupOpen();
 
-  std::u16string old_text = omnibox_view->GetText();
+  std::u16string old_text;
 
   // Make sure inline autocomplete is triggered.
-  EXPECT_GT(old_text.length(), std::size(kInlineAutocompleteText) - 1);
+  EXPECT_TRUE(base::test::RunUntil([&]() {
+    old_text = omnibox_view->GetText();
+    return old_text.length() > (std::size(kInlineAutocompleteText) - 1);
+  }));
 
   size_t old_selected_line = GetOmniboxEditModel()->GetPopupSelection().line;
   EXPECT_EQ(0U, old_selected_line);
@@ -1168,9 +1177,12 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewTest, NonDefaultSubstitutingKeywordTest) {
   template_url_service->Add(std::make_unique<TemplateURL>(data));
 
   omnibox_view->SetUserText(std::u16string());
+  WaitTillTextRendered(omnibox_view, u"");
 
   // Non-default substituting keyword shouldn't be matched by default.
   ASSERT_NO_FATAL_FAILURE(SendKeySequence(kSearchTextKeys));
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return omnibox_view->GetText() == kSearchText; }));
   ASSERT_NO_FATAL_FAILURE(WaitForAutocompleteControllerDone());
   WaitTillPopupOpen();
 
@@ -1184,6 +1196,7 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewTest, NonDefaultSubstitutingKeywordTest) {
   EXPECT_EQ(default_match->destination_url.spec(), kSearchTextURL);
 
   omnibox_view->SetUserText(std::u16string());
+  WaitTillTextRendered(omnibox_view, u"");
   ASSERT_NO_FATAL_FAILURE(WaitForAutocompleteControllerDone());
   EXPECT_TRUE(base::test::RunUntil(
       [&]() { return GetOmniboxController()->IsPopupOpen() == false; }));
@@ -1206,9 +1219,12 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewTest, NonSubstitutingKeywordTest) {
   template_url_service->Add(std::make_unique<TemplateURL>(data));
 
   omnibox_view->SetUserText(std::u16string());
+  WaitTillTextRendered(omnibox_view, u"");
 
   // We always allow exact matches for non-substituting keywords.
   ASSERT_NO_FATAL_FAILURE(SendKeySequence(kSearchTextKeys));
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return omnibox_view->GetText() == kSearchText; }));
   ASSERT_NO_FATAL_FAILURE(WaitForAutocompleteControllerDone());
   WaitTillPopupOpen();
 
@@ -1221,6 +1237,7 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewTest, NonSubstitutingKeywordTest) {
   EXPECT_EQ(default_match->destination_url.spec(), "http://abc.com/");
 
   omnibox_view->SetUserText(std::u16string());
+  WaitTillTextRendered(omnibox_view, u"");
   ASSERT_NO_FATAL_FAILURE(WaitForAutocompleteControllerDone());
   EXPECT_TRUE(base::test::RunUntil(
       [&]() { return GetOmniboxController()->IsPopupOpen() == false; }));
@@ -1561,8 +1578,18 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewTest, DoesNotUpdateAutocompleteOnBlur) {
   ASSERT_NO_FATAL_FAILURE(SendKeySequence(kInlineAutocompleteTextKeys));
   ASSERT_NO_FATAL_FAILURE(WaitForAutocompleteControllerDone());
   WaitTillPopupOpen();
-  gfx::Range selection = omnibox_view->GetSelectionBounds();
-  EXPECT_FALSE(selection.is_empty());
+  // Typing `kInlineAutocompleteTextKeys` ("def", whose length without the null
+  // terminator is `std::size(kInlineAutocompleteText) - 1`) triggers inline
+  // autocomplete against the "http://www.def.com" history entry, appending
+  // ".com" so the full omnibox text ("def.com") is longer than the typed
+  // prefix.
+  std::u16string old_text;
+  EXPECT_TRUE(base::test::RunUntil([&]() {
+    old_text = omnibox_view->GetText();
+    return old_text.length() > (std::size(kInlineAutocompleteText) - 1);
+  }));
+  WaitTillSelectionRendered(
+      omnibox_view, std::size(kInlineAutocompleteText) - 1, old_text.size());
   std::u16string old_autocomplete_text =
       GetOmniboxController()->autocomplete_controller()->input_.text();
 
@@ -1585,17 +1612,12 @@ class TestOmniboxNavigationObserver : public content::WebContentsObserver {
   void DidFinishNavigation(
       content::NavigationHandle* navigation_handle) override {
     if (navigation_handle->HasCommitted()) {
-      auto* user_data =
-          page_load_metrics::NavigationHandleUserData::GetForNavigationHandle(
-              *navigation_handle);
-      if (user_data) {
-        navigation_type_ =
-            GetChromeInitiatorLocation(user_data->navigation_type());
-      }
+      navigation_initiator_ =
+          page_load_metrics::GetNavigationInitiator(*navigation_handle);
     }
   }
 
-  std::optional<ChromeInitiatorLocation> navigation_type_;
+  std::optional<page_load_metrics::NavigationInitiator> navigation_initiator_;
 };
 
 }  // namespace
@@ -1622,9 +1644,9 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewTest,
   ASSERT_NO_FATAL_FAILURE(SendKey(ui::VKEY_RETURN, 0));
   observer.Wait();
 
-  ASSERT_TRUE(omnibox_observer.navigation_type_.has_value());
-  EXPECT_EQ(omnibox_observer.navigation_type_.value(),
-            ChromeInitiatorLocation::kOmniboxDirectUrlInput);
+  ASSERT_TRUE(omnibox_observer.navigation_initiator_.has_value());
+  EXPECT_EQ(omnibox_observer.navigation_initiator_.value(),
+            chrome_navigation_initiator::kOmniboxDirectUrlInput);
 }
 
 IN_PROC_BROWSER_TEST_F(OmniboxViewTest,
@@ -1649,9 +1671,9 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewTest,
   ASSERT_NO_FATAL_FAILURE(SendKey(ui::VKEY_RETURN, 0));
   observer.Wait();
 
-  ASSERT_TRUE(omnibox_observer.navigation_type_.has_value());
-  EXPECT_EQ(omnibox_observer.navigation_type_.value(),
-            ChromeInitiatorLocation::kOmniboxDefaultSearchEngine);
+  ASSERT_TRUE(omnibox_observer.navigation_initiator_.has_value());
+  EXPECT_EQ(omnibox_observer.navigation_initiator_.value(),
+            chrome_navigation_initiator::kOmniboxDefaultSearchEngine);
 }
 
 IN_PROC_BROWSER_TEST_F(OmniboxViewTest, Paste) {
@@ -1735,9 +1757,8 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewTest,
   ASSERT_TRUE(GetOmniboxController()->IsPopupOpen());
 
   // Input something to trigger results.
-  const ui::KeyboardCode kKeys[] = {ui::VKEY_B, ui::VKEY_A, ui::VKEY_R,
-                                    ui::VKEY_UNKNOWN};
-  ASSERT_NO_FATAL_FAILURE(SendKeySequence(kKeys));
+  ASSERT_NO_FATAL_FAILURE(
+      SendKeySequence({ui::VKEY_B, ui::VKEY_A, ui::VKEY_R}));
   ASSERT_NO_FATAL_FAILURE(WaitForAutocompleteControllerDone());
   ASSERT_TRUE(GetOmniboxController()->IsPopupOpen());
 

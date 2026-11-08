@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "base/containers/flat_set.h"
+#include "base/containers/span.h"
 #include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/scoped_refptr.h"
@@ -17,9 +18,12 @@
 #include "base/timer/elapsed_timer.h"
 #include "base/version_info/channel.h"
 #include "components/signin/core/browser/account_preview_data.h"
+#include "components/signin/public/base/signin_buildflags.h"
 #include "components/signin/public/identity_manager/access_token_fetcher.h"
 #include "google_apis/gaia/gaia_id.h"
 #include "google_apis/gaia/google_service_auth_error.h"
+#include "net/traffic_annotation/network_traffic_annotation.h"
+#include "services/network/public/mojom/fetch_api.mojom-shared.h"
 #include "url/gurl.h"
 
 namespace network {
@@ -34,6 +38,18 @@ class IdentityManager;
 // Test and production exposed list of data types restricted for the statistics
 // API.
 inline constexpr syncer::DataType kRequestedDataTypes[] = {
+    syncer::PASSWORDS,    syncer::BOOKMARKS,
+    syncer::AUTOFILL,     syncer::AUTOFILL_WALLET_METADATA,
+    syncer::READING_LIST,
+#if BUILDFLAG(ENABLE_DICE_SUPPORT)
+    syncer::EXTENSIONS,
+#endif
+};
+
+// Legacy list of data types requested when
+// `switches::kEnableAccountPreviewDataFetchOptimizations` or
+// `switches::kAccountPreviewDataReducedTypes` is disabled.
+inline constexpr syncer::DataType kLegacyRequestedDataTypes[] = {
     syncer::AUTOFILL,     syncer::BOOKMARKS,
     syncer::PREFERENCES,  syncer::THEMES,
     syncer::PASSWORDS,    syncer::EXTENSIONS,
@@ -41,6 +57,12 @@ inline constexpr syncer::DataType kRequestedDataTypes[] = {
     syncer::DEVICE_INFO,  syncer::AUTOFILL_WALLET_METADATA,
     syncer::READING_LIST, syncer::AUTOFILL_WALLET_CREDENTIAL,
 };
+
+// Returns the list of data types to request from the statistics API and record
+// metrics for, based on
+// `switches::kEnableAccountPreviewDataFetchOptimizations` and
+// `switches::kAccountPreviewDataReducedTypes`.
+base::span<const syncer::DataType> GetRequestedDataTypes();
 
 // Helper class to fetch account preview data from the Sync Preview API.
 // Fetches both statistics and entities previews in parallel (after acquiring a
@@ -51,6 +73,8 @@ inline constexpr syncer::DataType kRequestedDataTypes[] = {
 // The fetching only starts when Start() is called.
 class AccountPreviewDataFetcher {
  public:
+  // These values are persisted to logs. Entries should not be renumbered and
+  // numeric values should never be reused.
   // LINT.IfChange(AccountPreviewDataFetchState)
   enum class FetchState {
     kRequested = 0,
@@ -58,9 +82,15 @@ class AccountPreviewDataFetcher {
     kEntityPreviewEmptyResult = 2,
     kStatisticsHasResult = 3,
     kStatisticsEmptyResult = 4,
+    // Recorded when at least one requested endpoint succeeded (including when
+    // only partial results were obtained).
     kCompletedWithResults = 5,
+    // Recorded when all requested endpoints failed.
     kCompletedWithoutResults = 6,
-    kMaxValue = kCompletedWithoutResults,
+    // Recorded in addition to `kCompletedWithResults` when at least one
+    // requested endpoint succeeded and at least one failed.
+    kCompletedWithPartialResults = 7,
+    kMaxValue = kCompletedWithPartialResults,
   };
   // LINT.ThenChange(//tools/metrics/histograms/metadata/signin/enums.xml:AccountPreviewDataFetchState)
 
@@ -81,6 +111,14 @@ class AccountPreviewDataFetcher {
   void Start();
   bool is_started() const { return is_started_; }
 
+  // Shared with `AccountPreviewDataServiceImpl::MaybePreconnectSockets()` so
+  // preconnected sockets and actual requests use the same privacy mode in the
+  // socket pool key.
+  static constexpr auto kCredentialsMode =
+      network::mojom::CredentialsMode::kOmit;
+
+  static net::NetworkTrafficAnnotationTag GetTrafficAnnotation();
+  static GURL GetBaseUrlForChannel(version_info::Channel channel);
   static GURL GetStatsUrlForChannel(version_info::Channel channel);
   static GURL GetPreviewsUrlForChannel(version_info::Channel channel);
 
@@ -115,6 +153,7 @@ class AccountPreviewDataFetcher {
   bool is_started_ = false;
   bool hit_429_error_ = false;
   std::optional<base::ElapsedTimer> fetch_timer_;
+  std::optional<base::ElapsedTimer> network_fetch_timer_;
 
   base::OnceClosure on_fetch_completed_for_testing_;
 

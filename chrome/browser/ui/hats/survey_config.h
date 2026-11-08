@@ -24,8 +24,6 @@ inline constexpr char
         "autofill-address-users-perception";
 inline constexpr char kHatsSurveyTriggerAutofillAddressUserDeclinedSave[] =
     "autofill-address-user-declined-save";
-inline constexpr char kHatsSurveyTriggerAutofillPasswordUserPerception[] =
-    "autofill-password-users-perception";
 inline constexpr char kHatsSurveyTriggerAutofillCard[] = "autofill-card";
 inline constexpr char kHatsSurveyTriggerAutofillPassword[] =
     "autofill-password";
@@ -112,8 +110,18 @@ inline constexpr char kHatsSurveyTriggerNtpModules[] = "ntp-modules";
 inline constexpr char kHatsSurveyTriggerNextPanel[] = "next-panel";
 inline constexpr char kHatsSurveyTriggerNtpPhotosModuleOptOut[] =
     "ntp-photos-module-opt-out";
+inline constexpr char kHatsSurveyTriggerPerformanceControlsPerformance[] =
+    "performance-general";
 inline constexpr char kHatsSurveyTriggerPerformanceControlsPPM[] =
     "performance-ppm";
+inline constexpr char
+    kHatsSurveyTriggerPerformanceControlsBatteryPerformance[] =
+        "performance-battery";
+inline constexpr char kHatsSurveyTriggerPerformanceControlsMemorySaverOptOut[] =
+    "performance-high-efficiency-opt-out";
+inline constexpr char
+    kHatsSurveyTriggerPerformanceControlsBatterySaverOptOut[] =
+        "performance-battery-saver-opt-out";
 inline constexpr char kHatsSurveyTriggerPrivacyGuide[] = "privacy-guide";
 inline constexpr char kHatsSurveyTriggerRedWarning[] = "red-warning";
 inline constexpr char kHatsSurveyTriggerSettings[] = "settings";
@@ -190,6 +198,21 @@ inline constexpr char
 inline constexpr char
     kHatsSurveyTriggerAutofillPersonalizationAndTrustAutofillAiFilled[] =
         "autofill-personalization-and-trust-autofill-ai-filled";
+inline constexpr char
+    kHatsSurveyTriggerAutofillPersonalizationAndTrustCreditCardFilled[] =
+        "autofill-personalization-and-trust-credit-card-filled";
+inline constexpr char
+    kHatsSurveyTriggerAutofillPersonalizationAndTrustOneTimePasswordFilled[] =
+        "autofill-personalization-and-trust-one-time-password-filled";
+inline constexpr char
+    kHatsSurveyTriggerAutofillPersonalizationAndTrustPasswordFilled[] =
+        "autofill-personalization-and-trust-password-filled";
+inline constexpr char
+    kHatsSurveyTriggerAutofillPersonalizationAndTrustAtMemoryFilled[] =
+        "autofill-personalization-and-trust-at-memory-filled";
+inline constexpr char
+    kHatsSurveyTriggerAutofillPersonalizationAndTrustAtMemoryDismissed[] =
+        "autofill-personalization-and-trust-at-memory-dismissed";
 inline constexpr char kHatsSurveyTriggerPermissionsPrompt[] =
     "permissions-prompt";
 inline constexpr char kHatsSurveyTriggerOnFocusZpsSuggestionsHappiness[] =

@@ -8,6 +8,9 @@
 #include <complex>
 #include <vector>
 
+#include "base/containers/span.h"
+#include "base/time/time.h"
+#include "media/webrtc/voice_isolation/mock_voice_isolation.h"
 #include "media/webrtc/voice_isolation/voice_isolation_component.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -17,25 +20,10 @@ namespace media {
 using testing::_;
 using testing::Return;
 
-namespace {
-
-class MockVoiceIsolationComponent : public VoiceIsolationComponent {
- public:
-  MOCK_METHOD(void,
-              ProcessAudio,
-              (base::span<const float> input, base::span<float> output),
-              (override));
-  MOCK_METHOD(size_t, FrameSize, (), (const, override));
-  MOCK_METHOD(size_t, FramesPerSecond, (), (const, override));
-  MOCK_METHOD(void, ClearBuffers, (), (override));
-};
-
-}  // namespace
-
 TEST(VoiceIsolationWindowedFftTest, WindowOlaProperty) {
-  // Check Overlap-Add.
-  constexpr unsigned int kFftSize = 480;
-  WindowedFft windowed_fft(kFftSize);
+  constexpr size_t kFftSize = 480;
+  constexpr size_t kNumHopsPerBlock = 2;
+  WindowedFft windowed_fft(/*fft_size=*/kFftSize);
 
   const std::vector<float>& window = windowed_fft.fft_window_;
   const std::vector<float>& inv_window = windowed_fft.inv_fft_window_;
@@ -43,15 +31,55 @@ TEST(VoiceIsolationWindowedFftTest, WindowOlaProperty) {
   ASSERT_EQ(window.size(), kFftSize);
   ASSERT_EQ(window.size(), inv_window.size());
 
-  // The OLA property states that for a hop size of N/2:
-  // window[i] * inv_window[i] + window[i + N/2] * inv_window[i + N/2] = 1.0
-  // for i in [0, N/2 - 1].
-  const int half_size = kFftSize / 2;
-  for (int i = 0; i < half_size; ++i) {
+  const size_t half_size = kFftSize / kNumHopsPerBlock;
+
+  // Verify periodic Hann window boundary values: w[0] == 0 and w[N/2] == 1,
+  // while w[N-1] == w[1] > 0 (unlike a symmetric Hann window where w[N-1] ==
+  // 0).
+  EXPECT_EQ(window[0], 0.0f);
+  EXPECT_EQ(window[half_size], 1.0f);
+  EXPECT_GT(window[kFftSize - 1], 0.0f);
+  for (size_t i = 1; i < half_size; ++i) {
+    EXPECT_EQ(window[i], window[kFftSize - i]) << "Asymmetry at index " << i;
+  }
+
+  // Verify both the periodic Hann Constant Overlap-Add (COLA) property
+  // (w[i] + w[i + N/2] = 1.0) and the Weighted Overlap-Add (WOLA) property
+  // (w[i] * inv_w[i] + w[i + N/2] * inv_w[i + N/2] = 1.0) for a hop size of
+  // N/2.
+  for (size_t i = 0; i < half_size; ++i) {
     SCOPED_TRACE(::testing::Message() << "index=" << i);
-    float val1 = window[i] * inv_window[i];
-    float val2 = window[i + half_size] * inv_window[i + half_size];
+    EXPECT_FLOAT_EQ(window[i] + window[i + half_size], 1.0f);
+    const float val1 = window[i] * inv_window[i];
+    const float val2 = window[i + half_size] * inv_window[i + half_size];
     EXPECT_FLOAT_EQ(val1 + val2, 1.0f);
+  }
+}
+
+TEST(VoiceIsolationWindowedFftTest,
+     IdentityTransformReconstructsSignalWithAlgorithmicDelay) {
+  constexpr size_t kFftSize = 480;
+  constexpr size_t kHopSize = kFftSize / 2;
+  WindowedFft windowed_fft(kFftSize);
+
+  std::vector<float> input_signal(kFftSize * 4, 0.0f);
+  for (size_t i = 0; i < input_signal.size(); ++i) {
+    input_signal[i] = 0.5f * std::sin(i * 0.03f) + 0.25f * std::cos(i * 0.11f);
+  }
+  std::vector<float> output_signal(kFftSize * 4, 0.0f);
+  std::vector<float> dft_buffer(kFftSize * 2, 0.0f);
+
+  for (size_t i = 0; i + kFftSize <= input_signal.size(); i += kFftSize) {
+    windowed_fft.ForwardTransform(base::span(input_signal).subspan(i, kFftSize),
+                                  dft_buffer);
+    windowed_fft.InverseTransform(
+        dft_buffer, base::span(output_signal).subspan(i, kFftSize));
+  }
+
+  // Check if output matches input (accounting for algorithmic latency).
+  for (size_t i = kHopSize; i < output_signal.size(); ++i) {
+    EXPECT_NEAR(output_signal[i], input_signal[i - kHopSize], 1e-5f)
+        << "Mismatch at index " << i;
   }
 }
 
@@ -64,8 +92,10 @@ TEST(StftVoiceIsolationTest, Creation) {
 }
 
 TEST(StftVoiceIsolationTest, FrameSizeAndDelay) {
-  // Expectation: we do two FFT of 20ms each. The input is 20ms. We use an
-  // overlapping window. We return 160 complex values per FFT.
+  // Expectation: The inner component processes frequency-domain data from two
+  // FFTs per step (640 floats total, representing 160 complex bins per FFT).
+  // The outer StftVoiceIsolation operates in the time domain with a frame size
+  // of 320 samples (20 ms at 16 kHz, with 50 frames per second).
   constexpr size_t kFftSize = 2 * 2 * 160;
   constexpr size_t kFrameSize = 2 * 160;
   constexpr size_t kFramesPerSecond = 50;
@@ -75,9 +105,22 @@ TEST(StftVoiceIsolationTest, FrameSizeAndDelay) {
   EXPECT_CALL(*mock_inner, FramesPerSecond())
       .WillRepeatedly(Return(kFramesPerSecond));
 
+  // The inner component introduces its own algorithmic delay (e.g. 5 ms).
+  EXPECT_CALL(*mock_inner, AlgorithmicDelay())
+      .WillRepeatedly(Return(base::Milliseconds(5)));
+
   StftVoiceIsolation stft(std::move(mock_inner));
   EXPECT_EQ(stft.FrameSize(), kFrameSize);
   EXPECT_EQ(stft.FramesPerSecond(), kFramesPerSecond);
+
+  // The STFT overlap-add synthesis introduces an algorithmic lookahead delay
+  // equal to half the FFT window (one hop):
+  //   hop_delay = (fft_size_ / 2) / (fft_size_ * FramesPerSecond())
+  //             = 0.5 / 50 = 10 ms.
+  // AlgorithmicDelay() aggregates the inner component's delay and the STFT
+  // synthesis lookahead delay:
+  //   total_delay = inner_delay (5 ms) + stft_delay (10 ms) = 15 ms.
+  EXPECT_EQ(stft.AlgorithmicDelay(), base::Milliseconds(15));
 }
 
 TEST(StftVoiceIsolationTest, ProcessAudioLoopback) {
@@ -132,7 +175,7 @@ TEST(StftVoiceIsolationTest, ProcessAudioLoopback) {
   // Compare input and output accounting for delay. Delay is half a frame_size.
   int delay = frame_size / 2;
   for (size_t i = delay; i < full_output.size() - delay; ++i) {
-    EXPECT_NEAR(full_output[i], full_input[i - delay], 1e-4f) << "Frame " << i;
+    EXPECT_NEAR(full_output[i], full_input[i - delay], 1e-6f) << "Frame " << i;
   }
 }
 

@@ -5,8 +5,8 @@
 #include "third_party/blink/renderer/core/intersection_observer/intersection_geometry.h"
 
 #include <optional>
+#include <ranges>
 
-#include "base/containers/adapters.h"
 #include "base/numerics/safe_conversions.h"
 #include "third_party/blink/renderer/core/display_lock/display_lock_utilities.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
@@ -168,7 +168,7 @@ VisibilityInfo ComputeVisibilityInfo(
     HitTestResult result(target->HitTestForOcclusion(
         rect, base::BindRepeating(hit_node_cb.value(), rect)));
     const HitTestResult::NodeSet& nodes = result.ListBasedTestResult();
-    for (const auto& hit_node : base::Reversed(nodes)) {
+    for (const auto& hit_node : std::views::reverse(nodes)) {
       // If the `target` itself or any of its child nodes is in the hit test
       // results, then the `target` is visible/unoccluded enough to be hit.
       if (hit_node == target->GetNode() ||
@@ -228,7 +228,7 @@ IntersectionGeometry::RootGeometry::RootGeometry(const LayoutObject* root,
       !root->IsBox()) {
     return;
   }
-  zoom = root->StyleRef().EffectiveZoom();
+  zoom = root->Style().EffectiveZoom();
   pre_margin_local_root_rect = InitializeRootRect(root);
   UpdateMargin(margin);
   root_to_view_transform = ObjectToViewTransform(*root);
@@ -809,7 +809,7 @@ bool IntersectionGeometry::ApplyClip(const LayoutObject* target,
         // If the root is scrollable, apply the scroll margin to inflate the
         // root_clip_rect.
         ApplyMargin(root_clip_rect, scroll_margin,
-                    root->StyleRef().EffectiveZoom(), root_clip_rect.size());
+                    root->Style().EffectiveZoom(), root_clip_rect.size());
       }
 
       intersection_rect = unclipped_intersection_rect;

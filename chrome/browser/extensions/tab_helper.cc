@@ -163,14 +163,17 @@ void TabHelper::SetReloadRequired(
 }
 
 void TabHelper::SetReloadRequired(
-    const std::vector<const Extension*>& extensions) {
+    const std::vector<const Extension*>& extensions,
+    bool show_bubble_if_visible) {
   reload_required_ = true;
   for (const auto* extension : extensions) {
     if (!std::ranges::contains(reload_extensions_, extension)) {
       reload_extensions_.push_back(extension);
     }
   }
-  ShowReloadBubbleIfVisible();
+  if (show_bubble_if_visible) {
+    ShowReloadBubbleIfVisible();
+  }
 }
 
 bool TabHelper::IsReloadRequired() {
@@ -206,8 +209,8 @@ void TabHelper::InvokeForContentRulesRegistries(const Func& func) {
       // spanning extensions in incognito profiles, so invoke it also.
       RulesRegistryService* original_profile_rules_registry_service =
           RulesRegistryService::Get(profile_->GetOriginalProfile());
-      DCHECK_NE(rules_registry_service,
-                original_profile_rules_registry_service);
+      CHECK_NE(rules_registry_service, original_profile_rules_registry_service,
+               base::NotFatalUntil::M161);
       if (original_profile_rules_registry_service) {
         if (ContentRulesRegistry* original_content_rules_registry =
                 original_profile_rules_registry_service

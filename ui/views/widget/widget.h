@@ -13,8 +13,8 @@
 #include <vector>
 
 #include "base/callback_list.h"
-#include "base/memory/advanced_memory_safety_checks.h"
 #include "base/memory/raw_ptr.h"
+#include "base/memory/sanitized_object.h"
 #include "base/memory/weak_ptr.h"
 #include "base/observer_list.h"
 #include "base/scoped_observation.h"
@@ -162,7 +162,7 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
   // The macro is maintained by the memory safety team.
   // `Widget` is used extensively and has a complicated lifetime. This macro
   // enables additional lifetime checks.
-  ADVANCED_MEMORY_SAFETY_CHECKS();
+  SANITIZED_OBJECT();
 
  public:
   METADATA_HEADER_BASE(Widget);
@@ -371,6 +371,11 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
 
     bool accept_events = true;
 
+    // Whether drag and drop should be enabled for this widget. If nullopt, it
+    // is inferred based on `accept_events` and `type` (e.g. disabled if
+    // `!accept_events` or `type == TYPE_TOOLTIP` or `type == TYPE_DRAG`).
+    std::optional<bool> accept_drag_drop;
+
     Activatable activatable = Activatable::kDefault;
 
     // The class of window and its overall z-order level. This level is visible
@@ -550,16 +555,6 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
 
     // If set to true, enable system default show and hide animations.
     bool animation_enabled = false;
-
-    // If set to true, window opacity will be set to 0.0 when shown after being
-    // hidden until a fresh compositor frame arrives, preventing stale content
-    // from displaying. Enabling eliminates stale frames when showing after a
-    // hide at the cost of waiting for the next frame to be produced before
-    // showing. This may make sense for ephemeral UI that is normally displayed
-    // with new state (ex. Omnibox) but be less advantageous in scenarios where
-    // showing stale content faster will seem more responsive (eg. browser
-    // window).
-    bool prevent_stale_content_after_hide = false;
 #endif
 
     // Initial native widget background color, if supported.
@@ -1408,7 +1403,8 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
 
   // Enables input activation protection. Installs standard policies (window
   // activation, click-spam) if `custom_protector` is nullptr. Otherwise, the
-  // caller must configure the provided protector with the desired policies.
+  // caller must configure the provided protector with the desired policies. A
+  // `custom_protector` may only be provided when first enabling protection.
   //
   // Enabling this also activates occlusion protection for non-located events
   // (e.g. keyboard action keys like Space or Return) in

@@ -34,6 +34,10 @@
 #include "ui/gfx/image/image_skia_rep.h"
 #include "ui/gfx/skia_util.h"
 
+#if BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/android/tab_android.h"
+#endif
+
 namespace glic {
 
 namespace {
@@ -44,6 +48,23 @@ constexpr size_t kMaxTabUpdatesBeforeRateLimiting = 4;
 
 bool IsForeground(content::Visibility visibility) {
   return visibility != content::Visibility::HIDDEN;
+}
+
+std::string GetTabMimeType(content::WebContents* web_contents) {
+  if (!web_contents) {
+    return std::string();
+  }
+#if BUILDFLAG(IS_ANDROID)
+  // On Android, PDFs are rendered via a native Java `PdfPage`, while the
+  // `WebContents` commits an empty `chrome-native://` document whose mime type
+  // is not "application/pdf".
+  if (auto* tab_android = TabAndroid::FromWebContents(web_contents)) {
+    if (tab_android->IsPdf()) {
+      return "application/pdf";
+    }
+  }
+#endif
+  return web_contents->GetContentsMimeType();
 }
 
 }  // namespace
@@ -133,7 +154,7 @@ TabDataObserver::TabDataObserver(
     base::RepeatingCallback<void(TabDataChange)> tab_data_changed)
     : content::WebContentsObserver(web_contents),
       tab_data_changed_(std::move(tab_data_changed)),
-      tab_(tab) {
+      tab_(tab ? tab->GetWeakPtr() : nullptr) {
   if (web_contents) {
 #if !BUILDFLAG(IS_ANDROID)
     auto* favicon_driver =
@@ -142,8 +163,10 @@ TabDataObserver::TabDataObserver(
       favicon_driver->AddObserver(this);
     }
 #endif
-    tab_detach_subscription_ = tab->RegisterWillDetach(base::BindRepeating(
-        &TabDataObserver::OnTabWillDetach, base::Unretained(this)));
+    if (tab) {
+      tab_detach_subscription_ = tab->RegisterWillDetach(base::BindRepeating(
+          &TabDataObserver::OnTabWillDetach, base::Unretained(this)));
+    }
   }
 }
 
@@ -170,7 +193,7 @@ void TabDataObserver::ClearObservation() {
   deferred_update_.Stop();
   updates_since_navigation_ = 0;
   tab_detach_subscription_ = {};
-  tab_ = nullptr;
+  tab_.reset();
 }
 
 void TabDataObserver::DidFinishNavigation(
@@ -213,7 +236,7 @@ void TabDataObserver::SendRateLimitedUpdate() {
 void TabDataObserver::SendUpdate() {
   deferred_update_.Stop();
   ++updates_since_navigation_;
-  tab_data_changed_.Run({change_causes_, CreateTabData(tab_)});
+  tab_data_changed_.Run({change_causes_, CreateTabData(tab_.get())});
   change_causes_ = {};
 }
 
@@ -315,8 +338,7 @@ glic::mojom::TabDataPtr CreateTabData(tabs::TabInterface* tab) {
   }
 #endif
 
-  std::string mime_type =
-      web_contents ? web_contents->GetContentsMimeType() : "";
+  std::string mime_type = GetTabMimeType(web_contents);
 
   bool is_observable = false;
   bool is_audible = false;

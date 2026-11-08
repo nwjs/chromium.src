@@ -48,9 +48,8 @@
 #include "chrome/browser/ui/ash/shelf/app_shortcut_shelf_item_controller.h"
 #include "chrome/browser/ui/ash/shelf/chrome_shelf_controller.h"
 #include "chrome/browser/ui/ash/shelf/chrome_shelf_controller_util.h"
-#include "chrome/browser/ui/navigator/browser_navigator.h"
-#include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/grit/chrome_unscaled_resources.h"
+#include "chromeos/ash/components/bookmarks/bookmark_model_provider.h"
 #include "chromeos/ash/components/browser_context_helper/annotated_account_id.h"
 #include "chromeos/ash/components/browser_context_helper/browser_context_helper.h"
 #include "chromeos/ash/components/browser_delegate/browser_controller.h"
@@ -140,22 +139,6 @@ class ScopedIphSessionImpl : public ash::ScopedIphSession {
   const raw_ref<const base::Feature> iph_feature_;
 };
 
-app_list::AppListSyncableService* GetAppListSyncableService(Profile* profile) {
-  return app_list::AppListSyncableServiceFactory::GetForProfile(profile);
-}
-
-Profile* GetProfile(const AccountId& account_id) {
-  return Profile::FromBrowserContext(
-      ash::BrowserContextHelper::Get()->GetBrowserContextByAccountId(
-          account_id));
-}
-
-bool IsPrimaryProfile(user_manager::UserManager& user_manager,
-                      Profile* profile) {
-  return user_manager.IsPrimaryUser(
-      ash::BrowserContextHelper::Get()->GetUserByBrowserContext(profile));
-}
-
 }  // namespace
 
 AppListClientImpl::AppListClientImpl(PrefService* local_state,
@@ -163,8 +146,6 @@ AppListClientImpl::AppListClientImpl(PrefService* local_state,
     : local_state_(CHECK_DEREF(local_state)),
       user_manager_(CHECK_DEREF(user_manager)),
       app_list_controller_(ash::AppListController::Get()) {
-  user_manager_observation_.Observe(user_manager);
-
   app_list_controller_->SetClient(this);
   user_manager->AddSessionStateObserver(this);
   session_manager::SessionManager::Get()->AddObserver(this);
@@ -536,7 +517,9 @@ void AppListClientImpl::SetProfile(Profile* new_profile) {
 void AppListClientImpl::SetUpSearchUI() {
   search_controller_ = app_list::CreateSearchController(
       &local_state_.get(), profile_, current_model_updater_, this,
-      GetNotifier(), template_url_service_);
+      GetNotifier(), template_url_service_,
+      ash::BookmarkModelProvider::Get().Find(CHECK_DEREF(
+          ash::AnnotatedAccountId::Get(profile_->GetOriginalProfile()))));
 
   // Refresh the results used for the suggestion chips with empty query.
   // This fixes crbug.com/40642741.
@@ -559,7 +542,6 @@ AppListModelUpdater* AppListClientImpl::GetModelUpdaterForTest() {
 void AppListClientImpl::InitializeAsIfNewUserLoginForTest() {
   new_user_session_activation_time_ = base::Time::Now();
   state_for_new_user_ = StateForNewUser();
-  is_primary_profile_new_user_ = true;
 }
 
 void AppListClientImpl::OnSessionStateChanged() {
@@ -653,39 +635,12 @@ void AppListClientImpl::OpenURL(Profile* profile,
                                 const GURL& url,
                                 ui::PageTransition transition,
                                 WindowOpenDisposition disposition) {
-  NavigateParams params(profile, url, transition);
-  params.disposition = disposition;
-  Navigate(&params);
-}
-
-void AppListClientImpl::OnUserProfileCreated(const user_manager::User& user) {
-  // NOTE: Apps Collections in Ash is currently only supported for the primary
-  // user profile. This is a self-imposed restriction.
-  if (!user_manager_->IsPrimaryUser(&user)) {
-    return;
-  }
-
-  // Since we only currently support the primary user profile, we can stop
-  // observing the user manager once it has been created.
-  user_manager_observation_.Reset();
-
-  Profile* profile = Profile::FromBrowserContext(
-      ash::BrowserContextHelper::Get()->GetBrowserContextByUser(&user));
-
-  // Cache whether the user associated with the primary profile is considered
-  // new, based on whether the first app list sync in the session was the first
-  // sync ever across all ChromeOS devices and sessions for the given user.
-  if (auto* app_list_syncable_service = GetAppListSyncableService(profile)) {
-    app_list_syncable_service->OnFirstSync(base::BindOnce(
-        [](const base::WeakPtr<AppListClientImpl>& self,
-           bool was_first_sync_ever) {
-          if (!self) {
-            return;
-          }
-          self->is_primary_profile_new_user_ = was_first_sync_ever;
-        },
-        weak_ptr_factory_.GetWeakPtr()));
-  }
+  const AccountId& account_id =
+      CHECK_DEREF(
+          ash::BrowserContextHelper::Get()->GetUserByBrowserContext(profile))
+          .GetAccountId();
+  ash::BrowserController::GetInstance()->OpenUrl(
+      account_id, url, {.disposition = disposition, .transition = transition});
 }
 
 ash::AppListNotifier* AppListClientImpl::GetNotifier() {
@@ -938,21 +893,9 @@ void AppListClientImpl::MaybeRecordActivatedItemVisibility(
       default_app_name.value());
 }
 
-std::optional<bool> AppListClientImpl::IsNewUser(
-    const AccountId& account_id) const {
-  // NOTE: Apps Collections in Ash is currently only supported for the primary
-  // user profile. This is a self-imposed restriction but may happen in tests.
-  auto* const profile = GetProfile(account_id);
-  if (!IsPrimaryProfile(user_manager_.get(), profile)) {
-    return false;
-  }
-  return is_primary_profile_new_user_;
-}
-
 void AppListClientImpl::RecordAppsDefaultVisibility(
     const std::vector<std::string>& apps_above_the_fold,
-    const std::vector<std::string>& apps_below_the_fold,
-    bool is_apps_collections_page) {
+    const std::vector<std::string>& apps_below_the_fold) {
   // Do not record this metric for tablet mode.
   if (display::Screen::Get()->InTabletMode()) {
     return;

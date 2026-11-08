@@ -105,6 +105,11 @@ source_set("themes") {
       "//ui/ozone",
     ]
   }
+  if (is_android) {
+    public += [ "theme_service_android.h" ]
+    sources += [ "theme_service_android.cc" ]
+    deps += [ "//chrome/browser/ui/android/night_mode:jni_headers" ]
+  }
   if (!is_android) {
     deps += [
       "//chrome/app/theme:theme_resources",
@@ -176,6 +181,7 @@ if (!is_android) {
       "//chrome/browser/ui/color:mixers",
       "//chrome/browser/ui/frame",
       "//chrome/test:test_support",
+      "//chrome/test/base:testing_browser_process",
       "//components/color",
       "//components/pref_registry",
       "//components/sync:test_support",
@@ -217,7 +223,6 @@ if (!is_android) {
     deps = [
       ":themes",
       "//base",
-      "//chrome/browser/ui",
       "//chrome/browser/ui:browser_window_header",
       "//chrome/browser/ui/color:color_headers",
       "//chrome/browser/ui/views/frame:browser_view_header",

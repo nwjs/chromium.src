@@ -7,18 +7,13 @@
 #include <memory>
 
 #include "base/functional/callback_helpers.h"
-#include "base/test/metrics/histogram_tester.h"
 #include "chrome/browser/ui/autofill/payments/payments_churned_users_bubble_controller.h"
 #include "chrome/test/base/chrome_render_view_host_test_harness.h"
 #include "components/autofill/content/browser/test_content_autofill_client.h"
-#include "components/autofill/core/browser/data_manager/payments/test_payments_data_manager.h"
-#include "components/autofill/core/browser/payments/payments_autofill_client.h"
-#include "components/autofill/core/browser/payments/payments_churned_users_metrics.h"
 #include "components/signin/public/identity_manager/account_info.h"
-#include "components/signin/public/identity_manager/identity_manager.h"
-#include "components/signin/public/identity_manager/identity_test_utils.h"
 #include "components/tabs/public/mock_tab_interface.h"
 #include "components/tabs/public/tab_interface.h"
+#include "google_apis/gaia/gaia_id.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/base/unowned_user_data/unowned_user_data_host.h"
@@ -37,9 +32,7 @@ class MockPaymentsChurnedUsersBubbleController
 
   MOCK_METHOD(void,
               Show,
-              (base::OnceClosure accept_callback,
-               base::OnceClosure cancel_callback,
-               base::OnceClosure closed_callback,
+              (base::OnceCallback<void(PaymentsUiClosedReason)> closed_callback,
                AccountInfo account_info),
               (override));
 };
@@ -80,7 +73,6 @@ class PaymentsChurnedUsersUiDelegateDesktopTest
   }
 
   PaymentsChurnedUsersUiDelegateDesktop& delegate() { return *delegate_; }
-  TestContentAutofillClient& client() { return *client_; }
 
  private:
   ui::UnownedUserDataHost tab_unowned_user_data_host_;
@@ -91,42 +83,16 @@ class PaymentsChurnedUsersUiDelegateDesktopTest
   std::unique_ptr<PaymentsChurnedUsersUiDelegateDesktop> delegate_;
 };
 
-TEST_F(PaymentsChurnedUsersUiDelegateDesktopTest,
-       ShowPaymentsChurnedUsersUI_WithAccountInfo) {
-  signin::IdentityManager* identity_manager = client().GetIdentityManager();
-  AccountInfo account_info = signin::MakePrimaryAccountAvailable(
-      identity_manager, "test@example.com", signin::ConsentLevel::kSignin);
-  signin::UpdateAccountInfoForAccount(
-      identity_manager, signin::WithGeneratedUserInfo(account_info, "Test"));
-  static_cast<TestPaymentsDataManager&>(
-      client().GetPaymentsAutofillClient()->GetPaymentsDataManager())
-      .SetAccountInfoForPayments(account_info.GetCoreAccountInfo());
+TEST_F(PaymentsChurnedUsersUiDelegateDesktopTest, ShowPaymentsChurnedUsersUI) {
+  AccountInfo account_info =
+      AccountInfo::Builder(GaiaId("test_id"), "test@example.com").Build();
 
-  EXPECT_CALL(
-      bubble_controller(),
-      Show(testing::_, testing::_, testing::_,
-           testing::Property(&AccountInfo::GetEmail, "test@example.com")))
-      .Times(1);
+  EXPECT_CALL(bubble_controller(),
+              Show(testing::_, testing::Property(&AccountInfo::GetEmail,
+                                                 "test@example.com")));
 
-  delegate().ShowPaymentsChurnedUsersUI(base::DoNothing(), base::DoNothing(),
-                                        base::DoNothing());
-}
-
-TEST_F(PaymentsChurnedUsersUiDelegateDesktopTest,
-       ShowPaymentsChurnedUsersUI_NoAccountInfo) {
-  base::HistogramTester histogram_tester;
-
-  EXPECT_CALL(bubble_controller(), Show).Times(0);
-
-  delegate().ShowPaymentsChurnedUsersUI(base::DoNothing(), base::DoNothing(),
-                                        base::DoNothing());
-
-  histogram_tester.ExpectUniqueSample(
-      "Autofill.PaymentsChurnedUsersBubble.ShowResult",
-      /*sample=*/
-      autofill_metrics::PaymentsChurnedUsersBubbleShowResult::
-          kNoAccountInfoPresent,
-      /*expected_bucket_count=*/1);
+  delegate().ShowPaymentsChurnedUsersUI(account_info,
+                                        /*closed_callback=*/base::DoNothing());
 }
 
 }  // namespace

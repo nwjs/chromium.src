@@ -74,6 +74,17 @@ chromium-metrics-reviews@google.com.
   </token>
 </histogram>
 
+<histogram name="ContextualTasks.AskGoogle.Invoked"
+    enum="LensOverlayInvocationSource" expires_after="2027-06-18">
+  <owner>nguyenbryan@google.com</owner>
+  <owner>chrome-contextual-tasks-eng@google.com</owner>
+  <summary>
+    Recorded when the user invokes 'Ask Google about this page' via any of the
+    updated entry points (context menu, app menu, pinned toolbar button, or
+    homework action chip).
+  </summary>
+</histogram>
+
 <histogram
     name="ContextualTasks.BackButton.UserAction.NavigatedFromSidePanelToFullTab"
     enum="Boolean" expires_after="2027-03-07">
@@ -140,7 +151,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ContextualTasks.Context.DurationSinceLastActive"
-    units="seconds" expires_after="2027-01-24">
+    units="seconds" expires_after="2027-03-28">
   <owner>sophiechang@chromium.org</owner>
   <owner>abhayprakash@google.com</owner>
   <summary>
@@ -306,6 +317,17 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="ContextualTasks.EphemeralToolbarButton.AutoDismissed"
+    units="minutes" expires_after="2027-04-15">
+  <owner>dianaou@chromium.org</owner>
+  <owner>chrome-contextual-tasks-eng@google.com</owner>
+  <summary>
+    Recorded when the ephemeral (unpinned) contextual tasks toolbar button is
+    automatically dismissed after its auto-dismiss timeout expires. Records the
+    auto-dismiss timeout duration in minutes.
+  </summary>
+</histogram>
+
 <histogram name="ContextualTasks.EphemeralToolbarButton.Shown" enum="Boolean"
     expires_after="2027-03-07">
   <owner>dianaou@chromium.org</owner>
@@ -315,6 +337,18 @@ chromium-metrics-reviews@google.com.
     becomes visible in the browser toolbar. This occurs when an eligible
     contextual task is active or suggested and the toolbar button transitions
     from hidden to shown. Always recorded as true.
+  </summary>
+</histogram>
+
+<histogram
+    name="ContextualTasks.EphemeralToolbarButton.UserAction.RemoveByContextMenu"
+    enum="Boolean" expires_after="2027-04-15">
+  <owner>dianaou@chromium.org</owner>
+  <owner>chrome-contextual-tasks-eng@google.com</owner>
+  <summary>
+    Recorded when the user removes the ephemeral (unpinned) contextual tasks
+    toolbar button for the current task via its context menu. Always recorded as
+    true.
   </summary>
 </histogram>
 
@@ -372,6 +406,47 @@ chromium-metrics-reviews@google.com.
     Recorded every time the contextual tasks framework navigates the top level
     of the inner frame contents, excluding zero state loads. Records the HTTP
     status code of the response when the navigation finishes.
+  </summary>
+</histogram>
+
+<histogram name="ContextualTasks.LensRegionChip.Dismissed" enum="Boolean"
+    expires_after="2027-06-18">
+  <owner>nguyenbryan@chromium.org</owner>
+  <owner>chrome-contextual-tasks-eng@google.com</owner>
+  <summary>
+    Recorded when the user dismisses the Lens region chip in the Contextual
+    Tasks composebox plate. Always recorded as true.
+  </summary>
+</histogram>
+
+<histogram name="ContextualTasks.LensRegionChip.PreviewLoaded" enum="Boolean"
+    expires_after="2027-06-18">
+  <owner>nguyenbryan@chromium.org</owner>
+  <owner>chrome-contextual-tasks-eng@google.com</owner>
+  <summary>
+    Recorded when the Lens region chip attempts to fetch the crop preview from
+    the InputStateModel. Records true if the preview was successfully found, or
+    false if not found.
+  </summary>
+</histogram>
+
+<histogram name="ContextualTasks.LensRegionChip.PreviewLoadLatency" units="ms"
+    expires_after="2027-06-18">
+  <owner>nguyenbryan@chromium.org</owner>
+  <owner>chrome-contextual-tasks-eng@google.com</owner>
+  <summary>
+    Recorded when the Lens region chip extension successfully fetches the crop
+    preview over Mojo. Records the time taken in milliseconds.
+  </summary>
+</histogram>
+
+<histogram name="ContextualTasks.LensRegionChip.Shown" enum="Boolean"
+    expires_after="2027-06-18">
+  <owner>nguyenbryan@chromium.org</owner>
+  <owner>chrome-contextual-tasks-eng@google.com</owner>
+  <summary>
+    Recorded when the Lens region chip is shown in the Contextual Tasks
+    composebox plate. Always recorded as true.
   </summary>
 </histogram>
 
@@ -528,7 +603,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ContextualTasks.Session.Duration.AioToCobr" units="ms"
-    expires_after="2027-01-03">
+    expires_after="2027-04-04">
   <owner>juanmojica@google.com</owner>
   <owner>mercerd@chromium.org</owner>
   <owner>chrome-contextual-tasks-eng@google.com</owner>
@@ -536,6 +611,18 @@ chromium-metrics-reviews@google.com.
     Recorded when a cobrowsing session opened via AIO2Cobr (AI Overviews to
     CoBrowse) flows is closed or ended. Measures the time elapsed from when the
     cobrowse panel was opened until it was closed.
+  </summary>
+</histogram>
+
+<histogram name="ContextualTasks.Session.Duration.EphemeralToolbarButton"
+    units="ms" expires_after="2027-04-15">
+  <owner>dianaou@chromium.org</owner>
+  <owner>chrome-contextual-tasks-eng@google.com</owner>
+  <summary>
+    Recorded when a contextual tasks side panel session opened via the ephemeral
+    (unpinned) toolbar button is closed or ended. Measures the time elapsed from
+    when the side panel was opened via the ephemeral toolbar button until it was
+    closed.
   </summary>
 </histogram>
 
@@ -583,6 +670,28 @@ chromium-metrics-reviews@google.com.
     Recorded when the user clicks the side panel close button, for sessions that
     were entered via AIO2Cobr (AI Overviews to CoBrowse) flows. Always recorded
     as true.
+  </summary>
+</histogram>
+
+<histogram name="ContextualTasks.SidePanel.UserAction.Close.AskGoogle"
+    enum="Boolean" expires_after="2027-06-18">
+  <owner>nguyenbryan@google.com</owner>
+  <owner>chrome-contextual-tasks-eng@google.com</owner>
+  <summary>
+    Recorded when the user clicks the side panel close button, for sessions that
+    were entered via the Ask Google entry points. Always recorded as true.
+  </summary>
+</histogram>
+
+<histogram
+    name="ContextualTasks.SidePanel.UserAction.Close.EphemeralToolbarButton"
+    enum="Boolean" expires_after="2027-06-18">
+  <owner>dianaou@chromium.org</owner>
+  <owner>chrome-contextual-tasks-eng@google.com</owner>
+  <summary>
+    Recorded when the user clicks the side panel close button, for sessions that
+    were entered via the ephemeral (unpinned) toolbar button. Always recorded as
+    true.
   </summary>
 </histogram>
 
@@ -677,7 +786,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ContextualTasks.WebUI.OAuthError"
-    units="GoogleServiceAuthError" expires_after="2027-01-24">
+    units="GoogleServiceAuthError" expires_after="2027-03-28">
   <owner>mercerd@chromium.org</owner>
   <owner>chrome-contextual-tasks-eng@google.com</owner>
   <summary>

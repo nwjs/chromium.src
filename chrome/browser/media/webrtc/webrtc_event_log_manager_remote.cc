@@ -81,9 +81,10 @@ base::TimeDelta GetUploadDelay() {
 bool TimePointInRange(const base::Time& time_point,
                       const base::Time& range_begin,
                       const base::Time& range_end) {
-  DCHECK(!time_point.is_null());
-  DCHECK(range_begin.is_null() || range_end.is_null() ||
-         range_begin <= range_end);
+  CHECK(!time_point.is_null(), base::NotFatalUntil::M161);
+  CHECK(
+      range_begin.is_null() || range_end.is_null() || range_begin <= range_end,
+      base::NotFatalUntil::M161);
   return (range_begin.is_null() || range_begin <= time_point) &&
          (range_end.is_null() || time_point < range_end);
 }
@@ -143,7 +144,7 @@ UploadList::UploadInfo CreateActivelyCapturedLogEntry(
     const base::Time& capture_time) {
   using State = UploadList::UploadInfo::State;
   const std::string filename = path.BaseName().MaybeAsASCII();
-  DCHECK(!filename.empty());
+  CHECK(!filename.empty(), base::NotFatalUntil::M161);
   return UploadList::UploadInfo(std::string(), base::Time(), filename,
                                 capture_time, State::Pending);
 }
@@ -152,7 +153,7 @@ UploadList::UploadInfo CreatePendingLogEntry(
     const WebRtcLogFileInfo& log_info) {
   using State = UploadList::UploadInfo::State;
   const std::string filename = log_info.path.BaseName().MaybeAsASCII();
-  DCHECK(!filename.empty());
+  CHECK(!filename.empty(), base::NotFatalUntil::M161);
   return UploadList::UploadInfo(std::string(), base::Time(), filename,
                                 log_info.last_modified, State::Pending);
 }
@@ -161,7 +162,7 @@ UploadList::UploadInfo CreateLocalOnlyLogEntry(
     const WebRtcLogFileInfo& log_info) {
   using State = UploadList::UploadInfo::State;
   const std::string filename = log_info.path.BaseName().MaybeAsASCII();
-  DCHECK(!filename.empty());
+  CHECK(!filename.empty(), base::NotFatalUntil::M161);
   return UploadList::UploadInfo(std::string(), base::Time(), filename,
                                 log_info.last_modified, State::NotUploaded);
 }
@@ -171,7 +172,7 @@ UploadList::UploadInfo CreateActivelyUploadedLogEntry(
     const base::Time& upload_time) {
   using State = UploadList::UploadInfo::State;
   const std::string filename = log_info.path.BaseName().MaybeAsASCII();
-  DCHECK(!filename.empty());
+  CHECK(!filename.empty(), base::NotFatalUntil::M161);
   return UploadList::UploadInfo(std::string(), upload_time, filename,
                                 log_info.last_modified, State::Pending);
 }
@@ -220,14 +221,14 @@ WebRtcRemoteEventLogManager::WebRtcRemoteEventLogManager(
       weak_ptr_factory_(
           std::make_unique<base::WeakPtrFactory<WebRtcRemoteEventLogManager>>(
               this)) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M161);
   // Proactive pruning would not do anything at the moment; it will be started
   // with the first enabled browser context. This will all have the benefit
   // of doing so on |task_runner_| rather than the UI thread.
 }
 
 WebRtcRemoteEventLogManager::~WebRtcRemoteEventLogManager() {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M161);
   // TODO(crbug.com/40545136): Purge from disk files which were being uploaded
   // while destruction took place, thereby avoiding endless attempts to upload
   // the same file.
@@ -255,9 +256,9 @@ WebRtcRemoteEventLogManager::~WebRtcRemoteEventLogManager() {
 
 void WebRtcRemoteEventLogManager::SetNetworkConnectionTracker(
     network::NetworkConnectionTracker* network_connection_tracker) {
-  DCHECK(task_runner_->RunsTasksInCurrentSequence());
-  DCHECK(network_connection_tracker);
-  DCHECK(!network_connection_tracker_);
+  CHECK(task_runner_->RunsTasksInCurrentSequence(), base::NotFatalUntil::M161);
+  CHECK(network_connection_tracker, base::NotFatalUntil::M161);
+  CHECK(!network_connection_tracker_, base::NotFatalUntil::M161);
 
   // |this| is only destroyed (on the UI thread) after |task_runner_| stops,
   // so AddNetworkConnectionObserver() is safe.
@@ -278,21 +279,21 @@ void WebRtcRemoteEventLogManager::SetNetworkConnectionTracker(
 
   // Because this happens while enabling the first browser context, there is no
   // necessity to consider uploading yet.
-  DCHECK_EQ(enabled_browser_contexts_.size(), 0u);
+  CHECK_EQ(enabled_browser_contexts_.size(), 0u, base::NotFatalUntil::M161);
 }
 
 void WebRtcRemoteEventLogManager::SetLogFileWriterFactory(
     std::unique_ptr<LogFileWriter::Factory> log_file_writer_factory) {
-  DCHECK(task_runner_->RunsTasksInCurrentSequence());
-  DCHECK(log_file_writer_factory);
-  DCHECK(!log_file_writer_factory_);
+  CHECK(task_runner_->RunsTasksInCurrentSequence(), base::NotFatalUntil::M161);
+  CHECK(log_file_writer_factory, base::NotFatalUntil::M161);
+  CHECK(!log_file_writer_factory_, base::NotFatalUntil::M161);
   log_file_writer_factory_ = std::move(log_file_writer_factory);
 }
 
 void WebRtcRemoteEventLogManager::EnableForBrowserContext(
     BrowserContextId browser_context_id,
     const base::FilePath& browser_context_dir) {
-  DCHECK(task_runner_->RunsTasksInCurrentSequence());
+  CHECK(task_runner_->RunsTasksInCurrentSequence(), base::NotFatalUntil::M161);
   DCHECK(network_connection_tracker_)
       << "SetNetworkConnectionTracker not called.";
   DCHECK(log_file_writer_factory_) << "SetLogFileWriterFactory() not called.";
@@ -326,7 +327,7 @@ void WebRtcRemoteEventLogManager::EnableForBrowserContext(
 
 void WebRtcRemoteEventLogManager::DisableForBrowserContext(
     BrowserContextId browser_context_id) {
-  DCHECK(task_runner_->RunsTasksInCurrentSequence());
+  CHECK(task_runner_->RunsTasksInCurrentSequence(), base::NotFatalUntil::M161);
 
   if (!BrowserContextEnabled(browser_context_id)) {
     return;  // Enabling may have failed due to lacking permissions.
@@ -343,11 +344,12 @@ void WebRtcRemoteEventLogManager::DisableForBrowserContext(
   //    In that case, some peer connections associated with this BrowserContext
   //    might still be active, or become active at a later time, but all
   //    logs must have already been stopped.
-  DCHECK(
+  CHECK(
       !std::ranges::contains(active_logs_, browser_context_id,
                              [](const decltype(active_logs_)::value_type& log) {
                                return log.first.browser_context_id;
-                             }));
+                             }),
+      base::NotFatalUntil::M161);
 #endif
 
   // Pending logs for this BrowserContext are no longer eligible for upload.
@@ -379,7 +381,7 @@ void WebRtcRemoteEventLogManager::DisableForBrowserContext(
 
 bool WebRtcRemoteEventLogManager::OnPeerConnectionAdded(
     const PeerConnectionKey& key) {
-  DCHECK(task_runner_->RunsTasksInCurrentSequence());
+  CHECK(task_runner_->RunsTasksInCurrentSequence(), base::NotFatalUntil::M161);
 
   PruneLogFiles();  // Infrequent event - good opportunity to prune.
 
@@ -393,7 +395,7 @@ bool WebRtcRemoteEventLogManager::OnPeerConnectionAdded(
 
 bool WebRtcRemoteEventLogManager::OnPeerConnectionRemoved(
     const PeerConnectionKey& key) {
-  DCHECK(task_runner_->RunsTasksInCurrentSequence());
+  CHECK(task_runner_->RunsTasksInCurrentSequence(), base::NotFatalUntil::M161);
 
   PruneLogFiles();  // Infrequent event - good opportunity to prune.
 
@@ -414,7 +416,7 @@ bool WebRtcRemoteEventLogManager::OnPeerConnectionRemoved(
 bool WebRtcRemoteEventLogManager::OnSessionIdSetForPeerConnection(
     const PeerConnectionKey& key,
     const std::string& session_id) {
-  DCHECK(task_runner_->RunsTasksInCurrentSequence());
+  CHECK(task_runner_->RunsTasksInCurrentSequence(), base::NotFatalUntil::M161);
 
   PruneLogFiles();  // Infrequent event - good opportunity to prune.
 
@@ -451,11 +453,11 @@ bool WebRtcRemoteEventLogManager::StartRemoteLogging(
     bool local_only,
     std::string* log_id,
     std::string* error_message) {
-  DCHECK(task_runner_->RunsTasksInCurrentSequence());
-  DCHECK(log_id);
-  DCHECK(log_id->empty());
-  DCHECK(error_message);
-  DCHECK(error_message->empty());
+  CHECK(task_runner_->RunsTasksInCurrentSequence(), base::NotFatalUntil::M161);
+  CHECK(log_id, base::NotFatalUntil::M161);
+  CHECK(log_id->empty(), base::NotFatalUntil::M161);
+  CHECK(error_message, base::NotFatalUntil::M161);
+  CHECK(error_message->empty(), base::NotFatalUntil::M161);
 
   if (output_period_ms < 0) {
     output_period_ms = kDefaultOutputPeriodMs;
@@ -539,7 +541,7 @@ bool WebRtcRemoteEventLogManager::StartRemoteLogging(
 
 bool WebRtcRemoteEventLogManager::EventLogWrite(const PeerConnectionKey& key,
                                                 const std::string& message) {
-  DCHECK(task_runner_->RunsTasksInCurrentSequence());
+  CHECK(task_runner_->RunsTasksInCurrentSequence(), base::NotFatalUntil::M161);
 
   auto it = active_logs_.find(key);
   if (it == active_logs_.end()) {
@@ -560,7 +562,7 @@ void WebRtcRemoteEventLogManager::ClearCacheForBrowserContext(
     BrowserContextId browser_context_id,
     const base::Time& delete_begin,
     const base::Time& delete_end) {
-  DCHECK(task_runner_->RunsTasksInCurrentSequence());
+  CHECK(task_runner_->RunsTasksInCurrentSequence(), base::NotFatalUntil::M161);
   // Rationale for the order:
   // 1. Active logs cancelled. This has no side effects, and can be safely
   //    done before anything else.
@@ -584,7 +586,7 @@ void WebRtcRemoteEventLogManager::GetHistory(
     BrowserContextId browser_context_id,
     base::OnceCallback<void(const std::vector<UploadList::UploadInfo>&)>
         reply) {
-  DCHECK(task_runner_->RunsTasksInCurrentSequence());
+  CHECK(task_runner_->RunsTasksInCurrentSequence(), base::NotFatalUntil::M161);
 
   std::vector<UploadList::UploadInfo> history;
 
@@ -653,8 +655,8 @@ void WebRtcRemoteEventLogManager::GetHistory(
 void WebRtcRemoteEventLogManager::RemoveLogsForNotEnabledBrowserContext(
     BrowserContextId browser_context_id,
     const base::FilePath& browser_context_dir) {
-  DCHECK(task_runner_->RunsTasksInCurrentSequence());
-  DCHECK(!BrowserContextEnabled(browser_context_id));
+  CHECK(task_runner_->RunsTasksInCurrentSequence(), base::NotFatalUntil::M161);
+  CHECK(!BrowserContextEnabled(browser_context_id), base::NotFatalUntil::M161);
   const base::FilePath remote_bound_logs_dir =
       GetRemoteBoundWebRtcEventLogsDir(browser_context_dir);
   if (!base::DeletePathRecursively(remote_bound_logs_dir)) {
@@ -664,7 +666,7 @@ void WebRtcRemoteEventLogManager::RemoveLogsForNotEnabledBrowserContext(
 
 void WebRtcRemoteEventLogManager::RenderProcessHostExitedDestroyed(
     int render_process_id) {
-  DCHECK(task_runner_->RunsTasksInCurrentSequence());
+  CHECK(task_runner_->RunsTasksInCurrentSequence(), base::NotFatalUntil::M161);
 
   // Remove all of the peer connections associated with this render process.
   auto pc_it = active_peer_connections_.begin();
@@ -685,7 +687,7 @@ void WebRtcRemoteEventLogManager::StopLogging(
     StopLoggingAction action,
     std::optional<std::string> diagnostic_uuid,
     base::OnceClosure callback) {
-  DCHECK(task_runner_->RunsTasksInCurrentSequence());
+  CHECK(task_runner_->RunsTasksInCurrentSequence(), base::NotFatalUntil::M161);
 
   // Delete pending logs for this session if requested.
   if (action == StopLoggingAction::kDelete && diagnostic_uuid.has_value() &&
@@ -735,7 +737,7 @@ void WebRtcRemoteEventLogManager::StopLogging(
 
 void WebRtcRemoteEventLogManager::OnConnectionChanged(
     net::NetworkChangeNotifier::ConnectionType type) {
-  DCHECK(task_runner_->RunsTasksInCurrentSequence());
+  CHECK(task_runner_->RunsTasksInCurrentSequence(), base::NotFatalUntil::M161);
   // Even if switching from WiFi to Ethernet, or between to WiFi connections,
   // reset the timer (if running) until an upload is permissible due to stable
   // upload-supporting conditions.
@@ -752,20 +754,20 @@ void WebRtcRemoteEventLogManager::OnConnectionChanged(
 
 void WebRtcRemoteEventLogManager::SetWebRtcEventLogUploaderFactoryForTesting(
     std::unique_ptr<WebRtcEventLogUploader::Factory> uploader_factory) {
-  DCHECK(task_runner_->RunsTasksInCurrentSequence());
-  DCHECK(uploader_factory);
+  CHECK(task_runner_->RunsTasksInCurrentSequence(), base::NotFatalUntil::M161);
+  CHECK(uploader_factory, base::NotFatalUntil::M161);
   uploader_factory_ = std::move(uploader_factory);
 }
 
 void WebRtcRemoteEventLogManager::UploadConditionsHoldForTesting(
     base::OnceCallback<void(bool)> callback) {
-  DCHECK(task_runner_->RunsTasksInCurrentSequence());
+  CHECK(task_runner_->RunsTasksInCurrentSequence(), base::NotFatalUntil::M161);
   content::GetUIThreadTaskRunner({})->PostTask(
       FROM_HERE, base::BindOnce(std::move(callback), UploadConditionsHold()));
 }
 
 void WebRtcRemoteEventLogManager::ShutDownForTesting(base::OnceClosure reply) {
-  DCHECK(task_runner_->RunsTasksInCurrentSequence());
+  CHECK(task_runner_->RunsTasksInCurrentSequence(), base::NotFatalUntil::M161);
   weak_ptr_factory_->InvalidateWeakPtrs();
   weak_ptr_factory_.reset();
   content::GetUIThreadTaskRunner({})->PostTask(FROM_HERE, std::move(reply));
@@ -776,7 +778,7 @@ bool WebRtcRemoteEventLogManager::AreLogParametersValid(
     int output_period_ms,
     size_t web_app_id,
     std::string* error_message) const {
-  DCHECK(task_runner_->RunsTasksInCurrentSequence());
+  CHECK(task_runner_->RunsTasksInCurrentSequence(), base::NotFatalUntil::M161);
 
   if (max_file_size_bytes == kWebRtcEventLogManagerUnlimitedFileSize) {
     LOG(WARNING) << "Unlimited file sizes not allowed for remote-bound logs.";
@@ -814,7 +816,7 @@ bool WebRtcRemoteEventLogManager::AreLogParametersValid(
 
 bool WebRtcRemoteEventLogManager::BrowserContextEnabled(
     BrowserContextId browser_context_id) const {
-  DCHECK(task_runner_->RunsTasksInCurrentSequence());
+  CHECK(task_runner_->RunsTasksInCurrentSequence(), base::NotFatalUntil::M161);
   const auto it = enabled_browser_contexts_.find(browser_context_id);
   return it != enabled_browser_contexts_.cend();
 }
@@ -822,7 +824,7 @@ bool WebRtcRemoteEventLogManager::BrowserContextEnabled(
 WebRtcRemoteEventLogManager::LogFilesMap::iterator
 WebRtcRemoteEventLogManager::CloseLogFile(LogFilesMap::iterator it,
                                           StopLoggingAction action) {
-  DCHECK(task_runner_->RunsTasksInCurrentSequence());
+  CHECK(task_runner_->RunsTasksInCurrentSequence(), base::NotFatalUntil::M161);
 
   const PeerConnectionKey peer_connection = it->first;  // Copy, not reference.
 
@@ -840,14 +842,14 @@ WebRtcRemoteEventLogManager::CloseLogFile(LogFilesMap::iterator it,
       if (local_only) {
         const auto emplace_result = local_only_logs_.emplace(
             peer_connection.browser_context_id, log_file_path, last_modified);
-        DCHECK(emplace_result.second);
+        CHECK(emplace_result.second, base::NotFatalUntil::M161);
       } else {
         const auto emplace_result = pending_logs_.emplace(
             peer_connection.browser_context_id, log_file_path, last_modified);
-        DCHECK(emplace_result.second);
+        CHECK(emplace_result.second, base::NotFatalUntil::M161);
       }
     } else {
-      DCHECK_EQ(action, StopLoggingAction::kDelete);
+      CHECK_EQ(action, StopLoggingAction::kDelete, base::NotFatalUntil::M161);
       if (!base::DeleteFile(log_file_path)) {
         DVLOG(1) << "Failed to delete " << log_file_path << ".";
       }
@@ -869,7 +871,7 @@ WebRtcRemoteEventLogManager::CloseLogFile(LogFilesMap::iterator it,
 
 bool WebRtcRemoteEventLogManager::MaybeCreateLogsDirectory(
     const base::FilePath& remote_bound_logs_dir) {
-  DCHECK(task_runner_->RunsTasksInCurrentSequence());
+  CHECK(task_runner_->RunsTasksInCurrentSequence(), base::NotFatalUntil::M161);
 
   if (base::PathExists(remote_bound_logs_dir)) {
     if (!base::DirectoryExists(remote_bound_logs_dir)) {
@@ -889,7 +891,7 @@ bool WebRtcRemoteEventLogManager::MaybeCreateLogsDirectory(
 void WebRtcRemoteEventLogManager::LoadLogsDirectory(
     BrowserContextId browser_context_id,
     const base::FilePath& remote_bound_logs_dir) {
-  DCHECK(task_runner_->RunsTasksInCurrentSequence());
+  CHECK(task_runner_->RunsTasksInCurrentSequence(), base::NotFatalUntil::M161);
 
   const auto separator =
       base::FilePath::StringType(1, base::FilePath::kExtensionSeparator);
@@ -953,7 +955,7 @@ bool WebRtcRemoteEventLogManager::LoadLogFileInfo(
     BrowserContextId browser_context_id,
     const base::FilePath& path,
     base::Time last_modified) {
-  DCHECK(task_runner_->RunsTasksInCurrentSequence());
+  CHECK(task_runner_->RunsTasksInCurrentSequence(), base::NotFatalUntil::M161);
 
   if (!IsValidRemoteBoundLogFilePath(path)) {
     return false;
@@ -978,10 +980,10 @@ bool WebRtcRemoteEventLogManager::LoadLogFileInfo(
   const bool is_local_only = IsLocalOnlyRemoteBoundLogFilePath(path);
   if (is_local_only) {
     auto it = local_only_logs_.emplace(browser_context_id, path, last_modified);
-    DCHECK(it.second);
+    CHECK(it.second, base::NotFatalUntil::M161);
   } else {
     auto it = pending_logs_.emplace(browser_context_id, path, last_modified);
-    DCHECK(it.second);  // No pre-existing entry.
+    CHECK(it.second, base::NotFatalUntil::M161);  // No pre-existing entry.
   }
 
   return true;
@@ -993,7 +995,7 @@ WebRtcRemoteEventLogManager::LoadHistoryFile(
     const base::FilePath& path,
     const base::Time& prune_begin,
     const base::Time& prune_end) {
-  DCHECK(task_runner_->RunsTasksInCurrentSequence());
+  CHECK(task_runner_->RunsTasksInCurrentSequence(), base::NotFatalUntil::M161);
 
   if (!IsValidRemoteBoundLogFilePath(path)) {
     return nullptr;
@@ -1025,7 +1027,7 @@ WebRtcRemoteEventLogManager::PruneAndLoadHistoryFilesForBrowserContext(
     const base::Time& prune_begin,
     const base::Time& prune_end,
     BrowserContextId browser_context_id) {
-  DCHECK(task_runner_->RunsTasksInCurrentSequence());
+  CHECK(task_runner_->RunsTasksInCurrentSequence(), base::NotFatalUntil::M161);
 
   std::set<WebRtcEventLogHistoryFileReader> history_files;
 
@@ -1096,7 +1098,7 @@ bool WebRtcRemoteEventLogManager::StartWritingLog(
     size_t web_app_id,
     const std::string& log_id,
     std::string* error_message_out) {
-  DCHECK(task_runner_->RunsTasksInCurrentSequence());
+  CHECK(task_runner_->RunsTasksInCurrentSequence(), base::NotFatalUntil::M161);
 
   // Use the log ID as part of the filename. In the highly unlikely event that
   // this filename is already taken, or that an earlier log with the same name
@@ -1128,7 +1130,8 @@ bool WebRtcRemoteEventLogManager::StartWritingLog(
   }
 
   // The log is now ACTIVE.
-  DCHECK_NE(max_file_size_bytes, kWebRtcEventLogManagerUnlimitedFileSize);
+  CHECK_NE(max_file_size_bytes, kWebRtcEventLogManagerUnlimitedFileSize,
+           base::NotFatalUntil::M161);
   auto log_file =
       log_file_writer_factory_->Create(log_path, max_file_size_bytes);
   if (!log_file) {
@@ -1139,7 +1142,7 @@ bool WebRtcRemoteEventLogManager::StartWritingLog(
     return false;
   }
   const auto it = active_logs_.emplace(key, std::move(log_file));
-  DCHECK(it.second);
+  CHECK(it.second, base::NotFatalUntil::M161);
 
   observer_->OnRemoteLogStarted(key, it.first->second->path(),
                                 output_period_ms);
@@ -1151,7 +1154,7 @@ bool WebRtcRemoteEventLogManager::StartWritingLog(
 
 void WebRtcRemoteEventLogManager::MaybeStopRemoteLogging(
     const PeerConnectionKey& key) {
-  DCHECK(task_runner_->RunsTasksInCurrentSequence());
+  CHECK(task_runner_->RunsTasksInCurrentSequence(), base::NotFatalUntil::M161);
 
   const auto it = active_logs_.find(key);
   if (it == active_logs_.end()) {
@@ -1165,7 +1168,7 @@ void WebRtcRemoteEventLogManager::MaybeStopRemoteLogging(
 
 void WebRtcRemoteEventLogManager::PruneLogFiles(
     std::optional<BrowserContextId> browser_context_id) {
-  DCHECK(task_runner_->RunsTasksInCurrentSequence());
+  CHECK(task_runner_->RunsTasksInCurrentSequence(), base::NotFatalUntil::M161);
   MaybeRemovePendingLogs(
       base::Time::Min(),
       base::Time::Now() - kRemoteBoundWebRtcEventLogsMaxRetention,
@@ -1177,9 +1180,10 @@ void WebRtcRemoteEventLogManager::PruneLogFiles(
 }
 
 void WebRtcRemoteEventLogManager::RecurringlyPrunePendingLogs() {
-  DCHECK(task_runner_->RunsTasksInCurrentSequence());
-  DCHECK(!proactive_pending_logs_prune_delta_.is_zero());
-  DCHECK(proactive_prune_scheduling_started_);
+  CHECK(task_runner_->RunsTasksInCurrentSequence(), base::NotFatalUntil::M161);
+  CHECK(!proactive_pending_logs_prune_delta_.is_zero(),
+        base::NotFatalUntil::M161);
+  CHECK(proactive_prune_scheduling_started_, base::NotFatalUntil::M161);
 
   PruneLogFiles();
 
@@ -1191,7 +1195,7 @@ void WebRtcRemoteEventLogManager::RecurringlyPrunePendingLogs() {
 }
 
 void WebRtcRemoteEventLogManager::PruneHistoryFiles() {
-  DCHECK(task_runner_->RunsTasksInCurrentSequence());
+  CHECK(task_runner_->RunsTasksInCurrentSequence(), base::NotFatalUntil::M161);
   for (auto it = enabled_browser_contexts_.begin();
        it != enabled_browser_contexts_.end(); ++it) {
     const BrowserContextId browser_context_id = it->first;
@@ -1202,8 +1206,8 @@ void WebRtcRemoteEventLogManager::PruneHistoryFiles() {
 }
 
 void WebRtcRemoteEventLogManager::RecurringlyPruneHistoryFiles() {
-  DCHECK(task_runner_->RunsTasksInCurrentSequence());
-  DCHECK(proactive_prune_scheduling_started_);
+  CHECK(task_runner_->RunsTasksInCurrentSequence(), base::NotFatalUntil::M161);
+  CHECK(proactive_prune_scheduling_started_, base::NotFatalUntil::M161);
 
   PruneHistoryFiles();
 
@@ -1218,7 +1222,7 @@ void WebRtcRemoteEventLogManager::MaybeCancelActiveLogs(
     const base::Time& delete_begin,
     const base::Time& delete_end,
     BrowserContextId browser_context_id) {
-  DCHECK(task_runner_->RunsTasksInCurrentSequence());
+  CHECK(task_runner_->RunsTasksInCurrentSequence(), base::NotFatalUntil::M161);
   for (auto it = active_logs_.begin(); it != active_logs_.end();) {
     // Since the file is active, assume it's still being modified.
     if (MatchesFilter(it->first.browser_context_id, base::Time::Now(),
@@ -1237,7 +1241,7 @@ void WebRtcRemoteEventLogManager::MaybeRemovePendingLogs(
     const base::Time& delete_end,
     std::optional<BrowserContextId> browser_context_id,
     bool is_cache_clear) {
-  DCHECK(task_runner_->RunsTasksInCurrentSequence());
+  CHECK(task_runner_->RunsTasksInCurrentSequence(), base::NotFatalUntil::M161);
 
   for (auto it = pending_logs_.begin(); it != pending_logs_.end();) {
     if (MatchesFilter(it->browser_context_id, it->last_modified,
@@ -1272,7 +1276,7 @@ void WebRtcRemoteEventLogManager::MaybeRemoveLocalOnlyLogs(
     const base::Time& delete_begin,
     const base::Time& delete_end,
     std::optional<BrowserContextId> browser_context_id) {
-  DCHECK(task_runner_->RunsTasksInCurrentSequence());
+  CHECK(task_runner_->RunsTasksInCurrentSequence(), base::NotFatalUntil::M161);
 
   for (auto it = local_only_logs_.begin(); it != local_only_logs_.end();) {
     if (MatchesFilter(it->browser_context_id, it->last_modified,
@@ -1291,7 +1295,7 @@ void WebRtcRemoteEventLogManager::MaybeRemoveHistoryFiles(
     const base::Time& delete_begin,
     const base::Time& delete_end,
     BrowserContextId browser_context_id) {
-  DCHECK(task_runner_->RunsTasksInCurrentSequence());
+  CHECK(task_runner_->RunsTasksInCurrentSequence(), base::NotFatalUntil::M161);
   PruneAndLoadHistoryFilesForBrowserContext(delete_begin, delete_end,
                                             browser_context_id);
   return;
@@ -1301,7 +1305,7 @@ void WebRtcRemoteEventLogManager::MaybeCancelUpload(
     const base::Time& delete_begin,
     const base::Time& delete_end,
     BrowserContextId browser_context_id) {
-  DCHECK(task_runner_->RunsTasksInCurrentSequence());
+  CHECK(task_runner_->RunsTasksInCurrentSequence(), base::NotFatalUntil::M161);
 
   if (!uploader_) {
     return;
@@ -1324,7 +1328,7 @@ bool WebRtcRemoteEventLogManager::MatchesFilter(
     std::optional<BrowserContextId> filter_browser_context_id,
     const base::Time& filter_range_begin,
     const base::Time& filter_range_end) const {
-  DCHECK(task_runner_->RunsTasksInCurrentSequence());
+  CHECK(task_runner_->RunsTasksInCurrentSequence(), base::NotFatalUntil::M161);
   if (filter_browser_context_id &&
       *filter_browser_context_id != log_browser_context_id) {
     return false;
@@ -1335,7 +1339,7 @@ bool WebRtcRemoteEventLogManager::MatchesFilter(
 
 bool WebRtcRemoteEventLogManager::AdditionalActiveLogAllowed(
     BrowserContextId browser_context_id) const {
-  DCHECK(task_runner_->RunsTasksInCurrentSequence());
+  CHECK(task_runner_->RunsTasksInCurrentSequence(), base::NotFatalUntil::M161);
 
   // Limit over concurrently active logs (across BrowserContext-s).
   if (active_logs_.size() >= kMaxActiveRemoteBoundWebRtcEventLogs) {
@@ -1364,18 +1368,18 @@ bool WebRtcRemoteEventLogManager::AdditionalActiveLogAllowed(
 }
 
 bool WebRtcRemoteEventLogManager::UploadSuppressed() const {
-  DCHECK(task_runner_->RunsTasksInCurrentSequence());
+  CHECK(task_runner_->RunsTasksInCurrentSequence(), base::NotFatalUntil::M161);
   return !upload_suppression_disabled_ && !active_peer_connections_.empty();
 }
 
 bool WebRtcRemoteEventLogManager::UploadConditionsHold() const {
-  DCHECK(task_runner_->RunsTasksInCurrentSequence());
+  CHECK(task_runner_->RunsTasksInCurrentSequence(), base::NotFatalUntil::M161);
   return !uploader_ && !pending_logs_.empty() && !UploadSuppressed() &&
          uploading_supported_for_connection_type_;
 }
 
 void WebRtcRemoteEventLogManager::ManageUploadSchedule() {
-  DCHECK(task_runner_->RunsTasksInCurrentSequence());
+  CHECK(task_runner_->RunsTasksInCurrentSequence(), base::NotFatalUntil::M161);
 
   PruneLogFiles();  // Avoid uploading freshly expired files.
 
@@ -1402,8 +1406,8 @@ void WebRtcRemoteEventLogManager::ManageUploadSchedule() {
 }
 
 void WebRtcRemoteEventLogManager::MaybeStartUploading() {
-  DCHECK(task_runner_->RunsTasksInCurrentSequence());
-  DCHECK_GT(scheduled_upload_tasks_, 0u);
+  CHECK(task_runner_->RunsTasksInCurrentSequence(), base::NotFatalUntil::M161);
+  CHECK_GT(scheduled_upload_tasks_, 0u, base::NotFatalUntil::M161);
 
   // Since MaybeStartUploading() was scheduled, conditions might have stopped
   // holding at some point. They may have even stopped and started several times
@@ -1417,12 +1421,12 @@ void WebRtcRemoteEventLogManager::MaybeStartUploading() {
              upload_delay_) {
     // Conditions have stopped holding, then started holding again; there has
     // to be a more recent task scheduled, that will take over later.
-    DCHECK_GT(scheduled_upload_tasks_, 1u);
+    CHECK_GT(scheduled_upload_tasks_, 1u, base::NotFatalUntil::M161);
   } else {
     // It's up to the rest of the code to turn |scheduled_upload_tasks_| off
     // if the conditions have at some point stopped holding, or it wouldn't
     // know to turn it on when they resume.
-    DCHECK(UploadConditionsHold());
+    CHECK(UploadConditionsHold(), base::NotFatalUntil::M161);
 
     // When the upload we're about to start finishes, there will be another
     // delay of length |upload_delay_| before the next one starts.
@@ -1453,8 +1457,8 @@ void WebRtcRemoteEventLogManager::MaybeStartUploading() {
 void WebRtcRemoteEventLogManager::OnWebRtcEventLogUploadComplete(
     const base::FilePath& log_file,
     bool upload_successful) {
-  DCHECK(task_runner_->RunsTasksInCurrentSequence());
-  DCHECK(uploader_);
+  CHECK(task_runner_->RunsTasksInCurrentSequence(), base::NotFatalUntil::M161);
+  CHECK(uploader_, base::NotFatalUntil::M161);
 
   // Make sure this callback refers to the currently uploaded file. This might
   // not be the case if the upload was cancelled right after succeeding, in
@@ -1476,8 +1480,8 @@ bool WebRtcRemoteEventLogManager::FindPeerConnection(
     int render_process_id,
     const std::string& session_id,
     PeerConnectionKey* key) const {
-  DCHECK(task_runner_->RunsTasksInCurrentSequence());
-  DCHECK(!session_id.empty());
+  CHECK(task_runner_->RunsTasksInCurrentSequence(), base::NotFatalUntil::M161);
+  CHECK(!session_id.empty(), base::NotFatalUntil::M161);
 
   const auto it = FindNextPeerConnection(active_peer_connections_.cbegin(),
                                          render_process_id, session_id);
@@ -1488,8 +1492,9 @@ bool WebRtcRemoteEventLogManager::FindPeerConnection(
   // Make sure that the session ID is unique for the renderer process,
   // though not necessarily between renderer processes.
   // (The helper exists solely to allow this DCHECK.)
-  DCHECK(FindNextPeerConnection(std::next(it), render_process_id, session_id) ==
-         active_peer_connections_.cend());
+  CHECK(FindNextPeerConnection(std::next(it), render_process_id, session_id) ==
+            active_peer_connections_.cend(),
+        base::NotFatalUntil::M161);
 
   *key = it->first;
   return true;
@@ -1500,8 +1505,8 @@ WebRtcRemoteEventLogManager::FindNextPeerConnection(
     PeerConnectionMap::const_iterator begin,
     int render_process_id,
     const std::string& session_id) const {
-  DCHECK(task_runner_->RunsTasksInCurrentSequence());
-  DCHECK(!session_id.empty());
+  CHECK(task_runner_->RunsTasksInCurrentSequence(), base::NotFatalUntil::M161);
+  CHECK(!session_id.empty(), base::NotFatalUntil::M161);
   const auto end = active_peer_connections_.cend();
   for (auto it = begin; it != end; ++it) {
     if (it->first.render_process_id == render_process_id &&

@@ -8,13 +8,8 @@
 #include "base/debug/dump_without_crashing.h"
 #include "base/logging.h"
 #include "base/memory/singleton.h"
-#include "base/path_service.h"
-#include "base/strings/utf_string_conversions.h"
-#include "build/build_config.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/extensions/component_loader.h"
-#include "chrome/common/chrome_paths.h"
-#include "chrome/common/extensions/extension_constants.h"
 #include "content/public/browser/browser_accessibility_state.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_thread.h"
@@ -104,41 +99,6 @@ void EmbeddedA11yExtensionLoader::Init() {
     UpdateAllProfiles(extension.first);
   }
   initialized_ = true;
-}
-
-void EmbeddedA11yExtensionLoader::InstallExtensionWithId(
-    const std::string& extension_id,
-    const std::string& extension_resource_directory,
-    const base::FilePath::CharType* manifest_name,
-    bool should_localize) {
-  if (extension_map_.contains(extension_id)) {
-    return;
-  }
-
-  base::FilePath resources_path;
-#if BUILDFLAG(IS_MAC)
-  base::FilePath root_path;
-  CHECK(base::PathService::Get(base::DIR_MODULE, &root_path));
-  resources_path = root_path.Append("resources");
-#else
-  if (!base::PathService::Get(chrome::DIR_RESOURCES, &resources_path)) {
-    NOTREACHED();
-  }
-#endif
-
-  base::FilePath::StringType common_extension_directory;
-#if BUILDFLAG(IS_WIN)
-  common_extension_directory = base::UTF8ToWide(extension_resource_directory);
-#else
-  common_extension_directory = extension_resource_directory;
-#endif
-
-  auto path = resources_path.Append(common_extension_directory);
-
-  ExtensionInfo new_extension = {extension_id, path, manifest_name,
-                                 should_localize};
-  extension_map_.insert({extension_id, new_extension});
-  UpdateAllProfiles(extension_id);
 }
 
 void EmbeddedA11yExtensionLoader::InstallExtensionWithIdAndPath(
@@ -241,7 +201,7 @@ void EmbeddedA11yExtensionLoader::MaybeInstallExtension(
     const base::FilePath& extension_path,
     const base::FilePath::CharType* manifest_name,
     bool should_localize) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M161);
   auto* component_loader = extensions::ComponentLoader::Get(profile);
   if (!component_loader || component_loader->Exists(extension_id)) {
     return;
@@ -261,7 +221,7 @@ void EmbeddedA11yExtensionLoader::InstallExtension(
     const base::FilePath& path,
     const std::string& extension_id,
     std::optional<base::DictValue> manifest) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M161);
   if (component_loader->Exists(extension_id)) {
     // Because this is async and called from another thread, it's possible we
     // already installed the extension. Don't try and reinstall in that case.

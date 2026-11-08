@@ -5,6 +5,7 @@
 #include "chrome/browser/glic/public/glic_keyed_service.h"
 
 #include <memory>
+#include <string_view>
 
 #include "base/check.h"
 #include "base/command_line.h"
@@ -36,6 +37,7 @@
 #include "chrome/browser/glic/glic_metrics_provider.h"
 #include "chrome/browser/glic/glic_pref_names.h"
 #include "chrome/browser/glic/glic_profile_manager.h"
+#include "chrome/browser/glic/glic_provider_spec_impl.h"
 #include "chrome/browser/glic/glic_warming_checks.h"
 #include "chrome/browser/glic/host/auth_controller.h"
 #include "chrome/browser/glic/host/context/glic_page_context_fetcher.h"
@@ -45,6 +47,7 @@
 #include "chrome/browser/glic/host/context/glic_tab_data_observer.h"
 #include "chrome/browser/glic/host/context/glic_tab_favicon_observer.h"
 #include "chrome/browser/glic/host/glic.mojom.h"
+#include "chrome/browser/glic/host/glic_client_data_storage.h"
 #include "chrome/browser/glic/host/glic_local_storage_migration.h"
 #include "chrome/browser/glic/host/glic_web_client_access.h"
 #include "chrome/browser/glic/host/glic_web_contents_manager.h"
@@ -52,7 +55,8 @@
 #include "chrome/browser/glic/public/features.h"
 #include "chrome/browser/glic/public/glic_enabling.h"
 #include "chrome/browser/glic/public/glic_keyed_service_factory.h"
-#include "chrome/browser/glic/public/service/glic_activity_manager.h"
+#include "chrome/browser/glic/public/glic_provider_spec.h"
+#include "chrome/browser/glic/public/service/legacy_glic_activity_manager.h"
 #include "chrome/browser/glic/service/glic_instance_coordinator_impl.h"
 #include "chrome/browser/glic/suggestions/contextual_cueing_service.h"
 #include "chrome/browser/glic/suggestions/contextual_cueing_service_factory.h"
@@ -97,6 +101,7 @@
 #include "url/gurl.h"
 
 #if BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/glic/android/glic_helper_android.h"
 #include "chrome/browser/glic/android/glic_keyed_service_android.h"
 #include "chrome/browser/glic/browser_ui/glic_nudge_controller.h"
 #include "chrome/browser/glic/browser_ui/glic_split_button_controller.h"
@@ -173,18 +178,22 @@ GlicKeyedService::GlicKeyedService(
       enabling_(std::make_unique<GlicEnabling>(
           base::PassKey<GlicKeyedService>(),
           profile,
-          &profile_manager->GetProfileAttributesStorage())),
+          &profile_manager->GetProfileAttributesStorage(),
+          actor_policy_checker_.get())),
       metrics_(std::make_unique<GlicMetrics>(profile, enabling_.get())),
       opt_in_controller_(
           std::make_unique<GlicExperimentalOptInController>(profile)),
+      client_data_storage_(
+          std::make_unique<GlicClientDataStorage>(profile->GetPrefs())),
       instance_coordinator_(std::make_unique<GlicInstanceCoordinatorImpl>(
           profile,
           identity_manager,
           this,
           enabling_.get(),
           contextual_cueing_service)),
-      activity_manager_(
-          std::make_unique<GlicActivityManager>(profile_, actor_keyed_service)),
+      legacy_activity_manager_(
+          std::make_unique<LegacyGlicActivityManager>(profile_,
+                                                      actor_keyed_service)),
       auth_controller_(
           features::IsGlicNoWebviewEnabled()
               ? nullptr
@@ -269,7 +278,7 @@ void GlicKeyedService::InitializeAfterConstruction() {
     GlicMediaIntegration::GetFor(profile_);
   }
 #endif
-  MaybeMigrateGlicLocalStorage(profile_);
+  MaybeMigrateGlicLocalStorage(profile_, client_data_storage_.get());
 }
 
 GlicKeyedService::~GlicKeyedService() {
@@ -297,12 +306,13 @@ void GlicKeyedService::Shutdown() {
   }
   experimental_triggering_state_subscription_ = {};
   instance_coordinator().Shutdown();
-  activity_manager_->Shutdown();
+  legacy_activity_manager_->Shutdown();
+  client_data_storage_->Flush();
 }
 
-GlicActivityManager& GlicKeyedService::activity_manager() {
-  CHECK(activity_manager_);
-  return *activity_manager_;
+LegacyGlicActivityManager& GlicKeyedService::legacy_activity_manager() {
+  CHECK(legacy_activity_manager_);
+  return *legacy_activity_manager_;
 }
 
 void GlicKeyedService::ShowUI(BrowserWindowInterface* bwi,
@@ -582,6 +592,18 @@ void GlicKeyedService::OnExperimentalTriggeringStateChanged() {
 }
 
 #if BUILDFLAG(IS_ANDROID)
+MicPermissionUi& GlicKeyedService::GetMicPermissionUi() {
+  if (!mic_permission_ui_) {
+    mic_permission_ui_ = std::make_unique<MicPermissionUi>();
+  }
+  return *mic_permission_ui_;
+}
+
+void GlicKeyedService::SetMicPermissionUiForTesting(
+    std::unique_ptr<MicPermissionUi> mic_permission_ui) {
+  mic_permission_ui_ = std::move(mic_permission_ui);
+}
+
 // TODO(crbug.com/484037810): Once a window features object (similar to tab
 // features) is supported on Android, move ownership of the nudge controller to
 // it (accessed via unowned user data and ::From methods), matching Desktop,
@@ -619,6 +641,15 @@ void GlicKeyedService::ShowExperimentalOptInDialogForTesting(
     return;
   }
   opt_in_controller().ShowDialog(web_contents, base::DoNothing());
+}
+
+const GlicProviderSpec& GlicKeyedService::provider_spec() {
+  if (!provider_spec_) {
+    // Created lazily: geic::IsGeicEnabled() latches on its first call, and the
+    // service is created before late policy is applied.
+    provider_spec_ = CreateGlicProviderSpec(profile_);
+  }
+  return *provider_spec_;
 }
 
 }  // namespace glic

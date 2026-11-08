@@ -9,6 +9,7 @@
 
 #include "base/containers/span.h"
 #include "base/strings/to_string.h"
+#include "chrome/browser/actor/actor_surface.h"
 #include "chrome/browser/actor/tools/attempt_form_filling_tool.h"
 #include "chrome/browser/actor/tools/tool.h"
 #include "chrome/browser/actor/tools/tool_request_visitor_functor.h"
@@ -37,9 +38,11 @@ AttemptFormFillingToolRequest::FormFillingRequest::operator=(
 AttemptFormFillingToolRequest::AttemptFormFillingToolRequest(
     tabs::TabHandle tab_handle,
     std::vector<FormFillingRequest> requests,
+    std::string credit_card_opaque_token,
     bool enqueued_click)
     : TabToolRequest(tab_handle),
       requests_(std::move(requests)),
+      credit_card_opaque_token_(std::move(credit_card_opaque_token)),
       enqueued_click_(enqueued_click) {}
 
 AttemptFormFillingToolRequest::AttemptFormFillingToolRequest(
@@ -52,17 +55,17 @@ AttemptFormFillingToolRequest::~AttemptFormFillingToolRequest() = default;
 ToolRequest::CreateToolResult AttemptFormFillingToolRequest::CreateTool(
     TaskId task_id,
     ToolDelegate& tool_delegate) const {
-  tabs::TabInterface* tab = GetTabHandle().Get();
-  if (!tab) {
+  ActorSurface* actor_surface = GetActorSurfaceHandle().Get();
+  if (!actor_surface) {
     return {/*tool=*/nullptr, MakeResult(mojom::ActionResultCode::kTabWentAway,
                                          /*requires_page_stabilization=*/false,
                                          "The tab is no longer present.")};
   }
 
-  return {
-      std::make_unique<AttemptFormFillingTool>(
-          task_id, tool_delegate, *tab, std::move(requests_), enqueued_click_),
-      MakeOkResult()};
+  return {std::make_unique<AttemptFormFillingTool>(
+              task_id, tool_delegate, *actor_surface, std::move(requests_),
+              credit_card_opaque_token_, enqueued_click_),
+          MakeOkResult()};
 }
 
 std::string_view AttemptFormFillingToolRequest::Name() const {

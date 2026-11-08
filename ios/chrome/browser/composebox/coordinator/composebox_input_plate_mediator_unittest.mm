@@ -18,12 +18,15 @@
 #import "base/test/task_environment.h"
 #import "components/contextual_search/contextual_search_context_controller.h"
 #import "components/contextual_search/contextual_search_service.h"
+#import "components/contextual_search/contextual_search_types.h"
 #import "components/contextual_search/internal/ios/composebox_query_controller_ios.h"
 #import "components/contextual_search/internal/test_composebox_query_controller.h"
 #import "components/contextual_search/mock_contextual_search_context_controller.h"
 #import "components/contextual_search/mock_contextual_search_session_handle.h"
+#import "components/lens/lens_overlay_mime_type.h"
 #import "components/omnibox/browser/mock_aim_eligibility_service.h"
 #import "components/omnibox/browser/omnibox_prefs.h"
+#import "components/optimization_guide/proto/features/common_quality_data.pb.h"
 #import "components/prefs/testing_pref_service.h"
 #import "components/search_engines/search_engines_test_environment.h"
 #import "components/search_engines/template_url_service.h"
@@ -35,6 +38,8 @@
 #import "components/version_info/channel.h"
 #import "ios/chrome/browser/composebox/coordinator/composebox_mode_holder.h"
 #import "ios/chrome/browser/composebox/coordinator/composebox_url_loader.h"
+#import "ios/chrome/browser/composebox/debugger/composebox_debugger_event.h"
+#import "ios/chrome/browser/composebox/debugger/composebox_debugger_logger.h"
 #import "ios/chrome/browser/composebox/public/composebox_attachment_selection.h"
 #import "ios/chrome/browser/composebox/public/composebox_focus_params.h"
 #import "ios/chrome/browser/composebox/public/composebox_input_plate_controls.h"
@@ -87,6 +92,33 @@
                                                          source;
 - (BOOL)isWebStateIDRemoved:(web::WebStateID)webStateID;
 - (void)removeDeselectedIDs:(std::set<web::WebStateID>)deselectedIDs;
+- (void)updateAutoAttachedCurrentTab;
+- (void)handleFailedAttachment:(base::UnguessableToken)identifier;
+- (void)handlePageContextResponse:
+            (std::unique_ptr<optimization_guide::proto::PageContext>)
+                page_context
+                         webState:(web::WebState*)webState
+                       identifier:(base::UnguessableToken)identifier;
+@end
+
+// Mock delegate for the mediator.
+@interface TestComposeboxInputPlateMediatorDelegate
+    : NSObject <ComposeboxInputPlateMediatorDelegate>
+@property(nonatomic, assign) BOOL showedSnackbarForItemUploadDidFail;
+@end
+
+@implementation TestComposeboxInputPlateMediatorDelegate
+- (void)reloadAutocompleteSuggestionsRestarting:(BOOL)restart {
+}
+- (void)refineWithText:(NSString*)text {
+}
+- (void)showAttachmentLimitError {
+}
+- (void)showSnackbarForItemUploadDidFail {
+  _showedSnackbarForItemUploadDidFail = YES;
+}
+- (void)inputStateManagerDidUpdateUIState {
+}
 @end
 
 // Mock consumer for the mediator.
@@ -102,6 +134,9 @@
 // Stored items for testing.
 @property(nonatomic, strong) NSArray<ComposeboxInputItem*>* items;
 
+// Number of times `updateState:forItemWithIdentifier:` was called.
+@property(nonatomic, readonly) NSUInteger updateStateCallCount;
+
 // Whether the given control(s) are shown.
 - (BOOL)showsControls:(ComposeboxInputPlateControls)controls;
 
@@ -116,6 +151,7 @@
 }
 - (void)updateState:(ComposeboxInputItemState)state
     forItemWithIdentifier:(const base::UnguessableToken&)identifier {
+  _updateStateCallCount++;
 }
 - (void)setUIInputState:(ComposeboxUIInputState*)state {
   using enum ComposeboxMode;
@@ -142,6 +178,44 @@
 }
 
 - (void)disableSending:(BOOL)disableSending {
+}
+
+@end
+
+// Fake debugger logger that records the logged events.
+@interface FakeComposeboxDebuggerLogger : NSObject <ComposeboxDebuggerLogger>
+
+// Returns the number of logged `QueryAttachment` events of type `event`.
+- (NSUInteger)countForQueryAttachmentEvent:
+    (composebox_debugger::event::QueryAttachment)event;
+
+@end
+
+@implementation FakeComposeboxDebuggerLogger {
+  NSCountedSet<NSString*>* _eventDescriptions;
+}
+
+- (instancetype)init {
+  self = [super init];
+  if (self) {
+    _eventDescriptions = [[NSCountedSet alloc] init];
+  }
+  return self;
+}
+
+- (void)logEvent:(ComposeboxDebuggerEvent*)event {
+  [_eventDescriptions addObject:event.eventDescription];
+}
+
+- (NSUInteger)countForQueryAttachmentEvent:
+    (composebox_debugger::event::QueryAttachment)event {
+  // `ComposeboxDebuggerEvent` only exposes its type through its description, so
+  // match the description of a reference event of the same type.
+  ComposeboxDebuggerEvent* referenceEvent = [ComposeboxDebuggerEvent
+      queryAttachmentEvent:event
+                  withType:composebox_debugger::AttachmentType::kUnknown
+                     title:@""];
+  return [_eventDescriptions countForObject:referenceEvent.eventDescription];
 }
 
 @end
@@ -213,21 +287,8 @@ class ComposeboxInputPlateMediatorTest : public PlatformTest {
     // Check the search content sharing settings to notify the session handle
     // that the client is properly checking the pref value.
     session_handle->CheckSearchContentSharingSettings(&pref_service_);
-    mediator_ = [[ComposeboxInputPlateMediator alloc]
-        initWithContextualSearchSession:std::move(session_handle)
-                           webStateList:web_state_list_.get()
-                          faviconLoader:nullptr
-                 persistTabContextAgent:nullptr
-                            isIncognito:NO
-                             modeHolder:[[ComposeboxModeHolder alloc] init]
-                     templateURLService:template_url_service()
-                  aimEligibilityService:aim_eligibility_service_.get()
-                            prefService:&pref_service_
-                                profile:profile_.get()
-                   cobrowseBrowserAgent:nil
-              browserCoordinatorHandler:nil
-                           sceneHandler:nil
-                             entrypoint:ComposeboxEntrypoint::kOther];
+    mediator_ =
+        CreateMediator(std::move(session_handle), ComposeboxEntrypoint::kOther);
     consumer_ = [[TestComposeboxInputPlateConsumer alloc] init];
     mediator_.consumer = consumer_;
 
@@ -287,6 +348,52 @@ class ComposeboxInputPlateMediatorTest : public PlatformTest {
         .WillRepeatedly(testing::Return(AIMEligible));
     EXPECT_CALL(*aim_eligibility_service_, IsFuseboxEligible())
         .WillRepeatedly(testing::Return(AIMEligible));
+  }
+
+  // Marks `web_state` as loading so that page context extraction for it stays
+  // pending, as the mediator waits for a tab to load before extracting its
+  // content (see `-attachWebState:identifier:isCached:`). This keeps the
+  // attached tab item from being removed by a failed extraction, and lets the
+  // test drive the extraction result itself, if needed, via
+  // `handlePageContextResponse:webState:identifier:` or
+  // `handleFailedAttachment:`.
+  void KeepPageContextExtractionPending(web::FakeWebState* web_state) {
+    web_state->SetLoading(true);
+  }
+
+  // Creates a `ComposeboxInputPlateMediator` configured with `session`,
+  // `entrypoint`, and `mode`. The caller is responsible for calling
+  // `-disconnect` on the returned mediator before teardown.
+  ComposeboxInputPlateMediator* CreateMediator(
+      std::unique_ptr<contextual_search::ContextualSearchSessionHandle> session,
+      ComposeboxEntrypoint entrypoint = ComposeboxEntrypoint::kCobrowse,
+      ComposeboxMode mode = ComposeboxMode::kRegularSearch) {
+    ComposeboxModeHolder* mode_holder = [[ComposeboxModeHolder alloc] init];
+    mode_holder.mode = mode;
+    return [[ComposeboxInputPlateMediator alloc]
+        initWithContextualSearchSession:std::move(session)
+                           webStateList:web_state_list_.get()
+                          faviconLoader:nullptr
+                 persistTabContextAgent:nullptr
+                            isIncognito:NO
+                             modeHolder:mode_holder
+                     templateURLService:template_url_service()
+                  aimEligibilityService:aim_eligibility_service_.get()
+                            prefService:&pref_service_
+                                profile:profile_.get()
+                   cobrowseBrowserAgent:nil
+              browserCoordinatorHandler:nil
+                           sceneHandler:nil
+                             entrypoint:entrypoint];
+  }
+
+  // Creates a `ComposeboxInputPlateMediator` without a contextual search
+  // session, configured with `entrypoint` and `mode`. The caller is responsible
+  // for calling `-disconnect` on the returned mediator before teardown.
+  ComposeboxInputPlateMediator* CreateMediator(
+      ComposeboxEntrypoint entrypoint = ComposeboxEntrypoint::kCobrowse,
+      ComposeboxMode mode = ComposeboxMode::kRegularSearch) {
+    return CreateMediator(/*session=*/nullptr, entrypoint, mode);
   }
 
   void SetCreateImageEligible(bool createImagesEligible,
@@ -622,21 +729,7 @@ TEST_F(ComposeboxInputPlateMediatorTest,
       .WillByDefault(testing::Return(real_controller));
 
   ComposeboxInputPlateMediator* test_mediator =
-      [[ComposeboxInputPlateMediator alloc]
-          initWithContextualSearchSession:std::move(mock_session)
-                             webStateList:web_state_list_.get()
-                            faviconLoader:nullptr
-                   persistTabContextAgent:nullptr
-                              isIncognito:NO
-                               modeHolder:[[ComposeboxModeHolder alloc] init]
-                       templateURLService:template_url_service()
-                    aimEligibilityService:aim_eligibility_service_.get()
-                              prefService:&pref_service_
-                                  profile:profile_.get()
-                     cobrowseBrowserAgent:nil
-                browserCoordinatorHandler:nil
-                             sceneHandler:nil
-                               entrypoint:ComposeboxEntrypoint::kOther];
+      CreateMediator(std::move(mock_session), ComposeboxEntrypoint::kOther);
 
   EXPECT_CALL(*raw_mock, SetIsBackgrounded(true)).Times(1);
   [[NSNotificationCenter defaultCenter]
@@ -669,21 +762,7 @@ TEST_F(ComposeboxInputPlateMediatorTest, UploadsPDFFilesWithPDFMimeType) {
       .WillByDefault(testing::Return(real_controller));
 
   ComposeboxInputPlateMediator* test_mediator =
-      [[ComposeboxInputPlateMediator alloc]
-          initWithContextualSearchSession:std::move(mock_session)
-                             webStateList:web_state_list_.get()
-                            faviconLoader:nullptr
-                   persistTabContextAgent:nullptr
-                              isIncognito:NO
-                               modeHolder:[[ComposeboxModeHolder alloc] init]
-                       templateURLService:template_url_service()
-                    aimEligibilityService:aim_eligibility_service_.get()
-                              prefService:&pref_service_
-                                  profile:profile_.get()
-                     cobrowseBrowserAgent:nil
-                browserCoordinatorHandler:nil
-                             sceneHandler:nil
-                               entrypoint:ComposeboxEntrypoint::kOther];
+      CreateMediator(std::move(mock_session), ComposeboxEntrypoint::kOther);
 
   base::ScopedTempDir temp_dir;
   ASSERT_TRUE(temp_dir.CreateUniqueTempDir());
@@ -724,21 +803,7 @@ TEST_F(ComposeboxInputPlateMediatorTest, UploadsRawFilesWithDynamicMimeType) {
       .WillByDefault(testing::Return(real_controller));
 
   ComposeboxInputPlateMediator* test_mediator =
-      [[ComposeboxInputPlateMediator alloc]
-          initWithContextualSearchSession:std::move(mock_session)
-                             webStateList:web_state_list_.get()
-                            faviconLoader:nullptr
-                   persistTabContextAgent:nullptr
-                              isIncognito:NO
-                               modeHolder:[[ComposeboxModeHolder alloc] init]
-                       templateURLService:template_url_service()
-                    aimEligibilityService:aim_eligibility_service_.get()
-                              prefService:&pref_service_
-                                  profile:profile_.get()
-                     cobrowseBrowserAgent:nil
-                browserCoordinatorHandler:nil
-                             sceneHandler:nil
-                               entrypoint:ComposeboxEntrypoint::kOther];
+      CreateMediator(std::move(mock_session), ComposeboxEntrypoint::kOther);
 
   base::ScopedTempDir temp_dir;
   ASSERT_TRUE(temp_dir.CreateUniqueTempDir());
@@ -986,21 +1051,7 @@ TEST_F(ComposeboxInputPlateMediatorTest, LogsOmniboxMetricOnStartSurface) {
 // the webpage context item when the entrypoint is kCobrowse.
 TEST_F(ComposeboxInputPlateMediatorTest,
        ProcessContextLibraryWebpageSignalSuccessfulWithCobrowse) {
-  ComposeboxInputPlateMediator* mediator = [[ComposeboxInputPlateMediator alloc]
-      initWithContextualSearchSession:nullptr
-                         webStateList:web_state_list_.get()
-                        faviconLoader:nullptr
-               persistTabContextAgent:nullptr
-                          isIncognito:NO
-                           modeHolder:[[ComposeboxModeHolder alloc] init]
-                   templateURLService:template_url_service()
-                aimEligibilityService:aim_eligibility_service_.get()
-                          prefService:&pref_service_
-                              profile:profile_.get()
-                 cobrowseBrowserAgent:nil
-            browserCoordinatorHandler:nil
-                         sceneHandler:nil
-                           entrypoint:ComposeboxEntrypoint::kCobrowse];
+  ComposeboxInputPlateMediator* mediator = CreateMediator();
 
   TestComposeboxInputPlateConsumer* consumer =
       [[TestComposeboxInputPlateConsumer alloc] init];
@@ -1045,25 +1096,9 @@ TEST_F(ComposeboxInputPlateMediatorTest,
   // Expect that the session is NOT used to create the URL.
   EXPECT_CALL(*raw_mock, CreateSearchUrl(testing::_, testing::_)).Times(0);
 
-  ComposeboxModeHolder* mode_holder = [[ComposeboxModeHolder alloc] init];
-  mode_holder.mode = ComposeboxMode::kRegularSearch;
-
   ComposeboxInputPlateMediator* test_mediator =
-      [[ComposeboxInputPlateMediator alloc]
-          initWithContextualSearchSession:std::move(mock_session)
-                             webStateList:web_state_list_.get()
-                            faviconLoader:nullptr
-                   persistTabContextAgent:nullptr
-                              isIncognito:NO
-                               modeHolder:mode_holder
-                       templateURLService:template_url_service()
-                    aimEligibilityService:aim_eligibility_service_.get()
-                              prefService:&pref_service_
-                                  profile:profile_.get()
-                     cobrowseBrowserAgent:nil
-                browserCoordinatorHandler:nil
-                             sceneHandler:nil
-                               entrypoint:ComposeboxEntrypoint::kOther];
+      CreateMediator(std::move(mock_session), ComposeboxEntrypoint::kOther,
+                     ComposeboxMode::kRegularSearch);
 
   FakeComposeboxURLLoader* fake_loader = [[FakeComposeboxURLLoader alloc] init];
   test_mediator.URLLoader = fake_loader;
@@ -1103,25 +1138,9 @@ TEST_F(ComposeboxInputPlateMediatorTest,
   ON_CALL(*raw_mock, GetController())
       .WillByDefault(testing::Return(real_controller));
 
-  ComposeboxModeHolder* mode_holder = [[ComposeboxModeHolder alloc] init];
-  mode_holder.mode = ComposeboxMode::kAIM;
-
   ComposeboxInputPlateMediator* test_mediator =
-      [[ComposeboxInputPlateMediator alloc]
-          initWithContextualSearchSession:std::move(mock_session)
-                             webStateList:web_state_list_.get()
-                            faviconLoader:nullptr
-                   persistTabContextAgent:nullptr
-                              isIncognito:NO
-                               modeHolder:mode_holder
-                       templateURLService:template_url_service()
-                    aimEligibilityService:aim_eligibility_service_.get()
-                              prefService:&pref_service_
-                                  profile:profile_.get()
-                     cobrowseBrowserAgent:nil
-                browserCoordinatorHandler:nil
-                             sceneHandler:nil
-                               entrypoint:ComposeboxEntrypoint::kOther];
+      CreateMediator(std::move(mock_session), ComposeboxEntrypoint::kOther,
+                     ComposeboxMode::kAIM);
 
   bool called = false;
   EXPECT_CALL(*raw_mock, CreateSearchUrl(testing::_, testing::_))
@@ -1157,21 +1176,8 @@ TEST_F(ComposeboxInputPlateMediatorTest, RemovesAttachedTabOnCloseInCobrowse) {
   ON_CALL(*raw_mock_session, GetController())
       .WillByDefault(testing::Return(&mock_controller));
 
-  ComposeboxInputPlateMediator* mediator = [[ComposeboxInputPlateMediator alloc]
-      initWithContextualSearchSession:std::move(mock_session)
-                         webStateList:web_state_list_.get()
-                        faviconLoader:nullptr
-               persistTabContextAgent:nullptr
-                          isIncognito:NO
-                           modeHolder:[[ComposeboxModeHolder alloc] init]
-                   templateURLService:template_url_service()
-                aimEligibilityService:aim_eligibility_service_.get()
-                          prefService:&pref_service_
-                              profile:profile_.get()
-                 cobrowseBrowserAgent:nil
-            browserCoordinatorHandler:nil
-                         sceneHandler:nil
-                           entrypoint:ComposeboxEntrypoint::kCobrowse];
+  ComposeboxInputPlateMediator* mediator =
+      CreateMediator(std::move(mock_session));
 
   TestComposeboxInputPlateConsumer* consumer =
       [[TestComposeboxInputPlateConsumer alloc] init];
@@ -1214,21 +1220,7 @@ TEST_F(ComposeboxInputPlateMediatorTest,
        AutoAddedTabRemovedStaysRemovedOnRefocus) {
   SetAIMEligible(true);
   SetDSEGoogle(true);
-  ComposeboxInputPlateMediator* mediator = [[ComposeboxInputPlateMediator alloc]
-      initWithContextualSearchSession:nullptr
-                         webStateList:web_state_list_.get()
-                        faviconLoader:nullptr
-               persistTabContextAgent:nullptr
-                          isIncognito:NO
-                           modeHolder:[[ComposeboxModeHolder alloc] init]
-                   templateURLService:template_url_service()
-                aimEligibilityService:aim_eligibility_service_.get()
-                          prefService:&pref_service_
-                              profile:profile_.get()
-                 cobrowseBrowserAgent:nil
-            browserCoordinatorHandler:nil
-                         sceneHandler:nil
-                           entrypoint:ComposeboxEntrypoint::kCobrowse];
+  ComposeboxInputPlateMediator* mediator = CreateMediator();
 
   TestComposeboxInputPlateConsumer* consumer =
       [[TestComposeboxInputPlateConsumer alloc] init];
@@ -1276,21 +1268,7 @@ TEST_F(ComposeboxInputPlateMediatorTest,
        AutoAddedTabRemovedReaddedAfterCommittedNavigation) {
   SetAIMEligible(true);
   SetDSEGoogle(true);
-  ComposeboxInputPlateMediator* mediator = [[ComposeboxInputPlateMediator alloc]
-      initWithContextualSearchSession:nullptr
-                         webStateList:web_state_list_.get()
-                        faviconLoader:nullptr
-               persistTabContextAgent:nullptr
-                          isIncognito:NO
-                           modeHolder:[[ComposeboxModeHolder alloc] init]
-                   templateURLService:template_url_service()
-                aimEligibilityService:aim_eligibility_service_.get()
-                          prefService:&pref_service_
-                              profile:profile_.get()
-                 cobrowseBrowserAgent:nil
-            browserCoordinatorHandler:nil
-                         sceneHandler:nil
-                           entrypoint:ComposeboxEntrypoint::kCobrowse];
+  ComposeboxInputPlateMediator* mediator = CreateMediator();
 
   TestComposeboxInputPlateConsumer* consumer =
       [[TestComposeboxInputPlateConsumer alloc] init];
@@ -1344,21 +1322,7 @@ TEST_F(ComposeboxInputPlateMediatorTest,
        TabPickerDeselectedTabStaysRemovedOnFocus) {
   SetAIMEligible(true);
   SetDSEGoogle(true);
-  ComposeboxInputPlateMediator* mediator = [[ComposeboxInputPlateMediator alloc]
-      initWithContextualSearchSession:nullptr
-                         webStateList:web_state_list_.get()
-                        faviconLoader:nullptr
-               persistTabContextAgent:nullptr
-                          isIncognito:NO
-                           modeHolder:[[ComposeboxModeHolder alloc] init]
-                   templateURLService:template_url_service()
-                aimEligibilityService:aim_eligibility_service_.get()
-                          prefService:&pref_service_
-                              profile:profile_.get()
-                 cobrowseBrowserAgent:nil
-            browserCoordinatorHandler:nil
-                         sceneHandler:nil
-                           entrypoint:ComposeboxEntrypoint::kCobrowse];
+  ComposeboxInputPlateMediator* mediator = CreateMediator();
 
   TestComposeboxInputPlateConsumer* consumer =
       [[TestComposeboxInputPlateConsumer alloc] init];
@@ -1396,21 +1360,7 @@ TEST_F(ComposeboxInputPlateMediatorTest,
        AutoAddedTabOnlyAttachedWhenOmniboxFocused) {
   SetAIMEligible(true);
   SetDSEGoogle(true);
-  ComposeboxInputPlateMediator* mediator = [[ComposeboxInputPlateMediator alloc]
-      initWithContextualSearchSession:nullptr
-                         webStateList:web_state_list_.get()
-                        faviconLoader:nullptr
-               persistTabContextAgent:nullptr
-                          isIncognito:NO
-                           modeHolder:[[ComposeboxModeHolder alloc] init]
-                   templateURLService:template_url_service()
-                aimEligibilityService:aim_eligibility_service_.get()
-                          prefService:&pref_service_
-                              profile:profile_.get()
-                 cobrowseBrowserAgent:nil
-            browserCoordinatorHandler:nil
-                         sceneHandler:nil
-                           entrypoint:ComposeboxEntrypoint::kCobrowse];
+  ComposeboxInputPlateMediator* mediator = CreateMediator();
 
   TestComposeboxInputPlateConsumer* consumer =
       [[TestComposeboxInputPlateConsumer alloc] init];
@@ -1447,6 +1397,529 @@ TEST_F(ComposeboxInputPlateMediatorTest,
       WebStateList::InsertionParams::AtIndex(1).Activate());
 
   EXPECT_EQ(consumer.items.count, 0U);
+}
+
+// Tests that auto-adding a tab ignores ineligible web states (e.g., NTP) and
+// removes any previously auto-added items.
+TEST_F(ComposeboxInputPlateMediatorTest,
+       AutoAddedTabIgnoredOnIneligibleWebState) {
+  SetAIMEligible(true);
+  SetDSEGoogle(true);
+  ComposeboxInputPlateMediator* mediator = CreateMediator();
+
+  TestComposeboxInputPlateConsumer* consumer =
+      [[TestComposeboxInputPlateConsumer alloc] init];
+  mediator.consumer = consumer;
+
+  base::ScopedClosureRunner disconnect_runner(base::BindOnce(^{
+    [mediator disconnect];
+  }));
+
+  web::WebState* active_web_state = web_state_list_->GetActiveWebState();
+  ASSERT_TRUE(active_web_state);
+
+  // Create an auto-added item for the initial active tab.
+  [mediator createInputItemForWebState:active_web_state
+                                source:ComposeboxInputItemSource::kTabPicker];
+  ASSERT_EQ(consumer.items.count, 1U);
+  ComposeboxInputItem* item = consumer.items.firstObject;
+  ASSERT_TRUE(item != nil);
+  item.isAutoAdded = YES;
+
+  // Change active tab's URL to NTP (an ineligible web state).
+  web::FakeWebState* fake_web_state =
+      static_cast<web::FakeWebState*>(active_web_state);
+  fake_web_state->SetVisibleURL(GURL("chrome://newtab/"));
+
+  // Attempt to auto-attach the current tab content on NTP.
+  [mediator updateAutoAttachedCurrentTab];
+
+  // The previously auto-added item should be removed, and no new item added.
+  EXPECT_EQ(consumer.items.count, 0U);
+}
+
+// Tests that failed attachments do not trigger the error snackbar for
+// auto-added items, but do trigger it for manual user attachments.
+TEST_F(ComposeboxInputPlateMediatorTest,
+       AutoAddedFailedAttachmentDoesNotShowSnackbar) {
+  SetAIMEligible(true);
+  SetDSEGoogle(true);
+  ComposeboxInputPlateMediator* mediator = CreateMediator();
+
+  TestComposeboxInputPlateConsumer* consumer =
+      [[TestComposeboxInputPlateConsumer alloc] init];
+  mediator.consumer = consumer;
+
+  TestComposeboxInputPlateMediatorDelegate* delegate =
+      [[TestComposeboxInputPlateMediatorDelegate alloc] init];
+  mediator.delegate = delegate;
+
+  base::ScopedClosureRunner disconnect_runner(base::BindOnce(^{
+    [mediator disconnect];
+  }));
+
+  web::WebState* active_web_state = web_state_list_->GetActiveWebState();
+  ASSERT_TRUE(active_web_state);
+
+  // 1. Auto-added item failure: should NOT trigger the snackbar.
+  base::UnguessableToken auto_item_id = [mediator
+      createInputItemForWebState:active_web_state
+                          source:ComposeboxInputItemSource::kTabPicker];
+  ComposeboxInputItem* auto_item = consumer.items.firstObject;
+  ASSERT_TRUE(auto_item != nil);
+  auto_item.isAutoAdded = YES;
+
+  [mediator handleFailedAttachment:auto_item_id];
+  EXPECT_FALSE(delegate.showedSnackbarForItemUploadDidFail);
+  EXPECT_EQ(consumer.items.count, 0U);
+
+  // 2. User-attached item failure: SHOULD trigger the snackbar.
+  base::UnguessableToken user_item_id = [mediator
+      createInputItemForWebState:active_web_state
+                          source:ComposeboxInputItemSource::kTabPicker];
+  ComposeboxInputItem* user_item = consumer.items.firstObject;
+  ASSERT_TRUE(user_item != nil);
+  user_item.isAutoAdded = NO;
+
+  [mediator handleFailedAttachment:user_item_id];
+  EXPECT_TRUE(delegate.showedSnackbarForItemUploadDidFail);
+  EXPECT_EQ(consumer.items.count, 0U);
+}
+
+// Tests that `handlePageContextResponse:webState:identifier:` uploads the tab
+// context even when the WebState has no `SnapshotTabHelper` attached.
+TEST_F(ComposeboxInputPlateMediatorTest,
+       HandlePageContextResponseWithoutSnapshotTabHelperUploadsTab) {
+  auto mock_session =
+      std::make_unique<testing::NiceMock<TestContextualSearchSessionHandle>>();
+  TestContextualSearchSessionHandle* raw_mock_session = mock_session.get();
+  testing::NiceMock<contextual_search::MockContextualSearchContextController>
+      mock_controller;
+
+  base::UnguessableToken expected_server_token =
+      base::UnguessableToken::Create();
+  ON_CALL(*raw_mock_session, CreateContextToken())
+      .WillByDefault(testing::Return(expected_server_token));
+  ON_CALL(*raw_mock_session, GetController())
+      .WillByDefault(testing::Return(&mock_controller));
+
+  ComposeboxInputPlateMediator* mediator =
+      CreateMediator(std::move(mock_session));
+
+  TestComposeboxInputPlateConsumer* consumer =
+      [[TestComposeboxInputPlateConsumer alloc] init];
+  mediator.consumer = consumer;
+
+  base::ScopedClosureRunner disconnect_runner(base::BindOnce(^{
+    [mediator disconnect];
+  }));
+
+  web::WebState* active_web_state = web_state_list_->GetActiveWebState();
+  ASSERT_TRUE(active_web_state);
+
+  base::UnguessableToken identifier = [mediator
+      createInputItemForWebState:active_web_state
+                          source:ComposeboxInputItemSource::kTabPicker];
+  ASSERT_EQ(consumer.items.count, 1U);
+
+  EXPECT_CALL(*raw_mock_session,
+              StartTabContextUploadFlow(testing::Eq(expected_server_token),
+                                        testing::NotNull(), testing::_))
+      .Times(1);
+
+  auto page_context =
+      std::make_unique<optimization_guide::proto::PageContext>();
+  page_context->mutable_annotated_page_content();
+  [mediator handlePageContextResponse:std::move(page_context)
+                             webState:active_web_state
+                           identifier:identifier];
+
+  EXPECT_EQ(consumer.items.firstObject.serverToken, expected_server_token);
+}
+
+// Test that adding image items assigns sequential `uploadIndex` values, and
+// removing an earlier image does not reuse its index for subsequent images.
+TEST_F(ComposeboxInputPlateMediatorTest, ImageAttachmentUploadIndex) {
+  SetAIMEligible(true);
+  SetDSEGoogle(true);
+
+  UIImage* image = [[UIImage alloc] init];
+  NSItemProvider* provider = [[NSItemProvider alloc] initWithObject:image];
+
+  [mediator_
+      processImageItemProvider:provider
+                       assetID:@"1"
+                        source:ComposeboxInputItemSource::kGalleryPicker];
+  [mediator_
+      processImageItemProvider:provider
+                       assetID:@"2"
+                        source:ComposeboxInputItemSource::kGalleryPicker];
+
+  ASSERT_EQ(consumer_.items.count, 2U);
+  EXPECT_EQ(consumer_.items[0].uploadIndex, 0);
+  EXPECT_EQ(consumer_.items[1].uploadIndex, 1);
+
+  [mediator_ removeItem:consumer_.items[0]];
+  ASSERT_EQ(consumer_.items.count, 1U);
+  EXPECT_EQ(consumer_.items[0].uploadIndex, 1);
+
+  [mediator_
+      processImageItemProvider:provider
+                       assetID:@"3"
+                        source:ComposeboxInputItemSource::kGalleryPicker];
+
+  ASSERT_EQ(consumer_.items.count, 2U);
+  EXPECT_EQ(consumer_.items[0].uploadIndex, 1);
+  EXPECT_EQ(consumer_.items[1].uploadIndex, 2);
+}
+
+// Test that removing or invalidating an attachment item whose server upload has
+// not started (`serverToken` is empty) does not call `DeleteFile`.
+TEST_F(ComposeboxInputPlateMediatorTest,
+       RemovingOrInvalidatingItemWithEmptyServerTokenDoesNotCallDeleteFile) {
+  SetAIMEligible(true);
+  SetDSEGoogle(true);
+
+  auto mock_session =
+      std::make_unique<testing::NiceMock<TestContextualSearchSessionHandle>>();
+  TestContextualSearchSessionHandle* raw_mock_session = mock_session.get();
+  testing::NiceMock<contextual_search::MockContextualSearchContextController>
+      mock_controller;
+
+  ON_CALL(*raw_mock_session, GetController())
+      .WillByDefault(testing::Return(&mock_controller));
+  // Return a file for the empty token so that calling `DeleteFile` with an
+  // empty `serverToken` would reach `mock_controller.DeleteFile`.
+  contextual_search::FileInfo empty_token_file_info;
+  ON_CALL(mock_controller, GetFileInfo(testing::Eq(base::UnguessableToken())))
+      .WillByDefault(testing::Return(&empty_token_file_info));
+
+  EXPECT_CALL(mock_controller, DeleteFile(testing::_)).Times(0);
+
+  ComposeboxInputPlateMediator* mediator =
+      CreateMediator(std::move(mock_session));
+
+  TestComposeboxInputPlateConsumer* consumer =
+      [[TestComposeboxInputPlateConsumer alloc] init];
+  mediator.consumer = consumer;
+
+  base::ScopedClosureRunner disconnect_runner(base::BindOnce(^{
+    [mediator disconnect];
+  }));
+
+  web::WebState* active_web_state = web_state_list_->GetActiveWebState();
+  ASSERT_TRUE(active_web_state);
+
+  // 1. Removing an item with an empty `serverToken` via `removeItem:` must not
+  // call `DeleteFile`.
+  [mediator createInputItemForWebState:active_web_state
+                                source:ComposeboxInputItemSource::kTabPicker];
+  ASSERT_EQ(consumer.items.count, 1U);
+  ComposeboxInputItem* item = consumer.items.firstObject;
+  ASSERT_TRUE(item.serverToken.is_empty());
+
+  [mediator removeItem:item];
+  EXPECT_EQ(consumer.items.count, 0U);
+
+  // 2. Invalidating an item with an empty `serverToken` on mode change must not
+  // call `DeleteFile`.
+  [mediator createInputItemForWebState:active_web_state
+                                source:ComposeboxInputItemSource::kTabPicker];
+  ASSERT_EQ(consumer.items.count, 1U);
+  ComposeboxInputItem* invalidated_item = consumer.items.firstObject;
+  ASSERT_TRUE(invalidated_item.serverToken.is_empty());
+
+  [mediator inputStateManager:nil
+                didChangeMode:ComposeboxMode::kImageGeneration
+       invalidatedAttachments:@[ invalidated_item ]];
+  EXPECT_EQ(consumer.items.count, 0U);
+}
+
+// Test that removing or invalidating an attachment item with a non-empty
+// `serverToken` calls `DeleteFile`.
+TEST_F(ComposeboxInputPlateMediatorTest,
+       RemovingOrInvalidatingItemWithServerTokenCallsDeleteFile) {
+  SetAIMEligible(true);
+  SetDSEGoogle(true);
+
+  auto mock_session =
+      std::make_unique<testing::NiceMock<TestContextualSearchSessionHandle>>();
+  TestContextualSearchSessionHandle* raw_mock_session = mock_session.get();
+  testing::NiceMock<contextual_search::MockContextualSearchContextController>
+      mock_controller;
+
+  ON_CALL(*raw_mock_session, GetController())
+      .WillByDefault(testing::Return(&mock_controller));
+
+  ComposeboxInputPlateMediator* mediator =
+      CreateMediator(std::move(mock_session));
+
+  TestComposeboxInputPlateConsumer* consumer =
+      [[TestComposeboxInputPlateConsumer alloc] init];
+  mediator.consumer = consumer;
+
+  base::ScopedClosureRunner disconnect_runner(base::BindOnce(^{
+    [mediator disconnect];
+  }));
+
+  web::WebState* active_web_state = web_state_list_->GetActiveWebState();
+  ASSERT_TRUE(active_web_state);
+
+  // 1. Removing an item with a non-empty `serverToken` via `removeItem:` calls
+  // `DeleteFile`.
+  [mediator createInputItemForWebState:active_web_state
+                                source:ComposeboxInputItemSource::kTabPicker];
+  ASSERT_EQ(consumer.items.count, 1U);
+  ComposeboxInputItem* item = consumer.items.firstObject;
+  base::UnguessableToken server_token_1 = base::UnguessableToken::Create();
+  item.serverToken = server_token_1;
+
+  contextual_search::FileInfo file_info_1;
+  file_info_1.file_token = server_token_1;
+  ON_CALL(mock_controller, GetFileInfo(testing::Eq(server_token_1)))
+      .WillByDefault(testing::Return(&file_info_1));
+  EXPECT_CALL(mock_controller, DeleteFile(testing::Eq(server_token_1)))
+      .Times(1);
+
+  [mediator removeItem:item];
+  EXPECT_EQ(consumer.items.count, 0U);
+
+  // 2. Invalidating an item with a non-empty `serverToken` on mode change calls
+  // `DeleteFile`.
+  [mediator createInputItemForWebState:active_web_state
+                                source:ComposeboxInputItemSource::kTabPicker];
+  ASSERT_EQ(consumer.items.count, 1U);
+  ComposeboxInputItem* invalidated_item = consumer.items.firstObject;
+  base::UnguessableToken server_token_2 = base::UnguessableToken::Create();
+  invalidated_item.serverToken = server_token_2;
+
+  contextual_search::FileInfo file_info_2;
+  file_info_2.file_token = server_token_2;
+  ON_CALL(mock_controller, GetFileInfo(testing::Eq(server_token_2)))
+      .WillByDefault(testing::Return(&file_info_2));
+  EXPECT_CALL(mock_controller, DeleteFile(testing::Eq(server_token_2)))
+      .Times(1);
+
+  [mediator inputStateManager:nil
+                didChangeMode:ComposeboxMode::kImageGeneration
+       invalidatedAttachments:@[ invalidated_item ]];
+  EXPECT_EQ(consumer.items.count, 0U);
+}
+
+// Tests that confirming a tab picker selection that adds another tab preserves
+// `isAutoAdded` on the preselected auto-added tab, and that deselecting and
+// then reselecting that tab re-attaches it as a manual attachment.
+TEST_F(ComposeboxInputPlateMediatorTest,
+       TabPickerPreservesAutoAddedStateForPreselectedTab) {
+  SetAIMEligible(true);
+  SetDSEGoogle(true);
+  ComposeboxInputPlateMediator* mediator = CreateMediator();
+
+  TestComposeboxInputPlateConsumer* consumer =
+      [[TestComposeboxInputPlateConsumer alloc] init];
+  mediator.consumer = consumer;
+
+  base::ScopedClosureRunner disconnect_runner(base::BindOnce(^{
+    [mediator disconnect];
+  }));
+
+  web::FakeWebState* active_web_state =
+      static_cast<web::FakeWebState*>(web_state_list_->GetActiveWebState());
+  ASSERT_TRUE(active_web_state);
+  web::WebStateID active_id = active_web_state->GetUniqueIdentifier();
+
+  auto second_web_state = std::make_unique<web::FakeWebState>();
+  web::WebStateID second_id = second_web_state->GetUniqueIdentifier();
+
+  // Page context extraction fails synchronously for a `FakeWebState` without
+  // an HTTP(S) URL, which would remove the attached items.
+  KeepPageContextExtractionPending(active_web_state);
+  KeepPageContextExtractionPending(second_web_state.get());
+
+  web_state_list_->InsertWebState(std::move(second_web_state),
+                                  WebStateList::InsertionParams::AtIndex(1));
+
+  // Create an auto-added item for the active tab.
+  [mediator createInputItemForWebState:active_web_state
+                                source:ComposeboxInputItemSource::kCurrentTab];
+  ASSERT_EQ(consumer.items.count, 1U);
+  ComposeboxInputItem* auto_added_item = consumer.items.firstObject;
+  auto_added_item.isAutoAdded = YES;
+
+  // 1. Selecting a second tab in the tab picker while keeping the preselected
+  // auto-added tab checked must preserve `isAutoAdded == YES` on the first tab.
+  [mediator attachSelectedTabsWithWebStateIDs:{active_id, second_id}
+                            cachedWebStateIDs:{}];
+  ASSERT_EQ(consumer.items.count, 2U);
+  EXPECT_TRUE([consumer.items containsObject:auto_added_item]);
+  EXPECT_TRUE(auto_added_item.isAutoAdded);
+
+  // 2. Deselecting the auto-added tab in the tab picker removes its item.
+  [mediator attachSelectedTabsWithWebStateIDs:{second_id} cachedWebStateIDs:{}];
+  ASSERT_EQ(consumer.items.count, 1U);
+  EXPECT_FALSE([consumer.items containsObject:auto_added_item]);
+
+  // 3. Reselecting the tab attaches it as a manual attachment
+  // (`isAutoAdded == NO`).
+  [mediator attachSelectedTabsWithWebStateIDs:{active_id, second_id}
+                            cachedWebStateIDs:{}];
+  ASSERT_EQ(consumer.items.count, 2U);
+  for (NSUInteger i = 0; i < consumer.items.count; ++i) {
+    EXPECT_FALSE(consumer.items[i].isAutoAdded) << "Item at index " << i;
+  }
+}
+
+// Tests that when an upload fails in `onContextUploadStatusChanged:`, the item
+// is removed via `handleFailedAttachment:` and
+// `updateState:forItemWithIdentifier:` is not called for the removed item.
+TEST_F(ComposeboxInputPlateMediatorTest,
+       UploadFailureDoesNotUpdateRemovedItemState) {
+  SetAIMEligible(true);
+  SetDSEGoogle(true);
+
+  ComposeboxInputPlateMediator* mediator = CreateMediator();
+
+  TestComposeboxInputPlateConsumer* consumer =
+      [[TestComposeboxInputPlateConsumer alloc] init];
+  mediator.consumer = consumer;
+
+  base::ScopedClosureRunner disconnect_runner(base::BindOnce(^{
+    [mediator disconnect];
+  }));
+
+  web::WebState* active_web_state = web_state_list_->GetActiveWebState();
+  ASSERT_TRUE(active_web_state);
+
+  [mediator createInputItemForWebState:active_web_state
+                                source:ComposeboxInputItemSource::kTabPicker];
+  ASSERT_EQ(consumer.items.count, 1U);
+  ComposeboxInputItem* item = consumer.items.firstObject;
+  base::UnguessableToken server_token = base::UnguessableToken::Create();
+  item.serverToken = server_token;
+  ASSERT_EQ(consumer.updateStateCallCount, 0U);
+
+  [mediator onContextUploadStatusChanged:server_token
+                                mimeType:lens::MimeType::kAnnotatedPageContent
+                     contextUploadStatus:contextual_search::
+                                             ContextUploadStatus::kUploadFailed
+                               errorType:std::nullopt];
+
+  EXPECT_EQ(consumer.items.count, 0U);
+  EXPECT_EQ(consumer.updateStateCallCount, 0U);
+}
+
+// Tests that when tab page context extraction or tab upload fails early, the
+// tab attachment is cleaned up via `handleFailedAttachment:` instead of
+// remaining in `consumer.items`, and is logged to the debugger as a failed
+// upload.
+TEST_F(ComposeboxInputPlateMediatorTest,
+       FailedTabExtractionAndUploadCleanUpAttachment) {
+  using composebox_debugger::event::QueryAttachment;
+  SetAIMEligible(true);
+  SetDSEGoogle(true);
+
+  ComposeboxInputPlateMediator* mediator = CreateMediator();
+
+  TestComposeboxInputPlateConsumer* consumer =
+      [[TestComposeboxInputPlateConsumer alloc] init];
+  mediator.consumer = consumer;
+  // Keep a strong reference, as `debugLogger` is weak.
+  FakeComposeboxDebuggerLogger* logger =
+      [[FakeComposeboxDebuggerLogger alloc] init];
+  mediator.debugLogger = logger;
+
+  base::ScopedClosureRunner disconnect_runner(base::BindOnce(^{
+    [mediator disconnect];
+  }));
+
+  web::WebState* active_web_state = web_state_list_->GetActiveWebState();
+  ASSERT_TRUE(active_web_state);
+
+  // 1. Null `page_context` in `handlePageContextResponse:webState:identifier:`
+  // removes the item.
+  base::UnguessableToken id_1 = [mediator
+      createInputItemForWebState:active_web_state
+                          source:ComposeboxInputItemSource::kTabPicker];
+  ASSERT_EQ(consumer.items.count, 1U);
+  [mediator handlePageContextResponse:nullptr
+                             webState:active_web_state
+                           identifier:id_1];
+  EXPECT_EQ(consumer.items.count, 0U);
+  // Page context extraction is part of the upload, so its failure is logged
+  // as a failed upload. The removal is logged too.
+  // TODO(crbug.com/571041300): Revisit if extraction gets its own event.
+  EXPECT_EQ(
+      [logger countForQueryAttachmentEvent:QueryAttachment::kUploadFailed], 1U);
+  EXPECT_EQ([logger countForQueryAttachmentEvent:QueryAttachment::kRemoved],
+            1U);
+
+  // 2. Valid `page_context` when `_contextualSearchSession` is null fails in
+  // `uploadTabForIdentifier:inputData:` and removes the item.
+  base::UnguessableToken id_2 = [mediator
+      createInputItemForWebState:active_web_state
+                          source:ComposeboxInputItemSource::kTabPicker];
+  ASSERT_EQ(consumer.items.count, 1U);
+  auto page_context =
+      std::make_unique<optimization_guide::proto::PageContext>();
+  page_context->mutable_annotated_page_content();
+  [mediator handlePageContextResponse:std::move(page_context)
+                             webState:active_web_state
+                           identifier:id_2];
+  EXPECT_EQ(consumer.items.count, 0U);
+  // Failing to start the upload is logged as a failed upload too, along with
+  // the removal.
+  EXPECT_EQ(
+      [logger countForQueryAttachmentEvent:QueryAttachment::kUploadFailed], 2U);
+  EXPECT_EQ([logger countForQueryAttachmentEvent:QueryAttachment::kRemoved],
+            2U);
+}
+
+// Tests that `sendText:` promotes an auto-added tab to a committed user
+// attachment (`isAutoAdded == NO`), so subsequent focus or page-load updates
+// do not remove it via `-removeAutoAddedItems`.
+TEST_F(ComposeboxInputPlateMediatorTest, SendTextPromotesAutoAddedTab) {
+  SetAIMEligible(true);
+  SetDSEGoogle(true);
+  web::FakeWebState* active_web_state =
+      static_cast<web::FakeWebState*>(web_state_list_->GetActiveWebState());
+  ASSERT_TRUE(active_web_state);
+
+  auto mock_session =
+      std::make_unique<testing::NiceMock<TestContextualSearchSessionHandle>>();
+  TestContextualSearchSessionHandle* raw_mock_session = mock_session.get();
+  testing::NiceMock<contextual_search::MockContextualSearchContextController>
+      mock_controller;
+  ON_CALL(*raw_mock_session, GetController())
+      .WillByDefault(testing::Return(&mock_controller));
+
+  ComposeboxInputPlateMediator* mediator =
+      CreateMediator(std::move(mock_session));
+
+  TestComposeboxInputPlateConsumer* consumer =
+      [[TestComposeboxInputPlateConsumer alloc] init];
+  mediator.consumer = consumer;
+
+  base::ScopedClosureRunner disconnect_runner(base::BindOnce(^{
+    [mediator disconnect];
+  }));
+
+  [mediator createInputItemForWebState:active_web_state
+                                source:ComposeboxInputItemSource::kCurrentTab];
+  ASSERT_EQ(consumer.items.count, 1U);
+  ComposeboxInputItem* item = consumer.items.firstObject;
+  item.isAutoAdded = YES;
+  item.serverToken = base::UnguessableToken::Create();
+  item.state = ComposeboxInputItemState::kLoaded;
+
+  EXPECT_CALL(*raw_mock_session, CreateSearchUrl(testing::_, testing::_))
+      .Times(1);
+  [mediator sendText:@"test query"];
+  EXPECT_FALSE(item.isAutoAdded);
+
+  // Unfocusing and completing a page load must not remove the promoted tab.
+  [mediator setOmniboxFocused:NO];
+  active_web_state->OnPageLoaded(web::PageLoadCompletionStatus::SUCCESS);
+  EXPECT_EQ(consumer.items.count, 1U);
 }
 
 }  // namespace

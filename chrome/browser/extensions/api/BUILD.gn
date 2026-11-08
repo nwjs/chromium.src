@@ -33,7 +33,6 @@ group("api_implementations") {
     "//chrome/browser/extensions/api/commands",
     "//chrome/browser/extensions/api/content_settings",
     "//chrome/browser/extensions/api/context_menus",
-    "//chrome/browser/extensions/api/cookies",
     "//chrome/browser/extensions/api/debugger",
     "//chrome/browser/extensions/api/desktop_capture",
     "//chrome/browser/extensions/api/downloads_internal",
@@ -131,12 +130,10 @@ function_registration("api_registration") {
   schema_include_rules = chrome_extensions_api_schema_include_rules
 
   custom_impl_schemas = [
-    "accessibility_private",
     "accessibility_service_private",
     "action",
     "autotest_private",
     "browser_action",
-    "certificate_provider_internal",
     "chrome_web_view_internal",
     "chromeos_info_private",
     "commands",
@@ -147,11 +144,9 @@ function_registration("api_registration") {
     "experimental_actor",
     "experimental_ai_data",
     "extension",
-    "image_loader_private",
     "login",
     "login_screen_storage",
     "login_state",
-    "login_screen_ui",
     "media_player_private",
     "odfs_config_private",
     "platform_keys_internal",
@@ -160,7 +155,6 @@ function_registration("api_registration") {
     "speech_recognition_private",
     "system_log",
     "terminal_private",
-    "users_private",
     "vpn_provider",
     "wallpaper",
     "wm_desks_private",
@@ -170,7 +164,6 @@ function_registration("api_registration") {
   ]
 
   inputs = [
-    "//chrome/browser/accessibility/accessibility_extension_api_ash.h",
     "//chrome/browser/chromeos/extensions/accessibility_service_private/accessibility_service_private.h",
     "//chrome/browser/chromeos/extensions/echo_private/echo_private_api.h",
     "//chrome/browser/chromeos/extensions/info_private/info_private_api.h",
@@ -185,12 +178,8 @@ function_registration("api_registration") {
     "//chrome/browser/chromeos/extensions/wallpaper/wallpaper_api.h",
     "//chrome/browser/chromeos/extensions/wm/wm_desks_private_api.h",
     "//chrome/browser/ash/extensions/autotest_private/autotest_private_api.h",
-    "//chrome/browser/ash/extensions/file_manager/image_loader_private_api.h",
-    "//chrome/browser/ash/extensions/login_screen_ui/login_screen_ui_api.h",
     "//chrome/browser/ash/extensions/media_player_api.h",
-    "//chrome/browser/ash/extensions/users_private/users_private_api.h",
     "//chrome/browser/extensions/api/enterprise_login/enterprise_login_api.h",
-    "certificate_provider/certificate_provider_api.h",
     "enterprise_platform_keys/enterprise_platform_keys_api.h",
     "platform_keys/platform_keys_api.h",
     "commands/commands.h",
@@ -201,6 +190,7 @@ function_registration("api_registration") {
     "glic_private/glic_private_api.h",
     "module/module.h",
     "tabs/tabs_api.h",
+    "tabs/windows_api.h",
     "terminal/terminal_private_api.h",
     "web_view/chrome_web_view_internal_api.h",
   ]
@@ -237,7 +227,6 @@ function_registration("api_registration") {
   if (is_chromeos) {
     deps += [
       "//chrome/browser/ash/extensions/autotest_private",
-      "//chrome/browser/ash/extensions/file_manager",
 
       # TODO: We should pull these out into a separate build and function
       # generation step so that //chrome/browser/extensions has fewer

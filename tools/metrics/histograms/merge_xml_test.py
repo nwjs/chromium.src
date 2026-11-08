@@ -8,6 +8,7 @@ import xml.dom.minidom
 
 import setup_modules  # pylint: disable=unused-import
 
+
 import chromium_src.tools.metrics.histograms.expand_owners as expand_owners
 import chromium_src.tools.metrics.histograms.histogram_paths as histogram_paths
 import chromium_src.tools.metrics.histograms.merge_xml as merge_xml

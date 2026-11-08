@@ -46,21 +46,6 @@ class NestedLayoutDelegate extends TabListLayoutDelegate {
     }
 
     @Override
-    boolean requiresThumbnailUpdateOnDeselect() {
-        return false;
-    }
-
-    @Override
-    boolean requiresThumbnailUpdateOnSelect() {
-        return false;
-    }
-
-    @Override
-    boolean supportsTabGroups() {
-        return true;
-    }
-
-    @Override
     boolean isChildTabRepresentedByGroupCard(Tab tab) {
         return false;
     }
@@ -188,7 +173,7 @@ class NestedLayoutDelegate extends TabListLayoutDelegate {
     void onTabClose(Tab tab) {
         TabModel tabModel = mMediator.getCurrentTabModelChecked();
         Token tabGroupId = tab.getTabGroupId();
-        if (tabGroupId != null && tabModel.tabGroupExists(tabGroupId)) {
+        if (tabGroupId != null && tabModel.containsTabGroup(tabGroupId)) {
             updateTabGroupHeaderId(tabGroupId);
             mMediator.updateTabGroupTitle(tabGroupId);
         }
@@ -218,7 +203,7 @@ class NestedLayoutDelegate extends TabListLayoutDelegate {
         }
         // Sync the color down to the child models so decorations (like the group spine) can
         // read it.
-        updateColorForChildTabsInNestedLayout(tabGroupId, newColor);
+        mMediator.updateColorForChildTabs(tabGroupId, newColor);
     }
 
     @Override
@@ -254,7 +239,7 @@ class NestedLayoutDelegate extends TabListLayoutDelegate {
     }
 
     @Override
-    public void didMoveTabGroup(Token tabGroupId, int tabModelOldIndex, int tabModelNewIndex) {
+    public void onTabGroupMoved(Token tabGroupId, int tabModelOldIndex, int tabModelNewIndex) {
         if (tabModelOldIndex == tabModelNewIndex) return;
 
         // Move the group header along with all the child tabs.
@@ -387,7 +372,7 @@ class NestedLayoutDelegate extends TabListLayoutDelegate {
         int headerIndex = mModelList.indexFromTabGroupId(tabGroupId);
         if (headerIndex == TabModel.INVALID_TAB_INDEX) return;
         TabModel tabModel = mMediator.getCurrentTabModelChecked();
-        int childCount = tabModel.getTabsInGroup(tabGroupId).size();
+        int childCount = tabModel.getTabCountForGroup(tabGroupId);
 
         for (int i = 0; i < childCount; i++) {
             if (headerIndex + 1 < mModelList.size()) {
@@ -422,28 +407,6 @@ class NestedLayoutDelegate extends TabListLayoutDelegate {
             return mModelList.indexFromTabGroupId(tabAfterGroupId);
         }
         return getIndexFromTabId(tabAfter.getId());
-    }
-
-    /**
-     * Updates the UI properties of child tabs when their group color changes.
-     *
-     * @param tabGroupId The ID of the tab group.
-     * @param newColor The new color of the tab group.
-     */
-    private void updateColorForChildTabsInNestedLayout(
-            Token tabGroupId, @TabGroupColorId int newColor) {
-        EitherGroupId eitherGroupId = EitherGroupId.createLocalId(new LocalTabGroupId(tabGroupId));
-        boolean foundGroup = false;
-        for (int i = 0; i < mModelList.size(); i++) {
-            PropertyModel childModel = mModelList.get(i).model;
-            if (TabProperties.isTabInGroup(childModel)
-                    && tabGroupId.equals(childModel.get(TabProperties.TAB_GROUP_ID))) {
-                mMediator.updateTabGroupColorViewProvider(eitherGroupId, childModel, newColor);
-                foundGroup = true;
-            } else if (foundGroup) {
-                break;
-            }
-        }
     }
 
     @Override

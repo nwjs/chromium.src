@@ -18,12 +18,14 @@ source_set("ui") {
   deps = [
     ":constants",
     "//base",
+    "//components/strings",
     "//ios/chrome/app/strings",
     "//ios/chrome/browser/assistant/ui",
     "//ios/chrome/browser/composebox/ui",
     "//ios/chrome/browser/shared/public/features",
     "//ios/chrome/browser/shared/public/features:system_flags",
     "//ios/chrome/browser/shared/ui/elements",
+    "//ios/chrome/browser/shared/ui/image",
     "//ios/chrome/browser/shared/ui/symbols",
     "//ios/chrome/browser/shared/ui/util",
     "//ios/chrome/common/ui/colors",
@@ -38,6 +40,31 @@ source_set("constants") {
     "assistant_aim_ui_constants.h",
     "assistant_aim_ui_constants.mm",
   ]
+}
+
+source_set("unit_tests") {
+  testonly = true
+  sources = [
+    "assistant_aim_header_view_unittest.mm",
+    "assistant_aim_history_view_controller_unittest.mm",
+    "assistant_aim_view_controller_unittest.mm",
+    "assistant_aim_zero_state_view_controller_unittest.mm",
+  ]
+  deps = [
+    ":constants",
+    ":ui",
+    "//base",
+    "//base/test:test_support",
+    "//components/strings",
+    "//ios/chrome/app/strings",
+    "//ios/chrome/browser/shared/public/features",
+    "//ios/chrome/browser/shared/ui/elements",
+    "//ios/chrome/test:test_support",
+    "//ios/chrome/test/app:test_support",
+    "//testing/gtest",
+    "//ui/base",
+  ]
+  frameworks = [ "UIKit.framework" ]
 }
 
 source_set("eg2_tests") {

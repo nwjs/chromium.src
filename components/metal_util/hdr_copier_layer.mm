@@ -354,7 +354,8 @@ id<MTLRenderPipelineState> CreateRenderPipelineState(id<MTLDevice> device) {
     CAEDRMetadata* edrMetadata = nil;
     if (colorSpace.GetTransferID() == gfx::ColorSpace::TransferID::PQ) {
       base::apple::ScopedCFTypeRef<CFDataRef> display_info =
-          gfx::GenerateMasteringDisplayColorVolume(hdrMetadata);
+          gfx::GenerateMasteringDisplayColorVolume(
+              hdrMetadata, /*fallback_to_defaults=*/true);
       base::apple::ScopedCFTypeRef<CFDataRef> content_info =
           gfx::GenerateContentLightLevelInfo(hdrMetadata);
       edrMetadata = [CAEDRMetadata
@@ -569,7 +570,7 @@ bool ShouldUseHDRCopier(IOSurfaceRef buffer,
     return true;
   }
 
-  if (hdr_metadata.extended_range.has_value()) {
+  if (hdr_metadata.HasAgtm()) {
     return true;
   }
 

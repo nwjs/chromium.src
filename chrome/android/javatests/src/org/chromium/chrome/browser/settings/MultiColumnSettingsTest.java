@@ -157,6 +157,16 @@ public class MultiColumnSettingsTest {
         }
     }
 
+    /** A page that declares its main menu row, as pages opened from the main menu do. */
+    public static class DeclaredKeyTestFragment extends TestFragment {
+        static final String MAIN_MENU_KEY = "declared_key";
+
+        @Override
+        public @Nullable String getMainMenuKey() {
+            return MAIN_MENU_KEY;
+        }
+    }
+
     private final boolean mIsIdentityManagerSourceOfAccounts;
 
     public MultiColumnSettingsTest(boolean isIdentityManagerSourceOfAccounts) {
@@ -359,10 +369,38 @@ public class MultiColumnSettingsTest {
 
     @Test
     @SmallTest
+    @UiThreadTest
+    @EnableFeatures({ChromeFeatureList.SETTINGS_IN_TAB_URL_NAV})
+    public void testFragmentTracker_MainMenuKey_OnlyTrustedWhileRowIsShown() {
+        final String anchorKey = "anchor_key";
+        SettingsFragmentRegistry.registerMainMenuAnchorForTesting(
+                DeclaredKeyTestFragment.class, anchorKey);
+        try {
+            ObserverList<MultiColumnSettings.Observer> observers = new ObserverList<>();
+            var fragmentManager = new TestFragmentManager();
+
+            // The declared row is on the main menu, so it is used as is.
+            var tracker =
+                    new MultiColumnSettings.FragmentTracker(observers, () -> null, key -> true);
+            tracker.onFragmentResumed(fragmentManager, new DeclaredKeyTestFragment());
+            assertEquals(DeclaredKeyTestFragment.MAIN_MENU_KEY, tracker.mTitles.get(0).mainMenuKey);
+
+            // The declared row has been removed from the main menu, e.g. by a feature that folds
+            // it into another row, so the page falls through to the rest of the chain.
+            tracker = new MultiColumnSettings.FragmentTracker(observers, () -> null, key -> false);
+            tracker.onFragmentResumed(fragmentManager, new DeclaredKeyTestFragment());
+            assertEquals(anchorKey, tracker.mTitles.get(0).mainMenuKey);
+        } finally {
+            SettingsFragmentRegistry.sFragmentToMainMenuAnchorMap.remove(
+                    DeclaredKeyTestFragment.class);
+        }
+    }
+
+    @Test
+    @SmallTest
     @Restriction(DeviceFormFactor.PHONE)
     @EnableFeatures({
         SigninFeatures.ENABLE_ACTIVITYLESS_SIGNIN_ALL_ENTRY_POINT,
-        ChromeFeatureList.SETTINGS_MULTI_COLUMN,
     })
     @DisableFeatures({
         ChromeFeatureList.DEFAULT_BROWSER_PROMO_ANDROID2,
@@ -383,9 +421,6 @@ public class MultiColumnSettingsTest {
     @Test
     @SmallTest
     @Restriction(DeviceFormFactor.ONLY_TABLET)
-    @EnableFeatures({
-        ChromeFeatureList.SETTINGS_MULTI_COLUMN,
-    })
     @DisableFeatures({
         ChromeFeatureList.DEFAULT_BROWSER_PROMO_ANDROID2,
         ChromeFeatureList.YOUR_SAVED_INFO_SETTINGS_PAGE_ANDROID

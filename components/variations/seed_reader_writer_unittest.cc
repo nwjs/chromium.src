@@ -273,12 +273,6 @@ class SeedReaderWriterGroupTest
 
   std::string_view GetHistogramSuffix() const { return histogram_suffix_; }
 
- private:
-  std::string histogram_suffix_;
-};
-
-class SeedReaderWriterSeedFilesGroupTest : public SeedReaderWriterGroupTest {
- public:
   StoredSeedInfo ReadStoredSeedInfo() {
     std::string seed_file_data;
     CHECK(base::ReadFileToString(temp_seed_file_path_, &seed_file_data));
@@ -289,7 +283,12 @@ class SeedReaderWriterSeedFilesGroupTest : public SeedReaderWriterGroupTest {
     CHECK(stored_seed_info.ParseFromString(uncompressed_contents));
     return stored_seed_info;
   }
+
+ private:
+  std::string histogram_suffix_;
 };
+
+class SeedReaderWriterSeedFilesGroupTest : public SeedReaderWriterGroupTest {};
 class SeedReaderWriterLocalStateGroupsTest : public SeedReaderWriterGroupTest {
 };
 
@@ -1925,6 +1924,118 @@ TEST_P(SeedReaderWriterAllGroupsTest, ReadSeedDataSentinel) {
       &seed_data, &base64_seed_signature);
   EXPECT_EQ(result, LoadSeedResult::kSuccess);
   EXPECT_EQ(seed_data, kIdenticalToSafeSeedSentinel);
+}
+
+// Verifies that SetSeedDate() and StoreValidatedSeedInfo() keep the stored
+// seed date when the new seed date is null.
+TEST_P(SeedReaderWriterAllGroupsTest, NullSeedDatePreservesExistingSeedDate) {
+  ASSERT_EQ(base::FieldTrialList::FindFullName(kSeedFileTrial),
+            GetParam().field_trial_group);
+  SeedReaderWriter seed_reader_writer(
+      &local_state_, /*seed_file_dir=*/temp_dir_.GetPath(), kSeedFilename,
+      GetParam().seed_fields_prefs, GetParam().channel,
+      entropy_providers_.get(), GetHistogramSuffix(),
+      file_writer_thread_.task_runner());
+  seed_reader_writer.SetTimerForTesting(&timer_);
+
+  const base::Time initial_seed_date = base::Time::Now() - base::Days(2);
+  seed_reader_writer.StoreValidatedSeedInfo(ValidatedSeedInfo{
+      .seed_data = CreateVariationsSeed(),
+      .signature = "signature",
+      .milestone = 2,
+      .seed_date = initial_seed_date,
+      .client_fetch_time = base::Time::Now() - base::Days(2),
+  });
+  if (timer_.IsRunning()) {
+    timer_.Fire();
+  }
+  file_writer_thread_.FlushForTesting();
+
+  EXPECT_EQ(seed_reader_writer.GetSeedInfo().seed_date, initial_seed_date);
+
+  seed_reader_writer.SetSeedDate(base::Time());
+  EXPECT_EQ(seed_reader_writer.GetSeedInfo().seed_date, initial_seed_date);
+
+  const base::Time updated_seed_date = initial_seed_date + base::Days(1);
+  seed_reader_writer.SetSeedDate(updated_seed_date);
+  EXPECT_EQ(seed_reader_writer.GetSeedInfo().seed_date, updated_seed_date);
+
+  seed_reader_writer.StoreValidatedSeedInfo(ValidatedSeedInfo{
+      .seed_data = CreateVariationsSeed(),
+      .signature = "new signature",
+      .milestone = 3,
+      .seed_date = base::Time(),
+      .client_fetch_time = base::Time::Now(),
+  });
+  if (timer_.IsRunning()) {
+    timer_.Fire();
+  }
+  file_writer_thread_.FlushForTesting();
+
+  EXPECT_EQ(seed_reader_writer.GetSeedInfo().seed_date, updated_seed_date);
+  if (GetParam().field_trial_group == kSeedFilesGroup) {
+    EXPECT_EQ(
+        SeedReaderWriter::ProtoTimeToTime(ReadStoredSeedInfo().seed_date()),
+        updated_seed_date);
+  }
+}
+
+TEST_P(SeedReaderWriterSeedFilesGroupTest, CommitPendingWrite) {
+  ASSERT_EQ(base::FieldTrialList::FindFullName(kSeedFileTrial),
+            GetParam().field_trial_group);
+  // Initialize seed_reader_writer with test thread and timer.
+  SeedReaderWriter seed_reader_writer(
+      &local_state_, /*seed_file_dir=*/temp_dir_.GetPath(), kSeedFilename,
+      GetParam().seed_fields_prefs, GetParam().channel,
+      entropy_providers_.get(), GetHistogramSuffix(),
+      file_writer_thread_.task_runner());
+  seed_reader_writer.SetTimerForTesting(&timer_);
+
+  // Calling CommitPendingWrite() when there is no pending write should be safe.
+  seed_reader_writer.CommitPendingWrite();
+
+  std::string seed_data = CreateVariationsSeed();
+  std::string signature = "seed signature";
+
+  // Store a seed. This should schedule a write with a delay.
+  ASSERT_EQ(seed_reader_writer.StoreValidatedSeedInfo(ValidatedSeedInfo{
+                .seed_data = seed_data,
+                .signature = signature,
+            }),
+            StoreSeedResult::kSuccess);
+
+  // Verify that the write is scheduled (timer is running) and file doesn't
+  // exist yet.
+  EXPECT_TRUE(timer_.IsRunning());
+  EXPECT_FALSE(base::PathExists(temp_dir_.GetPath().Append(kSeedFilename)));
+
+  // Call CommitPendingWrite() to write immediately.
+  seed_reader_writer.CommitPendingWrite();
+
+  // Verify that the timer is no longer running (cancelled).
+  EXPECT_FALSE(timer_.IsRunning());
+
+  // Wait for the background write to complete.
+  file_writer_thread_.FlushForTesting();
+
+  // Verify that the file was written.
+  EXPECT_TRUE(base::PathExists(temp_dir_.GetPath().Append(kSeedFilename)));
+
+  // Verify by reading it back via SeedReaderWriter.
+  {
+    base::RunLoop run_loop;
+    SeedReaderWriter::ReadSeedDataResult read_result;
+    auto lambda_cb = base::BindLambdaForTesting(
+        [&read_result, &run_loop](SeedReaderWriter::ReadSeedDataResult result) {
+          read_result = std::move(result);
+          run_loop.Quit();
+        });
+    seed_reader_writer.ReadSeedData(lambda_cb);
+    run_loop.Run();
+    EXPECT_EQ(read_result.result, LoadSeedResult::kSuccess);
+    EXPECT_EQ(read_result.seed_data, seed_data);
+    EXPECT_EQ(read_result.signature, signature);
+  }
 }
 
 TEST_P(SeedReaderWriterSeedFilesGroupTest,

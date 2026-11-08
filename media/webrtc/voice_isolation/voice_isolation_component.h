@@ -7,9 +7,37 @@
 
 #include "base/component_export.h"
 #include "base/containers/span.h"
+#include "base/time/time.h"
 
 namespace media {
 
+// Result of attempting to initialize VoiceIsolation / VoiceIsolationComponent.
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+//
+// Note: `kSuccess` is never returned as an error.
+//
+// LINT.IfChange(VoiceIsolationCreationResult)
+enum class VoiceIsolationCreationResult {
+  kSuccess = 0,
+  kInterpreterCreationFailed = 1,
+  kDelegateCreationFailed = 2,
+  kTensorAllocationFailed = 3,
+  kIncompatibleModel = 4,
+  kWarmupFailed = 5,
+  kMaxValue = kWarmupFailed,
+};
+// LINT.ThenChange(//tools/metrics/histograms/metadata/media/enums.xml:VoiceIsolationCreationResult)
+
+// A stage of the voice isolation pipeline. The outermost component, returned
+// by VoiceIsolation::CreateComponent() or passed to VoiceIsolation::Create(),
+// consumes waveform frames sampled at 48 kHz, so that
+// `FrameSize() * FramesPerSecond() == 48000`. Inner stages operate on signals
+// derived from it, such as the 48 kHz DFTs consumed by BandSplitVoiceIsolation
+// and the 16 kHz low band that it forwards to the model.
+// VoiceIsolation::Create() CHECKs the sample rate and buffer size of the
+// external audio and the FrameSize() and FramesPerSecond() of the outermost
+// component.
 class COMPONENT_EXPORT(MEDIA_WEBRTC) VoiceIsolationComponent {
  public:
   VoiceIsolationComponent() = default;
@@ -34,6 +62,12 @@ class COMPONENT_EXPORT(MEDIA_WEBRTC) VoiceIsolationComponent {
 
   // Clears all internal state.
   virtual void ClearBuffers() = 0;
+
+  // Returns the algorithmic delay this component adds: the time between an
+  // input sample and its corresponding output sample. Excludes computation
+  // time. Includes the delay of any wrapped components. Constant for the
+  // lifetime of the object.
+  virtual base::TimeDelta AlgorithmicDelay() const = 0;
 };
 }  // namespace media
 

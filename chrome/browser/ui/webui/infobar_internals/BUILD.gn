@@ -3,6 +3,7 @@
 # found in the LICENSE file.
 
 import("//build/config/chrome_build.gni")
+import("//components/signin/features.gni")
 import("//content/public/common/features.gni")
 import("//extensions/buildflags/buildflags.gni")
 import("//mojo/public/tools/bindings/mojom.gni")
@@ -14,6 +15,9 @@ mojom("mojo_bindings") {
   public_deps = [ "//mojo/public/mojom/base" ]
 
   enabled_features = []
+  if (enable_dice_support) {
+    enabled_features += [ "enable_dice_support" ]
+  }
   if (enable_extensions) {
     enabled_features += [ "enable_extensions" ]
   }
@@ -33,6 +37,7 @@ source_set("infobar_internals") {
 
   public_deps = [
     "//base",
+    "//components/signin/public/base",
     "//content/public/browser",
     "//ui/webui",
   ]
@@ -50,8 +55,6 @@ source_set("impl") {
     "infobar_internals_ui.cc",
   ]
 
-  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
-
   deps = [
     ":infobar_internals",
     ":mojo_bindings",
@@ -60,17 +63,19 @@ source_set("impl") {
     "//chrome/browser:global_features",
     "//chrome/browser/devtools",
     "//chrome/browser/infobars",
-    "//chrome/browser/omnibox",
     "//chrome/browser/profiles:profile",
     "//chrome/browser/resources/infobar_internals:resources",
     "//chrome/browser/ssl",
-    "//chrome/browser/ui",
     "//chrome/browser/ui:collected_cookies_infobar_delegate",
     "//chrome/browser/ui:ui_features",
     "//chrome/browser/ui/browser_window",
     "//chrome/browser/ui/page_info",
+    "//chrome/browser/ui/select_file_policy",
+    "//chrome/browser/ui/signin",
     "//chrome/browser/ui/startup",
+    "//chrome/browser/ui/views/js_optimization",
     "//chrome/browser/ui/views/site_data",
+    "//chrome/browser/ui/views/web_apps:web_app_blocked_migration_infobar_delegate",
     "//components/infobars/content",
     "//components/infobars/core",
     "//content/public/browser",
@@ -92,7 +97,10 @@ source_set("impl") {
   }
 
   if (is_win || is_mac) {
-    deps += [ "//chrome/browser/ui/pdf/infobar" ]
+    deps += [
+      "//chrome/browser/ui/pdf/infobar",
+      "//chrome/browser/ui/startup/default_browser_prompt/pin_infobar",
+    ]
   }
 
   if (is_win) {

@@ -77,8 +77,10 @@ export class NetworkRequest {
   #redirectCount: number;
 
   #bodySize = 0;
-  // Tracked encoded data size while the response is loading.
-  #encodedResponseBodySize = 0;
+  // Total response bytes received, updated while the response is loading.
+  #responseBytesReceived = 0;
+  // Encoded body size from Network.loadingFinished, or null when unavailable.
+  #encodedResponseBodySize: number | null = null;
   // Tracked decoded data size while the response is loading.
   #decodedResponseBodySize = 0;
 
@@ -353,14 +355,13 @@ export class NetworkRequest {
         });
       }
     } else {
-      headers = [
-        ...bidiNetworkHeadersFromCdpNetworkHeaders(
-          this.#request.info?.request.headers,
-        ),
-        ...bidiNetworkHeadersFromCdpNetworkHeaders(
-          this.#request.extraInfo?.headers,
-        ),
-      ];
+      headers = bidiNetworkHeadersFromCdpNetworkHeaders({
+        ...this.#request.info?.request.headers,
+        // `Network.requestWillBeSentExtraInfo` is not emitted while paused in
+        // `beforeRequestSent`, so include headers from `Fetch.requestPaused`.
+        ...this.#request.paused?.request.headers,
+        ...this.#request.extraInfo?.headers,
+      });
     }
 
     return headers;
@@ -485,7 +486,9 @@ export class NetworkRequest {
     // Temporary workaround to emit ResponseCompleted event for redirects
     this.#response.hasExtraInfo = false;
     this.#decodedResponseBodySize = 0;
+    // Redirect response bodies are never read, so their encoded size is 0.
     this.#encodedResponseBodySize = 0;
+    this.#responseBytesReceived = event.redirectResponse!.encodedDataLength;
     this.#response.info = event.redirectResponse!;
     this.#emitEventsIfReady({
       wasRedirected: true,
@@ -605,7 +608,7 @@ export class NetworkRequest {
   onResponseReceivedEvent(event: Protocol.Network.ResponseReceivedEvent): void {
     this.#response.hasExtraInfo = event.hasExtraInfo;
     this.#response.info = event.response;
-    this.#encodedResponseBodySize = event.response.encodedDataLength;
+    this.#responseBytesReceived = event.response.encodedDataLength;
     this.#networkStorage.collectIfNeeded(this, Network.DataType.Response);
     this.#emitEventsIfReady();
   }
@@ -617,13 +620,15 @@ export class NetworkRequest {
 
   onLoadingFinishedEvent(event: Protocol.Network.LoadingFinishedEvent): void {
     this.#response.loadingFinished = event;
-    this.#encodedResponseBodySize = event.encodedDataLength;
+    this.#responseBytesReceived = event.encodedDataLength;
+    this.#encodedResponseBodySize = event.encodedBodyLength ?? null;
+    this.#networkStorage.collectIfNeeded(this, Network.DataType.Response);
     this.#emitEventsIfReady();
   }
 
   onDataReceivedEvent(event: Protocol.Network.DataReceivedEvent): void {
     this.#decodedResponseBodySize += event.dataLength;
-    this.#encodedResponseBodySize += event.encodedDataLength;
+    this.#responseBytesReceived += event.encodedDataLength;
   }
 
   onLoadingFailedEvent(event: Protocol.Network.LoadingFailedEvent): void {
@@ -938,18 +943,68 @@ export class NetworkRequest {
 
     this.#emittedEvents[event.method] = true;
     if (this.#context) {
-      this.#eventManager.registerEvent(
-        Object.assign(event, {
-          type: 'event' as const,
-        }),
+      this.#eventManager.registerPromiseEvent(
+        this.#resolveEvent(event),
         this.#context,
+        event.method,
       );
     } else {
-      this.#eventManager.registerGlobalEvent(
-        Object.assign(event, {
-          type: 'event' as const,
-        }),
+      this.#eventManager.registerGlobalPromiseEvent(
+        this.#resolveEvent(event),
+        event.method,
       );
+    }
+  }
+
+  /**
+   * Resolves a deferred event after asynchronously gathering any missing event
+   * data, while preserving the event's position in the outgoing queue.
+   */
+  async #resolveEvent(event: NetworkEvent) {
+    if (!this.#request.extraInfo && this.#request.paused) {
+      // Workaround for CDP omitting `Network.requestWillBeSentExtraInfo` (which
+      // provides `associatedCookies`) while a request is paused in `Fetch`.
+      event.params.request.cookies = await this.#fetchPausedRequestCookies(
+        this.#request.paused,
+      );
+    }
+    return {
+      kind: 'success' as const,
+      value: Object.assign(event, {
+        type: 'event' as const,
+      }),
+    };
+  }
+
+  /** Queries CDP for cookies matching the paused request's `Cookie` header. */
+  async #fetchPausedRequestCookies(
+    event: Protocol.Fetch.RequestPausedEvent,
+  ): Promise<Network.Cookie[]> {
+    const cookieHeader = Object.entries(event.request.headers).find(
+      ([name]) => name.toLowerCase() === 'cookie',
+    )?.[1];
+    if (!cookieHeader) {
+      return [];
+    }
+
+    const cookiePairs = new Set(
+      cookieHeader.split(';').map((pair) => pair.trim()),
+    );
+    try {
+      const result = await this.cdpClient.sendCommand('Network.getCookies', {
+        urls: [event.request.url],
+      });
+      return (result?.cookies ?? [])
+        .filter((cookie) =>
+          cookiePairs.has(
+            cookie.name === ''
+              ? cookie.value
+              : `${cookie.name}=${cookie.value}`,
+          ),
+        )
+        .map((cookie) => cdpToBiDiCookie(cookie));
+    } catch {
+      return [];
     }
   }
 
@@ -1016,8 +1071,7 @@ export class NetworkRequest {
         this.#servedFromCache,
       headers: this.#responseOverrides?.headers ?? headers,
       mimeType: this.#response.info?.mimeType || '',
-      // TODO: this should be the size for the entire HTTP response.
-      bytesReceived: this.encodedResponseBodySize,
+      bytesReceived: this.responseBytesReceived,
       headersSize: computeHeadersSize(headers),
       bodySize: this.encodedResponseBodySize,
       content: {
@@ -1032,8 +1086,12 @@ export class NetworkRequest {
     } as Network.ResponseData;
   }
 
-  get encodedResponseBodySize(): number {
+  get encodedResponseBodySize(): number | null {
     return this.#encodedResponseBodySize;
+  }
+
+  get responseBytesReceived(): number {
+    return this.#responseBytesReceived;
   }
 
   get decodedResponseBodySize(): number {

@@ -45,7 +45,6 @@ BASE_FEATURE(kUnoPhase2FollowUp,
 );
 #endif  // !BUILDFLAG(IS_CHROMEOS)
 
-
 BASE_FEATURE(kSyncEnableContactInfoDataTypeForCustomPassphraseUsers,
 #if BUILDFLAG(IS_IOS) || BUILDFLAG(IS_ANDROID)
              base::FEATURE_ENABLED_BY_DEFAULT
@@ -196,14 +195,8 @@ BASE_FEATURE(kEstimateNewSignInUsersWithFinchAvailablePopulation,
 BASE_FEATURE(kSyncFixWebSigninSessionDurationForShortLivedSessions,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kSyncSimplifyDeviceNaming, base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kSyncDisambiguateDeviceNamesWithChannel,
-             "SyncDisambiguateDeviceNamesWithChannel",
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-BASE_FEATURE(kSyncUseServerDeterminedDeviceName,
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kSyncCopyPreferencesToTransportModeOnServerForcedDisable,
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -212,5 +205,22 @@ BASE_FEATURE(kSyncNigoriAuthenticateIV, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kSyncMigrateFromImplicitPassphrase,
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kSyncMigrateLoopbackServerBookmarksToClientTagHash,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+#if !BUILDFLAG(IS_CHROMEOS)
+BASE_FEATURE(kSyncDoNotSyncAppsAndAppSettings,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kSyncWipeAppsAndAppSettingsData,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#endif  // !BUILDFLAG(IS_CHROMEOS)
+
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+BASE_FEATURE(kDeviceTabVisibilitySettings, base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kCrossDeviceTabsInAppMenu, base::FEATURE_DISABLED_BY_DEFAULT);
+#endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 
 }  // namespace syncer

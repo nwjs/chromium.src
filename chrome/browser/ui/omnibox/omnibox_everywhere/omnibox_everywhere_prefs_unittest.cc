@@ -8,10 +8,13 @@
 #include <utility>
 
 #include "base/files/file_path.h"
+#include "base/test/scoped_feature_list.h"
+#include "base/values.h"
 #include "build/build_config.h"
 #include "chrome/browser/new_tab_page/prefs/ntp_pref_names.h"
+#include "chrome/browser/ui/omnibox/omnibox_next_features.h"
 #include "chrome/test/base/testing_profile.h"
-#include "components/ntp_tiles/pref_names.h"
+#include "components/ntp_tiles/enterprise/enterprise_shortcuts_pref_names.h"
 #include "components/prefs/pref_registry_simple.h"
 #include "components/prefs/scoped_user_pref_update.h"
 #include "components/prefs/testing_pref_service.h"
@@ -98,7 +101,9 @@ TEST_F(OmniboxEverywherePrefsTest,
   {
     ScopedListPrefUpdate update(
         profile_.GetPrefs(), ntp_tiles::prefs::kEnterpriseShortcutsPolicyList);
-    update->Append("https://corp.example.com");
+    update->Append(base::DictValue()
+                       .Set("url", "https://corp.example.com")
+                       .Set("title", "Corp"));
   }
 
   // Top toggle is ON, but both enterprise and personal shortcuts are OFF.
@@ -126,7 +131,9 @@ TEST_F(OmniboxEverywherePrefsTest,
   {
     ScopedListPrefUpdate update(
         profile_.GetPrefs(), ntp_tiles::prefs::kEnterpriseShortcutsPolicyList);
-    update->Append("https://corp.example.com");
+    update->Append(base::DictValue()
+                       .Set("url", "https://corp.example.com")
+                       .Set("title", "Corp"));
   }
 
   profile_.GetPrefs()->SetBoolean(ntp_prefs::kNtpShortcutsVisible, true);
@@ -146,7 +153,9 @@ TEST_F(OmniboxEverywherePrefsTest,
   {
     ScopedListPrefUpdate update(
         profile_.GetPrefs(), ntp_tiles::prefs::kEnterpriseShortcutsPolicyList);
-    update->Append("https://corp.example.com");
+    update->Append(base::DictValue()
+                       .Set("url", "https://corp.example.com")
+                       .Set("title", "Corp"));
   }
 
   profile_.GetPrefs()->SetBoolean(ntp_prefs::kNtpShortcutsVisible, true);
@@ -178,6 +187,29 @@ TEST_F(OmniboxEverywherePrefsTest,
   profile_.GetPrefs()->SetInteger(
       kOmniboxEverywhereShowShortcuts,
       std::to_underlying(ShowShortcutsPrefValue::kEnabled));
+  EXPECT_TRUE(IsOmniboxEverywhereShortcutsVisible(&profile_));
+}
+
+TEST_F(OmniboxEverywherePrefsTest,
+       ShortcutsVisible_MalformedEnterprisePolicyTreatedAsNoPolicy) {
+  // A policy entry without a URL is not a valid enterprise shortcut, so it
+  // must not gate shortcut availability on the enterprise checkboxes.
+  {
+    ScopedListPrefUpdate update(
+        profile_.GetPrefs(), ntp_tiles::prefs::kEnterpriseShortcutsPolicyList);
+    update->Append(base::DictValue().Set("title", "Missing URL"));
+  }
+
+  profile_.GetPrefs()->SetBoolean(ntp_prefs::kNtpShortcutsVisible, true);
+  profile_.GetPrefs()->SetBoolean(ntp_prefs::kNtpEnterpriseShortcutsVisible,
+                                  false);
+  profile_.GetPrefs()->SetBoolean(ntp_prefs::kNtpPersonalShortcutsVisible,
+                                  false);
+  profile_.GetPrefs()->SetInteger(
+      kOmniboxEverywhereShowShortcuts,
+      std::to_underlying(ShowShortcutsPrefValue::kUnset));
+
+  EXPECT_TRUE(AreShortcutsAvailableForProfile(&profile_));
   EXPECT_TRUE(IsOmniboxEverywhereShortcutsVisible(&profile_));
 }
 
@@ -397,6 +429,39 @@ TEST_F(OmniboxEverywherePrefsTest,
             FreStage::kShortcutReminderChin);
 }
 
+TEST_F(OmniboxEverywherePrefsTest,
+       FreStagesProgression_CustomFinchImpressionCaps) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeatureWithParameters(
+      omnibox::kOmniboxEverywhereFre,
+      {{omnibox::kOmniboxEverywhereFreMaxIntroImpressionsParam.name, "1"},
+       {omnibox::kOmniboxEverywhereFreMaxShortcutSetupImpressionsParam.name,
+        "2"},
+       {omnibox::kOmniboxEverywhereFreMaxShortcutReminderImpressionsParam.name,
+        "1"}});
+
+  // Stage 1: Custom cap of 1 impression.
+  EXPECT_EQ(GetCurrentFreStage(&profile_, &local_state_),
+            FreStage::kIntroModal);
+  IncrementFreImpression(&profile_, &local_state_);
+  EXPECT_EQ(GetCurrentFreStage(&profile_, &local_state_),
+            FreStage::kShortcutSetupChin);
+
+  // Stage 2: Custom cap of 2 impressions after hotkey is set.
+  SetOmniboxEverywhereHotkey(&local_state_, "Ctrl+Shift+Space");
+  IncrementFreImpression(&profile_, &local_state_);
+  EXPECT_EQ(GetCurrentFreStage(&profile_, &local_state_),
+            FreStage::kShortcutSetupChin);
+  IncrementFreImpression(&profile_, &local_state_);
+  EXPECT_EQ(GetCurrentFreStage(&profile_, &local_state_),
+            FreStage::kShortcutReminderChin);
+
+  // Stage 3: Custom cap of 1 impression.
+  IncrementFreImpression(&profile_, &local_state_);
+  EXPECT_EQ(GetCurrentFreStage(&profile_, &local_state_), FreStage::kNone);
+  EXPECT_TRUE(profile_.GetPrefs()->GetBoolean(kFreDismissed));
+}
+
 TEST_F(OmniboxEverywherePrefsTest, HotkeyPresetsAndTokens) {
   // Without an explicit hotkey, GetOmniboxEverywhereHotkey returns empty.
   EXPECT_TRUE(GetOmniboxEverywhereHotkey(&local_state_).IsEmpty());
@@ -423,30 +488,30 @@ TEST_F(OmniboxEverywherePrefsTest, HotkeyPresetsAndTokens) {
   EXPECT_FALSE(tokens.empty());
   EXPECT_EQ(tokens.back(), "Space");
 #if BUILDFLAG(IS_MAC)
-  EXPECT_EQ(tokens[0], "Option");
+  EXPECT_EQ(tokens[0], "⌥ Option");
 
   // Verify Apple canonical order [control -> option -> shift -> command].
   ui::Accelerator cmd_shift_space(ui::VKEY_SPACE,
                                   ui::EF_COMMAND_DOWN | ui::EF_SHIFT_DOWN);
   auto cmd_tokens = GetOmniboxEverywhereHotkeyTokens(cmd_shift_space);
   ASSERT_EQ(3u, cmd_tokens.size());
-  EXPECT_EQ("Shift", cmd_tokens[0]);
-  EXPECT_EQ("Cmd", cmd_tokens[1]);
+  EXPECT_EQ("⇧ Shift", cmd_tokens[0]);
+  EXPECT_EQ("⌘ Cmd", cmd_tokens[1]);
   EXPECT_EQ("Space", cmd_tokens[2]);
 
   ui::Accelerator ctrl_shift_space(ui::VKEY_SPACE,
                                    ui::EF_CONTROL_DOWN | ui::EF_SHIFT_DOWN);
   auto ctrl_tokens = GetOmniboxEverywhereHotkeyTokens(ctrl_shift_space);
   ASSERT_EQ(3u, ctrl_tokens.size());
-  EXPECT_EQ("Ctrl", ctrl_tokens[0]);
-  EXPECT_EQ("Shift", ctrl_tokens[1]);
+  EXPECT_EQ("⌃ Ctrl", ctrl_tokens[0]);
+  EXPECT_EQ("⇧ Shift", ctrl_tokens[1]);
   EXPECT_EQ("Space", ctrl_tokens[2]);
 
   // Verify non-letter keys (Return) map to localized text instead of glyphs.
   ui::Accelerator cmd_return(ui::VKEY_RETURN, ui::EF_COMMAND_DOWN);
   auto return_tokens = GetOmniboxEverywhereHotkeyTokens(cmd_return);
   ASSERT_EQ(2u, return_tokens.size());
-  EXPECT_EQ("Cmd", return_tokens[0]);
+  EXPECT_EQ("⌘ Cmd", return_tokens[0]);
   EXPECT_EQ("Enter", return_tokens[1]);
 #else
   EXPECT_EQ(tokens[0], "Alt");

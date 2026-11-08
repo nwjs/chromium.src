@@ -100,6 +100,7 @@ class Origin;
 
 namespace blink {
 class WebGestureEvent;
+class WebMouseEvent;
 enum class ProtocolHandlerSecurityLevel;
 }  // namespace blink
 
@@ -341,18 +342,26 @@ class CONTENT_EXPORT WebContentsDelegate {
   virtual void PreHandleDragExit() {}
   virtual void HandleDragEnded() {}
 
+  // NOTE: For all the `PreHandle...Event()` functions below,
+  //  * Renderers expect consistent event streams, so if you mark e.g. a keydown
+  //    or mousedown event as handled, you should also handle the corresponding
+  //    keyup/mouseup.
+  //  * Doing anything complex to handle, especially if it results in deleting
+  //    objects, risks re-entrancy and UAF bugs. Keep your handlers simple.
+
   // Allows delegates to handle keyboard events before sending to the renderer.
   // See enum for description of return values.
   virtual KeyboardEventProcessingResult PreHandleKeyboardEvent(
       WebContents* source,
       const input::NativeWebKeyboardEvent& event);
 
-  // Allows delegates to handle unhandled keyboard messages coming back from
-  // the renderer. Returns true if the event was handled, false otherwise. A
-  // true value means no more processing should happen on the event. The default
-  // return value is false
-  virtual bool HandleKeyboardEvent(WebContents* source,
-                                   const input::NativeWebKeyboardEvent& event);
+  // Allows delegates to handle mouse events before sending to the renderer.
+  // Returns true if the |event| was handled and thus shouldn't be processed
+  // by the renderer's event handler.
+  // NOTE: Does not currently handle wheel events. These could be added if
+  // desired.
+  virtual bool PreHandleMouseEvent(WebContents* source,
+                                   const blink::WebMouseEvent& event);
 
   // Allows delegates to handle gesture events before sending to the renderer.
   // Returns true if the |event| was handled and thus shouldn't be processed
@@ -361,6 +370,13 @@ class CONTENT_EXPORT WebContentsDelegate {
   // and dispatched after the touches return without being "preventDefault()"ed.
   virtual bool PreHandleGestureEvent(WebContents* source,
                                      const blink::WebGestureEvent& event);
+
+  // Allows delegates to handle unhandled keyboard messages coming back from
+  // the renderer. Returns true if the event was handled, false otherwise. A
+  // true value means no more processing should happen on the event. The default
+  // return value is false
+  virtual bool HandleKeyboardEvent(WebContents* source,
+                                   const input::NativeWebKeyboardEvent& event);
 
   // Called when an external drag event enters the web contents window. Return
   // true to allow dragging and dropping on the web contents window or false to
@@ -594,16 +610,6 @@ class CONTENT_EXPORT WebContentsDelegate {
                                          const std::string& protocol,
                                          const GURL& url,
                                          bool user_gesture) {}
-
-  // Result of string search in the page. This includes the number of matches
-  // found and the selection rect (in screen coordinates) for the string found.
-  // If |final_update| is false, it indicates that more results follow.
-  virtual void FindReply(WebContents* web_contents,
-                         int request_id,
-                         int number_of_matches,
-                         const gfx::Rect& selection_rect,
-                         int active_match_ordinal,
-                         bool final_update) {}
 
 #if BUILDFLAG(IS_ANDROID)
   // Provides the rects of the current find-in-page matches.

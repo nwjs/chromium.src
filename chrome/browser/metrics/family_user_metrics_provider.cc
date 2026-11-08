@@ -8,16 +8,16 @@
 #include "base/metrics/histogram_functions.h"
 #include "chrome/browser/ash/policy/core/browser_policy_connector_ash.h"
 #include "chrome/browser/ash/policy/core/user_cloud_policy_manager_ash.h"
-#include "chrome/browser/ash/profiles/profile_helper.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/browser_process_platform_part.h"
 #include "chrome/browser/policy/profile_policy_connector.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
+#include "chromeos/ash/components/browser_context_helper/browser_context_helper.h"
+#include "chromeos/ash/components/browser_context_helper/browser_context_types.h"
 #include "components/policy/proto/device_management_backend.pb.h"
+#include "components/session_manager/core/session.h"
 #include "components/session_manager/core/session_manager.h"
-#include "components/user_manager/user.h"
-#include "components/user_manager/user_manager.h"
 
 namespace {
 
@@ -48,13 +48,14 @@ bool IsDeviceEnterpriseEnrolled() {
 }
 
 Profile* GetPrimaryUserProfile() {
-  const user_manager::User* primary_user =
-      user_manager::UserManager::Get()->GetPrimaryUser();
-  DCHECK(primary_user);
-  DCHECK(primary_user->is_profile_created());
-  Profile* profile = ash::ProfileHelper::Get()->GetProfileByUser(primary_user);
-  DCHECK(profile);
-  DCHECK(ash::ProfileHelper::IsUserProfile(profile));
+  const session_manager::Session* primary_session =
+      session_manager::SessionManager::Get()->GetPrimarySession();
+  CHECK(primary_session);
+  Profile* profile = Profile::FromBrowserContext(
+      ash::BrowserContextHelper::Get()->GetBrowserContextByAccountId(
+          primary_session->account_id()));
+  CHECK(profile);
+  CHECK(ash::IsUserBrowserContext(profile));
   return profile;
 }
 
@@ -67,7 +68,7 @@ int GetNumSecondaryAccounts(Profile* profile) {
 
   signin::IdentityManager* identity_manager =
       IdentityManagerFactory::GetForProfile(profile);
-  DCHECK(identity_manager);
+  CHECK(identity_manager, base::NotFatalUntil::M161);
   if (!identity_manager->AreRefreshTokensLoaded()) {
     // IdentityManager hasn't finished loading accounts, return -1 to indicate
     // that we don't know the number of secondary accounts yet.
@@ -131,14 +132,16 @@ void FamilyUserMetricsProvider::OnUserSessionStarted(bool is_primary_user) {
   } else if (!IsDeviceEnterpriseEnrolled() &&
              GetManagedUserLogSegment(profile) ==
                  enterprise_management::PolicyData::K12) {
-    DCHECK(profile->GetProfilePolicyConnector()->IsManaged());
+    CHECK(profile->GetProfilePolicyConnector()->IsManaged(),
+          base::NotFatalUntil::M161);
     // This is a K-12 EDU user on an unmanaged ChromeOS device.
     family_user_log_segment_ = FamilyUserLogSegment::kStudentAtHome;
   } else if (profile->IsRegularProfile() &&
              !profile->GetProfilePolicyConnector()->IsManaged()) {
-    DCHECK(!profile->IsChild());
-    DCHECK_EQ(GetManagedUserLogSegment(profile),
-              enterprise_management::PolicyData::UNSPECIFIED);
+    CHECK(!profile->IsChild(), base::NotFatalUntil::M161);
+    CHECK_EQ(GetManagedUserLogSegment(profile),
+             enterprise_management::PolicyData::UNSPECIFIED,
+             base::NotFatalUntil::M161);
     // This is a regular unmanaged user on any device.
     family_user_log_segment_ = FamilyUserLogSegment::kRegularUser;
   } else {
@@ -192,7 +195,7 @@ void FamilyUserMetricsProvider::ObserveIdentityManager(Profile* profile) {
 
   signin::IdentityManager* identity_manager =
       IdentityManagerFactory::GetForProfile(profile);
-  DCHECK(identity_manager);
+  CHECK(identity_manager, base::NotFatalUntil::M161);
   if (!identity_manager_observations_.IsObservingSource(identity_manager))
     identity_manager_observations_.AddObservation(identity_manager);
 }

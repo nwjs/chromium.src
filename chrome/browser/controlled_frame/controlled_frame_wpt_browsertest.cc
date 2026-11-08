@@ -60,6 +60,7 @@ constexpr char kTestDriverPath[] =
 constexpr char kHtmlWrapperSrc[] = R"(
   <!doctype html>
   <meta charset=utf-8>
+  <meta name="timeout" content="long">
   <script src="/resources/testharness.js"></script>
   <script src="/resources/testharnessreport.js"></script>
   <script src="/resources/testdriver.js"></script>
@@ -111,6 +112,15 @@ constexpr char kWptReporterSrc[] = R"(
       }
 
       const testBody = await (await fetch(testSrc)).text();
+
+      // Tests append elements to document.body, so don't run them until the
+      // body has been parsed.
+      if (document.readyState === 'loading') {
+        await new Promise((resolve) => {
+          document.addEventListener('DOMContentLoaded', resolve, {once: true});
+        });
+      }
+
       const importRegex = /^\/\/ META script=(.*)/gm;
       const imports = [...testBody.matchAll(importRegex)]
           .map((match) => match[1]);

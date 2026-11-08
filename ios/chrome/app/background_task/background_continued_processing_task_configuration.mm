@@ -24,9 +24,10 @@
     _expirationHandler = [expirationHandler copy];
     _totalUnits = kDefaultTotalUnitsOfProgress;
     _expectedStepCount = kDefaultExpectedStepCount;
+    _submissionStrategy =
+        BackgroundContinuedProcessingSubmissionStrategy::kQueue;
 #if BUILDFLAG(IOS_BACKGROUND_CONTINUED_PROCESSING_ENABLED)
     if (@available(iOS 26.0, *)) {
-      _strategy = BGContinuedProcessingTaskRequestSubmissionStrategyQueue;
       _requiredResources = BGContinuedProcessingTaskRequestResourcesDefault;
     }
 #endif  // BUILDFLAG(IOS_BACKGROUND_CONTINUED_PROCESSING_ENABLED)
@@ -53,6 +54,12 @@
 - (void)setExpectedStepCount:(int64_t)expectedStepCount {
   CHECK_GT(expectedStepCount, 0);
   _expectedStepCount = expectedStepCount;
+}
+
+- (void)setProgressHeartbeatInterval:
+    (base::TimeDelta)progressHeartbeatInterval {
+  CHECK(!progressHeartbeatInterval.is_negative());
+  _progressHeartbeatInterval = progressHeartbeatInterval;
 }
 
 @end

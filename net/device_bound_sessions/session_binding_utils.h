@@ -8,6 +8,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include "base/containers/flat_map.h"
 #include "base/containers/span.h"
@@ -17,6 +18,7 @@
 #include "net/base/net_export.h"
 #include "net/device_bound_sessions/session_key.h"
 #include "net/device_bound_sessions/session_usage.h"
+#include "net/http/structured_headers.h"
 
 class GURL;
 
@@ -36,10 +38,36 @@ NET_EXPORT extern const char kSecFetchSiteHeaderName[];
 NET_EXPORT extern const char kSecFetchModeHeaderName[];
 NET_EXPORT extern const char kSecFetchDestHeaderName[];
 
-// Formats a binding statement into a dictionary as defined in
+// Converts a SignatureKind to its JOSE algorithm string representation (e.g.
+// "ES256", "RS256"). Returns nullopt for unsupported algorithms.
+NET_EXPORT std::optional<std::string_view> ToJoseAlgorithm(
+    crypto::sign::SignatureKind algorithm);
+
+// Converts a JOSE algorithm string representation (e.g. "ES256", "RS256") to a
+// SignatureKind. Returns nullopt for unknown or unsupported algorithms.
+NET_EXPORT std::optional<crypto::sign::SignatureKind> FromJoseAlgorithm(
+    std::string_view algorithm);
+
+// Converts the JOSE algorithm tokens in `items` (e.g. the inner list of a
+// Secure-Session-Registration header member) to SignatureKinds, preserving
+// their order. Non-token items and unknown algorithms are ignored.
+NET_EXPORT std::vector<crypto::sign::SignatureKind> ParseSupportedAlgorithms(
+    base::span<const structured_headers::ParameterizedItem> items);
+
+// Formats a registration statement into a dictionary as defined in
 // https://github.com/WICG/dbsc-sso#identity-providers-session-initialization.
-base::DictValue NET_EXPORT
-CreateBindingStatement(const crypto::AttestationStatement& statement);
+NET_EXPORT base::DictValue CreateRegistrationStatement(
+    const crypto::AttestationStatement& statement);
+
+// Serializes an attestation statement into a Base64URL-encoded JSON binding
+// statement as defined in
+// https://github.com/WICG/dbsc-sso#relying-partys-session-initialization,
+// suitable for the Secure-Session-KeyBinding header. Unlike the registration
+// statement, it omits "fmt", per https://github.com/WICG/dbsc-sso/issues/15.
+// TODO(crbug.com/481630807): Drop the issue reference once
+// https://github.com/WICG/dbsc-sso/pull/22 updates the explainer.
+NET_EXPORT std::optional<std::string> SerializeBindingStatement(
+    const crypto::AttestationStatement& statement);
 
 // Creates outer header and payload parts of a nested registration JWT. This is
 // needed for sessions including an attestation key.

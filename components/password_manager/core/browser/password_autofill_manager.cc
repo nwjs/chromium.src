@@ -92,7 +92,6 @@ bool IsSuggestionHandledInPasswordManager(SuggestionType type) {
     case SuggestionType::kIbanEntry:
     case SuggestionType::kMerchantPromoCodeEntry:
     case SuggestionType::kSaveAndFillCreditCardEntry:
-    case SuggestionType::kSeePromoCodeDetails:
     case SuggestionType::kScanCreditCard:
     case SuggestionType::kBnplEntry:
     case SuggestionType::kManageAddress:
@@ -974,7 +973,7 @@ void PasswordAutofillManager::OnPasswordCredentialSuggestionAccepted(
       password_client_->GetDeviceAuthenticator();
   // Note: this is currently only implemented on Android, Mac and Windows.
   // For other platforms, the `authenticator` will be null.
-  if (!password_client_->IsReauthBeforeFillingRequired(authenticator.get())) {
+  if (!password_client_->IsReauthBeforeFillingRequiredLegacy(authenticator.get())) {
     std::move(fill_suggestion_callback).Run();
     return;
   }

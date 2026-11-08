@@ -4,6 +4,7 @@
 
 #include "chrome/browser/readaloud/android/read_aloud_bridge.h"
 
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <vector>
@@ -41,6 +42,7 @@ int32_t ToJavaPlaybackState(read_aloud::mojom::PlaybackState state) {
     case read_aloud::mojom::PlaybackState::kBuffering:
       return 3;  // PlaybackListener.State.BUFFERING
     case read_aloud::mojom::PlaybackState::kPaused:
+    case read_aloud::mojom::PlaybackState::kEndOfStream:
       return 4;  // PlaybackListener.State.PAUSED
     case read_aloud::mojom::PlaybackState::kPlaying:
       return 5;  // PlaybackListener.State.PLAYING
@@ -277,9 +279,11 @@ void ReadAloudBridge::Stop(JNIEnv* env) {
   }
 }
 
-void ReadAloudBridge::SeekToWordIndex(JNIEnv* env, jint word_index) {
+void ReadAloudBridge::SeekToWord(JNIEnv* env,
+                                 int32_t segment_index,
+                                 int32_t character_offset) {
   if (service_) {
-    service_->SeekToWordIndex(word_index);
+    service_->SeekToWord(segment_index, character_offset);
   }
 }
 
@@ -307,9 +311,22 @@ void ReadAloudBridge::SetVoice(JNIEnv* env, const std::string& voice_id) {
   }
 }
 
+void ReadAloudBridge::SetLanguageCode(JNIEnv* env,
+                                      const std::string& language_code) {
+  if (service_) {
+    service_->SetLanguageCode(language_code);
+  }
+}
+
 void ReadAloudBridge::PreviewVoice(JNIEnv* env, const std::string& voice_id) {
   if (service_) {
     service_->PreviewVoice(voice_id);
+  }
+}
+
+void ReadAloudBridge::PauseVoicePreview(JNIEnv* env) {
+  if (service_) {
+    service_->PauseVoicePreview();
   }
 }
 
@@ -319,7 +336,7 @@ void ReadAloudBridge::StopVoicePreview(JNIEnv* env) {
   }
 }
 
-void ReadAloudBridge::SetPlaybackMode(JNIEnv* env, jint mode) {
+void ReadAloudBridge::SetPlaybackMode(JNIEnv* env, int32_t mode) {
   if (service_) {
     service_->SetPlaybackMode(FromJavaPlaybackMode(mode));
   }
@@ -331,7 +348,7 @@ void ReadAloudBridge::SetHighlightingEnabled(JNIEnv* env, jboolean enabled) {
   }
 }
 
-void ReadAloudBridge::SendFeedback(JNIEnv* env, jint feedback_type) {
+void ReadAloudBridge::SendFeedback(JNIEnv* env, int32_t feedback_type) {
   if (service_) {
     service_->SendFeedback(FromJavaFeedbackType(feedback_type));
   }

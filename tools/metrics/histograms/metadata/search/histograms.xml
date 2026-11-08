@@ -489,7 +489,7 @@ https://chromium.googlesource.com/chromium/src/tools/+/HEAD/metrics/histograms/R
 </histogram>
 
 <histogram name="Search.ChoicePrefsCheck.PendingChoiceScreenDisplayStateStatus"
-    enum="PendingChoiceScreenDisplayStateStatus" expires_after="2026-12-20">
+    enum="PendingChoiceScreenDisplayStateStatus" expires_after="2027-04-04">
   <owner>dgn@chromium.org</owner>
   <owner>chrome-regionalcapabilities@google.com</owner>
   <summary>
@@ -570,7 +570,7 @@ https://chromium.googlesource.com/chromium/src/tools/+/HEAD/metrics/histograms/R
 </histogram>
 
 <histogram name="Search.ChoiceScreenEvents{Context}{Profile}"
-    enum="SearchEngineChoiceScreenEvents" expires_after="2027-01-31">
+    enum="SearchEngineChoiceScreenEvents" expires_after="2027-04-04">
   <owner>dgn@chromium.org</owner>
   <owner>samarchehade@chromium.org</owner>
   <owner>chrome-regionalcapabilities@google.com</owner>
@@ -1187,6 +1187,20 @@ https://chromium.googlesource.com/chromium/src/tools/+/HEAD/metrics/histograms/R
   </token>
 </histogram>
 
+<histogram name="Search.EngineCountInSettings.{Surface}" units="count"
+    expires_after="2027-10-01">
+  <owner>tju@google.com</owner>
+  <owner>chrome-regionalcapabilities@google.com</owner>
+  <summary>
+    Records the number of search engines displayed to the user on the {Surface}.
+    Logged when the list of search engines is generated for display.
+  </summary>
+  <token key="Surface">
+    <variant name="DsePicker" summary="DSE picker, once per data refresh"/>
+    <variant name="FullList" summary="search settings, once per page load"/>
+  </token>
+</histogram>
+
 <histogram name="Search.Image.Camera.Open" enum="CameraOpenEntryPoint"
     expires_after="2027-02-07">
   <owner>juanmojica@google.com</owner>
@@ -1508,7 +1522,7 @@ https://chromium.googlesource.com/chromium/src/tools/+/HEAD/metrics/histograms/R
 </histogram>
 
 <histogram name="Search.KeywordTable.HashValidationStatus"
-    enum="KeywordTableHashValidationStatus" expires_after="2027-01-24">
+    enum="KeywordTableHashValidationStatus" expires_after="2027-03-28">
   <owner>wfh@chromium.org</owner>
   <owner>jdonnelly@chromium.org</owner>
   <owner>chrome-desktop-search@google.com</owner>
@@ -1522,7 +1536,7 @@ https://chromium.googlesource.com/chromium/src/tools/+/HEAD/metrics/histograms/R
 </histogram>
 
 <histogram name="Search.KeywordTable.MigrationSuccess.V152"
-    enum="BooleanSuccess" expires_after="2027-01-24">
+    enum="BooleanSuccess" expires_after="2027-03-28">
   <owner>wfh@chromium.org</owner>
   <owner>jdonnelly@chromium.org</owner>
   <owner>chrome-desktop-search@google.com</owner>

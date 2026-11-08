@@ -73,21 +73,26 @@ SurfaceEmbedWebPlugin* SurfaceEmbedWebPlugin::Create(
     const blink::WebPluginParams& params) {
   // Read the content ID from the data-content-id attribute
   base::UnguessableToken contents_id;
+  bool allow_pinch_zoom = false;
   for (size_t i = 0; i < params.attribute_names.size(); ++i) {
-    if (params.attribute_names[i].Utf8() == "data-content-id") {
+    const std::string attribute_name = params.attribute_names[i].Utf8();
+    if (attribute_name == "data-content-id") {
       contents_id = DecodeContentId(params.attribute_values[i].Utf8());
-      break;
+    } else if (attribute_name == "data-allow-pinch-zoom") {
+      allow_pinch_zoom = true;
     }
   }
 
-  return new SurfaceEmbedWebPlugin(contents_id, render_frame, params);
+  return new SurfaceEmbedWebPlugin(contents_id, allow_pinch_zoom, render_frame,
+                                   params);
 }
 
 SurfaceEmbedWebPlugin::SurfaceEmbedWebPlugin(
     const base::UnguessableToken& contents_id,
+    bool allow_pinch_zoom,
     content::RenderFrame* render_frame,
     const blink::WebPluginParams& params)
-    : contents_id_(contents_id) {
+    : contents_id_(contents_id), allow_pinch_zoom_(allow_pinch_zoom) {
   render_frame->GetRemoteAssociatedInterfaces()->GetInterface(&host_);
   accessibility_observer_ =
       std::make_unique<AccessibilityObserver>(render_frame, this);
@@ -115,7 +120,7 @@ bool SurfaceEmbedWebPlugin::Initialize(blink::WebPluginContainer* container) {
     bool is_focused =
         container_ &&
         container_->GetDocument().FocusedElement() == container_->GetElement();
-    host_->AttachConnector(contents_id_, is_focused);
+    host_->AttachConnector(contents_id_, is_focused, allow_pinch_zoom_);
   }
 
   // If accessibility was already enabled before the plugin was created,
@@ -262,6 +267,56 @@ void SurfaceEmbedWebPlugin::UpdateRenderThrottlingStatus(bool is_throttled,
     host_->OnEmbedElementThrottlingStatusChanged(
         mojom::RenderThrottlingStatus::New(is_throttled, subtree_throttled,
                                            display_locked));
+  }
+}
+
+void SurfaceEmbedWebPlugin::DidChangeDataAttribute(
+    const blink::WebString& name,
+    const blink::WebString& new_value) {
+  const std::string attribute_name = name.Utf8();
+  if (attribute_name == "data-allow-pinch-zoom") {
+    const bool allow_pinch_zoom = !new_value.IsNull();
+    if (allow_pinch_zoom == allow_pinch_zoom_) {
+      return;
+    }
+    allow_pinch_zoom_ = allow_pinch_zoom;
+    if (host_) {
+      host_->SetAllowPinchZoom(allow_pinch_zoom_);
+    }
+    return;
+  }
+
+  if (attribute_name != "data-content-id") {
+    return;
+  }
+
+  base::UnguessableToken new_contents_id = DecodeContentId(new_value.Utf8());
+  if (new_contents_id == contents_id_) {
+    return;
+  }
+  contents_id_ = new_contents_id;
+
+  if (!container_ || !host_) {
+    return;
+  }
+
+  paint_holding_helper_.ClearPaintHolding(layer_.get());
+  frame_sink_id_ = viz::FrameSinkId();
+  sent_visual_properties_.reset();
+  sent_last_is_visible_.reset();
+  ReleaseCrashedLayer();
+  container_->SetCcLayer(nullptr);
+  container_->ScheduleAnimation();
+
+  if (!contents_id_.is_empty()) {
+    bool is_focused =
+        container_->GetDocument().FocusedElement() == container_->GetElement();
+    host_->AttachConnector(contents_id_, is_focused, allow_pinch_zoom_);
+    host_->OnEmbedElementThrottlingStatusChanged(
+        mojom::RenderThrottlingStatus::New(
+            last_is_throttled_, last_subtree_throttled_, last_display_locked_));
+  } else {
+    host_->DetachConnector();
   }
 }
 
@@ -416,6 +471,11 @@ void SurfaceEmbedWebPlugin::SynchronizeVisualProperties(
 }
 
 void SurfaceEmbedWebPlugin::OnHostDisconnected() {
+  // Unbind the Mojo endpoints so subsequent methods (e.g.
+  // DidChangeDataAttribute()) know the browser host connection is gone and do
+  // not attempt to use `host_` or overwrite `crashed_layer_`.
+  receiver_.reset();
+  host_.reset();
   // We handle closing the connection unexpectedly via the sad plugin path,
   // since that provides fallback painting behavior suggesting that something
   // went wrong.

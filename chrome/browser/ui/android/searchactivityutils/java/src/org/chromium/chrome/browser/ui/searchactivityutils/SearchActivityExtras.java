@@ -33,6 +33,9 @@ public @interface SearchActivityExtras {
     String EXTRA_RESOLUTION_TYPE =
             "org.chromium.chrome.browser.ui.searchactivityutils.resolution_type";
 
+    /** The requested AutocompleteRequestType, e.g. Search or AI Mode. */
+    String EXTRA_REQUEST_TYPE = "org.chromium.chrome.browser.ui.searchactivityutils.request_type";
+
     // Only alphanumeric characters, dots and dashes.
     // Must be at least 2 characters long, and begin and end with an alphanumeric character.
     String REFERRER_VALIDATION_REGEX = "^[a-zA-Z0-9][a-zA-Z0-9._-]*[a-zA-Z0-9]$";
@@ -43,7 +46,6 @@ public @interface SearchActivityExtras {
         IntentOrigin.UNKNOWN,
         IntentOrigin.SEARCH_WIDGET,
         IntentOrigin.QUICK_ACTION_SEARCH_WIDGET,
-        IntentOrigin.CUSTOM_TAB,
         IntentOrigin.HUB,
         IntentOrigin.LAUNCHER,
         IntentOrigin.WEB_SEARCH,
@@ -60,8 +62,7 @@ public @interface SearchActivityExtras {
         /** Calling component is QuickActionSearchWidget. */
         int QUICK_ACTION_SEARCH_WIDGET = 2;
 
-        /** Calling component is Chrome Custom Tab. */
-        int CUSTOM_TAB = 3;
+        // 3: Obsolete (was CUSTOM_TAB).
 
         /** Calling component is Hub. */
         int HUB = 4;

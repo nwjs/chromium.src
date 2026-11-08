@@ -5,18 +5,29 @@
 package org.chromium.chrome.browser.tasks.tab_management;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 import android.content.Context;
+import android.content.res.ColorStateList;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.Rect;
+import android.graphics.drawable.Drawable;
+import android.graphics.drawable.LayerDrawable;
+import android.graphics.drawable.VectorDrawable;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
 
+import androidx.core.widget.ImageViewCompat;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
 
@@ -27,6 +38,7 @@ import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
+import org.robolectric.annotation.GraphicsMode;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.chrome.tab_ui.R;
@@ -36,69 +48,88 @@ import org.chromium.ui.base.TestActivity;
 /** Unit tests for {@link TabListEditorLayout}. */
 @RunWith(BaseRobolectricTestRunner.class)
 public class TabListEditorLayoutUnitTest {
+    /** An empty adapter. */
+    private static class TestAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
+        @Override
+        public RecyclerView.ViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
+            return new RecyclerView.ViewHolder(new View(parent.getContext())) {};
+        }
+
+        @Override
+        public void onBindViewHolder(RecyclerView.ViewHolder holder, int position) {}
+
+        @Override
+        public int getItemCount() {
+            return 0;
+        }
+    }
+
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
 
     @Rule
     public ActivityScenarioRule<TestActivity> mActivityScenarioRule =
             new ActivityScenarioRule<>(TestActivity.class);
 
-    @Mock private ViewGroup mRootView;
-    @Mock private TabListRecyclerView mRecyclerView;
-    @Mock private RecyclerView.Adapter mAdapter;
     @Mock private SelectionDelegate<TabListEditorItemSelectionId> mSelectionDelegate;
-    @Mock private View mChildView;
-    @Mock private ViewGroup mChildViewGroup;
 
     private Context mActivity;
     private TabListEditorLayout mTabListEditorLayout;
+    private ViewGroup mRootView;
     private ViewGroup mParentView;
+    private View mChildView;
+    private ViewGroup mChildViewGroup;
+    private TabListRecyclerView mRecyclerView;
+    private RecyclerView.Adapter mAdapter;
 
     @Before
     public void setUp() {
         mActivityScenarioRule.getScenario().onActivity(activity -> mActivity = activity);
 
-        mParentView = spy(new FrameLayout(mActivity, null));
+        mRootView = new FrameLayout(mActivity);
+        mChildView = new View(mActivity);
+        mChildViewGroup = new FrameLayout(mActivity);
+        mRootView.addView(mChildView);
+        mRootView.addView(mChildViewGroup);
+        mParentView = new FrameLayout(mActivity);
+        mRecyclerView = new TabListRecyclerView(mActivity, null);
+        mAdapter = new TestAdapter();
         mTabListEditorLayout =
-                spy(
-                        (TabListEditorLayout)
-                                LayoutInflater.from(mActivity)
-                                        .inflate(
-                                                R.layout.tab_list_editor_layout,
-                                                mParentView,
-                                                false));
+                (TabListEditorLayout)
+                        LayoutInflater.from(mActivity)
+                                .inflate(R.layout.tab_list_editor_layout, mParentView, false);
     }
 
     private void initializeLayout() {
         mTabListEditorLayout.initialize(
                 mRootView, mParentView, mRecyclerView, mAdapter, mSelectionDelegate);
-        when(mRootView.indexOfChild(mTabListEditorLayout)).thenReturn(-1);
     }
 
     @Test
     public void testInitialize() {
         initializeLayout();
-        verify(mTabListEditorLayout).initializeRecyclerView(mAdapter, mRecyclerView);
+        assertEquals(mAdapter, mRecyclerView.getAdapter());
+        assertEquals(
+                mTabListEditorLayout.findViewById(R.id.list_content), mRecyclerView.getParent());
     }
 
     @Test
     public void testDestroy() {
         initializeLayout();
+        mTabListEditorLayout.show();
         mTabListEditorLayout.destroy();
 
-        verify(mRecyclerView).setOnHierarchyChangeListener(null);
+        assertNull(mRecyclerView.getAdapter());
+        verify(mSelectionDelegate, atLeastOnce()).removeObserver(any());
     }
 
     @Test
     public void testShow() {
+        mRootView.removeAllViews();
         initializeLayout();
-        when(mRootView.getChildCount()).thenReturn(0);
 
         mTabListEditorLayout.show();
 
-        verify(mParentView).addView(mTabListEditorLayout);
-
-        verify(mRecyclerView)
-                .setOnHierarchyChangeListener(any(ViewGroup.OnHierarchyChangeListener.class));
+        assertEquals(mParentView, mTabListEditorLayout.getParent());
     }
 
     @Test(expected = AssertionError.class)
@@ -107,64 +138,52 @@ public class TabListEditorLayoutUnitTest {
     }
 
     @Test
-    @SuppressWarnings("DirectInvocationOnMock")
     public void testShowAndHide_DescendantFocusability() {
         initializeLayout();
-        when(mRootView.getChildCount()).thenReturn(2);
-        when(mRootView.getChildAt(0)).thenReturn(mChildView);
-        when(mRootView.getChildAt(1)).thenReturn(mChildViewGroup);
-
-        when(mRootView.getDescendantFocusability()).thenReturn(ViewGroup.FOCUS_BEFORE_DESCENDANTS);
-        when(mChildViewGroup.getDescendantFocusability())
-                .thenReturn(ViewGroup.FOCUS_BEFORE_DESCENDANTS);
+        mRootView.setDescendantFocusability(ViewGroup.FOCUS_AFTER_DESCENDANTS);
+        mChildViewGroup.setDescendantFocusability(ViewGroup.FOCUS_AFTER_DESCENDANTS);
 
         mTabListEditorLayout.show();
 
-        verify(mParentView).addView(mTabListEditorLayout);
-        verify(mChildViewGroup).setDescendantFocusability(ViewGroup.FOCUS_BLOCK_DESCENDANTS);
-        verify(mRootView, never()).setDescendantFocusability(ViewGroup.FOCUS_BLOCK_DESCENDANTS);
-
-        verify(mRecyclerView)
-                .setOnHierarchyChangeListener(any(ViewGroup.OnHierarchyChangeListener.class));
+        assertEquals(mParentView, mTabListEditorLayout.getParent());
+        assertEquals(
+                ViewGroup.FOCUS_BLOCK_DESCENDANTS, mChildViewGroup.getDescendantFocusability());
+        assertEquals(ViewGroup.FOCUS_AFTER_DESCENDANTS, mRootView.getDescendantFocusability());
 
         mTabListEditorLayout.hide();
-        verify(mParentView).removeView(mTabListEditorLayout);
-        verify(mChildViewGroup).setDescendantFocusability(ViewGroup.FOCUS_BEFORE_DESCENDANTS);
-        verify(mRootView, never()).setDescendantFocusability(ViewGroup.FOCUS_BEFORE_DESCENDANTS);
-        assertEquals(ViewGroup.FOCUS_BEFORE_DESCENDANTS, mRootView.getDescendantFocusability());
+        assertNull(mTabListEditorLayout.getParent());
+        assertEquals(
+                ViewGroup.FOCUS_AFTER_DESCENDANTS, mChildViewGroup.getDescendantFocusability());
+        assertEquals(ViewGroup.FOCUS_AFTER_DESCENDANTS, mRootView.getDescendantFocusability());
     }
 
     @Test
     public void testShowAndHide_Accessibility() {
         initializeLayout();
-        when(mRootView.getChildCount()).thenReturn(2);
-        when(mRootView.getChildAt(0)).thenReturn(mChildView);
-        when(mRootView.getChildAt(1)).thenReturn(mChildViewGroup);
-
-        when(mRootView.getImportantForAccessibility())
-                .thenReturn(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
-        when(mChildView.getImportantForAccessibility())
-                .thenReturn(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
-        when(mChildViewGroup.getImportantForAccessibility())
-                .thenReturn(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
+        mRootView.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
+        mChildView.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
+        mChildViewGroup.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
 
         mTabListEditorLayout.show();
 
-        verify(mParentView).addView(mTabListEditorLayout);
-        verify(mChildView)
-                .setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS);
-        verify(mChildViewGroup)
-                .setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS);
-        verify(mRootView).setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
-
-        verify(mRecyclerView)
-                .setOnHierarchyChangeListener(any(ViewGroup.OnHierarchyChangeListener.class));
+        assertEquals(mParentView, mTabListEditorLayout.getParent());
+        assertEquals(
+                View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS,
+                mChildView.getImportantForAccessibility());
+        assertEquals(
+                View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS,
+                mChildViewGroup.getImportantForAccessibility());
+        assertEquals(View.IMPORTANT_FOR_ACCESSIBILITY_NO, mRootView.getImportantForAccessibility());
 
         mTabListEditorLayout.hide();
-        verify(mParentView).removeView(mTabListEditorLayout);
-        verify(mChildView).setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
-        verify(mChildViewGroup).setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
-        verify(mRootView).setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
+        assertNull(mTabListEditorLayout.getParent());
+        assertEquals(
+                View.IMPORTANT_FOR_ACCESSIBILITY_YES, mChildView.getImportantForAccessibility());
+        assertEquals(
+                View.IMPORTANT_FOR_ACCESSIBILITY_YES,
+                mChildViewGroup.getImportantForAccessibility());
+        assertEquals(
+                View.IMPORTANT_FOR_ACCESSIBILITY_YES, mRootView.getImportantForAccessibility());
     }
 
     @Test
@@ -178,5 +197,76 @@ public class TabListEditorLayoutUnitTest {
         mTabListEditorLayout.overrideContentDescriptions(containerDescResId, backButtonDescResId);
 
         assertEquals(expectedContainerDesc, mTabListEditorLayout.getContentDescription());
+    }
+
+    @Test
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    public void testToolbarNavigationIcon_VectorDrawableAndRtlMirroring() {
+        initializeLayout();
+        TabListEditorToolbar toolbar = mTabListEditorLayout.getToolbar();
+        Drawable navIcon = toolbar.getNavigationIcon();
+        assertNotNull(navIcon);
+        assertTrue(navIcon instanceof LayerDrawable);
+
+        LayerDrawable layerDrawable = (LayerDrawable) navIcon;
+        assertEquals(2, layerDrawable.getNumberOfLayers());
+
+        Drawable iconLayer = layerDrawable.getDrawable(1);
+        assertNotNull(iconLayer);
+        assertTrue("Icon layer must be a VectorDrawable", iconLayer instanceof VectorDrawable);
+        assertTrue(iconLayer.isAutoMirrored());
+
+        ColorStateList tint = ColorStateList.valueOf(Color.RED);
+        toolbar.setButtonTint(tint);
+        assertEquals(
+                tint,
+                ImageViewCompat.getImageTintList(toolbar.findViewById(R.id.list_menu_button)));
+
+        toolbar.setIsIncognito(true);
+        LayerDrawable incognitoNavIcon = (LayerDrawable) toolbar.getNavigationIcon();
+        assertNotNull(incognitoNavIcon);
+        assertSame(iconLayer, incognitoNavIcon.getDrawable(1));
+        assertTrue(incognitoNavIcon.getDrawable(1).isAutoMirrored());
+
+        int inset =
+                toolbar.getContext()
+                        .getResources()
+                        .getDimensionPixelSize(R.dimen.search_box_nav_button_background_inset);
+        int width = inset * 4;
+        int height = inset * 4;
+        incognitoNavIcon.setBounds(0, 0, width, height);
+        incognitoNavIcon.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
+
+        assertEquals(View.LAYOUT_DIRECTION_RTL, iconLayer.getLayoutDirection());
+        assertEquals(new Rect(inset, inset, width - inset, height - inset), iconLayer.getBounds());
+
+        Bitmap rtlBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+        Canvas rtlCanvas = new Canvas(rtlBitmap);
+        incognitoNavIcon.getDrawable(0).setAlpha(0);
+        incognitoNavIcon.draw(rtlCanvas);
+
+        boolean hasRenderedIconPixels = false;
+        for (int y = inset; y < height - inset; y++) {
+            for (int x = inset; x < width - inset; x++) {
+                if (rtlBitmap.getPixel(x, y) != 0) {
+                    hasRenderedIconPixels = true;
+                    break;
+                }
+            }
+            if (hasRenderedIconPixels) {
+                break;
+            }
+        }
+
+        assertTrue(
+                "VectorDrawable should render non-zero pixels under native graphics",
+                hasRenderedIconPixels);
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                if (x < inset || x >= width - inset || y < inset || y >= height - inset) {
+                    assertEquals(0, rtlBitmap.getPixel(x, y));
+                }
+            }
+        }
     }
 }

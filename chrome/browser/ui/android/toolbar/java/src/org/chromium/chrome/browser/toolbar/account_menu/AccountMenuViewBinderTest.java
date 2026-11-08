@@ -7,15 +7,19 @@ package org.chromium.chrome.browser.toolbar.account_menu;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.verify;
 
 import android.app.Activity;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
+import android.graphics.drawable.RippleDrawable;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.View.OnClickListener;
+import android.view.ViewGroup.MarginLayoutParams;
+import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.TextView;
 
@@ -29,12 +33,15 @@ import org.mockito.junit.MockitoRule;
 import org.robolectric.Robolectric;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.base.test.util.Features.DisableFeatures;
+import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.signin.services.DisplayableProfileData;
 import org.chromium.chrome.browser.toolbar.R;
 import org.chromium.chrome.browser.toolbar.account_menu.AccountMenuProperties.IdentityCardProperties;
 import org.chromium.chrome.browser.toolbar.account_menu.AccountMenuProperties.MenuItemProperties;
 import org.chromium.chrome.browser.toolbar.account_menu.AccountMenuProperties.PromoCardProperties;
+import org.chromium.components.signin.SigninFeatures;
 import org.chromium.google_apis.gaia.CoreAccountId;
 import org.chromium.google_apis.gaia.GaiaId;
 import org.chromium.ui.modelutil.PropertyModel;
@@ -58,7 +65,12 @@ public class AccountMenuViewBinderTest {
         mActivity.setTheme(R.style.Theme_BrowserUI_DayNight);
         mAvatar = new ColorDrawable(Color.BLUE);
         mItemView =
-                (TextView) LayoutInflater.from(mActivity).inflate(R.layout.account_menu_item, null);
+                (TextView)
+                        LayoutInflater.from(mActivity)
+                                .inflate(
+                                        R.layout.account_menu_item,
+                                        new FrameLayout(mActivity),
+                                        false);
         mModel = new PropertyModel(MenuItemProperties.ALL_KEYS);
         PropertyModelChangeProcessor.create(mModel, mItemView, AccountMenuViewBinder::bindMenuItem);
     }
@@ -106,6 +118,46 @@ public class AccountMenuViewBinderTest {
         assertNotNull(mItemView.getCompoundDrawablesRelative()[0]);
     }
 
+    // TODO(crbug.com/565733817): Add a render test for menu item section boundaries.
+    @Test
+    @EnableFeatures(SigninFeatures.SIGNIN_BUTTON_PROFILE_MENU_REFINEMENTS)
+    public void testBindMenuItem_sectionBoundaries() {
+        mModel.set(MenuItemProperties.IS_SECTION_TOP, true);
+        assertTrue(mItemView.getBackground() instanceof RippleDrawable);
+
+        int expectedHorizontalMargin =
+                mActivity.getResources().getDimensionPixelSize(R.dimen.settings_item_margin);
+        int expectedVerticalMargin =
+                mActivity
+                        .getResources()
+                        .getDimensionPixelSize(R.dimen.settings_item_container_vertical_margin);
+        MarginLayoutParams layoutParams = (MarginLayoutParams) mItemView.getLayoutParams();
+        assertEquals(expectedHorizontalMargin, layoutParams.leftMargin);
+        assertEquals(expectedHorizontalMargin, layoutParams.rightMargin);
+        assertEquals(expectedVerticalMargin, layoutParams.topMargin);
+        assertEquals(expectedVerticalMargin, layoutParams.bottomMargin);
+
+        mModel.set(MenuItemProperties.IS_SECTION_BOTTOM, true);
+        int expectedSectionBottomMargin =
+                expectedVerticalMargin
+                        + mActivity
+                                .getResources()
+                                .getDimensionPixelSize(R.dimen.settings_section_bottom_margin);
+        assertEquals(expectedSectionBottomMargin, layoutParams.bottomMargin);
+    }
+
+    @Test
+    @DisableFeatures(SigninFeatures.SIGNIN_BUTTON_PROFILE_MENU_REFINEMENTS)
+    public void testBindMenuItem_legacyPadding() {
+        mModel.set(MenuItemProperties.IS_SECTION_TOP, false);
+        int expectedLegacyPadding =
+                mActivity
+                        .getResources()
+                        .getDimensionPixelSize(R.dimen.account_menu_horizontal_padding_legacy);
+        assertEquals(expectedLegacyPadding, mItemView.getPaddingStart());
+        assertEquals(expectedLegacyPadding, mItemView.getPaddingEnd());
+    }
+
     @Test
     public void testBindPromoCard_onSigninClickListener() {
         View promoView =
@@ -135,6 +187,8 @@ public class AccountMenuViewBinderTest {
         assertEquals("John Doe", nameView.getText().toString());
         assertEquals("test@gmail.com", emailView.getText().toString());
         assertEquals(View.VISIBLE, emailView.getVisibility());
+        assertEquals(
+                View.GONE, cardView.findViewById(R.id.account_menu_managed_header).getVisibility());
     }
 
     @Test
@@ -181,8 +235,43 @@ public class AccountMenuViewBinderTest {
         assertEquals(View.GONE, emailView.getVisibility());
     }
 
+    @Test
+    public void testBindIdentityCard_managed() {
+        View cardView =
+                bindIdentityCard(
+                        "Test User",
+                        "test@gmail.com",
+                        /* hasDisplayableEmailAddress= */ true,
+                        /* shouldDisplayManagedHeader= */ true,
+                        mClickListener);
+        View managedHeader = cardView.findViewById(R.id.account_menu_managed_header);
+        assertEquals(View.VISIBLE, managedHeader.getVisibility());
+        assertTrue(managedHeader.getBackground() instanceof RippleDrawable);
+        TextView managedTextView = cardView.findViewById(R.id.account_menu_managed_text);
+        assertEquals(
+                mActivity.getString(R.string.account_menu_managed_header),
+                managedTextView.getText().toString());
+
+        managedHeader.performClick();
+        verify(mClickListener).onClick(managedHeader);
+    }
+
     private View bindIdentityCard(
             @Nullable String fullName, String email, boolean hasDisplayableEmailAddress) {
+        return bindIdentityCard(
+                fullName,
+                email,
+                hasDisplayableEmailAddress,
+                /* shouldDisplayManagedHeader= */ false,
+                /* onManagedHeaderClickListener= */ null);
+    }
+
+    private View bindIdentityCard(
+            @Nullable String fullName,
+            String email,
+            boolean hasDisplayableEmailAddress,
+            boolean shouldDisplayManagedHeader,
+            @Nullable OnClickListener onManagedHeaderClickListener) {
         DisplayableProfileData profileData =
                 new DisplayableProfileData(
                         new CoreAccountId(new GaiaId("account_id")),
@@ -194,7 +283,9 @@ public class AccountMenuViewBinderTest {
                         /* hasAiTierRing= */ false);
         View cardView =
                 LayoutInflater.from(mActivity).inflate(R.layout.account_menu_identity_card, null);
-        PropertyModel model = IdentityCardProperties.createModel(profileData);
+        PropertyModel model =
+                IdentityCardProperties.createModel(
+                        profileData, shouldDisplayManagedHeader, onManagedHeaderClickListener);
         PropertyModelChangeProcessor.create(
                 model, cardView, AccountMenuViewBinder::bindIdentityCard);
         return cardView;

@@ -28,8 +28,6 @@ import java.lang.annotation.RetentionPolicy;
     FeatureConstants.ADAPTIVE_BUTTON_IN_TOP_TOOLBAR_CUSTOMIZATION_VOICE_SEARCH_FEATURE,
     FeatureConstants.ADAPTIVE_BUTTON_PIN_GLIC_TOOLBAR_BUTTON_FEATURE,
     FeatureConstants.AIM_ACTIVATION_HINT,
-    FeatureConstants.ANDROID_BOTTOM_BAR_AIM,
-    FeatureConstants.ANDROID_BOTTOM_BAR_AIM_PROMO_DIALOG,
     FeatureConstants.ANDROID_BOTTOM_BAR_GLIC,
     FeatureConstants.ANDROID_BOTTOM_BAR_NEW_TAB,
     FeatureConstants.ANDROID_BOTTOM_BAR_PROMO_DIALOG,
@@ -41,6 +39,8 @@ import java.lang.annotation.RetentionPolicy;
     FeatureConstants.AUTO_DARK_OPT_OUT_FEATURE,
     FeatureConstants.AUTO_DARK_USER_EDUCATION_MESSAGE_FEATURE,
     FeatureConstants.AUTO_DARK_USER_EDUCATION_MESSAGE_OPT_IN_FEATURE,
+    FeatureConstants.BLUE_BUBBLE_COOLDOWN_GROUP,
+    FeatureConstants.BOOKMARK_BAR_VISIBILITY_FEATURE,
     FeatureConstants.BOTTOM_TOOLBAR_FEATURE,
     FeatureConstants.CCT_HISTORY_FEATURE,
     FeatureConstants.CCT_MINIMIZED_FEATURE,
@@ -73,6 +73,7 @@ import java.lang.annotation.RetentionPolicy;
     FeatureConstants.GLIC_PROMO_ANDROID_FEATURE,
     FeatureConstants.IDENTITY_DISC_FEATURE,
     FeatureConstants.INSTANCE_SWITCHER,
+    FeatureConstants.INTERRUPTIVE_IPH_COOLDOWN_GROUP,
     FeatureConstants.IPH_EXTENSIONS_MANAGE_APP_MENU_FEATURE,
     FeatureConstants.IPH_EXTENSIONS_MANAGE_TOOLBAR_FEATURE,
     FeatureConstants.IPH_EXTENSIONS_PINNED_BY_DEFAULT_FEATURE,
@@ -80,21 +81,16 @@ import java.lang.annotation.RetentionPolicy;
     FeatureConstants.IPH_MIC_TOOLBAR_FEATURE,
     FeatureConstants.IPH_PDF_PAGE_DOWNLOAD,
     FeatureConstants.IPH_SHARE_SCREENSHOT_FEATURE,
-    FeatureConstants.IPH_SHARING_HUB_LINK_TOGGLE_FEATURE,
     FeatureConstants.IPH_TAB_SWITCHER_XR,
     FeatureConstants.IPH_TAB_TEARING_XR,
     FeatureConstants.IPH_TOUCH_TO_SEARCH_CALLOUT,
     FeatureConstants.KEYBOARD_ACCESSORY_ACCOUNT_NAME_EMAIL_SUGGESTION_FEATURE,
-    FeatureConstants.KEYBOARD_ACCESSORY_ADDRESS_FILL_FEATURE,
     FeatureConstants.KEYBOARD_ACCESSORY_AT_MEMORY_FEATURE,
     FeatureConstants.KEYBOARD_ACCESSORY_AUTOFILL_AI_VALUABLES_FEATURE,
-    FeatureConstants.KEYBOARD_ACCESSORY_BAR_SWIPING_FEATURE,
     FeatureConstants.KEYBOARD_ACCESSORY_ENABLE_LOYALTY_CARDS_FEATURE,
     FeatureConstants.KEYBOARD_ACCESSORY_EXTERNAL_ACCOUNT_PROFILE_FEATURE,
     FeatureConstants.KEYBOARD_ACCESSORY_HOME_WORK_PROFILE_SUGGESTION_FEATURE,
-    FeatureConstants.KEYBOARD_ACCESSORY_PASSWORD_FILLING_FEATURE,
     FeatureConstants.KEYBOARD_ACCESSORY_PAYMENT_CARD_INFO_RETRIEVAL_FEATURE,
-    FeatureConstants.KEYBOARD_ACCESSORY_PAYMENT_FILLING_FEATURE,
     FeatureConstants.KEYBOARD_ACCESSORY_PAYMENT_OFFER_FEATURE,
     FeatureConstants.KEYBOARD_ACCESSORY_PAYMENT_VIRTUAL_CARD_DISABLED_FEATURE,
     FeatureConstants.KEYBOARD_ACCESSORY_PAYMENT_VIRTUAL_CARD_FEATURE,
@@ -124,7 +120,6 @@ import java.lang.annotation.RetentionPolicy;
     FeatureConstants.SHARED_HIGHLIGHTING_RECEIVER_FEATURE,
     FeatureConstants.SHARING_HUB_WEBNOTES_STYLIZE_FEATURE,
     FeatureConstants.SHOPPING_LIST_MENU_ITEM_FEATURE,
-    FeatureConstants.SHOPPING_LIST_SAVE_FLOW_FEATURE,
     FeatureConstants.SITE_CONTROLS_FEATURE,
     FeatureConstants.TAB_GROUPS_DRAG_AND_DROP_FEATURE,
     FeatureConstants.TAB_GROUPS_REMOTE_GROUP,
@@ -177,12 +172,6 @@ public @interface FeatureConstants {
     /** A hint to activate AI Mode on Android Desktop via keystrokes. */
     String AIM_ACTIVATION_HINT = "IPH_AimActivationHint";
 
-    /** Describes the AI Mode button added in the bottom bar. */
-    String ANDROID_BOTTOM_BAR_AIM = "IPH_AndroidBottomBarAim";
-
-    /** For the promo dialog shown to introduce AI Mode with the bottom bar. */
-    String ANDROID_BOTTOM_BAR_AIM_PROMO_DIALOG = "IPH_AndroidBottomBarAimPromoDialog";
-
     /** Describes the GLIC button on the new bottom bar. */
     String ANDROID_BOTTOM_BAR_GLIC = "IPH_AndroidBottomBarGlic";
 
@@ -205,6 +194,11 @@ public @interface FeatureConstants {
 
     String AUTO_DARK_USER_EDUCATION_MESSAGE_OPT_IN_FEATURE =
             "IPH_AutoDarkUserEducationMessageOptIn";
+
+    /** Cooldown group for blue bubble IPHs on Android. */
+    String BLUE_BUBBLE_COOLDOWN_GROUP = "IPH_BlueBubbleCooldownGroup";
+
+    String BOOKMARK_BAR_VISIBILITY_FEATURE = "IPH_BookmarkBarVisibility";
 
     String BOTTOM_TOOLBAR_FEATURE = "IPH_BottomToolbarTip";
 
@@ -300,6 +294,9 @@ public @interface FeatureConstants {
      */
     String INSTANCE_SWITCHER = "IPH_InstanceSwitcher";
 
+    /** Cooldown group for interruptive IPHs on Android. */
+    String INTERRUPTIVE_IPH_COOLDOWN_GROUP = "IPH_InterruptiveIphCooldownGroup";
+
     /**
      * An IPH feature that shows after the extensions menu is uninstalled to inform users to manage
      * their extensions in the app menu.
@@ -330,9 +327,6 @@ public @interface FeatureConstants {
     /** An IPH feature to inform users about the screenshot sharing feature. */
     String IPH_SHARE_SCREENSHOT_FEATURE = "IPH_ShareScreenshot";
 
-    /** An IPH feature to inform users about the Sharing Hub link toggle. */
-    String IPH_SHARING_HUB_LINK_TOGGLE_FEATURE = "IPH_SharingHubLinkToggle";
-
     /** An IPH feature to inform users about the tab switcher feature on an XR device. */
     String IPH_TAB_SWITCHER_XR = "IPH_TabSwitcherXR";
 
@@ -345,13 +339,9 @@ public @interface FeatureConstants {
     String KEYBOARD_ACCESSORY_ACCOUNT_NAME_EMAIL_SUGGESTION_FEATURE =
             "IPH_AutofillAccountNameEmailSuggestion";
 
-    String KEYBOARD_ACCESSORY_ADDRESS_FILL_FEATURE = "IPH_KeyboardAccessoryAddressFilling";
-
     String KEYBOARD_ACCESSORY_AT_MEMORY_FEATURE = "IPH_AutofillAtMemory";
 
     String KEYBOARD_ACCESSORY_AUTOFILL_AI_VALUABLES_FEATURE = "IPH_AutofillAiValuables";
-
-    String KEYBOARD_ACCESSORY_BAR_SWIPING_FEATURE = "IPH_KeyboardAccessoryBarSwiping";
 
     String KEYBOARD_ACCESSORY_ENABLE_LOYALTY_CARDS_FEATURE = "IPH_AutofillEnableLoyaltyCards";
 
@@ -361,12 +351,8 @@ public @interface FeatureConstants {
     String KEYBOARD_ACCESSORY_HOME_WORK_PROFILE_SUGGESTION_FEATURE =
             "IPH_AutofillHomeWorkProfileSuggestion";
 
-    String KEYBOARD_ACCESSORY_PASSWORD_FILLING_FEATURE = "IPH_KeyboardAccessoryPasswordFilling";
-
     String KEYBOARD_ACCESSORY_PAYMENT_CARD_INFO_RETRIEVAL_FEATURE =
             "IPH_AutofillCardInfoRetrievalSuggestion";
-
-    String KEYBOARD_ACCESSORY_PAYMENT_FILLING_FEATURE = "IPH_KeyboardAccessoryPaymentFilling";
 
     String KEYBOARD_ACCESSORY_PAYMENT_OFFER_FEATURE = "IPH_KeyboardAccessoryPaymentOffer";
 
@@ -450,9 +436,6 @@ public @interface FeatureConstants {
      * item is available to track price.
      */
     String SHOPPING_LIST_MENU_ITEM_FEATURE = "IPH_ShoppingListMenuItem";
-
-    /** An IPH that shows in the bookmark save flow when bookmarking a product. */
-    String SHOPPING_LIST_SAVE_FLOW_FEATURE = "IPH_ShoppingListSaveFlow";
 
     /** An IPH feature to inform users that Site Controls have moved to the app menu. */
     String SITE_CONTROLS_FEATURE = "IPH_SiteControls";

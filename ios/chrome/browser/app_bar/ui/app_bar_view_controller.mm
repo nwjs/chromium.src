@@ -46,6 +46,7 @@ namespace {
 constexpr CGFloat kTabGridFontSize = 11;
 // The size of the button images.
 constexpr CGFloat kButtonImageSize = 23;
+constexpr CGFloat kFiveButtonAppBarButtonImageSize = 24;
 // The padding between the image and the text in the buttons.
 constexpr CGFloat kButtonImagePadding = 3;
 // The shadow radius for the buttons.
@@ -75,8 +76,10 @@ constexpr CGFloat kAssistantHighlightDuration = 0.2;
 constexpr CGFloat kStackViewSpacing = 4;
 // The horizontal margins of the stack view.
 constexpr CGFloat kStackViewHorizontalMargin = 8;
+constexpr CGFloat kFiveButtonStackViewLandscapeHorizontalMargin = 4;
 // The vertical offset of the stack view in portrait.
 constexpr CGFloat kStackViewPortraitVerticalOffset = 2;
+constexpr CGFloat kFiveButtonStackViewPortraitVerticalOffset = 24;
 
 // The inner padding of the buttons.
 constexpr CGFloat kButtonHorizontalPadding = 4;
@@ -85,20 +88,31 @@ constexpr CGFloat kButtonVerticalPadding = 12;
 // Duration of the IPH show/hide animation.
 constexpr CGFloat kIPHAnimationDuration = 0.3;
 
+// Background opacity for the open new tab button circle in light and dark
+// modes.
+constexpr CGFloat kOpenNewTabButtonBackgroundLightAlpha = 0.07;
+constexpr CGFloat kOpenNewTabButtonBackgroundDarkAlpha = 0.25;
+
 // Returns the color to be used as foreground color for the buttons.
 UIColor* ButtonsForegroundColor() {
-  return IsLightAppBarEnabled() ? [UIColor colorNamed:kSolidBlackColor]
+  return IsLightAppBarEnabled() ? [UIColor colorNamed:kGrey900Color]
                                 : UIColor.whiteColor;
 }
 
 // Returns the inverted foreground color for the buttons.
 UIColor* InvertedButtonsForegroundColor() {
-  return IsLightAppBarEnabled() ? [UIColor colorNamed:kSolidWhiteColor]
+  return IsLightAppBarEnabled() ? [UIColor colorNamed:kGrey50Color]
                                 : UIColor.blackColor;
 }
 
 // Returns the configuration for all the symbols.
 UIImageSymbolConfiguration* AppBarSymbolConfiguration() {
+  if (IsFiveButtonAppBarLayoutEnabled()) {
+    return [UIImageSymbolConfiguration
+        configurationWithPointSize:kFiveButtonAppBarButtonImageSize
+                            weight:UIImageSymbolWeightMedium
+                             scale:UIImageSymbolScaleMedium];
+  }
   return [UIImageSymbolConfiguration
       configurationWithPointSize:kButtonImageSize
                           weight:UIImageSymbolWeightSemibold
@@ -107,7 +121,23 @@ UIImageSymbolConfiguration* AppBarSymbolConfiguration() {
 
 // Returns a symbol with the common configuration.
 UIImage* AppBarSymbol(Symbol symbol) {
-  return SymbolWithConfiguration(symbol, AppBarSymbolConfiguration());
+  UIImage* image = SymbolWithConfiguration(symbol, AppBarSymbolConfiguration());
+  if (IsFiveButtonAppBarLayoutEnabled()) {
+    if (symbol == SymbolPlusCircleFill) {
+      UIColor* newTabButtonBackgroundColor =
+          [UIColor colorWithDynamicProvider:^UIColor*(
+                       UITraitCollection* traitCollection) {
+            CGFloat alpha =
+                traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark
+                    ? kOpenNewTabButtonBackgroundDarkAlpha
+                    : kOpenNewTabButtonBackgroundLightAlpha;
+            return [UIColor.blackColor colorWithAlphaComponent:alpha];
+          }];
+      return SymbolWithPalette(
+          image, @[ ButtonsForegroundColor(), newTabButtonBackgroundColor ]);
+    }
+  }
+  return image;
 }
 
 // Returns the font size for the buttons.
@@ -149,6 +179,8 @@ UIColor* AssistantHighlightBackgroundColor() {
   UIButton* _assistantButton;
   UIButton* _openNewTabButton;
   UIButton* _tabGridButton;
+  UIButton* _backButton;
+  UIButton* _forwardButton;
   UIImageView* _tabGridSymbolView;
   UILabel* _tabCountLabel;
   NSUInteger _tabCount;
@@ -164,7 +196,12 @@ UIColor* AssistantHighlightBackgroundColor() {
   BOOL _isTabGroupVisible;
   // Whether the current tab is in a tab group.
   BOOL _inTabGroup;
+  // Whether forward/backward navigations are currently allowed.
+  BOOL _canNavigateBack;
+  BOOL _canNavigateForward;
   // Context menus for the App Bar buttons.
+  UIMenu* _backButtonMenu;
+  UIMenu* _forwardButtonMenu;
   UIMenu* _assistantButtonMenu;
   UIMenu* _openNewTabButtonMenu;
   UIMenu* _tabGridButtonMenu;
@@ -316,25 +353,47 @@ UIColor* AssistantHighlightBackgroundColor() {
   _assistantButton.transform = transform;
   _openNewTabButton.transform = transform;
   _tabGridButton.transform = transform;
+  if (IsFiveButtonAppBarLayoutEnabled()) {
+    _backButton.transform = transform;
+    _forwardButton.transform = transform;
+  }
 
   if (_isRotated) {
     _stackView.transform = CGAffineTransformIdentity;
     _stackView.alpha = 1.0;
     _stackView.distribution = UIStackViewDistributionEqualSpacing;
+    if (IsFiveButtonAppBarLayoutEnabled()) {
+      _stackView.alignment = UIStackViewAlignmentCenter;
+    }
     [NSLayoutConstraint activateConstraints:_buttonWidthConstraints];
     _leadingSpacer.hidden = NO;
     _trailingSpacer.hidden = NO;
     _heightConstraint.constant = AppBarHeightLandscape();
     _stackViewBottomConstraint.constant = 0;
-    _stackViewLeadingConstraint.constant = 0;
-    _stackViewTrailingConstraint.constant = 0;
+    if (IsFiveButtonAppBarLayoutEnabled()) {
+      _stackViewLeadingConstraint.constant =
+          kFiveButtonStackViewLandscapeHorizontalMargin;
+      _stackViewTrailingConstraint.constant =
+          -kFiveButtonStackViewLandscapeHorizontalMargin;
+    } else {
+      _stackViewLeadingConstraint.constant = 0;
+      _stackViewTrailingConstraint.constant = 0;
+    }
   } else {
     _stackView.distribution = UIStackViewDistributionFillEqually;
+    if (IsFiveButtonAppBarLayoutEnabled()) {
+      _stackView.alignment = UIStackViewAlignmentFill;
+    }
     [NSLayoutConstraint deactivateConstraints:_buttonWidthConstraints];
     _leadingSpacer.hidden = YES;
     _trailingSpacer.hidden = YES;
     _heightConstraint.constant = [self currentAppBarHeightPortrait];
-    _stackViewBottomConstraint.constant = 0;
+    if (IsFiveButtonAppBarLayoutEnabled()) {
+      _stackViewBottomConstraint.constant =
+          -kFiveButtonStackViewPortraitVerticalOffset;
+    } else {
+      _stackViewBottomConstraint.constant = 0;
+    }
     _stackViewLeadingConstraint.constant = kStackViewHorizontalMargin;
     _stackViewTrailingConstraint.constant = -kStackViewHorizontalMargin;
     if (IsGlassToolbarEnabled()) {
@@ -350,6 +409,10 @@ UIColor* AssistantHighlightBackgroundColor() {
   [self setNeedsUpdateConfiguration:_assistantButton animationDuration:0];
   [self setNeedsUpdateConfiguration:_openNewTabButton animationDuration:0];
   [self setNeedsUpdateConfiguration:_tabGridButton animationDuration:0];
+  if (IsFiveButtonAppBarLayoutEnabled()) {
+    [self setNeedsUpdateConfiguration:_backButton animationDuration:0];
+    [self setNeedsUpdateConfiguration:_forwardButton animationDuration:0];
+  }
 
   [self.view setNeedsLayout];
   [self.view layoutIfNeeded];
@@ -415,6 +478,11 @@ UIColor* AssistantHighlightBackgroundColor() {
   _assistantButton = [self createAssistantButton];
   _openNewTabButton = [self createOpenNewTabButton];
   _tabGridButton = [self createTabGridButton];
+  if (IsFiveButtonAppBarLayoutEnabled()) {
+    _backButton = [self createBackButton];
+    _forwardButton = [self createForwardButton];
+    [self updateNavigationButtons];
+  }
   [self updateTabGridButtonForTabGridVisibility];
   [self updateNewTabButtonAccessibilityLabel];
   [self updateNewTabButtonAccessibilityHint];
@@ -436,22 +504,50 @@ UIColor* AssistantHighlightBackgroundColor() {
   _leadingSpacer.hidden = YES;
   _trailingSpacer.hidden = YES;
 
-  _stackView = [[UIStackView alloc] initWithArrangedSubviews:@[
-    _leadingSpacer, _assistantButton, _openNewTabButton, _tabGridButton,
-    _trailingSpacer
-  ]];
+  if (IsFiveButtonAppBarLayoutEnabled()) {
+    _stackView = [[UIStackView alloc] initWithArrangedSubviews:@[
+      _leadingSpacer, _backButton, _forwardButton, _openNewTabButton,
+      _tabGridButton, _assistantButton, _trailingSpacer
+    ]];
+  } else {
+    _stackView = [[UIStackView alloc] initWithArrangedSubviews:@[
+      _leadingSpacer, _assistantButton, _openNewTabButton, _tabGridButton,
+      _trailingSpacer
+    ]];
+  }
   _stackView.translatesAutoresizingMaskIntoConstraints = NO;
   _stackView.distribution = UIStackViewDistributionFillEqually;
   _stackView.spacing = kStackViewSpacing;
   _stackView.tintAdjustmentMode = UIViewTintAdjustmentModeNormal;
 
-  _buttonWidthConstraints = @[
-    [_assistantButton.widthAnchor
-        constraintEqualToAnchor:_stackView.heightAnchor],
-    [_openNewTabButton.widthAnchor
-        constraintEqualToAnchor:_stackView.heightAnchor],
-    [_tabGridButton.widthAnchor constraintEqualToAnchor:_stackView.heightAnchor]
-  ];
+  if (IsFiveButtonAppBarLayoutEnabled()) {
+    // Allow all buttons to shrink equally in landscape if five full-size
+    // buttons do not fit on screen (e.g. when Display Zoom is enabled).
+    NSLayoutConstraint* assistantButtonWidthConstraint =
+        [_assistantButton.widthAnchor
+            constraintEqualToAnchor:_stackView.heightAnchor];
+    assistantButtonWidthConstraint.priority = UILayoutPriorityDefaultHigh;
+    _buttonWidthConstraints = @[
+      assistantButtonWidthConstraint,
+      [_openNewTabButton.widthAnchor
+          constraintEqualToAnchor:_assistantButton.widthAnchor],
+      [_tabGridButton.widthAnchor
+          constraintEqualToAnchor:_assistantButton.widthAnchor],
+      [_backButton.widthAnchor
+          constraintEqualToAnchor:_assistantButton.widthAnchor],
+      [_forwardButton.widthAnchor
+          constraintEqualToAnchor:_assistantButton.widthAnchor],
+    ];
+  } else {
+    _buttonWidthConstraints = @[
+      [_assistantButton.widthAnchor
+          constraintEqualToAnchor:_stackView.heightAnchor],
+      [_openNewTabButton.widthAnchor
+          constraintEqualToAnchor:_stackView.heightAnchor],
+      [_tabGridButton.widthAnchor
+          constraintEqualToAnchor:_stackView.heightAnchor],
+    ];
+  }
 
   UIView* view = self.view;
 
@@ -463,8 +559,14 @@ UIColor* AssistantHighlightBackgroundColor() {
 
   [_buttonsContainerView addSubview:_stackView];
 
-  _stackViewBottomConstraint = [_stackView.bottomAnchor
-      constraintEqualToAnchor:_buttonsContainerView.bottomAnchor];
+  if (IsFiveButtonAppBarLayoutEnabled()) {
+    _stackViewBottomConstraint = [_stackView.bottomAnchor
+        constraintEqualToAnchor:_buttonsContainerView.bottomAnchor
+                       constant:-kFiveButtonStackViewPortraitVerticalOffset];
+  } else {
+    _stackViewBottomConstraint = [_stackView.bottomAnchor
+        constraintEqualToAnchor:_buttonsContainerView.bottomAnchor];
+  }
   _stackViewLeadingConstraint = [_stackView.leadingAnchor
       constraintEqualToAnchor:_buttonsContainerView.leadingAnchor
                      constant:kStackViewHorizontalMargin];
@@ -528,6 +630,9 @@ UIColor* AssistantHighlightBackgroundColor() {
   _isTabGridVisible = tabGridVisible;
   [self updateInterfaceStyle];
   _backgroundView.hideColorBackground = tabGridVisible;
+  if (IsFiveButtonAppBarLayoutEnabled()) {
+    [self updateNavigationButtons];
+  }
   [self updateTabGridButtonForTabGridVisibility];
   [self updateNewTabButtonForTabGroupsVisibility];
   [self updateNewTabButtonAccessibilityLabel];
@@ -573,8 +678,28 @@ UIColor* AssistantHighlightBackgroundColor() {
     case AppBarButtonTypeTabGrid:
       _tabGridButtonMenu = menu;
       return;
+    case AppBarButtonTypeBack:
+      CHECK(IsFiveButtonAppBarLayoutEnabled(), base::NotFatalUntil::M163);
+      _backButtonMenu = menu;
+      return;
+    case AppBarButtonTypeForward:
+      CHECK(IsFiveButtonAppBarLayoutEnabled(), base::NotFatalUntil::M163);
+      _forwardButtonMenu = menu;
+      return;
   }
   NOTREACHED();
+}
+
+- (void)setCanNavigateBack:(BOOL)canNavigateBack
+                   forward:(BOOL)canNavigateForward {
+  CHECK(IsFiveButtonAppBarLayoutEnabled(), base::NotFatalUntil::M163);
+  if (canNavigateBack == _canNavigateBack &&
+      canNavigateForward == _canNavigateForward) {
+    return;
+  }
+  _canNavigateBack = canNavigateBack;
+  _canNavigateForward = canNavigateForward;
+  [self updateNavigationButtons];
 }
 
 - (void)setAssistantButtonState:(AppBarAssistantButtonState)state
@@ -628,6 +753,9 @@ UIColor* AssistantHighlightBackgroundColor() {
   _openNewTabButton.enabled = enabled;
   _tabGridButton.enabled = enabled;
   [self updateAssistantButton];
+  if (IsFiveButtonAppBarLayoutEnabled()) {
+    [self updateNavigationButtons];
+  }
 }
 
 #pragma mark - AppBarViewDelegate
@@ -660,6 +788,16 @@ UIColor* AssistantHighlightBackgroundColor() {
 }
 
 #pragma mark - Private
+
+// Updates the enabled state of the forward and back navigation buttons in the
+// toolbar.
+- (void)updateNavigationButtons {
+  CHECK(IsFiveButtonAppBarLayoutEnabled(), base::NotFatalUntil::M163);
+  _backButton.enabled =
+      _buttonsEnabled && !_isTabGridVisible && _canNavigateBack;
+  _forwardButton.enabled =
+      _buttonsEnabled && !_isTabGridVisible && _canNavigateForward;
+}
 
 // Updates the vertical position of the buttons according to the fullscreen
 // `progress`.
@@ -705,9 +843,8 @@ UIColor* AssistantHighlightBackgroundColor() {
     return;
   }
   if (self.layoutState.appBarPosition == AppBarPosition::kNone) {
-    if (!IsChromeNextIaEnabled() ||
-        [self.layoutGuideCenter referencedViewUnderName:kTabSwitcherGuide] ==
-            _tabGridButton) {
+    if ([self.layoutGuideCenter referencedViewUnderName:kTabSwitcherGuide] ==
+        _tabGridButton) {
       [self.layoutGuideCenter referenceView:nil underName:kTabSwitcherGuide];
     }
   } else {
@@ -929,7 +1066,9 @@ UIColor* AssistantHighlightBackgroundColor() {
 // Returns a new "New Tab" button.
 - (UIButton*)createOpenNewTabButton {
   NSString* title = [self openNewTabButtonTitleForCurrentState];
-  UIImage* image = AppBarSymbol(SymbolPlusInCircle);
+  UIImage* image =
+      AppBarSymbol(IsFiveButtonAppBarLayoutEnabled() ? SymbolPlusCircleFill
+                                                     : SymbolPlusInCircle);
   UIButton* button = [self buttonWithTitle:title image:image];
   button.accessibilityIdentifier = kAppBarNewTabButtonIdentifier;
 
@@ -1025,6 +1164,8 @@ UIColor* AssistantHighlightBackgroundColor() {
   CGFloat activeAlpha = isAssistantButtonHighlighted ? 1.0 : highlightAlpha;
   if (button == _tabGridButton) {
     _tabGridContentView.alpha = activeAlpha;
+  } else if (IsFiveButtonAppBarLayoutEnabled() && button == _openNewTabButton) {
+    button.alpha = activeAlpha;
   }
 
   config.baseForegroundColor =
@@ -1116,6 +1257,47 @@ UIColor* AssistantHighlightBackgroundColor() {
   return button;
 }
 
+// Returns a back button for web navigation.
+- (UIButton*)createBackButton {
+  CHECK(IsFiveButtonAppBarLayoutEnabled(), base::NotFatalUntil::M163);
+  UIButton* button = [self buttonWithTitle:nil image:AppBarSymbol(SymbolBack)];
+  button.accessibilityIdentifier = kAppBarBackButtonIdentifier;
+  button.accessibilityLabel = l10n_util::GetNSString(IDS_ACCNAME_BACK);
+  button.accessibilityHint =
+      IsAppBarDisableLongPressEnabled()
+          ? nil
+          : l10n_util::GetNSString(IDS_IOS_TOOLBAR_ACCESSIBILITY_HINT_BACK);
+  [button addTarget:self
+                action:@selector(didTapBackButton)
+      forControlEvents:UIControlEventTouchUpInside];
+  if (!IsAppBarDisableLongPressEnabled()) {
+    [button addInteraction:[[UIContextMenuInteraction alloc]
+                               initWithDelegate:self]];
+  }
+  return button;
+}
+
+// Returns a forward button for web navigation.
+- (UIButton*)createForwardButton {
+  CHECK(IsFiveButtonAppBarLayoutEnabled(), base::NotFatalUntil::M163);
+  UIButton* button = [self buttonWithTitle:nil
+                                     image:AppBarSymbol(SymbolForward)];
+  button.accessibilityIdentifier = kAppBarForwardButtonIdentifier;
+  button.accessibilityLabel = l10n_util::GetNSString(IDS_ACCNAME_FORWARD);
+  button.accessibilityHint =
+      IsAppBarDisableLongPressEnabled()
+          ? nil
+          : l10n_util::GetNSString(IDS_IOS_TOOLBAR_ACCESSIBILITY_HINT_FORWARD);
+  [button addTarget:self
+                action:@selector(didTapForwardButton)
+      forControlEvents:UIControlEventTouchUpInside];
+  if (!IsAppBarDisableLongPressEnabled()) {
+    [button addInteraction:[[UIContextMenuInteraction alloc]
+                               initWithDelegate:self]];
+  }
+  return button;
+}
+
 // Creates a new button with `title` and `image`.
 - (UIButton*)buttonWithTitle:(NSString*)title image:(UIImage*)image {
   UIButtonConfiguration* configuration =
@@ -1154,6 +1336,14 @@ UIColor* AssistantHighlightBackgroundColor() {
   button.titleLabel.adjustsFontSizeToFitWidth = YES;
 
   button.translatesAutoresizingMaskIntoConstraints = NO;
+  if (IsFiveButtonAppBarLayoutEnabled()) {
+    // Keep buttons square when `_stackView` is center-aligned in landscape and
+    // their widths shrink below `_stackView.heightAnchor`.
+    NSLayoutConstraint* buttonHeightConstraint =
+        [button.heightAnchor constraintEqualToAnchor:button.widthAnchor];
+    buttonHeightConstraint.priority = UILayoutPriorityDefaultHigh;
+    buttonHeightConstraint.active = YES;
+  }
 
   button.layer.shadowColor = [UIColor blackColor].CGColor;
   button.layer.shadowOffset = CGSizeMake(0, kButtonShadowOffset);
@@ -1340,6 +1530,9 @@ UIColor* AssistantHighlightBackgroundColor() {
 }
 
 - (BOOL)shouldHideButtonLabels {
+  if (IsFiveButtonAppBarLayoutEnabled()) {
+    return YES;
+  }
   return _geminiFloatyInvoked || self.layoutState.assistantContainerInvoked ||
          self.layoutState.appBarPosition != AppBarPosition::kBottom;
 }
@@ -1349,6 +1542,10 @@ UIColor* AssistantHighlightBackgroundColor() {
   [self updateShadowForButton:_assistantButton];
   [self updateShadowForButton:_openNewTabButton];
   [self updateShadowForButton:_tabGridButton];
+  if (IsFiveButtonAppBarLayoutEnabled()) {
+    [self updateShadowForButton:_backButton];
+    [self updateShadowForButton:_forwardButton];
+  }
 }
 
 // Updates the shadow opacity for `button` based on the user interface style.
@@ -1374,6 +1571,26 @@ UIColor* AssistantHighlightBackgroundColor() {
 }
 
 #pragma mark - Actions
+
+// Called when the back button for web navigation is tapped.
+- (void)didTapBackButton {
+  CHECK(IsFiveButtonAppBarLayoutEnabled(), base::NotFatalUntil::M163);
+  if (_isNtpVisible) {
+    base::RecordAction(base::UserMetricsAction("MobileToolbarBackOnNTP"));
+  }
+  base::RecordAction(base::UserMetricsAction("MobileToolbarBack"));
+  [self.mutator navigateBack];
+}
+
+// Called when the forward button for web navigation is tapped.
+- (void)didTapForwardButton {
+  CHECK(IsFiveButtonAppBarLayoutEnabled(), base::NotFatalUntil::M163);
+  if (_isNtpVisible) {
+    base::RecordAction(base::UserMetricsAction("MobileToolbarForwardOnNTP"));
+  }
+  base::RecordAction(base::UserMetricsAction("MobileToolbarForward"));
+  [self.mutator navigateForward];
+}
 
 // Called when the Assistant button is tapped.
 - (void)didTapAssistantButton {
@@ -1442,13 +1659,19 @@ UIColor* AssistantHighlightBackgroundColor() {
     menu = _openNewTabButtonMenu;
   } else if (view == _tabGridButton) {
     menu = _tabGridButtonMenu;
+  } else if (view == _backButton) {
+    CHECK(IsFiveButtonAppBarLayoutEnabled(), base::NotFatalUntil::M163);
+    menu = _backButton.isEnabled ? _backButtonMenu : nil;
+  } else if (view == _forwardButton) {
+    CHECK(IsFiveButtonAppBarLayoutEnabled(), base::NotFatalUntil::M163);
+    menu = _forwardButton.isEnabled ? _forwardButtonMenu : nil;
   }
 
   if (!menu) {
     return nil;
   }
 
-  return [UIContextMenuConfiguration
+  UIContextMenuConfiguration* configuration = [UIContextMenuConfiguration
       configurationWithIdentifier:nil
                   previewProvider:nil
                    actionProvider:^UIMenu*(
@@ -1457,6 +1680,17 @@ UIColor* AssistantHighlightBackgroundColor() {
                          "MobileMenuToolbarMenuTriggered"));
                      return menu;
                    }];
+
+  if (IsFiveButtonAppBarLayoutEnabled()) {
+    // Preserve priority order (top-to-bottom) for navigation history menus,
+    // matching the Toolbar's presentation.
+    if (view == _backButton || view == _forwardButton) {
+      configuration.preferredMenuElementOrder =
+          UIContextMenuConfigurationElementOrderPriority;
+    }
+  }
+
+  return configuration;
 }
 
 - (UITargetedPreview*)contextMenuInteraction:

@@ -10,7 +10,6 @@
 #include "base/functional/callback_helpers.h"
 #include "base/logging.h"
 #include "base/metrics/histogram_functions.h"
-#include "base/strings/utf_string_conversions.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/time/time.h"
 #include "chrome/browser/enterprise/connectors/connectors_service.h"
@@ -21,7 +20,6 @@
 #include "chrome/browser/enterprise/data_protection/data_protection_utils.h"
 #include "chrome/browser/interstitials/enterprise_util.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/common/url_constants.h"
 #include "chrome/common/webui_url_constants.h"
 #include "components/enterprise/data_protection/data_protection_url_lookup_service.h"
 #include "components/enterprise/data_protection/utils.h"
@@ -106,6 +104,10 @@ void RunPendingNavigationCallback(
   auto* user_data = GetUserData(web_contents);
   DCHECK(user_data);
 
+  // Report the URL the lookup ran on, e.g. the article URL rather than the
+  // chrome-distiller:// URL for reader mode.
+  const GURL url = GetOriginalUrl(web_contents->GetLastCommittedURL());
+
 #if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
   if (ShouldReportSafeUrlFilteringEvents(user_data)) {
     bool is_enabled = base::FeatureList::IsEnabled(
@@ -127,13 +129,13 @@ void RunPendingNavigationCallback(
                       std::move(threat_type), std::move(response), tab_title);
                 }
               },
-              web_contents->GetWeakPtr(), web_contents->GetLastCommittedURL(),
+              web_contents->GetWeakPtr(), url,
               /*threat_type=*/"", *user_data->rt_lookup_response()),
           /*is_bypassing_interstitial=*/false, "UrlFiltering");
     } else {
       MaybeTriggerUrlFilteringInterstitialEvent(
-          web_contents, web_contents->GetLastCommittedURL(),
-          /*threat_type=*/"", *user_data->rt_lookup_response(),
+          web_contents, url, /*threat_type=*/"",
+          *user_data->rt_lookup_response(),
           /*tab_title=*/std::string());
     }
   }
@@ -144,8 +146,7 @@ void RunPendingNavigationCallback(
       extensions::EnterpriseReportingPrivateEventRouterFactory::GetInstance()
           ->GetForProfile(web_contents->GetBrowserContext());
   if (user_data->rt_lookup_response() && router) {
-    router->OnUrlFilteringVerdict(web_contents->GetLastCommittedURL(),
-                                  *user_data->rt_lookup_response());
+    router->OnUrlFilteringVerdict(url, *user_data->rt_lookup_response());
   }
 #endif
 
@@ -169,6 +170,24 @@ void OnDoLookupComplete(
       GetPageFromWebContents(web_contents.get()), identifier,
       std::move(rt_lookup_response));
   RunPendingNavigationCallback(web_contents.get(), std::move(callback));
+}
+
+// Reports a URL filtering event for a primary main frame navigation to `url`
+// that ended without committing. The last committed URL and the title of
+// `web_contents` still belong to the previous page in that case, so `url` is
+// reported instead and the tab title is left empty.
+void MaybeReportUncommittedNavigation(
+    content::WebContents* web_contents,
+    const GURL& url,
+    std::unique_ptr<safe_browsing::RTLookupResponse> rt_lookup_response) {
+#if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
+  if (web_contents &&
+      ShouldReportSafeUrlFilteringEvents(rt_lookup_response.get())) {
+    MaybeTriggerUrlFilteringInterstitialEvent(
+        web_contents, url, /*threat_type=*/"", std::move(*rt_lookup_response),
+        /*tab_title=*/std::string());
+  }
+#endif  // BUILDFLAG(SAFE_BROWSING_AVAILABLE)
 }
 
 bool IsEnterpriseLookupEnabled(Profile* profile) {
@@ -325,8 +344,7 @@ void DataProtectionNavigationObserver::ApplyDataProtectionSettings(
           : nullptr;
 #endif
   if (lookup_service && IsEnterpriseLookupEnabled(profile) &&
-      (!original_url.SchemeIs(content::kChromeUIScheme) ||
-       lookup_service->ShouldOverrideKnownSafeUrlDecision(original_url))) {
+      lookup_service->CanCheckUrl(original_url)) {
     auto lookup_callback = base::BindOnce(
         [](const std::string& identifier,
            DataProtectionNavigationObserver::Callback callback,
@@ -366,16 +384,16 @@ DataProtectionNavigationObserver::DataProtectionNavigationObserver(
     Callback callback)
     : content::WebContentsObserver(web_contents),
       navigation_id_(navigation_handle.GetNavigationId()),
+      original_url_(GetOriginalUrl(navigation_handle.GetURL())),
       lookup_service_(lookup_service),
       delegate_(delegate),
       pending_navigation_callback_(std::move(callback)) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   DCHECK(!pending_navigation_callback_.is_null());
 
-  const GURL original_url = GetOriginalUrl(navigation_handle.GetURL());
   identifier_ = GetIdentifier(web_contents->GetBrowserContext());
   allow_screenshot_ = IsScreenshotAllowedByDataControls(
-      web_contents->GetBrowserContext(), original_url);
+      web_contents->GetBrowserContext(), original_url_);
 
   // When serving from cache, we expect to find a page user data. So this code
   // skips the call to DoLookup() to prevent an unneeded network request.
@@ -385,9 +403,10 @@ DataProtectionNavigationObserver::DataProtectionNavigationObserver(
   // main frame still points to the existing page before the navigation, not the
   // ultimate destination page of the navigation.
   is_from_cache_ = navigation_handle.IsServedFromBackForwardCache();
-  if (!is_from_cache_ && ShouldPerformRealTimeUrlCheck(
-                             web_contents->GetBrowserContext(), original_url)) {
-    DoLookup(lookup_service_, original_url,
+  if (!is_from_cache_ &&
+      ShouldPerformRealTimeUrlCheck(web_contents->GetBrowserContext(),
+                                    original_url_)) {
+    DoLookup(lookup_service_, original_url_,
              base::BindOnce(&DataProtectionNavigationObserver::OnLookupComplete,
                             weak_factory_.GetWeakPtr()),
              navigation_handle.GetWebContents());
@@ -397,19 +416,12 @@ DataProtectionNavigationObserver::DataProtectionNavigationObserver(
 }
 
 DataProtectionNavigationObserver::~DataProtectionNavigationObserver() {
-#if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
-  if (pending_navigation_callback_ && rt_lookup_response_ && web_contents() &&
-      ShouldReportSafeUrlFilteringEvents(rt_lookup_response_.get())) {
-    MaybeTriggerUrlFilteringInterstitialEvent(
-        web_contents(), web_contents()->GetLastCommittedURL(),
-        /*threat_type=*/"", std::move(*rt_lookup_response_),
-        /*tab_title=*/
-        base::FeatureList::IsEnabled(
-            enterprise_data_protection::kEnterpriseTabTitleReporting)
-            ? base::UTF16ToUTF8(web_contents()->GetTitle())
-            : std::string());
+  // The navigation never finished, e.g. because the tab was closed
+  // mid-navigation. Report a verdict that already arrived.
+  if (navigation_state_ == NavigationState::kInProgress) {
+    MaybeReportUncommittedNavigation(web_contents(), original_url_,
+                                     std::move(rt_lookup_response_));
   }
-#endif
 }
 
 void DataProtectionNavigationObserver::OnLookupComplete(
@@ -428,12 +440,23 @@ void DataProtectionNavigationObserver::OnLookupComplete(
       kURLVerdictScreenshotHistogram,
       GetUrlSettings("", rt_lookup_response.get()).allow_screenshots);
 
-  if (is_navigation_finished_) {
-    OnDoLookupComplete(web_contents()->GetWeakPtr(),
-                       std::move(pending_navigation_callback_), identifier_,
-                       std::move(rt_lookup_response));
-  } else {
-    rt_lookup_response_ = std::move(rt_lookup_response);
+  switch (navigation_state_) {
+    case NavigationState::kInProgress:
+      // Kept for DidFinishNavigation(), or for the destructor if the
+      // navigation never finishes.
+      rt_lookup_response_ = std::move(rt_lookup_response);
+      return;
+    case NavigationState::kNotCommitted:
+      // The page in the tab is still the previous one, so the verdict must not
+      // be applied to it. Only report it.
+      MaybeReportUncommittedNavigation(web_contents(), original_url_,
+                                       std::move(rt_lookup_response));
+      return;
+    case NavigationState::kCommitted:
+      OnDoLookupComplete(web_contents()->GetWeakPtr(),
+                         std::move(pending_navigation_callback_), identifier_,
+                         std::move(rt_lookup_response));
+      return;
   }
 }
 
@@ -441,8 +464,7 @@ bool DataProtectionNavigationObserver::ShouldPerformRealTimeUrlCheck(
     content::BrowserContext* browser_context,
     const GURL& url) const {
   return lookup_service_ && IsEnterpriseLookupEnabled(browser_context) &&
-         (!url.SchemeIs(content::kChromeUIScheme) ||
-          lookup_service_->ShouldOverrideKnownSafeUrlDecision(url));
+         lookup_service_->CanCheckUrl(url);
 }
 
 void DataProtectionNavigationObserver::DidRedirectNavigation(
@@ -454,23 +476,23 @@ void DataProtectionNavigationObserver::DidRedirectNavigation(
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   DCHECK(!is_from_cache_);
 
-  const GURL original_url = GetOriginalUrl(navigation_handle->GetURL());
+  original_url_ = GetOriginalUrl(navigation_handle->GetURL());
 
   allow_screenshot_ =
       allow_screenshot_ &&
       IsScreenshotAllowedByDataControls(
           navigation_handle->GetWebContents()->GetBrowserContext(),
-          original_url);
+          original_url_);
 
   if (ShouldPerformRealTimeUrlCheck(
           navigation_handle->GetWebContents()->GetBrowserContext(),
-          original_url)) {
+          original_url_)) {
     is_verdict_received_ = false;
     rt_lookup_response_.reset();
     // Cancel any previous lookup calls before starting a new lookup for
     // the redirect.
     weak_factory_.InvalidateWeakPtrs();
-    DoLookup(lookup_service_, original_url,
+    DoLookup(lookup_service_, original_url_,
              base::BindOnce(&DataProtectionNavigationObserver::OnLookupComplete,
                             weak_factory_.GetWeakPtr()),
              navigation_handle->GetWebContents());
@@ -478,7 +500,8 @@ void DataProtectionNavigationObserver::DidRedirectNavigation(
 }
 
 void DataProtectionNavigationObserver::MaybeCleanup() {
-  if (is_navigation_finished_ && is_verdict_received_) {
+  if (navigation_state_ != NavigationState::kInProgress &&
+      is_verdict_received_) {
     DCHECK(delegate_);
     delegate_->Cleanup(navigation_id_);
   }
@@ -486,24 +509,36 @@ void DataProtectionNavigationObserver::MaybeCleanup() {
 
 void DataProtectionNavigationObserver::DidFinishNavigation(
     content::NavigationHandle* navigation_handle) {
-  if (navigation_handle->GetNavigationId() != navigation_id_) {
+  // Ignore other navigations, and repeat calls for this one.
+  if (navigation_handle->GetNavigationId() != navigation_id_ ||
+      navigation_state_ != NavigationState::kInProgress) {
     return;
   }
 
-  is_navigation_finished_ = true;
+  navigation_state_ = navigation_handle->HasCommitted()
+                          ? NavigationState::kCommitted
+                          : NavigationState::kNotCommitted;
   base::ScopedClosureRunner done(
       base::BindOnce(&DataProtectionNavigationObserver::MaybeCleanup,
                      weak_factory_.GetWeakPtr()));
 
-  // Only consider primary main frame commits, which will come eventually.
+  // Only consider primary main frame navigations.
   // Even though some of these checks where already performed in
   // CreateForNavigationIfNeeded(), they still need to checked again here
   // to handle pages with iframes.
-  //
-  // `pending_navigation_callback_` being null implies `DidFinishNavigation`
-  // has already been called, so further lookups/metrics code need to run.
-  if (!navigation_handle->IsInPrimaryMainFrame() ||
-      !navigation_handle->HasCommitted() || !pending_navigation_callback_) {
+  if (!navigation_handle->IsInPrimaryMainFrame()) {
+    return;
+  }
+
+  if (navigation_state_ == NavigationState::kNotCommitted) {
+    // No new page was created, e.g. because the navigation turned into a
+    // download, got a 204 response, or was cancelled or replaced. The primary
+    // page is still the previous one, so the verdict must not be applied to
+    // it. Report a verdict that already arrived; OnLookupComplete() reports a
+    // late one.
+    pending_navigation_callback_.Reset();
+    MaybeReportUncommittedNavigation(web_contents(), original_url_,
+                                     std::move(rt_lookup_response_));
     return;
   }
 
@@ -539,13 +574,12 @@ void DataProtectionNavigationObserver::DidFinishNavigation(
       GetPageFromWebContents(navigation_handle->GetWebContents()), identifier_,
       allow_screenshot_);
 
-  const GURL original_url = GetOriginalUrl(navigation_handle->GetURL());
   if (is_from_cache_ &&
       ShouldPerformRealTimeUrlCheck(web_contents()->GetBrowserContext(),
-                                    original_url)) {
+                                    original_url_)) {
     LogVerdictSource(URLVerdictSource::kPostNavigationLookup);
     DoLookup(
-        lookup_service_, original_url,
+        lookup_service_, original_url_,
         base::BindOnce(&OnDoLookupComplete, web_contents()->GetWeakPtr(),
                        std::move(pending_navigation_callback_), identifier_),
         web_contents());

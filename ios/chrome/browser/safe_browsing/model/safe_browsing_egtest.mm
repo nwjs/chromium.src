@@ -95,11 +95,11 @@ NSString* const kPrimaryButtonID = @"primary-button";
 constexpr base::TimeDelta kReportUploadTimeout = base::Seconds(15);
 
 // Duration to wait for client-side detection classification to finish and cache
-// a verdict. On high-resolution devices (e.g. iPad Pro 13-inch) on loaded bots,
-// cold-start model loading, snapshot generation, and BEST_EFFORT background ML
-// visual feature extraction require additional time beyond default action
-// timeouts.
-constexpr base::TimeDelta kClassificationVerdictTimeout = base::Seconds(30);
+// a verdict. On loaded simulator bots and high-resolution devices (e.g. iPad
+// Pro 13-inch), cold-start model loading, snapshot generation, and BEST_EFFORT
+// background ML visual feature extraction require additional time beyond
+// default action timeouts.
+constexpr base::TimeDelta kClassificationVerdictTimeout = base::Seconds(60);
 
 // Request handler for net::EmbeddedTestServer that returns the request URL's
 // path as the body of the response if the request URL's path starts with
@@ -1320,31 +1320,33 @@ void EnableEnterpriseUrlFilteringPrefs() {
   // Enable Enhanced Safe Browsing, which is required for force request caching.
   [ChromeEarlGrey setBoolValue:YES forUserPref:prefs::kSafeBrowsingEnhanced];
 
-  // Inject the FORCE_REQUEST verdict into the cache for `_safeURL1`.
-  [SafeBrowsingAppInterface
-      cacheRealTimeVerdictForURL:base::SysUTF8ToNSString(_safeURL1.spec())
-                    forceRequest:YES
-                 intelligentScan:NO];
+  // Inject the `FORCE_REQUEST` verdict into the cache for `_safeURL2`. Unlike
+  // `_safeURL1`, `_safeURL2` is not marked as high-confidence allowlisted in
+  // `appConfigurationForTestCase`, so no sampled real-time lookup ping (which
+  // bypasses the verdict cache and overwrites it with the server's response) is
+  // sent when it is loaded.
+  NSString* url = base::SysUTF8ToNSString(_safeURL2.spec());
+  [SafeBrowsingAppInterface cacheRealTimeVerdictForURL:url
+                                          forceRequest:YES
+                                       intelligentScan:NO];
 
   // Verify that it was correctly cached.
   NSInteger type = [SafeBrowsingAppInterface
-      cachedRealTimeURLClientSideDetectionTypeForURL:base::SysUTF8ToNSString(
-                                                         _safeURL1.spec())];
+      cachedRealTimeURLClientSideDetectionTypeForURL:url];
   GREYAssertEqual(type,
                   static_cast<NSInteger>(
                       safe_browsing::ClientSideDetectionType::FORCE_REQUEST),
                   @"Type in cache was not FORCE_REQUEST. Actual: %ld", type);
 
   // Load the safe URL.
-  [ChromeEarlGrey loadURL:_safeURL1];
-  [ChromeEarlGrey waitForWebStateContainingText:_safeContent1];
+  [ChromeEarlGrey loadURL:_safeURL2];
+  [ChromeEarlGrey waitForWebStateContainingText:_safeContent2];
 
   // Trigger visual classification completion with non-phishing scores. This
   // simulates the classifier completing with a non-phishing result.
   NSArray<NSNumber*>* nonPhishingScores = @[ @0.1, @0.2 ];
-  [SafeBrowsingAppInterface
-      triggerClassificationDoneWithURL:base::SysUTF8ToNSString(_safeURL1.spec())
-                          visualScores:nonPhishingScores];
+  [SafeBrowsingAppInterface triggerClassificationDoneWithURL:url
+                                                visualScores:nonPhishingScores];
 
   // Verify image classification completed event is logged.
   GREYAssertTrue(

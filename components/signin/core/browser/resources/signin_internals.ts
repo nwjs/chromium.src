@@ -11,6 +11,7 @@ declare namespace chrome {
 }
 
 import '/strings.m.js';
+import 'chrome://resources/cr_elements/cr_tab_box/cr_tab_box.js';
 
 import {html, render} from '//resources/lit/v3_0/lit.rollup.js';
 import {addWebUiListener, sendWithPromise} from 'chrome://resources/js/cr.js';
@@ -96,7 +97,6 @@ interface SigninInfo {
   signin_info: BasicInfo[];
   token_info: TokenInfo[];
   accountCapabilities: AccountCapabilitiesInfo[];
-  canOverrideAccountInfo?: boolean;
 }
 
 function getSigninInfoHtml(infos: BasicInfo[]) {
@@ -287,25 +287,28 @@ function onOverrideValueChange(accountId: string, capName: string, e: Event) {
 
 function getAccountCapabilitiesHtml(infos: AccountCapabilitiesInfo[]) {
   if (!infos || infos.length === 0) {
-    return html``;
+    return html`<p>No account capabilities available.</p>`;
   }
   // clang-format off
   return html`
-    <h2>Account Capabilities By Account</h2>
-    ${infos.map(item => html`
+    ${infos.map(item => {
+      // Only show the override column if at least one capability of this
+      // account can be overridden.
+      const canOverrideAny = item.capabilities.some(cap => cap.can_override);
+      return html`
       <div class="account-capabilities-section">
-        <h3>${item.accountId}</h3>
+        <h3>Account ID: ${item.accountId}</h3>
         <table class="signin-details">
           <tr class="header">
             <td>Capability Name</td>
             <td>Fetched Value</td>
-            <td>Override</td>
+            <td ?hidden="${!canOverrideAny}">Override</td>
           </tr>
           ${item.capabilities.map(cap => html`
             <tr>
               <td><a href="http://go/capability-alias/${cap.name.replace('accountcapabilities/', '')}">${cap.label}</a></td>
               <td>${cap.value}</td>
-              <td>
+              <td ?hidden="${!canOverrideAny}">
                 <select ?disabled="${!cap.can_override}"
                         @change="${(ev: Event) => onOverrideValueChange(
                             item.accountId, cap.name, ev)}">
@@ -330,7 +333,8 @@ function getAccountCapabilitiesHtml(infos: AccountCapabilitiesInfo[]) {
           `)}
         </table>
       </div>
-    `)}
+    `;
+    })}
   `;
   // clang-format on
 }
@@ -343,8 +347,12 @@ function getClassFromValue(value: string): string {
   return '';
 }
 
+let latestSigninInfo: SigninInfo|null = null;
+let latestCookieAccountsInfo: CookieAccountsInfo|null = null;
+
 // Replace the displayed values with the latest fetched ones.
 function refreshSigninInfo(signinInfo: SigninInfo) {
+  latestSigninInfo = signinInfo;
   // Process templates even against an empty `signinInfo` to hide some sections.
   render(
       getSigninInfoHtml(signinInfo.signin_info),
@@ -368,12 +376,30 @@ function refreshSigninInfo(signinInfo: SigninInfo) {
 
 // Replace the cookie information with the fetched values.
 function updateCookieAccounts(info: CookieAccountsInfo) {
+  latestCookieAccountsInfo = info;
   render(getCookieInfoHtml(info), getRequiredElement('cookie-info'));
+}
+
+function downloadSigninInternals() {
+  const data = {
+    signinInfo: latestSigninInfo,
+    cookieAccountsInfo: latestCookieAccountsInfo,
+  };
+  const blob =
+      new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'signin-internals.json';
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 // On load, do an initial refresh and register refreshSigninInfo to be invoked
 // whenever we get new signin information from SigninInternalsUI.
 function onLoad() {
+  getRequiredElement('download-button')
+      .addEventListener('click', downloadSigninInternals);
   addWebUiListener('signin-info-changed', refreshSigninInfo);
   addWebUiListener('update-cookie-accounts', updateCookieAccounts);
 

@@ -81,10 +81,9 @@ std::string content_id = embedded_handle->id().ToString();
 Surface Embed does not manage the lifecycle of `WebContents`. If the child
 WebContents is destroyed, the `<embed>` will become blank. If the `<embed>` is
 removed, the previously attached `WebContents` will be detached. Changing
-`data-content-id` on an existing plugin is not currently supported
-([crbug.com/561637127](https://crbug.com/561637127)). To embed different
-contents, update `data-content-id`, then remove and restore the `type` attribute
-to force the plugin to be recreated with the new content ID.
+`data-content-id` on an existing `<embed>` will detach the previously attached
+`WebContents` (if any) and attach the new `WebContents` (setting
+`data-content-id` to the same value is a no-op).
 
 ---
 
@@ -114,3 +113,10 @@ which is `"application/x-chromium-surface-embed"`.
 * **`data-content-id`**: Must contain the serialized string representation of
 the `surface_embed::SurfaceEmbedHandle` token corresponding to the nested
 `WebContents` (the `content_id` retrieved in Section 1.3).
+* **`data-allow-pinch-zoom`**: Optional boolean attribute. When present,
+touchscreen and touchpad pinch gestures that start over the embedded content
+scale the embedded `WebContents`; when absent, they scale the embedding
+`WebContents`. Adding or removing the attribute affects future pinch sequences.
+A pinch sequence already in progress keeps the target selected when that
+sequence began. As with other HTML boolean attributes, the value is ignored, so
+`data-allow-pinch-zoom="false"` still enables child pinch zoom.

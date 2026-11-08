@@ -42,6 +42,10 @@
 #include "net/base/schemeful_site.h"
 #include "ui/gfx/geometry/rect_f.h"
 
+#if BUILDFLAG(IS_ANDROID)
+#include "components/autofill/core/browser/ui/autofill_tapjacking_protector.h"
+#endif
+
 namespace autofill {
 
 AutofillClient::PopupOpenArgs::PopupOpenArgs() = default;
@@ -287,12 +291,17 @@ const AutofillAblationStudy& AutofillClient::GetAblationStudy() const {
 }
 
 #if BUILDFLAG(IS_ANDROID)
-bool AutofillClient::ShowAmbientAutoFillNotice(
+bool AutofillClient::ShowAmbientAutofillNotice(
     base::WeakPtr<TouchToFillAutofillDelegate> delegate) {
   return false;
 }
 
-void AutofillClient::HideAmbientAutoFillNotice() {}
+bool AutofillClient::ShowPrivateInferenceNoticeBottomSheet(
+    base::WeakPtr<TouchToFillAutofillDelegate> delegate) {
+  return false;
+}
+
+void AutofillClient::HideTouchToFillAutofillNotice() {}
 
 AutofillSnackbarControllerImpl*
 AutofillClient::GetAutofillSnackbarController() {
@@ -306,6 +315,12 @@ void AutofillClient::ShowAutofillAiLoadingDialog() {
 void AutofillClient::DismissAutofillAiLoadingDialog() {
   NOTIMPLEMENTED();
 }
+
+void AutofillClient::ShowTapjackingProtector(
+    AutofillTapjackingProtector::AuthorizationType authorization_type,
+    AutofillTapjackingProtector::AuthorizationCallback callback) {
+  NOTIMPLEMENTED();
+}
 #endif
 
 void AutofillClient::TriggerDeclinedSaveAddressReasonSurvey() {
@@ -315,6 +330,12 @@ void AutofillClient::TriggerDeclinedSaveAddressReasonSurvey() {
 void AutofillClient::TriggerPersonalizationAndTrustSurveys(
     FillingProduct filling_product,
     const HatsSurveyStringData& field_filling_stats_data) {
+  NOTIMPLEMENTED();
+}
+
+void AutofillClient::TriggerAtMemoryPersonalizationAndTrustSurvey(
+    bool is_dismissed,
+    const HatsSurveyStringData& product_specific_data) {
   NOTIMPLEMENTED();
 }
 
@@ -490,6 +511,12 @@ void AutofillClient::ShowEmailVerificationErrorToast() {
   NOTIMPLEMENTED();
 }
 
+void AutofillClient::ShowGmailOtpOptInBubble(
+    const std::u16string& account_email,
+    base::OnceCallback<void(GmailOtpOptInResult)> callback) {
+  NOTIMPLEMENTED();
+}
+
 OtpFieldDetector* AutofillClient::GetOtpFieldDetector() {
   return nullptr;
 }
@@ -536,6 +563,10 @@ void AutofillClient::OpenGeminiInSidebar(const std::u16string& prompt) {
 }
 
 bool AutofillClient::IsGlicEnabled() const {
+  return false;
+}
+
+bool AutofillClient::IsGlicConsented() const {
   return false;
 }
 

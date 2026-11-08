@@ -1,15 +1,3 @@
-<style>
-.note::before {
-  content: 'Note: ';
-  font-variant: small-caps;
-  font-style: italic;
-}
-
-.doc h1 {
-  margin: 0;
-}
-</style>
-
 # WebUI Explainer
 
 [TOC]
@@ -25,9 +13,9 @@ Examples of WebUI in Chromium:
 * History (chrome://history)
 * Downloads (chrome://downloads)
 
-<div class="note">
-Not all web-based UIs in Chrome have chrome:// URLs.
-</div>
+*** note
+*Note:* Not all web-based UIs in Chrome have chrome:// URLs.
+***
 
 This document explains how WebUI works.
 
@@ -38,23 +26,25 @@ example, it'd be very hard to implement the Settings UI without access to many
 different privacy and security sensitive services. Access to these services are
 not granted by default.
 
+### WebUI bindings
+
 Only special URLs are granted WebUI "bindings" via the child security process.
 
 Specifically, these bindings:
 
-* give a renderer access to load [`chrome:`](#chrome_urls) URLS
+* give a renderer access to load [`chrome:`](#how-urls-work) URLS
   * this is helpful for shared libraries, i.e. `chrome://resources/`
 * allow the browser to execute arbitrary JavaScript in that renderer via
-  [`CallJavascriptFunction()`](#CallJavascriptFunction)
+  [`CallJavascriptFunction()`](#webuimessagehandler_calljavascriptfunction)
 * allow communicating from the renderer to the browser with
   [`chrome.send()`](#chrome_send) and friends
 * ignore content settings regarding showing images or executing JavaScript
 
 ## How `chrome:` URLs work
 
-<div class="note">
-A URL is of the format &lt;protocol&gt;://&lt;host&gt;/&lt;path&gt;.
-</div>
+*** note
+*Note:* A URL is of the format &lt;protocol&gt;://&lt;host&gt;/&lt;path&gt;.
+***
 
 A `chrome:` URL loads a file from disk, memory, or can respond dynamically.
 
@@ -78,8 +68,7 @@ Examples:
 * view-source:
 
 This document mainly cares about the **chrome:** protocol, but others can also
-be granted [WebUI bindings](#bindings) or have special
-properties.
+be granted [WebUI bindings](#webui-bindings) or have special properties.
 
 ### `chrome:` hosts
 
@@ -127,13 +116,13 @@ map.AddWebUIConfig(std::make_unique<donuts::DonutsUIConfig>());
 
 ```
 
-If a factory knows how to handle a host (returns a `WebUIFactoryFunction`),
-the navigation machinery [grants the renderer process WebUI
-bindings](#bindings) via the child security policy.
+If a factory knows how to handle a URL (`UseWebUIForURL()` returns true), the
+navigation machinery [grants the renderer process WebUI
+bindings](#webui-bindings) via the child security policy.
 
 ```c++
 // RenderFrameHostImpl::AllowBindings():
-if (bindings_flags.Has(BindingsPolicyValue::kWebUi)) {
+if (!webui_bindings.empty()) {
   ChildProcessSecurityPolicyImpl::GetInstance()->GrantWebUIBindings(
       GetProcess()->GetDeprecatedID());
 }
@@ -185,15 +174,14 @@ If we assume the contents of `IDR_DONUTS_HTML` yields:
 
 Visiting `chrome://donuts` should show in something like:
 
-<div style="border: 1px solid black; padding: 10px;">
-<h1>Mmmm, donuts!</h1>
-</div>
+```
+Mmmm, donuts!
+```
 
 Delicious success.
 
-By default $i18n{} escapes strings for HTML. $i18nRaw{} can be used for
-translations that embed HTML, and $i18nPolymer{} can be used for Polymer
-bindings. See
+By default $i18n{} escapes strings for HTML, while $i18nRaw{} can be used for
+translations that embed HTML. See
 [this comment](https://bugs.chromium.org/p/chromium/issues/detail?id=1010815#c1)
 for more information.
 
@@ -239,7 +227,7 @@ A `WebUIConfig` may contain logic to check if the WebUI is enabled for a given
 if the url path is valid, etc).
 
 A `WebUIConfig` can invoke the `WebUIController`'s constructor in its
-`CreateWebUIControllerForURL` method.
+`CreateWebUIController` method.
 
 `WebUIConfig`s are created at startup when factories are registered, so should
 be lightweight.
@@ -282,19 +270,19 @@ content::WebUIDataSource* source = content::WebUIDataSource::CreateAndAdd(
 source->AddResourcePath("sign_in_promo.svg", IDR_HISTORY_SIGN_IN_PROMO_SVG);
 source->AddResourcePath("synced_tabs.html", IDR_HISTORY_SYNCED_TABS_HTML);
 
-source->AddString("title", IDS_HISTORY_TITLE);
-source->AddString("moreFromThisSite", IDS_HISTORY_MORE_FROM_THIS_SITE);
+source->AddLocalizedString("title", IDS_HISTORY_TITLE);
+source->AddLocalizedString("moreFromThisSite", IDS_HISTORY_MORE_FROM_THIS_SITE);
 
 source->AddBoolean("showDateRanges",
     base::FeatureList::IsEnabled(features::kHistoryShowDateRanges));
 
-webui::SetupWebUIDataSource(source, kHistoryResources, kGeneratedPath,
+webui::SetupWebUIDataSource(source, kHistoryResources,
     IDR_HISTORY_HISTORY_HTML);
 ```
 
 For more about each of the methods called on `WebUIDataSource` and the utility
-method that performs additional configuration, see [DataSources](#DataSources)
-and [WebUIDataSourceUtils](#WebUIDataSourceUtils)
+method that performs additional configuration, see [DataSources](#data-sources)
+and [WebUIDataSourceUtils](#webui-utils-for-working-with-data-sources)
 
 ### WebUIMessageHandler
 
@@ -336,16 +324,16 @@ $('bakeDonutsButton').onclick = function() {
 ### WebUIDataSource::CreateAndAdd()
 
 This is a factory method required to create and add a WebUIDataSource. The first
-argument to `Create()` is the browser context. The second argument is typically
-the host name of the page. The caller does not own the result.
+argument to `CreateAndAdd()` is the browser context. The second argument is
+typically the host name of the page. The caller does not own the result.
 
 Additionally, calling `CreateAndAdd()` will overwrite any existing data source
 with the same name.
 
-<div class="note">
-It's unsafe to keep references to a <code>WebUIDataSource</code> after calling
-<code>Add()</code>. Don't do this.
-</div>
+*** note
+*Note:* It's unsafe to keep references to a `WebUIDataSource` after calling
+`CreateAndAdd()`. Don't do this.
+***
 
 ### WebUIDataSource::AddLocalizedString()
 
@@ -357,8 +345,8 @@ dynamically in JavaScript via `loadTimeData.getString()` (or `getStringF`).
 ### WebUIDataSource::AddLocalizedStrings()
 
 Many Web UI data sources need to be set up with a large number of localized
-strings. Instead of repeatedly calling <code>AddLocalizedString()</code>, create
-an array of all the strings and use <code>AddLocalizedStrings()</code>:
+strings. Instead of repeatedly calling `AddLocalizedString()`, create
+an array of all the strings and use `AddLocalizedStrings()`:
 
 ```c++
   static constexpr webui::LocalizedString kStrings[] = {
@@ -375,7 +363,7 @@ an array of all the strings and use <code>AddLocalizedStrings()</code>:
 Using an int reference to a grit resource (starts with "IDR" and lives in a .grd
 or .grdp file), adds a resource to the UI with the specified path.
 
-It's generally a good idea to call <code>AddResourcePath()</code> with the empty
+It's generally a good idea to call `AddResourcePath()` with the empty
 path and a resource ID that should be served as the "catch all" resource to
 respond with. This resource will be served for requests like "chrome://history",
 or "chrome://history/pathThatDoesNotExist". It will not be served for requests
@@ -389,8 +377,8 @@ easily found and corrected.
 ### WebUIDataSource::AddResourcePaths()
 
 Similar to the localized strings, many Web UIs need to add a large number of
-resource paths. In this case, use <code>AddResourcePaths()</code> to
-replace repeated calls to <code>AddResourcePath()</code>.
+resource paths. In this case, use `AddResourcePaths()` to
+replace repeated calls to `AddResourcePath()`.
 
 ```c++
   static constexpr webui::ResourcePath kResources[] = {
@@ -404,8 +392,8 @@ replace repeated calls to <code>AddResourcePath()</code>.
 The same method can be leveraged for cases that directly use constants defined
 by autogenerated grit resources map header files. For example, the autogenerated
 print\_preview\_resources\_map.h header defines a
-<code>webui::ResourcePath</code> array named
-<code>kPrintPreviewResources</code>. All the resources in this resource map can
+`webui::ResourcePath` array named
+`kPrintPreviewResources`. All the resources in this resource map can
 be added as follows:
 
 ```c++
@@ -424,20 +412,20 @@ if (loadTimeData.getBoolean('myFeatureIsEnabled')) {
 }
 ```
 
-<div class="note">
-Data sources are not recreated on refresh, and therefore values that are dynamic
+*** note
+*Note:* Data sources are not recreated on refresh, and therefore values that are dynamic
 (i.e. that can change while Chrome is running) may easily become stale. It may
-be preferable to use <code>sendWithPromise()</code> to initialize dynamic
-values and call <code>FireWebUIListener()</code> to update them.
+be preferable to use `sendWithPromise()` to initialize dynamic
+values and call `FireWebUIListener()` to update them.
 
-If you really want or need to use <code>AddBoolean()</code> for a dynamic value,
-make sure to call <code>WebUIDataSource::Update()</code> when the value changes.
-</div>
+If you really want or need to use `AddBoolean()` for a dynamic value,
+make sure to call `WebUIDataSource::Update()` when the value changes.
+***
 
 ## WebUI utils for working with data sources
 
-chrome/browser/ui/webui/webui\_util.\* contains a number of methods to simplify
-common configuration tasks.
+ui/webui/webui\_util.\* contains a number of methods to simplify common
+configuration tasks.
 
 ### webui::SetupWebUIDataSource()
 
@@ -449,8 +437,8 @@ Specific setup steps include:
 * Setting the content security policy to allow the data source to load only
   resources from its own host (e.g. chrome://history), chrome://resources, and
   chrome://webui-test (used to serve test files).
-* Enabling i18n template replacements by calling <code>UseStringsJs()</code> and
-  <code>EnableReplaceI18nInJS()</code> on the data source.
+* Enabling i18n template replacements by calling `UseStringsJs()` and
+  `EnableReplaceI18nInJS()` on the data source.
 * Adding the test loader files to the data source, so that test files can be
   loaded as JS modules.
 * Setting the resource to load for the empty path.
@@ -460,17 +448,17 @@ Specific setup steps include:
 
 ### Mojo
 
-[Mojo](https://chromium.googlesource.com/chromium/src/+/master/mojo/README.md)
-is used for IPC throughout Chromium, and should generally be used for new
-WebUIs to communicate between the browser (C++) and the renderer (JS/TS). To
-use Mojo, you will need to:
+[Mojo](https://chromium.googlesource.com/chromium/src/+/main/mojo/README.md) is
+used for IPC throughout Chromium, and should generally be used for new WebUIs to
+communicate between the browser (C++) and the renderer (JS/TS). To use Mojo, you
+will need to:
 
 * Write an interface definition for the JS/C++ interface in a mojom file
 * Add a build target in the BUILD.gn file to autogenerate C++ and TypeScript
   code ("bindings").
 * Bind the interface on the C++ side and implement any methods to send or
   receive information from TypeScript.
-* Add the TypeScript bindings file to your WebUI's <code>ts_library()</code>
+* Add the TypeScript bindings file to your WebUI's `ts_library()`
   and use them in your TypeScript code.
 
 #### Mojo Interface Definition
@@ -829,21 +817,21 @@ void OvenHandler::HandleStartPilotLight(const base::ListValue& /*args*/) {
 }
 ```
 
-<div class="note">
-Relying on the <code>'load'</code> event or browser-side navigation callbacks to
-detect page readiness omits <i>application-specific</i> initialization, and a
-custom <code>'initialized'</code> message is often necessary.
-</div>
+*** note
+*Note:* Relying on the `'load'` event or browser-side navigation callbacks to
+detect page readiness omits _application-specific_ initialization, and a
+custom `'initialized'` message is often necessary.
+***
 
 #### WebUIMessageHandler::CallJavascriptFunction()
 
 When the browser process needs to tell the renderer/JS of an event or otherwise
 execute code, it can use `CallJavascriptFunction()`.
 
-<div class="note">
-Javascript must be <a href="#AllowJavascript">allowed</a> to use
-<code>CallJavascriptFunction()</code>.
-</div>
+*** note
+*Note:* Javascript must be [allowed](#webuimessagehandler_allowjavascript) to
+use `CallJavascriptFunction()`.
+***
 
 ```c++
 void OvenHandler::OnPilotLightExtinguished() {
@@ -859,7 +847,9 @@ to the call are serialized to JSON and the parameter list is wrapped with
 "functionCallName(" + argumentsAsJson + ")"
 ```
 
-and sent to the renderer via a `FrameMsg_JavaScriptExecuteRequest` IPC message.
+and sent to the renderer via the
+`blink.mojom.LocalFrame.JavaScriptExecuteRequest` Mojo method (see
+`RenderFrameHostImpl::ExecuteJavaScript()`).
 
 While this works, it implies that:
 
@@ -871,14 +861,15 @@ While this works, it implies that:
 webui codebase. This functionality can easily be accomplished with the following
 alternatives:
 
-* [`FireWebUIListener()`](#FireWebUIListener) allows easily notifying the page
-  when an event occurs in C++ and is more loosely coupled (nothing blows up if
-  the event dispatch is ignored). JS subscribes to notifications via
-  [`addWebUiListener`](#addWebUiListener).
-* [`ResolveJavascriptCallback`](#ResolveJavascriptCallback) and
-  [`RejectJavascriptCallback`](#RejectJavascriptCallback) are useful
-  when Javascript requires a response to an inquiry about C++-canonical state
-  (i.e. "Is Autofill enabled?", "Is the user incognito?")
+* [`FireWebUIListener()`](#webuimessagehandler_firewebuilistener) allows easily
+  notifying the page when an event occurs in C++ and is more loosely coupled
+  (nothing blows up if the event dispatch is ignored). JS subscribes to
+  notifications via [`addWebUiListener`](#addWebUiListener).
+* [`ResolveJavascriptCallback`](#webuimessagehandler_resolvejavascriptcallback)
+  and
+  [`RejectJavascriptCallback`](#webuimessagehandler_rejectjavascriptcallback)
+  are useful when Javascript requires a response to an inquiry about
+  C++-canonical state (i.e. "Is Autofill enabled?", "Is the user incognito?")
 
 #### WebUIMessageHandler::FireWebUIListener()
 
@@ -906,14 +897,14 @@ theme they'll choose, this is a good candidate for an event listener.
 
 If you simply need to get a response in Javascript from C++, consider using
 [`sendWithPromise()`](#sendWithPromise) and
-[`ResolveJavascriptCallback`](#ResolveJavascriptCallback).
+[`ResolveJavascriptCallback`](#webuimessagehandler_resolvejavascriptcallback).
 
 #### WebUIMessageHandler::OnJavascriptAllowed()
 
-`OnJavascriptDisallowed()` is a lifecycle method called in response to
-[`AllowJavascript()`](#AllowJavascript). It is a good place to register
-observers of global services or other callbacks that might call at unpredictable
-times.
+`OnJavascriptAllowed()` is a lifecycle method called in response to
+[`AllowJavascript()`](#webuimessagehandler_allowjavascript). It is a good place
+to register observers of global services or other callbacks that might call at
+unpredictable times.
 
 For example:
 
@@ -929,9 +920,10 @@ class MyHandler : public content::WebUIMessageHandler {
 ```
 
 Because browser-side C++ handlers are created before a renderer is ready, the
-above code may result in calling [`FireWebUIListener`](#FireWebUIListener)
-before the renderer is ready, which may result in dropped updates or
-accidentally running Javascript in a renderer that has navigated to a new URL.
+above code may result in calling
+[`FireWebUIListener`](#webuimessagehandler_firewebuilistener) before the
+renderer is ready, which may result in dropped updates or accidentally running
+Javascript in a renderer that has navigated to a new URL.
 
 A safer way to set up communication is:
 
@@ -975,7 +967,7 @@ Often, it makes sense to disconnect from observers in
 
 ```c++
 void OvenHandler::OnJavascriptDisallowed() {
-  scoped_oven_observation_.Reset()
+  scoped_oven_observation_.Reset();
 }
 ```
 
@@ -999,13 +991,14 @@ void OvenHandler::HandleBakeDonuts(const base::ListValue& args) {
   AllowJavascript();
   if (!GetOven()->HasGas()) {
     RejectJavascriptCallback(args[0],
-                             base::StringValue("need gas to cook the donuts!"));
+                             base::Value("need gas to cook the donuts!"));
   }
 ```
 
 This method is basically just a
-[`CallJavascriptFunction()`](#CallJavascriptFunction) wrapper that calls a
-global "cr.webUIResponse" method with a success value of false.
+[`CallJavascriptFunction()`](#webuimessagehandler_calljavascriptfunction)
+wrapper that calls a global "cr.webUIResponse" method with a success value of
+false.
 
 ```c++
 // WebUIMessageHandler::RejectJavascriptCallback():
@@ -1013,7 +1006,8 @@ CallJavascriptFunction("cr.webUIResponse", callback_id, base::Value(false),
                        response);
 ```
 
-See also: [`ResolveJavascriptCallback`](#ResolveJavascriptCallback)
+See also:
+[`ResolveJavascriptCallback`](#webuimessagehandler_resolvejavascriptcallback)
 
 #### WebUIMessageHandler::ResolveJavascriptCallback()
 
@@ -1045,12 +1039,14 @@ void OvenHandler::HandleBakeDonuts(const base::ListValue& args) {
 #### chrome.send()
 
 When the JavaScript `window` object is created, a renderer is checked for [WebUI
-bindings](#bindings).
+bindings](#webui-bindings).
 
 ```c++
 // RenderFrameImpl::DidClearWindowObject():
-if (enabled_bindings_.Has(BindingsPolicyValue::kWebUi))
-  WebUIExtension::Install(frame_);
+if (enabled_bindings_.Has(BindingsPolicyValue::kWebUi) ||
+    enabled_bindings_.Has(BindingsPolicyValue::kWebUiHistograms)) {
+  WebUIExtension::Install(frame_, enabled_bindings_);
+}
 ```
 
 If the bindings exist, a global `chrome.send()` function is exposed to the
@@ -1071,18 +1067,16 @@ The `chrome.send()` method takes a message name and argument list.
 chrome.send('messageName', [arg1, arg2, ...]);
 ```
 
-The message name and argument list are serialized to JSON and sent via the
-`FrameHostMsg_WebUISend` IPC message from the renderer to the browser.
+The message name and argument list are sent via the
+`content.mojom.WebUIHost.Send` Mojo method from the renderer to the browser.
 
 ```c++
-// In the renderer (WebUIExtension::Send()):
-render_frame->Send(new FrameHostMsg_WebUISend(render_frame->GetRoutingID(),
-                                              frame->GetDocument().Url(),
-                                              message, *content));
+// In the renderer (WebUIExtensionData::SendMessage()):
+remote_->Send(message, std::move(args));
 ```
 ```c++
-// In the browser (WebUIImpl::OnMessageReceived()):
-IPC_MESSAGE_HANDLER(FrameHostMsg_WebUISend, OnWebUISend)
+// In the browser (WebUIImpl::Send()):
+ProcessWebUIMessage(source_url, message, std::move(args));
 ```
 
 The browser-side code does a map lookup for the message name and calls the found
@@ -1090,7 +1084,7 @@ callback with the deserialized arguments:
 
 ```c++
 // WebUIImpl::ProcessWebUIMessage():
-message_callbacks_.find(message)->second.Run(&args);
+message_callbacks_.find(message)->second.Run(args);
 ```
 
 #### addWebUiListener()
@@ -1240,9 +1234,9 @@ attack the WebUI. Here are some things to keep in mind:
   the web content inside the WebUI, possibly showing the user as signed in.
 
 Note: WebUIs have a default Content Security Policy which disallows embedding
-any frames. If you want to include any web content in an <iframe> you will need
-to update the policy for your WebUI. When doing so, allow only known origins and
-avoid making the policy more permissive than strictly necessary.
+any frames. If you want to include any web content in an `<iframe>` you will
+need to update the policy for your WebUI. When doing so, allow only known
+origins and avoid making the policy more permissive than strictly necessary.
 
 Alternatively, a `<webview>` tag can be used, which runs in a separate
 StoragePartition, a separate frame tree, and restricts postMessage communication
@@ -1355,19 +1349,3 @@ e.g. chrome-untrusted:// and chrome-extension:// are not supported either.
 * Adding tests for WebUI pages: [Testing WebUI](./testing_webui.md)
 * Demo WebUI widgets at `chrome://webui-gallery` (and source at
   [chrome/browser/resources/webui_gallery/](https://source.chromium.org/chromium/chromium/src/+/main:chrome/browser/resources/webui_gallery/))
-
-
-<script>
-let nameEls = Array.from(document.querySelectorAll('[id], a[name]'));
-let names = nameEls.map(nameEl => nameEl.name || nameEl.id);
-
-let localLinks = Array.from(document.querySelectorAll('a[href^="#"]'));
-let hrefs = localLinks.map(a => a.href.split('#')[1]);
-
-hrefs.forEach(href => {
-  if (names.includes(href))
-    console.info('found: ' + href);
-  else
-    console.error('broken href: ' + href);
-})
-</script>

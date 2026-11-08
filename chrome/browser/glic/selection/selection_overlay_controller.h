@@ -7,8 +7,10 @@
 
 #include <string>
 
+#include "base/callback_list.h"
 #include "base/containers/flat_map.h"
 #include "base/memory/weak_ptr.h"
+#include "base/timer/timer.h"
 #include "base/unguessable_token.h"
 #include "chrome/browser/glic/host/context/glic_page_context_fetcher.h"
 #include "chrome/browser/glic/host/glic.mojom.h"
@@ -29,6 +31,7 @@
 #include "ui/views/controls/webview/unhandled_keyboard_event_handler.h"
 
 namespace content {
+class RenderFrameHost;
 class WebContents;
 }
 
@@ -40,6 +43,8 @@ namespace views {
 class WebView;
 }
 
+class BrowserWindowInterface;
+
 namespace glic {
 
 class FocusedTabData;
@@ -50,6 +55,12 @@ class SelectionOverlayController
       public selection::SelectionOverlayPageHandler,
       public TabStripModelObserver {
  public:
+  enum class CloseReason {
+    kOther,
+    kCloseButton,
+    kEscapeKeyPress,
+  };
+
   SelectionOverlayController(tabs::TabInterface* tab,
                              PrefService* pref_service);
   ~SelectionOverlayController() override;
@@ -69,6 +80,10 @@ class SelectionOverlayController
   // `tab_web_contents`.
   static SelectionOverlayController* FromTabWebContents(
       content::WebContents* tab_web_contents);
+
+  // Returns the main frame of the overlay WebUI, or null if there's no
+  // overlay WebUI.
+  content::RenderFrameHost* GetOverlayMainFrame() const;
 
   size_t GetSelectedRegionCount() const { return selected_regions_.size(); }
   std::vector<int> GetPolylineCounts() const;
@@ -90,15 +105,29 @@ class SelectionOverlayController
       mojo::PendingRemote<mojom::CaptureRegionObserver> observer,
       mojom::TabContextOptionsPtr options);
 
+  // Returns whether a new overlay session can start on the current tab,
+  // applying to every entry point.
+  bool CanStartSession();
+
   void Show(mojom::TabContextOptionsPtr options);
   // Shows the overlay with a region pre-selected around `selection_bounds`,
   // which is in screen coordinates.
-  void ShowWithSelection(const gfx::Rect& selection_bounds);
-  void Close();
+  void ShowWithSelection(content::RenderFrameHost* selected_frame,
+                         const gfx::Rect& selection_bounds,
+                         selection::InteractionOptionsPtr interaction_options);
+  void Close(CloseReason reason = CloseReason::kOther);
+
+  using OverlayClosedCallback = base::OnceCallback<void(CloseReason)>;
+  base::CallbackListSubscription RegisterOverlayClosedCallback(
+      OverlayClosedCallback callback);
 
   // `selection::SelectionOverlayPageHandler`:
   void DeleteRegion(const base::UnguessableToken& id,
                     bool is_using_keyboard) override;
+
+  using SuggestedActionsCallback = base::RepeatingCallback<void(
+      const std::vector<selection::SuggestedActionPtr>&)>;
+  void GetSuggestedActionsForTesting(SuggestedActionsCallback callback);
 
  private:
   void WillDiscardContents(tabs::TabInterface* tab,
@@ -108,6 +137,11 @@ class SelectionOverlayController
                   tabs::TabInterface::DetachReason reason);
   void TabDeactivated(tabs::TabInterface* tab);
   void OnFocusedTabChanged(const FocusedTabData& tab_data);
+  // This is the same event that drives `OnFocusedTabChanged()`, but it also
+  // fires when no Glic instance is active.
+  void OnActiveTabChanged(BrowserWindowInterface* window);
+  void UpdateForTabVisibility();
+  void ObserveActiveTabChanges();
   // Called when the overlay's WebView takes focus, e.g. when the user clicks
   // on it. In a split view the overlay can be rendered over the inactive tab,
   // in which case `tab_` needs to be activated.
@@ -171,6 +205,10 @@ class SelectionOverlayController
 
   // Render all the `selected_regions_` on top of `redacted_screenshot_`.
   void RenderRegions(bool should_focus_panel);
+  // Renders the pre-selected regions once the overlay is bound and the page
+  // context is ready. Called from each of those steps, so whichever finishes
+  // last does the work.
+  void RenderPendingRegions();
 
   struct SelectedRegionData {
     explicit SelectedRegionData(selection::SelectedRegionPtr region);
@@ -179,6 +217,9 @@ class SelectionOverlayController
     ~SelectedRegionData();
 
     selection::SelectedRegionPtr region;
+    std::optional<std::u16string> selected_text;
+    std::optional<std::u16string> text_surrounding_selection;
+    bool waiting_for_surrounding_text = false;
     std::vector<std::pair<base::UnguessableToken,
                           std::unique_ptr<::selection::Suggestion>>>
         suggestions;
@@ -190,12 +231,26 @@ class SelectionOverlayController
   };
 
   void Reset();
+  void OnTextSurroundingSelectionAvailable(
+      const base::UnguessableToken& region_id,
+      uint64_t generation,
+      const std::u16string& content,
+      uint32_t start_offset,
+      uint32_t end_offset);
+  void GetSuggestedActionsImpl(SuggestedActionsCallback callback);
+  // Callers must check `CanStartSession()` before staging any session state.
+  void ShowImpl(mojom::TabContextOptionsPtr options);
+  // Replaces any existing selected regions with a single region created from
+  // `selection_bounds`, in screen coordinates. If `selected_frame` is live,
+  // also requests the text surrounding its selection.
+  void SetRegionFromBounds(content::RenderFrameHost* selected_frame,
+                           const gfx::Rect& selection_bounds);
   void RequestNewSuggestions(SelectedRegionData& region_data);
   void OnSuggestionsReceived(
       const base::UnguessableToken& region_id,
       uint64_t generation,
-      std::vector<std::unique_ptr<::selection::Suggestion>> suggestions,
-      bool complete);
+      bool complete,
+      std::vector<std::unique_ptr<::selection::Suggestion>> suggestions);
   glic::mojom::AdditionalContextPtr CreateAdditionalContext(
       std::vector<std::pair<base::UnguessableToken,
                             glic::mojom::CapturedRegionPtr>> regions);
@@ -215,6 +270,11 @@ class SelectionOverlayController
 
   // Stateful members. They should be added to Reset().
   bool screenshot_available_ = false;
+  selection::InteractionOptionsPtr interaction_options_ =
+      selection::InteractionOptions::New();
+  // Whether the regions pre-selected at the start of the session still need
+  // to be sent to the web client.
+  bool staged_region_needs_render_ = false;
   SkBitmap initial_rgb_screenshot_;
   SkBitmap redacted_screenshot_;
   mojom::TabContextResultPtr tab_context_;
@@ -223,20 +283,24 @@ class SelectionOverlayController
   // rendered on top of `initial_screenshot_`.
   base::flat_map<base::UnguessableToken, SelectedRegionData> selected_regions_;
   std::optional<base::UnguessableToken> active_region_id_;
+  base::OneShotTimer surrounding_text_timer_;
   mojo::Remote<selection::SuggestedActionsListener> suggested_actions_listener_;
+  SuggestedActionsCallback suggested_actions_callback_for_testing_;
   // Subscription for `OverlayBaseController::overlay_web_view_` taking focus.
   // Scoped to the lifetime of that WebView.
   base::CallbackListSubscription overlay_web_view_focus_subscription_;
-  // The static suggestion tool is only temporary, and will be removed once
-  // suggestions are served from the server endpoint.
-  std::unique_ptr<::selection::SuggestionTool> static_suggestion_tool_;
   std::unique_ptr<::selection::SuggestionTool> quick_answers_tool_;
+  std::optional<CloseReason> close_reason_;
+
+  base::OnceCallbackList<void(CloseReason)> overlay_closed_callbacks_;
 
   ui::ScopedUnownedUserData<SelectionOverlayController>
       scoped_unowned_user_data_;
 
   // Holds subscriptions for TabInterface callbacks.
   std::vector<base::CallbackListSubscription> tab_subscriptions_;
+  // Subscription to the active tab changes of the window that hosts `tab_`.
+  base::CallbackListSubscription active_tab_subscription_;
 
   views::UnhandledKeyboardEventHandler unhandled_keyboard_event_handler_;
 

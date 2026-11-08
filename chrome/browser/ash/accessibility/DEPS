@@ -6,7 +6,6 @@ include_rules = [
   # Files residing in certain directories (e.g., //chrome/browser) are listed
   # individually. Other dependencies within //chrome are listed on a per-
   # directory basis. See //tools/chromeos/gen_deps.sh for details.
-  "+chrome/app",
   "+chrome/browser/accessibility",
   "+chrome/browser/apps/app_service",
   "+chrome/browser/ash/app_list",
@@ -14,7 +13,6 @@ include_rules = [
   "+chrome/browser/ash/login",
   "+chrome/browser/ash/policy/enrollment",
   "+chrome/browser/ash/preferences/preferences.h",
-  "+chrome/browser/ash/profiles",
   "+chrome/browser/ash/system_web_apps",
   "+chrome/browser/extensions/api/braille_display_private",
   "+chrome/browser/extensions/component_loader.h",
@@ -26,15 +24,12 @@ include_rules = [
   "+chrome/browser/ui/ash",
   "+chrome/browser/ui/aura/accessibility",
   "+chrome/browser/ui/singleton_tabs.h",
-  "+chrome/browser/ui/view_ids.h",
   "+chrome/common/chrome_paths.h",
-  "+chrome/common/extensions",
   "+chrome/test/base",
 ]
 
 specific_include_rules = {
   "accessibility_manager\\.(cc|h)": [
-    "+services/accessibility/buildflags.h",
     "+services/accessibility/public/mojom/assistive_technology_type.mojom.h",
   ],
   "speech_monitor\\.(cc|h)": [

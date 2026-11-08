@@ -5,6 +5,9 @@
 #include "chrome/browser/context_hub/context_hub_service.h"
 
 #include <algorithm>
+#include <cstdint>
+#include <optional>
+#include <ranges>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -13,7 +16,6 @@
 #include "base/barrier_callback.h"
 #include "base/check.h"
 #include "base/check_deref.h"
-#include "base/containers/adapters.h"
 #include "base/containers/flat_map.h"
 #include "base/containers/flat_set.h"
 #include "base/functional/bind.h"
@@ -23,28 +25,38 @@
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/time/time.h"
+#include "base/values.h"
 #include "build/build_config.h"
 #include "chrome/browser/context_hub/auto_todos/auto_todo_entry.h"
 #include "chrome/browser/context_hub/auto_todos/auto_todos_store.h"
 #include "chrome/browser/context_hub/features.h"
 #include "chrome/browser/context_hub/memory_bank/memory_bank.h"
+#include "chrome/browser/context_hub/prefs.h"
 #include "chrome/browser/context_hub/storage/context_hub_backend.h"
 #include "chrome/browser/context_hub/tab_group_store/tab_group_entry.h"
 #include "chrome/browser/context_hub/tab_group_store/tab_group_entry_conversions.h"
 #include "chrome/browser/context_hub/tab_group_store/tab_group_store.h"
+#include "chrome/browser/context_hub/topics/topic_feedback_conversions.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_tab_visit_tracker.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/tab_list/tab_list_interface.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/profile_browser_collection.h"
 #include "components/optimization_guide/core/model_execution/feature_keys.h"
 #include "components/optimization_guide/core/model_execution/optimization_guide_model_execution_error.h"
 #include "components/optimization_guide/core/model_execution/remote_model_executor.h"
 #include "components/optimization_guide/core/model_quality/model_quality_log_entry.h"
 #include "components/optimization_guide/core/optimization_guide_util.h"
 #include "components/optimization_guide/proto/features/context_hub.pb.h"
+#include "components/page_content_annotations/content/embeddings_candidate_generator.h"
 #include "components/page_content_annotations/content/page_content_extraction_service.h"
 #include "components/page_content_annotations/core/page_content_extraction_types.h"
+#include "components/passage_embeddings/core/passage_embeddings_features.h"
 #include "components/personal_context/core/personal_context_service.h"
 #include "components/personal_context/proto/features/auto_todos.pb.h"
 #include "components/personal_context/proto/features/smart_search.pb.h"
+#include "components/prefs/pref_service.h"
+#include "components/prefs/scoped_user_pref_update.h"
 #include "components/saved_tab_groups/public/saved_tab_group.h"
 #include "components/saved_tab_groups/public/tab_group_sync_service.h"
 #include "components/saved_tab_groups/public/types.h"
@@ -56,11 +68,11 @@
 #include "content/public/browser/page.h"
 #include "content/public/browser/web_contents.h"
 #include "net/base/backoff_entry.h"
+#include "third_party/abseil-cpp/absl/functional/overload.h"
 
 #if !BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/tab_list/tab_removed_reason.h"
 #include "chrome/browser/ui/browser_tab_strip_tracker.h"
-#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #endif
 
@@ -168,6 +180,25 @@ ThirdPartyData::GroupType ToThirdPartyGroupType(
   }
 }
 
+std::optional<personal_context::proto::Timestamp> TimeToProtoTimestamp(
+    base::Time time) {
+  if (time < base::Time::UnixEpoch() || time.is_inf()) {
+    return std::nullopt;
+  }
+  const base::TimeDelta since_epoch = time - base::Time::UnixEpoch();
+  personal_context::proto::Timestamp timestamp;
+  timestamp.set_seconds(since_epoch.InSeconds());
+  timestamp.set_nanos(
+      static_cast<int32_t>((since_epoch % base::Seconds(1)).InNanoseconds()));
+  return timestamp;
+}
+
+base::Time ProtoTimestampToTime(
+    const personal_context::proto::Timestamp& timestamp) {
+  return base::Time::FromSecondsSinceUnixEpoch(timestamp.seconds()) +
+         base::Nanoseconds(timestamp.nanos());
+}
+
 personal_context::proto::AutoTodoItem ToAutoTodoItemProto(
     const AutoTodoEntry& entry) {
   personal_context::proto::AutoTodoItem proto;
@@ -188,14 +219,35 @@ personal_context::proto::AutoTodoItem ToAutoTodoItemProto(
   }
   if (const FirstPartyData* first_party =
           std::get_if<FirstPartyData>(&entry.data)) {
-    proto.set_actionable_url(first_party->actionable_url.spec());
+    if (first_party->actionable_url.has_value() &&
+        !first_party->actionable_url->is_empty()) {
+      proto.set_actionable_url(first_party->actionable_url->spec());
+    }
     for (const SourceReference& ref : first_party->source_references) {
       personal_context::proto::SourceReference* source_ref =
           proto.add_source_references();
-      personal_context::proto::GmailReference* gmail_ref =
-          source_ref->mutable_gmail();
-      gmail_ref->set_message_url(ref.url.spec());
-      gmail_ref->set_subject(ref.subject);
+      std::visit(
+          absl::Overload{
+              [source_ref](const GmailReference& gmail) {
+                personal_context::proto::GmailReference* gmail_ref =
+                    source_ref->mutable_gmail();
+                gmail_ref->set_message_url(gmail.url.spec());
+                gmail_ref->set_subject(gmail.subject);
+              },
+              [source_ref](const ChromeHistoryEntry& history_entry) {
+                personal_context::proto::ChromeHistoryEntry* history_proto =
+                    source_ref->mutable_chrome_history_entry();
+                history_proto->set_url(history_entry.url.spec());
+                history_proto->set_title(history_entry.title);
+                if (std::optional<personal_context::proto::Timestamp>
+                        visit_timestamp = TimeToProtoTimestamp(
+                            history_entry.visit_timestamp)) {
+                  *history_proto->mutable_visit_timestamp() =
+                      *std::move(visit_timestamp);
+                }
+              },
+          },
+          ref);
     }
   }
   return proto;
@@ -249,7 +301,13 @@ ContextHubService::ContextHubService(
       tab_group_store_(std::move(tab_group_store)),
       auto_todos_store_(std::move(auto_todos_store)) {
   CHECK(memory_bank_);
+  memory_bank_observation_.Observe(memory_bank_.get());
   identity_manager_observation_.Observe(&identity_manager_.get());
+  // Ratings are only collected during the fishfood experiment. Once the param
+  // is turned off (e.g. via Finch at teardown), wipe anything left behind.
+  if (!features::kTopicsFishfoodFeedback.Get()) {
+    profile_->GetPrefs()->ClearPref(prefs::kContextHubTopicsFishfoodFeedback);
+  }
   if (auto_todos_store_) {
     auto_todos_store_->AddObserver(this);
     // Observe system suspend and resume events so that sleep duration can be
@@ -416,6 +474,24 @@ void ContextHubService::RemoveObserver(Observer* observer) {
 void ContextHubService::OnAutoTodosChanged(
     base::span<const AutoTodoEntry> entries) {
   observers_.Notify(&Observer::OnAutoTodosChanged, entries);
+}
+
+void ContextHubService::OnMemoryBankEntryAdded(const MemoryBankEntry& entry) {
+  observers_.Notify(&Observer::OnMemoryBankEntryAdded, entry);
+}
+
+void ContextHubService::OnMemoryBankEntryUpdated(
+    int64_t id,
+    const std::vector<std::string>& tags,
+    const std::optional<std::string>& note,
+    const std::optional<std::string>& collection) {
+  observers_.Notify(&Observer::OnMemoryBankEntryUpdated, id, tags, note,
+                    collection);
+}
+
+void ContextHubService::OnMemoryBankEntriesDeleted(
+    const std::vector<int64_t>& ids) {
+  observers_.Notify(&Observer::OnMemoryBankEntriesDeleted, ids);
 }
 
 void ContextHubService::GenerateFirstPartyAutoTodos(
@@ -790,12 +866,27 @@ void ContextHubService::OnFirstPartyAutoTodosFetched(
     entry.status = AutoTodoEntry::Status::kActive;
 
     FirstPartyData first_party;
-    first_party.actionable_url = GURL(todo.actionable_url());
-    for (const auto& ref : todo.source_references()) {
+    if (!todo.actionable_url().empty()) {
+      first_party.actionable_url = GURL(todo.actionable_url());
+    }
+    for (const personal_context::proto::SourceReference& ref :
+         todo.source_references()) {
       if (ref.has_gmail()) {
         first_party.source_references.push_back(
-            SourceReference{.url = GURL(ref.gmail().message_url()),
-                            .subject = std::string(ref.gmail().subject())});
+            GmailReference{.url = GURL(ref.gmail().message_url()),
+                           .subject = std::string(ref.gmail().subject())});
+      } else if (ref.has_chrome_history_entry()) {
+        const personal_context::proto::ChromeHistoryEntry& history_proto =
+            ref.chrome_history_entry();
+        ChromeHistoryEntry history_entry{
+            .url = GURL(history_proto.url()),
+            .title = std::string(history_proto.title()),
+        };
+        if (history_proto.has_visit_timestamp()) {
+          history_entry.visit_timestamp =
+              ProtoTimestampToTime(history_proto.visit_timestamp());
+        }
+        first_party.source_references.push_back(std::move(history_entry));
       }
     }
     entry.data = std::move(first_party);
@@ -917,6 +1008,55 @@ ContextHubService::GetTodoFeedbacks() const {
   return feedbacks;
 }
 
+void ContextHubService::SetTopicFeedback(
+    browser::context_hub::mojom::TopicFeedbackPtr feedback) {
+  if (!feedback || !feedback->snapshot || feedback->id.empty()) {
+    return;
+  }
+  // The rating time is a browser-side fact; never trust the WebUI's value.
+  feedback->snapshot->time_rated = base::Time::Now();
+  // TODO(crbug.com/568422896): Cap the number of stored entries (e.g. via a
+  // FeatureParam), evicting the oldest by `time_rated`, and record UMA for
+  // the stored count and eviction frequency.
+  ScopedDictPrefUpdate update(profile_->GetPrefs(),
+                              prefs::kContextHubTopicsFishfoodFeedback);
+  update->Set(feedback->id, TopicFeedbackToDict(*feedback));
+}
+
+void ContextHubService::DeleteTopicFeedback(const std::string& topic_id) {
+  PrefService* pref_service = profile_->GetPrefs();
+  // Avoid scheduling a pref write when there is nothing to remove.
+  if (!pref_service->GetDict(prefs::kContextHubTopicsFishfoodFeedback)
+           .contains(topic_id)) {
+    return;
+  }
+  ScopedDictPrefUpdate update(pref_service,
+                              prefs::kContextHubTopicsFishfoodFeedback);
+  update->Remove(topic_id);
+}
+
+void ContextHubService::ClearTopicFeedbacks() {
+  profile_->GetPrefs()->ClearPref(prefs::kContextHubTopicsFishfoodFeedback);
+}
+
+std::vector<browser::context_hub::mojom::TopicFeedbackPtr>
+ContextHubService::GetTopicFeedbacks() const {
+  std::vector<browser::context_hub::mojom::TopicFeedbackPtr> feedbacks;
+  const base::DictValue& dict =
+      profile_->GetPrefs()->GetDict(prefs::kContextHubTopicsFishfoodFeedback);
+  feedbacks.reserve(dict.size());
+  for (const auto [topic_id, value] : dict) {
+    const base::DictValue* feedback_dict = value.GetIfDict();
+    if (!feedback_dict) {
+      continue;
+    }
+    if (auto feedback = TopicFeedbackFromDict(topic_id, *feedback_dict)) {
+      feedbacks.push_back(std::move(feedback));
+    }
+  }
+  return feedbacks;
+}
+
 void ContextHubService::AddTabGroupChatHistoryTurn(
     optimization_guide::proto::ChatHistoryTurn::Role role,
     std::string_view message_content) {
@@ -933,7 +1073,8 @@ std::vector<optimization_guide::proto::ChatHistoryTurn>
 ContextHubService::GetTabGroupChatHistory() const {
   std::vector<optimization_guide::proto::ChatHistoryTurn> history;
   history.reserve(tab_group_chat_history_cache_.size());
-  for (const auto& [id, turn] : base::Reversed(tab_group_chat_history_cache_)) {
+  for (const auto& [id, turn] :
+       std::views::reverse(tab_group_chat_history_cache_)) {
     history.push_back(turn);
   }
   return history;
@@ -960,7 +1101,7 @@ ContextHubService::GetMemoryBankChatHistory() const {
   std::vector<optimization_guide::proto::ChatHistoryTurn> history;
   history.reserve(memory_bank_chat_history_cache_.size());
   for (const auto& [id, turn] :
-       base::Reversed(memory_bank_chat_history_cache_)) {
+       std::views::reverse(memory_bank_chat_history_cache_)) {
     history.push_back(turn);
   }
   return history;
@@ -999,7 +1140,111 @@ bool ContextHubService::SavePendingMemoryBankEntry(
 void ContextHubService::SaveMemoryBankEntry(
     MemoryBankEntry entry,
     MemoryBank::OperationCompleteCallback callback) {
+  if (base::FeatureList::IsEnabled(
+          context_hub::features::kContextHubTabContextSyncStorage) &&
+      entry.type == MemoryBankType::kTab) {
+    content::WebContents* web_contents = FindWebContentsForUrl(entry.url);
+    if (web_contents) {
+      content::Page& primary_page = web_contents->GetPrimaryPage();
+      base::WeakPtr<content::Page> page_weak_ptr = primary_page.GetWeakPtr();
+      base::WeakPtr<content::WebContents> web_contents_weak_ptr =
+          web_contents->GetWeakPtr();
+
+      page_content_extraction_service_
+          ->GetExtractedPageContentAndEligibilityForPageAsync(
+              primary_page,
+              base::BindOnce(&ContextHubService::
+                                 OnPageContentExtractedForSaveMemoryBankEntry,
+                             weak_factory_.GetWeakPtr(), std::move(entry),
+                             std::move(web_contents_weak_ptr),
+                             std::move(page_weak_ptr), std::move(callback)),
+              /*trigger_if_not_cached=*/true);
+      return;
+    }
+
+    // If no matching WebContents was found, ignore the caller's text and
+    // save with empty/null payload.
+    entry.selected_text = std::nullopt;
+  }
+
   memory_bank_->SaveMemoryBankEntry(std::move(entry), std::move(callback));
+}
+
+void ContextHubService::OnPageContentExtractedForSaveMemoryBankEntry(
+    MemoryBankEntry entry,
+    base::WeakPtr<content::WebContents> web_contents,
+    base::WeakPtr<content::Page> page,
+    MemoryBank::OperationCompleteCallback callback,
+    std::optional<page_content_annotations::ExtractedPageContentResult>
+        result) {
+  if (web_contents && page && page->IsPrimary() &&
+      web_contents->GetLastCommittedURL() == entry.url && result &&
+      result->page_content) {
+    std::vector<
+        std::pair<std::string, page_content_annotations::EmbeddingPassageType>>
+        candidates = page_content_annotations::GenerateEmbeddingsCandidates(
+            result->page_content, passage_embeddings::kMaxPassagesPerPage.Get(),
+            base::UTF16ToUTF8(web_contents->GetTitle()),
+            web_contents->GetLastCommittedURL().spec());
+    if (!candidates.empty()) {
+      std::vector<std::string> candidate_texts;
+      candidate_texts.reserve(candidates.size());
+      for (const auto& candidate : candidates) {
+        candidate_texts.push_back(candidate.first);
+      }
+      entry.selected_text = base::JoinString(candidate_texts, "\n");
+    } else {
+      entry.selected_text = std::nullopt;
+    }
+  } else {
+    entry.selected_text = std::nullopt;
+  }
+
+  memory_bank_->SaveMemoryBankEntry(std::move(entry), std::move(callback));
+}
+
+content::WebContents* ContextHubService::FindWebContentsForUrl(
+    const GURL& url) const {
+  // Note: Looking up a WebContents solely by URL is brittle and not
+  // production-safe since there could be multiple open tabs sharing the same
+  // URL or tabs that have navigated away.
+  ProfileBrowserCollection* collection =
+      ProfileBrowserCollection::GetForProfile(&profile_.get());
+  if (!collection) {
+    return nullptr;
+  }
+
+  // Check the active tab in the last active browser window first.
+  if (BrowserWindowInterface* last_active_browser =
+          collection->GetLastActiveBrowser()) {
+    if (TabListInterface* tab_list =
+            TabListInterface::From(last_active_browser)) {
+      if (tabs::TabInterface* active_tab = tab_list->GetActiveTab()) {
+        if (content::WebContents* contents = active_tab->GetContents()) {
+          if (contents->GetLastCommittedURL() == url) {
+            return contents;
+          }
+        }
+      }
+    }
+  }
+
+  // Fall back to scanning all tabs across all browser windows for this profile.
+  content::WebContents* matching_contents = nullptr;
+  collection->ForEach([&](BrowserWindowInterface* browser) {
+    if (TabListInterface* tab_list = TabListInterface::From(browser)) {
+      for (tabs::TabInterface* tab : tab_list->GetAllTabs()) {
+        if (tab && tab->GetContents() &&
+            tab->GetContents()->GetLastCommittedURL() == url) {
+          matching_contents = tab->GetContents();
+          return false;  // Stop iterating.
+        }
+      }
+    }
+    return true;
+  });
+
+  return matching_contents;
 }
 
 void ContextHubService::UpdateMemoryBankEntryAnnotations(
@@ -1056,6 +1301,25 @@ void ContextHubService::DeleteAllTabGroups(base::OnceClosure callback) {
   }
 }
 
+void ContextHubService::ReplaceTabGroups(std::vector<TabGroupEntry> groups,
+                                         base::OnceClosure callback) {
+  if (!tab_group_store_) {
+    std::move(callback).Run();
+    return;
+  }
+  tab_group_store_->DeleteAllGroups(base::BindOnce(
+      [](base::WeakPtr<ContextHubService> self,
+         std::vector<TabGroupEntry> groups, base::OnceClosure callback) {
+        if (!self || !self->tab_group_store_) {
+          std::move(callback).Run();
+          return;
+        }
+        self->tab_group_store_->AddAllGroups(std::move(groups),
+                                             std::move(callback));
+      },
+      weak_factory_.GetWeakPtr(), std::move(groups), std::move(callback)));
+}
+
 void ContextHubService::ConfirmAllTabGroups(
     ConfirmAllTabGroupsCallback callback) {
   if (!tab_group_store_) {
@@ -1092,14 +1356,12 @@ std::vector<base::Uuid> ContextHubService::AddTabGroupsToSyncService(
 void ContextHubService::OnAllTabGroupsFetchedForConfirmation(
     ConfirmAllTabGroupsCallback callback,
     std::vector<TabGroupEntry> groups) {
-  std::vector<base::Uuid> added_group_guids =
-      AddTabGroupsToSyncService(groups);
-  DeleteAllTabGroups(base::BindOnce(
-      std::move(callback), true, std::move(added_group_guids)));
+  std::vector<base::Uuid> added_group_guids = AddTabGroupsToSyncService(groups);
+  DeleteAllTabGroups(
+      base::BindOnce(std::move(callback), true, std::move(added_group_guids)));
 }
 
-std::vector<TabGroupEntry>
-ContextHubService::GetConfirmedTabGroups() const {
+std::vector<TabGroupEntry> ContextHubService::GetConfirmedTabGroups() const {
   std::vector<tab_groups::SavedTabGroup> groups =
       tab_group_sync_service_->GetAllGroups();
   // Filter out closed or remotely synced tab groups that do not have active
@@ -1113,8 +1375,8 @@ ContextHubService::GetConfirmedTabGroups() const {
   return FromSavedTabGroups(groups);
 }
 
-std::optional<TabGroupEntry>
-ContextHubService::GetConfirmedTabGroup(const base::Uuid& group_guid) const {
+std::optional<TabGroupEntry> ContextHubService::GetConfirmedTabGroup(
+    const base::Uuid& group_guid) const {
   std::optional<tab_groups::SavedTabGroup> group =
       tab_group_sync_service_->GetGroup(group_guid);
   if (!group.has_value()) {
@@ -1227,7 +1489,7 @@ void ContextHubService::ExecuteMemoryBankChat(
   std::string_view trimmed_command =
       base::TrimWhitespaceASCII(user_command, base::TRIM_ALL);
   if (trimmed_command.empty()) {
-    std::move(callback).Run(std::nullopt);
+    std::move(callback).Run(std::nullopt, {});
     return;
   }
 
@@ -1259,20 +1521,19 @@ void ContextHubService::OnMemoryBankEntriesFetched(
   }
 
   request.set_user_command(user_command);
-  if (save_to_history) {
-    AddMemoryBankChatHistoryTurn(
-        optimization_guide::proto::ChatHistoryTurn::ROLE_USER, user_command);
-  }
 
   optimization_guide_remote_model_executor_->ExecuteModel(
       optimization_guide::ModelBasedCapabilityKey::kContextHub, request,
       optimization_guide::ModelExecutionOptions(),
       base::BindOnce(
           &ContextHubService::HandleMemoryBankChatModelExecutionResult,
-          weak_factory_.GetWeakPtr(), save_to_history, std::move(callback)));
+          weak_factory_.GetWeakPtr(), std::move(entries), user_command,
+          save_to_history, std::move(callback)));
 }
 
 void ContextHubService::HandleMemoryBankChatModelExecutionResult(
+    std::vector<MemoryBankEntry> entries,
+    const std::string& user_command,
     bool save_to_history,
     MemoryBankChatCallback callback,
     optimization_guide::OptimizationGuideModelExecutionResult result,
@@ -1283,19 +1544,48 @@ void ContextHubService::HandleMemoryBankChatModelExecutionResult(
         optimization_guide::proto::ContextHubResponse>(*result.response);
   }
   if (!response || !response->has_memory_bank_chat_response()) {
-    std::move(callback).Run(std::nullopt);
+    if (!result.response.has_value() &&
+        result.response.error().error() ==
+            optimization_guide::OptimizationGuideModelExecutionError::
+                ModelExecutionError::kRequestThrottled) {
+      std::move(callback).Run(
+          "Unable to generate response due to high server load. Please try "
+          "again later.",
+          {});
+      return;
+    }
+    std::move(callback).Run(std::nullopt, {});
     return;
   }
 
-  std::string text_response =
-      response->memory_bank_chat_response().text_response();
+  const optimization_guide::proto::MemoryBankChatResponse& chat_response =
+      response->memory_bank_chat_response();
+  std::string text_response = chat_response.text_response();
   if (save_to_history && !text_response.empty()) {
+    AddMemoryBankChatHistoryTurn(
+        optimization_guide::proto::ChatHistoryTurn::ROLE_USER, user_command);
     AddMemoryBankChatHistoryTurn(
         optimization_guide::proto::ChatHistoryTurn::ROLE_ASSISTANT,
         text_response);
   }
 
-  std::move(callback).Run(std::move(text_response));
+  std::vector<MemoryBankChatCitation> citations;
+  base::flat_set<GURL> seen_urls;
+  for (int32_t index : chat_response.cited_entry_indices()) {
+    if (index < 0 || static_cast<size_t>(index) >= entries.size()) {
+      continue;
+    }
+    const MemoryBankEntry& entry = entries[index];
+    if (!entry.url.is_valid() || !seen_urls.insert(entry.url).second) {
+      continue;
+    }
+    citations.push_back(MemoryBankChatCitation{
+        .title = entry.tab_title.empty() ? entry.url.spec() : entry.tab_title,
+        .url = entry.url,
+    });
+  }
+
+  std::move(callback).Run(std::move(text_response), std::move(citations));
 }
 
 void ContextHubService::HandleTabGroupModelExecutionResult(
@@ -1363,17 +1653,7 @@ void ContextHubService::HandleTabGroupModelExecutionResult(
     }
   }
 
-  if (tab_group_store_) {
-    tab_group_store_->DeleteAllGroups(base::BindOnce(
-        [](base::WeakPtr<ContextHubService> self,
-           std::vector<TabGroupEntry> groups) {
-          if (self && self->tab_group_store_) {
-            self->tab_group_store_->AddAllGroups(std::move(groups),
-                                                 base::DoNothing());
-          }
-        },
-        weak_factory_.GetWeakPtr(), groups));
-  }
+  ReplaceTabGroups(groups, base::DoNothing());
 
   std::vector<TabData> ungrouped_tabs;
   for (context_hub::TabData& tab : tabs) {

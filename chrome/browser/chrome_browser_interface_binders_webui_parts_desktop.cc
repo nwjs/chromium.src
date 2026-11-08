@@ -25,7 +25,6 @@
 #include "chrome/browser/ui/lens/lens_side_panel_untrusted_ui.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/side_panel/history/history_side_panel_coordinator.h"
-#include "chrome/browser/ui/views/side_panel/tabs_from_other_devices/tabs_from_other_devices_side_panel_coordinator.h"
 #include "chrome/browser/ui/webui/access_code_cast/access_code_cast.mojom.h"
 #include "chrome/browser/ui/webui/access_code_cast/access_code_cast_ui.h"
 #include "chrome/browser/ui/webui/app_service_internals/app_service_internals.mojom.h"
@@ -58,15 +57,15 @@
 #include "chrome/browser/ui/webui/new_tab_page/new_tab_page.mojom.h"
 #include "chrome/browser/ui/webui/new_tab_page/new_tab_page_ui.h"
 #include "chrome/browser/ui/webui/new_tab_page/ntp_promo/ntp_promo.mojom.h"
-#include "chrome/browser/ui/webui/new_tab_page_third_party/new_tab_page_third_party_ui.h"
 #include "chrome/browser/ui/webui/ntp_microsoft_auth/ntp_microsoft_auth_untrusted_ui.h"
-#include "chrome/browser/ui/webui/omnibox/logging/logs.mojom.h"
-#include "chrome/browser/ui/webui/omnibox/omnibox_ui.h"
 #include "chrome/browser/ui/webui/omnibox_everywhere/debug/omnibox_everywhere_debug.mojom.h"
 #include "chrome/browser/ui/webui/omnibox_everywhere/mojom/omnibox_everywhere.mojom.h"
 #include "chrome/browser/ui/webui/omnibox_everywhere/omnibox_everywhere_ui.h"
+#include "chrome/browser/ui/webui/omnibox_internals/logging/logs.mojom.h"
+#include "chrome/browser/ui/webui/omnibox_internals/omnibox_internals_ui.h"
 #include "chrome/browser/ui/webui/omnibox_popup/omnibox_popup_ui.h"
 #include "chrome/browser/ui/webui/on_device_internals/on_device_internals_ui.h"
+#include "chrome/browser/ui/webui/organizer_panel/foreign_tabs.mojom.h"
 #include "chrome/browser/ui/webui/organizer_panel/organizer_panel_ui.h"
 #include "chrome/browser/ui/webui/organizer_panel/tab_groups.mojom.h"
 #include "chrome/browser/ui/webui/page_action_internals/page_action_internals.mojom.h"
@@ -86,7 +85,6 @@
 #include "chrome/browser/ui/webui/side_panel/read_anything/read_anything_untrusted_ui.h"
 #include "chrome/browser/ui/webui/side_panel/reading_list/reading_list.mojom.h"
 #include "chrome/browser/ui/webui/side_panel/reading_list/reading_list_ui.h"
-#include "chrome/browser/ui/webui/side_panel/tabs_from_other_devices/tabs_from_other_devices_side_panel_ui.h"
 #include "chrome/browser/ui/webui/tab_search/tab_search.mojom.h"
 #include "chrome/browser/ui/webui/tab_search/tab_search_ui.h"
 #include "chrome/browser/ui/webui/user_education_internals/user_education_internals_ui.h"
@@ -252,16 +250,8 @@ void PopulateChromeWebUIFrameBindersPartsDesktop(
     RegisterWebUIControllerInterfaceBinder<history::mojom::PageHandler,
                                            HistoryUI>(map);
   }
-  if (TabsFromOtherDevicesSidePanelCoordinator::IsSupported(
-          Profile::FromBrowserContext(
-              render_frame_host->GetBrowserContext()))) {
-    RegisterWebUIControllerInterfaceBinder<
-        history::mojom::ForeignSessionPageHandlerFactory, HistoryUI,
-        TabsFromOtherDevicesSidePanelUI>(map);
-  } else {
-    RegisterWebUIControllerInterfaceBinder<
-        history::mojom::ForeignSessionPageHandlerFactory, HistoryUI>(map);
-  }
+  RegisterWebUIControllerInterfaceBinder<
+      history::mojom::ForeignSessionPageHandlerFactory, HistoryUI>(map);
 
   RegisterWebUIControllerInterfaceBinder<
       infobar_internals::mojom::PageHandlerFactory, InfoBarInternalsUI>(map);
@@ -488,7 +478,7 @@ void PopulateChromeWebUIFrameBindersPartsDesktop(
 
   if (is_contextual_tasks_enabled) {
     RegisterWebUIControllerInterfaceBinder<
-        omnibox::logging::mojom::PageHandlerFactory, OmniboxUI>(map);
+        omnibox::logging::mojom::PageHandlerFactory, OmniboxInternalsUI>(map);
   }
 
   // Registering bindings for all WebUIControllers, even if only one of the
@@ -599,6 +589,7 @@ void PopulateChromeWebUIFrameInterfaceBrokersTrustedPartsDesktop(
       .Add<tab_search::mojom::PageHandlerFactory>()
       .Add<tab_search::mojom::SearchHandler>();
   registry.ForWebUI<OrganizerPanelUI>()
+      .Add<organizer_panel::mojom::ForeignTabsPageHandlerFactory>()
       .Add<organizer_panel::mojom::PageHandlerFactory>()
       .Add<tab_search::mojom::PageHandlerFactory>()
       .Add<tab_search::mojom::SearchHandler>()
@@ -610,10 +601,6 @@ void PopulateChromeWebUIFrameInterfaceBrokersTrustedPartsDesktop(
         .Add<new_tab_footer::mojom::NewTabFooterHandlerFactory>()
         .Add<help_bubble::mojom::HelpBubbleHandlerFactory>();
   }
-
-  registry.ForWebUI<NewTabPageThirdPartyUI>()
-      .Add<most_visited::mojom::MostVisitedPageHandlerFactory>()
-      .Add<new_tab_page_third_party::mojom::PageHandlerFactory>();
 
   if (base::FeatureList::IsEnabled(
           omnibox::kComposeboxDriveContextMenuOption)) {
@@ -645,9 +632,7 @@ void PopulateChromeWebUIFrameInterfaceBrokersTrustedPartsDesktop(
         .Add<tabs_api::mojom::TabStripUIController>();
   }
 
-  if (features::IsWebUIToolbarEnabled() ||
-      base::FeatureList::IsEnabled(
-          features::kWebUIToolbarProcessOverheadExperiment)) {
+  if (features::IsWebUIToolbarEnabled()) {
     registry.ForWebUI<WebUIToolbarUI>()
         .Add<browser_controls_api::mojom::BrowserControlsService>()
         .Add<toolbar_ui_api::mojom::ToolbarUIService>()

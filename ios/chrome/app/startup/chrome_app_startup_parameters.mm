@@ -4,7 +4,6 @@
 
 #import "ios/chrome/app/startup/chrome_app_startup_parameters.h"
 
-#import "base/apple/bundle_locations.h"
 #import "base/apple/foundation_util.h"
 #import "base/check.h"
 #import "base/metrics/histogram_functions.h"
@@ -62,7 +61,7 @@ void LogWidgetKitAction(WidgetKitExtensionAction action) {
   UmaHistogramEnumeration(kWidgetKitActionHistogram, action);
 }
 
-// LINT.IfChange(IsShowDefaultBrowserSettings)
+// LINT.IfChange
 // TODO(crbug.com/462018636): This code will be soon migrated to
 // task_request_url_context.mm, so any change should be reflected also there.
 // Contact fedegermi for additional information or support.
@@ -73,7 +72,7 @@ TabOpeningPostOpeningAction XCallbackPoaToPostOpeningAction(
   }
   return NO_ACTION;
 }
-// LINT.ThenChange(//ios/chrome/app/task_request_url_context.mm:IsShowDefaultBrowserSettings)
+// LINT.ThenChange(//ios/chrome/app/task_request_url_context.mm)
 
 }  // namespace
 
@@ -111,10 +110,10 @@ TabOpeningPostOpeningAction XCallbackPoaToPostOpeningAction(
     return nil;
   }
 
-  // LINT.IfChange(WidgetKitScheme)
+  // LINT.IfChange
   // TODO(crbug.com/462018636): This code will be soon migrated to
-  // task_request_url_context.mm, so any change should be reflected also there.
-  // Contact fedegermi for additional information or support.
+  // task_request_for_widget_url_context.mm, so any change should be reflected
+  // also there. Contact fedegermi for additional information or support.
   if ([completeURL.scheme isEqualToString:kWidgetKitSchemeChrome]) {
     UMA_HISTOGRAM_ENUMERATION(kUMAMobileSessionStartActionHistogram,
                               START_ACTION_WIDGET_KIT_COMMAND,
@@ -180,11 +179,12 @@ TabOpeningPostOpeningAction XCallbackPoaToPostOpeningAction(
                      forceApplicationMode:forceApplicationMode];
     appStartupParameters.openedViaWidgetScheme = YES;
     return appStartupParameters;
-    // LINT.ThenChange(//ios/chrome/app/task_request_url_context.mm:WidgetKitScheme)
-    // LINT.IfChange(XCallbackURL)
+    // LINT.ThenChange(//ios/chrome/app/task_request_for_widget_url_context.mm)
+    // LINT.IfChange
     // TODO(crbug.com/462018636): This code will be soon migrated to
-    // task_request_url_context.mm, so any change should be reflected also
-    // there. Contact fedegermi for additional information or support.
+    // task_request_for_xcallback_url_context.mm, so any change should be
+    // reflected also there. Contact fedegermi for additional information or
+    // support.
   } else if (IsXCallbackURL(parsedURL)) {
     base::UmaHistogramEnumeration(kAppLaunchSource,
                                   AppLaunchSource::X_CALLBACK);
@@ -215,7 +215,7 @@ TabOpeningPostOpeningAction XCallbackPoaToPostOpeningAction(
     UMA_HISTOGRAM_ENUMERATION(kUMAMobileSessionStartActionHistogram,
                               START_ACTION_XCALLBACK_OPEN,
                               MOBILE_SESSION_START_ACTION_COUNT);
-    // LINT.ThenChange(//ios/chrome/app/task_request_url_context.mm:XCallbackURL)
+    // LINT.ThenChange(//ios/chrome/app/task_request_for_xcallback_url_context.mm)
 
     std::map<std::string, std::string> parameters =
         ExtractQueryParametersFromXCallbackURL(parsedURL);
@@ -254,10 +254,11 @@ TabOpeningPostOpeningAction XCallbackPoaToPostOpeningAction(
         [self startupParametersForExternalActionWithAppID:appID
                                               completeURL:completeURL
                                      forceApplicationMode:forceApplicationMode];
-    // LINT.IfChange(SimpleURLContext)
+    // LINT.IfChange
     // TODO(crbug.com/462018636): This code will be soon migrated to
-    // task_request_url_context.mm, so any change should be reflected also
-    // there. Contact fedegermi for additional information or support.
+    // task_request_for_standard_url_context.mm, so any change should be
+    // reflected also there. Contact fedegermi for additional information or
+    // support.
   } else if (parsedURL.SchemeIsFile()) {
     UMA_HISTOGRAM_ENUMERATION(kUMAMobileSessionStartActionHistogram,
                               START_ACTION_OPEN_FILE,
@@ -320,7 +321,7 @@ TabOpeningPostOpeningAction XCallbackPoaToPostOpeningAction(
                                     AppLaunchSource::LINK_OPENED_FROM_OS);
       LogOpenHTTPURLFromExternalURL();
     }
-    // LINT.ThenChange(//ios/chrome/app/task_request_for_url_context_simple.mm:SimpleURLContext)
+    // LINT.ThenChange(//ios/chrome/app/task_request_for_standard_url_context.mm)
 
     if (!externalURL.is_valid()) {
       return nil;
@@ -375,10 +376,10 @@ TabOpeningPostOpeningAction XCallbackPoaToPostOpeningAction(
 // Returns the correct startup parameters for a given external action passed as
 // path to the external action "scheme". Returns nil (no-op) if the action is
 // not recognized.
-// LINT.IfChange(ExternalAction)
+// LINT.IfChange
 // TODO(crbug.com/462018636): This code will be soon migrated to
-// task_request_url_context.mm, so any change should be reflected also
-// there. Contact fedegermi for additional information or support.
+// task_request_for_standard_url_context.mm, so any change should be reflected
+// also there. Contact fedegermi for additional information or support.
 + (instancetype)startupParametersForExternalActionWithAppID:(NSString*)appID
                                                 completeURL:(NSURL*)completeURL
                                        forceApplicationMode:
@@ -436,7 +437,7 @@ TabOpeningPostOpeningAction XCallbackPoaToPostOpeningAction(
                                                         kGeminiAppStorePromoURL)
                                forceApplicationMode:forceApplicationMode];
     params.postOpeningAction = TRIGGER_GEMINI_PROMO;
-  } else if (IsAppSwitcherAISummarizationEnabled() &&
+  } else if (IsAppSwitcherAISummarizationTestingExternalURLEnabled() &&
              [path isEqualToString:kExternalActionAppSwitcherTesting]) {
     // TODO(crbug.com/527016607): Remove this entire testing path when the
     // feature is enabled by default.
@@ -474,7 +475,7 @@ TabOpeningPostOpeningAction XCallbackPoaToPostOpeningAction(
   params.openedViaFirstPartyScheme = IsCallerAppFirstParty(params.callerApp);
   return params;
 }
-// LINT.ThenChange(//ios/chrome/app/task_request_for_standard_url_context.mm:ExternalAction)
+// LINT.ThenChange(//ios/chrome/app/task_request_for_standard_url_context.mm)
 
 + (instancetype)startupParametersForExtensionCommandWithURL:(NSURL*)URL
                                           sourceApplication:(NSString*)appID
@@ -773,10 +774,10 @@ TabOpeningPostOpeningAction XCallbackPoaToPostOpeningAction(
     action = ACTION_NO_ACTION;
   }
 
-  // LINT.IfChange(WidgetKitAction)
+  // LINT.IfChange
   // TODO(crbug.com/462018636): This code will be soon migrated to
-  // task_request_url_context.mm, so any change should be reflected also there.
-  // Contact fedegermi for additional information or support.
+  // task_request_for_widget_url_context.mm, so any change should be reflected
+  // also there. Contact fedegermi for additional information or support.
   if ([secureAppID isEqualToString:kWidgetKitHostSearchWidget]) {
     LogWidgetKitAction(WidgetKitExtensionAction::ACTION_SEARCH_WIDGET_SEARCH);
   }
@@ -852,75 +853,15 @@ TabOpeningPostOpeningAction XCallbackPoaToPostOpeningAction(
     base::RecordAction(base::UserMetricsAction(
         "MobileSearchPasswordsWidgetOpenPasswordManager"));
   }
-  // LINT.ThenChange(//ios/chrome/app/task_request_url_context.mm:WidgetKitScheme)
+  // LINT.ThenChange(//ios/chrome/app/task_request_for_widget_url_context.mm)
   return params;
 }
 
-// LINT.IfChange(GetCallerApp)
-// TODO(crbug.com/462018636): This code will be soon migrated to
-// task_request_url_context.mm, so any change should be reflected also there.
-// Contact fedegermi for additional information or support.
 - (MobileSessionCallerApp)callerApp {
-  if ([_secureSourceApp
-          isEqualToString:app_group::kOpenCommandSourceShareExtension]) {
-    return CALLER_APP_GOOGLE_CHROME_SHARE_EXTENSION;
-  }
-  if ([_secureSourceApp
-          isEqualToString:app_group::kOpenCommandSourceOpenExtension]) {
-    return CALLER_APP_GOOGLE_CHROME_OPEN_EXTENSION;
-  }
-
-  if (![_declaredSourceApp length]) {
-    if (self.completeURL.SchemeIs(url::kHttpScheme) ||
-        self.completeURL.SchemeIs(url::kHttpsScheme)) {
-      // If Chrome is opened via the system default browser mechanism, the
-      // action should be differentiated from the case where the source is
-      // unknown.
-      return CALLER_APP_THIRD_PARTY;
-    }
-    return CALLER_APP_NOT_AVAILABLE;
-  }
-
-  if ([_declaredSourceApp
-          isEqualToString:[base::apple::FrameworkBundle() bundleIdentifier]]) {
-    return CALLER_APP_GOOGLE_CHROME;
-  }
-  if ([_declaredSourceApp isEqualToString:@"com.google.GoogleMobile"]) {
-    return CALLER_APP_GOOGLE_SEARCH;
-  }
-  if ([_declaredSourceApp isEqualToString:@"com.google.Gmail"]) {
-    return CALLER_APP_GOOGLE_GMAIL;
-  }
-  if ([_declaredSourceApp isEqualToString:@"com.google.GooglePlus"]) {
-    return CALLER_APP_GOOGLE_PLUS;
-  }
-  if ([_declaredSourceApp isEqualToString:@"com.google.Drive"]) {
-    return CALLER_APP_GOOGLE_DRIVE;
-  }
-  if ([_declaredSourceApp isEqualToString:@"com.google.b612"]) {
-    return CALLER_APP_GOOGLE_EARTH;
-  }
-  if ([_declaredSourceApp isEqualToString:@"com.google.ios.youtube"]) {
-    return CALLER_APP_GOOGLE_YOUTUBE;
-  }
-  if ([_declaredSourceApp isEqualToString:@"com.google.Maps"]) {
-    return CALLER_APP_GOOGLE_MAPS;
-  }
-  if ([_declaredSourceApp hasPrefix:@"com.google."]) {
-    return CALLER_APP_GOOGLE_OTHER;
-  }
-  if ([_declaredSourceApp isEqualToString:@"com.apple.mobilesafari"]) {
-    return CALLER_APP_APPLE_MOBILESAFARI;
-  }
-  if ([_declaredSourceApp hasPrefix:@"com.apple."]) {
-    return CALLER_APP_APPLE_OTHER;
-  }
-
-  return CALLER_APP_OTHER;
+  return GetCallerApp(_declaredSourceApp, _secureSourceApp, self.completeURL);
 }
-// LINT.ThenChange(//ios/chrome/app/task_request_url_context.mm:GetCallerApp)
 
-// LINT.IfChange(GetLaunchSource)
+// LINT.IfChange
 // TODO(crbug.com/462018636): This code will be soon migrated to
 // task_request_url_context.mm, so any change should be reflected also there.
 // Contact fedegermi for additional information or support.
@@ -958,6 +899,6 @@ TabOpeningPostOpeningAction XCallbackPoaToPostOpeningAction(
   }
   return first_run::LAUNCH_BY_SMARTAPPBANNER;
 }
-// LINT.ThenChange(//ios/chrome/app/task_request_url_context.mm:GetLaunchSource)
+// LINT.ThenChange(//ios/chrome/app/task_request_url_context.mm)
 
 @end

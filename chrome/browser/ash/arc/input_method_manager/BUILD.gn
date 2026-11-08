@@ -19,8 +19,6 @@ static_library("input_method_manager") {
     "input_method_prefs.h",
   ]
 
-  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
-
   deps = [
     "//ash",
     "//ash/public/cpp",
@@ -62,7 +60,6 @@ source_set("unit_tests") {
     "//base",
     "//base/test:test_support",
     "//chrome/browser/ash/arc/input_overlay/db/proto",
-    "//chrome/browser/ui",
     "//chrome/browser/ui/ash/keyboard:ash_test_support",
     "//chrome/common",
     "//chrome/test:test_support",

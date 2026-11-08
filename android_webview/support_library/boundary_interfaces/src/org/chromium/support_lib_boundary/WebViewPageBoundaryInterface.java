@@ -6,8 +6,12 @@ package org.chromium.support_lib_boundary;
 
 import org.jspecify.annotations.NullMarked;
 
+import java.lang.reflect.InvocationHandler;
+
 /** Boundary interface for WebViewPage. */
 @NullMarked
 public interface WebViewPageBoundaryInterface extends IsomorphicObjectBoundaryInterface {
     String getUrl();
+
+    /* WebViewPageState */ InvocationHandler snapshotState();
 }

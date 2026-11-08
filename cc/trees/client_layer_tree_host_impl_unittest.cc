@@ -708,7 +708,7 @@ TEST_P(ClientModeLayerTreeHostImplTest,
 }
 
 TEST_P(ClientModeLayerTreeHostImplTest,
-       CommitScheduledOnAnimatedImageAdvanceWithCanvasChildId) {
+       CommitScheduledOnAnimatedImageAdvanceWithCanvasDrawableId) {
   // Invalidation should never run outside the impl frame.
   auto args = viz::CreateBeginFrameArgsForTesting(BEGINFRAME_FROM_HERE, 0, 1,
                                                   base::TimeTicks::Now());
@@ -728,13 +728,13 @@ TEST_P(ClientModeLayerTreeHostImplTest,
       recording_source->CreateRasterSource();
 
   // 2. Setup tree.
-  ElementId canvas_child_id(0x12345);
+  ElementId canvas_drawable_id(0x12345);
   if (!CommitsToActiveTree()) {
     CreatePendingTree();
   }
   FakePictureLayerImpl* sync_layer = SetupRootLayer<FakePictureLayerImpl>(
       host_impl_->sync_tree(), layer_bounds);
-  sync_layer->SetCanvasChildId(canvas_child_id);
+  sync_layer->SetCanvasDrawableId(canvas_drawable_id);
   sync_layer->SetRasterSource(raster_source, Region());
   UpdateDrawProperties(host_impl_->sync_tree());
   FakePictureLayerImpl* active_layer;
@@ -747,7 +747,7 @@ TEST_P(ClientModeLayerTreeHostImplTest,
     UpdateDrawProperties(host_impl_->active_tree());
   }
 
-  EXPECT_EQ(canvas_child_id, active_layer->canvas_child_id());
+  EXPECT_EQ(canvas_drawable_id, active_layer->canvas_drawable_id());
 
   // 3. Make the image visible so it can animate.
   gfx::Rect visible_rect(0, 0, 100, 100);
@@ -782,7 +782,7 @@ TEST_P(ClientModeLayerTreeHostImplTest,
 
   client_host_impl(host_impl_.get())->InvalidateContentOnImplSide();
 
-  // Now it should have advanced, and since it has canvas_child_id, it should
+  // Now it should have advanced, and since it has canvas_drawable_id, it should
   // have scheduled a commit.
   EXPECT_TRUE(did_request_commit_);
 
@@ -867,58 +867,11 @@ TEST_P(ClientModeLayerTreeHostImplTest, NonCompositedScrollUsesRaster) {
 INSTANTIATE_CLIENT_MODE_TREE_TEST_P(ClientModeLayerTreeHostImplTest);
 
 TEST_P(LayerTreeHostImplTestMultiScrollable,
-       ScrollbarFlashAfterAnyScrollUpdate) {
-  LayerTreeSettings settings = DefaultSettings();
-  settings.scrollbar_fade_delay = base::Milliseconds(500);
-  settings.scrollbar_fade_duration = base::Milliseconds(300);
-  settings.scrollbar_animator = LayerTreeSettings::AURA_OVERLAY;
-  settings.scrollbar_flash_after_any_scroll_update = true;
-  settings.scrollbar_flash_once_after_scroll_update = false;
-
-  SetUpLayers(settings);
-
-  EXPECT_EQ(scrollbar_1_->Opacity(), 0);
-  EXPECT_EQ(scrollbar_2_->Opacity(), 0);
-
-  // Scroll on root should flash all scrollbars.
-  GetInputHandler().RootScrollBegin(
-      BeginState(gfx::Point(20, 20), gfx::Vector2dF(0, 10),
-                 ui::ScrollInputType::kWheel)
-          .get(),
-      ui::ScrollInputType::kWheel);
-  GetInputHandler().ScrollUpdate(UpdateState(
-      gfx::Point(20, 20), gfx::Vector2d(0, 10), ui::ScrollInputType::kWheel));
-  GetInputHandler().ScrollEnd(/*should_snap=*/false, std::nullopt);
-
-  EXPECT_TRUE(scrollbar_1_->Opacity());
-  EXPECT_TRUE(scrollbar_2_->Opacity());
-
-  EXPECT_FALSE(animation_task_.is_null());
-  ResetScrollbars();
-
-  // Scroll on child should flash all scrollbars.
-  GetInputHandler().ScrollBegin(
-      BeginState(gfx::Point(70, 70), gfx::Vector2dF(0, 100),
-                 ui::ScrollInputType::kWheel)
-          .get(),
-      ui::ScrollInputType::kWheel);
-  GetInputHandler().ScrollUpdate(
-      AnimatedUpdateState(gfx::Point(70, 70), gfx::Vector2d(0, 100)));
-  GetInputHandler().ScrollEnd(/*should_snap=*/false, std::nullopt);
-
-  EXPECT_TRUE(scrollbar_1_->Opacity());
-  EXPECT_TRUE(scrollbar_2_->Opacity());
-
-  EXPECT_FALSE(animation_task_.is_null());
-}
-
-TEST_P(LayerTreeHostImplTestMultiScrollable,
        ScrollbarFlashOnceAfterAnyScrollUpdate) {
   LayerTreeSettings settings = DefaultSettings();
   settings.scrollbar_fade_delay = base::Milliseconds(500);
   settings.scrollbar_fade_duration = base::Milliseconds(300);
   settings.scrollbar_animator = LayerTreeSettings::AURA_OVERLAY;
-  settings.scrollbar_flash_after_any_scroll_update = false;
   settings.scrollbar_flash_once_after_scroll_update = true;
 
   SetUpLayers(settings);
@@ -980,7 +933,6 @@ TEST_P(LayerTreeHostImplTestMultiScrollable,
   settings.scrollbar_fade_delay = base::Milliseconds(500);
   settings.scrollbar_fade_duration = base::Milliseconds(300);
   settings.scrollbar_animator = LayerTreeSettings::AURA_OVERLAY;
-  settings.scrollbar_flash_after_any_scroll_update = false;
   settings.scrollbar_flash_once_after_scroll_update = false;
   settings.scrollbar_flash_once_visible_on_viewport = true;
 

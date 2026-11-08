@@ -26,10 +26,10 @@ export function getHtml(this: ComposeboxDropdownElement) {
                   aria-label="${this.computeAriaLabel_(match)}"
                   exportparts="match-text-container, match-container,
                       match-icon-container, match-focus-indicator,
-                      match-icon, match-remove-button, match-contents,
-                      match-description"
+                      match-icon, match-remove-button, match-primary-text,
+                      match-secondary-text"
                   style="--loading-bar-animation-delay: ${index + 1};"
-                  tabindex="0"
+                  tabindex="${this.isMatchLoading_(match) ? -1 : 0}"
                   role="option"
                   .match="${match}"
                   .matchIndex="${index}"
@@ -40,7 +40,8 @@ export function getHtml(this: ComposeboxDropdownElement) {
                       this.richImageSuggestionsEnabled}"
                   ?selected="${this.isSelected_(index)}"
                   ?is-last="${this.isLastMatch_(index)}"
-                  ?hidden="${this.isMatchHidden_(index)}">
+                  ?hidden="${this.isMatchHidden_(index)}"
+                  ?loading="${this.isMatchLoading_(match)}">
               </cr-composebox-match>
             </div>
           `)}
@@ -55,8 +56,8 @@ export function getHtml(this: ComposeboxDropdownElement) {
                 aria-label="${this.computeAriaLabel_(item)}"
                 exportparts="match-text-container, match-container,
                     match-icon-container, match-focus-indicator,
-                    match-icon, match-remove-button, match-contents,
-                    match-description"
+                    match-icon, match-remove-button, match-primary-text,
+                    match-secondary-text"
                 style="--loading-bar-animation-delay: ${index + 1};"
                 tabindex="0"
                 role="option"

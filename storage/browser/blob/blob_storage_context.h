@@ -97,14 +97,11 @@ class COMPONENT_EXPORT(STORAGE_BROWSER) BlobStorageContext
   std::unique_ptr<BlobDataHandle> AddFinishedBlob(
       const std::string& uuid,
       const std::string& content_type,
-      const std::string& content_disposition,
       std::vector<scoped_refptr<ShareableBlobDataItem>> items);
 
-  std::unique_ptr<BlobDataHandle> AddBrokenBlob(
-      const std::string& uuid,
-      const std::string& content_type,
-      const std::string& content_disposition,
-      BlobStatus reason);
+  std::unique_ptr<BlobDataHandle> AddBrokenBlob(const std::string& uuid,
+                                                const std::string& content_type,
+                                                BlobStatus reason);
 
   size_t blob_count() const { return registry_.blob_count(); }
 
@@ -140,7 +137,6 @@ class COMPONENT_EXPORT(STORAGE_BROWSER) BlobStorageContext
   std::unique_ptr<BlobDataHandle> AddFutureBlob(
       const std::string& uuid,
       const std::string& content_type,
-      const std::string& content_disposition,
       BuildAbortedCallback build_aborted_callback);
 
   // Same as BuildBlob, but for a blob that was previously registered by calling
@@ -192,8 +188,8 @@ class COMPONENT_EXPORT(STORAGE_BROWSER) BlobStorageContext
 
   enum class TransportQuotaType { MEMORY, FILE };
 
-  void IncrementBlobRefCount(const std::string& uuid);
-  void DecrementBlobRefCount(const std::string& uuid);
+  void IncrementBlobHandleCount(const std::string& uuid);
+  void DecrementBlobHandleCount(const std::string& uuid);
 
   // This will return an empty snapshot until the blob is complete.
   // TODO(dmurph): After we make the snapshot method in BlobHandle private, then
@@ -219,21 +215,22 @@ class COMPONENT_EXPORT(STORAGE_BROWSER) BlobStorageContext
 
  private:
   std::unique_ptr<BlobDataHandle> BuildBlobInternal(
-      BlobEntry* entry,
+      scoped_refptr<BlobEntry> entry,
       std::unique_ptr<BlobDataBuilder> input_builder,
       TransportAllowedCallback transport_allowed_callback);
 
   std::unique_ptr<BlobDataHandle> CreateHandle(const std::string& uuid,
-                                               BlobEntry* entry);
+                                               scoped_refptr<BlobEntry> entry);
 
-  void NotifyTransportCompleteInternal(BlobEntry* entry);
+  void NotifyTransportCompleteInternal(scoped_refptr<BlobEntry> entry);
 
-  void CancelBuildingBlobInternal(BlobEntry* entry, BlobStatus reason);
+  void CancelBuildingBlobInternal(scoped_refptr<BlobEntry> entry,
+                                  BlobStatus reason);
 
-  void FinishBuilding(BlobEntry* entry);
+  void FinishBuilding(scoped_refptr<BlobEntry> entry);
 
   void RequestTransport(
-      BlobEntry* entry,
+      scoped_refptr<BlobEntry> entry,
       std::vector<BlobMemoryController::FileCreationInfo> files);
 
   // The files array is empty for memory quota request responses.
@@ -247,8 +244,6 @@ class COMPONENT_EXPORT(STORAGE_BROWSER) BlobStorageContext
   void OnDependentBlobFinished(const std::string& owning_blob_uuid,
                                BlobStatus reason);
 
-  void ClearAndFreeMemory(BlobEntry* entry);
-
   // base::trace_event::MemoryDumpProvider implementation.
   bool OnMemoryDump(const base::trace_event::MemoryDumpArgs& args,
                     base::trace_event::ProcessMemoryDump* pmd) override;
@@ -257,9 +252,6 @@ class COMPONENT_EXPORT(STORAGE_BROWSER) BlobStorageContext
   void RegisterFromDataItem(mojo::PendingReceiver<blink::mojom::Blob> blob,
                             const std::string& uuid,
                             mojom::BlobDataItemPtr item) override;
-  void RegisterFromMemory(mojo::PendingReceiver<::blink::mojom::Blob> blob,
-                          const std::string& uuid,
-                          mojo_base::BigBuffer data) override;
   void WriteBlobToFile(mojo::PendingRemote<::blink::mojom::Blob> blob,
                        const base::FilePath& path,
                        bool flush_on_write,

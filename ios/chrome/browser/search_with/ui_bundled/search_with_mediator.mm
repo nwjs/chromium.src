@@ -13,6 +13,7 @@
 #import "base/strings/sys_string_conversions.h"
 #import "components/enterprise/data_controls/core/browser/features.h"
 #import "components/omnibox/browser/aim_eligibility_service.h"
+#import "components/prefs/pref_service.h"
 #import "components/search_engines/template_url.h"
 #import "components/search_engines/template_url_service.h"
 #import "ios/chrome/browser/browser_content/ui_bundled/browser_edit_menu_utils.h"
@@ -83,35 +84,31 @@ void LogSelectedNumberChar(NSUInteger textLength) {
   raw_ptr<AimEligibilityService> _aimEligibilityService;
   // The browser agent for cobrowse.
   raw_ptr<CobrowseBrowserAgent> _cobrowseBrowserAgent;
+  // The profile preference service.
+  raw_ptr<PrefService> _prefService;
 }
 
 - (instancetype)
     initWithTemplateURLService:(TemplateURLService*)templateURLService
          aimEligibilityService:(AimEligibilityService*)aimEligibilityService
           cobrowseBrowserAgent:(CobrowseBrowserAgent*)cobrowseBrowserAgent
+                   prefService:(PrefService*)prefService
                      incognito:(BOOL)incognito {
   if ((self = [super init])) {
     _incognito = incognito;
     _templateURLService = templateURLService;
     _aimEligibilityService = aimEligibilityService;
     _cobrowseBrowserAgent = cobrowseBrowserAgent;
+    _prefService = prefService;
   }
   return self;
-}
-
-- (instancetype)initWithTemplateURLService:
-                    (TemplateURLService*)templateURLService
-                                 incognito:(BOOL)incognito {
-  return [self initWithTemplateURLService:templateURLService
-                    aimEligibilityService:nullptr
-                     cobrowseBrowserAgent:nullptr
-                                incognito:incognito];
 }
 
 - (void)shutdown {
   _templateURLService = nullptr;
   _aimEligibilityService = nullptr;
   _cobrowseBrowserAgent = nullptr;
+  _prefService = nullptr;
 }
 
 #pragma mark - Private
@@ -284,12 +281,13 @@ void LogSelectedNumberChar(NSUInteger textLength) {
   LogSelectedNumberChar([text length]);
 
   if (isDefaultSearchEngineGoogle && !incognito && _cobrowseBrowserAgent &&
-      IsAimCobrowseWebSelectionSearchEligible(_aimEligibilityService)) {
+      IsAimCobrowseWebSelectionSearchEligible(_aimEligibilityService,
+                                              _prefService)) {
     CobrowseContext* context =
         [CobrowseContext cobrowseContextWithSearchQuery:text];
     _cobrowseBrowserAgent->SetCobrowseContext(context);
     _cobrowseBrowserAgent->SetSessionActive(true);
-    [self.sceneHandler showAssistant];
+    [self.sceneHandler showAssistantWithNewSession];
     return;
   }
 

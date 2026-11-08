@@ -7,12 +7,12 @@
  */
 
 // clang-format off
-import type { PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
+import type {PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 import {dedupingMixin} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 
 import type {ContentSettingsTypes} from './constants.js';
 import {SiteSettingSource} from './constants.js';
-import type {RawSiteException,SiteException,SiteSettingsBrowserProxy} from './site_settings_browser_proxy.js';
+import type {RawSiteException, SiteException, SiteSettingsBrowserProxy} from './site_settings_browser_proxy.js';
 import {SiteSettingsBrowserProxyImpl} from './site_settings_browser_proxy.js';
 // clang-format on
 
@@ -29,22 +29,10 @@ export const SiteSettingsMixin = dedupingMixin(
              * for. See site_settings/constants.js for possible values.
              */
             category: String,
-
-            /**
-             * A cached list of ContentSettingsTypes with a standard
-             * allow-block-ask pattern that are currently enabled for use. This
-             * property is the same across all elements with SiteSettingsMixin
-             * ('static').
-             */
-            contentTypes_: {
-              type: Array,
-              value: [],
-            },
           };
         }
 
         declare category: ContentSettingsTypes;
-        declare private contentTypes_: ContentSettingsTypes[];
         browserProxy: SiteSettingsBrowserProxy;
 
         constructor(...args: any[]) {

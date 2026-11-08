@@ -141,6 +141,8 @@ AiOverlayDialogUntrustedUI::AiOverlayDialogUntrustedUI(content::WebUI* web_ui)
   html_source->AddBoolean(
       "useMes", base::FeatureList::IsEnabled(features::kAiOverlayDialog) &&
                     features::kAiOverlayDialogUseMes.Get());
+  html_source->AddBoolean("enablePageTools",
+                          features::kAiOverlayDialogPageTools.Get());
   html_source->AddBoolean("aiOverlayDisableNavigationContext",
                           base::FeatureList::IsEnabled(
                               features::kAiOverlayDisableNavigationContext));
@@ -178,8 +180,8 @@ void AiOverlayDialogUntrustedUI::CreatePageHandler(
   page_context_monitor_ =
       std::make_unique<PageContextMonitor>(*bwi, *page_handler_);
 
-  tools_ = std::make_unique<AiOverlayTools>(std::move(tools), bwi,
-                                            page_context_monitor_.get());
+  tools_ = AiOverlayTools::Create(std::move(tools), bwi,
+                                  page_context_monitor_.get());
 }
 
 }  // namespace ttc

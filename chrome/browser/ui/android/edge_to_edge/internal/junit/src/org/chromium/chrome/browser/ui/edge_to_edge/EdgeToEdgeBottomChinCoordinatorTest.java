@@ -17,6 +17,7 @@ import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 
+import org.chromium.base.ContextUtils;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.chrome.browser.browser_controls.BottomControlsStacker;
 import org.chromium.chrome.browser.fullscreen.FullscreenManager;
@@ -27,7 +28,6 @@ import org.chromium.ui.insets.InsetObserver;
 @RunWith(BaseRobolectricTestRunner.class)
 public class EdgeToEdgeBottomChinCoordinatorTest {
     @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
-    @Mock private View mView;
     @Mock private KeyboardVisibilityDelegate mKeyboardVisibilityDelegate;
     @Mock private InsetObserver mInsetObserver;
     @Mock private LayoutManager mLayoutManager;
@@ -35,6 +35,8 @@ public class EdgeToEdgeBottomChinCoordinatorTest {
     @Mock private BottomControlsStacker mBottomControlsStacker;
     @Mock private EdgeToEdgeBottomChinSceneLayer mEdgeToEdgeBottomChinSceneLayer;
     @Mock private FullscreenManager mFullscreenManager;
+
+    private final View mView = new View(ContextUtils.getApplicationContext());
 
     @Test
     public void testEdgeToEdgeBottomChinCoordinator() {

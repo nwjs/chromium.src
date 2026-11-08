@@ -55,7 +55,7 @@ bool IsWebUiHostInDevUiDfm(const std::string& host) {
          host == chrome::kChromeUINTPTilesInternalsHost ||
          host == chrome::kChromeUINetExportHost ||
          host == chrome::kChromeUINetInternalsHost ||
-         host == chrome::kChromeUIOmniboxHost ||
+         host == chrome::kChromeUIOmniboxInternalsHost ||
          host == chrome::kChromeUIPasswordManagerInternalsHost ||
          host == chrome::kChromeUIPolicyHost ||
          host == chrome::kChromeUIPredictorsHost ||
@@ -112,7 +112,7 @@ bool DevUiLoaderThrottle::ShouldInstallDevUiDfm(const GURL& url) {
 // static
 void DevUiLoaderThrottle::MaybeCreateAndAdd(
     content::NavigationThrottleRegistry& registry) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M161);
   auto& handle = registry.GetNavigationHandle();
   if (!handle.IsInPrimaryMainFrame()) {
     return;

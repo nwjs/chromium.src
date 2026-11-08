@@ -53,6 +53,7 @@
 #include "chrome/browser/ui/startup/first_run_service.h"
 #include "chrome/browser/ui/startup/first_run_test_util.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
+#include "chrome/browser/ui/toolbar/avatar_toolbar_iph_controller.h"
 #include "chrome/browser/ui/toolbar/pinned_toolbar/pinned_toolbar_actions_model.h"
 #include "chrome/browser/ui/views/profiles/avatar_toolbar_button.h"
 #include "chrome/browser/ui/views/profiles/feature_showcase/feature_showcase_constants.h"
@@ -995,6 +996,14 @@ class FirstRunInteractiveUiBaseTest
                  PressJsButton(kWebContentsId, GetWelcomeAcceptButtonQuery()));
   }
 
+  auto SkipDefaultBrowserStep() {
+    return Steps(
+        WaitForWebContentsNavigation(
+            kWebContentsId, GURL(chrome::kChromeUIIntroDefaultBrowserURL)),
+        EnsurePresent(kWebContentsId, GetSkipDefaultBrowserButtonQuery()),
+        PressJsButton(kWebContentsId, GetSkipDefaultBrowserButtonQuery()));
+  }
+
   InteractiveTestApi::MultiStep DeclineHistorySync() {
     if (syncer::IsReplaceSyncPromosWithSignInPromosEnabled()) {
       return Steps(
@@ -1156,15 +1165,8 @@ class FirstRunBackNavigationInteractiveUiTest
   std::unique_ptr<base::AutoReset<bool>> scoped_chrome_build_override_;
 };
 
-// TODO(crbug.com/366119368): Re-enable this test
-#if BUILDFLAG(IS_WIN)
-#define MAYBE_BackNavigationDisabledOnSteps \
-  DISABLED_BackNavigationDisabledOnSteps
-#else
-#define MAYBE_BackNavigationDisabledOnSteps BackNavigationDisabledOnSteps
-#endif
 IN_PROC_BROWSER_TEST_P(FirstRunBackNavigationInteractiveUiTest,
-                       MAYBE_BackNavigationDisabledOnSteps) {
+                       BackNavigationDisabledOnSteps) {
   base::test::TestFuture<bool> proceed_future;
 
   ASSERT_TRUE(IsProfileNameDefault());
@@ -1262,16 +1264,10 @@ class WithTestSyncServiceMixin : public T {
 using FirstRunInteractiveUiTestWithSyncService =
     WithTestSyncServiceMixin<FirstRunInteractiveUiTest>;
 
-// TODO(crbug.com/366119368): Re-enable this test
-#if BUILDFLAG(IS_WIN)
-#define MAYBE_SignIn DISABLED_SignIn
-#else
-#define MAYBE_SignIn SignIn
-#endif
 // Simplified version of the Signin flow in the FRE, without the Search Engine
 // Choice and Default Browser screen showing. For the full flow, check
 // `FirstRunParameterizedInteractiveUiTest_SignInAndSync` test below.
-IN_PROC_BROWSER_TEST_P(FirstRunInteractiveUiTestWithSyncService, MAYBE_SignIn) {
+IN_PROC_BROWSER_TEST_P(FirstRunInteractiveUiTestWithSyncService, SignIn) {
   ASSERT_TRUE(IsProfileNameDefault());
 
   base::test::TestFuture<bool> proceed_future;
@@ -1305,6 +1301,10 @@ IN_PROC_BROWSER_TEST_P(FirstRunInteractiveUiTestWithSyncService, MAYBE_SignIn) {
              GURL(chrome::kChromeUIIntroURL)
                  .Resolve(chrome::kChromeUIIntroSignInCelebrationSubPage)))),
       DeclineHistorySync(),
+#if BUILDFLAG(IS_WIN)
+      If([this]() { return !UseRevampedView(); },
+         Then(SkipDefaultBrowserStep())),
+#endif  // BUILDFLAG(IS_WIN)
       If([this]() { return UseRevampedView(); },
          Then(CompleteFinishOrContinueStep())));
 
@@ -1338,7 +1338,12 @@ IN_PROC_BROWSER_TEST_P(FirstRunInteractiveUiTestWithSyncService, MAYBE_SignIn) {
     ++expected_step_shown_duration_count;
     ++expected_step_total_duration_count;
   } else {
+#if BUILDFLAG(IS_WIN)
+    ExpectStepHistograms(Step::kDefaultBrowser, /*shown=*/true);
+    ++expected_step_shown_duration_count;
+#else
     ExpectStepHistograms(Step::kDefaultBrowser, /*shown=*/false);
+#endif  // BUILDFLAG(IS_WIN)
   }
   if (UsePreFirstRunRefreshedView()) {
     ExpectStepHistograms(Step::kWelcome, /*shown=*/true);
@@ -1395,12 +1400,7 @@ IN_PROC_BROWSER_TEST_P(FirstRunInteractiveUiTestWithSyncService,
       DeclineHistorySync(),
 #if BUILDFLAG(IS_WIN)
       If([this]() { return !UseRevampedView(); },
-         Then(
-             WaitForWebContentsNavigation(
-                 kWebContentsId, GURL(chrome::kChromeUIIntroDefaultBrowserURL)),
-             EnsurePresent(kWebContentsId, GetSkipDefaultBrowserButtonQuery()),
-             PressJsButton(kWebContentsId,
-                           GetSkipDefaultBrowserButtonQuery()))),
+         Then(SkipDefaultBrowserStep())),
 #endif  // BUILDFLAG(IS_WIN)
       If([this]() { return UseRevampedView(); },
          Then(CompleteFinishOrContinueStep())));
@@ -1698,9 +1698,8 @@ IN_PROC_BROWSER_TEST_P(FirstRunParameterizedInteractiveUiTest, GoToSettings) {
                        /*with_exit=*/false, /*count=*/0);
 }
 
-// TODO(crbug.com/366119368): Re-enable this test
 // TODO(crbug.com/525637007): Test is flaky on Linux TSan bots.
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX)
+#if BUILDFLAG(IS_LINUX)
 #define MAYBE_PeekAndDeclineSignIn DISABLED_PeekAndDeclineSignIn
 #else
 #define MAYBE_PeekAndDeclineSignIn PeekAndDeclineSignIn
@@ -1791,14 +1790,8 @@ IN_PROC_BROWSER_TEST_P(FirstRunParameterizedInteractiveUiTest,
                        /*with_exit=*/false, /*count=*/0);
 }
 
-// TODO(crbug.com/366119368): Re-enable this test
-#if BUILDFLAG(IS_WIN)
-#define MAYBE_DeclineProfileManagement DISABLED_DeclineProfileManagement
-#else
-#define MAYBE_DeclineProfileManagement DeclineProfileManagement
-#endif
 IN_PROC_BROWSER_TEST_P(FirstRunParameterizedInteractiveUiTest,
-                       MAYBE_DeclineProfileManagement) {
+                       DeclineProfileManagement) {
   base::test::TestFuture<bool> proceed_future;
 
   policy::UserPolicySigninServiceFactory::GetInstance()->SetTestingFactory(
@@ -1953,7 +1946,7 @@ IN_PROC_BROWSER_TEST_P(FirstRunParameterizedInteractiveUiTestWithSyncService,
   }
 
   auto iph_delay =
-      AvatarToolbarButton::SetScopedIPHMinDelayAfterCreationForTesting(
+      AvatarToolbarIphController::SetScopedIPHMinDelayAfterCreationForTesting(
           base::Seconds(0));
   base::test::TestFuture<bool> proceed_future;
 
@@ -2170,7 +2163,7 @@ IN_PROC_BROWSER_TEST_P(FirstRunParameterizedInteractiveUiTestWithSyncService,
     GTEST_SKIP() << "Decline is not possible until buttons stop loading";
   }
   auto iph_delay =
-      AvatarToolbarButton::SetScopedIPHMinDelayAfterCreationForTesting(
+      AvatarToolbarIphController::SetScopedIPHMinDelayAfterCreationForTesting(
           base::Seconds(0));
   base::test::TestFuture<bool> proceed_future;
 
@@ -2723,14 +2716,8 @@ class FirstRunInSearchChoiceRegionInteractiveUiTest
   std::unique_ptr<base::AutoReset<bool>> scoped_chrome_build_override_;
 };
 
-// TODO(crbug.com/366119368): Re-enable this test. (FRE does not open on Win)
-#if BUILDFLAG(IS_WIN)
-#define MAYBE_SkipChoiceScreenDynamically DISABLED_SkipChoiceScreenDynamically
-#else
-#define MAYBE_SkipChoiceScreenDynamically SkipChoiceScreenDynamically
-#endif
 IN_PROC_BROWSER_TEST_P(FirstRunInSearchChoiceRegionInteractiveUiTest,
-                       MAYBE_SkipChoiceScreenDynamically) {
+                       SkipChoiceScreenDynamically) {
   ASSERT_TRUE(IsProfileNameDefault());
   ASSERT_TRUE(fre_service()->ShouldOpenFirstRun());
 
@@ -2767,7 +2754,13 @@ IN_PROC_BROWSER_TEST_P(FirstRunInSearchChoiceRegionInteractiveUiTest,
       InstrumentNonTabWebView(kWebContentsId, web_view()),
       CompleteIntroStep(/*sign_in=*/false),
       If([this]() { return !IsParamFeatureEnabled(); },
-         Then(CompleteSearchEngineChoiceStep())));
+         Then(CompleteSearchEngineChoiceStep()))
+#if BUILDFLAG(IS_WIN)
+          ,
+      If([this]() { return !UseRevampedView(); },
+         Then(SkipDefaultBrowserStep()))
+#endif  // BUILDFLAG(IS_WIN)
+  );
 
   WaitForPickerClosed();
 
@@ -4039,14 +4032,8 @@ class FirstRunFeatureShowcaseInteractiveUiTest
   }
 };
 
-// TODO(crbug.com/366119368): Re-enable this test
-#if BUILDFLAG(IS_WIN)
-#define MAYBE_FeatureShowcaseAcceptSteps DISABLED_FeatureShowcaseAcceptSteps
-#else
-#define MAYBE_FeatureShowcaseAcceptSteps FeatureShowcaseAcceptSteps
-#endif
 IN_PROC_BROWSER_TEST_F(FirstRunFeatureShowcaseInteractiveUiTest,
-                       MAYBE_FeatureShowcaseAcceptSteps) {
+                       FeatureShowcaseAcceptSteps) {
   ASSERT_TRUE(fre_service()->ShouldOpenFirstRun());
 
   base::test::TestFuture<bool> proceed_future;
@@ -4145,16 +4132,8 @@ IN_PROC_BROWSER_TEST_F(FirstRunFeatureShowcaseInteractiveUiTest,
 using FirstRunFeatureShowcaseWithSyncInteractiveUiTest =
     WithTestSyncServiceMixin<FirstRunFeatureShowcaseInteractiveUiTest>;
 
-// TODO(crbug.com/366119368): Re-enable this test
-#if BUILDFLAG(IS_WIN)
-#define MAYBE_FeatureShowcaseSkipPasswordManagerIfPinned \
-  DISABLED_FeatureShowcaseSkipPasswordManagerIfPinned
-#else
-#define MAYBE_FeatureShowcaseSkipPasswordManagerIfPinned \
-  FeatureShowcaseSkipPasswordManagerIfPinned
-#endif
 IN_PROC_BROWSER_TEST_F(FirstRunFeatureShowcaseWithSyncInteractiveUiTest,
-                       MAYBE_FeatureShowcaseSkipPasswordManagerIfPinned) {
+                       FeatureShowcaseSkipPasswordManagerIfPinned) {
   ASSERT_TRUE(fre_service()->ShouldOpenFirstRun());
 
   PinnedToolbarActionsModel* model = PinnedToolbarActionsModel::Get(profile());
@@ -4233,18 +4212,15 @@ IN_PROC_BROWSER_TEST_F(FirstRunFeatureShowcaseWithSyncInteractiveUiTest,
                                       "DefaultBrowser",
                                       /*eligible=*/true, /*shown=*/true,
                                       FeatureShowcaseStepUserAction::kAccepted);
-  ExpectFeatureShowcaseStepHistograms(
-      FeatureShowcaseStep::kThemesAndCustomization, "ThemesAndCustomization",
-      /*eligible=*/false, /*shown=*/false);
 #else
   ExpectFeatureShowcaseStepHistograms(FeatureShowcaseStep::kDefaultBrowser,
                                       "DefaultBrowser",
                                       /*eligible=*/false, /*shown=*/false);
+#endif
   ExpectFeatureShowcaseStepHistograms(
       FeatureShowcaseStep::kThemesAndCustomization, "ThemesAndCustomization",
       /*eligible=*/true, /*shown=*/true,
       FeatureShowcaseStepUserAction::kAccepted);
-#endif
 
   ExpectFeatureShowcaseStepHistograms(FeatureShowcaseStep::kGoogleLens,
                                       "GoogleLens",
@@ -4278,16 +4254,8 @@ class FirstRunFeatureShowcaseWithGeminiInteractiveUiTest
   base::test::ScopedFeatureList scoped_feature_list_gemini_;
 };
 
-// TODO(crbug.com/366119368): Re-enable this test
-#if BUILDFLAG(IS_WIN)
-#define MAYBE_FeatureShowcaseGeminiExcludesGoogleLens \
-  DISABLED_FeatureShowcaseGeminiExcludesGoogleLens
-#else
-#define MAYBE_FeatureShowcaseGeminiExcludesGoogleLens \
-  FeatureShowcaseGeminiExcludesGoogleLens
-#endif
 IN_PROC_BROWSER_TEST_F(FirstRunFeatureShowcaseWithGeminiInteractiveUiTest,
-                       MAYBE_FeatureShowcaseGeminiExcludesGoogleLens) {
+                       FeatureShowcaseGeminiExcludesGoogleLens) {
   ASSERT_TRUE(fre_service()->ShouldOpenFirstRun());
 
   base::test::TestFuture<bool> proceed_future;

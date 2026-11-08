@@ -12,18 +12,19 @@
 
 #include "partition_alloc/partition_alloc.h"
 #include "partition_alloc/partition_alloc_base/component_export.h"
+#include "partition_alloc/partition_alloc_public_constants.h"
 #include "partition_alloc/shim/allocator_dispatch.h"
 #include "partition_alloc/shim/allocator_shim.h"
 
 namespace allocator_shim {
 
+inline constexpr size_t kDefaultPartitionIndex = 0;
 #if PA_BUILDFLAG(ENABLE_AUTO_PARTITIONING)
+inline constexpr size_t kPointerPartitionIndex = 1;
 inline constexpr size_t kNumPartitions = 2;
 #else
 inline constexpr size_t kNumPartitions = 1;
 #endif
-inline constexpr size_t kDefaultPartitionIndex = 0;
-inline constexpr size_t kPointerPartitionIndex = 1;
 
 namespace internal {
 
@@ -86,6 +87,12 @@ class PartitionAllocFunctionsInternal {
                                      size_t alignment,
                                      AllocToken alloc_token,
                                      void* context);
+
+  static void* AlignedCallocUnchecked(size_t n,
+                                      size_t size,
+                                      size_t alignment,
+                                      AllocToken alloc_token,
+                                      void* context);
 
   static void* AlignedRealloc(void* address,
                               size_t size,
@@ -176,6 +183,7 @@ class PartitionAllocFunctionsInternal {
 #endif
         &AlignedAlloc,             // aligned_malloc_function
         &AlignedAllocUnchecked,    // aligned_malloc_unchecked_function
+        &AlignedCallocUnchecked,   // aligned_calloc_unchecked_function
         &AlignedRealloc,           // aligned_realloc_function
         &AlignedReallocUnchecked,  // aligned_realloc_unchecked_function
         &AlignedFree,              // aligned_free_function
@@ -254,20 +262,20 @@ PA_ALWAYS_INLINE void ConfigurePartitionsForTesting() {
       partition_alloc::internal::SchedulerLoopQuarantineConfig();
   auto scheduler_loop_quarantine_thread_local_config =
       partition_alloc::internal::SchedulerLoopQuarantineConfig();
-  auto scheduler_loop_quarantine_for_advanced_memory_safety_checks_config =
+  auto scheduler_loop_quarantine_for_sanitized_object_config =
       partition_alloc::internal::SchedulerLoopQuarantineConfig();
 
   auto eventually_zero_freed_memory = EventuallyZeroFreedMemory(false);
   auto enable_tighter_aligned_alloc_bound =
       EnableTighterAlignedAllocBound(false);
 
-  ConfigurePartitions(
-      enable_brp, brp_extra_extras_size, enable_memory_tagging,
-      memory_tagging_reporting_mode, distribution,
-      scheduler_loop_quarantine_global_config,
-      scheduler_loop_quarantine_thread_local_config,
-      scheduler_loop_quarantine_for_advanced_memory_safety_checks_config,
-      eventually_zero_freed_memory, enable_tighter_aligned_alloc_bound);
+  ConfigurePartitions(enable_brp, brp_extra_extras_size, enable_memory_tagging,
+                      memory_tagging_reporting_mode, distribution,
+                      scheduler_loop_quarantine_global_config,
+                      scheduler_loop_quarantine_thread_local_config,
+                      scheduler_loop_quarantine_for_sanitized_object_config,
+                      eventually_zero_freed_memory,
+                      enable_tighter_aligned_alloc_bound);
 }
 #endif  // PA_BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC)
 

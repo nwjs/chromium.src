@@ -1062,6 +1062,12 @@ void XMLHttpRequest::CreateRequest(scoped_refptr<EncodedFormData> http_body,
   request.SetSkipServiceWorker(world_ && world_->IsIsolatedWorld());
   if (trust_token_params_)
     request.SetTrustTokenParams(*trust_token_params_);
+  // Sync requests from workers are not allowed to bypass limits as this enables
+  // probing of the socket pool capacity. See https://crbug.com/563817431.
+  request.SetRequiresLoadIgnoreLimits(
+      !async_ && (!base::FeatureList::IsEnabled(
+                      features::kRequiresLoadIgnoreLimitsForDomWindowsOnly) ||
+                  GetExecutionContext()->IsWindow()));
 
   probe::WillLoadXHR(&execution_context, method_, url_, async_,
                      request_headers_, with_credentials_);
@@ -1075,7 +1081,8 @@ void XMLHttpRequest::CreateRequest(scoped_refptr<EncodedFormData> http_body,
   if (request_headers_.size() > 0)
     request.AddHTTPHeaderFields(request_headers_);
 
-  ResourceLoaderOptions resource_loader_options(world_);
+  ResourceLoaderOptions resource_loader_options =
+      ResourceLoaderOptions::CreateForTargetWorld(world_.Get());
   resource_loader_options.initiator_info.name =
       fetch_initiator_type_names::kXmlhttprequest;
   if (blob_url_loader_factory_) {

@@ -9,8 +9,8 @@ import static androidx.test.espresso.matcher.ViewMatchers.assertThat;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
-import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.verify;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 import android.app.Activity;
 import android.graphics.drawable.ColorDrawable;
@@ -76,7 +76,7 @@ public class SuggestionListViewBinderUnitTest {
                 (OmniboxSuggestionsContainer)
                         LayoutInflater.from(mActivity)
                                 .inflate(R.layout.suggestions_result_container, /* root= */ null);
-        mDropdown = spy(mContainer.findViewById(R.id.omnibox_suggestions_dropdown));
+        mDropdown = mContainer.findViewById(R.id.omnibox_suggestions_dropdown);
 
         PropertyModelChangeProcessor.create(
                 mListModel,
@@ -204,20 +204,29 @@ public class SuggestionListViewBinderUnitTest {
 
     @Test
     public void suggestionList_resetSelectionWhenItemsInserted() {
+        var controller =
+                (RecyclerViewSelectionController) mDropdown.getSelectionControllerForTesting();
+        controller.addVirtualView(0, isSelected -> {});
+        assertTrue(mDropdown.selectFirstItem());
+        assertEquals(Integer.valueOf(0), mDropdown.getSelectedIndex());
+
         List<ListItem> suggestionsList = new ArrayList<>();
         suggestionsList.add(mDropdownItem);
         mSuggestionModels.set(suggestionsList);
-        verify(mDropdown).resetSelection();
+        assertNull(mDropdown.getSelectedIndex());
     }
 
     @Test
     public void selectionMode() {
         mListModel.set(SuggestionListProperties.SELECTION_MODE, TraversalMode.WRAPPING);
-        verify(mDropdown).setSelectionMode(TraversalMode.WRAPPING);
+        assertEquals(
+                TraversalMode.WRAPPING, mDropdown.getSelectionControllerForTesting().mMode);
 
         mListModel.set(
                 SuggestionListProperties.SELECTION_MODE, TraversalMode.WRAPPING_WITH_SENTINEL);
-        verify(mDropdown).setSelectionMode(TraversalMode.WRAPPING_WITH_SENTINEL);
+        assertEquals(
+                TraversalMode.WRAPPING_WITH_SENTINEL,
+                mDropdown.getSelectionControllerForTesting().mMode);
     }
 
     @Test

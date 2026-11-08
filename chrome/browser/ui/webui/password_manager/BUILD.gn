@@ -34,7 +34,6 @@ source_set("password_manager_ui_handler") {
 source_set("notification_card") {
   sources = [ "notification_card.cc" ]
   public = [ "notification_card.h" ]
-  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
   deps = [
     "//base",
     "//chrome/browser/profiles:profile",
@@ -53,7 +52,6 @@ source_set("notification_card") {
 source_set("notification_cards_handler") {
   sources = [ "notification_cards_handler.cc" ]
   public = [ "notification_cards_handler.h" ]
-  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
   deps = [
     ":notification_card",
     "//base",
@@ -61,6 +59,7 @@ source_set("notification_cards_handler") {
     "//chrome/browser/extensions/api/passwords_private",
     "//chrome/browser/lifetime",
     "//chrome/browser/profiles:profile",
+    "//chrome/browser/signin",
     "//chrome/browser/sync",
     "//chrome/browser/ui/webui/password_manager/notification_cards",
     "//chrome/browser/webauthn",
@@ -68,6 +67,8 @@ source_set("notification_cards_handler") {
     "//components/os_crypt/common",
     "//components/password_manager/core/common",
     "//components/prefs",
+    "//components/signin/public/base",
+    "//components/signin/public/identity_manager",
     "//content/public/browser",
     "//ui/base",
   ]
@@ -85,7 +86,6 @@ source_set("password_manager_ui") {
   public_deps = [
     ":mojo_bindings",
     ":password_manager_ui_handler",
-    "//chrome/browser:browser_public_dependencies",
     "//content/public/browser",
     "//mojo/public/cpp/bindings",
     "//ui/webui",
@@ -155,6 +155,7 @@ source_set("unit_tests") {
     "//components/password_manager/core/browser",
     "//components/password_manager/core/browser/features:password_features",
     "//components/password_manager/core/browser/password_store:test_support",
+    "//components/signin/public/base",
     "//content/test:test_support",
     "//testing/gmock",
     "//testing/gtest",

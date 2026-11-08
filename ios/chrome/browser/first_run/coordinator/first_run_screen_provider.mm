@@ -4,7 +4,6 @@
 
 #import "ios/chrome/browser/first_run/coordinator/first_run_screen_provider.h"
 
-#import "base/feature_list.h"
 #import "base/notreached.h"
 #import "components/regional_capabilities/regional_capabilities_service.h"
 #import "ios/chrome/app/tests_hook.h"

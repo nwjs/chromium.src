@@ -27,6 +27,7 @@
 #include "base/task/current_thread.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/test/bind.h"
+#include "base/test/scoped_feature_list.h"
 #include "base/test/test_future.h"
 #include "base/test/test_mock_time_task_runner.h"
 #include "base/test/with_feature_override.h"
@@ -42,6 +43,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/signin/account_consistency_mode_manager.h"
+#include "chrome/browser/signin/account_preview_data_service_factory.h"
 #include "chrome/browser/signin/account_reconcilor_factory.h"
 #include "chrome/browser/signin/chrome_device_id_helper.h"
 #include "chrome/browser/signin/chrome_signin_client_test_util.h"
@@ -80,11 +82,13 @@
 #include "components/content_settings/core/common/content_settings.h"
 #include "components/embedder_support/user_agent_utils.h"
 #include "components/feature_engagement/public/feature_list.h"
+#include "components/keyed_service/content/browser_context_dependency_manager.h"
 #include "components/prefs/pref_service.h"
 #include "components/search/ntp_features.h"
 #include "components/signin/core/browser/account_reconcilor.h"
 #include "components/signin/core/browser/dice_header_helper.h"
 #include "components/signin/core/browser/signin_header_helper.h"
+#include "components/signin/core/browser/test_account_preview_data_service.h"
 #include "components/signin/public/base/account_consistency_method.h"
 #include "components/signin/public/base/consent_level.h"
 #include "components/signin/public/base/signin_buildflags.h"
@@ -270,6 +274,9 @@ std::unique_ptr<HttpResponse> HandleSigninURL(
           main_email.c_str(), kAuthorizationCode);
     }
     http_response->AddCustomHeader(kDiceResponseHeader, header_value_to_add);
+    // Like Gaia, set the Gaia cookies on sign-in.
+    http_response->AddCustomHeader(
+        "Set-Cookie", "SAPISID=fake; Path=/; Secure; Max-Age=86400");
   }
 
   // When hitting the Chrome Sync endpoint, redirect to kEnableSyncURL, which
@@ -574,6 +581,9 @@ class DiceBrowserTest : public InProcessBrowserTest,
   void SetUpCommandLine(base::CommandLine* command_line) override {
     const GURL& base_url = https_server_.base_url();
     command_line->AppendSwitchASCII(switches::kGaiaUrl, base_url.spec());
+    // Make the test server the Google origin as well, so that the cookies it
+    // sets are Gaia cookies, as observed by the Gaia cookie listener.
+    command_line->AppendSwitchASCII(switches::kGoogleUrl, base_url.spec());
     command_line->AppendSwitchASCII(switches::kGoogleApisUrl, base_url.spec());
     command_line->AppendSwitchASCII(switches::kLsoUrl, base_url.spec());
   }
@@ -1441,8 +1451,10 @@ IN_PROC_BROWSER_TEST_F(DiceBrowserTest, ProfileSignInBeforeToken) {
       https_server_.GetURL(kEnableSyncURL));
 
   // Signin using the Chrome Sync endpoint.
-  SigninViewController::From(browser())->ShowSignin(
-      signin_metrics::AccessPoint::kSettings);
+  SigninViewController::From(browser())->ShowDiceEnableSyncTab(
+      signin_metrics::AccessPoint::kSettings,
+      signin_metrics::PromoAction::PROMO_ACTION_NEW_ACCOUNT_NO_EXISTING_ACCOUNT,
+      /*email_hint=*/std::string());
 
   // Receive ENABLE_SYNC.
   SendEnableSyncResponse();
@@ -1535,7 +1547,7 @@ IN_PROC_BROWSER_TEST_F(DiceBrowserTestWithoutReplaceSyncPromosWithSignInPromos,
 
   // Signin using the Chrome Sync endpoint.
   SigninViewController::From(browser())->ShowDiceEnableSyncTab(
-      signin_metrics::AccessPoint::kAvatarBubbleSignInWithSyncPromo,
+      signin_metrics::AccessPoint::kProfileMenuPrimaryButton,
       signin_metrics::PromoAction::PROMO_ACTION_NEW_ACCOUNT_NO_EXISTING_ACCOUNT,
       /*email_hint=*/std::string());
 
@@ -1644,6 +1656,183 @@ IN_PROC_BROWSER_TEST_F(DiceBrowserSiginInInterceptionInteractiveTest,
       "Signin.SigninManager.SyncHeaderArrivalTimeWindowAfterLst", 0);
 }
 
+// Enables the account preview for the Chrome Signin (UNO) bubble, with a fake
+// `AccountPreviewDataService` that holds the preview callback until the test
+// releases it. This allows controlling the window between the interceptor
+// deciding to show the UNO bubble and the bubble actually being shown.
+class DiceBrowserSigninInterceptionWithAccountPreviewTest
+    : public DiceBrowserSiginInInterceptionInteractiveTest {
+ public:
+  DiceBrowserSigninInterceptionWithAccountPreviewTest() {
+    // Long fetch timeout so that the bubble is only shown when the test
+    // releases the preview callback.
+    feature_list_.InitAndEnableFeatureWithParameters(
+        switches::kEnableAccountPreviewPreferredAccount,
+        {{"AccountPreviewPreferredAccountSingleAccountPromoFetchTimeout",
+          "60s"}});
+  }
+
+  void SetUpInProcessBrowserTestFixture() override {
+    DiceBrowserSiginInInterceptionInteractiveTest::
+        SetUpInProcessBrowserTestFixture();
+    create_services_subscription_ =
+        BrowserContextDependencyManager::GetInstance()
+            ->RegisterCreateServicesCallbackForTesting(
+                base::BindRepeating([](content::BrowserContext* context) {
+                  AccountPreviewDataServiceFactory::GetInstance()
+                      ->SetTestingFactory(
+                          context,
+                          base::BindRepeating(
+                              [](content::BrowserContext*)
+                                  -> std::unique_ptr<KeyedService> {
+                                auto service = std::make_unique<
+                                    signin::TestAccountPreviewDataService>();
+                                service->set_defer_callbacks(true);
+                                return service;
+                              }));
+                }));
+  }
+
+  signin::TestAccountPreviewDataService* account_preview_service() {
+    return static_cast<signin::TestAccountPreviewDataService*>(
+        AccountPreviewDataServiceFactory::GetForProfile(
+            browser()->GetProfile()));
+  }
+
+  DiceWebSigninInterceptor* interceptor() {
+    return DiceWebSigninInterceptorFactory::GetForProfile(
+        browser()->GetProfile());
+  }
+
+  // Completes the token exchange and provides the account info needed by the
+  // interceptor.
+  void CompleteTokenExchange() {
+    SendRefreshTokenResponse();
+    ASSERT_TRUE(
+        GetIdentityManager()->HasAccountWithRefreshToken(GetMainAccountID()));
+    AccountInfo account_info =
+        GetIdentityManager()->FindExtendedAccountInfoByAccountId(
+            GetMainAccountID());
+    ASSERT_FALSE(account_info.IsEmpty());
+    UpdateAccountInfoForAccount(account_info);
+  }
+
+  // Waits until the interceptor chose the UNO bubble and is waiting for the
+  // account preview data before showing it.
+  void WaitForUnoBubblePendingOnAccountPreview(
+      const base::HistogramTester& histogram_tester) {
+    WaitForHistogramSample(
+        "Signin.Intercept.HeuristicOutcome",
+        static_cast<base::HistogramBase::Sample32>(
+            SigninInterceptionHeuristicOutcome::kInterceptChromeSignin),
+        1, histogram_tester);
+    ASSERT_TRUE(base::test::RunUntil(
+        [&]() { return account_preview_service()->has_pending_callback(); }));
+    ASSERT_FALSE(interceptor()->has_interception_bubble_handle_for_testing());
+    ASSERT_FALSE(
+        GetIdentityManager()->HasPrimaryAccount(signin::ConsentLevel::kSignin));
+  }
+
+  // Sends the ENABLE_SYNC header while the account preview fetch is still
+  // pending.
+  void SignInWithEnableSyncDuringAccountPreviewFetch() {
+    SendEnableSyncResponse();
+    WaitForSigninSucceeded();
+    ASSERT_EQ(GetMainAccountID(), GetIdentityManager()->GetPrimaryAccountId(
+                                      signin::ConsentLevel::kSignin));
+    ASSERT_TRUE(account_preview_service()->has_pending_callback());
+  }
+
+  // Completes the account preview fetch and checks the status of the Uno
+  // bubble. `TriggerCallback()` runs the preview callback synchronously, and
+  // the interceptor synchronously shows the bubble or aborts, so no wait is
+  // needed.
+  void CompleteAccountPreviewAndExpectNoUnoBubble(
+      const base::HistogramTester& histogram_tester) {
+    ASSERT_TRUE(account_preview_service()->has_pending_callback());
+    account_preview_service()->TriggerCallback(
+        signin::AccountPreviewDataService::AccountPreviewPreference());
+
+    EXPECT_FALSE(interceptor()->has_interception_bubble_handle_for_testing())
+        << "The UNO bubble is shown although the user is signed in.";
+    EXPECT_FALSE(interceptor()->is_interception_in_progress());
+    EXPECT_TRUE(
+        GetIdentityManager()->HasPrimaryAccount(signin::ConsentLevel::kSignin));
+    histogram_tester.ExpectUniqueSample(
+        "Signin.Intercept.ChromeSignin.BubbleIneligibleBeforeShow",
+        /*sample=*/true, /*expected_bucket_count=*/1);
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+  base::CallbackListSubscription create_services_subscription_;
+};
+
+// Regression test for crbug.com/556653119: In a Chrome sign-in tab if
+// 1) the ENABLE_SYNC header is late and the interception retries
+// the uno bubble and
+// 2) the ENABLE_SYNC header arrived while the account preview is being fetched,
+// the UNO bubble must not be shown afterwards.
+IN_PROC_BROWSER_TEST_F(DiceBrowserSigninInterceptionWithAccountPreviewTest,
+                       NoUnoBubbleWhenSignedInDuringPreviewFetchOnBubbleRetry) {
+  base::HistogramTester histogram_tester;
+  auto scoped_interception_bubble_delay =
+      DiceTabHelper::SetScopedInterceptionBubbleTimerForTesting(
+          base::Milliseconds(100));
+
+  SigninViewController::From(browser())->ShowDiceEnableSyncTab(
+      signin_metrics::AccessPoint::kSettings,
+      signin_metrics::PromoAction::PROMO_ACTION_NEW_ACCOUNT_NO_EXISTING_ACCOUNT,
+      /*email_hint=*/std::string());
+  DiceTabHelper* tab_helper = DiceTabHelper::FromWebContents(
+      browser()->tab_strip_model()->GetActiveWebContents());
+  ASSERT_TRUE(tab_helper);
+  ASSERT_TRUE(tab_helper->IsChromeSigninInProgress());
+
+  CompleteTokenExchange();
+  // First attempt: aborted, this is a Chrome sign-in tab.
+  WaitForHistogramSample(
+      "Signin.Intercept.HeuristicOutcome",
+      static_cast<base::HistogramBase::Sample32>(
+          SigninInterceptionHeuristicOutcome::kAbortChromeSignin),
+      1, histogram_tester);
+  // Retry: the ENABLE_SYNC header did not arrive in time.
+  WaitForHistogramSample("Signin.SigninManager.SyncHeaderTimeout",
+                         /*sample=*/true, /*expected_count=*/1,
+                         histogram_tester);
+  WaitForUnoBubblePendingOnAccountPreview(histogram_tester);
+
+  SignInWithEnableSyncDuringAccountPreviewFetch();
+  CompleteAccountPreviewAndExpectNoUnoBubble(histogram_tester);
+}
+
+// Regression test for crbug.com/556653119:
+// 1) If the Chrome sign-in endpoint is used in a regular tab (no dice tab
+// helper), resulting in a sign-in interception and 2) then the ENABLE_SYNC
+// header arrives and signs the user in while the account preview is in
+// progress, the UNO bubble must not be shown.
+IN_PROC_BROWSER_TEST_F(DiceBrowserSigninInterceptionWithAccountPreviewTest,
+                       NoUnoBubbleWhenSignedInDuringPreviewFetchFromWebTab) {
+  base::HistogramTester histogram_tester;
+
+  // Direct navigation to the sign-in Gaia point that will sends back an
+  // ENABLE_SYNC header.
+  ui_test_utils::NavigateToURLWithDisposition(
+      browser(), https_server_.GetURL(kChromeSyncEndpointURL),
+      WindowOpenDisposition::CURRENT_TAB, ui_test_utils::BROWSER_TEST_NO_WAIT);
+  ASSERT_FALSE(DiceTabHelper::FromWebContents(
+      browser()->tab_strip_model()->GetActiveWebContents()));
+
+  CompleteTokenExchange();
+  WaitForUnoBubblePendingOnAccountPreview(histogram_tester);
+  histogram_tester.ExpectBucketCount(
+      "Signin.Intercept.HeuristicOutcome",
+      SigninInterceptionHeuristicOutcome::kAbortChromeSignin, 0);
+
+  SignInWithEnableSyncDuringAccountPreviewFetch();
+  CompleteAccountPreviewAndExpectNoUnoBubble(histogram_tester);
+}
+
 // Tests that user is signed in to the browser when the Dice "add account" tab
 // is used.
 IN_PROC_BROWSER_TEST_F(DiceBrowserTest, BrowserSignInFromAddAccountTab) {
@@ -1744,6 +1933,51 @@ IN_PROC_BROWSER_TEST_F(DiceBrowserTestWithSyncOptinScreen,
       syncer::UserSelectableType::kTabs));
   EXPECT_TRUE(sync_service->GetUserSettings()->GetSelectedTypes().Has(
       syncer::UserSelectableType::kSavedTabGroups));
+}
+
+// Regression test for crbug.com/552764207.
+// Tests that the history sync optin dialog is not shown (and the browser does
+// not crash) when a concurrent sign-in flow made a different account primary
+// while this Gaia sign-in flow was in progress.
+IN_PROC_BROWSER_TEST_F(DiceBrowserTestWithSyncOptinScreen,
+                       NoHistorySyncOptinForNonPrimaryAccount) {
+  base::HistogramTester histogram_tester;
+
+  // Signin from the settings page.
+  signin_metrics::AccessPoint access_point =
+      signin_metrics::AccessPoint::kSettings;
+  SigninViewController::From(browser())->ShowDiceEnableSyncTab(
+      access_point,
+      signin_metrics::PromoAction::PROMO_ACTION_NEW_ACCOUNT_NO_EXISTING_ACCOUNT,
+      /*email_hint=*/std::string());
+
+  // Receive token.
+  SendRefreshTokenResponse();
+
+  // Simulate a concurrent sign-in flow completing with another account, which
+  // becomes the primary account while this flow is still in progress.
+  signin::MakePrimaryAccountAvailable(GetIdentityManager(), kSecondaryEmail,
+                                      signin::ConsentLevel::kSignin);
+  ASSERT_EQ(GetSecondaryAccountID(), GetIdentityManager()->GetPrimaryAccountId(
+                                         signin::ConsentLevel::kSignin));
+
+  // Receive ENABLE_SYNC for the account of this flow, which is not the primary
+  // account.
+  SendEnableSyncResponse();
+  ASSERT_TRUE(base::test::RunUntil([&] {
+    return histogram_tester.GetBucketCount(
+               "Signin.EnableSyncHeader.AccountMatchesPrimaryAccount",
+               /*sample=*/false) == 1;
+  }));
+
+  // The history sync optin flow is not started and the primary account is
+  // unchanged.
+  EXPECT_EQ(GetSecondaryAccountID(), GetIdentityManager()->GetPrimaryAccountId(
+                                         signin::ConsentLevel::kSignin));
+  EXPECT_EQ(nullptr, HistorySyncOptinServiceFactory::GetForProfile(
+                         browser()->GetProfile())
+                         ->GetHistorySyncOptinHelperForTesting());
+  EXPECT_FALSE(SigninViewController::From(browser())->ShowsModalDialog());
 }
 
 // Regression test for crbug.com/454921096.

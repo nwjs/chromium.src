@@ -22,7 +22,7 @@
 #include "base/time/time.h"
 #include "base/version.h"
 #include "components/crx_file/id_util.h"
-#include "components/optimization_guide/core/model_execution/manifest_broker/manifest_asset_manager.h"
+#include "components/optimization_guide/core/model_execution/manifest_broker/manifest_asset_manager_delegate.h"
 #include "components/optimization_guide/core/model_execution/test/fake_component_update_service.h"
 #include "testing/gmock/include/gmock/gmock.h"
 
@@ -31,12 +31,12 @@ namespace optimization_guide {
 namespace {
 
 std::string GetCrxIdForPublicKey(const std::string& public_key) {
-  std::vector<uint8_t> public_key_hash;
-  if (!base::HexStringToBytes(public_key, &public_key_hash)) {
-    public_key_hash =
-        std::vector<uint8_t>(public_key.begin(), public_key.end());
-    public_key_hash.resize(32, 0);
+  if (std::optional<std::string> crx_id =
+          GetCrxIdFromPublicKeyHex(public_key)) {
+    return *crx_id;
   }
+  std::vector<uint8_t> public_key_hash(public_key.begin(), public_key.end());
+  public_key_hash.resize(32, 0);
   return crx_file::id_util::GenerateIdFromHash(public_key_hash);
 }
 
@@ -47,8 +47,8 @@ TestManifestAssetManagerComponentState::InstallTarget::InstallTarget() =
 
 TestManifestAssetManagerComponentState::InstallTarget::InstallTarget(
     const std::string& public_key_hex,
-    const base::Version& version)
-    : public_key_hex(public_key_hex), version(version) {}
+    std::optional<base::Version> version)
+    : public_key_hex(public_key_hex), version(std::move(version)) {}
 
 TestManifestAssetManagerComponentState::InstallTarget::~InstallTarget() =
     default;
@@ -61,7 +61,7 @@ TestManifestAssetManagerComponentState::InstallTarget::operator=(
     const InstallTarget&) = default;
 
 class TestManifestAssetManagerComponentState::DelegateImpl final
-    : public ManifestAssetManager::Delegate {
+    : public ManifestAssetManagerDelegate {
  public:
   explicit DelegateImpl(
       base::WeakPtr<TestManifestAssetManagerComponentState> state)
@@ -79,11 +79,10 @@ class TestManifestAssetManagerComponentState::DelegateImpl final
     return base::CallbackListSubscription();
   }
 
-  void RegisterOnDemandComponent(
-      const std::string& public_key_hex,
-      const std::string& target_version,
-      const std::string& component_name,
-      base::WeakPtr<ManifestAssetManager> manager) override {
+  void RegisterOnDemandComponent(const std::string& public_key_hex,
+                                 const std::string& target_version,
+                                 const std::string& component_name,
+                                 base::WeakPtr<AssetManager> manager) override {
     if (!state_) {
       return;
     }
@@ -103,7 +102,7 @@ class TestManifestAssetManagerComponentState::DelegateImpl final
   }
 
   void Uninstall(const std::string& public_key_hex,
-                 base::WeakPtr<ManifestAssetManager> manager) override {
+                 base::WeakPtr<AssetManager> manager) override {
     if (!state_) {
       return;
     }
@@ -145,6 +144,23 @@ class TestManifestAssetManagerComponentState::DelegateImpl final
                        state_ ? state_->free_disk_space_ : base::ByteSize(0)));
   }
 
+  void GetInstalledAssets(
+      base::OnceCallback<void(std::vector<InstalledAsset>)> callback)
+      const override {
+    std::vector<InstalledAsset> assets;
+    if (state_) {
+      for (const auto& [public_key, component] :
+           state_->installed_components_) {
+        assets.push_back({
+            .public_key_hex = public_key,
+            .version = component.target.version,
+        });
+      }
+    }
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE, base::BindOnce(std::move(callback), std::move(assets)));
+  }
+
  private:
   base::WeakPtr<TestManifestAssetManagerComponentState> state_;
 };
@@ -179,12 +195,28 @@ TestManifestAssetManagerComponentState::Registration::operator=(
     const Registration&) = default;
 
 TestManifestAssetManagerComponentState::
-    TestManifestAssetManagerComponentState() = default;
+    TestManifestAssetManagerComponentState() {
+  ON_CALL(component_update_service_,
+          GetComponentDetails(testing::_, testing::_))
+      .WillByDefault(
+          [this](const std::string& id, update_client::CrxUpdateItem* item) {
+            auto it = fake_components_.find(id);
+            if (it == fake_components_.end()) {
+              return false;
+            }
+            *item = it->second.CreateUpdateItem(
+                it->second.downloaded_bytes() == it->second.total_bytes()
+                    ? update_client::ComponentState::kUpdated
+                    : update_client::ComponentState::kDownloading,
+                it->second.downloaded_bytes());
+            return true;
+          });
+}
 
 TestManifestAssetManagerComponentState::
     ~TestManifestAssetManagerComponentState() = default;
 
-std::unique_ptr<ManifestAssetManager::Delegate>
+std::unique_ptr<ManifestAssetManagerDelegate>
 TestManifestAssetManagerComponentState::CreateDelegate() {
   return std::make_unique<DelegateImpl>(weak_ptr_factory_.GetWeakPtr());
 }
@@ -209,11 +241,11 @@ void TestManifestAssetManagerComponentState::RunPendingRegistrations(
     }
     if (registration.manager) {
       base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
-          FROM_HERE, base::BindOnce(&ManifestAssetManager::InstallerRegistered,
-                                    registration.manager,
-                                    registration.target.public_key_hex,
-                                    registration.target.version->GetString(),
-                                    is_already_installed));
+          FROM_HERE,
+          base::BindOnce(
+              &ManifestAssetManagerDelegate::AssetManager::InstallerRegistered,
+              registration.manager, registration.target.public_key_hex,
+              registration.target.version->GetString(), is_already_installed));
     }
     MaybeCompleteDownload(registration.target.public_key_hex);
   }
@@ -222,9 +254,10 @@ void TestManifestAssetManagerComponentState::RunPendingRegistrations(
     installed_components_.erase(registration.target.public_key_hex);
     if (registration.manager) {
       base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
-          FROM_HERE, base::BindOnce(&ManifestAssetManager::OnAssetUninstalled,
-                                    registration.manager,
-                                    registration.target.public_key_hex));
+          FROM_HERE,
+          base::BindOnce(
+              &ManifestAssetManagerDelegate::AssetManager::OnAssetUninstalled,
+              registration.manager, registration.target.public_key_hex));
     }
   }
 }
@@ -284,10 +317,10 @@ void TestManifestAssetManagerComponentState::MaybeCompleteDownload(
   VLOG(2) << "Posted OnAssetReady: " << public_key;
   base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
       FROM_HERE,
-      base::BindOnce(&ManifestAssetManager::OnAssetReady, registration.manager,
-                     inst_it->second.target.public_key_hex,
-                     *inst_it->second.target.version,
-                     inst_it->second.install_dir));
+      base::BindOnce(
+          &ManifestAssetManagerDelegate::AssetManager::OnAssetReady,
+          registration.manager, inst_it->second.target.public_key_hex,
+          *inst_it->second.target.version, inst_it->second.install_dir));
 }
 
 void TestManifestAssetManagerComponentState::UpdateManifest(
@@ -354,6 +387,16 @@ void TestManifestAssetManagerComponentState::ClearInstalledComponents() {
   installed_components_.clear();
 }
 
+void TestManifestAssetManagerComponentState::SetInstalled(
+    const InstallTarget& target) {
+  auto it = installable_components_.find(target);
+  if (it != installable_components_.end()) {
+    installed_components_[target.public_key_hex] = it->second;
+  } else {
+    installed_components_[target.public_key_hex] = {target, base::FilePath()};
+  }
+}
+
 void TestManifestAssetManagerComponentState::Uninstall(
     const std::string& public_key) {
   installed_components_.erase(public_key);
@@ -366,8 +409,10 @@ void TestManifestAssetManagerComponentState::SimulateExternalUninstall(
     return;
   }
   base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
-      FROM_HERE, base::BindOnce(&ManifestAssetManager::OnAssetUninstalled,
-                                manager_, public_key));
+      FROM_HERE,
+      base::BindOnce(
+          &ManifestAssetManagerDelegate::AssetManager::OnAssetUninstalled,
+          manager_, public_key));
 }
 
 int TestManifestAssetManagerComponentState::GetRegistrationCount(
@@ -431,12 +476,10 @@ void TestManifestAssetManagerComponentState::UpdateDownloadProgress(
     uint64_t downloaded_bytes,
     uint64_t total_bytes) {
   std::string crx_id = GetCrxIdForPublicKey(public_key);
-  FakeComponent comp(crx_id, total_bytes);
-  auto item = comp.CreateUpdateItem(
-      downloaded_bytes == total_bytes
-          ? update_client::ComponentState::kUpdated
-          : update_client::ComponentState::kDownloading,
-      downloaded_bytes);
+  auto [it, _] = fake_components_.insert_or_assign(
+      crx_id, FakeComponent(crx_id, total_bytes));
+  auto item = it->second.CreateUpdateItem(
+      update_client::ComponentState::kDownloading, downloaded_bytes);
   component_update_service_.SendUpdate(item);
 }
 

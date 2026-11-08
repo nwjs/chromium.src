@@ -11,6 +11,7 @@
 #include <string_view>
 #include <tuple>
 
+#include "base/check.h"
 #include "base/check_op.h"
 #include "base/feature_list.h"
 #include "base/json/json_reader.h"
@@ -187,7 +188,7 @@ void UpdateAllKeywordHashes(sql::Database* db,
 
   while (query_statement.Step()) {
     TemplateURLData data;
-    data.id = query_statement.ColumnInt64(0);
+    data.id = TemplateURLID(query_statement.ColumnInt64(0));
     const auto maybe_url = query_statement.ColumnString(1);
 
     // Due to past bugs, there might be persisted entries with empty URLs. Avoid
@@ -218,7 +219,7 @@ void UpdateAllKeywordHashes(sql::Database* db,
         SQL_FROM_HERE, "UPDATE keywords SET url_hash=? WHERE id=?"));
 
     update_statement.BindBlob(0, *std::move(encrypted_hash));
-    update_statement.BindInt64(1, data.id);
+    update_statement.BindInt64(1, data.id.value());
 
     if (!update_statement.Run()) {
       all_rows_migrated = false;
@@ -351,18 +352,24 @@ bool KeywordTable::PerformOperations(const Operations& operations) {
   return transaction.Commit();
 }
 
-bool KeywordTable::GetKeywords(Keywords* keywords) {
+bool KeywordTable::GetKeywords(Keywords* keywords,
+                               bool& had_prepopulated_decryption_failure,
+                               bool& had_starter_pack_decryption_failure) {
+  had_prepopulated_decryption_failure = false;
+  had_starter_pack_decryption_failure = false;
   const std::string query = base::StrCat(
       {"SELECT ", GetKeywordColumns(), " FROM keywords ORDER BY id ASC"});
   sql::Statement s(db()->GetUniqueStatement(query));
 
   std::set<TemplateURLID> bad_entries;
   while (s.Step()) {
-    const auto data = GetKeywordDataFromStatement(s);
+    const auto data =
+        GetKeywordDataFromStatement(s, had_prepopulated_decryption_failure,
+                                    had_starter_pack_decryption_failure);
     if (data) {
       keywords->emplace_back(*std::move(data));
     } else {
-      bad_entries.insert(s.ColumnInt64(0));
+      bad_entries.insert(TemplateURLID(s.ColumnInt64(0)));
     }
   }
   bool succeeded = s.Succeeded();
@@ -533,8 +540,8 @@ bool KeywordTable::MigrateToVersion77IncreaseTimePrecision() {
   sql::Statement s(db()->GetUniqueStatement(kQuery));
   std::vector<std::tuple<TemplateURLID, Time, Time, Time>> updates;
   while (s.Step()) {
-    updates.emplace_back(std::make_tuple(s.ColumnInt64(0), s.ColumnTime(1),
-                                         s.ColumnTime(2), s.ColumnTime(3)));
+    updates.emplace_back(TemplateURLID(s.ColumnInt64(0)), s.ColumnTime(1),
+                         s.ColumnTime(2), s.ColumnTime(3));
   }
   if (!s.Succeeded())
     return false;
@@ -547,7 +554,7 @@ bool KeywordTable::MigrateToVersion77IncreaseTimePrecision() {
     update_statement.BindTime(0, std::get<1>(tuple));
     update_statement.BindTime(1, std::get<2>(tuple));
     update_statement.BindTime(2, std::get<3>(tuple));
-    update_statement.BindInt64(3, std::get<0>(tuple));
+    update_statement.BindInt64(3, std::get<0>(tuple).value());
     if (!update_statement.Run()) {
       return false;
     }
@@ -609,7 +616,9 @@ bool KeywordTable::MigrateToVersion152ExpandHashColumn() {
 }
 
 std::optional<TemplateURLData> KeywordTable::GetKeywordDataFromStatement(
-    sql::Statement& s) {
+    sql::Statement& s,
+    bool& had_prepopulated_decryption_failure,
+    bool& had_starter_pack_decryption_failure) {
   TemplateURLData data;
 
   data.SetShortName(s.ColumnString16(1));
@@ -633,7 +642,7 @@ std::optional<TemplateURLData> KeywordTable::GetKeywordDataFromStatement(
   data.safe_for_autoreplace = s.ColumnBool(5);
   data.input_encodings = base::SplitString(
       s.ColumnStringView(9), ";", base::TRIM_WHITESPACE, base::SPLIT_WANT_ALL);
-  data.id = s.ColumnInt64(0);
+  data.id = TemplateURLID(s.ColumnInt64(0));
   data.date_created = s.ColumnTime(7);
   data.last_modified = s.ColumnTime(13);
   data.policy_origin =
@@ -684,6 +693,17 @@ std::optional<TemplateURLData> KeywordTable::GetKeywordDataFromStatement(
     const auto hash = encryptor()->DecryptData(encrypted_hash, &flags);
     if (!hash) {
       status = HashValidationStatus::kDecryptFailed;
+      if (data.prepopulate_id > 0) {
+        // GetKeywords() will remove this unverifiable row. Request
+        // reconciliation of the built-in engine set from current regional
+        // prepopulation data.
+        had_prepopulated_decryption_failure = true;
+      }
+      if (data.starter_pack_id > 0) {
+        // The IDs are unverified, so either may independently require
+        // reconciliation, including when both are positive.
+        had_starter_pack_decryption_failure = true;
+      }
       return std::nullopt;
     }
     if (base::FeatureList::IsEnabled(switches::kRejectWeakKeywordHashes) &&
@@ -736,7 +756,7 @@ void KeywordTable::BindURLToStatement(const TemplateURLData& data,
   std::string alternate_urls =
       base::WriteJson(alternate_urls_value).value_or("");
 
-  s->BindInt64(id_column, data.id);
+  s->BindInt64(id_column, data.id.value());
   s->BindString16(starting_column, data.short_name());
   s->BindString16(starting_column + 1, data.keyword());
   s->BindString(starting_column + 2,
@@ -800,7 +820,7 @@ bool KeywordTable::RemoveKeyword(TemplateURLID id) {
   DCHECK(id);
   sql::Statement s(db()->GetCachedStatement(
       SQL_FROM_HERE, "DELETE FROM keywords WHERE id = ?"));
-  s.BindInt64(0, id);
+  s.BindInt64(0, id.value());
 
   return s.Run();
 }
@@ -829,7 +849,7 @@ bool KeywordTable::GetKeywordAsString(TemplateURLID id,
       {"SELECT ", ColumnsForVersion(WebDatabase::kCurrentVersionNumber, true),
        " FROM ", table_name, " WHERE id=?"});
   sql::Statement s(db()->GetUniqueStatement(query));
-  s.BindInt64(0, id);
+  s.BindInt64(0, id.value());
 
   if (!s.Step()) {
     LOG_IF(WARNING, s.Succeeded()) << "No keyword with id: " << id

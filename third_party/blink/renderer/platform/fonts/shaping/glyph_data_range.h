@@ -10,6 +10,7 @@
 #include "third_party/blink/renderer/platform/fonts/shaping/glyph_data.h"
 #include "third_party/blink/renderer/platform/heap/member.h"
 #include "third_party/blink/renderer/platform/heap/visitor.h"
+#include "third_party/blink/renderer/platform/wtf/allocator/allocator.h"
 
 namespace blink {
 
@@ -23,11 +24,14 @@ class PLATFORM_EXPORT GlyphDataRange {
   GlyphDataRange() = default;
   explicit GlyphDataRange(const ShapeResultRun&);
 
-  unsigned size() const { return size_; }
+  wtf_size_t size() const { return size_; }
   bool IsEmpty() const { return !size_; }
   const ShapeResultRun* GetRun() const { return run_.Get(); }
 
   struct NonCompactGlyphPointerRange {
+    STACK_ALLOCATED();
+
+   public:
     const HarfBuzzRunGlyphData* begin;
     const HarfBuzzRunGlyphData* end;
   };
@@ -44,8 +48,8 @@ class PLATFORM_EXPORT GlyphDataRange {
   void Trace(Visitor*) const;
 
   GlyphDataRange FindGlyphDataRange(bool is_rtl,
-                                    unsigned start_character_index,
-                                    unsigned end_character_index) const;
+                                    wtf_size_t start_character_index,
+                                    wtf_size_t end_character_index) const;
 
   class Reader {
     STACK_ALLOCATED();
@@ -59,14 +63,11 @@ class PLATFORM_EXPORT GlyphDataRange {
       using iterator_concept = std::bidirectional_iterator_tag;
       using value_type = HarfBuzzRunGlyphData;
       using difference_type = std::ptrdiff_t;
-      using pointer = const HarfBuzzRunGlyphData*;
-      using reference = const HarfBuzzRunGlyphData&;
+      using reference = HarfBuzzRunGlyphData;
 
       Iterator() = default;
 
-      const HarfBuzzRunGlyphData& operator*() const {
-        return (*reader_)[index_];
-      }
+      HarfBuzzRunGlyphData operator*() const { return (*reader_)[index_]; }
       Iterator& operator++() {
         ++index_;
         return *this;
@@ -90,11 +91,11 @@ class PLATFORM_EXPORT GlyphDataRange {
      private:
       friend class Reader;
 
-      Iterator(const Reader* reader, unsigned index)
+      Iterator(const Reader* reader, wtf_size_t index)
           : reader_(reader), index_(index) {}
 
       const Reader* reader_ = nullptr;
-      unsigned index_ = 0;
+      wtf_size_t index_ = 0;
     };
 
     explicit Reader(const GlyphDataRange& range);
@@ -103,16 +104,38 @@ class PLATFORM_EXPORT GlyphDataRange {
     Iterator begin() const { return Iterator(this, 0); }
     Iterator end() const { return Iterator(this, size()); }
 
-    unsigned size() const { return static_cast<unsigned>(glyphs_.size()); }
-    const HarfBuzzRunGlyphData& operator[](unsigned index) const {
+    wtf_size_t size() const {
+      return static_cast<wtf_size_t>(
+          compact_glyphs_.empty() ? glyphs_.size() : compact_glyphs_.size());
+    }
+
+    HarfBuzzRunGlyphData operator[](wtf_size_t index) const {
+      if (!compact_glyphs_.empty()) [[unlikely]] {
+        const base::span<const uint16_t> compact_glyphs = compact_glyphs_;
+        return HarfBuzzRunGlyphData(compact_glyphs[index],
+                                    compact_index_offset_ + index,
+                                    SafeToBreak::kSafe, compact_advance_);
+      }
       return glyphs_[index];
     }
 
    private:
+    void Init(const ShapeResultRun& run, unsigned index, unsigned size);
+
     base::span<const HarfBuzzRunGlyphData> glyphs_;
+    base::span<const uint16_t> compact_glyphs_;
+    TextRunLayoutUnit compact_advance_;
+    unsigned compact_index_offset_ = 0;
   };
 
+  HarfBuzzRunGlyphData GlyphAtForTest(unsigned index) const;
+  bool IsCompactSource() const;
+  TextRunLayoutUnit CompactSourceAdvance() const;
+
  private:
+  GlyphDataRange FindCompactGlyphDataRange(unsigned start_character_index,
+                                           unsigned end_character_index) const;
+
   GlyphDataRange(const ShapeResultRun* run, wtf_size_t index, wtf_size_t size)
       : run_(run), index_(index), size_(size) {}
 

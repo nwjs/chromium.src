@@ -21,6 +21,7 @@ import static org.chromium.chrome.browser.tasks.tab_management.vertical_tabs.Ver
 
 import android.app.Activity;
 import android.content.res.Configuration;
+import android.content.res.Resources;
 import android.transition.ChangeBounds;
 import android.transition.Fade;
 import android.transition.Transition;
@@ -43,6 +44,7 @@ import org.mockito.junit.MockitoRule;
 import org.robolectric.Robolectric;
 import org.robolectric.android.controller.ActivityController;
 
+import org.chromium.base.DeviceInfo;
 import org.chromium.base.FeatureOverrides;
 import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.SettableNonNullObservableSupplier;
@@ -58,7 +60,10 @@ import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.SideUiSpecs;
 import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.SideUiSpecs.SideUiSize;
 import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.UiUpdateRequest;
 import org.chromium.chrome.browser.ui.vertical_tabs.VerticalTabUtils;
+import org.chromium.chrome.tab_ui.R;
+import org.chromium.ui.base.DeviceInput;
 import org.chromium.ui.base.ViewUtils;
+import org.chromium.ui.base.WindowAndroid;
 
 import java.util.Map;
 
@@ -70,6 +75,7 @@ public class VerticalTabsSideUiCoordinatorUnitTest {
     @Mock private VerticalTabListCoordinator mMockTabListCoordinator;
     @Mock private SideUiCoordinator mMockSideUiCoordinator;
     @Mock private Tab mTab;
+    @Mock private WindowAndroid mMockWindowAndroid;
 
     private VerticalTabRailCollapseController mCollapseController;
     private VerticalTabsSideUiCoordinator mCoordinator;
@@ -86,6 +92,7 @@ public class VerticalTabsSideUiCoordinatorUnitTest {
 
     @Before
     public void setUp() {
+        DeviceInput.setSupportsPrecisionPointerForTesting(true);
         mActivityController = Robolectric.buildActivity(Activity.class).setup();
         mActivity = mActivityController.get();
         mWideWindowWidth = ViewUtils.dpToPx(mActivity, 800);
@@ -102,12 +109,14 @@ public class VerticalTabsSideUiCoordinatorUnitTest {
         mCollapseController =
                 new VerticalTabRailCollapseController(
                         mMockTabListCoordinator::setRailCollapseState,
-                        mMockTabListCoordinator::setCollapseButtonEnabled);
+                        mMockTabListCoordinator::setCollapseButtonEnabled,
+                        mMockWindowAndroid);
         when(mMockTabListCoordinator.getCollapseController()).thenReturn(mCollapseController);
 
         mCoordinator =
                 new VerticalTabsSideUiCoordinator(
                         mActivity,
+                        mMockWindowAndroid,
                         mMockSideUiCoordinator,
                         mMockTabListCoordinator,
                         mIsVerticalTabsActiveSupplier);
@@ -323,7 +332,7 @@ public class VerticalTabsSideUiCoordinatorUnitTest {
 
         // Hover enter: the rail renders expanded over the web contents, but keeps reserving its
         // collapsed width so nothing outside the rail moves.
-        mCollapseController.expandOrCollapseOnHover(RailCollapseState.EXPANDED_FOR_HOVERING);
+        mCollapseController.setHovering(true);
         assertEquals(
                 RailCollapseState.EXPANDED_FOR_HOVERING,
                 mCoordinator.getRailCollapseStateForTesting());
@@ -332,7 +341,7 @@ public class VerticalTabsSideUiCoordinatorUnitTest {
                 .updateUi(any(SideUiCoordinator.UiUpdateRequest.class));
 
         // Hover exit: rail collapses back
-        mCollapseController.expandOrCollapseOnHover(RailCollapseState.COLLAPSED);
+        mCollapseController.setHovering(false);
         assertEquals(RailCollapseState.COLLAPSED, mCoordinator.getRailCollapseStateForTesting());
         assertShowableSize(mCollapsedRailWidth, mCollapsedRailWidth, mWideWindowWidth);
         verify(mMockSideUiCoordinator, times(3))
@@ -348,7 +357,7 @@ public class VerticalTabsSideUiCoordinatorUnitTest {
                 .updateUi(any(SideUiCoordinator.UiUpdateRequest.class));
 
         // Hover expand
-        mCollapseController.expandOrCollapseOnHover(RailCollapseState.EXPANDED_FOR_HOVERING);
+        mCollapseController.setHovering(true);
         assertEquals(
                 RailCollapseState.EXPANDED_FOR_HOVERING,
                 mCoordinator.getRailCollapseStateForTesting());
@@ -372,28 +381,71 @@ public class VerticalTabsSideUiCoordinatorUnitTest {
     }
 
     @Test
-    public void testHoverExpanded_DoesNotSupportManualResize() {
+    public void testExpandOnHover_OnlyExpandedRailSupportsManualResize() {
         enableManualResize();
-        mCollapseController.toggleCollapseState();
+        enableExpandOnHover();
+        assertEquals(RailCollapseState.EXPANDED, mCoordinator.getRailCollapseStateForTesting());
         assertTrue(mCoordinator.supportsManualResize());
 
-        mCollapseController.expandOrCollapseOnHover(RailCollapseState.EXPANDED_FOR_HOVERING);
+        mCollapseController.toggleCollapseState();
         assertFalse(mCoordinator.supportsManualResize());
 
-        mCollapseController.expandOrCollapseOnHover(RailCollapseState.COLLAPSED);
+        mCollapseController.setHovering(true);
+        assertFalse(mCoordinator.supportsManualResize());
+
+        mCollapseController.setHovering(false);
+        assertFalse(mCoordinator.supportsManualResize());
+
+        mCollapseController.toggleCollapseState();
         assertTrue(mCoordinator.supportsManualResize());
     }
 
     @Test
-    public void testHoverExpanded_RendersUserResizedWidth() {
+    public void testResizeHandleWidth_MatchesRailHorizontalPadding() {
+        assertEquals(
+                Integer.valueOf(
+                        mActivity
+                                .getResources()
+                                .getDimensionPixelSize(
+                                        R.dimen.vertical_tabs_rail_horizontal_margin)),
+                mCoordinator.getResizeHandleWidthPx());
+    }
+
+    @Test
+    public void testResizeHandleBarInset_MatchesScrollbarInset() {
+        Resources res = mActivity.getResources();
+        int scrollbarInsetFromRailEdge =
+                res.getDimensionPixelSize(R.dimen.vertical_tabs_rail_horizontal_margin)
+                        + res.getDimensionPixelSize(R.dimen.vertical_tabs_scrollbar_margin_end);
+        assertEquals(
+                Integer.valueOf(scrollbarInsetFromRailEdge),
+                mCoordinator.getResizeHandleBarInsetPx());
+    }
+
+    @Test
+    public void testHoverExpanded_IgnoresUserResizedWidth() {
         enableManualResize();
         mCoordinator.onResizeCommitted(ViewUtils.dpToPx(mActivity, 300));
         mCollapseController.toggleCollapseState();
         assertEquals(RailCollapseState.COLLAPSED, mCoordinator.getRailCollapseStateForTesting());
 
-        // The hover overlay previews the width the rail would be pinned at.
-        mCollapseController.expandOrCollapseOnHover(RailCollapseState.EXPANDED_FOR_HOVERING);
-        assertShowableSize(mCollapsedRailWidth, ViewUtils.dpToPx(mActivity, 300), mWideWindowWidth);
+        // The hover overlay always renders at the fixed container width.
+        mCollapseController.setHovering(true);
+        assertShowableSize(mCollapsedRailWidth, mExpandedRailWidth, mWideWindowWidth);
+    }
+
+    @Test
+    public void testHoverExpanded_IgnoresDynamicWindowWidth() {
+        // A medium window auto-resizes the expanded rail below the fixed container width.
+        setWindowWidthPx(mMediumWindowWidth);
+        assertTrue(determineShowableSize(mMediumWindowWidth).mRenderedWidth < mExpandedRailWidth);
+
+        mCollapseController.toggleCollapseState();
+        assertEquals(RailCollapseState.COLLAPSED, mCoordinator.getRailCollapseStateForTesting());
+
+        // The hover overlay always renders at the fixed container width.
+        mCollapseController.setHovering(true);
+        assertShowableSize(mCollapsedRailWidth, mExpandedRailWidth, mMediumWindowWidth);
     }
 
     @Test
@@ -465,8 +517,6 @@ public class VerticalTabsSideUiCoordinatorUnitTest {
         verify(mMockTabListCoordinator).setInTransition(true);
     }
 
-    // TODO(crbug.com/542280452): The rail should animate when it is pinned from hover, as the
-    // pinned UI will differ from the hover overlay. Update this test once it does.
     @Test
     public void testOnPreSideUiSpecsChange_PinningHoverExpandedRailKeepsRailStill() {
         // Expanded on hover over the web contents.
@@ -480,6 +530,24 @@ public class VerticalTabsSideUiCoordinatorUnitTest {
                         specs(mExpandedRailWidth, mExpandedRailWidth),
                         UiUpdateRequest.getRequestForTesting(/* suppressAnimations= */ true)));
         verify(mMockTabListCoordinator, never()).setInTransition(true);
+    }
+
+    @Test
+    public void testOnPreSideUiSpecsChange_PinningHoverExpandedRailToDifferentWidthAnimates() {
+        // Expanded on hover over the web contents, at the fixed hover width.
+        when(mMockSideUiCoordinator.getCurrentSideUiSpecs())
+                .thenReturn(specs(mCollapsedRailWidth, mExpandedRailWidth));
+
+        // Pinning it at a different width (e.g. a user-resized width) changes the rendered width,
+        // so the rail's contents animate to it.
+        @Px int pinnedWidth = (mCollapsedRailWidth + mExpandedRailWidth) / 2;
+        Transition transition =
+                mCoordinator.onPreSideUiSpecsChange(
+                        specs(pinnedWidth, pinnedWidth),
+                        UiUpdateRequest.getRequestForTesting(/* suppressAnimations= */ true));
+
+        assertNotNull(transition);
+        verify(mMockTabListCoordinator).setInTransition(true);
     }
 
     @Test
@@ -691,15 +759,18 @@ public class VerticalTabsSideUiCoordinatorUnitTest {
 
     @Test
     public void testSupportsManualResize() {
-        // Off by default.
-        assertFalse(mCoordinator.supportsManualResize());
-
-        enableManualResize();
+        // On by default.
         assertTrue(mCoordinator.supportsManualResize());
 
         // A user-collapsed rail can still be manually resized.
         mCollapseController.toggleCollapseState();
         assertTrue(mCoordinator.supportsManualResize());
+
+        // Can be turned off via the feature param.
+        FeatureOverrides.newBuilder()
+                .param(ChromeFeatureList.ANDROID_VERTICAL_TABS, "manual_resize", false)
+                .apply();
+        assertFalse(mCoordinator.supportsManualResize());
     }
 
     @Test
@@ -723,18 +794,69 @@ public class VerticalTabsSideUiCoordinatorUnitTest {
     }
 
     @Test
-    public void testOnResizeLive_ClampsToRailBounds() {
+    public void testOnResizeLive_ClampsToMaxWidth() {
         enableManualResize();
-
-        mCoordinator.onResizeLive(ViewUtils.dpToPx(mActivity, 10));
-        assertShowableWidth(
-                ViewUtils.dpToPx(mActivity, VerticalTabUtils.MIN_EXPANDED_WIDTH_DP),
-                mWideWindowWidth);
 
         mCoordinator.onResizeLive(ViewUtils.dpToPx(mActivity, 10000));
         assertShowableWidth(
                 ViewUtils.dpToPx(mActivity, VerticalTabUtils.MAX_EXPANDED_WIDTH_DP),
                 ViewUtils.dpToPx(mActivity, 2000));
+    }
+
+    @Test
+    public void testOnResizeLive_MinimumWidthStaysExpanded() {
+        enableManualResize();
+
+        mCoordinator.onResizeLive(
+                ViewUtils.dpToPx(mActivity, VerticalTabUtils.MIN_EXPANDED_WIDTH_DP));
+        assertEquals(RailCollapseState.EXPANDED, mCoordinator.getRailCollapseStateForTesting());
+        assertShowableWidth(
+                ViewUtils.dpToPx(mActivity, VerticalTabUtils.MIN_EXPANDED_WIDTH_DP),
+                mWideWindowWidth);
+    }
+
+    @Test
+    public void testOnResizeLive_CollapsesAndExpandsDuringDrag() {
+        enableManualResize();
+
+        // Dragging below the collapse threshold collapses the rail before the drag is released,
+        // without persisting the collapsed state yet.
+        mCoordinator.onResizeLive(ViewUtils.dpToPx(mActivity, 40));
+        assertEquals(RailCollapseState.COLLAPSED, mCoordinator.getRailCollapseStateForTesting());
+        assertShowableWidth(mCollapsedRailWidth, mWideWindowWidth);
+        assertFalse(VerticalTabUtils.isRailCollapsedFromSharedPref());
+
+        // Dragging back out expands the rail again within the same drag.
+        mCoordinator.onResizeLive(ViewUtils.dpToPx(mActivity, 200));
+        assertEquals(RailCollapseState.EXPANDED, mCoordinator.getRailCollapseStateForTesting());
+        assertShowableWidth(ViewUtils.dpToPx(mActivity, 200), mWideWindowWidth);
+    }
+
+    @Test
+    public void testOnResizeCommitted_KeepsLiveCollapsedState() {
+        enableManualResize();
+        VerticalTabUtils.setUserResizedWidthDpInSharedPref(200);
+
+        mCoordinator.onResizeLive(ViewUtils.dpToPx(mActivity, 40));
+        mCoordinator.onResizeCommitted(ViewUtils.dpToPx(mActivity, 40));
+
+        assertTrue(VerticalTabUtils.isRailCollapsedFromSharedPref());
+        assertEquals(RailCollapseState.COLLAPSED, mCoordinator.getRailCollapseStateForTesting());
+        // The expanded width is kept for when the rail is expanded again.
+        assertEquals(200, VerticalTabUtils.getUserResizedWidthDpFromSharedPref());
+    }
+
+    @Test
+    public void testOnResizeCommitted_CancelRestoresExpandedState() {
+        enableManualResize();
+
+        // The drag collapses the rail, then the gesture is cancelled, which commits the width the
+        // drag started from.
+        mCoordinator.onResizeLive(ViewUtils.dpToPx(mActivity, 40));
+        mCoordinator.onResizeCommitted(ViewUtils.dpToPx(mActivity, VIEW_WIDTH_DP));
+
+        assertFalse(VerticalTabUtils.isRailCollapsedFromSharedPref());
+        assertEquals(RailCollapseState.EXPANDED, mCoordinator.getRailCollapseStateForTesting());
     }
 
     @Test
@@ -748,9 +870,57 @@ public class VerticalTabsSideUiCoordinatorUnitTest {
 
         assertFalse(VerticalTabUtils.isRailCollapsedFromSharedPref());
         assertEquals(RailCollapseState.EXPANDED, mCoordinator.getRailCollapseStateForTesting());
-        assertEquals(300, VerticalTabUtils.getUserResizedWidthDp());
+        assertEquals(300, VerticalTabUtils.getUserResizedWidthDpFromSharedPref());
         // The persisted width is used once the drag is over.
         assertShowableWidth(ViewUtils.dpToPx(mActivity, 300), mWideWindowWidth);
+    }
+
+    @Test
+    public void testUserResizedWidth_KeptPerWindowAndWrittenOnTopResumed() {
+        enableManualResize();
+        mCoordinator.onResizeCommitted(ViewUtils.dpToPx(mActivity, 300));
+
+        // Another window becomes active and persists a different width.
+        VerticalTabUtils.setUserResizedWidthDpInSharedPref(350);
+
+        // This window keeps its own width.
+        assertShowableWidth(ViewUtils.dpToPx(mActivity, 300), mWideWindowWidth);
+
+        // Losing top resumed does not write.
+        mCoordinator.onActivityTopResumedChanged(false);
+        assertEquals(350, VerticalTabUtils.getUserResizedWidthDpFromSharedPref());
+
+        // Becoming top resumed writes this window's width, so a new window inherits it.
+        mCoordinator.onActivityTopResumedChanged(true);
+        assertEquals(300, VerticalTabUtils.getUserResizedWidthDpFromSharedPref());
+    }
+
+    @Test
+    public void testUserResizedWidth_RestoredFromSharedPreferences() {
+        enableManualResize();
+        mCoordinator.destroy();
+        VerticalTabUtils.setUserResizedWidthDpInSharedPref(300);
+        // The previous tab list view is still attached to the destroyed coordinator's root view.
+        mTabListView = new View(mActivity);
+        when(mMockTabListCoordinator.getView()).thenReturn(mTabListView);
+
+        mCoordinator =
+                new VerticalTabsSideUiCoordinator(
+                        mActivity,
+                        mMockWindowAndroid,
+                        mMockSideUiCoordinator,
+                        mMockTabListCoordinator,
+                        mIsVerticalTabsActiveSupplier);
+
+        assertShowableWidth(ViewUtils.dpToPx(mActivity, 300), mWideWindowWidth);
+    }
+
+    @Test
+    public void testObservesWindowUntilDestroyed() {
+        verify(mMockWindowAndroid).addActivityStateObserver(mCoordinator);
+        mCoordinator.destroy();
+        verify(mMockWindowAndroid).removeActivityStateObserver(mCoordinator);
+        mCoordinator = null;
     }
 
     @Test
@@ -767,6 +937,15 @@ public class VerticalTabsSideUiCoordinatorUnitTest {
     private void enableManualResize() {
         FeatureOverrides.newBuilder()
                 .param(ChromeFeatureList.ANDROID_VERTICAL_TABS, "manual_resize", true)
+                .apply();
+    }
+
+    /** Enables expand-on-hover on a desktop device, keeping manual resize enabled. */
+    private void enableExpandOnHover() {
+        DeviceInfo.setIsDesktopForTesting(true);
+        FeatureOverrides.newBuilder()
+                .param(ChromeFeatureList.ANDROID_VERTICAL_TABS, "manual_resize", true)
+                .param(ChromeFeatureList.ANDROID_VERTICAL_TABS, "expand_on_hover", true)
                 .apply();
     }
 

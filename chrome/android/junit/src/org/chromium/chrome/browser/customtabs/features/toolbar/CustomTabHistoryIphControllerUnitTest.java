@@ -23,6 +23,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
+import org.robolectric.Robolectric;
 
 import org.chromium.base.Callback;
 import org.chromium.base.supplier.NonNullObservableSupplier;
@@ -62,12 +63,13 @@ public class CustomTabHistoryIphControllerUnitTest {
     @Mock private Tracker mTracker;
     @Mock private Tab mTab;
 
-    @Mock private Activity mActivity;
+    private Activity mActivity;
     private final ActivityTabProvider mActivityTabProvider = new ActivityTabProvider();
     private CustomTabHistoryIphController mController;
 
     @Before
     public void setUp() {
+        mActivity = Robolectric.buildActivity(Activity.class).setup().get();
         when(mTracker.isInitialized()).thenReturn(true);
         when(mTracker.wouldTriggerHelpUi(FeatureConstants.CCT_HISTORY_FEATURE)).thenReturn(true);
         TrackerFactory.setTrackerForTests(mTracker);
@@ -87,7 +89,6 @@ public class CustomTabHistoryIphControllerUnitTest {
     }
 
     @Test
-    @SuppressWarnings("DirectInvocationOnMock")
     public void testShowsIphOnPageLoad() {
         var tabObserver = mController.getTabObserverForTesting();
         tabObserver.onPageLoadFinished(mTab, JUnitTestGURLs.EXAMPLE_URL);

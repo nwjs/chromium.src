@@ -12,10 +12,15 @@
 #include "base/containers/span.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
-#include "chrome/browser/ttc/app/ttc_mes_client.h"
+#include "base/values.h"
 #include "chrome/browser/ui/ai_overlay_dialog/ai_overlay_dialog_controller.h"
 #include "chrome/browser/ui/webui/ai_overlay_dialog/ai_overlay_dialog.mojom.h"
+#include "chrome/browser/ui/webui/ai_overlay_dialog/tools/tools.mojom.h"
+#include "chrome/common/actor.mojom-forward.h"
+#include "chrome/common/chrome_render_frame.mojom-forward.h"
+#include "components/ttc/app/ttc_mes_client.h"
 #include "mojo/public/cpp/base/big_buffer.h"
+#include "mojo/public/cpp/bindings/associated_remote.h"
 #include "mojo/public/cpp/bindings/receiver.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "third_party/blink/public/mojom/dom/dom_node_id.mojom.h"
@@ -58,6 +63,9 @@ class AiOverlayDialogPageHandler : public ai_overlay_dialog::mojom::PageHandler,
   void GetRememberedNotes(GetRememberedNotesCallback callback) override;
   void GetImageBytes(const blink::DOMNodeIdType& dom_node_id,
                      GetImageBytesCallback callback) override;
+  void ExecuteWebMcpTool(const std::string& tool_name,
+                         ::base::Value args,
+                         ExecuteWebMcpToolCallback callback) override;
 
   // Streaming methods:
   void StartStreamingSession() override;
@@ -67,9 +75,9 @@ class AiOverlayDialogPageHandler : public ai_overlay_dialog::mojom::PageHandler,
   void StopStreamingSession() override;
 
   // TtcMesClient::Observer
-  void OnApplicationInitialized() override;
-  void OnApplicationClosed() override;
-  void OnApplicationError(ErrorCode error) override;
+  void OnBackendInitialized() override;
+  void OnBackendClosed() override;
+  void OnBackendError(ErrorCode error) override;
   void OnTranscriptions(const std::string& input_transcription,
                         const std::string& output_transcription) override;
   void OnAudioOutput(base::span<const int16_t> audio_data,
@@ -79,13 +87,16 @@ class AiOverlayDialogPageHandler : public ai_overlay_dialog::mojom::PageHandler,
                                 bool interrupted) override;
   void OnToolCall(const ToolRequest& tool_request,
                   ToolResponseCallback response_callback) override;
+  void OnJournalEvent(const ServerJournalEvent& journal_event) override;
 
   void DidChangePage(const GURL& url,
                      const std::optional<std::u16string>& title,
                      const std::optional<std::string>& content);
   void UpdateCurrentPageContext(
       const std::u16string& title,
-      ai_overlay_dialog::mojom::PageContentNodePtr root_node = nullptr);
+      ai_overlay_dialog::mojom::PageContentNodePtr root_node = nullptr,
+      std::vector<ai_overlay_dialog::mojom::WebMcpToolDefinitionPtr>
+          webmcp_tools = {});
 
   // AiOverlayDialogController::Observer
   void OnInputCaptionsVisibleChanged(bool visible) override;
@@ -94,6 +105,10 @@ class AiOverlayDialogPageHandler : public ai_overlay_dialog::mojom::PageHandler,
 
  private:
   void SendToolSetUpdate();
+  void OnWebMcpToolInvoked(
+      mojo::AssociatedRemote<chrome::mojom::ChromeRenderFrame> keep_alive,
+      ExecuteWebMcpToolCallback callback,
+      actor::mojom::ActionResultPtr result);
 
   mojo::Receiver<ai_overlay_dialog::mojom::PageHandler> receiver_;
   mojo::Remote<ai_overlay_dialog::mojom::Page> page_;

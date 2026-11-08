@@ -48,9 +48,20 @@ inline constexpr char kActorServiceLoggingName[] = "ActorServiceLogging";
 inline constexpr char kActorServiceLoggingDescription[] =
     "Enables Actor logging, which is for debugging only.";
 
-inline constexpr char kAiAvatarRingIosName[] = "AiAvatarRing";
-inline constexpr char kAiAvatarRingIosDescription[] =
-    "Display a ring around the avatar if the primary account has a AI Tier";
+inline constexpr char kAiSubscriptionAvatarRingFollowupIosName[] =
+    "AiAvatarFollowupRing";
+inline constexpr char kAiSubscriptionAvatarRingFollowupIosDescription[] =
+    "Display a ring around the avatar in the Overflow Menu, Settings and "
+    "Manage Accounts views if the primary account has a AI Tier";
+
+inline constexpr char kAiSubscriptionAvatarRingIosName[] = "AiAvatarRing";
+inline constexpr char kAiSubscriptionAvatarRingIosDescription[] =
+    "Display a ring around the avatar in the NTP and Account Menu if the "
+    "primary account has a AI Tier";
+
+inline constexpr char kAim3pEntrypointName[] = "AIM 3P entrypoint";
+inline constexpr char kAim3pEntrypointDescription[] =
+    "Enables AIM entrypoint for third-party search engines that support it.";
 
 inline constexpr char kAimButtonRefactorName[] = "AIM Button Refactor";
 inline constexpr char kAimButtonRefactorDescription[] =
@@ -138,6 +149,10 @@ inline constexpr char kAssistantAimMinimizedStateDescription[] =
     "When enabled, the Assistant AIM (Co-browse) interface initially appears "
     "in a minimized state instead of the default medium state.";
 
+inline constexpr char kAssistantAimThreadsName[] = "AssistantAimThreads";
+inline constexpr char kAssistantAimThreadsDescription[] =
+    "Enables the AssistantAimThreads feature.";
+
 inline constexpr char kAssistantContainerName[] = "Assistant Container";
 inline constexpr char kAssistantContainerDescription[] =
     "Enables the Assistant Container feature. The debug parameter enables "
@@ -151,12 +166,6 @@ inline constexpr char kAtMemoryContextMenuEntryPointName[] =
     "AtMemory context menu entry point";
 inline constexpr char kAtMemoryContextMenuEntryPointDescription[] =
     "Enables an entry point in the edit context menu for the AtMemory feature.";
-
-inline constexpr char kAutofillAddChromeUserContextFieldsName[] =
-    "Add client type and version to request context in Payments calls";
-inline constexpr char kAutofillAddChromeUserContextFieldsDescription[] =
-    "When enabled, calls to Google Payments include the Chrome client type and "
-    "major version, instead of parsing the user agent.";
 
 inline constexpr char kAutofillAiAlwaysShowPrivateAiNoticeName[] =
     "Autofill AI always show Private AI notice";
@@ -233,12 +242,6 @@ inline constexpr char kAutofillBottomSheetNewBlurName[] =
 inline constexpr char kAutofillBottomSheetNewBlurDescription[] =
     "Enables a new method for blurring the autofill bottom sheet to prevent "
     "the keyboard from showing up. This uses `mousedown` instead of `focus`.";
-
-inline constexpr char kAutofillCreditCardScannerIosName[] =
-    "Enable the credit card scanner for Autofill";
-inline constexpr char kAutofillCreditCardScannerIosDescription[] =
-    "When enabled, users are offered the ability to use their phone camera to "
-    "scan their credit card when adding it to Chrome Autofill";
 
 inline constexpr char kAutofillCreditCardUploadName[] =
     "Offers uploading Autofilled credit cards";
@@ -501,6 +504,13 @@ inline constexpr char kComposeboxPlusButtonBottomSheetName[] =
 inline constexpr char kComposeboxPlusButtonBottomSheetDescription[] =
     "Uses the updated bottom sheet for the plus button multimodal menu.";
 
+inline constexpr char kComposeboxPlusButtonLargeCarouselName[] =
+    "Enable the large carousel in the bottom sheet for plus button in the plus "
+    "button";
+inline constexpr char kComposeboxPlusButtonLargeCarouselDescription[] =
+    "Uses the larger size of the carousel in the bottom sheet for the plus "
+    "button multimodal menu.";
+
 inline constexpr char kComposeboxServerSideStateName[] =
     "Enable server side state in Composebox";
 inline constexpr char kComposeboxServerSideStateDescription[] =
@@ -533,6 +543,12 @@ inline constexpr char kContextManagementInComposeboxName[] =
 inline constexpr char kContextManagementInComposeboxDescription[] =
     "When Enabled, it ensures that removed tab context are removed from AIM "
     "even when submitted.";
+
+inline constexpr char kContextMenuPreviewDownsampleImageName[] =
+    "Context Menu Preview Downsample Image";
+inline constexpr char kContextMenuPreviewDownsampleImageDescription[] =
+    "When enabled, downsamples images in the context menu preview to reduce "
+    "memory usage.";
 
 inline constexpr char kContextualTasksName[] = "Enables the contextual tasks";
 inline constexpr char kContextualTasksDescription[] =
@@ -724,7 +740,13 @@ inline constexpr char
 inline constexpr char kEnableAccountPreviewPreferredAccountName[] =
     "Enable Account Preview Preferred Account";
 inline constexpr char kEnableAccountPreviewPreferredAccountDescription[] =
-    "Controls whether computing and storing the preferred account is enabled.";
+    "Controls whether storing and exposing the preferred account is enabled.";
+
+inline constexpr char kEnableAccountPreviewSwitchingAccountName[] =
+    "Enable Account Preview Switching Account";
+inline constexpr char kEnableAccountPreviewSwitchingAccountDescription[] =
+    "Controls whether storing and exposing the preferred account for "
+    "switching is enabled.";
 
 inline constexpr char kEnableAutofillAddressSavePromptName[] =
     "Autofill Address Save Prompts";
@@ -796,6 +818,11 @@ inline constexpr char kEnableLensOnIPadName[] = "Enable Lens on iPad";
 inline constexpr char kEnableLensOnIPadDescription[] =
     "When enabled, enables Lens Viewfinder entry points on iPad.";
 
+inline constexpr char kEnableLensViewFinderUnifiedExperienceName[] =
+    "Enable LVF Unified Experience";
+inline constexpr char kEnableLensViewFinderUnifiedExperienceDescription[] =
+    "Enables Lens View Finder unified experience";
+
 inline constexpr char kEnableNewStartupFlowName[] = "EnableNewStartupFlow";
 inline constexpr char kEnableNewStartupFlowDescription[] =
     "Enables the EnableNewStartupFlow feature.";
@@ -850,6 +877,12 @@ inline constexpr char kFetchDeviceAuthorizationKeysName[] =
     "Fetch device authorization keys";
 inline constexpr char kFetchDeviceAuthorizationKeysDescription[] =
     "Enables fetching device authorization keys for password manager passkeys.";
+
+inline constexpr char kFiveButtonAppBarLayoutName[] =
+    "Five Button App Bar Layout";
+inline constexpr char kFiveButtonAppBarLayoutDescription[] =
+    "Enables a five-button layout for the App Bar, incorporating the forward "
+    "and back navigation buttons.";
 
 inline constexpr char kForceStartupSigninPromoName[] =
     "Display the startup sign-in promo";
@@ -964,10 +997,6 @@ inline constexpr char kGeminiMultiTabContextName[] = "Gemini Multi Tab Context";
 inline constexpr char kGeminiMultiTabContextDescription[] =
     "Enables attaching multiple tabs in Gemini.";
 
-inline constexpr char kGeminiNavigationPromoName[] = "GeminiNavigationPromo";
-inline constexpr char kGeminiNavigationPromoDescription[] =
-    "Enables the automatic promo for Gemini on navigation.";
-
 inline constexpr char kGeminiPreciseLocationName[] = "BWG Precise Location";
 inline constexpr char kGeminiPreciseLocationDescription[] =
     "When enabled, the precise location row is shown in BWG settings.";
@@ -1063,6 +1092,12 @@ inline constexpr char kIOSDefaultBrowserContextualPromoName[] =
     "Contextual Default Browser Promo";
 inline constexpr char kIOSDefaultBrowserContextualPromoDescription[] =
     "Enables the contextual default browser promo half-sheet.";
+
+inline constexpr char kIOSDeviceTrustConnectorName[] =
+    "iOS Device Trust Connector";
+inline constexpr char kIOSDeviceTrustConnectorDescription[] =
+    "Enables the enterprise Device Trust Connector on iOS, which exposes the "
+    "chrome.enterprise.deviceTrust attestation API on allowlisted pages.";
 
 inline constexpr char kIOSEnableCloudProfileReportingName[] =
     "Enable profile reporting on iOS";
@@ -1264,21 +1299,6 @@ inline constexpr char kLensContinuousZoomEnabledName[] =
 inline constexpr char kLensContinuousZoomEnabledDescription[] =
     "When enabled, Lens camera supports continuous zoom.";
 
-inline constexpr char kLensFetchSrpApiEnabledName[] =
-    "Lens fetch SRP API enabled";
-inline constexpr char kLensFetchSrpApiEnabledDescription[] =
-    "Enables the fetch SRP API.";
-
-inline constexpr char kLensFilterToggleEnabledName[] =
-    "Lens filter toggle enabled";
-inline constexpr char kLensFilterToggleEnabledDescription[] =
-    "Enables the filter toggle in Lens camera.";
-
-inline constexpr char kLensFiltersAblationModeEnabledName[] =
-    "Lens filters ablation mode enabled";
-inline constexpr char kLensFiltersAblationModeEnabledDescription[] =
-    "Enables the filters ablation mode.";
-
 inline constexpr char kLensFollowupsFullHeightEnabledName[] =
     "Lens followups full height enabled";
 inline constexpr char kLensFollowupsFullHeightEnabledDescription[] =
@@ -1322,11 +1342,6 @@ inline constexpr char
     kLensStreamServiceWebChannelTransportEnabledDescription[] =
         "When enabled, uses web channel transport for the stream service.";
 
-inline constexpr char kLensTranslateToggleModeEnabledName[] =
-    "Lens translate toggle mode enabled";
-inline constexpr char kLensTranslateToggleModeEnabledDescription[] =
-    "Enables the translate toggle mode.";
-
 inline constexpr char kLensTripleCameraEnabledName[] =
     "Enable Lens triple camera";
 inline constexpr char kLensTripleCameraEnabledDescription[] =
@@ -1357,6 +1372,11 @@ inline constexpr char kMVTInBottomSheetDescription[] =
     "Places the Most Visited Tiles inside the bottom sheet card for the NTP "
     "Redesign.";
 
+inline constexpr char kMagicStackTipsV2IosName[] = "Magic Stack Tips V2";
+inline constexpr char kMagicStackTipsV2IosDescription[] =
+    "Enables Magic Stack Tips V2 on iOS with Non-Actionable or Actionable "
+    "variations.";
+
 inline constexpr char kManualLogUploadsInFREName[] =
     "Manual log uploads in the FRE";
 inline constexpr char kManualLogUploadsInFREDescription[] =
@@ -1378,12 +1398,6 @@ inline constexpr char kMetrickitNonCrashReportName[] =
 inline constexpr char kMetrickitNonCrashReportDescription[] =
     "Enables sending Metrickit reports for non crash type (hang, "
     "cpu-exception, diskwrite-exception)";
-
-inline constexpr char kMigrateIOSKeychainAccessibilityName[] =
-    "Migrate iOS Keychain Accessibility";
-inline constexpr char kMigrateIOSKeychainAccessibilityDescription[] =
-    "Migrate the accessibility attribute in the iOS keychain to 'after first "
-    "unlock'.";
 
 inline constexpr char kMobilePromoOnDesktopName[] = "Mobile Promo On Desktop";
 inline constexpr char kMobilePromoOnDesktopDescription[] =
@@ -1528,10 +1542,6 @@ inline constexpr char kOmniboxMaxURLMatchesDescription[] =
     "still display more than MaxURLMatches if there are no non-URL suggestions "
     "to replace them.";
 
-inline constexpr char kOmniboxMiaZpsName[] = "Omnibox Mia ZPS on NTP";
-inline constexpr char kOmniboxMiaZpsDescription[] =
-    "Enables Mia ZPS suggestions in NTP omnibox";
-
 inline constexpr char kOmniboxMlLogUrlScoringSignalsName[] =
     "Log Omnibox URL Scoring Signals";
 inline constexpr char kOmniboxMlLogUrlScoringSignalsDescription[] =
@@ -1592,11 +1602,11 @@ inline constexpr char kOmniboxPastePromoExperimentDescription[] =
     "Enables non-modal default browser promo experiment arms for Omnibox "
     "navigation.";
 
-inline constexpr char kOmniboxSuggestionAnswerMigrationName[] =
-    "Omnibox suggestion answer migration";
-inline constexpr char kOmniboxSuggestionAnswerMigrationDescription[] =
-    "Enables omnibox Suggestion answer migration, when enabled the omnibox "
-    "will use the migrated Answer_template instead of answer.";
+inline constexpr char kOmniboxPrerenderOnTouchDownName[] =
+    "Omnibox Prerender on Touch Down";
+inline constexpr char kOmniboxPrerenderOnTouchDownDescription[] =
+    "Prerenders compatible omnibox suggestions when touching down on the "
+    "suggestion row.";
 
 inline constexpr char kOmniboxUIMaxAutocompleteMatchesName[] =
     "Omnibox UI Max Autocomplete Matches";
@@ -1713,11 +1723,24 @@ inline constexpr char kPlusButtonMenuInFakeboxDescription[] =
     "When enabled, the fakebox plus button will display the context menu"
     "instead of opening the composebox first";
 
-inline constexpr char kPrepopulatedEnginesShadowVariantsName[] =
-    "Prepopulated Engines Shadow Variants";
-inline constexpr char kPrepopulatedEnginesShadowVariantsDescription[] =
-    "Enables shadow variants for prepopulated engines resolution, allowing "
-    "alternative engines to be resolved in specific regions.";
+inline constexpr char kPlusButtonMenuMoreOptionsSubmenuName[] =
+    "Group the complete list of plus menu options in a submenu.";
+inline constexpr char kPlusButtonMenuMoreOptionsSubmenuDescription[] =
+    "When enabled, the full list of options in the plus menu is grouped in a "
+    "submenu.";
+
+inline constexpr char kPlusButtonMenuStringUpdatesName[] =
+    "Use the updated strings in the plus button menu.";
+inline constexpr char kPlusButtonMenuStringUpdatesDescription[] =
+    "When enabled, the updated strings and subtitles are shown in the plus "
+    "button menu";
+
+inline constexpr char kPlusButtonMenuVerticalListViewName[] =
+    "Show the vertical list design for the attachment options in plus button "
+    "bottom sheet menu.";
+inline constexpr char kPlusButtonMenuVerticalListViewDescription[] =
+    "When enabled the vertical list design for the attachment options is used "
+    "in the plus button bottom sheet menu.";
 
 inline constexpr char kPriceTrackingPromoName[] =
     "Enables price tracking notification promo card";
@@ -1735,16 +1758,6 @@ inline constexpr char kProactiveSuggestionsFrameworkPopupBlockerName[] =
     "Popup Blocker";
 inline constexpr char kProactiveSuggestionsFrameworkPopupBlockerDescription[] =
     "Enables the popup blocker feature row in the Page Action Menu.";
-
-inline constexpr char kReaderModeOmniboxEntrypointInUSName[] =
-    "Reader Mode Omnibox Entrypoint In US";
-inline constexpr char kReaderModeOmniboxEntrypointInUSDescription[] =
-    "Enables the omnibox entrypoint for Reader Mode for users in the US.";
-
-inline constexpr char kReaderModeSupportNewFontsName[] =
-    "Reader Mode support new fonts";
-inline constexpr char kReaderModeSupportNewFontsDescription[] =
-    "Enables new accessible font options in Reader Mode.";
 
 inline constexpr char kRecoverTabsOfLastClosedWindowName[] =
     "Recover Tabs of last closed window";
@@ -1795,6 +1808,12 @@ inline constexpr char kSearchEngineChoiceScreenSnackbarName[] =
 inline constexpr char kSearchEngineChoiceScreenSnackbarDescription[] =
     "Enables a snackbar after the search engine choice screen.";
 
+inline constexpr char kSegmentationPlatformEphemeralCardRankerName[] =
+    "Segmentation platform ephemeral card ranker";
+inline constexpr char kSegmentationPlatformEphemeralCardRankerDescription[] =
+    "Enables the Ephemeral Card ranker for the segmentation platform service "
+    "to rank Magic Stack ephemeral modules on iOS.";
+
 inline constexpr char kSendTabToSelfEnhancedHandoffName[] =
     "Send Tab To Self enhanced handoff";
 inline constexpr char kSendTabToSelfEnhancedHandoffDescription[] =
@@ -1830,11 +1849,22 @@ inline constexpr char kSmoothScrollingUseDelegateDescription[] =
     "When enabled, the SmoothScrollingDefault experiment uses the regular "
     "UIScrollViewDelegate instead of KVO and broadcasting.";
 
+inline constexpr char kSnapshotBackgroundDecodeName[] =
+    "Snapshot Background Decode";
+inline constexpr char kSnapshotBackgroundDecodeDescription[] =
+    "Enables decoding tab snapshot images on the background thread pool.";
+
 inline constexpr char kSnapshotCompressedJPEGQualityName[] =
     "Snapshot Compressed JPEG Quality";
 inline constexpr char kSnapshotCompressedJPEGQualityDescription[] =
     "Reduces snapshot JPEG quality from 1.0 to 0.97 for visually lossless "
     "compression, reducing file size by ~3-5x.";
+
+inline constexpr char kSnapshotConcurrentAccessName[] =
+    "Snapshot Concurrent Access";
+inline constexpr char kSnapshotConcurrentAccessDescription[] =
+    "Enables concurrent reading, writing, and decoding of tab snapshot images "
+    "on the background thread pool.";
 
 inline constexpr char kSnapshotDownsampleImageName[] =
     "Snapshot Downsample Image";
@@ -1898,8 +1928,7 @@ inline constexpr char kSyncWalletVehicleRegistrationsDescription[] =
     "Enables syncing vehicle registrations in the wallet to the server.";
 
 inline constexpr char kTTCEnabledName[] = "TTCEnabled";
-inline constexpr char kTTCEnabledDescription[] =
-    "Enables TalkToChrome prototype.";
+inline constexpr char kTTCEnabledDescription[] = "Enables the TTC prototype.";
 
 inline constexpr char kTabGroupInOverflowMenuName[] =
     "Enable the Tab Group button in the overflow menu";
@@ -1977,10 +2006,11 @@ inline constexpr char kVariationsRestrictDogfoodName[] =
 inline constexpr char kVariationsRestrictDogfoodDescription[] =
     "When enabled, request dogfood variations from the variations server.";
 
-inline constexpr char kViewCertificateInformationName[] =
-    "View Certificate Information";
-inline constexpr char kViewCertificateInformationDescription[] =
-    "Enables viewing detailed certificate information in Page Info.";
+inline constexpr char kVoiceSearchEvolutionPhase1Name[] =
+    "Voice Search Evolution Phase 1";
+inline constexpr char kVoiceSearchEvolutionPhase1Description[] =
+    "Enables the redesigned Voice Search plate with modern waveform visualizer "
+    "and manual endpointing controls.";
 
 inline constexpr char kWaitThresholdMillisecondsForCapabilitiesApiName[] =
     "Maximum wait time (in seconds) for a response from the Account "

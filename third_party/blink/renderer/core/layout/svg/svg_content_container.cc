@@ -16,6 +16,7 @@
 #include "third_party/blink/renderer/core/layout/svg/svg_layout_info.h"
 #include "third_party/blink/renderer/core/layout/svg/svg_layout_support.h"
 #include "third_party/blink/renderer/core/layout/svg/svg_resources.h"
+#include "third_party/blink/renderer/core/layout/svg/transform_helper.h"
 
 namespace blink {
 
@@ -59,7 +60,7 @@ bool LayoutMarkerResourcesIfNeeded(LayoutObject& layout_object,
   if (!client)
     return false;
   bool has_viewport_dependence = false;
-  const ComputedStyle& style = layout_object.StyleRef();
+  const ComputedStyle& style = layout_object.Style();
   if (auto* marker = GetSVGResourceAsType<LayoutSVGResourceMarker>(
           *client, style.MarkerStartResource()))
     has_viewport_dependence |= UpdateSVGLayoutIfNeeded(marker, layout_info);
@@ -111,7 +112,7 @@ gfx::RectF ObjectBoundsForPropagation(const LayoutObject& object) {
   // so we need to apply zoom to the bounding box that we use for propagation to
   // be in the correct coordinate space.
   if (object.IsSVGForeignObject()) {
-    bounds.Scale(object.StyleRef().EffectiveZoom());
+    bounds.Scale(object.Style().EffectiveZoom());
   }
   return bounds;
 }
@@ -207,7 +208,8 @@ bool SVGContentContainer::UpdateBoundingBoxes() {
     // Don't include elements that are not rendered.
     if (!HasValidBoundingBoxForContainer(*current))
       continue;
-    const AffineTransform& transform = current->LocalToSVGParentTransform();
+    const gfx::Transform transform =
+        TransformHelper::LocalToSVGParentTransform3D(*current);
     UpdateObjectBoundingBox(
         object_bounding_box, object_bounding_box_valid_,
         transform.MapRect(ObjectBoundsForPropagation(*current)));
@@ -231,7 +233,8 @@ gfx::RectF SVGContentContainer::ComputeVisualOverflowRectIncludingFilters()
     if (!HasValidBoundingBoxForContainer(*current)) {
       continue;
     }
-    const AffineTransform& transform = current->LocalToSVGParentTransform();
+    const gfx::Transform transform =
+        TransformHelper::LocalToSVGParentTransform3D(*current);
     gfx::RectF child_bounds =
         ::blink::ComputeVisualOverflowRectIncludingFilters(*current);
     visual_overflow.Union(transform.MapRect(child_bounds));
@@ -242,8 +245,9 @@ gfx::RectF SVGContentContainer::ComputeVisualOverflowRectIncludingFilters()
 bool SVGContentContainer::ComputeHasNonIsolatedBlendingDescendants() const {
   for (LayoutObject* child = children_.FirstChild(); child;
        child = child->NextSibling()) {
-    if (child->IsBlendingAllowed() && child->StyleRef().HasBlendMode())
+    if (child->IsBlendingAllowed() && child->Style().HasBlendMode()) {
       return true;
+    }
     if (child->HasNonIsolatedBlendingDescendants() &&
         !SVGLayoutSupport::WillIsolateBlendingDescendantsForObject(child))
       return true;
@@ -259,7 +263,8 @@ gfx::RectF SVGContentContainer::ComputeStrokeBoundingBox() const {
     if (!HasValidBoundingBoxForContainer(*child)) {
       continue;
     }
-    const AffineTransform& transform = child->LocalToSVGParentTransform();
+    const gfx::Transform transform =
+        TransformHelper::LocalToSVGParentTransform3D(*child);
     stroke_bbox.Union(transform.MapRect(child->StrokeBoundingBox()));
   }
   return stroke_bbox;

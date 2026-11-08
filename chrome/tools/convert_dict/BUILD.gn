@@ -2,6 +2,11 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import("//components/spellcheck/spellcheck_build_features.gni")
+
+assert(enable_spellcheck)
+assert(!is_mac)
+
 source_set("lib") {
   # Production code shouldn't be depending on this.
   testonly = true
@@ -14,10 +19,37 @@ source_set("lib") {
     "hunspell_reader.cc",
     "hunspell_reader.h",
   ]
-  configs += [ "//build/config/compiler:wexit_time_destructors" ]
   deps = [
     "//base",
     "//base:i18n",
+  ]
+}
+
+source_set("unit_tests") {
+  testonly = true
+
+  sources = [
+    "aff_reader_unittest.cc",
+    "convert_dict_unittest.cc",
+  ]
+  deps = [
+    ":lib",
+    "//base",
+    "//base:i18n",
+    "//chrome/common:constants",
+    "//testing/gtest",
+    "//third_party/hunspell",
+  ]
+  data = [
+    "//chrome/test/data/convert_dict/affix-flags.aff",
+    "//chrome/test/data/convert_dict/description.aff",
+    "//chrome/test/data/convert_dict/empty.aff",
+    "//chrome/test/data/convert_dict/indexed-affix.aff",
+    "//chrome/test/data/convert_dict/leading-comment.aff",
+    "//chrome/test/data/convert_dict/other-commands.aff",
+    "//chrome/test/data/convert_dict/prefix-suffix.aff",
+    "//chrome/test/data/convert_dict/rep.aff",
+    "//chrome/test/data/convert_dict/tab-separated.aff",
   ]
 }
 
@@ -26,7 +58,6 @@ executable("convert_dict") {
   testonly = true
 
   sources = [ "convert_dict.cc" ]
-  configs += [ "//build/config/compiler:wexit_time_destructors" ]
   deps = [
     ":lib",
     "//base",

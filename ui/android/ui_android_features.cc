@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "ui/android/ui_android_features.h"
+
 #include "base/feature_list.h"
 
 namespace ui {
@@ -69,7 +70,7 @@ BASE_FEATURE(kAndroidUpdateDisplayForContext, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kSupportKeyboard, base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kUseNewEtc1Encoder, base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kUseNewEtc1Decoder, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kCheckHitEligibility, base::FEATURE_ENABLED_BY_DEFAULT);
 

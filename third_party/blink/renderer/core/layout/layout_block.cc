@@ -100,54 +100,16 @@ void LayoutBlock::WillBeDestroyed(const ComputedStyle* style) {
   LayoutBox::WillBeDestroyed(style);
 }
 
-// Compute a local version of the "font size scale factor" used by SVG
-// <text>. Squared to avoid computing the square root. See
-// SVGLayoutSupport::CalculateScreenFontSizeScalingFactor().
-static double ComputeSquaredLocalFontSizeScalingFactor(
-    const gfx::Transform* transform) {
-  if (!transform)
-    return 1;
-  const auto affine = AffineTransform::FromTransform(*transform);
-  return affine.XScaleSquared() + affine.YScaleSquared();
-}
-
 void LayoutBlock::StyleDidChange(
     StyleDifference diff,
     const ComputedStyle* old_style,
     const ComputedStyle& new_style,
     const StyleChangeContext& style_change_context) {
   NOT_DESTROYED();
-  // Computes old scaling factor before PaintLayer::UpdateTransform()
-  // updates Layer()->Transform().
-  double old_squared_scale = 1;
-  if (!RuntimeEnabledFeatures::SvgIgnoreOuterTransformsEnabled() && Layer() &&
-      diff.transform_changed && HasSVGTextDescendants()) {
-    old_squared_scale =
-        ComputeSquaredLocalFontSizeScalingFactor(Layer()->Transform());
-  }
 
   LayoutBox::StyleDidChange(diff, old_style, new_style, style_change_context);
 
   PropagateStyleToAnonymousChildren();
-
-  if (!RuntimeEnabledFeatures::SvgIgnoreOuterTransformsEnabled() &&
-      diff.transform_changed && HasSVGTextDescendants()) {
-    const double new_squared_scale = ComputeSquaredLocalFontSizeScalingFactor(
-        Layer() ? Layer()->Transform() : nullptr);
-    // Compare local scale before and after.
-    if (old_squared_scale != new_squared_scale) {
-      bool stacking_context_changed =
-          old_style &&
-          (IsStackingContext(*old_style) != IsStackingContext(new_style));
-      for (LayoutBox* box : *View()->SvgTextDescendantsMap().at(this)) {
-        To<LayoutSVGText>(box)->SetNeedsTextMetricsUpdate();
-        if (GetNode() == GetDocument().documentElement() ||
-            stacking_context_changed) {
-          box->SetNeedsLayout(layout_invalidation_reason::kStyleChange);
-        }
-      }
-    }
-  }
 }
 
 bool LayoutBlock::RespectsCSSOverflow() const {
@@ -258,11 +220,12 @@ void LayoutBlock::ImageChanged(WrappedImagePtr image,
   NOT_DESTROYED();
   LayoutBox::ImageChanged(image, defer);
 
-  if (!StyleRef().HasPseudoElementStyle(kPseudoIdFirstLine))
+  if (!Style().HasPseudoElementStyle(kPseudoIdFirstLine)) {
     return;
+  }
 
   const auto* first_line_style =
-      StyleRef().GetCachedPseudoElementStyle(kPseudoIdFirstLine);
+      Style().GetCachedPseudoElementStyle(kPseudoIdFirstLine);
   if (!first_line_style)
     return;
   if (auto* first_line_container = NearestInnerBlockWithFirstLine()) {
@@ -276,36 +239,9 @@ void LayoutBlock::ImageChanged(WrappedImagePtr image,
   }
 }
 
-void LayoutBlock::AddSvgTextDescendant(LayoutSVGText& svg_text) {
-  NOT_DESTROYED();
-  DCHECK(!RuntimeEnabledFeatures::SvgIgnoreOuterTransformsEnabled());
-  auto result = View()->SvgTextDescendantsMap().insert(this, nullptr);
-  if (result.is_new_entry) {
-    result.stored_value->value =
-        MakeGarbageCollected<GCedHeapHashSet<Member<LayoutSVGText>>>();
-  }
-  result.stored_value->value->insert(&svg_text);
-  SetHasSVGTextDescendants(true);
-}
-
-void LayoutBlock::RemoveSvgTextDescendant(LayoutSVGText& svg_text) {
-  NOT_DESTROYED();
-  DCHECK(!RuntimeEnabledFeatures::SvgIgnoreOuterTransformsEnabled());
-  auto& map = View()->SvgTextDescendantsMap();
-  auto it = map.find(this);
-  if (it == map.end())
-    return;
-  GCedHeapHashSet<Member<LayoutSVGText>>& descendants = *it->value;
-  descendants.erase(&svg_text);
-  if (descendants.empty()) {
-    map.erase(this);
-    SetHasSVGTextDescendants(false);
-  }
-}
-
 LayoutUnit LayoutBlock::TextIndentOffset() const {
   NOT_DESTROYED();
-  const ComputedStyle& style = StyleRef();
+  const ComputedStyle& style = Style();
   const Length& length = style.TextIndent();
   if (length.IsZero() || style.IsTextIndentHanging()) {
     return LayoutUnit();
@@ -369,7 +305,7 @@ PositionWithAffinity LayoutBlock::PositionForPointIfOutsideAtomicInlineLevel(
   NOT_DESTROYED();
   DCHECK(IsInline());
   LogicalOffset logical_offset =
-      WritingModeConverter({StyleRef().GetWritingMode(), ResolvedDirection()},
+      WritingModeConverter({Style().GetWritingMode(), ResolvedDirection()},
                            StitchedSize())
           .ToLogical(point, PhysicalSize());
 
@@ -452,8 +388,9 @@ const LayoutBlock* LayoutBlock::FirstLineStyleParentBlock() const {
     return nullptr;
 
   LayoutObject* parent_block = first_line_block->Parent();
-  if (!parent_block || !parent_block->BehavesLikeBlockContainer())
+  if (!parent_block || !parent_block->CanHaveFirstLineOrLetter()) {
     return nullptr;
+  }
 
   const LayoutBlock* parent_layout_block = To<LayoutBlock>(parent_block);
 
@@ -501,7 +438,7 @@ PhysicalRect LayoutBlock::LocalCaretRect(int caret_offset,
     return LayoutBox::LocalCaretRect(caret_offset, caret_shape);
   }
 
-  const ComputedStyle& style = StyleRef();
+  const ComputedStyle& style = Style();
   const bool is_horizontal = style.IsHorizontalWritingMode();
 
   PhysicalSize stitched_size = StitchedSize();
@@ -537,13 +474,13 @@ void LayoutBlock::AddOutlineRects(OutlineRectCollector& collector,
                                      include_block_overflows);
   }
   if (info)
-    *info = OutlineInfo::GetFromStyle(StyleRef());
+    *info = OutlineInfo::GetFromStyle(Style());
 }
 
 LayoutBox* LayoutBlock::CreateAnonymousBoxWithSameTypeAs(
     const LayoutObject* parent) const {
   NOT_DESTROYED();
-  return CreateAnonymousWithParentAndDisplay(parent, StyleRef().Display());
+  return CreateAnonymousWithParentAndDisplay(parent, Style().Display());
 }
 
 const char* LayoutBlock::GetName() const {
@@ -583,8 +520,7 @@ LayoutBlock* LayoutBlock::CreateAnonymousWithParentAndDisplay(
   ComputedStyleBuilder new_style_builder =
       parent->GetDocument()
           .GetStyleResolver()
-          .CreateAnonymousStyleBuilderWithDisplay(parent->StyleRef(),
-                                                  new_display);
+          .CreateAnonymousStyleBuilderWithDisplay(parent->Style(), new_display);
 
   parent->UpdateAnonymousChildStyle(nullptr, new_style_builder);
   const ComputedStyle& new_style = *new_style_builder.TakeStyle();

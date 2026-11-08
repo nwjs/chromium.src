@@ -37,6 +37,14 @@ namespace extensions_features {
 // NOTE(devlin): If there are consistently enough of these in flux, it might
 // make sense to have their own file.
 
+// Controls the return value of alarms.clearAll() API. If enabled,
+// alarms.clearAll() returns undefined, matching the new proposed behavior.
+// If disabled, alarms.clearAll() always returns true, matching legacy Chrome
+// behavior.
+// TODO(crbug.com/541711725): Remove after M160 and update alarms.clearAll()
+// in extensions/common/api/alarms.webidl to return Promise<undefined>.
+BASE_DECLARE_FEATURE(kApiAlarmsClearAllReturnUndefined);
+
 // Controls the availability of SplitView Extension APIs.
 BASE_DECLARE_FEATURE(kApiTabsSplitView);
 
@@ -126,10 +134,6 @@ BASE_DECLARE_FEATURE(kApiDesktopAndroidNativeMessagingBypassExtensionAllowlist);
 
 // For historical reasons, this includes some APIs. Please don't add more APIs.
 
-// Enables the UI in the install prompt which lets a user choose to withhold
-// requested host permissions by default.
-BASE_DECLARE_FEATURE(kAllowWithholdingExtensionPermissionsOnInstall);
-
 // If enabled, navigations and window.open calls to URLs outside a hosted app's
 // web extent in background contents are blocked and not persisted to prefs.
 // TODO(crbug.com/511824746): Clean up in M156.
@@ -188,6 +192,10 @@ BASE_DECLARE_FEATURE(kExtensionLocalizationGuid);
 
 // A replacement key for declaring icons, in addition to supporting dark mode.
 BASE_DECLARE_FEATURE(kExtensionIconVariants);
+
+// Enables the "Allow site access" section in the extension install dialog which
+// lets the user choose site permissions.
+BASE_DECLARE_FEATURE(kExtensionInstallSiteAccessOptions);
 
 // If enabled, allows an extension to specify protocol_handlers keys in the
 // Manifest, registering a group of custom handlers so that the browser can

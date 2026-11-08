@@ -87,7 +87,6 @@ bool IsSystemWebUIHost(std::string_view host) {
       ash::kChromeUIAppInstallDialogHost,
       ash::kChromeUIBluetoothPairingHost,
       ash::kChromeUIBorealisCreditsHost,
-      ash::kChromeUIBorealisMOTDHost,
       kChromeUICertificateManagerHost,
       ash::kChromeUICloudUploadHost,
       ash::kChromeUICrostiniCreditsHost,
@@ -161,8 +160,8 @@ base::span<const base::cstring_view> ChromeURLHosts() {
       kChromeUINetExportHost,
       kChromeUINetInternalsHost,
       kChromeUINewTabHost,
-      kChromeUIOmniboxHost,
-      kChromeUIOmniboxAimEligibilityPage,
+      kChromeUIOmniboxInternalsHost,
+      kChromeUIOmniboxInternalsAimEligibilityPage,
 #if !BUILDFLAG(IS_ANDROID)
       kChromeUIOnDeviceInternalsHost,
 #endif
@@ -187,7 +186,6 @@ base::span<const base::cstring_view> ChromeURLHosts() {
       kChromeUISyncInternalsHost,
 #if !BUILDFLAG(IS_ANDROID)
       kChromeUITabSearchHost,
-      kChromeUITabsFromOtherDevicesSidePanelHost,
       kChromeUITermsHost,
 #endif
       kChromeUITranslateInternalsHost,

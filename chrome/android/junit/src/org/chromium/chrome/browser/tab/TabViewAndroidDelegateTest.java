@@ -20,6 +20,8 @@ import android.view.View;
 import android.view.ViewStructure;
 import android.view.autofill.AutofillValue;
 
+import androidx.test.core.app.ApplicationProvider;
+
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -57,11 +59,10 @@ public class TabViewAndroidDelegateTest {
 
     @Mock private WindowAndroid mWindowAndroid;
 
-    @Mock private ContentView mContentView;
-
     private final ApplicationViewportInsetTracker mApplicationInsetSupplier =
             ApplicationViewportInsetTracker.createForTests();
     private SettableNonNullObservableSupplier<Integer> mVisualViewportInsetSupplier;
+    private ContentView mContentView;
     private TabViewAndroidDelegate mViewAndroidDelegate;
 
     @Before
@@ -78,6 +79,9 @@ public class TabViewAndroidDelegateTest {
         when(mTab.getWindowAndroid()).thenReturn(mWindowAndroid);
         when(mTab.getWebContents()).thenReturn(mWebContents);
 
+        mContentView =
+                ContentView.createContentView(
+                        ApplicationProvider.getApplicationContext(), /* webContents= */ null);
         mViewAndroidDelegate = new TabViewAndroidDelegate(mTab, mContentView);
         verify(mTab).addObserver(mTabObserverCaptor.capture());
     }

@@ -903,9 +903,14 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration);
 // Returns whether Chrome Next is enabled.
 - (BOOL)isChromeNextEnabled;
 
+// Returns whether Next Old Design is enabled.
+- (BOOL)isNextOldDesignEnabled;
+
 // Returns whether overflow menu refactoring on the NTP is enabled.
 - (BOOL)isOverflowMenuNTPRefactorEnabled;
 
+// Returns whether Aim Cobrowse Web Selection Search is enabled.
+- (BOOL)isAimCobrowseWebSelectionSearchEnabled;
 
 // Returns YES if the view with `accessibilityID` or any of its ancestors is
 // animating.

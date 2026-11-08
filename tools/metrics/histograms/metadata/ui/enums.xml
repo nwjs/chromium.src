@@ -163,6 +163,15 @@ chromium-metrics-reviews@google.com.
       label="User moved or resized the Settings window (degraded to floating)"/>
   <int value="8"
       label="Settings page layout unpredictable (degraded to floating)"/>
+  <int value="9" label="Chrome window moved or resized (degraded to floating)"/>
+  <int value="10"
+      label="Chrome window activated in front of Settings (degraded to
+             floating)"/>
+  <int value="11"
+      label="Chrome window or guide tab hidden (degraded to floating)"/>
+  <int value="12"
+      label="Settings window minimized, maximized, or snapped (degraded to
+             floating)"/>
 </enum>
 
 <!-- LINT.ThenChange(//chrome/browser/ui/webui/default_browser/visual_guided_setter_controller_win.h:DefaultBrowserVisualGuideOutcome) -->
@@ -432,6 +441,7 @@ chromium-metrics-reviews@google.com.
   <int value="169" label="IDC_CONTENT_CONTEXT_OPENLINK_ISOLATED"/>
   <int value="170" label="IDC_CONTENT_CONTEXT_ASK_GOOGLE_ABOUT_THIS_PAGE"/>
   <int value="171" label="IDC_CONTENT_CONTEXT_CONTEXTUAL_TASKS_SUBMENU"/>
+  <int value="172" label="IDC_CONTENT_CONTEXT_GLIC_SMART_SUGGESTION"/>
 </enum>
 
 <!-- LINT.ThenChange(//chrome/browser/renderer_context_menu/render_view_context_menu.cc:RenderViewContextMenuItem) -->
@@ -566,6 +576,8 @@ chromium-metrics-reviews@google.com.
   <int value="96" label="UMA_GLIC_MIC_DISABLED"/>
   <int value="97" label="UMA_AUTOFILL_AI_SUPPRESSION_UNDO"/>
   <int value="98" label="UMA_ACTOR_EXTERNAL_TRIGGER"/>
+  <int value="99" label="UMA_IN_APP_UPDATE_DISCOVERY"/>
+  <int value="100" label="UMA_IN_APP_UPDATE_RESTART"/>
 </enum>
 
 <!-- LINT.ThenChange(//chrome/browser/ui/messages/android/java/src/org/chromium/chrome/browser/ui/messages/snackbar/Snackbar.java:SnackbarIdentifier) -->
@@ -777,6 +789,7 @@ chromium-metrics-reviews@google.com.
       label="chrome-untrusted://class-tools-remote-display/"/>
   <int value="-1949142440" label="chrome://smb-credentials-dialog/"/>
   <int value="-1941995226" label="chrome://attribution-internals/"/>
+  <int value="-1924819719" label="chrome://tabstrip-ntb.top-chrome/"/>
   <int value="-1911971715" label="chrome://history/"/>
   <int value="-1899361569" label="chrome-untrusted://eche-app/"/>
   <int value="-1891730544" label="chrome://cross-device-signin-qr-bubble/"/>
@@ -849,6 +862,7 @@ chromium-metrics-reviews@google.com.
   <int value="-1222744253" label="chrome-untrusted://ai-overlay-dialog/"/>
   <int value="-1203248739" label="chrome://scanning/"/>
   <int value="-1198437953" label="chrome://download-shelf.top-chrome/"/>
+  <int value="-1187235642" label="chrome://omnibox-internals/"/>
   <int value="-1179878260" label="chrome://user-education-internals/"/>
   <int value="-1177126000" label="chrome://profile-internals/"/>
   <int value="-1176451566" label="chrome://access-code-cast/"/>
@@ -1276,6 +1290,27 @@ chromium-metrics-reviews@google.com.
       label="(Obsolete) Show contextual tasks side panel. Removed 12/18/25"/>
   <int value="103" label="New isolated window"/>
   <int value="104" label="TTC app menu"/>
+  <int value="105" label="Create new tab group"/>
+  <int value="106" label="Saved tab group: delete"/>
+  <int value="107" label="Saved tab group: open in browser"/>
+  <int value="108" label="Saved tab group: open in new window"/>
+  <int value="109" label="Saved tab group: pin"/>
+  <int value="110" label="Bookmark bar: always hide"/>
+  <int value="111" label="Bookmark bar: always show"/>
+  <int value="112" label="Bookmark bar: only on new tab page"/>
+  <int value="113" label="Global error"/>
+  <int value="114" label="Show sync passphrase dialog"/>
+  <int value="115" label="Show management page"/>
+  <int value="116" label="Report unsafe site"/>
+  <int value="117" label="Sharing hub screenshot"/>
+  <int value="118" label="Take screenshot"/>
+  <int value="119" label="Tab search"/>
+  <int value="120" label="Toggle vertical tabs"/>
+  <int value="121" label="Name window"/>
+  <int value="122" label="Ask Google about this page"/>
+  <int value="123" label="Chrome Enterprise release notes"/>
+  <int value="124" label="Manage skills"/>
+  <int value="125" label="Show skills and extensions"/>
 </enum>
 
 <!-- LINT.ThenChange(/chrome/browser/ui/toolbar/app_menu_model.h:AppMenuAction) -->

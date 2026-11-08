@@ -58,9 +58,6 @@ class SelectBnplIssuerDialogInteractiveUiTest : public InteractiveBrowserTest {
       std::vector<BnplIssuerContext> issuer_contexts,
       bool has_seen_ai_terms = false) {
     return Steps(
-        ObserveState(
-            views::test::kCurrentFocusedViewId,
-            BrowserView::GetBrowserViewForBrowser(browser())->GetWidget()),
         Do([this, issuer_contexts, has_seen_ai_terms]() {
           ContentAutofillClient::FromWebContents(web_contents())
               ->GetPaymentsAutofillClient()
@@ -324,16 +321,7 @@ IN_PROC_BROWSER_TEST_F(SelectBnplIssuerDialogInteractiveUiTest, EscKeyPress) {
                BnplIssuerEligibilityForPage::
                    kNotEligibleIssuerDoesNotSupportMerchant)}),
       InAnyContext(
-// Dialogs are already in focus for Mac builds and focusing again causes a
-// button click.
-#if !BUILDFLAG(IS_MAC)
-          // Focus on an element in the dialog as the dialog's `kTopViewId`
-          // view can't be focused on with `RequestFocus()`.
-          WithView(views::DialogClientView::kCancelButtonElementId,
-                   [](views::View* view) { view->RequestFocus(); }),
-          WaitForState(views::test::kCurrentFocusedViewId,
-                       views::DialogClientView::kCancelButtonElementId),
-#endif
+          FocusElement(views::DialogClientView::kCancelButtonElementId),
           SendAccelerator(views::DialogClientView::kTopViewId,
                           ui::Accelerator(ui::VKEY_ESCAPE, ui::MODIFIER_NONE)),
           WaitForHide(views::DialogClientView::kTopViewId)));
@@ -426,7 +414,7 @@ IN_PROC_BROWSER_TEST_F(SelectBnplIssuerDialogInteractiveUiTest,
       InSameContext(WithView(
           SelectBnplIssuerDialog::kFootnoteViewId, [](views::View* view) {
             ASSERT_TRUE(view);
-            ASSERT_GT(view->children().size(), 0);
+            ASSERT_GT(view->children().size(), 0u);
             views::StyledLabel* styled_label =
                 views::AsViewClass<views::StyledLabel>(view->children()[0]);
             std::u16string bold_text = u"";
@@ -462,7 +450,7 @@ IN_PROC_BROWSER_TEST_F(SelectBnplIssuerDialogInteractiveUiTest,
       InSameContext(WithView(
           SelectBnplIssuerDialog::kFootnoteViewId, [](views::View* view) {
             ASSERT_TRUE(view);
-            ASSERT_GT(view->children().size(), 0);
+            ASSERT_GT(view->children().size(), 0u);
             views::StyledLabel* styled_label =
                 views::AsViewClass<views::StyledLabel>(view->children()[0]);
 

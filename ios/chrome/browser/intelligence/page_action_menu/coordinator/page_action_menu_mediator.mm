@@ -9,6 +9,8 @@
 #import "base/scoped_observation.h"
 #import "base/strings/sys_string_conversions.h"
 #import "components/content_settings/core/browser/host_content_settings_map.h"
+#import "components/content_settings/core/common/content_settings.h"
+#import "components/content_settings/core/common/content_settings_pattern.h"
 #import "components/prefs/pref_service.h"
 #import "components/search/search.h"
 #import "components/search_engines/template_url_service.h"
@@ -34,9 +36,9 @@
 #import "ios/chrome/browser/lens_overlay/public/lens_overlay_availability.h"
 #import "ios/chrome/browser/overlays/model/public/overlay_modality.h"
 #import "ios/chrome/browser/overlays/model/public/overlay_request_queue.h"
+#import "ios/chrome/browser/permissions/model/permissions_metrics.h"
 #import "ios/chrome/browser/permissions/model/permissions_tab_helper.h"
 #import "ios/chrome/browser/price_insights/model/price_insights_model.h"
-#import "ios/chrome/browser/reader_mode/model/features.h"
 #import "ios/chrome/browser/reader_mode/model/reader_mode_browser_agent.h"
 #import "ios/chrome/browser/reader_mode/model/reader_mode_browser_agent_observer_bridge.h"
 #import "ios/chrome/browser/reader_mode/model/reader_mode_tab_helper.h"
@@ -66,6 +68,19 @@ bool SigninIsPossible(AuthenticationService* auth_service) {
     return false;
   }
   return !auth_service->HasPrimaryIdentity() && auth_service->SigninEnabled();
+}
+
+// Returns the `IOSPermissionSetting` corresponding to `setting`.
+IOSPermissionSetting IOSPermissionSettingForPageActionMenuPermissionSetting(
+    PageActionMenuPermissionSetting setting) {
+  switch (setting) {
+    case PageActionMenuPermissionSetting::kAllowOnce:
+      return IOSPermissionSetting::kAllowOnce;
+    case PageActionMenuPermissionSetting::kAlwaysAllow:
+      return IOSPermissionSetting::kAlwaysAllow;
+    case PageActionMenuPermissionSetting::kNeverAllow:
+      return IOSPermissionSetting::kNeverAllow;
+  }
 }
 
 }  // namespace
@@ -423,13 +438,9 @@ bool SigninIsPossible(AuthenticationService* auth_service) {
   switch (featureType) {
     case PageActionMenuCameraPermission:
       permission = web::PermissionCamera;
-      RecordPageActionMenuFeatureRowUsed(
-          IOSPageActionMenuFeatureType::kCameraPermission);
       break;
     case PageActionMenuMicrophonePermission:
       permission = web::PermissionMicrophone;
-      RecordPageActionMenuFeatureRowUsed(
-          IOSPageActionMenuFeatureType::kMicrophonePermission);
       break;
     case PageActionMenuTranslate:
     case PageActionMenuPopupBlocker:
@@ -438,13 +449,21 @@ bool SigninIsPossible(AuthenticationService* auth_service) {
       return;
   }
 
+  const bool settingChanged = [self permissionSettingFor:permission] != setting;
+
   [self persistSetting:setting forPermission:permission];
 
   web::PermissionState state =
       setting == PageActionMenuPermissionSetting::kNeverAllow
-          ? web::PermissionStateBlocked
+          ? web::PermissionStateNotAccessible
           : web::PermissionStateAllowed;
   _webState->SetStateForPermission(state, permission);
+
+  if (settingChanged) {
+    RecordPermissionSettingChanged(
+        IOSPermissionSettingChangeSurface::kPageActionMenu, permission,
+        IOSPermissionSettingForPageActionMenuPermissionSetting(setting));
+  }
 }
 
 - (NSArray<PageActionMenuFeature*>*)activeFeatures {
@@ -653,9 +672,7 @@ bool SigninIsPossible(AuthenticationService* auth_service) {
   _webStateObserver.reset();
 }
 
-// Returns whether the row for `permission` should be shown. With domain level
-// site permissions, the row remains visible for any permission the site has
-// requested, so that a blocked permission can still be changed back.
+// Returns whether the row for `permission` should be shown.
 - (BOOL)isPermissionRowAvailable:(web::Permission)permission {
   if (!_webState) {
     return NO;

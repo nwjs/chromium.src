@@ -13,7 +13,6 @@ import org.jni_zero.NativeMethods;
 import org.chromium.base.Token;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.chrome.browser.tab.Tab;
-import org.chromium.chrome.browser.tab.TabClosingSource;
 import org.chromium.chrome.browser.tab.TabCreationState;
 import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tab.TabSelectionType;
@@ -23,12 +22,13 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * An implementation of TabModelObserver that forwards notifications over a JNI bridge to a
- * corresponding native implementation. Objects of this type are created and owned by the native
- * TabModelJniBridge implementation when native observers are added.
+ * An implementation of {@link TabModelObserver} and {@link TabGroupObserver} that forwards
+ * notifications over a JNI bridge to a corresponding native implementation. Objects of this type
+ * are created and owned by the native TabModelJniBridge implementation when native observers are
+ * added.
  */
 @NullMarked
-class TabModelObserverJniBridge implements TabModelObserver {
+class TabModelObserverJniBridge implements TabModelObserver, TabGroupObserver {
     /** Native TabModelObserverJniBridge pointer, set by the constructor. */
     private long mNativeTabModelObserverJniBridge;
 
@@ -154,7 +154,7 @@ class TabModelObserverJniBridge implements TabModelObserver {
             List<Tab> tabs, boolean isAllTabs, @TabClosingSource int closingSource) {
         assert mNativeTabModelObserverJniBridge != 0;
         TabModelObserverJniBridgeJni.get()
-                .onTabClosePending(mNativeTabModelObserverJniBridge, tabs, closingSource);
+                .onTabClosePending(mNativeTabModelObserverJniBridge, tabs);
     }
 
     @Override
@@ -224,36 +224,36 @@ class TabModelObserverJniBridge implements TabModelObserver {
         TabModelObserverJniBridgeJni.get().tabRemoved(mNativeTabModelObserverJniBridge, tab);
     }
 
+    // TabGroupObserver implementation.
+
     @Override
-    public final void onTabGroupCreated(Token groupId) {
+    public final void onTabGroupCreated(Token tabGroupId) {
         assert mNativeTabModelObserverJniBridge != 0;
         TabModelObserverJniBridgeJni.get()
-                .onTabGroupCreated(mNativeTabModelObserverJniBridge, groupId);
+                .onTabGroupCreated(mNativeTabModelObserverJniBridge, tabGroupId);
     }
 
     @Override
-    public final void onTabGroupRemoving(Token groupId) {
+    public final void onTabGroupRemoving(Token tabGroupId) {
         assert mNativeTabModelObserverJniBridge != 0;
         TabModelObserverJniBridgeJni.get()
-                .onTabGroupRemoving(mNativeTabModelObserverJniBridge, groupId);
+                .onTabGroupRemoving(mNativeTabModelObserverJniBridge, tabGroupId);
     }
 
     @Override
-    public final void onTabGroupMoved(Token groupId) {
+    public final void onTabGroupMoved(
+            Token tabGroupId, int tabModelOldIndex, int tabModelNewIndex) {
         assert mNativeTabModelObserverJniBridge != 0;
         TabModelObserverJniBridgeJni.get()
-                .onTabGroupMoved(mNativeTabModelObserverJniBridge, groupId);
+                .onTabGroupMoved(mNativeTabModelObserverJniBridge, tabGroupId);
     }
 
     @Override
-    public final void onTabGroupVisualsChanged(Token groupId) {
+    public final void onTabGroupVisualsChanged(Token tabGroupId) {
         assert mNativeTabModelObserverJniBridge != 0;
         TabModelObserverJniBridgeJni.get()
-                .onTabGroupVisualsChanged(mNativeTabModelObserverJniBridge, groupId);
+                .onTabGroupVisualsChanged(mNativeTabModelObserverJniBridge, tabGroupId);
     }
-
-    @Override
-    public void restoreCompleted() {}
 
     /**
      * Creates an observer bridge for the given tab model. The native counterpart to this object
@@ -269,6 +269,7 @@ class TabModelObserverJniBridge implements TabModelObserver {
         TabModelObserverJniBridge bridge =
                 new TabModelObserverJniBridge(nativeTabModelObserverJniBridge, tabModel);
         tabModel.addObserver(bridge);
+        tabModel.addTabGroupObserver(bridge);
         return bridge;
     }
 
@@ -283,6 +284,7 @@ class TabModelObserverJniBridge implements TabModelObserver {
         assert mNativeTabModelObserverJniBridge != 0;
         assert mTabModel != null;
         mTabModel.removeObserver(this);
+        mTabModel.removeTabGroupObserver(this);
         mNativeTabModelObserverJniBridge = 0;
         mTabModel = null;
     }
@@ -348,8 +350,7 @@ class TabModelObserverJniBridge implements TabModelObserver {
 
         void onTabClosePending(
                 long nativeTabModelObserverJniBridge,
-                @JniType("std::vector<TabAndroid*>") List<Tab> tabs,
-                int source);
+                @JniType("std::vector<TabAndroid*>") List<Tab> tabs);
 
         void allTabsClosureCommitted(long nativeTabModelObserverJniBridge);
 

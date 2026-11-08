@@ -133,7 +133,7 @@ void TabModelObserverJniBridge::DidMoveTab(JNIEnv* env,
                                            int cur_index) {
   CHECK(tab);
   for (auto& observer : model_observers_) {
-    observer.DidMoveTab(tab, new_index, cur_index);
+    observer.DidMoveTab(tab);
   }
   for (auto& observer : interface_observers_) {
     observer.OnTabMoved(*tab_model_, tab, cur_index, new_index);
@@ -142,11 +142,9 @@ void TabModelObserverJniBridge::DidMoveTab(JNIEnv* env,
 
 void TabModelObserverJniBridge::OnTabClosePending(
     JNIEnv* env,
-    const std::vector<TabAndroid*>& tabs,
-    int source) {
+    const std::vector<TabAndroid*>& tabs) {
   for (auto& observer : model_observers_) {
-    observer.OnTabClosePending(tabs,
-                               static_cast<TabModel::TabClosingSource>(source));
+    observer.OnTabClosePending(tabs);
   }
 }
 
@@ -178,19 +176,22 @@ void TabModelObserverJniBridge::OnTabCloseUndone(
 }
 
 void TabModelObserverJniBridge::OnTabsSelectionChanged(JNIEnv* env) {
-  std::set<tabs::TabInterface*> highlighted_tabs;
-  const int count = tab_model_->GetTabCount();
+  if (!interface_observers_.empty()) {
+    std::set<tabs::TabInterface*> highlighted_tabs;
+    const int count = tab_model_->GetTabCount();
 
-  for (int i = 0; i < count; ++i) {
-    TabAndroid* tab = tab_model_->GetTabAt(i);
-    if (tab->IsSelected()) {
-      highlighted_tabs.insert(tab);
+    for (int i = 0; i < count; ++i) {
+      TabAndroid* tab = tab_model_->GetTabAt(i);
+      if (tab->IsSelected()) {
+        highlighted_tabs.insert(tab);
+      }
+    }
+
+    for (auto& observer : interface_observers_) {
+      observer.OnHighlightedTabsChanged(*tab_model_, highlighted_tabs);
     }
   }
 
-  for (auto& observer : interface_observers_) {
-    observer.OnHighlightedTabsChanged(*tab_model_, highlighted_tabs);
-  }
   for (auto& observer : model_observers_) {
     observer.OnTabsSelectionsChanged();
   }

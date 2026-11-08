@@ -21,6 +21,7 @@
 <translation id="1185134272377778587">Mengenai Chromium</translation>
 <translation id="1186645291482254714">Dapatkan makluman penjejakan harga dengan Chromium pada telefon anda</translation>
 <translation id="1203500561924088507">Terima kasih kerana memasang. Anda perlu memulakan semula penyemak imbas anda sebelum menggunakan <ph name="BUNDLE_NAME" />.</translation>
+<translation id="1222365723190436821"><ph name="IMPORTANT_UPDATE" /> belum selesai. Untuk memastikan penyemakan imbas anda selamat, Chromium akan dikemaskinikan apabila anda tidak aktif selepas ini selama <ph name="IDLE_DURATION" />.</translation>
 <translation id="1232234696885483911">Apabila anda membuka Carian Imej, tajuk halaman, URL dan kandungan, termasuk PDF, akan dihantar kepada pelayan secara automatik. <ph name="LEARN_MORE" /></translation>
 <translation id="123265588161106468">Semasa anda log masuk, anda boleh menggunakan kata laluan anda dan pelbagai lagi daripada Google Account anda dalam Chromium. Untuk menukar tetapan ini, akses “Akaun anda dalam Chromium”.</translation>
 <translation id="1244381985120794049">Tunjukkan Gemini dalam Chromium dalam bar menu Mac</translation>
@@ -228,6 +229,7 @@ peranti Bluetooth. <ph name="IDS_SERIAL_DEVICE_CHOOSER_AUTHORIZE_BLUETOOTH_LINK"
 <translation id="3286538390144397061">Mulakan Semula Sekarang</translation>
 <translation id="328888136576916638">Kunci API Google tiada. Sesetengah fungsi Chromium akan dilumpuhkan.</translation>
 <translation id="3296368748942286671">Terus menjalankan apl latar belakang apabila Chromium ditutup</translation>
+<translation id="3300632735252839402">Chromium akan dikemaskinikan apabila anda tiada</translation>
 <translation id="3313189106987092621">Chromium akan memberi anda amaran sebelum memuatkan sebarang laman menggunakan sambungan yang tidak selamat</translation>
 <translation id="3316771292331273802">Anda akan dilog keluar daripada kebanyakan laman apabila anda menutup semua tetingkap Chromium, kecuali Google Account anda jika anda log masuk ke Chromium. Untuk membenarkan laman mengingati anda, <ph name="SETTINGS_LINK" />.</translation>
 <translation id="3352986031709923790">penjuru atas sebelah kanan kawasan carian: kanan <ph name="RIGHT" />%, atas <ph name="TOP" />%</translation>
@@ -236,6 +238,7 @@ peranti Bluetooth. <ph name="IDS_SERIAL_DEVICE_CHOOSER_AUTHORIZE_BLUETOOTH_LINK"
 <translation id="3387527074123400161">Chromium OS</translation>
 <translation id="3406848076815591792">Tukar kepada profil Chromium yang sedia ada?</translation>
 <translation id="3412460710772753638">Dalam Password Manager pada peranti ini</translation>
+<translation id="3425452599984451640">Chromium mahu membuat pengemaskinian</translation>
 <translation id="3427159664004296878">Untuk mendapatkan penanda halaman anda dan pelbagai lagi daripada <ph name="DEVICE" />, log masuk ke Chromium</translation>
 <translation id="3438772217992559640">Cari Tab Ini dengan Carian Imej</translation>
 <translation id="3455907671758333080">Lanjutkan Penyemakan Imbas Selamat Dipertingkat dengan Chromium pada telefon anda</translation>
@@ -378,6 +381,7 @@ peranti Bluetooth. <ph name="IDS_SERIAL_DEVICE_CHOOSER_AUTHORIZE_BLUETOOTH_LINK"
 <translation id="5074496654342756568">Akses semua kegemaran Google anda dengan Chromium pada <ph name="DEVICE_TYPE" /> anda</translation>
 <translation id="5123973130450702873">Chromium memerlukan kebenaran untuk menjejaki tangan anda</translation>
 <translation id="5141988424377517949">Anda belum melawati laman web ini baru-baru ini. Chromium mengalih keluar <ph name="PERMISSION_1" />, <ph name="PERMISSION_2" />, <ph name="PERMISSION_3" />.</translation>
+<translation id="5171868502429358653">Log Masuk ke Chromium</translation>
 <translation id="5174969993834422967">Anda biasanya menyekat pemberitahuan. Untuk membenarkan laman ini memaklumi anda, klik ikon pemberitahuan pada penjuru kanan bar lokasi anda.</translation>
 <translation id="5174983315706567306">Ruang cakera tidak mencukupi.</translation>
 <translation id="5187123684706427865">Akaun Chromium memerlukan pengesahan semula</translation>
@@ -387,6 +391,7 @@ peranti Bluetooth. <ph name="IDS_SERIAL_DEVICE_CHOOSER_AUTHORIZE_BLUETOOTH_LINK"
 <translation id="5249261924633168472">Buka pautan dalam tetingkap Inko&amp;gnito Chromium</translation>
 <translation id="5276305953263010518">Dapatkan apl Chromium untuk menyimpan kata laluan semasa dalam perjalanan</translation>
 <translation id="5277894862589591112">Untuk menggunakan perubahan anda, mulakan semula Chromium</translation>
+<translation id="5278909220224474621">Untuk menghantar tab ini kepada peranti lain, log masuk ke Chromium pada kedua-dua peranti</translation>
 <translation id="5286907366254680517">Dikesan</translation>
 <translation id="5289287148052354622">Dapatkan apl Chromium</translation>
 <translation id="5294316920224716406">Apabila menyemak imbas dalam Mod Inkognito, Chromium akan memberi anda amaran sebelum memuatkan laman menggunakan sambungan yang tidak selamat</translation>
@@ -756,6 +761,7 @@ Chromium tidak dapat mengembalikan tetapan anda.</translation>
 <translation id="8648201657708811153">Google Chrome for Testing tidak boleh dijadikan penyemak imbas lalai anda.</translation>
 <translation id="8676101123715131330">Buat carian dengan Chromium dari mana-mana sahaja</translation>
 <translation id="8697124171261953979">Sambungan turut mengawal halaman yang ditunjukkan apabila anda memulakan Chromium atau membuat carian dari Kotak Omni.</translation>
+<translation id="8702213505203810093">Untuk menghantar tab ini kepada peranti lain, log masuk ke Chromium pada peranti tersebut</translation>
 <translation id="8704119203788522458">Ini Chromium anda</translation>
 <translation id="8712637175834984815">Faham</translation>
 <translation id="8719993436687031146">Log masuk ke Chromium?</translation>

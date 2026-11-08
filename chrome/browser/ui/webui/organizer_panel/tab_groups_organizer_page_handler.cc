@@ -12,22 +12,33 @@
 
 #include "base/check.h"
 #include "base/functional/bind.h"
+#include "base/metrics/user_metrics.h"
+#include "base/metrics/user_metrics_action.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/time/time.h"
 #include "base/uuid.h"
+#include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/tab_group_sync/tab_group_sync_service_factory.h"
+#include "chrome/browser/ui/browser_command_controller.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_utils.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/tab_group_menu_utils.h"
+#include "chrome/browser/ui/tabs/tab_group_model.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/views/bookmarks/saved_tab_groups/saved_tab_group_tabs_menu_model.h"
 #include "chrome/browser/ui/webui/webui_embedding_context.h"
 #include "components/saved_tab_groups/public/saved_tab_group.h"
 #include "components/saved_tab_groups/public/tab_group_sync_service.h"
 #include "components/saved_tab_groups/public/types.h"
+#include "components/saved_tab_groups/public/utils.h"
+#include "components/tab_groups/tab_group_id.h"
+#include "components/tabs/public/tab_group.h"
+#include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/web_contents.h"
 #include "ui/base/mojom/menu_source_type.mojom.h"
 #include "ui/gfx/geometry/rect.h"
+#include "ui/gfx/range/range.h"
 #include "ui/views/controls/menu/menu_runner.h"
 #include "ui/views/widget/widget.h"
 
@@ -48,6 +59,20 @@ base::Time GetLastUsedTime(const tab_groups::SavedTabGroup& group) {
   return group.creation_time();
 }
 
+base::Time GetLastUsedTime(TabStripModel* tab_strip_model,
+                           const TabGroup* tab_group) {
+  base::Time last_used_time;
+  const gfx::Range tab_range = tab_group->ListTabs();
+  for (tabs::TabInterface* tab :
+       tab_strip_model->GetTabsAtIndices(tab_range.ToIntVector())) {
+    if (tab && tab->GetContents()) {
+      last_used_time =
+          std::max(last_used_time, tab->GetContents()->GetLastActiveTime());
+    }
+  }
+  return last_used_time;
+}
+
 organizer_panel::mojom::TabGroupPtr CreateMojoTabGroup(
     const tab_groups::SavedTabGroup& group) {
   auto tab_group = organizer_panel::mojom::TabGroup::New();
@@ -56,6 +81,14 @@ organizer_panel::mojom::TabGroupPtr CreateMojoTabGroup(
       tab_groups::TabGroupMenuUtils::GetMenuTextForGroup(group));
   tab_group->color = group.color();
   tab_group->is_open = group.local_group_id().has_value();
+  return tab_group;
+}
+
+organizer_panel::mojom::TabGroupPtr CreateMojoTabGroup(const TabGroup* group) {
+  auto tab_group = CreateMojoTabGroup(
+      tab_groups::SavedTabGroupUtils::CreateSavedTabGroupFromLocalId(
+          group->id()));
+  tab_group->id = tab_groups::LocalTabGroupIDToString(group->id());
   return tab_group;
 }
 
@@ -69,15 +102,24 @@ TabGroupsOrganizerPageHandler::TabGroupsOrganizerPageHandler(
     : receiver_(this, std::move(receiver)),
       page_(std::move(page)),
       web_contents_(web_contents),
+      profile_(Profile::FromBrowserContext(web_contents->GetBrowserContext())),
       tab_group_sync_service_(
-          tab_groups::TabGroupSyncServiceFactory::GetForProfile(
-              Profile::FromBrowserContext(web_contents->GetBrowserContext()))) {
+          tab_groups::TabGroupSyncServiceFactory::GetForProfile(profile_)) {
   if (tab_group_sync_service_) {
     tab_group_sync_service_observation_.Observe(tab_group_sync_service_);
+  }
+  if (ProfileBrowserCollection* browser_collection =
+          ProfileBrowserCollection::GetForProfile(profile_)) {
+    browser_collection_observation_.Observe(browser_collection);
+    browser_collection->ForEach([this](BrowserWindowInterface* browser) {
+      OnBrowserCreated(browser);
+      return true;
+    });
   }
 }
 
 TabGroupsOrganizerPageHandler::~TabGroupsOrganizerPageHandler() {
+  TabStripModelObserver::StopObservingAll(this);
   if (on_menu_closed_callback_) {
     std::move(on_menu_closed_callback_).Run();
   }
@@ -97,6 +139,25 @@ void TabGroupsOrganizerPageHandler::GetTabGroups(
       sortable_groups.push_back(
           {CreateMojoTabGroup(group), GetLastUsedTime(group)});
     }
+  }
+
+  if (ProfileBrowserCollection* browser_collection =
+          ProfileBrowserCollection::GetForProfile(profile_)) {
+    browser_collection->ForEach(
+        [this, &sortable_groups](BrowserWindowInterface* browser) {
+          TabStripModel* tab_strip_model = browser->GetTabStripModel();
+          if (tab_strip_model && tab_strip_model->SupportsTabGroups()) {
+            for (const tab_groups::TabGroupId& group_id :
+                 tab_strip_model->group_model()->ListTabGroups()) {
+              if (const TabGroup* tab_group = GetUnsavedTabGroup(group_id)) {
+                sortable_groups.push_back(
+                    {CreateMojoTabGroup(tab_group),
+                     GetLastUsedTime(tab_strip_model, tab_group)});
+              }
+            }
+          }
+          return true;
+        });
   }
 
   std::ranges::sort(sortable_groups,
@@ -127,7 +188,14 @@ void TabGroupsOrganizerPageHandler::OpenTabGroup(const std::string& id) {
           browser, group->saved_guid(),
           tab_groups::OpeningSource::kOpenedFromRevisitUi,
           tab_group_sync_service_);
+      return;
     }
+  }
+
+  std::optional<tab_groups::LocalTabGroupID> group_id =
+      tab_groups::LocalTabGroupIDFromString(id);
+  if (group_id && GetUnsavedTabGroup(*group_id)) {
+    tab_groups::SavedTabGroupUtils::FocusFirstTabOrWindowInOpenGroup(*group_id);
   }
 }
 
@@ -140,14 +208,20 @@ void TabGroupsOrganizerPageHandler::ShowContextMenu(
 
   on_menu_closed_callback_ = std::move(callback);
 
+  std::optional<tab_groups::SavedTabGroup> saved_group;
   const base::Uuid uuid = base::Uuid::ParseLowercase(group_id);
-  if (!tab_group_sync_service_ || !uuid.is_valid()) {
-    OnContextMenuClosed();
-    return;
+  if (tab_group_sync_service_ && uuid.is_valid()) {
+    saved_group = tab_group_sync_service_->GetGroup(uuid);
   }
-
-  const std::optional<tab_groups::SavedTabGroup> saved_group =
-      tab_group_sync_service_->GetGroup(uuid);
+  if (!saved_group.has_value()) {
+    std::optional<tab_groups::LocalTabGroupID> local_group_id =
+        tab_groups::LocalTabGroupIDFromString(group_id);
+    if (local_group_id && GetUnsavedTabGroup(*local_group_id)) {
+      saved_group =
+          tab_groups::SavedTabGroupUtils::CreateSavedTabGroupFromLocalId(
+              *local_group_id);
+    }
+  }
   if (!saved_group.has_value()) {
     OnContextMenuClosed();
     return;
@@ -194,6 +268,20 @@ void TabGroupsOrganizerPageHandler::ShowContextMenu(
                                   ui::mojom::MenuSourceType::kNone);
 }
 
+void TabGroupsOrganizerPageHandler::CreateNewTabGroup() {
+  BrowserWindowInterface* browser =
+      webui::GetBrowserWindowInterface(web_contents_);
+  if (!browser) {
+    return;
+  }
+
+  base::RecordAction(
+      base::UserMetricsAction("TabGroups_SavedTabGroups_"
+                              "CreateNewGroupTriggeredFromOrganizerPanel"));
+  chrome::BrowserCommandController::From(browser)->ExecuteCommand(
+      IDC_CREATE_NEW_TAB_GROUP);
+}
+
 bool TabGroupsOrganizerPageHandler::IsContextMenuRunningForTesting() const {
   return context_menu_runner_ && context_menu_runner_->IsRunning();
 }
@@ -203,6 +291,10 @@ void TabGroupsOrganizerPageHandler::OnTabGroupAdded(
     tab_groups::TriggerSource source) {
   if (group.saved_tabs().empty()) {
     return;
+  }
+  if (group.local_group_id().has_value()) {
+    page_->TabGroupRemoved(
+        tab_groups::LocalTabGroupIDToString(*group.local_group_id()));
   }
   page_->TabGroupAdded(CreateMojoTabGroup(group));
 }
@@ -230,12 +322,54 @@ void TabGroupsOrganizerPageHandler::OnTabGroupLocalIdChanged(
   if (!group) {
     return;
   }
+  if (local_id.has_value()) {
+    page_->TabGroupRemoved(tab_groups::LocalTabGroupIDToString(*local_id));
+  }
   page_->TabGroupUpdated(CreateMojoTabGroup(*group));
 }
 
 void TabGroupsOrganizerPageHandler::OnWillBeDestroyed() {
   tab_group_sync_service_observation_.Reset();
   tab_group_sync_service_ = nullptr;
+}
+
+void TabGroupsOrganizerPageHandler::OnBrowserCreated(
+    BrowserWindowInterface* browser) {
+  if (TabStripModel* tab_strip_model = browser->GetTabStripModel()) {
+    tab_strip_model->AddObserver(this);
+  }
+}
+
+void TabGroupsOrganizerPageHandler::OnBrowserClosed(
+    BrowserWindowInterface* browser) {
+  if (TabStripModel* tab_strip_model = browser->GetTabStripModel()) {
+    tab_strip_model->RemoveObserver(this);
+  }
+}
+
+void TabGroupsOrganizerPageHandler::OnTabGroupAdded(
+    const tab_groups::TabGroupId& group_id) {
+  if (const TabGroup* tab_group = GetUnsavedTabGroup(group_id)) {
+    page_->TabGroupAdded(CreateMojoTabGroup(tab_group));
+  }
+}
+
+void TabGroupsOrganizerPageHandler::OnTabGroupChanged(
+    const TabGroupChange& change) {
+  if (IsGroupInSyncService(change.group)) {
+    return;
+  }
+  if (change.type == TabGroupChange::kClosed) {
+    page_->TabGroupRemoved(tab_groups::LocalTabGroupIDToString(change.group));
+    return;
+  }
+  if (change.type != TabGroupChange::kVisualsChanged ||
+      !change.GetVisualsChange()->new_visuals) {
+    return;
+  }
+  if (const TabGroup* tab_group = GetUnsavedTabGroup(change.group)) {
+    page_->TabGroupUpdated(CreateMojoTabGroup(tab_group));
+  }
 }
 
 void TabGroupsOrganizerPageHandler::OnContextMenuClosed() {
@@ -251,4 +385,44 @@ void TabGroupsOrganizerPageHandler::OnContextMenuClosed() {
 
 int TabGroupsOrganizerPageHandler::GetAndIncrementLatestCommandId() {
   return latest_command_id_ += 1;
+}
+
+const TabGroup* TabGroupsOrganizerPageHandler::GetUnsavedTabGroup(
+    const tab_groups::TabGroupId& group_id) const {
+  if (IsGroupInSyncService(group_id)) {
+    return nullptr;
+  }
+  ProfileBrowserCollection* browser_collection =
+      ProfileBrowserCollection::GetForProfile(profile_);
+  if (!browser_collection) {
+    return nullptr;
+  }
+
+  const TabGroup* result = nullptr;
+  browser_collection->ForEach(
+      [&group_id, &result](BrowserWindowInterface* browser) {
+        TabStripModel* tab_strip_model = browser->GetTabStripModel();
+        if (tab_strip_model && tab_strip_model->SupportsTabGroups() &&
+            !tab_strip_model->IsEphemeralTabGroup(group_id) &&
+            tab_strip_model->group_model()->ContainsTabGroup(group_id)) {
+          const TabGroup* tab_group =
+              tab_strip_model->group_model()->GetTabGroup(group_id);
+          if (tab_group && !tab_group->IsEmpty()) {
+            result = tab_group;
+            return false;
+          }
+        }
+        return true;
+      });
+  return result;
+}
+
+bool TabGroupsOrganizerPageHandler::IsGroupInSyncService(
+    const tab_groups::TabGroupId& group_id) const {
+  if (!tab_group_sync_service_) {
+    return false;
+  }
+  std::optional<tab_groups::SavedTabGroup> saved_group =
+      tab_group_sync_service_->GetGroup(group_id);
+  return saved_group.has_value() && !saved_group->saved_tabs().empty();
 }

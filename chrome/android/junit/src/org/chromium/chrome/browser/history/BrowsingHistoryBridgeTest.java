@@ -73,9 +73,7 @@ public class BrowsingHistoryBridgeTest {
                         contentManager,
                         mBrowsingHistoryBridge,
                         mHistorySyncPromoCoordinator,
-                        /* shouldClusterByDomain= */ false,
-                        /* snackbarManager= */ null,
-                        /* profile= */ null);
+                        /* shouldClusterByDomain= */ false);
         mBrowsingHistoryBridge.setObserver(adapter);
 
         List<HistoryItem> items = new ArrayList<>();
@@ -193,17 +191,29 @@ public class BrowsingHistoryBridgeTest {
 
     @Test
     public void testQueryHistoryWithOptions() {
-        QueryOptions options = new QueryOptions("org.chromium.app", "example.com", "client_123");
-        mBrowsingHistoryBridge.queryHistory("search query", options);
+        // Test all combinations of `includeUserVisits` and `includeActorVisits` bits.
+        boolean[] vals = {true, true, false, false, true};
+        for (int i = 0; i + 1 < vals.length; i++) {
+            QueryOptions options =
+                    new QueryOptions(
+                            "org.chromium.app",
+                            "example.com",
+                            List.of("client_123", "client_456"),
+                            vals[i],
+                            vals[i + 1]);
+            mBrowsingHistoryBridge.queryHistory("search query", options);
 
-        verify(mNativeMocks)
-                .queryHistory(
-                        anyLong(),
-                        any(),
-                        eq("search query"),
-                        eq("org.chromium.app"),
-                        eq("example.com"),
-                        eq("client_123"));
+            verify(mNativeMocks)
+                    .queryHistory(
+                            anyLong(),
+                            any(),
+                            eq("search query"),
+                            eq("org.chromium.app"),
+                            eq("example.com"),
+                            eq(List.of("client_123", "client_456")),
+                            eq(vals[i]),
+                            eq(vals[i + 1]));
+        }
     }
 
     @Test

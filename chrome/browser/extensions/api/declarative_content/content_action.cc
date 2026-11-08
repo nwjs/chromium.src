@@ -357,7 +357,7 @@ void RequestContentScript::InitScript(const mojom::HostID& host_id,
 }
 
 void RequestContentScript::AddScript() {
-  DCHECK(script_loader_);
+  CHECK(script_loader_, base::NotFatalUntil::M161);
   UserScriptList scripts;
   scripts.push_back(UserScript::CopyMetadataFrom(script_));
   script_loader_->AddScripts(std::move(scripts),
@@ -377,16 +377,20 @@ void RequestContentScript::Revert(const ApplyInfo& apply_info) const {}
 void RequestContentScript::InstructRenderProcessToInject(
     content::WebContents* contents,
     const Extension* extension) const {
-  // Verify that the extension has permission to access the page before
-  // granting trust for script injection. This prevents a compromised renderer
-  // from fully bypassing permission checks (for example: a spoofed
-  // `extensions::mojom::LocalFrameHost::WatchedPageChange` IPC bypassing the
-  // check we have for an invalid selector and getting here).
+  // Bail out if the extension cannot access the page at all. This prevents a
+  // compromised renderer from fully bypassing permission checks (for example: a
+  // spoofed `extensions::mojom::LocalFrameHost::WatchedPageChange` IPC
+  // bypassing the check we have for an invalid selector and getting here).
+  // When access is withheld, the script is still sent to the renderer, which
+  // defers the injection and requests permission from the browser. Trust is
+  // only granted to the renderer process below when access is allowed.
   std::string error;
   content::RenderFrameHost* main_frame = contents->GetPrimaryMainFrame();
   const GURL& url = util::GetURLForExtensionPermissionCheck(main_frame);
-  if (!extension->permissions_data()->CanAccessPage(
-          url, ExtensionTabUtil::GetTabId(contents), &error)) {
+  PermissionsData::PageAccess page_access =
+      extension->permissions_data()->GetPageAccess(
+          url, ExtensionTabUtil::GetTabId(contents), &error);
+  if (page_access == PermissionsData::PageAccess::kDenied) {
     return;
   }
 
@@ -399,8 +403,13 @@ void RequestContentScript::InstructRenderProcessToInject(
     return;
   }
 
-  ScriptInjectionTracker::WillExecuteCode(base::PassKey<RequestContentScript>(),
-                                          main_frame, *extension);
+  // When access is withheld, `ScriptInjectionTracker` is instead updated by
+  // `ExtensionActionRunner` if the user later grants access and the deferred
+  // script is permitted to run.
+  if (page_access == PermissionsData::PageAccess::kAllowed) {
+    ScriptInjectionTracker::WillExecuteCode(
+        base::PassKey<RequestContentScript>(), main_frame, *extension);
+  }
   local_frame->ExecuteDeclarativeScript(
       sessions::SessionTabHelper::IdForTab(contents).id(), extension->id(),
       script_.id(), url);
@@ -412,7 +421,7 @@ void RequestContentScript::OnScriptsLoaded(
 
 void RequestContentScript::OnUserScriptLoaderDestroyed(
     UserScriptLoader* loader) {
-  DCHECK_EQ(script_loader_, loader);
+  CHECK_EQ(script_loader_, loader, base::NotFatalUntil::M161);
   scoped_observation_.Reset();
   script_loader_ = nullptr;
 }

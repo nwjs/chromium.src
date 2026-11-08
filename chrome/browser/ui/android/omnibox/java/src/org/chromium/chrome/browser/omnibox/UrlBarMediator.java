@@ -15,7 +15,7 @@ import org.chromium.base.Callback;
 import org.chromium.build.annotations.EnsuresNonNullIf;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
-import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.browser.flags.ChromeFeatures;
 import org.chromium.chrome.browser.omnibox.UrlBar.ScrollType;
 import org.chromium.chrome.browser.omnibox.UrlBar.UrlBarDelegate;
 import org.chromium.chrome.browser.omnibox.UrlBar.UrlBarTextContextMenuDelegate;
@@ -124,7 +124,10 @@ class UrlBarMediator implements UrlBarTextContextMenuDelegate {
         mModel.set(UrlBarProperties.ALLOW_MULTILINE_INPUT, false);
         var pageUrl = mCurrentInput.getPageUrl();
         mCurrentInput = null;
-        var data = UrlBarData.forUrl(pageUrl);
+        // NTPs display a search hint rather than their internal chrome-native://newtab/ URL, so
+        // reset to EMPTY instead of populating the raw page URL via UrlBarData.forUrl.
+        UrlBarData data =
+                OmniboxUrlUtils.isNtpUrl(pageUrl) ? UrlBarData.EMPTY : UrlBarData.forUrl(pageUrl);
         setUrlBarData(data, ScrollType.SCROLL_TO_TLD, TextSelection.SELECT_END);
     }
 
@@ -510,7 +513,7 @@ class UrlBarMediator implements UrlBarTextContextMenuDelegate {
     void setUrlBarHintTextColorForNtp() {
         mIsHintTextFixedForNtp = true;
         final @ColorInt int hintTextColor =
-                ChromeFeatureList.isEnabled(ChromeFeatureList.NTP_AURORA)
+                ChromeFeatures.NtpAurora.isEnabled()
                         ? SemanticColorUtils.getDefaultTextColorSecondary(mContext)
                         : SemanticColorUtils.getDefaultTextColor(mContext);
         mModel.set(UrlBarProperties.HINT_TEXT_COLOR, hintTextColor);

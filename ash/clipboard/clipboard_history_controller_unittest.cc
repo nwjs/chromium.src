@@ -10,12 +10,16 @@
 #include "ash/clipboard/clipboard_history.h"
 #include "ash/clipboard/clipboard_history_controller_impl.h"
 #include "ash/clipboard/clipboard_history_item.h"
+#include "ash/clipboard/clipboard_history_menu_model_adapter.h"
 #include "ash/clipboard/clipboard_history_util.h"
+#include "ash/constants/ash_features.h"
+#include "ash/constants/ash_pref_names.h"
 #include "ash/public/cpp/clipboard_image_model_factory.h"
 #include "ash/public/cpp/session/session_types.h"
 #include "ash/session/session_controller_impl.h"
 #include "ash/shell.h"
 #include "ash/style/color_util.h"
+#include "ash/system/toast/toast_manager_impl.h"
 #include "ash/test/ash_test_base.h"
 #include "ash/test/ash_test_util.h"
 #include "ash/test/view_drawn_waiter.h"
@@ -35,12 +39,14 @@
 #include "chromeos/ui/clipboard_history/clipboard_history_types.h"
 #include "chromeos/ui/clipboard_history/clipboard_history_util.h"
 #include "chromeos/ui/vector_icons/vector_icons.h"
+#include "components/prefs/pref_service.h"
 #include "components/vector_icons/vector_icons.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/base/clipboard/clipboard_buffer.h"
 #include "ui/base/clipboard/clipboard_data.h"
 #include "ui/base/clipboard/clipboard_format_type.h"
+#include "ui/base/clipboard/clipboard_non_backed.h"
 #include "ui/base/clipboard/custom_data_helper.h"
 #include "ui/base/clipboard/scoped_clipboard_writer.h"
 #include "ui/base/models/image_model.h"
@@ -324,6 +330,124 @@ TEST_F(ClipboardHistoryControllerTest, ShowMenu) {
       "Ash.ClipboardHistory.ContextMenu.NumberOfItemsShown", 1, 2);
   histogram_tester.ExpectTotalCount(
       "Ash.ClipboardHistory.ContextMenu.DisplayFormatShown", 2);
+}
+
+// Tests that ShowMenu() is disabled when the enterprise policy is set to false.
+TEST_F(ClipboardHistoryControllerTest, ShowMenuDisabledByPolicy) {
+  base::test::ScopedFeatureList feature_list(features::kClipboardHistoryPolicy);
+  base::HistogramTester histogram_tester;
+
+  auto* prefs =
+      Shell::Get()->session_controller()->GetLastActiveUserPrefService();
+  ASSERT_TRUE(prefs);
+
+  // Copy something to enable the clipboard history menu.
+  WriteTextToClipboardAndConfirm(u"test1");
+
+  // Disable clipboard history by policy.
+  prefs->SetInteger(
+      prefs::kClipboardHistoryEnabled,
+      static_cast<int>(clipboard_history_util::PolicyValue::kDisabled));
+
+  // Attempting to show menu via accelerator should not show the menu and show
+  // toast.
+  ShowMenu();
+  EXPECT_FALSE(GetClipboardHistoryController()->IsMenuShowing());
+  EXPECT_TRUE(Shell::Get()->toast_manager()->IsToastShown(
+      "clipboard_history_disabled_by_policy"));
+
+  // Attempting to show menu directly should return false.
+  EXPECT_FALSE(GetClipboardHistoryController()->ShowMenu(
+      gfx::Rect(), ui::mojom::MenuSourceType::kNone,
+      chromeos::clipboard_history::ShowSource::kAccelerator));
+  EXPECT_FALSE(GetClipboardHistoryController()->IsMenuShowing());
+  histogram_tester.ExpectTotalCount("Ash.ClipboardHistory.ContextMenu.ShowMenu",
+                                    /*expected_count=*/0);
+
+  // Writing new items to clipboard buffer should not record to history while
+  // policy is disabled.
+  {
+    ui::ScopedClipboardWriter scw(ui::ClipboardBuffer::kCopyPaste);
+    scw.WriteText(u"test2");
+  }
+  FlushMessageLoop();
+  EXPECT_FALSE(operation_confirmed_future_.IsReady());
+
+  // Re-enable clipboard history by policy.
+  prefs->SetInteger(
+      prefs::kClipboardHistoryEnabled,
+      static_cast<int>(clipboard_history_util::PolicyValue::kEnabled));
+
+  // Writing new items to clipboard buffer should be recorded again.
+  WriteTextToClipboardAndConfirm(u"test3");
+
+  // Now the menu can be shown.
+  ShowMenu();
+  EXPECT_TRUE(GetClipboardHistoryController()->IsMenuShowing());
+  histogram_tester.ExpectTotalCount("Ash.ClipboardHistory.ContextMenu.ShowMenu",
+                                    /*expected_count=*/1);
+
+  // Hide the menu.
+  PressAndReleaseKey(ui::VKEY_ESCAPE);
+  EXPECT_FALSE(GetClipboardHistoryController()->IsMenuShowing());
+}
+
+// Tests that dynamically disabling the clipboard history policy clears history
+// buffer.
+TEST_F(ClipboardHistoryControllerTest, DynamicPolicyChangeClearsHistory) {
+  base::test::ScopedFeatureList feature_list(features::kClipboardHistoryPolicy);
+
+  auto* prefs = Shell::Get()->session_controller()->GetPrimaryUserPrefService();
+  ASSERT_TRUE(prefs);
+
+  // Write items into clipboard history while policy is enabled.
+  WriteTextToClipboardAndConfirm(u"item1");
+  WriteTextToClipboardAndConfirm(u"item2");
+  EXPECT_EQ(2u, GetHistoryValues().size());
+
+  // Dynamically disable clipboard history policy.
+  prefs->SetInteger(
+      prefs::kClipboardHistoryEnabled,
+      static_cast<int>(clipboard_history_util::PolicyValue::kDisabled));
+
+  // The history buffer should be cleared immediately.
+  EXPECT_TRUE(GetHistoryValues().empty());
+
+  // The 1-item system clipboard (Ctrl+V) data remains intact.
+  ui::DataTransferEndpoint data_dst(ui::EndpointType::kClipboardHistory);
+  const auto* clipboard_data =
+      ui::ClipboardNonBacked::GetForCurrentThread()->GetClipboardData(
+          &data_dst);
+  ASSERT_TRUE(clipboard_data);
+  EXPECT_EQ("item2", clipboard_data->text());
+
+  prefs->SetInteger(
+      prefs::kClipboardHistoryEnabled,
+      static_cast<int>(clipboard_history_util::PolicyValue::kEnabled));
+  WriteTextToClipboardAndConfirm(u"item3");
+  EXPECT_EQ(1u, GetHistoryValues().size());
+}
+
+// Tests that dynamically disabling the clipboard history policy closes an open
+// menu.
+TEST_F(ClipboardHistoryControllerTest, DynamicPolicyChangeCancelsMenu) {
+  base::test::ScopedFeatureList feature_list(features::kClipboardHistoryPolicy);
+
+  auto* prefs = Shell::Get()->session_controller()->GetPrimaryUserPrefService();
+  ASSERT_TRUE(prefs);
+
+  // Write an item into clipboard history and open the menu.
+  WriteTextToClipboardAndConfirm(u"item1");
+  ShowMenu();
+  EXPECT_TRUE(GetClipboardHistoryController()->IsMenuShowing());
+
+  // Dynamically disable clipboard history policy.
+  prefs->SetInteger(
+      prefs::kClipboardHistoryEnabled,
+      static_cast<int>(clipboard_history_util::PolicyValue::kDisabled));
+
+  // The open menu should be cancelled.
+  EXPECT_FALSE(GetClipboardHistoryController()->IsMenuShowing());
 }
 
 // Verifies that the clipboard history is disabled in some user modes, which
@@ -776,6 +900,58 @@ TEST_F(ClipboardHistoryControllerWithTextfieldTest, PasteClipboardItemById) {
         "Ash.ClipboardHistory.ContextMenu.MenuOptionSelected",
         paste_data_index + 1, /*expected_count=*/1);
   }
+}
+
+// Regression test for crbug.com/541925193: verifies that clicking an unselected
+// clipboard history item (whose `pseudo_focus_` is `kEmpty`, e.g. when
+// selection moves away while the cursor remains over the item) pastes the
+// clicked item without crashing.
+TEST_F(ClipboardHistoryControllerWithTextfieldTest,
+       PasteUnselectedItemByMouseClick) {
+  // Clipboard history is ordered most-recent-first, so "first_item" will be at
+  // menu index 1 (`first_item_view`) and "second_item" at menu index 2
+  // (`second_item_view`).
+  WriteTextToClipboardAndConfirm(u"second_item");
+  WriteTextToClipboardAndConfirm(u"first_item");
+
+  base::RunLoop run_loop;
+  GetClipboardHistoryController()->set_initial_item_selected_callback_for_test(
+      run_loop.QuitClosure());
+  ShowMenu();
+  run_loop.Run();
+  ASSERT_TRUE(GetClipboardHistoryController()->IsMenuShowing());
+
+  auto* const adapter =
+      GetClipboardHistoryController()->context_menu_for_test();
+  ASSERT_TRUE(adapter);
+  ASSERT_EQ(adapter->GetMenuItemsCount(), 2u);
+
+  // Index 0 is the header; index 1 is `first_item_view` ("first_item"); index 2
+  // is `second_item_view` ("second_item").
+  const views::MenuItemView* const first_item_view =
+      adapter->GetMenuItemViewAtForTest(1u);
+  const views::MenuItemView* const second_item_view =
+      adapter->GetMenuItemViewAtForTest(2u);
+  ASSERT_TRUE(first_item_view->IsSelected());
+  ASSERT_FALSE(second_item_view->IsSelected());
+
+  // Move the mouse over the second item (which selects it), then press Down to
+  // wrap selection back to the first item while the mouse remains over the
+  // unselected second item.
+  GetEventGenerator()->MoveMouseTo(
+      second_item_view->GetBoundsInScreen().CenterPoint());
+  ASSERT_TRUE(second_item_view->IsSelected());
+  PressAndReleaseKey(ui::VKEY_DOWN);
+  ASSERT_TRUE(first_item_view->IsSelected());
+  ASSERT_FALSE(second_item_view->IsSelected());
+
+  // Click the left mouse button without moving the mouse. The unselected item
+  // under the cursor (`second_item_view`) should be pasted without hitting
+  // NOTREACHED.
+  GetEventGenerator()->ClickLeftButton();
+  EXPECT_FALSE(GetClipboardHistoryController()->IsMenuShowing());
+  WaitForOperationConfirmed();
+  EXPECT_EQ(textfield_->GetText(), u"second_item");
 }
 
 // Base class for tests that exercise clipboard history controller behavior with

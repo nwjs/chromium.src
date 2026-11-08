@@ -11,7 +11,6 @@
 #include "base/check_deref.h"
 #include "base/check_is_test.h"
 #include "chrome/browser/feedback/show_feedback_page.h"
-#include "chrome/browser/media/webrtc/media_device_salt_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chromeos/ash/components/browser_context_helper/browser_context_helper.h"
 #include "components/application_locale_storage/application_locale_storage.h"
@@ -20,7 +19,6 @@
 #include "components/signin/public/base/consent_level.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/soda/constants.h"
-#include "components/soda/soda_installer.h"
 #include "components/soda/soda_util.h"
 #include "components/user_manager/user.h"
 #include "components/user_manager/user_manager.h"
@@ -29,37 +27,18 @@
 #include "url/gurl.h"
 
 ChromeRecorderAppUIDelegate::ChromeRecorderAppUIDelegate(
-    PrefService* local_state,
     const ApplicationLocaleStorage* application_locale_storage,
     variations::VariationsService* variations_service,
     user_manager::UserManager* user_manager,
     const AccountId& account_id,
     signin::IdentityManager* identity_manager,
     consent_auditor::ConsentAuditor* consent_auditor)
-    : local_state_(CHECK_DEREF(local_state)),
-      application_locale_storage_(CHECK_DEREF(application_locale_storage)),
+    : application_locale_storage_(CHECK_DEREF(application_locale_storage)),
       variations_service_(CHECK_DEREF(variations_service)),
       user_manager_(CHECK_DEREF(user_manager)),
       account_id_(account_id),
       identity_manager_(CHECK_DEREF(identity_manager)),
       consent_auditor_(CHECK_DEREF(consent_auditor)) {}
-
-void ChromeRecorderAppUIDelegate::InstallSoda(
-    speech::LanguageCode language_code) {
-  CHECK(speech::IsOnDeviceSpeechRecognitionSupported());
-
-  auto* soda_installer = speech::SodaInstaller::GetInstance();
-  // InstallSoda and InstallLanguage calls DLC download, which will ignore
-  // duplicate request, so this is safe without checking if an ongoing install
-  // is in progress.
-  // TODO: b/369730074 - Ideally we should also remember whether user enabled
-  // transcription in a user pref, and ask SODA to preload on ash launch (in
-  // `IsAnyFeatureUsingSodaEnabled`) if it's enabled so the app can get
-  // transcription faster.
-  soda_installer->InstallSoda(&local_state_.get());
-  soda_installer->InstallLanguage(speech::GetLanguageName(language_code),
-                                  &local_state_.get());
-}
 
 std::u16string ChromeRecorderAppUIDelegate::GetLanguageDisplayName(
     speech::LanguageCode language_code) {
@@ -93,13 +72,6 @@ void ChromeRecorderAppUIDelegate::OpenAiFeedbackDialog(
                            /*extra_diagnostics=*/std::string(),
                            /*autofill_metadata=*/base::DictValue(),
                            /*ai_metadata=*/std::move(ai_metadata));
-}
-
-media_device_salt::MediaDeviceSaltService*
-ChromeRecorderAppUIDelegate::GetMediaDeviceSaltService(
-    content::BrowserContext* context) {
-  return MediaDeviceSaltServiceFactory::GetInstance()->GetForBrowserContext(
-      context);
 }
 
 bool ChromeRecorderAppUIDelegate::CanUseGenerativeAiForCurrentProfile() {

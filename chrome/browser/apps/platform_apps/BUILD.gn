@@ -44,11 +44,8 @@ source_set("platform_apps") {
     ]
   }
 
-  configs += [ "//build/config/compiler:wexit_time_destructors" ]
-
   public_deps = [
     "//apps",
-    "//chrome/browser:browser_public_dependencies",
     "//chrome/browser/apps/platform_apps/api:api_registration",
     "//chrome/browser/profiles:profile_util",
     "//chrome/common/apps/platform_apps/api",
@@ -175,6 +172,7 @@ source_set("browser_tests") {
     "//chrome/browser/ui/apps",
     "//chrome/browser/ui/browser_window",
     "//chrome/browser/ui/extensions",
+    "//chrome/browser/ui/zoom",
     "//chrome/test:test_support",
     "//chrome/test:test_support_ui",
     "//chrome/test/base:test_switches",

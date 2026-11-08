@@ -25,6 +25,7 @@
 #include "base/values.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/enterprise/browser_management/management_service_factory.h"
+#include "chrome/browser/enterprise/platform_auth/extensible_enterprise_sso_metadata.h"
 #include "chrome/browser/enterprise/platform_auth/extensible_enterprise_sso_policy_handler.h"
 #include "chrome/browser/enterprise/platform_auth/extensible_enterprise_sso_prefs_handler.h"
 #include "chrome/browser/enterprise/platform_auth/platform_auth_policy_observer.h"
@@ -53,7 +54,7 @@
 #include "net/dns/mock_host_resolver.h"
 #include "testing/gmock/include/gmock/gmock.h"
 
-using Config = enterprise_auth::CFPreferencesObserver::Config;
+using Config = enterprise_auth::CFPreferencesObserver::RawConfig;
 using ScopedPropList = base::apple::ScopedCFTypeRef<CFPropertyListRef>;
 using url_session_test_util::ResponseConfig;
 
@@ -262,11 +263,9 @@ class ExtensibleEnterpriseSsoOktaBrowserTest : public InProcessBrowserTest {
   }
 
   Config GetConfig() {
-    return Config(
-        ScopedPropList(
-            ExtensibleEnterpriseSSOPrefsHandler::kOktaSSOExtensionID),
-        ScopedPropList(ExtensibleEnterpriseSSOPrefsHandler::kOktaSSOTeamID),
-        HostsToPropRef(configured_hosts_));
+    return Config(ScopedPropList(kOktaSsoExtensionId),
+                  ScopedPropList(kOktaSsoTeamId),
+                  HostsToPropRef(configured_hosts_));
   }
 
   std::vector<std::string> configured_hosts_{kDomain1};

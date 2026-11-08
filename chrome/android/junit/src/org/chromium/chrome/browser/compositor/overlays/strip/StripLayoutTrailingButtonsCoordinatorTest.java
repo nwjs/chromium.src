@@ -93,6 +93,7 @@ import org.chromium.ui.base.LocalizationUtils;
 import java.lang.ref.WeakReference;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.function.Supplier;
 
 @RunWith(BaseRobolectricTestRunner.class)
@@ -107,7 +108,6 @@ public class StripLayoutTrailingButtonsCoordinatorTest {
     @Mock private LayerTitleCache mLayerTitleCache;
     @Mock private GlicKeyedService mGlicKeyedService;
     @Mock private GlicButtonDelegate mGlicClickHandler;
-    @Mock private View mToolbarContainerView;
     @Mock private ActivityWindowAndroid mWindowAndroid;
     @Mock private Profile mProfile;
     @Mock private UserPrefs.Natives mUserPrefsJniMock;
@@ -129,6 +129,7 @@ public class StripLayoutTrailingButtonsCoordinatorTest {
     private final long mBwiPtr = 123L;
 
     private Activity mActivity;
+    private View mToolbarContainerView;
     private StripLayoutTrailingButtonsCoordinator mCoordinator;
     private TintedCompositorButton mModelSelectorButton;
     private TintedCompositorTextButton mGlicButton;
@@ -162,8 +163,7 @@ public class StripLayoutTrailingButtonsCoordinatorTest {
         mActivity.setTheme(R.style.Theme_BrowserUI_DayNight);
         when(mWindowAndroid.getActivity()).thenReturn(new WeakReference<>(mActivity));
         when(mWindowAndroid.getUnownedUserDataHost()).thenReturn(new UnownedUserDataHost());
-        when(mToolbarContainerView.getRootView()).thenReturn(mToolbarContainerView);
-        when(mToolbarContainerView.getResources()).thenReturn(mActivity.getResources());
+        mToolbarContainerView = new View(mActivity);
         when(mTaskTracker.get(anyInt())).thenReturn(mTask);
         when(mTask.getNativeBrowserWindowPtr(any(), any())).thenReturn(mBwiPtr);
         doAnswer(
@@ -1357,7 +1357,7 @@ public class StripLayoutTrailingButtonsCoordinatorTest {
         observerCaptor
                 .getValue()
                 .onShowableSideUisUpdated(
-                        new SideUiShowability(List.of(), List.of(SideUiId.SIDE_PANEL)));
+                        new SideUiShowability(Set.of(), Set.of(SideUiId.SIDE_PANEL)));
 
         assertFalse(
                 "Glic button should be hidden when side panel is not showable.",

@@ -7,11 +7,12 @@
 #include "base/feature_list.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
+#include "base/task/sequenced_task_runner.h"
 #include "base/time/clock.h"
 #include "base/time/default_tick_clock.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
-#include "chrome/browser/media/media_engagement_service.h"  // nogncheck crbug.com/422038808
+#include "chrome/browser/media/media_engagement_service.h"
 #include "chrome/browser/media/webrtc/media_capture_devices_dispatcher.h"
 #include "chrome/browser/media/webrtc/media_stream_capture_indicator.h"
 #include "chrome/browser/permissions/permission_decision_auto_blocker_factory.h"
@@ -25,6 +26,7 @@
 #include "components/content_settings/browser/page_specific_content_settings.h"
 #include "components/content_settings/core/browser/host_content_settings_map.h"
 #include "components/permissions/permission_decision_auto_blocker.h"
+#include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/media_session.h"
 #include "content/public/browser/media_session_service.h"
 #include "content/public/browser/render_frame_host.h"
@@ -48,18 +50,49 @@
 using OcclusionState =
     AutoPictureInPictureWindowOcclusionHelperBase::OcclusionState;
 
+DEFINE_USER_DATA(AutoPictureInPictureTabHelper);
+
+// static
+AutoPictureInPictureTabHelper* AutoPictureInPictureTabHelper::From(
+    tabs::TabInterface* tab) {
+  return tab ? Get(tab->GetUnownedUserDataHost()) : nullptr;
+}
+
+// static
+const AutoPictureInPictureTabHelper* AutoPictureInPictureTabHelper::From(
+    const tabs::TabInterface* tab) {
+  return tab ? Get(tab->GetUnownedUserDataHost()) : nullptr;
+}
+
+// static
+AutoPictureInPictureTabHelper* AutoPictureInPictureTabHelper::FromWebContents(
+    content::WebContents* web_contents) {
+  return web_contents
+             ? From(tabs::TabInterface::MaybeGetFromContents(web_contents))
+             : nullptr;
+}
+
+// static
+const AutoPictureInPictureTabHelper*
+AutoPictureInPictureTabHelper::FromWebContents(
+    const content::WebContents* web_contents) {
+  return web_contents
+             ? From(tabs::TabInterface::MaybeGetFromContents(web_contents))
+             : nullptr;
+}
+
 AutoPictureInPictureTabHelper::AutoPictureInPictureTabHelper(
+    tabs::TabInterface& tab,
     content::WebContents* web_contents)
     : content::WebContentsObserver(web_contents),
-      content::WebContentsUserData<AutoPictureInPictureTabHelper>(
-          *web_contents),
       host_content_settings_map_(HostContentSettingsMapFactory::GetForProfile(
           Profile::FromBrowserContext(web_contents->GetBrowserContext()))),
       auto_blocker_(PermissionDecisionAutoBlockerFactory::GetForProfile(
           Profile::FromBrowserContext(web_contents->GetBrowserContext()))),
       media_engagement_service_(MediaEngagementService::Get(
           Profile::FromBrowserContext(web_contents->GetBrowserContext()))),
-      clock_(base::DefaultTickClock::GetInstance()) {
+      clock_(base::DefaultTickClock::GetInstance()),
+      scoped_unowned_user_data_(tab.GetUnownedUserDataHost(), *this) {
   // `base::Unretained` is safe here since we own `tab_observer_helper_`.
   tab_observer_helper_ = AutoPictureInPictureTabObserverHelperBase::Create(
       web_contents,
@@ -397,17 +430,22 @@ void AutoPictureInPictureTabHelper::MediaPictureInPictureChanged(
 
     MaybeRecordPictureInPictureChanged(true);
 
-    // If the tab is activated and unoccluded by the time auto
-    // picture-in-picture fires, we should immediately close the auto
-    // picture-in-picture.
-    if (tab_observer_helper_->IsTabActivated() &&
-        (!window_occlusion_helper_ ||
-         window_occlusion_helper_->GetOcclusionState() ==
-             OcclusionState::kVisible)) {
-      MaybeExitAutoPictureInPicture();
-    } else if (is_playing_) {
+    if (is_playing_) {
       // Media is playing, start the watch time timer.
       playing_start_time_ = clock_->NowTicks();
+    }
+
+    // If the tab is activated and unoccluded by the time auto
+    // picture-in-picture fires, we should immediately close the auto
+    // picture-in-picture. Exit asynchronously so we don't close the window
+    // while it is still in the middle of opening.
+    if (IsTabActiveAndVisible()) {
+      base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+          FROM_HERE,
+          base::BindOnce(
+              &AutoPictureInPictureTabHelper::
+                  MaybeExitAutoPictureInPictureIfTabIsActiveAndVisible,
+              weak_factory_.GetWeakPtr()));
     }
   }
 }
@@ -641,6 +679,21 @@ void AutoPictureInPictureTabHelper::MaybeExitAutoPictureInPicture() {
   is_in_auto_picture_in_picture_ = false;
 
   PictureInPictureWindowManager::GetInstance()->ExitPictureInPicture();
+}
+
+void AutoPictureInPictureTabHelper::
+    MaybeExitAutoPictureInPictureIfTabIsActiveAndVisible() {
+  if (!is_in_auto_picture_in_picture_ || !IsTabActiveAndVisible()) {
+    return;
+  }
+  MaybeExitAutoPictureInPicture();
+}
+
+bool AutoPictureInPictureTabHelper::IsTabActiveAndVisible() const {
+  return tab_observer_helper_->IsTabActivated() &&
+         (!window_occlusion_helper_ ||
+          window_occlusion_helper_->GetOcclusionState() ==
+              OcclusionState::kVisible);
 }
 
 void AutoPictureInPictureTabHelper::MaybeStartOrStopObservers() {
@@ -1097,5 +1150,3 @@ void AutoPictureInPictureTabHelper::OnTabBecameActive() {
   }
 #endif  // !BUILDFLAG(IS_ANDROID)
 }
-
-WEB_CONTENTS_USER_DATA_KEY_IMPL(AutoPictureInPictureTabHelper);

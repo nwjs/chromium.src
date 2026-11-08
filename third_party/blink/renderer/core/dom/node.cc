@@ -27,8 +27,9 @@
 #include "third_party/blink/renderer/core/dom/node.h"
 
 #include <algorithm>
+#include <ranges>
 
-#include "base/containers/adapters.h"
+#include "third_party/blink/public/common/dom/dom_node_id.h"
 #include "third_party/blink/public/mojom/input/focus_type.mojom-blink.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_get_root_node_options.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_union_node_string_trustedscript.h"
@@ -668,7 +669,7 @@ Node* Node::PseudoAwareLastChild() const {
                                                name);
     }
 
-    for (PseudoId pseudo_id : base::Reversed(kElementChildPseudoOrder)) {
+    for (PseudoId pseudo_id : std::views::reverse(kElementChildPseudoOrder)) {
       switch (pseudo_id) {
         case kPseudoIdColumn:
           // kPseudoIdColumn is an array of indexed pseudo-elements.  Return
@@ -1066,9 +1067,7 @@ void Node::replaceWithHTML(const String& html,
   if (ContainerNode* parent = ParentForHTMLInsertion(this, exception_state)) {
     parent->ReplaceChildWithHTML(
         this, html,
-        FragmentParserConfig::ForContainer(
-            parent, Sanitizer::Mode::kSafe, trusted_types_names::kNode,
-            trusted_types_names::kReplaceWithHTML),
+        FragmentParserConfig::ForContainer(parent, Sanitizer::Mode::kSafe),
         FragmentParserOptions(options), exception_state);
   }
 }
@@ -1089,9 +1088,8 @@ void Node::replaceWithHTMLUnsafe(
   if (!parent) {
     return;
   }
-  const FragmentParserConfig config = FragmentParserConfig::ForContainer(
-      parent, Sanitizer::Mode::kUnsafe, trusted_types_names::kNode,
-      trusted_types_names::kReplaceWithHTMLUnsafe);
+  const FragmentParserConfig config =
+      FragmentParserConfig::ForContainer(parent, Sanitizer::Mode::kUnsafe);
 
   parent->ReplaceChildWithHTML(this, compliant_string, config, resolved_options,
                                exception_state);
@@ -1106,9 +1104,7 @@ void Node::beforeHTML(const String& html,
   }
   parent->InsertHTMLBefore(
       this, html,
-      FragmentParserConfig::ForContainer(parent, Sanitizer::Mode::kSafe,
-                                         trusted_types_names::kNode,
-                                         trusted_types_names::kBeforeHTML),
+      FragmentParserConfig::ForContainer(parent, Sanitizer::Mode::kSafe),
       FragmentParserOptions(options), exception_state);
 }
 
@@ -1128,9 +1124,8 @@ void Node::beforeHTMLUnsafe(
   if (!parent) {
     return;
   }
-  const FragmentParserConfig config = FragmentParserConfig::ForContainer(
-      parent, Sanitizer::Mode::kUnsafe, trusted_types_names::kNode,
-      trusted_types_names::kBeforeHTMLUnsafe);
+  const FragmentParserConfig config =
+      FragmentParserConfig::ForContainer(parent, Sanitizer::Mode::kUnsafe);
 
   parent->InsertHTMLBefore(this, compliant_string, config, resolved_options,
                            exception_state);
@@ -1145,9 +1140,7 @@ void Node::afterHTML(const String& html,
   }
   parent->InsertHTMLBefore(
       nextSibling(), html,
-      FragmentParserConfig::ForContainer(parent, Sanitizer::Mode::kSafe,
-                                         trusted_types_names::kNode,
-                                         trusted_types_names::kAfterHTML),
+      FragmentParserConfig::ForContainer(parent, Sanitizer::Mode::kSafe),
       FragmentParserOptions(options), exception_state);
 }
 
@@ -1167,9 +1160,8 @@ void Node::afterHTMLUnsafe(
   if (!parent) {
     return;
   }
-  const FragmentParserConfig config = FragmentParserConfig::ForContainer(
-      parent, Sanitizer::Mode::kUnsafe, trusted_types_names::kNode,
-      trusted_types_names::kAfterHTMLUnsafe);
+  const FragmentParserConfig config =
+      FragmentParserConfig::ForContainer(parent, Sanitizer::Mode::kUnsafe);
 
   parent->InsertHTMLBefore(nextSibling(), compliant_string, config,
                            resolved_options, exception_state);
@@ -1709,7 +1701,7 @@ void Node::FocusabilityLost() {
 
 LinkHighlightCandidate Node::IsLinkHighlightCandidate() const {
   if (const LayoutObject* layout_object = GetLayoutObject()) {
-    const ECursor cursor = layout_object->StyleRef().Cursor();
+    const ECursor cursor = layout_object->Style().Cursor();
     if (cursor == ECursor::kPointer)
       return LinkHighlightCandidate::kYes;
     if (cursor != ECursor::kAuto)
@@ -2011,7 +2003,7 @@ bool Node::CanStartSelection() const {
   }
 
   if (GetLayoutObject()) {
-    const ComputedStyle& style = GetLayoutObject()->StyleRef();
+    const ComputedStyle& style = GetLayoutObject()->Style();
     EUserSelect user_select = style.UsedUserSelect();
     if (user_select == EUserSelect::kNone)
       return false;
@@ -2570,8 +2562,9 @@ void Node::InvalidateIfHasEffectiveAppearance() const {
   if (!layout_object)
     return;
 
-  if (!layout_object->StyleRef().HasEffectiveAppearance())
+  if (!layout_object->Style().HasEffectiveAppearance()) {
     return;
+  }
 
   layout_object->SetSubtreeShouldDoFullPaintInvalidation();
 }
@@ -3851,7 +3844,8 @@ void Node::AddConsoleMessage(mojom::blink::ConsoleMessageSource source,
                              const String& message) {
   auto* console_message =
       MakeGarbageCollected<ConsoleMessage>(source, level, message);
-  console_message->SetNodes(GetDocument().GetFrame(), {GetDomNodeId()});
+  console_message->SetNodes(GetDocument().GetFrame(),
+                            {DOMNodeIdType(GetDomNodeId())});
   GetDocument().AddConsoleMessage(console_message);
 }
 

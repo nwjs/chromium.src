@@ -39,15 +39,19 @@ source_set("new_tab_page") {
   ]
   public_deps = [
     ":mojo_bindings",
-    "//chrome/browser:browser_public_dependencies",
     "//chrome/browser/new_tab_page",
     "//chrome/browser/search/background",
     "//chrome/browser/themes",
     "//chrome/browser/ui/webui/customize_buttons:mojo_bindings",
     "//chrome/browser/ui/webui/new_tab_page/action_chips",
     "//chrome/browser/ui/webui/new_tab_page/action_chips:mojo_bindings",
+    "//chrome/common",
+    "//chrome/common:constants",
     "//components/page_image_service/mojom:mojo_bindings",
     "//components/themes",
+    "//components/user_education/common",
+    "//ui/base/interaction",
+    "//ui/native_theme",
     "//ui/webui",
     "//ui/webui/resources/cr_components/composebox:mojo_bindings",
     "//ui/webui/resources/cr_components/help_bubble:mojo_bindings",
@@ -70,7 +74,6 @@ source_set("impl") {
     "untrusted_source.cc",
   ]
   public = [ "new_tab_page_handler.h" ]
-  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
   deps = [
     ":mojo_bindings",
     ":new_tab_page",
@@ -142,7 +145,6 @@ source_set("impl") {
     "//components/history_clusters/core",
     "//components/lens",
     "//components/ntp_tiles",
-    "//components/ntp_tiles:pref_names",
     "//components/omnibox/browser",
     "//components/omnibox/common",
     "//components/omnibox/common:features",
@@ -159,7 +161,6 @@ source_set("impl") {
     "//components/sync",
     "//components/tabs:public",
     "//components/themes",
-    "//components/user_education/common",
     "//content/public/browser",
     "//google_apis",
     "//media",
@@ -173,7 +174,6 @@ source_set("impl") {
     "//third_party/re2",
     "//ui/actions",
     "//ui/base",
-    "//ui/base/interaction",
     "//ui/color",
     "//ui/gfx/codec",
     "//ui/native_theme",
@@ -238,6 +238,7 @@ source_set("unit_tests") {
     "//chrome/browser/ui/webui/cr_components/most_visited",
     "//chrome/browser/ui/webui/side_panel/customize_chrome",
     "//chrome/test:test_support",
+    "//chrome/test/base:chrome_test_scoped_utils",
     "//components/feature_engagement/public",
     "//components/feature_engagement/test:test_support",
     "//components/search",
@@ -246,36 +247,60 @@ source_set("unit_tests") {
     "//components/segmentation_platform/embedder/default_model",
     "//components/segmentation_platform/public:test_support",
     "//components/themes",
+    "//components/variations:test_support",
     "//content/test:test_support",
     "//testing/gmock",
     "//testing/gtest",
+    "//ui/native_theme",
+    "//ui/native_theme:test_support",
   ]
   if (!is_android) {
     deps += [
       "//chrome/browser/desktop_to_mobile_promos:utils",
       "//chrome/browser/ui/hats:test_support",
       "//chrome/browser/ui/views/side_panel/customize_chrome",
+      "//chrome/browser/ui/webui/util",
     ]
   }
 }
 
-if (!is_android) {
-  source_set("browser_tests") {
-    testonly = true
-    defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
-    configs += [ "//build/config/compiler:no_exit_time_destructors" ]
-    sources = [
-      "new_tab_page_handler_browsertest.cc",
-      "webui_ntp_browsertest.cc",
-    ]
-    deps = [
+source_set("browser_tests") {
+  testonly = true
+  visibility = [ "//chrome/test:*" ]
+  defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
+  configs += [ "//build/config/compiler:no_exit_time_destructors" ]
+  sources = [ "webui_ntp_browsertest.cc" ]
+  deps = [
+    "//base",
+    "//base/test:test_support",
+    "//chrome/browser/preloading:test_support",
+    "//chrome/browser/profiles:profile",
+    "//chrome/browser/tab_list",
+    "//chrome/common",
+    "//chrome/test:test_support",
+    "//chrome/test/base:chrome_test_utils",
+    "//components/tabs:public",
+    "//content/public/browser",
+    "//content/public/common",
+    "//content/test:test_support",
+    "//net:test_support",
+    "//testing/gmock",
+    "//testing/gtest",
+  ]
+
+  # TODO(b:565412419): Enable new_tab_page_handler_browsertest on Android once
+  # the NTP footer and the automatic Customize Chrome promo are implemented
+  # there.
+  if (!is_android) {
+    sources += [ "new_tab_page_handler_browsertest.cc" ]
+    deps += [
       ":impl",
       ":new_tab_page",
-      "//base",
-      "//base/test:test_support",
       "//chrome/browser/new_tab_page",
+      "//chrome/browser/new_tab_page/prefs",
       "//chrome/browser/search_provider_logos",
       "//chrome/browser/ui:browser_commands",
+      "//chrome/browser/ui:browser_tabstrip",
       "//chrome/browser/ui:ui_features",
       "//chrome/browser/ui/customize_chrome",
       "//chrome/browser/ui/side_panel",
@@ -284,13 +309,11 @@ if (!is_android) {
       "//chrome/browser/ui/webui:webui_util",
       "//chrome/browser/ui/webui/cr_components/most_visited",
       "//chrome/browser/ui/webui/customize_buttons",
-      "//chrome/test:test_support",
       "//chrome/test/base:testing_browser_process",
       "//chrome/test/user_education:impl",
+      "//components/prefs",
+      "//components/search",
       "//components/user_education/views",
-      "//content/test:test_support",
-      "//testing/gmock",
-      "//testing/gtest",
     ]
   }
-}  # if (!is_android)
+}

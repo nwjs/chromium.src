@@ -122,6 +122,7 @@ import org.chromium.content_public.browser.MessagePort;
 import org.chromium.content_public.browser.NavigationController;
 import org.chromium.content_public.browser.NavigationHandle;
 import org.chromium.content_public.browser.NavigationHistory;
+import org.chromium.content_public.browser.NavigationResult;
 import org.chromium.content_public.browser.RenderFrameHost;
 import org.chromium.content_public.browser.SelectionClient;
 import org.chromium.content_public.browser.SelectionPopupController;
@@ -132,6 +133,7 @@ import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.browser.WebContentsAccessibility;
 import org.chromium.content_public.browser.WebContentsInternals;
 import org.chromium.content_public.browser.navigation_controller.LoadURLType;
+import org.chromium.content_public.browser.navigation_controller.NavigationNotStartedReason;
 import org.chromium.content_public.browser.navigation_controller.UserAgentOverrideOption;
 import org.chromium.content_public.common.ContentUrlConstants;
 import org.chromium.content_public.common.Referrer;
@@ -209,9 +211,6 @@ public class AwContents implements SmartClipProvider {
     private static int sLastId;
     // Unique id given to each AwContents object, starting from 1.
     private final int mId;
-
-    @VisibleForTesting
-    public static final String LOAD_URL_SCHEME_HISTOGRAM_NAME = "Android.WebView.LoadUrl.UrlScheme";
 
     // Permit any number of slashes, since chromium seems to canonicalize bad values.
     private static final Pattern sFileAndroidAssetPattern =
@@ -2514,8 +2513,6 @@ public class AwContents implements SmartClipProvider {
             throw new IllegalStateException("Called navigate on a destroyed WebView.");
         }
 
-        recordLoadUrlScheme(schemeForUrl(params.url));
-
         if (params.url == null) {
             throw new IllegalArgumentException("Navigate called with null URL.");
         }
@@ -2547,9 +2544,16 @@ public class AwContents implements SmartClipProvider {
         loadUrlParams.setRemoveExtraHeadersOnCrossOriginRedirect(true);
         loadUrlParams.setOverrideUserAgent(UserAgentOverrideOption.TRUE);
 
-        NavigationHandle handle = mNavigationController.loadUrl(loadUrlParams);
+        NavigationResult result = mNavigationController.loadUrl(loadUrlParams);
+        NavigationHandle handle = result.getNavigationHandle();
         if (handle == null) {
-            throw new IllegalArgumentException("Invalid URL: " + params.url);
+            int reason = assertNonNull(result.getNotStartedReason());
+            if (reason == NavigationNotStartedReason.DUPLICATE_NAVIGATION_IGNORED) {
+                handle = result.getOngoingNavigationHandle();
+            }
+            if (handle == null) {
+                throw createExceptionForNotStartedReason(reason, params.url);
+            }
         }
 
         // The behavior of WebViewClassic uses the populateVisitedLinks callback in WebKit.
@@ -2562,6 +2566,43 @@ public class AwContents implements SmartClipProvider {
 
         return mNavigationClient.getOrUpdateAwNavigationFor(handle);
     }
+
+    // LINT.IfChange(NavigationNotStartedReason)
+    @VisibleForTesting
+    public static RuntimeException createExceptionForNotStartedReason(
+            @NavigationNotStartedReason int reason, String url) {
+        switch (reason) {
+            case NavigationNotStartedReason.INVALID_URL:
+                return new IllegalArgumentException("Invalid URL: " + url);
+            case NavigationNotStartedReason.OVERSIZED_URL:
+                return new IllegalArgumentException("URL length exceeds maximum allowed limit");
+            case NavigationNotStartedReason.BLOCKED_RENDERER_DEBUG_URL:
+                return new IllegalArgumentException("Renderer debug URLs are blocked: " + url);
+            case NavigationNotStartedReason.DISALLOWED_SCHEME:
+                return new IllegalArgumentException("URL scheme is not permitted: " + url);
+            case NavigationNotStartedReason.RENDERER_DEBUG_URL_HANDLED:
+                return new IllegalArgumentException("URL does not result in a navigation: " + url);
+            case NavigationNotStartedReason.ATTACHING_INNER_DELEGATE:
+                return new IllegalStateException(
+                        "Cannot navigate while frame is attaching an inner delegate");
+            case NavigationNotStartedReason.DUPLICATE_NAVIGATION_IGNORED:
+                return new IllegalStateException(
+                        "Navigation was ignored because an identical navigation is already"
+                                + " ongoing: "
+                                + url);
+            case NavigationNotStartedReason.CONTEXT_SHUTDOWN:
+                return new IllegalStateException(
+                        "Cannot navigate because the context is shutting down");
+            case NavigationNotStartedReason.CANCELLED_DURING_START:
+                return new IllegalStateException(
+                        "Navigation was cancelled synchronously during start");
+            default:
+                throw new IllegalArgumentException(
+                        "Unhandled NavigationNotStartedReason: " + reason);
+        }
+    }
+
+    // LINT.ThenChange(//content/public/browser/navigation_controller.h:NavigationNotStartedReason)
 
     /** WebView.postUrl. */
     public void postUrl(String url, byte[] postData) {
@@ -2592,11 +2633,6 @@ public class AwContents implements SmartClipProvider {
 
     private static boolean isBase64Encoded(String encoding) {
         return "base64".equals(encoding);
-    }
-
-    private static void recordLoadUrlScheme(@UrlScheme int value) {
-        RecordHistogram.recordEnumeratedHistogram(
-                LOAD_URL_SCHEME_HISTOGRAM_NAME, value, UrlScheme.COUNT);
     }
 
     /** WebView.loadData. */
@@ -2738,12 +2774,6 @@ public class AwContents implements SmartClipProvider {
         // TODO (crbug.com/363939616) Clean this up once prefetch infra supports bg thread.
         mBrowserContext.getPrefetchManager().executeQueuedPrefetchRequests();
 
-        if (params.getBaseUrl() == null) {
-            // Don't record the URL if this was loaded via loadDataWithBaseURL(). That API is
-            // tracked separately under Android.WebView.LoadDataWithBaseUrl.BaseUrl.
-            recordLoadUrlScheme(schemeForUrl(params.getUrl()));
-        }
-
         if (params.getLoadUrlType() == LoadURLType.DATA && !params.isBaseUrlDataScheme()) {
             // This allows data URLs with a non-data base URL access to file:///android_asset/ and
             // file:///android_res/ URLs. If AwSettings.getAllowFileAccess permits, it will also
@@ -2796,10 +2826,11 @@ public class AwContents implements SmartClipProvider {
 
         AwLoadUrlMetricsObserver.setPendingLoadUrlTimestamp(
                 SystemClock.uptimeMillis(), mWebContents);
-        NavigationHandle result = mNavigationController.loadUrl(params);
-        RecordHistogram.recordBooleanHistogram("Android.WebView.LoadUrl.Success", result != null);
+        NavigationResult result = mNavigationController.loadUrl(params);
+        boolean success = result.getNavigationHandle() != null;
+        RecordHistogram.recordBooleanHistogram("Android.WebView.LoadUrl.Success", success);
 
-        if (result == null) {
+        if (!success) {
             RecordHistogram.recordEnumeratedHistogram(
                     "Android.WebView.LoadUrl.FailureScheme",
                     schemeForUrl(params.getUrl()),
@@ -3180,6 +3211,12 @@ public class AwContents implements SmartClipProvider {
     public String getTitle() {
         if (TRACE) Log.i(TAG, "%s getTitle", this);
         return isDestroyed(WARN) ? null : mWebContents.getTitle();
+    }
+
+    public Color getThemeColor() {
+        if (TRACE) Log.i(TAG, "%s getThemeColor", this);
+        int color = isDestroyed(WARN) ? Color.TRANSPARENT : mWebContents.getThemeColor();
+        return Color.valueOf(color);
     }
 
     /**
@@ -3612,7 +3649,7 @@ public class AwContents implements SmartClipProvider {
     }
 
     /**
-     * @see WebContents.evaluateJavaScript(String, JavaScriptCallback)
+     * @see WebContents#evaluateJavaScript(String, JavaScriptCallback)
      */
     public void evaluateJavaScript(String script, final Callback<String> callback) {
         if (TRACE) Log.i(TAG, "%s evaluateJavascript=%s", this, script);
@@ -3668,6 +3705,31 @@ public class AwContents implements SmartClipProvider {
                                 + " `Profile#setCrossOriginIsolatedAllowlist()`, and add the"
                                 + " Document-Isolation-Policy header the page's response.");
             }
+            // A SharedArrayBuffer cannot go over WebContents#postMessageToMainFrame: the
+            // shared memory region backing it has no place in TransferableMessage, the
+            // renderer-to-renderer message type, and content has no channel that can carry
+            // it. Deliver it over WebView's own frame interface instead.
+            //
+            // That bypasses WebContentsImpl#postMessageToMainFrame, so the argument
+            // handling it would have done has to happen here.
+            if (sentPorts != null) {
+                for (MessagePort port : sentPorts) {
+                    if (port.isClosed() || port.isTransferred()) {
+                        throw new IllegalStateException("Port is already closed or transferred");
+                    }
+                    if (port.isStarted()) {
+                        throw new IllegalStateException("Port is already started");
+                    }
+                }
+            }
+            // Internally a wildcard target origin is the empty string.
+            AwContentsJni.get()
+                    .postSharedArrayBufferMessageToMainFrame(
+                            mNativeAwContents,
+                            messagePayload,
+                            "*".equals(targetOrigin) ? "" : targetOrigin,
+                            sentPorts);
+            return;
         }
 
         mWebContents.postMessageToMainFrame(messagePayload, null, targetOrigin, sentPorts);
@@ -5221,6 +5283,15 @@ public class AwContents implements SmartClipProvider {
         void setCompositorFrameConsumer(long nativeAwContents, long nativeCompositorFrameConsumer);
 
         void documentHasImages(long nativeAwContents, Message message);
+
+        // Delivers `payload`, which must hold a SharedArrayBuffer, to the main frame's
+        // document. Unlike WebContents#postMessageToMainFrame this can carry the shared
+        // memory region backing the buffer. An empty `targetOrigin` is a wildcard.
+        void postSharedArrayBufferMessageToMainFrame(
+                long nativeAwContents,
+                MessagePayload payload,
+                @JniType("std::u16string") String targetOrigin,
+                @Nullable MessagePort[] ports);
 
         void generateMHTML(
                 long nativeAwContents,

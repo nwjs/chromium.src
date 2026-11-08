@@ -13,7 +13,6 @@
 #import "components/optimization_guide/core/hints/hints_manager.h"
 #import "components/optimization_guide/core/hints/test_hints_config.h"
 #import "components/optimization_guide/core/optimization_guide_features.h"
-#import "components/optimization_guide/core/optimization_guide_switches.h"
 #import "components/page_info/core/proto/about_this_site_metadata.pb.h"
 #import "ios/chrome/browser/optimization_guide/model/optimization_guide_service.h"
 #import "ios/chrome/browser/optimization_guide/model/optimization_guide_service_factory.h"
@@ -56,9 +55,7 @@ class AboutThisSiteTabHelperTest : public PlatformTest {
         optimization_guide::kPurgeHintsStoreSwitch);
 
     scoped_feature_list_.InitWithFeatures(
-        {optimization_guide::features::kOptimizationHints,
-         optimization_guide::features::kOptimizationGuideMetadataValidation},
-        {});
+        {optimization_guide::features::kOptimizationHints}, {});
   }
 
   // Initializes the OptimizationGuide service with an AboutThisSite hint,

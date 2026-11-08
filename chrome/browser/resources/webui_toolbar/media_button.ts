@@ -7,8 +7,10 @@ import '/strings.m.js';
 import './icons.js';
 
 import {loadTimeData} from '//resources/js/load_time_data.js';
+import {TrackedElementManager} from '//resources/js/tracked_element/tracked_element_manager.js';
 import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
 import type {MenuSourceType} from '//resources/mojo/ui/base/mojom/menu_source_type.mojom-webui.js';
+import {getContextMenuPosition, HelpBubbleAnchorMixin, HighlightTracker, PressHandler} from '/shared/toolbar_button.js';
 import type {MediaControlState} from '/shared/toolbar_ui_api_data_model.mojom-webui.js';
 
 import {BrowserProxyImpl, ContextMenuType} from './browser_proxy.js';
@@ -16,7 +18,6 @@ import type {BrowserProxy} from './browser_proxy.js';
 import {getHtml} from './media_button.html.js';
 import {OverflowableButtonMixin} from './overflowable_button.js';
 import {getCss} from './toolbar_button.css.js';
-import {getContextMenuPosition, HelpBubbleAnchorMixin, PressHandler} from './toolbar_button.js';
 
 const MediaButtonElementBase =
     HelpBubbleAnchorMixin(OverflowableButtonMixin(CrLitElement));
@@ -45,6 +46,7 @@ export class MediaButtonElement extends MediaButtonElementBase {
     enabled: true,
     shouldBeShown: false,
     isContextMenuVisible: false,
+    preventOverflow: false,
   };
 
   protected pressHandler_: PressHandler = new PressHandler(
@@ -56,18 +58,22 @@ export class MediaButtonElement extends MediaButtonElementBase {
 
   private browserProxy_: BrowserProxy = BrowserProxyImpl.getInstance();
 
+  highlightTracker: HighlightTracker = new HighlightTracker();
+
   private onLongPress_(source: MenuSourceType) {
     this.browserProxy_.toolbarUIHandler.showContextMenu(
         ContextMenuType.kMedia, getContextMenuPosition(this), source,
         /*showMenuToken=*/ null);
   }
 
-  private onShortPress_(e: MouseEvent) {
-    this.browserProxy_.toolbarUIHandler.onMediaButtonClicked(
-        e instanceof PointerEvent && e.pointerType !== '');
+  private onShortPress_(e: PointerEvent) {
+    if (!this.highlightTracker.shouldSkipClick(e)) {
+      TrackedElementManager.getInstance().notifyElementActivated(this);
+      this.browserProxy_.toolbarUIHandler.onMediaButtonClicked();
+    }
   }
 
-  protected onClick_(e: MouseEvent) {
+  protected onClick_(e: PointerEvent) {
     // Only keyboard `click` (Enter/Space) are handled here, which triggers a
     // left-click equivalent. Keyboard 'click' has detail === 0.
     if (e.detail === 0) {
@@ -76,9 +82,7 @@ export class MediaButtonElement extends MediaButtonElementBase {
   }
 
   protected onPointerdown_(e: PointerEvent) {
-    if (e.button === 0) {
-      this.browserProxy_.toolbarUIHandler.onMediaButtonMousePressed();
-    }
+    this.highlightTracker.onPointerdown(e);
     this.pressHandler_.onPointerdown(e);
   }
 }

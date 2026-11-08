@@ -430,8 +430,8 @@ NET_EXPORT BASE_DECLARE_FEATURE(kAsyncQuicSession);
 // HostResolver::ServiceEndpointRequest, for direct QUIC sessions.
 NET_EXPORT BASE_DECLARE_FEATURE(kAsyncDnsQuicJob);
 
-// Whether AsyncDnsJob notifies waiting requests immediately on the first
-// attempt's session creation failure instead of holding the error.
+// Whether HttpStreamFactory::JobController resumes the main job without delay
+// when a QUIC job reports a connection initialization failure.
 NET_EXPORT BASE_DECLARE_FEATURE_PARAM(bool, kAsyncDnsQuicJobFastFail);
 NET_EXPORT BASE_DECLARE_FEATURE_PARAM(
     bool,
@@ -862,6 +862,17 @@ NET_EXPORT BASE_DECLARE_FEATURE(kQuicIgnoreRedundantOnNetworkMadeDefault);
 
 // If enabled, we will use a longer idle timeout.
 NET_EXPORT BASE_DECLARE_FEATURE(kQuicLongerIdleConnectionTimeout);
+
+// If enabled, always cancel pre-existing probing when migrating immediately or
+// committing a migration.
+NET_EXPORT BASE_DECLARE_FEATURE(
+    kQuicAlwaysCancelPreExistingProbingOnMigration);
+
+// Controls the timeout for waiting for a new network to connect before giving
+// up on connection migration.
+NET_EXPORT BASE_DECLARE_FEATURE(kQuicWaitForNewNetworkTimeout);
+NET_EXPORT BASE_DECLARE_FEATURE_PARAM(base::TimeDelta,
+                                      kQuicWaitForNewNetworkTimeoutParam);
 
 // If enabled, we will use QUIC with a smaller MTU.
 NET_EXPORT BASE_DECLARE_FEATURE(kLowerQuicMaxPacketSize);

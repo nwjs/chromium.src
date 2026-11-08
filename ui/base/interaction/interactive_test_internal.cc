@@ -8,6 +8,7 @@
 #include <iterator>
 #include <memory>
 #include <ostream>
+#include <ranges>
 #include <sstream>
 #include <string_view>
 #include <variant>
@@ -15,7 +16,6 @@
 
 #include "base/callback_list.h"
 #include "base/check.h"
-#include "base/containers/adapters.h"
 #include "base/containers/map_util.h"
 #include "base/functional/bind.h"
 #include "base/strings/string_util.h"
@@ -212,6 +212,24 @@ InteractiveTestPrivate::InteractiveTestPrivate() {
 
 InteractiveTestPrivate::~InteractiveTestPrivate() = default;
 
+void InteractiveTestPrivate::OnStepStartCallbackWillRun(
+    InteractionSequence* seq) {
+  CHECK(std::ranges::find(sequences_with_active_steps_, seq) ==
+        sequences_with_active_steps_.end());
+  sequences_with_active_steps_.push_front(seq);
+}
+
+void InteractiveTestPrivate::OnStepStartCallbackDone(
+    const InteractionSequence* seq) {
+  CHECK_NE(0U, sequences_with_active_steps_.remove(
+                   const_cast<InteractionSequence*>(seq)));
+}
+
+void InteractiveTestPrivate::OnSequenceDestroying(
+    const InteractionSequence* seq) {
+  sequences_with_active_steps_.remove(const_cast<InteractionSequence*>(seq));
+}
+
 void InteractiveTestPrivate::Init(ElementContext initial_context) {
   success_ = false;
   sequence_skipped_ = false;
@@ -229,6 +247,7 @@ void InteractiveTestPrivate::Init(ElementContext initial_context) {
 void InteractiveTestPrivate::Cleanup() {
   context_subscription_ = base::CallbackListSubscription();
   pivot_elements_.clear();
+  CHECK(sequences_with_active_steps_.empty());
 }
 
 void InteractiveTestPrivate::OnElementAdded(TrackedElement* el) {
@@ -278,7 +297,7 @@ gfx::NativeWindow InteractiveTestPrivate::GetNativeWindowFor(
     const ui::TrackedElement* el) const {
   gfx::NativeWindow window = gfx::NativeWindow();
 
-  for (auto& framework : base::Reversed(framework_implementations_)) {
+  for (auto& framework : std::views::reverse(framework_implementations_)) {
     window = framework.GetNativeWindowFromElement(el);
     if (window) {
       break;
@@ -307,7 +326,7 @@ gfx::NativeWindow InteractiveTestPrivate::GetNativeWindowFor(
   // cache because it will always return the primary window for the context, but
   // the mouse could be over a child window.
   if (!window) {
-    for (auto& framework : base::Reversed(framework_implementations_)) {
+    for (auto& framework : std::views::reverse(framework_implementations_)) {
       window = framework.GetNativeWindowFromContext(el->context());
       if (window) {
         break;
@@ -366,6 +385,19 @@ void InteractiveTestPrivate::HandleActionResult(
   }
 }
 
+bool InteractiveTestPrivate::IsBestGuessExecutingSequenceInAnyContext() const {
+  CHECK(!sequences_with_active_steps_.empty())
+      << "Cannot be called outside of an active step callback.";
+  return sequences_with_active_steps_.front()
+      ->IsCurrentStepInAnyContextForTesting();
+}
+
+void InteractiveTestPrivate::FailBestGuessExecutingSequence() {
+  CHECK(!sequences_with_active_steps_.empty())
+      << "Cannot be called outside of an active step callback.";
+  sequences_with_active_steps_.front()->FailForTesting();
+}
+
 TrackedElement* InteractiveTestPrivate::GetPivotElement(
     ElementContext context) const {
   const auto it = pivot_elements_.find(context);
@@ -418,7 +450,7 @@ void InteractiveTestPrivate::DoTestSetUp() {
   }
 }
 void InteractiveTestPrivate::DoTestTearDown() {
-  for (auto& framework : base::Reversed(framework_implementations_)) {
+  for (auto& framework : std::views::reverse(framework_implementations_)) {
     framework.DoTestTearDown();
   }
   state_observer_elements_.clear();
@@ -426,7 +458,7 @@ void InteractiveTestPrivate::DoTestTearDown() {
 }
 
 void InteractiveTestPrivate::OnSequenceComplete() {
-  for (auto& framework : base::Reversed(framework_implementations_)) {
+  for (auto& framework : std::views::reverse(framework_implementations_)) {
     framework.OnSequenceComplete();
   }
 
@@ -455,7 +487,7 @@ void InteractiveTestPrivate::OnSequenceComplete() {
 
 void InteractiveTestPrivate::OnSequenceAborted(
     const InteractionSequence::AbortedData& data) {
-  for (auto& framework : base::Reversed(framework_implementations_)) {
+  for (auto& framework : std::views::reverse(framework_implementations_)) {
     framework.OnSequenceAborted(data);
   }
   if (aborted_callback_for_testing_) {
@@ -469,7 +501,7 @@ void InteractiveTestPrivate::OnSequenceAborted(
     } else {
       DCHECK_EQ(OnIncompatibleAction::kHaltTest, on_incompatible_action_);
     }
-  } else {
+  } else if (!timed_out_) {
     std::ostringstream additional_message;
     if (data.aborted_reason == InteractionSequence::AbortedReason::
                                    kElementHiddenBetweenTriggerAndStepStart) {
@@ -488,6 +520,7 @@ void InteractiveTestPrivate::OnSequenceAborted(
         additional_message << "\n * " << ctx;
       }
     }
+    additional_message << "\n";
     DebugDumpElements(data.context).PrintTo(additional_message);
     if (!deferred_failures_.empty()) {
       additional_message << "\n" << "Some prior steps also failed:";
@@ -617,7 +650,7 @@ InteractiveTestPrivate::DebugTreeNode InteractiveTestPrivate::DebugDumpContext(
     ui::ElementContext context) const {
   std::string context_description;
   for (auto& framework_implementation :
-       base::Reversed(framework_implementations_)) {
+       std::views::reverse(framework_implementations_)) {
     context_description =
         framework_implementation.DebugDescribeContext(context);
     if (!context_description.empty()) {
@@ -633,11 +666,11 @@ InteractiveTestPrivate::DebugTreeNode InteractiveTestPrivate::DebugDumpContext(
                                                element_list.end());
   std::vector<std::vector<DebugTreeNode>> temp;
   for (auto& framework_implementation :
-       base::Reversed(framework_implementations_)) {
+       std::views::reverse(framework_implementations_)) {
     temp.push_back(framework_implementation.DebugDumpElements(elements));
   }
   CHECK(elements.empty());
-  for (auto& nodes : base::Reversed(temp)) {
+  for (auto& nodes : std::views::reverse(temp)) {
     std::move(nodes.begin(), nodes.end(), std::back_inserter(node.children));
   }
   return node;

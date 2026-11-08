@@ -5,8 +5,10 @@
 #include "chrome/browser/accessibility/live_caption/live_caption_speech_recognition_host.h"
 
 #include <algorithm>
+#include <array>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -23,6 +25,7 @@
 #include "chrome/browser/accessibility/live_caption/live_translate_controller_factory.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/profiles/profile.h"
+#include "components/live_caption/features.h"
 #include "components/live_caption/greedy_text_stabilizer.h"
 #include "components/live_caption/live_caption_controller.h"
 #include "components/live_caption/live_translate_controller.h"
@@ -94,6 +97,28 @@ bool IsLanguageInstallable(std::string_view language_code) {
       language_code);
 }
 
+// Returns whether `string_to_translate` should be dispatched immediately
+// without debouncing (i.e. on final results, empty text, or when ending with
+// punctuation, ignoring trailing whitespace).
+bool ShouldDispatchImmediately(const std::string& string_to_translate,
+                               bool is_final) {
+  if (is_final || string_to_translate.empty()) {
+    return true;
+  }
+
+  std::string_view trimmed =
+      base::TrimWhitespaceASCII(string_to_translate, base::TRIM_TRAILING);
+  static constexpr auto kPunctuationMarks = std::to_array<std::string_view>(
+      {".", ",", "?", "!", ";", ":", "。", "，", "、", "？", "！", "；", "："});
+  for (std::string_view p : kPunctuationMarks) {
+    if (trimmed.ends_with(p)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 }  // namespace
 
 namespace captions {
@@ -156,55 +181,113 @@ LiveCaptionSpeechRecognitionHost::~LiveCaptionSpeechRecognitionHost() {
   }
 }
 
-void LiveCaptionSpeechRecognitionHost::OnSpeechRecognitionRecognitionEvent(
+void LiveCaptionSpeechRecognitionHost::DispatchTranslation(
     const media::SpeechRecognitionResult& result,
-    OnSpeechRecognitionRecognitionEventCallback reply) {
-  LiveCaptionController* live_caption_controller = GetLiveCaptionController();
-  if (!live_caption_controller) {
-    std::move(reply).Run(false);
+    DispatchBehavior dispatch_behavior) {
+  CHECK(!is_translating_);
+
+  if (!IsLiveTranslateActive()) {
+    translation_cache_.Clear();
+    DispatchTranscription(result);
+    return;
+  }
+
+  if (!GetLiveCaptionController()) {
+    return;
+  }
+
+  LiveTranslateController* live_translate_controller =
+      GetLiveTranslateController();
+  if (!live_translate_controller) {
     return;
   }
 
   std::string target_language =
       prefs_->GetString(prefs::kLiveTranslateTargetLanguageCode);
+  auto [string_to_translate, cached_translation] =
+      translation_cache_.FindCachedTranslationOrRemaining(
+          result.transcription, source_language_, target_language);
+
+  if (dispatch_behavior != DispatchBehavior::kFlush &&
+      base::FeatureList::IsEnabled(live_caption::kLiveTranslateTimeGating) &&
+      !ShouldDispatchImmediately(string_to_translate, result.is_final)) {
+    base::TimeDelta debounce_duration =
+        live_caption::kLiveTranslateDebounceDuration.Get();
+    base::TimeDelta max_duration =
+        live_caption::kLiveTranslateMaxDuration.Get();
+    base::TimeTicks now = base::TimeTicks::Now();
+
+    if (!translation_gate_timer_.IsRunning()) {
+      batch_start_time_ = now;
+    }
+
+    base::TimeDelta elapsed = now - batch_start_time_;
+    if (elapsed < max_duration) {
+      base::TimeDelta delay =
+          std::min(debounce_duration, max_duration - elapsed);
+      gated_partial_result_ = result;
+      translation_gate_timer_.Start(
+          FROM_HERE, delay,
+          base::BindOnce(
+              &LiveCaptionSpeechRecognitionHost::FlushGatedTranslation,
+              weak_factory_.GetWeakPtr()));
+      return;
+    }
+  }
+
+  StopTranslationGate();
+
+  if (!string_to_translate.empty()) {
+    characters_translated_ += string_to_translate.size();
+    is_translating_ = true;
+    live_translate_controller->GetTranslation(
+        string_to_translate, source_language_, target_language,
+        base::BindOnce(&LiveCaptionSpeechRecognitionHost::OnTranslationCallback,
+                       weak_factory_.GetWeakPtr(),
+                       std::move(cached_translation), string_to_translate,
+                       source_language_, target_language, result.is_final));
+    return;
+  }
+  // The entire transcription was cached, dispatch the transcription.
+  DispatchTranscription(
+      media::SpeechRecognitionResult(cached_translation, result.is_final));
+  if (result.is_final) {
+    translation_cache_.Clear();
+  }
+}
+
+void LiveCaptionSpeechRecognitionHost::OnSpeechRecognitionRecognitionEvent(
+    const media::SpeechRecognitionResult& result,
+    OnSpeechRecognitionRecognitionEventCallback reply) {
+  if (stop_transcriptions_ || !GetLiveCaptionController()) {
+    std::move(reply).Run(false);
+    return;
+  }
+
   // TODO(crbug.com/413823334): Forward `result.timing_information` even we are
   // live-translating a video.
-  if (media::IsLiveTranslateEnabled() &&
-      prefs_->GetBoolean(prefs::kLiveTranslateEnabled) &&
-      base::i18n::GetLanguageSubtagUsingLanguageTag(target_language) !=
-          base::i18n::GetLanguageSubtagUsingLanguageTag(source_language_)) {
-    auto cache_result = translation_cache_.FindCachedTranslationOrRemaining(
-        result.transcription, source_language_, target_language);
-
-    std::string cached_translation = cache_result.second;
-    std::string string_to_translate = cache_result.first;
-
-    if (!string_to_translate.empty()) {
-      characters_translated_ += string_to_translate.size();
-      GetLiveTranslateController()->GetTranslation(
-          string_to_translate, source_language_, target_language,
-          base::BindOnce(
-              &LiveCaptionSpeechRecognitionHost::OnTranslationCallback,
-              weak_factory_.GetWeakPtr(), cached_translation,
-              string_to_translate, source_language_, target_language,
-              result.is_final));
+  if (IsLiveTranslateActive()) {
+    if (is_translating_) {
+      // Translation in progress. Replace partial result with the latest or
+      // queue if final.
+      if (!pending_speech_results_.empty() &&
+          !pending_speech_results_.back().is_final) {
+        pending_speech_results_.back() = result;
+      } else {
+        pending_speech_results_.push_back(result);
+      }
       std::move(reply).Run(!stop_transcriptions_);
-    } else {
-      // Dispatch the transcription immediately if the entire transcription was
-      // cached.
-      std::move(reply).Run(live_caption_controller->DispatchTranscription(
-          &render_frame_host(), context_.get(),
-          media::SpeechRecognitionResult(
-              GetTextForDispatch(cached_translation, result.is_final),
-              result.is_final)));
+      return;
     }
-  } else {
-    std::move(reply).Run(live_caption_controller->DispatchTranscription(
-        &render_frame_host(), context_.get(),
-        media::SpeechRecognitionResult(
-            GetTextForDispatch(result.transcription, result.is_final),
-            result.is_final, result.timing_information)));
+
+    DispatchTranslation(result, DispatchBehavior::kDefault);
+    std::move(reply).Run(!stop_transcriptions_);
+    return;
   }
+
+  StopTranslationGate();
+
+  std::move(reply).Run(DispatchTranscription(result));
 }
 
 void LiveCaptionSpeechRecognitionHost::OnLanguageIdentificationEvent(
@@ -217,6 +300,9 @@ void LiveCaptionSpeechRecognitionHost::OnLanguageIdentificationEvent(
       media::mojom::AsrSwitchResult::kSwitchSucceeded) {
     source_language_ = event->language;
     language_auto_switched_ = true;
+    if (!IsLiveTranslateActive()) {
+      StopTranslationGate();
+    }
   }
 
   if (auto_detected_language_ != event->language) {
@@ -261,6 +347,10 @@ void LiveCaptionSpeechRecognitionHost::OnLanguageIdentificationEvent(
 }
 
 void LiveCaptionSpeechRecognitionHost::OnSpeechRecognitionError() {
+  weak_factory_.InvalidateWeakPtrs();
+  is_translating_ = false;
+  pending_speech_results_.clear();
+  StopTranslationGate();
   LiveCaptionController* live_caption_controller = GetLiveCaptionController();
   if (live_caption_controller)
     live_caption_controller->OnError(
@@ -271,6 +361,10 @@ void LiveCaptionSpeechRecognitionHost::OnSpeechRecognitionError() {
 }
 
 void LiveCaptionSpeechRecognitionHost::OnSpeechRecognitionStopped() {
+  weak_factory_.InvalidateWeakPtrs();
+  is_translating_ = false;
+  pending_speech_results_.clear();
+  StopTranslationGate();
   LiveCaptionController* live_caption_controller = GetLiveCaptionController();
   if (live_caption_controller) {
     live_caption_controller->OnAudioStreamEnd(&render_frame_host(),
@@ -294,32 +388,43 @@ void LiveCaptionSpeechRecognitionHost::OnTranslationCallback(
     const std::string& target_language,
     bool is_final,
     const captions::TranslateEvent& result) {
-  if (!result.has_value()) {
-    return;
-  }
+  is_translating_ = false;
 
-  std::string formatted_result = result.value();
-  // Don't cache the translation if the source language is an ideographic
-  // language but the target language is not to avoid translate
-  // sentence by sentence because the Cloud Translation API does not properly
-  // translate ideographic punctuation marks.
-  if (!IsIdeographicLocale(source_language) ||
-      IsIdeographicLocale(target_language)) {
-    if (is_final) {
-      translation_cache_.Clear();
-    } else {
-      translation_cache_.InsertIntoCache(original_transcription, result.value(),
-                                         source_language, target_language);
+  if (result.has_value()) {
+    std::string formatted_result = result.value();
+    // Don't cache the translation if the source language is an ideographic
+    // language but the target language is not to avoid translate
+    // sentence by sentence because the Cloud Translation API does not properly
+    // translate ideographic punctuation marks.
+    if (!IsIdeographicLocale(source_language) ||
+        IsIdeographicLocale(target_language)) {
+      if (is_final) {
+        translation_cache_.Clear();
+      } else {
+        translation_cache_.InsertIntoCache(original_transcription,
+                                           result.value(), source_language,
+                                           target_language);
+      }
+    }
+
+    auto text = base::StrCat({cached_translation, formatted_result});
+
+    if (IsLiveTranslateActive()) {
+      DispatchTranscription(media::SpeechRecognitionResult(text, is_final));
     }
   }
 
-  auto text = base::StrCat({cached_translation, formatted_result});
+  while (!is_translating_ && !pending_speech_results_.empty() &&
+         !stop_transcriptions_) {
+    media::SpeechRecognitionResult next_result =
+        std::move(pending_speech_results_.front());
+    pending_speech_results_.pop_front();
+    DispatchTranslation(next_result, DispatchBehavior::kFlush);
+  }
 
-  LiveCaptionController* live_caption_controller = GetLiveCaptionController();
-  stop_transcriptions_ = !live_caption_controller->DispatchTranscription(
-      &render_frame_host(), context_.get(),
-      media::SpeechRecognitionResult(GetTextForDispatch(text, is_final),
-                                     is_final));
+  if (stop_transcriptions_) {
+    pending_speech_results_.clear();
+  }
 }
 
 content::WebContents* LiveCaptionSpeechRecognitionHost::GetWebContents() {
@@ -372,4 +477,45 @@ std::string LiveCaptionSpeechRecognitionHost::GetTextForDispatch(
 
   return text;
 }
+
+void LiveCaptionSpeechRecognitionHost::FlushGatedTranslation() {
+  if (!gated_partial_result_.has_value()) {
+    return;
+  }
+  media::SpeechRecognitionResult to_dispatch =
+      std::move(*gated_partial_result_);
+  StopTranslationGate();
+
+  DispatchTranslation(to_dispatch, DispatchBehavior::kFlush);
+}
+
+bool LiveCaptionSpeechRecognitionHost::DispatchTranscription(
+    const media::SpeechRecognitionResult& result) {
+  LiveCaptionController* live_caption_controller = GetLiveCaptionController();
+  if (!live_caption_controller) {
+    return false;
+  }
+  bool success = live_caption_controller->DispatchTranscription(
+      &render_frame_host(), context_.get(),
+      media::SpeechRecognitionResult(
+          GetTextForDispatch(result.transcription, result.is_final),
+          result.is_final, result.timing_information));
+  stop_transcriptions_ = !success;
+  return success;
+}
+
+void LiveCaptionSpeechRecognitionHost::StopTranslationGate() {
+  translation_gate_timer_.Stop();
+  gated_partial_result_.reset();
+}
+
+bool LiveCaptionSpeechRecognitionHost::IsLiveTranslateActive() const {
+  std::string target_language =
+      prefs_->GetString(prefs::kLiveTranslateTargetLanguageCode);
+  return media::IsLiveTranslateEnabled() &&
+         prefs_->GetBoolean(prefs::kLiveTranslateEnabled) &&
+         base::i18n::GetLanguageSubtagUsingLanguageTag(target_language) !=
+             base::i18n::GetLanguageSubtagUsingLanguageTag(source_language_);
+}
+
 }  // namespace captions

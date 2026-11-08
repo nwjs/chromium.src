@@ -65,6 +65,7 @@ chromium-metrics-reviews@google.com.
 <!-- LINT.IfChange(ContextualSearchSource) -->
 
 <variants name="ContextualSearchSource">
+  <variant name="ContextualCue"/>
   <variant name="ContextualTasks"/>
   <variant name="Lens"/>
   <variant name="NewTabPage"/>
@@ -363,7 +364,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="ContextualSearch.File.Size.V2.{ContextualSearchFileTypes}.{ContextualSearchSource}"
-    units="bytes" expires_after="2027-01-20">
+    units="bytes" expires_after="2027-04-04">
   <owner>hujasonx@google.com</owner>
   <owner>chrome-desktop-search@google.com</owner>
   <summary>
@@ -574,7 +575,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="ContextualSearch.Query.Time.ToSubmission.{ContextualSearchSource}"
-    units="ms" expires_after="2027-01-31">
+    units="ms" expires_after="2027-04-04">
   <owner>hujasonx@google.com</owner>
   <owner>chrome-desktop-search@google.com</owner>
   <summary>
@@ -770,7 +771,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="ContextualSearch.Session.File.Browser.UploadSuccessCount.FunnelMetrics.{ContextualSearchFunnel}.{ContextualSearchSource}"
-    units="count" expires_after="2027-01-21">
+    units="count" expires_after="2027-03-28">
   <owner>hujasonx@google.com</owner>
   <owner>chrome-desktop-search@google.com</owner>
   <summary>
@@ -803,7 +804,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="ContextualSearch.Session.File.Browser.UploadSuccessCount.{ContextualSearchSource}"
-    units="count" expires_after="2027-01-21">
+    units="count" expires_after="2027-03-28">
   <owner>wenhuc@google.com</owner>
   <owner>chrome-desktop-search@google.com</owner>
   <summary>
@@ -994,6 +995,19 @@ chromium-metrics-reviews@google.com.
   <token key="ContextualSearchSource" variants="ContextualSearchSource"/>
 </histogram>
 
+<histogram
+    name="ContextualSearch.SingleTabMenuItem.Action.{ContextualSearchSource}"
+    enum="ContextualSearchSingleTabMenuItemAction" expires_after="2027-07-16">
+  <owner>ananyaseelam@google.com</owner>
+  <owner>chrome-desktop-search@google.com</owner>
+  <summary>
+    Recorded when a user selects or deselects the standalone single tab menu
+    item in the contextual action menu, or submits a query with a tab attached
+    via the standalone single tab menu item on {ContextualSearchSource}.
+  </summary>
+  <token key="ContextualSearchSource" variants="ContextualSearchSource"/>
+</histogram>
+
 <histogram name="ContextualSearch.SmartTabSharing.MenuOptionClicked"
     enum="SmartTabSharingToggleState" expires_after="2027-07-22">
   <owner>kiehl@google.com</owner>
@@ -1052,6 +1066,19 @@ chromium-metrics-reviews@google.com.
   <summary>
     Records true if the current AIM thread had Smart Tab Sharing active (toggled
     ON) upon query submission, and false if it was inactive (toggled OFF).
+  </summary>
+</histogram>
+
+<histogram name="ContextualSearch.TabContextAdded.AccountMatches"
+    enum="Boolean" expires_after="2027-03-21">
+  <owner>sophiechang@chromium.org</owner>
+  <owner>chrome-contextual-tasks-eng@google.com</owner>
+  <summary>
+    Recorded when a tab context upload flow is started in contextual search.
+    Records whether the primary account of the browser profile matches the web
+    identity account associated with the session URL (or the session's auth user
+    index / default cookie jar account if no user index is specified in the
+    URL).
   </summary>
 </histogram>
 

@@ -17,6 +17,7 @@
 #include "base/test/simple_test_tick_clock.h"
 #include "base/test/test_future.h"
 #include "base/test/test_simple_task_runner.h"
+#include "build/build_config.h"
 #include "cc/test/pixel_test_utils.h"
 #include "components/viz/host/host_frame_sink_manager.h"
 #include "content/browser/browser_context_impl.h"

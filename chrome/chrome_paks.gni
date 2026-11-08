@@ -211,6 +211,16 @@ template("chrome_extra_paks") {
       ]
     }
 
+    if (enable_webui_tabstrip_ntb) {
+      sources += [ "$root_gen_dir/chrome/tabstrip_ntb_resources.pak" ]
+    }
+
+    # tabstrip_ntb bundles these when optimize_webui=true, so Android only
+    # needs them in unbundled builds.
+    if (!is_android || (enable_webui_tabstrip_ntb && !optimize_webui)) {
+      sources += [ "$root_gen_dir/chrome/tab_strip_api_resources.pak" ]
+    }
+
     if (!is_android) {
       # New paks should be added here by default.
       sources += [
@@ -254,13 +264,11 @@ template("chrome_extra_paks") {
         "$root_gen_dir/chrome/side_panel_history_resources.pak",
         "$root_gen_dir/chrome/side_panel_read_anything_resources.pak",
         "$root_gen_dir/chrome/side_panel_reading_list_resources.pak",
-        "$root_gen_dir/chrome/side_panel_tabs_from_other_devices_resources.pak",
         "$root_gen_dir/chrome/signin_resources.pak",
         "$root_gen_dir/chrome/support_tool_resources.pak",
         "$root_gen_dir/chrome/tab_group_home_resources.pak",
         "$root_gen_dir/chrome/tab_group_shared_resources.pak",
         "$root_gen_dir/chrome/tab_search_resources.pak",
-        "$root_gen_dir/chrome/tab_strip_api_resources.pak",
         "$root_gen_dir/chrome/web_app_internals_resources.pak",
         "$root_gen_dir/chrome/webnn_internals_resources.pak",
         "$root_gen_dir/chrome/webui_browser_resources.pak",
@@ -396,7 +404,6 @@ template("chrome_extra_paks") {
         "$root_gen_dir/chrome/supervision_resources.pak",
         "$root_gen_dir/chrome/sys_internals_resources.pak",
         "$root_gen_dir/chromeos/ash/ash_resources.pak",
-        "$root_gen_dir/chromeos/ash/borealis_motd_resources.pak",
         "$root_gen_dir/chromeos/ash/components/emoji/emoji.pak",
         "$root_gen_dir/chromeos/ash/experiences/extensions/chromeos_extensions_resources.pak",
         "$root_gen_dir/chromeos/chromeos_boca_app_bundle_resources.pak",
@@ -464,7 +471,6 @@ template("chrome_extra_paks") {
         "//chromeos/ash/components/emoji:resources",
         "//chromeos/ash/experiences/arc/input_overlay/resources",
         "//chromeos/ash/experiences/extensions:resources",
-        "//chromeos/ash/experiences/guest_os/borealis/motd/resources",
         "//chromeos/ash/resources",
         "//ui/chromeos/styles:cros_styles_resources",
         "//ui/file_manager:file_manager_gen_resources",
@@ -533,7 +539,7 @@ template("chrome_extra_paks") {
       deps += [
         "//chrome/browser/resources/contextual_tasks/extension:resources",
         "//chrome/browser/resources/extensions:resources",
-        "//chrome/browser/resources/omnibox/aim_eligibility_extension:resources",
+        "//chrome/browser/resources/omnibox_internals/aim_eligibility_extension:resources",
         "//extensions:extensions_resources",
       ]
     } else if (is_android) {
@@ -615,7 +621,6 @@ template("chrome_extra_paks") {
         "$root_gen_dir/chrome/side_panel_customize_chrome_code_cache_resources.pak",
         "$root_gen_dir/chrome/side_panel_reading_list_code_cache_resources.pak",
         "$root_gen_dir/chrome/side_panel_shared_code_cache_resources.pak",
-        "$root_gen_dir/chrome/side_panel_tabs_from_other_devices_code_cache_resources.pak",
         "$root_gen_dir/chrome/webui_toolbar_code_cache_resources.pak",
         "$root_gen_dir/ui/webui/resources/webui_code_cache_resources.pak",
       ]

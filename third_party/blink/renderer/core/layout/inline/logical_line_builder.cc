@@ -5,8 +5,8 @@
 #include "third_party/blink/renderer/core/layout/inline/logical_line_builder.h"
 
 #include <algorithm>
+#include <ranges>
 
-#include "base/containers/adapters.h"
 #include "third_party/blink/renderer/core/layout/disable_layout_side_effects_scope.h"
 #include "third_party/blink/renderer/core/layout/inline/inline_box_state.h"
 #include "third_party/blink/renderer/core/layout/inline/inline_child_layout_context.h"
@@ -59,7 +59,7 @@ const LayoutObject& LayoutObjectForLineClampEllipsis(
     const InlineNode& node,
     const InlineItemResults& line_items,
     const InlineItemTextIndex& line_start) {
-  for (const auto& item_result : base::Reversed(line_items)) {
+  for (const auto& item_result : std::views::reverse(line_items)) {
     const auto& item = *item_result.item;
     if (!CanUseItemForNeedsPaint(item)) {
       continue;
@@ -79,7 +79,7 @@ const LayoutObject& LayoutObjectForLineClampEllipsis(
   auto items_prefix =
       base::span<const Member<InlineItem>>(node.ItemsData(false).items)
           .first(line_start.item_index);
-  for (const auto& item : base::Reversed(items_prefix)) {
+  for (const auto& item : std::views::reverse(items_prefix)) {
     if (CanUseItemForNeedsPaint(*item)) {
       return *item->GetLayoutObject();
     }
@@ -319,7 +319,7 @@ InlineBoxState* LogicalLineBuilder::HandleItemResults(
       // block-level OOF child positions itself based on the direction of its
       // block-level container.
       WritingDirectionMode writing_direction =
-          item.GetLayoutObject()->StyleRef().IsOriginalDisplayInlineType()
+          item.GetLayoutObject()->Style().IsOriginalDisplayInlineType()
               ? WritingDirectionMode(constraint_space_.GetWritingMode(),
                                      item.Direction())
               : constraint_space_.GetWritingDirection();
@@ -489,7 +489,7 @@ InlineBoxState* LogicalLineBuilder::PlaceAtomicInline(
                       box->margins.inline_start + item_result->spacing_before);
   } else {
     // The metrics should be as text instead of atomic inline box.
-    const auto& style = layout_object->Parent()->StyleRef();
+    const auto& style = layout_object->Parent()->Style();
     // TextCombine items are not scaled.
     box->ComputeTextMetrics(style, *style.GetFont(), baseline_type_,
                             TextFitBlockScale::kFixed);
@@ -740,7 +740,7 @@ void LogicalLineBuilder::BidiReorder(
   if (has_opaque_items) {
     // Use the paragraph level for trailing opaque items.
     UBiDiLevel last_level = base_direction_level;
-    for (UBiDiLevel& level : base::Reversed(levels)) {
+    for (UBiDiLevel& level : std::views::reverse(levels)) {
       if (level == kOpaqueBidiLevel) {
         level = last_level;
       } else {

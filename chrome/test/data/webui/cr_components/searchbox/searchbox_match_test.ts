@@ -6,12 +6,14 @@ import 'chrome://new-tab-page/new_tab_page.js';
 
 import {SearchboxBrowserProxy} from 'chrome://new-tab-page/new_tab_page.js';
 import type {SearchboxMatchElement} from 'chrome://new-tab-page/new_tab_page.js';
-import {createAutocompleteMatch, createMatchKeywordModelForTesting} from 'chrome://resources/cr_components/searchbox/searchbox_browser_proxy.js';
+import {createAutocompleteMatch, createFormattedString, createMatchKeywordModelForTesting} from 'chrome://resources/cr_components/searchbox/searchbox_browser_proxy.js';
 import {NavigationPredictor} from 'chrome://resources/mojo/components/omnibox/browser/omnibox.mojom-webui.js';
-import {KeywordType, SelectionLineState} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
+import {KeywordActivationMethod, KeywordType, SelectionLineState} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
+import {ColorType} from 'chrome://resources/mojo/components/omnibox/browser/suggest_template_info.mojom-webui.js';
 import {assertArrayEquals, assertDeepEquals, assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import {eventToPromise, microtasksFinished} from 'chrome://webui-test/test_util.js';
 
+import {createFormattedStringFragment, createSuggestTemplateInfo} from './searchbox_test_utils.js';
 import {TestSearchboxBrowserProxy} from './test_searchbox_browser_proxy.js';
 
 suite('CrComponentsRealboxMatchTest', () => {
@@ -264,76 +266,120 @@ suite('CrComponentsRealboxMatchTest', () => {
     assertTrue(!!matchEl.shadowRoot.querySelector('#remove.selected'));
   });
 
-  test('ContentsAndDescriptionWithClassifications', async () => {
+  test('PrimaryAndSecondaryTextWithFragments', async () => {
     const match = createAutocompleteMatch();
-    match.contents = 'test content';
-    match.contentsClass = [{offset: 0, style: 0}, {offset: 5, style: 2}];
-    match.description = 'test description';
-    match.descriptionClass = [{offset: 0, style: 0}, {offset: 5, style: 2}];
+    match.suggestTemplate.primaryText = createFormattedString('test content', [
+      createFormattedStringFragment({startIndex: 0}),
+      createFormattedStringFragment({startIndex: 5, isBolded: true}),
+    ]);
+    match.suggestTemplate.secondaryText =
+        createFormattedString('test description', [
+          createFormattedStringFragment({startIndex: 0}),
+          createFormattedStringFragment({startIndex: 5, isBolded: true}),
+        ]);
     matchEl.match = match;
     await microtasksFinished();
 
-    const contentsEl = matchEl.shadowRoot.querySelector('#contents');
-    assertTrue(!!contentsEl);
+    const primaryTextEl = matchEl.shadowRoot.querySelector('#primaryText');
+    assertTrue(!!primaryTextEl);
     // 'test ' is rendered unstyled. 'content' is rendered as a "match".
     assertEquals(
         '<span>test </span><span class="match">content</span>',
-        contentsEl.innerHTML);
-    const descriptionEl = matchEl.shadowRoot.querySelector('#description');
-    assertTrue(!!descriptionEl);
+        primaryTextEl.innerHTML);
+    const secondaryTextEl = matchEl.shadowRoot.querySelector('#secondaryText');
+    assertTrue(!!secondaryTextEl);
     // 'test ' is rendered unstyled. 'description' is rendered as a "match".
     assertEquals(
         '<span>test </span><span class="match">description</span>',
-        descriptionEl.innerHTML);
+        secondaryTextEl.innerHTML);
   });
 
-  test('ClassificationsNotStartingAtZeroIndex', async () => {
+  test('FragmentsNotStartingAtZeroIndex', async () => {
     const match = createAutocompleteMatch();
-    match.contents = 'prefix content';
-    match.contentsClass = [{offset: 7, style: 2}];
+    match.suggestTemplate.primaryText = createFormattedString(
+        'prefix content',
+        [createFormattedStringFragment({startIndex: 7, isBolded: true})]);
     matchEl.match = match;
     await microtasksFinished();
 
-    const contentsEl = matchEl.shadowRoot.querySelector('#contents');
-    assertTrue(!!contentsEl);
+    const primaryTextEl = matchEl.shadowRoot.querySelector('#primaryText');
+    assertTrue(!!primaryTextEl);
     // 'prefix' is rendered unstyled.
     assertEquals(
         '<span>prefix </span><span class="match">content</span>',
-        contentsEl.innerHTML);
+        primaryTextEl.innerHTML);
   });
 
-
-  test('EscapesContentsAndDescription', async () => {
+  test('FragmentColorsMapToCssClasses', async () => {
     const match = createAutocompleteMatch();
-    match.contents = '<script>alert("xss")</script>Safe Content';
-    match.contentsClass = [{offset: 0, style: 0}];
-    match.description = '<img src=x onerror=alert(1)>Safe Description';
-    match.descriptionClass = [{offset: 0, style: 0}];
+    match.suggestTemplate.primaryText = createFormattedString('abcdef', [
+      createFormattedStringFragment(
+          {startIndex: 0, color: ColorType.kOnSurfaceDefault}),
+      createFormattedStringFragment(
+          {startIndex: 1, color: ColorType.kOnSurfaceDeemphasis}),
+      createFormattedStringFragment({
+        startIndex: 2,
+        color: ColorType.kOnSurfaceDeemphasis,
+        isBolded: true,
+      }),
+      createFormattedStringFragment({
+        startIndex: 3,
+        color: ColorType.kPrimary,
+        isBolded: true,
+      }),
+      createFormattedStringFragment({startIndex: 4, color: ColorType.kUnknown}),
+      // Colors without a CSS class yet are rendered with the default color.
+      createFormattedStringFragment(
+          {startIndex: 5, color: ColorType.kOnSurfacePositive}),
+    ]);
     matchEl.match = match;
     await microtasksFinished();
 
-    const contentsEl = matchEl.shadowRoot.querySelector('#contents');
-    assertTrue(!!contentsEl);
-    // `<script>` HTML tag is escaped. Contents is rendered unstyled.
+    const primaryTextEl = matchEl.shadowRoot.querySelector('#primaryText');
+    assertTrue(!!primaryTextEl);
     assertEquals(
-        '<span>&lt;script&gt;alert("xss")&lt;/script&gt;Safe Content</span>',
-        contentsEl.innerHTML);
-    assertEquals(0, contentsEl.querySelectorAll('script').length);
-
-    const descriptionEl = matchEl.shadowRoot.querySelector('#description');
-    assertTrue(!!descriptionEl);
-    // `<img>` HTML tag is escaped. Description is rendered unstyled.
-    assertEquals(
-        '<span>&lt;img src=x onerror=alert(1)&gt;Safe Description</span>',
-        descriptionEl.innerHTML);
-    assertEquals(0, descriptionEl.querySelectorAll('img').length);
+        '<span>a</span><span class="dim">b</span>' +
+            '<span class="dim match">c</span><span class="match url">d</span>' +
+            '<span>e</span><span>f</span>',
+        primaryTextEl.innerHTML);
   });
 
-  test('AriaLabelUpdatingWithVirtualFocus', async () => {
+  test('EscapesPrimaryAndSecondaryText', async () => {
+    const match = createAutocompleteMatch();
+    match.suggestTemplate.primaryText = createFormattedString(
+        '<script>alert("xss")</script>Safe Content',
+        [createFormattedStringFragment()]);
+    match.suggestTemplate.secondaryText = createFormattedString(
+        '<img src=x onerror=alert(1)>Safe Description',
+        [createFormattedStringFragment()]);
+    matchEl.match = match;
+    await microtasksFinished();
+
+    const primaryTextEl = matchEl.shadowRoot.querySelector('#primaryText');
+    assertTrue(!!primaryTextEl);
+    // `<script>` HTML tag is escaped. Primary text is rendered unstyled.
+    assertEquals(
+        '<span>&lt;script&gt;alert("xss")&lt;/script&gt;Safe Content</span>',
+        primaryTextEl.innerHTML);
+    assertEquals(0, primaryTextEl.querySelectorAll('script').length);
+
+    const secondaryTextEl = matchEl.shadowRoot.querySelector('#secondaryText');
+    assertTrue(!!secondaryTextEl);
+    // `<img>` HTML tag is escaped. Secondary text is rendered unstyled.
+    assertEquals(
+        '<span>&lt;img src=x onerror=alert(1)&gt;Safe Description</span>',
+        secondaryTextEl.innerHTML);
+    assertEquals(0, secondaryTextEl.querySelectorAll('img').length);
+  });
+
+  test('AriaLabelDoesNotFollowVirtualFocusSelection', async () => {
+    // Virtual focus selection changes, including onto this match's keyword
+    // chip, action and remove button, are narrated by the hosting searchbox.
+    // The match's own label stays put so nothing else narrates them.
     matchEl.virtualFocusEnabled = true;
     const match = createAutocompleteMatch();
     match.a11yLabel = 'Search Google';
-    match.description = 'Google';
+    match.suggestTemplate.secondaryText = createFormattedString('Google');
     match.keywordModel = createMatchKeywordModelForTesting(
         {chipA11y: 'Search Google in Keyword Mode'});
     match.actions = [
@@ -349,44 +395,18 @@ suite('CrComponentsRealboxMatchTest', () => {
     matchEl.match = match;
     matchEl.matchIndex = 0;
     await microtasksFinished();
-
-    // 1. Normal state selection
-    matchEl.selection = {
-      line: 0,
-      state: SelectionLineState.kNormal,
-      actionIndex: 0,
-    };
-    await microtasksFinished();
     assertEquals('Search Google', matchEl.ariaLabel);
 
-    // 2. Keyword Mode chip selection
-    matchEl.selection = {
-      line: 0,
-      state: SelectionLineState.kKeywordMode,
-      actionIndex: 0,
-    };
-    await microtasksFinished();
-    assertEquals('Search Google in Keyword Mode', matchEl.ariaLabel);
+    for (const state
+             of [SelectionLineState.kNormal, SelectionLineState.kKeywordMode,
+                 SelectionLineState.kFocusedButtonAction,
+                 SelectionLineState.kFocusedButtonRemoveSuggestion]) {
+      matchEl.selection = {line: 0, state, actionIndex: 0};
+      await microtasksFinished();
+      assertEquals('Search Google', matchEl.ariaLabel);
+    }
 
-    // 3. Action chip selection
-    matchEl.selection = {
-      line: 0,
-      state: SelectionLineState.kFocusedButtonAction,
-      actionIndex: 0,
-    };
-    await microtasksFinished();
-    assertEquals('First Action A11y Label', matchEl.ariaLabel);
-
-    // 4. Remove button selection
-    matchEl.selection = {
-      line: 0,
-      state: SelectionLineState.kFocusedButtonRemoveSuggestion,
-      actionIndex: 0,
-    };
-    await microtasksFinished();
-    assertEquals('Remove Suggestion', matchEl.ariaLabel);
-
-    // 5. Selection index mismatch (different match line selected)
+    // Nor when another line is selected.
     matchEl.selection = {
       line: 1,
       state: SelectionLineState.kNormal,
@@ -454,20 +474,32 @@ suite('CrComponentsRealboxMatchTest', () => {
     assertEquals(1, event.detail.matchIndex);
 
     assertEquals(1, testProxy.handler.getCallCount('activateKeyword'));
+    const activateKeywordArgs = testProxy.handler.getArgs('activateKeyword')[0];
+    assertEquals(1, activateKeywordArgs.line);
+    assertEquals(
+        KeywordActivationMethod.kClick, activateKeywordArgs.activationMethod);
     assertEquals(0, testProxy.handler.getCallCount('openAutocompleteMatch'));
   });
 
-  test('DescriptionWithClassifications', async () => {
+  test('SecondaryTextWithFragments', async () => {
     matchEl.match = createAutocompleteMatch({
-      description: 'MIA Basketball',
-      descriptionClass: [
-        {offset: 0, style: 2 | 4},  // MATCH | DIM
-        {offset: 4, style: 4},      // DIM
-      ],
+      suggestTemplate: createSuggestTemplateInfo({
+        secondaryText: createFormattedString(
+            'MIA Basketball',
+            [
+              createFormattedStringFragment({
+                startIndex: 0,
+                color: ColorType.kOnSurfaceDeemphasis,
+                isBolded: true,
+              }),
+              createFormattedStringFragment(
+                  {startIndex: 4, color: ColorType.kOnSurfaceDeemphasis}),
+            ]),
+      }),
     });
     await microtasksFinished();
 
-    const spans = matchEl.$.description.querySelectorAll('span');
+    const spans = matchEl.$.secondaryText.querySelectorAll('span');
     assertEquals(2, spans.length);
     assertEquals('MIA ', spans[0]!.textContent);
     assertTrue(spans[0]!.classList.contains('match'));
@@ -475,5 +507,38 @@ suite('CrComponentsRealboxMatchTest', () => {
     assertEquals('Basketball', spans[1]!.textContent);
     assertFalse(spans[1]!.classList.contains('match'));
     assertTrue(spans[1]!.classList.contains('dim'));
+  });
+
+  test('DescriptionIcon', async () => {
+    const iconStyle = () =>
+        getComputedStyle(matchEl.$.secondaryText, '::before');
+    assertEquals('none', iconStyle().content);
+
+    matchEl.match = createAutocompleteMatch({
+      suggestTemplate:
+          createSuggestTemplateInfo({secondaryText: 'Opens in side panel'}),
+      descriptionIconPath: 'dock_to_right.svg',
+    });
+    await microtasksFinished();
+    assertEquals('""', iconStyle().content);
+    assertTrue(iconStyle()
+                   .getPropertyValue('-webkit-mask-image')
+                   .includes('dock_to_right.svg'));
+  });
+
+  test('HideDescription', async () => {
+    matchEl.match = createAutocompleteMatch({
+      suggestTemplate:
+          createSuggestTemplateInfo({secondaryText: 'description'}),
+    });
+    await microtasksFinished();
+    assertEquals(
+        'visible', getComputedStyle(matchEl.$.secondaryText).visibility);
+
+    matchEl.style.setProperty(
+        '--cr-searchbox-match-description-visibility', 'hidden');
+    assertEquals(
+        'hidden', getComputedStyle(matchEl.$.secondaryText).visibility);
+    assertEquals('hidden', getComputedStyle(matchEl.$.separator).visibility);
   });
 });

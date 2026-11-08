@@ -52,6 +52,7 @@ blink_platform_sources("heap") {
     "forward.h",
     "garbage_collected.h",
     "heap_allocator_impl.h",
+    "heap_auto_reset.h",
     "heap_barrier_callback.h",
     "heap_bind.h",
     "heap_traits.h",
@@ -60,6 +61,7 @@ blink_platform_sources("heap") {
     "prefinalizer.h",
     "process_heap.cc",
     "process_heap.h",
+    "safe_non_retaining_persistent.h",
     "self_keep_alive.h",
     "self_keep_alive_creation_key.h",
     "thread_local.h",
@@ -95,9 +97,10 @@ blink_platform_sources("heap") {
   }
 
   visibility = [
-    "//third_party/blink/renderer/platform",
+    "//third_party/blink/renderer/platform:*",
     "//third_party/blink/renderer/platform/instrumentation",
     "//third_party/blink/renderer/platform/loader",
+    "//third_party/blink/renderer/platform/network",
     "//third_party/blink/renderer/platform/scheduler",
   ]
 }
@@ -159,6 +162,7 @@ source_set("blink_heap_unittests_sources") {
     "test/blink_gc_memory_dump_provider_test.cc",
     "test/concurrent_marking_test.cc",
     "test/cross_thread_handle_test.cc",
+    "test/heap_auto_reset_test.cc",
     "test/heap_bind_test.cc",
     "test/heap_compact_test.cc",
     "test/heap_linked_stack_test.cc",

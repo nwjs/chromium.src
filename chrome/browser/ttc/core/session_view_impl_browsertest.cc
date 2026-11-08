@@ -5,6 +5,7 @@
 #include "chrome/browser/ttc/core/session_view_impl.h"
 
 #include "build/build_config.h"
+#include "chrome/browser/ttc/core/session_controller.h"
 #include "chrome/browser/ttc/core/ttc_interactive_browser_test_base.h"
 #include "chrome/browser/ttc/core/ttc_keyed_service.h"
 #include "chrome/browser/ui/browser_commands.h"
@@ -12,8 +13,10 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/interaction/browser_elements.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
+#include "chrome/browser/ui/toasts/toast_view.h"
 #include "chrome/browser/ui/views/dictation/dictation_bubble_ui.h"
 #include "chrome/test/base/ui_test_utils.h"
+#include "components/ttc/app/public/error_codes.h"
 #include "content/public/test/browser_test.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/base/page_transition_types.h"
@@ -186,6 +189,18 @@ IN_PROC_BROWSER_TEST_F(SessionViewImplBrowserTest, DetachedTabMovesUI) {
         EnsureNotPresent(
             dictation::DictationBubbleUi::kViewElementIdForTesting)),
     CheckHasSession(true)
+  );
+  // clang-format on
+}
+
+IN_PROC_BROWSER_TEST_F(SessionViewImplBrowserTest, ToastShowsOnError) {
+  // clang-format off
+  RunTestSequence(
+      StartSession(),
+      Do([this]() {
+        session_controller().OnError(ErrorCode::kUnknown);
+      }),
+      WaitForShow(toasts::ToastView::kToastViewId)
   );
   // clang-format on
 }

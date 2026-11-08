@@ -16,7 +16,6 @@ import org.chromium.chrome.browser.browser_controls.TopControlsStacker;
 import org.chromium.chrome.browser.fullscreen.FullscreenManager;
 import org.chromium.chrome.browser.layouts.LayoutStateProvider;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
-import org.chromium.chrome.browser.tabmodel.IncognitoStateProvider;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.ui.side_panel.AndroidSidePanelEnabledFn;
 import org.chromium.chrome.browser.ui.vertical_tabs.VerticalTabUtils;
@@ -42,9 +41,6 @@ public final class SideUiCoordinatorFactory {
      *     containers.
      * @param leftAnchorContainerStub The {@link ViewStub} for the left-anchored container.
      * @param rightAnchorContainerStub The {@link ViewStub} for the right-anchored container.
-     * @param webContentHairlineContainerStub The {@link ViewStub} for the web content hairline
-     *     container.
-     * @param incognitoStateProvider The {@link IncognitoStateProvider} to observe incognito state.
      * @param tabModelSelector The {@link TabModelSelector} to query tabs.
      * @return The newly-created {@link SideUiCoordinator}, or {@code null} if it was not created.
      */
@@ -59,8 +55,6 @@ public final class SideUiCoordinatorFactory {
             @Nullable ViewGroup anchorContainerParent,
             @Nullable ViewStub leftAnchorContainerStub,
             @Nullable ViewStub rightAnchorContainerStub,
-            @Nullable ViewStub webContentHairlineContainerStub,
-            IncognitoStateProvider incognitoStateProvider,
             TabModelSelector tabModelSelector) {
         if (!AndroidSidePanelEnabledFn.isEnabled()
                 && !VerticalTabUtils.isVerticalTabsEligible(parentActivity)) {
@@ -70,7 +64,6 @@ public final class SideUiCoordinatorFactory {
         assert anchorContainerParent != null;
         assert leftAnchorContainerStub != null;
         assert rightAnchorContainerStub != null;
-        assert webContentHairlineContainerStub != null;
 
         return new SideUiCoordinatorImpl(
                 parentActivity,
@@ -82,8 +75,6 @@ public final class SideUiCoordinatorFactory {
                 anchorContainerParent,
                 leftAnchorContainerStub,
                 rightAnchorContainerStub,
-                webContentHairlineContainerStub,
-                incognitoStateProvider,
                 tabModelSelector);
     }
 }

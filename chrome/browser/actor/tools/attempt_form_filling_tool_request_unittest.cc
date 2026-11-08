@@ -11,12 +11,17 @@
 #include "base/strings/strcat.h"
 #include "base/test/scoped_feature_list.h"
 #include "chrome/browser/actor/actor_proto_conversion.h"
+#include "chrome/browser/actor/actor_surface_impl.h"
+#include "chrome/browser/actor/tools/attempt_form_filling_tool.h"
+#include "chrome/browser/actor/tools/tool.h"
 #include "chrome/browser/actor/tools/tool_request.h"
+#include "chrome/browser/actor/tools/tools_test_util.h"
 #include "chrome/common/chrome_features.h"
 #include "components/actor/core/journal_details_builder.h"
 #include "components/actor/core/shared_types.h"
 #include "components/autofill/core/common/autofill_features.h"
 #include "components/optimization_guide/proto/features/actions_data.pb.h"
+#include "components/tabs/public/mock_tab_interface.h"
 #include "components/tabs/public/tab_interface.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -57,7 +62,8 @@ class AttemptFormFillingToolRequestTest
 
 TEST_P(AttemptFormFillingToolRequestTest, NameReturnsCorrectString) {
   AttemptFormFillingToolRequest tool_request(GetDummyTabHandle(),
-                                             /*requests=*/{});
+                                             /*requests=*/{},
+                                             /*credit_card_opaque_token=*/"");
 
   // The string returned by Name() is used in histograms.xml to define the
   // ToolRequest variants for metrics collection.
@@ -66,7 +72,8 @@ TEST_P(AttemptFormFillingToolRequestTest, NameReturnsCorrectString) {
 
 TEST_P(AttemptFormFillingToolRequestTest, JournalEventString) {
   AttemptFormFillingToolRequest tool_request(GetDummyTabHandle(),
-                                             /*requests=*/{});
+                                             /*requests=*/{},
+                                             /*credit_card_opaque_token=*/"");
 
   EXPECT_EQ("AttemptFormFilling", tool_request.JournalEvent());
 }
@@ -127,6 +134,56 @@ TEST_P(AttemptFormFillingToolRequestTest, ReadFromProto) {
 
   EXPECT_EQ(form_filling_request.GetRequestsForTesting()[0].section_label,
             GetParam().expected_label);
+}
+
+// Test that `credit_card_opaque_token` is correctly read from the proto and
+// populated in the AttemptFormFillingToolRequest.
+TEST_P(AttemptFormFillingToolRequestTest,
+       ReadFromProtoWithCreditCardOpaqueToken) {
+  optimization_guide::proto::Actions actions_proto;
+  auto* action_proto = actions_proto.add_actions();
+  auto* form_filling_proto = action_proto->mutable_attempt_form_filling();
+  form_filling_proto->set_tab_id(1);
+  form_filling_proto->set_credit_card_opaque_token("opaque_token_123");
+  auto* request_proto = form_filling_proto->add_form_filling_requests();
+  request_proto->set_requested_data(
+      optimization_guide::proto::FormFillingRequest_RequestedData_CREDIT_CARD);
+  auto* trigger_field = request_proto->add_trigger_fields();
+  trigger_field->set_content_node_id(123);
+  trigger_field->mutable_document_identifier()->set_serialized_token("doc1");
+
+  BuildToolRequestResult result = BuildToolRequest(actions_proto);
+  ASSERT_TRUE(result.has_value());
+  ASSERT_THAT(result.value(), SizeIs(1));
+
+  ToolRequest& created_request = *result.value().front();
+  ASSERT_EQ(AttemptFormFillingToolRequest::kName, created_request.Name());
+
+  AttemptFormFillingToolRequest& form_filling_request =
+      static_cast<AttemptFormFillingToolRequest&>(created_request);
+  EXPECT_EQ(form_filling_request.credit_card_opaque_token(),
+            "opaque_token_123");
+}
+
+TEST_P(AttemptFormFillingToolRequestTest,
+       CreateToolPropagatesCreditCardOpaqueToken) {
+  MockToolDelegate delegate;
+  tabs::MockTabInterface mock_tab;
+  ActorSurfaceImpl actor_surface(ActorSurfaceHandle::CreateForTesting(),
+                                 mock_tab.GetHandle());
+
+  AttemptFormFillingToolRequest request(
+      mock_tab.GetHandle(),
+      /*requests=*/{},
+      /*credit_card_opaque_token=*/"opaque_token_xyz");
+
+  ToolRequest::CreateToolResult result =
+      request.CreateTool(TaskId(1), delegate);
+  ASSERT_NE(result.tool, nullptr);
+  ASSERT_EQ(result.tool->JournalEvent(), "AttemptFormFillingTool");
+  auto* form_filling_tool =
+      static_cast<AttemptFormFillingTool*>(result.tool.get());
+  EXPECT_EQ(form_filling_tool->credit_card_opaque_token(), "opaque_token_xyz");
 }
 
 INSTANTIATE_TEST_SUITE_P(

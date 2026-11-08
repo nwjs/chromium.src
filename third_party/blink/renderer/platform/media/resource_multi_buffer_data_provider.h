@@ -16,7 +16,6 @@
 #include "base/memory/weak_ptr.h"
 #include "third_party/blink/public/platform/web_url_request.h"
 #include "third_party/blink/public/web/web_associated_url_loader_client.h"
-#include "third_party/blink/public/web/web_frame.h"
 #include "third_party/blink/renderer/platform/media/multi_buffer.h"
 #include "third_party/blink/renderer/platform/media/url_index.h"
 #include "third_party/blink/renderer/platform/platform_export.h"
@@ -59,7 +58,8 @@ class PLATFORM_EXPORT ResourceMultiBufferDataProvider
   // WebAssociatedURLLoaderClient implementation.
   bool WillFollowRedirect(const WebURL& new_url,
                           const WebURLResponse& redirect_response) override;
-  void DidSendData(uint64_t bytesSent, uint64_t totalBytesToBeSent) override;
+  void DidSendData(uint64_t bytes_sent,
+                   uint64_t total_bytes_to_be_sent) override;
   void DidReceiveResponse(const WebURLResponse& response) override;
   void DidDownloadData(uint64_t data_length) override;
   void DidReceiveData(base::span<const char> data_length) override;

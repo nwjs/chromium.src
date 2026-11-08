@@ -73,7 +73,7 @@ class TabbedNavigationBarColorController
     private final FullscreenManager.@Nullable Observer mFullscreenObserver;
     private final MonotonicObservableSupplier<EdgeToEdgeController> mEdgeToEdgeControllerSupplier;
     private final MonotonicObservableSupplier<Integer> mOverviewColorSupplier;
-    private final Callback<Integer> mOnOverviewColorChanged = color -> updateNavigationBarColor();
+    private final Callback<Integer> mOnOverviewColorChanged = this::onOverviewColorChanged;
     private final Callback<EdgeToEdgeController> mEdgeToEdgeRegisterChangeObserverCallback;
     private EdgeToEdgeSystemBarColorHelper mEdgeToEdgeSystemBarColorHelper;
     private final BottomAttachedUiObserver mBottomAttachedUiObserver;
@@ -291,6 +291,18 @@ class TabbedNavigationBarColorController
         updateNavigationBarColor(forceShowDivider, disableAnimation);
     }
 
+    private void onOverviewColorChanged(@ColorInt @Nullable Integer color) {
+        // Only react while the Hub layout is active. mOverviewMode is cleared at the start of
+        // hiding, but the Hub keeps emitting colors during its fade-out (per-frame alpha updates,
+        // plus a final TRANSPARENT at done-hiding). Since these updates pass disableAnimation=true,
+        // they skip the no-op early return in updateNavigationBarColor() and would end() the
+        // nav bar color transition started by onStartedHiding(), snapping it to its final color.
+        // Skipping is safe: outside overview mode the nav bar color never reads this supplier.
+        if (!mOverviewMode) return;
+
+        updateNavigationBarColor(/* forceShowDivider= */ false, /* disableAnimation= */ true);
+    }
+
     /**
      * @param layoutManager The {@link LayoutStateProvider} used to determine whether overview mode
      *     is showing.
@@ -309,8 +321,9 @@ class TabbedNavigationBarColorController
                             enableOverviewMode();
                             updateNavigationBarColor();
                         } else if (layoutType == LayoutType.TOOLBAR_SWIPE
-                                && isBottomChinEnabled()) {
-                            // Hide the nav bar during omnibox swipes.
+                                && isBottomChinEnabled()
+                                && !useBottomAttachedUiColor()) {
+                            // Hide the nav bar during omnibox swipes when no bottom UI is attached.
                             mNavigationBarColor = Color.TRANSPARENT;
                             mNavigationBarDividerColor = Color.TRANSPARENT;
                             endNavigationBarColorAnimationIfRunning();
@@ -566,7 +579,7 @@ class TabbedNavigationBarColorController
         }
 
         return mContext instanceof Activity
-                && EdgeToEdgeUtils.isEdgeToEdgeBottomChinEnabled((Activity) mContext);
+                && EdgeToEdgeUtils.isEdgeToEdgeBottomChinSupportedByDevice((Activity) mContext);
     }
 
     @Override

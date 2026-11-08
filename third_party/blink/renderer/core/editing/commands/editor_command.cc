@@ -69,6 +69,7 @@
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/frame/local_frame_view.h"
 #include "third_party/blink/renderer/core/frame/settings.h"
+#include "third_party/blink/renderer/core/html/forms/text_control_element.h"
 #include "third_party/blink/renderer/core/html/html_br_element.h"
 #include "third_party/blink/renderer/core/html_names.h"
 #include "third_party/blink/renderer/core/input/event_handler.h"
@@ -1153,7 +1154,10 @@ static bool EnabledVisibleSelection(LocalFrame& frame,
   const VisibleSelection& selection =
       CreateVisibleSelection(frame.GetEditor().SelectionForCommand(event));
   return (selection.IsCaret() &&
-          (selection.IsContentEditable() || frame.IsCaretBrowsingEnabled())) ||
+          (selection.IsContentEditable() ||
+           (RuntimeEnabledFeatures::ReadOnlyTextControlSelectionEnabled() &&
+            EnclosingTextControl(selection.Anchor())) ||
+           frame.IsCaretBrowsingEnabled())) ||
          selection.IsRange();
 }
 
@@ -1175,7 +1179,10 @@ static bool EnabledVisibleSelectionAndMark(LocalFrame& frame,
   const VisibleSelection& selection =
       CreateVisibleSelection(frame.GetEditor().SelectionForCommand(event));
   return ((selection.IsCaret() &&
-           (selection.IsContentEditable() || frame.IsCaretBrowsingEnabled())) ||
+           (selection.IsContentEditable() ||
+            (RuntimeEnabledFeatures::ReadOnlyTextControlSelectionEnabled() &&
+             EnclosingTextControl(selection.Anchor())) ||
+            frame.IsCaretBrowsingEnabled())) ||
           selection.IsRange()) &&
          !frame.GetEditor().Mark().IsNone();
 }
@@ -1226,11 +1233,35 @@ static bool EnabledInEditableText(LocalFrame& frame,
       CreateVisiblePosition(selection.Anchor()).DeepEquivalent());
 }
 
+static bool EnabledInTextControlOrEditableText(LocalFrame& frame,
+                                               Event* event,
+                                               EditorCommandSource source) {
+  if (frame.GetInputMethodController().GetActiveEditContext()) {
+    if (source == EditorCommandSource::kDom) {
+      return false;
+    } else if (source == EditorCommandSource::kMenuOrKeyBinding) {
+      return true;
+    }
+  }
+
+  frame.GetDocument()->UpdateStyleAndLayout(DocumentUpdateReason::kEditing);
+  if (source == EditorCommandSource::kMenuOrKeyBinding &&
+      !frame.Selection().SelectionHasFocus()) {
+    return false;
+  }
+  const SelectionInDomTree selection =
+      frame.GetEditor().SelectionForCommand(event);
+  Position anchor = CreateVisiblePosition(selection.Anchor()).DeepEquivalent();
+  return RootEditableElementOf(anchor) ||
+         (RuntimeEnabledFeatures::ReadOnlyTextControlSelectionEnabled() &&
+          EnclosingTextControl(anchor));
+}
+
 static bool EnabledInEditableTextOrCaretBrowsing(LocalFrame& frame,
                                                  Event* event,
                                                  EditorCommandSource source) {
   return frame.IsCaretBrowsingEnabled() ||
-         EnabledInEditableText(frame, event, source);
+         EnabledInTextControlOrEditableText(frame, event, source);
 }
 
 static bool EnabledDelete(LocalFrame& frame,
@@ -2170,13 +2201,12 @@ bool EditorCommand::Execute(const String& parameter,
   // We need to force unlock activatable DisplayLocks for Editor::FindString
   // before the following call to UpdateStyleAndLayout. Otherwise,
   // ExecuteFindString/Editor::FindString will hit bad style/layout data.
-  std::optional<DisplayLockDocumentState::ScopedForceActivatableDisplayLocks>
-      forced_locks;
+  DisplayLockDocumentState::ScopedForceActivatableDisplayLocks forced_locks;
   if (command_->command_type == EditingCommandType::kFindString) {
-    forced_locks = GetFrame()
-                       .GetDocument()
-                       ->GetDisplayLockDocumentState()
-                       .GetScopedForceActivatableLocks();
+    forced_locks.Add(GetFrame()
+                         .GetDocument()
+                         ->GetDisplayLockDocumentState()
+                         .GetScopedForceActivatableLocks());
   }
 
   GetFrame().GetDocument()->UpdateStyleAndLayout(

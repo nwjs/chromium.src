@@ -69,6 +69,7 @@ import org.chromium.chrome.browser.task_manager.TaskManager;
 import org.chromium.chrome.browser.toolbar.ToolbarManager;
 import org.chromium.chrome.browser.toolbar.menu_button.MenuItemState;
 import org.chromium.chrome.browser.toolbar.top.ToolbarUtils;
+import org.chromium.chrome.browser.ttc.TtcSessionCoordinator;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuDelegate;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuHandler;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuItemProperties;
@@ -147,8 +148,9 @@ public class TabbedAppMenuPropertiesDelegate extends AppMenuPropertiesDelegateIm
     private @Nullable FaviconHelper mFaviconHelper;
     private final FaviconHelper.DefaultFaviconHelper mDefaultFaviconHelper;
     private final RoundedIconGenerator mRoundedIconGenerator;
-    private final Supplier<RecentlyClosedEntriesManager> mRecentlyClosedEntriesManagerSupplier;
-    private final Supplier<SideUiStateProvider> mSideUiStateProviderSupplier;
+    private final Supplier<@Nullable RecentlyClosedEntriesManager>
+            mRecentlyClosedEntriesManagerSupplier;
+    private final Supplier<@Nullable SideUiStateProvider> mSideUiStateProviderSupplier;
 
     public TabbedAppMenuPropertiesDelegate(
             Context context,
@@ -167,8 +169,8 @@ public class TabbedAppMenuPropertiesDelegate extends AppMenuPropertiesDelegateIm
             PageZoomManager pageZoomManager,
             OneshotSupplier<HubManager> hubManagerSupplier,
             @Nullable OpenInAppMenuItemProvider openInAppMenuItemProvider,
-            Supplier<RecentlyClosedEntriesManager> recentlyClosedEntriesManagerSupplier,
-            Supplier<SideUiStateProvider> sideUiStateProviderSupplier,
+            Supplier<@Nullable RecentlyClosedEntriesManager> recentlyClosedEntriesManagerSupplier,
+            Supplier<@Nullable SideUiStateProvider> sideUiStateProviderSupplier,
             NonNullObservableSupplier<Boolean> xrSpaceModeObservableSupplier,
             BooleanSupplier canActivateTabLayoutToggleMenu) {
         super(
@@ -475,6 +477,10 @@ public class TabbedAppMenuPropertiesDelegate extends AppMenuPropertiesDelegateIm
         ListItem openGlicItem = maybeBuildOpenGlicItem(currentTab);
         if (openGlicItem != null) modelList.add(openGlicItem);
 
+        // TTC
+        ListItem ttcItem = maybeBuildTtcItem(currentTab);
+        if (ttcItem != null) modelList.add(ttcItem);
+
         // Find in page
         if (shouldShowFindInPageItem(currentTab)) modelList.add(buildFindInPageItem(currentTab));
 
@@ -672,6 +678,10 @@ public class TabbedAppMenuPropertiesDelegate extends AppMenuPropertiesDelegateIm
         // Glic
         ListItem openGlicItem = maybeBuildOpenGlicItem(currentTab);
         if (openGlicItem != null) modelList.add(openGlicItem);
+
+        // TTC
+        ListItem ttcItem = maybeBuildTtcItem(currentTab);
+        if (ttcItem != null) modelList.add(ttcItem);
 
         // Print
         if (shouldShowPrintItem(currentTab)) {
@@ -1585,6 +1595,27 @@ public class TabbedAppMenuPropertiesDelegate extends AppMenuPropertiesDelegateIm
                         R.id.glic_menu_id,
                         R.string.glic_button_entrypoint_ask_gemini_label,
                         shouldShowIconBeforeItem() ? R.drawable.ic_spark_24dp : Resources.ID_NULL,
+                        isMenuIconAtStart()));
+    }
+
+    private @Nullable ListItem maybeBuildTtcItem(@Nullable Tab currentTab) {
+        if (currentTab == null
+                || currentTab.isIncognito()
+                || currentTab.getWebContents() == null
+                || !TtcSessionCoordinator.usesMobileSessionUi(mContext)
+                || TtcSessionCoordinator.getServiceIfAvailable(currentTab.getProfile()) == null) {
+            return null;
+        }
+        return new ListItem(
+                AppMenuHandler.AppMenuItemType.STANDARD,
+                AppMenuItemUtils.buildModelForStandardMenuItem(
+                        mContext,
+                        getAppMenuItemTheme(),
+                        R.id.ttc_menu_id,
+                        R.string.ttc_entrypoint_label,
+                        shouldShowIconBeforeItem()
+                                ? R.drawable.ic_mic_white_24dp
+                                : Resources.ID_NULL,
                         isMenuIconAtStart()));
     }
 

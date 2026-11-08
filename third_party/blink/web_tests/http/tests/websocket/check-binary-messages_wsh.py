@@ -1,4 +1,4 @@
-from pywebsocket3 import common
+from pywebsocket3 import common  # noqa: F401
 from pywebsocket3 import msgutil
 from pywebsocket3 import util
 
@@ -16,8 +16,10 @@ def web_socket_transfer_data(request):
             msgutil.send_message(request, 'PASS: Message #%d.' % test_number)
         else:
             msgutil.send_message(
-                request, 'FAIL: Message #%d: Received unexpected message: %r' %
-                (test_number, message))
+                request,
+                'FAIL: Message #%d: Received unexpected message: %r'
+                % (test_number, message),
+            )
 
 
 def all_distinct_bytes():

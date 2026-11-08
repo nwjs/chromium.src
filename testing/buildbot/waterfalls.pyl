@@ -581,52 +581,34 @@
     'name': 'client.openscreen.chromium',
     'machines': {
       'chromium_linux_x64': {
+        'use_swarming': False,
         'additional_compile_targets': [
           'chrome/browser/media/router',
-          'chrome/browser/media/router:openscreen_unittests',
           'chrome/browser/media/router:unittests',
-          'components/media_router/common/providers/cast/channel',
-          'components/media_router/common/providers/cast/channel:unit_tests',
-          'components/media_router/common/providers/cast/certificate',
-          'components/media_router/common/providers/cast/certificate:unit_tests',
-          'components/mirroring/browser',
-          'components/mirroring/service:mirroring_service',
-          'components/mirroring:mirroring_tests',
-          'components/mirroring:mirroring_unittests',
-          'components/openscreen_platform',
         ],
+        'test_suites': {
+          'gtest_tests': 'openscreen_chromium_gtests',
+        },
       },
       'chromium_mac_arm64': {
+        'use_swarming': False,
         'additional_compile_targets': [
           'chrome/browser/media/router',
-          'chrome/browser/media/router:openscreen_unittests',
           'chrome/browser/media/router:unittests',
-          'components/media_router/common/providers/cast/channel',
-          'components/media_router/common/providers/cast/channel:unit_tests',
-          'components/media_router/common/providers/cast/certificate',
-          'components/media_router/common/providers/cast/certificate:unit_tests',
-          'components/mirroring/browser',
-          'components/mirroring/service:mirroring_service',
-          'components/mirroring:mirroring_tests',
-          'components/mirroring:mirroring_unittests',
-          'components/openscreen_platform',
         ],
+        'test_suites': {
+          'gtest_tests': 'openscreen_chromium_gtests',
+        },
       },
       'chromium_win_x64': {
+        'use_swarming': False,
         'additional_compile_targets': [
           'chrome/browser/media/router',
-          'chrome/browser/media/router:openscreen_unittests',
           'chrome/browser/media/router:unittests',
-          'components/media_router/common/providers/cast/channel',
-          'components/media_router/common/providers/cast/channel:unit_tests',
-          'components/media_router/common/providers/cast/certificate',
-          'components/media_router/common/providers/cast/certificate:unit_tests',
-          'components/mirroring/browser',
-          'components/mirroring/service:mirroring_service',
-          'components/mirroring:mirroring_tests',
-          'components/mirroring:mirroring_unittests',
-          'components/openscreen_platform',
         ],
+        'test_suites': {
+          'gtest_tests': 'openscreen_chromium_gtests',
+        },
       },
     },
   },
@@ -1077,7 +1059,7 @@
         ],
         'mixins': [
           'chrome-intelligence-swarming-pool',
-          'linux-jammy',
+          'linux-ubuntu',
           'x86-64',
         ],
         'test_suites': {

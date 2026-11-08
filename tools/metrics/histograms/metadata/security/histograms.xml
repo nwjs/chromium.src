@@ -50,7 +50,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="OSCrypt.AppBoundProvider.Decrypt.ResultCode" enum="Hresult"
-    expires_after="2027-01-31">
+    expires_after="2027-04-04">
   <owner>wfh@chromium.org</owner>
   <owner>nparker@chromium.org</owner>
   <summary>
@@ -112,7 +112,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="OSCrypt.AsyncInitialization.Time" units="ms"
-    expires_after="2027-01-24">
+    expires_after="2027-03-28">
   <owner>wfh@chromium.org</owner>
   <owner>nparker@chromium.org</owner>
   <summary>
@@ -1151,7 +1151,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SiteIsolation.CreateOpenerProxiesTime" units="microseconds"
-    expires_after="2026-09-20">
+    expires_after="2027-09-20">
   <owner>alexmos@chromium.org</owner>
   <owner>creis@chromium.org</owner>
   <owner>nasko@chromium.org</owner>
@@ -1234,7 +1234,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SiteIsolation.IsSitePerProcessOrStricter" enum="Boolean"
-    expires_after="2026-12-27">
+    expires_after="2027-04-04">
   <owner>alexmos@chromium.org</owner>
   <owner>creis@chromium.org</owner>
   <owner>wenz@chromium.org</owner>
@@ -1367,7 +1367,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="SiteIsolation.ReusePendingOrCommittedSite.TimeSinceReusableProcessDestroyed.MainFrame2"
-    units="ms" expires_after="2027-01-24">
+    units="ms" expires_after="2027-03-28">
   <owner>aattar@google.com</owner>
   <owner>olivierli@chromium.org</owner>
   <summary>

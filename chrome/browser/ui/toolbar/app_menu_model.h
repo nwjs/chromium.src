@@ -124,6 +124,27 @@ enum AppMenuAction {
   // MENU_ACTION_SHOW_CONTEXTUAL_TASKS_SIDE_PANEL = 102, // DEPRECATED
   MENU_ACTION_NEW_ISOLATED_WINDOW = 103,
   MENU_ACTION_TTC_APP_MENU = 104,
+  MENU_ACTION_CREATE_NEW_TAB_GROUP = 105,
+  MENU_ACTION_SAVED_TAB_GROUP_DELETE = 106,
+  MENU_ACTION_SAVED_TAB_GROUP_OPEN_IN_BROWSER = 107,
+  MENU_ACTION_SAVED_TAB_GROUP_OPEN_IN_NEW_WINDOW = 108,
+  MENU_ACTION_SAVED_TAB_GROUP_PIN = 109,
+  MENU_ACTION_BOOKMARK_BAR_ALWAYS_HIDE = 110,
+  MENU_ACTION_BOOKMARK_BAR_ALWAYS_SHOW = 111,
+  MENU_ACTION_BOOKMARK_BAR_ONLY_ON_NTP = 112,
+  MENU_ACTION_GLOBAL_ERROR = 113,
+  MENU_ACTION_SHOW_SYNC_PASSPHRASE_DIALOG = 114,
+  MENU_ACTION_SHOW_MANAGEMENT_PAGE = 115,
+  MENU_ACTION_REPORT_UNSAFE_SITE = 116,
+  MENU_ACTION_SHARING_HUB_SCREENSHOT = 117,
+  MENU_ACTION_TAKE_SCREENSHOT = 118,
+  MENU_ACTION_TAB_SEARCH = 119,
+  MENU_ACTION_TOGGLE_VERTICAL_TABS = 120,
+  MENU_ACTION_NAME_WINDOW = 121,
+  MENU_ACTION_ASK_GOOGLE_ABOUT_THIS_PAGE = 122,
+  MENU_ACTION_CHROME_ENTERPRISE_RELEASE_NOTES = 123,
+  MENU_ACTION_MANAGE_SKILLS = 124,
+  MENU_ACTION_SHOW_SKILLS_AND_EXTENSIONS = 125,
   LIMIT_MENU_ACTION
 };
 // LINT.ThenChange(/tools/metrics/histograms/metadata/ui/enums.xml:WrenchMenuAction)
@@ -190,17 +211,18 @@ class HelpMenuModel : public ui::SimpleMenuModel {
   void Build(BrowserWindowInterface* browser);
 };
 
-class SkillsMenuModel : public ui::SimpleMenuModel {
+class SkillsAndExtensionsMenuModel : public ui::SimpleMenuModel {
  public:
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kManageSkillsMenuItem);
-  DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kBrowseSkillsMenuItem);
 
-  SkillsMenuModel(ui::SimpleMenuModel::Delegate* delegate);
+  explicit SkillsAndExtensionsMenuModel(
+      ui::SimpleMenuModel::Delegate* delegate);
 
-  SkillsMenuModel(const SkillsMenuModel&) = delete;
-  SkillsMenuModel& operator=(const SkillsMenuModel&) = delete;
+  SkillsAndExtensionsMenuModel(const SkillsAndExtensionsMenuModel&) = delete;
+  SkillsAndExtensionsMenuModel& operator=(const SkillsAndExtensionsMenuModel&) =
+      delete;
 
-  ~SkillsMenuModel() override;
+  ~SkillsAndExtensionsMenuModel() override;
 
  private:
   void Build();
@@ -218,7 +240,7 @@ class AppMenuModel : public ui::SimpleMenuModel,
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kDownloadsMenuItem);
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kHistoryMenuItem);
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kExtensionsMenuItem);
-  DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kSkillsMenuItem);
+  DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kSkillsAndExtensionsMenuItem);
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kClearBrowsingDataMenuItem);
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kMoreToolsMenuItem);
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kIncognitoMenuItem);
@@ -228,6 +250,8 @@ class AppMenuModel : public ui::SimpleMenuModel,
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kIdentityDocsMenuItem);
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kTravelMenuItem);
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kShowLensOverlay);
+  DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kAskGoogleAboutThisPageItem);
+  DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kContextualTasksSubmenuItem);
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kSaveAndShareMenuItem);
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kCastTitleItem);
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kInstallAppItem);
@@ -247,7 +271,10 @@ class AppMenuModel : public ui::SimpleMenuModel,
   static constexpr int kProfileMenuPlaceholder = IDC_PROFILE_MENU_IN_APP_MENU;
   static constexpr int kReadingListMenuPlaceholder = IDC_READING_LIST_MENU;
   static constexpr int kExtensionsSubmenuPlaceholder = IDC_EXTENSIONS_SUBMENU;
-  static constexpr int kSkillsMenuPlaceholder = IDC_SKILLS_MENU;
+  static constexpr int kSkillsAndExtensionsMenuPlaceholder =
+      IDC_SKILLS_AND_EXTENSIONS_MENU;
+  static constexpr int kContextualTasksMenuPlaceholder =
+      IDC_CONTEXTUAL_TASKS_MENU;
   static constexpr int kBookmarksMenuPlaceholder = IDC_BOOKMARKS_MENU;
   static constexpr int kSavedTabGroupsMenuPlaceholder =
       IDC_SAVED_TAB_GROUPS_MENU;

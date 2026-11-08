@@ -19,6 +19,7 @@
 #include "base/i18n/time_formatting.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/notreached.h"
+#include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
@@ -148,7 +149,8 @@ void GetDeviceNameAndType(const syncer::DeviceInfoTracker* tracker,
   DCHECK(tracker);
   DCHECK(tracker->IsSyncing());
 
-  const syncer::DeviceInfo* device_info = tracker->GetDeviceInfo(client_id);
+  const syncer::DeviceInfo* device_info =
+      tracker->GetChromeDeviceInfo(client_id);
   if (device_info) {
     *name = device_info->client_name();
     switch (device_info->form_factor()) {
@@ -269,8 +271,8 @@ history::mojom::HistoryEntryPtr HistoryEntryToMojom(
   auto result_mojom = history::mojom::HistoryEntry::New();
   base::DictValue dictionary;
   auto url_and_title = SetHistoryEntryUrlAndTitle(entry);
-  result_mojom->url = url_and_title.first;
-  result_mojom->title = url_and_title.second;
+  result_mojom->url = std::move(url_and_title.first);
+  result_mojom->title = std::move(url_and_title.second);
 
   // UrlIdentity holds a user-identifiable string for a URL. We will display
   // this string to the user.
@@ -282,7 +284,7 @@ history::mojom::HistoryEntryPtr HistoryEntryToMojom(
   // When the domain is empty, use the scheme instead. This allows for a
   // sensible treatment of e.g. file: URLs when group by domain is on.
   if (domain.empty()) {
-    domain = base::UTF8ToUTF16(entry.url.GetScheme() + ":");
+    domain = base::UTF8ToUTF16(base::StrCat({entry.url.scheme(), ":"}));
   }
 
   // The items which are to be written into result are also described in
@@ -343,8 +345,8 @@ history::mojom::HistoryEntryPtr HistoryEntryToMojom(
     GetDeviceNameAndType(tracker, entry.client_id, &device_name, &device_type);
   }
 
-  result_mojom->device_name = device_name;
-  result_mojom->device_type = device_type;
+  result_mojom->device_name = std::move(device_name);
+  result_mojom->device_type = std::move(device_type);
 
   supervised_user::FilteringBehavior filtering_behavior;
   if (profile.IsChild()) {
@@ -488,9 +490,8 @@ void BrowsingHistoryHandler::SetPage(
   // feature is enabled and any of the history improvement features is enabled.
   // Check the HaTS feature last, so that clients are only counted as active if
   // one of the other feature is enabled.
-  if ((history::IsBrowsingHistoryActorIntegrationM3Enabled() ||
-       base::FeatureList::IsEnabled(
-           history::kBrowsingHistorySimilarVisitsGrouping)) &&
+  if (base::FeatureList::IsEnabled(
+          history::kBrowsingHistorySimilarVisitsGrouping) &&
       base::FeatureList::IsEnabled(
           features::kHappinessTrackingSurveysForDesktopHistoryPageExperiment)) {
     hats_service->LaunchDelayedSurveyForWebContents(
@@ -504,8 +505,7 @@ void BrowsingHistoryHandler::SetPage(
   // is enabled and none of the history improvement features is enabled.
   // Check the HaTS feature last, so that clients are only counted as active if
   // all of the other features are disabled.
-  if (!history::IsBrowsingHistoryActorIntegrationM3Enabled() &&
-      !base::FeatureList::IsEnabled(
+  if (!base::FeatureList::IsEnabled(
           history::kBrowsingHistorySimilarVisitsGrouping) &&
       base::FeatureList::IsEnabled(
           features::kHappinessTrackingSurveysForDesktopHistoryPageControl)) {
@@ -531,8 +531,12 @@ void BrowsingHistoryHandler::StartQueryHistory() {
       profile_, ServiceAccessType::EXPLICIT_ACCESS);
   syncer::SyncService* sync_service =
       SyncServiceFactory::GetForProfile(profile_);
+  auto* device_info_service =
+      DeviceInfoSyncServiceFactory::GetForProfile(profile_);
   browsing_history_service_ = std::make_unique<BrowsingHistoryService>(
-      this, local_history, sync_service);
+      this, local_history, sync_service,
+      device_info_service ? device_info_service->GetDeviceInfoTracker()
+                          : nullptr);
 
   // 150 = RESULTS_PER_PAGE from chrome/browser/resources/history/constants.js
   SendHistoryQuery(150, std::string(), std::nullopt, true, true);
@@ -638,8 +642,8 @@ void BrowsingHistoryHandler::RemoveVisits(
   std::vector<BrowsingHistoryService::HistoryEntry> items_to_remove;
   items_to_remove.reserve(items.size());
   for (const auto& item : items) {
-    const std::string url = item->url;
-    const std::vector<double> timestamps = item->timestamps;
+    const std::string& url = item->url;
+    const std::vector<double>& timestamps = item->timestamps;
     if (url.empty()) {
       NOTREACHED() << "Unable to extract arguments";
     }
@@ -880,21 +884,18 @@ void BrowsingHistoryHandler::OnQueryComplete(
 
   if (base::FeatureList::IsEnabled(
           critical_actions::features::kCriticalActionHistory)) {
-    std::vector<int64_t> actor_visit_ids;
+    std::vector<int64_t> visit_ids;
     for (const auto& entry : results) {
-      if (entry.is_actor_visit) {
-        actor_visit_ids.insert(actor_visit_ids.end(),
-                               entry.all_visit_ids.begin(),
-                               entry.all_visit_ids.end());
-      }
+      visit_ids.insert(visit_ids.end(), entry.all_visit_ids.begin(),
+                       entry.all_visit_ids.end());
     }
 
-    if (!actor_visit_ids.empty()) {
+    if (!visit_ids.empty()) {
       critical_actions::CriticalActionService* critical_action_service =
           critical_actions::CriticalActionFactory::GetForProfile(profile_);
       if (critical_action_service) {
         critical_actions::CriticalActionQueryOptions options;
-        options.visit_ids = std::move(actor_visit_ids);
+        options.visit_ids = std::move(visit_ids);
         critical_action_service->GetCriticalActions(
             options,
             base::BindOnce(&BrowsingHistoryHandler::CriticalActionsFetched,
@@ -923,12 +924,11 @@ void BrowsingHistoryHandler::HandleQueryResults(
     const BrowsingHistoryService::QueryResultsInfo& query_results_info,
     std::vector<critical_actions::CriticalActionEntry> critical_actions) {
   if (query_timer_.has_value()) {
-    const bool has_actor_visits =
-        std::any_of(results.begin(), results.end(),
-                    [](const auto& entry) { return entry.is_actor_visit; });
-    if (has_actor_visits &&
+    const bool queried_critical_actions =
+        !results.empty() &&
         base::FeatureList::IsEnabled(
-            critical_actions::features::kCriticalActionHistory)) {
+            critical_actions::features::kCriticalActionHistory);
+    if (queried_critical_actions) {
       base::UmaHistogramTimes(
           "HistoryPage.QueryHistoryTotalTime.WithCriticalActions",
           query_timer_->Elapsed());
@@ -965,11 +965,9 @@ void BrowsingHistoryHandler::HandleQueryResults(
       actions_by_visit_id;
 
   for (const auto& action : processed_actions) {
-    if (action.visit_id == history::kInvalidVisitID ||
-        action.action_type == critical_actions::ActionType::kUnknown) {
-      continue;
+    if (action.action_type != critical_actions::ActionType::kUnknown) {
+      actions_by_visit_id[action.visit_id].push_back(&action);
     }
-    actions_by_visit_id[action.visit_id].push_back(&action);
   }
 
   std::vector<history::mojom::HistoryEntryPtr> results_mojom;
@@ -977,9 +975,9 @@ void BrowsingHistoryHandler::HandleQueryResults(
     history::mojom::HistoryEntryPtr entry_mojom =
         HistoryEntryToMojom(entry, bookmark_model, *profile_, tracker, clock_);
 
-    if (entry.is_actor_visit &&
-        base::FeatureList::IsEnabled(
-            critical_actions::features::kCriticalActionHistory)) {
+    if (!actions_by_visit_id.empty()) {
+      CHECK(base::FeatureList::IsEnabled(
+          critical_actions::features::kCriticalActionHistory));
       for (history::VisitID visit_id : entry.all_visit_ids) {
         auto it = actions_by_visit_id.find(visit_id);
         if (it != actions_by_visit_id.end()) {
@@ -990,8 +988,10 @@ void BrowsingHistoryHandler::HandleQueryResults(
           }
         }
       }
-      base::UmaHistogramCounts100("HistoryPage.CriticalActionsPerVisitCount",
-                                  entry_mojom->critical_actions.size());
+      if (!entry_mojom->critical_actions.empty()) {
+        base::UmaHistogramCounts100("HistoryPage.CriticalActionsPerVisitCount",
+                                    entry_mojom->critical_actions.size());
+      }
     }
 
     results_mojom.push_back(std::move(entry_mojom));

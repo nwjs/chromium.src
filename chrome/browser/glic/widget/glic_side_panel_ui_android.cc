@@ -7,6 +7,8 @@
 #include "base/android/jni_android.h"
 #include "base/feature_list.h"
 #include "base/functional/callback_helpers.h"
+#include "base/metrics/user_metrics.h"
+#include "base/metrics/user_metrics_action.h"
 #include "base/notimplemented.h"
 #include "base/notreached.h"
 #include "base/scoped_observation.h"
@@ -16,23 +18,31 @@
 #include "chrome/browser/glic/android/glic_helper_android.h"
 #include "chrome/browser/glic/common/panel_focus_dependent_hotkey_manager.h"
 #include "chrome/browser/glic/common/panel_visibility_dependent_hotkey_manager.h"
+#include "chrome/browser/glic/glic_pref_names.h"
+#include "chrome/browser/glic/host/guest_util.h"
 #include "chrome/browser/glic/public/features.h"
+#include "chrome/browser/glic/public/glic_keyed_service.h"
+#include "chrome/browser/glic/public/glic_keyed_service_factory.h"
 #include "chrome/browser/glic/public/widget/glic_side_panel_coordinator_android.h"
 #include "chrome/browser/glic/service/metrics/glic_instance_metrics.h"
 #include "chrome/browser/glic/widget/conversions.h"
 #include "chrome/browser/glic/widget/glic_inactive_side_panel_ui_android.h"
 #include "chrome/browser/glic/widget/web_contents_delegate_util.h"
 #include "chrome/browser/media/webrtc/media_capture_devices_dispatcher.h"
+#include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_window/public/browser_collection.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/common/chrome_features.h"
 #include "components/input/native_web_keyboard_event.h"
+#include "components/permissions/permission_recovery_success_rate_tracker.h"
+#include "components/prefs/pref_service.h"
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/file_select_listener.h"
 #include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/drop_data.h"
+#include "mojo/public/cpp/bindings/callback_helpers.h"
 #include "third_party/blink/public/common/input/web_input_event.h"
 #include "third_party/blink/public/common/mediastream/media_stream_request.h"
 #include "third_party/blink/public/mojom/mediastream/media_stream.mojom.h"
@@ -43,13 +53,6 @@
 #include "ui/events/keycodes/keyboard_codes.h"
 
 namespace glic {
-
-namespace {
-
-// Android runtime permission required to capture audio.
-constexpr char kRecordAudioPermission[] = "android.permission.RECORD_AUDIO";
-
-}  // namespace
 
 GlicSidePanelUi::GlicSidePanelUi(Profile* profile,
                                  base::WeakPtr<tabs::TabInterface> tab,
@@ -333,25 +336,31 @@ void GlicSidePanelUi::RequestMediaAccessPermission(
 
   ui::WindowAndroid* window_android =
       web_contents ? web_contents->GetTopLevelNativeWindow() : nullptr;
-  if (window_android && blink::IsAudioInputMediaType(request.audio_type) &&
-      !window_android->HasPermission(kRecordAudioPermission)) {
-    // Explain why Gemini needs the microphone before handing off to the OS
-    // permission prompt.
-    //
-    // Note this is a two-step flow: Chrome's dialog is dismissed before the OS
-    // prompt is shown, so a user who accepts here can still deny the OS prompt.
-    // Keeping Chrome's dialog on screen while the OS prompt is up would mean
-    // driving the runtime permission request from Java instead (which is what
-    // the Glic settings microphone toggle does). That is intentionally not done
-    // here: the pre-prompt exists because Android only lets us show the OS
-    // prompt a limited number of times, so we want the user's intent before
-    // spending one of those.
-    ShowMicPermissionDialog(
+  MicPermissionUi* mic_permission_ui = GetMicPermissionUi();
+  if (window_android && mic_permission_ui &&
+      blink::IsAudioInputMediaType(request.audio_type) &&
+      (!IsMicSettingEnabled() ||
+       !mic_permission_ui->HasMicOsPermission(window_android))) {
+    // Explain why Gemini needs the microphone before asking for the OS
+    // permission. Android limits how often its prompt can be shown, so get the
+    // user's intent first. Chrome's dialog is dismissed before the OS prompt is
+    // shown, so a user who accepts here can still deny the OS prompt.
+    mic_permission_ui->ShowMicPermissionDialog(
         window_android,
-        base::BindOnce(&GlicSidePanelUi::OnMicPermissionDialogResult,
-                       weak_ptr_factory_.GetWeakPtr(),
-                       web_contents->GetWeakPtr(), request,
-                       std::move(callback)));
+        mojo::WrapCallbackWithDefaultInvokeIfNotRun(
+            base::BindOnce(&GlicSidePanelUi::OnMicPermissionDialogResult,
+                           weak_ptr_factory_.GetWeakPtr(),
+                           web_contents->GetWeakPtr(), request,
+                           std::move(callback)),
+            false));
+    return;
+  }
+
+  if (blink::IsAudioInputMediaType(request.audio_type) &&
+      !IsMicSettingEnabled()) {
+    RejectMediaAccessRequest(
+        std::move(callback),
+        blink::mojom::MediaStreamRequestResult::PERMISSION_DENIED);
     return;
   }
 
@@ -370,10 +379,53 @@ void GlicSidePanelUi::OnMicPermissionDialogResult(
         blink::mojom::MediaStreamRequestResult::PERMISSION_DENIED);
     return;
   }
+  MicPermissionUi* mic_permission_ui = GetMicPermissionUi();
+  if (!web_contents || !mic_permission_ui) {
+    RejectMediaAccessRequest(
+        std::move(callback),
+        blink::mojom::MediaStreamRequestResult::FAILED_DUE_TO_SHUTDOWN_OTHER);
+    return;
+  }
+
+  content::WebContents* contents = web_contents.get();
+  if (mic_permission_ui->HasMicOsPermission(
+          contents->GetTopLevelNativeWindow())) {
+    RequestSystemMediaAccessPermission(contents, request, std::move(callback));
+    return;
+  }
+
+  // Request the OS permission directly rather than through
+  // MediaCaptureDevicesDispatcher: with GlicNoWebview,
+  // GlicPwcPermissionDelegate grants the mic, which skips Chrome's usual prompt
+  // for missing Android permissions.
+  mic_permission_ui->RequestMicOsPermission(
+      contents->GetTopLevelNativeWindow(),
+      mojo::WrapCallbackWithDefaultInvokeIfNotRun(
+          base::BindOnce(&GlicSidePanelUi::OnMicOsPermissionResult,
+                         weak_ptr_factory_.GetWeakPtr(),
+                         std::move(web_contents), request, std::move(callback)),
+          false));
+}
+
+void GlicSidePanelUi::OnMicOsPermissionResult(
+    base::WeakPtr<content::WebContents> web_contents,
+    const content::MediaStreamRequest& request,
+    content::MediaResponseCallback callback,
+    bool granted) {
   if (!web_contents) {
     RejectMediaAccessRequest(
         std::move(callback),
         blink::mojom::MediaStreamRequestResult::FAILED_DUE_TO_SHUTDOWN_OTHER);
+    return;
+  }
+  if (!granted) {
+    if (MicPermissionUi* mic_permission_ui = GetMicPermissionUi()) {
+      mic_permission_ui->ShowMicDisabledSnackbar(
+          web_contents->GetTopLevelNativeWindow());
+    }
+    RejectMediaAccessRequest(
+        std::move(callback),
+        blink::mojom::MediaStreamRequestResult::PERMISSION_DENIED_BY_SYSTEM);
     return;
   }
 
@@ -381,10 +433,29 @@ void GlicSidePanelUi::OnMicPermissionDialogResult(
                                      std::move(callback));
 }
 
+MicPermissionUi* GlicSidePanelUi::GetMicPermissionUi() {
+  if (mic_permission_ui_for_testing_) {
+    return mic_permission_ui_for_testing_;
+  }
+  GlicKeyedService* service =
+      GlicKeyedServiceFactory::GetGlicKeyedService(profile_);
+  return service ? &service->GetMicPermissionUi() : nullptr;
+}
+
+bool GlicSidePanelUi::IsMicSettingEnabled() const {
+  return !base::FeatureList::IsEnabled(features::kGlicVoice) ||
+         (profile_ &&
+          profile_->GetPrefs()->GetBoolean(prefs::kGlicMicrophoneEnabled));
+}
+
 void GlicSidePanelUi::RequestSystemMediaAccessPermission(
     content::WebContents* web_contents,
     const content::MediaStreamRequest& request,
     content::MediaResponseCallback callback) {
+  if (web_contents) {
+    permissions::PermissionRecoverySuccessRateTracker::CreateForWebContents(
+        web_contents);
+  }
   MediaCaptureDevicesDispatcher::GetInstance()->ProcessMediaAccessRequest(
       web_contents, request,
       base::BindOnce(&GlicSidePanelUi::OnMediaAccessPermissionResult,
@@ -402,10 +473,22 @@ void GlicSidePanelUi::OnMediaAccessPermissionResult(
     blink::mojom::MediaStreamRequestResult result,
     std::unique_ptr<content::MediaStreamUI> ui) {
   is_requesting_media_permission_ = false;
-  if (result != blink::mojom::MediaStreamRequestResult::OK &&
-      blink::IsAudioInputMediaType(audio_type) && web_contents) {
-    // No-ops if the OS permission was actually granted.
-    ShowMicDisabledSnackbar(web_contents->GetTopLevelNativeWindow());
+  if (blink::IsAudioInputMediaType(audio_type)) {
+    if (result == blink::mojom::MediaStreamRequestResult::OK) {
+      if (!IsMicSettingEnabled() && profile_) {
+        profile_->GetPrefs()->SetBoolean(prefs::kGlicMicrophoneEnabled, true);
+        base::RecordAction(
+            base::UserMetricsAction("GlicMicrophonePermissionEnabled"));
+      }
+    } else if (web_contents) {
+      // Covers failures after the checks above, e.g. the OS permission was
+      // revoked mid-request. The snackbar is only shown if the OS permission is
+      // missing.
+      if (MicPermissionUi* mic_permission_ui = GetMicPermissionUi()) {
+        mic_permission_ui->ShowMicDisabledSnackbar(
+            web_contents->GetTopLevelNativeWindow());
+      }
+    }
   }
   std::move(callback).Run(stream_devices_set, result, std::move(ui));
   SyncEmbedderWindowActivation();
@@ -435,6 +518,9 @@ bool GlicSidePanelUi::CheckMediaAccessPermission(
     content::RenderFrameHost* render_frame_host,
     const url::Origin& security_origin,
     blink::mojom::MediaStreamType type) {
+  if (blink::IsAudioInputMediaType(type) && !IsMicSettingEnabled()) {
+    return false;
+  }
   return MediaCaptureDevicesDispatcher::GetInstance()
       ->CheckMediaAccessPermission(render_frame_host, security_origin, type);
 }
@@ -445,6 +531,15 @@ void GlicSidePanelUi::RunFileChooser(
     const blink::mojom::FileChooserParams& params) {
   FileSelectHelper::RunFileChooser(render_frame_host, std::move(listener),
                                    params);
+}
+
+bool GlicSidePanelUi::HandleWindowCreation(
+    content::RenderFrameHost* opener,
+    const GURL& target_url,
+    WindowOpenDisposition disposition,
+    const blink::mojom::WindowFeatures& features) {
+  return MaybeHandleGlicWindowCreation(opener, target_url, disposition,
+                                       features);
 }
 
 void GlicSidePanelUi::FocusIfOpen() {

@@ -132,9 +132,13 @@ void MenuRunnerImpl::RunMenuAt(
     std::optional<std::string> show_menu_host_duration_histogram) {
   closing_event_time_ = base::TimeTicks();
   if (running_) {
-    // Ignore requests to show the menu while it's already showing. MenuItemView
-    // doesn't handle this very well (meaning it crashes).
-    return;
+    if (controller_ && controller_->IsDismissAnimationRunning()) {
+      controller_->Cancel(MenuController::ExitType::kAll);
+    } else {
+      // Ignore requests to show the menu while it's already showing.
+      // MenuItemView doesn't handle this very well (meaning it crashes).
+      return;
+    }
   }
 
   MenuController* controller = nullptr;
@@ -151,14 +155,18 @@ void MenuRunnerImpl::RunMenuAt(
       controller->AddNestedDelegate(this);
     }
   } else if (MenuController::GetActiveInstance()) {
+    const bool was_dismiss_animation_running =
+        MenuController::GetActiveInstance()->IsDismissAnimationRunning();
     // There's some other menu open and we're not nested. Cancel the menu.
     MenuController::CancelAllActive();
-    if ((run_types & MenuRunner::FOR_DROP) == 0) {
+    if ((run_types & MenuRunner::FOR_DROP) == 0 &&
+        !was_dismiss_animation_running) {
       // Avoid opening another non-drop menu while another active menu is
-      // being canceled.
+      // being canceled, unless it was already playing its dismiss animation.
       return;
     }
-    // Drop menus are allowed to create a new MenuController immediately.
+    // Drop menus (or menus replacing a fading-out menu) are allowed to create a
+    // new MenuController immediately.
     controller = nullptr;
   }
 
@@ -187,7 +195,7 @@ void MenuRunnerImpl::RunMenuAt(
   controller->set_use_ash_system_ui_layout(
       (run_types & MenuRunner::USE_ASH_SYS_UI_LAYOUT) != 0);
   controller_ = controller->AsWeakPtr();
-  menu_->set_controller(controller_.get());
+  menu_->SetController(controller_.get());
   menu_->PrepareForRun(has_mnemonics,
                        !for_drop_ && ShouldShowMnemonics(run_types));
   if (show_menu_host_duration_histogram.has_value() &&
@@ -236,9 +244,9 @@ void MenuRunnerImpl::OnMenuClosed(NotifyType type,
     }
   }
 
-  menu_->set_controller(nullptr);
+  menu_->SetController(nullptr);
   for (MenuItemView* sibling_menu : sibling_menus_) {
-    sibling_menu->set_controller(nullptr);
+    sibling_menu->SetController(nullptr);
   }
 
   if (owns_controller_ && controller_) {

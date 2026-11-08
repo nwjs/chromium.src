@@ -9,13 +9,22 @@
 #include <string>
 #include <vector>
 
+#include "base/functional/callback.h"
+#include "base/types/expected.h"
+#include "remoting/host/terminal_error.h"
 #include "remoting/host/terminal_session_manager.h"
 
 namespace remoting {
 
 class TerminalSession {
  public:
+  using StartCallback =
+      base::OnceCallback<void(base::expected<void, TerminalError>)>;
+
   virtual ~TerminalSession() = default;
+
+  // Returns true if terminal sessions are supported on the current platform.
+  static bool IsSupported();
 
   // Factory helper to construct an OS-specific TerminalSession.
   // Returns nullptr on unsupported platforms.
@@ -29,7 +38,13 @@ class TerminalSession {
   // Must be called on a thread that allows blocking.
   static std::vector<int32_t> GetPersistentTerminalIds();
 
-  virtual bool Start() = 0;
+  // Starts the terminal session. `callback` is run once the session has
+  // started, or with an error describing why it could not be started. It may
+  // be run synchronously. If the session fails to start, the exit callback is
+  // not run. On success, `callback` is run before any output is delivered. If
+  // the session is destroyed, detached or terminated before it has started,
+  // `callback` is not run.
+  virtual void Start(StartCallback callback) = 0;
 
   // Write terminal input.
   virtual void Write(const std::string& data) = 0;

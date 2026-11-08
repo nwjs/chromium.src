@@ -16,7 +16,6 @@ schema_sources_ = [
   "bookmarks.json",
   "content_settings.json",
   "context_menus.json",
-  "cookies.json",
   "debugger.json",
   "desktop_capture.json",
   "developer_private.webidl",
@@ -110,10 +109,7 @@ if (enable_extensions) {
 
   if (is_chromeos) {
     schema_sources_ += [
-      "accessibility_private.json",
       "accessibility_service_private.webidl",
-      "certificate_provider.webidl",
-      "certificate_provider_internal.webidl",
       "document_scan.webidl",
       "echo_private.json",
       "enterprise_device_attributes.webidl",
@@ -123,10 +119,8 @@ if (enable_extensions) {
       "enterprise_platform_keys.webidl",
       "enterprise_platform_keys_internal.webidl",
       "enterprise_platform_keys_private.json",
-      "image_loader_private.webidl",
       "login.webidl",
       "login_screen_storage.webidl",
-      "login_screen_ui.webidl",
       "login_state.idl",
       "odfs_config_private.idl",
       "platform_keys.idl",
@@ -135,7 +129,6 @@ if (enable_extensions) {
       "smart_card_provider_private.idl",
       "system_log.idl",
       "terminal_private.json",
-      "users_private.idl",
       "vpn_provider.idl",
       "wallpaper.json",
       "wm_desks_private.idl",

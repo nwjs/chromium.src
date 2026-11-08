@@ -189,6 +189,8 @@ const char kTestPageText[] = "pony";
   // app, this policy data will appear under the
   // "com.apple.configuration.managed" key.
   AppLaunchConfiguration config = [super appConfigurationForTestCase];
+  config.additional_args.push_back(
+      base::StrCat({"--", switches::kEnableChromeBrowserCloudManagement}));
   config.relaunch_policy = NoForceRelaunchAndResetState;
   return config;
 }
@@ -798,6 +800,32 @@ const char kTestPageText[] = "pony";
 - (void)testBrowserSignInDisabledWhileAppVisible {
   FakeSystemIdentity* fakeIdentity = [FakeSystemIdentity fakeIdentity1];
   [SigninEarlGrey signinWithFakeIdentity:fakeIdentity];
+
+  // Force sign out.
+  SetPolicy(0, policy::key::kBrowserSignin);
+
+  // Check that the sign out pop up is presented.
+  ConditionBlock condition = ^{
+    NSError* error = nil;
+    [[EarlGrey
+        selectElementWithMatcher:grey_accessibilityLabel(l10n_util::GetNSString(
+                                     IDS_IOS_ENTERPRISE_SIGNED_OUT))]
+        assertWithMatcher:grey_sufficientlyVisible()
+                    error:&error];
+    return error == nil;
+  };
+  bool promptPresented = base::test::ios::WaitUntilConditionOrTimeout(
+      base::test::ios::kWaitForUIElementTimeout, condition);
+  GREYAssertTrue(promptPresented, @"'Signed Out' prompt not shown");
+}
+
+// Tests that the UI notifying the user of their sign out is displayed when the
+// policy changes while the app is launched.
+- (void)testBrowserSignInDisabledWhileAppVisibleFromManagedAccount {
+  FakeSystemIdentity* fakeManagedIdentity =
+      [FakeSystemIdentity fakeManagedIdentity];
+  [SigninEarlGrey
+      signinWithFakeManagedIdentityInPersonalProfile:fakeManagedIdentity];
 
   // Force sign out.
   SetPolicy(0, policy::key::kBrowserSignin);

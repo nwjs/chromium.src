@@ -61,6 +61,7 @@ TEST_F(ReadAnythingAppModelNoInitTest,
        GetOriginalPageMetrics_EmptyBeforeTreeInitialization) {
   ReadAnythingAppModel::OriginalPageMetrics metrics =
       model().GetOriginalPageMetrics();
+  EXPECT_FALSE(metrics.has_mathml);
   EXPECT_FALSE(metrics.maybe_has_key_points);
 }
 
@@ -275,6 +276,82 @@ TEST_F(ReadAnythingAppModelTest, SetTreeInfoUrlInformation_IsNotDocs) {
   EXPECT_FALSE(model().IsDocs());
 }
 
+TEST_F(ReadAnythingAppModelTest, SetIsPdf_IsTrackedPerTree) {
+  ui::AXTreeID pdf_tree_id = ui::AXTreeID::CreateNewAXTreeID();
+  ui::AXTreeID web_tree_id = ui::AXTreeID::CreateNewAXTreeID();
+
+  model().SetActiveTreeId(pdf_tree_id);
+  model().SetIsPdf(true);
+  EXPECT_TRUE(model().IsPdf());
+
+  // A tree that was never marked as a PDF must not inherit the state.
+  model().SetActiveTreeId(web_tree_id);
+  EXPECT_FALSE(model().IsPdf());
+
+  model().SetActiveTreeId(pdf_tree_id);
+  EXPECT_TRUE(model().IsPdf());
+}
+
+TEST_F(ReadAnythingAppModelTest, SetIsPdf_PreservesStateAcrossPendingUpdates) {
+  ui::AXTreeID pdf_tree_id = ui::AXTreeID::CreateNewAXTreeID();
+  ui::AXTreeID web_tree_id = ui::AXTreeID::CreateNewAXTreeID();
+
+  // Initialize both trees in the model.
+  ui::AXTreeUpdate pdf_init;
+  test::SetUpdateTreeID(&pdf_init, pdf_tree_id);
+  pdf_init.root_id = 1;
+  pdf_init.nodes = {test::TextNode(1)};
+  ApplyAccessibilityUpdates(pdf_tree_id, {std::move(pdf_init)});
+
+  ui::AXTreeUpdate web_init;
+  test::SetUpdateTreeID(&web_init, web_tree_id);
+  web_init.root_id = 1;
+  web_init.nodes = {test::TextNode(1)};
+  ApplyAccessibilityUpdates(web_tree_id, {std::move(web_init)});
+
+  // Set active tree to PDF tree and mark it as a PDF.
+  model().SetActiveTreeId(pdf_tree_id);
+  model().SetIsPdf(true);
+  EXPECT_TRUE(model().IsPdf());
+
+  // Switch to web tree and ensure it is not a PDF.
+  model().SetActiveTreeId(web_tree_id);
+  model().SetIsPdf(false);
+  EXPECT_FALSE(model().IsPdf());
+
+  // Queue updates on the PDF tree while the web tree is active.
+  ui::AXTreeUpdate pdf_update;
+  test::SetUpdateTreeID(&pdf_update, pdf_tree_id);
+  ui::AXNodeData banner_node;
+  banner_node.id = 2;
+  banner_node.role = ax::mojom::Role::kBanner;
+  ui::AXNodeData static_text_node = test::TextNode(
+      /* id= */ 3, l10n_util::GetStringUTF16(IDS_PDF_OCR_RESULT_BEGIN));
+  banner_node.child_ids = {static_text_node.id};
+
+  ui::AXNodeData root;
+  root.id = 1;
+  root.child_ids = {banner_node.id};
+  pdf_update.root_id = 1;
+  pdf_update.nodes = {std::move(root), std::move(banner_node),
+                      std::move(static_text_node)};
+  QueueAccessibilityUpdates(pdf_tree_id, {std::move(pdf_update)});
+
+  // Switch back to the PDF tree; verify it retained its PDF status and
+  // unserialize pending updates.
+  model().SetActiveTreeId(pdf_tree_id);
+  EXPECT_TRUE(model().IsPdf());
+  model().UnserializePendingUpdates(pdf_tree_id);
+
+  // The OCR banner node and child text node should be ignored because the tree
+  // is a PDF.
+  EXPECT_TRUE(GetNotIgnoredIds({{2, 3}}).empty());
+
+  // Switch back to web tree; verify web tree still is not a PDF.
+  model().SetActiveTreeId(web_tree_id);
+  EXPECT_FALSE(model().IsPdf());
+}
+
 TEST_F(ReadAnythingAppModelTest,
        SetTreeInfoUrlInformation_FirstTreeIsNotReload) {
   ui::AXTreeUpdate update;
@@ -390,7 +467,7 @@ TEST_F(ReadAnythingAppModelTest, InsertIdIfNotIgnored_TextFieldsNotIgnored) {
 
 TEST_F(ReadAnythingAppModelTest,
        InsertIdIfNotIgnored_InaccessiblePDFPageNodes) {
-  model().set_is_pdf(true);
+  model().SetIsPdf(true);
 
   // PDF OCR output contains kBanner and kContentInfo (each with a static text
   // node child) to mark page start/end.
@@ -1234,7 +1311,7 @@ TEST_F(ReadAnythingAppModelTest,
 }
 
 TEST_F(ReadAnythingAppModelTest, PdfEvents_DontSetRequiresDistillation) {
-  model().set_is_pdf(true);
+  model().SetIsPdf(true);
 
   ui::AXTreeUpdate initial_update;
   test::SetUpdateTreeID(&initial_update, tree_id_);
@@ -1259,7 +1336,7 @@ TEST_F(ReadAnythingAppModelTest, PdfEvents_DontSetRequiresDistillation) {
 
 TEST_F(ReadAnythingAppModelTest,
        PdfEvents_InactiveTree_DoesNotSetRequiresDistillation) {
-  model().set_is_pdf(true);
+  model().SetIsPdf(true);
 
   // Set the active tree ID to be tree_id_ (which is default active tree in
   // SetUp). Now, create an inactive tree.
@@ -1416,6 +1493,28 @@ class ReadAnythingAppModelReadabilityTest : public ReadAnythingAppModelTest {
  private:
   base::test::ScopedFeatureList scoped_feature_list_;
 };
+
+TEST_F(ReadAnythingAppModelReadabilityTest,
+       FallbackToScreen2x_ClearsReadabilityStateAndRequiresDistillation) {
+  model().set_next_distillation_method(
+      ReadAnythingAppModel::DistillationMethod::kReadability);
+  model().set_current_content_distillation_method(
+      ReadAnythingAppModel::DistillationMethod::kReadability);
+  model().set_requires_readability_distillation(true);
+  model().set_requires_distillation(false);
+
+  model().FallbackToScreen2x();
+
+  EXPECT_EQ(model().next_distillation_method(),
+            ReadAnythingAppModel::DistillationMethod::kScreen2x);
+  EXPECT_FALSE(model().is_readability_next_distillation_method());
+  EXPECT_FALSE(model().requires_readability_distillation());
+  EXPECT_TRUE(model().requires_distillation());
+  // The current content method is left untouched; callers decide whether to
+  // update it.
+  EXPECT_EQ(model().current_content_distillation_method(),
+            ReadAnythingAppModel::DistillationMethod::kReadability);
+}
 
 TEST_F(ReadAnythingAppModelReadabilityTest,
        GetAXTreeAnchors_ExtractsBasicLink) {
@@ -1967,18 +2066,139 @@ TEST_F(ReadAnythingAppModelTest,
 }
 
 TEST_F(ReadAnythingAppModelTest, MapRenderedTextToTree_ResetsMappingState) {
+  ui::AXTreeUpdate update;
+  test::SetUpdateTreeID(&update, tree_id_);
+  update.root_id = 1;
+  update.nodes = {test::TextNode(1, u"block1")};
+  ApplyAccessibilityUpdates(tree_id_, {update});
+
   model().set_should_map_rendered_text_to_tree_for_readability(true);
 
-  // Trigger the mapping with some dummy blocks.
-  model().MapRenderedTextToTree({u"block1", u"block2"});
+  // Trigger the mapping with blocks matching the tree.
+  EXPECT_TRUE(model().MapRenderedTextToTree({u"block1", u"block2"}));
 
   // Verify that the trigger flag was set to false.
   EXPECT_FALSE(model().should_map_rendered_text_to_tree_for_readability());
 
-  // Verify that the internal mapping storage was cleared/initialized.
+  // Verify that the internal mapping storage was initialized.
   EXPECT_EQ(model().text_to_ax_map().size(), 2u);
+  EXPECT_FALSE(model().text_to_ax_map()[0].empty());
+  EXPECT_TRUE(model().text_to_ax_map()[1].empty());
+}
+
+TEST_F(ReadAnythingAppModelTest,
+       MapRenderedTextToTree_DefersWhenTreeIncomplete) {
+  base::HistogramTester histograms;
+  model().set_should_map_rendered_text_to_tree_for_readability(true);
+
+  std::vector<std::u16string> blocks = {
+      u"Article Title - Header",
+      u"This is the full body paragraph of the distilled article content."};
+
+  // Initial tree only contains a short header (< 50% of distilled length).
+  ui::AXTreeUpdate short_header_update;
+  test::SetUpdateTreeID(&short_header_update, tree_id_);
+  short_header_update.root_id = 1;
+  short_header_update.nodes = {test::TextNode(1, u"Header")};
+  ApplyAccessibilityUpdates(tree_id_, {short_header_update});
+
+  EXPECT_FALSE(model().MapRenderedTextToTree(blocks));
+  EXPECT_TRUE(model().should_map_rendered_text_to_tree_for_readability());
+
+  // Tree has enough total characters (>= 50% of distilled length) due to
+  // non-article chrome, but mapped characters (6 / 87 = 6%) are still < 50%.
+  ui::AXTreeUpdate nav_update;
+  test::SetUpdateTreeID(&nav_update, tree_id_);
+  nav_update.root_id = 1;
+  nav_update.nodes = {test::TextNode(
+      1, u"Header and unrelated navigation links before body loads")};
+  ApplyAccessibilityUpdates(tree_id_, {nav_update});
+
+  EXPECT_FALSE(model().MapRenderedTextToTree(blocks));
+  EXPECT_TRUE(model().should_map_rendered_text_to_tree_for_readability());
   EXPECT_TRUE(model().text_to_ax_map()[0].empty());
   EXPECT_TRUE(model().text_to_ax_map()[1].empty());
+  histograms.ExpectTotalCount(
+      "Accessibility.ReadAnything.ReadabilityMapping.SuccessRate", 0);
+
+  // Once the full tree arrives, mapping succeeds and resets the flag.
+  ui::AXTreeUpdate full_update;
+  test::SetUpdateTreeID(&full_update, tree_id_);
+  full_update.root_id = 1;
+  full_update.nodes = {test::TextNode(1, blocks[1])};
+  ApplyAccessibilityUpdates(tree_id_, {full_update});
+
+  EXPECT_TRUE(model().MapRenderedTextToTree(blocks));
+  EXPECT_FALSE(model().should_map_rendered_text_to_tree_for_readability());
+  EXPECT_FALSE(model().text_to_ax_map()[1].empty());
+  histograms.ExpectTotalCount(
+      "Accessibility.ReadAnything.ReadabilityMapping.SuccessRate", 1);
+}
+
+TEST_F(ReadAnythingAppModelTest,
+       MapRenderedTextToTree_CompletesBelowThresholdWhenPageFinishedLoading) {
+  base::HistogramTester histograms;
+  model().set_should_map_rendered_text_to_tree_for_readability(true);
+  model().set_page_finished_loading(true);
+
+  ui::AXTreeUpdate update;
+  test::SetUpdateTreeID(&update, tree_id_);
+  update.root_id = 1;
+  update.nodes = {test::TextNode(1, u"Header")};
+  ApplyAccessibilityUpdates(tree_id_, {update});
+
+  std::vector<std::u16string> blocks = {
+      u"Article Title - Header",
+      u"This is the full body paragraph of the distilled article content."};
+  EXPECT_TRUE(model().MapRenderedTextToTree(blocks));
+  EXPECT_FALSE(model().should_map_rendered_text_to_tree_for_readability());
+  histograms.ExpectUniqueSample(
+      "Accessibility.ReadAnything.ReadabilityMapping.SuccessRate", 6, 1);
+}
+
+TEST_F(ReadAnythingAppModelTest,
+       MapRenderedTextToTree_CompletesBelowThresholdWhenTreeLoaded) {
+  base::HistogramTester histograms;
+  model().set_should_map_rendered_text_to_tree_for_readability(true);
+
+  ui::AXTreeUpdate update;
+  test::SetUpdateTreeID(&update, tree_id_);
+  update.has_tree_data = true;
+  update.tree_data.loaded = true;
+  update.root_id = 1;
+  update.nodes = {test::TextNode(1, u"Header")};
+  ApplyAccessibilityUpdates(tree_id_, {update});
+
+  std::vector<std::u16string> blocks = {
+      u"Article Title - Header",
+      u"This is the full body paragraph of the distilled article content."};
+  EXPECT_TRUE(model().MapRenderedTextToTree(blocks));
+  EXPECT_FALSE(model().should_map_rendered_text_to_tree_for_readability());
+  histograms.ExpectUniqueSample(
+      "Accessibility.ReadAnything.ReadabilityMapping.SuccessRate", 6, 1);
+}
+
+TEST_F(ReadAnythingAppModelTest,
+       MapRenderedTextToTree_ResetsFlagsWhenEmptyTreeLoaded) {
+  model().set_should_map_rendered_text_to_tree_for_readability(true);
+  model().set_is_readability_mapping_in_progress(true);
+
+  ui::AXTreeUpdate update;
+  test::SetUpdateTreeID(&update, tree_id_);
+  update.root_id = 1;
+  update.nodes = {test::GenericContainerNode(1)};
+  ApplyAccessibilityUpdates(tree_id_, {update});
+
+  // While still loading, an empty tree defers mapping without resetting flags.
+  EXPECT_FALSE(model().MapRenderedTextToTree({u"block1"}));
+  EXPECT_TRUE(model().should_map_rendered_text_to_tree_for_readability());
+  EXPECT_TRUE(model().is_readability_mapping_in_progress());
+
+  // Once loading completes, an empty tree resets both flags to avoid retrying.
+  model().set_page_finished_loading(true);
+  EXPECT_FALSE(model().MapRenderedTextToTree({u"block1"}));
+  EXPECT_FALSE(model().should_map_rendered_text_to_tree_for_readability());
+  EXPECT_FALSE(model().is_readability_mapping_in_progress());
 }
 
 TEST_F(ReadAnythingAppModelTest, MapRenderedTextToTree_RecordsMetrics) {
@@ -2638,7 +2858,10 @@ TEST_F(ReadAnythingAppModelTest,
   ApplyAccessibilityUpdates(tree_id_, {update});
   model().SetActiveTreeId(tree_id_);
 
-  EXPECT_TRUE(model().GetOriginalPageMetrics().maybe_has_key_points);
+  ReadAnythingAppModel::OriginalPageMetrics metrics =
+      model().GetOriginalPageMetrics();
+  EXPECT_TRUE(metrics.maybe_has_key_points);
+  EXPECT_FALSE(metrics.has_mathml);
 }
 
 TEST_F(ReadAnythingAppModelTest, GetOriginalPageMetrics_ReturnsFalseForH1) {
@@ -2662,7 +2885,181 @@ TEST_F(ReadAnythingAppModelTest, GetOriginalPageMetrics_ReturnsFalseForH1) {
   ApplyAccessibilityUpdates(tree_id_, {update});
   model().SetActiveTreeId(tree_id_);
 
-  EXPECT_FALSE(model().GetOriginalPageMetrics().maybe_has_key_points);
+  ReadAnythingAppModel::OriginalPageMetrics metrics =
+      model().GetOriginalPageMetrics();
+  EXPECT_FALSE(metrics.maybe_has_key_points);
+  EXPECT_FALSE(metrics.has_mathml);
+}
+
+TEST_F(ReadAnythingAppModelTest, GetOriginalPageMetrics_ReturnsTrueForMathML) {
+  ui::AXTreeUpdate update;
+  test::SetUpdateTreeID(&update, tree_id_);
+  ui::AXNodeData root;
+  root.id = 1;
+
+  ui::AXNodeData math_node;
+  math_node.id = 2;
+  math_node.role = ax::mojom::Role::kMathMLMath;
+
+  root.child_ids = {math_node.id};
+  update.root_id = root.id;
+  update.nodes = {root, math_node};
+
+  ApplyAccessibilityUpdates(tree_id_, {update});
+  model().SetActiveTreeId(tree_id_);
+
+  ReadAnythingAppModel::OriginalPageMetrics metrics =
+      model().GetOriginalPageMetrics();
+  EXPECT_TRUE(metrics.has_mathml);
+  EXPECT_FALSE(metrics.maybe_has_key_points);
+}
+
+TEST_F(ReadAnythingAppModelTest,
+       GetOriginalPageMetrics_CapturesMathMLAfterKeyPoints) {
+  ui::AXTreeUpdate update;
+  test::SetUpdateTreeID(&update, tree_id_);
+  ui::AXNodeData root;
+  root.id = 1;
+
+  ui::AXNodeData heading;
+  heading.id = 2;
+  heading.role = ax::mojom::Role::kHeading;
+  heading.AddIntAttribute(ax::mojom::IntAttribute::kHierarchicalLevel, 2);
+  ui::AXNodeData text = test::TextNode(3, u"Summary");
+  heading.child_ids = {text.id};
+
+  ui::AXNodeData math_node;
+  math_node.id = 4;
+  math_node.role = ax::mojom::Role::kMathMLMath;
+
+  root.child_ids = {heading.id, math_node.id};
+  update.root_id = root.id;
+  update.nodes = {root, heading, text, math_node};
+
+  ApplyAccessibilityUpdates(tree_id_, {update});
+  model().SetActiveTreeId(tree_id_);
+
+  ReadAnythingAppModel::OriginalPageMetrics metrics =
+      model().GetOriginalPageMetrics();
+  EXPECT_TRUE(metrics.has_mathml);
+  EXPECT_TRUE(metrics.maybe_has_key_points);
+}
+
+TEST_F(ReadAnythingAppModelTest,
+       GetOriginalPageMetrics_CapturesKeyPointsAfterMathML) {
+  ui::AXTreeUpdate update;
+  test::SetUpdateTreeID(&update, tree_id_);
+  ui::AXNodeData root;
+  root.id = 1;
+
+  ui::AXNodeData math_node;
+  math_node.id = 2;
+  math_node.role = ax::mojom::Role::kMathMLMath;
+
+  ui::AXNodeData heading;
+  heading.id = 3;
+  heading.role = ax::mojom::Role::kHeading;
+  heading.AddIntAttribute(ax::mojom::IntAttribute::kHierarchicalLevel, 2);
+  ui::AXNodeData text = test::TextNode(4, u"Key Points");
+  heading.child_ids = {text.id};
+
+  root.child_ids = {math_node.id, heading.id};
+  update.root_id = root.id;
+  update.nodes = {root, math_node, heading, text};
+
+  ApplyAccessibilityUpdates(tree_id_, {update});
+  model().SetActiveTreeId(tree_id_);
+
+  ReadAnythingAppModel::OriginalPageMetrics metrics =
+      model().GetOriginalPageMetrics();
+  EXPECT_TRUE(metrics.has_mathml);
+  EXPECT_TRUE(metrics.maybe_has_key_points);
+}
+
+TEST_F(ReadAnythingAppModelTest,
+       GetOriginalPageMetrics_ReturnsTrueForDeeplyNestedMathML) {
+  ui::AXTreeUpdate update;
+  test::SetUpdateTreeID(&update, tree_id_);
+  ui::AXNodeData root;
+  root.id = 1;
+
+  ui::AXNodeData section;
+  section.id = 2;
+  section.role = ax::mojom::Role::kSection;
+
+  ui::AXNodeData paragraph;
+  paragraph.id = 3;
+  paragraph.role = ax::mojom::Role::kParagraph;
+
+  ui::AXNodeData math_node;
+  math_node.id = 4;
+  math_node.role = ax::mojom::Role::kMathMLMath;
+
+  paragraph.child_ids = {math_node.id};
+  section.child_ids = {paragraph.id};
+  root.child_ids = {section.id};
+  update.root_id = root.id;
+  update.nodes = {root, section, paragraph, math_node};
+
+  ApplyAccessibilityUpdates(tree_id_, {update});
+  model().SetActiveTreeId(tree_id_);
+
+  ReadAnythingAppModel::OriginalPageMetrics metrics =
+      model().GetOriginalPageMetrics();
+  EXPECT_TRUE(metrics.has_mathml);
+  EXPECT_FALSE(metrics.maybe_has_key_points);
+}
+
+TEST_F(ReadAnythingAppModelTest,
+       GetOriginalPageMetrics_ReturnsTrueForOtherMathRoles) {
+  ui::AXTreeUpdate update;
+  test::SetUpdateTreeID(&update, tree_id_);
+  ui::AXNodeData root;
+  root.id = 1;
+
+  ui::AXNodeData math_node;
+  math_node.id = 2;
+  math_node.role = ax::mojom::Role::kMath;
+
+  root.child_ids = {math_node.id};
+  update.root_id = root.id;
+  update.nodes = {root, math_node};
+
+  ApplyAccessibilityUpdates(tree_id_, {update});
+  model().SetActiveTreeId(tree_id_);
+
+  ReadAnythingAppModel::OriginalPageMetrics metrics =
+      model().GetOriginalPageMetrics();
+  EXPECT_TRUE(metrics.has_mathml);
+}
+
+TEST_F(ReadAnythingAppModelTest,
+       GetOriginalPageMetrics_ReturnsCachedMetricsOnSubsequentCalls) {
+  ui::AXTreeUpdate update;
+  test::SetUpdateTreeID(&update, tree_id_);
+  ui::AXNodeData root;
+  root.id = 1;
+
+  ui::AXNodeData math_node;
+  math_node.id = 2;
+  math_node.role = ax::mojom::Role::kMathMLMath;
+
+  root.child_ids = {math_node.id};
+  update.root_id = root.id;
+  update.nodes = {root, math_node};
+
+  ApplyAccessibilityUpdates(tree_id_, {update});
+  model().SetActiveTreeId(tree_id_);
+
+  ReadAnythingAppModel::OriginalPageMetrics metrics1 =
+      model().GetOriginalPageMetrics();
+  EXPECT_TRUE(metrics1.has_mathml);
+
+  ReadAnythingAppModel::OriginalPageMetrics metrics2 =
+      model().GetOriginalPageMetrics();
+  EXPECT_TRUE(metrics2.has_mathml);
+  EXPECT_EQ(metrics1.has_mathml, metrics2.has_mathml);
+  EXPECT_EQ(metrics1.maybe_has_key_points, metrics2.maybe_has_key_points);
 }
 
 TEST_F(ReadAnythingAppModelTest, GetActiveTreeUrl) {
@@ -3143,6 +3540,318 @@ TEST_F(
             ReadAnythingAppModel::SidePanelDistillationMode::kMainContent);
 }
 
+// Tests for image captions and select-to-distill behavior.
+class ReadAnythingAppModelCaptionTest
+    : public ReadAnythingAppModelScreen2xTest {
+ public:
+  static constexpr ui::AXNodeID kRootId = 1;
+  static constexpr ui::AXNodeID kParagraphId = 2;
+  static constexpr ui::AXNodeID kFigureId = 3;
+  static constexpr ui::AXNodeID kImageId = 4;
+  static constexpr ui::AXNodeID kFigcaptionId = 5;
+  static constexpr ui::AXNodeID kCaptionTextId = 6;
+
+  ReadAnythingAppModelCaptionTest() = default;
+  ~ReadAnythingAppModelCaptionTest() override = default;
+
+  void SetUp() override {
+    ReadAnythingAppModelScreen2xTest::SetUp();
+
+    // Tree structure:
+    // 1: Root container
+    //   2: Paragraph text (not in figure)
+    //   3: <figure>
+    //     4: Image
+    //     5: <figcaption>
+    //       6: Caption text
+    ui::AXTreeUpdate update;
+    test::SetUpdateTreeID(&update, tree_id_);
+
+    ui::AXNodeData root = test::GenericContainerNode(kRootId);
+    ui::AXNodeData paragraph = test::TextNode(kParagraphId);
+
+    ui::AXNodeData figure = test::GenericContainerNode(kFigureId);
+    figure.role = ax::mojom::Role::kFigure;
+    figure.AddStringAttribute(ax::mojom::StringAttribute::kHtmlTag, "figure");
+
+    ui::AXNodeData image =
+        test::ImageNode(kImageId, "https://test.com/img.jpg");
+
+    ui::AXNodeData figcaption = test::GenericContainerNode(kFigcaptionId);
+    figcaption.role = ax::mojom::Role::kFigcaption;
+    figcaption.AddStringAttribute(ax::mojom::StringAttribute::kHtmlTag,
+                                  "figcaption");
+
+    ui::AXNodeData caption_text = test::TextNode(kCaptionTextId);
+
+    figcaption.child_ids = {kCaptionTextId};
+    figure.child_ids = {kImageId, kFigcaptionId};
+    root.child_ids = {kParagraphId, kFigureId};
+    update.nodes = {root, paragraph, figure, image, figcaption, caption_text};
+
+    ApplyAccessibilityUpdates(tree_id_, {update});
+    ProcessDisplayNodes({kParagraphId, kFigureId});
+  }
+
+  void SetSelection(ui::AXNodeID anchor_id,
+                    int anchor_offset,
+                    ui::AXNodeID focus_id,
+                    int focus_offset) {
+    ui::AXTreeUpdate update;
+    test::SetUpdateTreeID(&update, tree_id_);
+    update.tree_data.sel_anchor_object_id = anchor_id;
+    update.tree_data.sel_focus_object_id = focus_id;
+    update.tree_data.sel_anchor_offset = anchor_offset;
+    update.tree_data.sel_focus_offset = focus_offset;
+    update.tree_data.sel_is_backward = false;
+    ApplyAccessibilityUpdates(tree_id_, {update});
+  }
+};
+
+TEST_F(ReadAnythingAppModelCaptionTest,
+       CaptionSelection_ImagesEnabled_RemainsInMainContentMode) {
+  model().set_images_enabled(true);
+  SetSelection(kCaptionTextId, 0, kCaptionTextId, 4);
+
+  EXPECT_FALSE(model().PostProcessSelection());
+  EXPECT_TRUE(model().IsSelectionInDistilledContent());
+  EXPECT_EQ(model().side_panel_distillation_mode(),
+            ReadAnythingAppModel::SidePanelDistillationMode::kMainContent);
+}
+
+TEST_F(ReadAnythingAppModelCaptionTest,
+       CaptionSelection_ImagesDisabled_TriggersSelectionMode) {
+  model().set_images_enabled(false);
+  SetSelection(kCaptionTextId, 0, kCaptionTextId, 4);
+
+  EXPECT_TRUE(model().PostProcessSelection());
+  EXPECT_FALSE(model().IsSelectionInDistilledContent());
+  EXPECT_EQ(model().side_panel_distillation_mode(),
+            ReadAnythingAppModel::SidePanelDistillationMode::kSelection);
+}
+
+TEST_F(
+    ReadAnythingAppModelCaptionTest,
+    SelectionSpanningParagraphToCaption_ImagesDisabled_TriggersSelectionMode) {
+  model().set_images_enabled(false);
+  SetSelection(kParagraphId, 0, kCaptionTextId, 4);
+
+  EXPECT_TRUE(model().PostProcessSelection());
+  EXPECT_FALSE(model().IsSelectionInDistilledContent());
+  EXPECT_EQ(model().side_panel_distillation_mode(),
+            ReadAnythingAppModel::SidePanelDistillationMode::kSelection);
+}
+
+TEST_F(
+    ReadAnythingAppModelCaptionTest,
+    SelectionSpanningCaptionToParagraph_ImagesDisabled_TriggersSelectionMode) {
+  model().set_images_enabled(false);
+  SetSelection(kCaptionTextId, 0, kParagraphId, 4);
+
+  EXPECT_TRUE(model().PostProcessSelection());
+  EXPECT_FALSE(model().IsSelectionInDistilledContent());
+  EXPECT_EQ(model().side_panel_distillation_mode(),
+            ReadAnythingAppModel::SidePanelDistillationMode::kSelection);
+}
+
+TEST_F(ReadAnythingAppModelCaptionTest,
+       ParagraphSelection_ImagesDisabled_RemainsInMainContentMode) {
+  model().set_images_enabled(false);
+  SetSelection(kParagraphId, 0, kParagraphId, 4);
+
+  EXPECT_FALSE(model().PostProcessSelection());
+  EXPECT_TRUE(model().IsSelectionInDistilledContent());
+  EXPECT_EQ(model().side_panel_distillation_mode(),
+            ReadAnythingAppModel::SidePanelDistillationMode::kMainContent);
+}
+
+TEST_F(ReadAnythingAppModelCaptionTest,
+       ParagraphSelection_AfterEnteringSelectionMode_ReturnsToMainContent) {
+  model().set_images_enabled(false);
+
+  // First select caption to enter selection mode.
+  SetSelection(kCaptionTextId, 0, kCaptionTextId, 4);
+  EXPECT_TRUE(model().PostProcessSelection());
+  EXPECT_EQ(model().side_panel_distillation_mode(),
+            ReadAnythingAppModel::SidePanelDistillationMode::kSelection);
+
+  // Subsequent selection in paragraph returns to main content mode.
+  SetSelection(kParagraphId, 0, kParagraphId, 4);
+  EXPECT_TRUE(model().PostProcessSelection());
+  EXPECT_TRUE(model().IsSelectionInDistilledContent());
+  EXPECT_EQ(model().side_panel_distillation_mode(),
+            ReadAnythingAppModel::SidePanelDistillationMode::kMainContent);
+}
+
+// Tests that PDF artifacts are only shown for select-to-distill.
+class ReadAnythingAppModelPdfArtifactTest
+    : public ReadAnythingAppModelScreen2xTest {
+ public:
+  static constexpr ui::AXNodeID kRootId = 1;
+  static constexpr ui::AXNodeID kHeaderId = 2;
+  static constexpr ui::AXNodeID kHeaderTextId = 3;
+  static constexpr ui::AXNodeID kParagraphId = 4;
+  static constexpr ui::AXNodeID kParagraphTextId = 5;
+  static constexpr ui::AXNodeID kFooterId = 6;
+  static constexpr ui::AXNodeID kFooterTextId = 7;
+
+  ReadAnythingAppModelPdfArtifactTest() {
+    scoped_feature_list_.InitAndEnableFeature(
+        features::kPdfAccessibilityHeuristicEnhancements);
+  }
+  ~ReadAnythingAppModelPdfArtifactTest() override = default;
+
+  void SetUp() override {
+    ReadAnythingAppModelScreen2xTest::SetUp();
+    model().SetIsPdf(true);
+
+    // Tree structure:
+    // 1: PDF root
+    //   2: Section header
+    //     3: Header text
+    //   4: Paragraph
+    //     5: Paragraph text
+    //   6: Section footer
+    //     7: Footer text
+    ui::AXTreeUpdate update;
+    test::SetUpdateTreeID(&update, tree_id_);
+
+    ui::AXNodeData root;
+    root.id = kRootId;
+    root.role = ax::mojom::Role::kPdfRoot;
+    root.child_ids = {kHeaderId, kParagraphId, kFooterId};
+
+    ui::AXNodeData header;
+    header.id = kHeaderId;
+    header.role = ax::mojom::Role::kSectionHeader;
+    header.child_ids = {kHeaderTextId};
+
+    ui::AXNodeData paragraph;
+    paragraph.id = kParagraphId;
+    paragraph.role = ax::mojom::Role::kParagraph;
+    paragraph.child_ids = {kParagraphTextId};
+
+    ui::AXNodeData footer;
+    footer.id = kFooterId;
+    footer.role = ax::mojom::Role::kSectionFooter;
+    footer.child_ids = {kFooterTextId};
+
+    update.nodes = {root,
+                    header,
+                    test::TextNode(kHeaderTextId, u"Header"),
+                    paragraph,
+                    test::TextNode(kParagraphTextId, u"Paragraph"),
+                    footer,
+                    test::TextNode(kFooterTextId, u"Footer")};
+    ApplyAccessibilityUpdates(tree_id_, {update});
+
+    // Use the PDF root as the content node so the artifacts are among its
+    // descendants.
+    ProcessDisplayNodes({kRootId});
+  }
+
+  void SetSelection(ui::AXNodeID anchor_id,
+                    int anchor_offset,
+                    ui::AXNodeID focus_id,
+                    int focus_offset) {
+    ui::AXTreeUpdate update;
+    test::SetUpdateTreeID(&update, tree_id_);
+    update.tree_data.sel_anchor_object_id = anchor_id;
+    update.tree_data.sel_focus_object_id = focus_id;
+    update.tree_data.sel_anchor_offset = anchor_offset;
+    update.tree_data.sel_focus_offset = focus_offset;
+    update.tree_data.sel_is_backward = false;
+    ApplyAccessibilityUpdates(tree_id_, {update});
+  }
+
+  void ClearSelection() {
+    // Default tree data has an invalid (empty) selection.
+    ui::AXTreeUpdate update;
+    test::SetUpdateTreeID(&update, tree_id_);
+    ApplyAccessibilityUpdates(tree_id_, {update});
+  }
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+TEST_F(ReadAnythingAppModelPdfArtifactTest,
+       DisplayNodeIdsDoesNotContain_Artifacts) {
+  EXPECT_THAT(model().display_node_ids(),
+              UnorderedElementsAre(kRootId, kParagraphId, kParagraphTextId));
+}
+
+TEST_F(ReadAnythingAppModelPdfArtifactTest,
+       DisplayNodeIdsContains_SectionHeaderAndFooter_NonPdf) {
+  // Section headers and footers are only artifacts in PDFs.
+  model().SetIsPdf(false);
+  ProcessDisplayNodes({kRootId});
+  EXPECT_THAT(
+      model().display_node_ids(),
+      UnorderedElementsAre(kRootId, kHeaderId, kHeaderTextId, kParagraphId,
+                           kParagraphTextId, kFooterId, kFooterTextId));
+}
+
+TEST_F(ReadAnythingAppModelPdfArtifactTest,
+       DisplayNodeIdsDoesNotContain_ArtifactContentNode) {
+  // A content node inside an artifact is dropped along with its ancestors.
+  ProcessDisplayNodes({kHeaderTextId, kParagraphId});
+  EXPECT_THAT(model().display_node_ids(),
+              UnorderedElementsAre(kRootId, kParagraphId, kParagraphTextId));
+}
+
+TEST_F(ReadAnythingAppModelPdfArtifactTest,
+       SelectionNodeIdsContains_SelectedArtifacts) {
+  SetSelection(kHeaderTextId, 0, kHeaderTextId, 4);
+
+  EXPECT_TRUE(model().PostProcessSelection());
+  EXPECT_EQ(model().side_panel_distillation_mode(),
+            ReadAnythingAppModel::SidePanelDistillationMode::kSelection);
+  EXPECT_THAT(model().selection_node_ids(),
+              UnorderedElementsAre(kRootId, kHeaderId, kHeaderTextId));
+}
+
+TEST_F(ReadAnythingAppModelPdfArtifactTest,
+       SelectionNodeIdsDoesNotContain_UnselectedArtifacts) {
+  // Selecting from the header through the paragraph includes only that range;
+  // the footer is not selected and stays out.
+  SetSelection(kHeaderTextId, 0, kParagraphTextId, 4);
+
+  EXPECT_TRUE(model().PostProcessSelection());
+  EXPECT_EQ(model().side_panel_distillation_mode(),
+            ReadAnythingAppModel::SidePanelDistillationMode::kSelection);
+  EXPECT_THAT(model().selection_node_ids(),
+              UnorderedElementsAre(kRootId, kHeaderId, kHeaderTextId,
+                                   kParagraphId, kParagraphTextId));
+}
+
+TEST_F(ReadAnythingAppModelPdfArtifactTest,
+       DisplayNodeIdsDoesNotContain_ArtifactsAfterArtifactSelection) {
+  SetSelection(kHeaderTextId, 0, kHeaderTextId, 4);
+  ASSERT_TRUE(model().PostProcessSelection());
+
+  // The controller recomputes display nodes when drawing in selection mode.
+  model().ComputeDisplayNodeIdsForDistilledTree();
+  EXPECT_THAT(model().display_node_ids(),
+              UnorderedElementsAre(kRootId, kParagraphId, kParagraphTextId));
+
+  // Clearing the selection returns to main content without the artifacts.
+  ClearSelection();
+  EXPECT_TRUE(model().PostProcessSelection());
+  EXPECT_EQ(model().side_panel_distillation_mode(),
+            ReadAnythingAppModel::SidePanelDistillationMode::kMainContent);
+  EXPECT_THAT(model().display_node_ids(),
+              UnorderedElementsAre(kRootId, kParagraphId, kParagraphTextId));
+
+  // Re-selecting the artifact still triggers select-to-distill.
+  SetSelection(kHeaderTextId, 0, kHeaderTextId, 4);
+  EXPECT_TRUE(model().PostProcessSelection());
+  EXPECT_EQ(model().side_panel_distillation_mode(),
+            ReadAnythingAppModel::SidePanelDistillationMode::kSelection);
+  EXPECT_THAT(model().selection_node_ids(),
+              UnorderedElementsAre(kRootId, kHeaderId, kHeaderTextId));
+}
+
 TEST_F(ReadAnythingAppModelScreen2xTest,
        StartAndEndNodesHaveDifferentParents_SelectionStateCorrect) {
   ui::AXTreeUpdate update;
@@ -3325,7 +4034,7 @@ TEST_F(
 }
 
 TEST_F(ReadAnythingAppModelScreen2xTest, PdfEvents_SetRequiresDistillation) {
-  model().set_is_pdf(true);
+  model().SetIsPdf(true);
 
   ui::AXTreeUpdate initial_update;
   test::SetUpdateTreeID(&initial_update, tree_id_);

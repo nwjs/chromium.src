@@ -36,16 +36,13 @@ import org.chromium.base.supplier.SettableNonNullObservableSupplier;
 import org.chromium.base.supplier.SettableNullableObservableSupplier;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.RobolectricUtil;
-import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.chrome.browser.browser_controls.BottomControlsStacker.LayerScrollBehavior;
-import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.glic.GlicEnabling;
 import org.chromium.chrome.browser.glic.GlicKeyedService;
 import org.chromium.chrome.browser.glic.GlicKeyedServiceFactory;
 import org.chromium.chrome.browser.layouts.LayoutStateProvider;
 import org.chromium.chrome.browser.omaha.UpdateMenuItemHelper;
 import org.chromium.chrome.browser.profiles.Profile;
-import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactory;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.theme.ThemeColorProvider;
 import org.chromium.chrome.browser.toolbar.bottom.BottomControlsCoordinator.BottomControlsVisibilityController;
@@ -60,7 +57,6 @@ import org.chromium.chrome.browser.ui.bottombar.BottomBarHostManager.Host;
 import org.chromium.chrome.browser.ui.bottombar.BottomBarUtils;
 import org.chromium.chrome.browser.ui.bottombar.R;
 import org.chromium.chrome.browser.ui.theme.BrandedColorScheme;
-import org.chromium.components.search_engines.TemplateUrlService;
 import org.chromium.ui.base.TestActivity;
 import org.chromium.ui.modaldialog.ModalDialogManager;
 import org.chromium.ui.modelutil.PropertyModel;
@@ -83,7 +79,6 @@ public class BottomBarContainerCoordinatorUnitTest {
     @Mock private ModalDialogManager mModalDialogManager;
     @Mock private UpdateMenuItemHelper mUpdateMenuItemHelper;
     @Mock private GlicKeyedService mGlicKeyedService;
-    @Mock private TemplateUrlService mTemplateUrlService;
     @Mock private LayoutStateProvider mLayoutStateProvider;
 
     private final SettableNullableObservableSupplier<Tab> mTabSupplier =
@@ -92,13 +87,10 @@ public class BottomBarContainerCoordinatorUnitTest {
             ObservableSuppliers.createNullable();
     private final SettableNullableObservableSupplier<PropertyModel> mGlicActionSupplier =
             ObservableSuppliers.createNullable();
-    private final SettableNullableObservableSupplier<PropertyModel> mAiModeActionSupplier =
-            ObservableSuppliers.createNullable();
     private final SettableNullableObservableSupplier<PropertyModel> mMenuActionSupplier =
             ObservableSuppliers.createNullable();
     private final SettableNullableObservableSupplier<Profile> mProfileSupplier =
             ObservableSuppliers.createNullable();
-    private OneshotSupplierImpl<String> mCountrySupplier;
 
     private Activity mActivity;
     private FrameLayout mBottomBarContainer;
@@ -109,20 +101,15 @@ public class BottomBarContainerCoordinatorUnitTest {
 
     @Before
     public void setUp() {
-        mCountrySupplier = new OneshotSupplierImpl<>();
-        mCountrySupplier.set("us");
         mTabSupplier.set(null);
         when(mActionRegistry.get(anyInt())).thenReturn(mActionSupplier);
         when(mActionRegistry.get(ActionId.GLIC)).thenReturn(mGlicActionSupplier);
-        when(mActionRegistry.get(ActionId.AI_MODE)).thenReturn(mAiModeActionSupplier);
         when(mActionRegistry.get(ActionId.APP_MENU)).thenReturn(mMenuActionSupplier);
         when(mProfile.getOriginalProfile()).thenReturn(mProfile);
         UpdateMenuItemHelper.setInstanceForTesting(mUpdateMenuItemHelper);
         when(mUpdateMenuItemHelper.getUiState()).thenReturn(new MenuUiState());
         GlicKeyedServiceFactory.setForTesting(mGlicKeyedService);
         GlicEnabling.setEnabledForTesting(false);
-        TemplateUrlServiceFactory.setInstanceForTesting(mTemplateUrlService);
-        when(mTemplateUrlService.isDefaultSearchEngineGoogle()).thenReturn(true);
 
         mActivityScenarioRule
                 .getScenario()
@@ -144,7 +131,6 @@ public class BottomBarContainerCoordinatorUnitTest {
                                             mThemeColorProvider,
                                             mHomepageEnabledSupplier,
                                             mProfileSupplier,
-                                            mCountrySupplier,
                                             mOmniboxFocusStateSupplier,
                                             mModalDialogManagerSupplier,
                                             new OneshotSupplierImpl<AppMenuCoordinator>(),
@@ -228,7 +214,7 @@ public class BottomBarContainerCoordinatorUnitTest {
         mCoordinator.initializeWithNative(mVisibilityController, mOnModelTokenChange);
         verify(mOnModelTokenChange, times(1)).onResult(any());
 
-        Configuration newConfig = new Configuration();
+        Configuration newConfig = new Configuration(mActivity.getResources().getConfiguration());
         newConfig.orientation = Configuration.ORIENTATION_LANDSCAPE;
 
         mCoordinator.getComponentCallbacksForTesting().onConfigurationChanged(newConfig);
@@ -248,10 +234,10 @@ public class BottomBarContainerCoordinatorUnitTest {
         mCoordinator.initializeWithNative(mVisibilityController, mOnModelTokenChange);
         verify(mOnModelTokenChange, times(1)).onResult(any());
 
-        Configuration newConfig1 = new Configuration();
+        Configuration newConfig1 = new Configuration(mActivity.getResources().getConfiguration());
         newConfig1.orientation = Configuration.ORIENTATION_LANDSCAPE;
 
-        Configuration newConfig2 = new Configuration();
+        Configuration newConfig2 = new Configuration(mActivity.getResources().getConfiguration());
         newConfig2.orientation = Configuration.ORIENTATION_PORTRAIT;
 
         mCoordinator.getComponentCallbacksForTesting().onConfigurationChanged(newConfig1);
@@ -269,9 +255,7 @@ public class BottomBarContainerCoordinatorUnitTest {
         mCoordinator.initializeWithNative(mVisibilityController, mOnModelTokenChange);
         verify(mOnModelTokenChange, times(1)).onResult(any());
 
-        Configuration newConfig = new Configuration();
-        int currentOrientation = mActivity.getResources().getConfiguration().orientation;
-        newConfig.orientation = currentOrientation;
+        Configuration newConfig = new Configuration(mActivity.getResources().getConfiguration());
 
         mCoordinator.getComponentCallbacksForTesting().onConfigurationChanged(newConfig);
 
@@ -283,17 +267,105 @@ public class BottomBarContainerCoordinatorUnitTest {
     }
 
     @Test
+    public void testOnConfigurationChanged_screenWidthChanged() {
+        mCoordinator.initializeWithNative(mVisibilityController, mOnModelTokenChange);
+        verify(mOnModelTokenChange, times(1)).onResult(any());
+
+        Configuration newConfig = new Configuration(mActivity.getResources().getConfiguration());
+        newConfig.screenWidthDp += 100;
+
+        mCoordinator.getComponentCallbacksForTesting().onConfigurationChanged(newConfig);
+
+        // Runnable is posted, verify it hasn't run yet.
+        verify(mOnModelTokenChange, times(1)).onResult(any());
+
+        // Run posted tasks.
+        RobolectricUtil.runAllBackgroundAndUi();
+
+        // Verify runnable executed.
+        verify(mOnModelTokenChange, times(2)).onResult(any());
+    }
+
+    @Test
+    public void testOnConfigurationChanged_screenHeightChanged() {
+        mCoordinator.initializeWithNative(mVisibilityController, mOnModelTokenChange);
+        verify(mOnModelTokenChange, times(1)).onResult(any());
+
+        Configuration newConfig = new Configuration(mActivity.getResources().getConfiguration());
+        newConfig.screenHeightDp += 100;
+
+        mCoordinator.getComponentCallbacksForTesting().onConfigurationChanged(newConfig);
+
+        // Runnable is posted, verify it hasn't run yet.
+        verify(mOnModelTokenChange, times(1)).onResult(any());
+
+        // Run posted tasks.
+        RobolectricUtil.runAllBackgroundAndUi();
+
+        // Verify runnable executed.
+        verify(mOnModelTokenChange, times(2)).onResult(any());
+    }
+
+    @Test
+    public void testOnConfigurationChanged_synchronousUpdateBeforeDestroy() {
+        mCoordinator.initializeWithNative(mVisibilityController, mOnModelTokenChange);
+        verify(mOnModelTokenChange, times(1)).onResult(any());
+
+        Configuration newConfig = new Configuration();
+        newConfig.orientation = Configuration.ORIENTATION_LANDSCAPE;
+
+        mCoordinator.getComponentCallbacksForTesting().onConfigurationChanged(newConfig);
+
+        // Synchronous update before the posted Runnable executes.
+        mCoordinator.onModelTokenChange();
+        verify(mOnModelTokenChange, times(2)).onResult(any());
+
+        mCoordinator.destroy();
+
+        // Run posted tasks.
+        RobolectricUtil.runAllBackgroundAndUi();
+
+        // Verify the posted runnable did not execute after destroy().
+        verify(mOnModelTokenChange, times(2)).onResult(any());
+    }
+
+    @Test
+    public void testOnConfigurationChanged_debounceWithSynchronousUpdate() {
+        mCoordinator.initializeWithNative(mVisibilityController, mOnModelTokenChange);
+        verify(mOnModelTokenChange, times(1)).onResult(any());
+
+        Configuration newConfig1 = new Configuration();
+        newConfig1.orientation = Configuration.ORIENTATION_LANDSCAPE;
+        mCoordinator.getComponentCallbacksForTesting().onConfigurationChanged(newConfig1);
+
+        // Synchronous update before the posted Runnable executes.
+        mCoordinator.onModelTokenChange();
+        verify(mOnModelTokenChange, times(2)).onResult(any());
+
+        Configuration newConfig2 = new Configuration();
+        newConfig2.orientation = Configuration.ORIENTATION_PORTRAIT;
+        mCoordinator.getComponentCallbacksForTesting().onConfigurationChanged(newConfig2);
+
+        // Run posted tasks.
+        RobolectricUtil.runAllBackgroundAndUi();
+
+        // Verify debouncing worked and the first runnable was removed: total calls to
+        // mOnModelTokenChange must be 3 (1 initial + 1 synchronous + 1 debounced orientation
+        // change), NOT 4.
+        verify(mOnModelTokenChange, times(3)).onResult(any());
+    }
+
+    @Test
     public void testOnBackgroundColorChanged() {
         mCoordinator.onBackgroundColorChanged();
         verify(mRequestLayerUpdateCallback).onResult(false);
     }
 
     @Test
-    public void testCountrySupplier_DelayedSupply_BindsExtraButtonWhenAvailable() {
+    public void testProfileSupplier_DelayedSupply_BindsExtraButtonWhenAvailable() {
         GlicEnabling.setEnabledForTesting(/* isEnabled= */ true);
         when(mProfile.getOriginalProfile()).thenReturn(mProfile);
 
-        OneshotSupplierImpl<String> countrySupplier = new OneshotSupplierImpl<>();
         mCoordinator.destroy();
 
         PropertyModel glicModel =
@@ -305,6 +377,7 @@ public class BottomBarContainerCoordinatorUnitTest {
                         .build();
         mGlicActionSupplier.set(glicModel);
 
+        mProfileSupplier.set(null);
         mCoordinator =
                 new BottomBarContainerCoordinator(
                         mBottomBarContainer,
@@ -314,7 +387,6 @@ public class BottomBarContainerCoordinatorUnitTest {
                         mThemeColorProvider,
                         mHomepageEnabledSupplier,
                         mProfileSupplier,
-                        countrySupplier,
                         mOmniboxFocusStateSupplier,
                         mModalDialogManagerSupplier,
                         new OneshotSupplierImpl<AppMenuCoordinator>(),
@@ -324,7 +396,7 @@ public class BottomBarContainerCoordinatorUnitTest {
         View extraButton = mCoordinator.getBottomBar().getView().findViewById(R.id.extra_button);
         assertNull(extraButton);
 
-        countrySupplier.set("us");
+        mProfileSupplier.set(mProfile);
         RobolectricUtil.runAllBackgroundAndUi();
 
         extraButton = mCoordinator.getBottomBar().getView().findViewById(R.id.extra_button);
@@ -334,11 +406,10 @@ public class BottomBarContainerCoordinatorUnitTest {
     }
 
     @Test
-    public void testCountrySupplier_EmptyCountry_FailsClosedAndRemainsHidden() {
-        GlicEnabling.setEnabledForTesting(/* isEnabled= */ true);
+    public void testExtraButton_GlicDisabled_FailsClosedAndRemainsHidden() {
+        GlicEnabling.setEnabledForTesting(/* isEnabled= */ false);
         when(mProfile.getOriginalProfile()).thenReturn(mProfile);
 
-        OneshotSupplierImpl<String> countrySupplier = new OneshotSupplierImpl<>();
         mCoordinator.destroy();
 
         PropertyModel glicModel =
@@ -359,126 +430,10 @@ public class BottomBarContainerCoordinatorUnitTest {
                         mThemeColorProvider,
                         mHomepageEnabledSupplier,
                         mProfileSupplier,
-                        countrySupplier,
                         mOmniboxFocusStateSupplier,
                         mModalDialogManagerSupplier,
                         new OneshotSupplierImpl<AppMenuCoordinator>(),
                         mLayoutStateProvider);
-        RobolectricUtil.runAllBackgroundAndUi();
-
-        countrySupplier.set("");
-        RobolectricUtil.runAllBackgroundAndUi();
-
-        View extraButton = mCoordinator.getBottomBar().getView().findViewById(R.id.extra_button);
-        assertNull(extraButton);
-        View extraContainer =
-                mCoordinator.getBottomBar().getView().findViewById(R.id.extra_button_container);
-        assertNotNull(extraContainer);
-        assertEquals(View.GONE, extraContainer.getVisibility());
-    }
-
-    @Test
-    @EnableFeatures({
-        ChromeFeatureList.ANDROID_BOTTOM_BAR_AIM,
-        ChromeFeatureList.ANDROID_BOTTOM_BAR + ":bypass_aim_geofencing/true"
-    })
-    public void testCountrySupplier_AuCountry_BindsAiModeExtraButton() {
-        GlicEnabling.setEnabledForTesting(/* isEnabled= */ true);
-        when(mProfile.getOriginalProfile()).thenReturn(mProfile);
-
-        OneshotSupplierImpl<String> countrySupplier = new OneshotSupplierImpl<>();
-        mCoordinator.destroy();
-
-        PropertyModel glicModel =
-                new PropertyModel.Builder(GlicActionProperties.ALL_KEYS)
-                        .with(
-                                ActionProperties.CONTENT_DESCRIPTION_RESOLVER,
-                                context -> "Ask Gemini")
-                        .with(ActionProperties.TOOLTIP_TEXT_RESOLVER, context -> "Ask Gemini")
-                        .build();
-        PropertyModel aiModeModel =
-                new PropertyModel.Builder(ActionProperties.ALL_KEYS)
-                        .with(
-                                ActionProperties.CONTENT_DESCRIPTION_RESOLVER,
-                                context -> "Ask AI Mode")
-                        .with(ActionProperties.TOOLTIP_TEXT_RESOLVER, context -> "Ask AI Mode")
-                        .build();
-        mGlicActionSupplier.set(glicModel);
-        mAiModeActionSupplier.set(aiModeModel);
-
-        mCoordinator =
-                new BottomBarContainerCoordinator(
-                        mBottomBarContainer,
-                        mRequestLayerUpdateCallback,
-                        mActionRegistry,
-                        mTabSupplier,
-                        mThemeColorProvider,
-                        mHomepageEnabledSupplier,
-                        mProfileSupplier,
-                        countrySupplier,
-                        mOmniboxFocusStateSupplier,
-                        mModalDialogManagerSupplier,
-                        new OneshotSupplierImpl<AppMenuCoordinator>(),
-                        mLayoutStateProvider);
-        RobolectricUtil.runAllBackgroundAndUi();
-
-        View extraButton = mCoordinator.getBottomBar().getView().findViewById(R.id.extra_button);
-        assertNull(extraButton);
-
-        // "au" is in AIM_ALLOWED_COUNTRIES, but not GLIC_ALLOWED_COUNTRIES.
-        countrySupplier.set("au");
-        RobolectricUtil.runAllBackgroundAndUi();
-
-        extraButton = mCoordinator.getBottomBar().getView().findViewById(R.id.extra_button);
-        assertNotNull(extraButton);
-        assertEquals(View.VISIBLE, extraButton.getVisibility());
-        assertEquals("Ask AI Mode", extraButton.getContentDescription());
-    }
-
-    @Test
-    @EnableFeatures(ChromeFeatureList.ANDROID_BOTTOM_BAR_AIM)
-    public void testCountrySupplier_FrCountry_FailsClosedAndRemainsHidden() {
-        GlicEnabling.setEnabledForTesting(/* isEnabled= */ true);
-        when(mProfile.getOriginalProfile()).thenReturn(mProfile);
-
-        OneshotSupplierImpl<String> countrySupplier = new OneshotSupplierImpl<>();
-        mCoordinator.destroy();
-
-        PropertyModel glicModel =
-                new PropertyModel.Builder(GlicActionProperties.ALL_KEYS)
-                        .with(
-                                ActionProperties.CONTENT_DESCRIPTION_RESOLVER,
-                                context -> "Ask Gemini")
-                        .with(ActionProperties.TOOLTIP_TEXT_RESOLVER, context -> "Ask Gemini")
-                        .build();
-        PropertyModel aiModeModel =
-                new PropertyModel.Builder(ActionProperties.ALL_KEYS)
-                        .with(
-                                ActionProperties.CONTENT_DESCRIPTION_RESOLVER,
-                                context -> "Ask AI Mode")
-                        .with(ActionProperties.TOOLTIP_TEXT_RESOLVER, context -> "Ask AI Mode")
-                        .build();
-        mGlicActionSupplier.set(glicModel);
-        mAiModeActionSupplier.set(aiModeModel);
-
-        mCoordinator =
-                new BottomBarContainerCoordinator(
-                        mBottomBarContainer,
-                        mRequestLayerUpdateCallback,
-                        mActionRegistry,
-                        mTabSupplier,
-                        mThemeColorProvider,
-                        mHomepageEnabledSupplier,
-                        mProfileSupplier,
-                        countrySupplier,
-                        mOmniboxFocusStateSupplier,
-                        mModalDialogManagerSupplier,
-                        new OneshotSupplierImpl<AppMenuCoordinator>(),
-                        mLayoutStateProvider);
-        RobolectricUtil.runAllBackgroundAndUi();
-
-        // "fr" is not in GLIC_ALLOWED_COUNTRIES and not in AIM_ALLOWED_COUNTRIES.
-        countrySupplier.set("fr");
         RobolectricUtil.runAllBackgroundAndUi();
 
         View extraButton = mCoordinator.getBottomBar().getView().findViewById(R.id.extra_button);

@@ -192,8 +192,9 @@ void AlarmManager::RemoveAllAlarms(const ExtensionId& extension_id,
 void AlarmManager::AddAlarmWhenReady(Alarm alarm,
                                      AddAlarmCallback callback,
                                      const ExtensionId& extension_id) {
-  AddAlarmImpl(extension_id, std::move(alarm));
-  WriteToStorage(extension_id);
+  if (AddAlarmImpl(extension_id, std::move(alarm))) {
+    WriteToStorage(extension_id);
+  }
   std::move(callback).Run();
 }
 
@@ -219,8 +220,14 @@ void AlarmManager::RemoveAlarmWhenReady(const std::string& name,
     return;
   }
 
+  // Store persistent flag before RemoveAlarmIterator() destroys data.
+  bool persistent = it.second->js_alarm->persist_across_sessions;
   RemoveAlarmIterator(it);
-  WriteToStorage(extension_id);
+  // Write alarms to storage only if the removed alarm was persistent, since
+  // PersistentAlarmsToValue() will skip any non-persistent alarm anyway.
+  if (persistent) {
+    WriteToStorage(extension_id);
+  }
   std::move(callback).Run(true);
 }
 
@@ -233,18 +240,28 @@ void AlarmManager::RemoveAllAlarmsWhenReady(RemoveAllAlarmsCallback callback,
 }
 
 bool AlarmManager::RemoveAllAlarmsInternal(const ExtensionId& extension_id) {
+  bool has_persistent = false;
   auto list = alarms_.find(extension_id);
   if (list != alarms_.end()) {
-    // Note: I'm using indices rather than iterators here because
-    // RemoveAlarmIterator will delete the list when it becomes empty.
-    for (size_t i = 0, size = list->second.size(); i < size; ++i) {
-      RemoveAlarmIterator(AlarmIterator(list, list->second.begin()));
+    // In single pass, determine if extension has at least one persistent alarm.
+    const AlarmList& alarms = list->second;
+    for (const Alarm& alarm : alarms) {
+      CHECK(alarm.js_alarm);
+      if (alarm.js_alarm->persist_across_sessions) {
+        has_persistent = true;
+        break;
+      }
     }
 
-    CHECK(alarms_.find(extension_id) == alarms_.end());
-    return true;
+    // Clear all alarms for this extension at once and cancel the shared timer
+    // if no other extension has alarms.
+    const bool found = alarms_.erase(extension_id);
+    DCHECK(found);
+    if (alarms_.empty()) {
+      StopTimer();
+    }
   }
-  return false;
+  return has_persistent;
 }
 
 AlarmManager::AlarmIterator AlarmManager::GetAlarmIterator(
@@ -299,16 +316,14 @@ void AlarmManager::RemoveAlarmIterator(const AlarmIterator& iter) {
   // We don't need to reschedule the poll otherwise, because in
   // the worst case we would just poll one extra time.
   if (alarms_.empty()) {
-    timer_.Stop();
-    next_poll_time_ = base::Time();
+    StopTimer();
   }
 }
 
 void AlarmManager::OnAlarm(AlarmIterator it) {
   CHECK(it.first != alarms_.end());
   Alarm& alarm = *it.second;
-  ExtensionId extension_id_copy(it.first->first);
-  delegate_->OnAlarm(extension_id_copy, alarm);
+  delegate_->OnAlarm(it.first->first, alarm);
 
   // Update our scheduled time for the next alarm.
   if (alarm.js_alarm->period_in_minutes) {
@@ -329,14 +344,36 @@ void AlarmManager::OnAlarm(AlarmIterator it) {
   } else {
     RemoveAlarmIterator(it);
   }
-  WriteToStorage(extension_id_copy);
 }
 
-void AlarmManager::AddAlarmImpl(const ExtensionId& extension_id, Alarm alarm) {
+// This operator compares two alarms without serializing them. It extends the
+// underlying Alarm struct auto-generated from WebIDL. Keep in sync with
+// extensions/common/api/alarms.webidl dictionary Alarm. Tested by
+// AlarmsObjectTest.OperatorEqualsEquals.
+bool alarms::operator==(const alarms::Alarm& lhs, const alarms::Alarm& rhs) {
+  return std::tie(lhs.name, lhs.scheduled_time, lhs.period_in_minutes,
+                  lhs.persist_across_sessions) ==
+         std::tie(rhs.name, rhs.scheduled_time, rhs.period_in_minutes,
+                  rhs.persist_across_sessions);
+}
+
+// Returns true if a persistent alarm was modified (persistent alarm
+// overwritten by a non-persistent alarm, persistent alarm updated, or
+// persistent alarm was added).
+bool AlarmManager::AddAlarmImpl(const ExtensionId& extension_id, Alarm alarm) {
   // Override any old alarm with the same name.
   AlarmIterator old_alarm =
       GetAlarmIterator(extension_id, alarm.js_alarm->name);
+  bool modified_persistent_alarm = alarm.js_alarm->persist_across_sessions;
   if (old_alarm.first != alarms_.end()) {
+    if (*old_alarm.second->js_alarm == *alarm.js_alarm) {
+      // If extension already has an identical alarm, this call is a no-op.
+      // We do not need to delete and re-create alarm and re-schedule the poll.
+      return false;
+    }
+    modified_persistent_alarm =
+        modified_persistent_alarm ||
+        old_alarm.second->js_alarm->persist_across_sessions;
     RemoveAlarmIterator(old_alarm);
   }
 
@@ -346,6 +383,7 @@ void AlarmManager::AddAlarmImpl(const ExtensionId& extension_id, Alarm alarm) {
   if (next_poll_time_.is_null() || alarm_time < next_poll_time_) {
     SetNextPollTime(alarm_time);
   }
+  return modified_persistent_alarm;
 }
 
 void AlarmManager::WriteToStorage(const ExtensionId& extension_id) {
@@ -387,11 +425,16 @@ void AlarmManager::SetNextPollTime(const base::Time& time) {
   timer_.Start(FROM_HERE, time, this, &AlarmManager::PollAlarms);
 }
 
+void AlarmManager::StopTimer() {
+  DCHECK(alarms_.empty());
+  timer_.Stop();
+  next_poll_time_ = base::Time();
+}
+
 void AlarmManager::ScheduleNextPoll() {
   // If there are no alarms, stop the timer.
   if (alarms_.empty()) {
-    timer_.Stop();
-    next_poll_time_ = base::Time();
+    StopTimer();
     return;
   }
 
@@ -444,6 +487,10 @@ void AlarmManager::PollAlarms() {
       continue;
     }
 
+    // Copy the ID, since firing the last alarm may erase `cur_extension`.
+    const ExtensionId extension_id = cur_extension->first;
+    bool alarm_fired = false;
+
     // Iterate (a) backwards so that removing elements doesn't affect
     // upcoming iterations, and (b) with indices so that if the last
     // iteration destroys the AlarmList, I'm not about to use the end
@@ -454,9 +501,16 @@ void AlarmManager::PollAlarms() {
           cur_alarm->js_alarm->scheduled_time);
 
       if (cur_alarm_time <= now) {
-        last_poll_times_[cur_extension->first] = now;
+        last_poll_times_[extension_id] = now;
         OnAlarm(make_pair(cur_extension, cur_alarm));
+        alarm_fired = true;
       }
+    }
+
+    // Persist the extension's alarms once, after all of its elapsed alarms
+    // have fired, rather than once per alarm.
+    if (alarm_fired) {
+      WriteToStorage(extension_id);
     }
   }
 

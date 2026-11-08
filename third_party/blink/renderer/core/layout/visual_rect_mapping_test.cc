@@ -2142,10 +2142,11 @@ TEST_P(VisualRectMappingTest,
 }
 
 TEST_P(VisualRectMappingTest, ElementCanvasTransformVisualRectMapping) {
+  GetDocument().GetSettings()->SetScriptEnabled(true);
   SetBodyInnerHTML(R"HTML(
     <style>body { margin: 0; }</style>
     <canvas content=drawable id="canvas" style="width: 200px; height: 200px">
-      <div id="target" style="width: 100px; height: 100px"></div>
+      <div id="target" drawable style="width: 100px; height: 100px"></div>
     </canvas>
   )HTML");
 
@@ -2170,6 +2171,7 @@ TEST_P(VisualRectMappingTest, ElementCanvasTransformVisualRectMapping) {
 }
 
 TEST_P(VisualRectMappingTest, NestedElementCanvasTransformVisualRectMapping) {
+  GetDocument().GetSettings()->SetScriptEnabled(true);
   SetBodyInnerHTML(R"HTML(
     <style>body { margin: 0; }</style>
     <canvas content=drawable id="canvas" style="width: 400px; height: 200px">
@@ -2203,6 +2205,7 @@ TEST_P(VisualRectMappingTest, NestedElementCanvasTransformVisualRectMapping) {
 
 TEST_P(VisualRectMappingTest,
        NestedElementCanvasTransformWithOffsetVisualRectMapping) {
+  GetDocument().GetSettings()->SetScriptEnabled(true);
   SetBodyInnerHTML(R"HTML(
     <style>body { margin: 0; }</style>
     <canvas content=drawable id="canvas" style="width: 400px; height: 200px">
@@ -2237,6 +2240,7 @@ TEST_P(VisualRectMappingTest,
 TEST_P(
     VisualRectMappingTest,
     NestedElementCanvasTransformChildWithoutCanvasTransformVisualRectMapping) {
+  GetDocument().GetSettings()->SetScriptEnabled(true);
   SetBodyInnerHTML(R"HTML(
     <style>body { margin: 0; }</style>
     <canvas content=drawable id="canvas" style="width: 400px; height: 200px">
@@ -2269,6 +2273,7 @@ TEST_P(
 
 TEST_P(VisualRectMappingTest,
        NestedElementCanvasTransformNonDrawableChildVisualRectMapping) {
+  GetDocument().GetSettings()->SetScriptEnabled(true);
   SetBodyInnerHTML(R"HTML(
     <style>body { margin: 0; }</style>
     <canvas content=drawable id="canvas" style="width: 400px; height: 200px">
@@ -2301,6 +2306,7 @@ TEST_P(VisualRectMappingTest,
 
 TEST_P(VisualRectMappingTest,
        NestedElementCanvasTransformInlineVisualRectMapping) {
+  GetDocument().GetSettings()->SetScriptEnabled(true);
   LoadAhem();
   SetBodyInnerHTML(R"HTML(
     <style>

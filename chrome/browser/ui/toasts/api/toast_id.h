@@ -81,7 +81,9 @@ enum class ToastId {
   kScheduledRestartOnIdle = 58,
   kEmailVerificationError = 59,
   kAutofillAiSuggestionRemoved = 60,
-  kMaxValue = kAutofillAiSuggestionRemoved,
+  kTtcGenericError = 61,
+  kTtcNoMicrophoneError = 62,
+  kMaxValue = kTtcNoMicrophoneError,
 };
 // LINT.ThenChange(/tools/metrics/histograms/metadata/toasts/enums.xml:ToastId)
 

@@ -172,10 +172,6 @@ class NET_EXPORT TransportSecurityState {
     // Are subdomains subject to this policy state?
     bool include_subdomains = false;
 
-    // The domain which matched during a search for this DomainState entry.
-    // Updated by |GetDynamicPKPState| and |GetStaticDomainState|.
-    std::string domain;
-
     // Takes a set of SubjectPublicKeyInfo |hashes| and returns true if:
     //   1) |bad_static_spki_hashes| does not intersect |hashes|; AND
     //   2) Both |static_spki_hashes| and |dynamic_spki_hashes| are empty
@@ -419,7 +415,7 @@ class NET_EXPORT TransportSecurityState {
   // The number of cached STSState entries.
   size_t num_sts_entries() const;
 
-#if BUILDFLAG(INCLUDE_TRANSPORT_SECURITY_STATE_PRELOAD_LIST)
+#if BUILDFLAG(CHROME_KEY_PINNING_SUPPORTED)
   static base::Time GetBuiltInPinsListTimestamp();
 #endif
 

@@ -22,6 +22,7 @@ class QwacWebContentsObserver;
 class NewTabPagePreloadPipelineManager;
 
 namespace actor {
+class ActorSurfaceTabHelper;
 class ActorTabData;
 }  // namespace actor
 
@@ -32,6 +33,22 @@ class ContextualTasksTabVisitTracker;
 namespace actor::ui {
 class ActorUiTabControllerInterface;
 }  // namespace actor::ui
+
+namespace blocked_content {
+class PopupOpenerTabHelper;
+}  // namespace blocked_content
+
+namespace chrome_browser_net {
+class NetErrorTabHelper;
+}  // namespace chrome_browser_net
+
+namespace client_hints {
+class ClientHintsWebContentsObserver;
+}  // namespace client_hints
+
+namespace commerce {
+class CommerceTabHelper;
+}  // namespace commerce
 
 namespace content {
 class WebContents;
@@ -71,8 +88,14 @@ class GlicMarketingPageTabHelper;
 class GlicSidePanelCoordinator;
 }  // namespace glic
 
+namespace history {
+class WebContentsTopSitesObserver;
+}  // namespace history
+
 namespace offline_pages {
 class AutoFetchNavigationObserver;
+class OfflinePageTabHelper;
+class RecentTabHelper;
 }  // namespace offline_pages
 
 namespace sync_sessions {
@@ -83,9 +106,21 @@ namespace lens {
 class TabContextualizationController;
 }  // namespace lens
 
+namespace metrics {
+class MetricsServicesWebContentsObserver;
+}  // namespace metrics
+
+namespace page_content_annotations {
+class PageContentAnnotationsWebContentsObserver;
+}  // namespace page_content_annotations
+
 namespace payments {
 class WebPaymentsObserver;
 }  // namespace payments
+
+namespace predictors {
+class LoadingPredictorTabHelper;
+}  // namespace predictors
 
 namespace prerender {
 class NoStatePrefetchTabHelper;
@@ -93,7 +128,9 @@ class NoStatePrefetchTabHelper;
 
 #if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
 namespace safe_browsing {
+class SafeBrowsingTabObserver;
 class TailoredSecurityUrlObserver;
+class TriggerCreator;
 }  // namespace safe_browsing
 #endif
 
@@ -109,24 +146,46 @@ namespace v8_compile_hints {
 class V8CompileHintsTabHelper;
 }  // namespace v8_compile_hints
 
+namespace vr {
+class VrTabHelper;
+}  // namespace vr
+
+namespace webapps {
+class AppBannerManagerAndroid;
+class MLInstallabilityPromoter;
+}  // namespace webapps
+
 class AboutThisSiteTabHelper;
+class AutoPictureInPictureTabHelper;
+class BreadcrumbManagerTabHelper;
+class ChainedBackNavigationTracker;
+class ChromeFacilitatedPaymentsClient;
 class ConnectionHelpTabHelper;
+class CoreTabHelper;
 class ExternalProtocolObserver;
+class FileSystemAccessTabHelper;
 class FromGWSNavigationAndKeepAliveRequestObserver;
 class HistoryEmbeddingsTabHelper;
 class HttpAuthCacheStatus;
+class MediaStateObserver;
+class MixedContentSettingsTabHelper;
 class NavigationMetricsRecorder;
 class NavigationPredictorPreconnectClient;
+class OneTimePermissionsTrackerHelper;
 class OomInterventionTabHelper;
 class PluginObserverAndroid;
 class PolicyAuditorBridge;
+class RecentlyAudibleHelper;
 class RevokedPermissionsTabHelper;
+class SearchEngineTabHelper;
 class SecurityStateEventObserver;
 class SoundContentSettingObserver;
 class StorageAccessAPITabHelper;
+class SupervisedUserNavigationObserver;
 class TabContextDecryptionTokenTabHelper;
 
 #if BUILDFLAG(ENABLE_WEBUI_NTP)
+class SearchTabHelper;
 namespace customize_chrome {
 class SidePanelController;
 }  // namespace customize_chrome
@@ -184,6 +243,7 @@ class TabFeatures {
       ask_before_http_dialog_controller_;
 
   std::unique_ptr<actor::ActorTabData> actor_tab_data_;
+  std::unique_ptr<actor::ActorSurfaceTabHelper> actor_surface_tab_helper_;
 
   std::unique_ptr<sync_sessions::SyncSessionsRouterTabHelper>
       sync_sessions_router_;
@@ -210,6 +270,7 @@ class TabFeatures {
 #if BUILDFLAG(ENABLE_WEBUI_NTP)
   std::unique_ptr<customize_chrome::SidePanelController>
       customize_chrome_side_panel_controller_;
+  std::unique_ptr<SearchTabHelper> search_tab_helper_;
 #endif
   std::unique_ptr<tabs::PageContextEligibilityHelper>
       page_context_eligibility_helper_;
@@ -236,8 +297,11 @@ class TabFeatures {
   std::unique_ptr<site_protection::SiteProtectionMetricsObserver>
       site_protection_metrics_observer_;
 #if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
+  std::unique_ptr<safe_browsing::SafeBrowsingTabObserver>
+      safe_browsing_tab_observer_;
   std::unique_ptr<safe_browsing::TailoredSecurityUrlObserver>
       tailored_security_url_observer_;
+  std::unique_ptr<safe_browsing::TriggerCreator> trigger_creator_;
 #endif
   std::unique_ptr<OomInterventionTabHelper> oom_intervention_tab_helper_;
   std::unique_ptr<PolicyAuditorBridge> policy_auditor_bridge_;
@@ -248,11 +312,50 @@ class TabFeatures {
       auto_fetch_navigation_observer_;
   std::unique_ptr<PluginObserverAndroid> plugin_observer_android_;
   std::unique_ptr<AboutThisSiteTabHelper> about_this_site_tab_helper_;
+  std::unique_ptr<RecentlyAudibleHelper> recently_audible_helper_;
   std::unique_ptr<SoundContentSettingObserver> sound_content_setting_observer_;
   std::unique_ptr<tasks::TaskTabHelper> task_tab_helper_;
   std::unique_ptr<HistoryEmbeddingsTabHelper> history_embeddings_tab_helper_;
   std::unique_ptr<download::DownloadNavigationObserver>
       download_navigation_observer_;
+  std::unique_ptr<history::WebContentsTopSitesObserver>
+      web_contents_top_sites_observer_;
+  std::unique_ptr<client_hints::ClientHintsWebContentsObserver>
+      client_hints_web_contents_observer_;
+  std::unique_ptr<ChainedBackNavigationTracker>
+      chained_back_navigation_tracker_;
+  std::unique_ptr<MediaStateObserver> media_state_observer_;
+  std::unique_ptr<FileSystemAccessTabHelper> file_system_access_tab_helper_;
+  std::unique_ptr<SearchEngineTabHelper> search_engine_tab_helper_;
+  std::unique_ptr<chrome_browser_net::NetErrorTabHelper> net_error_tab_helper_;
+  std::unique_ptr<SupervisedUserNavigationObserver>
+      supervised_user_navigation_observer_;
+  std::unique_ptr<offline_pages::OfflinePageTabHelper> offline_page_tab_helper_;
+  std::unique_ptr<offline_pages::RecentTabHelper> recent_tab_helper_;
+  std::unique_ptr<AutoPictureInPictureTabHelper>
+      auto_picture_in_picture_tab_helper_;
+  std::unique_ptr<webapps::AppBannerManagerAndroid> app_banner_manager_;
+  std::unique_ptr<webapps::MLInstallabilityPromoter>
+      ml_installability_promoter_;
+  std::unique_ptr<ChromeFacilitatedPaymentsClient>
+      chrome_facilitated_payments_client_;
+  std::unique_ptr<commerce::CommerceTabHelper> commerce_tab_helper_;
+  std::unique_ptr<metrics::MetricsServicesWebContentsObserver>
+      metrics_services_web_contents_observer_;
+  std::unique_ptr<blocked_content::PopupOpenerTabHelper>
+      popup_opener_tab_helper_;
+  std::unique_ptr<
+      page_content_annotations::PageContentAnnotationsWebContentsObserver>
+      page_content_annotations_web_contents_observer_;
+  std::unique_ptr<CoreTabHelper> core_tab_helper_;
+  std::unique_ptr<vr::VrTabHelper> vr_tab_helper_;
+  std::unique_ptr<MixedContentSettingsTabHelper>
+      mixed_content_settings_tab_helper_;
+  std::unique_ptr<OneTimePermissionsTrackerHelper>
+      one_time_permissions_tracker_helper_;
+  std::unique_ptr<predictors::LoadingPredictorTabHelper>
+      loading_predictor_tab_helper_;
+  std::unique_ptr<BreadcrumbManagerTabHelper> breadcrumb_manager_tab_helper_;
 
   // Holds the WebUI embedding context subscription.
   base::CallbackListSubscription tab_subscription_;

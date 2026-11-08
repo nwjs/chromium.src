@@ -5,6 +5,7 @@
 #include "components/autofill/core/browser/integrators/autofill_ai/metrics/autofill_ai_logger.h"
 
 #include <algorithm>
+#include <array>
 #include <map>
 #include <memory>
 #include <optional>
@@ -23,11 +24,13 @@
 #include "base/strings/stringprintf.h"
 #include "components/autofill/core/browser/autofill_ai_form_rationalization.h"
 #include "components/autofill/core/browser/autofill_field.h"
+#include "components/autofill/core/browser/data_manager/autofill_ai/entity_suppression_manager.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_instance.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_type.h"
 #include "components/autofill/core/browser/filling/filling_product.h"
 #include "components/autofill/core/browser/form_processing/autofill_ai/determine_attribute_types.h"
 #include "components/autofill/core/browser/form_structure.h"
+#include "components/autofill/core/browser/foundations/autofill_client.h"
 #include "components/autofill/core/browser/integrators/autofill_ai/metrics/autofill_ai_metrics.h"
 #include "components/autofill/core/browser/integrators/autofill_ai/metrics/autofill_ai_ukm_logger.h"
 #include "components/autofill/core/browser/permissions/autofill_ai/autofill_ai_permission_util.h"
@@ -77,12 +80,10 @@ void LogKeyMetric(std::string_view key_metric_name,
                   std::optional<EntityType> entity_type,
                   std::optional<EntityInstance::RecordType> record_type,
                   bool metric_value,
-                  metrics::ProfileMetricsService& profile_metrics_service) {
-  // Only entity-type-specific histograms are split by record type.
-  CHECK(!record_type || entity_type);
-
+                  metrics::ProfileMetricsService& profile_metrics_service,
+                  std::string_view suffix = "") {
   static constexpr std::string_view kKeyMetricsHistogramMask =
-      "Autofill.Ai.KeyMetrics.%s%s%s";
+      "Autofill.Ai.KeyMetrics.%s%s%s%s";
 
   const std::string entity_type_str =
       entity_type ? base::StrCat({".", EntityTypeToMetricsString(*entity_type)})
@@ -94,7 +95,7 @@ void LogKeyMetric(std::string_view key_metric_name,
 
   profile_metrics_service.UmaHistogramBoolean(
       base::StringPrintf(kKeyMetricsHistogramMask, key_metric_name,
-                         entity_type_str, record_type_str),
+                         entity_type_str, record_type_str, suffix),
       metric_value);
 }
 
@@ -102,12 +103,17 @@ void LogKeyMetric(std::string_view key_metric_name,
 
 AutofillAiLogger::AutofillAiLogger(AutofillClient* client)
     : ukm_logger_(client),
-      profile_metrics_service_(
-          CHECK_DEREF(client->GetProfileMetricsService())) {}
+      profile_metrics_service_(CHECK_DEREF(client->GetProfileMetricsService())),
+      entity_suppression_manager_(client->GetEntitySuppressionManager()) {}
 AutofillAiLogger::~AutofillAiLogger() {
   for (const auto& [form_id, states] : form_states_) {
     if (!submitted_forms_.contains(form_id)) {
       RecordFunnelMetrics(states, /*submission_state=*/false);
+    }
+  }
+  for (const auto& [form_id, entities] : personal_context_entities_shown_) {
+    if (!submitted_forms_.contains(form_id)) {
+      RecordPersonalContextSuppressionMetrics(form_id);
     }
   }
 }
@@ -147,6 +153,11 @@ void AutofillAiLogger::OnSuggestionsShown(
     ukm_logger_.LogFieldEvent(ukm_source_id, form, field, entity_type,
                               record_type,
                               AutofillAiUkmLogger::EventType::kSuggestionShown);
+  }
+  for (const EntityInstance* const entity : entities_suggested) {
+    if (entity->record_type() == EntityInstance::RecordType::kPersonalContext) {
+      personal_context_entities_shown_[form.global_id()].insert(*entity);
+    }
   }
 }
 
@@ -246,6 +257,7 @@ void AutofillAiLogger::RecordFormMetrics(const FormStructure& form,
     }
   }
   RecordFunnelMetrics(funnel_states, submission_state);
+  RecordPersonalContextSuppressionMetrics(form.global_id());
   RecordNumberOfFieldsFilled(form, funnel_states, opt_in_status);
 }
 
@@ -309,19 +321,50 @@ void AutofillAiLogger::RecordFunnelMetricsForState(
 void AutofillAiLogger::RecordKeyMetrics(
     const FormFunnelStateMap& funnel_states) const {
   std::map<EntityType, FunnelState> record_type_agnostic_states;
-  // `funnel_states` is a map of EntityType -> RecordType -> FunnelState.
-  // Compress the RecordType dimension into an EntityType -> FunnelState map.
+  std::map<EntityInstance::RecordType, FunnelState> entity_type_agnostic_states;
+  // `funnel_states` is a map of `EntityType` -> `RecordType` -> `FunnelState`.
+  // Compress the RecordType dimension into an `EntityType` -> `FunnelState` map
+  // and the EntityType dimension into a `RecordType` -> `FunnelState` map.
   for (const auto& [type, states] : funnel_states) {
     record_type_agnostic_states.insert({type, CombineStates(states)});
+    for (const auto& [record_type, state] : states) {
+      entity_type_agnostic_states[record_type] = CombineStates(
+          std::array{entity_type_agnostic_states[record_type], state});
+    }
   }
   FunnelState combined_state = CombineStates(record_type_agnostic_states);
   RecordKeyMetricsForState(combined_state, /*entity_type=*/std::nullopt,
                            /*record_type=*/std::nullopt);
+  RecordFillingAcceptanceBySuggestionMix(/*entity_type=*/std::nullopt,
+                                         entity_type_agnostic_states);
+  for (const auto& [record_type, state] : entity_type_agnostic_states) {
+    RecordKeyMetricsForState(state, /*entity_type=*/std::nullopt, record_type);
+  }
+  for (const auto& [entity_type, state] : record_type_agnostic_states) {
+    RecordKeyMetricsForState(state, entity_type, /*record_type=*/std::nullopt);
+  }
   for (const auto& [entity_type, states] : funnel_states) {
-    RecordKeyMetricsForState(record_type_agnostic_states.at(entity_type),
-                             entity_type, /*record_type=*/std::nullopt);
     for (const auto& [record_type, state] : states) {
       RecordKeyMetricsForState(state, entity_type, record_type);
+    }
+    RecordFillingAcceptanceBySuggestionMix(entity_type, states);
+  }
+}
+
+void AutofillAiLogger::RecordFillingAcceptanceBySuggestionMix(
+    std::optional<EntityType> entity_type,
+    const std::map<EntityInstance::RecordType, FunnelState>& funnel_states)
+    const {
+  const auto shown_record_types_count = std::ranges::count_if(
+      funnel_states, &FunnelState::suggestions_shown,
+      &std::pair<const EntityInstance::RecordType, FunnelState>::second);
+  const std::string_view suggestion_mix_suffix =
+      shown_record_types_count > 1 ? ".Mixed" : ".Only";
+  for (const auto& [record_type, state] : funnel_states) {
+    if (state.suggestions_shown) {
+      LogKeyMetric("FillingAcceptance", entity_type, record_type,
+                   state.did_fill_suggestions, *profile_metrics_service_,
+                   suggestion_mix_suffix);
     }
   }
 }
@@ -342,6 +385,26 @@ void AutofillAiLogger::RecordKeyMetricsForState(
     LogKeyMetric("FillingCorrectness", entity_type, record_type,
                  !funnel_state.edited_autofilled_field,
                  *profile_metrics_service_);
+  }
+}
+
+void AutofillAiLogger::RecordPersonalContextSuppressionMetrics(
+    FormGlobalId form_id) const {
+  const base::flat_set<EntityInstance, EntityInstance::CompareByGuid>*
+      entities = base::FindOrNull(personal_context_entities_shown_, form_id);
+  if (!entities || !entity_suppression_manager_) {
+    return;
+  }
+  for (const EntityInstance& entity : *entities) {
+    const bool is_suppressed =
+        entity_suppression_manager_->IsSuppressed(entity);
+    profile_metrics_service_->UmaHistogramBoolean(
+        base::StrCat({"Autofill.Ai.Suppression.",
+                      EntityTypeToMetricsString(entity.type()),
+                      ".PersonalContext"}),
+        is_suppressed);
+    profile_metrics_service_->UmaHistogramBoolean(
+        "Autofill.Ai.Suppression.PersonalContext", is_suppressed);
   }
 }
 

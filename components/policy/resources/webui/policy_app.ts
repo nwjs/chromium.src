@@ -183,21 +183,27 @@ export class PolicyAppElement extends CrLitElement {
         name: group.forSigninScreen ?
             `${group.name} [${loadTimeData.getString('signinProfile')}]` :
             group.name,
-        id: id,
+        // For Web Apps (PWAs), multiple subpath PWAs sharing the same origin
+        // are keyed by scope URL in `policyGroups` so their map keys (`id`)
+        // don't collide, while `group.id` holds the display origin.
+        id: (group.isWebApp && group.id) ? group.id : id,
         isExtension: group.isExtension,
+        isWebApp: group.isWebApp,
         policies,
         ...(group.precedenceOrder && {precedenceOrder: group.precedenceOrder}),
       };
     });
 
     // <if expr="not is_chromeos">
-    this.enableReportButton_ =
-        [
-          'CloudReportingEnabled',
-          'CloudProfileReportingEnabled',
-          'UserSecuritySignalsReporting',
-        ].map(p => !!policyGroups['chrome']?.policies[p]?.value)
-            .reduce((accumulator, current) => accumulator ||= current, false);
+    const isNonEmpty = (value: unknown) =>
+        Array.isArray(value) ? value.length > 0 : !!value;
+    this.enableReportButton_ = [
+      'CloudReportingEnabled',
+      'CloudProfileReportingEnabled',
+      'UserSecuritySignalsReporting',
+      'SaasUsageReportingDomainUrlsForBrowsers',
+      'SaasUsageReportingDomainUrlsForProfiles',
+    ].some(p => isNonEmpty(policyGroups['chrome']?.policies[p]?.value));
     // </if>
     this.reloadPoliciesDone_();
   }

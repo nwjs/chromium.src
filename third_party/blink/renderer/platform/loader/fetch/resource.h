@@ -77,6 +77,8 @@ PLATFORM_EXPORT BASE_DECLARE_FEATURE(
     kPreventExtensionResourceFetchAcrossIsolatedWorlds);
 PLATFORM_EXPORT BASE_DECLARE_FEATURE(
     kPreventCrossWorldServiceWorkerResourceReuse);
+PLATFORM_EXPORT BASE_DECLARE_FEATURE(
+    kPreventDifferentSkipServiceWorkerResourceReuse);
 
 class BackgroundResponseProcessorFactory;
 class BlobDataHandle;
@@ -175,6 +177,15 @@ class PLATFORM_EXPORT Resource : public GarbageCollected<Resource>,
     // Match fails because the response status code is 304 (Not Modified)
     // without a body, but all other request parameters matched.
     k304NotModified,
+
+    // Match fails due to different ServiceWorker policies (SkipServiceWorker).
+    kSkipServiceWorkerDoesNotMatch,
+
+    // Match fails because cross-`WorldForCsp()` reuse is prevented.
+    kPreventAllCrossWorldForCspReuse,
+
+    // Match fails because cross-`TargetWorld()` reuse is prevented.
+    kPreventAllCrossTargetWorldReuse,
   };
 
   Resource(const Resource&) = delete;

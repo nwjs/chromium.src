@@ -37,6 +37,7 @@
 #include "components/input/timeout_monitor.h"
 #include "components/viz/common/features.h"
 #include "content/browser/back_forward_cache/back_forward_cache_impl.h"
+#include "content/browser/bad_message.h"
 #include "content/browser/browser_main_loop.h"
 #include "content/browser/renderer_host/initiator_navigation_state_impl.h"
 #include "content/browser/renderer_host/navigation_request.h"
@@ -54,9 +55,11 @@
 #include "content/public/browser/document_service.h"
 #include "content/public/browser/document_user_data.h"
 #include "content/public/browser/javascript_dialog_manager.h"
+#include "content/public/browser/network_service_util.h"
 #include "content/public/browser/origin_trials_controller_delegate.h"
 #include "content/public/browser/page_user_data.h"
 #include "content/public/browser/render_frame_host.h"
+#include "content/public/browser/storage_partition.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "content/public/common/content_client.h"
@@ -108,6 +111,7 @@
 #include "services/network/public/cpp/network_switches.h"
 #include "services/network/public/cpp/resource_request.h"
 #include "services/network/public/cpp/simple_url_loader.h"
+#include "services/network/public/mojom/clear_data_filter.mojom.h"
 #include "services/network/public/mojom/connection_change_observer_client.mojom.h"
 #include "services/network/public/mojom/network_context.mojom.h"
 #include "services/network/public/mojom/url_loader_factory.mojom.h"
@@ -7400,7 +7404,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest,
   }
 }
 
-IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest, GetSiblings) {
+IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest, PreviousSibling) {
   IsolateAllSitesForTesting(base::CommandLine::ForCurrentProcess());
   // Use actual FrameTreeNode id values in URL.
   GURL main_url(embedded_test_server()->GetURL(
@@ -7414,23 +7418,18 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest, GetSiblings) {
   FrameTreeNode* ftn5 = ftn3->child_at(0);
 
   // Check root node.
-  EXPECT_EQ(ftn1->current_frame_host()->NextSibling(), nullptr);
   EXPECT_EQ(ftn1->current_frame_host()->PreviousSibling(), nullptr);
 
   // Check first child of root (leaf node).
-  EXPECT_EQ(ftn2->current_frame_host()->NextSibling(), ftn3);
   EXPECT_EQ(ftn2->current_frame_host()->PreviousSibling(), nullptr);
 
   // Check second child of root (has child).
-  EXPECT_EQ(ftn3->current_frame_host()->NextSibling(), ftn4);
   EXPECT_EQ(ftn3->current_frame_host()->PreviousSibling(), ftn2);
 
   // Check third child of root (leaf).
-  EXPECT_EQ(ftn4->current_frame_host()->NextSibling(), nullptr);
   EXPECT_EQ(ftn4->current_frame_host()->PreviousSibling(), ftn3);
 
   // Check deepest node in tree (leaf with no siblings).
-  EXPECT_EQ(ftn5->current_frame_host()->NextSibling(), nullptr);
   EXPECT_EQ(ftn5->current_frame_host()->PreviousSibling(), nullptr);
 }
 
@@ -10499,58 +10498,67 @@ class RenderFrameHostImplConnectionAllowlistBrowserTest
   }
 
  protected:
-  void SetUpOnMainThread() override {
-    url_loader_interceptor_ = std::make_unique<
-        URLLoaderInterceptor>(base::BindRepeating(
-        &RenderFrameHostImplConnectionAllowlistBrowserTest::InterceptURLRequest,
-        base::Unretained(this)));
+  void SetUp() override {
+    // Force the network service to run in the same process as the browser test.
+    // This allows the mock host resolver to intercept the DNS requests.
+    ForceInProcessNetworkService();
+    RenderFrameHostImplBrowserTest::SetUp();
+  }
 
+  void SetUpOnMainThread() override {
+    // The mock host resolver tracks the DNS resolution by the matched rule's
+    // pattern string, not the requested hostname. So this is required to
+    // identify the DNS resolution count to each test hostname.
+    host_resolver()->AddRule("a.com", "127.0.0.1");
+    host_resolver()->AddRule("b.com", "127.0.0.1");
     host_resolver()->AddRule("*", "127.0.0.1");
     https_server()->SetSSLConfig(net::EmbeddedTestServer::CERT_TEST_NAMES);
     https_server()->ServeFilesFromSourceDirectory(GetTestDataFilePath());
     mock_cert_verifier_.mock_cert_verifier()->set_default_result(net::OK);
+    https_server()->RegisterRequestHandler(base::BindRepeating(
+        &RenderFrameHostImplConnectionAllowlistBrowserTest::HandleRequest,
+        base::Unretained(this)));
     net::test_server::RegisterDefaultHandlers(https_server());
     SetupCrossSiteRedirector(https_server());
     ASSERT_TRUE(https_server()->Start());
   }
 
-  void TearDownOnMainThread() override {
-    url_loader_interceptor_.reset();
-    RenderFrameHostImplBrowserTest::TearDownOnMainThread();
-  }
-
  private:
-  bool InterceptURLRequest(URLLoaderInterceptor::RequestParams* params) {
-    const std::string path = std::string(params->url_request.url.path());
+  std::unique_ptr<net::test_server::HttpResponse> HandleRequest(
+      const net::test_server::HttpRequest& request) {
+    const std::string path = std::string(request.GetURL().path());
     if (path == "/connection_allowlist_response_origin.html") {
-      std::string headers = "HTTP/1.1 200 OK\nContent-Type: text/html\n";
+      auto response = std::make_unique<net::test_server::BasicHttpResponse>();
+      response->set_code(net::HTTP_OK);
+      response->set_content_type("text/html");
       // The special value is `(response-origin)` which is a keyword.
-      base::StrAppend(&headers, {"Connection-Allowlist: (response-origin)\n"});
-      std::string body =
-          "<html>This is connection_allowlist_response_origin.html</html>";
-      URLLoaderInterceptor::WriteResponse(headers, body, params->client.get());
-      return true;
+      response->AddCustomHeader("Connection-Allowlist", "(response-origin)");
+      response->set_content(
+          "<html>This is connection_allowlist_response_origin.html</html>");
+      return response;
     }
     if (path == "/connection_allowlist_empty.html") {
-      std::string headers = "HTTP/1.1 200 OK\nContent-Type: text/html\n";
-      base::StrAppend(&headers, {"Connection-Allowlist: ()\n"});
-      std::string body = "<html>This is connection_allowlist_empty.html</html>";
-      URLLoaderInterceptor::WriteResponse(headers, body, params->client.get());
-      return true;
+      auto response = std::make_unique<net::test_server::BasicHttpResponse>();
+      response->set_code(net::HTTP_OK);
+      response->set_content_type("text/html");
+      response->AddCustomHeader("Connection-Allowlist", "()");
+      response->set_content(
+          "<html>This is connection_allowlist_empty.html</html>");
+      return response;
     }
     if (path == "/connection_allowlist.html") {
-      std::string headers = "HTTP/1.1 200 OK\nContent-Type: text/html\n";
-      base::StrAppend(&headers, {"Connection-Allowlist: (response-origin)\n"});
-      std::string body = "<html><body>connection allowlist</body></html>";
-      URLLoaderInterceptor::WriteResponse(headers, body, params->client.get());
-      return true;
+      auto response = std::make_unique<net::test_server::BasicHttpResponse>();
+      response->set_code(net::HTTP_OK);
+      response->set_content_type("text/html");
+      response->AddCustomHeader("Connection-Allowlist", "(response-origin)");
+      response->set_content("<html><body>connection allowlist</body></html>");
+      return response;
     }
 
-    return false;
+    return nullptr;
   }
 
   base::test::ScopedFeatureList scoped_feature_list_;
-  std::unique_ptr<URLLoaderInterceptor> url_loader_interceptor_;
   ContentMockCertVerifier mock_cert_verifier_;
 };
 
@@ -11286,32 +11294,98 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplConnectionAllowlistBrowserTest,
 
 // Verify that direct click on an <a href> link inside an iframe with an empty
 // Connection-Allowlist: () is blocked by Connection-Allowlist with
-// net::ERR_NETWORK_ACCESS_REVOKED.
+// net::ERR_NETWORK_ACCESS_REVOKED and does not make any DNS requests.
 // Bug: crbug.com/555145143
 IN_PROC_BROWSER_TEST_F(RenderFrameHostImplConnectionAllowlistBrowserTest,
                        ConnectionAllowlistIframeAnchorClickEmptyAllowlist) {
   GURL parent_url(https_server()->GetURL("a.com", "/page_with_iframe.html"));
-  GURL child_url(
+  GURL child_url_empty_allowlist(
       https_server()->GetURL("a.com", "/connection_allowlist_empty.html"));
+  GURL child_url_same_origin_allowed(https_server()->GetURL(
+      "a.com", "/connection_allowlist_response_origin.html"));
 
   RenderFrameHostImpl* main_rfh = nullptr;
   RenderFrameHostImpl* child_rfh = nullptr;
 
-  auto setup_parent_and_child = [&]() {
+  auto clear_dns_cache = [&]() {
+    network::mojom::NetworkContext* network_context =
+        web_contents()
+            ->GetBrowserContext()
+            ->GetDefaultStoragePartition()
+            ->GetNetworkContext();
+    base::test::TestFuture<void> clear_cache_future;
+    network_context->ClearHostCache(/*filter=*/nullptr,
+                                    clear_cache_future.GetCallback());
+    ASSERT_TRUE(clear_cache_future.Wait());
+
+    base::test::TestFuture<void> close_connections_future;
+    network_context->CloseIdleConnections(
+        close_connections_future.GetCallback());
+    ASSERT_TRUE(close_connections_future.Wait());
+  };
+
+  auto setup_iframe = [&](const GURL& child_url) {
+    size_t num_resolves_before =
+        host_resolver()->NumResolvesForHostPattern("a.com");
     ASSERT_TRUE(NavigateToURL(shell(), parent_url));
+    size_t num_resolves_after_main_frame_nav =
+        host_resolver()->NumResolvesForHostPattern("a.com");
+    EXPECT_GT(num_resolves_after_main_frame_nav, num_resolves_before);
+
+    // Clear the host cache and close idle sockets so that the iframe
+    // navigation also requires a new DNS lookup.
+    clear_dns_cache();
+
     ASSERT_TRUE(NavigateIframeToURL(web_contents(), "test_iframe", child_url));
+    size_t num_resolves_after_iframe_nav =
+        host_resolver()->NumResolvesForHostPattern("a.com");
+    EXPECT_GT(num_resolves_after_iframe_nav, num_resolves_after_main_frame_nav);
+
     main_rfh = root_frame_host();
     ASSERT_EQ(1u, main_rfh->child_count());
     child_rfh = main_rfh->child_at(0)->current_frame_host();
     ASSERT_TRUE(child_rfh);
     EXPECT_EQ(child_url, child_rfh->GetLastCommittedURL());
+
+    // Clear the host cache and close idle sockets again so that any subsequent
+    // network request to a.com or b.com would require a new DNS lookup.
+    clear_dns_cache();
   };
 
-  // 1. Click a link inside the iframe to navigate same-origin (/title1.html).
-  // Because Connection-Allowlist is empty (), even same-origin navigations
-  // initiated by the iframe must be blocked.
+  // 1. Base case test. Verify that clicking an anchor element inside the iframe
+  // to navigate to same-origin URL allowed by the Connection-Allowlist should
+  // succeed. There should be a DNS request.
   {
-    setup_parent_and_child();
+    clear_dns_cache();
+    setup_iframe(child_url_same_origin_allowed);
+    size_t num_resolves_before =
+        host_resolver()->NumResolvesForHostPattern("a.com");
+
+    GURL same_origin_url(https_server()->GetURL("a.com", "/title1.html"));
+    TestFrameNavigationObserver nav_observer(child_rfh);
+    ExecuteScriptAsync(child_rfh, JsReplace(R"(
+                         let a = document.createElement('a');
+                         a.id = 'link';
+                         a.href = $1;
+                         document.body.appendChild(a);
+                         a.click();
+                       )",
+                                            same_origin_url));
+    nav_observer.Wait();
+    EXPECT_TRUE(nav_observer.last_navigation_succeeded());
+    EXPECT_EQ(nav_observer.last_committed_url(), same_origin_url);
+    EXPECT_GT(host_resolver()->NumResolvesForHostPattern("a.com"),
+              num_resolves_before);
+  }
+
+  // 2. Click a link inside the iframe to navigate same-origin (/title1.html).
+  // Because Connection-Allowlist is empty (), even same-origin navigations
+  // initiated by the iframe must be blocked without making a DNS request.
+  {
+    clear_dns_cache();
+    setup_iframe(child_url_empty_allowlist);
+    size_t num_resolves_before =
+        host_resolver()->NumResolvesForHostPattern("a.com");
 
     GURL same_origin_url(https_server()->GetURL("a.com", "/title1.html"));
     TestFrameNavigationObserver nav_observer(child_rfh);
@@ -11331,12 +11405,16 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplConnectionAllowlistBrowserTest,
                     ->current_frame_host()
                     ->GetLastCommittedOrigin()
                     .opaque());
+    EXPECT_EQ(num_resolves_before,
+              host_resolver()->NumResolvesForHostPattern("a.com"));
   }
 
-  // 2. Test when the link inside the iframe navigates to a cross-site URL.
+  // 3. Test when the link inside the iframe navigates to a cross-site URL.
   GURL cross_site_url(https_server()->GetURL("b.com", "/title2.html"));
   {
-    setup_parent_and_child();
+    clear_dns_cache();
+    setup_iframe(child_url_empty_allowlist);
+    EXPECT_EQ(0u, host_resolver()->NumResolvesForHostPattern("b.com"));
 
     TestFrameNavigationObserver nav_observer(child_rfh);
     ExecuteScriptAsync(child_rfh, JsReplace(R"(
@@ -11355,11 +11433,14 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplConnectionAllowlistBrowserTest,
                     ->current_frame_host()
                     ->GetLastCommittedOrigin()
                     .opaque());
+    EXPECT_EQ(0u, host_resolver()->NumResolvesForHostPattern("b.com"));
   }
 
-  // 3. Test when the link inside the iframe has target="_blank".
+  // 4. Test when the link inside the iframe has target="_blank".
   {
-    setup_parent_and_child();
+    clear_dns_cache();
+    setup_iframe(child_url_empty_allowlist);
+    EXPECT_EQ(0u, host_resolver()->NumResolvesForHostPattern("b.com"));
 
     WebContentsAddedObserver new_tab_observer;
     TestNavigationObserver nav_observer(cross_site_url);
@@ -11384,11 +11465,14 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplConnectionAllowlistBrowserTest,
               nav_observer.last_net_error_code());
     EXPECT_TRUE(
         new_contents->GetPrimaryMainFrame()->GetLastCommittedOrigin().opaque());
+    EXPECT_EQ(0u, host_resolver()->NumResolvesForHostPattern("b.com"));
   }
 
-  // 4. Test when the link inside the iframe has target="_top".
+  // 5. Test when the link inside the iframe has target="_top".
   {
-    setup_parent_and_child();
+    clear_dns_cache();
+    setup_iframe(child_url_empty_allowlist);
+    EXPECT_EQ(0u, host_resolver()->NumResolvesForHostPattern("b.com"));
 
     TestFrameNavigationObserver nav_observer(main_rfh);
     ExecuteScriptAsync(child_rfh, JsReplace(R"(
@@ -11405,6 +11489,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplConnectionAllowlistBrowserTest,
     EXPECT_EQ(net::ERR_NETWORK_ACCESS_REVOKED,
               nav_observer.last_net_error_code());
     EXPECT_TRUE(root_frame_host()->GetLastCommittedOrigin().opaque());
+    EXPECT_EQ(0u, host_resolver()->NumResolvesForHostPattern("b.com"));
   }
 }
 
@@ -11561,6 +11646,78 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest,
   broker.WaitForRequest();
   ASSERT_EQ(1u, broker.requested_names().size());
   EXPECT_EQ("test.mojom.NotServed", broker.requested_names()[0]);
+}
+
+// Verifies that a frame committed in a PDF-isolated process cannot bind
+// blink.mojom.WebSocketConnector.
+IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest,
+                       WebSocketBlockedForPdfProcess) {
+  const GURL url = embedded_test_server()->GetURL("a.com", "/title1.html");
+  ASSERT_TRUE(NavigateToURLWithPdf(web_contents(), url));
+
+  RenderFrameHostImpl* const main_document = root_frame_host();
+  RenderProcessHostBadMojoMessageWaiter kill_waiter(
+      main_document->GetProcess());
+
+  // Attempting to open a WebSocket from a PDF frame triggers the renderer to
+  // request blink.mojom.WebSocketConnector from RenderFrameHost. The browser
+  // must reject this and terminate the process.
+  ExecuteScriptAsync(main_document, "new WebSocket('ws://127.0.0.1');");
+
+  EXPECT_EQ(
+      "Received bad user message: WebSockets are not allowed in PDF "
+      "documents.",
+      kill_waiter.Wait());
+}
+
+// Regression test for crbug.com/557522042.
+// A browser-initiated same-document navigation finishes committing in the
+// renderer after the page starts closing. The commit should be ignored during
+// page close rather than treating the legitimate PAGE_TRANSITION_FORWARD_BACK
+// qualifier as disallowed and terminating the renderer process with
+// bad_message::RFH_COMMIT_NAVIGATION_DISALLOWED_QUALIFIER.
+IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest,
+                       DidCommitSameDocumentDisallowedQualifierAfterClosePage) {
+  GURL url_a(embedded_test_server()->GetURL("a.com", "/title1.html#a"));
+  EXPECT_TRUE(NavigateToURL(shell(), url_a));
+
+  EXPECT_TRUE(ExecJs(web_contents(), "history.pushState({}, '', '#b');"));
+
+  EXPECT_TRUE(ExecJs(web_contents(), R"(
+    window.intercepted = false;
+    window.resolvePrecommit = null;
+    navigation.addEventListener('navigate', (e) => {
+      if (e.navigationType === 'traverse') {
+        window.intercepted = true;
+        e.intercept({
+          precommitHandler: () => new Promise(r => {
+            window.resolvePrecommit = r;
+          })
+        });
+      }
+    });
+    window.addEventListener('pagehide', () => {
+      if (window.resolvePrecommit) {
+        window.resolvePrecommit();
+      }
+    });
+  )"));
+
+  web_contents()->GetController().GoBack();
+
+  EXPECT_TRUE(base::test::RunUntil([&]() {
+    return EvalJs(web_contents(), "window.intercepted === true").ExtractBool();
+  }));
+
+  base::HistogramTester histogram_tester;
+  WebContentsDestroyedWatcher destroyed_watcher(web_contents());
+
+  web_contents()->ClosePage();
+  destroyed_watcher.Wait();
+
+  histogram_tester.ExpectBucketCount(
+      "Stability.BadMessageTerminated.Content",
+      bad_message::RFH_COMMIT_NAVIGATION_DISALLOWED_QUALIFIER, 0);
 }
 
 }  // namespace content

@@ -253,7 +253,7 @@ MediaKeys::MediaKeys(
       config_(config),
       media_element_(nullptr),
       reserved_for_media_element_(false),
-      timer_(context->GetTaskRunner(TaskType::kMiscPlatformAPI),
+      timer_(context->GetTaskRunner(TaskType::kMediaElementEvent),
              this,
              &MediaKeys::TimerFired) {
   DVLOG(MEDIA_KEYS_LOG_LEVEL) << __func__ << "(" << this << ")";
@@ -308,7 +308,7 @@ MediaKeySession* MediaKeys::createSession(
 
 ScriptPromise<IDLBoolean> MediaKeys::setServerCertificate(
     ScriptState* script_state,
-    const DOMArrayPiece& server_certificate,
+    base::span<const uint8_t> server_certificate,
     ExceptionState& exception_state) {
   // If the context for MediaKeys has been destroyed, fail.
   if (!GetExecutionContext()) {
@@ -331,7 +331,7 @@ ScriptPromise<IDLBoolean> MediaKeys::setServerCertificate(
   //
   // 2. If serverCertificate is an empty array, return a promise rejected
   //    with a new a newly created TypeError.
-  if (!server_certificate.ByteLength()) {
+  if (server_certificate.empty()) {
     exception_state.ThrowTypeError("The serverCertificate parameter is empty.");
     return EmptyPromise();
   }
@@ -339,7 +339,7 @@ ScriptPromise<IDLBoolean> MediaKeys::setServerCertificate(
   // 3. Let certificate be a copy of the contents of the serverCertificate
   //    parameter.
   DOMArrayBuffer* server_certificate_buffer =
-      DOMArrayBuffer::Create(server_certificate.ByteSpan());
+      DOMArrayBuffer::Create(server_certificate);
 
   // 4. Let promise be a new promise.
   auto* resolver = MakeGarbageCollected<ScriptPromiseResolver<IDLBoolean>>(

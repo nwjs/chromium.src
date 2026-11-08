@@ -13,8 +13,8 @@
 
 #include "base/memory/scoped_refptr.h"
 #include "base/time/time.h"
+#include "components/fcm/fcm_activity.h"
 #include "components/gcm_driver/common/gcm_message.h"
-#include "components/gcm_driver/gcm_activity.h"
 #include "components/gcm_driver/registration_info.h"
 #include "google_apis/gaia/core_account_id.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
@@ -25,6 +25,11 @@ class FilePath;
 class RetainingOneShotTimer;
 class SequencedTaskRunner;
 }  // namespace base
+
+namespace fcm {
+struct ChromeBuildInfo;
+enum class FcmDecryptionResult;
+}  // namespace fcm
 
 namespace net {
 class IPEndPoint;
@@ -39,7 +44,6 @@ namespace gcm {
 
 struct AccountMapping;
 class Encryptor;
-enum class GCMDecryptionResult;
 
 // Interface that encapsulates the network communications with the Google Cloud
 // Messaging server. This interface is not supposed to be thread-safe.
@@ -80,34 +84,6 @@ class GCMClient {
     kMaxValue = UNKNOWN_ERROR
   };
 
-  enum ChromePlatform {
-    PLATFORM_WIN,
-    PLATFORM_MAC,
-    PLATFORM_LINUX,
-    PLATFORM_CROS,
-    PLATFORM_IOS,
-    PLATFORM_ANDROID,
-    PLATFORM_UNSPECIFIED
-  };
-
-  enum ChromeChannel {
-    CHANNEL_STABLE,
-    CHANNEL_BETA,
-    CHANNEL_DEV,
-    CHANNEL_CANARY,
-    CHANNEL_UNKNOWN
-  };
-
-  struct ChromeBuildInfo {
-    ChromeBuildInfo();
-    ~ChromeBuildInfo();
-
-    ChromePlatform platform;
-    ChromeChannel channel;
-    std::string version;
-    std::string product_category_for_subtypes;
-  };
-
   // Detailed information of the Send Error event.
   struct SendErrorDetails {
     SendErrorDetails();
@@ -139,7 +115,7 @@ class GCMClient {
     int send_queue_size;
     int resend_queue_size;
 
-    RecordedActivities recorded_activities;
+    fcm::RecordedActivities recorded_activities;
   };
 
   // Information about account.
@@ -246,7 +222,7 @@ class GCMClient {
   // |delegate|: the delegate whose methods will be called asynchronously in
   //     response to events and messages.
   virtual void Initialize(
-      const ChromeBuildInfo& chrome_build_info,
+      const fcm::ChromeBuildInfo& chrome_build_info,
       const base::FilePath& store_path,
       const scoped_refptr<base::SequencedTaskRunner>& blocking_task_runner,
       scoped_refptr<base::SequencedTaskRunner> io_task_runner,
@@ -303,7 +279,7 @@ class GCMClient {
 
   // Records a decryption failure due to |result| for the |app_id|.
   virtual void RecordDecryptionFailure(const std::string& app_id,
-                                       GCMDecryptionResult result) = 0;
+                                       fcm::FcmDecryptionResult result) = 0;
 
   // Enables or disables internal activity recording.
   virtual void SetRecording(bool recording) = 0;

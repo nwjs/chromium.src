@@ -6,6 +6,7 @@
 #define CC_LAYERS_SOLID_COLOR_SCROLLBAR_LAYER_H_
 
 #include <memory>
+#include <optional>
 
 #include "cc/cc_export.h"
 #include "cc/layers/layer.h"
@@ -21,14 +22,11 @@ class CC_EXPORT SolidColorScrollbarLayer : public ScrollbarLayerBase {
       LayerTreeImpl* tree_impl) const override;
 
   static scoped_refptr<SolidColorScrollbarLayer> CreateOrReuse(
-      scoped_refptr<Scrollbar>,
+      scoped_refptr<Scrollbar> scrollbar,
       SolidColorScrollbarLayer* existing_layer);
 
   static scoped_refptr<SolidColorScrollbarLayer> Create(
-      ScrollbarOrientation orientation,
-      int thumb_thickness,
-      int track_start,
-      bool is_left_side_vertical_scrollbar);
+      scoped_refptr<Scrollbar> scrollbar);
 
   SolidColorScrollbarLayer(const SolidColorScrollbarLayer&) = delete;
   SolidColorScrollbarLayer& operator=(const SolidColorScrollbarLayer&) = delete;
@@ -36,14 +34,12 @@ class CC_EXPORT SolidColorScrollbarLayer : public ScrollbarLayerBase {
   // Layer overrides.
   bool OpacityCanAnimateOnImplThread() const override;
   void SetOpacity(float opacity) override;
+  bool Update() override;
   void SetNeedsDisplayRect(const gfx::Rect& rect) override;
   void SetLayerTreeHost(LayerTreeHost* host) override;
 
   int thumb_thickness() const { return thumb_thickness_; }
   int track_start() const { return track_start_; }
-
-  void SetColor(SkColor4f color);
-  SkColor4f color() const { return color_.Read(*this); }
 
   ScrollbarLayerType GetScrollbarLayerType() const override;
 
@@ -53,15 +49,13 @@ class CC_EXPORT SolidColorScrollbarLayer : public ScrollbarLayerBase {
                              CommitState& commit_state) override;
 
  private:
-  SolidColorScrollbarLayer(ScrollbarOrientation orientation,
-                           int thumb_thickness,
-                           int track_start,
-                           bool is_left_side_vertical_scrollbar);
+  explicit SolidColorScrollbarLayer(scoped_refptr<Scrollbar> scrollbar);
   ~SolidColorScrollbarLayer() override;
 
+  ProtectedSequenceForbidden<scoped_refptr<Scrollbar>> scrollbar_;
   int thumb_thickness_;
   int track_start_;
-  ProtectedSequenceReadable<SkColor4f> color_;
+  ProtectedSequenceReadable<std::optional<SkColor4f>> color_;
 };
 
 }  // namespace cc

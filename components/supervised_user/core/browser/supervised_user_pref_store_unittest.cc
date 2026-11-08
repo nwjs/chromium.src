@@ -10,6 +10,7 @@
 #include "base/memory/ref_counted.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/values.h"
+#include "components/enterprise/isolated_mode/prefs.h"
 #include "components/policy/core/common/policy_pref_names.h"
 #include "components/prefs/testing_pref_store.h"
 #include "components/safe_search_api/safe_search_util.h"
@@ -131,6 +132,13 @@ TEST_F(SupervisedUserPrefStoreTest, ConfigureSettings) {
           policy::policy_prefs::kIncognitoModeAvailability),
       Optional(static_cast<int>(policy::IncognitoModeAvailability::kDisabled)));
 
+  // kEnterpriseIsolatedModeSettings must also be disabled for supervised users.
+  EXPECT_THAT(
+      fixture.changed_prefs()->FindIntByDottedPath(
+          enterprise_isolated_mode::kEnterpriseIsolatedModeSettings),
+      Optional(static_cast<int>(
+          enterprise_isolated_mode::IsolatedModeSetting::kDisabled)));
+
   // kSupervisedModeManualHosts does not have a hardcoded value.
   EXPECT_FALSE(fixture.changed_prefs()->FindDictByDottedPath(
       prefs::kSupervisedUserManualHosts));
@@ -239,13 +247,10 @@ TEST_F(SupervisedUserPrefStoreTest, LocalOverridesAreClearedAfterDeactivation) {
   EXPECT_EQ(0u, fixture.changed_prefs()->size());
 
   service_.SetActive(true);
-  service_.SetLocalSetting(supervised_user::kSafeSitesEnabled,
+  service_.SetLocalSetting(supervised_user::kSigninAllowed,
                            base::Value(true));
   EXPECT_NE(0u, fixture.changed_prefs()->size())
       << "Expected default values to be set.";
-  EXPECT_EQ(fixture.changed_prefs()->FindBoolByDottedPath(
-                prefs::kSupervisedUserSafeSites),
-            base::Value(true));
 
   service_.SetActive(false);
   EXPECT_EQ(0u, fixture.changed_prefs()->size())

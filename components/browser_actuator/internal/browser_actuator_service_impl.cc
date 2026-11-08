@@ -6,24 +6,23 @@
 
 #include <memory>
 #include <utility>
-#include <vector>
 
-#include "base/check.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "components/browser_actuator/internal/features.h"
 #include "components/browser_actuator/internal/session_stream_recorder.h"
 #include "components/browser_actuator/internal/transport/message_stream_client.h"
+#include "components/browser_actuator/internal/transport/oauth/oauth_stream_connection_delegate.h"
 #include "components/browser_actuator/internal/transport/proto_stream_client/proto_stream_client.h"
 #include "components/browser_actuator/internal/transport/proto_stream_client/rust_stream_framer.h"
 #include "components/browser_actuator/internal/transport/stream_connection_delegate.h"
 #include "components/browser_actuator/internal/transport/upstream_message_client/upstream_message_client.h"
 #include "components/browser_actuator/internal/transport_channel_impl.h"
-#include "components/browser_actuator/public/common.h"
 #include "components/browser_actuator/public/features.h"
-#include "components/browser_actuator/public/transport_handler_factory.h"
 #include "components/browser_actuator/public/transport_handler_factory_registry.h"
 #include "components/browser_actuator/public/transport_session_registry.h"
+#include "components/signin/public/base/oauth_consumer_id.h"
+#include "components/signin/public/identity_manager/identity_manager.h"
 #include "net/traffic_annotation/network_traffic_annotation.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "url/gurl.h"
@@ -87,55 +86,50 @@ net::NetworkTrafficAnnotationTag GetTrafficAnnotation() {
 
 std::unique_ptr<MessageStreamClient> CreateStreamClient(
     scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
+    signin::IdentityManager* identity_manager,
     std::unique_ptr<StreamConnectionDelegate> resume_delegate) {
   GURL endpoint = GetWatchSessionsEndPoint();
   return std::make_unique<ProtoStreamClient>(
       std::move(url_loader_factory), std::move(endpoint),
-      std::move(resume_delegate), RustStreamFramer::MakeFactory(),
-      GetTrafficAnnotation());
+      std::make_unique<OAuthStreamConnectionDelegate>(
+          std::move(resume_delegate), identity_manager,
+          signin::OAuthConsumerId::kBrowserActuator),
+      RustStreamFramer::MakeFactory(), GetTrafficAnnotation());
 }
 
 }  // namespace
 
 BrowserActuatorServiceImpl::BrowserActuatorServiceImpl(
     scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
-    signin::IdentityManager* identity_manager,
-    std::vector<std::unique_ptr<TransportHandlerFactory>> extra_factories)
-    : extra_factories_(std::move(extra_factories)) {
+    signin::IdentityManager* identity_manager) {
   if (base::FeatureList::IsEnabled(kBrowserActuatorChannelEnabled)) {
     channel_ = std::make_unique<TransportChannelImpl>(
         std::make_unique<UpstreamMessageClient>(
             url_loader_factory, identity_manager,
             GetSendSessionMessageEndpoint(), GetTrafficAnnotation()),
-        base::BindOnce(&CreateStreamClient, url_loader_factory));
+        // Safe because BrowserActuatorServiceFactory depends on
+        // IdentityManagerFactory, so `identity_manager` outlives `channel_`.
+        base::BindOnce(&CreateStreamClient, url_loader_factory,
+                       base::Unretained(identity_manager)));
   }
 
   // The internals page is the only consumer of the recorded session history,
   // so the recorder is created only when that page is enabled. This keeps the
   // memory cost at zero for regular users.
-  if (base::FeatureList::IsEnabled(kBrowserActuatorInternals) &&
-      !GetFactory(FactoryId::kSessionStreamRecorder)) {
+  if (base::FeatureList::IsEnabled(kBrowserActuatorInternals)) {
     session_stream_recorder_factory_ =
         std::make_unique<SessionStreamRecorderFactory>();
   }
 
   // The channel is only created when the channel feature is on. When it is off
-  // the factories are still owned here, but there is nothing to register with.
-  TransportHandlerFactoryRegistry* registry =
-      channel_ ? channel_->GetHandlerFactoryRegistry() : nullptr;
-  if (session_stream_recorder_factory_) {
-    if (registry) {
+  // the recorder factory is still owned here, but there is nothing to register
+  // with.
+  if (session_stream_recorder_factory_ && channel_) {
+    if (TransportHandlerFactoryRegistry* registry =
+            channel_->GetHandlerFactoryRegistry()) {
       registry->RegisterFactory(session_stream_recorder_factory_.get());
     }
-    if (channel_) {
-      channel_->AddObserver(session_stream_recorder_factory_.get());
-    }
-  }
-  for (const auto& factory : extra_factories_) {
-    CHECK(factory);
-    if (registry) {
-      registry->RegisterFactory(factory.get());
-    }
+    channel_->AddObserver(session_stream_recorder_factory_.get());
   }
 }
 
@@ -145,16 +139,10 @@ BrowserActuatorServiceImpl::~BrowserActuatorServiceImpl() {
     return;
   }
   // Unregister before anything is destroyed. The registry and channel store
-  // raw pointers and do not own the factories.
-  TransportHandlerFactoryRegistry* registry =
-      channel_->GetHandlerFactoryRegistry();
-  for (const auto& factory : extra_factories_) {
-    if (registry) {
-      registry->UnregisterFactory(factory.get());
-    }
-  }
+  // raw pointers and do not own the factory.
   if (session_stream_recorder_factory_) {
-    if (registry) {
+    if (TransportHandlerFactoryRegistry* registry =
+            channel_->GetHandlerFactoryRegistry()) {
       registry->UnregisterFactory(session_stream_recorder_factory_.get());
     }
     channel_->RemoveObserver(session_stream_recorder_factory_.get());
@@ -171,17 +159,10 @@ TransportChannel* BrowserActuatorServiceImpl::GetChannel() {
   return channel_.get();
 }
 
-TransportHandlerFactory* BrowserActuatorServiceImpl::GetFactory(FactoryId id) {
+SessionStreamRecorderFactory*
+BrowserActuatorServiceImpl::GetStreamRecorderFactory() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  for (const auto& factory : extra_factories_) {
-    if (factory->GetFactoryId() == id) {
-      return factory.get();
-    }
-  }
-  if (id == FactoryId::kSessionStreamRecorder) {
-    return session_stream_recorder_factory_.get();
-  }
-  return nullptr;
+  return session_stream_recorder_factory_.get();
 }
 
 TransportSession* BrowserActuatorServiceImpl::GetOrCreateSession(

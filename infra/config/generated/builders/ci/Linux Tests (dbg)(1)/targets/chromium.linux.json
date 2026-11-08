@@ -132,7 +132,8 @@
       },
       {
         "args": [
-          "--git-revision=${got_revision}"
+          "--git-revision=${got_revision}",
+          "--bypass-skia-gold-functionality"
         ],
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -215,7 +216,8 @@
         "name": "browser_tests",
         "swarming": {
           "dimensions": {
-            "os": "Ubuntu-22.04"
+            "os": "Ubuntu-22.04",
+            "ssd": "0"
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
           "shards": 152
@@ -1664,7 +1666,8 @@
         },
         "swarming": {
           "dimensions": {
-            "os": "Ubuntu-22.04"
+            "os": "Ubuntu-22.04",
+            "ssd": "0"
           },
           "idempotent": false,
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",

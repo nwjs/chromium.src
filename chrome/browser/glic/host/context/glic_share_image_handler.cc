@@ -220,10 +220,7 @@ void GlicShareImageHandler::OnReceivedImage(
   PolicyCheck policy_check =
       do_policy_checks ? PolicyCheck::kClipboard : PolicyCheck::kNone;
 
-  Target target =
-      base::FeatureList::IsEnabled(features::kGlicShareImageNoNewConversation)
-          ? Target(*tab, DefaultConversation())
-          : Target(*tab, NewConversation());
+  Target target = Target(*tab, DefaultConversation());
   GlicInvokeOptions invoke_options(std::move(target),
                                    mojom::InvocationSource::kSharedImage);
   invoke_options.additional_context = AdditionalTabContext(
@@ -254,9 +251,6 @@ void GlicShareImageHandler::OnInvokeError(GlicInvokeError error) {
       break;
     case GlicInvokeError::kTabClosed:
       ShareComplete(ShareImageResult::kFailedNoTab);
-      break;
-    case GlicInvokeError::kInstanceDestroyed:
-      ShareComplete(ShareImageResult::kFailedLostInstance);
       break;
     case GlicInvokeError::kInvokeInProgress:
       ShareComplete(ShareImageResult::kFailedInvokeInProgress);
@@ -299,6 +293,13 @@ void GlicShareImageHandler::OnInvokeError(GlicInvokeError error) {
       break;
     case GlicInvokeError::kClientLoadError:
       ShareComplete(ShareImageResult::kFailedUnknown);
+      break;
+    case GlicInvokeError::kInstanceDestroyedBlankInstanceClosed:
+    case GlicInvokeError::kInstanceDestroyedUnbound:
+    case GlicInvokeError::kInstanceDestroyedArchived:
+    case GlicInvokeError::kInstanceDestroyedSignedOut:
+    case GlicInvokeError::kInstanceDestroyedShutdown:
+      ShareComplete(ShareImageResult::kFailedLostInstance);
       break;
   }
 }

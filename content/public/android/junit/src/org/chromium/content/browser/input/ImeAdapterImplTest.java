@@ -21,6 +21,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import android.app.Activity;
 import android.graphics.Rect;
 import android.os.Build;
 import android.os.SystemClock;
@@ -28,10 +29,10 @@ import android.text.SpannableString;
 import android.text.Spanned;
 import android.text.style.SuggestionSpan;
 import android.view.KeyEvent;
-import android.view.ViewGroup;
-import android.view.WindowInsetsController;
+import android.view.View;
 import android.view.inputmethod.CorrectionInfo;
 import android.view.inputmethod.EditorInfo;
+import android.widget.FrameLayout;
 
 import androidx.test.core.app.ApplicationProvider;
 
@@ -45,6 +46,7 @@ import org.mockito.Mockito;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.mockito.stubbing.Answer;
+import org.robolectric.Robolectric;
 import org.robolectric.annotation.Config;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
@@ -78,13 +80,38 @@ import org.chromium.ui.test.util.TestViewAndroidDelegate;
     ContentFeatureList.ANDROID_BLOCK_GRAMMAR_SUGGESTION_SPAN_IN_COMPOSITION_MODE,
     ContentFeatureList.ANDROID_BLOCK_MISSPELLING_SUGGESTION_SPAN_IN_COMPOSITION_MODE,
     ContentFeatureList.ANDROID_MEDIA_INSERTION,
-    ContentFeatures.ANDROID_REPLAY_DEL_KEY_EVENT
+    ContentFeatures.ANDROID_REPLAY_DEL_KEY_EVENT,
+    ContentFeatures.RESTRICT_INTERACTIONS_IN_SWIPE_REGION_ON_FULLSCREEN
 })
 public class ImeAdapterImplTest {
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
 
+    private static class TestContainerView extends FrameLayout {
+        int mRequestRectangleOnScreen1ArgCount;
+        int mRequestRectangleOnScreen3ArgCount;
+        boolean mLastRequestRectangleOnScreenImmediate;
+        int mLastRequestRectangleOnScreenSource;
+
+        TestContainerView() {
+            super(ApplicationProvider.getApplicationContext());
+        }
+
+        @Override
+        public boolean requestRectangleOnScreen(Rect rectangle) {
+            mRequestRectangleOnScreen1ArgCount++;
+            return false;
+        }
+
+        @Override
+        public boolean requestRectangleOnScreen(Rect rectangle, boolean immediate, int source) {
+            mRequestRectangleOnScreen3ArgCount++;
+            mLastRequestRectangleOnScreenImmediate = immediate;
+            mLastRequestRectangleOnScreenSource = source;
+            return false;
+        }
+    }
+
     @Mock private WebContentsImpl mWebContentsImpl;
-    @Mock private ViewGroup mContainerView;
     @Mock private ImeEventObserver mImeEventObserver;
     @Mock private ImeAdapterImpl.Natives mImeAdapterImplJni;
     @Mock private CorrectionInfo mCorrectionInfo;
@@ -93,7 +120,8 @@ public class ImeAdapterImplTest {
     @Mock private EventForwarder mEventForwarder;
     @Mock private RenderFrameHost mRenderFrameHost;
     @Mock private RenderCoordinatesImpl mRenderCoordinatesImpl;
-    @Mock private WindowInsetsController mWindowInsetsController;
+
+    private final TestContainerView mContainerView = new TestContainerView();
 
     @Before
     public void setUp() {
@@ -108,9 +136,6 @@ public class ImeAdapterImplTest {
                 .when(mWebContentsImpl)
                 .getOrSetUserData(any(), any());
 
-        when(mContainerView.getContext()).thenReturn(ApplicationProvider.getApplicationContext());
-        when(mContainerView.getResources())
-                .thenReturn(ApplicationProvider.getApplicationContext().getResources());
         when(mWebContentsImpl.getViewAndroidDelegate())
                 .thenReturn(new TestViewAndroidDelegate(mContainerView));
         when(mWebContentsImpl.getEventForwarder()).thenReturn(mEventForwarder);
@@ -160,6 +185,7 @@ public class ImeAdapterImplTest {
                 /* replyToRequest= */ false,
                 /* lastVkVisibilityRequest= */ 0,
                 /* vkPolicy= */ 0,
+                /* nodeId= */ 0,
                 /* imeTextSpans= */ null);
     }
 
@@ -180,6 +206,7 @@ public class ImeAdapterImplTest {
                 /* replyToRequest= */ false,
                 /* lastVkVisibilityRequest= */ 0,
                 /* vkPolicy= */ 0,
+                /* nodeId= */ 0,
                 /* imeTextSpans= */ null);
     }
 
@@ -201,6 +228,87 @@ public class ImeAdapterImplTest {
 
         adapter.onWindowFocusChanged(/* gainFocus= */ true);
         verify(mImeAdapterImplJni).requestTextInputStateUpdate(anyLong());
+    }
+
+    private void updateTextInputState(
+            ImeAdapterImpl adapter, @TextInputType int textInputType, int nodeId) {
+        adapter.updateState(
+                /* textInputType= */ textInputType,
+                /* textInputFlags= */ 0,
+                /* textInputMode= */ 0,
+                /* textInputAction= */ 0,
+                /* showIfNeeded= */ textInputType != TextInputType.NONE,
+                /* alwaysHide= */ false,
+                /* text= */ "",
+                /* selectionStart= */ 0,
+                /* selectionEnd= */ 0,
+                /* compositionStart= */ -1,
+                /* compositionEnd= */ -1,
+                /* replyToRequest= */ false,
+                /* lastVkVisibilityRequest= */ 0,
+                /* vkPolicy= */ 0,
+                /* nodeId= */ nodeId,
+                /* imeTextSpans= */ null);
+    }
+
+    @Test
+    @EnableFeatures(ContentFeatureList.ANDROID_FORCE_TEXT_INPUT_STATE_UPDATE_UPON_FOCUS)
+    public void testOnWindowFocusChangedLostResetsWithoutHidingKeyboard() {
+        ImeAdapterImpl adapter = new ImeAdapterImpl(mWebContentsImpl);
+        adapter.setInputMethodManagerWrapper(mInputMethodManagerWrapper);
+        adapter.onConnectedToRenderProcess();
+
+        // Focus an editable text field.
+        adapter.focusedNodeChanged(/* isEditable= */ true, 0, 0, 100, 100);
+        updateTextInputState(adapter, TextInputType.TEXT, /* nodeId= */ 42);
+        reset(mInputMethodManagerWrapper);
+
+        // Window focus is lost (e.g. IME picker dialog, notification shade, power menu).
+        adapter.onWindowFocusChanged(/* gainFocus= */ false);
+
+        // Verify that the soft keyboard is NOT hidden and input is reset.
+        verify(mInputMethodManagerWrapper, never()).hideSoftInputFromWindow(any(), anyInt(), any());
+        verify(mInputMethodManagerWrapper, never()).restartInput(any());
+    }
+
+    @Test
+    @EnableFeatures(ContentFeatureList.ANDROID_FORCE_TEXT_INPUT_STATE_UPDATE_UPON_FOCUS)
+    public void testOnWindowFocusChangedGainedRestartsInputOnNextStateUpdateWhenTextInputActive() {
+        ImeAdapterImpl adapter = new ImeAdapterImpl(mWebContentsImpl);
+        adapter.setInputMethodManagerWrapper(mInputMethodManagerWrapper);
+        adapter.onConnectedToRenderProcess();
+
+        // Initial focus on node 42.
+        adapter.focusedNodeChanged(/* isEditable= */ true, 0, 0, 100, 100);
+        updateTextInputState(adapter, TextInputType.TEXT, /* nodeId= */ 42);
+        verify(mInputMethodManagerWrapper, times(1)).restartInput(mContainerView);
+        reset(mInputMethodManagerWrapper);
+
+        // Window loses focus then gains focus.
+        adapter.onWindowFocusChanged(/* gainFocus= */ false);
+        verify(mInputMethodManagerWrapper, never()).restartInput(any());
+
+        adapter.onWindowFocusChanged(/* gainFocus= */ true);
+        verify(mImeAdapterImplJni).requestTextInputStateUpdate(anyLong());
+
+        // Subsequent updateState for the same node 42 should restart input.
+        updateTextInputState(adapter, TextInputType.TEXT, /* nodeId= */ 42);
+        verify(mInputMethodManagerWrapper, times(1)).restartInput(mContainerView);
+    }
+
+    @Test
+    @EnableFeatures(ContentFeatureList.ANDROID_FORCE_TEXT_INPUT_STATE_UPDATE_UPON_FOCUS)
+    public void testOnWindowFocusChangedGainedDoesNotRestartInputWhenNoActiveTextInput() {
+        ImeAdapterImpl adapter = new ImeAdapterImpl(mWebContentsImpl);
+        adapter.setInputMethodManagerWrapper(mInputMethodManagerWrapper);
+        adapter.onConnectedToRenderProcess();
+
+        adapter.onWindowFocusChanged(/* gainFocus= */ true);
+        verify(mImeAdapterImplJni).requestTextInputStateUpdate(anyLong());
+
+        // Subsequent updateState for TextInputType.NONE does not restart input.
+        updateTextInputState(adapter, TextInputType.NONE, /* nodeId= */ 0);
+        verify(mInputMethodManagerWrapper, never()).restartInput(any());
     }
 
     @Test
@@ -840,6 +948,7 @@ public class ImeAdapterImplTest {
                 /* replyToRequest= */ false,
                 /* lastVkVisibilityRequest= */ 0,
                 /* vkPolicy= */ 0,
+                /* nodeId= */ 0,
                 /* imeTextSpans= */ null);
 
         verify(mInputMethodManagerWrapper, never()).showSoftInput(any(), anyInt(), any());
@@ -904,14 +1013,7 @@ public class ImeAdapterImplTest {
         when(mRenderCoordinatesImpl.getDeviceScaleFactor()).thenReturn(1.0f);
         when(mRenderCoordinatesImpl.getContentOffsetYPixInt()).thenReturn(0);
 
-        when(mContainerView.getLocalVisibleRect(any(Rect.class)))
-                .thenAnswer(
-                        (Answer<Boolean>)
-                                invocation -> {
-                                    Rect rect = invocation.getArgument(0);
-                                    rect.set(0, 0, Integer.MAX_VALUE, Integer.MAX_VALUE);
-                                    return true;
-                                });
+        mContainerView.layout(0, 0, Integer.MAX_VALUE, Integer.MAX_VALUE);
 
         ImeAdapterImpl adapter = new ImeAdapterImpl(mWebContentsImpl);
         adapter.onConnectedToRenderProcess();
@@ -923,8 +1025,22 @@ public class ImeAdapterImplTest {
         anchorInfo.insertionMarker.height = 10;
         adapter.updateCursorAnchorInfo(anchorInfo);
 
-        verify(mContainerView, times(shouldExpectRequestRectangleOnScreen ? 1 : 0))
-                .requestRectangleOnScreen(any(Rect.class));
+        int expectedCalls = shouldExpectRequestRectangleOnScreen ? 1 : 0;
+        // Matches the API selection in ImeAdapterImpl#updateCursorAnchorInfo().
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA
+                && Build.VERSION.SDK_INT_FULL >= Build.VERSION_CODES_FULL.BAKLAVA_1) {
+            Assert.assertEquals(0, mContainerView.mRequestRectangleOnScreen1ArgCount);
+            Assert.assertEquals(expectedCalls, mContainerView.mRequestRectangleOnScreen3ArgCount);
+            if (shouldExpectRequestRectangleOnScreen) {
+                Assert.assertFalse(mContainerView.mLastRequestRectangleOnScreenImmediate);
+                Assert.assertEquals(
+                        View.RECTANGLE_ON_SCREEN_REQUEST_SOURCE_TEXT_CURSOR,
+                        mContainerView.mLastRequestRectangleOnScreenSource);
+            }
+        } else {
+            Assert.assertEquals(expectedCalls, mContainerView.mRequestRectangleOnScreen1ArgCount);
+            Assert.assertEquals(0, mContainerView.mRequestRectangleOnScreen3ArgCount);
+        }
     }
 
     @Test
@@ -1058,9 +1174,11 @@ public class ImeAdapterImplTest {
         adapter.onConnectedToRenderProcess();
 
         when(mWebContentsImpl.isFullscreenForCurrentTab()).thenReturn(false);
-        when(mWindowInsetsController.getSystemBarsBehavior())
-                .thenReturn(BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
-        when(mContainerView.getWindowInsetsController()).thenReturn(mWindowInsetsController);
+        Activity activity = Robolectric.buildActivity(Activity.class).setup().get();
+        activity.setContentView(mContainerView);
+        mContainerView
+                .getWindowInsetsController()
+                .setSystemBarsBehavior(BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
 
         // Simulate touch down inside gesture insets
         when(mEventForwarder.hasTouchOriginatingInGestureInsets(mContainerView)).thenReturn(true);
@@ -1111,5 +1229,84 @@ public class ImeAdapterImplTest {
 
         adapter.destroyFromNative();
         verify(mEventForwarder).removeTouchSequenceObserver(adapter);
+    }
+
+    @Test
+    public void testUpdateState_SameNodeIdDoesNotRestartInputOnRefocus() {
+        ImeAdapterImpl adapter = new ImeAdapterImpl(mWebContentsImpl);
+        adapter.setInputMethodManagerWrapper(mInputMethodManagerWrapper);
+        adapter.onConnectedToRenderProcess();
+
+        // Initial focus on node 42.
+        adapter.focusedNodeChanged(/* isEditable= */ true, 0, 0, 100, 100);
+        adapter.updateState(
+                /* textInputType= */ TextInputType.TEXT_AREA,
+                /* textInputFlags= */ 0,
+                /* textInputMode= */ 0,
+                /* textInputAction= */ 0,
+                /* showIfNeeded= */ true,
+                /* alwaysHide= */ false,
+                /* text= */ "hello",
+                /* selectionStart= */ 5,
+                /* selectionEnd= */ 5,
+                /* compositionStart= */ -1,
+                /* compositionEnd= */ -1,
+                /* replyToRequest= */ false,
+                /* lastVkVisibilityRequest= */ 0,
+                /* vkPolicy= */ 0,
+                /* nodeId= */ 42,
+                /* imeTextSpans= */ null);
+        verify(mInputMethodManagerWrapper, times(1)).restartInput(mContainerView);
+        reset(mInputMethodManagerWrapper);
+
+        // Simulate a active InputConnection being created.
+        EditorInfo outAttrs = new EditorInfo();
+        adapter.onCreateInputConnection(outAttrs);
+
+        // Simulate synchronous blur() + focus() on the same node 42 without an intervening
+        // TextInputType.NONE state update.
+        adapter.focusedNodeChanged(/* isEditable= */ false, 0, 0, 0, 0);
+        adapter.focusedNodeChanged(/* isEditable= */ true, 0, 0, 100, 100);
+        adapter.updateState(
+                /* textInputType= */ TextInputType.TEXT_AREA,
+                /* textInputFlags= */ 0,
+                /* textInputMode= */ 0,
+                /* textInputAction= */ 0,
+                /* showIfNeeded= */ true,
+                /* alwaysHide= */ false,
+                /* text= */ "hell",
+                /* selectionStart= */ 4,
+                /* selectionEnd= */ 4,
+                /* compositionStart= */ -1,
+                /* compositionEnd= */ -1,
+                /* replyToRequest= */ false,
+                /* lastVkVisibilityRequest= */ 0,
+                /* vkPolicy= */ 0,
+                /* nodeId= */ 42,
+                /* imeTextSpans= */ null);
+        verify(mInputMethodManagerWrapper, never()).restartInput(any());
+
+        // Moving focus to a different editable node (node 43) with the same TextInputType
+        // should restart input.
+        adapter.focusedNodeChanged(/* isEditable= */ false, 0, 0, 0, 0);
+        adapter.focusedNodeChanged(/* isEditable= */ true, 0, 0, 100, 100);
+        adapter.updateState(
+                /* textInputType= */ TextInputType.TEXT_AREA,
+                /* textInputFlags= */ 0,
+                /* textInputMode= */ 0,
+                /* textInputAction= */ 0,
+                /* showIfNeeded= */ true,
+                /* alwaysHide= */ false,
+                /* text= */ "",
+                /* selectionStart= */ 0,
+                /* selectionEnd= */ 0,
+                /* compositionStart= */ -1,
+                /* compositionEnd= */ -1,
+                /* replyToRequest= */ false,
+                /* lastVkVisibilityRequest= */ 0,
+                /* vkPolicy= */ 0,
+                /* nodeId= */ 43,
+                /* imeTextSpans= */ null);
+        verify(mInputMethodManagerWrapper, times(1)).restartInput(mContainerView);
     }
 }

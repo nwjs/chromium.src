@@ -6,6 +6,8 @@
 
 #include <optional>
 
+#include "base/notimplemented.h"
+#include "chrome/browser/actor/tools/registry/tool_definition.h"
 #include "chrome/browser/actor/tools/tool.h"
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/web_contents.h"
@@ -25,6 +27,11 @@ ToolRequest::ToolRequest() = default;
 ToolRequest::~ToolRequest() = default;
 ToolRequest::ToolRequest(const ToolRequest& other) = default;
 ToolRequest& ToolRequest::operator=(const ToolRequest& other) = default;
+
+std::optional<ToolDefinition> ToolRequest::GetToolDefinition() {
+  NOTIMPLEMENTED_LOG_ONCE();
+  return std::nullopt;
+}
 
 bool ToolRequest::IsFollowup() const {
   return is_followup_;
@@ -50,6 +57,12 @@ tabs::TabHandle ToolRequest::GetTabHandle() const {
   return tabs::TabHandle();
 }
 
+ActorSurfaceHandle ToolRequest::GetActorSurfaceHandle() const {
+  // TODO(b/567721071): Have requests carry an ActorSurfaceHandle directly
+  // instead of looking it up from the tab.
+  return ActorSurfaceHandle::From(GetTabHandle());
+}
+
 std::string ToolRequest::JournalEvent() const {
   return std::string(Name());
 }
@@ -62,6 +75,11 @@ bool ToolRequest::RequiresUrlCheckInCurrentTab() const {
 
 tabs::TabHandle ToolRequest::GetTabForValidation() const {
   return GetTabHandle();
+}
+
+ActorSurfaceHandle ToolRequest::GetActorSurfaceForValidation() const {
+  // TODO(b/567721071): Stop looking the surface up from the tab.
+  return ActorSurfaceHandle::From(GetTabForValidation());
 }
 
 std::optional<url::Origin> ToolRequest::AssociatedOriginGrant() const {

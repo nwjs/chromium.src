@@ -75,6 +75,11 @@ class SigninInProgress;
 // external intent.
 @property(nonatomic, assign) BOOL startupHadExternalIntent;
 
+// YES if there is at least one external intent waiting to be executed or
+// currently being executed on this scene. Only set when `kEnableNewStartupFlow`
+// is enabled.
+@property(nonatomic, assign) BOOL hasPendingIntent;
+
 // URLs passed to `UIWindowSceneDelegate scene:openURLContexts:` that needs to
 // be open next time the scene is activated.
 // Setting the property to not nil will add the new URL contexts to the set.
@@ -95,6 +100,10 @@ class SigninInProgress;
 // YES if sign-in is in progress which covers the authentication flow and the
 // sign-in prompt UI.
 @property(nonatomic, readonly) BOOL signinInProgress;
+
+// YES if multiple scenes are supported and new windows can currently be opened
+// from this scene. Setting this property will notify observers.
+@property(nonatomic) BOOL multipleScenesAvailable;
 
 // Object containing the state of whether some incognito content is visible, for
 // example an incognito tab or the incognito tab switcher.

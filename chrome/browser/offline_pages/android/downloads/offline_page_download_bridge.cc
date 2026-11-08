@@ -47,6 +47,7 @@
 #include "components/offline_pages/core/offline_page_feature.h"
 #include "components/offline_pages/core/offline_page_item_utils.h"
 #include "components/offline_pages/core/offline_page_model.h"
+#include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/download_manager.h"
 #include "content/public/browser/download_request_utils.h"
@@ -202,8 +203,10 @@ void SavePageIfNotNavigatedAway(const GURL& url,
   // the tab. If unsuccessful, it'll enable the already-queued request for
   // background offliner. Same will happen if Chrome is terminated since
   // 'disabled' status of the request is RAM-stored info.
+  tabs::TabInterface* tab =
+      tabs::TabInterface::MaybeGetFromContents(web_contents);
   offline_pages::RecentTabHelper* tab_helper =
-      RecentTabHelper::FromWebContents(web_contents);
+      tab ? RecentTabHelper::From(tab) : nullptr;
   if (!tab_helper) {
     if (request_id != OfflinePageModel::kInvalidOfflineId &&
         request_coordinator) {
@@ -252,7 +255,7 @@ void DownloadAsFile(content::WebContents* web_contents, const GURL& url) {
       web_contents->GetController().GetLastCommittedEntry();
   // |entry| should not be null since otherwise an empty URL is returned from
   // calling GetLastCommittedURL and we should bail out earlier.
-  DCHECK(entry);
+  CHECK(entry, base::NotFatalUntil::M161);
   content::Referrer referrer =
       content::Referrer::SanitizeForRequest(url, entry->GetReferrer());
   dl_params->set_referrer(referrer.url);
@@ -269,7 +272,7 @@ void InitializeBackendOnProfileCreated(Profile* profile) {
   profile = profile->GetOriginalProfile();
   OfflinePageModel* offline_page_model =
       OfflinePageModelFactory::GetForBrowserContext(profile);
-  DCHECK(offline_page_model);
+  CHECK(offline_page_model, base::NotFatalUntil::M161);
 
   DownloadUIAdapter* adapter =
       DownloadUIAdapter::FromOfflinePageModel(offline_page_model);
@@ -277,10 +280,10 @@ void InitializeBackendOnProfileCreated(Profile* profile) {
   if (!adapter) {
     RequestCoordinator* request_coordinator =
         RequestCoordinatorFactory::GetForBrowserContext(profile);
-    DCHECK(request_coordinator);
+    CHECK(request_coordinator, base::NotFatalUntil::M161);
     offline_items_collection::OfflineContentAggregator* aggregator =
         OfflineContentAggregatorFactory::GetForKey(profile->GetProfileKey());
-    DCHECK(aggregator);
+    CHECK(aggregator, base::NotFatalUntil::M161);
     adapter = new DownloadUIAdapter(
         aggregator, offline_page_model, request_coordinator,
         std::make_unique<VisualsDecoderImpl>(

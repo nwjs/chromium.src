@@ -30,7 +30,7 @@ finally:
 import PRESUBMIT
 
 from PRESUBMIT_test_mocks import MockFile, MockAffectedFile
-from PRESUBMIT_test_mocks import MockInputApi, MockOutputApi
+from PRESUBMIT_test_mocks import MockInputApi, MockOutputApi, MockChange
 
 _TEST_DATA_DIR = 'base/test/data/presubmit'
 
@@ -57,6 +57,213 @@ class VersionControlConflictsTest(unittest.TestCase):
         errors = PRESUBMIT._CheckForVersionControlConflictsInFile(
             MockInputApi(), MockFile('some/polymer/README.md', lines))
         self.assertEqual(0, len(errors))
+
+    def testIgnoresVendoredCrates(self):
+        lines = [
+            '<<<<<<< HEAD', 'pub fn foo() {}', '=======', 'pub fn bar() {}',
+            '>>>>>>> main'
+        ]
+        vendored_paths = [
+            'third_party/rust/chromium_crates_io/vendor/serde-1.0/src/lib.rs',
+            'third_party\\rust\\chromium_crates_io\\vendor\\syn\\src\\lib.rs',
+        ]
+        mock_input_api = MockInputApi()
+        mock_input_api.files = [MockFile(p, lines) for p in vendored_paths]
+        results = PRESUBMIT.CheckForVersionControlConflicts(
+            mock_input_api, MockOutputApi())
+        self.assertEqual(0, len(results))
+
+    def testChecksFirstPartyAndMixedChanges(self):
+        lines = [
+            '<<<<<<< HEAD', 'conflict line', '=======', 'resolved line',
+            '>>>>>>> main'
+        ]
+        mixed_files = [
+            MockFile('chrome/browser/ui/foo.cc', lines),
+            MockFile(
+                'third_party/rust/chromium_crates_io/vendor/serde/src/lib.rs',
+                lines),
+            # Edge case: a crate named "vendor" must not be bypassed.
+            MockFile('third_party/rust/vendor/v1/BUILD.gn', lines),
+            MockFile('third_party/rust/chromium_crates_io/Cargo.toml', lines),
+        ]
+        mock_input_api = MockInputApi()
+        mock_input_api.files = mixed_files
+        results = PRESUBMIT.CheckForVersionControlConflicts(
+            mock_input_api, MockOutputApi())
+        self.assertEqual(1, len(results))
+        # 3 conflict markers in each of the 3 first-party files = 9 errors.
+        self.assertEqual(9, len(results[0].items))
+        reported_paths = ' '.join(results[0].items)
+        self.assertIn('chrome/browser/ui/foo.cc', reported_paths)
+        self.assertIn('third_party/rust/vendor/v1/BUILD.gn', reported_paths)
+        self.assertIn('third_party/rust/chromium_crates_io/Cargo.toml',
+                      reported_paths)
+        self.assertNotIn('serde', reported_paths)
+
+
+class CheckCommonVendoredBypassTest(unittest.TestCase):
+
+    def testVendoredCratesPathMatching(self):
+        self.assertTrue(
+            PRESUBMIT._IsVendoredCratesFile(
+                MockFile('third_party/rust/chromium_crates_io/vendor/foo.rs',
+                         [])))
+        self.assertTrue(
+            PRESUBMIT._IsVendoredCratesFile(
+                MockFile('third_party/rust/chromium_crates_io/vendor', [])))
+        self.assertTrue(
+            PRESUBMIT._IsVendoredCratesFile(
+                MockFile(
+                    'third_party\\rust\\chromium_crates_io\\vendor\\foo.rs',
+                    [])))
+        self.assertTrue(
+            PRESUBMIT._IsVendoredCratesFile(
+                MockFile('third_party/rust/other_store/vendor/bar.rs', [])))
+        # Crate named "vendor" is first-party code and must not match.
+        self.assertFalse(
+            PRESUBMIT._IsVendoredCratesFile(
+                MockFile('third_party/rust/vendor/v1/BUILD.gn', [])))
+        self.assertFalse(
+            PRESUBMIT._IsVendoredCratesFile(
+                MockFile('third_party/rust/chromium_crates_io/Cargo.toml',
+                         [])))
+        self.assertFalse(
+            PRESUBMIT._IsVendoredCratesFile(
+                MockFile('chrome/browser/ui/foo.cc', [])))
+
+    def testCheckPatchFormattedBypassesVendoredCrates(self):
+        mock_input_api = MockInputApi()
+        mock_input_api.files = [
+            MockFile('chrome/browser/ui/foo.cc', ['int x = 1;']),
+            MockFile(
+                'third_party/rust/chromium_crates_io/vendor/serde/src/lib.rs',
+                ['pub fn foo() {}']),
+        ]
+        mock_input_api.canned_checks.CheckPatchFormatted = mock.Mock(
+            return_value=[])
+
+        PRESUBMIT.CheckPatchFormatted(mock_input_api, MockOutputApi())
+
+        mock_input_api.canned_checks.CheckPatchFormatted.assert_called_once()
+        call_args, call_kwargs = (
+            mock_input_api.canned_checks.CheckPatchFormatted.call_args)
+        self.assertIs(call_args[0], mock_input_api)
+        file_filter = call_kwargs.get('file_filter')
+        self.assertIsNotNone(file_filter)
+        self.assertTrue(file_filter(MockFile('chrome/browser/ui/foo.cc', [])))
+        serde_path = (
+            'third_party/rust/chromium_crates_io/vendor/serde/src/lib.rs')
+        self.assertFalse(file_filter(MockFile(serde_path, [])))
+
+    def testFunctionalCheckInclusiveLanguageBypass(self):
+        try:
+            import presubmit_canned_checks
+        except ImportError:
+            raise unittest.SkipTest('presubmit_canned_checks not available')
+
+        mock_input_api = MockInputApi()
+        mock_input_api.ReadFile = mock.Mock(return_value='')
+        mock_input_api.files = [
+            MockFile(
+                'third_party/rust/chromium_crates_io/vendor/serde/src/lib.rs',
+                ['let branch = "master";']),  # nocheck
+        ]
+        results = (presubmit_canned_checks.CheckInclusiveLanguage(
+            mock_input_api,
+            MockOutputApi(),
+            excluded_directories_relative_path=['exempt.txt'],
+            non_inclusive_terms=PRESUBMIT._NON_INCLUSIVE_TERMS,
+            source_file_filter=lambda f: not PRESUBMIT._IsVendoredCratesFile(
+                f)))
+        self.assertEqual(0, len(results))
+
+        mock_input_api.files = [
+            MockFile('chrome/browser/ui/foo.cc',
+                     ['const char* kBranch = "master";']),  # nocheck
+        ]
+        results_fp = (presubmit_canned_checks.CheckInclusiveLanguage(
+            mock_input_api,
+            MockOutputApi(),
+            excluded_directories_relative_path=['exempt.txt'],
+            non_inclusive_terms=PRESUBMIT._NON_INCLUSIVE_TERMS,
+            source_file_filter=lambda f: not PRESUBMIT._IsVendoredCratesFile(
+                f)))
+        self.assertEqual(1, len(results_fp))
+
+    def testCheckCommonBypassesVendoredCrates(self):
+        mock_input_api = MockInputApi()
+        mock_input_api.files = [
+            MockFile('chrome/browser/ui/foo.cc', ['int x = 1;']),
+            MockFile(
+                'third_party/rust/chromium_crates_io/vendor/serde/src/lib.rs',
+                ['pub fn foo() {}']),
+        ]
+        mock_input_api.canned_checks.PanProjectChecks = mock.Mock(
+            return_value=[])
+        mock_input_api.canned_checks.CheckInclusiveLanguage = mock.Mock(
+            return_value=[])
+        mock_input_api.canned_checks.CheckChangeHasNoTabs = mock.Mock(
+            return_value=[])
+        mock_input_api.canned_checks.CheckOwnersDirMetadataExclusive = (
+            mock.Mock(return_value=[]))
+        mock_input_api.canned_checks.CheckNoNewMetadataInOwners = mock.Mock(
+            return_value=[])
+        mock_input_api.canned_checks.CheckNewDEPSHooksHasRequiredReviewers = (
+            mock.Mock(return_value=[]))
+        mock_input_api.canned_checks.CheckValidHostsInDEPSOnUpload = (
+            mock.Mock(return_value=[]))
+
+        PRESUBMIT.CheckCommon(mock_input_api, MockOutputApi())
+
+        mock_input_api.canned_checks.PanProjectChecks.assert_called_once()
+        call_args, call_kwargs = (
+            mock_input_api.canned_checks.PanProjectChecks.call_args)
+        self.assertIs(call_args[0], mock_input_api)
+        excluded_paths = call_kwargs.get('excluded_paths')
+        self.assertIn(PRESUBMIT._VENDORED_CRATES_PATH_RE, excluded_paths)
+        (mock_input_api.canned_checks.CheckInclusiveLanguage
+         .assert_called_once())
+        call_args, call_kwargs = (
+            mock_input_api.canned_checks.CheckInclusiveLanguage.call_args)
+        self.assertIs(call_args[0], mock_input_api)
+        source_file_filter = call_kwargs.get('source_file_filter')
+        self.assertIsNotNone(source_file_filter)
+        self.assertTrue(
+            source_file_filter(MockFile('chrome/browser/ui/foo.cc', [])))
+        serde_path = (
+            'third_party/rust/chromium_crates_io/vendor/serde/src/lib.rs')
+        self.assertFalse(source_file_filter(MockFile(serde_path, [])))
+
+    def testCheckGoogleSupportAnswerUrlBypassesVendoredCrates(self):
+        mock_input_api = MockInputApi()
+        mock_input_api.files = [
+            MockFile(
+                'third_party/rust/chromium_crates_io/vendor/serde/src/lib.rs',
+                ['support.google.com/chrome/answer/123']),
+            MockFile('chrome/browser/ui/foo.cc',
+                     ['support.google.com/chrome/answer/123']),
+        ]
+        results = PRESUBMIT.CheckGoogleSupportAnswerUrlOnUpload(
+            mock_input_api, MockOutputApi())
+        self.assertEqual(1, len(results))
+        self.assertIn('chrome/browser/ui/foo.cc', results[0].items[0])
+
+    def testCheckTodoBugReferencesBypassesVendoredCrates(self):
+        mock_input_api = MockInputApi()
+        mock_input_api.files = [
+            MockFile(
+                'third_party/rust/chromium_crates_io/vendor/serde/src/lib.rs',
+                ['// TODO(123): fix']),
+            MockFile('third_party/rust/other_store/vendor/foo/src/lib.rs',
+                     ['// TODO(456): fix']),
+            MockFile('chrome/browser/ui/foo.cc', ['// TODO(789): fix']),
+        ]
+        results = PRESUBMIT.CheckTodoBugReferences(mock_input_api,
+                                                   MockOutputApi())
+        self.assertEqual(1, len(results))
+        self.assertIn('chrome/browser/ui/foo.cc', results[0].items[0])
+
 
 
 class BadExtensionsTest(unittest.TestCase):
@@ -791,8 +998,10 @@ class IDLParsingTest(unittest.TestCase):
 
     def _RunIDLParse(self, input_api, filename):
         output_api = MockOutputApi()
-        results = input_api.RunTests(
-            [PRESUBMIT._GetIDLParseCommand(input_api, output_api, filename)])
+        results = input_api.RunTests([
+            PRESUBMIT._GetIDLParseCommand(input_api, output_api,
+                                          {filename: filename})
+        ])
         return results[0].message if results else None
 
     def testSuccess(self):
@@ -870,10 +1079,17 @@ class IDLParsingTest(unittest.TestCase):
             ], 'UnicodeEncodeError'),
         ]
 
-        for (filename, contents, expected_error) in test_data:
+        file_map = {}
+        for (filename, contents, _) in test_data:
             full_path = self._WriteTempFile(filename, contents)
-            actual_error = self._RunIDLParse(input_api, full_path)
-            self.assertIn(expected_error, str(actual_error))
+            file_map[full_path] = filename
+
+        output_api = MockOutputApi()
+        results = input_api.RunTests(
+            [PRESUBMIT._GetIDLParseCommand(input_api, output_api, file_map)])
+        self.assertEqual(len(test_data), len(results))
+        for i, (_, _, expected_error) in enumerate(test_data):
+            self.assertIn(expected_error, results[i].message)
 
     def testCheckIDLParseErrors(self):
         input_api = MockInputApi()
@@ -907,6 +1123,57 @@ class IDLParsingTest(unittest.TestCase):
         self.assertIn(invalid_path, results[0].message)
         self.assertIn('Unexpected "{" after keyword "dictionary".',
                       results[0].message)
+
+    def testParseOutputMultiline(self):
+        input_api = MockInputApi()
+        output_api = MockOutputApi()
+        file_map = {
+            '/abs/path/foo.idl': 'extensions/common/api/foo.idl',
+            '/abs/path/bar.idl': 'extensions/common/api/bar.idl',
+        }
+        cmd = PRESUBMIT._GetIDLParseCommand(input_api, output_api, file_map)
+        self.assertEqual(
+            'idl_schema: extensions/common/api/foo.idl, extensions/common/api/bar.idl',
+            cmd.name)
+        stderr = (
+            'idl_schema warning: global initialization\n'
+            '/abs/path/foo.idl: Syntax error on line 12\n'
+            '  unexpected token "interface"\n'
+            '/abs/path/bar.idl: Missing semicolon\n'
+            '  expected ";" before "}"\n'
+        )
+        errors = cmd.output_parser(1, '', stderr)
+        self.assertEqual(5, len(errors))
+        self.assertEqual(
+            'idl_schema (unknown file): '
+            'idl_schema warning: global initialization',
+            errors[0].message)
+        self.assertEqual(
+            'extensions/common/api/foo.idl could not be parsed: '
+            'Syntax error on line 12',
+            errors[1].message)
+        self.assertEqual(
+            'extensions/common/api/foo.idl: unexpected token "interface"',
+            errors[2].message)
+        self.assertEqual(
+            'extensions/common/api/bar.idl could not be parsed: '
+            'Missing semicolon',
+            errors[3].message)
+        self.assertEqual(
+            'extensions/common/api/bar.idl: expected ";" before "}"',
+            errors[4].message)
+
+    def testParseOutputFailureFallback(self):
+        input_api = MockInputApi()
+        output_api = MockOutputApi()
+        cmd = PRESUBMIT._GetIDLParseCommand(input_api, output_api,
+                                            {'/path/foo.idl': 'foo.idl'})
+        self.assertEqual('idl_schema: foo.idl', cmd.name)
+        errors = cmd.output_parser(2, 'diagnostic stdout', '')
+        self.assertEqual(1, len(errors))
+        self.assertIn('idl_schema failed with exit code 2', errors[0].message)
+        self.assertIn('stdout: diagnostic stdout', errors[0].message)
+
 
 
 
@@ -5340,21 +5607,21 @@ class AssertAshOnlyCodeTest(unittest.TestCase):
         self.assertEqual(0, len(errors))
 
 
-class CheckAdvancedMemorySafetyChecksUsageTest(unittest.TestCase):
+class CheckSanitizedObjectUsageTest(unittest.TestCase):
 
     def testAllowedCases(self):
         mock_input_api = MockInputApi()
         mock_input_api.files = [
             # Non-C++ files are allowed.
             MockAffectedFile('test20/renderer/foo.md',
-                             ['ADVANCED_MEMORY_SAFETY_CHECKS()']),
+                             ['SANITIZED_OBJECT()']),
 
             # Mentions in a comment are allowed.
             MockAffectedFile('test30/renderer/foo.cc',
-                             ['//ADVANCED_MEMORY_SAFETY_CHECKS()']),
+                             ['//SANITIZED_OBJECT()']),
         ]
         mock_output_api = MockOutputApi()
-        errors = PRESUBMIT.CheckAdvancedMemorySafetyChecksUsage(
+        errors = PRESUBMIT.CheckSanitizedObjectUsage(
             mock_input_api, mock_output_api)
         self.assertFalse(errors)
 
@@ -5362,15 +5629,15 @@ class CheckAdvancedMemorySafetyChecksUsageTest(unittest.TestCase):
         mock_input_api = MockInputApi()
         mock_input_api.files = [
             MockAffectedFile('test1/foo.h',
-                             ['ADVANCED_MEMORY_SAFETY_CHECKS()']),
+                             ['SANITIZED_OBJECT()']),
             MockAffectedFile('test2/foo.cc',
-                             ['ADVANCED_MEMORY_SAFETY_CHECKS()']),
+                             ['SANITIZED_OBJECT()']),
         ]
         mock_output_api = MockOutputApi()
-        errors = PRESUBMIT.CheckAdvancedMemorySafetyChecksUsage(
+        errors = PRESUBMIT.CheckSanitizedObjectUsage(
             mock_input_api, mock_output_api)
         self.assertEqual(1, len(errors))
-        self.assertIn('ADVANCED_MEMORY_SAFETY_CHECKS() macro is managed by',
+        self.assertIn('SANITIZED_OBJECT() macro is managed by',
                       errors[0].message)
 
 
@@ -6335,10 +6602,31 @@ class CheckBaseFeatureMacroTest(unittest.TestCase):
             ]),
 
             # #################################################################
+            # Cases that should produce errors (3-arg where C++ identifier
+            # matches 'k' + string literal).
+            # #################################################################
+            MockAffectedFile('error_3param.cc', [
+                'BASE_FEATURE(kMyToggle, "MyToggle", '
+                'base::FEATURE_ENABLED_BY_DEFAULT);'
+            ]),
+            MockAffectedFile('error_3param_multiline.cc', [
+                'BASE_FEATURE(kMyToggle,', '             "MyToggle",',
+                '             base::FEATURE_ENABLED_BY_DEFAULT);'
+            ]),
+            MockAffectedFile('error_3param_runtime_mutable.cc', [
+                'BASE_RUNTIME_MUTABLE_FEATURE(kMyToggle, "MyToggle", '
+                'base::FEATURE_ENABLED_BY_DEFAULT);'
+            ]),
+            MockAffectedFile('error_3param_multiline_runtime_mutable.cc', [
+                'BASE_RUNTIME_MUTABLE_FEATURE(', '    kMyToggle,',
+                '    "MyToggle",', '    base::FEATURE_ENABLED_BY_DEFAULT);'
+            ]),
+
+            # #################################################################
             # Cases that should produce warnings.
             # #################################################################
-            MockAffectedFile('warning_3param.cc', [
-                'BASE_FEATURE(kMyToggle, "MyToggle", '
+            MockAffectedFile('warning_3param_mismatch.cc', [
+                'BASE_FEATURE(kMyToggle, "OtherToggleName", '
                 'base::FEATURE_ENABLED_BY_DEFAULT);'
             ]),
             MockAffectedFile(
@@ -6348,12 +6636,12 @@ class CheckBaseFeatureMacroTest(unittest.TestCase):
                 'warning_lowercase_after_k.cc',
                 ['BASE_FEATURE(kmyToggle, base::FEATURE_ENABLED_BY_DEFAULT);'
                  ]),
-            MockAffectedFile('warning_3param_multiline.cc', [
-                'BASE_FEATURE(kMyToggle,', '             "MyToggle",',
+            MockAffectedFile('warning_3param_multiline_mismatch.cc', [
+                'BASE_FEATURE(kMyToggle,', '             "OtherToggleName",',
                 '             base::FEATURE_ENABLED_BY_DEFAULT);'
             ]),
-            MockAffectedFile('warning_3param_runtime_mutable.cc', [
-                'BASE_RUNTIME_MUTABLE_FEATURE(kMyToggle, "MyToggle", '
+            MockAffectedFile('warning_3param_runtime_mutable_mismatch.cc', [
+                'BASE_RUNTIME_MUTABLE_FEATURE(kMyToggle, "OtherToggleName", '
                 'base::FEATURE_ENABLED_BY_DEFAULT);'
             ]),
             MockAffectedFile('warning_no_k_runtime_mutable.cc', [
@@ -6364,38 +6652,73 @@ class CheckBaseFeatureMacroTest(unittest.TestCase):
                 'BASE_RUNTIME_MUTABLE_FEATURE(kmyToggle, '
                 'base::FEATURE_ENABLED_BY_DEFAULT);'
             ]),
-            MockAffectedFile('warning_3param_multiline_runtime_mutable.cc', [
-                'BASE_RUNTIME_MUTABLE_FEATURE(', '    kMyToggle,',
-                '    "MyToggle",', '    base::FEATURE_ENABLED_BY_DEFAULT);'
-            ]),
+            MockAffectedFile(
+                'warning_3param_multiline_runtime_mutable_mismatch.cc', [
+                    'BASE_RUNTIME_MUTABLE_FEATURE(', '    kMyToggle,',
+                    '    "OtherToggleName",',
+                    '    base::FEATURE_ENABLED_BY_DEFAULT);'
+                ]),
         ]
         results = PRESUBMIT.CheckBaseFeatureMacro(mock_input_api,
                                                   MockOutputApi())
 
-        self.assertEqual(1, len(results))
-        self.assertEqual('warning', results[0].type)
+        self.assertEqual(2, len(results))
+        self.assertEqual('error', results[0].type)
         self.assertEqual('BASE_FEATURE() macro naming:', results[0].message)
-        warnings = results[0].items
+        errors = results[0].items
+
+        expected_errors = [
+            '    error_3param.cc:1: Use of the 3-argument BASE_FEATURE and '
+            'BASE_RUNTIME_MUTABLE_FEATURE macros where the C++ identifier '
+            'matches the string literal is not allowed. Use the 2-argument '
+            'version instead.',
+            '    error_3param_multiline.cc:1: Use of the 3-argument '
+            'BASE_FEATURE and BASE_RUNTIME_MUTABLE_FEATURE macros where the '
+            'C++ identifier matches the string literal is not allowed. Use '
+            'the 2-argument version instead.',
+            '    error_3param_runtime_mutable.cc:1: Use of the 3-argument '
+            'BASE_FEATURE and BASE_RUNTIME_MUTABLE_FEATURE macros where the '
+            'C++ identifier matches the string literal is not allowed. Use '
+            'the 2-argument version instead.',
+            '    error_3param_multiline_runtime_mutable.cc:1: Use of the '
+            '3-argument BASE_FEATURE and BASE_RUNTIME_MUTABLE_FEATURE macros '
+            'where the C++ identifier matches the string literal is not '
+            'allowed. Use the 2-argument version instead.',
+        ]
+
+        self.maxDiff = None
+        self.assertEqual(len(expected_errors), len(errors))
+        self.assertCountEqual(expected_errors, errors)
+
+        self.assertEqual('warning', results[1].type)
+        self.assertEqual('BASE_FEATURE() macro naming:', results[1].message)
+        warnings = results[1].items
 
         expected_warnings = [
-            '    warning_3param.cc:1: Use of the 3-argument BASE_FEATURE and '
-            'BASE_RUNTIME_MUTABLE_FEATURE macros with a string literal is '
-            'discouraged. Use the 2-argument version instead.',
-            '    warning_3param_multiline.cc:1: Use of the 3-argument '
+            '    warning_3param_mismatch.cc:1: Use of the 3-argument '
             'BASE_FEATURE and BASE_RUNTIME_MUTABLE_FEATURE macros with a '
-            'string literal is discouraged. Use the 2-argument version '
-            'instead.',
+            'string literal is discouraged. Prefer using an identical '
+            'spelling for the feature constant and the string literal '
+            'identifying it, and using the 2-argument version instead.',
+            '    warning_3param_multiline_mismatch.cc:1: Use of the '
+            '3-argument BASE_FEATURE and BASE_RUNTIME_MUTABLE_FEATURE macros '
+            'with a string literal is discouraged. Prefer using an identical '
+            'spelling for the feature constant and the string literal '
+            'identifying it, and using the 2-argument version instead.',
             '    warning_no_k.cc:1: Feature identifier "MyToggle" should start '
             'with "k" followed by an uppercase letter.',
             '    warning_lowercase_after_k.cc:1: Feature identifier "kmyToggle"'
             ' should start with "k" followed by an uppercase letter.',
-            '    warning_3param_runtime_mutable.cc:1: Use of the 3-argument '
-            'BASE_FEATURE and BASE_RUNTIME_MUTABLE_FEATURE macros with a '
-            'string literal is discouraged. Use the 2-argument version '
-            'instead.',
-            '    warning_3param_multiline_runtime_mutable.cc:1: Use of the '
+            '    warning_3param_runtime_mutable_mismatch.cc:1: Use of the '
             '3-argument BASE_FEATURE and BASE_RUNTIME_MUTABLE_FEATURE macros '
-            'with a string literal is discouraged. Use the 2-argument version '
+            'with a string literal is discouraged. Prefer using an identical '
+            'spelling for the feature constant and the string literal '
+            'identifying it, and using the 2-argument version instead.',
+            '    warning_3param_multiline_runtime_mutable_mismatch.cc:1: Use '
+            'of the 3-argument BASE_FEATURE and BASE_RUNTIME_MUTABLE_FEATURE '
+            'macros with a string literal is discouraged. Prefer using an '
+            'identical spelling for the feature constant and the string '
+            'literal identifying it, and using the 2-argument version '
             'instead.',
             '    warning_no_k_runtime_mutable.cc:1: Feature identifier '
             '"MyToggle" should start with "k" followed by an uppercase letter.',
@@ -6404,7 +6727,6 @@ class CheckBaseFeatureMacroTest(unittest.TestCase):
             'uppercase letter.',
         ]
 
-        self.maxDiff = None
         self.assertEqual(len(expected_warnings), len(warnings))
         self.assertCountEqual(expected_warnings, warnings)
 
@@ -6418,19 +6740,31 @@ class CheckBaseFeatureMacroTest(unittest.TestCase):
                                                   MockOutputApi())
         self.assertEqual(0, len(results))
 
-    def testBaseRuntimeMutableFeatureWarning(self):
+    def testBaseRuntimeMutableFeatureErrorAndWarning(self):
         mock_input_api = MockInputApi()
         mock_input_api.files = [
-            MockAffectedFile('warning_3param_runtime_mutable.cc', [
+            MockAffectedFile('error_3param_runtime_mutable.cc', [
                 'BASE_RUNTIME_MUTABLE_FEATURE(kMyToggle, "MyToggle", '
+                'base::FEATURE_ENABLED_BY_DEFAULT);'
+            ]),
+            MockAffectedFile('warning_3param_runtime_mutable.cc', [
+                'BASE_RUNTIME_MUTABLE_FEATURE(kMyToggle, "OtherToggle", '
                 'base::FEATURE_ENABLED_BY_DEFAULT);'
             ]),
         ]
         results = PRESUBMIT.CheckBaseFeatureMacro(mock_input_api,
                                                   MockOutputApi())
-        self.assertEqual(1, len(results))
-        self.assertIn('Use of the 3-argument BASE_FEATURE and BASE_RUNTIME_MUTABLE_FEATURE',
-                      results[0].items[0])
+        self.assertEqual(2, len(results))
+        self.assertEqual('error', results[0].type)
+        self.assertIn(
+            'Use of the 3-argument BASE_FEATURE and '
+            'BASE_RUNTIME_MUTABLE_FEATURE macros where the C++ identifier '
+            'matches the string literal is not allowed.', results[0].items[0])
+        self.assertEqual('warning', results[1].type)
+        self.assertIn(
+            'Use of the 3-argument BASE_FEATURE and '
+            'BASE_RUNTIME_MUTABLE_FEATURE macros with a string literal is '
+            'discouraged.', results[1].items[0])
 
 
 class CheckBaseFeatureParamMacroTest(unittest.TestCase):
@@ -6457,26 +6791,26 @@ class CheckBaseFeatureParamMacroTest(unittest.TestCase):
 
             # 4-arg BASE_FEATURE_PARAM with std::string default (string
             # literal is the default value, not a name).
-            MockAffectedFile(
-                'valid_string_default.cc',
-                ['BASE_FEATURE_PARAM(std::string, kMyStringParam, '
-                 '&kMyFeature, "default_value");']),
+            MockAffectedFile('valid_string_default.cc', [
+                'BASE_FEATURE_PARAM(std::string, kMyStringParam, '
+                '&kMyFeature, "default_value");'
+            ]),
 
             # 4-arg BASE_FEATURE_PARAM with a template type containing a
             # comma inside angle brackets. The regex should treat the whole
             # template as one argument.
-            MockAffectedFile(
-                'valid_template_type.cc',
-                ['BASE_FEATURE_PARAM(std::map<int, std::string>, '
-                 'kMyMapParam, &kMyFeature, {});']),
+            MockAffectedFile('valid_template_type.cc', [
+                'BASE_FEATURE_PARAM(std::map<int, std::string>, '
+                'kMyMapParam, &kMyFeature, {});'
+            ]),
 
             # 4-arg BASE_FEATURE_PARAM with a default value that is a
             # function call containing commas. The regex should treat the
             # whole call as one argument.
-            MockAffectedFile(
-                'valid_nested_call.cc',
-                ['BASE_FEATURE_PARAM(base::TimeDelta, kMyTimeParam, '
-                 '&kMyFeature, base::Seconds(30, 0));']),
+            MockAffectedFile('valid_nested_call.cc', [
+                'BASE_FEATURE_PARAM(base::TimeDelta, kMyTimeParam, '
+                '&kMyFeature, base::Seconds(30, 0));'
+            ]),
 
             # 5-arg BASE_FEATURE_ENUM_PARAM (short form, preferred).
             MockAffectedFile('valid_enum_5arg.cc', [
@@ -6491,17 +6825,18 @@ class CheckBaseFeatureParamMacroTest(unittest.TestCase):
             ]),
 
             # #################################################################
-            # Cases that should produce warnings.
+            # Cases that should produce errors (where C++ identifier matches
+            # 'k' + string literal).
             # #################################################################
 
-            # 5-arg BASE_FEATURE_PARAM (has explicit string name).
-            MockAffectedFile('warning_5arg_param.cc', [
+            # 5-arg BASE_FEATURE_PARAM with matching name.
+            MockAffectedFile('error_5arg_param.cc', [
                 'BASE_FEATURE_PARAM(int, kMyParam, &kMyFeature, '
                 '"MyParam", 42);',
             ]),
 
-            # 5-arg BASE_FEATURE_PARAM multiline.
-            MockAffectedFile('warning_5arg_multiline.cc', [
+            # 5-arg BASE_FEATURE_PARAM multiline with matching name.
+            MockAffectedFile('error_5arg_multiline.cc', [
                 'BASE_FEATURE_PARAM(int,',
                 '                   kMyParam,',
                 '                   &kMyFeature,',
@@ -6509,7 +6844,32 @@ class CheckBaseFeatureParamMacroTest(unittest.TestCase):
                 '                   42);',
             ]),
 
-            # 6-arg BASE_FEATURE_ENUM_PARAM (has explicit string name).
+            # 6-arg BASE_FEATURE_ENUM_PARAM with matching name.
+            MockAffectedFile('error_6arg_enum.cc', [
+                'BASE_FEATURE_ENUM_PARAM(MyEnum, kMyEnumParam, &kMyFeature,',
+                '    "MyEnumParam", MyEnum::kFirst, &kOptions);',
+            ]),
+
+            # #################################################################
+            # Cases that should produce warnings.
+            # #################################################################
+
+            # 5-arg BASE_FEATURE_PARAM (mismatched explicit string name).
+            MockAffectedFile('warning_5arg_param_mismatch.cc', [
+                'BASE_FEATURE_PARAM(int, kMyParam, &kMyFeature, '
+                '"my_param", 42);',
+            ]),
+
+            # 5-arg BASE_FEATURE_PARAM multiline (mismatched explicit name).
+            MockAffectedFile('warning_5arg_multiline_mismatch.cc', [
+                'BASE_FEATURE_PARAM(int,',
+                '                   kMyParam,',
+                '                   &kMyFeature,',
+                '                   "my_param",',
+                '                   42);',
+            ]),
+
+            # 6-arg BASE_FEATURE_ENUM_PARAM (mismatched explicit string name).
             MockAffectedFile('warning_6arg_enum.cc', [
                 'BASE_FEATURE_ENUM_PARAM(MyEnum, kMyEnumParam, &kMyFeature,',
                 '    "my_enum_param", MyEnum::kFirst, &kOptions);',
@@ -6534,23 +6894,51 @@ class CheckBaseFeatureParamMacroTest(unittest.TestCase):
         results = PRESUBMIT.CheckBaseFeatureParamMacro(mock_input_api,
                                                        MockOutputApi())
 
-        self.assertEqual(1, len(results))
-        self.assertEqual('warning', results[0].type)
+        self.assertEqual(2, len(results))
+        self.assertEqual('error', results[0].type)
         self.assertEqual(
             'BASE_FEATURE_PARAM()/BASE_FEATURE_ENUM_PARAM() macro naming:',
             results[0].message)
-        warnings = results[0].items
+        errors = results[0].items
+
+        expected_errors = [
+            '    error_5arg_param.cc:1: The 5-argument BASE_FEATURE_PARAM '
+            'macro where the C++ identifier matches the string literal is not '
+            'allowed. Use the 4-argument version instead.',
+            '    error_5arg_multiline.cc:1: The 5-argument BASE_FEATURE_PARAM '
+            'macro where the C++ identifier matches the string literal is not '
+            'allowed. Use the 4-argument version instead.',
+            '    error_6arg_enum.cc:1: The 6-argument BASE_FEATURE_ENUM_PARAM '
+            'macro where the C++ identifier matches the string literal is not '
+            'allowed. Use the 5-argument version instead.',
+        ]
+
+        self.maxDiff = None
+        self.assertEqual(len(expected_errors), len(errors))
+        self.assertCountEqual(expected_errors, errors)
+
+        self.assertEqual('warning', results[1].type)
+        self.assertEqual(
+            'BASE_FEATURE_PARAM()/BASE_FEATURE_ENUM_PARAM() macro naming:',
+            results[1].message)
+        warnings = results[1].items
 
         expected_warnings = [
-            '    warning_5arg_param.cc:1: The 5-argument BASE_FEATURE_PARAM '
-            'macro with a string literal name is discouraged. Use the '
-            '4-argument version instead.',
-            '    warning_5arg_multiline.cc:1: The 5-argument '
+            '    warning_5arg_param_mismatch.cc:1: The 5-argument '
             'BASE_FEATURE_PARAM macro with a string literal name is '
-            'discouraged. Use the 4-argument version instead.',
+            'discouraged. Prefer using an identical spelling for the param '
+            'constant and the string literal identifying it, and using the '
+            '4-argument version instead.',
+            '    warning_5arg_multiline_mismatch.cc:1: The 5-argument '
+            'BASE_FEATURE_PARAM macro with a string literal name is '
+            'discouraged. Prefer using an identical spelling for the param '
+            'constant and the string literal identifying it, and using the '
+            '4-argument version instead.',
             '    warning_6arg_enum.cc:1: The 6-argument '
             'BASE_FEATURE_ENUM_PARAM macro with a string literal name is '
-            'discouraged. Use the 5-argument version instead.',
+            'discouraged. Prefer using an identical spelling for the param '
+            'constant and the string literal identifying it, and using the '
+            '5-argument version instead.',
             '    warning_no_k.cc:1: Feature param identifier "MyParam" should '
             'start with "k" followed by an uppercase letter.',
             '    warning_lowercase.cc:1: Feature param identifier "kmyParam" '
@@ -6573,9 +6961,13 @@ class CheckBaseFeatureParamMacroTest(unittest.TestCase):
                                                        MockOutputApi())
         self.assertEqual(0, len(results))
 
-    def testEnumParamWarning(self):
+    def testEnumParamErrorAndWarning(self):
         mock_input_api = MockInputApi()
         mock_input_api.files = [
+            MockAffectedFile('error_6arg_enum.cc', [
+                'BASE_FEATURE_ENUM_PARAM(MyEnum, kMyEnumParam, &kMyFeature,',
+                '    "MyEnumParam", MyEnum::kFirst, &kOptions);',
+            ]),
             MockAffectedFile('warning_6arg_enum.cc', [
                 'BASE_FEATURE_ENUM_PARAM(MyEnum, kMyEnumParam, &kMyFeature,',
                 '    "my_enum_param", MyEnum::kFirst, &kOptions);',
@@ -6583,9 +6975,16 @@ class CheckBaseFeatureParamMacroTest(unittest.TestCase):
         ]
         results = PRESUBMIT.CheckBaseFeatureParamMacro(mock_input_api,
                                                        MockOutputApi())
-        self.assertEqual(1, len(results))
-        self.assertIn('The 6-argument BASE_FEATURE_ENUM_PARAM macro',
-                      results[0].items[0])
+        self.assertEqual(2, len(results))
+        self.assertEqual('error', results[0].type)
+        self.assertIn(
+            'The 6-argument BASE_FEATURE_ENUM_PARAM macro where the C++ '
+            'identifier matches the string literal is not allowed.',
+            results[0].items[0])
+        self.assertEqual('warning', results[1].type)
+        self.assertIn(
+            'The 6-argument BASE_FEATURE_ENUM_PARAM macro with a string '
+            'literal name is discouraged.', results[1].items[0])
 
 
 class CheckNoMojomDataViewIncludesTest(unittest.TestCase):
@@ -6668,180 +7067,6 @@ class TestFileNamesTest(unittest.TestCase):
         results = PRESUBMIT.CheckTestFileNamesOnUpload(input_api,
                                                        MockOutputApi())
         self.assertEqual(0, len(results))
-
-
-class TestCheckSettingsChanges(unittest.TestCase):
-
-    def setUp(self):
-        self.mock_input = MockInputApi()
-        self.mock_output = MockOutputApi()
-        self.mock_input.os_path.join = lambda *args: "/".join(args)
-        self.mock_input.PresubmitLocalPath = lambda: "root"
-
-    def testHeuristicAndRegistryDetection(self):
-        # No provider.
-        content_a = [
-            'public class MyFeature extends GenericSettingsBaseFragment {}'
-        ]
-        # Has a provider, but not registered.
-        content_b = [
-            'public class MyScreen extends PreferenceFragmentCompat {',
-            '    public static final SearchIndexProvider SEARCH_INDEX_DATA_PROVIDER = ',
-            '        new BaseSearchIndexProvider() {};', '}'
-        ]
-
-        registry_content = ['OldSettings.SEARCH_INDEX_DATA_PROVIDER,']
-
-        self.mock_input.files = [
-            MockFile('path/MyFeature.java', content_a, action='A'),
-            MockFile('path/MyScreen.java', content_b, action='A'),
-            MockFile(
-                'root/java/src/org/chromium/chrome/browser/settings/search/SearchIndexProviderRegistry.java',
-                registry_content)
-        ]
-
-        results = PRESUBMIT.CheckSettingsChanges(self.mock_input,
-                                                 self.mock_output)
-
-        # MyFeature should have 2 warnings: Missing Field and Not Registered
-        # MyScreen should have 1 warning: Not Registered
-        # Total results: 3
-        self.assertEqual(len(results), 1)
-        self.assertEqual(len(results[0].items), 3)
-        self.assertEqual(self.mock_output.more_cc,
-                         ['jinsukkim@chromium.org', 'adelm@google.com'])
-        errors = results[0].items
-        self.assertTrue(any("MyFeature.java" in e and "Missing SEARCH_INDEX_DATA_PROVIDER" in e for e in errors))
-        self.assertTrue(any("MyScreen.java" in e and "Fragment not found in SearchIndexProviderRegistry" in e for e in errors))
-
-    def testParityLogicMismatch(self):
-        java_content = [
-            'public class MySettings extends ChromeBaseSettingsFragment {',
-            '    public void init() {',
-            '        mPref.setSummary("Dynamic Summary");',  # Trigger 1
-            '        mOther.setVisible(false);',  # Trigger 2
-            '        getArguments().getInt("node_id");',  # Trigger 3
-            '    }',
-            '    public static final SearchIndexProvider SEARCH_INDEX_DATA_PROVIDER =',
-            '        new BaseSearchIndexProvider() {',
-            '            // Missing updateDynamicPreferences and getExtras',
-            '        };',
-            '}'
-        ]
-        mock_file = MockFile('MySettings.java', java_content, action='A')
-
-        mock_file._changed_contents = [(3, java_content[2]),
-                                       (4, java_content[3]),
-                                       (5, java_content[4])]
-
-        self.mock_input.files = [
-            mock_file,
-            MockFile(
-                'root/java/src/org/chromium/chrome/browser/settings/search/SearchIndexProviderRegistry.java',
-                ['MySettings.SEARCH_INDEX_DATA_PROVIDER,'])
-        ]
-
-        results = PRESUBMIT.CheckSettingsChanges(self.mock_input,
-                                                 self.mock_output)
-
-        # Should produce a Parity Mismatch warning containing all 3 failed triggers
-        self.assertEqual(len(results), 1)
-        self.assertEqual(len(results[0].items), 3)
-        self.assertEqual(self.mock_output.more_cc,
-                         ['jinsukkim@chromium.org', 'adelm@google.com'])
-        self.assertIn("Potential Settings Search Indexing Issues", results[0].message)
-        actual_errors = "\n".join(results[0].items)
-        self.assertIn("updateEntrySummaryForKey", actual_errors)
-        self.assertIn("removeEntryForKey()", actual_errors)
-        self.assertIn("getExtras()", actual_errors)
-
-    def testParityLogicSuccess(self):
-        java_content = [
-            'public class MySettings extends ChromeBaseSettingsFragment {',
-            '    public void update() { mPref.setSummary("hi"); }',
-            '    public static final SearchIndexProvider SEARCH_INDEX_DATA_PROVIDER =',
-            '        new BaseSearchIndexProvider() {',
-            '            @Override',
-            '            public void updateDynamicPreferences(Context c, SettingsIndexData d) {',
-            '                d.updateEntrySummaryForKey(F, "key", "summary");',  # Satisfies summary
-            '            }',
-            '        };',
-            '}'
-        ]
-        mock_file = MockFile('MySettings.java', java_content, action='A')
-        mock_file._changed_contents = [(2, java_content[1])]
-        self.mock_input.files = [
-            mock_file,
-            MockFile(
-                'root/java/src/org/chromium/chrome/browser/settings/search/SearchIndexProviderRegistry.java',
-                ['MySettings.SEARCH_INDEX_DATA_PROVIDER,'])
-        ]
-
-        results = PRESUBMIT.CheckSettingsChanges(self.mock_input,
-                                                 self.mock_output)
-
-        self.assertEqual(len(results), 0)
-
-    def testAbstractAndNonSettingsIgnored(self):
-        self.mock_input.files = [
-            MockFile('AbstractBase.java', [
-                'public abstract class AbstractBase extends ChromeBaseSettingsFragment {}'
-            ]),
-            MockFile('NormalClass.java',
-                     ['public class NormalClass { void test() {} }'])
-        ]
-
-        results = PRESUBMIT.CheckSettingsChanges(self.mock_input,
-                                                 self.mock_output)
-
-        self.assertEqual(len(results), 0)
-        # Non-settings file shouldn't trigger a CC
-        self.assertEqual(len(self.mock_output.more_cc), 0)
-
-    def testTestFilesIgnored(self):
-        self.mock_input.files = [
-            MockFile(
-                'chrome/android/javatests/src/org/chromium/chrome/browser/settings/MainSettingsFragmentTest.java',
-                [
-                    'public class MainSettingsFragmentTest {',
-                    '    void testIndexing() {',
-                    '        var p = MainSettings.SEARCH_INDEX_DATA_PROVIDER;',
-                    '    }',
-                    '}'
-                ]),
-            MockFile(
-                'chrome/android/junit/src/org/chromium/chrome/browser/settings/MainSettingsUnitTest.java',
-                [
-                    'public class MainSettingsUnitTest {',
-                    '    void testIndexing() {',
-                    '        var p = MainSettings.SEARCH_INDEX_DATA_PROVIDER;',
-                    '    }',
-                    '}'
-                ])
-        ]
-
-        results = PRESUBMIT.CheckSettingsChanges(self.mock_input,
-                                                 self.mock_output)
-
-        self.assertEqual(len(results), 0)
-        self.assertEqual(len(self.mock_output.more_cc), 0)
-
-    def testReferencingProviderIgnored(self):
-        self.mock_input.files = [
-            MockFile('OtherClass.java', [
-                'public class OtherClass {',
-                '    void useProvider() {',
-                '        var p = MainSettings.SEARCH_INDEX_DATA_PROVIDER;',
-                '    }',
-                '}'
-            ])
-        ]
-
-        results = PRESUBMIT.CheckSettingsChanges(self.mock_input,
-                                                 self.mock_output)
-
-        self.assertEqual(len(results), 0)
-        self.assertEqual(len(self.mock_output.more_cc), 0)
 
 
 class CheckNoMainLayoutSwitcherTest(unittest.TestCase):
@@ -7530,8 +7755,6 @@ class ExtensionFastPathsTest(unittest.TestCase):
                 mock_input_api, mock_output_api), [])
         self.assertEqual(
             PRESUBMIT.CheckFlakyTestUsage(mock_input_api, mock_output_api), [])
-        self.assertEqual(
-            PRESUBMIT.CheckSettingsChanges(mock_input_api, mock_output_api), [])
 
     def testRootDotfileGnHandling(self):
         mock_input_api = self._make_input('.gn')

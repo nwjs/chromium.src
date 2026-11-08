@@ -370,12 +370,6 @@ void BrowserWebContentsDelegate::LostPointerLock() {
       ->ExitExclusiveAccessToPreviousState();
 }
 
-bool BrowserWebContentsDelegate::IsWaitingForPointerLockPrompt(
-    content::WebContents* web_contents) {
-  return exclusive_access_manager_->pointer_lock_controller()
-      ->IsWaitingForPointerLockPrompt(web_contents);
-}
-
 bool BrowserWebContentsDelegate::AllowKeyboardLockForInnerContents(
     content::WebContents* web_contents) {
   return capabilities_->AllowKeyboardLockForInnerContents(web_contents);
@@ -817,9 +811,7 @@ void BrowserWebContentsDelegate::LoadingStateChanged(
 }
 
 void BrowserWebContentsDelegate::CloseContents(content::WebContents* source) {
-  if (unload_controller_->CanCloseContents(source)) {
-    chrome::CloseWebContents(&browser_.get(), source, true);
-  }
+  unload_controller_->CloseContents(source);
 }
 
 void BrowserWebContentsDelegate::SetContentsBounds(content::WebContents* source,
@@ -1482,23 +1474,6 @@ void BrowserWebContentsDelegate::UnregisterProtocolHandler(
   custom_handlers::ProtocolHandlerRegistry* registry =
       ProtocolHandlerRegistryFactory::GetForBrowserContext(context);
   registry->RemoveHandler(handler);
-}
-
-void BrowserWebContentsDelegate::FindReply(content::WebContents* web_contents,
-                                           int request_id,
-                                           int number_of_matches,
-                                           const gfx::Rect& selection_rect,
-                                           int active_match_ordinal,
-                                           bool final_update) {
-  find_in_page::FindTabHelper* find_tab_helper =
-      find_in_page::FindTabHelper::FromWebContents(web_contents);
-  if (!find_tab_helper) {
-    return;
-  }
-
-  find_tab_helper->HandleFindReply(request_id, number_of_matches,
-                                   selection_rect, active_match_ordinal,
-                                   final_update);
 }
 
 void BrowserWebContentsDelegate::RequestMediaAccessPermission(

@@ -12,6 +12,7 @@ import static org.mockito.Mockito.when;
 
 import android.content.Context;
 import android.view.ViewGroup;
+import android.widget.FrameLayout;
 
 import androidx.test.core.app.ApplicationProvider;
 
@@ -38,16 +39,17 @@ public class TextSuggestionPopupControllerTest {
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
 
     private Context mContext;
+    private ViewGroup mContainerView;
     private TextSuggestionPopupController mController;
 
     @Mock private WebContentsImpl mWebContents;
     @Mock private WindowAndroid mWindowAndroid;
     @Mock private RenderCoordinatesImpl mRenderCoordinates;
-    @Mock private ViewGroup mContainerView;
 
     @Before
     public void setUp() {
         mContext = ApplicationProvider.getApplicationContext();
+        mContainerView = new FrameLayout(mContext);
 
         ViewAndroidDelegate viewDelegate = ViewAndroidDelegate.createBasicDelegate(mContainerView);
         when(mWebContents.getContext()).thenReturn(mContext);
@@ -68,7 +70,7 @@ public class TextSuggestionPopupControllerTest {
     @Test
     public void testCalculateYOffset() {
         when(mRenderCoordinates.getContentOffsetYPix()).thenReturn(50.0f);
-        when(mContainerView.getHeight()).thenReturn(1000);
+        mContainerView.layout(0, 0, 100, 1000);
 
         assertEquals(200.0, mController.calculateYOffset(150.0), 0.001);
         assertEquals(50.0, mController.calculateYOffset(-100.0), 0.001);

@@ -271,10 +271,13 @@ final class SidePanelNativeBridgeSelector {
     /**
      * See {@link SidePanelContainerCoordinatorImpl#endAnimations}.
      *
-     * <p>The given {@link Profile} must be the current {@link Profile}.
+     * <p>Unlike other methods, this can be called by a native object for any {@link Profile}, not
+     * just the current {@link Profile}. Ending animations doesn't start any new UI change, and only
+     * settles the ongoing ones, whose resulting callbacks are sent to the native bridge for the
+     * current {@link Profile}. This allows a native object for a non-current {@link Profile} to
+     * settle the UI before it changes state or is destroyed.
      */
-    void endAnimations(Profile profile) {
-        assertCurrentProfile(profile);
+    void endAnimations() {
         mSidePanelContainerCoordinator.endAnimations();
     }
 
@@ -326,6 +329,16 @@ final class SidePanelNativeBridgeSelector {
     void simulateAutoRestoreConditionForTesting(Profile profile) {
         assertCurrentProfile(profile);
         mSidePanelContainerCoordinator.simulateAutoRestoreConditionForTesting(); // IN-TEST
+    }
+
+    /**
+     * See {@link SidePanelContainerCoordinatorImpl#simulateTopControlsHeightChangeForTesting}.
+     *
+     * <p>The given {@link Profile} must be the current {@link Profile}.
+     */
+    void simulateTopControlsHeightChangeForTesting(Profile profile) {
+        assertCurrentProfile(profile);
+        mSidePanelContainerCoordinator.simulateTopControlsHeightChangeForTesting(); // IN-TEST
     }
 
     /** See {@link SidePanelContainerCoordinatorImpl#getView}. */

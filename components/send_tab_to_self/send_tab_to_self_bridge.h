@@ -44,13 +44,13 @@ class SessionSyncService;
 namespace send_tab_to_self {
 
 class SendTabToSelfCommitTracker;
-struct TargetDeviceInfo;
 
 // Interface for a persistence layer for send tab to self.
 // All interface methods have to be called on main thread.
 class SendTabToSelfBridge : public syncer::DataTypeSyncBridge,
                             public SendTabToSelfModel,
-                            public history::HistoryServiceObserver {
+                            public history::HistoryServiceObserver,
+                            public syncer::DeviceInfoTracker::Observer {
  public:
   using SendTabToSelfEntries =
       std::map<std::string, std::unique_ptr<SendTabToSelfEntry>, std::less<>>;
@@ -117,20 +117,27 @@ class SendTabToSelfBridge : public syncer::DataTypeSyncBridge,
                           ShareActivatedEntryPoint entry_point) override;
   bool IsReady() override;
   bool HasValidTargetDevice() override;
-  std::vector<TargetDeviceInfo> GetTargetDeviceInfoSortedList() override;
-  std::optional<TargetDeviceInfo> GetTargetDeviceInfo(
+  std::vector<syncer::RemoteDeviceInfo> GetTargetDeviceInfoSortedList()
+      override;
+  std::optional<syncer::RemoteDeviceInfo> GetTargetDeviceInfo(
       std::string_view cache_guid) override;
 
   // history::HistoryServiceObserver:
   void OnHistoryDeletions(history::HistoryService* history_service,
                           const history::DeletionInfo& deletion_info) override;
 
+  // syncer::DeviceInfoTracker::Observer:
+  void OnDeviceInfoChange() override;
+
   // For testing only.
   static std::unique_ptr<syncer::DataTypeStore> DestroyAndStealStoreForTest(
       std::unique_ptr<SendTabToSelfBridge> bridge);
-  void SetLocalDeviceNameForTest(const std::string& local_device_name);
 
  private:
+  // Notifies observers that the model is ready once both the local store
+  // metadata and DeviceInfoTracker are ready.
+  void MaybeNotifyModelReady();
+
   // Notify all observers of any added |new_entries| when they are added the the
   // model via sync.
   void NotifyRemoteSendTabToSelfEntryAdded(
@@ -198,6 +205,12 @@ class SendTabToSelfBridge : public syncer::DataTypeSyncBridge,
   // Helper to commit a local mutation of an entry to the store and processor.
   void CommitLocalEntryMutation(const SendTabToSelfEntry& entry);
 
+  // Applies remote sync changes from either initial merge or incremental sync.
+  std::optional<syncer::ModelError> ApplySyncChangesImpl(
+      std::unique_ptr<syncer::MetadataChangeList> metadata_change_list,
+      syncer::EntityChangeList entity_changes,
+      bool is_initial_sync);
+
   // |entries_| is keyed by GUIDs.
   SendTabToSelfEntries entries_;
 
@@ -233,9 +246,6 @@ class SendTabToSelfBridge : public syncer::DataTypeSyncBridge,
   // `pref_service_` isn't owned.
   const raw_ptr<PrefService> pref_service_;
 
-  // The name of this local device, set only for testing.
-  std::optional<std::string> local_device_name_for_testing_;
-
   // In charge of actually persisting changes to disk, or loading previous data.
   std::unique_ptr<syncer::DataTypeStore> store_;
 
@@ -243,8 +253,15 @@ class SendTabToSelfBridge : public syncer::DataTypeSyncBridge,
   // deduplication.
   std::string mru_entry_guid_;
 
+  // Whether OnModelReady() has been notified for the current sync session.
+  bool model_ready_notified_ = false;
+
   base::ScopedObservation<history::HistoryService, HistoryServiceObserver>
       history_service_observation_{this};
+
+  base::ScopedObservation<syncer::DeviceInfoTracker,
+                          syncer::DeviceInfoTracker::Observer>
+      device_info_tracker_observation_{this};
 
   base::WeakPtrFactory<SendTabToSelfBridge> weak_ptr_factory_{this};
 };

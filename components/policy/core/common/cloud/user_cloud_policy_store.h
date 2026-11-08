@@ -5,6 +5,8 @@
 #ifndef COMPONENTS_POLICY_CORE_COMMON_CLOUD_USER_CLOUD_POLICY_STORE_H_
 #define COMPONENTS_POLICY_CORE_COMMON_CLOUD_USER_CLOUD_POLICY_STORE_H_
 
+#include <memory>
+#include <optional>
 #include <string>
 
 #include "base/files/file_path.h"
@@ -47,11 +49,23 @@ enum PolicyLoadStatusForUma {
 // |key| is initialized from the signing key file on disk.
 // |doing_key_rotation| is true if we need to re-download the key again when key
 // loaded from external place is different than the local one.
-struct PolicyLoadResult {
-  PolicyLoadStatusForUma status;
+// |fallback| is an optional alternative policy load result to attempt if
+// validation of the primary |policy| fails.
+struct POLICY_EXPORT PolicyLoadResult {
+  PolicyLoadResult();
+  PolicyLoadResult(const PolicyLoadResult&);
+  PolicyLoadResult& operator=(const PolicyLoadResult&);
+  PolicyLoadResult(PolicyLoadResult&&);
+  PolicyLoadResult& operator=(PolicyLoadResult&&);
+  ~PolicyLoadResult();
+
+  PolicyLoadStatusForUma status = LOAD_RESULT_NO_POLICY_FILE;
   enterprise_management::PolicyFetchResponse policy;
   enterprise_management::PolicySigningKey key;
   bool doing_key_rotation = false;
+  // Uses std::unique_ptr rather than std::optional because PolicyLoadResult is
+  // an incomplete type within its own definition.
+  std::unique_ptr<PolicyLoadResult> fallback;
 };
 
 // Function that takes in a PolicyLoadResult and returns a PolicyLoadResult with
@@ -95,9 +109,12 @@ class POLICY_EXPORT DesktopCloudPolicyStore : public UserCloudPolicyStoreBase {
  protected:
   // Loads cloud policies that have been written on the disk at |policy_path|
   // for caching purposes. Reads the optional |key_path| to load the signing key
-  // for those policies.
-  static PolicyLoadResult LoadPolicyFromDisk(const base::FilePath& policy_path,
-                                             const base::FilePath& key_path);
+  // for those policies. If |policy_scope| is provided, records the cache size
+  // metric for that scope.
+  static PolicyLoadResult LoadPolicyFromDisk(
+      const base::FilePath& policy_path,
+      const base::FilePath& key_path,
+      std::optional<PolicyScope> policy_scope = std::nullopt);
 
   // Callback invoked when a new policy has been loaded from disk. If
   // |validate_in_background| is true, then policy is validated via a background
@@ -122,10 +139,14 @@ class POLICY_EXPORT DesktopCloudPolicyStore : public UserCloudPolicyStoreBase {
       const std::string& owning_domain);
 
   // Callback invoked to install a just-loaded policy after validation has
-  // finished.
-  void InstallLoadedPolicyAfterValidation(bool doing_key_rotation,
-                                          const std::string& signing_key,
-                                          CloudPolicyValidatorBase* validator);
+  // finished. If validation fails and |fallback| is non-null, attempts to
+  // validate and install |fallback| instead.
+  void InstallLoadedPolicyAfterValidation(
+      bool doing_key_rotation,
+      const std::string& signing_key,
+      std::unique_ptr<PolicyLoadResult> fallback,
+      bool fallback_validate_in_background,
+      CloudPolicyValidatorBase* validator);
 
   // Callback invoked to store the policy after validation has finished.
   void OnPolicyToStoreValidated(CloudPolicyValidatorBase* validator);
@@ -138,7 +159,8 @@ class POLICY_EXPORT DesktopCloudPolicyStore : public UserCloudPolicyStoreBase {
   static PolicyLoadResult LoadAndFilterPolicyFromDisk(
       const base::FilePath& policy_path,
       const base::FilePath& key_path,
-      const PolicyLoadFilter& policy_load_filter);
+      const PolicyLoadFilter& policy_load_filter,
+      PolicyScope policy_scope = POLICY_SCOPE_USER);
 
   // The current key used to verify signatures of policy. This value is
   // eventually consistent with the one persisted in the key cache file. This

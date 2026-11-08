@@ -89,16 +89,6 @@ public class FlatLayoutDelegateUnitTest {
     }
 
     @Test
-    public void testRequiresThumbnailUpdateOnDeselect() {
-        assertFalse(mDelegate.requiresThumbnailUpdateOnDeselect());
-    }
-
-    @Test
-    public void testRequiresThumbnailUpdateOnSelect() {
-        assertTrue(mDelegate.requiresThumbnailUpdateOnSelect());
-    }
-
-    @Test
     public void testRecordTabSelection() {
         when(mMediator.getComponentId()).thenReturn(TabComponentId.TAB_GRID_DIALOG_FROM_STRIP);
         when(mTabModel.getTabById(TAB1_ID)).thenReturn(mTab1);
@@ -447,11 +437,6 @@ public class FlatLayoutDelegateUnitTest {
     }
 
     @Test
-    public void testSupportsTabGroups() {
-        assertFalse(mDelegate.supportsTabGroups());
-    }
-
-    @Test
     public void testIsChildTabRepresentedByGroupCard() {
         assertFalse(mDelegate.isChildTabRepresentedByGroupCard(mTab1));
     }
@@ -592,8 +577,8 @@ public class FlatLayoutDelegateUnitTest {
     }
 
     @Test
-    public void testDidMoveTabGroup_NoOp() {
-        mDelegate.didMoveTabGroup(
+    public void testOnTabGroupMoved_NoOp() {
+        mDelegate.onTabGroupMoved(
                 TAB_GROUP_ID, /* tabModelOldIndex= */ 0, /* tabModelNewIndex= */ 1);
 
         // Flat layout does not display tab group headers, so no updates should occur.
@@ -605,7 +590,8 @@ public class FlatLayoutDelegateUnitTest {
         mDelegate.didRemoveTabGroup(TAB_GROUP_ID, TabGroupObserver.DidRemoveTabGroupReason.MERGE);
 
         // Flat layout does not display tab group headers, so no updates should occur.
-        verifyNoInteractions(mMediator);
+        verify(mMediator).supportsTabGroups();
+        verifyNoMoreInteractions(mMediator);
     }
 
     @Test

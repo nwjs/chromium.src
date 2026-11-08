@@ -1086,6 +1086,10 @@ interface CanvasGradient
     attribute @@toStringTag
     method addColorStop
     method constructor
+interface CanvasPaintEvent : Event
+    attribute @@toStringTag
+    getter changedElements
+    method constructor
 interface CanvasPattern
     attribute @@toStringTag
     method constructor
@@ -1133,6 +1137,7 @@ interface CanvasRenderingContext2D
     method createLinearGradient
     method createPattern
     method createRadialGradient
+    method drawElementImage
     method drawFocusIfNeeded
     method drawImage
     method ellipse
@@ -1236,14 +1241,26 @@ interface CharacterData : Node
     getter nextElementSibling
     getter previousElementSibling
     method after
+    method afterHTML
+    method afterHTMLUnsafe
     method appendData
     method before
+    method beforeHTML
+    method beforeHTMLUnsafe
     method constructor
     method deleteData
     method insertData
     method remove
     method replaceData
     method replaceWith
+    method replaceWithHTML
+    method replaceWithHTMLUnsafe
+    method streamAfterHTML
+    method streamAfterHTMLUnsafe
+    method streamBeforeHTML
+    method streamBeforeHTMLUnsafe
+    method streamReplaceWithHTML
+    method streamReplaceWithHTMLUnsafe
     method substringData
     setter data
 interface Clipboard : EventTarget
@@ -2323,11 +2340,17 @@ interface Element : Node
     getter slot
     getter tagName
     method after
+    method afterHTML
+    method afterHTMLUnsafe
     method animate
     method append
+    method appendHTML
+    method appendHTMLUnsafe
     method ariaNotify
     method attachShadow
     method before
+    method beforeHTML
+    method beforeHTMLUnsafe
     method checkVisibility
     method closest
     method computedStyleMap
@@ -2354,6 +2377,8 @@ interface Element : Node
     method matches
     method moveBefore
     method prepend
+    method prependHTML
+    method prependHTMLUnsafe
     method pseudo
     method querySelector
     method querySelectorAll
@@ -2364,6 +2389,8 @@ interface Element : Node
     method removeAttributeNode
     method replaceChildren
     method replaceWith
+    method replaceWithHTML
+    method replaceWithHTMLUnsafe
     method requestFullscreen
     method requestPointerLock
     method scroll
@@ -2379,6 +2406,18 @@ interface Element : Node
     method setHTMLUnsafe
     method setPointerCapture
     method startViewTransition
+    method streamAfterHTML
+    method streamAfterHTMLUnsafe
+    method streamAppendHTML
+    method streamAppendHTMLUnsafe
+    method streamBeforeHTML
+    method streamBeforeHTMLUnsafe
+    method streamHTML
+    method streamHTMLUnsafe
+    method streamPrependHTML
+    method streamPrependHTMLUnsafe
+    method streamReplaceWithHTML
+    method streamReplaceWithHTMLUnsafe
     method toggleAttribute
     method webkitMatchesSelector
     method webkitRequestFullScreen
@@ -2453,6 +2492,14 @@ interface Element : Node
     setter scrollLeft
     setter scrollTop
     setter slot
+interface ElementGeometryUpdateEvent : Event
+    attribute @@toStringTag
+    getter elements
+    method constructor
+interface ElementImage
+    attribute @@toStringTag
+    method close
+    method constructor
 interface ElementInternals
     attribute @@toStringTag
     getter ariaActionsElements
@@ -3046,6 +3093,7 @@ interface GPUQueue
     getter label
     method constructor
     method copyExternalImageToTexture
+    method drawElementImageToTexture
     method onSubmittedWorkDone
     method submit
     method writeBuffer
@@ -3547,15 +3595,27 @@ interface HTMLCameraElement : HTMLElement
     setter ontrack
 interface HTMLCanvasElement : HTMLElement
     attribute @@toStringTag
+    getter content
     getter height
+    getter onelementgeometryupdate
+    getter onpaint
     getter width
+    method captureElementImage
     method captureStream
+    method clearElementGeometry
     method constructor
     method getContext
+    method getElementImageDefaultSize
+    method getElementTransform
+    method requestPaint
     method toBlob
     method toDataURL
     method transferControlToOffscreen
+    method updateElementGeometry
+    setter content
     setter height
+    setter onelementgeometryupdate
+    setter onpaint
     setter width
 interface HTMLCollection
     attribute @@toStringTag
@@ -6388,7 +6448,6 @@ interface Navigator
     getter cookieEnabled
     getter cpuPerformance
     getter credentials
-    getter deprecatedRunAdAuctionEnforcesKAnonymity
     getter deviceMemory
     getter devicePosture
     getter doNotTrack
@@ -6416,7 +6475,6 @@ interface Navigator
     getter presentation
     getter product
     getter productSub
-    getter protectedAudience
     getter scheduling
     getter serial
     getter serviceWorker
@@ -6435,30 +6493,19 @@ interface Navigator
     getter webkitTemporaryStorage
     getter windowControlsOverlay
     getter xr
-    method adAuctionComponents
-    method canLoadAdAuctionFencedFrame
     method clearAppBadge
-    method clearOriginJoinedAdInterestGroups
     method constructor
-    method createAuctionNonce
-    method deprecatedReplaceInURN
-    method deprecatedURNToURL
     method getBattery
     method getGamepads
     method getInstalledRelatedApps
-    method getInterestGroupAdAuctionData
     method getUserMedia
     method javaEnabled
-    method joinAdInterestGroup
-    method leaveAdInterestGroup
     method registerProtocolHandler
     method requestMIDIAccess
     method requestMediaKeySystemAccess
-    method runAdAuction
     method sendBeacon
     method setAppBadge
     method unregisterProtocolHandler
-    method updateAdInterestGroups
     method vibrate
     method webkitGetUserMedia
 interface NavigatorLogin
@@ -6656,10 +6703,13 @@ interface OffscreenCanvas : EventTarget
     getter oncontextlost
     getter oncontextrestored
     getter width
+    method clearElementGeometry
     method constructor
     method convertToBlob
     method getContext
+    method getElementImageDefaultSize
     method transferToImageBitmap
+    method updateElementGeometry
     setter height
     setter oncontextlost
     setter oncontextrestored
@@ -6707,6 +6757,7 @@ interface OffscreenCanvasRenderingContext2D
     method createLinearGradient
     method createPattern
     method createRadialGradient
+    method drawElementImage
     method drawImage
     method ellipse
     method fill
@@ -9275,14 +9326,24 @@ interface ShadowRoot : DocumentFragment
     getter serializable
     getter slotAssignment
     getter styleSheets
+    method appendHTML
+    method appendHTMLUnsafe
     method constructor
     method elementFromPoint
     method elementsFromPoint
     method getAnimations
     method getHTML
     method getSelection
+    method prependHTML
+    method prependHTMLUnsafe
     method setHTML
     method setHTMLUnsafe
+    method streamAppendHTML
+    method streamAppendHTMLUnsafe
+    method streamHTML
+    method streamHTMLUnsafe
+    method streamPrependHTML
+    method streamPrependHTMLUnsafe
     setter adoptedStyleSheets
     setter fullscreenElement
     setter innerHTML
@@ -9882,6 +9943,9 @@ interface TrustedHTML
     method constructor
     method toJSON
     method toString
+interface TrustedHTMLParserOptions
+    attribute @@toStringTag
+    method constructor
 interface TrustedScript
     attribute @@toStringTag
     method constructor
@@ -9897,6 +9961,7 @@ interface TrustedTypePolicy
     getter name
     method constructor
     method createHTML
+    method createParserOptions
     method createScript
     method createScriptURL
 interface TrustedTypePolicyFactory
@@ -11013,6 +11078,7 @@ interface WebGL2RenderingContext
     method stencilMaskSeparate
     method stencilOp
     method stencilOpSeparate
+    method texElementSubImage2D
     method texImage2D
     method texImage3D
     method texParameterf
@@ -11515,6 +11581,7 @@ interface WebGLRenderingContext
     method stencilMaskSeparate
     method stencilOp
     method stencilOpSeparate
+    method texElementSubImage2D
     method texImage2D
     method texParameterf
     method texParameteri
@@ -11681,6 +11748,7 @@ interface WebSocketStream
     method close
     method constructor
 interface WebTransport
+    static getter supportsReliableOnly
     attribute @@toStringTag
     getter closed
     getter datagrams
@@ -11688,6 +11756,8 @@ interface WebTransport
     getter incomingUnidirectionalStreams
     getter protocol
     getter ready
+    getter reliability
+    getter responseHeaders
     method close
     method constructor
     method createBidirectionalStream

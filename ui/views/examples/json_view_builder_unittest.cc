@@ -11,11 +11,19 @@
 #include "base/path_service.h"
 #include "base/test/task_environment.h"
 #include "base/values.h"
+#include "build/build_config.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/accessibility/platform/ax_platform_for_test.h"
+#include "ui/base/interaction/element_identifier.h"
+#include "ui/base/models/dialog_model.h"
+#include "ui/base/models/dialog_model_field.h"
+#include "ui/base/mojom/dialog_button.mojom.h"
+#include "ui/base/mojom/ui_base_types.mojom-shared.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/base/ui_base_paths.h"
 #include "ui/gfx/font_util.h"
+#include "ui/views/bubble/bubble_border.h"
+#include "ui/views/bubble/bubble_dialog_delegate_view.h"
 #include "ui/views/controls/button/checkbox.h"
 #include "ui/views/controls/button/md_text_button.h"
 #include "ui/views/controls/button/toggle_button.h"
@@ -34,6 +42,7 @@
 #include "ui/views/layout/flex_layout_view.h"
 #include "ui/views/style/typography.h"
 #include "ui/views/test/test_layout_provider.h"
+#include "ui/views/test/views_test_base.h"
 #include "ui/views/view.h"
 #include "ui/views/view_utils.h"
 
@@ -803,5 +812,1287 @@ TEST_F(JsonViewBuilderTest, TestTableView) {
   EXPECT_EQ(table_view->model()->GetText(1, 0), u"Banana");
   EXPECT_EQ(table_view->model()->GetText(2, 0), u"Kiwi");
 }
+
+TEST_F(JsonViewBuilderTest, TestIsDialogOrBubbleSpec) {
+  {
+    const char kJson[] = R"({ "type": "DialogModel" })";
+    auto result =
+        base::JSONReader::Read(kJson, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_TRUE(JsonViewBuilder::IsDialogOrBubbleSpec(result->GetDict()));
+    EXPECT_TRUE(JsonViewBuilder::IsDialogModelSpec(result->GetDict()));
+  }
+  {
+    const char kJson[] = R"({ "type": "Dialog" })";
+    auto result =
+        base::JSONReader::Read(kJson, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_TRUE(JsonViewBuilder::IsDialogOrBubbleSpec(result->GetDict()));
+    EXPECT_FALSE(JsonViewBuilder::IsDialogModelSpec(result->GetDict()));
+  }
+  {
+    const char kJson[] = R"({ "type": "Bubble" })";
+    auto result =
+        base::JSONReader::Read(kJson, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_TRUE(JsonViewBuilder::IsDialogOrBubbleSpec(result->GetDict()));
+    EXPECT_FALSE(JsonViewBuilder::IsDialogModelSpec(result->GetDict()));
+  }
+  {
+    const char kJson[] = R"({ "dialog_model": { "title": "Test" } })";
+    auto result =
+        base::JSONReader::Read(kJson, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_TRUE(JsonViewBuilder::IsDialogOrBubbleSpec(result->GetDict()));
+    EXPECT_TRUE(JsonViewBuilder::IsDialogModelSpec(result->GetDict()));
+  }
+  {
+    const char kJson[] = R"({ "type": "BoxLayoutView" })";
+    auto result =
+        base::JSONReader::Read(kJson, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_FALSE(JsonViewBuilder::IsDialogOrBubbleSpec(result->GetDict()));
+    EXPECT_FALSE(JsonViewBuilder::IsDialogModelSpec(result->GetDict()));
+  }
+}
+
+TEST_F(JsonViewBuilderTest, TestBuildDialogModel_Basic) {
+  const char kJson[] = R"({
+    "type": "DialogModel",
+    "title": "Clear History",
+    "subtitle": "Select items to delete",
+    "is_alert_dialog": true,
+    "close_on_deactivate": true,
+    "buttons": {
+      "ok": { "label": "Delete Data", "style": "kProminent" },
+      "cancel": { "label": "Dismiss" }
+    },
+    "fields": [
+      {
+        "type": "paragraph",
+        "header": "Warning",
+        "text": "This action cannot be undone."
+      },
+      {
+        "type": "checkbox",
+        "id": 101,
+        "label": "Browsing History",
+        "checked": true
+      },
+      {
+        "type": "combobox",
+        "id": 102,
+        "label": "Time Range",
+        "options": ["Past Hour", "Past 24 Hours", "All Time"],
+        "selected_index": 1
+      },
+      {
+        "type": "textfield",
+        "id": 103,
+        "label": "Confirmation Phrase",
+        "placeholder": "Type DELETE"
+      },
+      {
+        "type": "separator"
+      }
+    ],
+    "footnote": "Synced devices will also be updated."
+  })";
+
+  std::string error_msg;
+  auto result = base::JSONReader::ReadAndReturnValueWithError(
+      kJson, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+  ASSERT_TRUE(result.has_value()) << result.error().message;
+
+  std::unique_ptr<ui::DialogModel> model =
+      JsonViewBuilder::BuildDialogModel(result->GetDict(), &error_msg);
+  ASSERT_NE(model, nullptr) << error_msg;
+}
+
+TEST_F(JsonViewBuilderTest, TestBuildDialogModel_CustomView) {
+  const char kJson[] = R"({
+    "type": "DialogModel",
+    "title": "Custom Embedded Dialog",
+    "fields": [
+      {
+        "type": "custom_view",
+        "id": 201,
+        "field_type": "kControl",
+        "view": {
+          "type": "BoxLayoutView",
+          "properties": {
+            "Orientation": "kHorizontal"
+          },
+          "children": [
+            {
+              "type": "Label",
+              "properties": {
+                "ID": 999,
+                "Text": "Embedded Custom Label"
+              }
+            }
+          ]
+        }
+      }
+    ]
+  })";
+
+  std::string error_msg;
+  auto result = base::JSONReader::ReadAndReturnValueWithError(
+      kJson, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+  ASSERT_TRUE(result.has_value()) << result.error().message;
+
+  std::unique_ptr<ui::DialogModel> model =
+      JsonViewBuilder::BuildDialogModel(result->GetDict(), &error_msg);
+  ASSERT_NE(model, nullptr) << error_msg;
+}
+
+TEST_F(JsonViewBuilderTest, TestBuildDialogModel_TextfieldValidation) {
+  // 1. Textfield with label and accessible_name
+  {
+    const char kJson[] = R"({
+      "type": "DialogModel",
+      "title": "Textfield Dialog",
+      "fields": [
+        {
+          "type": "textfield",
+          "id": "user_input",
+          "label": "Username",
+          "accessible_name": "Enter your username",
+          "text": "test_user"
+        }
+      ]
+    })";
+    std::string error_msg;
+    auto result = base::JSONReader::ReadAndReturnValueWithError(
+        kJson, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+    ASSERT_TRUE(result.has_value());
+    auto model =
+        JsonViewBuilder::BuildDialogModel(result->GetDict(), &error_msg);
+    ASSERT_NE(model, nullptr) << error_msg;
+
+    ui::ElementIdentifier id = ui::ElementIdentifier::FromName("user_input");
+    ASSERT_TRUE(static_cast<bool>(id));
+    ui::DialogModelTextfield* tf = model->GetTextfieldByUniqueId(id);
+    ASSERT_NE(tf, nullptr);
+    EXPECT_EQ(tf->label(), u"Username");
+    EXPECT_EQ(tf->accessible_name(), u"Enter your username");
+    EXPECT_EQ(tf->text(), u"test_user");
+  }
+
+  // 2. Textfield with only accessible_name (no label) succeeds
+  {
+    const char kJson[] = R"({
+      "type": "DialogModel",
+      "fields": [
+        {
+          "type": "textfield",
+          "id": "search_box",
+          "accessible_name": "Search Query"
+        }
+      ]
+    })";
+    std::string error_msg;
+    auto result = base::JSONReader::ReadAndReturnValueWithError(
+        kJson, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+    ASSERT_TRUE(result.has_value());
+    auto model =
+        JsonViewBuilder::BuildDialogModel(result->GetDict(), &error_msg);
+    ASSERT_NE(model, nullptr) << error_msg;
+    ui::ElementIdentifier id = ui::ElementIdentifier::FromName("search_box");
+    ui::DialogModelTextfield* tf = model->GetTextfieldByUniqueId(id);
+    ASSERT_NE(tf, nullptr);
+    EXPECT_TRUE(tf->label().empty());
+    EXPECT_EQ(tf->accessible_name(), u"Search Query");
+  }
+
+  // 3. Textfield without label and without accessible_name returns error (no
+  // CHECK crash)
+  {
+    const char kJson[] = R"({
+      "type": "DialogModel",
+      "fields": [
+        {
+          "type": "textfield",
+          "id": "invalid_tf",
+          "text": "no_label_or_name"
+        }
+      ]
+    })";
+    std::string error_msg;
+    auto result = base::JSONReader::ReadAndReturnValueWithError(
+        kJson, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+    ASSERT_TRUE(result.has_value());
+    auto model =
+        JsonViewBuilder::BuildDialogModel(result->GetDict(), &error_msg);
+    EXPECT_EQ(model, nullptr);
+    EXPECT_NE(error_msg.find(
+                  "requires either a non-empty 'label' or 'accessible_name'"),
+              std::string::npos);
+  }
+}
+
+TEST_F(JsonViewBuilderTest, TestBuildDialogModel_PasswordField) {
+  // 1. Password field with label, accessible_text, and incorrect_password_text
+  {
+    const char kJson[] = R"({
+      "type": "DialogModel",
+      "title": "Password Dialog",
+      "fields": [
+        {
+          "type": "password_field",
+          "id": "pwd_field",
+          "label": "Main Password",
+          "accessible_text": "Account Main Password",
+          "incorrect_password_text": "Incorrect password. Try again."
+        }
+      ]
+    })";
+    std::string error_msg;
+    auto result = base::JSONReader::ReadAndReturnValueWithError(
+        kJson, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+    ASSERT_TRUE(result.has_value());
+    auto model =
+        JsonViewBuilder::BuildDialogModel(result->GetDict(), &error_msg);
+    ASSERT_NE(model, nullptr) << error_msg;
+
+    ui::ElementIdentifier id = ui::ElementIdentifier::FromName("pwd_field");
+    ASSERT_TRUE(static_cast<bool>(id));
+    ui::DialogModelPasswordField* pf = model->GetPasswordFieldByUniqueId(id);
+    ASSERT_NE(pf, nullptr);
+    EXPECT_EQ(pf->label(), u"Main Password");
+    EXPECT_EQ(pf->accessible_name(), u"Account Main Password");
+    EXPECT_EQ(pf->incorrect_password_text(), u"Incorrect password. Try again.");
+  }
+
+  // 2. Password field without label or accessible_name fails gracefully
+  {
+    const char kJson[] = R"({
+      "type": "DialogModel",
+      "fields": [
+        {
+          "type": "password_field",
+          "id": "invalid_pwd"
+        }
+      ]
+    })";
+    std::string error_msg;
+    auto result = base::JSONReader::ReadAndReturnValueWithError(
+        kJson, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+    ASSERT_TRUE(result.has_value());
+    auto model =
+        JsonViewBuilder::BuildDialogModel(result->GetDict(), &error_msg);
+    EXPECT_EQ(model, nullptr);
+    EXPECT_NE(error_msg.find(
+                  "requires either a non-empty 'label' or 'accessible_name'"),
+              std::string::npos);
+  }
+}
+
+TEST_F(JsonViewBuilderTest, TestBuildDialogModel_ComboboxValidation) {
+  // 1. Combobox with omitted selected_index / default_index defaults to 0 and
+  // does not crash
+  {
+    const char kJson[] = R"({
+      "type": "DialogModel",
+      "fields": [
+        {
+          "type": "combobox",
+          "id": "combo_default",
+          "label": "Language",
+          "options": ["English", "Spanish", "French"]
+        }
+      ]
+    })";
+    std::string error_msg;
+    auto result = base::JSONReader::ReadAndReturnValueWithError(
+        kJson, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+    ASSERT_TRUE(result.has_value());
+    auto model =
+        JsonViewBuilder::BuildDialogModel(result->GetDict(), &error_msg);
+    ASSERT_NE(model, nullptr) << error_msg;
+
+    ui::ElementIdentifier id = ui::ElementIdentifier::FromName("combo_default");
+    ASSERT_TRUE(static_cast<bool>(id));
+    ui::DialogModelCombobox* cb = model->GetComboboxByUniqueId(id);
+    ASSERT_NE(cb, nullptr);
+    EXPECT_EQ(cb->selected_index(), 0u);
+    EXPECT_EQ(cb->label(), u"Language");
+    ASSERT_NE(cb->combobox_model(), nullptr);
+    EXPECT_EQ(cb->combobox_model()->GetItemCount(), 3u);
+  }
+
+  // 2. Combobox with valid explicit selected_index
+  {
+    const char kJson[] = R"({
+      "type": "DialogModel",
+      "fields": [
+        {
+          "type": "combobox",
+          "id": "combo_explicit",
+          "options": ["Option A", "Option B", "Option C"],
+          "selected_index": 2
+        }
+      ]
+    })";
+    std::string error_msg;
+    auto result = base::JSONReader::ReadAndReturnValueWithError(
+        kJson, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+    ASSERT_TRUE(result.has_value());
+    auto model =
+        JsonViewBuilder::BuildDialogModel(result->GetDict(), &error_msg);
+    ASSERT_NE(model, nullptr) << error_msg;
+
+    ui::ElementIdentifier id =
+        ui::ElementIdentifier::FromName("combo_explicit");
+    ASSERT_TRUE(static_cast<bool>(id));
+    ui::DialogModelCombobox* cb = model->GetComboboxByUniqueId(id);
+    ASSERT_NE(cb, nullptr);
+    EXPECT_EQ(cb->selected_index(), 2u);
+  }
+
+  // 3. Combobox with empty options returns error
+  {
+    const char kJson[] = R"({
+      "type": "DialogModel",
+      "fields": [
+        {
+          "type": "combobox",
+          "id": "empty_combo",
+          "options": []
+        }
+      ]
+    })";
+    std::string error_msg;
+    auto result = base::JSONReader::ReadAndReturnValueWithError(
+        kJson, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+    ASSERT_TRUE(result.has_value());
+    auto model =
+        JsonViewBuilder::BuildDialogModel(result->GetDict(), &error_msg);
+    EXPECT_EQ(model, nullptr);
+    EXPECT_NE(error_msg.find("requires a non-empty 'options' list"),
+              std::string::npos);
+  }
+
+  // 4. Combobox with out-of-bounds index returns error
+  {
+    const char kJson[] = R"({
+      "type": "DialogModel",
+      "fields": [
+        {
+          "type": "combobox",
+          "options": ["Single Option"],
+          "selected_index": 5
+        }
+      ]
+    })";
+    std::string error_msg;
+    auto result = base::JSONReader::ReadAndReturnValueWithError(
+        kJson, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+    ASSERT_TRUE(result.has_value());
+    auto model =
+        JsonViewBuilder::BuildDialogModel(result->GetDict(), &error_msg);
+    EXPECT_EQ(model, nullptr);
+    EXPECT_NE(error_msg.find("out of bounds"), std::string::npos);
+  }
+
+  // 5. Combobox with non-integer selected_index returns error
+  {
+    const char kJson[] = R"({
+      "type": "DialogModel",
+      "fields": [
+        {
+          "type": "combobox",
+          "options": ["Option 1"],
+          "selected_index": "not_an_int"
+        }
+      ]
+    })";
+    std::string error_msg;
+    auto result = base::JSONReader::ReadAndReturnValueWithError(
+        kJson, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+    ASSERT_TRUE(result.has_value());
+    auto model =
+        JsonViewBuilder::BuildDialogModel(result->GetDict(), &error_msg);
+    EXPECT_EQ(model, nullptr);
+    EXPECT_NE(error_msg.find("Property 'selected_index' must be an integer"),
+              std::string::npos);
+  }
+}
+
+TEST_F(JsonViewBuilderTest, TestBuildDialogDelegate_Dialog) {
+  const char kJson[] = R"({
+    "type": "Dialog",
+    "title": "Permissions Dialog",
+    "modal_type": "kWindow",
+    "buttons": ["kOk", "kCancel"],
+    "ok_button_label": "Allow",
+    "cancel_button_label": "Block",
+    "contents": {
+      "type": "BoxLayoutView",
+      "properties": {
+        "Orientation": "kVertical",
+        "BetweenChildSpacing": 6
+      },
+      "children": [
+        {
+          "type": "Label",
+          "properties": {
+            "ID": 501,
+            "Text": "Allow access to microphone?"
+          }
+        }
+      ]
+    }
+  })";
+
+  std::string error_msg;
+  auto result = base::JSONReader::ReadAndReturnValueWithError(
+      kJson, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+  ASSERT_TRUE(result.has_value()) << result.error().message;
+
+  std::unique_ptr<views::DialogDelegate> delegate =
+      JsonViewBuilder::BuildDialogDelegate(result->GetDict(), &error_msg);
+  ASSERT_NE(delegate, nullptr) << error_msg;
+
+  EXPECT_EQ(delegate->GetWindowTitle(), u"Permissions Dialog");
+  EXPECT_EQ(delegate->GetModalType(), ui::mojom::ModalType::kWindow);
+  EXPECT_EQ(delegate->buttons(),
+            static_cast<int>(ui::mojom::DialogButton::kOk) |
+                static_cast<int>(ui::mojom::DialogButton::kCancel));
+  EXPECT_EQ(delegate->GetDialogButtonLabel(ui::mojom::DialogButton::kOk),
+            u"Allow");
+  EXPECT_EQ(delegate->GetDialogButtonLabel(ui::mojom::DialogButton::kCancel),
+            u"Block");
+
+  views::View* contents = delegate->GetContentsView();
+  ASSERT_NE(contents, nullptr);
+  views::View* label = contents->GetViewByID(501);
+  ASSERT_NE(label, nullptr);
+  EXPECT_EQ(views::AsViewClass<views::Label>(label)->GetText(),
+            u"Allow access to microphone?");
+  EXPECT_FALSE(delegate->owned_by_widget());
+}
+
+TEST_F(JsonViewBuilderTest, TestBuildDialogDelegate_Bubble) {
+  const char kJson[] = R"({
+    "type": "Bubble",
+    "title": "Account Info",
+    "arrow": "BOTTOM_CENTER",
+    "close_on_deactivate": true,
+    "buttons": ["kOk"],
+    "ok_button_label": "Got It",
+    "contents": {
+      "type": "Label",
+      "properties": {
+        "Text": "You are logged in as user@example.com"
+      }
+    }
+  })";
+
+  std::string error_msg;
+  auto result = base::JSONReader::ReadAndReturnValueWithError(
+      kJson, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+  ASSERT_TRUE(result.has_value()) << result.error().message;
+
+  std::unique_ptr<views::DialogDelegate> delegate =
+      JsonViewBuilder::BuildDialogDelegate(result->GetDict(), &error_msg);
+  ASSERT_NE(delegate, nullptr) << error_msg;
+
+  views::BubbleDialogDelegate* bubble_delegate =
+      delegate->AsBubbleDialogDelegate();
+  ASSERT_NE(bubble_delegate, nullptr);
+  EXPECT_EQ(bubble_delegate->arrow(),
+            views::BubbleBorder::Arrow::BOTTOM_CENTER);
+  EXPECT_TRUE(bubble_delegate->ShouldCloseOnDeactivate());
+  EXPECT_EQ(bubble_delegate->buttons(),
+            static_cast<int>(ui::mojom::DialogButton::kOk));
+  EXPECT_EQ(bubble_delegate->GetDialogButtonLabel(ui::mojom::DialogButton::kOk),
+            u"Got It");
+
+  views::View* contents = bubble_delegate->GetContentsView();
+  ASSERT_NE(contents, nullptr);
+  views::Label* label = views::AsViewClass<views::Label>(contents);
+  ASSERT_NE(label, nullptr);
+  EXPECT_EQ(label->GetText(), u"You are logged in as user@example.com");
+  EXPECT_FALSE(delegate->owned_by_widget());
+}
+
+TEST_F(JsonViewBuilderTest, TestEnumConverters) {
+  // Test Arrow variations
+  {
+    const char kJson[] = R"({
+      "type": "Bubble",
+      "arrow": "TOP_RIGHT"
+    })";
+    auto result =
+        base::JSONReader::Read(kJson, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+    ASSERT_TRUE(result.has_value());
+    std::string err;
+    auto delegate =
+        JsonViewBuilder::BuildDialogDelegate(result->GetDict(), &err);
+    ASSERT_NE(delegate, nullptr);
+    EXPECT_EQ(delegate->AsBubbleDialogDelegate()->arrow(),
+              views::BubbleBorder::Arrow::TOP_RIGHT);
+  }
+  {
+    const char kJson[] = R"({
+      "type": "Bubble",
+      "arrow": "FLOAT"
+    })";
+    auto result =
+        base::JSONReader::Read(kJson, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+    ASSERT_TRUE(result.has_value());
+    std::string err;
+    auto delegate =
+        JsonViewBuilder::BuildDialogDelegate(result->GetDict(), &err);
+    ASSERT_NE(delegate, nullptr);
+    EXPECT_EQ(delegate->AsBubbleDialogDelegate()->arrow(),
+              views::BubbleBorder::Arrow::FLOAT);
+  }
+
+  // Test ModalType variations
+  {
+    const char kJson[] = R"({
+      "type": "Dialog",
+      "modal_type": "kChild"
+    })";
+    auto result =
+        base::JSONReader::Read(kJson, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+    ASSERT_TRUE(result.has_value());
+    std::string err;
+    auto delegate =
+        JsonViewBuilder::BuildDialogDelegate(result->GetDict(), &err);
+    ASSERT_NE(delegate, nullptr);
+    EXPECT_EQ(delegate->GetModalType(), ui::mojom::ModalType::kChild);
+  }
+  {
+    const char kJson[] = R"({
+      "type": "Dialog",
+      "modal_type": "kSystem"
+    })";
+    auto result =
+        base::JSONReader::Read(kJson, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+    ASSERT_TRUE(result.has_value());
+    std::string err;
+    auto delegate =
+        JsonViewBuilder::BuildDialogDelegate(result->GetDict(), &err);
+    ASSERT_NE(delegate, nullptr);
+    EXPECT_EQ(delegate->GetModalType(), ui::mojom::ModalType::kSystem);
+  }
+
+  // Test DialogButton variations
+  {
+    const char kJson[] = R"({
+      "type": "Dialog",
+      "buttons": ["kOk", "kCancel"],
+      "default_button": "kCancel"
+    })";
+    auto result =
+        base::JSONReader::Read(kJson, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+    ASSERT_TRUE(result.has_value());
+    std::string err;
+    auto delegate =
+        JsonViewBuilder::BuildDialogDelegate(result->GetDict(), &err);
+    ASSERT_NE(delegate, nullptr);
+    EXPECT_EQ(delegate->buttons(),
+              static_cast<int>(ui::mojom::DialogButton::kOk) |
+                  static_cast<int>(ui::mojom::DialogButton::kCancel));
+    EXPECT_EQ(delegate->GetDefaultDialogButton(),
+              static_cast<int>(ui::mojom::DialogButton::kCancel));
+  }
+  {
+    const char kJson[] = R"({
+      "type": "Dialog",
+      "buttons": "kNone",
+      "default_button": "kNone"
+    })";
+    auto result =
+        base::JSONReader::Read(kJson, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+    ASSERT_TRUE(result.has_value());
+    std::string err;
+    auto delegate =
+        JsonViewBuilder::BuildDialogDelegate(result->GetDict(), &err);
+    ASSERT_NE(delegate, nullptr);
+    EXPECT_EQ(delegate->buttons(),
+              static_cast<int>(ui::mojom::DialogButton::kNone));
+    EXPECT_EQ(delegate->GetDefaultDialogButton(),
+              static_cast<int>(ui::mojom::DialogButton::kNone));
+  }
+
+  // Test Shadow variations
+  {
+    const char kJson[] = R"({
+      "type": "Bubble",
+      "shadow": "NO_SHADOW"
+    })";
+    auto result =
+        base::JSONReader::Read(kJson, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+    ASSERT_TRUE(result.has_value());
+    std::string err;
+    auto delegate =
+        JsonViewBuilder::BuildDialogDelegate(result->GetDict(), &err);
+    ASSERT_NE(delegate, nullptr);
+    EXPECT_NE(delegate->AsBubbleDialogDelegate(), nullptr);
+  }
+  {
+    const char kJson[] = R"({
+      "type": "Bubble",
+      "shadow": "STANDARD_SHADOW"
+    })";
+    auto result =
+        base::JSONReader::Read(kJson, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+    ASSERT_TRUE(result.has_value());
+    std::string err;
+    auto delegate =
+        JsonViewBuilder::BuildDialogDelegate(result->GetDict(), &err);
+    ASSERT_NE(delegate, nullptr);
+    EXPECT_NE(delegate->AsBubbleDialogDelegate(), nullptr);
+  }
+}
+
+TEST_F(JsonViewBuilderTest, TestUseDesktopWidgetOverride) {
+  // 1. Dialog defaults to using desktop widget
+  {
+    const char kJson[] = R"({
+      "type": "Dialog",
+      "title": "Default Desktop Dialog"
+    })";
+    auto result =
+        base::JSONReader::Read(kJson, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+    ASSERT_TRUE(result.has_value());
+    std::string err;
+    auto delegate =
+        JsonViewBuilder::BuildDialogDelegate(result->GetDict(), &err);
+    ASSERT_NE(delegate, nullptr);
+    EXPECT_TRUE(delegate->use_desktop_widget_override());
+  }
+
+  // 2. Dialog can override to false
+  {
+    const char kJson[] = R"({
+      "type": "Dialog",
+      "title": "Non-Desktop Dialog",
+      "use_desktop_widget_override": false
+    })";
+    auto result =
+        base::JSONReader::Read(kJson, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+    ASSERT_TRUE(result.has_value());
+    std::string err;
+    auto delegate =
+        JsonViewBuilder::BuildDialogDelegate(result->GetDict(), &err);
+    ASSERT_NE(delegate, nullptr);
+    EXPECT_FALSE(delegate->use_desktop_widget_override());
+  }
+
+  // 3. Bubble defaults to using desktop widget
+  {
+    const char kJson[] = R"({
+      "type": "Bubble",
+      "title": "Default Desktop Bubble"
+    })";
+    auto result =
+        base::JSONReader::Read(kJson, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+    ASSERT_TRUE(result.has_value());
+    std::string err;
+    auto delegate =
+        JsonViewBuilder::BuildDialogDelegate(result->GetDict(), &err);
+    ASSERT_NE(delegate, nullptr);
+    EXPECT_TRUE(delegate->use_desktop_widget_override());
+  }
+
+  // 4. DialogModel defaults to using desktop widget
+  {
+    const char kJson[] = R"({
+      "type": "DialogModel",
+      "title": "Default Desktop DialogModel"
+    })";
+    auto result =
+        base::JSONReader::Read(kJson, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+    ASSERT_TRUE(result.has_value());
+    std::string err;
+    auto delegate =
+        JsonViewBuilder::BuildDialogDelegate(result->GetDict(), &err);
+    ASSERT_NE(delegate, nullptr);
+    EXPECT_TRUE(delegate->use_desktop_widget_override());
+  }
+
+  // 5. DialogModel can override to false
+  {
+    const char kJson[] = R"({
+      "type": "DialogModel",
+      "title": "Non-Desktop DialogModel",
+      "use_desktop_widget_override": false
+    })";
+    auto result =
+        base::JSONReader::Read(kJson, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+    ASSERT_TRUE(result.has_value());
+    std::string err;
+    auto delegate =
+        JsonViewBuilder::BuildDialogDelegate(result->GetDict(), &err);
+    ASSERT_NE(delegate, nullptr);
+    EXPECT_FALSE(delegate->use_desktop_widget_override());
+  }
+}
+
+TEST_F(JsonViewBuilderTest, TestDialogModel_UnknownProperties) {
+  const char kJson[] = R"({
+    "type": "DialogModel",
+    "title": "My Title",
+    "subttile": "Typo subtitle"
+  })";
+  auto result =
+      base::JSONReader::Read(kJson, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+  ASSERT_TRUE(result.has_value());
+  std::string err;
+  auto model = JsonViewBuilder::BuildDialogModel(result->GetDict(), &err);
+  EXPECT_EQ(model, nullptr);
+  EXPECT_NE(err.find("Unknown property in DialogModel: subttile"),
+            std::string::npos);
+}
+
+TEST_F(JsonViewBuilderTest, TestDialogModel_TypeValidation) {
+  // 1. Invalid title type
+  {
+    const char kJson[] = R"({
+      "type": "DialogModel",
+      "title": 123
+    })";
+    auto result =
+        base::JSONReader::Read(kJson, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+    ASSERT_TRUE(result.has_value());
+    std::string err;
+    auto model = JsonViewBuilder::BuildDialogModel(result->GetDict(), &err);
+    EXPECT_EQ(model, nullptr);
+    EXPECT_NE(err.find("Property 'title' must be a string"), std::string::npos);
+  }
+
+  // 2. Invalid close_on_deactivate type
+  {
+    const char kJson[] = R"({
+      "type": "DialogModel",
+      "close_on_deactivate": "false"
+    })";
+    auto result =
+        base::JSONReader::Read(kJson, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+    ASSERT_TRUE(result.has_value());
+    std::string err;
+    auto model = JsonViewBuilder::BuildDialogModel(result->GetDict(), &err);
+    EXPECT_EQ(model, nullptr);
+    EXPECT_NE(err.find("Property 'close_on_deactivate' must be a boolean"),
+              std::string::npos);
+  }
+
+  // 3. Invalid fields type
+  {
+    const char kJson[] = R"({
+      "type": "DialogModel",
+      "fields": "not_a_list"
+    })";
+    auto result =
+        base::JSONReader::Read(kJson, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+    ASSERT_TRUE(result.has_value());
+    std::string err;
+    auto model = JsonViewBuilder::BuildDialogModel(result->GetDict(), &err);
+    EXPECT_EQ(model, nullptr);
+    EXPECT_NE(err.find("Property 'fields' must be a list"), std::string::npos);
+  }
+
+  // 4. Invalid field element type
+  {
+    const char kJson[] = R"({
+      "type": "DialogModel",
+      "fields": ["not_a_dict"]
+    })";
+    auto result =
+        base::JSONReader::Read(kJson, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+    ASSERT_TRUE(result.has_value());
+    std::string err;
+    auto model = JsonViewBuilder::BuildDialogModel(result->GetDict(), &err);
+    EXPECT_EQ(model, nullptr);
+    EXPECT_NE(err.find("Field entry in 'fields' list must be a dictionary"),
+              std::string::npos);
+  }
+
+  // 5. Unknown button type in buttons dict
+  {
+    const char kJson[] = R"({
+      "type": "DialogModel",
+      "buttons": {
+        "cancle": { "label": "Cancel" }
+      }
+    })";
+    auto result =
+        base::JSONReader::Read(kJson, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+    ASSERT_TRUE(result.has_value());
+    std::string err;
+    auto model = JsonViewBuilder::BuildDialogModel(result->GetDict(), &err);
+    EXPECT_EQ(model, nullptr);
+    EXPECT_NE(err.find("Unknown button type in buttons dict: cancle"),
+              std::string::npos);
+  }
+
+  // 6. Invalid button style
+  {
+    const char kJson[] = R"({
+      "type": "DialogModel",
+      "buttons": {
+        "ok": { "style": "invalid_style" }
+      }
+    })";
+    auto result =
+        base::JSONReader::Read(kJson, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+    ASSERT_TRUE(result.has_value());
+    std::string err;
+    auto model = JsonViewBuilder::BuildDialogModel(result->GetDict(), &err);
+    EXPECT_EQ(model, nullptr);
+    EXPECT_NE(err.find("Invalid button style: invalid_style"),
+              std::string::npos);
+  }
+}
+
+TEST_F(JsonViewBuilderTest, TestDialogModel_ImageParsing) {
+  // 1. Valid vector icon
+  {
+    const char kJson[] = R"({
+      "type": "DialogModel",
+      "icon": "vector_icon:info,20"
+    })";
+    auto result =
+        base::JSONReader::Read(kJson, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+    ASSERT_TRUE(result.has_value());
+    std::string err;
+    auto model = JsonViewBuilder::BuildDialogModel(result->GetDict(), &err);
+    ASSERT_NE(model, nullptr) << err;
+  }
+
+  // 2. Unknown vector icon
+  {
+    const char kJson[] = R"({
+      "type": "DialogModel",
+      "icon": "vector_icon:nonexistent_icon_xyz"
+    })";
+    auto result =
+        base::JSONReader::Read(kJson, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+    ASSERT_TRUE(result.has_value());
+    std::string err;
+    auto model = JsonViewBuilder::BuildDialogModel(result->GetDict(), &err);
+    EXPECT_EQ(model, nullptr);
+    EXPECT_NE(err.find("Unsupported image format or unknown icon"),
+              std::string::npos);
+  }
+
+  // 3. Invalid vector icon size (non-numeric)
+  {
+    const char kJson[] = R"({
+      "type": "DialogModel",
+      "icon": "vector_icon:info,abc"
+    })";
+    auto result =
+        base::JSONReader::Read(kJson, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+    ASSERT_TRUE(result.has_value());
+    std::string err;
+    auto model = JsonViewBuilder::BuildDialogModel(result->GetDict(), &err);
+    EXPECT_EQ(model, nullptr);
+    EXPECT_NE(err.find("Invalid vector icon size"), std::string::npos);
+  }
+
+  // 4. Invalid vector icon size (negative / zero)
+  {
+    const char kJson[] = R"({
+      "type": "DialogModel",
+      "icon": "vector_icon:info,-5"
+    })";
+    auto result =
+        base::JSONReader::Read(kJson, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+    ASSERT_TRUE(result.has_value());
+    std::string err;
+    auto model = JsonViewBuilder::BuildDialogModel(result->GetDict(), &err);
+    EXPECT_EQ(model, nullptr);
+    EXPECT_NE(err.find("Vector icon size must be positive"), std::string::npos);
+  }
+
+  // 5. Unknown ColorId in vector icon
+  {
+    const char kJson[] = R"({
+      "type": "DialogModel",
+      "icon": "vector_icon:info,16,ColorId:kUnknownColorIdentifier"
+    })";
+    auto result =
+        base::JSONReader::Read(kJson, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+    ASSERT_TRUE(result.has_value());
+    std::string err;
+    auto model = JsonViewBuilder::BuildDialogModel(result->GetDict(), &err);
+    EXPECT_EQ(model, nullptr);
+    EXPECT_NE(err.find("Unknown ColorId: kUnknownColorIdentifier"),
+              std::string::npos);
+  }
+
+  // 6. Invalid solid image dimensions
+  {
+    const char kJson[] = R"({
+      "type": "DialogModel",
+      "banner": "solid,red,not_an_int,16"
+    })";
+    auto result =
+        base::JSONReader::Read(kJson, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+    ASSERT_TRUE(result.has_value());
+    std::string err;
+    auto model = JsonViewBuilder::BuildDialogModel(result->GetDict(), &err);
+    EXPECT_EQ(model, nullptr);
+    EXPECT_NE(err.find("Invalid solid image width: not_an_int"),
+              std::string::npos);
+  }
+}
+
+TEST_F(JsonViewBuilderTest, TestDialogModel_MenuItemValidation) {
+  // 1. Valid menu item with icon and id
+  {
+    const char kJson[] = R"({
+      "type": "DialogModel",
+      "fields": [
+        {
+          "type": "menu_item",
+          "id": "menu_action_item",
+          "label": "Open File",
+          "icon": "vector_icon:info,16",
+          "is_enabled": true
+        }
+      ]
+    })";
+    auto result =
+        base::JSONReader::Read(kJson, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+    ASSERT_TRUE(result.has_value());
+    std::string err;
+    auto model = JsonViewBuilder::BuildDialogModel(result->GetDict(), &err);
+    ASSERT_NE(model, nullptr) << err;
+    ui::ElementIdentifier id =
+        ui::ElementIdentifier::FromName("menu_action_item");
+    ASSERT_TRUE(static_cast<bool>(id));
+    ui::DialogModelField* field = model->GetFieldByUniqueId(id);
+    ASSERT_NE(field, nullptr);
+    ui::DialogModelMenuItem* item = field->AsMenuItem();
+    ASSERT_NE(item, nullptr);
+    EXPECT_EQ(item->label(), u"Open File");
+    EXPECT_FALSE(item->icon().IsEmpty());
+    EXPECT_TRUE(item->is_enabled());
+  }
+
+  // 2. Menu item with invalid icon fails
+  {
+    const char kJson[] = R"({
+      "type": "DialogModel",
+      "fields": [
+        {
+          "type": "menu_item",
+          "label": "Bad Item",
+          "icon": "vector_icon:invalid_icon_name"
+        }
+      ]
+    })";
+    auto result =
+        base::JSONReader::Read(kJson, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+    ASSERT_TRUE(result.has_value());
+    std::string err;
+    auto model = JsonViewBuilder::BuildDialogModel(result->GetDict(), &err);
+    EXPECT_EQ(model, nullptr);
+    EXPECT_NE(err.find("Unsupported image format or unknown icon"),
+              std::string::npos);
+  }
+
+  // 3. Menu item with non-bool is_enabled fails
+  {
+    const char kJson[] = R"({
+      "type": "DialogModel",
+      "fields": [
+        {
+          "type": "menu_item",
+          "label": "Bad Enabled",
+          "is_enabled": "true"
+        }
+      ]
+    })";
+    auto result =
+        base::JSONReader::Read(kJson, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+    ASSERT_TRUE(result.has_value());
+    std::string err;
+    auto model = JsonViewBuilder::BuildDialogModel(result->GetDict(), &err);
+    EXPECT_EQ(model, nullptr);
+    EXPECT_NE(err.find("Property 'is_enabled' must be a boolean"),
+              std::string::npos);
+  }
+}
+
+TEST_F(JsonViewBuilderTest, TestDialogDelegate_UnknownProperties) {
+  const char kJson[] = R"({
+    "type": "Dialog",
+    "title": "Valid Title",
+    "btn_label": "Typo Property"
+  })";
+  auto result =
+      base::JSONReader::Read(kJson, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+  ASSERT_TRUE(result.has_value());
+  std::string err;
+  auto delegate = JsonViewBuilder::BuildDialogDelegate(result->GetDict(), &err);
+  EXPECT_EQ(delegate, nullptr);
+  EXPECT_NE(err.find("Unknown property in Dialog: btn_label"),
+            std::string::npos);
+}
+
+TEST_F(JsonViewBuilderTest, TestDialogDelegate_TypeAndValueValidation) {
+  // 1. Invalid modal_type enum
+  {
+    const char kJson[] = R"({
+      "type": "Dialog",
+      "modal_type": "kInvalidModalType"
+    })";
+    auto result =
+        base::JSONReader::Read(kJson, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+    ASSERT_TRUE(result.has_value());
+    std::string err;
+    auto delegate =
+        JsonViewBuilder::BuildDialogDelegate(result->GetDict(), &err);
+    EXPECT_EQ(delegate, nullptr);
+    EXPECT_NE(err.find("Invalid modal_type: kInvalidModalType"),
+              std::string::npos);
+  }
+
+  // 2. Invalid shadow enum
+  {
+    const char kJson[] = R"({
+      "type": "Bubble",
+      "shadow": "UNKNOWN_SHADOW"
+    })";
+    auto result =
+        base::JSONReader::Read(kJson, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+    ASSERT_TRUE(result.has_value());
+    std::string err;
+    auto delegate =
+        JsonViewBuilder::BuildDialogDelegate(result->GetDict(), &err);
+    EXPECT_EQ(delegate, nullptr);
+    EXPECT_NE(err.find("Invalid shadow type: UNKNOWN_SHADOW"),
+              std::string::npos);
+  }
+
+  // 3. Invalid default_button
+  {
+    const char kJson[] = R"({
+      "type": "Dialog",
+      "default_button": "kInvalidButton"
+    })";
+    auto result =
+        base::JSONReader::Read(kJson, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+    ASSERT_TRUE(result.has_value());
+    std::string err;
+    auto delegate =
+        JsonViewBuilder::BuildDialogDelegate(result->GetDict(), &err);
+    EXPECT_EQ(delegate, nullptr);
+    EXPECT_NE(err.find("Unknown default button: kInvalidButton"),
+              std::string::npos);
+  }
+
+  // 4. Invalid button in buttons list
+  {
+    const char kJson[] = R"({
+      "type": "Dialog",
+      "buttons": ["kOk", "kFakeButton"]
+    })";
+    auto result =
+        base::JSONReader::Read(kJson, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+    ASSERT_TRUE(result.has_value());
+    std::string err;
+    auto delegate =
+        JsonViewBuilder::BuildDialogDelegate(result->GetDict(), &err);
+    EXPECT_EQ(delegate, nullptr);
+    EXPECT_NE(err.find("Invalid dialog button in list: kFakeButton"),
+              std::string::npos);
+  }
+
+  // 5. Invalid contents type
+  {
+    const char kJson[] = R"({
+      "type": "Dialog",
+      "contents": "not_a_dictionary"
+    })";
+    auto result =
+        base::JSONReader::Read(kJson, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+    ASSERT_TRUE(result.has_value());
+    std::string err;
+    auto delegate =
+        JsonViewBuilder::BuildDialogDelegate(result->GetDict(), &err);
+    EXPECT_EQ(delegate, nullptr);
+    EXPECT_NE(err.find("Property 'contents' must be a dictionary"),
+              std::string::npos);
+  }
+
+  // 6. Invalid children element type (non-dict)
+  {
+    const char kJson[] = R"({
+      "type": "Dialog",
+      "children": ["not_a_dictionary"]
+    })";
+    auto result =
+        base::JSONReader::Read(kJson, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+    ASSERT_TRUE(result.has_value());
+    std::string err;
+    auto delegate =
+        JsonViewBuilder::BuildDialogDelegate(result->GetDict(), &err);
+    EXPECT_EQ(delegate, nullptr);
+    EXPECT_NE(err.find("Child entry in 'children' list must be a dictionary"),
+              std::string::npos);
+  }
+}
+
+#if !BUILDFLAG(IS_FUCHSIA)
+class JsonViewBuilderWidgetTest : public ViewsTestBase {
+ public:
+  JsonViewBuilderWidgetTest() = default;
+  ~JsonViewBuilderWidgetTest() override = default;
+
+  void SetUp() override {
+    if (!ui::ResourceBundle::HasSharedInstance()) {
+      base::FilePath ui_test_pak_path;
+      if (base::PathService::Get(ui::UI_TEST_PAK, &ui_test_pak_path)) {
+        ui::ResourceBundle::InitSharedInstanceWithPakPath(ui_test_pak_path);
+      }
+    }
+    ViewsTestBase::SetUp();
+  }
+};
+
+TEST_F(JsonViewBuilderWidgetTest, TestShowDialogOrBubble_Dialog) {
+  std::unique_ptr<Widget> parent_widget =
+      CreateTestWidget(Widget::InitParams::CLIENT_OWNS_WIDGET);
+  parent_widget->Show();
+
+  const char kJson[] = R"({
+    "type": "Dialog",
+    "title": "Test Window Dialog",
+    "contents": {
+      "type": "Label",
+      "properties": {
+        "Text": "Dialog contents"
+      }
+    }
+  })";
+  auto result =
+      base::JSONReader::Read(kJson, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+  ASSERT_TRUE(result.has_value());
+  std::string error_msg;
+  auto dialog_result = JsonViewBuilder::ShowDialogOrBubble(
+      result->GetDict(), nullptr, parent_widget->GetNativeWindow(), &error_msg);
+  ASSERT_NE(dialog_result.widget, nullptr) << error_msg;
+  ASSERT_NE(dialog_result.delegate, nullptr);
+  EXPECT_TRUE(dialog_result.widget->IsVisible());
+  EXPECT_EQ(dialog_result.delegate->GetWindowTitle(), u"Test Window Dialog");
+
+  // Teardown: widget must be reset before delegate
+  dialog_result.widget.reset();
+  dialog_result.delegate.reset();
+}
+
+TEST_F(JsonViewBuilderWidgetTest, TestShowDialogOrBubble_Bubble) {
+  std::unique_ptr<Widget> parent_widget =
+      CreateTestWidget(Widget::InitParams::CLIENT_OWNS_WIDGET);
+  View* anchor_view = parent_widget->SetContentsView(std::make_unique<View>());
+  parent_widget->Show();
+
+  const char kJson[] = R"({
+    "type": "Bubble",
+    "title": "Test Bubble Popup",
+    "arrow": "TOP_RIGHT",
+    "contents": {
+      "type": "Label",
+      "properties": {
+        "Text": "Bubble contents"
+      }
+    }
+  })";
+  auto result =
+      base::JSONReader::Read(kJson, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+  ASSERT_TRUE(result.has_value());
+  std::string error_msg;
+  auto bubble_result = JsonViewBuilder::ShowDialogOrBubble(
+      result->GetDict(), anchor_view, parent_widget->GetNativeWindow(),
+      &error_msg);
+  ASSERT_NE(bubble_result.widget, nullptr) << error_msg;
+  ASSERT_NE(bubble_result.delegate, nullptr);
+  EXPECT_TRUE(bubble_result.widget->IsVisible());
+  auto* bubble_delegate = bubble_result.delegate->AsBubbleDialogDelegate();
+  ASSERT_NE(bubble_delegate, nullptr);
+  EXPECT_EQ(bubble_delegate->GetAnchorView(), anchor_view);
+  EXPECT_EQ(bubble_delegate->arrow(), BubbleBorder::Arrow::TOP_RIGHT);
+
+  bubble_result.widget.reset();
+  bubble_result.delegate.reset();
+}
+
+TEST_F(JsonViewBuilderWidgetTest, TestShowDialogOrBubble_DialogModel) {
+  std::unique_ptr<Widget> parent_widget =
+      CreateTestWidget(Widget::InitParams::CLIENT_OWNS_WIDGET);
+  parent_widget->Show();
+
+  const char kJson[] = R"({
+    "type": "DialogModel",
+    "title": "Test DialogModel Popup",
+    "modal_type": "kChild",
+    "fields": [
+      {
+        "type": "paragraph",
+        "text": "Model paragraph text"
+      }
+    ]
+  })";
+  auto result =
+      base::JSONReader::Read(kJson, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+  ASSERT_TRUE(result.has_value());
+  std::string error_msg;
+  auto model_result = JsonViewBuilder::ShowDialogOrBubble(
+      result->GetDict(), nullptr, parent_widget->GetNativeWindow(), &error_msg);
+  ASSERT_NE(model_result.widget, nullptr) << error_msg;
+  ASSERT_NE(model_result.delegate, nullptr);
+  EXPECT_TRUE(model_result.widget->IsVisible());
+
+  model_result.widget.reset();
+  model_result.delegate.reset();
+}
+
+TEST_F(JsonViewBuilderWidgetTest, TestShowDialogOrBubble_DialogModel_Anchored) {
+  std::unique_ptr<Widget> parent_widget =
+      CreateTestWidget(Widget::InitParams::CLIENT_OWNS_WIDGET);
+  View* anchor_view = parent_widget->SetContentsView(std::make_unique<View>());
+  parent_widget->Show();
+
+  const char kJson[] = R"({
+    "type": "DialogModel",
+    "title": "Test Anchored DialogModel Popup",
+    "modal_type": "kChild",
+    "arrow": "TOP_LEFT",
+    "fields": [
+      {
+        "type": "paragraph",
+        "text": "Model paragraph text"
+      }
+    ]
+  })";
+  auto result =
+      base::JSONReader::Read(kJson, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+  ASSERT_TRUE(result.has_value());
+  std::string error_msg;
+  auto model_result = JsonViewBuilder::ShowDialogOrBubble(
+      result->GetDict(), anchor_view, parent_widget->GetNativeWindow(),
+      &error_msg);
+  ASSERT_NE(model_result.widget, nullptr) << error_msg;
+  ASSERT_NE(model_result.delegate, nullptr);
+  EXPECT_TRUE(model_result.widget->IsVisible());
+  auto* bubble_delegate = model_result.delegate->AsBubbleDialogDelegate();
+  ASSERT_NE(bubble_delegate, nullptr);
+  EXPECT_EQ(bubble_delegate->GetAnchorView(), anchor_view);
+  EXPECT_EQ(bubble_delegate->arrow(), BubbleBorder::Arrow::TOP_LEFT);
+
+  model_result.widget.reset();
+  model_result.delegate.reset();
+}
+#endif  // !BUILDFLAG(IS_FUCHSIA)
 
 }  // namespace views::examples

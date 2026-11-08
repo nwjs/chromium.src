@@ -7,10 +7,10 @@
 #include "base/check.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/tabs/organizer/organizer_panel_utils.h"
 #include "chrome/browser/ui/tabs/vertical_tab_strip_state_controller.h"
 #include "chrome/browser/ui/views/frame/vertical_tab_strip_region_view.h"
 #include "chrome/browser/ui/views/interaction/browser_elements_views.h"
-#include "chrome/browser/ui/views/tabs/organizer/organizer_panel_utils.h"
 #include "chrome/browser/ui/views/tabs/organizer/organizer_tray_view.h"
 #include "ui/base/interaction/element_identifier.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
@@ -18,24 +18,6 @@
 #include "ui/views/view_utils.h"
 
 namespace {
-
-bool DoesVerticalTabStripSupportEmbeddedOrganizerPanel(
-    BrowserWindowInterface& browser) {
-  const auto* controller =
-      tabs::VerticalTabStripStateController::From(&browser);
-  if (!controller) {
-    return false;
-  }
-  if (!controller->ShouldDisplayVerticalTabs()) {
-    return false;
-  }
-  if (controller->IsCollapsed()) {
-    return controller->IsExpandOnHoverEnabled();
-  }
-  return controller->GetUncollapsedWidth() >
-         organizer_panel::kOrganizerPanelMinWidth -
-             organizer_panel::kOrganizerPanelMinOverlap;
-}
 
 OrganizerPanelHost* GetVerticalTabStripHost(BrowserWindowInterface& browser) {
   const auto views = BrowserElementsViews::From(&browser)->GetAllViews(
@@ -57,6 +39,24 @@ OrganizerPanelHost* GetOrganizerTrayHost(BrowserWindowInterface& browser) {
 }
 
 }  // namespace
+
+bool DoesVerticalTabStripSupportEmbeddedOrganizerPanel(
+    BrowserWindowInterface& browser) {
+  const auto* controller =
+      tabs::VerticalTabStripStateController::From(&browser);
+  if (!controller) {
+    return false;
+  }
+  if (!controller->ShouldDisplayVerticalTabs()) {
+    return false;
+  }
+  if (controller->IsCollapsed()) {
+    return controller->IsExpandOnHoverEnabled();
+  }
+  return controller->GetUncollapsedWidth() >
+         organizer_panel::kOrganizerPanelMinWidth -
+             organizer_panel::kOrganizerPanelMinOverlap;
+}
 
 // static
 OrganizerPanelHost* OrganizerPanelHost::FromView(views::View* view) {

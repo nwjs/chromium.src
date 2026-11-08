@@ -111,10 +111,6 @@ class AuthenticationService : public KeyedService,
   // Virtual for testing.
   virtual bool HasPrimaryIdentityManaged() const;
 
-  // Returns true if data from the signed-in period should be cleared on
-  // sign-out.
-  virtual bool ShouldClearDataForSignedInPeriodOnSignOut() const;
-
   // Retrieves the identity of the currently authenticated user or `nil` if
   // the user is not authenticated.
   // Virtual for testing.
@@ -129,13 +125,6 @@ class AuthenticationService : public KeyedService,
   // Signs the authenticated user out of Chrome. This method only works for
   // the personal profile. This method should only be used by the sign-in team.
   // Sync consent is automatically removed from all signed-out accounts.
-  // `completion` is then executed asynchronously.
-  // Virtual for testing.
-  virtual void SignOut(signin_metrics::ProfileSignout signout_source,
-                       ProceduralBlock completion);
-
-  // Overload without completion callback. SignOut() always completes
-  // synchronously.
   // Virtual for testing.
   virtual void SignOut(signin_metrics::ProfileSignout signout_source);
 

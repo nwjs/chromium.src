@@ -19,7 +19,7 @@
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
 #include "third_party/blink/renderer/platform/bindings/v8_external_memory_accounter.h"
 #include "third_party/blink/renderer/platform/graphics/canvas_2d_resource_provider.h"
-#include "third_party/blink/renderer/platform/graphics/canvas_child_paint_record.h"
+#include "third_party/blink/renderer/platform/graphics/canvas_drawable_paint_record.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
 #include "third_party/blink/renderer/platform/text/text_direction.h"
 #include "ui/gfx/geometry/rect.h"
@@ -48,11 +48,9 @@ enum class RasterModeHint {
   kPreferCPU,
 };
 
-class CORE_EXPORT CanvasRenderingContextHost
-    : public GarbageCollectedMixin,
-      public CanvasResourceProviderDelegate,
-      public CanvasImageSource,
-      public ImageBitmapSource {
+class CORE_EXPORT CanvasRenderingContextHost : public GarbageCollectedMixin,
+                                               public CanvasImageSource,
+                                               public ImageBitmapSource {
  public:
   enum class HostType {
     kNone,
@@ -112,16 +110,11 @@ class CORE_EXPORT CanvasRenderingContextHost
   bool IsPaintable() const;
 
   virtual bool LowLatencyEnabled() const { return false; }
-
+  virtual bool IsPrinting() const { return false; }
 
   // Required by template functions in WebGLRenderingContextBase
   int width() const { return Size().width(); }
   int height() const { return Size().height(); }
-
-  // Partial CanvasResourceProvider::Delegate implementation
-  scoped_refptr<const cc::AnimatedImageFrameIndexMap>
-  GetAnimatedImageFrameIndexes(uint32_t id) const override;
-  void DidFlush() override;
 
   virtual void PageVisibilityChanged();
 
@@ -136,6 +129,7 @@ class CORE_EXPORT CanvasRenderingContextHost
   RasterMode GetRasterModeForCanvas2D() const;
 
   virtual bool IsPageVisible() const = 0;
+  virtual void NotifyGpuContextLost() = 0;
   virtual void SetNeedsCompositingUpdate() = 0;
   virtual void ClearCanvas2DLayerTexture() {}
 
@@ -162,8 +156,8 @@ class CORE_EXPORT CanvasRenderingContextHost
 
   virtual void DiscardResources() = 0;
 
-  virtual std::optional<CanvasChildPaintRecord> GetCanvasChildPaintRecord(
-      DOMNodeId child_id) const {
+  virtual std::optional<CanvasDrawablePaintRecord> GetCanvasDrawablePaintRecord(
+      DOMNodeId drawable_id) const {
     return std::nullopt;
   }
 

@@ -23,6 +23,7 @@
 #include "components/sync/test/sessions_hierarchy.h"
 #include "content/public/test/browser_test.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "url/gurl.h"
 
 namespace {
 
@@ -76,7 +77,11 @@ class TwoClientSessionsSyncTest
   }
 
   GURL GetInitialURL() const override {
-    return chrome::ChromeUINewTabURLAsGURL();
+    // Return a lightweight unsynced WebUI URL so the initial tab is not synced
+    // (unlike the default about:blank). Avoid chrome://newtab/ because loading
+    // the full New Tab Page WebUI and its subframes significantly slows down
+    // test setup and teardown.
+    return GURL(chrome::kChromeUIVersionURL);
   }
 
  private:
@@ -191,13 +196,7 @@ IN_PROC_BROWSER_TEST_P(TwoClientSessionsSyncTest, DeleteIdleSession) {
   EXPECT_FALSE(GetSessionData(1, &sessions1));
 }
 
-// TODO(crbug.com/501729852): This test is flaky on Linux.
-#if (BUILDFLAG(IS_LINUX) && defined(MEMORY_SANITIZER))
-#define MAYBE_DeleteActiveSession DISABLED_DeleteActiveSession
-#else
-#define MAYBE_DeleteActiveSession DeleteActiveSession
-#endif
-IN_PROC_BROWSER_TEST_P(TwoClientSessionsSyncTest, MAYBE_DeleteActiveSession) {
+IN_PROC_BROWSER_TEST_P(TwoClientSessionsSyncTest, DeleteActiveSession) {
   ASSERT_TRUE(SetupSync());
 
   ASSERT_TRUE(CheckInitialState(0));

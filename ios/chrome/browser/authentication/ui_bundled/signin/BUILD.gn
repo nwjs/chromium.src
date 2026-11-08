@@ -20,6 +20,7 @@ source_set("signin_headers") {
   public_deps = [
     ":constants",
     "//base",
+    "//components/signin/core/browser",
     "//components/signin/public/base",
     "//components/signin/public/base:signin_deep_link",
     "//components/signin/public/identity_manager",
@@ -59,11 +60,13 @@ source_set("signin_impl") {
     "//components/prefs",
     "//components/signin/ios/browser",
     "//components/sync/base:features",
+    "//components/sync/protocol",
     "//components/sync/service",
     "//ios/chrome/app:change_profile_commands",
     "//ios/chrome/app:tests_hook",
     "//ios/chrome/app/application_delegate:app_state",
     "//ios/chrome/app/profile",
+    "//ios/chrome/app/strings",
     "//ios/chrome/browser/authentication/account_menu/coordinator",
     "//ios/chrome/browser/authentication/add_account_signin/coordinator",
     "//ios/chrome/browser/authentication/consistency_promo_signin/coordinator",
@@ -96,6 +99,7 @@ source_set("signin_impl") {
     "//ios/chrome/browser/signin/model:signin_util",
     "//ios/chrome/browser/signin/model:system_identity",
     "//ios/chrome/browser/sync/model",
+    "//ui/base",
   ]
 }
 
@@ -223,6 +227,7 @@ source_set("eg2_tests") {
     "//ios/chrome/browser/signin/model:system_identity_manager",
     "//ios/chrome/browser/signin/model:test_constants",
     "//ios/chrome/test/earl_grey:eg_test_support+eg2",
+    "//ios/chrome/test/earl_grey:switches",
     "//ios/testing/earl_grey:eg_test_support+eg2",
     "//ios/testing/earl_grey:launch_configuration",
     "//net:test_support",

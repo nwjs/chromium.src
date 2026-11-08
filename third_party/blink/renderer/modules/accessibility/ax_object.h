@@ -77,7 +77,6 @@ enum class ScrollSourceType;
 
 namespace blink {
 
-class AbstractInlineTextBox;
 class AXObject;
 class AXObjectCacheImpl;
 class HTMLElement;
@@ -339,7 +338,6 @@ class MODULES_EXPORT AXObject : public GarbageCollected<AXObject> {
 
   // Wrappers that retrieve either an Accessibility Object Model property,
   // or the equivalent ARIA attribute, in that order.
-  virtual AbstractInlineTextBox* GetInlineTextBox() const { return nullptr; }
   virtual std::optional<AXBlockFlowIterator::FragmentIndex> GetFragmentIndex()
       const {
     return std::nullopt;
@@ -751,6 +749,9 @@ class MODULES_EXPORT AXObject : public GarbageCollected<AXObject> {
   // each word in the object's text.
   virtual void GetWordBoundaries(Vector<int>& word_starts,
                                  Vector<int>& word_ends) const;
+  static void GetWordBoundariesForText(Vector<int>& word_starts,
+                                       Vector<int>& word_ends,
+                                       const String& text);
 
   // For all inline text boxes and atomic text fields: Returns the length of the
   // inline's text or the field's value respectively.
@@ -864,6 +865,10 @@ class MODULES_EXPORT AXObject : public GarbageCollected<AXObject> {
 
   // (2) Determine the ARIA role after applying rules based on other properties.
   ax::mojom::blink::Role DetermineAriaRole() const;
+
+  // Returns true if an explicit ARIA role is only exposed when the element has
+  // an author-provided accessible name.
+  static bool IsNameDependentAriaRole(ax::mojom::blink::Role);
 
   // (3) Determine the native role using other ARIA properties (without using
   // the ARIA role).
@@ -982,10 +987,11 @@ class MODULES_EXPORT AXObject : public GarbageCollected<AXObject> {
   // on an invoking element, if a details relationship should be set up.
   AXObject* GetCommandForElementForDetailsRelation() const;
 
-  // Heuristic to get the target element for an element with the `interestfor`
-  // attribute. Returns null if the `interestfor` can be exposed as a
-  // description instead (even if there is a valid target element).
-  AXObject* GetInterestForTargetPopover() const;
+  // Returns the target of this element's `interestfor`, if that target is a
+  // rich hint: a popover whose contents are not plain (see IsPlainContent()).
+  // Returns null otherwise, including when the target is a plain hint, which
+  // is exposed as a name or description instead.
+  AXObject* GetRichHintTargetPopover() const;
 
   // Elements can be positioned relative to other elements with CSS anchor
   // positioning. This function returns the positioned element that should be
@@ -1513,9 +1519,12 @@ class MODULES_EXPORT AXObject : public GarbageCollected<AXObject> {
 
   // Modify or take an action on an object. Returns true if handled.
   bool PerformAction(const ui::AXActionData&);
+  // Scrolls a sub-rectangle within this object into view. See
+  // `OnNativeScrollToMakeVisibleWithSubFocusAction()` for details on
+  // `target_rect`.
   // TODO(accessibility) Do this through PerformAction() and move to private.
   bool RequestScrollToMakeVisibleWithSubFocusAction(
-      const gfx::Rect&,
+      const gfx::Rect& target_rect,
       blink::mojom::blink::ScrollAlignment horizontal_scroll_alignment,
       blink::mojom::blink::ScrollAlignment vertical_scroll_alignment);
 
@@ -1533,9 +1542,17 @@ class MODULES_EXPORT AXObject : public GarbageCollected<AXObject> {
   virtual bool OnNativeFocusAction();
   virtual bool OnNativeIncrementAction();
   bool OnNativeScrollToGlobalPointAction(const gfx::Point&) const;
+  // Scrolls this object's full bounding box
+  // (`LayoutObject::AbsoluteBoundingBoxRect()`) into view.
   bool OnNativeScrollToMakeVisibleAction() const;
+  // Scrolls `target_rect` into view using the requested scroll alignments.
+  // `target_rect` is relative to the object's own top-left origin, so it is
+  // offset by `LayoutObject::LocalBoundingBoxRectForAccessibility().origin()`
+  // (which is `(0, 0)` for `LayoutBox` and `(inline_x, inline_y)` in the
+  // containing block for `LayoutInline` and `LayoutText`) and mapped to
+  // absolute coordinates via `LayoutObject::LocalToAbsoluteRect()`.
   bool OnNativeScrollToMakeVisibleWithSubFocusAction(
-      const gfx::Rect&,
+      const gfx::Rect& target_rect,
       blink::mojom::blink::ScrollAlignment horizontal_scroll_alignment,
       blink::mojom::blink::ScrollAlignment vertical_scroll_alignment) const;
   virtual bool OnNativeSetSelectedAction(bool);
@@ -1727,6 +1744,11 @@ class MODULES_EXPORT AXObject : public GarbageCollected<AXObject> {
   AXObject* GetPopoverForDetailsRelation(const HTMLElement& popover,
                                          bool exclude_plain_content) const;
 
+  // Returns true if this is a popover with no explicit or implicit role, that
+  // is the rich hint of an interest invoker (see GetRichHintTargetPopover()).
+  // Such a popover gets a minimum role of tooltip instead of group.
+  bool HasRichHintMinimumRole() const;
+
   // Whether this is an AXNodeObject.
   bool is_node_object_ : 1 = false;
 
@@ -1799,6 +1821,15 @@ class MODULES_EXPORT AXObject : public GarbageCollected<AXObject> {
   // objects generated. Returns nullptr if a native scroll action to the node is
   // not possible.
   LayoutObject* GetLayoutObjectForNativeScrollAction() const;
+  // Updates style and layout for this object's node and returns the live
+  // `AXObject` (re-fetching from `AXObjectCache()` if updating layout detached
+  // `this`).
+  AXObject* GetTargetForScrollAction();
+  void ScrollLayoutObjectRectToVisible(
+      const LayoutObject& target_layout_object,
+      const PhysicalRect& absolute_target_rect,
+      blink::mojom::blink::ScrollAlignment horizontal_scroll_alignment,
+      blink::mojom::blink::ScrollAlignment vertical_scroll_alignment) const;
 
   void DispatchKeyboardEvent(LocalDOMWindow* local_dom_window,
                              WebInputEvent::Type type,

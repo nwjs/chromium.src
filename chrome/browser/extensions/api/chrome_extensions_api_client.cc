@@ -17,6 +17,7 @@
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
 #include "chrome/browser/extensions/api/automation_internal/chrome_automation_internal_api_delegate.h"
+#include "chrome/browser/extensions/api/cookies/chrome_cookies_api_delegate.h"
 #include "chrome/browser/extensions/api/declarative_content/chrome_content_rules_registry.h"
 #include "chrome/browser/extensions/api/declarative_content/default_content_predicate_evaluators.h"
 #include "chrome/browser/extensions/api/management/chrome_management_api_delegate.h"
@@ -142,20 +143,24 @@ void ChromeExtensionsAPIClient::AttachWebContentsHelpers(
 bool ChromeExtensionsAPIClient::ShouldHideResponseHeader(
     const GURL& url,
     const std::string& header_name) const {
-  // Gaia may send a OAUth2 authorization code in the Dice response header,
+  // Gaia may send a OAuth2 authorization code in the Dice response header,
   // which could allow an extension to generate a refresh token for the account.
+  // Also hide the Mirror response header, which triggers browser account
+  // management UI and actions.
   // Trailing dots are ignored on both hosts, as in URLPattern::MatchesHost().
   return base::TrimString(url.host(), ".", base::TRIM_TRAILING) ==
              base::TrimString(GaiaUrls::GetInstance()->gaia_url().host(), ".",
                               base::TRIM_TRAILING) &&
-         base::CompareCaseInsensitiveASCII(header_name,
-                                           signin::kDiceResponseHeader) == 0;
+         (base::EqualsCaseInsensitiveASCII(header_name,
+                                           signin::kDiceResponseHeader) ||
+          base::EqualsCaseInsensitiveASCII(
+              header_name, signin::kChromeManageAccountsHeader));
 }
 
 bool ChromeExtensionsAPIClient::ShouldHideBrowserNetworkRequest(
     content::BrowserContext* context,
     const WebRequestInfo& request) const {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M161);
 
   // Note: browser initiated non-navigation requests are hidden from extensions.
   // But we do still need to protect some sensitive sub-frame navigation
@@ -208,7 +213,7 @@ void ChromeExtensionsAPIClient::NotifyWebRequestWithheld(
     int render_process_id,
     int render_frame_id,
     const ExtensionId& extension_id) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M161);
 
   // Track down the ExtensionActionRunner and the extension. Since this is
   // asynchronous, we could hit a null anywhere along the path.
@@ -269,11 +274,11 @@ void ChromeExtensionsAPIClient::UpdateActionCount(
   const Extension* extension =
       ExtensionRegistry::Get(context)->enabled_extensions().GetByID(
           extension_id);
-  DCHECK(extension);
+  CHECK(extension, base::NotFatalUntil::M161);
 
   ExtensionAction* action =
       ExtensionActionManager::Get(context)->GetExtensionAction(*extension);
-  DCHECK(action);
+  CHECK(action, base::NotFatalUntil::M161);
 
   action->SetDNRActionCount(tab_id, action_count);
 
@@ -298,7 +303,7 @@ void ChromeExtensionsAPIClient::ClearActionCount(
     const Extension& extension) {
   ExtensionAction* action =
       ExtensionActionManager::Get(context)->GetExtensionAction(extension);
-  DCHECK(action);
+  CHECK(action, base::NotFatalUntil::M161);
 
   action->ClearDNRActionCountForAllTabs();
 
@@ -464,6 +469,13 @@ MessagingDelegate* ChromeExtensionsAPIClient::GetMessagingDelegate() {
     messaging_delegate_ = std::make_unique<ChromeMessagingDelegate>();
   }
   return messaging_delegate_.get();
+}
+
+CookiesApiDelegate* ChromeExtensionsAPIClient::GetCookiesApiDelegate() {
+  if (!cookies_api_delegate_) {
+    cookies_api_delegate_ = std::make_unique<ChromeCookiesApiDelegate>();
+  }
+  return cookies_api_delegate_.get();
 }
 
 // The APIs that require these methods are not supported on Android.

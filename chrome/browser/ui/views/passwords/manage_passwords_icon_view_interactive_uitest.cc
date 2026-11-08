@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "build/build_config.h"
 #include "chrome/browser/ui/actions/chrome_action_id.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/passwords/manage_passwords_test.h"
@@ -13,7 +14,7 @@
 #include "chrome/browser/ui/views/page_action/page_action_view_interface.h"
 #include "chrome/browser/ui/views/page_action/test_support/page_action_test_accessor.h"
 #include "chrome/browser/ui/views/passwords/password_bubble_view_base.h"
-#include "chrome/browser/ui/views/toolbar/pinned_toolbar_actions_container.h"
+#include "chrome/browser/ui/views/toolbar/pinned_action_test_accessor.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
 #include "chrome/grit/generated_resources.h"
 #include "chrome/test/base/interactive_test_utils.h"
@@ -102,23 +103,22 @@ IN_PROC_BROWSER_TEST_F(ManagePasswordsIconViewTest, CloseOnClick) {
   content::RunAllPendingInMessageLoop();
 }
 
+// TODO(crbug.com/533059187): Flaky on Mac.
+#if BUILDFLAG(IS_MAC)
+#define MAYBE_ShowPasswordsBubbleOrPage DISABLED_ShowPasswordsBubbleOrPage
+#else
+#define MAYBE_ShowPasswordsBubbleOrPage ShowPasswordsBubbleOrPage
+#endif
 IN_PROC_BROWSER_TEST_F(ManagePasswordsIconViewTestToolbarPinningOnly,
-                       ShowPasswordsBubbleOrPage) {
+                       MAYBE_ShowPasswordsBubbleOrPage) {
   const GURL passwords_url = GURL("chrome://password-manager/");
   PinnedToolbarActionsModel::Get(browser()->GetProfile())
       ->UpdatePinnedState(kActionShowPasswordsBubbleOrPage, true);
-  BrowserView* browser_view = BrowserView::GetBrowserViewForBrowser(browser());
-  CHECK(!features::IsWebUIPinnedToolbarActionsEnabled())
-      << "Test needs modification to support WebUIPinnedToolbarActions";
-  PinnedToolbarActionsContainer* container =
-      static_cast<PinnedToolbarActionsContainer*>(
-          browser_view->toolbar_button_provider()->GetPinnedToolbarActions());
-  PinnedActionToolbarButton* button =
-      container->GetButtonFor(kActionShowPasswordsBubbleOrPage);
-  ASSERT_NE(button, nullptr);
+  PinnedActionTestAccessor accessor(browser(),
+                                    kActionShowPasswordsBubbleOrPage);
 
   // Underline should not be visible here.
-  EXPECT_FALSE(button->GetStatusIndicatorForTesting()->GetVisible());
+  EXPECT_FALSE(accessor.IsActivated());
 
   // We start with one tab (Tab 0) navigated to the test URL.
   // Add a second tab (Tab 1) navigated to the same URL and show it.
@@ -130,11 +130,11 @@ IN_PROC_BROWSER_TEST_F(ManagePasswordsIconViewTestToolbarPinningOnly,
   ASSERT_FALSE(IsBubbleShowing());
 
   // Underline should show in this case.
-  EXPECT_TRUE(button->GetStatusIndicatorForTesting()->GetVisible());
+  EXPECT_TRUE(accessor.IsActivated());
 
   // Switch back to Tab 0.
   browser()->GetTabStripModel()->ActivateTabAt(0);
 
   // Underline should NOT be visible on Tab 0.
-  EXPECT_FALSE(button->GetStatusIndicatorForTesting()->GetVisible());
+  EXPECT_FALSE(accessor.IsActivated());
 }

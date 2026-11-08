@@ -6,9 +6,7 @@
 
 #include <atomic>
 
-#include "base/compiler_specific.h"
 #include "base/feature_list.h"
-#include "base/memory/raw_ptr.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/threading/platform_thread.h"
 #include "base/time/time.h"
@@ -101,11 +99,9 @@ class AudioBufferPoolImpl
     buffer->set_timestamp(timestamp);
 
     // Copy the data over.
-    const std::vector<raw_ptr<uint8_t>>& dest_data = buffer->channel_data();
     for (int ch = 0; ch < audio_bus.channels(); ++ch) {
-      const float* src_channel = audio_bus.channel(ch).data();
-      UNSAFE_TODO(memcpy(dest_data[ch], src_channel,
-                         sizeof(float) * audio_bus.frames()));
+      buffer->planar_channel_cast<float>(ch).copy_from_nonoverlapping(
+          audio_bus.channel(ch));
     }
 
     buffers_.push_back(buffer);
@@ -262,12 +258,10 @@ std::unique_ptr<ReadableStreamTransferringOptimizer>
 MediaStreamAudioTrackUnderlyingSource::GetTransferringOptimizer() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   return std::make_unique<AudioDataQueueTransferOptimizer>(
-      this, GetRealmRunner(), MaxQueueSize(),
+      this, GetRealmRunner(), Queue(), DeviceId(), FramePoolSize(),
+      ThreadType(),
       CrossThreadBindOnce(
           &MediaStreamAudioTrackUnderlyingSource::OnSourceTransferStarted,
-          WrapCrossThreadWeakPersistent(this)),
-      CrossThreadBindOnce(
-          &MediaStreamAudioTrackUnderlyingSource::ClearTransferredSource,
           WrapCrossThreadWeakPersistent(this)));
 }
 
@@ -286,7 +280,8 @@ void MediaStreamAudioTrackUnderlyingSource::OnSourceTransferStarted(
     base::TimeTicks time_origin,
     bool is_cross_origin_isolated) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  TransferSource(std::move(source), time_origin, is_cross_origin_isolated);
+  TransferSource(std::move(transferred_runner), std::move(source), time_origin,
+                 is_cross_origin_isolated);
   RecordBreakoutBoxUsage(BreakoutBoxUsage::kReadableAudioWorker);
 }
 

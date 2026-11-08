@@ -26,8 +26,19 @@ POLICY_EXPORT BASE_DECLARE_FEATURE(
 // Enables the addition of new security fields for SecOps.
 POLICY_EXPORT BASE_DECLARE_FEATURE(kEnhancedSecurityEventFields);
 
+// Returns true if `kEnhancedSecurityEventFields` is enabled and supported on
+// the current platform. On Windows 11 24H2+, this returns false due to hangs
+// during synchronous WLAN API queries.
+// TODO(crbug.com/577109904): Re-enable once network name query is asynchronous.
+POLICY_EXPORT bool IsEnhancedSecurityEventFieldsEnabled();
+
 // Controls if we can use the cec flag in PolicyData.
 POLICY_EXPORT BASE_DECLARE_FEATURE(kUseCECFlagInPolicyData);
+
+// When enabled, increases the maximum cloud policy cache size limit read from
+// disk (for both user and machine level caches) from 1 MB to 2 MB to
+// accommodate large enterprise policy sets.
+POLICY_EXPORT BASE_DECLARE_FEATURE(kUserPolicyCacheSizeLimit2MB);
 
 #if BUILDFLAG(IS_ANDROID)
 // Enables policy initialization for signed-in users in new entry points.
@@ -109,6 +120,9 @@ POLICY_EXPORT BASE_DECLARE_FEATURE(kExportPlatformPoliciesJson);
 POLICY_EXPORT BASE_DECLARE_FEATURE(kMigrateSecureConnectApiToDmServer);
 POLICY_EXPORT extern const base::FeatureParam<base::TimeDelta>
     kMigrateSecureConnectApiToDmServerFetchTimeout;
+
+// Returns true if `kMigrateSecureConnectApiToDmServer` is enabled.
+POLICY_EXPORT bool IsMigrateSecureConnectApiToDmServerEnabled();
 
 }  // namespace policy::features
 

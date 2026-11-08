@@ -41,6 +41,14 @@ class BookmarkModel;
 enum class BookmarkBarVisibilityState;
 }  // namespace bookmarks
 
+namespace lens {
+enum class LensOverlayInvocationSource;
+}  // namespace lens
+
+namespace omnibox {
+enum ChromeAimEntryPoint : int;
+}  // namespace omnibox
+
 namespace split_tabs {
 enum class SplitTabCreatedSource;
 }
@@ -384,7 +392,10 @@ void ProcessInterceptedChromeURLNavigationInIncognito(BrowserWindowInterface* br
                                                       const GURL& url);
 void ExecLensOverlay(BrowserWindowInterface* browser);
 void ExecLensRegionSearch(BrowserWindowInterface* browser);
-void ExecAskGoogleAboutThisPage(BrowserWindowInterface* browser);
+void ExecAskGoogleAboutThisPage(
+    BrowserWindowInterface* browser,
+    lens::LensOverlayInvocationSource invocation_source,
+    omnibox::ChromeAimEntryPoint entry_point);
 
 }  // namespace chrome
 

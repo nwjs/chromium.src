@@ -9,10 +9,14 @@
 
 #include "base/functional/callback.h"
 #include "base/memory/raw_ref.h"
+#include "base/memory/weak_ptr.h"
 #include "components/autofill/core/browser/ui/payments/payments_churned_users_ui_delegate.h"
+#include "components/messages/android/message_enums.h"
+#include "components/signin/public/identity_manager/account_info.h"
 
 namespace autofill {
 
+class AutofillMessageController;
 class AutofillPaymentsChurnedUsersBottomSheetBridge;
 class ContentAutofillClient;
 
@@ -35,26 +39,35 @@ class PaymentsChurnedUsersUiDelegateAndroid
       const PaymentsChurnedUsersUiDelegateAndroid&) = delete;
 
   // PaymentsChurnedUsersUiDelegate:
-  void ShowPaymentsChurnedUsersUI(base::OnceClosure accept_callback,
-                                  base::OnceClosure cancel_callback,
-                                  base::OnceClosure closed_callback) override;
+  void ShowPaymentsChurnedUsersUI(
+      AccountInfo account_info,
+      base::OnceCallback<void(PaymentsUiClosedReason)> closed_callback)
+      override;
 
   void SetAutofillPaymentsChurnedUsersBottomSheetBridgeForTesting(
       std::unique_ptr<AutofillPaymentsChurnedUsersBottomSheetBridge> bridge);
+  void SetAutofillMessageControllerForTesting(
+      std::unique_ptr<AutofillMessageController> controller);
 
  private:
   AutofillEnableResurrectingPaymentsUsersTreatmentArm GetTreatmentArm() const;
   AutofillPaymentsChurnedUsersBottomSheetBridge*
   GetOrCreatePaymentsChurnedUsersBottomSheetBridge();
+  AutofillMessageController& GetOrCreateAutofillMessageController();
+
+  void OnOptInUiClosed(PaymentsUiClosedReason closed_reason);
+  void OnMessageAccepted();
+  void OnMessageDismissed(messages::DismissReason dismiss_reason);
+  void ShowConfirmationSnackbar();
 
   const raw_ref<ContentAutofillClient> client_;
-  // TODO(crbug.com/558874126): Wire callbacks to the bottom sheet bridge and
-  // message controller.
-  base::OnceClosure accept_callback_;
-  base::OnceClosure cancel_callback_;
-  base::OnceClosure closed_callback_;
+  bool is_showing_opt_in_ui_ = false;
+  base::OnceCallback<void(PaymentsUiClosedReason)> closed_callback_;
   std::unique_ptr<AutofillPaymentsChurnedUsersBottomSheetBridge>
       autofill_payments_churned_users_bottom_sheet_bridge_;
+  std::unique_ptr<AutofillMessageController> autofill_message_controller_;
+  base::WeakPtrFactory<PaymentsChurnedUsersUiDelegateAndroid> weak_ptr_factory_{
+      this};
 };
 
 }  // namespace payments

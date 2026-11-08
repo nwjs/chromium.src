@@ -7,6 +7,7 @@
 
 #include <string>
 
+#include "base/cancelable_callback.h"
 #include "base/functional/callback.h"
 #include "base/functional/callback_forward.h"
 #include "base/gtest_prod_util.h"
@@ -29,6 +30,8 @@
 #include "url/gurl.h"
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
+#include "chrome/browser/signin/cross_device_signin_promo_manager.h"
+#include "chrome/browser/signin/web_signin_interceptor.h"
 #include "chrome/browser/ui/webui/signin/signin_email_confirmation_dialog.h"
 #endif
 
@@ -41,6 +44,7 @@ class BrowserWindowInterface;
 class Profile;
 class TabStripModel;
 struct CoreAccountId;
+struct CoreAccountInfo;
 
 namespace content {
 class WebContents;
@@ -55,6 +59,7 @@ enum class SourceForRefreshTokenOperation;
 }  // namespace signin_metrics
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
+class DiceWebSigninInterceptionBubbleView;
 namespace {
 class NewTabWebContentsObserver;
 }
@@ -102,13 +107,6 @@ class SigninViewController {
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
   // Returns true if Chrome new tab page/blank is displayed in `contents`.
   static bool IsNTPTab(content::WebContents* contents);
-
-  // Shows the signin attached to |browser_|'s active web contents.
-  // |access_point| indicates the access point used to open the Gaia sign in
-  // page.
-  // DEPRECATED: Use ShowDiceEnableSyncTab instead.
-  void ShowSignin(signin_metrics::AccessPoint access_point,
-                  const GURL& redirect_url = chrome::ChromeUINewTabURLAsGURL());
 
   // Shows a Chrome Sync signin tab. |email_hint| may be empty.
   // Note: If the user has already set a primary account, then this is
@@ -168,8 +166,24 @@ class SigninViewController {
   // Shows the cross-device sign-in QR code bubble. The bubble is anchored to
   // the profile menu button if available, or centered on the browser window
   // otherwise.
-  void ShowCrossDeviceSigninQrBubble(GURL qr_code_url,
-                                     base::OnceClosure closing_callback);
+  void ShowCrossDeviceSigninQrBubble(
+      GURL qr_code_url,
+      base::OnceClosure closing_callback,
+      CrossDeviceSigninPromoEntryPoint entry_point);
+
+  // Shows the Dice web sign-in interception bubble and returns a handle that
+  // closes the bubble when destroyed. Replaces any existing interception
+  // bubble currently shown by this controller.
+  std::unique_ptr<ScopedWebSigninInterceptionBubbleHandle>
+  ShowSigninInterceptionBubble(
+      const WebSigninInterceptor::Delegate::BubbleParameters& bubble_parameters,
+      base::OnceCallback<void(SigninInterceptionResult)> callback);
+
+  // Shows the Chrome Signin bubble (`SigninInterceptionType::kChromeSignin`)
+  // for `account`. The bubble is owned by `SigninViewController`; if accepted,
+  // it signs the user into Chrome using `access_point` and closes the bubble.
+  void ShowChromeSigninBubble(const AccountInfo& account,
+                              signin_metrics::AccessPoint access_point);
 #endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
 
   // Shows the modal sync confirmation dialog as a browser-modal dialog on top
@@ -284,6 +298,17 @@ class SigninViewController {
       ChromeSignoutConfirmationPromptVariant prompt_variant,
       size_t unsynced_data_count,
       SignoutConfirmationCallback callback);
+  // Creates and shows the Dice web sign-in interception bubble.
+  // `CloseInterceptBubble()` must be called before calling this method.
+  void CreateInterceptionBubble(
+      const WebSigninInterceptor::Delegate::BubbleParameters& bubble_parameters,
+      base::OnceCallback<void(SigninInterceptionResult)> callback);
+
+  void OnChromeSigninBubbleResult(const CoreAccountInfo& account,
+                                  signin_metrics::AccessPoint access_point,
+                                  SigninInterceptionResult result);
+
+  void CloseInterceptBubble();
 #endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
 
   // Helper to create an on close callback for `SigninModalDialog`.
@@ -309,6 +334,11 @@ class SigninViewController {
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
   std::unique_ptr<NewTabWebContentsObserver> new_tab_web_contents_observer_;
+  base::WeakPtr<DiceWebSigninInterceptionBubbleView> intercept_bubble_;
+  // Used to cancel the result callback of a `ShowChromeSigninBubble()` when it
+  // is closed early (see `CloseInterceptBubble()`).
+  base::CancelableOnceCallback<void(SigninInterceptionResult)>
+      chrome_signin_bubble_callback_;
 #endif
 
   base::ObserverList<Observer> observer_list_;

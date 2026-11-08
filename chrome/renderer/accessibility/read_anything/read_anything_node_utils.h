@@ -25,6 +25,9 @@ static constexpr int kMinPrefixLength = 40;
 // Returns whether the given node represents a superscript.
 bool IsSuperscript(const ui::AXNode* ax_node);
 
+// Returns whether the given node represents a subscript.
+bool IsSubscript(const ui::AXNode* ax_node);
+
 // Returns whether the given node is a text node displayed by read anything.
 bool IsTextForReadAnything(const ui::AXNode* ax_node,
                            bool is_pdf,
@@ -32,6 +35,10 @@ bool IsTextForReadAnything(const ui::AXNode* ax_node,
 
 // Returns whether the given node should be ignored by reading mode.
 bool IsIgnored(const ui::AXNode* const ax_node, bool is_pdf);
+
+// Returns whether the given node should be considered an artifact. An artifact
+// is considered content that is peripheral to the main content.
+bool IsPdfArtifact(const ui::AXNode* const ax_node);
 
 // Returns the html tag for the given node.
 std::string GetHtmlTag(const ui::AXNode* ax_node, bool is_pdf, bool is_docs);

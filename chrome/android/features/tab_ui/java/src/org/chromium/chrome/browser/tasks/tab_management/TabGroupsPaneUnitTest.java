@@ -223,8 +223,8 @@ public class TabGroupsPaneUnitTest {
         assertNotNull(actionButtonData);
 
         assertTrue(actionButtonData.canPress());
-        View mockView = mock(View.class);
-        actionButtonData.onPress(mockView);
+        View view = new View(ApplicationProvider.getApplicationContext());
+        actionButtonData.onPress(view);
 
         verify(mTabCreator).createNewTab(any(), anyInt(), any());
         verify(mTabModel).createSingleTabGroup(mTab);

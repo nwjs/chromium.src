@@ -607,7 +607,7 @@
     'swarming': {
       'dimensions': {
         'display_server': 'x11',
-        'gpu': '10de:2184-595.91.07',
+        'gpu': '10de:2184-595.104.02',
         'os': 'Ubuntu-24.04',
         'pool': 'chromium.tests.gpu',
       },
@@ -624,13 +624,13 @@
       },
     },
   },
-  'linux_nvidia_rtx_4070_super_stable': {
+  'linux_nvidia_rtx_4070_super_wayland_stable': {
     'fail_if_unused': False,
     'swarming': {
       'dimensions': {
-        'display_server': 'x11',
-        'gpu': '10de:2783-580.95.05',
-        'os': 'Ubuntu-24.04',
+        'display_server': 'wayland',
+        'gpu': '10de:2783-595.91.07',
+        'os': 'Ubuntu-26.04',
         'pool': 'chromium.tests.gpu',
       },
     },
@@ -803,7 +803,7 @@
         {
           'cipd_package': 'infra/tools/mac_toolchain/${platform}',
           'location': '.',
-          'revision': 'git_revision:ed58ac9443fe1754e84d596bdaf9961cbaa6e85b',
+          'revision': 'git_revision:bc2eb815d4eb1d66007cc1f19dcbe57f59a76b2d',
         },
       ],
     },
@@ -850,6 +850,7 @@
   'skia_gold_test': {
     'args': [
       '--git-revision=${got_revision}',
+      '--bypass-skia-gold-functionality',
     ],
     'precommit_args': [
       '--gerrit-issue=${patch_issue}',

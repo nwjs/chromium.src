@@ -115,6 +115,10 @@ BASE_DECLARE_FEATURE_PARAM(std::string, kNtpBrowserPromoSuppressList);
 // rotated out.
 BASE_DECLARE_FEATURE_PARAM(int, kNtpBrowserPromoMaxSessionsPerTerm);
 
+// The maximum number of terms a promo can be shown before it is permanently
+// dismissed.
+BASE_DECLARE_FEATURE_PARAM(int, kNtpBrowserPromoMaxTerms);
+
 // How long a promo is hidden after being clicked.
 BASE_DECLARE_FEATURE_PARAM(base::TimeDelta,
                            kNtpBrowserPromoClickedHideDuration);
@@ -134,6 +138,11 @@ extern std::ostream& operator<<(std::ostream& os,
                                 NtpBrowserPromoType promo_type);
 
 BASE_DECLARE_FEATURE(kLazilySetCustomActionCaption);
+
+// Raises macOS help bubbles anchored to native menus above
+// `NSPopUpMenuWindowLevel` and anchors them to the primary window widget in
+// `HelpBubbleFactoryMac`.
+BASE_DECLARE_FEATURE(kRaiseMacHelpBubbleAboveMenus);
 
 namespace testing {
 

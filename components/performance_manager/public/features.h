@@ -36,7 +36,16 @@ BASE_DECLARE_FEATURE(kUnthrottledTabProcessReporting);
 BASE_DECLARE_FEATURE(kBatterySaverModeAvailable);
 
 // Flags to control HaTS surveys about Chrome performance.
+BASE_DECLARE_FEATURE(kPerformanceControlsPerformanceSurvey);
+BASE_DECLARE_FEATURE(kPerformanceControlsBatteryPerformanceSurvey);
+BASE_DECLARE_FEATURE(kPerformanceControlsMemorySaverOptOutSurvey);
+BASE_DECLARE_FEATURE(kPerformanceControlsBatterySaverOptOutSurvey);
 BASE_DECLARE_FEATURE(kPerformanceControlsPPMSurvey);
+
+// Defines the time delta to look back when checking if a device has used
+// battery.
+BASE_DECLARE_FEATURE_PARAM(base::TimeDelta,
+                           kPerformanceControlsBatterySurveyLookback);
 
 // Defines the minimum and maximum delay before showing the PPM survey. It will
 // be shown the next time the user opens the New Tab Page after a random time in
@@ -98,6 +107,11 @@ BASE_DECLARE_FEATURE(kPerformanceInterventionNotificationStringImprovements);
 // The version string that is used on the performance detection dialog.
 BASE_DECLARE_FEATURE_PARAM(int, kNotificationStringVersion);
 
+// When enabled, activates a MemoryCoordinatorPolicy while Memory Saver Mode is
+// active that scales down stateful MemoryConsumer limits based on the
+// configured MemorySaverModeAggressiveness level.
+BASE_DECLARE_FEATURE(kMemorySaverMemoryCoordinatorPolicy);
+
 #endif
 
 // When enabled, LevelDBSiteDataStore uses BEST_EFFORT priority for its task
@@ -120,7 +134,17 @@ extern const base::FeatureParam<bool> kRenderedOutOfViewIsNotVisible;
 
 extern const base::FeatureParam<bool> kRendererHighInitialPriority;
 
+// Boosts the priority of loading pages: kUserBlocking in the active tab, and
+// kUserVisible in background tabs. Original version, which boosts every
+// background load. Kept only for diagnostics (e.g. comparing with V2 when
+// investigating reports), to be removed when kPMLoadingPageVoterV2 launches.
+// Takes precedence over kPMLoadingPageVoterV2 when both are enabled.
 BASE_DECLARE_FEATURE(kPMLoadingPageVoter);
+
+// Same as kPMLoadingPageVoter, but only boosts background loads that are user-
+// or browser-initiated (see PageNode::IsUserOrBrowserInitiatedLoad()), and
+// also boosts loads in the kLoadingTimedOut state.
+BASE_DECLARE_FEATURE(kPMLoadingPageVoterV2);
 
 // Whether tabs are discarded under high memory pressure.
 BASE_DECLARE_FEATURE(kUrgentPageDiscarding);
@@ -269,6 +293,11 @@ BASE_DECLARE_FEATURE(kGlicActuationPriorityVoter);
 // page is deprioritized for being hidden, so it loads slowly, so it is never
 // shown (crbug.com/549552319).
 BASE_DECLARE_FEATURE(kPMWithheldFromViewVoter);
+
+// When enabled, registers SidePanelLoadingVoter, which ensures side panel
+// contents load at high priority even when not visible. Expected to be
+// superseded by kPMWithheldFromViewVoter (crbug.com/549552319).
+BASE_DECLARE_FEATURE(kPMSidePanelLoadingVoter);
 
 // When enabled, ignores kMediaQueryChange favicon updates (e.g.
 // prefers-color-scheme toggles) when determining whether a background tab

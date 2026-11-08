@@ -13,6 +13,8 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
   registry->RegisterBooleanPref(
       prefs::kOrganizerPanelEntrypointEnabled, true,
       user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
+  registry->RegisterDictionaryPref(prefs::kOrganizerPanelSectionsExpanded);
+  registry->RegisterDictionaryPref(prefs::kOrganizerPanelSectionsShowAll);
 }
 
 }  // namespace organizer

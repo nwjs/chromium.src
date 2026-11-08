@@ -569,8 +569,8 @@ public class FeedSurfaceCoordinatorTest {
     public void testDestroy_WithSwipeRefreshLayout() {
         mCoordinator.destroy();
 
-        FeedSwipeRefreshLayout swipeRefreshLayout = mock(FeedSwipeRefreshLayout.class);
-        when(swipeRefreshLayout.isRefreshing()).thenReturn(true);
+        FeedSwipeRefreshLayout swipeRefreshLayout =
+                FeedSwipeRefreshLayout.create(mActivity, View.NO_ID);
         mCoordinator =
                 new FeedSurfaceCoordinator(
                         mActivity,
@@ -595,11 +595,17 @@ public class FeedSurfaceCoordinatorTest {
                         mEdgeToEdgeSupplier,
                         mModuleRegistry);
 
+        swipeRefreshLayout.enableSwipe(/* scrollableContainerDelegate= */ null);
+        swipeRefreshLayout.setRefreshing(true);
+        assertTrue(swipeRefreshLayout.isEnabled());
+        assertTrue(swipeRefreshLayout.isRefreshing());
+        assertTrue(swipeRefreshLayout.getRefreshListenersForTesting().hasObserver(mCoordinator));
+
         mCoordinator.destroy();
 
-        verify(swipeRefreshLayout).setRefreshing(false);
-        verify(swipeRefreshLayout).removeOnRefreshListener(mCoordinator);
-        verify(swipeRefreshLayout).disableSwipe();
+        assertFalse(swipeRefreshLayout.getRefreshListenersForTesting().hasObserver(mCoordinator));
+        assertFalse(swipeRefreshLayout.isRefreshing());
+        assertFalse(swipeRefreshLayout.isEnabled());
 
         mCoordinator = null;
     }

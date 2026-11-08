@@ -62,8 +62,9 @@ static_library("autofill") {
 
   public_deps = [
     "//base",
-    "//chrome/browser:browser_public_dependencies",
+    "//chrome/browser/profiles",
     "//chrome/browser/profiles:profile",
+    "//components/autofill/content/browser",
     "//components/autofill/core/browser",
     "//components/autofill/core/common",
     "//components/keyed_service/content",
@@ -84,7 +85,6 @@ static_library("autofill") {
     "//chrome/browser/net",
     "//chrome/browser/optimization_guide",
     "//chrome/browser/personal_context",
-    "//chrome/browser/profiles",
     "//chrome/browser/signin",
     "//chrome/browser/strike_database",
     "//chrome/browser/subscription_eligibility",
@@ -92,7 +92,6 @@ static_library("autofill") {
     "//chrome/browser/webdata_services",
     "//chrome/common:constants",
     "//components/account_settings",
-    "//components/autofill/content/browser",
     "//components/image_fetcher/core",
     "//components/personal_context/core",
     "//components/prefs",
@@ -105,7 +104,6 @@ static_library("autofill") {
     "//components/wallet/core/browser",
     "//third_party/libphonenumber",
   ]
-  configs += [ "//build/config/compiler:wexit_time_destructors" ]
   if (is_android) {
     sources += [
       "android/android_autofill_availability_status.h",
@@ -152,6 +150,7 @@ static_library("autofill") {
     public_deps += [ "//components/messages/android" ]
     deps += [
       "//chrome/android:jni_headers",
+      "//chrome/browser/android:resource_mapper",
       "//chrome/browser/autofill/android:jni_headers",
       "//chrome/browser/consent_auditor",
       "//chrome/browser/keyboard_accessory/android",
@@ -349,7 +348,7 @@ if (!is_android) {
       "//chrome/browser",
       "//chrome/browser/profiles:profile",
       "//chrome/browser/profiles:profile_io_data",
-      "//chrome/browser/ui",
+      "//chrome/browser/ui:browser_tabstrip",
       "//chrome/browser/ui:browser_window_header",
       "//chrome/browser/ui/autofill",
       "//chrome/browser/ui/tabs:tab_strip",

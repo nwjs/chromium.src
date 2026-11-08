@@ -6,6 +6,7 @@
 
 import setup_modules  # pylint: disable=unused-import
 
+
 import chromium_src.tools.metrics.ukm.codegen as codegen
 
 HEADER = codegen.Template(

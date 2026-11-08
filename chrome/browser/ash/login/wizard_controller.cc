@@ -246,7 +246,6 @@
 #include "chrome/browser/ui/webui/ash/login/user_creation_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/welcome_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/wrong_hwid_screen_handler.h"
-#include "chrome/browser/ui/webui/help/help_utils_chromeos.h"
 #include "chrome/common/chrome_constants.h"
 #include "chromeos/ash/components/audio/cras_audio_handler.h"
 #include "chromeos/ash/components/dbus/session_manager/session_manager_client.h"
@@ -2405,7 +2404,7 @@ void WizardController::OnUpdateScreenExit(UpdateScreen::Result result) {
 
 void WizardController::OnUpdateCompleted() {
   // Install language packs based on the user selected language.
-  const std::string locale = application_locale_storage_->Get();
+  const std::string locale(application_locale_storage_->GetTag().tag_string());
   language_packs::LanguagePackManager::UpdatePacksForOobe(locale,
                                                           base::DoNothing());
 

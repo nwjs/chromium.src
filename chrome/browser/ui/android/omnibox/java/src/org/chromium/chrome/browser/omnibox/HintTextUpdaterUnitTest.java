@@ -13,6 +13,7 @@ import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import static org.chromium.ui.test.util.MockitoHelper.clearInvocations;
@@ -39,6 +40,7 @@ import org.chromium.base.Callback;
 import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.SettableMonotonicObservableSupplier;
 import org.chromium.base.supplier.SettableNonNullObservableSupplier;
+import org.chromium.base.supplier.SettableNullableObservableSupplier;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
 import org.chromium.chrome.browser.omnibox.SearchEngineService.SearchEngineNameObserver;
@@ -59,6 +61,7 @@ import org.chromium.components.omnibox.AutocompleteInput.SiteSearchData;
 import org.chromium.components.omnibox.AutocompleteRequestType;
 import org.chromium.components.omnibox.ToolConfigProto.ToolConfig;
 import org.chromium.components.omnibox.ToolModeProtoIntDef.ToolMode;
+import org.chromium.components.search_engines.AiModeButtonUiConfig;
 import org.chromium.url.GURL;
 
 /** Unit tests for {@link HintTextUpdater}. */
@@ -100,6 +103,8 @@ public class HintTextUpdaterUnitTest {
             ObservableSuppliers.createMonotonic();
     private final SettableMonotonicObservableSupplier<SearchEngineService>
             mSearchEngineServiceSupplier = ObservableSuppliers.createMonotonic();
+    private final SettableNullableObservableSupplier<AiModeButtonUiConfig>
+            mAiModeButtonUiConfigSupplier = ObservableSuppliers.createNullable();
 
     private HintTextUpdater mUpdater;
     private SearchEngineNameObserver mSearchEngineNameObserver;
@@ -118,7 +123,6 @@ public class HintTextUpdaterUnitTest {
         lenient()
                 .when(mLocationBarDataProvider.getFuseboxSessionState())
                 .thenReturn(mFuseboxSessionState);
-        lenient().when(mFuseboxSessionState.getAutocompleteInput()).thenReturn(mAutocompleteInput);
         lenient()
                 .when(mFuseboxCoordinator.getFuseboxStateSupplier())
                 .thenReturn(mFuseboxStateSupplier);
@@ -145,6 +149,10 @@ public class HintTextUpdaterUnitTest {
                         mProfileSupplier,
                         mUpdateHintTextCallback);
 
+        mAiModeButtonUiConfigSupplier.set(createTestAiModeButtonUiConfig(AIM_ACTIVATION_HINT_TEXT));
+        lenient()
+                .when(mSearchEngineService.getAiModeButtonUiConfigSupplier())
+                .thenReturn(mAiModeButtonUiConfigSupplier);
         lenient()
                 .when(mSearchEngineService.getOmniboxHintString())
                 .thenReturn("Search Google or type URL");
@@ -156,6 +164,18 @@ public class HintTextUpdaterUnitTest {
 
         mUpdater.beginInput(mAutocompleteInput);
         clearInvocations(mUpdateHintTextCallback);
+    }
+
+    private static AiModeButtonUiConfig createTestAiModeButtonUiConfig(String placeholderText) {
+        return new AiModeButtonUiConfig(
+                "AI Mode",
+                "Ask AI Mode in Google Search",
+                "AI Mode button, press Enter to ask AI Mode",
+                "Always show AI Mode",
+                placeholderText,
+                GURL.emptyGURL(),
+                /* navigationUrl= */ "",
+                GURL.emptyGURL());
     }
 
     private void assertHintText(String expected) {
@@ -210,8 +230,8 @@ public class HintTextUpdaterUnitTest {
     public void testGetOmniboxHintText_ContextualTasks() {
         GURL aiUrl = new GURL("chrome://contextual-tasks");
         String aiTitle = "My AI Page";
-        mAutocompleteInput.setPageUrl(aiUrl);
-        mAutocompleteInput.setPageTitle(aiTitle);
+        when(mLocationBarDataProvider.getCurrentGurl()).thenReturn(aiUrl);
+        when(mLocationBarDataProvider.getTitle()).thenReturn(aiTitle);
 
         mUpdater.onTitleChanged();
 
@@ -313,6 +333,30 @@ public class HintTextUpdaterUnitTest {
         clearInvocations(mUpdateHintTextCallback);
         mAutocompleteInput.setRequestType(AutocompleteRequestType.IMAGE_GENERATION);
         verify(mUpdateHintTextCallback).onResult(eq("Describe your image"));
+    }
+
+    @Test
+    public void testGetOmniboxHintText_SessionStateNotConsultedAfterEndInput() {
+        when(mSearchEngineService.getSearchEngineName()).thenReturn("Google");
+        mAutocompleteInput.setRequestType(AutocompleteRequestType.AI_MODE);
+        clearInvocations(mUpdateHintTextCallback, mFuseboxSessionState);
+
+        mUpdater.endInput();
+
+        verify(mUpdateHintTextCallback).onResult(eq("Search Google or type URL"));
+        verifyNoInteractions(mFuseboxSessionState);
+    }
+
+    @Test
+    public void testGetOmniboxHintText_SessionStateNotConsultedForSearchRequest() {
+        when(mSearchEngineService.getSearchEngineName()).thenReturn("Google");
+        mAutocompleteInput.setRequestType(AutocompleteRequestType.SEARCH);
+        clearInvocations(mUpdateHintTextCallback, mFuseboxSessionState);
+
+        mUpdater.onTitleChanged();
+
+        verify(mUpdateHintTextCallback).onResult(eq("Search Google or type URL"));
+        verifyNoInteractions(mFuseboxSessionState);
     }
 
     @Test
@@ -527,6 +571,20 @@ public class HintTextUpdaterUnitTest {
         mUpdater.onTitleChanged();
 
         verify(mUpdateHintTextCallback).onResult(eq(""));
+    }
+
+    @Test
+    public void testAimActivationHint_UpdatesWithAiModeButtonUiConfig() {
+        setupAimActivationHintShowing();
+
+        clearInvocations(mUpdateHintTextCallback);
+        mAiModeButtonUiConfigSupplier.set(
+                createTestAiModeButtonUiConfig("Press tab then enter to ask AI Mode for Bing"));
+        assertHintText("Press tab then enter to ask AI Mode for Bing");
+
+        clearInvocations(mUpdateHintTextCallback);
+        mAiModeButtonUiConfigSupplier.set(null);
+        assertHintText("");
     }
 
     @Test

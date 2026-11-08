@@ -113,7 +113,6 @@ try_.builder(
 try_.orchestrator_builder(
     name = "android-desktop-x64-rel",
     branch_selector = branches.selector.ANDROID_BRANCHES,
-    description_html = "Run Chromium tests on Android Desktop emulators.",
     mirrors = [
         "ci/android-desktop-x64-compile-rel",
         "ci/android-desktop-x64-rel-15-tests",
@@ -137,6 +136,7 @@ try_.orchestrator_builder(
         equivalent_builder_percentage = 100,
         equivalent_builder_whitelist = "google/chrome-al-eng@google.com",
         on_default_cq = True,
+        reuse_max_commit_distance = 800 if settings.is_main else None,
     ),
     experiments = {
         # crbug.com/40617829
@@ -154,7 +154,6 @@ try_.orchestrator_builder(
 try_.compilator_builder(
     name = "android-desktop-x64-rel-compilator",
     branch_selector = branches.selector.ANDROID_BRANCHES,
-    description_html = "Compilator builder for android-desktop-x64-rel",
     main_list_view = "try",
 )
 
@@ -282,15 +281,13 @@ try_.builder(
     properties = {
         "$build/binary_size": {
             "analyze_targets": [
-                "//chrome/android:trichrome_64_minimal_apks",
-                "//chrome/android:trichrome_library_64_apk",
+                "//chrome/android:chrome_and_webview_64_minimal_apks",
                 "//chrome/android:validate_expectations",
                 "//tools/binary_size:binary_size_trybot_py",
             ],
             "compile_targets": [
                 "check_chrome_static_initializers",
-                "trichrome_64_minimal_apks",
-                "trichrome_library_64_apk",
+                "chrome_and_webview_64_minimal_apks",
                 "validate_expectations",
             ],
         },
@@ -324,15 +321,13 @@ try_.builder(
     properties = {
         "$build/binary_size": {
             "analyze_targets": [
-                "//chrome/android:trichrome_64_minimal_apks",
-                "//chrome/android:trichrome_library_64_apk",
+                "//chrome/android:chrome_and_webview_64_minimal_apks",
                 "//chrome/android:validate_expectations",
                 "//tools/binary_size:binary_size_trybot_py",
             ],
             "compile_targets": [
                 "check_chrome_static_initializers",
-                "trichrome_64_minimal_apks",
-                "trichrome_library_64_apk",
+                "chrome_and_webview_64_minimal_apks",
                 "validate_expectations",
             ],
         },

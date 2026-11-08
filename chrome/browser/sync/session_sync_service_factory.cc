@@ -73,12 +73,12 @@ class SyncSessionsClientImpl final : public sync_sessions::SyncSessionsClient {
     const syncer::DeviceInfoTracker* tracker = service->GetDeviceInfoTracker();
     CHECK(tracker);
 
-    const syncer::DeviceInfo* device_info = tracker->GetDeviceInfo(session_tag);
+    const syncer::DeviceInfo* device_info =
+        tracker->GetChromeDeviceInfo(session_tag);
     if (!device_info) {
       return std::nullopt;
     }
-    return syncer::GetDisplayNameCandidates(device_info)
-        .preferred_name_if_unique;
+    return syncer::GetDeviceDisplayName(device_info);
   }
 
   // SyncSessionsClient implementation.

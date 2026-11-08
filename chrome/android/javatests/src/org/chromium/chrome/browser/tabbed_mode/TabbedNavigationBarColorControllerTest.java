@@ -83,6 +83,7 @@ import java.util.concurrent.TimeoutException;
 @Batch(Batch.PER_CLASS)
 @Features.DisableFeatures({
     ChromeFeatureList.EDGE_TO_EDGE_EVERYWHERE,
+    ChromeFeatureList.EDGE_TO_EDGE_MONITOR_CONFIGURATIONS,
     ChromeFeatureList.ANDROID_BOTTOM_BAR
 })
 @SuppressLint("NewApi")
@@ -379,7 +380,8 @@ public class TabbedNavigationBarColorControllerTest {
 
         Assume.assumeTrue(
                 "E2E not applicable.",
-                EdgeToEdgeUtils.isEdgeToEdgeBottomChinEnabled(mActivityTestRule.getActivity()));
+                EdgeToEdgeUtils.isEdgeToEdgeBottomChinSupportedByDevice(
+                        mActivityTestRule.getActivity()));
         testNavBarColorAnimations();
     }
 

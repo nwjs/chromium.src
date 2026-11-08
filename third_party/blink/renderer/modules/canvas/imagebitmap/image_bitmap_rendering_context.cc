@@ -28,6 +28,7 @@
 #include "third_party/blink/renderer/core/imagebitmap/image_bitmap.h"
 #include "third_party/blink/renderer/core/offscreencanvas/offscreen_canvas.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
+#include "third_party/blink/renderer/platform/graphics/accelerated_static_bitmap_image.h"
 #include "third_party/blink/renderer/platform/graphics/canvas_2d_resource_provider.h"
 #include "third_party/blink/renderer/platform/graphics/canvas_non_2d_resource_provider.h"
 #include "third_party/blink/renderer/platform/graphics/canvas_resource.h"
@@ -62,7 +63,7 @@ scoped_refptr<StaticBitmapImage> ImageBitmapRenderingContext::MakeAccelerated(
   }
 
 #if BUILDFLAG(IS_LINUX)
-  // TODO(b/330865436): On Linux, CanvasResourceProvider doesn't always check
+  // TODO(b/330865436): On Linux, CreateFromRaster() doesn't always check
   // for SCANOUT support correctly on X11 and it's never supported in
   // practice. Therefore, don't include it until this flow is reworked.
   constexpr gpu::SharedImageUsageSet kSharedImageUsageFlags =
@@ -70,26 +71,20 @@ scoped_refptr<StaticBitmapImage> ImageBitmapRenderingContext::MakeAccelerated(
 #else
   // Always request gpu::SHARED_IMAGE_USAGE_SCANOUT when using gpu compositing,
   // if possible. This is safe because the prerequisite capabilities are checked
-  // downstream in CanvasResourceProvider::CreateSharedImageProvider.
+  // downstream in AcceleratedStaticBitmapImage::CreateFromRaster().
   constexpr gpu::SharedImageUsageSet kSharedImageUsageFlags =
       gpu::SHARED_IMAGE_USAGE_DISPLAY_READ | gpu::SHARED_IMAGE_USAGE_SCANOUT;
 #endif  // BUILDFLAG(IS_LINUX)
-  auto provider = CanvasNon2DResourceProvider::Create(
+  return AcceleratedStaticBitmapImage::CreateFromRaster(
       source->Size(), source->GetSharedImageFormat(), source->GetAlphaType(),
       source->GetColorSpace(), source->GetHdrMetadata(),
-      context_provider_wrapper, kSharedImageUsageFlags);
-  if (!provider) {
-    return nullptr;
-  }
-
-  const auto paint_image = source->PaintImageForCurrentFrame();
-  return provider->DoExternalOverdrawAndSnapshot(
-      [paint_image](cc::PaintCanvas& canvas) {
+      context_provider_wrapper, kSharedImageUsageFlags,
+      [&source](cc::PaintCanvas& canvas) {
         cc::PaintFlags paint;
         paint.setBlendMode(SkBlendMode::kSrc);
-        canvas.drawImage(paint_image, 0, 0, SkSamplingOptions(), &paint);
-      },
-      ImageOrientationEnum::kDefault);
+        canvas.drawImage(source->PaintImageForCurrentFrame(), 0, 0,
+                         SkSamplingOptions(), &paint);
+      });
 }
 
 ImageBitmapRenderingContext::ImageBitmapRenderingContext(
@@ -470,12 +465,16 @@ ImageBitmapRenderingContext::GetResourceForPushFrame(
           CanvasNon2DResourceProvider::Create(
               image->Size(), format, alpha_type, color_space, hdr_metadata,
               SharedGpuContext::ContextProviderWrapper(),
-              gpu::SHARED_IMAGE_USAGE_DISPLAY_READ, Host());
+              gpu::SHARED_IMAGE_USAGE_DISPLAY_READ,
+              blink::BindOnce(&CanvasRenderingContextHost::NotifyGpuContextLost,
+                              WrapWeakPersistent(Host())));
     } else if (static_cast<OffscreenCanvas*>(Host())->HasPlaceholderCanvas()) {
       resource_provider_for_offscreen_canvas_ =
           CanvasNon2DResourceProvider::CreateForSoftwareCompositor(
               image->Size(), format, alpha_type, color_space, hdr_metadata,
-              SharedGpuContext::SharedImageInterfaceProvider(), Host());
+              SharedGpuContext::SharedImageInterfaceProvider(),
+              blink::BindOnce(&CanvasRenderingContextHost::NotifyGpuContextLost,
+                              WrapWeakPersistent(Host())));
     }
 
     Host()->UpdateMemoryUsage();

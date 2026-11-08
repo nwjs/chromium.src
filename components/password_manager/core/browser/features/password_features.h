@@ -41,6 +41,12 @@ BASE_DECLARE_FEATURE(kActorLoginSyncsPasswordPermissions);
 BASE_DECLARE_FEATURE(kActorLoginQualityLogs);
 #endif  // !BUILDFLAG(IS_IOS)
 
+#if BUILDFLAG(IS_ANDROID)
+// Enables the "Select password" option in the right-click context menu on
+// Android.
+BASE_DECLARE_FEATURE(kAndroidSelectPasswordContextMenu);
+#endif  // BUILDFLAG(IS_ANDROID)
+
 // Enables using clientside form classifier predictions for password forms.
 BASE_DECLARE_FEATURE(kApplyClientsideModelPredictionsForPasswordTypes);
 
@@ -48,16 +54,11 @@ BASE_DECLARE_FEATURE(kApplyClientsideModelPredictionsForPasswordTypes);
 // auto-approved.
 BASE_DECLARE_FEATURE(kAutoApproveSharedPasswordUpdatesFromSameSender);
 
-#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)  // Desktop
-// Feature flag to control the displaying of an ongoing hats survey that
-// measures users perception of autofilling password forms. Differently from
-// other surveys, the Autofill user perception surveys will not have a specific
-// target number of answers where it will be fully stop, instead, it will run
-// indefinitely. A target number of full answers exists, but per quarter. The
-// goal is to have a go to place to understand how users are perceiving autofill
-// across quarters.
-BASE_DECLARE_FEATURE(kAutofillPasswordUserPerceptionSurvey);
+// If enabled, the user may be prompted a HaTS survey about the personalization
+// experience and the perceived trust they have in the features.
+BASE_DECLARE_FEATURE(kAutofillPersonalizationAndTrustPasswordSurvey);
 
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)  // Desktop
 // Waits for the page to reach stability before triggering any password change
 // actions.
 BASE_DECLARE_FEATURE(kAwaitPageStabilityForPasswordChange);
@@ -93,10 +94,6 @@ BASE_DECLARE_FEATURE(kCredentialManagementUnifiedUi);
 BASE_DECLARE_FEATURE(kDisablePasswordChangeFromNewPasswordFields);
 
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)  // Desktop
-// Enables the Mojo JavaScript API for the password manager, replacing the
-// legacy passwordsPrivate extension API.
-BASE_DECLARE_FEATURE(kEnablePasswordManagerMojoApi);
-
 // Enables Phase 2 of the Mojo JavaScript API migration for the password
 // manager, replacing the legacy passwordsPrivate extension API.
 BASE_DECLARE_FEATURE(kEnablePasswordManagerMojoApiPhase2);
@@ -166,6 +163,9 @@ extern const base::FeatureParam<int> kPassDeletionOriginMinGmsVersion;
 BASE_DECLARE_FEATURE(kPasswordCompromiseWarningInDetailsCard);
 #endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 
+// Enables the actor PasswordChangeTool.
+BASE_DECLARE_FEATURE(kChangePasswordTool);
+
 // Populate the `date_last_filled` timestamp for passwords.
 BASE_DECLARE_FEATURE(kPasswordDateLastFilled);
 
@@ -198,6 +198,11 @@ BASE_DECLARE_FEATURE(kPasswordSaveInContextErrorResolution);
 
 // Prevents offering Automatic Password Change on federated login.
 BASE_DECLARE_FEATURE(kPreventAPCOnFederatedLogin);
+
+// Kill switch for preventing non-HTTP suggestions from being offered in
+// manual fallback flows on HTTP pages.
+// TODO(crbug.com/562975181): Clean up in M160.
+BASE_DECLARE_FEATURE(kPreventNonHttpSuggestionsInHttpManualFallbackFlows);
 
 // Prevents password manager from showing save/update UI on federated login.
 BASE_DECLARE_FEATURE(kPreventPasswordManagerOnFederatedLogin);

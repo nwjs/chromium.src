@@ -15,10 +15,7 @@ source_set("most_visited") {
     "most_visited_handler.h",
     "most_visited_pref_observer.h",
   ]
-  public_deps = [
-    "//chrome/browser:browser_public_dependencies",
-    "//chrome/browser/ui/search",
-  ]
+  public_deps = [ "//chrome/browser/ui/search" ]
   deps = [
     "//base",
     "//chrome/browser:browser_features",
@@ -36,7 +33,6 @@ source_set("most_visited") {
     "//chrome/common/search:mojo_bindings",
     "//components/history/core/browser",
     "//components/ntp_tiles",
-    "//components/ntp_tiles:pref_names",
     "//components/page_load_metrics/browser",
     "//components/prefs",
     "//components/search",
@@ -70,7 +66,7 @@ source_set("unit_tests") {
     "//chrome/browser/ui/search",
     "//chrome/test:test_support",
     "//components/ntp_tiles",
-    "//components/ntp_tiles:pref_names",
+    "//components/ntp_tiles:test_support",
     "//components/prefs",
     "//components/search",
     "//components/search_engines",

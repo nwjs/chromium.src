@@ -43,6 +43,7 @@ import org.robolectric.annotation.Config;
 import org.robolectric.shadows.ShadowLooper;
 
 import org.chromium.base.Callback;
+import org.chromium.base.ContextUtils;
 import org.chromium.base.UserDataHost;
 import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.SettableMonotonicObservableSupplier;
@@ -69,7 +70,6 @@ import org.chromium.chrome.browser.toolbar.top.CaptureReadinessResult;
 import org.chromium.chrome.browser.toolbar.top.NavigationPopup.HistoryDelegate;
 import org.chromium.chrome.browser.toolbar.top.ToggleTabStackButtonCoordinator;
 import org.chromium.chrome.browser.toolbar.top.ToolbarSnapshotDifference;
-import org.chromium.chrome.browser.ui.searchactivityutils.SearchActivityClient;
 import org.chromium.chrome.browser.ui.theme.BrandedColorScheme;
 import org.chromium.chrome.browser.user_education.UserEducationHelper;
 import org.chromium.components.embedder_support.util.UrlUtilities;
@@ -108,13 +108,12 @@ public class CustomTabToolbarUnitTest {
     @Mock Tracker mTracker;
     @Mock Tab mTab;
     @Mock Callback<Integer> mContainerVisibilityChangeObserver;
-    @Mock View mParentView;
     @Mock WindowAndroid mWindowAndroid;
     private @Mock PageInfoIphController mPageInfoIphController;
     @Mock private ThemeColorProvider mThemeColorProvider;
     @Mock private IncognitoStateProvider mIncognitoStateProvider;
-    @Mock private SearchActivityClient mSearchActivityClient;
 
+    private final View mParentView = new View(ContextUtils.getApplicationContext());
     private BrowserStateBrowserControlsVisibilityDelegate mControlsVisibleDelegate;
     private Activity mActivity;
     private CustomTabToolbar mToolbar;
@@ -167,6 +166,7 @@ public class CustomTabToolbarUnitTest {
                 null,
                 /* homeButtonCoordinator= */ null,
                 /* signinButtonCoordinator= */ null,
+                /* downloadButtonCoordinator= */ null,
                 mThemeColorProvider,
                 mIncognitoStateProvider,
                 /* incognitoWindowCountSupplier= */ null,
@@ -219,16 +219,6 @@ public class CustomTabToolbarUnitTest {
         verifyBrowserControlVisibleForRequiredDuration();
         // URL bar truncates trailing /.
         assertUrlBarShowingText(UrlUtilities.stripTrailingSlash(TEST_URL.getSpec()));
-    }
-
-    @Test
-    public void testOmniboxUrlBarVisibility() {
-        mLocationBar.showEmptyLocationBar();
-        CustomTabToolbar.OmniboxParams params =
-                new CustomTabToolbar.OmniboxParams(mSearchActivityClient, null);
-        mLocationBar.setOmniboxParams(params);
-        mLocationBar.showRegularToolbar();
-        assertUrlAndTitleVisible(/* titleVisible= */ false, /* urlVisible= */ true);
     }
 
     @Test

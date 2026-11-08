@@ -13,6 +13,7 @@
 #include "base/base_paths.h"
 #include "base/command_line.h"
 #include "base/debug/dump_without_crashing.h"
+#include "base/feature_list.h"
 #include "base/files/file_path.h"
 #include "base/logging.h"
 #include "base/memory/raw_ptr.h"
@@ -40,6 +41,7 @@
 #include "gpu/config/gpu_switches.h"
 #include "gpu/config/gpu_switching.h"
 #include "gpu/config/gpu_util.h"
+#include "gpu/ipc/service/gpu_init_2.h"
 #include "gpu/ipc/service/gpu_watchdog_thread.h"
 #include "ui/base/ui_base_features.h"
 #include "ui/gfx/switches.h"
@@ -361,14 +363,82 @@ void SetupGLDisplayManagerEGL(const GPUInfo& gpu_info,
 
 }  // namespace
 
-GpuInit::GpuInit() = default;
+// static
+std::unique_ptr<GpuInit> GpuInit::Create() {
+  if (base::FeatureList::IsEnabled(features::kGpuInitOptimization)) {
+    return std::make_unique<GpuInit2>();
+  }
+  return std::make_unique<GpuInitLegacy>();
+}
 
-GpuInit::~GpuInit() {
+GpuInitLegacy::GpuInitLegacy() = default;
+
+GpuInitLegacy::~GpuInitLegacy() {
   StopForceDiscreteGPU();
 }
 
-bool GpuInit::InitializeAndStartSandbox(base::CommandLine* command_line,
-                                        const GpuPreferences& gpu_preferences) {
+void GpuInitLegacy::set_sandbox_helper(GpuSandboxHelper* helper) {
+  sandbox_helper_ = helper;
+}
+
+const GPUInfo& GpuInitLegacy::gpu_info() const {
+  return gpu_info_;
+}
+
+const GpuFeatureInfo& GpuInitLegacy::gpu_feature_info() const {
+  return gpu_feature_info_;
+}
+
+const gfx::GpuExtraInfo& GpuInitLegacy::gpu_extra_info() const {
+  return gpu_extra_info_;
+}
+
+const std::optional<GPUInfo>& GpuInitLegacy::gpu_info_for_hardware_gpu() const {
+  return gpu_info_for_hardware_gpu_;
+}
+
+const std::optional<GpuFeatureInfo>&
+GpuInitLegacy::gpu_feature_info_for_hardware_gpu() const {
+  return gpu_feature_info_for_hardware_gpu_;
+}
+
+const std::optional<DevicePerfInfo>& GpuInitLegacy::device_perf_info() const {
+  return device_perf_info_;
+}
+
+const GpuPreferences& GpuInitLegacy::gpu_preferences() const {
+  return gpu_preferences_;
+}
+
+std::unique_ptr<GpuWatchdogThread> GpuInitLegacy::TakeWatchdogThread() {
+  return std::move(watchdog_thread_);
+}
+
+#if BUILDFLAG(SKIA_USE_DAWN)
+std::unique_ptr<DawnContextProvider> GpuInitLegacy::TakeDawnContextProvider() {
+  return std::move(dawn_context_provider_);
+}
+#endif
+
+scoped_refptr<gl::GLSurface> GpuInitLegacy::TakeDefaultOffscreenSurface() {
+  return std::move(default_offscreen_surface_);
+}
+
+bool GpuInitLegacy::init_successful() const {
+  return init_successful_;
+}
+
+VulkanImplementation* GpuInitLegacy::vulkan_implementation() {
+#if BUILDFLAG(ENABLE_VULKAN)
+  return vulkan_implementation_.get();
+#else
+  return nullptr;
+#endif
+}
+
+bool GpuInitLegacy::InitializeAndStartSandbox(
+    base::CommandLine* command_line,
+    const GpuPreferences& gpu_preferences) {
   TRACE_EVENT("gpu,startup", "gpu::GpuInit::InitializeAndStartSandbox");
 #if BUILDFLAG(IS_CHROMEOS)
   LOG(WARNING) << "Starting gpu initialization.";
@@ -697,17 +767,11 @@ bool GpuInit::InitializeAndStartSandbox(base::CommandLine* command_line,
       }
 
 #if defined(DAWN_USE_BUILT_DXC)
-      // TODO(crbug.com/40075751): Preload dxil.dll to avoid loader lock issues
-      // since dxcompiler.dll loads dxil.dll from DllMain.
-      {
-        TRACE_EVENT("gpu,startup", "Load dxil.dll");
-        base::LoadNativeLibrary(module_path.Append(L"dxil.dll"), nullptr);
-      }
       {
         TRACE_EVENT("gpu,startup", "Load dxcompiler.dll");
         base::LoadNativeLibrary(module_path.Append(L"dxcompiler.dll"), nullptr);
       }
-#endif  // defined(DAWN_USE_BUILT_DXC)
+#endif
 
 #if BUILDFLAG(ENABLE_ML_INTERNAL)
       if (base::FeatureList::IsEnabled(
@@ -1034,8 +1098,8 @@ bool GpuInit::InitializeAndStartSandbox(base::CommandLine* command_line,
   return true;
 }
 
-void GpuInit::InitializeInProcess(base::CommandLine* command_line,
-                                  const GpuPreferences& gpu_preferences) {
+void GpuInitLegacy::InitializeInProcess(base::CommandLine* command_line,
+                                        const GpuPreferences& gpu_preferences) {
   gpu_preferences_ = gpu_preferences;
   init_successful_ = true;
 
@@ -1251,7 +1315,7 @@ void GpuInit::InitializeInProcess(base::CommandLine* command_line,
   RecordUMA();
 }
 
-void GpuInit::RecordUMA() {
+void GpuInitLegacy::RecordUMA() {
   // Don't record UMA from the GPU info collection process as it's not
   // represenative of a real GPU process launch.
   if (gpu_preferences_.enable_perf_data_collection) {
@@ -1276,21 +1340,17 @@ void GpuInit::RecordUMA() {
   UMA_HISTOGRAM_ENUMERATION("GPU.SkiaBackendType", gpu_info_.skia_backend_type);
 }
 
-void GpuInit::SaveHardwareGpuInfoAndGpuFeatureInfo() {
+void GpuInitLegacy::SaveHardwareGpuInfoAndGpuFeatureInfo() {
   gpu_info_for_hardware_gpu_ = gpu_info_;
   gpu_feature_info_for_hardware_gpu_ = gpu_feature_info_;
 }
 
-void GpuInit::AdjustInfoToSwiftShader() {
+void GpuInitLegacy::AdjustInfoToSwiftShader() {
   gpu_feature_info_ = ComputeGpuFeatureInfoForSoftwareGL();
   CollectContextGraphicsInfo(&gpu_info_);
 }
 
-scoped_refptr<gl::GLSurface> GpuInit::TakeDefaultOffscreenSurface() {
-  return std::move(default_offscreen_surface_);
-}
-
-void GpuInit::SetSkiaBackendType() {
+void GpuInitLegacy::SetSkiaBackendType() {
   CHECK(init_successful_);
   CHECK_EQ(gpu_info_.skia_backend_type, SkiaBackendType::kNone);
   auto skia_backend_type = SkiaBackendType::kUnknown;
@@ -1344,7 +1404,7 @@ void GpuInit::SetSkiaBackendType() {
   crash_key.Set(SkiaBackendTypeToString(skia_backend_type));
 }
 
-bool GpuInit::InitializeDawn() {
+bool GpuInitLegacy::InitializeDawn() {
 #if BUILDFLAG(SKIA_USE_DAWN)
   TRACE_EVENT("gpu,startup", "gpu::GpuInit::InitializeDawn");
   if (gpu_feature_info_.status_values[GPU_FEATURE_TYPE_SKIA_GRAPHITE] !=
@@ -1413,7 +1473,7 @@ bool GpuInit::InitializeDawn() {
   return false;
 }
 
-bool GpuInit::InitializeVulkan() {
+bool GpuInitLegacy::InitializeVulkan() {
 #if BUILDFLAG(ENABLE_VULKAN)
   TRACE_EVENT("gpu,startup", "gpu::GpuInit::InitializeVulkan");
   DCHECK(gpu_feature_info_.IsFeatureEnabled(GPU_FEATURE_TYPE_VULKAN) ||
@@ -1472,8 +1532,9 @@ bool GpuInit::InitializeVulkan() {
     return false;
   }
 
-  VulkanPhysicalDeviceProperties device_properties(
-      vulkan_info.physical_devices.front().properties);
+  VulkanPhysicalDeviceProperties device_properties =
+      MakeVulkanPhysicalDeviceProperties(
+          vulkan_info.physical_devices.front().properties);
   if (!use_swiftshader && !forced_native &&
       !CheckVulkanCompatibilities(device_properties, gpu_info_)) {
     vulkan_implementation_.reset();

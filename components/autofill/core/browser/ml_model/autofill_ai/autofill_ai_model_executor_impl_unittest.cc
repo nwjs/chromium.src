@@ -27,6 +27,7 @@
 #include "components/optimization_guide/core/feature_registry/feature_registration.h"
 #include "components/optimization_guide/core/model_execution/test/mock_remote_model_executor.h"
 #include "components/optimization_guide/core/model_quality/model_quality_log_entry.h"
+#include "components/optimization_guide/core/model_quality/model_quality_prefs.h"
 #include "components/optimization_guide/core/model_quality/test_model_quality_logs_uploader_service.h"
 #include "components/optimization_guide/core/optimization_guide_proto_util.h"
 #include "components/optimization_guide/proto/features/common_quality_data.pb.h"
@@ -46,10 +47,13 @@ using optimization_guide::OptimizationGuideModelExecutionResultCallback;
 using optimization_guide::proto::AutofillAiTypeRequest;
 using optimization_guide::proto::AutofillAiTypeResponse;
 using ::testing::_;
+using ::testing::AllOf;
 using ::testing::An;
 using ::testing::ElementsAre;
 using ::testing::Field;
 using ::testing::IsEmpty;
+using ::testing::Pointee;
+using ::testing::Property;
 using MockOnModelExecutedCallback =
     base::MockCallback<base::OnceCallback<void(const FormGlobalId&)>>;
 
@@ -74,7 +78,7 @@ class AutofillAiModelExecutorImplTest : public testing::Test {
     // Disable PI shadow metrics by default, so no additional calls to the
     // `model_executor()` are generated.
     features.InitAndDisableFeature(features::kAutofillAiPrivateAiShadowMetric);
-    optimization_guide::model_execution::prefs::RegisterLocalStatePrefs(
+    optimization_guide::RegisterModelQualityLocalStatePrefs(
         local_state_.registry());
     optimization_guide::model_execution::prefs::RegisterProfilePrefs(
         local_state_.registry());
@@ -396,14 +400,16 @@ TEST_F(AutofillAiModelExecutorImplTest, MqlsUpload) {
           /*log_entry=*/nullptr));
   engine()->GetPredictions(form, on_model_executed.Get(), std::nullopt);
 
-  const std::vector<
-      std::unique_ptr<optimization_guide::proto::LogAiDataRequest>>&
-      uploaded_logs = mqls_uploader().uploaded_logs();
-  ASSERT_EQ(uploaded_logs.size(), 1u);
-  const optimization_guide::proto::FormsClassificationsLoggingData& log =
-      uploaded_logs[0]->forms_classifications();
-  EXPECT_THAT(log.request(), EqualsProto(expected_request));
-  EXPECT_THAT(log.response(), EqualsProto(response));
+  EXPECT_THAT(
+      mqls_uploader().uploaded_logs(),
+      ElementsAre(Pointee(Property(
+          &optimization_guide::proto::LogAiDataRequest::forms_classifications,
+          AllOf(Property(&optimization_guide::proto::
+                             FormsClassificationsLoggingData::request,
+                         EqualsProto(expected_request)),
+                Property(&optimization_guide::proto::
+                             FormsClassificationsLoggingData::response,
+                         EqualsProto(response)))))));
 }
 
 // Tests that no MQLS log is sent if the server returned with an error.

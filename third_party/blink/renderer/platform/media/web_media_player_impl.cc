@@ -83,15 +83,11 @@
 #include "third_party/blink/public/platform/web_media_player_source.h"
 #include "third_party/blink/public/platform/web_media_source.h"
 #include "third_party/blink/public/platform/web_runtime_features.h"
-#include "third_party/blink/public/platform/web_security_origin.h"
 #include "third_party/blink/public/platform/web_string.h"
 #include "third_party/blink/public/platform/web_surface_layer_bridge.h"
 #include "third_party/blink/public/platform/web_url.h"
 #include "third_party/blink/public/strings/grit/blink_strings.h"
-#include "third_party/blink/public/web/web_document.h"
-#include "third_party/blink/public/web/web_frame.h"
-#include "third_party/blink/public/web/web_local_frame.h"
-#include "third_party/blink/public/web/web_view.h"
+#include "third_party/blink/renderer/platform/heap/cross_thread_handle.h"
 #include "third_party/blink/renderer/platform/media/buffered_data_source_host_impl.h"
 #include "third_party/blink/renderer/platform/media/media_player_util.h"
 #include "third_party/blink/renderer/platform/media/player_id_generator.h"
@@ -102,9 +98,12 @@
 #include "third_party/blink/renderer/platform/media/watch_time_reporter.h"
 #include "third_party/blink/renderer/platform/media/web_content_decryption_module_impl.h"
 #include "third_party/blink/renderer/platform/media/web_media_source_impl.h"
+#include "third_party/blink/renderer/platform/scheduler/public/agent_group_scheduler.h"
+#include "third_party/blink/renderer/platform/scheduler/public/frame_scheduler.h"
 #include "third_party/blink/renderer/platform/scheduler/public/post_cross_thread_task.h"
 #include "third_party/blink/renderer/platform/scheduler/public/worker_pool.h"
 #include "third_party/blink/renderer/platform/weborigin/kurl.h"
+#include "third_party/blink/renderer/platform/weborigin/security_origin.h"
 #include "third_party/blink/renderer/platform/wtf/cross_thread_copier_base.h"
 #include "third_party/blink/renderer/platform/wtf/cross_thread_copier_std.h"
 #include "third_party/blink/renderer/platform/wtf/cross_thread_functional.h"
@@ -112,6 +111,7 @@
 #include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
 #include "ui/gfx/geometry/size.h"
 #include "url/gurl.h"
+#include "url/origin.h"
 
 #if BUILDFLAG(ENABLE_HLS_DEMUXER)
 #include "media/filters/hls_data_source_provider_impl.h"
@@ -440,7 +440,12 @@ STATIC_ASSERT_ENUM(WebMediaPlayer::kCorsModeUseCredentials,
                    UrlData::CORS_USE_CREDENTIALS);
 
 WebMediaPlayerImpl::WebMediaPlayerImpl(
-    WebLocalFrame* frame,
+    FrameScheduler* frame_scheduler,
+    scoped_refptr<const SecurityOrigin> security_origin,
+    const WebURL& document_url,
+    const WebString& document_title,
+    WebMediaPlayerBuilder::HasTransientUserActivationCB
+        has_transient_user_activation_cb,
     MediaPlayerClient* client,
     WebMediaPlayerEncryptedMediaClient* encrypted_client,
     WebMediaPlayerDelegate* delegate,
@@ -469,8 +474,11 @@ WebMediaPlayerImpl::WebMediaPlayerImpl(
     bool is_background_video_track_optimization_supported,
     std::unique_ptr<media::Demuxer> demuxer_override,
     scoped_refptr<ThreadSafeBrowserInterfaceBrokerProxy> remote_interfaces)
-    : frame_(frame),
-      main_task_runner_(frame->GetTaskRunner(TaskType::kMediaElementEvent)),
+    : frame_scheduler_(frame_scheduler),
+      has_transient_user_activation_cb_(
+          std::move(has_transient_user_activation_cb)),
+      main_task_runner_(
+          frame_scheduler->GetTaskRunner(TaskType::kMediaElementEvent)),
       media_task_runner_(std::move(media_task_runner)),
       worker_task_runner_(std::move(worker_task_runner)),
       media_player_id_(player_id),
@@ -481,15 +489,16 @@ WebMediaPlayerImpl::WebMediaPlayerImpl(
       delegate_has_audio_(HasUnmutedAudio()),
       player_id_(GetNextMediaPlayerId()),
       defer_load_cb_(std::move(defer_load_cb)),
-      isolate_(frame_->GetAgentGroupScheduler()->Isolate()),
-      demuxer_manager_(
-          std::make_unique<media::DemuxerManager>(this,
-                                                  frame_->GetSecurityOrigin(),
-                                                  media_task_runner_,
-                                                  media_log_.get(),
-                                                  std::move(demuxer_override))),
+      isolate_(frame_scheduler_->GetAgentGroupScheduler()->Isolate()),
+      demuxer_manager_(std::make_unique<media::DemuxerManager>(
+          this,
+          security_origin->ToUrlOrigin(),
+          media_task_runner_,
+          media_log_.get(),
+          std::move(demuxer_override))),
       tick_clock_(base::DefaultTickClock::GetInstance()),
       url_index_(url_index),
+      security_origin_(std::move(security_origin)),
       raster_context_provider_(std::move(raster_context_provider)),
       vfc_task_runner_(std::move(video_frame_compositor_task_runner)),
       compositor_(std::move(compositor)),
@@ -575,12 +584,12 @@ WebMediaPlayerImpl::WebMediaPlayerImpl(
   delegate_->SetIdle(delegate_id_, true);
 
   media_log_->AddEvent<MediaLogEvent::kWebMediaPlayerCreated>(
-      url::Origin(frame_->GetSecurityOrigin()).GetURL().spec());
+      security_origin_->ToUrlOrigin().GetURL().spec());
 
   media_log_->SetProperty<MediaLogProperty::kFrameUrl>(
-      SanitizeUserStringProperty(frame_->GetDocument().Url().GetString()));
+      SanitizeUserStringProperty(document_url.GetString()));
   media_log_->SetProperty<MediaLogProperty::kFrameTitle>(
-      SanitizeUserStringProperty(frame_->GetDocument().Title()));
+      SanitizeUserStringProperty(document_title));
 
   if (initial_cdm)
     SetCdmInternal(initial_cdm);
@@ -595,9 +604,10 @@ WebMediaPlayerImpl::WebMediaPlayerImpl(
             if (!self) {
               return;
             }
+            CHECK(client);
             client->DidDisableAudioOutputSinkChanges();
           },
-          weak_this_, CrossThreadUnretained(client_)));
+          weak_this_, MakeUnwrappingCrossThreadWeakHandle(client_.Get())));
 
   // TODO(xhwang): When we use an external Renderer, many methods won't work,
   // e.g. GetCurrentFrameFromCompositor(). See http://crbug.com/41143892.
@@ -609,7 +619,7 @@ WebMediaPlayerImpl::WebMediaPlayerImpl(
     observer_->SetClient(this);
 
   memory_usage_reporting_timer_.SetTaskRunner(
-      frame_->GetTaskRunner(TaskType::kInternalMedia));
+      frame_scheduler_->GetTaskRunner(TaskType::kInternalMedia));
 
   main_thread_mem_dumper_ = std::make_unique<media::MemoryDumpProviderProxy>(
       media::MemoryDumpProviderProxy::Name("WebMediaPlayer_MainThread"),
@@ -679,16 +689,17 @@ void WebMediaPlayerImpl::Shutdown() {
   }
 
   // Destruct compositor resources in the proper order.
-  client_->SetCcLayer(nullptr);
+  if (client_) {
+    client_->SetCcLayer(nullptr);
 
-  client_->MediaRemotingStopped(MediaPlayerClient::kMediaRemotingStopNoText);
+    client_->MediaRemotingStopped(MediaPlayerClient::kMediaRemotingStopNoText);
+  }
 
   // These hold Unretained(this), so must be destructed here.
   watch_time_reporter_.reset();
   video_decode_stats_reporter_.reset();
   simple_watch_timer_.Stop();
   memory_usage_reporting_timer_.Stop();
-  background_pause_timer_.Stop();
   update_background_status_cb_.Cancel();
   have_enough_after_lazy_load_cb_.Cancel();
   media_log_->OnWebMediaPlayerDestroyed();
@@ -712,7 +723,7 @@ void WebMediaPlayerImpl::Shutdown() {
 
   client_ = nullptr;
   encrypted_client_ = nullptr;
-  frame_ = nullptr;
+  frame_scheduler_ = nullptr;
   url_index_ = nullptr;
 
   weak_factory_.InvalidateWeakPtrsAndDoom();
@@ -981,7 +992,8 @@ void WebMediaPlayerImpl::DoLoad(LoadType load_type,
       main_task_runner_,
       url_index_->GetByUrl(
           url, static_cast<UrlData::CorsMode>(cors_mode),
-          is_cache_disabled ? UrlData::kCacheDisabled : UrlData::kNormal),
+          is_cache_disabled ? UrlData::kCacheDisabled : UrlData::kNormal,
+          security_origin_),
       media_log_.get(), buffered_data_source_host_.get(),
       blink::BindRepeating(&WebMediaPlayerImpl::NotifyDownloading, weak_this_));
 
@@ -1009,14 +1021,14 @@ void WebMediaPlayerImpl::Play() {
   DCHECK(main_task_runner_->BelongsToCurrentThread());
 
   // User initiated play unlocks background video playback.
-  if (frame_->HasTransientUserActivation())
+  if (has_transient_user_activation_cb_.Run()) {
     allow_background_video_playback_ = true;
+  }
 
   // TODO(sandersd): Do we want to reset the idle timer here?
   delegate_->SetIdle(delegate_id_, false);
   paused_ = false;
   pipeline_controller_->SetPlaybackRate(playback_rate_);
-  background_pause_timer_.Stop();
 
   if (observer_)
     observer_->OnPlaying();
@@ -1060,8 +1072,9 @@ void WebMediaPlayerImpl::Pause(PauseReason pause_reason) {
   }
 
   // User initiated pause locks background videos.
-  if (frame_->HasTransientUserActivation())
+  if (has_transient_user_activation_cb_.Run()) {
     allow_background_video_playback_ = false;
+  }
 
   pipeline_controller_->SetPlaybackRate(0.0);
 
@@ -1627,8 +1640,8 @@ bool WebMediaPlayerImpl::WouldTaintOrigin() const {
   return is_origin_tainted_ || demuxer_manager_->WouldTaintOrigin();
 }
 
-double WebMediaPlayerImpl::MediaTimeForTimeValue(double timeValue) const {
-  return base::Seconds(timeValue).InSecondsF();
+double WebMediaPlayerImpl::MediaTimeForTimeValue(double time_value) const {
+  return base::Seconds(time_value).InSecondsF();
 }
 
 unsigned WebMediaPlayerImpl::DecodedFrameCount() const {
@@ -1751,7 +1764,8 @@ void WebMediaPlayerImpl::GetUrlData(
   DCHECK(main_task_runner_->BelongsToCurrentThread());
   auto url_data = url_index_->GetByUrl(
       KURL(gurl), static_cast<UrlData::CorsMode>(cors_mode_),
-      TranslateCacheMode(is_cache_disabled_, cache_mode), encoding_mode);
+      TranslateCacheMode(is_cache_disabled_, cache_mode), security_origin_,
+      encoding_mode);
   std::move(cb).Run(std::move(url_data));
 }
 
@@ -2281,7 +2295,7 @@ void WebMediaPlayerImpl::CreateVideoDecodeStatsReporter() {
                     Unretained(this)),
       pipeline_metadata_.video_decoder_config.profile(),
       pipeline_metadata_.natural_size, cdm_config_,
-      frame_->GetTaskRunner(TaskType::kInternalMedia));
+      frame_scheduler_->GetTaskRunner(TaskType::kInternalMedia));
 
   if (delegate_->IsPageHidden()) {
     video_decode_stats_reporter_->OnHidden();
@@ -2657,10 +2671,6 @@ void WebMediaPlayerImpl::OnPageHidden() {
   UpdateBackgroundVideoOptimizationState();
   UpdatePlayState();
 
-  // Schedule suspended playing media to be paused if the user doesn't come back
-  // to it within some timeout period to avoid any autoplay surprises.
-  ScheduleIdlePauseTimer();
-
   // Notify the compositor of our page visibility status.
   PostCrossThreadTask(
       *vfc_task_runner_, FROM_HERE,
@@ -2679,7 +2689,6 @@ void WebMediaPlayerImpl::SuspendForFrameClosed() {
 
 void WebMediaPlayerImpl::OnPageShown() {
   DCHECK(main_task_runner_->BelongsToCurrentThread());
-  background_pause_timer_.Stop();
 
   // Foreground videos don't require user gesture to continue playback.
   allow_background_video_playback_ = true;
@@ -2739,7 +2748,6 @@ void WebMediaPlayerImpl::OnIdleTimeout() {
 
 void WebMediaPlayerImpl::OnFrameShown() {
   DCHECK(main_task_runner_->BelongsToCurrentThread());
-  background_pause_timer_.Stop();
   is_frame_hidden_ = false;
 
   // Foreground videos don't require user gesture to continue playback.
@@ -2779,10 +2787,6 @@ void WebMediaPlayerImpl::OnFrameHidden() {
 
   UpdateBackgroundVideoOptimizationState();
   UpdatePlayState();
-
-  // Schedule suspended playing media to be paused if the user doesn't come back
-  // to it within some timeout period to avoid any autoplay surprises.
-  ScheduleIdlePauseTimer();
 }
 
 void WebMediaPlayerImpl::SetVolumeMultiplier(double multiplier) {
@@ -3525,31 +3529,6 @@ void WebMediaPlayerImpl::OnMediaThreadMemoryDump(
   CreateAllocation(pmd, player_id, "demuxer", demuxer->GetMemoryUsage());
 }
 
-void WebMediaPlayerImpl::ScheduleIdlePauseTimer() {
-  if (!base::FeatureList::IsEnabled(media::kPauseBackgroundTimer)) {
-    return;
-  }
-
-  // Only schedule the pause timer if we're not paused or paused but going to
-  // resume when foregrounded, and are suspended and have audio.
-  if ((paused_ && !IsPausedBecausePageHidden()) ||
-      !pipeline_controller_->IsSuspended() || !HasAudio()) {
-    return;
-  }
-
-#if BUILDFLAG(IS_ANDROID)
-  // Don't pause videos casted as part of RemotePlayback.
-  if (is_flinging_)
-    return;
-#endif
-
-  // Idle timeout chosen arbitrarily.
-  background_pause_timer_.Start(
-      FROM_HERE, base::Seconds(5),
-      BindOnce(&MediaPlayerClient::PausePlayback, Unretained(client_),
-               PauseReason::kSuspendedPlayerIdleTimeout));
-}
-
 void WebMediaPlayerImpl::CreateWatchTimeReporter() {
   if (!HasVideo() && !HasAudio())
     return;
@@ -3577,7 +3556,7 @@ void WebMediaPlayerImpl::CreateWatchTimeReporter() {
       BindRepeating(&WebMediaPlayerImpl::GetPipelineStatistics,
                     Unretained(this)),
       media_metrics_provider_.get(),
-      frame_->GetTaskRunner(TaskType::kInternalMedia));
+      frame_scheduler_->GetTaskRunner(TaskType::kInternalMedia));
   watch_time_reporter_->OnVolumeChange(volume_);
   watch_time_reporter_->OnDurationChanged(GetPipelineMediaDuration());
   watch_time_reporter_->OnHdrChanged(
@@ -3969,25 +3948,25 @@ void WebMediaPlayerImpl::SwitchToLocalRenderer(
 
 template <uint32_t Flags, typename... T>
 void WebMediaPlayerImpl::WriteSplitHistogram(
-    void (*UmaFunction)(std::string_view, T...),
+    void (*uma_function)(std::string_view, T...),
     SplitHistogramName key,
     const T&... values) {
   const char* strkey = GetHistogramName(key);
 
   if constexpr (Flags & kEncrypted) {
     if (is_encrypted_) {
-      UmaFunction(base::StrCat({strkey, ".EME"}), values...);
+      uma_function(base::StrCat({strkey, ".EME"}), values...);
     }
 #if BUILDFLAG(IS_WIN)
     if (renderer_type_ == media::RendererType::kMediaFoundation) {
-      UmaFunction(base::StrCat({strkey, ".MediaFoundationRenderer"}),
-                  values...);
+      uma_function(base::StrCat({strkey, ".MediaFoundationRenderer"}),
+                   values...);
     }
 #endif  // BUILDFLAG(IS_WIN)
   }
 
   if constexpr (Flags & kTotal) {
-    UmaFunction(base::StrCat({strkey, ".All"}), values...);
+    uma_function(base::StrCat({strkey, ".All"}), values...);
   }
 
   if constexpr (Flags & kPlaybackType) {
@@ -3997,13 +3976,13 @@ void WebMediaPlayerImpl::WriteSplitHistogram(
     }
     switch (*demuxer_type) {
       case media::DemuxerType::kChunkDemuxer:
-        UmaFunction(base::StrCat({strkey, ".MSE"}), values...);
+        uma_function(base::StrCat({strkey, ".MSE"}), values...);
         break;
       case media::DemuxerType::kManifestDemuxer:
-        UmaFunction(base::StrCat({strkey, ".HLS"}), values...);
+        uma_function(base::StrCat({strkey, ".HLS"}), values...);
         break;
       default:
-        UmaFunction(base::StrCat({strkey, ".SRC"}), values...);
+        uma_function(base::StrCat({strkey, ".SRC"}), values...);
         break;
     }
   }

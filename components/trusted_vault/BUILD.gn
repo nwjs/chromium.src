@@ -34,6 +34,8 @@ static_library("trusted_vault") {
       "legacy_standalone_trusted_vault_storage.h",
       "legacy_standalone_trusted_vault_storage_adapter.cc",
       "legacy_standalone_trusted_vault_storage_adapter.h",
+      "local_domains_storage.cc",
+      "local_domains_storage.h",
       "physical_device_recovery_factor.cc",
       "physical_device_recovery_factor.h",
       "proto_string_bytes_conversion.cc",
@@ -51,6 +53,8 @@ static_library("trusted_vault") {
       "standalone_trusted_vault_backend.h",
       "standalone_trusted_vault_client.cc",
       "standalone_trusted_vault_client.h",
+      "standalone_trusted_vault_frontend.cc",
+      "standalone_trusted_vault_frontend.h",
       "standalone_trusted_vault_server_constants.cc",
       "standalone_trusted_vault_server_constants.h",
       "standalone_trusted_vault_storage.h",
@@ -103,6 +107,8 @@ if (!is_android && !is_ios) {
       "download_keys_response_handler_unittest.cc",
       "legacy_standalone_trusted_vault_storage_adapter_unittest.cc",
       "legacy_standalone_trusted_vault_storage_unittest.cc",
+      "local_domains_storage_migration_unittest.cc",
+      "local_domains_storage_unittest.cc",
       "physical_device_recovery_factor_unittest.cc",
       "proto_string_bytes_conversion_unittest.cc",
       "proto_time_conversion_unittest.cc",
@@ -111,6 +117,7 @@ if (!is_android && !is_ios) {
       "securebox_unittest.cc",
       "standalone_trusted_vault_backend_unittest.cc",
       "standalone_trusted_vault_client_unittest.cc",
+      "standalone_trusted_vault_frontend_unittest.cc",
       "standalone_trusted_vault_server_constants_unittest.cc",
       "trusted_vault_access_token_fetcher_frontend_unittest.cc",
       "trusted_vault_connection_impl_unittest.cc",
@@ -134,6 +141,7 @@ if (!is_android && !is_ios) {
       "//services/network:test_support",
       "//testing/gmock",
       "//testing/gtest",
+      "//third_party/fuzztest",
     ]
 
     if (is_mac) {
@@ -178,6 +186,8 @@ static_library("test_support") {
 
   if (!is_android && !is_ios) {
     sources += [
+      "test/fake_local_domains_storage_file_access.cc",
+      "test/fake_local_domains_storage_file_access.h",
       "test/fake_security_domains_server.cc",
       "test/fake_security_domains_server.h",
       "test/fake_security_domains_url_loader_factory.cc",

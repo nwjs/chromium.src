@@ -532,8 +532,9 @@ TEST_F(CreditCardAccessManagerRiskBasedMaskedServerCardUnmaskingTest,
                        /*is_card_info_retrieval_enrolled=*/true);
 
   credit_card_access_manager().FetchCreditCard(
-      enrolled_card, base::BindOnce(&TestAccessor::OnCreditCardFetched,
-                                    accessor().GetWeakPtr()));
+      enrolled_card, /*require_user_confirmation=*/false,
+      base::BindOnce(&TestAccessor::OnCreditCardFetched,
+                     accessor().GetWeakPtr()));
 
   // Ensures CreditCardRiskBasedAuthenticator::Authenticate is successfully
   // invoked.
@@ -584,8 +585,9 @@ TEST_F(CreditCardAccessManagerRiskBasedMaskedServerCardUnmaskingTest,
                        /*is_card_info_retrieval_enrolled=*/true);
 
   credit_card_access_manager().FetchCreditCard(
-      enrolled_card, base::BindOnce(&TestAccessor::OnCreditCardFetched,
-                                    accessor().GetWeakPtr()));
+      enrolled_card, /*require_user_confirmation=*/false,
+      base::BindOnce(&TestAccessor::OnCreditCardFetched,
+                     accessor().GetWeakPtr()));
 
   // Mock that CreditCardRiskBasedAuthenticator::RiskBasedAuthenticationResponse
   // indicates a green path with valid card number returned.
@@ -812,8 +814,9 @@ TEST_F(CreditCardAccessManagerRiskBasedMaskedServerCardUnmaskingTest,
   const CreditCard* card =
       personal_data().payments_data_manager().GetCreditCardByGUID(kTestGUID);
   credit_card_access_manager().FetchCreditCard(
-      card, base::BindOnce(&TestAccessor::OnCreditCardFetched,
-                           accessor().GetWeakPtr()));
+      card, /*require_user_confirmation=*/false,
+      base::BindOnce(&TestAccessor::OnCreditCardFetched,
+                     accessor().GetWeakPtr()));
 
   CreditCardRiskBasedAuthenticator::RiskBasedAuthenticationResponse response;
   response.result = CreditCardRiskBasedAuthenticator::
@@ -886,6 +889,178 @@ TEST_P(
                               : autofill_metrics::PreflightCallEvent::
                                     kCardChosenBeforePreflightCallReturned,
       1);
+}
+
+// Tests the preflight wait that gates the authentication of a masked server
+// card when card-on-device verification enforcement is enabled.
+class CreditCardAccessManagerCardOnDeviceVerificationEnforcementTest
+    : public CreditCardAccessManagerTestBase {
+ public:
+  CreditCardAccessManagerCardOnDeviceVerificationEnforcementTest() {
+    feature_list_.InitWithFeatures(
+        /*enabled_features=*/
+        {features::kAutofillEnableFpanRiskBasedAuthentication,
+         features::kAutofillEnableCardOnDeviceVerificationEnforcement},
+        /*disabled_features=*/{});
+  }
+
+ protected:
+  // Creates a masked server card and starts a preflight call whose response is
+  // delayed until InvokeDelayedGetUnmaskDetailsResponse() is called.
+  const CreditCard* SetUpCardWithPendingPreflightCall() {
+    const CreditCard* masked_server_card =
+        CreateServerCard(kTestGUID, kTestNumber, kTestServerId);
+    GetFIDOAuthenticator()->SetUserVerifiable(true);
+    payments_network_interface().ShouldReturnUnmaskDetailsImmediately(false);
+    PrepareToFetchCreditCardAndWaitForCallbacks();
+    return masked_server_card;
+  }
+
+  bool risk_based_authentication_invoked() {
+    return autofill_client()
+        .GetPaymentsAutofillClient()
+        ->risk_based_authentication_invoked();
+  }
+
+  bool autofill_progress_dialog_shown() {
+    return autofill_client()
+        .GetPaymentsAutofillClient()
+        ->autofill_progress_dialog_shown();
+  }
+
+  base::test::ScopedFeatureList feature_list_;
+};
+
+// Ensures the progress dialog is shown and the risk-based authentication is
+// held back while the preflight call is still in flight.
+TEST_F(CreditCardAccessManagerCardOnDeviceVerificationEnforcementTest,
+       PreflightCallPending_RiskBasedAuthWaitsBehindProgressDialog) {
+  const CreditCard* masked_server_card = SetUpCardWithPendingPreflightCall();
+
+  FetchCreditCard(masked_server_card);
+
+  // The progress dialog is shown while waiting, but the risk-based
+  // authentication has not started yet.
+  EXPECT_TRUE(autofill_progress_dialog_shown());
+  EXPECT_FALSE(risk_based_authentication_invoked());
+
+  // Once the preflight call returns, the risk-based authentication starts.
+  InvokeDelayedGetUnmaskDetailsResponse();
+
+  EXPECT_TRUE(risk_based_authentication_invoked());
+}
+
+// Ensures the risk-based authentication starts once the wait for the preflight
+// call times out, and that the timeout is recorded.
+TEST_F(CreditCardAccessManagerCardOnDeviceVerificationEnforcementTest,
+       PreflightCallTimesOut_RiskBasedAuthStarts) {
+  base::HistogramTester histogram_tester;
+  const CreditCard* masked_server_card = SetUpCardWithPendingPreflightCall();
+
+  FetchCreditCard(masked_server_card);
+
+  EXPECT_TRUE(autofill_progress_dialog_shown());
+  EXPECT_FALSE(risk_based_authentication_invoked());
+
+  FastForwardBy(CreditCardAccessManager::kUnmaskDetailsResponseTimeout);
+
+  EXPECT_TRUE(risk_based_authentication_invoked());
+  // The user perceived the latency of the preflight call, so the base event
+  // has to be logged alongside the timeout, reporting that the card was chosen
+  // before the preflight call returned.
+  histogram_tester.ExpectUniqueSample(
+      "Autofill.BetterAuth.UserPerceivedLatencyOnCardSelection.OptedOut",
+      autofill_metrics::PreflightCallEvent::
+          kCardChosenBeforePreflightCallReturned,
+      1);
+  // The pre-existing risk-based metric keeps being logged as well.
+  histogram_tester.ExpectUniqueSample(
+      "Autofill.BetterAuth.PreflightCallResponseReceivedOnCardSelection."
+      "OptedOut.ServerCard",
+      autofill_metrics::PreflightCallEvent::
+          kCardChosenBeforePreflightCallReturned,
+      1);
+}
+
+// Ensures that a preflight call that returned before the card was selected does
+// not delay the risk-based authentication.
+TEST_F(CreditCardAccessManagerCardOnDeviceVerificationEnforcementTest,
+       PreflightCallAlreadyReturned_RiskBasedAuthStartsImmediately) {
+  base::HistogramTester histogram_tester;
+  const CreditCard* masked_server_card =
+      CreateServerCard(kTestGUID, kTestNumber, kTestServerId);
+  GetFIDOAuthenticator()->SetUserVerifiable(true);
+  payments_network_interface().ShouldReturnUnmaskDetailsImmediately(true);
+  PrepareToFetchCreditCardAndWaitForCallbacks();
+
+  FetchCreditCard(masked_server_card);
+
+  EXPECT_TRUE(autofill_progress_dialog_shown());
+  EXPECT_TRUE(risk_based_authentication_invoked());
+  // The user did not have to wait, but the base event is still logged so that
+  // the `.Duration` samples can be put in relation to the total number of card
+  // selections.
+  histogram_tester.ExpectUniqueSample(
+      "Autofill.BetterAuth.UserPerceivedLatencyOnCardSelection.OptedOut",
+      autofill_metrics::PreflightCallEvent::
+          kPreflightCallReturnedBeforeCardChosen,
+      1);
+}
+
+// Ensures that cancelling the progress dialog while waiting for the preflight
+// call ends the flow instead of starting the risk-based authentication.
+TEST_F(CreditCardAccessManagerCardOnDeviceVerificationEnforcementTest,
+       CancelWhileWaitingForPreflightCall_FlowIsCancelled) {
+  base::HistogramTester histogram_tester;
+  const CreditCard* masked_server_card = SetUpCardWithPendingPreflightCall();
+
+  FetchCreditCard(masked_server_card);
+  ASSERT_TRUE(autofill_progress_dialog_shown());
+  ASSERT_FALSE(risk_based_authentication_invoked());
+
+  autofill_client().GetPaymentsAutofillClient()->CancelAutofillProgressDialog();
+
+  EXPECT_FALSE(IsAuthenticationInProgress());
+  histogram_tester.ExpectUniqueSample(
+      "Autofill.ServerCardUnmask.ServerCard.Result.RiskBased",
+      autofill_metrics::ServerCardUnmaskResult::kFlowCancelled, 1);
+
+  // A late preflight call response or timeout must not revive the flow.
+  InvokeDelayedGetUnmaskDetailsResponse();
+  FastForwardBy(CreditCardAccessManager::kUnmaskDetailsResponseTimeout);
+
+  EXPECT_FALSE(risk_based_authentication_invoked());
+}
+
+// Ensures that the risk-based authentication is not delayed when the feature is
+// disabled, even if the preflight call has not returned.
+TEST_F(CreditCardAccessManagerRiskBasedMaskedServerCardUnmaskingTest,
+       FeatureDisabled_PreflightCallPending_RiskBasedAuthStartsImmediately) {
+  base::HistogramTester histogram_tester;
+  base::test::ScopedFeatureList disabled_feature;
+  disabled_feature.InitAndDisableFeature(
+      features::kAutofillEnableCardOnDeviceVerificationEnforcement);
+  const CreditCard* masked_server_card =
+      CreateServerCard(kTestGUID, kTestNumber, kTestServerId);
+  GetFIDOAuthenticator()->SetUserVerifiable(true);
+  payments_network_interface().ShouldReturnUnmaskDetailsImmediately(false);
+  PrepareToFetchCreditCardAndWaitForCallbacks();
+
+  FetchCreditCard(masked_server_card);
+
+  EXPECT_TRUE(autofill_client()
+                  .GetPaymentsAutofillClient()
+                  ->risk_based_authentication_invoked());
+  // The legacy risk-based flow does not wait for the preflight call, so no
+  // latency is perceived and only the risk-based metric is logged.
+  histogram_tester.ExpectUniqueSample(
+      "Autofill.BetterAuth.PreflightCallResponseReceivedOnCardSelection."
+      "OptedOut.ServerCard",
+      autofill_metrics::PreflightCallEvent::
+          kCardChosenBeforePreflightCallReturned,
+      1);
+  histogram_tester.ExpectTotalCount(
+      "Autofill.BetterAuth.UserPerceivedLatencyOnCardSelection.OptedOut", 0);
 }
 
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_ANDROID)

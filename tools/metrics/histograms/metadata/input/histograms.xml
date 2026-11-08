@@ -1878,7 +1878,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="InputMethod.SystemEmojiPicker.LoadTime" units="ms"
-    expires_after="2027-01-31">
+    expires_after="2027-04-04">
   <owner>jopalmer@chromium.org</owner>
   <owner>essential-inputs-team@google.com</owner>
   <summary>
@@ -2074,7 +2074,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="InputMethod.VirtualKeyboard.InitLatency.KeyboardShownLongTail"
-    units="ms" expires_after="2027-01-31">
+    units="ms" expires_after="2027-04-04">
   <owner>jopalmer@chromium.org</owner>
   <owner>essential-inputs-team@google.com</owner>
   <summary>
@@ -2085,7 +2085,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="InputMethod.VirtualKeyboard.InitLatency{IMEVKLatency}"
-    units="ms" expires_after="2027-01-31">
+    units="ms" expires_after="2027-04-04">
   <owner>shend@chromium.org</owner>
   <owner>essential-inputs-team@google.com</owner>
   <summary>
@@ -2232,7 +2232,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="TextInputClient.CharacterIndex.TimedOut" enum="Boolean"
-    expires_after="2027-01-03">
+    expires_after="2027-03-28">
   <owner>joenotcharles@google.com</owner>
   <owner>input-dev@chromium.org</owner>
   <summary>
@@ -2245,7 +2245,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="TextInputClient.CharacterIndex2" units="ms"
-    expires_after="2027-01-03">
+    expires_after="2027-03-28">
   <owner>joenotcharles@google.com</owner>
   <owner>input-dev@chromium.org</owner>
   <summary>

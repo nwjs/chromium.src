@@ -38,6 +38,7 @@ import android.os.IBinder;
 import android.os.Looper;
 import android.util.Size;
 import android.view.ContextThemeWrapper;
+import android.view.DragEvent;
 import android.view.InputDevice;
 import android.view.MotionEvent;
 import android.view.View;
@@ -61,6 +62,7 @@ import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.robolectric.annotation.Config;
+import org.robolectric.shadows.DragEventBuilder;
 
 import org.chromium.base.ActivityState;
 import org.chromium.base.ApplicationStatus;
@@ -114,6 +116,7 @@ import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.base.LocalizationUtils;
 import org.chromium.ui.base.ViewAndroidDelegate;
 import org.chromium.ui.base.WindowAndroid;
+import org.chromium.ui.dragdrop.DragStateTracker;
 import org.chromium.ui.insets.InsetObserver;
 import org.chromium.ui.mojom.VirtualKeyboardMode;
 import org.chromium.ui.resources.ResourceManager;
@@ -128,6 +131,7 @@ import java.util.List;
     ChromeFeatureList.FULLSCREEN_INSETS_API_MIGRATION,
     ChromeFeatureList.FULLSCREEN_INSETS_API_MIGRATION_ON_AUTOMOTIVE
 })
+@SuppressWarnings("DoNotMock") // TODO(567604165): Remove mocking of Views / Activities
 public class CompositorViewHolderUnitTest {
     // Since these tests don't depend on the heights being pixels, we can use these as dpi directly.
     private static final int TOOLBAR_HEIGHT = 56;
@@ -1645,6 +1649,49 @@ public class CompositorViewHolderUnitTest {
     }
 
     @Test
+    public void testOnSideUiSpecsChanged_liveResize_customViewTranslatedWithoutMarginUpdate() {
+        View customView = setUpCustomViewWithCommittedSideUiSpecs();
+
+        int liveStartWidth = SIDE_UI_START_WIDTH + 50;
+        mCompositorViewHolder.onSideUiSpecsChanged(
+                new SideUiSpecs(liveStartWidth, SIDE_UI_END_WIDTH),
+                UiUpdateRequest.getRequestForTesting(
+                        /* suppressAnimations= */ true, UpdateReason.RESIZE_LIVE));
+
+        // The view follows the rail by translation only, keeping its committed margins and width.
+        assertEquals(
+                "Unexpected translation.",
+                liveStartWidth - SIDE_UI_START_WIDTH,
+                customView.getTranslationX(),
+                /* delta= */ 0f);
+        MarginLayoutParams layoutParams = (MarginLayoutParams) customView.getLayoutParams();
+        assertEquals("Unexpected left margin.", SIDE_UI_START_WIDTH, layoutParams.leftMargin);
+        assertEquals("Unexpected right margin.", SIDE_UI_END_WIDTH, layoutParams.rightMargin);
+    }
+
+    @Test
+    public void testOnSideUiSpecsChanged_resizeCommitted_customViewTranslationReset() {
+        View customView = setUpCustomViewWithCommittedSideUiSpecs();
+
+        int newStartWidth = SIDE_UI_START_WIDTH + 50;
+        SideUiSpecs newSpecs = new SideUiSpecs(newStartWidth, SIDE_UI_END_WIDTH);
+        mCompositorViewHolder.onSideUiSpecsChanged(
+                newSpecs,
+                UiUpdateRequest.getRequestForTesting(
+                        /* suppressAnimations= */ true, UpdateReason.RESIZE_LIVE));
+        mCompositorViewHolder.onSideUiSpecsChanged(
+                newSpecs,
+                UiUpdateRequest.getRequestForTesting(
+                        /* suppressAnimations= */ true, UpdateReason.RESIZE_COMMITTED));
+
+        // Committing drops the translation and applies the new margins.
+        assertEquals("Unexpected translation.", 0f, customView.getTranslationX(), /* delta= */ 0f);
+        MarginLayoutParams layoutParams = (MarginLayoutParams) customView.getLayoutParams();
+        assertEquals("Unexpected left margin.", newStartWidth, layoutParams.leftMargin);
+        assertEquals("Unexpected right margin.", SIDE_UI_END_WIDTH, layoutParams.rightMargin);
+    }
+
+    @Test
     public void testOnContentChanged_customViewMarginsUpdatedUsingExpectedSpecs() {
         // Setup custom view.
         View customView = new View(mContext);
@@ -1914,5 +1961,104 @@ public class CompositorViewHolderUnitTest {
         mCompositorViewHolder.shutDown();
         verify(mContentView).setEventOffsetHandlerForDragDrop(null);
         verify(mTab).removeObserver(any());
+    }
+
+    @Test
+    public void testDragEnd_forwardedToSourceThatMissedIt() {
+        setUpDragStateTracker(mWebContents, mContentView, /* isDragStarted= */ true);
+        mCompositorViewHolder.dispatchDragEvent(createDragEvent(DragEvent.ACTION_DRAG_STARTED));
+
+        // The source's drag state stays started, as if it was detached and missed the drag end.
+        DragEvent dragEndEvent = createDragEvent(DragEvent.ACTION_DRAG_ENDED);
+        mCompositorViewHolder.dispatchDragEvent(dragEndEvent);
+        verify(mContentView).onDrag(mContentView, dragEndEvent);
+        verify(mContentView).onDragEvent(dragEndEvent);
+    }
+
+    @Test
+    public void testDragEnd_notForwardedToSourceThatHandledIt() {
+        DragStateTracker tracker =
+                setUpDragStateTracker(mWebContents, mContentView, /* isDragStarted= */ true);
+        mCompositorViewHolder.dispatchDragEvent(createDragEvent(DragEvent.ACTION_DRAG_STARTED));
+        // The source handles the drag end, which resets its drag state.
+        when(tracker.isDragStarted()).thenReturn(false);
+
+        mCompositorViewHolder.dispatchDragEvent(createDragEvent(DragEvent.ACTION_DRAG_ENDED));
+        verifyDragEndNotForwarded(mContentView);
+    }
+
+    @Test
+    public void testDragEnd_notForwardedToDestroyedSource() {
+        setUpDragStateTracker(mWebContents, mContentView, /* isDragStarted= */ true);
+        mCompositorViewHolder.dispatchDragEvent(createDragEvent(DragEvent.ACTION_DRAG_STARTED));
+        // The source tab is closed during the drag.
+        when(mWebContents.isDestroyed()).thenReturn(true);
+
+        mCompositorViewHolder.dispatchDragEvent(createDragEvent(DragEvent.ACTION_DRAG_ENDED));
+        verifyDragEndNotForwarded(mContentView);
+    }
+
+    @Test
+    public void testDragEnd_notForwardedForDragFromElsewhere() {
+        DragStateTracker tracker =
+                setUpDragStateTracker(mWebContents, mContentView, /* isDragStarted= */ false);
+        mCompositorViewHolder.dispatchDragEvent(createDragEvent(DragEvent.ACTION_DRAG_STARTED));
+        when(tracker.isDragStarted()).thenReturn(true);
+
+        mCompositorViewHolder.dispatchDragEvent(createDragEvent(DragEvent.ACTION_DRAG_ENDED));
+        verifyDragEndNotForwarded(mContentView);
+    }
+
+    private static DragEvent createDragEvent(int action) {
+        return DragEventBuilder.newBuilder().setAction(action).build();
+    }
+
+    private static DragStateTracker setUpDragStateTracker(
+            WebContents webContents, ContentView contentView, boolean isDragStarted) {
+        DragStateTracker tracker = mock(DragStateTracker.class);
+        when(tracker.isDragStarted()).thenReturn(isDragStarted);
+        ViewAndroidDelegate delegate = mock(ViewAndroidDelegate.class);
+        when(delegate.getDragStateTracker()).thenReturn(tracker);
+        when(webContents.getViewAndroidDelegate()).thenReturn(delegate);
+        when(contentView.getWebContents()).thenReturn(webContents);
+        return tracker;
+    }
+
+    private static void verifyDragEndNotForwarded(ContentView contentView) {
+        verify(contentView, never()).onDrag(any(), any());
+        verify(contentView, never()).onDragEvent(any());
+    }
+
+    /**
+     * Shows a custom view for {@link #mTab} and lays it out with committed {@link SideUiSpecs} of
+     * {@link #SIDE_UI_START_WIDTH} and {@link #SIDE_UI_END_WIDTH}.
+     *
+     * @return The custom view.
+     */
+    private View setUpCustomViewWithCommittedSideUiSpecs() {
+        View customView = new View(mContext);
+        when(mTab.isShowingCustomView()).thenReturn(true);
+        when(mTab.getView()).thenReturn(customView);
+
+        reset(mWebContents);
+        when(mWindowAndroid.getActivity()).thenReturn(new WeakReference<>(mActivity));
+        mCompositorViewHolder.onNativeLibraryReady(
+                mWindowAndroid, /* tabContentManager= */ null, mPrefService);
+        mCompositorViewHolder.onContentChanged();
+
+        SideUiSpecs committedSpecs = new SideUiSpecs(SIDE_UI_START_WIDTH, SIDE_UI_END_WIDTH);
+        when(mSideUiStateProvider.getCurrentSideUiSpecs()).thenReturn(committedSpecs);
+        when(mSideUiStateProvider.getExpectedSideUiSpecsForTab(mTab)).thenReturn(committedSpecs);
+        mSideUiStateProviderSupplier.set(mSideUiStateProvider);
+        runCurrentTasks();
+        mCompositorViewHolder.onSideUiSpecsChanged(
+                committedSpecs,
+                UiUpdateRequest.getRequestForTesting(/* suppressAnimations= */ true));
+
+        MarginLayoutParams layoutParams = (MarginLayoutParams) customView.getLayoutParams();
+        assertEquals(SIDE_UI_START_WIDTH, layoutParams.leftMargin);
+        assertEquals(SIDE_UI_END_WIDTH, layoutParams.rightMargin);
+        assertEquals(0f, customView.getTranslationX(), /* delta= */ 0f);
+        return customView;
     }
 }

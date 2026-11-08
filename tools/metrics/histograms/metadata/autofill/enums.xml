@@ -274,6 +274,25 @@ chromium-metrics-reviews@google.com.
 
 <!-- LINT.ThenChange(//components/autofill/core/browser/webdata/autofill_ai/entity_table.cc:DecryptionStatus) -->
 
+<!-- LINT.IfChange(AutofillAiEntitySuppressionConfirmationDialogResult) -->
+
+<enum name="AutofillAiEntitySuppressionConfirmationDialogResult">
+  <int value="0" label="Accepted"/>
+  <int value="1" label="Cancelled"/>
+</enum>
+
+<!-- LINT.ThenChange(//components/autofill/core/browser/integrators/autofill_ai/metrics/personal_context_metrics.h:AutofillAiEntitySuppressionConfirmationDialogResult) -->
+
+<!-- LINT.IfChange(AutofillAiEntitySuppressionLoadDropReason) -->
+
+<enum name="AutofillAiEntitySuppressionLoadDropReason">
+  <int value="0" label="Decryption failed"/>
+  <int value="1" label="Parsing failed"/>
+  <int value="2" label="Invalid entry"/>
+</enum>
+
+<!-- LINT.ThenChange(//components/autofill/core/browser/integrators/autofill_ai/metrics/personal_context_metrics.h:AutofillAiEntitySuppressionLoadDropReason) -->
+
 <enum name="AutofillAiEntityType">
 <!-- Generated from components/autofill/core/browser/data_model/autofill_ai/entity_schema.json.
 Called by update_autofill_enums.py.-->
@@ -332,6 +351,28 @@ Called by update_autofill_enums.py.-->
 </enum>
 
 <!-- LINT.ThenChange(/components/autofill/core/browser/integrators/autofill_ai/metrics/personal_context_metrics.h:PersonalContextCacheReadinessOnFirstInteraction) -->
+
+<!-- LINT.IfChange(AutofillAiPersonalContextDeduplicationAgainstRecordType) -->
+
+<enum name="AutofillAiPersonalContextDeduplicationAgainstRecordType">
+  <int value="0" label="Local"/>
+  <int value="1" label="Server Wallet"/>
+  <int value="2" label="Not deduplicated"/>
+</enum>
+
+<!-- LINT.ThenChange(//components/autofill/core/browser/integrators/autofill_ai/metrics/personal_context_metrics.h:AutofillAiPersonalContextDeduplicationAgainstRecordType) -->
+
+<!-- LINT.IfChange(AutofillAiPersonalContextPrefetchEntityFunnelOutcome) -->
+
+<enum name="AutofillAiPersonalContextPrefetchEntityFunnelOutcome">
+  <int value="0" label="Parsing failed"/>
+  <int value="1" label="Invalid"/>
+  <int value="2" label="Suppressed"/>
+  <int value="3" label="Deduplicated"/>
+  <int value="4" label="Passed"/>
+</enum>
+
+<!-- LINT.ThenChange(//components/autofill/core/browser/integrators/autofill_ai/metrics/personal_context_metrics.h:AutofillAiPersonalContextPrefetchEntityFunnelOutcome) -->
 
 <!-- LINT.IfChange(AutofillAiPersonalContextPrefetchEntityValidationResult) -->
 
@@ -667,6 +708,40 @@ Called by update_autofill_enums.py.-->
 
 <!-- LINT.ThenChange(/components/autofill/core/browser/integrators/autofill_ai/metrics/autofill_ai_metrics.h:AutofillAiUnmaskResult) -->
 
+<!-- LINT.IfChange(AutofillAiUpsertDetailsCacheStatus) -->
+
+<enum name="AutofillAiUpsertDetailsCacheStatus">
+  <int value="0" label="Cache hit"/>
+  <int value="1" label="Cache miss (preload request in flight)"/>
+  <int value="2" label="Cache miss (no preload request in flight)"/>
+</enum>
+
+<!-- LINT.ThenChange(/components/autofill/core/browser/integrators/autofill_ai/metrics/autofill_ai_metrics.h:AutofillAiUpsertDetailsCacheStatus) -->
+
+<!-- LINT.IfChange(AutofillAiWalletManagementUrlSyncStatus) -->
+
+<enum name="AutofillAiWalletManagementUrlSyncStatus">
+  <int value="0" label="Valid URL"/>
+  <int value="1" label="Missing or empty URL"/>
+  <int value="2" label="Invalid URL"/>
+</enum>
+
+<!-- LINT.ThenChange(/components/autofill/core/browser/webdata/valuables/valuable_sync_bridge.h:AutofillAiWalletManagementUrlSyncStatus) -->
+
+<!-- LINT.IfChange(AutofillAiWalletNoticeFunnelEvents) -->
+
+<enum name="AutofillAiWalletNoticeFunnelEvents">
+  <int value="0" label="Fetching upsert details"/>
+  <int value="1" label="Upsert details fetch success"/>
+  <int value="2" label="Upsert details fetch error"/>
+  <int value="3" label="Legal message shown"/>
+  <int value="4" label="Link clicked"/>
+  <int value="5" label="Entity saved"/>
+  <int value="6" label="Entity not saved"/>
+</enum>
+
+<!-- LINT.ThenChange(/components/autofill/core/browser/integrators/autofill_ai/metrics/autofill_ai_metrics.h:AutofillAiWalletNoticeFunnelEvents) -->
+
 <enum name="AutofillAlternativeNameFieldValueCharacterSet">
   <int value="0" label="Katakana"/>
   <int value="1" label="Hiragana"/>
@@ -708,17 +783,16 @@ Called by update_autofill_enums.py.-->
   <int value="5" label="Internal error"/>
 </enum>
 
-<!-- LINT.IfChange(AutofillAtMemorySpiiRetrievalFailureReason) -->
+<!-- LINT.IfChange(AutofillAtMemoryStateRestored) -->
 
-<enum name="AutofillAtMemorySpiiRetrievalFailureReason">
-  <int value="0" label="No connection"/>
-  <int value="1" label="Reauth failed"/>
-  <int value="2" label="Reauth in progress"/>
-  <int value="3" label="Fetch failed"/>
-  <int value="4" label="Parse failed"/>
+<enum name="AutofillAtMemoryStateRestored">
+  <int value="0" label="New session"/>
+  <int value="1" label="Restored with existing query"/>
+  <int value="2" label="Restored while searching"/>
+  <int value="3" label="Restored with response"/>
 </enum>
 
-<!-- LINT.ThenChange(//components/autofill/core/browser/integrators/at_memory/at_memory_query_service.h:SpiiRetrievalFailureReason) -->
+<!-- LINT.ThenChange(//components/autofill/core/browser/at_memory/at_memory_metrics_recorder.h:AutofillAtMemoryStateRestored) -->
 
 <enum name="AutofillAtMemoryTriggerSource">
   <int value="0" label="(Obsolete) Typed trigger"/>
@@ -775,6 +849,7 @@ Called by update_autofill_enums.py.-->
   <int value="11" label="OmniboxAutofill"/>
   <int value="12" label="PaymentsChurnedUsers"/>
   <int value="13" label="WalletReminderNotice"/>
+  <int value="14" label="GmailOtpOptIn"/>
 </enum>
 
 <!-- LINT.ThenChange(//chrome/browser/ui/autofill/bubble_controller_base.h:BubbleType) -->
@@ -4255,26 +4330,6 @@ Called by update_autofill_enums.py.-->
   <int value="2" label="Settings page"/>
 </enum>
 
-<enum name="AutofillScanCreditCardResult">
-  <int value="0" label="Unknown result"/>
-  <int value="1"
-      label="Credit card was scanned to fill the form and the form was
-             submitted without any additional edits by the user"/>
-  <int value="2"
-      label="Credit card was scanned to fill the form and the form was
-             submitted with edits by the user to fields that were NOT filled
-             by the scanner"/>
-  <int value="3"
-      label="Credit card was scanned to fill the form and the form was
-             submitted with edits by the user to fields filled by the scanner"/>
-  <int value="4"
-      label="Credit card was scanned to fill the form and but the form was
-             not submitted and instead the user closed the form"/>
-  <int value="5" label="Credit card scanner was started but cancelled"/>
-  <int value="6"
-      label="Credit card scanner option was shown to the user but not used"/>
-</enum>
-
 <enum name="AutofillScanCreditCardScreenType">
   <int value="0" label="Unknown"/>
   <int value="1" label="OCR"/>
@@ -5709,6 +5764,9 @@ Called by update_autofill_enums.py.-->
   <int value="74" label="CreditCardSecurityCode"/>
   <int value="75" label="CreditCardNameOnCard"/>
   <int value="76" label="CreditCardNickname"/>
+  <int value="77" label="LoyaltyMembershipId"/>
+  <int value="78" label="LoyaltyMembershipProgram"/>
+  <int value="79" label="LoyaltyMembershipProvider"/>
 </enum>
 
 <!-- LINT.ThenChange(//components/autofill/core/browser/integrators/at_memory/memory_data_type.h:MemoryDataType) -->
@@ -5847,7 +5905,9 @@ Called by update_autofill_enums.py.-->
 
 <!-- LINT.ThenChange(/components/autofill/core/browser/metrics/payments/bnpl_metrics.h:PayLaterTabsFormEvent) -->
 
-<enum name="PaymentsChurnedUsersBubbleShowResult">
+<!-- LINT.IfChange(PaymentsChurnedUsersUiShowResult) -->
+
+<enum name="PaymentsChurnedUsersUiShowResult">
   <int value="0" label="Shown successfully"/>
   <int value="1" label="Off The Record"/>
   <int value="2" label="No Cached Form"/>
@@ -5857,6 +5917,8 @@ Called by update_autofill_enums.py.-->
   <int value="6" label="Pref Not User Controlled"/>
   <int value="7" label="No Account Info Present"/>
 </enum>
+
+<!-- LINT.ThenChange(/components/autofill/core/browser/payments/payments_churned_users_metrics.h:PaymentsChurnedUsersUiShowResult) -->
 
 <enum name="PaymentsUiClosedReason">
   <int value="0" label="Unknown"/>
@@ -6189,7 +6251,7 @@ Called by update_autofill_enums.py.-->
   <int value="39" label="(Obsolete) Create new plus address"/>
   <int value="40" label="(Obsolete) Fill existing plus address"/>
   <int value="41" label="Merchant promo code entry"/>
-  <int value="42" label="See promo code details"/>
+  <int value="42" label="(Obsolete) See promo code details"/>
   <int value="43" label="Webauthn credential"/>
   <int value="44" label="Webauthn sign-in with another device"/>
   <int value="45" label="Title"/>

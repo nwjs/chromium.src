@@ -321,7 +321,7 @@ chromium_luci.configure_targets(
             "linux_intel_uhd_770_stable": targets.IGNORE_UNUSED,
             "linux_nvidia_gtx_1660_experimental": targets.IGNORE_UNUSED,
             "linux_nvidia_gtx_1660_stable": targets.IGNORE_UNUSED,
-            "linux_nvidia_rtx_4070_super_stable": targets.IGNORE_UNUSED,
+            "linux_nvidia_rtx_4070_super_wayland_stable": targets.IGNORE_UNUSED,
             "mac_arm64_apple_m1_gpu_experimental": targets.IGNORE_UNUSED,
             "mac_arm64_apple_m1_gpu_stable": targets.IGNORE_UNUSED,
             "mac_arm64_apple_m2_retina_gpu_experimental": targets.IGNORE_UNUSED,
@@ -407,7 +407,7 @@ luci.realm(
         ),
         # Allow everyone to view Turbo CI workflows
         luci.binding(
-            roles = "role/turboci.nodeReaderExternal",
+            roles = "role/turboci.externalReader",
             groups = "all",
         ),
         # Other roles are inherited from @root which grants them to group:all.
@@ -421,6 +421,11 @@ luci.realm(
         luci.binding(
             roles = "role/resultdb.invocationCreator",
             groups = "project-chromium-ci-task-accounts",
+        ),
+        # Allow everyone to view Turbo CI workflows
+        luci.binding(
+            roles = "role/turboci.externalReader",
+            groups = "all",
         ),
     ],
 )
@@ -445,7 +450,7 @@ luci.realm(
         ),
         # Allow everyone to view Turbo CI workflows
         luci.binding(
-            roles = "role/turboci.nodeReaderExternal",
+            roles = "role/turboci.externalReader",
             groups = "all",
         ),
     ],

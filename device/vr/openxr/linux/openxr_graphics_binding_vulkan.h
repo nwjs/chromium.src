@@ -47,7 +47,7 @@ class DEVICE_VR_EXPORT OpenXrGraphicsBindingVulkan
   bool RequiresSharedImages() const override;
   void CleanupWithoutSubmit() override;
   gfx::Size GetMaxTextureSize() override;
-  bool SetOverlayTexture(gfx::GpuMemoryBufferHandle texture,
+  bool SetOverlayTexture(scoped_refptr<gpu::ClientSharedImage> texture,
                          const gpu::SyncToken& sync_token,
                          const gfx::RectF& left,
                          const gfx::RectF& right) override;
@@ -62,6 +62,7 @@ class DEVICE_VR_EXPORT OpenXrGraphicsBindingVulkan
   // OpenXrGraphicsBinding:
   bool WaitOnFence(OpenXrCompositionLayer& layer,
                    gfx::GpuFence& gpu_fence) override;
+  bool WaitOnImplicitFence(OpenXrCompositionLayer& layer) override;
   bool RenderLayer(
       OpenXrCompositionLayer& layer,
       const scoped_refptr<viz::ContextProvider>& context_provider) override;

@@ -37,6 +37,7 @@ import org.chromium.chrome.browser.tabmodel.TabGroupVisualDataStore;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.TabModelType;
+import org.chromium.chrome.browser.tabmodel.TabPersistenceUtils;
 import org.chromium.components.tab_groups.TabGroupColorId;
 import org.chromium.components.tabs.TabStripCollection;
 
@@ -174,38 +175,10 @@ public class ModelTrackingOrchestrator {
     private final Callback<@Nullable Tab> mIncognitoActiveTabObserver =
             this::onIncognitoActiveTabChange;
 
-    private final TabGroupObserver mVisualDataUpdateObserver =
-            new TabGroupObserver() {
-                @Override
-                public void didCreateNewGroup(Tab destinationTab) {
-                    Token groupId = destinationTab.getTabGroupId();
-                    assert groupId != null;
-                    mGroupIncognitoStatus.put(groupId, destinationTab.isOffTheRecord());
-                }
-
-                @Override
-                public void didRemoveTabGroup(
-                        Token oldTabGroupId, @DidRemoveTabGroupReason int removalReason) {
-                    mGroupIncognitoStatus.remove(oldTabGroupId);
-                }
-
-                @Override
-                public void didChangeTabGroupCollapsed(
-                        Token tabGroupId, boolean isCollapsed, boolean animate) {
-                    saveTabGroupPayload(tabGroupId);
-                }
-
-                @Override
-                public void didChangeTabGroupColor(
-                        Token tabGroupId, @TabGroupColorId int newColor) {
-                    saveTabGroupPayload(tabGroupId);
-                }
-
-                @Override
-                public void didChangeTabGroupTitle(Token tabGroupId, @Nullable String newTitle) {
-                    saveTabGroupPayload(tabGroupId);
-                }
-            };
+    private final TabGroupObserver mRegularVisualDataUpdateObserver =
+            createVisualDataUpdateObserver(/* incognito= */ false);
+    private final TabGroupObserver mIncognitoVisualDataUpdateObserver =
+            createVisualDataUpdateObserver(/* incognito= */ true);
 
     private @Nullable StorageCollectionSynchronizer mIncognitoSynchronizer;
     private @Nullable StorageCollectionSynchronizer mRegularSynchronizer;
@@ -371,7 +344,10 @@ public class ModelTrackingOrchestrator {
         for (boolean incognito : new boolean[] {false, true}) {
             TabModel tabModel = getTabModel(incognito);
             if (tabModel != null) {
-                tabModel.removeTabGroupObserver(mVisualDataUpdateObserver);
+                tabModel.removeTabGroupObserver(
+                        incognito
+                                ? mIncognitoVisualDataUpdateObserver
+                                : mRegularVisualDataUpdateObserver);
             }
         }
 
@@ -387,7 +363,11 @@ public class ModelTrackingOrchestrator {
 
         TabStateAttributes attributes =
                 TabStateAttributesRegistry.getAttributesFor(tab, TabStateStore.class);
-        if (attributes != null) {
+        // Do not clear UNTIDY when saving an initial non-empty URL so TabStateAttributes
+        // deduplicates further UNTIDY updates during the initial load while still allowing
+        // onLoadStopped to promote UNTIDY to DIRTY.
+        if (attributes != null
+                && !TabPersistenceUtils.shouldSaveUntidyTab(tab, attributes.getDirtinessState())) {
             attributes.clearTabStateDirtiness();
         }
 
@@ -559,7 +539,39 @@ public class ModelTrackingOrchestrator {
             mGroupIncognitoStatus.put(groupId, incognito);
         }
 
-        tabModel.addTabGroupObserver(mVisualDataUpdateObserver);
+        tabModel.addTabGroupObserver(
+                incognito ? mIncognitoVisualDataUpdateObserver : mRegularVisualDataUpdateObserver);
+    }
+
+    private TabGroupObserver createVisualDataUpdateObserver(boolean incognito) {
+        return new TabGroupObserver() {
+            @Override
+            public void onTabGroupCreated(Token tabGroupId) {
+                mGroupIncognitoStatus.put(tabGroupId, incognito);
+            }
+
+            @Override
+            public void didRemoveTabGroup(
+                    Token oldTabGroupId, @DidRemoveTabGroupReason int removalReason) {
+                mGroupIncognitoStatus.remove(oldTabGroupId);
+            }
+
+            @Override
+            public void didChangeTabGroupCollapsed(
+                    Token tabGroupId, boolean isCollapsed, boolean animate) {
+                saveTabGroupPayload(tabGroupId);
+            }
+
+            @Override
+            public void didChangeTabGroupColor(Token tabGroupId, @TabGroupColorId int newColor) {
+                saveTabGroupPayload(tabGroupId);
+            }
+
+            @Override
+            public void didChangeTabGroupTitle(Token tabGroupId, @Nullable String newTitle) {
+                saveTabGroupPayload(tabGroupId);
+            }
+        };
     }
 
     private void clearUnusedNodesForModel(TabModel model) {

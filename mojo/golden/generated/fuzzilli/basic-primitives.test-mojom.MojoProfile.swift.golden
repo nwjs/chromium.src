@@ -10,8 +10,6 @@
 //     basic-primitives.test-mojom
 //
 
-private let mojoPrefix = "golden."
-
 ///
 /// Interfaces
 ///
@@ -28,9 +26,10 @@ extension ILType {
         ])
     fileprivate static let jsGoldenPrimaryRemoteWrapper: ILType = .object(
         ofGroup: "golden.PrimaryRemoteWrapper",
-        withMethods: ["close", "isBound", "associateAndPassReceiver"])
-    fileprivate static let jsGoldenPrimaryPendingReceiver: ILType = .object(
-        ofGroup: "golden.PrimaryPendingReceiver")
+        withMethods: [
+          "close",
+          "isBound",
+        ])
 }
 
 extension ObjectGroup {
@@ -42,13 +41,13 @@ extension ObjectGroup {
         methods: [
             "methodWithPrimitives": [
                 .plain(.boolean),
-                .plain(.integer),
-                .plain(.integer),
-                .plain(.integer),
+                .plain(.jsInt8),
+                .plain(.jsInt16),
+                .plain(.jsInt32),
                 .plain(.bigint),
-                .plain(.integer),
-                .plain(.integer),
-                .plain(.integer),
+                .plain(.jsUint8),
+                .plain(.jsUint16),
+                .plain(.jsUint32),
                 .plain(.bigint),
                 .plain(.float),
                 .plain(.float),
@@ -56,13 +55,13 @@ extension ObjectGroup {
             ] => .jsPromise(resolvingTo: .jsGoldenPrimary_MethodWithPrimitives_ResponseParams),
             "methodWithNullablePrimitives": [
                 .either(.boolean, .undefined),
-                .either(.integer, .undefined),
-                .either(.integer, .undefined),
-                .either(.integer, .undefined),
+                .either(.jsInt8, .undefined),
+                .either(.jsInt16, .undefined),
+                .either(.jsInt32, .undefined),
                 .either(.bigint, .undefined),
-                .either(.integer, .undefined),
-                .either(.integer, .undefined),
-                .either(.integer, .undefined),
+                .either(.jsUint8, .undefined),
+                .either(.jsUint16, .undefined),
+                .either(.jsUint32, .undefined),
                 .either(.bigint, .undefined),
                 .either(.float, .undefined),
                 .either(.float, .undefined),
@@ -90,16 +89,7 @@ extension ObjectGroup {
         methods: [
             "close": [] => .undefined,
             "isBound": [] => .boolean,
-            "associateAndPassReceiver": [] => .jsGoldenPrimaryPendingReceiver,
-        ]
-    )
-
-    fileprivate static let goldenPrimaryPendingReceiver = ObjectGroup(
-        name: "golden.PrimaryPendingReceiver",
-        instanceType: .jsGoldenPrimaryPendingReceiver,
-        properties: [:],
-        methods: [:]
-    )
+        ])
 }
 
 ///
@@ -162,13 +152,13 @@ extension ObjectGroup {
         instanceType: .jsGoldenPrimary_MethodWithPrimitives_ResponseParams,
         properties: [
             "boolRes": .boolean,
-            "int8Res": .integer,
-            "int16Res": .integer,
-            "int32Res": .integer,
+            "int8Res": .jsInt8,
+            "int16Res": .jsInt16,
+            "int32Res": .jsInt32,
             "int64Res": .bigint,
-            "uint8Res": .integer,
-            "uint16Res": .integer,
-            "uint32Res": .integer,
+            "uint8Res": .jsUint8,
+            "uint16Res": .jsUint16,
+            "uint32Res": .jsUint32,
             "uint64Res": .bigint,
             "floatRes": .float,
             "doubleRes": .float,
@@ -181,13 +171,13 @@ extension ObjectGroup {
         instanceType: .jsGoldenPrimary_MethodWithNullablePrimitives_ResponseParams,
         properties: [
             "boolRes": .boolean,
-            "int8Res": .integer,
-            "int16Res": .integer,
-            "int32Res": .integer,
+            "int8Res": .jsInt8,
+            "int16Res": .jsInt16,
+            "int32Res": .jsInt32,
             "int64Res": .bigint,
-            "uint8Res": .integer,
-            "uint16Res": .integer,
-            "uint32Res": .integer,
+            "uint8Res": .jsUint8,
+            "uint16Res": .jsUint16,
+            "uint32Res": .jsUint32,
             "uint64Res": .bigint,
             "floatRes": .float,
             "doubleRes": .float,
@@ -222,10 +212,12 @@ extension ObjectGroup {
 ///
 /// Generators
 ///
-// TODO(crbug.com/500386713) Consider using mojoBuiltins or another list instead of regex
+/// Names of every ObjectGroup registered by this profile.
+private let mojoTargetGroups = Set(mojoObjectGroups.map { $0.name })
+
 private func isTargetObject(type: ILType) -> Bool {
     guard type.Is(.object()), let group = type.group else { return false }
-    return group.starts(with: mojoPrefix)
+    return mojoTargetGroups.contains(group)
 }
 
 /// Mojo variant of the builtin `MethodCallGenerator` that operates only on
@@ -268,6 +260,17 @@ private let MojoPropertyRetrievalGenerator = CodeGenerator(
         b.type(of: obj).randomProperty() ?? b.randomCustomPropertyName()
     b.getProperty(propertyName, of: obj)
 }
+
+/// Every ObjectGroup registered by this profile. Also used by `isTargetObject`
+/// to decide which variables the Mojo generators operate on.
+private let mojoObjectGroups: [ObjectGroup] = [
+    .goldenPrimaryRemote,
+    .goldenPrimaryRemoteWrapper,
+    .goldenPrimaryMethodWithPrimitivesResponseParams,
+    .goldenPrimaryMethodWithNullablePrimitivesResponseParams,
+    .goldenPrimaryMethodWithHandlesResponseParams,
+    .goldenPrimaryMethodWithNullableHandlesResponseParams,
+] + commonMojoObjectGroups
 
 private let mojoBuiltins: [String: ILType] = [
     /// Profiles declare this method, a wrapper method around `getRemote` that follows
@@ -328,18 +331,9 @@ let mojoPrimaryProfile = Profile(
         "ExplorationMutator", "ProbingMutator", "PropertyAccessorMutator"
     ],
     additionalBuiltins: mojoBuiltins.merging(commonMojoBuiltins) { (existing, _) in existing },
-    additionalObjectGroups: [
-        .goldenPrimaryRemote,
-        .goldenPrimaryRemoteWrapper,
-        .goldenPrimaryPendingReceiver,
-        .goldenPrimaryMethodWithPrimitivesResponseParams,
-        .goldenPrimaryMethodWithNullablePrimitivesResponseParams,
-        .goldenPrimaryMethodWithHandlesResponseParams,
-        .goldenPrimaryMethodWithNullableHandlesResponseParams,
-    ] + commonMojoObjectGroups,
+    additionalObjectGroups: mojoObjectGroups,
     additionalEnumerations: [
     ] + commonMojoEnumerations,
-    additionalOptionsBags: [
-    ] + commonMojoOptionsBags,
+    additionalOptionsBags: [] + commonMojoOptionsBags,
     optionalPostProcessor: nil
 )

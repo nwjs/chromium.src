@@ -47,7 +47,7 @@
 #include "components/prefs/pref_service.h"
 #include "components/services/app_service/public/cpp/app_launch_params.h"
 #include "components/web_package/signed_web_bundles/signed_web_bundle_id.h"
-#include "components/webapps/isolated_web_apps/public/iwa_runtime_data_provider.h"
+#include "components/webapps/isolated_web_apps/key_distribution/iwa_runtime_data_provider.h"
 #include "components/webapps/isolated_web_apps/scheme.h"
 #include "components/webapps/isolated_web_apps/test_support/fake_iwa_runtime_data_provider.h"
 #include "components/webapps/isolated_web_apps/test_support/signing_keys.h"
@@ -55,7 +55,6 @@
 #include "components/webapps/isolated_web_apps/types/storage_location.h"
 #include "content/public/common/content_features.h"
 #include "content/public/test/browser_task_environment.h"
-#include "services/data_decoder/public/cpp/test_support/in_process_data_decoder.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/manifest/manifest.h"
@@ -264,7 +263,6 @@ class IsolatedWebAppInstallerViewControllerTest : public ::testing::Test {
   web_app::OsIntegrationTestOverrideBlockingRegistration faked_os_integration_;
   base::test::ScopedFeatureList scoped_feature_list_;
   base::ScopedTempDir scoped_temp_dir_;
-  data_decoder::test::InProcessDataDecoder in_process_data_decoder_;
   std::unique_ptr<TestingProfile> profile_;
   FakeIwaRuntimeDataProvider data_provider_;
   std::optional<base::AutoReset<IwaRuntimeDataProvider*>> resetter_;
@@ -756,15 +754,15 @@ TEST_F(IsolatedWebAppInstallerViewControllerTest, DisabledViewAccessibility) {
   controller.SetViewForTesting(view.get());
   view->ShowDisabledScreen();
 
-  ASSERT_GE(view->children().size(), 5);
+  ASSERT_GE(view->children().size(), 5u);
   // DisabledView instance (the class is internal so parent class checked)
   auto disabled_view = view->children()[0];
   ASSERT_TRUE(views::IsViewClass<views::BoxLayoutView>(disabled_view));
 
   // The view hierarchy is: disabled view-> header box -> [icon, title,
   // subtitle]
-  ASSERT_EQ(disabled_view->children().size(), 1);
-  ASSERT_EQ(disabled_view->children()[0]->children().size(), 3);
+  ASSERT_EQ(disabled_view->children().size(), 1u);
+  ASSERT_EQ(disabled_view->children()[0]->children().size(), 3u);
   views::StyledLabel* subtitle_label = views::AsViewClass<views::StyledLabel>(
       disabled_view->children()[0]->children()[2]);
   ASSERT_NE(subtitle_label, nullptr);

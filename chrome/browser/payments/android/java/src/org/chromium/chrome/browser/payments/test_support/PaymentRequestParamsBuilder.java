@@ -6,11 +6,11 @@ package org.chromium.chrome.browser.payments.test_support;
 
 import android.app.Activity;
 import android.content.Context;
-import android.content.res.Resources;
 
 import androidx.annotation.Nullable;
 
 import org.mockito.Mockito;
+import org.robolectric.Robolectric;
 
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.chrome.browser.payments.ChromePaymentRequestService;
@@ -204,10 +204,7 @@ public class PaymentRequestParamsBuilder implements ChromePaymentRequestService.
 
     @Override
     public Activity getActivity(WebContents webContents) {
-        Activity activity = Mockito.mock(Activity.class);
-        Resources resources = Mockito.mock(Resources.class);
-        Mockito.doReturn(resources).when(activity).getResources();
-        return activity;
+        return Robolectric.buildActivity(Activity.class).get();
     }
 
     @Nullable

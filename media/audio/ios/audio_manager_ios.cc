@@ -95,8 +95,8 @@ AudioOutputStream* AudioManagerIOS::MakeLowLatencyOutputStream(
     const std::string& device_id,
     const LogCallback& log_callback) {
   DCHECK(GetTaskRunner()->BelongsToCurrentThread());
-  AUHALStream* stream =
-      new AUHALStream(this, params, kAudioObjectUnknown, log_callback);
+  AUHALStream* stream = new AUHALStream(this, params, kAudioObjectUnknown,
+                                        device_id, log_callback);
   return stream;
 }
 
@@ -113,8 +113,8 @@ AudioInputStream* AudioManagerIOS::MakeLowLatencyInputStream(
     const std::string& device_id,
     const LogCallback& log_callback) {
   DCHECK(GetTaskRunner()->BelongsToCurrentThread());
-  auto* stream =
-      new AUAudioInputStream(this, params, kAudioObjectUnknown, log_callback);
+  auto* stream = new AUAudioInputStream(this, params, kAudioObjectUnknown,
+                                        device_id, log_callback);
   return stream;
 }
 
@@ -128,13 +128,13 @@ std::string AudioManagerIOS::GetDefaultOutputDeviceID() {
   return AudioSessionManagerIOS::GetInstance().GetDefaultOutputDeviceID();
 }
 
-bool AudioManagerIOS::MaybeChangeBufferSize(AudioDeviceID device_id,
-                                            AudioUnit audio_unit,
-                                            AudioUnitElement element,
-                                            size_t desired_buffer_size) {
+OSStatus AudioManagerIOS::MaybeChangeBufferSize(AudioDeviceID device_id,
+                                                AudioUnit audio_unit,
+                                                AudioUnitElement element,
+                                                size_t desired_buffer_size) {
   // TODO: Add IO buffer size  handling based on `desired_buffer_size`. Refer
   // comments at audio_manager_mac.h for more information.
-  return true;
+  return noErr;
 }
 
 bool AudioManagerIOS::DeviceSupportsAmbientNoiseReduction(
@@ -176,9 +176,12 @@ double AudioManagerIOS::GetInputVolume(AudioDeviceID device_id) {
       AudioSessionManagerIOS::GetInstance().GetInputGain());
 }
 
-void AudioManagerIOS::SetInputVolume(AudioDeviceID device_id, double volume) {
-  AudioSessionManagerIOS::GetInstance().SetInputGain(
-      static_cast<float>(volume));
+OSStatus AudioManagerIOS::SetInputVolume(AudioDeviceID device_id,
+                                         double volume) {
+  return AudioSessionManagerIOS::GetInstance().SetInputGain(
+             static_cast<float>(volume))
+             ? noErr
+             : static_cast<OSStatus>(AVAudioSessionErrorCodeUnspecified);
 }
 
 bool AudioManagerIOS::IsInputMuted(AudioDeviceID device_id) {

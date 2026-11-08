@@ -103,6 +103,7 @@ type Constructor<T> = new (...args: any[]) => T;
 
 export interface SearchboxSelectionMixinInterface {
   isAimButtonVisible: boolean;
+  inKeywordMode: boolean;
   showContextEntrypoint: boolean;
 
   selection: OmniboxPopupSelection;
@@ -135,6 +136,10 @@ export const SearchboxSelectionMixin = <
     private selection_: OmniboxPopupSelection = kDefaultSelection;
 
     get isAimButtonVisible(): boolean {
+      return false;
+    }
+
+    get inKeywordMode(): boolean {
       return false;
     }
 
@@ -186,22 +191,36 @@ export const SearchboxSelectionMixin = <
       }
 
       if (this.isAimButtonVisible) {
-        const insertionIndex =
-            available.length > 0 && result.matches[0]?.allowedToBeDefaultMatch ?
-            1 :
-            0;
-        available.splice(insertionIndex, 0, {
-          line: result.matches.findIndex(
-              (m: AutocompleteMatch) => m.allowedToBeDefaultMatch),
-          state: SelectionLineState.kFocusedButtonAim,
-          actionIndex: 0,
-        });
-        if (!result.matches[0]?.allowedToBeDefaultMatch) {
-          // If there is no default match, we need a generic selection to
-          // represent the input field so that it can be focused.
+        const firstMatch = result.matches[0];
+        const defaultMatch =
+            firstMatch?.allowedToBeDefaultMatch ? firstMatch : null;
+        // If there is no default match, we need a generic selection to
+        // represent the input field so that it can be focused.
+        if (!defaultMatch) {
           available.splice(0, 0, {
             line: -1,
             state: SelectionLineState.kNormal,
+            actionIndex: 0,
+          });
+        }
+
+        const secondMatch = result.matches[1];
+        // Suppress focusing the AIM button to preserve user muscle memory and
+        // align with `OmniboxPopupSelection::GetAllAvailableSelectionsSorted()`
+        // when:
+        // - In keyword mode (e.g. 'youtube<tab>query').
+        // - The default match has a keyword chip (e.g. 'youtube').
+        // - The default match has action chips (e.g. switch to tab).
+        // - The 2nd match has an instant keyword (e.g. '@gemini').
+        // - The 2nd match is a pedal suggestion (e.g. 'create doc').
+        const suppressAim = this.inKeywordMode ||
+            !!defaultMatch?.keywordModel || !!defaultMatch?.actions.length ||
+            secondMatch?.keywordModel?.type === KeywordType.kInstant ||
+            secondMatch?.type === 'pedal';
+        if (!suppressAim) {
+          available.splice(1, 0, {
+            line: defaultMatch ? 0 : -1,
+            state: SelectionLineState.kFocusedButtonAim,
             actionIndex: 0,
           });
         }

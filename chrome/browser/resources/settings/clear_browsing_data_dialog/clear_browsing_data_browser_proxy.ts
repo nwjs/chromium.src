@@ -43,6 +43,7 @@ export enum BrowsingDataType {
   DOWNLOADS = 6,
   HOSTED_APPS_DATA = 7,
   // TABS = 8, Not used on Desktop.
+  SKILLS = 9,
 }
 // LINT.ThenChange(/components/browsing_data/core/browsing_data_utils.h:BrowsingDataType)
 
@@ -58,15 +59,9 @@ export interface ClearBrowsingDataResult {
 /**
  * UpdateSyncStateEvent contains relevant information for a summary of a user's
  * updated Sync State.
- *
- * TODO(crbug.com/397187800): Clean up UpdateSyncStateEvent interface when
- * kDBDRevampDesktop is launched. We only need to fetch isNonGoogleDse &
- * nonGoogleSearchHistoryString for the DBDv2 dialog.
  */
 export interface UpdateSyncStateEvent {
   signedIn: boolean;
-  syncingHistory: boolean;
-  shouldShowCookieException: boolean;
   isNonGoogleDse: boolean;
   nonGoogleSearchHistoryString: string;
 }

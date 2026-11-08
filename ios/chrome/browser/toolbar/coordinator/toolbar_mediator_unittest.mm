@@ -28,8 +28,8 @@
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_service_impl.h"
 #import "ios/chrome/browser/intelligence/bwg/utils/gemini_constants.h"
 #import "ios/chrome/browser/intelligence/features/features.h"
+#import "ios/chrome/browser/menu/public/menu_histograms.h"
 #import "ios/chrome/browser/menu/ui_bundled/browser_action_factory.h"
-#import "ios/chrome/browser/menu/ui_bundled/menu_histograms.h"
 #import "ios/chrome/browser/ntp/model/new_tab_page_tab_helper.h"
 #import "ios/chrome/browser/optimization_guide/model/optimization_guide_service_factory.h"
 #import "ios/chrome/browser/policy/model/policy_util.h"
@@ -340,6 +340,28 @@ TEST_P(ToolbarMediatorTest, TestWebStateSelectionUpdatesConsumer) {
   browser_->GetWebStateList()->InsertWebState(
       CreateWebState(), WebStateList::InsertionParams::AtIndex(0).Activate());
 
+  EXPECT_OCMOCK_VERIFY(consumer_);
+}
+
+// Tests that `setShareEnabled:` is disabled on internal `chrome://` URLs except
+// for downloaded and external files.
+TEST_P(ToolbarMediatorTest, TestShareEnabledForChromeURLs) {
+  std::unique_ptr<web::FakeWebState> version_web_state = CreateWebState();
+  version_web_state->SetVisibleURL(GURL("chrome://version"));
+
+  OCMExpect([consumer_ setShareEnabled:NO]);
+  browser_->GetWebStateList()->InsertWebState(
+      std::move(version_web_state),
+      WebStateList::InsertionParams::AtIndex(0).Activate());
+  EXPECT_OCMOCK_VERIFY(consumer_);
+
+  std::unique_ptr<web::FakeWebState> downloads_web_state = CreateWebState();
+  downloads_web_state->SetVisibleURL(GURL("chrome://downloads/fileName"));
+
+  OCMExpect([consumer_ setShareEnabled:YES]);
+  browser_->GetWebStateList()->InsertWebState(
+      std::move(downloads_web_state),
+      WebStateList::InsertionParams::AtIndex(1).Activate());
   EXPECT_OCMOCK_VERIFY(consumer_);
 }
 

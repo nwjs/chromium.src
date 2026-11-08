@@ -40,6 +40,7 @@
 #include "gpu/ipc/common/gpu_disk_cache_type.h"
 #include "gpu/ipc/common/gpu_peak_memory.h"
 #include "gpu/ipc/service/gpu_ipc_service_export.h"
+#include "services/viz/privileged/mojom/gl/gpu_client_type.mojom.h"
 #include "ui/gfx/gpu_memory_buffer_handle.h"
 #include "ui/gfx/native_ui_types.h"
 #include "ui/gl/gl_surface.h"
@@ -47,10 +48,6 @@
 namespace base::trace_event {
 class TracedValue;
 }  // namespace base::trace_event
-
-namespace gfx {
-struct GpuExtraInfo;
-}
 
 namespace gl {
 class GLShareGroup;
@@ -116,9 +113,7 @@ class GPU_IPC_SERVICE_EXPORT GpuChannelManager
   GpuChannel* EstablishChannel(const base::UnguessableToken& channel_token,
                                int client_id,
                                uint64_t client_tracing_id,
-                               bool is_gpu_host,
-                               bool enable_extra_handles_validation,
-                               const gfx::GpuExtraInfo& gpu_extra_info,
+                               viz::mojom::GpuClientType client_type,
                                const gpu::GPUInfo& gpu_info,
                                const gpu::GpuFeatureInfo& gpu_feature_info);
 

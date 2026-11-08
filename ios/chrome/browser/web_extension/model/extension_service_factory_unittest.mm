@@ -24,6 +24,7 @@
 #import "components/variations/service/test_variations_service.h"
 #import "ios/chrome/browser/shared/model/profile/test/test_profile_ios.h"
 #import "ios/chrome/browser/shared/public/features/system_flags.h"
+#import "ios/chrome/browser/universal_optout/model/eligibility_utils.h"
 #import "ios/chrome/browser/universal_optout/model/universal_optout_service_factory.h"
 #import "ios/chrome/browser/web_extension/model/extension_service.h"
 #import "ios/chrome/test/ios_chrome_scoped_testing_local_state.h"
@@ -32,15 +33,6 @@
 #import "testing/platform_test.h"
 
 namespace {
-
-// Returns whether the current OS version is supported. The GPC extension is
-// only supported on iOS versions between iOS 18.4 and iOS 27.
-bool IsSupportedOS() {
-  if (@available(iOS 18.4, *)) {
-    return !base::ios::IsRunningOnIOS27OrLater();
-  }
-  return false;
-}
 
 class ExtensionServiceFactoryTest : public PlatformTest {
  public:
@@ -157,8 +149,13 @@ TEST_F(ExtensionServiceFactoryTest,
   EXPECT_EQ(ExtensionServiceFactory::GetForProfile(profile.get()), nullptr);
 }
 
-// Tests that ExtensionService is not created if the user is not eligible.
-TEST_F(ExtensionServiceFactoryTest, TestFactoryReturnsNullWhenIneligible) {
+// Tests that ExtensionService is created even if the user is not eligible.
+TEST_F(ExtensionServiceFactoryTest, TestFactoryReturnsServiceWhenIneligible) {
+  if (!universal_optout::IsGPCExtensionSupportedOS()) {
+    GTEST_SKIP()
+        << "ExtensionService is only created on supported OS versions (iOS "
+           "18.4 to 26).";
+  }
   scoped_feature_list_.InitWithFeatures(
       /*enabled_features=*/
       {universal_optout::features::kUniversalOptOut,
@@ -173,14 +170,18 @@ TEST_F(ExtensionServiceFactoryTest, TestFactoryReturnsNullWhenIneligible) {
       base::BindRepeating(&ExtensionServiceFactoryTest::CreateOptOutService,
                           base::Unretained(this), /*eligible=*/false));
   std::unique_ptr<TestProfileIOS> profile = std::move(builder).Build();
-  EXPECT_EQ(ExtensionServiceFactory::GetForProfile(profile.get()), nullptr);
+  ExtensionService* service =
+      ExtensionServiceFactory::GetForProfile(profile.get());
+  EXPECT_NE(service, nullptr);
+  EXPECT_TRUE(service->IsReady());
+  EXPECT_FALSE(service->WebExtensionsWereLoadedAtStartup());
 }
 
 // Tests that ExtensionService is created when ineligible but the feature is
 // enabled via preferences.
 TEST_F(ExtensionServiceFactoryTest,
        TestFactoryReturnsServiceWhenIneligibleButOptedIn) {
-  if (!IsSupportedOS()) {
+  if (!universal_optout::IsGPCExtensionSupportedOS()) {
     GTEST_SKIP()
         << "ExtensionService is only created on supported OS versions (iOS "
            "18.4 to 26).";
@@ -205,9 +206,15 @@ TEST_F(ExtensionServiceFactoryTest,
   EXPECT_NE(service, nullptr);
 }
 
-// Tests that ExtensionService is not created when eligible but forced off.
+// Tests that ExtensionService is created even when eligible but forced off
+// (since forced off affects eligibility, not service creation).
 TEST_F(ExtensionServiceFactoryTest,
-       TestFactoryReturnsNullWhenEligibleButForcedOff) {
+       TestFactoryReturnsServiceWhenEligibleButForcedOff) {
+  if (!universal_optout::IsGPCExtensionSupportedOS()) {
+    GTEST_SKIP()
+        << "ExtensionService is only created on supported OS versions (iOS "
+           "18.4 to 26).";
+  }
   scoped_feature_list_.InitWithFeatures(
       /*enabled_features=*/
       {universal_optout::features::kUniversalOptOut,
@@ -228,7 +235,11 @@ TEST_F(ExtensionServiceFactoryTest,
       base::BindRepeating(&ExtensionServiceFactoryTest::CreateOptOutService,
                           base::Unretained(this), /*eligible=*/true));
   std::unique_ptr<TestProfileIOS> profile = std::move(builder).Build();
-  EXPECT_EQ(ExtensionServiceFactory::GetForProfile(profile.get()), nullptr);
+  ExtensionService* service =
+      ExtensionServiceFactory::GetForProfile(profile.get());
+  EXPECT_NE(service, nullptr);
+  EXPECT_TRUE(service->IsReady());
+  EXPECT_FALSE(service->WebExtensionsWereLoadedAtStartup());
 
   [[NSUserDefaults standardUserDefaults]
       removeObjectForKey:@"UniversalOptOutEligibilityOverride"];
@@ -237,7 +248,7 @@ TEST_F(ExtensionServiceFactoryTest,
 // Tests that ExtensionService is created when ineligible but forced on.
 TEST_F(ExtensionServiceFactoryTest,
        TestFactoryReturnsServiceWhenIneligibleButForcedOn) {
-  if (!IsSupportedOS()) {
+  if (!universal_optout::IsGPCExtensionSupportedOS()) {
     GTEST_SKIP()
         << "ExtensionService is only created on supported OS versions (iOS "
            "18.4 to 26).";
@@ -291,7 +302,7 @@ TEST_F(ExtensionServiceFactoryTest,
 // enabled.
 TEST_F(ExtensionServiceFactoryTest,
        TestFactoryReturnsServiceWhenEligibleAndFlagsEnabled) {
-  if (!IsSupportedOS()) {
+  if (!universal_optout::IsGPCExtensionSupportedOS()) {
     GTEST_SKIP()
         << "ExtensionService is only created on supported OS versions (iOS "
            "18.4 to 26).";
@@ -317,7 +328,7 @@ TEST_F(ExtensionServiceFactoryTest,
 
 // Tests that the service is redirected in incognito.
 TEST_F(ExtensionServiceFactoryTest, TestFactoryRedirectedInIncognito) {
-  if (!IsSupportedOS()) {
+  if (!universal_optout::IsGPCExtensionSupportedOS()) {
     GTEST_SKIP()
         << "ExtensionService is only created on supported OS versions (iOS "
            "18.4 to 26).";

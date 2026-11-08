@@ -1204,12 +1204,15 @@ Google Chrome is unable to recover your settings.
 
       <!-- Installer Downloader infobar -->
       <message name="IDS_INSTALLER_DOWNLOADER_DISCLAIMER" desc="Installer downloader infobar message prompting users upgrading to Windows 11 to download the Chrome installer to OneDrive.">
-        Upgrading to Windows 11 soon? Download the Chrome Installer to OneDrive so you’re ready from day one.
+        Upgrading to Windows 11? Download Chrome to OneDrive so you're ready from day one.
       </message>
       <message name="IDS_INSTALLER_DOWNLOADER_BUTTON_LABEL" desc="Button label for the installer downloader infobar to download the Chrome installer.">
-        Download Chrome Installer
+        Download Chrome
       </message>
-      <message name="IDS_INSTALLER_DOWNLOADER_LINK" desc="Text for the link in the installer downloader infobar to learn more about installing Chrome">
+      <message name="IDS_INSTALLER_DOWNLOADER_LINK_TEXT" desc="Text for the link in the installer downloader infobar to learn more about installing Chrome">
+        Learn more
+      </message>
+      <message name="IDS_INSTALLER_DOWNLOADER_LINK_ACCESSIBLE_TEXT" desc="Text for the link in the installer downloader infobar to learn more about installing Chrome">
         Learn more about installing Chrome
       </message>
 
@@ -2555,8 +2558,14 @@ Google Chrome is unable to recover your settings.
               =1 {Your administrator asks that you relaunch Chrome to apply this update. Your Incognito window won't reopen.}
               other {Your administrator asks that you relaunch Chrome to apply this update. Your # Incognito windows won't reopen.}}
           </message>
-          <message name="IDS_RELAUNCH_RECOMMENDED_SCHEDULED_IDLE_TOAST" desc="Toast notification message shown after scheduling an idle restart." translateable="false">
-            Chrome will restart when you're next idle
+          <message name="IDS_RELAUNCH_RECOMMENDED_SCHEDULED_IDLE_TOAST" desc="Toast notification message shown after scheduling an idle restart.">
+            Chrome will update when you're away
+          </message>
+          <message name="IDS_RELAUNCH_RECOMMENDED_SCHEDULED_TITLE" desc="The title of a bubble dialog that tells users that Chrome wants to update.">
+            Chrome wants to update
+          </message>
+          <message name="IDS_RELAUNCH_RECOMMENDED_BODY_SCHEDULE" desc="The first body paragraph for the scheduled restart reminder bubble dialog.">
+            An <ph name="IMPORTANT_UPDATE">$1<ex>important security update</ex></ph> is pending. To keep your browsing safe, Chrome will update the next time you're inactive for <ph name="IDLE_DURATION">$2<ex>5 minutes</ex></ph>.
           </message>
           <message name="IDS_RELAUNCH_REQUIRED_TITLE_DAYS" desc="The title of a dialog that tells users the browser must be relaunched within two or more days.">
             {0, plural,
@@ -3460,6 +3469,9 @@ Google Chrome is unable to recover your settings.
         <message name="IDS_DICTATION_ONBOARDING_TITLE" desc="The title string in the onboarding dialog for the dictation feature." translateable="false">
           Let Chrome use your microphone and page content to generate polished text?
         </message>
+        <message name="IDS_DICTATION_ONBOARDING_BULLET_DATA_SHARING" desc="The second paragraph in the onboarding dialog describing data sharing with Google servers." translateable="false">
+          When you use talk to type, the content and URL of the page you're on and your spoken audio will be sent to Google to generate text based on what you say and the page context.
+        </message>
         <message name="IDS_DICTATION_ONBOARDING_BULLET_MICROPHONE" desc="The first paragraph in the onboarding dialog describing how the microphone is used." translateable="false">
           Your microphone will be used to capture your voice
         </message>
@@ -3653,6 +3665,22 @@ If this page isn’t working as expected, try allowing optimization.
       <message name="IDS_SEND_TAB_TO_SELF_SIGN_IN_PROMO_BUTTON_LABEL" desc="Label of the sign-in button in the send-tab-to-self sign-in promo bubble.">
         Sign in to Chrome
       </message>
+      <message name="IDS_SEND_TAB_TO_SELF_SIGN_IN_PROMO_LABEL" desc="Text when a signed out user attempts to use send-tab-to-self, then sees a sign-in promo.">
+        To send this tab to another device, sign in to Chrome on both devices
+      </message>
+      <message name="IDS_SEND_TAB_TO_SELF_NO_TARGET_DEVICE_LABEL" desc="Text shown when a user with no available target devices attempts to use send-tab-to-self.">
+        To send this tab to another device, sign in to Chrome there
+      </message>
+      <if expr="not use_titlecase">
+        <message name="IDS_CONTEXT_MENU_SEND_TAB_TO_SELF_SIGN_IN" desc="The label for a menu item to sign in to Chrome in the Send Tab to Self context menu when signed out.">
+          Sign in to Chrome
+        </message>
+      </if>
+      <if expr="use_titlecase">
+        <message name="IDS_CONTEXT_MENU_SEND_TAB_TO_SELF_SIGN_IN" desc="In Title Case: The label for a menu item to sign in to Chrome in the Send Tab to Self context menu when signed out.">
+          Sign In to Chrome
+        </message>
+      </if>
 
        <!-- Contextual Tasks -->
       <message name="IDS_CONTEXTUAL_TASKS_ENTRY_POINT_TOOLTIP_V2" desc="The tooltip text used for contextual task toolbar button">

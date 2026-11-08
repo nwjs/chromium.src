@@ -988,6 +988,30 @@ inline constexpr char kAccessibilityFaceGazeCursorControlEnabledSentinel[] =
 inline constexpr char kAccessibilityFaceGazeActionsEnabledSentinel[] =
     "settings.a11y.face_gaze.actions_enabled_sentinel";
 
+// A boolean pref which determines whether Hover Text is enabled.
+inline constexpr char kAccessibilityHoverTextEnabled[] =
+    "settings.a11y.hover_text.enabled";
+// A boolean pref which determines whether Hover Text follows keyboard focus
+// (Tab / arrow key navigation) in addition to pointer and touch hover.
+inline constexpr char kAccessibilityHoverTextFollowKeyboardFocus[] =
+    "settings.a11y.hover_text.follow_keyboard_focus";
+// A double pref which determines the text magnification scale factor for the
+// Hover Text bubble.
+inline constexpr char kAccessibilityHoverTextFontScale[] =
+    "settings.a11y.hover_text.scale";
+// An integer pref which determines the font style for the Hover Text bubble.
+// Maps to ash::HoverTextFontStyle.
+inline constexpr char kAccessibilityHoverTextFontStyle[] =
+    "settings.a11y.hover_text.font_style";
+// A boolean pref which determines whether a highlight focus ring is drawn
+// around the hovered element when Hover Text is active.
+inline constexpr char kAccessibilityHoverTextFocusRingEnabled[] =
+    "settings.a11y.hover_text.highlight_enabled";
+// A boolean pref which determines whether Hover Text speaks hovered text aloud
+// using ChromeOS Text-to-Speech (TTS).
+inline constexpr char kAccessibilityHoverTextTtsEnabled[] =
+    "settings.a11y.hover_text.tts_enabled";
+
 // A boolean pref which determines whether the accessibility menu shows
 // regardless of the state of a11y features.
 inline constexpr char kShouldAlwaysShowAccessibilityMenu[] =
@@ -1853,11 +1877,6 @@ inline constexpr char kUsbPeripheralCableSpeedNotificationShown[] =
 inline constexpr char kAppListReorderNudge[] =
     "ash.launcher.app_list_reorder_nudge";
 
-// An integer pref that stores the experimental arm that the user belongs to in
-// the AppsCollections experiment. Used for metrics.
-inline constexpr char kLauncherAppsCollectionsExperimentArm[] =
-    "ash.launcher.apps_collections_experimental_arm";
-
 // A dictionary pref that stores information related to the privacy notice in
 // the continue files section for the launcher.
 inline constexpr char kLauncherFilesPrivacyNotice[] =
@@ -1916,6 +1935,11 @@ inline constexpr char kMouseReverseScroll[] = "settings.mouse.reverse_scroll";
 // A time pref storing the last time the multipaste menu was shown.
 inline constexpr char kMultipasteMenuLastTimeShown[] =
     "ash.clipboard.multipaste_menu.last_time_shown";
+
+// An integer pref that indicates whether Clipboard History is enabled by
+// policy. Values correspond to `clipboard_history_util::PolicyValue`.
+inline constexpr char kClipboardHistoryEnabled[] =
+    "ash.clipboard.history_enabled";
 
 // A dictionary storing the number of times and most recent time the multipaste
 // contextual nudge was shown.
@@ -3559,16 +3583,6 @@ inline constexpr char kHatsBluetoothAudioDeviceIsSelected[] =
     "hats_bluetooth_audio_device_is_selected";
 
 // An int64 pref. This is the timestamp, microseconds after epoch, that
-// indicates the end of the Bluetooth revamp experience survey.
-inline constexpr char kHatsBluetoothRevampCycleEndTs[] =
-    "hats_bluetooth_revamp_cycle_end_timestamp";
-
-// A boolean pref. Indicates if the device is selected for the HaTS Bluetooth
-// revamp experience survey.
-inline constexpr char kHatsBluetoothRevampIsSelected[] =
-    "hats_bluetooth_revamp_is_selected";
-
-// An int64 pref. This is the timestamp, microseconds after epoch, that
 // indicates the end of the most recent Camera App survey cycle.
 inline constexpr char kHatsCameraAppSurveyCycleEndTs[] =
     "hats_camera_app_cycle_end_timestamp";
@@ -3613,35 +3627,6 @@ inline constexpr char kHatsLastInteractionTimestamp[] =
     "hats_last_interaction_timestamp";
 
 // An int64 pref. This is the timestamp, microseconds after epoch, that
-// indicates the end of the most recent Media App PDF survey cycle.
-inline constexpr char kHatsMediaAppPdfCycleEndTs[] =
-    "hats_media_app_pdf_cycle_end_timestamp";
-
-// A boolean pref. Indicates if the device is selected for the Media App PDF
-// survey.
-inline constexpr char kHatsMediaAppPdfIsSelected[] =
-    "hats_media_app_pdf_is_selected";
-
-// A boolean pref. Indicated if the device is selected for the Office
-// integration survey.
-inline constexpr char kHatsOfficeSurveyIsSelected[] = "hats_office_is_selected";
-
-// An int64 pref. This is the timestamp, microseconds after epoch, that
-// indicated the end of the most recent Office integration survey cycle.
-inline constexpr char kHatsOfficeSurveyCycleEndTs[] =
-    "hats_office_end_timestamp";
-
-// An int64 pref. This is the timestamp, microseconds after epoch, that
-// indicates the end of the most recent OS Settings Search survey cycle.
-inline constexpr char kHatsOsSettingsSearchSurveyCycleEndTs[] =
-    "hats_os_settings_search_cycle_end_timestamp";
-
-// A boolean pref. Indicates if the device is selected for the OS Settings
-// Search survey.
-inline constexpr char kHatsOsSettingsSearchSurveyIsSelected[] =
-    "hats_os_settings_search_is_selected";
-
-// An int64 pref. This is the timestamp, microseconds after epoch, that
 // indicates the end of the HaTS Performance survey
 inline constexpr char kHatsPerformanceSurveyCycleEndTs[] =
     "hats_performance_cycle_end_timestamp";
@@ -3660,46 +3645,6 @@ inline constexpr char kHatsPeripheralsCycleEndTs[] =
 // experience survey.
 inline constexpr char kHatsPeripheralsIsSelected[] =
     "hats_peripherals_is_selected";
-
-// An int64 pref. This is the timestamp, microseconds after epoch, that
-// indicates the end of the most recent Personalization Avatar survey cycle.
-inline constexpr char kHatsPersonalizationAvatarSurveyCycleEndTs[] =
-    "hats_personalization_avatar_cycle_end_timestamp";
-
-// A boolean pref. Indicates if the device is selected for the Personalization
-// Avatar survey.
-inline constexpr char kHatsPersonalizationAvatarSurveyIsSelected[] =
-    "hats_personalization_avatar_is_selected";
-
-// An int64 pref. This is the timestamp, microseconds after epoch, that
-// indicates the end of the most recent Personalization Screensaver survey
-// cycle.
-inline constexpr char kHatsPersonalizationScreensaverSurveyCycleEndTs[] =
-    "hats_personalization_screensaver_cycle_end_timestamp";
-
-// A boolean pref. Indicates if the device is selected for the Personalization
-// Screensaver survey.
-inline constexpr char kHatsPersonalizationScreensaverSurveyIsSelected[] =
-    "hats_personalization_screensaver_is_selected";
-
-// An int64 pref. This is the timestamp, microseconds after epoch, that
-// indicates the end of the most recent Personalization Wallpaper survey cycle.
-inline constexpr char kHatsPersonalizationWallpaperSurveyCycleEndTs[] =
-    "hats_personalization_wallpaper_cycle_end_timestamp";
-
-// A boolean pref. Indicates if the device is selected for the Personalization
-// Wallpaper survey.
-inline constexpr char kHatsPersonalizationWallpaperSurveyIsSelected[] =
-    "hats_personalization_wallpaper_is_selected";
-
-// indicates the end of the most recent Photos Experience survey cycle.
-inline constexpr char kHatsPhotosExperienceCycleEndTs[] =
-    "hats_photos_experience_cycle_end_timestamp";
-
-// A boolean pref. Indicates if the device is selected for the Photos Experience
-// survey.
-inline constexpr char kHatsPhotosExperienceIsSelected[] =
-    "hats_photos_experience_is_selected";
 
 // An int64 pref. This is a timestamp, microseconds after epoch, of the most
 // recent time the profile took or dismissed prioritized HaTS survey.

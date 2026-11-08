@@ -6,6 +6,7 @@ package org.chromium.chrome.browser.tasks.tab_management.vertical_tabs;
 
 import android.app.Activity;
 import android.content.Context;
+import android.content.res.Resources;
 import android.transition.ChangeBounds;
 import android.transition.Fade;
 import android.transition.Transition;
@@ -15,6 +16,7 @@ import android.view.ViewGroup;
 import android.widget.FrameLayout;
 
 import androidx.annotation.Px;
+import androidx.annotation.StringRes;
 
 import org.chromium.base.MathUtils;
 import org.chromium.base.supplier.NonNullObservableSupplier;
@@ -35,7 +37,9 @@ import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.UiUpdateRequest;
 import org.chromium.chrome.browser.ui.side_ui.SideUiObserver;
 import org.chromium.chrome.browser.ui.vertical_tabs.VerticalTabUtils;
 import org.chromium.chrome.browser.ui.vertical_tabs.VerticalTabUtils.WindowWidthBoundary;
+import org.chromium.chrome.tab_ui.R;
 import org.chromium.ui.base.ViewUtils;
+import org.chromium.ui.base.WindowAndroid;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -45,13 +49,19 @@ import java.util.Set;
  * Coordinator that acts as a container for the Vertical Tab List within the Side UI framework. This
  * wraps {@link VerticalTabListCoordinator} to adapt it to the {@link SideUiContainer} interface,
  * separating container-level layout and sizing concerns from the tab list itself.
+ *
+ * <p>The user-resized rail width belongs to this window. It is loaded from shared prefs once, at
+ * construction, and is written back when the user resizes the rail and whenever this window becomes
+ * the top resumed activity, so that a new window starts with the width of the last active window.
  */
 @NullMarked
-public class VerticalTabsSideUiCoordinator implements SideUiContainer, SideUiObserver {
+public class VerticalTabsSideUiCoordinator
+        implements SideUiContainer, SideUiObserver, WindowAndroid.ActivityStateObserver {
     static final int VIEW_WIDTH_DP = VerticalTabUtils.SIDE_UI_CONTAINER_WIDTH_DP;
     static final int COLLAPSED_WIDTH_DP = VerticalTabUtils.SIDE_UI_CONTAINER_COLLAPSED_WIDTH_DP;
 
     private final SideUiCoordinator mSideUiCoordinator;
+    private final WindowAndroid mWindowAndroid;
     private final FrameLayout mRootView;
     private final @AnchorSide int mAnchorSide;
     private final VerticalTabListCoordinator mTabListCoordinator;
@@ -69,20 +79,26 @@ public class VerticalTabsSideUiCoordinator implements SideUiContainer, SideUiObs
     private boolean mManualVisible;
     // The rail width proposed by an in-progress manual resize drag, or 0 if no drag is in progress.
     private @Px int mLiveResizeWidth;
+    // The expanded rail width in dp chosen by a manual resize, or 0 if the user never resized it.
+    private int mCommittedResizeWidthDp;
 
     public VerticalTabsSideUiCoordinator(
             Activity activity,
+            WindowAndroid windowAndroid,
             SideUiCoordinator sideUiCoordinator,
             VerticalTabListCoordinator tabListCoordinator,
             SettableNonNullObservableSupplier<Boolean> isVerticalTabsActiveSupplier) {
         mAnchorSide = AnchorSide.LEFT;
 
         mSideUiCoordinator = sideUiCoordinator;
+        mWindowAndroid = windowAndroid;
         mTabListCoordinator = tabListCoordinator;
         mCollapseController = mTabListCoordinator.getCollapseController();
         mIsVerticalTabsActiveSupplier = isVerticalTabsActiveSupplier;
+        mCommittedResizeWidthDp = VerticalTabUtils.getUserResizedWidthDpFromSharedPref();
         mSideUiCoordinator.addObserver(this);
         mSideUiCoordinator.registerSideUiContainer(this);
+        mWindowAndroid.addActivityStateObserver(this);
 
         mRootView = new FrameLayout(activity);
         mRootView.setLayoutParams(
@@ -124,6 +140,7 @@ public class VerticalTabsSideUiCoordinator implements SideUiContainer, SideUiObs
         updateAutoHiddenState(false);
         mSideUiCoordinator.removeObserver(this);
         mSideUiCoordinator.unregisterSideUiContainer(this);
+        mWindowAndroid.removeActivityStateObserver(this);
         mCollapseController.setRailStateChangeDelegate(null);
         mTabListCoordinator.destroy();
         mIsVerticalTabsActiveSupplier.set(false);
@@ -250,34 +267,65 @@ public class VerticalTabsSideUiCoordinator implements SideUiContainer, SideUiObs
 
     @Override
     public boolean supportsManualResize() {
-        // The hover expansion is transient and only overlays the web contents, so there is no
-        // stable edge to drag while it is showing.
-        return VerticalTabUtils.isManualResizeEnabled()
-                && !mCollapseController.isForcedCollapsed()
-                && !mCollapseController.isHoverExpanded();
+        if (!VerticalTabUtils.isManualResizeEnabled() || mCollapseController.isForcedCollapsed()) {
+            return false;
+        }
+        // With expand-on-hover, only the expanded rail is resizable: the collapsed rail expands as
+        // soon as the pointer reaches its edge, and the hover expansion is transient and only
+        // overlays the web contents, so neither has a stable edge to drag.
+        return !VerticalTabUtils.isExpandOnHoverEnabled()
+                || mCollapseController.getEffectiveRailCollapseState()
+                        == RailCollapseState.EXPANDED;
+    }
+
+    @Override
+    public @StringRes int getResizeHandleContentDescriptionRes() {
+        return R.string.accessibility_resize_vertical_tab_rail;
+    }
+
+    @Override
+    public @Px Integer getResizeHandleWidthPx() {
+        // Match the rail's inner padding so that the handle doesn't overlap the tabs.
+        return mRootView
+                .getResources()
+                .getDimensionPixelSize(R.dimen.vertical_tabs_rail_horizontal_margin);
+    }
+
+    @Override
+    public @Px Integer getResizeHandleBarInsetPx() {
+        // Align the bar with the tab list scrollbars, which are drawn at the end of the tab lists.
+        // The tab lists extend into the rail's inner padding by their negative end margin.
+        Resources res = mRootView.getResources();
+        return res.getDimensionPixelSize(R.dimen.vertical_tabs_rail_horizontal_margin)
+                + res.getDimensionPixelSize(R.dimen.vertical_tabs_scrollbar_margin_end);
     }
 
     @Override
     public void onResizeLive(@Px int proposedWidthPx) {
         mLiveResizeWidth = proposedWidthPx;
-        // Dragging the rail is an explicit request for an expanded rail. The width is clamped to
-        // the rail's minimum until the drag is released.
-        mCollapseController.setCollapsedByUserFromResize(/* isCollapsed= */ false);
+        mCollapseController.onResizeLive(ViewUtils.pxToDp(mRootView.getContext(), proposedWidthPx));
     }
 
     @Override
     public void onResizeCommitted(@Px int finalWidthPx) {
         mLiveResizeWidth = 0;
-        boolean isCollapsed = finalWidthPx < mMinManualWidth;
-        mCollapseController.setCollapsedByUserFromResize(isCollapsed);
+        int finalWidthDp = ViewUtils.pxToDp(mRootView.getContext(), finalWidthPx);
+        boolean isCollapsed = mCollapseController.onResizeCommitted(finalWidthDp);
 
-        // Releasing the drag below the rail's minimum usable width collapses it. When isCollapsed
-        // is true, setCollapsedByUserFromResize() persists the collapsed state, so we only persist
-        // the non-collapsed user-set width here.
+        // A collapsed rail keeps its previous expanded width, so only persist the width chosen for
+        // an expanded rail.
         if (!isCollapsed) {
-            int widthDp = ViewUtils.pxToDp(mRootView.getContext(), finalWidthPx);
-            VerticalTabUtils.setUserResizedWidthDp(widthDp);
+            mCommittedResizeWidthDp = finalWidthDp;
+            VerticalTabUtils.setUserResizedWidthDpInSharedPref(mCommittedResizeWidthDp);
         }
+    }
+
+    // WindowAndroid.ActivityStateObserver implementation:
+    @Override
+    public void onActivityTopResumedChanged(boolean isTopResumedActivity) {
+        if (!isTopResumedActivity) return;
+        // Make this window's width the one a new window starts with.
+        VerticalTabUtils.setUserResizedWidthDpInSharedPref(mCommittedResizeWidthDp);
     }
 
     // SideUiObserver implementation:
@@ -331,12 +379,16 @@ public class VerticalTabsSideUiCoordinator implements SideUiContainer, SideUiObs
         if (effectiveState == RailCollapseState.COLLAPSED) {
             return mCollapsedViewWidth;
         }
+        // Expanding on hover is a transient overlay, so it always renders at the fixed container
+        // width, independent of the user-resized width and the window-ratio width.
+        if (effectiveState == RailCollapseState.EXPANDED_FOR_HOVERING) {
+            return mExpandedViewWidth;
+        }
         if (VerticalTabUtils.isManualResizeEnabled()) {
             @Px
-            int savedManualWidth =
-                    ViewUtils.dpToPx(
-                            mRootView.getContext(), VerticalTabUtils.getUserResizedWidthDp());
-            @Px int manualWidth = mLiveResizeWidth != 0 ? mLiveResizeWidth : savedManualWidth;
+            int committedResizeWidth =
+                    ViewUtils.dpToPx(mRootView.getContext(), mCommittedResizeWidthDp);
+            @Px int manualWidth = mLiveResizeWidth != 0 ? mLiveResizeWidth : committedResizeWidth;
             if (manualWidth != 0) {
                 // User-resized width overrides auto-sizing and is clamped only by rail and
                 // available width bounds.

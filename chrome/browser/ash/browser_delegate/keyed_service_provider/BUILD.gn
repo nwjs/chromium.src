@@ -6,18 +6,40 @@ assert(is_chromeos)
 
 group("keyed_service_provider") {
   public_deps = [
+    ":bookmark_model_provider_impl",
     ":consent_auditor_provider_impl",
     ":desk_sync_service_provider_impl",
     ":favicon_service_provider_impl",
     ":feature_engagement_tracker_provider_impl",
     ":history_service_provider_impl",
     ":identity_manager_provider_impl",
+    ":manta_service_provider_impl",
+    ":media_device_salt_service_provider_impl",
+    ":password_reuse_manager_provider_impl",
     ":supervised_user_service_provider_impl",
     ":sync_service_provider_impl",
     ":template_url_service_provider_impl",
     ":trusted_vault_service_provider_impl",
     ":wifi_configuration_sync_service_provider_impl",
   ]
+}
+
+source_set("bookmark_model_provider_impl") {
+  sources = [
+    "bookmark_model_provider_impl.cc",
+    "bookmark_model_provider_impl.h",
+  ]
+
+  deps = [
+    "//base",
+    "//chrome/browser/bookmarks",
+    "//chromeos/ash/components/bookmarks:bookmark_model_provider",
+    "//chromeos/ash/components/browser_context_helper",
+    "//components/account_id",
+    "//content/public/browser",
+  ]
+
+  visibility = [ ":keyed_service_provider" ]
 }
 
 source_set("consent_auditor_provider_impl") {
@@ -148,6 +170,61 @@ source_set("identity_manager_provider_impl") {
     "//chrome/browser/signin",
     "//chromeos/ash/components/browser_context_helper",
     "//chromeos/ash/components/signin:identity_manager_provider",
+  ]
+
+  visibility = [ ":keyed_service_provider" ]
+}
+
+source_set("manta_service_provider_impl") {
+  sources = [
+    "manta_service_provider_impl.cc",
+    "manta_service_provider_impl.h",
+  ]
+
+  deps = [
+    "//base",
+    "//chrome/browser/manta",
+    "//chromeos/ash/components/browser_context_helper",
+    "//chromeos/ash/components/manta:manta_service_provider",
+    "//components/account_id",
+    "//content/public/browser",
+  ]
+
+  visibility = [ ":keyed_service_provider" ]
+}
+
+source_set("media_device_salt_service_provider_impl") {
+  sources = [
+    "media_device_salt_service_provider_impl.cc",
+    "media_device_salt_service_provider_impl.h",
+  ]
+
+  deps = [
+    "//base",
+    "//chrome/browser/media/webrtc",
+    "//chromeos/ash/components/browser_context_helper",
+    "//chromeos/ash/components/media_device_salt:media_device_salt_service_provider",
+    "//components/account_id",
+    "//content/public/browser",
+  ]
+
+  visibility = [ ":keyed_service_provider" ]
+}
+
+source_set("password_reuse_manager_provider_impl") {
+  sources = [
+    "password_reuse_manager_provider_impl.cc",
+    "password_reuse_manager_provider_impl.h",
+  ]
+
+  deps = [
+    "//base",
+    "//chrome/browser/password_manager/factories",
+    "//chrome/browser/profiles",
+    "//chromeos/ash/components/browser_context_helper",
+    "//chromeos/ash/components/password_manager:password_reuse_manager_provider",
+    "//components/account_id",
+    "//content/public/browser",
   ]
 
   visibility = [ ":keyed_service_provider" ]

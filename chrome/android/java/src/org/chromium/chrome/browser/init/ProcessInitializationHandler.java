@@ -28,7 +28,6 @@ import org.chromium.base.ServiceLoaderUtil;
 import org.chromium.base.SysUtils;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.TraceEvent;
-import org.chromium.base.memory.MemoryPressureUma;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.shared_preferences.SharedPreferencesManager;
 import org.chromium.base.task.AsyncTask;
@@ -78,6 +77,7 @@ import org.chromium.chrome.browser.media.MediaViewerUtils;
 import org.chromium.chrome.browser.metrics.LaunchMetrics;
 import org.chromium.chrome.browser.metrics.UmaUtils;
 import org.chromium.chrome.browser.night_mode.GlobalNightModeStateProviderHolder;
+import org.chromium.chrome.browser.notifications.NotificationUmaTracker;
 import org.chromium.chrome.browser.notifications.TrampolineActivityTracker;
 import org.chromium.chrome.browser.notifications.channels.ChannelsUpdater;
 import org.chromium.chrome.browser.offlinepages.measurements.OfflineMeasurementsBackgroundTask;
@@ -89,6 +89,7 @@ import org.chromium.chrome.browser.photo_picker.DecoderService;
 import org.chromium.chrome.browser.preferences.AllPreferenceKeyRegistries;
 import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
 import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
+import org.chromium.chrome.browser.preferences.SharedPreferencesMetrics;
 import org.chromium.chrome.browser.prefs.LocalStatePrefs;
 import org.chromium.chrome.browser.price_tracking.PriceTrackingFeatures;
 import org.chromium.chrome.browser.privacy.settings.PrivacyPreferencesManagerImpl;
@@ -105,6 +106,7 @@ import org.chromium.chrome.browser.sync.SyncErrorNotifier;
 import org.chromium.chrome.browser.tab.state.PersistedTabData;
 import org.chromium.chrome.browser.tab.state.ShoppingPersistedTabData;
 import org.chromium.chrome.browser.tabmodel.TabPersistentStoreImpl;
+import org.chromium.chrome.browser.tips.TipsPromoHandlerRegistrar;
 import org.chromium.chrome.browser.ui.cars.DrivingRestrictionsManager;
 import org.chromium.chrome.browser.ui.color.ColorProviderBridgeImpl;
 import org.chromium.chrome.browser.ui.enterprise_signals_disclaimer.EnterpriseSignalsDisclaimerAckSyncer;
@@ -461,6 +463,10 @@ public class ProcessInitializationHandler {
         SpeechRecognition.initialize();
         TrampolineActivityTracker.getInstance().onNativeInitialized();
 
+        // Register feature-owned tips promo handlers before any activity can show a tips promo or
+        // schedule a tips notification.
+        TipsPromoHandlerRegistrar.registerAll();
+
         if (GlicEnabling.isEnabledByFlags()) {
             ActorForegroundServiceManager.initialize();
         }
@@ -493,7 +499,6 @@ public class ProcessInitializationHandler {
                     }
                 });
 
-        MemoryPressureUma.initializeForBrowser();
         UmaUtils.recordBackgroundRestrictions();
 
         // Needed for field trial metrics to be properly collected in minimal browser mode.
@@ -657,6 +662,7 @@ public class ProcessInitializationHandler {
                 });
 
         tasks.add(() -> LocaleManager.getInstance().recordStartupMetrics());
+        tasks.add(() -> NotificationUmaTracker.getInstance().recordStartupMetrics());
 
         tasks.add(
                 () -> {
@@ -797,6 +803,8 @@ public class ProcessInitializationHandler {
                     // Warm up all web app shared prefs. This must be run after the WebappRegistry
                     // instance is initialized.
                     WebappRegistry.warmUpSharedPrefs();
+
+                    SharedPreferencesMetrics.recordAppSharedPreferencesMetrics();
 
                     return null;
                 } finally {

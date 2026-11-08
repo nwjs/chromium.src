@@ -13,6 +13,8 @@
 #import "ios/chrome/browser/default_browser/model/features.h"
 #import "ios/chrome/browser/default_browser/model/utils.h"
 #import "ios/chrome/browser/intelligence/bwg/metrics/gemini_metrics.h"
+#import "ios/chrome/browser/intelligence/bwg/model/gemini_chat_message_data_types.h"
+#import "ios/chrome/browser/intelligence/bwg/model/gemini_chat_message_handler.h"
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_session_delegate.h"
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_tab_helper.h"
 #import "ios/chrome/browser/intelligence/bwg/utils/gemini_constants.h"
@@ -475,6 +477,24 @@ IOSGeminiSessionCancellationReason HistogramEnumFromGeminiCancelType(
 
 - (void)didTapResponseReadyViewButton {
   [self.geminiViewStateDelegate didTapResponseReadyViewButton];
+}
+
+- (void)didFinishLoadingConversationWithID:(NSString*)conversationID
+                                     error:(NSError*)error {
+  [self.geminiViewStateDelegate
+      didFinishLoadingConversationWithID:conversationID
+                                   error:error];
+}
+
+- (void)handleChatMessageRequest:(GeminiChatMessageRequest*)request
+                      completion:(void (^)(GeminiChatMessageResponse* response))
+                                     completion {
+  id<GeminiChatMessageHandler> chatMessageHandler = self.chatMessageHandler;
+  if (!chatMessageHandler) {
+    completion([[GeminiChatMessageResponse alloc] initWithShouldConsume:NO]);
+    return;
+  }
+  [chatMessageHandler handleChatMessageRequest:request completion:completion];
 }
 
 #pragma mark - Private

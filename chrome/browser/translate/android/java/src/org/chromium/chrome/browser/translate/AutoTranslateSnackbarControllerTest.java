@@ -15,6 +15,7 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
+import org.robolectric.Robolectric;
 
 import org.chromium.base.UnownedUserDataHost;
 import org.chromium.base.test.BaseRobolectricTestRunner;
@@ -55,7 +56,7 @@ public final class AutoTranslateSnackbarControllerTest {
 
     @Test
     public void testCreateWithNullSnackbarManager() {
-        Activity activity = Mockito.mock(Activity.class);
+        Activity activity = Robolectric.buildActivity(Activity.class).get();
 
         Mockito.doReturn(new WeakReference<>(activity)).when(mWindowAndroid).getActivity();
         Mockito.doReturn(mWindowAndroid).when(mWebContents).getTopLevelNativeWindow();

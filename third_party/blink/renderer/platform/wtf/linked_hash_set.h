@@ -23,6 +23,8 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_PLATFORM_WTF_LINKED_HASH_SET_H_
 #define THIRD_PARTY_BLINK_RENDERER_PLATFORM_WTF_LINKED_HASH_SET_H_
 
+#include <iterator>
+
 #include "third_party/blink/renderer/platform/wtf/allocator/partition_allocator.h"
 #include "third_party/blink/renderer/platform/wtf/hash_map.h"
 #include "third_party/blink/renderer/platform/wtf/hash_set.h"
@@ -47,6 +49,10 @@ namespace blink {
 // long as you don't remove the current item. Moving items does not invalidate
 // iterator, so that it may cause unexpected behavior (i.e. loop unexpectedly
 // ends when moving the current item to last).
+// However, this does NOT apply to HeapLinkedHashSet<WeakMember<T>> and
+// GCedHeapLinkedHashSet<WeakMember<T>>: modifying a weak LinkedHashSet while an
+// iterator is active is not allowed because rehashing the underlying map
+// invalidates the internal iterator used to strongify weak entries during GC.
 //
 // Note: empty/deleted values as defined in HashTraits are not allowed.
 template <typename ValueArg,
@@ -85,6 +91,7 @@ class LinkedHashSet {
   template <typename T>
   class IteratorWrapper {
    public:
+    using iterator_category = std::bidirectional_iterator_tag;
     using value_type = typename T::value_type;
     using size_type = typename T::size_type;
     using difference_type = typename T::difference_type;
@@ -96,15 +103,23 @@ class LinkedHashSet {
     IteratorWrapper(const IteratorWrapper&) = default;
     IteratorWrapper& operator=(const IteratorWrapper&) = default;
 
-    const Value& operator*() const { return *iterator_; }
-    const Value* operator->() const { return &*iterator_; }
+    const Value& operator*() const {
+      CheckModifications();
+      return *iterator_;
+    }
+    const Value* operator->() const {
+      CheckModifications();
+      return &*iterator_;
+    }
 
     IteratorWrapper& operator++() {
+      CheckModifications();
       ++iterator_;
       return *this;
     }
 
     IteratorWrapper& operator--() {
+      CheckModifications();
       --iterator_;
       return *this;
     }
@@ -131,6 +146,12 @@ class LinkedHashSet {
    protected:
     IteratorWrapper(const T& it, const Map& map)
         : iterator_(it), map_iterator_(map.begin()) {}
+
+    void CheckModifications() const {
+      if constexpr (IsWeakV<Value>) {
+        map_iterator_.impl_.CheckModifications();
+      }
+    }
 
     // LinkedHashSet::list_ iterator.
     T iterator_;

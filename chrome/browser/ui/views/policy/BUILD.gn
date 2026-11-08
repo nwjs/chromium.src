@@ -14,13 +14,13 @@ if (!is_chromeos) {
       public += [ "enterprise_startup_dialog_mac_util.h" ]
       sources += [ "enterprise_startup_dialog_mac_util.mm" ]
     }
+    public_deps = [ "//chrome/browser/ui:enterprise_startup_dialog" ]
     deps = [
       "//build:branding_buildflags",
       "//chrome/app:branded_strings",
       "//chrome/app/theme:theme_resources",
       "//chrome/app/vector_icons",
       "//chrome/browser/headless",
-      "//chrome/browser/ui:enterprise_startup_dialog",
       "//chrome/browser/ui/views:layout_provider",
       "//components/constrained_window",
       "//ui/base",
@@ -52,6 +52,30 @@ if (!is_chromeos) {
       "//ui/base/mojom:ui_base_types",
       "//ui/gfx",
       "//ui/gfx/geometry",
+    ]
+  }
+
+  source_set("browser_tests") {
+    testonly = true
+    defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
+
+    sources = [ "enterprise_startup_dialog_view_browsertest.cc" ]
+
+    deps = [
+      ":enterprise_startup_dialog",
+      "//chrome/test:test_support",
+      "//content/test:test_support",
+      "//testing/gtest",
+    ]
+  }
+
+  source_set("unit_tests") {
+    testonly = true
+    sources = [ "enterprise_startup_dialog_unittest.cc" ]
+    deps = [
+      ":enterprise_startup_dialog",
+      "//chrome/test:test_support",
+      "//testing/gtest",
     ]
   }
 }

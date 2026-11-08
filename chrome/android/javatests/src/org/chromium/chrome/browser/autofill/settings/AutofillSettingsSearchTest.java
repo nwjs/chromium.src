@@ -12,6 +12,7 @@ import static androidx.test.espresso.matcher.ViewMatchers.withParent;
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
 
 import static org.hamcrest.CoreMatchers.allOf;
+import static org.hamcrest.CoreMatchers.anyOf;
 import static org.mockito.Mockito.when;
 
 import static org.chromium.chrome.browser.settings.SettingsSearchTestUtils.assertNoSearchResultsFound;
@@ -59,7 +60,6 @@ import org.chromium.components.user_prefs.UserPrefs;
     ChromeFeatureList.YOUR_SAVED_INFO_SETTINGS_PAGE_ANDROID,
     ChromeFeatureList.AUTOFILL_AI_WITH_DATA_SCHEMA
 })
-@DisableFeatures(ChromeFeatureList.SETTINGS_MULTI_COLUMN)
 @Batch(Batch.PER_CLASS)
 public class AutofillSettingsSearchTest {
 
@@ -274,26 +274,6 @@ public class AutofillSettingsSearchTest {
 
     @Test
     @SmallTest
-    @DisableFeatures({
-        ChromeFeatureList.AUTOFILL_AI_WITH_DATA_SCHEMA,
-        ChromeFeatureList.YOUR_SAVED_INFO_SETTINGS_PAGE_ANDROID
-    })
-    public void testSearchAutofill_autofillAiAndAutofillAndPasswordsDisabled() {
-        var histogramWatcher =
-                HistogramWatcher.newSingleRecordWatcher(
-                        "Autofill.Settings.AutofillOptionsReferrerAndroid",
-                        AutofillOptionsReferrer.SETTINGS_SEARCH);
-        searchSettings("autofill");
-
-        clickSearchResult(R.string.autofill_options_title);
-
-        onView(withText(R.string.autofill_third_party_filling_default))
-                .check(matches(isDisplayed()));
-        histogramWatcher.assertExpected();
-    }
-
-    @Test
-    @SmallTest
     @DisableFeatures(ChromeFeatureList.AUTOFILL_AI_WITH_DATA_SCHEMA)
     public void testSearchAutofill_autofillAiDisabled() {
         searchSettings("autofill");
@@ -351,7 +331,12 @@ public class AutofillSettingsSearchTest {
     }
 
     private static Matcher<View> actionBarTitle(Matcher<View> matcher) {
-        return allOf(matcher, withParent(withId(R.id.action_bar)));
+        return allOf(
+                matcher,
+                anyOf(
+                        withParent(withId(R.id.action_bar)),
+                        withParent(withId(R.id.settings_title_in_detailed_pane))),
+                isDisplayed());
     }
 
     private static void signInPromoDismissed(boolean value) {

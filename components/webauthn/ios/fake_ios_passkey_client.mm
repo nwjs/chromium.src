@@ -15,12 +15,12 @@ FakeIOSPasskeyClient::~FakeIOSPasskeyClient() = default;
 void FakeIOSPasskeyClient::SetIOSPasskeyClientCommandsHandler(
     id<IOSPasskeyClientCommands> handler) {}
 
-void FakeIOSPasskeyClient::FetchKeys(
+void FakeIOSPasskeyClient::FetchTrustedVaultKeys(
     ReauthenticatePurpose purpose,
     PasskeyUserVerificationStatus user_verification_status,
-    FetchKeysCallback callback) {
+    FetchTrustedVaultKeysCallback callback) {
   static const size_t kKeyLength = 32u;
-  fetch_keys_called_ = true;
+  fetch_trusted_vault_keys_called_ = true;
   last_user_verification_status_ = user_verification_status;
   if (!callback.is_null()) {
     // Return a single 32 bytes key (zeroed out).
@@ -29,6 +29,12 @@ void FakeIOSPasskeyClient::FetchKeys(
     std::move(callback).Run({std::vector<uint8_t>(kKeyLength, 0)},
                             did_complete_uv);
   }
+}
+
+void FakeIOSPasskeyClient::FetchDeviceAuthorizationKeys(
+    FetchDeviceAuthKeysCallback callback) {
+  fetch_device_authorization_keys_called_ = true;
+  std::move(callback).Run(device_auth_fetch_result_);
 }
 
 void FakeIOSPasskeyClient::ShowSuggestionBottomSheet(RequestInfo request_info) {
@@ -54,8 +60,17 @@ bool FakeIOSPasskeyClient::DidShowCreationBottomSheet() const {
   return show_creation_bottom_sheet_called_;
 }
 
-bool FakeIOSPasskeyClient::DidFetchKeys() const {
-  return fetch_keys_called_;
+bool FakeIOSPasskeyClient::DidFetchTrustedVaultKeys() const {
+  return fetch_trusted_vault_keys_called_;
+}
+
+bool FakeIOSPasskeyClient::DidFetchDeviceAuthorizationKeys() const {
+  return fetch_device_authorization_keys_called_;
+}
+
+void FakeIOSPasskeyClient::SetDeviceAuthFetchResult(
+    DeviceAuthFetchResult result) {
+  device_auth_fetch_result_ = std::move(result);
 }
 
 bool FakeIOSPasskeyClient::DidShowInterstitial() const {

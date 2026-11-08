@@ -36,17 +36,16 @@
 #include "content/browser/renderer_host/navigation_controller_impl.h"
 
 #include <algorithm>
+#include <ranges>
 #include <utility>
 
 #include "base/command_line.h"
-#include "base/containers/adapters.h"
 #include "base/debug/crash_logging.h"
 #include "base/debug/dump_without_crashing.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/logging.h"
 #include "base/metrics/histogram_macros.h"
-#include "base/not_fatal_until.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/strings/escape.h"
 #include "base/strings/string_util.h"
@@ -2144,8 +2143,7 @@ bool NavigationControllerImpl::RendererDidNavigate(
       // It's okay for the SiteInstance to differ if a cross-document redirect
       // occurred — in that case, the DSN in NavigationRequest should be cleared
       // (set to -1), and we skip the CHECK.
-      CHECK(rfh->GetSiteInstance() == frame_entry->site_instance(),
-            base::NotFatalUntil::M141)
+      CHECK(rfh->GetSiteInstance() == frame_entry->site_instance())
           << "Session history navigation committed in a different SiteInstance "
              "than intended. "
           << "FrameNavigationEntry SiteInstance: "
@@ -3113,7 +3111,7 @@ void NavigationControllerImpl::DeleteNavigationEntries(
     PruneAllButLastCommitted();
   } else {
     // Do the deletion in reverse to preserve indices.
-    for (const auto& index : base::Reversed(delete_indices)) {
+    for (const auto& index : std::views::reverse(delete_indices)) {
       RemoveEntryAtIndex(index);
     }
     BroadcastHistoryIndexAndLength();
@@ -4457,8 +4455,7 @@ FrameTreeNode* NavigationControllerImpl::GetTargetFrameTreeNodeForNavigation(
     if (!node && params.frame_tree_node_id) {
       // If the specified FrameTreeNode exists in another FrameTree, the caller
       // is using the wrong NavigationController.
-      CHECK(!FrameTreeNode::GloballyFindByID(params.frame_tree_node_id),
-            base::NotFatalUntil::M140);
+      CHECK(!FrameTreeNode::GloballyFindByID(params.frame_tree_node_id));
     }
   }
 

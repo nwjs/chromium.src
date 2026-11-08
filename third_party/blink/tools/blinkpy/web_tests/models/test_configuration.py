@@ -26,9 +26,9 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import copy
-import itertools
-from functools import reduce
+import copy  # noqa: F401
+import itertools  # noqa: F401
+from functools import reduce  # noqa: F401
 
 
 class TestConfiguration(object):
@@ -49,11 +49,13 @@ class TestConfiguration(object):
         return list(self.__dict__.keys())
 
     def __str__(self):
-        return (
-            '<%(version)s, %(architecture)s, %(build_type)s>' % self.__dict__)
+        return '<%(version)s, %(architecture)s, %(build_type)s>' % self.__dict__
 
     def __repr__(self):
-        return "TestConfig(version='%(version)s', architecture='%(architecture)s', build_type='%(build_type)s')" % self.__dict__
+        return (
+            "TestConfig(version='%(version)s', architecture='%(architecture)s', build_type='%(build_type)s')"
+            % self.__dict__
+        )
 
     def __hash__(self):
         return hash(self.version + self.architecture + self.build_type)

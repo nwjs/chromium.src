@@ -8,6 +8,8 @@
 #include <utility>
 
 #include "base/memory/scoped_refptr.h"
+#include "base/run_loop.h"
+#include "base/test/gmock_callback_support.h"
 #include "base/test/run_until.h"
 #include "base/test/task_environment.h"
 #include "components/autofill/core/browser/data_manager/autofill_ai/entity_suppression_sync_bridge.h"
@@ -25,6 +27,7 @@ namespace {
 
 using testing::NiceMock;
 using testing::Return;
+using testing::ReturnRef;
 
 class MockEntitySuppressionManagerObserver
     : public EntitySuppressionManager::Observer {
@@ -41,6 +44,8 @@ class EntitySuppressionManagerImplTest : public testing::Test {
 
   void SetUp() override {
     ON_CALL(mock_processor_, IsTrackingMetadata()).WillByDefault(Return(true));
+    ON_CALL(mock_processor_, GetPossiblyTrimmedRemoteSpecifics)
+        .WillByDefault(ReturnRef(sync_pb::EntitySpecifics::default_instance()));
     auto bridge = std::make_unique<EntitySuppressionSyncBridge>(
         mock_processor_.CreateForwardingProcessor(),
         syncer::DataTypeStoreTestUtil::FactoryForInMemoryStoreForTest(),
@@ -55,9 +60,13 @@ class EntitySuppressionManagerImplTest : public testing::Test {
   syncer::MockDataTypeLocalChangeProcessor& mock_processor() {
     return mock_processor_;
   }
+  base::test::SingleThreadTaskEnvironment& task_environment() {
+    return task_environment_;
+  }
 
  private:
-  base::test::SingleThreadTaskEnvironment task_environment_;
+  base::test::SingleThreadTaskEnvironment task_environment_{
+      base::test::TaskEnvironment::TimeSource::MOCK_TIME};
   std::unique_ptr<os_crypt_async::OSCryptAsync> os_crypt_async_;
   NiceMock<syncer::MockDataTypeLocalChangeProcessor> mock_processor_;
   std::unique_ptr<EntitySuppressionManagerImpl> manager_;
@@ -155,9 +164,9 @@ TEST_F(EntitySuppressionManagerImplTest, MaskedEntitySuppression) {
 }
 
 // Tests that entities matching different attribute types with identical values
-// do not falsely match.
+// match, since suppression hashes don't cover attribute types.
 TEST_F(EntitySuppressionManagerImplTest,
-       DoesNotSuppressDifferentAttributeTypesWithSameValue) {
+       SuppressesDifferentAttributeTypesWithSameValue) {
   EntityInstance vehicle1 = test::GetVehicleEntityInstance(
       test::VehicleOptions{.plate = u"12345", .number = nullptr});
   EntityInstance vehicle2 = test::GetVehicleEntityInstance(
@@ -165,7 +174,7 @@ TEST_F(EntitySuppressionManagerImplTest,
 
   ASSERT_TRUE(manager().SuppressEntity(vehicle1));
 
-  EXPECT_FALSE(manager().IsSuppressed(vehicle2));
+  EXPECT_TRUE(manager().IsSuppressed(vehicle2));
 }
 
 // Tests that an entity is considered suppressed if any of its satisfied merge
@@ -261,9 +270,9 @@ TEST_F(EntitySuppressionManagerImplTest, GetSyncControllerDelegate) {
   manager().GetSyncControllerDelegate();
 }
 
-// Tests that ClearAllSuppressions removes all suppressed entities and notifies
-// observers.
-TEST_F(EntitySuppressionManagerImplTest, ClearAllSuppressions) {
+// Tests that ClearSuppressions with a full time range removes all suppressed
+// entities and notifies observers.
+TEST_F(EntitySuppressionManagerImplTest, ClearSuppressions) {
   EntityInstance passport = test::GetPassportEntityInstance();
   EntityInstance vehicle = test::GetVehicleEntityInstance();
   ASSERT_TRUE(manager().SuppressEntity(passport));
@@ -273,20 +282,72 @@ TEST_F(EntitySuppressionManagerImplTest, ClearAllSuppressions) {
   manager().AddObserver(&observer);
 
   EXPECT_CALL(observer, OnEntitySuppressionsChanged()).Times(1);
-  EXPECT_TRUE(manager().ClearAllSuppressions());
+  EXPECT_TRUE(manager().ClearSuppressions(base::Time(), base::Time::Max()));
 
   EXPECT_FALSE(manager().IsSuppressed(passport));
   EXPECT_FALSE(manager().IsSuppressed(vehicle));
 }
 
-// Tests that ClearAllSuppressions returns false and does not notify observers
+// Tests that ClearSuppressions only removes suppressed entities created within
+// [delete_begin, delete_end].
+TEST_F(EntitySuppressionManagerImplTest, ClearSuppressions_TimeRange) {
+  EntityInstance passport = test::GetPassportEntityInstance();
+  EntityInstance vehicle = test::GetVehicleEntityInstance();
+  ASSERT_TRUE(manager().SuppressEntity(passport));
+
+  task_environment().FastForwardBy(base::Hours(2));
+  const base::Time delete_begin = base::Time::Now() - base::Hours(1);
+  ASSERT_TRUE(manager().SuppressEntity(vehicle));
+
+  MockEntitySuppressionManagerObserver observer;
+  manager().AddObserver(&observer);
+
+  EXPECT_CALL(observer, OnEntitySuppressionsChanged());
+  EXPECT_TRUE(manager().ClearSuppressions(delete_begin, base::Time::Max()));
+
+  EXPECT_TRUE(manager().IsSuppressed(passport));
+  EXPECT_FALSE(manager().IsSuppressed(vehicle));
+  EXPECT_FALSE(manager().UndoInSessionSuppressedEntity(vehicle.guid()));
+  EXPECT_CALL(observer, OnEntitySuppressionsChanged());
+  EXPECT_TRUE(manager().UndoInSessionSuppressedEntity(passport.guid()));
+}
+
+// Tests that ClearSuppressions returns false and does not notify observers
 // when nothing is suppressed.
-TEST_F(EntitySuppressionManagerImplTest, ClearAllSuppressions_Empty) {
+TEST_F(EntitySuppressionManagerImplTest, ClearSuppressions_Empty) {
   MockEntitySuppressionManagerObserver observer;
   manager().AddObserver(&observer);
 
   EXPECT_CALL(observer, OnEntitySuppressionsChanged()).Times(0);
-  EXPECT_FALSE(manager().ClearAllSuppressions());
+  EXPECT_FALSE(manager().ClearSuppressions(base::Time(), base::Time::Max()));
+}
+
+// Tests that all operations fail gracefully if the sync bridge never loads,
+// e.g. because encryption is unavailable.
+TEST_F(EntitySuppressionManagerImplTest, BridgeNotLoaded) {
+  base::RunLoop run_loop;
+  EXPECT_CALL(mock_processor(), ReportError)
+      .WillOnce(base::test::RunOnceClosure(run_loop.QuitClosure()));
+  os_crypt_async::OSCryptAsync os_crypt_async_without_keys({});
+  auto bridge = std::make_unique<EntitySuppressionSyncBridge>(
+      mock_processor().CreateForwardingProcessor(),
+      syncer::DataTypeStoreTestUtil::FactoryForInMemoryStoreForTest(),
+      &os_crypt_async_without_keys);
+  run_loop.Run();
+  ASSERT_FALSE(bridge->IsLoaded());
+  EntitySuppressionManagerImpl manager(std::move(bridge));
+
+  MockEntitySuppressionManagerObserver observer;
+  manager.AddObserver(&observer);
+  EXPECT_CALL(observer, OnEntitySuppressionsChanged()).Times(0);
+
+  EntityInstance passport = test::GetPassportEntityInstance();
+  EXPECT_FALSE(manager.SuppressEntity(passport));
+  EXPECT_FALSE(manager.IsSuppressed(passport));
+  EXPECT_FALSE(manager.UndoInSessionSuppressedEntity(passport.guid()));
+  EXPECT_FALSE(manager.ClearSuppressions(base::Time(), base::Time::Max()));
+
+  manager.RemoveObserver(&observer);
 }
 
 }  // namespace

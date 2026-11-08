@@ -10,8 +10,6 @@ static_library("game_dashboard") {
     "chrome_game_dashboard_delegate.h",
   ]
 
-  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
-
   deps = [
     "//ash",
     "//ash/public/cpp",
@@ -22,6 +20,6 @@ static_library("game_dashboard") {
     "//chromeos/ash/components/growth",
     "//chromeos/ash/components/growth:utils",
     "//chromeos/ash/experiences/arc",
-    "//components/user_manager",
+    "//components/session_manager/core",
   ]
 }

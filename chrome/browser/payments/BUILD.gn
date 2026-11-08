@@ -25,12 +25,11 @@ source_set("impl") {
 
   deps = [
     "//base",
+    "//chrome/browser/net",
     "//components/payments/core",
     "//content/public/browser",
     "//net",
-    "//services/metrics/public/cpp:ukm_builders",
     "//services/network/public/cpp",
-    "//url",
   ]
 
   if (!is_android) {
@@ -46,7 +45,6 @@ source_set("impl") {
       "//chrome/browser/autofill",
       "//chrome/browser/profiles:profile",
       "//chrome/browser/signin",
-      "//chrome/browser/ui",
       "//chrome/browser/ui:browser_window_header",
       "//chrome/browser/ui/views/payments",
       "//chrome/browser/ui/web_applications",
@@ -150,6 +148,7 @@ source_set("browser_tests") {
     ]
 
     deps += [
+      "//chrome/browser/ui:browser_tabstrip",
       "//chrome/test:test_support_ui",
       "//components/payments/content:utils",
       "//components/payments/content/utility",
@@ -189,7 +188,6 @@ source_set("unittests") {
     "//services/network/public/cpp",
     "//testing/gmock",
     "//testing/gtest",
-    "//third_party/fuzztest",
   ]
 
   if (is_android) {

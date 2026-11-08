@@ -47,8 +47,6 @@ source_set("mixers") {
     "tab_strip_color_mixer.h",
   ]
 
-  configs += [ "//build/config/compiler:wexit_time_destructors" ]
-
   deps = [
     ":color_headers",
     "//build:branding_buildflags",
@@ -96,7 +94,6 @@ if (!is_android) {
     sources = [
       "chrome_color_provider_utils_unittest.cc",
       "material_new_tab_page_color_mixer_unittest.cc",
-      "material_tab_strip_color_mixer_unittest.cc",
       "new_tab_page_color_mixer_unittest.cc",
     ]
 
@@ -112,6 +109,10 @@ if (!is_android) {
       "//ui/color:mixers",
       "//ui/gfx",
     ]
+
+    if (is_linux) {
+      sources += [ "linux/native_chrome_color_mixer_linux_unittest.cc" ]
+    }
   }
 }
 

@@ -8,6 +8,7 @@
 #include <memory>
 #include <numeric>
 #include <optional>
+#include <ranges>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -15,7 +16,6 @@
 #include "base/check.h"
 #include "base/check_deref.h"
 #include "base/command_line.h"
-#include "base/containers/adapters.h"
 #include "base/feature_list.h"
 #include "base/i18n/rtl.h"
 #include "base/memory/scoped_refptr.h"
@@ -96,6 +96,7 @@
 #include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/browser/ui/omnibox/omnibox_controller.h"
 #include "chrome/browser/ui/omnibox/omnibox_edit_model.h"
+#include "chrome/browser/ui/omnibox/omnibox_next_features.h"
 #include "chrome/browser/ui/passwords/manage_passwords_ui_controller.h"
 #include "chrome/browser/ui/qrcode_generator/qrcode_generator_bubble_controller.h"
 #include "chrome/browser/ui/scoped_tabbed_browser_displayer.h"
@@ -113,6 +114,7 @@
 #include "chrome/browser/ui/tabs/features.h"
 #include "chrome/browser/ui/tabs/new_tab_grouping_user_data.h"
 #include "chrome/browser/ui/tabs/organizer/organizer_panel_controller.h"
+#include "chrome/browser/ui/tabs/organizer/organizer_panel_utils.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_utils.h"
 #include "chrome/browser/ui/tabs/split_tab_metrics.h"
 #include "chrome/browser/ui/tabs/split_tab_util.h"
@@ -125,7 +127,6 @@
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/user_education/browser_user_education_interface.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
-#include "chrome/browser/ui/views/tabs/organizer/organizer_panel_utils.h"
 #include "chrome/browser/ui/waap/initial_webui_window_metrics_manager.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
 #include "chrome/browser/ui/web_applications/web_app_launch_utils.h"
@@ -215,6 +216,8 @@
 #include "ui/base/page_transition_types.h"
 #include "ui/base/window_open_disposition.h"
 #include "ui/events/keycodes/keyboard_codes.h"
+#include "ui/views/focus/focus_manager.h"
+#include "ui/views/views_features.h"
 #include "url/gurl.h"
 #include "url/url_constants.h"
 
@@ -911,9 +914,10 @@ int GetContentRestrictions(const BrowserWindowInterface* browser) {
   WebContents* const current_tab =
       browser->GetTabStripModel()->GetActiveWebContents();
   if (current_tab) {
-    CoreTabHelper* core_tab_helper =
-        CoreTabHelper::FromWebContents(current_tab);
-    content_restrictions = core_tab_helper->content_restrictions();
+    if (CoreTabHelper* core_tab_helper =
+            CoreTabHelper::FromWebContents(current_tab)) {
+      content_restrictions = core_tab_helper->content_restrictions();
+    }
     NavigationEntry* last_committed_entry =
         current_tab->GetController().GetLastCommittedEntry();
     if (!content::IsSavableURL(last_committed_entry->GetURL())) {
@@ -1062,7 +1066,8 @@ void MaybeShowFeatureBackNavigationMenuPromo(BrowserWindowInterface* browser,
 
   bool should_show_feature_promo;
   const ChainedBackNavigationTracker* tracker =
-      ChainedBackNavigationTracker::FromWebContents(web_contents);
+      ChainedBackNavigationTracker::From(
+          tabs::TabInterface::GetFromContents(web_contents));
   CHECK(tracker);
   switch (static_cast<BackNavigationMenuIPHTrigger>(
       base::GetFieldTrialParamByFeatureAsInt(
@@ -1619,7 +1624,7 @@ void SelectLastTab(BrowserWindowInterface* browser,
   TabStripModel* model = browser->GetTabStripModel();
   std::optional<tab_groups::TabGroupId> focused_group =
       model->GetFocusedGroup();
-  for (tabs::TabInterface* tab : base::Reversed(*model)) {
+  for (tabs::TabInterface* tab : std::views::reverse(*model)) {
     if (!IsTabSelectable(model, tab, focused_group)) {
       continue;
     }
@@ -1934,7 +1939,14 @@ void FocusPreviousTabGroup(BrowserWindowInterface* browser) {
 }
 
 bool CanGroupAllUngroupedTabs(BrowserWindowInterface* browser) {
-  return !GetUngroupedTabIndices(browser).empty();
+  // Only whether such a tab exists matters here; do not build the list.
+  TabStripModel* tab_strip_model = browser->GetTabStripModel();
+  if (!tab_strip_model->SupportsTabGroups()) {
+    return false;
+  }
+  return std::ranges::any_of(*tab_strip_model, [](const tabs::TabInterface* t) {
+    return !t->GetGroup() && !t->IsPinned();
+  });
 }
 
 bool GroupAllUngroupedTabs(BrowserWindowInterface* browser) {
@@ -2083,9 +2095,11 @@ void BookmarkCurrentTab(BrowserWindowInterface* browser) {
   bool is_bookmarked_by_user = bookmarks::IsBookmarkedByUser(model, url);
   // Make sure the model actually added a bookmark before showing the star. A
   // bookmark isn't created if the url is invalid.
-  if (browser->GetWindow()->IsActive() && is_bookmarked_by_user) {
+  if (browser->IsActive() && is_bookmarked_by_user) {
     // Only show the bubble if the window is active, otherwise we may get into
     // weird situations where the bubble is deleted as soon as it is shown.
+    // `IsActive()` also counts a child widget that holds activation, such as
+    // the Full WebUI omnibox popup while the omnibox is focused.
     BrowserWindow::FromBrowser(browser)->ShowBookmarkBubble(
         url, was_bookmarked_by_user);
   }
@@ -2446,8 +2460,8 @@ bool CanSavePage(const BrowserWindowInterface* browser) {
 
 void Print(BrowserWindowInterface* browser) {
 #if BUILDFLAG(ENABLE_PRINTING)
-  auto* const web_contents =
-      browser->GetTabStripModel()->GetActiveWebContents();
+  auto* const web_contents = printing::GetWebContentsToPrint(
+      browser->GetTabStripModel()->GetActiveTab());
 
   printing::StartPrint(web_contents,
 #if BUILDFLAG(IS_CHROMEOS)
@@ -2482,8 +2496,8 @@ bool CanPrint(BrowserWindowInterface* browser) {
 
 #if BUILDFLAG(ENABLE_PRINTING)
 void BasicPrint(BrowserWindowInterface* browser) {
-  printing::StartBasicPrint(
-      browser->GetTabStripModel()->GetActiveWebContents());
+  printing::StartBasicPrint(printing::GetWebContentsToPrint(
+      browser->GetTabStripModel()->GetActiveTab()));
 }
 
 bool CanBasicPrint(BrowserWindowInterface* browser) {
@@ -2588,6 +2602,13 @@ void ToggleContextualTasksSidePanelZeroState(BrowserWindowInterface* browser) {
   CHECK(controller);
   if (controller->IsPanelOpenForContextualTask()) {
     controller->Close();
+  } else if (contextual_tasks::AreContextualTasksUpdatedEntryPointsEnabled(
+                 browser ? browser->GetProfile() : nullptr)) {
+    ExecAskGoogleAboutThisPage(
+        browser,
+        lens::LensOverlayInvocationSource::kCobrowsePinnedToolbarButton,
+        omnibox::ChromeAimEntryPoint::
+            DESKTOP_CHROME_COBROWSE_PINNED_TOOLBAR_BUTTON);
   } else {
     controller->OpenInZeroState();
   }
@@ -2644,30 +2665,76 @@ void Zoom(BrowserWindowInterface* browser, content::PageZoom zoom) {
                        zoom);
 }
 
+namespace {
+
+// Keyboard focus commands (e.g. cmd+L) can run while a child window of the
+// browser window, such as a tab-modal dialog, is key. On Mac, moving focus to a
+// view in the browser window doesn't change the key window, so keystrokes would
+// keep going to the child window rather than to the newly focused browser UI.
+// Make the browser window key in that case. Mouse clicks don't need this, since
+// AppKit makes the clicked window key.
+//
+// This must be called after focus has moved. Otherwise, if the web contents is
+// still first responder, making the browser window key would hand key status
+// straight back to the tab-modal dialog (see ChromeRenderWidgetHostViewMac
+// Delegate's -windowDidBecomeKey).
+void ActivateWindowAfterFocusCommand(BrowserWindowInterface* browser) {
+#if BUILDFLAG(IS_MAC)
+  // With kMacActivateWidgetOnFocusRequest, focusing a View in an inactive
+  // widget already activates it (see
+  // views::FocusManager::SetFocusedViewWithReason()).
+  // TODO(crbug.com/40486728): Remove this function once
+  // kMacActivateWidgetOnFocusRequest is removed.
+  if (base::FeatureList::IsEnabled(
+          views::features::kMacActivateWidgetOnFocusRequest)) {
+    return;
+  }
+  BrowserView* browser_view = BrowserView::GetBrowserViewForBrowser(browser);
+  if (!browser_view || browser_view->IsActive()) {
+    return;
+  }
+  // Pane focus commands can move focus into a separate widget, such as a toast
+  // or a help bubble, which is then key. Only make the browser window key if
+  // focus landed in it.
+  views::FocusManager* focus_manager = browser_view->GetFocusManager();
+  if (!focus_manager || !focus_manager->GetFocusedView()) {
+    return;
+  }
+  browser_view->Activate();
+#endif
+}
+
+}  // namespace
+
 void FocusToolbar(BrowserWindowInterface* browser) {
   base::RecordAction(UserMetricsAction("FocusToolbar"));
   BrowserWindow::FromBrowser(browser)->FocusToolbar();
+  ActivateWindowAfterFocusCommand(browser);
 }
 
 void FocusLocationBar(BrowserWindowInterface* browser) {
   base::RecordAction(UserMetricsAction("FocusLocation"));
   BrowserWindow::FromBrowser(browser)->SetFocusToLocationBar(true);
+  ActivateWindowAfterFocusCommand(browser);
 }
 
 void FocusSearch(BrowserWindowInterface* browser) {
   // TODO(beng): replace this with FocusLocationBar
   base::RecordAction(UserMetricsAction("FocusSearch"));
   BrowserWindow::FromBrowser(browser)->GetLocationBar()->FocusSearch();
+  ActivateWindowAfterFocusCommand(browser);
 }
 
 void FocusAppMenu(BrowserWindowInterface* browser) {
   base::RecordAction(UserMetricsAction("FocusAppMenu"));
   BrowserWindow::FromBrowser(browser)->FocusAppMenu();
+  ActivateWindowAfterFocusCommand(browser);
 }
 
 void FocusBookmarksToolbar(BrowserWindowInterface* browser) {
   base::RecordAction(UserMetricsAction("FocusBookmarksToolbar"));
   BookmarkBarController::From(browser)->FocusBookmarksToolbar();
+  ActivateWindowAfterFocusCommand(browser);
 }
 
 void FocusInactivePopupForAccessibility(BrowserWindowInterface* browser) {
@@ -2678,11 +2745,13 @@ void FocusInactivePopupForAccessibility(BrowserWindowInterface* browser) {
 void FocusNextPane(BrowserWindowInterface* browser) {
   base::RecordAction(UserMetricsAction("FocusNextPane"));
   BrowserFocusController::From(browser)->RotatePaneFocus(true);
+  ActivateWindowAfterFocusCommand(browser);
 }
 
 void FocusPreviousPane(BrowserWindowInterface* browser) {
   base::RecordAction(UserMetricsAction("FocusPreviousPane"));
   BrowserFocusController::From(browser)->RotatePaneFocus(false);
+  ActivateWindowAfterFocusCommand(browser);
 }
 
 void FocusWebContentsPane(BrowserWindowInterface* browser) {
@@ -3058,7 +3127,11 @@ void ExecLensOverlay(BrowserWindowInterface* browser) {
   LensSearchController* const controller =
       LensSearchController::FromTabWebContents(web_contents);
   CHECK(controller);
-  controller->OpenLensOverlay(lens::LensOverlayInvocationSource::kAppMenu);
+  controller->OpenLensOverlay(
+      lens::LensOverlayInvocationSource::kAppMenu,
+      /*should_show_csb=*/!contextual_tasks::
+          AreContextualTasksUpdatedEntryPointsEnabled(
+              browser ? browser->GetProfile() : nullptr));
   BrowserUserEducationInterface::From(browser)->NotifyNewBadgeFeatureUsed(
       lens::features::kLensOverlay);
 }
@@ -3085,13 +3158,26 @@ void ExecLensRegionSearch(BrowserWindowInterface* browser) {
 #endif  // BUILDFLAG(ENABLE_LENS_DESKTOP_GOOGLE_BRANDED_FEATURES)
 }
 
-void ExecAskGoogleAboutThisPage(BrowserWindowInterface* browser) {
+void ExecAskGoogleAboutThisPage(
+    BrowserWindowInterface* browser,
+    lens::LensOverlayInvocationSource invocation_source,
+    omnibox::ChromeAimEntryPoint entry_point) {
 #if !BUILDFLAG(IS_ANDROID)
   if (!browser) {
     return;
   }
-  if (contextual_tasks::kContextualTasksContextMenuRouteAskGoogleToOmnibox
-          .Get()) {
+  base::UmaHistogramEnumeration("ContextualTasks.AskGoogle.Invoked",
+                                invocation_source);
+  if (auto* const user_education =
+          BrowserUserEducationInterface::From(browser)) {
+    user_education->NotifyNewBadgeFeatureUsed(
+        contextual_tasks::kContextualTasksUpdatedEntryPoints);
+  }
+  // Only route to the omnibox if the window has an AIM popup to show;
+  // otherwise the popup state becomes kAim with nothing shown. Fall back to
+  // the side panel.
+  if (contextual_tasks::ShouldRouteAskGoogleToOmnibox(browser->GetProfile()) &&
+      omnibox::ShouldCreateAimPopupPresenter(browser->GetProfile())) {
     BrowserWindow* window = BrowserWindow::FromBrowser(browser);
     LocationBar* location_bar = window ? window->GetLocationBar() : nullptr;
     OmniboxController* omnibox_controller =
@@ -3109,10 +3195,8 @@ void ExecAskGoogleAboutThisPage(BrowserWindowInterface* browser) {
   LensSearchController* const controller =
       LensSearchController::From(active_tab);
   if (controller) {
-    controller->StartZeroStateSessionInSidePanel(
-        omnibox::ChromeAimEntryPoint::DESKTOP_CHROME_COBROWSE_OMNIBOX_ACTION,
-        lens::LensOverlayInvocationSource::kContentAreaContextMenuPage,
-        /*open_lens_overlay=*/false);
+    controller->StartZeroStateSessionInSidePanel(entry_point, invocation_source,
+                                                 /*open_lens_overlay=*/false);
   }
 #endif
 }

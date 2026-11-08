@@ -246,7 +246,8 @@ public class ChromeTabModalPresenter extends TabModalPresenter
             // Dismiss the action bar that obscures the dialogs but preserve the text selection.
             WebContents webContents = mActiveTab.getWebContents();
             if (webContents != null) {
-                saveOrRestoreTextSelection(webContents, true);
+                saveOrRestoreTextSelection(
+                        webContents, /* save= */ true, /* restoreFocus= */ false);
             }
 
             // Force toolbar to show and disable overflow menu.
@@ -261,10 +262,15 @@ public class ChromeTabModalPresenter extends TabModalPresenter
         } else {
             if (mActiveTab == null) return;
 
-            // Show the action bar back if it was dismissed when the dialogs were showing.
             WebContents webContents = mActiveTab.getWebContents();
             if (webContents != null) {
-                saveOrRestoreTextSelection(webContents, false);
+                // Show the action bar back if it was dismissed when the dialogs were showing, and
+                // give focus back to the page unless the tab is no longer shown and selected, e.g.
+                // the dialog is being suspended or dismissed because of a tab switch.
+                boolean restoreFocus =
+                        mActiveTab.isUserInteractable()
+                                && mActiveTab == mTabModelSelector.getCurrentTab();
+                saveOrRestoreTextSelection(webContents, /* save= */ false, restoreFocus);
             }
 
             onTabModalDialogStateChanged(false);
@@ -460,7 +466,8 @@ public class ChromeTabModalPresenter extends TabModalPresenter
         // toolbar) and bottom chin is enabled. Note: Bottom inset is 0 in 3-button mode.
         boolean isOnlyNavBarPresent =
                 (bottomInset == mBrowserControlsVisibilityManager.getBottomControlsHeight());
-        return isOnlyNavBarPresent && EdgeToEdgeUtils.isEdgeToEdgeBottomChinEnabled(mActivity);
+        return isOnlyNavBarPresent
+                && EdgeToEdgeUtils.isEdgeToEdgeBottomChinSupportedByDevice(mActivity);
     }
 
     private int getScrimBottomMargin(boolean affectsNavBar) {

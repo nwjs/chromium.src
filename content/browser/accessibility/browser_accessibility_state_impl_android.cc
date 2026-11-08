@@ -434,6 +434,21 @@ void BrowserAccessibilityStateImplAndroid::OnAnimatorDurationScaleChanged() {
   NotifyWebContentsPreferencesChanged();
 }
 
+// On Android, platform accessibility modes are scoped per `WebContents` rather
+// than process-wide. `GetAccessibilityMode()` combines the process mode with
+// all active `WebContents` modes, and `OnAnyModeChanged()` uses this to update
+// process-level histograms, assistive tech state, and crash keys.
+ui::AXMode BrowserAccessibilityStateImplAndroid::GetAccessibilityMode() {
+  ui::AXMode mode = BrowserAccessibilityStateImpl::GetAccessibilityMode();
+  for (WebContentsImpl* wc : WebContentsImpl::GetAllWebContents()) {
+    if (!wc->IsBeingDestroyed() && !wc->IsNeverComposited()) {
+      mode |= wc->GetAccessibilityMode();
+    }
+  }
+  mode.set_mode(ui::AXMode::kNativeAdaptedWebContents, false);
+  return mode;
+}
+
 void BrowserAccessibilityStateImplAndroid::RefreshAssistiveTech() {
   bool is_active = GetAccessibilityMode().has_mode(ui::AXMode::kScreenReader);
   static auto* ax_talkback_crash_key = base::debug::AllocateCrashKeyString(

@@ -17,16 +17,18 @@
 #include "components/content_settings/core/common/pref_names.h"
 #include "components/contextual_search/pref_names.h"
 #include "components/desktop_to_mobile_promos/pref_names.h"
+#include "components/dom_distiller/core/pref_names.h"
 #include "components/language/core/browser/pref_names.h"
 #include "components/metrics/demographics/user_demographics.h"
 #include "components/metrics/metrics_pref_names.h"
-#include "components/ntp_tiles/pref_names.h"
+#include "components/ntp_tiles/custom_links_pref_names.h"
 #include "components/omnibox/browser/omnibox_prefs.h"
 #include "components/password_manager/core/common/password_manager_pref_names.h"
 #include "components/payments/core/payment_prefs.h"
 #include "components/safe_browsing/core/common/safe_browsing_prefs.h"
 #include "components/saved_tab_groups/public/pref_names.h"
 #include "components/sharing_message/pref_names.h"
+#include "components/site_token_provider/site_token_provider_prefs.h"
 #include "components/subscription_eligibility/subscription_eligibility_prefs.h"
 #include "components/sync/base/data_type.h"
 #include "components/sync/base/features.h"
@@ -176,6 +178,8 @@ enum {
   kSubscriptionEligibilitySubscriptionBenefits = 126,
   kCustomLinksInitializedMobile = 127,
   kCustomLinksListMobile = 128,
+  kSiteTokenProviderPref = 129,
+  kReaderForAccessibility = 130,
   // New entries should be added above this line.
   kSubscriptionEligibilityAiSubscriptionTier =
       100338,  // (different ID as it's a move from //chrome)
@@ -581,6 +585,15 @@ constexpr auto kCommonSyncablePrefsAllowlist =
           WriteBehavior::kWriteToBoth}},
         {autofill::prefs::kAutofillAtMemoryShortcut,
          {syncable_prefs_ids::kAutofillAtMemoryShortcut, syncer::PREFERENCES,
+          PrefSensitivity::kNone, MergeBehavior::kNone,
+          WriteBehavior::kWriteToBoth}},
+        {site_token_provider::prefs::kSiteTokenProviderPref,
+         {syncable_prefs_ids::kSiteTokenProviderPref,
+          syncer::PRIORITY_PREFERENCES,
+          PrefSensitivity::kExemptFromUserControlWhileSignedIn,
+          MergeBehavior::kNone, WriteBehavior::kWriteToBoth}},
+        {dom_distiller::prefs::kReaderForAccessibility,
+         {syncable_prefs_ids::kReaderForAccessibility, syncer::PREFERENCES,
           PrefSensitivity::kNone, MergeBehavior::kNone,
           WriteBehavior::kWriteToBoth}},
     });

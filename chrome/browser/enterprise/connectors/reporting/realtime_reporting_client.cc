@@ -105,10 +105,9 @@ void RealtimeReportingClient::SetProfileCloudPolicyClientForTesting(
 
 void RealtimeReportingClient::SetIdentityManagerForTesting(
     signin::IdentityManager* identity_manager) {
-  identity_manager_ = identity_manager;
+  identity_manager_for_testing_ = identity_manager;
 }
 
-#if !BUILDFLAG(IS_CHROMEOS)
 std::pair<std::string, policy::CloudPolicyClient*>
 RealtimeReportingClient::InitProfileReportingClient(
     const std::string& dm_token) {
@@ -119,19 +118,29 @@ RealtimeReportingClient::InitProfileReportingClient(
     return {GetProfilePolicyClientDescription(), nullptr};
   }
 
-  profile_private_client_ = std::make_unique<policy::CloudPolicyClient>(
-      policy_manager->core()->client()->service(),
-      g_browser_process->shared_url_loader_factory(),
-      policy::CloudPolicyClient::DeviceDMTokenCallback());
-  policy::CloudPolicyClient* client = profile_private_client_.get();
+  SetOwnedReportingClient(
+      /*per_profile=*/true,
+      std::make_unique<policy::CloudPolicyClient>(
+          policy_manager->core()->client()->service(),
+          g_browser_process->shared_url_loader_factory(),
+          policy::CloudPolicyClient::DeviceDMTokenCallback()));
+  policy::CloudPolicyClient* client =
+      GetOwnedReportingClient(/*per_profile=*/true);
 
-  client->SetupRegistration(dm_token,
-                            policy_manager->core()->client()->client_id(),
+#if BUILDFLAG(IS_CHROMEOS)
+  // On ChromeOS, the browser client id is already the user (or managed guest
+  // session) client id, see GetBrowserClientId(). Use it here so that the
+  // client id sent to DMServer is identical to when all ChromeOS reporting went
+  // through the browser client.
+  std::string client_id = GetBrowserClientId();
+#else
+  std::string client_id = policy_manager->core()->client()->client_id();
+#endif
+  client->SetupRegistration(dm_token, client_id,
                             /*user_affiliation_ids*/ {});
 
   return {GetProfilePolicyClientDescription(), client};
 }
-#endif  // !BUILDFLAG(IS_CHROMEOS)
 
 std::optional<ReportingSettings>
 RealtimeReportingClient::GetReportingSettings() {
@@ -245,15 +254,13 @@ std::string RealtimeReportingClient::GetProfileUserName() {
   if (!username_.empty()) {
     return username_;
   }
-  username_ =
-      identity_manager_ ? GetProfileEmail(identity_manager_) : std::string();
+  username_ = GetProfileEmail(Profile::FromBrowserContext(context_));
 
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
-  if (username_.empty()) {
-    username_ = Profile::FromBrowserContext(context_)->GetPrefs()->GetString(
-        enterprise_signin::prefs::kProfileUserEmail);
+  if (username_.empty() && identity_manager_for_testing_) {
+    username_ = identity_manager_for_testing_
+                    ->GetPrimaryAccountInfo(signin::ConsentLevel::kSignin)
+                    .email;
   }
-#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 
   return username_;
 }
@@ -292,7 +299,7 @@ std::string RealtimeReportingClient::GetBrowserClientId() {
     LOG(ERROR) << "Could not determine who the user is.";
     profile = Profile::FromBrowserContext(context_);
   }
-  DCHECK(profile);
+  CHECK(profile, base::NotFatalUntil::M161);
 
   if (chromeos::IsManagedGuestSession()) {
     client_id = reporting::GetMGSUserClientId().value_or("");

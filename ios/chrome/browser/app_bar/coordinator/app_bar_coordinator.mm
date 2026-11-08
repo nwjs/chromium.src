@@ -17,6 +17,7 @@
 #import "ios/chrome/browser/authentication/account_menu/public/account_menu_constants.h"
 #import "ios/chrome/browser/authentication/ui_bundled/continuation.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin/signin_coordinator.h"
+#import "ios/chrome/browser/bubble/model/tab_based_iph_browser_agent.h"
 #import "ios/chrome/browser/fullscreen/model/fullscreen_browser_agent.h"
 #import "ios/chrome/browser/fullscreen/ui_bundled/fullscreen_controller.h"
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_browser_agent.h"
@@ -45,6 +46,7 @@
 #import "ios/chrome/browser/signin/model/authentication_service_factory.h"
 #import "ios/chrome/browser/signin/model/identity_manager_factory.h"
 #import "ios/chrome/browser/url_loading/model/url_loading_browser_agent.h"
+#import "ios/chrome/browser/web/model/web_navigation_browser_agent.h"
 #import "ios/chrome/grit/ios_strings.h"
 #import "ui/base/l10n/l10n_util.h"
 
@@ -129,35 +131,54 @@
     incognitoAgent = FullscreenBrowserAgent::FromBrowser(_incognitoBrowser);
   }
 
+  WebNavigationBrowserAgent* regularNavigationAgent = nullptr;
+  WebNavigationBrowserAgent* incognitoNavigationAgent = nullptr;
+  TabBasedIPHBrowserAgent* regularTabBasedIPHAgent = nullptr;
+  TabBasedIPHBrowserAgent* incognitoTabBasedIPHAgent = nullptr;
+  if (IsFiveButtonAppBarLayoutEnabled()) {
+    regularNavigationAgent =
+        WebNavigationBrowserAgent::FromBrowser(_regularBrowser);
+    incognitoNavigationAgent =
+        WebNavigationBrowserAgent::FromBrowser(_incognitoBrowser);
+    regularTabBasedIPHAgent =
+        TabBasedIPHBrowserAgent::FromBrowser(_regularBrowser);
+    incognitoTabBasedIPHAgent =
+        TabBasedIPHBrowserAgent::FromBrowser(_incognitoBrowser);
+  }
+
   _mediator = [[AppBarMediator alloc]
-          initWithRegularWebStateList:_regularBrowser->GetWebStateList()
-                incognitoWebStateList:_incognitoBrowser->GetWebStateList()
-          regularFullscreenController:regularFullscreenController
-        incognitoFullscreenController:incognitoFullscreenController
-        regularFullscreenBrowserAgent:regularAgent
-      incognitoFullscreenBrowserAgent:incognitoAgent
-                 regularActionFactory:regularActionFactory
-               incognitoActionFactory:incognitoActionFactory
-                              profile:profile
-                          prefService:profile->GetPrefs()
-                   templateURLService:ios::TemplateURLServiceFactory::
-                                          GetForProfile(
-                                              _regularBrowser->GetProfile())
-                authenticationService:AuthenticationServiceFactory::
-                                          GetForProfile(profile)
-                      identityManager:IdentityManagerFactory::GetForProfile(
-                                          profile)
-                        geminiService:GeminiServiceFactory::GetForProfile(
-                                          profile)
-                   geminiBrowserAgent:GeminiBrowserAgent::FromBrowser(
-                                          _regularBrowser)
-                aimEligibilityService:IOSChromeAimEligibilityServiceFactory::
-                                          GetForProfile(profile)
-                            URLLoader:UrlLoadingBrowserAgent::FromBrowser(
-                                          _regularBrowser)
-                         tabGridState:sceneState.tabGridState
-                       incognitoState:sceneState.incognitoState
-             lensOverlayStateNotifier:sceneState.lensOverlayStateNotifier];
+             initWithRegularWebStateList:_regularBrowser->GetWebStateList()
+                   incognitoWebStateList:_incognitoBrowser->GetWebStateList()
+             regularFullscreenController:regularFullscreenController
+           incognitoFullscreenController:incognitoFullscreenController
+           regularFullscreenBrowserAgent:regularAgent
+         incognitoFullscreenBrowserAgent:incognitoAgent
+        regularWebNavigationBrowserAgent:regularNavigationAgent
+      incognitoWebNavigationBrowserAgent:incognitoNavigationAgent
+                 regularTabBasedIPHAgent:regularTabBasedIPHAgent
+               incognitoTabBasedIPHAgent:incognitoTabBasedIPHAgent
+                    regularActionFactory:regularActionFactory
+                  incognitoActionFactory:incognitoActionFactory
+                                 profile:profile
+                             prefService:profile->GetPrefs()
+                      templateURLService:ios::TemplateURLServiceFactory::
+                                             GetForProfile(
+                                                 _regularBrowser->GetProfile())
+                   authenticationService:AuthenticationServiceFactory::
+                                             GetForProfile(profile)
+                         identityManager:IdentityManagerFactory::GetForProfile(
+                                             profile)
+                           geminiService:GeminiServiceFactory::GetForProfile(
+                                             profile)
+                      geminiBrowserAgent:GeminiBrowserAgent::FromBrowser(
+                                             _regularBrowser)
+                   aimEligibilityService:IOSChromeAimEligibilityServiceFactory::
+                                             GetForProfile(profile)
+                               URLLoader:UrlLoadingBrowserAgent::FromBrowser(
+                                             _regularBrowser)
+                            tabGridState:sceneState.tabGridState
+                          incognitoState:sceneState.incognitoState
+                lensOverlayStateNotifier:sceneState.lensOverlayStateNotifier];
   _mediator.layoutState = sceneState.layoutState;
   _mediator.sceneState = sceneState;
   _mediator.sceneHandler = sceneHandler;
@@ -260,8 +281,7 @@
             promoAction:signin_metrics::PromoAction::
                             PROMO_ACTION_NO_SIGNIN_PROMO
              completion:^(SigninCoordinator* coordinator,
-                          SigninCoordinatorResult result,
-                          id<SystemIdentity> completionIdentity) {
+                          SigninCoordinatorResultOrIdentity result) {
                [coordinator stop];
                __strong __typeof(weakSelf) strongSelf = weakSelf;
                if (strongSelf) {
@@ -328,6 +348,16 @@
                            initWithBrowser:incognitoBrowser
                                   scenario:kMenuScenarioHistogramToolbarMenu]
                      : nil];
+  if (IsFiveButtonAppBarLayoutEnabled()) {
+    [_mediator setIncognitoNavigationBrowserAgent:
+                   incognitoBrowser ? WebNavigationBrowserAgent::FromBrowser(
+                                          incognitoBrowser)
+                                    : nullptr];
+    [_mediator setIncognitoTabBasedIPHBrowserAgent:
+                   incognitoBrowser
+                       ? TabBasedIPHBrowserAgent::FromBrowser(incognitoBrowser)
+                       : nullptr];
+  }
   CommandDispatcher* incognitoDispatcher =
       incognitoBrowser ? _incognitoBrowser->GetCommandDispatcher() : nil;
   _mediator.incognitoTabGroupsCommands =

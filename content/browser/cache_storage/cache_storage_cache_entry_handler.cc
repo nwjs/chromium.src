@@ -18,8 +18,10 @@
 #include "net/filter/source_stream.h"
 #include "net/filter/source_stream_type.h"
 #include "services/network/public/cpp/source_stream_to_data_pipe.h"
+#include "services/network/public/mojom/data_pipe_getter.mojom.h"
 #include "storage/browser/blob/blob_data_builder.h"
 #include "storage/browser/blob/blob_impl.h"
+#include "storage/browser/blob/blob_side_data_access_type.h"
 #include "storage/browser/blob/blob_storage_context.h"
 #include "third_party/blink/public/common/blob/blob_utils.h"
 
@@ -139,6 +141,9 @@ class EntryReaderImpl : public storage::mojom::BlobDataItemReader {
 
   void ReadSideData(ReadSideDataCallback callback) override {
     DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+    storage::RecordBlobSideDataAccess(
+        storage::BlobSideDataAccessType::kCacheStorageSideDataRead);
+
     // Use a WrappedIOBuffer so that the DiskCacheBlobEntry writes directly
     // to the BigBuffer without a copy.
     int length = blob_entry_->GetSize(side_data_disk_cache_index_);
@@ -176,6 +181,56 @@ class EntryReaderImpl : public storage::mojom::BlobDataItemReader {
       blob_entry_;
   const CacheStorageCache::EntryIndex disk_cache_index_;
   const CacheStorageCache::EntryIndex side_data_disk_cache_index_;
+
+  SEQUENCE_CHECKER(sequence_checker_);
+};
+
+// Like `EntryReaderImpl`, but adapts the CacheStorage entry to a
+// `DataPipeGetter` without plumbing through the `BlobStorageContext`.
+class EntryDataPipeGetterAdapter : public network::mojom::DataPipeGetter {
+ public:
+  EntryDataPipeGetterAdapter(
+      scoped_refptr<CacheStorageCacheEntryHandler::DiskCacheBlobEntry>
+          blob_entry,
+      CacheStorageCache::EntryIndex disk_cache_index)
+      : blob_entry_(std::move(blob_entry)),
+        disk_cache_index_(disk_cache_index) {}
+
+  EntryDataPipeGetterAdapter(const EntryDataPipeGetterAdapter&) = delete;
+  EntryDataPipeGetterAdapter& operator=(const EntryDataPipeGetterAdapter&) =
+      delete;
+
+  // network::mojom::DataPipeGetter implementation:
+  void Read(mojo::ScopedDataPipeProducerHandle pipe,
+            ReadCallback callback) override {
+    DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+    uint64_t size = blob_entry_->GetSize(disk_cache_index_);
+    if (!size) {
+      std::move(callback).Run(base::unexpected(net::ERR_FAILED));
+      return;
+    }
+    std::move(callback).Run(base::ByteSize(size));
+
+    auto stream = std::make_unique<DiskCacheStream>(blob_entry_,
+                                                    disk_cache_index_, 0, size);
+    auto adapter = std::make_unique<network::SourceStreamToDataPipe>(
+        std::move(stream), std::move(pipe));
+    network::SourceStreamToDataPipe* adapter_raw = adapter.get();
+    adapter_raw->Start(base::DoNothingWithBoundArgs(std::move(adapter)));
+  }
+
+  void Clone(
+      mojo::PendingReceiver<network::mojom::DataPipeGetter> receiver) override {
+    DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+    mojo::MakeSelfOwnedReceiver(std::make_unique<EntryDataPipeGetterAdapter>(
+                                    blob_entry_, disk_cache_index_),
+                                std::move(receiver));
+  }
+
+ private:
+  const scoped_refptr<CacheStorageCacheEntryHandler::DiskCacheBlobEntry>
+      blob_entry_;
+  const CacheStorageCache::EntryIndex disk_cache_index_;
 
   SEQUENCE_CHECKER(sequence_checker_);
 };
@@ -250,6 +305,7 @@ PutContext::PutContext(blink::mojom::FetchAPIRequestPtr request,
                        uint64_t blob_size,
                        mojo::PendingRemote<blink::mojom::Blob> side_data_blob,
                        uint64_t side_data_blob_size,
+                       std::optional<mojo_base::BigBuffer> side_data_buffer,
                        int64_t trace_id)
     : request(std::move(request)),
       response(std::move(response)),
@@ -257,7 +313,10 @@ PutContext::PutContext(blink::mojom::FetchAPIRequestPtr request,
       blob_size(blob_size),
       side_data_blob(std::move(side_data_blob)),
       side_data_blob_size(side_data_blob_size),
-      trace_id(trace_id) {}
+      side_data_buffer(std::move(side_data_buffer)),
+      trace_id(trace_id) {
+  CHECK(!(this->side_data_blob && this->side_data_buffer));
+}
 
 PutContext::~PutContext() = default;
 
@@ -276,21 +335,22 @@ class CacheStorageCacheEntryHandlerImpl : public CacheStorageCacheEntryHandler {
     DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
     mojo::PendingRemote<blink::mojom::Blob> blob;
     uint64_t blob_size = blink::BlobUtils::kUnknownSize;
-    mojo::PendingRemote<blink::mojom::Blob> side_data_blob;
-    uint64_t side_data_blob_size = blink::BlobUtils::kUnknownSize;
+    std::optional<mojo_base::BigBuffer> side_data_buffer;
 
     if (response->blob) {
       blob = std::move(response->blob->blob);
       blob_size = response->blob->size;
     }
-    if (response->side_data_blob_for_cache_put) {
-      side_data_blob = std::move(response->side_data_blob_for_cache_put->blob);
-      side_data_blob_size = response->side_data_blob_for_cache_put->size;
+    if (response->side_data_for_cache_put) {
+      side_data_buffer = std::move(response->side_data_for_cache_put);
+      response->side_data_for_cache_put.reset();
     }
 
     return std::make_unique<PutContext>(
         std::move(request), std::move(response), std::move(blob), blob_size,
-        std::move(side_data_blob), side_data_blob_size, trace_id);
+        mojo::NullRemote(),
+        /*side_data_blob_size=*/blink::BlobUtils::kUnknownSize,
+        std::move(side_data_buffer), trace_id);
   }
 
   void PopulateResponseBody(scoped_refptr<DiskCacheBlobEntry> blob_entry,
@@ -387,6 +447,19 @@ blink::mojom::SerializedBlobPtr CacheStorageCacheEntryHandler::CreateBlob(
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   return CreateBlobWithSideData(std::move(blob_entry), disk_cache_index,
                                 CacheStorageCache::INDEX_INVALID);
+}
+
+mojo::PendingRemote<network::mojom::DataPipeGetter>
+CacheStorageCacheEntryHandler::CreateDataPipeGetter(
+    scoped_refptr<DiskCacheBlobEntry> blob_entry,
+    CacheStorageCache::EntryIndex disk_cache_index) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  mojo::PendingRemote<network::mojom::DataPipeGetter> data_pipe_getter;
+  mojo::MakeSelfOwnedReceiver(
+      std::make_unique<EntryDataPipeGetterAdapter>(std::move(blob_entry),
+                                                   disk_cache_index),
+      data_pipe_getter.InitWithNewPipeAndPassReceiver());
+  return data_pipe_getter;
 }
 
 blink::mojom::SerializedBlobPtr

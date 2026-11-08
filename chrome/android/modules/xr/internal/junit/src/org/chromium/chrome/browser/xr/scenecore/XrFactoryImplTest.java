@@ -18,8 +18,6 @@ import androidx.xr.runtime.SessionCreateSuccess;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
 import org.robolectric.Robolectric;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
@@ -36,17 +34,16 @@ import org.chromium.ui.xr.scenecore.XrVector3;
 public class XrFactoryImplTest {
     private static final float DELTA = 1e-5f;
 
-    @Mock private View mView;
-
+    private View mView;
     private Session mSession;
     private XrFactoryImpl mFactory;
 
     @Before
     public void setUp() {
         XrModuleProviderImpl.initialize();
-        MockitoAnnotations.openMocks(this);
         ComponentActivity activity =
                 Robolectric.buildActivity(ComponentActivity.class).create().start().get();
+        mView = new View(activity);
         SessionCreateResult result = Session.create(activity);
         assertTrue(result instanceof SessionCreateSuccess);
         mSession = ((SessionCreateSuccess) result).getSession();

@@ -66,7 +66,6 @@
 #include "components/webapps/browser/web_app_url_config.h"
 #include "components/webapps/common/web_app_id.h"
 #include "content/public/browser/browser_thread.h"
-#include "third_party/blink/public/common/features.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "url/origin.h"
 
@@ -789,7 +788,19 @@ void FinalizeInstallOrUpdateJob::OnDatabaseCommitCompleted(
       case WebAppManagement::kSync:
       case WebAppManagement::kUserInstalled:
       case WebAppManagement::kIwaUserInstalled:
+#if BUILDFLAG(IS_MAC)
+        // When `kWebAppInstallDialog` is enabled, the dialog's Success step
+        // provides an explicit "Show in Finder" button on macOS, so do not
+        // automatically reveal the app shim in Finder during install
+        // finalization. Explicit post-install shortcut creation (e.g. from
+        // chrome://apps) still passes `SHORTCUT_CREATION_BY_USER`.
+        synchronize_options->reason =
+            base::FeatureList::IsEnabled(features::kWebAppInstallDialog)
+                ? SHORTCUT_CREATION_AUTOMATED
+                : SHORTCUT_CREATION_BY_USER;
+#else
         synchronize_options->reason = SHORTCUT_CREATION_BY_USER;
+#endif
         break;
     }
   }

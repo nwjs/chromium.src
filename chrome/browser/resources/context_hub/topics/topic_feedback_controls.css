@@ -1,0 +1,136 @@
+/* Copyright 2026 The Chromium Authors
+ * Use of this source code is governed by a BSD-style license that can be
+ * found in the LICENSE file. */
+
+/* #css_wrapper_metadata_start
+ * #type=style-lit
+ * #import=//resources/cr_elements/cr_shared_vars.css.js
+ * #scheme=relative
+ * #css_wrapper_metadata_end */
+
+:host {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Offsets the icon button padding ((32px - 18px) / 2) so the icons line up
+ * with the content above them. Anchors the defects popover. */
+#ratingRow {
+  align-items: center;
+  anchor-name: --topic-rating;
+  display: flex;
+  margin-inline-start: -7px;
+}
+
+#ratingRow cr-icon-button {
+  --cr-icon-button-icon-size: 18px;
+  margin: 0;
+}
+
+/* Popover mode: the defects panel floats under the thumbs instead of taking
+ * space in the embedder's layout. */
+:host([popover-defects]) #ratingRow {
+  margin-inline-start: 0;
+}
+
+#reasonsButton {
+  align-items: center;
+  background: none;
+  border: 1px solid var(--cr-separator-color);
+  border-radius: 12px;
+  color: var(--cr-secondary-text-color);
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-size: 12px;
+  height: 24px;
+  line-height: 16px;
+  margin-inline-start: 4px;
+  padding-block: 0;
+  padding-inline: 10px 4px;
+  white-space: nowrap;
+}
+
+#reasonsButton:hover {
+  background-color: var(--cr-hover-background-color);
+}
+
+#reasonsButton:focus-visible {
+  outline: 2px solid var(--cr-focus-outline-color);
+}
+
+/* A thumbs down still needs a reason. */
+#reasonsButton[invalid] {
+  border-color: var(--color-textfield-filled-error,
+      var(--cr-fallback-color-error));
+  color: var(--color-textfield-filled-error, var(--cr-fallback-color-error));
+}
+
+#reasonsButton cr-icon {
+  height: 18px;
+  width: 18px;
+}
+
+#defectsPanel[popover] {
+  background-color: var(--cr-fallback-color-surface);
+  border: none;
+  border-radius: 12px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  box-sizing: border-box;
+  color: var(--cr-primary-text-color);
+  inset: auto;
+  margin: 4px 0 0;
+  padding: 16px;
+  position-anchor: --topic-rating;
+  position-area: block-end span-inline-start;
+  position-try-fallbacks: flip-inline, flip-block;
+  width: min(480px, calc(100vw - 32px));
+}
+
+/* The display: flex of #defectsPanel would override the UA style hiding
+ * closed popovers. */
+#defectsPanel[popover]:not(:popover-open) {
+  display: none;
+}
+
+#defectsPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+#defectsLabel {
+  color: var(--cr-secondary-text-color);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
+}
+
+#defectChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+#defectChips cr-chip {
+  --cr-chip-height: 24px;
+}
+
+#defectChips cr-icon {
+  height: 14px;
+  width: 14px;
+}
+
+/* cr-textarea hides its footer by default. Show it while invalid, for the
+ * message asking for a comment on "Other". */
+#comment[invalid] {
+  --cr-textarea-footer-display: flex;
+}
+
+/* Matches the color of cr-textarea's invalid footer. */
+#defectError {
+  color: var(--color-textfield-filled-error, var(--cr-fallback-color-error));
+  font-size: 12px;
+  line-height: 16px;
+}

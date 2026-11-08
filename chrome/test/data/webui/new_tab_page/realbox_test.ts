@@ -82,6 +82,16 @@ function createAndAppendRealbox(properties: Partial<NtpSearchboxElement> = {}):
   return realbox;
 }
 
+// With `reportMetrics` set, the searchbox reports timing through
+// MetricsReporter, which must be mocked so it doesn't call PageMetricsHost.
+function installMetricsReporterMock() {
+  const proxy = TestMock.fromClass(BrowserProxyImpl);
+  proxy.setResultFor('getCallbackRouter', new PageMetricsCallbackRouter());
+  proxy.setResultFor('getMark', Promise.resolve(null));
+  BrowserProxyImpl.setInstance(proxy);
+  MetricsReporterImpl.setInstanceForTest(new MetricsReporterImpl());
+}
+
 suite('NewTabPageRealboxTabsTest', () => {
   let realbox: NtpSearchboxElement;
   let testProxy: TestSearchboxBrowserProxy;
@@ -101,6 +111,7 @@ suite('NewTabPageRealboxTabsTest', () => {
   setup(async () => {
     testProxy = new TestSearchboxBrowserProxy();
     SearchboxBrowserProxy.setInstance(testProxy);
+    installMetricsReporterMock();
 
     realbox = createAndAppendRealbox(
         {ntpRealboxNextEnabled: true, searchboxLayoutMode: 'Compact'});
@@ -202,15 +213,7 @@ suite('NewTabPageRealboxNextTest', () => {
         'getInputState', Promise.resolve({state: SAMPLE_INPUT_STATE}));
     SearchboxBrowserProxy.setInstance(testProxy);
 
-    // Set up MetricsReporter's browser proxy.
-    const testMetricsReporterProxy = TestMock.fromClass(BrowserProxyImpl);
-    testMetricsReporterProxy.reset();
-    const metricsReporterCallbackRouter = new PageMetricsCallbackRouter();
-    testMetricsReporterProxy.setResultFor(
-        'getCallbackRouter', metricsReporterCallbackRouter);
-    testMetricsReporterProxy.setResultFor('getMark', Promise.resolve(null));
-    BrowserProxyImpl.setInstance(testMetricsReporterProxy);
-    MetricsReporterImpl.setInstanceForTest(new MetricsReporterImpl());
+    installMetricsReporterMock();
     metrics = fakeMetricsPrivate();
     window.open = () => null;
     realbox = createAndAppendRealbox({
@@ -1172,9 +1175,45 @@ suite('NewTabPageRealboxNextTest', () => {
       assertTrue(!!composeButton);
       assertFalse(composeButton.hasAttribute('dynamic'));
     });
+
+    test('has-user-input attribute is set when text is set', async () => {
+      loadTimeData.overrideValues({ntpRealboxDynamicAiModeButton: true});
+      realbox = createAndAppendRealbox({
+        composeButtonEnabled: true,
+        composeboxEnabled: true,
+        ntpRealboxNextEnabled: true,
+      });
+      await microtasksFinished();
+      const composeButton =
+          realbox.shadowRoot.querySelector('cr-searchbox-compose-button');
+      assertTrue(!!composeButton);
+      assertFalse(composeButton.hasAttribute('has-user-input'));
+
+      // Simulate the voice search transcript being placed in the input after
+      // the stop button is clicked. This does not fire
+      // `searchbox-input-text-updated`.
+      realbox.setInputText('hello world');
+      await microtasksFinished();
+      assertTrue(composeButton.hasAttribute('has-user-input'));
+
+      // Whitespace-only text does not count as user input.
+      realbox.setInputText('   ');
+      await microtasksFinished();
+      assertFalse(composeButton.hasAttribute('has-user-input'));
+
+      realbox.setInputText('hello world');
+      await microtasksFinished();
+      assertTrue(composeButton.hasAttribute('has-user-input'));
+
+      realbox.setInputText('');
+      await microtasksFinished();
+      assertFalse(composeButton.hasAttribute('has-user-input'));
+    });
   });
 });
 
+// TODO(crbug.com/570702014): Smart Tab Sharing is desktop-only.
+// <if expr="not is_android">
 suite('NewTabPageRealboxSmartTabSharingTest', () => {
   let realbox: NtpSearchboxElement;
   let testProxy: TestSearchboxBrowserProxy;
@@ -1221,3 +1260,4 @@ suite('NewTabPageRealboxSmartTabSharingTest', () => {
     await openComposeboxPromise;
   });
 });
+// </if>

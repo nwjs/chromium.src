@@ -29,6 +29,10 @@
 #include "components/captive_portal/content/captive_portal_tab_helper.h"
 #endif
 
+#if BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/android/tab_android.h"
+#endif
+
 content::NavigationController::LoadURLParams LoadURLParamsFromNavigateParams(
     NavigateParams* params) {
   content::NavigationController::LoadURLParams load_url_params(params->url);
@@ -80,7 +84,7 @@ content::NavigationController::LoadURLParams LoadURLParamsFromNavigateParams(
   }
 
   // |frame_tree_node_id| is invalid for main frame navigations.
-  if (params->frame_tree_node_id.is_null()) {
+  if (params->frame_tree_node_id.is_null() && target_contents) {
     bool force_no_https_upgrade =
         params->url_typed_with_http_scheme ||
         params->captive_portal_window_type !=
@@ -95,6 +99,14 @@ content::NavigationController::LoadURLParams LoadURLParamsFromNavigateParams(
         params->navigation_initiated_from_sync);
 #endif
     load_url_params.navigation_ui_data = std::move(navigation_ui_data);
+
+#if BUILDFLAG(IS_ANDROID)
+    TabAndroid* tab_android = TabAndroid::FromWebContents(target_contents);
+    if (tab_android) {
+      load_url_params.override_user_agent =
+          tab_android->CalculateUserAgentOverrideOption(params->url);
+    }
+#endif
   }
 
   return load_url_params;

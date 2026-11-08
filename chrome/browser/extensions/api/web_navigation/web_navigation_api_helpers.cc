@@ -48,7 +48,8 @@ void DispatchEvent(content::BrowserContext* browser_context,
   if (profile && event_router) {
     mojom::EventFilteringInfoPtr info = mojom::EventFilteringInfo::New();
     info->url = url;
-    DCHECK_EQ(profile, event->restrict_to_browser_context);
+    CHECK_EQ(profile, event->restrict_to_browser_context,
+             base::NotFatalUntil::M161);
     event->filter_info = std::move(info);
     event_router->BroadcastEvent(std::move(event));
   }
@@ -247,6 +248,8 @@ void DispatchOnCreatedNavigationTarget(
     const GURL& target_url) {
   // Check that the tab is already inserted into a tab strip model. This code
   // path is exercised by ExtensionApiTest.WebNavigationRequestOpenTab.
+  // TODO(crbug.com/575114966): CHECK-exclusion: Convert to a CHECK once we are
+  // confident it won't be triggered.
   DCHECK(ExtensionTabUtil::GetTabById(
       ExtensionTabUtil::GetTabId(target_web_contents),
       Profile::FromBrowserContext(target_web_contents->GetBrowserContext()),

@@ -6,6 +6,7 @@
 #define THIRD_PARTY_BLINK_RENDERER_CORE_HTML_HTML_CAPABILITY_ELEMENT_METRICS_UTIL_H_
 
 #include "base/time/time.h"
+#include "base/types/strong_alias.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/qualified_name.h"
 
@@ -64,6 +65,18 @@ void RecordPermissionElementInvalidStyleReason(const QualifiedName& tag_name,
 // These values are used for histograms. Entries should not be renumbered and
 // numeric values should never be reused.
 //
+// LINT.IfChange(CapabilityElementGeolocationRequestFlow)
+enum class CapabilityElementGeolocationRequestFlow {
+  kClickWithPermissionAlreadyGranted = 0,
+  kClickWithPromptGranted = 1,
+  kAutolocateOnLoad = 2,
+  kMaxValue = kAutolocateOnLoad,
+};
+// LINT.ThenChange(//tools/metrics/histograms/metadata/blink/enums.xml:CapabilityElementGeolocationRequestFlow)
+
+// These values are used for histograms. Entries should not be renumbered and
+// numeric values should never be reused.
+//
 // LINT.IfChange(CapabilityElementGeolocationResult)
 enum class CapabilityElementGeolocationResult {
   kSuccess = 0,
@@ -84,14 +97,92 @@ enum class CapabilityElementGeolocationPositionErrorReason {
 };
 // LINT.ThenChange(//tools/metrics/histograms/metadata/blink/enums.xml:CapabilityElementGeolocationPositionErrorReason)
 
+// These values are used for histograms. Entries should not be renumbered and
+// numeric values should never be reused.
+//
+// LINT.IfChange(CapabilityElementGeolocationAccuracyMode)
+enum class CapabilityElementGeolocationAccuracyMode {
+  kDefault = 0,
+  kPrecise = 1,
+  kApproximate = 2,
+  kMaxValue = kApproximate,
+};
+// LINT.ThenChange(//tools/metrics/histograms/metadata/blink/enums.xml:CapabilityElementGeolocationAccuracyMode)
+
+void RecordGeolocationRequestInitiationFlow(
+    CapabilityElementGeolocationRequestFlow flow);
+
 void RecordGeolocationRequestResult(CapabilityElementGeolocationResult result);
 
-void RecordGeolocationPositionErrorReason(
+CORE_EXPORT void RecordGeolocationPositionErrorReason(
     CapabilityElementGeolocationPositionErrorReason reason);
 
-void RecordGeolocationTimeToPosition(base::TimeDelta duration);
+CORE_EXPORT void RecordGeolocationTimeToPosition(base::TimeDelta duration);
 
-void RecordGeolocationTimeToError(base::TimeDelta duration);
+CORE_EXPORT void RecordGeolocationTimeToError(base::TimeDelta duration);
+
+void RecordGeolocationAccuracyMode(
+    CapabilityElementGeolocationAccuracyMode mode);
+
+// LINT.IfChange(CapabilityElementMediaConstraintsValidationError)
+enum class CapabilityElementMediaConstraintsValidationError {
+  kNoError = 0,
+  kAudioMissing = 1,
+  kVideoMissing = 2,
+  kBothMissing = 3,
+  kMaxValue = kBothMissing,
+};
+// LINT.ThenChange(//tools/metrics/histograms/metadata/blink/enums.xml:CapabilityElementMediaConstraintsValidationError)
+
+// LINT.IfChange(CapabilityElementMediaRequestFlow)
+enum class CapabilityElementMediaRequestFlow {
+  kClickWithPermissionAlreadyGranted = 0,
+  kClickWithPromptGranted = 1,
+  kMaxValue = kClickWithPromptGranted,
+};
+// LINT.ThenChange(//tools/metrics/histograms/metadata/blink/enums.xml:CapabilityElementMediaRequestFlow)
+
+// LINT.IfChange(CapabilityElementMediaRequestOutcome)
+enum class CapabilityElementMediaRequestOutcome {
+  kSuccess = 0,
+  kConstraintsValidationError = 1,
+  kActivationFailed = 2,
+  kNotAllowedError = 3,
+  kNotFoundError = 4,
+  kNotReadableError = 5,
+  kOverconstrainedError = 6,
+  kSecurityError = 7,
+  kAbortError = 8,
+  kOtherError = 9,
+  kMaxValue = kOtherError,
+};
+// LINT.ThenChange(//tools/metrics/histograms/metadata/blink/enums.xml:CapabilityElementMediaRequestOutcome)
+
+CORE_EXPORT void RecordCapabilityElementConstraintsValidationError(
+    const QualifiedName& tag_name,
+    CapabilityElementMediaConstraintsValidationError error);
+
+using RepeatedCall = base::StrongAlias<class RepeatedCallTag, bool>;
+
+CORE_EXPORT void RecordCapabilityElementSetConstraintsRepeatedCall(
+    const QualifiedName& tag_name,
+    RepeatedCall repeated);
+
+CORE_EXPORT void RecordCapabilityElementMediaRequestFlow(
+    const QualifiedName& tag_name,
+    CapabilityElementMediaRequestFlow flow);
+
+CORE_EXPORT void RecordCapabilityElementMediaRequestOutcome(
+    const QualifiedName& tag_name,
+    CapabilityElementMediaRequestOutcome outcome);
+
+CORE_EXPORT void RecordCapabilityElementTimeToStreamOrTrack(
+    const QualifiedName& tag_name,
+    base::TimeDelta duration);
+
+CORE_EXPORT void RecordCapabilityElementMediaTimeToError(
+    const QualifiedName& tag_name,
+    base::TimeDelta duration);
 
 }  // namespace blink
 

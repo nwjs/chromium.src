@@ -545,6 +545,9 @@ inline constexpr char kNoStartupWindow[] = "no-startup-window";
 // Overrides the default URL for the Notebook Home WebUI.
 inline constexpr char kNotebookHomeURL[] = "notebook-home-url";
 
+// Marks a renderer as a New Tab Page process.
+inline constexpr char kNtpProcess[] = "ntp-process";
+
 // Calculate the hash of an MHTML file as it is being saved.
 // The browser process will write the serialized MHTML contents to a file and
 // calculate its hash as it is streamed back from the renderer via a Mojo data
@@ -554,6 +557,13 @@ inline constexpr char kOnTheFlyMhtmlHashComputation[] =
 
 // Directly launches the Omnibox Everywhere desktop UI widget.
 inline constexpr char kOmniboxEverywhere[] = "omnibox-everywhere";
+
+// Opens the URLs given on the command line as background tabs, without
+// activating or raising the browser window they are added to, so that handing a
+// URL to an already-running browser does not take the user's focus. A window
+// created to host the URLs is still shown and activated, and so is the first
+// tab added to an empty window.
+inline constexpr char kOpenInBackground[] = "open-in-background";
 
 // Launches URL in new browser window.
 inline constexpr char kOpenInNewWindow[] = "new-window";
@@ -769,10 +779,12 @@ static_assert(std::string_view(kUserDataDir) ==
               std::string_view(ash::chrome_switches::kUserDataDir));
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
-// Uses WinHttp to resolve proxies instead of using Chromium's normal proxy
-// resolution logic. This is only supported in Windows.
+// Uses the operating system to resolve proxies instead of using Chromium's
+// normal proxy resolution logic. On Windows this uses WinHttp, on macOS this
+// uses CFNetwork, and on Linux this uses the
+// org.freedesktop.portal.ProxyResolver XDG desktop portal.
 //
-// TODO(crbug.com/40111093): Only use WinHttp whenever Chrome is
+// TODO(crbug.com/40111093): Only use the system resolver whenever Chrome is
 // exclusively using system proxy configs.
 inline constexpr char kUseSystemProxyResolver[] = "use-system-proxy-resolver";
 
@@ -1046,10 +1058,6 @@ inline constexpr char kGlicGuestURL[] = "glic-guest-url";
 
 inline constexpr char kSkillsV2Origin[] = "skills-v2-origin";
 
-// Overrides the Gemini Enterprise settings JSON dictionary for local
-// development.
-inline constexpr char kGlicGeminiEnterpriseSettingsOverride[] =
-    "glic-gemini-enterprise-settings-override";
 
 inline constexpr char kGlicAlwaysOpenFre[] = "glic-always-open-fre";
 

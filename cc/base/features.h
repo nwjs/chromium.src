@@ -157,10 +157,6 @@ CC_BASE_EXPORT extern const base::FeatureParam<std::string>
 // explicitly via img.decode(), it will be decoded only once.
 CC_BASE_EXPORT BASE_DECLARE_FEATURE(kPreventDuplicateImageDecodes);
 
-// When enabled, HTMLImageElement::decode() promises resolve even if the image
-// is too large to fit into the image decode cache budget.
-CC_BASE_EXPORT BASE_DECLARE_FEATURE(kResolveLargeImageDecodes);
-
 // When enabled, fix bug where an image decode cache entry last use timestamp is
 // initialized to 0 instead of now.
 CC_BASE_EXPORT BASE_DECLARE_FEATURE(kInitImageDecodeLastUseTime);
@@ -219,13 +215,6 @@ CC_BASE_EXPORT BASE_DECLARE_FEATURE(kHighFramerateRequestFromClient);
 // samt pool.
 CC_BASE_EXPORT bool IsEligibleForThrottleMainFrameTo60Hz();
 CC_BASE_EXPORT void SetIsEligibleForThrottleMainFrameTo60Hz(bool is_eligible);
-
-// A mode of ViewTransition capture that does not display unstyled frame,
-// instead displays the properly constructed frame while at the same doing
-// capture.
-CC_BASE_EXPORT BASE_DECLARE_FEATURE(kViewTransitionCaptureAndDisplay);
-
-
 
 // When enabled, the LayerTreeHost will expect to use layer lists instead of
 // layer trees by default; the caller can explicitly opt into enabled or
@@ -331,6 +320,22 @@ CC_BASE_EXPORT BASE_DECLARE_FEATURE(kVizHitTestRoundedCorners);
 // alignment offsets for live render passes and preserves exact subpixel
 // alignment offsets for snapshot textures.
 CC_BASE_EXPORT BASE_DECLARE_FEATURE(kViewTransitionsNewRoundingChange);
+
+// When enabled, allows hiding browser controls via additional swipe and scroll
+// gestures, such as swiping on the toolbar or scrolling on non-scrollable
+// pages.
+CC_BASE_EXPORT BASE_DECLARE_FEATURE(kBrowserControlsExtraHideGestures);
+
+// When enabled, prevents sending a pipelined BeginMainFrame when the primary
+// BeginMainFrame is READY_TO_COMMIT but blocked from committing by an
+// unactivated pending tree. Killswitch for crbug.com/467678916.
+CC_BASE_EXPORT BASE_DECLARE_FEATURE(kDeferMainFrameBeforeCommitWithPendingTree);
+
+// When enabled, SolidColorLayerImpl::AppendSolidQuads omits transparent solid
+// quads for all blend modes where a transparent source does not modify the
+// destination, not only kSrcOver.
+CC_BASE_EXPORT BASE_DECLARE_FEATURE(
+    kOmitTransparentSolidQuadsForNoopBlendModes);
 
 }  // namespace features
 

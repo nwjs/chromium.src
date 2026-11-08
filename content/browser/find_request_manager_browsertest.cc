@@ -74,12 +74,14 @@ class FindRequestManagerTestBase : public ContentBrowserTest {
     // Swap the WebContents's delegate for our test delegate.
     normal_delegate_ = contents()->GetDelegate();
     contents()->SetDelegate(&test_delegate_);
+    test_delegate_.Observe(contents());
   }
 
   void TearDownOnMainThread() override {
     // Swap the WebContents's delegate back to its usual delegate.
     contents()->SetDelegate(normal_delegate_);
     normal_delegate_ = nullptr;
+    test_delegate_.Observe(nullptr);
   }
 
   void SetUpCommandLine(base::CommandLine* command_line) override {
@@ -1293,6 +1295,7 @@ class FindRequestManagerPrerenderingTest : public FindRequestManagerTest {
   void SetUpOnMainThread() override {
     FindRequestManagerTest::SetUpOnMainThread();
     contents()->SetDelegate(&delegate_);
+    delegate_.Observe(contents());
   }
 
   content::test::PrerenderTestHelper* prerender_helper() {
@@ -1549,6 +1552,7 @@ IN_PROC_BROWSER_TEST_P(FindRequestManagerTestWithTestConfig,
                        MAYBE_NavigateFrameDuringFind) {
   WaitForFindTestWebContentsDelegate delegate;
   contents()->SetDelegate(&delegate);
+  delegate.Observe(contents());
 
   // 1) Load a main frame with 5 matches.
   LoadAndWait("/find_in_simple_page.html");
@@ -1628,6 +1632,7 @@ IN_PROC_BROWSER_TEST_F(FindRequestManagerTestWithBFCache,
                        NavigateFrameDuringFind) {
   WaitForFindTestWebContentsDelegate delegate;
   contents()->SetDelegate(&delegate);
+  delegate.Observe(contents());
 
   GURL url_a = embedded_test_server()->GetURL("a.com", "/find_in_page.html");
   GURL url_b =
@@ -1705,6 +1710,7 @@ IN_PROC_BROWSER_TEST_F(FindRequestManagerTestWithBFCache,
 IN_PROC_BROWSER_TEST_F(FindRequestManagerTest, CrashDuringFind) {
   WaitForFindTestWebContentsDelegate delegate;
   contents()->SetDelegate(&delegate);
+  delegate.Observe(contents());
 
   // 1) Load a main frame with 2 matches and a subframe with 17 matches.
   LoadAndWait("/find_in_page.html");
@@ -1801,6 +1807,76 @@ IN_PROC_BROWSER_TEST_F(FindRequestManagerTest, FindNextOnCrashedPage) {
   results = delegate()->GetFindResults();
   EXPECT_EQ(0, results.number_of_matches);
   EXPECT_EQ(0, results.active_match_ordinal);
+}
+
+// Runs find sessions on an inner WebContents whose embedder also has a plain
+// child frame.
+class FindRequestManagerInnerContentsTest : public FindRequestManagerTestBase {
+ protected:
+  void TearDownOnMainThread() override {
+    inner_delegate_.Observe(nullptr);
+    inner_contents_ = nullptr;
+    FindRequestManagerTestBase::TearDownOnMainThread();
+  }
+
+  void AttachInnerContentsAt(size_t child_index) {
+    LoadAndWait("/find_in_page_multi_frame.html");
+    ASSERT_EQ(2u, root()->child_count());
+    inner_contents_ = CreateAndAttachInnerContents(
+        root()->child_at(child_index)->current_frame_host());
+    inner_contents_->SetDelegate(&inner_delegate_);
+    inner_delegate_.Observe(inner_contents_);
+    ASSERT_TRUE(NavigateToURLFromRenderer(
+        inner_contents_,
+        embedded_test_server()->GetURL("b.com", "/find_in_simple_page.html")));
+  }
+
+  FindResults FindInInnerContents(bool new_session, bool forward) {
+    auto options = blink::mojom::FindOptions::New();
+    options->run_synchronously_for_testing = true;
+    options->new_session = new_session;
+    options->forward = forward;
+    inner_contents_->Find(u"result", std::move(options), /*skip_delay=*/false,
+                          [this](int request_id) {
+                            inner_delegate_.UpdateLastRequest(request_id);
+                          });
+    inner_delegate_.WaitForFinalReply();
+    return inner_delegate_.GetFindResults();
+  }
+
+ private:
+  FindTestWebContentsDelegate inner_delegate_;
+  raw_ptr<WebContents> inner_contents_ = nullptr;
+};
+
+IN_PROC_BROWSER_TEST_F(FindRequestManagerInnerContentsTest,
+                       WrapsForwardAfterSiblingFrame) {
+  ASSERT_NO_FATAL_FAILURE(AttachInnerContentsAt(1));
+
+  FindResults results =
+      FindInInnerContents(/*new_session=*/true, /*forward=*/true);
+  EXPECT_EQ(5, results.number_of_matches);
+  EXPECT_EQ(1, results.active_match_ordinal);
+
+  for (int i = 2; i <= 5; ++i) {
+    results = FindInInnerContents(/*new_session=*/false, /*forward=*/true);
+    EXPECT_EQ(i, results.active_match_ordinal);
+  }
+  results = FindInInnerContents(/*new_session=*/false, /*forward=*/true);
+  EXPECT_EQ(1, results.active_match_ordinal);
+}
+
+IN_PROC_BROWSER_TEST_F(FindRequestManagerInnerContentsTest,
+                       WrapsBackwardBeforeSiblingFrame) {
+  ASSERT_NO_FATAL_FAILURE(AttachInnerContentsAt(0));
+
+  FindResults results =
+      FindInInnerContents(/*new_session=*/true, /*forward=*/true);
+  EXPECT_EQ(5, results.number_of_matches);
+  EXPECT_EQ(1, results.active_match_ordinal);
+
+  results = FindInInnerContents(/*new_session=*/false, /*forward=*/false);
+  EXPECT_EQ(5, results.active_match_ordinal);
 }
 
 }  // namespace content

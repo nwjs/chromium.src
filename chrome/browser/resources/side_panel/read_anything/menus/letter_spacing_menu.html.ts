@@ -9,17 +9,12 @@ import {ToolbarEvent} from '../content/read_anything_types.js';
 import type {LetterSpacingMenuElement} from './letter_spacing_menu.js';
 
 export function getHtml(this: LetterSpacingMenuElement) {
-  // clang-format off
   return html`<!--_html_template_start_-->
-<simple-action-menu
-    id="menu"
-    label="$i18n{letterSpacingTitle}"
-    .menuItems="${this.options_}"
-    .nonModal="${this.nonModal}"
+<simple-action-menu id="menu" label="$i18n{letterSpacingTitle}"
+    .menuItems="${this.options_}" .nonModal="${this.nonModal}"
     event-name="${ToolbarEvent.LETTER_SPACING}"
-    current-selected-index="${this.restoredLetterSpacingIndex_()}"
+    .selectedValue="${this.letterSpacing}"
     @letter-spacing-change="${this.onLetterSpacingChange_}">
 </simple-action-menu>
 <!--_html_template_end_-->`;
-  // clang-format on
 }

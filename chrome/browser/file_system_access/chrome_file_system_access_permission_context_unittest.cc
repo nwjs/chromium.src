@@ -90,6 +90,14 @@
 #include "components/safe_browsing/content/common/file_type_policies_test_util.h"
 #endif
 
+#if BUILDFLAG(SAFE_BROWSING_DOWNLOAD_PROTECTION)
+#include "chrome/browser/safe_browsing/download_protection/download_protection_service.h"
+#include "chrome/browser/safe_browsing/services_delegate.h"
+#include "chrome/browser/safe_browsing/test_safe_browsing_service.h"
+#include "chrome/test/base/testing_browser_process.h"
+#include "content/public/browser/file_system_access_write_item.h"
+#endif
+
 using content::BrowserContext;
 using content::PathInfo;
 using content::PathType;
@@ -727,6 +735,52 @@ TEST_F(ChromeFileSystemAccessPermissionContextTest,
         // BUILDFLAG(IS_ANDROID)
 }
 
+// ~/.cache should be blocked on all platforms even when base::DIR_CACHE points
+// elsewhere (macOS NSCachesDirectory, custom $XDG_CACHE_HOME on Linux/ChromeOS,
+// Android app cache) or does not exist (Windows).
+TEST_F(ChromeFileSystemAccessPermissionContextTest,
+       ConfirmSensitiveEntryAccess_HomeCacheBlockedOnAllPlatforms) {
+  base::FilePath home_dir = temp_dir_.GetPath().AppendASCII("home");
+  ScopedHomeDirOverride home_override = OverrideHomeDir(home_dir);
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
+  base::FilePath xdg_cache_dir = temp_dir_.GetPath().AppendASCII("xdg_cache");
+  base::ScopedPathOverride cache_override(base::DIR_CACHE, xdg_cache_dir, true,
+                                          true);
+#endif
+  ResetBlockPath();
+
+  base::FilePath home_cache_dir = home_dir.AppendASCII(".cache");
+  EXPECT_EQ(ConfirmSensitiveEntryAccessSync(
+                permission_context(), PathInfo(home_cache_dir),
+                HandleType::kDirectory, AccessTrigger::kOpen),
+            SensitiveDirectoryResult::kAbort);
+  EXPECT_EQ(ConfirmSensitiveEntryAccessSync(
+                permission_context(), PathInfo(home_cache_dir),
+                HandleType::kDirectory, AccessTrigger::kSave),
+            SensitiveDirectoryResult::kAbort);
+  EXPECT_EQ(ConfirmSensitiveEntryAccessSync(
+                permission_context(),
+                PathInfo(home_cache_dir.AppendASCII("pre-commit")),
+                HandleType::kDirectory, AccessTrigger::kOpen),
+            SensitiveDirectoryResult::kAbort);
+  EXPECT_EQ(ConfirmSensitiveEntryAccessSync(
+                permission_context(),
+                PathInfo(home_cache_dir.AppendASCII("pre-commit")
+                             .AppendASCII("sitecustomize.py")),
+                HandleType::kFile, AccessTrigger::kProgrammaticWrite),
+            SensitiveDirectoryResult::kAbort);
+
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
+  // Custom $XDG_CACHE_HOME / Android cache directory remains blocked too.
+  EXPECT_TRUE(IsOpenAbort(xdg_cache_dir, HandleType::kDirectory));
+  EXPECT_TRUE(IsOpenAbort(xdg_cache_dir.AppendASCII("foo"), HandleType::kFile));
+#endif
+
+  // Sibling directories inside DIR_HOME remain allowed.
+  EXPECT_TRUE(
+      IsOpenAllowed(home_dir.AppendASCII("allowed"), HandleType::kDirectory));
+}
+
 // TODO(crbug.com/432011571): Flaky test.
 TEST_F(ChromeFileSystemAccessPermissionContextTest,
        DISABLED_ConfirmSensitiveEntryAccess_BlockChildrenNested) {
@@ -846,9 +900,8 @@ TEST_F(ChromeFileSystemAccessPermissionContextTest,
 
 TEST_F(ChromeFileSystemAccessPermissionContextTest,
        ConfirmSensitiveEntryAccess_ExplicitPathBlock) {
-// Linux is the only OS where we have some blocked directories with explicit
-// paths (as opposed to PathService provided paths).
-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID) || \
+    BUILDFLAG(IS_MAC)
   // /dev should be blocked.
   EXPECT_EQ(ConfirmSensitiveEntryAccessSync(
                 permission_context(), PathInfo(FILE_PATH_LITERAL("/dev")),
@@ -1403,6 +1456,58 @@ TEST_F(ChromeFileSystemAccessPermissionContextNoSymbolicLinkCheckTest,
       SensitiveDirectoryResult::kAbort);
 }
 
+// Verifies that only subfolders of a WSL home directory are allowed, except its
+// dot entries and bin, see crbug.com/573422635.
+TEST_F(ChromeFileSystemAccessPermissionContextNoSymbolicLinkCheckTest,
+       ConfirmSensitiveEntryAccess_WSL_HomeSubfolders) {
+  static constexpr const base::FilePath::CharType* kAllowedPaths[] = {
+      FILE_PATH_LITERAL("\\\\wsl.localhost\\Ubuntu\\home\\user\\projects"),
+      FILE_PATH_LITERAL("\\\\WSL.LOCALHOST\\Ubuntu\\home\\user\\src\\app"),
+      FILE_PATH_LITERAL("\\\\wsl.localhost\\Ubuntu\\home\\user\\src\\.vscode"),
+      FILE_PATH_LITERAL(
+          "\\\\wsl.localhost\\Ubuntu\\home\\user\\src\\.git\\hooks"),
+      FILE_PATH_LITERAL("//wsl.localhost/Ubuntu/home/user/projects"),
+  };
+  static constexpr const base::FilePath::CharType* kBlockedPaths[] = {
+      FILE_PATH_LITERAL("\\\\wsl.localhost\\Ubuntu\\home"),
+      FILE_PATH_LITERAL("\\\\wsl.localhost\\Ubuntu\\home\\user\\.config\\app"),
+      FILE_PATH_LITERAL("\\\\wsl.localhost\\Ubuntu\\home\\user\\bin"),
+      FILE_PATH_LITERAL("\\\\wsl.localhost\\Ubuntu\\mnt\\c\\Users\\user\\src"),
+      FILE_PATH_LITERAL("\\\\wsl.localhost\\Ubuntu\\root\\projects"),
+      FILE_PATH_LITERAL("\\\\wsl.localhost\\Ubuntu\\HOME\\user\\projects"),
+      FILE_PATH_LITERAL("\\\\wsl.localhost\\.\\home\\user\\projects"),
+      FILE_PATH_LITERAL("\\\\wsl.localhost\\Ubuntu\\home\\.\\user"),
+      FILE_PATH_LITERAL("\\\\wsl.localhost\\Ubuntu\\home\\ \\user"),
+      FILE_PATH_LITERAL("\\\\wsl.localhost\\Ubuntu\\home\\user\\."),
+      FILE_PATH_LITERAL("\\\\wsl.localhost\\Ubuntu\\home\\user\\ ."),
+      FILE_PATH_LITERAL("\\\\wsl.localhost\\Ubuntu\\home\\user\\ "),
+      FILE_PATH_LITERAL("\\\\wsl.localhost\\Ubuntu\\home\\user\\projects."),
+      FILE_PATH_LITERAL("\\\\wsl.localhost\\Ubuntu\\home\\user\\a\\..\\.ssh"),
+      FILE_PATH_LITERAL("\\\\wsl$\\Ubuntu\\home\\user\\projects"),
+  };
+  for (const auto* path : kAllowedPaths) {
+    EXPECT_EQ(ConfirmSensitiveEntryAccessSync(
+                  permission_context(), PathInfo(path), HandleType::kDirectory,
+                  AccessTrigger::kOpen),
+              SensitiveDirectoryResult::kAllowed)
+        << path;
+  }
+  for (const auto* path : kBlockedPaths) {
+    EXPECT_EQ(ConfirmSensitiveEntryAccessSync(
+                  permission_context(), PathInfo(path), HandleType::kDirectory,
+                  AccessTrigger::kOpen),
+              SensitiveDirectoryResult::kAbort)
+        << path;
+  }
+  // The regular rules still apply, such as the write block on .git/hooks.
+  EXPECT_EQ(ConfirmSensitiveEntryAccessSync(
+                permission_context(),
+                PathInfo(FILE_PATH_LITERAL(
+                    "\\\\wsl.localhost\\Ubuntu\\home\\user\\src\\.git\\hooks")),
+                HandleType::kDirectory, AccessTrigger::kSave),
+            SensitiveDirectoryResult::kAbort);
+}
+
 // Verifies that legitimate remote UNC shares remain allowed.
 TEST_F(ChromeFileSystemAccessPermissionContextNoSymbolicLinkCheckTest,
        ConfirmSensitiveEntryAccess_RemoteUNC_Allowed) {
@@ -1421,6 +1526,36 @@ TEST_F(ChromeFileSystemAccessPermissionContextNoSymbolicLinkCheckTest,
                 PathInfo(FILE_PATH_LITERAL("\\\\corp.domain.com\\dfs\\team")),
                 HandleType::kDirectory, AccessTrigger::kOpen),
             SensitiveDirectoryResult::kAllowed);
+}
+
+// Verifies that hypervisor host-share UNC paths (Parallels, VMware, VirtualBox)
+// are blocked by `MaybeIsLocalUNCPath()`.
+TEST_F(ChromeFileSystemAccessPermissionContextNoSymbolicLinkCheckTest,
+       ConfirmSensitiveEntryAccess_HypervisorHostShareUNC) {
+  static constexpr const base::FilePath::CharType* kBlockedPaths[] = {
+      FILE_PATH_LITERAL("\\\\Mac\\Home"),
+      FILE_PATH_LITERAL("\\\\MAC\\home"),
+      FILE_PATH_LITERAL("\\\\Mac.\\Home"),
+      FILE_PATH_LITERAL("\\\\Mac\\AllFiles"),
+      FILE_PATH_LITERAL("\\\\Mac\\Home\\.ssh\\id_rsa"),
+      FILE_PATH_LITERAL("\\\\Mac\\Home\\.zshenv"),
+      FILE_PATH_LITERAL("\\\\psf\\Home"),
+      FILE_PATH_LITERAL("\\\\psf.\\Home"),
+      FILE_PATH_LITERAL("\\\\vmware-host\\Shared Folders"),
+      FILE_PATH_LITERAL("\\\\vmware-host.\\Shared Folders"),
+      FILE_PATH_LITERAL("\\\\.host\\Shared Folders"),
+      FILE_PATH_LITERAL("\\\\.host.\\Shared Folders"),
+      FILE_PATH_LITERAL("\\\\vboxsvr\\share"),
+      FILE_PATH_LITERAL("\\\\vboxsvr.\\share"),
+      FILE_PATH_LITERAL("\\\\vboxsrv\\share"),
+  };
+  for (const auto* path : kBlockedPaths) {
+    EXPECT_EQ(ConfirmSensitiveEntryAccessSync(
+                  permission_context(), PathInfo(path), HandleType::kDirectory,
+                  AccessTrigger::kOpen),
+              SensitiveDirectoryResult::kAbort)
+        << "Expected blocked path: " << path;
+  }
 }
 
 #endif  // BUILDFLAG(IS_WIN)
@@ -1585,6 +1720,230 @@ TEST_F(ChromeFileSystemAccessPermissionContextTest,
                 PathInfo(root.Append(FILE_PATH_LITERAL(".git"))
                              .Append(FILE_PATH_LITERAL("hook"))),
                 HandleType::kDirectory, AccessTrigger::kProgrammaticWrite),
+            SensitiveDirectoryResult::kAllowed);
+}
+
+// Testing that writes to */.git/config and */.git/modules are blocked, while
+// reads stay allowed.
+TEST_F(ChromeFileSystemAccessPermissionContextTest,
+       ConfirmSensitiveEntryAccess_GitConfigAndModulesWriteBlock) {
+#if defined(FILE_PATH_USES_DRIVE_LETTERS)
+  base::FilePath root(FILE_PATH_LITERAL("c:\\"));
+#else
+  base::FilePath root(FILE_PATH_LITERAL("/"));
+#endif
+  const base::FilePath git_dir =
+      root.Append(FILE_PATH_LITERAL("a")).Append(FILE_PATH_LITERAL(".git"));
+  const base::FilePath git_config = git_dir.Append(FILE_PATH_LITERAL("config"));
+  const base::FilePath git_modules =
+      git_dir.Append(FILE_PATH_LITERAL("modules"));
+  const base::FilePath submodule_dir =
+      git_modules.Append(FILE_PATH_LITERAL("sub"));
+
+  // .git/config is blocked for save and programmatic write.
+  EXPECT_EQ(ConfirmSensitiveEntryAccessSync(
+                permission_context(), PathInfo(git_config), HandleType::kFile,
+                AccessTrigger::kSave),
+            SensitiveDirectoryResult::kAbort);
+  EXPECT_EQ(ConfirmSensitiveEntryAccessSync(
+                permission_context(), PathInfo(git_config), HandleType::kFile,
+                AccessTrigger::kProgrammaticWrite),
+            SensitiveDirectoryResult::kAbort);
+  // .git/config is not blocked for read.
+  EXPECT_EQ(ConfirmSensitiveEntryAccessSync(
+                permission_context(), PathInfo(git_config), HandleType::kFile,
+                AccessTrigger::kOpen),
+            SensitiveDirectoryResult::kAllowed);
+  EXPECT_EQ(ConfirmSensitiveEntryAccessSync(
+                permission_context(), PathInfo(git_config), HandleType::kFile,
+                AccessTrigger::kProgrammaticRead),
+            SensitiveDirectoryResult::kAllowed);
+  // Case variations of .git/config are blocked for programmatic write.
+  EXPECT_EQ(ConfirmSensitiveEntryAccessSync(
+                permission_context(),
+                PathInfo(root.Append(FILE_PATH_LITERAL("a"))
+                             .Append(FILE_PATH_LITERAL(".GIT"))
+                             .Append(FILE_PATH_LITERAL("CONFIG"))),
+                HandleType::kFile, AccessTrigger::kProgrammaticWrite),
+            SensitiveDirectoryResult::kAbort);
+  // Other files under .git, and files named config outside of .git, are
+  // allowed.
+  EXPECT_EQ(ConfirmSensitiveEntryAccessSync(
+                permission_context(),
+                PathInfo(git_dir.Append(FILE_PATH_LITERAL("config.bak"))),
+                HandleType::kFile, AccessTrigger::kProgrammaticWrite),
+            SensitiveDirectoryResult::kAllowed);
+  EXPECT_EQ(ConfirmSensitiveEntryAccessSync(
+                permission_context(),
+                PathInfo(root.Append(FILE_PATH_LITERAL("a"))
+                             .Append(FILE_PATH_LITERAL("config"))),
+                HandleType::kFile, AccessTrigger::kProgrammaticWrite),
+            SensitiveDirectoryResult::kAllowed);
+
+  // .git/modules and everything inside it is blocked for save and programmatic
+  // write.
+  EXPECT_EQ(ConfirmSensitiveEntryAccessSync(
+                permission_context(), PathInfo(git_modules),
+                HandleType::kDirectory, AccessTrigger::kSave),
+            SensitiveDirectoryResult::kAbort);
+  EXPECT_EQ(ConfirmSensitiveEntryAccessSync(
+                permission_context(), PathInfo(git_modules),
+                HandleType::kDirectory, AccessTrigger::kProgrammaticWrite),
+            SensitiveDirectoryResult::kAbort);
+  EXPECT_EQ(ConfirmSensitiveEntryAccessSync(
+                permission_context(),
+                PathInfo(submodule_dir.Append(FILE_PATH_LITERAL("hooks"))
+                             .Append(FILE_PATH_LITERAL("pre-commit"))),
+                HandleType::kFile, AccessTrigger::kProgrammaticWrite),
+            SensitiveDirectoryResult::kAbort);
+  EXPECT_EQ(ConfirmSensitiveEntryAccessSync(
+                permission_context(),
+                PathInfo(submodule_dir.Append(FILE_PATH_LITERAL("config"))),
+                HandleType::kFile, AccessTrigger::kProgrammaticWrite),
+            SensitiveDirectoryResult::kAbort);
+  // .git/modules is not blocked for read.
+  EXPECT_EQ(ConfirmSensitiveEntryAccessSync(
+                permission_context(), PathInfo(git_modules),
+                HandleType::kDirectory, AccessTrigger::kOpen),
+            SensitiveDirectoryResult::kAllowed);
+  EXPECT_EQ(ConfirmSensitiveEntryAccessSync(
+                permission_context(),
+                PathInfo(submodule_dir.Append(FILE_PATH_LITERAL("config"))),
+                HandleType::kFile, AccessTrigger::kProgrammaticRead),
+            SensitiveDirectoryResult::kAllowed);
+  // The .git directory itself is still allowed for save.
+  EXPECT_EQ(ConfirmSensitiveEntryAccessSync(
+                permission_context(), PathInfo(git_dir), HandleType::kDirectory,
+                AccessTrigger::kSave),
+            SensitiveDirectoryResult::kAllowed);
+}
+
+// Testing that writes to */.mvn and its descendants (such as .mvn/jvm.config)
+// are blocked, while reads and non-.mvn workspace paths stay allowed.
+TEST_F(ChromeFileSystemAccessPermissionContextTest,
+       ConfirmSensitiveEntryAccess_MvnWriteBlock) {
+#if defined(FILE_PATH_USES_DRIVE_LETTERS)
+  base::FilePath root(FILE_PATH_LITERAL("c:\\"));
+#else
+  base::FilePath root(FILE_PATH_LITERAL("/"));
+#endif
+  const base::FilePath workspace_dir = root.Append(FILE_PATH_LITERAL("a"));
+  const base::FilePath mvn_dir =
+      workspace_dir.Append(FILE_PATH_LITERAL(".mvn"));
+  const base::FilePath jvm_config =
+      mvn_dir.Append(FILE_PATH_LITERAL("jvm.config"));
+  const base::FilePath maven_config =
+      mvn_dir.Append(FILE_PATH_LITERAL("maven.config"));
+  const base::FilePath extensions_xml =
+      mvn_dir.Append(FILE_PATH_LITERAL("extensions.xml"));
+  const base::FilePath wrapper_dir =
+      mvn_dir.Append(FILE_PATH_LITERAL("wrapper"));
+  const base::FilePath wrapper_props =
+      wrapper_dir.Append(FILE_PATH_LITERAL("maven-wrapper.properties"));
+
+  // .mvn directory is blocked for save and programmatic write, but allowed for
+  // read.
+  EXPECT_EQ(ConfirmSensitiveEntryAccessSync(
+                permission_context(), PathInfo(mvn_dir), HandleType::kDirectory,
+                AccessTrigger::kSave),
+            SensitiveDirectoryResult::kAbort);
+  EXPECT_EQ(ConfirmSensitiveEntryAccessSync(
+                permission_context(), PathInfo(mvn_dir), HandleType::kDirectory,
+                AccessTrigger::kProgrammaticWrite),
+            SensitiveDirectoryResult::kAbort);
+  EXPECT_EQ(ConfirmSensitiveEntryAccessSync(
+                permission_context(), PathInfo(mvn_dir), HandleType::kDirectory,
+                AccessTrigger::kOpen),
+            SensitiveDirectoryResult::kAllowed);
+  EXPECT_EQ(ConfirmSensitiveEntryAccessSync(
+                permission_context(), PathInfo(mvn_dir), HandleType::kDirectory,
+                AccessTrigger::kProgrammaticRead),
+            SensitiveDirectoryResult::kAllowed);
+
+  // .mvn/jvm.config and other files/subdirectories inside .mvn are blocked for
+  // save and programmatic write, but allowed for read.
+  EXPECT_EQ(ConfirmSensitiveEntryAccessSync(
+                permission_context(), PathInfo(jvm_config), HandleType::kFile,
+                AccessTrigger::kSave),
+            SensitiveDirectoryResult::kAbort);
+  EXPECT_EQ(ConfirmSensitiveEntryAccessSync(
+                permission_context(), PathInfo(jvm_config), HandleType::kFile,
+                AccessTrigger::kProgrammaticWrite),
+            SensitiveDirectoryResult::kAbort);
+  EXPECT_EQ(ConfirmSensitiveEntryAccessSync(
+                permission_context(), PathInfo(jvm_config), HandleType::kFile,
+                AccessTrigger::kOpen),
+            SensitiveDirectoryResult::kAllowed);
+  EXPECT_EQ(ConfirmSensitiveEntryAccessSync(
+                permission_context(), PathInfo(jvm_config), HandleType::kFile,
+                AccessTrigger::kProgrammaticRead),
+            SensitiveDirectoryResult::kAllowed);
+  EXPECT_EQ(ConfirmSensitiveEntryAccessSync(
+                permission_context(), PathInfo(maven_config), HandleType::kFile,
+                AccessTrigger::kProgrammaticWrite),
+            SensitiveDirectoryResult::kAbort);
+  EXPECT_EQ(ConfirmSensitiveEntryAccessSync(
+                permission_context(), PathInfo(extensions_xml),
+                HandleType::kFile, AccessTrigger::kProgrammaticWrite),
+            SensitiveDirectoryResult::kAbort);
+  EXPECT_EQ(ConfirmSensitiveEntryAccessSync(
+                permission_context(), PathInfo(wrapper_dir),
+                HandleType::kDirectory, AccessTrigger::kProgrammaticWrite),
+            SensitiveDirectoryResult::kAbort);
+  EXPECT_EQ(ConfirmSensitiveEntryAccessSync(
+                permission_context(), PathInfo(wrapper_props),
+                HandleType::kFile, AccessTrigger::kProgrammaticWrite),
+            SensitiveDirectoryResult::kAbort);
+
+  // Case variations of .mvn and .mvn/jvm.config are blocked for save and
+  // programmatic write.
+  EXPECT_EQ(ConfirmSensitiveEntryAccessSync(
+                permission_context(),
+                PathInfo(workspace_dir.Append(FILE_PATH_LITERAL(".MVN"))),
+                HandleType::kDirectory, AccessTrigger::kProgrammaticWrite),
+            SensitiveDirectoryResult::kAbort);
+  EXPECT_EQ(ConfirmSensitiveEntryAccessSync(
+                permission_context(),
+                PathInfo(workspace_dir.Append(FILE_PATH_LITERAL(".MVN"))
+                             .Append(FILE_PATH_LITERAL("JVM.CONFIG"))),
+                HandleType::kFile, AccessTrigger::kSave),
+            SensitiveDirectoryResult::kAbort);
+  EXPECT_EQ(ConfirmSensitiveEntryAccessSync(
+                permission_context(),
+                PathInfo(workspace_dir.Append(FILE_PATH_LITERAL(".Mvn"))
+                             .Append(FILE_PATH_LITERAL("Jvm.Config"))),
+                HandleType::kFile, AccessTrigger::kProgrammaticWrite),
+            SensitiveDirectoryResult::kAbort);
+
+  // Parent workspace directory, child project files, and files named
+  // jvm.config outside of .mvn remain allowed for save and programmatic write.
+  EXPECT_EQ(ConfirmSensitiveEntryAccessSync(
+                permission_context(), PathInfo(workspace_dir),
+                HandleType::kDirectory, AccessTrigger::kSave),
+            SensitiveDirectoryResult::kAllowed);
+  EXPECT_EQ(
+      ConfirmSensitiveEntryAccessSync(
+          permission_context(),
+          PathInfo(workspace_dir.Append(FILE_PATH_LITERAL("child-project"))
+                       .Append(FILE_PATH_LITERAL("pom.xml"))),
+          HandleType::kFile, AccessTrigger::kProgrammaticWrite),
+      SensitiveDirectoryResult::kAllowed);
+  EXPECT_EQ(ConfirmSensitiveEntryAccessSync(
+                permission_context(),
+                PathInfo(workspace_dir.Append(FILE_PATH_LITERAL("jvm.config"))),
+                HandleType::kFile, AccessTrigger::kProgrammaticWrite),
+            SensitiveDirectoryResult::kAllowed);
+  EXPECT_EQ(ConfirmSensitiveEntryAccessSync(
+                permission_context(),
+                PathInfo(workspace_dir.Append(FILE_PATH_LITERAL(".mvn2"))
+                             .Append(FILE_PATH_LITERAL("jvm.config"))),
+                HandleType::kFile, AccessTrigger::kProgrammaticWrite),
+            SensitiveDirectoryResult::kAllowed);
+  EXPECT_EQ(ConfirmSensitiveEntryAccessSync(
+                permission_context(),
+                PathInfo(workspace_dir.Append(FILE_PATH_LITERAL(".mvn_other"))
+                             .Append(FILE_PATH_LITERAL("jvm.config"))),
+                HandleType::kFile, AccessTrigger::kProgrammaticWrite),
             SensitiveDirectoryResult::kAllowed);
 }
 
@@ -1851,6 +2210,16 @@ TEST_F(ChromeFileSystemAccessPermissionContextTest,
       {chrome::DIR_USER_DATA, nullptr, true, false},
       {base::DIR_HOME, FILE_PATH_LITERAL(".ssh"), true, false},
       {base::DIR_HOME, FILE_PATH_LITERAL(".gnupg"), true, false},
+      {base::DIR_HOME, FILE_PATH_LITERAL(".config"), true, false},
+      {base::DIR_HOME, FILE_PATH_LITERAL(".cache"), true, false},
+      {base::DIR_HOME, FILE_PATH_LITERAL(".bash_profile"), true, false},
+      {base::DIR_HOME, FILE_PATH_LITERAL(".bash_login"), true, false},
+      {base::DIR_HOME, FILE_PATH_LITERAL(".bashrc"), true, false},
+      {base::DIR_HOME, FILE_PATH_LITERAL(".profile"), true, false},
+      {base::DIR_HOME, FILE_PATH_LITERAL(".zshenv"), true, false},
+      {base::DIR_HOME, FILE_PATH_LITERAL(".zprofile"), true, false},
+      {base::DIR_HOME, FILE_PATH_LITERAL(".zshrc"), true, false},
+      {base::DIR_HOME, FILE_PATH_LITERAL(".zlogin"), true, false},
 
 #if BUILDFLAG(IS_WIN)
       {base::DIR_PROGRAM_FILES, nullptr, true, false},
@@ -1864,6 +2233,7 @@ TEST_F(ChromeFileSystemAccessPermissionContextTest,
 #endif
 
 #if BUILDFLAG(IS_MAC)
+      {kNoBasePathKey, FILE_PATH_LITERAL("/dev"), true, false},
       {base::DIR_APP_DATA, nullptr, true, false},
       {chrome::DIR_OUTER_BUNDLE, nullptr, true, false},
       {base::DIR_HOME, FILE_PATH_LITERAL("Applications"), true, false},
@@ -1884,13 +2254,16 @@ TEST_F(ChromeFileSystemAccessPermissionContextTest,
       {kNoBasePathKey, FILE_PATH_LITERAL("/sys"), true, false},
       {kNoBasePathKey, FILE_PATH_LITERAL("/boot"), true, false},
       {kNoBasePathKey, FILE_PATH_LITERAL("/etc"), true, false},
-      {base::DIR_HOME, FILE_PATH_LITERAL(".config"), true, false},
       {base::DIR_HOME, FILE_PATH_LITERAL(".dbus"), true, false},
+      {base::DIR_HOME, FILE_PATH_LITERAL(".local/share"), true, false},
+      {base::DIR_HOME, FILE_PATH_LITERAL(".fonts.conf"), true, false},
+      {base::DIR_HOME, FILE_PATH_LITERAL(".fonts.conf.d"), true, false},
+      {base::DIR_HOME, FILE_PATH_LITERAL(".pki"), true, false},
+      {base::DIR_CACHE, nullptr, true, false},
 #endif
 
 #if BUILDFLAG(IS_ANDROID)
       {base::DIR_ANDROID_APP_DATA, nullptr, true, false},
-      {base::DIR_CACHE, nullptr, true, false},
 #endif
   };
 
@@ -5540,3 +5913,138 @@ TEST_F(ChromeFileSystemAccessPermissionContextTest,
       SensitiveDirectoryResult::kAllowed);
 }
 #endif  // !BUILDFLAG(IS_CHROMEOS)
+
+#if BUILDFLAG(SAFE_BROWSING_DOWNLOAD_PROTECTION)
+namespace {
+
+class MockDownloadProtectionService
+    : public safe_browsing::DownloadProtectionService {
+ public:
+  explicit MockDownloadProtectionService(
+      safe_browsing::SafeBrowsingServiceImpl* sb_service)
+      : safe_browsing::DownloadProtectionService(sb_service) {
+    SetEnabled(true);
+  }
+
+  MOCK_METHOD(void,
+              CheckFileSystemAccessWrite,
+              (std::unique_ptr<content::FileSystemAccessWriteItem> item,
+               safe_browsing::CheckDownloadCallback callback),
+              (override));
+};
+
+class SafeBrowsingServiceWithMockDownloadProtection
+    : public safe_browsing::TestSafeBrowsingService {
+ public:
+  SafeBrowsingServiceWithMockDownloadProtection() {
+    services_delegate_ =
+        safe_browsing::ServicesDelegate::CreateForTest(this, this);
+  }
+
+  MockDownloadProtectionService* mock_download_protection_service() const {
+    return mock_download_protection_service_;
+  }
+
+  void ShutDown() {
+    mock_download_protection_service_ = nullptr;
+    safe_browsing::TestSafeBrowsingService::ShutDown();
+  }
+
+ protected:
+  ~SafeBrowsingServiceWithMockDownloadProtection() override = default;
+
+  bool CanCreateDownloadProtectionService() override { return true; }
+
+  safe_browsing::DownloadProtectionService* CreateDownloadProtectionService()
+      override {
+    auto* service = new MockDownloadProtectionService(this);
+    mock_download_protection_service_ = service;
+    return service;
+  }
+
+ private:
+  raw_ptr<MockDownloadProtectionService> mock_download_protection_service_ =
+      nullptr;
+};
+
+}  // namespace
+
+// Regression test for b/503201581.
+// Verifies that when the initiating RenderProcessHost is already destroyed
+// (e.g. popup teardown during close), PerformAfterWriteChecks still populates
+// item->browser_context from the permission context's profile and runs the
+// Safe Browsing download check instead of failing open with UNKNOWN.
+TEST_F(ChromeFileSystemAccessPermissionContextTest,
+       PerformAfterWriteChecks_MissingRenderProcessHost) {
+  auto sb_service =
+      base::MakeRefCounted<SafeBrowsingServiceWithMockDownloadProtection>();
+  TestingBrowserProcess::GetGlobal()->SetSafeBrowsingService(sb_service.get());
+  sb_service->Initialize();
+  ASSERT_TRUE(sb_service->mock_download_protection_service());
+
+  auto item = std::make_unique<content::FileSystemAccessWriteItem>();
+  item->target_file_path = temp_dir_.GetPath().AppendASCII("test.exe");
+  item->full_path = temp_dir_.GetPath().AppendASCII("test.exe.crswap");
+  item->sha256_hash = "hash";
+  item->size = 100;
+  item->frame_url = GURL("https://example.com/popup");
+  // Use a non-existent child process ID so RenderProcessHost::FromID returns
+  // nullptr, simulating popup renderer teardown.
+  const content::GlobalRenderFrameHostId kDeadFrameId(999999, 999999);
+  item->initiating_frame_id = kDeadFrameId;
+
+  EXPECT_CALL(*sb_service->mock_download_protection_service(),
+              CheckFileSystemAccessWrite(testing::_, testing::_))
+      .WillOnce([&](std::unique_ptr<content::FileSystemAccessWriteItem> item,
+                    safe_browsing::CheckDownloadCallback callback) {
+        EXPECT_EQ(item->browser_context, profile());
+        std::move(callback).Run(safe_browsing::DownloadCheckResult::DANGEROUS);
+      });
+
+  base::test::TestFuture<
+      ChromeFileSystemAccessPermissionContext::AfterWriteCheckResult>
+      future;
+  permission_context()->PerformAfterWriteChecks(std::move(item), kDeadFrameId,
+                                                future.GetCallback());
+
+  EXPECT_EQ(
+      future.Get(),
+      ChromeFileSystemAccessPermissionContext::AfterWriteCheckResult::kBlock);
+
+  sb_service->ShutDown();
+  TestingBrowserProcess::GetGlobal()->SetSafeBrowsingService(nullptr);
+}
+
+TEST_F(ChromeFileSystemAccessPermissionContextTest,
+       PerformAfterWriteChecks_DestroyedPermissionContextFailsClosed) {
+  auto sb_service =
+      base::MakeRefCounted<SafeBrowsingServiceWithMockDownloadProtection>();
+  TestingBrowserProcess::GetGlobal()->SetSafeBrowsingService(sb_service.get());
+  sb_service->Initialize();
+  ASSERT_TRUE(sb_service->mock_download_protection_service());
+
+  auto temp_permission_context =
+      std::make_unique<ChromeFileSystemAccessPermissionContext>(profile());
+
+  auto item = std::make_unique<content::FileSystemAccessWriteItem>();
+  item->target_file_path = temp_dir_.GetPath().AppendASCII("test.exe");
+  item->full_path = temp_dir_.GetPath().AppendASCII("test.exe.crswap");
+  const content::GlobalRenderFrameHostId kDeadFrameId(999999, 999999);
+
+  base::test::TestFuture<
+      ChromeFileSystemAccessPermissionContext::AfterWriteCheckResult>
+      future;
+  temp_permission_context->PerformAfterWriteChecks(
+      std::move(item), kDeadFrameId, future.GetCallback());
+
+  // Destroy the permission context before the posted UI thread task runs.
+  temp_permission_context.reset();
+
+  EXPECT_EQ(
+      future.Get(),
+      ChromeFileSystemAccessPermissionContext::AfterWriteCheckResult::kBlock);
+
+  sb_service->ShutDown();
+  TestingBrowserProcess::GetGlobal()->SetSafeBrowsingService(nullptr);
+}
+#endif  // BUILDFLAG(SAFE_BROWSING_DOWNLOAD_PROTECTION)

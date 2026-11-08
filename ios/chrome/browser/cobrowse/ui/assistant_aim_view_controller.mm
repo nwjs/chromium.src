@@ -27,6 +27,7 @@ const CGFloat kBarricadeTapeHeight = 6.0;
 
 constexpr CGFloat kInputPlateMargin = 16.0f;
 constexpr CGFloat kTitleVerticalMargin = 12.0;
+constexpr CGFloat kHeaderTopPadding = 16.0f;
 constexpr CGFloat kHeaderCenteringVerticalMargin = 16.0;
 constexpr CGFloat kThresholdForHistoryDismissal = 0.001;
 constexpr CGFloat kThresholdForClosedState = 0.12;
@@ -53,6 +54,7 @@ constexpr CGFloat kThresholdForCompleteVisibility = 0.3;
   AssistantAIMHeaderView* _headerView;
   NSLayoutConstraint* _headerTopMargin;
   NSLayoutConstraint* _inputPlateBottomMargin;
+  NSLayoutConstraint* _inputViewFadeBottomMargin;
   CGRect _keyboardFrameInWindow;
   AssistantAIMHistoryViewController* _historyViewController;
   AssistantAIMZeroStateViewController* _zeroStateViewController;
@@ -93,13 +95,17 @@ constexpr CGFloat kThresholdForCompleteVisibility = 0.3;
   [self traitsDidChange];
 }
 
+- (void)viewSafeAreaInsetsDidChange {
+  [super viewSafeAreaInsetsDidChange];
+  [self updateInputPlateOverlap];
+}
+
 - (void)viewDidLayoutSubviews {
   [super viewDidLayoutSubviews];
   [_inputViewController.view layoutIfNeeded];
-  _fadeGradient.frame = _inputViewFade.bounds;
-  // `updateInputPlateOverlap` early returns if `IsChromeNextIaEnabled()` is
-  // true.
   [self updateInputPlateOverlap];
+  [self.view layoutIfNeeded];
+  _fadeGradient.frame = _inputViewFade.bounds;
   [self updateWebViewInsets];
 }
 
@@ -157,8 +163,7 @@ constexpr CGFloat kThresholdForCompleteVisibility = 0.3;
   // This ensures the header end up centered in the collapsed state.
   _headerTopMargin.constant =
       kHeaderCenteringVerticalMargin +
-      effectPercentage *
-          (kTitleVerticalMargin - kHeaderCenteringVerticalMargin);
+      effectPercentage * (kHeaderTopPadding - kHeaderCenteringVerticalMargin);
 
   _inputViewController.view.alpha = effectPercentage;
   _webStateView.alpha = effectPercentage;
@@ -239,9 +244,12 @@ constexpr CGFloat kThresholdForCompleteVisibility = 0.3;
 
   WKWebView* wkWebView = [self findWKWebViewInView:_webStateView];
 
-  // Allow overscroll for the main scroll view and sub-scroll views (e.g.
-  // iframes) if they are descendants of the web view.
-  BOOL isDescendant = [scrollView isDescendantOfView:wkWebView];
+  // Allow overscroll for the main scroll view, sub-scroll views (e.g.
+  // iframes), and history scroll views so the bottom sheet expands to its
+  // largest detent before inner content scrolls.
+  BOOL isDescendant =
+      [scrollView isDescendantOfView:wkWebView] ||
+      [scrollView isDescendantOfView:_historyViewController.view];
   if (!isDescendant) {
     return NO;
   }
@@ -255,7 +263,8 @@ constexpr CGFloat kThresholdForCompleteVisibility = 0.3;
 
   BOOL sheetMovementForLargestDetent =
       isInLargestDetent && isAtTop && draggingDown;
-  BOOL sheetMovementForSmallerDetents = !isInLargestDetent && isAtTop;
+  BOOL sheetMovementForSmallerDetents =
+      !isInLargestDetent && (isAtTop || !draggingDown);
 
   if (sheetMovementForLargestDetent || sheetMovementForSmallerDetents) {
     return YES;
@@ -278,6 +287,9 @@ constexpr CGFloat kThresholdForCompleteVisibility = 0.3;
   ]];
 
   if (_inputViewFade) {
+    _inputViewFadeBottomMargin = [_inputViewFade.bottomAnchor
+        constraintEqualToAnchor:_inputViewController.view.bottomAnchor
+                       constant:kInputPlateMargin];
     [NSLayoutConstraint activateConstraints:@[
       [_inputViewFade.topAnchor
           constraintEqualToAnchor:_inputViewController.view.topAnchor],
@@ -285,9 +297,7 @@ constexpr CGFloat kThresholdForCompleteVisibility = 0.3;
           constraintEqualToAnchor:self.view.leadingAnchor],
       [_inputViewFade.trailingAnchor
           constraintEqualToAnchor:self.view.trailingAnchor],
-      [_inputViewFade.bottomAnchor
-          constraintEqualToAnchor:_inputViewController.view.bottomAnchor
-                         constant:kInputPlateMargin],
+      _inputViewFadeBottomMargin,
     ]];
   }
 
@@ -622,18 +632,23 @@ constexpr CGFloat kThresholdForCompleteVisibility = 0.3;
                    completion:nil];
 }
 
-// Updates the input plate's bottom margin in the non-ChromeNext fallback flow.
+// Updates the input plate's bottom margin to stay above the bottom safe area
+// and any overlapping keyboard frame.
 - (void)updateInputPlateOverlap {
+  CGFloat defaultBottomMargin =
+      MAX(kInputPlateMargin, self.view.safeAreaInsets.bottom);
   if (CGRectIsEmpty(_keyboardFrameInWindow)) {
-    _inputPlateBottomMargin.constant = -kInputPlateMargin;
+    _inputPlateBottomMargin.constant = -defaultBottomMargin;
+    _inputViewFadeBottomMargin.constant = defaultBottomMargin;
     return;
   }
   CGRect keyboardFrameInView = [self.view convertRect:_keyboardFrameInWindow
                                              fromView:nil];
   CGFloat overlap =
       CGRectGetMaxY(self.view.bounds) - CGRectGetMinY(keyboardFrameInView);
-  CGFloat bottomMargin = MAX(kInputPlateMargin, overlap + kInputPlateMargin);
+  CGFloat bottomMargin = MAX(defaultBottomMargin, overlap + kInputPlateMargin);
   _inputPlateBottomMargin.constant = -bottomMargin;
+  _inputViewFadeBottomMargin.constant = kInputPlateMargin;
 }
 
 // Updates the web view insets to prevent content from being hidden by the input
@@ -733,7 +748,7 @@ constexpr CGFloat kThresholdForCompleteVisibility = 0.3;
 
   _headerTopMargin =
       [_headerView.topAnchor constraintEqualToAnchor:self.view.topAnchor
-                                            constant:kTitleVerticalMargin];
+                                            constant:kHeaderTopPadding];
   [NSLayoutConstraint activateConstraints:@[
     _headerTopMargin,
     [_headerView.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],

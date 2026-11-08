@@ -201,11 +201,6 @@ public class TabPersistentStoreTest {
         public void requestToShowTab(Tab tab, @TabSelectionType int type) {}
 
         @Override
-        public boolean isTabModelRestored() {
-            return true;
-        }
-
-        @Override
         public @Nullable Profile getProfile(boolean offTheRecord) {
             return getModel(offTheRecord).getProfile();
         }
@@ -215,7 +210,6 @@ public class TabPersistentStoreTest {
         public final CallbackHelper initializedCallback = new CallbackHelper();
         public final CallbackHelper detailsReadCallback = new CallbackHelper();
         public final CallbackHelper stateLoadedCallback = new CallbackHelper();
-        public final CallbackHelper stateMergedCallback = new CallbackHelper();
         public final CallbackHelper listWrittenCallback = new CallbackHelper();
         public final ArrayList<TabRestoredDetails> details = new ArrayList<>();
 
@@ -250,11 +244,6 @@ public class TabPersistentStoreTest {
         @Override
         public void onStateLoaded() {
             stateLoadedCallback.notifyCalled();
-        }
-
-        @Override
-        public void onStateMerged() {
-            stateMergedCallback.notifyCalled();
         }
 
         @Override

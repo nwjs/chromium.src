@@ -37,6 +37,7 @@
 #include "third_party/blink/renderer/platform/graphics/skia/skia_utils.h"
 #include "third_party/blink/renderer/platform/graphics/unaccelerated_static_bitmap_image.h"
 #include "third_party/blink/renderer/platform/scheduler/public/thread_scheduler.h"
+#include "third_party/blink/renderer/platform/wtf/functional.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "third_party/skia/include/core/SkImage.h"
 
@@ -97,6 +98,7 @@ void GPUCanvasContext::Trace(Visitor* visitor) const {
   visitor->Trace(swap_texture_);
   ScriptWrappable::Trace(visitor);
   CanvasRenderingContext::Trace(visitor);
+  WebGPUSwapBufferProvider::Client::Trace(visitor);
 }
 
 // CanvasRenderingContext implementation
@@ -225,7 +227,9 @@ GPUCanvasContext::GetOrCreateCanvasNon2DResourceProvider() {
         resource_provider_ = CanvasNon2DResourceProvider::CreateForWebGPU(
             Host()->Size(), GetSharedImageFormat(), GetAlphaType(),
             GetColorSpace(), swap_buffers_->GetHDRMetadata(),
-            swap_buffers_->GetSharedImageUsagesForDisplay(), Host());
+            swap_buffers_->GetSharedImageUsagesForDisplay(),
+            blink::BindOnce(&CanvasRenderingContextHost::NotifyGpuContextLost,
+                            WrapWeakPersistent(Host())));
       }
       Host()->UpdateMemoryUsage();
       provider = resource_provider_.get();
@@ -890,6 +894,7 @@ bool GPUCanvasContext::CopyTextureToResourceProvider(
     CanvasNon2DResourceProvider* resource_provider) const {
 #if BUILDFLAG(USE_DAWN)
   DCHECK(resource_provider);
+  CHECK(!resource_provider->IsSoftware());
 
   gfx::Size size(texture.GetWidth(), texture.GetHeight());
   DCHECK_EQ(resource_provider->Size(), size);

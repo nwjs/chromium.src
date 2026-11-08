@@ -32,6 +32,10 @@ source_set("impl") {
   deps = [
     ":digital_credentials",
     "//base",
+    "//chrome/app:generated_resources",
+    "//chrome/app/vector_icons",
+    "//chrome/browser:resources",
+    "//chrome/browser/net",
     "//chrome/browser/optimization_guide",
     "//chrome/browser/profiles:profile",
     "//components/keyed_service/content",
@@ -51,7 +55,6 @@ source_set("impl") {
   } else {
     sources += [ "digital_identity_provider_desktop.cc" ]
     deps += [
-      "//chrome/browser/ui",
       "//chrome/browser/ui/views/accessibility",
       "//chrome/browser/ui/views/digital_credentials",
       "//components/constrained_window",
@@ -61,8 +64,6 @@ source_set("impl") {
       "//ui/views",
     ]
   }
-
-  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
 }
 
 source_set("unit_tests") {

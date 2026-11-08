@@ -556,7 +556,7 @@ void ContextualTasksComposeboxHandler::OnTaskChanged() {
     // is disabled or already inactive.
     if (auto* session_handle = GetContextualSessionHandle()) {
       session_handle->ClearSubmittedContextTokens();
-      session_handle->set_persisted_tabs({});
+      session_handle->SetPersistedTabs({});
       session_handle->set_deselected_tabs_urls({});
       session_handle->SetRestoredTabs({});
     }
@@ -621,7 +621,7 @@ void ContextualTasksComposeboxHandler::InitializeInputStateModel() {
       }
 
       input_state_subscription_ =
-          input_state_model_->subscribe(base::BindRepeating(
+          input_state_model_->Subscribe(base::BindRepeating(
               &ContextualTasksComposeboxHandler::OnInputStateChanged,
               weak_ptr_factory_.GetWeakPtr()));
 

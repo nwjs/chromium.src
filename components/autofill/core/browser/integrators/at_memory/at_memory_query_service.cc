@@ -5,6 +5,8 @@
 #include "components/autofill/core/browser/integrators/at_memory/at_memory_query_service.h"
 
 #include <algorithm>
+#include <array>
+#include <cstddef>
 #include <functional>
 #include <iterator>
 #include <memory>
@@ -16,8 +18,11 @@
 
 #include "base/containers/extend.h"
 #include "base/containers/flat_set.h"
+#include "base/containers/span.h"
 #include "base/containers/to_vector.h"
+#include "base/feature_list.h"
 #include "base/functional/bind.h"
+#include "base/functional/callback_helpers.h"
 #include "base/i18n/break_iterator.h"
 #include "base/i18n/case_conversion.h"
 #include "base/i18n/rtl.h"
@@ -36,14 +41,18 @@
 #include "components/autofill/core/browser/integrators/at_memory/memory_data_type.h"
 #include "components/autofill/core/browser/integrators/at_memory/memory_data_type_util.h"
 #include "components/autofill/core/browser/logging/log_manager.h"
+#include "components/autofill/core/common/autofill_debug_features.h"
 #include "components/autofill/core/common/autofill_features.h"
 #include "components/autofill/core/common/autofill_internals/log_message.h"
 #include "components/autofill/core/common/autofill_internals/logging_scope.h"
+#include "components/autofill/core/common/autofill_prefs.h"
 #include "components/autofill/core/common/dense_set.h"
+#include "components/personal_context/core/context_memory_error.h"
 #include "components/personal_context/core/personal_context_debug_features.h"
 #include "components/personal_context/core/personal_context_service.h"
 #include "components/personal_context/proto/context_memory_service.pb.h"
 #include "components/personal_context/proto/features/at_memory.pb.h"
+#include "components/prefs/pref_service.h"
 #include "net/base/network_change_notifier.h"
 #include "third_party/abseil-cpp/absl/container/flat_hash_map.h"
 #include "third_party/abseil-cpp/absl/functional/overload.h"
@@ -240,17 +249,11 @@ int CountNonEmptyMetadata(const MemorySearchResult& result) {
 // Primary logic for resolving duplicates.
 // Returns `true` if `first` should be preferred over `second`.
 // Specifically:
-// 1. Pick explicitly saved local Autofill entities first.
-// 2. Otherwise pick the one with more valid metadata fields.
-// 3. In case of a tie, prioritize Autofill-sourced provider if possible.
+// 1. Pick the one with more valid metadata fields.
+// 2. Prioritize Autofill-sourced provider if possible.
+// 3. In case of a tie, pick the result with higher confidence score.
 bool PreferFirstResult(const MemorySearchResult& first,
                        const MemorySearchResult& second) {
-  bool first_is_local = first.is_local;
-  bool second_is_local = second.is_local;
-  if (first_is_local != second_is_local) {
-    return first_is_local;
-  }
-
   int first_metadata = CountNonEmptyMetadata(first);
   int second_metadata = CountNonEmptyMetadata(second);
   if (first_metadata != second_metadata) {
@@ -263,16 +266,14 @@ bool PreferFirstResult(const MemorySearchResult& first,
     return first_is_autofill;
   }
 
-  return true;
+  return first.confidence_score >= second.confidence_score;
 }
 
 // Deduplicates search results in `MemorySearchResults`.
 // For Autofill AI entities, we use merge constraints to evaluate if results
 // correspond to the same underlying entity. When duplicates are found, only the
 // "better" result is kept. The better result is determined by
-// `PreferFirstResult()`, which prioritizes locally stored entities (like
-// addresses or credit cards) and falls back to comparing which result has
-// more complete metadata. The `sources` from the discarded duplicate are
+// `PreferFirstResult()`. The `sources` from the discarded duplicate are
 // intentionally not merged, as we only want to keep the actually relevant
 // sources that link to the correct "manage" UI surface for the kept entry.
 void DeduplicateResults(std::vector<MemorySearchResult>& results,
@@ -693,7 +694,14 @@ AtMemoryQueryService::AtMemoryQueryService(
       locale_(locale),
       eligibility_metrics_tracker_(personal_context_eligibility_service,
                                    subscription_eligibility_service,
-                                   pref_service) {}
+                                   pref_service) {
+  if (pref_service &&
+      base::FeatureList::IsEnabled(
+          features::debug::kAtMemoryResetShortcutPromoPrefOnStartup)) {
+    pref_service->ClearPref(
+        prefs::kAutofillAtMemoryShortcutPromoImpressionCount);
+  }
+}
 
 AtMemoryQueryService::~AtMemoryQueryService() = default;
 

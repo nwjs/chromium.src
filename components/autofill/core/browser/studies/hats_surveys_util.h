@@ -38,6 +38,17 @@ using HatsSurveyStringData = std::map<std::string, std::string>;
 void MaybeTriggerFormSubmissionHatsSurveys(AutofillClient& client,
                                            const FormStructure& submitted_form);
 
+// Returns `count` as a string if it is below `limit`, otherwise `limit` as a
+// string with an appended "+". This prevents user identification using specific
+// rare values. Values below `limit` are expected to occur frequently enough to
+// naturally avoid the issue.
+std::string FormatCountForHats(int count, int limit);
+
+// Collects client context product-specific data (PSD) for personalization and
+// trust surveys.
+HatsSurveyStringData CollectPersonalizationAndTrustClientContextData(
+    const AutofillClient& client);
+
 // Keeps track of the most recent user interactions in the context of
 // `AutofillAiManager`. This information is used for collecting the
 // product-specific data (PSD) of HaTS surveys.

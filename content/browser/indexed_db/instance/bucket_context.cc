@@ -86,6 +86,7 @@ namespace {
 constexpr base::FeatureParam<SqliteRolloutStage>::Option
     kIdbSqliteOnDiskRolloutStages[] = {
         {SqliteRolloutStage::kUseLevelDbOnly, "UseLevelDbOnly"},
+        {SqliteRolloutStage::kUseLevelDbForNewStores, "UseLevelDbForNewStores"},
         {SqliteRolloutStage::kUseLevelDbAsControl, "UseLevelDbAsControl"},
         {SqliteRolloutStage::kUseSqliteForNewStores, "UseSqliteForNewStores"},
         {SqliteRolloutStage::kUseSqliteOnly, "UseSqliteOnly"},
@@ -97,7 +98,7 @@ BASE_FEATURE_ENUM_PARAM(SqliteRolloutStage,
                         kIdbSqliteOnDiskRolloutStage,
                         &features::kIdbSqliteOnDiskRollout,
                         "stage",
-                        SqliteRolloutStage::kUseLevelDbOnly,
+                        SqliteRolloutStage::kUseLevelDbForNewStores,
                         &kIdbSqliteOnDiskRolloutStages);
 
 // Time after the last connection to a database is closed and when we destroy
@@ -248,6 +249,13 @@ bool DoesLevelDbStoreExist(const storage::BucketLocator& bucket_locator,
       data_path.Append(GetLevelDBFileName(bucket_locator)));
 }
 
+bool DoesAnySqliteDbExist(const storage::BucketLocator& bucket_locator,
+                          const base::FilePath& data_path) {
+  CHECK(!data_path.empty());
+  return DoesAnyDatabaseExistInDirectory(
+      data_path.Append(GetSqliteDbDirectory(bucket_locator)));
+}
+
 base::FilePath GetLevelDbExperimentalTagPath(
     const storage::BucketLocator& bucket_locator,
     const base::FilePath& data_path) {
@@ -262,9 +270,12 @@ bool ShouldUseSqlite(SqliteRolloutStage stage,
                      const base::FilePath& data_path) {
   switch (stage) {
     case SqliteRolloutStage::kUseLevelDbOnly:
-      return false;
     case SqliteRolloutStage::kUseLevelDbAsControl:
       return false;
+    case SqliteRolloutStage::kUseLevelDbForNewStores:
+      // Use SQLite only if it already exists and LevelDB does not exist.
+      return !DoesLevelDbStoreExist(bucket_locator, data_path) &&
+             DoesAnySqliteDbExist(bucket_locator, data_path);
     case SqliteRolloutStage::kUseSqliteForNewStores:
     case SqliteRolloutStage::kMigrateDataToSqliteGentle:
       return !DoesLevelDbStoreExist(bucket_locator, data_path);
@@ -282,6 +293,7 @@ std::string_view DetermineHistogramSuffix(
   }
   switch (stage) {
     case SqliteRolloutStage::kUseLevelDbOnly:
+    case SqliteRolloutStage::kUseLevelDbForNewStores:
     case SqliteRolloutStage::kMigrateDataToSqliteGentle:
     case SqliteRolloutStage::kUseSqliteOnly:
       return ".OnDisk";
@@ -347,7 +359,8 @@ BucketContext::~BucketContext() {
       this);
 
   delegate_.on_ready_for_destruction.Reset();
-  ForceClose(/*doom=*/false);
+  LogBackingStoreResetReason(BackingStoreResetReason::kContextShutdown);
+  DoForceClose(/*doom=*/false, {});
   ResetBackingStore();
 }
 
@@ -372,6 +385,8 @@ uint64_t BucketContext::ReadUsageFromDisk(
 }
 
 void BucketContext::ForceClose(bool doom) {
+  LogBackingStoreResetReason(doom ? BackingStoreResetReason::kBucketDeletion
+                                  : BackingStoreResetReason::kInternalsPage);
   DoForceClose(doom, doom ? "Force close delete origin" : "Unknown");
 }
 
@@ -649,6 +664,8 @@ void BucketContext::RunTasks() {
       OnDatabaseError(&db, status, {});
       return;
     }
+    LogStatus(status, "IndexedDB.BackingStore.DatabaseError",
+              GetHistogramSuffix());
 
     if (db.CanBeDestroyed()) {
       db_it = databases_.erase(db_it);
@@ -661,6 +678,7 @@ void BucketContext::RunTasks() {
           kExpediteBackingStoreShutdownSwitch);
   if (CanClose() &&
       (closing_stage_ == ClosingState::kClosed || kExpediteShutdown)) {
+    LogBackingStoreResetReason(BackingStoreResetReason::kNoConnections);
     // The "gentle" migration path means migration when the store is being
     // closed due to a lack of open connections. Force closing or browser
     // shutdown won't trigger it.
@@ -1062,9 +1080,11 @@ void BucketContext::SetSqliteRolloutStageForTesting(SqliteRolloutStage stage) {
 }
 
 void BucketContext::PerformAndVerifySqliteMigrationForTesting() {
-  const_cast<SqliteRolloutStage&>(sqlite_rollout_stage_) =
-      SqliteRolloutStage::kMigrateDataToSqliteGentle;
-  verify_migration_for_testing_ = true;
+  if (!in_memory()) {
+    const_cast<SqliteRolloutStage&>(sqlite_rollout_stage_) =
+        SqliteRolloutStage::kMigrateDataToSqliteGentle;
+    verify_migration_for_testing_ = true;
+  }
 }
 
 // static
@@ -1090,6 +1110,7 @@ void BucketContext::HandleBackingStoreCorruption(
       base::BindOnce(&level_db::BackingStore::HandleCorruption, data_path_,
                      bucket_locator(), sanitized_error_message);
 
+  LogBackingStoreResetReason(BackingStoreResetReason::kCorruption);
   DoForceClose(/*doom=*/false, sanitized_error_message);
   // In order to successfully delete the corrupted DB, the open handle must
   // first be closed.
@@ -1104,6 +1125,8 @@ void BucketContext::OnDatabaseError(Database* database,
                                     Status status,
                                     const std::string& message) {
   CHECK(!status.ok());
+  LogStatus(status, "IndexedDB.BackingStore.DatabaseError",
+            GetHistogramSuffix());
 
   if (status.IsIOError()) {
     quota_manager_proxy_->OnClientWriteFailed(bucket_info_.storage_key);
@@ -1126,6 +1149,7 @@ void BucketContext::OnDatabaseError(Database* database,
       HandleBackingStoreCorruption(error_message);
       return;
     }
+    LogBackingStoreResetReason(BackingStoreResetReason::kDatabaseError);
     DoForceClose(/*doom=*/false, error_message);
   }
 }
@@ -1529,6 +1553,16 @@ void BucketContext::ResetBackingStore(bool migrate) {
   if (receivers_.empty() && delegate().on_ready_for_destruction) {
     std::move(delegate().on_ready_for_destruction).Run();
   }
+}
+
+void BucketContext::LogBackingStoreResetReason(BackingStoreResetReason reason) {
+  if (!backing_store_) {
+    return;
+  }
+  base::UmaHistogramEnumeration(
+      base::StrCat(
+          {"IndexedDB.BackingStore.ResetReason", GetHistogramSuffix()}),
+      reason);
 }
 
 void BucketContext::OnReceiverDisconnected() {

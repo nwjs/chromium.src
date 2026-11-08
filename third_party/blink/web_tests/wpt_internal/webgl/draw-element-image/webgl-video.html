@@ -1,6 +1,6 @@
 <!DOCTYPE HTML>
 <head>
-  <title>texElementImage2D paints video frames</title>
+  <title>texElementSubImage2D paints video frames</title>
   <link rel="help" href="https://github.com/WICG/html-in-canvas">
   <link rel="stylesheet" href="/wpt_internal/resources/canvas-draw-element/styles.css" />
   <script src="/resources/testharness.js"></script>
@@ -9,7 +9,7 @@
 <body>
 
   <canvas id="canvas" width="100" height="100" content=drawable>
-    <div id="child" class="draw-element-wrapper">
+    <div drawable id="child" class="draw-element-wrapper">
       <video width="100" height="100" src="/wpt_internal/resources/canvas-draw-element/rgb100.webm" autoplay loop muted></video>
     </div>
   </canvas>

@@ -11,6 +11,7 @@
 
 class AimEligibilityService;
 class CobrowseBrowserAgent;
+class PrefService;
 class TemplateURLService;
 @protocol SceneCommands;
 
@@ -23,13 +24,8 @@ class TemplateURLService;
     initWithTemplateURLService:(TemplateURLService*)templateURLService
          aimEligibilityService:(AimEligibilityService*)aimEligibilityService
           cobrowseBrowserAgent:(CobrowseBrowserAgent*)cobrowseBrowserAgent
+                   prefService:(PrefService*)prefService
                      incognito:(BOOL)incognito NS_DESIGNATED_INITIALIZER;
-
-// Convenience initializer when aimEligibilityService or cobrowseBrowserAgent
-// are not available.
-- (instancetype)initWithTemplateURLService:
-                    (TemplateURLService*)templateURLService
-                                 incognito:(BOOL)incognito;
 
 - (instancetype)init NS_UNAVAILABLE;
 

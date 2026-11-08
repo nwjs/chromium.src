@@ -5,6 +5,7 @@
 
 import setup_modules  # pylint: disable=unused-import
 
+
 import chromium_src.tools.metrics.private_metrics.private_metrics_codegen as private_metrics_codegen
 
 HEADER = private_metrics_codegen.Template(

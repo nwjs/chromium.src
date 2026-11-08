@@ -4,7 +4,7 @@
 
 #include "components/autofill/core/browser/payments/offer_notification_handler.h"
 
-#include <stdint.h>
+#include <string>
 
 #include "base/check.h"
 #include "base/feature_list.h"
@@ -60,6 +60,13 @@ void OfferNotificationHandler::UpdateOfferNotificationVisibility(
     return;
   }
 
+  // Hidden tabs are skipped so that they cannot consume the once-per-offer
+  // automatic show on behalf of the tab the user is actually looking at. This
+  // is re-evaluated when the tab becomes visible again.
+  if (!client.GetPaymentsAutofillClient()->IsTabVisibleForOfferNotification()) {
+    return;
+  }
+
   const GURL url = client.GetLastCommittedPrimaryMainFrameURL();
 
   if (ValidOfferExistsForUrl(url)) {
@@ -72,26 +79,18 @@ void OfferNotificationHandler::UpdateOfferNotificationVisibility(
     const AutofillOfferData* const offer = offer_manager_->GetOfferForUrl(url);
     CHECK(IsOfferValid(offer));
     const std::string& offer_id = offer->GetOfferId();
-    bool offer_id_has_shown_before = shown_notification_ids_.contains(offer_id);
+    bool offer_id_has_shown_before =
+        offer_manager_->HasShownNotification(offer_id);
     client.GetPaymentsAutofillClient()->UpdateOfferNotification(
         *offer,
         {
             .notification_has_been_shown = offer_id_has_shown_before,
             .show_notification_automatically = !offer_id_has_shown_before,
         });
-    shown_notification_ids_.insert(offer_id);
+    offer_manager_->MarkNotificationShown(offer_id);
   } else {
     client.GetPaymentsAutofillClient()->DismissOfferNotification();
   }
-}
-
-void OfferNotificationHandler::ClearShownNotificationIdForTesting() {
-  shown_notification_ids_.clear();
-}
-
-void OfferNotificationHandler::AddShownNotificationIdForTesting(
-    std::string shown_notification_id) {
-  shown_notification_ids_.insert(std::move(shown_notification_id));
 }
 
 bool OfferNotificationHandler::ValidOfferExistsForUrl(const GURL& url) {

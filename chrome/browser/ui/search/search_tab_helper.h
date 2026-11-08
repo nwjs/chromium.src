@@ -9,23 +9,24 @@
 #include <string>
 #include <vector>
 
+#include "base/callback_list.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
 #include "chrome/browser/search/instant_service_observer.h"
-#include "chrome/browser/ui/omnibox/omnibox_tab_helper.h"
 #include "chrome/browser/ui/search/search_ipc_router.h"
 #include "chrome/common/search/instant_types.h"
 #include "chrome/common/search/ntp_logging_events.h"
 #include "components/ntp_tiles/ntp_tile_impression.h"
 #include "components/omnibox/common/omnibox_focus_state.h"
 #include "content/public/browser/reload_type.h"
+#include "content/public/browser/visibility.h"
 #include "content/public/browser/web_contents_observer.h"
-#include "content/public/browser/web_contents_user_data.h"
+#include "ui/base/unowned_user_data/scoped_unowned_user_data.h"
 
-#if BUILDFLAG(IS_ANDROID)
-#error "Instant is only used on desktop";
+#if !BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/ui/omnibox/omnibox_tab_helper.h"
 #endif
 
 namespace content {
@@ -37,6 +38,10 @@ namespace gfx {
 class Image;
 }
 
+namespace tabs {
+class TabInterface;
+}  // namespace tabs
+
 class GURL;
 class InstantService;
 class Profile;
@@ -46,15 +51,27 @@ class SkBitmap;
 // This is the browser-side, per-tab implementation of the embeddedSearch API
 // (see https://www.chromium.org/embeddedsearch).
 class SearchTabHelper : public content::WebContentsObserver,
-                        public content::WebContentsUserData<SearchTabHelper>,
                         public InstantServiceObserver,
-                        public SearchIPCRouter::Delegate,
-                        public OmniboxTabHelper::Observer {
+                        public SearchIPCRouter::Delegate
+// TODO(b/565031232): Support OmniboxTabHelper for SearchTabHelper on Android.
+// Right now, Android does not require it to get embeddedSearch API running
+// yet, but will be required to support certain APIs.
+#if !BUILDFLAG(IS_ANDROID)
+    ,
+                        public OmniboxTabHelper::Observer
+#endif
+{
  public:
+  DECLARE_USER_DATA(SearchTabHelper);
+
+  SearchTabHelper(tabs::TabInterface& tab, content::WebContents* web_contents);
   SearchTabHelper(const SearchTabHelper&) = delete;
   SearchTabHelper& operator=(const SearchTabHelper&) = delete;
 
   ~SearchTabHelper() override;
+
+  static SearchTabHelper* From(tabs::TabInterface* tab);
+  static SearchTabHelper* FromWebContents(content::WebContents* web_contents);
 
   static void BindEmbeddedSearchConnecter(
       mojo::PendingAssociatedReceiver<search::mojom::EmbeddedSearchConnector>
@@ -70,10 +87,7 @@ class SearchTabHelper : public content::WebContentsObserver,
   SearchIPCRouter& ipc_router_for_testing() { return ipc_router_; }
 
  private:
-  friend class content::WebContentsUserData<SearchTabHelper>;
   friend class SearchIPCRouterTest;
-
-  explicit SearchTabHelper(content::WebContents* web_contents);
 
   // Overridden from contents::WebContentsObserver:
   void DidStartNavigation(
@@ -81,6 +95,17 @@ class SearchTabHelper : public content::WebContentsObserver,
   void TitleWasSet(content::NavigationEntry* entry) override;
   void NavigationEntryCommitted(
       const content::LoadCommittedDetails& load_details) override;
+
+  // Android has no Browser / InstantController yet, so the logic is replicated
+  // here. On desktop those call OnTabActivated() / OnTabDeactivated() on tab
+  // selection and push the NTP theme and Most Visited info to the Instant NTP
+  // when it commits.
+#if BUILDFLAG(IS_ANDROID)
+  // Equivalent to Browser::OnTabActivated() / OnTabDeactivated().
+  void OnVisibilityChanged(content::Visibility visibility) override;
+  // Equivalent to InstantController::TabObserver::NavigationEntryCommitted.
+  void UpdateInfoForInstantNtp();
+#endif
 
   // Overridden from SearchIPCRouter::Delegate:
   void FocusOmnibox(bool focus) override;
@@ -93,12 +118,14 @@ class SearchTabHelper : public content::WebContentsObserver,
   void MostVisitedInfoChanged(
       const InstantMostVisitedInfo& most_visited_info) override;
 
+#if !BUILDFLAG(IS_ANDROID)
   // Overridden from OmniboxTabHelper::Observer:
   void OnOmniboxInputStateChanged() override;
   void OnOmniboxInputInProgress(bool in_progress) override {}
   void OnOmniboxFocusChanged(OmniboxFocusState state,
                              OmniboxFocusChangeReason reason) override;
   void OnOmniboxPopupVisibilityChanged(bool popup_is_open) override {}
+#endif
 
   void OnBitmapFetched(int match_index,
                        const std::string& image_url,
@@ -125,7 +152,12 @@ class SearchTabHelper : public content::WebContentsObserver,
 
   bool is_setting_title_ = false;
 
-  WEB_CONTENTS_USER_DATA_KEY_DECL();
+#if BUILDFLAG(IS_ANDROID)
+  content::Visibility last_visibility_ = content::Visibility::HIDDEN;
+#endif
+
+  std::vector<base::CallbackListSubscription> tab_subscriptions_;
+  ui::ScopedUnownedUserData<SearchTabHelper> scoped_unowned_user_data_;
 
   base::WeakPtrFactory<SearchTabHelper> weak_factory_{this};
 };

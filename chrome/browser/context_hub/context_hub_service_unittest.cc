@@ -10,20 +10,24 @@
 #include "base/memory/scoped_refptr.h"
 #include "base/scoped_observation.h"
 #include "base/strings/string_number_conversions.h"
+#include "base/test/bind.h"
 #include "base/test/gmock_callback_support.h"
 #include "base/test/power_monitor_test.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
 #include "base/test/test_future.h"
+#include "base/values.h"
 #include "build/build_config.h"
 #include "chrome/browser/context_hub/auto_todos/auto_todo_entry.h"
 #include "chrome/browser/context_hub/auto_todos/in_memory_auto_todos_store.h"
 #include "chrome/browser/context_hub/features.h"
 #include "chrome/browser/context_hub/memory_bank/in_memory_memory_bank.h"
+#include "chrome/browser/context_hub/prefs.h"
 #include "chrome/browser/context_hub/storage/context_hub_backend.h"
 #include "chrome/browser/context_hub/tab_group_store/in_memory_tab_group_store.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_tab_visit_tracker.h"
 #include "chrome/browser/ui/webui/context_hub/context_hub.mojom-features.h"
+#include "chrome/browser/ui/webui/context_hub/context_hub.mojom.h"
 #include "chrome/test/base/testing_profile.h"
 #include "components/optimization_guide/core/model_execution/test/mock_remote_model_executor.h"
 #include "components/optimization_guide/core/model_quality/model_quality_log_entry.h"
@@ -33,6 +37,9 @@
 #include "components/personal_context/core/context_memory_error.h"
 #include "components/personal_context/core/mock_personal_context_service.h"
 #include "components/personal_context/proto/features/auto_todos.pb.h"
+#include "components/prefs/pref_change_registrar.h"
+#include "components/prefs/pref_service.h"
+#include "components/prefs/scoped_user_pref_update.h"
 #include "components/saved_tab_groups/public/saved_tab_group.h"
 #include "components/saved_tab_groups/public/saved_tab_group_tab.h"
 #include "components/saved_tab_groups/test_support/fake_tab_group_sync_service.h"
@@ -48,11 +55,17 @@
 #include "content/public/test/web_contents_tester.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "ui/base/unowned_user_data/scoped_unowned_user_data.h"
 #include "ui/base/unowned_user_data/unowned_user_data_host.h"
 #include "url/gurl.h"
 
 #if !BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/tab_list/mock_tab_list_interface.h"
+#include "chrome/browser/tab_list/tab_list_interface.h"
 #include "chrome/browser/tab_list/tab_removed_reason.h"
+#include "chrome/browser/ui/browser_manager_service.h"
+#include "chrome/browser/ui/browser_manager_service_factory.h"
+#include "chrome/browser/ui/browser_window/test/mock_browser_window_interface.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
 #endif
@@ -88,6 +101,21 @@ class MockServiceObserver : public ContextHubService::Observer {
   MOCK_METHOD(void,
               OnThirdPartyAutoTodosGenerationStateChanged,
               (bool),
+              (override));
+  MOCK_METHOD(void,
+              OnMemoryBankEntryAdded,
+              (const MemoryBankEntry&),
+              (override));
+  MOCK_METHOD(void,
+              OnMemoryBankEntryUpdated,
+              (int64_t,
+               const std::vector<std::string>&,
+               const std::optional<std::string>&,
+               const std::optional<std::string>&),
+              (override));
+  MOCK_METHOD(void,
+              OnMemoryBankEntriesDeleted,
+              (const std::vector<int64_t>&),
               (override));
 };
 
@@ -212,6 +240,53 @@ class ContextHubServiceTest : public testing::Test {
     response.SerializeToString(any_response.mutable_value());
     return optimization_guide::OptimizationGuideModelExecutionResult(
         base::ok(std::move(any_response)), nullptr);
+  }
+
+  // Builds a TopicFeedback for `topic_id` with every field populated.
+  static browser::context_hub::mojom::TopicFeedbackPtr MakeTopicFeedback(
+      const std::string& topic_id) {
+    using browser::context_hub::mojom::TopicDefectCategory;
+    const base::Time now = base::Time::Now();
+
+    auto feedback = browser::context_hub::mojom::TopicFeedback::New();
+    feedback->id = topic_id;
+    feedback->snapshot = browser::context_hub::mojom::TopicSnapshot::New(
+        "Topic title", "🔵", "Topic overview.",
+        std::vector<base::Time>{now - base::Hours(2), now - base::Hours(1)},
+        now);
+    feedback->rating = browser::context_hub::mojom::TopicRating::kDisliked;
+    feedback->defects = {TopicDefectCategory::kTooBroad,
+                         TopicDefectCategory::kOther};
+    feedback->comment = "Feedback comment.";
+    feedback->query_feedbacks.push_back(
+        browser::context_hub::mojom::TopicQueryFeedback::New(0, "Query one",
+                                                             true));
+    feedback->query_feedbacks.push_back(
+        browser::context_hub::mojom::TopicQueryFeedback::New(2, "Query two",
+                                                             false));
+    feedback->rejected_visits = {now - base::Hours(1)};
+    feedback->duplicate_of =
+        browser::context_hub::mojom::DuplicateTopicSnapshot::New(
+            "topic_dup", "Duplicate title",
+            std::vector<base::Time>{now - base::Days(1)});
+    return feedback;
+  }
+
+  // Creates a new service on `profile_`, as happens on browser startup.
+  std::unique_ptr<ContextHubService> CreateFreshService() {
+    return std::make_unique<ContextHubService>(
+        &profile_, identity_test_environment_.identity_manager(),
+        &mock_personal_context_service_, &mock_remote_model_executor_,
+        &fake_tab_group_sync_service_, &mock_page_content_extraction_service_,
+        std::make_unique<InMemoryMemoryBank>(),
+        std::make_unique<InMemoryTabGroupStore>(),
+        /*context_hub_backend=*/nullptr,
+        /*auto_todos_store=*/nullptr);
+  }
+
+  const base::DictValue& GetTopicFeedbackPref() const {
+    return profile_.GetPrefs()->GetDict(
+        prefs::kContextHubTopicsFishfoodFeedback);
   }
 
   base::test::ScopedFeatureList scoped_feature_list_;
@@ -349,10 +424,11 @@ TEST_F(ContextHubServiceTest,
   first_party_entry.description = "Existing Description";
   first_party_entry.importance_score = 0.85f;
   first_party_entry.status = AutoTodoEntry::Status::kCompleted;
-  first_party_entry.data = FirstPartyData{
-      .source_references = {{.url = GURL("https://mail.google.com/123"),
-                             .subject = "Test Subject"}},
-      .actionable_url = GURL("https://example.com/action")};
+  first_party_entry.data =
+      FirstPartyData{.source_references = {GmailReference{
+                         .url = GURL("https://mail.google.com/123"),
+                         .subject = "Test Subject"}},
+                     .actionable_url = GURL("https://example.com/action")};
 
   base::test::TestFuture<bool> add_fp_future;
   service_.UpdateAutoTodo(std::move(first_party_entry),
@@ -471,12 +547,145 @@ TEST_F(ContextHubServiceTest,
   ASSERT_TRUE(fp_data);
   EXPECT_EQ(fp_data->actionable_url, GURL("https://example.com/action"));
   ASSERT_EQ(fp_data->source_references.size(), 2u);
-  EXPECT_EQ(fp_data->source_references[0].url,
+  ASSERT_TRUE(
+      std::holds_alternative<GmailReference>(fp_data->source_references[0]));
+  EXPECT_EQ(std::get<GmailReference>(fp_data->source_references[0]).url,
             GURL("https://mail.google.com/123"));
-  EXPECT_EQ(fp_data->source_references[0].subject, "Test Subject");
-  EXPECT_EQ(fp_data->source_references[1].url,
+  EXPECT_EQ(std::get<GmailReference>(fp_data->source_references[0]).subject,
+            "Test Subject");
+  ASSERT_TRUE(
+      std::holds_alternative<GmailReference>(fp_data->source_references[1]));
+  EXPECT_EQ(std::get<GmailReference>(fp_data->source_references[1]).url,
             GURL("https://mail.google.com/456"));
-  EXPECT_EQ(fp_data->source_references[1].subject, "Additional Subject");
+  EXPECT_EQ(std::get<GmailReference>(fp_data->source_references[1]).subject,
+            "Additional Subject");
+}
+
+TEST_F(ContextHubServiceTest,
+       GenerateFirstPartyAutoTodos_ChromeHistoryReferences) {
+  const base::Time visit_time =
+      base::Time::FromSecondsSinceUnixEpoch(1700000000) +
+      base::Nanoseconds(500000000);
+
+  // Add an existing first-party Chrome History todo to the cache.
+  AutoTodoEntry existing_history_entry;
+  existing_history_entry.id = "todo_history_1";
+  existing_history_entry.title = "Existing History Todo";
+  existing_history_entry.description = "History Description";
+  existing_history_entry.importance_score = 0.75f;
+  existing_history_entry.status = AutoTodoEntry::Status::kActive;
+  existing_history_entry.data = FirstPartyData{
+      .source_references = {
+          ChromeHistoryEntry{
+              .url = GURL("https://example.com/history1"),
+              .title = "History Page 1",
+              .visit_timestamp = visit_time,
+          },
+          ChromeHistoryEntry{
+              .url = GURL("https://example.com/history_pre_epoch"),
+              .title = "Corrupted Pre-Epoch Page",
+              .visit_timestamp = base::Time::UnixEpoch() - base::Seconds(10),
+          },
+      }};
+
+  base::test::TestFuture<bool> add_future;
+  service_.UpdateAutoTodo(std::move(existing_history_entry),
+                          add_future.GetCallback());
+  EXPECT_TRUE(add_future.Get());
+
+  // Prepare a mock response.
+  personal_context::proto::AutoTodosResponse expected_response;
+  personal_context::proto::AutoTodoItem* todo = expected_response.add_todos();
+  todo->set_id("todo_history_1");
+  todo->set_title("Existing History Todo");
+  todo->set_description("History Description");
+  todo->set_importance_score(0.75f);
+  personal_context::proto::ChromeHistoryEntry* ref1 =
+      todo->add_source_references()->mutable_chrome_history_entry();
+  ref1->set_url("https://example.com/history1");
+  ref1->set_title("History Page 1");
+  ref1->mutable_visit_timestamp()->set_seconds(1700000000);
+  ref1->mutable_visit_timestamp()->set_nanos(500000000);
+  personal_context::proto::ChromeHistoryEntry* ref2 =
+      todo->add_source_references()->mutable_chrome_history_entry();
+  ref2->set_url("https://example.com/history2");
+  ref2->set_title("History Page 2");
+
+  personal_context::proto::Any any_response;
+  expected_response.SerializeToString(any_response.mutable_value());
+
+  EXPECT_CALL(
+      mock_personal_context_service_,
+      FetchContext(personal_context::proto::CONTEXT_MEMORY_FEATURE_AUTO_TODOS,
+                   _, _, _))
+      .WillOnce(
+          [&](personal_context::proto::ContextMemoryFeature feature,
+              const google::protobuf::MessageLite& request_metadata,
+              const personal_context::ContextMemoryRequestOptions& options,
+              personal_context::FetchContextCallback callback) {
+            const auto& auto_todos_request =
+                static_cast<const personal_context::proto::AutoTodosRequest&>(
+                    request_metadata);
+            ASSERT_EQ(auto_todos_request.existing_todos_size(), 1);
+            const personal_context::proto::AutoTodoItem& existing =
+                auto_todos_request.existing_todos(0);
+            EXPECT_EQ(existing.id(), "todo_history_1");
+            EXPECT_FALSE(existing.has_actionable_url());
+            ASSERT_EQ(existing.source_references_size(), 2);
+            ASSERT_TRUE(
+                existing.source_references(0).has_chrome_history_entry());
+            const personal_context::proto::ChromeHistoryEntry& history_ref =
+                existing.source_references(0).chrome_history_entry();
+            EXPECT_EQ(history_ref.url(), "https://example.com/history1");
+            EXPECT_EQ(history_ref.title(), "History Page 1");
+            EXPECT_EQ(history_ref.visit_timestamp().seconds(), 1700000000);
+            EXPECT_EQ(history_ref.visit_timestamp().nanos(), 500000000);
+
+            ASSERT_TRUE(
+                existing.source_references(1).has_chrome_history_entry());
+            const personal_context::proto::ChromeHistoryEntry&
+                pre_epoch_history_ref =
+                    existing.source_references(1).chrome_history_entry();
+            EXPECT_EQ(pre_epoch_history_ref.url(),
+                      "https://example.com/history_pre_epoch");
+            EXPECT_EQ(pre_epoch_history_ref.title(),
+                      "Corrupted Pre-Epoch Page");
+            EXPECT_FALSE(pre_epoch_history_ref.has_visit_timestamp());
+
+            std::move(callback).Run(personal_context::FetchContextResult(
+                base::ok(std::move(any_response))));
+          });
+
+  base::test::TestFuture<bool> future;
+  service_.GenerateFirstPartyAutoTodos(future.GetCallback());
+  EXPECT_TRUE(future.Get());
+
+  base::test::TestFuture<std::vector<AutoTodoEntry>> get_future;
+  service_.GetAutoTodos(get_future.GetCallback());
+  const std::vector<AutoTodoEntry>& items = get_future.Get();
+  ASSERT_EQ(items.size(), 1u);
+  EXPECT_EQ(items[0].id, "todo_history_1");
+  EXPECT_TRUE(items[0].is_first_party());
+  EXPECT_TRUE(items[0].HasChromeHistoryReferences());
+  const auto* fp_data = std::get_if<FirstPartyData>(&items[0].data);
+  ASSERT_TRUE(fp_data);
+  EXPECT_FALSE(fp_data->actionable_url.has_value());
+  ASSERT_EQ(fp_data->source_references.size(), 2u);
+  ASSERT_TRUE(std::holds_alternative<ChromeHistoryEntry>(
+      fp_data->source_references[0]));
+  const auto& parsed_ref1 =
+      std::get<ChromeHistoryEntry>(fp_data->source_references[0]);
+  EXPECT_EQ(parsed_ref1.url, GURL("https://example.com/history1"));
+  EXPECT_EQ(parsed_ref1.title, "History Page 1");
+  EXPECT_EQ(parsed_ref1.visit_timestamp, visit_time);
+
+  ASSERT_TRUE(std::holds_alternative<ChromeHistoryEntry>(
+      fp_data->source_references[1]));
+  const auto& parsed_ref2 =
+      std::get<ChromeHistoryEntry>(fp_data->source_references[1]);
+  EXPECT_EQ(parsed_ref2.url, GURL("https://example.com/history2"));
+  EXPECT_EQ(parsed_ref2.title, "History Page 2");
+  EXPECT_TRUE(parsed_ref2.visit_timestamp.is_null());
 }
 
 TEST_F(ContextHubServiceTest,
@@ -1393,14 +1602,199 @@ TEST_F(ContextHubServiceTest, GetAllMemoryBankCollections) {
   EXPECT_THAT(coll_future.Get(), testing::ElementsAre("Recipes", "Research"));
 }
 
+#if !BUILDFLAG(IS_ANDROID)
+optimization_guide::proto::AnnotatedPageContent FakeApc(
+    const std::string& title,
+    const std::string& text) {
+  using optimization_guide::proto::ContentNode;
+  optimization_guide::proto::AnnotatedPageContent apc;
+  apc.mutable_main_frame_data()->set_title(title);
+  ContentNode* root_node = apc.mutable_root_node();
+  auto* root_attributes = root_node->mutable_content_attributes();
+  root_attributes->set_attribute_type(
+      optimization_guide::proto::CONTENT_ATTRIBUTE_ROOT);
+  ContentNode* child_node = root_node->add_children_nodes();
+  auto* child_attributes = child_node->mutable_content_attributes();
+  child_attributes->set_attribute_type(
+      optimization_guide::proto::CONTENT_ATTRIBUTE_TEXT);
+  auto* text_data = child_attributes->mutable_text_data();
+  text_data->set_text_content(text);
+  return apc;
+}
+
+TEST_F(ContextHubServiceTest,
+       ExtractsPageContentAndSavesToMemoryBankWhenSyncFlagEnabled) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeatures(
+      /*enabled_features=*/{features::kContextHub, features::kMemoryBanks,
+                            features::kContextHubTabContextSyncStorage},
+      /*disabled_features=*/{features::kContextHubDatabaseStorage});
+  const GURL example_url = GURL("https://example.com");
+  std::unique_ptr<content::WebContents> web_contents =
+      CreateEligibleTab(example_url);
+  content::WebContents* raw_web_contents = web_contents.get();
+  std::string page_title = "Title";
+  std::string apc_text = "APC text with enough words to form a passage";
+  content::WebContentsTester::For(raw_web_contents)
+      ->SetTitle(base::UTF8ToUTF16(page_title));
+
+  auto mock_browser =
+      std::make_unique<testing::NiceMock<MockBrowserWindowInterface>>();
+  testing::NiceMock<MockTabListInterface> mock_tab_list;
+  ui::ScopedUnownedUserData<TabListInterface> tab_list_registration(
+      mock_browser->GetUnownedUserDataHost(), mock_tab_list);
+  tabs::MockTabInterface mock_tab;
+  ON_CALL(mock_tab, GetContents())
+      .WillByDefault(testing::Return(raw_web_contents));
+  ON_CALL(mock_tab_list, GetActiveTab())
+      .WillByDefault(testing::Return(&mock_tab));
+  ON_CALL(mock_tab_list, GetAllTabs())
+      .WillByDefault(
+          testing::Return(std::vector<tabs::TabInterface*>{&mock_tab}));
+  BrowserManagerServiceFactory::GetForProfile(&profile_)->AddBrowser(
+      std::move(mock_browser));
+
+  EXPECT_CALL(mock_page_content_extraction_service_,
+              GetExtractedPageContentAndEligibilityForPageAsync(
+                  testing::Ref(raw_web_contents->GetPrimaryPage()), _, true))
+      .WillOnce([&page_title, &apc_text](
+                    content::Page& page,
+                    page_content_annotations::PageContentExtractionService::
+                        GetExtractedPageContentAndEligibilityCallback callback,
+                    bool trigger_if_not_cached) {
+        page_content_annotations::ExtractedPageContentResult result;
+        optimization_guide::proto::AnnotatedPageContent apc =
+            FakeApc(page_title, apc_text);
+        result.page_content = base::MakeRefCounted<
+            page_content_annotations::RefCountedAnnotatedPageContent>(
+            std::move(apc));
+        std::move(callback).Run(std::move(result));
+      });
+
+  base::test::TestFuture<bool> save_future;
+  service_.SaveMemoryBankEntry(
+      MemoryBankEntry(MemoryBankType::kTab, example_url, page_title,
+                      "some text that should be ignored"),
+      save_future.GetCallback());
+  EXPECT_TRUE(save_future.Get());
+
+  base::test::TestFuture<std::vector<MemoryBankEntry>> get_entries_future;
+  service_.GetAllEntries(get_entries_future.GetCallback());
+  auto entries = get_entries_future.Get();
+  ASSERT_EQ(entries.size(), 1u);
+  EXPECT_EQ(entries[0].url, example_url);
+  ASSERT_TRUE(entries[0].selected_text.has_value());
+  EXPECT_TRUE(entries[0].selected_text->contains(apc_text));
+  EXPECT_TRUE(entries[0].selected_text->contains(page_title));
+  EXPECT_TRUE(entries[0].selected_text->contains(example_url.spec()));
+}
+#endif
+
+TEST_F(ContextHubServiceTest,
+       SaveMemoryBankEntry_StandardFallbackWhenSyncFlagDisabled) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeatures(
+      /*enabled_features=*/{features::kContextHub, features::kMemoryBanks},
+      /*disabled_features=*/{features::kContextHubTabContextSyncStorage,
+                             features::kContextHubDatabaseStorage});
+  const GURL example_url = GURL("https://example.com");
+  std::unique_ptr<content::WebContents> web_contents =
+      CreateEligibleTab(example_url);
+  std::string given_inner_text = "Inner text provided for a tab";
+
+  EXPECT_CALL(mock_page_content_extraction_service_,
+              GetExtractedPageContentAndEligibilityForPageAsync(_, _, _))
+      .Times(0);
+
+  base::test::TestFuture<bool> save_future;
+  service_.SaveMemoryBankEntry(
+      MemoryBankEntry(MemoryBankType::kTab, example_url, "Title",
+                      given_inner_text),
+      save_future.GetCallback());
+  EXPECT_TRUE(save_future.Get());
+
+  base::test::TestFuture<std::vector<MemoryBankEntry>> get_entries_future;
+  service_.GetAllEntries(get_entries_future.GetCallback());
+  auto entries = get_entries_future.Get();
+  ASSERT_EQ(entries.size(), 1u);
+  EXPECT_EQ(entries[0].url, example_url);
+  EXPECT_EQ(entries[0].selected_text, given_inner_text);
+}
+
+TEST_F(ContextHubServiceTest,
+       SaveMemoryBankEntry_TabNotFoundFallbackWhenSyncFlagEnabled) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeatures(
+      /*enabled_features=*/{features::kContextHub, features::kMemoryBanks,
+                            features::kContextHubTabContextSyncStorage},
+      /*disabled_features=*/{features::kContextHubDatabaseStorage});
+  const GURL example_url = GURL("https://nonexistent-tab.example.com");
+
+  EXPECT_CALL(mock_page_content_extraction_service_,
+              GetExtractedPageContentAndEligibilityForPageAsync(_, _, _))
+      .Times(0);
+
+  base::test::TestFuture<bool> save_future;
+  service_.SaveMemoryBankEntry(
+      MemoryBankEntry(MemoryBankType::kTab, example_url, "Title", "Given text"),
+      save_future.GetCallback());
+  EXPECT_TRUE(save_future.Get());
+
+  base::test::TestFuture<std::vector<MemoryBankEntry>> get_entries_future;
+  service_.GetAllEntries(get_entries_future.GetCallback());
+  auto entries = get_entries_future.Get();
+  ASSERT_EQ(entries.size(), 1u);
+  EXPECT_EQ(entries[0].url, example_url);
+  EXPECT_FALSE(entries[0].selected_text.has_value());
+}
+
+TEST_F(ContextHubServiceTest, MemoryBankObserverNotified) {
+  MockServiceObserver observer;
+  base::ScopedObservation<ContextHubService, ContextHubService::Observer>
+      observation(&observer);
+  observation.Observe(&service_);
+
+  EXPECT_CALL(observer,
+              OnMemoryBankEntryAdded(AllOf(
+                  Field(&MemoryBankEntry::tab_title, "Title"),
+                  Field(&MemoryBankEntry::url, GURL("https://example.com")))));
+  base::test::TestFuture<bool> save_future;
+  service_.SaveMemoryBankEntry(
+      MemoryBankEntry(MemoryBankType::kTab, GURL("https://example.com"),
+                      "Title", "Page text"),
+      save_future.GetCallback());
+  EXPECT_TRUE(save_future.Get());
+
+  base::test::TestFuture<std::vector<MemoryBankEntry>> get_entries_future;
+  service_.GetAllEntries(get_entries_future.GetCallback());
+  auto entries = get_entries_future.Get();
+  ASSERT_EQ(1u, entries.size());
+  int64_t id = entries[0].id;
+
+  EXPECT_CALL(observer,
+              OnMemoryBankEntryUpdated(
+                  id, ElementsAre("tag1"),
+                  testing::Optional(std::string("Updated Note")),
+                  testing::Optional(std::string("Updated Collection"))));
+  base::test::TestFuture<bool> update_future;
+  service_.UpdateMemoryBankEntryAnnotations(id, {"tag1"}, "Updated Note",
+                                            "Updated Collection",
+                                            update_future.GetCallback());
+  EXPECT_TRUE(update_future.Get());
+
+  EXPECT_CALL(observer, OnMemoryBankEntriesDeleted(ElementsAre(id)));
+  base::test::TestFuture<bool> delete_future;
+  service_.DeleteEntries({id}, delete_future.GetCallback());
+  EXPECT_TRUE(delete_future.Get());
+}
+
 TEST_F(ContextHubServiceTest, GroupTabs_NoTabs) {
   base::test::TestFuture<std::vector<TabGroupEntry>, std::vector<TabData>,
                          std::string>
       future;
-  service_.GroupTabs(
-      {}, "",
-      future.GetCallback<std::vector<TabGroupEntry>, std::vector<TabData>,
-                         std::string>());
+  service_.GroupTabs({}, "",
+                     future.GetCallback<std::vector<TabGroupEntry>,
+                                        std::vector<TabData>, std::string>());
   auto [groups, ungrouped_tabs, text_response] = future.Take();
   EXPECT_TRUE(groups.empty());
   EXPECT_TRUE(ungrouped_tabs.empty());
@@ -1454,10 +1848,9 @@ TEST_F(ContextHubServiceTest, GroupTabs_WithTabs) {
   base::test::TestFuture<std::vector<TabGroupEntry>, std::vector<TabData>,
                          std::string>
       future;
-  service_.GroupTabs(
-      std::move(input_tabs), "",
-      future.GetCallback<std::vector<TabGroupEntry>, std::vector<TabData>,
-                         std::string>());
+  service_.GroupTabs(std::move(input_tabs), "",
+                     future.GetCallback<std::vector<TabGroupEntry>,
+                                        std::vector<TabData>, std::string>());
   auto [groups, ungrouped_tabs, text_response] = future.Take();
 
   ASSERT_EQ(groups.size(), 2u);
@@ -1561,10 +1954,9 @@ TEST_F(ContextHubServiceTest, GroupTabs_WithConfirmedGroupsPayload) {
   base::test::TestFuture<std::vector<TabGroupEntry>, std::vector<TabData>,
                          std::string>
       future;
-  service_.GroupTabs(
-      std::move(ungrouped_tabs), "regroup",
-      future.GetCallback<std::vector<TabGroupEntry>, std::vector<TabData>,
-                         std::string>());
+  service_.GroupTabs(std::move(ungrouped_tabs), "regroup",
+                     future.GetCallback<std::vector<TabGroupEntry>,
+                                        std::vector<TabData>, std::string>());
   auto [groups, ungrouped, text_response] = future.Take();
 
   ASSERT_EQ(groups.size(), 1u);
@@ -1604,10 +1996,9 @@ TEST_F(ContextHubServiceTest, GroupTabs_MESError) {
   base::test::TestFuture<std::vector<TabGroupEntry>, std::vector<TabData>,
                          std::string>
       future;
-  service_.GroupTabs(
-      std::move(input_tabs), "",
-      future.GetCallback<std::vector<TabGroupEntry>, std::vector<TabData>,
-                         std::string>());
+  service_.GroupTabs(std::move(input_tabs), "",
+                     future.GetCallback<std::vector<TabGroupEntry>,
+                                        std::vector<TabData>, std::string>());
   auto [groups, ungrouped_tabs, text_response] = future.Take();
 
   EXPECT_TRUE(groups.empty());
@@ -1650,6 +2041,78 @@ TEST_F(ContextHubServiceTest, GroupTabs_MESError) {
   EXPECT_EQ(throttled_text,
             "Unable to group tabs due to high server load. Please try again "
             "later.");
+}
+
+TEST_F(ContextHubServiceTest, ReplaceTabGroups_ReplacesExisting) {
+  TabGroupEntry old_group;
+  old_group.label = "Old";
+  old_group.tab_ids = {1, 2};
+  base::test::TestFuture<void> seed_future;
+  service_.ReplaceTabGroups({old_group}, seed_future.GetCallback());
+  ASSERT_TRUE(seed_future.Wait());
+
+  TabGroupEntry group_a;
+  group_a.label = "A";
+  group_a.tab_ids = {3, 4};
+  group_a.tabs = {{3, "Tab 3", GURL("https://example3.com")},
+                  {4, "Tab 4", GURL("https://example4.com")}};
+  TabGroupEntry group_b;
+  group_b.label = "B";
+  group_b.tab_ids = {5};
+  base::test::TestFuture<void> replace_future;
+  service_.ReplaceTabGroups({group_a, group_b}, replace_future.GetCallback());
+  ASSERT_TRUE(replace_future.Wait());
+
+  base::test::TestFuture<std::vector<TabGroupEntry>> stored_groups_future;
+  service_.GetTabGroups(stored_groups_future.GetCallback());
+  EXPECT_THAT(
+      stored_groups_future.Get(),
+      ElementsAre(
+          FieldsAre(testing::Ne(""), "A", ElementsAre(3, 4),
+                    ElementsAre(FieldsAre(3, "Tab 3", _, _, _),
+                                FieldsAre(4, "Tab 4", _, _, _)),
+                    testing::Ne(base::Time()), testing::Ne(base::Time())),
+          FieldsAre(testing::Ne(""), "B", ElementsAre(5), IsEmpty(),
+                    testing::Ne(base::Time()), testing::Ne(base::Time()))));
+}
+
+TEST_F(ContextHubServiceTest, ReplaceTabGroups_EmptyClearsStore) {
+  TabGroupEntry group;
+  group.label = "Group";
+  group.tab_ids = {1, 2};
+  base::test::TestFuture<void> seed_future;
+  service_.ReplaceTabGroups({group}, seed_future.GetCallback());
+  ASSERT_TRUE(seed_future.Wait());
+
+  base::test::TestFuture<void> replace_future;
+  service_.ReplaceTabGroups({}, replace_future.GetCallback());
+  ASSERT_TRUE(replace_future.Wait());
+
+  base::test::TestFuture<std::vector<TabGroupEntry>> stored_groups_future;
+  service_.GetTabGroups(stored_groups_future.GetCallback());
+  EXPECT_TRUE(stored_groups_future.Get().empty());
+}
+
+TEST_F(ContextHubServiceTest, ReplaceTabGroups_NullStore) {
+  ContextHubService service(
+      &profile_, identity_test_environment_.identity_manager(),
+      &mock_personal_context_service_, &mock_remote_model_executor_,
+      &fake_tab_group_sync_service_, &mock_page_content_extraction_service_,
+      std::make_unique<InMemoryMemoryBank>(),
+      /*tab_group_store=*/nullptr,
+      /*context_hub_backend=*/nullptr,
+      /*auto_todos_store=*/nullptr);
+
+  TabGroupEntry group;
+  group.label = "Group";
+  group.tab_ids = {1, 2};
+  base::test::TestFuture<void> replace_future;
+  service.ReplaceTabGroups({group}, replace_future.GetCallback());
+  EXPECT_TRUE(replace_future.Wait());
+
+  base::test::TestFuture<std::vector<TabGroupEntry>> stored_groups_future;
+  service.GetTabGroups(stored_groups_future.GetCallback());
+  EXPECT_TRUE(stored_groups_future.Get().empty());
 }
 
 TEST_F(ContextHubServiceTest, AddAndGetTabGroupChatHistory) {
@@ -1744,10 +2207,9 @@ TEST_F(ContextHubServiceTest, DeleteAllTabGroups) {
   base::test::TestFuture<std::vector<TabGroupEntry>, std::vector<TabData>,
                          std::string>
       future;
-  service_.GroupTabs(
-      std::move(input_tabs), "",
-      future.GetCallback<std::vector<TabGroupEntry>, std::vector<TabData>,
-                         std::string>());
+  service_.GroupTabs(std::move(input_tabs), "",
+                     future.GetCallback<std::vector<TabGroupEntry>,
+                                        std::vector<TabData>, std::string>());
   EXPECT_TRUE(future.Wait());
 
   base::test::TestFuture<std::vector<TabGroupEntry>> stored_groups_future;
@@ -1800,6 +2262,165 @@ TEST_F(ContextHubServiceTest, DeleteTodoFeedback) {
   EXPECT_FALSE(feedbacks[0]->liked);
 }
 
+TEST_F(ContextHubServiceTest, SetTopicFeedback_RoundTripsAllFields) {
+  auto expected = MakeTopicFeedback("topic_1");
+  service_.SetTopicFeedback(expected.Clone());
+
+  auto feedbacks = service_.GetTopicFeedbacks();
+  ASSERT_EQ(1u, feedbacks.size());
+  EXPECT_TRUE(mojo::Equals(expected, feedbacks[0]));
+}
+
+TEST_F(ContextHubServiceTest, SetTopicFeedback_OmitsOptionalFields) {
+  auto expected = browser::context_hub::mojom::TopicFeedback::New();
+  expected->id = "topic_1";
+  expected->snapshot = browser::context_hub::mojom::TopicSnapshot::New(
+      "Title", /*emoji=*/"", /*overview=*/"", std::vector<base::Time>(),
+      base::Time::Now());
+  service_.SetTopicFeedback(expected.Clone());
+
+  auto feedbacks = service_.GetTopicFeedbacks();
+  ASSERT_EQ(1u, feedbacks.size());
+  EXPECT_TRUE(mojo::Equals(expected, feedbacks[0]));
+  EXPECT_EQ(browser::context_hub::mojom::TopicRating::kUnrated,
+            feedbacks[0]->rating);
+  EXPECT_TRUE(feedbacks[0]->comment.empty());
+  EXPECT_TRUE(feedbacks[0]->duplicate_of.is_null());
+}
+
+TEST_F(ContextHubServiceTest, SetTopicFeedback_IgnoresInvalid) {
+  service_.SetTopicFeedback(nullptr);
+  service_.SetTopicFeedback(MakeTopicFeedback(/*topic_id=*/""));
+  EXPECT_TRUE(service_.GetTopicFeedbacks().empty());
+}
+
+TEST_F(ContextHubServiceTest, SetTopicFeedback_StampsTimeRated) {
+  auto feedback = MakeTopicFeedback("topic_1");
+  // A stale or forged client-side value must be replaced by the browser.
+  feedback->snapshot->time_rated = base::Time::Now() - base::Days(3);
+  service_.SetTopicFeedback(std::move(feedback));
+
+  auto feedbacks = service_.GetTopicFeedbacks();
+  ASSERT_EQ(1u, feedbacks.size());
+  EXPECT_EQ(base::Time::Now(), feedbacks[0]->snapshot->time_rated);
+}
+
+TEST_F(ContextHubServiceTest, SetTopicFeedback_ReplacesExisting) {
+  service_.SetTopicFeedback(MakeTopicFeedback("topic_1"));
+
+  // A later rating replaces the earlier one wholesale, including the snapshot
+  // and any optional fields that are now unset.
+  auto updated = MakeTopicFeedback("topic_1");
+  updated->snapshot->title = "Topic title (renamed)";
+  updated->rating = browser::context_hub::mojom::TopicRating::kLiked;
+  updated->defects.clear();
+  updated->comment.clear();
+  updated->duplicate_of = nullptr;
+  service_.SetTopicFeedback(updated.Clone());
+
+  auto feedbacks = service_.GetTopicFeedbacks();
+  ASSERT_EQ(1u, feedbacks.size());
+  EXPECT_TRUE(mojo::Equals(updated, feedbacks[0]));
+}
+
+TEST_F(ContextHubServiceTest, GetTopicFeedbacks_OrderedByTopicId) {
+  service_.SetTopicFeedback(MakeTopicFeedback("topic_b"));
+  service_.SetTopicFeedback(MakeTopicFeedback("topic_a"));
+
+  auto feedbacks = service_.GetTopicFeedbacks();
+  ASSERT_EQ(2u, feedbacks.size());
+  EXPECT_EQ("topic_a", feedbacks[0]->id);
+  EXPECT_EQ("topic_b", feedbacks[1]->id);
+}
+
+TEST_F(ContextHubServiceTest, DeleteTopicFeedback) {
+  service_.SetTopicFeedback(MakeTopicFeedback("topic_1"));
+  service_.SetTopicFeedback(MakeTopicFeedback("topic_2"));
+
+  service_.DeleteTopicFeedback("topic_1");
+
+  auto feedbacks = service_.GetTopicFeedbacks();
+  ASSERT_EQ(1u, feedbacks.size());
+  EXPECT_EQ("topic_2", feedbacks[0]->id);
+}
+
+TEST_F(ContextHubServiceTest, DeleteTopicFeedback_UnknownIdDoesNotTouchPref) {
+  service_.SetTopicFeedback(MakeTopicFeedback("topic_1"));
+
+  int pref_changes = 0;
+  PrefChangeRegistrar registrar;
+  registrar.Init(profile_.GetPrefs());
+  registrar.Add(prefs::kContextHubTopicsFishfoodFeedback,
+                base::BindLambdaForTesting([&] { ++pref_changes; }));
+
+  service_.DeleteTopicFeedback("topic_missing");
+  EXPECT_EQ(0, pref_changes);
+  EXPECT_EQ(1u, service_.GetTopicFeedbacks().size());
+
+  service_.DeleteTopicFeedback("topic_1");
+  EXPECT_EQ(1, pref_changes);
+  EXPECT_TRUE(service_.GetTopicFeedbacks().empty());
+}
+
+TEST_F(ContextHubServiceTest, ClearTopicFeedbacks) {
+  service_.SetTopicFeedback(MakeTopicFeedback("topic_1"));
+  service_.SetTopicFeedback(MakeTopicFeedback("topic_2"));
+  EXPECT_EQ(2u, service_.GetTopicFeedbacks().size());
+
+  service_.ClearTopicFeedbacks();
+  EXPECT_TRUE(service_.GetTopicFeedbacks().empty());
+  EXPECT_TRUE(GetTopicFeedbackPref().empty());
+}
+
+// Parsing details are covered by TopicFeedbackConversionsTest; this checks
+// that the service skips, rather than propagates, entries the converter
+// rejects.
+TEST_F(ContextHubServiceTest, GetTopicFeedbacks_SkipsMalformedEntries) {
+  service_.SetTopicFeedback(MakeTopicFeedback("topic_ok"));
+  {
+    ScopedDictPrefUpdate update(profile_.GetPrefs(),
+                                prefs::kContextHubTopicsFishfoodFeedback);
+    // Not a dictionary.
+    update->Set("topic_not_dict", "oops");
+    // Missing the required snapshot.
+    update->Set("topic_no_snapshot",
+                base::DictValue().Set("defects", base::ListValue()));
+  }
+
+  auto feedbacks = service_.GetTopicFeedbacks();
+  ASSERT_EQ(1u, feedbacks.size());
+  EXPECT_EQ("topic_ok", feedbacks[0]->id);
+}
+
+TEST_F(ContextHubServiceTest, TopicFeedback_PersistsAcrossRestart) {
+  base::test::ScopedFeatureList fishfood_enabled;
+  fishfood_enabled.InitAndEnableFeatureWithParameters(
+      browser::context_hub::mojom::kTopics, {{"fishfood_feedback", "true"}});
+
+  auto expected = MakeTopicFeedback("topic_1");
+  service_.SetTopicFeedback(expected.Clone());
+
+  // Simulate a browser restart with the param still enabled: the rating is
+  // read back from prefs by the new service.
+  std::unique_ptr<ContextHubService> restarted = CreateFreshService();
+  auto feedbacks = restarted->GetTopicFeedbacks();
+  ASSERT_EQ(1u, feedbacks.size());
+  EXPECT_TRUE(mojo::Equals(expected, feedbacks[0]));
+}
+
+TEST_F(ContextHubServiceTest, TopicFeedback_ClearedOnStartupWhenDisabled) {
+  service_.SetTopicFeedback(MakeTopicFeedback("topic_1"));
+  ASSERT_FALSE(GetTopicFeedbackPref().empty());
+
+  // Simulate a browser restart after the fishfood param was turned off (the
+  // fixture leaves it at its default of false).
+  ASSERT_FALSE(features::kTopicsFishfoodFeedback.Get());
+  std::unique_ptr<ContextHubService> restarted = CreateFreshService();
+
+  EXPECT_TRUE(GetTopicFeedbackPref().empty());
+  EXPECT_TRUE(restarted->GetTopicFeedbacks().empty());
+}
+
 TEST_F(ContextHubServiceTest, ExecuteMemoryBankChat_Success) {
   base::test::TestFuture<bool> save_tab_future1;
   service_.SaveMemoryBankEntry(
@@ -1844,8 +2465,14 @@ TEST_F(ContextHubServiceTest, ExecuteMemoryBankChat_Success) {
         EXPECT_TRUE(request.entry_items(1).has_memory_bank_entry());
 
         optimization_guide::proto::ContextHubResponse response;
-        response.mutable_memory_bank_chat_response()->set_text_response(
-            "This is the LLM summary.");
+        auto* chat_response = response.mutable_memory_bank_chat_response();
+        chat_response->set_text_response("This is the LLM summary.");
+        // Include valid, duplicate, negative, and out-of-bounds indices.
+        chat_response->add_cited_entry_indices(1);
+        chat_response->add_cited_entry_indices(0);
+        chat_response->add_cited_entry_indices(1);
+        chat_response->add_cited_entry_indices(-1);
+        chat_response->add_cited_entry_indices(5);
 
         optimization_guide::proto::Any any_response;
         any_response.set_type_url(
@@ -1858,13 +2485,20 @@ TEST_F(ContextHubServiceTest, ExecuteMemoryBankChat_Success) {
             nullptr);
       });
 
-  base::test::TestFuture<std::optional<std::string>> future;
+  base::test::TestFuture<std::optional<std::string>,
+                         std::vector<ContextHubService::MemoryBankChatCitation>>
+      future;
   service_.ExecuteMemoryBankChat(ids, "summarize these",
                                  /*save_to_history=*/true,
                                  future.GetCallback());
-  auto result = future.Get();
-  ASSERT_TRUE(result.has_value());
-  EXPECT_EQ(result.value(), "This is the LLM summary.");
+  auto [response_text, citations] = future.Take();
+  ASSERT_TRUE(response_text.has_value());
+  EXPECT_EQ(*response_text, "This is the LLM summary.");
+  ASSERT_EQ(citations.size(), 2u);
+  EXPECT_EQ(citations[0].title, entries[1].tab_title);
+  EXPECT_EQ(citations[0].url, entries[1].url);
+  EXPECT_EQ(citations[1].title, entries[0].tab_title);
+  EXPECT_EQ(citations[1].url, entries[0].url);
   EXPECT_EQ(service_.GetMemoryBankChatHistory().size(), 2u);
 }
 
@@ -1872,7 +2506,7 @@ TEST_F(ContextHubServiceTest, ExecuteMemoryBankChat_NoSaveToHistory) {
   base::test::TestFuture<bool> save_tab_future;
   service_.SaveMemoryBankEntry(
       MemoryBankEntry(MemoryBankType::kTab, GURL("https://example.com/1"),
-                      "Title 1", "Page text 1"),
+                      /*tab_title=*/"", "Page text 1"),
       save_tab_future.GetCallback());
   EXPECT_TRUE(save_tab_future.Get());
 
@@ -1898,8 +2532,10 @@ TEST_F(ContextHubServiceTest, ExecuteMemoryBankChat_NoSaveToHistory) {
         EXPECT_EQ(request.chat_history_size(), 0);
 
         optimization_guide::proto::ContextHubResponse response;
-        response.mutable_memory_bank_chat_response()->set_text_response(
+        auto* chat_response = response.mutable_memory_bank_chat_response();
+        chat_response->set_text_response(
             "This is the LLM summary without history.");
+        chat_response->add_cited_entry_indices(0);
 
         optimization_guide::proto::Any any_response;
         any_response.set_type_url(
@@ -1912,13 +2548,18 @@ TEST_F(ContextHubServiceTest, ExecuteMemoryBankChat_NoSaveToHistory) {
             nullptr);
       });
 
-  base::test::TestFuture<std::optional<std::string>> future;
+  base::test::TestFuture<std::optional<std::string>,
+                         std::vector<ContextHubService::MemoryBankChatCitation>>
+      future;
   service_.ExecuteMemoryBankChat(ids, "summarize these",
                                  /*save_to_history=*/false,
                                  future.GetCallback());
-  auto result = future.Get();
-  ASSERT_TRUE(result.has_value());
-  EXPECT_EQ(result.value(), "This is the LLM summary without history.");
+  auto [response_text, citations] = future.Take();
+  ASSERT_TRUE(response_text.has_value());
+  EXPECT_EQ(*response_text, "This is the LLM summary without history.");
+  ASSERT_EQ(citations.size(), 1u);
+  EXPECT_EQ(citations[0].title, "https://example.com/1");
+  EXPECT_EQ(citations[0].url, GURL("https://example.com/1"));
   EXPECT_TRUE(service_.GetMemoryBankChatHistory().empty());
 }
 
@@ -1938,11 +2579,48 @@ TEST_F(ContextHubServiceTest, ExecuteMemoryBankChat_Error) {
                 nullptr);
           });
 
-  base::test::TestFuture<std::optional<std::string>> future;
+  base::test::TestFuture<std::optional<std::string>,
+                         std::vector<ContextHubService::MemoryBankChatCitation>>
+      future;
   std::vector<int64_t> ids = {100};
   service_.ExecuteMemoryBankChat(ids, "hello", /*save_to_history=*/true,
                                  future.GetCallback());
-  EXPECT_FALSE(future.Get().has_value());
+  auto [response_text, citations] = future.Take();
+  EXPECT_FALSE(response_text.has_value());
+  EXPECT_TRUE(citations.empty());
+  EXPECT_TRUE(service_.GetMemoryBankChatHistory().empty());
+
+  EXPECT_CALL(
+      mock_remote_model_executor_,
+      ExecuteModel(optimization_guide::ModelBasedCapabilityKey::kContextHub, _,
+                   _, _))
+      .WillOnce(
+          [](optimization_guide::ModelBasedCapabilityKey feature,
+             const google::protobuf::MessageLite& request_metadata,
+             const optimization_guide::ModelExecutionOptions& options,
+             optimization_guide::OptimizationGuideModelExecutionResultCallback
+                 callback) {
+            auto throttled_error = optimization_guide::
+                OptimizationGuideModelExecutionError::FromModelExecutionError(
+                    optimization_guide::OptimizationGuideModelExecutionError::
+                        ModelExecutionError::kRequestThrottled);
+            std::move(callback).Run(
+                optimization_guide::OptimizationGuideModelExecutionResult(
+                    base::unexpected(throttled_error), nullptr),
+                nullptr);
+          });
+
+  base::test::TestFuture<std::optional<std::string>,
+                         std::vector<ContextHubService::MemoryBankChatCitation>>
+      throttled_future;
+  service_.ExecuteMemoryBankChat(ids, "hello", /*save_to_history=*/true,
+                                 throttled_future.GetCallback());
+  auto [throttled_text, throttled_citations] = throttled_future.Take();
+  EXPECT_EQ(throttled_text,
+            "Unable to generate response due to high server load. Please try "
+            "again later.");
+  EXPECT_TRUE(throttled_citations.empty());
+  EXPECT_TRUE(service_.GetMemoryBankChatHistory().empty());
 }
 
 TEST_F(ContextHubServiceTest, AddAndGetMemoryBankChatHistory) {
@@ -2263,8 +2941,8 @@ TEST_F(ContextHubServiceTest, GetAutoTodos) {
   entry1.status = AutoTodoEntry::Status::kActive;
   entry1.importance_score = 0.8f;
   entry1.data = FirstPartyData{
-      .source_references = {{.url = GURL("https://mail.google.com/1"),
-                             .subject = "Subject 1"}},
+      .source_references = {GmailReference{
+          .url = GURL("https://mail.google.com/1"), .subject = "Subject 1"}},
       .actionable_url = GURL("https://example.com/1"),
   };
 

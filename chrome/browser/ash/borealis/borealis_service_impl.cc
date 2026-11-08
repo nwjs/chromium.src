@@ -4,12 +4,20 @@
 
 #include "chrome/browser/ash/borealis/borealis_service_impl.h"
 
+#include "chrome/browser/ash/guest_os/guest_os_registry_service_factory.h"
+#include "chrome/browser/ash/profiles/profile_helper.h"
+#include "chrome/browser/profiles/profile.h"
+
 namespace borealis {
 
 BorealisServiceImpl::BorealisServiceImpl(Profile* profile)
     : profile_(profile),
       app_launcher_(profile_),
       app_uninstaller_(profile_),
+      disk_cleanup_manager_(
+          ash::ProfileHelper::GetUserIdHashFromProfile(profile_),
+          profile_->GetPrefs(),
+          guest_os::GuestOsRegistryServiceFactory::GetForProfile(profile_)),
       features_(profile_),
       installer_(profile_),
       launch_options_(profile_),
@@ -24,6 +32,10 @@ BorealisAppLauncher& BorealisServiceImpl::AppLauncher() {
 
 BorealisAppUninstaller& BorealisServiceImpl::AppUninstaller() {
   return app_uninstaller_;
+}
+
+BorealisDiskCleanupManager& BorealisServiceImpl::DiskCleanupManager() {
+  return disk_cleanup_manager_;
 }
 
 BorealisFeatures& BorealisServiceImpl::Features() {

@@ -105,7 +105,6 @@
 #include "chrome/browser/ui/location_bar/location_bar.h"
 #include "chrome/browser/ui/page_action/page_action_icon_type.h"
 #include "chrome/browser/ui/sad_tab.h"
-#include "chrome/browser/ui/search/search_tab_helper.h"
 #include "chrome/browser/ui/side_panel/side_panel_ui.h"
 #include "chrome/browser/ui/singleton_tabs.h"
 #include "chrome/browser/ui/status_bubble.h"
@@ -787,8 +786,13 @@ void Browser::OnTabInsertedAt(WebContents* contents, int index) {
   // won't start if the page is loading. Note that we don't want to
   // ScheduleUIUpdate() because the tab may not have been inserted in the UI
   // yet if this function is called before TabStripModel::TabInsertedAt().
-  BrowserUiController::From(this)->UpdateWindowForLoadingStateChanged(contents,
-                                                                      true);
+  // A tab that is not loading cannot change whether the window needs loading
+  // UI, and the check scans every tab, so skip it for such tabs (e.g. the
+  // background tabs of a session restore, which are inserted unloaded).
+  if (contents->ShouldShowLoadingUI()) {
+    BrowserUiController::From(this)->UpdateWindowForLoadingStateChanged(
+        contents, true);
+  }
 }
 
 void Browser::OnTabClosing(tabs::TabInterface* tab,
@@ -859,7 +863,6 @@ void Browser::RestoreFocusAfterTabModalPopupClose(
 
 void Browser::OnTabDeactivated(WebContents* contents) {
   ExclusiveAccessManager::From(this)->OnTabDeactivated(contents);
-  SearchTabHelper::FromWebContents(contents)->OnTabDeactivated();
 
   // Save what the user's currently typing, so it can be restored when we
   // switch back to this tab.
@@ -960,9 +963,10 @@ void Browser::OnActiveTabChanged(const TabStripModelChange& change,
 
     // Show the loading state (if any).
     if (status_bubble == status_bubbles.front()) {
-      status_bubble->SetStatus(CoreTabHelper::FromWebContents(
-                                   tab_strip_model_->GetActiveWebContents())
-                                   ->GetStatusText());
+      if (auto* core_tab_helper = CoreTabHelper::FromWebContents(
+              tab_strip_model_->GetActiveWebContents())) {
+        status_bubble->SetStatus(core_tab_helper->GetStatusText());
+      }
     }
   }
 
@@ -971,7 +975,6 @@ void Browser::OnActiveTabChanged(const TabStripModelChange& change,
         selection.new_contents);
   }
 
-  SearchTabHelper::FromWebContents(selection.new_contents)->OnTabActivated();
   did_active_tab_change_callback_list_.Notify(this);
 }
 
@@ -982,9 +985,17 @@ void Browser::OnTabReplacedAt(WebContents* old_contents,
   if (was_active) {
     did_active_tab_change_callback_list_.Notify(this);
   }
+  // OnTabInsertedAt() refreshes the loading UI only for contents that are
+  // loading, so remember whether the old contents needed it.
+  const bool old_contents_needed_loading_ui =
+      old_contents->ShouldShowLoadingUI();
   TabDetachedAtImpl(old_contents, was_active, DetachType::kReplace);
   ExclusiveAccessManager::From(this)->OnTabClosing(old_contents);
   OnTabInsertedAt(new_contents, index);
+  if (old_contents_needed_loading_ui && !new_contents->ShouldShowLoadingUI()) {
+    BrowserUiController::From(this)->UpdateWindowForLoadingStateChanged(
+        new_contents, true);
+  }
 
   if (!new_contents->GetController().IsInitialBlankNavigation()) {
     // Send out notification so that observers are updated appropriately.

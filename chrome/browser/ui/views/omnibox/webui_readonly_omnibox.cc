@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <memory>
 
+#include "base/feature_list.h"
 #include "base/notimplemented.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
@@ -46,6 +47,9 @@
 #include "ui/events/keycodes/dom/keycode_converter.h"
 #include "ui/menus/simple_menu_model.h"
 #include "ui/touch_selection/touch_editing_controller.h"
+#include "ui/views/focus/focus_manager.h"
+#include "ui/views/view.h"
+#include "ui/views/widget/widget.h"
 
 WebUIReadOnlyOmnibox::UpdatePropagator::~UpdatePropagator() = default;
 
@@ -116,13 +120,8 @@ void WebUIReadOnlyOmnibox::OnTabChanged(content::WebContents* web_contents) {
   // views::WebView. In that case, make sure to restore it to the right-ish
   // element --- we sadly don't know what in the location bar was focused
   // exactly.
-  if (toolbar_delegate_) {  // null in some unit tests.
-    if (toolbar_delegate_->GetInternalWebView()->HasFocus()) {
-      SetFocusWithTarget(
-          toolbar_ui_api::mojom::FocusRequestTarget::kLocationBar);
-    } else {
-      OnBlur();
-    }
+  if (IsWebViewFocused()) {
+    SetFocusWithTarget(toolbar_ui_api::mojom::FocusRequestTarget::kLocationBar);
   }
 
   RequestUpdateWebUI();
@@ -299,9 +298,14 @@ void WebUIReadOnlyOmnibox::ApplyFocusRingToAimButton(bool focus_aim) {
 }
 
 bool WebUIReadOnlyOmnibox::AimButtonVisible() const {
-  return location_bar_ &&
-         omnibox::AiModePageActionController::From(location_bar_->GetBrowser())
-             ->IsVisible();
+  if (!location_bar_) {
+    return false;
+  }
+  // The controller may be absent if it was torn down before the browser
+  // widget is destroyed, or if it was never created for this profile.
+  auto* controller =
+      omnibox::AiModePageActionController::From(location_bar_->GetBrowser());
+  return controller && controller->IsVisible();
 }
 
 void WebUIReadOnlyOmnibox::ApplyCaretVisibility() {
@@ -579,6 +583,30 @@ void WebUIReadOnlyOmnibox::SetFocusWithTarget(
     toolbar_ui_api::mojom::FocusRequestTarget target) {
   update_propagator_->PropagateFocusRequest(target);
 
+  const bool full_popup_enabled = IsFullWebUIOmnibox();
+
+  // Without the full popup, PropagateFocusRequest() synchronously calls
+  // RequestFocus() on the toolbar's views::WebView, so focus will normally
+  // have landed by now. However, views::View::RequestFocus() is a silent no-op
+  // if the view isn't focusable (e.g. it isn't drawn because the toolbar is
+  // hidden, has no FocusManager, or the WebView has no/crashed WebContents),
+  // and `toolbar_delegate_` is null in some tests. Mirror OmniboxViewViews,
+  // where OnSetFocus() is only reached from OnFocus(), by only marking the edit
+  // model focused if focus actually landed. The WebUI's OnFocusChange() will
+  // still arrive later and is deduplicated via `has_focus_`.
+  if (!full_popup_enabled && !has_focus_ && IsWebViewFocused()) {
+    has_focus_ = true;
+    controller()->edit_model()->OnSetFocus(/*control_down=*/false);
+  }
+
+  // Restore caret visibility if focus is explicitly requested. This is
+  // necessary because if we already have invisible focus, OnSetFocus() is not
+  // reached above, preventing us from restoring visibility when the omnibox
+  // regains focus.
+  if (!full_popup_enabled) {
+    controller()->edit_model()->SetCaretVisibility(true);
+  }
+
   // If the user attempts to focus the omnibox, and the ctrl key is pressed, we
   // want to prevent ctrl-enter behavior until the ctrl key is released and
   // re-pressed. This occurs even if the omnibox is already focused and we
@@ -603,6 +631,25 @@ void WebUIReadOnlyOmnibox::ResetBrowserVersion() {
   ui_version_ = 0;
 }
 
+bool WebUIReadOnlyOmnibox::IsWebViewFocused() {
+  // `toolbar_delegate_` is null in some tests.
+  if (!toolbar_delegate_) {
+    return false;
+  }
+  views::View* web_view = toolbar_delegate_->GetInternalWebView();
+  return web_view && web_view->HasFocus();
+}
+
+bool WebUIReadOnlyOmnibox::IsToolbarViewOrDescendant(
+    const views::View* view) const {
+  if (!view || !toolbar_delegate_) {
+    return false;
+  }
+  const views::View* toolbar_view = toolbar_delegate_->GetView();
+  // Contains() returns true if `view` is `toolbar_view` itself.
+  return toolbar_view && toolbar_view->Contains(view);
+}
+
 void WebUIReadOnlyOmnibox::OnBlur() {
   if (!has_focus_) {
     return;
@@ -613,13 +660,44 @@ void WebUIReadOnlyOmnibox::OnBlur() {
   // If focus is transferring to a WebUI popup widget (e.g., Full Popup or AIM
   // Popup), treat this as a logical focus transfer rather than a true blur.
   // Keep the edit model's focus state active, and skip all reversion/blurring.
-  if (controller()->popup_state_manager()->popup_state() ==
-          OmniboxPopupState::kFull ||
-      controller()->popup_state_manager()->popup_state() ==
-          OmniboxPopupState::kAim) {
+  const OmniboxPopupState popup_state =
+      controller()->popup_state_manager()->popup_state();
+  if (popup_state == OmniboxPopupState::kFull ||
+      popup_state == OmniboxPopupState::kAim) {
     ClearAccessibilityLabel();
     RequestUpdateWebUI();
     return;
+  }
+
+  // If the view is showing text that's not user-text, revert the text to the
+  // permanent display text. This usually occurs if Steady State Elisions is on
+  // and the user has unelided, but not edited the URL.
+  //
+  // Because merely Alt-Tabbing to another window and back should not change the
+  // Omnibox state, we only revert the text if the Omnibox is blurred in favor
+  // of some other View in the same Widget.
+  //
+  // Also revert if the text has been edited but currently exactly matches the
+  // permanent text. An example of this scenario is someone typing on the new
+  // tab page and then deleting everything using backspace/delete.
+  //
+  // This should never exit keyword mode.
+  views::Widget* widget = (toolbar_delegate_ && toolbar_delegate_->GetView())
+                              ? toolbar_delegate_->GetView()->GetWidget()
+                              : nullptr;
+  if (widget && widget->IsActive() &&
+      !controller()->edit_model()->is_keyword_selected()) {
+    const bool user_input_in_progress =
+        controller()->edit_model()->user_input_in_progress();
+    const bool text_matches_permanent_text =
+        GetText() == controller()->edit_model()->GetPermanentDisplayText();
+    const bool showing_non_user_text =
+        !user_input_in_progress && !text_matches_permanent_text;
+    const bool edited_back_to_permanent_text =
+        user_input_in_progress && text_matches_permanent_text;
+    if (showing_non_user_text || edited_back_to_permanent_text) {
+      RevertAll();
+    }
   }
 
   controller()->edit_model()->OnWillKillFocus();
@@ -635,10 +713,25 @@ base::expected<std::monostate, mojo_base::mojom::ErrorPtr>
 WebUIReadOnlyOmnibox::OnFocusChange(
     const toolbar_ui_api::mojom::OmniboxActionFocusChange& focus_change) {
   if (focus_change.has_focus) {
-    has_focus_ = true;
+    // Ignore stale focus notifications from the WebUI if the toolbar's view
+    // (or one of its descendants) doesn't actually hold Views focus.
+    if (toolbar_delegate_ && toolbar_delegate_->GetView()) {
+      views::Widget* widget = toolbar_delegate_->GetView()->GetWidget();
+      views::FocusManager* focus_manager =
+          widget ? widget->GetFocusManager() : nullptr;
+      if (focus_manager &&
+          !IsToolbarViewOrDescendant(focus_manager->GetFocusedView())) {
+        return base::ok(std::monostate());
+      }
+    }
 
-    // TODO(crbug.com/500653057): Key state, though Views impl doesn't have it.
-    controller()->edit_model()->OnSetFocus(/*control_down=*/false);
+    if (!has_focus_) {
+      has_focus_ = true;
+
+      // TODO(crbug.com/500653057): Key state, though Views impl doesn't have
+      // it.
+      controller()->edit_model()->OnSetFocus(/*control_down=*/false);
+    }
 
     // We ignore anything beyond focus update if the request is stale.
     if (focus_change.browser_version == browser_version_) {
@@ -892,7 +985,7 @@ WebUIReadOnlyOmnibox::OnPointer(
             omnibox::kWebUIOmniboxFullPopupDoubleClick) &&
         location_bar_) {
       location_bar_->GetOmniboxPopupView()->SyncNativeStateToWebUI(
-          start_zero_suggest);
+          start_zero_suggest, /*show_full_url=*/false);
     }
   }
   return base::ok(std::monostate());

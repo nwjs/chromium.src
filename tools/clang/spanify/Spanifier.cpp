@@ -501,6 +501,10 @@ std::string NodeKey(const T* node,
 std::string GetRHS(const MatchFinder::MatchResult& result);
 std::string GetLHS(const MatchFinder::MatchResult& result);
 
+bool IsRewrittenToStringView(const clang::DeclaratorDecl* array_decl,
+                             clang::QualType element_type,
+                             const clang::ASTContext& ast_context);
+
 // Emit a generic instruction to the output stream. This removes duplicates.
 void Emit(const std::string& line) {
   static std::set<std::string> emitted;
@@ -1844,14 +1848,21 @@ clang::SourceLocation EmitContainerPointerRewrites(
       FindRightBracket(result, subscript_expr);
 
   // Special case: we detected and bound a zero offset (`&buf[0]`).
-  // Rather than emit a `.subspan(...)`, we delete the subscript
-  // expression entirely.
+  // Replace all of `&buf[0]` with `buf` in one non-empty edit. apply_edits.py
+  // extends an empty deletion over a preceding `,`, so `f(x, &buf[0])` would
+  // become `f(xbuf)`.
   if (result.Nodes.getNodeAs<clang::IntegerLiteral>("zero_container_offset")) {
-    EmitReplacement(key, GetReplacementDirective(replacement_range, "",
-                                                 *result.SourceManager));
-    replacement_range = {left_bracket, right_bracket.getLocWithOffset(1)};
-    EmitReplacement(key, GetReplacementDirective(replacement_range, "",
-                                                 *result.SourceManager));
+    const clang::SourceRange container_range(container_decl_ref.getBeginLoc(),
+                                             left_bracket);
+    const std::string container_text =
+        clang::Lexer::getSourceText(
+            clang::CharSourceRange::getCharRange(container_range),
+            source_manager, lang_opts)
+            .str();
+    replacement_range.setEnd(right_bracket.getLocWithOffset(1));
+    EmitReplacement(key,
+                    GetReplacementDirective(replacement_range, container_text,
+                                            *result.SourceManager));
     return right_bracket.getLocWithOffset(1);
   }
 
@@ -2268,13 +2279,26 @@ void RewriteUnaryOperation(const MatchFinder::MatchResult& result) {
 // Tests are in: tests/chrome/array-tests-original.cc
 void RewriteArraySizeof(const MatchFinder::MatchResult& result) {
   clang::SourceManager& source_manager = *result.SourceManager;
+  const clang::ASTContext& ast_context = *result.Context;
 
   const auto* sizeof_expr =
       result.Nodes.getNodeAs<clang::UnaryExprOrTypeTraitExpr>("sizeof_expr");
 
-  const std::string& array_decl_as_string =
-      result.Nodes.getNodeAs<clang::DeclaratorDecl>("rhs_begin")
-          ->getNameAsString();
+  const auto* array_decl =
+      result.Nodes.getNodeAs<clang::DeclaratorDecl>("rhs_begin");
+
+  // `sizeof` of a `std::string_view` gives the size of the view, not of the
+  // buffer. Exclude the rewrite so `sizeof` keeps measuring the buffer.
+  if (const clang::ArrayType* array_type =
+          ast_context.getAsArrayType(array_decl->getType())) {
+    if (IsRewrittenToStringView(array_decl, array_type->getElementType(),
+                                ast_context)) {
+      EmitExclusion(GetRHS(result));
+      return;
+    }
+  }
+
+  const std::string& array_decl_as_string = array_decl->getNameAsString();
 
   // sizeof_expr matches with "sizeof(c_array)" in case of
   // `sizeof(c_array)`, and "sizeof " in case of `sizeof c_array`. In the
@@ -2700,6 +2724,18 @@ bool IsConstexpr(const clang::DeclaratorDecl* decl) {
   return false;
 }
 
+// Returns true if `array_decl` is rewritten into a `std::string_view` instead
+// of a `std::array`. Shared with `RewriteArraySizeof()` so both agree.
+bool IsRewrittenToStringView(const clang::DeclaratorDecl* array_decl,
+                             clang::QualType element_type,
+                             const clang::ASTContext& ast_context) {
+  if (!clang::dyn_cast_or_null<clang::StringLiteral>(GetInitExpr(array_decl))) {
+    return false;
+  }
+  // Only const arrays will be rewritten to `std::string_view`.
+  return element_type.isConstant(ast_context) || IsConstexpr(array_decl);
+}
+
 bool IsInlineVarDecl(const clang::DeclaratorDecl* decl) {
   if (const auto* var_decl = clang::dyn_cast_or_null<clang::VarDecl>(decl)) {
     return var_decl->isInlineSpecified();
@@ -2711,6 +2747,43 @@ bool IsStaticLocalOrStaticStorageClass(const clang::DeclaratorDecl* decl) {
   if (const auto* var_decl = clang::dyn_cast_or_null<clang::VarDecl>(decl)) {
     return var_decl->isStaticLocal() ||
            var_decl->getStorageClass() == clang::SC_Static;
+  }
+  return false;
+}
+
+// True if `decl` shares its declaration with other declarators, e.g.
+// `int a[3], b[3];`. The array rewrite's range starts at the shared type
+// specifier, so the overlapping edits collide and the surviving one deletes
+// the other declarators. Such arrays are not rewritten.
+bool HasSiblingDeclarators(const clang::DeclaratorDecl& decl,
+                           clang::ASTContext& ast_context) {
+  // Block scope: count the declarators in the `DeclStmt`. An unnamed tag
+  // definition (`struct { int v; } buf[4];`) is not a sibling.
+  for (const auto& parent : ast_context.getParents(decl)) {
+    if (const auto* decl_stmt = parent.get<clang::DeclStmt>()) {
+      int declarators = 0;
+      for (const clang::Decl* grouped : decl_stmt->decls()) {
+        declarators += clang::isa<clang::DeclaratorDecl>(grouped) ? 1 : 0;
+      }
+      return declarators > 1;
+    }
+  }
+
+  // Fields and globals have no `DeclStmt`: siblings share the begin location.
+  const clang::DeclContext* lexical_context = decl.getLexicalDeclContext();
+  if (!lexical_context) {
+    return false;
+  }
+  for (const clang::Decl* other : lexical_context->decls()) {
+    if (other == &decl) {
+      continue;
+    }
+    const auto* other_declarator =
+        clang::dyn_cast<clang::DeclaratorDecl>(other);
+    if (other_declarator &&
+        other_declarator->getBeginLoc() == decl.getBeginLoc()) {
+      return true;
+    }
   }
   return false;
 }
@@ -2770,6 +2843,12 @@ std::string getNodeFromArrayDecl(const clang::TypeLoc* type_loc,
   std::string key = NodeKey(array_decl, *result.SourceManager);
   EmitEdge(key, proxy_node);
   EmitSource(key);
+
+  // Rewriting one of several declarators would delete the others.
+  if (HasSiblingDeclarators(*array_decl, *result.Context)) {
+    EmitExclusion(key);
+    return key;
+  }
 
   const clang::ArrayTypeLoc& array_type_loc =
       type_loc->getUnqualifiedLoc().getAs<clang::ArrayTypeLoc>();
@@ -2873,8 +2952,8 @@ std::string getNodeFromArrayDecl(const clang::TypeLoc* type_loc,
   std::string additional_replacement;
   if (init_string_literal) {
     assert(original_element_type->isAnyCharacterType());
-    if (original_element_type.isConstant(ast_context) ||
-        IsConstexpr(array_decl)) {
+    if (IsRewrittenToStringView(array_decl, original_element_type,
+                                ast_context)) {
       replacement_text = llvm::formatv(
           "{0} {1}", GetStringViewType(new_element_type, ast_context),
           array_variable_as_string);
@@ -3806,6 +3885,20 @@ class Spanifier {
             .bind("unsafe_buffer_access"));
     Match(unsafe_buffer_access, [](const auto& result) {
       EmitSource(GetLHS(result));  // Declare unsafe buffer access.
+    });
+
+    // An explicit cast of `&ptr`, e.g. `reinterpret_cast<void**>(&ptr)` or
+    // `(void**)&ptr`, lets code write a raw pointer into `ptr`'s storage.
+    // That would still compile, and be UB, if `ptr` became a span, so `ptr`
+    // is excluded. Arrays are not matched.
+    auto cast_address_of_pointer = traverse(
+        clang::TK_IgnoreUnlessSpelledInSource,
+        explicitCastExpr(hasSourceExpression(ignoringParenImpCasts(
+            unaryOperator(hasOperatorName("&"),
+                          hasUnaryOperand(expr(
+                              rhs_expr, unless(hasType(arrayType())))))))));
+    Match(cast_address_of_pointer, [](const MatchFinder::MatchResult& result) {
+      EmitExclusion(GetRHS(result));
     });
 
     // `sizeof(c_array)` is rewritten to

@@ -58,9 +58,7 @@ extension UIView {
         }
       } else {
         observation = nil
-        if UiKitUtils.isChromeNextIaEnabled() {
-          removeMirrorViewInWindow()
-        }
+        removeMirrorViewInWindow()
       }
     }
   }
@@ -107,10 +105,8 @@ extension UIView {
       self.addMirrorViewInWindow()
       // Additionally, call the closure here as the view moved to a window.
       self.cr_onWindowCoordinatesChanged?(self)
-    } else if UiKitUtils.isChromeNextIaEnabled() {
-      self.mirrorViewInWindow?.removeFromSuperview()
     } else {
-      self.removeMirrorViewInWindow()
+      self.mirrorViewInWindow?.removeFromSuperview()
     }
   }
 
@@ -118,8 +114,7 @@ extension UIView {
   /// always has the same window coordinates as the receiver. The mirror view calls the
   /// `onWindowCoordinatesChanged` closure when its bounds change.
   private func addMirrorViewInWindow() {
-    let mirrorViewInWindow =
-      (UiKitUtils.isChromeNextIaEnabled() ? self.mirrorViewInWindow : nil) ?? NotifyingView()
+    let mirrorViewInWindow = self.mirrorViewInWindow ?? NotifyingView()
     mirrorViewInWindow.backgroundColor = .clear
     mirrorViewInWindow.isUserInteractionEnabled = false
     mirrorViewInWindow.translatesAutoresizingMaskIntoConstraints = false

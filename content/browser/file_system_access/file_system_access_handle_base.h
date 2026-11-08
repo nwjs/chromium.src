@@ -11,6 +11,7 @@
 #include "base/sequence_checker.h"
 #include "base/thread_annotations.h"
 #include "base/types/expected.h"
+#include "build/build_config.h"
 #include "content/browser/file_system_access/file_system_access_error.h"
 #include "content/browser/file_system_access/file_system_access_lock_manager.h"
 #include "content/browser/file_system_access/file_system_access_manager_impl.h"
@@ -18,6 +19,7 @@
 #include "content/common/content_export.h"
 #include "content/public/browser/content_browser_client.h"
 #include "content/public/browser/file_system_access_permission_context.h"
+#include "mojo/public/cpp/bindings/callback_helpers.h"
 #include "storage/browser/file_system/file_system_url.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/mojom/file_system_access/file_system_access_cloud_identifier.mojom.h"
@@ -65,6 +67,14 @@ class CONTENT_EXPORT FileSystemAccessHandleBase {
   const storage::FileSystemURL& url() const { return url_; }
   const SharedHandleState& handle_state() const { return handle_state_; }
   const BindingContext& context() const { return context_; }
+  base::WeakPtr<WebContents> web_contents() const {
+    DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+    return web_contents_;
+  }
+  GlobalRenderFrameHostId outermost_main_frame_id() const {
+    DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+    return outermost_main_frame_id_;
+  }
   FileSystemAccessManagerImpl* manager() const { return manager_; }
   storage::FileSystemContext* file_system_context() const {
     return manager()->context();
@@ -291,6 +301,8 @@ class CONTENT_EXPORT FileSystemAccessHandleBase {
       nullptr;
   base::WeakPtr<WebContents> web_contents_
       GUARDED_BY_CONTEXT(sequence_checker_);
+  GlobalRenderFrameHostId outermost_main_frame_id_
+      GUARDED_BY_CONTEXT(sequence_checker_);
   const BindingContext context_;
   storage::FileSystemURL url_ GUARDED_BY_CONTEXT(sequence_checker_);
   const SharedHandleState handle_state_;
@@ -363,20 +375,43 @@ void FileSystemAccessHandleBase::RunWithSensitiveEntryAccess(
     return;
   }
 
+  if (url.type() == storage::FileSystemType::kFileSystemTypeLocal &&
+      !url.path().IsAbsolute()
+#if BUILDFLAG(IS_ANDROID)
+      && !url.path().IsContentUri()
+#endif
+  ) {
+    // Local file system paths must be absolute (or Android content-URIs) to be
+    // evaluated against the sensitive entry blocklist. Synthetic relative paths
+    // (e.g. passed via `LaunchQueue`) are not valid local files and must be
+    // blocked.
+    std::move(blocked_callback).Run(std::move(callback_arg));
+    return;
+  }
+
   PathType path_type =
       url.type() == storage::FileSystemType::kFileSystemTypeLocal
           ? PathType::kLocal
           : PathType::kExternal;
+  const base::FilePath& path =
+      path_type == PathType::kLocal ? url.path() : url.virtual_path();
   PathInfo path_info = display_name.empty()
-                           ? PathInfo(path_type, url.path())
-                           : PathInfo(path_type, url.path(), display_name);
+                           ? PathInfo(path_type, path)
+                           : PathInfo(path_type, path, display_name);
+  // Wrap the callback so that if `permission_context()` is destroyed during
+  // profile shutdown before `manager()` (and drops pending blocklist callbacks
+  // while handle Mojo receivers are still connected), `blocked_callback` still
+  // runs and responds to the Mojo callback.
   manager()->permission_context()->ConfirmSensitiveEntryAccess(
       context().storage_key.origin(), path_info, handle_type, access_trigger,
       context().frame_id,
-      base::BindOnce(&FileSystemAccessHandleBase::DidVerifySensitiveEntryAccess<
-                         CallbackArgType>,
-                     AsWeakPtr(), std::move(callback),
-                     std::move(blocked_callback), std::move(callback_arg)));
+      mojo::WrapCallbackWithDefaultInvokeIfNotRun(
+          base::BindOnce(
+              &FileSystemAccessHandleBase::DidVerifySensitiveEntryAccess<
+                  CallbackArgType>,
+              AsWeakPtr(), std::move(callback), std::move(blocked_callback),
+              std::move(callback_arg)),
+          SensitiveEntryResult::kAbort));
 }
 
 template <typename CallbackArgType>

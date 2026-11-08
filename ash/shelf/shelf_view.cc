@@ -338,11 +338,9 @@ ShelfView::ShelfView(ShelfModel* model,
   set_context_menu_controller(this);
   set_allow_deactivate_on_esc(true);
 
-  if (features::IsUserEducationEnabled()) {
-    // NOTE: Set `kHelpBubbleContextKey` before `views::kElementIdentifierKey`
-    // in case registration causes a help bubble to be created synchronously.
-    SetProperty(kHelpBubbleContextKey, HelpBubbleContext::kAsh);
-  }
+  // NOTE: Set `kHelpBubbleContextKey` before `views::kElementIdentifierKey`
+  // in case registration causes a help bubble to be created synchronously.
+  SetProperty(kHelpBubbleContextKey, HelpBubbleContext::kAsh);
   SetProperty(views::kElementIdentifierKey, kShelfViewElementId);
 
   announcement_view_ = new views::View();
@@ -502,6 +500,28 @@ bool ShelfView::ShouldHideTooltip(const gfx::Point& cursor_location,
   // in the gaps, but the tooltip should hide if the mouse moved totally outside
   // of the buttons area.
   return !LocationInsideVisibleShelfItemBounds(cursor_location);
+}
+
+aura::Window* ShelfView::GetSingleOpenWindowForShelfView(
+    const views::View* view) {
+  const ShelfItem* item = ShelfItemForView(view);
+  if (!item) {
+    return nullptr;
+  }
+
+  ShelfItemDelegate* delegate = model_->GetShelfItemDelegate(item->id);
+  if (!delegate) {
+    return nullptr;
+  }
+
+  ShelfItemDelegate::AppMenuItems menu_items = delegate->GetAppMenuItems(
+      ui::EF_NONE, base::BindRepeating(&ShouldIncludeMenuItem));
+  if (menu_items.size() != 1) {
+    return nullptr;
+  }
+
+  return delegate->GetAppMenuItemWindow(menu_items[0].command_id)
+      .value_or(nullptr);
 }
 
 std::u16string ShelfView::GetTitleForView(const views::View* view) const {
@@ -1423,10 +1443,8 @@ void ShelfView::LayoutToIdealBounds() {
   UpdateVisibleShelfItemBoundsUnion();
 
   // Notify user education features that anchor bounds have changed.
-  if (features::IsUserEducationEnabled()) {
-    views::ElementTrackerViews::GetInstance()->NotifyCustomEvent(
-        views::ViewSubregionAnchor::kAnchorBoundsChangedEvent, this);
-  }
+  views::ElementTrackerViews::GetInstance()->NotifyCustomEvent(
+      views::ViewSubregionAnchor::kAnchorBoundsChangedEvent, this);
 }
 
 bool ShelfView::IsItemPinned(const ShelfItem& item) const {
@@ -2448,10 +2466,10 @@ void ShelfView::OnShelfAlignmentChanged(aura::Window* root_window,
 }
 
 void ShelfView::OnPinnedStateChanged(aura::Window* pinned_window) {
-  // Close context menus in locked fullscreen mode to prevent users from exiting
+  // Close context menus in trusted pinned mode to prevent users from exiting
   // this mode.
   if ((GetWindowPinType(pinned_window) ==
-       chromeos::WindowPinType::kLockedFullscreen) &&
+       chromeos::WindowPinType::kTrustedPinned) &&
       IsShowingMenu()) {
     shelf_menu_model_adapter_->Cancel();
   }
@@ -2601,10 +2619,8 @@ void ShelfView::OnBoundsAnimatorProgressed(views::BoundsAnimator* animator) {
   shelf_->NotifyShelfIconPositionsChanged();
 
   // Notify user education features that anchor bounds have changed.
-  if (features::IsUserEducationEnabled()) {
-    views::ElementTrackerViews::GetInstance()->NotifyCustomEvent(
-        views::ViewSubregionAnchor::kAnchorBoundsChangedEvent, this);
-  }
+  views::ElementTrackerViews::GetInstance()->NotifyCustomEvent(
+      views::ViewSubregionAnchor::kAnchorBoundsChangedEvent, this);
 
   // Do not call PreferredSizeChanged() so that container does not re-layout
   // during the bounds animation.

@@ -35,6 +35,10 @@ BASE_FEATURE(kComposeboxPersistentAimButtonWithX,
 BASE_FEATURE(kComposeboxRealboxOutsideClick, base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kSuggestRequestSendsMultifileCgiParam,
              base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kComposeboxUnselectMatchOnTabExit,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kComposeboxPersonalizedHintText,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 const base::FeatureParam<bool> kKeepMenuOpenOnTabSelectForRealbox(
     &kContextManagementInComposebox,
     "KeepMenuOpenOnTabSelectForRealboxComposebox",
@@ -51,11 +55,10 @@ const base::FeatureParam<bool> kContextManagementInComposeboxTooltips(
     "enable_context_menu_tooltips",
     true);
 
-const base::FeatureParam<bool>
-    kContextManagementInComposeboxFaviconSkeletonLoader(
-        &kContextManagementInComposebox,
-        "enable_favicon_skeleton_loader",
-        false);
+const base::FeatureParam<bool> kContextManagementInComposeboxSingleTabMenuItem(
+    &kContextManagementInComposebox,
+    "enable_single_tab_menu_item",
+    false);
 
 const base::FeatureParam<int> kContextMenuAnimationDailyLimit(
     &kContextMenuAnimationLimiting,
@@ -77,9 +80,9 @@ bool IsContextMenuTooltipsInComposeboxEnabled() {
          kContextManagementInComposeboxTooltips.Get();
 }
 
-bool IsFaviconSkeletonLoaderInComposeboxEnabled() {
+bool IsSingleTabMenuItemInComposeboxEnabled() {
   return base::FeatureList::IsEnabled(kContextManagementInComposebox) &&
-         kContextManagementInComposeboxFaviconSkeletonLoader.Get();
+         kContextManagementInComposeboxSingleTabMenuItem.Get();
 }
 
 }  // namespace omnibox

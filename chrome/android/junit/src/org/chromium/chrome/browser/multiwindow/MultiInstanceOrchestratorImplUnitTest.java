@@ -94,6 +94,7 @@ import java.util.List;
     ChromeFeatureList.SESSION_RESTORE_AFTER_CRASH,
     ChromeFeatureList.INCOGNITO_AS_WINDOW_FULL_SCREEN
 })
+@SuppressWarnings("DoNotMock") // TODO(567604165): Remove mocking of Views / Activities
 public class MultiInstanceOrchestratorImplUnitTest {
     private static final int SOURCE_WINDOW_ID = 0;
     private static final int DEST_WINDOW_ID = 1;
@@ -1169,12 +1170,43 @@ public class MultiInstanceOrchestratorImplUnitTest {
         // Setup.
         ((MultiInstanceOrchestratorImpl) mMultiInstanceOrchestrator).clearAssignmentsForTesting();
         reset(mTabbedCrashRecoveryDelegate);
+        MultiWindowTestUtils.createInstance(
+                /* instanceId= */ 0, "https://www.google.com", /* tabCount= */ 1, /* taskId= */ 0);
+        MultiWindowTestUtils.createInstance(
+                /* instanceId= */ 1, "https://www.google.com", /* tabCount= */ 1, /* taskId= */ 1);
+        ChromeMultiInstancePersistentStore.writeIsRecoverable(0, true);
+        ChromeMultiInstancePersistentStore.writeIsRecoverable(1, true);
 
-        // Act: Initialize the first ChromeTabbedActivity.
+        // Act: Initialize the first ChromeTabbedActivity when crash recovery is not eligible.
         mMultiInstanceOrchestrator.onInitialize(mTabbedActivity1, mMultiInstanceManager1);
 
-        // Verify: Metadata initialization is triggered.
+        // Verify: Metadata initialization is triggered and stale recoverable state is cleared.
         verify(mTabbedCrashRecoveryDelegate).initializeCrashRecoveryMetadata();
+        assertFalse(ChromeMultiInstancePersistentStore.readIsRecoverable(0));
+        assertFalse(ChromeMultiInstancePersistentStore.readIsRecoverable(1));
+    }
+
+    @Test
+    public void
+            testOnInitialize_firstTabbedActivity_crashRecoveryEligible_preservesRecoverableState() {
+        // Setup.
+        ((MultiInstanceOrchestratorImpl) mMultiInstanceOrchestrator).clearAssignmentsForTesting();
+        reset(mTabbedCrashRecoveryDelegate);
+        doReturn(true).when(mTabbedCrashRecoveryDelegate).initializeCrashRecoveryMetadata();
+        MultiWindowTestUtils.createInstance(
+                /* instanceId= */ 0, "https://www.google.com", /* tabCount= */ 1, /* taskId= */ 0);
+        MultiWindowTestUtils.createInstance(
+                /* instanceId= */ 1, "https://www.google.com", /* tabCount= */ 1, /* taskId= */ 1);
+        ChromeMultiInstancePersistentStore.writeIsRecoverable(0, true);
+        ChromeMultiInstancePersistentStore.writeIsRecoverable(1, true);
+
+        // Act: Initialize the first ChromeTabbedActivity when crash recovery is eligible.
+        mMultiInstanceOrchestrator.onInitialize(mTabbedActivity1, mMultiInstanceManager1);
+
+        // Verify: Metadata initialization is triggered and recoverable state is preserved.
+        verify(mTabbedCrashRecoveryDelegate).initializeCrashRecoveryMetadata();
+        assertTrue(ChromeMultiInstancePersistentStore.readIsRecoverable(0));
+        assertTrue(ChromeMultiInstancePersistentStore.readIsRecoverable(1));
     }
 
     @Test
@@ -1287,7 +1319,7 @@ public class MultiInstanceOrchestratorImplUnitTest {
     }
 
     @Test
-    public void testOnActivityStateChange_destroyed_lastTabbedActivity_resetsStartupPolicy() {
+    public void testOnActivityStateChange_destroyed_lastTabbedActivity_resetsStartupState() {
         // Setup: Activity 1 is the only registered activity.
         ApplicationStatus.onStateChangeForTesting(mTabbedActivity1, ActivityState.CREATED);
         ((MultiInstanceOrchestratorImpl) mMultiInstanceOrchestrator).clearAssignmentsForTesting();
@@ -1298,11 +1330,11 @@ public class MultiInstanceOrchestratorImplUnitTest {
         ApplicationStatus.onStateChangeForTesting(mTabbedActivity1, ActivityState.DESTROYED);
 
         // Verify: Last activity destruction triggers delegate reset.
-        verify(mTabbedStartupWindowPolicyDelegate).resetPolicy();
+        verify(mTabbedStartupWindowPolicyDelegate).resetState();
     }
 
     @Test
-    public void testOnActivityStateChange_destroyed_uninitializedActivity_resetsStartupPolicy() {
+    public void testOnActivityStateChange_destroyed_uninitializedActivity_resetsStartupState() {
         // Setup: No activity is registered in the orchestrator.
         ApplicationStatus.onStateChangeForTesting(mTabbedActivity1, ActivityState.CREATED);
         ((MultiInstanceOrchestratorImpl) mMultiInstanceOrchestrator).clearAssignmentsForTesting();
@@ -1312,7 +1344,7 @@ public class MultiInstanceOrchestratorImplUnitTest {
         ApplicationStatus.onStateChangeForTesting(mTabbedActivity1, ActivityState.DESTROYED);
 
         // Verify: Reset is triggered because no living tabbed activities exist.
-        verify(mTabbedStartupWindowPolicyDelegate).resetPolicy();
+        verify(mTabbedStartupWindowPolicyDelegate).resetState();
     }
 
     @Test
@@ -1326,7 +1358,41 @@ public class MultiInstanceOrchestratorImplUnitTest {
         ApplicationStatus.onStateChangeForTesting(mTabbedActivity1, ActivityState.DESTROYED);
 
         // Verify: Reset is not triggered because Activity 2 is still living.
-        verify(mTabbedStartupWindowPolicyDelegate, never()).resetPolicy();
+        verify(mTabbedStartupWindowPolicyDelegate, never()).resetState();
+    }
+
+    @Test
+    public void testOnActivityStateChange_destroyed_finishingTabbedActivity_callsOnWindowClosed() {
+        // Setup.
+        MultiWindowUtils.setMultiInstanceApi31EnabledForTesting(true);
+        DeviceInfo.setIsDesktopForTesting(true);
+        ApplicationStatus.onStateChangeForTesting(mTabbedActivity1, ActivityState.CREATED);
+        when(mTabbedActivity1.isFinishing()).thenReturn(true);
+        when(mTabbedActivity1.getWindowId()).thenReturn(SOURCE_WINDOW_ID);
+        reset(mTabbedStartupWindowPolicyDelegate);
+
+        // Act: Destroy finishing Activity 1.
+        ApplicationStatus.onStateChangeForTesting(mTabbedActivity1, ActivityState.DESTROYED);
+
+        // Verify: Delegate is notified of window closure.
+        verify(mTabbedStartupWindowPolicyDelegate).onWindowClosed(SOURCE_WINDOW_ID);
+    }
+
+    @Test
+    public void
+            testOnActivityStateChange_destroyed_nonFinishingTabbedActivity_doesNotCallOnWindowClosed() {
+        // Setup.
+        MultiWindowUtils.setMultiInstanceApi31EnabledForTesting(true);
+        DeviceInfo.setIsDesktopForTesting(true);
+        ApplicationStatus.onStateChangeForTesting(mTabbedActivity1, ActivityState.CREATED);
+        when(mTabbedActivity1.isFinishing()).thenReturn(false);
+        reset(mTabbedStartupWindowPolicyDelegate);
+
+        // Act: Destroy non-finishing Activity 1 (e.g. configuration change recreation).
+        ApplicationStatus.onStateChangeForTesting(mTabbedActivity1, ActivityState.DESTROYED);
+
+        // Verify: Delegate is not notified of window closure.
+        verify(mTabbedStartupWindowPolicyDelegate, never()).onWindowClosed(anyInt());
     }
 
     private void doTestOpenUrlInOtherWindowWithIncognitoWindowingEnabled(
@@ -1581,11 +1647,7 @@ public class MultiInstanceOrchestratorImplUnitTest {
         when(mTab2.getUrl()).thenReturn(JUnitTestGURLs.EXAMPLE_URL);
         mTabGroupMetadata =
                 TabGroupMetadataExtractor.extractTabGroupMetadata(
-                        mTabModel,
-                        List.of(mTab1, mTab2),
-                        SOURCE_WINDOW_ID,
-                        PARENT_TAB_ID_1,
-                        /* isGroupShared= */ false);
+                        mTabModel, List.of(mTab1, mTab2), SOURCE_WINDOW_ID, PARENT_TAB_ID_1);
     }
 
     private void verifyNewWindowIntentForUrlLaunch(Intent intent, boolean isIncognitoWindow) {

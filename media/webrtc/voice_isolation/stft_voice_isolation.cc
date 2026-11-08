@@ -16,6 +16,7 @@
 #include "base/containers/span.h"
 #include "base/logging.h"
 #include "base/trace_event/trace_event.h"
+#include "media/base/audio_timestamp_helper.h"
 #include "media/webrtc/voice_isolation/voice_isolation_component.h"
 #include "third_party/pffft/src/pffft.h"
 
@@ -61,14 +62,25 @@ std::vector<float> ComputeHannWindow(int window_size) {
   CHECK_GE(window_size, 2);
   CHECK_EQ(window_size % 2, 0);
   std::vector<float> window(window_size);
-  int N = window_size - 1;
+  const int N = window_size;
 
-  // Uses Hann window as defined in https://en.wikipedia.org/wiki/Hann_function:
-  // w[n] = sin^2(pi * n / N), 0<= n <= N
-  // where window_size = N+1.
-  for (int n = 0; n < window_size; ++n) {
-    auto s = sin(std::numbers::pi * n / N);
-    window[n] = s * s;
+  // Uses the periodic Hann window as defined in
+  // https://en.wikipedia.org/wiki/Hann_function:
+  // w[n] = sin^2(pi * n / N), 0 <= n < N
+  // where N = window_size.
+  //
+  // The periodic window is symmetric around N/2 (w[N - n] = w[n]), with
+  // w[0] = 0 and w[N/2] = 1. Only the first half is evaluated and then
+  // mirrored, which guarantees exact symmetry regardless of floating-point
+  // rounding in std::sin().
+  const int half_window_size = window_size / 2;
+  window[0] = 0.0f;
+  window[half_window_size] = 1.0f;
+  for (int n = 1; n < half_window_size; ++n) {
+    const double s = std::sin(std::numbers::pi * n / N);
+    const float value = static_cast<float>(s * s);
+    window[n] = value;
+    window[window_size - n] = value;
   }
   return window;
 }
@@ -153,7 +165,7 @@ void WindowedFft::ForwardTransform(base::span<const float> input_audio,
                    forward_buffer_first_half, apply_window);
 }
 
-void WindowedFft::InverseTransform(base::span<float> input_dfts,
+void WindowedFft::InverseTransform(base::span<const float> input_dfts,
                                    base::span<float> output_audio) {
   CHECK_EQ(input_dfts.size(), 2 * fft_size_);
   CHECK_EQ(output_audio.size(), fft_size_);
@@ -175,8 +187,8 @@ void WindowedFft::InverseTransform(base::span<float> input_dfts,
       base::span<const float>(inv_fft_window_).first(fft_size_ / 2);
   const auto window_second_half =
       base::span<const float>(inv_fft_window_).subspan(fft_size_ / 2);
-  base::span<float> input_first_dft = input_dfts.first(fft_size_);
-  base::span<float> input_second_dft = input_dfts.subspan(fft_size_);
+  base::span<const float> input_first_dft = input_dfts.first(fft_size_);
+  base::span<const float> input_second_dft = input_dfts.subspan(fft_size_);
   auto output_audio_first_half = output_audio.first(fft_size_ / 2);
   auto output_audio_second_half = output_audio.subspan(fft_size_ / 2);
 
@@ -211,6 +223,10 @@ void WindowedFft::Clear() {
   std::fill(temp_buffer_.begin(), temp_buffer_.end(), 0.0f);
   std::fill(inverse_buffer_.begin(), inverse_buffer_.end(), 0.0f);
   std::fill(fft_workplace_.begin(), fft_workplace_.end(), 0.0f);
+}
+
+size_t WindowedFft::DelayFrames() const {
+  return fft_size_ / 2;
 }
 
 StftVoiceIsolation::StftVoiceIsolation(
@@ -258,6 +274,12 @@ void StftVoiceIsolation::ClearBuffers() {
   if (internal_voice_isolation_) {
     internal_voice_isolation_->ClearBuffers();
   }
+}
+
+base::TimeDelta StftVoiceIsolation::AlgorithmicDelay() const {
+  return internal_voice_isolation_->AlgorithmicDelay() +
+         AudioTimestampHelper::FramesToTime(windowed_fft_->DelayFrames(),
+                                            FrameSize() * FramesPerSecond());
 }
 
 }  // namespace media

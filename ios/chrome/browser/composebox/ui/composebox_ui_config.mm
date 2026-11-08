@@ -6,6 +6,7 @@
 
 #import "base/check.h"
 #import "base/strings/sys_string_conversions.h"
+#import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/ui/symbols/symbols.h"
 #import "ios/chrome/grit/ios_strings.h"
 #import "ui/base/l10n/l10n_util.h"
@@ -83,6 +84,24 @@
     return config.menuLabel;
   }
   return [self localFallbackForTool:tool isHint:NO];
+}
+
+- (NSString*)menuSubtitleForTool:(ComposeboxMode)tool {
+  if (!IsPlusButtonMenuStringUpdatesEnabled()) {
+    return nil;
+  }
+
+  switch (tool) {
+    case ComposeboxMode::kAIM:
+      return l10n_util::GetNSString(IDS_IOS_COMPOSEBOX_MENU_SUBITITLE_AIM);
+    case ComposeboxMode::kImageGeneration:
+      return l10n_util::GetNSString(
+          IDS_IOS_COMPOSEBOX_MENU_SUBITITLE_IMAGE_GENERATION);
+    case ComposeboxMode::kCanvas:
+      return l10n_util::GetNSString(IDS_IOS_COMPOSEBOX_MENU_SUBITITLE_CANVAS);
+    default:
+      return nil;
+  }
 }
 
 - (NSString*)chipLabelForTool:(ComposeboxMode)tool {
@@ -164,13 +183,31 @@
 }
 
 - (NSString*)modelSectionHeader {
+  // With the strings update, the models section header is not shown.
+  if (IsPlusButtonMenuStringUpdatesEnabled()) {
+    return nil;
+  }
   if (_modelSectionHeader.length > 0) {
     return _modelSectionHeader;
   }
   return l10n_util::GetNSStringF(IDS_IOS_COMPOSEBOX_MODEL_SELECTOR_TITLE, u"3");
 }
 
+- (NSString*)moreOptionsSectionHeader {
+  return l10n_util::GetNSString(IDS_IOS_COMPOSEBOX_MORE_OPTIONS_MENU_TITLE);
+}
+
+- (NSString*)attachmentsSectionHeader {
+  return l10n_util::GetNSString(
+      IDS_IOS_COMPOSEBOX_MENU_ATTACHMENTS_SECTION_TITLE);
+}
+
 - (NSString*)toolsSectionHeader {
+  // With the strings update, the tools section header is not shown.
+  if (IsPlusButtonMenuStringUpdatesEnabled()) {
+    return nil;
+  }
+
   if (_toolsSectionHeader.length > 0) {
     return _toolsSectionHeader;
   }

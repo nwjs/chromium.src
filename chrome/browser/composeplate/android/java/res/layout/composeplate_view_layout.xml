@@ -13,6 +13,7 @@ found in the LICENSE file.
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="horizontal"
+    android:gravity="center_horizontal"
     android:clipChildren="false"
     android:clipToPadding="false">
 
@@ -50,6 +51,42 @@ found in the LICENSE file.
     </LinearLayout>
 
     <LinearLayout
+        android:id="@+id/optional_button"
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        android:layout_weight="0"
+        android:layout_gravity="center"
+        android:orientation="horizontal"
+        android:gravity="center"
+        android:layout_marginEnd="@dimen/composeplate_view_button_margin"
+        android:paddingStart="@dimen/composeplate_view_button_margin"
+        android:paddingEnd="@dimen/composeplate_view_button_margin"
+        android:contentDescription="@string/omnibox_navattach_gallery"
+        android:tooltipText="@string/omnibox_navattach_gallery"
+        style="@style/ComposeplateViewButton"
+        android:visibility="gone"
+        tools:ignore="UseCompoundDrawables">
+
+        <ImageView
+            android:id="@+id/optional_button_icon"
+            android:layout_width="@dimen/composeplate_view_icon_size"
+            android:layout_height="@dimen/composeplate_view_icon_size"
+            android:src="@drawable/add_photo_alternate_24dp"
+            android:tint="@macro/default_icon_color"
+            android:importantForAccessibility="no"/>
+
+        <TextView
+            android:id="@+id/optional_button_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="@dimen/composeplate_view_button_margin"
+            android:singleLine="true"
+            android:visibility="gone"
+            android:text="@string/omnibox_navattach_gallery"
+            android:textAppearance="@style/TextAppearance.ComposeplateTextMediumDarkOnSurface" />
+    </LinearLayout>
+
+    <LinearLayout
         android:id="@+id/incognito_button"
         android:layout_width="0dp"
         android:layout_weight="1"
@@ -58,6 +95,7 @@ found in the LICENSE file.
         android:orientation="horizontal"
         android:gravity="center"
         android:contentDescription="@string/accessibility_new_incognito_tab_page"
+        android:tooltipText="@string/accessibility_new_incognito_tab_page"
         style="@style/ComposeplateViewButton"
         android:paddingStart="@dimen/composeplate_view_button_margin"
         android:paddingEnd="@dimen/composeplate_view_button_margin"

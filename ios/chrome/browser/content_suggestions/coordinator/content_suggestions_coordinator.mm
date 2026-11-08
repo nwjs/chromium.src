@@ -103,11 +103,12 @@
 #import "ios/chrome/browser/feature_engagement/model/tracker_factory.h"
 #import "ios/chrome/browser/history/model/history_service_factory.h"
 #import "ios/chrome/browser/home_customization/coordinator/home_customization_delegate.h"
+#import "ios/chrome/browser/home_customization/model/home_background_customization_service_factory.h"
 #import "ios/chrome/browser/home_customization/utils/home_customization_constants.h"
 #import "ios/chrome/browser/lens/ui_bundled/lens_entrypoint.h"
 #import "ios/chrome/browser/level_up/model/level_up_service_factory.h"
+#import "ios/chrome/browser/menu/public/menu_histograms.h"
 #import "ios/chrome/browser/menu/ui_bundled/browser_action_factory.h"
-#import "ios/chrome/browser/menu/ui_bundled/menu_histograms.h"
 #import "ios/chrome/browser/ntp/model/new_tab_page_tab_helper.h"
 #import "ios/chrome/browser/ntp/model/set_up_list_item_type.h"
 #import "ios/chrome/browser/ntp/model/set_up_list_prefs.h"
@@ -152,6 +153,7 @@
 #import "ios/chrome/browser/shared/public/commands/credential_provider_promo_commands.h"
 #import "ios/chrome/browser/shared/public/commands/help_commands.h"
 #import "ios/chrome/browser/shared/public/commands/lens_commands.h"
+#import "ios/chrome/browser/shared/public/commands/level_up_commands.h"
 #import "ios/chrome/browser/shared/public/commands/omnibox_commands.h"
 #import "ios/chrome/browser/shared/public/commands/open_lens_input_selection_command.h"
 #import "ios/chrome/browser/shared/public/commands/open_new_tab_command.h"
@@ -467,7 +469,7 @@ using segmentation_platform::TipIdentifier;
 
     _appBundlePromoMediator = [[AppBundlePromoMediator alloc]
         initWithAppStoreBundleService:AppStoreBundleServiceFactory::
-                                          GetForProfile(self.profile)
+                                          GetForProfile(profile)
                    profilePrefService:prefs];
     _appBundlePromoMediator.presentationAudience = self;
     [moduleMediators addObject:_appBundlePromoMediator];
@@ -499,34 +501,40 @@ using segmentation_platform::TipIdentifier;
               identityManager:identityManager
                    sceneState:self.browser->GetSceneState()
         isDefaultSearchEngine:isDefaultSearchEngine
-         priceTrackingEnabled:IsPriceTrackingEnabled(self.profile)];
+         priceTrackingEnabled:IsPriceTrackingEnabled(profile)];
     _setUpListMediator.commandHandler = self;
     _setUpListMediator.delegate = self.delegate;
     self.contentSuggestionsMediator.setUpListMediator = _setUpListMediator;
     [moduleMediators addObject:_setUpListMediator];
   }
   _magicStackRankingModel = [[MagicStackRankingModel alloc]
-      initWithSegmentationService:_segmentationService
-                  shoppingService:commerce::ShoppingServiceFactory::
-                                      GetForProfile(profile)
-                      authService:self.authService
-                      prefService:prefs
-                       localState:GetApplicationContext()->GetLocalState()
-                  moduleMediators:moduleMediators
-                      tipsManager:TipsManagerIOSFactory::GetForProfile(
-                                      self.profile)
-               templateURLService:ios::TemplateURLServiceFactory::GetForProfile(
-                                      self.profile)
-            appStoreBundleService:AppStoreBundleServiceFactory::GetForProfile(
-                                      self.profile)
-                    bookmarkModel:ios::BookmarkModelFactory::GetForProfile(
-                                      self.profile)
-                   levelUpService:LevelUpServiceFactory::GetForProfile(
-                                      self.profile)];
+         initWithSegmentationService:_segmentationService
+                     shoppingService:commerce::ShoppingServiceFactory::
+                                         GetForProfile(profile)
+                         authService:self.authService
+                         prefService:prefs
+                          localState:GetApplicationContext()->GetLocalState()
+                     moduleMediators:moduleMediators
+                         tipsManager:TipsManagerIOSFactory::GetForProfile(
+                                         profile)
+                  templateURLService:ios::TemplateURLServiceFactory::
+                                         GetForProfile(profile)
+               appStoreBundleService:AppStoreBundleServiceFactory::
+                                         GetForProfile(profile)
+                       bookmarkModel:ios::BookmarkModelFactory::GetForProfile(
+                                         profile)
+                      levelUpService:LevelUpServiceFactory::GetForProfile(
+                                         profile)
+      backgroundCustomizationService:HomeBackgroundCustomizationServiceFactory::
+                                         GetForProfile(profile)];
   self.contentSuggestionsMediator.magicStackRankingModel =
       _magicStackRankingModel;
   _magicStackRankingModel.delegate = self.contentSuggestionsMediator;
   _magicStackRankingModel.homeStartDataSource = self.homeStartDataSource;
+  if (IsLevelUpEnabled()) {
+    _magicStackRankingModel.levelUpHandler = HandlerForProtocol(
+        self.browser->GetCommandDispatcher(), LevelUpCommands);
+  }
 
   MagicStackLayoutType layoutType = IsNTPRedesignEnabled()
                                         ? MagicStackLayoutType::kSmartStack
@@ -703,6 +711,10 @@ using segmentation_platform::TipIdentifier;
       ->SetIsShownOnStartSurface(false);
 }
 
+- (void)contentSuggestionsWasUpdated {
+  [self.delegate contentSuggestionsWasUpdated];
+}
+
 - (void)didTapAIMModule {
   CHECK_EQ(ntp_tiles::GetAimButtonRefactorArm(),
            ntp_tiles::AimButtonRefactorArm::kAimAsModule);
@@ -750,7 +762,7 @@ using segmentation_platform::TipIdentifier;
 
 - (void)openTipDestination:(segmentation_platform::TipIdentifier)tip {
   CHECK(_tipsMediator);
-
+  [self.customizationDelegate dismissCustomizationMenu];
   // Log the Tips (Magic Stack) Module that the user tapped on.
   base::UmaHistogramEnumeration(kTipsMagicStackModuleTappedTypeHistogram, tip);
   switch (tip) {
@@ -813,6 +825,30 @@ using segmentation_platform::TipIdentifier;
           showPasswordsTipForIdentifier:_tipsMediator.config.identifier];
       break;
     }
+    case TipIdentifier::kNTPTheme: {
+      CHECK(!segmentation_platform::features::
+                IsMagicStackTipsV2IosActionableEnabled());
+      [self.delegate openMainCustomizationMenuWithIconBubbleOnDismiss:YES
+                                                       scrollToBottom:NO];
+      break;
+    }
+    case TipIdentifier::kTipsNotifications: {
+      CHECK(!segmentation_platform::features::
+                IsMagicStackTipsV2IosActionableEnabled());
+      [HandlerForProtocol(self.browser->GetCommandDispatcher(),
+                          BrowserCoordinatorCommands)
+          showNotificationsOptInFromAccessPoint:NotificationOptInAccessPoint::
+                                                    kTips
+                             baseViewController:self.magicStackCollectionView];
+      break;
+    }
+    case TipIdentifier::kNTPCustomization: {
+      CHECK(!segmentation_platform::features::
+                IsMagicStackTipsV2IosActionableEnabled());
+      [self.delegate openMainCustomizationMenuWithIconBubbleOnDismiss:YES
+                                                       scrollToBottom:YES];
+      break;
+    }
   }
 
   [self.NTPActionsDelegate tipsOpened];
@@ -828,6 +864,17 @@ using segmentation_platform::TipIdentifier;
 
     registry->NotifyCardInteracted(std::string(name.value()).c_str());
   }
+}
+
+- (void)didSelectNTPThemePhotoPicker {
+  [self.delegate openNTPBackgroundPhotoPicker];
+  [self.NTPActionsDelegate tipsOpened];
+  segmentation_platform::home_modules::HomeModulesCardRegistry* registry =
+      segmentation_platform::SegmentationPlatformServiceFactory::
+          GetHomeCardRegistryForProfile(self.profile);
+  CHECK(registry);
+  registry->NotifyCardInteracted(
+      segmentation_platform::kNTPThemeEphemeralModule);
 }
 
 #pragma mark - MagicStackCollectionViewAudience
@@ -1265,7 +1312,8 @@ using segmentation_platform::TipIdentifier;
       [self.delegate openSafariDataImport];
       break;
     case SetUpListItemType::kBackgroundCustomization:
-      [self.delegate openMainCustomizationMenu];
+      [self.delegate openMainCustomizationMenuWithIconBubbleOnDismiss:NO
+                                                       scrollToBottom:NO];
       [HandlerForProtocol(self.browser->GetCommandDispatcher(), HelpCommands)
           presentInProductHelpWithType:InProductHelpType::
                                            kHomeBackgroundCustomization];

@@ -48,6 +48,7 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
+import org.robolectric.Robolectric;
 import org.robolectric.annotation.Config;
 import org.robolectric.shadow.api.Shadow;
 import org.robolectric.shadows.ShadowApplication;
@@ -106,13 +107,13 @@ public class Fido2CredentialRequestRobolectricTest {
 
     @Mock private RenderFrameHost mFrameHost;
     @Mock GURLUtils.Natives mGURLUtilsJniMock;
-    @Mock Activity mActivity;
     @Mock WebauthnBrowserBridge mBrowserBridgeMock;
     @Mock CredManHelper mCredManHelperMock;
     @Mock Barrier mBarrierMock;
     @Mock WebauthnModeProvider mModeProviderMock;
     @Mock AuthenticationContextProvider mAuthenticationContextProviderMock;
     @Mock GmsCoreGetCredentialsHelper mGmsCoreGetCredentialsHelperMock;
+    private Activity mActivity;
     private WebauthnRequestCallback mRequestCallbackForTesting;
 
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
@@ -152,6 +153,7 @@ public class Fido2CredentialRequestRobolectricTest {
         Mockito.when(mModeProviderMock.getWebauthnMode(any())).thenReturn(WebauthnMode.CHROME);
         Mockito.when(mModeProviderMock.getGlobalWebauthnMode()).thenReturn(WebauthnMode.CHROME);
         Mockito.when(mAuthenticationContextProviderMock.getIntentSender()).thenReturn(null);
+        mActivity = Robolectric.buildActivity(Activity.class).get();
         Mockito.when(mAuthenticationContextProviderMock.getContext()).thenReturn(mActivity);
         Mockito.when(mAuthenticationContextProviderMock.getRenderFrameHost())
                 .thenReturn(mFrameHost);

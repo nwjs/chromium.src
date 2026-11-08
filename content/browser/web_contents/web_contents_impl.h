@@ -512,6 +512,7 @@ class CONTENT_EXPORT WebContentsImpl
   void WasOccluded() override;
   Visibility GetVisibility() override;
   bool NeedToFireBeforeUnloadOrUnloadEvents() override;
+  bool NeedToFireBeforeUnload() override;
   void DispatchBeforeUnload(bool auto_cancel) override;
   void AttachInnerWebContents(std::unique_ptr<WebContents> inner_web_contents,
                               RenderFrameHost* render_frame_host,
@@ -1054,7 +1055,7 @@ class CONTENT_EXPORT WebContentsImpl
       PreloadingHoldbackStatus holdback_status_override,
       std::optional<base::TimeDelta> ttl,
       bool should_ignore_saver_modes,
-      bool is_ahead_of_actual_navigation) override;
+      bool is_ahead_of_imminent_navigation) override;
   std::unique_ptr<PrerenderHandle> StartPrerendering(
       const GURL& prerendering_url,
       PreloadingTriggerType trigger_type,
@@ -1077,7 +1078,7 @@ class CONTENT_EXPORT WebContentsImpl
                             WindowOpenDisposition disposition) override;
   void SetOwnerLocationForDebug(
       std::optional<base::Location> owner_location) override;
-  blink::ColorProviderColorMaps GetColorProviderColorMaps() const override;
+  blink::ColorProviderColorMaps GetColorProviderColorMaps() override;
 
   BackForwardTransitionAnimationManager*
   GetBackForwardTransitionAnimationManager() override;
@@ -1178,10 +1179,11 @@ class CONTENT_EXPORT WebContentsImpl
   void PreHandleDragExit();
   KeyboardEventProcessingResult PreHandleKeyboardEvent(
       const input::NativeWebKeyboardEvent& event) override;
+  bool PreHandleMouseEvent(const blink::WebMouseEvent& event) override;
+  bool PreHandleGestureEvent(const blink::WebGestureEvent& event) override;
   bool HandleMouseEvent(const blink::WebMouseEvent& event) override;
   bool HandleKeyboardEvent(const input::NativeWebKeyboardEvent& event) override;
   bool HandleWheelEvent(const blink::WebMouseWheelEvent& event) override;
-  bool PreHandleGestureEvent(const blink::WebGestureEvent& event) override;
   ui::BrowserAccessibilityManager* GetRootBrowserAccessibilityManager()
       override;
   ui::BrowserAccessibilityManager* GetOrCreateRootBrowserAccessibilityManager()
@@ -1912,6 +1914,11 @@ class CONTENT_EXPORT WebContentsImpl
   // observer set.
   class WebContentsObserverList {
    public:
+    // A WebContentsObserver method that takes a NavigationHandle, e.g.
+    // &WebContentsObserver::DidStartNavigation.
+    using NavigationObserverMethod =
+        void (WebContentsObserver::*)(NavigationHandle*);
+
     WebContentsObserverList();
     ~WebContentsObserverList();
 
@@ -1932,6 +1939,22 @@ class CONTENT_EXPORT WebContentsImpl
     }
 
     bool is_notifying_observers() { return is_notifying_observers_; }
+
+    // Like NotifyObservers(), but stops if an observer deletes the
+    // NavigationRequest for `navigation_handle` (e.g. a WebView app calling
+    // stopLoading() from its navigation callback on Android), since the
+    // remaining observers would get a dangling NavigationHandle.
+    //
+    // Note that the remaining observers still get DidFinishNavigation() when
+    // the NavigationRequest is deleted, so they see DidFinishNavigation()
+    // without e.g. DidStartNavigation(). Before this was added, they got
+    // DidFinishNavigation() first and then this call with a dangling
+    // NavigationHandle, so the ordering was already broken in this case.
+    // TODO(crbug.com/577957421): Remove this once observers can't delete the
+    // NavigationRequest synchronously.
+    void NotifyObserversUntilNavigationDeleted(
+        NavigationObserverMethod observer_method,
+        NavigationHandle* navigation_handle);
 
     // Exposed to deal with IPC message handlers which need to stop iteration
     // early.
@@ -2125,6 +2148,13 @@ class CONTENT_EXPORT WebContentsImpl
   void SetHistoryIndexAndLengthForView(RenderViewHost* render_view_host,
                                        int history_index,
                                        int history_length);
+
+  // Returns false if disconnection notifications are suppressed or the primary
+  // main frame is ready to be closed. Otherwise returns true if
+  // `frame_needs_events` returns true for any live frame in the primary frame
+  // tree.
+  bool NeedToFirePageCloseEvents(
+      base::FunctionRef<bool(RenderFrameHostImpl&)> frame_needs_events);
 
   // Helper functions for sending notifications.
   void NotifyViewSwapped(RenderViewHost* old_view, RenderViewHost* new_view);

@@ -12,28 +12,27 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.mockito.quality.Strictness;
+import org.robolectric.Robolectric;
 
 import org.chromium.base.ActivityState;
 import org.chromium.base.ApplicationStatus;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.test.BaseRobolectricTestRunner;
-import org.chromium.base.test.util.Features.EnableFeatures;
-import org.chromium.chrome.browser.flags.ChromeFeatureList;
 
 /** Tests basic functionality of LaunchCauseMetrics. */
 @RunWith(BaseRobolectricTestRunner.class)
-@EnableFeatures({ChromeFeatureList.LAUNCH_CAUSE_SCREEN_OFF_FIX})
 public final class LaunchCauseMetricsTest {
-    @Mock private Activity mActivity;
+    private Activity mActivity;
 
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule().strictness(Strictness.STRICT_STUBS);
 
     @Before
     public void setUp() {
+        // Lifecycle is not driven so that ApplicationStatus states are controlled by the test.
+        mActivity = Robolectric.buildActivity(Activity.class).get();
         ApplicationStatus.onStateChangeForTesting(mActivity, ActivityState.CREATED);
     }
 

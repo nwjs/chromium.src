@@ -6,12 +6,16 @@
 #define COMPONENTS_AUTOFILL_CORE_BROWSER_INTEGRATORS_AUTOFILL_AI_METRICS_AUTOFILL_AI_LOGGER_H_
 
 #include <algorithm>
+#include <functional>
 #include <map>
 #include <optional>
+#include <ranges>
 #include <set>
 #include <utility>
 
+#include "base/containers/flat_set.h"
 #include "base/containers/span.h"
+#include "base/memory/raw_ptr.h"
 #include "base/memory/raw_ref.h"
 #include "components/autofill/core/browser/autofill_field.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_instance.h"
@@ -27,6 +31,8 @@ class ProfileMetricsService;
 }
 
 namespace autofill {
+
+class EntitySuppressionManager;
 
 // A class that takes care of keeping track of metric-related states and user
 // interactions with forms.
@@ -96,8 +102,13 @@ class AutofillAiLogger {
   using FormFunnelStateMap =
       std::map<EntityType, std::map<EntityInstance::RecordType, FunnelState>>;
 
+  // Records the Autofill.Ai.Funnel.* metrics of a form, divided into multiple
+  // variants: aggregated over all entity types, per entity type, and per entity
+  // type and record type. `submission_state` denotes whether the form was
+  // submitted or abandoned.
   void RecordFunnelMetrics(const FormFunnelStateMap& funnel_states,
                            bool submission_state) const;
+
   // Records the funnel metrics for a single `funnel_state`. `entity_type` and
   // `record_type` can be `std::nullopt`, denoting that the metrics to be
   // emitted should not be split by this information. Is is assumed that
@@ -107,27 +118,52 @@ class AutofillAiLogger {
       std::optional<EntityType> entity_type,
       std::optional<EntityInstance::RecordType> record_type,
       bool submission_state) const;
+
+  // Records the Autofill.Ai.KeyMetrics.* metrics of a submitted form with the
+  // following variants: aggregated over all entity types and record types, per
+  // record type, per entity type, and per entity type and record type.
   void RecordKeyMetrics(const FormFunnelStateMap& funnel_states) const;
+
   // Records the key metrics for a single `funnel_state`. `entity_type` and
   // `record_type` can be `std::nullopt`, denoting that the metrics to be
-  // emitted should not be split by this information. Is is assumed that
-  // `record_type` can only be non-null when `entity_type` is non-null.
+  // emitted should not be split by this information.
   void RecordKeyMetricsForState(
       FunnelState funnel_state,
       std::optional<EntityType> entity_type,
       std::optional<EntityInstance::RecordType> record_type) const;
+
+  // Records FillingAcceptance for each record type in `funnel_states` whose
+  // suggestions were shown, split by whether suggestions of only that record
+  // type (".Only") or of multiple record types (".Mixed") were shown.
+  // `entity_type` can be `std::nullopt`, denoting that the metrics to be
+  // emitted should not be split by this information.
+  void RecordFillingAcceptanceBySuggestionMix(
+      std::optional<EntityType> entity_type,
+      const std::map<EntityInstance::RecordType, FunnelState>& funnel_states)
+      const;
+
+  // Records the Autofill.Ai.NumberOfFilledFields.* metrics of `form`. These
+  // metrics track the number of fields filled by any Autofill product and by
+  // Autofill AI, split by `opt_in_status` and by whether there was Autofill AI
+  // data to fill.
   void RecordNumberOfFieldsFilled(const FormStructure& form,
                                   const FormFunnelStateMap& funnel_states,
                                   bool opt_in_status) const;
 
+  // Records the Autofill.Ai.Suppression.*.PersonalContext metrics. Logs for
+  // each unique personal context entity which was shown as a suggestion on the
+  // form with `form_id`, whether the user suppressed it. Called at form
+  // submission or abandonment.
+  void RecordPersonalContextSuppressionMetrics(FormGlobalId form_id) const;
+
   // Compresses `funnel_states` into a single `FunnelState` object by
-  // essentially taking the logical OR of all its boolean members.
-  template <class Key>
-  FunnelState CombineStates(
-      const std::map<Key, FunnelState>& funnel_states) const {
-    auto combine = [&](auto pred) {
-      return std::ranges::any_of(funnel_states, pred,
-                                 &std::pair<const Key, FunnelState>::second);
+  // essentially taking the logical OR of all its boolean members. `projection`
+  // maps the elements of `funnel_states` to `FunnelState`s.
+  template <std::ranges::input_range Range, class Proj = std::identity>
+  FunnelState CombineStates(const Range& funnel_states,
+                            Proj projection = {}) const {
+    auto combine = [&](bool FunnelState::* member) {
+      return std::ranges::any_of(funnel_states, member, projection);
     };
     return FunnelState{
         .has_data_to_fill = combine(&FunnelState::has_data_to_fill),
@@ -136,11 +172,24 @@ class AutofillAiLogger {
         .edited_autofilled_field =
             combine(&FunnelState::edited_autofilled_field)};
   }
+  template <class Key>
+  FunnelState CombineStates(
+      const std::map<Key, FunnelState>& funnel_states) const {
+    return CombineStates(funnel_states,
+                         &std::pair<const Key, FunnelState>::second);
+  }
 
   // Records the funnel state for each form and entity type and record type
   // separately. See the documentation of `FunnelState` for more information
   // about what is recorded.
   std::map<FormGlobalId, FormFunnelStateMap> form_states_;
+
+  // Records the personal context entities which were shown as suggestions for
+  // each form. Used for entity suppression metrics.
+  // TODO(crbug.com/573978910): Restrict currently unbounded memory usage.
+  std::map<FormGlobalId,
+           base::flat_set<EntityInstance, EntityInstance::CompareByGuid>>
+      personal_context_entities_shown_;
 
   // Records the IDs of forms that were submitted throughout the lifetime of
   // this object.
@@ -161,6 +210,12 @@ class AutofillAiLogger {
   // itself owned by the Profile through the web contents. The keyed service
   // will outlive the web contents.
   const raw_ref<metrics::ProfileMetricsService> profile_metrics_service_;
+  // This instance is also a keyed service attached to a profile and will
+  // therefore outlive the object. It is cached because the client cannot be
+  // queried for it anymore during its destruction, when this object's
+  // destructor records metrics. May be null if the client does not support
+  // entity suppression.
+  const raw_ptr<const EntitySuppressionManager> entity_suppression_manager_;
 };
 
 }  // namespace autofill

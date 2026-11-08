@@ -7,6 +7,7 @@
 #include <memory>
 #include <utility>
 
+#include "base/functional/callback_helpers.h"
 #include "build/build_config.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/feature_engagement/tracker_factory.h"
@@ -15,6 +16,7 @@
 #include "chrome/browser/profiles/keep_alive/scoped_profile_keep_alive.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "chrome/browser/ui/browser_window/public/profile_browser_collection.h"
 #include "chrome/browser/ui/navigator/browser_navigator.h"
 #include "chrome/browser/ui/navigator/browser_navigator_params.h"
@@ -22,6 +24,7 @@
 #include "chrome/browser/ui/omnibox/omnibox_everywhere/omnibox_everywhere_feature_promo_controller.h"
 #include "chrome/browser/ui/omnibox/omnibox_everywhere/omnibox_everywhere_prefs.h"
 #include "chrome/browser/ui/omnibox/omnibox_everywhere/omnibox_everywhere_ui_manager.h"
+#include "chrome/browser/ui/omnibox/omnibox_next_features.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/user_education/user_education_service.h"
 #include "chrome/browser/user_education/user_education_service_factory.h"
@@ -33,10 +36,44 @@
 #include "ui/base/base_window.h"
 #include "ui/base/page_transition_types.h"
 #include "ui/base/window_open_disposition.h"
+#include "ui/display/display.h"
+#include "ui/display/screen.h"
+#include "ui/gfx/geometry/rect.h"
+#include "ui/views/widget/widget.h"
 
 #if BUILDFLAG(IS_MAC)
 #include "chrome/browser/ui/omnibox/omnibox_everywhere/mac_window_util.h"
 #endif
+
+namespace {
+
+void ActivateAndFocusBrowserWindow(BrowserWindowInterface* bwi) {
+  if (!bwi) {
+    return;
+  }
+#if BUILDFLAG(IS_MAC)
+  // On macOS, when navigating from Loomnibox (an auxiliary overlay window on
+  // a fullscreen Space) to a browser window that may reside on another Space,
+  // explicit application activation and window ordering is required to switch
+  // Mission Control Spaces to Chrome.
+  omnibox_everywhere::ActivateBrowserWindowOnMac(bwi);
+#else
+  if (bwi->GetWindow()) {
+    if (bwi->GetWindow()->IsMinimized()) {
+      bwi->GetWindow()->Restore();
+    }
+    bwi->GetWindow()->Show();
+    bwi->GetWindow()->Activate();
+  }
+#endif
+  if (auto* tab_strip = bwi->GetTabStripModel()) {
+    if (auto* web_contents = tab_strip->GetActiveWebContents()) {
+      web_contents->Focus();
+    }
+  }
+}
+
+}  // namespace
 
 OmniboxEverywhereService::OmniboxEverywhereService(Profile* profile)
     : profile_(profile) {
@@ -250,7 +287,17 @@ void OmniboxEverywhereService::OpenUrl(
   auto* browser_collection = ProfileBrowserCollection::GetForProfile(profile_);
   CHECK(browser_collection);
   BrowserWindowInterface* bwi = browser_collection->GetLastActiveBrowser();
+  NavigateInBrowserWindow(bwi, url, disposition, transition,
+                          std::move(navigation_handle_callback));
+}
 
+void OmniboxEverywhereService::NavigateInBrowserWindow(
+    BrowserWindowInterface* bwi,
+    const GURL& url,
+    WindowOpenDisposition disposition,
+    ui::PageTransition transition,
+    base::OnceCallback<void(content::NavigationHandle&)>
+        navigation_handle_callback) {
   NavigateParams params = bwi ? NavigateParams(bwi, url, transition)
                               : NavigateParams(profile_, url, transition);
   params.should_trigger_session_restore = false;
@@ -275,28 +322,59 @@ void OmniboxEverywhereService::OpenUrl(
   // application (e.g. a fullscreen app over which Loomnibox was displayed).
   HidePopup();
 
-  bwi = params.browser;
+  ActivateAndFocusBrowserWindow(params.browser);
+}
 
-  if (bwi) {
-#if BUILDFLAG(IS_MAC)
-    // On macOS, when navigating from Loomnibox (an auxiliary overlay window on
-    // a fullscreen Space) to a browser window that may reside on another Space,
-    // explicit application activation and window ordering is required to switch
-    // Mission Control Spaces to Chrome.
-    omnibox_everywhere::ActivateBrowserWindowOnMac(bwi);
-#else
-    if (bwi->GetWindow()) {
-      if (bwi->GetWindow()->IsMinimized()) {
-        bwi->GetWindow()->Restore();
-      }
-      bwi->GetWindow()->Show();
-      bwi->GetWindow()->Activate();
-    }
-#endif
-    if (auto* tab_strip = bwi->GetTabStripModel()) {
-      if (auto* web_contents = tab_strip->GetActiveWebContents()) {
-        web_contents->Focus();
-      }
-    }
+// static
+gfx::Rect OmniboxEverywhereService::CalculateInPlaceWindowBounds(
+    const gfx::Rect& popup_bounds,
+    const gfx::Rect& work_area) {
+  const int width =
+      omnibox::kOmniboxEverywhereScreenshotNewWindowWidthParam.Get();
+  const int height =
+      omnibox::kOmniboxEverywhereScreenshotNewWindowHeightParam.Get();
+  const int vertical_offset =
+      omnibox::kOmniboxEverywhereScreenshotNewWindowVerticalOffsetParam.Get();
+  const int x = popup_bounds.x() + (popup_bounds.width() - width) / 2;
+  const int y = popup_bounds.y() - vertical_offset;
+  gfx::Rect bounds(x, y, width, height);
+  if (!work_area.IsEmpty()) {
+    bounds.AdjustToFit(work_area);
   }
+  return bounds;
+}
+
+gfx::Rect OmniboxEverywhereService::GetInPlaceWindowBounds() const {
+  const views::Widget* widget = ui_manager() ? ui_manager()->widget() : nullptr;
+  auto* screen = display::Screen::Get();
+  if (!widget || !screen) {
+    return gfx::Rect(
+        0, 0, omnibox::kOmniboxEverywhereScreenshotNewWindowWidthParam.Get(),
+        omnibox::kOmniboxEverywhereScreenshotNewWindowHeightParam.Get());
+  }
+  const gfx::Rect popup_bounds = widget->GetWindowBoundsInScreen();
+  const gfx::Rect work_area =
+      screen->GetDisplayMatching(popup_bounds).work_area();
+  return CalculateInPlaceWindowBounds(popup_bounds, work_area);
+}
+
+void OmniboxEverywhereService::OpenUrlWithInPlaceWindow(
+    const GURL& url,
+    ui::PageTransition transition,
+    base::OnceCallback<void(content::NavigationHandle&)>
+        navigation_handle_callback) {
+  BrowserWindowInterface* bwi = nullptr;
+  if (GetBrowserWindowCreationStatusForProfile(*profile_) ==
+      BrowserWindowInterface::CreationStatus::kOk) {
+    BrowserWindowCreateParams browser_params(profile_,
+                                             /*from_user_gesture=*/true);
+    browser_params.should_trigger_session_restore = false;
+    browser_params.initial_bounds = GetInPlaceWindowBounds();
+    browser_params.initial_origin_specified =
+        BrowserWindowCreateParams::ValueSpecified::kSpecified;
+    bwi = CreateBrowserWindow(std::move(browser_params));
+  }
+
+  NavigateInBrowserWindow(bwi, url, WindowOpenDisposition::NEW_FOREGROUND_TAB,
+                          transition, std::move(navigation_handle_callback));
 }

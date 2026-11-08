@@ -125,6 +125,7 @@ class ChromeExtensionsBrowserClient : public ExtensionsBrowserClient {
   bool CanExtensionCrossIncognito(
       const Extension* extension,
       content::BrowserContext* context) const override;
+  BrowserContextLifetimeTracker* GetBrowserContextLifetimeTracker() override;
   base::FilePath GetBundleResourcePath(
       const network::ResourceRequest& request,
       const base::FilePath& extension_resources_path,
@@ -344,6 +345,8 @@ class ChromeExtensionsBrowserClient : public ExtensionsBrowserClient {
   gfx::NativeWindow GetNativeWindowForFunction(
       ExtensionFunction& function) override;
   bool IsLazyKeyedServiceInstantiationEnabled() const override;
+  bool IsLazySocketAndUsbKeyedServiceInstantiationEnabled() const override;
+  bool IsLazyChromeOSResourceKeyedServiceInstantiationEnabled() const override;
 
   void SetAPIClientForTest(std::unique_ptr<ExtensionsAPIClient> client);
 

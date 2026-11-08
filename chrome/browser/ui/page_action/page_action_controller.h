@@ -216,6 +216,7 @@ class PageActionController {
     using AnchoredMessageCloseCallback = base::RepeatingClosure;
     using AnchoredMessageExpandCallback = base::RepeatingClosure;
     using AnchoredMessageCollapseCallback = base::RepeatingClosure;
+    using AnchoredMessageDowngradeCallback = base::RepeatingClosure;
     using ClickCallback = base::RepeatingCallback<void(PageActionTrigger)>;
 
     virtual void SetIsChipShowingChangedCallback(
@@ -229,6 +230,8 @@ class PageActionController {
     virtual void SetAnchoredMessageCollapseCallback(
         AnchoredMessageCollapseCallback callback) = 0;
     virtual void SetClickCallback(ClickCallback callback) = 0;
+    virtual void SetAnchoredMessageDowngradeCallback(
+        AnchoredMessageDowngradeCallback callback) = 0;
   };
 
   virtual ~PageActionController() = default;
@@ -485,6 +488,8 @@ class PageActionControllerImpl : public PageActionController,
  private:
   using PageActionModelsMap =
       std::map<actions::ActionId, std::unique_ptr<PageActionModelInterface>>;
+
+  bool IsPageActionSuppressedByOmnibox(actions::ActionId page_action_id);
 
   // Called by ScopedPageActionActivity when it's destroyed.
   void DecrementActivityCounter(actions::ActionId action_id) override;

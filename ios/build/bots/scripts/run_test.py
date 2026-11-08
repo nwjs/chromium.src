@@ -12,6 +12,7 @@ import mock
 import os
 import re
 import sys
+import tempfile
 import unittest
 
 from pyfakefs.fake_filesystem_unittest import TestCase
@@ -19,9 +20,9 @@ from pyfakefs.fake_filesystem_unittest import TestCase
 import constants
 import iossim_util
 import run
-import result_sink_util
-from test_runner import SimulatorNotFoundError, TestRunner
-from xcodebuild_runner import SimulatorParallelTestRunner
+import result_sink_util  # noqa: F401
+from test_runner import SimulatorNotFoundError, TestRunner  # noqa: F401
+from xcodebuild_runner import SimulatorParallelTestRunner  # noqa: F401
 import xcode_util
 import test_runner_errors
 import test_runner_test
@@ -34,7 +35,7 @@ sys.path.extend(
     os.path.abspath(os.path.join(CHROMIUM_SRC_DIR, 'build/util/')),
   ]
 )
-import exception_recorder
+import exception_recorder  # noqa: E402
 
 
 @mock.patch(
@@ -97,7 +98,7 @@ class ParseArgsUnitTest(unittest.TestCase):
     self.assertTrue(runner.args.runtime_cache_prefix == 'some/dir')
     self.assertTrue(runner.args.xcode_path == 'some/Xcode.app')
     self.assertTrue(runner.args.repeat == 2)
-    self.assertTrue(runner.args.record_video == None)
+    self.assertTrue(runner.args.record_video == None)  # noqa: E711
     self.assertFalse(runner.args.output_disabled_tests)
 
   def test_isolated_repeat_ok(self):
@@ -124,16 +125,14 @@ class ParseArgsUnitTest(unittest.TestCase):
 
   # Don't try to set any defaults.
   @mock.patch('xcode_util.is_local_run', return_value=False)
-  def test_parse_args_iossim_platform_version(self, _):
-    """iossim, platform and version should all be set together."""
+  def test_parse_args_platform_version(self, _):
+    """Platform and version should both be set together."""
     test_cases = [
       {
         'error': 2,
         'cmd': [
           '--platform',
           'iPhone X',
-          '--version',
-          '13.2.2',
           # Required
           '--xcode-build-version',
           '123abc',
@@ -144,24 +143,8 @@ class ParseArgsUnitTest(unittest.TestCase):
       {
         'error': 2,
         'cmd': [
-          '--iossim',
-          'path/to/iossim',
           '--version',
           '13.2.2',
-          # Required
-          '--xcode-build-version',
-          '123abc',
-          '--out-dir',
-          'some/dir',
-        ],
-      },
-      {
-        'error': 2,
-        'cmd': [
-          '--iossim',
-          'path/to/iossim',
-          '--platform',
-          'iPhone X',
           # Required
           '--xcode-build-version',
           '123abc',
@@ -178,10 +161,14 @@ class ParseArgsUnitTest(unittest.TestCase):
         with self.assertRaises(SystemExit) as ctx:
           runner.parse_args(test_case['cmd'])
       self.assertEqual(ctx.exception.code, test_case['error'])
-      self.assertRegex(stderr_buf.getvalue(), 'must specify all or none of .*')
+      self.assertRegex(
+        stderr_buf.getvalue(),
+        'must specify both -p/--platform and -v/--version',
+      )
 
   @mock.patch('xcode_util.is_local_run', return_value=True)
   @mock.patch('xcode_util.version', return_value=('20.0', '123abc'))
+  @mock.patch('iossim_util.get_simulator_list', return_value={'runtimes': []})
   def test_parse_args_default_xcode_build_version(self, *_mocks):
     cmd = [
       '--out-dir',
@@ -193,6 +180,7 @@ class ParseArgsUnitTest(unittest.TestCase):
 
   @mock.patch('xcode_util.is_local_run', return_value=True)
   @mock.patch('xcode_util.version', return_value=('20.0', '123abc'))
+  @mock.patch('iossim_util.get_simulator_list', return_value={'runtimes': []})
   def test_parse_args_default_xcode_build_version_override(self, *_mocks):
     cmd = [
       '--out-dir',
@@ -203,6 +191,20 @@ class ParseArgsUnitTest(unittest.TestCase):
     runner = run.Runner()
     runner.parse_args(cmd)
     self.assertEqual('efefef', runner.args.xcode_build_version)
+
+  @mock.patch('xcode_util.is_local_run', return_value=True)
+  @mock.patch('xcode_util.version', return_value=('20.0', '123abc'))
+  @mock.patch('iossim_util.get_simulator_list', side_effect=FileNotFoundError)
+  def test_parse_args_xcrun_missing(self, *_mocks):
+    cmd = [
+      '--out-dir',
+      'some/dir',
+    ]
+    runner = run.Runner()
+    runner.parse_args(cmd)
+    self.assertEqual('123abc', runner.args.xcode_build_version)
+    self.assertIsNone(runner.args.version)
+    self.assertIsNone(runner.args.platform)
 
   @mock.patch('xcode_util.is_local_run', return_value=True)
   @mock.patch(
@@ -235,6 +237,39 @@ class ParseArgsUnitTest(unittest.TestCase):
       'some/dir',
       '--xcode-build-version',
       '123abc',
+    ]
+    runner = run.Runner()
+    runner.parse_args(cmd)
+    self.assertEqual('20.0', runner.args.version)
+    self.assertEqual('iPhone 20 Pro', runner.args.platform)
+
+  @mock.patch('xcode_util.is_local_run', return_value=True)
+  @mock.patch(
+    'iossim_util.get_simulator_list',
+    return_value={
+      'runtimes': [
+        {
+          'version': '20.0',
+          'supportedDeviceTypes': [
+            {
+              'productFamily': 'iPhone',
+              'name': 'iPhone 20',
+            },
+            {
+              'productFamily': 'iPhone',
+              'name': 'iPhone 20 Pro',
+            },
+          ],
+        }
+      ],
+    },
+  )
+  def test_parse_args_iossim_ignored(self, *_mocks):
+    cmd = [
+      '--out-dir',
+      'some/dir',
+      '--xcode-build-version',
+      '123abc',
       '--iossim',
       'path/to/iossim',
     ]
@@ -242,6 +277,8 @@ class ParseArgsUnitTest(unittest.TestCase):
     runner.parse_args(cmd)
     self.assertEqual('20.0', runner.args.version)
     self.assertEqual('iPhone 20 Pro', runner.args.platform)
+    self.assertNotIn('--iossim', runner.test_args)
+    self.assertNotIn('path/to/iossim', runner.test_args)
 
   @mock.patch('xcode_util.is_local_run', return_value=True)
   @mock.patch(
@@ -651,6 +688,8 @@ class RunnerInstallXcodeTest(test_runner_test.TestCase):
     self.runner.args.platform = 'iPhone 11'
     self.runner.args.version = '14.4'
     self.runner.args.out_dir = 'out/dir'
+    self.runner.args.benchmark_name = None
+    self.runner.args.isolated_script_test_perf_output = None
 
   @mock.patch('test_runner.defaults_delete')
   @mock.patch('json.dump')
@@ -985,7 +1024,7 @@ class RunnerInstallXcodeTest(test_runner_test.TestCase):
     _3,
     _4,
   ):
-    mock_check_xcode_exists_in_apps = True
+    mock_check_xcode_exists_in_apps = True  # noqa: F841
     mock_macos_13_or_higher.return_value = False
     mock_construct_runtime_cache_folder.side_effect = lambda a, b: a + b
     test_runner = mock_tr.return_value
@@ -1094,6 +1133,171 @@ class RunnerInstallXcodeTest(test_runner_test.TestCase):
       if 'Xcode' in exception_str:
         self.assertEqual(expected_exception_str, exception_str)
     mock_rmtree.assert_called_with('test/xcode/path')
+
+  def test_isolated_script_perf_args_not_leaked_to_test_args(self):
+    runner = run.Runner()
+    runner.parse_args(
+      [
+        '--app',
+        'test_app.app',
+        '--out-dir',
+        '/tmp/out',
+        '--xcode-build-version',
+        '27a266a',
+        '--xcodebuild-device-runner',
+        '--isolated-script-test-output',
+        '/tmp/out/output.json',
+        '--isolated-script-test-perf-output',
+        '/tmp/out/perf_results.json',
+        '--benchmark-name',
+        'bling.startup.perf',
+      ]
+    )
+    self.assertEqual(
+      runner.args.isolated_script_test_output, '/tmp/out/output.json'
+    )
+    self.assertEqual(
+      runner.args.isolated_script_test_perf_output, '/tmp/out/perf_results.json'
+    )
+    self.assertEqual(runner.args.benchmark_name, 'bling.startup.perf')
+    self.assertEqual(runner.test_args, [])
+
+  @mock.patch('test_runner.defaults_delete')
+  @mock.patch('xcode_util.select', autospec=True)
+  @mock.patch('xcodebuild_runner.SimulatorParallelTestRunner')
+  @mock.patch('xcode_util.install', autospec=True, return_value=False)
+  @mock.patch('xcode_util.check_xcode_exists_in_apps', return_value=False)
+  @mock.patch(
+    'mac_util.is_macos_13_or_higher', autospec=True, return_value=False
+  )
+  def test_benchmark_perf_results_written(
+    self,
+    _macos,
+    _exists,
+    _install,
+    mock_tr,
+    _select,
+    _defaults,
+  ):
+    with tempfile.TemporaryDirectory() as tmpdir:
+      xcode_dir = os.path.join(tmpdir, 'Xcode.app')
+      os.makedirs(xcode_dir, exist_ok=True)
+      self.runner.args.out_dir = tmpdir
+      self.runner.args.benchmark_name = 'bling.startup'
+      self.runner.args.isolated_script_test_output = None
+      self.runner.args.test_launcher_summary_output = None
+      self.runner.args.isolated_script_test_perf_output = None
+      self.runner.args.xcode_path = xcode_dir
+
+      def fake_launch():
+        with open(os.path.join(tmpdir, 'perf_results.json'), 'w') as f:
+          json.dump([{'name': 'Startup.ColdStartFromMain'}], f)
+        return True
+
+      tr_instance = mock_tr.return_value
+      tr_instance.launch.side_effect = fake_launch
+      tr_instance.logs = {}
+      tr_instance.test_results = {'version': 3, 'tests': {}}
+
+      rc = self.runner.run(None)
+      self.assertEqual(rc, 0)
+      self.assertTrue(
+        os.path.isfile(
+          os.path.join(tmpdir, 'bling.startup', 'perf_results.json')
+        )
+      )
+      self.assertTrue(
+        os.path.isfile(
+          os.path.join(tmpdir, 'bling.startup', 'test_results.json')
+        )
+      )
+
+  @mock.patch('test_runner.defaults_delete')
+  @mock.patch('xcode_util.select', autospec=True)
+  @mock.patch('xcodebuild_runner.SimulatorParallelTestRunner')
+  @mock.patch('xcode_util.install', autospec=True, return_value=False)
+  @mock.patch('xcode_util.check_xcode_exists_in_apps', return_value=False)
+  @mock.patch(
+    'mac_util.is_macos_13_or_higher', autospec=True, return_value=False
+  )
+  def test_isolated_script_test_perf_output_copied(
+    self,
+    _macos,
+    _exists,
+    _install,
+    mock_tr,
+    _select,
+    _defaults,
+  ):
+    with tempfile.TemporaryDirectory() as tmpdir:
+      xcode_dir = os.path.join(tmpdir, 'Xcode.app')
+      os.makedirs(xcode_dir, exist_ok=True)
+      out_dir = os.path.join(tmpdir, 'out')
+      os.makedirs(out_dir, exist_ok=True)
+      perf_copy = os.path.join(tmpdir, 'custom_perf.json')
+      self.runner.args.out_dir = out_dir
+      self.runner.args.benchmark_name = 'bling.startup'
+      self.runner.args.isolated_script_test_output = None
+      self.runner.args.test_launcher_summary_output = None
+      self.runner.args.isolated_script_test_perf_output = perf_copy
+      self.runner.args.xcode_path = xcode_dir
+
+      def fake_launch():
+        sub_dir = os.path.join(out_dir, 'bling.startup')
+        os.makedirs(sub_dir, exist_ok=True)
+        with open(os.path.join(sub_dir, 'perf_results.json'), 'w') as f:
+          json.dump([{'name': 'Startup.ColdStartFromMain'}], f)
+        return True
+
+      tr_instance = mock_tr.return_value
+      tr_instance.launch.side_effect = fake_launch
+      tr_instance.logs = {}
+      tr_instance.test_results = {'version': 3, 'tests': {}}
+
+      rc = self.runner.run(None)
+      self.assertEqual(rc, 0)
+      self.assertTrue(os.path.isfile(perf_copy))
+      self.assertTrue(
+        os.path.isfile(
+          os.path.join(out_dir, 'bling.startup', 'test_results.json')
+        )
+      )
+
+  @mock.patch('test_runner.defaults_delete')
+  @mock.patch('xcode_util.select', autospec=True)
+  @mock.patch('xcodebuild_runner.SimulatorParallelTestRunner')
+  @mock.patch('xcode_util.install', autospec=True, return_value=False)
+  @mock.patch('xcode_util.check_xcode_exists_in_apps', return_value=False)
+  @mock.patch(
+    'mac_util.is_macos_13_or_higher', autospec=True, return_value=False
+  )
+  def test_benchmark_name_passed_to_runner(
+    self,
+    _macos,
+    _exists,
+    _install,
+    mock_tr,
+    _select,
+    _defaults,
+  ):
+    with tempfile.TemporaryDirectory() as tmpdir:
+      xcode_dir = os.path.join(tmpdir, 'Xcode.app')
+      os.makedirs(xcode_dir, exist_ok=True)
+      self.runner.args.out_dir = tmpdir
+      self.runner.args.benchmark_name = 'bling.startup'
+      self.runner.args.isolated_script_test_output = None
+      self.runner.args.test_launcher_summary_output = None
+      self.runner.args.isolated_script_test_perf_output = None
+      self.runner.args.xcode_path = xcode_dir
+
+      tr_instance = mock_tr.return_value
+      tr_instance.launch.return_value = False
+      tr_instance.logs = {}
+      tr_instance.test_results = {'version': 3, 'tests': {}}
+
+      rc = self.runner.run(None)
+      self.assertEqual(rc, 1)
+      self.assertEqual(mock_tr.call_args[1]['benchmark_name'], 'bling.startup')
 
 
 if __name__ == '__main__':

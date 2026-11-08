@@ -36,6 +36,7 @@ class GURL;
 class ProfileIOS;
 
 namespace device_reauth {
+class DeviceAuthAvailabilityChecker;
 class DeviceAuthenticator;
 }  // namespace device_reauth
 
@@ -109,7 +110,11 @@ class IOSChromePasswordManagerClient
       const url::Origin& origin,
       CredentialsCallback callback) override;
   bool IsReauthBeforeFillingRequired(
+      device_reauth::DeviceAuthAvailabilityChecker* checker) override;
+  bool IsReauthBeforeFillingRequiredLegacy(
       device_reauth::DeviceAuthenticator* authenticator) override;
+  std::unique_ptr<device_reauth::DeviceAuthAvailabilityChecker>
+  GetDeviceAuthAvailabilityChecker() override;
   std::unique_ptr<device_reauth::DeviceAuthenticator> GetDeviceAuthenticator()
       override;
   void AutomaticPasswordSave(

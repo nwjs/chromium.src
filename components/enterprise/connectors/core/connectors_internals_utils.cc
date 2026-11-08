@@ -22,17 +22,14 @@
 #include "components/enterprise/browser/reporting/report_scheduler.h"
 #include "components/enterprise/browser/reporting/report_util.h"
 #include "components/enterprise/buildflags/buildflags.h"
+#include "components/enterprise/client_certificates/core/certificate_provisioning_service.h"
+#include "components/enterprise/client_certificates/core/private_key.h"
 #include "components/enterprise/device_trust/core/common_types.h"  // nogncheck
 #include "components/enterprise/device_trust/core/device_trust_connector_service.h"  // nogncheck
 #include "components/prefs/pref_service.h"
 #include "crypto/sha2.h"
-
-#if BUILDFLAG(ENTERPRISE_CLIENT_CERTIFICATES)
-#include "components/enterprise/client_certificates/core/certificate_provisioning_service.h"
-#include "components/enterprise/client_certificates/core/private_key.h"  // nogncheck
 #include "net/cert/x509_certificate.h"
 #include "net/ssl/ssl_private_key.h"
-#endif  // BUILDFLAG(ENTERPRISE_CLIENT_CERTIFICATES)
 
 #if BUILDFLAG(ENTERPRISE_PROXY)
 #include "components/enterprise/net/core/enterprise_proxy_service.h"
@@ -42,7 +39,6 @@ namespace enterprise_connectors::utils {
 
 namespace {
 
-#if BUILDFLAG(ENTERPRISE_CLIENT_CERTIFICATES)
 std::string BufferToString(base::span<const uint8_t> buffer) {
   return std::string(buffer.begin(), buffer.end());
 }
@@ -105,19 +101,20 @@ connectors_internals::mojom::CertificateMetadataPtr ConvertCertificate(
   using base::i18n::IcuBridge;
   using base::i18n::datetime_options::YMD;
 
+  const IcuBridge::DateTimeFormatter& formatter =
+      IcuBridge::GetInstance().date_time_formatter(
+          GetKnownLanguageTag("en-US"));
+
   return connectors_internals::mojom::CertificateMetadata::New(
       base::HexEncodeLower(certificate->serial_number()),
       base::HexEncodeLower(certificate->CalculateChainFingerprint256()),
-      base::UTF16ToUTF8(IcuBridge::GetInstance().date_time_formatter().Format(
-          certificate->valid_start(), GetKnownLanguageTag("en-US"),
-          YMD::Medium())),
-      base::UTF16ToUTF8(IcuBridge::GetInstance().date_time_formatter().Format(
-          certificate->valid_expiry(), GetKnownLanguageTag("en-US"),
-          YMD::Medium())),
+      base::UTF16ToUTF8(
+          formatter.Format(certificate->valid_start(), YMD::Medium())),
+      base::UTF16ToUTF8(
+          formatter.Format(certificate->valid_expiry(), YMD::Medium())),
       certificate->subject().GetDisplayName(),
       certificate->issuer().GetDisplayName());
 }
-#endif  // BUILDFLAG(ENTERPRISE_CLIENT_CERTIFICATES)
 
 }  // namespace
 
@@ -144,8 +141,6 @@ connectors_internals::mojom::KeyType AlgorithmToType(
       return connectors_internals::mojom::KeyType::UNKNOWN;
   }
 }
-
-#if BUILDFLAG(ENTERPRISE_CLIENT_CERTIFICATES)
 
 connectors_internals::mojom::ClientIdentityPtr GetIdentity(
     client_certificates::CertificateProvisioningService* provisioning_service,
@@ -206,8 +201,6 @@ CreateClientCertificateState(
       std::move(enabled_levels), std::move(managed_profile_identity),
       std::move(managed_browser_identity));
 }
-
-#endif  // BUILDFLAG(ENTERPRISE_CLIENT_CERTIFICATES)
 
 std::string HashAndEncodeString(const std::string& spki_bytes) {
   std::string encoded_string;
@@ -273,10 +266,11 @@ std::string GetStringFromTimestamp(base::Time timestamp) {
   return (timestamp == base::Time())
              ? std::string()
              : base::UTF16ToUTF8(
-                   IcuBridge::GetInstance().date_time_formatter().Format(
-                       timestamp, GetKnownLanguageTag("en-US"),
-                       YMDT::Short().with_time_precision(
-                           DateTimeFormatterOptions::TimePrecision::kMinute)));
+                   IcuBridge::GetInstance()
+                       .date_time_formatter(GetKnownLanguageTag("en-US"))
+                       .Format(timestamp, YMDT::Short().with_time_precision(
+                                              DateTimeFormatterOptions::
+                                                  TimePrecision::kMinute)));
 }
 
 std::string ConvertPolicyLevelToString(

@@ -16,7 +16,6 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
-import org.chromium.chrome.browser.ui.browser_window.ChromeAndroidTaskImpl.State;
 import org.chromium.chrome.browser.ui.browser_window.PendingActionManager.PendingAction;
 
 /** Unit tests for {@link PendingActionManager}. */
@@ -24,9 +23,7 @@ import org.chromium.chrome.browser.ui.browser_window.PendingActionManager.Pendin
 public class PendingActionManagerUnitTest {
     private static final @PendingAction int[] ALL_ACTIONS = {
         PendingAction.SHOW,
-        PendingAction.HIDE,
         PendingAction.SHOW_INACTIVE,
-        PendingAction.CLOSE,
         PendingAction.ACTIVATE,
         PendingAction.DEACTIVATE,
         PendingAction.MAXIMIZE,
@@ -36,7 +33,7 @@ public class PendingActionManagerUnitTest {
     };
 
     private static final @PendingAction int[] NO_INPUT_GLOBAL_OVERRIDE_ACTIONS = {
-        PendingAction.HIDE, PendingAction.CLOSE, PendingAction.MINIMIZE,
+        PendingAction.MINIMIZE,
     };
 
     private static final @PendingAction int[] SECONDARY_ACTIONS = {
@@ -45,6 +42,7 @@ public class PendingActionManagerUnitTest {
 
     private static final Rect TEST_SET_BOUNDS_INPUT_1 = new Rect(0, 0, 100, 100);
     private static final Rect TEST_SET_BOUNDS_INPUT_2 = new Rect(0, 0, 200, 200);
+    private static final Rect TEST_MAXIMIZED_BOUNDS = new Rect(0, 0, 1000, 1000);
 
     private PendingActionManager mManager;
 
@@ -71,7 +69,6 @@ public class PendingActionManagerUnitTest {
     public void testRequestShow_afterSingleLowerPrecedenceAction_clearsActionAndAddsShow() {
         @PendingAction
         int[] lowerPrecedenceActions = {
-            PendingAction.HIDE,
             PendingAction.SHOW_INACTIVE,
             PendingAction.ACTIVATE,
             PendingAction.DEACTIVATE,
@@ -88,10 +85,7 @@ public class PendingActionManagerUnitTest {
     public void testRequestShow_afterSingleHigherPrecedenceAction_ignoresShowAndRetainsOther() {
         @PendingAction
         int[] higherPrecedenceActions = {
-            PendingAction.CLOSE,
-            PendingAction.MAXIMIZE,
-            PendingAction.RESTORE,
-            PendingAction.SET_BOUNDS
+            PendingAction.MAXIMIZE, PendingAction.RESTORE, PendingAction.SET_BOUNDS
         };
 
         doTestActionRetainsHigherPrecedenceAction(PendingAction.SHOW, higherPrecedenceActions);
@@ -109,7 +103,7 @@ public class PendingActionManagerUnitTest {
     @Test
     public void testRequestSetBounds_withNonEmptyBounds_noPriorPendingActions_addsSetBoundsOnly() {
         // Act.
-        mManager.requestSetBounds(TEST_SET_BOUNDS_INPUT_1);
+        mManager.requestSetBounds(TEST_SET_BOUNDS_INPUT_1, /* isMaximizedBounds= */ false);
 
         // Assert.
         var pendingActions = mManager.getPendingActionsForTesting();
@@ -129,9 +123,60 @@ public class PendingActionManagerUnitTest {
     }
 
     @Test
+    public void testRequestSetBounds_withMaximizedBounds_doesNotSetRestoredBounds() {
+        // Act: set bounds with isMaximizedBounds = true.
+        mManager.requestSetBounds(TEST_MAXIMIZED_BOUNDS, /* isMaximizedBounds= */ true);
+
+        // Assert: action is MAXIMIZE, restored bounds not set.
+        var pendingActions = mManager.getPendingActionsForTesting();
+        assertEquals(
+                "Primary action should be MAXIMIZE.", PendingAction.MAXIMIZE, pendingActions[0]);
+        assertNull(
+                "Restored bounds should not be set for maximized bounds.",
+                mManager.getFutureRestoredBoundsInDp());
+    }
+
+    @Test
+    public void testRequestSetBounds_withNonMaximizedBounds_setsRestoredBounds() {
+        // Act: set bounds with isMaximizedBounds = false.
+        mManager.requestSetBounds(TEST_SET_BOUNDS_INPUT_1, /* isMaximizedBounds= */ false);
+
+        // Assert: action is SET_BOUNDS, restored bounds are set.
+        var pendingActions = mManager.getPendingActionsForTesting();
+        assertEquals(
+                "Primary action should be SET_BOUNDS.",
+                PendingAction.SET_BOUNDS,
+                pendingActions[0]);
+        assertEquals(
+                "Restored bounds should be set for non-maximized bounds.",
+                TEST_SET_BOUNDS_INPUT_1,
+                mManager.getFutureRestoredBoundsInDp());
+    }
+
+    @Test
+    public void testFutureRestoredBounds_afterSetBoundsSettles_returnsNull() {
+        mManager.requestSetBounds(TEST_SET_BOUNDS_INPUT_1, /* isMaximizedBounds= */ false);
+
+        mManager.getAndClearTargetPendingActions(PendingAction.SET_BOUNDS);
+
+        assertNull(mManager.getFutureRestoredBoundsInDp());
+    }
+
+    @Test
+    public void testFutureRestoredBounds_afterSetBoundsOverridden_retainedUntilSettled() {
+        mManager.requestSetBounds(TEST_SET_BOUNDS_INPUT_1, /* isMaximizedBounds= */ false);
+        mManager.requestSetBounds(TEST_MAXIMIZED_BOUNDS, /* isMaximizedBounds= */ true);
+        assertEquals(TEST_SET_BOUNDS_INPUT_1, mManager.getFutureRestoredBoundsInDp());
+
+        mManager.getAndClearTargetPendingActions(PendingAction.MAXIMIZE);
+
+        assertNull(mManager.getFutureRestoredBoundsInDp());
+    }
+
+    @Test
     public void testRequestSetBounds_withEmptyBounds_noPriorPendingActions_ignoresSetBounds() {
         // Act.
-        mManager.requestSetBounds(new Rect());
+        mManager.requestSetBounds(new Rect(), /* isMaximizedBounds= */ false);
 
         // Assert.
         var pendingActions = mManager.getPendingActionsForTesting();
@@ -143,8 +188,8 @@ public class PendingActionManagerUnitTest {
     @Test
     public void testRequestSetBounds_duplicateRequestOverridesBounds() {
         // Act.
-        mManager.requestSetBounds(TEST_SET_BOUNDS_INPUT_1);
-        mManager.requestSetBounds(TEST_SET_BOUNDS_INPUT_2);
+        mManager.requestSetBounds(TEST_SET_BOUNDS_INPUT_1, /* isMaximizedBounds= */ false);
+        mManager.requestSetBounds(TEST_SET_BOUNDS_INPUT_2, /* isMaximizedBounds= */ false);
 
         // Assert.
         var pendingActions = mManager.getPendingActionsForTesting();
@@ -168,9 +213,7 @@ public class PendingActionManagerUnitTest {
         @PendingAction
         int[] lowerPrecedenceActions = {
             PendingAction.SHOW,
-            PendingAction.HIDE,
             PendingAction.SHOW_INACTIVE,
-            PendingAction.CLOSE,
             PendingAction.ACTIVATE,
             PendingAction.DEACTIVATE,
             PendingAction.MINIMIZE,
@@ -209,7 +252,6 @@ public class PendingActionManagerUnitTest {
         @PendingAction
         int[] lowerPrecedenceActions = {
             PendingAction.SHOW,
-            PendingAction.HIDE,
             PendingAction.ACTIVATE,
             PendingAction.DEACTIVATE,
             PendingAction.MINIMIZE
@@ -217,20 +259,6 @@ public class PendingActionManagerUnitTest {
 
         doTestActionOverridesLowerPrecedenceAction(
                 PendingAction.SHOW_INACTIVE, lowerPrecedenceActions);
-    }
-
-    @Test
-    public void testRequestShowInactive_afterClose_ignoresShowInactive() {
-        // Arrange.
-        mManager.requestAction(PendingAction.CLOSE);
-
-        // Act.
-        mManager.requestAction(PendingAction.SHOW_INACTIVE);
-
-        // Assert.
-        var pendingActions = mManager.getPendingActionsForTesting();
-        assertEquals("Primary action should be CLOSE.", PendingAction.CLOSE, pendingActions[0]);
-        assertEquals("Secondary action should be NONE.", PendingAction.NONE, pendingActions[1]);
     }
 
     // Examples:
@@ -266,17 +294,14 @@ public class PendingActionManagerUnitTest {
     public void testRequestActivate_afterSingleLowerPrecedenceAction_clearsActionAndAddsActivate() {
         @PendingAction
         int[] lowerPrecedenceActions = {
-            PendingAction.HIDE,
-            PendingAction.SHOW_INACTIVE,
-            PendingAction.DEACTIVATE,
-            PendingAction.MINIMIZE
+            PendingAction.SHOW_INACTIVE, PendingAction.DEACTIVATE, PendingAction.MINIMIZE
         };
 
         doTestActionOverridesLowerPrecedenceAction(PendingAction.ACTIVATE, lowerPrecedenceActions);
     }
 
     // Examples:
-    // Request: CLOSE->ACTIVATE, Result: CLOSE.
+    // Request: SHOW->ACTIVATE, Result: SHOW.
     // Request: MAXIMIZE->ACTIVATE, Result: MAXIMIZE.
     @Test
     public void
@@ -284,7 +309,6 @@ public class PendingActionManagerUnitTest {
         @PendingAction
         int[] higherPrecedenceActions = {
             PendingAction.SHOW,
-            PendingAction.CLOSE,
             PendingAction.MAXIMIZE,
             PendingAction.RESTORE,
             PendingAction.SET_BOUNDS
@@ -342,16 +366,12 @@ public class PendingActionManagerUnitTest {
                 PendingAction.DEACTIVATE, higherPrecedenceActions);
     }
 
-    // Examples:
-    // Request: CLOSE->DEACTIVATE, Result: CLOSE.
+    // Example:
     // Request: MINIMIZE->DEACTIVATE, Result: MINIMIZE.
     @Test
     public void
             testRequestDeactivate_afterSingleHigherPrecedenceAction_ignoresDeactivateAndRetainsOther() {
-        @PendingAction
-        int[] higherPrecedencePrimaryActions = {
-            PendingAction.HIDE, PendingAction.CLOSE, PendingAction.MINIMIZE
-        };
+        @PendingAction int[] higherPrecedencePrimaryActions = {PendingAction.MINIMIZE};
 
         for (@PendingAction int higherPrecedenceAction : higherPrecedencePrimaryActions) {
             // Arrange.
@@ -413,9 +433,8 @@ public class PendingActionManagerUnitTest {
         }
     }
 
-    // Examples:
+    // Example:
     // Request: MAXIMIZE->DEACTIVATE->MINIMIZE, Result: MINIMIZE.
-    // Request: SET_BOUNDS->SHOW_INACTIVE->CLOSE, Result: CLOSE.
     @Test
     public void testRequestGlobalOverrideAction_afterTwoPendingActions_overridesBothActions() {
         for (@PendingAction int globalOverrideAction : NO_INPUT_GLOBAL_OVERRIDE_ACTIONS) {
@@ -432,7 +451,7 @@ public class PendingActionManagerUnitTest {
         assertEquals(
                 "isActive should be true in the future when ACTIVATE is in progress",
                 true,
-                mManager.isActiveFuture(State.PENDING_CREATE));
+                mManager.isActiveFuture());
     }
 
     @Test
@@ -444,7 +463,7 @@ public class PendingActionManagerUnitTest {
         assertEquals(
                 "isVisible should be true in the future when SHOW is in progress",
                 true,
-                mManager.isVisibleFuture(State.PENDING_UPDATE));
+                mManager.isVisibleFuture());
     }
 
     @Test
@@ -456,30 +475,43 @@ public class PendingActionManagerUnitTest {
         assertEquals(
                 "isVisible should be false in the future when MINIMIZE is in progress",
                 false,
-                mManager.isVisibleFuture(State.PENDING_UPDATE));
+                mManager.isVisibleFuture());
     }
 
     @Test
     public void testIsMaximizedFuture_afterRequestMaximize_returnsTrue() {
         // Arrange.
-        mManager.requestMaximize();
+        mManager.requestSetBounds(TEST_MAXIMIZED_BOUNDS, /* isMaximizedBounds= */ true);
 
         // Assert.
         assertEquals(
                 "isMaximized should be true in the future when MAXIMIZE is in progress",
                 true,
-                mManager.isMaximizedFuture(State.PENDING_UPDATE));
+                mManager.isMaximizedFuture());
+    }
+
+    @Test
+    public void testIsMaximizedFuture_afterRequestSetBounds_returnsFalse() {
+        // Arrange.
+        mManager.requestSetBounds(TEST_SET_BOUNDS_INPUT_1, /* isMaximizedBounds= */ false);
+
+        // Assert.
+        assertEquals(
+                "isMaximized should be false in the future when non-maximized SET_BOUNDS is in"
+                        + " progress",
+                false,
+                mManager.isMaximizedFuture());
     }
 
     @Test
     public void testIsActiveFuture_afterRequestMaximize_notAffectIsActive() {
         // Arrange.
-        mManager.requestMaximize();
+        mManager.requestSetBounds(TEST_MAXIMIZED_BOUNDS, /* isMaximizedBounds= */ true);
 
         // Assert.
         assertNull(
                 "isActiveFuture should not be affected when MAXIMIZE is in progress",
-                mManager.isActiveFuture(State.PENDING_UPDATE));
+                mManager.isActiveFuture());
     }
 
     @Test
@@ -490,13 +522,13 @@ public class PendingActionManagerUnitTest {
         // Assert.
         assertNull(
                 "isActiveFuture should not be affected when RESTORE is in progress",
-                mManager.isActiveFuture(State.PENDING_UPDATE));
+                mManager.isActiveFuture());
     }
 
     @Test
     public void testSetBounds_afterSetBounds_returnsPendingBounds() {
         // Arrange.
-        mManager.requestSetBounds(TEST_SET_BOUNDS_INPUT_1);
+        mManager.requestSetBounds(TEST_SET_BOUNDS_INPUT_1, /* isMaximizedBounds= */ false);
 
         // Assert.
         assertEquals(
@@ -508,7 +540,7 @@ public class PendingActionManagerUnitTest {
     @Test
     public void testClearSetBounds_afterSetBounds_returnsNull() {
         // Arrange.
-        mManager.requestSetBounds(TEST_SET_BOUNDS_INPUT_1);
+        mManager.requestSetBounds(TEST_SET_BOUNDS_INPUT_1, /* isMaximizedBounds= */ false);
         mManager.getAndClearTargetPendingActions(PendingAction.SET_BOUNDS);
 
         // Assert.
@@ -519,12 +551,11 @@ public class PendingActionManagerUnitTest {
     public void testGetAndClearTargetPendingActions_afterClear_stateReturnsNull() {
         // Arrange.
         mManager.requestAction(PendingAction.ACTIVATE);
-        assertEquals(true, mManager.isActiveFuture(State.PENDING_UPDATE));
+        assertEquals(true, mManager.isActiveFuture());
 
         mManager.getAndClearTargetPendingActions(PendingAction.ACTIVATE);
         assertNull(
-                "No pending action affecting isActive's future state",
-                mManager.isActiveFuture(State.PENDING_UPDATE));
+                "No pending action affecting isActive's future state", mManager.isActiveFuture());
     }
 
     private void doTestActionOverridesLowerPrecedenceAction(
@@ -543,9 +574,9 @@ public class PendingActionManagerUnitTest {
             // Arrange.
             mManager.clearPendingActionsForTesting();
             if (lowerPrecedenceAction == PendingAction.SET_BOUNDS) {
-                mManager.requestSetBounds(TEST_SET_BOUNDS_INPUT_1);
+                mManager.requestSetBounds(TEST_SET_BOUNDS_INPUT_1, /* isMaximizedBounds= */ false);
             } else if (lowerPrecedenceAction == PendingAction.MAXIMIZE) {
-                mManager.requestMaximize();
+                mManager.requestSetBounds(TEST_MAXIMIZED_BOUNDS, /* isMaximizedBounds= */ true);
             } else if (lowerPrecedenceAction == PendingAction.RESTORE) {
                 mManager.requestRestore(new Rect());
             } else {
@@ -554,7 +585,7 @@ public class PendingActionManagerUnitTest {
 
             // Act.
             if (action == PendingAction.SET_BOUNDS) {
-                mManager.requestSetBounds(bounds);
+                mManager.requestSetBounds(bounds, /* isMaximizedBounds= */ false);
             } else {
                 mManager.requestAction(action);
             }
@@ -597,9 +628,9 @@ public class PendingActionManagerUnitTest {
         for (@PendingAction int higherPrecedenceAction : higherPrecedenceActions) {
             // Arrange.
             if (higherPrecedenceAction == PendingAction.SET_BOUNDS) {
-                mManager.requestSetBounds(TEST_SET_BOUNDS_INPUT_1);
+                mManager.requestSetBounds(TEST_SET_BOUNDS_INPUT_1, /* isMaximizedBounds= */ false);
             } else if (higherPrecedenceAction == PendingAction.MAXIMIZE) {
-                mManager.requestMaximize();
+                mManager.requestSetBounds(TEST_MAXIMIZED_BOUNDS, /* isMaximizedBounds= */ true);
             } else if (higherPrecedenceAction == PendingAction.RESTORE) {
                 mManager.requestRestore(new Rect());
             } else {
@@ -637,9 +668,10 @@ public class PendingActionManagerUnitTest {
             for (@PendingAction int primaryAction : priorPrimaryActions) {
                 // Arrange.
                 if (primaryAction == PendingAction.SET_BOUNDS) {
-                    mManager.requestSetBounds(TEST_SET_BOUNDS_INPUT_1);
+                    mManager.requestSetBounds(
+                            TEST_SET_BOUNDS_INPUT_1, /* isMaximizedBounds= */ false);
                 } else if (primaryAction == PendingAction.MAXIMIZE) {
-                    mManager.requestMaximize();
+                    mManager.requestSetBounds(TEST_MAXIMIZED_BOUNDS, /* isMaximizedBounds= */ true);
                 } else {
                     Assert.assertEquals(PendingAction.RESTORE, primaryAction);
                     mManager.requestRestore(new Rect());
@@ -684,9 +716,10 @@ public class PendingActionManagerUnitTest {
             for (@PendingAction int priorPrimaryAction : priorPrimaryActions) {
                 // Arrange.
                 if (priorPrimaryAction == PendingAction.SET_BOUNDS) {
-                    mManager.requestSetBounds(TEST_SET_BOUNDS_INPUT_1);
+                    mManager.requestSetBounds(
+                            TEST_SET_BOUNDS_INPUT_1, /* isMaximizedBounds= */ false);
                 } else if (priorPrimaryAction == PendingAction.MAXIMIZE) {
-                    mManager.requestMaximize();
+                    mManager.requestSetBounds(TEST_MAXIMIZED_BOUNDS, /* isMaximizedBounds= */ true);
                 } else {
                     Assert.assertEquals(PendingAction.RESTORE, priorPrimaryAction);
                     mManager.requestRestore(new Rect());
@@ -696,7 +729,8 @@ public class PendingActionManagerUnitTest {
 
                 // Act.
                 if (action == PendingAction.SET_BOUNDS) {
-                    mManager.requestSetBounds(TEST_SET_BOUNDS_INPUT_2);
+                    mManager.requestSetBounds(
+                            TEST_SET_BOUNDS_INPUT_2, /* isMaximizedBounds= */ false);
                 } else {
                     mManager.requestAction(action);
                 }

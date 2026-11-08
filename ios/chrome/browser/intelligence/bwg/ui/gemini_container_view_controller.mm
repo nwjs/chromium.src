@@ -6,6 +6,8 @@
 
 #import "ios/chrome/browser/intelligence/actor/ui/actuation_worklog_constants.h"
 #import "ios/chrome/browser/intelligence/actor/ui/actuation_worklog_view_controller.h"
+#import "ios/chrome/browser/intelligence/actor/ui/actuation_worklog_view_data.h"
+#import "ios/chrome/browser/intelligence/bwg/ui/gemini_container_zero_state_background_view.h"
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
 #import "ios/chrome/common/ui/util/constraints_ui_util.h"
 
@@ -30,15 +32,16 @@ constexpr NSDirectionalEdgeInsets kWorklogContainerInsets =
   // to hide all of gemini UI without forcing a collapse with the default
   // handling of `hidden` by the stack view.
   UIView* _geminiContentView;
+  // Stack view containing the zero-state and Gemini child views.
+  UIStackView* _containerStack;
+  // Background halo gradient view displayed when in zero-state.
+  GeminiContainerZeroStateBackgroundView* _zeroStateBackgroundView;
 }
 
-- (instancetype)
-    initWithGeminiViewController:(UIViewController*)geminiViewController
-           worklogViewController:
-               (ActuationWorklogViewController*)worklogViewController {
+- (instancetype)initWithWorklogViewController:
+    (ActuationWorklogViewController*)worklogViewController {
   self = [super initWithNibName:nil bundle:nil];
   if (self) {
-    _geminiViewController = geminiViewController;
     _worklogViewController = worklogViewController;
   }
   return self;
@@ -69,19 +72,19 @@ constexpr NSDirectionalEdgeInsets kWorklogContainerInsets =
         constraintEqualToAnchor:self.view.keyboardLayoutGuide.topAnchor]
   ]];
 
-  UIStackView* containerStack = [[UIStackView alloc] init];
-  containerStack.translatesAutoresizingMaskIntoConstraints = NO;
-  containerStack.axis = UILayoutConstraintAxisVertical;
-  containerStack.alignment = UIStackViewAlignmentFill;
-  [_geminiContentView addSubview:containerStack];
-  AddSameConstraints(containerStack, _geminiContentView);
+  _containerStack = [[UIStackView alloc] init];
+  _containerStack.translatesAutoresizingMaskIntoConstraints = NO;
+  _containerStack.axis = UILayoutConstraintAxisVertical;
+  _containerStack.alignment = UIStackViewAlignmentFill;
+  [_geminiContentView addSubview:_containerStack];
+  AddSameConstraints(_containerStack, _geminiContentView);
 
   if (self.zeroStateViewController) {
-    [self addZeroStateToContainer:containerStack];
+    [self addZeroStateToContainer:_containerStack];
   }
 
   if (_geminiViewController) {
-    [self addGeminiToContainer:containerStack];
+    [self addGeminiToContainer:_containerStack];
   }
 
   if (_worklogViewController) {
@@ -93,23 +96,38 @@ constexpr NSDirectionalEdgeInsets kWorklogContainerInsets =
 
 - (void)worklogViewController:(ActuationWorklogViewController*)viewController
               didChangeHeight:(CGFloat)height {
-  CGFloat totalDetentHeight =
-      height + kWorklogContainerInsets.top + kWorklogContainerInsets.bottom;
-  [self.mutator containerDidChangeActuationHeight:totalDetentHeight];
+  [self.mutator containerDidChangeActuationHeight:
+                    [self containerHeightForWorklogHeight:height]];
 }
 
 #pragma mark - GeminiContainerConsumer
 
+- (void)setGeminiViewController:(UIViewController*)geminiViewController {
+  if (_geminiViewController == geminiViewController) {
+    return;
+  }
+  if (_geminiViewController.parentViewController == self) {
+    [_geminiViewController willMoveToParentViewController:nil];
+    [_geminiViewController.view removeFromSuperview];
+    [_geminiViewController removeFromParentViewController];
+  }
+  _geminiViewController = geminiViewController;
+  if (_containerStack && _geminiViewController) {
+    [self addGeminiToContainer:_containerStack];
+  }
+}
+
 - (void)updateZeroStateVisibility:(BOOL)visible {
   self.zeroStateViewController.view.hidden = !visible;
+  _zeroStateBackgroundView.hidden = !visible;
 }
 
 - (void)dismissKeyboard {
   [self.view endEditing:YES];
 }
 
-- (void)setWorklogCompact:(BOOL)compact {
-  [_worklogViewController setCompact:compact];
+- (void)setWorklogDisplayMode:(ActuationWorklogDisplayMode)displayMode {
+  _worklogViewController.displayMode = displayMode;
 }
 
 - (void)setActuationActive:(BOOL)active {
@@ -135,22 +153,39 @@ constexpr NSDirectionalEdgeInsets kWorklogContainerInsets =
       .height;
 }
 
+// TODO(crbug.com/532204179): Push the minimized height alongside the compact
+// height so the minimized detent stays in sync with header height changes.
+- (CGFloat)actuationMinimizedDetentHeight {
+  return
+      [self containerHeightForWorklogHeight:
+                [_worklogViewController
+                    heightForDisplayMode:ActuationWorklogDisplayModeMinimized]];
+}
+
 #pragma mark - Private
+
+// Returns the container height needed to fit `worklogHeight`, accounting for
+// the insets applied around the worklog in `addWorklogSubviews`.
+// TODO(crbug.com/532204179): Move `kWorklogContainerInsets` into
+// `ActuationWorklogViewController` so it reports padded heights directly.
+- (CGFloat)containerHeightForWorklogHeight:(CGFloat)worklogHeight {
+  return worklogHeight + kWorklogContainerInsets.top +
+         kWorklogContainerInsets.bottom;
+}
 
 // Adds the zero-state view controller to `containerStack`.
 - (void)addZeroStateToContainer:(UIStackView*)containerStack {
+  _zeroStateBackgroundView =
+      [[GeminiContainerZeroStateBackgroundView alloc] init];
+  _zeroStateBackgroundView.translatesAutoresizingMaskIntoConstraints = NO;
+  _zeroStateBackgroundView.hidden = self.zeroStateViewController.view.hidden;
+  [self.view insertSubview:_zeroStateBackgroundView
+              belowSubview:_geminiContentView];
+  AddSameConstraints(_zeroStateBackgroundView, self.view);
+
   [self addChildViewController:self.zeroStateViewController];
   [containerStack addArrangedSubview:self.zeroStateViewController.view];
 
-  // Allow the zero-state view to expand into any remaining vertical space
-  // and compress first when vertical space is constrained (e.g., when the
-  // keyboard is presented).
-  [self.zeroStateViewController.view
-      setContentHuggingPriority:UILayoutPriorityDefaultLow
-                        forAxis:UILayoutConstraintAxisVertical];
-  [self.zeroStateViewController.view
-      setContentCompressionResistancePriority:UILayoutPriorityDefaultLow
-                                      forAxis:UILayoutConstraintAxisVertical];
   [self.zeroStateViewController didMoveToParentViewController:self];
 }
 
@@ -159,15 +194,6 @@ constexpr NSDirectionalEdgeInsets kWorklogContainerInsets =
   [self addChildViewController:_geminiViewController];
   [containerStack addArrangedSubview:_geminiViewController.view];
 
-  // Keep `_geminiViewController` sized strictly to its intrinsic content
-  // height and prevent it from compressing when vertical space is
-  // constrained.
-  [_geminiViewController.view
-      setContentHuggingPriority:UILayoutPriorityDefaultHigh
-                        forAxis:UILayoutConstraintAxisVertical];
-  [_geminiViewController.view
-      setContentCompressionResistancePriority:UILayoutPriorityRequired
-                                      forAxis:UILayoutConstraintAxisVertical];
   [_geminiViewController didMoveToParentViewController:self];
 }
 

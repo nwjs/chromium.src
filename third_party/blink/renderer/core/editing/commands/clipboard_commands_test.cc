@@ -158,7 +158,7 @@ TEST(ClipboardCommandsPasteTest,
   ExpectDefaultPasteResult(&event_type_names::kBeforeinput, "");
 }
 
-TEST(ClipboardCommandsCopyTest, DomWriteRequiresFocusedDocument) {
+TEST(ClipboardCommandsCopyTest, DomWriteRequiresFocusedDocumentUnlessExempt) {
   test::TaskEnvironment task_environment;
   auto page_holder = std::make_unique<DummyPageHolder>(gfx::Size(1, 1));
   LocalFrame& frame = page_holder->GetFrame();

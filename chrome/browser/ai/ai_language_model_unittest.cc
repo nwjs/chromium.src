@@ -170,19 +170,6 @@ std::vector<blink::mojom::AILanguageModelPromptContentPtr> ToContentVector(
   return vector;
 }
 
-optimization_guide::proto::FeatureTextSafetyConfiguration CreateSafetyConfig() {
-  optimization_guide::proto::FeatureTextSafetyConfiguration safety_config;
-  safety_config.set_feature(
-      optimization_guide::proto::MODEL_EXECUTION_FEATURE_PROMPT_API);
-  safety_config.mutable_safety_category_thresholds()->Add(ForbidUnsafe());
-
-  auto* check = safety_config.add_request_check();
-  check->mutable_input_template()->Add(
-      FieldSubstitution("%s", StringValueField()));
-
-  return safety_config;
-}
-
 // Build a mojo prompt struct with the specified `role` and `text`
 blink::mojom::AILanguageModelPromptPtr MakePrompt(Role role,
                                                   const std::string& text,
@@ -207,7 +194,7 @@ std::vector<blink::mojom::AILanguageModelPromptPtr> MakeToolCallInput(
     const std::string& name,
     base::DictValue arguments) {
   base::DictValue tool_call;
-  tool_call.Set("callID", call_id);
+  tool_call.Set("callId", call_id);
   tool_call.Set("name", name);
   tool_call.Set("arguments", std::move(arguments));
   return MakeToolCallInput(std::move(tool_call));
@@ -326,7 +313,6 @@ class AILanguageModelTest : public AITestUtils::AITestBase {
 
     proto::SolutionConfig solution_config;
     *solution_config.mutable_feature() = config;
-    *solution_config.mutable_safety() = CreateSafetyConfig();
     return solution_config;
   }
 
@@ -1344,93 +1330,6 @@ TEST_F(AILanguageModelTest, MeasureInputUsage) {
   EXPECT_EQ(measure_future.Get(), std::string("UfooE").size());
 }
 
-TEST_F(AILanguageModelTest, TextSafetyInitialPrompts) {
-  SetSolutionConfig([&]() {
-    auto solution_config = CreateSolution();
-    solution_config.mutable_feature()->set_can_skip_text_safety(false);
-    return solution_config;
-  }());
-
-  auto options = blink::mojom::AILanguageModelCreateOptions::New();
-  options->initial_prompts.push_back(MakePrompt(Role::kSystem, "unsafe"));
-
-  TestCreateLanguageModelClient language_model_client;
-  GetAIManagerRemote()->CreateLanguageModel(
-      language_model_client.BindNewPipeAndPassRemote(), std::move(options),
-      mojo::NullRemote());
-  auto result = language_model_client.result().Take();
-  EXPECT_FALSE(result.has_value());
-  EXPECT_EQ(result.error().error,
-            blink::mojom::AIManagerCreateClientError::kUnableToCreateSession);
-}
-
-TEST_F(AILanguageModelTest, TextSafetyInput) {
-  SetSolutionConfig([&]() {
-    auto solution_config = CreateSolution();
-    solution_config.mutable_feature()->set_can_skip_text_safety(false);
-    return solution_config;
-  }());
-
-  fake_broker_->settings().set_execute_result({"hi"});
-  auto session = CreateSession();
-  EXPECT_THAT(Prompt(*session, MakeInput("safe")), ElementsAre("hi"));
-
-  // Fake text safety checker looks for the string "unsafe".
-  AITestUtils::TestStreamingResponder responder;
-  session->Prompt(MakeInput("unsafe"), nullptr, responder.BindRemote());
-  EXPECT_FALSE(responder.WaitForCompletion());
-  EXPECT_EQ(responder.error_status(),
-            blink::mojom::ModelStreamingResponseStatus::kErrorFiltered);
-}
-
-TEST_F(AILanguageModelTest, TextSafetyOutput) {
-  SetSolutionConfig([&]() {
-    auto solution_config = CreateSolution();
-    solution_config.mutable_feature()->set_can_skip_text_safety(false);
-    solution_config.mutable_safety()
-        ->mutable_partial_output_checks()
-        ->set_minimum_tokens(1000);
-    return solution_config;
-  }());
-
-  // Fake text safety checker looks for the string "unsafe".
-  fake_broker_->settings().set_execute_result(
-      {"a", "b", "c", "d", "e", "f", "g", "unsafe", "h"});
-  auto session = CreateSession();
-  AITestUtils::TestStreamingResponder responder;
-  session->Prompt(MakeInput("foo"), nullptr, responder.BindRemote());
-  EXPECT_FALSE(responder.WaitForCompletion());
-  EXPECT_EQ(responder.error_status(),
-            blink::mojom::ModelStreamingResponseStatus::kErrorFiltered);
-  EXPECT_TRUE(responder.responses().empty());
-}
-
-TEST_F(AILanguageModelTest, TextSafetyOutputPartial) {
-  SetSolutionConfig([&]() {
-    auto solution_config = CreateSolution();
-    solution_config.mutable_feature()->set_can_skip_text_safety(false);
-    solution_config.mutable_safety()
-        ->mutable_partial_output_checks()
-        ->set_minimum_tokens(3);
-    solution_config.mutable_safety()
-        ->mutable_partial_output_checks()
-        ->set_token_interval(2);
-    return solution_config;
-  }());
-
-  // Fake text safety checker looks for the string "unsafe".
-  fake_broker_->settings().set_execute_result(
-      {"a", "b", "c", "d", "e", "f", "g", "unsafe", "h"});
-  auto session = CreateSession();
-  AITestUtils::TestStreamingResponder responder;
-  session->Prompt(MakeInput("foo"), nullptr, responder.BindRemote());
-  EXPECT_FALSE(responder.WaitForCompletion());
-  EXPECT_EQ(responder.error_status(),
-            blink::mojom::ModelStreamingResponseStatus::kErrorFiltered);
-  // Partial checks should still allow some output to stream.
-  EXPECT_THAT(responder.responses(), ElementsAre("abc", "de", "fg"));
-}
-
 TEST_F(AILanguageModelTest, QueuesOperations) {
   auto session = CreateSession();
   AITestUtils::TestStreamingResponder responder1;
@@ -1987,7 +1886,7 @@ class AILanguageModelOpenLoopToolTest : public AILanguageModelTest {
     options->initial_prompts.push_back(std::move(tool_call.front()));
 
     base::DictValue tool_response;
-    tool_response.Set("callID", call_id);
+    tool_response.Set("callId", call_id);
     tool_response.Set("name", "get_weather");
     tool_response.Set("result", std::move(result));
     options->initial_prompts.push_back(blink::mojom::AILanguageModelPrompt::New(
@@ -2129,6 +2028,11 @@ TEST_F(AILanguageModelOpenLoopToolTest, InstanceInfoAdvertisesToolInputTypes) {
                   blink::mojom::AILanguageModelPromptType::kText,
                   blink::mojom::AILanguageModelPromptType::kToolCall,
                   blink::mojom::AILanguageModelPromptType::kToolResponse));
+  ASSERT_TRUE(result.value().info->output_types);
+  EXPECT_THAT(*result.value().info->output_types,
+              testing::UnorderedElementsAre(
+                  blink::mojom::AILanguageModelPromptType::kText,
+                  blink::mojom::AILanguageModelPromptType::kToolCall));
 }
 
 TEST_F(AILanguageModelOpenLoopToolTest, RejectMalformedToolCallInput) {
@@ -2137,7 +2041,7 @@ TEST_F(AILanguageModelOpenLoopToolTest, RejectMalformedToolCallInput) {
   auto session = CreateSessionWithToolsAndSystemPrompt(std::move(tools));
 
   base::DictValue tool_call;
-  tool_call.Set("callID", "call_missing_arguments");
+  tool_call.Set("callId", "call_missing_arguments");
   tool_call.Set("name", "get_weather");
 
   AITestUtils::TestStreamingResponder responder;
@@ -2264,7 +2168,7 @@ TEST_F(AILanguageModelOpenLoopToolTest, ToolResponseHandled) {
 
   // Send structured tool response with nested objects/arrays.
   base::DictValue tool_response_dict;
-  tool_response_dict.Set("callID", "call_456");
+  tool_response_dict.Set("callId", "call_456");
   tool_response_dict.Set("name", "get_weather");
 
   base::DictValue result;
@@ -2344,7 +2248,7 @@ TEST_F(AILanguageModelOpenLoopToolTest, ToolResponseWithError) {
 
   // Send tool error response.
   base::DictValue error_response_dict;
-  error_response_dict.Set("callID", "call_789");
+  error_response_dict.Set("callId", "call_789");
   error_response_dict.Set("name", "get_weather");
   error_response_dict.Set("errorMessage",
                           "Unable to find weather data for InvalidCity");
@@ -2404,7 +2308,7 @@ TEST_F(AILanguageModelOpenLoopToolTest, CompleteOpenLoopToolCallFlow) {
   // ========== STEP 4: Create and send tool response as new prompt ==========
   // Compose the result for ToolResponse.
   base::DictValue tool_result_dict;
-  tool_result_dict.Set("callID", "call_123");
+  tool_result_dict.Set("callId", "call_123");
   tool_result_dict.Set("name", "get_weather");
 
   base::DictValue result;
@@ -2467,7 +2371,7 @@ TEST_F(AILanguageModelOpenLoopToolTest,
 
   DisableToolCallSimulation();
   base::DictValue tool_response;
-  tool_response.Set("callID", "call_overflow");
+  tool_response.Set("callId", "call_overflow");
   tool_response.Set("name", "get_weather");
   base::DictValue result;
   result.Set("temperature", 72);
@@ -2541,7 +2445,7 @@ TEST_F(AILanguageModelOpenLoopToolTest, ClonedSessionPreservesTools) {
 
   // Send tool response to cloned session.
   base::DictValue tool_response_dict;
-  tool_response_dict.Set("callID", "call_clone_002");
+  tool_response_dict.Set("callId", "call_clone_002");
   tool_response_dict.Set("name", "get_weather");
 
   base::DictValue result;
@@ -2602,7 +2506,7 @@ TEST_F(AILanguageModelOpenLoopToolTest, RejectCreateWithFlagDisabled) {
 TEST_F(AILanguageModelOpenLoopToolTest, RejectToolResponseWithoutCapability) {
   auto session = CreateSession();
   base::DictValue tool_response_dict;
-  tool_response_dict.Set("callID", "c0");
+  tool_response_dict.Set("callId", "c0");
   tool_response_dict.Set("name", "no_such_tool");
   base::DictValue result;
   result.Set("arbitrary_field", "arbitrary_value");

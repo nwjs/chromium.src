@@ -24,12 +24,6 @@ enum ActuationEligibility {
   kPlatformUnsupported,
 };
 
-struct GeminiEnterpriseSettingsInfo {
-  string project_id;
-  string app_id;
-  string location;
-};
-
 // Struct containing data about eligibility for GLIC.
 struct ProfileEnablement {
   // Whether the GLIC feature is enabled.
@@ -76,9 +70,6 @@ struct ProfileEnablement {
   // Whether 'Create Image with Gemini' functionality is allowed for this
   // account type.
   bool share_image_allowed;
-
-  // Settings for Gemini Enterprise.
-  GeminiEnterpriseSettingsInfo? gemini_enterprise_settings;
 
   // Summary of whether actuation is enabled, and if not, why not.
   ActuationEligibility actuation_eligibility;
@@ -142,6 +133,7 @@ struct InternalsDataPayload {
   bool experimental_triggering_enabled;
   InternalsDebugInfo debug_info;
   TieredRolloutInfo tiered_rollout_info;
+  bool hotkey_global_scope_migrated_v2;
 };
 
 struct InternalsDebugInfo {
@@ -289,6 +281,9 @@ interface InternalsPageHandler {
 
   // Revokes Actuation consent.
   RevokeActuationConsent();
+
+  // Sets whether the hotkey global scope migration V2 preference is set.
+  SetHotkeyGlobalScopeMigratedV2(bool migrated);
 };
 
 // Factory for InternalsPageHandler used in chrome://glic/internals.

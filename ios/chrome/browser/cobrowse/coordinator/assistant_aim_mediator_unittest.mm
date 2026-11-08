@@ -5,8 +5,11 @@
 #import "ios/chrome/browser/cobrowse/coordinator/assistant_aim_mediator.h"
 
 #import "base/functional/callback_helpers.h"
+#import "base/location.h"
 #import "base/memory/raw_ptr.h"
+#import "base/run_loop.h"
 #import "base/strings/sys_string_conversions.h"
+#import "base/task/sequenced_task_runner.h"
 #import "base/test/scoped_feature_list.h"
 #import "base/test/test_future.h"
 #import "components/contextual_tasks/public/features.h"
@@ -45,13 +48,17 @@
 #import "ios/web/public/test/fakes/fake_web_frame.h"
 #import "ios/web/public/test/fakes/fake_web_frames_manager.h"
 #import "ios/web/public/test/fakes/fake_web_state.h"
+#import "ios/web/public/test/fakes/fake_web_state_delegate.h"
 #import "ios/web/public/test/js_test_util.h"
 #import "ios/web/public/test/scoped_testing_web_client.h"
 #import "ios/web/public/test/web_task_environment.h"
 #import "ios/web/public/web_state_delegate_bridge.h"
 #import "ios/web/public/web_state_observer_bridge.h"
 #import "net/base/apple/url_conversions.h"
+#import "net/base/mock_network_change_notifier.h"
+#import "net/base/network_change_notifier.h"
 #import "testing/gtest/include/gtest/gtest.h"
+#import "testing/gtest_mac.h"
 #import "testing/platform_test.h"
 #import "third_party/lens_server_proto/aim_communication.pb.h"
 #import "third_party/ocmock/OCMock/OCMock.h"
@@ -62,6 +69,15 @@
 @interface AssistantAIMMediator (Testing)
 - (void)didGetSelectedThreadURL:(GURL)url;
 @end
+
+namespace {
+
+// The default AIM zero-state URL, as loaded in light mode.
+constexpr char kAimZeroStateURL[] =
+    "https://www.google.com/"
+    "search?udm=50&sourceid=chrome-mobile&gsas=4&csuir=1&cs=0";
+
+}  // namespace
 
 class AssistantAIMMediatorTest : public PlatformTest {
  protected:
@@ -106,13 +122,14 @@ class AssistantAIMMediatorTest : public PlatformTest {
         CobrowseBrowserAgent::FromBrowser(browser_.get());
 
     mediator_ = [[AssistantAIMMediator alloc]
-              initWithWebState:std::move(fake_web_state)
-          cobrowseBrowserAgent:agent
-              containerHandler:mock_container_handler_
-        contextualTasksService:nullptr
-                     URLLoader:url_loader_
-         authenticationService:AuthenticationServiceFactory::GetForProfile(
-                                   profile_)];
+               initWithWebState:std::move(fake_web_state)
+        browserWebStateDelegate:&browser_web_state_delegate_
+           cobrowseBrowserAgent:agent
+               containerHandler:mock_container_handler_
+         contextualTasksService:nullptr
+                      URLLoader:url_loader_
+          authenticationService:AuthenticationServiceFactory::GetForProfile(
+                                    profile_)];
     mediator_.sceneHandler = mock_scene_handler_;
 
     mock_delegate_ = OCMProtocolMock(@protocol(AssistantAIMMediatorDelegate));
@@ -123,6 +140,7 @@ class AssistantAIMMediatorTest : public PlatformTest {
   }
 
   void TearDown() override {
+    browser_web_state_delegate_.ClearLastProxyAuthenticationRequest();
     fake_web_state_ = nullptr;
     [mediator_ disconnect];
     mediator_ = nil;
@@ -132,8 +150,24 @@ class AssistantAIMMediatorTest : public PlatformTest {
     PlatformTest::TearDown();
   }
 
+  // Simulates a network change and waits until it has been delivered to the
+  // mediator. `NetworkChangeNotifier` notifies each observer by posting a task
+  // to the sequence the observer was added on (the main thread here). All those
+  // tasks are posted synchronously by `NotifyObserversOfNetworkChangeForTests`,
+  // so a task posted to the same sequence afterwards only runs once the
+  // mediator has been notified.
+  void NotifyNetworkChangeAndWait(
+      net::NetworkChangeNotifier::ConnectionType type) {
+    net::NetworkChangeNotifier::NotifyObserversOfNetworkChangeForTests(type);
+    base::RunLoop run_loop;
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE, run_loop.QuitClosure());
+    run_loop.Run();
+  }
+
   web::WebTaskEnvironment task_environment_{
       web::WebTaskEnvironment::TimeSource::MOCK_TIME};
+  net::test::ScopedMockNetworkChangeNotifier scoped_network_change_notifier_;
   web::ScopedTestingWebClient web_client_;
   base::test::ScopedFeatureList scoped_feature_list_;
   IOSChromeScopedTestingLocalState scoped_testing_local_state_;
@@ -142,6 +176,7 @@ class AssistantAIMMediatorTest : public PlatformTest {
   std::unique_ptr<TestBrowser> browser_;
   raw_ptr<FakeUrlLoadingBrowserAgent> url_loader_;
   raw_ptr<web::FakeWebState> fake_web_state_ = nullptr;
+  web::FakeWebStateDelegate browser_web_state_delegate_;
   AssistantAIMMediator* mediator_;
   id mock_delegate_;
   id mock_consumer_;
@@ -689,8 +724,7 @@ TEST_F(AssistantAIMMediatorTest,
           fake_web_state_->GetNavigationManager());
   ASSERT_TRUE(navigation_manager->LoadURLWithParamsWasCalled());
   EXPECT_EQ(navigation_manager->GetLastLoadURLWithParams()->url,
-            GURL("https://www.google.com/"
-                 "search?udm=50&sourceid=chrome-mobile&gsas=4&csuir=1&cs=0"));
+            GURL(kAimZeroStateURL));
 }
 
 // Tests that didTapStartNewThread loads the zero-state URL, sets a personalized
@@ -726,8 +760,7 @@ TEST_F(AssistantAIMMediatorTest,
           fake_web_state_->GetNavigationManager());
   ASSERT_TRUE(navigation_manager->LoadURLWithParamsWasCalled());
   EXPECT_EQ(navigation_manager->GetLastLoadURLWithParams()->url,
-            GURL("https://www.google.com/"
-                 "search?udm=50&sourceid=chrome-mobile&gsas=4&csuir=1&cs=0"));
+            GURL(kAimZeroStateURL));
 }
 
 // Tests that loadedURL returns the URL of the current WebState, and returns
@@ -823,4 +856,159 @@ TEST_F(AssistantAIMMediatorTest, DidGetSelectedThreadURLDoesNotAnimateDetent) {
                  "search?q=history_query&udm=50&sourceid=chrome-mobile&gsas=4&"
                  "csuir=1&cs=0"));
   [mock_container_handler_ verify];
+}
+
+// Tests that the AIM URL is reloaded when the network reconnects after a page
+// load failure.
+TEST_F(AssistantAIMMediatorTest, ReloadsOnReconnectAfterPageLoadFailure) {
+  // Replace the navigation manager to clear the initial load triggered during
+  // `SetUp()`.
+  fake_web_state_->SetNavigationManager(
+      std::make_unique<web::FakeNavigationManager>());
+  fake_web_state_->OnPageLoaded(web::PageLoadCompletionStatus::FAILURE);
+
+  // Simulate the error-page placeholder navigation starting with an error; this
+  // must not clear the failed state.
+  web::FakeNavigationContext error_context;
+  error_context.SetIsSameDocument(false);
+  error_context.SetError([NSError
+      errorWithDomain:NSURLErrorDomain
+                 code:NSURLErrorNotConnectedToInternet
+             userInfo:nil]);
+  fake_web_state_->OnNavigationStarted(&error_context);
+
+  NotifyNetworkChangeAndWait(net::NetworkChangeNotifier::CONNECTION_WIFI);
+
+  web::FakeNavigationManager* navigation_manager =
+      static_cast<web::FakeNavigationManager*>(
+          fake_web_state_->GetNavigationManager());
+  ASSERT_TRUE(navigation_manager->LoadURLWithParamsWasCalled());
+  EXPECT_EQ(navigation_manager->GetLastLoadURLWithParams()->url,
+            GURL(kAimZeroStateURL));
+
+  // A subsequent reconnection must not trigger another reload.
+  fake_web_state_->SetNavigationManager(
+      std::make_unique<web::FakeNavigationManager>());
+  NotifyNetworkChangeAndWait(net::NetworkChangeNotifier::CONNECTION_WIFI);
+
+  navigation_manager = static_cast<web::FakeNavigationManager*>(
+      fake_web_state_->GetNavigationManager());
+  EXPECT_FALSE(navigation_manager->LoadURLWithParamsWasCalled());
+}
+
+// Tests that the AIM URL is not reloaded when the network changes to
+// `CONNECTION_NONE` after a page load failure.
+TEST_F(AssistantAIMMediatorTest,
+       DoesNotReloadWhenDisconnectedAfterPageLoadFailure) {
+  // Replace the navigation manager to clear the initial load triggered during
+  // `SetUp()`.
+  fake_web_state_->SetNavigationManager(
+      std::make_unique<web::FakeNavigationManager>());
+  fake_web_state_->OnPageLoaded(web::PageLoadCompletionStatus::FAILURE);
+
+  NotifyNetworkChangeAndWait(net::NetworkChangeNotifier::CONNECTION_NONE);
+
+  web::FakeNavigationManager* navigation_manager =
+      static_cast<web::FakeNavigationManager*>(
+          fake_web_state_->GetNavigationManager());
+  EXPECT_FALSE(navigation_manager->LoadURLWithParamsWasCalled());
+}
+
+// Tests that when the AIM page loads successfully while online, a subsequent
+// network disconnection and reconnection does not reload the page.
+TEST_F(AssistantAIMMediatorTest, DoesNotReloadOnReconnectAfterPageLoadSuccess) {
+  // Replace the navigation manager to clear the initial load triggered during
+  // `SetUp()`.
+  fake_web_state_->SetNavigationManager(
+      std::make_unique<web::FakeNavigationManager>());
+  fake_web_state_->OnPageLoaded(web::PageLoadCompletionStatus::SUCCESS);
+
+  NotifyNetworkChangeAndWait(net::NetworkChangeNotifier::CONNECTION_NONE);
+
+  NotifyNetworkChangeAndWait(net::NetworkChangeNotifier::CONNECTION_WIFI);
+
+  web::FakeNavigationManager* navigation_manager =
+      static_cast<web::FakeNavigationManager*>(
+          fake_web_state_->GetNavigationManager());
+  EXPECT_FALSE(navigation_manager->LoadURLWithParamsWasCalled());
+}
+
+// Tests that the AIM URL is not reloaded on network reconnect if a new
+// non-error navigation has already started after a page load failure.
+TEST_F(AssistantAIMMediatorTest,
+       DoesNotReloadOnReconnectAfterNewNavigationStarts) {
+  // Replace the navigation manager to clear the initial load triggered during
+  // `SetUp()`.
+  fake_web_state_->SetNavigationManager(
+      std::make_unique<web::FakeNavigationManager>());
+  fake_web_state_->OnPageLoaded(web::PageLoadCompletionStatus::FAILURE);
+
+  web::FakeNavigationContext context;
+  context.SetIsSameDocument(false);
+  fake_web_state_->OnNavigationStarted(&context);
+
+  NotifyNetworkChangeAndWait(net::NetworkChangeNotifier::CONNECTION_WIFI);
+
+  web::FakeNavigationManager* navigation_manager =
+      static_cast<web::FakeNavigationManager*>(
+          fake_web_state_->GetNavigationManager());
+  EXPECT_FALSE(navigation_manager->LoadURLWithParamsWasCalled());
+}
+
+// Test that proxy auth challenges are forwarded to the browser
+// `WebStateDelegate`.
+TEST_F(AssistantAIMMediatorTest, ForwardsProxyAuthToBrowserWebStateDelegate) {
+  if (@available(iOS 18.1, *)) {
+    static constexpr int kProxyPort = 8080;
+    NSString* const kProxyHost = @"proxy.example.com";
+    NSString* const kProxyRealm = @"proxy_realm";
+    NSString* const kProposedUser = @"proxy_user";
+    NSString* const kProposedPassword = @"proxy_pass";
+    NSString* const kResponseURL = @"https://www.google.com";
+    NSString* const kMimeType = @"text/html";
+    NSString* const kOAuthUser = @"oauth_user";
+    NSString* const kOAuthToken = @"oauth_token";
+
+    id<CRWWebStateDelegate> delegate = (id<CRWWebStateDelegate>)mediator_;
+    NSURLProtectionSpace* protection_space = [[NSURLProtectionSpace alloc]
+           initWithProxyHost:kProxyHost
+                        port:kProxyPort
+                        type:NSURLProtectionSpaceHTTPSProxy
+                       realm:kProxyRealm
+        authenticationMethod:NSURLAuthenticationMethodDefault];
+    NSURLCredential* credential =
+        [NSURLCredential credentialWithUser:kProposedUser
+                                   password:kProposedPassword
+                                persistence:NSURLCredentialPersistenceNone];
+    NSURLResponse* failure_response =
+        [[NSURLResponse alloc] initWithURL:[NSURL URLWithString:kResponseURL]
+                                  MIMEType:kMimeType
+                     expectedContentLength:0
+                          textEncodingName:nil];
+
+    base::test::TestFuture<NSString*, NSString*, NSError*> future;
+    [delegate webState:fake_web_state_
+        didRequestProxyAuthForProtectionSpace:protection_space
+                           proposedCredential:credential
+                              failureResponse:failure_response
+                            completionHandler:base::CallbackToBlock(
+                                                  future.GetCallback())];
+
+    web::FakeProxyAuthenticationRequest* proxy_request =
+        browser_web_state_delegate_.last_proxy_authentication_request();
+    ASSERT_TRUE(proxy_request);
+    EXPECT_EQ(proxy_request->web_state, fake_web_state_);
+    EXPECT_NSEQ(proxy_request->protection_space, protection_space);
+    EXPECT_NSEQ(proxy_request->proposed_credential, credential);
+    EXPECT_NSEQ(proxy_request->failure_response, failure_response);
+    ASSERT_TRUE(proxy_request->proxy_auth_callback);
+
+    std::move(proxy_request->proxy_auth_callback)
+        .Run(kOAuthUser, kOAuthToken, nil);
+    EXPECT_NSEQ(future.Get<0>(), kOAuthUser);
+    EXPECT_NSEQ(future.Get<1>(), kOAuthToken);
+    EXPECT_EQ(future.Get<2>(), nil);
+  } else {
+    GTEST_SKIP() << "Requires iOS 18.1+";
+  }
 }

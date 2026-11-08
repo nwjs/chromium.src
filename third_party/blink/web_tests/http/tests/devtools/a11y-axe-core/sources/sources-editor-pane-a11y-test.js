@@ -52,7 +52,7 @@ import * as Workspace from 'devtools/models/workspace/workspace.js';
     const sourcesView =
         Sources.SourcesPanel.SourcesPanel.instance().sourcesView();
     await sourcesView.updateComplete;
-    const tabbedPane = sourcesView.editorContainer.tabbedPane;
+    const tabbedPane = sourcesView.contentElement.querySelector('devtools-tabbed-pane');
     const tabs = tabbedPane.tabs;
     TestRunner.addResult('All tabs:');
     tabs.forEach(tab => TestRunner.addResult(tab.title));

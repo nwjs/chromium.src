@@ -5,12 +5,25 @@
 #include "chrome/browser/actor/tools/window_management_tool_request.h"
 
 #include <memory>
+#include <optional>
+#include <string_view>
 
+#include "chrome/browser/actor/tools/registry/tool_definition.h"
+#include "chrome/browser/actor/tools/registry/tool_definition_builder.h"
 #include "chrome/browser/actor/tools/tool_request_visitor_functor.h"
 #include "chrome/browser/actor/tools/window_management_tool.h"
 #include "chrome/common/actor/action_result.h"
 
 namespace actor {
+namespace {
+
+constexpr std::string_view kEnterFullscreenToolDescription =
+    "Enter full screen mode for the active browser window.";
+
+constexpr std::string_view kExitFullscreenToolDescription =
+    "Exit full screen mode for the active browser window.";
+
+}  // namespace
 
 // CreateWindowToolRequest
 CreateWindowToolRequest::CreateWindowToolRequest() = default;
@@ -80,6 +93,13 @@ EnterFullscreenToolRequest::EnterFullscreenToolRequest(int32_t window_id)
     : window_id_(window_id) {}
 EnterFullscreenToolRequest::~EnterFullscreenToolRequest() = default;
 
+// static
+std::optional<ToolDefinition> EnterFullscreenToolRequest::GetToolDefinition() {
+  return ToolDefinitionBuilder(ToolId::kEnterFullscreen, kModelFacingName,
+                               kEnterFullscreenToolDescription)
+      .Build();
+}
+
 ToolRequest::CreateToolResult EnterFullscreenToolRequest::CreateTool(
     TaskId task_id,
     ToolDelegate& tool_delegate) const {
@@ -101,6 +121,13 @@ std::string_view EnterFullscreenToolRequest::Name() const {
 ExitFullscreenToolRequest::ExitFullscreenToolRequest(int32_t window_id)
     : window_id_(window_id) {}
 ExitFullscreenToolRequest::~ExitFullscreenToolRequest() = default;
+
+// static
+std::optional<ToolDefinition> ExitFullscreenToolRequest::GetToolDefinition() {
+  return ToolDefinitionBuilder(ToolId::kExitFullscreen, kModelFacingName,
+                               kExitFullscreenToolDescription)
+      .Build();
+}
 
 ToolRequest::CreateToolResult ExitFullscreenToolRequest::CreateTool(
     TaskId task_id,

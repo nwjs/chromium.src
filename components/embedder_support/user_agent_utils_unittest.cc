@@ -11,20 +11,15 @@
 #include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_split.h"
-#include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/system/sys_info.h"
 #include "base/test/gtest_util.h"
 #include "base/test/scoped_command_line.h"
 #include "base/test/scoped_feature_list.h"
-#include "base/version.h"
 #include "base/version_info/version_info.h"
 #include "build/branding_buildflags.h"
 #include "build/build_config.h"
-#include "components/embedder_support/pref_names.h"
 #include "components/embedder_support/switches.h"
-#include "components/prefs/pref_registry_simple.h"
-#include "components/prefs/testing_pref_service.h"
 #include "components/version_info/version_info.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -35,10 +30,6 @@
 
 #if BUILDFLAG(IS_IOS)
 #include "ui/base/device_form_factor.h"
-#endif
-
-#if BUILDFLAG(IS_POSIX)
-#include <sys/utsname.h>
 #endif
 
 #if BUILDFLAG(IS_WIN)
@@ -64,175 +55,6 @@ namespace {
 // second capture is the {minor_version}.
 static constexpr char kChromeProductVersionRegex[] =
     "Chrome/([0-9]+).([0-9]+).([0-9]+).([0-9]+)";
-
-void CheckUserAgentStringOrdering(bool mobile_device) {
-  std::vector<std::string> pieces;
-
-  // Check if the pieces of the user agent string come in the correct order.
-  std::string buffer = GetUserAgent();
-
-  pieces = base::SplitStringUsingSubstr(
-      buffer, "Mozilla/5.0 (", base::TRIM_WHITESPACE, base::SPLIT_WANT_ALL);
-  ASSERT_EQ(2u, pieces.size());
-  buffer = pieces[1];
-  EXPECT_EQ("", pieces[0]);
-
-  pieces = base::SplitStringUsingSubstr(
-      buffer, ") AppleWebKit/", base::TRIM_WHITESPACE, base::SPLIT_WANT_ALL);
-  ASSERT_EQ(2u, pieces.size());
-  buffer = pieces[1];
-  std::string os_str = pieces[0];
-
-  pieces =
-      base::SplitStringUsingSubstr(buffer, " (KHTML, like Gecko) ",
-                                   base::TRIM_WHITESPACE, base::SPLIT_WANT_ALL);
-  ASSERT_EQ(2u, pieces.size());
-  buffer = pieces[1];
-  std::string webkit_version_str = pieces[0];
-
-  pieces = base::SplitStringUsingSubstr(
-      buffer, " Safari/", base::TRIM_WHITESPACE, base::SPLIT_WANT_ALL);
-  ASSERT_EQ(2u, pieces.size());
-  std::string product_str = pieces[0];
-  std::string safari_version_str = pieces[1];
-
-  EXPECT_FALSE(os_str.empty());
-
-  pieces = base::SplitStringUsingSubstr(os_str, "; ", base::KEEP_WHITESPACE,
-                                        base::SPLIT_WANT_ALL);
-#if BUILDFLAG(IS_WIN)
-  // Post-UA Reduction there is a single <unifiedPlatform> value for Windows:
-  // Windows NT 10.0; Win64; x64
-  ASSERT_TRUE(pieces[1] == "Win64");
-  ASSERT_TRUE(pieces[2] == "x64");
-  pieces = base::SplitStringUsingSubstr(pieces[0], " ", base::KEEP_WHITESPACE,
-                                        base::SPLIT_WANT_ALL);
-  ASSERT_EQ(3u, pieces.size());
-  ASSERT_EQ("Windows", pieces[0]);
-  ASSERT_EQ("NT", pieces[1]);
-  double version;
-  ASSERT_TRUE(base::StringToDouble(pieces[2], &version));
-  ASSERT_LE(4.0, version);
-  ASSERT_GT(11.0, version);
-#elif BUILDFLAG(IS_MAC)
-  // Post-UA Reduction there is a single <unifiedPlatform> value for macOS:
-  // Macintosh; Intel Mac OS X 10_15_7
-  ASSERT_EQ(2u, pieces.size());
-  ASSERT_EQ("Macintosh", pieces[0]);
-  pieces = base::SplitStringUsingSubstr(pieces[1], " ", base::KEEP_WHITESPACE,
-                                        base::SPLIT_WANT_ALL);
-  ASSERT_EQ(5u, pieces.size());
-  ASSERT_EQ("Intel", pieces[0]);
-  ASSERT_EQ("Mac", pieces[1]);
-  ASSERT_EQ("OS", pieces[2]);
-  ASSERT_EQ("X", pieces[3]);
-  pieces = base::SplitStringUsingSubstr(pieces[4], "_", base::KEEP_WHITESPACE,
-                                        base::SPLIT_WANT_ALL);
-  {
-    int major, minor, patch;
-    base::SysInfo::OperatingSystemVersionNumbers(&major, &minor, &patch);
-    // crbug.com/1175225
-    if (major > 10)
-      major = 10;
-    ASSERT_EQ(10, major);
-  }
-  int value;
-  ASSERT_TRUE(base::StringToInt(pieces[1], &value));
-  ASSERT_LE(0, value);
-  ASSERT_TRUE(base::StringToInt(pieces[2], &value));
-  ASSERT_LE(0, value);
-#elif BUILDFLAG(IS_CHROMEOS)
-  // Post-UA Reduction there is a single <unifiedPlatform> value for ChromeOS:
-  // X11; CrOS x86_64 14541.0.0
-  ASSERT_EQ(2u, pieces.size());
-  ASSERT_EQ("X11", pieces[0]);
-  pieces = base::SplitStringUsingSubstr(pieces[1], " ", base::KEEP_WHITESPACE,
-                                        base::SPLIT_WANT_ALL);
-  ASSERT_EQ(3u, pieces.size());
-  ASSERT_EQ("CrOS", pieces[0]);
-  ASSERT_EQ("x86_64", pieces[1]);
-  ASSERT_EQ("14541.0.0", pieces[2]);
-#elif BUILDFLAG(IS_LINUX)
-  // Post-UA Reduction there is a single <unifiedPlatform> value for Linux:
-  // X11; Linux x86_64
-  ASSERT_EQ(2u, pieces.size());
-  ASSERT_EQ("X11", pieces[0]);
-  pieces = base::SplitStringUsingSubstr(pieces[1], " ", base::KEEP_WHITESPACE,
-                                        base::SPLIT_WANT_ALL);
-  ASSERT_EQ(2u, pieces.size());
-  ASSERT_EQ("Linux", pieces[0]);
-  ASSERT_EQ("x86_64", pieces[1]);
-#elif BUILDFLAG(IS_ANDROID)
-  // Post-UA Reduction there is a single <unifiedPlatform> value for Android:
-  // Linux; Android 10; K
-  ASSERT_GE(3u, pieces.size());
-  ASSERT_EQ("Linux", pieces[0]);
-  std::string model;
-  if (pieces.size() > 2)
-    model = pieces[2];
-
-  pieces = base::SplitStringUsingSubstr(pieces[1], " ", base::KEEP_WHITESPACE,
-                                        base::SPLIT_WANT_ALL);
-  ASSERT_EQ(2u, pieces.size());
-  ASSERT_EQ("Android", pieces[0]);
-  ASSERT_EQ("10", pieces[1]);
-  pieces = base::SplitStringUsingSubstr(pieces[1], ".", base::KEEP_WHITESPACE,
-                                        base::SPLIT_WANT_ALL);
-  for (unsigned int i = 1; i < pieces.size(); ++i) {
-    int value;
-    ASSERT_TRUE(base::StringToInt(pieces[i], &value));
-  }
-
-  if (!model.empty()) {
-    if (base::SysInfo::GetAndroidBuildCodename() == "REL") {
-      ASSERT_EQ("K", model);
-    } else {
-      ASSERT_EQ("", model);
-    }
-  }
-#elif BUILDFLAG(IS_FUCHSIA)
-  // Post-UA Reduction there is a single <unifiedPlatform> value for Fuchsia:
-  // Fuchsia
-  ASSERT_EQ(1u, pieces.size());
-  ASSERT_EQ("Fuchsia", pieces[0]);
-#elif BUILDFLAG(IS_IOS)
-  // Post-UA Reduction there are two possible <unifiedPlatform> values for iOS,
-  // depending on whether this is an iPad or not:
-  // * iPad; CPU iPad OS 14_0 like Mac OS X
-  // * iPhone; CPU iPhone OS 14_0 like Mac OS X
-  static const char* const kIphoneOrIpad =
-      ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_TABLET ? "iPad"
-                                                                 : "iPhone";
-  ASSERT_EQ(2u, pieces.size());
-  ASSERT_EQ(kIphoneOrIpad, pieces[0]);
-  pieces = base::SplitStringUsingSubstr(pieces[1], " ", base::KEEP_WHITESPACE,
-                                        base::SPLIT_WANT_ALL);
-  ASSERT_EQ(8u, pieces.size());
-  ASSERT_EQ("CPU", pieces[0]);
-  ASSERT_EQ(kIphoneOrIpad, pieces[1]);
-  ASSERT_EQ("OS", pieces[2]);
-  ASSERT_EQ("14_0", pieces[3]);
-  ASSERT_EQ("like", pieces[4]);
-  ASSERT_EQ("Mac", pieces[5]);
-  ASSERT_EQ("OS", pieces[6]);
-  ASSERT_EQ("X", pieces[7]);
-#else
-#error Unsupported platform
-#endif
-
-  // Check that the version numbers match.
-  EXPECT_FALSE(webkit_version_str.empty());
-  EXPECT_FALSE(safari_version_str.empty());
-  EXPECT_EQ(webkit_version_str, safari_version_str);
-
-  EXPECT_TRUE(
-      base::StartsWith(product_str, "Chrome/", base::CompareCase::SENSITIVE));
-  if (mobile_device) {
-    // "Mobile" gets tacked on to the end for mobile devices, like phones.
-    EXPECT_TRUE(
-        base::EndsWith(product_str, " Mobile", base::CompareCase::SENSITIVE));
-  }
-}
 
 #if BUILDFLAG(IS_WIN)
 
@@ -314,8 +136,7 @@ bool ContainsBrandVersion(const blink::UserAgentBrandList& brand_list,
 
 }  // namespace
 
-class UserAgentUtilsTest : public testing::Test,
-                           public testing::WithParamInterface<bool> {
+class UserAgentUtilsTest : public testing::Test {
  public:
   // The minor version in the reduced UA string is always "0.0.0".
   static constexpr char kReducedMinorVersion[] = "0.0.0";
@@ -368,17 +189,6 @@ class UserAgentUtilsTest : public testing::Test,
     return minor_version;
   }
 
-  std::string GetUserAgentPlatformOsCpu(const std::string& user_agent_value) {
-    // A regular expression that matches Mozilla/5.0 ({platform_oscpu})
-    // in the User-Agent string.
-    static constexpr char kChromePlatformOscpuRegex[] =
-        "^Mozilla\\/5\\.0 \\((.+)\\) AppleWebKit\\/537\\.36";
-    std::string platform_oscpu;
-    EXPECT_TRUE(re2::RE2::PartialMatch(
-        user_agent_value, kChromePlatformOscpuRegex, &platform_oscpu));
-    return platform_oscpu;
-  }
-
   void VerifyGetUserAgentFunctions() {
     // GetUserAgent should return user agent depends on
     // kReduceUserAgentMinorVersion feature.
@@ -389,28 +199,7 @@ class UserAgentUtilsTest : public testing::Test,
       EXPECT_NE(GetUserAgentMinorVersion(GetUserAgent()), kReducedMinorVersion);
     }
   }
-
- private:
-  base::test::ScopedFeatureList scoped_feature_list_;
 };
-
-TEST_F(UserAgentUtilsTest, UserAgentStringOrdering) {
-#if BUILDFLAG(IS_ANDROID)
-  base::test::ScopedCommandLine scoped_command_line;
-  base::CommandLine* command_line = scoped_command_line.GetProcessCommandLine();
-
-  // Do it for regular devices.
-  ASSERT_FALSE(command_line->HasSwitch(kUseMobileUserAgent));
-  CheckUserAgentStringOrdering(false);
-
-  // Do it for mobile devices.
-  command_line->AppendSwitch(kUseMobileUserAgent);
-  ASSERT_TRUE(command_line->HasSwitch(kUseMobileUserAgent));
-  CheckUserAgentStringOrdering(true);
-#else
-  CheckUserAgentStringOrdering(false);
-#endif
-}
 
 TEST_F(UserAgentUtilsTest, CustomUserAgent) {
   std::string custom_user_agent = "custom chrome user agent";
@@ -489,113 +278,26 @@ TEST_F(UserAgentUtilsTest, UserAgentStringReduced) {
 TEST_F(UserAgentUtilsTest, UserAgentStringFull) {
   base::test::ScopedFeatureList scoped_feature_list;
 
-  // Verify that three user agent functions return the correct user agent string
-  // when kReduceUserAgentMinorVersion turns on.
+  // Verify that GetUserAgent() returns the correct user agent string when
+  // kReduceUserAgentMinorVersion turns on.
   scoped_feature_list.Reset();
   scoped_feature_list.InitWithFeatures(
       {blink::features::kReduceUserAgentMinorVersion}, {});
   { VerifyGetUserAgentFunctions(); }
 
-  // Verify that three user agent functions return the correct user agent
-  // when kReduceUserAgentMinorVersion turns off.
+  // Verify that GetUserAgent() returns the correct user agent string when
+  // kReduceUserAgentMinorVersion turns off.
   scoped_feature_list.Reset();
   scoped_feature_list.InitWithFeatures(
       {}, {blink::features::kReduceUserAgentMinorVersion});
   { VerifyGetUserAgentFunctions(); }
 
-  // Verify that three user agent functions return the correct user agent
-  // without explicit features turned on.
+  // Verify that GetUserAgent() returns the correct user agent string without
+  // explicit features turned on.
   scoped_feature_list.Reset();
   scoped_feature_list.InitWithFeatures({}, {});
   { VerifyGetUserAgentFunctions(); }
 }
-
-TEST_F(UserAgentUtilsTest, ReduceUserAgentPlatformOsCpu) {
-  base::test::ScopedFeatureList scoped_feature_list;
-
-  base::test::ScopedCommandLine scoped_command_line;
-  base::CommandLine* command_line = scoped_command_line.GetProcessCommandLine();
-
-#if BUILDFLAG(IS_ANDROID)
-  scoped_feature_list.Reset();
-  scoped_feature_list.InitWithFeatures(
-      {blink::features::kReduceUserAgentMinorVersion}, {});
-  // Verify the mobile platform and oscpu user agent string is reduced when
-  // not using a mobile user agent.
-  ASSERT_FALSE(command_line->HasSwitch(kUseMobileUserAgent));
-  {
-    EXPECT_EQ(GetUserAgent(), GenerateExpectedUserAgent());
-    EXPECT_EQ(GetUnifiedPlatformForTesting().c_str(),
-              GetUserAgentPlatformOsCpu(GetUserAgent()));
-  }
-
-  // Verify the mobile platform and oscpu user agent string is reduced when
-  // using a mobile user agent (but still on Android)
-  command_line->AppendSwitch(kUseMobileUserAgent);
-  ASSERT_TRUE(command_line->HasSwitch(kUseMobileUserAgent));
-  {
-    EXPECT_EQ(GetUserAgent(), GenerateExpectedUserAgent(kMobileProductSuffix));
-  }
-
-#else
-  scoped_feature_list.Reset();
-  scoped_feature_list.InitWithFeatures(
-      {blink::features::kReduceUserAgentMinorVersion}, {});
-  ASSERT_FALSE(command_line->HasSwitch(kUseMobileUserAgent));
-  {
-    // Verify unified platform user agent is returned.
-    EXPECT_EQ(GetUserAgent(), GenerateExpectedUserAgent());
-  }
-
-#if BUILDFLAG(IS_IOS)
-  // On iOS, also check the kUseMobileUserAgent flag with the features above.
-  // This is similar to the Android case above.
-  command_line->AppendSwitch(kUseMobileUserAgent);
-  ASSERT_TRUE(command_line->HasSwitch(kUseMobileUserAgent));
-  {
-    EXPECT_EQ(GetUserAgent(), GenerateExpectedUserAgent(kMobileProductSuffix));
-  }
-#endif  // BUILDFLAG(IS_IOS)
-#endif
-
-  // Verify we reduce platform and oscpu
-  scoped_feature_list.Reset();
-  scoped_feature_list.InitWithFeatures(
-      {blink::features::kReduceUserAgentMinorVersion}, {});
-  EXPECT_EQ(GetUnifiedPlatformForTesting().c_str(),
-            GetUserAgentPlatformOsCpu(GetUserAgent()));
-}
-
-#if BUILDFLAG(IS_ANDROID)
-TEST_F(UserAgentUtilsTest, ReduceUserAgentAndroidVersionDeviceModel) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitWithFeatures(
-      {blink::features::kReduceUserAgentMinorVersion}, {});
-  // Verify the correct user agent is returned when the UseMobileUserAgent
-  // command line flag is present.
-  base::test::ScopedCommandLine scoped_command_line;
-  base::CommandLine* command_line = scoped_command_line.GetProcessCommandLine();
-
-  // Verify the mobile deviceModel and androidVersion in the user agent string
-  // is reduced when not using a mobile user agent.
-  ASSERT_FALSE(command_line->HasSwitch(kUseMobileUserAgent));
-  {
-    std::string buffer = GetUserAgent();
-    EXPECT_EQ("Linux; Android 10; K", GetUserAgentPlatformOsCpu(buffer));
-    EXPECT_EQ(GetUserAgent(), GenerateExpectedUserAgent());
-  }
-
-  // Verify the mobile deviceModel and androidVersion in the user agent string
-  // is reduced when using a mobile user agent.
-  command_line->AppendSwitch(kUseMobileUserAgent);
-  ASSERT_TRUE(command_line->HasSwitch(kUseMobileUserAgent));
-  {
-    std::string buffer = GetUserAgent();
-    EXPECT_EQ("Linux; Android 10; K", GetUserAgentPlatformOsCpu(buffer));
-    EXPECT_EQ(GetUserAgent(), GenerateExpectedUserAgent(kMobileProductSuffix));
-  }
-}
-#endif
 
 TEST_F(UserAgentUtilsTest, UserAgentMetadata) {
   auto metadata = GetUserAgentMetadata();
@@ -886,47 +588,6 @@ TEST_F(UserAgentUtilsTest, GenerateBrandVersionListAdditionalBrandVersions) {
                          std::string(version_info::GetVersionNumber()) + "\""));
 }
 
-TEST_F(UserAgentUtilsTest,
-       GenerateBrandVersionListWithGreaseBrandAndVersionOverride) {
-  blink::UserAgentMetadata metadata;
-
-  metadata.brand_version_list = GenerateBrandVersionList(
-      84, std::nullopt, "84", blink::UserAgentBrandVersionType::kMajorVersion);
-  metadata.brand_full_version_list =
-      GenerateBrandVersionList(84, std::nullopt, "84.0.0.0",
-                               blink::UserAgentBrandVersionType::kFullVersion);
-  // 1. verify major version
-  std::string brand_list_and_version_grease_override =
-      metadata.SerializeBrandMajorVersionList();
-  EXPECT_EQ(R"("Not;A=Brand";v="8", "Chromium";v="84")",
-            brand_list_and_version_grease_override);
-  // 2. verify full version
-  std::string brand_list_and_version_grease_override_fv =
-      metadata.SerializeBrandFullVersionList();
-  EXPECT_EQ(R"("Not;A=Brand";v="8.0.0.0", "Chromium";v="84.0.0.0")",
-            brand_list_and_version_grease_override_fv);
-}
-
-TEST_F(UserAgentUtilsTest, GenerateBrandVersionListWithGreaseVersionOverride) {
-  blink::UserAgentMetadata metadata;
-
-  metadata.brand_version_list = GenerateBrandVersionList(
-      84, std::nullopt, "84", blink::UserAgentBrandVersionType::kMajorVersion);
-  metadata.brand_full_version_list =
-      GenerateBrandVersionList(84, std::nullopt, "84.0.0.0",
-                               blink::UserAgentBrandVersionType::kFullVersion);
-  // 1. verify major version
-  std::string brand_version_grease_override =
-      metadata.SerializeBrandMajorVersionList();
-  EXPECT_EQ(R"("Not;A=Brand";v="8", "Chromium";v="84")",
-            brand_version_grease_override);
-  // 2. verify full version
-  std::string brand_version_grease_override_fv =
-      metadata.SerializeBrandFullVersionList();
-  EXPECT_EQ(R"("Not;A=Brand";v="8.0.0.0", "Chromium";v="84.0.0.0")",
-            brand_version_grease_override_fv);
-}
-
 TEST_F(UserAgentUtilsTest, GenerateBrandVersionListWithBrand) {
   blink::UserAgentMetadata metadata;
   metadata.brand_version_list =
@@ -1032,17 +693,6 @@ TEST_F(UserAgentUtilsTest, GetProductAndVersion) {
   EXPECT_EQ(minor_version, "0");
   EXPECT_EQ(build_version, "0");
   EXPECT_EQ(patch_version, "0");
-}
-
-TEST_F(UserAgentUtilsTest, GetUserAgent) {
-  const std::string ua = GetUserAgent();
-  std::string major_version;
-  std::string minor_version;
-  EXPECT_TRUE(re2::RE2::PartialMatch(ua, kChromeProductVersionRegex,
-                                     &major_version, &minor_version));
-  EXPECT_EQ(major_version, version_info::GetMajorVersionNumber());
-  // Minor version should contain the actual minor version number.
-  EXPECT_EQ(minor_version, "0");
 }
 
 TEST_F(UserAgentUtilsTest, HeadlessUserAgent) {

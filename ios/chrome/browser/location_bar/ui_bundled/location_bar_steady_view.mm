@@ -549,13 +549,11 @@ const CGFloat kCustomLeadingViewAnimationDuration = 0.3;
   _customLeadingView.hidden = YES;
 
   [self.locationContainerView addSubview:_customLeadingViewContainer];
-  if (IsChromeNextIaEnabled()) {
-    // `_customLeadingViewContainer` is a new instance, so the cached
-    // `_containerActiveConstraints` may still reference the previous container
-    // and must be dropped to force a rebuild in `updateContainerConstraints`.
-    [NSLayoutConstraint deactivateConstraints:_containerActiveConstraints];
-    _containerActiveConstraints = nil;
-  }
+  // `_customLeadingViewContainer` is a new instance, so the cached
+  // `_containerActiveConstraints` may still reference the previous container
+  // and must be dropped to force a rebuild in `updateContainerConstraints`.
+  [NSLayoutConstraint deactivateConstraints:_containerActiveConstraints];
+  _containerActiveConstraints = nil;
   [self updateContainerConstraints];
   [self updateAccessibility];
 }
@@ -865,8 +863,7 @@ const CGFloat kCustomLeadingViewAnimationDuration = 0.3;
   if (_containerActiveConstraints && _containerHasIncognito == hasIncognito &&
       _containerHasLocationImage == hasLocationImage &&
       _containerHasCustomLeadingView == hasCustomLeadingView &&
-      _containerCustomLeadingViewSpacing == _customLeadingViewSpacing &&
-      IsChromeNextIaEnabled()) {
+      _containerCustomLeadingViewSpacing == _customLeadingViewSpacing) {
     [self.contentSizeDelegate locationBarContentSizeDidChange];
     return;
   }

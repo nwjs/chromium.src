@@ -58,11 +58,12 @@ GPU_CONFIG_EXPORT BASE_DECLARE_FEATURE(kAdjustGpuProcessPriority);
 
 GPU_CONFIG_EXPORT BASE_DECLARE_FEATURE(kClearGrShaderDiskCacheOnInvalidPrefix);
 
+GPU_CONFIG_EXPORT BASE_DECLARE_FEATURE(kGpuInitOptimization);
+
 GPU_CONFIG_EXPORT BASE_DECLARE_FEATURE(kGpuShaderDiskCache);
 GPU_CONFIG_EXPORT bool IsShaderDiskCacheEnabled(
     const base::CommandLine* command_line);
 
-GPU_CONFIG_EXPORT BASE_DECLARE_FEATURE(kVulkan);
 GPU_CONFIG_EXPORT BASE_DECLARE_FEATURE(kForceEnableWebGpuInterop);
 
 GPU_CONFIG_EXPORT BASE_DECLARE_FEATURE(kSkiaGraphite);
@@ -220,6 +221,7 @@ GPU_CONFIG_EXPORT BASE_DECLARE_FEATURE(kWebGPUUseSpirvReconvergenceMode);
 #if BUILDFLAG(IS_WIN)
 GPU_CONFIG_EXPORT BASE_DECLARE_FEATURE(kWebGPUQualcommWindows);
 #endif
+GPU_CONFIG_EXPORT BASE_DECLARE_FEATURE(kWebGPUUseDedicatedTransferBuffer);
 GPU_CONFIG_EXPORT extern const base::FeatureParam<std::string>
     kWebGPUDisabledToggles;
 GPU_CONFIG_EXPORT extern const base::FeatureParam<std::string>
@@ -239,7 +241,6 @@ GPU_CONFIG_EXPORT BASE_DECLARE_FEATURE(kGPUDriverBugListTestGroup);
 GPU_CONFIG_EXPORT extern const base::FeatureParam<int>
     kGPUDriverBugListTestGroupId;
 
-GPU_CONFIG_EXPORT bool IsUsingVulkan();
 GPU_CONFIG_EXPORT bool IsForceEnableWebGpuInterop();
 GPU_CONFIG_EXPORT bool IsDrDcEnabled(
     const gpu::GpuFeatureInfo& gpu_feature_info);
@@ -265,6 +266,10 @@ GPU_CONFIG_EXPORT BASE_DECLARE_FEATURE(kSyncPointGraphValidation);
 GPU_CONFIG_EXPORT bool IsSyncPointGraphValidationEnabled();
 
 GPU_CONFIG_EXPORT BASE_DECLARE_FEATURE(kANGLEPerContextBlobCache);
+
+GPU_CONFIG_EXPORT BASE_DECLARE_FEATURE(kANGLETrimMemory);
+
+GPU_CONFIG_EXPORT BASE_DECLARE_FEATURE(kANGLETrimMemoryOnIdle);
 
 GPU_CONFIG_EXPORT BASE_DECLARE_FEATURE(kConfigurableGPUWatchdogTimeout);
 GPU_CONFIG_EXPORT extern const base::FeatureParam<int>

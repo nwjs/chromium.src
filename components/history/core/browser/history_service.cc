@@ -376,7 +376,7 @@ base::CancelableTaskTracker::TaskId HistoryService::AddVisitsToCluster(
 }
 
 base::CancelableTaskTracker::TaskId HistoryService::UpdateClusterTriggerability(
-    const std::vector<history::Cluster>& clusters,
+    const std::vector<Cluster>& clusters,
     base::OnceClosure callback,
     base::CancelableTaskTracker* tracker) {
   DCHECK(backend_runner_) << "History service being called after cleanup";
@@ -401,7 +401,7 @@ base::CancelableTaskTracker::TaskId HistoryService::HideVisits(
 }
 
 base::CancelableTaskTracker::TaskId HistoryService::UpdateClusterVisit(
-    history::ClusterVisit cluster_visit,
+    ClusterVisit cluster_visit,
     base::OnceClosure callback,
     base::CancelableTaskTracker* tracker) {
   DCHECK(backend_runner_) << "History service being called after cleanup";
@@ -454,6 +454,21 @@ base::CancelableTaskTracker::TaskId HistoryService::GetAllJourneys(
   return tracker->PostTaskAndReplyWithResult(
       GetBackendTaskRunner(), FROM_HERE,
       base::BindOnce(&HistoryBackend::GetAllJourneysWithVisits,
+                     history_backend_),
+      std::move(callback));
+}
+
+base::CancelableTaskTracker::TaskId
+HistoryService::GetUnresolvableJourneysCountForFishfood(
+    GetUnresolvableJourneysCountForFishfoodCallback callback,
+    base::CancelableTaskTracker* tracker) {
+  TRACE_EVENT0("browser",
+               "HistoryService::GetUnresolvableJourneysCountForFishfood");
+  CHECK(backend_runner_) << "History service being called after cleanup";
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  return tracker->PostTaskAndReplyWithResult(
+      GetBackendTaskRunner(), FROM_HERE,
+      base::BindOnce(&HistoryBackend::GetUnresolvableJourneysCountForFishfood,
                      history_backend_),
       std::move(callback));
 }

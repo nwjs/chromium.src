@@ -56,7 +56,9 @@ public class BrowsingHistoryBridge implements HistoryProvider {
                         query,
                         options.appId,
                         options.hostName,
-                        options.clientId);
+                        options.clientIds,
+                        options.includeUserVisits,
+                        options.includeActorVisits);
     }
 
     @Override
@@ -186,6 +188,17 @@ public class BrowsingHistoryBridge implements HistoryProvider {
         }
     }
 
+    /**
+     * Writes a page visit with an explicit timestamp directly to the native {@code HistoryService}
+     * for tests (such as WebUI history render tests) that query C++ {@code HistoryService} and
+     * require deterministic timestamps.
+     */
+    public static void addPageToHistoryForTesting(
+            Profile profile, GURL url, String title, long visitTimeMs) {
+        BrowsingHistoryBridgeJni.get()
+                .addPageToHistoryForTesting(profile, url, title, visitTimeMs); // IN-TEST
+    }
+
     @NativeMethods
     interface Natives {
         long init(BrowsingHistoryBridge self, @JniType("Profile*") Profile profile);
@@ -198,7 +211,9 @@ public class BrowsingHistoryBridge implements HistoryProvider {
                 @JniType("std::u16string") String query,
                 @JniType("std::optional<std::string>") @Nullable String appId,
                 @JniType("std::optional<std::string>") @Nullable String hostnameSuffix,
-                @JniType("std::optional<std::string>") @Nullable String clientId);
+                @JniType("std::vector<std::string>") List<String> clientIds,
+                boolean includeUserVisits,
+                boolean includeActorVisits);
 
         void queryHistoryContinuation(
                 long nativeBrowsingHistoryBridge, List<HistoryItem> historyItems);
@@ -229,5 +244,11 @@ public class BrowsingHistoryBridge implements HistoryProvider {
 
         @JniType("std::vector<const syncer::DeviceInfo*>")
         List<ClientInfo> getAllClients(long nativeBrowsingHistoryBridge);
+
+        void addPageToHistoryForTesting( // IN-TEST
+                @JniType("Profile*") Profile profile,
+                @JniType("GURL") GURL url,
+                @JniType("std::u16string") String title,
+                long visitTimeMs);
     }
 }

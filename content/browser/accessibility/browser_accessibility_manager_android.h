@@ -153,8 +153,6 @@ class CONTENT_EXPORT BrowserAccessibilityManagerAndroid
 
   std::u16string GenerateAccessibilityNodeInfoString(int32_t unique_id);
 
-  std::optional<std::vector<std::string>> GetMetadataForTree() const;
-
   struct AndroidPosition {
     raw_ptr<BrowserAccessibilityAndroid> node = nullptr;
     int offset = -1;
@@ -171,6 +169,22 @@ class CONTENT_EXPORT BrowserAccessibilityManagerAndroid
   // API restrictions. If the output has value, all fields of the
   // `SelectionRange` are populated.
   std::optional<SelectionRange> GetSelectionRange() const;
+
+  // Returns the manager of the frame that contains the focused node of the
+  // page that this frame belongs to (see `GetFocus()`), or the manager of the
+  // root frame if there is no focused node.
+  BrowserAccessibilityManagerAndroid* GetManagerForFocusedFrame() const;
+
+  // Returns the selection of the focused frame of the page, in the same way as
+  // `GetSelectionRange`. Chrome tracks the selection separately in each frame,
+  // while the selection of the whole page is exposed on the root of the main
+  // frame. As on the web, the selection of the page is the selection of the
+  // focused frame, and the selections of other frames are not exposed.
+  std::optional<SelectionRange> GetSelectionRangeOfFocusedFrame() const;
+
+  // Clears the selection in this frame by sending a kSetSelection action
+  // anchored on the frame root with kNoSelectionOffset.
+  void ClearSelection();
 
   // Creates an AXPosition for the given `node`, `offset`, and `offset_type`
   // that are received from Android. Returns Null Position if the offset is not
@@ -207,6 +221,11 @@ class CONTENT_EXPORT BrowserAccessibilityManagerAndroid
   void HandleHoverEvent(ui::BrowserAccessibility* node);
 
   void FireDocumentSelectionChangedEvent(WebContentsAccessibilityAndroid* wcax);
+
+  // Fires a text selection changed event on the root of the main frame, which
+  // is the node that exposes the selection of the page on Android.
+  void FireSelectionChangedOnMainFrameRoot(
+      WebContentsAccessibilityAndroid* wcax);
 
   // Given `node_id`, `offset`, and `affinity` which represent a selection
   // position in Chrome accessibility tree, creates an appropriate selection

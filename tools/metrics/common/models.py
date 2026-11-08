@@ -30,6 +30,7 @@ import xml.etree.ElementTree as ET
 
 import setup_modules  # pylint: disable=unused-import
 
+
 import chromium_src.tools.metrics.common.pretty_print_xml as pretty_print_xml
 
 # The object representation of the XML node.

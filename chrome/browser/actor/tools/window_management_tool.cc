@@ -234,10 +234,6 @@ void WindowManagementTool::UpdateTaskAfterInvoke(ActorTask& task,
   }
 }
 
-tabs::TabHandle WindowManagementTool::GetTargetTab() const {
-  return tabs::TabHandle::Null();
-}
-
 BrowserWindowInterface* WindowManagementTool::GetTargetBrowser() const {
   CHECK_NE(action_, Action::kCreate);
   CHECK(window_id_.has_value());
@@ -263,6 +259,10 @@ void WindowManagementTool::OnInvokeFinished(mojom::ActionResultPtr result) {
   }
   browser_did_close_subscription_ = {};
   browser_did_become_active_subscription_ = {};
+}
+
+ActorSurfaceHandle WindowManagementTool::GetTargetActorSurface() const {
+  return ActorSurfaceHandle::Null();
 }
 
 }  // namespace actor

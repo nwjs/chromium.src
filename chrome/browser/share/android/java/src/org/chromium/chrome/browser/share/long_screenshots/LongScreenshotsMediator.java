@@ -77,6 +77,9 @@ public class LongScreenshotsMediator
     // Test support
     private boolean mDidScaleForTesting;
 
+    // Scale factor applied when downscaling oversized bitmaps in onEntry(), used for metrics.
+    private double mDownscaleScale = 1.0;
+
     // Amount by which tapping up/down scrolls the viewport.
     private static final int BUTTON_SCROLL_STEP_DP = 100;
     // Minimum selectable screenshot, vertical size.
@@ -157,6 +160,7 @@ public class LongScreenshotsMediator
         if (bitmapByteCount >= DOWNSCALE_AREA_THRESHOLD_BYTES) {
             double oversizeRatio = (1.0 * bitmapByteCount / DOWNSCALE_AREA_THRESHOLD_BYTES);
             double scale = Math.sqrt(oversizeRatio);
+            mDownscaleScale = scale;
             showAreaSelectionDialog(
                     Bitmap.createScaledBitmap(
                             entryBitmap,
@@ -165,10 +169,12 @@ public class LongScreenshotsMediator
                             true));
             mDidScaleForTesting = true;
         } else {
+            mDownscaleScale = 1.0;
             showAreaSelectionDialog(entryBitmap);
         }
     }
 
+    @SuppressWarnings("checkstyle:FullscreenDialogs")
     public void showAreaSelectionDialog(Bitmap bitmap) {
         mFullBitmap = bitmap;
         mDialogView =
@@ -186,6 +192,11 @@ public class LongScreenshotsMediator
         PropertyModelChangeProcessor.create(
                 mModel, mDialogView, LongScreenshotsAreaSelectionDialogViewBinder::bind);
 
+        // Suppress FullscreenDialogs checkstyle warning on this method: the regex check triggers
+        // unconditionally on any reference to R.style.ThemeOverlay_BrowserUI_Fullscreen without
+        // inspecting the dialog type. Here we already use ChromeDialog with
+        // EdgeToEdgeUtils.isEdgeToEdgeEverywhereEnabled(), which properly handles automotive
+        // back-button toolbars and edge-to-edge window insets.
         mDialog =
                 new ChromeDialog(
                         mActivity,
@@ -219,10 +230,10 @@ public class LongScreenshotsMediator
 
     @Override
     public void onShow(DialogInterface dialog) {
+        if (mFullBitmap == null) return;
         // Adjust bottom mask selector.
         assumeNonNull(mBottomAreaMaskView);
         ViewGroup.LayoutParams bottomParams = mBottomAreaMaskView.getLayoutParams();
-        assumeNonNull(mFullBitmap);
         assumeNonNull(mScrollView);
         bottomParams.height = mFullBitmap.getHeight() - mScrollView.getHeight() + getTopMaskY();
         mBottomAreaMaskView.setLayoutParams(bottomParams);
@@ -356,7 +367,7 @@ public class LongScreenshotsMediator
         assumeNonNull(mFullBitmap);
         int bitmapWidth = mFullBitmap.getWidth();
         int imageViewWidth = mImageView.getWidth();
-        if (bitmapWidth > imageViewWidth) {
+        if (bitmapWidth > imageViewWidth && imageViewWidth > 0) {
             float imageScale = 1.0f * bitmapWidth / imageViewWidth;
             startY = (int) (startY * imageScale);
             endY = (int) (endY * imageScale);
@@ -371,6 +382,16 @@ public class LongScreenshotsMediator
 
         Bitmap cropped =
                 Bitmap.createBitmap(mFullBitmap, 0, startY, mFullBitmap.getWidth(), endY - startY);
+        int displayHeight = mActivity.getResources().getDisplayMetrics().heightPixels;
+        if (displayHeight > 0) {
+            // Linear buckets of 20% (0.2 viewports) from 1% to 1000% (10 viewports).
+            RecordHistogram.recordLinearCountHistogram(
+                    "Sharing.ShareSheetLongScreenshots.CapturedHeightPercentageOfViewport",
+                    (int) Math.round(100.0 * (endY - startY) * mDownscaleScale / displayHeight),
+                    /* min= */ 1,
+                    /* max= */ 1001,
+                    /* numBuckets= */ 52);
+        }
         mFullBitmap = null;
         return cropped;
     }

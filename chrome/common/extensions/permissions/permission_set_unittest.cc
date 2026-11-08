@@ -690,10 +690,12 @@ TEST(PermissionsTest, IsPrivilegeIncrease) {
 
       {"storage", false},       // none -> storage
       {"notifications", true},  // none -> notifications
+      {"mimehandler1", true},   // none -> mime_types_handler
+      {"mimehandler2", false},  // all hosts -> all hosts + mime_types_handler
 #if BUILDFLAG(ENABLE_PLATFORM_APPS)
       // All of the below are platform app permissions.
-      {"platformapp1", false},      // host permissions for platform apps
-      {"platformapp2", true},       // API permissions for platform apps
+      {"platformapp1", false},  // host permissions for platform apps
+      {"platformapp2", true},   // API permissions for platform apps
 #if BUILDFLAG(IS_CHROMEOS)
       // TODO(crbug.com/445350577): Remove the IS_CHROMEOS check when
       // IS_CHROMEOS and ENABLE_PLATFORM_APPS are equivalent.
@@ -705,9 +707,9 @@ TEST(PermissionsTest, IsPrivilegeIncrease) {
       {"media_galleries6", false},  // read|all -> read|all
       {"media_galleries7", true},   // read|delete|all -> read|copyTo|delete|all
 #endif
-      {"sockets1", true},           // none -> tcp:*:*
-      {"sockets2", false},          // tcp:*:* -> tcp:*:*
-      {"sockets3", true},           // tcp:a.com:80 -> tcp:*:*
+      {"sockets1", true},   // none -> tcp:*:*
+      {"sockets2", false},  // tcp:*:* -> tcp:*:*
+      {"sockets3", true},   // tcp:a.com:80 -> tcp:*:*
 #endif
   });
 
@@ -852,7 +854,9 @@ TEST(PermissionsTest, PermissionMessages) {
   skip.insert(APIPermissionID::kIdentity);
 
   // These are private.
+#if BUILDFLAG(IS_CHROMEOS)
   skip.insert(APIPermissionID::kAccessibilityPrivate);
+#endif
   skip.insert(APIPermissionID::kAccessibilityServicePrivate);
 #if BUILDFLAG(ENABLE_PLATFORM_APPS)
   skip.insert(APIPermissionID::kArcAppsPrivate);
@@ -876,8 +880,8 @@ TEST(PermissionsTest, PermissionMessages) {
 #endif
   skip.insert(APIPermissionID::kGlicPrivate);
   skip.insert(APIPermissionID::kGlicPrivateInvoke);
-  skip.insert(APIPermissionID::kImageLoaderPrivate);
 #if BUILDFLAG(IS_CHROMEOS)
+  skip.insert(APIPermissionID::kImageLoaderPrivate);
   skip.insert(APIPermissionID::kInputMethodPrivate);
 #endif
   skip.insert(APIPermissionID::kLanguageSettingsPrivate);

@@ -49,7 +49,11 @@ OomInterventionTabHelper::OomInterventionTabHelper(
       crash_reporter::CrashMetricsReporter::GetInstance());
 }
 
-OomInterventionTabHelper::~OomInterventionTabHelper() = default;
+OomInterventionTabHelper::~OomInterventionTabHelper() {
+  if (web_contents()) {
+    WebContentsDestroyed();
+  }
+}
 
 void OomInterventionTabHelper::OnHighMemoryUsage() {
   auto* config = OomInterventionConfig::GetInstance();
@@ -88,7 +92,11 @@ void OomInterventionTabHelper::DeclineInterventionSticky() {
 }
 
 void OomInterventionTabHelper::WebContentsDestroyed() {
+  if (IsLastVisibleWebContents(web_contents())) {
+    SetLastVisibleWebContents(nullptr);
+  }
   StopMonitoring();
+  Observe(nullptr);
 }
 
 void OomInterventionTabHelper::PrimaryMainFrameRenderProcessGone(
@@ -203,6 +211,8 @@ void OomInterventionTabHelper::OnCrashDumpProcessed(
     return;
   }
 
+  // TODO(crbug.com/572186162): CHECK-exclusion: Convert to a CHECK once we are
+  // confident it won't be triggered.
   DCHECK(IsLastVisibleWebContents(web_contents()));
   if (near_oom_detected_time_) {
     ResetInterventionState();
@@ -261,9 +271,9 @@ void OomInterventionTabHelper::StartDetectionInRenderer() {
       web_contents()->GetPrimaryPage().GetMainDocument();
 
   content::RenderProcessHost* render_process_host = main_frame.GetProcess();
-  DCHECK(render_process_host);
+  CHECK(render_process_host, base::NotFatalUntil::M161);
   render_process_host->BindReceiver(intervention_.BindNewPipeAndPassReceiver());
-  DCHECK(!receiver_.is_bound());
+  CHECK(!receiver_.is_bound(), base::NotFatalUntil::M161);
   blink::mojom::DetectionArgsPtr detection_args =
       config->GetRendererOomDetectionArgs();
   intervention_->StartDetection(

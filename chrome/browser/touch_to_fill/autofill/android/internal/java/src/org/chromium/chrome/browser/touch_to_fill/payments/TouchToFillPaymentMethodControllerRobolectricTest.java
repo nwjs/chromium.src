@@ -244,7 +244,6 @@ import java.util.stream.StreamSupport;
  * TouchToFillPaymentMethodMediator}
  */
 @RunWith(BaseRobolectricTestRunner.class)
-@EnableFeatures({AutofillFeatures.AUTOFILL_ENABLE_NEW_FOP_DISPLAY_ANDROID})
 @DisableFeatures({
     AutofillFeatures.AUTOFILL_ENABLE_SECURITY_TOUCH_EVENT_FILTERING_ANDROID,
     AutofillFeatures.AUTOFILL_ENABLE_AI_BASED_AMOUNT_EXTRACTION,
@@ -2847,7 +2846,7 @@ public class TouchToFillPaymentMethodControllerRobolectricTest {
 
         assertThat(getModelsOfType(itemList, HEADER).size(), is(1));
         PropertyModel headerModel = itemList.get(0).model;
-        assertThat(headerModel.get(IMAGE_DRAWABLE_ID), is(R.drawable.fre_product_logo));
+        assertThat(headerModel.get(IMAGE_DRAWABLE_ID), is(R.drawable.google_pay));
         assertThat(
                 headerModel.get(TITLE_ID), is(R.string.autofill_payment_method_bottom_sheet_title));
         assertThat(headerModel.get(TITLE_BOTTOM_MARGIN), is(ID_NULL));
@@ -2873,7 +2872,7 @@ public class TouchToFillPaymentMethodControllerRobolectricTest {
 
         assertThat(getModelsOfType(itemList, HEADER).size(), is(1));
         PropertyModel headerModel = itemList.get(0).model;
-        assertThat(headerModel.get(IMAGE_DRAWABLE_ID), is(R.drawable.fre_product_logo));
+        assertThat(headerModel.get(IMAGE_DRAWABLE_ID), is(R.drawable.google_pay));
         assertThat(
                 headerModel.get(TITLE_ID), is(R.string.autofill_payment_method_bottom_sheet_title));
         assertThat(headerModel.get(TITLE_BOTTOM_MARGIN), is(ID_NULL));

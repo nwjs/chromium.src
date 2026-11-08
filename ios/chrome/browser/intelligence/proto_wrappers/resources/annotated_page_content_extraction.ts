@@ -6,7 +6,7 @@ import {HAS_BEEN_PASSWORD_SYMBOL, ID_SYMBOL} from '//components/autofill/ios/for
 import {APC_NODE_DEPTH_COST, getRemoteFrameRemoteToken, NONCE_ATTR} from '//ios/chrome/browser/intelligence/proto_wrappers/resources/common.js';
 import {getNodeId, getOrCreateNodeId, safeOwnerDocument} from '//ios/chrome/browser/intelligence/proto_wrappers/resources/dom_node_ids.js';
 import {AxRole, FormControlType, PageContentAnchorRel, PageContentAnnotatedRole, PageContentAttributeType, PageContentClickabilityReason, PageContentCssPosition, PageContentInteractionDisabledReason, PageContentMediaType, PageContentRedactionDecision, PageContentTableRowType, PageContentTextSize} from '//ios/chrome/browser/intelligence/proto_wrappers/resources/page_content_types.js';
-import type {PageContent, PageContentAttributes, PageContentFormControlData, PageContentFormData, PageContentFrameData, PageContentFrameInteractionInfo, PageContentGeometry, PageContentMediaData, PageContentNode, PageContentNodeInteractionInfo, PageContentPageInteractionInfo, PageContentScrollerInfo, PageContentTableData, Point, Rect as BasicRect} from '//ios/chrome/browser/intelligence/proto_wrappers/resources/page_content_types.js';
+import type {PageContent, PageContentAttributes, PageContentFormControlData, PageContentFormData, PageContentFrameData, PageContentFrameInteractionInfo, PageContentGeometry, PageContentMediaData, PageContentNode, PageContentNodeInteractionInfo, PageContentPageInteractionInfo, PageContentScrollerInfo, PageContentTableData, Point, Rect} from '//ios/chrome/browser/intelligence/proto_wrappers/resources/page_content_types.js';
 
 // TODO(crbug.com/504261632): Report metrics from here down to the native
 // browser side so they can be uma-reported.
@@ -61,6 +61,7 @@ const getRootNodeMethod = Node.prototype.getRootNode;
 
 const getBoundingClientRectMethod = Element.prototype.getBoundingClientRect;
 const getClientRectsMethod = Element.prototype.getClientRects;
+const createRangeMethod = Document.prototype.createRange;
 
 const clientHeightGetter =
     Object.getOwnPropertyDescriptor(Element.prototype, 'clientHeight')?.get;
@@ -241,6 +242,15 @@ function safeGetClientRects(element: Element): DOMRectList {
   return getClientRectsMethod.call(element);
 }
 
+// Returns the equivalent of `document.createRange()` but directly calls the
+// `Document` prototype to prevent clobbering.
+function safeCreateRange(document: Document): Range {
+  if (typeof document.createRange === 'function') {
+    return document.createRange();
+  }
+  return createRangeMethod.call(document);
+}
+
 // Returns the equivalent of `element.clientHeight` but directly calls the
 // `Element` prototype to prevent clobbering.
 function safeClientHeight(element: Element): number {
@@ -317,6 +327,9 @@ interface StyleCache {
 
   // The window object.
   window?: Window;
+
+  // Reusable Range for measuring text node bounding boxes in actionable mode.
+  textRange?: Range;
 }
 
 // Tags that we fundamentally do not support or that contain non-content data.
@@ -1459,16 +1472,8 @@ function getScrollerInfo(
   // Make sure to call element.clientWidth before element.scrollWidth.
   // This will guide the layout engine to perform the shallow layout first
   // and then the deep layout calculation.
-  const visibleArea = {
-    x: scrollLeft,
-    y: scrollTop,
-    width: clientWidth,
-    height: clientHeight,
-    top: scrollTop,
-    right: scrollLeft + clientWidth,
-    bottom: scrollTop + clientHeight,
-    left: scrollLeft,
-  };
+  const visibleArea =
+      createRect(scrollLeft, scrollTop, clientWidth, clientHeight);
 
   // Populate bounds.
   // Scrolling bounds = whole content size.
@@ -3234,18 +3239,6 @@ function addAnnotatedRoles(
   }
 }
 
-// Defines a rectangle compatible with DOMRectReadOnly.
-interface Rect {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  top: number;
-  right: number;
-  bottom: number;
-  left: number;
-}
-
 /**
  * Computes the intersection of two rectangles.
  * Returns a 0-size rectangle at (0,0) if they do not intersect,
@@ -3258,8 +3251,8 @@ function intersection(r1: Rect, r2: Rect): Rect {
 
   const x = Math.max(r1.x, r2.x);
   const y = Math.max(r1.y, r2.y);
-  const right = Math.min(r1.right, r2.right);
-  const bottom = Math.min(r1.bottom, r2.bottom);
+  const right = Math.min(r1.x + r1.width, r2.x + r2.width);
+  const bottom = Math.min(r1.y + r1.height, r2.y + r2.height);
 
   // TODO(crbug.com/499496584): Double check that a 0-size rectangle and no
   // rectangle are semantically the same for fully clipped rectangles.
@@ -3279,17 +3272,13 @@ function createRect(x: number, y: number, width: number, height: number): Rect {
     y,
     width,
     height,
-    top: y,
-    right: x + width,
-    bottom: y + height,
-    left: x,
   };
 }
 
 /**
  * Calculates the center point of a given rectangle.
  */
-function getCenterPoint(rect: BasicRect): Point {
+function getCenterPoint(rect: Rect): Point {
   return {
     x: rect.x + (rect.width / 2),
     y: rect.y + (rect.height / 2),
@@ -3307,8 +3296,8 @@ function toEnclosingRect(rect: Rect): Rect {
   }
   const x = Math.floor(rect.x);
   const y = Math.floor(rect.y);
-  const right = Math.ceil(rect.right);
-  const bottom = Math.ceil(rect.bottom);
+  const right = Math.ceil(rect.x + rect.width);
+  const bottom = Math.ceil(rect.y + rect.height);
   return createRect(x, y, right - x, bottom - y);
 }
 
@@ -3569,8 +3558,9 @@ function addNodeGeometry(
       newFixedClip = visibleRectForClip;
     }
   } else {
-    if (position === ATTR_POSITION_ABSOLUTE ||
-        position === ATTR_POSITION_FIXED) {
+    if ((position === ATTR_POSITION_ABSOLUTE ||
+         position === ATTR_POSITION_FIXED) &&
+        clipToUse) {
       newNormalClip = clipToUse;
     }
     if (isAbsoluteContainingBlock) {
@@ -3595,6 +3585,43 @@ function addNodeGeometry(
   };
 }
 
+/**
+ * Calculates and adds geometry information to a text node's content attributes.
+ *
+ * @param textNode The DOM text node to calculate geometry for.
+ * @param attributes The attributes object where geometry will be stored.
+ * @param context The clipping context inherited from parent elements.
+ * @param range A reusable DOM Range used to measure the text node's bounds.
+ */
+function addTextNodeGeometry(
+    textNode: Node, attributes: PageContentAttributes, context: ClippingContext,
+    range: Range): void {
+  range.selectNodeContents(textNode);
+  const domRect = range.getBoundingClientRect();
+
+  const geometry: PageContentGeometry = {
+    outerBoundingBox: toEnclosingRect(domRect),
+    cssPosition: PageContentCssPosition.STATIC,
+  };
+
+  const clipRect = context.normalClip;
+  if (domRect.width > 0 && domRect.height > 0 && clipRect.width > 0 &&
+      clipRect.height > 0) {
+    const left = Math.max(domRect.x, clipRect.x);
+    const top = Math.max(domRect.y, clipRect.y);
+    const right = Math.min(domRect.right, clipRect.x + clipRect.width);
+    const bottom = Math.min(domRect.bottom, clipRect.y + clipRect.height);
+    if (left < right && top < bottom) {
+      const x = Math.floor(left);
+      const y = Math.floor(top);
+      geometry.visibleBoundingBox =
+          createRect(x, y, Math.ceil(right) - x, Math.ceil(bottom) - y);
+    }
+  }
+
+  attributes.geometry = geometry;
+}
+
 // TODO(crbug.com/476341187): Carry status information when the max depth is
 // reached.
 /**
@@ -3611,7 +3638,12 @@ function addNodeGeometry(
  * @param actionableMode Whether to extract actionable interaction info.
  * @param paidContentContext Context regarding paid content.
  * @param hasCanvas Whether there is a canvas element on the page.
- * @param parentClipRect The clipping rectangle of the parent.
+ * @param parentContext The clipping context inherited from parent elements.
+ * @param includeSensitivePaymentsForRedaction Whether sensitive payments
+ *     redaction is enabled.
+ * @param extractAutofillOtpRedactions Whether OTP redaction is enabled.
+ * @param extractPasswordScreenshotRedactions Whether password screenshot
+ *     redaction is enabled.
  * @param styleCache The style cache to use for computing styles.
  * @return A new PageContentNode if valid content was found, null otherwise.
  */
@@ -3634,8 +3666,12 @@ function maybeGenerateContentNode(
       if (domNodeId !== null) {
         contentAttributes.domNodeId = domNodeId;
       }
+      if (actionableMode && styleCache?.textRange) {
+        addTextNodeGeometry(
+            domNode, contentAttributes, parentContext, styleCache.textRange);
+      }
       // Text nodes don't have children, so they don't need a clip rect passed
-      // down. Explicit geometry for text nodes isn't currently extracted.
+      // down.
       return {
         node: {
           childrenNodes: [],
@@ -3732,7 +3768,7 @@ function shouldAcceptNode(node: Node, styleCache?: StyleCache): number {
  */
 interface ClippingContext {
   /** Clipping rectangle applied to static and relative positioned elements. */
-  normalClip: Rect|null;
+  normalClip: Rect;
   /** Clipping rectangle applied to absolute positioned elements. */
   absoluteClip: Rect|null;
   /**
@@ -4074,7 +4110,8 @@ function computeZOrder(rootNode: PageContentNode, rootDoc: Document) {
   for (const node of actionableNodes) {
     const box = node.visibleBox;
     sweepPoints.push({top: box.y, pointType: SWEEP_POINT_START, node});
-    sweepPoints.push({top: box.bottom, pointType: SWEEP_POINT_END, node});
+    sweepPoints.push(
+        {top: box.y + box.height, pointType: SWEEP_POINT_END, node});
   }
 
   // Sort sweep points from lowest to highest Y.
@@ -4103,8 +4140,8 @@ function computeZOrder(rootNode: PageContentNode, rootDoc: Document) {
       for (const activeNode of activeSet) {
         const activeNodeBox = activeNode.visibleBox;
         // X-overlap check
-        if (newNodeBox.x < activeNodeBox.right &&
-            newNodeBox.right > activeNodeBox.x) {
+        if (newNodeBox.x < activeNodeBox.x + activeNodeBox.width &&
+            newNodeBox.x + newNodeBox.width > activeNodeBox.x) {
           // True 2D overlap occurs. Calculate intersection rectangle.
           const intersectionRect = intersection(newNodeBox, activeNodeBox);
 
@@ -4311,6 +4348,7 @@ export function extractAnnotatedPageContent(
     lastStyledNode: null,
     lastComputedStyle: undefined,
     window: documentWindow,
+    textRange: actionableMode ? safeCreateRange(document) : undefined,
   };
 
   // Pre-calculate root font size.
@@ -4365,6 +4403,8 @@ export function extractAnnotatedPageContent(
       root, rootNode.contentAttributes, rootInteractionInfo, paidContentContext,
       actionableMode, undefined, styleCache);
 
+  const viewportRect = getViewportRect(document);
+
   // Stack to track the current ancestry chain. At this point it is known that
   // that there is at least a root node that is walkable.
   // We use this to find the correct parent for the current node without
@@ -4376,8 +4416,8 @@ export function extractAnnotatedPageContent(
     isVisible: true,
     clippingContext: addNodeGeometry(
         root, rootNode.contentAttributes, {
-          normalClip: getViewportRect(document),
-          absoluteClip: getViewportRect(document),
+          normalClip: viewportRect,
+          absoluteClip: viewportRect,
           fixedClip: null,
         },
         actionableMode, includeSensitivePaymentsForRedaction,
@@ -4401,7 +4441,7 @@ export function extractAnnotatedPageContent(
   // rather than accounting for visual viewport offsets (e.g., pinch-to-zoom),
   // to maintain parity with Blink's ConvertViewportGeometry in
   // components/optimization_guide/content/browser/page_content_proto_provider.cc.
-  const viewportGeometry = toEnclosingRect(getViewportRect(document));
+  const viewportGeometry = toEnclosingRect(viewportRect);
 
   if (actionableMode) {
     computeZOrder(rootNode, document);

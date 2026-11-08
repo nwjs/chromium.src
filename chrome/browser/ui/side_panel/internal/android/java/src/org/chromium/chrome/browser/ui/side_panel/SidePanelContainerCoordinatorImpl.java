@@ -7,6 +7,7 @@ package org.chromium.chrome.browser.ui.side_panel;
 import static org.chromium.build.NullUtil.assertNonNull;
 import static org.chromium.chrome.browser.ui.side_panel.SidePanelUtils.log;
 
+import android.content.Context;
 import android.content.res.Resources;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -14,14 +15,17 @@ import android.view.ViewGroup;
 import android.view.ViewGroup.LayoutParams;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
+import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import androidx.annotation.DrawableRes;
 import androidx.annotation.Px;
+import androidx.annotation.StringRes;
 import androidx.annotation.VisibleForTesting;
 import androidx.core.view.ViewCompat;
 
+import org.chromium.base.MathUtils;
 import org.chromium.base.ThreadUtils;
 import org.chromium.build.BuildConfig;
 import org.chromium.build.annotations.NullMarked;
@@ -29,6 +33,8 @@ import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.browser_controls.TopControlsStacker;
 import org.chromium.chrome.browser.browser_controls.TopControlsStacker.TopControlType;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tabmodel.IncognitoStateProvider;
+import org.chromium.chrome.browser.tabmodel.IncognitoStateProvider.IncognitoStateObserver;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.ui.side_ui.SideUiContainer;
 import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator;
@@ -37,6 +43,7 @@ import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.HeightType;
 import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.SideUiId;
 import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.SideUiSpecs.SideUiSize;
 import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.UiUpdateRequest;
+import org.chromium.components.browser_ui.styles.ChromeColors;
 import org.chromium.components.thinwebview.ThinWebView;
 import org.chromium.ui.accessibility.AccessibilityState;
 import org.chromium.ui.base.ActivityWindowAndroid;
@@ -45,15 +52,17 @@ import org.chromium.ui.base.ViewUtils;
 /** Implementation of {@link SidePanelContainerCoordinator}. */
 @NullMarked
 final class SidePanelContainerCoordinatorImpl
-        implements SidePanelContainerCoordinator, SideUiContainer {
+        implements SidePanelContainerCoordinator, SideUiContainer, IncognitoStateObserver {
     private static final String TAG = "SidePanelContainerCoordinatorImpl";
 
     private static final @AnchorSide int SIDE_PANEL_DEFAULT_ANCHOR_SIDE = AnchorSide.RIGHT;
 
-    private final LinearLayout mContainerView;
+    private final FrameLayout mContainerView;
+    private final LinearLayout mInnerContainerView;
     private final SidePanelNativeBridgeSelector mNativeBridgeSelector;
     private final SideUiCoordinator mSideUiCoordinator;
     private final TopControlsStacker mTopControlsStacker;
+    private final IncognitoStateProvider mIncognitoStateProvider;
 
     private @Nullable SidePanelContent mCurrentContent;
 
@@ -87,6 +96,33 @@ final class SidePanelContainerCoordinatorImpl
      */
     private boolean mIsPreparingForAutoRestore;
 
+    /**
+     * The width (in dp) that the user last committed by resizing the side panel in this window, or
+     * null if the side panel should use its automatic width.
+     *
+     * <p>This isn't always the rendered width. {@link #determineShowableSize} clamps it to the
+     * available width, so the side panel can be narrower while space is limited, e.g. in a narrow
+     * window. The width is kept as is, so that the side panel returns to it once there's space.
+     *
+     * <p>An in-progress drag overrides it, and only a commit updates it, so a drag that ends
+     * without a commit (e.g. the side panel hides mid-drag) leaves it unchanged.
+     *
+     * <p>The width applies to all side panel entries, and isn't persisted, so a new window or
+     * session starts with the automatic width.
+     *
+     * <p>TODO(crbug.com/570096420): Persist the width per side panel entry.
+     */
+    private @Nullable Integer mUserCommittedWidthDp;
+
+    /**
+     * The container width proposed by an in-progress manual resize drag, or null if no drag is in
+     * progress.
+     *
+     * <p>The proposed width is raw, so it can be negative or exceed the available width. {@link
+     * #determineShowableSize} clamps it.
+     */
+    private @Nullable @Px Integer mLiveResizeWidthPx;
+
     private boolean mIsContentReplacementPausedForTesting;
     private boolean mSimulateAutoCloseConditionForTesting;
 
@@ -94,20 +130,23 @@ final class SidePanelContainerCoordinatorImpl
             ActivityWindowAndroid windowAndroid,
             SideUiCoordinator sideUiCoordinator,
             TabModelSelector tabModelSelector,
-            TopControlsStacker topControlsStacker) {
+            TopControlsStacker topControlsStacker,
+            IncognitoStateProvider incognitoStateProvider) {
         log(TAG, "constructor");
 
         var activity = assertNonNull(windowAndroid.getActivity().get());
         mContainerView =
-                (LinearLayout)
+                (FrameLayout)
                         LayoutInflater.from(activity)
                                 .inflate(R.layout.side_panel_container, /* root= */ null);
+        mInnerContainerView = mContainerView.findViewById(R.id.side_panel_inner_container);
 
         mNativeBridgeSelector =
                 new SidePanelNativeBridgeSelector(
                         windowAndroid, /* sidePanelContainerCoordinator= */ this, tabModelSelector);
         mSideUiCoordinator = sideUiCoordinator;
         mTopControlsStacker = topControlsStacker;
+        mIncognitoStateProvider = incognitoStateProvider;
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -119,6 +158,7 @@ final class SidePanelContainerCoordinatorImpl
         log(TAG, "init");
         ThreadUtils.assertOnUiThread();
         mSideUiCoordinator.registerSideUiContainer(this);
+        mIncognitoStateProvider.addIncognitoStateObserverAndTrigger(this);
         mNativeBridgeSelector.init();
     }
 
@@ -292,6 +332,7 @@ final class SidePanelContainerCoordinatorImpl
     public void destroy() {
         log(TAG, "destroy");
         ThreadUtils.assertOnUiThread();
+        mIncognitoStateProvider.removeObserver(this);
         mSideUiCoordinator.unregisterSideUiContainer(this);
 
         // Detach the side panel content View.
@@ -351,7 +392,7 @@ final class SidePanelContainerCoordinatorImpl
      * side panel won't open the panel until {@link #simulateAutoRestoreConditionForTesting()} is
      * called.
      *
-     * @see org.chromium.chrome.browser.ui.side_ui.SideUiContainer#onWillAutoClose()
+     * @see org.chromium.chrome.browser.ui.side_ui.SideUiContainer#onWillAutoClose
      */
     void simulateAutoCloseConditionForTesting() {
         mSimulateAutoCloseConditionForTesting = true;
@@ -377,6 +418,13 @@ final class SidePanelContainerCoordinatorImpl
         // container will never _request_ to be auto-restored.
         mSideUiCoordinator.updateUi(
                 UiUpdateRequest.getConfigurationChangeRequestForTesting( // IN-TEST
+                        /* suppressAnimations= */ true));
+    }
+
+    /** Simulates a top controls height change that triggers a UI update. */
+    void simulateTopControlsHeightChangeForTesting() {
+        mSideUiCoordinator.updateUi(
+                UiUpdateRequest.getTopControlsHeightChangeRequestForTesting( // IN-TEST
                         /* suppressAnimations= */ true));
     }
 
@@ -418,27 +466,22 @@ final class SidePanelContainerCoordinatorImpl
             return new SideUiSize(0, HeightType.NOT_APPLICABLE);
         }
 
-        var context = mContainerView.getContext();
-        int availableWidthDp = ViewUtils.pxToDp(context, availableWidth);
-        int windowWidthDp = ViewUtils.pxToDp(context, windowWidth);
-
-        int horizontalPaddingDp =
-                ViewUtils.pxToDp(
-                        context,
-                        mContainerView.getPaddingLeft() + mContainerView.getPaddingRight());
-        int minSidePanelContainerWidthDp = horizontalPaddingDp + MIN_SIDE_PANEL_CONTENT_WIDTH_DP;
-
-        int showableWidthDp =
-                determineShowableWidthDp(
-                        availableWidthDp, windowWidthDp, minSidePanelContainerWidthDp);
+        @Px
+        int showableWidthPx =
+                determineShowableWidthPx(
+                        mContainerView.getContext(),
+                        getUserResizedWidthPx(),
+                        availableWidth,
+                        windowWidth,
+                        getMinSidePanelContainerWidthDp());
         @HeightType
         int heightType =
                 determineHeightType(
-                        showableWidthDp,
+                        showableWidthPx,
                         mTopControlsStacker.getHeightFromLayerBottomToTop(TopControlType.TABSTRIP)
                                 > 0);
 
-        return new SideUiSize(ViewUtils.dpToPx(context, showableWidthDp), heightType);
+        return new SideUiSize(showableWidthPx, heightType);
     }
 
     @Override
@@ -469,6 +512,9 @@ final class SidePanelContainerCoordinatorImpl
         if (renderedWidth == 0) {
             getContentContainer().removeAllViews();
             mCurrentContent = null;
+            // Hiding the panel removes the resize handle, which ends any drag without committing
+            // it.
+            mLiveResizeWidthPx = null;
         }
 
         // TODO(http://crbug.com/488047364): Notify the SidePanelContent View of the width change.
@@ -485,7 +531,7 @@ final class SidePanelContainerCoordinatorImpl
             @Px int newReservedWidth,
             @HeightType int oldHeightType,
             @HeightType int newHeightType) {
-        updateContainerBackground(newHeightType);
+        updateInnerContainerBackground(newHeightType);
     }
 
     @Override
@@ -545,9 +591,10 @@ final class SidePanelContainerCoordinatorImpl
     }
 
     @Override
-    public void onWillAutoClose() {
+    public void onWillAutoClose(boolean isShowable) {
         mIsPreparingForAutoClose = true;
-        assertNonNull(mNativeBridgeSelector.getCurrentCoordinatorBridge()).onWillAutoClose();
+        assertNonNull(mNativeBridgeSelector.getCurrentCoordinatorBridge())
+                .onWillAutoClose(isShowable);
         mIsPreparingForAutoClose = false;
     }
 
@@ -558,9 +605,61 @@ final class SidePanelContainerCoordinatorImpl
         mIsPreparingForAutoRestore = false;
     }
 
+    @Override
+    public boolean supportsManualResize() {
+        ThreadUtils.assertOnUiThread();
+        return SidePanelUtils.isManualResizeEnabled();
+    }
+
+    @Override
+    public @StringRes int getResizeHandleContentDescriptionRes() {
+        ThreadUtils.assertOnUiThread();
+        return R.string.accessibility_side_panel_resize_handle;
+    }
+
+    @Override
+    public @Px Integer getResizeHandleWidthPx() {
+        ThreadUtils.assertOnUiThread();
+        // Match the container's inner padding so that the handle doesn't overlap the panel.
+        return mContainerView
+                .getResources()
+                .getDimensionPixelSize(R.dimen.side_ui_container_padding);
+    }
+
+    @Override
+    public void onResizeLive(@Px int proposedWidthPx) {
+        log(TAG, "onResizeLive", proposedWidthPx);
+        ThreadUtils.assertOnUiThread();
+        mLiveResizeWidthPx = proposedWidthPx;
+    }
+
+    @Override
+    public void onResizeCommitted(@Px int finalWidthPx) {
+        log(TAG, "onResizeCommitted", finalWidthPx);
+        ThreadUtils.assertOnUiThread();
+
+        // A tap, or a cancel without a move, has nothing to commit.
+        if (mLiveResizeWidthPx == null) return;
+        mLiveResizeWidthPx = null;
+
+        mUserCommittedWidthDp =
+                MathUtils.clamp(
+                        ViewUtils.pxToDp(mContainerView.getContext(), finalWidthPx),
+                        getMinSidePanelContainerWidthDp(),
+                        MAX_USER_RESIZED_SIDE_PANEL_WIDTH_DP);
+    }
+
     ///////////////////////////////////////////////////////////////////////////////////////////////
     //              End of SideUiContainer Implementation                                        //
     ///////////////////////////////////////////////////////////////////////////////////////////////
+
+    // IncognitoStateObserver implementation:
+    @Override
+    public void onIncognitoStateChanged(boolean isIncognito) {
+        ThreadUtils.assertOnUiThread();
+        mContainerView.setBackgroundColor(
+                ChromeColors.getDefaultBgColor(mContainerView.getContext(), isIncognito));
+    }
 
     /**
      * Returns the final width (in dp) of the side panel container given the available width in the
@@ -592,17 +691,82 @@ final class SidePanelContainerCoordinatorImpl
         return 0;
     }
 
+    /**
+     * Returns the final width (in px) of the side panel container.
+     *
+     * <p>A width the user picked by resizing the side panel is clamped to [min, min(max,
+     * available)]. Otherwise, this falls back to {@link #determineShowableWidthDp}.
+     *
+     * @param context The context for converting between dp and px.
+     * @param userResizedWidthPx The raw width the user picked, either live or committed, or null to
+     *     use the automatic width.
+     * @param availableWidthPx The available width in the window.
+     * @param windowWidthPx The window width.
+     * @param minSidePanelContainerWidthDp The minimum side panel container width.
+     * @return The width, or 0 if the available width can't accommodate the minimum width.
+     */
     @VisibleForTesting
-    static @HeightType int determineHeightType(int showableWidthDp, boolean isTabStripShowing) {
+    static @Px int determineShowableWidthPx(
+            Context context,
+            @Nullable @Px Integer userResizedWidthPx,
+            @Px int availableWidthPx,
+            @Px int windowWidthPx,
+            int minSidePanelContainerWidthDp) {
+        // No user-picked width, so fall back to the automatic width breakpoints.
+        if (userResizedWidthPx == null) {
+            return ViewUtils.dpToPx(
+                    context,
+                    determineShowableWidthDp(
+                            ViewUtils.pxToDp(context, availableWidthPx),
+                            ViewUtils.pxToDp(context, windowWidthPx),
+                            minSidePanelContainerWidthDp));
+        }
+
+        // Clamp the user-picked width, either committed or from an in-progress drag.
+        @Px
+        int minSidePanelContainerWidthPx = ViewUtils.dpToPx(context, minSidePanelContainerWidthDp);
+        if (availableWidthPx < minSidePanelContainerWidthPx) return 0;
+        return MathUtils.clamp(
+                userResizedWidthPx,
+                minSidePanelContainerWidthPx,
+                Math.min(
+                        ViewUtils.dpToPx(context, MAX_USER_RESIZED_SIDE_PANEL_WIDTH_DP),
+                        availableWidthPx));
+    }
+
+    private int getMinSidePanelContainerWidthDp() {
+        // TODO(crbug.com/571631909): This can be called before updateInnerContainerBackground()
+        // sets the inner container's padding, in which case the padding is 0 and the minimum width
+        // is too small.
+        int horizontalPaddingDp =
+                ViewUtils.pxToDp(
+                        mContainerView.getContext(),
+                        mInnerContainerView.getPaddingLeft()
+                                + mInnerContainerView.getPaddingRight());
+        return horizontalPaddingDp + MIN_SIDE_PANEL_CONTENT_WIDTH_DP;
+    }
+
+    /**
+     * Returns the raw width (in px) of an in-progress drag, or else the width that the user last
+     * picked in this window, or null if the side panel should use its automatic width.
+     */
+    private @Nullable @Px Integer getUserResizedWidthPx() {
+        if (mLiveResizeWidthPx != null) return mLiveResizeWidthPx;
+        if (mUserCommittedWidthDp == null) return null;
+        return ViewUtils.dpToPx(mContainerView.getContext(), mUserCommittedWidthDp);
+    }
+
+    @VisibleForTesting
+    static @HeightType int determineHeightType(@Px int showableWidthPx, boolean isTabStripShowing) {
         @HeightType int heightType = HeightType.NOT_APPLICABLE;
-        if (showableWidthDp != 0) {
+        if (showableWidthPx != 0) {
             heightType = isTabStripShowing ? HeightType.TOOLBAR : HeightType.WEB_CONTENTS;
         }
         return heightType;
     }
 
     @VisibleForTesting
-    static @DrawableRes int getContainerBackgroundResId(@HeightType int heightType) {
+    static @DrawableRes int getInnerContainerBackgroundResId(@HeightType int heightType) {
         return switch (heightType) {
             case HeightType.TOOLBAR -> R.drawable.side_panel_container_toolbar_height_bg;
             case HeightType.WEB_CONTENTS -> R.drawable.side_panel_container_webcontent_height_bg;
@@ -613,20 +777,19 @@ final class SidePanelContainerCoordinatorImpl
         };
     }
 
-    private void updateContainerBackground(@HeightType int heightType) {
-        @DrawableRes int bgResId = getContainerBackgroundResId(heightType);
+    private void updateInnerContainerBackground(@HeightType int heightType) {
+        @DrawableRes int bgResId = getInnerContainerBackgroundResId(heightType);
         // Expected if the container is hiding. In that case, no-op.
         if (bgResId == Resources.ID_NULL) return;
 
-        mContainerView.setBackgroundResource(bgResId);
+        mInnerContainerView.setBackgroundResource(bgResId);
     }
 
     private @Nullable ThinWebView findThinWebView(View view) {
-        if (view instanceof ThinWebView) {
-            return (ThinWebView) view;
+        if (view instanceof ThinWebView thinWebView) {
+            return thinWebView;
         }
-        if (view instanceof ViewGroup) {
-            ViewGroup group = (ViewGroup) view;
+        if (view instanceof ViewGroup group) {
             for (int i = 0; i < group.getChildCount(); i++) {
                 ThinWebView child = findThinWebView(group.getChildAt(i));
                 if (child != null) {

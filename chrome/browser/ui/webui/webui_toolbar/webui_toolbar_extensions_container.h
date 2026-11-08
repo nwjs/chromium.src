@@ -9,10 +9,10 @@
 #include <string_view>
 
 #include "base/gtest_prod_util.h"
+#include "base/memory/weak_ptr.h"
 #include "base/observer_list_types.h"
 #include "base/scoped_observation.h"
 #include "chrome/browser/ui/toolbar/toolbar_actions_model.h"
-#include "chrome/browser/ui/views/bubble/webui_bubble_reopen_suppressor.h"
 #include "chrome/browser/ui/views/extensions/extensions_container_views.h"
 #include "chrome/browser/ui/webui/webui_toolbar/webui_toolbar_extensions_container_observer.h"
 #include "components/browser_apis/ui_controllers/toolbar/extensions_bar.mojom.h"
@@ -67,8 +67,8 @@ class WebUIToolbarExtensionsContainer
   bool ShowToolbarActionPopupForAPICall(const std::string& action_id,
                                         ShowPopupCallback callback) override;
   void ToggleExtensionsMenu() override;
-  void ToggleExtensionsMenu(bool is_pointer_interaction);
   bool HasAnyExtensions() const override;
+  void ShowPinnedByDefaultIPH(const std::string& extension_id) override;
 
   // ExtensionsContainerViews:
   std::optional<extensions::ExtensionId> GetPoppedOutActionId() const override;
@@ -111,30 +111,33 @@ class WebUIToolbarExtensionsContainer
   // empty.
   static ui::ElementIdentifier GetElementId(std::string_view extension_id);
 
+  // Returns the secondary identifier of TrackedElements registered by the
+  // extension button with `extension_id`.
+  static std::string GetSecondaryElementId(std::string_view extension_id);
+
   // Returns the TrackedElement representing the anchor for the extension button
   // with `extension_id`, or the extensions menu button (puzzle piece) if
   // `extension_id` is empty. Returns nullptr if the element has not registered
   // yet (e.g. while animating in).
   ui::TrackedElement* GetExtensionAnchor(std::string_view extension_id) const;
 
+  // Returns the TrackedElement registered with `element_id` by the extension
+  // button with `extension_id`, or nullptr if there is none.
+  ui::TrackedElement* GetExtensionElement(ui::ElementIdentifier element_id,
+                                          std::string_view extension_id) const;
+
   // extensions_bar::mojom::PageHandler:
-  void ExecuteUserAction(const std::string& id,
-                         bool is_pointer_interaction) override;
-  void OnPointerDown(const std::string& id) override;
+  void ExecuteUserAction(const std::string& id) override;
   void ShowContextMenu(ui::mojom::MenuSourceType source,
                        const std::string& id) override;
-  void ToggleExtensionsMenuFromWebUI(bool is_pointer_interaction) override;
+  void ToggleExtensionsMenuFromWebUI() override;
 
   // views::WidgetObserver:
   void OnWidgetDestroying(views::Widget* widget) override;
 
-  void SetSuppressionThresholdForTesting(base::TimeDelta threshold);
-
  private:
   FRIEND_TEST_ALL_PREFIXES(WebUIToolbarWebViewInteractiveUiTest,
                            ExtensionUserActionsPlumbing);
-  FRIEND_TEST_ALL_PREFIXES(WebUIToolbarWebViewInteractiveUiTest,
-                           ExtensionBubbleReopenSuppression);
   FRIEND_TEST_ALL_PREFIXES(WebUIToolbarWebViewBrowserTest, ExtensionAnchoring);
   FRIEND_TEST_ALL_PREFIXES(WebUIToolbarWebViewBrowserTest,
                            ShowWidgetForExtension);
@@ -159,7 +162,9 @@ class WebUIToolbarExtensionsContainer
   views::Widget* GetWidget() const;
   ui::TrackedElement* GetExtensionsMenuButtonAnchor() const;
 
-  void NotifyActionPoppedOut(base::OnceClosure closure);
+  // `is_iph` should be true if the notification is for in-product help (IPH),
+  // as opposed to a PopOutAction() call.
+  void NotifyActionPoppedOut(base::OnceClosure closure, bool is_iph);
 
   void CreateActions();
   void CreateActionForId(const ToolbarActionsModel::ActionId& action_id);
@@ -198,8 +203,21 @@ class WebUIToolbarExtensionsContainer
 
   std::vector<AnchoredWidget> anchored_widgets_;
 
-  WebUIBubbleReopenSuppressor extensions_menu_reopen_suppressor_;
-  std::optional<base::TimeDelta> suppression_threshold_for_testing_;
+  // Pinned-by-default IPH support. The flow is:
+  //  1. ShowPinnedByDefaultIPH() marks the extension as the IPH anchor, which
+  //     causes the WebUI button to register
+  //     kExtensionsPinnedByDefaultElementId, then waits, via
+  //     NotifyActionPoppedOut(), for that element to be registered and any
+  //     animations to finish.
+  //  2. ShowPinnedByDefaultIPHNow() requests the promo.
+  //  3. When the promo closes (or fails to show) the anchor is cleared.
+  void ShowPinnedByDefaultIPHNow(const std::string& extension_id);
+  void ClearPinnedByDefaultIphAnchor();
+
+  // The extension currently designated as the pinned-by-default IPH anchor.
+  std::optional<std::string> pinned_by_default_iph_extension_id_;
+
+  base::WeakPtrFactory<WebUIToolbarExtensionsContainer> weak_ptr_factory_{this};
 };
 
 #endif  // CHROME_BROWSER_UI_WEBUI_WEBUI_TOOLBAR_WEBUI_TOOLBAR_EXTENSIONS_CONTAINER_H_

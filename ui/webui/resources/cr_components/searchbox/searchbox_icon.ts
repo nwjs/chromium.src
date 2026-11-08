@@ -2,11 +2,12 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import {getFaviconUrl} from '//resources/js/icon.js';
+import {getFaviconUrl, isFaviconUrl} from '//resources/js/icon.js';
 import {loadTimeData} from '//resources/js/load_time_data.js';
 import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
 import type {PropertyValues} from '//resources/lit/v3_0/lit.rollup.js';
 import type {AutocompleteMatch} from '//resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
+import {SecondaryTextPlacement} from '//resources/mojo/components/omnibox/browser/suggest_template_info.mojom-webui.js';
 
 import {getCss} from './searchbox_icon.css.js';
 import {getHtml} from './searchbox_icon.html.js';
@@ -347,7 +348,7 @@ export class SearchboxIconElement extends CrLitElement {
   }
 
   private computeFaviconImageSrcSet_(): string {
-    if (!this.faviconImage_.startsWith('chrome://favicon2/')) {
+    if (!isFaviconUrl(this.faviconImage_)) {
       return '';
     }
 
@@ -387,7 +388,7 @@ export class SearchboxIconElement extends CrLitElement {
         this.defaultIcon ===
             '//resources/cr_components/searchbox/icons/google_g_gradient.svg' ||
         (this.inSearchbox && this.isTopChromeSearchbox_ &&
-         this.defaultIcon.startsWith('chrome://favicon2/'))) {
+         isFaviconUrl(this.defaultIcon))) {
       // These colored icons need to be displayed as a favicon image as mask
       // images will mask the colors.
       return this.defaultIcon;
@@ -397,7 +398,7 @@ export class SearchboxIconElement extends CrLitElement {
   }
 
   private computeHasImage_(): boolean {
-    return !!this.match && !!this.match.imageUrl;
+    return !!this.match && !!this.match.suggestTemplate.image?.url;
   }
 
   private computeIsEnterpriseSearchAggregatorPeopleType_(): boolean {
@@ -425,10 +426,13 @@ export class SearchboxIconElement extends CrLitElement {
       return `url(${this.defaultIcon})`;
     }
     // Enterprise search aggregator people, starter pack/featured enterprise
-    // search suggestions, top-chrome searchbox (WebUI Omnibox), and non-two-row
-    // suggestions should show icon even in searchbox.
+    // search suggestions, top-chrome searchbox (WebUI Omnibox), and suggestions
+    // whose secondary text isn't placed below the primary text should show icon
+    // even in searchbox.
     if (this.match &&
-        (!this.match.isTwoRowSuggestion || this.match.type === STARTER_PACK ||
+        (this.match.suggestTemplate.secondaryTextPlacement !==
+             SecondaryTextPlacement.kBelowPrimaryText ||
+         this.match.type === STARTER_PACK ||
          this.match.type === FEATURED_ENTERPRISE_SEARCH ||
          this.match.isEnterpriseSearchAggregatorPeopleType ||
          this.isTopChromeSearchbox_ || !this.inSearchbox)) {
@@ -441,7 +445,7 @@ export class SearchboxIconElement extends CrLitElement {
       if (this.pageUrl && !this.match) {
         return 'url(//resources/cr_components/searchbox/icons/page_cr23.svg)';
       }
-      if (this.defaultIcon.startsWith('chrome://favicon2/')) {
+      if (isFaviconUrl(this.defaultIcon)) {
         return 'url(//resources/cr_components/searchbox/icons/search_cr23.svg)';
       }
     }
@@ -478,7 +482,7 @@ export class SearchboxIconElement extends CrLitElement {
     // URL or non-Google DSE search matches).
     if ((!this.match || this.match.isSearchType) && this.inSearchbox &&
         this.isTopChromeSearchbox_ &&
-        (this.faviconImage_.startsWith('chrome://favicon2/') ||
+        (isFaviconUrl(this.faviconImage_) ||
          this.faviconImage_ ===
              '//resources/cr_components/searchbox/icons/google_g.svg' ||
          this.faviconImage_ ===
@@ -540,17 +544,17 @@ export class SearchboxIconElement extends CrLitElement {
   }
 
   private computeImageSrc_(): string {
-    return this.computeSrc_(this.match?.imageUrl);
+    return this.computeSrc_(this.match?.suggestTemplate.image?.url);
   }
 
   protected getContainerBgColor_(): string {
     // If the match has an image dominant color, show that color in place of the
     // image until it loads. This helps the image appear to load more smoothly.
-    return ((this.imageLoading_ || this.imageError_) &&
-            this.match?.imageDominantColor) ?
+    const dominantColor = this.match?.suggestTemplate.image?.dominantColor;
+    return ((this.imageLoading_ || this.imageError_) && dominantColor) ?
         // .25 opacity matching c/b/u/views/omnibox/omnibox_match_cell_view.cc.
-        (this.match.imageDominantColor ?
-             `${this.match.imageDominantColor}40` :
+        (dominantColor ?
+             `${dominantColor}40` :
              'var(--cr-searchbox-match-icon-container-background-fallback)') :
         'transparent';
   }

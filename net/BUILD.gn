@@ -78,6 +78,7 @@ buildflag_header("buildflags") {
     "ENABLE_WEBSOCKETS=$enable_websockets",
     "ENABLE_CLIENT_CERTIFICATES=$enable_client_certificates",
     "INCLUDE_TRANSPORT_SECURITY_STATE_PRELOAD_LIST=$include_transport_security_state_preload_list",
+    "CHROME_KEY_PINNING_SUPPORTED=$chrome_key_pinning_supported",
     "USE_KERBEROS=$use_kerberos",
     "USE_EXTERNAL_GSSAPI=$use_external_gssapi",
     "CHROME_ROOT_STORE_OPTIONAL=$chrome_root_store_optional",
@@ -490,8 +491,12 @@ component("net") {
     "device_bound_sessions/failed_request.cc",
     "device_bound_sessions/failed_request.h",
     "device_bound_sessions/inclusion_result.h",
+    "device_bound_sessions/jwk_utils.cc",
+    "device_bound_sessions/jwk_utils.h",
     "device_bound_sessions/session_access.cc",
     "device_bound_sessions/session_access.h",
+    "device_bound_sessions/session_binding_utils.cc",
+    "device_bound_sessions/session_binding_utils.h",
     "device_bound_sessions/session_display.cc",
     "device_bound_sessions/session_display.h",
     "device_bound_sessions/session_event.cc",
@@ -878,6 +883,8 @@ component("net") {
     "proxy_resolution/proxy_resolution_request.h",
     "proxy_resolution/proxy_resolution_service.cc",
     "proxy_resolution/proxy_resolution_service.h",
+    "proxy_resolution/proxy_resolution_url_sanitizer.cc",
+    "proxy_resolution/proxy_resolution_url_sanitizer.h",
     "proxy_resolution/proxy_resolve_dns_operation.h",
     "proxy_resolution/proxy_resolver.h",
     "proxy_resolution/proxy_resolver_error_observer.h",
@@ -975,6 +982,8 @@ component("net") {
     "quic/quic_session_pool_job.h",
     "quic/quic_session_pool_proxy_job.cc",
     "quic/quic_session_pool_proxy_job.h",
+    "quic/quic_socket_config_step.cc",
+    "quic/quic_socket_config_step.h",
     "quic/set_quic_flag.cc",
     "quic/set_quic_flag.h",
     "quic/web_transport_client.cc",
@@ -983,6 +992,7 @@ component("net") {
     "quic/web_transport_error.h",
     "quic/web_transport_send_stats_tracker.cc",
     "quic/web_transport_send_stats_tracker.h",
+    "quic/web_transport_send_stream_stats.h",
     "shared_dictionary/shared_dictionary.h",
     "shared_dictionary/shared_dictionary_constants.h",
     "shared_dictionary/shared_dictionary_getter.h",
@@ -1337,10 +1347,10 @@ component("net") {
       "device_bound_sessions/cookie_craving.h",
       "device_bound_sessions/dbsc_request.cc",
       "device_bound_sessions/dbsc_request.h",
+      "device_bound_sessions/generate_key_param.cc",
+      "device_bound_sessions/generate_key_param.h",
       "device_bound_sessions/host_patterns.cc",
       "device_bound_sessions/host_patterns.h",
-      "device_bound_sessions/jwk_utils.cc",
-      "device_bound_sessions/jwk_utils.h",
       "device_bound_sessions/refresh_result.h",
       "device_bound_sessions/registration_fetcher.cc",
       "device_bound_sessions/registration_fetcher.h",
@@ -1352,8 +1362,6 @@ component("net") {
       "device_bound_sessions/registration_result.h",
       "device_bound_sessions/session.cc",
       "device_bound_sessions/session.h",
-      "device_bound_sessions/session_binding_utils.cc",
-      "device_bound_sessions/session_binding_utils.h",
       "device_bound_sessions/session_challenge_param.cc",
       "device_bound_sessions/session_challenge_param.h",
       "device_bound_sessions/session_error.cc",
@@ -1370,6 +1378,8 @@ component("net") {
       "device_bound_sessions/session_store.h",
       "device_bound_sessions/session_store_impl.cc",
       "device_bound_sessions/session_store_impl.h",
+      "device_bound_sessions/single_sign_on_key_manager.cc",
+      "device_bound_sessions/single_sign_on_key_manager.h",
       "device_bound_sessions/unexportable_key_service_factory.cc",
       "device_bound_sessions/unexportable_key_service_factory.h",
       "device_bound_sessions/url_fetcher.cc",
@@ -1441,9 +1451,24 @@ component("net") {
     sources += [
       "base/network_change_notifier_linux.cc",
       "base/network_change_notifier_linux.h",
+      "base/network_change_notifier_linux_portal.h",
+      "proxy_resolution/linux/linux_proxy_resolution_status.h",
+      "proxy_resolution/linux/linux_system_proxy_resolution_request.cc",
+      "proxy_resolution/linux/linux_system_proxy_resolution_request.h",
+      "proxy_resolution/linux/linux_system_proxy_resolution_service.cc",
+      "proxy_resolution/linux/linux_system_proxy_resolution_service.h",
+      "proxy_resolution/linux/linux_system_proxy_resolver.h",
       "proxy_resolution/proxy_config_service_linux.cc",
       "proxy_resolution/proxy_config_service_linux.h",
     ]
+    deps += [ "//build/config/linux/dbus:buildflags" ]
+    if (use_dbus && !is_cronet_build) {
+      sources += [ "base/network_change_notifier_linux_portal.cc" ]
+      deps += [
+        "//components/dbus",
+        "//dbus",
+      ]
+    }
     if (use_glib) {
       deps += [ "//ui/base/glib" ]
     }
@@ -3111,6 +3136,7 @@ target(_test_target_type, "net_unittests") {
     "proxy_resolution/proxy_host_matching_rules_unittest.cc",
     "proxy_resolution/proxy_info_unittest.cc",
     "proxy_resolution/proxy_list_unittest.cc",
+    "proxy_resolution/proxy_resolution_url_sanitizer_unittest.cc",
     "proxy_resolution/system_proxy_resolution_service_unittest-inl.h",
     "quic/bidirectional_stream_quic_impl_unittest.cc",
     "quic/crypto/proof_test_chromium.cc",
@@ -3286,6 +3312,7 @@ target(_test_target_type, "net_unittests") {
   if (is_linux) {
     sources += [
       "base/network_change_notifier_linux_unittest.cc",
+      "proxy_resolution/linux/linux_system_proxy_resolution_service_unittest.cc",
       "proxy_resolution/proxy_config_service_linux_unittest.cc",
     ]
   }
@@ -3386,9 +3413,7 @@ target(_test_target_type, "net_unittests") {
     "//net/cert:root_store_proto_lite",
     "//net/dns:tests",
     "//net/dns/public:tests",
-    "//net/http:transport_security_state_pins_unittest_data",
     "//net/http:transport_security_state_pins_unittest_data_default",
-    "//net/http:transport_security_state_unittest_data",
     "//net/http:transport_security_state_unittest_data_default",
     "//net/third_party/quiche:quiche_tests",
     "//net/third_party/uri_template:uri_template_tests",
@@ -3407,6 +3432,17 @@ target(_test_target_type, "net_unittests") {
     "//url",
     "//url:buildflags",
   ]
+
+  if (is_linux) {
+    deps += [ "//build/config/linux/dbus:buildflags" ]
+    if (use_dbus && !is_cronet_build) {
+      deps += [
+        "//components/dbus",
+        "//dbus",
+        "//dbus:test_support",
+      ]
+    }
+  }
 
   if (!is_cronet_build) {
     sources += [
@@ -3735,6 +3771,7 @@ target(_test_target_type, "net_unittests") {
   if (enable_device_bound_sessions) {
     sources += [
       "device_bound_sessions/cookie_craving_unittest.cc",
+      "device_bound_sessions/generate_key_param_unittest.cc",
       "device_bound_sessions/host_patterns_unittest.cc",
       "device_bound_sessions/jwk_utils_unittest.cc",
       "device_bound_sessions/mock_session_service.cc",
@@ -3751,6 +3788,7 @@ target(_test_target_type, "net_unittests") {
       "device_bound_sessions/session_store_impl_unittest.cc",
       "device_bound_sessions/session_store_unittest.cc",
       "device_bound_sessions/session_unittest.cc",
+      "device_bound_sessions/single_sign_on_key_manager_unittest.cc",
       "device_bound_sessions/unexportable_key_service_factory_unittest.cc",
       "device_bound_sessions/url_fetcher_unittest.cc",
     ]

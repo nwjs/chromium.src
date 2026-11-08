@@ -20,6 +20,7 @@ import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
+import org.robolectric.Robolectric;
 
 import org.chromium.base.FeatureOverrides;
 import org.chromium.base.ServiceLoaderUtil;
@@ -35,10 +36,12 @@ public class HelpAndFeedbackLauncherTest {
     @Mock private FeedbackPolicyManager mFeedbackPolicyManager;
     @Mock private HelpAndFeedbackLauncherDelegate mDelegate;
     @Mock private Profile mProfile;
-    @Mock private Activity mActivity;
+
+    private Activity mActivity;
 
     @Before
     public void setUp() {
+        mActivity = Robolectric.buildActivity(Activity.class).get();
         FeedbackPolicyManager.setInstanceForTesting(mFeedbackPolicyManager);
         ServiceLoaderUtil.setInstanceForTesting(HelpAndFeedbackLauncherDelegate.class, mDelegate);
     }

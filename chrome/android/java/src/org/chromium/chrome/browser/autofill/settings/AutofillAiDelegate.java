@@ -65,7 +65,6 @@ import org.chromium.components.user_prefs.UserPrefs;
 import org.chromium.ui.modaldialog.ModalDialogManager;
 import org.chromium.ui.modaldialog.ModalDialogManagerHolder;
 
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -144,7 +143,6 @@ public class AutofillAiDelegate {
     private @Nullable PrefChangeRegistrar mPrefChangeRegistrar;
     private @Nullable EntityEditorCoordinator mEntityEditor;
     private @Nullable ReauthenticatorBridge mReauthenticatorBridge;
-    private final Map<Integer, DetailsForUpsertPass> mDetailsForUpsertPassMap = new HashMap<>();
     private final EntityEditorCoordinator.Delegate mEntityEditorDelegate =
             new EntityEditorCoordinator.Delegate() {
                 @Override
@@ -162,7 +160,7 @@ public class AutofillAiDelegate {
                         EntityInstance entityInstance,
                         int descriptionStringId,
                         int acceptButtonStringId,
-                        @Nullable String contextToken) {
+                        byte @Nullable [] legalMessageToken) {
                     EntityDataManager entityDataManager =
                             EntityDataManagerFactory.getForProfile(mFragment.getProfile());
                     if (entityDataManager == null) {
@@ -172,7 +170,7 @@ public class AutofillAiDelegate {
                             entityInstance,
                             descriptionStringId,
                             acceptButtonStringId,
-                            contextToken,
+                            legalMessageToken,
                             () -> onLocalSaveFallback());
                 }
 
@@ -218,13 +216,13 @@ public class AutofillAiDelegate {
                     ChromeFeatureList.AUTOFILL_ENABLE_WALLET_DISCLOSURE_NOTICE_PUBLIC_PASS)) {
                 // Opening the entity editor is a synchronous UI action when the user clicks "Add".
                 // To avoid UI latency or showing a spinner, prefetch the legal message disclosure
-                // and context token for all eligible entity types asynchronously ahead of time.
-                // If the prefetch fails or is still in flight when the user opens the editor, the
-                // editor gracefully falls back to saving the entity locally.
+                // and legal message token for all eligible entity types asynchronously ahead of
+                // time. If the prefetch fails or is still in flight when the user opens the editor,
+                // the editor gracefully falls back to saving the entity locally.
                 for (@EntityTypeName int type : getEntityTypesToPrefetch(entityDataManager)) {
                     if (entityDataManager.isEligibleForWalletNotice(
                             type, RecordType.SERVER_WALLET)) {
-                        fetchDetailsForUpsertPass(entityDataManager, type);
+                        entityDataManager.preloadDetailsForUpsertPass(type);
                     }
                 }
             }
@@ -264,7 +262,6 @@ public class AutofillAiDelegate {
             mReauthenticatorBridge.destroy();
             mReauthenticatorBridge = null;
         }
-        mDetailsForUpsertPassMap.clear();
         destroyPreferenceObservers();
     }
 
@@ -588,10 +585,7 @@ public class AutofillAiDelegate {
                             }
                             if (entity.isStoredInWallet()) {
                                 String walletEntityUrl = entity.getWalletEntityUrl();
-                                if (ChromeFeatureList.isEnabled(
-                                                ChromeFeatureList
-                                                        .AUTOFILL_AI_WALLET_PRIVATE_PASSES_DEEP_LINK)
-                                        && walletEntityUrl != null) {
+                                if (!TextUtils.isEmpty(walletEntityUrl)) {
                                     GoogleWalletLauncher.openGoogleWalletWithFallbackUrl(
                                             context, context.getPackageManager(), walletEntityUrl);
                                 } else {
@@ -753,15 +747,13 @@ public class AutofillAiDelegate {
         DetailsForUpsertPass detailsForUpsertPass = null;
         if (isEligibleForWalletNotice) {
             @EntityTypeName int entityType = entityInstance.getEntityType().getTypeName();
-            DetailsForUpsertPass prefetchedDetails = mDetailsForUpsertPassMap.remove(entityType);
-            fetchDetailsForUpsertPass(entityDataManager, entityType);
-            if (prefetchedDetails != null && !prefetchedDetails.getLegalMessageLines().isEmpty()) {
-                detailsForUpsertPass = prefetchedDetails;
-            } else {
-                // If prefetching failed, returned empty legal messages, or did not complete in
-                // time, the required legal disclosures and context token cannot be presented to the
-                // user. Rather than blocking the user from saving, fall back to storing the entity
-                // locally on device as `RecordType.LOCAL`.
+            detailsForUpsertPass =
+                    entityDataManager.extractPreloadedDetailsForUpsertPass(entityType);
+            if (detailsForUpsertPass == null) {
+                // If preloading failed, returned invalid details for an eligible user, or did not
+                // complete in time, the required legal disclosures and legal message token cannot
+                // be presented to the user. Rather than blocking the user from saving, fall back to
+                // storing the entity locally on device as `RecordType.LOCAL`.
                 entityInstance.setRecordType(RecordType.LOCAL);
             }
         }
@@ -773,17 +765,6 @@ public class AutofillAiDelegate {
                         entityInstance,
                         detailsForUpsertPass);
         mEntityEditor.showEditorDialog();
-    }
-
-    private void fetchDetailsForUpsertPass(
-            EntityDataManager entityDataManager, @EntityTypeName int entityType) {
-        entityDataManager.getDetailsForUpsertPass(
-                entityType,
-                response -> {
-                    if (response != null) {
-                        mDetailsForUpsertPassMap.put(entityType, response);
-                    }
-                });
     }
 
     private Context getStyledContext() {

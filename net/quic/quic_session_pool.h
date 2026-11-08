@@ -27,6 +27,7 @@
 #include "base/time/default_tick_clock.h"
 #include "base/time/tick_clock.h"
 #include "base/time/time.h"
+#include "base/types/id_type.h"
 #include "base/values.h"
 #include "net/base/address_list.h"
 #include "net/base/completion_once_callback.h"
@@ -57,6 +58,7 @@
 #include "net/quic/quic_session_alias_key.h"
 #include "net/quic/quic_session_attempt.h"
 #include "net/quic/quic_session_key.h"
+#include "net/quic/quic_socket_config_step.h"
 #include "net/socket/client_socket_pool.h"
 #include "net/spdy/multiplexed_session_creation_initiator.h"
 #include "net/ssl/ssl_config_service.h"
@@ -130,9 +132,13 @@ enum AllActiveSessionsGoingAwayReason {
   kClockSkewDetected,
   kIPAddressChanged,
   kCertDBChanged,
-  kCertVerifierChanged
+  kCertVerifierChanged,
+  kSSLContextConfigChanged,
 };
 
+// TODO(crbug.com/557126867): Deprecate `CreateSessionFailure` and its related
+// UMA logging (`Net.QuicSession.CreationError`) in favor of
+// `QuicSocketConfigStep`.
 enum CreateSessionFailure {
   CREATION_ERROR_CONNECTING_SOCKET,
   CREATION_ERROR_SETTING_RECEIVE_BUFFER,
@@ -265,6 +271,16 @@ class NET_EXPORT_PRIVATE QuicSessionRequest {
     return dns_resolution_end_time_;
   }
 
+  // Set by `AsyncDnsJob` when a prior candidate attempt has already failed at
+  // the time request expectations are configured, allowing
+  // `HttpStreamFactory::Job::DoInitConnection()` to surface that failure to
+  // `OnConnectionInitialized()` even when `Request()` returns `ERR_IO_PENDING`
+  // for a subsequent candidate.
+  void set_last_attempt_failure(int rv) { last_attempt_failure_ = rv; }
+  std::optional<int> last_attempt_failure() const {
+    return last_attempt_failure_;
+  }
+
   // Checks that the request is only added to, and removed from, a job once.
   // See https://crbug.com/404586727.
   void AddedToJob() {
@@ -293,6 +309,7 @@ class NET_EXPORT_PRIVATE QuicSessionRequest {
 
   base::TimeTicks dns_resolution_start_time_;
   base::TimeTicks dns_resolution_end_time_;
+  std::optional<int> last_attempt_failure_;
 
   // Set in Request(). If true, then OnHostResolutionComplete() is expected to
   // be called in the future.
@@ -312,7 +329,8 @@ class NET_EXPORT_PRIVATE QuicSessionPool
     : public NetworkChangeNotifier::IPAddressObserver,
       public NetworkChangeNotifier::NetworkObserver,
       public CertDatabase::Observer,
-      public CertVerifier::Observer {
+      public CertVerifier::Observer,
+      public SSLConfigService::Observer {
  public:
   QuicSessionPool(
       NetLog* net_log,
@@ -438,12 +456,16 @@ class NET_EXPORT_PRIVATE QuicSessionPool
   void ClearCachedStatesInCryptoConfig(
       const base::RepeatingCallback<bool(const GURL&)>& origin_filter);
 
+  using ConnectAndConfigureCallback =
+      base::OnceCallback<void(int rv,
+                              std::optional<QuicSocketConfigStep> error_step)>;
+
   // Helper method that connects a DatagramClientSocket. Socket is
   // bound to the default network if the |network| param is
   // handles::kInvalidNetworkHandle. This method calls
   // DatagramClientSocket::ConnectAsync and always completes asynchronously,
   // implicitly returning ERR_IO_PENDING.
-  void ConnectAndConfigureSocket(CompletionOnceCallback callback,
+  void ConnectAndConfigureSocket(ConnectAndConfigureCallback callback,
                                  DatagramClientSocket* socket,
                                  IPEndPoint addr,
                                  handles::NetworkHandle network,
@@ -451,18 +473,23 @@ class NET_EXPORT_PRIVATE QuicSessionPool
 
   // Helper method that configures a DatagramClientSocket once
   // DatagramClientSocket::ConnectAsync completes. Posts a task to run
-  // `callback` with a net_error code.
+  // `callback` with a net_error code and optional error step.
   // This method is virtual to facilitate mocking for tests.
-  virtual void FinishConnectAndConfigureSocket(CompletionOnceCallback callback,
-                                               DatagramClientSocket* socket,
-                                               const SocketTag& socket_tag,
-                                               int rv);
+  virtual void FinishConnectAndConfigureSocket(
+      ConnectAndConfigureCallback callback,
+      DatagramClientSocket* socket,
+      const SocketTag& socket_tag,
+      int rv);
 
-  void OnFinishConnectAndConfigureSocketError(CompletionOnceCallback callback,
-                                              enum CreateSessionFailure error,
-                                              int rv);
+  void OnFinishConnectAndConfigureSocketError(
+      ConnectAndConfigureCallback callback,
+      QuicSocketConfigStep step,
+      int rv);
 
-  void DoCallback(CompletionOnceCallback callback, int rv);
+  void DoConnectAndConfigureCallback(
+      ConnectAndConfigureCallback callback,
+      int rv,
+      std::optional<QuicSocketConfigStep> error_step);
 
   // Helper method that configures a DatagramClientSocket. Socket is
   // bound to the default network if the |network| param is
@@ -510,6 +537,11 @@ class NET_EXPORT_PRIVATE QuicSessionPool
   // CertVerifier::Observer:
   // We close all sessions when certificate verifier settings have changed.
   void OnCertVerifierChanged() override;
+
+  // SSLConfigService::Observer:
+  // We close all sessions when the SSL configuration changes, and drop cached
+  // QuicCryptoClientConfigs from the MRU cache.
+  void OnSSLContextConfigChanged() override;
 
   bool has_quic_ever_worked_on_current_network() const {
     return has_quic_ever_worked_on_current_network_;
@@ -597,6 +629,8 @@ class NET_EXPORT_PRIVATE QuicSessionPool
   using QuicCryptoClientConfigMap =
       std::map<QuicCryptoClientConfigKey,
                std::unique_ptr<QuicCryptoClientConfigOwner>>;
+  using SSLContextConfigGeneration =
+      base::IdTypeU64<class SSLContextConfigGenerationTag>;
 
   // Records whether an active session already exists for a given IP address
   // during connection.
@@ -842,6 +876,11 @@ class NET_EXPORT_PRIVATE QuicSessionPool
       enum QuicPlatformNotification notification,
       handles::NetworkHandle affected_network) const;
 
+  // Completes the QuicCryptoClientConfigKey by removing the
+  // NetworkAnonymizationKey if not applicable, and filling in the current
+  // SSLContextConfigGeneration.
+  void NormalizeCryptoConfigKey(QuicCryptoClientConfigKey& key) const;
+
   std::unique_ptr<QuicCryptoClientConfigHandle> GetCryptoConfigForTesting(
       QuicCryptoClientConfigKey key);
 
@@ -917,10 +956,20 @@ class NET_EXPORT_PRIVATE QuicSessionPool
   // it will be removed from the cache and return to the active config map.
   // These two maps should never both have entries with the same
   // NetworkAnonymizationKey.
+  // `recent_crypto_config_map_` will only ever contain entries with the current
+  // value of `ssl_config_generation_`. While old sessions are draining,
+  // `active_crypto_config_map_` may still hold entries with stale values of
+  // `ssl_config_generation_`.
   QuicCryptoClientConfigMap active_crypto_config_map_;
   base::LRUCache<QuicCryptoClientConfigKey,
                  std::unique_ptr<QuicCryptoClientConfigOwner>>
       recent_crypto_config_map_;
+
+  // Increments a counter whenever we are notified that the SSLContextConfig has
+  // changed.
+  SSLContextConfigGeneration::Generator ssl_config_generation_generator_;
+  SSLContextConfigGeneration ssl_config_generation_ =
+      ssl_config_generation_generator_.GenerateNextId();
 
   const quic::QuicConfig config_;
 
@@ -1063,7 +1112,7 @@ class QuicSessionPool::QuicCryptoClientConfigOwner
   const raw_ptr<QuicSessionPool> quic_session_pool_;
 };
 
-// Key for QuicCryptoClienConfigOwners within a session pool.
+// Key for QuicCryptoClientConfigOwners within a session pool.
 struct NET_EXPORT_PRIVATE QuicSessionPool::QuicCryptoClientConfigKey {
   QuicCryptoClientConfigKey() = default;
   explicit QuicCryptoClientConfigKey(const QuicSessionKey& session_key)
@@ -1077,11 +1126,14 @@ struct NET_EXPORT_PRIVATE QuicSessionPool::QuicCryptoClientConfigKey {
   NetworkAnonymizationKey network_anonymization_key;
   ProxyChain proxy_chain = ProxyChain::Direct();
   SessionUsage session_usage = SessionUsage::kDestination;
+  // Must be filled in by `NormalizeCryptoConfigKey()`.
+  SSLContextConfigGeneration ssl_config_generation;
 
  private:
   std::tuple<const NetworkAnonymizationKey&,
              const ProxyChain&,
-             const SessionUsage&>
+             const SessionUsage&,
+             SSLContextConfigGeneration>
   Tie() const;
 };
 

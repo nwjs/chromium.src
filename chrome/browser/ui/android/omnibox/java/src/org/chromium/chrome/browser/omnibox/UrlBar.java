@@ -54,7 +54,6 @@ import org.chromium.build.BuildConfig;
 import org.chromium.build.annotations.CheckDiscard;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
-import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.omnibox.UrlBarFocusChangeInfo.FocusDirection;
 import org.chromium.chrome.browser.toolbar.ToolbarVariationUtils;
 import org.chromium.components.browser_ui.share.ShareHelper;
@@ -430,17 +429,23 @@ public class UrlBar extends AutocompleteEditText {
 
     @Override
     public boolean onKeyDown(int keyCode, KeyEvent event) {
-        // Cursor movement across wrapped lines takes precedence over key listeners (which use the
-        // vertical DPAD keys to navigate the suggestions list).
+        // Vertical text selection (Shift + DPAD_UP/DOWN) stays in the UrlBar; otherwise, key
+        // listeners (which navigate the visible suggestions list) take precedence over cursor
+        // movement across wrapped lines.
+        boolean isShiftVerticalMove =
+                KeyNavigationUtil.isGoUpOrDown(event) && event.hasModifiers(KeyEvent.META_SHIFT_ON);
+        if (!isShiftVerticalMove
+                && (KeyNavigationUtil.isEnter(event)
+                        || KeyNavigationUtil.isGoAnyDirection(event)
+                        || KeyNavigationUtil.isTabNavigation(event)
+                        || event.getKeyCode() == KeyEvent.KEYCODE_DEL)
+                && (mKeyDownListener != null && mKeyDownListener.onKey(this, keyCode, event))) {
+            return true;
+        }
+
         if (moveCursorVerticallyInWrappedText(keyCode, event)) return true;
 
-        return ((KeyNavigationUtil.isEnter(event)
-                                || KeyNavigationUtil.isGoAnyDirection(event)
-                                || KeyNavigationUtil.isTabNavigation(event)
-                                || event.getKeyCode() == KeyEvent.KEYCODE_DEL)
-                        && (mKeyDownListener != null
-                                && mKeyDownListener.onKey(this, keyCode, event)))
-                || super_onKeyDown(keyCode, event);
+        return super_onKeyDown(keyCode, event);
     }
 
     @CheckDiscard("exposed for testing; should be inlined")
@@ -464,6 +469,7 @@ public class UrlBar extends AutocompleteEditText {
     @VisibleForTesting(otherwise = VisibleForTesting.PROTECTED)
     public void onFocusChanged(
             boolean focused, @FocusDirection int direction, Rect previouslyFocusedRect) {
+        boolean wasFocused = mFocused;
         mFocused = focused;
 
         if (!mFocused) {
@@ -492,6 +498,10 @@ public class UrlBar extends AutocompleteEditText {
             // limits.
             setEllipsize(focused ? null : TextUtils.TruncateAt.END);
             if (focused) clearBoundsEllipsisSpans(getText());
+        }
+
+        if (wasFocused && !focused) {
+            scrollDisplayText(mCurrentScrollType, /* originChanged= */ false);
         }
 
         if (mFocusChangeCallback != null) {
@@ -563,6 +573,9 @@ public class UrlBar extends AutocompleteEditText {
         boolean wantWrap = isMultilineInputActive();
         if (wantWrap == !isHorizontallyScrollable()) return;
         setHorizontallyScrolling(!wantWrap);
+        if (!wantWrap) {
+            setScrollY(0);
+        }
     }
 
     /** Returns whether the {@link UrlBar} is presently configured to wrap long user input. */
@@ -577,15 +590,15 @@ public class UrlBar extends AutocompleteEditText {
     }
 
     /**
-     * Gives the underlying {@link android.widget.EditText} a chance to move the text cursor
-     * vertically across the lines of wrapped, multiline user input before the vertical DPAD keys
-     * are offered to the key listeners (which use them to navigate the suggestions list).
+     * Gives the underlying {@link android.widget.EditText} a chance to move the text cursor or
+     * extend the selection vertically across the lines of wrapped, multiline user input when the
+     * vertical DPAD keys are not consumed by the key listeners (e.g. when the suggestions list is
+     * hidden or when selecting text with Shift).
      *
      * <p>Mimics the behavior of a conventional multiline text editor: the cursor first travels
      * between the wrapped lines (entirely handled by the EditText's movement method), and once the
      * top or the bottom line is reached, it snaps to the very beginning or the very end of the
-     * text. When the cursor already rests at that edge, the key event is not consumed here,
-     * allowing it to reach the key listeners.
+     * text.
      *
      * @param keyCode the code of the pressed key
      * @param event the key event to evaluate
@@ -1448,27 +1461,25 @@ public class UrlBar extends AutocompleteEditText {
 
     /** Scrolls the omnibox text to show the very beginning of the text entered. */
     @VisibleForTesting
-    /* package */ void scrollToBeginning() {
+    void scrollToBeginning() {
         // Clear the visible text hint as this path is not used for normal browser navigation.
         // If that changes in the future, update this to actually calculate the visible text hints.
         mVisibleTextPrefixHint = null;
 
         Editable text = getText();
+        int measuredWidth = getVisibleMeasuredViewportWidth();
         float scrollPos = 0f;
         Layout layout = assumeNonNull(getLayout());
         if (TextUtils.isEmpty(text)) {
-            if (getLayoutDirection() == LAYOUT_DIRECTION_RTL
-                    && getHint() != null
-                    && BidiFormatter.getInstance().isRtl(getHint())) {
+            if (getLayoutDirection() == LAYOUT_DIRECTION_RTL && getHint() != null) {
                 // Compared to below that uses getPrimaryHorizontal(1) due to 0 returning an
                 // invalid value, if the text is empty, getPrimaryHorizontal(0) returns the actual
                 // max scroll amount.
-                scrollPos = (int) layout.getPrimaryHorizontal(0) - getMeasuredWidth();
+                scrollPos = (int) layout.getPrimaryHorizontal(0) - measuredWidth;
             }
         } else if (BidiFormatter.getInstance().isRtl(text)) {
             // RTL.
             float endPointX = layout.getPrimaryHorizontal(text.length());
-            int measuredWidth = getMeasuredWidth();
             float width = layout.getPaint().measureText(text.toString());
             scrollPos = Math.max(0, endPointX - measuredWidth + width);
         }
@@ -1609,37 +1620,29 @@ public class UrlBar extends AutocompleteEditText {
                 // reliable.
                 mVisibleTextPrefixHint =
                         url.subSequence(0, Math.min(originEndIndex + 1, urlTextLength));
+            } else if (textLayout.getPrimaryHorizontal(urlTextLength) <= measuredWidth) {
+                // Only store the visibility hint if the text is wider than the viewport. Text
+                // narrower than the viewport is not a useful hint because a consumer would not
+                // understand if a subsequent character would be visible on screen or not.
+                //
+                // If issues arise where text that is very close to the visible viewport is
+                // causing issues with the reliability of visible hint, consider checking that
+                // the measured text is greater than the measured width plus a small additional
+                // padding.
+                mVisibleTextPrefixHint = null;
             } else {
-                if (textLayout.getPrimaryHorizontal(urlTextLength) <= measuredWidth) {
-                    // Only store the visibility hint if the text is wider than the viewport. Text
-                    // narrower than the viewport is not a useful hint because a consumer would not
-                    // understand if a subsequent character would be visible on screen or not.
-                    //
-                    // If issues arise where text that is very close to the visible viewport is
-                    // causing issues with the reliability of visible hint, consider checking that
-                    // the measured text is greater than the measured width plus a small additional
-                    // padding.
-                    mVisibleTextPrefixHint = null;
+                // TODO(b/357649034): revisit and simplify the logic, seek to obsolete
+                // mPreviousScrollOriginEndIndex if possible.
+                String previousTLD =
+                        mPreviousScrollText == null
+                                        || (mPreviousScrollText.length()
+                                                < mPreviousScrollOriginEndIndex)
+                                ? null
+                                : mPreviousScrollText.substring(0, mPreviousScrollOriginEndIndex);
+                if (!TextUtils.isEmpty(previousTLD) && TextUtils.indexOf(url, previousTLD) == 0) {
+                    mVisibleTextPrefixHint = calculateVisibleHint();
                 } else {
-                    if (ChromeFeatureList.sNoVisibleHintForDifferentTLD.isEnabled()) {
-                        // TODO(b/357649034): revisit and simplify the logic, seek to obsolete
-                        // mPreviousScrollOriginEndIndex if possible.
-                        String previousTLD =
-                                mPreviousScrollText == null
-                                                || (mPreviousScrollText.length()
-                                                        < mPreviousScrollOriginEndIndex)
-                                        ? null
-                                        : mPreviousScrollText.substring(
-                                                0, mPreviousScrollOriginEndIndex);
-                        if (!TextUtils.isEmpty(previousTLD)
-                                && TextUtils.indexOf(url, previousTLD) == 0) {
-                            mVisibleTextPrefixHint = calculateVisibleHint();
-                        } else {
-                            mVisibleTextPrefixHint = null;
-                        }
-                    } else {
-                        mVisibleTextPrefixHint = calculateVisibleHint();
-                    }
+                    mVisibleTextPrefixHint = null;
                 }
             }
         } else {

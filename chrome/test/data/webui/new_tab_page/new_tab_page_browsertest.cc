@@ -11,17 +11,51 @@
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/test/base/web_ui_mocha_browser_test.h"
 #include "components/contextual_tasks/public/features.h"
-#include "components/history_clusters/core/features.h"
 #include "components/omnibox/browser/aim_eligibility_service.h"
 #include "components/search/ntp_features.h"
 #include "content/public/test/browser_test.h"
 
-class NewTabPageBrowserTest : public WebUIMochaBrowserTest {
+#if BUILDFLAG(IS_ANDROID)
+#include "base/command_line.h"
+#include "content/public/browser/web_contents.h"
+#include "ui/gfx/switches.h"
+#endif
+
+// Base fixture for the NTP Mocha tests.
+class NewTabPageMochaBrowserTest : public WebUIMochaBrowserTest {
+ protected:
+  NewTabPageMochaBrowserTest() {
+    set_test_loader_host(chrome::kChromeUINewTabPageHost);
+  }
+
+#if BUILDFLAG(IS_ANDROID)
+  void SetUpCommandLine(base::CommandLine* command_line) override {
+    WebUIMochaBrowserTest::SetUpCommandLine(command_line);
+    // Lab devices run with animations off, which makes pages prefer reduced
+    // motion. Tests that set the preference themselves need the default.
+    command_line->AppendSwitch(switches::kForcePrefersNoReducedMotion);
+  }
+
+  void OnWebContentsAvailable(content::WebContents* web_contents) override {
+    // With a hardware keyboard attached, opening the NTP focuses the omnibox,
+    // so the page gets no focus events. Move focus back to the page.
+    web_contents->Focus();
+  }
+#endif  // BUILDFLAG(IS_ANDROID)
+};
+
+class NewTabPageBrowserTest : public NewTabPageMochaBrowserTest {
  protected:
   NewTabPageBrowserTest() {
-    set_test_loader_host(chrome::kChromeUINewTabPageHost);
     scoped_feature_list_.InitWithFeatures(
-        /*enabled_features=*/{},
+        /*enabled_features=*/
+        {
+#if BUILDFLAG(IS_ANDROID)
+            // Customization buttons on the WebUI NTP are feature-flagged on
+            // Android.
+            ntp_features::kNtpCustomizeWebUiAndroid,
+#endif
+        },
         /*disabled_features=*/{omnibox::kAimServerEligibilityEnabled,
                                ntp_realbox::kNtpRealboxNext,
                                contextual_tasks::kContextualTasksContext});
@@ -31,10 +65,9 @@ class NewTabPageBrowserTest : public WebUIMochaBrowserTest {
   base::test::ScopedFeatureList scoped_feature_list_;
 };
 
-class NewTabPageNextBrowserTest : public WebUIMochaBrowserTest {
+class NewTabPageNextBrowserTest : public NewTabPageMochaBrowserTest {
  protected:
   NewTabPageNextBrowserTest() {
-    set_test_loader_host(chrome::kChromeUINewTabPageHost);
     scoped_feature_list_.InitWithFeatures(
         /*enabled_features=*/{omnibox::kAimServerEligibilityEnabled,
                               ntp_realbox::kNtpRealboxNext},
@@ -167,6 +200,10 @@ IN_PROC_BROWSER_TEST_F(NewTabPageTest, ActionChips) {
   RunTest("new_tab_page/action_chips/action_chips_test.js", "mocha.run()");
 }
 
+IN_PROC_BROWSER_TEST_F(NewTabPageTest, LeftHandSide) {
+  RunTest("new_tab_page/left_hand_side_test.js", "mocha.run()");
+}
+
 using NewTabPageNtpPromoTest = NewTabPageBrowserTest;
 
 IN_PROC_BROWSER_TEST_F(NewTabPageNtpPromoTest, IndividualPromosTest) {
@@ -273,12 +310,20 @@ IN_PROC_BROWSER_TEST_F(NewTabPageAppTest, Misc) {
           "runMochaSuite('NewTabPageAppTest Misc')");
 }
 
-IN_PROC_BROWSER_TEST_F(NewTabPageAppTest, OgbThemingRemoveScrim) {
+// TODO(crbug.com/571327206): The OneGoogleBar is disabled on Android.
+#if BUILDFLAG(IS_ANDROID)
+#define MAYBE_OgbThemingRemoveScrim DISABLED_OgbThemingRemoveScrim
+#define MAYBE_OgbScrim DISABLED_OgbScrim
+#else
+#define MAYBE_OgbThemingRemoveScrim OgbThemingRemoveScrim
+#define MAYBE_OgbScrim OgbScrim
+#endif
+IN_PROC_BROWSER_TEST_F(NewTabPageAppTest, MAYBE_OgbThemingRemoveScrim) {
   RunTest("new_tab_page/app_test.js",
           "runMochaSuite('NewTabPageAppTest OgbThemingRemoveScrim')");
 }
 
-IN_PROC_BROWSER_TEST_F(NewTabPageAppTest, OgbScrim) {
+IN_PROC_BROWSER_TEST_F(NewTabPageAppTest, MAYBE_OgbScrim) {
   RunTest("new_tab_page/app_test.js",
           "runMochaSuite('NewTabPageAppTest OgbScrim')");
 }
@@ -378,11 +423,6 @@ IN_PROC_BROWSER_TEST_F(NewTabPageAppTest, MAYBE_ActionChips) {
           "runMochaSuite('NewTabPageAppTest ActionChips')");
 }
 
-IN_PROC_BROWSER_TEST_F(NewTabPageAppTest, ThreadsRail) {
-  RunTest("new_tab_page/app_test.js",
-          "runMochaSuite('NewTabPageAppTest ThreadsRail')");
-}
-
 IN_PROC_BROWSER_TEST_F(NewTabPageAppTest, ReducedMotion) {
   RunTest("new_tab_page/app_test.js",
           "runMochaSuite('NewTabPageAppReducedMotionTest')");
@@ -409,15 +449,28 @@ IN_PROC_BROWSER_TEST_F(NewTabPageAppTest, AutoRemovalToast) {
           "runMochaSuite('NewTabPageAppTest AutoRemovalToast')");
 }
 
-// TODO(crbug.com/527605085): Flaky timeout on Linux debug builds.
-#if BUILDFLAG(IS_LINUX) && !defined(NDEBUG)
-#define MAYBE_VoiceSearchCoherence DISABLED_VoiceSearchCoherence
-#else
-#define MAYBE_VoiceSearchCoherence VoiceSearchCoherence
-#endif
-IN_PROC_BROWSER_TEST_F(NewTabPageAppTest, MAYBE_VoiceSearchCoherence) {
+// The VoiceSearchCoherence Mocha suite is split into several browser tests so
+// that each of them finishes well within the test launcher timeout on slower
+// (e.g. debug) bots.
+IN_PROC_BROWSER_TEST_F(NewTabPageAppTest, VoiceSearchCoherenceDialog) {
   RunTest("new_tab_page/app_test.js",
-          "runMochaSuite('NewTabPageAppTest VoiceSearchCoherence')");
+          "runMochaSuite('NewTabPageAppTest VoiceSearchCoherence Dialog')");
+}
+
+IN_PROC_BROWSER_TEST_F(NewTabPageAppTest, VoiceSearchCoherenceEvents) {
+  RunTest("new_tab_page/app_test.js",
+          "runMochaSuite('NewTabPageAppTest VoiceSearchCoherence Events')");
+}
+
+IN_PROC_BROWSER_TEST_F(NewTabPageAppTest, VoiceSearchCoherenceAnimation) {
+  RunTest("new_tab_page/app_test.js",
+          "runMochaSuite('NewTabPageAppTest VoiceSearchCoherence Animation')");
+}
+
+IN_PROC_BROWSER_TEST_F(NewTabPageAppTest, VoiceSearchCoherenceLiveTranscript) {
+  RunTest(
+      "new_tab_page/app_test.js",
+      "runMochaSuite('NewTabPageAppTest VoiceSearchCoherence LiveTranscript')");
 }
 
 IN_PROC_BROWSER_TEST_F(NewTabPageAppTest, VoiceSearchAndSpeechRecognition) {
@@ -433,6 +486,11 @@ IN_PROC_BROWSER_TEST_F(NewTabPageAppTest, ContextMenuAnimation) {
 IN_PROC_BROWSER_TEST_F(NewTabPageAppTest, EnergyEffectVariant) {
   RunTest("new_tab_page/app_test.js",
           "runMochaSuite('NewTabPageAppTest EnergyEffectVariant')");
+}
+
+IN_PROC_BROWSER_TEST_F(NewTabPageAppTest, LeftHandSide) {
+  RunTest("new_tab_page/app_test.js",
+          "runMochaSuite('NewTabPageAppTest LeftHandSide')");
 }
 
 class NewTabPageModulesMostRelevantTabResumptionModuleTest

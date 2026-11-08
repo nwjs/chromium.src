@@ -302,11 +302,11 @@ ExtensionSettingsPolicyHandler::~ExtensionSettingsPolicyHandler() = default;
 void ExtensionSettingsPolicyHandler::SanitizePolicySettings(
     base::Value* policy_value,
     policy::PolicyErrorMap* errors) {
-  DCHECK(policy_value);
+  CHECK(policy_value, base::NotFatalUntil::M161);
 
   // |policy_value| is expected to conform to the defined schema. But it's
   // not strictly valid since there are additional restrictions.
-  DCHECK(policy_value->is_dict());
+  CHECK(policy_value->is_dict(), base::NotFatalUntil::M161);
 
   // Dictionary entries with any invalid setting get removed at the end. We
   // can't mutate the dict while iterating, so store them here.
@@ -314,9 +314,11 @@ void ExtensionSettingsPolicyHandler::SanitizePolicySettings(
 
   // Check each entry, populating |invalid_keys| and |errors|.
   for (const auto [extension_ids, policy] : policy_value->GetDict()) {
+    // TODO(crbug.com/570470353): CHECK-exclusion: Convert to a CHECK once we
+    // are confident it won't be triggered.
     DCHECK(extension_ids == schema_constants::kWildcard ||
            IsValidIdList(extension_ids));
-    DCHECK(policy.is_dict());
+    CHECK(policy.is_dict(), base::NotFatalUntil::M161);
 
     // Extracts sub dictionary.
     const base::DictValue& sub_dict = policy.GetDict();
@@ -326,7 +328,8 @@ void ExtensionSettingsPolicyHandler::SanitizePolicySettings(
     if (installation_mode) {
       if (*installation_mode == schema_constants::kForceInstalled ||
           *installation_mode == schema_constants::kNormalInstalled) {
-        DCHECK(extension_ids != schema_constants::kWildcard);
+        CHECK(extension_ids != schema_constants::kWildcard,
+              base::NotFatalUntil::M161);
         // Verifies that 'update_url' is specified for 'force_installed' and
         // 'normal_installed' mode.
         const std::string* update_url =
@@ -464,6 +467,11 @@ void ExtensionSettingsPolicyHandler::ApplyPolicySettings(
 
   prefs->SetValue(pref_names::kExtensionManagement,
                   base::Value::FromUniquePtrValue(std::move(checked_value_)));
+}
+
+void ExtensionSettingsPolicyHandler::OnPolicySettingsNotApplied() {
+  checked_value_.reset();
+  check_called_ = false;
 }
 
 }  // namespace extensions

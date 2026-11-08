@@ -49,12 +49,12 @@ public class CoBrowseViewsUnitTest {
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
 
     @Mock private TabBottomSheetWebUi mWebUi;
-    @Mock private View mWebUiView;
-    @Mock private View mPeekView;
     @Mock private WebContents mWebContents;
     @Mock private EventForwarder mEventForwarder;
     @Mock private CoBrowseComponentProvider mMockContentProvider;
 
+    private final View mWebUiView = new View(ApplicationProvider.getApplicationContext());
+    private final View mPeekView = new View(ApplicationProvider.getApplicationContext());
     private Context mContext;
     private CoBrowseViews mCoBrowseViews;
 

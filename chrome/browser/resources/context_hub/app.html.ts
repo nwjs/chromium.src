@@ -67,30 +67,19 @@ export function getHtml(this: ContextHubAppElement) {
             <cr-icon icon="cr:search"></cr-icon>
             JumpStart
           </a>
+          <a role="menuitem"
+              href="#record-replay"
+              data-route="record-replay"
+              class="cr-nav-menu-item">
+            <cr-icon icon="cr:videocam"></cr-icon>
+            Record and Replay
+          </a>
         </cr-menu-selector>
       </div>
     </aside>
 
     <!-- CONTENT AREA -->
-    <div class="content-area">
-      ${(() => {
-    switch (this.currentView_) {
-      case 'launchpad':
-        return html`<ai-taskbox></ai-taskbox>`;
-      case 'memory-banks':
-        return html`<memory-banks></memory-banks>`;
-      case 'memory-bank-chat':
-        return html`<memory-bank-chat></memory-bank-chat>`;
-      case 'tab-groups':
-        return html`<tab-groups></tab-groups>`;
-      case 'topics':
-        return html`<topics-view></topics-view>`;
-      case 'jumpstart':
-        return html`<smart-search></smart-search>`;
-      default:
-        return '';
-    }
-  })()}
+    <div class="content-area" .innerHTML="${this.getCurrentViewElement_()}">
     </div>
   `;
 }

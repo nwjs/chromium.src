@@ -6,7 +6,7 @@
 
 #import "base/task/sequenced_task_runner.h"
 #import "base/timer/timer.h"
-#import "components/content_settings/core/browser/host_content_settings_map.h"
+#import "components/content_settings/core/common/content_settings.h"
 #import "ios/chrome/browser/content_settings/model/host_content_settings_map_factory.h"
 #import "ios/chrome/browser/infobars/model/infobar_ios.h"
 #import "ios/chrome/browser/infobars/model/infobar_manager_impl.h"
@@ -19,13 +19,13 @@
 #import "ios/chrome/browser/overlays/model/public/overlay_response.h"
 #import "ios/chrome/browser/overlays/model/public/web_content_area/permissions_dialog_overlay.h"
 #import "ios/chrome/browser/permissions/model/permissions_infobar_delegate.h"
+#import "ios/chrome/browser/permissions/model/permissions_metrics.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 
 ContentSettingsType ContentSettingsTypeForPermission(
     web::Permission permission) {
   switch (permission) {
-    // TODO(crbug.com/552561353): Add support for geolocation permissions.
     case web::PermissionCamera:
       return ContentSettingsType::MEDIASTREAM_CAMERA;
     case web::PermissionMicrophone:
@@ -51,7 +51,7 @@ void CommitPermissionDecisionToHostContentSettingsMap(
   if (!profile) {
     return;
   }
-  HostContentSettingsMap* settings_map =
+  scoped_refptr<HostContentSettingsMap> settings_map =
       ios::HostContentSettingsMapFactory::GetForProfile(profile);
   if (!settings_map) {
     return;
@@ -89,7 +89,19 @@ void HandlePermissionDialogResponse(
   PermissionsDialogResponse* dialog_response =
       response ? response->GetInfo<PermissionsDialogResponse>() : nullptr;
   web::PermissionDecision decision = web::PermissionDecisionDeny;
+  PermissionPromptAction prompt_action = PermissionPromptAction::kIgnored;
   if (dialog_response) {
+    switch (dialog_response->decision()) {
+      case PermissionDialogDecision::kAlwaysAllow:
+        prompt_action = PermissionPromptAction::kGranted;
+        break;
+      case PermissionDialogDecision::kAllowThisTime:
+        prompt_action = PermissionPromptAction::kGrantedOnce;
+        break;
+      case PermissionDialogDecision::kDontAllow:
+        prompt_action = PermissionPromptAction::kDenied;
+        break;
+    }
     if (IsDomainLevelSitePermissionsEnabled() && weak_web_state) {
       CommitPermissionDecisionToHostContentSettingsMap(
           weak_web_state.get(), requesting_url, permissions,
@@ -98,6 +110,7 @@ void HandlePermissionDialogResponse(
     decision = dialog_response->capture_allow() ? web::PermissionDecisionGrant
                                                 : web::PermissionDecisionDeny;
   }
+  RecordPermissionPromptAction(permissions, prompt_action);
 
   // Post the decision handler asynchronously to prevent synchronous re-entrancy
   // and stack overflow if WebKit immediately initiates another permission
@@ -130,6 +143,8 @@ void PermissionsTabHelper::
     PresentPermissionsDecisionDialogWithCompletionHandler(
         NSArray<NSNumber*>* permissions,
         web::WebStatePermissionDecisionHandler handler) {
+  EnsureObservingContentSettings();
+  RecordPermissionPromptShown(permissions);
   GURL requesting_url = web_state_->GetLastCommittedURL();
   std::unique_ptr<OverlayRequest> request =
       OverlayRequest::CreateWithConfig<PermissionsDialogRequest>(requesting_url,
@@ -169,6 +184,7 @@ void PermissionsTabHelper::PermissionStateChanged(web::WebState* web_state,
     }
     return;
   }
+  EnsureObservingContentSettings();
   // Adds/replaces infobar if previous state was "NotAccessible".
   if (permissions_to_state_[@(permission)].unsignedIntegerValue ==
       web::PermissionStateNotAccessible) {
@@ -191,6 +207,7 @@ void PermissionsTabHelper::PermissionStateChanged(web::WebState* web_state,
 void PermissionsTabHelper::WebStateDestroyed(web::WebState* web_state) {
   DCHECK_EQ(web_state_, web_state);
   DCHECK(banner_queue_);
+  content_settings_scoped_observation_.Reset();
   web_state_->RemoveObserver(this);
 
   web_state_ = nullptr;
@@ -210,6 +227,45 @@ void PermissionsTabHelper::OnManagerWillBeDestroyed(
     infobars::InfoBarManager* manager) {
   DCHECK(infobar_manager_scoped_observation_.IsObservingSource(manager));
   infobar_manager_scoped_observation_.Reset();
+}
+
+void PermissionsTabHelper::OnContentSettingChanged(
+    const ContentSettingsPattern& primary_pattern,
+    const ContentSettingsPattern& secondary_pattern,
+    ContentSettingsTypeSet content_type_set) {
+  if (!web_state_) {
+    return;
+  }
+  const GURL& url = web_state_->GetLastCommittedURL();
+  if (!url.is_valid() || !primary_pattern.Matches(url)) {
+    return;
+  }
+  scoped_refptr<HostContentSettingsMap> settings_map =
+      content_settings_scoped_observation_.GetSource();
+  if (!settings_map) {
+    return;
+  }
+
+  static constexpr web::Permission kPermissions[] = {
+      web::PermissionCamera,
+      web::PermissionMicrophone,
+  };
+  for (web::Permission permission : kPermissions) {
+    ContentSettingsType type = ContentSettingsTypeForPermission(permission);
+    if (!content_type_set.Contains(type)) {
+      continue;
+    }
+    ContentSetting setting = settings_map->GetContentSetting(url, url, type);
+    if (setting != CONTENT_SETTING_ALLOW) {
+      // Setting `PermissionStateNotAccessible` maps to
+      // `WKMediaCaptureStateNone` on `WKWebView`, which calls
+      // `WebPageProxy::stopMediaCapture` and
+      // `UserMediaPermissionRequestManagerProxy::resetAccess` to revoke any
+      // active or cached permission grant in WebKit.
+      web_state_->SetStateForPermission(web::PermissionStateNotAccessible,
+                                        permission);
+    }
+  }
 }
 
 void PermissionsTabHelper::ShowInfoBar() {
@@ -259,4 +315,21 @@ void PermissionsTabHelper::UpdateIsInfoBarAccepted() {
     }
   }
   static_cast<InfoBarIOS*>(infobar_)->set_accepted(accepted);
+}
+
+void PermissionsTabHelper::EnsureObservingContentSettings() {
+  if (!web_state_ || content_settings_scoped_observation_.IsObserving() ||
+      !IsDomainLevelSitePermissionsEnabled()) {
+    return;
+  }
+  ProfileIOS* profile =
+      ProfileIOS::FromBrowserState(web_state_->GetBrowserState());
+  if (!profile) {
+    return;
+  }
+  scoped_refptr<HostContentSettingsMap> settings_map =
+      ios::HostContentSettingsMapFactory::GetForProfile(profile);
+  if (settings_map) {
+    content_settings_scoped_observation_.Observe(settings_map.get());
+  }
 }

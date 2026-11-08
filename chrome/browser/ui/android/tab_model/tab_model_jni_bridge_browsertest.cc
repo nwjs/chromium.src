@@ -67,7 +67,7 @@ class TabModelJniBridgeTest : public AndroidBrowserTest {
 
   // Calls SetMuteSetting on the bridge.
   void SetMuteSetting(const std::vector<TabAndroid*>& tabs, bool mute) {
-    bridge()->SetMuteSetting(/*env=*/nullptr, tabs, mute);
+    bridge()->SetMuteSetting(tabs, mute);
   }
 
   // Navigates the given tab to the URL and waits for completion.
@@ -424,8 +424,13 @@ IN_PROC_BROWSER_TEST_F(TabModelJniBridgeBackgroundTabLoadingTest,
   ASSERT_TRUE(tab1);
 
   // Tab 1 is opened in background with restored navigation entry.
-  tabs::TabInterface* tab2 =
-      GetTabListInterface()->OpenTab(GURL(), /*index=*/1, /*foreground=*/false);
+  std::unique_ptr<content::WebContents> web_contents =
+      content::WebContents::Create(
+          content::WebContents::CreateParams(GetProfile()));
+  tabs::TabInterface* tab2 = bridge()->CreateTab(
+      /*parent=*/nullptr, std::move(web_contents), /*index=*/1,
+      TabModel::TabLaunchType::FROM_TAB_LIST_INTERFACE_BACKGROUND,
+      /*should_pin=*/false);
   ASSERT_TRUE(tab2);
 
   std::vector<std::unique_ptr<content::NavigationEntry>> entries;
@@ -437,7 +442,7 @@ IN_PROC_BROWSER_TEST_F(TabModelJniBridgeBackgroundTabLoadingTest,
   ASSERT_EQ(tab2->GetContents()->GetLastCommittedURL(), url2);
 
   content::TestNavigationObserver observer(tab2->GetContents());
-  bridge()->BroadcastSessionRestoreComplete(/*env=*/nullptr);
+  bridge()->BroadcastSessionRestoreComplete();
   observer.WaitForNavigationFinished();
 
   EXPECT_FALSE(tab2->GetContents()->GetController().NeedsReload());
@@ -468,8 +473,13 @@ IN_PROC_BROWSER_TEST_F(TabModelJniBridgeDisabledBackgroundTabLoadingTest,
   ASSERT_TRUE(tab1);
 
   // Tab 1 is in background.
-  tabs::TabInterface* tab2 =
-      GetTabListInterface()->OpenTab(GURL(), /*index=*/1, /*foreground=*/false);
+  std::unique_ptr<content::WebContents> web_contents =
+      content::WebContents::Create(
+          content::WebContents::CreateParams(GetProfile()));
+  tabs::TabInterface* tab2 = bridge()->CreateTab(
+      /*parent=*/nullptr, std::move(web_contents), /*index=*/1,
+      TabModel::TabLaunchType::FROM_TAB_LIST_INTERFACE_BACKGROUND,
+      /*should_pin=*/false);
   ASSERT_TRUE(tab2);
 
   std::vector<std::unique_ptr<content::NavigationEntry>> entries;
@@ -480,7 +490,7 @@ IN_PROC_BROWSER_TEST_F(TabModelJniBridgeDisabledBackgroundTabLoadingTest,
   ASSERT_TRUE(tab2->GetContents()->GetController().NeedsReload());
 
   EXPECT_FALSE(performance_manager::policies::CanScheduleLoadForRestoredTabs());
-  bridge()->BroadcastSessionRestoreComplete(/*env=*/nullptr);
+  bridge()->BroadcastSessionRestoreComplete();
 
   // Should still need reload because background loading policy was not active.
   EXPECT_TRUE(tab2->GetContents()->GetController().NeedsReload());

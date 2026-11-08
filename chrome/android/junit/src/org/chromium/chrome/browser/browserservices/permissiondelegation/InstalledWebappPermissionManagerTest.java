@@ -13,7 +13,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -32,6 +31,7 @@ import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.robolectric.ParameterizedRobolectricTestRunner;
+import org.robolectric.Robolectric;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.shadows.ShadowLooper;
 import org.robolectric.shadows.ShadowPackageManager;
@@ -59,6 +59,13 @@ import java.util.concurrent.atomic.AtomicInteger;
 /** Tests for {@link InstalledWebappPermissionManager}. */
 @RunWith(ParameterizedRobolectricTestRunner.class)
 public class InstalledWebappPermissionManagerTest {
+    // isInTwaMode() otherwise requires native / component initialization.
+    private static class TestCustomTabActivity extends CustomTabActivity {
+        @Override
+        public boolean isInTwaMode() {
+            return true;
+        }
+    }
 
     @ParameterizedRobolectricTestRunner.Parameters
     public static Collection testCases() {
@@ -257,9 +264,7 @@ public class InstalledWebappPermissionManagerTest {
         // Mock store to return our origin.
         when(mStore.getStoredOrigins()).thenReturn(Collections.singleton(mOrigin.toString()));
 
-        // Mock CustomTabActivity.
-        CustomTabActivity activity = mock(CustomTabActivity.class);
-        when(activity.isInTwaMode()).thenReturn(true);
+        CustomTabActivity activity = Robolectric.buildActivity(TestCustomTabActivity.class).get();
 
         // Register activity with ApplicationStatus.
         // We need to transition it to CREATED then RESUMED to mimic lifecycle.

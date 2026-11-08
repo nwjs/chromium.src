@@ -134,15 +134,16 @@ WebuiOmniboxHandler::WebuiOmniboxHandler(
     mojo::PendingRemote<searchbox::mojom::Page> pending_page,
     MetricsReporter* metrics_reporter,
     OmniboxController* omnibox_controller,
-    content::WebUI* web_ui,
+    Profile* profile,
+    content::WebContents* web_contents,
     GetSessionHandleCallback get_session_callback)
     : ContextualSearchboxHandler(std::move(pending_page_handler),
                                  std::move(pending_page),
-                                 Profile::FromWebUI(web_ui),
-                                 web_ui->GetWebContents(),
+                                 profile,
+                                 web_contents,
                                  /*client=*/nullptr,
                                  std::move(get_session_callback)),
-      web_contents_observer_(/*handler=*/this, web_ui->GetWebContents()),
+      web_contents_observer_(/*handler=*/this, web_contents),
       metrics_reporter_(metrics_reporter) {
   // Keep a reference to the OmniboxController instance owned by the
   // `OmniboxView`.
@@ -153,7 +154,7 @@ WebuiOmniboxHandler::WebuiOmniboxHandler(
   edit_model_observation_.Observe(omnibox_controller->edit_model());
 
   auto* aim_eligibility_service =
-      AimEligibilityServiceFactory::GetForProfile(Profile::FromWebUI(web_ui));
+      AimEligibilityServiceFactory::GetForProfile(profile);
   if (aim_eligibility_service) {
     // `base::Unretained(this)` is safe here (and below) because `this` owns
     // the subscriptions and will automatically unsubscribe them when the
@@ -183,7 +184,7 @@ WebuiOmniboxHandler::WebuiOmniboxHandler(
                           base::Unretained(this)));
 
   if (tabs::TabInterface* tab =
-          tabs::TabInterface::MaybeGetFromContents(web_ui->GetWebContents())) {
+          tabs::TabInterface::MaybeGetFromContents(web_contents)) {
     tab_will_detach_subscription_ = tab->RegisterWillDetach(base::BindRepeating(
         &WebuiOmniboxHandler::OnTabWillDetach, base::Unretained(this)));
     tab_did_insert_subscription_ = tab->RegisterDidInsert(base::BindRepeating(
@@ -209,7 +210,7 @@ void WebuiOmniboxHandler::ActivateKeyword(
     uint8_t line,
     const GURL& url,
     base::TimeTicks match_selection_timestamp,
-    bool is_mouse_event) {
+    searchbox::mojom::KeywordActivationMethod activation_method) {
   const AutocompleteMatch* match = GetMatchWithUrl(line, url);
   if (!match) {
     // This can happen due to asynchronous updates changing the result while
@@ -217,7 +218,8 @@ void WebuiOmniboxHandler::ActivateKeyword(
     return;
   }
   // The rest of this function mirrors
-  // `OmniboxSuggestionButtonRowView::ButtonPressed()`.
+  // `OmniboxSuggestionButtonRowView::ButtonPressed()` for clicks and taps, and
+  // `OmniboxEditModel::StepPopupSelection()` for keyboard entry.
   OmniboxPopupSelection selection(
       line, OmniboxPopupSelection::LineState::kKeywordMode);
   // Note: Since keyword mode logic depends on state of the edit model, the
@@ -226,9 +228,20 @@ void WebuiOmniboxHandler::ActivateKeyword(
   // Don't re-enter keyword mode if already in it. This occurs when the user
   // was in keyword mode and re-clicked the same or a different keyword chip.
   if (edit_model()->is_keyword_hint()) {
-    const auto entry_method = is_mouse_event
-                                  ? metrics::OmniboxEventProto::CLICK_HINT_VIEW
-                                  : metrics::OmniboxEventProto::TAP_HINT_VIEW;
+    metrics::OmniboxEventProto::KeywordModeEntryMethod entry_method;
+    switch (activation_method) {
+      case searchbox::mojom::KeywordActivationMethod::kClick:
+        entry_method = metrics::OmniboxEventProto::CLICK_HINT_VIEW;
+        break;
+      case searchbox::mojom::KeywordActivationMethod::kTap:
+        entry_method = metrics::OmniboxEventProto::TAP_HINT_VIEW;
+        break;
+      case searchbox::mojom::KeywordActivationMethod::kKeyboard:
+        // Like the Views popup, all keyboard entries are logged as `TAB`, even
+        // though e.g. arrow keys can also select an instant keyword match.
+        entry_method = metrics::OmniboxEventProto::TAB;
+        break;
+    }
     edit_model()->AcceptKeyword(entry_method);
   }
 }
@@ -274,12 +287,26 @@ void WebuiOmniboxHandler::QueryAutocomplete(
     return;
   }
 
+  // Captured before starting the query, which may update the edit model.
+  const bool is_zero_prefix_query_of_permanent_text =
+      is_on_focus && !edit_model()->user_input_in_progress();
+
   SearchboxHandler::QueryAutocomplete(
       query_id, /*tab_id=*/std::nullopt, input, prevent_inline_autocomplete,
       cursor_position, suggest_inventory, is_on_focus, keyword, input_method);
 
   // Ensure the `OmniboxEditModel` reflects the current input state.
-  if (auto* view = edit_model()->view()) {
+  //
+  // The query above has been started either way. But don't write a zero-prefix
+  // query of the permanent text back into the native view: such a query
+  // doesn't change what the view should show, and because it arrives
+  // asynchronously, writing it back can clobber newer native state. E.g. the
+  // second press of a double-click on the elided URL unelides it and selects a
+  // word. If the WebUI receives the first click's state only after that press,
+  // the zero-prefix query that it then issues would re-elide the URL here and
+  // drop that selection.
+  if (auto* view = edit_model()->view();
+      view && !is_zero_prefix_query_of_permanent_text) {
     view->SetWindowTextAndCaretPos(input, cursor_position,
                                    /*update_popup=*/false,
                                    /*notify_text_changed=*/false);
@@ -430,6 +457,16 @@ void WebuiOmniboxHandler::OverrideIconPaths(
         omnibox::kAskGSwapSuggestionIcon.Get()
             ? searchbox_internal::kSearchSparkIconResourceName
             : searchbox_internal::kReplyRotated180IconResourceName;
+  }
+
+  // Show a side panel icon in front of the "Opens in side panel" description.
+  // Description icons are new; consider moving this to its own hook (e.g.
+  // GetDescriptionIconPath()) depending on how this parameter evolves.
+  // For now we are keeping this icon override scoped to webui omnibox.
+  if (ContextualSearchProvider::HasSidePanelDescription(
+          match, autocomplete_controller()->autocomplete_provider_client())) {
+    mojom_match->description_icon_path =
+        searchbox_internal::kDockToRightIconResourceName;
   }
   SearchboxHandler::OverrideIconPaths(match, mojom_match);
 }

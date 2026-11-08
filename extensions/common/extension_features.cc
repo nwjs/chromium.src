@@ -14,6 +14,9 @@ namespace extensions_features {
 // API Features
 ///////////////////////////////////////////////////////////////////////////////
 
+BASE_FEATURE(kApiAlarmsClearAllReturnUndefined,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 BASE_FEATURE(kApiTabsSplitView, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kApiContentSettingsClipboard, base::FEATURE_ENABLED_BY_DEFAULT);
@@ -101,7 +104,7 @@ BASE_FEATURE(kApiDesktopAndroidNativeMessagingBypassExtensionAllowlist,
 
 // For historical reasons, this includes some APIs. Please don't add more.
 
-BASE_FEATURE(kAllowWithholdingExtensionPermissionsOnInstall,
+BASE_FEATURE(kExtensionInstallSiteAccessOptions,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kBlockBackgroundContentsOffExtentNavigation,
@@ -114,9 +117,7 @@ BASE_FEATURE(kCheckingNoExtensionIdInExtensionIpcs,
 BASE_FEATURE(kComponentExtensionAllowWorkerChromeResources,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kCWSReviewPromptingNativeUI,
-             "CWSReviewPromptingNativeUI",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kCWSReviewPromptingNativeUI, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kEnableWebHidInWebView, base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -154,7 +155,7 @@ BASE_FEATURE_PARAM(size_t,
                    "max_script_size",
                    0);
 
-BASE_FEATURE(kExtensionProtocolHandlers, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kExtensionProtocolHandlers, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kExtensionTabContextMenu, base::FEATURE_ENABLED_BY_DEFAULT);
 

@@ -28,9 +28,9 @@ public class KeyboardAccessoryButtonGroupView extends LinearLayout {
     private final ArrayList<ImageButton> mButtons = new ArrayList<>();
     private @Nullable KeyboardAccessoryButtonGroupListener mListener;
     private @Nullable Runnable mAtMemoryCallback;
-    private @Nullable Runnable mAtMemoryIphCallback;
     private @Nullable ImageButton mAtMemoryButton;
     private boolean mAtMemoryEnabled;
+    private @Nullable Integer mSelectedButtonIndex;
 
     /**
      * This interface should be implemented by classes which want to observe clicks on the buttons
@@ -48,10 +48,6 @@ public class KeyboardAccessoryButtonGroupView extends LinearLayout {
 
     public void setAtMemoryCallback(Runnable callback) {
         mAtMemoryCallback = callback;
-    }
-
-    public void setAtMemoryIphCallback(Runnable callback) {
-        mAtMemoryIphCallback = callback;
     }
 
     public void setAtMemoryEnabled(boolean enabled) {
@@ -80,6 +76,11 @@ public class KeyboardAccessoryButtonGroupView extends LinearLayout {
                     if (mListener == null) return;
                     mListener.onButtonClicked(tabIndex);
                 });
+        appendButton(button);
+    }
+
+    private void appendButton(ImageButton button) {
+        applySelection(button, mButtons.size());
         mButtons.add(button);
         addView(button);
     }
@@ -103,11 +104,9 @@ public class KeyboardAccessoryButtonGroupView extends LinearLayout {
                         getContext().getString(R.string.at_memory_icon_description));
         mAtMemoryButton.setOnClickListener(
                 v -> {
-                    if (mAtMemoryIphCallback != null) mAtMemoryIphCallback.run();
                     if (mAtMemoryCallback != null) mAtMemoryCallback.run();
                 });
-        mButtons.add(mAtMemoryButton);
-        addView(mAtMemoryButton);
+        appendButton(mAtMemoryButton);
     }
 
     @Override
@@ -137,6 +136,18 @@ public class KeyboardAccessoryButtonGroupView extends LinearLayout {
 
     void setButtonSelectionListener(KeyboardAccessoryButtonGroupListener listener) {
         mListener = listener;
+    }
+
+    /** Highlights the button at {@code buttonIndex} (layout order), or none if null. */
+    void setSelectedButton(@Nullable Integer buttonIndex) {
+        mSelectedButtonIndex = buttonIndex;
+        for (int i = 0; i < mButtons.size(); i++) {
+            applySelection(mButtons.get(i), i);
+        }
+    }
+
+    private void applySelection(ImageButton button, int buttonIndex) {
+        button.setHovered(mSelectedButtonIndex != null && mSelectedButtonIndex == buttonIndex);
     }
 
     @VisibleForTesting

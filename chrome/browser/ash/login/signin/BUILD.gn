@@ -52,7 +52,6 @@ static_library("signin") {
 
   public_deps = [
     "//base",
-    "//chrome/browser:browser_public_dependencies",
     "//chrome/browser/profiles:profile",
     "//chromeos/ash/components/login/auth",
     "//chromeos/ash/components/login/auth/public:authpublic",
@@ -140,7 +139,7 @@ source_set("browser_tests") {
     "//chrome/browser/extensions:test_support",
     "//chrome/browser/lifetime:termination_notification",
     "//chrome/browser/signin",
-    "//chrome/browser/ui",
+    "//chrome/browser/ui:browser_tabstrip",
     "//chrome/browser/ui:scoped_tabbed_browser_displayer",
     "//chrome/browser/ui/ash/login",
     "//chrome/browser/ui/webui/ash/login",
@@ -194,6 +193,7 @@ source_set("unit_tests") {
     "//chrome/browser/ui/webui/signin/ash",
     "//chrome/common:constants",
     "//chrome/test:test_support",
+    "//chrome/test/base:browser_with_test_window_test",
     "//chrome/test/base:testing_browser_process",
     "//chromeos/ash/components/browser_context_helper",
     "//components/pref_registry",

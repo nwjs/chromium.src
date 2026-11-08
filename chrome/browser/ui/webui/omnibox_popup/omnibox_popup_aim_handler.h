@@ -37,10 +37,9 @@ class OmniboxPopupAimHandler : public omnibox_popup_aim::mojom::PageHandler {
 
   ~OmniboxPopupAimHandler() override;
 
-  void set_embedder(
-      base::WeakPtr<TopChromeWebUIController::Embedder> embedder) {
-    embedder_ = embedder;
-  }
+  // Sets the embedder. If the popup was shown before the page created this
+  // handler, also sends that show to the page.
+  void set_embedder(base::WeakPtr<TopChromeWebUIController::Embedder> embedder);
 
   // omnibox_popup_aim::mojom::PageHandler:
   // Forwards a close event from the page to the browser with the current input.
@@ -60,8 +59,9 @@ class OmniboxPopupAimHandler : public omnibox_popup_aim::mojom::PageHandler {
   void SetPreserveContextOnClose(bool preserve_context_on_close);
 
   // Forwards a `ClearPopup()` call to the page. `callback` is called
-  // with the final input text from the page.
-  void ClearPopup(base::OnceCallback<void(const std::string&)> callback);
+  // with the final input text from the page and whether a query was submitted
+  // from the page since it was last shown.
+  void ClearPopup(base::OnceCallback<void(const std::string&, bool)> callback);
 
   // Forwards an `AddContext()` call to the page. This call is intended to be
   // used to notify the page that searchbox context has been added.

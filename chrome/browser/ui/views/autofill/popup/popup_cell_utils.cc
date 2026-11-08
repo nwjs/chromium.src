@@ -92,11 +92,7 @@ constexpr int kAutofillPopupAdditionalDoubleRowHeight = 16;
 constexpr int kAutofillPopupAdditionalTripleRowHeight = 24;
 
 // The additional padding of the row in case it has three lines of text.
-constexpr int kAutofillPopupAdditionalVerticalPadding = 16;
-
-// The additional padding of the row in case it is an Autofill AI suggestion
-// and has three lines of text.
-constexpr int kAutofillAiPopupAdditionalVerticalPadding = 8;
+constexpr int kAutofillPopupAdditionalVerticalPadding = 8;
 
 // The additional right padding of the row in case it is an Autofill AI
 // suggestion and has three lines of text.
@@ -172,7 +168,7 @@ std::u16string GetIconAccessibleName(Suggestion::Icon icon) {
     case Suggestion::Icon::kKey:
     case Suggestion::Icon::kLocation:
     case Suggestion::Icon::kLocationSpark:
-    case Suggestion::Icon::kLoyalty:
+    case Suggestion::Icon::kLoyaltyPrograms:
     case Suggestion::Icon::kMagic:
     case Suggestion::Icon::kMailAsterisk:
     case Suggestion::Icon::kOfferTag:
@@ -417,7 +413,6 @@ bool IsPaymentMethodSuggestion(const Suggestion& suggestion) {
     case SuggestionType::kPendingStateSignin:
     case SuggestionType::kPersonalContextNotice:
     case SuggestionType::kScanCreditCard:
-    case SuggestionType::kSeePromoCodeDetails:
     case SuggestionType::kSeparator:
     case SuggestionType::kTitle:
     case SuggestionType::kTroubleSigningInEntry:
@@ -501,7 +496,7 @@ std::optional<ui::ImageModel> GetIconImageModelFromIcon(Suggestion::Icon icon) {
                                       kIconSize);
     case Suggestion::Icon::kGmail:
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
-      return ImageModelFromVectorIcon(vector_icons::kGoogleGmailLogoIcon,
+      return ImageModelFromVectorIcon(vector_icons::kGoogleGmailIcon,
                                       kIconSize);
 #else
       return ImageModelFromVectorIcon(::features::IsRoundedIconsEnabled()
@@ -589,10 +584,8 @@ std::optional<ui::ImageModel> GetIconImageModelFromIcon(Suggestion::Icon icon) {
     case Suggestion::Icon::kLocationSpark:
       return ImageModelFromVectorIcon(vector_icons::kLocationOnSparkIcon,
                                       kChromeRefreshIconSize);
-    case Suggestion::Icon::kLoyalty:
-      return ImageModelFromVectorIcon(::features::IsRoundedIconsEnabled()
-                                          ? vector_icons::kLoyaltyIcon
-                                          : vector_icons::kLoyaltyOldIcon,
+    case Suggestion::Icon::kLoyaltyPrograms:
+      return ImageModelFromVectorIcon(vector_icons::kLoyaltyProgramsIcon,
                                       kChromeRefreshIconSize);
     case Suggestion::Icon::kMagic:
       return ImageModelFromVectorIcon(::features::IsRoundedIconsEnabled()
@@ -695,10 +688,7 @@ std::optional<ui::ImageModel> GetIconImageModelFromIcon(Suggestion::Icon icon) {
       return std::nullopt;
 #endif
     case Suggestion::Icon::kOfferTag:
-      return ImageModelFromVectorIcon(::features::IsRoundedIconsEnabled()
-                                          ? vector_icons::kShoppingmodeIcon
-                                          : vector_icons::kShoppingmodeOldIcon,
-                                      kIconSize);
+      return ImageModelFromVectorIcon(vector_icons::kSellIcon, kIconSize);
     case Suggestion::Icon::kIban:
     case Suggestion::Icon::kScanCreditCard:
     case Suggestion::Icon::kCardGeneric:
@@ -911,12 +901,7 @@ void AddSuggestionContentToView(
     if (should_show_new_fop_format) {
       row_height += kAutofillPopupAdditionalTripleRowHeight;
     } else {
-      // TODO(crbug.com/535568421): Investigate if these spacing adjustments
-      // should be applied to all 3-row suggestions rather than special-casing
-      // Autofill AI.
-      vertical_padding = (suggestion.type == SuggestionType::kFillAutofillAi)
-                             ? kAutofillAiPopupAdditionalVerticalPadding
-                             : kAutofillPopupAdditionalVerticalPadding;
+      vertical_padding = kAutofillPopupAdditionalVerticalPadding;
     }
     if (suggestion.type == SuggestionType::kFillAutofillAi) {
       right_padding += kAutofillAiPopupAdditionalRightPadding;

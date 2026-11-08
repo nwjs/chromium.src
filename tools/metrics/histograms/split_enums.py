@@ -21,6 +21,7 @@ import xml.etree.ElementTree as ET
 
 import setup_modules  # pylint: disable=unused-import
 
+
 import chromium_src.tools.metrics.common.path_util as path_util
 import chromium_src.tools.metrics.histograms.extract_histograms as extract_histograms
 import chromium_src.tools.metrics.histograms.histogram_configuration_model as histogram_configuration_model
@@ -124,7 +125,7 @@ def _split_enums(dir_name):
     f'tools/metrics/histograms/metadata/{dir_name}/enums.xml'
   )
 
-  print(f'Reading XML files...')
+  print('Reading XML files...')
 
   # Get the enums referenced by the given histograms.xml file.
   relevant_files = [histograms_file, ENUMS_PATH]

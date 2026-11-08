@@ -402,6 +402,11 @@ AutocompleteMatch OmniboxEditModel::CurrentMatchAndAlternateNavUrl(
   return match;
 }
 
+bool OmniboxEditModel::HasDraft() const {
+  return is_keyword_selected() ||
+         (user_input_in_progress_ && !user_text_.empty());
+}
+
 bool OmniboxEditModel::ResetDisplayTexts() {
   const std::u16string old_display_text = GetPermanentDisplayText();
   url_for_editing_ = controller_->client()->GetFormattedFullURL();
@@ -955,8 +960,12 @@ void OmniboxEditModel::OpenSelection(
         text_for_desired_tld_navigation, &generated_input);
     if (url_match.destination_url.is_valid()) {
       input_ = generated_input;
-      OpenMatch(selection, url_match, disposition, GURL(), std::u16string(),
-                timestamp, snapshot);
+      // `url_match` isn't in the dropdown, so pass `kNoMatch` as `AcceptInput`
+      // does. That logs `url_match` as the only match, instead of logging the
+      // dropdown line that `selection` is on.
+      OpenMatch(OmniboxPopupSelection(OmniboxPopupSelection::kNoMatch),
+                url_match, disposition, GURL(), std::u16string(), timestamp,
+                snapshot);
       return;
     }
   }
@@ -3366,9 +3375,9 @@ void OmniboxEditModel::
           session_handle->smart_tab_sharing_toggled_since_last_turn());
       new_handle->set_sts_toggled_removed_contexts(
           session_handle->sts_toggled_removed_contexts());
-      new_handle->set_submitted_context_tokens(
+      new_handle->SetSubmittedContextTokens(
           session_handle->GetSubmittedContextTokens());
-      new_handle->set_persisted_tabs(session_handle->persisted_tabs());
+      new_handle->SetPersistedTabs(session_handle->GetPersistedTabs());
       new_handle->set_deselected_tabs_urls(
           session_handle->deselected_tabs_urls());
       new_handle->CheckSearchContentSharingSettings(

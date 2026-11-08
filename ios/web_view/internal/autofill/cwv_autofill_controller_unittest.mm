@@ -4,21 +4,28 @@
 
 #import <Foundation/Foundation.h>
 
+#import <iterator>
 #import <memory>
 #import <optional>
 
+#import "base/functional/bind.h"
 #import "base/functional/callback_helpers.h"
 #import "base/ios/block_types.h"
+#import "base/location.h"
 #import "base/run_loop.h"
 #import "base/strings/sys_string_conversions.h"
+#import "base/task/sequenced_task_runner.h"
 #import "base/test/ios/wait_util.h"
 #import "base/test/mock_callback.h"
 #import "base/test/scoped_feature_list.h"
 #import "base/test/test_future.h"
 #import "components/autofill/core/browser/data_manager/test_personal_data_manager.h"
+#import "components/autofill/core/browser/payments/autofill_error_dialog_context.h"
 #import "components/autofill/core/browser/payments/card_unmask_challenge_option.h"
+#import "components/autofill/core/browser/payments/mandatory_reauth_manager.h"
 #import "components/autofill/core/browser/payments/otp_unmask_delegate.h"
 #import "components/autofill/core/browser/payments/otp_unmask_result.h"
+#import "components/autofill/core/browser/payments/payments_autofill_client.h"
 #import "components/autofill/core/browser/payments/test_legal_message_line.h"
 #import "components/autofill/core/browser/payments/virtual_card_enrollment_manager.h"
 #import "components/autofill/core/browser/single_field_fillers/autocomplete/mock_autocomplete_history_manager.h"
@@ -58,6 +65,7 @@
 #import "ios/web/public/test/web_test.h"
 #import "ios/web_view/internal/autofill/cwv_autofill_controller+testing.h"
 #import "ios/web_view/internal/autofill/cwv_autofill_controller_internal.h"
+#import "ios/web_view/internal/autofill/cwv_autofill_error_dialog_context_internal.h"
 #import "ios/web_view/internal/autofill/cwv_autofill_prefs.h"
 #import "ios/web_view/internal/autofill/cwv_autofill_profile_internal.h"
 #import "ios/web_view/internal/autofill/cwv_autofill_suggestion_internal.h"
@@ -66,12 +74,14 @@
 #import "ios/web_view/internal/autofill/cwv_credit_card_otp_verifier_internal.h"
 #import "ios/web_view/internal/autofill/cwv_vcn_enrollment_manager_internal.h"
 #import "ios/web_view/internal/autofill/web_view_autofill_client_ios.h"
+#import "ios/web_view/internal/autofill/web_view_device_authenticator.h"
 #import "ios/web_view/internal/passwords/web_view_password_manager_client.h"
 #import "ios/web_view/internal/web_view_browser_state.h"
 #import "ios/web_view/public/cwv_autofill_controller_delegate.h"
 #import "net/base/apple/url_conversions.h"
 #import "testing/gtest/include/gtest/gtest.h"
 #import "testing/gtest_mac.h"
+#import "testing/platform_test.h"
 #import "third_party/ocmock/OCMock/OCMock.h"
 #import "third_party/ocmock/gtest_support.h"
 
@@ -255,14 +265,20 @@ class CWVAutofillControllerTestBase : public web::WebTest {
         &pref_service_, &personal_data_manager_, &autocomplete_history_manager_,
         &web_state_, /*bridge=*/nil, /*identity_manager=*/nullptr,
         &strike_database_, &sync_service_, /*log_router=*/nullptr);
-    autofill_controller_ = [[CWVAutofillController alloc]
-             initWithWebState:&web_state_
-                  prefService:&pref_service_
-        autofillClientForTest:std::move(autofill_client)
-                autofillAgent:autofill_agent_
-              passwordManager:std::move(password_manager)
-        passwordManagerClient:std::move(password_manager_client)
-           passwordController:password_controller_];
+    // Drain the autoreleased NSInvocation created by OCMock when
+    // `-initWithWebState:...` sets `password_controller_.delegate = self`, so
+    // `autofill_controller_ = nil` in `TearDown()` actually deallocates the
+    // controller before `web_state_` is destroyed.
+    @autoreleasepool {
+      autofill_controller_ = [[CWVAutofillController alloc]
+               initWithWebState:&web_state_
+                    prefService:&pref_service_
+          autofillClientForTest:std::move(autofill_client)
+                  autofillAgent:autofill_agent_
+                passwordManager:std::move(password_manager)
+          passwordManagerClient:std::move(password_manager_client)
+             passwordController:password_controller_];
+    }
   }
 
   void TearDown() override {
@@ -1436,8 +1452,6 @@ TEST_P(CWVAutofillControllerTest, DidReceiveUnmaskOtpVerificationResult) {
 }
 
 TEST_P(CWVAutofillControllerTest, WebStateDestroyedDuringFetch) {
-  ios_web_view::SetAutofillSafeLifecycleEnabled(&pref_service_, true);
-
   RegisterFormActivity();
 
   __block void (^suggestionsAvailable)(BOOL) = nil;
@@ -1516,7 +1530,7 @@ TEST_P(CWVAutofillControllerTest, MethodsNoOpAfterWebStateDestroyed) {
   [autofill_controller_ focusPreviousField];
   EXPECT_TRUE(frame_ptr->GetLastJavaScriptCall().empty());
 
-  __block BOOL fetch_completion_was_called = NO;
+  __block NSArray<CWVAutofillSuggestion*>* fetched_suggestions = nil;
   [autofill_controller_
       fetchSuggestionsForFormWithName:kTestFormName
                       fieldIdentifier:kTestFieldIdentifier
@@ -1524,9 +1538,9 @@ TEST_P(CWVAutofillControllerTest, MethodsNoOpAfterWebStateDestroyed) {
                               frameID:frame_id_
                     completionHandler:^(
                         NSArray<CWVAutofillSuggestion*>* suggestions) {
-                      fetch_completion_was_called = YES;
+                      fetched_suggestions = suggestions;
                     }];
-  EXPECT_FALSE(fetch_completion_was_called);
+  EXPECT_NSEQ(@[], fetched_suggestions);
 
   autofill::CreditCard credit_card = autofill::test::GetCreditCard();
   CWVCreditCard* cwv_credit_card =
@@ -2204,6 +2218,400 @@ TEST_F(CWVAutofillControllerLegacyFormActivityTest,
   EXPECT_EQ(kInputFieldRendererID, last_suggestions_query_.fieldRendererID);
   EXPECT_NSEQ(kTestFieldValue, last_suggestions_query_.typedValue);
   EXPECT_FALSE(last_suggestions_had_user_gesture_);
+}
+
+using CWVAutofillPrefsTest = PlatformTest;
+
+// Tests that `MigrateObsoleteCWVAutofillPrefs` clears a persisted value of the
+// deprecated `cwv.autofill.safe_lifecycle_enabled` pref.
+TEST_F(CWVAutofillPrefsTest, MigrateObsoleteClearsSafeLifecyclePref) {
+  constexpr char kObsoleteSafeLifecyclePref[] =
+      "cwv.autofill.safe_lifecycle_enabled";
+  TestingPrefServiceSimple prefs;
+  ios_web_view::RegisterCWVAutofillPrefs(prefs.registry());
+  prefs.SetBoolean(kObsoleteSafeLifecyclePref, true);
+  ASSERT_TRUE(prefs.HasPrefPath(kObsoleteSafeLifecyclePref));
+
+  ios_web_view::MigrateObsoleteCWVAutofillPrefs(&prefs);
+
+  EXPECT_FALSE(prefs.HasPrefPath(kObsoleteSafeLifecyclePref));
+}
+
+// Fixture for the mandatory re-auth and error dialog bridges between
+// ChromeWebView's autofill client and `CWVAutofillControllerDelegate`.
+class CWVAutofillControllerMandatoryReauthTest
+    : public CWVAutofillControllerTestBase {
+ protected:
+  void TearDown() override {
+    // Release the captured state, including any callback owned by the
+    // handler, while the task environment is still alive.
+    captured_reason_ = nil;
+    captured_handler_ = nil;
+    CWVAutofillControllerTestBase::TearDown();
+  }
+
+  // Returns an autofill client whose bridge is `autofill_controller_`. The
+  // fixture's own client has a nil bridge, so it cannot reach the delegate.
+  // A separate web state is used since only one client may exist per web
+  // state.
+  std::unique_ptr<autofill::WebViewAutofillClientIOS>
+  CreateClientBridgedToController() {
+    bridged_web_state_.SetBrowserState(&browser_state_);
+    bridged_web_state_.SetCurrentURL(GURL(kTestURL));
+    for (auto content_world : {web::ContentWorld::kIsolatedWorld,
+                               web::ContentWorld::kPageContentWorld}) {
+      bridged_web_state_.SetWebFramesManager(
+          content_world, std::make_unique<web::FakeWebFramesManager>());
+    }
+    return std::make_unique<
+        autofill::WithFakedFromWebState<autofill::WebViewAutofillClientIOS>>(
+        &pref_service_, &personal_data_manager_, &autocomplete_history_manager_,
+        &bridged_web_state_, autofill_controller_,
+        /*identity_manager=*/nullptr, &strike_database_, &sync_service_,
+        /*log_router=*/nullptr);
+  }
+
+  // Stubs `delegate` to capture the completion handler passed to
+  // `-autofillController:authenticateUserWithReason:completionHandler:` into
+  // `captured_handler_` and the reason into `captured_reason_`, without
+  // calling it.
+  void StubAuthenticateCapturingHandler(id delegate) {
+    CWVAutofillControllerMandatoryReauthTest* test = this;
+    OCMStub([delegate autofillController:autofill_controller_
+              authenticateUserWithReason:[OCMArg checkWithBlock:^BOOL(
+                                                     NSString* reason) {
+                test->captured_reason_ = reason;
+                return YES;
+              }]
+                       completionHandler:[OCMArg checkWithBlock:^BOOL(
+                                                     void (^handler)(BOOL)) {
+                         test->captured_handler_ = [handler copy];
+                         return YES;
+                       }]]);
+  }
+
+  // Runs the tasks already posted to the current sequence, so that tests can
+  // verify that no stray result is delivered afterwards.
+  void FlushPostedTasks() {
+    base::test::TestFuture<void> flushed;
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE, flushed.GetCallback());
+    EXPECT_TRUE(flushed.Wait());
+  }
+
+  web::FakeWebState bridged_web_state_;
+  NSString* captured_reason_;
+  void (^captured_handler_)(BOOL);
+};
+
+// Test that `-canAuthenticateUser` reflects whether the delegate implements the
+// authenticate method.
+TEST_F(CWVAutofillControllerMandatoryReauthTest, CanAuthenticateUser) {
+  EXPECT_FALSE([autofill_controller_ canAuthenticateUser]);
+
+  autofill_controller_.delegate =
+      OCMProtocolMock(@protocol(CWVAutofillControllerDelegate));
+  EXPECT_TRUE([autofill_controller_ canAuthenticateUser]);
+}
+
+// Test that the device authenticator forwards the reason to the delegate and
+// reports a successful authentication asynchronously.
+TEST_F(CWVAutofillControllerMandatoryReauthTest,
+       DeviceAuthenticatorReportsSuccess) {
+  id delegate = OCMProtocolMock(@protocol(CWVAutofillControllerDelegate));
+  autofill_controller_.delegate = delegate;
+  StubAuthenticateCapturingHandler(delegate);
+  autofill::WebViewDeviceAuthenticator authenticator(autofill_controller_);
+
+  base::test::TestFuture<bool> future;
+  authenticator.AuthenticateWithMessage(u"Verify it's you",
+                                        future.GetCallback());
+  EXPECT_NSEQ(@"Verify it's you", captured_reason_);
+  ASSERT_TRUE(captured_handler_);
+
+  captured_handler_(YES);
+  // The result must be delivered asynchronously, even if the delegate
+  // completes synchronously.
+  EXPECT_FALSE(future.IsReady());
+  EXPECT_TRUE(future.Get());
+}
+
+// Test that the device authenticator reports a failed authentication.
+TEST_F(CWVAutofillControllerMandatoryReauthTest,
+       DeviceAuthenticatorReportsFailure) {
+  id delegate = OCMProtocolMock(@protocol(CWVAutofillControllerDelegate));
+  autofill_controller_.delegate = delegate;
+  StubAuthenticateCapturingHandler(delegate);
+  autofill::WebViewDeviceAuthenticator authenticator(autofill_controller_);
+
+  base::test::TestFuture<bool> future;
+  authenticator.AuthenticateWithMessage(u"reason", future.GetCallback());
+  ASSERT_TRUE(captured_handler_);
+  captured_handler_(NO);
+
+  EXPECT_FALSE(future.Get());
+}
+
+// Test that authentication fails without hanging when the delegate does not
+// implement the authenticate method.
+TEST_F(CWVAutofillControllerMandatoryReauthTest,
+       DeviceAuthenticatorFailsWithoutDelegateImplementation) {
+  autofill::WebViewDeviceAuthenticator authenticator(autofill_controller_);
+
+  base::test::TestFuture<bool> future;
+  authenticator.AuthenticateWithMessage(u"reason", future.GetCallback());
+
+  EXPECT_FALSE(future.IsReady());
+  EXPECT_FALSE(future.Get());
+}
+
+// Test that authentication fails without hanging when the bridge is gone.
+TEST_F(CWVAutofillControllerMandatoryReauthTest,
+       DeviceAuthenticatorFailsWithoutBridge) {
+  autofill::WebViewDeviceAuthenticator authenticator(/*bridge=*/nil);
+
+  base::test::TestFuture<bool> future;
+  authenticator.AuthenticateWithMessage(u"reason", future.GetCallback());
+
+  EXPECT_FALSE(future.IsReady());
+  EXPECT_FALSE(future.Get());
+}
+
+// Test that a completion handler called on a background thread delivers the
+// result on the main thread.
+TEST_F(CWVAutofillControllerMandatoryReauthTest,
+       DeviceAuthenticatorHopsToMainThread) {
+  id delegate = OCMProtocolMock(@protocol(CWVAutofillControllerDelegate));
+  autofill_controller_.delegate = delegate;
+  StubAuthenticateCapturingHandler(delegate);
+  autofill::WebViewDeviceAuthenticator authenticator(autofill_controller_);
+
+  // Records whether the result was delivered on the main thread alongside the
+  // result itself.
+  base::test::TestFuture<bool, bool> future;
+  authenticator.AuthenticateWithMessage(
+      u"reason",
+      base::BindOnce(
+          [](base::OnceCallback<void(bool, bool)> callback, bool success) {
+            std::move(callback).Run(success, [NSThread isMainThread]);
+          },
+          future.GetCallback()));
+  ASSERT_TRUE(captured_handler_);
+
+  void (^handler)(BOOL) = captured_handler_;
+  dispatch_async(dispatch_get_global_queue(QOS_CLASS_DEFAULT, 0), ^{
+    handler(YES);
+  });
+
+  auto [success, on_main_thread] = future.Take();
+  EXPECT_TRUE(success);
+  EXPECT_TRUE(on_main_thread);
+}
+
+// Test that `Cancel()` fails a pending authentication and that a late delegate
+// response is ignored.
+TEST_F(CWVAutofillControllerMandatoryReauthTest, DeviceAuthenticatorCancel) {
+  id delegate = OCMProtocolMock(@protocol(CWVAutofillControllerDelegate));
+  autofill_controller_.delegate = delegate;
+  StubAuthenticateCapturingHandler(delegate);
+  autofill::WebViewDeviceAuthenticator authenticator(autofill_controller_);
+
+  base::test::TestFuture<bool> future;
+  authenticator.AuthenticateWithMessage(u"reason", future.GetCallback());
+  authenticator.Cancel();
+  ASSERT_TRUE(future.IsReady());
+  EXPECT_FALSE(future.Get());
+
+  ASSERT_TRUE(captured_handler_);
+  captured_handler_(YES);
+  FlushPostedTasks();
+}
+
+// Test that the client only vends a device authenticator when the delegate can
+// authenticate, so that mandatory re-auth is skipped otherwise.
+TEST_F(CWVAutofillControllerMandatoryReauthTest, GetDeviceAuthenticator) {
+  std::unique_ptr<autofill::WebViewAutofillClientIOS> client =
+      CreateClientBridgedToController();
+  autofill::payments::MandatoryReauthManager* manager =
+      client->GetPaymentsAutofillClient()
+          ->GetOrCreatePaymentsMandatoryReauthManager();
+
+  EXPECT_FALSE(client->GetDeviceAuthenticator());
+  EXPECT_EQ(autofill::payments::MandatoryReauthAuthenticationMethod::kUnknown,
+            manager->GetAuthenticationMethod());
+  EXPECT_FALSE(manager->IsDeviceAuthenticationSupported());
+
+  autofill_controller_.delegate =
+      OCMProtocolMock(@protocol(CWVAutofillControllerDelegate));
+  EXPECT_TRUE(client->GetDeviceAuthenticator());
+}
+
+// Test the end-to-end `MandatoryReauthManager` flow, which transfers ownership
+// of the authenticator into its own completion callback.
+TEST_F(CWVAutofillControllerMandatoryReauthTest,
+       MandatoryReauthManagerAuthenticatesViaDelegate) {
+  id delegate = OCMProtocolMock(@protocol(CWVAutofillControllerDelegate));
+  autofill_controller_.delegate = delegate;
+  StubAuthenticateCapturingHandler(delegate);
+  std::unique_ptr<autofill::WebViewAutofillClientIOS> client =
+      CreateClientBridgedToController();
+
+  base::test::TestFuture<bool> future;
+  client->GetPaymentsAutofillClient()
+      ->GetOrCreatePaymentsMandatoryReauthManager()
+      ->AuthenticateWithMessage(u"reason", future.GetCallback());
+  ASSERT_TRUE(captured_handler_);
+  captured_handler_(YES);
+
+  EXPECT_TRUE(future.Get());
+}
+
+// Test that `IsMandatoryReauthEnabled()` is backed by the delegate, and is
+// false when the delegate does not implement it.
+TEST_F(CWVAutofillControllerMandatoryReauthTest, IsMandatoryReauthEnabled) {
+  std::unique_ptr<autofill::WebViewAutofillClientIOS> client =
+      CreateClientBridgedToController();
+  autofill::payments::PaymentsAutofillClient* payments_client =
+      client->GetPaymentsAutofillClient();
+
+  EXPECT_FALSE(payments_client->IsMandatoryReauthEnabled());
+
+  id delegate = OCMProtocolMock(@protocol(CWVAutofillControllerDelegate));
+  autofill_controller_.delegate = delegate;
+  OCMExpect(
+      [delegate
+          autofillControllerShouldRequireMandatoryReauth:autofill_controller_])
+      .andReturn(YES);
+  EXPECT_TRUE(payments_client->IsMandatoryReauthEnabled());
+
+  OCMExpect(
+      [delegate
+          autofillControllerShouldRequireMandatoryReauth:autofill_controller_])
+      .andReturn(NO);
+  EXPECT_FALSE(payments_client->IsMandatoryReauthEnabled());
+  EXPECT_OCMOCK_VERIFY(delegate);
+}
+
+// Test that `ShowAutofillErrorDialog()` forwards the context to the delegate.
+TEST_F(CWVAutofillControllerMandatoryReauthTest, ShowAutofillErrorDialog) {
+  std::unique_ptr<autofill::WebViewAutofillClientIOS> client =
+      CreateClientBridgedToController();
+  id delegate = OCMProtocolMock(@protocol(CWVAutofillControllerDelegate));
+  autofill_controller_.delegate = delegate;
+
+  autofill::AutofillErrorDialogContext context;
+  context.type = autofill::AutofillErrorDialogType::
+      kMaskedServerCardRiskBasedUnmaskingPermanentError;
+  context.server_returned_title = "Title";
+  context.server_returned_description = "Description";
+
+  OCMExpect([delegate
+              autofillController:autofill_controller_
+      showErrorDialogWithContext:[OCMArg checkWithBlock:^BOOL(
+                                             CWVAutofillErrorDialogContext*
+                                                 value) {
+        return value.type ==
+                   CWVAutofillErrorDialogTypeMaskedServerCardRiskBasedUnmaskingPermanentError &&
+               [value.serverReturnedTitle isEqualToString:@"Title"] &&
+               [value.serverReturnedDescription isEqualToString:@"Description"];
+      }]]);
+  client->GetPaymentsAutofillClient()->ShowAutofillErrorDialog(context);
+  EXPECT_OCMOCK_VERIFY(delegate);
+}
+
+// Test that absent server strings map to nil and unsupported types map to
+// `CWVAutofillErrorDialogTypeUnknown`.
+TEST_F(CWVAutofillControllerMandatoryReauthTest, ErrorDialogContextDefaults) {
+  autofill::AutofillErrorDialogContext context;
+  context.type = autofill::AutofillErrorDialogType::kBnplPermanentError;
+
+  CWVAutofillErrorDialogContext* value =
+      [[CWVAutofillErrorDialogContext alloc] initWithContext:context];
+
+  EXPECT_EQ(CWVAutofillErrorDialogTypeUnknown, value.type);
+  EXPECT_FALSE(value.serverReturnedTitle);
+  EXPECT_FALSE(value.serverReturnedDescription);
+}
+
+// Test that empty server strings map to nil, so embedders fall back to text
+// derived from `type`.
+TEST_F(CWVAutofillControllerMandatoryReauthTest,
+       ErrorDialogContextEmptyServerStrings) {
+  autofill::AutofillErrorDialogContext context;
+  context.server_returned_title = "";
+  context.server_returned_description = "";
+
+  CWVAutofillErrorDialogContext* value =
+      [[CWVAutofillErrorDialogContext alloc] initWithContext:context];
+
+  EXPECT_FALSE(value.serverReturnedTitle);
+  EXPECT_FALSE(value.serverReturnedDescription);
+}
+
+// Test that every `AutofillErrorDialogType` maps to the expected
+// `CWVAutofillErrorDialogType`.
+TEST_F(CWVAutofillControllerMandatoryReauthTest,
+       ErrorDialogContextTypeMapping) {
+  using autofill::AutofillErrorDialogType;
+  static constexpr struct {
+    AutofillErrorDialogType type;
+    CWVAutofillErrorDialogType expected_type;
+  } kTestCases[] = {
+      {AutofillErrorDialogType::kVirtualCardTemporaryError,
+       CWVAutofillErrorDialogTypeVirtualCardTemporaryError},
+      {AutofillErrorDialogType::kVirtualCardPermanentError,
+       CWVAutofillErrorDialogTypeVirtualCardPermanentError},
+      {AutofillErrorDialogType::kVirtualCardNotEligibleError,
+       CWVAutofillErrorDialogTypeVirtualCardNotEligibleError},
+      {AutofillErrorDialogType::kTypeUnknown,
+       CWVAutofillErrorDialogTypeUnknown},
+      {AutofillErrorDialogType::
+           kMaskedServerCardRiskBasedUnmaskingPermanentError,
+       CWVAutofillErrorDialogTypeMaskedServerCardRiskBasedUnmaskingPermanentError},
+      {AutofillErrorDialogType::kMaskedServerCardRiskBasedUnmaskingNetworkError,
+       CWVAutofillErrorDialogTypeMaskedServerCardRiskBasedUnmaskingNetworkError},
+      {AutofillErrorDialogType::kMaskedServerIbanUnmaskingTemporaryError,
+       CWVAutofillErrorDialogTypeUnknown},
+      {AutofillErrorDialogType::kCreditCardUploadError,
+       CWVAutofillErrorDialogTypeUnknown},
+      {AutofillErrorDialogType::kVirtualCardEnrollmentTemporaryError,
+       CWVAutofillErrorDialogTypeUnknown},
+      {AutofillErrorDialogType::kCardInfoRetrievalTemporaryError,
+       CWVAutofillErrorDialogTypeCardInfoRetrievalTemporaryError},
+      {AutofillErrorDialogType::kCardInfoRetrievalPermanentError,
+       CWVAutofillErrorDialogTypeCardInfoRetrievalPermanentError},
+      {AutofillErrorDialogType::kBnplTemporaryError,
+       CWVAutofillErrorDialogTypeUnknown},
+      {AutofillErrorDialogType::kBnplPermanentError,
+       CWVAutofillErrorDialogTypeUnknown},
+      {AutofillErrorDialogType::kBnplUnsupportedCurrencyError,
+       CWVAutofillErrorDialogTypeUnknown},
+  };
+  // Fails to compile if a new `AutofillErrorDialogType` has no test case.
+  static_assert(std::size(kTestCases) ==
+                static_cast<size_t>(AutofillErrorDialogType::kMaxValue) + 1);
+
+  for (const auto& test_case : kTestCases) {
+    SCOPED_TRACE(testing::Message() << "AutofillErrorDialogType: "
+                                    << static_cast<int>(test_case.type));
+    autofill::AutofillErrorDialogContext context;
+    context.type = test_case.type;
+
+    CWVAutofillErrorDialogContext* value =
+        [[CWVAutofillErrorDialogContext alloc] initWithContext:context];
+
+    EXPECT_EQ(test_case.expected_type, value.type);
+  }
+}
+
+// Test that `ShowAutofillErrorDialog()` is a no-op when the delegate does not
+// implement the error dialog method.
+TEST_F(CWVAutofillControllerMandatoryReauthTest,
+       ShowAutofillErrorDialogWithoutDelegateImplementation) {
+  std::unique_ptr<autofill::WebViewAutofillClientIOS> client =
+      CreateClientBridgedToController();
+  client->GetPaymentsAutofillClient()->ShowAutofillErrorDialog(
+      autofill::AutofillErrorDialogContext());
 }
 
 }  // namespace

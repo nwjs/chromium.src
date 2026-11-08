@@ -34,16 +34,11 @@ missing,components/manta/walrus_provider.cc
 
 # Android-specific annotations.
 # TODO(crbug.com/40641204): Complete these.
-missing,android_webview/browser/network_service/aw_proxy_config_monitor.cc
-missing,chrome/android/features/tab_ui/java/src/org/chromium/chrome/browser/tasks/tab_management/suggestions/TabSuggestionsServerFetcher.java
-missing,chrome/android/java/src/org/chromium/chrome/browser/download/OMADownloadHandler.java
 missing,chrome/android/java/src/org/chromium/chrome/browser/feedback/ConnectivityChecker.java
 missing,chrome/android/java/src/org/chromium/chrome/browser/net/connectivitydetector/ConnectivityDetector.java
 missing,chrome/android/java/src/org/chromium/chrome/browser/offlinepages/measurements/OfflineMeasurementsBackgroundTask.java
 missing,chrome/browser/android/compositor/scene_layer/contextual_search_scene_layer.cc
 missing,chrome/browser/android/feedback/connectivity_checker.cc
-missing,chrome/browser/commerce/subscriptions/android/java/src/org/chromium/chrome/browser/subscriptions/CommerceSubscriptionsServiceProxy.java
-missing,chrome/browser/tab/java/src/org/chromium/chrome/browser/tab/state/StorePersistedTabData.java
 missing,net/proxy_resolution/proxy_config_service_android.cc
 
 # Desktop platform specific annotations.
@@ -59,8 +54,6 @@ missing,chrome/browser/indigo/api_client.cc
 missing,components/gapis/token_downloader.cc
 
 # Android annotations missing fields internal::contact:email, user_data::type, last_reviewed
-missing_new_fields,missing,android_webview/browser/network_service/aw_proxy_config_monitor.cc
-missing_new_fields,missing,chrome/android/java/src/org/chromium/chrome/browser/download/OMADownloadHandler.java
 missing_new_fields,chrome/android/java/src/org/chromium/chrome/browser/omaha/OmahaBase.java
 missing_new_fields,chrome/browser/android/bookmarks/partner_bookmarks_reader.cc
 missing_new_fields,chrome/browser/android/compositor/scene_layer/contextual_search_scene_layer.cc
@@ -76,7 +69,7 @@ missing_new_fields,chrome/browser/supervised_user/kids_chrome_management/kids_ch
 missing_new_fields,chrome/browser/tab/java/src/org/chromium/chrome/browser/tab/state/CouponPersistedTabData.java
 missing_new_fields,components/content_creation/notes/core/server/notes_server_saver.cc
 missing_new_fields,components/content_creation/notes/core/templates/template_fetcher.cc
-missing_new_fields,components/image_fetcher/image_fetcher_bridge.cc
+missing_new_fields,components/image_fetcher/android/image_fetcher_bridge.cc
 missing_new_fields,components/minidump_uploader/android/java/src/org/chromium/components/minidump_uploader/util/HttpURLConnectionFactoryImpl.java
 missing_new_fields,components/variations/android/java/src/org/chromium/components/variations/firstrun/VariationsSeedFetcher.java
 
@@ -184,7 +177,6 @@ missing_new_fields,components/autofill/core/browser/payments/payments_network_in
 missing_new_fields,components/captive_portal/content/captive_portal_service.cc
 missing_new_fields,components/commerce/core/account_checker.cc
 missing_new_fields,components/commerce/core/subscriptions/subscriptions_server_proxy.cc
-missing_new_fields,components/dom_distiller/core/distiller_url_fetcher.cc
 missing_new_fields,components/domain_reliability/uploader.cc
 missing_new_fields,components/download/internal/common/download_item_impl.cc
 missing_new_fields,components/download/internal/common/parallel_download_job.cc
@@ -344,6 +336,3 @@ missing_new_fields,chrome/browser/ash/file_suggest/item_suggest_cache.cc
 missing_new_fields,extensions/browser/guest_view/web_view/controlled_frame_embedder_url_fetcher.cc
 missing_new_fields,chrome/browser/ash/app_list/search/essential_search/socs_cookie_fetcher.cc
 
-# Header files with traffic annotations that existed before the new check was introduced.
-all,chrome/browser/ash/app_list/search/omnibox/omnibox_util.h
-all,chrome/browser/predictors/predictors_traffic_annotations.h

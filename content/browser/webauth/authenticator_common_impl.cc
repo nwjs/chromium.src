@@ -919,6 +919,22 @@ AuthenticatorCommonImpl::MaybeCreateRequestDelegate() {
   return delegate;
 }
 
+bool AuthenticatorCommonImpl::IsSecurityLevelAcceptable(
+    const url::Origin& caller_origin) {
+  if (disable_tls_check_) {
+    return true;
+  }
+  RenderFrameHostImpl* const render_frame_host_impl =
+      static_cast<RenderFrameHostImpl*>(GetRenderFrameHost());
+  if (AuthenticatorEnvironment::GetInstance()
+          ->MaybeGetVirtualAuthenticatorManager(
+              render_frame_host_impl->frame_tree_node())) {
+    return true;
+  }
+  return GetContentClient()->browser()->IsSecurityLevelAcceptableForWebAuthn(
+      render_frame_host_impl, caller_origin);
+}
+
 void AuthenticatorCommonImpl::StartMakeCredentialRequest(
     bool allow_skipping_pin_touch) {
   req_state_->request_result.reset();
@@ -1144,6 +1160,15 @@ void AuthenticatorCommonImpl::MakeCredential(
     return;
   }
 
+  // Blink rejects requests with an empty list of public key parameters.
+  if (options->public_key_parameters.empty()) {
+    mojo::ReportBadMessage("empty public_key_parameters");
+    req_state_->request_outcome = MakeCredentialOutcome::kOtherFailure;
+    CompleteMakeCredentialRequest(
+        blink::mojom::AuthenticatorStatus::NOT_ALLOWED_ERROR);
+    return;
+  }
+
   if (base::FeatureList::IsEnabled(device::kWebAuthnActorCheck) &&
       GetContentClient()->browser()->ShouldDisallowCredentialRequest(
           WebContents::FromRenderFrameHost(GetRenderFrameHost()))) {
@@ -1237,10 +1262,7 @@ void AuthenticatorCommonImpl::ContinueMakeCredentialAfterRpIdCheck(
     return;
   }
 
-  if (!req_state_->request_delegate->IsVirtualEnvironmentEnabled() &&
-      !disable_tls_check_ &&
-      !GetContentClient()->browser()->IsSecurityLevelAcceptableForWebAuthn(
-          GetRenderFrameHost(), caller_origin)) {
+  if (!IsSecurityLevelAcceptable(caller_origin)) {
     req_state_->request_outcome = MakeCredentialOutcome::kOtherFailure;
     CompleteMakeCredentialRequest(
         blink::mojom::AuthenticatorStatus::CERTIFICATE_ERROR);
@@ -1804,9 +1826,7 @@ void AuthenticatorCommonImpl::GetPasswordOnlyCredential(
   // Passwords do not support virtual authenticators.
   req_state_->request_delegate->SetVirtualEnvironment(false);
 
-  if (!disable_tls_check_ &&
-      !GetContentClient()->browser()->IsSecurityLevelAcceptableForWebAuthn(
-          GetRenderFrameHost(), caller_origin)) {
+  if (!IsSecurityLevelAcceptable(caller_origin)) {
     req_state_->request_outcome = GetAssertionOutcome::kOtherFailure;
     CompleteGetAssertionRequest(
         blink::mojom::AuthenticatorStatus::CERTIFICATE_ERROR);
@@ -1886,10 +1906,7 @@ void AuthenticatorCommonImpl::ContinueGetAssertionAfterRpIdCheck(
         blink::mojom::AuthenticatorStatus::PENDING_REQUEST);
     return;
   }
-  if (!req_state_->request_delegate->IsVirtualEnvironmentEnabled() &&
-      !disable_tls_check_ &&
-      !GetContentClient()->browser()->IsSecurityLevelAcceptableForWebAuthn(
-          GetRenderFrameHost(), caller_origin)) {
+  if (!IsSecurityLevelAcceptable(caller_origin)) {
     req_state_->request_outcome = GetAssertionOutcome::kOtherFailure;
     CompleteGetAssertionRequest(
         blink::mojom::AuthenticatorStatus::CERTIFICATE_ERROR);
@@ -2216,7 +2233,7 @@ void AuthenticatorCommonImpl::GetClientCapabilities(
       MakeCapability(client_capabilities::kImmediateGet, true));
   if (ambient_get_enabled) {
     barrier_callback.Run(
-        MakeCapability(client_capabilities::kAmbientGet, true));
+        MakeCapability(client_capabilities::kConditionalPassiveGet, true));
   }
 
   barrier_callback.Run(
@@ -2357,14 +2374,7 @@ void AuthenticatorCommonImpl::Report(
   req_state_->caller_origin = std::move(caller_origin);
   req_state_->relying_party_id = options->relying_party_id;
 
-  VirtualAuthenticatorManagerImpl* virtual_authenticator_manager =
-      AuthenticatorEnvironment::GetInstance()
-          ->MaybeGetVirtualAuthenticatorManager(
-              static_cast<RenderFrameHostImpl*>(GetRenderFrameHost())
-                  ->frame_tree_node());
-  if (!virtual_authenticator_manager && !disable_tls_check_ &&
-      !GetContentClient()->browser()->IsSecurityLevelAcceptableForWebAuthn(
-          GetRenderFrameHost(), req_state_->caller_origin)) {
+  if (!IsSecurityLevelAcceptable(req_state_->caller_origin)) {
     CompleteReportRequest(blink::mojom::AuthenticatorStatus::CERTIFICATE_ERROR);
     return;
   }
@@ -3542,7 +3552,6 @@ void AuthenticatorCommonImpl::EnableRequestProxyExtensionsAPISupport() {
 WebAuthenticationRequestProxy*
 AuthenticatorCommonImpl::GetWebAuthnRequestProxyIfActive(
     const url::Origin& caller_origin) {
-  DCHECK(!caller_origin.opaque());
   // The Virtual Authenticator, which can be activated via Dev Tools UI or
   // ChromeDriver, should take precedence over request proxying. Otherwise
   // attaching a remote desktop session would interfere with automated or manual

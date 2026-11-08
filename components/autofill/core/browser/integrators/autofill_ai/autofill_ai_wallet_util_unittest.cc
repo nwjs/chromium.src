@@ -226,45 +226,6 @@ TEST_F(AutofillAiWalletUtilsTest, HandleWalletMigrateResponseFailure) {
       /*wallet_response=*/std::nullopt);
 }
 
-TEST_F(AutofillAiWalletUtilsTest, GetWalletManagementURL_PublicPasses) {
-  EntityInstance entity = test::GetVehicleEntityInstance(
-      {.record_type = EntityInstance::RecordType::kServerWallet});
-  EXPECT_EQ(GetWalletManagementURL(entity),
-            "https://wallet.google.com/wallet/passes");
-}
-
-TEST_F(AutofillAiWalletUtilsTest, GetWalletManagementURL_Shopping) {
-  EntityInstance entity = test::GetOrderEntityInstance(
-      {.record_type = EntityInstance::RecordType::kServerWallet});
-  EXPECT_EQ(GetWalletManagementURL(entity),
-            "https://wallet.google.com/wallet/transactions");
-}
-
-TEST_F(AutofillAiWalletUtilsTest, GetWalletManagementURL_PrivatePasses) {
-  EntityInstance entity =
-      test::GetPassportEntityInstance(
-          {.record_type = EntityInstance::RecordType::kServerWallet})
-          .CopyWithNewEntityId(EntityInstance::EntityId("123-456:789"));
-  // Deep links disabled.
-  {
-    base::test::ScopedFeatureList feature;
-    feature.InitAndDisableFeature(
-        features::kAutofillAiWalletPrivatePassesDeepLink);
-    EXPECT_EQ(GetWalletManagementURL(entity),
-              "https://wallet.google.com/wallet/passes");
-  }
-  // Deep links enabled.
-  {
-    base::test::ScopedFeatureList feature(
-        features::kAutofillAiWalletPrivatePassesDeepLink);
-    // Expect that the entity ID is URL encoded.
-    EXPECT_EQ(GetWalletManagementURL(entity),
-              "https://wallet.google.com/wallet?p=walletpass&"
-              "ppid=123-456%3A789&utm_source=chrome&utm_medium=settings&"
-              "utm_campaign=enhanced_autofill");
-  }
-}
-
 TEST_F(AutofillAiWalletUtilsTest, RecordWalletPrivatePassConsent) {
   base::test::ScopedFeatureList feature_list(
       wallet::features::kWalletApiPrivatePassesConsent);
@@ -327,6 +288,35 @@ TEST_F(AutofillAiWalletUtilsTest, IsEligibleForWalletNotice) {
       EntityType(EntityTypeName::kFlightReservation), kServerWallet));
 }
 
+TEST_F(AutofillAiWalletUtilsTest, IsValidUpsertPassDetailsResponse) {
+  using Response = WalletPassAccessManager::GetDetailsForUpsertPassResponse;
+  using UserEligibility = WalletPassAccessManager::UserEligibility;
+
+  LegalMessageLines legal_message_lines;
+  legal_message_lines.emplace_back();
+
+  // Eligible user with both legal message lines and context token is valid.
+  Response valid_eligible{
+      .legal_message_lines = legal_message_lines,
+      .context_token = "token",
+      .user_eligibility = UserEligibility::kEligible,
+  };
+  EXPECT_TRUE(IsValidUpsertPassDetailsResponse(valid_eligible));
+
+  // Eligible user missing legal message lines or context token is invalid.
+  Response missing_lines{
+      .context_token = "token",
+      .user_eligibility = UserEligibility::kEligible,
+  };
+  EXPECT_FALSE(IsValidUpsertPassDetailsResponse(missing_lines));
+
+  Response missing_token{
+      .legal_message_lines = legal_message_lines,
+      .user_eligibility = UserEligibility::kEligible,
+  };
+  EXPECT_FALSE(IsValidUpsertPassDetailsResponse(missing_token));
+}
+
 struct IsValidWalletManagementUrlTestCase {
   std::string_view url;
   bool is_valid;
@@ -343,7 +333,8 @@ class IsValidWalletManagementUrlTest
 
 TEST_P(IsValidWalletManagementUrlTest, Validation) {
   const IsValidWalletManagementUrlTestCase& test_case = GetParam();
-  EXPECT_EQ(IsValidWalletManagementUrl(test_case.url), test_case.is_valid);
+  EXPECT_EQ(IsValidWalletManagementUrl(GURL(test_case.url)),
+            test_case.is_valid);
 }
 
 INSTANTIATE_TEST_SUITE_P(

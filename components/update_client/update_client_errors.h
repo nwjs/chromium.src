@@ -25,7 +25,8 @@ enum class Error {
   CRX_NOT_FOUND = 6,
   INVALID_ARGUMENT = 7,
   BAD_CRX_DATA_CALLBACK = 8,
-  kMaxValue = BAD_CRX_DATA_CALLBACK,
+  UPDATE_DISABLED = 9,
+  kMaxValue = UPDATE_DISABLED,
 };
 // LINT.ThenChange(//tools/metrics/histograms/enums.xml:UpdateClientError)
 
@@ -57,6 +58,9 @@ enum class CrxDownloaderError {
   // The Windows BITS queue contains to many update client jobs. The value is
   // chosen so that it can be reported as a custom COM error on this platform.
   BITS_TOO_MANY_JOBS = 0x0200,
+  // The Windows Delivery Optimization queue contains too many update client
+  // downloads. Same encoding as BITS_TOO_MANY_JOBS.
+  DO_TOO_MANY_DOWNLOADS = 0x0201,
   // Errors 11XX are reserved for Mac background downloader errors.
   MAC_BG_CANNOT_CREATE_DOWNLOAD_CACHE = 1101,
   MAC_BG_MOVE_TO_CACHE_FAIL = 1102,

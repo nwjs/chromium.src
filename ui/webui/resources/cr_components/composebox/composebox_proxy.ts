@@ -2,8 +2,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import {PageCallbackRouter as SearchboxPageCallbackRouter, PageHandlerRemote as SearchboxPageHandlerRemote, SuggestStyle} from '//resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
+import {PageCallbackRouter as SearchboxPageCallbackRouter, PageHandlerRemote as SearchboxPageHandlerRemote} from '//resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 import type {AutocompleteMatch} from '//resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
+import {IconType, SecondaryTextPlacement, SuggestStyle} from '//resources/mojo/components/omnibox/browser/suggest_template_info.mojom-webui.js';
 
 import {PageHandlerFactory, PageHandlerRemote} from './composebox.mojom-webui.js';
 
@@ -17,27 +18,29 @@ export function createAutocompleteMatch(
     isSearchType: false,
     isEnterpriseSearchAggregatorPeopleType: false,
     showContextualDescription: false,
+    descriptionIconPath: '',
     supportsDeletion: false,
     suggestionGroupId: -1,
-    contents: '',
-    contentsClass: [{offset: 0, style: 0}],
-    description: '',
-    descriptionClass: [{offset: 0, style: 0}],
     destinationUrl: '',
     inlineAutocompletion: '',
     fillIntoEdit: '',
     iconPath: '',
     iconUrl: '',
-    imageDominantColor: '',
-    imageUrl: '',
     removeButtonA11yLabel: '',
     type: '',
     isContextualSuggestion: false,
-    isTwoRowSuggestion: false,
     tailSuggestCommonPrefix: null,
     keywordModel: null,
-    fuseboxAction: null,
-    suggestStyle: SuggestStyle.kUnspecified,
+    suggestTemplate: {
+      primaryText: {text: '', fragments: [], a11yText: null},
+      secondaryText: {text: '', fragments: [], a11yText: null},
+      secondaryTextPlacement: SecondaryTextPlacement.kUnspecified,
+      image: null,
+      style: SuggestStyle.kUnspecified,
+      typeIcon: IconType.kIconTypeUnspecified,
+      fuseboxAction: null,
+    },
+    urlEmphasis: null,
     ...config,
   };
 }
@@ -50,6 +53,7 @@ export interface ComposeboxProxy {
   // <if expr="not is_android">
   getSmartTabSharingActive(): Promise<{active: boolean}>;
   setSmartTabSharingActive(active: boolean): void;
+  resetSmartTabSharing(): Promise<{active: boolean}>;
   observeSmartTabSharingActive(callback: (active: boolean) => void): number;
   // </if>
 }
@@ -73,6 +77,10 @@ export class ComposeboxProxyImpl implements ComposeboxProxy {
 
   setSmartTabSharingActive(active: boolean): void {
     this.searchboxHandler.setSmartTabSharingActive(active);
+  }
+
+  resetSmartTabSharing(): Promise<{active: boolean}> {
+    return this.searchboxHandler.resetSmartTabSharing();
   }
 
   observeSmartTabSharingActive(callback: (active: boolean) => void): number {

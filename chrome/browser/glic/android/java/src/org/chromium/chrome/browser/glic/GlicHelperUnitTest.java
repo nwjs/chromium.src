@@ -6,6 +6,8 @@ package org.chromium.chrome.browser.glic;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+import static org.mockito.AdditionalMatchers.aryEq;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
@@ -13,12 +15,12 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.mockito.Mockito.withSettings;
 
 import android.Manifest;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.provider.Settings;
 
@@ -31,6 +33,8 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
+import org.robolectric.Robolectric;
+import org.robolectric.android.controller.ActivityController;
 
 import org.chromium.base.ContextUtils;
 import org.chromium.base.test.BaseRobolectricTestRunner;
@@ -47,8 +51,11 @@ import org.chromium.components.prefs.PrefService;
 import org.chromium.components.user_prefs.UserPrefs;
 import org.chromium.components.user_prefs.UserPrefsJni;
 import org.chromium.ui.base.WindowAndroid;
+import org.chromium.ui.permissions.PermissionCallback;
 
 import java.lang.ref.WeakReference;
+import java.util.ArrayList;
+import java.util.List;
 
 /** Unit tests for {@link GlicHelper}. */
 @RunWith(BaseRobolectricTestRunner.class)
@@ -65,6 +72,16 @@ public class GlicHelperUnitTest {
     @Mock private WindowAndroid mWindowAndroidMock;
 
     private UserActionTester mUserActionTester;
+
+    /** Activity that implements {@link SnackbarManageable}. */
+    private static class SnackbarManageableActivity extends Activity implements SnackbarManageable {
+        private SnackbarManager mSnackbarManager;
+
+        @Override
+        public SnackbarManager getSnackbarManager() {
+            return mSnackbarManager;
+        }
+    }
 
     @Before
     public void setUp() {
@@ -232,7 +249,7 @@ public class GlicHelperUnitTest {
     @Test
     public void testShowMicDisabledSnackbar_NonSnackbarManageableActivity() {
         when(mWindowAndroidMock.hasPermission(Manifest.permission.RECORD_AUDIO)).thenReturn(false);
-        Activity nonManageableActivity = mock(Activity.class);
+        Activity nonManageableActivity = Robolectric.buildActivity(Activity.class).get();
         when(mWindowAndroidMock.getActivity())
                 .thenReturn(new WeakReference<>(nonManageableActivity));
 
@@ -244,10 +261,9 @@ public class GlicHelperUnitTest {
     @Test
     public void testShowMicDisabledSnackbar_NullSnackbarManager() {
         when(mWindowAndroidMock.hasPermission(Manifest.permission.RECORD_AUDIO)).thenReturn(false);
-        Activity activity =
-                mock(Activity.class, withSettings().extraInterfaces(SnackbarManageable.class));
+        SnackbarManageableActivity activity =
+                Robolectric.buildActivity(SnackbarManageableActivity.class).get();
         when(mWindowAndroidMock.getActivity()).thenReturn(new WeakReference<>(activity));
-        when(((SnackbarManageable) activity).getSnackbarManager()).thenReturn(null);
 
         GlicHelper.showMicDisabledSnackbar(mWindowAndroidMock);
 
@@ -257,15 +273,14 @@ public class GlicHelperUnitTest {
     @Test
     public void testShowMicDisabledSnackbar_Success() {
         // Arrange.
-        Activity activity =
-                mock(Activity.class, withSettings().extraInterfaces(SnackbarManageable.class));
+        SnackbarManageableActivity activity =
+                Robolectric.buildActivity(SnackbarManageableActivity.class).get();
+        activity.mSnackbarManager = mSnackbarManagerMock;
         when(mWindowAndroidMock.hasPermission(Manifest.permission.RECORD_AUDIO)).thenReturn(false);
         when(mWindowAndroidMock.getActivity()).thenReturn(new WeakReference<>(activity));
-        when(((SnackbarManageable) activity).getSnackbarManager()).thenReturn(mSnackbarManagerMock);
 
-        when(activity.getString(R.string.glic_mic_disabled_snackbar))
-                .thenReturn("Enable mic to use voice");
-        when(activity.getString(R.string.settings)).thenReturn("Settings");
+        String expectedText = activity.getString(R.string.glic_mic_disabled_snackbar);
+        String expectedActionText = activity.getString(R.string.settings);
         ContextUtils.initApplicationContextForTests(mContextMock);
         when(mContextMock.getPackageName()).thenReturn("org.chromium.chrome");
 
@@ -277,8 +292,8 @@ public class GlicHelperUnitTest {
         verify(mSnackbarManagerMock).showSnackbar(captor.capture());
         Snackbar snackbar = captor.getValue();
         assertEquals(Snackbar.UMA_GLIC_MIC_DISABLED, snackbar.getIdentifierForTesting());
-        assertEquals("Enable mic to use voice", snackbar.getTextForTesting());
-        assertEquals("Settings", snackbar.getActionText());
+        assertEquals(expectedText, snackbar.getTextForTesting());
+        assertEquals(expectedActionText, snackbar.getActionText());
 
         // Act: Trigger "Settings".
         SnackbarController controller = snackbar.getController();
@@ -297,5 +312,96 @@ public class GlicHelperUnitTest {
         assertEquals(Uri.parse("package:org.chromium.chrome"), intent.getData());
         assertEquals(
                 Intent.FLAG_ACTIVITY_NEW_TASK, intent.getFlags() & Intent.FLAG_ACTIVITY_NEW_TASK);
+    }
+
+    @Test
+    public void testRequestMicOsPermission_AlreadyGranted() {
+        when(mWindowAndroidMock.hasPermission(Manifest.permission.RECORD_AUDIO)).thenReturn(true);
+        List<Boolean> results = new ArrayList<>();
+
+        GlicHelper.requestMicOsPermission(mWindowAndroidMock, results::add);
+
+        assertEquals(List.of(true), results);
+        verify(mWindowAndroidMock, never()).requestPermissions(any(), any());
+    }
+
+    @Test
+    public void testRequestMicOsPermission_NoActivity() {
+        when(mWindowAndroidMock.hasPermission(Manifest.permission.RECORD_AUDIO)).thenReturn(false);
+        when(mWindowAndroidMock.getActivity()).thenReturn(new WeakReference<>(null));
+        List<Boolean> results = new ArrayList<>();
+
+        GlicHelper.requestMicOsPermission(mWindowAndroidMock, results::add);
+
+        assertEquals(List.of(false), results);
+        verify(mWindowAndroidMock, never()).requestPermissions(any(), any());
+    }
+
+    @Test
+    public void testRequestMicOsPermission_Granted() {
+        assertEquals(
+                List.of(true),
+                requestMicOsPermissionWithResult(new int[] {PackageManager.PERMISSION_GRANTED}));
+    }
+
+    @Test
+    public void testRequestMicOsPermission_Denied() {
+        assertEquals(
+                List.of(false),
+                requestMicOsPermissionWithResult(new int[] {PackageManager.PERMISSION_DENIED}));
+    }
+
+    @Test
+    public void testRequestMicOsPermission_Cancelled() {
+        assertEquals(List.of(false), requestMicOsPermissionWithResult(new int[0]));
+    }
+
+    @Test
+    public void testRequestMicOsPermission_ActivityDestroyed() {
+        ActivityController<Activity> controller = Robolectric.buildActivity(Activity.class).setup();
+        when(mWindowAndroidMock.hasPermission(Manifest.permission.RECORD_AUDIO)).thenReturn(false);
+        when(mWindowAndroidMock.getActivity()).thenReturn(new WeakReference<>(controller.get()));
+        List<Boolean> results = new ArrayList<>();
+
+        GlicHelper.requestMicOsPermission(mWindowAndroidMock, results::add);
+        ArgumentCaptor<PermissionCallback> callbackCaptor =
+                ArgumentCaptor.forClass(PermissionCallback.class);
+        verify(mWindowAndroidMock).requestPermissions(any(), callbackCaptor.capture());
+        assertTrue(results.isEmpty());
+
+        controller.pause().stop().destroy();
+        assertEquals(List.of(false), results);
+
+        // A late result is ignored.
+        callbackCaptor
+                .getValue()
+                .onRequestPermissionsResult(
+                        new String[] {Manifest.permission.RECORD_AUDIO},
+                        new int[] {PackageManager.PERMISSION_GRANTED});
+        assertEquals(List.of(false), results);
+    }
+
+    private List<Boolean> requestMicOsPermissionWithResult(int[] grantResults) {
+        when(mWindowAndroidMock.hasPermission(Manifest.permission.RECORD_AUDIO)).thenReturn(false);
+        when(mWindowAndroidMock.getActivity())
+                .thenReturn(
+                        new WeakReference<>(
+                                Robolectric.buildActivity(Activity.class).setup().get()));
+        List<Boolean> results = new ArrayList<>();
+
+        GlicHelper.requestMicOsPermission(mWindowAndroidMock, results::add);
+
+        ArgumentCaptor<PermissionCallback> callbackCaptor =
+                ArgumentCaptor.forClass(PermissionCallback.class);
+        verify(mWindowAndroidMock)
+                .requestPermissions(
+                        aryEq(new String[] {Manifest.permission.RECORD_AUDIO}),
+                        callbackCaptor.capture());
+        assertTrue(results.isEmpty());
+        callbackCaptor
+                .getValue()
+                .onRequestPermissionsResult(
+                        new String[] {Manifest.permission.RECORD_AUDIO}, grantResults);
+        return results;
     }
 }

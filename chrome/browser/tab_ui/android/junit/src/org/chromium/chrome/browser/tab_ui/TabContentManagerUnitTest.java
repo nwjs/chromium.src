@@ -52,10 +52,10 @@ public class TabContentManagerUnitTest {
     @Mock private BrowserControlsStateProvider mBrowserControlsStateProvider;
     @Mock private TabFinder mTabFinder;
     @Mock private TabWindowManager mTabWindowManager;
-    @Mock private View mViewToDraw;
     @Mock private TabContentManager.Natives mTabContentManagerJni;
 
     private Context mContext;
+    private View mViewToDraw;
     private TabContentManager mTabContentManager;
 
     @Before
@@ -67,12 +67,12 @@ public class TabContentManagerUnitTest {
         mContext = ContextUtils.getApplicationContext();
         when(mBrowserControlsStateProvider.getTopVisibleContentOffset()).thenReturn(0f);
 
+        mViewToDraw = new View(mContext);
         MarginLayoutParams params = new MarginLayoutParams(200, 200);
         params.leftMargin = 100;
-        when(mViewToDraw.getLayoutParams()).thenReturn(params);
-        when(mViewToDraw.getContext()).thenReturn(mContext);
-        when(mViewToDraw.getMeasuredWidth()).thenReturn(200);
-        when(mViewToDraw.getMeasuredHeight()).thenReturn(200);
+        mViewToDraw.setLayoutParams(params);
+        int spec = View.MeasureSpec.makeMeasureSpec(200, View.MeasureSpec.EXACTLY);
+        mViewToDraw.measure(spec, spec);
 
         mTabContentManager =
                 new TabContentManager(

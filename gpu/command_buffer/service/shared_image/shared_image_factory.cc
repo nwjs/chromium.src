@@ -479,10 +479,8 @@ bool SharedImageFactory::CreateSharedImage(
 }
 
 // static
-bool SharedImageFactory::IsNativeBufferSupported(
-    viz::SharedImageFormat format,
-    gfx::BufferUsage usage,
-    const gfx::GpuExtraInfo& gpu_extra_info) {
+bool SharedImageFactory::IsNativeBufferSupported(viz::SharedImageFormat format,
+                                                 gfx::BufferUsage usage) {
 #if BUILDFLAG(IS_APPLE)
   switch (usage) {
     case gfx::BufferUsage::GPU_READ:
@@ -496,9 +494,6 @@ bool SharedImageFactory::IsNativeBufferSupported(
              format == viz::SinglePlaneFormat::kBGRX_8888 ||
              format == viz::SinglePlaneFormat::kRGBX_8888 ||
              format == viz::SinglePlaneFormat::kR_8 ||
-             format == viz::SinglePlaneFormat::kRG_88 ||
-             format == viz::SinglePlaneFormat::kR_16 ||
-             format == viz::SinglePlaneFormat::kRG_1616 ||
              format == viz::SinglePlaneFormat::kRGBA_F16 ||
              format == viz::SinglePlaneFormat::kBGRA_1010102 ||
              format == viz::MultiPlaneFormat::kNV12 ||
@@ -574,8 +569,7 @@ bool SharedImageFactory::CreateSharedImage(const Mailbox& mailbox,
   auto& size = si_info.size;
   auto& usage = si_info.usage;
   auto& debug_label = si_info.debug_label;
-  auto native_buffer_supported =
-      IsNativeBufferSupported(format, buffer_usage, gpu_extra_info_);
+  auto native_buffer_supported = IsNativeBufferSupported(format, buffer_usage);
   std::unique_ptr<SharedImageBacking> backing;
 
   if (native_buffer_supported) {
@@ -993,11 +987,6 @@ base::WeakPtr<SharedImageFactory> SharedImageFactory::GetWeakPtr() {
 
 scoped_refptr<SharedImageFactoryRef> SharedImageFactory::GetFactoryRef() {
   return factory_ref_;
-}
-
-void SharedImageFactory::SetGpuExtraInfo(
-    const gfx::GpuExtraInfo& gpu_extra_info) {
-  gpu_extra_info_ = gpu_extra_info;
 }
 
 bool SharedImageFactory::IsSharedBetweenThreads(

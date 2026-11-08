@@ -5,14 +5,23 @@
 #ifndef CHROME_BROWSER_UI_WEBUI_CONTEXT_HUB_CONTEXT_HUB_PAGE_HANDLER_H_
 #define CHROME_BROWSER_UI_WEBUI_CONTEXT_HUB_CONTEXT_HUB_PAGE_HANDLER_H_
 
+#include <cstdint>
+#include <optional>
+#include <string>
+#include <vector>
+
 #include "base/containers/span.h"
+#include "base/files/file_path.h"
+#include "base/functional/callback_forward.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
 #include "base/task/cancelable_task_tracker.h"
+#include "base/time/time.h"
 #include "base/uuid.h"
 #include "build/build_config.h"
 #include "chrome/browser/context_hub/context_hub_service.h"
+#include "chrome/browser/context_hub/topics/topics_feedback_exporter.h"
 #include "chrome/browser/ui/webui/context_hub/context_hub.mojom.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
@@ -78,6 +87,14 @@ class ContextHubPageHandler : public browser::context_hub::mojom::PageHandler,
       base::span<const context_hub::AutoTodoEntry> entries) override;
   void OnFirstPartyAutoTodosGenerationStateChanged(bool is_generating) override;
   void OnThirdPartyAutoTodosGenerationStateChanged(bool is_generating) override;
+  void OnMemoryBankEntryAdded(
+      const context_hub::MemoryBankEntry& entry) override;
+  void OnMemoryBankEntryUpdated(
+      int64_t id,
+      const std::vector<std::string>& tags,
+      const std::optional<std::string>& note,
+      const std::optional<std::string>& collection) override;
+  void OnMemoryBankEntriesDeleted(const std::vector<int64_t>& ids) override;
 
   // browser::context_hub::mojom::PageHandler:
   void GenerateFirstPartyAutoTodos(
@@ -122,6 +139,9 @@ class ContextHubPageHandler : public browser::context_hub::mojom::PageHandler,
   void SwitchToTab(int64_t tab_id) override;
   void CloseTab(int64_t tab_id) override;
   void ClearTabGroups(ClearTabGroupsCallback callback) override;
+  void ReplaceTabGroups(
+      std::vector<browser::context_hub::mojom::TabGroupPtr> groups,
+      ReplaceTabGroupsCallback callback) override;
   void ClearTabGroupChatHistory(
       ClearTabGroupChatHistoryCallback callback) override;
   void AskGeminiWithContext(const std::string& user_command,
@@ -148,11 +168,47 @@ class ContextHubPageHandler : public browser::context_hub::mojom::PageHandler,
                           OpenUrlsInTabGroupCallback callback) override;
   void GetTopics(GetTopicsCallback callback) override;
   void GetTopic(const std::string& id, GetTopicCallback callback) override;
+  void GetTopicPageImageUrl(const GURL& page_url,
+                            GetTopicPageImageUrlCallback callback) override;
   void OpenTopic(
       browser::context_hub::mojom::TopicIdOrUrlPtr topic_id_or_url) override;
   void OpenGlicPanel(const std::vector<std::string>& prompts) override;
+  void SetTopicFeedback(browser::context_hub::mojom::TopicFeedbackPtr feedback,
+                        SetTopicFeedbackCallback callback) override;
+  void DeleteTopicFeedback(const std::string& topic_id,
+                           DeleteTopicFeedbackCallback callback) override;
+  void GetTopicFeedbacks(GetTopicFeedbacksCallback callback) override;
+  void ClearTopicFeedbacks(ClearTopicFeedbacksCallback callback) override;
+  void GetTopicsFeedbackExportPreview(
+      int32_t window_days,
+      GetTopicsFeedbackExportPreviewCallback callback) override;
+  void GenerateTopicsFeedbackBundle(
+      browser::context_hub::mojom::TopicsFeedbackExportOptionsPtr options,
+      GenerateTopicsFeedbackBundleCallback callback) override;
+  void RunTodoTask(const std::string& prompt,
+                   RunTodoTaskCallback callback) override;
+  void OpenContextHubPage(OpenContextHubPageCallback callback) override;
+  void OpenWebUrl(const GURL& url, OpenWebUrlCallback callback) override;
+  void CopyAttachmentsToClipboard(
+      std::vector<browser::context_hub::mojom::MemoryBankFileAttachmentPtr>
+          files,
+      CopyAttachmentsToClipboardCallback callback) override;
 
  private:
+  // Gathers the Topics, history visits since `window_start`, unresolvable
+  // Topic count and stored feedback the fishfood feedback export is built
+  // from, then runs `callback`. `callback` is dropped if this handler is
+  // destroyed first.
+  void FetchTopicsFeedbackExportData(
+      base::Time window_start,
+      base::OnceCallback<void(context_hub::TopicsFeedbackExportData)> callback);
+
+#if !BUILDFLAG(IS_ANDROID)
+  void OnCopyAttachmentsToClipboardWritten(
+      CopyAttachmentsToClipboardCallback callback,
+      std::vector<std::pair<std::string, base::FilePath>> written_files);
+#endif
+
   mojo::Remote<browser::context_hub::mojom::Page> page_;
   mojo::Receiver<browser::context_hub::mojom::PageHandler> receiver_;
   base::ScopedObservation<context_hub::ContextHubService,

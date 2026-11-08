@@ -44,10 +44,10 @@
 #include "chrome/browser/profiles/profiles_state.h"
 #include "chrome/browser/signin/account_preview_data_service_factory.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
+#include "chrome/browser/signin/mock_signin_ui_delegate.h"
 #include "chrome/browser/signin/signin_browser_test_base.h"
 #include "chrome/browser/signin/signin_promo.h"
 #include "chrome/browser/signin/signin_promo_util.h"
-#include "chrome/browser/signin/signin_ui_delegate.h"
 #include "chrome/browser/signin/signin_ui_util.h"
 #include "chrome/browser/signin/signin_util.h"
 #include "chrome/browser/sync/account_bookmark_sync_service_factory.h"
@@ -170,6 +170,7 @@
 #endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
 
 namespace {
+using signin_ui_util::MockSigninUiDelegate;
 using testing::_;
 using testing::Eq;
 using testing::Pair;
@@ -177,46 +178,6 @@ using ::testing::StrictMock;
 using testing::UnorderedElementsAre;
 
 constexpr char kTestEmail[] = "foo@example.com";
-
-class MockSigninUiDelegate : public signin_ui_util::SigninUiDelegate {
- public:
-  MOCK_METHOD(void,
-              ShowSigninUI,
-              (Profile*,
-               bool,
-               signin_metrics::AccessPoint,
-               signin_metrics::PromoAction,
-               const std::string&),
-              (override));
-  MOCK_METHOD(void,
-              ShowReauthUI,
-              (Profile*,
-               const std::string&,
-               bool,
-               signin_metrics::AccessPoint,
-               signin_metrics::PromoAction),
-              (override));
-  MOCK_METHOD(void,
-              ShowTurnSyncOnUI,
-              (Profile*,
-               signin_metrics::AccessPoint,
-               signin_metrics::PromoAction,
-               const CoreAccountId&,
-               TurnSyncOnHelper::SigninAbortedMode,
-               bool,
-               bool),
-              (override));
-  MOCK_METHOD(void,
-              ShowHistorySyncOptinUI,
-              (Profile*, const CoreAccountId&, signin_metrics::AccessPoint),
-              (override));
-#if BUILDFLAG(ENABLE_DICE_SUPPORT)
-  MOCK_METHOD(void,
-              ShowCrossDeviceSigninQrBubble,
-              (BrowserWindowInterface*, GURL, base::OnceClosure),
-              (override));
-#endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
-};
 
 Profile* CreateAdditionalProfile() {
   ProfileManager* profile_manager = g_browser_process->profile_manager();
@@ -1074,7 +1035,7 @@ IN_PROC_BROWSER_TEST_F(ProfileMenuViewWebOnlyTest, ContinueAs) {
       signin_ui_util::SetSigninUiDelegateForTesting(&mock_signin_ui_delegate);
   base::HistogramTester histogram_tester;
   const signin_metrics::AccessPoint expected_access_point =
-      signin_metrics::AccessPoint::kAvatarBubbleSignInWithSyncPromo;
+      signin_metrics::AccessPoint::kProfileMenuPrimaryButton;
 
   EXPECT_CALL(
       mock_signin_ui_delegate,
@@ -1108,8 +1069,12 @@ IN_PROC_BROWSER_TEST_F(ProfileMenuViewWebOnlyTest, AccountPreferenceSubtitle) {
           {
               {syncer::PASSWORDS, signin::SyncDataQuartile::kAboveQ3},
           },
-      .other_device_form_factor =
-          sync_pb::SyncEnums_DeviceFormFactor_DEVICE_FORM_FACTOR_DESKTOP,
+      .other_device_info =
+          signin::PreferredDeviceInfo{
+              .form_factor = sync_pb::
+                  SyncEnums_DeviceFormFactor_DEVICE_FORM_FACTOR_DESKTOP,
+              .enabled_data_types = {syncer::PASSWORDS},
+          },
   };
 
   auto* test_service = static_cast<signin::TestAccountPreviewDataService*>(
@@ -1227,7 +1192,7 @@ class ProfileMenuViewSigninPendingTest : public ProfileMenuViewTestBase,
         ->OnSigninButtonClicked(
             account_info(),
             ProfileMenuViewBase::ActionableItem::kSigninReauthButton,
-            signin_metrics::AccessPoint::kAvatarBubbleSignIn);
+            signin_metrics::AccessPoint::kProfileMenuPrimaryButton);
     histogram_tester_.ExpectUniqueSample(
         "Profile.Menu.ClickedActionableItem",
         ProfileMenuViewBase::ActionableItem::kSigninReauthButton,
@@ -1257,7 +1222,7 @@ IN_PROC_BROWSER_TEST_F(ProfileMenuViewSigninPendingTest, OpenReauthTab) {
                               account_info_.email, true)));
   histogram_tester_.ExpectUniqueSample(
       "Signin.SigninPending.Offered",
-      signin_metrics::AccessPoint::kAvatarBubbleSignIn, 1);
+      signin_metrics::AccessPoint::kProfileMenuPrimaryButton, 1);
 }
 
 #endif  // !BUILDFLAG(IS_CHROMEOS)
@@ -2835,7 +2800,7 @@ IN_PROC_BROWSER_TEST_F(ProfileMenuSigninAccessPointTest,
                        DefaultSigninAccessPoint) {
   base::HistogramTester histogram_tester;
   const signin_metrics::AccessPoint default_access_point =
-      signin_metrics::AccessPoint::kAvatarBubbleSignIn;
+      signin_metrics::AccessPoint::kProfileMenuPrimaryButton;
   ASSERT_NO_FATAL_FAILURE(OpenProfileMenuFromCoordinator());
   // `Signin.SignIn.Offered` should NOT be recorded if the sign-in is not
   // directly offered from the profile menu.

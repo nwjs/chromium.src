@@ -3,7 +3,6 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-# pylint: disable=protected-access
 
 import unittest
 from unittest.mock import MagicMock, patch
@@ -15,7 +14,7 @@ class LocalMachineJunitTestRunTests(unittest.TestCase):
     def testGroupTests(self):
         # Tests grouping tests when classes_per_job is exceeded.
         # All tests are from same class so should be in a single job.
-        MAX_TESTS_PER_JOB = 3
+        TARGET_TESTS_PER_JOB = 3
         json_config = {
             'configs': {
                 'config1': {
@@ -29,7 +28,7 @@ class LocalMachineJunitTestRunTests(unittest.TestCase):
             }
         }
         actual = local_machine_junit_test_run.GroupTests(
-            json_config, MAX_TESTS_PER_JOB
+            json_config, TARGET_TESTS_PER_JOB
         )
 
         expected = [
@@ -132,31 +131,49 @@ class LocalMachineJunitTestRunTests(unittest.TestCase):
     def testChooseNumWorkers(self):
         test_instance = MagicMock()
         test_instance.debug_socket = None
-        test_instance.shards = None
+        test_instance.jobs = None
         obj = local_machine_junit_test_run.LocalMachineJunitTestRun(
             MagicMock(), test_instance
         )
 
-        with patch('multiprocessing.cpu_count', return_value=16):
+        mock_vm_64gb = MagicMock(available=64 * (1024**3))
+        with (
+            patch('multiprocessing.cpu_count', return_value=16),
+            patch('psutil.virtual_memory', return_value=mock_vm_64gb),
+        ):
             self.assertEqual(obj._ChooseNumWorkers(32), 16)
             self.assertEqual(obj._ChooseNumWorkers(8), 8)
+
+        # Memory constraint caps workers below cpu_count (12GB // 2GB = 6)
+        mock_vm_12gb = MagicMock(available=12 * (1024**3))
+        with (
+            patch('multiprocessing.cpu_count', return_value=16),
+            patch('psutil.virtual_memory', return_value=mock_vm_12gb),
+        ):
+            self.assertEqual(obj._ChooseNumWorkers(32), 6)
 
         # Debug socket forces 1 worker
         test_instance.debug_socket = '8701'
         self.assertEqual(obj._ChooseNumWorkers(32), 1)
 
-        # Explicit shards override
+        # Explicit jobs override
         test_instance.debug_socket = None
-        test_instance.shards = 4
+        test_instance.jobs = 4
         self.assertEqual(obj._ChooseNumWorkers(32), 4)
         self.assertEqual(obj._ChooseNumWorkers(2), 2)
 
         # Values less than 1 fall back to auto-select
-        test_instance.shards = 0
-        with patch('multiprocessing.cpu_count', return_value=16):
+        test_instance.jobs = 0
+        with (
+            patch('multiprocessing.cpu_count', return_value=16),
+            patch('psutil.virtual_memory', return_value=mock_vm_64gb),
+        ):
             self.assertEqual(obj._ChooseNumWorkers(32), 16)
-        test_instance.shards = -1
-        with patch('multiprocessing.cpu_count', return_value=16):
+        test_instance.jobs = -1
+        with (
+            patch('multiprocessing.cpu_count', return_value=16),
+            patch('psutil.virtual_memory', return_value=mock_vm_64gb),
+        ):
             self.assertEqual(obj._ChooseNumWorkers(32), 16)
 
 

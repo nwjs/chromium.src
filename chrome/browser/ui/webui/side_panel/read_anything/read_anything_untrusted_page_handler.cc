@@ -10,7 +10,9 @@
 #include <vector>
 
 #include "base/check.h"
+#include "base/check_deref.h"
 #include "base/command_line.h"
+#include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/values.h"
@@ -49,9 +51,8 @@
 #include "components/pdf/common/constants.h"
 #include "components/prefs/pref_service.h"
 #include "components/prefs/scoped_user_pref_update.h"
-#include "components/translate/core/browser/language_state.h"
-#include "components/translate/core/browser/translate_driver.h"
 #include "components/translate/core/browser/translate_manager.h"
+#include "components/translate/core/common/translate_features.h"
 #include "content/public/browser/browser_accessibility_state.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/render_frame_host.h"
@@ -435,12 +436,18 @@ ReadAnythingUntrustedPageHandler::ReadAnythingUntrustedPageHandler(
       web_ui_(web_ui),
       receiver_(this, std::move(receiver)),
       page_(std::move(page)),
-      use_screen_ai_service_(use_screen_ai_service)
+      use_screen_ai_service_(use_screen_ai_service),
 #if BUILDFLAG(IS_CHROMEOS)
-      ,
-      extension_wrapper_(std::move(extension_wrapper))
+      extension_wrapper_(std::move(extension_wrapper)),
 #endif
-{
+      // Unretained is safe because `this` owns `translate_observer_`.
+      translate_observer_(
+          base::BindRepeating(
+              &ReadAnythingUntrustedPageHandler::SetLanguageCode,
+              base::Unretained(this)),
+          base::BindRepeating(
+              &ReadAnythingUntrustedPageHandler::SendTranslationState,
+              base::Unretained(this))) {
   ax_action_handler_observer_.Observe(
       ui::AXActionHandlerRegistry::GetInstance());
 
@@ -525,7 +532,7 @@ ReadAnythingUntrustedPageHandler::~ReadAnythingUntrustedPageHandler() {
       this);
   extensions::ExtensionRegistry::Get(profile_)->RemoveObserver(this);
 #endif
-  translate_observation_.Reset();
+  translate_observer_.Reset();
   main_observer_.reset();
   pdf_observer_.reset();
   LogTextStyle();
@@ -606,7 +613,7 @@ bool ReadAnythingUntrustedPageHandler::IsGoogleDocs(const GURL& url) const {
 }
 
 void ReadAnythingUntrustedPageHandler::WebContentsDestroyed() {
-  translate_observation_.Reset();
+  translate_observer_.Reset();
   audible_closure_.RunAndReset();
 }
 
@@ -1085,6 +1092,15 @@ void ReadAnythingUntrustedPageHandler::OnLineFocusChanged(
   }
 }
 
+void ReadAnythingUntrustedPageHandler::OnAiPlaybackStateChanged(bool enabled) {
+  if (!features::IsReadAnythingReadAloudExperimentalPlaybackUiEnabled()) {
+    return;
+  }
+  if (auto* ra_controller = GetReadAnythingController()) {
+    ra_controller->OnAiPlaybackStateChanged(enabled);
+  }
+}
+
 void ReadAnythingUntrustedPageHandler::UpdateForListenToThisPage(
     bool& playing) {
   if (playing) {
@@ -1321,6 +1337,7 @@ void ReadAnythingUntrustedPageHandler::OnSpeechEngineStalled() {
 }
 
 void ReadAnythingUntrustedPageHandler::RequestReadabilityDistillation(
+    read_anything::mojom::ReadabilityDistillationReason reason,
     RequestReadabilityDistillationCallback callback) {
   // Use a local wrapper so any early return or teardown runs the callback with
   // (kIneligible, "", "") on destruction, containing fallback handling to this
@@ -1332,9 +1349,17 @@ void ReadAnythingUntrustedPageHandler::RequestReadabilityDistillation(
     return;
   }
 
+  // Keep timing renderer-initiated tree-change distillations; exclude
+  // re-distillations from the metric.
+  const base::TimeTicks tree_change_start_time =
+      reason ==
+              read_anything::mojom::ReadabilityDistillationReason::kTreeChanged
+          ? readability_distillation_tree_change_start_time_
+          : base::TimeTicks();
   // Tree changes reset this state in OnActiveAXTreeIDChanged(), but
   // same-document (SPA) navigations reuse the AXTree ID, so reset here.
   ResetReadabilityState();
+  readability_distillation_tree_change_start_time_ = tree_change_start_time;
 
   // Registered before starting so a result can never arrive before the
   // callback. Resetting replies (kIneligible, "", "") if distillation never
@@ -1360,16 +1385,17 @@ void ReadAnythingUntrustedPageHandler::ResetReadabilityState() {
   readability_distillation_tree_change_start_time_ = base::TimeTicks();
 }
 
-void ReadAnythingUntrustedPageHandler::PerformActionInTargetTree(
+bool ReadAnythingUntrustedPageHandler::PerformActionInTargetTree(
     const ui::AXActionData& data) {
   CHECK(IsObservingTree(data.target_tree_id));
   ui::AXActionHandlerBase* handler =
       ui::AXActionHandlerRegistry::GetInstance()->GetActionHandler(
           data.target_tree_id);
   if (!handler) {
-    return;
+    return false;
   }
   handler->PerformAction(data);
+  return true;
 }
 
 void ReadAnythingUntrustedPageHandler::OnSelectionChange(
@@ -1377,9 +1403,11 @@ void ReadAnythingUntrustedPageHandler::OnSelectionChange(
     ui::AXNodeID anchor_node_id,
     int anchor_offset,
     ui::AXNodeID focus_node_id,
-    int focus_offset) {
+    int focus_offset,
+    OnSelectionChangeCallback callback) {
   if (!HasTransientUserActivation()) {
     VLOG(1) << "OnSelectionChange failed with no transient user activation";
+    std::move(callback).Run(false);
     return;
   }
 
@@ -1389,6 +1417,7 @@ void ReadAnythingUntrustedPageHandler::OnSelectionChange(
         ReadAnythingRendererRequestResult::kNotObservedTree);
     VLOG(1) << "Received selection request for tree_id " << target_tree_id
             << " which is not currently being observed";
+    std::move(callback).Run(false);
     return;
   }
 
@@ -1397,6 +1426,7 @@ void ReadAnythingUntrustedPageHandler::OnSelectionChange(
         kRendererSelectionRequestHistogram,
         ReadAnythingRendererRequestResult::kDisallowedActionOnPageType);
     VLOG(1) << "Ignoring selection change on non-HTTP/HTTPS frame";
+    std::move(callback).Run(false);
     return;
   }
 
@@ -1405,11 +1435,13 @@ void ReadAnythingUntrustedPageHandler::OnSelectionChange(
   if (!ui::IsValidAXNodeIDFromRenderer(anchor_node_id)) {
     VLOG(1) << "Received selection request with invalid anchor_node_id "
             << anchor_node_id;
+    std::move(callback).Run(false);
     return;
   }
   if (!ui::IsValidAXNodeIDFromRenderer(focus_node_id)) {
     VLOG(1) << "Received selection request with invalid focus_node_id "
             << focus_node_id;
+    std::move(callback).Run(false);
     return;
   }
   ui::AXActionData action_data;
@@ -1420,59 +1452,32 @@ void ReadAnythingUntrustedPageHandler::OnSelectionChange(
   action_data.focus_node_id = focus_node_id;
   action_data.focus_offset = focus_offset;
 
-  PerformActionInTargetTree(action_data);
+  std::move(callback).Run(PerformActionInTargetTree(action_data));
 }
 
-void ReadAnythingUntrustedPageHandler::OnCollapseSelection() {
+void ReadAnythingUntrustedPageHandler::OnCollapseSelection(
+    OnCollapseSelectionCallback callback) {
   if (!HasTransientUserActivation()) {
     VLOG(1) << "OnCollapseSelection failed with no transient user activation";
+    std::move(callback).Run(false);
     return;
   }
 
-  if (main_observer_ && main_observer_->web_contents()) {
-    main_observer_->web_contents()->CollapseSelection();
+  if (!main_observer_ || !main_observer_->web_contents()) {
+    std::move(callback).Run(false);
+    return;
   }
+  main_observer_->web_contents()->CollapseSelection();
+  std::move(callback).Run(true);
 }
 
 void ReadAnythingUntrustedPageHandler::OnDistillationStatus(
     read_anything::mojom::DistillationStatus status,
     int word_count) {
-#if BUILDFLAG(ENABLE_PDF)
-  if (last_open_trigger_ == ReadAnythingOpenTrigger::kPdfTranslation &&
-      status == read_anything::mojom::DistillationStatus::kSuccess) {
-    // Target main_observer_'s WebContents because ContentTranslateDriver is
-    // attached to the outer primary tab WebContents, not the inner GuestView
-    // WebContents (pdf_observer_).
-    content::WebContents* web_contents =
-        main_observer_ ? main_observer_->web_contents() : nullptr;
-    if (web_contents) {
-      auto* driver =
-          translate::ContentTranslateDriver::FromWebContents(web_contents);
-      if (driver) {
-        driver->MaybeTriggerPendingPdfTranslation();
-      }
-    }
+  if (!read_anything_controller_) {
+    return;
   }
-#endif  // BUILDFLAG(ENABLE_PDF)
-  if (last_open_trigger_ == ReadAnythingOpenTrigger::kOmniboxChip) {
-    if (status != read_anything::mojom::DistillationStatus::kStillRunning) {
-      last_open_trigger_ = ReadAnythingOpenTrigger::kUnknown;
-      base::UmaHistogramEnumeration(
-          "Accessibility.ReadAnything.DistillationStatusAfterOmnibox", status);
-      base::UmaHistogramCustomCounts(
-          "Accessibility.ReadAnything.WordsDistilledAfterOmnibox", word_count,
-          1, kMaxWordsDistilled, kWordsDistilledBuckets);
-
-      content::WebContents* web_contents =
-          main_observer_ ? main_observer_->web_contents() : nullptr;
-      if (web_contents && web_contents->GetPrimaryMainFrame()) {
-        ukm::builders::Accessibility_ReadAnything_OmniboxEntryPointDistillation(
-            web_contents->GetPrimaryMainFrame()->GetPageUkmSourceId())
-            .SetDistillationStatus(static_cast<int>(status))
-            .Record(ukm::UkmRecorder::Get());
-      }
-    }
-  }
+  read_anything_controller_->OnDistillationStatus(status, word_count);
 }
 
 void ReadAnythingUntrustedPageHandler::SetDefaultLanguageCode(
@@ -1491,7 +1496,6 @@ void ReadAnythingUntrustedPageHandler::Activate(
     std::optional<base::TimeDelta> completed_session_duration) {
   active_ = active;
   if (active_) {
-    last_open_trigger_ = open_trigger;
     if (features::IsReadAnythingImprovedUiEnabled() &&
         open_trigger == ReadAnythingOpenTrigger::kListenToThisPageContextMenu) {
       if (listen_to_this_page_playback_state_ !=
@@ -1601,6 +1605,10 @@ void ReadAnythingUntrustedPageHandler::OnTabDiscarded(
     tabs::TabInterface* tab,
     content::WebContents* old_contents,
     content::WebContents* new_contents) {
+  // The old contents, and its translate driver, will be destroyed, so stop
+  // observing it now. The new contents is observed in
+  // OnActiveAXTreeIDChanged().
+  translate_observer_.Reset();
   main_observer_ = std::make_unique<ReadAnythingWebContentsObserver>(
       weak_factory_.GetSafeRef(), new_contents, kReadAnythingAXMode);
   SetUpPdfObserver();
@@ -1712,30 +1720,17 @@ void ReadAnythingUntrustedPageHandler::OnActiveAXTreeIDChanged() {
     return;
   }
 
-  // Observe the new contents so we can get the page language once it's
-  // determined.
-  if (ChromeTranslateClient* translate_client =
-          ChromeTranslateClient::FromWebContents(contents)) {
-    translate::TranslateDriver* driver = translate_client->GetTranslateDriver();
-    const std::string& source_language =
-        translate_client->GetLanguageState().source_language();
-    // If we're not already observing these web contents, then observe them so
-    // we can get a callback when the language is determined. Otherwise, we
-    // just set the language directly.
-    if (!translate_observation_.IsObservingSource(driver)) {
-      translate_observation_.Reset();
-      translate_observation_.Observe(driver);
-      // The language may have already been determined before (and then
-      // unobserved), so send the language if it's not empty. If the language
-      // is outdated, we'll receive a call in OnLanguageDetermined and send
-      // the updated lang there.
-      if (!source_language.empty()) {
-        SetLanguageCode(source_language);
-      }
-    } else {
-      SetLanguageCode(source_language);
-    }
-  }
+  // Observe the new contents to get the page language once it's
+  // determined, and observe the tab's translation state so the page knows
+  // whether the content it displays is translated. Translation state is
+  // observed on the tab's contents rather than pdf_observer_'s, because the
+  // translation of the content displayed in reading mode (including PDFs) is
+  // driven by the tab's ContentTranslateDriver. See OnTranslationRequested().
+  // The tab's contents exists here: either it's `contents`, or it contains
+  // `contents` as the PDF's inner contents.
+  translate_observer_.Observe(
+      /*tab_contents=*/CHECK_DEREF(main_observer_->web_contents()),
+      /*web_contents=*/*contents);
 
 #if BUILDFLAG(ENABLE_PDF)
   CheckIfActiveAXTreeChangedToPdf();
@@ -2107,14 +2102,18 @@ void ReadAnythingUntrustedPageHandler::SetLanguageCode(
   }
 }
 
-void ReadAnythingUntrustedPageHandler::OnLanguageDetermined(
-    const translate::LanguageDetectionDetails& details) {
-  SetLanguageCode(details.adopted_language);
-}
-
-void ReadAnythingUntrustedPageHandler::OnTranslateDriverDestroyed(
-    translate::TranslateDriver* driver) {
-  translate_observation_.Reset();
+void ReadAnythingUntrustedPageHandler::SendTranslationState(
+    bool is_translated) {
+  if (!base::FeatureList::IsEnabled(translate::kEnableTranslatePdf)) {
+    return;
+  }
+  // The page's translation state only changes through this message, so only
+  // send it if it's different from what the page already has.
+  if (last_sent_is_translated_ == is_translated) {
+    return;
+  }
+  last_sent_is_translated_ = is_translated;
+  page_->OnTranslationStateChanged(is_translated);
 }
 
 void ReadAnythingUntrustedPageHandler::LogExtensionState() {

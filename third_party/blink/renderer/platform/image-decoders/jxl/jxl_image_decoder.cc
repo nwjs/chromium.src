@@ -45,6 +45,15 @@ constexpr uint64_t kMaxDecodedSamples = 64ULL * 1024 * 1024;
 constexpr uint64_t kMaxDecodedSamples = 1024ULL * 1024 * 1024;
 #endif
 
+// Content light level metadata is only consumed when tone mapping these
+// transfer functions.
+bool IsToneMappedTransferFunction(const skia::ColorProfile& profile) {
+  skcms_TransferFunction trfn;
+  profile.GetSkColorSpace()->transferFn(&trfn);
+  const skcms_TFType type = skcms_TransferFunction_getType(&trfn);
+  return type == skcms_TFType_PQ || type == skcms_TFType_HLG;
+}
+
 }  // namespace
 
 JXLImageDecoder::JXLImageDecoder(AlphaOption alpha_option,
@@ -160,6 +169,11 @@ bool JXLImageDecoder::SetBasicInfo() {
       return false;
     }
     cmyk_color_profile_ = profile;
+  }
+  // intensity_target is a JPEG XL codestream's only statement of its peak
+  // luminance, which is what CLLI MaxCLL states in other formats.
+  if (profile && IsToneMappedTransferFunction(*profile)) {
+    hdr_metadata_.SetCLLI({.fMaxCLL = basic_info_->intensity_target});
   }
   if (!IgnoresColorSpace() && profile) {
     SetEmbeddedColorProfile(std::move(profile));
@@ -358,8 +372,10 @@ void JXLImageDecoder::Decode(wtf_size_t index, bool only_size) {
   }
 
   // If we want to decode a frame that is *not* the next frame, seek to that
-  // frame.
-  if (basic_info_->have_animation && index != next_frame_to_decode_) {
+  // frame, unless decoding forward from where the decoder is gets there with
+  // less work (see CanDecodeForwardTo()).
+  if (basic_info_->have_animation && index != next_frame_to_decode_ &&
+      !CanDecodeForwardTo(index)) {
     CHECK_GE(decoder_state_, DecoderState::kHaveBasicInfo);
     SeekToFrame(index);
   }
@@ -435,7 +451,12 @@ void JXLImageDecoder::Decode(wtf_size_t index, bool only_size) {
     const uint32_t height = basic_info_->height;
     size_t row_stride = 0;
 
-    if (decoder_state_ >= DecoderState::kHaveBasicInfo) {
+    // When decoding forward to the requested frame, the frames before it are
+    // decoded without output: the decoder still updates its reference frames,
+    // but no pixels are produced or stored for them.
+    const bool skip_output = next_frame_to_decode_ < index;
+
+    if (decoder_state_ >= DecoderState::kHaveBasicInfo && !skip_output) {
       if (frame_buffer_cache_.size() <= next_frame_to_decode_) {
         frame_buffer_cache_.resize(next_frame_to_decode_ + 1);
       }
@@ -531,6 +552,14 @@ void JXLImageDecoder::Decode(wtf_size_t index, bool only_size) {
         break;
       }
       case DecoderState::kHaveFrameHeader: {
+        if (skip_output) {
+          current_frame_decode_time_ = base::TimeDelta();
+          next_frame_to_decode_++;
+          decoder_state_ = (*decoder_)->has_more_frames()
+                               ? DecoderState::kHaveBasicInfo
+                               : DecoderState::kDone;
+          break;
+        }
         ImageFrame& frame = frame_buffer_cache_[next_frame_to_decode_];
         ApplyColorTransform(frame);
         frame.SetPixelsChanged(true);
@@ -595,6 +624,23 @@ void JXLImageDecoder::SeekToFrame(wtf_size_t index) {
 
   decoder_state_ = DecoderState::kHaveBasicInfo;
   next_frame_to_decode_ = index;
+}
+
+bool JXLImageDecoder::CanDecodeForwardTo(wtf_size_t index) const {
+  // A seek restarts the decode at the target's decode start (the earliest frame
+  // that the target's reference frames depend on) and decodes forward from
+  // there. If that is at or before where the decoder is now, between two
+  // frames, the decoder already has everything the target needs, and decoding
+  // forward from here does less work. This is the usual case when an animation
+  // falls behind and the frame it asks for is a few frames ahead. For
+  // animations whose frames all use reference frames from the start of the
+  // file (e.g. sprite sheets drawn with patches), every decode start is the
+  // first frame, so a seek would decode the whole file up to the target, and
+  // each late frame would make the next one later.
+  return decoder_.has_value() &&
+         decoder_state_ == DecoderState::kHaveBasicInfo &&
+         index > next_frame_to_decode_ && index < frame_infos_.size() &&
+         frame_infos_[index].decode_start_file_offset <= decoder_input_offset_;
 }
 
 bool JXLImageDecoder::CanReusePreviousFrameBuffer(

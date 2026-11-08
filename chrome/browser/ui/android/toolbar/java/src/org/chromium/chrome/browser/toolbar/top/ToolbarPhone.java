@@ -87,6 +87,7 @@ import org.chromium.chrome.browser.toolbar.ToolbarProgressBar;
 import org.chromium.chrome.browser.toolbar.ToolbarTabController;
 import org.chromium.chrome.browser.toolbar.ToolbarVariationUtils;
 import org.chromium.chrome.browser.toolbar.back_button.BackButtonCoordinator;
+import org.chromium.chrome.browser.toolbar.download_button.DownloadButtonCoordinator;
 import org.chromium.chrome.browser.toolbar.forward_button.ForwardButtonCoordinator;
 import org.chromium.chrome.browser.toolbar.home_button.HomeButtonCoordinator;
 import org.chromium.chrome.browser.toolbar.menu_button.MenuButtonCoordinator;
@@ -262,6 +263,7 @@ public class ToolbarPhone extends ToolbarLayout
     private final int mToolbarSidePadding;
     private final int mToolbarSidePaddingForNtp;
     private final boolean mIsAuroraEnabled;
+    private final boolean mIsToolbarUiRefactorEnabled;
     private final int mBackgroundHeightIncreaseWhenFocus;
     private int mTopPaddingForEdgeToEdgeNtp;
 
@@ -356,6 +358,7 @@ public class ToolbarPhone extends ToolbarLayout
         mToolbarSidePadding = OmniboxResourceProvider.getToolbarSidePadding(context);
         mToolbarSidePaddingForNtp = OmniboxResourceProvider.getToolbarSidePaddingForNtp(context);
         mIsAuroraEnabled = NewTabPageUtils.isNtpAuroraEnabled();
+        mIsToolbarUiRefactorEnabled = ToolbarVariationUtils.isToolbarUiRefactorEnabled(context);
         mBackgroundHeightIncreaseWhenFocus =
                 OmniboxResourceProvider.getLocationBarBackgroundOnFocusHeightIncrease(context);
         mToolbarBackgroundColorForNtp =
@@ -414,6 +417,7 @@ public class ToolbarPhone extends ToolbarLayout
             @Nullable ForwardButtonCoordinator forwardButtonCoordinator,
             HomeButtonCoordinator homeButtonCoordinator,
             @Nullable SigninButtonCoordinator signinButtonCoordinator,
+            @Nullable DownloadButtonCoordinator downloadButtonCoordinator,
             ThemeColorProvider themeColorProvider,
             IncognitoStateProvider incognitoStateProvider,
             @Nullable Supplier<Integer> incognitoWindowCountSupplier,
@@ -433,6 +437,7 @@ public class ToolbarPhone extends ToolbarLayout
                 forwardButtonCoordinator,
                 homeButtonCoordinator,
                 signinButtonCoordinator,
+                downloadButtonCoordinator,
                 themeColorProvider,
                 incognitoStateProvider,
                 /* incognitoWindowCountSupplier= */ null,
@@ -700,11 +705,18 @@ public class ToolbarPhone extends ToolbarLayout
             boolean changed =
                     layoutLocationBarWithoutAnimationExpansion(
                             MeasureSpec.getSize(widthMeasureSpec));
+            boolean shouldSkipTransition =
+                    !changed
+                            && ChromeFeatureList.sBottomControlsJankImprovement.isEnabled()
+                            && !isLocationBarShownInNtp()
+                            && !mUrlFocusChangeInProgress
+                            && mUrlExpansionFraction == 0f
+                            && !mOptionalButtonAnimationRunning;
             // Avoid URL expansion while in or transitioning to/from tab switcher.
             // updateUrlExpansionAnimation() is called for these states via
             // setTabSwitcherMode()/onTabSwitcherTransitionFinished() ->
             // updateVisualsForLocationBarState()
-            if (!isInTabSwitcherMode()) {
+            if (!isInTabSwitcherMode() && !shouldSkipTransition) {
                 invokeTransition();
             }
             if (!changed) return;
@@ -2101,17 +2113,10 @@ public class ToolbarPhone extends ToolbarLayout
 
     @Override
     public void updateButtonVisibility() {
-        boolean shouldModifyToolbarButtons =
-                ToolbarVariationUtils.shouldModifyToolbarButtons(
-                        getContext(), isNtpVisualState(mVisualState));
         boolean showBackButtonOutside = shouldShowBackButtonOutside();
-        // Enforce mutual exclusivity: if the back button should be shown outside,
-        // we must hide the home button to prevent them from overlapping.
-        boolean hideHomeButton =
-                !mIsHomeButtonEnabled
-                        || showBackButtonOutside
-                        || (shouldModifyToolbarButtons
-                                && !ToolbarVariationUtils.shouldHomeButtonBeAtStartOfToolbar());
+        // Under the toolbar UI refactor, the home button moves to the bottom bar and
+        // is never shown in the top toolbar.
+        boolean hideHomeButton = !mIsHomeButtonEnabled || mIsToolbarUiRefactorEnabled;
         if (hideHomeButton) {
             mHomeButton.setVisibility(View.GONE);
         } else {
@@ -2124,15 +2129,14 @@ public class ToolbarPhone extends ToolbarLayout
 
         updateMenuButtonVisibility();
 
-        if (getTabSwitcherButtonCoordinator() != null) {
-            getTabSwitcherButtonCoordinator().setHasSpaceToShow(!shouldModifyToolbarButtons);
+        var tabSwitcherButtonCoordinator = getTabSwitcherButtonCoordinator();
+        if (tabSwitcherButtonCoordinator != null) {
+            tabSwitcherButtonCoordinator.setHasSpaceToShow(!mIsToolbarUiRefactorEnabled);
         }
     }
 
     private boolean shouldShowBackButtonOutside() {
-        return ToolbarVariationUtils.shouldModifyToolbarButtons(
-                        getContext(), isNtpVisualState(mVisualState))
-                && ToolbarVariationUtils.isToolbarUiRefactorEnabled(getContext())
+        return mIsToolbarUiRefactorEnabled
                 && !ToolbarVariationUtils.shouldBackButtonBeInOmnibox()
                 && !isLocationBarShownInNtp()
                 && !urlHasFocus();
@@ -3157,6 +3161,11 @@ public class ToolbarPhone extends ToolbarLayout
                 getPaddingBottom());
     }
 
+    @Override
+    public int getEdgeToEdgeTopPadding() {
+        return mTopPaddingForEdgeToEdgeNtp;
+    }
+
     /** Checks if the given visual state represents a New Tab Page. */
     private static boolean isNtpVisualState(@VisualState int visualState) {
         return visualState == VisualState.NEW_TAB_NORMAL
@@ -3577,11 +3586,8 @@ public class ToolbarPhone extends ToolbarLayout
 
     @Override
     public void updateMenuButtonVisibility() {
-        boolean shouldModifyToolbarButtons =
-                ToolbarVariationUtils.shouldModifyToolbarButtons(
-                        getContext(), isNtpVisualState(mVisualState));
         boolean showAppMenu =
-                !shouldModifyToolbarButtons || ToolbarVariationUtils.shouldAppMenuBeInToolbar();
+                !mIsToolbarUiRefactorEnabled || ToolbarVariationUtils.shouldAppMenuBeInToolbar();
 
         var menuButtonCoordinator = getMenuButtonCoordinator();
         if (menuButtonCoordinator != null) {
@@ -3593,8 +3599,7 @@ public class ToolbarPhone extends ToolbarLayout
     protected void hideOptionalButton() {
         mButtonData = null;
 
-        if (ToolbarVariationUtils.isToolbarUiRefactorEnabled(getContext())
-                && mLocationBar != null) {
+        if (mIsToolbarUiRefactorEnabled && mLocationBar != null) {
             mLocationBar.hideOptionalButton();
         }
 
@@ -3804,13 +3809,13 @@ public class ToolbarPhone extends ToolbarLayout
 
     private boolean shouldShowOptionalButtonInLocationBar() {
         boolean isNtp = isNtpVisualState(mVisualState);
-        return !isNtp && ToolbarVariationUtils.shouldModifyToolbarButtons(getContext(), isNtp);
+        return !isNtp && mIsToolbarUiRefactorEnabled;
     }
 
     private boolean shouldShowOptionalButtonInToolbar(@Nullable ButtonData buttonData) {
         boolean isNtp = isNtpVisualState(mVisualState);
         boolean isSignInLevelUp = SigninFeatureMap.sSigninLevelUpButton.isEnabled();
-        if (ToolbarVariationUtils.shouldModifyToolbarButtons(getContext(), isNtp)) {
+        if (mIsToolbarUiRefactorEnabled) {
             // New IA: Only show the button on the NTP for the identity disk if needed.
             return isNtp && !isSignInLevelUp && buttonData != null && buttonData.isIdentityDisc();
         } else {

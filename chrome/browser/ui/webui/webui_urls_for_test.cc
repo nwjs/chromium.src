@@ -126,7 +126,7 @@ base::span<const std::string_view> GetChromeUrlsForTest() {
       "chrome://newtab",
       "chrome://notebooks-internals",
       "chrome://ntp-tiles-internals",
-      "chrome://omnibox",
+      "chrome://omnibox-internals",
       "chrome://on-device-internals",
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
@@ -171,7 +171,6 @@ base::span<const std::string_view> GetChromeUrlsForTest() {
       "chrome://system",
       "chrome://tab-search.top-chrome",
       "chrome://tab-strip-internals",
-      "chrome://tabs-from-other-devices.top-chrome",
       "chrome://terms",
       "chrome://traces",
       "chrome://traces-internals",

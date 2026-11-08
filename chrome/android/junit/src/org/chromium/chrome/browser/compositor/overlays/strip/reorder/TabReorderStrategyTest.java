@@ -11,7 +11,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNotNull;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doAnswer;
@@ -28,6 +27,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
+import org.robolectric.Shadows;
 import org.robolectric.annotation.Config;
 
 import org.chromium.base.Token;
@@ -186,7 +186,9 @@ public class TabReorderStrategyTest extends ReorderStrategyTestBase {
 
         verify(mAnimationHost).finishAnimationsAndPushTabUpdates();
         verify(mAnimationHost).startAnimations(anyList(), isNull());
-        verify(mContainerView).performHapticFeedback(eq(HapticFeedbackConstants.LONG_PRESS));
+        assertEquals(
+                HapticFeedbackConstants.LONG_PRESS,
+                Shadows.shadowOf(mContainerView).lastHapticFeedbackPerformed());
     }
 
     /**
@@ -224,34 +226,56 @@ public class TabReorderStrategyTest extends ReorderStrategyTestBase {
     @Test
     @Feature("Pinned Tabs")
     public void testUpdateReorder_success_pinnedTabs() {
-        // Pinned tabs should live at strip start, however, this test and below only checks the
-        // success/failure of the reorder, the initial position doesn't matter, so reuse the current
-        // StripViews here for now. Should consider to refactor this setup for clarity.
+        setupStripViewsWithPinnedTabs();
 
-        //                     -------->
-        // [CollapsedGroup]  [PinnedTab]  [PinnedTab]  [ExpandedGroup]  [Tab]
-        mUngroupedTab1.setIsPinned(true);
-        mUngroupedTab2.setIsPinned(true);
-        Tab tab1 = mModel.getTabAt(1);
-        Tab tab2 = mModel.getTabAt(2);
-        tab1.setIsPinned(true);
-        tab2.setIsPinned(true);
+        // [PinnedTab1] --------> [PinnedTab2] [Tab] [ExpandedGroup] [Tab]
         testUpdateReorder_success(
-                mUngroupedTab1, TAB_WIDTH, DRAG_PAST_PINNED_TAB_SUCCESS, /* expectedIndex= */ 2);
+                mPinnedTab1,
+                EFFECTIVE_PINNED_TAB_WIDTH,
+                DRAG_PAST_PINNED_TAB_SUCCESS,
+                /* expectedIndex= */ 1);
         verifyMoved();
     }
 
     @Test
-    public void testUpdateReorder_fail_pinnedTabs() {
-        //                    -------->
-        // [CollapsedGroup]  [PinnedTab]  [Tab]  [ExpandedGroup]  [Tab]
-        mUngroupedTab1.setIsPinned(true);
-        Tab tab1 = mModel.getTabAt(1);
-        tab1.setIsPinned(true);
+    @Feature("Pinned Tabs")
+    public void testUpdateReorder_fail_pinnedTabs_dragPinnedPastUnpinned() {
+        setupStripViewsWithPinnedTabs();
 
-        // Though the drag threshold is reached, but pinned tab cannot trigger reorder for an
-        // unpinned tab.
-        testUpdateReorder_fail(mUngroupedTab1, DRAG_PAST_PINNED_TAB_SUCCESS);
+        // [PinnedTab1] [PinnedTab2] --------> [Tab] [ExpandedGroup] [Tab]
+        // Though the drag threshold is reached, pinned tab cannot trigger reorder for an unpinned
+        // tab.
+        testUpdateReorder_fail(mPinnedTab2, DRAG_PAST_PINNED_TAB_SUCCESS);
+    }
+
+    @Test
+    @Feature("Pinned Tabs")
+    public void testUpdateReorder_fail_pinnedTabs_dragUnpinnedPastPinned() {
+        setupStripViewsWithPinnedTabs();
+
+        // [PinnedTab1] [PinnedTab2] <-------- [Tab] [ExpandedGroup] [Tab]
+        // Though the drag threshold is reached, unpinned tab cannot trigger reorder for a pinned
+        // tab.
+        testUpdateReorder_fail(mUngroupedTab, -DRAG_PAST_TAB_SUCCESS);
+    }
+
+    @Test
+    @Feature("Pinned Tabs")
+    public void testUpdateReorder_clamping_unpinnedTabTowardStart() {
+        setupStripViewsWithPinnedTabs();
+
+        // Drag unpinned tab toward the start. While reordering past pinned tabs is forbidden,
+        // visually the drag offset is clamped against the first view on the strip (mPinnedTab1)
+        // per Case 2 edge-clamping logic (matching Desktop drag behavior).
+        float dragDeltaX = -100f;
+        startReorderAndDragTab(mUngroupedTab, dragDeltaX);
+
+        float expectedLimit = mPinnedTab1.getIdealX() - mUngroupedTab.getIdealX();
+        assertEquals(
+                "Offset should be clamped against the first pinned tab.",
+                expectedLimit,
+                mUngroupedTab.getOffsetX(),
+                DELTA);
     }
 
     @Test

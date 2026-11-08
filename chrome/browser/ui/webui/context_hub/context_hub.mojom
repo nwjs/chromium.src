@@ -18,6 +18,11 @@ feature kAutoTodos {
   const bool default_state = false;
 };
 
+feature kRecordReplay {
+  const string name = "RecordReplay";
+  const bool default_state = false;
+};
+
 feature kSmartSearch {
   const string name = "SmartSearch";
   const bool default_state = false;
@@ -25,6 +30,11 @@ feature kSmartSearch {
 
 feature kTopics {
   const string name = "Topics";
+  const bool default_state = false;
+};
+
+feature kMemoryBanksSearchPalette {
+  const string name = "MemoryBanksSearchPalette";
   const bool default_state = false;
 };
 
@@ -56,18 +66,26 @@ struct DriveFile {
   string name;
 };
 
+struct ChromeHistoryEntry {
+  url.mojom.Url url;
+  string title;
+  mojo_base.mojom.Time visit_timestamp;
+};
+
 union SourceReference {
   GmailReference gmail;
   PhotosReference photos;
   DriveFile drive;
+  ChromeHistoryEntry chrome_history_entry;
 };
 
-// Data for Gmail-based AutoTodos.
+// Data for first-party AutoTodos.
 struct FirstPartyData {
-  // Source URLs where the AutoTodo was generated from.
+  // Source references where the AutoTodo was generated from.
   array<SourceReference> source_references;
-  // The URL to navigate to when the user clicks to start the item.
-  url.mojom.Url actionable_url;
+  // The URL to navigate to when the user clicks to start the item. Null if
+  // using source references instead.
+  url.mojom.Url? actionable_url;
 };
 
 // Data for Browser tab-based AutoTodos.
@@ -147,6 +165,12 @@ enum ChatRole {
   kAssistant,
 };
 
+// Represents a cited source reference in a chat response.
+struct ChatReference {
+  string title;
+  url.mojom.Url url;
+};
+
 struct ChatMessage {
   ChatRole role;
   string content;
@@ -197,6 +221,8 @@ struct TopicVisit {
   url.mojom.Url url;
   // Title of the visited page.
   string title;
+  // When the page was visited.
+  mojo_base.mojom.Time visit_time;
 };
 
 // A suggested way for the user to pick a Topic back up.
@@ -205,6 +231,25 @@ struct TopicContinuationQuery {
   string title;
   // Query used to run the follow-up search.
   string prompt;
+};
+
+// A page suggested in a TopicCollection.
+struct TopicCollectionItem {
+  // Display title of the page.
+  string title;
+  // URL of the page.
+  url.mojom.Url url;
+  // Name of the site the page belongs to, if known.
+  string? site_name;
+};
+
+// A titled group of pages related to a Topic, shown as a carousel on the topic
+// details page.
+struct TopicCollection {
+  // Display title of the collection.
+  string title;
+  // Pages in the collection, in display order.
+  array<TopicCollectionItem> items;
 };
 
 // A grouping of related browsing history shown in the Topics view.
@@ -225,12 +270,162 @@ struct Topic {
   array<TopicVisit> visits;
   // Suggested follow-up searches for the Topic.
   array<TopicContinuationQuery> continuation_queries;
+  // Groups of related pages, shown on the topic details page.
+  array<TopicCollection> collections;
 };
 
 // Represents either a topic ID or a full topic URL.
 union TopicIdOrUrl {
   string topic_id;
   url.mojom.Url topic_url;
+};
+
+// Defect categories a fishfood rater can select when disliking a Topic. The
+// comment on each value is the label shown to raters.
+// Persisted in profile prefs by integer value, so existing values must not be
+// renumbered.
+enum TopicDefectCategory {
+  // "Irrelevant information included"
+  kIrrelevantInformationIncluded = 0,
+  // "Related information missing"
+  kRelatedInformationMissing = 1,
+  // "Title wrong/vague"
+  kTitleWrongOrVague = 2,
+  // "Emoji wrong"
+  kEmojiWrong = 3,
+  // "Overview inaccurate"
+  kOverviewInaccurate = 4,
+  // "Too broad"
+  kTooBroad = 5,
+  // "Combines separate topics"
+  kCombinesSeparateTopics = 6,
+  // "Too narrow / fragmented"
+  kTooNarrowOrFragmented = 7,
+  // "Incidental browsing (not intended)"
+  kIncidentalBrowsing = 8,
+  // "Overlaps with another topic, and should be combined with it"
+  kDuplicateOfAnotherTopic = 9,
+  // "Sensitive topic shouldn't be shown"
+  kSensitiveTopic = 10,
+  // "Other"; `TopicFeedback.comment` is required when selected.
+  kOther = 11,
+  // "Outdated, no longer relevant"
+  kOutdated = 12,
+};
+
+// What a Topic looked like when it was rated. Stored alongside the rating so
+// feedback remains interpretable if the Topic's id or contents later change.
+struct TopicSnapshot {
+  string title;
+  // Empty if the Topic had no emoji / overview when rated.
+  string emoji;
+  string overview;
+  // Visit times of the Topic's visits, used to join the rating back to
+  // history visits in the exported feedback bundle.
+  array<mojo_base.mojom.Time> visit_times;
+  // When the rating was last saved. Set by the browser in SetTopicFeedback();
+  // any value supplied by the WebUI is ignored.
+  mojo_base.mojom.Time time_rated;
+};
+
+// A fishfood rating of one of a Topic's continuation queries.
+struct TopicQueryFeedback {
+  // Index of the query in `Topic.continuation_queries` at rating time.
+  int32 index;
+  // Text of the rated query, so the rating is interpretable if queries change.
+  string query_text;
+  bool liked;
+};
+
+// Snapshot of the Topic a rater flagged as a duplicate of the rated Topic.
+struct DuplicateTopicSnapshot {
+  string id;
+  string title;
+  array<mojo_base.mojom.Time> visit_times;
+};
+
+// A fishfood rater's overall thumbs up/down on a Topic.
+// Persisted in profile prefs by integer value, so existing values must not be
+// renumbered.
+enum TopicRating {
+  // The rater has not given a thumbs up or down.
+  kUnrated = 0,
+  kLiked = 1,
+  kDisliked = 2,
+};
+
+// A fishfood rater's complete feedback on one Topic. Only collected when the
+// `fishfood_feedback` param of kTopics is enabled.
+struct TopicFeedback {
+  // Id of the rated Topic.
+  string id;
+  TopicSnapshot snapshot;
+  TopicRating rating;
+  array<TopicDefectCategory> defects;
+  // Free-text comment; empty if none. Required to be non-empty when `defects`
+  // contains kOther.
+  string comment;
+  array<TopicQueryFeedback> query_feedbacks;
+  // Visit times of visits the rater flagged as not belonging to the Topic.
+  array<mojo_base.mojom.Time> rejected_visits;
+  DuplicateTopicSnapshot? duplicate_of;
+};
+
+// Summary counts of the Topics fishfood feedback export.
+struct TopicsFeedbackExportStats {
+  // Number of resolved Topics.
+  uint32 topics;
+  // Number of exported history visits in the window.
+  uint32 visits;
+  // Number of exported visits in the window not linked to any Topic.
+  uint32 unclustered_visits;
+  // Number of stored Topics whose visits could not all be resolved on this
+  // device; these are not exported.
+  uint32 unresolvable_topics;
+};
+
+// A distinct minimized URL visited in the export window.
+struct TopicsFeedbackExportUrl {
+  url.mojom.Url url;
+  // Title of the most recent visit to `url`.
+  string title;
+  uint32 visit_count;
+};
+
+// A host visited in the export window, shown as a row the rater can redact.
+struct TopicsFeedbackExportDomain {
+  // Canonical host, e.g. "www.example.com".
+  string domain;
+  uint32 visit_count;
+  // Whether the export dialog should exclude this domain by default (internal
+  // Google hosts and Google Workspace surfaces).
+  bool default_excluded;
+  // Distinct URLs under `domain`, most visited first.
+  array<TopicsFeedbackExportUrl> urls;
+};
+
+// What the Topics fishfood feedback export would contain, shown to the rater
+// before generating the bundle.
+struct TopicsFeedbackExportPreview {
+  TopicsFeedbackExportStats stats;
+  // Hosts visited in the window, most visited first.
+  array<TopicsFeedbackExportDomain> domains;
+};
+
+// The rater's choices for generating the Topics fishfood feedback bundle. A
+// visit is either exported with its URL and title, or as a redacted stub. The
+// bundle doesn't identify the rater.
+struct TopicsFeedbackExportOptions {
+  // Number of days of history to export. Clamped to [1, 14].
+  int32 window_days;
+  // Hosts whose visits are exported as redacted stubs (no URL or title). This
+  // is the complete list: the WebUI prefills it with the preview's
+  // `default_excluded` domains and applies the rater's overrides.
+  array<string> excluded_domains;
+  // Minimized URLs whose visits are exported as redacted stubs.
+  array<url.mojom.Url> excluded_urls;
+  // Free-text description of Topics the rater expected but did not see.
+  string missing_topics;
 };
 
 // Interface for the browser process to push updates to the WebUI page.
@@ -247,6 +442,18 @@ interface Page {
   // Notifies the WebUI when Third Party Auto Todos generation state changes.
   [RuntimeFeature=kAutoTodos]
   OnThirdPartyAutoTodosGenerationStateChanged(bool is_generating);
+
+  // Notifies the WebUI when an entry is saved to the memory bank. If an entry
+  // with the same ID is already displayed, it should be replaced by `entry`.
+  OnMemoryBankEntryAdded(MemoryBankEntry entry);
+
+  // Notifies the WebUI when the annotations of an existing entry in the memory
+  // bank are updated. `annotations` replaces the entry's previous annotations.
+  OnMemoryBankEntryUpdated(int64 id, MemoryBankEntryAnnotations annotations);
+
+  // Notifies the WebUI when entries are deleted from the memory bank. `ids` may
+  // contain IDs that did not match an existing entry, which should be ignored.
+  OnMemoryBankEntriesDeleted(array<int64> ids);
 };
 
 // Factory used by the WebUI page (caller) to create a PageHandler in the
@@ -256,6 +463,25 @@ interface PageHandlerFactory {
   // remote.
   CreatePageHandler(
       pending_remote<Page> page, pending_receiver<PageHandler> handler);
+};
+
+// Result status of staging memory bank file attachments to disk and clipboard.
+enum CopyAttachmentsToClipboardStatus {
+  kSuccess,
+  kFileWriteFailed,
+  // The batch exceeded a documented resource bound (filename length, per-file
+  // content size, or aggregate content size).
+  kInvalidInput,
+};
+
+// Represents a virtual file attachment to be staged to the clipboard, mapping
+// 1:1 to a selected MemoryBankEntry.
+struct MemoryBankFileAttachment {
+  // Target filename (e.g., "Itinerary.md"). Enforced maximum length
+  // (255 bytes).
+  string filename;
+  // Markdown content of the file. Enforced maximum size (10 MB).
+  string content;
 };
 
 // Provides access to context hub features.
@@ -360,6 +586,12 @@ interface PageHandler {
   [RuntimeFeature=kAutoTabGroups]
   ClearTabGroups() => ();
 
+  // Replaces the stored (unconfirmed) tab group suggestions with `groups`,
+  // e.g. after the user renamed, dismissed or rearranged suggested groups.
+  // Groups without tabs are dropped.
+  [RuntimeFeature=kAutoTabGroups]
+  ReplaceTabGroups(array<TabGroup> groups) => ();
+
   // Clears stored tab group chat history.
   [RuntimeFeature=kAutoTabGroups]
   ClearTabGroupChatHistory() => ();
@@ -370,7 +602,7 @@ interface PageHandler {
   AskGeminiWithContext(
       string user_command, array<int64> memory_bank_entry_ids,
       bool save_to_history)
-      => (ChatMessage response);
+      => (ChatMessage response, array<ChatReference> references);
 
   // Returns stored memory bank chat history.
   GetMemoryBankChatHistory() => (array<ChatMessage> history);
@@ -407,8 +639,8 @@ interface PageHandler {
   [RuntimeFeature=kSmartSearch]
   ExecuteSmartSearch(string query) => (array<SmartSearchResult> results);
 
-  // Opens the specified URLs (capped to 10) into a new tab group.
-  [RuntimeFeature=kTopics]
+  // Opens the specified URLs (capped to 10) into a new tab group. Guarded in
+  // PageHandler by kTopics or kSmartSearch enabled.
   OpenUrlsInTabGroup(string group_label, array<url.mojom.Url> urls)
       => (bool success);
 
@@ -422,6 +654,12 @@ interface PageHandler {
   [RuntimeFeature=kTopics]
   GetTopic(string id) => (Topic? topic);
 
+  // Returns the URL of a representative image for `page_url`, a page in one of
+  // a Topic's collections, or null if there is none or `page_url` is not a web
+  // URL.
+  [RuntimeFeature=kTopics]
+  GetTopicPageImageUrl(url.mojom.Url page_url) => (url.mojom.Url? image_url);
+
   // Opens the specified topic (by topic ID or full URL) in a new tab.
   [RuntimeFeature=kTopics]
   OpenTopic(TopicIdOrUrl topic_id_or_url);
@@ -433,4 +671,59 @@ interface PageHandler {
   // unavailable for the profile or if the page is not hosted in a tab.
   [RuntimeFeature=kTopics]
   OpenGlicPanel(array<string> prompts);
+
+  // Stores or replaces the fishfood feedback for the Topic identified by
+  // `feedback.id`, which must be non-empty. Persists across browser restarts
+  // while the `fishfood_feedback` param of kTopics is enabled.
+  [RuntimeFeature=kTopics]
+  SetTopicFeedback(TopicFeedback feedback) => ();
+
+  // Deletes the stored fishfood feedback for `topic_id` (must be non-empty),
+  // if any.
+  [RuntimeFeature=kTopics]
+  DeleteTopicFeedback(string topic_id) => ();
+
+  // Returns all stored fishfood Topic feedback.
+  [RuntimeFeature=kTopics]
+  GetTopicFeedbacks() => (array<TopicFeedback> feedbacks);
+
+  // Deletes all stored fishfood Topic feedback.
+  [RuntimeFeature=kTopics]
+  ClearTopicFeedbacks() => ();
+
+  // Returns what the fishfood feedback export would contain for the last
+  // `window_days` days of history (clamped to [1, 14]). Only callable while
+  // the `fishfood_feedback` param of kTopics is enabled.
+  [RuntimeFeature=kTopics]
+  GetTopicsFeedbackExportPreview(int32 window_days)
+      => (TopicsFeedbackExportPreview preview);
+
+  // Returns the fishfood feedback bundle as schema_version 1 JSON: Topics,
+  // minimized history visits in the window (redacted per `options`), stored
+  // Topic feedback and Chrome/Finch context. Only callable while the
+  // `fishfood_feedback` param of kTopics is enabled.
+  [RuntimeFeature=kTopics]
+  GenerateTopicsFeedbackBundle(TopicsFeedbackExportOptions options)
+      => (string json_bundle);
+
+  // Invokes Glic with auto-submit in actuation (AutoBrowse) mode to execute
+  // `prompt`.
+  [RuntimeFeature=kAutoTodos]
+  RunTodoTask(string prompt) => (bool success);
+
+  // Opens the Context Hub debug UI (chrome://context-hub).
+  [RuntimeFeature=kMemoryBanksSearchPalette]
+  OpenContextHubPage() => ();
+
+  // Opens the specified HTTP/HTTPS URL in a browser tab. Used to open memory
+  // bank source URLs.
+  [RuntimeFeature=kMemoryBanksSearchPalette]
+  OpenWebUrl(url.mojom.Url url) => ();
+
+  // Writes the given files as temporary Markdown files and puts them onto the
+  // system clipboard as file attachments (text/uri-list) so that web apps
+  // attach them when pasted.
+  [RuntimeFeature=kMemoryBanksSearchPalette]
+  CopyAttachmentsToClipboard(array<MemoryBankFileAttachment> files)
+      => (CopyAttachmentsToClipboardStatus status);
 };

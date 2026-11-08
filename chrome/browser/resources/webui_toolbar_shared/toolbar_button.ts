@@ -1,0 +1,500 @@
+// Copyright 2026 The Chromium Authors
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+import {assert} from '//resources/js/assert.js';
+import {loadTimeData} from '//resources/js/load_time_data.js';
+import type {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
+import {MenuSourceType} from '//resources/mojo/ui/base/mojom/menu_source_type.mojom-webui.js';
+import type {HelpBubbleMixinInterface} from 'chrome://resources/cr_components/help_bubble/help_bubble_mixin_interface.js';
+import {HelpBubbleMixinLit} from 'chrome://resources/cr_components/help_bubble/help_bubble_mixin_lit.js';
+import {isMac} from 'chrome://resources/js/platform.js';
+
+import {EventDispositionFlag} from './browser_controls_api_data_model.mojom-webui.js';
+import {TimerHelper} from './timer_helper.js';
+
+export const BUTTON_LEFT = 0;
+export const BUTTON_MIDDLE = 1;
+export const BUTTON_RIGHT = 2;
+
+
+export interface GetEventDispositionFlagsOptions {
+  ignoreCtrlKey?: boolean;
+  ignoreShiftKey?: boolean;
+}
+
+type Constructor<T> = new (...args: any[]) => T;
+
+export interface HelpBubbleAnchor {
+  hasHelpBubble: boolean;
+  adjustTooltipForHelpBubble(original: string): string;
+}
+
+/**
+ * A mixin for components that can be targeted by a help bubble (IPH).
+ * Centralizes the `hasHelpBubble` property and tooltip suppression logic.
+ */
+export const HelpBubbleAnchorMixin =
+    <T extends Constructor<CrLitElement>>(superClass: T): T&
+    Constructor<HelpBubbleMixinInterface>&Constructor<HelpBubbleAnchor> => {
+      class HelpBubbleAnchorMixin extends HelpBubbleMixinLit
+      (superClass) {
+        static get properties() {
+          return {
+            hasHelpBubble: {
+              type: Boolean,
+            },
+          };
+        }
+
+        accessor hasHelpBubble: boolean = false;
+
+        /**
+         * Helper to suppress the tooltip when a help bubble is visible.
+         *
+         * @param original The original tooltip text.
+         * @returns The tooltip text to display.
+         */
+        adjustTooltipForHelpBubble(original: string): string {
+          return this.hasHelpBubble ? '' : original;
+        }
+      }
+
+      return HelpBubbleAnchorMixin as T & Constructor<HelpBubbleMixinInterface>&
+          Constructor<HelpBubbleAnchor>;
+    };
+
+export function setHasHelpBubble(el: Element, value: boolean) {
+  (el as unknown as HelpBubbleAnchor).hasHelpBubble = value;
+}
+
+/**
+ * Tracks whether a bubble is anchored to an element, as indicated by the
+ * TrackedElementManager highlighting the element, in order to avoid reopening
+ * a bubble when the pointerdown that dismissed it (due to focus loss) turns
+ * into a click on the element.
+ *
+ * Usage:
+ * - Pass `onHighlightChanged` as the `onHighlightChanged` option when
+ *   registering the element with the TrackedElementManager (e.g. via
+ *   registerHelpBubble()).
+ * - Use onPointerdown() as (or call it from) the element's `pointerdown`
+ *   handler.
+ * - Call shouldSkipClick() from the element's click handler, and ignore the
+ *   click if it returns true.
+ */
+export class HighlightTracker {
+  // Set if the TrackedElementManager indicates the element should be
+  // highlighted. Public for testing.
+  highlighted: boolean = false;
+  // The value of performance.now() when `highlighted` last went from true to
+  // false, or -Infinity if that has not happened. Public for testing.
+  lastUnhighlightedTime: number = -Infinity;
+
+  private skipNextClick_: boolean = false;
+
+  onHighlightChanged = (highlighted: boolean) => {
+    if (this.highlighted && !highlighted) {
+      this.lastUnhighlightedTime = performance.now();
+    }
+    this.highlighted = highlighted;
+  };
+
+  /**
+   * Determines whether a click following pointerdown event `e` should be
+   * skipped, because the pointerdown dismissed a bubble anchored to the
+   * element. An arrow function so that it can be bound directly as an event
+   * listener.
+   */
+  onPointerdown = (e: PointerEvent) => {
+    // Ignore non-primary clicks or clicks not coming from a pointer (i.e.
+    // keyboard).
+    if (e.button !== BUTTON_LEFT || e.pointerType === '') {
+      this.skipNextClick_ = false;
+      return;
+    }
+    this.skipNextClick_ = this.highlighted ||
+        // Sometimes the IPC to remove highlighting (due to the pointerdown) can
+        // arrive before the pointerdown event itself, so allow for this race.
+        // 100ms matches views::kMinimumTimeBetweenButtonClicks.
+        (performance.now() - this.lastUnhighlightedTime < 100);
+  };
+
+  /**
+   * Returns true if click `e` should be ignored, because the pointerdown that
+   * started it dismissed a bubble anchored to the element. Keyboard clicks are
+   * never skipped.
+   */
+  shouldSkipClick(e: PointerEvent): boolean {
+    if (this.skipNextClick_ && e.pointerType !== '') {
+      this.skipNextClick_ = false;
+      return true;
+    }
+    return false;
+  }
+}
+
+// Tracks state used for deciding whether to display a context menu instead of
+// treating a pointer interaction as a click (a "short press"). Only populated
+// while holding a pointer down, cleared on release, or when the interaction is
+// determined to be a "long press", which generally results in showing a context
+// menu.
+//
+// A press may be determined to be long based on either press duration or
+// vertical mouse movement.
+interface ContextMenuState {
+  // True as long as the pointer is down, and the interaction has not been
+  // passed along as a long or short press.
+  isListening: boolean;
+  activePointerId: number;
+  activeElement: HTMLElement|null;
+
+  longPressTimer: TimerHelper;
+
+  initialY: number;
+}
+
+// Tests if a mouse event occurred over the given HTMLElement. Since shadow DOM
+// interfered with using getElementFromPoint() and checking `target` contains
+// it, instead checks that the mouse is in the DOMRect of `target`.
+function isMouseEventOverTarget(e: MouseEvent, target: HTMLElement) {
+  const targetRect: DOMRect = target.getBoundingClientRect();
+  // Note that the area an element occupies is [left, right) and [top, bottom),
+  // hence this check only allows equality for the left and top edges, and not
+  // the right and bottom ones.
+  return e.clientX >= targetRect.left && e.clientX < targetRect.right &&
+      e.clientY >= targetRect.top && e.clientY < targetRect.bottom;
+}
+
+/**
+ * A helper class for handling pointer events to trigger long press, short
+ * press, as well as context menu actions.
+ *
+ * This class encapsulates the common logic for determining whether a pointer
+ * interaction should result in a short press, a long press (often used to show
+ * a context menu), or a direct context menu trigger (e.g., right-click or Mac
+ * Ctrl+LeftClick).
+ *
+ * Safe usage of this class requires the caller to route all relevant pointer
+ * events (pointerdown, pointerup, pointercancel) and the contextmenu event
+ * to this class's respective handlers. These can be bound directly in the
+ * HTML template, or called from within custom event listeners if the component
+ * requires additional logic (like the reload button).
+ *
+ * This class typically gets pointer capture on pointer down, and then on
+ * pointer up, only treats it as a click if it has pointer capture. This gets us
+ * the standard button behavior where pressing on a different button or on a
+ * non-button area and releasing on a button does nothing, nor does pressing
+ * on a button when it's disabled, and releasing after it's been enabled.
+ *
+ * Important note on accessibility:
+ * `PressHandler` specifically manages pointer (mouse, touch, pen) interactions.
+ * Natively, `<cr-icon-button>` intercepts keyboard `Space` and `Enter` keys and
+ * synthesizes a standard `click` event (where `e.detail === 0`).
+ * To ensure your button is fully accessible to keyboard, you MUST also add an
+ * `@click` listener that explicitly intercepts these synthetic clicks and
+ * delegates them to your short press logic, while ignoring actual mouse clicks
+ * (which have `detail > 0` and are already handled here by `pointerup`).
+ *
+ * Example of direct usage in .html.ts:
+ * ```html
+ * <cr-icon-button
+ *   @pointerdown="${this.pressHandler_.onPointerdown}"
+ *   @pointerup="${this.pressHandler_.onPointerup}"
+ *   @pointercancel="${this.pressHandler_.onPointercancel}"
+ *   @contextmenu="${this.pressHandler_.onContextmenu}"
+ *   @click="${this.onClick_}">
+ * </cr-icon-button>
+ * ```
+ */
+export class PressHandler {
+  // This follows what is done in the views' ToolbarButton.
+  private static readonly LONG_PRESS_TIMER_THRESHOLD_MS = 500;
+  private static readonly DRAG_THRESHOLD_PX = 8;
+  private static readonly NO_ACTIVE_POINTER_ID = -1;
+
+  private onLongPress_: (source: MenuSourceType) => void;
+  private onShortPress_: (e: PointerEvent) => void;
+
+  private contextMenuState_: ContextMenuState|null = null;
+
+  // Do we expect the pointer to be captured between pointerDown and pointerUp?
+  // Mostly true, but false for screen reader synthetic mouse clicks.
+  private expectPointerCapture_: boolean = true;
+
+  constructor(
+      onLongPress: (source: MenuSourceType) => void,
+      onShortPress: (e: PointerEvent) => void,
+      enableContextMenu: boolean = true) {
+    this.onLongPress_ = onLongPress;
+    this.onShortPress_ = onShortPress;
+    if (enableContextMenu) {
+      this.contextMenuState_ = {
+        isListening: false,
+        activePointerId: PressHandler.NO_ACTIVE_POINTER_ID,
+        activeElement: null,
+        longPressTimer: new TimerHelper(),
+        initialY: 0,
+      };
+    }
+  }
+
+  private onPointermove_ = (e: PointerEvent) => {
+    if (!this.contextMenuState_ ||
+        e.pointerId !== this.contextMenuState_.activePointerId) {
+      return;
+    }
+    // Detect downward drag.
+    if (e.clientY - this.contextMenuState_.initialY >
+        PressHandler.DRAG_THRESHOLD_PX) {
+      this.onLongPress_(getContextMenuSourceType(e));
+      this.resetContextMenuState_();
+    }
+  };
+
+  private resetContextMenuState_() {
+    if (this.contextMenuState_?.isListening) {
+      this.contextMenuState_.longPressTimer.clearTimeout();
+
+      if (this.contextMenuState_.activeElement) {
+        this.contextMenuState_.activeElement.removeEventListener(
+            'pointermove', this.onPointermove_);
+        if (this.contextMenuState_.activePointerId !==
+            PressHandler.NO_ACTIVE_POINTER_ID) {
+          if (this.contextMenuState_.activeElement.hasPointerCapture(
+                  this.contextMenuState_.activePointerId)) {
+            this.contextMenuState_.activeElement.releasePointerCapture(
+                this.contextMenuState_.activePointerId);
+          }
+          this.contextMenuState_.activePointerId =
+              PressHandler.NO_ACTIVE_POINTER_ID;
+        }
+      }
+
+      this.contextMenuState_.activeElement = null;
+      this.contextMenuState_.isListening = false;
+    }
+  }
+
+  private shouldCancelClick_(e: PointerEvent): boolean {
+    if (!this.contextMenuState_?.activeElement) {
+      // If drag-to-open-menu is not enabled or we're not actively tracking an
+      // element, don't cancel the click.
+      return false;
+    }
+    const rect = this.contextMenuState_.activeElement.getBoundingClientRect();
+    return e.clientX < rect.left || e.clientX > rect.right ||
+        e.clientY < rect.top || e.clientY > rect.bottom;
+  }
+
+  onPointerdown = (e: PointerEvent, skipLongPress: boolean = false) => {
+    // Ignore secondary pointers if we are actively listening to a primary
+    // pointer.
+    if (this.contextMenuState_?.isListening) {
+      return;
+    }
+
+    // On Mac, Ctrl+LeftClick is a Context Menu action. We return early to
+    // bypass pointer capture and short-press logic, and let the native
+    // contextmenu event handle it.
+    if (isMac && e.button === BUTTON_LEFT && e.ctrlKey) {
+      return;
+    }
+
+    const target = e.currentTarget as HTMLElement;
+    target.setPointerCapture(e.pointerId);
+
+    // With some screen readers, mouse clicks coming from the keyboard aren't
+    // able to hold pointer capture as the pointer isn't involved.
+    this.expectPointerCapture_ = target.hasPointerCapture(e.pointerId);
+
+    if (e.button === BUTTON_RIGHT) {
+      // The TypeScript code should only handle long press for the
+      // left-click/middle-click.
+      return;
+    }
+
+    if (skipLongPress || !this.contextMenuState_) {
+      return;
+    }
+
+    // If can show a context menu, need to initialize `contextMenuState_` and
+    // start a timer.
+
+    this.contextMenuState_.isListening = true;
+    // Use currentTarget to ensure we are capturing the button element that
+    // the listener was attached to, even if the pointer is over a child
+    // element (like an icon).
+    this.contextMenuState_.activeElement = target;
+    this.contextMenuState_.activePointerId = e.pointerId;
+
+    this.contextMenuState_.longPressTimer.setTimeout(() => {
+      // Have to release capture so that a short press will not be triggered.
+      this.resetContextMenuState_();
+      this.onLongPress_(MenuSourceType.kLongPress);
+    }, PressHandler.LONG_PRESS_TIMER_THRESHOLD_MS);
+
+    this.contextMenuState_.initialY = e.clientY;
+    target.addEventListener('pointermove', this.onPointermove_);
+  };
+
+  onPointerup = (e: PointerEvent) => {
+    const target = e.currentTarget as HTMLElement;
+    // Ignore pointers that are not captured, indicating that there was no
+    // corresponding pointer down event over this button.
+    if (this.expectPointerCapture_ && !target.hasPointerCapture(e.pointerId)) {
+      return;
+    }
+
+    // It's not necessary to release captured pointers on pointer up, since that
+    // will be done automatically.
+
+    // Ignore secondary pointers if we are actively listening to a primary
+    // pointer.
+    if (this.contextMenuState_?.isListening &&
+        e.pointerId !== this.contextMenuState_.activePointerId) {
+      return;
+    }
+
+    // Do nothing and reset state on release events that were not over the event
+    // target, which can happen when mouse down occurs over one element and then
+    // the mouse is captured by that element, and then mouse up occurs over
+    // another.
+    if (!isMouseEventOverTarget(e, target)) {
+      this.resetContextMenuState_();
+      return;
+    }
+
+    if (e.button === BUTTON_RIGHT) {
+      this.resetContextMenuState_();
+      return;
+    }
+
+    // If it's Ctrl+LeftClick on Mac, abort the click.
+    if (isMac && e.button === BUTTON_LEFT && e.ctrlKey) {
+      this.resetContextMenuState_();
+      return;
+    }
+
+    const shouldCancel = this.shouldCancelClick_(e);
+    this.resetContextMenuState_();
+
+    if (shouldCancel) {
+      return;
+    }
+
+    this.onShortPress_(e);
+  };
+
+  onPointercancel = (e: PointerEvent) => {
+    // Ignore secondary pointers if we are actively listening to a primary
+    // pointer.
+    if (this.contextMenuState_?.isListening &&
+        e.pointerId !== this.contextMenuState_.activePointerId) {
+      return;
+    }
+    this.resetContextMenuState_();
+  };
+
+  onContextmenu = (e: PointerEvent) => {
+    e.preventDefault();
+    // For Mac Ctrl+LeftClick, the browser natively fires this event immediately
+    // after pointerdown (no wait for pointerup), perfectly matching Views'
+    // context menu timing.
+    this.onLongPress_(getContextMenuSourceType(e));
+  };
+}
+
+export function getContextMenuPosition(element: HTMLElement) {
+  // Returns the element's bounding rectangle relative to the WebUI viewport in
+  // CSS pixels.
+  return element.getBoundingClientRect();
+}
+
+// Should match ui::GetMenuSourceTypeForEvent().
+// * keyboard event -> keyboard
+// * touch event -> touch
+// * others -> mouse
+export function getClickSourceType(e: Event): MenuSourceType {
+  if (e instanceof PointerEvent &&
+      (e.pointerType === 'touch' || e.pointerType === 'pen')) {
+    return MenuSourceType.kTouch;
+  }
+  // Because `e` is a PointerEvent, we cannot check whether `e` is a
+  // KeyboardEvent. Need to check e.detail instead, which is 0 for
+  // KeyboardEvent. Note: Keyboard activations on `<cr-icon-button>` (Space or
+  // Enter) programmatically synthesize standard `click` events with `detail` 0.
+  // TODO(crbug.com/543376027): Handle pointer events correctly. Physical
+  // pointer events can have detail === 0, which incorrectly classifies them as
+  // keyboard events.
+  if (e instanceof MouseEvent && e.detail === 0) {
+    return MenuSourceType.kKeyboard;
+  }
+  return MenuSourceType.kMouse;
+}
+
+// Should match ui::GetMenuSourceTypeForEvent().
+// * keyboard event -> keyboard
+// * touch/gesture event -> touch
+// * others -> mouse
+export function getContextMenuSourceType(e: Event): MenuSourceType {
+  if (e instanceof PointerEvent) {
+    return getClickSourceType(e);
+  }
+  if (e instanceof MouseEvent && e.button === BUTTON_LEFT) {
+    // Mac Ctrl+Click (ctrlKey + button 0) should be Mouse for context menu.
+    if (e.type === 'contextmenu' && e.ctrlKey) {
+      return MenuSourceType.kMouse;
+    }
+    return MenuSourceType.kKeyboard;
+  }
+  return MenuSourceType.kMouse;
+}
+
+export function getEventDispositionFlags(
+    e: MouseEvent|KeyboardEvent,
+    options: GetEventDispositionFlagsOptions = {}): EventDispositionFlag[] {
+  const flags: EventDispositionFlag[] = [];
+  if (e instanceof MouseEvent) {
+    if (e.button === BUTTON_MIDDLE) {
+      flags.push(EventDispositionFlag.kMiddleMouseButton);
+    }
+  }
+  if (e.altKey) {
+    flags.push(EventDispositionFlag.kAltKeyDown);
+  }
+  if (e.ctrlKey && !options.ignoreCtrlKey) {
+    flags.push(EventDispositionFlag.kControlKeyDown);
+  }
+  if (e.metaKey) {
+    flags.push(EventDispositionFlag.kMetaKeyDown);
+  }
+  if (e.shiftKey && !options.ignoreShiftKey) {
+    flags.push(EventDispositionFlag.kShiftKeyDown);
+  }
+  if (e.getModifierState('AltGraph')) {
+    flags.push(EventDispositionFlag.kAltGrKeyDown);
+  }
+  return flags;
+}
+
+export function roundedIconsEnabled() {
+  return loadTimeData.getBoolean('roundedIconsEnabled');
+}
+
+/**
+ * Triggers programmatic SMIL animations within the shadow root of a cr-icon
+ * that is nested inside the given button. Filtering by begin="indefinite"
+ * ensures that sequentially chained or auto-running timed animations are not
+ * inadvertently force-started simultaneously.
+ */
+export function playIconAnimation(button: CrLitElement) {
+  const crIcon = button.shadowRoot.querySelector<CrLitElement>('cr-icon');
+  assert(crIcon);
+  const animates = crIcon.shadowRoot.querySelectorAll<
+      SVGAnimateElement|SVGAnimateTransformElement|SVGAnimateMotionElement>(
+      'animate[begin="indefinite"], ' +
+      'animateTransform[begin="indefinite"], ' +
+      'animateMotion[begin="indefinite"]');
+  animates.forEach(animate => animate.beginElement());
+}

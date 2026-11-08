@@ -43,6 +43,7 @@
 #import "ios/chrome/browser/shared/public/commands/help_commands.h"
 #import "ios/chrome/browser/shared/public/commands/lens_commands.h"
 #import "ios/chrome/browser/shared/public/commands/page_action_menu_commands.h"
+#import "ios/chrome/browser/shared/public/commands/page_info_commands.h"
 #import "ios/chrome/browser/shared/public/commands/popup_menu_commands.h"
 #import "ios/chrome/browser/shared/public/commands/qr_scanner_commands.h"
 #import "ios/chrome/browser/shared/public/commands/quick_delete_commands.h"
@@ -56,6 +57,7 @@
 #import "ios/chrome/browser/toolbar/legacy/ui_bundled/fullscreen/toolbars_size_browser_agent.h"
 #import "ios/chrome/browser/toolbar/legacy/ui_bundled/legacy_toolbar_mediator.h"
 #import "ios/chrome/browser/toolbar/legacy/ui_bundled/public/toolbar_type.h"
+#import "ios/chrome/browser/web/model/web_navigation_browser_agent.h"
 #import "ios/chrome/browser/web/model/web_view_proxy/web_view_proxy_tab_helper.h"
 #import "ios/chrome/grit/ios_strings.h"
 #import "ios/chrome/test/app/uikit_test_util.h"
@@ -167,6 +169,11 @@ class MainToolbarCoordinatorTest : public PlatformTest {
         startDispatchingToTarget:mock_page_action_menu_commands
                      forProtocol:@protocol(PageActionMenuCommands)];
 
+    id mock_page_info_commands = OCMProtocolMock(@protocol(PageInfoCommands));
+    [browser->GetCommandDispatcher()
+        startDispatchingToTarget:mock_page_info_commands
+                     forProtocol:@protocol(PageInfoCommands)];
+
     id mock_gemini_commands = OCMProtocolMock(@protocol(GeminiCommands));
     [browser->GetCommandDispatcher()
         startDispatchingToTarget:mock_gemini_commands
@@ -210,6 +217,7 @@ class MainToolbarCoordinatorTest : public PlatformTest {
 
     OmniboxFocusBrowserAgent::CreateForBrowser(browser);
     AutocompleteBrowserAgent::CreateForBrowser(browser);
+    WebNavigationBrowserAgent::CreateForBrowser(browser);
     // FullscreenController depends on ToolbarsSizeBrowserAgent, so the agent
     ToolbarsSizeBrowserAgent::CreateForBrowser(browser);
     FullscreenController::CreateForBrowser(browser);

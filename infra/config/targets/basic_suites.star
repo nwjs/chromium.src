@@ -521,7 +521,6 @@ targets.legacy_basic_suite(
                 autotest_name = "chromium",
                 timeout_sec = 5400,
             ),
-            experiment_percentage = 100,
         ),
         "sql_unittests": targets.legacy_test_config(
             skylab = targets.skylab(
@@ -1369,7 +1368,7 @@ targets.legacy_basic_suite(
                 "chromedriver",
                 "--binary",
                 "chrome",
-                "--use-xvfb",
+                "--no-xvfb",
             ],
             mac_args = [
                 "--chromedriver",
@@ -1464,6 +1463,20 @@ targets.legacy_basic_suite(
     name = "litert_lm_advanced_main_legacy_tests_gpu_suite",
     tests = {
         "litert_lm_advanced_main_legacy_tests_gpu": targets.legacy_test_config(),
+    },
+)
+
+targets.legacy_basic_suite(
+    name = "openscreen_chromium_gtests",
+    tests = {
+        "cast_unittests": targets.legacy_test_config(),
+        "components_unittests": targets.legacy_test_config(
+            swarming = targets.swarming(
+                shards = 2,
+            ),
+        ),
+        "media_unittests": targets.legacy_test_config(),
+        "openscreen_unittests": targets.legacy_test_config(),
     },
 )
 

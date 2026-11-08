@@ -12,8 +12,6 @@ source_set("gcm") {
     "instance_id/instance_id_profile_service_factory.h",
   ]
 
-  configs += [ "//build/config/compiler:wexit_time_destructors" ]
-
   public_deps = [
     "//base",
     "//chrome/browser/profiles",
@@ -24,6 +22,7 @@ source_set("gcm") {
     "//chrome/browser:browser_process",
     "//chrome/browser/image_fetcher",
     "//chrome/browser/signin",
+    "//chrome/common:channel_info",
     "//chrome/common:constants",
     "//chrome/common:version_header",
     "//components/gcm_driver/instance_id",

@@ -7,15 +7,18 @@
 #include <cstddef>
 #include <memory>
 #include <optional>
+#include <string>
 
+#include "base/functional/bind.h"
+#include "base/test/bind.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
 #include "base/test/test_future.h"
-#include "base/timer/timer.h"
 #include "components/actor/core/actor_features.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "url/gurl.h"
+#include "url/origin.h"
 
 namespace actor {
 namespace {
@@ -42,6 +45,22 @@ class SafetyListManagerTest : public ::testing::TestWithParam<bool> {
  protected:
   SafetyListManager& manager() { return *manager_; }
 
+  Decision Find(const GURL& source, const GURL& destination) {
+    base::test::TestFuture<Decision> future;
+    manager().Find(source, destination, future.GetCallback());
+    return future.Get();
+  }
+
+  bool IsPaymentIframeOriginAllowed(const url::Origin& origin) {
+    base::test::TestFuture<bool> future;
+    manager().IsPaymentIframeOriginAllowed(origin, future.GetCallback());
+    return future.Get();
+  }
+
+  void SetSafetyLists(std::string json) {
+    SetSafetyListsForTesting(&manager(), std::move(json));
+  }
+
   bool enforce_component_updater_blocklist() { return GetParam(); }
 
   Decision ExpectedBlocklistDecision() {
@@ -59,12 +78,373 @@ class SafetyListManagerTest : public ::testing::TestWithParam<bool> {
 };
 
 TEST_P(SafetyListManagerTest, DefaultInstance) {
-  EXPECT_EQ(manager().Find(GURL("https://anything.com"),
-                           GURL("https://www.googleplex.com")),
+  EXPECT_EQ(
+      Find(GURL("https://anything.com"), GURL("https://www.googleplex.com")),
+      Decision::kNone);
+  EXPECT_EQ(Find(GURL("https://anything.com"), GURL("https://corp.google.com")),
             Decision::kNone);
-  EXPECT_EQ(manager().Find(GURL("https://anything.com"),
-                           GURL("https://corp.google.com")),
+  EXPECT_FALSE(IsPaymentIframeOriginAllowed(
+      url::Origin::Create(GURL("https://anything.com"))));
+}
+
+TEST_P(SafetyListManagerTest, ParseSafetyLists_LazyUntilFirstFind) {
+  base::HistogramTester histogram_tester;
+  bool producer_called = false;
+  manager().SetLoadSafetyListsClosure(
+      base::BindLambdaForTesting([&]() -> std::optional<std::string> {
+        producer_called = true;
+        return R"json({
+          "navigation_allowed": [{ "from": "a.com", "to": "b.com" }],
+          "navigation_blocked": []
+        })json";
+      }));
+
+  // Setting the callback should not invoke the producer or parse the safety
+  // lists before `Find()` is called.
+  EXPECT_FALSE(producer_called);
+  histogram_tester.ExpectTotalCount(
+      "Actor.SafetyListParseResult.NavigationAllowed", 0);
+  histogram_tester.ExpectTotalCount(
+      "Actor.SafetyListParseResult.NavigationBlocked", 0);
+
+  // The first call to `Find()` triggers the producer and parses the JSON.
+  EXPECT_EQ(Find(GURL("https://a.com"), GURL("https://b.com")),
+            Decision::kAllow);
+  EXPECT_TRUE(producer_called);
+  histogram_tester.ExpectUniqueSample(
+      "Actor.SafetyListParseResult.NavigationAllowed", ParseResult::kSuccess,
+      1);
+  histogram_tester.ExpectUniqueSample(
+      "Actor.SafetyListParseResult.NavigationBlocked", ParseResult::kSuccess,
+      1);
+
+  // Subsequent `Find()` calls reuse the parsed settings without re-parsing.
+  EXPECT_EQ(Find(GURL("https://a.com"), GURL("https://b.com")),
+            Decision::kAllow);
+  histogram_tester.ExpectTotalCount(
+      "Actor.SafetyListParseResult.NavigationAllowed", 1);
+  histogram_tester.ExpectTotalCount(
+      "Actor.SafetyListParseResult.NavigationBlocked", 1);
+}
+
+TEST_P(SafetyListManagerTest,
+       ParseSafetyLists_MultipleUpdatesBeforeFindOnlyUsesLatest) {
+  base::HistogramTester histogram_tester;
+  bool first_producer_called = false;
+  bool second_producer_called = false;
+
+  manager().SetLoadSafetyListsClosure(
+      base::BindLambdaForTesting([&]() -> std::optional<std::string> {
+        first_producer_called = true;
+        return R"json({
+          "navigation_allowed": [{ "from": "a.com", "to": "b.com" }]
+        })json";
+      }));
+
+  manager().SetLoadSafetyListsClosure(
+      base::BindLambdaForTesting([&]() -> std::optional<std::string> {
+        second_producer_called = true;
+        return R"json({
+          "navigation_allowed": [{ "from": "c.com", "to": "d.com" }]
+        })json";
+      }));
+
+  EXPECT_FALSE(first_producer_called);
+  EXPECT_FALSE(second_producer_called);
+
+  EXPECT_EQ(Find(GURL("https://a.com"), GURL("https://b.com")),
             Decision::kNone);
+  EXPECT_EQ(Find(GURL("https://c.com"), GURL("https://d.com")),
+            Decision::kAllow);
+  EXPECT_FALSE(first_producer_called);
+  EXPECT_TRUE(second_producer_called);
+  histogram_tester.ExpectTotalCount(
+      "Actor.SafetyListParseResult.NavigationAllowed", 1);
+}
+
+TEST_P(SafetyListManagerTest,
+       ParseSafetyLists_ConcurrentFindsShareSingleParse) {
+  base::HistogramTester histogram_tester;
+  int producer_call_count = 0;
+  manager().SetLoadSafetyListsClosure(
+      base::BindLambdaForTesting([&]() -> std::optional<std::string> {
+        ++producer_call_count;
+        return R"json({
+          "navigation_allowed": [{ "from": "a.com", "to": "b.com" }],
+          "navigation_blocked": [{ "from": "c.com", "to": "d.com" }]
+        })json";
+      }));
+
+  base::test::TestFuture<Decision> future1;
+  base::test::TestFuture<Decision> future2;
+  base::test::TestFuture<Decision> future3;
+  manager().Find(GURL("https://a.com"), GURL("https://b.com"),
+                 future1.GetCallback());
+  manager().Find(GURL("https://c.com"), GURL("https://d.com"),
+                 future2.GetCallback());
+  manager().Find(GURL("https://e.com"), GURL("https://f.com"),
+                 future3.GetCallback());
+
+  EXPECT_EQ(future1.Get(), Decision::kAllow);
+  EXPECT_EQ(future2.Get(), ExpectedBlocklistDecision());
+  EXPECT_EQ(future3.Get(), Decision::kNone);
+  EXPECT_EQ(producer_call_count, 1);
+  histogram_tester.ExpectTotalCount(
+      "Actor.SafetyListParseResult.NavigationAllowed", 1);
+}
+
+TEST_P(SafetyListManagerTest, ParseSafetyLists_NulloptProducer) {
+  SetSafetyLists(R"json({
+    "navigation_allowed": [{ "from": "a.com", "to": "b.com" }]
+  })json");
+  EXPECT_EQ(Find(GURL("https://a.com"), GURL("https://b.com")),
+            Decision::kAllow);
+
+  base::HistogramTester histogram_tester;
+  manager().SetLoadSafetyListsClosure(base::BindOnce(
+      []() -> std::optional<std::string> { return std::nullopt; }));
+  EXPECT_EQ(Find(GURL("https://a.com"), GURL("https://b.com")),
+            Decision::kAllow);
+  histogram_tester.ExpectTotalCount(
+      "Actor.SafetyListParseResult.NavigationAllowed", 0);
+  histogram_tester.ExpectTotalCount(
+      "Actor.SafetyListParseResult.NavigationBlocked", 0);
+}
+
+TEST_P(SafetyListManagerTest, FindBeforeSetLoadSafetyListsClosure) {
+  EXPECT_EQ(Find(GURL("https://a.com"), GURL("https://b.com")),
+            Decision::kNone);
+
+  // Setting a failing closure (nullopt) after an initial Find.
+  manager().SetLoadSafetyListsClosure(base::BindOnce(
+      []() -> std::optional<std::string> { return std::nullopt; }));
+  EXPECT_EQ(Find(GURL("https://a.com"), GURL("https://b.com")),
+            Decision::kNone);
+
+  // Setting a failing closure (invalid JSON) after a failed Find.
+  SetSafetyLists("not valid json");
+  EXPECT_EQ(Find(GURL("https://a.com"), GURL("https://b.com")),
+            Decision::kNone);
+
+  // Setting a succeeding closure after failed Finds.
+  SetSafetyLists(R"json({
+    "navigation_allowed": [{ "from": "a.com", "to": "b.com" }]
+  })json");
+  EXPECT_EQ(Find(GURL("https://a.com"), GURL("https://b.com")),
+            Decision::kAllow);
+}
+
+TEST_P(SafetyListManagerTest,
+       ParseSafetyLists_MultipleUpdatesBeforeFind_FailureThenSuccess) {
+  bool first_producer_called = false;
+  bool second_producer_called = false;
+
+  manager().SetLoadSafetyListsClosure(
+      base::BindLambdaForTesting([&]() -> std::optional<std::string> {
+        first_producer_called = true;
+        return std::nullopt;
+      }));
+
+  manager().SetLoadSafetyListsClosure(
+      base::BindLambdaForTesting([&]() -> std::optional<std::string> {
+        second_producer_called = true;
+        return R"json({
+          "navigation_allowed": [{ "from": "a.com", "to": "b.com" }]
+        })json";
+      }));
+
+  EXPECT_EQ(Find(GURL("https://a.com"), GURL("https://b.com")),
+            Decision::kAllow);
+  EXPECT_FALSE(first_producer_called);
+  EXPECT_TRUE(second_producer_called);
+}
+
+TEST_P(SafetyListManagerTest,
+       ParseSafetyLists_MultipleUpdatesBeforeFind_SuccessThenFailure) {
+  bool first_producer_called = false;
+  bool second_producer_called = false;
+
+  manager().SetLoadSafetyListsClosure(
+      base::BindLambdaForTesting([&]() -> std::optional<std::string> {
+        first_producer_called = true;
+        return R"json({
+          "navigation_allowed": [{ "from": "a.com", "to": "b.com" }]
+        })json";
+      }));
+
+  manager().SetLoadSafetyListsClosure(
+      base::BindLambdaForTesting([&]() -> std::optional<std::string> {
+        second_producer_called = true;
+        return "invalid json";
+      }));
+
+  EXPECT_EQ(Find(GURL("https://a.com"), GURL("https://b.com")),
+            Decision::kNone);
+  EXPECT_FALSE(first_producer_called);
+  EXPECT_TRUE(second_producer_called);
+}
+
+TEST_P(SafetyListManagerTest,
+       ParseSafetyLists_SequentialFailureAndSuccessTransitions) {
+  int nullopt_producer_calls = 0;
+  manager().SetLoadSafetyListsClosure(
+      base::BindLambdaForTesting([&]() -> std::optional<std::string> {
+        ++nullopt_producer_calls;
+        return std::nullopt;
+      }));
+
+  // First Find runs the failing closure; subsequent Find returns kNone
+  // immediately without re-invoking the closure.
+  EXPECT_EQ(Find(GURL("https://a.com"), GURL("https://b.com")),
+            Decision::kNone);
+  EXPECT_EQ(Find(GURL("https://a.com"), GURL("https://b.com")),
+            Decision::kNone);
+  EXPECT_EQ(nullopt_producer_calls, 1);
+
+  // Transition from empty state to populated state.
+  SetSafetyLists(R"json({
+    "navigation_allowed": [{ "from": "a.com", "to": "b.com" }]
+  })json");
+  EXPECT_EQ(Find(GURL("https://a.com"), GURL("https://b.com")),
+            Decision::kAllow);
+
+  // Invalid JSON doesn't overwrite valid data.
+  SetSafetyLists("not valid json");
+  EXPECT_EQ(Find(GURL("https://a.com"), GURL("https://b.com")),
+            Decision::kAllow);
+
+  // New data can overwrite old data.
+  SetSafetyLists(R"json({
+    "navigation_allowed": [{ "from": "c.com", "to": "d.com" }]
+  })json");
+  EXPECT_EQ(Find(GURL("https://a.com"), GURL("https://b.com")),
+            Decision::kNone);
+  EXPECT_EQ(Find(GURL("https://c.com"), GURL("https://d.com")),
+            Decision::kAllow);
+}
+
+TEST_P(SafetyListManagerTest,
+       ParseSafetyLists_ConcurrentFindsOnFailureResolveToNone) {
+  int producer_call_count = 0;
+  manager().SetLoadSafetyListsClosure(
+      base::BindLambdaForTesting([&]() -> std::optional<std::string> {
+        ++producer_call_count;
+        return "invalid json";
+      }));
+
+  base::test::TestFuture<Decision> future1;
+  base::test::TestFuture<Decision> future2;
+  base::test::TestFuture<Decision> future3;
+  manager().Find(GURL("https://a.com"), GURL("https://b.com"),
+                 future1.GetCallback());
+  manager().Find(GURL("https://c.com"), GURL("https://d.com"),
+                 future2.GetCallback());
+  manager().Find(GURL("https://e.com"), GURL("https://f.com"),
+                 future3.GetCallback());
+
+  EXPECT_EQ(future1.Get(), Decision::kNone);
+  EXPECT_EQ(future2.Get(), Decision::kNone);
+  EXPECT_EQ(future3.Get(), Decision::kNone);
+  EXPECT_EQ(producer_call_count, 1);
+}
+
+TEST_P(SafetyListManagerTest,
+       InFlightParseReplacedByNewClosure_FailureThenSuccess) {
+  manager().SetLoadSafetyListsClosure(base::BindOnce(
+      []() -> std::optional<std::string> { return std::nullopt; }));
+
+  base::test::TestFuture<Decision> future1;
+  manager().Find(GURL("https://a.com"), GURL("https://b.com"),
+                 future1.GetCallback());
+
+  // While the first (failing) parse is in flight, provide a valid list.
+  SetSafetyLists(R"json({
+    "navigation_allowed": [{ "from": "a.com", "to": "b.com" }]
+  })json");
+
+  base::test::TestFuture<Decision> future2;
+  manager().Find(GURL("https://a.com"), GURL("https://b.com"),
+                 future2.GetCallback());
+
+  EXPECT_EQ(future1.Get(), Decision::kAllow);
+  EXPECT_EQ(future2.Get(), Decision::kAllow);
+}
+
+TEST_P(SafetyListManagerTest,
+       InFlightParseReplacedByNewClosure_SuccessThenFailure) {
+  SetSafetyLists(R"json({
+    "navigation_allowed": [{ "from": "a.com", "to": "b.com" }]
+  })json");
+
+  base::test::TestFuture<Decision> future1;
+  manager().Find(GURL("https://a.com"), GURL("https://b.com"),
+                 future1.GetCallback());
+
+  // While the first (succeeding) parse is in flight, replace with a failing
+  // closure.
+  manager().SetLoadSafetyListsClosure(base::BindOnce(
+      []() -> std::optional<std::string> { return std::nullopt; }));
+
+  base::test::TestFuture<Decision> future2;
+  manager().Find(GURL("https://a.com"), GURL("https://b.com"),
+                 future2.GetCallback());
+
+  EXPECT_EQ(future1.Get(), Decision::kNone);
+  EXPECT_EQ(future2.Get(), Decision::kNone);
+  EXPECT_EQ(Find(GURL("https://a.com"), GURL("https://b.com")),
+            Decision::kNone);
+}
+
+TEST_P(SafetyListManagerTest,
+       InFlightParseReplacedByNewClosure_SuccessThenSuccess) {
+  SetSafetyLists(R"json({
+    "navigation_allowed": [{ "from": "a.com", "to": "b.com" }]
+  })json");
+
+  base::test::TestFuture<Decision> future1;
+  manager().Find(GURL("https://a.com"), GURL("https://b.com"),
+                 future1.GetCallback());
+
+  // While the first parse is in flight, replace with a newer valid list.
+  SetSafetyLists(R"json({
+    "navigation_allowed": [{ "from": "c.com", "to": "d.com" }]
+  })json");
+
+  base::test::TestFuture<Decision> future2;
+  manager().Find(GURL("https://c.com"), GURL("https://d.com"),
+                 future2.GetCallback());
+
+  EXPECT_EQ(future1.Get(), Decision::kNone);
+  EXPECT_EQ(future2.Get(), Decision::kAllow);
+  EXPECT_EQ(Find(GURL("https://a.com"), GURL("https://b.com")),
+            Decision::kNone);
+  EXPECT_EQ(Find(GURL("https://c.com"), GURL("https://d.com")),
+            Decision::kAllow);
+}
+
+TEST_P(SafetyListManagerTest,
+       InFlightParseReplacedByNewClosure_FailureThenFailure) {
+  bool second_called = false;
+  manager().SetLoadSafetyListsClosure(base::BindOnce(
+      []() -> std::optional<std::string> { return std::nullopt; }));
+
+  base::test::TestFuture<Decision> future1;
+  manager().Find(GURL("https://a.com"), GURL("https://b.com"),
+                 future1.GetCallback());
+
+  manager().SetLoadSafetyListsClosure(
+      base::BindLambdaForTesting([&]() -> std::optional<std::string> {
+        second_called = true;
+        return "invalid json";
+      }));
+
+  base::test::TestFuture<Decision> future2;
+  manager().Find(GURL("https://a.com"), GURL("https://b.com"),
+                 future2.GetCallback());
+
+  EXPECT_EQ(future1.Get(), Decision::kNone);
+  EXPECT_EQ(future2.Get(), Decision::kNone);
+  EXPECT_TRUE(second_called);
 }
 
 TEST_P(SafetyListManagerTest, ParseSafetyLists_Validity) {
@@ -304,9 +684,9 @@ TEST_P(SafetyListManagerTest, ParseSafetyLists_Validity) {
   for (const auto& test_case : kTestCases) {
     SCOPED_TRACE(test_case.desc);
     base::HistogramTester histogram_tester;
-    base::test::TestFuture<void> future;
-    manager().ParseSafetyLists(test_case.json, future.GetCallback());
-    ASSERT_TRUE(future.Wait());
+    SetSafetyLists(test_case.json);
+    // Trigger lazy parsing via `Find`.
+    Find(GURL("https://example.com"), GURL("https://example.org"));
 
     histogram_tester.ExpectUniqueSample(
         "Actor.SafetyListParseResult.NavigationAllowed",
@@ -319,8 +699,7 @@ TEST_P(SafetyListManagerTest, ParseSafetyLists_Validity) {
 
 TEST_P(SafetyListManagerTest, ParseSafetyLists_ValidPatterns) {
   base::HistogramTester histogram_tester;
-  base::test::TestFuture<void> future;
-  manager().ParseSafetyLists(R"json(
+  SetSafetyLists(R"json(
     {
       "navigation_allowed": [
         { "from": "[*.]google.com", "to": "youtube.com" },
@@ -332,23 +711,19 @@ TEST_P(SafetyListManagerTest, ParseSafetyLists_ValidPatterns) {
         { "from": "blocked.com", "to": "not-allowed.com"}
       ]
     }
-  )json",
-                             future.GetCallback());
-  ASSERT_TRUE(future.Wait());
-  EXPECT_EQ(manager().Find(GURL("https://www.google.com"),
-                           GURL("https://youtube.com")),
+  )json");
+  EXPECT_EQ(Find(GURL("https://www.google.com"), GURL("https://youtube.com")),
             Decision::kAllow);
-  EXPECT_EQ(manager().Find(GURL("http://foo.com"), GURL("https://sub.bar.com")),
+  EXPECT_EQ(Find(GURL("http://foo.com"), GURL("https://sub.bar.com")),
             Decision::kAllow);
-  EXPECT_EQ(manager().Find(GURL("https://a.com:8080"), GURL("http://b.com")),
+  EXPECT_EQ(Find(GURL("https://a.com:8080"), GURL("http://b.com")),
             Decision::kNone);
-  EXPECT_EQ(manager().Find(GURL("https://a.com:8080"), GURL("https://b.com")),
+  EXPECT_EQ(Find(GURL("https://a.com:8080"), GURL("https://b.com")),
             Decision::kAllow);
-  EXPECT_EQ(manager().Find(GURL("http://127.0.0.1"), GURL("http://localhost")),
+  EXPECT_EQ(Find(GURL("http://127.0.0.1"), GURL("http://localhost")),
             Decision::kAllow);
 
-  EXPECT_EQ(manager().Find(GURL("https://blocked.com"),
-                           GURL("https://not-allowed.com")),
+  EXPECT_EQ(Find(GURL("https://blocked.com"), GURL("https://not-allowed.com")),
             ExpectedBlocklistDecision());
   histogram_tester.ExpectUniqueSample(
       "Actor.SafetyListParseResult.NavigationAllowed", ParseResult::kSuccess,
@@ -360,43 +735,34 @@ TEST_P(SafetyListManagerTest, ParseSafetyLists_ValidPatterns) {
 
 TEST_P(SafetyListManagerTest, ParseBlockLists_MultipleParses) {
   base::HistogramTester histogram_tester;
-  base::test::TestFuture<void> future1;
-  manager().ParseSafetyLists(R"json(
+  SetSafetyLists(R"json(
     {
       "navigation_blocked": [
         { "from": "[*.]google.com", "to": "youtube.com" },
         { "from": "foo.com", "to": "[*.]bar.com" }
       ]
     }
-  )json",
-                             future1.GetCallback());
-  ASSERT_TRUE(future1.Wait());
-  EXPECT_EQ(manager().Find(GURL("https://www.google.com"),
-                           GURL("https://youtube.com")),
+  )json");
+  EXPECT_EQ(Find(GURL("https://www.google.com"), GURL("https://youtube.com")),
             ExpectedBlocklistDecision());
-  EXPECT_EQ(manager().Find(GURL("http://foo.com"), GURL("https://sub.bar.com")),
+  EXPECT_EQ(Find(GURL("http://foo.com"), GURL("https://sub.bar.com")),
             ExpectedBlocklistDecision());
 
-  base::test::TestFuture<void> future2;
-  manager().ParseSafetyLists(R"json(
+  SetSafetyLists(R"json(
     {
       "navigation_blocked": [
         { "from": "[*.]yahoo.com", "to": "vimeo.com" },
         { "from": "bar.com", "to": "[*.]foo.com" }
       ]
     }
-  )json",
-                             future2.GetCallback());
-  ASSERT_TRUE(future2.Wait());
-  EXPECT_EQ(manager().Find(GURL("https://www.google.com"),
-                           GURL("https://youtube.com")),
+  )json");
+  EXPECT_EQ(Find(GURL("https://www.google.com"), GURL("https://youtube.com")),
             Decision::kNone);
-  EXPECT_EQ(manager().Find(GURL("http://foo.com"), GURL("https://sub.bar.com")),
+  EXPECT_EQ(Find(GURL("http://foo.com"), GURL("https://sub.bar.com")),
             Decision::kNone);
-  EXPECT_EQ(
-      manager().Find(GURL("https://www.yahoo.com"), GURL("https://vimeo.com")),
-      ExpectedBlocklistDecision());
-  EXPECT_EQ(manager().Find(GURL("http://bar.com"), GURL("https://sub.foo.com")),
+  EXPECT_EQ(Find(GURL("https://www.yahoo.com"), GURL("https://vimeo.com")),
+            ExpectedBlocklistDecision());
+  EXPECT_EQ(Find(GURL("http://bar.com"), GURL("https://sub.foo.com")),
             ExpectedBlocklistDecision());
   histogram_tester.ExpectBucketCount(
       "Actor.SafetyListParseResult.NavigationAllowed", ParseResult::kSuccess,
@@ -408,17 +774,15 @@ TEST_P(SafetyListManagerTest, ParseBlockLists_MultipleParses) {
 
 TEST_P(SafetyListManagerTest, ParseSafetyLists_BlockedListInvalid) {
   base::HistogramTester histogram_tester;
-  base::test::TestFuture<void> future;
-  manager().ParseSafetyLists(R"json(
+  SetSafetyLists(R"json(
     {
       "navigation_allowed": [],
       "navigation_blocked": [
         { "from": "a.*.com", "to": "b.com" }
       ]
     }
-  )json",
-                             future.GetCallback());
-  ASSERT_TRUE(future.Wait());
+  )json");
+  Find(GURL("https://a.com"), GURL("https://b.com"));
   histogram_tester.ExpectUniqueSample(
       "Actor.SafetyListParseResult.NavigationBlocked",
       ParseResult::kInvalidFromUrlPattern, 1);
@@ -540,6 +904,58 @@ TEST_P(SafetyListManagerTest, Find) {
           Decision::kNone,
       },
       {
+          "no wildcard origin-scoped match",
+          R"json(
+            {
+              "navigation_blocked": [
+                { "from": "https://a.com", "to": "https://b.com" }
+              ]
+            }
+          )json",
+          "https://a.com/foo/bar",
+          "https://b.com:443",
+          ExpectedBlocklistDecision(),
+      },
+      {
+          "no wildcard origin-scoped host mismatch",
+          R"json(
+            {
+              "navigation_blocked": [
+                { "from": "https://a.com", "to": "https://b.com" }
+              ]
+            }
+          )json",
+          "https://a.com",
+          "https://other.com",
+          Decision::kNone,
+      },
+      {
+          "no wildcard origin-scoped scheme mismatch",
+          R"json(
+            {
+              "navigation_blocked": [
+                { "from": "https://a.com", "to": "https://b.com" }
+              ]
+            }
+          )json",
+          "https://a.com",
+          "http://b.com",
+          Decision::kNone,
+      },
+      {
+          "no wildcard origin-scoped port omitted means wildcard",
+          R"json(
+            {
+              "navigation_blocked": [
+                { "from": "https://a.com", "to": "https://b.com" }
+              ]
+            }
+          )json",
+          "https://a.com",
+          "https://b.com:8080",
+          ExpectedBlocklistDecision(),
+      },
+      {
           "both mismatch",
           R"json(
             {
@@ -565,6 +981,24 @@ TEST_P(SafetyListManagerTest, Find) {
           "https://c.com",
           "https://d.com",
           ExpectedBlocklistDecision(),
+      },
+      {
+          "multiple origin-scoped entries, both lists, match one",
+          R"json(
+            {
+              "navigation_blocked": [
+                { "from": "https://a.com", "to": "https://b.com" },
+                { "from": "https://c.com", "to": "https://d.com" }
+              ],
+              "navigation_allowed": [
+                { "from": "https://e.com", "to": "https://f.com" },
+                { "from": "https://g.com", "to": "https://h.com" }
+              ]
+            }
+          )json",
+          "https://e.com",
+          "https://f.com",
+          Decision::kAllow,
       },
       {
           "multiple entries, both lists, match one",
@@ -632,14 +1066,44 @@ TEST_P(SafetyListManagerTest, Find) {
           "https://b.com",
           ExpectedBlocklistDecision(),
       },
+      {
+          "origin-scoped overlapping entries -> blocklist wins",
+          R"json(
+            {
+              "navigation_allowed": [
+                { "from": "https://a.com", "to": "https://b.com" }
+              ],
+              "navigation_blocked": [
+                { "from": "https://a.com", "to": "https://b.com" }
+              ]
+            }
+          )json",
+          "https://a.com",
+          "https://b.com",
+          ExpectedBlocklistDecision(),
+      },
+      {
+          "origin-scoped allowlist overrides more general setting",
+          R"json(
+            {
+              "navigation_blocked": [
+                { "from": "a.com", "to": "b.com" }
+              ],
+              "navigation_allowed": [
+                { "from": "https://a.com:443", "to": "https://b.com:443" }
+              ]
+            }
+          )json",
+          "https://a.com",
+          "https://b.com",
+          Decision::kAllow,
+      },
   };
 
   for (const auto& test_case : kTestCases) {
     SCOPED_TRACE(test_case.desc);
-    base::test::TestFuture<void> future;
-    manager().ParseSafetyLists(test_case.json, future.GetCallback());
-    ASSERT_TRUE(future.Wait());
-    EXPECT_EQ(manager().Find(GURL(test_case.from_url), GURL(test_case.to_url)),
+    SetSafetyLists(test_case.json);
+    EXPECT_EQ(Find(GURL(test_case.from_url), GURL(test_case.to_url)),
               test_case.expected);
   }
 }
@@ -651,7 +1115,7 @@ TEST_P(SafetyListManagerTest, Find_SameOrigin) {
     Decision expected;
   } kTestCases[] = {
       {
-          "no wildcards",
+          "wildcard scheme",
           R"json(
             {
               "navigation_blocked": [
@@ -694,17 +1158,198 @@ TEST_P(SafetyListManagerTest, Find_SameOrigin) {
           )json",
           ExpectedBlocklistDecision(),
       },
+      {
+          "origin scoped",
+          R"json(
+            {
+              "navigation_blocked": [
+                { "from": "https://a.com", "to": "https://a.com" }
+              ]
+            }
+          )json",
+          ExpectedBlocklistDecision(),
+      },
   };
 
   GURL url("https://a.com");
 
   for (const auto& test_case : kTestCases) {
     SCOPED_TRACE(test_case.desc);
-    base::test::TestFuture<void> future;
-    manager().ParseSafetyLists(test_case.json, future.GetCallback());
-    ASSERT_TRUE(future.Wait());
-    EXPECT_EQ(manager().Find(url, url), test_case.expected);
+    SetSafetyLists(test_case.json);
+    EXPECT_EQ(Find(url, url), test_case.expected);
   }
+}
+
+TEST_P(SafetyListManagerTest, ParsePaymentIframeAllowed_Validity) {
+  const struct {
+    std::string desc;
+    std::string json;
+    ParseResult expected_result;
+  } kTestCases[] = {
+      {
+          "malformed_json",
+          "this isn't json",
+          ParseResult::kInvalidJson,
+      },
+      {
+          "top_level_not_dictionary",
+          R"json([])json",
+          ParseResult::kInvalidJson,
+      },
+      {
+          "key_value_not_a_list",
+          R"json({ "payment_iframe_allowed": 123 })json",
+          ParseResult::kJsonKeyValueNotAList,
+      },
+      {
+          "list_value_not_a_string",
+          R"json({ "payment_iframe_allowed": [ 123 ] })json",
+          ParseResult::kEntryFormatInvalid,
+      },
+      {
+          "list_value_dictionary_not_a_string",
+          R"json({ "payment_iframe_allowed": [ {} ] })json",
+          ParseResult::kEntryFormatInvalid,
+      },
+      {
+          "invalid_url",
+          R"json({ "payment_iframe_allowed": [ "not a url" ] })json",
+          ParseResult::kEntryFormatInvalid,
+      },
+      {
+          "http_origin_not_allowed",
+          R"json({ "payment_iframe_allowed": [ "http://example.com" ] })json",
+          ParseResult::kEntryFormatInvalid,
+      },
+      {
+          "url_with_path_not_allowed",
+          R"json({
+            "payment_iframe_allowed": [ "https://example.com/path" ]
+          })json",
+          ParseResult::kEntryFormatInvalid,
+      },
+      {
+          "url_with_query_not_allowed",
+          R"json({
+            "payment_iframe_allowed": [ "https://example.com?q=1" ]
+          })json",
+          ParseResult::kEntryFormatInvalid,
+      },
+      {
+          "wildcard_pattern_not_allowed",
+          R"json({
+            "payment_iframe_allowed": [ "https://[*.]example.com" ]
+          })json",
+          ParseResult::kEntryFormatInvalid,
+      },
+      {
+          "empty_list",
+          R"json({ "payment_iframe_allowed": [] })json",
+          ParseResult::kSuccess,
+      },
+      {
+          "missing_key_succeeds",
+          R"json({})json",
+          ParseResult::kSuccess,
+      },
+      {
+          "valid_https_origins",
+          R"json({
+            "payment_iframe_allowed": [
+              "https://foo.bar.test",
+              "https://example.com"
+            ]
+          })json",
+          ParseResult::kSuccess,
+      },
+  };
+
+  for (const auto& test_case : kTestCases) {
+    SCOPED_TRACE(test_case.desc);
+    base::HistogramTester histogram_tester;
+    SetSafetyLists(test_case.json);
+    // Trigger lazy parsing via `IsPaymentIframeOriginAllowed`.
+    IsPaymentIframeOriginAllowed(
+        url::Origin::Create(GURL("https://example.com")));
+
+    histogram_tester.ExpectUniqueSample(
+        "Actor.SafetyListParseResult.PaymentIframeAllowed",
+        test_case.expected_result, 1);
+  }
+}
+
+TEST_P(SafetyListManagerTest, IsPaymentIframeOriginAllowed) {
+  base::HistogramTester histogram_tester;
+  SetSafetyLists(R"json({
+    "payment_iframe_allowed": [
+      "https://foo.bar.test",
+      "https://example.com"
+    ]
+  })json");
+
+  EXPECT_TRUE(IsPaymentIframeOriginAllowed(
+      url::Origin::Create(GURL("https://foo.bar.test"))));
+  EXPECT_TRUE(IsPaymentIframeOriginAllowed(
+      url::Origin::Create(GURL("https://example.com"))));
+  EXPECT_FALSE(IsPaymentIframeOriginAllowed(
+      url::Origin::Create(GURL("https://other.test"))));
+  // HTTP version of an allowed host is not allowed.
+  EXPECT_FALSE(IsPaymentIframeOriginAllowed(
+      url::Origin::Create(GURL("http://foo.bar.test"))));
+  // Opaque origin is not allowed.
+  EXPECT_FALSE(IsPaymentIframeOriginAllowed(url::Origin()));
+
+  histogram_tester.ExpectUniqueSample(
+      "Actor.SafetyListParseResult.PaymentIframeAllowed", ParseResult::kSuccess,
+      1);
+}
+
+TEST_P(SafetyListManagerTest, ParsePaymentIframeAllowed_MultipleParses) {
+  const url::Origin origin_1 =
+      url::Origin::Create(GURL("https://foo.bar.test"));
+  const url::Origin origin_2 = url::Origin::Create(GURL("https://example.com"));
+
+  base::HistogramTester histogram_tester;
+  SetSafetyLists(R"json({
+    "payment_iframe_allowed": [
+      "https://foo.bar.test"
+    ]
+  })json");
+  EXPECT_TRUE(IsPaymentIframeOriginAllowed(origin_1));
+  EXPECT_FALSE(IsPaymentIframeOriginAllowed(origin_2));
+
+  SetSafetyLists(R"json({
+    "payment_iframe_allowed": [
+      "https://example.com"
+    ]
+  })json");
+  EXPECT_FALSE(IsPaymentIframeOriginAllowed(origin_1));
+  EXPECT_TRUE(IsPaymentIframeOriginAllowed(origin_2));
+  histogram_tester.ExpectBucketCount(
+      "Actor.SafetyListParseResult.PaymentIframeAllowed", ParseResult::kSuccess,
+      2);
+}
+
+TEST_P(SafetyListManagerTest,
+       ParsePaymentIframeAllowed_InvalidUpdatePreservesList) {
+  const url::Origin allowed_origin =
+      url::Origin::Create(GURL("https://foo.bar.test"));
+
+  SetSafetyLists(R"json({
+    "payment_iframe_allowed": [
+      "https://foo.bar.test"
+    ]
+  })json");
+  EXPECT_TRUE(IsPaymentIframeOriginAllowed(allowed_origin));
+
+  base::HistogramTester histogram_tester;
+  SetSafetyLists(R"json({
+    "payment_iframe_allowed": [ "http://invalid-http-origin.test" ]
+  })json");
+  EXPECT_TRUE(IsPaymentIframeOriginAllowed(allowed_origin));
+  histogram_tester.ExpectUniqueSample(
+      "Actor.SafetyListParseResult.PaymentIframeAllowed",
+      ParseResult::kEntryFormatInvalid, 1);
 }
 
 INSTANTIATE_TEST_SUITE_P(All, SafetyListManagerTest, testing::Bool());

@@ -7,8 +7,8 @@
 
 #include <optional>
 #include <string>
-#include <vector>
 
+#include "base/containers/span.h"
 #include "base/observer_list.h"
 #include "build/build_config.h"
 #include "components/infobars/core/infobar_delegate.h"
@@ -57,6 +57,7 @@ class ConfirmInfoBarDelegate : public infobars::InfoBarDelegate {
     BUTTON_NONE = 0,
     BUTTON_OK = 1 << 0,
     BUTTON_CANCEL = 1 << 1,
+    BUTTON_EXTRA = 1 << 2,
   };
 
   ConfirmInfoBarDelegate(const ConfirmInfoBarDelegate&) = delete;
@@ -89,8 +90,7 @@ class ConfirmInfoBarDelegate : public infobars::InfoBarDelegate {
 
   // Returns the list of substitutions to be used with the template
   // returned by GetMessageTextTemplate().
-  virtual const std::vector<MessageSubstitution>& GetMessageSubstitutions()
-      const;
+  virtual base::span<const MessageSubstitution> GetMessageSubstitutions() const;
 
   // Returns the elide behavior for the message string.
   // Not supported on Android.
@@ -120,6 +120,9 @@ class ConfirmInfoBarDelegate : public infobars::InfoBarDelegate {
   virtual std::optional<ui::ButtonStyle> GetButtonStyle(
       InfoBarButton button) const;
 
+  // Returns whether the button's icon should use the button's text color.
+  virtual bool ShouldUseTextColorForButtonIcon(InfoBarButton button) const;
+
   // Returns true if this specific infobar instance should use the
   // custom layout to show the link text before the button.
   virtual bool ShouldShowLinkBeforeButton() const;
@@ -148,6 +151,9 @@ class ConfirmInfoBarDelegate : public infobars::InfoBarDelegate {
   // the infobar is then immediately closed. Subclasses MUST NOT return true if
   // in handling this call something triggers the infobar to begin closing.
   virtual bool Cancel();
+
+  // Called when the Extra button is pressed. Returns true to close the infobar.
+  virtual bool ExtraButtonPressed();
 
   // Called when an inline link created via the substitution system is clicked.
   // The |disposition| specifies how the resulting document should be loaded

@@ -64,8 +64,6 @@ BASE_FEATURE(kUseSmartRefForGPUFenceHandle, base::FEATURE_ENABLED_BY_DEFAULT);
 // therefore d' == d. QED.
 BASE_FEATURE(kUseRoundedPointConversion, base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kHdrAgtm, base::FEATURE_ENABLED_BY_DEFAULT);
-
 // When enabled, allow parsing old AGTM syntax versions.
 // TODO(https://crbug.com/395659818): Remove this.
 BASE_FEATURE(kHdrAgtmParseOldSyntax, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -76,4 +74,10 @@ BASE_FEATURE(kTransparentIconWorkaround,
 #else
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_WIN)
+
+BASE_FEATURE(kHarfBuzzZeroCopyFontTable, base::FEATURE_DISABLED_BY_DEFAULT);
+
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
+BASE_FEATURE(kAsyncFontconfigInitialization, base::FEATURE_ENABLED_BY_DEFAULT);
+#endif
 }  // namespace features

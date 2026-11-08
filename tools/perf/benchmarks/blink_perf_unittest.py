@@ -44,9 +44,7 @@ def _Mean(values):
 class BlinkPerfTest(legacy_page_test_case.LegacyPageTestCase):
   def setUp(self):
     super(BlinkPerfTest, self).setUp()
-    # pylint: disable=protected-access
     self.blink_page_test = blink_perf._BlinkPerfMeasurement()
-    # pylint: enable=protected-access
 
   def HasChromeTraces(self):
     return any(
@@ -61,7 +59,7 @@ class BlinkPerfTest(legacy_page_test_case.LegacyPageTestCase):
       serving_dirs=[_BLINK_PERF_TEST_DATA_DIR, _BLINK_PERF_RESOURCES_DIR],
     )
     assert url.startswith('file://'), 'Expected local URI, got %s' % url
-    blink_page = blink_perf._BlinkPerfPage(  # pylint: disable=protected-access
+    blink_page = blink_perf._BlinkPerfPage(
       url, story_set, base_dir=story_set.base_dir, name=url[len('file://') :]
     )
     story_set.AddStory(blink_page)
@@ -178,7 +176,6 @@ class BlinkPerfTest(legacy_page_test_case.LegacyPageTestCase):
     self.assertTrue(self.HasChromeTraces())
 
 
-# pylint: disable=protected-access
 # This is needed for testing _ComputeTraceEventsThreadTimeForBlinkPerf method.
 class ComputeTraceEventsMetricsForBlinkPerfTest(unittest.TestCase):
   def _AddAsyncSlice(self, renderer_thread, category, name, start, end):
@@ -461,4 +458,38 @@ class ComputeTraceEventsMetricsForBlinkPerfTest(unittest.TestCase):
         model, renderer_main, ['foo', 'bar']
       ),
       {'foo': [100, 100], 'bar': [100, 100]},
+    )
+
+  def testTraceEventMetricsOverlappingCrossProcesses(self):
+    model = model_module.TimelineModel()
+    renderer_main = model.GetOrCreateProcess(1).GetOrCreateThread(2)
+    renderer_main.name = 'CrRendererMain'
+
+    other_thread = model.GetOrCreateProcess(2).GetOrCreateThread(4)
+
+    # Set up two threads with independent thread-specific CPU clocks whose
+    # 'foo' events overlap in wall time:
+    # P1  [          blink_perf.runTest           ]
+    #     |     [      foo (CPU dur: 50)     ]    |
+    # P2  |           [   foo (CPU dur: 20)     ] |
+    #     |     |     |                      |  | |
+    #    100   120   150                    200 220 300
+    #
+    # P1 thread_time: [5000, 5050] (starts first in wall time)
+    # P2 thread_time: [10, 30]     (ends last in wall time)
+    # Merging across threads would subtract 30 - 5000 = -4970.
+    # Merging per thread sums each thread's CPU duration: 50 + 20 = 70.
+    self._AddBlinkTestSlice(renderer_main, 100, 300)
+
+    renderer_main.BeginSlice('blink', 'foo', 120, 5000)
+    renderer_main.EndSlice(200, 5050)
+
+    other_thread.BeginSlice('blink', 'foo', 150, 10)
+    other_thread.EndSlice(220, 30)
+
+    self.assertEqual(
+      blink_perf._ComputeTraceEventsThreadTimeForBlinkPerf(
+        model, renderer_main, ['foo']
+      ),
+      {'foo': [70]},
     )

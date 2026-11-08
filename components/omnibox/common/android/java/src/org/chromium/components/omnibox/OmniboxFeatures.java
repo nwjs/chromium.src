@@ -6,11 +6,8 @@ package org.chromium.components.omnibox;
 
 import android.content.Context;
 import android.content.SharedPreferences;
-import android.text.format.DateUtils;
 
 import androidx.annotation.IntDef;
-
-import com.google.android.gms.location.Priority;
 
 import org.chromium.base.ContextUtils;
 import org.chromium.base.ResettersForTesting;
@@ -35,12 +32,45 @@ import java.util.List;
 /** This is the place where we define these: List of Omnibox features and parameters. */
 @NullMarked
 public class OmniboxFeatures {
-    @IntDef({FeatureState.DISABLED, FeatureState.ENABLED_IN_TEST, FeatureState.ENABLED_IN_PROD})
+    /**
+     * Specifies the default state of a {@link CachedFlag} in production and in tests.
+     *
+     * <p>Because {@link CachedFlag} may be queried before native is initialized, it requires both
+     * the production default (matching {@code omnibox_features.cc}) and the test/developer-build
+     * default (matching {@code fieldtrial_testing_config.json}) to be known statically in Java.
+     */
+    @IntDef({
+        FeatureState.DISABLED_IN_PROD,
+        FeatureState.DISABLED_IN_TEST,
+        FeatureState.ENABLED_IN_TEST,
+        FeatureState.ENABLED_IN_PROD
+    })
     @Retention(RetentionPolicy.SOURCE)
     @interface FeatureState {
-        int DISABLED = 0;
-        int ENABLED_IN_TEST = 1;
-        int ENABLED_IN_PROD = 2;
+        /**
+         * Disabled in both production ({@code omnibox_features.cc}) and tests (not enabled in
+         * {@code fieldtrial_testing_config.json}).
+         */
+        int DISABLED_IN_PROD = 0;
+
+        /**
+         * Enabled by default in production ({@code omnibox_features.cc}), but disabled in tests via
+         * {@code fieldtrial_testing_config.json} (e.g. when evaluating a feature deprecation or
+         * holdback).
+         */
+        int DISABLED_IN_TEST = 1;
+
+        /**
+         * Disabled by default in production ({@code omnibox_features.cc}), but enabled in tests via
+         * {@code fieldtrial_testing_config.json} (e.g. when rolling out a new feature).
+         */
+        int ENABLED_IN_TEST = 2;
+
+        /**
+         * Enabled in both production ({@code omnibox_features.cc}) and tests (not disabled in
+         * {@code fieldtrial_testing_config.json}).
+         */
+        int ENABLED_IN_PROD = 3;
     }
 
     // LINT.IfChange(OmniboxJumpStartState)
@@ -73,9 +103,6 @@ public class OmniboxFeatures {
     // session.
     public static final int DEFAULT_MAX_PREFETCHES_PER_OMNIBOX_SESSION = 5;
 
-    // Timeout requests after 10 minutes if we somehow fail to remove our listener.
-    private static final int DEFAULT_GEOLOCATION_REQUEST_TIMEOUT_MIN = 10;
-
     // Minimum number of characters required to trigger rich inline autocomplete.
     private static final int DEFAULT_RICH_INLINE_MIN_CHAR = 3;
 
@@ -92,23 +119,20 @@ public class OmniboxFeatures {
     public static final CachedFlag sPrefetchSelectedSuggestionsOmtAndroid =
             newFlag(
                     OmniboxFeatureList.OMNIBOX_PREFETCH_SELECTED_SUGGESTIONS_OMT_ANDROID,
-                    FeatureState.DISABLED);
+                    FeatureState.DISABLED_IN_PROD);
 
     public static final CachedFlag sOmniboxSearchPrefetchOnEnterKeyDown =
             newFlag(
                     OmniboxFeatureList.OMNIBOX_SEARCH_PREFETCH_ON_ENTER_KEY_DOWN,
                     FeatureState.ENABLED_IN_TEST);
 
+    public static final CachedFlag sZeroSuggestPrefetchOnPageLoadAndTabSwitch =
+            newFlag(
+                    OmniboxFeatureList.ZERO_SUGGEST_PREFETCH_ON_PAGE_LOAD_AND_TAB_SWITCH,
+                    FeatureState.ENABLED_IN_TEST);
+
     public static final CachedFlag sUrlBarWithoutLigatures =
             newFlag(OmniboxFeatureList.URL_BAR_WITHOUT_LIGATURES, FeatureState.ENABLED_IN_PROD);
-
-    /**
-     * Whether GeolocationHeader should use {@link
-     * com.google.android.gms.location.FusedLocationProviderClient} to determine the location sent
-     * in omnibox requests.
-     */
-    public static final CachedFlag sUseFusedLocationProvider =
-            newFlag(OmniboxFeatureList.USE_FUSED_LOCATION_PROVIDER, FeatureState.ENABLED_IN_PROD);
 
     public static final CachedFlag sOmniboxXGeoPermissionGranularity =
             newFlag(
@@ -120,9 +144,6 @@ public class OmniboxFeatures {
 
     public static final CachedFlag sInlineLocationSignaling =
             newFlag(OmniboxFeatureList.INLINE_LOCATION_SIGNALING, FeatureState.ENABLED_IN_TEST);
-
-    public static final CachedFlag sAsyncViewInflation =
-            newFlag(OmniboxFeatureList.OMNIBOX_ASYNC_VIEW_INFLATION, FeatureState.ENABLED_IN_PROD);
 
     public static final CachedFlag sFuseboxAsyncInflation =
             newFlag(
@@ -136,7 +157,7 @@ public class OmniboxFeatures {
             newFlag(OmniboxFeatureList.JUMP_START_OMNIBOX, FeatureState.ENABLED_IN_TEST);
 
     public static final CachedFlag sForceAndroidRealbox =
-            newFlag(OmniboxFeatureList.FORCE_ANDROID_REALBOX, FeatureState.DISABLED);
+            newFlag(OmniboxFeatureList.FORCE_ANDROID_REALBOX, FeatureState.DISABLED_IN_PROD);
 
     public static final CachedFlag sDebounceKeyboardVisibility =
             newFlag(
@@ -170,8 +191,30 @@ public class OmniboxFeatures {
                     OmniboxFeatureList.OMNIBOX_FUSEBOX_POPUP_VARIATIONS,
                     FeatureState.ENABLED_IN_TEST);
 
-    public static final BooleanCachedFeatureParam sMultiattachmentFusebox =
-            newBooleanParam(sOmniboxMultimodalInput, "multi_context", true);
+    public static final CachedFlag sFuseboxUserEdModelSubtitles =
+            newFlag(
+                    OmniboxFeatureList.OMNIBOX_FUSEBOX_USER_ED_MODEL_SUBTITLES,
+                    FeatureState.DISABLED_IN_PROD);
+
+    public static final CachedFlag sFuseboxUserEdPlusButtonIph =
+            newFlag(
+                    OmniboxFeatureList.OMNIBOX_FUSEBOX_USER_ED_PLUS_BUTTON_IPH,
+                    FeatureState.DISABLED_IN_PROD);
+
+    public static final CachedFlag sFuseboxUserEdTabPickerIph =
+            newFlag(
+                    OmniboxFeatureList.OMNIBOX_FUSEBOX_USER_ED_TAB_PICKER_IPH,
+                    FeatureState.DISABLED_IN_PROD);
+
+    public static final CachedFlag sFuseboxUserEdFakeboxAnimation =
+            newFlag(
+                    OmniboxFeatureList.OMNIBOX_FUSEBOX_USER_ED_FAKEBOX_ANIMATION,
+                    FeatureState.DISABLED_IN_PROD);
+
+    public static final CachedFlag sFuseboxUserEdGuidedTour =
+            newFlag(
+                    OmniboxFeatureList.OMNIBOX_FUSEBOX_USER_ED_GUIDED_TOUR,
+                    FeatureState.DISABLED_IN_PROD);
 
     public static final BooleanCachedFeatureParam sRedirectComposeplateButton =
             newBooleanParam(sOmniboxMultimodalInput, "redirect_composeplate_button", false);
@@ -259,50 +302,15 @@ public class OmniboxFeatures {
     public static final CachedFlag sServeJavaCachedZeroSuggest =
             newFlag(
                     OmniboxFeatureList.SERVE_JAVA_CACHED_ZERO_SUGGEST,
-                    FeatureState.ENABLED_IN_PROD);
+                    FeatureState.DISABLED_IN_TEST);
 
     public static final CachedFlag sResetSuggestionsScroll =
-            newFlag(OmniboxFeatureList.RESET_SUGGESTIONS_SCROLL, FeatureState.DISABLED);
+            newFlag(OmniboxFeatureList.RESET_SUGGESTIONS_SCROLL, FeatureState.DISABLED_IN_PROD);
 
     public static final CachedFlag sOmniboxDisableTabsForCanvas =
             newFlag(
                     OmniboxFeatureList.OMNIBOX_DISABLE_TABS_FOR_CANVAS,
                     FeatureState.ENABLED_IN_PROD);
-
-    public static final CachedFlag sComposeboxDriveContextMenuOption =
-            newFlag(OmniboxFeatureList.COMPOSEBOX_DRIVE_CONTEXT_MENU_OPTION, FeatureState.DISABLED);
-
-    public static final CachedFlag sComposeboxDriveContextMenuOptionDisclaimer =
-            newFlag(
-                    OmniboxFeatureList.COMPOSEBOX_DRIVE_CONTEXT_MENU_OPTION_DISCLAIMER,
-                    FeatureState.DISABLED);
-
-    public static final CachedFlag sForceDriveDisclaimerAccepted =
-            newFlag(OmniboxFeatureList.FORCE_DRIVE_DISCLAIMER_ACCEPTED, FeatureState.DISABLED);
-
-    public static final IntCachedFeatureParam sGeolocationRequestTimeoutMinutes =
-            newIntParam(
-                    sUseFusedLocationProvider,
-                    "geolocation_request_timeout_minutes",
-                    DEFAULT_GEOLOCATION_REQUEST_TIMEOUT_MIN);
-
-    public static final IntCachedFeatureParam sGeolocationRequestMaxLocationAge =
-            newIntParam(
-                    sUseFusedLocationProvider,
-                    "geolocation_request_max_location_age_millis",
-                    (int) (5 * DateUtils.MINUTE_IN_MILLIS));
-
-    public static final IntCachedFeatureParam sGeolocationRequestUpdateInterval =
-            newIntParam(
-                    sUseFusedLocationProvider,
-                    "geolocation_request_min_update_interval_millis",
-                    (int) (9 * DateUtils.MINUTE_IN_MILLIS));
-
-    public static final IntCachedFeatureParam sGeolocationRequestPriority =
-            newIntParam(
-                    sUseFusedLocationProvider,
-                    "geolocation_request_priority",
-                    Priority.PRIORITY_BALANCED_POWER_ACCURACY);
 
     public static final IntCachedFeatureParam sTouchDownTriggerMaxPrefetchesPerSession =
             newIntParam(
@@ -329,7 +337,7 @@ public class OmniboxFeatures {
 
     // Omnibox Diagnostics
     private static final CachedFlag sDiagnostics =
-            newFlag(OmniboxFeatureList.DIAGNOSTICS, FeatureState.DISABLED);
+            newFlag(OmniboxFeatureList.DIAGNOSTICS, FeatureState.DISABLED_IN_PROD);
     public static final BooleanCachedFeatureParam sDiagInputConnection =
             newBooleanParam(sDiagnostics, "omnibox_diag_input_connection", false);
 
@@ -347,8 +355,10 @@ public class OmniboxFeatures {
                 new CachedFlag(
                         OmniboxFeatureMap.getInstance(),
                         featureName,
-                        /* defaultValue= */ state == FeatureState.ENABLED_IN_PROD,
-                        /* defaultValueInTests= */ state != FeatureState.DISABLED);
+                        /* defaultValue= */ state == FeatureState.ENABLED_IN_PROD
+                                || state == FeatureState.DISABLED_IN_TEST,
+                        /* defaultValueInTests= */ state == FeatureState.ENABLED_IN_PROD
+                                || state == FeatureState.ENABLED_IN_TEST);
         sCachedFlags.add(cachedFlag);
         return cachedFlag;
     }
@@ -447,6 +457,14 @@ public class OmniboxFeatures {
     }
 
     /**
+     * Returns whether zero-suggest prefetch should be triggered when a page finishes loading on
+     * Android, aligning with Desktop's page-load and tab-switch behavior.
+     */
+    public static boolean isZeroSuggestPrefetchOnPageLoadAndTabSwitchEnabled() {
+        return sZeroSuggestPrefetchOnPageLoadAndTabSwitch.isEnabled();
+    }
+
+    /**
      * Returns the maximum number of prefetches that can be triggered by touch down events within an
      * omnibox session.
      */
@@ -521,6 +539,14 @@ public class OmniboxFeatures {
     /** Returns whether "Ask about this page" should be placed first before attachments. */
     public static boolean shouldPutCurrentTabFirst() {
         return sFuseboxPopupPutCurrentTabFirst.getValue();
+    }
+
+    /**
+     * Returns whether the popup has a pinned section between the attachments and the "More options"
+     * button, which holds the pinned current tab and pinned tools.
+     */
+    public static boolean hasFuseboxPinnedSection() {
+        return sOmniboxFuseboxPopupVariations.isEnabled() && !shouldUseScrollableCarousel();
     }
 
     /**

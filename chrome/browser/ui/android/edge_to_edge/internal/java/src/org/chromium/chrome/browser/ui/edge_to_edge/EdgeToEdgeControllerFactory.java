@@ -9,16 +9,18 @@ import android.os.Build;
 import android.os.Build.VERSION_CODES;
 import android.view.View;
 
+import org.chromium.base.lifetime.Destroyable;
 import org.chromium.base.supplier.MonotonicObservableSupplier;
 import org.chromium.base.supplier.NullableObservableSupplier;
 import org.chromium.build.annotations.NullMarked;
-import org.chromium.build.annotations.NullUnmarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.browser_controls.BottomControlsStacker;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
+import org.chromium.chrome.browser.browser_controls.TopControlsStacker;
 import org.chromium.chrome.browser.fullscreen.FullscreenManager;
 import org.chromium.chrome.browser.layouts.LayoutManager;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.theme.TopUiThemeColorProvider;
 import org.chromium.ui.KeyboardVisibilityDelegate;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.edge_to_edge.EdgeToEdgeManager;
@@ -50,7 +52,6 @@ public class EdgeToEdgeControllerFactory {
      * @return An EdgeToEdgeController to control drawing under System Bars, or {@code null} if this
      *     version of Android does not support the APIs needed.
      */
-    @NullUnmarked // create_stripped_java_factory.py does not support annotations in generics
     public static @Nullable EdgeToEdgeController create(
             Activity activity,
             WindowAndroid windowAndroid,
@@ -60,7 +61,10 @@ public class EdgeToEdgeControllerFactory {
             MonotonicObservableSupplier<LayoutManager> layoutManagerSupplier,
             FullscreenManager fullscreenManager) {
         if (Build.VERSION.SDK_INT < VERSION_CODES.R) return null;
-        assert EdgeToEdgeUtils.isEdgeToEdgeBottomChinEnabled(activity);
+        assert EdgeToEdgeUtils.isEdgeToEdgeBottomChinSupportedByDevice(activity)
+                        || EdgeToEdgeUtils.isEdgelessTopInsetSupported(activity)
+                : "EdgeToEdgeController should only be created when bottom chin or top inset"
+                        + " edge-to-edge is supported";
         return new EdgeToEdgeControllerImpl(
                 activity,
                 windowAndroid,
@@ -108,6 +112,33 @@ public class EdgeToEdgeControllerFactory {
                 bottomControlsStacker,
                 fullscreenManager,
                 defaultVisibility);
+    }
+
+    /**
+     * Creates an {@link EdgeToEdgeTopScalpCoordinator} instance.
+     *
+     * @param layoutManager The {@link LayoutManager} for adding new scene overlays.
+     * @param topControlsStacker The {@link TopControlsStacker} instance.
+     * @param edgeToEdgeController The {@link EdgeToEdgeController} instance.
+     * @param fullscreenManager The {@link FullscreenManager} providing fullscreen state.
+     * @param topUiThemeColorProvider The {@link TopUiThemeColorProvider} providing theme colors.
+     * @return The {@link Destroyable} instance, or null if disabled.
+     */
+    public static @Nullable Destroyable createTopScalp(
+            LayoutManager layoutManager,
+            TopControlsStacker topControlsStacker,
+            EdgeToEdgeController edgeToEdgeController,
+            FullscreenManager fullscreenManager,
+            TopUiThemeColorProvider topUiThemeColorProvider) {
+        if (!EdgeToEdgeUtils.isTopEdgeToEdgeEnabled()) {
+            return null;
+        }
+        return new EdgeToEdgeTopScalpCoordinator(
+                layoutManager,
+                topControlsStacker,
+                edgeToEdgeController,
+                fullscreenManager,
+                topUiThemeColorProvider);
     }
 
     /**

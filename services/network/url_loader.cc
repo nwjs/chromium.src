@@ -44,6 +44,7 @@
 #include "build/build_config.h"
 #include "mojo/public/cpp/bindings/shared_remote.h"
 #include "mojo/public/cpp/system/simple_watcher.h"
+#include "net/base/auth.h"
 #include "net/base/completion_once_callback.h"
 #include "net/base/features.h"
 #include "net/base/isolation_info.h"
@@ -107,6 +108,7 @@
 #include "services/network/public/cpp/resource_request.h"
 #include "services/network/public/cpp/sri_message_signatures.h"
 #include "services/network/public/cpp/synthetic_response_util.h"
+#include "services/network/public/cpp/trust_token_http_headers.h"
 #include "services/network/public/mojom/client_security_state.mojom.h"
 #include "services/network/public/mojom/cookie_access_observer.mojom.h"
 #include "services/network/public/mojom/cookie_manager.mojom.h"
@@ -1018,7 +1020,8 @@ void URLLoader::OnReceivedRedirect(net::URLRequest* url_request,
   url_loader_util::SetRequestCredentials(
       redirect_info.new_url, factory_params_->client_security_state,
       request_mode_, request_credentials_mode_, url_request_->initiator(),
-      *url_request_, &origin_access_list_.get());
+      *url_request_, &origin_access_list_.get(),
+      factory_params_->disable_web_security);
 
   // Clear the Cookie header to ensure that cookies passed in through the
   // `ResourceRequest` do not persist across redirects.
@@ -1034,6 +1037,18 @@ void URLLoader::OnReceivedRedirect(net::URLRequest* url_request,
         net::CookieSettingOverride::kStorageAccessGrantEligibleViaHeader);
     url_request_->cookie_setting_overrides().Remove(
         net::CookieSettingOverride::kStorageAccessGrantEligible);
+
+    // Request headers added by `trust_token_interceptor_` are computed for the
+    // initial request origin and must not be sent to a different origin. In
+    // addition, `trust_token_interceptor_` must handle the cross-origin
+    // redirect so that subsequent responses are not processed against the
+    // initial request origin and the operation fails.
+    if (trust_token_interceptor_) {
+      for (std::string_view header : TrustTokensRequestHeaders()) {
+        url_request_->RemoveRequestHeaderByName(header);
+      }
+      trust_token_interceptor_->OnCrossOriginRedirect();
+    }
   }
 
   DCHECK_EQ(emitted_devtools_raw_request_, emitted_devtools_raw_response_);
@@ -1064,7 +1079,13 @@ void URLLoader::OnAuthRequired(net::URLRequest* url_request,
     return;
   }
 
-  if (do_not_prompt_for_login_) {
+  // Server auth challenges for requests that must not prompt for login are
+  // cancelled here. Proxy auth challenges are forwarded, flagged, so that
+  // non-UI credential sources in the browser (e.g. extensions or enterprise
+  // policy) can still answer them. The browser never shows login UI for them.
+  if (do_not_prompt_for_login_ &&
+      (!auth_info.is_proxy || !base::FeatureList::IsEnabled(
+                                  features::kForwardProxyAuthWithoutPrompt))) {
     OnAuthCredentials(std::nullopt);
     return;
   }
@@ -1073,7 +1094,7 @@ void URLLoader::OnAuthRequired(net::URLRequest* url_request,
 
   url_loader_network_observer_->OnAuthRequired(
       fetch_window_id_, request_id_, url_request_->url(), first_auth_attempt_,
-      auth_info, url_request->response_headers(),
+      do_not_prompt_for_login_, auth_info, url_request->response_headers(),
       auth_challenge_responder_receiver_.BindNewPipeAndPassRemote());
 
   auth_challenge_responder_receiver_.set_disconnect_handler(

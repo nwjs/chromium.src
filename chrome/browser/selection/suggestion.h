@@ -5,6 +5,7 @@
 #ifndef CHROME_BROWSER_SELECTION_SUGGESTION_H_
 #define CHROME_BROWSER_SELECTION_SUGGESTION_H_
 
+#include <optional>
 #include <string>
 #include <string_view>
 #include <type_traits>
@@ -22,6 +23,10 @@
 #include "ui/gfx/geometry/point.h"
 #include "ui/gfx/geometry/rect.h"
 
+namespace optimization_guide::proto {
+enum SmartSelectionToolId : int;
+}  // namespace optimization_guide::proto
+
 namespace selection {
 
 // Area of interest for the suggested service to examine.
@@ -36,10 +41,14 @@ struct AreaOfInterest {
   optimization_guide::proto::AnnotatedPageContent apc;
   SkBitmap screenshot;
   std::variant<gfx::Rect, std::vector<gfx::Point>> bounds;
+  std::optional<std::u16string> selected_text;
+  std::optional<std::u16string> text_surrounding_selection;
 };
 
 class Suggestion {
  public:
+  using ToolId = optimization_guide::proto::SmartSelectionToolId;
+
   // Binds an endpoint the surface supplied for `Interface`.
   template <typename Interface>
   using ReceiverBinder =
@@ -50,6 +59,9 @@ class Suggestion {
 
   // Returns the label for the suggestion.
   virtual const std::u16string& GetLabel() const = 0;
+
+  // Returns the tool ID that produced this suggestion.
+  virtual ToolId GetToolId() const = 0;
 
   // Called when the suggestion is presented.
   virtual void OnSuggestionPresented() = 0;

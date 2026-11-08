@@ -19,6 +19,8 @@
 #include "extensions/browser/install_prompt_data.h"
 #include "extensions/common/extension.h"
 #include "extensions/common/extension_urls.h"
+#include "third_party/jni_zero/default_conversions.h"
+#include "third_party/jni_zero/jni_zero.h"
 #include "ui/android/modal_dialog_manager_bridge.h"
 #include "ui/android/view_android.h"
 #include "ui/android/window_android.h"
@@ -27,11 +29,9 @@
 #include "ui/base/window_open_disposition.h"
 #include "ui/gfx/android/java_bitmap.h"
 
-// Must come after all headers that specialize FromJniType() / ToJniType().
+// Must come after headers that provide symbols used by @JniType.
 #include "chrome/browser/ui/android/extensions/jni_headers/ExtensionInstallDialogBridge_jni.h"
 
-using base::android::ConvertUTF16ToJavaString;
-using base::android::ScopedJavaLocalRef;
 using extensions::InstallPromptData;
 
 namespace {
@@ -56,16 +56,32 @@ void ShowExtensionInstallDialogAndroid(
 
   // WebContents is optional (e.g. for permission prompts requested from a
   // background context) and is only used if the user clicks a Web Store link.
-  content::WebContents* web_contents = show_params->GetParentWebContents();
-  auto* dialog_view = new extensions::ExtensionInstallDialogViewAndroid(
-      web_contents, std::move(prompt), std::move(done_callback));
-  dialog_view->ShowDialog(window_android);
-  // `dialog_view` will delete itself when dialog is dismissed.
+  extensions::ExtensionInstallDialogViewAndroid::Show(
+      show_params->GetParentWebContents(), std::move(prompt),
+      std::move(done_callback), window_android);
 }
 
 }  // namespace
 
 namespace extensions {
+
+// static
+void ExtensionInstallDialogViewAndroid::Show(
+    content::WebContents* web_contents,
+    std::unique_ptr<InstallPromptData> prompt,
+    ExtensionInstallPrompt::DoneCallback done_callback,
+    ui::WindowAndroid* window_android) {
+  auto dialog = jni_zero::MakeUnique<ExtensionInstallDialogViewAndroid>(
+      web_contents, std::move(prompt), std::move(done_callback));
+  // Java only destroys the object when the dialog is dismissed.
+  ExtensionInstallDialogViewAndroid* self = dialog.get();
+  JNIEnv* env = base::android::AttachCurrentThread();
+  self->java_object_.Reset(Java_ExtensionInstallDialogBridge_create(
+      env, std::move(dialog), window_android));
+
+  self->BuildPropertyModel();
+  Java_ExtensionInstallDialogBridge_showDialog(env, self->java_object_);
+}
 
 ExtensionInstallDialogViewAndroid::ExtensionInstallDialogViewAndroid(
     content::WebContents* web_contents,
@@ -76,9 +92,6 @@ ExtensionInstallDialogViewAndroid::ExtensionInstallDialogViewAndroid(
       done_callback_(std::move(done_callback)) {}
 
 ExtensionInstallDialogViewAndroid::~ExtensionInstallDialogViewAndroid() {
-  JNIEnv* env = base::android::AttachCurrentThread();
-  Java_ExtensionInstallDialogBridge_clearNativePtr(env, java_object_);
-
   if (!done_callback_) {
     return;
   }
@@ -89,49 +102,36 @@ ExtensionInstallDialogViewAndroid::~ExtensionInstallDialogViewAndroid() {
           ExtensionInstallPrompt::Result::USER_CANCELED));
 }
 
-void ExtensionInstallDialogViewAndroid::ShowDialog(
-    ui::WindowAndroid* window_android) {
-  JNIEnv* env = base::android::AttachCurrentThread();
-  java_object_.Reset(Java_ExtensionInstallDialogBridge_create(
-      env, reinterpret_cast<intptr_t>(this), window_android->GetJavaObject()));
-
-  BuildPropertyModel();
-  Java_ExtensionInstallDialogBridge_showDialog(env, java_object_);
-}
-
 void ExtensionInstallDialogViewAndroid::OnDialogAccepted(
-    JNIEnv* env,
-    const base::android::JavaRef<jstring>& justification_text) {
-  std::string justification =
-      base::android::ConvertJavaStringToUTF8(env, justification_text);
+    const std::string& justification_text,
+    bool with_withheld_permissions) {
   prompt_->OnDialogAccepted();
+  auto result =
+      with_withheld_permissions
+          ? ExtensionInstallPrompt::Result::ACCEPTED_WITH_WITHHELD_PERMISSIONS
+          : ExtensionInstallPrompt::Result::ACCEPTED;
   std::move(done_callback_)
-      .Run(ExtensionInstallPrompt::DoneCallbackPayload(
-          ExtensionInstallPrompt::Result::ACCEPTED, justification));
+      .Run(ExtensionInstallPrompt::DoneCallbackPayload(result,
+                                                       justification_text));
 }
 
-void ExtensionInstallDialogViewAndroid::OnDialogCanceled(JNIEnv* env) {
-  OnDialogDismissed(env);
+void ExtensionInstallDialogViewAndroid::OnDialogCanceled() {
+  OnDialogDismissed();
 }
 
-void ExtensionInstallDialogViewAndroid::OnDialogDismissed(JNIEnv* env) {
+void ExtensionInstallDialogViewAndroid::OnDialogDismissed() {
   prompt_->OnDialogCanceled();
   std::move(done_callback_)
       .Run(ExtensionInstallPrompt::DoneCallbackPayload(
           ExtensionInstallPrompt::Result::USER_CANCELED));
 }
 
-void ExtensionInstallDialogViewAndroid::Destroy(JNIEnv* env) {
-  delete this;
-}
-
 void ExtensionInstallDialogViewAndroid::OnStoreLinkClicked(
-    JNIEnv* env,
-    const base::android::JavaRef<jstring>& url) {
+    const std::string& url) {
   if (!web_contents_) {
     return;
   }
-  GURL gurl(base::android::ConvertJavaStringToUTF8(env, url));
+  GURL gurl(url);
   content::OpenURLParams params =
       content::OpenURLParams::CreateBrowserInitiated(
           gurl, WindowOpenDisposition::NEW_FOREGROUND_TAB,
@@ -146,22 +146,24 @@ void ExtensionInstallDialogViewAndroid::BuildPropertyModel() {
   if (has_permissions) {
     std::u16string permissions_heading = prompt_->GetPermissionsHeading();
     std::u16string permissions_show_details =
-        l10n_util::GetStringUTF16(IDS_EXTENSIONS_SHOW_DETAILS);
+        l10n_util::GetStringUTF16(IDS_EXTENSIONS_SHOW_ALL);
     std::u16string permissions_hide_details =
-        l10n_util::GetStringUTF16(IDS_EXTENSIONS_HIDE_DETAILS);
+        l10n_util::GetStringUTF16(IDS_EXTENSIONS_SHOW_LESS);
 
     std::vector<std::u16string> permissions_text;
+    std::vector<std::u16string> permissions_visible_details;
     std::vector<std::u16string> permissions_details;
     auto permissions = prompt_->GetPermissions();
     for (size_t i = 0; i < permissions.permissions.size(); ++i) {
       permissions_text.push_back(permissions.permissions[i]);
-      permissions_details.push_back(permissions.details[i]);
+      permissions_visible_details.push_back(permissions.visible_details[i]);
+      permissions_details.push_back(permissions.collapsed_details[i]);
     }
 
     Java_ExtensionInstallDialogBridge_withPermissions(
         env, java_object_, permissions_heading, permissions_text,
-        permissions_details, permissions_show_details,
-        permissions_hide_details);
+        permissions_visible_details, permissions_details,
+        permissions_show_details, permissions_hide_details);
   }
 
   bool requires_justification =
@@ -174,6 +176,19 @@ void ExtensionInstallDialogViewAndroid::BuildPropertyModel() {
 
     Java_ExtensionInstallDialogBridge_withJustification(
         env, java_object_, justification_heading, justification_placeholder);
+  }
+
+  if (prompt_->ShouldWithheldPermissionsOnDialogAccept()) {
+    std::u16string site_access_heading =
+        l10n_util::GetStringUTF16(IDS_EXTENSION_PROMPT_ALLOW_SITE_ACCESS_TITLE);
+    std::u16string on_click_text = l10n_util::GetStringUTF16(
+        IDS_EXTENSIONS_CONTEXT_MENU_PAGE_ACCESS_RUN_ON_CLICK);
+    std::u16string always_all_sites_text = l10n_util::GetStringUTF16(
+        IDS_EXTENSIONS_CONTEXT_MENU_PAGE_ACCESS_RUN_ON_ALL_SITES_V2);
+
+    Java_ExtensionInstallDialogBridge_withSiteAccessOptions(
+        env, java_object_, site_access_heading, on_click_text,
+        always_all_sites_text);
   }
 
   if (prompt_->has_webstore_data()) {

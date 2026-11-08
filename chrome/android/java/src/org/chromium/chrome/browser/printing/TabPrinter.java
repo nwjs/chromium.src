@@ -155,10 +155,26 @@ public class TabPrinter implements Printable {
     }
 
     @Override
-    public boolean print(int renderProcessId, int renderFrameId) {
-        if (!canPrint() || mWebContentsPrinter == null) return false;
+    public boolean print(
+            int renderProcessId,
+            int renderFrameId,
+            int fd,
+            int dpi,
+            int width,
+            int height,
+            int @Nullable [] pages) {
+        if (!canPrint() || mWebContentsPrinter == null) {
+            Printable.closeFd(fd);
+            return false;
+        }
         return mWebContentsPrinter.print(
-                targetProcessId(renderProcessId), targetFrameId(renderFrameId));
+                targetProcessId(renderProcessId),
+                targetFrameId(renderFrameId),
+                fd,
+                dpi,
+                width,
+                height,
+                pages);
     }
 
     @Override
@@ -194,10 +210,7 @@ public class TabPrinter implements Printable {
 
         String title = tab.getTitle();
         if (!TextUtils.isEmpty(title)) {
-            if (tab.isNativePage()
-                    && tab.getNativePage() != null
-                    && tab.getNativePage().isPdf()
-                    && !title.toLowerCase(Locale.ROOT).endsWith(".pdf")) {
+            if (isPdf() && !title.toLowerCase(Locale.ROOT).endsWith(".pdf")) {
                 // Ensure the document title has a .pdf extension so that print destinations
                 // (such as "Save as PDF") suggest a valid PDF file name.
                 title = title + ".pdf";
@@ -248,14 +261,24 @@ public class TabPrinter implements Printable {
     }
 
     @Override
+    public boolean isPdf() {
+        Tab tab = mTab.get();
+        return tab != null
+                && tab.isInitialized()
+                && tab.isNativePage()
+                && tab.getNativePage() != null
+                && tab.getNativePage().isPdf();
+    }
+
+    @Override
     public @Nullable InputStream getPdfInputStream() {
         Tab tab = mTab.get();
-        if (tab == null || !tab.isInitialized()) {
+        if (tab == null || !isPdf()) {
             return null;
         }
 
-        if (tab.isNativePage() && tab.getNativePage() != null && tab.getNativePage().isPdf()) {
-            NativePage pdfPage = tab.getNativePage();
+        NativePage pdfPage = tab.getNativePage();
+        if (pdfPage != null) {
             String filepath = pdfPage.getCanonicalFilepath();
             if (filepath == null) {
                 return null;

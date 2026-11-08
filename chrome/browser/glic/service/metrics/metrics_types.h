@@ -203,7 +203,23 @@ enum class ResponseSegmentation {
   kContextHubTopicsAttachedAudio = 178,
   kContextHubTopicsDetachedText = 179,
   kContextHubTopicsDetachedAudio = 180,
-  kMaxValue = kContextHubTopicsDetachedAudio,
+  kContextHubAutoTodosAttachedText = 181,
+  kContextHubAutoTodosAttachedAudio = 182,
+  kContextHubAutoTodosDetachedText = 183,
+  kContextHubAutoTodosDetachedAudio = 184,
+  kWebContentsContextMenuLinkAttachedText = 185,
+  kWebContentsContextMenuLinkAttachedAudio = 186,
+  kWebContentsContextMenuLinkDetachedText = 187,
+  kWebContentsContextMenuLinkDetachedAudio = 188,
+  kWebContentsContextMenuPageAttachedText = 189,
+  kWebContentsContextMenuPageAttachedAudio = 190,
+  kWebContentsContextMenuPageDetachedText = 191,
+  kWebContentsContextMenuPageDetachedAudio = 192,
+  kWebContentsContextMenuTextSelectionAttachedText = 193,
+  kWebContentsContextMenuTextSelectionAttachedAudio = 194,
+  kWebContentsContextMenuTextSelectionDetachedText = 195,
+  kWebContentsContextMenuTextSelectionDetachedAudio = 196,
+  kMaxValue = kWebContentsContextMenuTextSelectionDetachedAudio,
 };
 // LINT.ThenChange(//tools/metrics/histograms/metadata/glic/enums.xml:GlicResponseSegmentation)
 
@@ -241,7 +257,8 @@ enum class GlicDragAndDropValidationResult {
   kTargetWebContentsDestroyed = 6,
   kSourceFrameNavigatedBeforeContextFetched = 7,
   kContextFetchFailed = 8,
-  kMaxValue = kContextFetchFailed,
+  kUnsupportedContentType = 9,
+  kMaxValue = kUnsupportedContentType,
 };
 // LINT.ThenChange(//tools/metrics/histograms/metadata/glic/enums.xml:GlicDragAndDropValidationResult)
 

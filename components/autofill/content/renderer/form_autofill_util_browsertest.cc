@@ -295,7 +295,8 @@ class FormAutofillUtilsTest : public content::RenderViewTest {
   WebDocument GetDocument() { return GetMainFrame()->GetDocument(); }
 
   std::optional<FormData> ExtractFormData(WebFormElement form) {
-    return form_util::ExtractFormData(GetDocument(), form, field_data_manager(),
+    return form_util::ExtractFormData(GetDocument(), GetFormRendererId(form),
+                                      field_data_manager(),
                                       kCallTimerStateDummy,
                                       /*button_titles_cache=*/nullptr);
   }
@@ -444,9 +445,9 @@ TEST_F(FormAutofillUtilsTest, TruncateLargeOptionValuesAndContents) {
 
   FormData form_data = *ExtractFormData(web_form);
   ASSERT_EQ(form_data.fields().size(), 1u);
-  ASSERT_EQ(form_data.fields()[0].options().size(), 1u);
-  EXPECT_EQ(form_data.fields()[0].options()[0].value, trimmed_option);
-  EXPECT_EQ(form_data.fields()[0].options()[0].text, trimmed_option);
+  EXPECT_THAT(form_data.fields()[0].options(),
+              ElementsAre(SelectOption{.value = trimmed_option,
+                                       .text = trimmed_option}));
   EXPECT_TRUE(IsValidOption(form_data.fields()[0].options()[0]));
 }
 
@@ -1230,11 +1231,8 @@ TEST_F(FormAutofillUtilsTest,
   WebDocument doc = GetDocument();
   auto web_control = GetElementById(doc, "i1").To<WebInputElement>();
   std::vector<SelectOption> options = GetDataListOptionsForTesting(web_control);
-  ASSERT_EQ(options.size(), 2u);
-  EXPECT_EQ(options[0].value, u"1");
-  EXPECT_EQ(options[1].value, u"2");
-  EXPECT_EQ(options[0].text, u"");
-  EXPECT_EQ(options[1].text, u"");
+  EXPECT_THAT(options, ElementsAre(SelectOption{.value = u"1", .text = u""},
+                                   SelectOption{.value = u"2", .text = u""}));
 }
 
 TEST_F(FormAutofillUtilsTest,
@@ -1246,11 +1244,9 @@ TEST_F(FormAutofillUtilsTest,
   WebDocument doc = GetDocument();
   auto web_control = GetElementById(doc, "i1").To<WebInputElement>();
   std::vector<SelectOption> options = GetDataListOptionsForTesting(web_control);
-  ASSERT_EQ(options.size(), 2u);
-  EXPECT_EQ(options[0].value, u"1");
-  EXPECT_EQ(options[1].value, u"2");
-  EXPECT_EQ(options[0].text, u"one");
-  EXPECT_EQ(options[1].text, u"two");
+  EXPECT_THAT(options,
+              ElementsAre(SelectOption{.value = u"1", .text = u"one"},
+                          SelectOption{.value = u"2", .text = u"two"}));
 }
 
 TEST_F(FormAutofillUtilsTest,
@@ -1267,11 +1263,9 @@ TEST_F(FormAutofillUtilsTest,
   ASSERT_TRUE(form_and_field);
   auto& [form, field] = *form_and_field;
   auto& options = form.fields().back().datalist_options();
-  ASSERT_EQ(options.size(), 2u);
-  EXPECT_EQ(options[0].value, u"1");
-  EXPECT_EQ(options[1].value, u"2");
-  EXPECT_EQ(options[0].text, u"one");
-  EXPECT_EQ(options[1].text, u"two");
+  EXPECT_THAT(options,
+              ElementsAre(SelectOption{.value = u"1", .text = u"one"},
+                          SelectOption{.value = u"2", .text = u"two"}));
   EXPECT_EQ(field.datalist_options().size(), options.size());
 }
 
@@ -1336,6 +1330,42 @@ TEST_F(FormAutofillUtilsTest,
       FindFormAndFieldForFormControlElement(t),
       Optional(Field(&FormAndField::form,
                      AllOf(HasRendererIdOf(f1),
+                           Property(&FormData::fields,
+                                    ElementsAre(HasRendererIdOf(t)))))));
+}
+
+// Tests that a form control inside a <form> in a Shadow DOM whose `form`
+// attribute points to a non-existent form is treated as unowned when the
+// shadow host has no <form> ancestor.
+// Regression test for crbug.com/347059988.
+TEST_F(FormAutofillUtilsTest,
+       FindFormAndFieldForFormControlElement_UnassociatedInShadowForm) {
+  LoadHTML(R"(
+    <!DOCTYPE html>
+    <div id=host>
+      <template shadowrootmode=open>
+        <form id=f>
+          <input id=t form=nonexistent>
+        </form>
+      </template>
+    </div>
+  )");
+
+  WebDocument doc = GetDocument();
+  WebNode shadow_root = GetElementById(doc, "host").ShadowRoot();
+  WebFormElement f = GetFormElementById(shadow_root, "f");
+  WebFormControlElement t = GetFormControlElementById(shadow_root, "t");
+
+  ASSERT_EQ(t.Form(), WebFormElement());  // nocheck
+  ASSERT_EQ(t.GetOwningFormForAutofill(), WebFormElement());
+  EXPECT_THAT(GetOwnedFormControlsForTesting(doc, f), IsEmpty());
+  EXPECT_THAT(GetOwnedFormControlsForTesting(doc, WebFormElement()),
+              ElementsAre(t));
+
+  EXPECT_THAT(
+      FindFormAndFieldForFormControlElement(t),
+      Optional(Field(&FormAndField::form,
+                     AllOf(HasRendererIdOf(WebFormElement()),
                            Property(&FormData::fields,
                                     ElementsAre(HasRendererIdOf(t)))))));
 }
@@ -1521,7 +1551,7 @@ TEST_F(FormAutofillUtilsTest, IsWebElementVisibleTest) {
         <div style="display: none;">     <input type="text" data-invisible></div>
         <div style="visibility: hidden;"><input type="text" data-invisible></div>
 
-        <input type="text" data-visible   style="width: 15px; height: 15px;">
+        <input type="text" data-visible   style="width: 20px; height: 15px;">
         <input type="text" data-invisible style="width: 15px; height:  5px;">
         <input type="text" data-invisible style="width:  5px; height: 15px;">
         <input type="text" data-invisible style="width:  5px; height:  5px;">

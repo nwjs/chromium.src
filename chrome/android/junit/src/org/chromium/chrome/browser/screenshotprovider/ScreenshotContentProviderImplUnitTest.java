@@ -22,6 +22,7 @@ import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
+import org.robolectric.Robolectric;
 import org.robolectric.annotation.Config;
 import org.robolectric.shadows.ShadowContentResolver;
 import org.robolectric.shadows.ShadowLooper;
@@ -51,14 +52,15 @@ public class ScreenshotContentProviderImplUnitTest {
     @Mock private RenderCoordinatesImpl mRenderCoordinates;
     @Mock private WindowAndroid mWindowAndroid;
     @Mock private ScreenshotSource mMockScreenshotSource;
-    @Mock private Activity mActivity;
     @Mock private Supplier<Tab> mTabSupplier;
 
+    private Activity mActivity;
     private ScreenshotContentProviderImpl mProvider;
     private Uri mUri;
 
     @Before
     public void setUp() {
+        mActivity = Robolectric.buildActivity(Activity.class).get();
         mProvider =
                 new ScreenshotContentProviderImpl() {
                     @Override

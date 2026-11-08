@@ -13,6 +13,8 @@ namespace actor {
 BASE_FEATURE(kActorBypassTOUValidationForGuestView,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+BASE_FEATURE(kUseTabHandleAsSurfaceHandle, base::FEATURE_ENABLED_BY_DEFAULT);
+
 BASE_FEATURE(kGlicActionUseOptimizationGuide, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kGlicExternalProtocolActionResultCode,
@@ -156,6 +158,8 @@ const base::FeatureParam<base::TimeDelta>
         &kGlicActorLoadAndExtractContentTool, "timeout",
         kGlicActorLoadAndExtractContentToolTimeoutDefault};
 
+BASE_FEATURE(kGlicActorFileUploadTool, base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE(kGlicActorTransientTasks, base::FEATURE_DISABLED_BY_DEFAULT);
 const base::FeatureParam<bool> kGlicActorTransientTasksForceTransient{
     &kGlicActorTransientTasks, "force_transient", false};
@@ -175,8 +179,6 @@ BASE_FEATURE(kActorScriptToolDelayObservation,
 
 const base::FeatureParam<int> kActorScriptToolDelayObservationMillis{
     &kActorScriptToolDelayObservation, "script_tool_delay_observation_ms", 0};
-
-BASE_FEATURE(kActorFormScriptToolInterrupt, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kActorObserveScreenshotDefault, base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kActorObservePageContentDefault, base::FEATURE_ENABLED_BY_DEFAULT);

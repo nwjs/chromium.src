@@ -9,6 +9,10 @@ NSString* const kAimInputItemTopBackgroundColor =
     @"aim_input_item_top_background_color";
 NSString* const kAimComposeboxButtonBackgroundColor =
     @"aim_composebox_button_background_color";
+NSString* const kAimComposeboxInputPlateBackgroundColor =
+    @"aim_composebox_input_plate_background_color";
+NSString* const kAimComposeboxInputPlatePlaceholderColor =
+    @"aim_composebox_input_plate_placeholder_color";
 NSString* const kAppBarColor = @"app_bar";
 NSString* const kAppBarIncognitoColor = @"app_bar_incognito";
 NSString* const kBackgroundColor = @"background_color";
@@ -25,7 +29,7 @@ NSString* const kMDCInkColor = @"mdc_ink_color";
 NSString* const kMDCSecondaryInkColor = @"mdc_secondary_ink_color";
 NSString* const kPlaceholderImageTintColor = @"placeholder_image_tint_color";
 NSString* const kNewTabPageBackgroundColor = @"new_tab_page_background_color";
-NSString* const kSurfaceContainerLowColor = @"surface_container_low_color";
+NSString* const kNTPModuleBackgroundColor = @"ntp_module_background_color";
 NSString* const kNTPQuickActionChipColor = @"ntp_quick_action_chip_color";
 NSString* const kNTPRedesignBackgroundColor = @"ntp_redesign_background_color";
 NSString* const kNTPRedesignCustomizationMenuButtonIconColor =

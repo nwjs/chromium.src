@@ -73,8 +73,6 @@ source_set("core_keyed_service_factories") {
     "core_browser_context_keyed_service_factories.h",
   ]
 
-  configs += [ "//build/config/compiler:wexit_time_destructors" ]
-
   deps = [
     "//components/guest_view/buildflags",
     "//extensions/browser:browser_sources",
@@ -234,6 +232,8 @@ source_set("browser_sources") {
     "bookmark_app_util.cc",
     "bookmark_app_util.h",
     "browser_context_keyed_api_factory.h",
+    "browser_context_lifetime_observer.h",
+    "browser_context_lifetime_tracker.h",
     "browser_frame_context_data.cc",
     "browser_frame_context_data.h",
     "browser_process_context_data.cc",
@@ -878,10 +878,7 @@ source_set("browser_sources") {
     deps += [ "//components/resources:components_resources_grit" ]
   }
 
-  configs += [
-    "//build/config:precompiled_headers",
-    "//build/config/compiler:wexit_time_destructors",
-  ]
+  configs += [ "//build/config:precompiled_headers" ]
 }
 
 source_set("keepalive") {
@@ -1064,6 +1061,8 @@ source_set("unit_tests") {
     "api/api_resource_manager_unittest.cc",
     "api/content_settings/content_settings_store_unittest.cc",
     "api/content_settings/content_settings_unittest.cc",
+    "api/cookies/cookies_helpers_unittest.cc",
+    "api/cookies/cookies_unittest.cc",
     "api/declarative/declarative_rule_unittest.cc",
     "api/declarative/deduping_factory_unittest.cc",
     "api/declarative/rules_registry_unittest.cc",
@@ -1133,6 +1132,7 @@ source_set("unit_tests") {
     "file_reader_unittest.cc",
     "image_loader_unittest.cc",
     "image_sanitizer_unittest.cc",
+    "install_prompt_permissions_unittest.cc",
     "install_tracker_unittest.cc",
     "json_file_sanitizer_unittest.cc",
     "lazy_background_task_queue_unittest.cc",
@@ -1318,10 +1318,6 @@ source_set("unit_tests") {
     "//tools/metrics/histograms/metadata/extensions/enums.xml",
     "//extensions/browser/api/declarative_net_request/flat/extension_ruleset.fbs",
   ]
-
-  # TODO(crbug.com/40031409): Fix code that adds exit-time destructors and
-  # enable the diagnostic by removing this line.
-  configs += [ "//build/config/compiler:no_exit_time_destructors" ]
 }
 
 if (enable_desktop_android_extensions) {

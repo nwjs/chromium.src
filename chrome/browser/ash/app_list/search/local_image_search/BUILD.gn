@@ -32,11 +32,10 @@ static_library("local_image_search") {
     "sql_database.h",
   ]
 
-  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
-
   deps = [
     "//ash/public/cpp",
     "//base",
+    "//chrome/browser:browser_process",
     "//chrome/browser/ash/app_list/search",
     "//chrome/browser/ash/app_list/search/common",
     "//chrome/browser/ash/file_manager",
@@ -70,7 +69,6 @@ source_set("unit_tests") {
     "//base",
     "//base/test:test_support",
     "//chrome/browser/ash/app_list/search",
-    "//chrome/browser/ui",
     "//chromeos/dbus/machine_learning",
     "//content/test:test_support",
     "//sql",

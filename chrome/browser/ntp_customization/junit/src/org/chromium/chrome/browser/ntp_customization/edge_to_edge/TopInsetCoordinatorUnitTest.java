@@ -41,6 +41,7 @@ import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 
+import org.chromium.base.ContextUtils;
 import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.OneshotSupplierImpl;
 import org.chromium.base.supplier.SettableNullableObservableSupplier;
@@ -77,7 +78,6 @@ public class TopInsetCoordinatorUnitTest {
     @Mock private Tab mNonNtpTab1;
     @Mock private Tab mNonNtpTab2;
     @Mock private WindowInsetsCompat mWindowInsetsCompat;
-    @Mock private View mView;
     @Mock private NativePage mNativePage;
     @Mock private TopInsetProvider.Observer mObserver;
     @Mock private LayoutStateProvider mLayoutStateProvider;
@@ -89,6 +89,8 @@ public class TopInsetCoordinatorUnitTest {
             ObservableSuppliers.createNullable();
     private final OneshotSupplierImpl<LayoutStateProvider> mLayoutStateProviderSupplier =
             new OneshotSupplierImpl<>();
+
+    private final View mView = new View(ContextUtils.getApplicationContext());
 
     private Context mContext;
     private NtpCustomizationConfigManager mNtpCustomizationConfigManager;
@@ -472,6 +474,8 @@ public class TopInsetCoordinatorUnitTest {
 
         // 2. Tests the transition from a NTP to Tab switcher.
         // Switches to Tab switcher.
+        mLayoutStateObserverCaptor.getValue().onFinishedShowing(LayoutType.HUB);
+        assertTrue(mTopInsetCoordinator.getIsTabSwitcherShowingForTesting());
         mTopInsetCoordinator.onTabSwitched(null);
         assertFalse(mTopInsetCoordinator.getInTabSwitcherToNtpTransitionForTesting());
         clearInvocations(mInsetObserver);
@@ -479,6 +483,28 @@ public class TopInsetCoordinatorUnitTest {
         mLayoutStateObserverCaptor.getValue().onFinishedHiding(LayoutType.BROWSING);
         assertTrue(mTopInsetCoordinator.getIsTabSwitcherShowingForTesting());
         verify(mInsetObserver, never()).retriggerOnApplyWindowInsets();
+    }
+
+    @Test
+    public void testSecondNtpSelectionAfterTabSwitcherHidden() {
+        clearInvocations(mLayoutStateProvider);
+        mLayoutStateProviderSupplier.set(mLayoutStateProvider);
+        setBackgroundType(NtpBackgroundType.DEFAULT, NtpBackgroundType.CHROME_COLOR);
+        verify(mLayoutStateProvider).addObserver(mLayoutStateObserverCaptor.capture());
+
+        // The first selection starts the transition away from the tab switcher.
+        mLayoutStateObserverCaptor.getValue().onFinishedShowing(LayoutType.HUB);
+        mTopInsetCoordinator.onTabSwitched(mNtpTab);
+        assertTrue(mTopInsetCoordinator.getInTabSwitcherToNtpTransitionForTesting());
+        mLayoutStateObserverCaptor.getValue().onFinishedHiding(LayoutType.HUB);
+
+        // A second selection can arrive before the browsing layout finishes showing. It must not
+        // re-arm a transition for the tab switcher that has already finished hiding.
+        assertFalse(mTopInsetCoordinator.getIsTabSwitcherShowingForTesting());
+        clearInvocations(mInsetObserver);
+        mTopInsetCoordinator.onTabSwitched(mNtpTab);
+        assertFalse(mTopInsetCoordinator.getInTabSwitcherToNtpTransitionForTesting());
+        verify(mInsetObserver).retriggerOnApplyWindowInsets();
     }
 
     @Test

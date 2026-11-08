@@ -21,6 +21,7 @@ class MainElements {
     this.divScreenshot = getById('div-screenshot');
     this.divScreenshotInfo = getById('div-screenshot-info');
     this.divViewTree = getById('div-view-tree');
+    this.selZoom = getById('sel-zoom');
   }
 }
 
@@ -30,12 +31,52 @@ class MainElements {
  * Screenshot, or View Tree). Modifies the DOM but has no layout logic.
  */
 class MainVis {
+  /**
+   * @param {!MainElements} el
+   * @param {!MainModel} model
+   */
   constructor(el, model) {
     this.el = el;
     this.model = model;
 
     this.infoBarVis = new InfoBarVis(this.el.divInfoBar);
     this.overlayVis = new OverlayVis(this.el.divOverlay);
+  }
+
+  populateZoomOptions() {
+    this.el.selZoom.innerHTML = '';
+    ZOOM_LEVELS.forEach((level, index) => {
+      const option = document.createElement('option');
+      option.text = level.title;
+      option.value = index;
+      this.el.selZoom.appendChild(option);
+    });
+    this.el.selZoom.value = ZOOM_FIT_INDEX;
+  }
+
+  updateZoomFitLabel() {
+    const fitOption = this.el.selZoom.options[ZOOM_FIT_INDEX];
+    if (!fitOption) return;
+
+    let text = 'Fit';
+    if (this.model.isLoaded && this.model.visOpts.isZoomFit()) {
+      const sZoom = capFixed(this.model.visOpts.scale * 100, 2);
+      text += ` (${sZoom}%)`;
+    }
+    fitOption.text = text;
+  }
+
+  updateViewInfo() {
+    if (this.model.engaged.hover != null) {
+      this.infoBarVis.renderAndShowViewInfo(
+          this.model.views[this.model.engaged.hover], this.model.visOpts);
+    } else {
+      this.infoBarVis.hideViewInfo();
+    }
+  }
+
+  clear() {
+    this.infoBarVis.hideViewInfo();
   }
 }
 
@@ -45,6 +86,10 @@ class MainVis {
  * layout or visual updates to child controllers.
  */
 class MainController {
+  /**
+   * @param {!MainModel} model
+   * @param {!MainVis} vis
+   */
   constructor(model, vis) {
     this.model = model;
     this.vis = vis;
@@ -54,20 +99,27 @@ class MainController {
 
     this.layoutCtrl = new LayoutController(
         this.model, this.el.divMain, this.el.divPaneScreenshot,
-        this.el.divMainSplitter, this.hintCtrl);
+        this.el.divMainSplitter, this.el.divScreenshot,
+        this.el.divScreenshotInfo, this.hintCtrl);
 
     this.screenshotCtrl = new ScreenshotController(
-        this.model, this.el.divScreenshot, this.el.divScreenshotInfo);
+        this.model, this.el.divScreenshot, this.el.divScreenshotInfo, {
+          onResize: () => this.vis.updateZoomFitLabel(),
+        });
 
-    this.treeCtrl = new TreeController(this.model, this.el.divViewTree);
+    this.treeCtrl = new TreeController(this.model, this.el.divViewTree, {
+      onHover: (index) => this.handleHover(index),
+    });
   }
 
+  // Helper Methods.
   clearUI() {
     this.screenshotCtrl.clear();
     this.treeCtrl.clear();
+    this.vis.clear();
   }
 
-  // Event Handlers - File Operations/Markup
+  // Event Handlers - File Operations / Markup.
   async handleLoad() {
     this.clearUI();
     this.vis.overlayVis.show('overlay-loading', 'Loading...');
@@ -76,7 +128,14 @@ class MainController {
     try {
       await this.model.load();  // Also updates `visOpts`.
 
+      // Load the currently selected zoom level.
+      this.model.visOpts.setZoomIndex(parseInt(this.el.selZoom.value, 10));
+
+      // Initializing screenshot also updates zoom.
       this.screenshotCtrl.initScreenshot();
+
+      // Zoom Fit label update requires Screenshot to be loaded first.
+      this.vis.updateZoomFitLabel();
 
       const {wDims} = this.model.visOpts;
       this.layoutCtrl.setLayoutMode(LayoutMode.fromVector(-wDims.h, -wDims.w));
@@ -92,8 +151,21 @@ class MainController {
     }
   }
 
+  handleHover(index) {
+    if (this.model.engaged.hover === index) return;
+
+    this.model.engaged.hover = index;
+    this.treeCtrl.setHover(index);
+    this.vis.updateViewInfo();
+  }
+
   bindAll() {
     this.el.btnLoad.addEventListener('click', () => this.handleLoad());
+    this.el.selZoom.addEventListener('change', (e) => {
+      this.model.visOpts.setZoomIndex(parseInt(e.target.value, 10));
+      this.screenshotCtrl.updateZoom();
+      this.vis.updateZoomFitLabel();
+    });
 
     // Delegated hover hints for controls.
     this.el.divControls.addEventListener('mouseover', (e) => {
@@ -111,6 +183,7 @@ class MainController {
   }
 
   init() {
+    this.vis.populateZoomOptions();
     this.bindAll();
     this.el.btnLoad.focus();
   }

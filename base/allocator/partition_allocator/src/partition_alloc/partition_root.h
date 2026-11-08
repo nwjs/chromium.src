@@ -37,6 +37,7 @@
 #include <limits>
 #include <utility>
 
+#include "partition_alloc/bucket_lookup.h"
 #include "partition_alloc/build_config.h"
 #include "partition_alloc/buildflags.h"
 #include "partition_alloc/free_hint.h"
@@ -151,10 +152,10 @@ struct PartitionOptions {
   internal::SchedulerLoopQuarantineConfig
       scheduler_loop_quarantine_thread_local_config;
   // Configuration for the AMSC quarantine branch. Used when
-  // `FreeFlags::kSchedulerLoopQuarantineForAdvancedMemorySafetyChecks` is
+  // `FreeFlags::kSchedulerLoopQuarantineForSanitizedObject` is
   // specified.
   internal::SchedulerLoopQuarantineConfig
-      scheduler_loop_quarantine_for_advanced_memory_safety_checks_config;
+      scheduler_loop_quarantine_for_sanitized_object_config;
 
   // As the name implies, this is not a security measure, as there is no
   // guarantee that memorys has been zeroed out when handed back to the
@@ -221,7 +222,7 @@ class alignas(internal::kPartitionCachelineSize)
     std::optional<RawAllocResult> raw_alloc_result = std::nullopt;
   };
 
-  enum class BucketDistribution : uint8_t { kNeutral, kDenser };
+  using BucketDistribution = ::partition_alloc::BucketDistribution;
 
   // Root settings_ accessed on fast paths.
   //
@@ -382,7 +383,7 @@ class alignas(internal::kPartitionCachelineSize)
   internal::SchedulerLoopQuarantineRoot scheduler_loop_quarantine_root_;
   internal::GlobalSchedulerLoopQuarantineBranch scheduler_loop_quarantine_;
   internal::SanitizedObjectSchedulerLoopQuarantineBranch
-      scheduler_loop_quarantine_for_advanced_memory_safety_checks_;
+      scheduler_loop_quarantine_for_sanitized_object_;
 
   static constexpr internal::base::TimeDelta kMaxPurgeDuration =
       internal::base::Milliseconds(2);
@@ -529,16 +530,9 @@ class alignas(internal::kPartitionCachelineSize)
 
   // Because clients directly invoke FreeInline(), temporary keep Free()
   // PA_ALWAYS_INLINE. Instead, FreeInline() is PA_NOINLINE.
-  template <FreeFlags flags = FreeFlags::kNone>
-  PA_ALWAYS_INLINE void Free(void* object) {
-    FreeInline<flags>(object);
-  }
-
-  // WithSize will be a FreeFlags::kSize
-  template <FreeFlags flags = FreeFlags::kNone>
-  PA_ALWAYS_INLINE void Free(void* object,
-                             FreeHintType<FreeHintFlags(flags)> hint) {
-    FreeInline<flags>(object, hint);
+  template <FreeFlags flags = FreeFlags::kNone, FreeHint... Hint>
+  PA_ALWAYS_INLINE void Free(void* object, Hint... hint) {
+    FreeInline<flags>(object, hint...);
   }
 
   template <FreeFlags flags = FreeFlags::kNone>
@@ -547,49 +541,32 @@ class alignas(internal::kPartitionCachelineSize)
   // After making all callers depend on Free<flags>() instead of
   // FreeInline<flags>(), make FreeInline<flags> PA_ALWAYS_INLINE again. If
   // possible, make FreeInline private.
-  template <FreeFlags flags = FreeFlags::kNone>
-  PA_NOINLINE void FreeInline(void* object);
-  template <FreeFlags flags = FreeFlags::kNone>
-  PA_NOINLINE void FreeInline(void* object,
-                              FreeHintType<FreeHintFlags(flags)> hint);
+  template <FreeFlags flags = FreeFlags::kNone, FreeHint... Hint>
+  PA_NOINLINE void FreeInline(void* object, Hint... hint);
   // |object| must be a non-null pointer.
   PA_ALWAYS_INLINE std::pair<SlotStart, internal::SlotSpanMetadata*>
   GetSlotStartAndSlotSpanFromAddress(void* object);
 
-  template <FreeFlags flags = FreeFlags::kNone>
-  PA_NOINLINE static void FreeInUnknownRoot(void* object);
-  template <FreeFlags flags = FreeFlags::kNone>
-  PA_NOINLINE static void FreeInUnknownRoot(
-      void* object,
-      FreeHintType<FreeHintFlags(flags)> hint);
-  template <FreeFlags flags = FreeFlags::kNone>
-  PA_ALWAYS_INLINE static void FreeInlineInUnknownRoot(void* object);
-  template <FreeFlags flags = FreeFlags::kNone>
-  PA_ALWAYS_INLINE static void FreeInlineInUnknownRoot(
-      void* object,
-      FreeHintType<FreeHintFlags(flags)> hint);
+  template <FreeFlags flags = FreeFlags::kNone, FreeHint... Hint>
+  PA_NOINLINE static void FreeInUnknownRoot(void* object, Hint... hint);
   // |object| must be a non-null pointer.
   PA_ALWAYS_INLINE static PartitionRoot* GetRootFromAddressInFirstSuperpage(
       void* object);
 
   PA_NOINLINE static PartitionRoot* GetRootFromAddress(void* object);
 
-  template <FreeFlags flags>
+  template <FreeFlags flags, FreeHint... Hint>
   PA_ALWAYS_INLINE void FreeNoHooksImmediate(SlotStart slot_start,
-                                             SlotSpanMetadata* slot_span);
-  template <FreeFlags flags>
-  PA_ALWAYS_INLINE void FreeNoHooksImmediate(
-      SlotStart slot_start,
-      SlotSpanMetadata* slot_span,
-      FreeHintType<FreeHintFlags(flags)> hint);
+                                             SlotSpanMetadata* slot_span,
+                                             Hint... hint);
   // Immediately frees the pointer bypassing the quarantine. `slot_start` is the
   // beginning of the slot that contains `object`.
-  template <FreeFlags flags>
+  template <FreeFlags flags, FreeHint... Hint>
   PA_ALWAYS_INLINE void FreeNoHooksImmediateInternal(
       SlotStart slot_start,
       SlotSpanMetadata* slot_span,
-      FreeHintType<FreeHintFlags(flags)> hint,
-      const internal::BucketSizeDetails& size_details);
+      internal::BucketSizeDetails size_details,
+      Hint... hint);
 
 #if PA_BUILDFLAG(ENABLE_BACKUP_REF_PTR_SUPPORT)
   // Actual free operation on BRP dequarantine.
@@ -610,7 +587,7 @@ class alignas(internal::kPartitionCachelineSize)
   PA_ALWAYS_INLINE size_t
   GetSlotUsableSize(const SlotSpanMetadata* slot_span) const;
   PA_ALWAYS_INLINE size_t
-  GetSlotUsableSize(const internal::BucketSizeDetails& size_details,
+  GetSlotUsableSize(internal::BucketSizeDetails size_details,
                     const SlotSpanMetadata* slot_span) const;
 
   // Note: this static method is the most friendly to external callers.
@@ -695,7 +672,7 @@ class alignas(internal::kPartitionCachelineSize)
 
   PA_ALWAYS_INLINE void RawFreeWithThreadCache(
       SlotStart slot_start,
-      const internal::BucketSizeDetails& size_details,
+      internal::BucketSizeDetails size_details,
       SlotSpanMetadata* slot_span);
 
 #if PA_BUILDFLAG(HAS_MEMORY_TAGGING)
@@ -838,7 +815,7 @@ class alignas(internal::kPartitionCachelineSize)
   GetSlotSizeFromRequestedSizeForTesting(size_t requested_size) const;
 
   PA_ALWAYS_INLINE bool IsSchedulerLoopQuarantineTarget(
-      const internal::BucketSizeDetails& size_details);
+      internal::BucketSizeDetails size_details);
 
  private:
   static inline StraightenLargerSlotSpanFreeListsMode
@@ -847,18 +824,43 @@ class alignas(internal::kPartitionCachelineSize)
   static inline bool sort_smaller_slot_span_free_lists_ = true;
   static inline bool sort_active_slot_spans_ = false;
 
-  template <FreeFlags flags = FreeFlags::kNone>
-  PA_ALWAYS_INLINE void FreeInlineInternal(void* object);
-  template <FreeFlags flags = FreeFlags::kNone>
-  PA_ALWAYS_INLINE void FreeInlineInternal(
-      void* object,
-      FreeHintType<FreeHintFlags(flags)> hint);
+  // `hint` are the caller's `FreeHint`s, if it passed any.
+  template <FreeFlags flags = FreeFlags::kNone, FreeHint... Hint>
+  PA_ALWAYS_INLINE void FreeInlineInternal(void* object, Hint... hint);
+  template <FreeFlags flags = FreeFlags::kNone, FreeHint... Hint>
+  PA_ALWAYS_INLINE static void FreeInlineInUnknownRoot(void* object,
+                                                       Hint... hint);
+
+  // What `FreeInlineInternal()` does after `FreeProlog()`: frees a non-null
+  // `object`. `hint` are the caller's `FreeHint`s, if it passed any.
+  template <FreeFlags flags = FreeFlags::kNone, FreeHint... Hint>
+  PA_ALWAYS_INLINE void FreeAfterProlog(void* object, Hint... hint);
+
+  // What `ReallocInline()` does for a non-null `ptr` and a valid, non-zero
+  // `new_size`: resizes `ptr` in place if it can, and moves it otherwise.
+  template <AllocFlags alloc_flags, FreeFlags free_flags>
+  PA_ALWAYS_INLINE void* ReallocInPlaceOrMove(void* ptr,
+                                              size_t new_size,
+                                              const char* type_name);
+  // Allocates the object a reallocation moves to: `size` bytes from `root`,
+  // with the reallocation's `alloc_flags`. Returns null only with
+  // `AllocFlags::kReturnNull`.
+  template <AllocFlags alloc_flags>
+  PA_ALWAYS_INLINE static void* AllocForRealloc(PartitionRoot* root,
+                                                size_t size,
+                                                const char* type_name);
 
   // Common path of Free() and FreeInUnknownRoot(). Returns
   // true if the caller should return immediately.
   template <FreeFlags flags>
   PA_ALWAYS_INLINE static bool FreeProlog(void* object,
                                           const PartitionRoot* root);
+
+  // Returns true if PartitionAllocHook overrides the memory deallocation.
+  template <FreeFlags flags>
+  PA_ALWAYS_INLINE static bool FreeObserverAndFilterFreeOverrideHook(
+      void* object,
+      const PartitionRoot* root);
 
   // Returns whether a |bucket| from |this| root is direct-mapped. This function
   // does not touch |bucket|, contrary to  PartitionBucket::is_direct_mapped().
@@ -885,6 +887,25 @@ class alignas(internal::kPartitionCachelineSize)
   PA_ALWAYS_INLINE AllocInternalResult AllocInternal(size_t requested_size,
                                                      size_t alignment,
                                                      const char* type_name);
+  // Returns true if allocation override hooks is enabled and the hook overrides
+  // the memory allocation. In the case, the allocated memory is returned via
+  // `out`. Otherwise, returns false.
+  template <AllocFlags flags>
+  PA_ALWAYS_INLINE bool FilterAllocationOverrideHook(size_t requested_size,
+                                                     size_t alignment,
+                                                     const char* type_name,
+                                                     AllocInternalResult* out);
+#if PA_BUILDFLAG(MEMORY_TOOL_REPLACES_ALLOCATOR)
+  // Returns true if memory tools overrides the memory allocation. Otherwise,
+  // returns false. In the case, the allocated memory is returned via
+  // `out`. Otherwise, returns false.
+  template <AllocFlags flags>
+  PA_ALWAYS_INLINE bool FilterAllocationMemoryToolOverride(
+      size_t requested_size,
+      size_t alignment,
+      const char* type_name,
+      AllocInternalResult* out);
+#endif  //  PA_BUILDFLAG(MEMORY_TOOL_REPLACES_ALLOCATOR)
 
   // Same as |AllocInternal()|, but don't handle allocation hooks.
   template <AllocFlags flags = AllocFlags::kNone>
@@ -944,7 +965,7 @@ class alignas(internal::kPartitionCachelineSize)
   PA_ALWAYS_INLINE void SchedulerLoopQuarantine(
       SlotStart slot_start,
       SlotSpanMetadata* slot_span,
-      const internal::BucketSizeDetails& size_details);
+      internal::BucketSizeDetails size_details);
 
   PA_ALWAYS_INLINE AllocationNotificationData
   CreateAllocationNotificationData(void* object,

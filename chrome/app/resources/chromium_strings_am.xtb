@@ -23,6 +23,7 @@
 <translation id="1185134272377778587">ስለChromium</translation>
 <translation id="1186645291482254714">በስልክዎ ላይ በChromium የዋጋ ክትትል ማንቂያዎችን ያግኙ</translation>
 <translation id="1203500561924088507">ሰለተጫኑ እናመሰግናለን። <ph name="BUNDLE_NAME" />ን ከመጠቀምዎ በፊት አሳሽዎን እንደገና ማስጀመር አለብዎት።</translation>
+<translation id="1222365723190436821"><ph name="IMPORTANT_UPDATE" /> በመጠባበቅ ላይ ነው። አሰሳዎን ደኅንነቱ የተጠበቀ ለማድረግ Chromium ለ<ph name="IDLE_DURATION" /> የማይገለገሉበት ቀጣዩ ጊዜ ላይ ይዘምናል።</translation>
 <translation id="1232234696885483911">የምስል ፍለጋን ሲከፍቱ PDFዎችን ጨምሮ የገጹ ርዕስ፣ ዩአርኤል እና ይዘት በራስ-ሰር ወደ አገልጋዩ ይላካሉ። <ph name="LEARN_MORE" /></translation>
 <translation id="123265588161106468">በመለያ ገብተው ሳለ በChromium ውስጥ ከGoogle መለያዎ የይለፍ ቃላትዎን እና ሌሎችንም መጠቀም ይችላሉ። ይህን ለመለወጥ ወደ «Chromium ውስጥ የእርስዎ መለያ» ይሂዱ።</translation>
 <translation id="1244381985120794049">Gemini በChromium ውስጥ በMac የምናሌ አሞሌ ውስጥ አሳይ</translation>
@@ -230,6 +231,7 @@
 <translation id="3286538390144397061">አሁን ዳግም አስጀምር</translation>
 <translation id="328888136576916638">የGoogle ኤ ፒ አይ ቁልፎች ይጎድላሉ። አንዳንድ የChromium ተግባራት ይሰናከላሉ።</translation>
 <translation id="3296368748942286671">Chromium ሲዘጋ የጀርባ መተግበሪያዎች ማሂዱን ይቀጥሉ</translation>
+<translation id="3300632735252839402">Chromium እርስዎ በማይኖሩበት ጊዜ ይዘምናል</translation>
 <translation id="3313189106987092621">Chromium ደህንነቱ ያልተጠበቀ ግንኙነት በመጠቀም ማንኛውንም ጣቢያ ከመጫንዎ በፊት ያስጠነቅቀዎታል</translation>
 <translation id="3316771292331273802">ከGoogle መለያዎ በስተቀር በChromium ውስጥ ገብተው ከሆነ፣ ሁሉንም የChromium መስኮቶች ሲዘጉ ከአብዛኞቹ ጣቢያዎች ይወጣሉ። ጣቢያዎች እንዲያስታውሱዎ ለማድረግ <ph name="SETTINGS_LINK" />።</translation>
 <translation id="3352986031709923790">የፍለጋው አካባቢ ከላይ በስተቀኝ ጥግ፦ ቀኝ <ph name="RIGHT" />%፣ ከላይ <ph name="TOP" />%</translation>
@@ -238,6 +240,7 @@
 <translation id="3387527074123400161">ChromiumOS</translation>
 <translation id="3406848076815591792">ወደ ነባር የChromium መገለጫ ይቀየር?</translation>
 <translation id="3412460710772753638">በዚህ መሣሪያ ላይ በይለፍ ቃል አስተዳዳሪ ውስጥ</translation>
+<translation id="3425452599984451640">Chromium ማዘመን ይፈልጋል</translation>
 <translation id="3427159664004296878">የእርስዎን ዕልባቶች እና ሌሎችንም ከ<ph name="DEVICE" /> ለማግኘት ወደ Chromium ይግቡ</translation>
 <translation id="3438772217992559640">ይህን ትር በምስል ፍለጋ ፈልግ</translation>
 <translation id="3455907671758333080">በስልክዎ ላይ በተሻሻለ የደህንነት አሰሳን በChromium ያራዝሙ</translation>
@@ -380,6 +383,7 @@
 <translation id="5074496654342756568">በእርስዎ <ph name="DEVICE_TYPE" /> ላይ ሁሉንም የGoogle ተወዳጆችዎን በChromium ይድረሱ</translation>
 <translation id="5123973130450702873">Chromium እጆችዎን ለመከታተል ፈቃድ ያስፈልገዋል</translation>
 <translation id="5141988424377517949">በቅርብ ጊዜ አልጎበኙም። Chromium <ph name="PERMISSION_1" />፣ <ph name="PERMISSION_2" />፣ <ph name="PERMISSION_3" />ን አስወግዷል።</translation>
+<translation id="5171868502429358653">Chromium ውስጥ ይግቡ</translation>
 <translation id="5174969993834422967">አብዛኛውን ጊዜ ማሳወቂያዎችን ያግዳሉ። ይህ ጣቢያ እንዲያሳውቅዎ ለመፍቀድ በአካባቢ አሞሌዎ ቀኝ ጥግ ላይ ያለውን የማሳወቂያ አዶ ጠቅ ያድርጉ።</translation>
 <translation id="5174983315706567306">በቂ የዲስክ ቦታ የለም።</translation>
 <translation id="5187123684706427865">የChromium መለያ ዳግም ማረጋገጥ ያስፈልገዋል</translation>
@@ -389,6 +393,7 @@
 <translation id="5249261924633168472">አገናኙን በChromium ማን&amp;ነትን በማያሳውቅ መስኮት ውስጥ ክፈት</translation>
 <translation id="5276305953263010518">በመሄድ ላይ ሳሉ የይለፍ ቃላትን ለማስቀመጥ የChromium መተግበሪያን ያግኙ</translation>
 <translation id="5277894862589591112">የእርስዎን ለውጦች ተፈጻሚ ለማድረግ፣ Chromiumን ዳግም ያስጀምሩ</translation>
+<translation id="5278909220224474621">ይህን ትር ወደ ሌላ መሣሪያ ለመላክ በሁለቱም መሣሪያዎች ላይ ወደ Chromium ይግቡ</translation>
 <translation id="5286907366254680517">ተገኝቷል</translation>
 <translation id="5289287148052354622">የChromium መተግበሪያን አግኝ</translation>
 <translation id="5294316920224716406">ማንነትን በማያሳውቅ ሁነታ ሲያስሱ፣ Chromium ደህንነቱ ያልተጠበቀ ግንኙነት በመጠቀም ጣቢያ ከመጫንዎ በፊት ያስጠነቅቀዎታል</translation>
@@ -758,6 +763,7 @@ Chromium ቅንብሮችዎን ማስመለስ አልቻለም።</translation>
 <translation id="8648201657708811153">Google Chrome ለሙከራ የእርስዎ ነባሪ አሳሽ እንዲሆን ማድረግ አይቻልም።</translation>
 <translation id="8676101123715131330">ከየትኛውም ቦታ ሆነው በChromium ይፈልጉ</translation>
 <translation id="8697124171261953979">እንዲሁም Chromiumን ሲጀምሩት ወይም ከኦምኒቦክሱ ሆነው ሲፈልጉ የሚታየውን ገፅ ይቆጣጠራል።</translation>
+<translation id="8702213505203810093">ይህን ትር ወደ ሌላ መሣሪያ ለመላክ እዚያ ላይ ወደ Chromium ይግቡ</translation>
 <translation id="8704119203788522458">ይሄ የእርስዎ Chromium ነው</translation>
 <translation id="8712637175834984815">ገባኝ</translation>
 <translation id="8719993436687031146">ወደ Chromium ይግቡ?</translation>

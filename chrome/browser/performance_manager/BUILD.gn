@@ -74,6 +74,7 @@ source_set("performance_manager") {
       "execution_context_priority/side_panel_loading_voter.h",
       "metrics/metrics_provider_desktop.h",
       "policies/freezing_opt_out_checker.h",
+      "policies/memory_saver_memory_coordinator_policy.h",
       "policies/memory_saver_mode_policy.h",
       "policies/sustained_memory_pressure_evaluator.h",
       "policies/urgent_page_discarding_policy.h",
@@ -157,10 +158,7 @@ source_set("impl") {
     "user_tuning/user_tuning_utils.cc",
   ]
 
-  public_deps = [
-    ":performance_manager",
-    "//chrome/browser:browser_public_dependencies",
-  ]
+  public_deps = [ ":performance_manager" ]
 
   deps = [
     "//chrome/browser:browser_process",
@@ -216,6 +214,7 @@ source_set("impl") {
       "execution_context_priority/side_panel_loading_voter.cc",
       "metrics/metrics_provider_desktop.cc",
       "policies/freezing_opt_out_checker.cc",
+      "policies/memory_saver_memory_coordinator_policy.cc",
       "policies/memory_saver_mode_policy.cc",
       "policies/sustained_memory_pressure_evaluator.cc",
       "policies/urgent_page_discarding_policy.cc",
@@ -337,7 +336,10 @@ source_set("test_support") {
   ]
 
   if (is_chromeos) {
-    deps += [ "//chromeos/dbus/power" ]
+    deps += [
+      "//ash/constants",
+      "//chromeos/dbus/power",
+    ]
   }
 }
 
@@ -475,6 +477,7 @@ if (!is_android) {
       "policies/discard_eligibility_policy_browsertest.cc",
       "policies/page_discarding_helper_browsertest.cc",
       "policies/transient_keep_alive_policy_browsertest.cc",
+      "process_priority_browsertest.cc",
       "user_tuning/performance_detection_manager_browsertest.cc",
     ]
 
@@ -496,6 +499,7 @@ if (!is_android) {
       # Inherits -Wno-sign-compare via fuzztest_public_config. See
       # crbug.com/527094632.
       "//chrome/browser/ui:browser_commands",
+      "//chrome/browser/ui:browser_tabstrip",
       "//third_party/fuzztest",
     ]
 

@@ -5,7 +5,7 @@
 #include "third_party/blink/renderer/platform/fonts/orientation_iterator.h"
 
 #include "testing/gtest/include/gtest/gtest.h"
-
+#include "third_party/blink/renderer/platform/testing/runtime_enabled_features_test_helpers.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_builder.h"
 
 namespace blink {
@@ -16,11 +16,11 @@ struct OrientationTestRun {
 };
 
 struct OrientationExpectedRun {
-  unsigned limit;
+  wtf_size_t limit;
   OrientationIterator::RenderOrientation render_orientation;
 
   OrientationExpectedRun(
-      unsigned the_limit,
+      wtf_size_t the_limit,
       OrientationIterator::RenderOrientation the_render_orientation)
       : limit(the_limit), render_orientation(the_render_orientation) {}
 };
@@ -42,7 +42,7 @@ class OrientationIteratorTest : public testing::Test {
 
   void VerifyRuns(OrientationIterator* orientation_iterator,
                   const Vector<OrientationExpectedRun>& expect) {
-    unsigned limit;
+    wtf_size_t limit;
     OrientationIterator::RenderOrientation render_orientation;
     wtf_size_t run_count = 0;
     while (orientation_iterator->Consume(&limit, &render_orientation)) {
@@ -63,7 +63,7 @@ TEST_F(OrientationIteratorTest, Empty) {
   String empty(g_empty_string16_bit);
   OrientationIterator orientation_iterator(empty.Span16(),
                                            FontOrientation::kVerticalMixed);
-  unsigned limit = 0;
+  wtf_size_t limit = 0;
   OrientationIterator::RenderOrientation orientation =
       OrientationIterator::kOrientationInvalid;
   DCHECK(!orientation_iterator.Consume(&limit, &orientation));
@@ -158,6 +158,43 @@ TEST_F(OrientationIteratorTest, JapaneseLatinMixedOutside) {
   CHECK_ORIENTATION({{"Abc", OrientationIterator::kOrientationRotateSideways},
                      {"ほへと", OrientationIterator::kOrientationKeep},
                      {"Xyz", OrientationIterator::kOrientationRotateSideways}});
+}
+
+TEST_F(OrientationIteratorTest, EmojiZWJSequence) {
+  // U+200D ZERO WIDTH JOINER is Rotated in UAX #50, but it joins the
+  // surrounding Extended_Pictographic characters into one grapheme cluster,
+  // whose orientation is decided by the cluster's first character.
+  CHECK_ORIENTATION(
+      {{"👩‍👩‍👧‍👦", OrientationIterator::kOrientationKeep}});
+}
+
+TEST_F(OrientationIteratorTest, EmojiZWJSequenceBetweenLatin) {
+  CHECK_ORIENTATION(
+      {{"ab", OrientationIterator::kOrientationRotateSideways},
+       {"👩‍❤️‍💋‍👨", OrientationIterator::kOrientationKeep},
+       {"cd", OrientationIterator::kOrientationRotateSideways}});
+}
+
+TEST_F(OrientationIteratorTest, ZeroWidthJoinerBetweenLatin) {
+  // A ZWJ that does not join two Extended_Pictographic characters keeps its
+  // own Rotated orientation.
+  CHECK_ORIENTATION(
+      {{"a\U0000200Db", OrientationIterator::kOrientationRotateSideways}});
+}
+
+TEST_F(OrientationIteratorTest, ZeroWidthJoinerAfterEmojiThenLatin) {
+  // The ZWJ is part of the emoji's cluster, but the following "b" is not
+  // Extended_Pictographic and therefore starts a new cluster.
+  CHECK_ORIENTATION({{"👩\U0000200D", OrientationIterator::kOrientationKeep},
+                     {"b", OrientationIterator::kOrientationRotateSideways}});
+}
+
+TEST_F(OrientationIteratorTest, EmojiZWJSequenceKillSwitch) {
+  ScopedEmojiZWJVerticalOrientationForTest disabled(false);
+  CHECK_ORIENTATION(
+      {{"👩", OrientationIterator::kOrientationKeep},
+       {"\U0000200D", OrientationIterator::kOrientationRotateSideways},
+       {"👦", OrientationIterator::kOrientationKeep}});
 }
 
 TEST_F(OrientationIteratorTest, JapaneseMahjonggMixed) {

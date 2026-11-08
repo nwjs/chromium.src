@@ -100,6 +100,7 @@ class WebUILocationBar : public LocationBar,
   std::optional<bubble_anchor_util::AnchorConfiguration> GetChipAnchor()
       override;
   ui::TrackedElement* GetAnchorOrNull() override;
+  ui::ElementContext GetElementContext() const override;
   bool in_popup_state_transition() const override;
   BrowserWindowInterface* GetBrowser() override;
   Profile* GetProfile() override;
@@ -188,6 +189,13 @@ class WebUILocationBar : public LocationBar,
                            OmniboxPopupState new_state);
   void ClearInPopupStateTransition();
 
+  // Creates `omnibox_popup_aim_presenter_` if it doesn't exist yet and the
+  // profile is eligible for the AI Mode popup. Returns whether it exists.
+  bool CreateOmniboxPopupAimPresenterIfEligible();
+
+  // Retries creating the AI Mode popup presenter until it succeeds.
+  void OnAimEligibilityChanged();
+
   void UpdateLocationBarFlagsState();
   void UpdateSelectedKeywordState();
   void RefreshAiModePageAction();
@@ -240,8 +248,11 @@ class WebUILocationBar : public LocationBar,
   std::unique_ptr<WebUIReadOnlyOmnibox> omnibox_view_;
   std::unique_ptr<OmniboxPopupViewWebUI> omnibox_popup_view_;
   const bool using_full_popup_;
-  // The presenter controlling the showing of the AI mode popup.
+  // The presenter controlling the showing of the AI mode popup. Null until the
+  // profile is eligible for it.
   std::unique_ptr<OmniboxPopupAimPresenter> omnibox_popup_aim_presenter_;
+  // Set while waiting for the profile to become eligible for the AI mode popup.
+  base::CallbackListSubscription aim_eligibility_subscription_;
   std::unique_ptr<OmniboxPopupFileSelector> omnibox_popup_file_selector_;
   base::CallbackListSubscription popup_state_changed_subscription_;
 
@@ -267,6 +278,7 @@ class WebUILocationBar : public LocationBar,
   std::optional<bool> last_is_keyword_selected_;
   toolbar_ui_api::IconHandle keyword_icon_;
 
+  base::WeakPtrFactory<WebUILocationBar> focus_request_weak_ptr_factory_{this};
   base::WeakPtrFactory<WebUILocationBar> weak_ptr_factory_{this};
 };
 

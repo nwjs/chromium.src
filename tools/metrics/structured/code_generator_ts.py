@@ -3,6 +3,7 @@
 # found in the LICENSE file.
 import setup_modules  # pylint: disable=unused-import
 
+
 from chromium_src.tools.metrics.structured.codegen_util import FileInfo, Util
 from chromium_src.tools.metrics.structured.code_generator import (
   EventTemplateBase,

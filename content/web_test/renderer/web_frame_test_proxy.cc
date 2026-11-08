@@ -308,6 +308,17 @@ void WebFrameTestProxy::ResetRendererAfterWebTest() {
   test_runner_->Reset();
 }
 
+void WebFrameTestProxy::ResetTestRunnerForNewWebTest() {
+  // This process may have been reused from a previous test without receiving
+  // ResetRendererAfterWebTest(), which is only sent to the process hosting the
+  // main window's main frame. Frames it hosts for the new test are freshly
+  // created, so only the process-global TestRunner state (such as
+  // |did_notify_done_|, runtime flags and the set of loading frames) can be
+  // stale. Resetting it again in a process that did receive
+  // ResetRendererAfterWebTest() is harmless.
+  test_runner_->Reset();
+}
+
 std::string WebFrameTestProxy::GetFrameNameForWebTests() {
   return blink::UniqueNameHelper::ExtractStableNameForTesting(unique_name());
 }
@@ -777,6 +788,9 @@ void WebFrameTestProxy::DidCommitNavigation(
     should_block_parsing_in_next_commit_ = false;
     GetWebFrame()->BlockParserForTesting();
   }
+  // Words added through the SpellCheckCustomDictionary web API belong to the
+  // outgoing document.
+  spell_check_->ClearDocumentCustomWords();
   RenderFrameImpl::DidCommitNavigation(
       commit_type, should_reset_browser_interface_broker,
       permissions_policy_header, document_policy_header);

@@ -7,6 +7,8 @@ package org.chromium.chrome.browser.ui.android.webid;
 import static androidx.browser.customtabs.CustomTabsIntent.COLOR_SCHEME_DARK;
 import static androidx.browser.customtabs.CustomTabsIntent.COLOR_SCHEME_LIGHT;
 
+import static org.chromium.build.NullUtil.assertNonNull;
+
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
@@ -18,7 +20,6 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.TextView;
 
-import androidx.annotation.Nullable;
 import androidx.annotation.Px;
 import androidx.annotation.VisibleForTesting;
 import androidx.browser.customtabs.CustomTabsIntent;
@@ -28,8 +29,12 @@ import androidx.recyclerview.widget.RecyclerView;
 import org.chromium.base.Callback;
 import org.chromium.base.IntentUtils;
 import org.chromium.base.metrics.RecordHistogram;
+import org.chromium.base.task.PostTask;
+import org.chromium.base.task.TaskTraits;
 import org.chromium.blink.mojom.RpContext;
 import org.chromium.blink.mojom.RpMode;
+import org.chromium.build.annotations.NullMarked;
+import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.IntentHandler;
 import org.chromium.chrome.browser.LaunchIntentDispatcher;
 import org.chromium.chrome.browser.app.ChromeActivity;
@@ -70,6 +75,7 @@ import java.util.Map;
  * Creates the AccountSelection component. AccountSelection uses a bottom sheet to let the user
  * select an account.
  */
+@NullMarked
 public class AccountSelectionCoordinator
         implements AccountSelectionComponent, ActivityStateObserver {
     private static final String TAG = "AccountSelection";
@@ -112,8 +118,8 @@ public class AccountSelectionCoordinator
     private final AccountSelectionComponent.Delegate mDelegate;
     private final AccountSelectionMediator mMediator;
     private final RecyclerView mSheetItemListView;
-    private WeakReference<AccountSelectionComponent> mPopupComponent;
-    private WeakReference<AccountSelectionComponent.Delegate> mOpenerDelegate;
+    private @Nullable WeakReference<AccountSelectionComponent> mPopupComponent;
+    private @Nullable WeakReference<AccountSelectionComponent.Delegate> mOpenerDelegate;
 
     public AccountSelectionCoordinator(
             Tab tab,
@@ -126,7 +132,7 @@ public class AccountSelectionCoordinator
         mBottomSheetController = sheetController;
         mWindowAndroid = windowAndroid;
         mDelegate = delegate;
-        Context context = mWindowAndroid.getContext().get();
+        Context context = assertNonNull(mWindowAndroid.getContext().get());
 
         PropertyModel model =
                 new PropertyModel.Builder(AccountSelectionProperties.ItemProperties.ALL_KEYS)
@@ -162,7 +168,7 @@ public class AccountSelectionCoordinator
                         avatarSize,
                         rpMode,
                         context,
-                        windowAndroid.getModalDialogManager(),
+                        assertNonNull(windowAndroid.getModalDialogManager()),
                         canShowUi);
 
         // If this object is corresponding to the custom tab opened by showModalDialog, this
@@ -297,7 +303,7 @@ public class AccountSelectionCoordinator
     }
 
     @Override
-    public String getSubtitle() {
+    public @Nullable String getSubtitle() {
         TextView subtitle = mBottomSheetContent.getContentView().findViewById(R.id.header_subtitle);
         if (subtitle == null || subtitle.getText().length() == 0) return null;
         return String.valueOf(subtitle.getText());
@@ -305,12 +311,12 @@ public class AccountSelectionCoordinator
 
     @Override
     public void showUrl(@IdentityRequestDialogLinkType int linkType, GURL url) {
-        Context context = mWindowAndroid.getContext().get();
+        Context context = assertNonNull(mWindowAndroid.getContext().get());
         mMediator.showUrl(context, linkType, url);
     }
 
     @Override
-    public WebContents showModalDialog(GURL url) {
+    public @Nullable WebContents showModalDialog(GURL url) {
         if (ContentFeatureMap.isEnabled(ContentFeatures.FED_CM_NATIVE_ID_PS)) {
             Intent intent = new Intent(Intent.ACTION_VIEW);
             intent.addCategory(Intent.CATEGORY_BROWSABLE);
@@ -386,12 +392,12 @@ public class AccountSelectionCoordinator
     }
 
     @Override
-    public WebContents getWebContents() {
+    public @Nullable WebContents getWebContents() {
         return mTab.getWebContents();
     }
 
     @Override
-    public WebContents getRpWebContents() {
+    public @Nullable WebContents getRpWebContents() {
         if (mOpenerDelegate == null || mOpenerDelegate.get() == null) {
             return null;
         }
@@ -434,7 +440,8 @@ public class AccountSelectionCoordinator
      * Finds an installed app package that handles {@code queryIntent} and is verified via Digital
      * Asset Links for {@code url}'s origin.
      */
-    private void findVerifiedApp(Intent queryIntent, GURL url, Callback<String> callback) {
+    private void findVerifiedApp(
+            Intent queryIntent, GURL url, Callback<@Nullable String> callback) {
         List<String> packages = getNativeAppPackages(queryIntent);
         if (packages.isEmpty()) {
             callback.onResult(null);
@@ -445,16 +452,20 @@ public class AccountSelectionCoordinator
             callback.onResult(null);
             return;
         }
+        findVerifiedPackage(packages, origin, callback);
+    }
+
+    /**
+     * Returns, via {@code callback}, the first of {@code packages} that is verified via Digital
+     * Asset Links for {@code origin}, or null if none is. Note that the callback may run
+     * synchronously, e.g. when the relationship is allowlisted or no request could be sent.
+     */
+    private static void findVerifiedPackage(
+            List<String> packages, Origin origin, Callback<@Nullable String> callback) {
         DigitalAssetLinksVerifier.checkPackages(
                 packages,
                 origin,
-                index -> {
-                    if (index != -1) {
-                        callback.onResult(packages.get(index));
-                    } else {
-                        callback.onResult(null);
-                    }
-                });
+                index -> callback.onResult(index != -1 ? packages.get(index) : null));
     }
 
     private List<String> getNativeAppPackages(Intent intent) {
@@ -528,25 +539,46 @@ public class AccountSelectionCoordinator
         Intent intent = new Intent(ACTION_ACTIVE_MODE_VIEW);
         intent.addCategory(Intent.CATEGORY_DEFAULT);
         intent.setData(Uri.parse(idpConfigUrl.getSpec()));
-        findVerifiedApp(
-                intent,
-                idpConfigUrl,
-                appPackage -> {
-                    // Digital Asset Links verification is asynchronous, so the
-                    // request may have been dismissed or torn down while it was
-                    // in flight. Launching an application at that point would
-                    // put UI in front of the user for a request that no longer
-                    // exists, and nothing would consume its result.
-                    if (mMediator.wasDismissed()) {
-                        return;
-                    }
-                    if (appPackage == null) {
-                        mMediator.onDismissed(IdentityRequestDialogDismissReason.OTHER);
-                        return;
-                    }
-                    launchNativeAppUi(appPackage, requestOptions);
-                });
+
+        // The return value is a contract with the native caller: true means the
+        // UI is showing and the request is still alive. Dismissing reaches
+        // native code that destroys the request (and its dialog controller),
+        // so this method must never dismiss before it returns. When there is
+        // nothing to hand off to, say so through the return value instead.
+        List<String> packages = getNativeAppPackages(intent);
+        Origin origin = Origin.create(idpConfigUrl.getSpec());
+        if (packages.isEmpty() || origin == null) {
+            return false;
+        }
+
+        // Digital Asset Links verification is usually asynchronous but can
+        // complete synchronously (e.g. allowlisted or overridden relationships,
+        // or when no request could be sent). Always defer the outcome, which
+        // may dismiss, until after this method has returned.
+        findVerifiedPackage(
+                packages,
+                origin,
+                appPackage ->
+                        PostTask.postTask(
+                                TaskTraits.UI_DEFAULT,
+                                () -> onNativeAppUiPackageVerified(appPackage, requestOptions)));
         return true;
+    }
+
+    private void onNativeAppUiPackageVerified(
+            @Nullable String appPackage, NativeAppRequestOptions requestOptions) {
+        // The request may have been dismissed or torn down while verification
+        // was in flight. Launching an application at that point would put UI in
+        // front of the user for a request that no longer exists, and nothing
+        // would consume its result.
+        if (mMediator.wasDismissed()) {
+            return;
+        }
+        if (appPackage == null) {
+            mMediator.onDismissed(IdentityRequestDialogDismissReason.OTHER);
+            return;
+        }
+        launchNativeAppUi(appPackage, requestOptions);
     }
 
     private void launchNativeAppUi(String packageName, NativeAppRequestOptions requestOptions) {

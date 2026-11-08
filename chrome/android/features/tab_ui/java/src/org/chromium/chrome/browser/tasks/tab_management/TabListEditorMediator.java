@@ -166,15 +166,8 @@ class TabListEditorMediator
                             @TabCreationState int creationState,
                             boolean markedForSelection) {
                         TabModel tabModel = mCurrentTabModelSupplier.get();
-                        if (tabModel == null || !tabModel.isTabModelRestored()) return;
-                        // When tab is added due to
-                        // 1) multi-window close
-                        // 2) moving between multiple windows
-                        // 3) NTP at startup
-                        // force hiding the selection editor.
-                        if (type == TabLaunchType.FROM_RESTORE
-                                || TabLaunchTypeUtils.isReparentingLaunch(type)
-                                || type == TabLaunchType.FROM_STARTUP) {
+                        if (tabModel == null || !tabModel.isTabStateInitialized()) return;
+                        if (TabLaunchTypeUtils.shouldNavigateBackFromTabListEditor(type)) {
                             assumeNonNull(mNavigationProvider);
                             mNavigationProvider.goBack();
                         }

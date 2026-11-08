@@ -7,12 +7,12 @@
 #include <stddef.h>
 
 #include <algorithm>
+#include <ranges>
 #include <sstream>
 #include <utility>
 
 #include "base/check.h"
 #include "base/compiler_specific.h"
-#include "base/containers/adapters.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
 #include "base/functional/callback_helpers.h"
@@ -147,8 +147,7 @@ const ui::Layer* GetRootLayer(const ui::Layer* layer) {
 // state, the layer root does not match the root window's layer.
 bool IsLayerDivergedFromRoot(const Window* window, const Window* root_window) {
   CHECK(root_window);
-  return !window->layer_managed_by_parent() &&
-         GetRootLayer(window->layer()) != root_window->layer();
+  return GetRootLayer(window->layer()) != root_window->layer();
 }
 
 gfx::Vector2d GetLayerTargetOffsetToRoot(const ui::Layer* layer) {
@@ -403,9 +402,7 @@ void Window::SetTransparent(bool transparent) {
     return;
   transparent_ = transparent;
 
-  if (!layer()->AsSolidColor()) {
-    layer()->SetFillsBoundsOpaquely(!transparent_);
-  }
+  layer()->SetFillsBoundsOpaquely(!transparent_);
   TriggerChangedCallback(&transparent_);
 }
 
@@ -793,8 +790,6 @@ void Window::ConvertPointToTarget(const Window* source,
     CHECK(target->layer());
     const ui::Layer* source_layer = source->layer();
     const ui::Layer* target_layer = target->layer();
-
-#if !BUILDFLAG(IS_WIN)
     auto chain_name = [](const aura::Window* window) {
       std::ostringstream out;
       out << "[";
@@ -810,12 +805,7 @@ void Window::ConvertPointToTarget(const Window* source,
         << "Root layer in source and target window are different. "
            "source chain="
         << chain_name(source) << ", target chain=" << chain_name(target);
-#else
-    // TODO(crbug.com/550457201): Investigate why this is hitting on Windows.
-    if (GetRootLayer(source_layer) != GetRootLayer(target_layer)) {
-      return;
-    }
-#endif
+
     ui::Layer::ConvertPointToLayer(source_layer, target_layer,
                                    /*use_target_transform=*/true, point);
   }
@@ -944,7 +934,7 @@ Window* Window::GetEventHandlerForPoint(const gfx::Point& local_point) {
   if (!HitTest(local_point))
     return nullptr;
 
-  for (Window* child : base::Reversed(children_)) {
+  for (Window* child : std::views::reverse(children_)) {
     if (child->event_targeting_policy_ == EventTargetingPolicy::kNone) {
       continue;
     }

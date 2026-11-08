@@ -15,6 +15,7 @@
 #include "components/prefs/pref_service.h"
 #include "content/public/test/browser_task_environment.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "ui/gfx/geometry/rect.h"
 
 class OmniboxEverywhereServiceTest : public testing::Test {
  public:
@@ -129,3 +130,44 @@ TEST_F(OmniboxEverywhereServiceTest, EndLensPromoDoesNotCrash) {
   service->EndLensPromo();
 }
 #endif  // BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
+
+TEST_F(OmniboxEverywhereServiceTest, CalculateInPlaceWindowBounds) {
+  const gfx::Rect work_area(0, 0, 1920, 1080);
+
+  // Horizontally centered and vertically offset upward (200) relative to the
+  // popup's top edge using default 800x800 size.
+  const gfx::Rect centered_popup(596, 300, 728, 152);
+  EXPECT_EQ(gfx::Rect(560, 100, 800, 800),
+            OmniboxEverywhereService::CalculateInPlaceWindowBounds(
+                centered_popup, work_area));
+
+  // Clamped to the work area when the popup is near the bottom-right corner.
+  const gfx::Rect corner_popup(1180, 700, 728, 152);
+  EXPECT_EQ(gfx::Rect(1120, 280, 800, 800),
+            OmniboxEverywhereService::CalculateInPlaceWindowBounds(corner_popup,
+                                                                   work_area));
+}
+
+TEST_F(OmniboxEverywhereServiceTest,
+       CalculateInPlaceWindowBoundsWithCustomParams) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeatureWithParameters(
+      omnibox::kOmniboxEverywhereScreenshotNewWindow,
+      {{"WindowWidth", "1000"},
+       {"WindowHeight", "500"},
+       {"VerticalOffset", "50"}});
+
+  const gfx::Rect work_area(0, 0, 1920, 1080);
+  const gfx::Rect centered_popup(596, 300, 728, 152);
+  // x = 596 + (728 - 1000) / 2 = 460
+  // y = 300 - 50 = 250
+  EXPECT_EQ(gfx::Rect(460, 250, 1000, 500),
+            OmniboxEverywhereService::CalculateInPlaceWindowBounds(
+                centered_popup, work_area));
+
+  // Empty work area skips AdjustToFit clamping while still applying size and
+  // offset.
+  EXPECT_EQ(gfx::Rect(460, 250, 1000, 500),
+            OmniboxEverywhereService::CalculateInPlaceWindowBounds(
+                centered_popup, gfx::Rect()));
+}

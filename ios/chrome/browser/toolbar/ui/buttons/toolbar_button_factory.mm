@@ -21,6 +21,8 @@
 
 namespace {
 // Default point size for toolbar buttons.
+constexpr CGFloat kFiveButtonLayoutSymbolPointSize = 23.0;
+// Default point size for toolbar buttons.
 constexpr CGFloat kDefaultSymbolPointSize = 19;
 // Symbol point size for the legacy toolbar button design.
 constexpr CGFloat kLegacySymbolPointSize = 24;
@@ -39,7 +41,9 @@ constexpr CGFloat kLegacySymbolPointSize = 24;
 
 - (ToolbarButton*)makeBackButton {
   ToolbarButton* button = [self toolbarButtonForSymbol:SymbolBack];
-  button.visibilityMask = ToolbarButtonVisibility::kAlways;
+  button.visibilityMask = IsFiveButtonAppBarLayoutEnabled()
+                              ? ToolbarButtonVisibility::kRegularRegular
+                              : ToolbarButtonVisibility::kAlways;
   button.accessibilityIdentifier = kToolbarBackButtonIdentifier;
   button.accessibilityLabel = l10n_util::GetNSString(IDS_ACCNAME_BACK);
   button.accessibilityHint =
@@ -49,9 +53,13 @@ constexpr CGFloat kLegacySymbolPointSize = 24;
 
 - (ToolbarButton*)makeForwardButton {
   ToolbarButton* button = [self toolbarButtonForSymbol:SymbolForward];
-  button.visibilityMask = IsNextOldDesignEnabled()
-                              ? ToolbarButtonVisibility::kAlways
-                              : ToolbarButtonVisibility::kWhenEnabled;
+  if (IsFiveButtonAppBarLayoutEnabled()) {
+    button.visibilityMask = ToolbarButtonVisibility::kRegularRegular;
+  } else {
+    button.visibilityMask = IsNextOldDesignEnabled()
+                                ? ToolbarButtonVisibility::kAlways
+                                : ToolbarButtonVisibility::kWhenEnabled;
+  }
   button.accessibilityIdentifier = kToolbarForwardButtonIdentifier;
   button.accessibilityLabel = l10n_util::GetNSString(IDS_ACCNAME_FORWARD);
   button.accessibilityHint =
@@ -87,8 +95,14 @@ constexpr CGFloat kLegacySymbolPointSize = 24;
 - (ToolbarButton*)makeShareButton {
   // Shift the button up 2px by adding 4px of padding at the bottom.
   UIImage* (^imageLoader)(void) = ^UIImage* {
-    CGFloat pointSize = IsNextOldDesignEnabled() ? kLegacySymbolPointSize
-                                                 : kDefaultSymbolPointSize;
+    CGFloat pointSize;
+    if (IsFiveButtonAppBarLayoutEnabled()) {
+      pointSize = kFiveButtonLayoutSymbolPointSize;
+    } else if (IsNextOldDesignEnabled()) {
+      pointSize = kLegacySymbolPointSize;
+    } else {
+      pointSize = kDefaultSymbolPointSize;
+    }
     UIImage* image = SymbolWithPointSize(SymbolShare, pointSize);
     CGSize newSize = CGSizeMake(image.size.width, image.size.height + 4);
 
@@ -112,7 +126,9 @@ constexpr CGFloat kLegacySymbolPointSize = 24;
       [[ToolbarButton alloc] initWithImageLoader:imageLoader
                                        incognito:_incognito];
   button.geminiHandler = self.geminiHandler;
-  button.visibilityMask = ToolbarButtonVisibility::kCompactHeight;
+  button.visibilityMask = IsNextOldDesignEnabled()
+                              ? ToolbarButtonVisibility::kWideLayout
+                              : ToolbarButtonVisibility::kCompactHeight;
   button.accessibilityIdentifier = kToolbarShareButtonIdentifier;
   button.accessibilityLabel = l10n_util::GetNSString(IDS_IOS_TOOLS_MENU_SHARE);
   return button;
@@ -156,8 +172,14 @@ constexpr CGFloat kLegacySymbolPointSize = 24;
 
 // Returns a toolbar button with the given symbol.
 - (ToolbarButton*)toolbarButtonForSymbol:(Symbol)symbol {
-  CGFloat pointSize = IsNextOldDesignEnabled() ? kLegacySymbolPointSize
-                                               : kDefaultSymbolPointSize;
+  CGFloat pointSize;
+  if (IsFiveButtonAppBarLayoutEnabled()) {
+    pointSize = kFiveButtonLayoutSymbolPointSize;
+  } else if (IsNextOldDesignEnabled()) {
+    pointSize = kLegacySymbolPointSize;
+  } else {
+    pointSize = kDefaultSymbolPointSize;
+  }
   ToolbarButton* button = [[ToolbarButton alloc]
       initWithImageLoader:^UIImage* {
         return SymbolWithPointSize(symbol, pointSize);

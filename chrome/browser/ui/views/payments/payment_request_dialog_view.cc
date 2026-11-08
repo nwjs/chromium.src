@@ -6,6 +6,7 @@
 
 #include <utility>
 
+#include "base/check.h"
 #include "base/functional/bind.h"
 #include "base/logging.h"
 #include "base/metrics/histogram_functions.h"
@@ -41,9 +42,9 @@
 #include "ui/base/mojom/ui_base_types.mojom-shared.h"
 #include "ui/color/color_id.h"
 #include "ui/compositor/layer.h"
-#include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/background.h"
 #include "ui/views/controls/label.h"
+#include "ui/views/controls/throbber.h"
 #include "ui/views/layout/box_layout.h"
 #include "ui/views/layout/fill_layout.h"
 #include "ui/views/layout/layout_provider.h"
@@ -151,15 +152,7 @@ void PaymentRequestDialogView::ShowDialog() {
     VLOG(2) << "ShowDialog: Rejected because dialog does not fit";
     request_->SetWindowSizeCheckRejectionReason(
         JourneyLogger::WindowSizeCheckRejectionReason::kRejectedAtShow);
-
-    // To avoid tearing down the PaymentRequest class in the middle of showing
-    // the dialog, we post this call asynchronously.
-    //
-    // TODO(crbug.com/483395708): Refactor PaymentRequest::Show so that it can
-    // handle this case synchronously, e.g. via a bool return parameter.
-    base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
-        FROM_HERE, base::BindOnce(&PaymentRequest::OnInternalError, request_,
-                                  errors::kBrowserWindowTooSmall));
+    request_->OnInternalError(errors::kBrowserWindowTooSmall);
 
     // Because we never handed over ownership of this object to the widget in
     // ShowWebModalDialogViews, we need to manually delete ourselves.
@@ -227,10 +220,35 @@ void PaymentRequestDialogView::ShowErrorMessage() {
 }
 
 void PaymentRequestDialogView::ShowProcessingSpinner() {
-  throbber_->Start();
-  throbber_overlay_->SetVisible(true);
-  throbber_overlay_->GetViewAccessibility().SetIsIgnored(false);
-  throbber_overlay_->GetViewAccessibility().SetIsLeaf(false);
+  CHECK(!throbber_overlay_);
+
+  // Create an overlay with a centered spinner and "Processing" label.
+  throbber_overlay_ = AddChildView(std::make_unique<views::View>());
+
+  throbber_overlay_->SetPaintToLayer();
+  // Currently layers don't clip to the bounds of the parent window opaque
+  // layer. Until this is fixed, we have to set rounded corners directly here.
+  //
+  // TODO(crbug.com/358379367): Remove once layers obey the clip by default.
+  throbber_overlay_->layer()->SetRoundedCornerRadius(
+      gfx::RoundedCornersF(GetCornerRadius()));
+  // The throbber overlay has to have a solid white background to hide whatever
+  // would be under it.
+  throbber_overlay_->SetBackground(
+      views::CreateSolidBackground(ui::kColorDialogBackground));
+
+  views::BoxLayout* layout =
+      throbber_overlay_->SetLayoutManager(std::make_unique<views::BoxLayout>(
+          views::BoxLayout::Orientation::kVertical));
+  layout->set_main_axis_alignment(views::BoxLayout::MainAxisAlignment::kCenter);
+  layout->set_cross_axis_alignment(
+      views::BoxLayout::CrossAxisAlignment::kCenter);
+
+  throbber_overlay_->AddChildView(std::make_unique<views::Throbber>())->Start();
+  throbber_overlay_->AddChildView(std::make_unique<views::Label>(
+      l10n_util::GetStringUTF16(IDS_PAYMENTS_PROCESSING_MESSAGE)));
+
+  view_stack_->SetVisible(false);
   if (observer_for_testing_) {
     observer_for_testing_->OnProcessingSpinnerShown();
   }
@@ -260,7 +278,7 @@ void PaymentRequestDialogView::ShowLoadingView() {
 }
 
 bool PaymentRequestDialogView::IsInteractive() const {
-  return !throbber_overlay_->GetVisible() &&
+  return !throbber_overlay_ &&
          (!loading_view_overlay_ || !loading_view_overlay_->GetVisible());
 }
 
@@ -595,15 +613,11 @@ void PaymentRequestDialogView::EditorViewUpdated() {
 }
 
 void PaymentRequestDialogView::HideProcessingSpinner() {
-  throbber_->Stop();
-  // TODO(crbug.com/40894873): Instead of setting the throbber to invisible, can
-  // we destroy and remove it from the view when it's not being used?
-  throbber_overlay_->SetVisible(false);
-  // Screen readers do not ignore invisible elements, so force the screen
-  // reader to skip the invisible throbber by making it an ignored leaf node in
-  // the accessibility tree.
-  throbber_overlay_->GetViewAccessibility().SetIsIgnored(true);
-  throbber_overlay_->GetViewAccessibility().SetIsLeaf(true);
+  if (throbber_overlay_) {
+    RemoveChildViewT(std::exchange(throbber_overlay_, nullptr));
+  }
+  view_stack_->SetVisible(true);
+  RequestFocus();
   if (observer_for_testing_) {
     observer_for_testing_->OnProcessingSpinnerHidden();
   }
@@ -688,8 +702,6 @@ PaymentRequestDialogView::PaymentRequestDialogView(
   view_stack_->layer()->SetRoundedCornerRadius(
       gfx::RoundedCornersF(GetCornerRadius()));
 
-  SetupSpinnerOverlay();
-
   if (!request->state()->IsInitialized()) {
     request->state()->AddInitializationObserver(this);
     ++number_of_initialization_tasks_;
@@ -748,35 +760,6 @@ void PaymentRequestDialogView::ShowInitialPaymentSheet() {
   if (request_->state()->are_requested_methods_supported()) {
     OnDialogOpened();
   }
-}
-
-void PaymentRequestDialogView::SetupSpinnerOverlay() {
-  throbber_overlay_ = AddChildView(std::make_unique<views::View>());
-
-  throbber_overlay_->SetPaintToLayer();
-  // Currently layers don't clip to the bounds of the parent window opaque
-  // layer. Until this is fixed, we have to set rounded corners directly here.
-  //
-  // TODO(crbug.com/358379367): Remove once layers obey the clip by default.
-  throbber_overlay_->layer()->SetRoundedCornerRadius(
-      gfx::RoundedCornersF(GetCornerRadius()));
-  throbber_overlay_->SetVisible(false);
-  // The throbber overlay has to have a solid white background to hide whatever
-  // would be under it.
-  throbber_overlay_->SetBackground(
-      views::CreateSolidBackground(ui::kColorDialogBackground));
-
-  views::BoxLayout* layout =
-      throbber_overlay_->SetLayoutManager(std::make_unique<views::BoxLayout>(
-          views::BoxLayout::Orientation::kVertical));
-  layout->set_main_axis_alignment(views::BoxLayout::MainAxisAlignment::kCenter);
-  layout->set_cross_axis_alignment(
-      views::BoxLayout::CrossAxisAlignment::kCenter);
-
-  throbber_ =
-      throbber_overlay_->AddChildView(std::make_unique<views::Throbber>());
-  throbber_overlay_->AddChildView(std::make_unique<views::Label>(
-      l10n_util::GetStringUTF16(IDS_PAYMENTS_PROCESSING_MESSAGE)));
 }
 
 gfx::Size PaymentRequestDialogView::CalculatePreferredSize(

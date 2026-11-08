@@ -7,15 +7,17 @@ import './test_composebox_mixin.js';
 
 import {PageHandlerRemote} from 'chrome://resources/cr_components/composebox/composebox.mojom-webui.js';
 import {VoiceSearchAction} from 'chrome://resources/cr_components/composebox/composebox_mixin.js';
-import {ComposeboxProxyImpl} from 'chrome://resources/cr_components/composebox/composebox_proxy.js';
+import {ComposeboxProxyImpl, createAutocompleteMatch} from 'chrome://resources/cr_components/composebox/composebox_proxy.js';
 import type {ComposeboxVoiceSearchElement} from 'chrome://resources/cr_components/composebox/composebox_voice_search.js';
 import {createAutocompleteResultForTesting, createSearchMatchForTesting} from 'chrome://resources/cr_components/searchbox/searchbox_browser_proxy.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {SuggestInventory} from 'chrome://resources/mojo/components/omnibox/browser/fusebox_action.mojom-webui.js';
-import {InputMethod, PageCallbackRouter as SearchboxPageCallbackRouter, PageHandlerRemote as SearchboxPageHandlerRemote, SuggestStyle} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
-import type {AutocompleteMatch, AutocompleteResult, PageRemote as SearchboxPageRemote} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
+import {InputMethod, PageCallbackRouter as SearchboxPageCallbackRouter, PageHandlerRemote as SearchboxPageHandlerRemote} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
+import type {AutocompleteResult, PageRemote as SearchboxPageRemote} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
+import {SuggestStyle} from 'chrome://resources/mojo/components/omnibox/browser/suggest_template_info.mojom-webui.js';
 import {InputType} from 'chrome://resources/mojo/components/omnibox/composebox/composebox_query.mojom-webui.js';
 import {assertDeepEquals, assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
+import {createSuggestTemplateInfo} from 'chrome://webui-test/cr_components/searchbox/searchbox_test_utils.js';
 import {fakeMetricsPrivate} from 'chrome://webui-test/metrics_test_support.js';
 import type {TestMock} from 'chrome://webui-test/test_mock.js';
 import {$$, eventToPromise, microtasksFinished} from 'chrome://webui-test/test_util.js';
@@ -212,6 +214,88 @@ suite('ComposeboxAutocomplete', () => {
     });
 
     test(
+        'dropdown does not show when smart tab sharing is active', async () => {
+          loadTimeData.overrideValues({
+            composeboxShowZps: true,
+            composeboxShowTypedSuggest: true,
+          });
+          element = createTestElement();
+          await microtasksFinished();
+          element.smartTabSharingActive = true;
+          await microtasksFinished();
+          assertTrue(element.smartTabSharingActive);
+
+          setInputValue(element.getInputElement().inputElement, '');
+          element.getInputElement().inputElement.dispatchEvent(
+              new Event('input'));
+          await microtasksFinished();
+
+          const composeboxDropdown = element.$.matches;
+          const matches = [
+            createSearchMatchForTesting(),
+            createSearchMatchForTesting({fillIntoEdit: 'hello world 2'}),
+          ];
+          searchboxCallbackRouterRemote.autocompleteResultChanged(
+              createAutocompleteResultForTesting({
+                queryId: element.activeQueryId,
+                matches,
+              }));
+          await microtasksFinished();
+          assertTrue(composeboxDropdown.hidden);
+
+          // Toggling Smart Tab Sharing off restores the dropdown.
+          element.smartTabSharingActive = false;
+          await microtasksFinished();
+          assertFalse(composeboxDropdown.hidden);
+
+          // Toggling it back on hides the dropdown again.
+          element.smartTabSharingActive = true;
+          await microtasksFinished();
+          assertTrue(composeboxDropdown.hidden);
+        });
+
+    test(
+        'dropdown does not show for typed suggest when smart tab sharing on',
+        async () => {
+          loadTimeData.overrideValues({
+            composeboxShowZps: true,
+            composeboxShowTypedSuggest: true,
+          });
+          element = createTestElement();
+          await microtasksFinished();
+          element.smartTabSharingActive = true;
+          await microtasksFinished();
+          assertTrue(element.smartTabSharingActive);
+
+          setInputValue(element.getInputElement().inputElement, 'Test');
+          element.getInputElement().inputElement.dispatchEvent(
+              new Event('input'));
+          await microtasksFinished();
+
+          const composeboxDropdown = element.$.matches;
+          const matches = [
+            createSearchMatchForTesting({
+              fillIntoEdit: 'hello world 1',
+              allowedToBeDefaultMatch: true,
+            }),
+            createSearchMatchForTesting({fillIntoEdit: 'hello world 2'}),
+            createSearchMatchForTesting({fillIntoEdit: 'hello world 3'}),
+          ];
+          searchboxCallbackRouterRemote.autocompleteResultChanged(
+              createAutocompleteResultForTesting({
+                queryId: element.activeQueryId,
+                matches,
+                input: 'Test',
+              }));
+          await microtasksFinished();
+          assertTrue(composeboxDropdown.hidden);
+
+          element.smartTabSharingActive = false;
+          await microtasksFinished();
+          assertFalse(composeboxDropdown.hidden);
+        });
+
+    test(
         'dropdown does not show when no typed suggestions enabled',
         async () => {
       loadTimeData.overrideValues(
@@ -387,7 +471,8 @@ suite('ComposeboxAutocomplete', () => {
 
       const matches = [
         createSearchMatchForTesting({
-          contents: 'zps suggestion',
+          suggestTemplate:
+              createSuggestTemplateInfo({primaryText: 'zps suggestion'}),
           destinationUrl: 'https://google.com/',
         }),
       ];
@@ -702,11 +787,13 @@ suite('ComposeboxAutocomplete', () => {
             }),
             createSearchMatchForTesting({
               fillIntoEdit: 'caterpillar',
-              suggestStyle: SuggestStyle.kDefault,
+              suggestTemplate:
+                  createSuggestTemplateInfo({style: SuggestStyle.kDefault}),
             }),
             createSearchMatchForTesting({
               fillIntoEdit: 'cat image prompt',
-              suggestStyle: SuggestStyle.kRichImage,
+              suggestTemplate:
+                  createSuggestTemplateInfo({style: SuggestStyle.kRichImage}),
             }),
           ];
           searchboxCallbackRouterRemote.autocompleteResultChanged(
@@ -830,9 +917,9 @@ suite('ComposeboxAutocomplete', () => {
       const matchesElement = element.getDropdownElement();
 
       const matches = [
-        {fillIntoEdit: 'test1'} as AutocompleteMatch,
-        {fillIntoEdit: 'test2'} as AutocompleteMatch,
-        {fillIntoEdit: 'test3'} as AutocompleteMatch,
+        createAutocompleteMatch({fillIntoEdit: 'test1'}),
+        createAutocompleteMatch({fillIntoEdit: 'test2'}),
+        createAutocompleteMatch({fillIntoEdit: 'test3'}),
       ];
       element.result = {input: 'test', matches} as AutocompleteResult;
       await microtasksFinished();
@@ -880,7 +967,7 @@ suite('ComposeboxAutocomplete', () => {
       const input = inputElem.inputElement;
       const matchesElement = element.getDropdownElement();
 
-      const matches = [{fillIntoEdit: 'match1'} as AutocompleteMatch];
+      const matches = [createAutocompleteMatch({fillIntoEdit: 'match1'})];
       element.result = {input: 'tes', matches} as AutocompleteResult;
       await microtasksFinished();
 
@@ -914,8 +1001,10 @@ suite('ComposeboxAutocomplete', () => {
 
       const matchesElement = element.getDropdownElement();
       const matches = [
-        {fillIntoEdit: 'match1', supportsDeletion: false} as AutocompleteMatch,
-        {fillIntoEdit: 'match2', supportsDeletion: false} as AutocompleteMatch,
+        createAutocompleteMatch(
+            {fillIntoEdit: 'match1', supportsDeletion: false}),
+        createAutocompleteMatch(
+            {fillIntoEdit: 'match2', supportsDeletion: false}),
       ];
       element.result = {input: 'm', matches} as AutocompleteResult;
       await microtasksFinished();
@@ -938,6 +1027,39 @@ suite('ComposeboxAutocomplete', () => {
     });
 
     test(
+        'Tab on last dropdown match unselects active match when flag enabled',
+        async () => {
+          element = createTestElement({unselectMatchOnTabExit: true});
+          await microtasksFinished();
+
+          const matchesElement = element.getDropdownElement();
+          const matches = [
+            createAutocompleteMatch(
+                {fillIntoEdit: 'match1', supportsDeletion: false}),
+            createAutocompleteMatch(
+                {fillIntoEdit: 'match2', supportsDeletion: false}),
+          ];
+          element.result = {input: 'm', matches} as AutocompleteResult;
+          await microtasksFinished();
+
+          matchesElement.selectNext();
+          matchesElement.selectNext();
+          assertEquals(1, matchesElement.selectedMatchIndex);
+
+          await microtasksFinished();
+          element.setActiveElement(matchesElement);
+
+          const tabEvent = new KeyboardEvent(
+              'keydown',
+              {key: 'Tab', bubbles: true, cancelable: true, composed: true});
+          matchesElement.dispatchEvent(tabEvent);
+          await microtasksFinished();
+
+          assertEquals(-1, matchesElement.selectedMatchIndex);
+          assertFalse(tabEvent.defaultPrevented);
+        });
+
+    test(
         'Tab in dropdown is ignored when key modifiers are active',
         async () => {
           element = createTestElement();
@@ -945,10 +1067,10 @@ suite('ComposeboxAutocomplete', () => {
 
           const matchesElement = element.getDropdownElement();
           const matches = [
-            {fillIntoEdit: 'match1', supportsDeletion: false} as
-                AutocompleteMatch,
-            {fillIntoEdit: 'match2', supportsDeletion: false} as
-                AutocompleteMatch,
+            createAutocompleteMatch(
+                {fillIntoEdit: 'match1', supportsDeletion: false}),
+            createAutocompleteMatch(
+                {fillIntoEdit: 'match2', supportsDeletion: false}),
           ];
           element.result = {input: 'm', matches} as AutocompleteResult;
           await microtasksFinished();
@@ -966,6 +1088,158 @@ suite('ComposeboxAutocomplete', () => {
           matchesElement.dispatchEvent(tabEventCtrl);
           await microtasksFinished();
           assertEquals(1, matchesElement.selectedMatchIndex);
+        });
+
+    test(
+        'Shift-Tab on first dropdown match unselects active match in ' +
+            'zero-state',
+        async () => {
+          element = createTestElement({unselectMatchOnTabExit: true});
+          await microtasksFinished();
+
+          const matchesElement = element.getDropdownElement();
+          const matches = [
+            createAutocompleteMatch(
+                {fillIntoEdit: 'image1', supportsDeletion: false}),
+            createAutocompleteMatch(
+                {fillIntoEdit: 'image2', supportsDeletion: false}),
+          ];
+          element.result = {input: '', matches} as AutocompleteResult;
+          await microtasksFinished();
+
+          matchesElement.selectFirst();
+          assertEquals(0, matchesElement.selectedMatchIndex);
+
+          await microtasksFinished();
+          element.setActiveElement(matchesElement);
+
+          const shiftTabEvent = new KeyboardEvent('keydown', {
+            key: 'Tab',
+            shiftKey: true,
+            bubbles: true,
+            cancelable: true,
+            composed: true,
+          });
+          matchesElement.dispatchEvent(shiftTabEvent);
+          await microtasksFinished();
+
+          assertEquals(-1, matchesElement.selectedMatchIndex);
+          assertFalse(shiftTabEvent.defaultPrevented);
+        });
+
+    test(
+        'Shift-Tab on first dropdown match does not unselect when flag ' +
+            'disabled',
+        async () => {
+          element = createTestElement({unselectMatchOnTabExit: false});
+          await microtasksFinished();
+
+          const matchesElement = element.getDropdownElement();
+          const matches = [
+            createAutocompleteMatch(
+                {fillIntoEdit: 'image1', supportsDeletion: false}),
+            createAutocompleteMatch(
+                {fillIntoEdit: 'image2', supportsDeletion: false}),
+          ];
+          element.result = {input: '', matches} as AutocompleteResult;
+          await microtasksFinished();
+
+          matchesElement.selectFirst();
+          assertEquals(0, matchesElement.selectedMatchIndex);
+
+          await microtasksFinished();
+          element.setActiveElement(matchesElement);
+
+          const shiftTabEvent = new KeyboardEvent('keydown', {
+            key: 'Tab',
+            shiftKey: true,
+            bubbles: true,
+            cancelable: true,
+            composed: true,
+          });
+          matchesElement.dispatchEvent(shiftTabEvent);
+          await microtasksFinished();
+
+          assertEquals(0, matchesElement.selectedMatchIndex);
+        });
+
+    test(
+        'Shift-Tab on first dropdown match unselects active match for typed ' +
+            'suggest',
+        async () => {
+          element = createTestElement({unselectMatchOnTabExit: true});
+          await microtasksFinished();
+
+          const matchesElement = element.getDropdownElement();
+          const matches = [
+            createAutocompleteMatch({
+              fillIntoEdit: 'm',
+              allowedToBeDefaultMatch: true,
+              supportsDeletion: false,
+            }),
+            createAutocompleteMatch(
+                {fillIntoEdit: 'match1', supportsDeletion: false}),
+            createAutocompleteMatch(
+                {fillIntoEdit: 'match2', supportsDeletion: false}),
+          ];
+          element.result = {input: 'm', matches} as AutocompleteResult;
+          await microtasksFinished();
+
+          matchesElement.selectIndex(1);
+          assertEquals(1, matchesElement.selectedMatchIndex);
+
+          await microtasksFinished();
+          element.setActiveElement(matchesElement);
+
+          const shiftTabEvent = new KeyboardEvent('keydown', {
+            key: 'Tab',
+            shiftKey: true,
+            bubbles: true,
+            cancelable: true,
+            composed: true,
+          });
+          matchesElement.dispatchEvent(shiftTabEvent);
+          await microtasksFinished();
+
+          assertEquals(-1, matchesElement.selectedMatchIndex);
+          assertFalse(shiftTabEvent.defaultPrevented);
+        });
+
+    test(
+        'Shift-Tab on non-first dropdown match does not unselect active match',
+        async () => {
+          element = createTestElement({unselectMatchOnTabExit: true});
+          await microtasksFinished();
+
+          const matchesElement = element.getDropdownElement();
+          const matches = [
+            createAutocompleteMatch(
+                {fillIntoEdit: 'image1', supportsDeletion: false}),
+            createAutocompleteMatch(
+                {fillIntoEdit: 'image2', supportsDeletion: false}),
+            createAutocompleteMatch(
+                {fillIntoEdit: 'image3', supportsDeletion: false}),
+          ];
+          element.result = {input: '', matches} as AutocompleteResult;
+          await microtasksFinished();
+
+          matchesElement.selectIndex(2);
+          assertEquals(2, matchesElement.selectedMatchIndex);
+
+          await microtasksFinished();
+          element.setActiveElement(matchesElement);
+
+          const shiftTabEvent = new KeyboardEvent('keydown', {
+            key: 'Tab',
+            shiftKey: true,
+            bubbles: true,
+            cancelable: true,
+            composed: true,
+          });
+          matchesElement.dispatchEvent(shiftTabEvent);
+          await microtasksFinished();
+
+          assertEquals(2, matchesElement.selectedMatchIndex);
         });
 
     test(
@@ -1541,8 +1815,8 @@ suite('ComposeboxAutocomplete', () => {
           element.lastQueriedInput = '';
 
           const matches = [
-            {fillIntoEdit: 'match1', supportsDeletion: false} as
-                AutocompleteMatch,
+            createAutocompleteMatch(
+                {fillIntoEdit: 'match1', supportsDeletion: false}),
           ];
           element.result = {input: '', matches} as AutocompleteResult;
           element.selectedMatchIndex = 0;
@@ -1566,8 +1840,8 @@ suite('ComposeboxAutocomplete', () => {
           element.lastQueriedInput = '';
 
           const matches = [
-            {fillIntoEdit: 'match1', supportsDeletion: false} as
-                AutocompleteMatch,
+            createAutocompleteMatch(
+                {fillIntoEdit: 'match1', supportsDeletion: false}),
           ];
           element.result = {input: '', matches} as AutocompleteResult;
           element.selectedMatchIndex = 0;

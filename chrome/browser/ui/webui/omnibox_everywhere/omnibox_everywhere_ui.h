@@ -74,6 +74,8 @@ class OmniboxEverywhereUI
       public ContextualSearchboxScreenshareController::Delegate,
       public ui::SimpleMenuModel::Delegate {
  public:
+  static constexpr int kProfileAvatarSizePx = 96;
+
   explicit OmniboxEverywhereUI(content::WebUI* web_ui);
   OmniboxEverywhereUI(const OmniboxEverywhereUI&) = delete;
   OmniboxEverywhereUI& operator=(const OmniboxEverywhereUI&) = delete;
@@ -214,6 +216,7 @@ class OmniboxEverywhereUI
 
   void AddFileContext(const base::UnguessableToken& token,
                       searchbox::mojom::SelectedFileInfoPtr file_info);
+  void AddScreenshotContextToken(const base::UnguessableToken& token);
   void OnContextualInputStatusChanged(
       const base::UnguessableToken& token,
       contextual_search::ContextUploadStatus status,
@@ -246,6 +249,7 @@ class OmniboxEverywhereUI
   bool screenshot_origin_was_searchbox_ = false;
 
   std::vector<PendingUploadStatus> pending_upload_statuses_;
+  std::vector<base::UnguessableToken> pending_screenshot_tokens_;
 
   std::unique_ptr<ComposeboxEverywhereHandler> composebox_handler_;
   std::unique_ptr<OmniboxEverywhereHandler> omnibox_handler_;

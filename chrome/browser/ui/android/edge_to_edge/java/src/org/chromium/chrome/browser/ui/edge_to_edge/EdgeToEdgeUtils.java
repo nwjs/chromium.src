@@ -12,6 +12,7 @@ import android.view.Window;
 
 import androidx.annotation.IntDef;
 import androidx.annotation.OptIn;
+import androidx.annotation.VisibleForTesting;
 import androidx.core.graphics.Insets;
 import androidx.core.os.BuildCompat;
 import androidx.core.view.WindowInsetsCompat;
@@ -59,6 +60,14 @@ public class EdgeToEdgeUtils {
             "Android.EdgeToEdge.IneligibilityReason2.OnCreateController";
     private static final String MISSING_NAVBAR_INSETS_HISTOGRAM =
             "Android.EdgeToEdge.MissingNavbarInsets2";
+    private static final String DRAW_TO_EDGE_UNSUPPORTED_CONFIG_HISTOGRAM =
+            "Android.EdgeToEdge.DrawToEdgeInUnsupportedConfiguration";
+    private static final String SUPPORTED_CONFIGURATION_SWITCH_HISTOGRAM =
+            "Android.EdgeToEdge.SupportedConfigurationSwitch2";
+    private static final String CONFIGURATION_SWITCH_OUTCOME_HISTOGRAM =
+            "Android.EdgeToEdge.Debugging.ConfigurationSwitchOutcome";
+    private static final String SUPPORTED_CONFIGURATION_STRANGE_INSETS_HISTOGRAM =
+            "Android.EdgeToEdge.Debugging.SupportedConfigurationStrangeInsets";
 
     /** The reason of why the current session is not eligible for edge to edge. */
     @IntDef({
@@ -100,6 +109,74 @@ public class EdgeToEdgeUtils {
         int NUM_ENTRIES = 5;
     }
 
+    // These values are persisted to logs. Entries should not be renumbered and
+    // numeric values should never be reused.
+    // LINT.IfChange(SupportedConfigurationSwitch)
+    @IntDef({
+        SupportedConfigurationSwitch.FROM_SUPPORTED_TO_UNSUPPORTED,
+        SupportedConfigurationSwitch.FROM_UNSUPPORTED_TO_SUPPORTED,
+        SupportedConfigurationSwitch.NUM_ENTRIES
+    })
+    @Retention(RetentionPolicy.SOURCE)
+    @VisibleForTesting
+    @interface SupportedConfigurationSwitch {
+        int FROM_SUPPORTED_TO_UNSUPPORTED = 0;
+        int FROM_UNSUPPORTED_TO_SUPPORTED = 1;
+        int NUM_ENTRIES = 2;
+    }
+
+    // LINT.ThenChange(//tools/metrics/histograms/metadata/android/enums.xml:SupportedConfigurationSwitch)
+
+    /** When configuration changes from supported to unsupported, what's the outcome */
+    // These values are persisted to logs. Entries should not be renumbered and
+    // numeric values should never be reused.
+    // LINT.IfChange(ConfigurationSwitchOutcome)
+    @IntDef({
+        ConfigurationSwitchOutcome.ADD_PADDING_NEW_INSETS,
+        ConfigurationSwitchOutcome.ADD_PADDING_ORIGINAL_INSETS,
+        ConfigurationSwitchOutcome.ERROR_ADD_PADDING_BOTH_INSETS_EMPTY,
+        ConfigurationSwitchOutcome.NO_PADDING_BOTH_INSETS_EMPTY,
+        ConfigurationSwitchOutcome.NO_PADDING_NO_NEW_INSETS,
+        ConfigurationSwitchOutcome.ERROR_NO_PADDING_WITH_NEW_INSETS,
+        ConfigurationSwitchOutcome.NUM_ENTRIES
+    })
+    @Retention(RetentionPolicy.SOURCE)
+    private @interface ConfigurationSwitchOutcome {
+
+        // Correct cases
+        int ADD_PADDING_NEW_INSETS = 0;
+        int ADD_PADDING_ORIGINAL_INSETS = 1;
+        // Error case / impossible case
+        int ERROR_ADD_PADDING_BOTH_INSETS_EMPTY = 2;
+        int NO_PADDING_BOTH_INSETS_EMPTY = 3;
+        int NO_PADDING_NO_NEW_INSETS = 4;
+        // Error case / impossible case
+        int ERROR_NO_PADDING_WITH_NEW_INSETS = 5;
+
+        int NUM_ENTRIES = 6;
+    }
+
+    // LINT.ThenChange(//tools/metrics/histograms/metadata/android/enums.xml:EdgeToEdgeConfigurationSwitchOutcome)
+
+    // These values are persisted to logs. Entries should not be renumbered and
+    // numeric values should never be reused.
+    // LINT.IfChange(SupportedConfigurationStrangeInsetsState)
+    @IntDef({
+        SupportedConfigurationStrangeInsetsState.TAPPABLE_ELEMENT_NOT_GESTURE_NAV,
+        SupportedConfigurationStrangeInsetsState.NO_TAPPABLE_ELEMENT_NOT_GESTURE_NAV,
+        SupportedConfigurationStrangeInsetsState.ERROR_TAPPABLE_ELEMENT_GESTURE_NAV,
+        SupportedConfigurationStrangeInsetsState.NUM_ENTRIES
+    })
+    @Retention(RetentionPolicy.SOURCE)
+    private @interface SupportedConfigurationStrangeInsetsState {
+        int TAPPABLE_ELEMENT_NOT_GESTURE_NAV = 0;
+        int NO_TAPPABLE_ELEMENT_NOT_GESTURE_NAV = 1;
+        int ERROR_TAPPABLE_ELEMENT_GESTURE_NAV = 2;
+        int NUM_ENTRIES = 3;
+    }
+
+    // LINT.ThenChange(//tools/metrics/histograms/metadata/android/enums.xml:SupportedConfigurationStrangeInsetsState)
+
     /** Whether it is allowed to use other insets as a backup for missing navigation bar insets. */
     public static boolean isUseBackupNavbarInsetsEnabled() {
         return ChromeFeatureList.sEdgeToEdgeUseBackupNavbarInsets.isEnabled();
@@ -107,10 +184,10 @@ public class EdgeToEdgeUtils {
 
     /**
      * Returns whether the configuration of the device should allow Edge To Edge bottom chin. Note
-     * the results are false-positive, if the method is called before the |activity|'s decor view
+     * the results are false-negative, if the method is called before the |activity|'s decor view
      * being attached to the window.
      */
-    public static boolean isEdgeToEdgeBottomChinEnabled(Activity activity) {
+    public static boolean isEdgeToEdgeBottomChinSupportedByDevice(Activity activity) {
         // Make sure we test SDK version before checking the Feature so Field Trials only collect
         // from qualifying devices.
         if (!EdgeToEdgeFieldTrialImpl.getBottomChinOverrides().isEnabledForManufacturerVersion()) {
@@ -127,7 +204,8 @@ public class EdgeToEdgeUtils {
 
         // Not supported on tablet unless the flag is on and it meets the minimum screen size.
         if (DeviceFormFactor.isNonMultiDisplayContextOnTablet(activity)
-                && (!isEdgeToEdgeTabletEnabled() || !EdgeToEdgeUtils.isSupportedTablet(activity))) {
+                && (!isEdgeToEdgeTabletEnabled()
+                        || !isBottomEdgeToEdgeSupportedOnTablet(activity))) {
             return false;
         }
 
@@ -159,17 +237,18 @@ public class EdgeToEdgeUtils {
     }
 
     /**
-     * Whether the device is a tablet and supports edge-to-edge.
+     * Returns whether the tablet's smallest screen width meets the minimum width threshold ({@code
+     * MinWidthThreshold}) for bottom edge-to-edge.
      *
      * <ul>
-     *   <li>width < MinWidthThreshold: e2e disabled.
-     *   <li>MinWidthThreshold <= width < InvisibleBottomChinMinWidth: e2e enabled and the bottom
-     *       chin is visible by default. Same as behavior on phone.
+     *   <li>width < MinWidthThreshold: bottom e2e disabled.
+     *   <li>MinWidthThreshold <= width < InvisibleBottomChinMinWidth: bottom e2e enabled and the
+     *       bottom chin is visible by default. Same as behavior on phone.
      *   <li>InvisibleBottomChinMinWidth <= width: fully e2e and the bottom chin is invisible by
      *       default.
      * </ul>
      */
-    public static boolean isSupportedTablet(Context context) {
+    public static boolean isBottomEdgeToEdgeSupportedOnTablet(Context context) {
         int widthThreshold = ChromeFeatureList.sEdgeToEdgeTabletMinWidthThreshold.getValue();
         if (widthThreshold == -1) {
             return true;
@@ -177,8 +256,12 @@ public class EdgeToEdgeUtils {
         return DisplayUtil.getCurrentSmallestScreenWidth(context) >= widthThreshold;
     }
 
-    /** Whether the device is a tablet and supports edge-to-edge. */
-    public static boolean defaultVisibilityOfBottomChinOnTablet(Context context) {
+    /**
+     * Returns {@code true} when the tablet's smallest screen width is below {@code
+     * InvisibleBottomChinMinWidth} (meaning the bottom chin is visible by default like on phones,
+     * whereas wider tablets hide the bottom chin by default).
+     */
+    public static boolean shouldShowBottomChinByDefaultOnTablet(Context context) {
         int widthThreshold =
                 ChromeFeatureList.sEdgeToEdgeTabletInvisibleBottomChinMinWidth.getValue();
         if (widthThreshold == -1) {
@@ -254,7 +337,8 @@ public class EdgeToEdgeUtils {
 
         // Not supported on tablet unless the flag is on and it meets the minimum screen size.
         if (DeviceFormFactor.isNonMultiDisplayContextOnTablet(activity)
-                && (!isEdgeToEdgeTabletEnabled() || !EdgeToEdgeUtils.isSupportedTablet(activity))) {
+                && (!isEdgeToEdgeTabletEnabled()
+                        || !isBottomEdgeToEdgeSupportedOnTablet(activity))) {
             eligible = false;
             RecordHistogram.recordEnumeratedHistogram(
                     ineligibleName, IneligibilityReason.FORM_FACTOR, IneligibilityReason.NUM_TYPES);
@@ -288,15 +372,123 @@ public class EdgeToEdgeUtils {
     }
 
     /**
-     * @param isPageOptedIntoEdgeToEdge Whether the page has opted into edge-to-edge.
+     * Record if drawToEdge is called when in an unsupported configuration.
+     *
+     * @param changedWindowState Whether drawToEdge was called due to window state change.
+     */
+    static void recordDrawToEdgeInUnsupportedConfig(boolean changedWindowState) {
+        RecordHistogram.recordBooleanHistogram(
+                DRAW_TO_EDGE_UNSUPPORTED_CONFIG_HISTOGRAM, changedWindowState);
+    }
+
+    /**
+     * Record when the activity switches between supported and unsupported configurations.
+     *
+     * @param isSupportedConfiguration Whether the new configuration is supported.
+     */
+    static void recordSupportedConfigurationSwitch(boolean isSupportedConfiguration) {
+        @SupportedConfigurationSwitch
+        int configurationChanged =
+                isSupportedConfiguration
+                        ? SupportedConfigurationSwitch.FROM_UNSUPPORTED_TO_SUPPORTED
+                        : SupportedConfigurationSwitch.FROM_SUPPORTED_TO_UNSUPPORTED;
+        RecordHistogram.recordEnumeratedHistogram(
+                SUPPORTED_CONFIGURATION_SWITCH_HISTOGRAM,
+                configurationChanged,
+                SupportedConfigurationSwitch.NUM_ENTRIES);
+    }
+
+    /**
+     * Verify whether window insets in a supported configuration contain unexpected tappable
+     * elements or non-gesture navigation insets, and record a histogram if so.
+     *
+     * @param windowInsets The window insets to check.
+     */
+    static void verifyInsetsInSupportedConfiguration(WindowInsetsCompat windowInsets) {
+        // Check for the presence of a tappable element (in case the navigation bar inset is
+        // missing for some reason) for logging purposes.
+        Insets tappableElementInsets =
+                windowInsets.getInsets(WindowInsetsCompat.Type.tappableElement());
+        // The navigation bar will never be at the top.
+        boolean tappableElement =
+                tappableElementInsets.bottom > 0
+                        || tappableElementInsets.left > 0
+                        || tappableElementInsets.right > 0;
+
+        // Check whether the device appears to be in gesture navigation mode.
+        boolean isGestureNavigation = isInGestureNavigationMode(windowInsets);
+        @SupportedConfigurationStrangeInsetsState int state;
+        if (tappableElement) {
+            if (isGestureNavigation) {
+                state = SupportedConfigurationStrangeInsetsState.ERROR_TAPPABLE_ELEMENT_GESTURE_NAV;
+            } else {
+                state = SupportedConfigurationStrangeInsetsState.TAPPABLE_ELEMENT_NOT_GESTURE_NAV;
+            }
+        } else {
+            if (isGestureNavigation) {
+                // !tappableElement && isGestureNavigation is intended
+                return;
+            } else {
+                state =
+                        SupportedConfigurationStrangeInsetsState
+                                .NO_TAPPABLE_ELEMENT_NOT_GESTURE_NAV;
+            }
+        }
+        RecordHistogram.recordEnumeratedHistogram(
+                SUPPORTED_CONFIGURATION_STRANGE_INSETS_HISTOGRAM,
+                state,
+                SupportedConfigurationStrangeInsetsState.NUM_ENTRIES);
+    }
+
+    /**
+     * Record the padding outcome when switching from a supported configuration to an unsupported
+     * configuration.
+     */
+    static void recordConfigurationSwitchScenario(
+            Insets originalInsets, Insets newInsets, Insets paddingApplied) {
+        // Do not record when configuration change is disabled.
+        if (!ChromeFeatureList.sEdgeToEdgeMonitorConfigurations.isEnabled()) return;
+
+        // Do not record landscape mode. Assuming the configuration change will be triggered
+        // mostly with nav bar in portrait mode.
+        if (paddingApplied.left > 0 || paddingApplied.right > 0) return;
+
+        @ConfigurationSwitchOutcome int outcome;
+        // Correct cases - fixed applied
+        if (paddingApplied.bottom > 0) {
+            if (originalInsets.bottom != 0) {
+                outcome = ConfigurationSwitchOutcome.ADD_PADDING_ORIGINAL_INSETS;
+            } else if (newInsets.bottom != 0) {
+                outcome = ConfigurationSwitchOutcome.ADD_PADDING_NEW_INSETS;
+            } else {
+                outcome = ConfigurationSwitchOutcome.ERROR_ADD_PADDING_BOTH_INSETS_EMPTY;
+            }
+        } else { // paddingApplied.bottom == 0
+            if (originalInsets.bottom == 0 && newInsets.bottom == 0) {
+                outcome = ConfigurationSwitchOutcome.NO_PADDING_BOTH_INSETS_EMPTY;
+            } else if (originalInsets.bottom > 0) {
+                outcome = ConfigurationSwitchOutcome.NO_PADDING_NO_NEW_INSETS;
+            } else {
+                outcome = ConfigurationSwitchOutcome.ERROR_NO_PADDING_WITH_NEW_INSETS;
+            }
+        }
+
+        RecordHistogram.recordEnumeratedHistogram(
+                CONFIGURATION_SWITCH_OUTCOME_HISTOGRAM,
+                outcome,
+                ConfigurationSwitchOutcome.NUM_ENTRIES);
+    }
+
+    /**
+     * @param isPageOptedIntoBottomEdgeToEdge Whether the page has opted into bottom edge-to-edge.
      * @param layoutType The active layout type being shown.
      * @param bottomInset The bottom inset representing the height of the bottom OS navbar.
-     * @return whether we should draw ToEdge based only on the given Tab and the viewport-fit value
-     *     from the tracking data of the Display Cutout Controller.
+     * @return whether we should draw to the bottom edge based on the given page opt-in status,
+     *     active layout type, and bottom inset.
      */
-    static boolean shouldDrawToEdge(
-            boolean isPageOptedIntoEdgeToEdge, @LayoutType int layoutType, int bottomInset) {
-        return isPageOptedIntoEdgeToEdge
+    static boolean shouldDrawToBottomEdge(
+            boolean isPageOptedIntoBottomEdgeToEdge, @LayoutType int layoutType, int bottomInset) {
+        return isPageOptedIntoBottomEdgeToEdge
                 || isBottomChinAllowed(layoutType, bottomInset)
                 || (layoutType == LayoutType.HUB);
     }
@@ -321,11 +513,13 @@ public class EdgeToEdgeUtils {
     }
 
     /**
-     * @return whether the page is opted into edge-to-edge based on the given Tab
+     * Returns whether the page is opted into bottom edge-to-edge based on the given Tab.
+     *
+     * @param tab The tab to check.
      */
-    public static boolean isPageOptedIntoEdgeToEdge(@Nullable Tab tab) {
+    public static boolean isPageOptedIntoBottomEdgeToEdge(@Nullable Tab tab) {
         if (tab == null || tab.isNativePage()) {
-            return isNativeTabDrawingToEdge(tab);
+            return isNativeTabDrawingToBottomEdge(tab);
         }
         if (sAlwaysDrawWebEdgeToEdgeForTesting || tab.shouldEnableEmbeddedMediaExperience()) {
             return true;
@@ -334,13 +528,16 @@ public class EdgeToEdgeUtils {
     }
 
     /**
-     * @return whether the page is opted into edge-to-edge based on the given Tab and the given new
-     *     viewport-fit value.
+     * Returns whether the page is opted into bottom edge-to-edge based on the given Tab and the
+     * given new viewport-fit value.
+     *
+     * @param tab The tab to check.
+     * @param value The new viewport-fit value of the root frame.
      */
-    static boolean isPageOptedIntoEdgeToEdge(
+    static boolean isPageOptedIntoBottomEdgeToEdge(
             @Nullable Tab tab, @WebContentsObserver.ViewportFitType int value) {
         if (tab == null || tab.isNativePage()) {
-            return isNativeTabDrawingToEdge(tab);
+            return isNativeTabDrawingToBottomEdge(tab);
         }
         if (sAlwaysDrawWebEdgeToEdgeForTesting || tab.shouldEnableEmbeddedMediaExperience()) {
             return true;
@@ -357,13 +554,13 @@ public class EdgeToEdgeUtils {
         return safeAreaInsetsTracker != null && safeAreaInsetsTracker.hasSafeAreaConstraint();
     }
 
-    /** Whether a native tab will be drawn edge to edge. */
-    static boolean isNativeTabDrawingToEdge(@Nullable Tab activeTab) {
+    /** Whether a native tab will be drawn to the bottom edge. */
+    static boolean isNativeTabDrawingToBottomEdge(@Nullable Tab activeTab) {
         // TODO(crbug.com/339025702): Check if we are in tab switcher when activeTab is null.
         if (activeTab == null) return false;
 
         NativePage nativePage = activeTab.getNativePage();
-        return nativePage != null && nativePage.supportsEdgeToEdge();
+        return nativePage != null && nativePage.supportsEdgeToEdgeOnBottom();
     }
 
     /** Whether a native tab will be drawn top edge to edge. */
@@ -480,12 +677,37 @@ public class EdgeToEdgeUtils {
         return nonMandatorySystemGestures.left > 0 || nonMandatorySystemGestures.right > 0;
     }
 
-    /** Returns whether the EdgelessTopInset feature flag is enabled. */
-    public static boolean isEdgelessTopInsetEnabled() {
+    /**
+     * Returns whether the EdgeToEdge refactor (unifying top inset consumption in {@link
+     * EdgeToEdgeController} instead of {@link TopInsetCoordinator}) is enabled. For top
+     * edge-to-edge behavior beyond the refactor, check {@link #isTopEdgeToEdgeEnabled()}.
+     */
+    public static boolean isEdgeToEdgeRefactorEnabled() {
         if (Build.VERSION.SDK_INT < VERSION_CODES.R) {
             return false;
         }
-        return ChromeFeatureList.sEdgelessTopInset.isEnabled();
+        return ChromeFeatureList.sEdgeToEdgeTopInset.isEnabled();
+    }
+
+    /**
+     * Returns whether the top edge-to-edge feature is enabled (beyond the {@link
+     * EdgeToEdgeController} refactor). Implies {@link #isEdgeToEdgeRefactorEnabled()}.
+     */
+    public static boolean isTopEdgeToEdgeEnabled() {
+        return isEdgeToEdgeRefactorEnabled()
+                && ChromeFeatureList.sEdgeToEdgeTopInsetEnableTopEdgeToEdge.getValue();
+    }
+
+    /**
+     * Returns whether top edge-to-edge (edgeless top inset) is supported for the given activity.
+     * Top edge-to-edge is supported on phones and not on tablets or automotive devices.
+     */
+    public static boolean isEdgelessTopInsetSupported(@Nullable Activity activity) {
+        if (activity == null || !isEdgeToEdgeRefactorEnabled()) {
+            return false;
+        }
+        return !DeviceFormFactor.isNonMultiDisplayContextOnTablet(activity)
+                && !DeviceInfo.isAutomotive();
     }
 
     /**
@@ -494,10 +716,11 @@ public class EdgeToEdgeUtils {
      * @param tab The Tab to check.
      * @return True if the tab is a native page that supports top edge to edge, false otherwise.
      */
-    public static boolean supportsEnableTopEdgeToEdge(@Nullable Tab tab) {
+    public static boolean tabSupportsTopEdgeToEdge(@Nullable Tab tab) {
         // TODO(crbug.com/498302496): Currently top edge-to-edge is only supported on native pages.
-        // Support for web pages (e.g. viewport-fit=cover) will be added in future iterations.
-        if (!isEdgelessTopInsetEnabled() || tab == null) {
+        // Support for web pages (e.g. viewport-fit=cover) will be added in future iterations and
+        // will check isTopEdgeToEdgeEnabled().
+        if (!isEdgeToEdgeRefactorEnabled() || tab == null) {
             return false;
         }
 

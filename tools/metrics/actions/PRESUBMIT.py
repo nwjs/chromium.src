@@ -12,7 +12,6 @@ import hashlib
 import os
 import struct
 from typing import Any, Sequence
-import xml.dom.minidom
 
 import sys
 

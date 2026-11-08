@@ -36,6 +36,7 @@ import android.view.Surface;
 import android.view.View;
 import android.view.ViewConfiguration;
 import android.view.WindowInsets;
+import android.widget.FrameLayout;
 
 import org.junit.Assert;
 import org.junit.Before;
@@ -66,9 +67,17 @@ public class EventForwarderTest {
 
     @Mock EventForwarder.Natives mNativeMock;
     @Mock TouchSequenceObserver mTouchSequenceObserver;
-    @Mock View mView;
-    @Mock View mDecorView;
     @Mock WindowInsets mWindowInsets;
+
+    private final FrameLayout mDecorView = new FrameLayout(ContextUtils.getApplicationContext());
+    private final View mView =
+            new View(ContextUtils.getApplicationContext()) {
+                // Robolectric does not provide a way to set the root window insets.
+                @Override
+                public WindowInsets getRootWindowInsets() {
+                    return mWindowInsets;
+                }
+            };
 
     private static final long NATIVE_EVENT_FORWARDER_ID = 1;
     private final int mScaledTouchSlop =
@@ -77,8 +86,7 @@ public class EventForwarderTest {
     @Before
     public void setUp() {
         EventForwarderJni.setInstanceForTesting(mNativeMock);
-        doReturn(mDecorView).when(mView).getRootView();
-        doReturn(mWindowInsets).when(mView).getRootWindowInsets();
+        mDecorView.addView(mView);
     }
 
     @Test
@@ -974,8 +982,7 @@ public class EventForwarderTest {
                 new EventForwarder(NATIVE_EVENT_FORWARDER_ID, true, false, false, mScaledTouchSlop);
         Insets gestureInsets = Insets.of(50, 50, 50, 50);
         doReturn(gestureInsets).when(mWindowInsets).getInsets(systemGestures());
-        doReturn(1000).when(mDecorView).getWidth();
-        doReturn(2000).when(mDecorView).getHeight();
+        mDecorView.layout(0, 0, 1000, 2000);
 
         // No active touch
         assertFalse(eventForwarder.hasTouchOriginatingInGestureInsets(mView));
@@ -1004,10 +1011,8 @@ public class EventForwarderTest {
     public void testHasTouchOriginatingInGestureInsets_decorViewBounds() {
         EventForwarder eventForwarder =
                 new EventForwarder(NATIVE_EVENT_FORWARDER_ID, true, false, false, mScaledTouchSlop);
-        doReturn(1080).when(mDecorView).getWidth();
-        doReturn(2000).when(mDecorView).getHeight();
-        doReturn(800).when(mView).getWidth();
-        doReturn(2000).when(mView).getHeight();
+        mDecorView.layout(0, 0, 1080, 2000);
+        mView.layout(0, 0, 800, 2000);
 
         Insets gestureInsets = Insets.of(50, 50, 50, 50);
         doReturn(gestureInsets).when(mWindowInsets).getInsets(systemGestures());

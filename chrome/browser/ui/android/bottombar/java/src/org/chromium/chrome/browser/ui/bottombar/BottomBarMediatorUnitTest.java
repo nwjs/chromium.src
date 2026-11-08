@@ -10,6 +10,8 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -30,8 +32,8 @@ import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 
+import org.chromium.base.ContextUtils;
 import org.chromium.base.supplier.ObservableSuppliers;
-import org.chromium.base.supplier.OneshotSupplierImpl;
 import org.chromium.base.supplier.SettableNonNullObservableSupplier;
 import org.chromium.base.supplier.SettableNullableObservableSupplier;
 import org.chromium.base.test.BaseRobolectricTestRunner;
@@ -48,16 +50,12 @@ import org.chromium.chrome.browser.glic.GlicKeyedService;
 import org.chromium.chrome.browser.glic.GlicKeyedServiceFactory;
 import org.chromium.chrome.browser.layouts.LayoutStateProvider;
 import org.chromium.chrome.browser.profiles.Profile;
-import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactory;
-import org.chromium.chrome.browser.tab.Tab;
-import org.chromium.chrome.browser.tab.TabObserver;
 import org.chromium.chrome.browser.theme.ThemeColorProvider;
 import org.chromium.chrome.browser.ui.actions.ActionId;
 import org.chromium.chrome.browser.ui.actions.ActionProperties;
 import org.chromium.chrome.browser.ui.actions.ActionRegistry;
 import org.chromium.chrome.browser.ui.android.bars_common.IphIntent;
 import org.chromium.chrome.browser.ui.bottombar.BottomBarHostManager.Host;
-import org.chromium.chrome.browser.ui.bottombar.BottomBarMetrics.AimIneligibilityReason;
 import org.chromium.chrome.browser.ui.bottombar.BottomBarMetrics.GlicIneligibilityReason;
 import org.chromium.chrome.browser.ui.theme.BrandedColorScheme;
 import org.chromium.chrome.browser.user_education.IphCommand;
@@ -65,11 +63,7 @@ import org.chromium.chrome.browser.user_education.UserEducationHelper;
 import org.chromium.components.browser_ui.widget.highlight.ViewHighlighter.HighlightShape;
 import org.chromium.components.feature_engagement.FeatureConstants;
 import org.chromium.components.feature_engagement.Tracker;
-import org.chromium.components.search_engines.TemplateUrlService;
-import org.chromium.components.search_engines.TemplateUrlService.TemplateUrlServiceObserver;
 import org.chromium.ui.modelutil.PropertyModel;
-import org.chromium.url.GURL;
-import org.chromium.url.JUnitTestGURLs;
 
 /** Unit tests for {@link BottomBarMediator}. */
 @NullMarked
@@ -80,7 +74,6 @@ public class BottomBarMediatorUnitTest {
 
     @Mock private ThemeColorProvider mThemeColorProvider;
     @Mock private BottomBarMediator.VisibilityDelegate mVisibilityDelegate;
-    @Mock private Tab mTab;
     @Mock private Profile mProfile;
     @Mock private BottomBarButtonManager mButtonManager;
     @Mock private GlicEnabling.Natives mGlicEnablingJniMock;
@@ -89,41 +82,31 @@ public class BottomBarMediatorUnitTest {
     @Mock private Tracker mTracker;
     @Mock private ActionRegistry mActionRegistry;
     @Mock private UserEducationHelper mUserEducationHelper;
-    @Mock private TemplateUrlService mTemplateUrlService;
-    @Mock private View mView;
     @Mock private Context mContext;
     @Mock private Resources mResources;
     @Mock private LayoutStateProvider mLayoutStateProvider;
 
-    @Captor private ArgumentCaptor<TabObserver> mTabObserverCaptor;
     @Captor private ArgumentCaptor<BottomBarButtonManager.Listener> mButtonManagerListenerCaptor;
 
     @Captor
     private ArgumentCaptor<GlicKeyedService.AllowedChangedObserver> mAllowedChangedObserverCaptor;
 
-    @Captor private ArgumentCaptor<TemplateUrlServiceObserver> mTemplateUrlObserverCaptor;
-
     private SettableNullableObservableSupplier<Profile> mProfileSupplier;
-    private OneshotSupplierImpl<String> mCountrySupplier;
 
-    private SettableNullableObservableSupplier<Tab> mTabSupplier;
     private SettableNonNullObservableSupplier<Boolean> mHomepageEnabledSupplier;
     private SettableNonNullObservableSupplier<Boolean> mOmniboxFocusStateSupplier;
     private SettableNullableObservableSupplier<PropertyModel> mGlicActionSupplier;
-    private SettableNullableObservableSupplier<PropertyModel> mAiModeActionSupplier;
     private SettableNullableObservableSupplier<PropertyModel> mNewTabActionSupplier;
     private PropertyModel mModel;
+    private final View mView = new View(ContextUtils.getApplicationContext());
     private @Nullable BottomBarMediator mMediator;
 
     @Before
     public void setUp() {
-        mTabSupplier = ObservableSuppliers.createNullable();
         mHomepageEnabledSupplier = ObservableSuppliers.createNonNull(false);
         mOmniboxFocusStateSupplier = ObservableSuppliers.createNonNull(false);
         mProfileSupplier = ObservableSuppliers.createNullable();
         mProfileSupplier.set(mProfile);
-        mCountrySupplier = new OneshotSupplierImpl<>();
-        mCountrySupplier.set("us");
         when(mProfile.getOriginalProfile()).thenReturn(mProfile);
         TrackerFactory.setTrackerForTests(mTracker);
         mModel = new PropertyModel(BottomBarProperties.ALL_KEYS);
@@ -131,20 +114,15 @@ public class BottomBarMediatorUnitTest {
                 .thenReturn(BrandedColorScheme.APP_DEFAULT);
         GlicEnablingJni.setInstanceForTesting(mGlicEnablingJniMock);
         when(mGlicEnablingJniMock.isEnabledForProfile(any())).thenReturn(false);
-        TemplateUrlServiceFactory.setInstanceForTesting(mTemplateUrlService);
-        when(mTemplateUrlService.isDefaultSearchEngineGoogle()).thenReturn(true);
         GlicKeyedServiceFactory.setForTesting(mGlicKeyedService);
 
         when(mPromoDialogCoordinator.maybeShowPromoDialog(any())).thenReturn(true);
 
         mGlicActionSupplier = ObservableSuppliers.createNullable();
-        mAiModeActionSupplier = ObservableSuppliers.createNullable();
         mNewTabActionSupplier = ObservableSuppliers.createNullable();
         when(mActionRegistry.get(ActionId.GLIC)).thenReturn(mGlicActionSupplier);
-        when(mActionRegistry.get(ActionId.AI_MODE)).thenReturn(mAiModeActionSupplier);
         when(mActionRegistry.get(ActionId.NEW_TAB)).thenReturn(mNewTabActionSupplier);
 
-        when(mView.getContext()).thenReturn(mContext);
         when(mContext.getResources()).thenReturn(mResources);
         when(mResources.getDimensionPixelSize(R.dimen.bottom_bar_new_tab_background_radius))
                 .thenReturn(12);
@@ -163,74 +141,16 @@ public class BottomBarMediatorUnitTest {
     }
 
     @Test
-    public void testInitialization_WithoutHomeButton_DoesNotObserveHomepage() {
-        createMediator(/* shouldIncludeHomeButton= */ false);
+    public void testInitialization_ObservesHomepage() {
+        createMediator();
 
         mHomepageEnabledSupplier.set(true);
-        verify(mButtonManager, never()).setButtonVisibility(ActionId.HOME_BUTTON, true);
-    }
-
-    private void setupTab(GURL url, boolean isIncognito) {
-        when(mTab.getUrl()).thenReturn(url);
-        when(mTab.isOffTheRecord()).thenReturn(isIncognito);
-        mTabSupplier.set(mTab);
-        TrackerFactory.setTrackerForTests(mTracker);
+        verify(mButtonManager).setButtonVisibility(ActionId.HOME_BUTTON, true);
     }
 
     @Test
     public void testConstructor() {
-        createMediator(/* shouldIncludeHomeButton= */ true);
-
-        assertTrue(mModel.get(BottomBarProperties.IS_VISIBLE));
-        verify(mVisibilityDelegate, times(1)).onVisibilityChanged(true);
-    }
-
-    @Test
-    public void testTabObserverCleanup_OnTabRemoved() {
-        setupTab(JUnitTestGURLs.NTP_URL, false);
-        createMediator(/* shouldIncludeHomeButton= */ true);
-
-        verify(mTab).addObserver(mTabObserverCaptor.capture());
-
-        mTabSupplier.set(null);
-        verify(mTab).removeObserver(mTabObserverCaptor.getValue());
-        assertTrue(mModel.get(BottomBarProperties.IS_VISIBLE));
-    }
-
-    @Test
-    public void testVisibilityChange_EmptyUrl() {
-        setupTab(GURL.emptyGURL(), false);
-        createMediator(/* shouldIncludeHomeButton= */ true);
-
-        verify(mTab).addObserver(mTabObserverCaptor.capture());
-        mTabObserverCaptor.getValue().onUrlUpdated(mTab);
-
-        assertTrue(mModel.get(BottomBarProperties.IS_VISIBLE));
-    }
-
-    @Test
-    public void testVisibilityChange_Ntp_Incognito() {
-        setupTab(JUnitTestGURLs.NTP_URL, true);
-        createMediator(/* shouldIncludeHomeButton= */ true);
-
-        verify(mTab).addObserver(mTabObserverCaptor.capture());
-        verify(mVisibilityDelegate, times(1)).onVisibilityChanged(true);
-
-        mTabObserverCaptor.getValue().onUrlUpdated(mTab);
-
-        assertTrue(mModel.get(BottomBarProperties.IS_VISIBLE));
-        verify(mVisibilityDelegate, times(1)).onVisibilityChanged(true);
-    }
-
-    @Test
-    public void testVisibilityChange_NotNtp() {
-        setupTab(JUnitTestGURLs.EXAMPLE_URL, false);
-        createMediator(/* shouldIncludeHomeButton= */ true);
-
-        verify(mTab).addObserver(mTabObserverCaptor.capture());
-        verify(mVisibilityDelegate, times(1)).onVisibilityChanged(true);
-
-        mTabObserverCaptor.getValue().onUrlUpdated(mTab);
+        createMediator();
 
         assertTrue(mModel.get(BottomBarProperties.IS_VISIBLE));
         verify(mVisibilityDelegate, times(1)).onVisibilityChanged(true);
@@ -245,7 +165,7 @@ public class BottomBarMediatorUnitTest {
 
         mModel.set(BottomBarProperties.IS_EXTRA_BUTTON_VISIBLE, true);
 
-        createMediator(/* shouldIncludeHomeButton= */ true);
+        createMediator();
         assertNotNull(mMediator);
 
         mMediator.onPromoDialogAccepted();
@@ -332,102 +252,6 @@ public class BottomBarMediatorUnitTest {
     }
 
     @Test
-    public void testIphOrchestrationFlow_PromoAccepted_ChainsAimToNewTabIph() {
-        PropertyModel aimModel = new PropertyModel.Builder(ActionProperties.ALL_KEYS).build();
-        PropertyModel newTabModel = new PropertyModel.Builder(ActionProperties.ALL_KEYS).build();
-        mAiModeActionSupplier.set(aimModel);
-        mNewTabActionSupplier.set(newTabModel);
-
-        mModel.set(BottomBarProperties.IS_EXTRA_BUTTON_VISIBLE, true);
-        mModel.set(BottomBarProperties.EXTRA_BUTTON_ACTION_ID, ActionId.AI_MODE);
-
-        createMediator(/* shouldIncludeHomeButton= */ true);
-        assertNotNull(mMediator);
-
-        mMediator.onPromoDialogAccepted();
-
-        IphIntent aimIph = aimModel.get(ActionProperties.IPH_INTENT);
-        assertNotNull(aimIph);
-        assertEquals(FeatureConstants.ANDROID_BOTTOM_BAR_AIM, aimIph.getFeatureNameForTesting());
-        assertFalse(Boolean.TRUE.equals(aimModel.get(ActionProperties.IS_SELECTED)));
-
-        // Verify New Tab IPH is not set before AIM IPH is dismissed.
-        assertNull(newTabModel.get(ActionProperties.IPH_INTENT));
-
-        aimIph.tryShow(mView, mUserEducationHelper);
-
-        ArgumentCaptor<IphCommand> commandCaptor = ArgumentCaptor.forClass(IphCommand.class);
-        verify(mUserEducationHelper, times(1)).requestShowIph(commandCaptor.capture());
-
-        IphCommand command = commandCaptor.getValue();
-        assertNotNull(command);
-        assertEquals(FeatureConstants.ANDROID_BOTTOM_BAR_AIM, command.featureName);
-        assertNotNull(command.onShowCallback);
-        assertNotNull(command.onDismissCallback);
-        assertNotNull(command.highlightParams);
-        assertEquals(HighlightShape.RECTANGLE, command.highlightParams.getShape());
-        assertTrue(command.highlightParams.getBoundsRespectPadding());
-        assertEquals(20, command.highlightParams.getCornerRadius());
-
-        // Verify AIM IPH Shown metric
-        HistogramWatcher aimShownWatcher =
-                HistogramWatcher.newBuilder()
-                        .expectIntRecord(
-                                "Android.BottomBar.IPH.Aim.Event", BottomBarMetrics.IphEvent.SHOWN)
-                        .build();
-        command.onShowCallback.run();
-        aimShownWatcher.assertExpected();
-
-        // Verify AIM IPH Dismissed metric
-        HistogramWatcher aimDismissedWatcher =
-                HistogramWatcher.newBuilder()
-                        .expectIntRecord(
-                                "Android.BottomBar.IPH.Aim.Event",
-                                BottomBarMetrics.IphEvent.DISMISSED)
-                        .build();
-        command.onDismissCallback.run();
-        aimDismissedWatcher.assertExpected();
-
-        IphIntent newTabIph = newTabModel.get(ActionProperties.IPH_INTENT);
-        assertNotNull(newTabIph);
-        assertEquals(
-                FeatureConstants.ANDROID_BOTTOM_BAR_NEW_TAB, newTabIph.getFeatureNameForTesting());
-
-        newTabIph.tryShow(mView, mUserEducationHelper);
-        ArgumentCaptor<IphCommand> newTabCommandCaptor = ArgumentCaptor.forClass(IphCommand.class);
-        verify(mUserEducationHelper, times(2)).requestShowIph(newTabCommandCaptor.capture());
-        IphCommand newTabCommand = newTabCommandCaptor.getAllValues().get(1);
-        assertNotNull(newTabCommand);
-        assertEquals(FeatureConstants.ANDROID_BOTTOM_BAR_NEW_TAB, newTabCommand.featureName);
-        assertNotNull(newTabCommand.onShowCallback);
-        assertNotNull(newTabCommand.onDismissCallback);
-        assertNotNull(newTabCommand.highlightParams);
-        assertEquals(HighlightShape.RECTANGLE, newTabCommand.highlightParams.getShape());
-        assertTrue(newTabCommand.highlightParams.getBoundsRespectPadding());
-        assertEquals(20, newTabCommand.highlightParams.getCornerRadius());
-
-        // Verify New Tab IPH Shown metric
-        HistogramWatcher newTabShownWatcher =
-                HistogramWatcher.newBuilder()
-                        .expectIntRecord(
-                                "Android.BottomBar.IPH.NewTab.Event",
-                                BottomBarMetrics.IphEvent.SHOWN)
-                        .build();
-        newTabCommand.onShowCallback.run();
-        newTabShownWatcher.assertExpected();
-
-        // Verify New Tab IPH Dismissed metric
-        HistogramWatcher newTabDismissedWatcher =
-                HistogramWatcher.newBuilder()
-                        .expectIntRecord(
-                                "Android.BottomBar.IPH.NewTab.Event",
-                                BottomBarMetrics.IphEvent.DISMISSED)
-                        .build();
-        newTabCommand.onDismissCallback.run();
-        newTabDismissedWatcher.assertExpected();
-    }
-
-    @Test
     public void testNewTabIphHighlight_WithCenteredButton() {
         when(mButtonManager.hasCenteredButton()).thenReturn(true);
         PropertyModel glicModel = new PropertyModel.Builder(ActionProperties.ALL_KEYS).build();
@@ -437,7 +261,7 @@ public class BottomBarMediatorUnitTest {
 
         mModel.set(BottomBarProperties.IS_EXTRA_BUTTON_VISIBLE, true);
 
-        createMediator(/* shouldIncludeHomeButton= */ true);
+        createMediator();
         assertNotNull(mMediator);
 
         mMediator.onPromoDialogAccepted();
@@ -479,7 +303,7 @@ public class BottomBarMediatorUnitTest {
         mGlicActionSupplier.set(glicModel);
         mNewTabActionSupplier.set(newTabModel);
 
-        createMediator(/* shouldIncludeHomeButton= */ true);
+        createMediator();
         assertNotNull(mMediator);
 
         // Simulate accepting the promo dialog to populate IPH intents in the action models.
@@ -502,7 +326,7 @@ public class BottomBarMediatorUnitTest {
 
         // Create mediator with GLIC not visible, which triggers New Tab IPH.
         mModel.set(BottomBarProperties.IS_EXTRA_BUTTON_VISIBLE, false);
-        createMediator(/* shouldIncludeHomeButton= */ true);
+        createMediator();
         assertNotNull(mMediator);
 
         IphIntent firstIntent = newTabModel.get(ActionProperties.IPH_INTENT);
@@ -525,7 +349,7 @@ public class BottomBarMediatorUnitTest {
 
         // Create mediator with GLIC not visible, which triggers New Tab IPH.
         mModel.set(BottomBarProperties.IS_EXTRA_BUTTON_VISIBLE, false);
-        createMediator(/* shouldIncludeHomeButton= */ true);
+        createMediator();
         assertNotNull(mMediator);
 
         IphIntent initialNewTabIph = newTabModel.get(ActionProperties.IPH_INTENT);
@@ -583,12 +407,9 @@ public class BottomBarMediatorUnitTest {
                         mModel,
                         mButtonManager,
                         mThemeColorProvider,
-                        mTabSupplier,
                         mHomepageEnabledSupplier,
                         mVisibilityDelegate,
-                        /* shouldIncludeHomeButton= */ true,
                         mProfileSupplier,
-                        mCountrySupplier,
                         mOmniboxFocusStateSupplier,
                         mPromoDialogCoordinator,
                         mActionRegistry,
@@ -620,61 +441,81 @@ public class BottomBarMediatorUnitTest {
     }
 
     @Test
-    @EnableFeatures({
-        ChromeFeatureList.ANDROID_BOTTOM_BAR_AIM,
-        ChromeFeatureList.ANDROID_BOTTOM_BAR + ":bypass_aim_geofencing/true"
-    })
-    public void testDseChangedDynamically_WhenAiModeCandidate_TogglesVisibilityWithoutSwapping() {
-        // In "us" with GLIC disabled, candidate resolves to AI_MODE.
-        when(mGlicEnablingJniMock.isEnabledForProfile(any())).thenReturn(false);
-
-        createMediator(/* shouldIncludeHomeButton= */ false);
-
-        // Verify initial state: AI_MODE is visible, GLIC is hidden.
-        verify(mButtonManager).setButtonVisibility(ActionId.AI_MODE, true);
-        verify(mButtonManager).setButtonVisibility(ActionId.GLIC, false);
-
-        // Capture the registered TemplateUrlServiceObserver.
-        verify(mTemplateUrlService).addObserver(mTemplateUrlObserverCaptor.capture());
-        TemplateUrlServiceObserver observer = mTemplateUrlObserverCaptor.getValue();
-        assertNotNull(observer);
-
-        // 1. DSE changes to non-Google -> AI Mode hidden, GLIC never shown.
-        when(mTemplateUrlService.isDefaultSearchEngineGoogle()).thenReturn(false);
-        observer.onTemplateURLServiceChanged();
-        verify(mButtonManager).setButtonVisibility(ActionId.AI_MODE, false);
-        verify(mButtonManager, times(2)).setButtonVisibility(ActionId.GLIC, false);
-        verify(mButtonManager, never()).setButtonVisibility(ActionId.GLIC, true);
-
-        // 2. DSE changes back to Google -> AI Mode visible again.
-        when(mTemplateUrlService.isDefaultSearchEngineGoogle()).thenReturn(true);
-        observer.onTemplateURLServiceChanged();
-        verify(mButtonManager, times(2)).setButtonVisibility(ActionId.AI_MODE, true);
-    }
-
-    @Test
     @EnableFeatures(ChromeFeatureList.ANDROID_BOTTOM_BAR + ":show_glic_setting_toggle/true")
-    public void testGlicAllowedChanged_WhenGlicCandidate_HidesGlicAndNeverSwapsToAiMode() {
+    public void testGlicAllowedChanged_WhenGlicCandidate_HidesGlic() {
         when(mGlicEnablingJniMock.isEnabledForProfile(any())).thenReturn(true);
 
-        createMediator(/* shouldIncludeHomeButton= */ false);
+        createMediator();
 
-        // Verify initial state: GLIC is visible, AI_MODE is hidden.
+        // Verify initial state: GLIC is visible.
         verify(mButtonManager).setButtonVisibility(ActionId.GLIC, true);
-        verify(mButtonManager).setButtonVisibility(ActionId.AI_MODE, false);
 
         verify(mGlicKeyedService)
                 .addAllowedChangedObserver(mAllowedChangedObserverCaptor.capture());
         GlicKeyedService.AllowedChangedObserver observer = mAllowedChangedObserverCaptor.getValue();
         assertNotNull(observer);
 
-        // User preference disabled or policy disallows -> GLIC hidden, never falls back to AI Mode.
-        BottomBarConfigUtils.setGlicButtonEnabled(false);
-        verify(mButtonManager).setButtonVisibility(ActionId.GLIC, false);
-        verify(mButtonManager, never()).setButtonVisibility(ActionId.AI_MODE, true);
-
-        // Notify observer again when state changed.
+        // Policy or profile eligibility disallows GLIC -> GLIC hidden.
+        when(mGlicEnablingJniMock.isEnabledForProfile(any())).thenReturn(false);
         observer.onAllowedStateChanged();
+        verify(mButtonManager).setButtonVisibility(ActionId.GLIC, false);
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.ANDROID_BOTTOM_BAR + ":show_glic_setting_toggle/true")
+    public void testProfileChanged_ReResolvesCandidateAndUpdatesObservers() {
+        when(mGlicEnablingJniMock.isEnabledForProfile(mProfile)).thenReturn(true);
+
+        createMediator();
+
+        // Verify initial state: GLIC is visible.
+        verify(mButtonManager).setButtonVisibility(ActionId.GLIC, true);
+        verify(mGlicKeyedService).addAllowedChangedObserver(any());
+
+        // Transition through null: observers removed and GLIC hidden.
+        mProfileSupplier.set(null);
+        verify(mButtonManager).setButtonVisibility(ActionId.GLIC, false);
+        verify(mGlicKeyedService).removeAllowedChangedObserver(any());
+
+        Profile newProfile = mock(Profile.class);
+        when(newProfile.getOriginalProfile()).thenReturn(newProfile);
+        when(mGlicEnablingJniMock.isEnabledForProfile(newProfile)).thenReturn(false);
+
+        GlicKeyedService newGlicKeyedService = mock(GlicKeyedService.class);
+        GlicKeyedServiceFactory.setForTesting(newGlicKeyedService);
+
+        mProfileSupplier.set(newProfile);
+
+        verify(mButtonManager, times(2)).setButtonVisibility(ActionId.GLIC, false);
+        verify(newGlicKeyedService).addAllowedChangedObserver(any());
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.ANDROID_BOTTOM_BAR + ":show_glic_setting_toggle/true")
+    public void testGlicAllowedChanged_WhenGlicInitiallyDisabled_ShowsGlicWhenEnabled() {
+        when(mGlicEnablingJniMock.isEnabledForProfile(any())).thenReturn(false);
+
+        createMediator();
+
+        // Verify initial state: GLIC is hidden.
+        verify(mButtonManager).setButtonVisibility(ActionId.GLIC, false);
+
+        verify(mGlicKeyedService)
+                .addAllowedChangedObserver(mAllowedChangedObserverCaptor.capture());
+        GlicKeyedService.AllowedChangedObserver observer = mAllowedChangedObserverCaptor.getValue();
+        assertNotNull(observer);
+
+        // GLIC becomes enabled for profile -> GLIC shown and cached as candidate extra action.
+        when(mGlicEnablingJniMock.isEnabledForProfile(any())).thenReturn(true);
+        observer.onAllowedStateChanged();
+        verify(mButtonManager).setButtonVisibility(ActionId.GLIC, true);
+        assertEquals(
+                Integer.valueOf(ActionId.GLIC),
+                BottomBarActionEligibility.getCachedCandidateExtraAction());
+
+        // Disabling via SharedPreferences should hide the button (confirming listener was
+        // registered on candidate promotion).
+        BottomBarConfigUtils.setGlicButtonEnabled(false);
         verify(mButtonManager, times(2)).setButtonVisibility(ActionId.GLIC, false);
     }
 
@@ -683,7 +524,7 @@ public class BottomBarMediatorUnitTest {
     public void testOnSharedPreferenceChanged_TogglesGlicVisibility() {
         when(mGlicEnablingJniMock.isEnabledForProfile(any())).thenReturn(true);
 
-        createMediator(/* shouldIncludeHomeButton= */ false);
+        createMediator();
 
         assertNotNull(mMediator);
         verify(mButtonManager).setButtonVisibility(ActionId.GLIC, true);
@@ -691,7 +532,6 @@ public class BottomBarMediatorUnitTest {
         // Toggle GLIC button OFF via SharedPreferences.
         BottomBarConfigUtils.setGlicButtonEnabled(false);
         verify(mButtonManager).setButtonVisibility(ActionId.GLIC, false);
-        verify(mButtonManager, never()).setButtonVisibility(ActionId.AI_MODE, true);
 
         // Toggle GLIC button ON via SharedPreferences.
         BottomBarConfigUtils.setGlicButtonEnabled(true);
@@ -701,67 +541,24 @@ public class BottomBarMediatorUnitTest {
     @Test
     public void testColdStart_NullProfile_HidesExtraButton() {
         mProfileSupplier.set(null);
-        createMediator(/* shouldIncludeHomeButton= */ false);
+        createMediator();
         RobolectricUtil.runAllBackgroundAndUi();
 
         assertNotNull(mMediator);
         verify(mButtonManager).setButtonVisibility(ActionId.GLIC, false);
-        verify(mButtonManager).setButtonVisibility(ActionId.AI_MODE, false);
-        verify(mTemplateUrlService, never()).addObserver(any());
         verify(mGlicKeyedService, never()).addAllowedChangedObserver(any());
     }
 
     @Test
-    public void testActionNone_NoObserversRegistered() {
-        mCountrySupplier = new OneshotSupplierImpl<>();
-        mCountrySupplier.set("fr");
-        when(mGlicEnablingJniMock.isEnabledForProfile(any())).thenReturn(false);
-
-        createMediator(/* shouldIncludeHomeButton= */ false);
-
-        assertNotNull(mMediator);
-        verify(mButtonManager).setButtonVisibility(ActionId.GLIC, false);
-        verify(mButtonManager).setButtonVisibility(ActionId.AI_MODE, false);
-        verify(mTemplateUrlService, never()).addObserver(any());
-        verify(mGlicKeyedService, never()).addAllowedChangedObserver(any());
-    }
-
-    @Test
-    public void testDeferredCandidateResolution_ProfileFirst_CountrySecond() {
-        mProfileSupplier.set(mProfile);
-        mCountrySupplier = new OneshotSupplierImpl<>();
-        when(mGlicEnablingJniMock.isEnabledForProfile(any())).thenReturn(true);
-
-        createMediator(/* shouldIncludeHomeButton= */ false);
-
-        // While country is null, extra buttons should remain hidden and no dynamic observers
-        // attached.
-        verify(mButtonManager).setButtonVisibility(ActionId.GLIC, false);
-        verify(mButtonManager).setButtonVisibility(ActionId.AI_MODE, false);
-        verify(mGlicKeyedService, never()).addAllowedChangedObserver(any());
-
-        // Country arrives.
-        mCountrySupplier.set("us");
-        RobolectricUtil.runAllBackgroundAndUi();
-
-        // Candidate resolves to GLIC and becomes visible.
-        verify(mButtonManager).setButtonVisibility(ActionId.GLIC, true);
-        verify(mGlicKeyedService).addAllowedChangedObserver(any());
-    }
-
-    @Test
-    public void testDeferredCandidateResolution_CountryFirst_ProfileSecond() {
+    public void testDeferredCandidateResolution_ProfileDeferred() {
         mProfileSupplier.set(null);
-        mCountrySupplier = new OneshotSupplierImpl<>();
-        mCountrySupplier.set("us");
         when(mGlicEnablingJniMock.isEnabledForProfile(any())).thenReturn(true);
 
-        createMediator(/* shouldIncludeHomeButton= */ false);
+        createMediator();
         RobolectricUtil.runAllBackgroundAndUi();
 
         // While profile is null, extra buttons should remain hidden.
         verify(mButtonManager).setButtonVisibility(ActionId.GLIC, false);
-        verify(mButtonManager).setButtonVisibility(ActionId.AI_MODE, false);
         verify(mGlicKeyedService, never()).addAllowedChangedObserver(any());
 
         // Profile arrives.
@@ -773,61 +570,75 @@ public class BottomBarMediatorUnitTest {
     }
 
     @Test
-    public void testDeferredCandidateResolution_LateIndia_AllowedCountry() {
-        mCountrySupplier = new OneshotSupplierImpl<>();
-        when(mGlicEnablingJniMock.isEnabledForProfile(any())).thenReturn(true);
-
-        createMediator(/* shouldIncludeHomeButton= */ false);
-
-        verify(mButtonManager).setButtonVisibility(ActionId.GLIC, false);
-        verify(mButtonManager).setButtonVisibility(ActionId.AI_MODE, false);
-
-        // Country arrives as "in" (Allowed country).
-        mCountrySupplier.set("in");
-        RobolectricUtil.runAllBackgroundAndUi();
-
-        // Candidate resolves to GLIC and becomes visible.
-        verify(mButtonManager).setButtonVisibility(ActionId.GLIC, true);
-        verify(mGlicKeyedService).addAllowedChangedObserver(any());
-    }
-
-    @Test
-    @EnableFeatures(ChromeFeatureList.ANDROID_BOTTOM_BAR + ":bypass_glic_geofencing/true")
-    public void testDeferredCandidateResolution_BypassGeofencing_NullCountry() {
-        when(mGlicEnablingJniMock.isEnabledForProfile(any())).thenReturn(true);
-        mCountrySupplier = new OneshotSupplierImpl<>();
-
-        createMediator(/* shouldIncludeHomeButton= */ false);
-
-        // Geofencing is bypassed -> candidate resolves to GLIC immediately despite null country.
-        verify(mButtonManager).setButtonVisibility(ActionId.GLIC, true);
-        verify(mGlicKeyedService).addAllowedChangedObserver(any());
-    }
-
-    @Test
     public void testCandidateExtraActionResolved_RecordsMetric() {
         when(mGlicEnablingJniMock.isEnabledForProfile(any())).thenReturn(true);
         var glicWatcher =
                 HistogramWatcher.newSingleRecordWatcher(
                         "Android.BottomBar.ExtraAction.CandidateResolved",
                         BottomBarMetrics.CandidateAction.GLIC);
-        createMediator(/* shouldIncludeHomeButton= */ false);
+        createMediator();
         glicWatcher.assertExpected();
     }
 
     @Test
-    @EnableFeatures({
-        ChromeFeatureList.ANDROID_BOTTOM_BAR_AIM,
-        ChromeFeatureList.ANDROID_BOTTOM_BAR + ":bypass_aim_geofencing/true"
-    })
-    public void testCandidateExtraActionResolved_AiMode_RecordsMetric() {
-        when(mGlicEnablingJniMock.isEnabledForProfile(any())).thenReturn(false);
-        var aimWatcher =
+    public void testCandidateExtraActionResolved_ProfileChanged_ReRecordsMetric() {
+        when(mGlicEnablingJniMock.isEnabledForProfile(mProfile)).thenReturn(true);
+        var initialWatcher =
                 HistogramWatcher.newSingleRecordWatcher(
                         "Android.BottomBar.ExtraAction.CandidateResolved",
-                        BottomBarMetrics.CandidateAction.AIM);
-        createMediator(/* shouldIncludeHomeButton= */ false);
-        aimWatcher.assertExpected();
+                        BottomBarMetrics.CandidateAction.GLIC);
+        createMediator();
+        initialWatcher.assertExpected();
+
+        Profile newProfile = mock(Profile.class);
+        when(newProfile.getOriginalProfile()).thenReturn(newProfile);
+        when(mGlicEnablingJniMock.isEnabledForProfile(newProfile)).thenReturn(false);
+
+        var newProfileWatcher =
+                HistogramWatcher.newSingleRecordWatcher(
+                        "Android.BottomBar.ExtraAction.CandidateResolved",
+                        BottomBarMetrics.CandidateAction.NONE);
+        mProfileSupplier.set(newProfile);
+        newProfileWatcher.assertExpected();
+    }
+
+    @Test
+    public void testCandidateExtraActionResolved_ActionNone_RecordsMetricOnce() {
+        when(mGlicEnablingJniMock.isEnabledForProfile(any())).thenReturn(false);
+        var watcher =
+                HistogramWatcher.newBuilder()
+                        .expectIntRecord(
+                                "Android.BottomBar.ExtraAction.CandidateResolved",
+                                BottomBarMetrics.CandidateAction.NONE)
+                        .expectIntRecord(
+                                "Android.BottomBar.Glic.IneligibilityReason",
+                                GlicIneligibilityReason.PROFILE_INELIGIBLE)
+                        .build();
+
+        createMediator();
+        watcher.assertExpected();
+
+        // Subsequent updates for the same profile should not re-run candidate resolution or re-log
+        // ineligibility reasons.
+        var secondWatcher =
+                HistogramWatcher.newBuilder()
+                        .expectNoRecords("Android.BottomBar.ExtraAction.CandidateResolved")
+                        .expectNoRecords("Android.BottomBar.Glic.IneligibilityReason")
+                        .build();
+        mProfileSupplier.set(mProfile);
+        secondWatcher.assertExpected();
+    }
+
+    @Test
+    public void testUpdateObservers_ProfileChanged_CleansUpObservers() {
+        when(mGlicEnablingJniMock.isEnabledForProfile(any())).thenReturn(true);
+        createMediator();
+
+        verify(mGlicKeyedService).addAllowedChangedObserver(any());
+
+        // When profile becomes null, observers should be cleaned up.
+        mProfileSupplier.set(null);
+        verify(mGlicKeyedService).removeAllowedChangedObserver(any());
     }
 
     @Test
@@ -841,30 +652,13 @@ public class BottomBarMediatorUnitTest {
                 HistogramWatcher.newSingleRecordWatcher(
                         "Android.BottomBar.Glic.IneligibilityReason",
                         GlicIneligibilityReason.USER_DISABLED_IN_SETTINGS);
-        createMediator(/* shouldIncludeHomeButton= */ false);
-        watcher.assertExpected();
-    }
-
-    @Test
-    @EnableFeatures({
-        ChromeFeatureList.ANDROID_BOTTOM_BAR_AIM,
-        ChromeFeatureList.ANDROID_BOTTOM_BAR + ":bypass_aim_geofencing/true"
-    })
-    public void testUpdateAiModeVisibility_DseNotGoogle_RecordsIneligibilityReason() {
-        when(mGlicEnablingJniMock.isEnabledForProfile(any())).thenReturn(false);
-        when(mTemplateUrlService.isDefaultSearchEngineGoogle()).thenReturn(false);
-
-        var watcher =
-                HistogramWatcher.newSingleRecordWatcher(
-                        "Android.BottomBar.Aim.IneligibilityReason",
-                        AimIneligibilityReason.DEFAULT_SEARCH_ENGINE_NOT_GOOGLE);
-        createMediator(/* shouldIncludeHomeButton= */ false);
+        createMediator();
         watcher.assertExpected();
     }
 
     @Test
     public void testOnTintChanged_WhenHostTabbed_UpdatesColorSchemeAndNotifiesDelegate() {
-        createMediator(/* shouldIncludeHomeButton= */ false);
+        createMediator();
         assertNotNull(mMediator);
         assertEquals(Host.TABBED, mMediator.getHostForTesting());
 
@@ -876,7 +670,7 @@ public class BottomBarMediatorUnitTest {
 
     @Test
     public void testOnTintChanged_WhenHostHub_SuppressesColorSchemeUpdate() {
-        createMediator(/* shouldIncludeHomeButton= */ false);
+        createMediator();
         assertNotNull(mMediator);
 
         // Set initial color scheme to INCOGNITO
@@ -899,7 +693,7 @@ public class BottomBarMediatorUnitTest {
 
     @Test
     public void testSetParent_TabbedToHubAndBack_UpdatesColorSchemeOnReturn() {
-        createMediator(/* shouldIncludeHomeButton= */ false);
+        createMediator();
         assertNotNull(mMediator);
 
         mMediator.onTintChanged(null, null, BrandedColorScheme.INCOGNITO);
@@ -919,19 +713,28 @@ public class BottomBarMediatorUnitTest {
         verify(mVisibilityDelegate, times(2)).onBackgroundColorChanged();
     }
 
-    private void createMediator(boolean shouldIncludeHomeButton) {
+    @Test
+    public void testOnBottomBarStateChanged_AfterDestroy_IsNoOp() {
+        createMediator();
+        assertNotNull(mMediator);
+
+        mMediator.destroy();
+        clearInvocations(mVisibilityDelegate);
+
+        mMediator.onBottomBarStateChanged(/* visibilityChanged= */ true);
+        verify(mVisibilityDelegate, never()).onModelTokenChange();
+    }
+
+    private void createMediator() {
         mMediator =
                 new BottomBarMediator(
                         mContext,
                         mModel,
                         mButtonManager,
                         mThemeColorProvider,
-                        mTabSupplier,
                         mHomepageEnabledSupplier,
                         mVisibilityDelegate,
-                        shouldIncludeHomeButton,
                         mProfileSupplier,
-                        mCountrySupplier,
                         mOmniboxFocusStateSupplier,
                         mPromoDialogCoordinator,
                         mActionRegistry,

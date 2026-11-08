@@ -65,8 +65,6 @@ source_set("constants_impl") {
   ]
 
   deps = [ "//build:chromecast_buildflags" ]
-
-  configs += [ "//build/config/compiler:wexit_time_destructors" ]
 }
 
 source_set("extension_features") {
@@ -472,6 +470,8 @@ static_library("common") {
     "manifest_handlers/message_serialization_info.h",
     "manifest_handlers/mime_types_handler.cc",
     "manifest_handlers/mime_types_handler.h",
+    "manifest_handlers/mime_types_handler_permission.cc",
+    "manifest_handlers/mime_types_handler_permission.h",
     "manifest_handlers/oauth2_manifest_handler.cc",
     "manifest_handlers/oauth2_manifest_handler.h",
     "manifest_handlers/offline_enabled_info.cc",
@@ -576,10 +576,7 @@ static_library("common") {
     "webstore_override.h",
   ]
 
-  configs += [
-    "//build/config:precompiled_headers",
-    "//build/config/compiler:wexit_time_destructors",
-  ]
+  configs += [ "//build/config:precompiled_headers" ]
 
   public_deps = [
     ":common_constants",
@@ -603,7 +600,6 @@ static_library("common") {
     "//build:chromeos_buildflags",
     "//components/crash/core/common",
     "//components/crx_file",
-    "//components/custom_handlers",
     "//components/pdf/common:util",
     "//components/safe_browsing/core/common",
     "//components/safe_browsing/core/common/hashprefix_realtime:hash_realtime_utils",
@@ -650,7 +646,6 @@ source_set("core_api_provider") {
     "core_extensions_api_provider.h",
   ]
 
-  configs += [ "//build/config/compiler:wexit_time_destructors" ]
   deps = [
     ":common",
     "//extensions:extensions_resources",
@@ -744,6 +739,7 @@ source_set("unit_tests") {
     "manifest_handlers/manifest_url_about_unittest.cc",
     "manifest_handlers/manifest_v3_permissions_unittest.cc",
     "manifest_handlers/message_serialization_manifest_unittest.cc",
+    "manifest_handlers/mime_types_handler_permission_unittest.cc",
     "manifest_handlers/mime_types_handler_unittest.cc",
     "manifest_handlers/oauth2_manifest_unittest.cc",
     "manifest_handlers/protocol_handler_manifest_unittest.cc",

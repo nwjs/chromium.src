@@ -75,9 +75,22 @@ struct SameSizeAsVectorWithInlineCapacity<T, 0> {
 #endif
 };
 
+struct SameSizeAsVectorBufferBaseWithInlineCapacity {
+  SameSizeAsVectorBufferBaseWithInlineCapacity() = default;
+  ~SameSizeAsVectorBufferBaseWithInlineCapacity();
+
+  void* buffer_pointer;
+  wtf_size_t capacity;
+  wtf_size_t size;
+#if DCHECK_IS_ON() || (defined(ANNOTATE_CONTIGUOUS_CONTAINER) && \
+                       BUILDFLAG(ENABLE_VECTOR_MODIFICATION_CHECKS))
+  uint32_t modifications;
+#endif
+};
+
 template <typename T, wtf_size_t inlineCapacity>
 struct SameSizeAsVectorWithInlineCapacity
-    : public SameSizeAsVectorWithInlineCapacity<T, 0> {
+    : public SameSizeAsVectorBufferBaseWithInlineCapacity {
 #if !defined(ANNOTATE_CONTIGUOUS_CONTAINER)
   T inline_buffer[inlineCapacity];
 #endif
@@ -98,6 +111,10 @@ ASSERT_SIZE(Vector<INLINE_CAPACITY_PARAMS(2)>,
             SameSizeAsVectorWithInlineCapacity<INLINE_CAPACITY_PARAMS(2)>);
 ASSERT_SIZE(Vector<INLINE_CAPACITY_PARAMS(3)>,
             SameSizeAsVectorWithInlineCapacity<INLINE_CAPACITY_PARAMS(3)>);
+static_assert(sizeof(UncheckedIterator<int, false>) == sizeof(int*));
+#if !DCHECK_IS_ON() && !defined(ANNOTATE_CONTIGUOUS_CONTAINER)
+static_assert(sizeof(Vector<int, 4>::iterator) == sizeof(int*));
+#endif
 
 // Check that the properties documented for wtf_size_t to size_t conversions
 // are met.

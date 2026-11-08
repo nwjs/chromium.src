@@ -4,6 +4,7 @@
 
 #include <optional>
 #include <string>
+#include <string_view>
 
 #include "ash/constants/ash_switches.h"
 #include "chrome/browser/ash/login/lock/screen_locker_tester.h"
@@ -26,6 +27,8 @@
 #include "chromeos/dbus/missive/missive_client_test_observer.h"
 #include "components/reporting/proto/synced/record.pb.h"
 #include "components/reporting/proto/synced/record_constants.pb.h"
+#include "components/session_manager/core/session.h"
+#include "components/session_manager/core/session_manager.h"
 #include "components/signin/public/identity_manager/identity_test_utils.h"
 #include "content/public/test/browser_test.h"
 #include "net/dns/mock_host_resolver.h"
@@ -48,8 +51,8 @@ constexpr char kTestAffiliationId[] = "test_affiliation_id";
 
 struct LockUnlockReporterBrowserTestData {
   bool success;
-  std::string user_password;
-  std::string entered_password;
+  std::string_view user_password;
+  std::string_view entered_password;
 };
 
 Record GetNextLockUnlockRecord(MissiveClientTestObserver* observer) {
@@ -123,13 +126,13 @@ class LockUnlockReporterBrowserTest
 
 IN_PROC_BROWSER_TEST_P(LockUnlockReporterBrowserTest, ReportLockAndUnlockTest) {
   bool success = GetParam().success;
-  std::string kUserPassword = GetParam().user_password;
-  std::string kEnteredPassword = GetParam().entered_password;
+  std::string kUserPassword(GetParam().user_password);
+  std::string kEnteredPassword(GetParam().entered_password);
   MissiveClientTestObserver observer(Destination::LOCK_UNLOCK_EVENTS);
   LoginUser(managed_user_);
 
   const AccountId account_id =
-      user_manager::UserManager::Get()->GetPrimaryUser()->GetAccountId();
+      session_manager::SessionManager::Get()->GetPrimarySession()->account_id();
   ScreenLockerTester screen_locker_tester;
 
   // Lock the screen and verify the event.
@@ -172,7 +175,7 @@ IN_PROC_BROWSER_TEST_P(LockUnlockReporterBrowserTest, ReportLockAndUnlockTest) {
               StrEq(kTestUserEmail));
 }
 
-const LockUnlockReporterBrowserTestData kTestingParams[] = {
+constexpr LockUnlockReporterBrowserTestData kTestingParams[] = {
     {.success = true, .user_password = "pass", .entered_password = "pass"},
     {.success = false, .user_password = "pass", .entered_password = "password"},
 };

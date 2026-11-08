@@ -16,6 +16,8 @@
 #include "build/build_config.h"
 #include "ui/aura/client/aura_constants.h"
 #include "ui/aura/client/cursor_client.h"
+#include "ui/aura/client/drag_drop_client.h"
+#include "ui/aura/client/drag_drop_delegate.h"
 #include "ui/aura/client/focus_client.h"
 #include "ui/aura/client/window_parenting_client.h"
 #include "ui/aura/env.h"
@@ -32,6 +34,7 @@
 #include "ui/events/event_utils.h"
 #include "ui/events/test/event_generator.h"
 #include "ui/views/controls/native/native_view_host.h"
+#include "ui/views/test/mock_activation_controller.h"
 #include "ui/views/test/native_widget_factory.h"
 #include "ui/views/test/test_views.h"
 #include "ui/views/test/test_views_delegate.h"
@@ -39,8 +42,11 @@
 #include "ui/views/test/widget_test.h"
 #include "ui/views/view_constants_aura.h"
 #include "ui/views/views_features.h"
+#include "ui/views/widget/native_widget_aura.h"
 #include "ui/views/widget/widget.h"
 #include "ui/views/window/dialog_delegate.h"
+#include "ui/wm/core/window_util.h"
+#include "ui/wm/public/activation_client.h"
 
 #if BUILDFLAG(IS_WIN)
 #include <windows.h>
@@ -126,6 +132,54 @@ TEST_F(DesktopNativeWidgetAuraTest, NativeViewNoActivate) {
   EXPECT_FALSE(widget.CanActivate());
   EXPECT_EQ(nullptr, aura::client::GetFocusClient(widget.GetNativeWindow())
                          ->GetFocusedWindow());
+}
+
+// Verifies that when the window tree host deactivates while the content window
+// is active, a visible, activatable child widget in the same host isn't
+// activated in its place. See crbug.com/572976640.
+TEST_F(DesktopNativeWidgetAuraTest, HostDeactivationDoesNotActivateChild) {
+  // Emulate platform activation so that real activation changes, e.g. from
+  // other tests running in parallel, don't affect this test. Must outlive the
+  // widgets.
+  MockActivationController activation_controller;
+
+  Widget top_level;
+  top_level.Init(CreateParams(Widget::InitParams::CLIENT_OWNS_WIDGET,
+                              Widget::InitParams::TYPE_WINDOW));
+  top_level.Show();
+  top_level.Activate();
+  ASSERT_TRUE(top_level.IsActive());
+
+  // A child widget in the same host, e.g. a bubble. Shown inactive, so the
+  // content window keeps activation.
+  Widget child;
+  Widget::InitParams child_params =
+      CreateParams(Widget::InitParams::CLIENT_OWNS_WIDGET,
+                   Widget::InitParams::TYPE_WINDOW_FRAMELESS);
+  child_params.parent = top_level.GetNativeView();
+  child_params.context = top_level.GetNativeWindow();
+  child_params.native_widget = new NativeWidgetAura(&child);
+  child.Init(std::move(child_params));
+  child.ShowInactive();
+
+  aura::Window* root_window = top_level.GetNativeView()->GetRootWindow();
+  ASSERT_EQ(root_window, child.GetNativeView()->GetRootWindow());
+  ASSERT_TRUE(wm::IsActiveWindow(top_level.GetNativeView()));
+  ASSERT_TRUE(child.CanActivate());
+  ASSERT_FALSE(child.IsActive());
+
+  // Deactivates the window tree host, which calls
+  // `DesktopNativeWidgetAura::HandleActivationChanged(false)`.
+  top_level.Deactivate();
+
+  EXPECT_FALSE(top_level.IsActive());
+  EXPECT_FALSE(child.IsActive());
+  EXPECT_EQ(nullptr, wm::GetActivationClient(root_window)->GetActiveWindow());
+  // An active child would keep the top-level widget painting as active.
+  EXPECT_FALSE(top_level.ShouldPaintAsActive());
+
+  child.CloseNow();
+  top_level.CloseNow();
 }
 
 #if BUILDFLAG(IS_WIN)
@@ -710,6 +764,52 @@ TEST_F(DesktopNativeWidgetAuraTest, TopLevelOwnedPopupRepositionTest) {
   ASSERT_NO_FATAL_FAILURE(popup_window.DestroyOwnedWindow());
 }
 
+// This test validates that an owned popup that grows upward, which moves its
+// origin inside the hosting widget, ends up realigned to the widget's origin.
+TEST_F(DesktopNativeWidgetAuraTest, TopLevelOwnedPopupRealignedOnGrowUpward) {
+  DesktopAuraTopLevelWindowTest popup_window;
+
+  popup_window.set_use_async_mode(false);
+
+  ASSERT_NO_FATAL_FAILURE(
+      popup_window.CreateTopLevelWindow(gfx::Rect(0, 0, 200, 200), false));
+
+  const gfx::Size grown_size(339, 219);
+  popup_window.owned_window()->SetBounds(
+      gfx::Rect(gfx::Point(0, -144), grown_size));
+
+  EXPECT_EQ(gfx::Rect(grown_size), popup_window.owned_window()->bounds());
+
+  ASSERT_NO_FATAL_FAILURE(popup_window.DestroyOwnedWindow());
+}
+
+// This test validates that a bounds change on the hosting widget keeps the
+// owned popup at the widget's origin without resizing it. A fractional device
+// scale factor makes the widget's size differ from the popup's by a rounding
+// step; propagating that size back to the popup would make the two windows
+// chase each other and grow by a pixel per round trip.
+TEST_F(DesktopNativeWidgetAuraTest, TopLevelOwnedPopupKeepsSizeOnHostResize) {
+  DesktopAuraTopLevelWindowTest popup_window;
+
+  popup_window.set_use_async_mode(false);
+
+  ASSERT_NO_FATAL_FAILURE(
+      popup_window.CreateTopLevelWindow(gfx::Rect(0, 0, 200, 200), false));
+
+  const gfx::Size popup_size(339, 75);
+  popup_window.owned_window()->SetBounds(gfx::Rect(popup_size));
+
+  aura::Window* top_level_window =
+      popup_window.top_level_widget()->GetNativeView();
+  top_level_window->SetBounds(
+      gfx::Rect(top_level_window->bounds().origin(),
+                gfx::Size(popup_size.width() + 1, popup_size.height() + 1)));
+
+  EXPECT_EQ(gfx::Rect(popup_size), popup_window.owned_window()->bounds());
+
+  ASSERT_NO_FATAL_FAILURE(popup_window.DestroyOwnedWindow());
+}
+
 #endif  // !BUILDFLAG(IS_FUCHSIA)
 
 // The following code verifies we can correctly destroy a Widget from a mouse
@@ -997,6 +1097,98 @@ TEST_F(DesktopNativeWidgetAuraTest, Reparent) {
   WidgetDestroyedWaiter destroy_waiter(&widget);
   root.Close();
   destroy_waiter.Wait();
+}
+
+TEST_F(DesktopNativeWidgetAuraTest, DragDropClientGated) {
+  // When the feature is disabled (default), drag and drop is enabled for all
+  // widgets, preserving the old behavior.
+  {
+    Widget widget;
+    Widget::InitParams params =
+        CreateParams(Widget::InitParams::CLIENT_OWNS_WIDGET,
+                     Widget::InitParams::TYPE_WINDOW);
+    params.accept_drag_drop = false;
+    widget.Init(std::move(params));
+    EXPECT_NE(nullptr, aura::client::GetDragDropClient(
+                           widget.GetNativeWindow()->GetRootWindow()));
+    EXPECT_NE(nullptr,
+              aura::client::GetDragDropDelegate(widget.GetNativeWindow()));
+  }
+
+  // When the feature is enabled, drag and drop is not enabled on widgets that
+  // do not need it.
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(
+      views::features::kDisableDragDropForUnneededWidgets);
+
+  // By default, a desktop window widget has a drag drop client and delegate.
+  {
+    Widget widget;
+    Widget::InitParams params =
+        CreateParams(Widget::InitParams::CLIENT_OWNS_WIDGET,
+                     Widget::InitParams::TYPE_WINDOW);
+    widget.Init(std::move(params));
+    EXPECT_NE(nullptr, aura::client::GetDragDropClient(
+                           widget.GetNativeWindow()->GetRootWindow()));
+    EXPECT_NE(nullptr,
+              aura::client::GetDragDropDelegate(widget.GetNativeWindow()));
+  }
+
+  // Explicitly disabling drag and drop.
+  {
+    Widget widget;
+    Widget::InitParams params =
+        CreateParams(Widget::InitParams::CLIENT_OWNS_WIDGET,
+                     Widget::InitParams::TYPE_WINDOW);
+    params.accept_drag_drop = false;
+    widget.Init(std::move(params));
+    EXPECT_EQ(nullptr, aura::client::GetDragDropClient(
+                           widget.GetNativeWindow()->GetRootWindow()));
+    EXPECT_EQ(nullptr,
+              aura::client::GetDragDropDelegate(widget.GetNativeWindow()));
+
+    // Removing a view should not crash even if drop_helper_ is null.
+    auto* view = widget.GetRootView()->AddChildView(std::make_unique<View>());
+    widget.GetRootView()->RemoveChildViewT(view);
+  }
+
+  // accept_events = false automatically disables drag and drop.
+  {
+    Widget widget;
+    Widget::InitParams params = CreateParams(
+        Widget::InitParams::CLIENT_OWNS_WIDGET, Widget::InitParams::TYPE_POPUP);
+    params.accept_events = false;
+    widget.Init(std::move(params));
+    EXPECT_EQ(nullptr, aura::client::GetDragDropClient(
+                           widget.GetNativeWindow()->GetRootWindow()));
+    EXPECT_EQ(nullptr,
+              aura::client::GetDragDropDelegate(widget.GetNativeWindow()));
+  }
+
+  // TYPE_TOOLTIP automatically disables drag and drop.
+  {
+    Widget widget;
+    Widget::InitParams params =
+        CreateParams(Widget::InitParams::CLIENT_OWNS_WIDGET,
+                     Widget::InitParams::TYPE_TOOLTIP);
+    widget.Init(std::move(params));
+    EXPECT_EQ(nullptr, aura::client::GetDragDropClient(
+                           widget.GetNativeWindow()->GetRootWindow()));
+    EXPECT_EQ(nullptr,
+              aura::client::GetDragDropDelegate(widget.GetNativeWindow()));
+  }
+
+  // TYPE_POPUP automatically disables drag and drop.
+  {
+    Widget widget;
+    Widget::InitParams params = CreateParams(
+        Widget::InitParams::CLIENT_OWNS_WIDGET, Widget::InitParams::TYPE_POPUP);
+    widget.Init(std::move(params));
+    EXPECT_EQ(nullptr, aura::client::GetDragDropClient(
+                           widget.GetNativeWindow()->GetRootWindow()));
+    EXPECT_EQ(nullptr,
+              aura::client::GetDragDropDelegate(widget.GetNativeWindow()));
+  }
 }
 
 }  // namespace views::test

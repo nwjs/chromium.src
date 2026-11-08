@@ -110,6 +110,10 @@ BASE_FEATURE(kZeroSuggestPrefetchingOnSRP, enable_if(!IS_ANDROID));
 // Web (i.e. non-NTP and non-SRP URLs).
 BASE_FEATURE(kZeroSuggestPrefetchingOnWeb, DISABLED);
 
+// Enables triggering zero-suggest prefetch when a page finishes loading on
+// Android, aligning with Desktop's page-load and tab-switch behavior.
+BASE_FEATURE(kZeroSuggestPrefetchOnPageLoadAndTabSwitch, DISABLED);
+
 // Features to provide head and tail non personalized search suggestion from
 // compact on device models. More specifically, feature name with suffix
 // Incognito / NonIncognito  will only controls behaviors under incognito /
@@ -183,12 +187,6 @@ BASE_FEATURE(kDynamicAimSubmit, DISABLED);
 const base::FeatureParam<bool> kShowRhsAimHint{&kDynamicAimSubmit,
                                                "Omnibox_ShowRhsAimHint", false};
 
-// Hides the AIM entrypoint in the Omnibox when user input is in progress. Only
-// used on desktop platforms.
-BASE_FEATURE(kHideAimEntrypointOnUserInput,
-             "OmniboxHideAimEntrypointOnUserInput",
-             DISABLED);
-
 // Hides the AIM entrypoint in the Omnibox when the default suggestion is a URL.
 // Only used on desktop platforms.
 BASE_FEATURE(kHideAimEntrypointForUrlSuggestions, ENABLED);
@@ -199,6 +197,20 @@ BASE_FEATURE(kOmniboxMultimodalInput, ENABLED);
 // Enables popup variations (e.g. accordion menu) for mobile Fusebox.
 BASE_FEATURE(kOmniboxFuseboxPopupVariations, DISABLED);
 
+// Enables model subtext and popup subtext in the Fusebox popup.
+BASE_FEATURE(kOmniboxFuseboxUserEdModelSubtitles, DISABLED);
+
+// Enables the (+) attachment button IPH in the Omnibox.
+BASE_FEATURE(kOmniboxFuseboxUserEdPlusButtonIph, DISABLED);
+
+// Enables the first-time tab selection IPH in the Tab Picker.
+BASE_FEATURE(kOmniboxFuseboxUserEdTabPickerIph, DISABLED);
+
+// Enables the cold-start hint animation in the NTP search box.
+BASE_FEATURE(kOmniboxFuseboxUserEdFakeboxAnimation, DISABLED);
+
+// Enables the Fusebox guided tour and NTP promo card.
+BASE_FEATURE(kOmniboxFuseboxUserEdGuidedTour, DISABLED);
 
 // Disables tab attachments for Canvas requests and disables Canvas if tabs are
 // attached.
@@ -222,6 +234,17 @@ BASE_FEATURE(kOmniboxAimDeferShowUntilVisualStateReady, ENABLED);
 // full WebUI omnibox is enabled, where the deferred show is not needed and only
 // adds latency. See `omnibox::ShouldDeferAimShowUntilVisualStateReady()`.
 BASE_FEATURE(kOmniboxAimDeferShowUntilVisualStateReadyWithFullWebUI, DISABLED);
+// When enabled, the AIM WebUI popup does not create its WebUI content (and so
+// its WebContents and renderer) while the browser window is built. It creates
+// it after the browser window's first presentation, or earlier if the popup is
+// shown or another caller needs the AIM WebContents. See
+// `OmniboxPopupAimPresenter`.
+BASE_FEATURE(kOmniboxAimPopupDeferCreation, DISABLED);
+// When enabled, the WebUI omnibox popup that shows suggestions does not create
+// its WebUI content (and so its WebContents and renderer) while the browser
+// window is built. It creates it after the browser window's first
+// presentation, or earlier if the popup is shown. See `OmniboxPopupPresenter`.
+BASE_FEATURE(kOmniboxWebUIPopupDeferCreation, DISABLED);
 // When enabled, the Omnibox WebUI popup will defer showing until the WebUI has
 // painted a clean frame, avoiding the issue of the popup being shown with a
 // stale frame.
@@ -308,6 +331,11 @@ BASE_FEATURE(kOmniboxFullWebUISizeWebViewToPreferredHeight, DISABLED);
 // parent window visibility and locking compositor frames.
 BASE_FEATURE(kOmniboxWebUIPopupHideOnCreation, DISABLED);
 
+// When enabled, a WebUI omnibox popup presenter creates its native widget on
+// the first `Show()` instead of when the popup is created with the browser
+// window. The WebContents is still created and loaded up front. Kill switch.
+BASE_FEATURE(kOmniboxWebUIPopupCreateWidgetOnShow, ENABLED);
+
 // When enabled, a WebUI omnibox popup destroys its widget when it is hidden
 // and builds a fresh one on the next show, so the new native window has no
 // previous compositor content to present. This is applied to every WebUI popup
@@ -319,6 +347,12 @@ BASE_FEATURE(kOmniboxFullWebUIDestroyWidgetOnHide, ENABLED);
 // take effect regardless of whether the full WebUI omnibox is enabled.
 BASE_FEATURE(kOmniboxAimDestroyWidgetOnHide, ENABLED);
 BASE_FEATURE(kOmniboxWebUIDestroyWidgetOnHide, DISABLED);
+
+// When enabled, a location bar creates its AI Mode popup (and the WebContents
+// behind it) only once the profile is eligible for it, instead of at window
+// creation. Ineligible profiles never show the popup, so this saves one
+// WebUI document per window. Kill switch.
+BASE_FEATURE(kOmniboxAimPopupRequireEligibility, ENABLED);
 
 // When enabled, the WebUI searchbox will bypass OmniboxController and
 // OmniboxEditModel.
@@ -427,18 +461,12 @@ BASE_FEATURE(kTruncateSearchUrlOq, DISABLED);
 // parameter of search URLs.
 BASE_FEATURE(kTruncateSearchUrlQ, DISABLED);
 
-// Enable asynchronous Omnibox/Suggest view inflation.
-BASE_FEATURE(kOmniboxAsyncViewInflation, ENABLED);
-
 // Enable asynchronous Fusebox view inflation.
 BASE_FEATURE(kOmniboxFuseboxAsyncInflation, DISABLED);
 
 // When enabled, AIM image attachments will be downscaled on load before
 // reaching the C++ side.
 BASE_FEATURE(kOmniboxAimImageDownscaling, DISABLED);
-
-// Use FusedLocationProvider on Android to fetch device location.
-BASE_FEATURE(kUseFusedLocationProvider, ENABLED);
 
 // Updates various NTP/Omnibox assets and descriptions for visual alignment on
 // iOS.
@@ -648,17 +676,12 @@ namespace android {
 static int64_t JNI_OmniboxFeatureMap_GetNativeMap(JNIEnv* env) {
   static const base::Feature* const kFeaturesExposedToJava[] = {
       &kDiagnostics,
-      &kComposeboxDriveContextMenuOption,
-      &kComposeboxDriveContextMenuOptionDisclaimer,
-      &kForceDriveDisclaimerAccepted,
       &kForceAndroidRealbox,
       &kOmniboxTouchDownTriggerForPrefetch,
       &kOmniboxPrefetchSelectedSuggestionsOmtAndroid,
-      &kOmniboxAsyncViewInflation,
       &kOmniboxFuseboxAsyncInflation,
       &kRichAutocompletion,
       &kUrlBarWithoutLigatures,
-      &kUseFusedLocationProvider,
       &kJumpStartOmnibox,
       &kPostDelayedTaskFocusTab,
       &kOmniboxMobileParityUpdateV2,
@@ -668,6 +691,11 @@ static int64_t JNI_OmniboxFeatureMap_GetNativeMap(JNIEnv* env) {
       &kOmniboxSiteSearch,
       &kOmniboxMultimodalInput,
       &kOmniboxFuseboxPopupVariations,
+      &kOmniboxFuseboxUserEdModelSubtitles,
+      &kOmniboxFuseboxUserEdPlusButtonIph,
+      &kOmniboxFuseboxUserEdTabPickerIph,
+      &kOmniboxFuseboxUserEdFakeboxAnimation,
+      &kOmniboxFuseboxUserEdGuidedTour,
       &kServeJavaCachedZeroSuggest,
       &kAIMSuppressVerbatimMatch,
       &kAim3pEntrypoint,
@@ -679,7 +707,8 @@ static int64_t JNI_OmniboxFeatureMap_GetNativeMap(JNIEnv* env) {
       &kOmniboxDebounceKeyboardVisibility,
       &kOmniboxDisableTabsForCanvas,
       &kOmniboxSessionlessVoiceSearch,
-      &kSuppressStatusIconDuringHttpNavigation};
+      &kSuppressStatusIconDuringHttpNavigation,
+      &kZeroSuggestPrefetchOnPageLoadAndTabSwitch};
   static base::NoDestructor<base::android::FeatureMap> kFeatureMap(
       kFeaturesExposedToJava);
   return reinterpret_cast<int64_t>(kFeatureMap.get());
@@ -756,6 +785,9 @@ const base::FeatureParam<bool> kAskGBypassPrivacyNotice{
     &kWebUIOmniboxAskGAboutThisPage, "Omnibox_AskGBypassPrivacyNotice", false};
 const base::FeatureParam<bool> kAskGShowChip{
     &kWebUIOmniboxAskGAboutThisPage, "Omnibox_AskGShowChip", false};
+const base::FeatureParam<bool> kAskGSuggestionSidePanelDescription{
+    &kWebUIOmniboxAskGAboutThisPage,
+    "Omnibox_AskGSuggestionSidePanelDescription", false};
 
 // Note: no new flags beyond this point.
 

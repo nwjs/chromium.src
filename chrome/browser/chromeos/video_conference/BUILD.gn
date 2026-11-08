@@ -18,8 +18,6 @@ static_library("video_conference") {
     "video_conference_web_app.h",
   ]
 
-  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
-
   deps = [
     "//ash",
     "//base",
@@ -70,7 +68,6 @@ source_set("browser_tests") {
     "//base/test:test_support",
     "//chrome/browser/ash/video_conference",
     "//chrome/browser/media/webrtc",
-    "//chrome/browser/ui",
     "//chrome/browser/ui/ash/main_extra_parts",
     "//chrome/browser/ui/tabs:test_support",
     "//chrome/test:test_support_ui",

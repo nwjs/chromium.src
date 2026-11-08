@@ -38,6 +38,7 @@
 #include "base/containers/hashing_lru_cache.h"
 #include "base/dcheck_is_on.h"
 #include "base/gtest_prod_util.h"
+#include "base/memory/raw_ptr_exclusion.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/stack_allocated.h"
 #include "base/time/time.h"
@@ -441,6 +442,7 @@ class CORE_EXPORT Document : public ContainerNode,
   DEFINE_ATTRIBUTE_EVENT_LISTENER(beforecopy, kBeforecopy)
   DEFINE_ATTRIBUTE_EVENT_LISTENER(beforecut, kBeforecut)
   DEFINE_ATTRIBUTE_EVENT_LISTENER(beforepaste, kBeforepaste)
+  DEFINE_ATTRIBUTE_EVENT_LISTENER(focusreset, kFocusreset)
   DEFINE_ATTRIBUTE_EVENT_LISTENER(freeze, kFreeze)
   DEFINE_ATTRIBUTE_EVENT_LISTENER(pointerlockchange, kPointerlockchange)
   DEFINE_ATTRIBUTE_EVENT_LISTENER(pointerlockerror, kPointerlockerror)
@@ -1156,6 +1158,18 @@ class CORE_EXPORT Document : public ContainerNode,
   Element* FocusedElement() const { return focused_element_.Get(); }
   const FocusOptions* GetFocusOptions() const { return focus_options_.Get(); }
   void ClearFocusedElementIfNeeded();
+  // https://html.spec.whatwg.org/C/#has-pending-focus-reset
+  // Set when the focused element is removed from the document (synchronous
+  // focus fixup) while the document has focus, which also queues a mutation
+  // observer microtask to fire "focusreset". Cleared when focus is explicitly
+  // moved, or when the "focusreset" event is fired.
+  void SetHasPendingFocusReset();
+  void ClearHasPendingFocusReset() { has_pending_focus_reset_ = false; }
+  bool HasPendingFocusReset() const { return has_pending_focus_reset_; }
+  // Called from the mutation observer microtask. Fires "focusreset" at this
+  // document if its focused area is the viewport and a focus reset is still
+  // pending.
+  void FireFocusResetEventIfNeeded();
   void UpdateFocusgroupLastFocused(Element& focused_element);
   UserActionElementSet& UserActionElements() { return user_action_elements_; }
   const UserActionElementSet& UserActionElements() const {
@@ -2090,6 +2104,7 @@ class CORE_EXPORT Document : public ContainerNode,
   bool IsAnimatedPropertyCounted(CSSPropertyID property) const;
   void ClearUseCounterForTesting(mojom::WebFeature);
   void ClearWebDXFeatureCounterForTesting(mojom::blink::WebDXFeature);
+  bool UsingRustXmlParserForTesting() const;
 
   const ui::ColorProvider* GetColorProviderForPainting(
       mojom::blink::ColorScheme color_scheme) const;
@@ -2845,6 +2860,8 @@ class CORE_EXPORT Document : public ContainerNode,
   bool autofocus_processed_flag_ = false;
   mojom::blink::FocusType last_focus_type_;
   bool had_keyboard_event_ = false;
+  // https://html.spec.whatwg.org/C/#has-pending-focus-reset
+  bool has_pending_focus_reset_ = false;
   HeapTaskRunnerTimer<Document> clear_focused_element_timer_;
   // https://html.spec.whatwg.org/C/#autofocus-candidates
   // We implement this as a Vector because its maximum size is typically 1.
@@ -2994,21 +3011,26 @@ class CORE_EXPORT Document : public ContainerNode,
   // is acceptable not to trace it -- should a conservative GC occur,
   // the cache object's references will be traced by a stack walk.
   STACK_ALLOCATED_IGNORE("https://crbug.com/461878")
-  NthIndexCache* nth_index_cache_ = nullptr;
+  // RAW_PTR_EXCLUSION: References a STACK_ALLOCATED class.
+  RAW_PTR_EXCLUSION NthIndexCache* nth_index_cache_ = nullptr;
 
   // This is an untraced pointer to the cache-scoped object that is first
   // allocated on the stack. It is set upon the first object being allocated
   // on the stack, and cleared upon leaving its allocated scope. The object's
   // references will be traced by a stack walk.
   STACK_ALLOCATED_IGNORE("https://crbug.com/669058")
-  CheckPseudoHasCacheScope* check_pseudo_has_cache_scope_ = nullptr;
+  // RAW_PTR_EXCLUSION: References a STACK_ALLOCATED class.
+  RAW_PTR_EXCLUSION CheckPseudoHasCacheScope* check_pseudo_has_cache_scope_ =
+      nullptr;
 
   // This is an untraced pointer to the first stack-allocated scoping object
   // that defers invalidation of the node list caches. It is set upon the first
   // object being allocated on the stack, and cleared upon leaving its
   // allocated scope. The object's references will be traced by a stack walk.
   STACK_ALLOCATED_IGNORE("https://crbug.com/40874584")
-  InvalidateNodeListCachesScope* invalidate_node_list_caches_scope_ = nullptr;
+  // RAW_PTR_EXCLUSION: References a STACK_ALLOCATED class.
+  RAW_PTR_EXCLUSION InvalidateNodeListCachesScope*
+      invalidate_node_list_caches_scope_ = nullptr;
 
   bool in_pseudo_has_checking_ = false;
 

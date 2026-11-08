@@ -79,7 +79,8 @@ class ContextualTasksUIBase
   Profile* GetProfile();
   content::WebContents* GetWebUIWebContents();
   BrowserWindowInterface* GetBrowser();
-  contextual_tasks::ContextualTasksPanelController* GetPanelController();
+  virtual contextual_tasks::ContextualTasksPanelController*
+  GetPanelController();
   contextual_tasks::ContextualTasksUiService* GetUiService();
 
   static content::WebUIDataSource* RegisterWebUIDataSource(Profile* profile);
@@ -102,6 +103,11 @@ class ContextualTasksUIBase
   void OnTabClickedFromSourcesMenu(int32_t tab_id, const GURL& url) override;
   void OnFileClickedFromSourcesMenu(const GURL& url) override;
   void OnImageClickedFromSourcesMenu(const GURL& url) override;
+  void CloseSidePanel() override;
+  void ShowPageInfoBubble(bool is_pointer_interaction) override;
+  void OnLogoPointerDown() override;
+  void CreateNewThread() override;
+  void MaybeTriggerPinningPromo() override;
 
 #if !BUILDFLAG(IS_ANDROID)
   // PinnedToolbarActionsModel::Observer:
@@ -162,6 +168,11 @@ class ContextualTasksUIBase
   // Notifies the toolbar page that the AI page status has changed.
   void NotifyAiPageStatusChanged(bool is_ai_page);
 
+  // Updates the profile avatar URL displayed in the top toolbar using the
+  // active side panel WebContents URL (or `url` when specified).
+  void UpdateProfileIndicator();
+  void UpdateProfileIndicator(const GURL& url);
+
   // Whether the active side panel contents is currently displaying an AI page.
   //
   // Lifecycle:
@@ -191,9 +202,11 @@ class ContextualTasksUIBase
   // - Reset to nullopt when navigating to AI zero-state, non-AI pages, error
   //   pages, or when `SetWebContents` receives null/non-AI contents.
   // - Calling `SetThreadTitle` forwards the title to subscribed WebUI clients
-  //   (`page_`) to update the header title displayed in the toolbar.
+  //   (`toolbar_page_`) to update the header title displayed in the toolbar.
   virtual const std::optional<std::string>& GetThreadTitle();
   virtual void SetThreadTitle(std::optional<std::string> title);
+
+  void NotifySidePanelStateChanged();
 
  protected:
   // Helper to dynamically resolve the active tab's permission controller.

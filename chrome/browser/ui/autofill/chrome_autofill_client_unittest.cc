@@ -14,6 +14,7 @@
 #include "base/memory/raw_ref.h"
 #include "base/test/mock_callback.h"
 #include "base/test/scoped_feature_list.h"
+#include "base/test/test_future.h"
 #include "base/test/values_test_util.h"
 #include "base/values.h"
 #include "build/build_config.h"
@@ -49,6 +50,7 @@
 #include "components/autofill/core/browser/filling/filling_product.h"
 #include "components/autofill/core/browser/foundations/test_autofill_manager_waiter.h"
 #include "components/autofill/core/browser/foundations/test_browser_autofill_manager.h"
+#include "components/autofill/core/browser/integrators/one_time_tokens/gmail_otp_opt_in_result.h"
 #include "components/autofill/core/browser/integrators/password_form_classification.h"
 #include "components/autofill/core/browser/metrics/cross_tab_copy_paste_tracker.h"
 #include "components/autofill/core/browser/payments/payments_autofill_client.h"
@@ -94,10 +96,13 @@
 #include "chrome/browser/ui/autofill/autofill_snackbar_controller_impl.h"
 #include "chrome/browser/ui/autofill/autofill_snackbar_type.h"
 #include "components/autofill/core/browser/payments/autofill_save_card_ui_info.h"
+#include "components/autofill/core/browser/ui/autofill_tapjacking_protector.h"
+#include "components/autofill/core/browser/ui/mock_autofill_tapjacking_protector.h"
 #else  // BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/account_settings/account_setting_service_factory.h"
 #include "chrome/browser/actor/actor_keyed_service_factory.h"
 #include "chrome/browser/actor/actor_keyed_service_fake.h"
+#include "chrome/browser/actor/actor_surface_registry.h"
 #include "chrome/browser/glic/glic_profile_manager.h"
 #include "chrome/browser/glic/host/glic.mojom.h"
 #include "chrome/browser/glic/public/glic_enabling.h"
@@ -776,6 +781,7 @@ TEST_F(ChromeAutofillClientTestWithMockWindow,
   ASSERT_TRUE(task);
 
   // Associate the active tab with the task.
+  actor_service->GetSurfaceRegistry().OnTabCreated(mock_tab_interface());
   task->AddTab(mock_tab_interface().GetHandle(),
                /*stop_task_on_detach=*/true, base::DoNothing());
 
@@ -1298,6 +1304,22 @@ TEST_F(ChromeAutofillClientTest,
   // Triggering the action callback should invoke on_undo_clicked.
   snackbar_controller->OnActionClicked();
 }
+
+TEST_F(ChromeAutofillClientTest, ShowTapjackingProtector) {
+  auto mock_protector = std::make_unique<MockAutofillTapjackingProtector>();
+  EXPECT_CALL(
+      *mock_protector,
+      Show(AutofillTapjackingProtector::AuthorizationType::kPayments, _));
+
+  client()->SetAutofillTapjackingProtectorImplForTesting(
+      std::move(mock_protector));
+
+  base::MockCallback<AutofillTapjackingProtector::AuthorizationCallback>
+      callback;
+  client()->ShowTapjackingProtector(
+      AutofillTapjackingProtector::AuthorizationType::kPayments,
+      callback.Get());
+}
 #endif  // BUILDFLAG(IS_ANDROID)
 
 class OpenUrlTestWebContentsDelegate : public content::WebContentsDelegate {
@@ -1334,6 +1356,14 @@ TEST_F(ChromeAutofillClientTest, OpenGmailForOtps) {
   EXPECT_EQ(delegate.last_params()->url, GURL("https://mail.google.com"));
   EXPECT_EQ(delegate.last_params()->disposition,
             WindowOpenDisposition::NEW_FOREGROUND_TAB);
+}
+
+TEST_F(ChromeAutofillClientTest,
+       ShowGmailOtpOptInBubble_WithoutTabInterface_RunsCallbackWithDiscarded) {
+  base::test::TestFuture<GmailOtpOptInResult> future;
+  client()->ShowGmailOtpOptInBubble(u"user@gmail.com", future.GetCallback());
+  EXPECT_FALSE(future.IsReady());
+  EXPECT_EQ(future.Get(), GmailOtpOptInResult::kDiscarded);
 }
 }  // namespace
 }  // namespace autofill

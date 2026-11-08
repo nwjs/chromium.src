@@ -228,6 +228,8 @@ void DownloadDriverImpl::Start(
   download_url_params->set_transient(true);
   download_url_params->set_method(request_params.method);
   download_url_params->set_credentials_mode(request_params.credentials_mode);
+  download_url_params->set_fetch_request_mode(
+      request_params.fetch_request_mode);
   download_url_params->set_file_path(file_path);
   if (request_params.fetch_error_body)
     download_url_params->set_fetch_error_body(true);
@@ -293,13 +295,21 @@ void DownloadDriverImpl::Pause(const std::string& guid) {
 
 void DownloadDriverImpl::ResumeWithFactory(
     const std::string& guid,
-    scoped_refptr<network::SharedURLLoaderFactory> factory) {
+    scoped_refptr<network::SharedURLLoaderFactory> factory,
+    const std::optional<url::Origin>& request_initiator,
+    const std::optional<net::IsolationInfo>& isolation_info) {
   if (!download_manager_coordinator_)
     return;
   DownloadItem* item = download_manager_coordinator_->GetDownloadByGuid(guid);
   if (item) {
     if (factory) {
       item->SetURLLoaderFactory(std::move(factory));
+    }
+    if (request_initiator) {
+      item->SetRequestInitiator(request_initiator);
+    }
+    if (isolation_info) {
+      item->SetIsolationInfo(isolation_info);
     }
     item->Resume(true);
   }

@@ -196,6 +196,14 @@ ImageServiceImpl::OptGuideRequest::~OptGuideRequest() = default;
 ImageServiceImpl::OptGuideRequest::OptGuideRequest(OptGuideRequest&& other) =
     default;
 
+ImageServiceImpl::OptGuideClientState::OptGuideClientState() = default;
+ImageServiceImpl::OptGuideClientState::OptGuideClientState(
+    OptGuideClientState&&) = default;
+ImageServiceImpl::OptGuideClientState&
+ImageServiceImpl::OptGuideClientState::operator=(OptGuideClientState&&) =
+    default;
+ImageServiceImpl::OptGuideClientState::~OptGuideClientState() = default;
+
 ImageServiceImpl::~ImageServiceImpl() = default;
 
 base::WeakPtr<ImageService> ImageServiceImpl::GetWeakPtr() {
@@ -219,6 +227,7 @@ void ImageServiceImpl::GetConsentToFetchImage(
     case mojom::ClientId::Journeys:
     case mojom::ClientId::JourneysSidePanel:
     case mojom::ClientId::HistoryEmbeddings:
+    case mojom::ClientId::ContextHubTopics:
     case mojom::ClientId::NtpQuests:
     case mojom::ClientId::NtpTabResumption: {
       return history_consent_helper_->EnqueueRequest(std::move(callback),
@@ -317,25 +326,26 @@ void ImageServiceImpl::FetchOptimizationGuideImage(mojom::ClientId client_id,
   DCHECK(opt_guide_) << "FetchOptimizationGuideImage is never called when "
                         "opt_guide_ is nullptr.";
 
+  OptGuideClientState& client_state = opt_guide_client_states_[client_id];
   OptGuideRequest request;
   request.url = page_url;
   request.callback = std::move(callback);
-  auto& request_list = unsent_opt_guide_requests_[client_id];
-  request_list.push_back(std::move(request));
+  client_state.unsent_requests.push_back(std::move(request));
 
-  if (request_list.size() >= optimization_guide::HintsFetcher::kMaxUrls) {
-    // Erasing the timer also cancels the timer callback.
-    opt_guide_timers_.erase(client_id);
+  if (client_state.unsent_requests.size() >=
+      optimization_guide::HintsFetcher::kMaxUrls) {
+    // Resetting the timer also cancels the timer callback.
+    client_state.timer.reset();
     ProcessAllBatchedOptimizationGuideRequests(client_id);
-  } else if (request_list.size() == 1U) {
+  } else if (client_state.unsent_requests.size() == 1U) {
     // Otherwise, if we just enqueued our FIRST request, then kick off a timer
     // to flush the queue. One millisecond is a long enough time in CPU time.
-    auto timer = std::make_unique<base::OneShotTimer>();
-    timer->Start(FROM_HERE, kOptimizationGuideBatchingTimeout,
-                 base::BindOnce(
-                     &ImageServiceImpl::ProcessAllBatchedOptimizationGuideRequests,
-                     weak_factory_.GetWeakPtr(), client_id));
-    opt_guide_timers_[client_id] = std::move(timer);
+    client_state.timer = std::make_unique<base::OneShotTimer>();
+    client_state.timer->Start(
+        FROM_HERE, kOptimizationGuideBatchingTimeout,
+        base::BindOnce(
+            &ImageServiceImpl::ProcessAllBatchedOptimizationGuideRequests,
+            weak_factory_.GetWeakPtr(), client_id));
   }
 }
 
@@ -347,6 +357,10 @@ void ImageServiceImpl::ProcessAllBatchedOptimizationGuideRequests(
     case mojom::ClientId::JourneysSidePanel:
     case mojom::ClientId::HistoryEmbeddings: {
       request_context = optimization_guide::proto::CONTEXT_JOURNEYS;
+      break;
+    }
+    case mojom::ClientId::ContextHubTopics: {
+      request_context = optimization_guide::proto::CONTEXT_CONTEXT_HUB;
       break;
     }
     case mojom::ClientId::NtpQuests:
@@ -361,23 +375,22 @@ void ImageServiceImpl::ProcessAllBatchedOptimizationGuideRequests(
     }
   }
 
-  std::vector<OptGuideRequest>& unsent_requests =
-      unsent_opt_guide_requests_[client_id];
-  if (unsent_requests.empty()) {
+  OptGuideClientState& client_state = opt_guide_client_states_[client_id];
+  if (client_state.unsent_requests.empty()) {
     return;
   }
 
-  // Generate a list of URLs to request in this batch.
+  // Generate a list of URLs to request in this batch and move the unsent
+  // requests to the sent vector.
   std::vector<GURL> urls;
-  for (auto& request : unsent_requests) {
+  urls.reserve(client_state.unsent_requests.size());
+  client_state.sent_requests.reserve(client_state.sent_requests.size() +
+                                     client_state.unsent_requests.size());
+  for (auto& request : client_state.unsent_requests) {
     urls.push_back(request.url);
+    client_state.sent_requests.push_back(std::move(request));
   }
-
-  // Move the list of unsent requests to the sent vector.
-  for (auto& request : unsent_requests) {
-    sent_opt_guide_requests_[client_id].push_back(std::move(request));
-  }
-  unsent_requests.clear();
+  client_state.unsent_requests.clear();
 
   opt_guide_->CanApplyOptimizationOnDemand(
       urls, {optimization_guide::proto::OptimizationType::SALIENT_IMAGE},
@@ -395,9 +408,11 @@ void ImageServiceImpl::OnOptimizationGuideImageFetched(
   // Extract all waiting callbacks matching `url` to `matching_callbacks`.
   std::vector<ResultCallback> matching_callbacks;
   {
+    std::vector<OptGuideRequest>& sent_requests =
+        opt_guide_client_states_[client_id].sent_requests;
     // Take over the existing whole list via a swap.
     std::vector<OptGuideRequest> all_requests;
-    std::swap(all_requests, sent_opt_guide_requests_[client_id]);
+    std::swap(all_requests, sent_requests);
 
     // Steal the matching callbacks, pushing back the other pending requests
     // back to the original list.
@@ -405,7 +420,7 @@ void ImageServiceImpl::OnOptimizationGuideImageFetched(
       if (request.url == url) {
         matching_callbacks.push_back(std::move(request.callback));
       } else {
-        sent_opt_guide_requests_[client_id].push_back(std::move(request));
+        sent_requests.push_back(std::move(request));
       }
     }
   }

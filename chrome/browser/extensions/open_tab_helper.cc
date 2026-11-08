@@ -4,6 +4,7 @@
 
 #include "chrome/browser/extensions/open_tab_helper.h"
 
+#include "base/memory/weak_ptr.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/types/expected_macros.h"
 #include "chrome/browser/extensions/api/tabs/tabs_constants.h"
@@ -61,8 +62,9 @@ BrowserWindowInterface* CreateAndShowBrowser(Profile* profile,
     return nullptr;
   }
 
+  base::WeakPtr<BrowserWindowInterface> weak_browser = browser->GetWeakPtr();
   browser->GetWindow()->Show();
-  return browser;
+  return weak_browser.get();
 }
 #endif  // !BUILDFLAG(IS_ANDROID)
 
@@ -215,8 +217,11 @@ base::expected<content::WebContents*, std::string> OpenTabHelper::OpenTab(
         index = split_index + 1;
       }
       if (split_contents) {
-        split_tab = tabs::TabInterface::GetFromContents(split_contents);
-        CHECK(split_tab);
+        split_tab = tabs::TabInterface::MaybeGetFromContents(split_contents);
+        if (!split_tab) {
+          return base::unexpected(
+              tabs_constants::kSplitViewCreationFailedError);
+        }
       }
     }
   }

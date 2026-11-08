@@ -46,7 +46,7 @@ public class BeforeUnloadTabClosePrompter implements TabRemover.TabClosePrompter
     private static @Nullable WebContents webContentsNeedingBeforeUnload(
             TabClosureParams tabClosureParams, Tab tab) {
         if (!tabClosureParams.allowUnloadHandlers
-                || !TabClosureParamsUtils.areUnloadHandlersEnabled()
+                || !TabClosureParamsUtils.areBeforeUnloadHandlersEnabled()
                 || tab.isDestroyed()) {
             return null;
         }
@@ -54,11 +54,10 @@ public class BeforeUnloadTabClosePrompter implements TabRemover.TabClosePrompter
         WebContents webContents = tab.getWebContents();
         if (webContents == null) return null;
 
-        // This gate is broader than "the page has a beforeunload handler": a page carrying only a
-        // pagehide, visibilitychange or unload listener also passes, and its dispatch completes
-        // one task hop later with no renderer IPC and no dialog. It is the only gate Java has --
-        // CustomTabActivityTabController dispatches behind the same call.
-        return webContents.needToFireBeforeUnloadOrUnloadEvents() ? webContents : null;
+        // Only a beforeunload handler can ask the user to stay. Unload, pagehide and
+        // visibilitychange handlers do not run as part of the dispatch; they run when the tab is
+        // torn down.
+        return webContents.needToFireBeforeUnload() ? webContents : null;
     }
 
     /**

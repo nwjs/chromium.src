@@ -16,17 +16,18 @@
 #include "base/test/task_environment.h"
 #include "base/test/test_future.h"
 #include "base/types/expected.h"
+#include "build/build_config.h"
 #include "chrome/browser/ai/ai_test_utils.h"
 #include "chrome/browser/ai/features.h"
 #include "chrome/browser/optimization_guide/mock_optimization_guide_keyed_service.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service_factory.h"
 #include "components/optimization_guide/core/model_execution/configs/substitution_builder.h"
+#include "components/optimization_guide/core/model_execution/configs/summarize_solution_config.h"
 #include "components/optimization_guide/core/model_execution/manifest_broker/test/fake_manifest_broker.h"
 #include "components/optimization_guide/core/model_execution/manifest_broker/test/scenario_builder.h"
 #include "components/optimization_guide/core/model_execution/test/feature_config_builder.h"
 #include "components/optimization_guide/core/model_execution/test/mock_on_device_capability.h"
 #include "components/optimization_guide/core/optimization_guide_proto_util.h"
-#include "components/optimization_guide/core/optimization_guide_switches.h"
 #include "components/optimization_guide/core/optimization_guide_util.h"
 #include "components/optimization_guide/proto/feature_configs.pb.h"
 #include "components/optimization_guide/proto/features/summarize.pb.h"
@@ -42,6 +43,16 @@
 #include "third_party/blink/public/mojom/ai/model_streaming_responder.mojom.h"
 
 namespace {
+
+// Keep test expectations aligned with each platform's production default. The
+// tests verify behavior relative to this limit, not its specific numeric value.
+#if BUILDFLAG(IS_ANDROID)
+constexpr uint32_t kDefaultInputContextLimit =
+    optimization_guide::kAndroidMaxExecuteTokens;
+#else
+constexpr uint32_t kDefaultInputContextLimit =
+    blink::mojom::kWritingAssistanceMaxInputTokenSize;
+#endif
 
 namespace proto = ::optimization_guide::proto;
 
@@ -163,8 +174,7 @@ class AISummarizerTest : public AITestUtils::AITestBase {
 
     auto& input_config = *config.mutable_input_config();
     input_config.set_request_base_name(SummarizeRequest().GetTypeName());
-    input_config.set_max_execute_tokens(
-        blink::mojom::kWritingAssistanceMaxInputTokenSize);
+    input_config.set_max_execute_tokens(kDefaultInputContextLimit);
 
     *input_config.add_execute_substitutions() = FieldSubstitution(
         "%s", ProtoField({SummarizeRequest::kArticleFieldNumber}));
@@ -385,6 +395,9 @@ TEST_F(AISummarizerTest, CreateSummarizerWithTextSafetyCheck) {
 }
 #endif  // BUILDFLAG(IS_ANDROID)
 
+#if !BUILDFLAG(IS_ANDROID)
+// TODO(crbug.com/571742381): Enable these tests on Android once an adaptation
+// can replace the active built-in solution.
 TEST_F(AISummarizerTest, CreateSummarizerUnableToCalculateTokenSize) {
   // Incorrect `request_base_name` cause session to fail constructing input
   // string and checking token size.
@@ -409,9 +422,10 @@ TEST_F(AISummarizerTest, CreateSummarizerUnableToCalculateTokenSize) {
       result.error().error,
       blink::mojom::AIManagerCreateClientError::kUnableToCalculateTokenSize);
 }
+#endif  // !BUILDFLAG(IS_ANDROID)
 
 TEST_F(AISummarizerTest, CreateSummarizerContextLimitExceededError) {
-  SetSizeInTokens(blink::mojom::kWritingAssistanceMaxInputTokenSize + 1);
+  SetSizeInTokens(kDefaultInputContextLimit + 1);
 
   TestCreateSummarizerClient create_summarizer_client;
   auto options = GetDefaultOptions();
@@ -425,9 +439,8 @@ TEST_F(AISummarizerTest, CreateSummarizerContextLimitExceededError) {
   EXPECT_EQ(result.error().error,
             blink::mojom::AIManagerCreateClientError::kInitialInputTooLarge);
   EXPECT_EQ(result.error().quota_error_info->requested,
-            blink::mojom::kWritingAssistanceMaxInputTokenSize + 1);
-  EXPECT_EQ(result.error().quota_error_info->quota,
-            blink::mojom::kWritingAssistanceMaxInputTokenSize);
+            kDefaultInputContextLimit + 1);
+  EXPECT_EQ(result.error().quota_error_info->quota, kDefaultInputContextLimit);
 }
 
 TEST_F(AISummarizerTest, SummarizeDefault) {
@@ -466,7 +479,7 @@ TEST_F(AISummarizerTest, SummarizeWithOptions) {
 TEST_F(AISummarizerTest, InputLimitExceededError) {
   auto summarizer_remote = GetAISummarizerRemote();
 
-  SetSizeInTokens(blink::mojom::kWritingAssistanceMaxInputTokenSize + 1);
+  SetSizeInTokens(kDefaultInputContextLimit + 1);
 
   AITestUtils::TestStreamingResponder responder;
   summarizer_remote->Summarize(kInputString, kContextString,
@@ -475,9 +488,8 @@ TEST_F(AISummarizerTest, InputLimitExceededError) {
   EXPECT_EQ(responder.error_status(),
             blink::mojom::ModelStreamingResponseStatus::kErrorInputTooLarge);
   ASSERT_EQ(responder.quota_error_info().requested,
-            blink::mojom::kWritingAssistanceMaxInputTokenSize + 1);
-  ASSERT_EQ(responder.quota_error_info().quota,
-            blink::mojom::kWritingAssistanceMaxInputTokenSize);
+            kDefaultInputContextLimit + 1);
+  ASSERT_EQ(responder.quota_error_info().quota, kDefaultInputContextLimit);
 }
 
 TEST_F(AISummarizerTest, ContextWindowUsesContextLimit) {
@@ -487,10 +499,12 @@ TEST_F(AISummarizerTest, ContextWindowUsesContextLimit) {
                                          /*monitor=*/mojo::NullRemote());
   CreateSummarizerResult result = client.result().Take();
   ASSERT_TRUE(result.has_value());
-  EXPECT_EQ(client.context_window(),
-            blink::mojom::kWritingAssistanceMaxInputTokenSize);
+  EXPECT_EQ(client.context_window(), kDefaultInputContextLimit);
 }
 
+#if !BUILDFLAG(IS_ANDROID)
+// TODO(crbug.com/571742381): Enable on Android once an adaptation can replace
+// the active built-in solution.
 TEST_F(AISummarizerTest, CustomInputContextLimit) {
   constexpr uint32_t kCustomMaxTokens = 5000;
   SetModelInputContextLimit(kCustomMaxTokens);
@@ -530,6 +544,7 @@ TEST_F(AISummarizerTest, CustomInputContextLimit) {
   ASSERT_EQ(responder.quota_error_info().requested, kCustomMaxTokens + 1);
   ASSERT_EQ(responder.quota_error_info().quota, kCustomMaxTokens);
 }
+#endif  // !BUILDFLAG(IS_ANDROID)
 
 TEST_F(AISummarizerTest, SummarizeMultipleResponse) {
   auto summarizer_remote = GetAISummarizerRemote();
@@ -554,6 +569,9 @@ TEST_F(AISummarizerTest, MultipleSummarize) {
               ElementsAreArray(result2));
 }
 
+#if !BUILDFLAG(IS_ANDROID)
+// TODO(crbug.com/571742381): Enable on Android once an adaptation can replace
+// the active built-in solution.
 TEST_F(AISummarizerTest, MeasureUsage) {
   auto options = GetDefaultOptions();
   options->shared_context = kSharedContextString;
@@ -567,6 +585,7 @@ TEST_F(AISummarizerTest, MeasureUsage) {
                                       std::string(kContextString).size() +
                                       std::string(kSharedContextString).size());
 }
+#endif  // !BUILDFLAG(IS_ANDROID)
 
 #if !BUILDFLAG(IS_ANDROID)
 TEST_F(AISummarizerTest, Priority) {
@@ -583,120 +602,6 @@ TEST_F(AISummarizerTest, Priority) {
   web_contents()->WasShown();
   EXPECT_THAT(Summarize(*summarizer_remote, kInputString, kContextString),
               ElementsAre("hi"));
-}
-
-// Android doesn't support text safety yet. crbug.com/442914748
-TEST_F(AISummarizerTest, TextSafetyInput) {
-  SetSolutionConfig([&]() {
-    auto solution_config = CreateSolution();
-    solution_config.mutable_feature()->set_can_skip_text_safety(false);
-    return solution_config;
-  }());
-
-  SetExecuteResult({"hi"});
-  auto summarizer_remote = GetAISummarizerRemote();
-  EXPECT_THAT(Summarize(*summarizer_remote, kInputString, kContextString),
-              ElementsAre("hi"));
-
-  AITestUtils::TestStreamingResponder responder;
-  summarizer_remote->Summarize("unsafe", kContextString,
-                               responder.BindRemote());
-  EXPECT_FALSE(responder.WaitForCompletion());
-  EXPECT_EQ(responder.error_status(),
-            blink::mojom::ModelStreamingResponseStatus::kErrorFiltered);
-}
-
-TEST_F(AISummarizerTest, TextSafetyContext) {
-  SetSolutionConfig([&]() {
-    auto solution_config = CreateSolution();
-    solution_config.mutable_feature()->set_can_skip_text_safety(false);
-    return solution_config;
-  }());
-
-  SetExecuteResult({"hi"});
-  auto summarizer_remote = GetAISummarizerRemote();
-  EXPECT_THAT(Summarize(*summarizer_remote, kInputString, kContextString),
-              ElementsAre("hi"));
-
-  AITestUtils::TestStreamingResponder responder;
-  summarizer_remote->Summarize(kInputString, "unsafe", responder.BindRemote());
-  EXPECT_FALSE(responder.WaitForCompletion());
-  EXPECT_EQ(responder.error_status(),
-            blink::mojom::ModelStreamingResponseStatus::kErrorFiltered);
-}
-
-TEST_F(AISummarizerTest, TextSafetySharedContext) {
-  SetSolutionConfig([&]() {
-    auto solution_config = CreateSolution();
-    solution_config.mutable_feature()->set_can_skip_text_safety(false);
-    return solution_config;
-  }());
-
-  const auto options = blink::mojom::AISummarizerCreateOptions::New(
-      "unsafe", blink::mojom::AISummarizerType::kTLDR,
-      blink::mojom::AISummarizerFormat::kPlainText,
-      blink::mojom::AISummarizerLength::kMedium,
-      blink::mojom::PerformancePreference::kAuto,
-      /*expected_input_languages=*/std::vector<AILanguageCodePtr>(),
-      /*expected_context_languages=*/std::vector<AILanguageCodePtr>(),
-      /*output_language=*/AILanguageCode::New(""));
-
-  mojo::Remote<blink::mojom::AISummarizer> summarizer_remote =
-      GetAISummarizerRemote(options.Clone());
-  AITestUtils::TestStreamingResponder responder;
-  summarizer_remote->Summarize(kInputString, kContextString,
-                               responder.BindRemote());
-  EXPECT_FALSE(responder.WaitForCompletion());
-  EXPECT_EQ(responder.error_status(),
-            blink::mojom::ModelStreamingResponseStatus::kErrorFiltered);
-}
-
-TEST_F(AISummarizerTest, TextSafetyOutput) {
-  SetSolutionConfig([&]() {
-    auto solution_config = CreateSolution();
-    solution_config.mutable_feature()->set_can_skip_text_safety(false);
-    solution_config.mutable_safety()
-        ->mutable_partial_output_checks()
-        ->set_minimum_tokens(1000);
-    return solution_config;
-  }());
-
-  // Fake text safety checker looks for the string "unsafe".
-  SetExecuteResult({"a", "b", "c", "d", "e", "f", "g", "unsafe", "h"});
-  auto summarizer_remote = GetAISummarizerRemote();
-  AITestUtils::TestStreamingResponder responder;
-  summarizer_remote->Summarize(kInputString, kContextString,
-                               responder.BindRemote());
-  EXPECT_FALSE(responder.WaitForCompletion());
-  EXPECT_EQ(responder.error_status(),
-            blink::mojom::ModelStreamingResponseStatus::kErrorFiltered);
-  EXPECT_TRUE(responder.responses().empty());
-}
-
-TEST_F(AISummarizerTest, TextSafetyOutputPartial) {
-  SetSolutionConfig([&]() {
-    auto solution_config = CreateSolution();
-    solution_config.mutable_feature()->set_can_skip_text_safety(false);
-    solution_config.mutable_safety()
-        ->mutable_partial_output_checks()
-        ->set_minimum_tokens(3);
-    solution_config.mutable_safety()
-        ->mutable_partial_output_checks()
-        ->set_token_interval(2);
-    return solution_config;
-  }());
-
-  // Fake text safety checker looks for the string "unsafe".
-  SetExecuteResult({"a", "b", "c", "d", "e", "f", "g", "unsafe", "h"});
-  auto summarizer_remote = GetAISummarizerRemote();
-  AITestUtils::TestStreamingResponder responder;
-  summarizer_remote->Summarize(kInputString, kContextString,
-                               responder.BindRemote());
-  EXPECT_FALSE(responder.WaitForCompletion());
-  EXPECT_EQ(responder.error_status(),
-            blink::mojom::ModelStreamingResponseStatus::kErrorFiltered);
-  // Partial checks should still allow some output to stream.
-  EXPECT_THAT(responder.responses(), ElementsAre("abc", "de", "fg"));
 }
 
 TEST_F(AISummarizerTest, ServiceCrash) {

@@ -29,6 +29,10 @@ namespace site_engagement {
 class SiteEngagementService;
 }  // namespace site_engagement
 
+namespace url {
+class Origin;
+}  // namespace url
+
 // This class keeps track of disruptive notification permissions by checking the
 // average daily notification counts and site engagement score.
 class DisruptiveNotificationPermissionsManager {
@@ -40,13 +44,10 @@ class DisruptiveNotificationPermissionsManager {
   // kNotSiteScopedContentSetting, kManagedContentSetting, kNoRevokeDefaultBlock
   // are returned for sites where the permission cannot be revoked.
   //
-  // Shadow run: the site is proposed for revocation (kProposedRevoke) and
-  // returns kAlreadyInProposedRevokeList for all the next runs.
-  //
-  // Actual revocation: the site first is marked for revocation (returns
-  // kProposedRevoke) and then the permission is actually revoked (return
-  // kRevoke). After the permission is revoked, the content setting is removed
-  // so the site won't be reported anymore.
+  // The site first is marked for revocation (returns kProposedRevoke) and
+  // returns kAlreadyInProposedRevokeList until ready, and then the permission
+  // is actually revoked (returns kRevoke). After the permission is revoked,
+  // the content setting is removed so the site won't be reported anymore.
   //
   // Undo: If the user has undone the revocation, the site is marked as "ignore"
   // so it won't be revoked on the next runs.
@@ -120,20 +121,20 @@ class DisruptiveNotificationPermissionsManager {
   // Returns true if settings are being changed due to auto revocation or if
   // this service is responsible for changing notification permissions
   // (regrants, undoing regrants etc).
-  bool IsChangingContentSettings();
+  bool IsRevocationRunning();
 
-  // If the url has a revoked disruptive notification permission, this method
-  // allows the notification permissions again and adds a constraint so that
-  // this permission is not auto-revoked during future Safety Hub checks.
-  void RegrantPermissionForUrl(const GURL& url);
+  // If the origin has a revoked disruptive notification permission, this
+  // method allows the notification permissions again and adds a constraint so
+  // that this permission is not auto-revoked during future Safety Hub checks.
+  void RegrantPermissionForOrigin(const url::Origin& origin);
 
   // If `permission_types` includes notifications, undo the actions from
-  // `RegrantPermissionForUrl` by changing the `NOTIFICATIONS` setting back
+  // `RegrantPermissionForOrigin` by changing the `NOTIFICATIONS` setting back
   // to `CONTENT_SETTING_ASK` and the
   // `REVOKED_DISRUPTIVE_NOTIFICATION_PERMISSIONS` status value back to
   // `safety_hub::kRevokeStr`.
-  void UndoRegrantPermissionForUrl(
-      const GURL& url,
+  void UndoRegrantPermissionForOrigin(
+      const url::Origin& origin,
       std::set<ContentSettingsType> permission_types,
       content_settings::ContentSettingConstraints constraints);
 
@@ -155,6 +156,10 @@ class DisruptiveNotificationPermissionsManager {
   void OnPermissionChanged(const ContentSettingsPattern& primary_pattern,
                            const ContentSettingsPattern& secondary_pattern);
 
+  // Called when a page is visited to check for disruptive notification false
+  // positives and record metrics.
+  void OnPageVisited(const url::Origin& origin, ukm::SourceId ukm_source_id);
+
   // If the URL is in the revoke or proposed revoke list, report a false
   // positive and record metrics.
   static void MaybeReportFalsePositive(Profile* profile,
@@ -170,8 +175,9 @@ class DisruptiveNotificationPermissionsManager {
 
   // Returns the list of revoked disruptive notifications, excluding proposed
   // revocations and false positives.
-  static ContentSettingsForOneType GetRevokedNotifications(
+  static ContentSettingsForOneType GetRevokedPermissions(
       HostContentSettingsMap* hcsm);
+  ContentSettingsForOneType GetRevokedPermissions();
 
   // Returns true if `url` has been revoked notification permissions because of
   // sending disruptive notifications.
@@ -268,9 +274,6 @@ class DisruptiveNotificationPermissionsManager {
   void OnPermissionRegranted(const GURL& url,
                              RevocationEntry revocation_entry,
                              bool regranted_in_safety_hub);
-
-  // Report metrics for the daily run.
-  void ReportDailyRunMetrics();
 
   // Pointer to a browser context whose permissions are being updated.
   raw_ptr<content::BrowserContext> browser_context_;

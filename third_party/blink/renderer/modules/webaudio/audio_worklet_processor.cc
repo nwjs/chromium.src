@@ -113,7 +113,7 @@ bool FreezeAudioPort(v8::Isolate* isolate,
                      v8::Local<v8::Array>& audio_port_array) {
   v8::TryCatch try_catch(isolate);
 
-  bool port_frozen;
+  bool port_frozen = false;
   if (!audio_port_array->SetIntegrityLevel(context, v8::IntegrityLevel::kFrozen)
            .To(&port_frozen)) {
     return false;
@@ -126,7 +126,7 @@ bool FreezeAudioPort(v8::Isolate* isolate,
         !bus_value->IsObject()) {
       return false;
     }
-    bool bus_frozen;
+    bool bus_frozen = false;
     if (!bus_value.As<v8::Object>()
              ->SetIntegrityLevel(context, v8::IntegrityLevel::kFrozen)
              .To(&bus_frozen)) {
@@ -165,7 +165,7 @@ bool ClonePortTopology(v8::Isolate* isolate,
     size_t bus_length = audio_bus ? audio_bus->length() : 0;
     v8::Local<v8::Array> new_audio_bus =
         v8::Array::New(isolate, number_of_channels);
-    bool new_bus_added;
+    bool new_bus_added = false;
     if (!new_port_array
              ->CreateDataProperty(context, bus_index, new_audio_bus)
              .To(&new_bus_added)) {
@@ -181,7 +181,7 @@ bool ClonePortTopology(v8::Isolate* isolate,
           v8::ArrayBuffer::New(isolate, bus_length * sizeof(float));
       v8::Local<v8::Float32Array> float32_array =
           v8::Float32Array::New(array_buffer, 0, bus_length);
-      bool new_channel_added;
+      bool new_channel_added = false;
       if (!new_audio_bus
                ->CreateDataProperty(context, channel_index, float32_array)
                .To(&new_channel_added)) {
@@ -282,7 +282,7 @@ void ZeroArrayBuffers(v8::Isolate* isolate,
 bool ParamValueMapMatchesToParamsObject(
     v8::Isolate* isolate,
     v8::Local<v8::Context> context,
-    const HashMap<String, std::unique_ptr<AudioFloatArray>>& param_value_map,
+    const HashMap<String, base::span<const float>>& param_value_map,
     const TraceWrapperV8Reference<v8::Object>& params) {
   v8::TryCatch try_catch(isolate);
 
@@ -294,18 +294,8 @@ bool ParamValueMapMatchesToParamsObject(
 
   for (const auto& entry : param_value_map) {
     const String param_name = entry.key;
-    const auto* param_float_array = entry.value.get();
+    const base::span<const float> param_values = entry.value;
     v8::Local<v8::String> v8_param_name = V8String(isolate, param_name);
-
-    // TODO(crbug.com/1095113): Remove this check and move the logic to
-    // AudioWorkletHandler.
-    unsigned array_size = 1;
-    for (unsigned k = 1; k < param_float_array->size(); ++k) {
-      if (param_float_array->at(k) != param_float_array->at(0)) {
-        array_size = param_float_array->size();
-        break;
-      }
-    }
 
     // The `param_name` should exist in the `param` object.
     v8::Local<v8::Value> param_array_value;
@@ -319,7 +309,7 @@ bool ParamValueMapMatchesToParamsObject(
     // buffer is transferred, we have to reallocate.
     v8::Local<v8::Float32Array> float32_array =
         param_array_value.As<v8::Float32Array>();
-    if (float32_array->Length() != array_size ||
+    if (float32_array->Length() != param_values.size() ||
         float32_array->Buffer()->ByteLength() == 0) {
       return false;
     }
@@ -333,11 +323,10 @@ bool ParamValueMapMatchesToParamsObject(
 bool CloneParamValueMapToObject(
     v8::Isolate* isolate,
     v8::Local<v8::Context> context,
-    const HashMap<String, std::unique_ptr<AudioFloatArray>>& param_value_map,
+    const HashMap<String, base::span<const float>>& param_value_map,
     TraceWrapperV8Reference<v8::Object>& params) {
-  TRACE_EVENT0(
-      TRACE_DISABLED_BY_DEFAULT("audio-worklet"),
-      "AudioWorkletProcessor::Process (AudioParam memory allocation)");
+  TRACE_EVENT0(TRACE_DISABLED_BY_DEFAULT("audio-worklet"),
+               "AudioWorkletProcessor::Process (AudioParam memory allocation)");
 
   v8::TryCatch try_catch(isolate);
 
@@ -345,25 +334,14 @@ bool CloneParamValueMapToObject(
 
   for (const auto& entry : param_value_map) {
     const String param_name = entry.key;
-    const auto* param_float_array = entry.value.get();
+    const size_t array_size = entry.value.size();
     v8::Local<v8::String> v8_param_name = V8String(isolate, param_name);
-
-    // TODO(crbug.com/1095113): Remove this check and move the logic to
-    // AudioWorkletHandler.
-    unsigned array_size = 1;
-    for (unsigned k = 1; k < param_float_array->size(); ++k) {
-      if (param_float_array->at(k) != param_float_array->at(0)) {
-        array_size = param_float_array->size();
-        break;
-      }
-    }
-    DCHECK(array_size == 1 || array_size == param_float_array->size());
 
     v8::Local<v8::ArrayBuffer> array_buffer =
         v8::ArrayBuffer::New(isolate, array_size * sizeof(float));
     v8::Local<v8::Float32Array> float32_array =
         v8::Float32Array::New(array_buffer, 0, array_size);
-    bool new_param_array_created;
+    bool new_param_array_created = false;
     if (!new_params_object
              ->CreateDataProperty(context, v8_param_name, float32_array)
              .To(&new_param_array_created)) {
@@ -371,7 +349,7 @@ bool CloneParamValueMapToObject(
     }
   }
 
-  bool object_frozen;
+  bool object_frozen = false;
   if (!new_params_object
            ->SetIntegrityLevel(context, v8::IntegrityLevel::kFrozen)
            .To(&object_frozen)) {
@@ -387,7 +365,7 @@ bool CloneParamValueMapToObject(
 bool CopyParamValueMapToObject(
     v8::Isolate* isolate,
     v8::Local<v8::Context> context,
-    const HashMap<String, std::unique_ptr<AudioFloatArray>>& param_value_map,
+    const HashMap<String, base::span<const float>>& param_value_map,
     TraceWrapperV8Reference<v8::Object>& params) {
   v8::TryCatch try_catch(isolate);
 
@@ -395,11 +373,11 @@ bool CopyParamValueMapToObject(
 
   for (const auto& entry : param_value_map) {
     const String param_name = entry.key;
-    const AudioFloatArray* param_array = entry.value.get();
+    const base::span<const float> param_values = entry.value;
 
     v8::Local<v8::Value> param_array_value;
     if (!params_object->Get(context, V8String(isolate, param_name))
-                      .ToLocal(&param_array_value) ||
+             .ToLocal(&param_array_value) ||
         !param_array_value->IsFloat32Array()) {
       return false;
     }
@@ -408,9 +386,9 @@ bool CopyParamValueMapToObject(
         param_array_value.As<v8::Float32Array>();
     size_t array_length = float32_array->Length();
 
-    // The `float32_array` is neither 1 nor render quantum frames, or the array
-    // buffer is transferred/detached, do not proceed.
-    if ((array_length != 1 && array_length != param_array->size()) ||
+    // The `float32_array` length does not match or the array buffer is
+    // transferred/detached, do not proceed.
+    if (array_length != param_values.size() ||
         float32_array->Buffer()->ByteLength() == 0) {
       return false;
     }
@@ -419,7 +397,7 @@ bool CopyParamValueMapToObject(
         ArrayBufferContents(float32_array->Buffer()->GetBackingStore())
             .ByteSpan()
             .subspan(float32_array->ByteOffset(), array_length * sizeof(float)))
-        .copy_from(param_array->as_span().first(array_length));
+        .copy_from(param_values);
   }
 
   return true;
@@ -472,7 +450,7 @@ AudioWorkletProcessor::~AudioWorkletProcessor() {
 bool AudioWorkletProcessor::Process(
     const Vector<scoped_refptr<AudioBus>>& inputs,
     Vector<scoped_refptr<AudioBus>>& outputs,
-    const HashMap<String, std::unique_ptr<AudioFloatArray>>& param_value_map) {
+    const HashMap<String, base::span<const float>>& param_value_map) {
   TRACE_EVENT0(TRACE_DISABLED_BY_DEFAULT("audio-worklet"),
                "AudioWorkletProcessor::Process");
 
@@ -568,16 +546,21 @@ bool AudioWorkletProcessor::Process(
     TRACE_EVENT0(TRACE_DISABLED_BY_DEFAULT("audio-worklet"),
                  "AudioWorkletProcessor::Process (author script execution)");
 
-    v8::Local<v8::Value> processor_v8 =
-        ToV8Traits<AudioWorkletProcessor>::ToV8(script_state, this);
+    v8::Local<v8::Value> processor_v8 = ToV8(script_state);
     v8::Local<v8::Value> process_v8_value;
     if (!processor_v8.As<v8::Object>()
              ->Get(context, V8AtomicString(isolate, "process"))
-             .ToLocal(&process_v8_value) ||
-        !process_v8_value->IsFunction()) {
+             .ToLocal(&process_v8_value)) {
+      SetErrorDetails(ErrorDetailsFromTryCatch(
+          isolate, context, try_catch,
+          AudioWorkletProcessorErrorState::kProcessError,
+          "Uncaught error in AudioWorkletProcessor::process()"));
+      return false;
+    }
+    if (!process_v8_value->IsFunction()) {
       AudioWorkletProcessorErrorDetails error_details(
           AudioWorkletProcessorErrorState::kProcessMethodUndefinedError,
-          StrCat({name_, " process() method undefined."}),
+          StrCat({"TypeError: ", name_, " process() method is not callable."}),
           /*source_url=*/"",
           /*line_number=*/0,
           /*column_number=*/0,
@@ -596,36 +579,10 @@ bool AudioWorkletProcessor::Process(
                       ScriptValue(isolate, outputs_.Get(isolate)),
                       ScriptValue(isolate, params_.Get(isolate)))
              .To(&result)) {
-      AudioWorkletProcessorErrorDetails error_details;
-      error_details.error_state =
-          AudioWorkletProcessorErrorState::kProcessError;
-      if (try_catch.HasCaught()) {
-        v8::Local<v8::Message> message = try_catch.Message();
-        if (message.IsEmpty()) {
-          error_details.error_message =
-              "Unknown error in AudioWorkletProcessor::process()";
-        } else {
-          error_details.error_message =
-              ToCoreStringWithNullCheck(isolate, message->Get());
-          error_details.line_number =
-              message->GetLineNumber(context).FromMaybe(0);
-          error_details.column_number = message->GetStartColumn() + 1;
-          error_details.char_position = message->GetStartPosition();
-          v8::Local<v8::Value> script_resource_name =
-              message->GetScriptResourceName();
-          if (!script_resource_name.IsEmpty() &&
-              script_resource_name->IsString()) {
-            error_details.source_url = ToCoreStringWithNullCheck(
-                isolate, script_resource_name.As<v8::String>());
-          } else {
-            error_details.source_url = "Unknown Source";
-          }
-        }
-      } else {
-        error_details.error_message =
-            "Uncaught error in AudioWorkletProcessor::process()";
-      }
-      SetErrorDetails(error_details);
+      SetErrorDetails(ErrorDetailsFromTryCatch(
+          isolate, context, try_catch,
+          AudioWorkletProcessorErrorState::kProcessError,
+          "Uncaught error in AudioWorkletProcessor::process()"));
       return false;
     }
   }
@@ -637,6 +594,43 @@ bool AudioWorkletProcessor::Process(
   // Return the value from the user-supplied `.process()` function. It is
   // used to maintain the lifetime of the node and the processor.
   return result.V8Value()->IsTrue();
+}
+
+AudioWorkletProcessorErrorDetails
+AudioWorkletProcessor::ErrorDetailsFromTryCatch(
+    v8::Isolate* isolate,
+    v8::Local<v8::Context> context,
+    const v8::TryCatch& try_catch,
+    AudioWorkletProcessorErrorState error_state,
+    const String& fallback_message) {
+  AudioWorkletProcessorErrorDetails error_details(
+      error_state, fallback_message, /*source_url=*/"", /*line_number=*/0,
+      /*column_number=*/0, /*char_position=*/0);
+  if (!try_catch.HasCaught()) {
+    return error_details;
+  }
+  v8::Local<v8::Message> message = try_catch.Message();
+  if (message.IsEmpty()) {
+    return error_details;
+  }
+  String message_text = ToCoreStringWithNullCheck(isolate, message->Get());
+  if (!message_text.empty()) {
+    error_details.error_message = message_text;
+  }
+  error_details.line_number = message->GetLineNumber(context).FromMaybe(0);
+  error_details.column_number = message->GetStartColumn() + 1;
+  error_details.char_position = message->GetStartPosition();
+  v8::Local<v8::Value> script_resource_name = message->GetScriptResourceName();
+  if (!script_resource_name.IsEmpty() && script_resource_name->IsString()) {
+    String source_url = ToCoreStringWithNullCheck(
+        isolate, script_resource_name.As<v8::String>());
+    if (!source_url.IsNull()) {
+      error_details.source_url = source_url;
+    }
+  } else {
+    error_details.source_url = "Unknown Source";
+  }
+  return error_details;
 }
 
 void AudioWorkletProcessor::SetErrorDetails(

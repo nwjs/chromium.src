@@ -38,7 +38,7 @@ NavigateParams CreateNavigateParams(Profile* profile,
                                     bool new_window,
                                     bool background,
                                     BrowserWindowInterface* browser) {
-  DCHECK(new_window || browser);
+  CHECK(new_window || browser, base::NotFatalUntil::M161);
   NavigateParams params(profile, url, transition);
   if (new_window) {
     params.disposition = WindowOpenDisposition::NEW_WINDOW;
@@ -72,6 +72,10 @@ TargetHandler::~TargetHandler() {
 protocol::Response TargetHandler::SetRemoteLocations(
     std::unique_ptr<protocol::Array<protocol::Target::RemoteLocation>>
         locations) {
+  if (!is_trusted_) {
+    return protocol::Response::ServerError(
+        "Cannot set remote locations from untrusted client");
+  }
   remote_locations_.clear();
   if (!locations)
     return protocol::Response::Success();
@@ -118,7 +122,7 @@ protocol::Response TargetHandler::CreateTarget(
     }
   } else {
     profile = ProfileManager::GetLastUsedProfile();
-    DCHECK(profile);
+    CHECK(profile, base::NotFatalUntil::M161);
   }
 
   bool create_new_window = new_window.value_or(false);

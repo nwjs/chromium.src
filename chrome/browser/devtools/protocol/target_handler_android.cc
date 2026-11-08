@@ -45,6 +45,10 @@ TargetHandlerAndroid::~TargetHandlerAndroid() = default;
 protocol::Response TargetHandlerAndroid::SetRemoteLocations(
     std::unique_ptr<protocol::Array<protocol::Target::RemoteLocation>>
         locations) {
+  if (!is_trusted_) {
+    return protocol::Response::ServerError(
+        "Cannot set remote locations from untrusted client");
+  }
   remote_locations_.clear();
   if (!locations) {
     return protocol::Response::Success();
@@ -142,7 +146,7 @@ protocol::Response TargetHandlerAndroid::CreateTarget(
       if (browser_handler_) {
         // Pending Android windows are intentionally absent from the global
         // browser-window iterator. Track the BWI returned to this DevTools
-        // session so Browser commands can address it while the Activity starts.
+        // session so Browser commands can read it while the Activity starts.
         browser_handler_->TrackBrowserWindow(browser_window);
       }
 

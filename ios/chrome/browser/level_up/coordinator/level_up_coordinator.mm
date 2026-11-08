@@ -11,6 +11,7 @@
 #import "components/prefs/pref_service.h"
 #import "components/signin/public/base/signin_metrics.h"
 #import "components/strings/grit/components_strings.h"
+#import "ios/chrome/browser/authentication/ui_bundled/signin/signin_constants.h"
 #import "ios/chrome/browser/feature_engagement/model/tracker_factory.h"
 #import "ios/chrome/browser/level_up/coordinator/level_up_mediator.h"
 #import "ios/chrome/browser/level_up/model/level_up_service.h"
@@ -105,19 +106,16 @@ void RunPendingAction(TaskInfo::NavigationAction pending_action,
           self.browser->GetProfile());
   CHECK(tracker);
   tracker->NotifyEvent(feature_engagement::events::kIOSLevelUpPromoUsed);
-
+  PromosManagerFactory::GetForProfile(self.browser->GetProfile())
+      ->DeregisterPromo(promos_manager::Promo::LevelUp);
+  _authService =
+      AuthenticationServiceFactory::GetForProfile(self.browser->GetProfile());
   _prefService = self.browser->GetProfile()->GetPrefs();
 
-  // Deregisters the Level Up promo right after it is shown;
-  // Otherwise, displays the Level Up promo.
-  if (_prefService->GetBoolean(prefs::kLevelUpOptIn)) {
-    PromosManagerFactory::GetForProfile(self.browser->GetProfile())
-        ->DeregisterPromo(promos_manager::Promo::LevelUp);
-  } else {
+  if (!_prefService->GetBoolean(prefs::kLevelUpOptIn)) {
     [self showLevelUpPromo];
     return;
   }
-
   [self showLevelUp];
 }
 
@@ -302,7 +300,12 @@ void RunPendingAction(TaskInfo::NavigationAction pending_action,
 - (void)didTapPrimaryActionButton {
   base::UmaHistogramEnumeration("IOS.LevelUpPromo.Action",
                                 PromoStyleSheetAction::kPrimaryButtonTapped);
-  _prefService->SetBoolean(prefs::kLevelUpOptIn, true);
+
+  // `kLevelUpOptIn` is account-scoped pref; signed-out users opt in via
+  // `handleSignInResult:` instead.
+  if (_authService->HasPrimaryIdentity()) {
+    _prefService->SetBoolean(prefs::kLevelUpOptIn, true);
+  }
   __weak __typeof(self) weakSelf = self;
   [self stopLevelUpNavigationController:^{
     [weakSelf showLevelUp];
@@ -335,41 +338,6 @@ void RunPendingAction(TaskInfo::NavigationAction pending_action,
   [levelUpHandler dismissLevelUp];
 }
 
-// Shows a snackbar prompting the user to sign in and dismisses the Level Up
-// view.
-- (void)showSignedOutSnackbarAndDismiss {
-  id<SnackbarCommands> snackbarHandler = HandlerForProtocol(
-      self.browser->GetCommandDispatcher(), SnackbarCommands);
-  NSString* messageText =
-      l10n_util::GetNSString(IDS_IOS_LEVEL_UP_SIGNED_OUT_SNACKBAR);
-  NSString* buttonText =
-      l10n_util::GetNSString(IDS_IOS_LEVEL_UP_SIGNED_OUT_SNACKBAR_ACTION);
-  SnackbarMessage* message =
-      [[SnackbarMessage alloc] initWithTitle:messageText];
-  SnackbarMessageAction* action = [[SnackbarMessageAction alloc] init];
-  action.title = buttonText;
-  __weak id<SceneSignInCommands> weakSceneSignInHandler = HandlerForProtocol(
-      self.browser->GetCommandDispatcher(), SceneSignInCommands);
-  __weak UIViewController* weakBaseViewController = self.baseViewController;
-  action.handler = ^{
-    ShowSigninCommand* command = [[ShowSigninCommand alloc]
-        initWithOperation:AuthenticationOperation::kSigninOnly
-                 identity:nil
-              accessPoint:signin_metrics::AccessPoint::kLevelUp
-              promoAction:signin_metrics::PromoAction::
-                              PROMO_ACTION_NO_SIGNIN_PROMO
-               completion:nil];
-    [weakSceneSignInHandler showSignin:command
-                    baseViewController:weakBaseViewController];
-  };
-  message.action = action;
-  [snackbarHandler showSnackbarMessage:message];
-
-  id<LevelUpCommands> handler =
-      HandlerForProtocol(self.browser->GetCommandDispatcher(), LevelUpCommands);
-  [handler dismissLevelUp];
-}
-
 // Displays the viewController in the navigationController.
 - (void)presentViewController:(UIViewController*)viewController
     withModalPresentationStyle:(UIModalPresentationStyle)presentationStyle {
@@ -386,11 +354,8 @@ void RunPendingAction(TaskInfo::NavigationAction pending_action,
 
 // Displays the Level Up main UIpage.
 - (void)showLevelUp {
-  // TODO(crbug.com/565364655): remove the snackabr and only show signin sheet.
-  _authService =
-      AuthenticationServiceFactory::GetForProfile(self.browser->GetProfile());
   if (!_authService->HasPrimaryIdentity()) {
-    [self showSignedOutSnackbarAndDismiss];
+    [self showSignInSheet];
     return;
   }
   LevelUpViewController* viewController = [[LevelUpViewController alloc] init];
@@ -435,6 +400,35 @@ void RunPendingAction(TaskInfo::NavigationAction pending_action,
                          completion:completion];
   self.navigationController = nil;
   self.viewController = nil;
+}
+
+// Presents the sign-in bottom sheet and signs user in.
+- (void)showSignInSheet {
+  __weak __typeof(self) weakSelf = self;
+  ShowSigninCommand* command = [[ShowSigninCommand alloc]
+      initWithOperation:AuthenticationOperation::kSigninOnly
+               identity:nil
+            accessPoint:signin_metrics::AccessPoint::kLevelUp
+            promoAction:signin_metrics::PromoAction::
+                            PROMO_ACTION_NO_SIGNIN_PROMO
+             completion:^(SigninCoordinator* coordinator,
+                          SigninCoordinatorResultOrIdentity result) {
+               [weakSelf handleSignInResult:result];
+             }];
+  id<SceneSignInCommands> sceneSignInHandler = HandlerForProtocol(
+      self.browser->GetCommandDispatcher(), SceneSignInCommands);
+  [sceneSignInHandler showSignin:command
+              baseViewController:self.baseViewController];
+}
+
+// Handles completed sign in request after non-signed in user accepts Level Up.
+- (void)handleSignInResult:(SigninCoordinatorResultOrIdentity)result {
+  if (result.has_value()) {
+    _prefService->SetBoolean(prefs::kLevelUpOptIn, true);
+    [self showLevelUp];
+  } else {
+    [self didTapDismissButton];
+  }
 }
 
 @end

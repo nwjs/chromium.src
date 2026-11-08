@@ -112,7 +112,7 @@ Current expiration date for histograms owned by cros-families-eng@google.com:
 </histogram>
 
 <histogram name="ChromeOS.FamilyLink.ChildStatusReportRequest.Size" units="KB"
-    expires_after="2026-11-10">
+    expires_after="2027-04-01">
   <owner>zhangwenyu@google.com</owner>
   <owner>longbowei@google.com</owner>
   <owner>cros-families-eng@google.com</owner>
@@ -125,7 +125,7 @@ Current expiration date for histograms owned by cros-families-eng@google.com:
 
 <histogram
     name="ChromeOS.FamilyLink.ChildStatusReportRequest.TimeSinceLastReport"
-    units="minutes" expires_after="2026-11-10">
+    units="minutes" expires_after="2027-04-01">
   <owner>zhangwenyu@google.com</owner>
   <owner>longbowei@google.com</owner>
   <owner>cros-families-eng@google.com</owner>
@@ -138,7 +138,7 @@ Current expiration date for histograms owned by cros-families-eng@google.com:
 </histogram>
 
 <histogram name="ChromeOS.FamilyLinkUser.FaviconAvailability"
-    enum="SupervisedUserFaviconAvailability" expires_after="2026-11-01">
+    enum="SupervisedUserFaviconAvailability" expires_after="2027-05-01">
   <owner>zhangwenyu@google.com</owner>
   <owner>longbowei@google.com</owner>
   <owner>cros-families-eng@google.com</owner>
@@ -166,7 +166,7 @@ Current expiration date for histograms owned by cros-families-eng@google.com:
 </histogram>
 
 <histogram name="ChromeOS.FamilyLinkUser.ParentAccess.FlowResult.{FlowType}"
-    enum="ParentAccessFlowResult" expires_after="2026-11-01">
+    enum="ParentAccessFlowResult" expires_after="2027-05-01">
   <owner>zhangwenyu@google.com</owner>
   <owner>longbowei@google.com</owner>
   <owner>cros-families-eng@google.com</owner>
@@ -185,7 +185,7 @@ Current expiration date for histograms owned by cros-families-eng@google.com:
 </histogram>
 
 <histogram name="ChromeOS.FamilyLinkUser.ParentAccessWidgetError.{FlowType}"
-    enum="FamilyLinkUserParentAccessWidgetError" expires_after="2026-11-01">
+    enum="FamilyLinkUserParentAccessWidgetError" expires_after="2027-05-01">
   <owner>zhangwenyu@google.com</owner>
   <owner>longbowei@google.com</owner>
   <owner>cros-families-eng@google.com</owner>
@@ -204,7 +204,7 @@ Current expiration date for histograms owned by cros-families-eng@google.com:
 <histogram
     name="ChromeOS.FamilyLinkUser.ParentAccessWidgetShowDialogError.{FlowType}"
     enum="FamilyLinkUserParentAccessWidgetShowDialogError"
-    expires_after="2026-11-01">
+    expires_after="2027-05-01">
   <owner>zhangwenyu@google.com</owner>
   <owner>longbowei@google.com</owner>
   <owner>cros-families-eng@google.com</owner>
@@ -437,7 +437,7 @@ Current expiration date for histograms owned by cros-families-eng@google.com:
 </histogram>
 
 <histogram name="FamilyLinkUser.LocalWebApprovalErrorType"
-    enum="LocalWebApprovalErrorType" expires_after="2027-01-31">
+    enum="LocalWebApprovalErrorType" expires_after="2027-04-04">
   <owner>anthie@google.com</owner>
   <owner>ddac@google.com</owner>
   <owner>chrome-kids-eng@google.com</owner>
@@ -448,7 +448,7 @@ Current expiration date for histograms owned by cros-families-eng@google.com:
 </histogram>
 
 <histogram name="FamilyLinkUser.LocalWebApprovalResult"
-    enum="FamilyLinkUserLocalApprovalResult" expires_after="2027-01-31">
+    enum="FamilyLinkUserLocalApprovalResult" expires_after="2027-04-04">
   <owner>agawronska@chromium.org</owner>
   <owner>cros-families-eng@google.com</owner>
   <owner>chrome-kids-eng@google.com</owner>
@@ -473,7 +473,7 @@ Current expiration date for histograms owned by cros-families-eng@google.com:
 </histogram>
 
 <histogram name="FamilyUser.ChromeBrowserEngagement.Duration2" units="ms"
-    expires_after="2026-11-01">
+    expires_after="2027-05-01">
   <owner>zhangwenyu@google.com</owner>
   <owner>longbowei@google.com</owner>
   <owner>cros-families-eng@google.com</owner>

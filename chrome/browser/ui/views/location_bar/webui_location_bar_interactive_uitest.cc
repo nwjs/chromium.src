@@ -43,6 +43,7 @@
 #include "components/omnibox/browser/shortcuts_provider_test_util.h"
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/render_widget_host.h"
+#include "content/public/browser/render_widget_host_view.h"
 #include "content/public/common/content_features.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
@@ -60,9 +61,18 @@
 #include "ui/base/page_transition_types.h"
 #include "ui/display/screen.h"
 #include "ui/gfx/range/range.h"
+#include "ui/views/interaction/element_tracker_views.h"
+#include "ui/views/interaction/mouse/interaction_test_util_mouse.h"
 #include "ui/views/mouse_constants.h"
 #include "ui/views/test/widget_test.h"
 #include "ui/webui/tracked_element/interaction_test_util_web_ui.h"
+
+#if BUILDFLAG(IS_MAC)
+#include "base/functional/bind.h"
+#include "chrome/browser/ui/views/location_bar/webui_location_bar_interactive_uitest_mac.h"
+#include "ui/base/test/ui_controls.h"
+#include "ui/views/widget/widget.h"
+#endif
 
 namespace {
 
@@ -1181,10 +1191,6 @@ IN_PROC_BROWSER_TEST_P(WebUILocationBarInteractiveUiTest, NavigateSuggestions) {
 // via Shift-Delete.
 IN_PROC_BROWSER_TEST_P(WebUILocationBarInteractiveUiTest,
                        NavigateSuggestionsTab) {
-  FAILS_IN_MODE(Mode::kFull,
-                "Shift-del to delete suggestion doesn't work in full "
-                "(crbug.com/559671477); also behavior on deleting with button "
-                " is different");
   history::HistoryService* history_service =
       HistoryServiceFactory::GetForProfile(this->browser()->GetProfile(),
                                            ServiceAccessType::EXPLICIT_ACCESS);
@@ -1836,6 +1842,38 @@ IN_PROC_BROWSER_TEST_P(WebUILocationBarInteractiveUiTest, TypeWithMouseDown) {
       WaitTillOmniboxViewText("ww"));
 }
 
+// The sequence of Mouse Down/Mouse Up/Mouse Down/Mouse Up is supposed to do
+// a drag select (word-by-word, but this test isn't this precise).
+// See https://crbug.com/566216533
+IN_PROC_BROWSER_TEST_P(WebUILocationBarInteractiveUiTest, ClickDrag) {
+#if BUILDFLAG(IS_MAC)
+  // Mac likes to make selections non-directional by default, and this test
+  // has it setting one rather than our code.
+  const bool expect_no_dir = true;
+#else
+  const bool expect_no_dir = false;
+#endif
+
+  RunTestSequence(
+      InstrumentTab(kTabId), WaitForWebContentsReady(kTabId),
+      InstrumentNonTabWebView(kWebUIToolbarId, GetToolbarWebView()),
+      HandleAutofocus(), WaitTillOmniboxViewText("about:blank"),
+      WaitTillOmniboxViewSelection("about:blank", gfx::Range(11, 0)),
+      // We need to have a caret active, not a full-blown selection, to
+      // reproduce the bug.
+      InAnyContext(SendKeyPress(InputWebContents(), ui::VKEY_END)),
+      WaitTillOmniboxViewSelection("", gfx::Range(11)),
+
+      // Click in the middle, then click there again and drag to the left.
+      // This should select everything.
+      MoveMouseTo(kOmniboxElementId), ClickMouse(),
+      DragMouseTo(kOmniboxElementId, base::BindOnce([](ui::TrackedElement* el) {
+                    return el->GetScreenBounds().left_center();
+                  })),
+      WaitTillOmniboxViewSelection("about:blank", gfx::Range(11, 0),
+                                   View::kEditable, expect_no_dir));
+}
+
 // Test of selecting a word portion of URL with double-click select.
 // This is just a regular double-click. That it's the first word is
 // relevant, since we also need to make sure the selection isn't extended to
@@ -1914,6 +1952,66 @@ IN_PROC_BROWSER_TEST_P(WebUILocationBarInteractiveUiTest, DoubleClick2) {
       WaitTillOmniboxViewSelection("test", gfx::Range(14, 18)));
 }
 
+// TODO(crbug.com/469743571): Flaky or failing on Mac bots because opening the
+// popup between clicks exceeds the double-click timeout (kDoubleClickTimeMs =
+// 500ms).
+#define MAYBE_MacDoubleClick DISABLED_MacDoubleClick
+
+// Test to make sure we can turn a second-click of a two-click sequence where
+// the second click is to the popup into a double-click. This is run only on
+// Mac since that's where the code it covers is, and sending two separate clicks
+// is flakey on slow bots like ASAN ones, which tend to be non-Mac. The test
+// does work on at least Linux as well, though.
+IN_PROC_BROWSER_TEST_P(WebUILocationBarInteractiveUiTest,
+                       MAYBE_MacDoubleClick) {
+#if BUILDFLAG(IS_MAC)
+  // Mac likes to make selections non-directional by default, and this test
+  // has it setting one rather than our code.
+  const bool expect_no_dir = true;
+#else
+  const bool expect_no_dir = false;
+#endif
+  PORT_UNFINISHED(Mode::kFull, "Not yet ported");
+
+  RunTestSequence(
+      InstrumentTab(kTabId), WaitForWebContentsReady(kTabId),
+      InstrumentNonTabWebView(kWebUIToolbarId, GetToolbarWebView()),
+      HandleAutofocus(), WaitTillOmniboxViewText("about:blank"),
+      WaitTillOmniboxViewSelection("about:blank", gfx::Range(11, 0)),
+      FocusTab(), NavigateWebContents(kTabId, GURL("https://local.test")),
+      // Navigation will deactivate any full popup
+      WaitTillOmniboxViewText("local.test", View::kStatic),
+      WaitTillOmniboxViewSelection("", gfx::Range(10), View::kStatic),
+      InAnyContext(MoveMouseTo(kOmniboxElementId)), InSameContext(ClickMouse()),
+      WaitForPopupShow(),
+      // Make sure the second click goes to the right popup frame.
+      Do([&]() {
+        auto frames = views::ElementTrackerViews::GetInstance()
+                          ->GetAllMatchingViewsInAnyContext(
+                              OmniboxPopupPresenterBase::kRoundedResultsFrame);
+        views::View* popup_frame = nullptr;
+        for (views::View* candidate : frames) {
+          if (candidate->GetBoundsInScreen().height() > 100) {
+            popup_frame = candidate;
+          }
+        }
+        ASSERT_TRUE(popup_frame);
+        auto click_gesture =
+            views::test::InteractionTestUtilMouse::Click(ui_controls::LEFT);
+        gfx::NativeWindow native_window =
+            popup_frame->GetWidget()->GetNativeWindow();
+        ASSERT_TRUE(mouse_util().PerformGestures(
+            views::test::InteractionTestUtilMouse::GestureParams(native_window),
+            click_gesture));
+      }),
+      // The URL is unelided, and "test" is selected (since the mouse
+      // is in the middle of the element and the URL is short, it's the last
+      // word that gets selected).
+      WaitTillOmniboxViewText("https://local.test"),
+      WaitTillOmniboxViewSelection("test", gfx::Range(14, 18), View::kEditable,
+                                   expect_no_dir));
+}
+
 // The context menu tests don't appear to work on Mac.
 #if BUILDFLAG(IS_MAC)
 #define MAYBE_ContextMenu DISABLED_ContextMenu
@@ -1980,21 +2078,108 @@ IN_PROC_BROWSER_TEST_P(WebUILocationBarInteractiveUiTest, PasteSanitizesText) {
     writer.WriteText(u"  javascript:javascript:alert(1)\r\nhello world\n");
   }
 
-  ui::Accelerator paste_accel(ui::VKEY_V,
-#if BUILDFLAG(IS_MAC)
-                              ui::EF_COMMAND_DOWN
-#else
-                              ui::EF_CONTROL_DOWN
-#endif
-  );
-
   RunTestSequence(
       InstrumentNonTabWebView(kWebUIToolbarId, GetToolbarWebView()),
-      HandleAutofocus(), WaitTillOmniboxViewText("about:blank"),
+      HandleAutofocus(), WaitTillOmniboxViewFocus(),
+      WaitTillOmniboxViewText("about:blank"),
       WaitTillOmniboxViewSelection("about:blank", gfx::Range(11, 0)),
-      InAnyContext(SendAccelerator(InputWebContents(), paste_accel)),
+      InAnyContext(
+          WithElement(InputWebContents(),
+                      [](ui::TrackedElement* el) {
+                        AsInstrumentedWebContents(el)->web_contents()->Paste();
+                      })),
       WaitTillOmniboxViewText("alert(1) hello world"));
 }
+
+#if BUILDFLAG(IS_MAC)
+// Regression test for crbug.com/563226016. In macOS fullscreen, the WebUI
+// toolbar is hosted in the NSToolbarFullScreenWindow, which shares its first
+// responder with the browser window. If AppKit changes the browser window's
+// first responder without updating the fullscreen window, clicking the omnibox
+// synchronizes the first responder state. Then, the Omnibox should receive the
+// keyboard events.
+IN_PROC_BROWSER_TEST_P(WebUILocationBarInteractiveUiTest,
+                       FullscreenFirstResponderDivergenceRecovers) {
+  if (mode() == Mode::kFull) {
+    GTEST_SKIP() << "In full mode, the omnibox click focuses the popup web "
+                    "view rather than the toolbar web view.";
+  }
+  DEFINE_LOCAL_STATE_IDENTIFIER_VALUE(ui::test::PollingStateObserver<bool>,
+                                      kToolbarHasFocus);
+  DEFINE_LOCAL_CUSTOM_ELEMENT_EVENT_TYPE(kClickProcessed);
+  DEFINE_LOCAL_CUSTOM_ELEMENT_EVENT_TYPE(kTypedTextReceived);
+  RunTestSequence(
+      InstrumentTab(kTabId), WaitForWebContentsReady(kTabId),
+      InstrumentNonTabWebView(kWebUIToolbarId, GetToolbarWebView()),
+      HandleAutofocus(),
+      Do([this]() { ui_test_utils::ToggleFullscreenModeAndWait(browser()); }),
+      PollState(kToolbarHasFocus,
+                [this]() {
+                  return GetToolbarWebView()
+                      ->GetWebContents()
+                      ->GetRenderWidgetHostView()
+                      ->HasFocus();
+                }),
+      MoveMouseTo(kOmniboxElementId), ClickMouse(),
+      WaitForState(kToolbarHasFocus, true),
+      StopObservingState(kToolbarHasFocus),
+      // Open the omnibox popup. It covers the omnibox, so the click below is
+      // received by the popup and forwarded to the toolbar.
+      EnterText(u"input"), WaitForPopupShow(), Do([this]() {
+        // Make the tab contents the browser window's first responder behind
+        // the toolbar's back.
+        ASSERT_TRUE(
+            webui_location_bar_test::SetWindowFirstResponderWithoutResigning(
+                browser()
+                    ->GetTabStripModel()
+                    ->GetActiveWebContents()
+                    ->GetRenderWidgetHostView()
+                    ->GetNativeView()));
+      }),
+      InAnyContext(
+          EnsurePresent(OmniboxPopupPresenterBase::kRoundedResultsFrame)),
+      MoveMouseTo(kOmniboxElementId),
+      WithElement(
+          kBrowserViewElementId,
+          [](ui::TrackedElement* browser_view) {
+            // While the popup is open, real clicks on the omnibox land on the
+            // popup window and are forwarded to the toolbar. ui_controls picks
+            // the target window with +[NSWindow windowNumberAtPoint:], which
+            // skips the popup's transparent cutout, so send the click to the
+            // popup's window directly.
+            ui::TrackedElement* popup =
+                ui::ElementTracker::GetElementTracker()->GetElementInAnyContext(
+                    OmniboxPopupPresenterBase::kRoundedResultsFrame);
+            ASSERT_TRUE(popup);
+            ASSERT_TRUE(ui_controls::SendMouseEventsNotifyWhenDone(
+                ui_controls::LEFT, ui_controls::UP | ui_controls::DOWN,
+                base::BindOnce(
+                    [](ui::TrackedElement* el) {
+                      ui::ElementTracker::GetFrameworkDelegate()
+                          ->NotifyCustomEvent(el, kClickProcessed);
+                    },
+                    browser_view),
+                ui_controls::kNoAccelerator,
+                popup->AsA<views::TrackedElementViews>()
+                    ->view()
+                    ->GetWidget()
+                    ->GetNativeWindow()));
+          }),
+      // ui_controls sends key events synchronously but posts mouse events, so
+      // wait for the click before typing.
+      WaitForEvent(kBrowserViewElementId, kClickProcessed),
+      InAnyContext(SendKeyPress(kBrowserViewElementId, ui::VKEY_Z)),
+      // Where the click leaves the caret is not important, so only check that
+      // the typed character reached the omnibox.
+      WaitForStateChange(kWebUIToolbarId, [] {
+        WebContentsInteractionTestUtil::StateChange typed;
+        typed.event = kTypedTextReceived;
+        typed.where = kOmniboxInputDeepQuery;
+        typed.test_function = "(el) => el.value.includes('z')";
+        return typed;
+      }()));
+}
+#endif  // BUILDFLAG(IS_MAC)
 
 #if BUILDFLAG(IS_WIN)
 // The test fixture sets up ui_test_utils::BringBrowserWindowToFront to run

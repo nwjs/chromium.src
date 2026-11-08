@@ -14,6 +14,7 @@ from typing import Iterable
 
 import setup_modules  # pylint: disable=unused-import
 
+
 import chromium_src.tools.metrics.histograms.extract_histograms as extract_histograms
 import chromium_src.tools.metrics.histograms.histogram_paths as histogram_paths
 import chromium_src.tools.metrics.histograms.merge_xml as merge_xml

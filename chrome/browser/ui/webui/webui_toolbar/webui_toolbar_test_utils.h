@@ -42,9 +42,9 @@ class MockToolbarUIObserver : public toolbar_ui_api::mojom::ToolbarUIObserver {
 
   // toolbar_ui_api::mojom::ToolbarUIObserver:
   MOCK_METHOD(void,
-              OnNavigationControlsStateChanged,
+              OnToolbarStateChanged,
               (std::vector<toolbar_ui_api::mojom::IconUpdatePtr> icons,
-               toolbar_ui_api::mojom::NavigationControlsStatePtr state),
+               toolbar_ui_api::mojom::ToolbarStatePtr state),
               (override));
 
   MOCK_METHOD(void,
@@ -172,20 +172,12 @@ class MockToolbarUIServiceDelegate
               OnOmniboxAction,
               (toolbar_ui_api::mojom::OmniboxActionPtr action_ptr),
               (override));
-  MOCK_METHOD(void, ShowAvatarMenu, (bool), (override));
-  MOCK_METHOD(void, OnAvatarButtonMousePressed, (), (override));
+  MOCK_METHOD(void, ShowAvatarMenu, (), (override));
   MOCK_METHOD(void, SetAvatarButtonHovered, (bool), (override));
   MOCK_METHOD(void, SetAvatarButtonFocused, (bool), (override));
   MOCK_METHOD(void, SetAvatarButtonIPHPromoShowing, (bool), (override));
   MOCK_METHOD(void, OnAppMenuFocusChanged, (bool), (override));
-  MOCK_METHOD(void,
-              ExecuteExtensionAction,
-              (const std::string&, bool),
-              (override));
-  MOCK_METHOD(void,
-              OnExtensionActionPointerDown,
-              (const std::string&),
-              (override));
+  MOCK_METHOD(void, ExecuteExtensionAction, (const std::string&), (override));
   MOCK_METHOD(void,
               ShowExtensionContextMenu,
               (const std::string&, ui::mojom::MenuSourceType),
@@ -196,19 +188,8 @@ class MockToolbarUIServiceDelegate
       AdjustOmniboxTextForCopy,
       (const std::u16string&, int32_t),
       (override));
-  MOCK_METHOD(void,
-              OnPerformanceInterventionButtonClicked,
-              (bool is_mouse_interaction),
-              (override));
-  MOCK_METHOD(void,
-              OnPerformanceInterventionButtonMousePressed,
-              (),
-              (override));
-  MOCK_METHOD(void,
-              OnMediaButtonClicked,
-              (bool is_mouse_interaction),
-              (override));
-  MOCK_METHOD(void, OnMediaButtonMousePressed, (), (override));
+  MOCK_METHOD(void, OnPerformanceInterventionButtonClicked, (), (override));
+  MOCK_METHOD(void, OnMediaButtonClicked, (), (override));
   MOCK_METHOD(void, OnGlicButtonClicked, (), (override));
 };
 
@@ -223,9 +204,8 @@ class MockBrowserControlsServiceDelegate
   MOCK_METHOD(void, PermitLaunchUrl, (), (override));
 };
 
-// Helper to create a valid NavigationControlsState with initialized fields.
-toolbar_ui_api::mojom::NavigationControlsStatePtr
-CreateValidNavigationControlsState();
+// Helper to create a valid ToolbarState with initialized fields.
+toolbar_ui_api::mojom::ToolbarStatePtr CreateValidToolbarState();
 
 // Mock implementation of CommandUpdater for testing.
 class MockCommandUpdater : public CommandUpdater {

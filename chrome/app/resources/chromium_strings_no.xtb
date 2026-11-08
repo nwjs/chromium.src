@@ -21,6 +21,7 @@
 <translation id="1185134272377778587">Om Chromium</translation>
 <translation id="1186645291482254714">Få varsler om prissporing med Chromium på telefonen</translation>
 <translation id="1203500561924088507">Installasjonen er fullført. Start nettleseren på nytt før du tar i bruk <ph name="BUNDLE_NAME" />.</translation>
+<translation id="1222365723190436821">En <ph name="IMPORTANT_UPDATE" /> venter. For å holde surfingen din trygg oppdateres Chromium neste gang du er inaktiv i <ph name="IDLE_DURATION" />.</translation>
 <translation id="1232234696885483911">Når du åpner bildesøk, sendes sidetittel, nettadresse og innhold, inkludert PDF-filer, automatisk til tjeneren. <ph name="LEARN_MORE" /></translation>
 <translation id="123265588161106468">Når du er logget på, kan du bruke passord med mer fra Google-kontoen din i Chromium. Gå til «Kontoen din i Chromium» for å endre dette.</translation>
 <translation id="1244381985120794049">Vis Gemini i Chromium på Mac-menylinjen</translation>
@@ -228,6 +229,7 @@
 <translation id="3286538390144397061">Start på nytt nå</translation>
 <translation id="328888136576916638">API-nøkler for Google mangler. Noe funksjonalitet i Chromium blir deaktivert.</translation>
 <translation id="3296368748942286671">Fortsett å kjøre bakgrunnsprogrammer når Chromium er lukket</translation>
+<translation id="3300632735252839402">Chromium oppdateres når du er borte</translation>
 <translation id="3313189106987092621">Chromium advarer deg før all innlasting av nettsteder via usikre tilkoblinger</translation>
 <translation id="3316771292331273802">Du logges av de fleste nettsteder når du lukker alle Chromium-vinduer, men du blir ikke logget av Google-kontoen din hvis du er logget på Chromium. For å la nettsteder huske deg, <ph name="SETTINGS_LINK" />.</translation>
 <translation id="3352986031709923790">øverst til høyre i søkefeltet: høyre <ph name="RIGHT" /> %, øverst <ph name="TOP" /> %</translation>
@@ -236,6 +238,7 @@
 <translation id="3387527074123400161">ChromiumOS</translation>
 <translation id="3406848076815591792">Vil du bytte til den eksisterende Chromium-profilen?</translation>
 <translation id="3412460710772753638">I Passordlagring på denne enheten</translation>
+<translation id="3425452599984451640">Chromium vil oppdatere</translation>
 <translation id="3427159664004296878">Logg på Chromium for å få bokmerkene med mer fra <ph name="DEVICE" />.</translation>
 <translation id="3438772217992559640">Søk på denne fanen med Bildesøk</translation>
 <translation id="3455907671758333080">Utvid Safe Browsing med økt beskyttelse med Chromium på telefonen</translation>
@@ -378,6 +381,7 @@
 <translation id="5074496654342756568">Bruk alle Google-favorittene dine med Chromium på <ph name="DEVICE_TYPE" /></translation>
 <translation id="5123973130450702873">Chromium trenger tillatelse til å spore hendene dine</translation>
 <translation id="5141988424377517949">Du har ikke vært her i det siste. Chromium har fjernet <ph name="PERMISSION_1" />, <ph name="PERMISSION_2" /> og <ph name="PERMISSION_3" />.</translation>
+<translation id="5171868502429358653">Logg på Chromium</translation>
 <translation id="5174969993834422967">Du blokkerer vanligvis varsler. For å la dette nettstedet sende deg varsler, klikk på varselikonet i høyre hjørne av adressefeltet.</translation>
 <translation id="5174983315706567306">Det er for lite diskplass.</translation>
 <translation id="5187123684706427865">Chromium-kontoen krever ny autentisering</translation>
@@ -387,6 +391,7 @@
 <translation id="5249261924633168472">Åpne linken i et inkognitovindu i Chromium</translation>
 <translation id="5276305953263010518">Skaff deg Chromium-appen for å lagre passord uansett hvor du er</translation>
 <translation id="5277894862589591112">For å bruke endringene dine må du starte Chromium på nytt</translation>
+<translation id="5278909220224474621">For å sende denne fanen til en annen enhet, logg på Chromium på begge enhetene</translation>
 <translation id="5286907366254680517">Registrert</translation>
 <translation id="5289287148052354622">Skaff deg Chromium-appen</translation>
 <translation id="5294316920224716406">Når du surfer i inkognitomodus, advarer Chromium deg før nettsteder lastes inn via usikre tilkoblinger</translation>
@@ -756,6 +761,7 @@ Chromium kan ikke gjenopprette innstillingen dine.</translation>
 <translation id="8648201657708811153">Google Chrome for testing kan ikke brukes som standardnettleser.</translation>
 <translation id="8676101123715131330">Søk med Chromium fra hvor som helst</translation>
 <translation id="8697124171261953979">Den styrer også hvilken side som vises når du starter Chromium eller søker fra multifunksjonsfeltet.</translation>
+<translation id="8702213505203810093">For å sende denne fanen til en annen enhet, logg på Chromium der</translation>
 <translation id="8704119203788522458">Dette er din Chromium</translation>
 <translation id="8712637175834984815">Skjønner</translation>
 <translation id="8719993436687031146">Vil du logge på Chromium?</translation>

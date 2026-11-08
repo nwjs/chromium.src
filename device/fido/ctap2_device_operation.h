@@ -89,7 +89,7 @@ class Ctap2DeviceOperation : public DeviceOperation<Request, Response> {
     // GetId().
     if (request.second) {
       FIDO_LOG(DEBUG) << "<- " << request.first << " "
-                      << cbor::DiagnosticWriter::Write(*request.second);
+                      << cbor::WriteDiagnostic(*request.second);
       std::optional<std::vector<uint8_t>> cbor_bytes =
           cbor::Writer::Write(*request.second);
       DCHECK(cbor_bytes);
@@ -170,25 +170,23 @@ class Ctap2DeviceOperation : public DeviceOperation<Request, Response> {
         return;
       }
 
-      if (string_fixup_predicate_) {
-        cbor = FixInvalidUTF8(std::move(*cbor), string_fixup_predicate_);
-        if (!cbor) {
-          FIDO_LOG(ERROR)
-              << "-> (CBOR with unfixable UTF-8 errors from raw message "
-              << base::HexEncode(device_response.value()) << ")";
-          std::move(this->callback())
-              .Run(CtapDeviceResponseCode::kCtap2ErrInvalidCBOR, std::nullopt);
-          return;
-        }
+      if (string_fixup_predicate_ &&
+          !FixInvalidUTF8(*cbor, string_fixup_predicate_)) {
+        FIDO_LOG(ERROR)
+            << "-> (CBOR with unfixable UTF-8 errors from raw message "
+            << base::HexEncode(device_response.value()) << ")";
+        std::move(this->callback())
+            .Run(CtapDeviceResponseCode::kCtap2ErrInvalidCBOR, std::nullopt);
+        return;
       }
 
       response = std::move(std::move(device_response_parser_).Run(cbor));
       cbor::Value redacted = std::move(cbor_response_redacter_).Run(*cbor);
       if (response) {
-        FIDO_LOG(DEBUG) << "-> " << cbor::DiagnosticWriter::Write(redacted);
+        FIDO_LOG(DEBUG) << "-> " << cbor::WriteDiagnostic(redacted);
       } else {
         FIDO_LOG(ERROR) << "-> (rejected CBOR structure) "
-                        << cbor::DiagnosticWriter::Write(redacted);
+                        << cbor::WriteDiagnostic(redacted);
       }
     } else {
       response =

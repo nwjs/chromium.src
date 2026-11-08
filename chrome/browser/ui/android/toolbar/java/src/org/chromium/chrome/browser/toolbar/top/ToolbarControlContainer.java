@@ -67,7 +67,6 @@ import org.chromium.chrome.browser.toolbar.R;
 import org.chromium.chrome.browser.toolbar.ToolbarCaptureType;
 import org.chromium.chrome.browser.toolbar.ToolbarDataProvider;
 import org.chromium.chrome.browser.toolbar.ToolbarDataProvider.Observer;
-import org.chromium.chrome.browser.toolbar.ToolbarFeatures;
 import org.chromium.chrome.browser.toolbar.ToolbarHairlineView;
 import org.chromium.chrome.browser.toolbar.ToolbarProgressBar;
 import org.chromium.chrome.browser.toolbar.top.CaptureReadinessResult.TopToolbarBlockCaptureReason;
@@ -99,6 +98,23 @@ public class ToolbarControlContainer extends OptimizedFrameLayout
         implements ControlContainer, Observer, DesktopWindowStateManager.AppHeaderObserver {
     private static final String TAG = "ToolbarCtrlContainer";
     private static final double SAMPLE_STALE_CAPTURE_PROBABILITY = 0.01;
+
+    /**
+     * Where a touch falls relative to children stacked below the toolbar container. See
+     * getBelowToolbarTouchArea().
+     */
+    @IntDef({
+        BelowToolbarTouchArea.NOT_APPLICABLE,
+        BelowToolbarTouchArea.ON_STACKED_CHILD,
+        BelowToolbarTouchArea.UNCOVERED
+    })
+    @Retention(RetentionPolicy.SOURCE)
+    private @interface BelowToolbarTouchArea {
+        int NOT_APPLICABLE = 0;
+        int ON_STACKED_CHILD = 1;
+        int UNCOVERED = 2;
+    }
+
     private static boolean sForceStaleCaptureHistogram;
 
     private boolean mIncognito;
@@ -115,6 +131,7 @@ public class ToolbarControlContainer extends OptimizedFrameLayout
     private int mTabStripTopPadding;
     private int mTabStripHeight;
     private final Rect mToolbarCaptureSize = new Rect();
+    private final Rect mTouchHitRect = new Rect();
 
     private View mToolbarHairline;
     private ViewGroup mToolbarView;
@@ -405,11 +422,15 @@ public class ToolbarControlContainer extends OptimizedFrameLayout
         // TODO(crbug.com/557679152): Revisit once TopControlsStacker / BrowserControlsManager
         // guarantees a resting-position offset update for non-animated transitions on native pages
         // (NTP).
-        mutateToolbarLayoutParams().topMargin =
+        int toolbarViewTopMargin =
                 ChromeFeatureList.sToolbarSnapshotRefactor.isEnabled() ? 0 : tabStripHeight;
+        mutateToolbarLayoutParams().topMargin = toolbarViewTopMargin;
 
         int toolbarAndTabStripHeight = tabStripHeight + getToolbarHeight();
-        mutateHairlineLayoutParams().topMargin = toolbarAndTabStripHeight;
+        mutateHairlineLayoutParams().topMargin =
+                ChromeFeatureList.sFixToolbarHairlineRegression.isEnabled()
+                        ? toolbarViewTopMargin + mToolbarLayoutHeight
+                        : toolbarAndTabStripHeight;
         if (!applyScrimOverlay) {
             setMinimumHeight(toolbarAndTabStripHeight + getToolbarHairlineHeight());
         }
@@ -489,8 +510,7 @@ public class ToolbarControlContainer extends OptimizedFrameLayout
                         .append(" visibility=")
                         .append(child.getVisibility());
                 ViewGroup.LayoutParams lp = child.getLayoutParams();
-                if (lp instanceof MarginLayoutParams) {
-                    MarginLayoutParams mlp = (MarginLayoutParams) lp;
+                if (lp instanceof MarginLayoutParams mlp) {
                     mMeasureLogBuilder
                             .append(" marginT=")
                             .append(mlp.topMargin)
@@ -834,6 +854,7 @@ public class ToolbarControlContainer extends OptimizedFrameLayout
         private final int[] mTempPosition = new int[2];
         private final Rect mLocationBarRect = new Rect();
         private final Rect mToolbarRect = new Rect();
+        private int mToolbarTopOffsetInCapture;
         private final View mToolbarContainer;
         private final ToolbarHairlineView mToolbarHairline;
         private final Callback<Boolean> mOnCompositorInMotionChange =
@@ -1105,6 +1126,12 @@ public class ToolbarControlContainer extends OptimizedFrameLayout
                     mTempPosition[1],
                     mToolbarContainer.getWidth(),
                     mTempPosition[1] + mToolbar.getHeight());
+            // When drawing edge-to-edge (e.g. a themed NTP), the toolbar is padded at the top to
+            // extend behind the status bar. That strip is part of the bitmap, but not part of the
+            // toolbar height the browser controls reserve, so, like the tab strip, it counts as
+            // capture content sitting above the toolbar. This is deliberately kept out of
+            // mToolbarRect, which also sizes the compositor's toolbar background layer.
+            mToolbarTopOffsetInCapture = mTempPosition[1] + mToolbar.getEdgeToEdgeTopPadding();
 
             mToolbar.getLocationBarContentRect(mLocationBarRect);
             mLocationBarRect.offset(mTempPosition[0], mTempPosition[1]);
@@ -1112,6 +1139,20 @@ public class ToolbarControlContainer extends OptimizedFrameLayout
             int shadowHeight = mToolbarHairline.getHeight();
             return ResourceFactory.createToolbarContainerResource(
                     mToolbarRect, mLocationBarRect, shadowHeight);
+        }
+
+        /**
+         * Returns where the toolbar's content starts inside the most recent capture: the toolbar's
+         * top edge, plus any edge-to-edge top padding drawn above its content. It is written only
+         * by {@link #createNativeResource()}, so it keeps describing the bitmap the compositor is
+         * holding even after the view hierarchy has been re-laid out (e.g. the edge-to-edge padding
+         * is removed on navigating away from the NTP before a new capture is taken). 0 until the
+         * first capture, when there is no bitmap to position.
+         *
+         * @see ToolbarControlContainer#getToolbarTopOffsetInCapture()
+         */
+        int getToolbarTopOffsetInCapture() {
+            return mToolbarTopOffsetInCapture;
         }
 
         public void onPageLoadStopped() {
@@ -1164,12 +1205,10 @@ public class ToolbarControlContainer extends OptimizedFrameLayout
                 return;
             }
 
-            if (ToolbarFeatures.shouldRecordSuppressionMetrics()) {
-                RecordHistogram.recordEnumeratedHistogram(
-                        "Android.TopToolbar.InMotionStage",
-                        ToolbarInMotionStage.SUPPRESSION_ENABLED,
-                        ToolbarInMotionStage.NUM_ENTRIES);
-            }
+            RecordHistogram.recordEnumeratedHistogram(
+                    "Android.TopToolbar.InMotionStage",
+                    ToolbarInMotionStage.SUPPRESSION_ENABLED,
+                    ToolbarInMotionStage.NUM_ENTRIES);
 
             if (Boolean.FALSE.equals(compositorInMotion)) {
                 if (mControlsToken == TokenHolder.INVALID_TOKEN) {
@@ -1196,12 +1235,10 @@ public class ToolbarControlContainer extends OptimizedFrameLayout
                     CaptureReadinessResult captureReadinessResult =
                             mToolbar.isReadyForTextureCapture();
                     CaptureReadinessResult.logCaptureReasonFromResult(captureReadinessResult);
-                    if (ToolbarFeatures.shouldRecordSuppressionMetrics()) {
-                        RecordHistogram.recordEnumeratedHistogram(
-                                "Android.TopToolbar.InMotionStage",
-                                ToolbarInMotionStage.READINESS_CHECKED,
-                                ToolbarInMotionStage.NUM_ENTRIES);
-                    }
+                    RecordHistogram.recordEnumeratedHistogram(
+                            "Android.TopToolbar.InMotionStage",
+                            ToolbarInMotionStage.READINESS_CHECKED,
+                            ToolbarInMotionStage.NUM_ENTRIES);
                     if (captureReadinessResult.blockReason
                             == TopToolbarBlockCaptureReason.SNAPSHOT_SAME) {
                         setDirtyRectEmpty();
@@ -1237,9 +1274,10 @@ public class ToolbarControlContainer extends OptimizedFrameLayout
         // Don't react on touch events if the toolbar container is not fully visible.
         if (!isToolbarContainerFullyVisible()) return true;
 
-        // Don't consume the event if it is below the toolbar container and was not handled by any
-        // child (such as the tablet find toolbar).
-        if (isBelowToolbarContainer(event)) return false;
+        // Don't consume the event if it is below the toolbar container, in an area not covered by
+        // any stacked child (such as the tablet find toolbar or the tab sharing toolbar), so that
+        // it reaches views below. Touches on a stacked child's background are still consumed.
+        if (getBelowToolbarTouchArea(event) == BelowToolbarTouchArea.UNCOVERED) return false;
 
         // If we have ACTION_DOWN in this context, that means either no child consumed the event or
         // this class is the top UI at the event position. Then, we don't need to feed the event to
@@ -1259,7 +1297,10 @@ public class ToolbarControlContainer extends OptimizedFrameLayout
         // the event here.
         if (!isToolbarContainerFullyVisible()) return true;
         if (isOnTabStrip(event)) return true;
-        if (isBelowToolbarContainer(event)) return false;
+        // Don't intercept touches below the toolbar container while a child is stacked there, so
+        // that they are not treated as toolbar swipes, whether they are on the stacked child (e.g.
+        // a drag in the find toolbar's text field) or in the uncovered area around it.
+        if (getBelowToolbarTouchArea(event) != BelowToolbarTouchArea.NOT_APPLICABLE) return false;
 
         if (mSwipeGestureListener != null && mSwipeGestureListener.onTouchEvent(event)) return true;
 
@@ -1277,14 +1318,42 @@ public class ToolbarControlContainer extends OptimizedFrameLayout
         return tabStripHeight != 0 && e.getY() <= tabStripHeight;
     }
 
-    private boolean isBelowToolbarContainer(MotionEvent e) {
-        View findToolbar = findViewById(R.id.find_toolbar);
-        if (findToolbar == null
-                || findToolbar.getVisibility() != VISIBLE
-                || findToolbar.getParent() != this) {
-            return false;
+    /**
+     * Returns where a touch falls relative to the visible children, other than the toolbar
+     * container, that extend below the toolbar container (such as the tablet find toolbar or the
+     * tab sharing toolbar):
+     *
+     * <ul>
+     *   <li>{@link BelowToolbarTouchArea#ON_STACKED_CHILD} if the touch is below the toolbar
+     *       container and inside one of these children.
+     *   <li>{@link BelowToolbarTouchArea#UNCOVERED} if the touch is below the toolbar container, at
+     *       least one such child exists, and the touch is outside all of them.
+     *   <li>{@link BelowToolbarTouchArea#NOT_APPLICABLE} otherwise, including whenever no child
+     *       extends below the toolbar container, so that touch handling is unchanged (see
+     *       crbug.com/553578467).
+     * </ul>
+     */
+    private @BelowToolbarTouchArea int getBelowToolbarTouchArea(MotionEvent e) {
+        float x = e.getX();
+        float y = e.getY();
+        if (mToolbarContainer == null) return BelowToolbarTouchArea.NOT_APPLICABLE;
+        int toolbarBottom = mToolbarContainer.getBottom();
+        if (y <= toolbarBottom) return BelowToolbarTouchArea.NOT_APPLICABLE;
+
+        boolean hasStackedChildBelowToolbar = false;
+        for (int i = 0; i < getChildCount(); i++) {
+            View child = getChildAt(i);
+            if (child == mToolbarContainer || child.getVisibility() != VISIBLE) continue;
+            child.getHitRect(mTouchHitRect);
+            if (mTouchHitRect.bottom <= toolbarBottom) continue;
+            if (mTouchHitRect.contains((int) x, (int) y)) {
+                return BelowToolbarTouchArea.ON_STACKED_CHILD;
+            }
+            hasStackedChildBelowToolbar = true;
         }
-        return mToolbarContainer != null && e.getY() > mToolbarContainer.getBottom();
+        return hasStackedChildBelowToolbar
+                ? BelowToolbarTouchArea.UNCOVERED
+                : BelowToolbarTouchArea.NOT_APPLICABLE;
     }
 
     /**
@@ -1315,6 +1384,18 @@ public class ToolbarControlContainer extends OptimizedFrameLayout
     /** Returns the measured height of the entire container, minus the tabstrip's height. */
     public int getControlContainerHeightExcludingTabStrip() {
         return getMeasuredHeight() - mToolbar.getTabStripHeight();
+    }
+
+    /**
+     * Returns the y-offset, in px, at which the toolbar's content appears inside the current
+     * capture; that is, how much of the capture sits above the toolbar, such as the tabstrip or the
+     * status bar padding added when drawing edge-to-edge. Measured against the view that is
+     * actually rasterized, at the moment of rasterization, so it needs no reconciliation with
+     * separately measured view heights and stays correct while the capture is stale.
+     */
+    public int getToolbarTopOffsetInCapture() {
+        return ((ToolbarViewResourceAdapter) getToolbarResourceAdapter())
+                .getToolbarTopOffsetInCapture();
     }
 
     private class SwipeGestureListenerImpl extends SwipeGestureListener {
@@ -1570,7 +1651,13 @@ public class ToolbarControlContainer extends OptimizedFrameLayout
     @Override
     public void doSynchronousLayout(boolean forceCaptureAfterLayout) {
         int widthSpec = View.MeasureSpec.makeMeasureSpec(getWidth(), View.MeasureSpec.EXACTLY);
-        int heightSpec = View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED);
+        int heightSpec;
+        ViewGroup.LayoutParams lp = getLayoutParams();
+        if (lp != null && lp.height > 0) {
+            heightSpec = View.MeasureSpec.makeMeasureSpec(lp.height, View.MeasureSpec.EXACTLY);
+        } else {
+            heightSpec = View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED);
+        }
 
         measure(widthSpec, heightSpec);
         layout(getLeft(), getTop(), getLeft() + getMeasuredWidth(), getTop() + getMeasuredHeight());

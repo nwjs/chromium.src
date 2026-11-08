@@ -32,6 +32,7 @@
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/security_principal.h"
 #include "content/public/browser/web_contents.h"
+#include "ui/webui/buildflags.h"
 #include "url/gurl.h"
 
 #if BUILDFLAG(IS_ANDROID)
@@ -39,10 +40,13 @@
 #include "chrome/browser/flags/android/chrome_feature_list.h"
 #include "chrome/common/webui_url_constants.h"
 #else
+#include "chrome/browser/ui/webui/new_tab_page_third_party/new_tab_page_third_party_ui.h"
+#endif
+
+#if BUILDFLAG(ENABLE_WEBUI_NTP)
 #include "chrome/browser/search/instant_service.h"
 #include "chrome/browser/search/instant_service_factory.h"
 #include "chrome/browser/ui/webui/new_tab_page/new_tab_page_ui.h"
-#include "chrome/browser/ui/webui/new_tab_page_third_party/new_tab_page_third_party_ui.h"
 #endif
 
 namespace search {
@@ -176,7 +180,7 @@ struct NewTabURLDetails {
 
 #if BUILDFLAG(IS_ANDROID)
     const bool is_desktop_android = IsWebUiNtpEnabledForDesktopAndroid();
-    const GURL local_url(
+    GURL local_url(
         is_desktop_android ? chrome::ChromeUINewTabPageURLAsGURL() : GURL());
     if (is_desktop_android) {
       if (default_is_google) {
@@ -188,6 +192,7 @@ struct NewTabURLDetails {
           return NewTabURLDetails(GURL(chrome::kChromeUINativeNewTabURL),
                                   NEW_TAB_URL_VALID);
         }
+        local_url = GURL(chrome::kChromeUINewTabPageThirdPartyURL);
       }
     }
 #else
@@ -229,9 +234,7 @@ struct NewTabURLDetails {
 
 bool IsRenderedInInstantProcess(content::WebContents* contents,
                                 Profile* profile) {
-#if BUILDFLAG(IS_ANDROID)
-  return false;
-#else
+#if BUILDFLAG(ENABLE_WEBUI_NTP)
   content::RenderProcessHost* process_host =
       contents->GetPrimaryMainFrame()->GetProcess();
   if (!process_host) {
@@ -245,6 +248,8 @@ bool IsRenderedInInstantProcess(content::WebContents* contents,
   }
 
   return instant_service->IsInstantProcess(process_host->GetDeprecatedID());
+#else
+  return false;
 #endif
 }
 
@@ -273,8 +278,14 @@ bool IsNTPURL(const GURL& url) {
     return true;
   }
 #if BUILDFLAG(IS_ANDROID)
-  return (url.SchemeIs(chrome::kChromeNativeScheme) &&
-          url.host() == chrome::kChromeUINewTabHost);
+  if (IsWebUiNtpEnabledForDesktopAndroid()) {
+    if (MatchesOrigin(url, chrome::ChromeUINewTabPageURLAsGURL()) ||
+        MatchesOrigin(url, GURL(chrome::kChromeUINewTabPageThirdPartyURL))) {
+      return true;
+    }
+  }
+  return url.SchemeIs(chrome::kChromeNativeScheme) &&
+         url.host() == chrome::kChromeUINewTabHost;
 #else
   return NewTabPageUI::IsNewTabPageOrigin(url) ||
          NewTabPageThirdPartyUI::IsNewTabPageOrigin(url);
@@ -337,8 +348,6 @@ bool IsSplitViewNewTabPage(const GURL& url) {
 GURL GetNewTabPageURL(Profile* profile) {
   return NewTabURLDetails::ForProfile(profile).url;
 }
-
-#if !BUILDFLAG(IS_ANDROID)
 
 bool ShouldAssignURLToInstantRenderer(const GURL& url, Profile* profile) {
   if (!url.is_valid() || !profile || !IsInstantExtendedAPIEnabled() ||
@@ -440,8 +449,6 @@ bool HandleNewTabURLReverseRewrite(GURL* url,
 
   return false;
 }
-
-#endif  // !BUILDFLAG(IS_ANDROID)
 
 const void* const kIsNTPProcessKey = &kIsNTPProcessKey;
 

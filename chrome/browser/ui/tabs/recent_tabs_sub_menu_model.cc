@@ -28,10 +28,7 @@
 #include "chrome/browser/search/search.h"
 #include "chrome/browser/sessions/session_restore.h"
 #include "chrome/browser/sessions/tab_restore_service_factory.h"
-#include "chrome/browser/signin/identity_manager_factory.h"
-#include "chrome/browser/signin/signin_util.h"
 #include "chrome/browser/sync/session_sync_service_factory.h"
-#include "chrome/browser/sync/sync_service_factory.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_live_tab_context.h"
 #include "chrome/browser/ui/browser_window.h"
@@ -40,12 +37,12 @@
 #include "chrome/browser/ui/side_panel/side_panel_action_callback.h"
 #include "chrome/browser/ui/side_panel/side_panel_enums.h"
 #include "chrome/browser/ui/side_panel/side_panel_ui.h"
+#include "chrome/browser/ui/tabs/remote_tabs_menu_util.h"
 #include "chrome/browser/ui/tabs/tab_group_theme.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/toolbar/app_menu_model.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/side_panel/history_clusters/history_clusters_side_panel_coordinator.h"
-#include "chrome/browser/ui/views/side_panel/tabs_from_other_devices/tabs_from_other_devices_side_panel_coordinator.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/favicon/core/history_ui_favicon_request_handler.h"
 #include "components/favicon_base/favicon_types.h"
@@ -53,11 +50,9 @@
 #include "components/prefs/scoped_user_pref_update.h"
 #include "components/sessions/core/session_id.h"
 #include "components/sessions/core/tab_restore_service.h"
-#include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/split_tabs/split_tab_visual_data.h"
 #include "components/strings/grit/components_strings.h"
 #include "components/sync/base/features.h"
-#include "components/sync/base/user_selectable_type.h"
 #include "components/sync_sessions/open_tabs_ui_delegate.h"
 #include "components/sync_sessions/session_sync_service.h"
 #include "components/sync_sessions/synced_session.h"
@@ -296,7 +291,6 @@ bool RecentTabsSubMenuModel::ExecuteCustomCommand(int command_id,
   // Supported custom commands.
   static constexpr auto custom_commands = base::MakeFixedFlatSet<int>(
       {IDC_SHOW_HISTORY, IDC_SHOW_HISTORY_CLUSTERS_SIDE_PANEL,
-       IDC_SHOW_TABS_FROM_OTHER_DEVICES_SIDE_PANEL,
        IDC_RECENT_TABS_LOGIN_FOR_DEVICE_TABS, IDC_RECENT_TABS_SEE_DEVICE_TABS});
 
   if (!custom_commands.contains(command_id)) {
@@ -307,20 +301,11 @@ bool RecentTabsSubMenuModel::ExecuteCustomCommand(int command_id,
           browser_->GetProfile())) {
     return false;
   }
-  if (command_id == IDC_SHOW_TABS_FROM_OTHER_DEVICES_SIDE_PANEL &&
-      !TabsFromOtherDevicesSidePanelCoordinator::IsSupported(
-          browser_->GetProfile())) {
-    return false;
-  }
   if (log_menu_metrics_callback_) {
     log_menu_metrics_callback_.Run(command_id);
   }
-  if (command_id == IDC_SHOW_HISTORY) {
-    LogWrenchMenuAction(MENU_ACTION_SHOW_HISTORY);
-  }
 
   if (command_id == IDC_SHOW_HISTORY_CLUSTERS_SIDE_PANEL ||
-      command_id == IDC_SHOW_TABS_FROM_OTHER_DEVICES_SIDE_PANEL ||
       command_id == IDC_SHOW_HISTORY) {
     actions::ActionInvocationContext context =
         actions::ActionInvocationContext::Builder()
@@ -425,7 +410,6 @@ void RecentTabsSubMenuModel::Build() {
   // The menu contains:
   // - History to open the full history tab.
   // - History to open in side panel.
-  // - Tabs from other devices to open in side panel.
   // - Separator
   // - Recent tabs header
   // - A list of local recently closed tabs, groups, and/or windows.
@@ -449,16 +433,6 @@ void RecentTabsSubMenuModel::Build() {
                      features::IsRoundedIconsEnabled()
                          ? vector_icons::kHistoryIcon
                          : vector_icons::kHistoryChromeRefreshOldIcon);
-    }
-    if (TabsFromOtherDevicesSidePanelCoordinator::IsSupported(
-            browser_->GetProfile())) {
-      InsertItemWithStringIdAt(next_command_id++,
-                               IDC_SHOW_TABS_FROM_OTHER_DEVICES_SIDE_PANEL,
-                               IDS_SIDE_PANEL_SHOW_TABS_FROM_OTHER_DEVICES);
-      SetCommandIcon(this, IDC_SHOW_TABS_FROM_OTHER_DEVICES_SIDE_PANEL,
-                     features::IsRoundedIconsEnabled()
-                         ? kDevicesIcon
-                         : kDevicesChromeRefreshOldIcon);
     }
   }
 
@@ -536,40 +510,10 @@ void RecentTabsSubMenuModel::BuildLocalEntries() {
 }
 
 void RecentTabsSubMenuModel::BuildTabsFromOtherDevices() {
-#if !BUILDFLAG(IS_CHROMEOS)
-  if (syncer::IsReplaceSyncPromosWithSignInPromosEnabled()) {
-    syncer::SyncService* sync_service =
-        SyncServiceFactory::GetForProfile(browser_->GetProfile());
-    if (!sync_service) {
-      return;
-    }
-
-    if (!signin_util::IsSyncingUserSelectableTypesAllowedByPolicy(
-            sync_service, {syncer::UserSelectableType::kTabs})) {
-      // This option should not be built if syncing tabs is disabled by policy.
-      return;
-    }
-
-    signin::IdentityManager* identity_manager =
-        IdentityManagerFactory::GetForProfile(browser_->GetProfile());
-    switch (signin_util::GetSignedInState(identity_manager)) {
-      case signin_util::SignedInState::kSignedIn:
-      case signin_util::SignedInState::kSignInPending:
-        if (signin_util::HasExplicitlyDisabledHistorySync(sync_service,
-                                                          identity_manager)) {
-          // This option should not be built if syncing tabs is explicitly
-          // disabled by the user.
-          return;
-        }
-        break;
-      case signin_util::SignedInState::kSignedOut:
-      case signin_util::SignedInState::kWebOnlySignedIn:
-      case signin_util::SignedInState::kSyncing:
-      case signin_util::SignedInState::kSyncPaused:
-        break;
-    }
+  if (!remote_tabs_menu_util::ShouldShowTabsFromOtherDevices(
+          browser_->GetProfile())) {
+    return;
   }
-#endif  // !BUILDFLAG(IS_CHROMEOS)
 
   // All other devices' items (device headers or tabs) use AddItem*() to append
   // a menu item, because they take always place in the end of menu.
@@ -626,7 +570,8 @@ void RecentTabsSubMenuModel::BuildTabsFromOtherDevices() {
     const int command_id = GetAndIncrementNextMenuID();
     AddSubMenu(command_id, base::UTF8ToUTF16(session->GetSessionName()),
                device_menu_model.get());
-    AddDeviceFavicon(this, GetItemCount() - 1, session->GetDeviceFormFactor());
+    SetIcon(GetItemCount() - 1, remote_tabs_menu_util::GetDeviceFormFactorIcon(
+                                    session->GetDeviceFormFactor()));
     remote_sub_menu_items_.emplace(
         command_id, SubMenuItem(command_id, std::move(device_menu_model)));
 
@@ -990,38 +935,6 @@ int RecentTabsSubMenuModel::GetParentCommandId(int command_id) const {
     }
   }
   return -1;
-}
-
-void RecentTabsSubMenuModel::AddDeviceFavicon(
-    SimpleMenuModel* containing_model,
-    size_t index_in_menu,
-    syncer::DeviceInfo::FormFactor device_form_factor) {
-  const gfx::VectorIcon* favicon = nullptr;
-  switch (device_form_factor) {
-    case syncer::DeviceInfo::FormFactor::kPhone:
-      favicon = &(features::IsRoundedIconsEnabled() ? kMobileIcon
-                                                    : kSmartphoneOldIcon);
-      break;
-    case syncer::DeviceInfo::FormFactor::kTablet:
-      favicon = &(features::IsRoundedIconsEnabled() ? kTabletFilledIcon
-                                                    : kTabletOldIcon);
-      break;
-    // Return the laptop icon as default.
-    case syncer::DeviceInfo::FormFactor::kUnknown:
-      [[fallthrough]];
-    case syncer::DeviceInfo::FormFactor::kAutomotive:
-      [[fallthrough]];
-    case syncer::DeviceInfo::FormFactor::kWearable:
-      [[fallthrough]];
-    case syncer::DeviceInfo::FormFactor::kTv:
-      [[fallthrough]];
-    case syncer::DeviceInfo::FormFactor::kDesktop:
-      favicon = &(features::IsRoundedIconsEnabled() ? kLaptopWindowsIcon
-                                                    : kLaptopOldIcon);
-      break;
-  }
-
-  containing_model->SetIcon(index_in_menu, CreateFavicon(*favicon));
 }
 
 void RecentTabsSubMenuModel::AddTabFavicon(int command_id,

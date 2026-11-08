@@ -82,7 +82,8 @@ class AutofillOfferData {
                     GURL offer_details_url,
                     DisplayStrings display_strings,
                     std::string promo_code,
-                    std::string offer_reward_amount);
+                    std::string offer_reward_amount,
+                    base::Time issue_time);
 
   // TODO(crbug.com/40932427): Refactor this class to ensure the correct access
   // specifiers and move constructors and move assignment constructors.
@@ -97,13 +98,20 @@ class AutofillOfferData {
   // result of first found difference.
   int Compare(const AutofillOfferData& other_offer_data) const;
 
-  // Returns true if the current offer is 1) not expired and 2) contains the
-  // given |origin| in the list of |merchant_origins|.
+  // Returns true if the current offer is 1) not expired and 2) eligible for the
+  // given `origin` (see `IsEligibleForOrigin()`).
   bool IsActiveAndEligibleForOrigin(const GURL& origin) const;
+
+  // Returns true if the given `origin` has the same eTLD+1 as one of the
+  // `merchant_origins`, e.g. a merchant origin of https://store.example.com/
+  // matches https://example.com/ and https://www.example.com/, but not
+  // https://notexample.com/. This is the same matching as for loyalty cards.
+  bool IsEligibleForOrigin(const GURL& origin) const;
 
   OfferType GetOfferType() const { return offer_type_; }
   const std::string& GetOfferId() const { return offer_id_; }
   base::Time GetExpiry() const { return expiry_; }
+  base::Time GetIssueTime() const { return issue_time_; }
   const std::vector<GURL>& GetMerchantOrigins() const {
     return merchant_origins_;
   }
@@ -171,6 +179,10 @@ class AutofillOfferData {
   // The timestamp when the offer will expire. Expired offers will not be shown
   // in the frontend.
   base::Time expiry_;
+
+  // The timestamp when the offer was issued. Null if the issue time is unknown,
+  // since it is optional.
+  base::Time issue_time_;
 
   // The URL that contains the offer details.
   GURL offer_details_url_;

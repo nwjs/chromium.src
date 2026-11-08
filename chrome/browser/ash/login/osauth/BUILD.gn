@@ -29,7 +29,6 @@ static_library("osauth") {
 
   public_deps = [
     "//base",
-    "//chrome/browser:browser_public_dependencies",
     "//chrome/browser/ash/login/quick_unlock",
     "//chromeos/ash/components/dbus/userdataauth",
     "//chromeos/ash/components/login/auth",
@@ -39,12 +38,14 @@ static_library("osauth") {
     "//components/keyed_service/content",
     "//components/keyed_service/core",
     "//components/prefs",
+    "//dbus",
   ]
 
   deps = [
     "//ash/constants",
     "//chrome/browser:browser_process",
     "//chrome/browser/ash/profiles",
+    "//chrome/browser/policy",
     "//chrome/browser/profiles:profile",
     "//chrome/browser/profiles:profile_manager",
     "//chromeos/ash/components/browser_context_helper",

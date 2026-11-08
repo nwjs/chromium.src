@@ -19,15 +19,26 @@
 #include "base/apple/foundation_util.h"
 #include "base/compiler_specific.h"
 #include "base/containers/fixed_flat_set.h"
+#include "base/functional/bind.h"
 #include "base/logging.h"
+#include "base/memory/raw_ptr.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/sequenced_task_runner.h"
+#include "base/time/time.h"
 #include "device/gamepad/gamepad_id_list.h"
 #include "device/gamepad/gamepad_uma.h"
 
 namespace device {
 
 namespace {
+
+// Delay before retrying to open a device that failed with
+// kIOReturnExclusiveAccess once it reports kIOMessageServiceWasClosed. A
+// failed open attempt can itself trigger kIOMessageServiceWasClosed, so
+// retrying synchronously would busy-loop while another client owns the device.
+// A device that stays owned by another client is re-polled at this interval
+// for as long as it remains connected.
+constexpr base::TimeDelta kExclusiveAccessRetryDelay = base::Seconds(1);
 
 // XboxDataFetcher recognizes the following devices connected over USB.
 constexpr auto kSupportedDeviceIds = base::MakeFixedFlatSet<GamepadId>({
@@ -64,7 +75,7 @@ GamepadSource XboxDataFetcher::source() {
 void XboxDataFetcher::GetGamepadData(bool devices_changed_hint) {
   // This just loops through all the connected pads and "pings" them to indicate
   // that they're still active.
-  for (auto* controller : controllers_) {
+  for (XboxControllerMac* controller : controllers_) {
     GetPadState(controller->location_id());
   }
 }
@@ -170,7 +181,26 @@ void XboxDataFetcher::PendingServiceBecameAvailable(io_service_t service) {
     return;
   }
 
-  TryOpenDevice(service);
+  // Don't retry immediately. A failed open attempt can itself cause
+  // kIOMessageServiceWasClosed to be delivered, so retrying synchronously can
+  // turn into a busy loop while the device stays owned by another client.
+  base::SequencedTaskRunner::GetCurrentDefault()->PostDelayedTask(
+      FROM_HERE,
+      base::BindOnce(&XboxDataFetcher::RetryOpenDevice,
+                     weak_factory_.GetWeakPtr(), entry_id),
+      kExclusiveAccessRetryDelay);
+}
+
+void XboxDataFetcher::RetryOpenDevice(uint64_t entry_id) {
+  // IOServiceGetMatchingService() consumes the matching dictionary.
+  base::mac::ScopedIOObject<io_service_t> service(IOServiceGetMatchingService(
+      kIOMainPortDefault, IORegistryEntryIDMatching(entry_id)));
+  if (!service) {
+    // The device was removed while waiting to retry.
+    return;
+  }
+
+  TryOpenDevice(service.get());
 }
 
 bool XboxDataFetcher::TryOpenDevice(io_service_t service) {
@@ -298,10 +328,10 @@ void XboxDataFetcher::UnregisterFromNotifications() {
 }
 
 XboxControllerMac* XboxDataFetcher::ControllerForLocation(UInt32 location_id) {
-  for (std::set<XboxControllerMac*>::iterator i = controllers_.begin();
-       i != controllers_.end(); ++i) {
-    if ((*i)->location_id() == location_id)
-      return *i;
+  for (XboxControllerMac* controller : controllers_) {
+    if (controller->location_id() == location_id) {
+      return controller;
+    }
   }
   return NULL;
 }
@@ -361,14 +391,7 @@ void XboxDataFetcher::RemoveController(XboxControllerMac* controller) {
 }
 
 void XboxDataFetcher::RemoveControllerByLocationID(uint32_t location_id) {
-  XboxControllerMac* controller = NULL;
-  for (std::set<XboxControllerMac*>::iterator i = controllers_.begin();
-       i != controllers_.end(); ++i) {
-    if ((*i)->location_id() == location_id) {
-      controller = *i;
-      break;
-    }
-  }
+  XboxControllerMac* controller = ControllerForLocation(location_id);
   if (controller)
     RemoveController(controller);
 }

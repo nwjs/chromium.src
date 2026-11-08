@@ -820,8 +820,40 @@ class CORE_EXPORT LocalFrameView final
 #endif
 
   bool LifecycleUpdatePending() const;
-  void RegisterForLifecycleNotifications(LifecycleNotificationObserver*);
+  // This option affects only DidFinishPostLifecycleSteps(). Throttled frames
+  // still skip WillStartLifecycleUpdate() and DidFinishLifecycleUpdate().
+  enum class PostLifecycleNotificationBehavior {
+    kSuppressWhenThrottled,
+    kFireWhenThrottled,
+  };
+  void RegisterForLifecycleNotifications(
+      LifecycleNotificationObserver*,
+      PostLifecycleNotificationBehavior =
+          PostLifecycleNotificationBehavior::kSuppressWhenThrottled);
   void UnregisterFromLifecycleNotifications(LifecycleNotificationObserver*);
+
+  // Calls DidFinishPostLifecycleSteps() once after a full lifecycle update.
+  // By default, waits while this frame or an ancestor is throttled. Use
+  // kFireWhenThrottled to get the callback anyway, even if rendering work was
+  // skipped and the frame's layout is still out of date.
+  //
+  // The caller must schedule a rendering update if one is needed. The callback
+  // must not make changes that require more rendering work. A callback can
+  // requeue itself for the next update. Like regular observers, a request for
+  // a frame that has not been visited yet can run during the current update.
+  //
+  // Does not keep the observer alive. Requesting again for the same observer
+  // changes the throttling option without adding another callback. An observer
+  // also registered with RegisterForLifecycleNotifications() gets both
+  // callbacks.
+  void RequestOneShotPostLifecycleNotification(
+      LifecycleNotificationObserver*,
+      PostLifecycleNotificationBehavior =
+          PostLifecycleNotificationBehavior::kSuppressWhenThrottled);
+
+  // Call on the same frame. Cancels pending requests, but cannot cancel
+  // callbacks already selected for delivery on this frame.
+  void CancelOneShotPostLifecycleNotification(LifecycleNotificationObserver*);
 
   // Enqueue tasks to be run at the start of the next lifecycle. These tasks
   // will run right after `WillStartLifecycleUpdate()` on the lifecycle
@@ -839,7 +871,7 @@ class CORE_EXPORT LocalFrameView final
   void NotifyVideoIsDominantVisibleStatus(HTMLVideoElement* element,
                                           bool is_dominant);
 
-  void DidPaintCanvasChild(HTMLCanvasElement& canvas, Element& child);
+  void DidPaintCanvasDrawable(HTMLCanvasElement& canvas, Element& drawable);
   void RequestCanvasOnpaint(HTMLCanvasElement&, Element* child = nullptr);
 
   scoped_refptr<const cc::AnimatedImageFrameIndexMap>
@@ -1087,6 +1119,11 @@ class CORE_EXPORT LocalFrameView final
   void ForAllChildViewsAndPlugins(
       base::FunctionRef<void(EmbeddedContentView&)>);
 
+  using LifecycleObserverMap =
+      HeapHashMap<WeakMember<LifecycleNotificationObserver>,
+                  PostLifecycleNotificationBehavior>;
+  void NotifyPostLifecycleObservers();
+
   enum TraversalOrder { kPreOrder, kPostOrder };
   void ForAllNonThrottledLocalFrameViews(
       base::FunctionRef<void(LocalFrameView&)>,
@@ -1166,7 +1203,7 @@ class CORE_EXPORT LocalFrameView final
 
   void RunCanvasOnpaintSteps();
 
-  typedef HeapHashSet<Member<LayoutEmbeddedContent>> EmbeddedContentSet;
+  typedef HeapHashSet<WeakMember<LayoutEmbeddedContent>> EmbeddedContentSet;
   EmbeddedContentSet part_update_set_;
 
   Member<LocalFrame> frame_;
@@ -1336,7 +1373,8 @@ class CORE_EXPORT LocalFrameView final
 
   Member<TapFriendlinessChecker> tap_friendliness_checker_;
 
-  HeapHashSet<WeakMember<LifecycleNotificationObserver>> lifecycle_observers_;
+  LifecycleObserverMap lifecycle_observers_;
+  LifecycleObserverMap queued_one_shot_observers_;
 
   // Map of canvas elements which need onpaint. The value is a set of children
   // of the <canvas> which painted during the current paint lifecycle update.
@@ -1398,8 +1436,8 @@ class CORE_EXPORT LocalFrameView final
       pending_scroll_marker_selection_updates_;
 
   // This is a callback requested when a same document navigation was committed.
-  // We only record this once (if RecordSameDocumentPresentationTimeOnce is
-  // enabled). We do this within the lifecycle before the commit step.
+  // We only record this once. We do this within the lifecycle before the commit
+  // step.
   base::OnceCallback<void(const viz::FrameTimingDetails&)>
       same_document_presentation_time_callback_;
 

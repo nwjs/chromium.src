@@ -45,6 +45,7 @@ class CustomElementRegistry;
 class DomSelection;
 class Document;
 class Element;
+class Focusable;
 class HTMLMapElement;
 class HitTestRequest;
 class HitTestResult;
@@ -72,6 +73,7 @@ class CORE_EXPORT TreeScope : public GarbageCollectedMixin {
 
   // DocumentOrShadowRoot web-exposed:
   Element* activeElement() const;
+  Focusable* activeFocusable() const;
   StyleSheetList* styleSheets() { return &StyleSheets(); }
   V8ObservableArrayCSSStyleSheet* adoptedStyleSheets() {
     return &EnsureAdoptedStyleSheets();
@@ -89,8 +91,6 @@ class CORE_EXPORT TreeScope : public GarbageCollectedMixin {
   Element* pictureInPictureElement();
 
   TreeScope* ParentTreeScope() const { return parent_tree_scope_.Get(); }
-
-  bool IsInclusiveAncestorTreeScopeOf(const TreeScope&) const;
 
   // is_pseudo_allowed:
   // - if true, PseudoElement can be returned

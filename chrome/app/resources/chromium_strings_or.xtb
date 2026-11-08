@@ -23,6 +23,7 @@
 <translation id="1185134272377778587">Chromium ବିଷୟରେ</translation>
 <translation id="1186645291482254714">ଆପଣଙ୍କ ଫୋନରେ Chromium ସହ ମୂଲ୍ୟ ଟ୍ରାକିଂ ଆଲର୍ଟଗୁଡ଼ିକ ପାଆନ୍ତୁ</translation>
 <translation id="1203500561924088507">ଇନଷ୍ଟଲ କରିଥିବା ଯୋଗୁଁ ଧନ୍ୟବାଦ। ଆପଣ <ph name="BUNDLE_NAME" /> ବ୍ୟବହାର କରିବା ପୂର୍ବରୁ ଆପଣଙ୍କ ବ୍ରାଉଜରକୁ ରିଷ୍ଟାର୍ଟ କରିବା ଆବଶ୍ୟକ।</translation>
+<translation id="1222365723190436821">ଏକ <ph name="IMPORTANT_UPDATE" /> ବାକି ଅଛି। ଆପଣଙ୍କ ବ୍ରାଉଜିଂକୁ ସୁରକ୍ଷିତ ରଖିବା ପାଇଁ, ଆପଣ ପରବର୍ତ୍ତୀ ଥର <ph name="IDLE_DURATION" /> ପାଇଁ ନିଷ୍କ୍ରିୟ ହେଲେ Chromium ଅପଡେଟ ହେବ।</translation>
 <translation id="1232234696885483911">ଆପଣ ଇମେଜ ସର୍ଚ୍ଚ ଖୋଲିଲେ, PDFଗୁଡ଼ିକ ସମେତ ପୃଷ୍ଠାର ଟାଇଟେଲ, URL ଏବଂ ବିଷୟବସ୍ତୁ ସ୍ୱତଃ ସର୍ଭରକୁ ପଠାଯିବ। <ph name="LEARN_MORE" /></translation>
 <translation id="123265588161106468">ଆପଣ ସାଇନ ଇନ କରିଥିବା ସମୟରେ Chromiumରେ ଆପଣଙ୍କ Google ଆକାଉଣ୍ଟରୁ ଆପଣଙ୍କ ପାସୱାର୍ଡ ଏବଂ ଆହୁରି ଅନେକ କିଛି ବ୍ୟବହାର କରିପାରିବେ। ଏହାକୁ ପରିବର୍ତ୍ତନ କରିବା ପାଇଁ, “Chromiumରେ ଆପଣଙ୍କ ଆକାଉଣ୍ଟ”କୁ ଯାଆନ୍ତୁ।</translation>
 <translation id="1244381985120794049">Mac ମେନୁ ବାରରେ Chromiumରେ Gemini ଦେଖାନ୍ତୁ</translation>
@@ -229,6 +230,7 @@
 <translation id="3286538390144397061">ଏବେ ରିଷ୍ଟାର୍ଟ କରନ୍ତୁ</translation>
 <translation id="328888136576916638">Google API କୀ'ଗୁଡ଼ିକ ମିଳୁନାହିଁ। Chromiumର କିଛି କାର୍ଯ୍ୟକାରିତାକୁ ଅକ୍ଷମ କରାଯିବ।</translation>
 <translation id="3296368748942286671">ଯେତେବେଳେ Chromium ବନ୍ଦ ରହେ, ସେତେବେଳେ ପୃଷ୍ଠଭୂମିରେ ଥିବା ଆପ୍‍ଗୁଡ଼ିକ ଚଲାଇବା ଜାରି ରଖନ୍ତୁ</translation>
+<translation id="3300632735252839402">ଆପଣ ଦୂରରେ ଥିବା ସମୟରେ Chromium ଅପଡେଟ ହେବ</translation>
 <translation id="3313189106987092621">ଏକ ଅସୁରକ୍ଷିତ କନେକ୍ସନ ବ୍ୟବହାର କରି କୌଣସି ସାଇଟ ଲୋଡ କରିବା ପୂର୍ବରୁ Chromium ଆପଣଙ୍କୁ ଚେତାବନୀ ଦେବ</translation>
 <translation id="3316771292331273802">ଯଦି ଆପଣ Chromiumରେ ସାଇନ ଇନ କରିଛନ୍ତି ତେବେ ଆପଣଙ୍କ Google ଆକାଉଣ୍ଟ ବ୍ୟତୀତ ଆପଣ ସମସ୍ତ Chromium ୱିଣ୍ଡୋକୁ ବନ୍ଦ କଲେ ଆପଣଙ୍କୁ ଅଧିକାଂଶ ସାଇଟରୁ ସାଇନ ଆଉଟ କରାଯିବ। ସାଇଟଗୁଡ଼ିକ ଆପଣଙ୍କୁ ମନେ ରଖିବା ପାଇଁ <ph name="SETTINGS_LINK" />।</translation>
 <translation id="3352986031709923790">ସର୍ଚ୍ଚ ଏରିଆର ଶୀର୍ଷ ଡାହାଣପଟ କୋଣ: ଡାହାଣପଟୁ <ph name="RIGHT" />%, ଶୀର୍ଷରୁ <ph name="TOP" />%</translation>
@@ -237,6 +239,7 @@
 <translation id="3387527074123400161">ChromiumOS</translation>
 <translation id="3406848076815591792">ପୂର୍ବରୁ ଥିବା Chromium ପ୍ରୋଫାଇଲକୁ ସ୍ୱିଚ୍ କରିବେ?</translation>
 <translation id="3412460710772753638">ଏହି ଡିଭାଇସରେ Password Managerରେ</translation>
+<translation id="3425452599984451640">Chromium ଅପଡେଟ କରିବାକୁ ଚାହୁଁଛି</translation>
 <translation id="3427159664004296878"><ph name="DEVICE" />ରୁ ଆପଣଙ୍କ ବୁକମାର୍କ ଏବଂ ଆହୁରି ଅନେକ କିଛି ପାଇବାକୁ Chromiumରେ ସାଇନ ଇନ କରନ୍ତୁ</translation>
 <translation id="3438772217992559640">ଇମେଜ ସର୍ଚ୍ଚ ମାଧ୍ୟମରେ ଏହି ଟାବକୁ ସର୍ଚ୍ଚ କରନ୍ତୁ</translation>
 <translation id="3455907671758333080">ଆପଣଙ୍କ ଫୋନରେ Chromium ସହ ଉନ୍ନତ ସୁରକ୍ଷିତ ବ୍ରାଉଜିଂକୁ ବିସ୍ତାର କରନ୍ତୁ</translation>
@@ -379,6 +382,7 @@
 <translation id="5074496654342756568">ଆପଣଙ୍କ <ph name="DEVICE_TYPE" />ରେ Chromium ମାଧ୍ୟମରେ ଆପଣଙ୍କର ସମସ୍ତ Google ପସନ୍ଦକୁ ଆକ୍ସେସ କରନ୍ତୁ</translation>
 <translation id="5123973130450702873">ଆପଣଙ୍କ ହାତକୁ ଟ୍ରାକ କରିବା ପାଇଁ Chromium ଅନୁମତି ଆବଶ୍ୟକ କରେ</translation>
 <translation id="5141988424377517949">ଆପଣ ବର୍ତ୍ତମାନ ଭିଜିଟ କରିନାହାଁନ୍ତି। Chromium <ph name="PERMISSION_1" />, <ph name="PERMISSION_2" />, <ph name="PERMISSION_3" />କୁ କାଢ଼ି ଦେଇଛି।</translation>
+<translation id="5171868502429358653">Chromiumରେ ସାଇନ୍ ଇନ୍ କରନ୍ତୁ</translation>
 <translation id="5174969993834422967">ଆପଣ ସାଧାରଣତଃ ବିଜ୍ଞପ୍ତିଗୁଡ଼ିକୁ ବ୍ଲକ କରନ୍ତି। ଆପଣଙ୍କୁ ସୂଚିତ କରିବା ପାଇଁ ଏହି ସାଇଟକୁ ଅନୁମତି ଦେବାକୁ ଆପଣଙ୍କ ଲୋକେସନ ବାରର ଡାହାଣ କୋଣରେ ଥିବା ବିଜ୍ଞପ୍ତି ଆଇକନରେ କ୍ଲିକ କରନ୍ତୁ।</translation>
 <translation id="5174983315706567306">ଯଥେଷ୍ଟ ଡିସ୍କ ସ୍ପେସ ନାହିଁ।</translation>
 <translation id="5187123684706427865">Chromium ଆକାଉଣ୍ଟ ପାଇଁ ପୁଣି-ପ୍ରମାଣୀକରଣ ଆବଶ୍ୟକ</translation>
@@ -388,6 +392,7 @@
 <translation id="5249261924633168472">Chromium ଇନକ&amp;ଗ୍ନିଟୋ ୱିଣ୍ଡୋରେ ଲିଙ୍କ ଖୋଲନ୍ତୁ</translation>
 <translation id="5276305953263010518">ଯାତ୍ରା ସମୟରେ ପାସୱାର୍ଡଗୁଡ଼ିକୁ ସେଭ କରିବା ପାଇଁ Chromium ଆପ ପାଆନ୍ତୁ</translation>
 <translation id="5277894862589591112">ଆପଣ କରିଥିବା ପରିବର୍ତ୍ତନଗୁଡ଼ିକୁ ଲାଗୁ କରିବା ପାଇଁ Chromiumକୁ ପୁଣି ଲଞ୍ଚ କରନ୍ତୁ</translation>
+<translation id="5278909220224474621">ଏହି ଟାବକୁ ଅନ୍ୟ ଏକ ଡିଭାଇସକୁ ପଠାଇବା ପାଇଁ ଉଭୟ ଡିଭାଇସରେ Chromiumରେ ସାଇନ ଇନ କରନ୍ତୁ</translation>
 <translation id="5286907366254680517">ଚିହ୍ନଟ କରାଯାଇଛି</translation>
 <translation id="5289287148052354622">Chromium ଆପ ପାଆନ୍ତୁ</translation>
 <translation id="5294316920224716406">ଇନକଗ୍ନିଟୋ ମୋଡରେ ବ୍ରାଉଜ କରିବା ସମୟରେ, ଏକ ଅସୁରକ୍ଷିତ କନେକ୍ସନ ବ୍ୟବହାର କରି କୌଣସି ସାଇଟ ଲୋଡ କରିବା ପୂର୍ବରୁ Chromium ଆପଣଙ୍କୁ ଚେତାବନୀ ଦେବ</translation>
@@ -757,6 +762,7 @@ Chromium ଆପଣଙ୍କ ସେଟିଂସ୍‌କୁ ପୁନରୁଦ୍
 <translation id="8648201657708811153">Google Chrome for Testingକୁ ଆପଣଙ୍କ ଡିଫଲ୍ଟ ବ୍ରାଉଜର କରାଯାଇପାରିବ ନାହିଁ।</translation>
 <translation id="8676101123715131330">ଯେ କୌଣସି ସ୍ଥାନରୁ Chromium ମାଧ୍ୟମରେ ସର୍ଚ୍ଚ କରନ୍ତୁ</translation>
 <translation id="8697124171261953979">ଯେତେବେଳେ ଆପଣ Chromium ଆରମ୍ଭ କରନ୍ତି କିମ୍ବା Omniboxରୁ ସର୍ଚ୍ଚ କରନ୍ତି, ସେତେବେଳେ କେଉଁ ପୃଷ୍ଠା ଦେଖାଯିବ ତାହା ମଧ୍ୟ ଏହା ନିୟନ୍ତ୍ରଣ କରେ।</translation>
+<translation id="8702213505203810093">ଏହି ଟାବକୁ ଅନ୍ୟ ଏକ ଡିଭାଇସକୁ ପଠାଇବା ପାଇଁ ସେଥିରେ Chromiumକୁ ସାଇନ ଇନ କରନ୍ତୁ</translation>
 <translation id="8704119203788522458">ଏହା ହେଉଛି ଆପଣଙ୍କର Chromium</translation>
 <translation id="8712637175834984815">ବୁଝିଗଲି</translation>
 <translation id="8719993436687031146">Chromiumରେ ସାଇନ ଇନ କରିବେ?</translation>

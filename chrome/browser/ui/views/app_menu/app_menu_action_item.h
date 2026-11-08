@@ -19,6 +19,8 @@
 #include "ui/base/models/menu_separator_types.h"
 #include "ui/color/color_id.h"
 
+class AppMenuDragAndDropDelegate;
+
 // Defines action item display types, class properties, and factory functions
 // used across the app menu.
 class AppMenuActionItem {
@@ -43,7 +45,9 @@ class AppMenuActionItem {
   };
 
   enum class ItemHeight {
-    kDefault,
+    kCompact,
+    kMedium,
+    kLarge,
     kExpanded,
   };
 
@@ -56,6 +60,7 @@ class AppMenuActionItem {
     std::optional<bool> is_checkable;
     std::optional<ItemHeight> item_height;
     std::optional<std::u16string> minor_text;
+    std::optional<std::u16string> secondary_text;
     std::optional<int> action_param;
     raw_ptr<const base::Feature> new_badge_feature;
     ui::ElementIdentifier element_id;
@@ -68,14 +73,18 @@ class AppMenuActionItem {
   static const ui::ClassProperty<ui::ImageModel*>* const kIconOverrideKey;
   static const ui::ClassProperty<ui::ImageModel*>* const kMinorIconKey;
   static const ui::ClassProperty<std::u16string*>* const kMinorTextKey;
+  static const ui::ClassProperty<std::u16string*>* const kSecondaryTextKey;
   static const ui::ClassProperty<ui::MenuSeparatorType>* const kSeparatorKey;
   static const ui::ClassProperty<std::u16string*>* const kChipTextKey;
   static const ui::ClassProperty<bool>* const kIsCheckableKey;
+  static const ui::ClassProperty<bool>* const kIsSubmenuKey;
   static const ui::ClassProperty<ItemHeight>* const kItemHeightKey;
   static const ui::ClassProperty<const base::Feature*>* const
       kNewBadgeFeatureKey;
   static const ui::ClassProperty<bool>* const kIsAlertedKey;
   static const ui::ClassProperty<int>* const kActionParamKey;
+  static const ui::ClassProperty<AppMenuDragAndDropDelegate*>* const
+      kDragAndDropDelegateKey;
 
   AppMenuActionItem() = delete;
   AppMenuActionItem(const AppMenuActionItem&) = delete;
@@ -91,7 +100,8 @@ class AppMenuActionItem {
   // Creates the Action Item for the headers of each section in the app menu.
   static std::unique_ptr<actions::ActionItem> CreateHeader(
       std::u16string text,
-      std::optional<ui::ColorId> container_color = std::nullopt);
+      std::optional<ui::ColorId> container_color = std::nullopt,
+      ui::ElementIdentifier element_id = ui::ElementIdentifier());
 
   static std::unique_ptr<actions::ActionItem> CreateDivider(
       ui::MenuSeparatorType separator_type =
@@ -100,6 +110,7 @@ class AppMenuActionItem {
 
 DECLARE_UI_CLASS_PROPERTY_TYPE(AppMenuActionItem::DisplayType)
 DECLARE_UI_CLASS_PROPERTY_TYPE(AppMenuActionItem::ItemHeight)
+DECLARE_UI_CLASS_PROPERTY_TYPE(AppMenuDragAndDropDelegate*)
 DECLARE_UI_CLASS_PROPERTY_TYPE(const base::Feature*)
 DECLARE_UI_CLASS_PROPERTY_TYPE(ui::ImageModel*)
 DECLARE_UI_CLASS_PROPERTY_TYPE(ui::MenuSeparatorType)

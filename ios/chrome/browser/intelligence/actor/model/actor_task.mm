@@ -5,36 +5,38 @@
 #import "ios/chrome/browser/intelligence/actor/model/actor_task.h"
 
 #import <algorithm>
+#import <utility>
 
 #import "base/functional/bind.h"
 #import "base/functional/callback_helpers.h"
-#import "base/ios/crb_protocol_observers.h"
+#import "base/location.h"
 #import "base/strings/string_number_conversions.h"
 #import "base/strings/sys_string_conversions.h"
+#import "base/task/bind_post_task.h"
+#import "base/task/sequenced_task_runner.h"
 #import "base/time/time.h"
 #import "base/timer/timer.h"
 #import "components/actor/core/aggregated_journal.h"
+#import "components/actor/public/mojom/actor_types.mojom.h"
 #import "components/sessions/core/session_id.h"
-#import "ios/chrome/app/background_task/background_continued_processing_task_context.h"
 #import "ios/chrome/browser/intelligence/actor/model/actor_browser_agent.h"
 #import "ios/chrome/browser/intelligence/actor/model/actor_engine.h"
 #import "ios/chrome/browser/intelligence/actor/model/actor_tab_helper.h"
+#import "ios/chrome/browser/intelligence/actor/model/actor_task_background_worker.h"
 #import "ios/chrome/browser/intelligence/actor/model/actor_web_state_policy_decider.h"
+#import "ios/chrome/browser/intelligence/actor/model/posted_observer_list.h"
 #import "ios/chrome/browser/intelligence/actor/public/actor_control_state.h"
 #import "ios/chrome/browser/intelligence/actor/public/actor_task_intervention_delegate.h"
 #import "ios/chrome/browser/intelligence/actor/public/actor_task_updates_observer.h"
 #import "ios/chrome/browser/intelligence/actor/public/actor_types.h"
+#import "ios/chrome/browser/intelligence/actor/tools/model/actor_task_form_filling_handler.h"
 #import "ios/chrome/browser/intelligence/actor/tools/model/actor_tool_factory.h"
 #import "ios/chrome/browser/intelligence/actor/tools/model/actor_tool_request.h"
 #import "ios/chrome/browser/intelligence/actor/tools/utils/logging_util.h"
-#import "ios/chrome/browser/intelligence/features/features.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
 #import "ios/chrome/browser/shared/model/browser/browser_list.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
 #import "ios/chrome/browser/tab_insertion/model/tab_insertion_browser_agent.h"
-#import "ios/web/public/js_messaging/content_world.h"
-#import "ios/web/public/js_messaging/web_frame.h"
-#import "ios/web/public/js_messaging/web_frames_manager.h"
 #import "ios/web/public/web_state.h"
 
 namespace actor {
@@ -47,14 +49,6 @@ constexpr base::TimeDelta kPageLoadTimeout = base::Seconds(7);
 // Default button text for confirmation intervention prompts.
 // TODO(crbug.com/556739755): Localize default button text string.
 NSString* const kDefaultConfirmationButtonText = @"Continue";
-
-// Interval between JavaScript heartbeat pings. Found to be the sweetspot for
-// keeping renderer processes alive & accepting IPC messages (otherwise they
-// drop their keep-alive assertions after about 1 second of inactivity.)
-constexpr base::TimeDelta kHeartbeatInterval = base::Milliseconds(400);
-
-// Minimal zero side effects script executed to generate IPC activity.
-constexpr char16_t kHeartbeatScript[] = u";";
 
 // Returns the string representation of the ActorTaskState.
 std::string ActorTaskStateToString(ActorTaskState state) {
@@ -95,10 +89,49 @@ ActorControlState ControlStateForTaskState(ActorTaskState task_state) {
   }
 }
 
+// Posts `callback` with a single `code` result. Posted so that callers are
+// never re-entered from within `ActorTask::Act()`.
+void PostActReply(ActCallback callback, mojom::ActionResultCode code) {
+  base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+      FROM_HERE, base::BindOnce(std::move(callback), MakeActionResults(code)));
+}
+
+// Sends `observer` the snapshot of a task taken when it registered.
+void SendRegistrationSnapshot(id<ActorTaskUpdatesObserver> observer,
+                              ActorTaskId task_id,
+                              NSString* title,
+                              NSString* task_update,
+                              ActorTaskState state,
+                              NSArray<NSNumber*>* web_state_ids) {
+  // TODO(crbug.com/501043031): Remove the check once `didRegister` is a
+  // required protocol method.
+  if (![observer
+          respondsToSelector:@selector(didRegisterAsObserverForTaskID:taskTitle:
+                                       taskUpdate:currentState:webStates:)]) {
+    return;
+  }
+  [observer didRegisterAsObserverForTaskID:task_id
+                                 taskTitle:title
+                                taskUpdate:task_update
+                              currentState:state
+                                 webStates:web_state_ids];
+}
+
 }  // namespace
+
+#pragma mark - ActorTask::PendingAct
+
+ActorTask::PendingAct::PendingAct(ActCallback callback)
+    : callback(std::move(callback)) {}
+ActorTask::PendingAct::PendingAct(PendingAct&&) = default;
+ActorTask::PendingAct& ActorTask::PendingAct::operator=(PendingAct&&) = default;
+ActorTask::PendingAct::~PendingAct() = default;
+
+#pragma mark - ActorTask
 
 ActorTask::ActorTask(ActorTaskId task_id,
                      const std::string& title,
+                     const TaskSourceInfo& source_info,
                      bool allow_incognito_web_states,
                      AggregatedJournal* journal,
                      ActorToolFactory* tool_factory,
@@ -106,6 +139,7 @@ ActorTask::ActorTask(ActorTaskId task_id,
     : task_id_(task_id),
       browser_list_(browser_list),
       title_(title),
+      source_info_(source_info),
       allow_incognito_web_states_(allow_incognito_web_states),
       journal_(journal),
       tool_factory_(tool_factory) {
@@ -116,25 +150,25 @@ ActorTask::ActorTask(ActorTaskId task_id,
   CHECK(!allow_incognito_web_states_);
   engine_ = std::make_unique<ActorEngine>(/*execution_updates_delegate=*/this,
                                           /*owner_task=*/this);
-  observers_ = static_cast<CRBProtocolObservers<ActorTaskUpdatesObserver>*>(
-      [CRBProtocolObservers
-          observersWithProtocol:@protocol(ActorTaskUpdatesObserver)]);
+  observers_ = [[PostedObserverList alloc]
+      initWithProtocol:@protocol(ActorTaskUpdatesObserver)];
+
+  // TODO(crbug.com/571205137): Inject as dependency.
+  background_worker_ = std::make_unique<ActorTaskBackgroundWorker>(
+      /*delegate=*/this, task_id_, *journal_);
 }
 
 ActorTask::~ActorTask() {
   SetControlStateOnWebStates(ActorControlState::kInactive);
-  SetKeepRenderProcessAliveOnControlledWebStates(/*keep_alive=*/false);
   load_timeout_timer_.Stop();
 
-  StopHeartbeatTimer();
-  FinalizeBackgroundTask(/*success=*/false);
+  // Stops the heartbeat and fails any live background task.
+  background_worker_.reset();
 
   observers_ = nil;
 }
 
 void ActorTask::AddObserver(id<ActorTaskUpdatesObserver> observer) {
-  [observers_ addObserver:observer];
-
   NSMutableArray<NSNumber*>* web_state_ids = [NSMutableArray array];
   for (const auto& web_state_weak : controlled_web_states_) {
     if (web_state_weak) {
@@ -143,19 +177,15 @@ void ActorTask::AddObserver(id<ActorTaskUpdatesObserver> observer) {
     }
   }
 
-  // TODO(crbug.com/501043031): Remove respondsToSelector check when didRegister
-  // becomes a required protocol method.
-  if ([observer respondsToSelector:@selector
-                (didRegisterAsObserverForTaskID:
-                                      taskTitle:taskUpdate:currentState
-                                               :webStates:)]) {
-    [observer didRegisterAsObserverForTaskID:task_id_
-                                   taskTitle:base::SysUTF8ToNSString(title_)
-                                  taskUpdate:base::SysUTF8ToNSString(
-                                                 last_task_update_)
-                                currentState:state_
-                                   webStates:web_state_ids];
-  }
+  const ActorTaskId task_id = task_id_;
+  NSString* title = base::SysUTF8ToNSString(title_);
+  NSString* task_update = base::SysUTF8ToNSString(last_task_update_);
+  const ActorTaskState state = state_;
+  [observers_ addObserver:observer
+             onRegistered:^(id<ActorTaskUpdatesObserver> target) {
+               SendRegistrationSnapshot(target, task_id, title, task_update,
+                                        state, web_state_ids);
+             }];
 }
 
 void ActorTask::RemoveObserver(id<ActorTaskUpdatesObserver> observer) {
@@ -174,19 +204,29 @@ ActorTaskState ActorTask::GetState() const {
 void ActorTask::Act(std::vector<std::unique_ptr<ActorToolRequest>> actions,
                     const std::string& task_update,
                     ActCallback callback) {
-  // TODO(crbug.com/503054406): Check for invalid states.
-  SetState(ActorTaskState::kActing);
+  // TODO(crbug.com/503054406): Reject `Act()` in invalid states (e.g. stopped
+  // with `kTaskWentAway`, paused with `kTaskPaused`, `kWaitingOnUser`).
+  if (pending_act_) {
+    constexpr mojom::ActionResultCode kRejectionCode =
+        mojom::ActionResultCode::kExecutionEngineExistingAction;
+    LogActRejection(*journal_, task_id_, "ActorTask::Act", kRejectionCode);
+    PostActReply(std::move(callback), kRejectionCode);
+    return;
+  }
+
+  pending_act_.emplace(std::move(callback));
   if (!task_update.empty()) {
     last_task_update_ = task_update;
   }
+  SetState(ActorTaskState::kActing);
 
-  UpdateBackgroundTaskSubtitle(task_update);
-  StartHeartbeatTimer();
+  engine_->Act(std::move(actions),
+               base::BindOnce(&ActorTask::OnActCompleted,
+                              weak_ptr_factory_.GetWeakPtr()));
+}
 
-  engine_->Act(
-      std::move(actions),
-      base::BindOnce(&ActorTask::OnActCompleted, weak_ptr_factory_.GetWeakPtr(),
-                     std::move(callback)));
+bool ActorTask::HasPendingAct() const {
+  return pending_act_.has_value();
 }
 
 void ActorTask::AddControlledWebState(web::WebState* web_state) {
@@ -201,9 +241,6 @@ void ActorTask::AddControlledWebState(web::WebState* web_state) {
         {{"web_state_id", base::NumberToString(
                               web_state->GetUniqueIdentifier().identifier())}});
     controlled_web_states_.push_back(web_state->GetWeakPtr());
-    if (!IsTerminalState(state_)) {
-      web_state->SetKeepRenderProcessAlive(/*keep_alive=*/true);
-    }
 
     // Attach a policy decider to intercept and gate implicit navigations
     // (e.g., link clicks, redirects) against origin policies.
@@ -222,10 +259,13 @@ void ActorTask::AddControlledWebState(web::WebState* web_state) {
       tab_helper->SetControlState(ControlStateForTaskState(state_));
     }
 
-    StartHeartbeatTimer();
+    background_worker_->OnWebStateAdded();
 
-    [observers_ actorTaskWithID:task_id_
-                 didAddWebState:web_state->GetUniqueIdentifier()];
+    const ActorTaskId task_id = task_id_;
+    const web::WebStateID web_state_id = web_state->GetUniqueIdentifier();
+    [observers_ postNotification:^(id<ActorTaskUpdatesObserver> observers) {
+      [observers actorTaskWithID:task_id didAddWebState:web_state_id];
+    }];
   }
 }
 
@@ -238,15 +278,19 @@ void ActorTask::Stop(ActorTaskStoppedReason stop_reason) {
   // hardcoding `kCancelled`.
   // `SetState` also transitions the web states to `kInactive` control state.
   SetState(ActorTaskState::kCancelled);
-  SetKeepRenderProcessAliveOnControlledWebStates(/*keep_alive=*/false);
 
-  StopHeartbeatTimer();
   const bool success = stop_reason == ActorTaskStoppedReason::kTaskComplete ||
                        stop_reason == ActorTaskStoppedReason::kStoppedByUser;
-  FinalizeBackgroundTask(success);
+  background_worker_->OnStopped(success);
 
   // TODO(crbug.com/496164697): Implement and test.
-  [observers_ actorTaskDidStopWithID:task_id_ finalState:state_];
+  // TODO(crbug.com/565875367): Remove once observers migrate to
+  // `ActorTaskLifecycleObserver`.
+  const ActorTaskId task_id = task_id_;
+  const ActorTaskState final_state = state_;
+  [observers_ postNotification:^(id<ActorTaskUpdatesObserver> observers) {
+    [observers actorTaskDidStopWithID:task_id finalState:final_state];
+  }];
 }
 
 void ActorTask::Pause(bool from_actor) {
@@ -254,14 +298,16 @@ void ActorTask::Pause(bool from_actor) {
 }
 
 void ActorTask::Resume() {
-  StartHeartbeatTimer();
-
   // TODO(crbug.com/496164697): Implement and test.
 }
 
 void ActorTask::SetInterventionDelegate(
     id<ActorTaskInterventionDelegate> delegate) {
   intervention_delegate_ = delegate;
+  if (engine_) {
+    engine_->GetActorTaskFormFillingHandler()->SetInterventionDelegate(
+        base::PassKey<ActorTask>(), delegate);
+  }
 }
 
 void ActorTask::Interrupt(ActorTaskInterruptReason interrupt_reason,
@@ -302,10 +348,33 @@ void ActorTask::RequestInterruptConfirmation(std::string_view message) {
     Stop(ActorTaskStoppedReason::kBrowserFailure);
     return;
   }
-  void (^completion)(void) = base::CallbackToBlock(
-      base::BindOnce(&ActorTask::OnInterruptConfirmationResolved,
-                     weak_ptr_factory_.GetWeakPtr()));
+  base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+      FROM_HERE,
+      base::BindOnce(&ActorTask::ShowInterruptConfirmation,
+                     weak_ptr_factory_.GetWeakPtr(), std::string(message)));
+}
 
+void ActorTask::ShowInterruptConfirmation(const std::string& message) {
+  // The task may have been stopped or uninterrupted since the request was
+  // posted.
+  if (state_ != ActorTaskState::kWaitingOnUser) {
+    return;
+  }
+  if (!intervention_delegate_) {
+    // TODO(crbug.com/567037054): Stop the task once task-initiated stops are
+    // reported to `ActorService`. Until then, the task keeps waiting on the
+    // user until it is stopped externally.
+    return;
+  }
+  // Posted so that a delegate completing synchronously never re-enters the
+  // task.
+  void (^completion)(void) =
+      base::CallbackToBlock(base::BindPostTaskToCurrentDefault(
+          base::BindOnce(&ActorTask::OnInterruptConfirmationResolved,
+                         weak_ptr_factory_.GetWeakPtr())));
+
+  // Must remain the last statement: the delegate may stop, and thereby
+  // destroy, the task.
   [intervention_delegate_ actorTask:task_id_
       requestUserInterventionWithTitle:base::SysUTF8ToNSString(message)
                               subtitle:nil
@@ -320,7 +389,10 @@ void ActorTask::OnInterruptConfirmationResolved() {
     return;
   }
   Uninterrupt(ActorTaskState::kReflecting);
-  [observers_ actorTaskDidResolveConfirmationInterruptWithID:task_id_];
+  const ActorTaskId task_id = task_id_;
+  [observers_ postNotification:^(id<ActorTaskUpdatesObserver> observers) {
+    [observers actorTaskDidResolveConfirmationInterruptWithID:task_id];
+  }];
 }
 
 void ActorTask::Uninterrupt(ActorTaskState resumed_state) {
@@ -414,15 +486,6 @@ bool ActorTask::allow_incognito_web_states() const {
   return allow_incognito_web_states_;
 }
 
-void ActorTask::SetBackgroundTaskContext(
-    BackgroundContinuedProcessingTaskContext* background_task_context) {
-  if (!IsGeminiActorBackgroundingEnabled()) {
-    return;
-  }
-  background_task_context_ = background_task_context;
-  UpdateBackgroundTaskSubtitle(last_task_update_);
-}
-
 #pragma mark - web::WebStateObserver
 
 void ActorTask::DidStopLoading(web::WebState* web_state) {
@@ -437,9 +500,7 @@ void ActorTask::WebStateDestroyed(web::WebState* web_state) {
   }
   PruneDestroyedWebStates(web_state);
 
-  if (controlled_web_states_.empty()) {
-    StopHeartbeatTimer();
-  }
+  background_worker_->OnWebStateDestroyed();
 }
 
 #pragma mark - Private
@@ -459,16 +520,6 @@ void ActorTask::SetControlStateOnWebStates(ActorControlState control_state) {
   }
 }
 
-void ActorTask::SetKeepRenderProcessAliveOnControlledWebStates(
-    bool keep_alive) {
-  for (const base::WeakPtr<web::WebState>& web_state_weak :
-       controlled_web_states_) {
-    if (web::WebState* web_state = web_state_weak.get()) {
-      web_state->SetKeepRenderProcessAlive(keep_alive);
-    }
-  }
-}
-
 void ActorTask::SetState(ActorTaskState new_state) {
   LogJournalEvent(*journal_, GURL(), task_id_, "ActorTask::SetState",
                   {{"current_state", ActorTaskStateToString(state_)},
@@ -482,26 +533,27 @@ void ActorTask::SetState(ActorTaskState new_state) {
     SetControlStateOnWebStates(new_control_state);
   }
 
-  if (IsTerminalState(new_state)) {
-    StopHeartbeatTimer();
-  }
+  background_worker_->OnStateChanged(new_state);
 
-  [observers_ actorTaskWithID:task_id_
-               didChangeState:new_state
-                    fromState:old_state];
+  const ActorTaskId task_id = task_id_;
+  [observers_ postNotification:^(id<ActorTaskUpdatesObserver> observers) {
+    [observers actorTaskWithID:task_id
+                didChangeState:new_state
+                     fromState:old_state];
+  }];
 }
 
-void ActorTask::OnActCompleted(ActCallback callback,
-                               std::vector<ActionResult> results) {
+void ActorTask::OnActCompleted(std::vector<ActionResult> results) {
+  // `Act()` registers `pending_act_` before starting the engine, and only
+  // `FinishAct()` clears it.
+  CHECK(pending_act_);
   // TODO(crbug.com/503054406): Check for tool errors.
 
   if (ObserveLoadingWebStates()) {
-    DeferActCompletion(std::move(callback), std::move(results));
+    DeferActCompletion(std::move(results));
     return;
   }
-
-  SetState(ActorTaskState::kReflecting);
-  std::move(callback).Run(std::move(results));
+  FinishAct(std::move(results));
 }
 
 bool ActorTask::ObserveLoadingWebStates() {
@@ -515,14 +567,34 @@ bool ActorTask::ObserveLoadingWebStates() {
   return scoped_web_state_observations_.IsObservingAnySource();
 }
 
-void ActorTask::DeferActCompletion(ActCallback callback,
-                                   std::vector<ActionResult> results) {
-  deferred_act_callback_ =
-      base::BindOnce(std::move(callback), std::move(results));
+void ActorTask::DeferActCompletion(std::vector<ActionResult> results) {
+  pending_act_->deferred_results = std::move(results);
 
   load_timeout_timer_.Start(FROM_HERE, kPageLoadTimeout,
                             base::BindOnce(&ActorTask::OnPageLoadedTimeout,
                                            weak_ptr_factory_.GetWeakPtr()));
+}
+
+void ActorTask::FinishAct(std::vector<ActionResult> results) {
+  // Detached before replying so that an `Act()` issued from the callback is
+  // accepted.
+  ActCallback callback = std::move(pending_act_->callback);
+  pending_act_.reset();
+  // Not bound to the task so that the caller is always answered, even if the
+  // task is destroyed before the reply is delivered. Posted before the state
+  // notification so that the caller sees the result before observers see the
+  // transition.
+  base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+      FROM_HERE, base::BindOnce(std::move(callback), std::move(results)));
+  SetState(ActorTaskState::kReflecting);
+}
+
+void ActorTask::FinishDeferredAct() {
+  // Load observations and the timeout only exist after `DeferActCompletion()`,
+  // and are cleared before `FinishAct()` resets `pending_act_`.
+  CHECK(pending_act_);
+  CHECK(pending_act_->deferred_results);
+  FinishAct(std::move(*pending_act_->deferred_results));
 }
 
 void ActorTask::OnWebStateFinishedLoading(web::WebState* web_state) {
@@ -535,32 +607,29 @@ void ActorTask::OnWebStateFinishedLoading(web::WebState* web_state) {
     return;
   }
 
-  // Stop the timeout and execute the deferred callback since no more observed
+  // Stop the timeout and finish the deferred `Act()` since no more observed
   // WebStates are still loading.
   load_timeout_timer_.Stop();
-  SetState(ActorTaskState::kReflecting);
-  if (deferred_act_callback_) {
-    std::move(deferred_act_callback_).Run();
-  }
+  FinishDeferredAct();
 }
 
 void ActorTask::OnPageLoadedTimeout() {
   scoped_web_state_observations_.RemoveAllObservations();
-
-  SetState(ActorTaskState::kReflecting);
-  if (deferred_act_callback_) {
-    std::move(deferred_act_callback_).Run();
-  }
+  FinishDeferredAct();
 }
 
 void ActorTask::OnWillExecuteTool(ToolType tool_type,
                                   web::WebStateID web_state_id) {
-  UpdateBackgroundTaskProgress();
+  background_worker_->OnWillExecuteTool();
 
-  [observers_ actorTaskWithID:task_id_
-              willExecuteTool:tool_type
-                   taskUpdate:base::SysUTF8ToNSString(last_task_update_)
-                   onWebState:web_state_id];
+  const ActorTaskId task_id = task_id_;
+  NSString* task_update = base::SysUTF8ToNSString(last_task_update_);
+  [observers_ postNotification:^(id<ActorTaskUpdatesObserver> observers) {
+    [observers actorTaskWithID:task_id
+               willExecuteTool:tool_type
+                    taskUpdate:task_update
+                    onWebState:web_state_id];
+  }];
 }
 
 Browser* ActorTask::GetBrowserForWindowId(int32_t window_id) const {
@@ -591,105 +660,35 @@ void ActorTask::OnNavigationBlocked(mojom::ActionResultCode code) {
   if (engine_) {
     engine_->FailCurrentTool(code);
   }
-}
-
-void ActorTask::UpdateBackgroundTaskSubtitle(const std::string& task_update) {
-  if (!background_task_context_ || task_update.empty()) {
-    return;
-  }
-  NSString* subtitle = base::SysUTF8ToNSString(task_update);
-  if ([background_task_context_.subtitle isEqualToString:subtitle]) {
-    return;
-  }
-  background_task_context_.subtitle = subtitle;
-}
-
-void ActorTask::UpdateBackgroundTaskProgress() {
-  if (background_task_context_) {
-    [background_task_context_ incrementStepProgress];
+  if (pending_act_ && pending_act_->deferred_results &&
+      !pending_act_->deferred_results->empty()) {
+    pending_act_->deferred_results->back() =
+        ActionResult(ToolExecutionResult(code));
   }
 }
 
-void ActorTask::FinalizeBackgroundTask(bool success) {
-  if (!background_task_context_) {
-    return;
-  }
+#pragma mark - ActorTaskBackgroundWorker::TaskStateDelegate
 
-  if (!background_task_context_.completed) {
-    [background_task_context_ setTaskCompletedWithSuccess:success];
-  }
-  background_task_context_ = nil;
-}
-
-void ActorTask::StartHeartbeatTimer() {
-  if (!IsGeminiActorBackgroundingEnabled()) {
-    return;
-  }
-
-  if (IsTerminalState(state_)) {
-    return;
-  }
-
-  if (heartbeat_timer_.IsRunning()) {
-    return;
-  }
-
+std::vector<web::WebState*> ActorTask::GetControlledWebStates() {
   PruneDestroyedWebStates();
-  if (controlled_web_states_.empty()) {
-    return;
-  }
-
-  heartbeat_timer_.Start(FROM_HERE, kHeartbeatInterval,
-                         base::BindRepeating(&ActorTask::SendHeartbeatPing,
-                                             weak_ptr_factory_.GetWeakPtr()));
-}
-
-void ActorTask::StopHeartbeatTimer() {
-  heartbeat_timer_.Stop();
-}
-
-void ActorTask::SendHeartbeatPing() {
-  PruneDestroyedWebStates();
-  if (controlled_web_states_.empty()) {
-    StopHeartbeatTimer();
-    return;
-  }
-
+  std::vector<web::WebState*> web_states;
   for (const base::WeakPtr<web::WebState>& web_state_weak :
        controlled_web_states_) {
-    web::WebState* web_state = web_state_weak.get();
-    if (!web_state) {
-      continue;
-    }
-
-    web::WebFramesManager* frames_manager =
-        web_state->GetWebFramesManager(web::ContentWorld::kIsolatedWorld);
-    if (!frames_manager) {
-      continue;
-    }
-
-    web::WebFrame* main_frame = frames_manager->GetMainWebFrame();
-    if (!main_frame) {
-      continue;
-    }
-
-    main_frame->ExecuteJavaScript(
-        kHeartbeatScript, base::BindOnce(&ActorTask::OnHeartbeatPingResponse,
-                                         weak_ptr_factory_.GetWeakPtr(),
-                                         web_state->GetUniqueIdentifier()));
+    web_states.push_back(web_state_weak.get());
   }
+  return web_states;
 }
 
-void ActorTask::OnHeartbeatPingResponse(web::WebStateID web_state_id,
-                                        const base::Value* /*result*/,
-                                        NSError* error) {
-  if (error) {
-    LogJournalEvent(
-        *journal_, GURL(), task_id_, "ActorTask::HeartbeatPingFailed",
-        {{"web_state_id", base::NumberToString(web_state_id.identifier())},
-         {"error_domain", base::SysNSStringToUTF8(error.domain)},
-         {"error_code", base::NumberToString(error.code)}});
-  }
+ActorTaskState ActorTask::GetTaskState() const {
+  return state_;
+}
+
+const std::string& ActorTask::GetTaskTitle() const {
+  return title_;
+}
+
+const std::string& ActorTask::GetLastTaskUpdate() const {
+  return last_task_update_;
 }
 
 }  // namespace actor

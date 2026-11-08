@@ -12,7 +12,7 @@
 #include "base/test/scoped_feature_list.h"
 #include "base/timer/elapsed_timer.h"
 #include "build/build_config.h"
-#include "chrome/browser/page_load_metrics/chrome_initiator_location.h"
+#include "chrome/browser/page_load_metrics/chrome_navigation_initiator.h"
 #include "chrome/browser/preloading/chrome_preloading.h"
 #include "chrome/browser/preloading/new_tab_page_preload/new_tab_page_preload_pipeline_manager.h"
 #include "chrome/browser/preloading/preloading_prefs.h"
@@ -23,13 +23,12 @@
 #include "chrome/browser/preloading/prerender/search_preload_progress_test_utils.h"
 #include "chrome/browser/preloading/scoped_prewarm_feature_list.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/test/base/chrome_test_utils.h"
 #include "chrome/test/base/platform_browser_test.h"
-#include "components/page_load_metrics/browser/navigation_handle_user_data.h"
+#include "components/page_load_metrics/browser/navigation_initiator.h"
 #include "components/prefs/pref_service.h"
 #include "content/public/browser/devtools_agent_host.h"
 #include "content/public/common/content_features.h"
@@ -758,13 +757,12 @@ class PrerenderNewTabPageBrowserTest
         content::OpenURLParams::CreateBrowserInitiated(
             url, WindowOpenDisposition::CURRENT_TAB,
             ui::PageTransitionFromInt(ui::PAGE_TRANSITION_AUTO_BOOKMARK)),
-        base::BindRepeating(&AttachNewTabPageNavigationHandleUserData));
+        page_load_metrics::NavigationInitiatorHolder::AttacherCallback(
+            chrome_navigation_initiator::kNewTabPage));
   }
 
-  void ExpectPrerenderPageLoad(
-      const GURL& prerender_url,
-      page_load_metrics::NavigationHandleUserData::InitiatorLocation
-          initiator_location) {
+  void ExpectPrerenderPageLoad(const GURL& prerender_url,
+                               int64_t initiator_id) {
     auto entries =
         test_ukm_recorder()->GetMergedEntriesByName("PrerenderPageLoad");
     for (auto& kv : entries) {
@@ -781,7 +779,7 @@ class PrerenderNewTabPageBrowserTest
       test_ukm_recorder()->ExpectEntryMetric(
           entry,
           ukm::builders::PrerenderPageLoad::kNavigation_InitiatorLocationName,
-          static_cast<int>(initiator_location));
+          initiator_id);
       return;
     }
     EXPECT_TRUE(false) << "PrerenderPageLoad hasn't been recorded.";
@@ -835,9 +833,8 @@ IN_PROC_BROWSER_TEST_F(PrerenderNewTabPageBrowserTest,
   histogram_tester.ExpectTotalCount(
       "NewTabPage.PrerenderNavigationToActivation", 1);
 
-  ExpectPrerenderPageLoad(
-      prerender_url,
-      GetInitiatorLocation(ChromeInitiatorLocation::kNewTabPage));
+  ExpectPrerenderPageLoad(prerender_url,
+                          chrome_navigation_initiator::kNewTabPage.id());
   histogram_tester.ExpectUniqueSample(
       "Prerender.IsPrerenderingSRPUrl.Embedder_NewTabPage", false, 1);
 }
@@ -1046,7 +1043,8 @@ class PrerenderPrewarmDefaultSearchEngineTest
             GURL(url::kAboutBlankURL),
             WindowOpenDisposition::NEW_FOREGROUND_TAB,
             ui::PageTransitionFromInt(ui::PAGE_TRANSITION_AUTO_BOOKMARK)),
-        base::BindRepeating(&AttachNewTabPageNavigationHandleUserData));
+        page_load_metrics::NavigationInitiatorHolder::AttacherCallback(
+            chrome_navigation_initiator::kNewTabPage));
     content::WebContents* new_web_contents = GetActiveWebContents();
     EXPECT_TRUE(new_web_contents);
     EXPECT_NE(new_web_contents, original_web_contents);

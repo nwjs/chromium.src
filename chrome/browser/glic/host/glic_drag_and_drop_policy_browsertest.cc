@@ -203,10 +203,7 @@ IN_PROC_BROWSER_TEST_P(GlicDragAndDropPolicyTest, testDragAndDropDlpBlocked) {
 
 // Linux does not natively support direct in-memory FileContents retrieval
 // inside OSExchangeData.
-// Web-to-Glic drag-and-drop is fully supported on macOS, Windows, and
-// ChromeOS. On Windows, this test is currently disabled due to test simulation
-// flakiness in headless CI runners.
-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_WIN)
+#if BUILDFLAG(IS_LINUX)
 #define MAYBE_testWebToGlicDragDlpBlocked DISABLED_testWebToGlicDragDlpBlocked
 #else
 #define MAYBE_testWebToGlicDragDlpBlocked testWebToGlicDragDlpBlocked
@@ -264,38 +261,10 @@ IN_PROC_BROWSER_TEST_P(GlicDragAndDropPolicyTest,
             &drag_and_drop_test_utils::DragStartWaiter::ReleaseDrag,
             base::Unretained(&waiter)));
 
-        std::unique_ptr<ui::OSExchangeData> task_data =
-            waiter.TakeCapturedData();
-
-        // Create a clean OSExchangeData to avoid duplicate format registry
-        // crashes.
-        auto augmented_data = std::make_unique<ui::OSExchangeData>();
-
-        // Package the raw file contents bytes directly.
-        augmented_data->SetFileContents(
-            base::FilePath(FILE_PATH_LITERAL("cors-allowed.jpg")),
-            base::as_byte_span(
-                "This content should be blocked by DLP policy."));
-
-        augmented_data->SetURL(embedded_test_server()->GetURL(
-                                   "a.com", "/drag_and_drop/cors-allowed.jpg"),
-                               u"cors-allowed.jpg");
-
-        // Clone the bespoke Chrome drag ID from Blink's payload.
-        if (std::optional<base::UnguessableToken> drag_id =
-                task_data->GetChromeDragId()) {
-          augmented_data->SetChromeDragId(*drag_id);
-        }
-
-        if (task_data->GetSource()) {
-          augmented_data->SetSource(std::make_unique<ui::DataTransferEndpoint>(
-              *task_data->GetSource()));
-        }
-
-        // Programmatically simulate Glic host DragEnter. Glic successfully
-        // resolves the drag ID.
+        // Programmatically simulate Glic host DragEnter with Blink's real
+        // captured drag data. Glic successfully resolves the drag ID.
         ASSERT_TRUE(simulator.SimulateDragEnter(host_relative_point,
-                                                std::move(augmented_data)));
+                                                waiter.TakeCapturedData()));
 
         // Programmatically simulate Glic host Drop. DLP scanning intercepts it.
         ASSERT_TRUE(simulator.SimulateDrop(host_relative_point));
@@ -322,7 +291,7 @@ IN_PROC_BROWSER_TEST_P(GlicDragAndDropPolicyTest,
   EXPECT_OK(RunUntilEqual(
       [&]() {
         return histogram_tester.GetBucketCount(
-            "Glic.InvokeResult.WebDragDrop",
+            "Glic.InvokeResult2.WebDragDrop",
             static_cast<int>(
                 GlicInvokeError::kAdditionalContextFailedPastePolicy));
       },

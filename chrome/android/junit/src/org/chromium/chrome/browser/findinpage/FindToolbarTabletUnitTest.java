@@ -62,9 +62,9 @@ public class FindToolbarTabletUnitTest {
     @Mock private TabModelSelector mTabModelSelector;
     @Mock private Tab mTab;
     @Mock private WebContents mWebContents;
-    @Mock private View mAnchorView;
     @Mock private WindowAndroid mWindowAndroid;
 
+    private View mAnchorView;
     private FindToolbarTablet mFindToolbarTablet;
     private int mBaseMarginEndPx;
     private int mYInsetPx;
@@ -75,6 +75,7 @@ public class FindToolbarTabletUnitTest {
 
         Activity activity = Robolectric.buildActivity(Activity.class).get();
         activity.setTheme(R.style.Theme_BrowserUI_DayNight);
+        mAnchorView = new View(activity);
 
         mFindToolbarTablet =
                 (FindToolbarTablet)
@@ -186,7 +187,7 @@ public class FindToolbarTabletUnitTest {
 
     @Test
     public void testTopMargin_withHorizontalTabStrip() {
-        when(mAnchorView.getBottom()).thenReturn(HTS_TOOLBAR_BOTTOM_PX);
+        mAnchorView.layout(0, 0, 0, HTS_TOOLBAR_BOTTOM_PX);
         mFindToolbarTablet.setAnchorView(mAnchorView);
         mFindToolbarTablet.setVisibility(View.GONE);
         mFindToolbarTablet.handleActivate();
@@ -197,7 +198,7 @@ public class FindToolbarTabletUnitTest {
 
     @Test
     public void testTopMargin_withVerticalTabs() {
-        when(mAnchorView.getBottom()).thenReturn(VT_TOOLBAR_BOTTOM_PX);
+        mAnchorView.layout(0, 0, 0, VT_TOOLBAR_BOTTOM_PX);
         mFindToolbarTablet.setAnchorView(mAnchorView);
         mFindToolbarTablet.setVisibility(View.GONE);
         mFindToolbarTablet.handleActivate();
@@ -209,7 +210,7 @@ public class FindToolbarTabletUnitTest {
     @Test
     public void testTopMarginAndSideUi_withVerticalTabs() {
         // Vertical Tabs suppresses HTS (height = 56px) and opens on LEFT anchor side in LTR.
-        when(mAnchorView.getBottom()).thenReturn(VT_TOOLBAR_BOTTOM_PX);
+        mAnchorView.layout(0, 0, 0, VT_TOOLBAR_BOTTOM_PX);
         mFindToolbarTablet.setAnchorView(mAnchorView);
 
         Map<@AnchorSide Integer, SideUiSize> map = new ArrayMap<>();

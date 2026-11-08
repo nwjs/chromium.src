@@ -193,6 +193,7 @@ GlicInstanceMetrics::GlicInstanceMetrics(
       saas_usage_reporting_controller_(nullptr),
       profile_(profile),
       pref_service_(profile ? profile->GetPrefs() : nullptr) {
+  CHECK(profile);
   // Used in the unit tests.
   base::RecordAction(base::UserMetricsAction("Glic.Instance.Created"));
   activity_tracker_ = std::make_unique<GlicStateTracker>(
@@ -223,6 +224,7 @@ GlicInstanceMetrics::GlicInstanceMetrics(
       saas_usage_reporting_controller_(saas_usage_reporting_controller),
       profile_(profile),
       pref_service_(profile ? profile->GetPrefs() : nullptr) {
+  CHECK(profile);
   base::RecordAction(base::UserMetricsAction("Glic.Instance.Created"));
   activity_tracker_ = std::make_unique<GlicStateTracker>(
       false, "Glic.Instance.UninterruptedActiveDuration");
@@ -337,11 +339,6 @@ void GlicInstanceMetrics::OnInstanceDestroyed() {
                                 hidden_time, base::Milliseconds(1),
                                 base::Hours(24), 50);
 
-  base::UmaHistogramCustomTimes("Glic.Instance.LifetimeDuration", lifetime,
-                                base::Milliseconds(1), base::Hours(24), 50);
-  base::UmaHistogramCustomTimes("Glic.Instance.LifetimeDuration.Max21Days",
-                                lifetime, base::Milliseconds(1), base::Days(21),
-                                50);
   base::UmaHistogramCounts100("Glic.Instance.TotalTabsBoundInLifetime",
                               GetEventCount(GlicInstanceEvent::kTabBound));
   base::UmaHistogramCounts100("Glic.Instance.MaxConcurrentlyBoundTabs",
@@ -397,10 +394,18 @@ void GlicInstanceMetrics::OnActivationChanged(bool is_active) {
 
 void GlicInstanceMetrics::OnVisibilityChanged(bool is_visible) {
   session_manager_.OnVisibilityChanged(is_visible);
-  if (visibility_tracker_->state() && !is_visible) {
+  const bool was_visible = visibility_tracker_->state();
+  visibility_tracker_->OnStateChanged(is_visible);
+  if (was_visible && !is_visible) {
     OnInstanceHidden();
   }
-  visibility_tracker_->OnStateChanged(is_visible);
+  if (!was_visible && is_visible &&
+      guest_actionable_.frame_submitted_while_hidden &&
+      !actionable_invocation_state_.start_time.is_null()) {
+    // The guest's frame was ready while the panel was briefly hidden; it's on
+    // screen as soon as the panel is shown again.
+    RecordTimeToActionable(base::TimeTicks::Now());
+  }
   MaybeRecordOptInImpression();
 }
 
@@ -475,11 +480,9 @@ void GlicInstanceMetrics::OnShowInSidePanel(tabs::TabInterface* tab) {
   if (!tab) {
     return;
   }
-  if (!initial_invocation_source_.has_value()) {
-    // If a side panel is opened outside of the ToggleFlow (e.g. for daisy
-    // chaining on new tab) we would log the default value "Unsupported".
-    initial_invocation_source_ = last_invocation_source_;
-  }
+  // Invocation source should always already be set by the time this is
+  // called. Left as defensive measure.
+  MaybeSetInitialInvocationSource(last_invocation_source_);
 
   if (side_panel_open_times_.contains(tab->GetHandle())) {
     base::UmaHistogramEnumeration(
@@ -516,10 +519,27 @@ void GlicInstanceMetrics::OnShowInSidePanel(tabs::TabInterface* tab) {
   }
 }
 
-void GlicInstanceMetrics::OnShowInactiveSidePanel(
-    mojom::InvocationSource invocation_source) {
-  if (!initial_invocation_source_.has_value()) {
-    initial_invocation_source_ = invocation_source;
+void GlicInstanceMetrics::MaybeSetInitialInvocationSource(
+    mojom::InvocationSource source) {
+  if (initial_invocation_source_.has_value()) {
+    return;
+  }
+  initial_invocation_source_ = source;
+
+  // Backfill events that happened before the initial invocation source was set.
+  const std::string source_str = GetInvocationSourceString(source);
+  const std::string event_counts_histogram =
+      base::StrCat({"Glic.InvocationSource.", source_str, ".EventCounts"});
+  const std::string had_event_histogram =
+      base::StrCat({"Glic.InvocationSource.", source_str, ".HadEvent"});
+  for (const auto& [event, count] : event_counts_) {
+    if (count <= 0) {
+      continue;
+    }
+    base::UmaHistogramEnumeration(had_event_histogram, event);
+    for (int i = 0; i < count; ++i) {
+      base::UmaHistogramEnumeration(event_counts_histogram, event);
+    }
   }
 }
 
@@ -781,6 +801,9 @@ void GlicInstanceMetrics::OnClose() {
   }
   MaybeRecordTimeToDismissWhileLoading();
   invocation_load_state_ = {};
+  actionable_invocation_state_ = {};
+  // A frame submitted during this invocation is stale for the next one.
+  guest_actionable_.frame_submitted_while_hidden = false;
 }
 
 bool GlicInstanceMetrics::MarkShownAndCheckIfFirstTime(EmbedderKey key) {
@@ -795,29 +818,40 @@ void GlicInstanceMetrics::ResetShownState(EmbedderKey key) {
 
 void GlicInstanceMetrics::OnOpen(glic::mojom::InvocationSource source,
                                  const ShowOptions& options) {
+  const base::TimeTicks now = base::TimeTicks::Now();
+  const EmbedderType embedder_type = GetEmbedderTypeFromShowOptions(options);
   if (!is_client_ready_) {
-    invocation_load_state_ = {
-        .start_time = base::TimeTicks::Now(),
-        .embedder_type = GetEmbedderTypeFromShowOptions(options),
-        .has_logged_dismiss_while_loading = false,
-    };
+    if (invocation_load_state_.start_time.is_null()) {
+      invocation_load_state_.start_time = now;
+      invocation_load_state_.has_logged_dismiss_while_loading = false;
+    }
+    invocation_load_state_.embedder_type = embedder_type;
+  }
+  if (IsWaitingForActionable()) {
+    if (actionable_invocation_state_.start_time.is_null()) {
+      actionable_invocation_state_.start_time = now;
+    }
+    actionable_invocation_state_.embedder_type = embedder_type;
   }
   last_invocation_source_ = source;
 
-  // 1. Log Events
-  LogEvent(GlicInstanceEvent::kOpen);
-
-  // 2. Log Initial Invocation Source
+  // 1. Log Initial Invocation Source
   if (!did_open_) {
     did_open_ = true;
     // Don't overwrite initial invocation source if it was set due to being
     // invoked in the background.
-    if (!initial_invocation_source_.has_value()) {
-      initial_invocation_source_ = source;
-    }
+    MaybeSetInitialInvocationSource(source);
     base::UmaHistogramEnumeration("Glic.Instance.InitialInvocationSource",
                                   *initial_invocation_source_);
+    if (!GlicEnabling::HasConsentedForProfile(profile_)) {
+      base::UmaHistogramEnumeration("Glic.Fre.Invoked.InvocationSource",
+                                    *initial_invocation_source_);
+      base::RecordAction(base::UserMetricsAction("Glic.Fre.Invoked"));
+    }
   }
+
+  // 2. Log Events
+  LogEvent(GlicInstanceEvent::kOpen);
 
   // 3. Record Actions
   base::RecordAction(base::UserMetricsAction("Glic.Instance.Open"));
@@ -1078,6 +1112,72 @@ void GlicInstanceMetrics::OnClientReady() {
                                   base::Milliseconds(1), base::Seconds(60), 50);
   }
   invocation_load_state_ = {};
+}
+
+void GlicInstanceMetrics::OnGuestActionableMarkObserved(
+    base::TimeTicks mark_time) {
+  if (guest_actionable_.actionable_mark_time.has_value()) {
+    return;
+  }
+  guest_actionable_.actionable_mark_time = mark_time;
+  const bool is_visible =
+      visibility_tracker_ ? visibility_tracker_->state() : false;
+  // When the panel is visible, active TimeToActionable waits for
+  // OnGuestFrameSubmitted() so it includes the compositor frame that renders
+  // the actionable state. When the panel was hidden before the mark arrived
+  // (but not yet closed), no visible frame will be produced, so record the
+  // Inactive variant immediately using the mark's timestamp.
+  if (!is_visible && !actionable_invocation_state_.start_time.is_null() &&
+      mark_time >= actionable_invocation_state_.start_time) {
+    RecordTimeToActionable(mark_time);
+  }
+}
+
+void GlicInstanceMetrics::OnGuestFrameSubmitted() {
+  const bool is_visible =
+      visibility_tracker_ ? visibility_tracker_->state() : false;
+  if (is_visible) {
+    RecordTimeToActionable(base::TimeTicks::Now());
+  } else if (!actionable_invocation_state_.start_time.is_null()) {
+    // `InsertVisualStateCallback` is requested while the guest is mounted and
+    // visible, but the renderer's compositor frame can arrive after the panel
+    // was hidden (during the 500ms hide-to-close debounce, while the guest is
+    // still mounted). Remember it so if the user shows the panel again before
+    // OnClose(), we still record when it appears on screen.
+    guest_actionable_.frame_submitted_while_hidden = true;
+  }
+}
+
+void GlicInstanceMetrics::OnGuestReset() {
+  guest_actionable_ = {};
+}
+
+bool GlicInstanceMetrics::IsWaitingForActionable() const {
+  return !guest_actionable_.recorded;
+}
+
+void GlicInstanceMetrics::RecordTimeToActionable(base::TimeTicks end_time) {
+  if (guest_actionable_.recorded) {
+    return;
+  }
+  guest_actionable_.recorded = true;
+  if (actionable_invocation_state_.start_time.is_null()) {
+    return;
+  }
+
+  base::TimeDelta actionable_time =
+      end_time - actionable_invocation_state_.start_time;
+  if (actionable_invocation_state_.embedder_type != EmbedderType::kUnknown) {
+    bool is_visible =
+        visibility_tracker_ ? visibility_tracker_->state() : false;
+    std::string_view inactive_str = is_visible ? "" : "Inactive.";
+    std::string histogram_name = base::StrCat(
+        {"Glic.Instance.TimeToActionable.", inactive_str,
+         GetEmbedderTypeString(actionable_invocation_state_.embedder_type)});
+    base::UmaHistogramCustomTimes(histogram_name, actionable_time,
+                                  base::Milliseconds(1), base::Seconds(60), 50);
+  }
+  actionable_invocation_state_ = {};
 }
 
 void GlicInstanceMetrics::LogEvent(GlicInstanceEvent event) {

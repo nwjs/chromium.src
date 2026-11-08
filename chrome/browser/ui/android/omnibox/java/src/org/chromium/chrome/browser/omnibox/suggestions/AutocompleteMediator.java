@@ -11,6 +11,7 @@ import android.animation.AnimatorListenerAdapter;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
+import android.os.Build;
 import android.os.Handler;
 import android.os.SystemClock;
 import android.text.TextUtils;
@@ -285,7 +286,8 @@ class AutocompleteMediator
         mLifecycleDispatcher = lifecycleDispatcher;
         mLifecycleDispatcher.register(this);
         Activity activity = windowAndroid.getActivity().get();
-        mActivityWindowFocused = (activity != null && activity.hasWindowFocus());
+        mActivityWindowFocused =
+                isXiaomiDevice() || (activity != null && activity.hasWindowFocus());
         mDeferredIMEWindowInsetApplicationCallback = deferredIMEWindowInsetApplicationCallback;
         mUiOverrides = uiOverrides;
         mUiOverrides
@@ -421,7 +423,7 @@ class AutocompleteMediator
     /**
      * Specifies the visual state to be used by the suggestions.
      *
-     * @param brandedColorScheme The {@link @BrandedColorScheme}.
+     * @param brandedColorScheme The {@link BrandedColorScheme}.
      */
     void updateVisualsForState(@BrandedColorScheme int brandedColorScheme) {
         @FuseboxLayoutMode int fuseboxLayoutMode = getFuseboxLayoutMode();
@@ -631,7 +633,7 @@ class AutocompleteMediator
                             if (mAutocompleteInput == null
                                     || mAutocompleteInput.getAutocompleteState()
                                             != AutocompleteState.STANDBY_NO_FOCUS) {
-                                mDelegate.setKeyboardVisibility(true, false);
+                                mDelegate.setKeyboardVisibility(true);
                             }
                         }
                     }
@@ -1088,7 +1090,9 @@ class AutocompleteMediator
         // - the user amends the input (by typing), or
         // - the user accepts the input (by pressing Enter).
         // for that reason this logic should not apply UserText.
-        mDelegate.setOmniboxEditingText(stripKeywordIfNecessary(text));
+        String strippedText = stripKeywordIfNecessary(text);
+        mAutocompleteInput.setPreviewText(strippedText);
+        mDelegate.setOmniboxEditingText(strippedText);
         if (suggestion != null) {
             mAutocompleteInput.setPreviewMatchUrl(getPreviewMatchUrl(suggestion));
         }
@@ -1469,7 +1473,9 @@ class AutocompleteMediator
         mShouldPreventOmniboxAutocomplete = false;
 
         if (siteSearchData != null) {
-            if (!isPreview) {
+            if (isPreview) {
+                stopAutocomplete(AutocompleteStopReason.INTERACTION);
+            } else {
                 onInputChanged();
             }
         } else {
@@ -1510,7 +1516,8 @@ class AutocompleteMediator
     boolean shouldAnimateFuseboxPopover() {
         return mFuseboxCoordinator.getFuseboxStateSupplier().get() != FuseboxState.DISABLED
                 && mEmbedder.isWideWindow()
-                && !OmniboxCapabilities.isDesktopPlatform();
+                && !OmniboxCapabilities.isDesktopPlatform()
+                && (mAutocompleteInput == null || !mAutocompleteInput.isStandby());
     }
 
     private @FuseboxLayoutMode int getFuseboxLayoutMode() {
@@ -1724,6 +1731,7 @@ class AutocompleteMediator
             boolean openInNewTab,
             boolean openInNewWindow,
             boolean openInBackground) {
+        mOmniboxFocusResultedInNavigation = true;
         Callback<GURL> onUrlReady =
                 (finalUrl) -> {
                     mDelegate.loadUrl(
@@ -2070,7 +2078,7 @@ class AutocompleteMediator
     public void onSuggestionDropdownScroll() {
         if (mAutocompleteInput == null) return;
         mAutocompleteInput.setSuggestionsListScrolled();
-        mDelegate.setKeyboardVisibility(false, false);
+        mDelegate.setKeyboardVisibility(false);
     }
 
     /**
@@ -2125,7 +2133,7 @@ class AutocompleteMediator
 
     @Override
     public void onSuggestionDropdownOverscrolledToTop() {
-        mDelegate.setKeyboardVisibility(true, false);
+        mDelegate.setKeyboardVisibility(true);
     }
 
     /**
@@ -2276,6 +2284,8 @@ class AutocompleteMediator
 
     @Override
     public void onTopResumedActivityChanged(boolean isTopResumedActivity) {
+        if (isXiaomiDevice()) return;
+
         mActivityWindowFocused = isTopResumedActivity;
         boolean showSuggestionsContainer = isTopResumedActivity;
 
@@ -2335,7 +2345,10 @@ class AutocompleteMediator
         // pressing the home screen, or, in windowed/split screen mode, user interacting with a
         // different app. This gives us enough head room to retrieve and cache relevant information.
         // Note: onPause and onUserLeaveHint happen much too late.
-        if (!OmniboxFeatures.isJumpStartOmniboxEnabled()) return;
+        if (!OmniboxFeatures.isJumpStartOmniboxEnabled()
+                || !OmniboxFeatures.sServeJavaCachedZeroSuggest.isEnabled()) {
+            return;
+        }
 
         // Abort early if Autocomplete has not initialized yet.
         if (!isInInputSession()) return;
@@ -2379,6 +2392,15 @@ class AutocompleteMediator
         if (mFuseboxAttachmentModelList != null) {
             mFuseboxAttachmentModelList.addAttachmentChangeListener(this);
         }
+    }
+
+    /**
+     * Returns whether the current device is manufactured by Xiaomi, where {@link
+     * Activity#onTopResumedActivityChanged(boolean)} is unreliable and can prevent the Omnibox
+     * suggestions list from showing up (https://crbug.com/553658291).
+     */
+    private static boolean isXiaomiDevice() {
+        return "xiaomi".equalsIgnoreCase(Build.MANUFACTURER);
     }
 
     private boolean hasAttachments() {

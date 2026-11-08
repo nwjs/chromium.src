@@ -239,6 +239,10 @@ by a child template that "extends" this file.
         android:appComponentFactory="org.chromium.chrome.browser.base.SplitCompatAppComponentFactory"
         android:enableOnBackInvokedCallback="true"
         android:zygotePreloadNativeLib="lib{{ library_name }}.so"
+        {% if is_32_bit_multiarch_browser is defined and is_32_bit_multiarch_browser == 'true' %}
+        android:multiArch="true"
+        android:use32bitAbi="true"
+        {% endif %}
         {% block extra_application_attributes %}{% endblock %}>
 
         {% if channel in ['canary', 'dev', 'default'] %}
@@ -266,8 +270,6 @@ by a child template that "extends" this file.
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.NOTIFICATION_PREFERENCES" />
             </intent-filter>
-            <!-- TODO(b/548888503): Remove after approval.-->
-            {% if channel in ['canary', 'default'] %}
             <!-- This starts FGS and finishes, does not show anything to the
                  user. Caller needs to be a trusted google app and need to use
                  startActivityForResult. -->
@@ -275,7 +277,6 @@ by a child template that "extends" this file.
                 <action android:name="org.chromium.chrome.browser.glic.EXTERNAL_TRIGGERING" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
-            {% endif %}
             <!-- Matches the common case of intents with no MIME type.
                  Make sure to keep in sync with the next filter.  -->
             <intent-filter>
@@ -1231,6 +1232,9 @@ by a child template that "extends" this file.
             android:exported="false"
             android:theme="@style/Theme.Chromium.Activity"
             android:launchMode="singleInstance">
+            <layout
+                android:defaultWidth="720dp"
+                android:defaultHeight="524dp" />
         </activity>
 
         <activity
@@ -1365,15 +1369,7 @@ by a child template that "extends" this file.
 
       <!-- NOTE: If you change the value of "android:process" for the below services,
            you also need to update kHelperProcessExecutableName in chrome_constants.cc. -->
-      <!-- NOTE: num_sandboxed_services is simply the number of name slots available,
-           and not a limit on the number of sandboxed processes that can be created.
-           In practice, many fewer slots are used, and process names are often reused,
-           such as many processes named with the suffix ":sandboxed_process0". -->
-      {% set num_sandboxed_services = 40 %}
-      <meta-data android:name="org.chromium.content.browser.NUM_SANDBOXED_SERVICES"
-          android:value="{{ num_sandboxed_services }}"/>
-
-      {% for i in range(num_sandboxed_services) %}
+      {% for i in range(2) %}
       <service android:name="org.chromium.content.app.SandboxedProcessService{{ i }}"
           android:process=":sandboxed_process{{ i }}"
           android:permission="{{ manifest_package }}.permission.CHILD_SERVICE"

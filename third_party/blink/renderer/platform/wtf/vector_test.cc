@@ -895,6 +895,39 @@ TEST(VectorTest, EraseDuringIteration) {
   EXPECT_CHECK_DEATH_WITH([[maybe_unused]] int val = *it,
                           "Vector modified while being iterated.");
 }
+
+TEST(VectorTest, ResizeAndShrinkDuringIteration) {
+  Vector<int> vector = {1, 2, 3};
+  auto it = vector.begin();
+  // No-op resize and Shrink should not register a modification.
+  vector.resize(3);
+  vector.Shrink(3);
+  EXPECT_EQ(*it, 1);
+
+  vector.Shrink(2);
+  EXPECT_CHECK_DEATH_WITH([[maybe_unused]] int val = *it,
+                          "Vector modified while being iterated.");
+}
+
+TEST(VectorTest, InlineCapacityMutationDuringIteration) {
+  Vector<int, 4> inline_vector = {1, 2, 3};
+  Vector<int> out_of_line_copy(inline_vector);
+  Vector<int, 8> other_inline_copy(out_of_line_copy);
+  EXPECT_THAT(out_of_line_copy, testing::ElementsAre(1, 2, 3));
+  EXPECT_THAT(other_inline_copy, testing::ElementsAre(1, 2, 3));
+
+#if DCHECK_IS_ON()
+  auto it = inline_vector.begin();
+  EXPECT_EQ(*it, 1);
+  inline_vector.push_back(4);
+  EXPECT_CHECK_DEATH_WITH([[maybe_unused]] int val = *it,
+                          "Vector modified while being iterated.");
+#endif
+
+  Vector<int, 4> moved_inline(std::move(inline_vector));
+  inline_vector = std::move(moved_inline);
+  EXPECT_GE(inline_vector.size(), 3u);
+}
 #endif
 
 }  // anonymous namespace

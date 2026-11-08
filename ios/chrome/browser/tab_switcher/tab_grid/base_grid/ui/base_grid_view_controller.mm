@@ -10,7 +10,6 @@
 #import "base/check_op.h"
 #import "base/debug/dump_without_crashing.h"
 #import "base/ios/block_types.h"
-#import "base/ios/ios_util.h"
 #import "base/metrics/histogram_functions.h"
 #import "base/metrics/user_metrics.h"
 #import "base/metrics/user_metrics_action.h"
@@ -20,7 +19,7 @@
 #import "ios/chrome/browser/commerce/ui_bundled/price_card/price_card_data_source.h"
 #import "ios/chrome/browser/commerce/ui_bundled/price_card/price_card_item.h"
 #import "ios/chrome/browser/drag_and_drop/model/drag_item_util.h"
-#import "ios/chrome/browser/menu/ui_bundled/menu_histograms.h"
+#import "ios/chrome/browser/menu/public/menu_histograms.h"
 #import "ios/chrome/browser/shared/model/url/url_util.h"
 #import "ios/chrome/browser/shared/public/commands/tab_grid_commands.h"
 #import "ios/chrome/browser/shared/public/commands/tab_group_confirmation_commands.h"
@@ -167,6 +166,10 @@ typedef NS_ENUM(NSInteger, DragEntrySide) {
 
   // Current mode of the Tab Grid. Should be set through consumer protocol.
   TabGridMode _mode;
+
+  // Whether multiple scenes are available for multi-window interactions.
+  // Should be set through consumer protocol.
+  BOOL _multipleScenesAvailable;
 
   // The index path of the cell currently highlighted.
   NSIndexPath* _highlightedGroupIndexPath;
@@ -438,6 +441,15 @@ typedef NS_ENUM(NSInteger, DragEntrySide) {
       [self.collectionView deselectItemAtIndexPath:itemIndexPath animated:NO];
     }
   }
+}
+
+- (void)setMultipleScenesAvailable:(BOOL)multipleScenesAvailable {
+  if (_multipleScenesAvailable == multipleScenesAvailable) {
+    return;
+  }
+  _multipleScenesAvailable = multipleScenesAvailable;
+  self.collectionView.dragInteractionEnabled =
+      [self shouldEnableDrapAndDropInteraction];
 }
 
 - (void)setSearchText:(NSString*)searchText {
@@ -1693,6 +1705,11 @@ typedef NS_ENUM(NSInteger, DragEntrySide) {
   [self.collectionView selectItemAtIndexPath:selectedIndexPath
                                     animated:NO
                               scrollPosition:scrollPosition];
+
+  GridCell* selectedCell = ObjCCast<GridCell>(
+      [self.collectionView cellForItemAtIndexPath:selectedIndexPath]);
+  selectedCell.layoutGuideCenter = self.layoutGuideCenter;
+  [selectedCell registerAsSelectedCellGuide];
 }
 
 - (void)updateTabsSectionHeaderType {
@@ -1746,14 +1763,14 @@ typedef NS_ENUM(NSInteger, DragEntrySide) {
 // Returns YES if drag and drop is enabled.
 // TODO(crbug.com/40824160): Enable dragging items from search results.
 - (BOOL)shouldEnableDrapAndDropInteraction {
+  // Dragging multiple tabs to reorder them is not supported. So there is no
+  // need to enable dragging when multiple items are selected in devices that
+  // don't support multiple windows.
+  BOOL modeSupportsDragAndDrop =
+      (self.mode == TabGridMode::kSelection && _multipleScenesAvailable) ||
+      self.mode == TabGridMode::kNormal;
   // Don't enable drag and drop when voice over is enabled.
-  return !UIAccessibilityIsVoiceOverRunning()
-         // Dragging multiple tabs to reorder them is not supported. So there is
-         // no need to enable dragging when multiple items are selected in
-         // devices that don't support multiple windows.
-         && ((self.mode == TabGridMode::kSelection &&
-              base::ios::IsMultipleScenesSupported()) ||
-             self.mode == TabGridMode::kNormal);
+  return !UIAccessibilityIsVoiceOverRunning() && modeSupportsDragAndDrop;
 }
 
 // Configures `groupCell`'s identifier and title synchronously, and pass the

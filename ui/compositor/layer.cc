@@ -303,11 +303,7 @@ std::unique_ptr<Layer> Layer::Clone() const {
   clone->SetGradientMask(gradient_mask());
   clone->SetIsFastRoundedCorner(is_fast_rounded_corner());
   clone->SetName(name_);
-
-  // TODO(crbug.com/522627357): Move to LayerSolidColor.
-  if (!AsSolidColor()) {
-    clone->SetFillsBoundsOpaquely(fills_bounds_opaquely_);
-  }
+  clone->SetFillsBoundsOpaquely(fills_bounds_opaquely_);
 
   // the |damaged_region_| will be sent to cc later in SendDamagedRects().
   clone->damaged_region_ = damaged_region_;
@@ -928,7 +924,6 @@ void Layer::ConvertPointToLayer(const Layer* source,
 }
 
 void Layer::SetFillsBoundsOpaquely(bool fills_bounds_opaquely) {
-  CHECK_NE(type_, LayerType::LAYER_SOLID_COLOR);
   SetFillsBoundsOpaquelyWithReason(fills_bounds_opaquely,
                                    PropertyChangeReason::NOT_FROM_ANIMATION);
 }
@@ -1132,21 +1127,27 @@ void Layer::StackChildrenAtBottom(
     DCHECK_EQ(leading_child->cc_layer_->parent(), cc_layer_);
     DCHECK_EQ(leading_child->parent(), this);
     new_children_order.emplace_back(leading_child);
-    new_cc_children_order.emplace_back(
-        scoped_refptr<cc::Layer>(leading_child->cc_layer_.get()));
+    new_cc_children_order.emplace_back(leading_child->cc_layer_.get());
   }
 
   base::flat_set<raw_ptr<Layer, VectorExperimental>> reordered_children(
       new_children_order);
 
-  const cc::LayerList& old_cc_children_order = cc_layer_->children();
-
-  for (size_t i = 0; i < children_.size(); ++i) {
-    if (reordered_children.count(children_.at(i)) > 0)
+  for (Layer* child : children_) {
+    if (reordered_children.contains(child)) {
       continue;
-    new_children_order.emplace_back(children_.at(i));
-    new_cc_children_order.emplace_back(old_cc_children_order.at(i));
+    }
+    new_children_order.emplace_back(child);
+    new_cc_children_order.emplace_back(child->cc_layer_.get());
   }
+
+  // The mask layer is a cc::Layer child that is not tracked in `children_`.
+  // cc::Layer requires it to remain the last child, so re-append it.
+  if (cc::PictureLayer* mask_layer = cc_layer_->mask_layer()) {
+    CHECK_EQ(mask_layer, cc_layer_->children().back().get());
+    new_cc_children_order.emplace_back(mask_layer);
+  }
+  CHECK_EQ(new_cc_children_order.size(), cc_layer_->children().size());
 
   children_ = std::move(new_children_order);
   cc_layer_->ReorderChildren(&new_cc_children_order);

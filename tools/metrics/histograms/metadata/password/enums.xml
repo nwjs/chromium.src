@@ -545,15 +545,6 @@ chromium-metrics-reviews@google.com.
   <int value="7" label="Rejected, no user interaction"/>
 </enum>
 
-<enum name="HistogramExportResult">
-  <int value="0" label="Success"/>
-  <int value="1" label="(obsolete) User aborted"/>
-  <int value="2" label="Writing to disk failed"/>
-  <int value="3" label="Could not find consumer for exporting"/>
-  <int value="4" label="(obsolete) Screen lock is not set up"/>
-  <int value="5" label="Activity destroyed while not visible"/>
-</enum>
-
 <enum name="HttpPasswordMigrationMode">
   <int value="0" label="Moved">
     HTTP credentials were moved during migration to HTTPS
@@ -971,15 +962,6 @@ chromium-metrics-reviews@google.com.
   //components/password_manager/core/browser/ui/password_check_referrer.h:PasswordCheckReferrer
 ) -->
 
-<enum name="PasswordCheckResolutionAction">
-  <int value="0" label="Opened a site to change password manually"/>
-  <int value="1"
-      label="(DEPRECATED IN M111) Started an automated password change flow"/>
-  <int value="2" label="Removed a password"/>
-  <int value="3" label="Edited a password"/>
-  <int value="4" label="Did nothing"/>
-</enum>
-
 <enum name="PasswordCheckUIUserActionAndroid">
   <int value="0" label="Start check automatically"/>
   <int value="1" label="Start check manually"/>
@@ -1045,12 +1027,6 @@ chromium-metrics-reviews@google.com.
 <enum name="PasswordDropdownState">
   <int value="0" label="Password suggestions"/>
   <int value="1" label="Passwords and generate new password"/>
-</enum>
-
-<enum name="PasswordExportEvent">
-  <int value="0" label="The user selected password export option"/>
-  <int value="1" label="Password export dismissed by the user"/>
-  <int value="2" label="Password export confirmed by the user"/>
 </enum>
 
 <enum name="PasswordFillingReauthPromoShown">
@@ -1543,6 +1519,7 @@ chromium-metrics-reviews@google.com.
   <int value="5" label="Move passwords"/>
   <int value="6" label="(Obsolete) Enable screenlock reauth before filling"/>
   <int value="7" label="Passkey unlock promo"/>
+  <int value="8" label="Account-aware sign-in promo"/>
 </enum>
 
 <!-- LINT.IfChange(SaveWithTrustedVaultErrorOutcome) -->
@@ -1885,6 +1862,16 @@ chromium-metrics-reviews@google.com.
   <int value="5" label="SYNC_CREDENTIALS"/>
   <int value="6" label="SAVING_ON_HTTP_AFTER_HTTPS"/>
 </enum>
+
+<!-- LINT.IfChange(RemoteActorCredentialSharingFailureReason) -->
+
+<enum name="RemoteActorCredentialSharingFailureReason">
+  <int value="0" label="Invalid parameters"/>
+  <int value="1" label="Passbox upload failed"/>
+  <int value="2" label="Permission grant failed"/>
+</enum>
+
+<!-- LINT.ThenChange(/chrome/browser/password_manager/remote_actor/remote_actor_credential_sharing_service_impl.h:RemoteActorCredentialSharingFailureReason) -->
 
 <!-- LINT.IfChange(RemoteActorCredentialSharingResult) -->
 

@@ -5,11 +5,11 @@
 package org.chromium.chrome.test.util;
 
 import static androidx.test.espresso.Espresso.onView;
-import static androidx.test.espresso.action.ViewActions.click;
 import static androidx.test.espresso.contrib.RecyclerViewActions.actionOnItemAtPosition;
 import static androidx.test.espresso.matcher.ViewMatchers.withId;
 
 import static org.chromium.base.test.transit.Triggers.noopTo;
+import static org.chromium.base.test.util.ForgivingClickAction.forgivingClick;
 import static org.chromium.build.NullUtil.assumeNonNull;
 
 import android.app.Activity;
@@ -237,6 +237,7 @@ public class OmniboxTestUtils {
                     Criteria.checkThat(
                             "Omnibox is focused.", mUrlBar.hasFocus(), Matchers.is(true));
                 });
+        waitAnimationsComplete();
     }
 
     /**
@@ -245,6 +246,7 @@ public class OmniboxTestUtils {
      */
     public void clearFocus() {
         ThreadUtils.runOnUiThreadBlocking(mLocationBarMediator::clearUrlBarFocus);
+        waitAnimationsComplete();
         // Needed to complete scrolling the UrlBar to TLD.
         InstrumentationRegistry.getInstrumentation().waitForIdleSync();
         checkFocus(false);
@@ -260,6 +262,7 @@ public class OmniboxTestUtils {
         checkFocus(true);
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
+                    mAutocomplete.stopAutocompleteForTest(AutocompleteStopReason.INTERACTION);
                     OnSuggestionsReceivedListener listener =
                             mAutocomplete.getSuggestionsReceivedListenerForTest();
                     listener.onSuggestionsReceived(autocompleteResult, true);
@@ -483,9 +486,10 @@ public class OmniboxTestUtils {
         checkFocus(true);
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
-                    mUrlBar.setText(userText);
-                    // Push this to the model as well.
-                    mUrlBar.setAutocompleteText(userText, "", null, null);
+                    InputConnection conn = mUrlBar.getInputConnection();
+                    assert conn != null;
+                    conn.setComposingRegion(0, mUrlBar.getText().length());
+                    conn.commitText(userText, 1);
                 });
         checkText(Matchers.equalTo(userText), null);
     }
@@ -737,7 +741,7 @@ public class OmniboxTestUtils {
                         actionOnItemAtPosition(
                                 suggestionIndex,
                                 OmniboxTestUtils.actionOnOmniboxActionAtPosition(
-                                        actionIndex, click())));
+                                        actionIndex, forgivingClick())));
     }
 
     /**

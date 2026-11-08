@@ -8,13 +8,12 @@
 #include <string_view>
 
 #include "components/browser_actuator/public/browser_actuator_service.h"
-#include "components/browser_actuator/public/common.h"
 #include "testing/gmock/include/gmock/gmock.h"
 
 namespace browser_actuator {
 
+class SessionStreamRecorderFactory;
 class TransportChannel;
-class TransportHandlerFactory;
 class TransportSession;
 
 class MockBrowserActuatorService : public BrowserActuatorService {
@@ -29,7 +28,10 @@ class MockBrowserActuatorService : public BrowserActuatorService {
               (std::string_view),
               (override));
   MOCK_METHOD(TransportSession*, GetSession, (std::string_view), (override));
-  MOCK_METHOD(TransportHandlerFactory*, GetFactory, (FactoryId), (override));
+  MOCK_METHOD(SessionStreamRecorderFactory*,
+              GetStreamRecorderFactory,
+              (),
+              (override));
 };
 
 }  // namespace browser_actuator

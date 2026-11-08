@@ -7,8 +7,12 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <utility>
 
+#include "base/files/file_path.h"
 #include "base/test/scoped_feature_list.h"
+#include "base/types/optional_ref.h"
+#include "base/version.h"
 #include "base/win/windows_version.h"
 #include "content/public/browser/content_browser_client.h"
 #include "content/public/common/content_client.h"
@@ -23,12 +27,15 @@
 #include "sandbox/win/src/sandbox_policy_base.h"
 #include "sandbox/win/src/sandbox_policy_diagnostic.h"
 #include "sandbox/win/src/security_capabilities.h"
+#include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/abseil-cpp/absl/cleanup/cleanup.h"
 
 namespace content::sandbox::policy {
 
 namespace {
+
+using ::testing::Optional;
 
 class TestAppContainer final : public ::sandbox::AppContainer {
  public:
@@ -183,6 +190,29 @@ class TestTargetPolicy : public ::sandbox::TargetPolicy {
   TestTargetConfig config_;
 };
 
+class ChildModuleTestBrowserClient : public content::ContentBrowserClient {
+ public:
+  void set_child_module(std::optional<ChildModule> child_module) {
+    child_module_ = std::move(child_module);
+  }
+  const std::optional<ChildModule>& last_pre_spawn_child_module() const {
+    return last_pre_spawn_child_module_;
+  }
+  std::optional<ChildModule> GetChildModule() override { return child_module_; }
+  bool PreSpawnChild(
+      ::sandbox::TargetConfig* config,
+      ::sandbox::mojom::Sandbox sandbox_type,
+      ChildSpawnFlags flags,
+      base::optional_ref<const ChildModule> child_module) override {
+    last_pre_spawn_child_module_ = child_module.CopyAsOptional();
+    return true;
+  }
+
+ private:
+  std::optional<ChildModule> child_module_;
+  std::optional<ChildModule> last_pre_spawn_child_module_;
+};
+
 }  // namespace
 
 class RendererFeatureSandboxWinTest
@@ -315,6 +345,69 @@ TEST_P(RendererSandboxedProcessLauncherDelegateTest,
             policy.get());
     ASSERT_EQ(::sandbox::ResultCode::SBOX_ALL_OK, result);
   }
+}
+
+TEST_P(RendererSandboxedProcessLauncherDelegateTest, ChildModule) {
+  ChildModuleTestBrowserClient test_browser_client;
+
+  auto* old_browser_client =
+      content::SetBrowserClientForTesting(&test_browser_client);
+  absl::Cleanup reset_browser_client = [&old_browser_client]() {
+    content::SetBrowserClientForTesting(old_browser_client);
+  };
+
+  base::CommandLine cmd_line(base::CommandLine::NO_PROGRAM);
+  content::RendererSandboxedProcessLauncherDelegateWin default_delegate(
+      cmd_line, /*is_pdf_renderer=*/false, /*is_jit_disabled=*/false);
+
+  const content::ContentBrowserClient::ChildModule kChildModule = {
+      .version = base::Version("147.0.7727.51"),
+      .path = base::FilePath(FILE_PATH_LITERAL(
+          "C:\\ChildModules\\147.0.7727.51\\chrome_renderer.dll")),
+  };
+  test_browser_client.set_child_module(kChildModule);
+
+  EXPECT_EQ(default_delegate.GetSandboxTag(),
+            ::sandbox::policy::SandboxWin::GetSandboxTagForDelegate(
+                "renderer", ::sandbox::mojom::Sandbox::kRenderer));
+
+  content::RendererSandboxedProcessLauncherDelegateWin standard_delegate(
+      cmd_line, /*is_pdf_renderer=*/false, /*is_jit_disabled=*/false);
+  EXPECT_EQ(
+      standard_delegate.GetSandboxTag(),
+      ::sandbox::policy::SandboxWin::GetSandboxTagForDelegate(
+          "renderer-147.0.7727.51", ::sandbox::mojom::Sandbox::kRenderer));
+
+  content::RendererSandboxedProcessLauncherDelegateWin jitless_delegate(
+      cmd_line, /*is_pdf_renderer=*/false, /*is_jit_disabled=*/true);
+  EXPECT_EQ(jitless_delegate.GetSandboxTag(),
+            ::sandbox::policy::SandboxWin::GetSandboxTagForDelegate(
+                "renderer-jitless-147.0.7727.51",
+                ::sandbox::mojom::Sandbox::kRenderer));
+
+  content::RendererSandboxedProcessLauncherDelegateWin pdf_delegate(
+      cmd_line, /*is_pdf_renderer=*/true, /*is_jit_disabled=*/true);
+  EXPECT_EQ(pdf_delegate.GetSandboxTag(),
+            ::sandbox::policy::SandboxWin::GetSandboxTagForDelegate(
+                "renderer-pdfium-147.0.7727.51",
+                ::sandbox::mojom::Sandbox::kRenderer));
+
+  // The delegate passes the child module it captured at construction to
+  // PreSpawnChild().
+  TestTargetPolicy policy;
+  ASSERT_EQ(
+      ::sandbox::ResultCode::SBOX_ALL_OK,
+      ::sandbox::policy::SandboxWin::GeneratePolicyForSandboxedProcess(
+          cmd_line, /*handles_to_inherit=*/{}, &standard_delegate, &policy));
+  EXPECT_THAT(test_browser_client.last_pre_spawn_child_module(),
+              Optional(kChildModule));
+
+  TestTargetPolicy default_policy;
+  ASSERT_EQ(::sandbox::ResultCode::SBOX_ALL_OK,
+            ::sandbox::policy::SandboxWin::GeneratePolicyForSandboxedProcess(
+                cmd_line, /*handles_to_inherit=*/{}, &default_delegate,
+                &default_policy));
+  EXPECT_EQ(test_browser_client.last_pre_spawn_child_module(), std::nullopt);
 }
 
 INSTANTIATE_TEST_SUITE_P(,

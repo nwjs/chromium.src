@@ -32,6 +32,7 @@
 #include "ash/shelf/home_button.h"
 #include "ash/shelf/shelf.h"
 #include "ash/shelf/shelf_app_button.h"
+#include "ash/shelf/shelf_bubble.h"
 #include "ash/shelf/shelf_context_menu_model.h"
 #include "ash/shelf/shelf_controller.h"
 #include "ash/shelf/shelf_focus_cycler.h"
@@ -110,6 +111,7 @@
 #include "ui/views/interaction/element_tracker_views.h"
 #include "ui/views/interaction/view_subregion_anchor.h"
 #include "ui/views/view_model.h"
+#include "ui/views/view_tracker.h"
 #include "ui/views/widget/widget.h"
 #include "ui/views/widget/widget_delegate.h"
 #include "ui/wm/core/coordinate_conversion.h"
@@ -303,14 +305,17 @@ class AppMenuTestShelfItemDelegate : public ShelfItemDelegate,
     std::move(callback).Run(SHELF_ACTION_NONE, std::move(items));
   }
 
-  aura::Window* GetAppMenuItemWindow(int command_id) override {
-    if (command_id == 0) {
+  base::expected<aura::Window*, std::u16string> GetAppMenuItemWindow(
+      int command_id) override {
+    if (command_id == 0 && w1_.GetSource()) {
       return w1_.GetSource();
     }
-    if (command_id == 1) {
+    if (command_id == 1 && w2_.GetSource()) {
       return w2_.GetSource();
     }
-    return nullptr;
+    // Only item 0 has a tooltip when it has no window to preview.
+    return base::unexpected(
+        std::u16string(command_id == 0 ? u"No preview" : u""));
   }
 
   void ExecuteCommand(bool, int64_t, int32_t, int64_t) override {}
@@ -889,10 +894,6 @@ class LtrRtlShelfViewTest : public ShelfViewTest,
 INSTANTIATE_TEST_SUITE_P(All, LtrRtlShelfViewTest, testing::Bool());
 
 TEST_P(LtrRtlShelfViewTest, GetAnchorBoundsInScreen) {
-  // Help bubble anchor bounds changed events are only propagated when user
-  // education features are enabled.
-  base::test::ScopedFeatureList scoped_feature_list(features::kWelcomeTour);
-
   {
     SCOPED_TRACE("Initial anchor bounds.");
     VerifyAnchorBoundsInScreenAreValid();
@@ -2837,13 +2838,13 @@ TEST_F(ShelfViewTest, SwipeOnItemDuringFadeOut) {
   VerifyShelfItemBoundsAreValid();
 }
 
-class LockedFullscreenShelfViewTest : public ShelfViewTest,
-                                      public testing::WithParamInterface<bool> {
+class TrustedPinnedShelfViewTest : public ShelfViewTest,
+                                   public testing::WithParamInterface<bool> {
  protected:
-  bool IsLocked() const { return GetParam(); }
+  bool IsTrustedPinned() const { return GetParam(); }
 };
 
-TEST_P(LockedFullscreenShelfViewTest, ContextMenuVisibilityWithPinnedWindow) {
+TEST_P(TrustedPinnedShelfViewTest, ContextMenuVisibilityWithPinnedWindow) {
   // Create an item on the shelf and a test window for testing purposes.
   const ShelfAppButton* const shelf_button = GetButtonByID(AddApp());
   const std::unique_ptr<aura::Window> window = CreateWindowWithAppType();
@@ -2859,12 +2860,12 @@ TEST_P(LockedFullscreenShelfViewTest, ContextMenuVisibilityWithPinnedWindow) {
   ASSERT_TRUE(GetShelfView()->IsShowingMenu());
 
   // Pin the window and verify context menu visibility.
-  PinWindow(window.get(), IsLocked());
-  EXPECT_EQ(GetShelfView()->IsShowingMenu(), !IsLocked());
+  PinWindow(window.get(), IsTrustedPinned());
+  EXPECT_EQ(GetShelfView()->IsShowingMenu(), !IsTrustedPinned());
 }
 
-INSTANTIATE_TEST_SUITE_P(LockedFullscreenShelfViewTests,
-                         LockedFullscreenShelfViewTest,
+INSTANTIATE_TEST_SUITE_P(TrustedPinnedShelfViewTests,
+                         TrustedPinnedShelfViewTest,
                          testing::Bool());
 
 class GhostImageShelfViewTest : public ShelfViewTest {
@@ -4567,13 +4568,7 @@ class ShelfViewWindowPreviewTest : public ShelfViewTest {
   }
 
   void TearDown() override {
-    title_item_ = nullptr;
-    item0_ = nullptr;
-    item1_ = nullptr;
-    if (menu_adapter()) {
-      menu_adapter()->Cancel();
-      test_api_->RunMessageLoopUntilAnimationsDone();
-    }
+    CancelMenu();
     if (item_index_ >= 0) {
       ShelfModel::Get()->RemoveItemAt(item_index_);
       test_api_->RunMessageLoopUntilAnimationsDone();
@@ -4586,6 +4581,18 @@ class ShelfViewWindowPreviewTest : public ShelfViewTest {
  protected:
   ShelfMenuModelAdapter* menu_adapter() {
     return GetShelfView()->shelf_menu_model_adapter_for_testing();
+  }
+
+  // Cancels the application menu, if open. Clears the menu item pointers
+  // first, as the items are deleted with the menu.
+  void CancelMenu() {
+    title_item_ = nullptr;
+    item0_ = nullptr;
+    item1_ = nullptr;
+    if (menu_adapter()) {
+      menu_adapter()->Cancel();
+      test_api_->RunMessageLoopUntilAnimationsDone();
+    }
   }
 
   base::test::ScopedFeatureList scoped_feature_list_{
@@ -4695,6 +4702,151 @@ TEST_F(ShelfViewWindowPreviewTest, WindowDestroyedClosesPreview) {
 
   window2_.reset();
   EXPECT_FALSE(menu_adapter()->preview_bubble());
+}
+
+TEST_F(ShelfViewWindowPreviewTest, TooltipBubbleAfterDelay) {
+  // Items without a window to preview show the tooltip returned by the
+  // delegate instead, if any, in a bubble anchored beside the menu.
+  window1_.reset();
+  window2_.reset();
+
+  // Hover item 0: the tooltip bubble is not shown before kShowPreviewDelay.
+  GetEventGenerator()->MoveMouseTo(item0_->GetBoundsInScreen().CenterPoint());
+  EXPECT_TRUE(item0_->IsSelected());
+  EXPECT_FALSE(menu_adapter()->tooltip_bubble());
+  EXPECT_FALSE(menu_adapter()->preview_bubble());
+
+  task_environment()->FastForwardBy(ShelfMenuModelAdapter::kShowPreviewDelay);
+  ShelfBubble* tooltip_bubble = menu_adapter()->tooltip_bubble();
+  ASSERT_TRUE(tooltip_bubble);
+  EXPECT_FALSE(menu_adapter()->preview_bubble());
+  EXPECT_EQ(item0_, tooltip_bubble->GetAnchorView());
+
+  // The tooltip is placed beside the menu, within the work area.
+  const gfx::Rect bubble_bounds =
+      tooltip_bubble->GetWidget()->GetWindowBoundsInScreen();
+  EXPECT_FALSE(bubble_bounds.Intersects(item0_->GetBoundsInScreen()));
+  EXPECT_TRUE(display::Screen::Get()
+                  ->GetDisplayNearestWindow(
+                      tooltip_bubble->GetWidget()->GetNativeWindow())
+                  .work_area()
+                  .Contains(bubble_bounds));
+
+  // Item 1 has neither a window nor a tooltip: both bubbles are closed.
+  GetEventGenerator()->MoveMouseTo(item1_->GetBoundsInScreen().CenterPoint());
+  EXPECT_TRUE(item1_->IsSelected());
+  EXPECT_FALSE(menu_adapter()->tooltip_bubble());
+  EXPECT_FALSE(menu_adapter()->preview_bubble());
+
+  // Unselecting the item closes the tooltip bubble after kClosePreviewDelay.
+  GetEventGenerator()->MoveMouseTo(item0_->GetBoundsInScreen().CenterPoint());
+  task_environment()->FastForwardBy(ShelfMenuModelAdapter::kShowPreviewDelay);
+  ASSERT_TRUE(menu_adapter()->tooltip_bubble());
+  GetEventGenerator()->MoveMouseTo(
+      title_item_->GetBoundsInScreen().CenterPoint());
+  EXPECT_FALSE(item0_->IsSelected());
+  EXPECT_TRUE(menu_adapter()->tooltip_bubble());
+  task_environment()->FastForwardBy(ShelfMenuModelAdapter::kClosePreviewDelay);
+  EXPECT_FALSE(menu_adapter()->tooltip_bubble());
+}
+
+// Tests the side of the menu the tooltip bubble is placed on, by opening the
+// application menu from a shelf aligned to the left or right edge of the
+// screen.
+class ShelfViewTooltipBubbleSideTest
+    : public ShelfViewWindowPreviewTest,
+      public testing::WithParamInterface<ShelfAlignment> {
+ protected:
+  // Reopens the application menu from the shelf aligned to the parameter and
+  // returns its first item, which has a tooltip and no window to preview.
+  views::MenuItemView* ReopenMenuForParam() {
+    window1_.reset();
+    window2_.reset();
+    CancelMenu();
+    GetPrimaryShelf()->SetAlignment(GetParam());
+    test_api_->RunMessageLoopUntilAnimationsDone();
+
+    ShelfAppButton* button = GetButtonByID(ShelfID("test_app_id"));
+    CHECK(button);
+    GetEventGenerator()->MoveMouseTo(button->GetBoundsInScreen().CenterPoint());
+    GetEventGenerator()->ClickLeftButton();
+    CHECK(menu_adapter());
+    CHECK(menu_adapter()->IsShowingMenu());
+    views::SubmenuView* submenu =
+        menu_adapter()->root_for_testing()->GetSubmenu();
+    title_item_ = submenu->GetMenuItemAt(0);
+    item0_ = submenu->GetMenuItemAt(1);
+    item1_ = submenu->GetMenuItemAt(2);
+    return item0_;
+  }
+};
+
+INSTANTIATE_TEST_SUITE_P(All,
+                         ShelfViewTooltipBubbleSideTest,
+                         testing::Values(ShelfAlignment::kLeft,
+                                         ShelfAlignment::kRight));
+
+TEST_P(ShelfViewTooltipBubbleSideTest, TooltipBubbleBesideMenu) {
+  views::MenuItemView* item0 = ReopenMenuForParam();
+  ASSERT_TRUE(item0);
+
+  GetEventGenerator()->MoveMouseTo(item0->GetBoundsInScreen().CenterPoint());
+  EXPECT_TRUE(item0->IsSelected());
+  task_environment()->FastForwardBy(ShelfMenuModelAdapter::kShowPreviewDelay);
+  ShelfBubble* tooltip_bubble = menu_adapter()->tooltip_bubble();
+  ASSERT_TRUE(tooltip_bubble);
+
+  const gfx::Rect bubble_bounds =
+      tooltip_bubble->GetWidget()->GetWindowBoundsInScreen();
+  const gfx::Rect item_bounds = item0->GetBoundsInScreen();
+  if (GetParam() == ShelfAlignment::kLeft) {
+    // The menu is on the left half of the screen, so the tooltip is placed to
+    // the right of it.
+    EXPECT_EQ(views::BubbleBorder::LEFT_CENTER, tooltip_bubble->arrow());
+    EXPECT_GE(bubble_bounds.x(), item_bounds.right());
+  } else {
+    // The menu is on the right half of the screen, so the tooltip is placed to
+    // the left of it.
+    EXPECT_EQ(views::BubbleBorder::RIGHT_CENTER, tooltip_bubble->arrow());
+    EXPECT_LE(bubble_bounds.right(), item_bounds.x());
+  }
+  EXPECT_TRUE(display::Screen::Get()
+                  ->GetDisplayNearestWindow(
+                      tooltip_bubble->GetWidget()->GetNativeWindow())
+                  .work_area()
+                  .Contains(bubble_bounds));
+}
+
+TEST_F(ShelfViewWindowPreviewTest, SwitchBetweenPreviewAndTooltipBubble) {
+  // Item 0 has a tooltip, item 1 has a window to preview.
+  window1_.reset();
+
+  GetEventGenerator()->MoveMouseTo(item0_->GetBoundsInScreen().CenterPoint());
+  task_environment()->FastForwardBy(ShelfMenuModelAdapter::kShowPreviewDelay);
+  ASSERT_TRUE(menu_adapter()->tooltip_bubble());
+  EXPECT_FALSE(menu_adapter()->preview_bubble());
+
+  // Switching to an item with a window replaces the tooltip bubble with the
+  // preview bubble immediately.
+  GetEventGenerator()->MoveMouseTo(item1_->GetBoundsInScreen().CenterPoint());
+  EXPECT_TRUE(item1_->IsSelected());
+  EXPECT_FALSE(menu_adapter()->tooltip_bubble());
+  ASSERT_TRUE(menu_adapter()->preview_bubble());
+  EXPECT_EQ(window2_.get(), menu_adapter()->preview_bubble()->window());
+
+  // Switching back replaces the preview bubble with the tooltip bubble
+  // immediately.
+  GetEventGenerator()->MoveMouseTo(item0_->GetBoundsInScreen().CenterPoint());
+  EXPECT_TRUE(item0_->IsSelected());
+  EXPECT_FALSE(menu_adapter()->preview_bubble());
+  ASSERT_TRUE(menu_adapter()->tooltip_bubble());
+  EXPECT_EQ(item0_, menu_adapter()->tooltip_bubble()->GetAnchorView());
+
+  // Closing the menu closes the tooltip bubble.
+  views::ViewTracker tooltip_tracker(menu_adapter()->tooltip_bubble());
+  CancelMenu();
+  EXPECT_FALSE(menu_adapter());
+  EXPECT_FALSE(tooltip_tracker.view());
 }
 
 }  // namespace ash

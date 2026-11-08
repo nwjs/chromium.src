@@ -2,20 +2,14 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import '//resources/cr_components/composebox/composebox.js';
 import './omnibox_composebox.js';
 import '/strings.m.js';
 
 import {ColorChangeUpdater} from '//resources/cr_components/color_change_listener/colors_css_updater.js';
-import type {ComposeboxElement} from '//resources/cr_components/composebox/composebox.js';
-import type {VoicePermissionPromptState} from '//resources/cr_components/composebox/composebox_voice_search.js';
-import {EventTracker} from '//resources/js/event_tracker.js';
 import {loadTimeData} from '//resources/js/load_time_data.js';
 import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
 import type {SearchContext} from '//resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
-import type {InputState} from '//resources/mojo/components/omnibox/composebox/composebox_query.mojom-webui.js';
 
-import {getCss} from './aim_app.css.js';
 import {getHtml} from './aim_app.html.js';
 import type {OmniboxComposeboxElement} from './omnibox_composebox.js';
 import {browserProxyFactory} from './omnibox_popup_aim.mojom-webui.js';
@@ -23,17 +17,25 @@ import type {BrowserProxy} from './omnibox_popup_aim.mojom-webui.js';
 
 export interface OmniboxAimAppElement {
   $: {
-    composebox: ComposeboxElement|OmniboxComposeboxElement,
+    composebox: OmniboxComposeboxElement,
   };
 }
 
+/**
+ * App element of the standalone AI Mode popup (omnibox_popup_aim.html).
+ * `cr-omnibox-composebox` configures and paints itself; this element only
+ * connects it to the popup's browser-side handler (omnibox_popup_aim.mojom):
+ * `Page` callbacks become composebox method calls and composebox events become
+ * `PageHandler` calls. `omnibox-full-app` will do the same wiring for the
+ * merged popup on its own pipe, which is why none of it lives in the
+ * composebox.
+ *
+ * TODO(crbug.com/566275992): Retire this element together with the standalone
+ * popup once it is merged into the Full WebUI popup.
+ */
 export class OmniboxAimAppElement extends CrLitElement {
   static get is() {
     return 'omnibox-aim-app';
-  }
-
-  static override get styles() {
-    return getCss();
   }
 
   override render() {
@@ -42,26 +44,10 @@ export class OmniboxAimAppElement extends CrLitElement {
 
   static override get properties() {
     return {
-      searchboxLayoutMode_: {type: String},
-      hasAllowedInputs_: {type: Boolean},
-      caretAnimationsEnabled_: {type: Boolean},
-      disableComposeboxAnimation_: {type: Boolean},
-      energyEffectEnabled_: {
-        type: Boolean,
-        reflect: true,
-      },
-      energyEffectAnimationEnabled_: {
-        type: Boolean,
-        reflect: true,
-      },
-      disableVoiceSearchAnimation_: {type: Boolean},
-      usePecApi_: {type: Boolean},
-      smartTabSharingVisible_: {type: Boolean},
-      contextManagementInComposeboxEnabled_: {type: Boolean},
-      isOblongShape_: {type: Boolean},
-      webuiOmniboxSimplificationEnabled_: {type: Boolean},
       webuiOmniboxFullPopupEnabled_: {type: Boolean},
-      smartComposeEnabled_: {type: Boolean},
+      // Reflected so omnibox_popup_document_style.css's
+      // 'body:has([webui-shadow-enabled_])' sees it on the page root, as it
+      // does on <omnibox-full-app>.
       webuiShadowEnabled_: {
         type: Boolean,
         reflect: true,
@@ -69,52 +55,25 @@ export class OmniboxAimAppElement extends CrLitElement {
     };
   }
 
-  protected accessor searchboxLayoutMode_: string =
-      loadTimeData.getString('searchboxLayoutMode');
-  protected accessor hasAllowedInputs_: boolean = false;
-  protected accessor disableComposeboxAnimation_: boolean =
-      loadTimeData.getBoolean('composeboxAnimationDisabled');
-  // Voice search animation is disabled outside of voice coherence.
-  protected accessor disableVoiceSearchAnimation_: boolean =
-      !loadTimeData.getBoolean('voiceSearchCoherenceComposeboxesEnabled');
-
-  protected accessor caretAnimationsEnabled_: boolean =
-      loadTimeData.getBoolean('caretAnimationEnabled');
-  protected accessor energyEffectEnabled_: boolean =
-      loadTimeData.getBoolean('energyEffectEnabled');
-  // The use of energyEffectEnabled to set energyEffectAnimationEnabled_ is
-  // intentional. This is to align the gating properties for energy effects
-  // across all surfaces (= Nextbox, Omnibox, and Realbox).
-  protected accessor energyEffectAnimationEnabled_: boolean =
-      loadTimeData.getBoolean('energyEffectEnabled');
-  protected accessor usePecApi_: boolean =
-      loadTimeData.getBoolean('contextualMenuUsePecApi');
-  protected accessor smartTabSharingVisible_: boolean =
-      loadTimeData.getBoolean('composeboxSmartTabSharingVisible');
-  protected accessor contextManagementInComposeboxEnabled_: boolean =
-      loadTimeData.getBoolean('contextManagementInComposeboxEnabled');
-  protected accessor isOblongShape_: boolean =
-      loadTimeData.getBoolean('contextButtonShapeIsOblong');
-  protected accessor webuiOmniboxSimplificationEnabled_: boolean =
-      loadTimeData.getBoolean('webuiOmniboxSimplificationEnabled');
+  // Host-specific composebox configuration. Which popup widget the composebox
+  // is in decides whether it paints the popup surface itself and whether
+  // Escape closes it; the composebox cannot know that on its own.
   protected accessor webuiOmniboxFullPopupEnabled_: boolean =
       loadTimeData.getBoolean('webuiOmniboxFullPopupEnabled');
-  protected accessor smartComposeEnabled_: boolean =
-      loadTimeData.getBoolean('composeboxSmartComposeEnabled');
-  // When true, this page paints the popup's background, rounded corners and
-  // drop shadow instead of the Views frame.
   protected accessor webuiShadowEnabled_: boolean =
       loadTimeData.getBoolean('omniboxAimWebUIShadowEnabled');
 
-  private eventTracker_ = new EventTracker();
-  private browserProxy_: BrowserProxy;
+  private browserProxy_: BrowserProxy = browserProxyFactory.getInstance();
   private listenerIds_: number[] = [];
   private preserveContextOnClose_: boolean = false;
+  // Whether a query was submitted from the composebox since the popup was last
+  // shown. Reported back to the browser on `clearPopup` so it leaves focus on
+  // the page showing the results instead of returning it to the omnibox.
+  private querySubmitted_: boolean = false;
 
   constructor() {
     super();
     ColorChangeUpdater.forDocument().start();
-    this.browserProxy_ = browserProxyFactory.getInstance();
   }
 
   override connectedCallback() {
@@ -123,168 +82,110 @@ export class OmniboxAimAppElement extends CrLitElement {
     // theme loads after the page, but before the listener is ready.
     ColorChangeUpdater.forDocument().refreshColorsCss();
 
+    const router = this.browserProxy_.callbackRouter;
     this.listenerIds_ = [
-      this.browserProxy_.callbackRouter.onPopupShown.addListener(
-          this.onPopupShown_.bind(this)),
-      this.browserProxy_.callbackRouter.addContext.addListener(
-          this.addContext_.bind(this)),
-      this.browserProxy_.callbackRouter.focusInput.addListener(
-          this.focusInput_.bind(this)),
-      this.browserProxy_.callbackRouter.clearPopup.addListener(
-          this.clearPopup_.bind(this)),
-      this.browserProxy_.callbackRouter.setPreserveContextOnClose.addListener(
+      router.onPopupShown.addListener(this.onPopupShown_.bind(this)),
+      router.addContext.addListener(this.addContext_.bind(this)),
+      router.focusInput.addListener(() => this.$.composebox.focusInput()),
+      router.clearPopup.addListener(this.clearPopup_.bind(this)),
+      router.setPreserveContextOnClose.addListener(
           this.setPreserveContextOnClose_.bind(this)),
-      this.browserProxy_.callbackRouter.onContextMenuClosed.addListener(
-          this.onContextMenuClosed_.bind(this)),
+      router.onContextMenuClosed.addListener(
+          () => this.$.composebox.setContextMenuOpen(false)),
     ];
-
-    this.eventTracker_.add(
-        this.$.composebox, 'input-state-changed',
-        (e: CustomEvent<{inputState: InputState}>) => {
-          const inputState = e.detail.inputState;
-          this.hasAllowedInputs_ = inputState.allowedModels.length > 0 ||
-              inputState.allowedTools.length > 0 ||
-              inputState.allowedInputTypes.length > 0;
-        });
-
-    this.focusInput_();
   }
 
   override disconnectedCallback() {
     super.disconnectedCallback();
-    this.eventTracker_.removeAll();
-
     for (const listenerId of this.listenerIds_) {
       this.browserProxy_.callbackRouter.removeListener(listenerId);
     }
     this.listenerIds_ = [];
   }
 
-  protected getSearchboxLayoutMode_(): string {
-    if (this.searchboxLayoutMode_.startsWith('Tall') &&
-        !this.hasAllowedInputs_) {
-      return 'Compact';
-    }
-    return this.searchboxLayoutMode_;
-  }
-
-  protected onContextMenuEntrypointClick_(
-      e: CustomEvent<{x: number, y: number}>) {
-    e.preventDefault();
-    const point = {
-      x: e.detail.x,
-      y: e.detail.y,
-    };
-    // Force the button to keep its hover background visually while
-    // the menu is open, even if the mouse doesn't move out of the button
-    // area after clicking.
-    const contextButton = this.$.composebox.getContextEntrypointElement();
-    if (contextButton) {
-      contextButton.classList.add('menu-open');
-    }
-
-    this.browserProxy_.handler.showContextMenu(point);
-  }
-
-  private onContextMenuClosed_() {
-    const contextButton = this.$.composebox.getContextEntrypointElement();
-    if (contextButton) {
-      contextButton.classList.remove('menu-open');
-    }
-  }
-
-  // Fired from voice search component in cr-composebox if minimum height
-  // and width are non zero when permission prompt is displayed, or any time
-  // when permission prompt hides. Change the css class here to avoid
-  // adding css classes in the shared composebox component itself, and
-  // so omnibox searchbox can reuse this code later (not just composebox).
-  protected onVoicePermissionPromptChanged(
-      e: CustomEvent<VoicePermissionPromptState>) {
-    if (e.detail.isOpened) {  // Permission prompt opened.
-      if (this.$.composebox) {
-        this.$.composebox.classList.add('has-permission-prompt');
-        this.$.composebox.style.setProperty(
-            '--cr_composebox_minimum_height', `${e.detail.height}px`);
-        this.$.composebox.style.setProperty(
-            '--cr_composebox_minimum_width', `${e.detail.width}px`);
-      }
-    } else {  // Permission prompt closed.
-      if (this.$.composebox) {
-        this.$.composebox.classList.remove('has-permission-prompt');
-        this.$.composebox.style.removeProperty(
-            '--cr_composebox_minimum_height');
-        this.$.composebox.style.removeProperty('--cr_composebox_minimum_width');
-      }
-    }
-  }
-
-  /**
-   * Forwards close requests along with the active composebox input text so the
-   * browser can transfer any typed draft back to the Omnibox.
-   */
-  protected onCloseComposebox_(e: CustomEvent<{composeboxText: string}>) {
-    this.browserProxy_.handler.requestClose(e.detail.composeboxText);
-  }
-
-  protected setPreserveContextOnClose_(preserveContextOnClose: boolean) {
-    this.preserveContextOnClose_ = preserveContextOnClose;
-  }
+  // ===========================================================================
+  // omnibox_popup_aim.mojom Page
+  // ===========================================================================
+  // Browser -> page. Listeners for the `Page` interface, registered on the
+  // callback router in connectedCallback(). They drive the composebox through
+  // its public API.
 
   private onPopupShown_(context: SearchContext) {
+    this.querySubmitted_ = false;
+    const composebox = this.$.composebox;
     if (!this.preserveContextOnClose_) {
       // Avoid showing the glow animation when coming back from a preserved
       // context on close as this indicates that the user is returning to the
       // widget after adding context.
-      this.$.composebox.playGlowAnimation();
-      this.$.composebox.setDefaultModel();
+      composebox.playGlowAnimation();
+      composebox.setDefaultModel();
     }
-    this.$.composebox.addSearchContext(context);
-    this.focusInput_();
+    composebox.addSearchContext(context);
+    composebox.focusInput();
     this.preserveContextOnClose_ = false;
   }
 
   private addContext_(context: SearchContext) {
     this.$.composebox.addSearchContext(context);
-    this.focusInput_();
+    this.$.composebox.focusInput();
     // Reset `preserveContextOnClose_` so subsequent popup closes correctly
     // clear searchbox state (e.g. after adding context via Drive picker while
     // popup stayed open).
     this.setPreserveContextOnClose_(false);
   }
 
-  private focusInput_() {
-    this.$.composebox.focusInput();
-  }
-
-  private async clearPopup_(): Promise<{input: string}> {
-    const input = this.$.composebox.input;
+  private async clearPopup_():
+      Promise<{input: string, querySubmitted: boolean}> {
+    const composebox = this.$.composebox;
+    const input = composebox.input;
+    const querySubmitted = this.querySubmitted_;
+    this.querySubmitted_ = false;
     if (!this.preserveContextOnClose_) {
-      this.$.composebox.resetSession();
+      composebox.resetSession();
     }
-    await this.updateComplete;
+    await composebox.updateComplete;
     // Transfer input text to the location bar.
-    return Promise.resolve({input});
+    return {input, querySubmitted};
   }
 
+  private setPreserveContextOnClose_(preserveContextOnClose: boolean) {
+    this.preserveContextOnClose_ = preserveContextOnClose;
+  }
+
+  // ===========================================================================
+  // Composebox events -> omnibox_popup_aim.mojom PageHandler
+  // ===========================================================================
+  // Page -> browser. Handlers for the events `cr-omnibox-composebox` fires
+  // (bound in aim_app.html.ts). Each forwards to the `PageHandler` remote.
+
+  protected onContextMenuEntrypointClick_(
+      e: CustomEvent<{x: number, y: number}>) {
+    e.preventDefault();
+    this.$.composebox.setContextMenuOpen(true);
+    this.browserProxy_.handler.showContextMenu({x: e.detail.x, y: e.detail.y});
+  }
+
+  /**
+   * Forwards close requests along with the active composebox input text so the
+   * browser can transfer any typed draft back to the Omnibox.
+   */
+  protected onCloseComposebox_(
+      e: CustomEvent<{composeboxText: string, afterSubmit?: boolean}>) {
+    // After a submit, the browser closes the popup itself, and
+    // `requestClose()` would hand focus back to the omnibox.
+    if (e.detail.afterSubmit) {
+      return;
+    }
+    this.browserProxy_.handler.requestClose(e.detail.composeboxText);
+  }
+
+  /**
+   * Records that a query was submitted, so that `clearPopup_()` can tell the
+   * browser to leave focus on the page showing the results. The composebox
+   * clears its own inputs on submit.
+   */
   protected onComposeboxSubmit_() {
-    this.$.composebox.clearAllInputs(/* querySubmitted= */ true,
-                                     /* shouldBlockAutoSuggestedTabs= */ false);
-  }
-
-  setSearchboxLayoutModeForTesting(mode: string) {
-    this.searchboxLayoutMode_ = mode;
-  }
-
-  setHasAllowedInputsForTesting(hasAllowedInputs: boolean) {
-    this.hasAllowedInputs_ = hasAllowedInputs;
-  }
-
-  getSearchboxLayoutModeForTesting(): string {
-    return this.getSearchboxLayoutMode_();
-  }
-
-  getHasAllowedInputsForTesting(): boolean {
-    return this.hasAllowedInputs_;
+    this.querySubmitted_ = true;
   }
 }
 

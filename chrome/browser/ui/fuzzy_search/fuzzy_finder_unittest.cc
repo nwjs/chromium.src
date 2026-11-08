@@ -8,6 +8,8 @@
 #include <string>
 #include <vector>
 
+#include "base/containers/span.h"
+#include "base/test/gtest_util.h"
 #include "chrome/browser/ui/fuzzy_search/fuzzy_search_item.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -41,7 +43,7 @@ class FakeFuzzySearchItem : public FuzzySearchItem {
   const std::u16string& GetSecondaryText() const override {
     return secondary_text_;
   }
-  const std::vector<std::u16string>& GetSynonyms() const override {
+  base::span<const std::u16string> GetSynonyms() const override {
     return synonyms_;
   }
 
@@ -54,9 +56,9 @@ class FakeFuzzySearchItem : public FuzzySearchItem {
 class FuzzyFinderTest : public testing::Test {
  public:
   // Helper to create and manage the lifetime of FakeFuzzySearchItems.
-  std::vector<FuzzySearchItem*> CreateItems(
+  std::vector<raw_ptr<FuzzySearchItem>> CreateItems(
       const std::vector<ItemData>& items_data) {
-    std::vector<FuzzySearchItem*> raw_items;
+    std::vector<raw_ptr<FuzzySearchItem>> raw_items;
     raw_items.reserve(items_data.size());
     for (const auto& data : items_data) {
       storage_.push_back(std::make_unique<FakeFuzzySearchItem>(
@@ -125,6 +127,21 @@ TEST_F(FuzzyFinderTest, NoMatchReturnsEmpty) {
   EXPECT_THAT(finder.FuzzyFind(u"Settings", /*max_results=*/5), IsEmpty());
 }
 
+TEST_F(FuzzyFinderTest, HasMinQueryLength) {
+  // Empty and 1-character queries do not meet the threshold.
+  EXPECT_FALSE(FuzzyFinder::HasMinQueryLength(u""));
+  EXPECT_FALSE(FuzzyFinder::HasMinQueryLength(u"a"));
+
+  // Two or more characters meet the threshold, including interior whitespace.
+  EXPECT_TRUE(FuzzyFinder::HasMinQueryLength(u"ab"));
+  EXPECT_TRUE(FuzzyFinder::HasMinQueryLength(u"a b"));
+
+  // Untrimmed queries with leading or trailing whitespace CHECK-fail.
+  EXPECT_CHECK_DEATH(FuzzyFinder::HasMinQueryLength(u"   "));
+  EXPECT_CHECK_DEATH(FuzzyFinder::HasMinQueryLength(u" a "));
+  EXPECT_CHECK_DEATH(FuzzyFinder::HasMinQueryLength(u" ab "));
+}
+
 TEST_F(FuzzyFinderTest, QueryShorterThanTwoCharactersReturnsEmpty) {
   auto items = CreateItems({{u"Tab 1"}, {u"Bookmarks"}});
   FuzzyFinder finder(items);
@@ -160,6 +177,10 @@ TEST_F(FuzzyFinderTest, TrimsLeadingAndTrailingWhitespace) {
 
   // 1 character padded with spaces (trims to 1 char, < 2) returns empty
   EXPECT_THAT(finder.FuzzyFind(u" t ", /*max_results=*/3), IsEmpty());
+
+  // 2 characters padded with spaces (trims to 2 chars) succeeds
+  results = finder.FuzzyFind(u"  ta  ", /*max_results=*/3);
+  EXPECT_THAT(ExtractResultTitles(results), ElementsAre(u"New Tab"));
 }
 
 TEST_F(FuzzyFinderTest, CaseInsensitiveMatching) {
@@ -185,26 +206,50 @@ TEST_F(FuzzyFinderTest, CaseInsensitiveMatching) {
   EXPECT_LE(results.size(), 6u);
 }
 
-TEST_F(FuzzyFinderTest, AccentsAndDiacriticsIgnoring) {
+// FuzzyFind does not fold accents (see crbug.com/549169077). Accented and
+// unaccented text can still match through typo tolerance (substituting the
+// accented character) or by aligning the query against unaccented characters
+// elsewhere in the candidate. The match ranges below show which characters were
+// actually aligned.
+TEST_F(FuzzyFinderTest, AccentedTextMatchesViaTypoTolerance) {
   auto items = CreateItems({{u"Résumé Settings"}, {u"Café Mode"}});
   FuzzyFinder finder(items);
 
-  // Query without accents matches title with accents
+  // The trailing 'e' of "resume" aligns with the 'e' in "Settings" rather than
+  // with 'é'.
   auto results = finder.FuzzyFind(u"resume", /*max_results=*/1);
   EXPECT_THAT(ExtractResultTitles(results), ElementsAre(u"Résumé Settings"));
-  EXPECT_LE(results.size(), 1u);
+  ASSERT_EQ(results.size(), 1u);
+  EXPECT_THAT(
+      results[0].match_ranges,
+      ElementsAre(gfx::Range(0, 1), gfx::Range(2, 5), gfx::Range(8, 9)));
 
+  // The trailing 'e' of "cafe" aligns with the 'e' in "Mode" rather than with
+  // 'é'.
   results = finder.FuzzyFind(u"cafe", /*max_results=*/1);
-  EXPECT_THAT(ExtractResultTitles(results),
-              ElementsAre(u"Café Mode"));
-  EXPECT_LE(results.size(), 1u);
+  EXPECT_THAT(ExtractResultTitles(results), ElementsAre(u"Café Mode"));
+  ASSERT_EQ(results.size(), 1u);
+  EXPECT_THAT(results[0].match_ranges,
+              ElementsAre(gfx::Range(0, 3), gfx::Range(8, 9)));
 
-  // Query with accents matches title without accents
+  results = finder.FuzzyFind(u"CAFE", /*max_results=*/1);
+  EXPECT_THAT(ExtractResultTitles(results), ElementsAre(u"Café Mode"));
+
+  // An accented query matches unaccented text by substituting 'é' for 'e',
+  // which is not an exact match and so is not highlighted.
   auto ascii_items = CreateItems({{u"Cafe Mode"}});
   FuzzyFinder ascii_finder(ascii_items);
   auto ascii_results = ascii_finder.FuzzyFind(u"café", /*max_results=*/1);
   EXPECT_THAT(ExtractResultTitles(ascii_results), ElementsAre(u"Cafe Mode"));
-  EXPECT_LE(ascii_results.size(), 1u);
+  ASSERT_EQ(ascii_results.size(), 1u);
+  EXPECT_THAT(ascii_results[0].match_ranges, ElementsAre(gfx::Range(0, 3)));
+
+  // Queries of 3 or fewer characters do not allow substitutions, so "ete"
+  // cannot match "Été", which has no unaccented 'e' to align with.
+  // TODO(crbug.com/549169077): This should match once accents are folded.
+  auto short_items = CreateItems({{u"Été"}});
+  FuzzyFinder short_finder(short_items);
+  EXPECT_THAT(short_finder.FuzzyFind(u"ete", /*max_results=*/1), IsEmpty());
 }
 
 TEST_F(FuzzyFinderTest, UnicodeAndNonLatinStrings) {
@@ -463,32 +508,6 @@ TEST_F(FuzzyFinderTest, FuzzyFindStableTieBreakingPreservesOrder) {
       ElementsAre(u"Bookmark Tab", u"Bookmark All Tabs", u"Bookmark Bar"));
 }
 
-TEST_F(FuzzyFinderTest, FuzzyFindQueryLengthAndWhitespaceConstraints) {
-  auto items = CreateItems({{u"New Tab"}, {u"Bookmarks"}});
-  FuzzyFinder finder(items);
-
-  // Queries under 2 characters or whitespace-only return empty.
-  EXPECT_THAT(finder.FuzzyFind(u"", /*max_results=*/5), IsEmpty());
-  EXPECT_THAT(finder.FuzzyFind(u"T", /*max_results=*/5), IsEmpty());
-  EXPECT_THAT(finder.FuzzyFind(u"   ", /*max_results=*/5), IsEmpty());
-  EXPECT_THAT(finder.FuzzyFind(u" t ", /*max_results=*/5), IsEmpty());
-
-  // 2-character query with whitespace trimming succeeds.
-  auto results = finder.FuzzyFind(u"  ta  ", /*max_results=*/3);
-  EXPECT_THAT(ExtractResultTitles(results), ElementsAre(u"New Tab"));
-}
-
-TEST_F(FuzzyFinderTest, FuzzyFindMaxResultsCapping) {
-  auto items = CreateItems({{u"Tab 1"}, {u"Tab 2"}, {u"Tab 3"}, {u"Tab 4"}});
-  FuzzyFinder finder(items);
-
-  EXPECT_THAT(finder.FuzzyFind(u"Tab", /*max_results=*/0), IsEmpty());
-
-  auto results = finder.FuzzyFind(u"Tab", /*max_results=*/2);
-  EXPECT_EQ(results.size(), 2u);
-  EXPECT_THAT(ExtractResultTitles(results), ElementsAre(u"Tab 1", u"Tab 2"));
-}
-
 TEST_F(FuzzyFinderTest, FuzzyFindSecondaryTextMatch) {
   // Query matches secondary text when title does not match.
   auto items = CreateItems({
@@ -538,17 +557,6 @@ TEST_F(FuzzyFinderTest, FuzzyFindSynonymPrioritizedOverSecondaryText) {
               ElementsAre(u"Password Manager", u"Passkey Settings"));
   ASSERT_EQ(results.size(), 2u);
   EXPECT_GT(results[0].score, results[1].score);
-}
-
-TEST_F(FuzzyFinderTest, FuzzyFindCaseAndAccentInsensitive) {
-  auto items = CreateItems({{u"Résumé Settings"}, {u"Café Mode"}});
-  FuzzyFinder finder(items);
-
-  auto results = finder.FuzzyFind(u"resume", /*max_results=*/1);
-  EXPECT_THAT(ExtractResultTitles(results), ElementsAre(u"Résumé Settings"));
-
-  results = finder.FuzzyFind(u"CAFE", /*max_results=*/1);
-  EXPECT_THAT(ExtractResultTitles(results), ElementsAre(u"Café Mode"));
 }
 
 TEST_F(FuzzyFinderTest, ContiguousDominanceOverScatteredSubsequences) {

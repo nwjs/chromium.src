@@ -48,7 +48,7 @@ TEST_F(HighlightStyleUtilsTest, SelectedTextInputShadow) {
       To<HTMLInputElement>(GetDocument().QuerySelector(AtomicString("input")))
           ->InnerEditorElement()
           ->firstChild();
-  const ComputedStyle& text_style = text_node->GetLayoutObject()->StyleRef();
+  const ComputedStyle& text_style = text_node->GetLayoutObject()->Style();
 
   PaintController controller;
   GraphicsContext context(controller);
@@ -66,6 +66,40 @@ TEST_F(HighlightStyleUtilsTest, SelectedTextInputShadow) {
 
   EXPECT_EQ(Color(0, 128, 0), paint_style.fill_color);
   EXPECT_TRUE(paint_style.shadow);
+}
+
+TEST_F(HighlightStyleUtilsTest, TransparentTextGetsSelectionForeground) {
+  SimRequest main_resource("https://example.com/test.html", "text/html");
+  LoadURL("https://example.com/test.html");
+  main_resource.Complete(R"HTML(
+    <!doctype html>
+    <div style="color: transparent">Select me</div>
+  )HTML");
+
+  Compositor().BeginFrame();
+  auto* div =
+      To<HTMLDivElement>(GetDocument().QuerySelector(AtomicString("div")));
+  Node* text = div->firstChild();
+  const ComputedStyle& text_style = text->GetLayoutObject()->Style();
+  const ComputedStyle* pseudo_style =
+      HighlightStyleUtils::HighlightPseudoStyle(text_style, kPseudoIdSelection);
+
+  PaintController controller;
+  GraphicsContext context(controller);
+  PaintInfo paint_info(context, CullRect(), PaintPhase::kForeground,
+                       /*descendant_painting_blocked=*/false);
+  TextPaintStyle paint_style =
+      HighlightStyleUtils::HighlightPaintingStyle(
+          GetDocument(), text_style, pseudo_style, text, kPseudoIdSelection,
+          TextPaintStyle(), paint_info, SearchTextIsActiveMatch::kNo)
+          .style;
+
+  EXPECT_TRUE(paint_style.fill_color ==
+                  LayoutTheme::GetTheme().ActiveSelectionForegroundColor(
+                      mojom::blink::ColorScheme::kLight) ||
+              paint_style.fill_color ==
+                  LayoutTheme::GetTheme().InactiveSelectionForegroundColor(
+                      mojom::blink::ColorScheme::kLight));
 }
 
 TEST_F(HighlightStyleUtilsTest, SelectedTextIsRespected) {
@@ -113,7 +147,7 @@ TEST_F(HighlightStyleUtilsTest, SelectedTextIsRespected) {
   auto* div1_text =
       To<HTMLDivElement>(GetDocument().QuerySelector(AtomicString("#div1")))
           ->firstChild();
-  const ComputedStyle& div1_style = div1_text->GetLayoutObject()->StyleRef();
+  const ComputedStyle& div1_style = div1_text->GetLayoutObject()->Style();
   const ComputedStyle* div1_pseudo_style =
       HighlightStyleUtils::HighlightPseudoStyle(div1_style, kPseudoIdSelection);
   paint_style = HighlightStyleUtils::HighlightPaintingStyle(
@@ -130,7 +164,7 @@ TEST_F(HighlightStyleUtilsTest, SelectedTextIsRespected) {
   auto* div2_text =
       To<HTMLDivElement>(GetDocument().QuerySelector(AtomicString("#div2")))
           ->firstChild();
-  const ComputedStyle& div2_style = div2_text->GetLayoutObject()->StyleRef();
+  const ComputedStyle& div2_style = div2_text->GetLayoutObject()->Style();
   const ComputedStyle* div2_pseudo_style =
       HighlightStyleUtils::HighlightPseudoStyle(div2_style, kPseudoIdSelection);
   paint_style = HighlightStyleUtils::HighlightPaintingStyle(
@@ -148,7 +182,7 @@ TEST_F(HighlightStyleUtilsTest, SelectedTextIsRespected) {
   auto* div3_text =
       To<HTMLDivElement>(GetDocument().QuerySelector(AtomicString("#div3")))
           ->firstChild();
-  const ComputedStyle& div3_style = div3_text->GetLayoutObject()->StyleRef();
+  const ComputedStyle& div3_style = div3_text->GetLayoutObject()->Style();
   const ComputedStyle* div3_pseudo_style =
       HighlightStyleUtils::HighlightPseudoStyle(div3_style, kPseudoIdSelection);
   paint_style = HighlightStyleUtils::HighlightPaintingStyle(
@@ -216,7 +250,7 @@ TEST_F(HighlightStyleUtilsTest, CurrentColorReportingAll) {
   TextPaintStyle paint_style;
 
   auto* div_text = div_node->firstChild();
-  const ComputedStyle& div_style = div_text->GetLayoutObject()->StyleRef();
+  const ComputedStyle& div_style = div_text->GetLayoutObject()->Style();
   const ComputedStyle* div_pseudo_style =
       HighlightStyleUtils::HighlightPseudoStyle(div_style, kPseudoIdHighlight,
                                                 AtomicString("highlight1"));
@@ -299,7 +333,7 @@ TEST_F(HighlightStyleUtilsTest, CurrentColorReportingSome) {
   auto* div_text =
       To<HTMLDivElement>(GetDocument().QuerySelector(AtomicString("#div")))
           ->firstChild();
-  const ComputedStyle& div_style = div_text->GetLayoutObject()->StyleRef();
+  const ComputedStyle& div_style = div_text->GetLayoutObject()->Style();
   const ComputedStyle* div_pseudo_style =
       HighlightStyleUtils::HighlightPseudoStyle(div_style, kPseudoIdHighlight,
                                                 AtomicString("highlight1"));
@@ -368,7 +402,7 @@ TEST_F(HighlightStyleUtilsTest, IgnoredSelectionDoesNotLeakColorsFromBelow) {
   auto* div_text =
       To<HTMLDivElement>(GetDocument().QuerySelector(AtomicString("#div")))
           ->firstChild();
-  const ComputedStyle& div_style = div_text->GetLayoutObject()->StyleRef();
+  const ComputedStyle& div_style = div_text->GetLayoutObject()->Style();
   ASSERT_FALSE(div_style.IsSelectable());
 
   // The originating layer paints black text.

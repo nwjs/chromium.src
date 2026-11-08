@@ -12,14 +12,14 @@ export function getHtml(this: OmniboxPopupSearchboxElement) {
     <div id="inputWrapper" @focusout="${this.onInputWrapperFocusout}"
         @keydown="${this.onInputWrapperKeydown}">
       <cr-searchbox-input id="input"
-          exportparts="searchbox-input"
+          exportparts="searchbox-input, mirror"
+          url-emphasis-enabled
           ?dropdown-is-visible="${this.dropdownIsVisible}"
-          input-aria-live="${this.inputAriaLive}"
           ?multi-line-enabled="${this.multiLineEnabled}"
           placeholder-text=""
           searchbox-aria-description="${this.searchboxAriaDescription}"
           searchbox-icon="${this.searchboxIcon_}"
-          .selectedMatch="${this.selectedMatch}"
+          .selectedMatch="${this.computeSelectedMatchForInput_()}"
           page-url="${this.computeCurrentPageUrl_()}"
           .inputKeywordModel="${this.inputKeywordModel}"
           ?input-has-matches="${this.hasMatches()}"
@@ -62,6 +62,18 @@ export function getHtml(this: OmniboxPopupSearchboxElement) {
           </div>
         ` :
                                        ''}
+        ${
+      this.omniboxDogfoodFeedbackEnabled_ ? html`
+          <div slot="action-buttons"
+              class="searchbox-icon-button-container dogfood">
+            <button id="dogfoodFeedbackButton" class="searchbox-icon-button"
+                @click="${this.onDogfoodFeedbackClick_}"
+                title="Submit Omnibox Dogfood Feedback"
+                aria-label="Submit Omnibox Dogfood Feedback">
+            </button>
+          </div>
+        ` :
+                                            ''}
         <cr-searchbox-compose-button id="composeButton" slot="compose-button"
             ?dynamic="${this.searchboxDynamicAnimation_}"
             ?has-user-input="${this.hasUserInput_}"

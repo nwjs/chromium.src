@@ -5,47 +5,27 @@
 // This file handles messages from the client, usually passing them on
 // to the browser via mojo.
 
-import {assertNotReached} from '//resources/js/assert.js';
-
-import {enumFromClient} from '../../enum_conversions.js';
-import {                                       //
-  PromptType as PromptTypeMojo,                //
-  ResponseStopCause as ResponseStopCauseMojo,  //
-  TabDataHandlerReceiver,                      //
-} from '../../glic.mojom-webui.js';
-import type {TabDataHandlerInterface, TabDataMojoType, WebClientHandlerInterface} from '../../glic.mojom-webui.js';
-import {ResponseStopCause} from '../../glic_api/glic_api.js';
+import type {WebClientHandlerInterface} from '../../glic.mojom-webui.js';
 import type {                            //
-             ClientErrorDialogType,      //
              ConversationInfo,           //
              CounterAbuseVerdict,        //
-             MicrophoneStatus,           //
-             OnResponseStoppedDetails,   //
              OpenPinnedTabPickerOptions, //
              PinTabsOptions,             //
-             PromptType,                 //
              TabContextOptions,          //
              UnpinTabsOptions,           //
-             WebClientMode,              //
              ZeroStateSuggestions,       //
 } from '../../glic_api/glic_api.js';
 import {replaceProperties} from '../conversions.js';
-import type {                          //
-             GlicException,            //
-             ImageBytesResultPrivate,  //
-             RgbaImage,                //
-             TabContextResultPrivate,  //
-             WebClientHost,            //
-             WebClientTabDataObserver, //
+import type {                         //
+             GlicException,           //
+             ImageBytesResultPrivate, //
+             RgbaImage,               //
+             TabContextResultPrivate, //
+             WebClientHost,           //
 } from '../request_types.js';
 import {ErrorWithReasonImpl, exceptionFromTransferable} from '../request_types.js';
-import {ResponseExtras} from '../transport/messaging.js';
-import type {                    //
-             PendingRemote,      //
-             PostMessageHandler, //
-             PostMessageRemote,  //
-             PostMessageRouter,  //
-} from '../transport/post_message_transport.js';
+import type {ResponseExtras} from '../transport/messaging.js';
+import type {PostMessageHandler} from '../transport/post_message_transport.js';
 
 import {                             //
   bitmapN32ToRGBAImage,              //
@@ -54,20 +34,15 @@ import {                             //
   idFromClient,                      //
   idToClient,                        //
   imageBytesResultToClient,          //
-  microphoneStatusToMojo,            //
   openPinnedTabPickerOptionsToMojo,  //
   optionalFromClient,                //
   pinTabsOptionsToMojo,              //
   tabContextOptionsFromClient,       //
   tabContextToClient,                //
-  tabDataToPrivate,                  //
-  timeDeltaFromClient,               //
   unpinTabsOptionsToMojo,            //
   urlToClient,                       //
-  webClientModeToMojo,               //
 } from './conversions.js';
 import type {GlicApiHost} from './glic_api_host.js';
-import {linkPipeClosure} from './host_utils.js';
 
 /**
  * Handles all requests to the host.
@@ -204,47 +179,9 @@ export class HostMessageHandler implements PostMessageHandler<WebClientHost> {
     this.handler.activateTab(idFromClient(request.tabId));
   }
 
-  async resizeWindow(request: {
-    size: {width: number, height: number},
-    options?: {durationMs?: number},
-  }) {
-    return await this.handler.resizeWidget(
-        request.size, timeDeltaFromClient(request.options?.durationMs));
-  }
-
-  enableDragResize(request: {enabled: boolean}) {
-    return this.handler.enableDragResize(request.enabled);
-  }
-
   deleteCapturedRegion(request: {tabId: string, regionId: string}) {
     this.handler.deleteCapturedRegion(
         idFromClient(request.tabId), request.regionId);
-  }
-
-  setMinimumWidgetSize(request: {
-    size: {width: number, height: number},
-  }) {
-    return this.handler.setMinimumPanelSize(request.size);
-  }
-
-  setMicrophonePermissionState(request: {enabled: boolean}) {
-    return this.handler.setMicrophonePermissionState(request.enabled);
-  }
-
-  setLocationPermissionState(request: {enabled: boolean}) {
-    return this.handler.setLocationPermissionState(request.enabled);
-  }
-
-  setTabContextPermissionState(request: {enabled: boolean}) {
-    return this.handler.setTabContextPermissionState(request.enabled);
-  }
-
-  setClosedCaptioningSetting(request: {enabled: boolean}) {
-    return this.handler.setClosedCaptioningSetting(request.enabled);
-  }
-
-  setActuationOnWebSetting(request: {enabled: boolean}) {
-    return this.handler.setActuationOnWebSetting(request.enabled);
   }
 
   async getUserProfileInfo(_request: void, extras: ResponseExtras) {
@@ -267,94 +204,6 @@ export class HostMessageHandler implements PostMessageHandler<WebClientHost> {
 
   refreshSignInCookies(): Promise<{success: boolean}> {
     return this.handler.syncCookies();
-  }
-
-
-  setAudioDucking(request: {enabled: boolean}): void {
-    this.handler.setAudioDucking(request.enabled);
-  }
-
-  onOptinImpression(): void {
-    this.handler.onOptinImpression();
-  }
-
-  onUserInputSubmitted(request: {mode: number, promptType?: PromptType}): void {
-    this.handler.onUserInputSubmitted(
-        webClientModeToMojo(request.mode),
-        enumFromClient(request.promptType) ?? PromptTypeMojo.kUnspecified);
-  }
-
-  onContextUploadStarted(): void {
-    this.handler.onContextUploadStarted();
-  }
-
-  onContextUploadCompleted(): void {
-    this.handler.onContextUploadCompleted();
-  }
-
-  onReaction(request: {reactionType: number}): void {
-    this.handler.onReaction(request.reactionType);
-  }
-
-  onActionSubmitted(request: {isRetry?: boolean}): void {
-    this.handler.onActionSubmitted(request.isRetry ?? false);
-  }
-
-  onResponseStarted(): void {
-    this.handler.onResponseStarted();
-  }
-
-  onResponseStopped(request: {details?: OnResponseStoppedDetails}): void {
-    const cause = request.details?.cause;
-
-    let causeMojo = ResponseStopCauseMojo.kUnknown;
-    if (cause !== undefined) {
-      switch (cause) {
-        case ResponseStopCause.USER:
-          causeMojo = ResponseStopCauseMojo.kUser;
-          break;
-        case ResponseStopCause.OTHER:
-          causeMojo = ResponseStopCauseMojo.kOther;
-          break;
-        default:
-          assertNotReached();
-      }
-    }
-    this.handler.onResponseStopped({cause: causeMojo});
-  }
-
-  onSessionTerminated(): void {
-    this.handler.onSessionTerminated();
-  }
-
-  onTurnCompleted(request: {model: number, duration: number}): void {
-    this.handler.onTurnCompleted(
-        request.model, timeDeltaFromClient(request.duration));
-  }
-
-  recordHistogram(request: {name: string, sparseValue: number}): void {
-    this.handler.recordSparseValue(request.name, request.sparseValue);
-  }
-  onResponseRated(request: {positive: boolean}): void {
-    this.handler.onResponseRated(request.positive);
-  }
-
-  onClosedCaptionsShown(): void {
-    this.handler.onClosedCaptionsShown();
-  }
-
-
-  setSyntheticExperimentState(request: {
-    trialName: string,
-    groupName: string,
-  }) {
-    return this.handler.setSyntheticExperimentState(
-        request.trialName, request.groupName);
-  }
-
-
-  getOsMicrophonePermissionStatus(): Promise<{enabled: boolean}> {
-    return this.handler.getOsMicrophonePermissionStatus();
   }
 
   pinTabs(request: {tabIds: string[], options?: PinTabsOptions}):
@@ -411,64 +260,5 @@ export class HostMessageHandler implements PostMessageHandler<WebClientHost> {
   }): Promise<{success: boolean}> {
     return this.handler.subscribeToPageMetadata(
         idFromClient(request.tabId), request.names);
-  }
-
-  onModeChange(request: {newMode: WebClientMode}): void {
-    this.handler.onModeChange(webClientModeToMojo(request.newMode));
-  }
-
-  onMicrophoneStatusChange(request: {status: MicrophoneStatus}): void {
-    this.handler.onMicrophoneStatusChange(
-        microphoneStatusToMojo(request.status));
-  }
-
-  setOnboardingCompleted(): void {
-    this.handler.setOnboardingCompleted();
-  }
-
-  subscribeToTabData(request: {
-    tabId: string,
-    remote: PendingRemote<WebClientTabDataObserver>,
-  }): void {
-    new TabDataHandlerImpl(
-        idFromClient(request.tabId), this.handler, request.remote,
-        this.host.router);
-  }
-
-  setErrorDialogState(request: {
-    shownDialogType?: ClientErrorDialogType,
-  }): void {
-    if (request.shownDialogType !== undefined) {
-      this.handler.clientErrorDialogStateChanged(
-          enumFromClient(request.shownDialogType));
-    }
-    // TODO(b/506142920): Avoid showing error panels to the user if it is
-    // presented while the panel is backgrounded. Automatically reload the
-    // page instead.
-  }
-}
-
-
-class TabDataHandlerImpl implements TabDataHandlerInterface {
-  mojoReceiver?: TabDataHandlerReceiver;
-  private pmRemote: PostMessageRemote<WebClientTabDataObserver>;
-
-  constructor(
-      tabId: number, handler: WebClientHandlerInterface,
-      pendingRemote: PendingRemote<WebClientTabDataObserver>,
-      router: PostMessageRouter) {
-    this.pmRemote = router.newRemote(pendingRemote);
-    this.mojoReceiver = new TabDataHandlerReceiver(this);
-    linkPipeClosure(this.pmRemote, this.mojoReceiver);
-    handler.subscribeToTabData(
-        tabId, this.mojoReceiver.$.bindNewPipeAndPassRemote());
-  }
-  onTabDataChanged(tabData: TabDataMojoType): void {
-    const extras = new ResponseExtras();
-    this.pmRemote.requestNoResponse(
-        'tabDataChanged', {
-          tabData: tabDataToPrivate(tabData, extras),
-        },
-        extras.transfers);
   }
 }

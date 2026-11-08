@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "base/check.h"
+#include "base/feature_list.h"
 #include "base/logging.h"
 #include "base/memory/raw_ptr.h"
 #include "base/notreached.h"
@@ -20,6 +21,7 @@
 #include "cc/paint/image_provider.h"
 #include "cc/paint/render_surface_filters.h"
 #include "components/viz/common/display/renderer_settings.h"
+#include "components/viz/common/features.h"
 #include "components/viz/common/frame_sinks/copy_output_request.h"
 #include "components/viz/common/frame_sinks/copy_output_util.h"
 #include "components/viz/common/quads/aggregated_render_pass_draw_quad.h"
@@ -39,16 +41,17 @@
 #include "skia/ext/image_operations.h"
 #include "skia/ext/legacy_display_globals.h"
 #include "skia/ext/opacity_filter_canvas.h"
-#include "third_party/skia/include/core/SkCPURecorder.h"
 #include "third_party/skia/include/core/SkCanvas.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "third_party/skia/include/core/SkColorFilter.h"
+#include "third_party/skia/include/core/SkColorSpace.h"
 #include "third_party/skia/include/core/SkImage.h"
 #include "third_party/skia/include/core/SkImageFilter.h"
 #include "third_party/skia/include/core/SkMaskFilter.h"
 #include "third_party/skia/include/core/SkMatrix.h"
 #include "third_party/skia/include/core/SkPath.h"
 #include "third_party/skia/include/core/SkPathBuilder.h"
+#include "third_party/skia/include/core/SkPixmap.h"
 #include "third_party/skia/include/core/SkPoint.h"
 #include "third_party/skia/include/core/SkShader.h"
 #include "third_party/skia/include/core/SkSwizzle.h"
@@ -107,6 +110,70 @@ class AnimatedImagesProvider : public cc::ImageProvider {
   raw_ptr<const PictureDrawQuad::ImageAnimationMap> image_animation_map_;
 };
 
+// Returns true if blending a source pixel `s` onto a transparent destination
+// `d = (0, 0, 0, 0)` with `blend_mode` produces `s`, and therefore can be
+// replaced with `SkBlendMode::kSrcOver` (which enables Skia's fast legacy
+// C++/SIMD blitters in SoftwareRenderer).
+bool CanReplaceBlendModeWithSrcOverOnTransparentPass(SkBlendMode blend_mode) {
+  switch (blend_mode) {
+    // Keep kSrc as-is so unscaled sprite blits can still use memcpy.
+    // The remaining modes evaluate to 0 (transparent) when d = 0 (da = 0):
+    // - kClear:    0
+    // - kDst:      d = 0
+    // - kSrcIn:    s * da = 0
+    // - kDstIn:    d * sa = 0
+    // - kDstOut:   d * (1 - sa) = 0
+    // - kSrcATop:  s * da + d * (1 - sa) = 0
+    // - kModulate: s * d = 0
+    case SkBlendMode::kClear:
+    case SkBlendMode::kSrc:
+    case SkBlendMode::kDst:
+    case SkBlendMode::kSrcIn:
+    case SkBlendMode::kDstIn:
+    case SkBlendMode::kDstOut:
+    case SkBlendMode::kSrcATop:
+    case SkBlendMode::kModulate:
+      return false;
+
+    // Porter-Duff and additive modes with source coefficient 1 or (1 - da)
+    // evaluate to `s` when d = 0 (da = 0):
+    // - kSrcOver: s + d * (1 - sa) = s
+    // - kDstOver: s * (1 - da) + d = s
+    // - kSrcOut:  s * (1 - da) = s
+    // - kDstATop: s * (1 - da) + d * sa = s
+    // - kXor:     s * (1 - da) + d * (1 - sa) = s
+    // - kPlus:    min(s + d, 1) = s
+    //
+    // Separable and non-separable blend modes follow the W3C alpha-compositing
+    // formula:
+    //   ra = sa + (1 - sa) * da
+    //   rc = (1 - da) * sc + (1 - sa) * dc + sa * da * B(cd, cs)
+    // When d = 0 (dc = 0, da = 0), this simplifies to ra = sa and rc = sc.
+    case SkBlendMode::kSrcOver:
+    case SkBlendMode::kDstOver:
+    case SkBlendMode::kSrcOut:
+    case SkBlendMode::kDstATop:
+    case SkBlendMode::kXor:
+    case SkBlendMode::kPlus:
+    case SkBlendMode::kScreen:
+    case SkBlendMode::kOverlay:
+    case SkBlendMode::kDarken:
+    case SkBlendMode::kLighten:
+    case SkBlendMode::kColorDodge:
+    case SkBlendMode::kColorBurn:
+    case SkBlendMode::kHardLight:
+    case SkBlendMode::kSoftLight:
+    case SkBlendMode::kDifference:
+    case SkBlendMode::kExclusion:
+    case SkBlendMode::kMultiply:
+    case SkBlendMode::kHue:
+    case SkBlendMode::kSaturation:
+    case SkBlendMode::kColor:
+    case SkBlendMode::kLuminosity:
+      return true;
+  }
+}
+
 }  // namespace
 
 SoftwareRenderer::SoftwareRenderer(
@@ -145,7 +212,7 @@ void SoftwareRenderer::FinishDrawingFrame() {
 }
 
 void SoftwareRenderer::SwapBuffers(SwapFrameData swap_frame_data) {
-  DCHECK(visible_);
+  DCHECK(has_back_buffers_);
   TRACE_EVENT0("viz", "SoftwareRenderer::SwapBuffers");
   OutputSurfaceFrame output_frame;
   output_frame.latency_info = std::move(swap_frame_data.latency_info);
@@ -263,6 +330,10 @@ void SoftwareRenderer::BeginDrawingRenderPass(
   if (needs_clear) {
     ClearFramebuffer();
   }
+  is_render_pass_transparent_ =
+      needs_clear && render_pass->has_transparent_background &&
+      base::FeatureList::IsEnabled(
+          features::kUseSrcOverForFirstQuadInTransparentPass);
 }
 
 bool SoftwareRenderer::IsSoftwareResource(ResourceId resource_id) {
@@ -310,10 +381,19 @@ void SoftwareRenderer::DoDrawQuad(const DrawQuad* quad,
     current_sampling_ = SkSamplingOptions(SkFilterMode::kLinear);
   }
 
+  const bool is_first_quad_in_transparent_pass =
+      std::exchange(is_render_pass_transparent_, false);
   if (quad->ShouldDrawWithBlending() ||
       quad->shared_quad_state->blend_mode != SkBlendMode::kSrcOver) {
+    SkBlendMode blend_mode = quad->shared_quad_state->blend_mode;
+    const auto* rpdq = quad->DynamicCast<AggregatedRenderPassDrawQuad>();
+    if (is_first_quad_in_transparent_pass &&
+        CanReplaceBlendModeWithSrcOverOnTransparentPass(blend_mode) &&
+        (!rpdq || rpdq->backdrop_filters.IsEmpty())) {
+      blend_mode = SkBlendMode::kSrcOver;
+    }
     current_paint_.setAlpha(quad->shared_quad_state->opacity * 255);
-    current_paint_.setBlendMode(quad->shared_quad_state->blend_mode);
+    current_paint_.setBlendMode(blend_mode);
   } else {
     current_paint_.setBlendMode(SkBlendMode::kSrc);
   }
@@ -638,6 +718,12 @@ void SoftwareRenderer::CopyDrawnRenderPass(
   sk_sp<SkColorSpace> color_space = CurrentRenderPassSkColorSpace();
   DCHECK(color_space);
 
+  if (base::FeatureList::IsEnabled(
+          features::kSoftwareReadbackIntoBlitDestination) &&
+      ReadPixelsIntoBlitDestination(geometry, *color_space, *request)) {
+    return;
+  }
+
   SkBitmap bitmap;
   if (request->is_scaled()) {
     // Resolve the source for the scaling input: Initialize a SkPixmap that
@@ -769,11 +855,68 @@ void SoftwareRenderer::CopyDrawnRenderPass(
   request->SendResult(std::move(result));
 }
 
-void SoftwareRenderer::DidChangeVisibility() {
-  if (visible_)
+bool SoftwareRenderer::ReadPixelsIntoBlitDestination(
+    const copy_output::RenderPassGeometry& geometry,
+    const SkColorSpace& color_space,
+    CopyOutputRequest& request) {
+  if (request.is_scaled() ||
+      request.result_destination() !=
+          CopyOutputResult::Destination::kSharedImage ||
+      !request.has_blit_request()) {
+    return false;
+  }
+  const BlitRequest& blit_request = request.blit_request();
+  if (blit_request.letterboxing_behavior() !=
+          LetterboxingBehavior::kDoNotLetterbox ||
+      !blit_request.blend_bitmaps().empty()) {
+    return false;
+  }
+
+  auto representation = resource_provider()->GetSharedImageRepresentation(
+      blit_request.shared_image()->mailbox(), blit_request.sync_token());
+  if (!representation) {
+    return false;
+  }
+  const gfx::Rect dest_rect(blit_request.destination_region_offset(),
+                            geometry.result_selection.size());
+  if (!gfx::Rect(representation->size()).Contains(dest_rect)) {
+    return false;
+  }
+  // See CopyDrawnRenderPass() about using read access.
+  auto read_access = representation->BeginScopedReadAccess();
+  if (!read_access) {
+    return false;
+  }
+
+  // The general path reads into an N32 premul bitmap in `color_space`, and
+  // draws that into the destination with kSrc, unscaled, at an integer offset.
+  // Reading directly into the destination gives the same pixels when the
+  // destination is 8-bit premul in the same color space, where only the channel
+  // order may differ.
+  const SkPixmap& pixmap = read_access->pixmap();
+  SkPixmap dest_pixmap;
+  if ((pixmap.colorType() != kRGBA_8888_SkColorType &&
+       pixmap.colorType() != kBGRA_8888_SkColorType) ||
+      pixmap.alphaType() != kPremul_SkAlphaType ||
+      !SkColorSpace::Equals(pixmap.colorSpace(), &color_space) ||
+      !pixmap.extractSubset(&dest_pixmap, gfx::RectToSkIRect(dest_rect)) ||
+      !current_canvas_->readPixels(dest_pixmap, geometry.readback_offset.x(),
+                                   geometry.readback_offset.y())) {
+    return false;
+  }
+
+  request.SendResult(std::make_unique<CopyOutputSharedImageResult>(
+      CopyOutputResult::Format::RGBA, geometry.result_selection,
+      blit_request.shared_image(), ReleaseCallback()));
+  return true;
+}
+
+void SoftwareRenderer::DidChangeHasBackBuffers() {
+  if (has_back_buffers_) {
     output_surface_->EnsureBackbuffer();
-  else
+  } else {
     output_surface_->DiscardBackbuffer();
+  }
 }
 
 bool SoftwareRenderer::ShouldApplyBackdropFilters(

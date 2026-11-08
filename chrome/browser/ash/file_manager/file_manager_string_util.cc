@@ -233,8 +233,6 @@ void AddStringsForDrive(base::DictValue* dict) {
              IDS_FILE_BROWSER_DRIVE_ORGANIZATION_STORAGE_FULL);
   SET_STRING("SYNC_SERVICE_UNAVAILABLE_ERROR",
              IDS_FILE_BROWSER_SYNC_SERVICE_UNAVAILABLE_ERROR);
-  SET_STRING("DRIVE_MANAGE_MIRRORSYNC",
-             IDS_FILE_BROWSER_DRIVE_MANAGE_MIRRORSYNC_LABEL);
   SET_STRING("GOOGLE_DRIVE_SETTINGS_LINK",
              IDS_FILE_BROWSER_GOOGLE_DRIVE_SETTINGS_LINK_LABEL);
   SET_STRING("DRIVE_MULTIPLE_FILES_SYNCING",
@@ -1281,7 +1279,7 @@ int GetLocaleBasedWeekStart() {
   // start, since there are no daylight saving starts/ends in June worldwide.
   base::Time fixed_date;
   bool result = base::Time::FromString("15 Jun 2021 12:00 GMT", &fixed_date);
-  DCHECK(result);
+  CHECK(result, base::NotFatalUntil::M161);
   int local_day_of_week = 2;  // 15 Jun 2021 is Tuesday.
   // Adjust local_day_of_week according to the current timezone. We are using
   // 12:00pm UTC above, so only need to check if the local time difference is
@@ -1308,7 +1306,7 @@ void AddFileManagerFeatureStrings(
     const variations::VariationsService& variations_service,
     Profile* profile,
     base::DictValue* dict) {
-  DCHECK(profile);
+  CHECK(profile, base::NotFatalUntil::M161);
 
   dict->Set("HIDE_SPACE_INFO", ash::demo_mode::IsDeviceInDemoMode());
   dict->Set("ARC_VM_ENABLED", arc::IsArcVmEnabled());
@@ -1316,8 +1314,6 @@ void AddFileManagerFeatureStrings(
             ash::features::IsFilesLocalImageSearchEnabled());
   dict->Set("FILES_TRASH_DRIVE_ENABLED",
             base::FeatureList::IsEnabled(ash::features::kFilesTrashDrive));
-
-  dict->Set("DRIVEFS_MIRRORING", ash::features::IsDriveFsMirroringEnabled());
 
   dict->Set("GUEST_OS", true);
 

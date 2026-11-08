@@ -95,15 +95,6 @@ class DriveConsentKitClient extends WebContentsObserver implements DriveConsentJ
     }
 
     @Override
-    public void onWhenAttached(int callbackId) {
-        if (mDestroyed || mCompleted) return;
-        WebContents webContents = getWebContents();
-        if (webContents == null) return;
-        webContents.evaluateJavaScript(
-                "window.ckUiCallback(" + callbackId + ")", /* callback= */ null);
-    }
-
-    @Override
     public void onCloseWithResult(@Nullable String resultJson) {
         if (mDestroyed || mCompleted) return;
         if (TextUtils.isEmpty(resultJson)) {

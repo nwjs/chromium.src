@@ -14,11 +14,16 @@ source_set("browser") {
   ]
   deps = [
     "//base",
+    "//components/device_event_log",
+    "//components/signin/public/base",
+    "//components/signin/public/identity_manager",
     "//components/sync",
     "//components/webauthn:features",
     "//crypto",
+    "//google_apis",
     "//net",
     "//services/network/public/cpp",
+    "//services/network/public/mojom",
     "//url",
   ]
 
@@ -65,6 +70,7 @@ source_set("passkey_model") {
     "//components/cbor",
     "//components/keyed_service/core",
     "//components/sync/protocol",
+    "//components/webauthn/core/browser/device_authorization:features",
     "//crypto",
     "//device/fido",
   ]
@@ -134,6 +140,7 @@ source_set("unit_tests") {
     ":browser",
     ":common_utils",
     "//base/test:test_support",
+    "//components/signin/public/identity_manager:test_support",
     "//components/webauthn:features",
     "//services/network:test_support",
     "//services/network/public/cpp",
@@ -161,6 +168,7 @@ source_set("unit_tests") {
       ":signal_api_utils",
       ":test_support",
       "//components/sync/protocol",
+      "//components/webauthn/core/browser/device_authorization:features",
       "//crypto",
       "//testing/gmock",
       "//testing/gtest",
@@ -184,9 +192,13 @@ static_library("test_support") {
     "fake_cmtg_device_key_provider.cc",
     "fake_cmtg_device_key_provider.h",
   ]
+  public_deps = [ "//net" ]
   deps = [
     ":browser",
     "//base",
+    "//base:i18n",
+    "//services/network/public/cpp",
+    "//url",
   ]
 
   if (use_blink) {

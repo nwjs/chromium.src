@@ -26,16 +26,12 @@
 #include "extensions/browser/extension_registrar.h"
 #include "extensions/browser/extension_registry.h"
 #include "extensions/browser/extension_system.h"
-#include "extensions/browser/extension_user_script_loader.h"
 #include "extensions/browser/script_executor.h"
-#include "extensions/browser/test_extension_registry_observer.h"
-#include "extensions/browser/user_script_manager.h"
 #include "extensions/buildflags/buildflags.h"
 #include "extensions/common/features/feature_channel.h"
 #include "extensions/common/utils/content_script_utils.h"
 #include "extensions/test/extension_test_message_listener.h"
 #include "extensions/test/result_catcher.h"
-#include "extensions/test/test_content_script_load_waiter.h"
 #include "extensions/test/test_extension_dir.h"
 #include "net/dns/mock_host_resolver.h"
 #include "net/test/embedded_test_server/controllable_http_response.h"
@@ -62,7 +58,6 @@ namespace {
 
 constexpr const char kSimulatedResourcePath[] = "/simulated-resource.html";
 
-#if !BUILDFLAG(IS_ANDROID)
 // Returns the IDs of all divs in a page; used for testing script injections.
 constexpr char kGetDivIds[] =
     R"(let childIds = [];
@@ -70,7 +65,6 @@ constexpr char kGetDivIds[] =
          childIds.push(child.id);
        }
        JSON.stringify(childIds.sort());)";
-#endif  // !BUILDFLAG(IS_ANDROID)
 
 }  // namespace
 
@@ -641,9 +635,6 @@ IN_PROC_BROWSER_TEST_F(ScriptingAPITest, InjectImmediately) {
 }
 #endif
 
-// TODO(crbug.com/565603182): Extension loading times out after restart on
-// Android.
-#if !BUILDFLAG(IS_ANDROID)
 // Verifies dynamic scripts are properly injected in incognito.
 // Regression test for https://crbug.com/40286428.
 IN_PROC_BROWSER_TEST_F(ScriptingAPITest,
@@ -701,38 +692,6 @@ IN_PROC_BROWSER_TEST_F(ScriptingAPITest,
   ScopedAllowHttpForHostnamesForTesting allow_http({"example.com"},
                                                    profile()->GetPrefs());
 
-  // Wait for the extensions loaded in the PRE_ test to be restored and their
-  // dynamic content scripts to finish loading before navigating.
-  auto wait_for_extension_and_scripts = [this](const base::FilePath& path) {
-    const Extension* extension =
-        GetExtensionByPath(extension_registry()->enabled_extensions(), path);
-    while (!extension) {
-      SCOPED_TRACE(base::StringPrintf("Waiting for extension to load: %s",
-                                      path.AsUTF8Unsafe().c_str()));
-      TestExtensionRegistryObserver observer(extension_registry());
-      observer.WaitForExtensionLoaded();
-      extension =
-          GetExtensionByPath(extension_registry()->enabled_extensions(), path);
-    }
-
-    ExtensionUserScriptLoader* user_script_loader =
-        ExtensionSystem::Get(profile())
-            ->user_script_manager()
-            ->GetUserScriptLoaderForExtension(extension->id());
-    if (!user_script_loader->HasLoadedScripts()) {
-      SCOPED_TRACE(
-          base::StringPrintf("Waiting for dynamic content scripts to load: %s",
-                             path.AsUTF8Unsafe().c_str()));
-      ContentScriptLoadWaiter waiter(user_script_loader);
-      waiter.Wait();
-    }
-  };
-
-  wait_for_extension_and_scripts(
-      test_data_dir_.AppendASCII("scripting/incognito_allowed"));
-  wait_for_extension_and_scripts(
-      test_data_dir_.AppendASCII("scripting/incognito_disallowed"));
-
   // Repeat the steps of navigating to an on-the-record and off-the-record page
   // to validate injection after a restart. This verifies the incognito bit
   // is properly set when restoring scripts after a restart.
@@ -751,7 +710,6 @@ IN_PROC_BROWSER_TEST_F(ScriptingAPITest,
   EXPECT_EQ(R"(["incognito-allowed"])",
             content::EvalJs(incognito_web_contents, kGetDivIds));
 }
-#endif  // !BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
 // Base test fixture for tests spanning multiple sessions where a custom arg is

@@ -62,6 +62,7 @@ struct CORE_EXPORT BoxStrut {
   LayoutUnit BlockSum() const { return block_start + block_end; }
 
   LogicalOffset StartOffset() const { return {inline_start, block_start}; }
+  LogicalOffset EndOffset() const { return {inline_end, block_end}; }
 
   bool IsEmpty() const { return *this == BoxStrut(); }
 
@@ -173,6 +174,10 @@ struct CORE_EXPORT PhysicalBoxStrut {
 
   // Create a strut based on an inner rectangle positioned within an area.
   PhysicalBoxStrut(const PhysicalSize& outer_size,
+                   const PhysicalRect& inner_rect);
+
+  // Create a strut based on an outer and inner rectangle (insets are inwards).
+  PhysicalBoxStrut(const PhysicalRect& outer_rect,
                    const PhysicalRect& inner_rect);
 
   // Creates new PhysicalBoxStrut instance from the specified `outsets`.

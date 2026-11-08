@@ -56,6 +56,20 @@ class StubPolicyHandler : public ConfigurationPolicyHandler {
   std::string policy_name_;
 };
 
+// Counts the calls to OnPolicySettingsNotApplied().
+class NotAppliedCountingPolicyHandler : public StubPolicyHandler {
+ public:
+  explicit NotAppliedCountingPolicyHandler(const std::string& policy_name)
+      : StubPolicyHandler(policy_name) {}
+
+  void OnPolicySettingsNotApplied() override { ++not_applied_count_; }
+
+  int not_applied_count() const { return not_applied_count_; }
+
+ private:
+  int not_applied_count_ = 0;
+};
+
 }  // namespace
 
 class ConfigurationPolicyHandlerListTest : public ::testing::Test {
@@ -85,14 +99,23 @@ class ConfigurationPolicyHandlerListTest : public ::testing::Test {
         policies_, &prefs_, &errors_, &deprecated_policies_, &future_policies_);
   }
 
-  void CreateHandlerList(bool are_future_policies_allowed_by_default = false) {
+  // Only checks the policies and lists their errors, like chrome://policy.
+  void CheckSettings() {
+    handler_list_->ApplyPolicySettings(policies_, /*prefs=*/nullptr, &errors_,
+                                       &deprecated_policies_,
+                                       &future_policies_);
+  }
+
+  void CreateHandlerList(bool are_future_policies_allowed_by_default = false,
+                         bool are_cloud_only_policies_allowed = true) {
     handler_list_ = std::make_unique<ConfigurationPolicyHandlerList>(
         ConfigurationPolicyHandlerList::
             PopulatePolicyHandlerParametersCallback(),
         base::BindRepeating(
             &ConfigurationPolicyHandlerListTest::GetPolicyDetails,
             base::Unretained(this)),
-        are_future_policies_allowed_by_default);
+        are_future_policies_allowed_by_default,
+        are_cloud_only_policies_allowed);
   }
 
   PrefValueMap* prefs() { return &prefs_; }
@@ -153,6 +176,10 @@ class ConfigurationPolicyHandlerListTest : public ::testing::Test {
     handler_list_->AddHandler(std::make_unique<StubPolicyHandler>(policy_name));
   }
 
+  void RegisterHandler(std::unique_ptr<ConfigurationPolicyHandler> handler) {
+    handler_list_->AddHandler(std::move(handler));
+  }
+
  private:
   PrefValueMap prefs_;
   PolicyErrorMap errors_;
@@ -168,6 +195,34 @@ TEST_F(ConfigurationPolicyHandlerListTest, ApplySettingsWithNormalPolicy) {
   AddSimplePolicy();
   ApplySettings();
   VerifyPolicyAndPref(kPolicyName, /*in_pref=*/true);
+}
+
+// Handlers are told when the policies they checked are not applied, so that
+// they can release anything they kept for the apply step.
+TEST_F(ConfigurationPolicyHandlerListTest, OnPolicySettingsNotApplied) {
+  auto handler = std::make_unique<NotAppliedCountingPolicyHandler>(kPolicyName);
+  NotAppliedCountingPolicyHandler* handler_ptr = handler.get();
+  RegisterHandler(std::move(handler));
+  SetPolicy(kPolicyName, POLICY_LEVEL_MANDATORY, POLICY_SCOPE_MACHINE,
+            POLICY_SOURCE_CLOUD, base::Value(kPolicyValue));
+
+  // Valid policies are applied.
+  ApplySettings();
+  VerifyPolicyAndPref(kPolicyName, /*in_pref=*/true);
+  EXPECT_EQ(0, handler_ptr->not_applied_count());
+
+  // Policies that are only checked are not applied.
+  ClearPrefs();
+  CheckSettings();
+  VerifyPolicyAndPref(kPolicyName, /*in_pref=*/false);
+  EXPECT_EQ(1, handler_ptr->not_applied_count());
+
+  // Neither are policies that fail the check.
+  ClearPolicies();
+  CheckSettings();
+  EXPECT_EQ(2, handler_ptr->not_applied_count());
+  ApplySettings();
+  EXPECT_EQ(3, handler_ptr->not_applied_count());
 }
 
 // Future policy will be filter out unless it's whitelisted by
@@ -278,6 +333,42 @@ TEST_F(ConfigurationPolicyHandlerListTest, ApplySettingsWithCloudOnlyPolicy) {
             l10n_util::GetStringUTF16(IDS_POLICY_CLOUD_SOURCE_ONLY_ERROR));
   ClearErrors();
 #endif
+}
+
+TEST_F(ConfigurationPolicyHandlerListTest,
+       ApplySettingsWithoutCloudOnlyPoliciesAllowed) {
+  CreateHandlerList(/*are_future_policies_allowed_by_default=*/false,
+                    /*are_cloud_only_policies_allowed=*/false);
+  details()->source_restriction = kSourceRestrictionCloudOnly;
+
+  // Cloud source is disallowed when cloud-only policies are not allowed.
+  AddPolicy(kPolicyName, /*is_cloud=*/true, base::Value(kPolicyValue));
+  ApplySettings();
+  VerifyPolicyAndPref(kPolicyName, /*in_pref=*/false);
+  EXPECT_EQ(GetErrorMessages(kPolicyName),
+            l10n_util::GetStringUTF16(IDS_POLICY_CLOUD_SOURCE_ONLY_ERROR));
+  ClearErrors();
+
+#if BUILDFLAG(IS_ANDROID)
+  // Command line source on Android remains allowed for development and testing.
+  ClearPrefs();
+  SetPolicy(kPolicyName, POLICY_LEVEL_MANDATORY, POLICY_SCOPE_MACHINE,
+            POLICY_SOURCE_COMMAND_LINE, base::Value(kPolicyValue));
+  ApplySettings();
+  VerifyPolicyAndPref(kPolicyName, /*in_pref=*/true);
+  EXPECT_TRUE(IsErrorsEmpty());
+#endif
+
+  // CloudReportingEnabled is also disallowed when cloud-only policies are not
+  // allowed.
+  ClearPolicies();
+  AddPolicy(key::kCloudReportingEnabled, /*is_cloud=*/true,
+            base::Value(kPolicyValue));
+  ApplySettings();
+  VerifyPolicyAndPref(key::kCloudReportingEnabled, /*in_pref=*/false);
+  EXPECT_EQ(GetErrorMessages(key::kCloudReportingEnabled),
+            l10n_util::GetStringUTF16(IDS_POLICY_CLOUD_SOURCE_ONLY_ERROR));
+  ClearErrors();
 }
 
 // TODO(crbug.com/491119520): Remove this test once the CloudReportingEnabled

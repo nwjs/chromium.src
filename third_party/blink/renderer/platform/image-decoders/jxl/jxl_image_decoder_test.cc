@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <array>
 #include <memory>
+#include <optional>
 #include <vector>
 
 #include "base/containers/span.h"
@@ -16,6 +17,7 @@
 #include "third_party/blink/renderer/platform/image-decoders/image_decoder_test_helpers.h"
 #include "third_party/blink/renderer/platform/image-decoders/segment_reader.h"
 #include "third_party/blink/renderer/platform/wtf/shared_buffer.h"
+#include "ui/gfx/hdr_metadata.h"
 
 namespace blink {
 
@@ -156,6 +158,39 @@ TEST_F(JXLImageDecoderTest, DecodeCmykWithIccProfile) {
   expect_color_near(192, 64, SkColorSetRGB(34, 31, 33));
   expect_color_near(192, 192, SkColorSetRGB(236, 27, 68));
   expect_color_near(320, 320, SkColorSetRGB(0, 182, 178));
+}
+
+// Test that a PQ image's intensity_target is reported as its peak luminance.
+// The two fixtures hold identical pixels and differ only in intensity_target.
+TEST_F(JXLImageDecoderTest, PqIntensityTargetIsContentLightLevel) {
+  const auto max_cll = [](const char* file) {
+    auto decoder = CreateJXLDecoder();
+    scoped_refptr<SharedBuffer> data =
+        ReadFileToSharedBuffer(kJxlTestDir, file);
+    CHECK(data);
+    decoder->SetData(data.get(), true);
+    CHECK(decoder->IsSizeAvailable());
+    const gfx::HDRMetadata& hdr_metadata = decoder->GetHDRMetadata();
+    return hdr_metadata.HasCLLI()
+               ? std::optional<float>(hdr_metadata.GetCLLI().fMaxCLL)
+               : std::nullopt;
+  };
+
+  EXPECT_EQ(max_cll("pq_intensity_target_600.jxl"), 600.f);
+  EXPECT_EQ(max_cll("pq_intensity_target_10000.jxl"), 10000.f);
+}
+
+// Test that an SDR image's intensity_target is not reported as HDR metadata.
+TEST_F(JXLImageDecoderTest, SdrImageHasNoContentLightLevel) {
+  auto decoder = CreateJXLDecoder();
+  scoped_refptr<SharedBuffer> data =
+      ReadFileToSharedBuffer(kJxlTestDir, "3x3_srgb_lossless.jxl");
+  ASSERT_TRUE(data);
+
+  decoder->SetData(data.get(), true);
+  ASSERT_TRUE(decoder->IsSizeAvailable());
+
+  EXPECT_FALSE(decoder->GetHDRMetadata().HasCLLI());
 }
 
 // Test grayscale+alpha fixture carrying an embedded ICC profile.
@@ -939,6 +974,57 @@ TEST_F(JXLImageDecoderTest, AnimationReferenceFrameBlending) {
   ImageFrame* first_frame = decoder->DecodeFrameBufferAtIndex(0);
   ASSERT_TRUE(first_frame);
   EXPECT_EQ(ImageFrame::kFrameComplete, first_frame->GetStatus());
+}
+
+// When the requested frame is ahead of the decoder and the decoder already
+// holds everything that frame depends on, Decode() decodes forward (skipping
+// output for the in-between frames) instead of seeking from the frame's decode
+// start. The in-between frames still update the decoder's reference frames, so
+// the forward-decoded frame must be pixel-identical to the authoritative
+// sequential decode. newtons_cradle.jxl uses reference-frame blending, so
+// later frames depend on earlier ones and exercise this path.
+TEST_F(JXLImageDecoderTest, AnimationForwardSkipMatchesSequential) {
+  auto baseline = CreateJXLDecoder();
+  scoped_refptr<SharedBuffer> data =
+      ReadFileToSharedBuffer(kImagesDir, "newtons_cradle.jxl");
+  ASSERT_TRUE(data);
+  baseline->SetData(data.get(), true);
+
+  const wtf_size_t frame_count = baseline->FrameCount();
+  ASSERT_GT(frame_count, 3u) << "Need several frames to jump forward over";
+
+  Vector<uint32_t> baseline_hashes;
+  for (wtf_size_t i = 0; i < frame_count; ++i) {
+    ImageFrame* frame = baseline->DecodeFrameBufferAtIndex(i);
+    ASSERT_TRUE(frame) << "Baseline frame " << i << " is null";
+    ASSERT_EQ(ImageFrame::kFrameComplete, frame->GetStatus());
+    baseline_hashes.push_back(HashBitmap(frame->Bitmap()));
+  }
+  ASSERT_FALSE(baseline->Failed());
+
+  // Fresh decoder: prime it on an early frame, then jump forward. Clearing the
+  // cache for the earlier frames forces a re-decode that leaves the decoder
+  // positioned between frames, which is where the forward-skip path applies.
+  auto decoder = CreateJXLDecoder();
+  decoder->SetData(data.get(), true);
+  ASSERT_EQ(frame_count, decoder->FrameCount());
+
+  const std::array<wtf_size_t, 3> forward_targets = {2u, frame_count / 2,
+                                                     frame_count - 1};
+  for (wtf_size_t target : forward_targets) {
+    decoder->ClearCacheExceptFrame(kNotFound);
+    ImageFrame* primed = decoder->DecodeFrameBufferAtIndex(0);
+    ASSERT_TRUE(primed) << "Priming frame 0 failed before target " << target;
+    ASSERT_EQ(ImageFrame::kFrameComplete, primed->GetStatus());
+
+    ImageFrame* frame = decoder->DecodeFrameBufferAtIndex(target);
+    ASSERT_TRUE(frame) << "Forward target " << target << " is null";
+    ASSERT_EQ(ImageFrame::kFrameComplete, frame->GetStatus());
+    EXPECT_EQ(baseline_hashes[target], HashBitmap(frame->Bitmap()))
+        << "Forward-decoded frame " << target
+        << " does not match sequential decode";
+  }
+  EXPECT_FALSE(decoder->Failed());
 }
 
 // Test progressive/pass rendering: during incremental data loading, frames

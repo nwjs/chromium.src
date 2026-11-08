@@ -41,7 +41,7 @@ class MockWeb(object):
         self.requests = []
         self.responses = responses or []
 
-    def get_binary(self, url, return_none_on_404=False, trace=None):  # pylint: disable=unused-argument
+    def get_binary(self, url, return_none_on_404=False, trace=None):
         self.urls_fetched.append(url)
         if url in self.urls:
             return self.urls[url]
@@ -49,7 +49,7 @@ class MockWeb(object):
             return None
         return b'MOCK Web result, 404 Not found'
 
-    def request(self, method, url, data=None, headers=None, retry_index=None):  # pylint: disable=unused-argument
+    def request(self, method, url, data=None, headers=None, retry_index=None):
         self.requests.append((url, data))
         return MockResponse(self.responses.pop(0))
 
@@ -59,14 +59,13 @@ class MockWeb(object):
     def append_prpc_response(self, payload, status_code=200, headers=None):
         headers = headers or {}
         headers.setdefault('Content-Type', 'application/json')
-        self.responses.append({
-            'status_code':
-            200,
-            'body':
-            RESPONSE_PREFIX + json.dumps(payload).encode(),
-            'headers':
-            headers,
-        })
+        self.responses.append(
+            {
+                'status_code': 200,
+                'body': RESPONSE_PREFIX + json.dumps(payload).encode(),
+                'headers': headers,
+            }
+        )
 
 
 class MockResponse(object):
@@ -82,7 +81,8 @@ class MockResponse(object):
             response = Response()
             response.status_code = self.status_code
             response.reason = 'Received error status code: {}'.format(
-                self.status_code)
+                self.status_code
+            )
             response.url = self.url
             raise HTTPError(response=response)
 

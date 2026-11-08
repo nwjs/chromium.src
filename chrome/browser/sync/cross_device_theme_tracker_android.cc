@@ -7,7 +7,6 @@
 #include "base/android/jni_android.h"
 #include "base/android/jni_string.h"
 #include "chrome/browser/ntp_customization/jni_headers/CrossDeviceThemeTracker_jni.h"
-#include "chrome/browser/ntp_customization/ntp_customization_utils.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/sync/cross_device_theme_tracker_factory.h"
 #include "third_party/jni_zero/default_conversions.h"
@@ -21,10 +20,7 @@ using base::android::AttachCurrentThread;
 
 namespace themes {
 
-CrossDeviceThemeTrackerAndroid::CrossDeviceThemeTrackerAndroid(
-    syncer::DeviceInfoTracker* device_info_tracker)
-    : CrossDeviceThemeTracker<sync_pb::ThemeAndroidSpecifics>(
-          device_info_tracker) {
+CrossDeviceThemeTrackerAndroid::CrossDeviceThemeTrackerAndroid() {
   JNIEnv* env = AttachCurrentThread();
   // C++ creates and owns the Java counterpart.
   java_object_.Reset(CrossDeviceThemeTrackerJni::create(
@@ -72,8 +68,8 @@ CrossDeviceThemeTrackerAndroid::CreateJavaTheme(
     JNIEnv* env,
     const jni_zero::JavaRef<JContext>& jcontext,
     const DeviceThemeInfo<sync_pb::ThemeAndroidSpecifics>& theme_info) {
-  int32_t platform_type = static_cast<int32_t>(
-      MapToPlatformType(theme_info.os_type, theme_info.form_factor));
+  int32_t platform_type =
+      static_cast<int32_t>(MapToPlatformType(theme_info.data_type));
 
   const sync_pb::ThemeAndroidSpecifics& specifics = theme_info.theme;
 
@@ -82,15 +78,18 @@ CrossDeviceThemeTrackerAndroid::CreateJavaTheme(
   std::string bg_url;
   std::string bg_collection_id;
   bool is_bg_daily_refresh = false;
-  std::string bg_attribution;
+  std::string bg_attribution_line_1;
+  std::string bg_attribution_line_2;
+  std::string bg_attribution_action_url;
   if (has_background) {
     const sync_pb::NtpCustomBackground& bg = specifics.ntp_background();
     bg_url = bg.url();
     bg_collection_id = bg.collection_id();
     is_bg_daily_refresh = bg.has_refresh_timestamp_unix_epoch_seconds() &&
                           bg.refresh_timestamp_unix_epoch_seconds() != 0;
-    bg_attribution = ntp_customization::GetCustomBackgroundAttribution(
-        bg.attribution_line_1(), bg.attribution_line_2());
+    bg_attribution_line_1 = bg.attribution_line_1();
+    bg_attribution_line_2 = bg.attribution_line_2();
+    bg_attribution_action_url = bg.attribution_action_url();
   }
 
   // 2. Extract color data if present.
@@ -160,7 +159,8 @@ CrossDeviceThemeTrackerAndroid::CreateJavaTheme(
   if (has_background) {
     return CrossDeviceThemeTrackerJni::createThemeCollectionData(
         env, jcontext, platform_type, bg_url, bg_collection_id,
-        is_bg_daily_refresh, bg_attribution, has_chrome_color, chrome_color_id,
+        is_bg_daily_refresh, bg_attribution_line_1, bg_attribution_line_2,
+        bg_attribution_action_url, has_chrome_color, chrome_color_id,
         has_user_color, static_cast<int32_t>(primary_light));
   } else if (has_chrome_color) {
     return CrossDeviceThemeTrackerJni::createColorData(
@@ -176,30 +176,38 @@ CrossDeviceThemeTrackerAndroid::CreateJavaTheme(
 }
 
 jni_zero::ScopedJavaLocalRef<jobject>
-CrossDeviceThemeTrackerAndroid::GetThemeForDeviceGuid(
+CrossDeviceThemeTrackerAndroid::GetThemeForOsTypeAndFormFactor(
     JNIEnv* env,
     const jni_zero::JavaRef<JContext>& jcontext,
-    const std::string& device_guid) {
+    int32_t os_type_int,
+    int32_t form_factor_int) {
   auto other_themes = GetOtherDevicesThemes();
   if (other_themes.empty()) {
     return nullptr;
   }
 
-  // 1. If a specific device_guid is provided, only return the theme matching
-  // that GUID. If that device does not have a theme (e.g. Themes sync was off
-  // on that device or default theme was used), return nullptr rather than
-  // falling back to another device's theme, to avoid combining preferences from
-  // one device and a theme from another.
-  if (!device_guid.empty()) {
-    for (const auto& theme_info : other_themes) {
-      if (theme_info.guid == device_guid) {
-        return CreateJavaTheme(env, jcontext, theme_info);
+  auto os_type = static_cast<syncer::DeviceInfo::OsType>(os_type_int);
+  auto form_factor =
+      static_cast<syncer::DeviceInfo::FormFactor>(form_factor_int);
+
+  // 1. If a specific os_type is provided, only return the theme matching that
+  // platform's DataType (since theme sync uses a single entity per platform).
+  // If that platform does not have a theme (e.g. Themes sync was off or default
+  // theme was used), return nullptr rather than falling back to another
+  // platform's theme.
+  if (os_type != syncer::DeviceInfo::OsType::kUnknown) {
+    syncer::DataType target_type = OsTypeToDataType(os_type, form_factor);
+    if (target_type != syncer::UNSPECIFIED) {
+      for (const auto& theme_info : other_themes) {
+        if (theme_info.data_type == target_type) {
+          return CreateJavaTheme(env, jcontext, theme_info);
+        }
       }
     }
     return nullptr;
   }
 
-  // 2. If no device_guid was specified ("") (i.e. no preferences are being
+  // 2. If no os_type was specified (kUnknown) (i.e. no preferences are being
   // imported from any device), select the best candidate theme across all
   // available devices. Prefer Android (same platform) first: when Themes sync
   // is enabled, Android devices continuously auto-sync their themes, so
@@ -208,7 +216,7 @@ CrossDeviceThemeTrackerAndroid::GetThemeForDeviceGuid(
   // snackbar prompts and minimizing churn in synced theme colors.
   const auto* best_theme = &other_themes.front();
   for (const auto& theme_info : other_themes) {
-    if (theme_info.os_type == syncer::DeviceInfo::OsType::kAndroid) {
+    if (theme_info.data_type == syncer::THEMES_ANDROID) {
       best_theme = &theme_info;
       break;
     }
@@ -237,21 +245,13 @@ void CrossDeviceThemeTrackerAndroid::RecreateJavaThemes(
 }
 
 PlatformType CrossDeviceThemeTrackerAndroid::MapToPlatformType(
-    syncer::DeviceInfo::OsType os_type,
-    syncer::DeviceInfo::FormFactor form_factor) {
-  switch (os_type) {
-    case syncer::DeviceInfo::OsType::kAndroid:
-      if (form_factor == syncer::DeviceInfo::FormFactor::kDesktop) {
-        return PlatformType::kDesktop;
-      }
+    syncer::DataType data_type) {
+  switch (data_type) {
+    case syncer::THEMES_ANDROID:
       return PlatformType::kAndroid;
-    case syncer::DeviceInfo::OsType::kIOS:
+    case syncer::THEMES_IOS:
       return PlatformType::kIos;
-    case syncer::DeviceInfo::OsType::kWindows:
-    case syncer::DeviceInfo::OsType::kMac:
-    case syncer::DeviceInfo::OsType::kLinux:
-    case syncer::DeviceInfo::OsType::kChromeOsAsh:
-    case syncer::DeviceInfo::OsType::kChromeOsLacros:
+    case syncer::THEMES:
       return PlatformType::kDesktop;
     default:
       return PlatformType::kUnknown;

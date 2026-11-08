@@ -185,6 +185,71 @@ TEST_F(VideoFrameTest, CreateFromVideoFrameWithTimestampOverride) {
   frame_with_ts->close();
 }
 
+TEST_F(VideoFrameTest, CreateFromVideoFrameWithVisibleRectFractionalScale) {
+  V8TestingScope scope;
+
+  // 1. Fractional scale > 1 (1920 / 1440 = 4/3).
+  {
+    scoped_refptr<media::VideoFrame> media_frame =
+        media::VideoFrame::WrapVideoFrame(
+            media::VideoFrame::CreateBlackFrame(gfx::Size(1440, 1080)),
+            media::PIXEL_FORMAT_I420, gfx::Rect(1440, 1080),
+            gfx::Size(1920, 1080));
+    media_frame->set_timestamp(base::Microseconds(1000));
+    VideoFrame* src_frame =
+        CreateBlinkVideoFrame(media_frame, scope.GetExecutionContext());
+    auto* source = MakeGarbageCollected<V8CanvasImageSource>(src_frame);
+
+    auto* init = VideoFrameInit::Create();
+    auto* visible_rect = DOMRectInit::Create();
+    visible_rect->setX(0);
+    visible_rect->setY(0);
+    visible_rect->setWidth(720);
+    visible_rect->setHeight(540);
+    init->setVisibleRect(visible_rect);
+
+    VideoFrame* cropped = VideoFrame::Create(scope.GetScriptState(), source,
+                                             init, scope.GetExceptionState());
+    ASSERT_TRUE(cropped);
+    EXPECT_FALSE(scope.GetExceptionState().HadException());
+    EXPECT_EQ(960u, cropped->displayWidth());
+    EXPECT_EQ(540u, cropped->displayHeight());
+
+    cropped->close();
+    src_frame->close();
+  }
+
+  // 2. Fractional scale < 1 (160 / 640 = 0.25).
+  {
+    scoped_refptr<media::VideoFrame> media_frame =
+        media::VideoFrame::WrapVideoFrame(
+            media::VideoFrame::CreateBlackFrame(gfx::Size(640, 480)),
+            media::PIXEL_FORMAT_I420, gfx::Rect(640, 480), gfx::Size(160, 480));
+    media_frame->set_timestamp(base::Microseconds(1000));
+    VideoFrame* src_frame =
+        CreateBlinkVideoFrame(media_frame, scope.GetExecutionContext());
+    auto* source = MakeGarbageCollected<V8CanvasImageSource>(src_frame);
+
+    auto* init = VideoFrameInit::Create();
+    auto* visible_rect = DOMRectInit::Create();
+    visible_rect->setX(0);
+    visible_rect->setY(0);
+    visible_rect->setWidth(320);
+    visible_rect->setHeight(240);
+    init->setVisibleRect(visible_rect);
+
+    VideoFrame* cropped = VideoFrame::Create(scope.GetScriptState(), source,
+                                             init, scope.GetExceptionState());
+    ASSERT_TRUE(cropped);
+    EXPECT_FALSE(scope.GetExceptionState().HadException());
+    EXPECT_EQ(80u, cropped->displayWidth());
+    EXPECT_EQ(240u, cropped->displayHeight());
+
+    cropped->close();
+    src_frame->close();
+  }
+}
+
 TEST_F(VideoFrameTest, ConstructorOddSize) {
   V8TestingScope scope;
 
@@ -255,6 +320,32 @@ TEST_F(VideoFrameTest, ConstructorOddSize) {
               media::VideoFrame::HexHashOfFrameForTesting(*blink_media_frame));
     blink_frame->close();
   }
+}
+
+TEST_F(VideoFrameTest, TransferBufferNotDetachedOnInvalidDisplaySize) {
+  V8TestingScope scope;
+  auto* array_buffer = DOMArrayBuffer::Create(32, 1);
+
+  auto* init = VideoFrameBufferInit::Create();
+  init->setTimestamp(0);
+  init->setCodedWidth(4);
+  init->setCodedHeight(4);
+  init->setFormat(V8VideoPixelFormat::Enum::kI420);
+  init->setDisplayWidth(0);
+  init->setDisplayHeight(4);
+  HeapVector<Member<DOMArrayBuffer>> transfer;
+  transfer.push_back(Member<DOMArrayBuffer>(array_buffer));
+  init->setTransfer(std::move(transfer));
+
+  VideoFrame* blink_frame = VideoFrame::Create(
+      scope.GetScriptState(),
+      MakeGarbageCollected<V8AllowSharedBufferSource>(array_buffer), init,
+      scope.GetExceptionState());
+  EXPECT_EQ(nullptr, blink_frame);
+  EXPECT_TRUE(scope.GetExceptionState().HadException());
+  EXPECT_EQ(scope.GetExceptionState().CodeAs<ESErrorType>(),
+            ESErrorType::kTypeError);
+  EXPECT_FALSE(array_buffer->IsDetached());
 }
 
 TEST_F(VideoFrameTest, CopyToRGB) {

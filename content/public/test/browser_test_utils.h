@@ -52,7 +52,6 @@
 #include "content/public/test/test_utils.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "mojo/public/cpp/bindings/receiver_set.h"
-#include "mojo/public/cpp/bindings/self_owned_associated_receiver.h"
 #include "mojo/public/cpp/test_support/test_utils.h"
 #include "net/base/load_flags.h"
 #include "net/cookies/cookie_options.h"
@@ -67,8 +66,6 @@
 #include "third_party/blink/public/common/input/web_input_event.h"
 #include "third_party/blink/public/common/input/web_mouse_event.h"
 #include "third_party/blink/public/common/input/web_mouse_wheel_event.h"
-#include "third_party/blink/public/mojom/blob/blob_url_store.mojom-test-utils.h"
-#include "third_party/blink/public/mojom/blob/blob_url_store.mojom.h"
 #include "third_party/blink/public/mojom/frame/frame.mojom-test-utils.h"
 #include "third_party/blink/public/mojom/frame/user_activation_update_types.mojom.h"
 #include "third_party/blink/public/mojom/keyboard_lock/keyboard_lock.mojom-shared.h"
@@ -133,6 +130,7 @@ typedef int PROPERTYID;
 
 namespace blink {
 class StorageKey;
+class WebTouchEvent;
 struct TransferableMessage;
 
 namespace mojom {
@@ -140,10 +138,6 @@ class FrameWidget;
 }  // namespace mojom
 
 }  // namespace blink
-
-namespace storage {
-class BlobUrlRegistry;
-}
 
 namespace content {
 
@@ -488,6 +482,16 @@ void SimulateGestureEvent(RenderWidgetHost* render_widget_host,
 void SimulateGestureEvent(WebContents* web_contents,
                           const blink::WebGestureEvent& gesture_event,
                           const ui::LatencyInfo& latency);
+
+// Routes a gesture event asynchronously through the WebContents' input event
+// router. Events targeting the viewport bypass hit testing.
+void SimulateRoutedGestureEvent(WebContents* web_contents,
+                                const blink::WebGestureEvent& gesture_event);
+
+// Routes a touch event asynchronously through the WebContents' input event
+// router.
+void SimulateRoutedTouchEvent(WebContents* web_contents,
+                              const blink::WebTouchEvent& touch_event);
 
 // Taps the screen at |point|, using gesture Tap or TapDown.
 //
@@ -913,6 +917,10 @@ class EvalJsResult {
   }
   [[nodiscard]] bool is_bool() const { return is_ok() && value()->is_bool(); }
   [[nodiscard]] bool is_int() const { return is_ok() && value()->is_int(); }
+  [[nodiscard]] bool is_double() const {
+    return is_ok() && value()->is_double();
+  }
+  [[nodiscard]] bool is_none() const { return is_ok() && value()->is_none(); }
   [[nodiscard]] bool is_list() const { return is_ok() && value()->is_list(); }
   [[nodiscard]] bool is_dict() const { return is_ok() && value()->is_dict(); }
 
@@ -1285,6 +1293,9 @@ std::vector<RenderWidgetHostView*> GetInputEventRouterRenderWidgetHostViews(
 
 // Returns the focused RenderWidgetHost.
 RenderWidgetHost* GetFocusedRenderWidgetHost(WebContents* web_contents);
+
+// Returns whether or not the RenderWidgetHost thinks it is focused.
+bool IsRenderWidgetHostFocused(const RenderWidgetHost*);
 
 // Returns the focused WebContents.
 WebContents* GetFocusedWebContents(WebContents* web_contents);
@@ -2343,35 +2354,6 @@ size_t GetLockedCompositorFrameCount();
 // Purges all unlocked frames in the FrameEvictionManager.
 void PurgeUnlockedCompositorFrames();
 
-// Helper class to interpose on Blob URL registrations, replacing the URL
-// contained in incoming registration requests with the specified URL.
-class BlobURLStoreInterceptor
-    : public blink::mojom::BlobURLStoreInterceptorForTesting {
- public:
-  static void InterceptDeprecated(
-      GURL target_url,
-      mojo::SelfOwnedAssociatedReceiverRef<blink::mojom::BlobURLStore>
-          receiver);
-
-  static void Intercept(GURL target_url,
-                        storage::BlobUrlRegistry* registry,
-                        mojo::ReceiverId receiver_id);
-
-  ~BlobURLStoreInterceptor() override;
-
-  blink::mojom::BlobURLStore* GetForwardingInterface() override;
-
-  void Register(mojo::PendingRemote<blink::mojom::Blob> blob,
-                const GURL& url,
-                RegisterCallback callback) override;
-
- private:
-  explicit BlobURLStoreInterceptor(GURL target_url);
-
-  std::unique_ptr<blink::mojom::BlobURLStore> url_store_;
-  GURL target_url_;
-};
-
 // Load the given |url| with |network_context| and return the |net::Error| code.
 //
 // This overload simulates loading through a URLLoaderFactory created for a
@@ -2695,6 +2677,14 @@ RegisterWebContentsCreationCallback(
 // and/or main. This can be useful to enable when the process hosting the window
 // is a standalone executable without an Info.plist.
 bool EnableNativeWindowActivation();
+
+// Returns true if the most recent drag enter on `web_contents` was rejected
+// (e.g. by `WebContentsDelegate::CanDragEnter` or an invalid target view).
+bool IsDragCanceledForTesting(WebContents* web_contents);
+
+// Resets internal `WebDragDest` state on `web_contents` after a simulated
+// rejected drag exits.
+void CleanupDragStateForTesting(WebContents* web_contents);
 #endif  // BUILDFLAG(IS_MAC)
 
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)

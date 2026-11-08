@@ -9,7 +9,10 @@
 #include <string>
 #include <vector>
 
+#include "base/feature_list.h"
 #include "base/files/file_path.h"
+#include "base/functional/callback.h"
+#include "base/task/task_runner.h"
 #include "base/types/expected.h"
 #include "base/types/optional_ref.h"
 #include "components/optimization_guide/proto/manifest.pb.h"
@@ -18,6 +21,10 @@
 #include "third_party/abseil-cpp/absl/container/flat_hash_set.h"
 
 namespace optimization_guide {
+
+// Controls whether the optional polisher postprocessor model is enabled for
+// speech recognition solutions in the manifest.
+BASE_DECLARE_FEATURE(kOnDeviceWebSpeechPolisherModel);
 
 enum class DeviceCategory {
   kGpuHighTier = 1,
@@ -69,6 +76,7 @@ class Manifest final {
       DeviceCategory device_category);
 
   static void Load(
+      base::TaskRunner& task_runner,
       const base::FilePath& directory,
       DeviceCategory device_category,
       base::OnceCallback<void(base::expected<Manifest, ParseError>)> callback);

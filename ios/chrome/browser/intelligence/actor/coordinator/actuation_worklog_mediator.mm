@@ -6,6 +6,7 @@
 
 #import <optional>
 
+#import "base/check.h"
 #import "base/memory/raw_ptr.h"
 #import "ios/chrome/browser/intelligence/actor/model/actor_service.h"
 #import "ios/chrome/browser/intelligence/actor/public/actor_types.h"
@@ -94,22 +95,48 @@ ActuationWorklogChip* ChipForToolType(std::optional<actor::ToolType> toolType) {
   return self;
 }
 
-- (void)connect {
-  if (_actorService) {
-    _actorService->AddTaskUpdatesObserver(self);
+#pragma mark - Public
+
+- (void)startObservingTaskWithID:(actor::ActorTaskId)taskID {
+  if (_currentTaskId == taskID) {
+    return;
   }
+  [self stopObservingTask];
+  if (!_actorService) {
+    return;
+  }
+  // Tracked right away rather than from the posted
+  // `didRegisterAsObserverForTaskID:`, so that `stopObservingTask` still
+  // unregisters if called before the registration is delivered.
+  if (!_actorService->AddTaskUpdatesObserver(taskID, self)) {
+    return;
+  }
+  _currentTaskId = taskID;
+  _actorService->SetTaskInterventionDelegate(taskID, self);
+}
+
+- (void)stopObservingTask {
+  if (!_currentTaskId) {
+    return;
+  }
+  if (_actorService) {
+    _actorService->SetTaskInterventionDelegate(*_currentTaskId, nil);
+    _actorService->RemoveTaskUpdatesObserver(*_currentTaskId, self);
+  }
+  _currentTaskId.reset();
+  [self discardPendingIntervention];
+  _latestEmittedTaskUpdate = nil;
+  [_consumer setActuationActive:NO];
+  [_consumer reset];
 }
 
 - (void)disconnect {
-  if (_actorService) {
-    _actorService->RemoveTaskUpdatesObserver(self);
-    _actorService = nullptr;
-  }
-  [self discardPendingIntervention];
-  [_consumer reset];
+  // TODO(crbug.com/567035965): A pending intervention is dropped without an
+  // answer, leaving the task in `kWaitingOnUser`. Re-surface the intervention
+  // once the worklog can be restored.
+  [self stopObservingTask];
+  _actorService = nullptr;
   _consumer = nil;
-  _currentTaskId.reset();
-  _latestEmittedTaskUpdate = nil;
 }
 
 #pragma mark - Private
@@ -162,7 +189,9 @@ ActuationWorklogChip* ChipForToolType(std::optional<actor::ToolType> toolType) {
                             taskUpdate:(NSString*)taskUpdate
                           currentState:(actor::ActorTaskState)state
                              webStates:(NSArray<NSNumber*>*)webStatesIDs {
-  _currentTaskId = taskID;
+  if (_currentTaskId != taskID) {
+    return;
+  }
   ActuationWorklogItem* initialItem = [ActuationWorklogItem
       labeledItemWithTitle:l10n_util::GetNSString(
                                IDS_IOS_GEMINI_FIRST_ACTUATION_STEP_TITLE)
@@ -197,18 +226,6 @@ ActuationWorklogChip* ChipForToolType(std::optional<actor::ToolType> toolType) {
   [self processUpdateWithTool:toolType taskUpdate:taskUpdate];
 }
 
-- (void)actorTaskDidStopWithID:(actor::ActorTaskId)taskID
-                    finalState:(actor::ActorTaskState)finalState {
-  if (_currentTaskId != taskID) {
-    return;
-  }
-  _currentTaskId.reset();
-  [self discardPendingIntervention];
-  _latestEmittedTaskUpdate = nil;
-  [_consumer setActuationActive:NO];
-  [_consumer reset];
-}
-
 #pragma mark - ActorTaskInterventionDelegate
 
 - (void)actorTask:(actor::ActorTaskId)taskID
@@ -216,6 +233,7 @@ ActuationWorklogChip* ChipForToolType(std::optional<actor::ToolType> toolType) {
         completionHandler:
             (void (^)(ActorFormSuggestion* selectedSuggestion,
                       BOOL shouldStorePermission))completionHandler {
+  CHECK(_currentTaskId == taskID);
   completionHandler(suggestions.firstObject, NO);
 }
 
@@ -224,6 +242,7 @@ ActuationWorklogChip* ChipForToolType(std::optional<actor::ToolType> toolType) {
                             subtitle:(NSString*)subtitle
                           buttonText:(NSString*)buttonText
                    completionHandler:(void (^)(void))completionHandler {
+  CHECK(_currentTaskId == taskID);
   [self discardPendingIntervention];
   if (completionHandler) {
     _pendingInterventionCompletion = [completionHandler copy];
@@ -246,7 +265,7 @@ ActuationWorklogChip* ChipForToolType(std::optional<actor::ToolType> toolType) {
                           actor::ActorTaskStoppedReason::kStoppedByUser);
 }
 
-- (void)didTapInterventionButton {
+- (void)didTriggerInterventionAction:(ActuationInterventionAction)action {
   [self resolvePendingIntervention];
 }
 

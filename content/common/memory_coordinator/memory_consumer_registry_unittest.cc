@@ -183,7 +183,7 @@ TEST_F(MemoryConsumerRegistryTest, InheritMemoryLimit) {
 
   registry().AddMemoryConsumer(kConsumerName, kTestTraits1, &consumer1);
 
-  const int kNewLimit = 50;
+  constexpr base::MemoryLimit kNewLimit = base::MemoryLimit::FromPercent(50);
   EXPECT_CALL(consumer1, OnUpdateMemoryLimit());
   entries().front().host->UpdateConsumers(
       {{kConsumerId, kNewLimit, /*release_memory=*/false}});
@@ -321,7 +321,8 @@ TEST_F(MemoryConsumerRegistryTest, ReentrantRemovalDuringOverrideLimit) {
   ASSERT_EQ(registry().size(), 1u);
 
   // Trigger override limit update.
-  entries().front().host->SetOverrideLimit(kConsumerId, 50);
+  entries().front().host->SetOverrideLimit(kConsumerId,
+                                           base::MemoryLimit::FromPercent(50));
 
   EXPECT_TRUE(consumer.limit_updated());
   ASSERT_EQ(registry().size(), 0u);
@@ -338,7 +339,8 @@ TEST_F(MemoryConsumerRegistryTest, ReentrantRemovalDuringClearOverrideLimit) {
   ASSERT_EQ(registry().size(), 1u);
 
   // Trigger clear override limit update.
-  entries().front().host->ClearOverrideLimit(kConsumerId, 100);
+  entries().front().host->ClearOverrideLimit(kConsumerId,
+                                             base::MemoryLimit::Default());
 
   EXPECT_TRUE(consumer.limit_updated());
   ASSERT_EQ(registry().size(), 0u);

@@ -15,6 +15,7 @@
 #import "base/functional/callback.h"
 #import "base/ios/block_types.h"
 #import "base/time/time.h"
+#import "components/signin/core/browser/account_preview_data_service.h"
 #import "components/signin/public/identity_manager/account_info.h"
 #import "components/sync/base/data_type.h"
 #import "ios/chrome/app/change_profile_continuation.h"
@@ -194,6 +195,38 @@ Browser* GetRegularBrowser(Browser* browser);
 // `SigninCoordinatorResultSuccess`.
 void CheckSigninCoordinatorResultAndIdentity(SigninCoordinatorResult result,
                                              id<SystemIdentity> identity);
+
+// Converts `result` to the legacy `SigninCoordinatorResult` enum value.
+// Returns `SigninCoordinatorResultSuccess` if `result` contains an identity,
+// or the underlying error code otherwise.
+// TODO(crbug.com/552435229): Remove once SigninCoordinatorResultSuccess is
+// removed.
+SigninCoordinatorResult
+SigninCoordinatorResultFromSigninCoordinatorResultOrIdentity(
+    const SigninCoordinatorResultOrIdentity& result);
+
+// Converts the legacy (`result`, `identity`) pair into
+// `SigninCoordinatorResultOrIdentity`.
+// `identity` must be non-nil if and only if `result` is
+// `SigninCoordinatorResultSuccess`.
+// TODO(crbug.com/552435229): Remove once SigninCoordinatorResultSuccess is
+// removed.
+SigninCoordinatorResultOrIdentity
+SigninCoordinatorResultOrIdentityFromSigninCoordinatorResult(
+    SigninCoordinatorResult result,
+    id<SystemIdentity> identity);
+
+// Returns the promo label string for web sign-in based on `preference`, or nil
+// if no customized subtitle applies.
+NSString* GetPromoLabelStringForWebSignin(
+    const std::optional<AccountPreviewDataService::AccountPreviewPreference>&
+        preference);
+
+// Returns the promo label string for NTP sign-in based on `preference`, or nil
+// if no customized subtitle applies.
+NSString* GetPromoLabelStringForNtpSignedOutIcon(
+    const std::optional<AccountPreviewDataService::AccountPreviewPreference>&
+        preference);
 
 }  // namespace signin
 

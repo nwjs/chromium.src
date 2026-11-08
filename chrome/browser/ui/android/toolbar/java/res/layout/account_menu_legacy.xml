@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+Copyright 2026 The Chromium Authors
+Use of this source code is governed by a BSD-style license that can be
+found in the LICENSE file.
+-->
+
+<!-- TODO(crbug.com/565733817): Remove this file when
+     SigninButtonProfileMenuRefinements is launched. -->
+<!-- default_popup_menu_bg adds side padding. Setting paddingHorizontal="0dp"
+     lets cards and dividers set their own side spacing. -->
+<androidx.recyclerview.widget.RecyclerView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/account_menu_container"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:paddingTop="@dimen/account_menu_padding_vertical_legacy"
+    android:paddingBottom="@dimen/account_menu_padding_vertical_legacy"
+    android:paddingHorizontal="0dp"
+    android:clipToOutline="true"
+    android:elevation="@dimen/app_menu_elevation"
+    android:background="@drawable/default_popup_menu_bg" />

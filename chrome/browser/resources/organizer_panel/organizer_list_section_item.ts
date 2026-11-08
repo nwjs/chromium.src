@@ -9,8 +9,6 @@ import './organizer_list_section_item_description.js';
 import './organizer_list_section_item_title.js';
 import './stacked_favicons.js';
 
-import type {CrIconElement} from '//resources/cr_elements/cr_icon/cr_icon.js';
-import type {CrIconButtonElement} from '//resources/cr_elements/cr_icon_button/cr_icon_button.js';
 import type {CrUrlListItemElement, CrUrlListItemSize} from '//resources/cr_elements/cr_url_list_item/cr_url_list_item.js';
 import {MouseHoverableMixinLit} from '//resources/cr_elements/mouse_hoverable_mixin_lit.js';
 import type {TemplateResult} from '//resources/lit/v3_0/lit.rollup.js';
@@ -94,11 +92,9 @@ export type HighlightableOrganizerListSectionItem<T = unknown> =
 
 export interface OrganizerListSectionItemElement {
   $: {
-    actionButton: CrIconButtonElement,
     crUrlListItem: CrUrlListItemElement,
     description: OrganizerListSectionItemDescriptionElement,
     title: OrganizerListSectionItemTitleElement,
-    trailingIcon: CrIconElement,
   };
 }
 
@@ -121,10 +117,15 @@ export class OrganizerListSectionItemElement extends
 
   static override get properties() {
     return {
+      hasContextMenu: {
+        type: Boolean,
+        reflect: true,
+      },
       item: {type: Object},
     };
   }
 
+  accessor hasContextMenu: boolean = false;
   accessor item: HighlightableOrganizerListSectionItem<unknown> = {
     title: [],
   };
@@ -132,17 +133,6 @@ export class OrganizerListSectionItemElement extends
   private listFormatter_ = new Intl.ListFormat(
       document.documentElement.lang || undefined,
       {style: 'narrow', type: 'conjunction'});
-  private boundOnContextmenu_ = this.onContextmenu_.bind(this);
-
-  override connectedCallback() {
-    super.connectedCallback();
-    this.addEventListener('contextmenu', this.boundOnContextmenu_);
-  }
-
-  override disconnectedCallback() {
-    super.disconnectedCallback();
-    this.removeEventListener('contextmenu', this.boundOnContextmenu_);
-  }
 
   protected getAriaLabel_(): string {
     return this.listFormatter_.format(this.item.title);
@@ -175,6 +165,9 @@ export class OrganizerListSectionItemElement extends
   }
 
   protected onContextmenu_(e: MouseEvent) {
+    if (!this.hasContextMenu) {
+      return;
+    }
     e.preventDefault();
     e.stopPropagation();
     this.fire('context-menu-click', {
@@ -194,7 +187,7 @@ export class OrganizerListSectionItemElement extends
   }
 
   resetActionButtonStateIfNeeded() {
-    this.$.actionButton.blur();
+    this.shadowRoot.querySelector<HTMLElement>('#actionButton')!.blur();
   }
 }
 

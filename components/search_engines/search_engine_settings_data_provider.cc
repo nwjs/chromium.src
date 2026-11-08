@@ -6,7 +6,9 @@
 
 #include <algorithm>
 
+#include "base/metrics/histogram_functions.h"
 #include "components/regional_capabilities/regional_capabilities_service.h"
+#include "components/search_engines/search_engine_choice/search_engine_choice_utils.h"
 #include "components/search_engines/search_engine_split_metrics.h"
 #include "components/search_engines/search_terms_data.h"
 #include "components/search_engines/template_url_prepopulate_data_resolver.h"
@@ -30,6 +32,29 @@
 #endif  // BUILDFLAG(IS_ANDROID)
 
 namespace search_engines {
+namespace {
+enum class SearchEngineListSurface {
+  kDsePicker,
+  kFullList,
+};
+
+void RecordSearchEngineCountInSettingsHistogram(SearchEngineListSurface surface,
+                                                size_t count) {
+  static int kMax = 50;
+  switch (surface) {
+    case SearchEngineListSurface::kDsePicker:
+      base::UmaHistogramExactLinear(
+          search_engines::kSearchEngineCountInSettingsDsePickerHistogram, count,
+          kMax);
+      break;
+    case SearchEngineListSurface::kFullList:
+      base::UmaHistogramExactLinear(
+          search_engines::kSearchEngineCountInSettingsFullListHistogram, count,
+          kMax);
+      break;
+  }
+}
+}  // namespace
 
 CategorizedTemplateUrls::CategorizedTemplateUrls() = default;
 CategorizedTemplateUrls::CategorizedTemplateUrls(
@@ -58,6 +83,17 @@ PrepopulatedAndRecentlyVisitedTemplateUrls::operator=(
     PrepopulatedAndRecentlyVisitedTemplateUrls&& other) = default;
 PrepopulatedAndRecentlyVisitedTemplateUrls::
     ~PrepopulatedAndRecentlyVisitedTemplateUrls() = default;
+
+DefaultSearchEnginePickerData::DefaultSearchEnginePickerData() = default;
+DefaultSearchEnginePickerData::DefaultSearchEnginePickerData(
+    const DefaultSearchEnginePickerData& other) = default;
+DefaultSearchEnginePickerData& DefaultSearchEnginePickerData::operator=(
+    const DefaultSearchEnginePickerData& other) = default;
+DefaultSearchEnginePickerData::DefaultSearchEnginePickerData(
+    DefaultSearchEnginePickerData&& other) = default;
+DefaultSearchEnginePickerData& DefaultSearchEnginePickerData::operator=(
+    DefaultSearchEnginePickerData&& other) = default;
+DefaultSearchEnginePickerData::~DefaultSearchEnginePickerData() = default;
 
 SearchEngineSettingsDataProvider::SearchEngineSettingsDataProvider(
     TemplateURLService& template_url_service,
@@ -152,6 +188,52 @@ PrepopulatedAndRecentlyVisitedTemplateUrls SearchEngineSettingsDataProvider::
   return data;
 }
 
+DefaultSearchEnginePickerData
+SearchEngineSettingsDataProvider::GetDefaultSearchEnginePickerData() const {
+  DefaultSearchEnginePickerData data;
+  const TemplateURL* default_search_provider =
+      template_url_service_->GetDefaultSearchProvider();
+
+  for (TemplateURL* url : template_url_service_->GetTemplateURLs()) {
+    // The current default search engine is always shown.
+    if (url == default_search_provider) {
+      data.primary.push_back(url);
+      continue;
+    }
+
+    if (!template_url_service_->ShowInDefaultList(url)) {
+      continue;
+    }
+
+    // `HiddenFromLists()` is not used here: it would also hide engines whose
+    // keyword is claimed by a custom, site search or extension engine, which
+    // is irrelevant to the picker since keywords are not displayed. Only hide
+    // an engine when the engine winning its keyword is itself shown in the
+    // picker (e.g. a policy-provided or regulatory program engine reusing a
+    // prepopulated keyword), to avoid showing duplicates.
+    const TemplateURL* keyword_winner =
+        template_url_service_->GetTemplateURLForKeyword(url->keyword());
+    if (keyword_winner && keyword_winner != url &&
+        template_url_service_->ShowInDefaultList(keyword_winner)) {
+      continue;
+    }
+
+    // TODO(crbug.com/567524562): Revisit the logic to ensure non-regional
+    // prepopulated engines as also skipped.
+    data.primary.push_back(url);
+  }
+
+  std::ranges::sort(
+      data.primary,
+      ::internal::OrderTemplateUrlsByPrepopulatedAndManagedAndAlphabetically(
+          prepopulate_data_resolver_->GetPrepopulatedEngines()));
+
+  RecordSearchEngineCountInSettingsHistogram(
+      SearchEngineListSurface::kDsePicker, data.primary.size());
+
+  return data;
+}
+
 std::vector<const TemplateURL*>
 SearchEngineSettingsDataProvider::GetTemplateUrlsByCategory(
     TemplateUrlCategory category,
@@ -202,28 +284,30 @@ SearchEngineSettingsDataProvider::GetTemplateUrlsByCategory(
   return result;
 }
 
-bool SearchEngineSettingsDataProvider::CanRecordSettingsPageLoadMetrics()
-    const {
-  return !has_recorded_metrics_ &&
-         regional_capabilities_service_->IsSearchEngineSplitRegion();
-}
-
 void SearchEngineSettingsDataProvider::MaybeRecordSettingsPageLoadMetrics(
     TemplateURL::TemplateURLVectorSpan displayed_engines) {
-  if (!CanRecordSettingsPageLoadMetrics()) {
+  if (has_recorded_metrics_) {
     return;
   }
   has_recorded_metrics_ = true;
 
-  RecordSearchEngineSplitSettingsPageLoadMetrics(
-      displayed_engines, template_url_service_->GetDefaultSearchProvider(),
-      template_url_service_->search_terms_data(), *profile_metrics_service_);
+  RecordSearchEngineCountInSettingsHistogram(
+      SearchEngineListSurface::kFullList,
+      std::ranges::count_if(displayed_engines, [](const TemplateURL* engine) {
+        return engine->prepopulate_id() != 0;
+      }));
+
+  if (regional_capabilities_service_->IsSearchEngineSplitRegion()) {
+    RecordSearchEngineSplitSettingsPageLoadMetrics(
+        displayed_engines, template_url_service_->GetDefaultSearchProvider(),
+        template_url_service_->search_terms_data(), *profile_metrics_service_);
+  }
 }
 
 void SearchEngineSettingsDataProvider::MaybeRecordSettingsPageLoadMetrics(
     std::initializer_list<TemplateURL::TemplateURLVectorSpan>
         displayed_engine_lists) {
-  if (!CanRecordSettingsPageLoadMetrics()) {
+  if (has_recorded_metrics_) {
     return;
   }
 
@@ -305,7 +389,7 @@ SearchEngineSettingsDataProvider::GetTemplateUrlsByCategory(
 void SearchEngineSettingsDataProvider::MaybeRecordSettingsPageLoadMetrics(
     JNIEnv* env,
     const base::android::JavaRef<jlongArray>& j_engine_ids) {
-  if (!CanRecordSettingsPageLoadMetrics()) {
+  if (has_recorded_metrics_) {
     return;
   }
 
@@ -314,7 +398,8 @@ void SearchEngineSettingsDataProvider::MaybeRecordSettingsPageLoadMetrics(
   TemplateURL::TemplateURLVector displayed_engines;
   displayed_engines.reserve(ids.size());
   for (int64_t id : ids) {
-    if (TemplateURL* turl = template_url_service_->GetTemplateURLForId(id)) {
+    if (TemplateURL* turl =
+            template_url_service_->GetTemplateURLForId(TemplateURLID(id))) {
       displayed_engines.push_back(turl);
     }
   }

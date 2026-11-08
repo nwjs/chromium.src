@@ -316,6 +316,7 @@ ci.thin_tester(
         ],
         mixins = [
             "chromeos-generic-vm",
+            "no_ssd",
         ],
     ),
     targets_settings = targets.settings(
@@ -521,6 +522,7 @@ ci.builder(
         mixins = [
             "x86-64",
             "linux-jammy",
+            "no_ssd",
         ],
         per_test_modifications = {
             "angle_unittests": targets.mixin(
@@ -658,6 +660,9 @@ ci.builder(
                 # Re-enable cq when the issue is fixed.
                 ci_only = True,
             ),
+            "ash_unittests": targets.mixin(
+                enable_rts_filtering = True,
+            ),
             "browser_tests": targets.mixin(
                 args = [
                     # TODO(crbug.com/542347163): Re-enable when the runtime regression is fixed.
@@ -678,7 +683,11 @@ ci.builder(
                     shards = 60,
                 ),
             ),
+            "components_unittests": targets.mixin(
+                enable_rts_filtering = True,
+            ),
             "content_browsertests": targets.mixin(
+                enable_rts_filtering = True,
                 swarming = targets.swarming(
                     shards = 6,
                 ),
@@ -709,6 +718,8 @@ ci.builder(
                     shards = 2,
                 ),
             ),
+            # TODO(crbug.com/579035594): Remove once e4 failures are fixed.
+            "wayland_client_perftests": "e2-standard-8",
         },
     ),
     # See crbug.com/1345687. This builder need higher memory.

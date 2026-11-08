@@ -6,6 +6,7 @@
 
 #include <string_view>
 
+#include "base/check.h"
 #include "base/command_line.h"
 #include "base/containers/flat_set.h"
 #include "base/feature_list.h"
@@ -1468,7 +1469,7 @@ void ClientSideDetectionHostBase::MaybeShowPhishingWarning(
     }
 
     ShowBlockingPage(phishing_url, request_type, intelligent_scan_verdict,
-                     should_show_scam_warning);
+                     is_phishing, should_show_scam_warning);
     CancelPendingRequests();
   }
 }
@@ -1494,6 +1495,38 @@ safe_browsing::ThreatSubtype ClientSideDetectionHostBase::GetThreatSubtype(
       NOTREACHED();
   }
   NOTREACHED();
+}
+
+// static
+ClientSideAllowlistMatchResult
+ClientSideDetectionHostBase::GetClientSideAllowlistMatchResult(
+    bool match_csd_allowlist,
+    bool match_hc_allowlist) {
+  // If there is a CSD allowlist match, high-confidence allowlist checking is
+  // skipped, so we should never see both allowlists match.
+  CHECK(!(match_csd_allowlist && match_hc_allowlist));
+
+  if (match_csd_allowlist) {
+    return ClientSideAllowlistMatchResult::kCsdMatch;
+  } else if (match_hc_allowlist) {
+    return ClientSideAllowlistMatchResult::kHighConfidenceMatch;
+  } else {
+    return ClientSideAllowlistMatchResult::kNoMatch;
+  }
+}
+
+// static
+SBThreatType ClientSideDetectionHostBase::GetBlockingPageThreatType(
+    bool is_phishing,
+    safe_browsing::ThreatSubtype threat_subtype) {
+  // The phishing interstitial takes precedence over the billing interstitial
+  // since it is more severe.
+  if (!is_phishing &&
+      threat_subtype ==
+          safe_browsing::ThreatSubtype::SCAM_EXPERIMENT_VERDICT_BILLING) {
+    return SBThreatType::SB_THREAT_TYPE_BILLING;
+  }
+  return SBThreatType::SB_THREAT_TYPE_URL_CLIENT_SIDE_PHISHING;
 }
 
 void ClientSideDetectionHostBase::OnGotAccessToken(

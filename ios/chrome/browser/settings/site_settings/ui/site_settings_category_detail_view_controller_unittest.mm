@@ -14,9 +14,11 @@
 #import "ios/chrome/browser/settings/site_settings/ui/site_settings_site_exception.h"
 #import "ios/chrome/browser/shared/ui/table_view/cells/table_view_detail_icon_item.h"
 #import "ios/chrome/browser/shared/ui/table_view/cells/table_view_disclosure_header_footer_item.h"
+#import "ios/chrome/browser/shared/ui/table_view/cells/table_view_text_header_footer_item.h"
 #import "ios/chrome/browser/shared/ui/table_view/cells/table_view_url_item.h"
 #import "ios/chrome/browser/shared/ui/table_view/legacy_chrome_table_view_controller_test.h"
 #import "ios/chrome/browser/shared/ui/table_view/table_view_model.h"
+#import "ios/chrome/common/ui/colors/semantic_color_names.h"
 #import "ios/chrome/grit/ios_strings.h"
 #import "testing/gtest/include/gtest/gtest.h"
 #import "testing/gtest_mac.h"
@@ -80,9 +82,10 @@ TEST_F(SiteSettingsCategoryDetailViewControllerTest,
 
   EXPECT_NSEQ(l10n_util::GetNSString(IDS_IOS_PERMISSIONS_MICROPHONE),
               GetController().title);
-  // Only 1 section initially: Default Setting.
+  // Only 1 section initially: Default Setting, with no header when empty.
   EXPECT_EQ(1, NumberOfSections());
   EXPECT_EQ(2, NumberOfItemsInSection(0));
+  EXPECT_EQ(nil, [GetController().tableViewModel headerForSectionIndex:0]);
 
   TableViewDetailIconItem* askItem =
       static_cast<TableViewDetailIconItem*>(GetTableViewItem(0, 0));
@@ -145,17 +148,31 @@ TEST_F(SiteSettingsCategoryDetailViewControllerTest,
   EXPECT_EQ(1, NumberOfItemsInSection(1));
   EXPECT_EQ(1, NumberOfItemsInSection(2));
 
+  TableViewTextHeaderFooterItem* defaultHeader =
+      static_cast<TableViewTextHeaderFooterItem*>(
+          [view_controller.tableViewModel headerForSectionIndex:0]);
+  ASSERT_NE(nil, defaultHeader);
+  EXPECT_NSEQ(
+      l10n_util::GetNSString(IDS_IOS_SITE_SETTINGS_DEFAULT_BEHAVIOR_HEADER),
+      defaultHeader.text);
+  EXPECT_NSEQ(
+      l10n_util::GetNSString(IDS_IOS_SITE_SETTINGS_DEFAULT_BEHAVIOR_SUBTITLE),
+      defaultHeader.subtitle);
+
   TableViewDisclosureHeaderFooterItem* allowedHeader =
       static_cast<TableViewDisclosureHeaderFooterItem*>(
           [view_controller.tableViewModel headerForSectionIndex:1]);
   EXPECT_NSEQ(l10n_util::GetNSString(IDS_IOS_SITE_SETTINGS_ALLOWED),
               allowedHeader.text);
+  EXPECT_NSEQ(l10n_util::GetNSString(IDS_IOS_SITE_SETTINGS_ALLOWED_SUBTITLE),
+              allowedHeader.subtitleText);
 
   TableViewDisclosureHeaderFooterItem* notAllowedHeader =
       static_cast<TableViewDisclosureHeaderFooterItem*>(
           [view_controller.tableViewModel headerForSectionIndex:2]);
   EXPECT_NSEQ(l10n_util::GetNSString(IDS_IOS_SITE_SETTINGS_NOT_ALLOWED),
               notAllowedHeader.text);
+  EXPECT_EQ(nil, notAllowedHeader.subtitleText);
 
   TableViewURLItem* allowedItem =
       static_cast<TableViewURLItem*>(GetTableViewItem(1, 0));
@@ -167,9 +184,10 @@ TEST_F(SiteSettingsCategoryDetailViewControllerTest,
   EXPECT_EQ(GURL("https://blocked.com"), notAllowedItem.URL.gurl);
   EXPECT_EQ(nil, notAllowedItem.title);
 
-  // Clearing lists should remove the sections again.
+  // Clearing lists should remove the sections and default header again.
   [view_controller setAllowedSites:@[] notAllowedSites:@[]];
   EXPECT_EQ(1, NumberOfSections());
+  EXPECT_EQ(nil, [view_controller.tableViewModel headerForSectionIndex:0]);
 }
 
 // Tests that selecting Ask or Block calls the mutator, while exception rows
@@ -224,18 +242,49 @@ TEST_F(SiteSettingsCategoryDetailViewControllerTest, TestTrailingSwipeActions) {
               [NSIndexPath indexPathForRow:0 inSection:0]];
   EXPECT_EQ(nil, defaultConfig);
 
-  // Add an allowed site exception.
-  SiteSettingsSiteException* allowedSite =
-      CreateSiteException(@"https://allowed.com", @"allowed.com");
-  [view_controller setAllowedSites:@[ allowedSite ] notAllowedSites:@[]];
+  // Add two allowed site exceptions.
+  SiteSettingsSiteException* allowedSite1 =
+      CreateSiteException(@"https://allowed1.com", @"allowed1.com");
+  SiteSettingsSiteException* allowedSite2 =
+      CreateSiteException(@"https://allowed2.com", @"allowed2.com");
+  [view_controller setAllowedSites:@[ allowedSite1, allowedSite2 ]
+                   notAllowedSites:@[]];
 
   // The Allowed section is at section index 1.
-  UISwipeActionsConfiguration* allowedConfig =
-      [view_controller.tableView.delegate tableView:view_controller.tableView
-          trailingSwipeActionsConfigurationForRowAtIndexPath:
-              [NSIndexPath indexPathForRow:0 inSection:1]];
+  NSIndexPath* firstAllowedIndexPath = [NSIndexPath indexPathForRow:0
+                                                          inSection:1];
+  UISwipeActionsConfiguration* allowedConfig = [view_controller.tableView
+                                                    .delegate
+                                               tableView:view_controller
+                                                             .tableView
+      trailingSwipeActionsConfigurationForRowAtIndexPath:firstAllowedIndexPath];
   ASSERT_NE(nil, allowedConfig);
-  EXPECT_EQ(1u, allowedConfig.actions.count);
+  ASSERT_EQ(1u, allowedConfig.actions.count);
+
+  // Single-row swipe editing should not put the view controller into
+  // multi-select editing mode.
+  [view_controller.tableView.delegate tableView:view_controller.tableView
+                 willBeginEditingRowAtIndexPath:firstAllowedIndexPath];
+  EXPECT_FALSE(view_controller.editing);
+
+  // Executing the delete contextual action should invoke the mutator and reload
+  // cleanly without batch update inconsistencies.
+  OCMStub([mutator_ deleteSettingForSite:allowedSite1])
+      .andDo(^(NSInvocation* invocation) {
+        [view_controller setAllowedSites:@[ allowedSite2 ] notAllowedSites:@[]];
+      });
+  UIContextualAction* deleteAction = allowedConfig.actions.firstObject;
+  __block BOOL completionCalled = NO;
+  deleteAction.handler(deleteAction, view_controller.tableView,
+                       ^(BOOL actionPerformed) {
+                         completionCalled = actionPerformed;
+                       });
+  EXPECT_TRUE(completionCalled);
+  EXPECT_EQ(1, NumberOfItemsInSection(1));
+
+  [view_controller.tableView.delegate tableView:view_controller.tableView
+                    didEndEditingRowAtIndexPath:firstAllowedIndexPath];
+  EXPECT_FALSE(view_controller.editing);
 }
 
 // Tests that site exception rows configure a popup menu accessory button that
@@ -259,6 +308,9 @@ TEST_F(SiteSettingsCategoryDetailViewControllerTest,
   UITableViewCell* allowedCell =
       [view_controller tableView:view_controller.tableView
            cellForRowAtIndexPath:[NSIndexPath indexPathForRow:0 inSection:1]];
+  ASSERT_NE(nil, allowedCell.selectedBackgroundView);
+  EXPECT_NSEQ([UIColor colorNamed:kGroupedSecondaryBackgroundColor],
+              allowedCell.selectedBackgroundView.backgroundColor);
   ASSERT_TRUE([allowedCell.accessoryView isKindOfClass:[UIButton class]]);
   UIButton* allowedButton = static_cast<UIButton*>(allowedCell.accessoryView);
   EXPECT_TRUE(allowedButton.showsMenuAsPrimaryAction);
@@ -283,6 +335,9 @@ TEST_F(SiteSettingsCategoryDetailViewControllerTest,
   UITableViewCell* notAllowedCell =
       [view_controller tableView:view_controller.tableView
            cellForRowAtIndexPath:[NSIndexPath indexPathForRow:0 inSection:2]];
+  ASSERT_NE(nil, notAllowedCell.selectedBackgroundView);
+  EXPECT_NSEQ([UIColor colorNamed:kGroupedSecondaryBackgroundColor],
+              notAllowedCell.selectedBackgroundView.backgroundColor);
   ASSERT_TRUE([notAllowedCell.accessoryView isKindOfClass:[UIButton class]]);
   UIButton* notAllowedButton =
       static_cast<UIButton*>(notAllowedCell.accessoryView);
@@ -389,6 +444,9 @@ TEST_F(SiteSettingsCategoryDetailViewControllerTest,
                             withObject:deleteButton];
 #pragma clang diagnostic pop
   EXPECT_OCMOCK_VERIFY(mutator_);
+  // When the mediator updates the consumer with the remaining sites, the
+  // view controller exits edit mode if no site exceptions remain.
+  [view_controller setAllowedSites:@[] notAllowedSites:@[]];
   EXPECT_FALSE(view_controller.editing);
 }
 

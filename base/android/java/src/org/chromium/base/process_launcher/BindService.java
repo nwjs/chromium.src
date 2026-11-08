@@ -6,7 +6,6 @@ package org.chromium.base.process_launcher;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
-import android.content.ContextWrapper;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.os.Build;
@@ -17,9 +16,7 @@ import android.os.UserHandle;
 import androidx.annotation.RequiresApi;
 
 import org.chromium.base.BaseFeatureList;
-import org.chromium.base.BindingRequestQueue;
 import org.chromium.base.ContextUtils;
-import org.chromium.build.BuildConfig;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 
@@ -37,11 +34,6 @@ public final class BindService {
         public int mRebindServiceCount;
         public int mUnbindServiceCount;
         public int mUpdateServiceGroupCount;
-    }
-
-    static boolean supportVariableConnections() {
-        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
-                && !BuildConfig.IS_INCREMENTAL_INSTALL;
     }
 
     // Note that handler is not guaranteed to be used, and client still need to correctly handle
@@ -69,7 +61,7 @@ public final class BindService {
         if (sBinderCallCounter != null) {
             sBinderCallCounter.mBindServiceCount++;
         }
-        if (supportVariableConnections() && instanceName != null) {
+        if (instanceName != null) {
             return context.bindIsolatedService(intent, flags, instanceName, executor, connection);
         }
 
@@ -241,11 +233,7 @@ public final class BindService {
                             Handler.class,
                             UserHandle.class);
         }
-        // No need for null checks or worry about infinite looping here. Otherwise a regular calls
-        // into the ContextWrapper would lead to problems as well.
-        while (context instanceof ContextWrapper) {
-            context = ((ContextWrapper) context).getBaseContext();
-        }
+        context = ContextUtils.getBaseContext(context);
         return (Boolean)
                 sBindServiceAsUserMethod.invoke(
                         context, intent, connection, flags, handler, Process.myUserHandle());

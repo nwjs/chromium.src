@@ -976,9 +976,7 @@ void RenderWidgetHostViewAndroid::OnRenderFrameMetadataChangedBeforeActivation(
   if (!gesture_listener_manager_)
     return;
 
-  base::WeakPtr<RenderWidgetHostViewAndroid> weak_this =
-      weak_ptr_factory_.GetWeakPtr();
-
+  input::ScopedInputDispatchPin pin(this);
   UpdateTouchSelectionController(
       metadata.selection, metadata.page_scale_factor,
       metadata.browser_controls_metadata.top_controls_height,
@@ -987,7 +985,7 @@ void RenderWidgetHostViewAndroid::OnRenderFrameMetadataChangedBeforeActivation(
 
   // Abort if the view was destroyed during UpdateTouchSelectionController
   // (e.g. via synchronous JNI callout to Java).
-  if (!weak_this) {
+  if (destroy_pending()) {
     return;
   }
 
@@ -1267,7 +1265,7 @@ void RenderWidgetHostViewAndroid::LostFocusInternal() {
 }
 
 bool RenderWidgetHostViewAndroid::HasFocus() {
-  return view_.HasFocus();
+  return has_focus_for_testing_.value_or(view_.HasFocus());
 }
 
 bool RenderWidgetHostViewAndroid::IsSurfaceAvailableForCopy() {
@@ -2051,12 +2049,13 @@ bool RenderWidgetHostViewAndroid::HasFallbackSurface() const {
   return delegated_frame_host_->HasFallbackSurface();
 }
 
-void RenderWidgetHostViewAndroid::CopyFromSurface(
+void RenderWidgetHostViewAndroid::CopyFromSurfaceImpl(
     const gfx::Rect& src_subrect,
     const gfx::Size& output_size,
+    bool is_copy_request_secure,
     base::TimeDelta timeout,
     base::OnceCallback<void(const content::CopyFromSurfaceResult&)> callback) {
-  TRACE_EVENT0("cc", "RenderWidgetHostViewAndroid::CopyFromSurface");
+  TRACE_EVENT0("cc", "RenderWidgetHostViewAndroid::CopyFromSurfaceImpl");
   if (!IsSurfaceAvailableForCopy()) {
     std::move(callback).Run(viz::CopyOutputBitmapWithMetadata());
     return;
@@ -2068,18 +2067,19 @@ void RenderWidgetHostViewAndroid::CopyFromSurface(
   }
 
   delegated_frame_host_->CopyFromCompositingSurface(
-      src_subrect, output_size, timeout,
+      src_subrect, output_size, /*capture_exact_surface_id=*/false,
+      is_copy_request_secure, timeout,
       base::BindOnce(
           [](base::OnceCallback<void(const content::CopyFromSurfaceResult&)>
                  callback,
              const base::expected<viz::CopyOutputBitmapWithMetadata,
                                   viz::CopyOutputResult::Error>& result) {
             TRACE_EVENT0(
-                "cc", "RenderWidgetHostViewAndroid::CopyFromSurface finished");
+                "cc",
+                "RenderWidgetHostViewAndroid::CopyFromSurfaceImpl finished");
             std::move(callback).Run(ToCopyFromSurfaceResult(result));
           },
-          std::move(callback)),
-      /*capture_exact_surface_id=*/false);
+          std::move(callback)));
 }
 
 ui::FilteredGestureProvider*
@@ -2249,8 +2249,10 @@ void RenderWidgetHostViewAndroid::SelectBetweenCoordinates(
 
 void RenderWidgetHostViewAndroid::OnSelectionEvent(
     ui::SelectionEventType event) {
-  if (!selection_popup_controller_)
+  if (destroy_pending() || !selection_popup_controller_) {
     return;
+  }
+  input::ScopedInputDispatchPin pin(this);
   CHECK(touch_selection_controller_, base::NotFatalUntil::M152);
   // If a selection drag has started, it has taken over the active touch
   // sequence. Immediately cancel gesture detection and any downstream touch
@@ -2271,6 +2273,9 @@ void RenderWidgetHostViewAndroid::OnSelectionEvent(
     }
     if (gesture_provider_->GetCurrentDownEvent()) {
       ResetGestureDetection();
+      if (destroy_pending() || !selection_popup_controller_) {
+        return;
+      }
     }
   }
   selection_popup_controller_->OnSelectionEvent(
@@ -2374,12 +2379,17 @@ void RenderWidgetHostViewAndroid::UpdateTouchSelectionController(
     float top_controls_height,
     float top_controls_shown_ratio,
     const gfx::SizeF& scrollable_viewport_size_dip) {
-  if (!touch_selection_controller_)
+  if (destroy_pending() || !touch_selection_controller_) {
     return;
+  }
+  input::ScopedInputDispatchPin pin(this);
 
   CHECK(touch_selection_controller_client_manager_, base::NotFatalUntil::M152);
   touch_selection_controller_client_manager_->UpdateClientSelectionBounds(
       selection.start, selection.end, this, nullptr);
+  if (destroy_pending()) {
+    return;
+  }
   OnUpdateScopedSelectionHandles();
 
   // Set parameters for adaptive handle orientation.
@@ -2763,13 +2773,6 @@ blink::mojom::PointerLockResult RenderWidgetHostViewAndroid::LockPointer(
     return blink::mojom::PointerLockResult::kWrongDocument;
   }
 
-  // ExclusiveAccessManager handles the pointer lock toast.
-  if (!base::FeatureList::IsEnabled(features::kEnableExclusiveAccessManager)) {
-    JNIEnv* env = base::android::AttachCurrentThread();
-    Java_RenderWidgetHostViewImpl_showPointerLockToast(
-        env, GetJavaObject(), window_android->GetJavaObject());
-  }
-
   return blink::mojom::PointerLockResult::kSuccess;
 }
 
@@ -2810,12 +2813,6 @@ void RenderWidgetHostViewAndroid::UnlockPointer() {
   }
 
   window_android->ReleasePointerLock(view_);
-
-  // ExclusiveAccessManager handles the pointer lock toast.
-  if (!base::FeatureList::IsEnabled(features::kEnableExclusiveAccessManager)) {
-    JNIEnv* env = base::android::AttachCurrentThread();
-    Java_RenderWidgetHostViewImpl_hidePointerLockToast(env, GetJavaObject());
-  }
 
   host()->LostPointerLock();
 }

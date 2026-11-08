@@ -192,14 +192,11 @@ if (is_chromeos) {
 
     sources = [ "chrome_native_app_window_views_aura_ash_browsertest.cc" ]
 
-    configs += [ "//build/config/compiler:no_exit_time_destructors" ]
-
     deps = [
       ":apps",
       "//ash/public/cpp",
       "//chrome/browser/apps/platform_apps:browser_test_support",
       "//chrome/browser/profiles:profile",
-      "//chrome/browser/ui",
       "//chrome/test:test_support",
       "//chromeos/ash/components/login/login_state:test_support",
       "//chromeos/constants",

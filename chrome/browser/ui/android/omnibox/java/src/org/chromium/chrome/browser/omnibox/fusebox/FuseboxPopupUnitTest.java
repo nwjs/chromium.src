@@ -5,6 +5,7 @@
 package org.chromium.chrome.browser.omnibox.fusebox;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
@@ -23,13 +24,17 @@ import android.content.pm.ApplicationInfo;
 import android.content.res.Configuration;
 import android.graphics.Rect;
 import android.view.LayoutInflater;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewConfiguration;
 import android.view.ViewGroup;
+import android.widget.ImageView;
 import android.widget.PopupWindow.OnDismissListener;
 
 import androidx.core.graphics.Insets;
 import androidx.core.view.WindowInsetsCompat;
+import androidx.core.view.accessibility.AccessibilityNodeInfoCompat;
+import androidx.core.view.accessibility.AccessibilityNodeInfoCompat.AccessibilityActionCompat;
 import androidx.window.layout.WindowMetrics;
 import androidx.window.layout.WindowMetricsCalculator;
 import androidx.window.layout.WindowMetricsCalculatorDecorator;
@@ -66,6 +71,7 @@ import org.chromium.ui.insets.InsetObserver;
 import org.chromium.ui.widget.AnchoredPopupWindow;
 import org.chromium.ui.widget.RectProvider;
 
+import java.util.List;
 import java.util.Locale;
 
 /** Unit tests for FuseboxPopup. */
@@ -326,7 +332,7 @@ public class FuseboxPopupUnitTest {
                 CurrentTabPlacement.ABOVE_ATTACHMENTS);
         assertEquals(R.id.fusebox_add_current_tab_top, mFuseboxPopup.mAddCurrentTab.getId());
         assertNotNull(mFuseboxPopup.mCurrentTabTopDivider);
-        assertTrue(mFuseboxPopup.mAttachmentButtons.contains(mFuseboxPopup.mAddCurrentTab));
+        assertTrue(mFuseboxPopup.mListAttachmentButtons.contains(mFuseboxPopup.mAddCurrentTab));
         assertTrue(mFuseboxPopup.mDividers.contains(mFuseboxPopup.mCurrentTabTopDivider));
     }
 
@@ -339,6 +345,217 @@ public class FuseboxPopupUnitTest {
                 CurrentTabPlacement.WITH_ATTACHMENTS);
         assertEquals(R.id.fusebox_add_current_tab, mFuseboxPopup.mAddCurrentTab.getId());
         assertNull(mFuseboxPopup.mCurrentTabTopDivider);
+    }
+
+    @Test
+    public void fileAndDrive_groupedCarousel_resolvesCarouselSlots() {
+        recreateFuseboxPopup(
+                /* isBottomSheet= */ true,
+                /* useCarousel= */ true,
+                /* useScrollableCarousel= */ false,
+                CurrentTabPlacement.WITH_ATTACHMENTS);
+        assertEquals(R.id.fusebox_pick_file_button, mFuseboxPopup.mFileButton.getId());
+        assertEquals(R.id.fusebox_pick_drive_button, mFuseboxPopup.mDriveButton.getId());
+        assertEquals(mFuseboxPopup.mAttachmentsContainer, mFuseboxPopup.mFileButton.getParent());
+    }
+
+    @Test
+    public void fileAndDrive_notGrouped_resolvesAccordionSlots() {
+        recreateFuseboxPopup(
+                /* isBottomSheet= */ true,
+                /* useCarousel= */ true,
+                /* useScrollableCarousel= */ false,
+                CurrentTabPlacement.BELOW_ATTACHMENTS);
+        assertEquals(R.id.fusebox_pick_file_button_accordion, mFuseboxPopup.mFileButton.getId());
+        assertEquals(R.id.fusebox_pick_drive_button_accordion, mFuseboxPopup.mDriveButton.getId());
+        assertEquals(mFuseboxPopup.mAccordionContainer, mFuseboxPopup.mFileButton.getParent());
+    }
+
+    @Test
+    public void fileAndDrive_groupedVertical_resolvesAccordionSlots() {
+        recreateFuseboxPopup(
+                /* isBottomSheet= */ false,
+                /* useCarousel= */ false,
+                /* useScrollableCarousel= */ false,
+                CurrentTabPlacement.WITH_ATTACHMENTS);
+        assertEquals(R.id.fusebox_pick_file_button_accordion, mFuseboxPopup.mFileButton.getId());
+        assertEquals(R.id.fusebox_pick_drive_button_accordion, mFuseboxPopup.mDriveButton.getId());
+    }
+
+    @Test
+    public void attachmentGroups_vertical_allListRows() {
+        recreateFuseboxPopup(
+                /* isBottomSheet= */ false,
+                /* useCarousel= */ false,
+                /* useScrollableCarousel= */ false,
+                CurrentTabPlacement.WITH_ATTACHMENTS);
+        assertEquals(List.of(), mFuseboxPopup.mCarouselTiles);
+        assertEquals(allAttachmentButtons(), mFuseboxPopup.mListAttachmentButtons);
+    }
+
+    @Test
+    public void attachmentGroups_carouselWithAttachments_allTiles() {
+        recreateFuseboxPopup(
+                /* isBottomSheet= */ true,
+                /* useCarousel= */ true,
+                /* useScrollableCarousel= */ false,
+                CurrentTabPlacement.WITH_ATTACHMENTS);
+        assertEquals(allAttachmentButtons(), mFuseboxPopup.mCarouselTiles);
+        assertEquals(List.of(), mFuseboxPopup.mListAttachmentButtons);
+    }
+
+    private List<View> allAttachmentButtons() {
+        return List.of(
+                mFuseboxPopup.mAddCurrentTab,
+                mFuseboxPopup.mTabButton,
+                mFuseboxPopup.mGalleryButton,
+                mFuseboxPopup.mCameraButton,
+                mFuseboxPopup.mFileButton,
+                mFuseboxPopup.mDriveButton);
+    }
+
+    @Test
+    public void attachmentGroups_carouselBelowAttachments_splitsTilesAndRows() {
+        recreateFuseboxPopup(
+                /* isBottomSheet= */ true,
+                /* useCarousel= */ true,
+                /* useScrollableCarousel= */ false,
+                CurrentTabPlacement.BELOW_ATTACHMENTS);
+        assertEquals(
+                List.of(
+                        mFuseboxPopup.mTabButton,
+                        mFuseboxPopup.mGalleryButton,
+                        mFuseboxPopup.mCameraButton),
+                mFuseboxPopup.mCarouselTiles);
+        assertEquals(
+                List.of(
+                        mFuseboxPopup.mAddCurrentTab,
+                        mFuseboxPopup.mFileButton,
+                        mFuseboxPopup.mDriveButton),
+                mFuseboxPopup.mListAttachmentButtons);
+    }
+
+    @Test
+    public void fileIcon_variationsBottomSheetCarousel_isFolder() {
+        recreateFuseboxPopup(
+                /* isBottomSheet= */ true,
+                /* useCarousel= */ true,
+                /* useScrollableCarousel= */ false,
+                CurrentTabPlacement.BELOW_ATTACHMENTS);
+        assertEquals(R.drawable.ic_folder_24dp, getFileIconResId());
+    }
+
+    @Test
+    public void fileIcon_variationsBottomSheetVertical_isFolder() {
+        recreateFuseboxPopup(
+                /* isBottomSheet= */ true,
+                /* useCarousel= */ false,
+                /* useScrollableCarousel= */ false,
+                CurrentTabPlacement.ABOVE_ATTACHMENTS);
+        assertEquals(R.drawable.ic_folder_24dp, getFileIconResId());
+    }
+
+    @Test
+    public void fileIcon_variationsDisabledBottomSheetCarousel_isAttachFile() {
+        recreateFuseboxPopup(
+                /* isBottomSheet= */ true,
+                /* useCarousel= */ true,
+                /* useScrollableCarousel= */ false,
+                CurrentTabPlacement.WITH_ATTACHMENTS);
+        assertEquals(R.drawable.ic_attach_file_24dp, getFileIconResId());
+    }
+
+    @Test
+    public void fileIcon_bottomSheetScrollableCarousel_isAttachFile() {
+        recreateFuseboxPopup(
+                /* isBottomSheet= */ true,
+                /* useCarousel= */ true,
+                /* useScrollableCarousel= */ true,
+                CurrentTabPlacement.WITH_ATTACHMENTS);
+        assertEquals(R.drawable.ic_attach_file_24dp, getFileIconResId());
+    }
+
+    @Test
+    public void fileIcon_contextMenu_isAttachFile() {
+        recreateFuseboxPopup(
+                /* isBottomSheet= */ false,
+                /* useCarousel= */ false,
+                /* useScrollableCarousel= */ false,
+                CurrentTabPlacement.WITH_ATTACHMENTS);
+        assertEquals(R.drawable.ic_attach_file_24dp, getFileIconResId());
+    }
+
+    private int getFileIconResId() {
+        ImageView icon = mFuseboxPopup.mFileButton.findViewById(R.id.start_icon);
+        return Shadows.shadowOf(icon.getDrawable()).getCreatedFromResId();
+    }
+
+    @Test
+    public void carouselTile_scrollable_usesCorrectTileSize() {
+        recreateFuseboxPopup(
+                /* isBottomSheet= */ true,
+                /* useCarousel= */ true,
+                /* useScrollableCarousel= */ true,
+                CurrentTabPlacement.WITH_ATTACHMENTS);
+        assertEquals(
+                getDimenPx(R.dimen.fusebox_carousel_tile_height),
+                getTileHeight(mFuseboxPopup.mCameraButton));
+    }
+
+    @Test
+    public void carouselTile_weighted_usesCorrectTileSize() {
+        recreateFuseboxPopup(
+                /* isBottomSheet= */ true,
+                /* useCarousel= */ true,
+                /* useScrollableCarousel= */ false,
+                CurrentTabPlacement.WITH_ATTACHMENTS);
+        assertEquals(
+                getDimenPx(R.dimen.fusebox_carousel_tile_height),
+                getTileHeight(mFuseboxPopup.mCameraButton));
+    }
+
+    @Test
+    public void bottomSheet_setsTopPadding() {
+        recreateFuseboxPopup(
+                /* isBottomSheet= */ true,
+                /* useCarousel= */ true,
+                /* useScrollableCarousel= */ false,
+                CurrentTabPlacement.WITH_ATTACHMENTS);
+        assertEquals(
+                getDimenPx(R.dimen.fusebox_bottom_sheet_top_padding),
+                mFuseboxPopup.mViewGroup.getPaddingTop());
+    }
+
+    @Test
+    public void bottomSheet_showsDragHandle() {
+        recreateFuseboxPopup(
+                /* isBottomSheet= */ true,
+                /* useCarousel= */ true,
+                /* useScrollableCarousel= */ false,
+                CurrentTabPlacement.WITH_ATTACHMENTS);
+        assertEquals(View.VISIBLE, getDragHandleVisibility());
+    }
+
+    @Test
+    public void popover_hidesDragHandle() {
+        recreateFuseboxPopup(
+                /* isBottomSheet= */ false,
+                /* useCarousel= */ false,
+                /* useScrollableCarousel= */ false,
+                CurrentTabPlacement.WITH_ATTACHMENTS);
+        assertEquals(View.GONE, getDragHandleVisibility());
+    }
+
+    private int getDragHandleVisibility() {
+        return mFuseboxPopup.mViewGroup.findViewById(R.id.fusebox_drag_handle).getVisibility();
+    }
+
+    private int getTileHeight(View button) {
+        return button.findViewById(R.id.start_icon_background).getLayoutParams().height;
+    }
+
+    private int getDimenPx(int dimenRes) {
+        return mActivity.getResources().getDimensionPixelSize(dimenRes);
     }
 
     @Test
@@ -401,11 +618,49 @@ public class FuseboxPopupUnitTest {
                 /* useScrollableCarousel= */ false,
                 CurrentTabPlacement.WITH_ATTACHMENTS);
 
-        // Call onFling directly on the exposed listener to avoid flaky MotionEvents.
+        // Call the exposed listener directly to avoid flaky MotionEvents. A fling only dismisses
+        // once onScroll has classified the gesture as a downward swipe.
+        var listener = mFuseboxPopup.mScrollView.mGestureListener;
+        MotionEvent move = MotionEvent.obtain(0, 0, MotionEvent.ACTION_MOVE, 0, 0, 0);
+        listener.onScroll(null, move, /* distanceX= */ 0, /* distanceY= */ -1);
+        move.recycle();
         int minFlingVelocity = ViewConfiguration.get(mActivity).getScaledMinimumFlingVelocity();
-        mFuseboxPopup.mScrollView.mGestureListener.onFling(null, null, 0, minFlingVelocity + 1);
+        listener.onFling(null, null, 0, minFlingVelocity + 1);
 
         verify(mPopupWindow).dismiss();
+    }
+
+    @Test
+    public void testDownwardScroll_interceptsTouch_whenBottomSheet() {
+        recreateFuseboxPopup(
+                /* isBottomSheet= */ true,
+                /* useCarousel= */ true,
+                /* useScrollableCarousel= */ true,
+                CurrentTabPlacement.WITH_ATTACHMENTS);
+        FuseboxScrollView scrollView = mFuseboxPopup.mScrollView;
+        MotionEvent move = MotionEvent.obtain(0, 0, MotionEvent.ACTION_MOVE, 0, 0, 0);
+
+        // Exactly the minimum vertical slope.
+        scrollView.mGestureListener.onScroll(null, move, /* distanceX= */ 1, /* distanceY= */ -2);
+
+        assertTrue(scrollView.onInterceptTouchEvent(move));
+        move.recycle();
+    }
+
+    @Test
+    public void testDiagonalScroll_doesNotInterceptTouch_whenBottomSheet() {
+        recreateFuseboxPopup(
+                /* isBottomSheet= */ true,
+                /* useCarousel= */ true,
+                /* useScrollableCarousel= */ true,
+                CurrentTabPlacement.WITH_ATTACHMENTS);
+        FuseboxScrollView scrollView = mFuseboxPopup.mScrollView;
+        MotionEvent move = MotionEvent.obtain(0, 0, MotionEvent.ACTION_MOVE, 0, 0, 0);
+
+        scrollView.mGestureListener.onScroll(null, move, /* distanceX= */ 1, /* distanceY= */ -1);
+
+        assertFalse(scrollView.onInterceptTouchEvent(move));
+        move.recycle();
     }
 
     @Test
@@ -516,6 +771,23 @@ public class FuseboxPopupUnitTest {
 
         mFuseboxPopup.setAccordionExpanded(false);
         assertEquals(View.GONE, mFuseboxPopup.mAccordionContainer.getVisibility());
+    }
+
+    @Test
+    public void moreOptionsButton_exposesAccordionExpandedState() {
+        mFuseboxPopup.setAccordionEnabled(true);
+        View button = mFuseboxPopup.mMoreOptionsButton;
+
+        mFuseboxPopup.setAccordionExpanded(false);
+        AccessibilityNodeInfoCompat info =
+                AccessibilityNodeInfoCompat.wrap(button.createAccessibilityNodeInfo());
+        assertEquals(AccessibilityNodeInfoCompat.EXPANDED_STATE_COLLAPSED, info.getExpandedState());
+        assertTrue(info.getActionList().contains(AccessibilityActionCompat.ACTION_EXPAND));
+
+        mFuseboxPopup.setAccordionExpanded(true);
+        info = AccessibilityNodeInfoCompat.wrap(button.createAccessibilityNodeInfo());
+        assertEquals(AccessibilityNodeInfoCompat.EXPANDED_STATE_FULL, info.getExpandedState());
+        assertTrue(info.getActionList().contains(AccessibilityActionCompat.ACTION_COLLAPSE));
     }
 
     @Test

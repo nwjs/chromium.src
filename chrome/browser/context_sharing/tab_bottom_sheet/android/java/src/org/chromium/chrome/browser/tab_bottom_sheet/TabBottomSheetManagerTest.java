@@ -41,6 +41,7 @@ import org.chromium.base.supplier.SettableNullableObservableSupplier;
 import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.Criteria;
 import org.chromium.base.test.util.CriteriaHelper;
+import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.Restriction;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
@@ -79,6 +80,9 @@ import org.chromium.ui.modelutil.PropertyModel;
 @RunWith(ChromeJUnit4ClassRunner.class)
 @Batch(Batch.PER_CLASS)
 @EnableFeatures(ChromeFeatureList.TAB_BOTTOM_SHEET)
+// TODO(crbug.com/568382414): Re-enable AndroidBottomBar once the tab switcher button is no longer
+// transiently INVISIBLE while BottomControlsStacker updates the bottom sheet layer height.
+@DisableFeatures(ChromeFeatureList.ANDROID_BOTTOM_BAR)
 public class TabBottomSheetManagerTest {
     @Rule
     public FreshCtaTransitTestRule mActivityTestRule =

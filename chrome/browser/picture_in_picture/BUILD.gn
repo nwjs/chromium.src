@@ -35,6 +35,7 @@ source_set("picture_in_picture") {
     "//components/safe_browsing/core/browser/db:util",
     "//content/public/browser",
     "//third_party/blink/public/common",
+    "//ui/base/unowned_user_data",
     "//ui/gfx/geometry",
     "//url",
   ]
@@ -100,6 +101,7 @@ source_set("impl") {
     "//base",
     "//chrome/browser:browser_process",
     "//chrome/browser/content_settings:content_settings_factory",
+    "//chrome/browser/media",
     "//chrome/browser/media/webrtc",
     "//chrome/browser/permissions",
     "//chrome/browser/profiles:profile",
@@ -110,6 +112,7 @@ source_set("impl") {
     "//components/content_settings/core/browser",
     "//components/permissions",
     "//components/safe_browsing/core/browser/db:v5_get_hash_protocol_manager",
+    "//components/tabs:public",
     "//content/public/browser",
     "//content/public/common",
     "//extensions/buildflags",
@@ -275,7 +278,6 @@ if (!is_android) {
       "//chrome/browser/media/webrtc:webrtc_browser_tests_base",
       "//chrome/browser/preloading:test_support",
       "//chrome/browser/profiles:profile",
-      "//chrome/browser/ui",
       "//chrome/browser/ui:browser_commands",
       "//chrome/browser/ui:browser_window_header",
       "//chrome/browser/ui:bubble_anchor_util",
@@ -318,6 +320,15 @@ if (!is_android) {
       "//url",
     ]
 
+    if (enable_extensions_core) {
+      deps += [
+        "//chrome/browser/extensions",
+        "//components/sessions",
+        "//extensions/browser",
+        "//extensions/common",
+      ]
+    }
+
     if (is_chromeos) {
       deps += [
         "//chromeos/ui/base",
@@ -341,7 +352,6 @@ if (!is_android) {
       ":picture_in_picture",
       ":test_support_ui",
       "//base/test:test_support",
-      "//chrome/browser/ui",
       "//chrome/browser/ui:browser_window_header",
       "//chrome/browser/ui/browser_window",
       "//testing/gtest",

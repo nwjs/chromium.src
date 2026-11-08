@@ -27,8 +27,8 @@
 #include "third_party/blink/renderer/core/dom/layout_tree_builder_traversal.h"
 
 #include <algorithm>
+#include <ranges>
 
-#include "base/containers/adapters.h"
 #include "third_party/blink/renderer/core/css/style_engine.h"
 #include "third_party/blink/renderer/core/dom/column_pseudo_element.h"
 #include "third_party/blink/renderer/core/dom/element.h"
@@ -39,7 +39,6 @@
 #include "third_party/blink/renderer/core/html_names.h"
 #include "third_party/blink/renderer/core/layout/layout_object.h"
 #include "third_party/blink/renderer/core/layout/layout_view.h"
-#include "third_party/blink/renderer/core/overscroll/overscroll_area_tracker.h"
 #include "third_party/blink/renderer/core/style/computed_style_constants.h"
 #include "third_party/blink/renderer/core/view_transition/view_transition_pseudo_element_base.h"
 
@@ -305,7 +304,8 @@ Node* LayoutTreeBuilderTraversal::LastChild(const Node& node) {
     return FlatTreeTraversal::LastChild(node);
   }
 
-  for (PseudoId pseudo_id : base::Reversed(Node::kElementChildPseudoOrder)) {
+  for (PseudoId pseudo_id :
+       std::views::reverse(Node::kElementChildPseudoOrder)) {
     switch (pseudo_id) {
       case kPseudoIdColumn:
         // kPseudoIdColumn is an array of indexed pseudo-elements.  Return its
@@ -647,25 +647,30 @@ bool IsLayoutObjectReparented(const LayoutObject* layout_object) {
     return true;
   }
   if (auto* element = DynamicTo<Element>(layout_object->GetNode())) {
-    // GetOverscrollContainer() caches whether `element` is a valid overscroll
-    // area (computed in Element::RecalcOwnStyle), which determines whether it
-    // is reparented into ::-internal-overscroll-area-parent. Note that
-    // IsInternalOverscrollPositionAuto() can still be true when the construct
-    // is invalid (e.g. when [overscrollcontainer] > [overscrollarea] matches in
-    // the DOM tree but flat-tree parent or tree scope checks fail).
-    DCHECK_EQ(!!element->GetOverscrollContainer(),
-              OverscrollAreaTracker::IsValidOverscrollArea(
-                  *element, element->GetComputedStyle(),
-                  element->ParentComputedStyle()));
-    return element->GetOverscrollContainer();
+    // Overscroll areas are reparented into their
+    // ::-internal-overscroll-area-parent.
+    return element->IsValidOverscrollArea();
   }
   return false;
+}
+
+// A sibling that is pending a layout tree re-attach may have a LayoutObject
+// that is not where the flat tree says it should be. In particular,
+// moveBefore() does not detach the layout tree of the moved node, so until the
+// next layout tree rebuild its LayoutObject is still a child of its old
+// parent's LayoutObject. Such a sibling is not a valid insertion point, and it
+// will be inserted relative to its own siblings when it is re-attached.
+bool IsPendingReattach(const Node& node) {
+  return node.GetForceReattachLayoutTree() || node.NeedsReattachLayoutTree();
 }
 
 LayoutObject* NextSiblingLayoutObjectInternal(const Node& node) {
   for (Node* sibling = LayoutTreeBuilderTraversal::NextLayoutSibling(node);
        sibling;
        sibling = LayoutTreeBuilderTraversal::NextLayoutSibling(*sibling)) {
+    if (IsPendingReattach(*sibling)) {
+      continue;
+    }
     LayoutObject* layout_object = sibling->GetLayoutObject();
     if (layout_object && !IsLayoutObjectReparented(layout_object)) {
       return layout_object;
@@ -726,8 +731,7 @@ LayoutObject* LayoutTreeBuilderTraversal::NextInTopLayer(
     // not re-attached and not in the top layer yet, thus we can not use it as a
     // sibling LayoutObject.
     if (layout_object &&
-        layout_object->StyleRef().IsRenderedInTopLayer(
-            *top_layer_elements[i]) &&
+        layout_object->Style().IsRenderedInTopLayer(*top_layer_elements[i]) &&
         IsA<LayoutView>(layout_object->Parent())) {
       return layout_object;
     }

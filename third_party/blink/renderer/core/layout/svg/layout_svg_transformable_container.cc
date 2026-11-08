@@ -82,18 +82,25 @@ SVGTransformChange LayoutSVGTransformableContainer::UpdateLocalTransform(
   // respect the translations induced by their corresponding use elements x/y
   // attributes.
   if (IsA<SVGUseElement>(element)) {
-    const ComputedStyle& style = StyleRef();
+    const ComputedStyle& style = Style();
     const SVGViewportResolver viewport_resolver(*this);
     additional_translation_ =
         VectorForLengthPair(style.X(), style.Y(), viewport_resolver, style);
   }
 
   SVGTransformChangeDetector change_detector(local_transform_);
-  local_transform_ = TransformHelper::ComputeTransformIncludingMotion(
-      *GetElement(), reference_box);
-  local_transform_.Translate(additional_translation_.x(),
-                             additional_translation_.y());
+  local_transform_ =
+      AffineTransform::FromTransform(ComputeLocalTransform3D(reference_box));
   return change_detector.ComputeChange(local_transform_);
+}
+
+gfx::Transform LayoutSVGTransformableContainer::ComputeLocalTransform3D(
+    const gfx::RectF& reference_box) const {
+  NOT_DESTROYED();
+  gfx::Transform matrix = TransformHelper::ComputeTransformIncludingMotion3D(
+      *GetElement(), reference_box);
+  matrix.Translate(additional_translation_.x(), additional_translation_.y());
+  return matrix;
 }
 
 void LayoutSVGTransformableContainer::StyleDidChange(

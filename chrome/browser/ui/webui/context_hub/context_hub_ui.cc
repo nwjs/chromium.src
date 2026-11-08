@@ -7,11 +7,13 @@
 #include <memory>
 #include <utility>
 
+#include "base/feature_list.h"
 #include "build/build_config.h"
 #include "chrome/browser/context_hub/features.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/webui/context_hub/context_hub.mojom-features.h"
 #include "chrome/browser/ui/webui/context_hub/context_hub_page_handler.h"
+#include "chrome/common/chrome_features.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/grit/context_hub_resources.h"
 #include "chrome/grit/context_hub_resources_map.h"
@@ -20,7 +22,11 @@
 #include "ui/webui/webui_util.h"
 
 #if !BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/glic/actor/glic_actor_policy_checker.h"  // nogncheck
+#include "chrome/browser/glic/public/glic_enabling.h"             // nogncheck
+#include "chrome/browser/glic/public/glic_keyed_service.h"        // nogncheck
 #include "chrome/browser/ui/webui/favicon_source.h"  // nogncheck
+#include "chrome/browser/ui/webui/sanitized_image/sanitized_image_source.h"  // nogncheck
 #include "components/favicon_base/favicon_url_parser.h"
 #include "content/public/browser/url_data_source.h"
 #endif
@@ -44,11 +50,30 @@ ContextHubUI::ContextHubUI(content::WebUI* web_ui)
   source->AddBoolean(
       "kAutoTodos",
       base::FeatureList::IsEnabled(browser::context_hub::mojom::kAutoTodos));
+  bool can_act_on_web = false;
+#if !BUILDFLAG(IS_ANDROID)
+  if (base::FeatureList::IsEnabled(features::kGlicActor) &&
+      glic::GlicEnabling::IsEnabledForProfile(profile)) {
+    glic::GlicKeyedService* glic_service = glic::GlicKeyedService::Get(profile);
+    can_act_on_web = glic_service && glic_service->HasActorPolicyChecker() &&
+                     glic_service->actor_policy_checker().CanActOnWeb();
+  }
+#endif
+  source->AddBoolean("can_act_on_web", can_act_on_web);
   source->AddBoolean(
       "kSmartSearch",
       base::FeatureList::IsEnabled(browser::context_hub::mojom::kSmartSearch));
   source->AddBoolean("kTopics", base::FeatureList::IsEnabled(
                                     browser::context_hub::mojom::kTopics));
+  source->AddBoolean(
+      "kRecordReplay",
+      base::FeatureList::IsEnabled(browser::context_hub::mojom::kRecordReplay));
+  source->AddBoolean(
+      "kTopicsFishfoodFeedback",
+      base::FeatureList::IsEnabled(browser::context_hub::mojom::kTopics) &&
+          context_hub::features::kTopicsFishfoodFeedback.Get());
+  source->AddString("kTopicsFeedbackFormUrl",
+                    context_hub::features::kTopicsFeedbackFormUrl.Get());
   source->AddInteger("kMaxTabGroupChatHistoryTurns",
                      context_hub::features::kMaxTabGroupChatHistoryTurns.Get());
   source->AddInteger(
@@ -59,6 +84,8 @@ ContextHubUI::ContextHubUI(content::WebUI* web_ui)
   content::URLDataSource::Add(
       profile, std::make_unique<FaviconSource>(
                    profile, chrome::FaviconUrlFormat::kFavicon2));
+  content::URLDataSource::Add(profile,
+                              std::make_unique<SanitizedImageSource>(profile));
 #endif
 }
 

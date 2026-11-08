@@ -15,7 +15,9 @@ import static org.mockito.Mockito.when;
 
 import android.graphics.Color;
 import android.graphics.Rect;
+import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewGroup;
 
 import androidx.core.view.WindowInsetsCompat;
 
@@ -27,6 +29,7 @@ import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 
+import org.chromium.base.ContextUtils;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetContent.GlowSpec;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetContent.HeightMode;
@@ -39,11 +42,11 @@ import org.chromium.ui.modelutil.PropertyModel;
 public class BottomSheetMediatorUnitTest {
     @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
 
-    @Mock private BottomSheetObserver mObserver;
-    @Mock private BottomSheetContent mContent;
-    @Mock private View mContentView;
-    @Mock private View mToolbarView;
+    private @Mock BottomSheetObserver mObserver;
+    private @Mock BottomSheetContent mContent;
 
+    private final View mContentView = new View(ContextUtils.getApplicationContext());
+    private final View mToolbarView = new View(ContextUtils.getApplicationContext());
     private PropertyModel mModel;
     private BottomSheetMediator mMediator;
 
@@ -57,6 +60,7 @@ public class BottomSheetMediatorUnitTest {
     @Test
     public void testPropertyModel() {
         assertEquals(mModel, mMediator.getModelForTesting());
+        assertEquals(mMediator, mModel.get(BottomSheetProperties.TOUCH_HANDLER));
     }
 
     @Test
@@ -89,23 +93,30 @@ public class BottomSheetMediatorUnitTest {
     public void testSetInternalCurrentState() {
         mMediator.setInternalCurrentState(SheetState.HALF);
         assertEquals(SheetState.HALF, mMediator.getSheetState());
+        assertEquals(SheetState.HALF, mModel.get(BottomSheetProperties.CURRENT_SHEET_STATE));
+        assertTrue(mModel.get(BottomSheetProperties.SHEET_FOCUSABLE));
         assertFalse(mMediator.isSheetOpen());
         assertTrue(mModel.get(BottomSheetProperties.CONTAINER_TOUCH_ENABLED));
 
         mMediator.setInternalCurrentState(SheetState.SCROLLING);
         assertEquals(SheetState.SCROLLING, mMediator.getSheetState());
+        assertEquals(SheetState.SCROLLING, mModel.get(BottomSheetProperties.CURRENT_SHEET_STATE));
         assertFalse(mModel.get(BottomSheetProperties.CONTAINER_TOUCH_ENABLED));
 
         mMediator.setInternalCurrentState(SheetState.PEEK);
         assertEquals(SheetState.PEEK, mMediator.getSheetState());
+        assertEquals(SheetState.PEEK, mModel.get(BottomSheetProperties.CURRENT_SHEET_STATE));
         assertTrue(mModel.get(BottomSheetProperties.CONTAINER_TOUCH_ENABLED));
 
         mMediator.setInternalCurrentState(SheetState.FULL);
         assertEquals(SheetState.FULL, mMediator.getSheetState());
+        assertEquals(SheetState.FULL, mModel.get(BottomSheetProperties.CURRENT_SHEET_STATE));
+        assertTrue(mModel.get(BottomSheetProperties.SHEET_FOCUSABLE));
         assertTrue(mModel.get(BottomSheetProperties.CONTAINER_TOUCH_ENABLED));
 
         mMediator.setInternalCurrentState(SheetState.HIDDEN);
         assertEquals(SheetState.HIDDEN, mMediator.getSheetState());
+        assertEquals(SheetState.HIDDEN, mModel.get(BottomSheetProperties.CURRENT_SHEET_STATE));
         assertTrue(mModel.get(BottomSheetProperties.CONTAINER_TOUCH_ENABLED));
     }
 
@@ -502,6 +513,25 @@ public class BottomSheetMediatorUnitTest {
     }
 
     @Test
+    public void testTouchHandlerInterceptionAndTouchEvents() {
+        MotionEvent downInside = MotionEvent.obtain(0, 0, MotionEvent.ACTION_DOWN, 100, 100, 0);
+        MotionEvent downOutside = MotionEvent.obtain(0, 0, MotionEvent.ACTION_DOWN, 100, -10, 0);
+
+        // Outside usable area ignores DOWN.
+        assertFalse(mMediator.onInterceptTouchEvent(downOutside));
+        assertFalse(mMediator.onTouchEvent(downOutside));
+
+        // Touch disabled acts as black hole.
+        mMediator.setTouchEnabled(false);
+        assertTrue(mMediator.onInterceptTouchEvent(downInside));
+        assertTrue(mMediator.onTouchEvent(downInside));
+
+        mMediator.setTouchEnabled(true);
+        mMediator.setIsHidingSupplier(() -> true);
+        assertFalse(mMediator.onInterceptTouchEvent(downInside));
+    }
+
+    @Test
     public void testIsTouchEventInUsableArea() {
         assertTrue(mMediator.isTouchEventInUsableArea(/* y= */ 50f));
         assertFalse(mMediator.isTouchEventInUsableArea(/* y= */ 0f));
@@ -552,6 +582,7 @@ public class BottomSheetMediatorUnitTest {
     @Test
     public void testSetContainerHeight() {
         mMediator.setContainerHeight(750);
+        assertEquals(750, mMediator.getContainerHeight());
         assertEquals(750, mModel.get(BottomSheetProperties.CONTAINER_HEIGHT));
     }
 
@@ -951,5 +982,192 @@ public class BottomSheetMediatorUnitTest {
         mMediator.setGlowSpec(new GlowSpec(Color.RED, GlowSpec.ShadowSize.DEFAULT));
         mMediator.updateBackgroundGlow();
         assertEquals(spec, mModel.get(BottomSheetProperties.GLOW_SPEC));
+    }
+
+    @Test
+    public void testContentBottomPadding() {
+        mMediator.setContentBottomPadding(80);
+        assertEquals(80, mModel.get(BottomSheetProperties.CONTENT_BOTTOM_PADDING));
+    }
+
+    @Test
+    public void testBackgroundHeight() {
+        mMediator.setBackgroundHeight(920);
+        assertEquals(920, mModel.get(BottomSheetProperties.BACKGROUND_HEIGHT));
+    }
+
+    @Test
+    public void testHandlebarClickListener() {
+        View.OnClickListener listener = v -> {};
+        mMediator.setHandlebarClickListener(listener);
+        assertEquals(listener, mModel.get(BottomSheetProperties.HANDLEBAR_CLICK_LISTENER));
+    }
+
+    @Test
+    public void testToolbarSizeChangedCallback() {
+        Runnable callback = () -> {};
+        mMediator.setToolbarSizeChangedCallback(callback);
+        assertEquals(callback, mModel.get(BottomSheetProperties.TOOLBAR_SIZE_CHANGED_CALLBACK));
+    }
+
+    @Test
+    public void testUpdateVerticalLayout_StandardMobile() {
+        Rect viewport = new Rect(0, 0, 1080, 1800);
+        mMediator.setInternalCurrentState(SheetState.HALF);
+        mMediator.setSheetTranslationY(123f);
+
+        mMediator.updateVerticalLayout(
+                /* viewportBottomInset= */ 48,
+                viewport,
+                /* decorHeight= */ 1920,
+                /* handlebarHeight= */ 16,
+                /* currentOffsetPx= */ 400f,
+                /* isLargeFormFactorUiEnabled= */ false,
+                /* isFullHeightResizeContent= */ false,
+                /* halfHeightPx= */ 500f,
+                /* fullHeightPx= */ 1000f,
+                /* stateHeightPx= */ 500);
+
+        // updateVerticalLayout must not mutate SHEET_TRANSLATION_Y directly.
+        assertEquals(123f, mModel.get(BottomSheetProperties.SHEET_TRANSLATION_Y), 0.0f);
+        assertEquals(16, mModel.get(BottomSheetProperties.CONTENT_TOP_MARGIN));
+        assertEquals(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                mModel.get(BottomSheetProperties.CONTAINER_HEIGHT));
+        assertEquals(48, mModel.get(BottomSheetProperties.CONTENT_BOTTOM_PADDING));
+        assertEquals(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                mModel.get(BottomSheetProperties.BACKGROUND_HEIGHT));
+        assertEquals(0, mModel.get(BottomSheetProperties.VISIBLE_BACKGROUND_HEIGHT));
+        assertEquals(1920, mModel.get(BottomSheetProperties.KEYBOARD_CURTAIN_HEIGHT));
+    }
+
+    @Test
+    public void testCalculateSheetTranslationY() {
+        mMediator.setTargetSheetState(SheetState.HALF);
+        // translationY = (1000 - 400) + 20 - 48 = 572
+        assertEquals(
+                572f,
+                mMediator.calculateSheetTranslationY(
+                        /* containerHeight= */ 1000,
+                        /* currentOffsetPx= */ 400f,
+                        /* browserControlsOffset= */ 20f,
+                        /* e2eBottomInset= */ 48),
+                0.0f);
+
+        // Clamped at >= 0f.
+        assertEquals(
+                0f,
+                mMediator.calculateSheetTranslationY(
+                        /* containerHeight= */ 1000,
+                        /* currentOffsetPx= */ 980f,
+                        /* browserControlsOffset= */ 0f,
+                        /* e2eBottomInset= */ 48),
+                0.0f);
+
+        // When target state is HIDDEN, e2eBottomInset is not subtracted from translationY.
+        mMediator.setTargetSheetState(SheetState.HIDDEN);
+        assertEquals(
+                1000f,
+                mMediator.calculateSheetTranslationY(
+                        /* containerHeight= */ 1000,
+                        /* currentOffsetPx= */ 0f,
+                        /* browserControlsOffset= */ 0f,
+                        /* e2eBottomInset= */ 48),
+                0.0f);
+    }
+
+    @Test
+    public void testUpdateVerticalLayout_ResizeContent() {
+        Rect viewport = new Rect(0, 0, 1080, 750);
+        mMediator.setInternalCurrentState(SheetState.FULL);
+
+        mMediator.updateVerticalLayout(
+                /* viewportBottomInset= */ 250,
+                viewport,
+                /* decorHeight= */ 1920,
+                /* handlebarHeight= */ 12,
+                /* currentOffsetPx= */ 800f,
+                /* isLargeFormFactorUiEnabled= */ false,
+                /* isFullHeightResizeContent= */ true,
+                /* halfHeightPx= */ 500f,
+                /* fullHeightPx= */ 1000f,
+                /* stateHeightPx= */ 1000);
+
+        // Container height clamped by visibleViewportRect.height() (750) and bottom padding 0.
+        assertEquals(750, mModel.get(BottomSheetProperties.CONTAINER_HEIGHT));
+        assertEquals(0, mModel.get(BottomSheetProperties.CONTENT_BOTTOM_PADDING));
+    }
+
+    @Test
+    public void testUpdateVerticalLayout_LargeFormFactor() {
+        Rect viewport = new Rect(0, 0, 1920, 1080);
+        when(mContent.getFullHeightRatio()).thenReturn((float) HeightMode.DEFAULT);
+        mMediator.setSheetContent(mContent);
+        mMediator.setInternalCurrentState(SheetState.HALF);
+
+        mMediator.updateVerticalLayout(
+                /* viewportBottomInset= */ 0,
+                viewport,
+                /* decorHeight= */ 1080,
+                /* handlebarHeight= */ 20,
+                /* currentOffsetPx= */ 450f,
+                /* isLargeFormFactorUiEnabled= */ true,
+                /* isFullHeightResizeContent= */ false,
+                /* halfHeightPx= */ 450f,
+                /* fullHeightPx= */ 900f,
+                /* stateHeightPx= */ 450);
+
+        assertEquals(430, mModel.get(BottomSheetProperties.CONTAINER_HEIGHT));
+        assertEquals(0, mModel.get(BottomSheetProperties.CONTENT_BOTTOM_PADDING));
+        assertEquals(900, mModel.get(BottomSheetProperties.BACKGROUND_HEIGHT));
+        assertEquals(450, mModel.get(BottomSheetProperties.VISIBLE_BACKGROUND_HEIGHT));
+
+        // Wrap content on LFF sets CONTAINER_HEIGHT to WRAP_CONTENT.
+        when(mContent.getFullHeightRatio()).thenReturn((float) HeightMode.WRAP_CONTENT);
+        mMediator.updateVerticalLayout(
+                /* viewportBottomInset= */ 0,
+                viewport,
+                /* decorHeight= */ 1080,
+                /* handlebarHeight= */ 20,
+                /* currentOffsetPx= */ 300f,
+                /* isLargeFormFactorUiEnabled= */ true,
+                /* isFullHeightResizeContent= */ false,
+                /* halfHeightPx= */ 0f,
+                /* fullHeightPx= */ 300f,
+                /* stateHeightPx= */ 0);
+
+        assertEquals(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                mModel.get(BottomSheetProperties.CONTAINER_HEIGHT));
+        assertEquals(300, mModel.get(BottomSheetProperties.VISIBLE_BACKGROUND_HEIGHT));
+    }
+
+    @Test
+    public void testVerticalLayoutHelpers() {
+        assertEquals(
+                48,
+                mMediator.calculateContentBottomPadding(
+                        /* isLargeFormFactorUiEnabled= */ false,
+                        /* isFullHeightResizeContent= */ false,
+                        /* viewportBottomInset= */ 48));
+        assertEquals(
+                0,
+                mMediator.calculateContentBottomPadding(
+                        /* isLargeFormFactorUiEnabled= */ true,
+                        /* isFullHeightResizeContent= */ false,
+                        /* viewportBottomInset= */ 48));
+        assertEquals(
+                0,
+                mMediator.calculateContentBottomPadding(
+                        /* isLargeFormFactorUiEnabled= */ false,
+                        /* isFullHeightResizeContent= */ true,
+                        /* viewportBottomInset= */ 48));
+
+        mMediator.updateVisibleBackgroundHeight(
+                /* isLargeFormFactorUiEnabled= */ true,
+                /* currentOffsetPx= */ 600f,
+                /* fullHeightPx= */ 500f);
+        assertEquals(500, mModel.get(BottomSheetProperties.VISIBLE_BACKGROUND_HEIGHT));
     }
 }

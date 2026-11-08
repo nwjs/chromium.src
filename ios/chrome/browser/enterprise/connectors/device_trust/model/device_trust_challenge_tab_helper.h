@@ -13,10 +13,11 @@
 
 #import "base/containers/flat_map.h"
 #import "base/functional/callback.h"
-#import "base/memory/raw_ref.h"
+#import "base/memory/raw_ptr.h"
 #import "base/memory/weak_ptr.h"
 #import "base/scoped_observation.h"
 #import "base/sequence_checker.h"
+#import "base/time/time.h"
 #import "base/timer/timer.h"
 #import "base/types/strong_alias.h"
 #import "components/enterprise/device_trust/core/common_types.h"
@@ -28,7 +29,12 @@
 
 class GURL;
 
+namespace enterprise_connectors {
+class DeviceTrustService;
+}  // namespace enterprise_connectors
+
 namespace web {
+class NavigationContext;
 class WebFrame;
 }  // namespace web
 
@@ -75,11 +81,21 @@ class DeviceTrustChallengeTabHelper
                                web::WebFrame* web_frame) override;
 
   // web::WebStateObserver:
+  void DidFinishNavigation(web::WebState* web_state,
+                           web::NavigationContext* navigation_context) override;
   void WebStateDestroyed(web::WebState* web_state) override;
 
  private:
   friend class web::WebStateUserData<DeviceTrustChallengeTabHelper>;
-  explicit DeviceTrustChallengeTabHelper(web::WebState* web_state);
+
+  // `device_trust_service` is the profile's DeviceTrustService. It may be null
+  // (e.g. in tests without a testing factory), in which case the API is never
+  // set up and attestation requests fail with `kServiceUnavailable`. Otherwise,
+  // it must outlive this tab helper; the pointer is cleared in
+  // `WebStateDestroyed()`.
+  DeviceTrustChallengeTabHelper(
+      web::WebState* web_state,
+      enterprise_connectors::DeviceTrustService* device_trust_service);
 
   // State for a request awaiting a reply: `callback` answers the JavaScript
   // promise, while `timer` answers with a timeout error if the service is
@@ -91,6 +107,8 @@ class DeviceTrustChallengeTabHelper
 
     AttestationCallback callback;
     base::OneShotTimer timer;
+    // When the request was handed to the service; used for latency metrics.
+    const base::TimeTicks start_time = base::TimeTicks::Now();
   };
 
   using RequestId = base::StrongAlias<class RequestTag, uint64_t>;
@@ -121,7 +139,8 @@ class DeviceTrustChallengeTabHelper
                       enterprise_connectors::DeviceTrustError error);
 
   SEQUENCE_CHECKER(sequence_checker_);
-  const raw_ref<web::WebState> web_state_;
+  raw_ptr<enterprise_connectors::DeviceTrustService> device_trust_service_ =
+      nullptr;
   base::ScopedObservation<web::WebState, web::WebStateObserver>
       web_state_observation_{this};
   base::ScopedObservation<web::WebFramesManager,

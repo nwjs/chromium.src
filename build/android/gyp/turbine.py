@@ -24,10 +24,15 @@ def main(argv):
     parser = argparse.ArgumentParser()
     action_helpers.add_depfile_arg(parser)
     parser.add_argument('--target-name', help='Fully qualified GN target name.')
-    parser.add_argument(
+    turbine_group = parser.add_mutually_exclusive_group(required=True)
+    turbine_group.add_argument(
         '--turbine-jar-path',
-        required=True,
         help='Path to the turbine jar file.',
+    )
+    turbine_group.add_argument(
+        '--turbine-binary-path',
+        help='Path to the GraalVM native-image turbine executable. Does not '
+        'support annotation processors.',
     )
     parser.add_argument(
         '--java-srcjars',
@@ -98,17 +103,28 @@ def main(argv):
     # Turbine is run only on .java files.
     java_files = [f for f in files if f.endswith('.java')]
 
-    cmd = build_utils.JavaCmd() + [
-        '-classpath',
-        options.turbine_jar_path,
-        'com.google.turbine.main.Main',
-    ]
+    if options.turbine_binary_path:
+        if options.processors or options.processorpath:
+            parser.error(
+                '--turbine-binary-path does not support annotation processors.'
+            )
+        cmd = [
+            options.turbine_binary_path,
+            # Needed to locate lib/ct.sym for --release.
+            '-Djava.home=' + build_utils.JAVA_HOME,
+        ]
+    else:
+        cmd = build_utils.JavaCmd() + [
+            '-classpath',
+            options.turbine_jar_path,
+            'com.google.turbine.main.Main',
+        ]
     # Keep consistent with javac_args release flag in
     # //build/android/gyp/compile_java.py and
     # compileOptions in //build/android/gradle/android.jinja
     # LINT.IfChange
     javac_cmd = ['--release', '25']
-    # LINT.ThenChange(//depot/chromium/components/cronet/gn2bp/templates/Android.extras.bp.template)
+    # LINT.ThenChange(//depot/chromium/build/android/gyp/compile_java.py)
 
     # Turbine reads lists from command line args by consuming args until one
     # starts with double dash (--). Thus command line args should be grouped
@@ -178,7 +194,7 @@ def main(argv):
         logging.info('Header compilation took %ss', end)
         if options.kotlin_jar_path:
             with zipfile.ZipFile(output_jar.name, 'a') as out_zip:
-                path_transform = lambda p: p if p.endswith('.class') else None
+                path_transform = lambda p: p if p.endswith('.class') else None  # noqa: E731
                 zip_helpers.merge_zips(
                     out_zip,
                     [options.kotlin_jar_path],

@@ -7,14 +7,23 @@
 #include <memory>
 
 #include "base/functional/bind.h"
+#include "base/memory/raw_ptr.h"
 #include "base/test/run_until.h"
 #include "base/test/scoped_feature_list.h"
+#include "base/test/test_future.h"
+#include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ttc/app/public/conversation.h"
 #include "chrome/browser/ttc/core/features.h"
 #include "chrome/browser/ttc/core/session_controller.h"
 #include "chrome/browser/ttc/core/session_controller_impl.h"
 #include "chrome/browser/ttc/core/states.h"
+#include "chrome/browser/ttc/core/ttc_keyed_service_factory.h"
 #include "chrome/test/base/testing_profile.h"
+#include "components/actor/public/mojom/actor_types.mojom.h"
+#include "components/keyed_service/core/keyed_service.h"
+#include "components/ttc/app/public/error_codes.h"
+#include "components/ttc/app/public/tool_types.h"
+#include "content/public/browser/browser_context.h"
 #include "content/public/test/browser_task_environment.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -40,7 +49,7 @@ class FakeConversation : public Conversation {
       const GURL& url,
       const std::string& title,
       const optimization_guide::proto::AnnotatedPageContent& apc) override {}
-  void OnPageContextChanged() override {}
+  void OnPageContextInvalidated() override {}
 
   bool is_started() const { return is_started_; }
 
@@ -54,12 +63,25 @@ class TtcKeyedServiceUnitTest : public testing::Test {
  public:
   TtcKeyedServiceUnitTest() {
     scoped_feature_list_.InitAndEnableFeature(kTtc);
-    service_ = std::make_unique<TtcKeyedService>(
-        &profile_,
+    // Registered with the factory so that TtcKeyedService::Get() returns it,
+    // which sessions rely on to create their actor task, and so that the actor
+    // service, whose tasks refer to this service, shuts down before this
+    // service is destroyed.
+    service_ = static_cast<TtcKeyedService*>(
+        TtcKeyedServiceFactory::GetInstance()->SetTestingFactoryAndUse(
+            &profile_,
+            base::BindRepeating(&TtcKeyedServiceUnitTest::CreateService,
+                                base::Unretained(this))));
+  }
+  ~TtcKeyedServiceUnitTest() override = default;
+
+  std::unique_ptr<KeyedService> CreateService(
+      content::BrowserContext* context) {
+    return std::make_unique<TtcKeyedService>(
+        Profile::FromBrowserContext(context),
         base::BindRepeating(&TtcKeyedServiceUnitTest::CreateFakeConversation,
                             base::Unretained(this)));
   }
-  ~TtcKeyedServiceUnitTest() override = default;
 
   std::unique_ptr<Conversation> CreateFakeConversation(SessionController&) {
     return std::make_unique<FakeConversation>(
@@ -75,7 +97,7 @@ class TtcKeyedServiceUnitTest : public testing::Test {
   content::BrowserTaskEnvironment task_environment_;
   TestingProfile profile_;
   base::test::ScopedFeatureList scoped_feature_list_;
-  std::unique_ptr<TtcKeyedService> service_;
+  raw_ptr<TtcKeyedService> service_ = nullptr;
   int conversation_stopped_count_ = 0;
 };
 
@@ -125,16 +147,47 @@ TEST_F(TtcKeyedServiceUnitTest, ConversationStartedAndStoppedWithSession) {
   EXPECT_EQ(conversation_stopped_count(), 1);
 }
 
-TEST_F(TtcKeyedServiceUnitTest, FinishedSessionIsEnded) {
+TEST_F(TtcKeyedServiceUnitTest, EndSessionAsyncEndsSession) {
   service_->StartSession();
   SessionController* controller = service_->session_controller();
   ASSERT_NE(controller, nullptr);
 
-  // Finishing the session should post a task to end it.
-  controller->SetSessionLifecycle(SessionLifecycle::kFinished);
+  // The session is marked finished right away and torn down asynchronously.
+  controller->EndSessionAsync();
+  EXPECT_EQ(controller->GetSessionLifecycle(), SessionLifecycle::kFinished);
 
   EXPECT_TRUE(base::test::RunUntil(
       [&]() { return service_->session_controller() == nullptr; }));
+}
+
+TEST_F(TtcKeyedServiceUnitTest, FatalErrorEndsSession) {
+  service_->StartSession();
+  SessionController* controller = service_->session_controller();
+  ASSERT_NE(controller, nullptr);
+
+  controller->OnError(ErrorCode::kUnknown);
+  EXPECT_EQ(controller->GetSessionLifecycle(), SessionLifecycle::kFinished);
+
+  EXPECT_TRUE(base::test::RunUntil(
+      [&]() { return service_->session_controller() == nullptr; }));
+}
+
+// Tools that act on the tracked tab fail cleanly when the session has no tab
+// to act on, on every platform.
+TEST_F(TtcKeyedServiceUnitTest, TabToolWithoutTrackedContentsFails) {
+  service_->StartSession();
+  SessionController* controller = service_->session_controller();
+  ASSERT_NE(controller, nullptr);
+
+  base::test::TestFuture<ToolResponse> future;
+  ToolRequest tool_request;
+  tool_request.name = "reload_page";
+  controller->ProcessToolCall(tool_request, future.GetCallback());
+
+  ToolResponse response = future.Take();
+  ASSERT_FALSE(response.Ok());
+  EXPECT_EQ(response.error().code,
+            actor::mojom::ActionResultCode::kTabWentAway);
 }
 
 }  // namespace ttc

@@ -138,7 +138,6 @@ std::optional<NtpShowablePromo> NtpPromoController::GenerateShowablePromo(
     return std::nullopt;
   }
 
-  std::vector<NtpPromoIdentifier> pending_promo_ids;
   const auto now = storage_service_->GetCurrentTime();
 
   NtpPromoIdentifier selected_promo_id;
@@ -189,7 +188,8 @@ std::optional<NtpShowablePromo> NtpPromoController::GenerateShowablePromo(
 
       if (prefs.last_session == current_session ||
           (id == most_recent_promo &&
-           prefs.session_count_in_term < params_.max_sessions_per_term)) {
+           (params_.max_sessions_per_term <= 0 ||
+            prefs.session_count_in_term < params_.max_sessions_per_term))) {
         // This promo is currently showing in this session, or is continuing
         // its term across a session boundary. It must keep showing.
         selected_promo_id = id;
@@ -219,6 +219,10 @@ std::optional<NtpShowablePromo> NtpPromoController::GenerateShowablePromo(
 
 void NtpPromoController::OnPromoShown(const NtpPromoIdentifier& id) {
   const auto* spec = registry_->GetNtpPromoSpecification(id);
+  if (!spec) {
+    return;
+  }
+
   spec->show_callback().Run();
 
   LogPromoShown(id);
@@ -229,9 +233,17 @@ void NtpPromoController::OnPromoShown(const NtpPromoIdentifier& id) {
   auto data = storage_service_->ReadNtpPromoData(id).value_or(NtpPromoData());
 
   if (data.last_session != current_session) {
-    // If this promo is reclaiming the top spot, or starting a new term, start
-    // a fresh count.
-    if (id != GetMostRecentTopSpotPromo()) {
+    // A promo starts a fresh term if:
+    // 1. It is taking over from another promo (or appearing for the first
+    // time).
+    // 2. Its cool-off duration has elapsed since the term began.
+    const bool is_reclaiming_top_spot = (id != GetMostRecentTopSpotPromo());
+    const bool is_cool_off_elapsed =
+        !data.term_start_time.is_null() &&
+        (storage_service_->GetCurrentTime() - data.term_start_time) >=
+            params_.cool_off_duration;
+
+    if (is_reclaiming_top_spot || is_cool_off_elapsed) {
       data.session_count_in_term = 0;
       data.term_count++;
       data.term_start_time = storage_service_->GetCurrentTime();
@@ -246,7 +258,12 @@ void NtpPromoController::OnPromoShown(const NtpPromoIdentifier& id) {
 void NtpPromoController::OnPromoClicked(
     NtpPromoIdentifier id,
     const user_education::UserEducationContextPtr& context) {
-  registry_->GetNtpPromoSpecification(id)->action_callback().Run(context);
+  const auto* spec = registry_->GetNtpPromoSpecification(id);
+  if (!spec) {
+    return;
+  }
+
+  spec->action_callback().Run(context);
 
   auto prefs = storage_service_->ReadNtpPromoData(id).value_or(NtpPromoData());
   prefs.last_clicked = storage_service_->GetCurrentTime();
@@ -261,6 +278,10 @@ void NtpPromoController::SetAllPromosDisabled(bool disabled) {
 }
 
 void NtpPromoController::OnPromoDismissed(const NtpPromoIdentifier& id) {
+  if (!registry_->GetNtpPromoSpecification(id)) {
+    return;
+  }
+
   auto prefs = storage_service_->ReadNtpPromoData(id).value_or(NtpPromoData());
   prefs.dismissed_time = storage_service_->GetCurrentTime();
   storage_service_->SaveNtpPromoData(id, prefs);
@@ -319,13 +340,19 @@ bool NtpPromoController::CanShowPromo(const NtpPromoIdentifier& id,
     return false;
   }
 
-  if (current_session > prefs.last_session &&
+  // If session and term limits apply, and the limits have been exhausted,
+  // this promo cannot show again.
+  if (params_.max_terms > 0 && params_.max_sessions_per_term > 0 &&
+      current_session > prefs.last_session &&
       prefs.session_count_in_term >= params_.max_sessions_per_term &&
       prefs.term_count >= params_.max_terms) {
     return false;
   }
 
-  if (current_session > prefs.last_session &&
+  // If session limits apply, and the current session has been exhausted,
+  // this promo cannot show again until its cool-off period elapses.
+  if (params_.max_sessions_per_term > 0 &&
+      current_session > prefs.last_session &&
       prefs.session_count_in_term >= params_.max_sessions_per_term &&
       !prefs.term_start_time.is_null() &&
       ((now - prefs.term_start_time) < params_.cool_off_duration)) {

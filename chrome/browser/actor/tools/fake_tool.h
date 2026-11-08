@@ -26,11 +26,11 @@ class FakeTool : public Tool {
 
   std::string DebugString() const override;
   std::string JournalEvent() const override;
+  ActorSurfaceHandle GetTargetActorSurface() const override;
   std::unique_ptr<ObservationDelayController> GetObservationDelayer(
       ObservationDelayController::PageStabilityConfig page_stability_config)
       override;
 
-  tabs::TabHandle GetTargetTab() const override;
 
  private:
   base::OnceCallback<void(ToolCallback)> on_invoke_;

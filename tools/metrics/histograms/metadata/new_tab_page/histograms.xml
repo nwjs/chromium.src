@@ -22,6 +22,15 @@ chromium-metrics-reviews@google.com.
 
 <histograms>
 
+<variants name="ActionChipsRequestStatus">
+  <variant name="" summary="all requests"/>
+  <variant name=".HttpError" summary="requests failing with an HTTP error"/>
+  <variant name=".NetworkError"
+      summary="requests failing with a network error"/>
+  <variant name=".ParseError" summary="requests failing with a parse error"/>
+  <variant name=".Success" summary="successful requests"/>
+</variants>
+
 <variants name="ContentSuggestionCategory">
   <variant name=".Articles" summary="Articles for you"/>
   <variant name=".Bookmarks" summary="Bookmarks"/>
@@ -146,6 +155,19 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram
+    name="NewTabPage.ActionChips.RequestLatency{ActionChipsRequestStatus}"
+    units="ms" expires_after="2027-01-17">
+  <owner>niharm@google.com</owner>
+  <owner>chrome-desktop-ntp@google.com</owner>
+  <summary>
+    The latency in milliseconds of a request to the action chips suggestions
+    service for {ActionChipsRequestStatus}, recorded when a response (or error)
+    is received.
+  </summary>
+  <token key="ActionChipsRequestStatus" variants="ActionChipsRequestStatus"/>
+</histogram>
+
 <histogram name="NewTabPage.ActionChips.RequestStatus"
     enum="ActionChipsRequestStatus" expires_after="2027-03-21">
   <owner>shomizoe@google.com</owner>
@@ -228,7 +250,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NewTabPage.ActioniOS" enum="NewTabPageActioniOS"
-    expires_after="2027-02-01">
+    expires_after="2027-04-04">
   <owner>justincohen@chromium.org</owner>
   <owner>gambard@chromium.org</owner>
   <summary>
@@ -240,7 +262,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NewTabPage.AsHomeSurface" enum="Boolean"
-    expires_after="2027-01-24">
+    expires_after="2027-03-28">
   <owner>hanxi@chromium.org</owner>
   <owner>xinyiji@chromium.org</owner>
   <summary>
@@ -251,7 +273,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NewTabPage.AsHomeSurface.ShownAtStartup" enum="Boolean"
-    expires_after="2027-01-24">
+    expires_after="2027-03-28">
   <owner>hanxi@chromium.org</owner>
   <owner>xinyiji@chromium.org</owner>
   <summary>
@@ -262,7 +284,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NewTabPage.BackgroundImageSource"
-    enum="NTPBackgroundImageSource" expires_after="2027-01-31">
+    enum="NTPBackgroundImageSource" expires_after="2027-04-04">
   <owner>pauladedeji@google.com</owner>
   <owner>danpeng@google.com</owner>
   <owner>chrome-desktop-ntp@google.com</owner>
@@ -417,6 +439,22 @@ chromium-metrics-reviews@google.com.
     Recorded when the compose entrypoint is shown in the desktop NTP realbox.
     This is recorded once when the NTP is attached to DOM. It is not shown for
     enterprise if the enterprise policies don't allow AIMode settings.
+  </summary>
+</histogram>
+
+<histogram name="NewTabPage.Composeplate.Buttons.Impression"
+    enum="NtpActionChips" expires_after="2027-04-08">
+  <owner>hanxi@chromium.org</owner>
+  <owner>yanlinghu@google.com</owner>
+  <owner>clank-start@google.com</owner>
+  <summary>
+    Records an impression of each button shown on the composeplate on the New
+    Tab Page: the AI Mode button, the incognito button and, if shown, the
+    optional button (e.g. create image or gallery). One sample is logged each
+    time the NTP impression (UserAction.Counts MobileNTPShown) is logged while
+    the composeplate is visible. Replaces
+    NewTabPage.FakeSearchBox.ComposeplateButton.Impression2. The histogram is
+    Android-only.
   </summary>
 </histogram>
 
@@ -815,7 +853,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NewTabPage.Drive.FileClick" units="index"
-    expires_after="2027-01-24">
+    expires_after="2027-03-28">
   <owner>rtatum@google.com</owner>
   <owner>tiborg@chromium.org</owner>
   <owner>chrome-desktop-ntp@google.com</owner>
@@ -862,24 +900,13 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NewTabPage.FailToShowHomeSurfaceUI"
-    enum="FailToShowHomeSurfaceReason" expires_after="2027-01-24">
+    enum="FailToShowHomeSurfaceReason" expires_after="2027-03-28">
   <owner>hanxi@chromium.org</owner>
   <owner>xinyiji@chromium.org</owner>
   <summary>
     Records the reason of why failed to show a home surface UI on the chosen
     NTP. Logged in cold or warm startup when failed to show the home surface UI.
     This histogram is recorded on tablets only.
-  </summary>
-</histogram>
-
-<histogram name="NewTabPage.FakeSearchBox.ComposeplateButton.Impression2"
-    enum="BooleanVisible" expires_after="2027-02-14">
-  <owner>hanxi@chromium.org</owner>
-  <owner>xinyiji@chromium.org</owner>
-  <summary>
-    Record the total number of impressions of the fake search box composeplate
-    view on the New Tab Page. The histogram is logged on New tab page and is
-    Android-only.
   </summary>
 </histogram>
 
@@ -1128,7 +1155,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NewTabPage.LoadTime{NewTabPageTimings}" units="ms"
-    expires_after="2027-01-31">
+    expires_after="2027-04-04">
   <owner>romanarora@chromium.org</owner>
   <owner>tiborg@chromium.org</owner>
   <owner>chrome-desktop-ntp@google.com</owner>
@@ -1709,7 +1736,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NewTabPage.Modules.InstanceCount" units="count"
-    expires_after="2027-01-24">
+    expires_after="2027-03-28">
   <owner>romanarora@chromium.org</owner>
   <owner>danpeng@google.com</owner>
   <owner>chrome-desktop-ntp@google.com</owner>
@@ -2440,7 +2467,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NewTabPage.ThreadsRail.Action" enum="NTPThreadsRailAction"
-    expires_after="2027-01-17">
+    expires_after="2027-03-28">
   <owner>romanarora@chromium.org</owner>
   <owner>chrome-desktop-ntp@google.com</owner>
   <summary>
@@ -2764,7 +2791,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="{MostVisitedSurface}.TileTitleClicked{NewTabPageProviders}"
-    enum="NTPTileTitleSource" expires_after="2027-01-31">
+    enum="NTPTileTitleSource" expires_after="2027-04-04">
   <owner>romanarora@chromium.org</owner>
   <owner>tiborg@chromium.org</owner>
   <owner>ginnyhuang@chromium.org</owner>

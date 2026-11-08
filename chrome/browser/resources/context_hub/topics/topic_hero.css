@@ -1,0 +1,63 @@
+/* Copyright 2026 The Chromium Authors
+ * Use of this source code is governed by a BSD-style license that can be
+ * found in the LICENSE file. */
+
+/* #css_wrapper_metadata_start
+ * #type=style-lit
+ * #import=//resources/cr_elements/cr_shared_vars.css.js
+ * #scheme=relative
+ * #css_wrapper_metadata_end */
+
+/* Positioned by the parent, which must be position: relative. The banner
+ * sits behind the page content and scrolls away with it. The background color
+ * is set per topic by the element. */
+:host {
+  --topic-hero-pattern-fill: rgba(255, 255, 255, 0.48);
+  --topic-hero-surface: var(--cr-fallback-color-surface1, #fff);
+  background-color: var(--topic-hero-background-color, var(--google-blue-100));
+  display: block;
+  height: 320px;
+  inset-block-start: 0;
+  inset-inline: 0;
+  overflow: hidden;
+  pointer-events: none;
+  position: absolute;
+}
+
+.pattern {
+  inset: 0;
+  opacity: 0.95;
+  position: absolute;
+}
+
+.pattern-shape {
+  fill: var(--topic-hero-pattern-fill);
+}
+
+.pattern-icon {
+  fill: var(--cr-primary-text-color);
+  user-select: none;
+}
+
+/* Fades the banner into the page. Every stop is the page's own surface color,
+ * so the fade is even and the banner's bottom edge matches the page exactly,
+ * in light and dark mode. */
+.gradient-overlay {
+  background: linear-gradient(
+      to bottom,
+      transparent 0%,
+      color-mix(in srgb, var(--topic-hero-surface) 12%, transparent) 12%,
+      color-mix(in srgb, var(--topic-hero-surface) 22%, transparent) 30%,
+      color-mix(in srgb, var(--topic-hero-surface) 52%, transparent) 50%,
+      color-mix(in srgb, var(--topic-hero-surface) 82%, transparent) 70%,
+      color-mix(in srgb, var(--topic-hero-surface) 96%, transparent) 90%,
+      var(--topic-hero-surface) 100%);
+  inset: 0;
+  position: absolute;
+}
+
+@media (prefers-color-scheme: dark) {
+  :host {
+    --topic-hero-pattern-fill: rgba(255, 255, 255, 0.24);
+  }
+}

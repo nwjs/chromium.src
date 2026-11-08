@@ -7,17 +7,25 @@ import os
 import socket
 import subprocess
 import psutil
-import threading
+import threading  # noqa: F401
 import time
 import urllib
+
 
 class Server(object):
   """A running ChromeDriver server."""
 
-  def __init__(self, exe_path, log_path=None, verbose=True,
-               replayable=False, devtools_replay_path=None,
-               bidi_mapper_path=None, remote_chromedriver_port=None,
-               additional_args=None):
+  def __init__(
+    self,
+    exe_path,
+    log_path=None,
+    verbose=True,
+    replayable=False,
+    devtools_replay_path=None,
+    bidi_mapper_path=None,
+    remote_chromedriver_port=None,
+    additional_args=None,
+  ):
     """Starts the ChromeDriver server and waits for it to be ready.
 
     Args:
@@ -40,8 +48,9 @@ class Server(object):
       chromedriver_args.extend(['--append-log'])
       chromedriver_args.extend(['--readable-timestamp'])
       if verbose:
-        chromedriver_args.extend(['--verbose',
-                                  '--vmodule=*/chrome/test/chromedriver/*=3'])
+        chromedriver_args.extend(
+          ['--verbose', '--vmodule=*/chrome/test/chromedriver/*=3']
+        )
       if replayable:
         chromedriver_args.extend(['--replayable'])
 
@@ -74,8 +83,10 @@ class Server(object):
         if self._process.returncode is None:
           print('ChromeDriver process still running, but not responding')
         else:
-          print('ChromeDriver process exited with return code %d'
-                % self._process.returncode)
+          print(
+            'ChromeDriver process exited with return code %d'
+            % self._process.returncode
+          )
         self._process.terminate()
         raise RuntimeError('ChromeDriver server did not start')
       time.sleep(0.1)
@@ -125,7 +136,7 @@ class Server(object):
 
     try:
       urllib.request.urlopen(self.GetUrl() + '/shutdown', timeout=10).close()
-    except:
+    except:  # noqa: E722
       self._process.terminate()
 
     # By this point of execution the ChromeDriver process might already be gone.

@@ -130,6 +130,11 @@ SVGFilterBuilder::SVGFilterBuilder(FilterEffect* source_graphic,
       entry.value->SetOriginTainted();
     }
   }
+  if (source_graphic->ContainsBackdrop()) {
+    for (auto& entry : builtin_effects_) {
+      entry.value->SetContainsBackdrop();
+    }
+  }
   AddBuiltinEffects();
 }
 
@@ -145,7 +150,7 @@ static EColorInterpolation ColorInterpolationForElement(
     SVGElement& element,
     EColorInterpolation parent_color_interpolation) {
   if (const LayoutObject* layout_object = element.GetLayoutObject())
-    return layout_object->StyleRef().ColorInterpolationFilters();
+    return layout_object->Style().ColorInterpolationFilters();
 
   // No layout has been performed, try to determine the property value
   // "manually" (used by external SVG files.)
@@ -200,6 +205,9 @@ void SVGFilterBuilder::BuildGraph(
         ResolveInterpolationSpace(color_interpolation));
     if (effect->InputsTaintOrigin() || effect_element.TaintsOrigin())
       effect->SetOriginTainted();
+    if (effect->InputsContainBackdrop()) {
+      effect->SetContainsBackdrop();
+    }
 
     Add(AtomicString(effect_element.result()->CurrentValue()->Value()), effect);
   }

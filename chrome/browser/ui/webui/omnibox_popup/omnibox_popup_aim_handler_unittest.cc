@@ -17,6 +17,7 @@
 #include "content/public/test/test_web_ui.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/omnibox_proto/model_mode.pb.h"
 #include "third_party/omnibox_proto/tool_mode.pb.h"
 #include "ui/base/models/menu_model.h"
 #include "ui/gfx/geometry/point.h"
@@ -125,6 +126,21 @@ TEST_F(OmniboxPopupAimHandlerTest, OnPopupShown) {
   handler_->OnPopupShown(std::move(context));
 }
 
+// The tool and model of the context reach the page, which applies them.
+TEST_F(OmniboxPopupAimHandlerTest, OnPopupShownSendsToolAndModel) {
+  auto context = std::make_unique<SearchboxContextData::Context>();
+  context->mode = omnibox::TOOL_MODE_DEEP_SEARCH;
+  context->model = omnibox::MODEL_MODE_GEMINI_PRO;
+
+  EXPECT_CALL(page_, OnPopupShown(testing::_))
+      .WillOnce([&](searchbox::mojom::SearchContextPtr context_ptr) {
+        EXPECT_EQ(omnibox::TOOL_MODE_DEEP_SEARCH, context_ptr->tool_mode);
+        EXPECT_EQ(omnibox::MODEL_MODE_GEMINI_PRO, context_ptr->model_mode);
+      });
+
+  handler_->OnPopupShown(std::move(context));
+}
+
 TEST_F(OmniboxPopupAimHandlerTest, AddContext) {
   auto context = std::make_unique<SearchboxContextData::Context>();
   context->text = "added context";
@@ -139,13 +155,15 @@ TEST_F(OmniboxPopupAimHandlerTest, AddContext) {
 
 TEST_F(OmniboxPopupAimHandlerTest, ClearPopup) {
   EXPECT_CALL(page_, ClearPopup(testing::_))
-      .WillOnce([](omnibox_popup_aim::mojom::Page::ClearPopupCallback callback) {
-        std::move(callback).Run("final input");
-      });
+      .WillOnce(
+          [](omnibox_popup_aim::mojom::Page::ClearPopupCallback callback) {
+            std::move(callback).Run("final input", /*query_submitted=*/true);
+          });
 
-  base::test::TestFuture<const std::string&> future;
+  base::test::TestFuture<const std::string&, bool> future;
   handler_->ClearPopup(future.GetCallback());
-  EXPECT_EQ("final input", future.Get());
+  EXPECT_EQ("final input", future.Get<0>());
+  EXPECT_TRUE(future.Get<1>());
 }
 
 TEST_F(OmniboxPopupAimHandlerTest, OnContextMenuClosed) {

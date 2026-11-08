@@ -10,8 +10,6 @@
 //     basic-map.test-mojom
 //
 
-private let mojoPrefix = "golden."
-
 ///
 /// Interfaces
 ///
@@ -27,9 +25,10 @@ extension ILType {
         ])
     fileprivate static let jsGoldenPrimaryRemoteWrapper: ILType = .object(
         ofGroup: "golden.PrimaryRemoteWrapper",
-        withMethods: ["close", "isBound", "associateAndPassReceiver"])
-    fileprivate static let jsGoldenPrimaryPendingReceiver: ILType = .object(
-        ofGroup: "golden.PrimaryPendingReceiver")
+        withMethods: [
+          "close",
+          "isBound",
+        ])
 }
 
 extension ObjectGroup {
@@ -40,12 +39,12 @@ extension ObjectGroup {
         properties: ["$": .jsGoldenPrimaryRemoteWrapper],
         methods: [
             "passMap": [
-                .plain(.jsStringElement_GoldenEntryMap),
+                .plain(.jsString_GoldenEntryMojoMap),
                 .plain(.string),
             ] => .jsPromise(resolvingTo: .jsGoldenPrimary_PassMap_ResponseParams),
             "passNestedMap": [
-                .plain(.jsInt32Element_String_GoldenEntryMapMap),
-                .plain(.integer),
+                .plain(.jsInt32_String_GoldenEntryMojoMapMojoMap),
+                .plain(.jsInt32),
             ] => .jsPromise(resolvingTo: .jsGoldenPrimary_PassNestedMap_ResponseParams),
             "getMap": [
             ] => .jsGoldenPrimary_GetMap_ResponseParams,
@@ -59,16 +58,7 @@ extension ObjectGroup {
         methods: [
             "close": [] => .undefined,
             "isBound": [] => .boolean,
-            "associateAndPassReceiver": [] => .jsGoldenPrimaryPendingReceiver,
-        ]
-    )
-
-    fileprivate static let goldenPrimaryPendingReceiver = ObjectGroup(
-        name: "golden.PrimaryPendingReceiver",
-        instanceType: .jsGoldenPrimaryPendingReceiver,
-        properties: [:],
-        methods: [:]
-    )
+        ])
 }
 
 ///
@@ -117,7 +107,7 @@ extension ObjectGroup {
         name: "golden.Primary_PassNestedMap_ResponseParams",
         instanceType: .jsGoldenPrimary_PassNestedMap_ResponseParams,
         properties: [
-            "result": .jsStringElement_GoldenEntryMap,
+            "result": .jsString_GoldenEntryMojoMap,
         ],
         methods: [:]
     )
@@ -125,7 +115,7 @@ extension ObjectGroup {
         name: "golden.Primary_GetMap_ResponseParams",
         instanceType: .jsGoldenPrimary_GetMap_ResponseParams,
         properties: [
-            "result": .jsFloatElement_BoolElementMap,
+            "result": .jsFloat_BoolMojoMap,
         ],
         methods: [:]
     )
@@ -135,20 +125,20 @@ extension ObjectGroup {
 /// Maps
 ///
 extension ILType {
-    fileprivate static let jsStringElement_GoldenEntryMap: ILType =
+    fileprivate static let jsString_GoldenEntryMojoMap: ILType =
         .createJsMapType(
-            ofKeyType: .jsStringElement,
+            ofKeyType: .string,
             ofValueType: .jsGoldenEntry
         )
-    fileprivate static let jsInt32Element_String_GoldenEntryMapMap: ILType =
+    fileprivate static let jsInt32_String_GoldenEntryMojoMapMojoMap: ILType =
         .createJsMapType(
-            ofKeyType: .jsInt32Element,
-            ofValueType: .jsStringElement_GoldenEntryMap
+            ofKeyType: .jsInt32,
+            ofValueType: .jsString_GoldenEntryMojoMap
         )
-    fileprivate static let jsFloatElement_BoolElementMap: ILType =
+    fileprivate static let jsFloat_BoolMojoMap: ILType =
         .createJsMapType(
-            ofKeyType: .jsFloatElement,
-            ofValueType: .jsBoolElement
+            ofKeyType: .float,
+            ofValueType: .boolean
         )
 }
 
@@ -163,65 +153,49 @@ extension ILType {
 /// to prevent the CodeGenerator from being scheduled first when there are
 /// no visible variables, as `findOrGenerateType` causes a crash if there
 /// are no visibile variables.
-private let MojoString_GoldenEntryMapGenerator = CodeGenerator(
-    "MojoString_GoldenEntryMapGenerator",
+private let MojoString_GoldenEntryMojoMapGenerator = CodeGenerator(
+    "MojoString_GoldenEntryMojoMapGenerator",
     inputs: .one,
-    produces: [.jsStringElement_GoldenEntryMap]
+    produces: [.jsString_GoldenEntryMojoMap]
 ) { b, _ in
-    let key = b.findOrGenerateType(.jsStringElement)
+    let key = b.findOrGenerateType(.string)
     let val = b.findOrGenerateType(.jsGoldenEntry)
     var keys: [Variable] = [key]
     var values: [Variable] = [val]
-    b.createMap(
-        withKeys: keys,
-        withValues: values,
-        keyGroupName:
-            ILType.jsStringElement.group,
-        valueGroupName:
-            ILType.jsGoldenEntry.group)
+    b.createMap(withKeys: keys, withValues: values)
 }
-private let MojoInt32_String_GoldenEntryMapMapGenerator = CodeGenerator(
-    "MojoInt32_String_GoldenEntryMapMapGenerator",
+private let MojoInt32_String_GoldenEntryMojoMapMojoMapGenerator = CodeGenerator(
+    "MojoInt32_String_GoldenEntryMojoMapMojoMapGenerator",
     inputs: .one,
-    produces: [.jsInt32Element_String_GoldenEntryMapMap]
+    produces: [.jsInt32_String_GoldenEntryMojoMapMojoMap]
 ) { b, _ in
-    let key = b.findOrGenerateType(.jsInt32Element)
-    let val = b.findOrGenerateType(.jsStringElement_GoldenEntryMap)
+    let key = b.findOrGenerateType(.jsInt32)
+    let val = b.findOrGenerateType(.jsString_GoldenEntryMojoMap)
     var keys: [Variable] = [key]
     var values: [Variable] = [val]
-    b.createMap(
-        withKeys: keys,
-        withValues: values,
-        keyGroupName:
-            ILType.jsInt32Element.group,
-        valueGroupName:
-            ILType.jsStringElement_GoldenEntryMap.group)
+    b.createMap(withKeys: keys, withValues: values)
 }
-private let MojoFloat_BoolMapGenerator = CodeGenerator(
-    "MojoFloat_BoolMapGenerator",
+private let MojoFloat_BoolMojoMapGenerator = CodeGenerator(
+    "MojoFloat_BoolMojoMapGenerator",
     inputs: .one,
-    produces: [.jsFloatElement_BoolElementMap]
+    produces: [.jsFloat_BoolMojoMap]
 ) { b, _ in
-    let key = b.findOrGenerateType(.jsFloatElement)
-    let val = b.findOrGenerateType(.jsBoolElement)
+    let key = b.findOrGenerateType(.float)
+    let val = b.findOrGenerateType(.boolean)
     var keys: [Variable] = [key]
     var values: [Variable] = [val]
-    b.createMap(
-        withKeys: keys,
-        withValues: values,
-        keyGroupName:
-            ILType.jsFloatElement.group,
-        valueGroupName:
-            ILType.jsBoolElement.group)
+    b.createMap(withKeys: keys, withValues: values)
 }
 
 ///
 /// Generators
 ///
-// TODO(crbug.com/500386713) Consider using mojoBuiltins or another list instead of regex
+/// Names of every ObjectGroup registered by this profile.
+private let mojoTargetGroups = Set(mojoObjectGroups.map { $0.name })
+
 private func isTargetObject(type: ILType) -> Bool {
     guard type.Is(.object()), let group = type.group else { return false }
-    return group.starts(with: mojoPrefix)
+    return mojoTargetGroups.contains(group)
 }
 
 /// Mojo variant of the builtin `MethodCallGenerator` that operates only on
@@ -264,6 +238,17 @@ private let MojoPropertyRetrievalGenerator = CodeGenerator(
         b.type(of: obj).randomProperty() ?? b.randomCustomPropertyName()
     b.getProperty(propertyName, of: obj)
 }
+
+/// Every ObjectGroup registered by this profile. Also used by `isTargetObject`
+/// to decide which variables the Mojo generators operate on.
+private let mojoObjectGroups: [ObjectGroup] = [
+    .goldenPrimaryRemote,
+    .goldenPrimaryRemoteWrapper,
+    .goldenEntry,
+    .goldenPrimaryPassMapResponseParams,
+    .goldenPrimaryPassNestedMapResponseParams,
+    .goldenPrimaryGetMapResponseParams,
+] + commonMojoObjectGroups
 
 private let mojoBuiltins: [String: ILType] = [
     /// Profiles declare this method, a wrapper method around `getRemote` that follows
@@ -318,9 +303,9 @@ let mojoPrimaryProfile = Profile(
     additionalCodeGenerators: [
         (MojoMethodCallGenerator, 10000),
         (MojoPropertyRetrievalGenerator, 10000),
-        (MojoString_GoldenEntryMapGenerator, 1),
-        (MojoInt32_String_GoldenEntryMapMapGenerator, 1),
-        (MojoFloat_BoolMapGenerator, 1),
+        (MojoString_GoldenEntryMojoMapGenerator, 1),
+        (MojoInt32_String_GoldenEntryMojoMapMojoMapGenerator, 1),
+        (MojoFloat_BoolMojoMapGenerator, 1),
     ] + commonMojoCodeGenerators,
     additionalProgramTemplates: WeightedList([]),
     disabledCodeGenerators: mojoDisabledGenerators,
@@ -328,18 +313,9 @@ let mojoPrimaryProfile = Profile(
         "ExplorationMutator", "ProbingMutator", "PropertyAccessorMutator"
     ],
     additionalBuiltins: mojoBuiltins.merging(commonMojoBuiltins) { (existing, _) in existing },
-    additionalObjectGroups: [
-        .goldenPrimaryRemote,
-        .goldenPrimaryRemoteWrapper,
-        .goldenPrimaryPendingReceiver,
-        .goldenEntry,
-        .goldenPrimaryPassMapResponseParams,
-        .goldenPrimaryPassNestedMapResponseParams,
-        .goldenPrimaryGetMapResponseParams,
-    ] + commonMojoObjectGroups,
+    additionalObjectGroups: mojoObjectGroups,
     additionalEnumerations: [
     ] + commonMojoEnumerations,
-    additionalOptionsBags: [
-    ] + commonMojoOptionsBags,
+    additionalOptionsBags: [] + commonMojoOptionsBags,
     optionalPostProcessor: nil
 )

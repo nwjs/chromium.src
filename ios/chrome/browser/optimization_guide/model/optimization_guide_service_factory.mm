@@ -70,8 +70,11 @@ std::unique_ptr<KeyedService> BuildOptimizationGuideService(
       BrowserListFactory::GetForProfile(profile),
       GetApplicationContext()->GetSharedURLLoaderFactory(),
       IdentityManagerFactory::GetForProfile(profile), std::move(delegate),
-      base::BindRepeating(&ProfileIOS::GetNetworkContext,
-                          base::Unretained(profile)));
+      base::BindRepeating(
+          [](base::WeakPtr<ProfileIOS> profile) {
+            return profile ? profile->GetNetworkContext() : nullptr;
+          },
+          profile->AsWeakPtr()));
 
   service->DoFinalInit(
       BackgroundDownloadServiceFactory::GetForProfile(profile));
@@ -79,20 +82,6 @@ std::unique_ptr<KeyedService> BuildOptimizationGuideService(
 }
 
 }  // namespace
-
-// static
-OptimizationGuideService* OptimizationGuideServiceFactory::GetForProfile(
-    ProfileIOS* profile) {
-  return GetInstance()->GetServiceForProfileAs<OptimizationGuideService>(
-      profile, /*create=*/true);
-}
-
-// static
-OptimizationGuideServiceFactory*
-OptimizationGuideServiceFactory::GetInstance() {
-  static base::NoDestructor<OptimizationGuideServiceFactory> instance;
-  return instance.get();
-}
 
 // static
 void OptimizationGuideServiceFactory::InitializePredictionModelStore() {
@@ -106,11 +95,13 @@ void OptimizationGuideServiceFactory::InitializePredictionModelStore() {
       .Initialize(model_downloads_dir);
 }
 
-OptimizationGuideServiceFactory::OptimizationGuideServiceFactory()
-    : ProfileKeyedServiceFactoryIOS("OptimizationGuideService",
-                                    ServiceCreation::kCreateWithProfile,
-                                    TestingCreation::kNoServiceForTests,
-                                    ProfileSelection::kOwnInstanceInIncognito) {
+OptimizationGuideServiceFactory::OptimizationGuideServiceFactory(PassKey key)
+    : TypedProfileKeyedServiceFactoryIOS(
+          std::move(key),
+          "OptimizationGuideService",
+          ServiceCreation::kCreateWithProfile,
+          TestingCreation::kNoServiceForTests,
+          ProfileSelection::kOwnInstanceInIncognito) {
   DependsOn(BackgroundDownloadServiceFactory::GetInstance());
   DependsOn(BrowserListFactory::GetInstance());
   DependsOn(IdentityManagerFactory::GetInstance());
@@ -118,8 +109,6 @@ OptimizationGuideServiceFactory::OptimizationGuideServiceFactory()
   DependsOn(PrivateAiServiceFactory::GetInstance());
 #endif
 }
-
-OptimizationGuideServiceFactory::~OptimizationGuideServiceFactory() = default;
 
 // static
 OptimizationGuideServiceFactory::TestingFactory

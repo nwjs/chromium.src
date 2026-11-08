@@ -1,0 +1,29 @@
+// Copyright 2026 The Chromium Authors
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#ifndef CHROME_BROWSER_UI_TABS_ORGANIZER_ORGANIZER_PANEL_UTILS_H_
+#define CHROME_BROWSER_UI_TABS_ORGANIZER_ORGANIZER_PANEL_UTILS_H_
+
+#include "base/feature.h"
+#include "base/feature_list.h"
+
+namespace organizer_panel {
+
+BASE_DECLARE_FEATURE(kOrganizerPanel);
+BASE_DECLARE_FEATURE(kOrganizerPanelForeignTabs);
+BASE_DECLARE_FEATURE(kShowExtensionsSidePanelUiInOrganizerPanel);
+
+// Returns whether the Organizer Panel feature is enabled.
+bool IsOrganizerPanelFeatureEnabled();
+
+// Returns whether the Organizer Panel Foreign Tabs feature is enabled.
+bool IsOrganizerPanelForeignTabsEnabled();
+
+// Returns whether the Show Extensions Side Panel UI In Organizer Panel feature
+// is enabled.
+bool IsShowExtensionsSidePanelUiInOrganizerPanelEnabled();
+
+}  // namespace organizer_panel
+
+#endif  // CHROME_BROWSER_UI_TABS_ORGANIZER_ORGANIZER_PANEL_UTILS_H_

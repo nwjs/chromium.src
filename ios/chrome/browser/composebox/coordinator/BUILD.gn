@@ -89,6 +89,7 @@ source_set("input_plate") {
     "//components/contextual_tasks/public:query_contextualizer",
     "//components/favicon/ios",
     "//components/feature_engagement/public",
+    "//components/ntp_tiles",
     "//components/prefs",
     "//components/security_state/ios",
     "//components/strings",
@@ -210,6 +211,7 @@ group("intelligence_deps") {
   public_deps = [
     "//ios/chrome/browser/intelligence/persist_tab_context/model",
     "//ios/chrome/browser/intelligence/proto_wrappers",
+    "//ios/chrome/browser/intelligence/proto_wrappers:utils",
   ]
 }
 
@@ -294,6 +296,7 @@ source_set("input_state_manager") {
     "composebox_input_state_manager.mm",
   ]
   deps = [
+    ":intelligence_deps",
     "//base",
     "//components/contextual_search:prefs",
     "//components/contextual_search:public",
@@ -359,6 +362,7 @@ source_set("unit_tests") {
     "//components/feature_engagement/test:test_support",
     "//components/omnibox/browser",
     "//components/omnibox/browser:test_support",
+    "//components/optimization_guide/proto:optimization_guide_proto",
     "//components/search_engines",
     "//components/search_engines:test_support",
     "//components/signin/public/identity_manager",
@@ -366,6 +370,7 @@ source_set("unit_tests") {
     "//components/variations:test_support",
     "//components/version_info:channel",
     "//ios/chrome/browser/cobrowse/model:factory",
+    "//ios/chrome/browser/composebox/debugger",
     "//ios/chrome/browser/composebox/menu/coordinator:shared_tab",
     "//ios/chrome/browser/composebox/public",
     "//ios/chrome/browser/composebox/shared/metrics:unit_tests",

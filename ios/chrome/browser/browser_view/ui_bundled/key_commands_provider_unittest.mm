@@ -19,12 +19,12 @@
 #import "ios/chrome/browser/dom_distiller/model/distiller_service_factory.h"
 #import "ios/chrome/browser/find_in_page/model/find_tab_helper.h"
 #import "ios/chrome/browser/keyboard/ui_bundled/UIKeyCommand+Chrome.h"
+#import "ios/chrome/browser/lens/model/lens_browser_agent.h"
 #import "ios/chrome/browser/lens_overlay/public/lens_overlay_availability.h"
 #import "ios/chrome/browser/ntp/model/new_tab_page_tab_helper.h"
 #import "ios/chrome/browser/ntp/model/new_tab_page_tab_helper_delegate.h"
 #import "ios/chrome/browser/ntp/model/new_tab_page_util.h"
 #import "ios/chrome/browser/policy/model/policy_util.h"
-#import "ios/chrome/browser/reader_mode/model/features.h"
 #import "ios/chrome/browser/reader_mode/model/reader_mode_tab_helper.h"
 #import "ios/chrome/browser/sessions/model/fake_tab_restore_service.h"
 #import "ios/chrome/browser/sessions/model/ios_chrome_tab_restore_browser_agent.h"
@@ -86,6 +86,7 @@ class KeyCommandsProviderTest : public PlatformTest {
     [scene_state_ addAgent:layout_guide_scene_agent];
     browser_ = std::make_unique<TestBrowser>(profile_.get(), scene_state_);
     web_state_list_ = browser_->GetWebStateList();
+    LensBrowserAgent::CreateForBrowser(browser_.get());
     WebNavigationBrowserAgent::CreateForBrowser(browser_.get());
 
     bookmark_model_ = ios::BookmarkModelFactory::GetForProfile(profile_.get());
@@ -244,11 +245,21 @@ TEST_F(KeyCommandsProviderTest, CanPerform_AlwaysAvailableActions) {
   EXPECT_TRUE(CanPerform(@"keyCommand_openNewTab"));
   EXPECT_TRUE(CanPerform(@"keyCommand_openNewRegularTab"));
   EXPECT_TRUE(CanPerform(@"keyCommand_openNewIncognitoTab"));
-  EXPECT_TRUE(CanPerform(@"keyCommand_openNewWindow"));
-  EXPECT_TRUE(CanPerform(@"keyCommand_openNewIncognitoWindow"));
   EXPECT_TRUE(CanPerform(@"keyCommand_showSettings"));
   EXPECT_TRUE(CanPerform(@"keyCommand_showReadingList"));
   EXPECT_TRUE(CanPerform(@"keyCommand_goToTabGrid"));
+}
+
+// Test whether KeyCommandsProvider can perform the open new window actions
+// based on `scene_state_.multipleScenesAvailable`.
+TEST_F(KeyCommandsProviderTest, CanPerform_OpenNewWindowActions) {
+  scene_state_.multipleScenesAvailable = NO;
+  EXPECT_FALSE(CanPerform(@"keyCommand_openNewWindow"));
+  EXPECT_FALSE(CanPerform(@"keyCommand_openNewIncognitoWindow"));
+
+  scene_state_.multipleScenesAvailable = YES;
+  EXPECT_TRUE(CanPerform(@"keyCommand_openNewWindow"));
+  EXPECT_TRUE(CanPerform(@"keyCommand_openNewIncognitoWindow"));
 }
 
 // Checks whether KeyCommandsProvider can perform the actions that are always

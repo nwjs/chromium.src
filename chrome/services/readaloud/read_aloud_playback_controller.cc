@@ -10,10 +10,12 @@
 
 #include "base/containers/span.h"
 #include "base/functional/bind.h"
+#include "base/numerics/safe_conversions.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/types/pass_key.h"
 #include "chrome/services/readaloud/audio_renderer/read_aloud_audio_renderer.h"
 #include "chrome/services/readaloud/audio_segment_queue.h"
+#include "chrome/services/readaloud/overview_response_parser.h"
 #include "chrome/services/readaloud/synthesis_response_parser.h"
 #include "media/audio/audio_device_thread.h"
 #include "media/audio/audio_output_device_thread_callback.h"
@@ -41,6 +43,11 @@ ReadAloudPlaybackController::ReadAloudPlaybackController(
   receiver_.set_disconnect_handler(
       base::BindOnce(&ReadAloudPlaybackController::OnReceiverDisconnected,
                      factory_weak_factory_.GetWeakPtr()));
+  // `decoder_sequencer_` is owned by `this`, so it cannot outlive the callback
+  // target.
+  decoder_sequencer_.SetPumpStatusCallback(
+      base::BindRepeating(&ReadAloudPlaybackController::OnPumpStatusChanged,
+                          base::Unretained(this)));
 }
 
 ReadAloudPlaybackController::~ReadAloudPlaybackController() {
@@ -74,9 +81,6 @@ void ReadAloudPlaybackController::CreateController(
   prefetch_manager_.SetRequestSynthesisCallback(base::BindRepeating(
       &ReadAloudPlaybackController::OnPrefetchSynthesisRequest,
       session_weak_factory_.GetWeakPtr()));
-  prefetch_manager_.SetOnTextChunkedCallback(
-      base::BindRepeating(&ReadAloudPlaybackController::OnTextChunked,
-                          session_weak_factory_.GetWeakPtr()));
 }
 
 void ReadAloudPlaybackController::InitializeAudio(
@@ -127,6 +131,9 @@ void ReadAloudPlaybackController::InitializeAudio(
     return;
   }
   resources.audio_renderer->SetPlaybackRate(playback_rate_);
+  resources.audio_renderer->SetWordBoundaryCallback(
+      base::BindRepeating(&ReadAloudPlaybackController::OnWordBoundaryReached,
+                          session_weak_factory_.GetWeakPtr()));
 
   resources.audio_output_stream.Bind(std::move(stream));
 
@@ -194,9 +201,9 @@ void ReadAloudPlaybackController::SetTextContent(
           "SetTextContent");
       return;
     }
-    total_text_bytes += segment->text.size() *
-                        sizeof(std::remove_reference_t<
-                               decltype(segment->text)>::value_type);
+    total_text_bytes +=
+        segment->text.size() *
+        sizeof(std::remove_reference_t<decltype(segment->text)>::value_type);
   }
   if (total_text_bytes > kMaxMojoPayloadSizeBytes) {
     controller_receiver_.ReportBadMessage(
@@ -204,27 +211,58 @@ void ReadAloudPlaybackController::SetTextContent(
         "in SetTextContent");
     return;
   }
-  segments_ = std::move(segments);
-  // Initialize document-bound prefetch cache and canonical sentence timeline.
-  prefetch_manager_.SetTextContent(segments_);
+
   // Setting new text content invalidates pending audio synthesis buffers from
-  // the previous document segment, so FlushBuffers() resets internal queues.
+  // the previous document segment, so FlushBuffers() and ResetSession() reset
+  // internal queues before `timeline_.Clear()` resets the canonical timeline.
   FlushBuffers();
-  if (!MaybePlayOnReady() && client_.is_bound()) {
-    // When new text content is loaded, playback defaults to paused until the
-    // user explicitly triggers Play(). Notify client to synchronize UI state.
-    client_->OnPlaybackStateChanged(read_aloud::mojom::PlaybackState::kPaused);
+  prefetch_manager_.ResetSession();
+  timeline_.Clear();
+  timeline_.SetTextContent(segments);
+
+  if (client_.is_bound()) {
+    std::vector<std::u16string> chunk_strings;
+    size_t num_chunks =
+        std::min(timeline_.chunks().size(), readaloud::kMaxTextChunks);
+    chunk_strings.reserve(num_chunks);
+    for (size_t i = 0; i < num_chunks; ++i) {
+      chunk_strings.emplace_back(timeline_.chunks()[i].text);
+    }
+    client_->OnTextChunked(std::move(chunk_strings));
   }
+  // Lets the UI show the estimated length before playback starts.
+  ReportProgress();
+
+  MaybePlayOnReady();
+}
+
+void ReadAloudPlaybackController::SetOverviewContent(
+    mojo_base::BigBuffer response_bytes,
+    SetOverviewContentCallback callback) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  ParsedOverviewResult result =
+      ParseAndValidateOverviewResponse(std::move(response_bytes));
+  if (result.status != OverviewParseStatus::kOk) {
+    std::move(callback).Run(/*success=*/false, /*title=*/std::string());
+    return;
+  }
+  SetTextContent(std::move(result.segments));
+  // Send the title back to the browser process for UI display.
+  std::move(callback).Run(/*success=*/true, std::move(result.title));
 }
 
 void ReadAloudPlaybackController::Play() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   if (!PlayIfReady()) {
     play_on_ready_ = true;
-    // Restart watchdog timer on each Play() call to grant a fresh 10s window
+    base::TimeDelta timeout =
+        (playback_mode_ == read_aloud::mojom::PlaybackMode::kOverview)
+            ? kOverviewPlayOnReadyTimeout
+            : kClassicPlayOnReadyTimeout;
+    // Restart watchdog timer on each Play() call to grant a fresh window
     // from the last click.
     play_on_ready_timer_.Start(
-        FROM_HERE, kPlayOnReadyTimeout,
+        FROM_HERE, timeout,
         base::BindOnce(&ReadAloudPlaybackController::OnPlayOnReadyTimeout,
                        base::Unretained(this)));
   }
@@ -238,9 +276,8 @@ void ReadAloudPlaybackController::OnPlayOnReadyTimeout() {
   play_on_ready_ = false;
 
   // Defensive Guard: Do not emit kPaused if playback is actively pumping audio.
-  if (client_.is_bound() && !decoder_sequencer_.is_pumping()) {
-    client_->OnPlaybackStateChanged(
-        read_aloud::mojom::PlaybackState::kPaused);
+  if (!decoder_sequencer_.is_pumping()) {
+    SetPlaybackState(read_aloud::mojom::PlaybackState::kPaused);
   }
 }
 
@@ -251,7 +288,7 @@ bool ReadAloudPlaybackController::IsReadyToPlay() const {
 
 bool ReadAloudPlaybackController::IsTextSet() const {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  return !segments_.empty();
+  return timeline_.GetChunkCount() > 0;
 }
 
 bool ReadAloudPlaybackController::IsAudioInitialized() const {
@@ -269,6 +306,11 @@ bool ReadAloudPlaybackController::PlayIfReady() {
   if (audio_resources_ && audio_resources_->audio_output_stream.is_bound()) {
     audio_resources_->audio_output_stream->Play();
   }
+  // Deliberately does not report kPlaying here. Per b/562011435 the utility
+  // must not claim playback has started until audio frames are actually ready,
+  // otherwise the browser dismisses its loading UI over silence. StartPumping()
+  // replenishes synchronously and resolves the state through
+  // OnPumpStatusChanged() based on what is genuinely buffered.
   decoder_sequencer_.StartPumping();
   return true;
 }
@@ -281,36 +323,146 @@ bool ReadAloudPlaybackController::MaybePlayOnReady() {
   return false;
 }
 
-void ReadAloudPlaybackController::Pause() {
+void ReadAloudPlaybackController::SetPlaybackState(
+    read_aloud::mojom::PlaybackState state) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  if (playback_state_ == state) {
+    return;
+  }
+  const auto previous_state = playback_state_;
+  playback_state_ = state;
+  if (client_.is_bound()) {
+    client_->OnPlaybackStateChanged(state);
+  }
+  MaybeToggleProgressReporting(previous_state);
+}
+
+void ReadAloudPlaybackController::MaybeToggleProgressReporting(
+    std::optional<read_aloud::mojom::PlaybackState> previous_state) {
+  // Progress is reported periodically only while playback is active.
+  const bool was_active = IsActivePlaybackState(previous_state);
+  const bool is_active = IsActivePlaybackState(playback_state_);
+  // Nothing to update if playback remains active or remains inactive.
+  if (is_active == was_active) {
+    return;
+  }
+  if (is_active) {
+    progress_timer_.Start(FROM_HERE, kProgressReportInterval, this,
+                          &ReadAloudPlaybackController::ReportProgress);
+  } else {
+    progress_timer_.Stop();
+    // The last tick can be up to `kProgressReportInterval` old, so report
+    // where playback halted (pause, end of document or error).
+    ReportProgress();
+  }
+}
+
+// static
+bool ReadAloudPlaybackController::IsActivePlaybackState(
+    std::optional<read_aloud::mojom::PlaybackState> state) {
+  return state == read_aloud::mojom::PlaybackState::kPlaying ||
+         state == read_aloud::mojom::PlaybackState::kBuffering;
+}
+
+void ReadAloudPlaybackController::OnPumpStatusChanged(
+    ReadAloudDecoderSequencer::PumpStatus status) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  switch (status) {
+    case ReadAloudDecoderSequencer::PumpStatus::kFlowing:
+      SetPlaybackState(read_aloud::mojom::PlaybackState::kPlaying);
+      return;
+    case ReadAloudDecoderSequencer::PumpStatus::kStarved:
+      SetPlaybackState(read_aloud::mojom::PlaybackState::kBuffering);
+      return;
+    case ReadAloudDecoderSequencer::PumpStatus::kDrained:
+      // The document finished normally. Nothing is left to decode, so stop
+      // pumping. Report kEndOfStream rather than kPaused so consumers can
+      // distinguish natural stream completion from pause or setup. The output
+      // stream is intentionally left running and the queue is not flushed, so
+      // the segment the renderer just popped still plays out.
+      //
+      // TODO(b/565419447): Drive this from a real end-of-stream signal rather
+      // than inferring it from the segment queue draining. Draining only means
+      // the renderer has taken the last segment, not that it has played it:
+      // audio still held in the renderer algorithm buffer and the output
+      // stream buffer is audible, so kEndOfStream lands early, while the 250ms
+      // pump period pushes detection late. The net error is on the order of a
+      // few hundred milliseconds. A precise signal needs end-of-stream
+      // detection inside ReadAloudAudioRenderer, which zero-fills on underflow
+      // today. Once available, this should call HaltPlayback(kEndOfStream)
+      // instead.
+      decoder_sequencer_.StopPumping();
+      SetPlaybackState(read_aloud::mojom::PlaybackState::kEndOfStream);
+      return;
+    case ReadAloudDecoderSequencer::PumpStatus::kFailed:
+      // The entire timeline was consumed without ever yielding a single audio
+      // segment, so this session can no longer produce sound.
+      HaltPlayback(read_aloud::mojom::PlaybackState::kError);
+      return;
+  }
+}
+
+void ReadAloudPlaybackController::HaltPlayback(
+    read_aloud::mojom::PlaybackState state) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   play_on_ready_ = false;
   play_on_ready_timer_.Stop();
   if (audio_resources_ && audio_resources_->audio_output_stream.is_bound()) {
     audio_resources_->audio_output_stream->Pause();
   }
+  // Stop pumping before reporting so that no in-flight pump status can
+  // overwrite `state`, and so that a later seek cannot silently resume
+  // playback.
   decoder_sequencer_.StopPumping();
+  SetPlaybackState(state);
+}
+
+void ReadAloudPlaybackController::ReportProgress() {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  if (!client_.is_bound()) {
+    return;
+  }
+  // Both values are 1.0x content time: `AudioClock` media time already counts
+  // content rather than wall time, so nothing is scaled by the playback rate.
+  const base::TimeDelta duration = timeline_.GetTotalDuration();
+  base::TimeDelta media_time;
+  if (audio_resources_ && audio_resources_->audio_renderer) {
+    media_time = audio_resources_->audio_renderer->GetMediaTime();
+  }
+  // The duration is an estimate until every chunk is synthesized, so the
+  // played audio can briefly run past it. Clamp to keep the
+  // `elapsed <= duration` contract the browser enforces.
+  const base::TimeDelta elapsed = std::min(seek_base_ + media_time, duration);
+
+  const std::pair<base::TimeDelta, base::TimeDelta> progress(elapsed, duration);
+  if (last_reported_progress_ == progress) {
+    return;
+  }
+  last_reported_progress_ = progress;
+  client_->OnPlaybackProgressChanged(elapsed, duration);
+}
+
+void ReadAloudPlaybackController::Pause() {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  HaltPlayback(read_aloud::mojom::PlaybackState::kPaused);
 }
 
 void ReadAloudPlaybackController::SeekToWord(uint32_t segment_index,
                                              uint32_t character_offset) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  auto it = std::lower_bound(
-      segments_.begin(), segments_.end(), segment_index,
-      [](const read_aloud::mojom::TextSegmentPtr& segment, uint32_t index) {
-        return segment->segment_index < index;
-      });
-  if (it == segments_.end() || (*it)->segment_index != segment_index) {
+  if (segment_index >= timeline_.GetChunkCount()) {
     controller_receiver_.ReportBadMessage(
         "ReadAloudPlaybackController: Invalid segment_index in SeekToWord");
     return;
   }
-  const std::u16string_view text = (*it)->text;
-  if (character_offset > text.size()) {
+  std::optional<TimelinePosition> target =
+      timeline_.ResolveSegmentOffset(segment_index, character_offset);
+  if (!target.has_value()) {
     controller_receiver_.ReportBadMessage(
         "ReadAloudPlaybackController: Invalid character_offset in SeekToWord");
     return;
   }
-  decoder_sequencer_.SetNextChunkToDecode(segment_index);
+  ExecuteSeek(*target);
 }
 
 void ReadAloudPlaybackController::SeekToTime(base::TimeDelta position) {
@@ -320,6 +472,62 @@ void ReadAloudPlaybackController::SeekToTime(base::TimeDelta position) {
         "ReadAloudPlaybackController: Invalid position in SeekToTime");
     return;
   }
+  if (timeline_.GetChunkCount() == 0) {
+    return;
+  }
+  std::optional<TimelinePosition> target =
+      timeline_.ResolveTimeOffset(position);
+  if (!target.has_value()) {
+    return;
+  }
+  ExecuteSeek(*target);
+}
+
+void ReadAloudPlaybackController::ExecuteSeek(const TimelinePosition& target) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  prefetch_manager_.CancelInflightRequests();
+
+  if (audio_resources_) {
+    if (audio_resources_->audio_segment_queue) {
+      audio_resources_->audio_segment_queue->Clear(
+          base::PassKey<ReadAloudPlaybackController>());
+    }
+    if (audio_resources_->audio_renderer) {
+      audio_resources_->audio_renderer->Flush();
+    }
+    // When not actively playing (paused, drained or errored), make sure the
+    // stream is paused too, so that audio decoded for the new position is not
+    // rendered until the next Play().
+    // TODO(b/565419447): Remove once end of document is driven by a real
+    // end-of-stream signal that pauses the audio output stream. The stream is
+    // then paused whenever the pump is stopped, making this guard redundant.
+    if (!decoder_sequencer_.is_pumping() &&
+        audio_resources_->audio_output_stream.is_bound()) {
+      audio_resources_->audio_output_stream->Pause();
+    }
+  }
+
+  // The renderer's media time restarted at zero, and the first audio decoded
+  // for the new position is the first word kept at `target`, which
+  // ResolveSegmentOffset() and ResolveTimeOffset() both align with
+  // `target.time.start_time`.
+  seek_base_ = target.time.start_time;
+  ReportProgress();
+
+  // If the resolved position is at the exact end of `target.chunk`, advance
+  // to the start of the next chunk rather than synthesizing and decoding
+  // `target.chunk` only to skip every word in it.
+  if (target.chunk.index < timeline_.GetChunkCount() &&
+      target.chunk.start_char_offset ==
+          timeline_.chunks()[target.chunk.index].text.size()) {
+    decoder_sequencer_.SetNextChunkToDecode(target.chunk.index + 1,
+                                            /*min_global_char_offset=*/0);
+    return;
+  }
+
+  decoder_sequencer_.SetNextChunkToDecode(
+      target.chunk.index,
+      base::checked_cast<uint32_t>(target.global_char.start_offset));
 }
 
 void ReadAloudPlaybackController::SetVoice(const std::string& voice_id) {
@@ -349,6 +557,9 @@ void ReadAloudPlaybackController::FlushBuffers() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   prefetch_manager_.ClearCache();
   decoder_sequencer_.Reset();
+  // The decoder restarts at the beginning of the document, and the renderer's
+  // media time restarts at zero below.
+  seek_base_ = base::TimeDelta();
 
   if (!audio_resources_) {
     return;
@@ -387,17 +598,24 @@ void ReadAloudPlaybackController::ResetSession() {
   decoder_sequencer_.Reset();
   decoder_sequencer_.SetAudioQueue(nullptr);
   audio_resources_.reset();
-  segments_.clear();
+  timeline_.Clear();
   playback_rate_ = 1.0f;
   playback_mode_ = read_aloud::mojom::PlaybackMode::kClassic;
+  // A new session starts with no state reported yet, so the first transition
+  // is always forwarded to the newly bound client.
+  playback_state_.reset();
   play_on_ready_ = false;
   play_on_ready_timer_.Stop();
+  progress_timer_.Stop();
+  seek_base_ = base::TimeDelta();
+  last_reported_progress_.reset();
   session_weak_factory_.InvalidateWeakPtrs();
 }
 
 void ReadAloudPlaybackController::OnPrefetchSynthesisRequest(
     uint32_t chunk_index,
-    std::u16string_view text) {
+    std::u16string_view text,
+    read_aloud::mojom::Speaker speaker) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   const uint64_t sequence_id = prefetch_manager_.GetCurrentSequenceId();
   if (!client_.is_bound()) {
@@ -405,20 +623,11 @@ void ReadAloudPlaybackController::OnPrefetchSynthesisRequest(
                                           {});
     return;
   }
-  // TODO(b/559821661): Thread speaker through PrefetchManager in follow-up CL.
   client_->RequestSpeechSynthesis(
-      std::u16string(text), read_aloud::mojom::Speaker::kSpeaker1, sequence_id,
+      std::u16string(text), speaker, sequence_id,
       base::BindOnce(&ReadAloudPlaybackController::OnSpeechSynthesisResponse,
                      session_weak_factory_.GetWeakPtr(), sequence_id,
                      chunk_index));
-}
-
-void ReadAloudPlaybackController::OnTextChunked(
-    const std::vector<std::u16string>& chunks) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  if (client_.is_bound()) {
-    client_->OnTextChunked(chunks);
-  }
 }
 
 void ReadAloudPlaybackController::OnSpeechSynthesisResponse(
@@ -427,6 +636,13 @@ void ReadAloudPlaybackController::OnSpeechSynthesisResponse(
     mojo_base::BigBuffer response_bytes,
     bool success) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  if (sequence_id != prefetch_manager_.GetCurrentSequenceId()) {
+    return;
+  }
+  // A single failed or undecodable chunk is recoverable: the sequencer skips
+  // it and keeps playing the rest of the document, so no error state is
+  // reported here. Only a document that never produces any audio at all is
+  // surfaced as kError, via OnPumpStatusChanged().
   if (!success) {
     prefetch_manager_.OnSynthesisResponse(sequence_id, chunk_index, nullptr,
                                           {});
@@ -434,23 +650,46 @@ void ReadAloudPlaybackController::OnSpeechSynthesisResponse(
     return;
   }
 
-  const std::vector<TextChunk>& timeline = prefetch_manager_.GetTimelineChunks();
-  if (chunk_index >= timeline.size()) {
+  const std::vector<TextChunk>& chunks = timeline_.chunks();
+  if (chunk_index >= chunks.size()) {
     prefetch_manager_.OnSynthesisResponse(sequence_id, chunk_index, nullptr,
                                           {});
     decoder_sequencer_.ReplenishBuffer();
     return;
   }
-  const TextChunk& chunk = timeline[chunk_index];
+  const TextChunk& chunk = chunks[chunk_index];
 
   ParsedSynthesisResult result =
       ParseAndValidateSynthesisResponse(std::move(response_bytes), chunk);
 
-  prefetch_manager_.OnSynthesisResponse(
-      sequence_id, chunk_index, std::move(result.audio_buffer),
-      std::move(result.timings));
+  if (!result.timings.empty()) {
+    timeline_.UpdateSentenceDuration(
+        chunk_index, result.timings.back().end_time, result.timings);
+    // While playing, the next tick carries the refined duration.
+    if (!IsActivePlaybackState(playback_state_)) {
+      ReportProgress();
+    }
+  }
+
+  prefetch_manager_.OnSynthesisResponse(sequence_id, chunk_index,
+                                        std::move(result.audio_buffer),
+                                        std::move(result.timings));
 
   decoder_sequencer_.ReplenishBuffer();
+}
+
+void ReadAloudPlaybackController::OnWordBoundaryReached(
+    uint32_t start_character_offset,
+    uint32_t end_character_offset,
+    base::TimeDelta audio_timestamp) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  if (!client_.is_bound()) {
+    return;
+  }
+  // TODO(b/524283143): Send (start, end) once OnWordBoundaryReached's
+  // signature changes. Until then the browser only reads `audio_timestamp`.
+  client_->OnWordBoundaryReached(/*segment_index=*/0, start_character_offset,
+                                 audio_timestamp);
 }
 
 }  // namespace readaloud

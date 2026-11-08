@@ -63,7 +63,6 @@ static_library("dbus") {
 
   public_deps = [
     "//base",
-    "//chrome/browser:browser_public_dependencies",
     "//chrome/browser/ash/fusebox",
     "//chrome/browser/policy/messaging_layer/storage_selector",
     "//chromeos/ash/components/dbus/services",
@@ -104,8 +103,6 @@ static_library("dbus") {
     "//chrome/browser/component_updater",
     "//chrome/browser/profiles:profile",
     "//chrome/browser/profiles:profile_manager",
-    "//chrome/common:chrome_features",
-    "//chrome/common:constants",
     "//chromeos/ash/components/attestation",
     "//chromeos/ash/components/browser_context_helper",
     "//chromeos/ash/components/cryptohome",
@@ -331,7 +328,6 @@ source_set("browser_tests") {
     "//chrome/browser/ash/net",
     "//chrome/browser/policy:extension_force_install_mixin",
     "//chrome/browser/profiles:profile",
-    "//chrome/browser/ui",
     "//chrome/common:non_code_constants",
     "//chrome/test:test_support",
     "//chrome/test:test_support_ui",

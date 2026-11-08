@@ -165,16 +165,12 @@ public class TabSwitcherPaneUnitTest {
     @Mock private TabSwitcherPaneCoordinator mTabSwitcherPaneCoordinator;
     @Mock private TabSwitcherPaneDrawableCoordinator mTabSwitcherPaneDrawableCoordinator;
     @Mock private TabSwitcherDrawable mTabSwitcherDrawable;
-    @Mock private HubContainerView mHubContainerView;
     @Mock private View.OnClickListener mNewTabButtonClickListener;
     @Mock private PaneHubController mPaneHubController;
     @Mock private TabSwitcherCustomViewManager.Delegate mCustomViewManagerDelegate;
-    @Mock private View mCustomView;
     @Mock private DoubleConsumer mOnAlphaChange;
     @Mock private UserEducationHelper mUserEducationHelper;
-    @Mock private View mAnchorView;
     @Mock private TabGroupSyncService mTabGroupSyncService;
-    @Mock private Tab mTab;
     @Mock private SavedTabGroup mSavedTabGroup;
     @Mock private TabGroupCreationUiDelegate mUiFlow;
     @Mock private Tracker mTracker;
@@ -194,6 +190,9 @@ public class TabSwitcherPaneUnitTest {
     private final Token mToken = new Token(1L, 2L);
 
     private Context mContext;
+    private HubContainerView mHubContainerView;
+    private View mCustomView;
+    private View mAnchorView;
     private final SettableNonNullObservableSupplier<Boolean> mHandleBackPressChangeSupplier =
             ObservableSuppliers.createNonNull(false);
     private final SettableNonNullObservableSupplier<Boolean> mIsScrollingSupplier =
@@ -222,7 +221,9 @@ public class TabSwitcherPaneUnitTest {
                         ApplicationProvider.getApplicationContext(),
                         R.style.Theme_Chromium_TabbedMode);
 
-        when(mHubContainerView.getContext()).thenReturn(mContext);
+        mHubContainerView = new HubContainerView(mContext);
+        mCustomView = new View(mContext);
+        mAnchorView = new View(mContext);
         TabGroupSyncServiceFactory.setForTesting(mTabGroupSyncService);
         TrackerFactory.setTrackerForTests(mTracker);
 
@@ -235,7 +236,7 @@ public class TabSwitcherPaneUnitTest {
         mProfileProviderSupplier.set(mProfileProvider);
 
         mTabModel = spy(new MockTabModel(mProfile, null));
-        when(mTabModel.isTabModelRestored()).thenReturn(true);
+        when(mTabModel.isTabStateInitialized()).thenReturn(true);
         mTabList = new ArrayList<>();
         mTabList.add(mock(Tab.class));
         when(mTabModel.getRepresentativeTabList()).thenReturn(mTabList);
@@ -245,12 +246,6 @@ public class TabSwitcherPaneUnitTest {
                 .thenReturn(mCustomViewManagerDelegate);
         when(mTabSwitcherPaneCoordinator.getTabGridDialogVisibilitySupplier())
                 .thenReturn(gridDialogVisibilitySupplier);
-        doAnswer(
-                        invocation -> {
-                            return invocation.getArgument(0);
-                        })
-                .when(mTabSwitcherPaneCoordinator)
-                .countOfTabCardsOrInvalid(anyInt());
         doAnswer(
                         invocation -> {
                             mTimesCreated++;
@@ -291,8 +286,7 @@ public class TabSwitcherPaneUnitTest {
                         mContext,
                         mMockBottomSheetController,
                         mMockTabArchiveSettings,
-                        mMockArchivedTabCountSupplier,
-                        mTabModel);
+                        mMockArchivedTabCountSupplier);
 
         mTabSwitcherPane =
                 new TabSwitcherPane(
@@ -407,7 +401,7 @@ public class TabSwitcherPaneUnitTest {
     @Test
     public void testLoadHintColdHot_TabStateNotInitialized() {
         mTabModel.setActive(true);
-        when(mTabModel.isTabModelRestored()).thenReturn(false);
+        when(mTabModel.isTabStateInitialized()).thenReturn(false);
 
         mTabSwitcherPane.notifyLoadHint(LoadHint.COLD);
         RobolectricUtil.runAllBackgroundAndUiIncludingDelayed();
@@ -421,7 +415,7 @@ public class TabSwitcherPaneUnitTest {
         verify(coordinator).setInitialScrollIndexOffset();
         verify(coordinator).requestAccessibilityFocusOnCurrentTab();
 
-        when(mTabModel.isTabModelRestored()).thenReturn(true);
+        when(mTabModel.isTabStateInitialized()).thenReturn(true);
         var watcher =
                 HistogramWatcher.newSingleRecordWatcher(
                         "Android.GridTabSwitcher.TimeToTabStateInitializedFromShown");
@@ -480,10 +474,10 @@ public class TabSwitcherPaneUnitTest {
                 R.drawable.new_tab_icon,
                 shadowOf(buttonData.resolveIcon(mContext)).getCreatedFromResId());
 
-        View mockView = mock(View.class);
-        buttonData.onPress(mockView);
+        View view = new View(mContext);
+        buttonData.onPress(view);
         verify(mTabSwitcherPaneCoordinator).prepareHiding();
-        verify(mNewTabButtonClickListener).onClick(mockView);
+        verify(mNewTabButtonClickListener).onClick(view);
     }
 
     @Test
@@ -498,9 +492,9 @@ public class TabSwitcherPaneUnitTest {
     public void testNewTabButton_NoCoordinator() {
         FullButtonData buttonData = mTabSwitcherPane.getActionButtonDataSupplier().get();
 
-        View mockView = mock(View.class);
-        buttonData.onPress(mockView);
-        verify(mNewTabButtonClickListener).onClick(mockView);
+        View view = new View(mContext);
+        buttonData.onPress(view);
+        verify(mNewTabButtonClickListener).onClick(view);
     }
 
     @Test
@@ -626,7 +620,7 @@ public class TabSwitcherPaneUnitTest {
         assertNotNull(mTabSwitcherPane.getTabSwitcherPaneCoordinator());
         mTabSwitcherPane.destroyTabSwitcherPaneCoordinator();
         mTabModel.setActive(true);
-        when(mTabModel.isTabModelRestored()).thenReturn(true);
+        when(mTabModel.isTabStateInitialized()).thenReturn(true);
 
         OnSharedPreferenceChangeListener listener = mPriceAnnotationsPrefListenerCaptor.getValue();
         // Check this doesn't crash if there is no coordinator.
@@ -641,17 +635,17 @@ public class TabSwitcherPaneUnitTest {
                 mSharedPreferences, PriceTrackingUtilities.TRACK_PRICES_ON_TABS);
         verify(coordinator).resetWithListOfTabs(mTabList);
 
-        when(mTabModel.isTabModelRestored()).thenReturn(false);
+        when(mTabModel.isTabStateInitialized()).thenReturn(false);
         listener.onSharedPreferenceChanged(
                 mSharedPreferences, PriceTrackingUtilities.TRACK_PRICES_ON_TABS);
         verify(coordinator).resetWithListOfTabs(mTabList);
-        when(mTabModel.isTabModelRestored()).thenReturn(true);
+        when(mTabModel.isTabStateInitialized()).thenReturn(true);
 
         mTabModel.setActive(false);
         listener.onSharedPreferenceChanged(
                 mSharedPreferences, PriceTrackingUtilities.TRACK_PRICES_ON_TABS);
         verify(coordinator).resetWithListOfTabs(mTabList);
-        when(mTabModel.isTabModelRestored()).thenReturn(true);
+        when(mTabModel.isTabStateInitialized()).thenReturn(true);
 
         listener.onSharedPreferenceChanged(mSharedPreferences, "foo");
         verify(coordinator).resetWithListOfTabs(mTabList);
@@ -1000,11 +994,7 @@ public class TabSwitcherPaneUnitTest {
     public void testRemoteGroupIph_onShown() {
         mTabSwitcherPane.setPaneHubController(mPaneHubController);
         when(mTabSwitcherPaneCoordinator.getVisibleRange()).thenReturn(new Pair<>(0, 0));
-        when(mTabModel.getRepresentativeTabAt(anyInt())).thenReturn(mTab);
-        when(mTabModel.isTabInTabGroup(mTab)).thenReturn(true);
-        when(mTab.getTabGroupId()).thenReturn(mToken);
-        when(mTabGroupSyncService.getGroup(any(LocalTabGroupId.class))).thenReturn(mSavedTabGroup);
-        when(mTab.getTabGroupId()).thenReturn(mToken);
+        when(mTabSwitcherPaneCoordinator.getTabGroupIdForIndex(anyInt())).thenReturn(mToken);
         when(mTabGroupSyncService.getGroup(any(LocalTabGroupId.class))).thenReturn(mSavedTabGroup);
         when(mTabGroupSyncService.isRemoteDevice(any())).thenReturn(true);
         when(mTabSwitcherPaneCoordinator.getViewByIndex(anyInt())).thenReturn(mAnchorView);
@@ -1020,9 +1010,7 @@ public class TabSwitcherPaneUnitTest {
         mTabSwitcherPane.notifyLoadHint(LoadHint.HOT);
         mTabSwitcherPane.setPaneHubController(mPaneHubController);
         when(mTabSwitcherPaneCoordinator.getVisibleRange()).thenReturn(new Pair<>(0, 0));
-        when(mTabModel.getRepresentativeTabAt(anyInt())).thenReturn(mTab);
-        when(mTabModel.isTabInTabGroup(mTab)).thenReturn(true);
-        when(mTab.getTabGroupId()).thenReturn(mToken);
+        when(mTabSwitcherPaneCoordinator.getTabGroupIdForIndex(anyInt())).thenReturn(mToken);
         when(mTabGroupSyncService.getGroup(any(LocalTabGroupId.class))).thenReturn(mSavedTabGroup);
         when(mTabGroupSyncService.isRemoteDevice(any())).thenReturn(true);
         when(mTabSwitcherPaneCoordinator.getViewByIndex(anyInt())).thenReturn(mAnchorView);
@@ -1042,16 +1030,14 @@ public class TabSwitcherPaneUnitTest {
         verify(mTabModel).addTabGroupObserver(mTabGroupObserverCaptor.capture());
         mTabSwitcherPane.setPaneHubController(mPaneHubController);
         when(mTabSwitcherPaneCoordinator.getVisibleRange()).thenReturn(new Pair<>(0, 0));
-        when(mTabModel.getRepresentativeTabAt(anyInt())).thenReturn(mTab);
-        when(mTabModel.isTabInTabGroup(mTab)).thenReturn(true);
-        when(mTab.getTabGroupId()).thenReturn(mToken);
+        when(mTabSwitcherPaneCoordinator.getTabGroupIdForIndex(anyInt())).thenReturn(mToken);
         when(mTabGroupSyncService.getGroup(any(LocalTabGroupId.class))).thenReturn(mSavedTabGroup);
         when(mTabGroupSyncService.isRemoteDevice(any())).thenReturn(true);
         when(mTabSwitcherPaneCoordinator.getViewByIndex(anyInt())).thenReturn(mAnchorView);
         RobolectricUtil.runAllBackgroundAndUiIncludingDelayed();
         reset(mUserEducationHelper);
 
-        mTabGroupObserverCaptor.getValue().didCreateNewGroup(mTab);
+        mTabGroupObserverCaptor.getValue().onTabGroupCreated(mToken);
         RobolectricUtil.runAllBackgroundAndUiIncludingDelayed();
 
         verify(mUserEducationHelper).requestShowIph(argThat(remoteGroupIph()));
@@ -1061,9 +1047,7 @@ public class TabSwitcherPaneUnitTest {
     public void testRemoteGroupIph_nullController() {
         mTabSwitcherPane.setPaneHubController(null);
         when(mTabSwitcherPaneCoordinator.getVisibleRange()).thenReturn(new Pair<>(0, 0));
-        when(mTabModel.getRepresentativeTabAt(anyInt())).thenReturn(mTab);
-        when(mTabModel.isTabInTabGroup(mTab)).thenReturn(true);
-        when(mTab.getTabGroupId()).thenReturn(mToken);
+        when(mTabSwitcherPaneCoordinator.getTabGroupIdForIndex(anyInt())).thenReturn(mToken);
         when(mTabGroupSyncService.getGroup(any(LocalTabGroupId.class))).thenReturn(mSavedTabGroup);
         when(mTabGroupSyncService.isRemoteDevice(any())).thenReturn(true);
         when(mTabSwitcherPaneCoordinator.getViewByIndex(anyInt())).thenReturn(mAnchorView);
@@ -1078,9 +1062,7 @@ public class TabSwitcherPaneUnitTest {
     public void testRemoteGroupIph_tabGridDialogVisible() {
         mTabSwitcherPane.setPaneHubController(mPaneHubController);
         when(mTabSwitcherPaneCoordinator.getVisibleRange()).thenReturn(new Pair<>(0, 0));
-        when(mTabModel.getRepresentativeTabAt(anyInt())).thenReturn(mTab);
-        when(mTabModel.isTabInTabGroup(mTab)).thenReturn(true);
-        when(mTab.getTabGroupId()).thenReturn(mToken);
+        when(mTabSwitcherPaneCoordinator.getTabGroupIdForIndex(anyInt())).thenReturn(mToken);
         when(mTabGroupSyncService.getGroup(any(LocalTabGroupId.class))).thenReturn(mSavedTabGroup);
         when(mTabGroupSyncService.isRemoteDevice(any())).thenReturn(true);
         when(mTabSwitcherPaneCoordinator.getViewByIndex(anyInt())).thenReturn(mAnchorView);
@@ -1097,9 +1079,7 @@ public class TabSwitcherPaneUnitTest {
     public void testRemoteGroupIph_nullRange() {
         mTabSwitcherPane.setPaneHubController(mPaneHubController);
         when(mTabSwitcherPaneCoordinator.getVisibleRange()).thenReturn(null);
-        when(mTabModel.getRepresentativeTabAt(anyInt())).thenReturn(mTab);
-        when(mTabModel.isTabInTabGroup(mTab)).thenReturn(true);
-        when(mTab.getTabGroupId()).thenReturn(mToken);
+        when(mTabSwitcherPaneCoordinator.getTabGroupIdForIndex(anyInt())).thenReturn(mToken);
         when(mTabGroupSyncService.getGroup(any(LocalTabGroupId.class))).thenReturn(mSavedTabGroup);
         when(mTabGroupSyncService.isRemoteDevice(any())).thenReturn(true);
         when(mTabSwitcherPaneCoordinator.getViewByIndex(anyInt())).thenReturn(mAnchorView);
@@ -1114,11 +1094,10 @@ public class TabSwitcherPaneUnitTest {
     public void testRemoteGroupIph_skipFirstTab() {
         mTabSwitcherPane.notifyLoadHint(LoadHint.HOT);
         verify(mTabModel).addTabGroupObserver(mTabGroupObserverCaptor.capture());
+        TabGroupObserver observer = mTabGroupObserverCaptor.getValue();
         mTabSwitcherPane.setPaneHubController(mPaneHubController);
         when(mTabSwitcherPaneCoordinator.getVisibleRange()).thenReturn(new Pair<>(0, 1));
-        when(mTabModel.getRepresentativeTabAt(0)).thenReturn(mTab);
-        when(mTabModel.isTabInTabGroup(mTab)).thenReturn(true);
-        when(mTab.getTabGroupId()).thenReturn(mToken);
+        when(mTabSwitcherPaneCoordinator.getTabGroupIdForIndex(0)).thenReturn(mToken);
         when(mTabGroupSyncService.getGroup(new LocalTabGroupId(mToken))).thenReturn(mSavedTabGroup);
         mSavedTabGroup.creatorCacheGuid = "creatorCacheGuid";
         when(mTabGroupSyncService.isRemoteDevice("creatorCacheGuid")).thenReturn(true);
@@ -1126,104 +1105,52 @@ public class TabSwitcherPaneUnitTest {
         RobolectricUtil.runAllBackgroundAndUiIncludingDelayed();
         reset(mUserEducationHelper);
 
-        // For the following cases we set the tab at index 1 (since we iterate backward) to not
-        // meet the show requirements and verify that we still show the IPH for the tab at index 0.
+        // For the following cases we set the card at index 1 (since we iterate backward) to not
+        // meet the show requirements and verify that we still show the IPH for the card at index 0.
 
-        // Case 1: null tab.
-        when(mTabModel.getRepresentativeTabAt(1)).thenReturn(null);
-        mTabGroupObserverCaptor.getValue().didCreateNewGroup(mTab);
+        // Case 1: no token (not a group card or out of bounds).
+        when(mTabSwitcherPaneCoordinator.getTabGroupIdForIndex(1)).thenReturn(null);
+        observer.onTabGroupCreated(mToken);
         RobolectricUtil.runAllBackgroundAndUiIncludingDelayed();
         verify(mUserEducationHelper).requestShowIph(argThat(remoteGroupIph()));
 
-        // Case 2: not in group.
-        Tab tab = mock(Tab.class);
-        when(mTabModel.getRepresentativeTabAt(1)).thenReturn(tab);
-        mTabGroupObserverCaptor.getValue().didCreateNewGroup(mTab);
+        // Case 2: token not in saved tab group.
+        Token tabGroupId = new Token(3789L, 3478L);
+        LocalTabGroupId localTabGroupId = new LocalTabGroupId(tabGroupId);
+        when(mTabSwitcherPaneCoordinator.getTabGroupIdForIndex(1)).thenReturn(tabGroupId);
+        when(mTabGroupSyncService.getGroup(localTabGroupId)).thenReturn(null);
+        observer.onTabGroupCreated(mToken);
         RobolectricUtil.runAllBackgroundAndUiIncludingDelayed();
         verify(mUserEducationHelper, times(2)).requestShowIph(argThat(remoteGroupIph()));
 
-        // Case 3: no token.
-        when(mTabModel.isTabInTabGroup(tab)).thenReturn(true);
-        mTabGroupObserverCaptor.getValue().didCreateNewGroup(mTab);
-        RobolectricUtil.runAllBackgroundAndUiIncludingDelayed();
-        verify(mUserEducationHelper, times(3)).requestShowIph(argThat(remoteGroupIph()));
-
-        // Case 4: token not in saved tab group.
-        Token tabGroupId = new Token(3789L, 3478L);
-        LocalTabGroupId localTabGroupId = new LocalTabGroupId(tabGroupId);
-        when(tab.getTabGroupId()).thenReturn(tabGroupId);
-        when(mTabGroupSyncService.getGroup(localTabGroupId)).thenReturn(null);
-        mTabGroupObserverCaptor.getValue().didCreateNewGroup(mTab);
-        RobolectricUtil.runAllBackgroundAndUiIncludingDelayed();
-        verify(mUserEducationHelper, times(4)).requestShowIph(argThat(remoteGroupIph()));
-
-        // Case 5: in collaboration.
+        // Case 3: in collaboration.
         SavedTabGroup savedTabGroup = new SavedTabGroup();
         savedTabGroup.collaborationId = "My collab";
         when(mTabGroupSyncService.getGroup(localTabGroupId)).thenReturn(savedTabGroup);
-        mTabGroupObserverCaptor.getValue().didCreateNewGroup(mTab);
+        observer.onTabGroupCreated(mToken);
         RobolectricUtil.runAllBackgroundAndUiIncludingDelayed();
-        verify(mUserEducationHelper, times(5)).requestShowIph(argThat(remoteGroupIph()));
+        verify(mUserEducationHelper, times(3)).requestShowIph(argThat(remoteGroupIph()));
 
-        // Case 6: not remote device.
+        // Case 4: not remote device.
         savedTabGroup.collaborationId = null;
         savedTabGroup.creatorCacheGuid = "test guid";
         when(mTabGroupSyncService.isRemoteDevice("test guid")).thenReturn(false);
-        mTabGroupObserverCaptor.getValue().didCreateNewGroup(mTab);
+        observer.onTabGroupCreated(mToken);
         RobolectricUtil.runAllBackgroundAndUiIncludingDelayed();
-        verify(mUserEducationHelper, times(6)).requestShowIph(argThat(remoteGroupIph()));
+        verify(mUserEducationHelper, times(4)).requestShowIph(argThat(remoteGroupIph()));
 
-        // Case 7: no anchor view.
+        // Case 5: no anchor view.
         savedTabGroup.creatorCacheGuid = null;
-        mTabGroupObserverCaptor.getValue().didCreateNewGroup(mTab);
+        observer.onTabGroupCreated(mToken);
         RobolectricUtil.runAllBackgroundAndUiIncludingDelayed();
-        verify(mUserEducationHelper, times(7)).requestShowIph(argThat(remoteGroupIph()));
-    }
-
-    @Test
-    public void testRemoteGroupIph_nullTab() {
-        mTabSwitcherPane.setPaneHubController(mPaneHubController);
-        when(mTabSwitcherPaneCoordinator.getVisibleRange()).thenReturn(new Pair<>(0, 0));
-        when(mTabModel.getRepresentativeTabAt(anyInt())).thenReturn(null);
-        when(mTabModel.isTabInTabGroup(mTab)).thenReturn(true);
-        when(mTab.getTabGroupId()).thenReturn(mToken);
-        when(mTabGroupSyncService.getGroup(any(LocalTabGroupId.class))).thenReturn(mSavedTabGroup);
-        when(mTabGroupSyncService.isRemoteDevice(any())).thenReturn(true);
-        when(mTabSwitcherPaneCoordinator.getViewByIndex(anyInt())).thenReturn(mAnchorView);
-
-        mTabSwitcherPane.notifyLoadHint(LoadHint.HOT);
-        RobolectricUtil.runAllBackgroundAndUiIncludingDelayed();
-
-        verify(mUserEducationHelper, never()).requestShowIph(any());
-    }
-
-    @Test
-    public void testRemoteGroupIph_notGroup() {
-        mTabSwitcherPane.setPaneHubController(mPaneHubController);
-        when(mTabSwitcherPaneCoordinator.getVisibleRange()).thenReturn(new Pair<>(0, 0));
-        when(mTabModel.getRepresentativeTabAt(anyInt())).thenReturn(mTab);
-        when(mTabModel.isTabInTabGroup(mTab)).thenReturn(false);
-        when(mTab.getTabGroupId()).thenReturn(mToken);
-        when(mTabGroupSyncService.getGroup(any(LocalTabGroupId.class))).thenReturn(mSavedTabGroup);
-        when(mTabGroupSyncService.isRemoteDevice(any())).thenReturn(true);
-        when(mTabSwitcherPaneCoordinator.getViewByIndex(anyInt())).thenReturn(mAnchorView);
-
-        mTabSwitcherPane.notifyLoadHint(LoadHint.HOT);
-        RobolectricUtil.runAllBackgroundAndUiIncludingDelayed();
-
-        verify(mUserEducationHelper, never()).requestShowIph(any());
+        verify(mUserEducationHelper, times(5)).requestShowIph(argThat(remoteGroupIph()));
     }
 
     @Test
     public void testRemoteGroupIph_nullToken() {
         mTabSwitcherPane.setPaneHubController(mPaneHubController);
         when(mTabSwitcherPaneCoordinator.getVisibleRange()).thenReturn(new Pair<>(0, 0));
-        when(mTabModel.getRepresentativeTabAt(anyInt())).thenReturn(mTab);
-        when(mTabModel.isTabInTabGroup(mTab)).thenReturn(true);
-        when(mTab.getTabGroupId()).thenReturn(null);
-        when(mTabGroupSyncService.getGroup(any(LocalTabGroupId.class))).thenReturn(mSavedTabGroup);
-        when(mTabGroupSyncService.isRemoteDevice(any())).thenReturn(true);
-        when(mTabSwitcherPaneCoordinator.getViewByIndex(anyInt())).thenReturn(mAnchorView);
+        when(mTabSwitcherPaneCoordinator.getTabGroupIdForIndex(anyInt())).thenReturn(null);
 
         mTabSwitcherPane.notifyLoadHint(LoadHint.HOT);
         RobolectricUtil.runAllBackgroundAndUiIncludingDelayed();
@@ -1235,9 +1162,7 @@ public class TabSwitcherPaneUnitTest {
     public void testRemoteGroupIph_nullSavedGroup() {
         mTabSwitcherPane.setPaneHubController(mPaneHubController);
         when(mTabSwitcherPaneCoordinator.getVisibleRange()).thenReturn(new Pair<>(0, 0));
-        when(mTabModel.getRepresentativeTabAt(anyInt())).thenReturn(mTab);
-        when(mTabModel.isTabInTabGroup(mTab)).thenReturn(true);
-        when(mTab.getTabGroupId()).thenReturn(mToken);
+        when(mTabSwitcherPaneCoordinator.getTabGroupIdForIndex(anyInt())).thenReturn(mToken);
         when(mTabGroupSyncService.getGroup(any(LocalTabGroupId.class))).thenReturn(null);
         when(mTabGroupSyncService.isRemoteDevice(any())).thenReturn(true);
         when(mTabSwitcherPaneCoordinator.getViewByIndex(anyInt())).thenReturn(mAnchorView);
@@ -1252,9 +1177,7 @@ public class TabSwitcherPaneUnitTest {
     public void testRemoteGroupIph_notRemote() {
         mTabSwitcherPane.setPaneHubController(mPaneHubController);
         when(mTabSwitcherPaneCoordinator.getVisibleRange()).thenReturn(new Pair<>(0, 0));
-        when(mTabModel.getRepresentativeTabAt(anyInt())).thenReturn(mTab);
-        when(mTabModel.isTabInTabGroup(mTab)).thenReturn(true);
-        when(mTab.getTabGroupId()).thenReturn(mToken);
+        when(mTabSwitcherPaneCoordinator.getTabGroupIdForIndex(anyInt())).thenReturn(mToken);
         when(mTabGroupSyncService.getGroup(any(LocalTabGroupId.class))).thenReturn(mSavedTabGroup);
         when(mTabGroupSyncService.isRemoteDevice(any())).thenReturn(false);
         when(mTabSwitcherPaneCoordinator.getViewByIndex(anyInt())).thenReturn(mAnchorView);
@@ -1269,9 +1192,7 @@ public class TabSwitcherPaneUnitTest {
     public void testRemoteGroupIph_collaboration() {
         mTabSwitcherPane.setPaneHubController(mPaneHubController);
         when(mTabSwitcherPaneCoordinator.getVisibleRange()).thenReturn(new Pair<>(0, 0));
-        when(mTabModel.getRepresentativeTabAt(anyInt())).thenReturn(mTab);
-        when(mTabModel.isTabInTabGroup(mTab)).thenReturn(true);
-        when(mTab.getTabGroupId()).thenReturn(mToken);
+        when(mTabSwitcherPaneCoordinator.getTabGroupIdForIndex(anyInt())).thenReturn(mToken);
         when(mTabGroupSyncService.getGroup(any(LocalTabGroupId.class))).thenReturn(mSavedTabGroup);
         when(mTabGroupSyncService.isRemoteDevice(any())).thenReturn(true);
         when(mTabSwitcherPaneCoordinator.getViewByIndex(anyInt())).thenReturn(mAnchorView);
@@ -1287,9 +1208,7 @@ public class TabSwitcherPaneUnitTest {
     public void testRemoteGroupIph_nullView() {
         mTabSwitcherPane.setPaneHubController(mPaneHubController);
         when(mTabSwitcherPaneCoordinator.getVisibleRange()).thenReturn(new Pair<>(0, 0));
-        when(mTabModel.getRepresentativeTabAt(anyInt())).thenReturn(mTab);
-        when(mTabModel.isTabInTabGroup(mTab)).thenReturn(true);
-        when(mTab.getTabGroupId()).thenReturn(mToken);
+        when(mTabSwitcherPaneCoordinator.getTabGroupIdForIndex(anyInt())).thenReturn(mToken);
         when(mTabGroupSyncService.getGroup(any(LocalTabGroupId.class))).thenReturn(mSavedTabGroup);
         when(mTabGroupSyncService.isRemoteDevice(any())).thenReturn(true);
         when(mTabSwitcherPaneCoordinator.getViewByIndex(anyInt())).thenReturn(null);

@@ -13,7 +13,8 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/new_tab_page/prefs/ntp_pref_names.h"
 #include "chrome/browser/profiles/profile.h"
-#include "components/ntp_tiles/pref_names.h"
+#include "chrome/browser/ui/omnibox/omnibox_next_features.h"
+#include "components/ntp_tiles/most_visited_sites.h"
 #include "components/pref_registry/pref_registry_syncable.h"
 #include "components/prefs/pref_registry_simple.h"
 #include "components/prefs/pref_service.h"
@@ -84,16 +85,16 @@ PrefService* ResolveLocalState(PrefService* local_state) {
 #if BUILDFLAG(IS_MAC)
 void MapMacHotkeyToken(std::u16string& token) {
   // Accelerator code returns hotkeys on Mac represented by their respective
-  // symbols (e.g. ⌘) rather than their spelled forms (e.g. Command). Map the
-  // former to the latter using standard localized strings.
+  // symbols (e.g. ⌘) rather than their spelled forms (e.g. Command). Map
+  // modifiers to include both symbol and text.
   if (token == u"⌃") {
-    token = l10n_util::GetStringUTF16(IDS_APP_CTRL_KEY);
+    token = u"⌃ " + l10n_util::GetStringUTF16(IDS_APP_CTRL_KEY);
   } else if (token == u"⌥") {
-    token = u"Option";
+    token = u"⌥ Option";
   } else if (token == u"⇧") {
-    token = l10n_util::GetStringUTF16(IDS_APP_SHIFT_KEY);
+    token = u"⇧ " + l10n_util::GetStringUTF16(IDS_APP_SHIFT_KEY);
   } else if (token == u"⌘") {
-    token = u"Cmd";
+    token = u"⌘ Cmd";
   }
 }
 #endif
@@ -124,7 +125,8 @@ FreStage GetCurrentFreStage(Profile* profile, PrefService* local_state) {
 
   // Stage 1: Intro Modal (max 2 impressions or until dismissed)
   if (!prefs->GetBoolean(kFreIntroDismissed) &&
-      prefs->GetInteger(kFreIntroImpressionCount) < kMaxFreIntroImpressions) {
+      prefs->GetInteger(kFreIntroImpressionCount) <
+          omnibox::kOmniboxEverywhereFreMaxIntroImpressionsParam.Get()) {
     return FreStage::kIntroModal;
   }
 
@@ -133,8 +135,10 @@ FreStage GetCurrentFreStage(Profile* profile, PrefService* local_state) {
   // the impression threshold is reached (on the next open).
   if (!prefs->GetBoolean(kFreShortcutSetupDismissed)) {
     const bool has_hotkey = HasOmniboxEverywhereHotkey(resolved_local_state);
-    if (!has_hotkey || prefs->GetInteger(kFreShortcutSetupImpressionCount) <
-                           kMaxFreShortcutSetupImpressions) {
+    if (!has_hotkey ||
+        prefs->GetInteger(kFreShortcutSetupImpressionCount) <
+            omnibox::kOmniboxEverywhereFreMaxShortcutSetupImpressionsParam
+                .Get()) {
       return FreStage::kShortcutSetupChin;
     }
   }
@@ -142,7 +146,8 @@ FreStage GetCurrentFreStage(Profile* profile, PrefService* local_state) {
   // Stage 3: Shortcut Reminder Chin (max 3 impressions or until dismissed)
   if (!prefs->GetBoolean(kFreShortcutReminderDismissed) &&
       prefs->GetInteger(kFreShortcutReminderImpressionCount) <
-          kMaxFreShortcutReminderImpressions) {
+          omnibox::kOmniboxEverywhereFreMaxShortcutReminderImpressionsParam
+              .Get()) {
     if (HasOmniboxEverywhereHotkey(resolved_local_state)) {
       return FreStage::kShortcutReminderChin;
     }
@@ -163,7 +168,7 @@ void IncrementFreImpression(Profile* profile, PrefService* local_state) {
       prefs->SetInteger(kFreIntroImpressionCount,
                         prefs->GetInteger(kFreIntroImpressionCount) + 1);
       if (prefs->GetInteger(kFreIntroImpressionCount) >=
-              kMaxFreIntroImpressions &&
+              omnibox::kOmniboxEverywhereFreMaxIntroImpressionsParam.Get() &&
           HasOmniboxEverywhereHotkey(resolved_local_state)) {
         prefs->SetBoolean(kFreShortcutSetupDismissed, true);
       }
@@ -344,7 +349,7 @@ bool AreShortcutsAvailableForProfile(Profile* profile) {
   }
   PrefService* prefs = profile->GetPrefs();
   const bool has_enterprise_shortcuts =
-      !prefs->GetList(ntp_tiles::prefs::kEnterpriseShortcutsPolicyList).empty();
+      ntp_tiles::MostVisitedSites::HasEnterpriseShortcuts(*prefs);
   if (!has_enterprise_shortcuts) {
     return true;
   }

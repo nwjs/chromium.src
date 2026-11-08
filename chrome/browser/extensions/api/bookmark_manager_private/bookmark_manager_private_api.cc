@@ -284,9 +284,7 @@ void BookmarkManagerPrivateEventRouter::BookmarkModelBeingDeleted() {
   // This codepath is unexpected because `this` is owned by a KeyedService that
   // depends on BookmarkModelFactory, which means BookmarkModel must outlive
   // `this`.
-  NOTREACHED(base::NotFatalUntil::M138);
-  bookmark_model_->RemoveObserver(this);
-  bookmark_model_ = nullptr;
+  NOTREACHED();
 }
 
 BookmarkManagerPrivateAPI::BookmarkManagerPrivateAPI(
@@ -915,8 +913,10 @@ BookmarkManagerPrivateOpenInNewWindowFunction::RunOnReady() {
   std::erase_if(url_and_ids, [&urls](const UrlAndId& url_and_id) {
     return !std::ranges::contains(urls, url_and_id.url);
   });
-  DCHECK_EQ(urls.size(), url_and_ids.size());
+  CHECK_EQ(urls.size(), url_and_ids.size(), base::NotFatalUntil::M161);
 
+  // TODO(crbug.com/570603809): CHECK-exclusion: Convert to a CHECK once we are
+  // confident it won't be triggered.
   DCHECK(!calling_profile->IsOffTheRecord());
   Profile* window_profile =
       incognito_result == windows_util::IncognitoResult::kIncognito
@@ -1037,7 +1037,7 @@ void BookmarkManagerPrivateIOFunction::ShowSelectFileDialog(
     return;
   }
 
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M161);
 
   // Balanced in one of the callbacks of SelectFileDialog:
   // either FileSelectionCanceled, or FileSelected

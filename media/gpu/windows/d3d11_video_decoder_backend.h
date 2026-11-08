@@ -39,12 +39,10 @@ class MEDIA_GPU_EXPORT D3D11VideoDecoderBackend
                             VideoChromaSampling chroma_sampling,
                             const gpu::GpuPreferences& gpu_preferences,
                             const gpu::GpuDriverBugWorkarounds& gpu_workarounds,
-                            bool use_shared_handle,
                             MediaLog* media_log) override;
   D3DStatus::Or<std::unique_ptr<TextureSelector>> CreateTextureSelector(
       D3DDecoderConfigurator* decoder_configurator,
       const VideoDecoderConfig& config,
-      const gpu::GpuPreferences& gpu_preferences,
       const gpu::GpuDriverBugWorkarounds& gpu_workarounds,
       bool use_shared_handle,
       MediaLog* media_log) override;
@@ -76,7 +74,6 @@ class MEDIA_GPU_EXPORT D3D11VideoDecoderBackend
       MediaLog* media_log,
       base::OnceCallback<void(scoped_refptr<D3DPictureBuffer>)> init_done_cb)
       override;
-  D3DStatus WaitForDecodeComplete(D3DPictureBuffer* picture_buffer) override;
   bool ShouldUseDXVADeviceForHEVCRangeExtension(
       const VideoDecoderConfig& config) const override;
   VideoDecoderType GetDecoderType() const override;

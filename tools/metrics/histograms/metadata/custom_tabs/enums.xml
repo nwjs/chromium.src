@@ -49,13 +49,6 @@ chromium-metrics-reviews@google.com.
   <int value="3" label="AuthTab success"/>
 </enum>
 
-<enum name="CustomTabsConnection">
-  <int value="0" label="Disconnected from service w/o KeepAlive connection"/>
-  <int value="1" label="Disconnected from service with KeepAlive connection"/>
-  <int value="2" label="Connected to service w/o KeepAlive connection"/>
-  <int value="3" label="Connected to service with KeepAlive connection"/>
-</enum>
-
 <!--LINT.IfChange(CustomTabsFeatureUsed) -->
 
 <enum name="CustomTabsFeatureUsed">
@@ -275,22 +268,6 @@ chromium-metrics-reviews@google.com.
 </enum>
 
 <!--LINT.ThenChange(//chrome/android/java/src/org/chromium/chrome/browser/customtabs/CustomTabsTimeoutOutcome.java:CustomTabsResetTimeoutOutcome) -->
-
-<enum name="CustomTabsSessionDisconnectStatus">
-  <int value="0" label="Unknown"/>
-  <int value="1" label="Custom Tab in Foreground"/>
-  <int value="2" label="Custom Tab in Foreground, KEEP_ALIVE set"/>
-  <int value="3" label="Custom Tab in Background"/>
-  <int value="4" label="Custom Tab in Background, KEEP_ALIVE set"/>
-  <int value="5" label="Custom Tab in Foreground, the system is low on memory"/>
-  <int value="6"
-      label="Custom Tab in Foreground, KEEP_ALIVE set, the system is low on
-             memory"/>
-  <int value="7" label="Custom Tab in Background, the system is low on memory"/>
-  <int value="8"
-      label="Custom Tab in Background, KEEP_ALIVE set, the system is low on
-             memory"/>
-</enum>
 
 <!-- LINT.IfChange(FinishReason) -->
 

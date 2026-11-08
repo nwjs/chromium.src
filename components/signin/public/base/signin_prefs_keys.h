@@ -11,14 +11,24 @@
 namespace signin::internal {
 
 // Key names of the per-account preferences stored by `SigninPrefs`, i.e. the
-// keys of the dictionary that `SigninPrefs` keeps per `GaiaId`.
+// keys of the dictionary that `SigninPrefs` keeps per `GaiaId` (or within
+// specific sub-dictionaries under it, such as
+// `AvatarButtonPromoCountDictionary` or `CrossDevicePromoPrefs` -> `history`).
 //
 // Shared internally between `SigninPrefs`, `SigninPrefsAccessor`, and
 // `SigninPrefsRegistry`. External consumers must use the typed `SigninPrefs`
 // API.
 //
+// IMPORTANT: Every active key added here must also be registered in
+// `kRegisteredSigninPrefs` (`signin_prefs_registry.cc`) with its enclosing
+// parent path and `base::Value::Type`, and exercised in
+// `SigninPrefsTest.AllWrittenPrefsAreRegisteredWithMatchingType` under every
+// feature state that selects it.
+//
 // A key is a single dictionary key. A '.' inside a key is part of the name, it
 // never denotes nesting.
+
+// LINT.IfChange(SigninPrefsKeys)
 
 // Pref used to track the last time the user signed out of Chrome.
 inline constexpr std::string_view kChromeLastSignoutTime =
@@ -54,48 +64,20 @@ inline constexpr std::string_view kChromeSigninInterceptionDismissCount =
 inline constexpr std::string_view kPasswordSignInPromoShownCount =
     "PasswordSignInPromoShownCount";
 
-// Pref to store the number of times the password bubble signin promo
-// has been shown per account used for SigninPromoLimitsExperiment.
-inline constexpr std::string_view
-    kPasswordSignInPromoShownCountForLimitsExperiment =
-        "PasswordSignInPromoShownCountForLimitsExperiment";
-
 // Pref to store the number of times the address bubble signin promo
 // has been shown per account.
 inline constexpr std::string_view kAddressSignInPromoShownCount =
     "AddressSignInPromoShownCount";
-
-// Pref to store the number of times the address bubble signin promo
-// has been shown per account used for SigninPromoLimitsExperiment.
-inline constexpr std::string_view
-    kAddressSignInPromoShownCountForLimitsExperiment =
-        "AddressSignInPromoShownCountForLimitsExperiment";
 
 // Pref to store the number of times the bookmark bubble signin promo
 // has been shown per account.
 inline constexpr std::string_view kBookmarkSignInPromoShownCount =
     "BookmarkSignInPromoShownCount";
 
-// Pref to store the number of times the bookmark bubble signin promo
-// has been shown per account used for SigninPromoLimitsExperiment.
-inline constexpr std::string_view
-    kBookmarkSignInPromoShownCountForLimitsExperiment =
-        "BookmarkSignInPromoShownCountForLimitsExperiment";
-
 // Pref to store the number of times any autofill bubble signin promo
 // has been dismissed per account.
 inline constexpr std::string_view kAutofillSignInPromoDismissCount =
     "AutofillSignInPromoDismissCount";
-
-// Pref to store the number of times the address bubble signin promo
-// has been dismissed per account.
-inline constexpr std::string_view kAddressSignInPromoDismissCount =
-    "AddressSignInPromoDismissCount";
-
-// Pref to store the number of times the bookmark bubble signin promo
-// has been dismissed per account used for SigninPromoLimitsExperiment.
-inline constexpr std::string_view kBookmarkSignInPromoDismissCount =
-    "BookmarkSignInPromoDismissCount";
 
 // Pref to store the number of times the bookmark manager signin promo has been
 // shown per account.
@@ -106,11 +88,6 @@ inline constexpr std::string_view kBookmarkManagerSignInPromoShownCount =
 // dismissed per account.
 inline constexpr std::string_view kBookmarkManagerSignInPromoDismissCount =
     "BookmarkManagerSignInPromoDismissCount";
-
-// Pref to store the number of times the password bubble signin promo
-// has been dismissed per account.
-inline constexpr std::string_view kPasswordSignInPromoDismissCount =
-    "PasswordSignInPromoDismissCount";
 
 // Pref to store the number of times the Search AI Mode bubble signin promo
 // has been shown per account.
@@ -181,11 +158,70 @@ inline constexpr std::string_view kAccountMetricsIdIsCapped =
 // to store cross-device signin promo details.
 inline constexpr std::string_view kCrossDevicePromoPrefs =
     "CrossDevicePromoPrefs";
+// Dictionary keys for data type specific promo data.
+inline constexpr std::string_view kCrossDevicePromoHistoryDictKey = "history";
+// Sub-dictionary serialization keys to be used per data type.
+inline constexpr std::string_view kCrossDevicePromoShownCountKey =
+    "shown_count";
+inline constexpr std::string_view kCrossDevicePromoLastDismissedTimeKey =
+    "last_dismissed_time";
+inline constexpr std::string_view kCrossDevicePromoShownAfterDismissalKey =
+    "shown_after_dismissal";
+
+// Parent path for data-type sub-dictionaries under `kCrossDevicePromoPrefs`.
+inline constexpr auto kCrossDevicePromoRootParents =
+    std::to_array<std::string_view>({kCrossDevicePromoPrefs});
+
+// Common parent path for cross-device history promo prefs within an account
+// dictionary.
+inline constexpr auto kCrossDeviceHistoryPromoParents =
+    std::to_array<std::string_view>(
+        {kCrossDevicePromoPrefs, kCrossDevicePromoHistoryDictKey});
 
 // Dictionary pref that contains all the values related to the avatar button
 // promo counts.
 inline constexpr std::string_view kAvatarButtonPromoCountDictionary =
     "AvatarButtonPromoCountDictionary";
+
+// Common parent path for avatar button promo prefs within an account
+// dictionary.
+inline constexpr auto kAvatarButtonPromoParents =
+    std::to_array<std::string_view>({kAvatarButtonPromoCountDictionary});
+
+// Shown and used counts for each avatar button promo variant, stored under
+// `kAvatarButtonPromoCountDictionary`.
+inline constexpr std::string_view kAvatarButtonHistorySyncPromoShownCount =
+    "AvatarButtonHistorySyncPromoShownCount";
+inline constexpr std::string_view kAvatarButtonHistorySyncPromoUsedCount =
+    "AvatarButtonHistorySyncPromoUsedCount";
+inline constexpr std::string_view kAvatarButtonBatchUploadPromoShownCount =
+    "AvatarButtonBatchUploadPromoShownCount";
+inline constexpr std::string_view kAvatarButtonBatchUploadPromoUsedCount =
+    "AvatarButtonBatchUploadPromoUsedCount";
+inline constexpr std::string_view
+    kAvatarButtonBatchUploadBookmarkPromoShownCount =
+        "AvatarButtonBatchUploadBookmarkPromoShownCount";
+inline constexpr std::string_view
+    kAvatarButtonBatchUploadBookmarkPromoUsedCount =
+        "AvatarButtonBatchUploadBookmarkPromoUsedCount";
+inline constexpr std::string_view
+    kAvatarButtonBatchUploadWindows10DepreciationPromoShownCount =
+        "AvatarButtonBatchUploadWindows10DepreciationPromoShownCount";
+inline constexpr std::string_view
+    kAvatarButtonBatchUploadWindows10DepreciationPromoUsedCount =
+        "AvatarButtonBatchUploadWindows10DepreciationPromoUsedCount";
+// Shown count, used count, and last-shown timestamp for the avatar button
+// sign-in promo, stored per `GaiaId` under `kAvatarButtonPromoCountDictionary`
+// when an account is present (or in a separate profile-scoped dictionary when
+// signed out without an account).
+inline constexpr std::string_view kAvatarButtonSigninPromoShownCount =
+    "AvatarButtonSigninPromoShownCount";
+inline constexpr std::string_view kAvatarButtonSigninPromoUsedCount =
+    "AvatarButtonSigninPromoUsedCount";
+inline constexpr std::string_view kAvatarButtonSigninPromoLastShownTime =
+    "AvatarButtonSigninPromoLastShownTime";
+
+// LINT.ThenChange(//components/signin/public/base/signin_prefs_registry.cc:SigninPrefsKeys)
 
 // -----------------------------------------------------------------------------
 // DEPRECATED prefs: Check `SigninPrefs::MigrateObsoleteSigninPrefs()`.
@@ -220,6 +256,24 @@ inline constexpr std::string_view kDeprecatedSyncPromoIdentityPillShownCount =
 inline constexpr std::string_view kDeprecatedSyncPromoIdentityPillUsedCount =
     "SyncPromoIdentityPillUsedCount";
 
+// DEPRECATED(09/2026):
+// SigninPromoLimitsExperiment per-account shown and dismiss counts.
+inline constexpr std::string_view
+    kDeprecatedPasswordSignInPromoShownCountForLimitsExperiment =
+        "PasswordSignInPromoShownCountForLimitsExperiment";
+inline constexpr std::string_view
+    kDeprecatedAddressSignInPromoShownCountForLimitsExperiment =
+        "AddressSignInPromoShownCountForLimitsExperiment";
+inline constexpr std::string_view
+    kDeprecatedBookmarkSignInPromoShownCountForLimitsExperiment =
+        "BookmarkSignInPromoShownCountForLimitsExperiment";
+inline constexpr std::string_view kDeprecatedAddressSignInPromoDismissCount =
+    "AddressSignInPromoDismissCount";
+inline constexpr std::string_view kDeprecatedBookmarkSignInPromoDismissCount =
+    "BookmarkSignInPromoDismissCount";
+inline constexpr std::string_view kDeprecatedPasswordSignInPromoDismissCount =
+    "PasswordSignInPromoDismissCount";
+
 // All deprecated account-dict pref keys removed in
 // `SigninPrefs::MigrateObsoleteSigninPrefs()`.
 inline constexpr auto kDeprecatedSigninPrefs = std::to_array<std::string_view>({
@@ -228,6 +282,12 @@ inline constexpr auto kDeprecatedSigninPrefs = std::to_array<std::string_view>({
     kDeprecatedHistorySyncPromoIdentityPillUsedCount,
     kDeprecatedSyncPromoIdentityPillShownCount,
     kDeprecatedSyncPromoIdentityPillUsedCount,
+    kDeprecatedPasswordSignInPromoShownCountForLimitsExperiment,
+    kDeprecatedAddressSignInPromoShownCountForLimitsExperiment,
+    kDeprecatedBookmarkSignInPromoShownCountForLimitsExperiment,
+    kDeprecatedAddressSignInPromoDismissCount,
+    kDeprecatedBookmarkSignInPromoDismissCount,
+    kDeprecatedPasswordSignInPromoDismissCount,
 });
 //
 // End of DEPRECATED prefs.

@@ -41,10 +41,13 @@ class CORE_EXPORT DisplayAdElementMonitor final
       const LocalFrameView& local_frame_view) override;
   void WillDisposeView() override;
 
-  // Performs a hit-test on `element_` to determine if it's the topmost element
-  // at its center. This check can be skipped due to frequency-capping or if the
-  // element is outside the viewport to reduce performance impact.
-  // Set `ignore_throttling` to true to bypass the frequency capping.
+  // Performs a hit-test at the center of the in-viewport part of
+  // `rect_in_viewport` to determine if the front-most content there is rendered
+  // by `element_` itself (including its user-agent shadow tree and, for a frame
+  // owner, the content of its frame), as opposed to an overlay or one of its
+  // descendant elements. This check can be skipped due to frequency-capping or
+  // if the element is outside the viewport to reduce performance impact. Set
+  // `ignore_throttling` to true to bypass the frequency capping.
   OverlayVisibility CheckOverlayVisibility(const LocalFrame& main_frame,
                                            const gfx::Rect& rect_in_viewport,
                                            bool ignore_throttling = false);
@@ -53,6 +56,9 @@ class CORE_EXPORT DisplayAdElementMonitor final
 
   bool IsVideoAd() const { return is_video_ad_; }
   void UpdateToVideoAd();
+
+  bool IsOverlayPopupAd() const { return is_overlay_popup_ad_; }
+  void SetIsOverlayPopupAd();
 
   const AdProvenance& GetAdProvenance() const { return ad_provenance_; }
 
@@ -71,11 +77,16 @@ class CORE_EXPORT DisplayAdElementMonitor final
 
     // The ad's height when measured.
     int ad_height;
+
+    // How far `position: sticky` shifted the ad vertically when measured,
+    // counting only boxes that stick to the main frame's viewport.
+    int viewport_sticky_offset_y;
   };
 
   // Evaluates whether the ad is sticky based on its movement relative to the
-  // viewport. Called on every lifecycle update, but remains inexpensive as it
-  // only performs simple arithmetic on cached geometry.
+  // viewport. Called on every lifecycle update, but remains inexpensive:
+  // besides simple arithmetic, it only re-walks part of the containing block
+  // chain that `AbsoluteBoundingBoxRectF()` already traverses.
   //
   // Returns the result of the unthrottled hit-test if one was performed as a
   // final sanity check; otherwise, returns `OverlayVisibility::kSkipped`.
@@ -105,6 +116,7 @@ class CORE_EXPORT DisplayAdElementMonitor final
 
   bool started_ = false;
   bool is_video_ad_ = false;
+  bool is_overlay_popup_ad_ = false;
   bool did_record_video_ad_use_counter_ = false;
 
   bool is_sticky_ad_ = false;

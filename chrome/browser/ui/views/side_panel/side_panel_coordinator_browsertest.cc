@@ -67,6 +67,7 @@
 #include "chrome/grit/generated_resources.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
+#include "components/contextual_tasks/public/features.h"
 #include "components/crx_file/id_util.h"
 #include "components/lens/lens_features.h"
 #include "components/sessions/content/session_tab_helper.h"
@@ -229,7 +230,7 @@ class SidePanelCoordinatorTest : public InProcessBrowserTest {
   ExtensionsToolbarDesktop* GetExtensionsToolbarDesktop() const {
     return BrowserView::GetBrowserViewForBrowser(browser())
         ->toolbar()
-        ->extensions_container();
+        ->extensions_container_for_testing();
   }
 
   SidePanelRegistry* GetActiveTabRegistry() {
@@ -760,6 +761,31 @@ IN_PROC_BROWSER_TEST_F(SidePanelCoordinatorTest, SidePanelAlignmentOverrides) {
   EXPECT_EQ(GetSidePanel()->horizontal_alignment(),
             SidePanel::HorizontalAlignment::kLeft);
 
+  GetSidePanel()->UpdateHorizontalAlignment(SidePanelEntryId::kContextualTasks);
+  EXPECT_EQ(GetSidePanel()->horizontal_alignment(),
+            SidePanel::HorizontalAlignment::kRight);
+}
+
+class SidePanelCoordinatorContextualTasksDefaultRightTest
+    : public SidePanelCoordinatorTest {
+ public:
+  SidePanelCoordinatorContextualTasksDefaultRightTest() {
+    scoped_feature_list_.InitAndEnableFeature(
+        contextual_tasks::kContextualTasksSidePanelDefaultRight);
+  }
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_F(SidePanelCoordinatorContextualTasksDefaultRightTest,
+                       ContextualTasksDefaultAlignmentRight) {
+  Init();
+  PrefService* prefs = BrowserView::GetBrowserViewForBrowser(browser())
+                           ->GetProfile()
+                           ->GetPrefs();
+
+  prefs->SetBoolean(prefs::kSidePanelHorizontalAlignment, false);
   GetSidePanel()->UpdateHorizontalAlignment(SidePanelEntryId::kContextualTasks);
   EXPECT_EQ(GetSidePanel()->horizontal_alignment(),
             SidePanel::HorizontalAlignment::kRight);
@@ -2582,7 +2608,7 @@ IN_PROC_BROWSER_TEST_F(SidePanelCoordinatorTest,
                 ->GetBrowserViewLayoutForTesting()
                 ->side_panel_animation_content(),
             nullptr);
-  ASSERT_EQ(side_panel->GetContentParentView()->children().size(), 0);
+  ASSERT_EQ(side_panel->GetContentParentView()->children().size(), 0u);
 
   // Advance the animation to its end, at this point the contents view should be
   // reparented to the side panel's ContentParentView.
@@ -2591,7 +2617,7 @@ IN_PROC_BROWSER_TEST_F(SidePanelCoordinatorTest,
                 ->GetBrowserViewLayoutForTesting()
                 ->side_panel_animation_content(),
             nullptr);
-  ASSERT_EQ(side_panel->GetContentParentView()->children().size(), 1);
+  ASSERT_EQ(side_panel->GetContentParentView()->children().size(), 1u);
 }
 
 IN_PROC_BROWSER_TEST_F(
@@ -2785,7 +2811,7 @@ IN_PROC_BROWSER_TEST_F(SidePanelCoordinatorTest,
                 ->GetBrowserViewLayoutForTesting()
                 ->side_panel_animation_content(),
             nullptr);
-  ASSERT_EQ(side_panel->GetContentParentView()->children().size(), 0);
+  ASSERT_EQ(side_panel->GetContentParentView()->children().size(), 0u);
 
   // Trigger the side panel to close, at this point the contents view should be
   // reparented to the side panel's ContentParentView.
@@ -2795,7 +2821,7 @@ IN_PROC_BROWSER_TEST_F(SidePanelCoordinatorTest,
                 ->GetBrowserViewLayoutForTesting()
                 ->side_panel_animation_content(),
             nullptr);
-  ASSERT_EQ(side_panel->GetContentParentView()->children().size(), 1);
+  ASSERT_EQ(side_panel->GetContentParentView()->children().size(), 1u);
 }
 #endif
 
@@ -2856,7 +2882,7 @@ IN_PROC_BROWSER_TEST_F(
                 ->GetBrowserViewLayoutForTesting()
                 ->side_panel_animation_content(),
             nullptr);
-  ASSERT_EQ(side_panel->GetContentParentView()->children().size(), 0);
+  ASSERT_EQ(side_panel->GetContentParentView()->children().size(), 0u);
 
   // Show the kShoppingInsights side panel mid content transition animation and
   // verify the content is correctly reparented.
@@ -2865,7 +2891,7 @@ IN_PROC_BROWSER_TEST_F(
                 ->GetBrowserViewLayoutForTesting()
                 ->side_panel_animation_content(),
             nullptr);
-  ASSERT_EQ(side_panel->GetContentParentView()->children().size(), 1);
+  ASSERT_EQ(side_panel->GetContentParentView()->children().size(), 1u);
 }
 
 IN_PROC_BROWSER_TEST_F(SidePanelCoordinatorTest,

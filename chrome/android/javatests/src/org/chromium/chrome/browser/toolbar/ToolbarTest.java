@@ -53,13 +53,13 @@ import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.Criteria;
 import org.chromium.base.test.util.CriteriaHelper;
-import org.chromium.base.test.util.DisableIf;
 import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.base.test.util.ImportantFormFactors;
+import org.chromium.base.test.util.MinAndroidSdkLevel;
 import org.chromium.base.test.util.Restriction;
 import org.chromium.base.ui.KeyboardUtils;
 import org.chromium.chrome.R;
@@ -108,13 +108,12 @@ import org.chromium.net.test.EmbeddedTestServer;
 import org.chromium.ui.accessibility.AccessibilityStateTestHelper;
 import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.base.UiAndroidFeatures;
+import org.chromium.ui.test.util.DeviceRestriction;
 
 /** Tests for toolbar manager behavior. */
 @RunWith(ChromeJUnit4ClassRunner.class)
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
 @Batch(Batch.PER_CLASS)
-// TODO(b/555414915): Update Android tests with WebUI NTP enabled on AL.
-@DisableFeatures(ChromeFeatureList.USE_WEB_UI_NTP_ANDROID)
 public class ToolbarTest {
     @Rule
     public FreshCtaTransitTestRule mActivityTestRule =
@@ -289,10 +288,12 @@ public class ToolbarTest {
     @Restriction(DeviceFormFactor.TABLET_OR_DESKTOP)
     @Feature({"Omnibox"})
     public void testFindInPageDismissedOnOmniboxFocus() {
-        findInPageFromMenu();
         OmniboxTestUtils omnibox = new OmniboxTestUtils(mActivity);
+        omnibox.clearFocus();
+        findInPageFromMenu();
         omnibox.requestFocus();
         waitForFindInPageVisibility(false);
+        omnibox.clearFocus();
     }
 
     @Test
@@ -735,7 +736,10 @@ public class ToolbarTest {
     @Test
     @MediumTest
     @EnableFeatures({UiAndroidFeatures.MAXIMUM_WINDOW_FOR_GESTURE_NAV_DETECTION})
-    @DisableIf.Build(sdk_is_less_than = Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+    // Predictive back gesture navigation requires Android U+ and is not used on desktop or
+    // automotive devices.
+    @MinAndroidSdkLevel(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+    @Restriction({DeviceFormFactor.PHONE_OR_TABLET, DeviceRestriction.RESTRICTION_TYPE_NON_AUTO})
     public void testBackPressCancelledOnTabNull() throws Exception {
         EmbeddedTestServer testServer =
                 EmbeddedTestServer.createAndStartServer(

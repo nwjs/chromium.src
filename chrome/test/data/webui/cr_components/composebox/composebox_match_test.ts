@@ -6,10 +6,13 @@ import 'chrome://contextual-tasks/strings.m.js';
 import 'chrome://resources/cr_components/composebox/composebox_match.js';
 
 import {PageHandlerRemote} from 'chrome://resources/cr_components/composebox/composebox.mojom-webui.js';
+import {BaseLayout} from 'chrome://resources/cr_components/composebox/composebox_match.js';
 import type {ComposeboxMatchElement} from 'chrome://resources/cr_components/composebox/composebox_match.js';
 import {ComposeboxProxyImpl, createAutocompleteMatch} from 'chrome://resources/cr_components/composebox/composebox_proxy.js';
-import {PageCallbackRouter as SearchboxPageCallbackRouter, PageHandlerRemote as SearchboxPageHandlerRemote, SuggestStyle} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
+import {PageCallbackRouter as SearchboxPageCallbackRouter, PageHandlerRemote as SearchboxPageHandlerRemote} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
+import {SecondaryTextPlacement, SuggestStyle} from 'chrome://resources/mojo/components/omnibox/browser/suggest_template_info.mojom-webui.js';
 import {assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
+import {createSuggestTemplateInfo} from 'chrome://webui-test/cr_components/searchbox/searchbox_test_utils.js';
 import {TestMock} from 'chrome://webui-test/test_mock.js';
 import {eventToPromise, microtasksFinished} from 'chrome://webui-test/test_util.js';
 
@@ -45,8 +48,10 @@ suite('ComposeboxMatch', () => {
   test('renders match contents', async () => {
     // Single-row matches don't show their description.
     matchElement.match = createAutocompleteMatch({
-      contents: 'test contents',
-      description: 'test description',
+      suggestTemplate: createSuggestTemplateInfo({
+        primaryText: 'test contents',
+        secondaryText: 'test description',
+      }),
     });
     await microtasksFinished();
 
@@ -54,19 +59,22 @@ suite('ComposeboxMatch', () => {
     assertEquals('test contents', contents.textContent.trim());
   });
 
-  test('renders the secondary text on a second row', async () => {
+  test('renders the secondary text below the primary text', async () => {
     matchElement.match = createAutocompleteMatch({
-      contents: 'test contents',
-      description: 'test description',
-      isTwoRowSuggestion: true,
+      suggestTemplate: createSuggestTemplateInfo({
+        primaryText: 'test contents',
+        secondaryText: 'test description',
+        secondaryTextPlacement: SecondaryTextPlacement.kBelowPrimaryText,
+      }),
     });
     await microtasksFinished();
 
-    assertTrue(matchElement.isTwoRowSuggestion);
-    assertTrue(matchElement.hasAttribute('is-two-row-suggestion'));
-    assertEquals('test contents', getTextContent(matchElement, '#contents'));
     assertEquals(
-        'test description', getTextContent(matchElement, '#description'));
+        'below-primary-text',
+        matchElement.getAttribute('secondary-text-placement'));
+    assertEquals('test contents', getTextContent(matchElement, '#primaryText'));
+    assertEquals(
+        'test description', getTextContent(matchElement, '#secondaryText'));
 
     // The two-row height is not fixed; it falls out of the 24px primary line
     // and 20px secondary line inside the 10px of block padding.
@@ -77,52 +85,63 @@ suite('ComposeboxMatch', () => {
   });
 
   test('does not apply two-row styling to rich image matches', async () => {
-    // SearchboxHandler sets is_two_row_suggestion for every match that has an
-    // image_url, which is also what makes a match eligible for the rich image
-    // style, so rich image matches carry the attribute too. The two-row rules
-    // are qualified with the suggest style so that they do not pick it up.
+    // SearchboxHandler places the secondary text below the primary text for
+    // every match that has an image, which is also what makes a match
+    // eligible for the rich image style, so rich image matches carry the
+    // attribute too. The two-row rules are qualified with the suggest style so
+    // that they do not pick it up.
     matchElement.richImageSuggestionsEnabled = true;
     matchElement.match = createAutocompleteMatch({
-      contents: 'test contents',
-      imageUrl: 'https://example.com/image.png',
-      isTwoRowSuggestion: true,
-      suggestStyle: SuggestStyle.kRichImage,
+      suggestTemplate: createSuggestTemplateInfo({
+        primaryText: 'test contents',
+        secondaryTextPlacement: SecondaryTextPlacement.kBelowPrimaryText,
+        image: {url: 'https://example.com/image.png', dominantColor: ''},
+        style: SuggestStyle.kRichImage,
+      }),
     });
     await microtasksFinished();
 
     assertTrue(matchElement.isRichImage);
-    assertTrue(matchElement.hasAttribute('is-two-row-suggestion'));
+    assertEquals(
+        'below-primary-text',
+        matchElement.getAttribute('secondary-text-placement'));
     const container = matchElement.shadowRoot.querySelector('.container');
     assertTrue(!!container);
     assertStyle(container, 'padding-block-start', '0px');
     assertStyle(container, 'padding-block-end', '0px');
+    const secondaryText =
+        matchElement.shadowRoot.querySelector('#secondaryText');
+    assertTrue(!!secondaryText);
+    assertStyle(secondaryText, 'display', 'none');
   });
 
   test('clamps the primary text of two-row matches', async () => {
     // #textContainer holds both rows for two-row matches, so a line clamp on it
-    // would cut the secondary text and has to be applied to #contents instead.
-    // `overrideClampLineNum` is read in connectedCallback, so it has to be set
-    // before the element is attached.
+    // would cut the secondary text and has to be applied to #primaryText
+    // instead. `overrideClampLineNum` is read in connectedCallback, so it has
+    // to be set before the element is attached.
     const el: ComposeboxMatchElement =
         document.createElement('cr-composebox-match');
     el.overrideClampLineNum = 3;
     document.body.appendChild(el);
     el.match = createAutocompleteMatch({
-      contents: 'Very long text '.repeat(20),
-      description: 'test description',
-      isTwoRowSuggestion: true,
+      suggestTemplate: createSuggestTemplateInfo({
+        primaryText: 'Very long text '.repeat(20),
+        secondaryText: 'test description',
+        secondaryTextPlacement: SecondaryTextPlacement.kBelowPrimaryText,
+      }),
     });
     await microtasksFinished();
 
-    const contents = el.shadowRoot.querySelector('#contents');
-    const description = el.shadowRoot.querySelector('#description');
-    assertTrue(!!contents);
-    assertTrue(!!description);
+    const primaryText = el.shadowRoot.querySelector('#primaryText');
+    const secondaryText = el.shadowRoot.querySelector('#secondaryText');
+    assertTrue(!!primaryText);
+    assertTrue(!!secondaryText);
     assertStyle(el.$.textContainer, '-webkit-line-clamp', 'none');
-    assertStyle(contents, '-webkit-line-clamp', '3');
+    assertStyle(primaryText, '-webkit-line-clamp', '3');
     // The secondary text always stays on a single line.
-    assertStyle(description, '-webkit-line-clamp', 'none');
-    assertStyle(description, 'white-space', 'nowrap');
+    assertStyle(secondaryText, '-webkit-line-clamp', 'none');
+    assertStyle(secondaryText, 'white-space', 'nowrap');
 
     // Clean up.
     el.remove();
@@ -133,16 +152,34 @@ suite('ComposeboxMatch', () => {
       async () => {
         matchElement.richImageSuggestionsEnabled = true;
         matchElement.match = createAutocompleteMatch({
-          imageUrl: 'https://example.com/image.png',
-          suggestStyle: SuggestStyle.kRichImage,
+          suggestTemplate: createSuggestTemplateInfo({
+            image: {url: 'https://example.com/image.png', dominantColor: ''},
+            style: SuggestStyle.kRichImage,
+          }),
         });
         await microtasksFinished();
 
         assertTrue(matchElement.isRichImage);
         assertEquals('rich-image', matchElement.getAttribute('suggest-style'));
+        assertEquals('image', matchElement.getAttribute('base-layout'));
+        assertEquals(BaseLayout.IMAGE, matchElement.baseLayout);
         assertTrue(!!matchElement.$.image);
         assertTrue(
             matchElement.$.image.style.backgroundImage.includes('image.png'));
+
+        // Updating to a kRichImage match without an imageUrl transitions back
+        // to the default text base-layout.
+        matchElement.match = createAutocompleteMatch({
+          suggestTemplate:
+              createSuggestTemplateInfo({style: SuggestStyle.kRichImage}),
+        });
+        await microtasksFinished();
+
+        assertFalse(matchElement.isRichImage);
+        assertEquals('default', matchElement.getAttribute('suggest-style'));
+        assertEquals('text', matchElement.getAttribute('base-layout'));
+        assertEquals(BaseLayout.TEXT, matchElement.baseLayout);
+        assertEquals('', matchElement.$.image.style.backgroundImage);
       });
 
   test(
@@ -150,13 +187,17 @@ suite('ComposeboxMatch', () => {
       async () => {
         matchElement.richImageSuggestionsEnabled = true;
         matchElement.match = createAutocompleteMatch({
-          imageUrl: 'https://example.com/image.png',
-          suggestStyle: SuggestStyle.kDefault,
+          suggestTemplate: createSuggestTemplateInfo({
+            image: {url: 'https://example.com/image.png', dominantColor: ''},
+            style: SuggestStyle.kDefault,
+          }),
         });
         await microtasksFinished();
 
         assertFalse(matchElement.isRichImage);
         assertEquals('default', matchElement.getAttribute('suggest-style'));
+        assertEquals('text', matchElement.getAttribute('base-layout'));
+        assertEquals(BaseLayout.TEXT, matchElement.baseLayout);
         assertTrue(!!matchElement.$.image);
         assertEquals('', matchElement.$.image.style.backgroundImage);
       });
@@ -164,13 +205,17 @@ suite('ComposeboxMatch', () => {
   test('does not render background image when flag is disabled', async () => {
     matchElement.richImageSuggestionsEnabled = false;
     matchElement.match = createAutocompleteMatch({
-      imageUrl: 'https://example.com/image.png',
-      suggestStyle: SuggestStyle.kRichImage,
+      suggestTemplate: createSuggestTemplateInfo({
+        image: {url: 'https://example.com/image.png', dominantColor: ''},
+        style: SuggestStyle.kRichImage,
+      }),
     });
     await microtasksFinished();
 
     assertFalse(matchElement.isRichImage);
     assertEquals('default', matchElement.getAttribute('suggest-style'));
+    assertEquals('text', matchElement.getAttribute('base-layout'));
+    assertEquals(BaseLayout.TEXT, matchElement.baseLayout);
     assertTrue(!!matchElement.$.image);
     assertEquals('', matchElement.$.image.style.backgroundImage);
   });
@@ -242,9 +287,9 @@ suite('ComposeboxMatch', () => {
         await microtasksFinished();
 
         assertEquals('3', el.style.getPropertyValue('--clamp-line-num'));
-        const contents = el.shadowRoot.querySelector('#contents');
-        assertTrue(!!contents);
-        assertStyle(contents, '-webkit-line-clamp', '3');
+        const primaryText = el.shadowRoot.querySelector('#primaryText');
+        assertTrue(!!primaryText);
+        assertStyle(primaryText, '-webkit-line-clamp', '3');
 
         // Clean up.
         el.remove();
@@ -252,10 +297,91 @@ suite('ComposeboxMatch', () => {
 
   test('iconContainer does not shrink with long text', async () => {
     matchElement.match = createAutocompleteMatch({
-      contents: 'Very long text '.repeat(20),
+      suggestTemplate: createSuggestTemplateInfo({
+        primaryText: 'Very long text '.repeat(20),
+      }),
     });
     await microtasksFinished();
 
     assertStyle(matchElement.$.iconContainer, 'flex-shrink', '0');
+  });
+
+  test(
+      'willTabExitMatch accounts for supportsDeletion and remove button focus',
+      async () => {
+        // When supportsDeletion is false, both Tab and Shift-Tab exit the
+        // match.
+        matchElement.match = createAutocompleteMatch({
+          supportsDeletion: false,
+        });
+        await microtasksFinished();
+        assertTrue(matchElement.willTabExitMatch(/*shiftKey=*/ false));
+        assertTrue(matchElement.willTabExitMatch(/*shiftKey=*/ true));
+
+        // When supportsDeletion is true and focus is on the match row (not the
+        // remove button), Shift-Tab exits the match while forward Tab moves to
+        // the remove button.
+        matchElement.match = createAutocompleteMatch({
+          supportsDeletion: true,
+        });
+        matchElement.toggleAttribute('selected', true);
+        await microtasksFinished();
+
+        assertFalse(matchElement.isRemoveButtonFocused());
+        assertFalse(matchElement.willTabExitMatch(/*shiftKey=*/ false));
+        assertTrue(matchElement.willTabExitMatch(/*shiftKey=*/ true));
+
+        // When focus is on the remove button, forward Tab exits the match
+        // while Shift-Tab moves back to the match row.
+        matchElement.$.remove.style.display = 'inline-flex';
+        matchElement.$.remove.focus();
+        await microtasksFinished();
+
+        assertTrue(matchElement.isRemoveButtonFocused());
+        assertTrue(matchElement.willTabExitMatch(/*shiftKey=*/ false));
+        assertFalse(matchElement.willTabExitMatch(/*shiftKey=*/ true));
+      });
+
+  test('loading state suppresses image/text and ignores clicks', async () => {
+    matchElement.richImageSuggestionsEnabled = true;
+    matchElement.matchIndex = 1;
+    matchElement.match = createAutocompleteMatch({
+      suggestTemplate: createSuggestTemplateInfo({
+        primaryText: 'test contents',
+        image: {url: 'https://example.com/image.png', dominantColor: ''},
+        style: SuggestStyle.kRichImage,
+      }),
+    });
+    matchElement.loading = true;
+    await microtasksFinished();
+
+    assertTrue(matchElement.hasAttribute('loading'));
+    const imageEl =
+        matchElement.shadowRoot.querySelector<HTMLElement>('#image');
+    assertTrue(!!imageEl);
+    assertEquals('', imageEl.style.backgroundImage);
+
+    // Clicks and focusin while loading should be ignored.
+    let focusinFired = false;
+    matchElement.addEventListener('match-focusin', () => {
+      focusinFired = true;
+    });
+    matchElement.dispatchEvent(new FocusEvent('focusin'));
+    matchElement.click();
+    await microtasksFinished();
+    assertFalse(focusinFired);
+    assertEquals(0, searchboxHandler.getCallCount('openAutocompleteMatch'));
+
+    // Once loading finishes, background image is applied and events work.
+    matchElement.loading = false;
+    await microtasksFinished();
+    assertFalse(matchElement.hasAttribute('loading'));
+    assertTrue(imageEl.style.backgroundImage.includes('example.com'));
+
+    matchElement.dispatchEvent(new FocusEvent('focusin'));
+    matchElement.click();
+    await microtasksFinished();
+    assertTrue(focusinFired);
+    assertEquals(1, searchboxHandler.getCallCount('openAutocompleteMatch'));
   });
 });

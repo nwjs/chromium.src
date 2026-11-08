@@ -5,7 +5,7 @@
 import type {WindowOpenDisposition} from '//resources/mojo/ui/base/mojom/window_open_disposition.mojom-webui.js';
 import type {SuggestInventory} from 'chrome://resources/mojo/components/omnibox/browser/fusebox_action.mojom-webui.js';
 import type {NavigationPredictor} from 'chrome://resources/mojo/components/omnibox/browser/omnibox.mojom-webui.js';
-import type {ActionModifiers, InputMethod, OmniboxPopupSelection, PageHandlerInterface, PageRemote, PlaceholderConfig, SelectedFileInfo, SmartComposeStats} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
+import type {ActionModifiers, InputMethod, KeywordActivationMethod, OmniboxPopupSelection, PageHandlerInterface, PageRemote, PlaceholderConfig, SelectedFileInfo, SmartComposeStats} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 import {DriveDisclaimerStatus, PageCallbackRouter} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 import type {ModelMode, ToolMode} from 'chrome://resources/mojo/components/omnibox/composebox/composebox_query.mojom-webui.js';
 import type {BigBuffer} from 'chrome://resources/mojo/mojo/public/mojom/base/big_buffer.mojom-webui.js';
@@ -66,6 +66,7 @@ class FakePageHandler extends TestBrowserProxy implements PageHandlerInterface {
       'setPopupSelection',
       'setSmartComposeStats',
       'setSmartTabSharingActive',
+      'resetSmartTabSharing',
       'showContextMenu',
       'showHotkeyDropdown',
       'showScreenshotMenu',
@@ -92,12 +93,12 @@ class FakePageHandler extends TestBrowserProxy implements PageHandlerInterface {
 
   activateKeyword(
       line: number, url: Url, matchSelectionTimestamp: TimeTicks,
-      isMouseEvent: boolean) {
+      activationMethod: KeywordActivationMethod) {
     this.methodCalled('activateKeyword', {
       line,
       url,
       matchSelectionTimestamp,
-      isMouseEvent,
+      activationMethod,
     });
   }
 
@@ -335,6 +336,14 @@ class FakePageHandler extends TestBrowserProxy implements PageHandlerInterface {
     this.methodCalled('getSmartTabSharingActive');
     if (this.results_.has('getSmartTabSharingActive')) {
       return this.results_.get('getSmartTabSharingActive');
+    }
+    return Promise.resolve({active: false});
+  }
+
+  resetSmartTabSharing() {
+    this.methodCalled('resetSmartTabSharing');
+    if (this.results_.has('resetSmartTabSharing')) {
+      return this.results_.get('resetSmartTabSharing');
     }
     return Promise.resolve({active: false});
   }

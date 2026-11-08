@@ -6,10 +6,14 @@
 
 #include <algorithm>
 #include <memory>
+#include <optional>
 #include <utility>
 #include <vector>
 
+#include "base/check.h"
 #include "base/no_destructor.h"
+#include "base/types/expected.h"
+#include "remoting/host/terminal_error.h"
 
 namespace remoting {
 
@@ -29,10 +33,17 @@ std::vector<int32_t>& GetPersistentSessionIdList() {
   static base::NoDestructor<std::vector<int32_t>> persistent_session_id_list;
   return *persistent_session_id_list;
 }
-}  // namespace
 
-// static
-bool FakeTerminalSession::next_start_fail_ = false;
+std::optional<TerminalError>& GetNextStartError() {
+  static base::NoDestructor<std::optional<TerminalError>> next_start_error;
+  return *next_start_error;
+}
+
+bool& GetDeferStart() {
+  static bool defer_start = false;
+  return defer_start;
+}
+}  // namespace
 
 // static
 std::vector<base::WeakPtr<FakeTerminalSession>>
@@ -59,14 +70,21 @@ void FakeTerminalSession::ResetTerminatedIds() {
 
 // static
 void FakeTerminalSession::ResetStaticState() {
-  next_start_fail_ = false;
+  GetNextStartError().reset();
+  GetDeferStart() = false;
   ResetTerminatedIds();
   GetPersistentSessionIdList().clear();
 }
 
 // static
-void FakeTerminalSession::SetNextStartFail(bool fail) {
-  next_start_fail_ = fail;
+void FakeTerminalSession::SetNextStartError(
+    std::optional<TerminalError> error) {
+  GetNextStartError() = std::move(error);
+}
+
+// static
+void FakeTerminalSession::SetDeferStart(bool defer) {
+  GetDeferStart() = defer;
 }
 
 // static
@@ -77,6 +95,11 @@ void FakeTerminalSession::SetPersistentTerminalIds(std::vector<int32_t> ids) {
 // static
 std::vector<int32_t> FakeTerminalSession::GetPersistentIds() {
   return GetPersistentSessionIdList();
+}
+
+// static
+bool TerminalSession::IsSupported() {
+  return true;
 }
 
 // static
@@ -111,13 +134,30 @@ FakeTerminalSession::~FakeTerminalSession() {
   std::erase(active_session_list, this);
 }
 
-bool FakeTerminalSession::Start() {
-  if (next_start_fail_) {
-    next_start_fail_ = false;
-    return false;
+void FakeTerminalSession::Start(StartCallback callback) {
+  CHECK(!pending_start_callback_);
+  std::optional<TerminalError>& next_start_error = GetNextStartError();
+  if (next_start_error.has_value()) {
+    TerminalError error = std::move(*next_start_error);
+    next_start_error.reset();
+    std::move(callback).Run(base::unexpected(std::move(error)));
+    return;
   }
-  is_started_ = true;
-  return true;
+  pending_start_callback_ = std::move(callback);
+  if (!GetDeferStart()) {
+    CompleteStart(base::ok());
+  }
+}
+
+void FakeTerminalSession::CompleteStart(
+    base::expected<void, TerminalError> result) {
+  CHECK(pending_start_callback_);
+  StartCallback callback = std::move(pending_start_callback_);
+  if (is_detached_ || is_terminated_) {
+    return;
+  }
+  is_started_ = result.has_value();
+  std::move(callback).Run(std::move(result));
 }
 
 void FakeTerminalSession::Write(const std::string& data) {

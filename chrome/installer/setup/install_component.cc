@@ -6,7 +6,7 @@
 
 #include <stdint.h>
 
-#include <algorithm>
+#include <array>
 #include <memory>
 #include <optional>
 #include <string>
@@ -15,23 +15,28 @@
 
 #include "base/base64.h"
 #include "base/check.h"
-#include "base/containers/span.h"
+#include "base/command_line.h"
+#include "base/containers/fixed_flat_map.h"
 #include "base/files/file.h"
 #include "base/files/file_enumerator.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
+#include "base/functional/function_ref.h"
 #include "base/json/json_file_value_serializer.h"
 #include "base/logging.h"
+#include "base/types/expected_macros.h"
 #include "base/values.h"
 #include "base/version.h"
+#include "chrome/common/child_module/child_module_helper.h"
+#include "chrome/installer/setup/dynamic_patch_component.h"
 #include "chrome/installer/setup/installer_state.h"
+#include "chrome/installer/setup/platform_runtime_component.h"
 #include "chrome/installer/util/delete_after_reboot_helper.h"
 #include "chrome/installer/util/file_conductor.h"
 #include "chrome/installer/util/self_cleaning_temp_dir.h"
 #include "chrome/installer/util/util_constants.h"
 #include "components/crx_file/crx_verifier.h"
-#include "components/crx_file/id_util.h"
 #include "crypto/hash.h"
 #include "third_party/abseil-cpp/absl/cleanup/cleanup.h"
 #include "third_party/zlib/google/zip.h"
@@ -40,26 +45,57 @@ namespace installer {
 
 namespace {
 
+// The component's manifest. It is copied into a version directory last, so
+// its presence there marks installation of that version as complete.
 constexpr base::FilePath::CharType kManifestFilename[] =
     FILE_PATH_LITERAL("manifest.json");
-constexpr base::FilePath::CharType kTempManifestFilename[] =
-    FILE_PATH_LITERAL("manifest.json.tmp");
 
-// The SHA256 of the SubjectPublicKeyInfo used to sign the PlatformRuntime
-// component.
-constexpr uint8_t kPlatformRuntimePublicKeySHA256[32] = {
-    0x98, 0x34, 0x28, 0xc0, 0x5e, 0x1e, 0x60, 0x76, 0xb8, 0x2f, 0xc4,
-    0x09, 0x20, 0x00, 0x81, 0x81, 0x76, 0x2f, 0x59, 0xa6, 0x57, 0x67,
-    0x42, 0xd1, 0xfe, 0xdf, 0xd0, 0x28, 0x86, 0x10, 0xef, 0xf0};
+// The browser watches for the same file to know when a dynamic patch is ready.
+static_assert(base::FilePath::StringViewType(kManifestFilename) ==
+              base::FilePath::StringViewType(child_module::kManifestFilename));
 
-constexpr ComponentConfig kSupportedComponents[] = {
-    {"Chrome Platform Runtime (Inner)", kPlatformRuntimePublicKeySHA256},
-};
+// Pinned SubjectPublicKeyInfo SHA256 of the production dynamic patch component
+// key (CRX ID: "binbghhnflgglfabhjocbobkiignbgfh").
+constexpr std::array<uint8_t, crypto::hash::kSha256Size>
+    kDynamicPatchPublicKeySHA256 = {
+        0x18, 0xd1, 0x67, 0x7d, 0x5b, 0x66, 0xb5, 0x01, 0x79, 0xe2, 0x1e,
+        0x1a, 0x88, 0x6d, 0x16, 0x57, 0x04, 0x67, 0x63, 0xf0, 0xa2, 0xd1,
+        0x0e, 0x39, 0xbf, 0x6d, 0xeb, 0x45, 0x33, 0xe8, 0xda, 0x82};
+
+// Pinned SubjectPublicKeyInfo SHA256 of the production PlatformRuntime
+// component key (CRX ID: "jidecimafobogahglicpmeajcaaaibib").
+constexpr std::array<uint8_t, crypto::hash::kSha256Size>
+    kPlatformRuntimePublicKeySHA256 = {
+        0x98, 0x34, 0x28, 0xc0, 0x5e, 0x1e, 0x60, 0x76, 0xb8, 0x2f, 0xc4,
+        0x09, 0x20, 0x00, 0x81, 0x81, 0x76, 0x2f, 0x59, 0xa6, 0x57, 0x67,
+        0x42, 0xd1, 0xfe, 0xdf, 0xd0, 0x28, 0x86, 0x10, 0xef, 0xf0};
+
+// Factory function type that creates a ComponentInterface from a CommandLine.
+using ComponentFactoryFunction =
+    std::unique_ptr<ComponentInterface> (*)(const base::CommandLine&,
+                                            const InstallerState&);
+
+// Helper function template for calling the static Create member function of an
+// implementation's class.
+template <typename ComponentImpl>
+std::unique_ptr<ComponentInterface> CreateComponent(
+    const base::CommandLine& command_line,
+    const InstallerState& installer_state) {
+  return ComponentImpl::Create(command_line, installer_state);
+}
+
+constexpr auto kSupportedComponents =
+    base::MakeFixedFlatMap<std::array<uint8_t, crypto::hash::kSha256Size>,
+                           ComponentFactoryFunction>({
+        {kPlatformRuntimePublicKeySHA256,
+         &CreateComponent<PlatformRuntimeComponent>},
+        {kDynamicPatchPublicKeySHA256, &CreateComponent<DynamicPatchComponent>},
+    });
 
 InstallStatus InstallComponentInternal(
     const base::FilePath& source_file,
     const InstallerState& installer_state,
-    base::span<const ComponentConfig> supported_components,
+    ComponentFactory component_factory,
     crx_file::VerifierFormat verifier_format) {
   // Source file must be absolute, non-empty and must not reference parent dirs.
   CHECK(source_file.IsAbsolute() && !source_file.ReferencesParent());
@@ -100,17 +136,6 @@ InstallStatus InstallComponentInternal(
     return installer::INSTALL_COMPONENT_FAILED_SIGNATURE;
   }
 
-  auto it = std::ranges::find_if(
-      supported_components, [&](const ComponentConfig& config) {
-        return crx_file::id_util::GenerateIdFromHash(
-                   config.public_key_sha256) == crx_id;
-      });
-  if (it == supported_components.end()) {
-    LOG(ERROR) << "Unsupported component CRX ID: " << crx_id;
-    return installer::INSTALL_COMPONENT_INVALID_INPUT;
-  }
-  const ComponentConfig& component_config = *it;
-
   std::optional<std::vector<uint8_t>> public_key_bytes =
       base::Base64Decode(public_key);
   if (!public_key_bytes.has_value()) {
@@ -119,10 +144,12 @@ InstallStatus InstallComponentInternal(
   }
 
   const auto public_key_sha256 = crypto::hash::Sha256(*public_key_bytes);
-  if (!std::ranges::equal(public_key_sha256,
-                          component_config.public_key_sha256)) {
-    LOG(ERROR) << "Component public key hash mismatch for " << crx_id;
-    return installer::INSTALL_COMPONENT_FAILED_SIGNATURE;
+
+  std::unique_ptr<ComponentInterface> component =
+      component_factory(public_key_sha256);
+  if (!component) {
+    LOG(ERROR) << "Unsupported component CRX ID: " << crx_id;
+    return installer::INSTALL_COMPONENT_INVALID_INPUT;
   }
 
   // Temp directory for unpacking the CRX payload, under the installer's dir.
@@ -158,13 +185,9 @@ InstallStatus InstallComponentInternal(
     VLOG(1) << "Failed to delete staged CRX directory";
   }
 
-  // Read manifest.json to get version and validate name.
+  // Deserialization fails with an appropriate error message if the manifest
+  // does not exist.
   base::FilePath manifest_path = unpack_dir.Append(kManifestFilename);
-  if (!base::PathExists(manifest_path)) {
-    LOG(ERROR) << "manifest.json missing in unpacked component.";
-    return installer::INSTALL_COMPONENT_INVALID_INPUT;
-  }
-
   JSONFileValueDeserializer deserializer(manifest_path);
   std::string error;
   std::unique_ptr<base::Value> root = deserializer.Deserialize(nullptr, &error);
@@ -173,39 +196,62 @@ InstallStatus InstallComponentInternal(
     return installer::INSTALL_COMPONENT_INVALID_INPUT;
   }
 
-  const std::string* manifest_name = root->GetDict().FindString("name");
-  if (!manifest_name || *manifest_name != component_config.manifest_name) {
-    LOG(ERROR) << "Component manifest name mismatch. Expected: "
-               << component_config.manifest_name << ", actual: "
-               << (manifest_name ? *manifest_name : "(missing)");
+  const base::DictValue& manifest_dict = root->GetDict();
+  if (!component->ReadManifest(manifest_dict)) {
     return installer::INSTALL_COMPONENT_INVALID_INPUT;
   }
 
-  const std::string* manifest_version = root->GetDict().FindString("version");
+  const std::string* manifest_version = manifest_dict.FindString("version");
   if (!manifest_version) {
     LOG(ERROR) << "Failed to find version in manifest.json";
     return installer::INSTALL_COMPONENT_INVALID_INPUT;
   }
+  // Require the version to be in canonical form (e.g., reject "1.02") so that
+  // the name of the directory into which it is installed, which is derived
+  // from the parsed version, matches the version in the manifest.
   const base::Version component_version(*manifest_version);
-  if (!component_version.IsValid()) {
+  if (!component_version.IsValid() ||
+      component_version.GetString() != *manifest_version) {
     LOG(ERROR) << "Invalid version in manifest: " << *manifest_version;
     return installer::INSTALL_COMPONENT_INVALID_INPUT;
   }
 
+  // Move the manifest out of the payload so that it can be copied into the
+  // destination last. The presence of the manifest marks the installation as
+  // complete and ready for use; if the process terminates while the payload is
+  // being copied, the destination will lack the manifest and will be ignored
+  // and eventually deleted. FileConductor retries on transient failures (e.g.,
+  // a scanner holding the file open), and a non-lenient move fails unless the
+  // manifest is removed from the payload.
+  base::FilePath staged_manifest_dir;
+  if (!base::CreateTemporaryDirInDir(temp_path.path(), L"Manifest",
+                                     &staged_manifest_dir)) {
+    PLOG(ERROR) << "Failed to create manifest staging subdirectory in "
+                << temp_path.path();
+    return installer::INSTALL_COMPONENT_FAILED_INTERNAL;
+  }
+  const base::FilePath staged_manifest_path =
+      staged_manifest_dir.Append(kManifestFilename);
+  if (!file_conductor.MoveEntry(manifest_path, staged_manifest_path)) {
+    PLOG(ERROR) << "Failed to move manifest.json out of unpacked component";
+    return installer::INSTALL_COMPONENT_FAILED_INTERNAL;
+  }
+
+  // Determine component destination root.
+  ASSIGN_OR_RETURN(
+      const base::FilePath component_root,
+      component->DetermineDestinationRoot(installer_state, crx_id));
+
   // Verify no newer version is already installed.
-  base::FilePath component_root =
-      installer_state.target_path().Append(base::FilePath::FromASCII(crx_id));
-  std::optional<base::Version> highest_version =
+  const base::Version highest_version =
       FindHighestComponentVersion(component_root);
-  if (highest_version && *highest_version >= component_version) {
+  if (highest_version.IsValid() && highest_version >= component_version) {
     LOG(INFO) << "Component is already installed at a same or higher version: "
-              << highest_version->GetString()
-              << " >= " << component_version.GetString();
+              << highest_version << " >= " << component_version;
     return installer::INSTALL_COMPONENT_ALREADY_EXISTS;
   }
 
-  // Derive fixed destination in
-  // C:\Program Files\...\<component_dir>\<version>
+  // Derive fixed destination.
   base::FilePath target_dir =
       component_root.AppendASCII(component_version.GetString());
 
@@ -224,6 +270,10 @@ InstallStatus InstallComponentInternal(
     return installer::INSTALL_COMPONENT_FAILED_INTERNAL;
   }
 
+  if (!component->InitializeDestinationRoot(installer_state, component_root)) {
+    return installer::INSTALL_COMPONENT_FAILED_INTERNAL;
+  }
+
   // Delete the target directory if it exists to clean up any previous
   // installation attempts. Using FileConductor allows rollback on failure.
   if (!file_conductor.DeleteEntry(target_dir)) {
@@ -231,24 +281,20 @@ InstallStatus InstallComponentInternal(
                   << target_dir;
   }
 
-  // Rename manifest.json to a temporary name before moving unpack_dir to
-  // target_dir. This ensures that if the installation process terminates
-  // unexpectedly midway through moving or copying files, GetComponentVersion()
-  // will not detect target_dir as a valid installed component.
-  if (!file_conductor.MoveEntry(manifest_path,
-                                unpack_dir.Append(kTempManifestFilename))) {
-    PLOG(ERROR) << "Failed to rename manifest.json to manifest.json.tmp";
+  // Copy the payload (which no longer contains the manifest) to the versioned
+  // destination, then copy the manifest in last to mark the installation as
+  // complete. Copying rather than moving is essential: a move retains the
+  // security descriptor that an item had in the temp directory, whereas a copy
+  // creates new items that inherit their ACEs from the destination. This
+  // ensures that the installed files get the access rights set on the
+  // destination root (e.g., the protected DACL that InitializeDestinationRoot
+  // applies to a dynamic patch's per-user directory). The unpacked files in the
+  // temp directory are deleted along with it.
+  if (!file_conductor.CopyEntry(unpack_dir, target_dir)) {
+    PLOG(ERROR) << "Failed to copy component payload to " << target_dir;
     return installer::INSTALL_COMPONENT_FAILED_INTERNAL;
   }
-
-  // Atomic move to final versioned destination. Move the whole unpack_dir.
-  if (!file_conductor.MoveEntry(unpack_dir, target_dir,
-                                /*lenient_deletion=*/true)) {
-    return installer::INSTALL_COMPONENT_FAILED_INTERNAL;
-  }
-
-  // Restore manifest.json last to mark the component installation as complete.
-  if (!file_conductor.MoveEntry(target_dir.Append(kTempManifestFilename),
+  if (!file_conductor.CopyEntry(staged_manifest_path,
                                 target_dir.Append(kManifestFilename))) {
     PLOG(ERROR) << "Failed to finalize manifest.json in target directory: "
                 << target_dir;
@@ -264,42 +310,52 @@ InstallStatus InstallComponentInternal(
 }  // namespace
 
 InstallStatus InstallComponent(const base::FilePath& source_file,
-                               const InstallerState& installer_state) {
+                               const InstallerState& installer_state,
+                               const base::CommandLine& command_line) {
+  auto factory_lookup =
+      [&command_line, &installer_state](
+          const std::array<uint8_t, crypto::hash::kSha256Size>& hash)
+      -> std::unique_ptr<ComponentInterface> {
+    auto it = kSupportedComponents.find(hash);
+    return it != kSupportedComponents.end()
+               ? it->second(command_line, installer_state)
+               : nullptr;
+  };
   return InstallComponentInternal(
-      source_file, installer_state, kSupportedComponents,
+      source_file, installer_state, factory_lookup,
       crx_file::VerifierFormat::CRX3_WITH_PUBLISHER_PROOF);
 }
 
 InstallStatus InstallComponentForTesting(
     const base::FilePath& source_file,
     const InstallerState& installer_state,
-    base::span<const ComponentConfig> supported_components,
+    ComponentFactory component_factory,
     crx_file::VerifierFormat verifier_format) {
   return InstallComponentInternal(source_file, installer_state,
-                                  supported_components, verifier_format);
+                                  component_factory, verifier_format);
 }
 
-std::optional<base::Version> GetComponentVersion(
-    const base::FilePath& version_dir) {
-  base::Version version(version_dir.BaseName().MaybeAsASCII());
-  if (!version.IsValid()) {
-    return std::nullopt;
-  }
-  if (!base::PathExists(version_dir.Append(kManifestFilename))) {
-    return std::nullopt;
+base::Version GetComponentVersion(const base::FilePath& version_dir) {
+  // Version directories are named with the canonical form of their version, so
+  // reject any name that merely parses as one (e.g., "1.02").
+  const std::string name = version_dir.BaseName().MaybeAsASCII();
+  base::Version version(name);
+  if (!version.IsValid() || version.GetString() != name ||
+      !base::PathExists(version_dir.Append(kManifestFilename))) {
+    return base::Version();
   }
   return version;
 }
 
-std::optional<base::Version> FindHighestComponentVersion(
+base::Version FindHighestComponentVersion(
     const base::FilePath& component_root) {
-  std::optional<base::Version> highest_version;
+  base::Version highest_version;
   base::FileEnumerator(component_root, /*recursive=*/false,
                        base::FileEnumerator::DIRECTORIES)
       .ForEach([&highest_version](const base::FilePath& existing_dir) {
-        std::optional<base::Version> version =
-            GetComponentVersion(existing_dir);
-        if (version && (!highest_version || *version > *highest_version)) {
+        base::Version version = GetComponentVersion(existing_dir);
+        if (version.IsValid() &&
+            (!highest_version.IsValid() || version > highest_version)) {
           highest_version = std::move(version);
         }
       });
@@ -311,9 +367,9 @@ void DeleteInvalidComponentDirectories(const base::FilePath& component_root,
   base::FileEnumerator(component_root, /*recursive=*/false,
                        base::FileEnumerator::DIRECTORIES)
       .ForEach([&keep_version](const base::FilePath& existing_dir) {
-        std::optional<base::Version> existing_version =
+        const base::Version existing_version =
             GetComponentVersion(existing_dir);
-        if (!existing_version.has_value() || *existing_version < keep_version) {
+        if (!existing_version.IsValid() || existing_version < keep_version) {
           if (base::DeletePathRecursively(existing_dir)) {
             VLOG(1) << "Deleted old or invalid component directory: "
                     << existing_dir;
@@ -321,6 +377,10 @@ void DeleteInvalidComponentDirectories(const base::FilePath& component_root,
             PLOG(WARNING)
                 << "Failed to delete old or invalid component directory "
                 << existing_dir;
+            // Scheduling deletion at reboot requires admin rights, so this
+            // does nothing for user-level installs. That is acceptable: the
+            // directory will be retried the next time a component is installed
+            // into `component_root`.
             ScheduleDirectoryForDeletion(existing_dir);
           }
         }

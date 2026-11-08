@@ -42,6 +42,7 @@
 #include "components/omnibox/browser/fusebox_action_mojo_utils.h"
 #include "components/omnibox/browser/remote_suggestions_service.h"
 #include "components/omnibox/browser/search_suggestion_parser.h"
+#include "components/omnibox/browser/suggest_template_info.mojom.h"
 #include "components/search/ntp_features.h"
 #include "components/strings/grit/components_strings.h"
 #include "components/url_formatter/url_formatter.h"
@@ -62,11 +63,13 @@ using ::action_chips::RemoteSuggestionsServiceSimple;
 using ::action_chips::RemoteSuggestionsServiceSimpleImpl;
 using ::action_chips::mojom::ActionChip;
 using ::action_chips::mojom::ActionChipPtr;
-using ::action_chips::mojom::IconType;
-using ::action_chips::mojom::SuggestTemplateInfo;
-using ::action_chips::mojom::SuggestTemplateInfoPtr;
 using ::action_chips::mojom::TabInfo;
 using ::action_chips::mojom::TabInfoPtr;
+using ::suggest_template_info::mojom::FormattedString;
+using ::suggest_template_info::mojom::FormattedStringPtr;
+using ::suggest_template_info::mojom::IconType;
+using ::suggest_template_info::mojom::SuggestTemplateInfo;
+using ::suggest_template_info::mojom::SuggestTemplateInfoPtr;
 using ::tabs::TabInterface;
 
 const size_t kMaxActionChips = 3;
@@ -135,23 +138,22 @@ void SyncProtoToMojo(const ProtoA& a, MojoBPtr& b) {
 }
 
 template <>
-void SyncProtoToMojo<omnibox::FormattedString,
-                     action_chips::mojom::FormattedStringPtr>(
+void SyncProtoToMojo<omnibox::FormattedString, FormattedStringPtr>(
     const omnibox::FormattedString& a,
-    action_chips::mojom::FormattedStringPtr& b) {
+    FormattedStringPtr& b) {
+  // The fragments are not converted, since the chips don't style their text.
   if (a.has_text()) {
-    AssignMojoField(a.text(), b->text);
+    b->text = base::UTF8ToUTF16(a.text());
   }
   if (a.has_a11y_text()) {
-    AssignMojoField(a.a11y_text(), b->a11y_text);
+    b->a11y_text = base::UTF8ToUTF16(a.a11y_text());
   }
 }
 
 template <>
-void SyncProtoToMojo<omnibox::SuggestTemplateInfo,
-                     action_chips::mojom::SuggestTemplateInfoPtr>(
+void SyncProtoToMojo<omnibox::SuggestTemplateInfo, SuggestTemplateInfoPtr>(
     const omnibox::SuggestTemplateInfo& a,
-    action_chips::mojom::SuggestTemplateInfoPtr& b) {
+    SuggestTemplateInfoPtr& b) {
   if (a.has_type_icon()) {
     AssignMojoField(a.type_icon(), b->type_icon);
   }
@@ -168,6 +170,20 @@ void SyncProtoToMojo<omnibox::SuggestTemplateInfo,
   }
 }
 
+// Creates a SuggestTemplateInfoPtr with the given icon and unstyled text.
+SuggestTemplateInfoPtr CreateSuggestTemplateInfo(
+    IconType type_icon,
+    std::u16string primary_text,
+    std::u16string secondary_text = std::u16string()) {
+  SuggestTemplateInfoPtr suggest_template_info = SuggestTemplateInfo::New();
+  suggest_template_info->type_icon = type_icon;
+  suggest_template_info->primary_text = FormattedString::New();
+  suggest_template_info->primary_text->text = std::move(primary_text);
+  suggest_template_info->secondary_text = FormattedString::New();
+  suggest_template_info->secondary_text->text = std::move(secondary_text);
+  return suggest_template_info;
+}
+
 // Creates a SuggestTemplateInfoPtr from an omnibox::SuggestTemplateInfo.
 // Returns nullptr if we cannot handle the proto (e.g., the enum is not
 // available on our side).
@@ -175,8 +191,8 @@ SuggestTemplateInfoPtr CreateSuggestTemplateInfo(
     const omnibox::SuggestTemplateInfo& suggest_template_info) {
   static_assert(
       static_cast<int32_t>(omnibox::SuggestTemplateInfo::IconType_MAX) ==
-          static_cast<int32_t>(action_chips::mojom::IconType::kMaxValue),
-      "IconType enum values must match between omnibox and action chips.");
+          static_cast<int32_t>(IconType::kMaxValue),
+      "IconType enum values must match between the proto and the mojom.");
   // The remote endpoint may send the icon type unknown to us.
   // When this occurs, we get the following:
   // - the default value of the enum (when the closed enum is used as in
@@ -190,8 +206,11 @@ SuggestTemplateInfoPtr CreateSuggestTemplateInfo(
     return nullptr;
   }
 
+  // Start from empty text, which the Mojo struct requires even if the proto
+  // has none.
   SuggestTemplateInfoPtr mojom_suggest_template_info =
-      SuggestTemplateInfo::New();
+      CreateSuggestTemplateInfo(IconType::kIconTypeUnspecified,
+                                /*primary_text=*/std::u16string());
   SyncProtoToMojo(suggest_template_info, mojom_suggest_template_info);
 
   return mojom_suggest_template_info;
@@ -217,17 +236,12 @@ ActionChipPtr CreateRecentTabChip(TabInfoPtr tab, std::string_view suggestion) {
   ActionChipPtr chip = ActionChip::New();
   chip->suggestion = std::string();
   chip->tab = std::move(tab);
-  chip->suggest_template_info = SuggestTemplateInfo::New();
-  chip->suggest_template_info->type_icon = IconType::kFavicon;
-  chip->suggest_template_info->primary_text =
-      action_chips::mojom::FormattedString::New();
-  chip->suggest_template_info->primary_text->text =
+  chip->suggest_template_info = CreateSuggestTemplateInfo(
+      IconType::kFavicon,
       !suggestion.empty()
-          ? std::string(suggestion)
-          : l10n_util::GetStringUTF8(IDS_NTP_ACTION_CHIP_TAB_HEADING_1);
-  chip->suggest_template_info->secondary_text =
-      action_chips::mojom::FormattedString::New();
-  chip->suggest_template_info->secondary_text->text = chip->tab->title;
+          ? base::UTF8ToUTF16(suggestion)
+          : l10n_util::GetStringUTF16(IDS_NTP_ACTION_CHIP_TAB_HEADING_1),
+      base::UTF8ToUTF16(chip->tab->title));
   chip->suggest_template_info->fusebox_action =
       fusebox_action::mojom::FuseboxAction::New();
   SetPasteAndComposeboxOverrides(*chip->suggest_template_info->fusebox_action);
@@ -237,18 +251,12 @@ ActionChipPtr CreateRecentTabChip(TabInfoPtr tab, std::string_view suggestion) {
 ActionChipPtr CreateDeepSearchChip(std::string_view suggestion) {
   ActionChipPtr chip = ActionChip::New();
   chip->suggestion = std::string();
-  chip->suggest_template_info = SuggestTemplateInfo::New();
-  chip->suggest_template_info->type_icon = IconType::kGlobeWithSearchLoop;
-  chip->suggest_template_info->primary_text =
-      action_chips::mojom::FormattedString::New();
-  chip->suggest_template_info->primary_text->text =
-      l10n_util::GetStringUTF8(IDS_NTP_COMPOSE_DEEP_SEARCH);
-  chip->suggest_template_info->secondary_text =
-      action_chips::mojom::FormattedString::New();
-  chip->suggest_template_info->secondary_text->text =
+  chip->suggest_template_info = CreateSuggestTemplateInfo(
+      IconType::kGlobeWithSearchLoop,
+      l10n_util::GetStringUTF16(IDS_NTP_COMPOSE_DEEP_SEARCH),
       !suggestion.empty()
-          ? std::string(suggestion)
-          : l10n_util::GetStringUTF8(IDS_NTP_ACTION_CHIP_DEEP_SEARCH_BODY);
+          ? base::UTF8ToUTF16(suggestion)
+          : l10n_util::GetStringUTF16(IDS_NTP_ACTION_CHIP_DEEP_SEARCH_BODY));
   chip->suggest_template_info->fusebox_action =
       fusebox_action::mojom::FuseboxAction::New();
   chip->suggest_template_info->fusebox_action->preselected_tool =
@@ -270,18 +278,12 @@ std::optional<ActionChipPtr> CreateDeepSearchChipIfEligible(
 ActionChipPtr CreateImageCreationChip(std::string_view suggestion) {
   ActionChipPtr chip = ActionChip::New();
   chip->suggestion = std::string();
-  chip->suggest_template_info = SuggestTemplateInfo::New();
-  chip->suggest_template_info->type_icon = IconType::kBanana;
-  chip->suggest_template_info->primary_text =
-      action_chips::mojom::FormattedString::New();
-  chip->suggest_template_info->primary_text->text =
-      l10n_util::GetStringUTF8(IDS_NTP_COMPOSE_CREATE_IMAGES);
-  chip->suggest_template_info->secondary_text =
-      action_chips::mojom::FormattedString::New();
-  chip->suggest_template_info->secondary_text->text =
+  chip->suggest_template_info = CreateSuggestTemplateInfo(
+      IconType::kBanana,
+      l10n_util::GetStringUTF16(IDS_NTP_COMPOSE_CREATE_IMAGES),
       !suggestion.empty()
-          ? std::string(suggestion)
-          : l10n_util::GetStringUTF8(IDS_NTP_ACTION_CHIP_CREATE_IMAGE_BODY_1);
+          ? base::UTF8ToUTF16(suggestion)
+          : l10n_util::GetStringUTF16(IDS_NTP_ACTION_CHIP_CREATE_IMAGE_BODY_1));
   chip->suggest_template_info->fusebox_action =
       fusebox_action::mojom::FuseboxAction::New();
   chip->suggest_template_info->fusebox_action->preselected_tool =
@@ -303,16 +305,10 @@ std::optional<ActionChipPtr> CreateImageCreationChipIfEligible(
 ActionChipPtr CreateStarterChip() {
   ActionChipPtr chip = ActionChip::New();
   chip->suggestion = std::string();
-  chip->suggest_template_info = SuggestTemplateInfo::New();
-  chip->suggest_template_info->type_icon = IconType::kSearchLoopWithSparkle;
-  chip->suggest_template_info->primary_text =
-      action_chips::mojom::FormattedString::New();
-  chip->suggest_template_info->primary_text->text =
-      l10n_util::GetStringUTF8(IDS_NTP_ACTION_CHIP_STARTER_HEADING);
-  chip->suggest_template_info->secondary_text =
-      action_chips::mojom::FormattedString::New();
-  chip->suggest_template_info->secondary_text->text =
-      l10n_util::GetStringUTF8(IDS_NTP_ACTION_CHIP_STARTER_BODY);
+  chip->suggest_template_info = CreateSuggestTemplateInfo(
+      IconType::kSearchLoopWithSparkle,
+      l10n_util::GetStringUTF16(IDS_NTP_ACTION_CHIP_STARTER_HEADING),
+      l10n_util::GetStringUTF16(IDS_NTP_ACTION_CHIP_STARTER_BODY));
   chip->suggest_template_info->fusebox_action =
       fusebox_action::mojom::FuseboxAction::New();
   chip->suggest_template_info->fusebox_action->preferred_inventory =
@@ -335,18 +331,12 @@ std::optional<ActionChipPtr> CreateStarterChipIfEligible(
 ActionChipPtr CreateCanvasChip(std::string_view suggestion) {
   ActionChipPtr chip = ActionChip::New();
   chip->suggestion = std::string();
-  chip->suggest_template_info = SuggestTemplateInfo::New();
-  chip->suggest_template_info->type_icon = IconType::kDraftSpark;
-  chip->suggest_template_info->primary_text =
-      action_chips::mojom::FormattedString::New();
-  chip->suggest_template_info->primary_text->text =
-      l10n_util::GetStringUTF8(IDS_NTP_ACTION_CHIP_CANVAS_HEADING);
-  chip->suggest_template_info->secondary_text =
-      action_chips::mojom::FormattedString::New();
-  chip->suggest_template_info->secondary_text->text =
+  chip->suggest_template_info = CreateSuggestTemplateInfo(
+      IconType::kDraftSpark,
+      l10n_util::GetStringUTF16(IDS_NTP_ACTION_CHIP_CANVAS_HEADING),
       !suggestion.empty()
-          ? std::string(suggestion)
-          : l10n_util::GetStringUTF8(IDS_NTP_ACTION_CHIP_CANVAS_BODY);
+          ? base::UTF8ToUTF16(suggestion)
+          : l10n_util::GetStringUTF16(IDS_NTP_ACTION_CHIP_CANVAS_BODY));
   chip->suggest_template_info->fusebox_action =
       fusebox_action::mojom::FuseboxAction::New();
   chip->suggest_template_info->fusebox_action->preselected_tool =
@@ -369,12 +359,9 @@ std::optional<ActionChipPtr> CreateCanvasChipIfEligible(
 ActionChipPtr CreateBrainstormChip() {
   ActionChipPtr chip = ActionChip::New();
   chip->suggestion = std::string();
-  chip->suggest_template_info = SuggestTemplateInfo::New();
-  chip->suggest_template_info->type_icon = IconType::kLightbulb;
-  chip->suggest_template_info->primary_text =
-      action_chips::mojom::FormattedString::New();
-  chip->suggest_template_info->primary_text->text =
-      l10n_util::GetStringUTF8(IDS_NTP_ACTION_CHIP_BRAINSTORM_HEADING);
+  chip->suggest_template_info = CreateSuggestTemplateInfo(
+      IconType::kLightbulb,
+      l10n_util::GetStringUTF16(IDS_NTP_ACTION_CHIP_BRAINSTORM_HEADING));
   chip->suggest_template_info->fusebox_action =
       fusebox_action::mojom::FuseboxAction::New();
   chip->suggest_template_info->fusebox_action->preferred_inventory =
@@ -395,12 +382,9 @@ std::optional<ActionChipPtr> CreateBrainstormChipIfEligible(
 ActionChipPtr CreateLearnChip() {
   ActionChipPtr chip = ActionChip::New();
   chip->suggestion = std::string();
-  chip->suggest_template_info = SuggestTemplateInfo::New();
-  chip->suggest_template_info->type_icon = IconType::kSchool;
-  chip->suggest_template_info->primary_text =
-      action_chips::mojom::FormattedString::New();
-  chip->suggest_template_info->primary_text->text =
-      l10n_util::GetStringUTF8(IDS_NTP_ACTION_CHIP_HELP_ME_LEARN_HEADING);
+  chip->suggest_template_info = CreateSuggestTemplateInfo(
+      IconType::kSchool,
+      l10n_util::GetStringUTF16(IDS_NTP_ACTION_CHIP_HELP_ME_LEARN_HEADING));
   chip->suggest_template_info->fusebox_action =
       fusebox_action::mojom::FuseboxAction::New();
   chip->suggest_template_info->fusebox_action->preferred_inventory =
@@ -421,12 +405,9 @@ std::optional<ActionChipPtr> CreateLearnChipIfEligible(
 ActionChipPtr CreateWriteChip() {
   ActionChipPtr chip = ActionChip::New();
   chip->suggestion = std::string();
-  chip->suggest_template_info = SuggestTemplateInfo::New();
-  chip->suggest_template_info->type_icon = IconType::kInkPen;
-  chip->suggest_template_info->primary_text =
-      action_chips::mojom::FormattedString::New();
-  chip->suggest_template_info->primary_text->text =
-      l10n_util::GetStringUTF8(IDS_NTP_ACTION_CHIP_WRITE_EDIT_HEADING);
+  chip->suggest_template_info = CreateSuggestTemplateInfo(
+      IconType::kInkPen,
+      l10n_util::GetStringUTF16(IDS_NTP_ACTION_CHIP_WRITE_EDIT_HEADING));
   chip->suggest_template_info->fusebox_action =
       fusebox_action::mojom::FuseboxAction::New();
   chip->suggest_template_info->fusebox_action->preferred_inventory =
@@ -442,32 +423,6 @@ std::optional<ActionChipPtr> CreateWriteChipIfEligible(
     return std::nullopt;
   }
   return CreateWriteChip();
-}
-
-ActionChipPtr CreateAddImageChip() {
-  ActionChipPtr chip = ActionChip::New();
-  chip->suggestion = "";
-  chip->suggest_template_info = SuggestTemplateInfo::New();
-  chip->suggest_template_info->type_icon = IconType::kAttachFile;
-  chip->suggest_template_info->primary_text =
-      action_chips::mojom::FormattedString::New();
-  chip->suggest_template_info->primary_text->text = "Add Image";
-  chip->suggest_template_info->fusebox_action =
-      fusebox_action::mojom::FuseboxAction::New();
-  chip->suggest_template_info->fusebox_action->preselected_input_source =
-      fusebox_action::mojom::InputSource::kInputSourceGallery;
-  return chip;
-}
-
-std::optional<ActionChipPtr> CreateAddImageChipIfEligible(
-    std::string_view suggestion,
-    const AimEligibilityService* aim_eligibility_service) {
-  if (!(base::FeatureList::IsEnabled(
-            ntp_features::kNtpScaledActionChipsSmall) &&
-        ntp_features::kNtpScaledActionChipsSmallInTestMode.Get())) {
-    return std::nullopt;
-  }
-  return CreateAddImageChip();
 }
 
 std::vector<omnibox::ToolMode> GetAllowedTools(
@@ -532,9 +487,6 @@ std::vector<ActionChipPtr> CreateChipsForSteadyState(
       &CreateBrainstormChipIfEligible,
       &CreateLearnChipIfEligible,
       &CreateWriteChipIfEligible,
-      // TODO(crbug.com/537040757): Remove from here, only adding for test
-      // purposes until the server sends new chip types.
-      &CreateAddImageChipIfEligible,
   };
 
   // Pre-scaled fallback chips with starter chip and canvas tool.
@@ -676,22 +628,25 @@ void ActionChipsGeneratorImpl::GenerateActionChipsFromNewEndpoint(
   std::optional<omnibox::PageVertical> page_vertical;
 
   auto [title, url] = GetTitleAndUrl(tab);
+  const base::TimeTicks request_start_time = base::TimeTicks::Now();
   loader_ = remote_suggestions_service_simple_->GetActionChipSuggestions(
       title, url, GetAllowedTools(aim_eligibility_service_),
       GetAllowedInputs(aim_eligibility_service_), page_vertical,
       base::BindOnce(
           &ActionChipsGeneratorImpl::GenerateActionChipsFromRemoteResponse,
-          this->weak_factory_.GetWeakPtr(),
+          this->weak_factory_.GetWeakPtr(), request_start_time,
           CreateTabInfo(*tab_id_generator_, tab), page_vertical,
           std::move(callback)));
 }
 
 void ActionChipsGeneratorImpl::GenerateActionChipsFromRemoteResponse(
+    base::TimeTicks request_start_time,
     TabInfoPtr tab,
     std::optional<const omnibox::PageVertical> page_vertical,
     base::OnceCallback<void(std::vector<ActionChipPtr>)> callback,
     RemoteSuggestionsServiceSimple::ActionChipSuggestionsResult&& result) {
-  RecordActionChipsRequestStatus(result);
+  RecordActionChipsRequestStatus(result,
+                                 base::TimeTicks::Now() - request_start_time);
 
   std::vector<ActionChipPtr> chips;
   if (result.has_value()) {

@@ -74,6 +74,12 @@ BASE_DECLARE_FEATURE(kUpdatedFirstRunSequence);
 // FirstRunProfileAgent instead of FirstRunCoordinator.
 BASE_DECLARE_FEATURE(kPostFREIphInProfileAgent);
 
+// Feature flag to query device switcher signals and record metrics in the FRE.
+BASE_DECLARE_FEATURE(kQueryDeviceSwitcherSignalsInFirstRun);
+
+// Feature flag to query switcher info API signal and record metrics in the FRE.
+BASE_DECLARE_FEATURE(kQuerySwitcherInfoSignalInFirstRun);
+
 // Name of the parameter that controls the experiment type for the Animated
 // Default Browser Promo in the FRE experiment, which determines the layout of
 // the promo.
@@ -110,6 +116,12 @@ bool IsSkipDefaultBrowserPromoInFirstRunEnabled(bool is_in_eea_country);
 // Returns whether post FRE IPH promos should be presented in
 // FirstRunProfileAgent instead of FirstRunCoordinator (killswitch).
 bool IsPostFREIphInProfileAgentEnabled();
+
+// Returns whether device switcher signals should be queried in the FRE.
+bool IsQueryDeviceSwitcherSignalsInFirstRunEnabled();
+
+// Returns whether switcher info API signal should be queried in the FRE.
+bool IsQuerySwitcherInfoSignalInFirstRunEnabled();
 
 }  // namespace first_run
 

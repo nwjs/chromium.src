@@ -3,13 +3,12 @@
 # found in the LICENSE file.
 
 # TODO(dawn:549) Move WebGPU caching tests to a separate module to trim file.
-# pylint: disable=too-many-lines
 
 import collections
 from collections.abc import Generator
 import dataclasses
 import datetime
-from enum import Enum
+from enum import Enum, StrEnum
 import gzip
 import io
 import logging
@@ -22,7 +21,7 @@ from typing import Any
 import unittest
 
 # vpython-provided modules.
-import perfetto.trace_processor as tp  # pylint: disable=import-error
+import perfetto.trace_processor as tp
 
 from telemetry.timeline import tracing_config
 from tracing.trace_data import trace_data
@@ -147,6 +146,13 @@ _WEBGPU_CACHE_HANDLE_TYPE = 1
 _MIN_CACHE_HIT_KEY = 'min_cache_hits'
 _PROFILE_DIR_KEY = 'profile_dir'
 _PROFILE_TYPE_KEY = 'profile_type'
+
+
+class _SwapChainKey(StrEnum):
+  """Arg keys for DXGISwapChainImageBacking::Present trace events."""
+
+  HAS_ALPHA = 'debug.has_alpha'
+  DIRTY_RECT = 'debug.dirty_rect'
 
 
 class _TraceTestOrigin(Enum):
@@ -319,7 +325,6 @@ class TraceIntegrationTest(gpu_integration_test.GpuIntegrationTest):
 
   @classmethod
   def GenerateGpuTests(cls, options: ct.ParsedCmdArgs) -> ct.TestGenerator:
-    # pylint: disable=too-many-branches
 
     # Include the device level trace tests, even though they're
     # currently skipped on all platforms, to give a hint that they
@@ -890,7 +895,6 @@ WHERE
 
     return expected
 
-  # pylint: disable=too-many-locals
   def _EvaluateSuccess_CheckVideoPath(
     self, category: str, trace_processor: tp.TraceProcessor, other_args: dict
   ) -> None:
@@ -926,6 +930,7 @@ WHERE
   category = '{category}'
   AND name = '{_SWAP_CHAIN_PRESENT_EVENT_NAME}'
   AND args.arg_set_id = slices.arg_set_id
+ORDER BY slices.id
 """
     for row in trace_processor.query(swap_event_query):
       value = None
@@ -950,7 +955,14 @@ WHERE
         return
       self.fail(f'No {_SWAP_CHAIN_PRESENT_EVENT_NAME} events found')
 
-    for event_id, event_args in swap_events.items():
+    # Skip the first swap event when multiple events are recorded, as the very
+    # first presented frame can occur during initial layout/overlay transition
+    # before steady-state presentation settles.
+    events_to_check = list(swap_events.items())
+    if len(events_to_check) > 1:
+      events_to_check = events_to_check[1:]
+
+    for event_id, event_args in events_to_check:
       detected_pixel_format = event_args.get(pixel_format_key, None)
       if detected_pixel_format is None:
         self.fail(
@@ -975,8 +987,6 @@ WHERE
           f'ZeroCopy mismatch, expected {expected.zero_copy} got '
           f'{detected_zero_copy} for event with ID {event_id}'
         )
-
-  # pylint: enable=too-many-locals
 
   def _EvaluateSuccess_CheckOverlayMode(
     self, category: str, trace_processor: tp.TraceProcessor, other_args: dict
@@ -1106,6 +1116,16 @@ WHERE
         f'{_BEGIN_OVERLAY_ACCESS_EVENT_NAME} events were found'
       )
 
+  @staticmethod
+  def _IsSmallUiSwapChain(dirty_rect: str) -> bool:
+    """Returns True if dirty_rect (e.g. '0,0 64x64') is <= 64x64."""
+    if ' ' not in dirty_rect:
+      return False
+    width, height = (
+      int(dim) for dim in dirty_rect.split(' ', 1)[1].split('x', 1)
+    )
+    return width <= 64 and height <= 64
+
   def _EvaluateSuccess_CheckSwapChainHasAlpha(
     self, category: str, trace_processor: tp.TraceProcessor, other_args: dict
   ) -> None:
@@ -1122,9 +1142,12 @@ WHERE
 
     # Find all swap chain events with has_alpha and verify they have the
     # expected value.
-    has_present_swap_chain_event_with_has_alpha = False
+    swap_events = collections.defaultdict(dict)
     swap_chain_query = f"""\
 SELECT
+  slices.id,
+  key,
+  string_value,
   int_value
 FROM
   slices
@@ -1133,12 +1156,30 @@ JOIN
 WHERE
   category = '{category}'
   AND name = '{_PRESENT_SWAP_CHAIN_EVENT_NAME}'
-  AND key = 'debug.has_alpha'
   AND args.arg_set_id = slices.arg_set_id
+ORDER BY slices.id
 """
     for row in trace_processor.query(swap_chain_query):
+      match row.key:
+        case _SwapChainKey.HAS_ALPHA:
+          swap_events[row.id][row.key] = bool(row.int_value)
+        case _SwapChainKey.DIRTY_RECT:
+          swap_events[row.id][row.key] = row.string_value
+
+    has_present_swap_chain_event_with_has_alpha = False
+    for event_args in swap_events.values():
+      if _SwapChainKey.HAS_ALPHA not in event_args:
+        continue
+      # Under DelegatedCompositing, small transparent browser UI surfaces
+      # (such as the 34x34 WebUIReloadButton in the toolbar, backed by a
+      # 64x64 swap chain) can present alongside the main WebContents swap
+      # chain. Ignore small UI swap chains when checking the main/root swap
+      # chain.
+      if self._IsSmallUiSwapChain(event_args.get(_SwapChainKey.DIRTY_RECT, '')):
+        continue
+
       has_present_swap_chain_event_with_has_alpha = True
-      got_has_alpha = bool(row.int_value)
+      got_has_alpha = event_args[_SwapChainKey.HAS_ALPHA]
       if expect_has_alpha != got_has_alpha:
         self.fail(
           f'Expected events with name {_PRESENT_SWAP_CHAIN_EVENT_NAME} '

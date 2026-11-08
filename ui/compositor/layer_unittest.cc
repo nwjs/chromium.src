@@ -1265,11 +1265,20 @@ TEST_P(LayerWithNullDelegateTest, LayerContentOpaqueness_SolidColor) {
   EXPECT_FALSE(layer->fills_bounds_opaquely());
   EXPECT_FALSE(layer_test_api.cc_layer()->contents_opaque());
 
+  // SetFillsBoundsOpaquely is a no-op for LayerSolidColor.
+  layer->SetFillsBoundsOpaquely(true);
+  EXPECT_FALSE(layer->fills_bounds_opaquely());
+  EXPECT_FALSE(layer_test_api.cc_layer()->contents_opaque());
+
   // Set an opaque color.
   layer->SetColor(SkColors::kRed);
   EXPECT_EQ(layer_test_api.cc_layer()->background_color(), SkColors::kRed);
   EXPECT_EQ(layer_test_api.cc_layer()->SafeOpaqueBackgroundColor(),
             SkColors::kRed);
+  EXPECT_TRUE(layer->fills_bounds_opaquely());
+  EXPECT_TRUE(layer_test_api.cc_layer()->contents_opaque());
+
+  layer->SetFillsBoundsOpaquely(false);
   EXPECT_TRUE(layer->fills_bounds_opaquely());
   EXPECT_TRUE(layer_test_api.cc_layer()->contents_opaque());
 
@@ -1638,6 +1647,47 @@ TEST_P(LayerWithNullDelegateTest, Stacking) {
   child_bottom_stack.clear();
   root->StackChildrenAtBottom(child_bottom_stack);
   EXPECT_EQ("3 1 2", test::ChildLayerNamesAsString(*root.get()));
+}
+
+TEST_P(LayerWithNullDelegateTest, StackChildrenAtBottomWithMaskLayer) {
+  auto root = std::make_unique<LayerNotDrawn>();
+  auto l1 = std::make_unique<LayerTextured>();
+  auto l2 = std::make_unique<LayerTextured>();
+  auto mask = std::make_unique<LayerTextured>();
+  l1->SetName("1");
+  l2->SetName("2");
+  root->Add(l1.get());
+  root->Add(l2.get());
+  root->SetMaskLayer(mask.get());
+
+  EXPECT_EQ("1 2", test::ChildLayerNamesAsString(*root.get()));
+  EXPECT_EQ(mask.get(), root->layer_mask_layer());
+  LayerTestApi root_test_api(root.get());
+  EXPECT_EQ(mask->content_layer(), root_test_api.cc_layer()->mask_layer());
+  EXPECT_EQ(3u, root_test_api.cc_layer()->children().size());
+
+  std::vector<Layer*> child_bottom_stack = {l2.get()};
+  root->StackChildrenAtBottom(child_bottom_stack);
+  EXPECT_EQ("2 1", test::ChildLayerNamesAsString(*root.get()));
+  EXPECT_EQ(mask.get(), root->layer_mask_layer());
+  EXPECT_EQ(mask->content_layer(), root_test_api.cc_layer()->mask_layer());
+
+  const auto& cc_children = root_test_api.cc_layer()->children();
+  ASSERT_EQ(3u, cc_children.size());
+  EXPECT_EQ(LayerTestApi(l2.get()).cc_layer(), cc_children[0].get());
+  EXPECT_EQ(LayerTestApi(l1.get()).cc_layer(), cc_children[1].get());
+  EXPECT_EQ(LayerTestApi(mask.get()).cc_layer(), cc_children[2].get());
+
+  child_bottom_stack = {l1.get()};
+  root->StackChildrenAtBottom(child_bottom_stack);
+  EXPECT_EQ("1 2", test::ChildLayerNamesAsString(*root.get()));
+  EXPECT_EQ(mask.get(), root->layer_mask_layer());
+  EXPECT_EQ(mask->content_layer(), root_test_api.cc_layer()->mask_layer());
+  const auto& cc_children2 = root_test_api.cc_layer()->children();
+  ASSERT_EQ(3u, cc_children2.size());
+  EXPECT_EQ(LayerTestApi(l1.get()).cc_layer(), cc_children2[0].get());
+  EXPECT_EQ(LayerTestApi(l2.get()).cc_layer(), cc_children2[1].get());
+  EXPECT_EQ(LayerTestApi(mask.get()).cc_layer(), cc_children2[2].get());
 }
 
 // Verifies SetBounds triggers the appropriate painting/drawing.

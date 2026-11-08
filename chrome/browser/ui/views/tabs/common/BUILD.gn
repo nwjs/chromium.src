@@ -16,6 +16,7 @@ source_set("common") {
     "tab_collection_z_order_manager.h",
     "tab_drag_scroll_handler.h",
     "tab_group_style.h",
+    "tab_group_unfocus_button.h",
     "tab_group_view_layout.h",
     "tab_strip_layout_utils.h",
     "tab_strip_utils.h",
@@ -63,6 +64,7 @@ source_set("impl") {
     "tab_group_line_view.cc",
     "tab_group_line_view.h",
     "tab_group_style.cc",
+    "tab_group_unfocus_button.cc",
     "tab_group_view.cc",
     "tab_group_view.h",
     "tab_group_view_layout.cc",
@@ -167,7 +169,6 @@ source_set("impl") {
 
   public_deps = [
     ":common",
-    "//chrome/browser:browser_public_dependencies",
     "//chrome/browser/ui/tabs/alert:tab_alert",
     "//chrome/browser/ui/views/tabs/dragging",
   ]
@@ -194,9 +195,9 @@ source_set("browser_tests") {
     "//chrome/browser",
     "//chrome/browser/performance_manager/public/user_tuning",
     "//chrome/browser/tab_group_sync:factories",
-    "//chrome/browser/ui",
     "//chrome/browser/ui:browser_commands",
     "//chrome/browser/ui:browser_element_identifiers",
+    "//chrome/browser/ui:browser_tabstrip",
     "//chrome/browser/ui:recently_audible_helper",
     "//chrome/browser/ui:ui_features",
     "//chrome/browser/ui/animation",
@@ -204,6 +205,7 @@ source_set("browser_tests") {
     "//chrome/browser/ui/tabs:tab_menu",
     "//chrome/browser/ui/tabs/tab_strip_api",
     "//chrome/browser/ui/views/animations",
+    "//chrome/browser/ui/views/frame:base_tab_strip_region_view",
     "//chrome/browser/ui/views/frame:browser_view_header",
     "//chrome/browser/ui/views/tabs:tab_strip",
     "//chrome/browser/ui/views/tabs:tab_style_views",
@@ -263,10 +265,11 @@ source_set("interactive_ui_tests") {
     ":impl",
     "//base",
     "//chrome/browser",
-    "//chrome/browser/ui",
     "//chrome/browser/ui:browser_commands",
+    "//chrome/browser/ui:browser_tabstrip",
     "//chrome/browser/ui/browser_window",
     "//chrome/browser/ui/tabs:tab_menu",
+    "//chrome/browser/ui/views/frame:base_tab_strip_region_view",
     "//chrome/browser/ui/views/frame:browser_view_header",
     "//chrome/browser/ui/views/frame:browser_widget",
     "//chrome/browser/ui/views/tabs/horizontal",
@@ -280,6 +283,7 @@ source_set("interactive_ui_tests") {
     "//testing/gtest",
     "//ui/base",
     "//ui/base:ozone_buildflags",
+    "//ui/events:test_support",
     "//ui/views",
   ]
 }

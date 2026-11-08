@@ -16,7 +16,6 @@
 #include "third_party/blink/renderer/bindings/modules/v8/v8_image_decoder_init.h"
 #include "third_party/blink/renderer/core/dom/dom_exception.h"
 #include "third_party/blink/renderer/core/fetch/readable_stream_bytes_consumer.h"
-#include "third_party/blink/renderer/core/typed_arrays/dom_array_piece.h"
 #include "third_party/blink/renderer/modules/webcodecs/image_track.h"
 #include "third_party/blink/renderer/modules/webcodecs/image_track_list.h"
 #include "third_party/blink/renderer/modules/webcodecs/video_frame.h"
@@ -220,35 +219,18 @@ ImageDecoderExternal::ImageDecoderExternal(ScriptState* script_state,
     return;
   }
 
-  base::span<const uint8_t> array_span;
-  switch (init->data()->GetContentType()) {
-    case V8ImageBufferSource::ContentType::kArrayBufferAllowShared:
-      if (auto* buffer = init->data()->GetAsArrayBufferAllowShared()) {
-        if (!buffer->IsDetached()) {
-          array_span = buffer->ByteSpanMaybeShared();
-        }
-      }
-      break;
-    case V8ImageBufferSource::ContentType::kArrayBufferViewAllowShared:
-      if (auto* view = init->data()->GetAsArrayBufferViewAllowShared().Get()) {
-        if (!view->IsDetached()) {
-          array_span = view->ByteSpanMaybeShared();
-        }
-      }
-      break;
-    case V8ImageBufferSource::ContentType::kReadableStream:
-      NOTREACHED();
+  base::span<const uint8_t> array_span =
+      AsSpan<SharedBufferPolicy::kAllow>(*init->data());
+
+  if (array_span.empty()) {
+    exception_state.ThrowTypeError("No image data provided");
+    return;
   }
 
   auto buffer_contents =
       TransferArrayBufferForSpan(init->transfer(), array_span, exception_state,
                                  script_state_->GetIsolate());
   if (exception_state.HadException()) {
-    return;
-  }
-
-  if (array_span.empty()) {
-    exception_state.ThrowTypeError("No image data provided");
     return;
   }
 

@@ -5,6 +5,8 @@
 #ifndef IOS_CHROME_BROWSER_INTELLIGENCE_ACTOR_MODEL_ACTOR_TASK_H_
 #define IOS_CHROME_BROWSER_INTELLIGENCE_ACTOR_MODEL_ACTOR_TASK_H_
 
+#import <memory>
+#import <optional>
 #import <string>
 #import <string_view>
 #import <vector>
@@ -15,25 +17,22 @@
 #import "base/memory/weak_ptr.h"
 #import "base/scoped_multi_source_observation.h"
 #import "base/timer/timer.h"
+#import "components/actor/core/task_source_info.h"
+#import "components/actor/public/mojom/actor_types.mojom-forward.h"
 #import "ios/chrome/browser/intelligence/actor/model/actor_engine.h"
+#import "ios/chrome/browser/intelligence/actor/model/actor_task_background_worker.h"
 #import "ios/chrome/browser/intelligence/actor/model/actor_web_state_policy_decider.h"
 #import "ios/chrome/browser/intelligence/actor/public/actor_control_state.h"
-#import "ios/chrome/browser/intelligence/actor/public/actor_task_updates_observer.h"
 #import "ios/chrome/browser/intelligence/actor/public/actor_types.h"
 #import "ios/web/public/navigation/navigation_manager.h"
 #import "ios/web/public/web_state_observer.h"
 
-@class BackgroundContinuedProcessingTaskContext;
-@class CRBProtocolObservers;
-@class NSError;
+@class PostedObserverList<ObserverType>;
 @protocol ActorTaskInterventionDelegate;
+@protocol ActorTaskUpdatesObserver;
 
 class Browser;
 class BrowserList;
-
-namespace base {
-class Value;
-}  // namespace base
 
 namespace web {
 class WebState;
@@ -44,16 +43,29 @@ namespace actor {
 class ActorToolFactory;
 class ActorToolRequest;
 class AggregatedJournal;
-class ActorWebStatePolicyDecider;
 
 // A class representing a task managed by `ActorService`. A task should live for
 // a whole Actor journey and be passed multiple sets of actions to execute
 // sequentially.
+//
+// Re-entrancy: code outside the actor model must never run task logic while a
+// task method is on the stack. Therefore:
+// - Outbound call-outs (observer notifications and `Act()` replies) are always
+//   posted with snapshot arguments.
+// - Intervention delegate requests are issued from a posted task, so no task
+//   method caller is re-entered. The delegate itself is messaged synchronously
+//   and may stop, and thereby destroy, the task, so the request must be the
+//   last statement of its method.
+// - Callbacks handed to code outside the actor model (e.g. intervention
+//   delegate completions) are wrapped with `BindPostTaskToCurrentDefault`.
+// Callbacks handed to the engine or timers stay synchronous.
 class ActorTask : public web::WebStateObserver,
-                  public ActorEngine::ExecutionUpdatesDelegate {
+                  public ActorEngine::ExecutionUpdatesDelegate,
+                  public ActorTaskBackgroundWorker::TaskStateDelegate {
  public:
   ActorTask(ActorTaskId task_id,
             const std::string& title,
+            const TaskSourceInfo& source_info,
             bool allow_incognito_web_states,
             AggregatedJournal* journal,
             ActorToolFactory* tool_factory,
@@ -63,15 +75,20 @@ class ActorTask : public web::WebStateObserver,
   ActorTask(const ActorTask&) = delete;
   ActorTask& operator=(const ActorTask&) = delete;
 
-  // Adds an observer to be notified of task state transitions and tool
-  // executions. Registered observers will immediately receive a notification
-  // with the current state via `didRegisterAsObserverForTaskID:`.
+  // Adds an observer of task state transitions and tool executions. `observer`
+  // first receives a posted `didRegisterAsObserverForTaskID:` with the task
+  // state at call time, then exactly the notifications posted after this call.
+  // No-op if `observer` is already added.
   void AddObserver(id<ActorTaskUpdatesObserver> observer);
 
-  // Removes a registered observer.
+  // Removes `observer` and drops its pending notifications, including the
+  // registration snapshot.
   void RemoveObserver(id<ActorTaskUpdatesObserver> observer);
 
   const std::string& title() const { return title_; }
+
+  // Returns information about the client that created this task.
+  const TaskSourceInfo& source_info() const { return source_info_; }
 
   // Returns the unique identifier of the task.
   ActorTaskId task_id() const { return task_id_; }
@@ -84,10 +101,17 @@ class ActorTask : public web::WebStateObserver,
 
   // Begins executing the given sequence of actions on the underlying execution
   // engine with a string update blurb in plain language about what the actor is
-  // doing.
+  // doing. `callback` is posted, so a reply is delivered even if the task is
+  // destroyed after replying:
+  // - with the engine results once actions complete and pages finish loading;
+  // - with a single `kExecutionEngineExistingAction` result if a previous
+  //   `Act()` has not replied yet.
   void Act(std::vector<std::unique_ptr<ActorToolRequest>> actions,
            const std::string& task_update,
            ActCallback callback);
+
+  // Returns whether an `Act()` is pending.
+  bool HasPendingAct() const;
 
   // Adds a WebState to the set of controlled WebStates.
   void AddControlledWebState(web::WebState* web_state);
@@ -143,11 +167,11 @@ class ActorTask : public web::WebStateObserver,
   // Returns whether this task allows actuating on incognito WebStates.
   bool allow_incognito_web_states() const;
 
-  // Sets the background continued processing task context and updates its
-  // subtitle with the latest cached task update, if any. No-op if
-  // `GeminiActorBackgrounding` is disabled.
-  void SetBackgroundTaskContext(
-      BackgroundContinuedProcessingTaskContext* background_task_context);
+  // Returns the worker of this task's background work. Owned by this task
+  // and valid for its lifetime.
+  ActorTaskBackgroundWorker* background_worker() const {
+    return background_worker_.get();
+  }
 
   // web::WebStateObserver overrides.
   void DidStopLoading(web::WebState* web_state) override;
@@ -156,30 +180,49 @@ class ActorTask : public web::WebStateObserver,
  private:
   friend class ActorTaskTest;
 
+  // A pending `Act()` request.
+  struct PendingAct {
+    explicit PendingAct(ActCallback callback);
+    PendingAct(PendingAct&&);
+    PendingAct& operator=(PendingAct&&);
+    ~PendingAct();
+
+    // Callback of the `Act()` request.
+    ActCallback callback;
+
+    // Engine results held while the reply waits for controlled WebStates to
+    // finish loading. Unset while the engine is still executing actions.
+    std::optional<std::vector<ActionResult>> deferred_results;
+  };
+
   // Sets the `ActorControlState` on all controlled `WebState`s based on
   // `control_state`.
   void SetControlStateOnWebStates(ActorControlState control_state);
 
-  // Sets `SetKeepRenderProcessAlive` on all controlled `WebState`s.
-  void SetKeepRenderProcessAliveOnControlledWebStates(bool keep_alive);
-
   // Sets the task state and logs the transition.
   void SetState(ActorTaskState new_state);
 
-  // Called when tools execution is completed.
-  void OnActCompleted(ActCallback callback, std::vector<ActionResult> results);
+  // Called when the engine finishes executing the pending `Act()` actions.
+  void OnActCompleted(std::vector<ActionResult> results);
 
   // Starts observing controlled WebStates that are loading. Returns true if any
   // observations are active, and false otherwise.
   bool ObserveLoadingWebStates();
 
-  // Defers the `Act()` completion callback and registers the safety timeout
-  // timer.
-  void DeferActCompletion(ActCallback callback,
-                          std::vector<ActionResult> results);
+  // Holds `results` in `pending_act_` until controlled WebStates finish loading
+  // and registers the safety timeout timer.
+  void DeferActCompletion(std::vector<ActionResult> results);
+
+  // Transitions to `kReflecting` and replies to the pending `Act()` with
+  // `results`.
+  void FinishAct(std::vector<ActionResult> results);
+
+  // Calls `FinishAct()` with the deferred results. `pending_act_` must hold
+  // deferred results.
+  void FinishDeferredAct();
 
   // Handles observation removal when a WebState finishes loading or is
-  // destroyed. Also resolves the deferred callback if no more WebStates are
+  // destroyed. Also finishes the deferred `Act()` if no more WebStates are
   // loading.
   void OnWebStateFinishedLoading(web::WebState* web_state);
 
@@ -189,6 +232,12 @@ class ActorTask : public web::WebStateObserver,
   // ActorEngine::ExecutionUpdatesDelegate.
   void OnWillExecuteTool(ToolType tool_type,
                          web::WebStateID web_state_id) override;
+
+  // ActorTaskBackgroundWorker::TaskStateDelegate.
+  std::vector<web::WebState*> GetControlledWebStates() override;
+  ActorTaskState GetTaskState() const override;
+  const std::string& GetTaskTitle() const override;
+  const std::string& GetLastTaskUpdate() const override;
 
   // Returns the Browser associated with the given `window_id`.
   Browser* GetBrowserForWindowId(int32_t window_id) const;
@@ -201,42 +250,20 @@ class ActorTask : public web::WebStateObserver,
   // blocked by origin gating policy.
   void OnNavigationBlocked(mojom::ActionResultCode code);
 
-  // Requests user confirmation via the intervention delegate.
+  // Validates the confirmation request synchronously, so that a rejected
+  // request stops the task before `Interrupt()` returns, where `ActorService`
+  // can still clean it up. Then posts `ShowInterruptConfirmation()`, so that
+  // the delegate never runs while the caller of `Interrupt()` is on the stack.
   void RequestInterruptConfirmation(std::string_view message);
+
+  // Shows the confirmation `message` via the intervention delegate. The task
+  // state and the delegate are re-checked in the same posted task as the
+  // delegate call, so the user is never prompted for a task that was stopped
+  // or uninterrupted since the request was made.
+  void ShowInterruptConfirmation(const std::string& message);
 
   // Handles the user resolving the confirmation.
   void OnInterruptConfirmationResolved();
-
-  // Updates the subtitle of the background continued processing task to match
-  // `task_update`. Does nothing if `task_update` is empty or identical to the
-  // current value.
-  void UpdateBackgroundTaskSubtitle(const std::string& task_update);
-
-  // Advances the background task progress by one discrete step using the
-  // context's stepped progress tracker.
-  void UpdateBackgroundTaskProgress();
-
-  // Finalizes the background task, reporting whether it succeeded.
-  void FinalizeBackgroundTask(bool success);
-
-  // Starts the JavaScript heartbeat ping timer if backgrounding is enabled and
-  // the timer is not already running.
-  // TODO(crbug.com/561253684): Ensure we only start the heartbeat timer when
-  // the app is backgrounded.
-  void StartHeartbeatTimer();
-
-  // Stops the JavaScript heartbeat ping timer.
-  void StopHeartbeatTimer();
-
-  // Sends a lightweight JavaScript ping to all controlled WebStates to keep
-  // their out-of-process WebContent processes alive.
-  void SendHeartbeatPing();
-
-  // Handles completion or failure of a JavaScript heartbeat ping for
-  // `web_state_id`. Failed pings are logged to the journal.
-  void OnHeartbeatPingResponse(web::WebStateID web_state_id,
-                               const base::Value* result,
-                               NSError* error);
 
   // The task state.
   ActorTaskState state_ = ActorTaskState::kInit;
@@ -252,6 +279,9 @@ class ActorTask : public web::WebStateObserver,
 
   // The task's title.
   const std::string title_;
+
+  // Information about the client that created this task.
+  const TaskSourceInfo source_info_;
 
   const bool allow_incognito_web_states_;
 
@@ -279,9 +309,8 @@ class ActorTask : public web::WebStateObserver,
   base::ScopedMultiSourceObservation<web::WebState, web::WebStateObserver>
       scoped_web_state_observations_{this};
 
-  // Deferred Act callback. The `Act()` callback can be deferred if any of the
-  // controlled WebStates are loading when Act is done executing actions.
-  base::OnceClosure deferred_act_callback_;
+  // The pending `Act()` request, if any.
+  std::optional<PendingAct> pending_act_;
 
   // Timer to enforce the page load timeout. The timeout exists to limit the
   // amount of time ActorTask can wait for a page to finish loading before
@@ -294,17 +323,13 @@ class ActorTask : public web::WebStateObserver,
   // The delegate handling user intervention UI. Weak reference.
   __weak id<ActorTaskInterventionDelegate> intervention_delegate_ = nil;
 
-  // List of registered observers notified of task state changes and tool
-  // executions. `CRBProtocolObservers` itself is held strongly, but the
-  // observers inside are held weakly.
-  __strong CRBProtocolObservers<ActorTaskUpdatesObserver>* observers_;
+  // Observers notified of task state changes and tool executions. Posted, so
+  // observers cannot re-enter the task mid-transition, and `Act()` callers get
+  // their reply before observers see the resulting state change.
+  __strong PostedObserverList<id<ActorTaskUpdatesObserver>>* observers_ = nil;
 
-  // Active context for background continued processing, if requested.
-  __strong BackgroundContinuedProcessingTaskContext* background_task_context_ =
-      nil;
-
-  // Repeating timer for sending JavaScript heartbeat pings.
-  base::RepeatingTimer heartbeat_timer_;
+  // Handles the background continued processing task and the heartbeat.
+  std::unique_ptr<ActorTaskBackgroundWorker> background_worker_;
 
   // Weak pointer factory.
   base::WeakPtrFactory<ActorTask> weak_ptr_factory_{this};

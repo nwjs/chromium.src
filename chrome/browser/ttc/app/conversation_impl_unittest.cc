@@ -5,23 +5,32 @@
 #include "chrome/browser/ttc/app/conversation_impl.h"
 
 #include <memory>
+#include <optional>
 #include <vector>
 
 #include "base/compiler_specific.h"
 #include "base/containers/span.h"
 #include "base/functional/callback_helpers.h"
 #include "base/run_loop.h"
+#include "base/task/sequenced_task_runner.h"
 #include "base/test/bind.h"
+#include "base/test/run_until.h"
 #include "chrome/browser/ttc/app/audio_controller.h"
-#include "chrome/browser/ttc/app/test_utils.h"
-#include "chrome/browser/ttc/app/ttc_backend.h"
 #include "chrome/browser/ttc/core/session_controller.h"
+#include "chrome/browser/ttc/core/session_journal.h"
+#include "chrome/browser/ttc/core/states.h"
 #include "chrome/test/base/testing_profile.h"
+#include "components/actor/core/aggregated_journal.h"
+#include "components/actor/core/task_id.h"
+#include "components/ttc/app/public/error_codes.h"
+#include "components/ttc/app/test_utils.h"
+#include "components/ttc/app/ttc_backend.h"
 #include "content/public/test/browser_task_environment.h"
 #include "media/audio/audio_system_impl.h"
 #include "media/audio/mock_audio_manager.h"
 #include "media/audio/test_audio_thread.h"
 #include "media/base/audio_bus.h"
+#include "media/base/audio_capturer_source.h"
 #include "media/base/audio_parameters.h"
 #include "media/base/audio_sample_types.h"
 #include "media/base/channel_layout.h"
@@ -38,8 +47,8 @@ class FakeSessionController : public SessionController {
   ~FakeSessionController() override = default;
 
   // SessionController overrides:
-  void GetPageContext(FetchCompleteCallback callback) override {}
   Profile* GetProfile() override { return profile_; }
+  SessionJournal& GetJournal() override { return session_journal_; }
   SessionLifecycle GetSessionLifecycle() const override {
     return session_lifecycle_;
   }
@@ -61,8 +70,16 @@ class FakeSessionController : public SessionController {
   }
   void UserAudioLevelUpdate(float audio_level) override {}
   void OnSessionInitialized() override {}
+  void OnError(ErrorCode error) override {
+    last_error_ = error;
+    ++error_count_;
+  }
+  void EndSessionAsync() override { ++end_session_count_; }
 
   const ToolRequest& last_request() const { return last_request_; }
+  std::optional<ErrorCode> last_error() const { return last_error_; }
+  int error_count() const { return error_count_; }
+  int end_session_count() const { return end_session_count_; }
 
   void AddToolDefinition(const std::string& name) {
     ToolDefinition tool;
@@ -73,8 +90,13 @@ class FakeSessionController : public SessionController {
  private:
   raw_ptr<Profile> profile_;
   ToolRequest last_request_;
+  std::optional<ErrorCode> last_error_;
+  int error_count_ = 0;
+  int end_session_count_ = 0;
   std::vector<ToolDefinition> tools_;
   SessionLifecycle session_lifecycle_ = SessionLifecycle::kInitializing;
+  actor::AggregatedJournal journal_;
+  SessionJournal session_journal_{journal_, actor::TaskId()};
 };
 
 }  // namespace
@@ -177,26 +199,24 @@ TEST_F(ConversationImplTest, InterruptionClearsAudioQueue) {
   EXPECT_FALSE(audio_controller().is_playing());
 }
 
-TEST_F(ConversationImplTest, ApplicationErrorFinishesSession) {
+TEST_F(ConversationImplTest, BackendErrorIsReportedToSessionController) {
   ConversationImpl& conversation = CreateConversation();
 
-  EXPECT_EQ(session_controller_.GetSessionLifecycle(),
-            SessionLifecycle::kInitializing);
+  EXPECT_EQ(session_controller_.last_error(), std::nullopt);
 
-  conversation.OnApplicationError(ErrorCode::kUnknown);
-  EXPECT_EQ(session_controller_.GetSessionLifecycle(),
-            SessionLifecycle::kFinished);
+  conversation.OnBackendError(ErrorCode::kRateLimited);
+  EXPECT_EQ(session_controller_.last_error(), ErrorCode::kRateLimited);
 }
 
-TEST_F(ConversationImplTest, ApplicationClosedFinishesSession) {
+TEST_F(ConversationImplTest, BackendClosedEndsSession) {
   ConversationImpl& conversation = CreateConversation();
 
-  conversation.OnApplicationInitialized();
+  conversation.OnBackendInitialized();
   EXPECT_EQ(session_controller_.GetSessionLifecycle(), SessionLifecycle::kLive);
 
-  conversation.OnApplicationClosed();
-  EXPECT_EQ(session_controller_.GetSessionLifecycle(),
-            SessionLifecycle::kFinished);
+  conversation.OnBackendClosed();
+  EXPECT_EQ(session_controller_.end_session_count(), 1);
+  EXPECT_EQ(session_controller_.error_count(), 0);
 }
 
 TEST_F(ConversationImplTest, ToolCallForwardedToSessionController) {
@@ -242,7 +262,12 @@ TEST_F(ConversationImplTest, CapturedAudioRoutedToBackend) {
 
   // Use values that have exact representations in float:
   // e.g. 4096 = 4096/32768 = 0.125f, 8192 = 0.25f, 16384 = 0.5f.
-  std::vector<int16_t> samples = {4096, 8192, 16384};
+  // The FIFO expects a full 100ms chunk (1600 frames at 16kHz) to emit.
+  const size_t kNumFrames = 1600;
+  std::vector<int16_t> samples(kNumFrames);
+  for (size_t i = 0; i < kNumFrames; ++i) {
+    samples[i] = (i % 2 == 0) ? 4096 : 8192;
+  }
 
   base::RunLoop run_loop;
   EXPECT_CALL(backend(), SendAudioChunk(testing::ElementsAreArray(samples)))
@@ -282,7 +307,7 @@ TEST_F(ConversationImplTest, SendTextInputForwardsToBackend) {
   conversation.SendTextInput("hello world");
 }
 
-TEST_F(ConversationImplTest, ApplicationInitializedSendsToolSetUpdate) {
+TEST_F(ConversationImplTest, BackendInitializedSendsToolSetUpdate) {
   session_controller_.AddToolDefinition("navigate");
 
   ConversationImpl& conversation = CreateConversation();
@@ -294,28 +319,58 @@ TEST_F(ConversationImplTest, ApplicationInitializedSendsToolSetUpdate) {
           sent_tool_names.push_back(tool.name);
         }
       });
-  conversation.OnApplicationInitialized();
+  conversation.OnBackendInitialized();
   EXPECT_THAT(sent_tool_names, testing::ElementsAre("navigate"));
 }
 
-TEST_F(ConversationImplTest, ApplicationShutdownDoesNotSendToolSetUpdate) {
+TEST_F(ConversationImplTest, BackendShutdownDoesNotSendToolSetUpdate) {
   session_controller_.AddToolDefinition("navigate");
 
   ConversationImpl& conversation = CreateConversation();
 
   EXPECT_CALL(backend(), SendToolSetUpdate(testing::_)).Times(0);
-  conversation.OnApplicationClosed();
+  conversation.OnBackendClosed();
 }
 
-TEST_F(ConversationImplTest, ApplicationErrorDoesNotSendToolSetUpdate) {
+TEST_F(ConversationImplTest, BackendErrorDoesNotSendToolSetUpdate) {
   session_controller_.AddToolDefinition("navigate");
 
   ConversationImpl& conversation = CreateConversation();
 
-  // The tool set is only sent once the application is initialized; a session
+  // The tool set is only sent once the backend is initialized; a session
   // that closes or fails has nothing to send it for.
   EXPECT_CALL(backend(), SendToolSetUpdate(testing::_)).Times(0);
-  conversation.OnApplicationError(ErrorCode::kUnknown);
+  conversation.OnBackendError(ErrorCode::kUnknown);
+}
+
+TEST_F(ConversationImplTest, AudioCaptureErrorIsReported) {
+  audio_manager_.SetHasInputDevices(false);
+  ConversationImpl& conversation = CreateConversation();
+
+  conversation.Start();
+  ASSERT_TRUE(base::test::RunUntil(
+      [&] { return session_controller_.error_count() > 0; }));
+
+  EXPECT_EQ(session_controller_.error_count(), 1);
+  EXPECT_EQ(session_controller_.last_error(),
+            ErrorCode::kAudioNoMicrophoneDetected);
+  EXPECT_FALSE(audio_controller().is_capturing());
+}
+
+TEST_F(ConversationImplTest, AudioCaptureErrorAfterStopIsIgnored) {
+  ConversationImpl& conversation = CreateConversation();
+  conversation.Start();
+  conversation.Stop();
+
+  audio_controller().OnCaptureError(
+      media::AudioCapturerSource::ErrorCode::kDeviceRemoved, "error");
+
+  base::RunLoop run_loop;
+  base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+      FROM_HERE, run_loop.QuitClosure());
+  run_loop.Run();
+
+  EXPECT_EQ(session_controller_.error_count(), 0);
 }
 
 }  // namespace ttc

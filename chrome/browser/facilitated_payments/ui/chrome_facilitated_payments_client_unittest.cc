@@ -7,13 +7,17 @@
 #include <memory>
 
 #include "base/functional/bind.h"
+#include "base/functional/callback_helpers.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/test/base/chrome_render_view_host_test_harness.h"
+#include "components/facilitated_payments/content/browser/content_facilitated_payments_driver.h"
 #include "components/facilitated_payments/core/browser/facilitated_payments_app_info_list.h"
 #include "components/facilitated_payments/core/browser/pix_account_linking_manager.h"
+#include "components/facilitated_payments/core/browser/pix_manager.h"
 #include "components/facilitated_payments/core/features/features.h"
 #include "components/optimization_guide/core/hints/mock_optimization_guide_decider.h"
 #include "components/signin/public/identity_manager/identity_test_utils.h"
+#include "components/tabs/public/mock_tab_interface.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "url/origin.h"
@@ -82,7 +86,7 @@ class ChromeFacilitatedPaymentsClientTest
   void SetUp() override {
     ChromeRenderViewHostTestHarness::SetUp();
     client_ = std::make_unique<ChromeFacilitatedPaymentsClient>(
-        web_contents(), &optimization_guide_decider_);
+        mock_tab_, web_contents(), &optimization_guide_decider_);
     auto controller =
         std::make_unique<MockFacilitatedPaymentsController>(web_contents());
     controller_ = controller.get();
@@ -106,6 +110,7 @@ class ChromeFacilitatedPaymentsClientTest
   }
 
  protected:
+  tabs::MockTabInterface mock_tab_;
   optimization_guide::MockOptimizationGuideDecider optimization_guide_decider_;
   std::unique_ptr<ChromeFacilitatedPaymentsClient> client_;
   raw_ptr<MockFacilitatedPaymentsController> controller_;
@@ -164,8 +169,9 @@ TEST_F(ChromeFacilitatedPaymentsClientTest, RegisterAllowlists) {
       .Times(1);
 
   // Re-create the client; it should register the allowlist.
+  client_.reset();
   client_ = std::make_unique<ChromeFacilitatedPaymentsClient>(
-      web_contents(), &optimization_guide_decider_);
+      mock_tab_, web_contents(), &optimization_guide_decider_);
 }
 
 // Test that the `PAYMENT_QR_CODE_MERCHANT_URL_REGEX_ALLOWLIST` optimization
@@ -202,8 +208,9 @@ TEST_F(ChromeFacilitatedPaymentsClientTest,
       .Times(0);
 
   // Re-create the client; it should not register the allowlist.
+  client_.reset();
   client_ = std::make_unique<ChromeFacilitatedPaymentsClient>(
-      web_contents(), &optimization_guide_decider_);
+      mock_tab_, web_contents(), &optimization_guide_decider_);
 }
 
 // Test that the `EWALLET_MERCHANT_ALLOWLIST` optimization type is not
@@ -231,8 +238,9 @@ TEST_F(ChromeFacilitatedPaymentsClientTest, RegisterAllowlists_EWalletExpOff) {
       .Times(0);
 
   // Re-create the client; it should not register the allowlist.
+  client_.reset();
   client_ = std::make_unique<ChromeFacilitatedPaymentsClient>(
-      web_contents(), &optimization_guide_decider_);
+      mock_tab_, web_contents(), &optimization_guide_decider_);
 }
 
 // Test that the `PIX_PSP_ALLOWLIST` optimization type is not registered when
@@ -261,8 +269,9 @@ TEST_F(ChromeFacilitatedPaymentsClientTest, RegisterAllowlists_IframeExpOff) {
       .Times(0);
 
   // Re-create the client; it should not register the allowlist.
+  client_.reset();
   client_ = std::make_unique<ChromeFacilitatedPaymentsClient>(
-      web_contents(), &optimization_guide_decider_);
+      mock_tab_, web_contents(), &optimization_guide_decider_);
 }
 
 // Test the client forwards call for showing the progress screen to the
@@ -304,6 +313,25 @@ TEST_F(ChromeFacilitatedPaymentsClientTest,
       url::Origin::Create(GURL("https://example.com")));
 
   EXPECT_CALL(pix_account_linking_manager(), DismissPrompt());
+
+  client_.reset();
+}
+
+// Test that destroying the client while a driver with an active manager still
+// exists in `driver_factory_` (e.g. when `TabFeatures` is destroyed before
+// `WebContents`) safely dismisses the prompt before destroying the controller.
+TEST_F(ChromeFacilitatedPaymentsClientTest,
+       Destructor_DestroysDriversBeforeController) {
+  payments::facilitated::ContentFacilitatedPaymentsDriver* driver =
+      client_->GetFacilitatedPaymentsDriverForFrame(main_rfh());
+  ASSERT_NE(nullptr, driver);
+  driver->SetPixManagerForTesting(
+      std::make_unique<payments::facilitated::PixManager>(
+          client_.get(),
+          /*api_client_creator=*/base::NullCallback(),
+          &optimization_guide_decider_));
+
+  EXPECT_CALL(controller(), Dismiss());
 
   client_.reset();
 }
@@ -396,8 +424,9 @@ TEST_F(ChromeFacilitatedPaymentsClientTest,
 
 TEST_F(ChromeFacilitatedPaymentsClientTest,
        IsInChromeCustomTabMode_CallbackReturnsTrue) {
+  client_.reset();
   client_ = std::make_unique<ChromeFacilitatedPaymentsClient>(
-      web_contents(), &optimization_guide_decider_,
+      mock_tab_, web_contents(), &optimization_guide_decider_,
       base::BindRepeating([](content::WebContents*) { return true; }));
 
   EXPECT_TRUE(base_client().IsInChromeCustomTabMode());
@@ -405,8 +434,9 @@ TEST_F(ChromeFacilitatedPaymentsClientTest,
 
 TEST_F(ChromeFacilitatedPaymentsClientTest,
        IsInChromeCustomTabMode_CallbackReturnsFalse) {
+  client_.reset();
   client_ = std::make_unique<ChromeFacilitatedPaymentsClient>(
-      web_contents(), &optimization_guide_decider_,
+      mock_tab_, web_contents(), &optimization_guide_decider_,
       base::BindRepeating([](content::WebContents*) { return false; }));
 
   EXPECT_FALSE(base_client().IsInChromeCustomTabMode());
@@ -418,8 +448,9 @@ TEST_F(ChromeFacilitatedPaymentsClientTest,
        PixAccountLinkingManager_InitializedByDefault) {
   const url::Origin kPageOrigin =
       url::Origin::Create(GURL("https://example.com"));
+  tabs::MockTabInterface local_tab;
   auto client = std::make_unique<ChromeFacilitatedPaymentsClient>(
-      web_contents(), &optimization_guide_decider_);
+      local_tab, web_contents(), &optimization_guide_decider_);
 
   EXPECT_NO_FATAL_FAILURE(
       static_cast<payments::facilitated::FacilitatedPaymentsClient&>(*client)

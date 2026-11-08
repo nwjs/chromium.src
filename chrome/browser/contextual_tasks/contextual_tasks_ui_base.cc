@@ -4,8 +4,15 @@
 
 #include "chrome/browser/contextual_tasks/contextual_tasks_ui_base.h"
 
+#include <string_view>
+
+#include "base/functional/bind.h"
+#include "base/memory/ref_counted_memory.h"
+#include "base/memory/weak_ptr.h"
 #include "base/strings/strcat.h"
+#include "base/strings/string_util.h"
 #include "chrome/browser/autocomplete/aim_eligibility_service_factory.h"
+#include "chrome/browser/contextual_search/contextual_search_web_contents_helper.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_panel_controller.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_permission_controller.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_side_panel_coordinator.h"
@@ -16,29 +23,41 @@
 #include "chrome/browser/contextual_tasks/contextual_tasks_utils.h"
 #include "chrome/browser/contextual_tasks/entry_point_eligibility_manager.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/profiles/profile_avatar_icon_util.h"
+#include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/tab_list/tab_list_interface.h"
+#include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/navigator/browser_navigator.h"
 #include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/browser/ui/webui/webui_embedding_context.h"
+#include "chrome/common/pref_names.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/grit/branded_strings.h"
 #include "chrome/grit/contextual_tasks_resources.h"
 #include "chrome/grit/contextual_tasks_resources_map.h"
 #include "chrome/grit/generated_resources.h"
+#include "components/contextual_tasks/public/account_utils.h"
+#include "components/contextual_tasks/public/contextual_task.h"
 #include "components/contextual_tasks/public/features.h"
 #include "components/omnibox/browser/aim_eligibility_service.h"
 #include "components/omnibox/common/composebox_features.h"
+#include "components/prefs/pref_service.h"
+#include "components/signin/public/identity_manager/account_info.h"
+#include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/strings/grit/components_strings.h"
 #include "components/tabs/public/tab_interface.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_ui.h"
 #include "content/public/browser/web_ui_controller.h"
 #include "content/public/browser/web_ui_data_source.h"
 #include "extensions/buildflags/buildflags.h"
+#include "google_apis/gaia/gaia_id.h"
 #include "mojo/public/mojom/base/error.mojom.h"
 #include "services/network/public/mojom/content_security_policy.mojom.h"
-#include "third_party/lens_server_proto/aim_communication.pb.h"
+#include "third_party/lens_server_proto/search_communication.pb.h"
+#include "ui/base/device_form_factor.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/page_transition_types.h"
 #include "ui/base/ui_base_features.h"
@@ -52,13 +71,14 @@
 #include "chrome/grit/contextual_tasks_extension_resources.h"
 #include "chrome/grit/contextual_tasks_extension_resources_map.h"
 #if !BUILDFLAG(IS_ANDROID)
-#include "chrome/browser/contextual_tasks/contextual_tasks_extension_handler.h"
+#include "chrome/browser/contextual_tasks/contextual_tasks_web_contents_user_data.h"
 #endif
 #endif
 
 #if !BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/ui/actions/chrome_action_id.h"
 #include "chrome/browser/ui/toolbar/pinned_toolbar/pinned_toolbar_actions_model.h"
+#include "chrome/browser/ui/views/permissions/chip/permission_chip_view.h"
 #include "chrome/browser/ui/webui/webui_toolbar/webui_toolbar_layout_css_helper.h"
 #include "chrome/grit/webui_toolbar_shared_resources.h"
 #include "chrome/grit/webui_toolbar_shared_resources_map.h"
@@ -73,6 +93,8 @@ namespace contextual_tasks {
 namespace {
 
 constexpr char kMyActivityUrl[] = "https://myactivity.google.com/myactivity";
+constexpr std::string_view kProfileAvatarPathPrefix =
+    "profile-avatar.png?gaia_id=";
 
 void OpenUrlWithDisposition(Profile* profile,
                             const GURL& url,
@@ -82,6 +104,63 @@ void OpenUrlWithDisposition(Profile* profile,
   params.disposition = disposition;
   params.browser = browser;
   Navigate(&params);
+}
+
+GURL GetProfileAvatarUrl(Profile* profile, const GURL& url) {
+  if (auto* identity_manager = IdentityManagerFactory::GetForProfile(profile)) {
+    std::optional<gaia::ListedAccount> account =
+        contextual_tasks::GetAccountFromCookieJar(identity_manager, url);
+    if (account.has_value() && !account->signed_out && account->valid) {
+      AccountInfo extended_info =
+          identity_manager->FindExtendedAccountInfoByGaiaId(account->gaia_id);
+      if (!extended_info.IsEmpty() &&
+          extended_info.GetAvatarImage().has_value()) {
+        return GURL(base::StrCat({chrome::kChromeUIContextualTasksURL,
+                                  kProfileAvatarPathPrefix,
+                                  account->gaia_id.ToString()}));
+      }
+    }
+  }
+  return GURL(profiles::GetPlaceholderAvatarIconUrl());
+}
+
+// `WebUIDataSource::SetRequestFilter` only supports a single filter callback
+// pair, so `ShouldHandleContextualTasksRequest` and
+// `HandleContextualTasksRequest` multiplex both `WebUIToolbarLayoutCssHelper`
+// and `kProfileAvatarPathPrefix` requests.
+bool ShouldHandleContextualTasksRequest(const std::string& path) {
+#if !BUILDFLAG(IS_ANDROID)
+  if (WebUIToolbarLayoutCssHelper::ShouldHandleRequest(path)) {
+    return true;
+  }
+#endif
+  return base::StartsWith(path, kProfileAvatarPathPrefix);
+}
+
+void HandleContextualTasksRequest(
+    const base::WeakPtr<Profile>& profile,
+    const std::string& path,
+    content::WebUIDataSource::GotDataCallback callback) {
+#if !BUILDFLAG(IS_ANDROID)
+  if (WebUIToolbarLayoutCssHelper::ShouldHandleRequest(path)) {
+    WebUIToolbarLayoutCssHelper::HandleRequest(path, std::move(callback));
+    return;
+  }
+#endif
+  scoped_refptr<base::RefCountedMemory> png_bytes;
+  if (profile) {
+    if (auto* identity_manager =
+            IdentityManagerFactory::GetForProfile(profile.get())) {
+      GaiaId gaia_id(path.substr(kProfileAvatarPathPrefix.size()));
+      AccountInfo extended_info =
+          identity_manager->FindExtendedAccountInfoByGaiaId(gaia_id);
+      if (!extended_info.IsEmpty() &&
+          extended_info.GetAvatarImage().has_value()) {
+        png_bytes = extended_info.GetAvatarImage()->As1xPNGBytes();
+      }
+    }
+  }
+  std::move(callback).Run(std::move(png_bytes));
 }
 
 }  // namespace
@@ -98,6 +177,21 @@ ContextualTasksUIBase::ContextualTasksUIBase(content::WebUI* web_ui)
     }
   }
 #endif
+
+  std::vector<ui::ElementIdentifier> tracked_element_ids = {
+      ContextualTasksUI::kSmartTabSharingMenuItemElementId,
+      kContextualTasksWebUIPinButtonElementId,
+      kContextualTasksWebUIToolbarElementId,
+      kContextualTasksWebUIOverflowMenuElementId,
+      kContextualTasksWebUIOverflowMenuPinButtonElementId,
+      kContextualTasksSuperGButtonElementId};
+#if !BUILDFLAG(IS_ANDROID)
+  tracked_element_ids.push_back(
+      PermissionChipView::kPermissionRequestChipElementId);
+  tracked_element_ids.push_back(PermissionChipView::kIndicatorChipElementId);
+#endif
+  ui::TrackedElementHandlerDocumentSingleton::Register(
+      this, std::move(tracked_element_ids));
 }
 
 ContextualTasksUIBase::~ContextualTasksUIBase() = default;
@@ -179,8 +273,11 @@ content::WebUIDataSource* ContextualTasksUIBase::RegisterWebUIDataSource(
 
 #if !BUILDFLAG(IS_ANDROID)
   source->AddResourcePaths(kWebuiToolbarSharedResources);
-  WebUIToolbarLayoutCssHelper::SetAsRequestFilter(source);
 #endif
+  source->SetRequestFilter(
+      base::BindRepeating(&ShouldHandleContextualTasksRequest),
+      base::BindRepeating(&HandleContextualTasksRequest,
+                          profile->GetWeakPtr()));
 
   source->AddResourcePath(
       "internals",
@@ -234,6 +331,9 @@ base::DictValue ContextualTasksUIBase::GetContextualTasksLoadTimeData(
       contextual_tasks::EntryPointEligibilityManager::IsPinningEligible(
           profile);
   dict.Set("enablePinButton", is_pinning_eligible);
+  dict.Set("enablePinButtonOnSrp",
+           is_pinning_eligible &&
+               contextual_tasks::IsContextualTasksPinButtonOnSrpEnabled());
   dict.Set(
       "isSidePanelPinned",
       is_pinning_eligible && contextual_tasks::GetEffectivePinState(profile));
@@ -267,6 +367,18 @@ base::DictValue ContextualTasksUIBase::GetContextualTasksLoadTimeData(
   dict.Set("isAiPage", false);
   dict.Set("isSignedIn", false);
   dict.Set("expandButtonEnabled", false);
+  dict.Set("profileAvatarUrl", GetProfileAvatarUrl(profile, GURL()).spec());
+
+  dict.Set("isSmallDeviceFormFactor",
+           ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_PHONE);
+#if BUILDFLAG(IS_ANDROID)
+  dict.Set("isUserFeedbackAllowed",
+           profile->GetPrefs()->GetBoolean(prefs::kUserFeedbackAllowed));
+#else
+  dict.Set("isUserFeedbackAllowed", true);
+#endif
+  dict.Set("contextualTasksUnboundedMenuEnabled",
+           contextual_tasks::IsContextualTasksUnboundedMenuEnabled());
 
   return dict;
 }
@@ -296,6 +408,11 @@ void ContextualTasksUIBase::CreatePageHandler(
   if (IsAiPage()) {
     NotifyAiPageStatusChanged(true);
   }
+  if (GetThreadTitle().has_value() && toolbar_page_) {
+    toolbar_page_->SetThreadTitle(*GetThreadTitle());
+  }
+
+  UpdateProfileIndicator();
 }
 
 void ContextualTasksUIBase::PinSidePanel() {
@@ -369,15 +486,14 @@ void ContextualTasksUIBase::MoveTaskUiToNewTab() {
 
 void ContextualTasksUIBase::ShowThreadHistory() {
 #if BUILDFLAG(ENABLE_EXTENSIONS_CORE) && !BUILDFLAG(IS_ANDROID)
-  lens::ClientToAimMessage message;
-  message.mutable_open_threads_view()->mutable_payload();
+  lens::ClientToSearchMessage message;
+  message.mutable_open_threads_view();
 
   if (auto* panel_controller = GetPanelController()) {
     if (auto* active_contents = panel_controller->GetActiveWebContents()) {
-      if (auto* extension_handler =
-              ContextualTasksExtensionHandler::FromWebContents(
-                  active_contents)) {
-        extension_handler->PostAimMessage(message);
+      if (auto* user_data = ContextualTasksWebContentsUserData::FromWebContents(
+              active_contents)) {
+        user_data->PostSearchMessage(message);
       }
     }
   }
@@ -415,6 +531,73 @@ void ContextualTasksUIBase::OnImageClickedFromSourcesMenu(const GURL& url) {
   if (ui_service) {
     ui_service->OnImageClickedFromSourcesMenu(url, GetBrowser());
   }
+}
+
+void ContextualTasksUIBase::CloseSidePanel() {
+  auto* controller = GetPanelController();
+  if (!controller) {
+    return;
+  }
+  controller->Close();
+}
+
+void ContextualTasksUIBase::ShowPageInfoBubble(bool is_pointer_interaction) {
+  auto* controller = GetPanelController();
+  if (!controller) {
+    return;
+  }
+  controller->ShowPageInfoBubble(is_pointer_interaction);
+}
+
+void ContextualTasksUIBase::OnLogoPointerDown() {
+  auto* controller = GetPanelController();
+  if (!controller) {
+    return;
+  }
+  controller->OnLogoPointerDown();
+}
+
+void ContextualTasksUIBase::CreateNewThread() {
+  auto* panel_controller = GetPanelController();
+  if (!panel_controller) {
+    return;
+  }
+  content::WebContents* target_contents =
+      panel_controller->GetActiveWebContents();
+  if (!target_contents) {
+    return;
+  }
+
+  std::optional<base::Uuid> task_id;
+  if (auto current_task = panel_controller->GetCurrentTask()) {
+    task_id = current_task->GetTaskId();
+  } else if (auto* helper = ContextualSearchWebContentsHelper::FromWebContents(
+                 target_contents)) {
+    task_id = helper->task_id();
+  }
+
+  auto* ui_service = GetUiService();
+  if (!ui_service) {
+    return;
+  }
+
+  GURL url = task_id.has_value()
+                 ? ui_service->GetDefaultAiPageUrlForTask(task_id.value())
+                 : ui_service->GetDefaultAiPageUrl();
+  url = ui_service->AddRequiredSidePanelUrlChanges(url, target_contents);
+
+  content::NavigationController::LoadURLParams params(url);
+  params.transition_type = ui::PAGE_TRANSITION_AUTO_TOPLEVEL;
+  target_contents->GetController().LoadURLWithParams(params);
+
+  SetThreadTitle(std::nullopt);
+}
+
+void ContextualTasksUIBase::MaybeTriggerPinningPromo() {
+  // TODO(b/560292506): The AI-Mode precondition uses
+  // ui_service_->IsAiUrl(web_ui_controller_->GetInnerFrameUrl()).
+  // GetInnerFrameUrl() is webview-specific and has no panel-controller
+  // equivalent, so the precondition cannot be evaluated post-rearchitecture.
 }
 
 void ContextualTasksUIBase::BindInterface(
@@ -516,6 +699,15 @@ const std::optional<std::string>& ContextualTasksUIBase::GetThreadTitle() {
 
 void ContextualTasksUIBase::SetThreadTitle(std::optional<std::string> title) {
   thread_title_ = std::move(title);
+  if (auto* toolbar_page = GetToolbarPageRemote()) {
+    toolbar_page->SetThreadTitle(thread_title_.value_or(std::string()));
+  }
+}
+
+void ContextualTasksUIBase::NotifySidePanelStateChanged() {
+  if (auto* toolbar_page = GetToolbarPageRemote()) {
+    toolbar_page->OnSidePanelStateChanged();
+  }
 }
 
 void ContextualTasksUIBase::GetInitialState(GetInitialStateCallback callback) {
@@ -579,6 +771,22 @@ void ContextualTasksUIBase::OnChipPointerExited(
 void ContextualTasksUIBase::NotifyAiPageStatusChanged(bool is_ai_page) {
   if (auto* toolbar_page = GetToolbarPageRemote()) {
     toolbar_page->OnAiPageStatusChanged(is_ai_page);
+  }
+}
+
+void ContextualTasksUIBase::UpdateProfileIndicator() {
+  GURL active_url;
+  if (auto* panel = GetPanelController()) {
+    if (auto* contents = panel->GetActiveWebContents()) {
+      active_url = contents->GetVisibleURL();
+    }
+  }
+  UpdateProfileIndicator(active_url);
+}
+
+void ContextualTasksUIBase::UpdateProfileIndicator(const GURL& url) {
+  if (auto* toolbar_page = GetToolbarPageRemote()) {
+    toolbar_page->SetProfileAvatarUrl(GetProfileAvatarUrl(GetProfile(), url));
   }
 }
 

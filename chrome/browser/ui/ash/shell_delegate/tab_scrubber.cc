@@ -13,7 +13,6 @@
 #include "base/check_op.h"
 #include "base/functional/bind.h"
 #include "base/metrics/histogram_macros.h"
-#include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/immersive/immersive_mode_controller.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
@@ -335,7 +334,7 @@ bool TabScrubber::FinishScrub(bool activate) {
   const int stops_scrubbing = scrubbing_;
   activate_timer_.Stop();
 
-  if (browser_ && browser_->GetWindow()) {
+  if (browser_) {
     GetWidget(browser_)->ReleaseCapture();
 
     if (activate && highlighted_tab_ != -1) {

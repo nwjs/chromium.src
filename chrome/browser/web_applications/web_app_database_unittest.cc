@@ -21,7 +21,6 @@
 #include "base/test/bind.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_command_line.h"
-#include "base/test/scoped_feature_list.h"
 #include "base/test/test_future.h"
 #include "base/test/with_feature_override.h"
 #include "base/time/time.h"
@@ -74,7 +73,6 @@
 #include "components/webapps/isolated_web_apps/types/update_channel.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "third_party/blink/public/common/features.h"
 #include "url/gurl.h"
 #include "url/origin.h"
 
@@ -281,8 +279,8 @@ TEST_F(WebAppDatabaseTest, OpenDatabaseAndReadRegistry) {
   Registry registry =
       WriteWebApps(kNumApps, /*exclude_fields_with_side_effects=*/true);
   test::AwaitStartWebAppProviderAndSubsystems(profile());
-  histogram_tester.ExpectBucketCount("WebApp.Database.ValidProto", true,
-                                     kNumApps);
+  histogram_tester.ExpectBucketCount("WebAppProto.Parse.Result",
+                                     ProtoParseResult::kSuccess, kNumApps);
   fake_provider().command_manager().AwaitAllCommandsCompleteForTesting();
   EXPECT_TRUE(IsRegistryEqual(mutable_registrar().registry(), registry,
                               /*exclude_current_os_integration=*/true));

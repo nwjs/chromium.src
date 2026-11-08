@@ -10,6 +10,7 @@
 #include "base/values.h"
 #include "build/build_config.h"
 #include "chrome/browser/download/download_browsertest_utils.h"
+#include "chrome/browser/lifetime/application_lifetime_desktop.h"
 #include "chrome/browser/policy/policy_test_utils.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_commands.h"
@@ -212,6 +213,41 @@ IN_PROC_BROWSER_TEST_F(UnloadControllerWithOnTaskTest,
 }
 
 #endif
+
+using UnloadControllerBrowserTest = InProcessBrowserTest;
+
+// Regression test for crbug.com/40075474:
+// Verifies that when a tab close (`ClosePage()`) is already in flight and
+// batched browser shutdown (`chrome::CloseAllBrowsers()` /
+// `UnloadController::RunBeforeUnloadForShutdown()`) begins before
+// `ClosePageIgnoringUnloadEvents()` runs, `UnloadController::CloseContents`
+// does not attempt to close a `WebContents` that was already removed from
+// `TabStripModel` by `OnWindowClosing()`.
+IN_PROC_BROWSER_TEST_F(UnloadControllerBrowserTest,
+                       TabClosePageOverlappingWithRunBeforeUnloadForShutdown) {
+  ASSERT_TRUE(embedded_test_server()->Start());
+
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(
+      browser(), embedded_test_server()->GetURL("/title1.html")));
+  content::WebContents* contents =
+      browser()->GetTabStripModel()->GetActiveWebContents();
+  ASSERT_TRUE(content::ExecJs(
+      contents, "window.addEventListener('beforeunload', () => {});"));
+  ASSERT_TRUE(contents->NeedToFireBeforeUnloadOrUnloadEvents());
+
+  // 1. Start closing the tab (sends ClosePage IPC to renderer;
+  //    ClosePageIgnoringUnloadEvents() callback is pending).
+  contents->ClosePage();
+  ASSERT_TRUE(contents->NeedToFireBeforeUnloadOrUnloadEvents());
+
+  // 2. While ClosePage() is in flight, initiate batched browser close
+  //    (Cmd+Q -> BrowserCloseManager::TryToCloseBrowsers() ->
+  //    UnloadController::RunBeforeUnloadForShutdown()).
+  chrome::CloseAllBrowsers();
+
+  // 3. Let the ClosePage() ACK (ClosePageIgnoringUnloadEvents) arrive.
+  content::WebContentsDestroyedWatcher(contents).Wait();
+}
 
 // On Mac and ChromeOS, in-progress downloads of regular profiles don't block
 // window close, so the download warning dialog is never shown.

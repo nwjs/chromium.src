@@ -58,6 +58,20 @@ class ContextualSearchProvider : public BaseSearchProvider {
   static bool LensEntrypointEligible(const AutocompleteInput& input,
                                      const AutocompleteProviderClient* client);
 
+  // Whether the AskG entrypoint match and the contextual suggestions should
+  // show the "Opens in side panel" description. True only if
+  // `kAskGSuggestionSidePanelDescription` is enabled and the AskG action will
+  // actually open the cobrowse side panel (i.e. it won't fall back to the Lens
+  // overlay or open the composebox instead).
+  static bool ShouldShowSidePanelDescription(
+      const AutocompleteProviderClient* client);
+
+  // Whether `match` shows the "Opens in side panel" description, i.e. it is
+  // the AskG entrypoint match or a contextual suggestion with a description,
+  // and `ShouldShowSidePanelDescription()` is true.
+  static bool HasSidePanelDescription(const AutocompleteMatch& match,
+                                      const AutocompleteProviderClient* client);
+
  protected:
   ~ContextualSearchProvider() override;
 

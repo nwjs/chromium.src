@@ -22,6 +22,11 @@ const char kAccountInfo[] = "account_info";
 // Dictionary pref that contains the AccountPreviewPreference result.
 const char kAccountPreviewPreference[] = "signin.account_preview_preference";
 
+// Dictionary pref that contains the AccountPreviewPreference result for account
+// switching.
+const char kAccountPreviewSwitchingPreference[] =
+    "signin.account_preview_switching_preference";
+
 // Time pref that tracks the last time account preview data was refreshed.
 const char kAccountPreviewDataLastUpdatePref[] =
     "signin.account_preview_data_last_update";
@@ -181,24 +186,20 @@ const char kBrowserSigninPolicy[] = "signin.browser_signin_policy";
 // next startup.
 const char kSigninAllowedOnNextStartup[] = "signin.allowed_on_next_startup";
 
-
 // Integer pref to store the number of times the address bubble signin promo
-// has been shown per profile while the user is signed out used for
-// SigninPromoLimitsExperiment.
-const char kAddressSignInPromoShownCountPerProfileForLimitsExperiment[] =
-    "signin.AddressSignInPromoShownCountForLimitsExperiment";
+// has been shown per profile while the user is signed out.
+const char kAddressSignInPromoShownCountPerProfile[] =
+    "signin.AddressSignInPromoShownCount";
 
 // Integer pref to store the number of times the bookmark bubble signin promo
-// has been shown per profile while the user is signed out used for
-// SigninPromoLimitsExperiment.
-const char kBookmarkSignInPromoShownCountPerProfileForLimitsExperiment[] =
-    "signin.BookmarkSignInPromoShownCountForLimitsExperiment";
+// has been shown per profile while the user is signed out.
+const char kBookmarkSignInPromoShownCountPerProfile[] =
+    "signin.BookmarkSignInPromoShownCount";
 
 // Integer pref to store the number of times the password bubble signin promo
-// has been shown per profile while the user is signed out used for
-// SigninPromoLimitsExperiment.
-const char kPasswordSignInPromoShownCountPerProfileForLimitsExperiment[] =
-    "signin.PasswordSignInPromoShownCountForLimitsExperiment";
+// has been shown per profile while the user is signed out.
+const char kPasswordSignInPromoShownCountPerProfile[] =
+    "signin.PasswordSignInPromoShownCount";
 
 // Integer which indicates whether enterprise profile separation is enforced or
 // disabled.

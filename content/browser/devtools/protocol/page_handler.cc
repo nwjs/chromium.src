@@ -631,7 +631,9 @@ void PageHandler::DidRunJavaScriptDialog(const GURL& url,
   if (!enabled_) {
     return;
   }
-  CHECK(pending_dialog_.is_null(), base::NotFatalUntil::M159);
+  // TODO(crbug.com/571032889): CHECK-exclusion: Convert to a CHECK once we are
+  // confident it won't be triggered.
+  DCHECK(pending_dialog_.is_null());
   pending_dialog_ = std::move(callback);
   std::string type = Page::DialogTypeEnum::Alert;
   if (dialog_type == JAVASCRIPT_DIALOG_TYPE_CONFIRM) {
@@ -653,7 +655,9 @@ void PageHandler::DidRunBeforeUnloadConfirm(
   if (!enabled_) {
     return;
   }
-  CHECK(pending_dialog_.is_null(), base::NotFatalUntil::M159);
+  // TODO(crbug.com/573951894): CHECK-exclusion: Convert to a CHECK once we are
+  // confident it won't be triggered.
+  DCHECK(pending_dialog_.is_null());
   pending_dialog_ = std::move(callback);
   frontend_->JavascriptDialogOpening(url.spec(), frame_id.ToString(),
                                      std::string(),
@@ -1994,8 +1998,11 @@ void PageHandler::ScreenshotCaptured(
     std::unique_ptr<PendingScreenshotRequest> request,
     const gfx::Image& image) {
   if (request->original_view_size.width()) {
-    RenderWidgetHostImpl* widget_host = host_->GetRenderWidgetHost();
-    widget_host->GetView()->SetSize(request->original_view_size);
+    // The view is gone if the renderer exited before the capture completed.
+    if (RenderWidgetHostViewBase* view =
+            host_->GetRenderWidgetHost()->GetView()) {
+      view->SetSize(request->original_view_size);
+    }
     emulation_handler_->SetDeviceEmulationParams(
         request->original_emulation_params);
   }
@@ -2030,8 +2037,8 @@ void PageHandler::ScreenshotCaptured(
         Binary::fromVector(std::move(encoded_bitmap).value()));
     return;
   }
-  // TODO(caseq): send failure if we fail to encode?
-  request->callback->sendSuccess(Binary());
+  request->callback->sendFailure(
+      Response::ServerError("Unable to encode screenshot"));
 }
 
 Response PageHandler::StopLoading() {

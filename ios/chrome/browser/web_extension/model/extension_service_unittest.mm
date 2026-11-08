@@ -17,6 +17,7 @@
 #import "components/prefs/testing_pref_service.h"
 #import "components/universal_optout/features.h"
 #import "components/universal_optout/prefs.h"
+#import "ios/chrome/browser/shared/public/features/system_flags.h"
 #import "ios/chrome/browser/web_extension/model/extension_service_impl.h"
 #import "ios/web/public/extension/extension_controller.h"
 #import "ios/web/public/web_client.h"
@@ -78,6 +79,23 @@ class API_AVAILABLE(ios(18.4)) FakeExtensionController
   base::OnceCallback<void(bool)> load_callback_;
 };
 
+// A test observer for ExtensionService.
+class TestExtensionServiceObserver : public ExtensionService::Observer {
+ public:
+  void OnExtensionLoadErrorChanged(ExtensionService* service,
+                                   bool has_load_error) override {
+    call_count_++;
+    last_has_load_error_ = has_load_error;
+  }
+
+  int call_count() const { return call_count_; }
+  bool last_has_load_error() const { return last_has_load_error_; }
+
+ private:
+  int call_count_ = 0;
+  bool last_has_load_error_ = false;
+};
+
 class ExtensionServiceTest : public PlatformTest {
  public:
   ExtensionServiceTest() {
@@ -89,6 +107,34 @@ class ExtensionServiceTest : public PlatformTest {
                              opted_in);
   }
 
+  void TearDown() override {
+    [[NSUserDefaults standardUserDefaults]
+        removeObjectForKey:experimental_flags::kWebExtensionLoadDelay];
+    PlatformTest::TearDown();
+  }
+
+  void SetWebExtensionLoadDelay(base::TimeDelta delay,
+                                bool should_fail = false) {
+    NSString* value = nil;
+    if (delay == base::Seconds(1)) {
+      value = should_fail ? experimental_flags::kWebExtensionLoadDelay1sFail
+                          : experimental_flags::kWebExtensionLoadDelay1s;
+    } else if (delay == base::Seconds(5)) {
+      value = should_fail ? experimental_flags::kWebExtensionLoadDelay5sFail
+                          : experimental_flags::kWebExtensionLoadDelay5s;
+    } else if (should_fail) {
+      value = experimental_flags::kWebExtensionLoadDelayNoDelayFail;
+    }
+    if (value) {
+      [[NSUserDefaults standardUserDefaults]
+          setObject:value
+             forKey:experimental_flags::kWebExtensionLoadDelay];
+    } else {
+      [[NSUserDefaults standardUserDefaults]
+          removeObjectForKey:experimental_flags::kWebExtensionLoadDelay];
+    }
+  }
+
  protected:
   base::test::TaskEnvironment task_environment_{
       base::test::TaskEnvironment::TimeSource::MOCK_TIME};
@@ -96,9 +142,12 @@ class ExtensionServiceTest : public PlatformTest {
 };
 
 // Tests that ExtensionService is ready immediately when initialized with
-// kNotEligible.
+// kNotEligible, does not load the extension at startup, and loads the
+// extension if the pref subsequently changes to enabled.
 TEST_F(ExtensionServiceTest, TestInitializationWithNotEligible)
 API_AVAILABLE(ios(18.4)) {
+  SetOptedIn(false);
+
   auto fake_controller = std::make_unique<FakeExtensionController>();
   FakeExtensionController* raw_controller = fake_controller.get();
 
@@ -106,7 +155,21 @@ API_AVAILABLE(ios(18.4)) {
   service.Initialize(web::UniversalOptOutState::kNotEligible);
 
   EXPECT_TRUE(service.IsReady());
+  EXPECT_FALSE(service.WebExtensionsWereLoadedAtStartup());
   EXPECT_EQ(service.GetExtensionController(), raw_controller);
+  EXPECT_FALSE(raw_controller->HasPendingLoad());
+  EXPECT_FALSE(
+      raw_controller->IsBuiltInExtensionLoaded(web::BuiltInExtension::kGPC));
+
+  // Toggling the opt-out preference to enabled should trigger loading the
+  // extension.
+  SetOptedIn(true);
+  EXPECT_TRUE(raw_controller->HasPendingLoad());
+  EXPECT_EQ(raw_controller->last_loaded_extension(),
+            web::BuiltInExtension::kGPC);
+  raw_controller->CompleteLoad(/*success=*/true);
+  EXPECT_TRUE(
+      raw_controller->IsBuiltInExtensionLoaded(web::BuiltInExtension::kGPC));
 }
 
 // Tests that ExtensionService triggers extension load when initialized with
@@ -536,6 +599,406 @@ API_AVAILABLE(ios(18.4)) {
   EXPECT_FALSE(service.WebExtensionsWereLoadedAtStartup());
   EXPECT_FALSE(raw_fake_controller->HasPendingLoad());
   EXPECT_EQ(raw_fake_controller->load_call_count(), 0);
+}
+
+// Tests that a failed extension load sets HasLoadError to true and notifies
+// observers, and that disabling the setting resets HasLoadError to false.
+TEST_F(ExtensionServiceTest, TestLoadFailureSetsLoadErrorAndResetOnDisable)
+API_AVAILABLE(ios(18.4)) {
+  SetOptedIn(true);
+
+  auto fake_controller = std::make_unique<FakeExtensionController>();
+  FakeExtensionController* raw_fake_controller = fake_controller.get();
+
+  ExtensionServiceImpl service(pref_service_, std::move(fake_controller));
+  TestExtensionServiceObserver observer;
+  service.AddObserver(&observer);
+
+  service.Initialize(web::UniversalOptOutState::kEnabled);
+
+  EXPECT_FALSE(service.HasLoadError());
+  EXPECT_EQ(observer.call_count(), 0);
+
+  // Fail extension load.
+  raw_fake_controller->CompleteLoad(/*success=*/false);
+  EXPECT_TRUE(service.HasLoadError());
+  EXPECT_EQ(observer.call_count(), 1);
+  EXPECT_TRUE(observer.last_has_load_error());
+
+  // Disabling the setting should reset the load error.
+  SetOptedIn(false);
+  EXPECT_FALSE(service.HasLoadError());
+  EXPECT_EQ(observer.call_count(), 2);
+  EXPECT_FALSE(observer.last_has_load_error());
+
+  // Enabling the setting should trigger load attempt.
+  SetOptedIn(true);
+  EXPECT_FALSE(service.HasLoadError());
+  raw_fake_controller->CompleteLoad(/*success=*/true);
+  EXPECT_FALSE(service.HasLoadError());
+  EXPECT_EQ(observer.call_count(), 2);
+
+  service.RemoveObserver(&observer);
+}
+
+// Tests that timing out when loading an extension sets HasLoadError to true
+// and notifies observers.
+TEST_F(ExtensionServiceTest, TestLoadTimeoutSetsLoadError)
+API_AVAILABLE(ios(18.4)) {
+  SetOptedIn(true);
+
+  auto fake_controller = std::make_unique<FakeExtensionController>();
+
+  ExtensionServiceImpl service(pref_service_, std::move(fake_controller));
+  TestExtensionServiceObserver observer;
+  service.AddObserver(&observer);
+
+  service.Initialize(web::UniversalOptOutState::kEnabled);
+
+  EXPECT_FALSE(service.HasLoadError());
+  EXPECT_EQ(observer.call_count(), 0);
+
+  // Fast forward past the 10-second loading timeout.
+  task_environment_.FastForwardBy(base::Seconds(10));
+
+  EXPECT_TRUE(service.HasLoadError());
+  EXPECT_EQ(observer.call_count(), 1);
+  EXPECT_TRUE(observer.last_has_load_error());
+
+  // Disabling the setting should reset the load error.
+  SetOptedIn(false);
+  EXPECT_FALSE(service.HasLoadError());
+  EXPECT_EQ(observer.call_count(), 2);
+  EXPECT_FALSE(observer.last_has_load_error());
+
+  service.RemoveObserver(&observer);
+}
+
+// Tests that timing out when manually loading an extension sets `HasLoadError`
+// to true and notifies observers.
+TEST_F(ExtensionServiceTest, TestManualLoadTimeoutSetsLoadError)
+API_AVAILABLE(ios(18.4)) {
+  base::HistogramTester histogram_tester;
+  SetOptedIn(false);
+
+  auto fake_controller = std::make_unique<FakeExtensionController>();
+  FakeExtensionController* raw_fake_controller = fake_controller.get();
+
+  ExtensionServiceImpl service(pref_service_, std::move(fake_controller));
+  TestExtensionServiceObserver observer;
+  service.AddObserver(&observer);
+
+  service.Initialize(web::UniversalOptOutState::kEligible);
+
+  EXPECT_TRUE(service.IsReady());
+  EXPECT_FALSE(service.HasLoadError());
+  EXPECT_EQ(observer.call_count(), 0);
+
+  // Manually enable the setting to trigger loading.
+  SetOptedIn(true);
+  EXPECT_TRUE(raw_fake_controller->HasPendingLoad());
+  EXPECT_FALSE(service.HasLoadError());
+  EXPECT_EQ(observer.call_count(), 0);
+
+  // Fast forward past the 2-second loading timeout.
+  task_environment_.FastForwardBy(base::Seconds(2));
+
+  EXPECT_TRUE(service.HasLoadError());
+  EXPECT_EQ(observer.call_count(), 1);
+  EXPECT_TRUE(observer.last_has_load_error());
+
+  histogram_tester.ExpectTotalCount("IOS.WebExtension.LoadSuccess", 0);
+  histogram_tester.ExpectTotalCount("IOS.WebExtension.LoadDelay", 0);
+
+  // Disabling the setting should reset the load error.
+  SetOptedIn(false);
+  EXPECT_FALSE(service.HasLoadError());
+  EXPECT_EQ(observer.call_count(), 2);
+  EXPECT_FALSE(observer.last_has_load_error());
+
+  // Enabling the setting should trigger another load attempt.
+  SetOptedIn(true);
+  EXPECT_FALSE(service.HasLoadError());
+  raw_fake_controller->CompleteLoad(/*success=*/true);
+  EXPECT_FALSE(service.HasLoadError());
+  EXPECT_EQ(observer.call_count(), 2);
+  histogram_tester.ExpectUniqueSample("IOS.WebExtension.LoadSuccess", true, 1);
+
+  service.RemoveObserver(&observer);
+}
+
+// Tests that manually loading an extension cancels the timeout timer if loading
+// finishes before 2 seconds.
+TEST_F(ExtensionServiceTest, TestManualLoadSuccessBeforeTimeout)
+API_AVAILABLE(ios(18.4)) {
+  base::HistogramTester histogram_tester;
+  SetOptedIn(false);
+
+  auto fake_controller = std::make_unique<FakeExtensionController>();
+  FakeExtensionController* raw_fake_controller = fake_controller.get();
+
+  ExtensionServiceImpl service(pref_service_, std::move(fake_controller));
+  TestExtensionServiceObserver observer;
+  service.AddObserver(&observer);
+
+  service.Initialize(web::UniversalOptOutState::kEligible);
+
+  EXPECT_TRUE(service.IsReady());
+  EXPECT_FALSE(service.HasLoadError());
+
+  // Manually enable the setting to trigger loading.
+  SetOptedIn(true);
+  EXPECT_TRUE(raw_fake_controller->HasPendingLoad());
+
+  // Advance time by 1 second (less than the 2-second timeout).
+  task_environment_.FastForwardBy(base::Seconds(1));
+  EXPECT_FALSE(service.HasLoadError());
+
+  // Complete load successfully.
+  raw_fake_controller->CompleteLoad(/*success=*/true);
+  EXPECT_FALSE(service.HasLoadError());
+  EXPECT_EQ(observer.call_count(), 0);
+  histogram_tester.ExpectUniqueSample("IOS.WebExtension.LoadSuccess", true, 1);
+  histogram_tester.ExpectUniqueTimeSample("IOS.WebExtension.LoadDelay",
+                                          base::Seconds(1), 1);
+
+  // Fast forward another 2 seconds and verify that timeout does not fire.
+  task_environment_.FastForwardBy(base::Seconds(2));
+  EXPECT_FALSE(service.HasLoadError());
+  EXPECT_EQ(observer.call_count(), 0);
+
+  service.RemoveObserver(&observer);
+}
+
+// Tests that simulating load failure with no delay causes extension loading to
+// fail immediately.
+TEST_F(ExtensionServiceTest, TestLoadDelayNoDelayFail)
+API_AVAILABLE(ios(18.4)) {
+  base::HistogramTester histogram_tester;
+  SetOptedIn(true);
+  SetWebExtensionLoadDelay(base::TimeDelta(), /*should_fail=*/true);
+
+  auto fake_controller = std::make_unique<FakeExtensionController>();
+  FakeExtensionController* raw_fake_controller = fake_controller.get();
+
+  ExtensionServiceImpl service(pref_service_, std::move(fake_controller));
+  TestExtensionServiceObserver observer;
+  service.AddObserver(&observer);
+
+  service.Initialize(web::UniversalOptOutState::kEnabled);
+
+  EXPECT_FALSE(raw_fake_controller->HasPendingLoad());
+
+  task_environment_.FastForwardBy(base::TimeDelta());
+
+  EXPECT_TRUE(service.IsReady());
+  EXPECT_TRUE(service.HasLoadError());
+  EXPECT_EQ(observer.call_count(), 1);
+  EXPECT_TRUE(observer.last_has_load_error());
+  histogram_tester.ExpectTotalCount("IOS.WebExtension.LoadSuccess", 0);
+  histogram_tester.ExpectTotalCount("IOS.WebExtension.LoadDelay", 0);
+  histogram_tester.ExpectTotalCount("IOS.WebExtension.ReadyDelay", 0);
+
+  service.RemoveObserver(&observer);
+}
+
+// Tests that simulating a 1-second delay delays successful load completion so
+// that it takes at least 1 second.
+TEST_F(ExtensionServiceTest, TestLoadDelay1sPass)
+API_AVAILABLE(ios(18.4)) {
+  base::HistogramTester histogram_tester;
+  SetOptedIn(true);
+  SetWebExtensionLoadDelay(base::Seconds(1));
+
+  auto fake_controller = std::make_unique<FakeExtensionController>();
+  FakeExtensionController* raw_fake_controller = fake_controller.get();
+
+  ExtensionServiceImpl service(pref_service_, std::move(fake_controller));
+  TestExtensionServiceObserver observer;
+  service.AddObserver(&observer);
+
+  service.Initialize(web::UniversalOptOutState::kEnabled);
+
+  EXPECT_TRUE(raw_fake_controller->HasPendingLoad());
+  EXPECT_FALSE(service.IsReady());
+
+  // Underlying load finishes at 100ms.
+  task_environment_.FastForwardBy(base::Milliseconds(100));
+  raw_fake_controller->CompleteLoad(/*success=*/true);
+
+  // Still not ready before 1s has elapsed.
+  EXPECT_FALSE(service.IsReady());
+  EXPECT_FALSE(service.HasLoadError());
+  EXPECT_EQ(observer.call_count(), 0);
+
+  // Fast forward remaining 900ms to reach 1 second.
+  task_environment_.FastForwardBy(base::Milliseconds(900));
+
+  EXPECT_TRUE(service.IsReady());
+  EXPECT_FALSE(service.HasLoadError());
+  EXPECT_EQ(observer.call_count(), 0);
+  histogram_tester.ExpectTotalCount("IOS.WebExtension.LoadSuccess", 0);
+  histogram_tester.ExpectTotalCount("IOS.WebExtension.LoadDelay", 0);
+  histogram_tester.ExpectTotalCount("IOS.WebExtension.ReadyDelay", 0);
+
+  service.RemoveObserver(&observer);
+}
+
+// Tests that simulating a 1-second delay with failure waits 1 second then
+// fails.
+TEST_F(ExtensionServiceTest, TestLoadDelay1sFail)
+API_AVAILABLE(ios(18.4)) {
+  base::HistogramTester histogram_tester;
+  SetOptedIn(true);
+  SetWebExtensionLoadDelay(base::Seconds(1), /*should_fail=*/true);
+
+  auto fake_controller = std::make_unique<FakeExtensionController>();
+  FakeExtensionController* raw_fake_controller = fake_controller.get();
+
+  ExtensionServiceImpl service(pref_service_, std::move(fake_controller));
+  TestExtensionServiceObserver observer;
+  service.AddObserver(&observer);
+
+  service.Initialize(web::UniversalOptOutState::kEnabled);
+
+  EXPECT_FALSE(raw_fake_controller->HasPendingLoad());
+  EXPECT_FALSE(service.IsReady());
+
+  // Fast forward 500ms (less than 1s).
+  task_environment_.FastForwardBy(base::Milliseconds(500));
+  EXPECT_FALSE(service.IsReady());
+  EXPECT_FALSE(service.HasLoadError());
+  EXPECT_EQ(observer.call_count(), 0);
+
+  // Fast forward remaining 500ms to reach 1s.
+  task_environment_.FastForwardBy(base::Milliseconds(500));
+  EXPECT_TRUE(service.IsReady());
+  EXPECT_TRUE(service.HasLoadError());
+  EXPECT_EQ(observer.call_count(), 1);
+  EXPECT_TRUE(observer.last_has_load_error());
+  histogram_tester.ExpectTotalCount("IOS.WebExtension.LoadSuccess", 0);
+  histogram_tester.ExpectTotalCount("IOS.WebExtension.LoadDelay", 0);
+  histogram_tester.ExpectTotalCount("IOS.WebExtension.ReadyDelay", 0);
+
+  service.RemoveObserver(&observer);
+}
+
+// Tests that simulating a 5-second delay times out at 2 seconds and then clears
+// the load error when loading completes at 5 seconds.
+TEST_F(ExtensionServiceTest, TestLoadDelay5sPassTimesOutThenRecovers)
+API_AVAILABLE(ios(18.4)) {
+  base::HistogramTester histogram_tester;
+  SetOptedIn(true);
+  SetWebExtensionLoadDelay(base::Seconds(5));
+
+  auto fake_controller = std::make_unique<FakeExtensionController>();
+  FakeExtensionController* raw_fake_controller = fake_controller.get();
+
+  ExtensionServiceImpl service(pref_service_, std::move(fake_controller));
+  TestExtensionServiceObserver observer;
+  service.AddObserver(&observer);
+
+  service.Initialize(web::UniversalOptOutState::kEnabled);
+
+  EXPECT_TRUE(raw_fake_controller->HasPendingLoad());
+  raw_fake_controller->CompleteLoad(/*success=*/true);
+
+  // At 2 seconds, the loading timeout should trigger.
+  task_environment_.FastForwardBy(base::Seconds(2));
+  EXPECT_TRUE(service.IsReady());
+  EXPECT_TRUE(service.HasLoadError());
+  EXPECT_EQ(observer.call_count(), 1);
+  EXPECT_TRUE(observer.last_has_load_error());
+
+  // At 5 seconds (advance another 3s), the delayed load completes successfully.
+  task_environment_.FastForwardBy(base::Seconds(3));
+  EXPECT_FALSE(service.HasLoadError());
+  EXPECT_EQ(observer.call_count(), 2);
+  EXPECT_FALSE(observer.last_has_load_error());
+  histogram_tester.ExpectTotalCount("IOS.WebExtension.LoadSuccess", 0);
+  histogram_tester.ExpectTotalCount("IOS.WebExtension.LoadDelay", 0);
+  histogram_tester.ExpectTotalCount("IOS.WebExtension.ReadyDelay", 0);
+
+  service.RemoveObserver(&observer);
+}
+
+// Tests that simulating a 5-second delay with failure times out at 2 seconds
+// and then fails at 5 seconds.
+TEST_F(ExtensionServiceTest, TestLoadDelay5sFailTimesOutAndFails)
+API_AVAILABLE(ios(18.4)) {
+  base::HistogramTester histogram_tester;
+  SetOptedIn(true);
+  SetWebExtensionLoadDelay(base::Seconds(5), /*should_fail=*/true);
+
+  auto fake_controller = std::make_unique<FakeExtensionController>();
+  FakeExtensionController* raw_fake_controller = fake_controller.get();
+
+  ExtensionServiceImpl service(pref_service_, std::move(fake_controller));
+  TestExtensionServiceObserver observer;
+  service.AddObserver(&observer);
+
+  service.Initialize(web::UniversalOptOutState::kEnabled);
+
+  EXPECT_FALSE(raw_fake_controller->HasPendingLoad());
+
+  // At 2 seconds, the loading timeout should trigger.
+  task_environment_.FastForwardBy(base::Seconds(2));
+  EXPECT_TRUE(service.IsReady());
+  EXPECT_TRUE(service.HasLoadError());
+  EXPECT_EQ(observer.call_count(), 1);
+  EXPECT_TRUE(observer.last_has_load_error());
+
+  // At 5 seconds (advance another 3s), the delay timer fires with failure.
+  task_environment_.FastForwardBy(base::Seconds(3));
+  EXPECT_TRUE(service.HasLoadError());
+  // The error state remains true, so observer is not called again.
+  EXPECT_EQ(observer.call_count(), 1);
+  histogram_tester.ExpectTotalCount("IOS.WebExtension.LoadSuccess", 0);
+  histogram_tester.ExpectTotalCount("IOS.WebExtension.LoadDelay", 0);
+  histogram_tester.ExpectTotalCount("IOS.WebExtension.ReadyDelay", 0);
+
+  service.RemoveObserver(&observer);
+}
+
+// Tests that manually loading an extension respects simulated load delay.
+TEST_F(ExtensionServiceTest, TestManualLoadWithDelay1s)
+API_AVAILABLE(ios(18.4)) {
+  base::HistogramTester histogram_tester;
+  SetOptedIn(false);
+  SetWebExtensionLoadDelay(base::Seconds(1));
+
+  auto fake_controller = std::make_unique<FakeExtensionController>();
+  FakeExtensionController* raw_fake_controller = fake_controller.get();
+
+  ExtensionServiceImpl service(pref_service_, std::move(fake_controller));
+  TestExtensionServiceObserver observer;
+  service.AddObserver(&observer);
+
+  service.Initialize(web::UniversalOptOutState::kEligible);
+
+  EXPECT_TRUE(service.IsReady());
+  EXPECT_FALSE(service.HasLoadError());
+
+  // Manually enable the setting to trigger loading.
+  SetOptedIn(true);
+  EXPECT_TRUE(raw_fake_controller->HasPendingLoad());
+
+  // Complete load at 200ms.
+  task_environment_.FastForwardBy(base::Milliseconds(200));
+  raw_fake_controller->CompleteLoad(/*success=*/true);
+
+  // Still delayed before reaching 1s.
+  task_environment_.FastForwardBy(base::Milliseconds(500));
+  EXPECT_FALSE(service.HasLoadError());
+
+  // Advance remaining 300ms to reach 1s.
+  task_environment_.FastForwardBy(base::Milliseconds(300));
+  EXPECT_FALSE(service.HasLoadError());
+  histogram_tester.ExpectTotalCount("IOS.WebExtension.LoadSuccess", 0);
+  histogram_tester.ExpectTotalCount("IOS.WebExtension.LoadDelay", 0);
+  histogram_tester.ExpectTotalCount("IOS.WebExtension.ReadyDelay", 0);
+
+  service.RemoveObserver(&observer);
 }
 
 }  // namespace

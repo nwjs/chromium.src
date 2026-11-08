@@ -31,6 +31,7 @@
 #include "cc/animation/animation.h"
 #include "cc/animation/animation_host.h"
 #include "cc/animation/animation_id_provider.h"
+#include "cc/animation/keyframe_model.h"
 #include "cc/base/features.h"
 #include "cc/input/browser_controls_offset_manager.h"
 #include "cc/input/input_handler.h"
@@ -92,6 +93,7 @@
 #include "components/viz/common/frame_sinks/copy_output_request.h"
 #include "components/viz/common/frame_sinks/copy_output_result.h"
 #include "components/viz/common/frame_timing_details.h"
+#include "components/viz/common/quads/compositor_frame.h"
 #include "components/viz/common/quads/compositor_frame_metadata.h"
 #include "components/viz/common/quads/compositor_render_pass_draw_quad.h"
 #include "components/viz/common/quads/solid_color_draw_quad.h"
@@ -110,7 +112,10 @@
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/skia/include/core/SkMallocPixelRef.h"
+#include "ui/base/ui_base_features.h"
 #include "ui/events/types/scroll_input_type.h"
+#include "ui/gfx/animation/keyframe/keyframed_animation_curve.h"
+#include "ui/gfx/animation/keyframe/timing_function.h"
 #include "ui/gfx/geometry/point_conversions.h"
 #include "ui/gfx/geometry/size_conversions.h"
 #include "ui/gfx/geometry/test/geometry_util.h"
@@ -189,7 +194,69 @@ class CompositorFrameProducingLayerTreeHostImplTest
 INSTANTIATE_COMPOSITOR_FRAME_PRODUCING_TREE_TEST_P(
     CompositorFrameProducingLayerTreeHostImplTest);
 
-class AnimationsLayerTreeHostImplTest : public LayerTreeHostImplTest {};
+class AnimationsLayerTreeHostImplTest : public LayerTreeHostImplTest {
+ protected:
+  // TreesInViz clients don't submit CompositorFrames, and the Viz-process
+  // instance doesn't report stepped animation cadence yet
+  // (crbug.com/555345506).
+  bool ReportsSteppedCadence() const {
+    return !host_impl_->settings().TreesInVizInClientProcess() &&
+           !host_impl_->settings().trees_in_viz_in_viz_process;
+  }
+
+  // Adds an impl-side opacity animation from 0.1 to 0.9 over `duration` to
+  // `element_id`, with steps(`num_steps`, start) timing if `num_steps` is set
+  // and linear timing otherwise. Like impl instances of main-thread animations
+  // (see KeyframeModel::CreateImplInstance()), the keyframe model doesn't wait
+  // for a synchronized start time.
+  void AddImplOpacityAnimation(ElementId element_id,
+                               base::TimeDelta duration,
+                               std::optional<int> num_steps) {
+    std::unique_ptr<gfx::TimingFunction> timing_function;
+    if (num_steps) {
+      timing_function = gfx::StepsTimingFunction::Create(
+          *num_steps, gfx::StepsTimingFunction::StepPosition::START);
+    }
+    auto curve = gfx::KeyframedFloatAnimationCurve::Create();
+    curve->AddKeyframe(gfx::FloatKeyframe::Create(base::TimeDelta(), 0.1f,
+                                                  std::move(timing_function)));
+    curve->AddKeyframe(gfx::FloatKeyframe::Create(duration, 0.9f, nullptr));
+
+    scoped_refptr<Animation> animation =
+        Animation::Create(AnimationIdProvider::NextAnimationId());
+    timeline()->AttachAnimation(animation);
+    animation->AttachElement(element_id);
+    animation->AddKeyframeModel(KeyframeModel::Create(
+        std::move(curve), AnimationIdProvider::NextKeyframeModelId(),
+        AnimationIdProvider::NextGroupId(),
+        KeyframeModel::TargetPropertyId(TargetProperty::OPACITY)));
+  }
+
+  // Runs one impl frame at `frame_time` in the same order as ProxyImpl:
+  // WillBeginImplFrame() ticks animations, the frame is drawn, and then
+  // animations that are ready to start are started. Returns the submitted
+  // CompositorFrame, or nullptr if no frame was submitted.
+  const viz::CompositorFrame* DrawAnimationFrame(base::TimeTicks frame_time,
+                                                 uint64_t sequence_number) {
+    auto* sink = static_cast<FakeLayerTreeFrameSink*>(
+        host_impl_->layer_tree_frame_sink());
+    const size_t sent_frames_before = sink->num_sent_frames();
+    viz::BeginFrameArgs args = viz::CreateBeginFrameArgsForTesting(
+        BEGINFRAME_FROM_HERE, 0, sequence_number, frame_time);
+    TestFrameData frame_data;
+    frame_data.begin_frame_ack = viz::BeginFrameAck(args, /*has_damage=*/true);
+    host_impl_->WillBeginImplFrame(args);
+    EXPECT_EQ(DrawResult::kSuccess, host_impl_->PrepareToDraw(&frame_data));
+    host_impl_->DrawLayers(&frame_data);
+    host_impl_->DidDrawAllLayers(frame_data);
+    host_impl_->UpdateAnimationState(/*start_ready_animations=*/true);
+    host_impl_->DidFinishImplFrame(args);
+    if (sink->num_sent_frames() == sent_frames_before) {
+      return nullptr;
+    }
+    return sink->last_sent_frame();
+  }
+};
 
 INSTANTIATE_ANIMATIONS_TREE_TEST_P(AnimationsLayerTreeHostImplTest);
 
@@ -575,7 +642,13 @@ TEST_F(CommitToActiveTreeLayerTreeHostImplTest, ScrollDeltaRepeatedScrolls) {
             gfx::Vector2dF(0, 0));
 }
 
-TEST_P(LayerTreeHostImplTest, ScrollAxisLockBypass) {
+// Verifies that when kApplyScrollRailingInRenderer is disabled, InputHandler
+// uses unconstrained values when axis locking is prevented on the scroll node.
+TEST_P(LayerTreeHostImplTest, PreventScrollAxisLockingUsesUnconstrainedDeltas) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndDisableFeature(
+      features::kApplyScrollRailingInRenderer);
+
   SetupViewportLayersOuterScrolls(gfx::Size(100, 100), gfx::Size(1000, 1000));
   LayerImpl* scroll_layer = OuterViewportScrollLayer();
   ScrollNode* scroll_node = GetScrollNode(scroll_layer);
@@ -2510,6 +2583,72 @@ TEST_P(LayerTreeHostImplTest, HybridFlingNearExtremes) {
   handler.ScrollEnd(/*should_snap=*/false, std::nullopt);
 }
 
+// A fast fling toward the last snap point constrains the fling to that snap
+// point. If the snap at scroll end then animates, the end-of-scroll cleanup is
+// deferred until the animation finishes. A new gesture that starts during that
+// animation must not inherit the constraint of the previous fling.
+TEST_P(LayerTreeHostImplTest,
+       HybridFlingNearExtremesNewGestureDuringSnapAnimation) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(features::kSnapFlingNearExtremes);
+
+  gfx::Size view_size(100, 100);
+  gfx::Size overflow_size(100, 1000);
+  gfx::RectF snap_area_1(0, 0, 100, 100);
+  // The last snap position (899.5) is a fraction of a pixel short of the max
+  // scroll offset (900), so the snap at scroll end creates an animation.
+  gfx::RectF snap_area_2(0, 899.5, 100, 100);
+
+  SetupViewportLayersInnerScrolls(view_size, view_size);
+  LayerImpl* overflow =
+      AddScrollableLayer(OuterViewportScrollLayer(), view_size, overflow_size);
+
+  SnapContainerData container(
+      ScrollSnapType(false, SnapAxis::kY, SnapStrictness::kMandatory),
+      gfx::RectF(0, 0, 100, 100), gfx::PointF(0, 900));
+  ScrollSnapAlign start = ScrollSnapAlign(SnapAlignment::kStart);
+  container.AddSnapAreaData(
+      SnapAreaData(start, snap_area_1, false, false, ElementId(10)));
+  container.AddSnapAreaData(
+      SnapAreaData(start, snap_area_2, false, false, ElementId(20)));
+  GetScrollNode(overflow)->snap_container_data.emplace(container);
+  DrawFrame();
+
+  auto& handler = GetInputHandler();
+  gfx::PointF initial_offset, target_offset;
+  gfx::Point position(50, 50);
+  ui::ScrollInputType type = ui::ScrollInputType::kTouchscreen;
+
+  // Gesture 1: scroll to the max offset, then fling further toward the end.
+  // The fling is fast enough to reach the last snap point, so it becomes a
+  // constrained native fling instead of a snap fling.
+  handler.ScrollBegin(&*BeginState(position, gfx::Vector2dF(0, 100), type),
+                      type);
+  handler.ScrollUpdate(UpdateState(position, gfx::Vector2dF(0, 900), type));
+  EXPECT_POINTF_EQ(gfx::PointF(0, 900), CurrentScrollOffset(overflow));
+  EXPECT_FALSE(handler.GetSnapFlingInfoAndSetAnimatingSnapTarget(
+      gfx::Vector2dF(0, 10), gfx::Vector2dF(0, 250), &initial_offset,
+      &target_offset));
+
+  // The gesture ends 0.5px away from the snap position. The snap animates, so
+  // the scroll end is deferred and the latched node is released.
+  handler.ScrollEnd(/*should_snap=*/true, std::nullopt);
+  EXPECT_TRUE(handler.animating_for_snap_for_testing(overflow->element_id()));
+  EXPECT_FALSE(host_impl_->CurrentlyScrollingNode());
+
+  // Gesture 2 goes in the opposite direction before the snap animation
+  // finishes. It latches to the same scroller and must scroll freely.
+  handler.ScrollBegin(&*BeginState(position, gfx::Vector2dF(0, -12), type),
+                      type);
+  EXPECT_EQ(GetScrollNode(overflow), host_impl_->CurrentlyScrollingNode());
+  InputHandlerScrollResult result =
+      handler.ScrollUpdate(UpdateState(position, gfx::Vector2dF(0, -12), type));
+  EXPECT_FALSE(result.hit_snap_constraint);
+  EXPECT_TRUE(result.did_scroll);
+  EXPECT_POINTF_EQ(gfx::PointF(0, 888), CurrentScrollOffset(overflow));
+  handler.ScrollEnd(/*should_snap=*/false, std::nullopt);
+}
+
 TEST_P(LayerTreeHostImplTest, LargeSnapAreaFling) {
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitAndEnableFeature(features::kSnapFlingNearExtremes);
@@ -3001,6 +3140,287 @@ TEST_P(AnimationsLayerTreeHostImplTest, AnimationSchedulingOnLayerDestruction) {
   // Doing Animate() doesn't request any frames after the animation is removed.
   host_impl_->Animate();
   EXPECT_FALSE(did_request_next_frame_);
+}
+
+TEST_P(AnimationsLayerTreeHostImplTest, SteppedAnimationDamageQualification) {
+  if (!ReportsSteppedCadence()) {
+    GTEST_SKIP();
+  }
+
+  LayerImpl* root = SetupDefaultRootLayer(gfx::Size(50, 50));
+
+  LayerImpl* child = AddLayerInActiveTree();
+  child->SetBounds(gfx::Size(10, 10));
+  child->SetDrawsContent(true);
+
+  host_impl_->active_tree()->SetElementIdsForTesting();
+  CopyProperties(root, child);
+  auto& effect_node = CreateEffectNode(child);
+  effect_node.render_surface_reason = RenderSurfaceReason::kTest;
+  effect_node.has_potential_opacity_animation = true;
+
+  // 10 steps over 1s -> 100ms interval.
+  AddImplOpacityAnimation(child->element_id(), base::Seconds(1), 10);
+  UpdateDrawProperties(host_impl_->active_tree());
+  host_impl_->ActivateAnimations();
+
+  // The first frame starts the animations.
+  const base::TimeTicks start_time =
+      base::TimeTicks() + base::Milliseconds(100);
+  ASSERT_TRUE(DrawAnimationFrame(start_time, 1));
+
+  // 150ms later, the animation has advanced by one step.
+  const viz::CompositorFrame* frame =
+      DrawAnimationFrame(start_time + base::Milliseconds(150), 2);
+  ASSERT_TRUE(frame);
+  const auto& frame_interval_inputs = frame->metadata.frame_interval_inputs;
+  EXPECT_TRUE(frame_interval_inputs.has_only_content_frame_interval_updates);
+  ASSERT_EQ(frame_interval_inputs.content_interval_info.size(), 1u);
+  EXPECT_EQ(frame_interval_inputs.content_interval_info[0].type,
+            viz::ContentFrameIntervalType::kSteppedCompositorAnimation);
+  EXPECT_EQ(frame_interval_inputs.content_interval_info[0].frame_interval,
+            base::Milliseconds(100));
+}
+
+TEST_P(AnimationsLayerTreeHostImplTest,
+       MultipleSteppedAnimationsCadenceAggregation) {
+  if (!ReportsSteppedCadence()) {
+    GTEST_SKIP();
+  }
+
+  LayerImpl* root = SetupDefaultRootLayer(gfx::Size(50, 50));
+
+  LayerImpl* child1 = AddLayerInActiveTree();
+  child1->SetBounds(gfx::Size(10, 10));
+  child1->SetDrawsContent(true);
+
+  LayerImpl* child2 = AddLayerInActiveTree();
+  child2->SetBounds(gfx::Size(10, 10));
+  child2->SetDrawsContent(true);
+
+  host_impl_->active_tree()->SetElementIdsForTesting();
+  CopyProperties(root, child1);
+  auto& effect_node1 = CreateEffectNode(child1);
+  effect_node1.render_surface_reason = RenderSurfaceReason::kTest;
+  effect_node1.has_potential_opacity_animation = true;
+
+  CopyProperties(root, child2);
+  auto& effect_node2 = CreateEffectNode(child2);
+  effect_node2.render_surface_reason = RenderSurfaceReason::kTest;
+  effect_node2.has_potential_opacity_animation = true;
+
+  // 10 steps over 1s -> 100ms interval (10 fps).
+  AddImplOpacityAnimation(child1->element_id(), base::Seconds(1), 10);
+  // 15 steps over 1s -> 66.666...ms interval (15 fps).
+  AddImplOpacityAnimation(child2->element_id(), base::Seconds(1), 15);
+  UpdateDrawProperties(host_impl_->active_tree());
+  host_impl_->ActivateAnimations();
+
+  // The first frame starts the animations.
+  const base::TimeTicks start_time =
+      base::TimeTicks() + base::Milliseconds(100);
+  ASSERT_TRUE(DrawAnimationFrame(start_time, 1));
+
+  const viz::CompositorFrame* frame =
+      DrawAnimationFrame(start_time + base::Milliseconds(150), 2);
+  ASSERT_TRUE(frame);
+  const auto& frame_interval_inputs = frame->metadata.frame_interval_inputs;
+  EXPECT_TRUE(frame_interval_inputs.has_only_content_frame_interval_updates);
+  ASSERT_EQ(frame_interval_inputs.content_interval_info.size(), 1u);
+
+  // Harmonizes 10 fps (100ms) and 15 fps (66.666ms) to 30 fps (33.333ms).
+  EXPECT_EQ(frame_interval_inputs.content_interval_info[0].type,
+            viz::ContentFrameIntervalType::kSteppedCompositorAnimation);
+  EXPECT_EQ(frame_interval_inputs.content_interval_info[0].frame_interval,
+            base::Microseconds(33333));
+}
+
+TEST_P(AnimationsLayerTreeHostImplTest, SteppedAnimationPlusUntrackedDamage) {
+  if (!ReportsSteppedCadence()) {
+    GTEST_SKIP();
+  }
+
+  LayerImpl* root = SetupDefaultRootLayer(gfx::Size(50, 50));
+
+  LayerImpl* child = AddLayerInActiveTree();
+  child->SetBounds(gfx::Size(10, 10));
+  child->SetDrawsContent(true);
+
+  host_impl_->active_tree()->SetElementIdsForTesting();
+  CopyProperties(root, child);
+  auto& effect_node = CreateEffectNode(child);
+  effect_node.render_surface_reason = RenderSurfaceReason::kTest;
+  effect_node.has_potential_opacity_animation = true;
+
+  AddImplOpacityAnimation(child->element_id(), base::Seconds(1), 10);
+  UpdateDrawProperties(host_impl_->active_tree());
+  host_impl_->ActivateAnimations();
+
+  // The first frame starts the animations.
+  const base::TimeTicks start_time =
+      base::TimeTicks() + base::Milliseconds(100);
+  ASSERT_TRUE(DrawAnimationFrame(start_time, 1));
+
+  // Content damage is attributed to DamageReason::kUntracked.
+  child->UnionUpdateRect(gfx::Rect(0, 0, 5, 5));
+
+  // This frame has both a stepped animation tick and untracked damage.
+  const viz::CompositorFrame* frame =
+      DrawAnimationFrame(start_time + base::Milliseconds(150), 2);
+  ASSERT_TRUE(frame);
+  const auto& frame_interval_inputs = frame->metadata.frame_interval_inputs;
+  EXPECT_FALSE(frame_interval_inputs.has_only_content_frame_interval_updates);
+  ASSERT_EQ(frame_interval_inputs.content_interval_info.size(), 1u);
+  EXPECT_EQ(frame_interval_inputs.content_interval_info[0].type,
+            viz::ContentFrameIntervalType::kSteppedCompositorAnimation);
+  EXPECT_EQ(frame_interval_inputs.content_interval_info[0].frame_interval,
+            base::Milliseconds(100));
+}
+
+TEST_P(AnimationsLayerTreeHostImplTest, ContinuousAnimationDisqualifiesFrame) {
+  if (!ReportsSteppedCadence()) {
+    GTEST_SKIP();
+  }
+
+  LayerImpl* root = SetupDefaultRootLayer(gfx::Size(50, 50));
+
+  LayerImpl* child = AddLayerInActiveTree();
+  child->SetBounds(gfx::Size(10, 10));
+  child->SetDrawsContent(true);
+
+  host_impl_->active_tree()->SetElementIdsForTesting();
+  CopyProperties(root, child);
+  auto& effect_node = CreateEffectNode(child);
+  effect_node.render_surface_reason = RenderSurfaceReason::kTest;
+  effect_node.has_potential_opacity_animation = true;
+
+  // Continuous linear opacity animation.
+  AddImplOpacityAnimation(child->element_id(), base::Seconds(1),
+                          /*num_steps=*/std::nullopt);
+  UpdateDrawProperties(host_impl_->active_tree());
+  host_impl_->ActivateAnimations();
+
+  // The first frame starts the animations.
+  const base::TimeTicks start_time =
+      base::TimeTicks() + base::Milliseconds(100);
+  ASSERT_TRUE(DrawAnimationFrame(start_time, 1));
+
+  const viz::CompositorFrame* frame =
+      DrawAnimationFrame(start_time + base::Milliseconds(150), 2);
+  ASSERT_TRUE(frame);
+  const auto& frame_interval_inputs = frame->metadata.frame_interval_inputs;
+  EXPECT_FALSE(frame_interval_inputs.has_only_content_frame_interval_updates);
+  EXPECT_TRUE(frame_interval_inputs.content_interval_info.empty());
+}
+
+TEST_P(AnimationsLayerTreeHostImplTest,
+       SteppedOpacityPlusTransformAnimationDisqualifiesThrottling) {
+  if (!ReportsSteppedCadence()) {
+    GTEST_SKIP();
+  }
+
+  LayerImpl* root = SetupDefaultRootLayer(gfx::Size(50, 50));
+
+  LayerImpl* child = AddLayerInActiveTree();
+  child->SetBounds(gfx::Size(10, 10));
+  child->SetDrawsContent(true);
+
+  host_impl_->active_tree()->SetElementIdsForTesting();
+  CopyProperties(root, child);
+  auto& transform_node = CreateTransformNode(child);
+  transform_node.has_potential_animation = true;
+  auto& effect_node = CreateEffectNode(child);
+  effect_node.render_surface_reason = RenderSurfaceReason::kTest;
+  effect_node.has_potential_opacity_animation = true;
+
+  // Add stepped opacity animation on child (10 steps over 1s -> 100ms).
+  AddImplOpacityAnimation(child->element_id(), base::Seconds(1), 10);
+
+  // Add stepped transform animation on child (10 steps over 1.0s -> 100ms).
+  scoped_refptr<Animation> transform_animation =
+      Animation::Create(AnimationIdProvider::NextAnimationId());
+  timeline()->AttachAnimation(transform_animation);
+  transform_animation->AttachElement(child->element_id());
+
+  auto transform_curve = gfx::KeyframedTransformAnimationCurve::Create();
+  gfx::TransformOperations start_transform;
+  start_transform.AppendTranslate(0, 0, 0);
+  gfx::TransformOperations end_transform;
+  end_transform.AppendTranslate(10, 10, 0);
+  std::unique_ptr<gfx::TimingFunction> steps_func =
+      gfx::StepsTimingFunction::Create(
+          10, gfx::StepsTimingFunction::StepPosition::START);
+  transform_curve->AddKeyframe(gfx::TransformKeyframe::Create(
+      base::TimeDelta(), start_transform, std::move(steps_func)));
+  transform_curve->AddKeyframe(gfx::TransformKeyframe::Create(
+      base::Seconds(1.0), end_transform, nullptr));
+
+  std::unique_ptr<KeyframeModel> transform_model(KeyframeModel::Create(
+      std::move(transform_curve), AnimationIdProvider::NextKeyframeModelId(),
+      AnimationIdProvider::NextGroupId(),
+      KeyframeModel::TargetPropertyId(TargetProperty::TRANSFORM)));
+  transform_model->set_needs_synchronized_start_time(false);
+  transform_animation->AddKeyframeModel(std::move(transform_model));
+
+  UpdateDrawProperties(host_impl_->active_tree());
+  host_impl_->ActivateAnimations();
+
+  // The first frame starts the animations.
+  const base::TimeTicks start_time =
+      base::TimeTicks() + base::Milliseconds(100);
+  ASSERT_TRUE(DrawAnimationFrame(start_time, 1));
+
+  const viz::CompositorFrame* frame =
+      DrawAnimationFrame(start_time + base::Milliseconds(150), 2);
+  ASSERT_TRUE(frame);
+  const auto& frame_interval_inputs = frame->metadata.frame_interval_inputs;
+  // Because transform animation damage leaves DamageReason::kUntracked,
+  // has_only_content_frame_interval_updates must be false.
+  EXPECT_FALSE(frame_interval_inputs.has_only_content_frame_interval_updates);
+  ASSERT_EQ(frame_interval_inputs.content_interval_info.size(), 1u);
+  EXPECT_EQ(frame_interval_inputs.content_interval_info[0].type,
+            viz::ContentFrameIntervalType::kSteppedCompositorAnimation);
+  EXPECT_EQ(frame_interval_inputs.content_interval_info[0].frame_interval,
+            base::Milliseconds(100));
+}
+
+TEST_P(AnimationsLayerTreeHostImplTest, SteppedCadenceNotReportedInVizProcess) {
+  // Among the TreesInViz modes, only the Viz-process instance with
+  // TreeAnimationsInViz ticks animations. It doesn't report stepped cadence
+  // yet (crbug.com/555345506), so the frame keeps kCompositorAnimation and
+  // stays ineligible for throttling.
+  if (!host_impl_->settings().TreeAnimationsInVizInVizProcess()) {
+    GTEST_SKIP();
+  }
+
+  LayerImpl* root = SetupDefaultRootLayer(gfx::Size(50, 50));
+
+  LayerImpl* child = AddLayerInActiveTree();
+  child->SetBounds(gfx::Size(10, 10));
+  child->SetDrawsContent(true);
+
+  host_impl_->active_tree()->SetElementIdsForTesting();
+  CopyProperties(root, child);
+  auto& effect_node = CreateEffectNode(child);
+  effect_node.render_surface_reason = RenderSurfaceReason::kTest;
+  effect_node.has_potential_opacity_animation = true;
+
+  // 10 steps over 1s -> 100ms interval.
+  AddImplOpacityAnimation(child->element_id(), base::Seconds(1), 10);
+  UpdateDrawProperties(host_impl_->active_tree());
+  host_impl_->ActivateAnimations();
+
+  // The first frame starts the animations.
+  const base::TimeTicks start_time =
+      base::TimeTicks() + base::Milliseconds(100);
+  ASSERT_TRUE(DrawAnimationFrame(start_time, 1));
+
+  const viz::CompositorFrame* frame =
+      DrawAnimationFrame(start_time + base::Milliseconds(150), 2);
+  ASSERT_TRUE(frame);
+  const auto& frame_interval_inputs = frame->metadata.frame_interval_inputs;
+  EXPECT_FALSE(frame_interval_inputs.has_only_content_frame_interval_updates);
+  EXPECT_TRUE(frame_interval_inputs.content_interval_info.empty());
 }
 
 class IncompleteRecordingLayer : public LayerImpl {

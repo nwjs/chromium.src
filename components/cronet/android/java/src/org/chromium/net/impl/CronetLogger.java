@@ -317,6 +317,12 @@ public abstract class CronetLogger {
             OTHER,
         }
 
+        public static enum CacheState {
+            UNSPECIFIED,
+            NOT_CACHED,
+            CACHE_HIT,
+        }
+
         private final long mRequestHeaderSizeInBytes;
         private final long mRequestBodySizeInBytes;
         private final long mResponseHeaderSizeInBytes;
@@ -347,6 +353,9 @@ public abstract class CronetLogger {
         private final long mTimeToReceiveHeaderLastByteMicros;
         private final Boolean mIsProxied;
         private final boolean mIsAdaptiveNetworkStream;
+        private final CacheState mCacheState;
+        private final long mUploadGoodputBytesPerSec;
+        private final long mDownloadGoodputBytesPerSec;
 
         public CronetTrafficInfo(
                 long requestHeaderSizeInBytes,
@@ -378,7 +387,10 @@ public abstract class CronetLogger {
                 long timeToSendFirstByteMicros,
                 long timeToReceiveHeaderLastByteMicros,
                 Boolean isProxied,
-                boolean isAdaptiveNetworkStream) {
+                boolean isAdaptiveNetworkStream,
+                CacheState cacheState,
+                long uploadGoodputBytesPerSec,
+                long downloadGoodputBytesPerSec) {
             mRequestHeaderSizeInBytes = requestHeaderSizeInBytes;
             mRequestBodySizeInBytes = requestBodySizeInBytes;
             mResponseHeaderSizeInBytes = responseHeaderSizeInBytes;
@@ -409,6 +421,9 @@ public abstract class CronetLogger {
             mTimeToReceiveHeaderLastByteMicros = timeToReceiveHeaderLastByteMicros;
             mIsProxied = isProxied;
             mIsAdaptiveNetworkStream = isAdaptiveNetworkStream;
+            mCacheState = cacheState;
+            mUploadGoodputBytesPerSec = uploadGoodputBytesPerSec;
+            mDownloadGoodputBytesPerSec = downloadGoodputBytesPerSec;
         }
 
         /**
@@ -544,6 +559,18 @@ public abstract class CronetLogger {
 
         public boolean isAdaptiveNetworkStream() {
             return mIsAdaptiveNetworkStream;
+        }
+
+        public CacheState getCacheState() {
+            return mCacheState;
+        }
+
+        public long getUploadGoodputBytesPerSec() {
+            return mUploadGoodputBytesPerSec;
+        }
+
+        public long getDownloadGoodputBytesPerSec() {
+            return mDownloadGoodputBytesPerSec;
         }
     }
 

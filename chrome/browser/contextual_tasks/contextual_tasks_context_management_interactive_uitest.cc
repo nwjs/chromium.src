@@ -6,6 +6,7 @@
 #include <optional>
 #include <set>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "base/check_deref.h"
@@ -31,6 +32,7 @@
 #include "chrome/browser/ui/omnibox/omnibox_edit_model.h"
 #include "chrome/browser/ui/omnibox/omnibox_next_features.h"
 #include "chrome/browser/ui/side_panel/side_panel_ui.h"
+#include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_popup_aim_presenter.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_popup_presenter_base.h"
@@ -39,6 +41,7 @@
 #include "chrome/browser/ui/views/omnibox/omnibox_popup_webui_base_content.h"
 #include "chrome/browser/ui/views/tabs/tab.h"
 #include "chrome/browser/ui/views/tabs/tab_strip.h"
+#include "chrome/browser/ui/webui/new_tab_page/composebox/variations/composebox_fieldtrial.h"
 #include "chrome/browser/ui/webui/test_support/webui_interactive_test_mixin.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/webui_url_constants.h"
@@ -50,6 +53,7 @@
 #include "components/lens/lens_features.h"
 #include "components/lens/lens_overlay_invocation_source.h"
 #include "components/omnibox/browser/aim_eligibility_service_features.h"
+#include "components/omnibox/browser/mock_aim_eligibility_service.h"
 #include "components/omnibox/common/composebox_features.h"
 #include "components/omnibox/common/omnibox_features.h"
 #include "components/prefs/pref_service.h"
@@ -58,6 +62,7 @@
 #include "content/public/test/browser_test.h"
 #include "content/public/test/url_loader_interceptor.h"
 #include "net/dns/mock_host_resolver.h"
+#include "testing/gmock/include/gmock/gmock.h"
 #include "third_party/lens_server_proto/lens_overlay_server.pb.h"
 #include "third_party/omnibox_proto/chrome_aim_entry_point.pb.h"
 #include "third_party/skia/include/core/SkBitmap.h"
@@ -88,6 +93,8 @@ DEFINE_LOCAL_CUSTOM_ELEMENT_EVENT_TYPE(kCoinsReadyEvent);
 DEFINE_LOCAL_CUSTOM_ELEMENT_EVENT_TYPE(kTriggerReadyEvent);
 DEFINE_LOCAL_CUSTOM_ELEMENT_EVENT_TYPE(kCheckedReadyEvent);
 DEFINE_LOCAL_CUSTOM_ELEMENT_EVENT_TYPE(kSubmitEnabledEvent);
+DEFINE_LOCAL_CUSTOM_ELEMENT_EVENT_TYPE(kMenuItemsDisabledReadyEvent);
+DEFINE_LOCAL_CUSTOM_ELEMENT_EVENT_TYPE(kFlyoutTabDisabledReadyEvent);
 DEFINE_LOCAL_CUSTOM_ELEMENT_EVENT_TYPE(kInputClearedEvent);
 DEFINE_LOCAL_CUSTOM_ELEMENT_EVENT_TYPE(kUploadsCompleteEvent);
 DEFINE_LOCAL_CUSTOM_ELEMENT_EVENT_TYPE(kElementRenderedEvent);
@@ -96,12 +103,63 @@ DEFINE_LOCAL_CUSTOM_ELEMENT_EVENT_TYPE(kAimUploadsCompleteEvent);
 DEFINE_LOCAL_CUSTOM_ELEMENT_EVENT_TYPE(kAimCoinsShownEvent);
 DEFINE_LOCAL_CUSTOM_ELEMENT_EVENT_TYPE(kZeroStateChangedEvent);
 
+// Holds `GetPageContext()` in flight until `CompletePendingPageContextRequest`
+// is called, reproducing the window between selecting a tab in the UI and
+// `TabContextualizationController::GetPageContext()` finishing its asynchronous
+// page content and screenshot capture.
+class StalledPageContextTabContextualizationController
+    : public TestTabContextualizationController {
+ public:
+  explicit StalledPageContextTabContextualizationController(
+      tabs::TabInterface* tab)
+      : TestTabContextualizationController(tab) {}
+  ~StalledPageContextTabContextualizationController() override = default;
+
+  using TestTabContextualizationController::GetPageContext;
+  void GetPageContext(GetPageContextCallback callback) override {
+    if (stall_page_context_) {
+      pending_callback_ = std::move(callback);
+      return;
+    }
+    TestTabContextualizationController::GetPageContext(std::move(callback));
+  }
+
+  bool HasPendingPageContextRequest() const {
+    return !pending_callback_.is_null();
+  }
+
+  void CompletePendingPageContextRequest() {
+    stall_page_context_ = false;
+    if (pending_callback_) {
+      TestTabContextualizationController::GetPageContext(
+          std::move(pending_callback_));
+    }
+  }
+
+ private:
+  bool stall_page_context_ = true;
+  GetPageContextCallback pending_callback_;
+};
+
 }  // namespace
 
 class ContextualTasksContextManagementInteractiveTestBase
     : public ContextualTasksInteractiveTestBase {
  public:
-  ContextualTasksContextManagementInteractiveTestBase() = default;
+  // `composebox_root` is the DeepQuery path to the composebox element hosting
+  // the shared `cr-composebox-contextual-entrypoint-and-menu`. It defaults to
+  // the side panel composebox; other surfaces that render the same component
+  // (e.g. the NTP realbox composebox) pass their own root so the sign-posting
+  // helpers below apply unchanged.
+  explicit ContextualTasksContextManagementInteractiveTestBase(
+      DeepQuery composebox_root = {"contextual-tasks-app", "#composebox",
+                                   "#composebox"})
+      : kComposeboxContainer(std::move(composebox_root)),
+        kContextEntrypoint(kComposeboxContainer + "#contextEntrypoint" +
+                           "#entrypointButton" + "#entrypoint"),
+        kContextMenu(kComposeboxContainer + "#contextEntrypoint" + "#menu"),
+        kShareTabsTrigger(kContextMenu + "#shareTabsTrigger"),
+        kShareTabsFlyout(kContextMenu + ".share-tabs-flyout") {}
   ~ContextualTasksContextManagementInteractiveTestBase() override = default;
 
   void SetUpFeatureList() override {
@@ -178,24 +236,16 @@ class ContextualTasksContextManagementInteractiveTestBase
 
  protected:
   // --- DeepQuery Paths ---
-  const DeepQuery kComposeboxContainer = {"contextual-tasks-app", "#composebox",
-                                          "#composebox"};
+  // Paths rooted at the composebox passed to the constructor. Everything
+  // under `#contextEntrypoint` belongs to the shared
+  // `cr-composebox-contextual-entrypoint-and-menu` component.
+  const DeepQuery kComposeboxContainer;
+  const DeepQuery kContextEntrypoint;
+  const DeepQuery kContextMenu;
+  const DeepQuery kShareTabsTrigger;
+  const DeepQuery kShareTabsFlyout;
 
-  const DeepQuery kContextEntrypoint = {
-      "contextual-tasks-app", "#composebox",       "#composebox",
-      "#contextEntrypoint",   "#entrypointButton", "#entrypoint"};
-
-  const DeepQuery kContextMenu = {"contextual-tasks-app", "#composebox",
-                                  "#composebox", "#contextEntrypoint", "#menu"};
-
-  const DeepQuery kShareTabsTrigger = {
-      "contextual-tasks-app", "#composebox", "#composebox",
-      "#contextEntrypoint",   "#menu",       "#shareTabsTrigger"};
-
-  const DeepQuery kShareTabsFlyout = {
-      "contextual-tasks-app", "#composebox", "#composebox",
-      "#contextEntrypoint",   "#menu",       ".share-tabs-flyout"};
-
+  // Side-panel-only paths.
   const DeepQuery kComposeboxInput = {"contextual-tasks-app", "#composebox",
                                       "#composebox", "#composeboxInput",
                                       "#input"};
@@ -505,6 +555,67 @@ class ContextualTasksContextManagementInteractiveTestBase
     return WaitForStateChange(contents_id, state);
   }
 
+  // Verifies whether `#imageUpload`, `#fileUpload`, tool buttons, and the
+  // incompatible model (`MODEL_MODE_GEMINI_REGULAR`) in the `+` context menu
+  // match `expected_disabled`.
+  auto VerifyIncompatibleMenuItemsDisabled(
+      const ui::ElementIdentifier& contents_id,
+      bool expected_disabled) {
+    StateChange state;
+    state.type = StateChange::Type::kExistsAndConditionTrue;
+    state.where = kContextMenu;
+    state.test_function = base::StringPrintf(
+        R"(
+        el => {
+          const root = el.shadowRoot || el;
+          const imageUpload = root.querySelector('#imageUpload');
+          const fileUpload = root.querySelector('#fileUpload');
+          const toolBtns = Array.from(
+              root.querySelectorAll('button.dropdown-item[data-mode]'));
+          const regularModelBtn = root.querySelector(
+              'button.dropdown-item[data-model="%d"]');
+          if (!imageUpload || !fileUpload || toolBtns.length === 0 ||
+              !regularModelBtn) {
+            return false;
+          }
+          const expected = %s;
+          return imageUpload.disabled === expected &&
+                 fileUpload.disabled === expected &&
+                 toolBtns.every(btn => btn.disabled === expected) &&
+                 regularModelBtn.disabled === expected;
+        }
+        )",
+        static_cast<int>(omnibox::ModelMode::MODEL_MODE_GEMINI_REGULAR),
+        expected_disabled ? "true" : "false");
+    state.event = kMenuItemsDisabledReadyEvent;
+    return WaitForStateChange(contents_id, state);
+  }
+
+  // Verifies whether a specific tab button in the Share Tabs flyout is
+  // disabled.
+  auto VerifyFlyoutTabDisabled(const ui::ElementIdentifier& contents_id,
+                               std::string_view matcher,
+                               bool expected_disabled) {
+    StateChange state;
+    state.type = StateChange::Type::kExistsAndConditionTrue;
+    state.where = kShareTabsFlyout;
+    state.test_function = base::StringPrintf(
+        R"(
+        el => {
+          %s
+          const btn = findTabBtn(el, %s);
+          if (!btn) {
+            return false;
+          }
+          return btn.disabled === %s;
+        }
+        )",
+        kFindFlyoutTabButtonJs, base::GetQuotedJSONString(matcher).c_str(),
+        expected_disabled ? "true" : "false");
+    state.event = kFlyoutTabDisabledReadyEvent;
+    return WaitForStateChange(contents_id, state);
+  }
+
   // Types and submits a text query in the side panel composebox.
   auto SubmitSidePanelQuery(const ui::ElementIdentifier& contents_id,
                             const std::string& query) {
@@ -799,6 +910,134 @@ IN_PROC_BROWSER_TEST_P(ContextualTasksContextManagementInteractiveUiTest,
       VerifyFlyoutTabChecked(kSidePanelWebContentsId, "title1", true));
 }
 
+// Verifies that selecting a tab immediately disables incompatible "+" context
+// menu items via eager rule evaluation while
+// `TabContextualizationController::GetPageContext()` is still in flight, and
+// that the selected tab itself stays enabled so it can be deselected.
+IN_PROC_BROWSER_TEST_P(
+    ContextualTasksContextManagementInteractiveUiTest,
+    EagerTabRuleEvaluation_DisablesMenuItemsWhileGetPageContextPending) {
+  DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kPrimaryTab);
+  DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kBackgroundTab1);
+  DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kBackgroundTab2);
+
+  const GURL kUrl1 = embedded_test_server()->GetURL("/title1.html");
+  const GURL kUrl2 = embedded_test_server()->GetURL("/title2.html");
+
+  raw_ptr<StalledPageContextTabContextualizationController> stalled_controller =
+      nullptr;
+
+  RunTestSequence(
+      InstrumentTab(kPrimaryTab, 0), AddInstrumentedTab(kBackgroundTab1, kUrl1),
+      AddInstrumentedTab(kBackgroundTab2, kUrl2),
+      SelectTab(kTabStripElementId, 0), Do([this, &stalled_controller]() {
+        // Configure rules so that:
+        // - `MODEL_MODE_GEMINI_PRO` is the default active model (allows all
+        //   tools and inputs).
+        // - `MODEL_MODE_GEMINI_REGULAR`, `TOOL_MODE_DEEP_SEARCH`, and
+        //   `TOOL_MODE_CANVAS` do not allow `INPUT_TYPE_BROWSER_TAB`.
+        // - `max_total_inputs` is 1, so attaching 1 tab also disables
+        //   `#imageUpload`, `#fileUpload`, and unselected tabs in the flyout.
+        auto* config =
+            &GetMockAimEligibilityService(browser()->GetProfile())->config();
+
+        auto* pro_model = config->add_model_configs();
+        pro_model->set_model(omnibox::ModelMode::MODEL_MODE_GEMINI_PRO);
+        pro_model->set_menu_label("Thinking");
+        auto* pro_rule = pro_model->mutable_rule();
+        pro_rule->set_model(omnibox::ModelMode::MODEL_MODE_GEMINI_PRO);
+        pro_rule->set_allow_all_tools(true);
+        pro_rule->set_allow_all_input_types(true);
+
+        auto* regular_model = config->add_model_configs();
+        regular_model->set_model(omnibox::ModelMode::MODEL_MODE_GEMINI_REGULAR);
+        regular_model->set_menu_label("Fast");
+        auto* regular_rule = regular_model->mutable_rule();
+        regular_rule->set_model(omnibox::ModelMode::MODEL_MODE_GEMINI_REGULAR);
+        regular_rule->set_allow_all_tools(true);
+        regular_rule->add_allowed_input_types(
+            omnibox::InputType::INPUT_TYPE_LENS_IMAGE);
+
+        auto* ds_tool = config->add_tool_configs();
+        ds_tool->set_tool(omnibox::ToolMode::TOOL_MODE_DEEP_SEARCH);
+        ds_tool->mutable_rule()->set_tool(
+            omnibox::ToolMode::TOOL_MODE_DEEP_SEARCH);
+
+        auto* canvas_tool = config->add_tool_configs();
+        canvas_tool->set_tool(omnibox::ToolMode::TOOL_MODE_CANVAS);
+        auto* canvas_rule = canvas_tool->mutable_rule();
+        canvas_rule->set_tool(omnibox::ToolMode::TOOL_MODE_CANVAS);
+        canvas_rule->add_allowed_input_types(
+            omnibox::InputType::INPUT_TYPE_LENS_IMAGE);
+
+        auto* rule_set = config->mutable_rule_set();
+        rule_set->add_allowed_tools(omnibox::ToolMode::TOOL_MODE_DEEP_SEARCH);
+        rule_set->add_allowed_tools(omnibox::ToolMode::TOOL_MODE_CANVAS);
+        rule_set->add_allowed_models(omnibox::ModelMode::MODEL_MODE_GEMINI_PRO);
+        rule_set->add_allowed_models(
+            omnibox::ModelMode::MODEL_MODE_GEMINI_REGULAR);
+        rule_set->add_allowed_input_types(
+            omnibox::InputType::INPUT_TYPE_BROWSER_TAB);
+        rule_set->add_allowed_input_types(
+            omnibox::InputType::INPUT_TYPE_LENS_IMAGE);
+        rule_set->add_allowed_input_types(
+            omnibox::InputType::INPUT_TYPE_LENS_FILE);
+        rule_set->set_max_total_inputs(1);
+
+        // Install the stalled controller on Tab 1 so `GetPageContext()` stays
+        // in flight when Tab 1 is selected.
+        tabs::TabInterface* tab1 = browser()->GetAllTabInterfaces()[1];
+        tab1->GetTabFeatures()->SetTabContextualizationControllerForTesting(
+            nullptr);
+        auto controller =
+            std::make_unique<StalledPageContextTabContextualizationController>(
+                tab1);
+        stalled_controller = controller.get();
+        tab1->GetTabFeatures()->SetTabContextualizationControllerForTesting(
+            std::move(controller));
+      }),
+      OpenSidePanelWithWebContents(),
+
+      // 1. Before selecting a tab: all "+" menu items and tabs are enabled.
+      OpenShareTabsFlyout(kSidePanelWebContentsId),
+      VerifyIncompatibleMenuItemsDisabled(kSidePanelWebContentsId, false),
+      VerifyFlyoutTabDisabled(kSidePanelWebContentsId, "title1", false),
+      VerifyFlyoutTabDisabled(kSidePanelWebContentsId, "title2", false),
+
+      // 2. Select Tab 1 while `GetPageContext()` is stalled in flight: all
+      // incompatible "+" menu items and the unselected tab ("title2") must
+      // immediately become disabled via eager rule evaluation, before
+      // `GetPageContext()` completes, while the selected tab ("title1") stays
+      // enabled so it can be deselected.
+      ToggleFlyoutTab(kSidePanelWebContentsId, "title1"),
+      Do([this, &stalled_controller]() {
+        EXPECT_TRUE(RunUntilNestable([&]() {
+          return stalled_controller->HasPendingPageContextRequest();
+        }));
+      }),
+      OpenShareTabsFlyout(kSidePanelWebContentsId),
+      VerifyIncompatibleMenuItemsDisabled(kSidePanelWebContentsId, true),
+      VerifyFlyoutTabDisabled(kSidePanelWebContentsId, "title2", true),
+      VerifyFlyoutTabDisabled(kSidePanelWebContentsId, "title1", false),
+
+      // 3. Complete `GetPageContext()` and wait for the tab upload to finish:
+      // incompatible "+" menu items remain disabled while Tab 1 is attached.
+      Do([&stalled_controller]() {
+        stalled_controller->CompletePendingPageContextRequest();
+        stalled_controller = nullptr;
+      }),
+      WaitForFileUploadsComplete(kSidePanelWebContentsId, 1),
+      OpenShareTabsFlyout(kSidePanelWebContentsId),
+      VerifyIncompatibleMenuItemsDisabled(kSidePanelWebContentsId, true),
+
+      // 4. Deselect Tab 1: incompatible "+" menu items and "title2" re-enable.
+      ToggleFlyoutTab(kSidePanelWebContentsId, "title1"),
+      WaitForFileUploadsComplete(kSidePanelWebContentsId, 0),
+      OpenShareTabsFlyout(kSidePanelWebContentsId),
+      VerifyIncompatibleMenuItemsDisabled(kSidePanelWebContentsId, false),
+      VerifyFlyoutTabDisabled(kSidePanelWebContentsId, "title2", false));
+}
+
 // Starting a new thread clears all tabs submitted in the previous thread while
 // showing the auto-suggested active tab on the new thread.
 IN_PROC_BROWSER_TEST_P(ContextualTasksContextManagementInteractiveUiTest,
@@ -854,6 +1093,105 @@ IN_PROC_BROWSER_TEST_P(ContextualTasksContextManagementInteractiveUiTest,
       VerifyMenuTriggerState(kSidePanelWebContentsId, 1),
       VerifyFlyoutTabChecked(kSidePanelWebContentsId, "title3", true),
       VerifyFlyoutTabChecked(kSidePanelWebContentsId, "title1", false),
+      VerifyFlyoutTabChecked(kSidePanelWebContentsId, "title2", false));
+}
+
+// Adding and removing tabs from the side panel's "Add tabs" flyout signposts
+// each tab consistently in all four places: favicon coins on the "+" button,
+// coins next to "Sharing n tabs" on the menu trigger row, a checkmark on the
+// tab's flyout row, and an underline on the tab strip.
+IN_PROC_BROWSER_TEST_P(ContextualTasksContextManagementInteractiveUiTest,
+                       NewThread_AddAndRemoveTabs_SignpostsConsistently) {
+  DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kPrimaryTab);
+  DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kBackgroundTab1);
+  DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kBackgroundTab2);
+
+  const GURL kUrl1 = embedded_test_server()->GetURL("/title1.html");
+  const GURL kUrl2 = embedded_test_server()->GetURL("/title2.html");
+  const GURL kUrl3 = embedded_test_server()->GetURL("/title3.html");
+
+  RunTestSequence(
+      // Tab 0 (title3) is the active, auto-suggested tab. Tabs 1 (title1) and
+      // 2 (title2) are background candidates. Navigate tab 0 before opening
+      // the panel so the auto-suggestion is picked up on panel open rather
+      // than racing a navigation against the composebox handler binding.
+      InstrumentTab(kPrimaryTab, 0), NavigateWebContents(kPrimaryTab, kUrl3),
+      AddInstrumentedTab(kBackgroundTab1, kUrl1),
+      AddInstrumentedTab(kBackgroundTab2, kUrl2),
+      SelectTab(kTabStripElementId, 0), OpenSidePanelWithWebContents(),
+      WaitForFileUploadsComplete(kSidePanelWebContentsId, 1),
+
+      // Previous thread: attach tab 1 on top of the auto-suggested tab 0 and
+      // submit, so the thread switch has something to clear.
+      ToggleFlyoutTab(kSidePanelWebContentsId, "title1"),
+      WaitForFileUploadsComplete(kSidePanelWebContentsId, 2),
+      VerifyUnderlinedTabs({0, 1}),
+      SubmitSidePanelQuery(kSidePanelWebContentsId, "First turn query"),
+      CommitActiveThreadUrlInSidePanel(kSidePanelWebContentsId,
+                                       "First+turn+query", "thread-1"),
+
+      // Start a new thread. Only the auto-suggested active tab should carry
+      // over; tab 1's underline and all other sign posting must be gone.
+      StartNewThreadFromSidePanel(kSidePanelWebContentsId),
+      WaitForFileUploadsComplete(kSidePanelWebContentsId, 1),
+      VerifyPlusButtonCoins(kSidePanelWebContentsId, 1),
+      VerifyPlusButtonCoinTabs(kSidePanelWebContentsId, {"title3"}),
+      VerifyUnderlinedTabs({0}), OpenShareTabsFlyout(kSidePanelWebContentsId),
+      VerifyMenuTriggerState(kSidePanelWebContentsId, 1),
+      VerifyFlyoutTabChecked(kSidePanelWebContentsId, "title3", true),
+      VerifyFlyoutTabChecked(kSidePanelWebContentsId, "title1", false),
+      VerifyFlyoutTabChecked(kSidePanelWebContentsId, "title2", false),
+
+      // Add tab 2 on the new thread. It must be signposted everywhere,
+      // including a new underline on the tab strip.
+      ToggleFlyoutTab(kSidePanelWebContentsId, "title2"),
+      WaitForFileUploadsComplete(kSidePanelWebContentsId, 2),
+      VerifyPlusButtonCoins(kSidePanelWebContentsId, 2),
+      VerifyPlusButtonCoinTabs(kSidePanelWebContentsId, {"title3", "title2"}),
+      VerifyUnderlinedTabs({0, 2}),
+      OpenShareTabsFlyout(kSidePanelWebContentsId),
+      VerifyMenuTriggerState(kSidePanelWebContentsId, 2),
+      VerifyFlyoutTabChecked(kSidePanelWebContentsId, "title3", true),
+      VerifyFlyoutTabChecked(kSidePanelWebContentsId, "title1", false),
+      VerifyFlyoutTabChecked(kSidePanelWebContentsId, "title2", true),
+
+      // Re-add tab 1, which the thread switch cleared. Nothing stale from the
+      // previous thread should prevent it from being signposted again.
+      ToggleFlyoutTab(kSidePanelWebContentsId, "title1"),
+      WaitForFileUploadsComplete(kSidePanelWebContentsId, 3),
+      VerifyPlusButtonCoins(kSidePanelWebContentsId, 3),
+      VerifyPlusButtonCoinTabs(kSidePanelWebContentsId,
+                               {"title3", "title1", "title2"}),
+      VerifyUnderlinedTabs({0, 1, 2}),
+      OpenShareTabsFlyout(kSidePanelWebContentsId),
+      VerifyMenuTriggerState(kSidePanelWebContentsId, 3),
+      VerifyFlyoutTabChecked(kSidePanelWebContentsId, "title3", true),
+      VerifyFlyoutTabChecked(kSidePanelWebContentsId, "title1", true),
+      VerifyFlyoutTabChecked(kSidePanelWebContentsId, "title2", true),
+
+      // Remove tab 2 again. Only its sign posting should disappear; tab 0 and
+      // tab 1 must stay underlined and checked.
+      ToggleFlyoutTab(kSidePanelWebContentsId, "title2"),
+      WaitForFileUploadsComplete(kSidePanelWebContentsId, 2),
+      VerifyPlusButtonCoins(kSidePanelWebContentsId, 2),
+      VerifyPlusButtonCoinTabs(kSidePanelWebContentsId, {"title3", "title1"}),
+      VerifyUnderlinedTabs({0, 1}),
+      OpenShareTabsFlyout(kSidePanelWebContentsId),
+      VerifyMenuTriggerState(kSidePanelWebContentsId, 2),
+      VerifyFlyoutTabChecked(kSidePanelWebContentsId, "title3", true),
+      VerifyFlyoutTabChecked(kSidePanelWebContentsId, "title1", true),
+      VerifyFlyoutTabChecked(kSidePanelWebContentsId, "title2", false),
+
+      // Submit on the new thread. The context assembled on this thread must
+      // survive the turn with the same sign posting.
+      SubmitSidePanelQuery(kSidePanelWebContentsId, "New thread query"),
+      VerifyPlusButtonCoins(kSidePanelWebContentsId, 2),
+      VerifyPlusButtonCoinTabs(kSidePanelWebContentsId, {"title3", "title1"}),
+      VerifyUnderlinedTabs({0, 1}),
+      OpenShareTabsFlyout(kSidePanelWebContentsId),
+      VerifyMenuTriggerState(kSidePanelWebContentsId, 2),
+      VerifyFlyoutTabChecked(kSidePanelWebContentsId, "title3", true),
+      VerifyFlyoutTabChecked(kSidePanelWebContentsId, "title1", true),
       VerifyFlyoutTabChecked(kSidePanelWebContentsId, "title2", false));
 }
 
@@ -1430,6 +1768,189 @@ IN_PROC_BROWSER_TEST_F(
       VerifyPlusButtonCoins(kSidePanelWebContentsId, 2));
 }
 
+// -----------------------------------------------------------------------------
+// NTP realbox-driven context management.
+//
+// The NTP composebox (`ntp-composebox`) renders the same WebUI
+// `cr-composebox-contextual-entrypoint-and-menu` as the side panel, so the
+// DeepQuery helpers above apply once rooted at `{"ntp-app", "#composebox"}`.
+//
+// Unlike `NtpRealboxUiTestBase`, this fixture keeps `kContextualTasks`
+// enabled: the tab-strip underline is driven by `ActiveTaskContextProvider`,
+// which is only attached to the browser window when the Contextual Tasks UI is
+// enabled. Without it the underline could never be asserted from the NTP.
+// -----------------------------------------------------------------------------
+class ContextualTasksNtpRealboxContextManagementInteractiveUiTest
+    : public ContextualTasksContextManagementInteractiveTestBase,
+      public testing::WithParamInterface<UserVariation> {
+ public:
+  ContextualTasksNtpRealboxContextManagementInteractiveUiTest()
+      : ContextualTasksContextManagementInteractiveTestBase(
+            {"ntp-app", "#composebox"}) {}
+  ~ContextualTasksNtpRealboxContextManagementInteractiveUiTest() override =
+      default;
+
+  UserVariation GetUserVariation() const override { return GetParam(); }
+
+  void SetUpFeatureList() override {
+    std::vector<base::test::FeatureRefAndParams> enabled_features =
+        GetDefaultEnabledFeatures();
+    enabled_features.push_back({omnibox::kContextManagementInComposebox,
+                                {{"enable_tab_deselection", "true"}}});
+    enabled_features.push_back({omnibox::kTabFaviconChipsToCoins, {}});
+    // The realbox-next + composebox surface under test.
+    enabled_features.push_back({ntp_realbox::kNtpRealboxNext, {}});
+    enabled_features.push_back(
+        {ntp_composebox::kNtpComposebox,
+         {{ntp_composebox::kContextMenuEnableMultiTabSelection.name, "true"}}});
+    enabled_features.push_back({omnibox::kAimEnabled, {}});
+    // Lets `IsNtpComposeboxEnabled()` pass without a content-sharing pref.
+    enabled_features.push_back({omnibox::kAimUsePecApi, {}});
+
+    std::vector<base::test::FeatureRef> disabled_features =
+        GetDefaultDisabledFeatures();
+    // Eligibility is supplied by `MockAimEligibilityService`; don't let the
+    // real service race it.
+    disabled_features.push_back(omnibox::kAimServerEligibilityEnabled);
+    disabled_features.push_back(omnibox::kAimFuseboxEligibilityCheckEnabled);
+
+    feature_list_.InitWithFeaturesAndParameters(enabled_features,
+                                                disabled_features);
+  }
+
+  void SetUpOnMainThread() override {
+    ContextualTasksContextManagementInteractiveTestBase::SetUpOnMainThread();
+
+    // The expanded composebox and its flyout need room; a default-sized window
+    // can clip the flyout off-screen.
+    browser()->GetWindow()->SetBounds(gfx::Rect(0, 0, 1280, 1024));
+
+    // `ContextualSearchboxHandler::AddTabContext()` bails unless content
+    // sharing is allowed.
+    browser()->GetProfile()->GetPrefs()->SetInteger(
+        contextual_search::kSearchContentSharingSettings,
+        static_cast<int>(
+            contextual_search::SearchContentSharingSettingsValue::kEnabled));
+
+    // `ntp_composebox::IsNtpComposeboxEnabled()` also requires Fusebox
+    // eligibility, which the base mock leaves unstubbed (and so false).
+    ON_CALL(*GetMockAimEligibilityService(browser()->GetProfile()),
+            IsFuseboxEligible())
+        .WillByDefault(testing::Return(true));
+  }
+
+ protected:
+  // --- NTP DeepQuery paths ---
+  const DeepQuery kComposeButton = {"ntp-app", "ntp-searchbox",
+                                    "#composeButton", "#composeButton"};
+  // Only stamped into the DOM while the composebox is expanded.
+  const DeepQuery kComposeboxDialog = {"ntp-app", "#composeboxDialog"};
+
+  // Opens an NTP in a new foreground tab instrumented as `contents_id` and
+  // expands the realbox into the composebox.
+  auto OpenNtpComposebox(const ui::ElementIdentifier& contents_id) {
+    return Steps(
+        AddInstrumentedTab(contents_id, chrome::ChromeUINewTabURLAsGURL()),
+        WaitForElementExists(contents_id, kComposeButton),
+        ExecuteJsAt(contents_id, kComposeButton, "el => el.click()"),
+        WaitForElementExists(contents_id, kComposeboxDialog),
+        WaitForElementExists(contents_id, kComposeboxContainer));
+  }
+};
+
+// Adding tabs from the NTP realbox composebox's "+" > "Add tabs" flyout
+// signposts each tab consistently, before anything is submitted, in all four
+// places: favicon coins on the "+" button, coins next to "Sharing n tabs" on
+// the menu trigger row, a checkmark on the tab's flyout row, and an underline
+// on the tab strip.
+IN_PROC_BROWSER_TEST_P(
+    ContextualTasksNtpRealboxContextManagementInteractiveUiTest,
+    RealboxAddTabs_SignpostsConsistently) {
+  DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kFirstTab);
+  DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kSecondTab);
+  DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kNtpTab);
+
+  const GURL kUrl1 = embedded_test_server()->GetURL("/title1.html");
+  const GURL kUrl2 = embedded_test_server()->GetURL("/title2.html");
+
+  RunTestSequence(
+      // Tabs 0 and 1 are the candidates. The NTP opens as tab 2 and is active;
+      // it is not itself shareable, so there is no auto-suggested active tab
+      // and the composebox starts empty.
+      InstrumentTab(kFirstTab, 0), NavigateWebContents(kFirstTab, kUrl1),
+      AddInstrumentedTab(kSecondTab, kUrl2), OpenNtpComposebox(kNtpTab),
+
+      // Nothing is shared before the user acts.
+      VerifyPlusButtonCoins(kNtpTab, 0), VerifyUnderlinedTabs({}),
+      OpenShareTabsFlyout(kNtpTab), VerifyMenuTriggerState(kNtpTab, 0),
+      VerifyFlyoutTabChecked(kNtpTab, "title1", false),
+      VerifyFlyoutTabChecked(kNtpTab, "title2", false),
+
+      // Add tab 0.
+      ToggleFlyoutTab(kNtpTab, "title1"),
+      WaitForFileUploadsComplete(kNtpTab, 1), VerifyPlusButtonCoins(kNtpTab, 1),
+      VerifyPlusButtonCoinTabs(kNtpTab, {"title1"}), VerifyUnderlinedTabs({0}),
+      OpenShareTabsFlyout(kNtpTab), VerifyMenuTriggerState(kNtpTab, 1),
+      VerifyFlyoutTabChecked(kNtpTab, "title1", true),
+      VerifyFlyoutTabChecked(kNtpTab, "title2", false),
+
+      // Add tab 1 on top.
+      ToggleFlyoutTab(kNtpTab, "title2"),
+      WaitForFileUploadsComplete(kNtpTab, 2), VerifyPlusButtonCoins(kNtpTab, 2),
+      VerifyPlusButtonCoinTabs(kNtpTab, {"title1", "title2"}),
+      VerifyUnderlinedTabs({0, 1}), OpenShareTabsFlyout(kNtpTab),
+      VerifyMenuTriggerState(kNtpTab, 2),
+      VerifyFlyoutTabChecked(kNtpTab, "title1", true),
+      VerifyFlyoutTabChecked(kNtpTab, "title2", true));
+}
+
+// Un-checking tabs from the NTP realbox composebox's "Add tabs" flyout clears
+// each tab's sign posting, and removing the last one returns every surface to
+// its empty state ("Add tabs" with no coins, no underlines).
+//
+// Note the NTP does not set `composeboxContextMenuEnableTabDeselection`; that
+// flag only gates un-checking tabs *restored* from a previous thread. Tabs
+// added in the current turn are deselectable whenever multi-tab selection is
+// on (`ContextualActionMenu.onTabClick_`), which this fixture enables.
+IN_PROC_BROWSER_TEST_P(
+    ContextualTasksNtpRealboxContextManagementInteractiveUiTest,
+    RealboxRemoveTabs_ClearsSignposting) {
+  DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kFirstTab);
+  DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kSecondTab);
+  DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kNtpTab);
+
+  const GURL kUrl1 = embedded_test_server()->GetURL("/title1.html");
+  const GURL kUrl2 = embedded_test_server()->GetURL("/title2.html");
+
+  RunTestSequence(
+      InstrumentTab(kFirstTab, 0), NavigateWebContents(kFirstTab, kUrl1),
+      AddInstrumentedTab(kSecondTab, kUrl2), OpenNtpComposebox(kNtpTab),
+
+      // Start from two shared tabs.
+      ToggleFlyoutTab(kNtpTab, "title1"),
+      WaitForFileUploadsComplete(kNtpTab, 1),
+      ToggleFlyoutTab(kNtpTab, "title2"),
+      WaitForFileUploadsComplete(kNtpTab, 2),
+      VerifyPlusButtonCoinTabs(kNtpTab, {"title1", "title2"}),
+      VerifyUnderlinedTabs({0, 1}),
+
+      // Un-check tab 0. Only tab 1 should remain signposted anywhere.
+      ToggleFlyoutTab(kNtpTab, "title1"),
+      WaitForFileUploadsComplete(kNtpTab, 1), VerifyPlusButtonCoins(kNtpTab, 1),
+      VerifyPlusButtonCoinTabs(kNtpTab, {"title2"}), VerifyUnderlinedTabs({1}),
+      OpenShareTabsFlyout(kNtpTab), VerifyMenuTriggerState(kNtpTab, 1),
+      VerifyFlyoutTabChecked(kNtpTab, "title1", false),
+      VerifyFlyoutTabChecked(kNtpTab, "title2", true),
+
+      // Un-check tab 1. Everything should be back to the empty state.
+      ToggleFlyoutTab(kNtpTab, "title2"),
+      WaitForFileUploadsComplete(kNtpTab, 0), VerifyPlusButtonCoins(kNtpTab, 0),
+      VerifyUnderlinedTabs({}), OpenShareTabsFlyout(kNtpTab),
+      VerifyMenuTriggerState(kNtpTab, 0),
+      VerifyFlyoutTabChecked(kNtpTab, "title1", false),
+      VerifyFlyoutTabChecked(kNtpTab, "title2", false));
+}
+
 INSTANTIATE_TEST_SUITE_P(All,
                          ContextualTasksContextManagementInteractiveUiTest,
                          testing::Values(UserVariation::kSignedIn,
@@ -1443,5 +1964,13 @@ INSTANTIATE_TEST_SUITE_P(All,
                                          UserVariation::kSignedOut,
                                          UserVariation::kIncognito),
                          &UserVariationToString);
+
+// The incognito NTP does not host the realbox composebox, so only the regular
+// profile variations apply here.
+INSTANTIATE_TEST_SUITE_P(
+    All,
+    ContextualTasksNtpRealboxContextManagementInteractiveUiTest,
+    testing::Values(UserVariation::kSignedIn, UserVariation::kSignedOut),
+    &UserVariationToString);
 
 }  // namespace contextual_tasks

@@ -11,23 +11,17 @@ namespace autofill::features {
 BASE_FEATURE(kAllowReentryFromRespondToDelegate,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-// When enabled, the `chrome_user_context` submessage in calls to Google
-// Payments includes the Chrome client type and major version (otherwise
-// available via the user agent).
-BASE_FEATURE(kAutofillAddChromeUserContextFields,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // When enabled, the BNPL flow acts as if the user has not yet seen the AI
 // terms. This allows the AI terms to be shown as bold font repeatedly for
 // testing purposes, regardless of the actual stored user preference.
 BASE_FEATURE(kAutofillAiBasedAmountExtractionIgnoreSeenTermsForTesting,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-#if BUILDFLAG(IS_IOS)
-// When enabled, users are given the option to use their phone camera to scan
-// their credit card when adding it via Autofill iOS settings.
-BASE_FEATURE(kAutofillCreditCardScannerIos, base::FEATURE_DISABLED_BY_DEFAULT);
-#endif
+// Kill switch for bug fixes to the credit card scanner. When enabled, scanner
+// availability is no longer cached for the lifetime of the process, and a null
+// OCR intent (e.g. after the camera permission is revoked) cancels the scan
+// instead of being launched.
+BASE_FEATURE(kAutofillCardScanningBugfixes, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables testing BNPL in countries where it would otherwise be disabled. This
 // is a testing flag that should never be enabled.
@@ -216,19 +210,9 @@ BASE_FEATURE(kAutofillEnableFpanRiskBasedAuthentication,
 BASE_FEATURE(kAutofillEnableGradientGoogleLogos,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// When enabled, updates the American Express network art in Autofill.
-BASE_FEATURE(kAutofillEnableNewAmexNetworkArt,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // When enabled, the card benefits toggle in settings will show updated text.
 BASE_FEATURE(kAutofillEnableNewCardBenefitsToggleText,
              base::FEATURE_ENABLED_BY_DEFAULT);
-
-#if BUILDFLAG(IS_ANDROID)
-// When enabled, card and IBAN autofill will be shown in new FOP style.
-BASE_FEATURE(kAutofillEnableNewFopDisplayAndroid,
-             base::FEATURE_DISABLED_BY_DEFAULT);
-#endif  // BUILDFLAG(IS_ANDROID)
 
 // When enabled, offers will be displayed in the Clank keyboard accessory during
 // downstream.
@@ -255,7 +239,13 @@ BASE_FEATURE(kAutofillEnablePayNowPayLaterTabs,
 // When enabled, users that have previously turned off payments autofill will be
 // prompted to turn it back on in instances where they can benefit from it.
 BASE_FEATURE(kAutofillEnableResurrectingPaymentsUsers,
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
+    BUILDFLAG(IS_CHROMEOS)
+             base::FEATURE_ENABLED_BY_DEFAULT);
+#else
              base::FEATURE_DISABLED_BY_DEFAULT);
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) ||
+        // BUILDFLAG(IS_CHROMEOS)
 const base::FeatureParam<int> kAutofillEnableResurrectingPaymentsUsersTreatment{
     &kAutofillEnableResurrectingPaymentsUsers,
     "autofill_enable_resurrecting_payments_churned_users_treatment", 1};

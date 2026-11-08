@@ -5,6 +5,8 @@
 #ifndef IOS_CHROME_BROWSER_COMPOSEBOX_MENU_COORDINATOR_COMPOSEBOX_MENU_COORDINATOR_H_
 #define IOS_CHROME_BROWSER_COMPOSEBOX_MENU_COORDINATOR_COMPOSEBOX_MENU_COORDINATOR_H_
 
+#import <UIKit/UIKit.h>
+
 #import "ios/chrome/browser/composebox/public/composebox_entrypoint.h"
 #import "ios/chrome/browser/composebox/public/composebox_mode.h"
 #import "ios/chrome/browser/composebox/public/composebox_model_option.h"
@@ -43,10 +45,11 @@ class UnguessableToken;
 - (void)composeboxMenuCoordinator:(ComposeboxMenuCoordinator*)coordinator
              didUpdateAttachments:(ComposeboxAttachmentSelection*)attachments;
 
-// Called when the user removes a tab with the given server token in assistant
-// aim composebox menu.
+// Called when the user removes a tab with the given `inputItemIdentifier` in
+// assistant aim composebox menu.
 - (void)composeboxMenuCoordinator:(ComposeboxMenuCoordinator*)coordinator
-      didRemoveTabWithServerToken:(const base::UnguessableToken&)serverToken;
+    didRemoveTabWithInputItemIdentifier:
+        (const base::UnguessableToken&)inputItemIdentifier;
 
 // Returns the current UI input state from the input plate context.
 - (ComposeboxUIInputState*)currentUIInputStateForMenuCoordinator:
@@ -63,6 +66,9 @@ class UnguessableToken;
 // The input plate delegate for this coordinator.
 @property(nonatomic, weak) id<ComposeboxMenuCoordinatorInputPlateDelegate>
     inputPlateDelegate;
+
+// Whether the bottom sheet is currently presented.
+@property(nonatomic, readonly) BOOL presentingBottomSheet;
 
 // Creates a coordinator for embedded mode with the given preselected
 // attachments and initial input state.
@@ -85,6 +91,18 @@ class UnguessableToken;
                                    browser:(Browser*)browser NS_UNAVAILABLE;
 
 - (instancetype)init NS_UNAVAILABLE;
+
+// Presents the bottom sheet menu.
+- (void)presentBottomSheetMenu;
+
+// Dismisses the presented menu.
+- (void)dismissMenu;
+
+// Creates the contextual menu to be displayed by the plus button.
+- (UIMenu*)createMenu;
+
+// Records the menu open with visible buttons.
+- (void)recordAttachmentsMenuOpen;
 
 @end
 

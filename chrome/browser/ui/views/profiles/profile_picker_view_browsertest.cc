@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ui/views/profiles/profile_picker_view.h"
 
+#include <array>
 #include <optional>
 #include <set>
 #include <string>
@@ -92,8 +93,8 @@
 #include "chrome/browser/ui/profiles/profile_ui_test_utils.h"
 #include "chrome/browser/ui/signin/signin_view_controller.h"
 #include "chrome/browser/ui/startup/first_run_service.h"
-#include "chrome/browser/ui/tab_dialogs.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
+#include "chrome/browser/ui/toolbar/avatar_toolbar_iph_controller.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/profiles/avatar_toolbar_button.h"
 #include "chrome/browser/ui/views/profiles/profile_picker_reauth_provider.h"
@@ -376,54 +377,10 @@ class BrowserAddedWaiter : public BrowserCollectionObserver {
   const ReturnMode return_mode_;
   raw_ptr<BrowserWindowInterface, AcrossTasksDanglingUntriaged> browser_ =
       nullptr;
-  std::set<BrowserWindowInterface*> initial_browsers_;
+  std::set<raw_ptr<BrowserWindowInterface>> initial_browsers_;
   base::RunLoop run_loop_;
   base::ScopedObservation<GlobalBrowserCollection, BrowserCollectionObserver>
       observation_{this};
-};
-
-class TestTabDialogs : public TabDialogs {
- public:
-  TestTabDialogs(content::WebContents* contents, base::RunLoop* run_loop)
-      : contents_(contents), run_loop_(run_loop) {}
-  ~TestTabDialogs() override = default;
-
-  // Creates a platform specific instance, and attaches it to |contents|.
-  // If an instance is already attached, it overwrites it.
-  static void OverwriteForWebContents(content::WebContents* contents,
-                                      base::RunLoop* run_loop) {
-    DCHECK(contents);
-    contents->SetUserData(UserDataKey(),
-                          std::make_unique<TestTabDialogs>(contents, run_loop));
-  }
-
-  gfx::NativeView GetDialogParentView() const override {
-    return contents_->GetNativeView();
-  }
-  void ShowCollectedCookies() override {}
-  void ShowHungRendererDialog(
-      content::RenderWidgetHost* render_widget_host,
-      base::RepeatingClosure hang_monitor_restarter) override {}
-  void HideHungRendererDialog(
-      content::RenderWidgetHost* render_widget_host) override {}
-  bool IsShowingHungRendererDialog() override { return false; }
-
-  void ShowManagePasswordsBubble(bool user_action) override {}
-  void HideManagePasswordsBubble() override {}
-  void ShowDeprecatedAppsDialog(
-      const extensions::ExtensionId& optional_launched_extension_id,
-      const std::set<extensions::ExtensionId>& deprecated_app_ids,
-      content::WebContents* web_contents) override {}
-  void ShowForceInstalledDeprecatedAppsDialog(
-      const extensions::ExtensionId& app_id,
-      content::WebContents* web_contents) override {}
-  void ShowForceInstalledPreinstalledDeprecatedAppDialog(
-      const extensions::ExtensionId& app_id,
-      content::WebContents* web_contents) override {}
-
- private:
-  raw_ptr<content::WebContents> contents_;
-  raw_ptr<base::RunLoop> run_loop_;
 };
 
 class PageNonEmptyPaintObserver : public content::WebContentsObserver {
@@ -1215,7 +1172,7 @@ IN_PROC_BROWSER_TEST_F(ProfilePickerCreationFlowBrowserTest,
         ->SyncConfirmationUIClosed(LoginUIService::ABORT_SYNC);
   }
   BrowserWindowInterface* const new_browser = browser_waiter.Wait();
-  ASSERT_EQ(4u, new_browser->GetTabStripModel()->count());
+  ASSERT_EQ(4, new_browser->GetTabStripModel()->count());
   ASSERT_FALSE(ProfilePicker::GetOpenCommandLineUrlsInNextProfileOpened());
 
   // Check expectations when the profile creation flow is done.
@@ -1246,7 +1203,7 @@ IN_PROC_BROWSER_TEST_F(ProfilePickerCreationFlowBrowserTest,
 
   BrowserWindowInterface* const new_browser = browser_waiter.Wait();
   ASSERT_EQ(new_browser->GetProfile(), other_profile);
-  ASSERT_EQ(4u, new_browser->GetTabStripModel()->count());
+  ASSERT_EQ(4, new_browser->GetTabStripModel()->count());
   ASSERT_FALSE(ProfilePicker::GetOpenCommandLineUrlsInNextProfileOpened());
 
   // Check expectations when the profile creation flow is done.
@@ -2685,7 +2642,7 @@ IN_PROC_BROWSER_TEST_F(ProfilePickerCreationFlowBrowserTest,
   base::HistogramTester histogram_tester;
 
   auto scoped_iph_delay =
-      AvatarToolbarButton::SetScopedIPHMinDelayAfterCreationForTesting(
+      AvatarToolbarIphController::SetScopedIPHMinDelayAfterCreationForTesting(
           base::Seconds(0));
   ASSERT_EQ(1u, GlobalBrowserCollection::GetInstance()->GetSize());
   // Create a second profile.
@@ -2801,7 +2758,7 @@ IN_PROC_BROWSER_TEST_F(ProfilePickerCreationFlowBrowserTest,
 IN_PROC_BROWSER_TEST_F(ProfilePickerCreationFlowBrowserTest,
                        MAYBE_OpenProfile_Settings) {
   auto scoped_iph_delay =
-      AvatarToolbarButton::SetScopedIPHMinDelayAfterCreationForTesting(
+      AvatarToolbarIphController::SetScopedIPHMinDelayAfterCreationForTesting(
           base::Seconds(0));
   ASSERT_EQ(1u, GlobalBrowserCollection::GetInstance()->GetSize());
   // Create a second profile.
@@ -2847,7 +2804,7 @@ IN_PROC_BROWSER_TEST_F(ProfilePickerCreationFlowBrowserTest,
 IN_PROC_BROWSER_TEST_F(ProfilePickerCreationFlowBrowserTest,
                        OpenProfile_Guest) {
   auto scoped_iph_delay =
-      AvatarToolbarButton::SetScopedIPHMinDelayAfterCreationForTesting(
+      AvatarToolbarIphController::SetScopedIPHMinDelayAfterCreationForTesting(
           base::Seconds(0));
   ASSERT_EQ(1u, GlobalBrowserCollection::GetInstance()->GetSize());
   // Create a second profile.
@@ -3201,7 +3158,7 @@ IN_PROC_BROWSER_TEST_P(SupervisedUserProfileIPHTest,
   size_t initial_browser_count =
       GlobalBrowserCollection::GetInstance()->GetSize();
   auto scoped_iph_delay =
-      AvatarToolbarButton::SetScopedIPHMinDelayAfterCreationForTesting(
+      AvatarToolbarIphController::SetScopedIPHMinDelayAfterCreationForTesting(
           base::Seconds(0));
 
   // Simulate a successful sign-in and wait for the sign-in to propagate to the
@@ -4075,7 +4032,7 @@ struct GlicTestParam {
   std::string expected_learn_more_url;
 };
 
-const GlicTestParam kGlicTestParams[] = {
+const base::NoDestructor kGlicTestParams(std::to_array<GlicTestParam>({
     {
         .profiles_are_glic_eligible = false,
         .expected_learn_more_url = chrome::kSigninOnDesktopLearnMoreURL,
@@ -4084,7 +4041,7 @@ const GlicTestParam kGlicTestParams[] = {
         .profiles_are_glic_eligible = true,
         .expected_learn_more_url = chrome::kAddNewProfileOnDesktopLearnMoreURL,
     },
-};
+}));
 
 class ProfilePickerWithGlicParamBrowserTest
     : public ProfilePickerCreationFlowBrowserTest,
@@ -4129,7 +4086,7 @@ IN_PROC_BROWSER_TEST_P(ProfilePickerWithGlicParamBrowserTest,
 
 INSTANTIATE_TEST_SUITE_P(,
                          ProfilePickerWithGlicParamBrowserTest,
-                         testing::ValuesIn(kGlicTestParams),
+                         testing::ValuesIn(*kGlicTestParams),
                          [](const auto& info) {
                            return info.param.profiles_are_glic_eligible
                                       ? "GlicEligibleProfiles"
@@ -4537,7 +4494,7 @@ IN_PROC_BROWSER_TEST_F(ProfilePickerDeviceSignalsDisclaimerBrowserTest,
 
   BrowserWindowInterface* const new_browser = browser_waiter.Wait();
   EXPECT_EQ(new_browser->GetProfile()->GetPath(), managed_profile_path());
-  ASSERT_EQ(4u, new_browser->GetTabStripModel()->count());
+  ASSERT_EQ(4, new_browser->GetTabStripModel()->count());
   ASSERT_FALSE(ProfilePicker::GetOpenCommandLineUrlsInNextProfileOpened());
   WaitForPickerClosed();
   EXPECT_TRUE(new_browser->GetProfile()->GetPrefs()->GetBoolean(

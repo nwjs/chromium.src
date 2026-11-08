@@ -251,6 +251,17 @@ void VerifyItems(const ExtensionContextMenuModel& model,
 class TestPopupDelegate : public ExtensionContextMenuModel::PopupDelegate {
  public:
   void InspectPopup() override {}
+
+  content::WebContents* GetCurrentWebContents() const override {
+    return web_contents_;
+  }
+
+  void SetWebContents(content::WebContents* web_contents) {
+    web_contents_ = web_contents;
+  }
+
+ private:
+  raw_ptr<content::WebContents> web_contents_ = nullptr;
 };
 
 }  // namespace
@@ -764,6 +775,31 @@ IN_PROC_BROWSER_TEST_F(ExtensionContextMenuModelTest,
               CommandState::kEnabled);
 
     // Verify the option page is opened when the command is executed.
+    menu.ExecuteCommand(ExtensionContextMenuModel::OPTIONS, 0);
+    auto* web_contents = GetActiveWebContents();
+    content::WaitForLoadStop(web_contents);
+    EXPECT_EQ(OptionsPageInfo::GetOptionsPage(extension_with_options.get()),
+              web_contents->GetLastCommittedURL());
+  }
+
+  {
+    // Verify the options page is opened when the command is executed from a
+    // context menu associated with a non-tab WebContents (such as a side
+    // panel).
+    ASSERT_TRUE(NavigateToURL(GetActiveWebContents(), GURL("about:blank")));
+
+    std::unique_ptr<content::WebContents> panel_contents =
+        content::WebContents::Create(
+            content::WebContents::CreateParams(profile()));
+    TestPopupDelegate delegate;
+    delegate.SetWebContents(panel_contents.get());
+
+    ExtensionContextMenuModel menu(
+        extension_with_options.get(), browser_window_interface(),
+        /*is_pinned=*/true, &delegate, true, ContextMenuSource::kMenuItem);
+    EXPECT_EQ(GetCommandState(menu, ExtensionContextMenuModel::OPTIONS),
+              CommandState::kEnabled);
+
     menu.ExecuteCommand(ExtensionContextMenuModel::OPTIONS, 0);
     auto* web_contents = GetActiveWebContents();
     content::WaitForLoadStop(web_contents);
@@ -2569,6 +2605,32 @@ IN_PROC_BROWSER_TEST_P(
 
 class ExtensionContextMenuModelRateExtensionTest
     : public ExtensionContextMenuModelTest {
+ protected:
+  ExtensionContextMenuModel CreateMenu(const Extension& extension,
+                                       ContextMenuSource source) {
+    return ExtensionContextMenuModel(&extension, browser_window_interface(),
+                                     /*is_pinned=*/true, nullptr,
+                                     /*can_show_icon_in_toolbar=*/true, source);
+  }
+
+  // Returns an installed extension that is eligible for the review prompt.
+  scoped_refptr<const Extension> AddReviewEligibleExtension() {
+    scoped_refptr<const Extension> extension =
+        ExtensionBuilder("CWS Extension")
+            .SetLocation(ManifestLocation::kInternal)
+            .AddFlags(Extension::FROM_WEBSTORE)
+            .Build();
+    InitializeAndAddExtension(*extension);
+
+    ExtensionPrefs::Get(profile())->UpdateExtensionPref(
+        extension->id(), "cws-info",
+        base::Value(base::DictValue()
+                        .Set("is-present", true)
+                        .Set("is-live", true)
+                        .Set("violation-type", 0)));
+    return extension;
+  }
+
  private:
   base::test::ScopedFeatureList feature_list_{
       extensions_features::kCWSReviewPromptingNativeUI};
@@ -2576,43 +2638,21 @@ class ExtensionContextMenuModelRateExtensionTest
 
 IN_PROC_BROWSER_TEST_F(ExtensionContextMenuModelRateExtensionTest,
                        RateExtensionCommand) {
-  scoped_refptr<const Extension> unpacked_extension =
-      ExtensionBuilder("Unpacked Extension")
-          .SetLocation(mojom::ManifestLocation::kUnpacked)
-          .Build();
-  InitializeAndAddExtension(*unpacked_extension);
+  const Extension* unpacked_extension =
+      AddExtension("Unpacked Extension", nullptr, ManifestLocation::kUnpacked);
 
-  ExtensionContextMenuModel unpacked_menu(
-      unpacked_extension.get(), browser_window_interface(),
-      /*is_pinned=*/true, nullptr,
-      /*can_show_icon_in_toolbar=*/true, ContextMenuSource::kMenuItem);
-
+  ExtensionContextMenuModel unpacked_menu =
+      CreateMenu(*unpacked_extension, ContextMenuSource::kMenuItem);
   EXPECT_EQ(
       GetCommandState(unpacked_menu, ExtensionContextMenuModel::RATE_EXTENSION),
       CommandState::kAbsent);
 
-  scoped_refptr<const Extension> cws_extension =
-      ExtensionBuilder("CWS Extension")
-          .SetLocation(mojom::ManifestLocation::kInternal)
-          .AddFlags(Extension::FROM_WEBSTORE)
-          .Build();
-  InitializeAndAddExtension(*cws_extension);
-
-  base::DictValue cws_info_dict;
-  cws_info_dict.Set("is-present", true);
-  cws_info_dict.Set("is-live", true);
-  cws_info_dict.Set("violation-type", 0);
-  ExtensionPrefs::Get(profile())->UpdateExtensionPref(
-      cws_extension->id(), "cws-info", base::Value(std::move(cws_info_dict)));
-
+  scoped_refptr<const Extension> cws_extension = AddReviewEligibleExtension();
   EXPECT_EQ(GetTabCount(), 1);
 
   // Test Extensions Menu source (kMenuItem)
-  ExtensionContextMenuModel menu_item(
-      cws_extension.get(), browser_window_interface(),
-      /*is_pinned=*/true, nullptr,
-      /*can_show_icon_in_toolbar=*/true, ContextMenuSource::kMenuItem);
-
+  ExtensionContextMenuModel menu_item =
+      CreateMenu(*cws_extension, ContextMenuSource::kMenuItem);
   EXPECT_EQ(
       GetCommandState(menu_item, ExtensionContextMenuModel::RATE_EXTENSION),
       CommandState::kEnabled);
@@ -2627,11 +2667,8 @@ IN_PROC_BROWSER_TEST_F(ExtensionContextMenuModelRateExtensionTest,
                 extensions::util::CWSReviewSource::kExtensionsMenu));
 
   // Test Context Menu source (kToolbarAction)
-  ExtensionContextMenuModel menu_toolbar(
-      cws_extension.get(), browser_window_interface(),
-      /*is_pinned=*/true, nullptr,
-      /*can_show_icon_in_toolbar=*/true, ContextMenuSource::kToolbarAction);
-
+  ExtensionContextMenuModel menu_toolbar =
+      CreateMenu(*cws_extension, ContextMenuSource::kToolbarAction);
   EXPECT_EQ(
       GetCommandState(menu_toolbar, ExtensionContextMenuModel::RATE_EXTENSION),
       CommandState::kEnabled);
@@ -2648,40 +2685,151 @@ IN_PROC_BROWSER_TEST_F(ExtensionContextMenuModelRateExtensionTest,
 
 IN_PROC_BROWSER_TEST_F(ExtensionContextMenuModelRateExtensionTest,
                        RateExtensionCommand_DisabledByPolicyPref) {
-  scoped_refptr<const Extension> cws_extension =
-      ExtensionBuilder("CWS Extension")
-          .SetLocation(mojom::ManifestLocation::kInternal)
-          .AddFlags(Extension::FROM_WEBSTORE)
-          .Build();
-  InitializeAndAddExtension(*cws_extension);
-
-  base::DictValue cws_info_dict;
-  cws_info_dict.Set("is-present", true);
-  cws_info_dict.Set("is-live", true);
-  cws_info_dict.Set("violation-type", 0);
-  ExtensionPrefs::Get(profile())->UpdateExtensionPref(
-      cws_extension->id(), "cws-info", base::Value(std::move(cws_info_dict)));
+  scoped_refptr<const Extension> cws_extension = AddReviewEligibleExtension();
 
   // When review prompts are disabled by policy preference, the command is
   // absent.
   profile()->GetPrefs()->SetBoolean(prefs::kExtensionReviewPromptsAllowed,
                                     false);
 
+  for (ContextMenuSource source :
+       {ContextMenuSource::kMenuItem, ContextMenuSource::kToolbarAction}) {
+    ExtensionContextMenuModel menu = CreateMenu(*cws_extension, source);
+    EXPECT_EQ(GetCommandState(menu, ExtensionContextMenuModel::RATE_EXTENSION),
+              CommandState::kAbsent);
+  }
+}
+
+// Tests the Extensions.ContextMenuRateExtension.{ContextMenu,ExtensionsMenu}
+// metric. The parameter toggles kExtensionsMenuAccessControl, which selects
+// between the two menu construction paths (InitMenuWithFeature() and
+// InitMenu()); the metric must be recorded identically on both.
+class ExtensionContextMenuModelRateExtensionImpressionTest
+    : public ExtensionContextMenuModelRateExtensionTest,
+      public testing::WithParamInterface<bool> {
+ public:
+  ExtensionContextMenuModelRateExtensionImpressionTest() {
+    feature_list_.InitWithFeatureState(
+        extensions_features::kExtensionsMenuAccessControl, GetParam());
+  }
+
+ protected:
+  using RateExtensionOutcome = ExtensionContextMenuModel::RateExtensionOutcome;
+
+  static const char* HistogramForSource(ContextMenuSource source) {
+    return source == ContextMenuSource::kMenuItem
+               ? "Extensions.ContextMenuRateExtension.ExtensionsMenu"
+               : "Extensions.ContextMenuRateExtension.ContextMenu";
+  }
+
+  static void ExpectUniqueOutcome(const base::HistogramTester& tester,
+                                  ContextMenuSource source,
+                                  RateExtensionOutcome outcome) {
+    tester.ExpectUniqueSample(HistogramForSource(source), outcome, 1);
+    tester.ExpectTotalCount(
+        HistogramForSource(source == ContextMenuSource::kMenuItem
+                               ? ContextMenuSource::kToolbarAction
+                               : ContextMenuSource::kMenuItem),
+        0);
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+INSTANTIATE_TEST_SUITE_P(All,
+                         ExtensionContextMenuModelRateExtensionImpressionTest,
+                         testing::Bool());
+
+// An extension offered the "Rate it" item records kNotClicked when closed
+// without clicking and kClicked when the command is executed, on the matching
+// menu surface's histogram.
+IN_PROC_BROWSER_TEST_P(ExtensionContextMenuModelRateExtensionImpressionTest,
+                       ImpressionAndClickRecordedForEligibleExtension) {
+  scoped_refptr<const Extension> extension = AddReviewEligibleExtension();
+
+  for (ContextMenuSource source :
+       {ContextMenuSource::kMenuItem, ContextMenuSource::kToolbarAction}) {
+    ExtensionContextMenuModel menu = CreateMenu(*extension, source);
+    ASSERT_EQ(GetCommandState(menu, ExtensionContextMenuModel::RATE_EXTENSION),
+              CommandState::kEnabled);
+
+    // If the menu is closed without ever being shown, nothing is recorded.
+    base::HistogramTester unshown_tester;
+    menu.MenuClosed(&menu);
+    unshown_tester.ExpectTotalCount(HistogramForSource(source), 0);
+
+    // Shown and closed without clicking "Rate it".
+    base::HistogramTester shown_tester;
+    menu.OnMenuWillShow(&menu);
+    menu.MenuClosed(&menu);
+    ExpectUniqueOutcome(shown_tester, source,
+                        RateExtensionOutcome::kNotClicked);
+
+    // Shown, "Rate it" clicked, and closed.
+    base::HistogramTester clicked_tester;
+    menu.OnMenuWillShow(&menu);
+    menu.ExecuteCommand(ExtensionContextMenuModel::RATE_EXTENSION, 0);
+    menu.MenuClosed(&menu);
+    ExpectUniqueOutcome(clicked_tester, source, RateExtensionOutcome::kClicked);
+  }
+}
+
+// An extension that is not offered the "Rate it" item records nothing.
+IN_PROC_BROWSER_TEST_P(ExtensionContextMenuModelRateExtensionImpressionTest,
+                       NothingRecordedForIneligibleExtension) {
+  const Extension* unpacked_extension =
+      AddExtension("Unpacked Extension", nullptr, ManifestLocation::kUnpacked);
+
+  for (ContextMenuSource source :
+       {ContextMenuSource::kMenuItem, ContextMenuSource::kToolbarAction}) {
+    base::HistogramTester tester;
+    ExtensionContextMenuModel menu = CreateMenu(*unpacked_extension, source);
+    ASSERT_EQ(GetCommandState(menu, ExtensionContextMenuModel::RATE_EXTENSION),
+              CommandState::kAbsent);
+
+    menu.OnMenuWillShow(&menu);
+    menu.MenuClosed(&menu);
+    tester.ExpectTotalCount(HistogramForSource(ContextMenuSource::kMenuItem),
+                            0);
+    tester.ExpectTotalCount(
+        HistogramForSource(ContextMenuSource::kToolbarAction), 0);
+  }
+}
+
+IN_PROC_BROWSER_TEST_F(ExtensionContextMenuModelRateExtensionTest,
+                       RateExtensionCommand_UsesPanelWebContents) {
+  scoped_refptr<const Extension> cws_extension = AddReviewEligibleExtension();
+  EXPECT_EQ(GetTabCount(), 1);
+
+  // Create a secondary/non-tab WebContents representing a side panel.
+  std::unique_ptr<content::WebContents> panel_contents =
+      content::WebContents::Create(
+          content::WebContents::CreateParams(profile()));
+  TestPopupDelegate delegate;
+  delegate.SetWebContents(panel_contents.get());
+
+  // Instantiate the context menu model with the delegate that points to the
+  // panel WebContents.
   ExtensionContextMenuModel menu_item(
       cws_extension.get(), browser_window_interface(),
-      /*is_pinned=*/true, nullptr,
+      /*is_pinned=*/true, &delegate,
       /*can_show_icon_in_toolbar=*/true, ContextMenuSource::kMenuItem);
+
   EXPECT_EQ(
       GetCommandState(menu_item, ExtensionContextMenuModel::RATE_EXTENSION),
-      CommandState::kAbsent);
+      CommandState::kEnabled);
 
-  ExtensionContextMenuModel menu_toolbar(
-      cws_extension.get(), browser_window_interface(),
-      /*is_pinned=*/true, nullptr,
-      /*can_show_icon_in_toolbar=*/true, ContextMenuSource::kToolbarAction);
-  EXPECT_EQ(
-      GetCommandState(menu_toolbar, ExtensionContextMenuModel::RATE_EXTENSION),
-      CommandState::kAbsent);
+  // Executing the command should open the review URL in a new foreground tab in
+  // the browser via the browser's active tab rather than the panel WebContents.
+  menu_item.ExecuteCommand(ExtensionContextMenuModel::RATE_EXTENSION, 0);
+  content::WebContents* web_contents = GetActiveWebContents();
+  content::WaitForLoadStop(web_contents);
+  EXPECT_EQ(GetTabCount(), 2);
+  EXPECT_EQ(web_contents->GetLastCommittedURL(),
+            extensions::util::GetCWSWritingReviewUrl(
+                cws_extension->id(),
+                extensions::util::CWSReviewSource::kExtensionsMenu));
 }
 
 }  // namespace extensions

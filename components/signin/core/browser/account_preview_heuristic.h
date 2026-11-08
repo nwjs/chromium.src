@@ -30,6 +30,7 @@ struct AccountPreviewHeuristicContext {
   bool is_managed = false;
   bool is_child = false;
   bool is_external_app_primary = false;
+  bool is_signed_in_on_other_profile = false;
 
   // Returns whether this is a regular consumer account (i.e. not managed and
   // not a child account).
@@ -56,8 +57,11 @@ enum class AccountPreviewSelectionReason {
   kExternalAppPrimary = 2,
   // Priority 3: Regular accounts were compared based on sync data score.
   kSyncDataScore = 3,
+  // No account was selected because the preferred candidate account is already
+  // signed in on another profile.
+  kNoSelectionSignedInOnOtherProfile = 4,
 
-  kMaxValue = kSyncDataScore,
+  kMaxValue = kNoSelectionSignedInOnOtherProfile,
 };
 // LINT.ThenChange(//tools/metrics/histograms/metadata/signin/enums.xml:AccountPreviewSelectionReason)
 
@@ -94,6 +98,10 @@ struct AccountPreviewSelectionResult {
 // 3. Otherwise, compare sync data between all regular accounts. Select the best
 //    account. Ties are broken in favor of the earlier account in the list
 //    (favoring the default account).
+//
+// If the selected preferred account is already signed in on another profile
+// (`is_signed_in_on_other_profile`), it is disregarded and no account is
+// selected (`kNoSelectionSignedInOnOtherProfile`).
 //
 // Returns a result with `preference = std::nullopt` and
 // `selected_account = std::nullopt` if no valid candidate is found or
@@ -141,8 +149,14 @@ enum class AccountSwitchingSelectionOutcome {
   // Promo would not be shown: Preview data is missing (e.g. fetch failed) for
   // all regular secondary accounts.
   kWouldNotShowSecondaryMissingPreviewData = 11,
+  // Promo would not be shown: Primary account is signed in to another device
+  // (`has_other_devices()` is true).
+  kWouldNotShowPrimaryHasOtherDevices = 12,
+  // Promo would not be shown: The best secondary account is already signed in
+  // on another profile.
+  kWouldNotShowSecondarySignedInOnOtherProfile = 13,
 
-  kMaxValue = kWouldNotShowSecondaryMissingPreviewData,
+  kMaxValue = kWouldNotShowSecondarySignedInOnOtherProfile,
 };
 // LINT.ThenChange(//tools/metrics/histograms/metadata/signin/enums.xml:AccountSwitchingSelectionOutcome)
 
@@ -178,21 +192,24 @@ struct AccountSwitchingSelectionResult {
 //    otherwise `kWouldNotShowExternalAppPrimaryAccount`.
 // 5. Primary account must have preview data -> otherwise
 //    `kWouldNotShowPrimaryMissingPreviewData`.
-// 6. At least one regular secondary account must exist -> otherwise
+// 6. Primary account must not be signed in to another device -> otherwise
+//    `kWouldNotShowPrimaryHasOtherDevices`.
+// 7. At least one regular secondary account must exist -> otherwise
 //    `kWouldNotShowNoRegularSecondaryAccount`.
-// 7. At least one regular secondary account must have preview data -> otherwise
+// 8. At least one regular secondary account must have preview data -> otherwise
 //    `kWouldNotShowSecondaryMissingPreviewData`.
-// 8. At least one regular secondary account must be signed in to another
+// 9. At least one regular secondary account must be signed in to another
 //    device -> otherwise `kWouldNotShowNoSecondaryWithOtherDevices`.
-// 9. Primary account score must be below 6 -> otherwise
-//    `kWouldNotShowPrimaryExceedsUpperLimit`.
-// 10. Compare the highest-scoring cross-device regular secondary account (X)
-//    against the primary account score (Y):
-//    - For Y in {0, 2}: select secondary if X > Y
-//    (`kWouldShowLowPrimaryScore`).
-//    - For Y in {3, 5}: select secondary if X > 2 * Y
-//      (`kWouldShowDoubledPrimaryScore`).
-//    - Otherwise, `kWouldNotShowSecondaryDoesNotMeetThreshold`.
+// 10. Primary account score must be below 6 -> otherwise
+//     `kWouldNotShowPrimaryExceedsUpperLimit`.
+// 11. Compare the highest-scoring cross-device regular secondary account (X)
+//     against the primary account score (Y):
+//     - For Y in {0, 2}: requires X > Y (`kWouldShowLowPrimaryScore`).
+//     - For Y in {3, 5}: requires X > 2 * Y (`kWouldShowDoubledPrimaryScore`).
+//     - Otherwise, `kWouldNotShowSecondaryDoesNotMeetThreshold`.
+// 12. If the winning secondary account is already signed in on another profile
+//     (`is_signed_in_on_other_profile`), disregard it and return
+//     `kWouldNotShowSecondarySignedInOnOtherProfile`.
 AccountSwitchingSelectionResult ComputeAccountSwitchingSelection(
     base::span<const AccountPreviewHeuristicContext> accounts);
 

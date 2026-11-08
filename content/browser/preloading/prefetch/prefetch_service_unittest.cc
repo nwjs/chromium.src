@@ -4,12 +4,22 @@
 
 #include "content/browser/preloading/prefetch/prefetch_service.h"
 
+#include <algorithm>
+#include <cstddef>
+#include <cstdint>
+#include <functional>
+#include <map>
+#include <memory>
 #include <optional>
+#include <ostream>
+#include <set>
+#include <string>
 #include <string_view>
+#include <tuple>
+#include <utility>
+#include <vector>
 
 #include "base/byte_size.h"
-#include "base/functional/callback_helpers.h"
-#include "base/logging.h"
 #include "base/memory/weak_ptr.h"
 #include "base/run_loop.h"
 #include "base/strings/strcat.h"
@@ -24,7 +34,6 @@
 #include "content/browser/browser_context_impl.h"
 #include "content/browser/preloading/prefetch/mock_prefetch_service_delegate.h"
 #include "content/browser/preloading/prefetch/no_vary_search_helper.h"
-#include "content/browser/preloading/prefetch/pre_prefetch_container.h"
 #include "content/browser/preloading/prefetch/pre_prefetch_handle_impl.h"
 #include "content/browser/preloading/prefetch/pre_prefetch_service_impl.h"
 #include "content/browser/preloading/prefetch/prefetch_container.h"
@@ -43,7 +52,6 @@
 #include "content/browser/preloading/preloading.h"
 #include "content/browser/preloading/preloading_attempt_impl.h"
 #include "content/browser/preloading/preloading_data_impl.h"
-#include "content/browser/preloading/prerender/prerender_features.h"
 #include "content/browser/preloading/speculation_rules/speculation_rules_tags.h"
 #include "content/browser/renderer_host/render_frame_host_impl.h"
 #include "content/public/browser/browser_context.h"
@@ -64,7 +72,6 @@
 #include "content/public/test/test_browser_context.h"
 #include "content/public/test/test_content_browser_client.h"
 #include "content/test/test_web_contents.h"
-#include "net/base/load_flags.h"
 #include "net/base/load_timing_internal_info.h"
 #include "net/base/proxy_chain.h"
 #include "net/base/proxy_server.h"
@@ -75,7 +82,6 @@
 #include "services/metrics/public/cpp/ukm_builders.h"
 #include "services/network/public/cpp/parsed_headers.h"
 #include "services/network/public/cpp/weak_wrapper_shared_url_loader_factory.h"
-#include "services/network/public/mojom/cookie_manager.mojom.h"
 #include "services/network/public/mojom/network_context.mojom.h"
 #include "services/network/public/mojom/proxy_lookup_client.mojom.h"
 #include "services/network/test/test_network_context.h"
@@ -493,7 +499,7 @@ class PrefetchServiceTestBase : public PrefetchingMetricsTestBase {
       const PrefetchType& prefetch_type,
       const blink::mojom::Referrer& referrer = blink::mojom::Referrer(),
       const std::optional<url::Origin> referring_origin = std::nullopt,
-      bool is_ahead_of_actual_navigation = false,
+      bool is_ahead_of_imminent_navigation = false,
       std::optional<net::HttpNoVarySearchData> no_vary_search_hint =
           std::nullopt) {
     CHECK(!prefetch_type.IsRendererInitiated());
@@ -508,11 +514,18 @@ class PrefetchServiceTestBase : public PrefetchingMetricsTestBase {
         /*attempt=*/nullptr,
         /*holdback_status_override=*/PreloadingHoldbackStatus::kUnspecified,
         /*ttl=*/std::nullopt,
-        /*should_ignore_saver_modes=*/false, is_ahead_of_actual_navigation);
+        /*should_ignore_saver_modes=*/false, is_ahead_of_imminent_navigation);
     return prefetch_service().AddPrefetchRequestWithHandle(
         std::move(prefetch_request));
   }
 
+  // Starts browser-initiated prefetch request.
+  //
+  // Note: The default `priority` is `PrefetchPriority::kHighest` for backward
+  // compatibility with existing tests, which means it will be treated as burst
+  // priority (`kBurstForPrefetchPriority`) by default. When testing normal
+  // (non-burst) scheduling behavior, explicitly pass
+  // `PrefetchPriority::kMedium` (or another non-burst priority).
   [[nodiscard]] std::unique_ptr<content::PrefetchHandle>
   MakePrefetchFromBrowserContext(
       const GURL& url,
@@ -520,10 +533,11 @@ class PrefetchServiceTestBase : public PrefetchingMetricsTestBase {
       const net::HttpRequestHeaders& additional_headers,
       std::unique_ptr<PrefetchRequestStatusListener> request_status_listener,
       base::TimeDelta ttl = base::Seconds(/* 10 minutes */ 60 * 10),
-      bool should_disable_block_until_head_timeout = false) {
+      bool should_disable_block_until_head_timeout = false,
+      PrefetchPriority priority = PrefetchPriority::kHighest) {
     return browser_context()->StartBrowserPrefetchRequest(
         url, test::kPreloadingEmbedderHistogramSuffixForTesting, true,
-        no_vary_search_data, PrefetchPriority::kHighest,
+        no_vary_search_data, priority,
         PreloadPipelineInfo::Create(
             /*planned_max_preloading_type=*/PreloadingType::kPrefetch),
         additional_headers, std::move(request_status_listener), ttl,
@@ -4861,14 +4875,14 @@ TEST_P(PrefetchServiceDisableBlockUntilHeadTimeoutTest,
       0);
 }
 
-// Test suite for a prefetch ahead of an actual navigation, i.e.
-// `PrefetchRequest::is_ahead_of_actual_navigation()`.
-class PrefetchServiceAheadOfActualNavigationTest
+// Test suite for a prefetch ahead of an imminent navigation, i.e.
+// `PrefetchRequest::is_ahead_of_imminent_navigation()`.
+class PrefetchServiceAheadOfImminentNavigationTest
     : public PrefetchServiceTestBase,
       public WithPrefetchRearchParam,
       public ::testing::WithParamInterface<PrefetchRearchParam> {
  public:
-  PrefetchServiceAheadOfActualNavigationTest()
+  PrefetchServiceAheadOfImminentNavigationTest()
       : WithPrefetchRearchParam(GetParam()) {}
 
   static constexpr int kBlockUntilHeadTimeout = 1000;
@@ -4887,7 +4901,7 @@ class PrefetchServiceAheadOfActualNavigationTest
               {"block_until_head_timeout_embedder_prefetch",
                base::NumberToString(kBlockUntilHeadTimeout)},
           }},
-         {features::kPrefetchAheadOfActualNavigation,
+         {features::kPrefetchAheadOfImminentNavigation,
           {
               {"force_wait_no_vary_search_header_policy", "UseIfNoHint"},
           }}},
@@ -4899,10 +4913,10 @@ class PrefetchServiceAheadOfActualNavigationTest
 };
 
 INSTANTIATE_TEST_SUITE_P(,
-                         PrefetchServiceAheadOfActualNavigationTest,
+                         PrefetchServiceAheadOfImminentNavigationTest,
                          testing::ValuesIn(PrefetchRearchParam::Params()));
 
-// Tests that a prefetch ahead of an actual navigation is matched by the
+// Tests that a prefetch ahead of an imminent navigation is matched by the
 // No-Vary-Search header even if no hint is given, and that the navigation is
 // blocked until the head is received without the block-until-head timeout.
 //
@@ -4910,7 +4924,7 @@ INSTANTIATE_TEST_SUITE_P(,
 // hint. Then a navigation to the URL without the query starts before the head
 // is received. It keeps blocked beyond the block-until-head timeout, and is
 // eventually served once the head with the No-Vary-Search header arrives.
-TEST_P(PrefetchServiceAheadOfActualNavigationTest,
+TEST_P(PrefetchServiceAheadOfImminentNavigationTest,
        ForceWaitNoVarySearchHeader) {
   MakePrefetchService(
       std::make_unique<testing::NiceMock<MockPrefetchServiceDelegate>>());
@@ -4920,7 +4934,7 @@ TEST_P(PrefetchServiceAheadOfActualNavigationTest,
       PrefetchType(PreloadingTriggerType::kEmbedder,
                    /*use_prefetch_proxy=*/false),
       /*referrer=*/{}, /*referring_origin=*/std::nullopt,
-      /*is_ahead_of_actual_navigation=*/true);
+      /*is_ahead_of_imminent_navigation=*/true);
   task_environment()->RunUntilIdle();
 
   VerifyCommonRequestStateForWebContentsPrefetch(
@@ -4950,10 +4964,10 @@ TEST_P(PrefetchServiceAheadOfActualNavigationTest,
             GURL("https://example.com/?a=1"));
 }
 
-// Tests that a prefetch that is not ahead of an actual navigation is not
+// Tests that a prefetch that is not ahead of an imminent navigation is not
 // matched without a No-Vary-Search hint, i.e. the behavior is unchanged.
-TEST_P(PrefetchServiceAheadOfActualNavigationTest,
-       NotAheadOfActualNavigationIsNotAffected) {
+TEST_P(PrefetchServiceAheadOfImminentNavigationTest,
+       NotAheadOfImminentNavigationIsNotAffected) {
   MakePrefetchService(
       std::make_unique<testing::NiceMock<MockPrefetchServiceDelegate>>());
 
@@ -4962,7 +4976,7 @@ TEST_P(PrefetchServiceAheadOfActualNavigationTest,
       PrefetchType(PreloadingTriggerType::kEmbedder,
                    /*use_prefetch_proxy=*/false),
       /*referrer=*/{}, /*referring_origin=*/std::nullopt,
-      /*is_ahead_of_actual_navigation=*/false);
+      /*is_ahead_of_imminent_navigation=*/false);
   task_environment()->RunUntilIdle();
 
   VerifyCommonRequestStateForWebContentsPrefetch(
@@ -4982,12 +4996,12 @@ TEST_P(PrefetchServiceAheadOfActualNavigationTest,
 // response head arrives without a matching No-Vary-Search header.
 //
 // Scenario: An embedder starts a prefetch of "?a=1" with
-// `is_ahead_of_actual_navigation` true and without a No-Vary-Search hint. A
+// `is_ahead_of_imminent_navigation` true and without a No-Vary-Search hint. A
 // navigation to the URL without the query starts and is blocked beyond the
 // block-until-head timeout. When the response head arrives with a non-matching
 // `No-Vary-Search: params=("b")` header, the navigation unblocks and falls back
 // to network instead of hanging.
-TEST_P(PrefetchServiceAheadOfActualNavigationTest,
+TEST_P(PrefetchServiceAheadOfImminentNavigationTest,
        ForceWaitNoVarySearchHeader_MismatchUnblocks) {
   MakePrefetchService(
       std::make_unique<testing::NiceMock<MockPrefetchServiceDelegate>>());
@@ -4997,7 +5011,7 @@ TEST_P(PrefetchServiceAheadOfActualNavigationTest,
       PrefetchType(PreloadingTriggerType::kEmbedder,
                    /*use_prefetch_proxy=*/false),
       /*referrer=*/{}, /*referring_origin=*/std::nullopt,
-      /*is_ahead_of_actual_navigation=*/true);
+      /*is_ahead_of_imminent_navigation=*/true);
   task_environment()->RunUntilIdle();
 
   VerifyCommonRequestStateForWebContentsPrefetch(
@@ -5028,10 +5042,10 @@ TEST_P(PrefetchServiceAheadOfActualNavigationTest,
 //
 // Scenario: Under the default `UseIfNoHint` policy, an embedder starts a
 // prefetch of "?a=1" with a non-matching hint `params=("b")` and
-// `is_ahead_of_actual_navigation` true. A navigation to the URL without the
+// `is_ahead_of_imminent_navigation` true. A navigation to the URL without the
 // query does not wait for the response head and immediately falls back to
 // network.
-TEST_P(PrefetchServiceAheadOfActualNavigationTest,
+TEST_P(PrefetchServiceAheadOfImminentNavigationTest,
        UseIfNoHintPolicy_NonMatchingHintDoesNotWait) {
   MakePrefetchService(
       std::make_unique<testing::NiceMock<MockPrefetchServiceDelegate>>());
@@ -5041,7 +5055,7 @@ TEST_P(PrefetchServiceAheadOfActualNavigationTest,
       PrefetchType(PreloadingTriggerType::kEmbedder,
                    /*use_prefetch_proxy=*/false),
       /*referrer=*/{}, /*referring_origin=*/std::nullopt,
-      /*is_ahead_of_actual_navigation=*/true,
+      /*is_ahead_of_imminent_navigation=*/true,
       net::HttpNoVarySearchData::CreateFromNoVaryParams({"b"}, false));
   task_environment()->RunUntilIdle();
 
@@ -5063,15 +5077,15 @@ TEST_P(PrefetchServiceAheadOfActualNavigationTest,
 //
 // Scenario: Under the `AlwaysUse` policy, an embedder starts a prefetch of
 // "?a=1" with a non-matching hint `params=("b")` and
-// `is_ahead_of_actual_navigation` true. A navigation to the URL without the
+// `is_ahead_of_imminent_navigation` true. A navigation to the URL without the
 // query ignores the hint and blocks beyond the block-until-head timeout. When
 // the response head arrives with `No-Vary-Search: params=("a")`, the prefetch
 // is served.
-TEST_P(PrefetchServiceAheadOfActualNavigationTest,
+TEST_P(PrefetchServiceAheadOfImminentNavigationTest,
        AlwaysUsePolicy_IgnoresNonMatchingHintAndWaitsForHeader) {
   base::test::ScopedFeatureList local_feature_list;
   local_feature_list.InitAndEnableFeatureWithParameters(
-      features::kPrefetchAheadOfActualNavigation,
+      features::kPrefetchAheadOfImminentNavigation,
       {{"force_wait_no_vary_search_header_policy", "AlwaysUse"}});
 
   MakePrefetchService(
@@ -5082,7 +5096,7 @@ TEST_P(PrefetchServiceAheadOfActualNavigationTest,
       PrefetchType(PreloadingTriggerType::kEmbedder,
                    /*use_prefetch_proxy=*/false),
       /*referrer=*/{}, /*referring_origin=*/std::nullopt,
-      /*is_ahead_of_actual_navigation=*/true,
+      /*is_ahead_of_imminent_navigation=*/true,
       net::HttpNoVarySearchData::CreateFromNoVaryParams({"b"}, false));
   task_environment()->RunUntilIdle();
 
@@ -5114,17 +5128,17 @@ TEST_P(PrefetchServiceAheadOfActualNavigationTest,
 }
 
 // Tests that setting `use_block_until_head_timeout` to true re-enables the
-// block-until-head timeout for a prefetch ahead of an actual navigation.
+// block-until-head timeout for a prefetch ahead of an imminent navigation.
 //
 // Scenario: With `use_block_until_head_timeout` set to true, an embedder starts
-// a prefetch of "?a=1" with `is_ahead_of_actual_navigation` true. A navigation
-// to the URL without the query starts and is blocked, then times out after
-// `kBlockUntilHeadTimeout` and falls back to network.
-TEST_P(PrefetchServiceAheadOfActualNavigationTest,
+// a prefetch of "?a=1" with `is_ahead_of_imminent_navigation` true. A
+// navigation to the URL without the query starts and is blocked, then times out
+// after `kBlockUntilHeadTimeout` and falls back to network.
+TEST_P(PrefetchServiceAheadOfImminentNavigationTest,
        UseBlockUntilHeadTimeout_TimesOut) {
   base::test::ScopedFeatureList local_feature_list;
   local_feature_list.InitAndEnableFeatureWithParameters(
-      features::kPrefetchAheadOfActualNavigation,
+      features::kPrefetchAheadOfImminentNavigation,
       {
           {"force_wait_no_vary_search_header_policy", "UseIfNoHint"},
           {"use_block_until_head_timeout", "true"},
@@ -5138,7 +5152,7 @@ TEST_P(PrefetchServiceAheadOfActualNavigationTest,
       PrefetchType(PreloadingTriggerType::kEmbedder,
                    /*use_prefetch_proxy=*/false),
       /*referrer=*/{}, /*referring_origin=*/std::nullopt,
-      /*is_ahead_of_actual_navigation=*/true);
+      /*is_ahead_of_imminent_navigation=*/true);
   task_environment()->RunUntilIdle();
 
   VerifyCommonRequestStateForWebContentsPrefetch(
@@ -5154,6 +5168,102 @@ TEST_P(PrefetchServiceAheadOfActualNavigationTest,
   task_environment()->FastForwardBy(base::Milliseconds(kBlockUntilHeadTimeout));
   ASSERT_TRUE(navigation_result->serving_handle_future.IsReady());
   EXPECT_FALSE(navigation_result->serving_handle_future.Take());
+}
+
+// Tests that a prefetch ahead of an imminent navigation gets burst scheduler
+// priority (`kBurstAheadOfImminentNavigation`) with active set size limit
+// `base + 1`.
+//
+// Scenario:
+//
+// - Base active set size limit is 1; burst limit for
+//   ahead-of-imminent-navigation is 2.
+// - `url_1` (normal) starts (active: 1).
+// - `url_2` (normal) stays eligible because base limit (1) is reached.
+// - `url_3` (ahead of imminent navigation) starts (active: 2), bypassing
+//   `url_2`.
+// - `url_4` (ahead of imminent navigation) stays eligible because burst limit
+//   (2) is reached.
+// - Resetting `handle_3` (active: 2 -> 1) starts `url_4` (active: 1 -> 2) while
+//   `url_2` remains eligible.
+// - Resetting `handle_1` (active: 2 -> 1): `pc_2` stays eligible because base
+//   limit (1) is occupied by `pc_4`.
+// - Resetting `handle_4` (active: 1 -> 0): `pc_2` starts.
+TEST_P(PrefetchServiceAheadOfImminentNavigationTest,
+       BurstAheadOfImminentNavigation) {
+  base::test::ScopedFeatureList local_feature_list;
+  local_feature_list.InitWithFeatures(
+      /*enabled_features=*/{features::kPrefetchAheadOfImminentNavigation},
+      /*disabled_features=*/{
+          features::kPrerender2FallbackPrefetchSpecRules,
+          features::kPrefetchMultipleActiveSetSizeLimitForBase,
+          features::kPrefetchSchedulerTesting,
+      });
+
+  NavigateAndCommit(GURL("https://example.com"));
+  MakePrefetchService(
+      std::make_unique<testing::NiceMock<MockPrefetchServiceDelegate>>());
+
+  const PrefetchType prefetch_type(PreloadingTriggerType::kEmbedder,
+                                   /*use_prefetch_proxy=*/false);
+  const auto url_1 = GURL("https://example.com/one");
+  const auto url_2 = GURL("https://example.com/two");
+  const auto url_3 = GURL("https://example.com/three");
+  const auto url_4 = GURL("https://example.com/four");
+
+  auto handle_1 = MakePrefetchFromEmbedder(
+      url_1, prefetch_type, /*referrer=*/{}, /*referring_origin=*/std::nullopt,
+      /*is_ahead_of_imminent_navigation=*/false);
+  auto handle_2 = MakePrefetchFromEmbedder(
+      url_2, prefetch_type, /*referrer=*/{}, /*referring_origin=*/std::nullopt,
+      /*is_ahead_of_imminent_navigation=*/false);
+  auto handle_3 = MakePrefetchFromEmbedder(
+      url_3, prefetch_type, /*referrer=*/{}, /*referring_origin=*/std::nullopt,
+      /*is_ahead_of_imminent_navigation=*/true);
+  auto handle_4 = MakePrefetchFromEmbedder(
+      url_4, prefetch_type, /*referrer=*/{}, /*referring_origin=*/std::nullopt,
+      /*is_ahead_of_imminent_navigation=*/true);
+  task_environment()->RunUntilIdle();
+
+  base::WeakPtr<PrefetchContainer> pc_1, pc_2, pc_3, pc_4;
+  std::tie(std::ignore, pc_1) =
+      prefetch_service().GetAllForUrlWithoutRefAndQueryForTesting(
+          PrefetchKey(std::nullopt, url_1))[0];
+  std::tie(std::ignore, pc_2) =
+      prefetch_service().GetAllForUrlWithoutRefAndQueryForTesting(
+          PrefetchKey(std::nullopt, url_2))[0];
+  std::tie(std::ignore, pc_3) =
+      prefetch_service().GetAllForUrlWithoutRefAndQueryForTesting(
+          PrefetchKey(std::nullopt, url_3))[0];
+  std::tie(std::ignore, pc_4) =
+      prefetch_service().GetAllForUrlWithoutRefAndQueryForTesting(
+          PrefetchKey(std::nullopt, url_4))[0];
+
+  ASSERT_EQ(pc_1->GetLoadState(), PrefetchContainer::LoadState::kStarted);
+  ASSERT_EQ(pc_2->GetLoadState(), PrefetchContainer::LoadState::kEligible);
+  ASSERT_EQ(pc_3->GetLoadState(), PrefetchContainer::LoadState::kStarted);
+  ASSERT_EQ(pc_4->GetLoadState(), PrefetchContainer::LoadState::kEligible);
+
+  handle_3.reset();
+  EXPECT_FALSE(pc_3);
+  task_environment()->RunUntilIdle();
+
+  ASSERT_EQ(pc_1->GetLoadState(), PrefetchContainer::LoadState::kStarted);
+  ASSERT_EQ(pc_2->GetLoadState(), PrefetchContainer::LoadState::kEligible);
+  ASSERT_EQ(pc_4->GetLoadState(), PrefetchContainer::LoadState::kStarted);
+
+  handle_1.reset();
+  EXPECT_FALSE(pc_1);
+  task_environment()->RunUntilIdle();
+
+  ASSERT_EQ(pc_2->GetLoadState(), PrefetchContainer::LoadState::kEligible);
+  ASSERT_EQ(pc_4->GetLoadState(), PrefetchContainer::LoadState::kStarted);
+
+  handle_4.reset();
+  EXPECT_FALSE(pc_4);
+  task_environment()->RunUntilIdle();
+
+  ASSERT_EQ(pc_2->GetLoadState(), PrefetchContainer::LoadState::kStarted);
 }
 
 // Tests that browsing data removal for prefetch is performed per 1) its
@@ -8527,6 +8637,266 @@ TEST_P(PrefetchServiceTest,
 
   ASSERT_EQ(pc_p2->GetLoadState(), PrefetchContainer::LoadState::kStarted);
   ASSERT_EQ(pc_p3->GetLoadState(), PrefetchContainer::LoadState::kStarted);
+}
+
+// Tests query parameter based burst behavior.
+//
+// Scenario:
+//
+// - Base limit is 1, extra burst limit is 1 (burst limit is 2).
+// - Two normal prefetches (`url_1`, `url_2`) are triggered.
+// - `PrefetchScheduler` starts `url_1`, while `url_2` is queued.
+// - A prefetch with a non-matching query param (`url_3`, pf=other) is triggered
+//   and queued.
+// - A first prefetch with the matching query param (`url_4`, pf=op) is
+//   triggered.
+// - `PrefetchScheduler` starts `url_4` immediately using the burst capacity
+//   (active set size reaches 2).
+// - A second prefetch with the matching query param (`url_5`, pf=op) is
+//   triggered and queued as the burst limit (2) is reached.
+// - `url_1` ended.
+// - `PrefetchScheduler` starts `url_5` ahead of the earlier queued normal
+//   prefetches (`url_2`, `url_3`).
+// - `url_4` ended.
+// - `PrefetchScheduler` does not start `url_2` or `url_3` as `url_5` is still
+//   running and `ActiveSetSizeLimitForBase` is 1.
+// - `url_5` ended.
+// - `PrefetchScheduler` starts `url_2`.
+TEST_P(PrefetchServiceTest, PrefetchScheduler_QueryParamBurst) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeaturesAndParameters(
+      {
+          {features::kPrefetchSchedulerBurstQueryParam,
+           {{"key", "pf"}, {"value", "op"}, {"extra_limit", "1"}}},
+      },
+      {features::kPrefetchSchedulerTesting,
+       features::kPrefetchMultipleActiveSetSizeLimitForBase});
+
+  NavigateAndCommit(GURL("https://example.com"));
+  MakePrefetchService(
+      std::make_unique<testing::NiceMock<MockPrefetchServiceDelegate>>());
+
+  const auto url_1 = GURL("https://example.com/normal1");
+  const auto url_2 = GURL("https://example.com/normal2");
+  const auto url_3 = GURL("https://example.com/other?pf=other");
+  const auto url_4 = GURL("https://example.com/target?pf=op");
+  const auto url_5 = GURL("https://example.com/target2?pf=op");
+
+  auto handle_1 = MakePrefetchFromBrowserContext(
+      url_1, std::nullopt, {}, nullptr, base::Seconds(60 * 10), false,
+      PrefetchPriority::kMedium);
+  auto handle_2 = MakePrefetchFromBrowserContext(
+      url_2, std::nullopt, {}, nullptr, base::Seconds(60 * 10), false,
+      PrefetchPriority::kMedium);
+  auto handle_3 = MakePrefetchFromBrowserContext(
+      url_3, std::nullopt, {}, nullptr, base::Seconds(60 * 10), false,
+      PrefetchPriority::kMedium);
+  task_environment()->RunUntilIdle();
+
+  base::WeakPtr<PrefetchContainer> prefetch_container1, prefetch_container2,
+      prefetch_container3, prefetch_container4, prefetch_container5;
+  std::tie(std::ignore, prefetch_container1) =
+      prefetch_service().GetAllForUrlWithoutRefAndQueryForTesting(
+          PrefetchKey(std::nullopt, url_1))[0];
+  std::tie(std::ignore, prefetch_container2) =
+      prefetch_service().GetAllForUrlWithoutRefAndQueryForTesting(
+          PrefetchKey(std::nullopt, url_2))[0];
+  std::tie(std::ignore, prefetch_container3) =
+      prefetch_service().GetAllForUrlWithoutRefAndQueryForTesting(
+          PrefetchKey(std::nullopt, url_3))[0];
+
+  ASSERT_EQ(prefetch_container1->GetLoadState(),
+            PrefetchContainer::LoadState::kStarted);
+  ASSERT_EQ(prefetch_container2->GetLoadState(),
+            PrefetchContainer::LoadState::kEligible);
+  ASSERT_EQ(prefetch_container3->GetLoadState(),
+            PrefetchContainer::LoadState::kEligible);
+
+  auto handle_4 = MakePrefetchFromBrowserContext(
+      url_4, std::nullopt, {}, nullptr, base::Seconds(60 * 10), false,
+      PrefetchPriority::kMedium);
+  auto handle_5 = MakePrefetchFromBrowserContext(
+      url_5, std::nullopt, {}, nullptr, base::Seconds(60 * 10), false,
+      PrefetchPriority::kMedium);
+  task_environment()->RunUntilIdle();
+
+  std::tie(std::ignore, prefetch_container4) =
+      prefetch_service().GetAllForUrlWithoutRefAndQueryForTesting(
+          PrefetchKey(std::nullopt, url_4))[0];
+  std::tie(std::ignore, prefetch_container5) =
+      prefetch_service().GetAllForUrlWithoutRefAndQueryForTesting(
+          PrefetchKey(std::nullopt, url_5))[0];
+
+  ASSERT_EQ(prefetch_container1->GetLoadState(),
+            PrefetchContainer::LoadState::kStarted);
+  ASSERT_EQ(prefetch_container2->GetLoadState(),
+            PrefetchContainer::LoadState::kEligible);
+  ASSERT_EQ(prefetch_container3->GetLoadState(),
+            PrefetchContainer::LoadState::kEligible);
+  ASSERT_EQ(prefetch_container4->GetLoadState(),
+            PrefetchContainer::LoadState::kStarted);
+  ASSERT_EQ(prefetch_container5->GetLoadState(),
+            PrefetchContainer::LoadState::kEligible);
+
+  handle_1.reset();
+  EXPECT_FALSE(prefetch_container1);
+  // Resolve `PrefetchScheduler::ProgressAsync()`.
+  task_environment()->RunUntilIdle();
+
+  ASSERT_EQ(prefetch_container2->GetLoadState(),
+            PrefetchContainer::LoadState::kEligible);
+  ASSERT_EQ(prefetch_container3->GetLoadState(),
+            PrefetchContainer::LoadState::kEligible);
+  ASSERT_EQ(prefetch_container4->GetLoadState(),
+            PrefetchContainer::LoadState::kStarted);
+  ASSERT_EQ(prefetch_container5->GetLoadState(),
+            PrefetchContainer::LoadState::kStarted);
+
+  handle_4.reset();
+  EXPECT_FALSE(prefetch_container4);
+  // Resolve `PrefetchScheduler::ProgressAsync()`.
+  task_environment()->RunUntilIdle();
+
+  ASSERT_EQ(prefetch_container2->GetLoadState(),
+            PrefetchContainer::LoadState::kEligible);
+  ASSERT_EQ(prefetch_container3->GetLoadState(),
+            PrefetchContainer::LoadState::kEligible);
+  ASSERT_EQ(prefetch_container5->GetLoadState(),
+            PrefetchContainer::LoadState::kStarted);
+
+  handle_5.reset();
+  EXPECT_FALSE(prefetch_container5);
+  // Resolve `PrefetchScheduler::ProgressAsync()`.
+  task_environment()->RunUntilIdle();
+
+  ASSERT_EQ(prefetch_container2->GetLoadState(),
+            PrefetchContainer::LoadState::kStarted);
+  ASSERT_EQ(prefetch_container3->GetLoadState(),
+            PrefetchContainer::LoadState::kEligible);
+
+  histogram_tester().ExpectUniqueSample(
+      "Prefetch.PrefetchContainer.IsServed.BurstQueryParam", false, 2);
+}
+
+// Tests `Prefetch.PrefetchContainer.IsServed.BurstQueryParam` when the feature
+// is enabled.
+//
+// Scenario:
+//
+// - A prefetch with the matching query param (pf=op) is served to navigation.
+// - A prefetch with the matching query param (pf=op) is not served.
+// - A prefetch with a non-matching query param (pf=other) is not served.
+// - When the prefetch containers are destroyed, `IsServed.BurstQueryParam`
+//   records true for the served matching prefetch and false for the unserved
+//   matching prefetch. The non-matching prefetch is not recorded.
+TEST_P(PrefetchServiceTest,
+       UMA_Prefetch_PrefetchContainer_IsServed_BurstQueryParam_FeatureEnabled) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeaturesAndParameters(
+      {{features::kPrefetchSchedulerBurstQueryParam,
+        {{"key", "pf"}, {"value", "op"}}}},
+      {});
+
+  NavigateAndCommit(GURL("https://example.com"));
+  MakePrefetchService(
+      std::make_unique<testing::NiceMock<MockPrefetchServiceDelegate>>());
+
+  // 1. Matching prefetch that is served.
+  const auto url_served = GURL("https://example.com/served?pf=op");
+  auto handle_served =
+      MakePrefetchFromBrowserContext(url_served, std::nullopt, {}, nullptr);
+  task_environment()->RunUntilIdle();
+
+  auto head_served = CreateURLResponseHeadForPrefetch(
+      net::HTTP_OK, kHTMLMimeType,
+      /*use_prefetch_proxy=*/false, {{"X-Testing", "Hello World"}}, url_served);
+  MakeResponseAndWait(url_served, net::OK, std::move(head_served), kHTMLBody);
+
+  NavigateInitiatedByBrowser(url_served);
+
+  PrefetchServingHandle serving_handle =
+      GetPrefetchToServe(url_served, std::nullopt);
+  ExpectServingReaderSuccess(serving_handle);
+
+  handle_served.reset();
+  task_environment()->RunUntilIdle();
+
+  histogram_tester().ExpectUniqueSample(
+      "Prefetch.PrefetchContainer.IsServed.BurstQueryParam", true, 1);
+
+  // 2. Matching prefetch that is not served.
+  const auto url_not_served = GURL("https://example.com/not_served?pf=op");
+  auto handle_not_served =
+      MakePrefetchFromBrowserContext(url_not_served, std::nullopt, {}, nullptr);
+  task_environment()->RunUntilIdle();
+
+  auto head_not_served = CreateURLResponseHeadForPrefetch(
+      net::HTTP_OK, kHTMLMimeType,
+      /*use_prefetch_proxy=*/false, {{"X-Testing", "Hello World"}},
+      url_not_served);
+  MakeResponseAndWait(url_not_served, net::OK, std::move(head_not_served),
+                      kHTMLBody);
+
+  handle_not_served.reset();
+  task_environment()->RunUntilIdle();
+
+  histogram_tester().ExpectBucketCount(
+      "Prefetch.PrefetchContainer.IsServed.BurstQueryParam", true, 1);
+  histogram_tester().ExpectBucketCount(
+      "Prefetch.PrefetchContainer.IsServed.BurstQueryParam", false, 1);
+  histogram_tester().ExpectTotalCount(
+      "Prefetch.PrefetchContainer.IsServed.BurstQueryParam", 2);
+
+  // 3. Non-matching prefetch.
+  const auto url_non_matching = GURL("https://example.com/other?pf=other");
+  auto handle_non_matching = MakePrefetchFromBrowserContext(
+      url_non_matching, std::nullopt, {}, nullptr);
+  task_environment()->RunUntilIdle();
+
+  auto head_non_matching = CreateURLResponseHeadForPrefetch(
+      net::HTTP_OK, kHTMLMimeType,
+      /*use_prefetch_proxy=*/false, {{"X-Testing", "Hello World"}},
+      url_non_matching);
+  MakeResponseAndWait(url_non_matching, net::OK, std::move(head_non_matching),
+                      kHTMLBody);
+
+  handle_non_matching.reset();
+  task_environment()->RunUntilIdle();
+
+  // Non-matching URL should not add any sample.
+  histogram_tester().ExpectTotalCount(
+      "Prefetch.PrefetchContainer.IsServed.BurstQueryParam", 2);
+}
+
+// Tests `Prefetch.PrefetchContainer.IsServed.BurstQueryParam` when the feature
+// is disabled.
+//
+// Scenario:
+//
+// - The feature `kPrefetchSchedulerBurstQueryParam` is disabled.
+// - A prefetch with the matching query param (pf=op) is triggered.
+// - When the prefetch container is destroyed, `IsServed.BurstQueryParam`
+//   is not recorded because the feature is disabled.
+TEST_P(
+    PrefetchServiceTest,
+    UMA_Prefetch_PrefetchContainer_IsServed_BurstQueryParam_FeatureDisabled) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeatures(
+      {}, {features::kPrefetchSchedulerBurstQueryParam});
+
+  NavigateAndCommit(GURL("https://example.com"));
+  MakePrefetchService(
+      std::make_unique<testing::NiceMock<MockPrefetchServiceDelegate>>());
+
+  const auto url = GURL("https://example.com/target?pf=op");
+  auto handle = MakePrefetchFromBrowserContext(url, std::nullopt, {}, nullptr);
+  task_environment()->RunUntilIdle();
+
+  handle.reset();
+  task_environment()->RunUntilIdle();
+
+  histogram_tester().ExpectTotalCount(
+      "Prefetch.PrefetchContainer.IsServed.BurstQueryParam", 0);
 }
 
 TEST_P(PrefetchServiceTest,

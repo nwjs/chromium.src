@@ -51,6 +51,7 @@ class PseudoElementData final : public GarbageCollected<PseudoElementData>,
     }
     DCHECK(column_pseudo_elements_->Find(column_pseudo_element) == kNotFound);
     column_pseudo_elements_->push_back(column_pseudo_element);
+    DCHECK(HasPseudoElements());
   }
   void ClearColumnPseudoElements(wtf_size_t to_keep) {
     if (!column_pseudo_elements_) {
@@ -66,6 +67,11 @@ class PseudoElementData final : public GarbageCollected<PseudoElementData>,
     }
   }
 
+  // Must return true if any of the pseudo-element members below is set: layout
+  // tree attachment, detachment and rebuilding skip all pseudo-element work for
+  // elements where this returns false, so any new member must be added here
+  // (enforced by DCHECKs in SetPseudoElement(), AddColumnPseudoElement(), and
+  // GetPseudoElements()).
   bool HasPseudoElements() const;
   void ClearPseudoElements();
   void Trace(Visitor* visitor) const override {
@@ -157,15 +163,15 @@ inline void PseudoElementData::ClearPseudoElements() {
   SetPseudoElement(kPseudoIdScrollButtonInlineEnd, nullptr);
   SetPseudoElement(kPseudoIdScrollButtonBlockEnd, nullptr);
   SetPseudoElement(kPseudoIdOverscrollAreaParent, nullptr);
-  if (column_pseudo_elements_) {
-    for (ColumnPseudoElement* column_pseudo_element : *column_pseudo_elements_) {
+  if (ColumnPseudoElementsVector* columns = column_pseudo_elements_.Release()) {
+    for (ColumnPseudoElement* column_pseudo_element : *columns) {
       column_pseudo_element->Dispose();
     }
-    column_pseudo_elements_->clear();
+    columns->clear();
   }
-  if (transition_data_) {
-    transition_data_->ClearPseudoElements();
-    transition_data_ = nullptr;
+  if (TransitionPseudoElementData* transition_data =
+          transition_data_.Release()) {
+    transition_data->ClearPseudoElements();
   }
 }
 
@@ -271,6 +277,7 @@ inline void PseudoElementData::SetPseudoElement(
 
   if (previous_element)
     previous_element->Dispose();
+  DCHECK(!element || HasPseudoElements());
 }
 
 inline PseudoElement* PseudoElementData::GetPseudoElement(
@@ -411,6 +418,7 @@ PseudoElementData::GetPseudoElements() const {
   if (column_pseudo_elements_) {
     result.append_range(*column_pseudo_elements_);
   }
+  DCHECK(result.empty() || HasPseudoElements());
   return result;
 }
 

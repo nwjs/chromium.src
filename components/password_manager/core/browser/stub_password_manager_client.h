@@ -61,6 +61,8 @@ class StubPasswordManagerClient : public PasswordManagerClient {
       const url::Origin& origin,
       CredentialsCallback callback) override;
   bool IsReauthBeforeFillingRequired(
+      device_reauth::DeviceAuthAvailabilityChecker* checker) override;
+  bool IsReauthBeforeFillingRequiredLegacy(
       device_reauth::DeviceAuthenticator* authenticator) override;
   void NotifyUserAutoSignin(
       std::vector<std::unique_ptr<PasswordForm>> local_forms,

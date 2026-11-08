@@ -45,7 +45,8 @@
 #include "chromeos/constants/chromeos_features.h"
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
-class HorizontalTabStripRegionViewBrowserBaseTest : public InProcessBrowserTest {
+class HorizontalTabStripRegionViewBrowserBaseTest
+    : public InteractiveBrowserTest {
  public:
   HorizontalTabStripRegionViewBrowserBaseTest() = default;
   HorizontalTabStripRegionViewBrowserBaseTest(const HorizontalTabStripRegionViewBrowserBaseTest&) =
@@ -54,7 +55,7 @@ class HorizontalTabStripRegionViewBrowserBaseTest : public InProcessBrowserTest 
       const HorizontalTabStripRegionViewBrowserBaseTest&) = delete;
   ~HorizontalTabStripRegionViewBrowserBaseTest() override = default;
 
-  void SetUp() override { InProcessBrowserTest::SetUp(); }
+  void SetUp() override { InteractiveBrowserTest::SetUp(); }
 
   void AppendTab() { chrome::AddTabAt(browser(), GURL(), -1, false); }
 
@@ -299,6 +300,30 @@ IN_PROC_BROWSER_TEST_F(HorizontalTabStripRegionViewBrowserTest,
   EXPECT_TRUE(tab_0->IsActive());
 }
 
+class HorizontalTabStripRegionViewTabSearchStartsUnpinned
+    : public HorizontalTabStripRegionViewBrowserTest {
+ public:
+  HorizontalTabStripRegionViewTabSearchStartsUnpinned() = default;
+  ~HorizontalTabStripRegionViewTabSearchStartsUnpinned() override = default;
+
+  void SetUpBrowserContextKeyedServices(
+      content::BrowserContext* context) override {
+    HorizontalTabStripRegionViewBrowserTest::SetUpBrowserContextKeyedServices(
+        context);
+    Profile::FromBrowserContext(context)->GetPrefs()->SetBoolean(
+        prefs::kTabSearchPinnedToTabstrip, false);
+  }
+};
+
+IN_PROC_BROWSER_TEST_F(HorizontalTabStripRegionViewTabSearchStartsUnpinned,
+                       PinTabSearch) {
+  RunTestSequence(EnsureNotPresent(kTabSearchButtonElementId), Do([this]() {
+                    browser()->GetProfile()->GetPrefs()->SetBoolean(
+                        prefs::kTabSearchPinnedToTabstrip, true);
+                  }),
+                  WaitForShow(kTabSearchButtonElementId));
+}
+
 class HorizontalTabStripRegionViewNewInteractiveUiTest
     : public InteractiveBrowserTest {
  public:
@@ -468,6 +493,35 @@ IN_PROC_BROWSER_TEST_F(HorizontalTabStripRegionViewNewInteractiveUiTest,
       WaitForShow(TabScrollButtonContainer::kTabScrollButtonContainer),
       SetWindowBounds(gfx::Rect(100, 100, 1200, 800)),
       WaitForHide(TabScrollButtonContainer::kTabScrollButtonContainer));
+}
+
+IN_PROC_BROWSER_TEST_F(HorizontalTabStripRegionViewNewInteractiveUiTest,
+                       ScrollsToActiveTabWhenScrollButtonsAppear) {
+  AddTabsUntilNearlyScrollable();
+
+  auto* const model = browser()->GetTabStripModel();
+  const int active_tab_index = model->count() - 1;
+  model->ActivateTabAt(active_tab_index);
+  views::test::RunScheduledLayout(
+      BrowserView::GetBrowserViewForBrowser(browser()));
+
+  DEFINE_LOCAL_STATE_IDENTIFIER_VALUE(ui::test::PollingStateObserver<bool>,
+                                      kActiveTabVisibleObserver);
+
+  RunTestSequence(
+      EnsurePresent(kTabStripRegionElementId),
+      EnsureNotPresent(TabScrollButtonContainer::kTabScrollButtonContainer),
+      PollState(
+          kActiveTabVisibleObserver,
+          base::BindRepeating(
+              &HorizontalTabStripRegionViewNewInteractiveUiTest::IsTabVisible,
+              base::Unretained(this), active_tab_index)),
+      WaitForState(kActiveTabVisibleObserver, true),
+      Do([this]() { AddTabsUntilScrollable(); }),
+      WaitForShow(TabScrollButtonContainer::kTabScrollButtonContainer),
+      // The active tab at the end should be scrolled into view rather than
+      // covered by the newly shown scroll buttons.
+      WaitForState(kActiveTabVisibleObserver, true));
 }
 
 IN_PROC_BROWSER_TEST_F(HorizontalTabStripRegionViewNewInteractiveUiTest,

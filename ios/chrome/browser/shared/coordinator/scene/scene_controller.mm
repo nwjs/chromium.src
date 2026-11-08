@@ -85,6 +85,8 @@
 #import "ios/chrome/browser/main/ui_bundled/incognito_blocker_scene_agent.h"
 #import "ios/chrome/browser/main/ui_bundled/ui_blocker_scene_agent.h"
 #import "ios/chrome/browser/main/ui_bundled/wrangled_browser.h"
+#import "ios/chrome/browser/menu/public/menu_action_type.h"
+#import "ios/chrome/browser/menu/public/menu_histograms.h"
 #import "ios/chrome/browser/metrics/model/tab_usage_recorder_browser_agent.h"
 #import "ios/chrome/browser/ntp/model/new_tab_page_tab_helper.h"
 #import "ios/chrome/browser/picture_in_picture/model/picture_in_picture_scene_agent.h"
@@ -148,7 +150,6 @@
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/signin/model/authentication_service.h"
 #import "ios/chrome/browser/signin/model/authentication_service_factory.h"
-#import "ios/chrome/browser/signin/model/authentication_service_observer_bridge.h"
 #import "ios/chrome/browser/signin/model/chrome_account_manager_service.h"
 #import "ios/chrome/browser/signin/model/chrome_account_manager_service_factory.h"
 #import "ios/chrome/browser/signin/model/constants.h"
@@ -161,9 +162,11 @@
 #import "ios/chrome/browser/tab_insertion/model/tab_insertion_browser_agent.h"
 #import "ios/chrome/browser/tab_switcher/ui_bundled/tab_grid/tab_grid_coordinator.h"
 #import "ios/chrome/browser/tab_switcher/ui_bundled/tab_grid/tab_grid_coordinator_delegate.h"
+#import "ios/chrome/browser/universal_optout/model/eligibility_utils.h"
 #import "ios/chrome/browser/url_loading/model/scene_url_loading_service.h"
 #import "ios/chrome/browser/url_loading/model/url_loading_browser_agent.h"
 #import "ios/chrome/browser/url_loading/model/url_loading_params.h"
+#import "ios/chrome/browser/web_extension/ui_bundled/web_extension_error_scene_agent.h"
 #import "ios/chrome/browser/web_state_list/model/web_usage_enabler/web_usage_enabler_browser_agent.h"
 #import "ios/chrome/browser/whats_new/coordinator/promo/whats_new_scene_agent.h"
 #import "ios/chrome/browser/window_activities/model/window_activity_helpers.h"
@@ -316,8 +319,7 @@ UrlLoadParams UpdateParamsForDinoGame(UrlLoadParams params) {
 
 // TODO(crbug.com/429354805): Add method comments(!)
 
-@interface SceneController () <AuthenticationServiceObserving,
-                               ProfileStateObserver,
+@interface SceneController () <ProfileStateObserver,
                                SceneUIBlockerStateObserver,
                                SceneUIHandler,
                                SceneURLLoadingServiceDelegate,
@@ -345,9 +347,6 @@ UrlLoadParams UpdateParamsForDinoGame(UrlLoadParams params) {
   // This is used to ensure that the image search is only triggered when the BVC
   // is active.
   NSData* _imageSearchData;
-  // Observer for auth service status changes.
-  std::unique_ptr<AuthenticationServiceObserverBridge>
-      _authServiceObserverBridge;
   BOOL _handleExternalIntentsInProgress;
 }
 
@@ -496,7 +495,6 @@ UrlLoadParams UpdateParamsForDinoGame(UrlLoadParams params) {
 #pragma mark - NSObject
 
 - (void)dealloc {
-  CHECK(!_authServiceObserverBridge);
   CHECK(!self.browserLifecycleManager, base::NotFatalUntil::M152);
 }
 
@@ -886,12 +884,6 @@ UrlLoadParams UpdateParamsForDinoGame(UrlLoadParams params) {
   return browser->GetWebStateList()->empty();
 }
 
-#pragma mark - AuthenticationServiceObserving
-
-- (void)onServiceStatusChanged {
-  [self signoutIfNeeded];
-}
-
 #pragma mark - ProfileStateObserver
 
 - (void)profileState:(ProfileState*)profileState
@@ -903,8 +895,7 @@ UrlLoadParams UpdateParamsForDinoGame(UrlLoadParams params) {
     _sceneState.prefs = [[SceneStatePrefs alloc]
         initWithProfileManager:manager
                    profileName:profileState.profile->GetProfileName()
-             sessionIdentifier:_sceneState.sceneSessionID
-                  sceneSession:_sceneState.scene.session];
+             sessionIdentifier:_sceneState.sceneSessionID];
     [_sceneState.incognitoState preferencesDidLoad];
   }
 
@@ -1246,6 +1237,16 @@ UrlLoadParams UpdateParamsForDinoGame(UrlLoadParams params) {
     return;
   }
 
+  for (NSUserActivity* activity in sceneState.connectionOptions
+           .userActivities) {
+    std::optional<MenuScenarioHistogram> scenario =
+        GetMenuScenarioFromActivity(activity);
+    if (scenario.has_value()) {
+      RecordMenuAction(scenario.value(), MenuActionType::OpenInNewWindow);
+      break;
+    }
+  }
+
   base::UmaHistogramEnumeration(kMultiWindowOpenInNewWindowHistogram,
                                 sceneState.currentOrigin);
 }
@@ -1282,33 +1283,6 @@ UrlLoadParams UpdateParamsForDinoGame(UrlLoadParams params) {
       userActivityBrowserAgent->Handle3DTouchApplicationShortcuts(shortcutItem);
   if (completionHandler) {
     completionHandler(handledShortcutItem);
-  }
-}
-
-// If sign-in is disabled, switch to the personal profile and sign-out.
-- (void)signoutIfNeeded {
-  AuthenticationService* authenticationService =
-      AuthenticationServiceFactory::GetForProfile(
-          self.sceneState.profileState.profile);
-  if (authenticationService->SigninEnabled()) {
-    return;
-  }
-  // If sign-in is disabled, switch to personal profile and sign-out.
-  if (!IsPersonalProfile(self.profile)) {
-    auto signoutSource = signin_metrics::ProfileSignout::kPrefChanged;
-    ChangeProfileContinuation continuation =
-        CreateChangeProfileSignoutContinuation(
-            signoutSource, /*force_snackbar_over_toolbar=*/false,
-            /*should_record_metrics=*/false,
-            /*snackbar_message_builder=*/{}, base::DoNothing());
-    signin::SwitchToPersonalProfile(self.sceneState,
-                                    ChangeProfileReason::kManagedAccountSignOut,
-                                    std::move(continuation));
-    return;
-  }
-  if (![self isSignedIn]) {
-    authenticationService->SignOut(signin_metrics::ProfileSignout::kPrefChanged,
-                                   nil);
   }
 }
 
@@ -1543,16 +1517,6 @@ UrlLoadParams UpdateParamsForDinoGame(UrlLoadParams params) {
       [sceneHandler openURLInNewTab:command];
       [self finishActivatingBrowserDismissingTabSwitcher];
     }
-
-    AuthenticationService* authenticationService =
-        AuthenticationServiceFactory::GetForProfile(
-            self.sceneState.profileState.profile);
-    _authServiceObserverBridge =
-        std::make_unique<AuthenticationServiceObserverBridge>(
-            authenticationService, self);
-    // The user may be signed-in while sign-in is disabled. In which case,
-    // we must sign the user out, potentially switching profile.
-    [self signoutIfNeeded];
   }
   if (level == SceneActivationLevelBackground) {
     [self recordWindowCreationForSceneState:self.sceneState];
@@ -1780,7 +1744,6 @@ UrlLoadParams UpdateParamsForDinoGame(UrlLoadParams params) {
 
   _incognitoWebStateObserver.reset();
   _mainWebStateObserver.reset();
-  _authServiceObserverBridge.reset();
 
   // TODO(crbug.com/40778288): Consider moving this at the beginning of
   // teardownUI to indicate that the UI is about to be torn down and that the
@@ -2120,6 +2083,10 @@ UrlLoadParams UpdateParamsForDinoGame(UrlLoadParams params) {
     if (cobaltSceneAgent) {
       [sceneState addAgent:cobaltSceneAgent];
     }
+  }
+
+  if (universal_optout::IsGPCExtensionEnabled(profile)) {
+    [sceneState addAgent:[[WebExtensionErrorSceneAgent alloc] init]];
   }
 }
 
@@ -2963,38 +2930,50 @@ UrlLoadParams UpdateParamsForDinoGame(UrlLoadParams params) {
 #pragma mark - Handling of Destroying the Incognito Profile
 
 - (void)willDestroyIncognitoProfile {
+  if (!_browserLifecycleManager) {
+    // Nothing to do if the UI has not yet been created.
+    return;
+  }
+
+  Browser* incognitoBrowser =
+      _browserLifecycleManager.incognitoInterface.browser;
+
   // Clear the Incognito Browser and notify the TabGrid that its otrBrowser
   // will be destroyed.
   self.mainCoordinator.incognitoBrowser = nil;
 
   if (breadcrumbs::IsEnabled(GetApplicationContext()->GetLocalState())) {
-    BreadcrumbManagerBrowserAgent::FromBrowser(self.incognitoInterface.browser)
+    BreadcrumbManagerBrowserAgent::FromBrowser(incognitoBrowser)
         ->SetLoggingEnabled(false);
   }
 
-  _incognitoWebStateObserver.reset();
-  [self.browserLifecycleManager willDestroyIncognitoProfile];
+  _incognitoWebStateObserver->Reset();
+  [_browserLifecycleManager willDestroyIncognitoProfile];
 }
 
 - (void)incognitoProfileCreated {
-  [self.browserLifecycleManager incognitoProfileCreated];
+  if (!_browserLifecycleManager) {
+    // Nothing to do if the UI has not yet been created.
+    return;
+  }
+
+  [_browserLifecycleManager incognitoProfileCreated];
+
+  Browser* incognitoBrowser =
+      _browserLifecycleManager.incognitoInterface.browser;
+  _incognitoWebStateObserver->Observe(incognitoBrowser->GetWebStateList());
 
   // There should be a new URL loading browser agent for the incognito browser,
   // so set the scene URL loading service on it.
-  UrlLoadingBrowserAgent::FromBrowser(self.incognitoInterface.browser)
+  UrlLoadingBrowserAgent::FromBrowser(incognitoBrowser)
       ->SetSceneService(_sceneURLLoadingService.get());
-  _incognitoWebStateObserver = std::make_unique<
-      base::ScopedObservation<WebStateList, WebStateListObserverBridge>>(
-      _webStateListForwardingObserver.get());
-  _incognitoWebStateObserver->Observe(
-      self.incognitoInterface.browser->GetWebStateList());
   if (self.currentInterface.incognito) {
     [self activateBVCAndMakeCurrentBVCPrimary];
   }
 
   // Always set the new otr Browser for the tablet or grid switcher.
   // Notify the TabGrid with the new Incognito Browser.
-  self.mainCoordinator.incognitoBrowser = self.incognitoInterface.browser;
+  self.mainCoordinator.incognitoBrowser = incognitoBrowser;
 }
 
 #pragma mark - iPad Popover Appearance Propagation

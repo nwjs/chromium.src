@@ -5,6 +5,7 @@
 package org.chromium.chrome.browser.webapps;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
@@ -32,6 +33,7 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.robolectric.annotation.Config;
@@ -46,13 +48,19 @@ import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.IntentHandler;
 import org.chromium.chrome.browser.app.tabmodel.AsyncTabParamsManagerSingleton;
+import org.chromium.chrome.browser.app.tabwindow.TabWindowManagerSingleton;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.notifications.channels.ChromeChannelDefinitions;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tabmodel.AsyncTabParams;
+import org.chromium.chrome.browser.tabwindow.TabWindowManager;
 import org.chromium.components.browser_ui.notifications.NotificationFeatureMap;
 import org.chromium.components.webapps.WebApkInstallResult;
+import org.chromium.components.webapps.WebappsUtils;
+import org.chromium.components.webapps.WebappsUtilsJni;
 import org.chromium.content_public.browser.WebContents;
+import org.chromium.url.GURL;
+import org.chromium.webapk.lib.client.WebApkNavigationClient;
 
 /** Tests WebAPKs install notifications from {@link WebApkInstallService}. */
 @RunWith(BaseRobolectricTestRunner.class)
@@ -63,14 +71,19 @@ public class WebApkInstallNotificationTest {
     private static final String MANIFEST_URL = "https://test.com/manifest.json";
     private static final String SHORT_NAME = "webapk";
     private static final String URL = "https://test.com";
+    private static final String SCOPE = "https://test.com/";
 
     @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
+    @Mock private WebappsUtils.Natives mWebappsUtilsJni;
+
     private final Bitmap mIcon = Bitmap.createBitmap(1, 1, Bitmap.Config.ALPHA_8);
     private Context mContext;
     private ShadowNotificationManager mShadowNotificationManager;
 
     @Before
     public void setUp() {
+        WebappsUtilsJni.setInstanceForTesting(mWebappsUtilsJni);
+        TabWindowManagerSingleton.setTabWindowManagerForTesting(mock(TabWindowManager.class));
         DeviceInfo.setIsDesktopForTesting(false);
         mContext = ApplicationProvider.getApplicationContext();
         ContextUtils.initApplicationContextForTests(mContext);
@@ -121,6 +134,7 @@ public class WebApkInstallNotificationTest {
                 MANIFEST_URL,
                 SHORT_NAME,
                 URL,
+                SCOPE,
                 mIcon,
                 /* isIconMaskable= */ false);
 
@@ -192,6 +206,7 @@ public class WebApkInstallNotificationTest {
                 MANIFEST_URL,
                 SHORT_NAME,
                 URL,
+                SCOPE,
                 mIcon,
                 /* isIconMaskable= */ false);
 
@@ -209,6 +224,8 @@ public class WebApkInstallNotificationTest {
         UserDataHost userDataHost = new UserDataHost();
         when(mockTab.getUserDataHost()).thenReturn(userDataHost);
         when(mockTab.getId()).thenReturn(tabId);
+        when(mockTab.isTabInBrowser()).thenReturn(true);
+        when(mockTab.getUrl()).thenReturn(new GURL(URL));
 
         WebContents mockWebContents = mock(WebContents.class);
         when(mockTab.getWebContents()).thenReturn(mockWebContents);
@@ -219,6 +236,7 @@ public class WebApkInstallNotificationTest {
                 MANIFEST_URL,
                 SHORT_NAME,
                 URL,
+                SCOPE,
                 mIcon,
                 /* isIconMaskable= */ false);
 
@@ -231,14 +249,64 @@ public class WebApkInstallNotificationTest {
                 launchedIntent.hasExtra(WebApkReparentingHandler.EXTRA_WEBAPK_REPARENT_TOKEN));
         Assert.assertEquals(
                 tabId,
-                WebApkReparentingHandler.getInstance()
-                        .detachAndRegisterTabAndClear(launchedIntent));
+                WebApkReparentingHandler.getInstance().getTabIdForReparenting(launchedIntent));
+        WebApkReparentingHandler.getInstance().detachAndRegisterTabAndClear(tabId);
 
         AsyncTabParams params = AsyncTabParamsManagerSingleton.getInstance().remove(tabId);
         Assert.assertNotNull(params);
         Assert.assertEquals(mockTab, params.getTabToReparent());
 
+        // Verify that pre-scope navigation history was pruned and the tab was detached
+        verify(mWebappsUtilsJni)
+                .prunePreScopeNavigationHistory(eq(mockWebContents), eq(new GURL(URL + "/")));
+
         // Verify that the tab was detached from the window for reparenting
+        verify(mockWebContents).setTopLevelNativeWindow(null);
+        verify(mockTab).updateAttachment(null, null);
+    }
+
+    @Test
+    public void testCompleteNotification_desktopAutoLaunch_manifestScopeBroaderThanStartUrl() {
+        DeviceInfo.setIsDesktopForTesting(true);
+        IntentHandler.setTestIntentsEnabled(true);
+
+        final String startUrl = "https://www.example.com/app/index.html";
+        final String manifestScope = "https://www.example.com/";
+        // In the manifest scope, but outside ShortcutHelper.getScopeFromUrl(startUrl) (/app/).
+        final String tabUrl = "https://www.example.com/other_page.html";
+
+        final int tabId = 10;
+        Tab mockTab = mock(Tab.class);
+        when(mockTab.getUserDataHost()).thenReturn(new UserDataHost());
+        when(mockTab.getId()).thenReturn(tabId);
+        when(mockTab.isTabInBrowser()).thenReturn(true);
+        when(mockTab.getUrl()).thenReturn(new GURL(tabUrl));
+        WebContents mockWebContents = mock(WebContents.class);
+        when(mockTab.getWebContents()).thenReturn(mockWebContents);
+
+        WebApkInstallService.showInstalledNotificationAndMaybeLaunch(
+                mockTab,
+                PACKAGE_NAME,
+                MANIFEST_URL,
+                SHORT_NAME,
+                startUrl,
+                manifestScope,
+                mIcon,
+                /* isIconMaskable= */ false);
+
+        Intent launchedIntent = shadowOf((Application) mContext).getNextStartedActivity();
+        Assert.assertNotNull(launchedIntent);
+        int resultTabId =
+                WebApkReparentingHandler.getInstance().getTabIdForReparenting(launchedIntent);
+        WebApkReparentingHandler.getInstance().detachAndRegisterTabAndClear(resultTabId);
+        AsyncTabParamsManagerSingleton.getInstance().remove(tabId);
+
+        // Verify reparenting succeeded and history was pruned against the manifest scope,
+        // not the scope derived from start_url (/app/).
+        Assert.assertEquals(tabId, resultTabId);
+        verify(mWebappsUtilsJni)
+                .prunePreScopeNavigationHistory(eq(mockWebContents), eq(new GURL(manifestScope)));
+        // Verify that the tab was detached from the window for reparenting.
         verify(mockWebContents).setTopLevelNativeWindow(null);
         verify(mockTab).updateAttachment(null, null);
     }
@@ -253,6 +321,7 @@ public class WebApkInstallNotificationTest {
         UserDataHost userDataHost = new UserDataHost();
         lenient().when(mockTab.getUserDataHost()).thenReturn(userDataHost);
         when(mockTab.getId()).thenReturn(tabId);
+        when(mockTab.isTabInBrowser()).thenReturn(true);
 
         WebContents mockWebContents = mock(WebContents.class);
         lenient().when(mockTab.getWebContents()).thenReturn(mockWebContents);
@@ -269,6 +338,7 @@ public class WebApkInstallNotificationTest {
                 MANIFEST_URL,
                 SHORT_NAME,
                 URL,
+                SCOPE,
                 mIcon,
                 /* isIconMaskable= */ false);
 
@@ -279,7 +349,37 @@ public class WebApkInstallNotificationTest {
         // Verify that the tab was NOT stored in AsyncTabParamsManager
         Assert.assertFalse(AsyncTabParamsManagerSingleton.getInstance().hasParamsForTabId(tabId));
 
-        // Verify that the tab was NEVER detached
+        // Verify that the tab was NEVER detached and history was NEVER pruned
+        verify(mWebappsUtilsJni, never()).prunePreScopeNavigationHistory(any(), any());
+        verify(mockWebContents, never()).setTopLevelNativeWindow(any());
+        verify(mockTab, never()).updateAttachment(any(), any());
+    }
+
+    @Test
+    public void testGetTabIdForReparenting_validationFails_doesNotPruneHistory() {
+        final int tabId = 10;
+        Tab mockTab = mock(Tab.class);
+        UserDataHost userDataHost = new UserDataHost();
+        lenient().when(mockTab.getUserDataHost()).thenReturn(userDataHost);
+        when(mockTab.getId()).thenReturn(tabId);
+        when(mockTab.isTabInBrowser()).thenReturn(true);
+        when(mockTab.getUrl()).thenReturn(new GURL("https://other-domain.com/page"));
+
+        WebContents mockWebContents = mock(WebContents.class);
+        lenient().when(mockTab.getWebContents()).thenReturn(mockWebContents);
+
+        Intent intent =
+                WebApkNavigationClient.createLaunchWebApkIntent(
+                        PACKAGE_NAME, URL, /* forceNavigation= */ false);
+        WebApkReparentingHandler.getInstance()
+                .prepareIntentForReparenting(intent, mockTab, PACKAGE_NAME, URL, SCOPE);
+
+        // Validation should fail because tab navigated out of scope before WebAPK launched.
+        int resultTabId = WebApkReparentingHandler.getInstance().getTabIdForReparenting(intent);
+        Assert.assertEquals(Tab.INVALID_TAB_ID, resultTabId);
+
+        // Verify that history was NEVER pruned and tab was NEVER detached.
+        verify(mWebappsUtilsJni, never()).prunePreScopeNavigationHistory(any(), any());
         verify(mockWebContents, never()).setTopLevelNativeWindow(any());
         verify(mockTab, never()).updateAttachment(any(), any());
     }

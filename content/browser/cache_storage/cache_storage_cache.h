@@ -21,7 +21,6 @@
 #include "base/memory/ref_counted.h"
 #include "base/memory/weak_ptr.h"
 #include "base/sequence_checker.h"
-#include "base/task/sequenced_task_runner.h"
 #include "components/services/storage/public/cpp/buckets/bucket_locator.h"
 #include "components/services/storage/public/cpp/quota_error_or.h"
 #include "components/services/storage/public/mojom/cache_storage_control.mojom.h"
@@ -108,7 +107,6 @@ class CONTENT_EXPORT CacheStorageCache {
       storage::mojom::CacheStorageOwner owner,
       const std::u16string& cache_name,
       CacheStorage* cache_storage,
-      scoped_refptr<base::SequencedTaskRunner> scheduler_task_runner,
       scoped_refptr<storage::QuotaManagerProxy> quota_manager_proxy,
       scoped_refptr<BlobStorageContextWrapper> blob_storage_context);
   static std::unique_ptr<CacheStorageCache> CreatePersistentCache(
@@ -117,7 +115,6 @@ class CONTENT_EXPORT CacheStorageCache {
       const std::u16string& cache_name,
       CacheStorage* cache_storage,
       const base::FilePath& path,
-      scoped_refptr<base::SequencedTaskRunner> scheduler_task_runner,
       scoped_refptr<storage::QuotaManagerProxy> quota_manager_proxy,
       scoped_refptr<BlobStorageContextWrapper> blob_storage_context,
       int64_t cache_size,
@@ -174,7 +171,8 @@ class CONTENT_EXPORT CacheStorageCache {
             RequestsCallback callback);
 
   // Closes the backend. Future operations that require the backend
-  // will exit early. Close should only be called once per CacheStorageCache.
+  // will exit early, even while the close is pending. Close should only be
+  // called once per CacheStorageCache.
   void Close(base::OnceClosure callback);
 
   // The size of the cache's contents.  The callback reports the padded
@@ -301,7 +299,6 @@ class CONTENT_EXPORT CacheStorageCache {
       const std::u16string& cache_name,
       const base::FilePath& path,
       CacheStorage* cache_storage,
-      scoped_refptr<base::SequencedTaskRunner> scheduler_task_runner,
       scoped_refptr<storage::QuotaManagerProxy> quota_manager_proxy,
       scoped_refptr<BlobStorageContextWrapper> blob_storage_context,
       int64_t cache_size,
@@ -464,6 +461,11 @@ class CONTENT_EXPORT CacheStorageCache {
                           int rv);
   void PutWriteBlobToCache(std::unique_ptr<PutContext> put_context,
                            int disk_cache_body_index);
+  void PutDidWriteSideDataToCache(std::unique_ptr<PutContext> put_context,
+                                  int disk_cache_body_index,
+                                  ScopedWritableEntry entry,
+                                  base::ByteSize expected_bytes,
+                                  int rv);
   void PutDidWriteBlobToCache(std::unique_ptr<PutContext> put_context,
                               BlobToDiskCacheIDMap::KeyType blob_to_cache_key,
                               int disk_cache_body_index,
@@ -517,6 +519,10 @@ class CONTENT_EXPORT CacheStorageCache {
       int64_t trace_id,
       blink::mojom::CacheStorageError error,
       std::unique_ptr<QueryCacheResults> query_cache_results);
+
+  bool IsClosingOrClosed() const {
+    return close_requested_ || backend_state_ == BACKEND_CLOSED;
+  }
 
   void CloseImpl(base::OnceClosure callback);
 
@@ -606,11 +612,14 @@ class CONTENT_EXPORT CacheStorageCache {
   // as long this cache object is also referenced.
   CacheStorageHandle cache_storage_handle_;
 
-  const scoped_refptr<base::SequencedTaskRunner> scheduler_task_runner_;
   const scoped_refptr<storage::QuotaManagerProxy> quota_manager_proxy_;
   BackendState backend_state_ = BACKEND_UNINITIALIZED;
   std::unique_ptr<CacheStorageScheduler> scheduler_;
   bool initializing_ = false;
+  // Reject new operations once closing is requested. Keep this separate from
+  // backend_state_ so previously scheduled operations can use the open backend
+  // until the close operation runs.
+  bool close_requested_ = false;
   // The actual cache size (not including padding).
   int64_t cache_size_;
   int64_t cache_padding_ = 0;

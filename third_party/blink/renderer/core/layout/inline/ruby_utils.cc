@@ -17,6 +17,7 @@
 #include "third_party/blink/renderer/core/layout/inline/used_font.h"
 #include "third_party/blink/renderer/core/layout/layout_object_inlines.h"
 #include "third_party/blink/renderer/core/layout/physical_box_fragment.h"
+#include "third_party/blink/renderer/core/paint/text_decoration_info.h"
 #include "third_party/blink/renderer/platform/fonts/font_height.h"
 #include "third_party/blink/renderer/platform/fonts/shaping/han_kerning.h"
 #include "third_party/blink/renderer/platform/heap/collection_support/clear_collection_scope.h"
@@ -149,7 +150,7 @@ bool CanTrimHanKerningOpen(const ShapeResult& shape_result,
                            const String& text_content,
                            wtf_size_t text_offset) {
   UChar32 character = text_content.CodePointAtOrZero(text_offset);
-  if (!Character::MaybeHanKerningOpen(character)) {
+  if (!unicode::MaybeHanKerningOpen(character)) {
     return false;
   }
   const SimpleFontData* primary_font = style.GetFont()->PrimaryFont();
@@ -179,7 +180,7 @@ bool CanTrimHanKerningClose(const ShapeResult& shape_result,
                             wtf_size_t text_offset) {
   wtf_size_t next_index = text_offset;
   UChar32 character = text_content.CodePointAtAndNext(next_index);
-  if (!Character::MaybeHanKerningClose(character)) {
+  if (!unicode::MaybeHanKerningClose(character)) {
     return false;
   }
   const SimpleFontData* primary_font = style.GetFont()->PrimaryFont();
@@ -412,7 +413,7 @@ AnnotationOverhang GetOverhang(
                                  *previous_item_style, text_content,
                                  last_non_space_index)) {
         kerning_overhang = LayoutUnit(font_size * kHanKerningHalf);
-      } else if (Character::MaybeHanKerningMiddle(last_non_space_character)) {
+      } else if (unicode::MaybeHanKerningMiddle(last_non_space_character)) {
         kerning_overhang = LayoutUnit(font_size * kHanKerningQuarter);
       }
     }
@@ -491,7 +492,7 @@ bool CanApplyStartOverhang(const LineInfo& line_info,
         !CanTrimHanKerningClose(*previous_item.item->TextShapeResult(),
                                 previous_item_style, text_content,
                                 previous_character_index) &&
-        !Character::MaybeHanKerningMiddle(previous_character)) {
+        !unicode::MaybeHanKerningMiddle(previous_character)) {
       return false;
     }
     return true;
@@ -600,7 +601,7 @@ LayoutUnit CommitPendingEndOverhang(const InlineItem& text_item,
       if (CanTrimHanKerningOpen(shape_result, *text_item.Style(), text_content,
                                 space_end)) {
         kerning_overhang = LayoutUnit(font_size * kHanKerningHalf);
-      } else if (Character::MaybeHanKerningMiddle(
+      } else if (unicode::MaybeHanKerningMiddle(
                      text_content.CodePointAtOrZero(space_end))) {
         kerning_overhang = LayoutUnit(font_size * kHanKerningQuarter);
       }
@@ -930,6 +931,46 @@ FontHeight ComputeLogicalLineEmHeight(const LogicalLineItems& line_items,
   return height;
 }
 
+FontHeight ComputeBaseDecorationExtent(const LogicalLineItems& line_items,
+                                       const Vector<wtf_size_t>& index_list) {
+  FontHeight extent;
+  auto accumulate = [&extent](const LogicalLineItem& item) {
+    if (!item.HasInFlowFragment()) {
+      return;
+    }
+
+    const auto* style = item.Style();
+    if (!style || !style->HasAppliedTextDecorations()) {
+      return;
+    }
+
+    const UsedFont used_font = item.GetUsedFont();
+    const std::optional<gfx::RectF> bounds = ComputeUnderOverDecorationBounds(
+        *style, used_font, item.rect.size.inline_size);
+    if (!bounds) {
+      return;
+    }
+
+    const LayoutUnit ascent = used_font.FixedAscent(style->GetFontBaseline());
+    extent.Unite(
+        FontHeight((ascent - LayoutUnit::FromFloatFloor(bounds->y()))
+                       .ClampNegativeToZero(),
+                   (LayoutUnit::FromFloatCeil(bounds->bottom()) - ascent)
+                       .ClampNegativeToZero()));
+  };
+
+  if (index_list.empty()) {
+    for (const auto& item : line_items) {
+      accumulate(item);
+    }
+  } else {
+    for (const auto index : index_list) {
+      accumulate(line_items[index]);
+    }
+  }
+  return extent;
+}
+
 // Computes the maximum emphasis mark heights (outsets) among all items in
 // `line_items` that have a text-emphasis mark applied.
 FontHeight ComputeEmphasisHeights(const LogicalLineItems& line_items) {
@@ -1246,12 +1287,25 @@ FontHeight RubyBlockPositionCalculator::ComputeRelativeOffsets(
     node_metrics = node.UpdateMetrics();
   }
 
+  FontHeight decoration_extent;
+  if (RuntimeEnabledFeatures::RubyTextDecorationSpacingEnabled() &&
+      node.IsBaseLevel()) {
+    if (!node.OverChildren().empty()) {
+      decoration_extent = ComputeBaseDecorationExtent(
+          base_line_items, node.OverChildren().front()->BaseIndexList());
+    } else if (!node.UnderChildren().empty()) {
+      decoration_extent = ComputeBaseDecorationExtent(
+          base_line_items, node.UnderChildren().front()->BaseIndexList());
+    }
+  }
+
   LayoutUnit subtree_ascent = node_metrics.ascent;
   LayoutUnit subtree_descent = node_metrics.descent;
   FontHeight node_emphasis = node.ComputeLevelEmphasisHeights(base_line_items);
 
   if (!node.OverChildren().empty()) {
-    LayoutUnit current_offset = -node_metrics.ascent;
+    LayoutUnit current_offset =
+        -std::max(node_metrics.ascent, decoration_extent.ascent);
     wtf_size_t i = 0;
 
     // 1. Own annotations
@@ -1306,7 +1360,8 @@ FontHeight RubyBlockPositionCalculator::ComputeRelativeOffsets(
   }
 
   if (!node.UnderChildren().empty()) {
-    LayoutUnit current_offset = node_metrics.descent;
+    LayoutUnit current_offset =
+        std::max(node_metrics.descent, decoration_extent.descent);
     wtf_size_t i = 0;
 
     // 1. Own annotations

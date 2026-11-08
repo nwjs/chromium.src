@@ -116,7 +116,7 @@
 
   if (contentView) {
     [self.view insertSubview:contentView atIndex:0];
-    if (IsFullscreenRefactoringEnabled() && IsChromeNextIaEnabled()) {
+    if (IsFullscreenRefactoringEnabled()) {
       contentView.translatesAutoresizingMaskIntoConstraints = NO;
       AddSameConstraints(self.view, contentView);
     }

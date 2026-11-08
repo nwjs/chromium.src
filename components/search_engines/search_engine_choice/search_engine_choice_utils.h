@@ -56,6 +56,10 @@ inline constexpr char
 inline constexpr char
     kSearchEngineChoiceScreenDefaultSearchEngineType2Histogram[] =
         "Search.ChoiceScreenDefaultSearchEngineType2";
+inline constexpr char kSearchEngineCountInSettingsFullListHistogram[] =
+    "Search.EngineCountInSettings.FullList";
+inline constexpr char kSearchEngineCountInSettingsDsePickerHistogram[] =
+    "Search.EngineCountInSettings.DsePicker";
 inline constexpr char kSearchEngineChoiceScreenSelectedEngineIndexHistogram[] =
     "Search.ChoiceScreenSelectedEngineIndex";
 inline constexpr char

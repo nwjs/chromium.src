@@ -54,6 +54,7 @@ struct TabStripSelectionChange;
 #endif
 
 namespace content {
+class Page;
 class WebContents;
 }  // namespace content
 
@@ -69,6 +70,7 @@ struct OptimizationGuideModelExecutionResult;
 
 namespace page_content_annotations {
 class PageContentExtractionService;
+struct ExtractedPageContentResult;
 }  // namespace page_content_annotations
 
 namespace personal_context {
@@ -86,6 +88,7 @@ class ContextHubBackend;
 
 class ContextHubService : public KeyedService,
                           public AutoTodosStore::Observer,
+                          public MemoryBank::Observer,
                           public signin::IdentityManager::Observer,
                           public base::PowerSuspendObserver
 #if !BUILDFLAG(IS_ANDROID)
@@ -95,6 +98,12 @@ class ContextHubService : public KeyedService,
 #endif
 {
  public:
+  // Represents a cited memory bank entry in a chat response.
+  struct MemoryBankChatCitation {
+    std::string title;
+    GURL url;
+  };
+
   class Observer : public base::CheckedObserver {
    public:
     virtual void OnAutoTodosChanged(base::span<const AutoTodoEntry> entries) {}
@@ -102,6 +111,13 @@ class ContextHubService : public KeyedService,
         bool is_generating) {}
     virtual void OnThirdPartyAutoTodosGenerationStateChanged(
         bool is_generating) {}
+    virtual void OnMemoryBankEntryAdded(const MemoryBankEntry& entry) {}
+    virtual void OnMemoryBankEntryUpdated(
+        int64_t id,
+        const std::vector<std::string>& tags,
+        const std::optional<std::string>& note,
+        const std::optional<std::string>& collection) {}
+    virtual void OnMemoryBankEntriesDeleted(const std::vector<int64_t>& ids) {}
   };
 
   ContextHubService(
@@ -127,6 +143,15 @@ class ContextHubService : public KeyedService,
 
   // AutoTodosStore::Observer:
   void OnAutoTodosChanged(base::span<const AutoTodoEntry> entries) override;
+
+  // MemoryBank::Observer:
+  void OnMemoryBankEntryAdded(const MemoryBankEntry& entry) override;
+  void OnMemoryBankEntryUpdated(
+      int64_t id,
+      const std::vector<std::string>& tags,
+      const std::optional<std::string>& note,
+      const std::optional<std::string>& collection) override;
+  void OnMemoryBankEntriesDeleted(const std::vector<int64_t>& ids) override;
 
   // signin::IdentityManager::Observer:
   void OnPrimaryAccountChanged(
@@ -205,6 +230,24 @@ class ContextHubService : public KeyedService,
   std::vector<browser::context_hub::mojom::AutoTodoItemFeedbackPtr>
   GetTodoFeedbacks() const;
 
+  // Fishfood Topic feedback, persisted in the
+  // prefs::kContextHubTopicsFishfoodFeedback profile pref so ratings survive
+  // tab closure and browser restarts. The pref is cleared on service creation
+  // when features::kTopicsFishfoodFeedback is disabled.
+  //
+  // Stores or replaces the feedback for the Topic identified by `feedback->id`.
+  // Overwrites `feedback->snapshot->time_rated` with the current time.
+  void SetTopicFeedback(browser::context_hub::mojom::TopicFeedbackPtr feedback);
+  // Deletes the feedback for `topic_id`, if any.
+  void DeleteTopicFeedback(const std::string& topic_id);
+  // Deletes all Topic feedback.
+  void ClearTopicFeedbacks();
+  // Returns all stored Topic feedback, ordered by topic id. Entries whose
+  // required fields fail to deserialize are omitted; see
+  // topics/topic_feedback_conversions.h.
+  std::vector<browser::context_hub::mojom::TopicFeedbackPtr> GetTopicFeedbacks()
+      const;
+
   using GroupTabsCallback =
       base::OnceCallback<void(std::vector<TabGroupEntry> groups,
                               std::vector<TabData> ungrouped_tabs,
@@ -251,7 +294,9 @@ class ContextHubService : public KeyedService,
 
   // Memory bank wrappers that forward operations to the underlying storage
   // backend.
-  // Saves an entry in the memory bank.
+  // Saves an entry in the memory bank. If TabContextSync is enabled and the
+  // entry is a tab, page content (APC) is extracted and saved instead of the
+  // provided selected_text.
   void SaveMemoryBankEntry(MemoryBankEntry entry,
                            MemoryBank::OperationCompleteCallback callback);
   // Updates an entry in the memory bank with new tags, note, and collection.
@@ -281,9 +326,13 @@ class ContextHubService : public KeyedService,
   void GetTabGroups(GetTabGroupsCallback callback) const;
   // Deletes all stored tab groups.
   void DeleteAllTabGroups(base::OnceClosure callback);
+  // Replaces all stored (unconfirmed) tab groups with `groups`.
+  void ReplaceTabGroups(std::vector<TabGroupEntry> groups,
+                        base::OnceClosure callback);
 
   using MemoryBankChatCallback =
-      base::OnceCallback<void(std::optional<std::string> response)>;
+      base::OnceCallback<void(std::optional<std::string> response,
+                              std::vector<MemoryBankChatCitation> citations)>;
   // Executes a memory bank chat request for the specified memory bank entry
   // IDs. If `save_to_history` is true, the request and response are saved to
   // memory bank chat history.
@@ -344,6 +393,21 @@ class ContextHubService : public KeyedService,
   // GUIDs.
   std::vector<base::Uuid> AddTabGroupsToSyncService(
       base::span<const TabGroupEntry> entries);
+
+  // Searches open browser tabs for a WebContents matching `url`.
+  // Note: Looking up a WebContents solely by URL is brittle and not
+  // production-safe since there could be multiple open tabs sharing the same
+  // URL or tabs that have navigated away.
+  content::WebContents* FindWebContentsForUrl(const GURL& url) const;
+
+  // Handles the async response when APC is extracted for SaveMemoryBankEntry.
+  void OnPageContentExtractedForSaveMemoryBankEntry(
+      MemoryBankEntry entry,
+      base::WeakPtr<content::WebContents> web_contents,
+      base::WeakPtr<content::Page> page,
+      MemoryBank::OperationCompleteCallback callback,
+      std::optional<page_content_annotations::ExtractedPageContentResult>
+          result);
 
   // Callback invoked when all tab groups are fetched from the store to confirm
   // them into TabGroupSyncService.
@@ -426,6 +490,8 @@ class ContextHubService : public KeyedService,
 
   // Handles the result of the model execution from `ExecuteMemoryBankChat`.
   void HandleMemoryBankChatModelExecutionResult(
+      std::vector<MemoryBankEntry> entries,
+      const std::string& user_command,
       bool save_to_history,
       MemoryBankChatCallback callback,
       optimization_guide::OptimizationGuideModelExecutionResult result,
@@ -440,8 +506,7 @@ class ContextHubService : public KeyedService,
       personal_context_service_;
   const raw_ref<optimization_guide::RemoteModelExecutor>
       optimization_guide_remote_model_executor_;
-  const raw_ref<tab_groups::TabGroupSyncService>
-      tab_group_sync_service_;
+  const raw_ref<tab_groups::TabGroupSyncService> tab_group_sync_service_;
   const raw_ref<page_content_annotations::PageContentExtractionService>
       page_content_extraction_service_;
 
@@ -510,6 +575,10 @@ class ContextHubService : public KeyedService,
   // Guaranteed to be non-null. If features::kMemoryBanks is disabled, this
   // will be a NoOpMemoryBank.
   std::unique_ptr<MemoryBank> memory_bank_;
+  // Declared after `memory_bank_` so the observation is reset before the
+  // memory bank is destroyed.
+  base::ScopedObservation<MemoryBank, MemoryBank::Observer>
+      memory_bank_observation_{this};
 
   std::unique_ptr<TabGroupStore> tab_group_store_;
 

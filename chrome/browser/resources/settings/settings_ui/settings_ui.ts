@@ -8,112 +8,85 @@
  *
  * Example:
  *
- *    <settings-ui prefs="{{prefs}}"></settings-ui>
+ *    <settings-ui></settings-ui>
  */
 import 'chrome://resources/cr_elements/cr_drawer/cr_drawer.js';
+import 'chrome://resources/cr_elements/cr_lazy_render/cr_lazy_render_lit.js';
 import 'chrome://resources/cr_elements/cr_toolbar/cr_toolbar.js';
 import 'chrome://resources/cr_elements/cr_toolbar/cr_toolbar_search_field.js';
-import 'chrome://resources/cr_elements/cr_page_host_style.css.js';
 import 'chrome://resources/cr_elements/icons.html.js';
-import 'chrome://resources/cr_elements/cr_scrollable.css.js';
-import 'chrome://resources/cr_elements/cr_shared_vars.css.js';
-import '/shared/settings/prefs/prefs.js';
 import '../icons.html.js';
 import '../settings_main/settings_main.js';
 import '../settings_menu/settings_menu.js';
-import '../settings_shared.css.js';
-import '../settings_vars.css.js';
 
-import type {SettingsPrefsElement} from '/shared/settings/prefs/prefs.js';
 import {ColorChangeUpdater, COLORS_CSS_SELECTOR} from 'chrome://resources/cr_components/color_change_listener/colors_css_updater.js';
 import type {CrDrawerElement} from 'chrome://resources/cr_elements/cr_drawer/cr_drawer.js';
+import type {CrLazyRenderLitElement} from 'chrome://resources/cr_elements/cr_lazy_render/cr_lazy_render_lit.js';
 import type {CrToolbarElement} from 'chrome://resources/cr_elements/cr_toolbar/cr_toolbar.js';
-import {FindShortcutMixin} from 'chrome://resources/cr_elements/find_shortcut_mixin.js';
+import {FindShortcutMixinLit} from 'chrome://resources/cr_elements/find_shortcut_mixin_lit.js';
 import {assert} from 'chrome://resources/js/assert.js';
 import {listenOnce} from 'chrome://resources/js/util.js';
-import type {DomIf} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
-import {PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
+import type {PropertyValues} from 'chrome://resources/lit/v3_0/lit.rollup.js';
+import {CrLitElement} from 'chrome://resources/lit/v3_0/lit.rollup.js';
 
 import {ActiveTimer} from '../active_timer.js';
 import {resetGlobalScrollTargetForTesting, setGlobalScrollTarget} from '../global_scroll_target_mixin.js';
 import {loadTimeData} from '../i18n_setup.js';
 import {routes} from '../route.js';
 import type {Route} from '../router.js';
-import {RouteObserverMixin, Router} from '../router.js';
+import {RouteObserverMixinLit, Router} from '../router.js';
 import {SearchMetricsRecorder} from '../search_metrics_recorder.js';
 import type {SearchFinishedDetail, SettingsMainElement} from '../settings_main/settings_main.js';
 import type {SettingsMenuElement} from '../settings_menu/settings_menu.js';
 
-import {getTemplate} from './settings_ui.html.js';
-
-declare global {
-  interface HTMLElementEventMap {
-    'refresh-pref': CustomEvent<string>;
-  }
-}
+import {getCss} from './settings_ui.css.js';
+import {getHtml} from './settings_ui.html.js';
 
 export interface SettingsUiElement {
   $: {
     container: HTMLElement,
     drawer: CrDrawerElement,
-    drawerTemplate: DomIf,
+    drawerMenu: CrLazyRenderLitElement<SettingsMenuElement>,
     left: HTMLElement,
     leftMenu: SettingsMenuElement,
     main: SettingsMainElement,
     scrollableShadow: HTMLElement,
     toolbar: CrToolbarElement,
-    prefs: SettingsPrefsElement,
   };
 }
 
 export const MAX_QUERY_LENGTH = 1000;
 
 const SettingsUiElementBase =
-    RouteObserverMixin(FindShortcutMixin(PolymerElement));
+    RouteObserverMixinLit(FindShortcutMixinLit(CrLitElement));
 
 export class SettingsUiElement extends SettingsUiElementBase {
   static get is() {
     return 'settings-ui';
   }
 
-  static get template() {
-    return getTemplate();
+  static override get styles() {
+    return getCss();
   }
 
-  static get properties() {
+  override render() {
+    return getHtml.bind(this)();
+  }
+
+  static override get properties() {
     return {
-      /**
-       * Preferences state.
-       */
-      prefs: Object,
-
-      toolbarSpinnerActive_: {
-        type: Boolean,
-        value: false,
-      },
-
-      narrow_: {
-        type: Boolean,
-        observer: 'onNarrowChanged_',
-      },
-
-      lastSearchQuery_: {
-        type: String,
-        value: '',
-      },
-
-      isSettingsRefresh2026_: {
-        type: Boolean,
-        value: () => loadTimeData.getString('settingsRefresh2026') !== '',
-      },
+      toolbarSpinnerActive_: {type: Boolean},
+      narrow_: {type: Boolean},
+      lastSearchQuery_: {type: String},
+      isSettingsRefresh2026_: {type: Boolean},
     };
   }
 
-  declare prefs: Record<string, unknown>;
-  declare private toolbarSpinnerActive_: boolean;
-  declare private narrow_: boolean;
-  declare private lastSearchQuery_: string;
-  declare private isSettingsRefresh2026_: boolean;
+  protected accessor toolbarSpinnerActive_: boolean = false;
+  protected accessor narrow_: boolean = false;
+  private accessor lastSearchQuery_: string = '';
+  private accessor isSettingsRefresh2026_: boolean =
+      loadTimeData.getString('settingsRefresh2026') !== '';
 
   private activeTimer_: ActiveTimer|null = null;
 
@@ -124,47 +97,6 @@ export class SettingsUiElement extends SettingsUiElementBase {
     super();
 
     Router.getInstance().initializeRouteFromUrl();
-  }
-
-  override ready() {
-    super.ready();
-
-    // Lazy-create the drawer the first time it is opened or swiped into view.
-    listenOnce(this.$.drawer, 'cr-drawer-opening', () => {
-      this.$.drawerTemplate.if = true;
-    });
-
-    window.addEventListener('popstate', () => {
-      this.$.drawer.cancel();
-    });
-
-    window.CrPolicyStrings = {
-      controlledSettingExtension:
-          loadTimeData.getString('controlledSettingExtension'),
-      controlledSettingExtensionWithoutName:
-          loadTimeData.getString('controlledSettingExtensionWithoutName'),
-      controlledSettingPolicy:
-          loadTimeData.getString('controlledSettingPolicy'),
-      controlledSettingRecommendedMatches:
-          loadTimeData.getString('controlledSettingRecommendedMatches'),
-      controlledSettingRecommendedDiffers:
-          loadTimeData.getString('controlledSettingRecommendedDiffers'),
-      controlledSettingChildRestriction:
-          loadTimeData.getString('controlledSettingChildRestriction'),
-      controlledSettingParent:
-          loadTimeData.getString('controlledSettingParent'),
-
-      // <if expr="is_chromeos">
-      controlledSettingShared:
-          loadTimeData.getString('controlledSettingShared'),
-      controlledSettingWithOwner:
-          loadTimeData.getString('controlledSettingWithOwner'),
-      controlledSettingNoOwner:
-          loadTimeData.getString('controlledSettingNoOwner'),
-      // </if>
-    };
-
-    this.addEventListener('refresh-pref', this.onRefreshPref_.bind(this));
   }
 
   override connectedCallback() {
@@ -206,6 +138,54 @@ export class SettingsUiElement extends SettingsUiElementBase {
     this.searchMetricsRecorder_.stop();
   }
 
+  override firstUpdated() {
+    // Lazy-create the drawer the first time it is opened or swiped into view.
+    listenOnce(this.$.drawer, 'cr-drawer-opening', () => {
+      this.$.drawerMenu.get();
+    });
+
+    window.addEventListener('popstate', () => {
+      this.$.drawer.cancel();
+    });
+
+    window.CrPolicyStrings = {
+      controlledSettingExtension:
+          loadTimeData.getString('controlledSettingExtension'),
+      controlledSettingExtensionWithoutName:
+          loadTimeData.getString('controlledSettingExtensionWithoutName'),
+      controlledSettingPolicy:
+          loadTimeData.getString('controlledSettingPolicy'),
+      controlledSettingRecommendedMatches:
+          loadTimeData.getString('controlledSettingRecommendedMatches'),
+      controlledSettingRecommendedDiffers:
+          loadTimeData.getString('controlledSettingRecommendedDiffers'),
+      controlledSettingChildRestriction:
+          loadTimeData.getString('controlledSettingChildRestriction'),
+      controlledSettingParent:
+          loadTimeData.getString('controlledSettingParent'),
+
+      // <if expr="is_chromeos">
+      controlledSettingShared:
+          loadTimeData.getString('controlledSettingShared'),
+      controlledSettingWithOwner:
+          loadTimeData.getString('controlledSettingWithOwner'),
+      controlledSettingNoOwner:
+          loadTimeData.getString('controlledSettingNoOwner'),
+      // </if>
+    };
+  }
+
+  override updated(changedProperties: PropertyValues<this>) {
+    super.updated(changedProperties);
+
+    const changedPrivateProperties =
+        changedProperties as Map<PropertyKey, unknown>;
+
+    if (changedPrivateProperties.has('narrow_')) {
+      this.onNarrowChanged_();
+    }
+  }
+
   override currentRouteChanged(route: Route) {
     this.$.scrollableShadow.classList.toggle(
         'force-on', route === routes.PRIVACY_GUIDE || route.depth > 1);
@@ -218,9 +198,7 @@ export class SettingsUiElement extends SettingsUiElementBase {
 
     this.lastSearchQuery_ = urlSearchQuery;
 
-    const toolbar =
-        this.shadowRoot!.querySelector<CrToolbarElement>('cr-toolbar')!;
-    const searchField = toolbar.getSearchField();
+    const searchField = this.$.toolbar.getSearchField();
 
     // If the search was initiated by directly entering a search URL, need to
     // sync the URL parameter to the textbox.
@@ -234,31 +212,23 @@ export class SettingsUiElement extends SettingsUiElementBase {
   }
 
   // Override FindShortcutMixin methods.
-  override handleFindShortcut(modalContextOpen: boolean) {
+  override handleFindShortcut(modalContextOpen: boolean): boolean {
     if (modalContextOpen) {
       return false;
     }
-    this.shadowRoot!.querySelector<CrToolbarElement>('cr-toolbar')!
-        .getSearchField()
-        .showAndFocus();
+    this.$.toolbar.getSearchField().showAndFocus();
     return true;
   }
 
   // Override FindShortcutMixin methods.
-  override searchInputHasFocus() {
-    return this.shadowRoot!.querySelector<CrToolbarElement>('cr-toolbar')!
-        .getSearchField()
-        .isSearchFocused();
-  }
-
-  private onRefreshPref_(e: CustomEvent<string>) {
-    return this.$.prefs.refresh(e.detail);
+  override searchInputHasFocus(): boolean {
+    return this.$.toolbar.getSearchField().isSearchFocused();
   }
 
   /**
    * Handles the 'search-changed' event fired from the toolbar.
    */
-  private onSearchChanged_(e: CustomEvent<string>) {
+  protected onSearchChanged_(e: CustomEvent<string>) {
     let query = e.detail;
     if (query.length > MAX_QUERY_LENGTH) {
       query = query.substring(0, MAX_QUERY_LENGTH);
@@ -274,7 +244,7 @@ export class SettingsUiElement extends SettingsUiElementBase {
   /**
    * Handles the 'search-finished' event fired from settings-main.
    */
-  private onSearchFinished_(e: CustomEvent<SearchFinishedDetail>) {
+  protected onSearchFinished_(e: CustomEvent<SearchFinishedDetail>) {
     this.searchMetricsRecorder_.onSearchFinished(
         e.detail.query, e.detail.matchCount);
   }
@@ -282,18 +252,18 @@ export class SettingsUiElement extends SettingsUiElementBase {
   /**
    * Handles the 'search-result-interaction' event fired from settings-main.
    */
-  private onSearchResultInteraction_() {
+  protected onSearchResultInteraction_() {
     this.searchMetricsRecorder_.onSearchResultInteraction();
   }
 
   /**
    * Called when a section is selected.
    */
-  private onIronActivate_() {
+  protected onIronActivate_() {
     this.$.drawer.close();
   }
 
-  private onMenuButtonClick_() {
+  protected onCrToolbarMenuClick_() {
     this.$.drawer.toggle();
   }
 
@@ -305,7 +275,7 @@ export class SettingsUiElement extends SettingsUiElementBase {
    * used to scroll the container, and pressing tab focuses a component in
    * settings.
    */
-  private onMenuClose_() {
+  protected onMenuClose_() {
     if (!this.$.drawer.wasCanceled()) {
       // If a navigation happened, SettingsMain handles focusing the
       // corresponding section.
@@ -321,12 +291,20 @@ export class SettingsUiElement extends SettingsUiElementBase {
     });
   }
 
-  private getLeftMenuHidden_(): boolean {
+  protected getLeftMenuHidden_(): boolean {
     return this.narrow_ && !this.isSettingsRefresh2026_;
   }
 
-  private getLeftMenuCollapsed_(): boolean {
+  protected getLeftMenuCollapsed_(): boolean {
     return this.narrow_ && this.isSettingsRefresh2026_;
+  }
+
+  protected onToolbarNarrowChanged_(e: CustomEvent<{value: boolean}>) {
+    this.narrow_ = e.detail.value;
+  }
+
+  protected onToolbarSpinnerActiveChanged_(e: CustomEvent<{value: boolean}>) {
+    this.toolbarSpinnerActive_ = e.detail.value;
   }
 
   private onNarrowChanged_() {
@@ -341,7 +319,7 @@ export class SettingsUiElement extends SettingsUiElementBase {
       this.$.drawer.close();
     }
 
-    const focusedElement = this.shadowRoot!.activeElement;
+    const focusedElement = this.shadowRoot.activeElement;
     if (this.narrow_ && focusedElement === this.$.leftMenu) {
       // If changed from non-narrow to narrow and the focus was on the left
       // menu, move focus to the button that opens the drawer menu.
@@ -351,8 +329,8 @@ export class SettingsUiElement extends SettingsUiElementBase {
       // that opens the drawer menu, move focus to the left menu.
       this.$.leftMenu.focusFirstItem();
     } else if (
-        !this.narrow_ &&
-        focusedElement === this.shadowRoot!.querySelector('#drawerMenu')) {
+        !this.narrow_ && focusedElement &&
+        focusedElement === this.$.drawerMenu.getIfExists()) {
       // If changed from narrow to non-narrow and the focus was in the drawer
       // menu, wait for the drawer to close and then move focus on the left
       // menu. The drawer has a dialog element in it so moving focus to an

@@ -6,10 +6,13 @@
 
 #include <memory>
 
+#include "base/features.h"
 #include "base/i18n/language_tag.h"
 #include "base/i18n/rtl.h"
 #include "base/i18n/test/scoped_icu_locale.h"
+#include "base/task/sequence_manager/thread_controller_power_monitor.h"
 #include "base/test/icu_test_util.h"
+#include "base/test/scoped_feature_list.h"
 #include "base/time/time.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/icu/source/common/unicode/locid.h"
@@ -18,6 +21,27 @@
 #include "third_party/icu/source/i18n/unicode/timezone.h"
 
 namespace base::i18n {
+
+namespace {
+
+class ScopedI18nOptimizationsFeature {
+ public:
+  explicit ScopedI18nOptimizationsFeature(bool enable) {
+    features_.InitWithFeatureState(features::kI18nOptimizations, enable);
+    features::Init();
+    sequence_manager::internal::ThreadControllerPowerMonitor::ResetForTesting();
+  }
+  ~ScopedI18nOptimizationsFeature() {
+    features_.Reset();
+    features::Init();
+    sequence_manager::internal::ThreadControllerPowerMonitor::ResetForTesting();
+  }
+
+ private:
+  test::ScopedFeatureList features_;
+};
+
+}  // namespace
 
 TEST(TimeZoneTest, Default) {
   ScopedDefaultIcuLocale restore_locale(GetKnownLanguageTag("en-US"));
@@ -36,13 +60,23 @@ TEST(TimeZoneTest, FromID) {
 }
 
 TEST(TimeZoneTest, GMT) {
-  TimeZone tz = TimeZone::GMT();
-  EXPECT_EQ(tz.GetID(), "GMT");
+  for (bool enable_feature : {false, true}) {
+    ScopedI18nOptimizationsFeature scoped_feature(enable_feature);
+    TimeZone tz = TimeZone::GMT();
+    EXPECT_EQ(tz.GetID(), "GMT");
+    EXPECT_EQ(tz, TimeZone::FromString("GMT"));
+    EXPECT_EQ(tz.GetRawOffset(), base::TimeDelta());
+    EXPECT_FALSE(tz.UseDaylightTime());
+  }
 }
 
 TEST(TimeZoneTest, Unknown) {
-  TimeZone tz = TimeZone::Unknown();
-  EXPECT_EQ(tz.GetID(), "Etc/Unknown");
+  for (bool enable_feature : {false, true}) {
+    ScopedI18nOptimizationsFeature scoped_feature(enable_feature);
+    TimeZone tz = TimeZone::Unknown();
+    EXPECT_EQ(tz.GetID(), "Etc/Unknown");
+    EXPECT_EQ(tz, TimeZone::FromString("Etc/Unknown"));
+  }
 }
 
 TEST(TimeZoneTest, CopyAndMove) {
@@ -131,6 +165,28 @@ TEST(TimeZoneTest, DaylightSavingTime) {
 
   EXPECT_FALSE(phoenix.InDaylightTime(winter_time));
   EXPECT_FALSE(phoenix.InDaylightTime(summer_time));
+}
+
+TEST(TimeZoneTest, ExtremeTimes) {
+  const TimeZone time_zones[] = {
+      TimeZone::GMT(),
+      TimeZone::Unknown(),
+      TimeZone::FromString("America/Los_Angeles"),
+      TimeZone::FromString("Asia/Tokyo"),
+  };
+
+  for (const TimeZone& tz : time_zones) {
+    for (base::Time extreme_time : {base::Time::Min(), base::Time::Max()}) {
+      for (bool is_local : {false, true}) {
+        base::TimeDelta raw_offset = base::Hours(99);
+        base::TimeDelta dst_offset = base::Hours(99);
+        tz.GetOffset(extreme_time, is_local, raw_offset, dst_offset);
+        EXPECT_EQ(raw_offset, tz.GetRawOffset());
+        EXPECT_EQ(dst_offset, base::TimeDelta());
+      }
+      EXPECT_FALSE(tz.InDaylightTime(extreme_time));
+    }
+  }
 }
 
 TEST(TimeZoneTest, Equality) {

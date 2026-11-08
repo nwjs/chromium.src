@@ -504,25 +504,18 @@ bool IsFullscreenNextIAEnabled() {
 }
 
 - (void)setBroadcasting:(BOOL)broadcasting {
-  if (_broadcasting == broadcasting && IsChromeNextIaEnabled()) {
+  if (_broadcasting == broadcasting) {
     return;
   }
+  _broadcasting = broadcasting;
 
   if (IsFullscreenRefactoringEnabled()) {
-    if (IsChromeNextIaEnabled()) {
-      _broadcasting = broadcasting;
-    }
-    if (broadcasting && _fullscreenBrowserAgent) {
+    if (_broadcasting && _fullscreenBrowserAgent) {
       _fullscreenBrowserAgent->InvalidateInsetRange();
     }
     // Broadcasting is not needed for FullscreenRefactoring.
     return;
   }
-
-  if (_broadcasting == broadcasting) {
-    return;
-  }
-  _broadcasting = broadcasting;
 
   ChromeBroadcaster* broadcaster = self.fullscreenController->broadcaster();
   if (_broadcasting) {
@@ -1056,28 +1049,19 @@ bool IsFullscreenNextIAEnabled() {
   self.primaryToolbarHeightConstraint.constant =
       [self primaryToolbarHeightWithInset];
 
-  if (IsChromeNextIaEnabled()) {
-    const CGFloat topInsetWithCornerAdaptation =
-        [self topInsetWithCornerAdaptation];
-    if (topInsetWithCornerAdaptation != _lastTopInsetWithCornerAdaptation) {
-      const BOOL hadCornerAdaptation =
-          _lastTopInsetWithCornerAdaptation > self.rootSafeAreaInsets.top;
-      _lastTopInsetWithCornerAdaptation = topInsetWithCornerAdaptation;
-      if (hadCornerAdaptation ||
-          topInsetWithCornerAdaptation > self.rootSafeAreaInsets.top) {
-        // On iOS 26, the safe area layout guide doesn't automatically adjust
-        // for the control setting island's dimensions.
-        // Update the collapsedTopToolbarHeight when the dynamic island has
-        // moved.
-        [self updateToolbarState];
-      }
+  const CGFloat topInsetWithCornerAdaptation =
+      [self topInsetWithCornerAdaptation];
+  if (topInsetWithCornerAdaptation != _lastTopInsetWithCornerAdaptation) {
+    const BOOL hadCornerAdaptation =
+        _lastTopInsetWithCornerAdaptation > self.rootSafeAreaInsets.top;
+    _lastTopInsetWithCornerAdaptation = topInsetWithCornerAdaptation;
+    if (hadCornerAdaptation ||
+        topInsetWithCornerAdaptation > self.rootSafeAreaInsets.top) {
+      // On iOS 26, the safe area layout guide doesn't automatically adjust
+      // for the control setting island's dimensions.
+      // Update the collapsedTopToolbarHeight when the dynamic island has moved.
+      [self updateToolbarState];
     }
-  } else if ([self topInsetWithCornerAdaptation] - self.rootSafeAreaInsets.top >
-             0) {
-    // On iOS 26, the safe area layout guide doesn't automatically adjust
-    // for the control setting island's dimensions.
-    // Update the collapsedTopToolbarHeight when the dynamic island has moved.
-    [self updateToolbarState];
   }
 
   [self updateNTPSafeAreaInsets];
@@ -1541,6 +1525,9 @@ bool IsFullscreenNextIAEnabled() {
 - (void)addConstraintsToToolbar {
   [self addConstraintsToPrimaryToolbar];
   [self addConstraintsToSecondaryToolbar];
+  if (!IsFullscreenNextIAEnabled()) {
+    [self.view layoutIfNeeded];
+  }
 }
 
 // Sets the correct frame and hierarchy for subviews and helper views.  Only
@@ -1617,7 +1604,6 @@ bool IsFullscreenNextIAEnabled() {
     // TODO(crbug.com/40842406): -updateToolbar will move out of the BVC; make
     // sure this comment remains accurate. Hide findbar.  `updateToolbar` will
     // restore the findbar later.
-    [self.findInPageCommandsHandler hideFindUI];
     [self.textZoomHandler hideTextZoomUI];
 
     // Make new content visible, resizing it first as the orientation may
@@ -1655,10 +1641,6 @@ bool IsFullscreenNextIAEnabled() {
       }
     } else {
       self.browserContentViewController.contentView = view;
-      if (IsFullscreenRefactoringEnabled() && !IsChromeNextIaEnabled()) {
-        view.translatesAutoresizingMaskIntoConstraints = NO;
-        AddSameConstraints(self.browserContentViewController.view, view);
-      }
       [self invalidateFullscreenInsets];
     }
     // Resize horizontal viewport if Smooth Scrolling is on.
@@ -3208,6 +3190,22 @@ bool IsFullscreenNextIAEnabled() {
 - (id<LogoAnimationControllerOwner>)logoAnimationControllerOwner {
   // This is required to enable voice search in the NTP.
   return nil;
+}
+
+#pragma mark - LensPresentationDelegate
+
+- (CGRect)webContentAreaForLensCoordinator:(LensCoordinator*)lensCoordinator {
+  DCHECK(lensCoordinator);
+
+  // The LensCoordinator needs the content area of the webView with the
+  // header and footer toolbars visible.
+  UIEdgeInsets viewportInsets = self.rootSafeAreaInsets;
+  if (!CanShowTabStrip(self)) {
+    viewportInsets.bottom = [self secondaryToolbarHeightWithInset];
+  }
+
+  viewportInsets.top = [self expandedTopToolbarHeight];
+  return UIEdgeInsetsInsetRect(self.contentArea.bounds, viewportInsets);
 }
 
 #pragma mark - ContextualSheetPresenter

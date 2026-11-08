@@ -50,7 +50,6 @@ std::vector<base::OnceCallback<void(bool)>>& GetPendingCallbacks() {
 constexpr uint32_t kLauncherTypeWebapp = 2u;
 
 constexpr char kSupportedLauncherTypesProperty[] = "SupportedLauncherTypes";
-constexpr char kVersionProperty[] = "version";
 
 void CompleteAvailabilityCheck(bool is_custom_bus,
                                base::OnceCallback<void(bool)> callback,
@@ -116,26 +115,18 @@ void OnSupportedLauncherTypesResponse(
                             /*result_for_callbacks=*/available);
 }
 
-// Callback for querying the portal interface version property.
-void OnPortalVersionResponse(scoped_refptr<dbus::Bus> bus,
-                             bool is_custom_bus,
-                             base::OnceCallback<void(bool)> callback,
-                             dbus_utils::CallMethodResultSig<"v"> result) {
-  if (!result.has_value()) {
+// Callback for the portal setup, run with the DynamicLauncher interface
+// version, or 0 if it is unavailable.
+void OnXdgDesktopPortalResponse(scoped_refptr<dbus::Bus> bus,
+                                bool is_custom_bus,
+                                base::OnceCallback<void(bool)> callback,
+                                uint32_t version) {
+  if (version == 0) {
     CompleteAvailabilityCheck(is_custom_bus, std::move(callback),
                               /*cached_value=*/false,
                               /*result_for_callbacks=*/false);
     return;
   }
-  std::optional<uint32_t> version =
-      std::get<0>(std::move(*result)).Take<uint32_t>();
-  if (!version.has_value() || *version == 0) {
-    CompleteAvailabilityCheck(is_custom_bus, std::move(callback),
-                              /*cached_value=*/false,
-                              /*result_for_callbacks=*/false);
-    return;
-  }
-
   dbus::ObjectProxy* proxy =
       bus->GetObjectProxy(dbus_xdg::kPortalServiceName,
                           dbus::ObjectPath(dbus_xdg::kPortalObjectPath));
@@ -150,35 +141,11 @@ void OnPortalVersionResponse(scoped_refptr<dbus::Bus> bus,
       std::string(kSupportedLauncherTypesProperty));
 }
 
-// Callback for checking if the overall XdgDesktopPortal service is available.
-void OnXdgDesktopPortalResponse(scoped_refptr<dbus::Bus> bus,
-                                bool is_custom_bus,
-                                base::OnceCallback<void(bool)> callback,
-                                uint32_t portal_version) {
-  if (portal_version == 0) {
-    CompleteAvailabilityCheck(is_custom_bus, std::move(callback),
-                              /*cached_value=*/false,
-                              /*result_for_callbacks=*/false);
-    return;
-  }
-  dbus::ObjectProxy* proxy =
-      bus->GetObjectProxy(dbus_xdg::kPortalServiceName,
-                          dbus::ObjectPath(dbus_xdg::kPortalObjectPath));
-  // Call org.freedesktop.DBus.Properties.Get.
-  // "ss" signature: string interface_name, string property_name.
-  // "v" signature: returns a Variant containing the property value.
-  dbus_utils::CallMethod<"ss", "v">(
-      proxy, DBUS_INTERFACE_PROPERTIES, "Get",
-      base::BindOnce(&OnPortalVersionResponse, bus, is_custom_bus,
-                     std::move(callback)),
-      std::string(kDynamicLauncherInterfaceName),
-      std::string(kVersionProperty));
-}
-
 }  // namespace
 
 DynamicLauncherPortal::DynamicLauncherPortal(scoped_refptr<dbus::Bus> bus)
-    : bus_(bus ? std::move(bus) : dbus_thread_linux::GetSharedSessionBus()) {}
+    : is_shared_bus_(!bus),
+      bus_(bus ? std::move(bus) : dbus_thread_linux::GetSharedSessionBus()) {}
 
 DynamicLauncherPortal::~DynamicLauncherPortal() = default;
 
@@ -189,7 +156,7 @@ void DynamicLauncherPortal::IsAvailable(
     return;
   }
 
-  bool is_custom_bus = (bus_ != dbus_thread_linux::GetSharedSessionBus());
+  const bool is_custom_bus = !is_shared_bus_;
 
   if (!is_custom_bus) {
     DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
@@ -209,7 +176,7 @@ void DynamicLauncherPortal::IsAvailable(
   }
 
   dbus_xdg::RequestXdgDesktopPortal(
-      bus_.get(),
+      bus_.get(), kDynamicLauncherInterfaceName,
       base::BindOnce(&OnXdgDesktopPortalResponse, bus_, is_custom_bus,
                      is_custom_bus ? std::move(callback) : base::DoNothing()));
 }
@@ -219,7 +186,7 @@ void DynamicLauncherPortal::PrepareInstall(
     const std::vector<uint8_t>& icon_bytes,
     const GURL& target_url,
     PrepareInstallCallback callback) {
-  if (bus_ == dbus_thread_linux::GetSharedSessionBus()) {
+  if (is_shared_bus_) {
     DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   }
 
@@ -265,7 +232,7 @@ void DynamicLauncherPortal::Install(const std::string& token,
                                     const std::string& desktop_file_id,
                                     const std::string& desktop_entry,
                                     InstallCallback callback) {
-  if (bus_ == dbus_thread_linux::GetSharedSessionBus()) {
+  if (is_shared_bus_) {
     DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   }
 
@@ -297,7 +264,7 @@ void DynamicLauncherPortal::ResetAvailabilityCacheForTesting() {
 
 void DynamicLauncherPortal::Uninstall(const std::string& desktop_file_id,
                                       UninstallCallback callback) {
-  if (bus_ == dbus_thread_linux::GetSharedSessionBus()) {
+  if (is_shared_bus_) {
     DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   }
 

@@ -900,9 +900,8 @@ class GlicInstanceCoordinatorActorTaskTest
     : public GlicInstanceCoordinatorBrowserTest {
  public:
   GlicInstanceCoordinatorActorTaskTest() {
-    feature_list_.InitAndEnableFeatureWithParameters(
-        ::features::kGlicActor,
-        {{::features::kGlicActorPolicyControlExemption.name, "true"}});
+    feature_list_.InitWithFeatures(
+        {features::kGlicActor, features::kGlicActorPolicyControlExemption}, {});
   }
 
  private:
@@ -1331,9 +1330,8 @@ class GlicInstanceCoordinatorActuationBrowserTest
     : public GlicInstanceCoordinatorBrowserTest {
  public:
   GlicInstanceCoordinatorActuationBrowserTest() {
-    feature_list_.InitAndEnableFeatureWithParameters(
-        ::features::kGlicActor,
-        {{::features::kGlicActorPolicyControlExemption.name, "true"}});
+    feature_list_.InitWithFeatures(
+        {features::kGlicActor, features::kGlicActorPolicyControlExemption}, {});
   }
 
  private:
@@ -1813,35 +1811,6 @@ IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorRemoveBlankInstancesTest,
 
   // Wait for the blank instance to be deleted asynchronously.
   ASSERT_OK(WaitForInstanceDeletion(weak_instance));
-}
-
-// TODO(crbug.com/563549946): Fix flakiness.
-IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorRemoveBlankInstancesTest,
-                       DISABLED_DoNotRemoveBlankInstanceWhenInvoking) {
-  // Start an invocation. This asynchronously initializes the web client.
-  tabs::TabInterface* tab = GetTabListInterface()->GetActiveTab();
-  GlicInvokeOptions options(glic::Target(*tab),
-                            mojom::InvocationSource::kOsButton);
-  coordinator().Invoke(std::move(options));
-
-  // The instance should be created and in the invoking state.
-  GlicInstanceImpl* instance = GetInstanceForTab(tab);
-  ASSERT_TRUE(instance);
-
-  EXPECT_TRUE(instance->IsInvoking());
-
-  // Close the panel before the invocation finishes initializing.
-  instance->CloseAllEmbedders();
-  ASSERT_OK(WaitForGlicClose());
-
-  // Wait a bit to ensure the timeout has passed, but the instance shouldn't
-  // be deleted. The timer delay is 100ms.
-  base::RunLoop run_loop;
-  base::SingleThreadTaskRunner::GetCurrentDefault()->PostDelayedTask(
-      FROM_HERE, run_loop.QuitClosure(), base::Milliseconds(200));
-  run_loop.Run();
-
-  EXPECT_EQ(GetInstanceForTab(tab), instance);
 }
 
 #if !BUILDFLAG(IS_ANDROID)

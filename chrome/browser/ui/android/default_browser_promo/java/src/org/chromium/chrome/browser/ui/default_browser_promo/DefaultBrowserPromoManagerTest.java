@@ -24,6 +24,9 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
+import org.robolectric.Robolectric;
+import org.robolectric.shadow.api.Shadow;
+import org.robolectric.shadows.ShadowContextImpl;
 
 import org.chromium.base.Callback;
 import org.chromium.base.test.BaseRobolectricTestRunner;
@@ -43,16 +46,18 @@ public class DefaultBrowserPromoManagerTest {
 
     @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
     @Mock WindowAndroid mWindowAndroid;
-    @Mock Activity mActivity;
     @Mock RoleManager mRoleManager;
     @Mock Intent mIntent;
     @Mock DefaultBrowserPromoImpressionCounter mImpressionCounter;
     @Mock DefaultBrowserStateProvider mStateProvider;
     @Mock DefaultBrowserPromoUtils mMockDefaultBrowserPromoUtils;
+    private Activity mActivity;
 
     @Before
     public void setup() {
-        doReturn(mRoleManager).when(mActivity).getSystemService(Context.ROLE_SERVICE);
+        mActivity = Robolectric.buildActivity(Activity.class).get();
+        ShadowContextImpl shadowContext = Shadow.extract(mActivity.getBaseContext());
+        shadowContext.setSystemService(Context.ROLE_SERVICE, mRoleManager);
         doReturn(mIntent).when(mRoleManager).createRequestRoleIntent(RoleManager.ROLE_BROWSER);
         DefaultBrowserPromoUtils.setInstanceForTesting(mMockDefaultBrowserPromoUtils);
         // When fetchDefaultBrowserInfo is called, immediately invoke the callback.

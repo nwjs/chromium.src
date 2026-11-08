@@ -18,7 +18,6 @@
 #include "base/logging.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/ui/read_anything/read_anything_prefs.h"
-#include "chrome/common/chrome_switches.h"
 #include "components/component_updater/component_updater_service.h"
 #include "components/crx_file/id_util.h"
 #include "components/prefs/pref_registry_simple.h"
@@ -71,7 +70,7 @@ class WasmTTSEngineDirectory {
   }
 
   void Get(base::OnceCallback<void(const base::FilePath&)> callback) {
-    DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+    CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M161);
     callbacks_.push_back(std::move(callback));
     if (!dir_.empty()) {
       FireCallbacks();
@@ -79,20 +78,20 @@ class WasmTTSEngineDirectory {
   }
 
   void Set(const base::FilePath& new_dir) {
-    DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+    CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M161);
     CHECK(!new_dir.empty());
     dir_ = new_dir;
     FireCallbacks();
   }
 
   bool IsSet() const {
-    DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+    CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M161);
     return !dir_.empty();
   }
 
  private:
   void FireCallbacks() {
-    DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+    CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M161);
     CHECK(!dir_.empty());
     std::vector<base::OnceCallback<void(const base::FilePath&)>> callbacks;
     std::swap(callbacks, callbacks_);
@@ -282,9 +281,8 @@ const std::string WasmTtsEngineComponentInstallerPolicy::GetExtensionId() {
 void WasmTtsEngineComponentInstallerPolicy::UpdateWasmComponentOnDemand() {
   const base::CommandLine* command_line =
       base::CommandLine::ForCurrentProcess();
-  if (command_line->HasSwitch(::switches::kTestType) ||
-      command_line->HasSwitch(switches::kDisableComponentUpdate) ||
-      !g_browser_process || !g_browser_process->component_updater()) {
+  if (command_line->HasSwitch(::switches::kTestType) || !g_browser_process ||
+      !g_browser_process->component_updater()) {
     return;
   }
   const std::string crx_id = component_updater::
@@ -293,7 +291,8 @@ void WasmTtsEngineComponentInstallerPolicy::UpdateWasmComponentOnDemand() {
       crx_id, component_updater::OnDemandUpdater::Priority::FOREGROUND,
       base::BindOnce([](update_client::Error error) {
         if (error != update_client::Error::NONE &&
-            error != update_client::Error::UPDATE_IN_PROGRESS) {
+            error != update_client::Error::UPDATE_IN_PROGRESS &&
+            error != update_client::Error::UPDATE_DISABLED) {
           DLOG(ERROR)
               << "On demand update of the Wasm TTS Engine component failed "
                  "with error: "

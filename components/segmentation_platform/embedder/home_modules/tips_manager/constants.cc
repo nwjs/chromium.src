@@ -25,6 +25,12 @@ std::string NameForTipIdentifier(TipIdentifier tip) {
       return "AutofillPasswords";
     case TipIdentifier::kEnhancedSafeBrowsing:
       return "EnhancedSafeBrowsing";
+    case TipIdentifier::kNTPTheme:
+      return "NTPTheme";
+    case TipIdentifier::kTipsNotifications:
+      return "TipsNotifications";
+    case TipIdentifier::kNTPCustomization:
+      return "NTPCustomization";
   }
 }
 // LINT.ThenChange(/components/segmentation_platform/embedder/home_modules/tips_manager/constants.h:TipIdentifier)
@@ -47,6 +53,12 @@ TipIdentifier TipIdentifierForName(std::string_view name) {
     return TipIdentifier::kAutofillPasswords;
   } else if (name == "EnhancedSafeBrowsing") {
     return TipIdentifier::kEnhancedSafeBrowsing;
+  } else if (name == "NTPTheme") {
+    return TipIdentifier::kNTPTheme;
+  } else if (name == "TipsNotifications") {
+    return TipIdentifier::kTipsNotifications;
+  } else if (name == "NTPCustomization") {
+    return TipIdentifier::kNTPCustomization;
   } else {
     return TipIdentifier::kUnknown;  // Default to unknown if not found.
   }

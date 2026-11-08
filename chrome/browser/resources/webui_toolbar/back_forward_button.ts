@@ -7,16 +7,17 @@ import '//resources/cr_elements/icons.html.js';
 
 import type {CrIconButtonElement} from '//resources/cr_elements/cr_icon_button/cr_icon_button.js';
 import {loadTimeData} from '//resources/js/load_time_data.js';
+import {TrackedElementManager} from '//resources/js/tracked_element/tracked_element_manager.js';
 import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
 import type {PropertyValues} from '//resources/lit/v3_0/lit.rollup.js';
 import type {MenuSourceType} from '//resources/mojo/ui/base/mojom/menu_source_type.mojom-webui.js';
+import {getContextMenuPosition, getEventDispositionFlags, HelpBubbleAnchorMixin, playIconAnimation, PressHandler, roundedIconsEnabled} from '/shared/toolbar_button.js';
 
 import {getCss} from './back_forward_button.css.js';
 import {getHtml} from './back_forward_button.html.js';
 import {BrowserProxyImpl, ContextMenuType} from './browser_proxy.js';
 import type {BackForwardButtonState, BrowserProxy} from './browser_proxy.js';
 import {OverflowableButtonMixin} from './overflowable_button.js';
-import {getContextMenuPosition, getEventDispositionFlags, HelpBubbleAnchorMixin, playIconAnimation, PressHandler, roundedIconsEnabled} from './toolbar_button.js';
 
 const BackForwardButtonElementBase =
     HelpBubbleAnchorMixin(OverflowableButtonMixin(CrLitElement));
@@ -96,10 +97,11 @@ export class BackForwardButtonElement extends BackForwardButtonElementBase {
         /*showMenuToken=*/ null);
   }
 
-  private onShortPress_(e: MouseEvent) {
+  private onShortPress_(e: PointerEvent) {
     if (!this.state.enabled) {
       return;
     }
+    TrackedElementManager.getInstance().notifyElementActivated(this);
     const flags = getEventDispositionFlags(e);
     if (this.direction === 'back') {
       this.browserProxy_.browserControlsHandler.back(flags);
@@ -114,8 +116,7 @@ export class BackForwardButtonElement extends BackForwardButtonElementBase {
       // 'touch' or 'pen'.
       // - We also exclude middle/right clicks (button !== 0) and touch UI mode.
       const isPointerUp = e.type === 'pointerup';
-      const isMouse =
-          isPointerUp && (e as PointerEvent).pointerType === 'mouse';
+      const isMouse = isPointerUp && e.pointerType === 'mouse';
       const isLeftClick = e.button === 0;
       if (!this.touchUi && isMouse && isLeftClick) {
         if (this.animating_) {
@@ -238,7 +239,7 @@ export class BackForwardButtonElement extends BackForwardButtonElementBase {
     }
   }
 
-  protected onClick_(e: MouseEvent) {
+  protected onClick_(e: PointerEvent) {
     // Only handle keyboard 'click', which triggers a left-click equivalent.
     // Other events like mouse 'click' are handled in onShortPress_.
     if (e.detail === 0) {

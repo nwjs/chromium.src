@@ -63,7 +63,7 @@ public class HistoricalTabModelObserver implements TabModelObserver {
      * Adds a secondary {@link TabModel} supplier to check if a deleted tab should be added to
      * recent tabs.
      */
-    public void addSecondaryTabModelSupplier(Supplier<TabModel> tabModelSupplier) {
+    public void addSecondaryTabModelSupplier(Supplier<@Nullable TabModel> tabModelSupplier) {
         mHistoricalTabSaver.addSecondaryTabModelSupplier(tabModelSupplier);
     }
 
@@ -71,7 +71,7 @@ public class HistoricalTabModelObserver implements TabModelObserver {
      * Removes a secondary {@link TabModel} supplier to check if a deleted tab should be added to
      * recent tabs.
      */
-    public void removeSecondaryTabModelSupplier(Supplier<TabModel> tabModelSupplier) {
+    public void removeSecondaryTabModelSupplier(Supplier<@Nullable TabModel> tabModelSupplier) {
         mHistoricalTabSaver.removeSecondaryTabModelSupplier(tabModelSupplier);
     }
 
@@ -141,7 +141,8 @@ public class HistoricalTabModelObserver implements TabModelObserver {
             List<Tab> groupTabs = new ArrayList<>();
             groupTabs.add(tab);
             HistoricalEntry historicalGroup =
-                    new HistoricalEntry(tabGroupId, title, color, groupTabs);
+                    new HistoricalEntry(
+                            tabGroupId, title, color, groupTabs, /* savedTabGroupSyncId= */ null);
             entries.add(historicalGroup);
             tabGroupIdToGroup.put(tabGroupId, historicalGroup);
         }
@@ -168,7 +169,7 @@ public class HistoricalTabModelObserver implements TabModelObserver {
         @Nullable Token tabGroupId = entry.getTabGroupId();
         if (tabGroupId == null) return false;
 
-        boolean groupExists = mTabModel.tabGroupExists(tabGroupId);
+        boolean groupExists = mTabModel.containsTabGroup(tabGroupId);
         if (groupExists) {
             List<Tab> tabsInGroup = mTabModel.getTabsInGroup(tabGroupId);
             if (tabsInGroup.size() != entry.getTabs().size()
@@ -192,7 +193,7 @@ public class HistoricalTabModelObserver implements TabModelObserver {
         @Nullable Token tabGroupId = tab.getTabGroupId();
         if (tabGroupId == null) return false;
 
-        if (mTabModel.tabGroupExists(tabGroupId)) {
+        if (mTabModel.containsTabGroup(tabGroupId)) {
             // Case: Group information not lost yet (non-undoable closure). Rely on whether the tab
             // is the only tab in its tab group.
             List<Tab> tabs = mTabModel.getTabsInGroup(tabGroupId);

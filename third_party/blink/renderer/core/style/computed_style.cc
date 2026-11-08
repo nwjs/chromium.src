@@ -447,7 +447,11 @@ ComputedStyle::ComputeDifferenceIgnoringInheritedFirstLineStyle(
   }
   if (old_style.Display() != new_style.Display() &&
       (old_style.BlockifiesChildren() != new_style.BlockifiesChildren() ||
-       old_style.InlinifiesChildren() != new_style.InlinifiesChildren())) {
+       old_style.InlinifiesChildren() != new_style.InlinifiesChildren() ||
+       (old_style.Display() == EDisplay::kContents &&
+        old_style.IsContentDrawableCanvasChild()) !=
+           (new_style.Display() == EDisplay::kContents &&
+            new_style.IsContentDrawableCanvasChild()))) {
     return Difference::kDescendantAffecting;
   }
   if (old_style.ScrollMarkerGroupNone() != new_style.ScrollMarkerGroupNone()) {
@@ -560,91 +564,19 @@ bool ComputedStyle::operator==(const ComputedStyle& o) const {
 }
 
 bool ComputedStyle::HighlightPseudoElementStylesDependOnRelativeUnits() const {
-  const StyleHighlightData& highlight_data = HighlightData();
-  if (highlight_data.Selection() &&
-      highlight_data.Selection()->HasAnyRelativeUnits()) {
-    return true;
-  }
-  if (highlight_data.TargetText() &&
-      highlight_data.TargetText()->HasAnyRelativeUnits()) {
-    return true;
-  }
-  if (highlight_data.SpellingError() &&
-      highlight_data.SpellingError()->HasAnyRelativeUnits()) {
-    return true;
-  }
-  if (highlight_data.GrammarError() &&
-      highlight_data.GrammarError()->HasAnyRelativeUnits()) {
-    return true;
-  }
-  const CustomHighlightsStyleMap& custom_highlights =
-      highlight_data.CustomHighlights();
-  for (const auto& custom_highlight : custom_highlights) {
-    if (custom_highlight.value->HasAnyRelativeUnits()) {
-      return true;
-    }
-  }
-
-  return false;
+  return HighlightData().StylesDependOnFunc(
+      [](const ComputedStyle& style) { return style.HasAnyRelativeUnits(); });
 }
 
 bool ComputedStyle::HighlightPseudoElementStylesDependOnContainerUnits() const {
-  const StyleHighlightData& highlight_data = HighlightData();
-  if (highlight_data.Selection() &&
-      highlight_data.Selection()->HasContainerRelativeValue()) {
-    return true;
-  }
-  if (highlight_data.TargetText() &&
-      highlight_data.TargetText()->HasContainerRelativeValue()) {
-    return true;
-  }
-  if (highlight_data.SpellingError() &&
-      highlight_data.SpellingError()->HasContainerRelativeValue()) {
-    return true;
-  }
-  if (highlight_data.GrammarError() &&
-      highlight_data.GrammarError()->HasContainerRelativeValue()) {
-    return true;
-  }
-  const CustomHighlightsStyleMap& custom_highlights =
-      highlight_data.CustomHighlights();
-  for (const auto& custom_highlight : custom_highlights) {
-    if (custom_highlight.value->HasContainerRelativeValue()) {
-      return true;
-    }
-  }
-
-  return false;
+  return HighlightData().StylesDependOnFunc([](const ComputedStyle& style) {
+    return style.HasContainerRelativeValue();
+  });
 }
 
-
 bool ComputedStyle::HighlightPseudoElementStylesHaveVariableReferences() const {
-  const StyleHighlightData& highlight_data = HighlightData();
-  if (highlight_data.Selection() &&
-      highlight_data.Selection()->HasVariableReference()) {
-    return true;
-  }
-  if (highlight_data.TargetText() &&
-      highlight_data.TargetText()->HasVariableReference()) {
-    return true;
-  }
-  if (highlight_data.SpellingError() &&
-      highlight_data.SpellingError()->HasVariableReference()) {
-    return true;
-  }
-  if (highlight_data.GrammarError() &&
-      highlight_data.GrammarError()->HasVariableReference()) {
-    return true;
-  }
-  const CustomHighlightsStyleMap& custom_highlights =
-      highlight_data.CustomHighlights();
-  for (const auto& custom_highlight : custom_highlights) {
-    if (custom_highlight.value->HasVariableReference()) {
-      return true;
-    }
-  }
-
-  return false;
+  return HighlightData().StylesDependOnFunc(
+      [](const ComputedStyle& style) { return style.HasVariableReference(); });
 }
 
 const ComputedStyle* ComputedStyle::GetCachedPseudoElementStyle(
@@ -734,7 +666,10 @@ bool ComputedStyle::InheritedEqual(const ComputedStyle& other) const {
 
 bool ComputedStyle::IndependentInheritedEqual(
     const ComputedStyle& other) const {
-  return ComputedStyleBase::IndependentInheritedEqual(other);
+  return ComputedStyleBase::IndependentInheritedEqual(other) &&
+         // custom_compare, so not part of the above.
+         IndependentInheritedAnimatedSources() ==
+             other.IndependentInheritedAnimatedSources();
 }
 
 bool ComputedStyle::NonIndependentInheritedEqual(
@@ -752,7 +687,10 @@ bool ComputedStyle::InheritedEqualIncludingInheritedVariables(
   // We use a by-value check that is a bit more expensive than
   // pointer comparison, but yields many more MPC hits,
   // so it generally makes up for it.
-  return ComputedStyleBase::InheritedEqualIncludingInheritedVariables(other);
+  return ComputedStyleBase::InheritedEqualIncludingInheritedVariables(other) &&
+         // custom_compare, so not part of the above.
+         IndependentInheritedAnimatedSources() ==
+             other.IndependentInheritedAnimatedSources();
 }
 
 ComputedStyle::InheritedPropertyHash
@@ -1732,7 +1670,7 @@ void ComputedStyle::ApplyMotionPathTransform(float origin_x,
     }
   } else if (IsA<CoordBoxOffsetPathOperation>(offset_path)) {
     if (box && box->ContainingBlock()) {
-      const ComputedStyle& style = box->ContainingBlock()->StyleRef();
+      const ComputedStyle& style = box->ContainingBlock()->Style();
       const gfx::RectF reference_box = GetReferenceBox(box, coord_box);
       const gfx::PointF offset_from_reference_box =
           GetOffsetFromContainingBlock(box) - reference_box.OffsetFromOrigin();
@@ -1957,7 +1895,7 @@ String ApplyFullwidthTransform(const String& text,
     if (code_point == uchar::kSpace && !preserve_white_space) {
       transformed_char = code_point;
     } else {
-      transformed_char = Character::FullwidthVariant(code_point);
+      transformed_char = unicode::FullwidthVariant(code_point);
     }
     result.Append(transformed_char);
   }
@@ -1974,7 +1912,7 @@ String ApplyFullSizeKanaTransform(const String& text,
   wtf_size_t target_offset = 0;
 
   for (UChar32 code_point : text) {
-    UChar32 transformed = Character::FullSizeKanaVariant(code_point);
+    UChar32 transformed = unicode::FullSizeKanaVariant(code_point);
 
     wtf_size_t source_len = U16_LENGTH(code_point);
     wtf_size_t target_len = U16_LENGTH(transformed);
@@ -3097,9 +3035,11 @@ AnimatedSource ComputedStyle::GetAnimatedSource(CSSPropertyID property) const {
   if (!tracked) {
     return {};
   }
-  const StyleAnimatedSources& sources = CSSProperty::Get(property).IsInherited()
-                                            ? InheritedAnimatedSources()
-                                            : NonInheritedAnimatedSources();
+  const CSSProperty& css_property = CSSProperty::Get(property);
+  const StyleAnimatedSources& sources =
+      css_property.IsIndependent() ? IndependentInheritedAnimatedSources()
+      : css_property.IsInherited() ? InheritedAnimatedSources()
+                                   : NonInheritedAnimatedSources();
   return sources.Get(*tracked);
 }
 
@@ -3156,10 +3096,15 @@ void ComputedStyleBuilder::PropagateIndependentInheritedProperties(
 // Compares through the shared group first to avoid a copy-on-write when
 // unchanged.
 void ComputedStyleBuilder::UpdateAnimatedSource(AnimatedSourceProperty property,
-                                                bool is_inherited,
+                                                const CSSProperty& css_property,
                                                 AnimatedSource source) {
   DCHECK(source.IsValid());
-  if (is_inherited) {
+  if (css_property.IsIndependent()) {
+    if (IndependentInheritedAnimatedSources().Get(property) != source) {
+      MutableIndependentInheritedAnimatedSourcesInternal().Set(property,
+                                                               source);
+    }
+  } else if (css_property.IsInherited()) {
     if (InheritedAnimatedSources().Get(property) != source) {
       MutableInheritedAnimatedSourcesInternal().Set(property, source);
     }
@@ -3180,7 +3125,7 @@ void ComputedStyleBuilder::SetAnimatedSource(CSSPropertyID property,
   if (!tracked) {
     return;
   }
-  UpdateAnimatedSource(*tracked, CSSProperty::Get(property).IsInherited(),
+  UpdateAnimatedSource(*tracked, CSSProperty::Get(property),
                        AnimatedSource::ForElement(&animating_element));
 }
 
@@ -3203,8 +3148,7 @@ void ComputedStyleBuilder::CopyAnimatedSourceFrom(
   if (AnimatedSource source = parent_style->GetAnimatedSource(property);
       source.IsValid()) {
     source.has_untracked_dependencies = has_untracked_dependencies;
-    UpdateAnimatedSource(*tracked, CSSProperty::Get(property).IsInherited(),
-                         source);
+    UpdateAnimatedSource(*tracked, CSSProperty::Get(property), source);
   } else {
     ClearAnimatedSource(property);
   }
@@ -3221,7 +3165,12 @@ void ComputedStyleBuilder::ClearAnimatedSource(CSSPropertyID property) {
   }
   // Compares through the shared group first to avoid a copy-on-write when
   // already clear.
-  if (CSSProperty::Get(property).IsInherited()) {
+  const CSSProperty& css_property = CSSProperty::Get(property);
+  if (css_property.IsIndependent()) {
+    if (IndependentInheritedAnimatedSources().Get(*tracked).IsValid()) {
+      MutableIndependentInheritedAnimatedSourcesInternal().Clear(*tracked);
+    }
+  } else if (css_property.IsInherited()) {
     if (InheritedAnimatedSources().Get(*tracked).IsValid()) {
       MutableInheritedAnimatedSourcesInternal().Clear(*tracked);
     }

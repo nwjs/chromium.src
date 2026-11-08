@@ -22,7 +22,6 @@
 #import "ios/chrome/browser/fullscreen/ui_bundled/test/fullscreen_app_interface.h"
 #import "ios/chrome/browser/metrics/model/metrics_app_interface.h"
 #import "ios/chrome/browser/popup_menu/public/popup_menu_constants.h"
-#import "ios/chrome/browser/reader_mode/model/features.h"
 #import "ios/chrome/browser/reader_mode/test/reader_mode_app_interface.h"
 #import "ios/chrome/browser/reader_mode/ui/constants.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
@@ -363,12 +362,12 @@ void RelaunchApp() {
 
 #if BUILDFLAG(IOS_CHROME_ENABLE_PROFILE_ALTERING_TESTS)
 // Allows system permission if shown on Springboard without using eDO calls.
-void CheckAndAcceptSystemDialog() {
+void CheckAndAcceptSystemDialog(base::TimeDelta timeout) {
   XCUIApplication* springboardApp = [[XCUIApplication alloc]
       initWithBundleIdentifier:@"com.apple.springboard"];
   XCUIElement* alert = [[springboardApp
       descendantsMatchingType:XCUIElementTypeAlert] firstMatch];
-  if ([alert waitForExistenceWithTimeout:1]) {
+  if ([alert waitForExistenceWithTimeout:timeout.InSecondsF()]) {
     XCUIElement* allowButton = alert.buttons[@"Allow"].firstMatch;
     if (![allowButton exists]) {
       allowButton = [alert.buttons elementBoundByIndex:1];
@@ -421,6 +420,9 @@ void CheckAndAcceptSystemDialog() {
 }
 
 - (void)tearDownHelper {
+#if BUILDFLAG(IOS_CHROME_ENABLE_PROFILE_ALTERING_TESTS)
+  CheckAndAcceptSystemDialog(base::Seconds(1));
+#endif  // BUILDFLAG(IOS_CHROME_ENABLE_PROFILE_ALTERING_TESTS)
   if (_setUpHistogramTesterCalled) {
     chrome_test_util::GREYAssertErrorNil(
         [MetricsAppInterface releaseHistogramTester]);
@@ -1563,7 +1565,7 @@ void CheckAndAcceptSystemDialog() {
 
   TapOnContextMenuButton(SaveImageButton());
 
-  CheckAndAcceptSystemDialog();
+  CheckAndAcceptSystemDialog(base::test::ios::kWaitForUIElementTimeout);
 
   // Verify that the error alert is presented when saving invalid image data.
   [ChromeEarlGrey waitForUIElementToAppearWithMatcher:

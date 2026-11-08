@@ -23,7 +23,6 @@
 <translation id="1038106730571050514">Mostra els suggeriments</translation>
 <translation id="1038168778161626396">Només encriptar</translation>
 <translation id="1038842779957582377">nom desconegut</translation>
-<translation id="1039767473048604223"><ph name="DEVICE_NAME" />, <ph name="MODEL" /></translation>
 <translation id="1041998700806130099">Missatge del full de treball</translation>
 <translation id="1044897699341250361">Què implica això</translation>
 <translation id="1049837829250301306">El contingut no s'ha pogut enganxar a causa de les polítiques de la teva organització</translation>
@@ -79,7 +78,6 @@
 <translation id="112840717907525620">La memòria cau de la política està en bon estat</translation>
 <translation id="1131264053432022307">Imatge que has copiat</translation>
 <translation id="1132735979845538847"><ph name="ORIGIN" />. Per sortir de la pantalla completa, arrossega des de la part superior i toca el botó Enrere.</translation>
-<translation id="1133418583142946603">Afegeix la pestanya actual</translation>
 <translation id="1138458427267715730">Rep alertes quan el preu baixi en qualsevol lloc web d'Internet</translation>
 <translation id="1142713751288681188">Tipus de paper</translation>
 <translation id="1142965388643537393">Informació de viatges</translation>
@@ -289,7 +287,6 @@ En cas contrari, la configuració de privadesa el bloquejarà. Això permetrà q
 <translation id="1462951478840426066">Utilitza els tipus de lletra del teu ordinador per crear continguts d'alta fidelitat</translation>
 <translation id="1465457928007067810">S'ha desat l'IBAN al teu Compte de Google</translation>
 <translation id="1467432559032391204">Esquerra</translation>
-<translation id="1471514598850585811">Portàtil</translation>
 <translation id="1472675084647422956">Mostra'n més</translation>
 <translation id="1473183651233018052">JIS B10</translation>
 <translation id="1473495410389165587">Introdueix tres paraules o més si vols obtenir ajuda per escriure</translation>
@@ -303,7 +300,6 @@ En cas contrari, la configuració de privadesa el bloquejarà. Això permetrà q
 <translation id="1486096554574027028">Cerca contrasenyes</translation>
 <translation id="1492194039220927094">Tramesa automàtica de les polítiques:</translation>
 <translation id="1495677929897281669">Torna a la pestanya</translation>
-<translation id="1496318738909526466">Gestiona l'emplenament automàtic millorat</translation>
 <translation id="1500286806237135498">Càmeres (<ph name="CAMERAS_COUNT" />)</translation>
 <translation id="1504042622576912555">Acanalat</translation>
 <translation id="1507202001669085618">&lt;p&gt;Aquest error es mostra si utilitzeu un portal Wi-Fi en què cal que inicieu la sessió per connectar-vos a Internet.&lt;/p&gt;
@@ -452,7 +448,6 @@ En cas contrari, la configuració de privadesa el bloquejarà. Això permetrà q
 <translation id="1734864079702812349">Amex</translation>
 <translation id="1734878702283171397">Prova de contactar amb l'administrador del sistema.</translation>
 <translation id="1736163675982669961"><ph name="CARD_NICKNAME" />, <ph name="CARD_NETWORK_NAME" />, <ph name="CARD_LAST_FOUR_DIGITS" />; data de caducitat: <ph name="CARD_EXPIRATION" /></translation>
-<translation id="1736420071277903564">Ordinador</translation>
 <translation id="1739364174357629566">Actualitza el número de viatger conegut</translation>
 <translation id="1740404923954980840">Per sortir de la pantalla completa, arrossega des de la part superior i toca el botó Enrere</translation>
 <translation id="1741474054575634405">Gestiona les targetes de fidelització...</translation>
@@ -495,6 +490,7 @@ En cas contrari, la configuració de privadesa el bloquejarà. Això permetrà q
 <translation id="18139523105317219">Nom de la part EDI</translation>
 <translation id="1816436748874040213">Pot demanar permís per desplaçar-se i fer zoom a les pestanyes compartides</translation>
 <translation id="1816707915923025275">Escriu @historial per cercar al teu historial de navegació</translation>
+<translation id="1816771466809215784">Perquè s'empleni automàticament en tramitar la compra, desa el nom del titular d'aquesta targeta a Google Wallet</translation>
 <translation id="1817364650920811003">Funció: consell de Chrome. Etiqueta d'accessibilitat: <ph name="CHROME_TIP" />.</translation>
 <translation id="182139138257690338">baixades automàtiques</translation>
 <translation id="1821930232296380041">Sol·licitud o paràmetres de la sol·licitud no vàlids</translation>
@@ -652,6 +648,7 @@ En cas contrari, la configuració de privadesa el bloquejarà. Això permetrà q
 <translation id="2102495993840063010">Aplicacions per a Android</translation>
 <translation id="2103210856015238101">Les targetes de fidelització que es poden emplenar amb un toc s'han obert a alçada completa.</translation>
 <translation id="2104739941682874393">L'emplenament automàtic millorat entén millor els formularis i pot emplenar-los automàticament més de pressa</translation>
+<translation id="2105237910269166838">Pregunta sobre aquesta pàgina</translation>
 <translation id="2107021941795971877">Suports d'impressió</translation>
 <translation id="2108755909498034140">Reinicia l'ordinador</translation>
 <translation id="2109845311767915560">Grup de pestanyes compartit</translation>
@@ -668,8 +665,10 @@ En cas contrari, la configuració de privadesa el bloquejarà. Això permetrà q
 <translation id="2126374524350484896">Creador de PDF:</translation>
 <translation id="2127090458081644412">La contrasenya s'ha desat en aquest dispositiu</translation>
 <translation id="2127747486437921899">Cursiva</translation>
+<translation id="2129163794581571479">Amb la tecnologia de Gemini amb Intel·ligència personal. És possible que les teves sol·licituds, els títols de les pàgines i els URL es revisin per perfeccionar l'emplenament automàtic millorat. <ph name="BEGIN_LINK" />Gestiona la configuració<ph name="END_LINK" /></translation>
 <translation id="2130448033692577677">Pot ser que les plantilles que has especificat no s'apliquin perquè la política DnsOverHttpsMode no s'ha establert.</translation>
 <translation id="2130699163006053678">A3x7</translation>
+<translation id="2131006834960167560">L'opció Activa l'emplenament automàtic de pagaments s'ha obert a alçada completa.</translation>
 <translation id="2131511685263818470"><ph name="SEARCH_ENGINE_NAME" />. <ph name="MARKETING_SNIPPET" />.</translation>
 <translation id="2132825047782982803">Es mostren en ordre aleatori. Pots canviar el motor de cerca predeterminat en qualsevol moment.</translation>
 <translation id="2134584557120247184">Bitllet d'avió</translation>
@@ -864,6 +863,7 @@ En cas contrari, la configuració de privadesa el bloquejarà. Això permetrà q
 <translation id="2436186046335138073">Voleu permetre que <ph name="HANDLER_HOSTNAME" /> obri tots els enllaços de <ph name="PROTOCOL" />?</translation>
 <translation id="243815215670139125">Aquesta targeta no s'ha pogut desar al teu Compte de Google. S'ha desat a Chrome en aquest dispositiu.</translation>
 <translation id="2438874542388153331">Encunyació quàdruple a la dreta</translation>
+<translation id="2442033148418774391">L'avís Emplenament automàtic més intel·ligent mantenint la privadesa s'ha tancat</translation>
 <translation id="2442865686365739754">Chrome <ph name="BEGIN_EMPHASIS" />no desarà<ph name="END_EMPHASIS" />:
           <ph name="BEGIN_LIST" />
             <ph name="LIST_ITEM" />El teu historial de navegació
@@ -876,13 +876,13 @@ En cas contrari, la configuració de privadesa el bloquejarà. Això permetrà q
 <translation id="2451607499823206582">Seguiment</translation>
 <translation id="2452837234288608067">No hem pogut ajudar-te. Torna-ho a provar.</translation>
 <translation id="2453045048779611513">La teva organització limita el que pots desar</translation>
+<translation id="2456490423293803882">L'avís Emplenament automàtic més intel·ligent mantenint la privadesa s'ha obert a alçada completa</translation>
 <translation id="2459882793359532780">Polítiques del navegador aplicades (polítiques del dispositiu i del perfil)</translation>
 <translation id="2461385121573678775">Chrome Enterprise Core et proporciona una eina centralitzada per configurar polítiques del navegador des del núvol</translation>
 <translation id="2461822463642141190">Actual</translation>
 <translation id="2462724976360937186">Identificador de clau d'entitat emissora de certificats</translation>
 <translation id="2465688316154986572">Grapat</translation>
 <translation id="2465914000209955735">Gestiona els fitxers que has baixat a Chrome</translation>
-<translation id="2466682894498377850">S'ha enviat una pestanya des del teu <ph name="DEVICE_NAME" /></translation>
 <translation id="2467272921457885625">Especificacions i estadístiques de maquinari del dispositiu, com ara l'historial d'ús de CPU o RAM</translation>
 <translation id="2467421459221956357">Vols utilitzar els sensors?</translation>
 <translation id="2467694685043708798"><ph name="BEGIN_LINK" />Executar el diagnòstic de xarxes<ph name="END_LINK" /></translation>
@@ -924,7 +924,6 @@ En cas contrari, la configuració de privadesa el bloquejarà. Això permetrà q
 <translation id="2524962131655207565"><ph name="BEGIN_BOLD" />El contingut de la pàgina de tramitació de la compra es comparteix amb Google per oferir aquestes opcions<ph name="END_BOLD" />. Els plans de pagament estan subjectes a la idoneïtat. Per amagar les opcions que permeten pagar més tard, ves a la <ph name="BEGIN_LINK" />configuració de pagament<ph name="END_LINK" />.</translation>
 <translation id="2526062290525841862">Per executar aquesta aplicació, torna a activar el mode de desenvolupador d'aplicacions web aïllades</translation>
 <translation id="2526280916094749336">Pots utilitzar les adreces desades en tots els productes de Google. Aquesta adreça es desarà al teu Compte de Google, <ph name="ACCOUNT" />.</translation>
-<translation id="2526590354069164005">Escriptori</translation>
 <translation id="2527451058878391043">El CVC és a l'anvers de la targeta. És el codi de 4 dígits que hi ha a la part superior dreta sobre el número de la targeta.</translation>
 <translation id="2529899080962247600">Aquest camp no pot tenir més de <ph name="MAX_ITEMS_LIMIT" /> entrades. Totes les altres entrades s'ignoraran.</translation>
 <translation id="2530042584066815841">Bloqueig i ús del ratolí</translation>
@@ -953,6 +952,7 @@ En cas contrari, la configuració de privadesa el bloquejarà. Això permetrà q
 <translation id="2556173336856001120"><ph name="USER_GIVEN_NAME" /> • <ph name="DEVICE_NAME" /></translation>
 <translation id="2556876185419854533">&amp;Desfés la modificació</translation>
 <translation id="2559566667529177711">Multicapa</translation>
+<translation id="2561224416042784023">Mostra la configuració</translation>
 <translation id="2570734079541893434">Gestiona la configuració</translation>
 <translation id="257136025287118539">L'administrador està movent els teus fitxers a <ph name="CLOUD_PROVIDER" />. Podràs modificar aquests fitxers quan s'hagin acabat de penjar.</translation>
 <translation id="2571488850200220306">Per garantir-ne la seguretat, també pot veure el SO del dispositiu, la versió del navegador i quin programari hi ha instal·lat</translation>
@@ -1056,7 +1056,7 @@ En cas contrari, la configuració de privadesa el bloquejarà. Això permetrà q
 <translation id="2734797989819862638">No copiïs</translation>
 <translation id="2738771556149464852">No després</translation>
 <translation id="2740531572673183784">D'acord</translation>
-<translation id="275259155159336003">Amb la tecnologia d'Intel·ligència personal de Gemini. És possible que les teves sol·licituds, els títols de les pàgines i els URL es revisin per perfeccionar l'emplenament automàtic millorat. <ph name="BEGIN_LINK" />Gestiona la configuració<ph name="END_LINK" /></translation>
+<translation id="2750602117850059078">{COUNT,plural, =0{Cap}=1{1 habilitat}other{# habilitats}}</translation>
 <translation id="2757727729385895652">S'estan penjant <ph name="COUNT" /> fitxers a Google Drive</translation>
 <translation id="2759299890026163685">Assegura't de tenir una connexió a Internet estable abans de tornar-ho a provar</translation>
 <translation id="2759825833388495838">emplenar la teva contrasenya a <ph name="APP_NAME" /></translation>
@@ -1097,7 +1097,6 @@ En cas contrari, la configuració de privadesa el bloquejarà. Això permetrà q
 <translation id="2858134430383535011">200 x 300 mm</translation>
 <translation id="2859383374160668142">Pots veure les baixades de preu dels productes que segueixes en qualsevol moment.</translation>
 <translation id="2859806420264540918">Aquest lloc web mostra anuncis intrusius o enganyosos.</translation>
-<translation id="2864493683872263351">Codifica, escriu o crea diapositives</translation>
 <translation id="2873317327342476681">Joc del dinosaure. Toca el dinosaure o prem la barra espaiadora per jugar.</translation>
 <translation id="287387905105155974">Quadre d'ajuda</translation>
 <translation id="2875109558992200904">Quan Chrome marca esdeveniments de seguretat, se n'envien les dades rellevants a l'administrador. Per exemple, URL i títols de pàgines que visites a Chrome, URL de pàgines de les quals has copiat dades, noms o metadades de fitxers, adreces IP, bloquejos de navegadors o de pestanyes, i el nom d'usuari que fas servir per iniciar la sessió en aplicacions web, al dispositiu i a Chrome.</translation>
@@ -1106,6 +1105,7 @@ En cas contrari, la configuració de privadesa el bloquejarà. Això permetrà q
 <translation id="2878197950673342043">Plegat en pòster</translation>
 <translation id="2878424575911748999">A1</translation>
 <translation id="2879694782644540289">utilitzar el bloqueig de pantalla per emplenar contrasenyes</translation>
+<translation id="2880119244122776372">Crea i programa</translation>
 <translation id="2881276955470682203">Vols desar la targeta?</translation>
 <translation id="2882280148032777436">Suprimeix el número de viatger conegut</translation>
 <translation id="2882949212241984732">Plegat en finestra doble</translation>
@@ -1205,6 +1205,7 @@ En cas contrari, la configuració de privadesa el bloquejarà. Això permetrà q
 <translation id="3041176923638368519">Consulta les condicions de l'avantatge de la targeta</translation>
 <translation id="3041584414879052436">La llista d'emissors de Compra ara, paga més tard està tancada.</translation>
 <translation id="3041612393474885105">Informació del certificat</translation>
+<translation id="3041835740069544003">Ara Chrome pot detectar i emplenar més formularis amb la comprensió de formularis més intel·ligent. Per fer-ho, el contingut i els URL de les pàgines es poden processar en un espai privat al núvol. Gestiona-ho a la configuració.</translation>
 <translation id="3047054686095898948">Desa la informació a <ph name="IDS_AUTOFILL_GOOGLE_WALLET_TITLE_1" /> i enllesteix més ràpidament les tasques, com ara emplenar formularis en tots els productes de Google. Pots <ph name="BEGIN_LINK" />gestionar la teva informació<ph name="END_LINK" /> a <ph name="IDS_AUTOFILL_GOOGLE_WALLET_TITLE_2" /> per a <ph name="ACCOUNT" /></translation>
 <translation id="305162504811187366">Historial de l'Escriptori remot de Chrome, inclosos els amfitrions, les marques de temps i els identificadors de sessió de client</translation>
 <translation id="3052868890529250114">Normalment et connectes a llocs web de manera segura, però aquesta vegada Chrome no ha pogut utilitzar una connexió segura. És possible que un atacant estigui provant d'escoltar clandestinament o de modificar la connexió de xarxa. <ph name="BEGIN_LEARN_MORE_LINK" />Més informació sobre aquest advertiment<ph name="END_LEARN_MORE_LINK" /></translation>
@@ -1242,7 +1243,6 @@ Per amagar les opcions de Paga més tard, ves a la <ph name="BEGIN_LINK" />confi
 <translation id="3109788962812161063">Gestió de perfils</translation>
 <translation id="3112892588078695695">Número de telèfon: <ph name="PHONE" />.</translation>
 <translation id="3113284927548439113">Tercer torn</translation>
-<translation id="3113930177999394798">Escriu @historial per cercar al teu historial de navegació, amb tecnologia d'IA</translation>
 <translation id="3114040155724590991">S'està actualitzant el sistema d'Android
     L'aplicació pot tardar més del normal a iniciar-se.</translation>
 <translation id="3114197119223448048">activitat nova</translation>
@@ -1364,6 +1364,7 @@ Per amagar les opcions de Paga més tard, ves a la <ph name="BEGIN_LINK" />confi
 <translation id="3289578402369490638">D'altres botigues de tot el web</translation>
 <translation id="3293642807462928945">Més informació sobre la política <ph name="POLICY_NAME" /></translation>
 <translation id="3295444047715739395">Consulta i gestiona les teves contrasenyes a la configuració de Chrome</translation>
+<translation id="3296595523896103792">S'ha tancat l'opció Activa l'emplenament automàtic de pagaments.</translation>
 <translation id="3299098170013242198">Windows Hello està activat per emplenar contrasenyes</translation>
 <translation id="3299197721044635447">El contingut no s'ha pogut enganxar fora del context de Chrome gestionat a causa de les polítiques de la teva organització</translation>
 <translation id="3299720788264079132">Hi ha hagut un error en utilitzar <ph name="FEATURE_NAME" /></translation>
@@ -1422,7 +1423,6 @@ Per amagar les opcions de Paga més tard, ves a la <ph name="BEGIN_LINK" />confi
 <translation id="3413466783792948876">És més segur visitar aquest lloc web més tard si utilitzes una xarxa pública. Hi ha menys riscos en utilitzar una xarxa de confiança, com ara la Wi-Fi de la feina o de casa.</translation>
 <translation id="3414952576877147120">Mida:</translation>
 <translation id="341513675006332771">Botó Juga al joc El dinosaure de Chrome: activa'l per jugar al joc del dinosaure de Chrome</translation>
-<translation id="3415471717466570460">Les teves cerques, les millors coincidències i el contingut de les pàgines associades s'envien a Google i és possible que els revisors humans els vegin per millorar aquesta funció. Aquesta funció és experimental i no sempre l'encertarà.</translation>
 <translation id="3417390269491141648">Compara les opcions del meu pla de salut i desglossa'n les diferències clau</translation>
 <translation id="3421387094817716717">Clau pública de la corba el·líptica</translation>
 <translation id="3422248202833853650">Prova de sortir d'altres programes per alliberar memòria.</translation>
@@ -1436,7 +1436,6 @@ Per amagar les opcions de Paga més tard, ves a la <ph name="BEGIN_LINK" />confi
 <translation id="3432601291244612633">Tanca la pàgina</translation>
 <translation id="3434025015623587566">El gestor de contrasenyes de Google necessita un accés més ampli</translation>
 <translation id="343474037147570563">Els fitxers que penges o adjuntes s'envien a Google Cloud o a tercers perquè s'analitzin. Per exemple, pot ser que s'analitzin per detectar-hi dades sensibles o programari maliciós, que s'emmagatzemin d'acord amb les polítiques de l'empresa i que el teu administrador els pugui veure.</translation>
-<translation id="3435267628744367511">Prem Ctrl dues vegades en qualsevol formulari per trobar i emplenar informació sense canviar de pestanya</translation>
 <translation id="3435557549311968410">Continu (curt)</translation>
 <translation id="3435738964857648380">Seguretat</translation>
 <translation id="3436125638121079308">Vols compartir automàticament les pestanyes rellevants per obtenir millors respostes en aquest fil de discussió?</translation>
@@ -1577,6 +1576,7 @@ Per amagar les opcions de Paga més tard, ves a la <ph name="BEGIN_LINK" />confi
 <translation id="3655670868607891010">Si aquest missatge apareix sovint, proveu aquests <ph name="HELP_LINK" />.</translation>
 <translation id="3658742229777143148">Revisió</translation>
 <translation id="3659521826520353662">Quins llocs web definits per l'administrador es visiten i quan: <ph name="ALLOWLISTED_WEBSITES" /></translation>
+<translation id="3663760610864720538">Amb la tecnologia de Gemini amb Intel·ligència personal. <ph name="BEGIN_LINK" />Gestiona la configuració<ph name="END_LINK" /></translation>
 <translation id="3664479564786885722">Cerca més opcions de compra en altres botigues que venen aquest producte.</translation>
 <translation id="3664782872746246217">Paraules clau:</translation>
 <translation id="3670030362669914947">Número</translation>
@@ -1597,6 +1597,7 @@ Per amagar les opcions de Paga més tard, ves a la <ph name="BEGIN_LINK" />confi
 <translation id="3693516565203081475">Tria la forma de pagament</translation>
 <translation id="3698353241727597930">El teu administrador ha configurat que les <ph name="FILES" /> es desin a l'emmagatzematge de <ph name="CLOUD_STORAGE" /> gestionat per l'empresa. És possible que aquests fitxers se supervisin, s'auditin i es conservin quan els suprimeixis.</translation>
 <translation id="3698629142018988477">Botó Crea un lloc web: activa'l per crear un lloc web ràpidament a Google Sites</translation>
+<translation id="3698708128812719147">Prem Ctrl dues vegades en qualsevol lloc del web per trobar i emplenar més informació</translation>
 <translation id="3700094625653511150">Per amagar les opcions de Paga més tard, ves a <ph name="IDS_AUTOFILL_CARD_BNPL_SELECT_PROVIDER_FOOTNOTE_HIDE_OPTION_PAYMENT_SETTINGS_LINK_TEXT" /></translation>
 <translation id="3700966190175650601">Fas servir l'empremta digital per emplenar contrasenyes</translation>
 <translation id="3701427423622901115">Restabliment acceptat.</translation>
@@ -1733,7 +1734,6 @@ Per amagar les opcions de Paga més tard, ves a la <ph name="BEGIN_LINK" />confi
 <translation id="3905894480064208252">{0,plural, =1{S'ha bloquejat el fitxer perquè no es pugui transferir}other{S'han bloquejat <ph name="FILE_COUNT" /> fitxers perquè no es puguin transferir}}</translation>
 <translation id="3906022360148923497">Icona de l'instrument de pagament</translation>
 <translation id="3906234161316839040">Altres comandes</translation>
-<translation id="3906954721959377182">Tauleta</translation>
 <translation id="3909695131102177774"><ph name="LABEL" /> <ph name="ERROR" /></translation>
 <translation id="3910231615117880630">Més informació sobre el contingut incrustat</translation>
 <translation id="3920504717067627103">Normes de certificats</translation>
@@ -1883,7 +1883,6 @@ Per amagar les opcions de Paga més tard, ves a la <ph name="BEGIN_LINK" />confi
 <translation id="4153446078232988116"><ph name="SITE" /> no admet una connexió segura amb HTTPS</translation>
 <translation id="4153858337812834972">Pestanyes més recents</translation>
 <translation id="4154277373259957087">Chrome verificarà la teva identitat abans d'emplenar les formes de pagament. Pots actualitzar aquesta informació en qualsevol moment a <ph name="IDS_AUTOFILL_MANDATORY_REAUTH_CONFIRMATION_SETTINGS_LINK" />.</translation>
-<translation id="4157273919218514718">Amb la tecnologia d'Intel·ligència personal de Gemini. <ph name="BEGIN_LINK" />Gestiona la configuració<ph name="END_LINK" /></translation>
 <translation id="4157469997675439324">Actualitza el permís de conduir de manera segura</translation>
 <translation id="4159784952369912983">Porpra</translation>
 <translation id="4165422751765527461">Obre un article del Centre d'ajuda en una pestanya nova</translation>
@@ -1901,8 +1900,8 @@ Per amagar les opcions de Paga més tard, ves a la <ph name="BEGIN_LINK" />confi
 <translation id="4179515394835346607"><ph name="ROW_NAME" /> <ph name="ROW_CONTENT" /></translation>
 <translation id="4185037616931963178">Actualitza el número de rectificació de manera segura</translation>
 <translation id="4186035307311647330">Deixa de seguir el preu</translation>
-<translation id="4190446002599583608">Cerca a l'historial, amb tecnologia d'IA</translation>
 <translation id="4191334393248735295">Llargada</translation>
+<translation id="4192770747482479191">Prem ⌘ dues vegades en qualsevol lloc del web per trobar i emplenar més informació</translation>
 <translation id="4195459680867822611">Botó Mostra consells per a Chrome: activa'l per obtenir informació sobre les funcions de Chrome</translation>
 <translation id="4195643157523330669">Obre en una pestanya nova</translation>
 <translation id="4196861286325780578">&amp;Refés el moviment</translation>
@@ -1948,7 +1947,6 @@ Per amagar les opcions de Paga més tard, ves a la <ph name="BEGIN_LINK" />confi
 <translation id="424063167283213501">Desa el número de viatger conegut</translation>
 <translation id="4241830393007970744">Els atacants del lloc web que has provat de visitar poden enganyar-te perquè instal·lis programari o perquè revelis dades com ara la contrasenya, el telèfon o números de targeta de crèdit.</translation>
 <translation id="4242380780309416996">Sobre (alt gramatge)</translation>
-<translation id="4242981939686657948">Per fer cerques a l'historial de navegació d'una manera més eficaç, activa</translation>
 <translation id="4244926541863471678">Pel·lícula</translation>
 <translation id="42481816218163154">Crea una rutina matinal de 15 minuts que m'ajudi a tenir uns matins més tranquils. Assegura't que inclogui un exercici de consciència plena.</translation>
 <translation id="4250343410682686342">La pantalla d'error de Compra ara, paga més tard està oberta a alçada completa.</translation>
@@ -2153,7 +2151,6 @@ Per amagar les opcions de Paga més tard, ves a la <ph name="BEGIN_LINK" />confi
 <translation id="4599572944836204718">Paga més ràpid amb Google Pay un cop desis la targeta. Les dades de la targeta s'encripten a Google Wallet.</translation>
 <translation id="4603727370377253901">Reserves de vols</translation>
 <translation id="4607608436550361748">Mostra consells per a Chrome</translation>
-<translation id="4607879293515681409">L'emplenament automàtic millorat ara pot trobar i emplenar informació (per exemple, números de vol i hores de cites) d'aplicacions com Gmail i Fotos</translation>
 <translation id="460848736049414407">Bloquejat per l'administrador</translation>
 <translation id="4610279718074907952">Aquest lloc web forma part d'un grup, definit per <ph name="SET_OWNER" />, que pot veure la teva activitat</translation>
 <translation id="4612631413844865947">Hi ha hagut un error en processar la comanda a <ph name="MERCHANT_ORIGIN" /> a través de <ph name="PAYMENT_APP_ORIGIN" />.</translation>
@@ -2804,7 +2801,6 @@ Per amagar les opcions de Paga més tard, ves a la <ph name="BEGIN_LINK" />confi
 <translation id="5649053991847567735">Baixades automàtiques</translation>
 <translation id="5651323159439184939">Alimentació per tracció</translation>
 <translation id="5653681867130739344">Actualitza el document d'identitat de manera segura a Google Wallet</translation>
-<translation id="5653744563415531641">Desa la informació i enllesteix més ràpidament les tasques, com ara emplenar formularis en tots els productes de Google. Pots <ph name="MANAGE_WALLET_SETTINGS_LINK" /> per a <ph name="ACCOUNT" />.</translation>
 <translation id="5654927323611874862">Identificador de l'informe de bloqueig penjat:</translation>
 <translation id="5654965123204121933">L'URL no inclou la cadena de substitució necessària<ph name="SEARCH_TERMS_REPLACEMENT" />: <ph name="SEARCH_URL" /></translation>
 <translation id="5659593005791499971">Adreça electrònica</translation>
@@ -2854,6 +2850,7 @@ Per amagar les opcions de Paga més tard, ves a la <ph name="BEGIN_LINK" />confi
 <translation id="573974402615125334">Per compartir grups de pestanyes, unir-t'hi i col·laborar-hi, sincronitza l'historial i les pestanyes</translation>
 <translation id="5740911612628596808">Sobre C9</translation>
 <translation id="574392208103952083">Mitja</translation>
+<translation id="5744350700955456407">Ara l'emplenament automàtic millorat pot trobar i emplenar informació (per exemple, números de comanda i codis de confirmació de vols) d'aplicacions com ara Gmail i Fotos</translation>
 <translation id="5745586894920491759">Chrome processa els títols i els URL de les pàgines al núvol</translation>
 <translation id="5745733273847572235">Pot demanar la teva ubicació</translation>
 <translation id="5750869797196646528">Seguiment de mans</translation>
@@ -2929,7 +2926,6 @@ Per amagar les opcions de Paga més tard, ves a la <ph name="BEGIN_LINK" />confi
 <translation id="5884465125445718607">Sobre xinès número 6</translation>
 <translation id="5887400589839399685">S'ha desat la targeta</translation>
 <translation id="5887687176710214216">Darrera visita: ahir</translation>
-<translation id="5887791684215121787">Prem ⌘ ⌘ en qualsevol formulari per trobar i emplenar informació sense canviar de pestanya</translation>
 <translation id="5889251770650310375">Per accedir a l'historial dels teus altres dispositius, verifica la teva identitat i sincronitza l'historial i les pestanyes. Pots aturar la sincronització en qualsevol moment a la configuració. És possible que Google personalitzi la Cerca i altres serveis en funció del teu historial.</translation>
 <translation id="5895138241574237353">Reinicia</translation>
 <translation id="5895187275912066135">Emès el</translation>
@@ -3256,7 +3252,6 @@ Per amagar les opcions de Paga més tard, ves a la <ph name="BEGIN_LINK" />confi
 <translation id="6410264514553301377">Introdueix la data de caducitat i el CVC de la targeta <ph name="CREDIT_CARD" /></translation>
 <translation id="6411107829285739505">A4x8</translation>
 <translation id="6412543105195503444">Quadre de diàleg d'aprovació parental</translation>
-<translation id="6413532517183895572">gestionar la configuració de Wallet</translation>
 <translation id="6415778972515849510">Chromium et pot ajudar a protegir el Compte de Google i a canviar la contrasenya.</translation>
 <translation id="6416877227920300343">EDP</translation>
 <translation id="6418199314628742460">Assegura't que totes les dades empresarials o personals essencials s'emmagatzemin externament.</translation>
@@ -3425,7 +3420,6 @@ Per amagar les opcions de Paga més tard, ves a la <ph name="BEGIN_LINK" />confi
 <translation id="671076103358959139">Testimoni d'inscripció:</translation>
 <translation id="6711464428925977395">Hi ha hagut algun problema amb el servidor intermediari o l'adreça no és correcta.</translation>
 <translation id="6711700233707023861">S'ha copiat la cadena de variacions al porta-retalls</translation>
-<translation id="6712003214447962889">Respostes més ràpides i intel·ligents</translation>
 <translation id="6712343563085762261">S'ha mogut cap amunt</translation>
 <translation id="6716039223770814796">Compara <ph name="COMPARE_SET_NAME" /> · <ph name="ITEMS" /> elements</translation>
 <translation id="6716672519412350405"><ph name="URL" /> vol crear un mapa en 3D del teu entorn i fer un seguiment de la posició de la càmera</translation>
@@ -3547,7 +3541,6 @@ Per amagar les opcions de Paga més tard, ves a la <ph name="BEGIN_LINK" />confi
 <translation id="6936976777388162184">Aquest és un dispositiu amb llicència integrada i no es pot inscriure amb la Llicència de Kiosk i Signage.</translation>
 <translation id="6942444979237658241">Comentaris - <ph name="GROUP_NAME" /></translation>
 <translation id="6944692733090228304">Has introduït la contrasenya en un lloc web que no està gestionat per <ph name="BEGIN_BOLD" /><ph name="ORG_NAME" /><ph name="END_BOLD" />. Per protegir el teu compte, no facis servir la mateixa contrasenya en altres aplicacions ni llocs web.</translation>
-<translation id="6946949206576443118">Cerca al web amb Chrome</translation>
 <translation id="6948051842255602737">S'ha acabat la partida. La teva puntuació és <ph name="SCORE" />.</translation>
 <translation id="6948223029286835408">Quan facis compres a Chrome, veuràs Pix com a opció</translation>
 <translation id="6948701128805548767">Per veure els mètodes i els requisits de recollida, selecciona una adreça</translation>
@@ -3637,6 +3630,7 @@ Per amagar les opcions de Paga més tard, ves a la <ph name="BEGIN_LINK" />confi
 <translation id="7083258188081898530">Safata 9</translation>
 <translation id="70846382339153529">Text d'OpenDocument</translation>
 <translation id="7086090958708083563">Pujada sol·licitada per l'usuari</translation>
+<translation id="7089745480771070611">S'obre al tauler lateral</translation>
 <translation id="7090698782953528257">Ajuda'm a fer un gràfic d'una funció per visualitzar l'equació matemàtica i veure la forma de la corba</translation>
 <translation id="7092087596499105699">L'administrador ha configurat el connector de passarel·la segura per protegir l'accés a les aplicacions web privades de la teva organització. És possible que utilitzi dades del teu perfil de treball per verificar l'accés.</translation>
 <translation id="7095139009144195559"><ph name="MANAGE_SITE_SETTINGS_FOCUSED_FRIENDLY_MATCH_TEXT" />, prem Tab i després Retorn per gestionar els permisos i les dades emmagatzemades als llocs web des de la configuració de Chrome</translation>
@@ -3764,7 +3758,6 @@ Detalls addicionals:
 <translation id="7308436126008021607">sincronització en segon pla</translation>
 <translation id="7310392214323165548">El dispositiu es reiniciarà aviat</translation>
 <translation id="7311244614769792472">No s'ha trobat cap resultat</translation>
-<translation id="7311565174465466858"><ph name="TAB_KEY" /> Prem Tab i, a continuació, Retorn per fer preguntes al <ph name="AI_ENGINE_NAME" /></translation>
 <translation id="7313107491291103073">La teva organització ha marcat aquest lloc web perquè podria infringir una política.</translation>
 <translation id="7315372670898739748">No s'ha pogut fer l'enllaç. Torna-ho a provar més tard.</translation>
 <translation id="7316521168101843192">S'està desant el fitxer a Microsoft OneDrive</translation>
@@ -3870,7 +3863,6 @@ Detalls addicionals:
 <translation id="7470854469646445678">Indica el motiu pel qual el vols copiar (obligatori)</translation>
 <translation id="7471007961486718967">Indica el motiu pel qual el vols transferir (obligatori)</translation>
 <translation id="7473033553872550521">També pots contactar amb el propietari del lloc web i suggerir-li que faci l'actualització a HTTPS. <ph name="LEARN_MORE" /></translation>
-<translation id="7473555040328423550">Afegeix una pestanya</translation>
 <translation id="7473891865547856676">No, gràcies</translation>
 <translation id="7475618719385705713">Aquesta pàgina està bloquejada</translation>
 <translation id="7481312909269577407">Endavant</translation>
@@ -3912,6 +3904,7 @@ Detalls addicionals:
 <translation id="753713322968419914">Vols suprimir l'adreça de casa de l'emplenament automàtic de Chrome?</translation>
 <translation id="753714465667062283">Inicia la sessió per desar la foto</translation>
 <translation id="7537536606612762813">Obligatòria</translation>
+<translation id="7540924742308928499">Fes pluges d'idees i resums</translation>
 <translation id="7543525346216957623">Demana-ho al teu pare o a la teva mare</translation>
 <translation id="7546409722674205727">S'està iniciant <ph name="APP_NAME" /></translation>
 <translation id="7548892272833184391">Solucionar errors de connexió</translation>
@@ -4022,6 +4015,7 @@ Detalls addicionals:
 <translation id="7696107855583699585">Edita el número de viatger conegut</translation>
 <translation id="7698864304447945242">Vols actualitzar Serveis de Google Play per a RA?</translation>
 <translation id="7699509138503320152">Reescriu el meu correu electrònic perquè sigui més persuasiu</translation>
+<translation id="7700664778039213995">{COUNT,plural, =0{Cap}=1{1 habilitat (sincronitzada)}other{# habilitats (sincronitzades)}}</translation>
 <translation id="7701040980221191251">Cap</translation>
 <translation id="7704050614460855821"><ph name="BEGIN_LINK" />Continua per accedir a <ph name="SITE" /> (no segur)<ph name="END_LINK" /></translation>
 <translation id="7705085181312584869">Ajuda'm a escriure</translation>
@@ -4171,6 +4165,7 @@ Detalls addicionals:
 <translation id="7955105108888461311">Pregunta en persona</translation>
 <translation id="7956713633345437162">Adreces d'interès per a mòbils</translation>
 <translation id="7961015016161918242">Mai</translation>
+<translation id="7961493403319780137">Més informació sobre aquesta funció - Emplena automàticament els codis de verificació de Gmail</translation>
 <translation id="7962467575542381659">Màquina de la plataforma</translation>
 <translation id="796439090588610411">Chrome deixarà de confirmar automàticament aquesta adreça electrònica en llocs web compatibles.</translation>
 <translation id="7966803981046576691">Tipus de compte de treball</translation>
@@ -4263,6 +4258,7 @@ Detalls addicionals:
 <translation id="813024282736408069">Activa una targeta virtual per a l'emplenament automàtic</translation>
 <translation id="8131740175452115882">Confirma</translation>
 <translation id="8135546115396015134">tecla esquerra</translation>
+<translation id="8136385032646505126">Vols desar el nom del titular de la targeta?</translation>
 <translation id="8137185688006450980">Compara les opcions de plans de salut</translation>
 <translation id="8138591088112729119">Amb la tecnologia d'Intel·ligència personal</translation>
 <translation id="814071672416123670">El contingut no s'ha pogut copiar a causa de les polítiques de la teva organització</translation>
@@ -4536,6 +4532,7 @@ Detalls addicionals:
 <translation id="8622864575115813231">S'està contactant amb la teva entitat financera...</translation>
 <translation id="8632584659860846053">L'historial de navegació, les galetes i les dades de llocs web, la memòria cau i la informació que introdueixis als formularis se suprimiran quan tanquis totes les finestres aïllades</translation>
 <translation id="8634957317623797170">54 x 86 mm</translation>
+<translation id="8635822281281406185">Afegeix fins a 10 fitxers, pestanyes o imatges</translation>
 <translation id="8637362707224133343">Per protegir-te mentre navegues, Chrome té funcions de seguretat integrades, com ara Navegació segura de Google, que <ph name="BEGIN_LINK" />recentment ha detectat pesca de credencials<ph name="END_LINK" /> al lloc web que has provat de visitar. Els llocs web de pesca de credencials es fan passar per altres llocs web per enganyar-te.<ph name="NEW_LINE" />De vegades, alguns atacants poden posar en perill llocs web que acostumen a ser segurs. Si creus que hi ha hagut un error i que aquest lloc web no suposa cap perill, <ph name="BEGIN_ERROR_LINK" />fes-nos-ho saber<ph name="END_ERROR_LINK" />.</translation>
 <translation id="8640996933372643759">Per compartir pestanyes i col·laborar amb altres persones, has de poder iniciar la sessió a Chrome</translation>
 <translation id="8641131559425911240">Sobre (valors)</translation>
@@ -4908,7 +4905,6 @@ Detalls addicionals:
 <translation id="961930410699694996">S'ha permès l'ús de la ubicació aquesta vegada</translation>
 <translation id="962484866189421427">Pot ser que aquest contingut provi d'instal·lar aplicacions enganyoses que es facin passar per d'altres o que recullin dades que podrien utilitzar-se per fer un seguiment de la teva activitat. <ph name="BEGIN_LINK" />Mostra igualment<ph name="END_LINK" /></translation>
 <translation id="963734905955638680">D'acord amb una llei de la teva regió, Chromium et demana que triïs un motor de cerca predeterminat. Aquests motors de cerca són populars a la teva regió i es mostren en ordre aleatori.</translation>
-<translation id="963837307749850257">Tots els usuaris</translation>
 <translation id="963988220224168636">Afegeix el número de rectificació de manera segura a Google Wallet</translation>
 <translation id="964050462028070434">Gestiona les contrasenyes i les claus d'accés…</translation>
 <translation id="964681140808832181">Sí, vull cancel·lar-lo</translation>

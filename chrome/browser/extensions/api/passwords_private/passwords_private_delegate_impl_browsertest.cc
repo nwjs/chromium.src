@@ -29,6 +29,7 @@
 #include "base/test/metrics/user_action_tester.h"
 #include "base/test/mock_callback.h"
 #include "base/test/test_future.h"
+#include "base/timer/elapsed_timer.h"
 #include "base/values.h"
 #include "chrome/browser/affiliations/affiliation_service_factory.h"
 #include "chrome/browser/extensions/api/passwords_private/passwords_private_delegate.h"
@@ -67,7 +68,6 @@
 #include "chrome/browser/webauthn/passkey_model_factory.h"
 #include "chrome/common/extensions/api/passwords_private.h"
 #include "chrome/test/base/in_process_browser_test.h"
-#include "chrome/test/base/test_browser_window.h"
 #include "chrome/test/base/testing_profile.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/affiliations/core/browser/fake_affiliation_service.h"
@@ -99,6 +99,7 @@
 #include "services/network/public/cpp/weak_wrapper_shared_url_loader_factory.h"
 #include "services/network/test/test_url_loader_factory.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "ui/base/base_window.h"
 #include "ui/base/clipboard/test/clipboard_test_util.h"
 #include "ui/base/clipboard/test/test_clipboard.h"
 #include "ui/base/page_transition_types.h"
@@ -622,6 +623,7 @@ class PasswordsPrivateDelegateImplMockTaskEnvironmentTest
 
 IN_PROC_BROWSER_TEST_F(PasswordsPrivateDelegateImplMockTaskEnvironmentTest,
                        AuthenticationTimeMetric) {
+  base::ScopedMockElapsedTimersForTest mock_elapsed_timers;
   content::WebContents* web_contents_ptr =
       browser()->GetTabStripModel()->GetActiveWebContents();
   auto delegate = CreateDelegate();
@@ -643,7 +645,8 @@ IN_PROC_BROWSER_TEST_F(PasswordsPrivateDelegateImplMockTaskEnvironmentTest,
   delegate->RequestCredentialsDetails({0}, callback.Get(), web_contents_ptr);
 
   histogram_tester().ExpectUniqueTimeSample(
-      "PasswordManager.Settings.AuthenticationTime2", base::Seconds(0), 1);
+      "PasswordManager.Settings.AuthenticationTime2",
+      base::ScopedMockElapsedTimersForTest::kMockElapsedTime, 1);
 }
 
 IN_PROC_BROWSER_TEST_F(PasswordsPrivateDelegateImplMockTaskEnvironmentTest,

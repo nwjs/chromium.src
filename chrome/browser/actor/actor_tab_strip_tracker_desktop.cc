@@ -6,7 +6,6 @@
 
 #include "chrome/browser/actor/actor_keyed_service.h"
 #include "chrome/browser/actor/ui/actor_task_unload_handler.h"
-#include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/tab_list/tab_removed_reason.h"
 #include "chrome/browser/ui/browser_tab_strip_tracker.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
@@ -56,17 +55,19 @@ void ActorTabStripTrackerDesktop::OnTabStripModelChanged(
     for (const auto& removed_tab : remove->contents) {
       if (TabRemoveReasonUtils::WillDeleteWebContents(
               removed_tab.remove_reason)) {
-        tabs::TabHandle handle = removed_tab.tab->GetHandle();
-        std::vector<TaskId> tasks_to_notify =
-            service_->FindTaskIdsInActive([&handle](const ActorTask& task) {
-              return task.HasTab(handle) ||
-                     task.GetLastActedTabs().contains(handle);
+        ActorSurfaceHandle actor_surface_handle =
+            ActorSurfaceHandle::From(removed_tab.tab->GetHandle());
+        std::vector<TaskId> tasks_to_notify = service_->FindTaskIdsInActive(
+            [&actor_surface_handle](const ActorTask& task) {
+              return task.HasActorSurface(actor_surface_handle) ||
+                     task.GetLastActedActorSurfaces().contains(
+                         actor_surface_handle);
             });
 
         for (TaskId id : tasks_to_notify) {
           ActorTask* task = service_->GetTask(id);
           if (task) {
-            task->OnTabWillDetach(handle);
+            task->OnActorSurfaceWillDetach(actor_surface_handle);
           }
         }
       }

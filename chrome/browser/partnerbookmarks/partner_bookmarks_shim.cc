@@ -62,7 +62,7 @@ bool g_disable_partner_bookmarks_editing = false;
 // static
 PartnerBookmarksShim* PartnerBookmarksShim::BuildForBrowserContext(
     content::BrowserContext* browser_context) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M161);
   if (!browser_context) {
     return nullptr;
   }
@@ -97,12 +97,14 @@ bool PartnerBookmarksShim::IsLoaded() const {
 }
 
 bool PartnerBookmarksShim::HasPartnerBookmarks() const {
+  // TODO(crbug.com/572863254): CHECK-exclusion: Convert to a CHECK once we are
+  // confident it won't be triggered.
   DCHECK(IsLoaded());
   return g_partner_model_keeper.Get().partner_bookmarks_root.get() != NULL;
 }
 
 bool PartnerBookmarksShim::IsReachable(const BookmarkNode* node) const {
-  DCHECK(IsPartnerBookmark(node));
+  CHECK(IsPartnerBookmark(node), base::NotFatalUntil::M161);
   if (!HasPartnerBookmarks()) {
     return false;
   }
@@ -119,7 +121,7 @@ bool PartnerBookmarksShim::IsReachable(const BookmarkNode* node) const {
 }
 
 bool PartnerBookmarksShim::IsEditable(const BookmarkNode* node) const {
-  DCHECK(IsPartnerBookmark(node));
+  CHECK(IsPartnerBookmark(node), base::NotFatalUntil::M161);
   if (!HasPartnerBookmarks()) {
     return false;
   }
@@ -130,13 +132,13 @@ bool PartnerBookmarksShim::IsEditable(const BookmarkNode* node) const {
 }
 
 void PartnerBookmarksShim::RemoveBookmark(const BookmarkNode* node) {
-  DCHECK(IsEditable(node));
+  CHECK(IsEditable(node), base::NotFatalUntil::M161);
   RenameBookmark(node, std::u16string());
 }
 
 void PartnerBookmarksShim::RenameBookmark(const BookmarkNode* node,
                                           const std::u16string& title) {
-  DCHECK(IsEditable(node));
+  CHECK(IsEditable(node), base::NotFatalUntil::M161);
   const NodeRenamingMapKey key(node->url(), node->GetTitle());
   node_rename_remove_map_[key] = title;
   SaveNodeMapping();
@@ -156,6 +158,8 @@ void PartnerBookmarksShim::RemoveObserver(
 }
 
 const BookmarkNode* PartnerBookmarksShim::GetNodeByID(int64_t id) const {
+  // TODO(crbug.com/574650747): CHECK-exclusion: Convert to a CHECK once we are
+  // confident it won't be triggered.
   DCHECK(IsLoaded());
   if (!HasPartnerBookmarks()) {
     return NULL;
@@ -164,8 +168,8 @@ const BookmarkNode* PartnerBookmarksShim::GetNodeByID(int64_t id) const {
 }
 
 std::u16string PartnerBookmarksShim::GetTitle(const BookmarkNode* node) const {
-  DCHECK(node);
-  DCHECK(IsPartnerBookmark(node));
+  CHECK(node, base::NotFatalUntil::M161);
+  CHECK(IsPartnerBookmark(node), base::NotFatalUntil::M161);
 
   if (!g_disable_partner_bookmarks_editing) {
     const NodeRenamingMapKey key(node->url(), node->GetTitle());
@@ -179,6 +183,8 @@ std::u16string PartnerBookmarksShim::GetTitle(const BookmarkNode* node) const {
 }
 
 bool PartnerBookmarksShim::IsPartnerBookmark(const BookmarkNode* node) const {
+  // TODO(crbug.com/572863007): CHECK-exclusion: Convert to a CHECK once we are
+  // confident it won't be triggered.
   DCHECK(IsLoaded());
   if (!HasPartnerBookmarks()) {
     return false;
@@ -199,7 +205,7 @@ const BookmarkNode* PartnerBookmarksShim::GetPartnerBookmarksRoot() const {
 
 void PartnerBookmarksShim::SetPartnerBookmarksRoot(
     std::unique_ptr<bookmarks::BookmarkNode> root_node) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M161);
   g_partner_model_keeper.Get().partner_bookmarks_root = std::move(root_node);
   g_partner_model_keeper.Get().loaded = true;
   for (PartnerBookmarksShim::Observer& observer : observers_) {
@@ -223,7 +229,7 @@ bool operator<(const PartnerBookmarksShim::NodeRenamingMapKey& a,
 // static
 void PartnerBookmarksShim::ClearInBrowserContextForTesting(
     content::BrowserContext* browser_context) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M161);
   browser_context->SetUserData(kPartnerBookmarksShimUserDataKey, 0);
 }
 
@@ -263,7 +269,7 @@ const BookmarkNode* PartnerBookmarksShim::GetNodeByID(
 }
 
 void PartnerBookmarksShim::ReloadNodeMapping() {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M161);
 
   node_rename_remove_map_.clear();
   if (!prefs_) {
@@ -293,7 +299,7 @@ void PartnerBookmarksShim::ReloadNodeMapping() {
 }
 
 void PartnerBookmarksShim::SaveNodeMapping() {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M161);
   if (!prefs_) {
     return;
   }
@@ -314,7 +320,7 @@ void PartnerBookmarksShim::GetPartnerBookmarksMatchingProperties(
     const bookmarks::QueryFields& query,
     size_t max_count,
     std::vector<const BookmarkNode*>* nodes) {
-  DCHECK(nodes->size() <= max_count);
+  CHECK(nodes->size() <= max_count, base::NotFatalUntil::M161);
 
   std::vector<std::u16string> query_words =
       bookmarks::ParseBookmarkQuery(query);

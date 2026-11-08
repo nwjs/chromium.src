@@ -41,6 +41,7 @@ import org.chromium.build.annotations.Initializer;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.back_press.BackPressManager;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.omnibox.FuseboxSessionState;
 import org.chromium.chrome.browser.omnibox.R;
 import org.chromium.chrome.browser.omnibox.fusebox.FuseboxProperties.AnchoringMode;
@@ -143,6 +144,7 @@ public class FuseboxCoordinator implements TemplateUrlServiceObserver {
     private final SnackbarManager mSnackbarManager;
     private @Nullable ViewportRectProvider mViewportRectProvider;
     private @Nullable FuseboxMetrics mMetrics;
+    private @Nullable FuseboxAttachmentModelList mModelList;
     private @Nullable BottomSheetRectProvider mBottomSheetRectProvider;
     private final Supplier<@Nullable View> mScrimAnchorViewSupplier;
     private final ScrimManager mScrimManager;
@@ -155,6 +157,7 @@ public class FuseboxCoordinator implements TemplateUrlServiceObserver {
     private boolean mDestroyed;
     private @Nullable Callback<Boolean> mOnInteractionCompletedCallback;
     private @Nullable Runnable mOnFirstPickerInteractionCanceledCallback;
+    private @Nullable Runnable mOnPickerInteractionSucceededCallback;
     private final boolean mIsForcedPhoneStyleOmnibox;
     private final OmniboxResourceProvider mResourceProvider;
 
@@ -233,10 +236,7 @@ public class FuseboxCoordinator implements TemplateUrlServiceObserver {
 
     /** Returns where the "add current tab" button should be placed within the popup. */
     static @CurrentTabPlacement int resolveCurrentTabPlacement() {
-        if (!OmniboxFeatures.sOmniboxFuseboxPopupVariations.isEnabled()
-                || OmniboxFeatures.shouldUseScrollableCarousel()) {
-            return CurrentTabPlacement.WITH_ATTACHMENTS;
-        }
+        if (!OmniboxFeatures.hasFuseboxPinnedSection()) return CurrentTabPlacement.WITH_ATTACHMENTS;
         return OmniboxFeatures.shouldPutCurrentTabFirst()
                 ? CurrentTabPlacement.ABOVE_ATTACHMENTS
                 : CurrentTabPlacement.BELOW_ATTACHMENTS;
@@ -323,21 +323,29 @@ public class FuseboxCoordinator implements TemplateUrlServiceObserver {
                         mActivity,
                         mWindowAndroid,
                         assumeNonNull(mModel),
-                        assumeNonNull(mViewHolder),
                         mResourceProvider,
                         mTabModelSelectorSupplier,
                         mFuseboxStateSupplier,
                         mPopupStateSupplier,
                         mSnackbarManager,
                         mScrimManager,
-                        mScrimAnchorViewSupplier,
+                        this::getScrimAnchorView,
                         mBackPressManager,
                         mOnFirstPickerInteractionCanceledCallback,
                         mHasAttachmentsSupplier,
                         assertNonNull(mUrlTextWrappingSupplier));
+        if (mOnPickerInteractionSucceededCallback != null) {
+            mMediator.setOnPickerInteractionSucceededCallback(
+                    mOnPickerInteractionSucceededCallback);
+        }
         if (mLastBrandedColorScheme != null) {
             mMediator.updateVisualsForState(mLastBrandedColorScheme);
         }
+    }
+
+    private View getScrimAnchorView() {
+        View anchor = mScrimAnchorViewSupplier.get();
+        return anchor != null ? anchor : mParent;
     }
 
     public void destroy() {
@@ -395,6 +403,8 @@ public class FuseboxCoordinator implements TemplateUrlServiceObserver {
                             PageClassification.SEARCH_RESULT_PAGE_NO_SEARCH_TERM_REPLACEMENT,
                             PageClassification.OTHER ->
                             true;
+                    case PageClassification.ANDROID_SHORTCUTS_WIDGET ->
+                            ChromeFeatureList.sOneStepAimAccess.isEnabled();
                     // LINT.ThenChange(/components/omnibox/browser/android/java/src/org/chromium/components/omnibox/AutocompleteInput.java:FuseboxSupportedPageClassifications)
                     default -> false;
                 };
@@ -437,6 +447,7 @@ public class FuseboxCoordinator implements TemplateUrlServiceObserver {
 
         mInput = session.getAutocompleteInput();
         mMetrics = session.getMetrics();
+        mModelList = session.getFuseboxAttachmentModelList();
         mMediator.beginInput(session);
         if (mMetrics != null) {
             mMetrics.notifyOmniboxSessionStarted();
@@ -450,6 +461,7 @@ public class FuseboxCoordinator implements TemplateUrlServiceObserver {
         }
         mInput = null;
         mMetrics = null;
+        mModelList = null;
         mPendingSession = null;
     }
 
@@ -490,6 +502,9 @@ public class FuseboxCoordinator implements TemplateUrlServiceObserver {
     void onContextPopupDismissed() {
         if (mViewHolder == null || mViewHolder.plusButton == null) return;
         boolean popupItemSelected = mMediator != null && mMediator.wasPopupItemSelected();
+        if (mMediator != null) {
+            mMediator.handleHidePopup();
+        }
         if (!popupItemSelected) {
             mViewHolder.plusButton.requestFocus();
             mViewHolder.plusButton.sendAccessibilityEvent(AccessibilityEvent.TYPE_VIEW_FOCUSED);
@@ -525,7 +540,7 @@ public class FuseboxCoordinator implements TemplateUrlServiceObserver {
         // Skip cases where session should not be recorded (e.g. unsupported page class).
         if (mInput == null || mMetrics == null) return;
         mMetrics.notifyOmniboxSessionEnded(
-                userDidNavigate, mInput.getRequestType(), mInput.getModelMode());
+                userDidNavigate, mInput.getRequestType(), mInput.getModelMode(), mModelList);
     }
 
     /** Resets the current input session back to search mode. */
@@ -575,6 +590,17 @@ public class FuseboxCoordinator implements TemplateUrlServiceObserver {
         mOnFirstPickerInteractionCanceledCallback = callback;
         if (mMediator != null) {
             mMediator.setOnFirstPickerInteractionCanceledCallback(callback);
+        }
+    }
+
+    /**
+     * Set callback to be invoked when a picker launched directly on focus (e.g. from the NTP
+     * gallery chip) returns content.
+     */
+    public void setOnPickerInteractionSucceededCallback(Runnable callback) {
+        mOnPickerInteractionSucceededCallback = callback;
+        if (mMediator != null) {
+            mMediator.setOnPickerInteractionSucceededCallback(callback);
         }
     }
 

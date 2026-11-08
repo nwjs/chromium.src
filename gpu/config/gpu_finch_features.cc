@@ -244,6 +244,10 @@ BASE_FEATURE(kAdjustGpuProcessPriority, base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kClearGrShaderDiskCacheOnInvalidPrefix,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// When enabled, the GPU process initializes through GpuInit2. GpuInit2 is where
+// GPU startup optimizations are being developed.
+BASE_FEATURE(kGpuInitOptimization, base::FEATURE_DISABLED_BY_DEFAULT);
+
 // When enabled, Chrome will use the shader disk cache. This feature provides a
 // kill-switch for working around issues with the disk cache and assessing the
 // performance value of the disk cache. The --disable-gpu-shader-disk-cache flag
@@ -257,18 +261,6 @@ bool IsShaderDiskCacheEnabled(const base::CommandLine* command_line) {
 
   return base::FeatureList::IsEnabled(kGpuShaderDiskCache);
 }
-
-// Enable Vulkan graphics backend for compositing and rasterization. Defaults to
-// native implementation if --use-vulkan flag is not used. Otherwise
-// --use-vulkan will be followed.
-// Note Android WebView uses kWebViewDrawFunctorUsesVulkan instead of this.
-BASE_FEATURE(kVulkan,
-#if BUILDFLAG(IS_ANDROID)
-             base::FEATURE_ENABLED_BY_DEFAULT
-#else
-             base::FEATURE_DISABLED_BY_DEFAULT
-#endif
-);
 
 // Force enable WebGPU interop when enabled. When disabled the webgpu interop
 // mechanism will default to auto detection in 'GetWebGPUOnVulkanViaGLInterop'
@@ -340,6 +332,12 @@ BASE_FEATURE(kWebGPUDecomposeUniformBuffers, base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kWebGPUUseHLSL2021, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kWebGPUUseSpirvReconvergenceMode,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Enables the use of dedicated shared memory transfer buffers for mapped WebGPU
+// buffers. Only takes effect when explicitly enabled (e.g. via
+// --enable-features=WebGPUUseDedicatedTransferBuffer).
+BASE_FEATURE(kWebGPUUseDedicatedTransferBuffer,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_ANDROID)
@@ -528,31 +526,6 @@ bool IsForceEnableWebGpuInterop() {
   return base::FeatureList::IsEnabled(kForceEnableWebGpuInterop);
 }
 #endif
-
-bool IsUsingVulkan() {
-#if BUILDFLAG(IS_ANDROID)
-  // Force on if Vulkan feature is enabled from command line.
-  base::FeatureList* feature_list = base::FeatureList::GetInstance();
-  if (feature_list &&
-      feature_list->IsFeatureOverriddenFromCommandLine(
-          features::kVulkan.name, base::FeatureList::OVERRIDE_ENABLE_FEATURE)) {
-    return true;
-  }
-
-  // WebView checks, which do not use (and disables) kVulkan.
-  // Do this above the Android version check because there are test devices
-  if (base::CommandLine::ForCurrentProcess()->HasSwitch(
-          switches::kWebViewDrawFunctorUsesVulkan)) {
-    return true;
-  }
-#endif
-
-#if BUILDFLAG(ENABLE_VULKAN)
-  return base::FeatureList::IsEnabled(kVulkan);
-#else
-  return false;
-#endif
-}
 
 bool IsUsingThreadSafeMediaForWebView() {
 #if BUILDFLAG(IS_ANDROID)
@@ -871,6 +844,11 @@ bool IsSyncPointGraphValidationEnabled() {
 }
 
 BASE_FEATURE(kANGLEPerContextBlobCache, base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kANGLETrimMemory, base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Controls whether WebGL contexts trim their ANGLE memory caches when idle.
+BASE_FEATURE(kANGLETrimMemoryOnIdle, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Support thread safety for graphite::context by sharing the same
 // graphite::context as well as its wrapper class GraphiteSharedContext between

@@ -24,9 +24,6 @@ typedef NS_ENUM(NSUInteger, SuggestTileType) {
 @protocol AutocompleteSuggestion <NSObject>
 /// Some suggestions can be deleted with a swipe-to-delete gesture.
 @property(nonatomic, readonly) BOOL supportsDeletion;
-/// Some suggestions are answers that are displayed inline, such as for weather
-/// or calculator.
-@property(nonatomic, readonly) BOOL hasAnswer;
 /// Some suggestions represent a URL, for example the ones from history.
 @property(nonatomic, readonly) BOOL isURL;
 /// Some suggestions can be appended to omnibox text in order to refine the
@@ -40,6 +37,8 @@ typedef NS_ENUM(NSUInteger, SuggestTileType) {
 @property(nonatomic, readonly) NSAttributedString* detailText;
 /// Suggested number of lines to format `detailText`.
 @property(nonatomic, readonly) NSInteger numberOfLines;
+/// Whether `text` should be allowed to wrap to multiple lines.
+@property(nonatomic, readonly) BOOL wrapPrimaryText;
 /// Whether `detailText` should be allowed to wrap to multiple lines.
 @property(nonatomic, readonly) BOOL wrapSecondaryText;
 

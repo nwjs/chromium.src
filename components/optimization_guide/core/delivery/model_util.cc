@@ -13,7 +13,6 @@
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/utf_string_conversions.h"
 #include "build/build_config.h"
-#include "components/optimization_guide/core/optimization_guide_switches.h"
 #include "components/optimization_guide/proto/models.pb.h"
 
 namespace optimization_guide {
@@ -99,7 +98,7 @@ std::string_view GetStringNameForOptimizationTarget(
       return "SegmentationIosModuleRanker";
     case proto::OPTIMIZATION_TARGET_SEGMENTATION_DESKTOP_NTP_MODULE:
       return "SegmentationDesktopNtpModule";
-    case proto::OPTIMIZATION_TARGET_PRELOADING_HEURISTICS:
+    case proto::DEPRECATED_OPTIMIZATION_TARGET_PRELOADING_HEURISTICS:
       return "PreloadingHeuristics";
     case proto::OPTIMIZATION_TARGET_TEXT_SAFETY:
       return "TextSafety";

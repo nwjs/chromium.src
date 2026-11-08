@@ -5,12 +5,16 @@
 #include "ash/webui/eche_app_ui/eche_app_manager.h"
 
 #include <memory>
+#include <string>
+#include <utility>
+#include <variant>
 
 #include "ash/public/cpp/network_config_service.h"
 #include "ash/webui/eche_app_ui/accessibility_provider.h"
 #include "ash/webui/eche_app_ui/apps_access_manager_impl.h"
 #include "ash/webui/eche_app_ui/apps_launch_info_provider.h"
 #include "ash/webui/eche_app_ui/eche_alert_generator.h"
+#include "ash/webui/eche_app_ui/eche_app_notification_controller.h"
 #include "ash/webui/eche_app_ui/eche_connection_metrics_recorder.h"
 #include "ash/webui/eche_app_ui/eche_connection_scheduler_impl.h"
 #include "ash/webui/eche_app_ui/eche_connection_status_handler.h"
@@ -27,8 +31,19 @@
 #include "ash/webui/eche_app_ui/mojom/eche_app.mojom.h"
 #include "ash/webui/eche_app_ui/system_info.h"
 #include "ash/webui/eche_app_ui/system_info_provider.h"
+#include "base/check_deref.h"
+#include "base/functional/bind.h"
+#include "base/strings/utf_string_conversions.h"
+#include "base/system/sys_info.h"
+#include "chromeos/ash/components/channel/channel_info.h"
 #include "chromeos/ash/components/phonehub/phone_hub_manager.h"
 #include "chromeos/ash/services/secure_channel/public/cpp/client/connection_manager_impl.h"
+#include "chromeos/strings/grit/chromeos_strings.h"
+#include "components/account_id/account_id.h"
+#include "components/user_manager/user.h"
+#include "google_apis/gaia/gaia_id.h"
+#include "ui/base/l10n/l10n_util.h"
+#include "ui/chromeos/devicetype_utils.h"
 
 namespace ash {
 namespace {
@@ -39,7 +54,7 @@ namespace eche_app {
 
 EcheAppManager::EcheAppManager(
     PrefService* pref_service,
-    std::unique_ptr<SystemInfo> system_info,
+    const user_manager::User* user,
     phonehub::PhoneHubManager* phone_hub_manager,
     device_sync::DeviceSyncClient* device_sync_client,
     multidevice_setup::MultiDeviceSetupClient* multidevice_setup_client,
@@ -48,9 +63,10 @@ EcheAppManager::EcheAppManager(
         presence_monitor_client,
     std::unique_ptr<AccessibilityProviderProxy> accessibility_provider_proxy,
     LaunchAppHelper::LaunchEcheAppFunction launch_eche_app_function,
-    LaunchAppHelper::LaunchNotificationFunction launch_notification_function,
-    LaunchAppHelper::CloseNotificationFunction close_notification_function)
-    : phone_hub_manager_(phone_hub_manager),
+    base::RepeatingClosure relaunch_callback)
+    : user_(CHECK_DEREF(user)),
+      relaunch_callback_(std::move(relaunch_callback)),
+      phone_hub_manager_(phone_hub_manager),
       connection_manager_(
           std::make_unique<secure_channel::ConnectionManagerImpl>(
               multidevice_setup_client,
@@ -66,11 +82,13 @@ EcheAppManager::EcheAppManager(
           multidevice_setup_client,
           connection_manager_.get(),
           eche_connection_status_handler_.get())),
-      launch_app_helper_(
-          std::make_unique<LaunchAppHelper>(phone_hub_manager,
-                                            launch_eche_app_function,
-                                            launch_notification_function,
-                                            close_notification_function)),
+      launch_app_helper_(std::make_unique<LaunchAppHelper>(
+          phone_hub_manager,
+          std::move(launch_eche_app_function),
+          base::BindRepeating(&EcheAppManager::ShowNotification,
+                              base::Unretained(this)),
+          base::BindRepeating(&EcheAppManager::CloseNotification,
+                              base::Unretained(this)))),
       apps_launch_info_provider_(std::make_unique<AppsLaunchInfoProvider>(
           eche_connection_status_handler_.get())),
       stream_status_change_handler_(
@@ -135,7 +153,7 @@ EcheAppManager::EcheAppManager(
   ash::GetNetworkConfigService(
       remote_cros_network_config_.BindNewPipeAndPassReceiver());
   system_info_provider_ = std::make_unique<SystemInfoProvider>(
-      std::move(system_info), remote_cros_network_config_.get());
+      GetSystemInfo(user), remote_cros_network_config_.get());
   // assign system_info_provider_ to eche signaler
   signaler_->SetSystemInfoProvider(system_info_provider_.get());
 
@@ -145,6 +163,76 @@ EcheAppManager::EcheAppManager(
 }
 
 EcheAppManager::~EcheAppManager() = default;
+
+// static
+std::unique_ptr<SystemInfo> EcheAppManager::GetSystemInfo(
+    const user_manager::User* user) {
+  std::string device_name;
+  const std::string board_name = base::SysInfo::GetLsbReleaseBoard();
+  const std::u16string device_type = ui::GetChromeOSDeviceName();
+  GaiaId gaia_id;
+  if (user) {
+    std::u16string given_name = user->GetGivenName();
+    if (!given_name.empty()) {
+      device_name = l10n_util::GetStringFUTF8(
+          IDS_ECHE_APP_DEFAULT_DEVICE_NAME, user->GetGivenName(), device_type);
+    }
+    if (user->HasGaiaAccount()) {
+      const AccountId& account_id = user->GetAccountId();
+      gaia_id = account_id.GetGaiaId();
+    }
+  }
+
+  SystemInfo::Builder system_info;
+  system_info.SetDeviceName(device_name)
+      .SetBoardName(board_name)
+      .SetGaiaId(gaia_id)
+      .SetDeviceType(base::UTF16ToUTF8(device_type));
+
+  system_info.SetOsVersion(base::SysInfo::OperatingSystemVersion())
+      .SetChannel(ash::GetChannelName());
+
+  return system_info.Build();
+}
+
+void EcheAppManager::ShowNotification(
+    const std::optional<std::u16string>& title,
+    const std::optional<std::u16string>& message,
+    std::unique_ptr<LaunchAppHelper::NotificationInfo> info) {
+  if (!notification_controller_) {
+    notification_controller_ = std::make_unique<EcheAppNotificationController>(
+        user_->GetAccountId(), relaunch_callback_);
+  }
+
+  if (info->category() ==
+      LaunchAppHelper::NotificationInfo::Category::kNative) {
+    if (std::get<LaunchAppHelper::NotificationInfo::NotificationType>(
+            info->type()) ==
+        LaunchAppHelper::NotificationInfo::NotificationType::kScreenLock) {
+      notification_controller_->ShowScreenLockNotification(
+          title ? title.value()
+                : u"");  // If null, show a default value to be safe.
+    }
+  } else if (info->category() ==
+             LaunchAppHelper::NotificationInfo::Category::kWebUI) {
+    notification_controller_->ShowNotificationFromWebUI(title, message,
+                                                        info->type());
+  }
+}
+
+void EcheAppManager::CloseNotification(const std::string& notification_id) {
+  if (!notification_controller_) {
+    notification_controller_ = std::make_unique<EcheAppNotificationController>(
+        user_->GetAccountId(), relaunch_callback_);
+  }
+  notification_controller_->CloseNotification(notification_id);
+}
+
+void EcheAppManager::CloseConnectionOrLaunchErrorNotifications() {
+  if (notification_controller_ != nullptr) {
+    notification_controller_->CloseConnectionOrLaunchErrorNotifications();
+  }
+}
 
 void EcheAppManager::BindSignalingMessageExchangerInterface(
     mojo::PendingReceiver<mojom::SignalingMessageExchanger> receiver) {
@@ -220,6 +308,7 @@ void EcheAppManager::Shutdown() {
     phone_hub_manager_->SetSystemInfoProvider(nullptr);
   }
 
+  notification_controller_.reset();
   eche_keyboard_layout_handler_.reset();
   eche_stream_orientation_observer_.reset();
   system_info_provider_.reset();

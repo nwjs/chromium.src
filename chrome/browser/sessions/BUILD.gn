@@ -2,6 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import("//build/config/features.gni")
 import("//build/config/ozone.gni")
 import("//chrome/common/features.gni")
 import("//extensions/buildflags/buildflags.gni")
@@ -41,6 +42,7 @@ source_set("sessions") {
       "session_data_service.h",
       "session_data_service_factory.h",
       "session_restore_delegate.h",
+      "session_restore_metrics.h",
       "session_restore_stats_collector.h",
       "session_service.h",
       "session_service_base.h",
@@ -59,6 +61,10 @@ source_set("sessions") {
       "//ui/base",
       "//ui/base/mojom:ui_base_types",
     ]
+
+    if (!is_chromeos) {
+      public += [ "profile_diff_after_restart_recorder.h" ]
+    }
   }
 }
 
@@ -73,14 +79,18 @@ source_set("impl") {
 
   public_deps = [
     ":sessions",
-    "//chrome/browser:browser_public_dependencies",
     "//chrome/browser/ui:browser_live_tab_context",
   ]
 
   deps = [
+    "//chrome/browser:buildflags",
     "//chrome/browser/glic",
     "//chrome/browser/lifetime",
   ]
+
+  if (enable_extensions_core) {
+    deps += [ "//extensions/browser" ]
+  }
 
   if (enable_extensions) {
     deps += [
@@ -93,6 +103,7 @@ source_set("impl") {
     sources += [ "session_restore_android.cc" ]
     deps += [
       "//chrome/browser/android:tabs_public",
+      "//chrome/browser/ui/android/tab_model",
       "//chrome/browser/ui/browser_window:create_browser_window",
     ]
   }
@@ -116,6 +127,7 @@ source_set("impl") {
       "session_data_service_factory.cc",
       "session_restore.cc",
       "session_restore_delegate.cc",
+      "session_restore_metrics.cc",
       "session_restore_stats_collector.cc",
       "session_service.cc",
       "session_service_base.cc",
@@ -139,6 +151,7 @@ source_set("impl") {
       "//chrome/browser/ui:browser_init_state",
       "//chrome/browser/ui:browser_manager_service",
       "//chrome/browser/ui:browser_tabrestore",
+      "//chrome/browser/ui:browser_tabstrip",
       "//chrome/browser/ui:session_crashed_bubble",
       "//chrome/browser/ui:ui_features",
       "//chrome/browser/ui/browser_window:create_browser_window",
@@ -176,6 +189,8 @@ source_set("impl") {
         "//chrome/browser/ash/profiles",
         "//chromeos/components/kiosk",
       ]
+    } else {
+      sources += [ "profile_diff_after_restart_recorder.cc" ]
     }
   }
 }
@@ -242,6 +257,7 @@ source_set("unit_tests") {
       "app_session_service_unittest.cc",
       "session_data_service_unittest.cc",
       "session_restore_delegate_unittest.cc",
+      "session_restore_metrics_unittest.cc",
       "session_restore_observer_unittest.cc",
       "session_restore_stats_collector_unittest.cc",
       "session_service_log_unittest.cc",
@@ -260,6 +276,8 @@ source_set("unit_tests") {
 
     if (is_chromeos) {
       deps += [ "//chromeos/components/kiosk:test_support" ]
+    } else {
+      sources += [ "profile_diff_after_restart_recorder_unittest.cc" ]
     }
   }
 
@@ -302,10 +320,10 @@ if (!is_android) {
       "//chrome/browser/collaboration/messaging",
       "//chrome/browser/prefs:util",
       "//chrome/browser/tab_group_sync:factories",
-      "//chrome/browser/ui",
       "//chrome/browser/ui:browser_commands",
       "//chrome/browser/ui:browser_init_state",
       "//chrome/browser/ui:browser_live_tab_context",
+      "//chrome/browser/ui:browser_tabstrip",
       "//chrome/browser/ui:browser_window_header",
       "//chrome/browser/ui:browser_window_state",
       "//chrome/browser/ui:ui_features",
@@ -314,6 +332,7 @@ if (!is_android) {
       "//chrome/browser/ui/tabs:tab_strip",
       "//chrome/browser/ui/tabs/saved_tab_groups",
       "//chrome/browser/ui/views:session_crashed_bubble_view",
+      "//chrome/browser/ui/waap:manager",
       "//chrome/browser/ui/window_metadata",
       "//chrome/browser/web_applications:web_applications_test_support",
       "//chrome/test:test_support",
@@ -378,7 +397,6 @@ if (!is_android) {
         ":test_support",
         "//base",
         "//chrome/browser/prefs:util",
-        "//chrome/browser/ui",
         "//chrome/browser/ui:browser_commands",
         "//chrome/browser/ui:browser_window_header",
         "//chrome/test:test_support",

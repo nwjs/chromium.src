@@ -44,6 +44,7 @@ consoles.list_view(
 # Due to these divergences, we roll our own orchestration scheme here.
 try_.builder(
     name = "tricium-clang-tidy",
+    description_html = "Orchestrator builder that triggers clang-tidy sub-builds and reports findings on Gerrit CLs.",
     executable = "recipe:tricium_clang_tidy_orchestrator",
     builderless = False,
     cores = try_.defaults.orchestrator_cores.get(),
@@ -68,6 +69,7 @@ try_.builder(
 # orchestrator.
 try_.builder(
     name = "android-clang-tidy-rel",
+    description_html = "Runs clang-tidy on Android ARM release builds for the tricium-clang-tidy orchestrator.",
     executable = "recipe:tricium_clang_tidy_wrapper",
     gn_args = gn_args.config(
         configs = [
@@ -85,6 +87,7 @@ try_.builder(
 
 try_.builder(
     name = "fuchsia-clang-tidy-rel",
+    description_html = "Runs clang-tidy on Fuchsia x64 release builds for the tricium-clang-tidy orchestrator.",
     executable = "recipe:tricium_clang_tidy_wrapper",
     gn_args = gn_args.config(
         configs = [
@@ -100,6 +103,7 @@ try_.builder(
 
 try_.builder(
     name = "linux-chromeos-clang-tidy-rel",
+    description_html = "Runs clang-tidy on Linux ChromeOS x64 release builds for the tricium-clang-tidy orchestrator.",
     executable = "recipe:tricium_clang_tidy_wrapper",
     gn_args = gn_args.config(
         configs = [
@@ -116,6 +120,7 @@ try_.builder(
 
 try_.builder(
     name = "linux-clang-tidy-rel",
+    description_html = "Runs clang-tidy on Linux x64 release builds for the tricium-clang-tidy orchestrator.",
     executable = "recipe:tricium_clang_tidy_wrapper",
     gn_args = gn_args.config(
         configs = [
@@ -132,6 +137,7 @@ try_.builder(
 
 try_.builder(
     name = "mac-clang-tidy-rel",
+    description_html = "Runs clang-tidy on Mac x64 release builds for the tricium-clang-tidy orchestrator.",
     executable = "recipe:tricium_clang_tidy_wrapper",
     gn_args = gn_args.config(
         configs = [
@@ -153,6 +159,7 @@ try_.builder(
 
 try_.builder(
     name = "win10-clang-tidy-rel",
+    description_html = "Runs clang-tidy on Windows x64 release builds for the tricium-clang-tidy orchestrator.",
     executable = "recipe:tricium_clang_tidy_wrapper",
     gn_args = gn_args.config(
         configs = [

@@ -32,7 +32,6 @@
 #include "chrome/browser/ash/file_manager/fileapi_util.h"
 #include "chrome/browser/ash/file_manager/path_util.h"
 #include "chrome/browser/ash/file_manager/url_util.h"
-#include "chrome/browser/ash/profiles/profile_helper.h"
 #include "chrome/browser/ash/system_web_apps/apps/calculator_app/calculator_app_utils.h"
 #include "chrome/browser/ash/system_web_apps/apps/camera_app/chrome_camera_app_ui_delegate.h"
 #include "chrome/browser/ash/system_web_apps/system_web_app_manager.h"
@@ -42,7 +41,6 @@
 #include "chrome/browser/platform_util.h"
 #include "chrome/browser/prefs/incognito_mode_prefs.h"
 #include "chrome/browser/profiles/profile_manager.h"
-#include "chrome/browser/sessions/tab_restore_service_factory.h"
 #include "chrome/browser/ui/ash/multi_user/multi_user_util.h"
 #include "chrome/browser/ui/ash/shelf/app_service/app_service_app_window_shelf_controller.h"
 #include "chrome/browser/ui/ash/shelf/app_window_base.h"
@@ -55,10 +53,7 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/chrome_pages.h"
-#include "chrome/browser/ui/navigator/browser_navigator.h"
-#include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/browser/ui/scoped_tabbed_browser_displayer.h"
-#include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/webui/chrome_web_contents_handler.h"
 #include "chrome/browser/web_applications/web_app_helpers.h"
 #include "chromeos/ash/components/browser_context_helper/browser_context_helper.h"
@@ -67,14 +62,13 @@
 #include "chromeos/ash/components/file_manager/app_id.h"
 #include "chromeos/ash/experiences/arc/intent_helper/arc_intent_helper_bridge.h"
 #include "chromeos/ash/experiences/settings_ui/settings_app_manager.h"
+#include "components/account_id/account_id.h"
 #include "components/services/app_service/public/cpp/app_launch_util.h"
 #include "components/services/app_service/public/cpp/app_types.h"
 #include "components/services/app_service/public/cpp/intent_util.h"
 #include "components/services/app_service/public/cpp/types_util.h"
 #include "components/session_manager/core/session.h"
 #include "components/session_manager/core/session_manager.h"
-#include "components/sessions/core/tab_restore_service.h"
-#include "components/sessions/core/tab_restore_service_observer.h"
 #include "components/url_formatter/url_fixer.h"
 #include "components/user_manager/user.h"
 #include "components/user_manager/user_manager.h"
@@ -84,7 +78,6 @@
 #include "extensions/browser/extension_registry.h"
 #include "extensions/common/constants.h"
 #include "extensions/common/extension.h"
-#include "third_party/blink/public/mojom/navigation/was_activated_option.mojom.h"
 #include "ui/aura/window.h"
 #include "ui/base/dragdrop/os_exchange_data.h"
 #include "ui/base/mojom/window_show_state.mojom.h"
@@ -93,12 +86,6 @@
 #include "url/url_constants.h"
 
 namespace {
-
-void RestoreTabUsingProfile(Profile* profile) {
-  sessions::TabRestoreService* service =
-      TabRestoreServiceFactory::GetForProfile(profile);
-  service->RestoreMostRecentEntry(nullptr);
-}
 
 bool IsIncognitoAllowed() {
   Profile* profile = ProfileManager::GetActiveUserProfile();
@@ -172,50 +159,6 @@ bool OpenFilesSwa(Profile* const profile,
 }
 
 }  // namespace
-
-// TabRestoreHelper is used to restore a tab. In particular when the user
-// attempts to a restore a tab if the TabRestoreService hasn't finished loading
-// this waits for it. Once the TabRestoreService finishes loading the tab is
-// restored.
-class ChromeNewWindowClient::TabRestoreHelper
-    : public sessions::TabRestoreServiceObserver {
- public:
-  TabRestoreHelper(ChromeNewWindowClient* delegate,
-                   Profile* profile,
-                   sessions::TabRestoreService* service)
-      : delegate_(delegate), profile_(profile), tab_restore_service_(service) {
-    tab_restore_service_->AddObserver(this);
-  }
-
-  TabRestoreHelper(const TabRestoreHelper&) = delete;
-  TabRestoreHelper& operator=(const TabRestoreHelper&) = delete;
-
-  ~TabRestoreHelper() override { tab_restore_service_->RemoveObserver(this); }
-
-  sessions::TabRestoreService* tab_restore_service() {
-    return tab_restore_service_;
-  }
-
-  void TabRestoreServiceChanged(sessions::TabRestoreService* service) override {
-  }
-
-  void TabRestoreServiceDestroyed(
-      sessions::TabRestoreService* service) override {
-    // This destroys us.
-    delegate_->tab_restore_helper_.reset();
-  }
-
-  void TabRestoreServiceLoaded(sessions::TabRestoreService* service) override {
-    RestoreTabUsingProfile(profile_);
-    // This destroys us.
-    delegate_->tab_restore_helper_.reset();
-  }
-
- private:
-  raw_ptr<ChromeNewWindowClient> delegate_;
-  raw_ptr<Profile> profile_;
-  raw_ptr<sessions::TabRestoreService> tab_restore_service_;
-};
 
 ChromeNewWindowClient::ChromeNewWindowClient() {
   arc::ArcIntentHelperBridge::SetControlCameraAppDelegate(this);
@@ -329,30 +272,34 @@ void ChromeNewWindowClient::OpenUrl(const GURL& url,
     }
   }
 
-  NavigateParams navigate_params(
-      profile, url,
-      ui::PageTransitionFromInt(ui::PAGE_TRANSITION_LINK |
-                                ui::PAGE_TRANSITION_FROM_API));
-  navigate_params.disposition = ToWindowOpenDisposition(disposition);
+  // TODO(crbug.com/447287122): Revisit here to see if there always is an
+  // active user session.
+  const user_manager::User* user =
+      ash::BrowserContextHelper::Get()->GetUserByBrowserContext(profile);
+  if (!user) {
+    return;
+  }
 
   // If the |from| is kUserInteraction, then the page will load with a user
   // activation. This means it will be able to autoplay media without
   // restriction.
-  if (from == OpenUrlFrom::kUserInteraction) {
-    navigate_params.was_activated = blink::mojom::WasActivatedOption::kYes;
+  content::WebContents* tab = ash::BrowserController::GetInstance()->OpenUrl(
+      user->GetAccountId(), url,
+      {.disposition = ToWindowOpenDisposition(disposition),
+       .transition = ui::PageTransitionFromInt(ui::PAGE_TRANSITION_LINK |
+                                               ui::PAGE_TRANSITION_FROM_API),
+       .user_activation = from == OpenUrlFrom::kUserInteraction});
+  if (!tab) {
+    return;
   }
 
-  Navigate(&navigate_params);
+  // The browser window might be on another user's desktop, and hence not
+  // visible. Ensure the browser becomes visible on this user's desktop.
+  multi_user_util::MoveWindowToCurrentDesktop(
+      CHECK_DEREF(ash::BrowserController::GetInstance()->GetBrowserForTab(tab))
+          .GetNativeWindow());
 
-  if (navigate_params.browser) {
-    // The browser window might be on another user's desktop, and hence not
-    // visible. Ensure the browser becomes visible on this user's desktop.
-    multi_user_util::MoveWindowToCurrentDesktop(
-        navigate_params.browser->GetWindow()->GetNativeWindow());
-  }
-
-  auto* tab = navigate_params.navigated_or_inserted_contents.get();
-  if (from == OpenUrlFrom::kArc && tab) {
+  if (from == OpenUrlFrom::kArc) {
     // Add a flag to remember this tab originated in the ARC context.
     tab->SetUserData(&arc::ArcWebContentsData::kArcTransitionFlag,
                      std::make_unique<arc::ArcWebContentsData>(tab));
@@ -444,34 +391,17 @@ void ChromeNewWindowClient::OpenGetHelp() {
   chrome::ShowHelpForProfile(profile, chrome::HelpSource::kKeyboard);
 }
 
-void ChromeNewWindowClient::RestoreTab() {
-  if (tab_restore_helper_.get()) {
-    DCHECK(!tab_restore_helper_->tab_restore_service()->IsLoaded());
-    return;
-  }
-
+void ChromeNewWindowClient::RestoreTab(const AccountId& account_id) {
+  // Historically reopening a closed tab is a no-op while an incognito window is
+  // active; preserved here.
   BrowserWindowInterface* browser =
       GlobalBrowserCollection::GetInstance()->GetActiveBrowser();
-  Profile* profile = browser ? browser->GetProfile() : nullptr;
-  if (!profile) {
-    profile = ProfileManager::GetActiveUserProfile();
-  }
-  if (profile->IsOffTheRecord()) {
+  if (browser && browser->GetProfile()->IsOffTheRecord()) {
     return;
   }
-  sessions::TabRestoreService* service =
-      TabRestoreServiceFactory::GetForProfile(profile);
-  if (!service) {
-    return;
-  }
-
-  if (service->IsLoaded()) {
-    RestoreTabUsingProfile(profile);
-  } else {
-    tab_restore_helper_ =
-        std::make_unique<TabRestoreHelper>(this, profile, service);
-    service->LoadTabsFromLastSession();
-  }
+  // Forwards to //chrome; //ash can't depend on BrowserController (it pulls in
+  // //content).
+  ash::BrowserController::GetInstance()->RestoreTab(account_id);
 }
 
 void ChromeNewWindowClient::ShowShortcutCustomizationApp() {

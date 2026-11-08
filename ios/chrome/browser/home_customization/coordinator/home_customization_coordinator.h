@@ -37,6 +37,12 @@
 // Updates the data for all existing menu pages.
 - (void)updateMenuData;
 
+// Scrolls the main customization menu page to the bottom.
+- (void)scrollMainPageToBottom;
+
+// Directly presents the photo library picker for a user-uploaded background.
+- (void)presentPhotoPicker;
+
 @end
 
 #endif  // IOS_CHROME_BROWSER_HOME_CUSTOMIZATION_COORDINATOR_HOME_CUSTOMIZATION_COORDINATOR_H_

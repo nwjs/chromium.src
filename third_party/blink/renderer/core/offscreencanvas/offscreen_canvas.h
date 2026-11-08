@@ -31,7 +31,7 @@
 namespace blink {
 
 class CanvasContextCreationAttributesCore;
-class DOMMatrix;
+class ElementImageDefaultSize;
 class UpdateElementGeometryOptions;
 class ImageBitmap;
 class ImageEncodeOptions;
@@ -84,9 +84,9 @@ class CORE_EXPORT OffscreenCanvas final
                                     const ImageEncodeOptions* options,
                                     ExceptionState& exception_state);
 
-  DOMMatrix* getElementTransform(const V8UnionElementOrElementImage* element,
-                                 DOMMatrix* draw_transform,
-                                 ExceptionState&);
+  ElementImageDefaultSize* getElementImageDefaultSize(
+      const V8UnionElementOrElementImage* element,
+      ExceptionState&) const;
   void updateElementGeometry(const V8UnionElementOrElementImage*,
                              const UpdateElementGeometryOptions*,
                              ExceptionState&);
@@ -188,8 +188,6 @@ class CORE_EXPORT OffscreenCanvas final
   bool IsWebGL1Enabled() const override { return true; }
   bool IsWebGL2Enabled() const override { return true; }
   bool IsWebGLBlocked() const override { return false; }
-
-  // CanvasResourceProviderDelegate implementation
   void NotifyGpuContextLost() override;
   void SetNeedsCompositingUpdate() override {}
 

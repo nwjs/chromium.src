@@ -37,6 +37,7 @@
 #include "gpu/config/gpu_finch_features.h"
 #include "skia/buildflags.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "ui/gl/gl_switches.h"
 
 #if BUILDFLAG(SKIA_USE_DAWN)
 #include "third_party/dawn/include/dawn/dawn_proc.h"
@@ -346,7 +347,7 @@ void PixelTest::SetUpSoftwareRenderer() {
 void PixelTest::FinishSetup() {
   CHECK(renderer_);
   renderer_->Initialize();
-  renderer_->SetVisible(true);
+  renderer_->SetHasBackBuffers(true);
 
   child_context_provider_ =
       base::MakeRefCounted<viz::TestInProcessContextProvider>(

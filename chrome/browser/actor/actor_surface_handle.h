@@ -1,0 +1,118 @@
+// Copyright 2026 The Chromium Authors
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#ifndef CHROME_BROWSER_ACTOR_ACTOR_SURFACE_HANDLE_H_
+#define CHROME_BROWSER_ACTOR_ACTOR_SURFACE_HANDLE_H_
+
+#include <cstdint>
+#include <ostream>
+#include <utility>
+
+#include "components/tabs/public/tab_interface.h"
+
+namespace actor {
+
+class ActorSurface;
+class ActorSurfaceImpl;
+class ActorSurfaceRegistry;
+
+// A weak, copyable, comparable, hashable reference to an ActorSurface, modeled
+// on tabs::TabHandle. Safe to store and pass around (including over mojo/proto
+// via raw_value()) after the surface is destroyed; Get() then returns null.
+//
+// Ownership and lookup model:
+//  - ActorSurface instances are owned per-profile by ActorSurfaceRegistry and
+//    removed when the backing object is destroyed. Hence a live surface
+//    resolved via Get() never has a dangling tab or WebContents.
+//  - ActorSurfaceImpl registers itself in a process-wide lookup table on
+//    construction and unregisters itself on destruction. This lets
+//    ActorSurfaceHandle::Get() resolve any handle directly without plumbing
+//    ActorSurfaceRegistry through every caller.
+//
+// Usage rules (same as TabHandle):
+//  - Always use handles and never pass ActorSurface* or WebContents* across
+//    async hops.
+//  - Get() is profile-agnostic; callers acting on behalf of a profile must
+//    verify the surface belongs to it.
+//  - UI thread only.
+//
+// ID space:
+//  - During migration (when kUseTabHandleAsSurfaceHandle is enabled):
+//    tab-backed surfaces reuse their TabHandle raw value (> 0), and headless
+//    surfaces allocate negative values (< 0) so the two ranges never collide.
+//  - After the migration is finished (when kUseTabHandleAsSurfaceHandle is
+//    disabled): all surfaces allocate from a single positive counter (> 0).
+//  - 0 is null. IDs are never reused within a process.
+class ActorSurfaceHandle {
+ public:
+  static constexpr int32_t kNullValue = 0;
+
+  constexpr ActorSurfaceHandle() = default;
+
+  static constexpr ActorSurfaceHandle Null() { return ActorSurfaceHandle(); }
+
+  constexpr int32_t raw_value() const { return raw_value_; }
+  constexpr bool is_null() const { return raw_value_ == kNullValue; }
+
+  // Returns the surface, or null if it no longer exists (or never did).
+  ActorSurface* Get() const;
+
+  // Returns the tab currently backing this surface, or TabHandle::Null() if
+  // there is none. This is the inverse of From(); callers must not assume the
+  // two share a raw value.
+  //
+  // Like From(), also returns the tab if it was just destroyed (Get() returns
+  // null, but the handle lookup still exists), so that cleanups can still
+  // happen.
+  tabs::TabHandle GetTabHandle() const;
+
+  // Returns the handle of the surface currently backed by `tab`, or Null() if
+  // there is none. This is the supported way to convert a tab to a surface:
+  // callers must not assume the two share a raw value.
+  //
+  // Also returns the handle if the tab was just destroyed, even though its
+  // ActorSurface is destroyed right away (Get() returns null, but the handle
+  // lookup still exists), so that cleanups can still happen.
+  static ActorSurfaceHandle From(tabs::TabHandle tab);
+
+  // Mints a new, unique handle with no surface registered under it. Tests use
+  // it to construct surfaces directly or to get a handle that resolves to
+  // nothing. It takes no value, so a test can't make a handle from a TabHandle.
+  static ActorSurfaceHandle CreateForTesting();
+
+  friend constexpr bool operator==(ActorSurfaceHandle,
+                                   ActorSurfaceHandle) = default;
+  friend constexpr auto operator<=>(ActorSurfaceHandle,
+                                    ActorSurfaceHandle) = default;
+
+  template <typename H>
+  friend H AbslHashValue(H h, ActorSurfaceHandle handle) {
+    return H::combine(std::move(h), handle.raw_value_);
+  }
+
+ private:
+  // Only the surface code mints handles, so no other raw value (in particular
+  // a tabs::TabHandle's) can be turned into a handle.
+  friend class ActorSurfaceImpl;
+  friend class ActorSurfaceRegistry;
+
+  constexpr explicit ActorSurfaceHandle(int32_t raw_value)
+      : raw_value_(raw_value) {}
+
+  // Mints a new, unique, non-null handle. Handles are never reused.
+  static ActorSurfaceHandle NextHandle();
+
+  // Registers or unregisters an ActorSurface in the lookup table.
+  static void Register(ActorSurfaceHandle handle, ActorSurface* surface);
+  static void Unregister(ActorSurfaceHandle handle);
+
+  // Underlying integer value of the handle. Defaults to 0 (kNullValue).
+  int32_t raw_value_ = kNullValue;
+};
+
+std::ostream& operator<<(std::ostream& os, ActorSurfaceHandle handle);
+
+}  // namespace actor
+
+#endif  // CHROME_BROWSER_ACTOR_ACTOR_SURFACE_HANDLE_H_

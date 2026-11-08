@@ -10,6 +10,10 @@
 enum class ComposeboxEntrypoint {
   /// The AIM button on NTP.
   kNTPAIMButton,
+  /// The attach image button on NTP.
+  kNTPAttachImageButton,
+  /// The image generation button on NTP.
+  kNTPImageGenerationButton,
   /// The fakebox on NTP.
   kNTPFakebox,
   /// The plus button on NTP.

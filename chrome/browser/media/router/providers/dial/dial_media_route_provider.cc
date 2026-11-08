@@ -44,7 +44,7 @@ DialMediaRouteProvider::DialMediaRouteProvider(
     : media_sink_service_(media_sink_service),
       internal_message_util_(hash_token) {
   DETACH_FROM_SEQUENCE(sequence_checker_);
-  DCHECK(media_sink_service_);
+  CHECK(media_sink_service_, base::NotFatalUntil::M161);
 
   task_runner->PostTask(
       FROM_HERE,
@@ -72,6 +72,8 @@ void DialMediaRouteProvider::Init(
 
 DialMediaRouteProvider::~DialMediaRouteProvider() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  // TODO(crbug.com/572960442): CHECK-exclusion: Convert to a CHECK once we are
+  // confident it won't be triggered.
   DCHECK(media_sink_queries_.empty());
   media_sink_service_->RemoveObserver(this);
 }
@@ -622,7 +624,7 @@ void DialMediaRouteProvider::GetState(GetStateCallback callback) {
 
 void DialMediaRouteProvider::SetActivityManagerForTest(
     std::unique_ptr<DialActivityManager> activity_manager) {
-  DCHECK(!activity_manager_);
+  CHECK(!activity_manager_, base::NotFatalUntil::M161);
   activity_manager_ = std::move(activity_manager);
 }
 

@@ -132,6 +132,7 @@ class ExceptionState;
 class FloatClipRect;
 class FocusEvent;
 class FocusOptions;
+class Focusable;
 class GetAnimationsOptions;
 class HTMLCanvasElement;
 class HTMLElement;
@@ -303,8 +304,8 @@ enum class CommandEventType {
 };
 
 // Defaults for the `interestfor` API's `normal` value.
-static constexpr double kDefaultInterestDelayStartSeconds = 0.5;
-static constexpr double kDefaultInterestDelayEndSeconds = 0.25;
+static constexpr double kDefaultInterestDelayStartSeconds = 0.25;
+static constexpr double kDefaultInterestDelayEndSeconds = 0.15;
 
 typedef HeapVector<Member<Attr>> AttrNodeList;
 
@@ -1171,8 +1172,12 @@ class CORE_EXPORT Element : public ContainerNode {
 
   // Recursively sets the IsInCanvasSubtree bit for the element and its subtree.
   void SetIsInCanvasSubtree(bool value);
-  // Is in the flat subtree of a canvas element, but not the canvas element
-  // itself.
+  // True if this element has a flat-tree DOM ancestor <canvas> (including
+  // across local frame boundaries).
+  // Warning: This is a pure DOM check; it is true regardless of
+  // `content=drawable` or `drawable`, and remains true for elements that
+  // escape their canvas into the top layer (e.g., modal <dialog> or popover).
+  // See also `EffectPaintPropertyNode::IsInDrawableCanvasSubtree()`.
   bool IsInCanvasSubtree() const {
     return HasElementFlag(ElementFlags::kIsInCanvasSubtree);
   }
@@ -1184,13 +1189,16 @@ class CORE_EXPORT Element : public ContainerNode {
   void VerifySubtreeIsInCanvas(bool value);
 #endif
 
-  // Returns the nearest ancestor <canvas content=drawable> if this element is
-  // eligible for drawing into it (i.e. is connected, is in a canvas subtree,
-  // is not a pseudo-element, and is an immediate child of the canvas or has
-  // the 'drawable' attribute). Returns nullptr otherwise.
+  // If this is a connected, non-pseudo element with the `drawable` attribute,
+  // returns the nearest flat-tree DOM ancestor <canvas> (in the same document)
+  // if that <canvas> has `content=drawable`; returns nullptr otherwise.
+  // Warning: This is a DOM check and does not check whether the element has a
+  // drawable LayoutObject or escapes its canvas into the top layer. See also
+  // `LayoutObject::CanvasForDrawingLayoutObject()` and
+  // `EffectPaintPropertyNode::IsInDrawableCanvasSubtree()`.
   HTMLCanvasElement* CanvasForDrawing() const;
+  void RequestCanvasPaintOnDrawableRemoved();
 
-  bool HasCanvasTransform() const;
   // Returns the transform that should be used for mapping the border-box,
   // before CSS transforms, to the canvas coordinate space. When the element
   // has a CanvasForDrawing, this affects the geometry of the element (e.g.,
@@ -1258,6 +1266,11 @@ class CORE_EXPORT Element : public ContainerNode {
   // Element focus function called through IDL (i.e. element.focus() in JS)
   // Delegates to Focus() with focus type set to kScript
   void focusForBindings(const FocusOptions*);
+  // Return the next/previous item in the sequential focus navigation order
+  // (i.e. what Tab/Shift+Tab would move focus to) starting from this element,
+  // without changing focus. Return nullptr at either end of the order.
+  Focusable* nextFocusable();
+  Focusable* previousFocusable();
   // Element focus function called from outside IDL (user focus,
   // accessibility, etc...)
   virtual void Focus(const FocusParams&);
@@ -1693,6 +1706,8 @@ class CORE_EXPORT Element : public ContainerNode {
   virtual bool MatchesReadWritePseudoClass() const { return false; }
   virtual bool MatchesValidityPseudoClasses() const { return false; }
   bool MatchesOverscrollOpen() const;
+  // Unlike !MatchesOverscrollOpen(), only true for valid overscroll areas.
+  bool MatchesOverscrollClosed() const;
 
   virtual bool MayTriggerVirtualKeyboard() const;
 
@@ -1932,11 +1947,17 @@ class CORE_EXPORT Element : public ContainerNode {
   // Marks this element as an ad-related video stream.
   void UpdateToVideoAd();
 
+  // Marks this element as an overlay popup ad.
+  void SetIsOverlayPopupAd();
+
   // Returns true if the element is considered ad-related.
   bool IsAdRelated() const;
 
   // Returns true if the element is an ad-related video stream.
   bool IsVideoAd() const;
+
+  // Returns true if the element is an overlay popup ad.
+  bool IsOverlayPopupAd() const;
 
   // Returns the `AdProvenance` if the element is ad-related, or `std::nullopt`
   // otherwise.
@@ -2190,6 +2211,8 @@ class CORE_EXPORT Element : public ContainerNode {
   OverscrollAreaTracker* GetOverscrollAreaTracker() const;
 
   Element* GetOverscrollContainer() const;
+  // Updated before styling by OverscrollAreaTracker::UpdateOverscrollArea().
+  bool IsValidOverscrollArea() const;
   void SetOverscrollContainer(Element*);
   void ClearOverscrollContainer();
   void DetachOverscroll();
@@ -2237,6 +2260,10 @@ class CORE_EXPORT Element : public ContainerNode {
   UniqueElementData& EnsureUniqueElementData();
 
   bool IsViewportScrollElement();
+
+  // Returns the rect reported by clientLeft/Top/Width/Height: the padding
+  // box, but text fields use the content box in the inline axis.
+  static PhysicalRect PhysicalClientRect(const LayoutBox&);
 
   void AddPropertyToPresentationAttributeStyle(HeapVector<CSSPropertyValue, 8>&,
                                                CSSPropertyID,
@@ -2531,25 +2558,13 @@ class CORE_EXPORT Element : public ContainerNode {
     AttachPrecedingScrollControlsPseudoElements(context);
   }
 
-  void AttachLayoutPrecedingPseudoElements(AttachContext& context) {
-    if (IsDocumentElement()) {
-      return;
-    }
-    AttachPrecedingScrollControlsPseudoElements(context);
-  }
+  void AttachLayoutPrecedingPseudoElements(AttachContext& context);
 
   void AttachPrecedingScrollControlsPseudoElements(AttachContext& context) {
     AttachPseudoElement(kPseudoIdScrollMarkerGroupBefore, context);
   }
 
-  void AttachPrecedingPseudoElements(AttachContext& context) {
-    AttachDocumentElementPrecedingPseudoElements(context);
-    AttachOverscrollPseudoElements(context);
-    AttachPseudoElement(kPseudoIdScrollMarker, context);
-    AttachPseudoElement(kPseudoIdMarker, context);
-    AttachPseudoElement(kPseudoIdCheckMark, context);
-    AttachPseudoElement(kPseudoIdBefore, context);
-  }
+  void AttachPrecedingPseudoElements(AttachContext& context);
 
   // For document element scroll control pseudo-elements become not layout
   // siblings, but layout children.
@@ -2560,23 +2575,8 @@ class CORE_EXPORT Element : public ContainerNode {
     AttachSucceedingScrollControlsPseudoElements(context);
   }
 
-  void AttachLayoutSucceedingPseudoElements(AttachContext& context) {
-    if (IsDocumentElement()) {
-      return;
-    }
-    AttachPseudoElement(kPseudoIdInterestButton, context);
-    AttachSucceedingScrollControlsPseudoElements(context);
-  }
-
-  void AttachSucceedingPseudoElements(AttachContext& context) {
-    AttachPseudoElement(kPseudoIdAfter, context);
-    AttachPseudoElement(kPseudoIdExpandIcon, context);
-    AttachPseudoElement(kPseudoIdPickerIcon, context);
-    AttachDocumentElementSucceedingPseudoElements(context);
-    AttachPseudoElement(kPseudoIdBackdrop, context);
-    UpdateFirstLetterPseudoElement(StyleUpdatePhase::kAttachLayoutTree);
-    AttachPseudoElement(kPseudoIdFirstLetter, context);
-  }
+  void AttachLayoutSucceedingPseudoElements(AttachContext& context);
+  void AttachSucceedingPseudoElements(AttachContext& context);
 
   void AttachSucceedingScrollControlsPseudoElements(AttachContext& context) {
     // The order for buttons is described in
@@ -2596,28 +2596,8 @@ class CORE_EXPORT Element : public ContainerNode {
   void AttachColumnPseudoElements(AttachContext& context);
   void AttachTransitionPseudoElements(AttachContext& context);
 
-  void DetachPrecedingPseudoElements(bool performing_reattach) {
-    DetachPseudoElement(kPseudoIdScrollMarker, performing_reattach);
-    DetachPseudoElement(kPseudoIdScrollMarkerGroupBefore, performing_reattach);
-    DetachPseudoElement(kPseudoIdMarker, performing_reattach);
-    DetachPseudoElement(kPseudoIdCheckMark, performing_reattach);
-    DetachPseudoElement(kPseudoIdBefore, performing_reattach);
-    DetachOverscrollPseudoElements(performing_reattach);
-  }
-
-  void DetachSucceedingPseudoElements(bool performing_reattach) {
-    DetachPseudoElement(kPseudoIdAfter, performing_reattach);
-    DetachPseudoElement(kPseudoIdExpandIcon, performing_reattach);
-    DetachPseudoElement(kPseudoIdPickerIcon, performing_reattach);
-    DetachPseudoElement(kPseudoIdInterestButton, performing_reattach);
-    DetachPseudoElement(kPseudoIdScrollButtonBlockStart, performing_reattach);
-    DetachPseudoElement(kPseudoIdScrollButtonInlineStart, performing_reattach);
-    DetachPseudoElement(kPseudoIdScrollButtonInlineEnd, performing_reattach);
-    DetachPseudoElement(kPseudoIdScrollButtonBlockEnd, performing_reattach);
-    DetachPseudoElement(kPseudoIdScrollMarkerGroupAfter, performing_reattach);
-    DetachPseudoElement(kPseudoIdBackdrop, performing_reattach);
-    DetachPseudoElement(kPseudoIdFirstLetter, performing_reattach);
-  }
+  void DetachPrecedingPseudoElements(bool performing_reattach);
+  void DetachSucceedingPseudoElements(bool performing_reattach);
 
   void DetachColumnPseudoElements(bool performing_reattach);
   void DetachTransitionPseudoElements(bool performing_reattach);

@@ -4,6 +4,7 @@
 
 #include "third_party/blink/renderer/modules/webcodecs/decrypt_config_util.h"
 
+#include "base/containers/span.h"
 #include "media/base/decrypt_config.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_decrypt_config.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_encryption_pattern.h"
@@ -19,14 +20,14 @@ std::unique_ptr<media::DecryptConfig> CreateMediaDecryptConfig(
     return nullptr;
   }
 
-  auto iv = AsSpan<const char>(js_config.initializationVector());
+  auto iv = base::as_string_view(
+      AsSpan<SharedBufferPolicy::kAllow>(*js_config.initializationVector()));
   if (iv.size() != media::DecryptConfig::kDecryptionKeySize) {
     return nullptr;
   }
-  std::string iv_str(iv.data(), iv.size());
-
-  auto key_id = AsSpan<const char>(js_config.keyId());
-  std::string key_id_str(key_id.data(), key_id.size());
+  std::string iv_str(iv);
+  std::string key_id_str(base::as_string_view(
+      AsSpan<SharedBufferPolicy::kAllow>(*js_config.keyId())));
 
   std::vector<media::SubsampleEntry> subsamples;
   for (const auto& entry : js_config.subsampleLayout()) {

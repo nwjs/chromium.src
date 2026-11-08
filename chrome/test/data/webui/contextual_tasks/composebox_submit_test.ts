@@ -20,7 +20,7 @@ import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {PageCallbackRouter as SearchboxPageCallbackRouter, PageHandlerRemote as SearchboxPageHandlerRemote} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 import type {AutocompleteResult, PageRemote as SearchboxPageRemote} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 import {assertEquals, assertFalse, assertNotEquals, assertTrue} from 'chrome://webui-test/chai_assert.js';
-import {MockInputState} from 'chrome://webui-test/cr_components/searchbox/searchbox_test_utils.js';
+import {createSuggestTemplateInfo, MockInputState} from 'chrome://webui-test/cr_components/searchbox/searchbox_test_utils.js';
 import {MockTimer} from 'chrome://webui-test/mock_timer.js';
 import {TestMock} from 'chrome://webui-test/test_mock.js';
 import {isVisible, microtasksFinished} from 'chrome://webui-test/test_util.js';
@@ -1102,7 +1102,9 @@ suite('ContextualTasksComposeboxForkSubmitTest', () => {
     const TEST_QUERY = 'test query';
     const {app, innerComposebox} = parts;
 
-    const inputElement = innerComposebox.getInputElement().$.input;
+    const inputElement =
+        innerComposebox.getInputElement().shadowRoot.querySelector<HTMLElement>(
+            '#input')!;
     assertTrue(
         isVisible(inputElement), 'Composebox input element should be visible');
 
@@ -1131,7 +1133,9 @@ suite('ContextualTasksComposeboxForkSubmitTest', () => {
     const TEST_QUERY = 'test query';
     const {app, innerComposebox} = parts;
 
-    const inputElement = innerComposebox.getInputElement().$.input;
+    const inputElement =
+        innerComposebox.getInputElement().shadowRoot.querySelector<HTMLElement>(
+            '#input')!;
     assertTrue(
         isVisible(inputElement), 'Composebox input element should be visible');
 
@@ -1270,7 +1274,9 @@ suite('ContextualTasksComposeboxForkSubmitTest', () => {
     // computed styles below read their end values.
     disableAnimationsRecursively(app);
     const inputComponent = innerComposebox.getInputElement();
-    simulateUserInput(inputComponent.$.input, 'test query');
+    simulateUserInput(
+        inputComponent.shadowRoot.querySelector<HTMLElement>('#input')!,
+        'test query');
     await microtasksFinished();
     await innerComposebox.updateComplete;
     await inputComponent.updateComplete;
@@ -1483,7 +1489,9 @@ suite('ContextualTasksComposeboxForkInjectInputTest', () => {
     // Verify input is set.
     assertEquals(TEST_QUERY, innerComposebox.input);
     assertEquals(
-        TEST_QUERY, getInputValue(innerComposebox.getInputElement().$.input));
+        TEST_QUERY,
+        getInputValue(innerComposebox.getInputElement()
+                          .shadowRoot.querySelector<HTMLElement>('#input')!));
 
     // Verify `submitQuery` was not called.
     assertEquals(
@@ -1568,7 +1576,8 @@ suite('ContextualTasksComposeboxForkInjectInputTest', () => {
           input: TEST_QUERY,
           matches: [createAutocompleteMatch({
             allowedToBeDefaultMatch: false,
-            contents: TEST_QUERY,
+            suggestTemplate:
+                createSuggestTemplateInfo({primaryText: TEST_QUERY}),
           })],
         }));
     await flushAndSettle();
@@ -1601,7 +1610,8 @@ suite('ContextualTasksComposeboxForkInjectInputTest', () => {
           matches: [
             createAutocompleteMatch({
               allowedToBeDefaultMatch: false,
-              contents: OTHER_QUERY,
+              suggestTemplate:
+                  createSuggestTemplateInfo({primaryText: OTHER_QUERY}),
             }),
             createAutocompleteMatch({allowedToBeDefaultMatch: false}),
           ],

@@ -18,11 +18,13 @@
 #import "ios/chrome/browser/page_info/features/features.h"
 #import "ios/chrome/browser/page_info/ui/page_info_about_this_site_info.h"
 #import "ios/chrome/browser/page_info/ui/page_info_history_mutator.h"
+#import "ios/chrome/browser/page_info/ui/page_info_navigation_item_title_view.h"
 #import "ios/chrome/browser/permissions/ui_bundled/permission_info.h"
 #import "ios/chrome/browser/permissions/ui_bundled/permissions_constants.h"
 #import "ios/chrome/browser/permissions/ui_bundled/permissions_delegate.h"
 #import "ios/chrome/browser/shared/model/url/chrome_url_constants.h"
 #import "ios/chrome/browser/shared/public/commands/page_info_commands.h"
+#import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/ui/symbols/symbols.h"
 #import "ios/chrome/browser/shared/ui/table_view/cells/table_view_attributed_string_header_footer_item.h"
 #import "ios/chrome/browser/shared/ui/table_view/cells/table_view_cell.h"
@@ -50,6 +52,8 @@ namespace {
 typedef NS_ENUM(NSInteger, SectionIdentifier) {
   SectionIdentifierSecurityContent,
   SectionIdentifierPermissions,
+  SectionIdentifierPermissionsCamera,
+  SectionIdentifierPermissionsMicrophone,
   SectionIdentifierAboutThisSite,
   SectionIdentifierLastVisited,
 };
@@ -62,12 +66,106 @@ typedef NS_ENUM(NSInteger, ItemIdentifier) {
   ItemIdentifierLastVisited,
 };
 
-// The minimum scale factor of the title label showing the URL.
-const float kTitleLabelMinimumScaleFactor = 0.7f;
-
 // The maximum number of lines we should show for a page's description in the
 // AboutThisSite section.
 const NSInteger kAboutThisSiteDetailTextNumberOfLines = 2;
+
+// The point size of the chevron symbol in the permission dropdown button.
+constexpr CGFloat kChevronSymbolSize = 14;
+
+// The padding between the title and the chevron in the permission dropdown
+// button.
+constexpr CGFloat kChevronPadding = 8;
+
+// Returns the title of the dropdown option for `setting`.
+NSString* PermissionSettingTitle(SitePermissionSetting setting) {
+  switch (setting) {
+    case SitePermissionSetting::kAllowOnce:
+      return l10n_util::GetNSString(IDS_IOS_PERMISSIONS_SETTING_ALLOWED_ONCE);
+    case SitePermissionSetting::kAlwaysAllow:
+      return l10n_util::GetNSString(IDS_IOS_PERMISSIONS_SETTING_ALLOWED);
+    case SitePermissionSetting::kNeverAllow:
+      return l10n_util::GetNSString(IDS_IOS_PERMISSIONS_SETTING_NOT_ALLOWED);
+  }
+}
+
+// Returns the ID of the disclaimer message describing `setting` for
+// `permission`. The message takes the site domain as its only parameter.
+int PermissionDisclaimerMessageID(web::Permission permission,
+                                  SitePermissionSetting setting) {
+  switch (setting) {
+    case SitePermissionSetting::kAllowOnce:
+      return IDS_IOS_AI_HUB_PERMISSION_SITE_EXPLANATION;
+    case SitePermissionSetting::kAlwaysAllow:
+      switch (permission) {
+        case web::PermissionCamera:
+          return IDS_IOS_AI_HUB_CAMERA_PERMISSION_ALWAYS_ALLOWED_EXPLANATION;
+        case web::PermissionMicrophone:
+          return IDS_IOS_AI_HUB_MICROPHONE_PERMISSION_ALWAYS_ALLOWED_EXPLANATION;
+      }
+    case SitePermissionSetting::kNeverAllow:
+      switch (permission) {
+        case web::PermissionCamera:
+          return IDS_IOS_AI_HUB_CAMERA_PERMISSION_BLOCKED_EXPLANATION;
+        case web::PermissionMicrophone:
+          return IDS_IOS_AI_HUB_MICROPHONE_PERMISSION_BLOCKED_EXPLANATION;
+      }
+  }
+}
+
+// Returns the accessibility label of the permission dropdown for `permission`.
+NSString* PermissionDropdownAccessibilityLabel(web::Permission permission) {
+  switch (permission) {
+    case web::PermissionCamera:
+      return l10n_util::GetNSString(
+          IDS_IOS_AI_HUB_CAMERA_PERMISSION_DROPDOWN_ACCESSIBILITY_LABEL);
+    case web::PermissionMicrophone:
+      return l10n_util::GetNSString(
+          IDS_IOS_AI_HUB_MICROPHONE_PERMISSION_DROPDOWN_ACCESSIBILITY_LABEL);
+  }
+}
+
+// Returns the `web::Permission` corresponding to `item_identifier`.
+web::Permission PermissionForItemIdentifier(ItemIdentifier item_identifier) {
+  switch (item_identifier) {
+    case ItemIdentifierPermissionsCamera:
+      return web::PermissionCamera;
+    case ItemIdentifierPermissionsMicrophone:
+      return web::PermissionMicrophone;
+    case ItemIdentifierSecurity:
+    case ItemIdentifierAboutThisSite:
+    case ItemIdentifierLastVisited:
+      NOTREACHED();
+  }
+}
+
+// Returns the `ItemIdentifier` corresponding to `permission`.
+ItemIdentifier ItemIdentifierForPermission(web::Permission permission) {
+  switch (permission) {
+    case web::PermissionCamera:
+      return ItemIdentifierPermissionsCamera;
+    case web::PermissionMicrophone:
+      return ItemIdentifierPermissionsMicrophone;
+  }
+}
+
+// Returns the `SectionIdentifier` for `permission` when domain-level site
+// permissions are enabled.
+SectionIdentifier PermissionSectionForPermission(web::Permission permission) {
+  switch (permission) {
+    case web::PermissionCamera:
+      return SectionIdentifierPermissionsCamera;
+    case web::PermissionMicrophone:
+      return SectionIdentifierPermissionsMicrophone;
+  }
+}
+
+// Returns the `SectionIdentifier` for `item_identifier` when domain-level site
+// permissions are enabled.
+SectionIdentifier PermissionSectionForItem(ItemIdentifier item_identifier) {
+  return PermissionSectionForPermission(
+      PermissionForItemIdentifier(item_identifier));
+}
 
 }  // namespace
 
@@ -77,16 +175,13 @@ const NSInteger kAboutThisSiteDetailTextNumberOfLines = 2;
 @property(nonatomic, strong)
     PageInfoSiteSecurityDescription* pageInfoSecurityDescription;
 
-// The list of permissions info used to create switches.
-@property(nonatomic, copy)
-    NSMutableDictionary<NSNumber*, NSNumber*>* permissionsInfo;
-
 @end
 
 @implementation PageInfoViewController {
   UITableViewDiffableDataSource<NSNumber*, NSNumber*>* _dataSource;
   PageInfoAboutThisSiteInfo* _aboutThisSiteInfo;
   NSString* _lastVisitedTimestamp;
+  NSMutableDictionary<NSNumber*, PermissionInfo*>* _permissionsInfo;
 }
 
 #pragma mark - UIViewController
@@ -97,6 +192,7 @@ const NSInteger kAboutThisSiteDetailTextNumberOfLines = 2;
   self = [super initWithStyle:style];
   if (self) {
     _pageInfoSecurityDescription = siteSecurityDescription;
+    _permissionsInfo = [[NSMutableDictionary alloc] init];
   }
   return self;
 }
@@ -107,7 +203,8 @@ const NSInteger kAboutThisSiteDetailTextNumberOfLines = 2;
   self.title = l10n_util::GetNSString(IDS_IOS_PAGE_INFO_SITE_INFORMATION);
   self.navigationItem.largeTitleDisplayMode =
       UINavigationItemLargeTitleDisplayModeNever;
-  self.navigationItem.prompt = self.pageInfoSecurityDescription.siteURL;
+  self.navigationItem.titleView = CreatePageInfoNavigationItemTitleView(
+      self.title, self.pageInfoSecurityDescription.siteURL);
 
   self.tableView.accessibilityIdentifier = kPageInfoViewAccessibilityIdentifier;
   self.navigationController.navigationBar.accessibilityIdentifier =
@@ -137,6 +234,8 @@ const NSInteger kAboutThisSiteDetailTextNumberOfLines = 2;
   if (self.pageInfoSecurityDescription.isPageLoading) {
     _pageInfoSecurityDescription =
         [self.pageInfoPresentationHandler updatedSiteSecurityDescription];
+    self.navigationItem.titleView = CreatePageInfoNavigationItemTitleView(
+        self.title, self.pageInfoSecurityDescription.siteURL);
   }
 
   [self loadModel];
@@ -183,8 +282,8 @@ const NSInteger kAboutThisSiteDetailTextNumberOfLines = 2;
              intoSectionWithIdentifier:@(SectionIdentifierSecurityContent)];
 
   // Permissions section.
-  for (NSNumber* permission in self.permissionsInfo.allKeys) {
-    [self updateSnapshot:snapshot forPermission:permission];
+  for (PermissionInfo* permissionInfo in _permissionsInfo.allValues) {
+    [self updateSnapshot:snapshot forPermission:permissionInfo];
   }
 
   if (IsAboutThisSiteFeatureEnabled()) {
@@ -254,6 +353,23 @@ const NSInteger kAboutThisSiteDetailTextNumberOfLines = 2;
           DequeueTableViewHeaderFooter<
               TableViewAttributedStringHeaderFooterView>(self.tableView);
       footer.attributedString = [self permissionFooterAttributedString];
+      return footer;
+    }
+    case SectionIdentifierPermissionsCamera: {
+      TableViewAttributedStringHeaderFooterView* footer =
+          DequeueTableViewHeaderFooter<
+              TableViewAttributedStringHeaderFooterView>(self.tableView);
+      footer.attributedString = [self
+          permissionFooterAttributedStringForPermission:web::PermissionCamera];
+      return footer;
+    }
+    case SectionIdentifierPermissionsMicrophone: {
+      TableViewAttributedStringHeaderFooterView* footer =
+          DequeueTableViewHeaderFooter<
+              TableViewAttributedStringHeaderFooterView>(self.tableView);
+      footer.attributedString =
+          [self permissionFooterAttributedStringForPermission:
+                    web::PermissionMicrophone];
       return footer;
     }
   }
@@ -326,83 +442,10 @@ const NSInteger kAboutThisSiteDetailTextNumberOfLines = 2;
 
       return cell;
     }
-    case ItemIdentifierPermissionsCamera: {
-      TableViewCellContentConfiguration* configuration =
-          [[TableViewCellContentConfiguration alloc] init];
-      configuration.title = l10n_util::GetNSString(IDS_IOS_PERMISSIONS_CAMERA);
-
-      ColorfulSymbolContentConfiguration* symbolConfiguration =
-          [[ColorfulSymbolContentConfiguration alloc] init];
-      symbolConfiguration.symbolImage =
-          SymbolWithPointSize(SymbolCamera, kPageInfoSymbolPointSize);
-      symbolConfiguration.symbolTintColor = UIColor.whiteColor;
-      symbolConfiguration.symbolBackgroundColor =
-          [UIColor colorNamed:kOrange500Color];
-
-      configuration.leadingConfiguration = symbolConfiguration;
-
-      BOOL permissionOn =
-          self.permissionsInfo[@(web::PermissionCamera)].unsignedIntValue ==
-          web::PermissionStateAllowed;
-
-      SwitchContentConfiguration* switchConfiguration =
-          [[SwitchContentConfiguration alloc] init];
-      switchConfiguration.target = self;
-      switchConfiguration.selector = @selector(permissionSwitchToggled:);
-      switchConfiguration.tag = itemIdentifier;
-      switchConfiguration.on = permissionOn;
-
-      configuration.trailingConfiguration = switchConfiguration;
-
-      UITableViewCell* cell =
-          [TableViewCellContentConfiguration dequeueTableViewCell:tableView];
-      cell.contentConfiguration = configuration;
-      cell.selectionStyle = UITableViewCellSelectionStyleNone;
-
-      cell.accessibilityIdentifier =
-          kPageInfoCameraSwitchAccessibilityIdentifier;
-
-      return cell;
-    }
-    case ItemIdentifierPermissionsMicrophone: {
-      TableViewCellContentConfiguration* configuration =
-          [[TableViewCellContentConfiguration alloc] init];
-      configuration.title =
-          l10n_util::GetNSString(IDS_IOS_PERMISSIONS_MICROPHONE);
-
-      ColorfulSymbolContentConfiguration* symbolConfiguration =
-          [[ColorfulSymbolContentConfiguration alloc] init];
-      symbolConfiguration.symbolImage =
-          SymbolWithPointSize(SymbolMicrophone, kPageInfoSymbolPointSize);
-      symbolConfiguration.symbolTintColor = UIColor.whiteColor;
-      symbolConfiguration.symbolBackgroundColor =
-          [UIColor colorNamed:kOrange500Color];
-
-      configuration.leadingConfiguration = symbolConfiguration;
-
-      BOOL permissionOn =
-          self.permissionsInfo[@(web::PermissionMicrophone)].unsignedIntValue ==
-          web::PermissionStateAllowed;
-
-      SwitchContentConfiguration* switchConfiguration =
-          [[SwitchContentConfiguration alloc] init];
-      switchConfiguration.target = self;
-      switchConfiguration.selector = @selector(permissionSwitchToggled:);
-      switchConfiguration.tag = itemIdentifier;
-      switchConfiguration.on = permissionOn;
-
-      configuration.trailingConfiguration = switchConfiguration;
-
-      UITableViewCell* cell =
-          [TableViewCellContentConfiguration dequeueTableViewCell:tableView];
-      cell.contentConfiguration = configuration;
-      cell.selectionStyle = UITableViewCellSelectionStyleNone;
-
-      cell.accessibilityIdentifier =
-          kPageInfoMicrophoneSwitchAccessibilityIdentifier;
-
-      return cell;
-    }
+    case ItemIdentifierPermissionsCamera:
+    case ItemIdentifierPermissionsMicrophone:
+      return [self permissionCellForTableView:tableView
+                               itemIdentifier:itemIdentifier];
     case ItemIdentifierAboutThisSite: {
       TableViewCellContentConfiguration* configuration =
           [[TableViewCellContentConfiguration alloc] init];
@@ -467,6 +510,66 @@ const NSInteger kAboutThisSiteDetailTextNumberOfLines = 2;
   }
 }
 
+// Returns a configured cell for `itemIdentifier` (Camera or Microphone).
+- (UITableViewCell*)permissionCellForTableView:(UITableView*)tableView
+                                itemIdentifier:(ItemIdentifier)itemIdentifier {
+  web::Permission permission = PermissionForItemIdentifier(itemIdentifier);
+  int titleID;
+  Symbol symbol;
+  NSString* accessibilityIdentifier;
+  switch (permission) {
+    case web::PermissionCamera:
+      titleID = IDS_IOS_PERMISSIONS_CAMERA;
+      symbol = SymbolCamera;
+      accessibilityIdentifier = kPageInfoCameraSwitchAccessibilityIdentifier;
+      break;
+    case web::PermissionMicrophone:
+      titleID = IDS_IOS_PERMISSIONS_MICROPHONE;
+      symbol = SymbolMicrophone;
+      accessibilityIdentifier =
+          kPageInfoMicrophoneSwitchAccessibilityIdentifier;
+      break;
+  }
+
+  TableViewCellContentConfiguration* configuration =
+      [[TableViewCellContentConfiguration alloc] init];
+  configuration.title = l10n_util::GetNSString(titleID);
+
+  ColorfulSymbolContentConfiguration* symbolConfiguration =
+      [[ColorfulSymbolContentConfiguration alloc] init];
+  symbolConfiguration.symbolImage =
+      SymbolWithPointSize(symbol, kPageInfoSymbolPointSize);
+  symbolConfiguration.symbolTintColor = UIColor.whiteColor;
+  symbolConfiguration.symbolBackgroundColor =
+      [UIColor colorNamed:kOrange500Color];
+
+  configuration.leadingConfiguration = symbolConfiguration;
+
+  UITableViewCell* cell =
+      [TableViewCellContentConfiguration dequeueTableViewCell:tableView];
+  if (IsDomainLevelSitePermissionsEnabled()) {
+    cell.accessoryView =
+        [self createPermissionDropdownForPermission:permission];
+  } else {
+    BOOL permissionOn =
+        _permissionsInfo[@(permission)].state == web::PermissionStateAllowed;
+
+    SwitchContentConfiguration* switchConfiguration =
+        [[SwitchContentConfiguration alloc] init];
+    switchConfiguration.target = self;
+    switchConfiguration.selector = @selector(permissionSwitchToggled:);
+    switchConfiguration.tag = itemIdentifier;
+    switchConfiguration.on = permissionOn;
+
+    configuration.trailingConfiguration = switchConfiguration;
+  }
+  cell.contentConfiguration = configuration;
+  cell.selectionStyle = UITableViewCellSelectionStyleNone;
+  cell.accessibilityIdentifier = accessibilityIdentifier;
+
+  return cell;
+}
+
 // Returns the attributed string for the permission footer.
 - (NSAttributedString*)permissionFooterAttributedString {
   NSString* description = l10n_util::GetNSStringF(
@@ -485,15 +588,133 @@ const NSInteger kAboutThisSiteDetailTextNumberOfLines = 2;
   return descriptionAttributedString;
 }
 
-// Returns an UILabel for the navigationItem titleView for `siteURL`.
-- (UILabel*)titleViewLabelForURL:(NSString*)siteURL {
-  UILabel* labelURL = [[UILabel alloc] init];
-  labelURL.lineBreakMode = NSLineBreakByTruncatingHead;
-  labelURL.font = [UIFont preferredFontForTextStyle:UIFontTextStyleBody];
-  labelURL.text = siteURL;
-  labelURL.adjustsFontSizeToFitWidth = YES;
-  labelURL.minimumScaleFactor = kTitleLabelMinimumScaleFactor;
-  return labelURL;
+// Returns the attributed string for the domain-level permission footer for
+// `permission`.
+- (NSAttributedString*)permissionFooterAttributedStringForPermission:
+    (web::Permission)permission {
+  SitePermissionSetting setting = [self currentSettingForPermission:permission];
+  int messageID = PermissionDisclaimerMessageID(permission, setting);
+  NSString* description = l10n_util::GetNSStringF(
+      messageID,
+      base::SysNSStringToUTF16(self.pageInfoSecurityDescription.siteURL));
+  NSMutableAttributedString* descriptionAttributedString =
+      [[NSMutableAttributedString alloc]
+          initWithAttributedString:PutBoldPartInString(
+                                       description, UIFontTextStyleFootnote)];
+  [descriptionAttributedString
+      addAttributes:@{
+        NSForegroundColorAttributeName :
+            [UIColor colorNamed:kTextSecondaryColor]
+      }
+              range:NSMakeRange(0, descriptionAttributedString.length)];
+  return descriptionAttributedString;
+}
+
+// Returns the current `SitePermissionSetting` for `permission`.
+- (SitePermissionSetting)currentSettingForPermission:
+    (web::Permission)permission {
+  PermissionInfo* info = _permissionsInfo[@(permission)];
+  return info ? info.setting : SitePermissionSetting::kNeverAllow;
+}
+
+// Creates a pull-down button used to pick the site permission setting for
+// `permission`.
+- (UIButton*)createPermissionDropdownForPermission:(web::Permission)permission {
+  SitePermissionSetting currentSetting =
+      [self currentSettingForPermission:permission];
+
+  UIButtonConfiguration* configuration =
+      [UIButtonConfiguration plainButtonConfiguration];
+  configuration.image =
+      SymbolWithPointSize(SymbolChevronUpDown, kChevronSymbolSize);
+  configuration.baseForegroundColor = [UIColor colorNamed:kTextQuaternaryColor];
+  configuration.imagePlacement = NSDirectionalRectEdgeTrailing;
+  configuration.imagePadding = kChevronPadding;
+  configuration.contentInsets = NSDirectionalEdgeInsetsZero;
+  configuration.titleLineBreakMode = NSLineBreakByTruncatingTail;
+  configuration.title = PermissionSettingTitle(currentSetting);
+  configuration.titleTextAttributesTransformer =
+      ^NSDictionary<NSAttributedStringKey, id>*(
+          NSDictionary<NSAttributedStringKey, id>* incoming) {
+    NSMutableDictionary<NSAttributedStringKey, id>* outgoing =
+        [incoming mutableCopy];
+    outgoing[NSFontAttributeName] =
+        [UIFont preferredFontForTextStyle:UIFontTextStyleSubheadline];
+    outgoing[NSForegroundColorAttributeName] =
+        [UIColor colorNamed:kTextSecondaryColor];
+    return outgoing;
+  };
+
+  UIButton* dropdown = [UIButton buttonWithConfiguration:configuration
+                                           primaryAction:nil];
+  dropdown.showsMenuAsPrimaryAction = YES;
+  dropdown.menu = [self createMenuForPermission:permission
+                                selectedSetting:currentSetting];
+  dropdown.maximumContentSizeCategory = UIContentSizeCategoryExtraExtraLarge;
+  dropdown.accessibilityLabel =
+      PermissionDropdownAccessibilityLabel(permission);
+  dropdown.accessibilityValue = PermissionSettingTitle(currentSetting);
+  [dropdown sizeToFit];
+  return dropdown;
+}
+
+// Creates the menu listing the permission settings available for `permission`,
+// with `selectedSetting` checked.
+- (UIMenu*)createMenuForPermission:(web::Permission)permission
+                   selectedSetting:(SitePermissionSetting)selectedSetting {
+  __weak __typeof(self) weakSelf = self;
+  NSMutableArray<UIAction*>* actions = [NSMutableArray array];
+  static constexpr SitePermissionSetting kSettings[] = {
+      SitePermissionSetting::kAlwaysAllow,
+      SitePermissionSetting::kAllowOnce,
+      SitePermissionSetting::kNeverAllow,
+  };
+  for (SitePermissionSetting setting : kSettings) {
+    UIAction* action = [UIAction
+        actionWithTitle:PermissionSettingTitle(setting)
+                  image:nil
+             identifier:nil
+                handler:^(UIAction* selectedAction) {
+                  [weakSelf didSelectSetting:setting forPermission:permission];
+                }];
+    action.state = (setting == selectedSetting) ? UIMenuElementStateOn
+                                                : UIMenuElementStateOff;
+    [actions addObject:action];
+  }
+  return [UIMenu menuWithTitle:@""
+                         image:nil
+                    identifier:nil
+                       options:UIMenuOptionsSingleSelection
+                      children:actions];
+}
+
+// Updates the UI state and diffable snapshot for `permissionInfo`.
+- (void)updateUIForPermission:(PermissionInfo*)permissionInfo
+                     animated:(BOOL)animated {
+  _permissionsInfo[@(permissionInfo.permission)] = permissionInfo;
+
+  NSDiffableDataSourceSnapshot<NSNumber*, NSNumber*>* snapshot =
+      [_dataSource snapshot];
+  [self updateSnapshot:snapshot forPermission:permissionInfo];
+  [_dataSource applySnapshot:snapshot animatingDifferences:animated];
+}
+
+// Invoked when a permission setting is selected from the dropdown menu.
+- (void)didSelectSetting:(SitePermissionSetting)setting
+           forPermission:(web::Permission)permission {
+  CHECK(IsDomainLevelSitePermissionsEnabled());
+  if ([self currentSettingForPermission:permission] == setting) {
+    return;
+  }
+  PermissionInfo* permissionDescription = [[PermissionInfo alloc] init];
+  permissionDescription.permission = permission;
+  permissionDescription.state = (setting == SitePermissionSetting::kNeverAllow)
+                                    ? web::PermissionStateNotAccessible
+                                    : web::PermissionStateAllowed;
+  permissionDescription.setting = setting;
+
+  [self updateUIForPermission:permissionDescription animated:NO];
+  [self.permissionsDelegate updatePermissionInfo:permissionDescription];
 }
 
 // Updates `snapshot` to reflect the changes to AboutThisSite info.
@@ -504,11 +725,19 @@ const NSInteger kAboutThisSiteDetailTextNumberOfLines = 2;
     return;
   }
 
-  NSInteger sectionIndex =
-      [snapshot indexOfSectionIdentifier:@(SectionIdentifierPermissions)];
   SectionIdentifier afterSectionWithIdentifier =
-      (sectionIndex == NSNotFound) ? SectionIdentifierSecurityContent
-                                   : SectionIdentifierPermissions;
+      SectionIdentifierSecurityContent;
+  static constexpr SectionIdentifier kCandidateSections[] = {
+      SectionIdentifierPermissionsMicrophone,
+      SectionIdentifierPermissionsCamera,
+      SectionIdentifierPermissions,
+  };
+  for (SectionIdentifier candidate : kCandidateSections) {
+    if ([snapshot indexOfSectionIdentifier:@(candidate)] != NSNotFound) {
+      afterSectionWithIdentifier = candidate;
+      break;
+    }
+  }
   [snapshot insertSectionsWithIdentifiers:@[ @(SectionIdentifierAboutThisSite) ]
                afterSectionWithIdentifier:@(afterSectionWithIdentifier)];
 
@@ -516,40 +745,53 @@ const NSInteger kAboutThisSiteDetailTextNumberOfLines = 2;
              intoSectionWithIdentifier:@(SectionIdentifierAboutThisSite)];
 }
 
-// Updates `snapshot` to reflect the changes done to `permissions`.
+// Updates `snapshot` to reflect the changes done to `permissionInfo`.
 - (void)updateSnapshot:
             (NSDiffableDataSourceSnapshot<NSNumber*, NSNumber*>*)snapshot
-         forPermission:(NSNumber*)permission {
-  web::PermissionState state = static_cast<web::PermissionState>(
-      self.permissionsInfo[permission].unsignedIntegerValue);
-  ItemIdentifier itemIdentifier;
-  switch (static_cast<web::Permission>(permission.unsignedIntValue)) {
-    case web::PermissionCamera:
-      itemIdentifier = ItemIdentifierPermissionsCamera;
-      break;
-    case web::PermissionMicrophone:
-      itemIdentifier = ItemIdentifierPermissionsMicrophone;
-      break;
+         forPermission:(PermissionInfo*)permissionInfo {
+  ItemIdentifier itemIdentifier =
+      ItemIdentifierForPermission(permissionInfo.permission);
+  BOOL itemVisible = permissionInfo.state != web::PermissionStateNotAccessible;
+  if (IsDomainLevelSitePermissionsEnabled()) {
+    SectionIdentifier sectionIdentifier =
+        PermissionSectionForItem(itemIdentifier);
+    BOOL sectionExists =
+        [snapshot indexOfSectionIdentifier:@(sectionIdentifier)] != NSNotFound;
+    itemVisible = itemVisible || sectionExists ||
+                  permissionInfo.setting != SitePermissionSetting::kAllowOnce;
+    if (itemVisible) {
+      if (!sectionExists) {
+        SectionIdentifier afterSection = SectionIdentifierSecurityContent;
+        if (sectionIdentifier == SectionIdentifierPermissionsMicrophone &&
+            [snapshot indexOfSectionIdentifier:
+                          @(SectionIdentifierPermissionsCamera)] !=
+                NSNotFound) {
+          afterSection = SectionIdentifierPermissionsCamera;
+        }
+        [snapshot insertSectionsWithIdentifiers:@[ @(sectionIdentifier) ]
+                     afterSectionWithIdentifier:@(afterSection)];
+        [snapshot appendItemsWithIdentifiers:@[ @(itemIdentifier) ]
+                   intoSectionWithIdentifier:@(sectionIdentifier)];
+      } else {
+        [snapshot reloadSectionsWithIdentifiers:@[ @(sectionIdentifier) ]];
+      }
+    }
+    return;
   }
-  [self updateSnapshot:snapshot forPermissionState:state toItem:itemIdentifier];
+
+  [self updateSnapshot:snapshot
+      forPermissionState:permissionInfo.state
+                  toItem:itemIdentifier];
 }
 
 // Invoked when a permission switch is toggled.
 - (void)permissionSwitchToggled:(UISwitch*)sender {
-  web::Permission permission;
-  switch (sender.tag) {
-    case ItemIdentifierPermissionsCamera:
-      permission = web::PermissionCamera;
-      break;
-    case ItemIdentifierPermissionsMicrophone:
-      permission = web::PermissionMicrophone;
-      break;
-  }
   PermissionInfo* permissionsDescription = [[PermissionInfo alloc] init];
-  permissionsDescription.permission = permission;
+  permissionsDescription.permission =
+      PermissionForItemIdentifier(static_cast<ItemIdentifier>(sender.tag));
   permissionsDescription.state =
       sender.isOn ? web::PermissionStateAllowed : web::PermissionStateBlocked;
-  [self.permissionsDelegate updateStateForPermission:permissionsDescription];
+  [self.permissionsDelegate updatePermissionInfo:permissionsDescription];
 }
 
 // Updates the `snapshot` (including adds/removes section) to reflect changes to
@@ -558,6 +800,8 @@ const NSInteger kAboutThisSiteDetailTextNumberOfLines = 2;
             (NSDiffableDataSourceSnapshot<NSNumber*, NSNumber*>*)snapshot
     forPermissionState:(web::PermissionState)state
                 toItem:(ItemIdentifier)itemIdentifier {
+  BOOL itemVisible = state != web::PermissionStateNotAccessible;
+
   NSInteger sectionIndex =
       [snapshot indexOfSectionIdentifier:@(SectionIdentifierPermissions)];
   if (sectionIndex == NSNotFound) {
@@ -566,14 +810,14 @@ const NSInteger kAboutThisSiteDetailTextNumberOfLines = 2;
            afterSectionWithIdentifier:@(SectionIdentifierSecurityContent)];
   }
 
-  BOOL itemVisible = state != web::PermissionStateNotAccessible;
   if (itemVisible) {
-    if ([_dataSource indexPathForItemIdentifier:@(itemIdentifier)]) {
+    if ([snapshot indexOfItemIdentifier:@(itemIdentifier)] != NSNotFound) {
       [snapshot reconfigureItemsWithIdentifiers:@[ @(itemIdentifier) ]];
     } else {
       if (itemIdentifier == ItemIdentifierPermissionsCamera &&
-          [_dataSource indexPathForItemIdentifier:
-                           @(ItemIdentifierPermissionsMicrophone)]) {
+          [snapshot
+              indexOfItemIdentifier:@(ItemIdentifierPermissionsMicrophone)] !=
+              NSNotFound) {
         [snapshot
             insertItemsWithIdentifiers:@[ @(itemIdentifier) ]
               beforeItemWithIdentifier:@(ItemIdentifierPermissionsMicrophone)];
@@ -582,7 +826,7 @@ const NSInteger kAboutThisSiteDetailTextNumberOfLines = 2;
                    intoSectionWithIdentifier:@(SectionIdentifierPermissions)];
       }
     }
-  } else {
+  } else if ([snapshot indexOfItemIdentifier:@(itemIdentifier)] != NSNotFound) {
     [snapshot deleteItemsWithIdentifiers:@[ @(itemIdentifier) ]];
   }
 
@@ -601,18 +845,20 @@ const NSInteger kAboutThisSiteDetailTextNumberOfLines = 2;
 
 #pragma mark - PermissionsConsumer
 
-- (void)setPermissionsInfo:
-    (NSDictionary<NSNumber*, NSNumber*>*)permissionsInfo {
-  _permissionsInfo = [permissionsInfo mutableCopy];
+- (void)setPermissionsInfo:(NSArray<PermissionInfo*>*)permissionsInfo {
+  _permissionsInfo = [[NSMutableDictionary alloc] init];
+  for (PermissionInfo* info in permissionsInfo) {
+    _permissionsInfo[@(info.permission)] = info;
+  }
 }
 
 - (void)permissionStateChanged:(PermissionInfo*)permissionInfo {
-  self.permissionsInfo[@(permissionInfo.permission)] = @(permissionInfo.state);
-
-  NSDiffableDataSourceSnapshot<NSNumber*, NSNumber*>* snapshot =
-      [_dataSource snapshot];
-  [self updateSnapshot:snapshot forPermission:@(permissionInfo.permission)];
-  [_dataSource applySnapshot:snapshot animatingDifferences:YES];
+  PermissionInfo* currentInfo = _permissionsInfo[@(permissionInfo.permission)];
+  if (currentInfo && currentInfo.state == permissionInfo.state &&
+      currentInfo.setting == permissionInfo.setting) {
+    return;
+  }
+  [self updateUIForPermission:permissionInfo animated:YES];
 }
 
 #pragma mark - PageInfoHistoryConsumer

@@ -569,7 +569,6 @@ if (is_win || is_mac || is_linux) {
     visibility = [
       "//chrome/browser",
       "//chrome/browser/component_updater:unit_tests",
-      "//chrome/browser/ui",
       "//chrome/browser/ui/webui/help:*",
       "//chrome/browser/ui/webui/updater:*",
       "//chrome/browser/updater:*",
@@ -1073,6 +1072,8 @@ if (is_win || is_mac || is_linux) {
         "win/ui/progress_wnd_unittest.cc",
         "win/ui/ui_test_util.h",
         "win/ui/ui_util_unittest.cc",
+        "win/ui/webview2_progress_wnd_unittest.cc",
+        "win/ui/webview2ui_unittest.cc",
         "win/updater_tests.rc",
         "win/user_info_unittest.cc",
       ]
@@ -1234,6 +1235,7 @@ if (is_win || is_mac || is_linux) {
         "//third_party/updater/chrome_mac_universal_prod/cipd/GoogleUpdater.app/Contents/Helpers/launcher",
         "//third_party/updater/chrome_mac_universal_prod/cipd/GoogleUpdater.app/Contents/Info.plist",
         "//third_party/updater/chrome_mac_universal_prod/cipd/GoogleUpdater.app/Contents/MacOS/GoogleUpdater",
+        "//third_party/updater/chrome_mac_universal_prod/cipd/GoogleUpdater.app/Contents/Resources/app.icns",
         "//third_party/updater/chrome_mac_universal_prod/cipd/GoogleUpdater.app/Contents/_CodeSignature",
       ]
 

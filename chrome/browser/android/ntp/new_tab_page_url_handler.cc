@@ -6,6 +6,7 @@
 
 #include <string>
 
+#include "base/android/device_info.h"
 #include "base/command_line.h"
 #include "base/strings/string_util.h"
 #include "chrome/browser/flags/android/chrome_feature_list.h"
@@ -47,14 +48,16 @@ bool HandleAndroidNativePageURL(GURL* url,
     if (url->GetHost() == chrome::kChromeUINewTabHost) {
       // The url handler rewrites the url from chrome://newtab to the WebUI
       // NTP if the WebUI NTP is enabled. Depending on the default search
-      // engine, it will either return a 1P or 3P NTP.
+      // engine, it either returns the 1P WebUI NTP, the DSE's remote 3P NTP,
+      // or the Chrome-owned fallback 3P WebUI NTP.
       if (search::IsWebUiNtpEnabledForDesktopAndroid()) {
         GURL new_tab_url = search::GetNewTabPageURL(
             Profile::FromBrowserContext(browser_context));
         if (new_tab_url.is_valid()) {
           *url = new_tab_url;
         } else {
-          // TODO(b/559771711): Add fallback WebUI NTP.
+          // Off-the-record profiles, such as Incognito or Guest profiles,
+          // return an invalid URL, so default to the Java Native NTP instead.
           *url = GURL(chrome::kChromeUINativeNewTabURL);
         }
       } else {
@@ -63,6 +66,21 @@ bool HandleAndroidNativePageURL(GURL* url,
       return true;
     }
   }
+
+  // LINT.IfChange(AndroidDesktopWebUiHistory)
+  if (base::android::device_info::is_desktop() &&
+      base::FeatureList::IsEnabled(
+          chrome::android::kAndroidDesktopWebUiHistory)) {
+    if (url->SchemeIs(chrome::kChromeNativeScheme) &&
+        url->GetHost() == kChromeUIHistoryHost) {
+      GURL::Replacements replacements;
+      replacements.SetSchemeStr(content::kChromeUIScheme);
+      *url = url->ReplaceComponents(replacements);
+      return true;
+    }
+  }
+  // LINT.ThenChange(//chrome/browser/history/java/src/org/chromium/chrome/browser/history/HistoryFeatures.java:AndroidDesktopWebUiHistory,
+  // //chrome/browser/ui/webui/history/history_ui.cc:AndroidDesktopWebUiHistory)
 
   if (url->SchemeIs(chrome::kChromeNativeScheme) &&
       url->GetHost() == kChromeUIBookmarksHost) {

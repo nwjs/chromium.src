@@ -114,6 +114,9 @@ glic::mojom::InvocationSource GlicInvokeOptions::GetInvocationSource() const {
             if (payload->is_skills_payload()) {
               return glic::mojom::InvocationSource::kSkills;
             }
+            if (payload->is_experimental_triggering()) {
+              return glic::mojom::InvocationSource::kExperimentalTriggering;
+            }
             NOTREACHED();
           }},
       source_or_payload);
@@ -145,8 +148,6 @@ std::string_view GlicInvokeErrorToString(GlicInvokeError error) {
       return "Target tab was invalid";
     case GlicInvokeError::kTabClosed:
       return "Target tab was closed";
-    case GlicInvokeError::kInstanceDestroyed:
-      return "Glic instance was destroyed";
     case GlicInvokeError::kInvokeInProgress:
       return "Another invocation is already in progress";
     case GlicInvokeError::kInvalidConfiguration:
@@ -175,6 +176,16 @@ std::string_view GlicInvokeErrorToString(GlicInvokeError error) {
       return "Glic instance is in live mode";
     case GlicInvokeError::kClientLoadError:
       return "Client load error";
+    case GlicInvokeError::kInstanceDestroyedBlankInstanceClosed:
+      return "Glic instance was destroyed: blank instance closed";
+    case GlicInvokeError::kInstanceDestroyedUnbound:
+      return "Glic instance was destroyed: unbound";
+    case GlicInvokeError::kInstanceDestroyedArchived:
+      return "Glic instance was destroyed: archived";
+    case GlicInvokeError::kInstanceDestroyedSignedOut:
+      return "Glic instance was destroyed: signed out";
+    case GlicInvokeError::kInstanceDestroyedShutdown:
+      return "Glic instance was destroyed: shutdown";
   }
   NOTREACHED();
 }

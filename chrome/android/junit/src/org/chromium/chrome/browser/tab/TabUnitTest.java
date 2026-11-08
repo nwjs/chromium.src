@@ -53,6 +53,8 @@ import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.robolectric.annotation.Config;
 
+import org.chromium.base.ActivityState;
+import org.chromium.base.ApplicationStatus;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.Token;
 import org.chromium.base.supplier.ObservableSuppliers;
@@ -85,6 +87,7 @@ import org.chromium.components.user_prefs.UserPrefsJni;
 import org.chromium.content.browser.selection.SelectionPopupControllerImpl;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.content_public.browser.NavigationController;
+import org.chromium.content_public.browser.NavigationResult;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.browser.WebContentsObserver;
 import org.chromium.ui.base.WindowAndroid;
@@ -96,6 +99,7 @@ import java.lang.ref.WeakReference;
 
 /** Tests for {@link Tab}. */
 @RunWith(BaseRobolectricTestRunner.class)
+@SuppressWarnings("DoNotMock") // TODO(567604165): Remove mocking of Views / Activities
 public class TabUnitTest {
     private static final int TAB1_ID = 456;
     private static final int TAB2_ID = 789;
@@ -131,6 +135,7 @@ public class TabUnitTest {
     private final SettableLookAheadObservableSupplier<Tab> mTabSupplier =
             new SettableLookAheadObservableSupplier<>();
     private TabImpl mTab;
+    private boolean mIsTabHidden;
 
     @Before
     public void setUp() {
@@ -149,6 +154,7 @@ public class TabUnitTest {
         when(mUserPrefsNatives.get(mProfile)).thenReturn(mPrefs);
         when(mWebContents.getOrSetUserData(eq(SelectionPopupControllerImpl.class), any()))
                 .thenReturn(mSelectionPopupController);
+        when(mNavigationController.loadUrl(any())).thenReturn(NavigationResult.createSuccess(null));
 
         mTab =
                 new TabImpl(TAB1_ID, mProfile, TabLaunchType.FROM_CHROME_UI) {
@@ -374,9 +380,7 @@ public class TabUnitTest {
                 attributes.getDirtinessState(), equalTo(TabStateAttributes.DirtinessState.CLEAN));
     }
 
-    @Test
-    @EnableFeatures({ChromeFeatureList.PDF_REUSE_FRAGMENT})
-    public void testFreezeDetachedNativePage() {
+    private SmoothTransitionDelegate setupTabWithNativePage() {
         TabImplJni.setInstanceForTesting(mNativeMock);
 
         SmoothTransitionDelegate smoothTransitionDelegate = mock(SmoothTransitionDelegate.class);
@@ -402,7 +406,7 @@ public class TabUnitTest {
                 .setTopLevelNativeWindow(any());
         doReturn(mChromeActivity).when(mWeakReferenceContext).get();
 
-        boolean[] isHidden = new boolean[] {true};
+        mIsTabHidden = true;
         mTab =
                 new TabImpl(TAB1_ID, mProfile, TabLaunchType.FROM_CHROME_UI) {
                     @Override
@@ -416,13 +420,8 @@ public class TabUnitTest {
                     }
 
                     @Override
-                    public boolean isNativePage() {
-                        return true;
-                    }
-
-                    @Override
                     public boolean isHidden() {
-                        return isHidden[0];
+                        return mIsTabHidden;
                     }
 
                     @Override
@@ -436,10 +435,18 @@ public class TabUnitTest {
         mTab.setNativePtrForTesting(1);
         mTab.updateAttachment(mWindowAndroid, mDelegateFactory);
         mTab.show(TabSelectionType.FROM_USER);
-        isHidden[0] = false;
+        mIsTabHidden = false;
         mTab.addObserver(mObserver);
         mTab.showNativePage(mNativePage);
         mTab.getAttachStateChangeListenerForTesting().onViewAttachedToWindow(mNativePageView);
+        return smoothTransitionDelegate;
+    }
+
+    @Test
+    @DisableFeatures({ChromeFeatureList.DEFER_DETACHED_NATIVE_PAGE_FREEZE})
+    @EnableFeatures({ChromeFeatureList.PDF_REUSE_FRAGMENT})
+    public void testFreezeDetachedNativePage() {
+        SmoothTransitionDelegate smoothTransitionDelegate = setupTabWithNativePage();
         assertTrue(mTab.isUserInteractable());
         assertEquals(mNativePage, mTab.getNativePage());
         assertEquals(mNativePageView, mTab.getView());
@@ -466,16 +473,16 @@ public class TabUnitTest {
                 .onInteractabilityChanged(mTab, /* isInteractable= */ false);
 
         // Detaching the Tab should notify onInteractabilityChanged(false) while the NativePage view
-        // is still attached to its parent, then notify onContentChanged (while getView() is null
-        // and isNativePage() is true), remove the NativePage view from its parent, cancel any
-        // active SmoothTransitionDelegate, and freeze the NativePage.
+        // is still attached to its parent, then remove the NativePage view from its parent,
+        // cancel any active SmoothTransitionDelegate, freeze the NativePage, and finally notify
+        // onContentChanged.
         InOrder inOrder = inOrder(mObserver, parent, mNativePage);
         doReturn(null).when(mWebContents).getTopLevelNativeWindow();
         mTab.updateAttachment(/* window= */ null, /* tabDelegateFactory= */ null);
         inOrder.verify(mObserver).onInteractabilityChanged(mTab, /* isInteractable= */ false);
-        inOrder.verify(mObserver).onContentChanged(mTab);
         inOrder.verify(parent).removeView(mNativePageView);
         inOrder.verify(mNativePage).destroy();
+        inOrder.verify(mObserver).onContentChanged(mTab);
         verify(smoothTransitionDelegate).cancel();
         assertNotEquals(mNativePage, mTab.getNativePage());
         assertTrue(mTab.getNativePage().isFrozen());
@@ -483,7 +490,7 @@ public class TabUnitTest {
 
         // Reattaching a hidden Tab should keep the NativePage frozen and getView() null.
         clearInvocations(mDelegateFactory);
-        isHidden[0] = true;
+        mIsTabHidden = true;
         mTab.updateAttachment(mWindowAndroid, mDelegateFactory);
         assertTrue(mTab.getNativePage().isFrozen());
         assertNull(mTab.getView());
@@ -501,11 +508,96 @@ public class TabUnitTest {
                 .when(mDelegateFactory)
                 .createNativePage(any(String.class), any(), any(Tab.class), any());
 
-        isHidden[0] = false;
+        mIsTabHidden = false;
         mTab.updateAttachment(mWindowAndroid, mDelegateFactory);
         assertFalse(mTab.getNativePage().isFrozen());
         assertEquals(newNativePage, mTab.getNativePage());
         assertEquals(newNativePageView, mTab.getView());
+    }
+
+    @Test
+    public void testDeferFreezeDetachedNativePageUntilActivityStopped() {
+        setupTabWithNativePage();
+
+        View view = new View(ContextUtils.getApplicationContext());
+        doReturn(view).when(mNativePage).getView();
+        FrameLayout parent = new FrameLayout(ContextUtils.getApplicationContext());
+        parent.addView(view);
+        assertEquals(parent, view.getParent());
+
+        try {
+            ApplicationStatus.onStateChangeForTesting(mChromeActivity, ActivityState.CREATED);
+            ApplicationStatus.onStateChangeForTesting(mChromeActivity, ActivityState.RESUMED);
+
+            // 1. Detaching while RESUMED defers freezing the NativePage.
+            doReturn(null).when(mWebContents).getTopLevelNativeWindow();
+            mTab.updateAttachment(null, null);
+            assertTrue(mTab.isDetachedFromActivity());
+            assertNull(mTab.getView());
+            assertEquals(parent, view.getParent());
+            assertFalse(mTab.getNativePage().isFrozen());
+            verify(mNativePage, never()).destroy();
+
+            // 2. Reattaching cancels the deferred freeze listener and detaches the old view.
+            doReturn(mWindowAndroid).when(mWebContents).getTopLevelNativeWindow();
+            mTab.updateAttachment(mWindowAndroid, mDelegateFactory);
+            assertNull(view.getParent());
+            ApplicationStatus.onStateChangeForTesting(mChromeActivity, ActivityState.STOPPED);
+            assertFalse(mTab.getNativePage().isFrozen());
+            verify(mNativePage, never()).destroy();
+
+            // 3. Detaching again while RESUMED freezes on STOPPED.
+            ApplicationStatus.onStateChangeForTesting(mChromeActivity, ActivityState.RESUMED);
+            doReturn(null).when(mWebContents).getTopLevelNativeWindow();
+            mTab.updateAttachment(null, null);
+            assertFalse(mTab.getNativePage().isFrozen());
+            ApplicationStatus.onStateChangeForTesting(mChromeActivity, ActivityState.STOPPED);
+            assertTrue(mTab.getNativePage().isFrozen());
+            verify(mNativePage).destroy();
+        } finally {
+            ApplicationStatus.onStateChangeForTesting(mChromeActivity, ActivityState.DESTROYED);
+        }
+    }
+
+    @Test
+    public void testDetachingHiddenTabFreezesImmediately() {
+        setupTabWithNativePage();
+
+        mIsTabHidden = true;
+        ApplicationStatus.onStateChangeForTesting(mChromeActivity, ActivityState.CREATED);
+        ApplicationStatus.onStateChangeForTesting(mChromeActivity, ActivityState.RESUMED);
+
+        doReturn(null).when(mWebContents).getTopLevelNativeWindow();
+        mTab.updateAttachment(null, null);
+
+        assertTrue(mTab.isDetachedFromActivity());
+        assertTrue(mTab.getNativePage().isFrozen());
+        verify(mNativePage).destroy();
+    }
+
+    @Test
+    public void testDestroy_detachesNativePageView() {
+        TabImplJni.setInstanceForTesting(mNativeMock);
+        mTab.setNativePtrForTesting(1);
+        doAnswer(
+                        invocation -> {
+                            mTab.clearNativePtr();
+                            return null;
+                        })
+                .when(mNativeMock)
+                .destroy(1);
+
+        FrameLayout parent = new FrameLayout(ContextUtils.getApplicationContext());
+        View view = new View(ContextUtils.getApplicationContext());
+        parent.addView(view);
+        doReturn(view).when(mNativePage).getView();
+        doReturn(false).when(mNativePage).isFrozen();
+
+        mTab.showNativePage(mNativePage);
+        assertEquals(parent, view.getParent());
+
+        mTab.destroy();
+        assertNull(view.getParent());
     }
 
     @Test
@@ -615,8 +707,8 @@ public class TabUnitTest {
                     @Override
                     void pushNativePageStateToNavigationEntry() {}
                 };
-        mTab.showNativePage(mNativePage);
         mTab.updateAttachment(mWindowAndroid, mDelegateFactory);
+        mTab.showNativePage(mNativePage);
         assertEquals(mNativePage, mTab.getNativePage());
         assertEquals(view, mTab.getView());
         assertEquals(parent, view.getParent());
@@ -702,8 +794,8 @@ public class TabUnitTest {
                     @Override
                     void pushNativePageStateToNavigationEntry() {}
                 };
-        mTab.showNativePage(mNativePage);
         mTab.updateAttachment(mWindowAndroid, mDelegateFactory);
+        mTab.showNativePage(mNativePage);
         assertEquals(mNativePage, mTab.getNativePage());
 
         // The view still has a parent upon re-attaching hidden without a prior detach.
@@ -720,6 +812,135 @@ public class TabUnitTest {
         assertNull(view.getParent());
         assertTrue(mTab.getNativePage().isFrozen());
         verify(mNativePage).destroy();
+        verify(mDelegateFactory, never()).createNativePage(any(), any(), any(), any());
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.PDF_REUSE_FRAGMENT)
+    public void testUpdateAttachment_pdfNativePageNotFrozen() {
+        TabImplJni.setInstanceForTesting(mNativeMock);
+
+        String pdfUrl = "chrome-native://pdf/link?url=https%3A%2F%2Fwww.foo.com%2Ftest.pdf";
+        doReturn(mTabWebContentsDelegateAndroid)
+                .when(mDelegateFactory)
+                .createWebContentsDelegate(any(Tab.class));
+        doReturn(true).when(mNativePage).isPdf();
+        doReturn(false).when(mNativePage).isFrozen();
+        doReturn("test.pdf").when(mNativePage).getTitle();
+        doReturn("/tmp/test.pdf").when(mNativePage).getCanonicalFilepath();
+        doReturn(true).when(mNativePage).isDownloadSafe();
+
+        FrameLayout parent = new FrameLayout(ContextUtils.getApplicationContext());
+        View view = new View(ContextUtils.getApplicationContext());
+        parent.addView(view);
+        doReturn(view).when(mNativePage).getView();
+
+        doReturn(mWindowAndroid).when(mWebContents).getTopLevelNativeWindow();
+        doReturn(mChromeActivity).when(mWeakReferenceContext).get();
+
+        boolean[] isHidden = new boolean[] {false};
+        mTab =
+                new TabImpl(TAB1_ID, mProfile, TabLaunchType.FROM_CHROME_UI) {
+                    @Override
+                    public GURL getUrl() {
+                        return new GURL(pdfUrl);
+                    }
+
+                    @Override
+                    public WebContents getWebContents() {
+                        return mWebContents;
+                    }
+
+                    @Override
+                    public boolean isHidden() {
+                        return isHidden[0];
+                    }
+
+                    @Override
+                    void pushNativePageStateToNavigationEntry() {}
+                };
+        mTab.setNativePtrForTesting(1);
+        mTab.updateAttachment(mWindowAndroid, mDelegateFactory);
+        mTab.showNativePage(mNativePage);
+        assertEquals(mNativePage, mTab.getNativePage());
+        assertEquals(parent, view.getParent());
+
+        // Detaching the tab should NOT freeze or destroy a PDF NativePage, but should detach its
+        // view from the old Activity's view hierarchy.
+        mTab.updateAttachment(/* window= */ null, /* tabDelegateFactory= */ null);
+        assertFalse(mTab.getNativePage().isFrozen());
+        verify(mNativePage, never()).destroy();
+        assertNull(view.getParent());
+
+        // Reattaching the tab while visible should NOT freeze the PDF NativePage, and should
+        // instead call maybeShowNativePage to replace it and destroy the old one.
+        NativePage visibleNewNativePage = mock(NativePage.class);
+        View visibleNewView = new View(ContextUtils.getApplicationContext());
+        parent.addView(visibleNewView);
+        doReturn(visibleNewView).when(visibleNewNativePage).getView();
+        doReturn(true).when(visibleNewNativePage).isPdf();
+        doReturn(false).when(visibleNewNativePage).isFrozen();
+        doReturn("test.pdf").when(visibleNewNativePage).getTitle();
+        doReturn("/tmp/test.pdf").when(visibleNewNativePage).getCanonicalFilepath();
+        doReturn(true).when(visibleNewNativePage).isDownloadSafe();
+        doReturn(visibleNewNativePage)
+                .when(mDelegateFactory)
+                .createNativePage(eq(pdfUrl), eq(mNativePage), eq(mTab), any());
+
+        clearInvocations(mDelegateFactory);
+        isHidden[0] = false;
+        mTab.updateAttachment(mWindowAndroid, mDelegateFactory);
+        assertFalse(mTab.getNativePage().isFrozen());
+        assertEquals(visibleNewNativePage, mTab.getNativePage());
+        verify(mDelegateFactory).createNativePage(eq(pdfUrl), eq(mNativePage), eq(mTab), any());
+        verify(mNativePage).destroy();
+
+        // Detaching again and reattaching the tab while hidden when the PDF NativePage is unfrozen
+        // should also NOT freeze it, and should instead call maybeShowNativePage to replace it and
+        // destroy the old one.
+        mTab.updateAttachment(/* window= */ null, /* tabDelegateFactory= */ null);
+        assertFalse(mTab.getNativePage().isFrozen());
+        verify(visibleNewNativePage, never()).destroy();
+        assertNull(visibleNewView.getParent());
+
+        NativePage hiddenNewNativePage = mock(NativePage.class);
+        View hiddenNewView = new View(ContextUtils.getApplicationContext());
+        parent.addView(hiddenNewView);
+        doReturn(hiddenNewView).when(hiddenNewNativePage).getView();
+        doReturn(true).when(hiddenNewNativePage).isPdf();
+        doReturn(false).when(hiddenNewNativePage).isFrozen();
+        doReturn("pdf").when(hiddenNewNativePage).getHost();
+        doReturn(pdfUrl).when(hiddenNewNativePage).getUrl();
+        doReturn("test.pdf").when(hiddenNewNativePage).getTitle();
+        doReturn("/tmp/test.pdf").when(hiddenNewNativePage).getCanonicalFilepath();
+        doReturn(true).when(hiddenNewNativePage).isDownloadSafe();
+        doReturn(hiddenNewNativePage)
+                .when(mDelegateFactory)
+                .createNativePage(eq(pdfUrl), eq(visibleNewNativePage), eq(mTab), any());
+
+        clearInvocations(mDelegateFactory);
+        isHidden[0] = true;
+        mTab.updateAttachment(mWindowAndroid, mDelegateFactory);
+        assertFalse(mTab.getNativePage().isFrozen());
+        assertEquals(hiddenNewNativePage, mTab.getNativePage());
+        verify(mDelegateFactory)
+                .createNativePage(eq(pdfUrl), eq(visibleNewNativePage), eq(mTab), any());
+        verify(visibleNewNativePage).destroy();
+
+        // Detaching again should detach the hidden NativePage view from its parent.
+        mTab.updateAttachment(/* window= */ null, /* tabDelegateFactory= */ null);
+        assertFalse(mTab.getNativePage().isFrozen());
+        assertNull(hiddenNewView.getParent());
+
+        // When the PDF NativePage is already frozen prior to reattachment, reattaching while
+        // hidden should keep it frozen and NOT recreate it.
+        mTab.freezeNativePage();
+        assertTrue(mTab.getNativePage().isFrozen());
+
+        clearInvocations(mDelegateFactory);
+        isHidden[0] = true;
+        mTab.updateAttachment(mWindowAndroid, mDelegateFactory);
+        assertTrue(mTab.getNativePage().isFrozen());
         verify(mDelegateFactory, never()).createNativePage(any(), any(), any(), any());
     }
 
@@ -990,7 +1211,6 @@ public class TabUnitTest {
     }
 
     @Test
-    @EnableFeatures({ChromeFeatureList.ABORT_NAVIGATIONS_FROM_TAB_CLOSURES})
     public void testDestroy_SendsWillDetachUpdate() {
         TabImplJni.setInstanceForTesting(mNativeMock);
         mTab.setNativePtrForTesting(1);

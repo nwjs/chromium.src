@@ -60,6 +60,9 @@ enum class SqliteRolloutStage {
   // Use LevelDB exclusively; delete SQLite stores if found.
   // All on-disk stores emit metrics to the "OnDisk" variant.
   kUseLevelDbOnly,
+  // Use LevelDB for new stores and keep existing SQLite stores on SQLite.
+  // All on-disk stores emit metrics to the "OnDisk" variant.
+  kUseLevelDbForNewStores,
   // Functionally, the same as `kUseLevelDbOnly`.
   // On-disk stores created during this stage emit metrics to the "Experimental"
   // variant and previously existing stores emit to the "OnDisk" variant.
@@ -337,6 +340,11 @@ class CONTENT_EXPORT BucketContext
   friend class TransactionTestBase;
 
   FRIEND_TEST_ALL_PREFIXES(IndexedDBTest, CompactionKillSwitchWorks);
+  FRIEND_TEST_ALL_PREFIXES(IndexedDBTest, FactoryForceClose);
+  FRIEND_TEST_ALL_PREFIXES(IndexedDBTest,
+                           ForceCloseOpenDatabasesOnDatabaseError);
+  FRIEND_TEST_ALL_PREFIXES(IndexedDBTestWithBucketType,
+                           ForceCloseOpenDatabasesOnDelete);
   FRIEND_TEST_ALL_PREFIXES(IndexedDBTest, PreCloseTasksStart);
   FRIEND_TEST_ALL_PREFIXES(IndexedDBTest, TooLongOrigin);
   FRIEND_TEST_ALL_PREFIXES(IndexedDBTest, BasicFactoryCreationAndTearDown);
@@ -345,6 +353,7 @@ class CONTENT_EXPORT BucketContext
   FRIEND_TEST_ALL_PREFIXES(BucketContextTest, MetadataRecordingStateHistory);
   FRIEND_TEST_ALL_PREFIXES(BucketContextTest,
                            OverrideShouldUseSqliteForTesting);
+  FRIEND_TEST_ALL_PREFIXES(TransactionTestMode, TaskFails);
 
   // Overrides the rollout stage for this instance only. Must be called before
   // backing store initialization.
@@ -364,6 +373,21 @@ class CONTENT_EXPORT BucketContext
 
     const storage::BucketClientInfo client_info;
   };
+
+  // These values are persisted to logs. Entries should not be renumbered and
+  // numeric values should never be reused.
+  //
+  // LINT.IfChange(BackingStoreResetReason)
+  enum class BackingStoreResetReason {
+    kContextShutdown = 0,
+    kBucketDeletion = 1,
+    kInternalsPage = 2,
+    kNoConnections = 3,
+    kCorruption = 4,
+    kDatabaseError = 5,
+    kMaxValue = kDatabaseError,
+  };
+  // LINT.ThenChange(//tools/metrics/histograms/metadata/storage/enums.xml:IndexedDbBackingStoreResetReason)
 
   void DoForceClose(bool doom, const std::string& message);
 
@@ -414,6 +438,7 @@ class CONTENT_EXPORT BucketContext
   // the backing store *may* be migrated to SQLite, assuming other conditions
   // are met.
   void ResetBackingStore(bool migrate = false);
+  void LogBackingStoreResetReason(BackingStoreResetReason reason);
 
   // Called when a receiver from `receiver_set_` has been disconnected. If there
   // are no receivers left and the backing store is already destroyed, this will

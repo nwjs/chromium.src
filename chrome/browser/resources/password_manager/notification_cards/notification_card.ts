@@ -22,8 +22,7 @@ import {getTemplate} from './notification_card.html.js';
 import type {NotificationCard} from './notification_cards_browser_proxy.js';
 import {NotificationCardsProxyImpl} from './notification_cards_browser_proxy.js';
 
-// WARNING: Keep synced with
-// chrome/browser/ui/webui/password_manager/notification_cards_handler.cc.
+// LINT.IfChange(NotificationCardId)
 export enum NotificationCardId {
   CHECKUP = 'password_checkup_promo',
   WEB_PASSWORD_MANAGER = 'passwords_on_web_promo',
@@ -31,9 +30,11 @@ export enum NotificationCardId {
   ACCESS_ON_ANY_DEVICE = 'access_on_any_device_promo',
   RELAUNCH_CHROME = 'relaunch_chrome_promo',
   MOVE_PASSWORDS = 'move_passwords_promo',
-  SCREENLOCK_REAUTH = 'screenlock_reauth_promo',  // Obsolete
+  // SCREENLOCK_REAUTH = 'screenlock_reauth_promo',  // Obsolete
   PASSKEY_UNLOCK = 'passkey_unlock_promo',
+  ACCOUNT_AWARE_PASSWORD_SIGNIN = 'account_aware_password_signin_promo',
 }
+// LINT.ThenChange(//chrome/browser/ui/webui/password_manager/notification_card.h:NotificationCardId)
 
 /**
  * These values are persisted to logs. Entries should not be renumbered and
@@ -51,8 +52,9 @@ enum NotificationCardMetricId {
   MOVE_PASSWORDS = 5,
   // SCREENLOCK_REAUTH = 6, Obsolete
   PASSKEY_UNLOCK = 7,
+  ACCOUNT_AWARE_PASSWORD_SIGNIN = 8,
   // Must be last.
-  COUNT = 8,
+  COUNT = 9,
 }
 // LINT.ThenChange(//chrome/browser/ui/webui/password_manager/notification_card.h:NotificationCardType)
 
@@ -114,6 +116,13 @@ export class NotificationCardElement extends NotificationCardElementBase {
     return sanitizeInnerHtml(this.card.description);
   }
 
+  private getBannerImageName_(): string {
+    if (this.card.id === NotificationCardId.ACCOUNT_AWARE_PASSWORD_SIGNIN) {
+      return NotificationCardId.ACCESS_ON_ANY_DEVICE;
+    }
+    return this.card.id;
+  }
+
   private onActionButtonClick_() {
     switch (this.card.id) {
       case NotificationCardId.CHECKUP:
@@ -138,6 +147,11 @@ export class NotificationCardElement extends NotificationCardElementBase {
       case NotificationCardId.PASSKEY_UNLOCK:
         SyncBrowserProxyImpl.getInstance().startPasskeyUnlockFlow();
         recordNotificationCardAction(NotificationCardMetricId.PASSKEY_UNLOCK);
+        break;
+      case NotificationCardId.ACCOUNT_AWARE_PASSWORD_SIGNIN:
+        NotificationCardsProxyImpl.getInstance().signInFromNotificationCard();
+        recordNotificationCardAction(
+            NotificationCardMetricId.ACCOUNT_AWARE_PASSWORD_SIGNIN);
         break;
       default:
         assertNotReached();

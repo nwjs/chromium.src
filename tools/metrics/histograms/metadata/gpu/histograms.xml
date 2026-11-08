@@ -52,6 +52,20 @@ chromium-metrics-reviews@google.com.
   <variant name="TwoDisplays"/>
 </variants>
 
+<!-- LINT.IfChange(PendingCommandsRange) -->
+
+<variants name="PendingCommandsRange">
+  <variant name="1KTo10K" summary="between 1,000 and 9,999 pending commands"/>
+  <variant name="10KTo100K"
+      summary="between 10,000 and 99,999 pending commands"/>
+  <variant name="100KTo500K"
+      summary="between 100,000 and 499,999 pending commands"/>
+  <variant name="Over500K" summary="500,000 or more pending commands"/>
+  <variant name="Under1K" summary="fewer than 1,000 pending commands"/>
+</variants>
+
+<!-- LINT.ThenChange(//gpu/command_buffer/service/graphite_shared_context.cc:PendingCommandsRange) -->
+
 <variants name="ShaderType">
   <variant name="Compute" summary="compute"/>
   <variant name="Pixel" summary="pixel"/>
@@ -103,7 +117,7 @@ chromium-metrics-reviews@google.com.
 </variants>
 
 <histogram name="ConfigureDisplays.External.Modeset.AttemptSucceeded"
-    enum="BooleanSuccess" expires_after="2027-01-21">
+    enum="BooleanSuccess" expires_after="2027-03-28">
   <owner>gildekel@chromium.org</owner>
   <owner>chromeos-gfx-display@chromium.org</owner>
   <summary>
@@ -116,7 +130,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ConfigureDisplays.External.Modeset.FinalStatus"
-    enum="BooleanSuccess" expires_after="2027-01-21">
+    enum="BooleanSuccess" expires_after="2027-03-28">
   <owner>gildekel@chromium.org</owner>
   <owner>chromeos-gfx-display@chromium.org</owner>
   <summary>
@@ -142,7 +156,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ConfigureDisplays.Internal.Modeset.FinalStatus"
-    enum="BooleanSuccess" expires_after="2027-01-21">
+    enum="BooleanSuccess" expires_after="2027-03-28">
   <owner>gildekel@chromium.org</owner>
   <owner>chromeos-gfx-display@chromium.org</owner>
   <summary>
@@ -154,7 +168,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ConfigureDisplays.Modeset.FinalTaskStatus"
-    enum="ConfigureDisplaysTaskStatus" expires_after="2027-01-21">
+    enum="ConfigureDisplaysTaskStatus" expires_after="2027-03-28">
   <owner>gildekel@chromium.org</owner>
   <owner>chromeos-gfx-display@chromium.org</owner>
   <summary>
@@ -170,7 +184,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ConfigureDisplays.Modeset.MstExternalDisplaysCount"
-    units="count" expires_after="2027-01-21">
+    units="count" expires_after="2027-03-28">
   <owner>gildekel@chromium.org</owner>
   <owner>chromeos-gfx-display@chromium.org</owner>
   <summary>
@@ -181,7 +195,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ConfigureDisplays.Modeset.MstExternalDisplaysPercentage"
-    units="%" expires_after="2027-01-21">
+    units="%" expires_after="2027-03-28">
   <owner>gildekel@chromium.org</owner>
   <owner>chromeos-gfx-display@chromium.org</owner>
   <summary>
@@ -217,7 +231,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ConfigureDisplays.Modeset.TotalExternalDisplaysCount"
-    units="count" expires_after="2027-01-21">
+    units="count" expires_after="2027-03-28">
   <owner>gildekel@chromium.org</owner>
   <owner>chromeos-gfx-display@chromium.org</owner>
   <summary>
@@ -228,7 +242,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ConfigureDisplays.{Connection}.Modeset.Success.RefreshRate"
-    units="Hz" expires_after="2027-01-21">
+    units="Hz" expires_after="2027-03-28">
   <owner>gildekel@chromium.org</owner>
   <owner>chromeos-gfx-display@chromium.org</owner>
   <summary>
@@ -242,7 +256,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ConfigureDisplays.{Connection}.Modeset.{Report}.Resolution"
-    enum="DisplayResolution" expires_after="2027-01-21">
+    enum="DisplayResolution" expires_after="2027-03-28">
   <owner>gildekel@chromium.org</owner>
   <owner>chromeos-gfx-display@chromium.org</owner>
   <summary>{Connection} {Report}</summary>
@@ -338,7 +352,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="GPU.ANGLE.D3D11FeatureLevel" enum="D3DFeatureLevel"
-    expires_after="2027-01-24">
+    expires_after="2027-03-28">
   <owner>geofflang@google.com</owner>
   <owner>angle-team@google.com</owner>
   <summary>
@@ -1255,6 +1269,33 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="GPU.Graphite.MaxPendingCommands" units="commands"
+    expires_after="2027-09-30">
+  <owner>lehoangquyen@google.com</owner>
+  <owner>chrome-gpu-metric-alerts@chromium.org</owner>
+  <summary>
+    The maximum number of pending commands in the Graphite context's command
+    buffer across all submit calls since the context was created, recorded at
+    the time of each Graphite context submit call. This counts low-level GPU
+    commands (draws, compute dispatches, copies, clears, etc.), not high-level
+    Skia draw calls. Submits skipped due to lack of pending GPU work are not
+    counted. This is subsampled at 1%.
+  </summary>
+</histogram>
+
+<histogram name="GPU.Graphite.NumPendingCommands" units="commands"
+    expires_after="2027-09-30">
+  <owner>lehoangquyen@google.com</owner>
+  <owner>chrome-gpu-metric-alerts@chromium.org</owner>
+  <summary>
+    The number of pending commands in the Graphite context's command buffer at
+    the time of each Graphite context submit call. This counts low-level GPU
+    commands (draws, compute dispatches, copies, clears, etc.), not high-level
+    Skia draw calls. Only recorded when the submit is not skipped due to lack of
+    pending GPU work. This is subsampled at 1%.
+  </summary>
+</histogram>
+
 <histogram name="GPU.Graphite.SkiaOutputDeviceSubmitDurationUs"
     units="microseconds" expires_after="2027-06-30">
   <owner>magchen@chromium.org</owner>
@@ -1277,6 +1318,21 @@ chromium-metrics-reviews@google.com.
     subsampled at 1%. Only reported on platforms supporting high-resolution
     clocks.
   </summary>
+</histogram>
+
+<histogram name="GPU.Graphite.SubmitDurationUs.PendingCommands.{Range}"
+    units="microseconds" expires_after="2027-09-30">
+  <owner>lehoangquyen@google.com</owner>
+  <owner>chrome-gpu-metric-alerts@chromium.org</owner>
+  <improvement direction="LOWER_IS_BETTER"/>
+  <summary>
+    The duration of each Graphite context submit call in microseconds, when the
+    command buffer has {Range}. This counts low-level GPU commands (draws,
+    compute dispatches, copies, clears, etc.), not high-level Skia draw calls.
+    This is subsampled at 1%. Only reported on platforms supporting
+    high-resolution clocks.
+  </summary>
+  <token key="Range" variants="PendingCommandsRange"/>
 </histogram>
 
 <histogram name="GPU.GraphiteDawn.DeviceLockAcquireTimeAvgUs"
@@ -1673,7 +1729,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="GPU.PersistentCache.{GpuPersistentCacheType}.Store"
-    units="microseconds" expires_after="2027-01-31">
+    units="microseconds" expires_after="2027-04-04">
   <owner>kylechar@chromium.org</owner>
   <owner>chrome-gpu-metric-alerts@chromium.org</owner>
   <owner>mdb.webgpu-dev-team@google.com</owner>
@@ -1803,7 +1859,7 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="GPU.Sandboxed" enum="Boolean" expires_after="2027-02-01">
+<histogram name="GPU.Sandboxed" enum="Boolean" expires_after="2027-04-04">
   <owner>akhna@google.com</owner>
   <owner>chromeos-hardening@google.com</owner>
   <summary>
@@ -1890,18 +1946,6 @@ chromium-metrics-reviews@google.com.
   <owner>chrome-gpu-metric-alerts@google.com</owner>
   <summary>
     Records the type of each SharedImageBacking that's initialized/registered.
-  </summary>
-</histogram>
-
-<histogram name="GPU.SharedImage.R16FToLuminanceF16Fallback" enum="Boolean"
-    expires_after="2027-07-01">
-  <owner>hitawala@chromium.org</owner>
-  <owner>chrome-gpu-metric-alerts@chromium.org</owner>
-  <summary>
-    Records whether a single-channel 16-bit half-float texture (R_F16) fell back
-    to LUMINANCE_F16 because the OpenGL ES context lacks ES3 or half-float
-    linear filtering support. Recorded when getting GL format info for a plane
-    during backing creation.
   </summary>
 </histogram>
 
@@ -2093,7 +2137,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="GPU.{GraphiteDawnOrWebGPU}.Create{Module}Success"
-    enum="Boolean" expires_after="2027-01-31">
+    enum="Boolean" expires_after="2027-04-04">
   <owner>enga@chromium.org</owner>
   <owner>mdb.webgpu-dev-team@google.com</owner>
   <summary>
@@ -2105,7 +2149,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="GPU.{GraphiteDawnOrWebGPU}.Create{Module}US"
-    units="microseconds" expires_after="2027-01-31">
+    units="microseconds" expires_after="2027-04-04">
   <owner>enga@chromium.org</owner>
   <owner>mdb.webgpu-dev-team@google.com</owner>
   <summary>
@@ -2537,12 +2581,15 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Viz.DelegatedCompositing.Status" enum="DelegatedStatus"
-    expires_after="2025-07-13">
+    expires_after="2027-04-07">
   <owner>jonross@chromium.org</owner>
   <owner>chrome-gpu-metric-alerts@chromium.org</owner>
   <summary>
     An enum status result for attempted delegated compositing (success or
     failure reason) recorded every drawn frame.
+
+    Warning: this histogram was expired from 2025-07-13 to 2026-10-07; data may
+    be missing.
   </summary>
 </histogram>
 
@@ -2620,7 +2667,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Viz.ExternalBeginFrameSource.Interval" units="ms"
-    expires_after="2027-01-24">
+    expires_after="2027-03-28">
   <owner>lizeb@chromium.org</owner>
   <owner>chromeos-gfx@chromium.org</owner>
   <summary>

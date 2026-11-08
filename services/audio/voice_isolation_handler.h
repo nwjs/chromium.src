@@ -16,10 +16,12 @@
 #include "base/sequence_checker.h"
 #include "base/thread_annotations.h"
 #include "base/time/time.h"
+#include "base/types/expected.h"
 #include "base/unguessable_token.h"
 #include "media/audio/audio_debug_recording_helper.h"
 #include "media/base/audio_glitch_info.h"
 #include "media/base/audio_parameters.h"
+#include "services/audio/crossfader.h"
 
 namespace media {
 class AudioBus;
@@ -27,6 +29,7 @@ class AudioDebugRecordingManager;
 class MlModelHandle;
 class VoiceIsolation;
 class VoiceIsolationComponent;
+enum class VoiceIsolationCreationResult;
 }  // namespace media
 
 namespace audio {
@@ -41,11 +44,18 @@ class ProcessingAudioFifo;
 // t=0 in pass-through warmup.
 class VoiceIsolationHandler {
  public:
+  // Called on the capture/processing thread to deliver processed audio.
+  // `audio_capture_time` is adjusted by the voice isolation algorithmic delay
+  // when voice isolation is active and clamped to be monotonically
+  // non-decreasing across bypass-to-active transitions (consecutive buffers may
+  // share a timestamp immediately after re-enabling).
   using DeliverProcessedAudioCallback = base::RepeatingCallback<void(
       const media::AudioBus& audio_bus,
       base::TimeTicks audio_capture_time,
       const media::AudioGlitchInfo& audio_glitch_info)>;
-
+  using InvalidateModelCallback =
+      base::OnceCallback<void(scoped_refptr<media::MlModelHandle>)>;
+  using ErrorCallback = base::OnceClosure;
   using LogCallback = base::RepeatingCallback<void(std::string_view)>;
 
   VoiceIsolationHandler(const VoiceIsolationHandler&) = delete;
@@ -53,10 +63,23 @@ class VoiceIsolationHandler {
 
   ~VoiceIsolationHandler();
 
+  // Attempts to create a VoiceIsolationHandler. `output_params` must be
+  // supported by `media::VoiceIsolation` (CHECKed). Returns nullptr if a model
+  // is not available from `ml_model_manager`.
+  //
+  // `ml_model_manager` must outlive the returned VoiceIsolationHandler: if
+  // background component creation fails, the handler calls
+  // `ml_model_manager.InvalidateModel()` passing its `MlModelHandle`.
+  //
+  // `error_callback`: Invoked asynchronously on the calling/owning sequence if
+  // background component creation fails, notifying the caller (e.g.
+  // InputController) so it can terminate the stream. Never invoked
+  // synchronously within MaybeCreate().
   static std::unique_ptr<VoiceIsolationHandler> MaybeCreate(
       MlModelManager& ml_model_manager,
       const media::AudioParameters& output_params,
       DeliverProcessedAudioCallback deliver_processed_audio_callback,
+      ErrorCallback error_callback,
       LogCallback log_callback = base::DoNothing(),
       media::AudioDebugRecordingManager* debug_recording_manager = nullptr);
 
@@ -67,7 +90,12 @@ class VoiceIsolationHandler {
       LogCallback log_callback = base::DoNothing(),
       std::unique_ptr<media::AudioDebugRecorder> debug_recorder = nullptr);
 
-  // Processes the captured audio. Called on the capture/processing thread.
+  // Processes the captured audio and delivers it via
+  // `deliver_processed_audio_callback_`, adjusting `audio_capture_time` by the
+  // voice isolation algorithmic delay when active (clamped to be monotonically
+  // non-decreasing across bypass-to-active transitions, so consecutive buffers
+  // may share a timestamp immediately after re-enabling). Called on the
+  // capture/processing thread.
   void ProcessCapturedAudio(const media::AudioBus& audio_source,
                             base::TimeTicks audio_capture_time,
                             const media::AudioGlitchInfo& audio_glitch_info);
@@ -114,6 +142,8 @@ class VoiceIsolationHandler {
       std::unique_ptr<media::AudioDebugRecorder> debug_recorder,
       const media::AudioParameters& output_params,
       DeliverProcessedAudioCallback deliver_processed_audio_callback,
+      InvalidateModelCallback invalidate_model_callback,
+      ErrorCallback error_callback,
       LogCallback log_callback);
 
   VoiceIsolationHandler(
@@ -126,7 +156,8 @@ class VoiceIsolationHandler {
   std::unique_ptr<ProcessingAudioFifo> MaybeCreateProcessingFifo();
 
   void OnComponentCreated(
-      std::unique_ptr<media::VoiceIsolationComponent> component);
+      base::expected<std::unique_ptr<media::VoiceIsolationComponent>,
+                     media::VoiceIsolationCreationResult> component_or_error);
 
   bool IsVoiceIsolationBypassed() const;
 
@@ -144,11 +175,20 @@ class VoiceIsolationHandler {
   const scoped_refptr<media::MlModelHandle> model_handle_;
   const media::AudioParameters output_params_;
   const DeliverProcessedAudioCallback deliver_processed_audio_callback_;
+
+  // Both null on the CreateForTesting() path, which never posts a creation
+  // task. Consumed by OnComponentCreated(), in this order.
+  InvalidateModelCallback invalidate_model_callback_;
+  ErrorCallback error_callback_;
   const LogCallback log_callback_;
 
   // Preallocated buffer for processed audio, accessed exclusively in
   // ProcessCapturedAudioInternal() on the capture or FIFO thread.
   std::unique_ptr<media::AudioBus> output_bus_;
+
+  // Smooths enable/disable transitions within a single buffer. Immutable and
+  // real-time safe, used only in ProcessCapturedAudioInternal().
+  const Crossfader transition_crossfader_;
 
   // Thread-safe recorder feeding debug audio data. Immutable after
   // construction.
@@ -169,9 +209,16 @@ class VoiceIsolationHandler {
   std::atomic<bool> bypass_voice_isolation_{true};
 
   // Tracks whether voice isolation was bypassed on the previous captured audio
-  // frame to detect ON -> OFF transitions and clear internal buffers. Only used
-  // in ProcessCapturedAudioInternal().
+  // frame to detect OFF -> ON transitions (fade to silence while priming) and
+  // ON -> OFF transitions (crossfade to microphone and clear internal
+  // buffers). Only used in ProcessCapturedAudioInternal().
   bool was_previously_bypassed_ = true;
+
+  // Last delivered capture timestamp. While voice isolation is active,
+  // delivered timestamps are clamped to this value so they are monotonically
+  // non-decreasing (relevant when transitioning from bypassed to active).
+  // Only used in ProcessCapturedAudioInternal().
+  base::TimeTicks last_delivered_capture_time_;
 
   class StartupMetricsLogger;
 

@@ -150,8 +150,6 @@ SystemProfileProto_ComponentId ComponentMetricsProvider::CrxIdToComponentId(
        SystemProfileProto_ComponentId_PEPPER_FLASH},
       {"mjdmdobabdmfcbaakcaadileafkmifen",
        SystemProfileProto_ComponentId_RTANALYTICS_FULL},
-      {"neifaoindggfcjicffkgpmnlppeffabd",
-       SystemProfileProto_ComponentId_MEDIA_FOUNDATION_WIDEVINE_CDM},
       {"npdjjkjlcidkjlamlmmdelcjbcpdjocm",
        SystemProfileProto_ComponentId_RECOVERY},
       {"obedbbhbpmojnkanicioggnmelmoomoc",
@@ -174,6 +172,10 @@ SystemProfileProto_ComponentId ComponentMetricsProvider::CrxIdToComponentId(
        SystemProfileProto_ComponentId_FINGERPRINTING_PROTECTION_FILTER_RULES},
       {"lbimbicckdokpoicboneldipejkhjgdg",
        SystemProfileProto_ComponentId_TRANSLATE_KIT},
+      {"ceofaddefefcbblgcgnibnonglccbfja",
+       SystemProfileProto_ComponentId_MODEL_MANIFEST},
+      {"kpfeefaldebcckpkaeelpiecbjfpbmle",
+       SystemProfileProto_ComponentId_GEOLOCATION_PERMISSION_PREDICTIONS_MODEL},
   });
 
   const auto result = kComponentMap.find(app_id);

@@ -135,8 +135,12 @@ class AtMemoryBottomSheetProperties {
         // Subtitle to be displayed on the illustration card.
         static final ReadableObjectPropertyKey<@Nullable String> SUBTITLE =
                 new ReadableObjectPropertyKey<>();
+        // Titles that are cycled through in zero state, in order and starting at a random one,
+        // after the default title is shown.
+        static final ReadableObjectPropertyKey<List<String>> ROTATING_PLACEHOLDERS =
+                new ReadableObjectPropertyKey<>();
 
-        static final PropertyKey[] ALL_KEYS = {TITLE, SUBTITLE};
+        static final PropertyKey[] ALL_KEYS = {TITLE, SUBTITLE, ROTATING_PLACEHOLDERS};
 
         private IllustrationCardItemProperties() {}
     }
@@ -185,6 +189,9 @@ class AtMemoryBottomSheetProperties {
                 new ReadableBooleanPropertyKey();
         // Indicates whether the suggestion should show the loading indicator.
         static final ReadableBooleanPropertyKey IS_LOADING = new ReadableBooleanPropertyKey();
+        // Indicates the flyout content description.
+        static final ReadableObjectPropertyKey<String> FLYOUT_CONTENT_DESCRIPTION =
+                new ReadableObjectPropertyKey<>();
 
         static final PropertyKey[] ALL_KEYS = {
             ICON,
@@ -195,7 +202,8 @@ class AtMemoryBottomSheetProperties {
             ON_FLYOUT_CLICKED,
             IS_FLYOUT_VISIBLE,
             APPLY_DEACTIVATED_STYLE,
-            IS_LOADING
+            IS_LOADING,
+            FLYOUT_CONTENT_DESCRIPTION
         };
 
         private SuggestionItemProperties() {}

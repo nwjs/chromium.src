@@ -11,6 +11,7 @@ import sys
 
 import setup_modules  # pylint: disable=unused-import
 
+
 from chromium_src.tools.metrics.common import path_util
 import chromium_src.tools.metrics.common.xml_utils as xml_utils
 import xml.etree.ElementTree as ET
@@ -221,7 +222,7 @@ class Memoize:
     self.memo = {}
 
   def __call__(self, *args):
-    if not args in self.memo:
+    if args not in self.memo:
       self.memo[args] = self.f(*args)
     return self.memo[args]
 

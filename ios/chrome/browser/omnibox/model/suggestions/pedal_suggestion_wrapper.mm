@@ -25,10 +25,6 @@
   return NO;
 }
 
-- (BOOL)hasAnswer {
-  return NO;
-}
-
 - (BOOL)isURL {
   return NO;
 }
@@ -59,6 +55,10 @@
 
 - (NSInteger)numberOfLines {
   return 1;
+}
+
+- (BOOL)wrapPrimaryText {
+  return NO;
 }
 
 - (BOOL)wrapSecondaryText {

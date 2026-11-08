@@ -310,18 +310,13 @@ ScriptPromise<IDLUndefined> SmartCardConnection::disconnect(
 
 ScriptPromise<DOMArrayBuffer> SmartCardConnection::transmit(
     ScriptState* script_state,
-    const DOMArrayPiece& send_buffer,
+    base::span<const uint8_t> send_buffer,
     SmartCardTransmitOptions* options,
     ExceptionState& exception_state) {
   if (!smart_card_context_->EnsureNoOperationInProgress(exception_state) ||
       !smart_card_context_->EnsureNoOtherConnectionHasActiveTransactionOnReader(
           reader_name_, this, exception_state) ||
       !EnsureConnection(exception_state)) {
-    return EmptyPromise();
-  }
-
-  if (send_buffer.IsDetached() || send_buffer.IsNull()) {
-    exception_state.ThrowTypeError("Invalid send buffer.");
     return EmptyPromise();
   }
 
@@ -340,11 +335,8 @@ ScriptPromise<DOMArrayBuffer> SmartCardConnection::transmit(
       script_state, exception_state.GetContext());
   SetOperationInProgress(resolver);
 
-  Vector<uint8_t> send_vector;
-  send_vector.append_range(send_buffer.ByteSpan());
-
   connection_->Transmit(
-      protocol, send_vector,
+      protocol, ToVector(send_buffer),
       BindOnce(&SmartCardConnection::OnDataResult, WrapPersistent(this),
                WrapPersistent(resolver)));
 
@@ -375,7 +367,7 @@ ScriptPromise<SmartCardConnectionStatus> SmartCardConnection::status(
 ScriptPromise<DOMArrayBuffer> SmartCardConnection::control(
     ScriptState* script_state,
     uint32_t control_code,
-    const DOMArrayPiece& data,
+    base::span<const uint8_t> data,
     ExceptionState& exception_state) {
   if (!smart_card_context_->EnsureNoOperationInProgress(exception_state) ||
       !smart_card_context_->EnsureNoOtherConnectionHasActiveTransactionOnReader(
@@ -388,16 +380,8 @@ ScriptPromise<DOMArrayBuffer> SmartCardConnection::control(
       script_state, exception_state.GetContext());
   SetOperationInProgress(resolver);
 
-  Vector<uint8_t> data_vector;
-
-  // Note that there are control codes which require no input data.
-  // Thus sending an empty data vector is fine.
-  if (!data.IsDetached() && !data.IsNull() && data.ByteLength() > 0u) {
-    data_vector.append_range(data.ByteSpan());
-  }
-
   connection_->Control(
-      control_code, data_vector,
+      control_code, ToVector(data),
       BindOnce(&SmartCardConnection::OnDataResult, WrapPersistent(this),
                WrapPersistent(resolver)));
 
@@ -429,7 +413,7 @@ ScriptPromise<DOMArrayBuffer> SmartCardConnection::getAttribute(
 ScriptPromise<IDLUndefined> SmartCardConnection::setAttribute(
     ScriptState* script_state,
     uint32_t tag,
-    const DOMArrayPiece& data,
+    base::span<const uint8_t> data,
     ExceptionState& exception_state) {
   if (!smart_card_context_->EnsureNoOperationInProgress(exception_state) ||
       !smart_card_context_->EnsureNoOtherConnectionHasActiveTransactionOnReader(
@@ -438,20 +422,12 @@ ScriptPromise<IDLUndefined> SmartCardConnection::setAttribute(
     return EmptyPromise();
   }
 
-  if (data.IsDetached() || data.IsNull()) {
-    exception_state.ThrowTypeError("Invalid data.");
-    return EmptyPromise();
-  }
-
   auto* resolver = MakeGarbageCollected<ScriptPromiseResolver<IDLUndefined>>(
       script_state, exception_state.GetContext());
   SetOperationInProgress(resolver);
 
-  Vector<uint8_t> data_vector;
-  data_vector.append_range(data.ByteSpan());
-
   connection_->SetAttrib(
-      tag, data_vector,
+      tag, ToVector(data),
       BindOnce(&SmartCardConnection::OnPlainResult, WrapPersistent(this),
                WrapPersistent(resolver)));
 

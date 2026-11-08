@@ -68,6 +68,8 @@ BASE_DECLARE_FEATURE(kBeforeUnloadBrowserResponseQueue);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kCachedFirstRectAllowRangeOutsideSelection);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kCancelCompositionWhenWindowLosesFocus);
 #endif  // BUILDFLAG(IS_MAC)
+CONTENT_EXPORT BASE_DECLARE_FEATURE(
+    kCacheStorageOpaqueResponseCredentialedForCorp);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kCDPScreenshotNewSurface);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kClearPendingUrlOnNonEmptyCompositorFrame);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kCodeCacheDeletionWithoutFilter);
@@ -149,6 +151,8 @@ CONTENT_EXPORT BASE_DECLARE_FEATURE(kIOSurfaceCapturer);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kIsSuitableForUrlInfoEarlyReturnHoldback);
 
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kKeepChildProcessAfterIPCReset);
+CONTENT_EXPORT BASE_DECLARE_FEATURE(
+    kKeepUnassignedSiteInstanceInOriginalBrowsingInstance);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kKillOnInvalidNavigationHeaders);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kLimitPopupWidgetHostPosition);
 
@@ -229,6 +233,8 @@ CONTENT_EXPORT BASE_DECLARE_FEATURE(
     kServiceWorkerBypassFetchHandlerHashStrings);
 CONTENT_EXPORT extern const base::FeatureParam<std::string>
     kServiceWorkerBypassFetchHandlerBypassedHashStrings;
+CONTENT_EXPORT BASE_DECLARE_FEATURE(
+    kServiceWorkerDropHandleForCSPSandboxedWorker);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kServiceWorkerSrcdocSupport);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kServiceWorkerStaticRouterCORPCheck);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kServiceWorkerStaticRouterOpaqueCheck);
@@ -268,7 +274,6 @@ CONTENT_EXPORT BASE_DECLARE_FEATURE(kWarmUpNetworkProcess);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kWebAssemblyDynamicTiering);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kWebOTPAssertionFeaturePolicy);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kWebUIInProcessResourceLoading);
-CONTENT_EXPORT BASE_DECLARE_FEATURE(kLimitCrossOriginNonActivatedPaintHolding);
 
 // Please keep features in alphabetical order.
 

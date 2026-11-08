@@ -75,6 +75,7 @@
 #include "third_party/blink/renderer/core/frame/settings.h"
 #include "third_party/blink/renderer/core/html/forms/html_input_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_select_element.h"
+#include "third_party/blink/renderer/core/html/forms/text_control_element.h"
 #include "third_party/blink/renderer/core/html/html_body_element.h"
 #include "third_party/blink/renderer/core/html/html_frame_element_base.h"
 #include "third_party/blink/renderer/core/html_names.h"
@@ -103,6 +104,7 @@
 #include "third_party/blink/renderer/platform/text/text_direction.h"
 #include "third_party/blink/renderer/platform/text/unicode_utilities.h"
 #include "third_party/blink/renderer/platform/widget/frame_widget.h"
+#include "third_party/blink/renderer/platform/wtf/allocator/allocator.h"
 #include "ui/gfx/geometry/quad_f.h"
 
 #define EDIT_DEBUG 0
@@ -112,6 +114,8 @@ namespace blink {
 namespace {
 
 class ScopedHandlingInputEvent {
+  STACK_ALLOCATED();
+
  public:
   explicit ScopedHandlingInputEvent(FrameWidget* widget) : widget_(widget) {
     if (widget_) {
@@ -877,6 +881,8 @@ bool FrameSelection::ShouldPaintCaret(const LayoutBlock& block) const {
   DCHECK(!result ||
          (ComputeVisibleSelectionInDomTree().IsCaret() &&
           (IsEditablePosition(ComputeVisibleSelectionInDomTree().Start()) ||
+           (RuntimeEnabledFeatures::ReadOnlyTextControlSelectionEnabled() &&
+            EnclosingTextControl(ComputeVisibleSelectionInDomTree().Start())) ||
            frame_->IsCaretBrowsingEnabled())));
   return result;
 }
@@ -889,6 +895,8 @@ bool FrameSelection::ShouldPaintCaret(
   DCHECK(!result ||
          (ComputeVisibleSelectionInDomTree().IsCaret() &&
           (IsEditablePosition(ComputeVisibleSelectionInDomTree().Start()) ||
+           (RuntimeEnabledFeatures::ReadOnlyTextControlSelectionEnabled() &&
+            EnclosingTextControl(ComputeVisibleSelectionInDomTree().Start())) ||
            frame_->IsCaretBrowsingEnabled())));
   return result;
 }

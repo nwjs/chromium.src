@@ -13,13 +13,14 @@
 #include "build/build_config.h"
 #include "chrome/browser/ui/actions/chrome_action_id.h"
 #include "chrome/browser/ui/views/app_menu/action_app_menu_manager.h"
-#include "chrome/browser/ui/views/app_menu/app_menu_action_item.h"
 #include "chrome/browser/ui/views/app_menu/app_menu_footer_button.h"
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
 #include "ui/actions/actions.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/color/color_id.h"
+#include "ui/compositor/layer.h"
 #include "ui/events/event.h"
+#include "ui/gfx/geometry/rounded_corners_f.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/actions/action_view_controller.h"
 #include "ui/views/controls/menu/menu_config.h"
@@ -38,6 +39,7 @@ enum class FooterContainer {
 FooterContainer GetFooterContainerForAction(actions::ActionId action_id) {
   switch (action_id) {
     case kActionShowManagementPage:
+    case kActionChromeEnterpriseReleaseNotes:
       return FooterContainer::kBottom;
 #if BUILDFLAG(IS_MAC)
     case kActionOptions:
@@ -106,7 +108,7 @@ AppMenuFooterView::AppMenuFooterView(
       views::BoxLayout::CrossAxisAlignment::kCenter);
 
   auto bottom_container = std::make_unique<views::BoxLayoutView>();
-  bottom_container->SetOrientation(views::BoxLayout::Orientation::kHorizontal);
+  bottom_container->SetOrientation(views::BoxLayout::Orientation::kVertical);
   bottom_container->SetCrossAxisAlignment(
       views::BoxLayout::CrossAxisAlignment::kStretch);
 
@@ -114,6 +116,9 @@ AppMenuFooterView::AppMenuFooterView(
   for (const auto& footer_child :
        footer_action_item->GetChildren().children()) {
     actions::ActionItem* footer_child_ptr = footer_child->GetActionItem();
+    if (!footer_child_ptr->GetVisible()) {
+      continue;
+    }
     std::optional<actions::ActionId> action_id =
         footer_child_ptr->GetActionId();
     CHECK(action_id.has_value());
@@ -129,8 +134,8 @@ AppMenuFooterView::AppMenuFooterView(
       populate_submenu_callback.Run(submenu_item, footer_child.get());
     }
 
-    auto button = std::make_unique<AppMenuFooterButton>(submenu_item);
-
+    auto button = std::make_unique<AppMenuFooterButton>(
+        parent_menu_item, footer_child.get(), submenu_item);
     action_view_controller->CreateActionViewRelationship(
         button.get(), footer_child_ptr->GetAsWeakPtr());
 
@@ -143,25 +148,10 @@ AppMenuFooterView::AppMenuFooterView(
           execute_command_callback, action_id.value()));
     }
 
-    if (const ui::ElementIdentifier element_id =
-            footer_child->GetProperty(views::kElementIdentifierKey)) {
-      button->SetProperty(views::kElementIdentifierKey, element_id);
-    }
-
-    if (std::u16string* text_override =
-            footer_child->GetProperty(AppMenuActionItem::kTextOverrideKey)) {
-      button->SetText(*text_override);
-    }
-    if (ui::ImageModel* icon_override =
-            footer_child->GetProperty(AppMenuActionItem::kIconOverrideKey)) {
-      button->SetImageModel(*icon_override);
-    }
-
     switch (GetFooterContainerForAction(action_id.value())) {
       case FooterContainer::kBottom: {
         auto* button_ptr = bottom_container->AddChildView(std::move(button));
         button_ptr->SetUseRowStyle(true);
-        bottom_container->SetFlexForView(button_ptr, 1);
         break;
       }
       case FooterContainer::kRight: {
@@ -191,6 +181,13 @@ AppMenuFooterView::AppMenuFooterView(
 
     bottom_container->SetInsideBorderInsets(provider->GetInsetsMetric(
         INSETS_ACTION_APP_MENU_FOOTER_BOTTOM_CONTAINER));
+    bottom_container->SetPaintToLayer();
+    bottom_container->layer()->SetFillsBoundsOpaquely(false);
+    const int menu_radius =
+        provider->GetCornerRadiusMetric(views::ShapeContextTokens::kMenuRadius);
+    bottom_container->layer()->SetRoundedCornerRadius(
+        gfx::RoundedCornersF(0, 0, menu_radius, menu_radius));
+    bottom_container->layer()->SetIsFastRoundedCorner(true);
     bottom_container_ = AddChildView(std::move(bottom_container));
   }
 }

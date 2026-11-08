@@ -26,6 +26,7 @@
 #define THIRD_PARTY_BLINK_RENDERER_CORE_HTML_FORMS_HTML_FORM_ELEMENT_H_
 
 #include "base/functional/callback.h"
+#include "base/unguessable_token.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/html/forms/html_form_control_element.h"
@@ -288,6 +289,7 @@ class CORE_EXPORT HTMLFormElement final : public HTMLElement {
       CHECK(!tool_name.IsNull() && !tool_description.IsNull());
     }
     String ToolName() const override { return tool_name_; }
+    const base::UnguessableToken& ToolId() const override { return tool_id_; }
     String ToolDescription() const override { return tool_description_; }
     String ToolTitle() const override { return tool_title_; }
     String ComputeInputSchema() override;
@@ -331,6 +333,11 @@ class CORE_EXPORT HTMLFormElement final : public HTMLElement {
 
     bool is_currently_running_ = false;
     bool is_handling_submit_ = false;
+
+    // Minted once per `HTMLFormMcpTool`. Every (re-)registration of `form_`
+    // creates a new `HTMLFormMcpTool`, and therefore a new ID.
+    const base::UnguessableToken tool_id_ = base::UnguessableToken::Create();
+
     // Both `tool_name_` and `tool_description_` are guaranteed to be non-null
     // (i.e., `blink::String::IsNull()`), since the `toolname` and
     // `tooldescription` attributes must be present on `form_`, for it to

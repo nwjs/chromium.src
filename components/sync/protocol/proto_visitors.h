@@ -63,6 +63,7 @@
 #include "components/sync/protocol/sync.pb.h"
 #include "components/sync/protocol/sync_entity.pb.h"
 #include "components/sync/protocol/sync_invalidations_payload.pb.h"
+#include "components/sync/protocol/tab_context_container_access_token.pb.h"
 #include "components/sync/protocol/tab_group_attribution_metadata.pb.h"
 #include "components/sync/protocol/theme_android_specifics.pb.h"
 #include "components/sync/protocol/theme_ios_specifics.pb.h"
@@ -702,10 +703,15 @@ VISIT_PROTO_FIELDS(const sync_pb::EncryptedData& proto) {
   VISIT(key_id_v2);
 }
 
+VISIT_PROTO_FIELDS(const sync_pb::TabContextItemContent& proto) {
+  VISIT_BYTES(raw_data);
+  VISIT_BYTES(gzip_compressed_data);
+}
+
 VISIT_PROTO_FIELDS(const sync_pb::EncryptedTabContextItemSpecifics& proto) {
   VISIT(container_id);
   VISIT(item_id);
-  VISIT(encrypted_data);
+  VISIT(encrypted_content);
 }
 
 VISIT_PROTO_FIELDS(
@@ -1646,6 +1652,17 @@ VISIT_PROTO_FIELDS(const sync_pb::UserEventSpecifics::FlocIdComputed& proto) {
   VISIT(floc_id);
 }
 
+VISIT_PROTO_FIELDS(const google::protobuf::Timestamp& proto) {
+  visitor.Visit(proto, "seconds", proto.seconds());
+  visitor.Visit(proto, "nanos", proto.nanos());
+}
+
+VISIT_PROTO_FIELDS(const sync_pb::TabContextContainerAccessToken& proto) {
+  VISIT(name);
+  VISIT_BYTES(encrypted_container_key);
+  VISIT(expire_time);
+}
+
 VISIT_PROTO_FIELDS(const sync_pb::TabNavigation& proto) {
   VISIT(virtual_url);
   VISIT(referrer);
@@ -2160,8 +2177,8 @@ VISIT_PROTO_FIELDS(const sync_pb::AutofillValuableSpecifics& proto) {
   VISIT(offer);
   VISIT(order);
   VISIT(shipment);
-  VISIT(context_token);
   VISIT(pass_view_url);
+  VISIT_BYTES(legal_message_token);
 }
 
 VISIT_PROTO_FIELDS(const sync_pb::Any& proto) {
@@ -2433,6 +2450,15 @@ VISIT_PROTO_FIELDS(
   VISIT(prompt);
 }
 
+VISIT_PROTO_FIELDS(const sync_pb::JourneySpecifics::CollectionItem& proto) {
+  VISIT(history_entry);
+}
+
+VISIT_PROTO_FIELDS(const sync_pb::JourneySpecifics::Collection& proto) {
+  VISIT(title);
+  VISIT_REP(items);
+}
+
 VISIT_PROTO_FIELDS(const sync_pb::JourneySpecifics& proto) {
   VISIT(journey_id);
   VISIT(title);
@@ -2442,6 +2468,7 @@ VISIT_PROTO_FIELDS(const sync_pb::JourneySpecifics& proto) {
   VISIT(creation_time_windows_epoch_micros);
   VISIT_REP(history_entries);
   VISIT_REP(continuation_queries);
+  VISIT_REP(collections);
 }
 
 VISIT_PROTO_FIELDS(const sync_pb::AiThreadSpecifics& proto) {
@@ -2484,6 +2511,8 @@ VISIT_PROTO_FIELDS(const sync_pb::AutofillEntitySuppressionSpecifics& proto) {
   VISIT(guid);
   VISIT(entity_suppression_key);
   VISIT(schema_version);
+  VISIT(creation_time_windows_epoch_micros);
+  VISIT(entity_suppression_hash);
 }
 
 }  // namespace syncer

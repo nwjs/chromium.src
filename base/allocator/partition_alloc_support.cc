@@ -21,6 +21,7 @@
 #include "base/compiler_specific.h"
 #include "base/containers/span.h"
 #include "base/cpu.h"
+#include "base/debug/crash_logging.h"
 #include "base/debug/dump_without_crashing.h"
 #include "base/debug/stack_trace.h"
 #include "base/debug/task_trace.h"
@@ -1199,11 +1200,10 @@ void PartitionAllocSupport::ReconfigureAfterFeatureListInit(
       GetSchedulerLoopQuarantineConfiguration(
           process_type_identifier,
           SchedulerLoopQuarantineBranchType::kThreadLocalDefault);
-  const auto
-      scheduler_loop_quarantine_for_advanced_memory_safety_checks_config =
-          GetSchedulerLoopQuarantineConfiguration(
-              process_type_identifier,
-              SchedulerLoopQuarantineBranchType::kAdvancedMemorySafetyChecks);
+  const auto scheduler_loop_quarantine_for_sanitized_object_config =
+      GetSchedulerLoopQuarantineConfiguration(
+          process_type_identifier,
+          SchedulerLoopQuarantineBranchType::kSanitizedObject);
 
   if (HasSchedulerLoopQuarantineTaskControl(process_type_identifier)) {
     base::EnableSchedulerLoopQuarantineTaskControlledPurge();
@@ -1311,7 +1311,7 @@ void PartitionAllocSupport::ReconfigureAfterFeatureListInit(
       memory_tagging_reporting_mode, bucket_distribution,
       scheduler_loop_quarantine_global_config,
       scheduler_loop_quarantine_thread_local_config,
-      scheduler_loop_quarantine_for_advanced_memory_safety_checks_config,
+      scheduler_loop_quarantine_for_sanitized_object_config,
       allocator_shim::EventuallyZeroFreedMemory(eventually_zero_freed_memory),
       allocator_shim::EnableTighterAlignedAllocBound(
           enable_tighter_aligned_alloc_bound));
@@ -1324,13 +1324,18 @@ void PartitionAllocSupport::ReconfigureAfterFeatureListInit(
                         int(extras_size));
 
 #if PA_CONFIG(DYNAMICALLY_SELECT_POOL_SIZE)
-  // We don't care about the normal case... That is just daily sessions, we
-  // don't want to record this if it isn't interesting to reduce impact on data
-  // volume and sampling.
   if (partition_alloc::internal::PartitionAddressSpace::
           IsCorePoolSizeReduced()) {
-    base::UmaHistogramBoolean("Memory.PartitionAlloc.CorePoolSizeReduced",
-                              true);
+    // This in theory should almost never happen, but once in iOS beta we had
+    // some reports of this. See crbug.com/489679627.
+    // We set a crash key so if later we OOM we can tell this happened, and
+    // also add a DumpWithoutCrashing() to get some stats about how
+    // many times this has happened, if it becomes frequent enough to trip
+    // automatic alerting.
+    static auto* const crash_key = base::debug::AllocateCrashKeyString(
+        "pa_core_pool_reduced", base::debug::CrashKeySize::Size32);
+    base::debug::SetCrashKeyString(crash_key, process_type);
+    base::debug::DumpWithoutCrashing();
   }
 #endif
 

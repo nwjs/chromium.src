@@ -33,6 +33,10 @@ class OptimizationMetadata;
 
 #include "chrome/browser/ui/page_action/page_action_controller.h"
 
+namespace gfx {
+struct VectorIcon;
+}  // namespace gfx
+
 namespace tabs {
 class TabInterface;
 }  // namespace tabs
@@ -80,6 +84,18 @@ class IndigoPageActionController : public tabs::ContentsObservingTabFeature,
   // Retrieves an IndigoPageActionController from the given tab, or nullptr if
   // it does not exist.
   static IndigoPageActionController* From(tabs::TabInterface* tab);
+
+  // Returns the vector icon used for Indigo entry points (such as the context
+  // menu and settings page). Handled by the controller so external callers do
+  // not need direct dependencies on branded internal vector icon targets.
+  static const gfx::VectorIcon& GetEntryPointVectorIcon();
+
+  // Returns whether the current page is eligible for Indigo.
+  bool IsPageEligible() const;
+
+  // Records metrics when a context menu containing the Indigo item is shown.
+  // Deduplicated so that it is recorded at most once per page load.
+  void OnContextMenuShown();
 
   void InvokeAction(EntryPoint entry_point);
   void DeleteOriginalPhoto();
@@ -166,17 +182,18 @@ class IndigoPageActionController : public tabs::ContentsObservingTabFeature,
     explicit TestApi(IndigoPageActionController* controller)
         : controller_(controller) {}
 
-    void CheckEligibilityForOnboarding(base::TimeTicks start_time,
-                                       bool skip_glic_invoke,
-                                       const CombinedEligibility& eligibility) {
-      controller_->CheckEligibilityForOnboarding(start_time, skip_glic_invoke,
+    void CheckEligibilityForOnboarding(
+        base::TimeTicks start_time,
+        IndigoTransformationTriggerSource trigger_source,
+        const CombinedEligibility& eligibility) {
+      controller_->CheckEligibilityForOnboarding(start_time, trigger_source,
                                                  eligibility);
     }
 
     void CheckOnboardingResult(OnboardingDisposition disposition,
-                               bool skip_glic_invoke,
+                               IndigoTransformationTriggerSource trigger_source,
                                const OnboardingResult& result) {
-      controller_->OnOnboardingDialogClosed(disposition, skip_glic_invoke,
+      controller_->OnOnboardingDialogClosed(disposition, trigger_source,
                                             result);
     }
 
@@ -217,17 +234,19 @@ class IndigoPageActionController : public tabs::ContentsObservingTabFeature,
   // Evaluates the current trigger state.
   TriggerEvaluation EvaluateTriggerState() const;
 
-  // Shows the onboarding dialog with the appropriate URL based on disposition.
+  // Shows the onboarding dialog with the appropriate URL based on disposition,
+  // and invokes `trigger_source` upon completion.
   void ShowOnboardingDialog(OnboardingDisposition disposition,
-                            bool skip_glic_invoke);
+                            IndigoTransformationTriggerSource trigger_source);
 
   // Called when the eligibility has been fetched.
-  void CheckEligibilityForOnboarding(base::TimeTicks start_time,
-                                     bool skip_glic_invoke,
-                                     const CombinedEligibility& eligibility);
+  void CheckEligibilityForOnboarding(
+      base::TimeTicks start_time,
+      IndigoTransformationTriggerSource trigger_source,
+      const CombinedEligibility& eligibility);
 
   // Called when eligibility is known and onboarding is completed (if needed).
-  void ContinueInvoke(bool skip_glic_invoke,
+  void ContinueInvoke(IndigoTransformationTriggerSource trigger_source,
                       const CombinedEligibility& eligibility);
 
   // Checks whether we should skip Indigo invocation and invoke Glic instead.
@@ -244,9 +263,10 @@ class IndigoPageActionController : public tabs::ContentsObservingTabFeature,
   void TriggerRegeneration(IndigoTransformationTriggerSource source);
 
   // Updates state and handles preference changes when the dialog closes.
-  void OnOnboardingDialogClosed(OnboardingDisposition disposition,
-                                bool skip_glic_invoke,
-                                const OnboardingResult& result);
+  void OnOnboardingDialogClosed(
+      OnboardingDisposition disposition,
+      IndigoTransformationTriggerSource trigger_source,
+      const OnboardingResult& result);
 
   // Called when the delete request completes.
   void OnDeleteOriginalPhotoComplete(base::expected<void, DeleteError> result);
@@ -344,6 +364,11 @@ class IndigoPageActionController : public tabs::ContentsObservingTabFeature,
 
   // The trigger source that was evaluated when eligibility was determined.
   std::optional<IndigoTriggerSource> last_trigger_source_;
+
+  // True if a context menu containing the Indigo item has already been shown on
+  // the current page load. Used to deduplicate
+  // `Indigo.PageAction.ShownEntryPoint` impressions per page load.
+  bool context_menu_shown_on_current_page_ = false;
 
   // Weak pointer factory used for the invocation flow. This is invalidated on
   // navigation to ensure that if a user starts an action (like onboarding) and

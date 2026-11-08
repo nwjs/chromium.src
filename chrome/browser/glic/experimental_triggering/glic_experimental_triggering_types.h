@@ -19,6 +19,9 @@ namespace glic {
 
 // Capabilities supported for experimental triggering.
 inline constexpr char kGlicCapabilityScreenshot[] = "screenshot";
+// Supports structured yields, i.e. receiving `SubmitConfirmation` requests to
+// resolve pending confirmation dialogs.
+inline constexpr char kGlicCapabilityStructuredYields[] = "structured_yields";
 
 // Outcome of a device opt-in request for experimental triggering.
 enum class DeviceOptInResult {
@@ -76,6 +79,9 @@ struct TaskUpdate {
 // Payload for triggering a new actuation session.
 struct TriggerActuationRequest {
   std::string initial_prompt;
+  // Opaque payment metadata, passed through verbatim to the invocation
+  // payload. May be empty.
+  std::vector<uint8_t> payment_metadata;
 };
 
 // Payload for continuing an active actuation session.

@@ -191,7 +191,7 @@ struct ChromeMLGenerateOutput {
   // The tokens decoded after generate has completed. Should be -1 if `status`
   // is not `kComplete`. If `tokens_decoded` is -1 and `status` is `kComplete`,
   // then the caller will have to determine tokens decoded via callback
-  // counting.
+  // counting. Does not include thinking tokens.
   int tokens_decoded = -1;
 };
 using ChromeMLExecutionOutput = ChromeMLGenerateOutput;
@@ -277,6 +277,10 @@ struct ChromeMLGenerateOptions {
   ChromeMLConstraint constraint;
   // How to return the generated tokens.
   const ChromeMLGenerateOutputFn* output_fn;
+  // Whether thinking mode is enabled for this generation call.
+  bool enable_thinking = false;
+  // Maximum number of thinking tokens allowed before closing the thought block.
+  uint32_t thinking_token_budget = 0;
 };
 
 // DEPRECATED, migrating to Append/Generate.
@@ -295,6 +299,11 @@ struct ChromeMLExecuteOptions {
   // A constraint to apply on the output. Ownership of this object is passed to
   // the callee.
   ChromeMLConstraint constraint;
+
+  // Whether thinking mode is enabled for this execution call.
+  bool enable_thinking = false;
+  // Maximum number of thinking tokens allowed before closing the thought block.
+  uint32_t thinking_token_budget = 0;
 };
 
 // Performance data filled out by GetEstimatedPerformance().
@@ -456,6 +465,8 @@ struct ChromeMLASRStreamOptions {
   const ChromeMLASRStreamOutputFn* output_fn;
   int32_t decoder_prefill_backoff;
   const char* language;
+  // Optional model backing the post-processing polisher model.
+  ChromeMLModel polisher_model = 0;
 };
 
 struct ChromeMLASRAPI {

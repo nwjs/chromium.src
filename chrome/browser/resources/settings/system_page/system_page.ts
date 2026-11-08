@@ -9,9 +9,6 @@
 
 import 'chrome://resources/cr_elements/cr_button/cr_button.js';
 import 'chrome://resources/cr_elements/cr_icon_button/cr_icon_button.js';
-// <if expr="_google_chrome">
-import 'chrome://resources/cr_elements/cr_link_row/cr_link_row.js';
-// </if>
 import 'chrome://resources/cr_elements/policy/cr_policy_indicator.js';
 import '/shared/settings/controls/cr_policy_pref_indicator.js';
 import '/shared/settings/controls/extension_controlled_indicator.js';
@@ -31,10 +28,6 @@ import {loadTimeData} from '../i18n_setup.js';
 import {MetricsBrowserProxyImpl} from '../metrics_browser_proxy.js';
 // </if>
 import {RelaunchMixinLit, RestartType} from '../relaunch_mixin_lit.js';
-// <if expr="_google_chrome">
-import {routes} from '../route.js';
-import {Router} from '../router.js';
-// </if>
 import {getSearchManager} from '../search_settings.js';
 import type {SettingsPlugin} from '../settings_main/settings_plugin.js';
 
@@ -218,7 +211,7 @@ export class SettingsSystemPageElement extends SettingsSystemPageElementBase
     // chrome://extensions or from the omnibox directly) will not update
     // |this.getPref('proxy')| directly (nor the UI). We should fix this
     // eventually.
-    this.fire('refresh-pref', 'proxy');
+    PrefService.getInstance().refreshPrefFromBackend('proxy');
   }
 
   protected onProxyClick_() {
@@ -253,12 +246,6 @@ export class SettingsSystemPageElement extends SettingsSystemPageElementBase
     }
     return this.isolationStateEnabledPref_.value !==
         this.processIsolationEnabledAtStartup_;
-  }
-  // </if>
-
-  // <if expr="_google_chrome">
-  protected onOnDeviceAiLinkClick_(): void {
-    Router.getInstance().navigateTo(routes.AI);
   }
   // </if>
 

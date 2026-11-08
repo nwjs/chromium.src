@@ -16,7 +16,6 @@ static_library("parent_access_code") {
 
   public_deps = [
     "//base",
-    "//chrome/browser:browser_public_dependencies",
     "//components/account_id",
     "//crypto",
   ]
@@ -25,6 +24,7 @@ static_library("parent_access_code") {
     "//ash/public/cpp",
     "//chrome/common:constants",
     "//components/prefs",
+    "//components/session_manager/core",
     "//components/user_manager",
   ]
 }

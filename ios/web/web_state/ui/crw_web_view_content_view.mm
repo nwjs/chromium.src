@@ -22,11 +22,6 @@ namespace {
 // Feature flag to enable the strict bounds check for WKWebView viewport insets.
 BASE_FEATURE(kCRWWebViewContentViewLayoutFix, base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Killswitch to skip redundant WKWebView viewport inset updates when the
-// effective minimum and maximum viewport insets have not changed.
-BASE_FEATURE(kCRWWebViewSkipRedundantViewportInsets,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Helper function to replicate WebKit's validation logic for a single inset.
 // WebKit casts `frame.size` and insets to 32-bit floats and considers the
 // viewport valid if the unobscured size is not empty (> 0), or if the inset
@@ -396,9 +391,7 @@ const CGFloat kBackgroundRGBComponents[] = {0.75f, 0.74f, 0.76f};
         if (UIEdgeInsetsEqualToEdgeInsets(_webView.minimumViewportInset,
                                           effectiveMinInset) &&
             UIEdgeInsetsEqualToEdgeInsets(_webView.maximumViewportInset,
-                                          effectiveMaxInset) &&
-            base::FeatureList::IsEnabled(
-                kCRWWebViewSkipRedundantViewportInsets)) {
+                                          effectiveMaxInset)) {
           _hasPendingViewportInsets = NO;
           break;
         }

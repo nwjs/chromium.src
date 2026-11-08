@@ -60,15 +60,13 @@ namespace {
 using ::action_chips::mojom::ActionChip;
 using ::action_chips::mojom::ActionChipPtr;
 using ::action_chips::mojom::CreateFormattedString;
-using ::action_chips::mojom::FormattedString;
-using ::action_chips::mojom::FormattedStringPtr;
-using ::action_chips::mojom::IconType;
+using ::action_chips::mojom::CreateSuggestTemplateInfo;
 using ::action_chips::mojom::Page;
-using ::action_chips::mojom::SuggestTemplateInfo;
 using ::action_chips::mojom::TabInfo;
 using ::action_chips::mojom::TabInfoPtr;
 using ::base::Bucket;
 using ::base::BucketsAreArray;
+using ::suggest_template_info::mojom::IconType;
 using ::testing::_;
 using ::testing::ElementsAreArray;
 using ::testing::Eq;
@@ -136,12 +134,12 @@ class FakeActionChipsHandler : public ActionChipsHandler {
           pending_receiver,
       mojo::PendingRemote<Page> pending_page,
       Profile* profile,
-      content::WebUI* web_ui,
+      content::WebContents* web_contents,
       std::unique_ptr<ActionChipsGenerator> action_chips_generator)
       : ActionChipsHandler(std::move(pending_receiver),
                            std::move(pending_page),
                            profile,
-                           web_ui,
+                           web_contents,
                            std::move(action_chips_generator),
                            base::NullCallback()) {}
 };
@@ -175,9 +173,9 @@ ActionChipPtr MakeActionChip(const ActionChipFields& fields) {
   }
   return ActionChip::New(
       fields.suggestion,
-      SuggestTemplateInfo::New(
-          fields.icon_type, CreateFormattedString(fields.primary_text),
-          CreateFormattedString(fields.secondary_text), nullptr),
+      CreateSuggestTemplateInfo(fields.icon_type,
+                                CreateFormattedString(fields.primary_text),
+                                CreateFormattedString(fields.secondary_text)),
       std::move(tab));
 }
 
@@ -313,7 +311,7 @@ class ActionChipsHandlerTest : public testing::Test {
     mock_action_chips_generator_ = mock_action_chips_generator.get();
     handler_ = std::make_unique<FakeActionChipsHandler>(
         mojo::PendingReceiver<action_chips::mojom::ActionChipsHandler>(),
-        page_.BindAndGetRemote(), profile_.get(), web_ui_.get(),
+        page_.BindAndGetRemote(), profile_.get(), web_ui_->GetWebContents(),
         std::move(mock_action_chips_generator));
     ON_CALL(*mock_action_chips_generator_, GenerateActionChips(_, _))
         .WillByDefault(&CallWithStaticChips);
@@ -518,18 +516,18 @@ TEST_F(
           });
   EXPECT_CALL(*mock_action_chips_generator_, GenerateActionChips(_, _))
       .WillOnce(base::test::RunOnceCallback<1>(MakeActionChipsVector(
-          ActionChip::New("suggention1",
-                          SuggestTemplateInfo::New(
-                              IconType::kIconTypeUnspecified,
-                              CreateFormattedString("title1"),
-                              CreateFormattedString("subtitle1"), nullptr),
-                          nullptr),
-          ActionChip::New("suggention2",
-                          SuggestTemplateInfo::New(
-                              IconType::kIconTypeUnspecified,
-                              CreateFormattedString("title2"),
-                              CreateFormattedString("subtitle2"), nullptr),
-                          nullptr))));
+          ActionChip::New(
+              "suggention1",
+              CreateSuggestTemplateInfo(IconType::kIconTypeUnspecified,
+                                        CreateFormattedString("title1"),
+                                        CreateFormattedString("subtitle1")),
+              /*tab=*/nullptr),
+          ActionChip::New(
+              "suggention2",
+              CreateSuggestTemplateInfo(IconType::kIconTypeUnspecified,
+                                        CreateFormattedString("title2"),
+                                        CreateFormattedString("subtitle2")),
+              /*tab=*/nullptr))));
 
   // Act
   handler().StartActionChipsRetrieval();
@@ -569,16 +567,16 @@ TEST_F(ActionChipsHandlerTest,
     return MakeActionChipsVector(
         ActionChip::New(
             "suggestion1",
-            SuggestTemplateInfo::New(
-                IconType::kIconTypeUnspecified, CreateFormattedString("title1"),
-                CreateFormattedString("subtitle1"), nullptr),
-            nullptr),
+            CreateSuggestTemplateInfo(IconType::kIconTypeUnspecified,
+                                      CreateFormattedString("title1"),
+                                      CreateFormattedString("subtitle1")),
+            /*tab=*/nullptr),
         ActionChip::New(
             "suggestion2",
-            SuggestTemplateInfo::New(
-                IconType::kIconTypeUnspecified, CreateFormattedString("title2"),
-                CreateFormattedString("subtitle2"), nullptr),
-            nullptr));
+            CreateSuggestTemplateInfo(IconType::kIconTypeUnspecified,
+                                      CreateFormattedString("title2"),
+                                      CreateFormattedString("subtitle2")),
+            /*tab=*/nullptr));
   };
 
   // 1. First retrieval.
@@ -647,13 +645,17 @@ TEST_F(ActionChipsHandlerTest, DiscardWebContentsDoesNotCrash) {
   // ActionChipsHandler::OnTabStripModelChanged if the kReplaced event is not
   // handled correctly, because the old_contents (which is the one handler is
   // watching) loses its UserData during discard.
-  EXPECT_THAT(tab_strip_model_fixture_
-                  ->DiscardWebContents(
-                      web_ui_->GetWebContents(),
-                      content::WebContentsTester::CreateTestWebContents(
-                          profile_.get(), nullptr))
-                  .get(),
-              Eq(web_ui_->GetWebContents()));
+  content::WebContents* ntp = web_ui_->GetWebContents();
+  std::unique_ptr<content::WebContents> discarded_contents =
+      tab_strip_model_fixture_->DiscardWebContents(
+          ntp, content::WebContentsTester::CreateTestWebContents(profile_.get(),
+                                                                 nullptr));
+  EXPECT_THAT(discarded_contents.get(), Eq(ntp));
+
+  // The handler holds a raw_ptr to the discarded WebContents. Destroy it before
+  // the WebContents goes away to avoid a dangling pointer.
+  mock_action_chips_generator_ = nullptr;
+  handler_.reset();
 }
 
 TEST_F(ActionChipsHandlerTest,
@@ -759,7 +761,7 @@ TEST_F(ActionChipsHandlerTest, NullBrowserWindowInterface) {
   // This should not crash.
   auto handler_without_bwi = std::make_unique<FakeActionChipsHandler>(
       mojo::PendingReceiver<action_chips::mojom::ActionChipsHandler>(),
-      mojo::PendingRemote<Page>(), profile_.get(), web_ui_.get(),
+      mojo::PendingRemote<Page>(), profile_.get(), web_ui_->GetWebContents(),
       std::move(mock_action_chips_generator));
 }
 

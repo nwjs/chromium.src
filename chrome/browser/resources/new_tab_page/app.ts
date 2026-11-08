@@ -5,14 +5,13 @@
 import './logo.js';
 import './ntp_composebox.js';
 import './ntp_searchbox.js';
+import './left_hand_side.js';
 import '/strings.m.js';
 import 'chrome://new-tab-page/shared/customize_buttons/customize_buttons.js';
-import 'chrome://resources/cr_components/composebox/threads_rail.js';
 import 'chrome://resources/cr_components/composebox/composebox_voice_search.js';
 import 'chrome://resources/cr_components/search/animated_glow.js';
 
 import {SearchboxBrowserProxy} from '//resources/cr_components/searchbox/searchbox_browser_proxy.js';
-import type {CustomizeButtonsElement} from 'chrome://new-tab-page/shared/customize_buttons/customize_buttons.js';
 import {ColorChangeUpdater} from 'chrome://resources/cr_components/color_change_listener/colors_css_updater.js';
 import {GlifAnimationState} from 'chrome://resources/cr_components/composebox/common.js';
 import type {ComposeboxState} from 'chrome://resources/cr_components/composebox/common.js';
@@ -35,6 +34,7 @@ import type {PropertyValues} from 'chrome://resources/lit/v3_0/lit.rollup.js';
 import type {FuseboxAction} from 'chrome://resources/mojo/components/omnibox/browser/fusebox_action.mojom-webui.js';
 import {SearchboxOverride} from 'chrome://resources/mojo/components/omnibox/browser/fusebox_action.mojom-webui.js';
 import type {PageCallbackRouter as SearchboxPageCallbackRouter} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
+import {ModelMode, ToolMode} from 'chrome://resources/mojo/components/omnibox/composebox/composebox_query.mojom-webui.js';
 import type {SkColor} from 'chrome://resources/mojo/skia/public/mojom/skcolor.mojom-webui.js';
 
 import type {ActionChipClickDetail} from './action_chips/action_chips.js';
@@ -134,6 +134,7 @@ const VOICE_MANUAL_SUBMIT_IDLE_TIMEOUT_MS = 10000;
 const COMPOSEBOX_INERT_ALLOWLIST = [
   '#logo',
   '#searchboxContainer',
+  '#voiceSearchDialog',
 ];
 
 export const CUSTOMIZE_CHROME_BUTTON_ELEMENT_ID =
@@ -141,9 +142,12 @@ export const CUSTOMIZE_CHROME_BUTTON_ELEMENT_ID =
 export const CONTEXTUAL_ENTRYPOINT_ELEMENT_ID =
     'NewTabPageUI::kRealboxContextualEntrypointElementId';
 
+// The minimum width for the realbox to show its secondary side.
 // 900px ~= 561px (max value for --ntp-search-box-width) * 1.5 + some margin.
+const REALBOX_SECONDARY_SIDE_MIN_WIDTH_PX = 900;
+// Only used if the threads rail is disabled. See observeRhsWrapperWidth_().
 const realboxCanShowSecondarySideMediaQueryList =
-    window.matchMedia('(min-width: 900px)');
+    window.matchMedia(`(min-width: ${REALBOX_SECONDARY_SIDE_MIN_WIDTH_PX}px)`);
 
 function recordClick(element: NtpElement) {
   recordEnumeration('NewTabPage.Click', element, NtpElement.MAX_VALUE + 1);
@@ -175,14 +179,11 @@ const AppElementBase = HelpBubbleMixinLit(CrLitElement);
 
 export interface AppElement {
   $: {
-    customizeButtons: CustomizeButtonsElement,
     oneGoogleBarClipPath: HTMLElement,
     logo: LogoElement,
     searchbox: NtpSearchboxElement,
-    composebox: NtpComposeboxElement,
-    undoToast: CrToastElement,
-    undoToastMessage: HTMLElement,
-    voiceSearchDialog: HTMLDialogElement,
+    rhsWrapper: HTMLElement,
+    rhsContent: HTMLElement,
   };
 }
 
@@ -214,16 +215,6 @@ export class AppElement extends AppElementBase {
         reflect: true,
       },
 
-      /**
-       * Whether the searchbox secondary side was at any point available to
-       * be shown.
-       */
-      realboxHadSecondarySide: {
-        type: Boolean,
-        reflect: true,
-        notify: true,
-      },
-
       composeButtonEnabled: {type: Boolean},
       composeboxEnabled: {type: Boolean},
 
@@ -250,6 +241,7 @@ export class AppElement extends AppElementBase {
           {type: Boolean},
       voiceSearchCoherenceRealboxAutoEndpointEnabled_: {type: Boolean},
       voiceSearchCoherenceRealboxHelperTextEnabled_: {type: Boolean},
+      androidSpeechRecognition_: {type: Boolean},
 
       voiceSearchTranscript_: {type: String},
       voiceSearchReceivedSpeech_: {type: Boolean},
@@ -290,6 +282,7 @@ export class AppElement extends AppElementBase {
       logoEnabled_: {type: Boolean},
       oneGoogleBarEnabled_: {type: Boolean},
       shortcutsEnabled_: {type: Boolean},
+      shortcutsReorderEnabled_: {type: Boolean},
       modulesEnabled_: {type: Boolean},
 
       browserPromoType_: {type: String},
@@ -363,6 +356,8 @@ export class AppElement extends AppElementBase {
        */
       enableThreadsRail_: {type: Boolean},
 
+      rhsWidth_: {type: Number},
+
       // =======================================================================
       // Private properties
       // =======================================================================
@@ -382,7 +377,6 @@ export class AppElement extends AppElementBase {
 
   accessor hasVoiceSearchError = false;
   accessor realboxCanShowSecondarySide: boolean = false;
-  accessor realboxHadSecondarySide: boolean = false;
   accessor composeButtonEnabled: boolean =
       loadTimeData.getBoolean('searchboxShowComposeEntrypoint');
   accessor composeboxEnabled: boolean =
@@ -409,6 +403,10 @@ export class AppElement extends AppElementBase {
       loadTimeData.getBoolean('voiceSearchCoherenceRealboxAutoEndpointEnabled');
   protected accessor voiceSearchCoherenceRealboxHelperTextEnabled_: boolean =
       loadTimeData.getBoolean('voiceSearchCoherenceRealboxHelperTextEnabled');
+  // `true` only on Android, where voice search uses Android's speech recognizer
+  // (see new_tab_page_ui.cc).
+  protected accessor androidSpeechRecognition_: boolean =
+      loadTimeData.getBoolean('androidSpeechRecognition');
 
   protected accessor voiceSearchTranscript_: string = '';
   protected accessor voiceSearchReceivedSpeech_: boolean = false;
@@ -443,6 +441,8 @@ export class AppElement extends AppElementBase {
       loadTimeData.getBoolean('oneGoogleBarEnabled');
   protected accessor shortcutsEnabled_: boolean =
       loadTimeData.getBoolean('shortcutsEnabled');
+  protected accessor shortcutsReorderEnabled_: boolean =
+      loadTimeData.getBoolean('ntpShortcutsReorderEnabled');
   protected accessor modulesEnabled_: boolean =
       loadTimeData.getBoolean('modulesEnabled');
   protected accessor browserPromoType_: string =
@@ -460,8 +460,7 @@ export class AppElement extends AppElementBase {
       loadTimeData.getBoolean('multiLineEnabled');
   protected accessor modulesLoaded_: boolean = false;
   protected accessor lazyRender_: boolean = false;
-  protected accessor scrolledToTop_: boolean =
-      document.documentElement.scrollTop <= 0;
+  protected accessor scrolledToTop_: boolean = true;
   protected accessor wallpaperSearchButtonAnimationEnabled_: boolean =
       loadTimeData.getBoolean('wallpaperSearchButtonAnimationEnabled');
   protected accessor wallpaperSearchButtonEnabled_: boolean =
@@ -504,6 +503,7 @@ export class AppElement extends AppElementBase {
   protected contextMenuAnimationLimitingEnabled_: boolean =
       loadTimeData.getBoolean('contextMenuAnimationLimitingEnabled');
   protected accessor searchboxCallbackRouter_: SearchboxPageCallbackRouter;
+  protected accessor rhsWidth_: number|null = null;
 
   private voiceSearchActivatedByKeyboard_: boolean = false;
   private accessor selectedCustomizeDialogPage_: string|null = null;
@@ -527,6 +527,7 @@ export class AppElement extends AppElementBase {
   private backgroundImageLoadStart_: number = 0;
   private showWebstoreToastListenerId_: number|null = null;
   private pendingUndoToasts_: Array<{message: string, undo: () => void}> = [];
+  private rhsWrapperResizeObserver_: ResizeObserver|null = null;
 
   constructor() {
     performance.mark('app-creation-start');
@@ -555,8 +556,10 @@ export class AppElement extends AppElementBase {
     this.selectedCustomizeDialogPage_ =
         WindowProxy.getInstance().url.searchParams.get(CUSTOMIZE_URL_PARAM);
 
-    this.realboxCanShowSecondarySide =
-        realboxCanShowSecondarySideMediaQueryList.matches;
+    if (!this.enableThreadsRail_) {
+      this.realboxCanShowSecondarySide =
+          realboxCanShowSecondarySideMediaQueryList.matches;
+    }
 
     /**
      * Initialized with the start of the performance timeline in case the
@@ -584,8 +587,12 @@ export class AppElement extends AppElementBase {
 
   override connectedCallback() {
     super.connectedCallback();
-    realboxCanShowSecondarySideMediaQueryList.addEventListener(
-        'change', this.onRealboxCanShowSecondarySideChanged_);
+    if (!this.enableThreadsRail_) {
+      realboxCanShowSecondarySideMediaQueryList.addEventListener(
+          'change', this.onRealboxCanShowSecondarySideChanged_);
+    } else if (this.hasUpdated) {
+      this.observeRhsWrapperWidth_();
+    }
 
     // Listen for chrome-untrusted://ntp-microsoft-auth iframe trying to
     // connect to the NTP.
@@ -664,9 +671,6 @@ export class AppElement extends AppElementBase {
     this.eventTracker_.add(window, 'keydown', this.onWindowKeydown_.bind(this));
     this.eventTracker_.add(
         window, 'click', this.onWindowClick_.bind(this), /*capture=*/ true);
-    this.eventTracker_.add(document, 'scroll', () => {
-      this.scrolledToTop_ = document.documentElement.scrollTop <= 0;
-    });
     this.eventTracker_.add(
         WindowProxy.getInstance().matchMedia('(prefers-color-scheme: dark)'),
         'change', (e: MediaQueryListEvent) => {
@@ -706,6 +710,7 @@ export class AppElement extends AppElementBase {
     super.disconnectedCallback();
     realboxCanShowSecondarySideMediaQueryList.removeEventListener(
         'change', this.onRealboxCanShowSecondarySideChanged_);
+    this.rhsWrapperResizeObserver_?.disconnect();
 
     this.callbackRouter_.removeListener(
         this.connectMicrosoftAuthToParentDocumentListenerId_!);
@@ -820,6 +825,10 @@ export class AppElement extends AppElementBase {
           ['#searchbox', '#context', '#entrypointButton', '#entrypoint'],
           {fixed: true});
     }
+
+    if (this.enableThreadsRail_) {
+      this.observeRhsWrapperWidth_();
+    }
   }
 
   override updated(changedProperties: PropertyValues<this>) {
@@ -861,11 +870,6 @@ export class AppElement extends AppElementBase {
         changedPrivateProperties.has('theme_') ||
         changedPrivateProperties.has('showComposebox_')) {
       this.updateOneGoogleBarAppearance_();
-    }
-
-    if (changedPrivateProperties.has('showComposebox_') &&
-        this.showComposebox_ && this.enableThreadsRail_) {
-      recordBoolean('NewTabPage.ThreadsRail.Shown', true);
     }
 
     if (changedPrivateProperties.has('showVoiceSearchOverlay_') &&
@@ -953,6 +957,21 @@ export class AppElement extends AppElementBase {
     this.realboxCanShowSecondarySide = e.matches;
   };
 
+  private observeRhsWrapperWidth_() {
+    if (!this.rhsWrapperResizeObserver_) {
+      this.rhsWrapperResizeObserver_ = new ResizeObserver(() => {
+        this.rhsWidth_ = this.$.rhsWrapper.clientWidth;
+        this.realboxCanShowSecondarySide =
+            this.rhsWidth_ >= REALBOX_SECONDARY_SIDE_MIN_WIDTH_PX;
+      });
+    }
+    this.rhsWrapperResizeObserver_.observe(this.$.rhsWrapper);
+  }
+
+  protected onRhsContentScroll_() {
+    this.scrolledToTop_ = this.$.rhsContent.scrollTop <= 0;
+  }
+
   private onLazyRendered_() {
     // Integration tests use this attribute to determine when lazy load has
     // completed.
@@ -1003,7 +1022,7 @@ export class AppElement extends AppElementBase {
     return action.searchboxOverride === SearchboxOverride.kUnspecified;
   }
 
-  protected onOpenComposebox_(e: CustomEvent<ComposeboxState>) {
+  protected onOpenComposebox_(e: CustomEvent<ComposeboxState|null>) {
     this.openComposebox_(e.detail);
   }
 
@@ -1022,14 +1041,25 @@ export class AppElement extends AppElementBase {
     this.pageHandler_.onContextualSearchIPHEngaged();
   }
 
-  protected openComposebox_(state: ComposeboxState) {
-    this.composeboxState_ = state;
+  protected openComposebox_(state: ComposeboxState|null = null) {
+    this.composeboxState_ = state ?? {
+      text: '',
+      files: [],
+      mode: ToolMode.kUnspecified,
+      model: ModelMode.kUnspecified,
+      // <if expr="not is_android">
+      smartTabSharingActive: false,
+      // </if>
+    };
     this.ensureComposeboxOpen_();
   }
 
   private ensureComposeboxOpen_() {
     if (!this.showComposebox_) {
       this.showComposebox_ = true;
+    } else {
+      this.shadowRoot.querySelector<NtpComposeboxElement>('#composebox')
+          ?.focusInput();
     }
     if (!this.wasComposeboxOpened_) {
       recordLoadDuration(
@@ -1632,7 +1662,7 @@ export class AppElement extends AppElementBase {
       }
     }
 
-    if (e.composedPath() && e.composedPath()[0] === $$(this, '#content')) {
+    if (e.composedPath()[0] === $$(this, '#rhsContent')) {
       recordClick(NtpElement.BACKGROUND);
       return;
     }
@@ -1653,7 +1683,7 @@ export class AppElement extends AppElementBase {
         case $$(this, '#modules'):
           recordClick(NtpElement.MODULE);
           return;
-        case $$(this, '#threadsRail'):
+        case $$(this, 'cr-left-hand-side'):
           recordClick(NtpElement.THREADS_RAIL);
           return;
         default:
@@ -1692,11 +1722,6 @@ export class AppElement extends AppElementBase {
 
   protected showThemeAttribution_(): boolean {
     return !!this.theme_?.backgroundImage?.attributionUrl;
-  }
-
-  protected onRealboxHadSecondarySideChanged_(
-      e: CustomEvent<{value: boolean}>) {
-    this.realboxHadSecondarySide = e.detail.value;
   }
 
   protected onSearchboxContainerFocusin_(e: FocusEvent) {
@@ -1829,14 +1854,16 @@ export class AppElement extends AppElementBase {
       return;
     }
 
-    if (this.$.undoToast.open) {
+    const undoToast =
+        this.shadowRoot.querySelector<CrToastElement>('#undoToast')!;
+    if (undoToast.open) {
       return;
     }
 
     const undoToastContext = this.pendingUndoToasts_.shift()!;
     this.undoToastCallback_ = undoToastContext.undo;
     this.undoToastMessage_ = undoToastContext.message;
-    this.$.undoToast.show();
+    undoToast.show();
   }
 
   /**
@@ -1845,7 +1872,7 @@ export class AppElement extends AppElementBase {
    * toast (if any).
    */
   protected onUndoButtonClick_() {
-    this.$.undoToast.hide();
+    this.shadowRoot.querySelector<CrToastElement>('#undoToast')!.hide();
     this.undoToastCallback_?.();
     this.undoToastCallback_ = null;
     this.undoToastMessage_ = null;
@@ -1856,7 +1883,7 @@ export class AppElement extends AppElementBase {
     const notSelector =
         COMPOSEBOX_INERT_ALLOWLIST.map(s => `:not(${s})`).join('');
     const blockedElements = this.shadowRoot.querySelectorAll<HTMLElement>(
-        `#content > ${notSelector}`);
+        `#rhsContent > ${notSelector}`);
     blockedElements.forEach(element => {
       if (this.showComposebox_) {
         element.setAttribute('inert', '');

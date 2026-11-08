@@ -7,6 +7,7 @@
 
 #include "base/memory/weak_ptr.h"
 #include "base/observer_list_types.h"
+#include "base/time/time.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_instance.h"
 #include "components/keyed_service/core/keyed_service.h"
 
@@ -34,7 +35,7 @@ class EntitySuppressionManager : public KeyedService {
 
   // Suppresses an entity by recording its satisfied merge constraints.
   // Returns true if suppression status was modified.
-  virtual bool SuppressEntity(const EntityInstance& entity) = 0;
+  virtual bool SuppressEntity(EntityInstance entity) = 0;
 
   // Removes suppression for the merge constraints of the entity with
   // `entity_id` that was suppressed in the current browser session.
@@ -42,9 +43,14 @@ class EntitySuppressionManager : public KeyedService {
   virtual bool UndoInSessionSuppressedEntity(
       const EntityInstance::EntityId& entity_id) = 0;
 
-  // Removes all recorded entity suppressions.
-  // Returns true if any suppression was removed.
-  virtual bool ClearAllSuppressions() = 0;
+  // Removes recorded entity suppressions whose creation timestamp falls within
+  // the inclusive range `[delete_begin, delete_end]` (use `base::Time()` and
+  // `base::Time::Max()` to clear all suppressions). Deletes matching entries
+  // from local storage and Sync, prunes any corresponding in-session undo
+  // state, and notifies observers if any entry was removed.
+  // Returns `true` if at least one suppression was removed, `false` otherwise.
+  virtual bool ClearSuppressions(base::Time delete_begin,
+                                 base::Time delete_end) = 0;
 
   // Returns true if the entity matches at least one suppressed merge
   // constraint.

@@ -993,11 +993,42 @@ TEST_F(TabTest, TitleTextHasSufficientContrast) {
   }
 }
 
+TEST_F(TabTest, GlassFrameTabBackgroundColors) {
+  std::unique_ptr<views::Widget> widget =
+      CreateTestWidget(views::Widget::InitParams::CLIENT_OWNS_WIDGET);
+  const ui::ColorProvider* color_provider = widget->GetColorProvider();
+
+  // In a glass frame, selected tabs should have 80% opacity, and hovering a
+  // selected tab should blend the hover state over the translucent color.
+  constexpr SkAlpha kExpectedSelectedAlpha = 0.80 * SK_AlphaOPAQUE;
+  for (bool frame_active : {false, true}) {
+    const SkColor selected_bg = TabStyle::Get()->GetTabBackgroundColor(
+        TabStyle::TabSelectionState::kSelected, /*hovered=*/false, frame_active,
+        /*frame_glass=*/true, color_provider);
+    EXPECT_EQ(SkColorGetA(selected_bg), kExpectedSelectedAlpha);
+
+    const SkColor selected_hovered_bg = TabStyle::Get()->GetTabBackgroundColor(
+        TabStyle::TabSelectionState::kSelected, /*hovered=*/true, frame_active,
+        /*frame_glass=*/true, color_provider);
+    EXPECT_NE(selected_hovered_bg, selected_bg);
+    EXPECT_LT(SkColorGetA(selected_hovered_bg), SK_AlphaOPAQUE);
+  }
+
+  // Unhovered inactive tabs in a glass frame should be fully transparent.
+  for (bool frame_active : {false, true}) {
+    const SkColor inactive_bg = TabStyle::Get()->GetTabBackgroundColor(
+        TabStyle::TabSelectionState::kInactive, /*hovered=*/false, frame_active,
+        /*frame_glass=*/true, color_provider);
+    EXPECT_EQ(SkColorGetA(inactive_bg), 0u);
+  }
+}
+
 // This test verifies that the tab has its icon state updated when the alert
 // animation fade-out finishes.
 TEST_F(TabContentsTest, ShowsAndHidesAlertIndicator) {
   controller_->AddTab(0, TabActive::kInactive, TabPinned::kPinned);
   controller_->AddTab(1, TabActive::kActive);
+  views::test::RunScheduledLayout(tab_strip_);
   Tab* media_tab = tab_strip_->tab_at(0);
 
   // Pinned inactive tab only has an icon.
@@ -1040,6 +1071,7 @@ TEST_F(TabContentsTest, MinHoldDurationTest) {
   base::test::ScopedFeatureList scoped_feature_list_;
 
   controller_->AddTab(0, TabActive::kActive);
+  views::test::RunScheduledLayout(tab_strip_);
   Tab* media_tab = tab_strip_->tab_at(0);
 
   EXPECT_FALSE(showing_alert_indicator(media_tab));
@@ -1071,6 +1103,7 @@ TEST_F(TabContentsTest, 1SecondFadeoutAnimationTest) {
   base::test::ScopedFeatureList scoped_feature_list_;
 
   controller_->AddTab(0, TabActive::kActive);
+  views::test::RunScheduledLayout(tab_strip_);
   Tab* media_tab = tab_strip_->tab_at(0);
 
   EXPECT_FALSE(showing_alert_indicator(media_tab));
@@ -1344,7 +1377,7 @@ TEST_F(TabTest, SingleElementCentering) {
 namespace {
 class SeparatorTestTabSlotController : public FakeTabSlotController {
  public:
-  void SetTabs(std::vector<Tab*> tabs) { tabs_ = std::move(tabs); }
+  void SetTabs(std::vector<raw_ptr<Tab>> tabs) { tabs_ = std::move(tabs); }
 
   Tab* GetAdjacentTab(const Tab* tab, int offset) override {
     auto it = std::find(tabs_.begin(), tabs_.end(), tab);
@@ -1361,7 +1394,7 @@ class SeparatorTestTabSlotController : public FakeTabSlotController {
   int GetTabCount() const override { return static_cast<int>(tabs_.size()); }
 
  private:
-  std::vector<Tab*> tabs_;
+  std::vector<raw_ptr<Tab>> tabs_;
 };
 }  // namespace
 
@@ -1397,6 +1430,8 @@ TEST_F(TabTest, HorizontalSeparators) {
   auto opacities2 = tab2->tab_style_views()->GetSeparatorOpacitiesForTesting();
   EXPECT_EQ(opacities2.left, 1.0f);
   EXPECT_EQ(opacities2.right, 1.0f);
+
+  controller->SetTabs({});
 }
 
 #if BUILDFLAG(IS_MAC)

@@ -316,11 +316,8 @@ struct MediaSerializer<gfx::HDRMetadata> {
     if (value.HasCLLI()) {
       FIELD_SERIALIZE("clli", value.GetCLLI().toString().c_str());
     }
-    if (value.HasNDWL()) {
-      FIELD_SERIALIZE("ndwl", value.GetNDWL());
-    }
-    if (value.extended_range.has_value()) {
-      FIELD_SERIALIZE("extended_range", value.extended_range->ToString());
+    if (value.HasAgtm()) {
+      FIELD_SERIALIZE("agtm", value.GetAgtm().toString().c_str());
     }
     return base::Value(std::move(result));
   }

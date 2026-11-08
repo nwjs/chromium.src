@@ -22,10 +22,6 @@ BASE_DECLARE_FEATURE(kPrivateInsightsFeature);
 COMPONENT_EXPORT(PRIVATE_INSIGHTS)
 extern const base::FeatureParam<base::TimeDelta> kPrivateInsightsUploadInterval;
 
-// Enables using Attestation Transparency Verifier in Private Insights.
-COMPONENT_EXPORT(PRIVATE_INSIGHTS)
-extern const base::FeatureParam<bool> kFcpUseAttestationTransparencyVerifier;
-
 // FCP client configuration parameters.
 
 COMPONENT_EXPORT(PRIVATE_INSIGHTS)
@@ -68,7 +64,7 @@ COMPONENT_EXPORT(PRIVATE_INSIGHTS)
 extern const base::FeatureParam<base::TimeDelta> kFcpPermanentErrorsRetryDelay;
 
 COMPONENT_EXPORT(PRIVATE_INSIGHTS)
-extern const base::FeatureParam<bool> kFcpEnablePrivacyIdGeneration;
+extern const base::FeatureParam<bool> kFcpEnablePrivacyIdV2;
 
 COMPONENT_EXPORT(PRIVATE_INSIGHTS)
 extern const base::FeatureParam<int> kMaxContextualCueEvents;

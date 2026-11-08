@@ -27,8 +27,9 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import logging
-_GOODBYE_MESSAGE = u'Goodbye'
+import logging  # noqa: F401
+
+_GOODBYE_MESSAGE = 'Goodbye'
 
 
 def web_socket_do_extra_handshake(request):

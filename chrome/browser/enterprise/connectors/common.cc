@@ -124,7 +124,7 @@ SavePackageScanningData::~SavePackageScanningData() = default;
 
 void RunSavePackageScanningCallback(download::DownloadItem* item,
                                     bool allowed) {
-  DCHECK(item);
+  CHECK(item, base::NotFatalUntil::M161);
 
   auto* data = static_cast<SavePackageScanningData*>(
       item->GetUserData(SavePackageScanningData::kKey));
@@ -164,6 +164,12 @@ std::string GetProfileEmail(Profile* profile) {
     return std::string();
   }
 
+  // If the profile is an Enterprise Isolated Mode profile, we need to get the
+  // original profile to get the email. For other off-the-record profiles, we
+  // can use the profile directly and get empty email.
+  if (profile->IsEnterpriseIsolatedModeProfile()) {
+    profile = profile->GetOriginalProfile();
+  }
   std::string email =
       GetProfileEmail(IdentityManagerFactory::GetForProfile(profile));
 
@@ -217,7 +223,8 @@ BinaryUploadService* GetBinaryUploadServiceForConnector(
     return LocalBinaryUploadServiceFactory::GetForProfile(profile);
   }
 #else
-  DCHECK(settings.cloud_or_local_settings.is_cloud_analysis());
+  CHECK(settings.cloud_or_local_settings.is_cloud_analysis(),
+        base::NotFatalUntil::M161);
   return CloudBinaryUploadServiceFactory::GetForProfile(profile);
 #endif
 }

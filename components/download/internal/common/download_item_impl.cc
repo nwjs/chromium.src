@@ -297,6 +297,7 @@ DownloadItemImpl::RequestInfo::RequestInfo(
     const std::string& remote_address,
     base::Time start_time,
     ::network::mojom::CredentialsMode credentials_mode,
+    ::network::mojom::RequestMode fetch_request_mode,
     const std::optional<net::IsolationInfo>& isolation_info,
     int64_t range_request_from,
     int64_t range_request_to)
@@ -313,6 +314,7 @@ DownloadItemImpl::RequestInfo::RequestInfo(
       remote_address(remote_address),
       start_time(start_time),
       credentials_mode(credentials_mode),
+      fetch_request_mode(fetch_request_mode),
       isolation_info(isolation_info),
       range_request_from(range_request_from),
       range_request_to(range_request_to) {}
@@ -400,6 +402,7 @@ DownloadItemImpl::DownloadItemImpl(
                     std::string(),
                     start_time,
                     ::network::mojom::CredentialsMode::kInclude,
+                    ::network::mojom::RequestMode::kNavigate,
                     std::nullopt,
                     range_request_from,
                     range_request_to),
@@ -442,6 +445,8 @@ DownloadItemImpl::DownloadItemImpl(
     bytes_wasted_ = download_entry->bytes_wasted;
     request_info_.fetched_via_service_worker =
         download_entry->fetched_via_service_worker;
+    request_info_.credentials_mode = download_entry->credentials_mode;
+    request_info_.fetch_request_mode = download_entry->fetch_request_mode;
   } else {
     ukm_download_id_ = ukm::NoURLSourceId();
   }
@@ -466,6 +471,7 @@ DownloadItemImpl::DownloadItemImpl(DownloadItemImplDelegate* delegate,
                     info.remote_address,
                     info.start_time,
                     info.credentials_mode,
+                    info.fetch_request_mode,
                     info.isolation_info,
                     info.save_info->range_request_from,
                     info.save_info->range_request_to),
@@ -979,6 +985,11 @@ const std::optional<url::Origin>& DownloadItemImpl::GetRequestInitiator()
   return request_info_.request_initiator;
 }
 
+void DownloadItemImpl::SetRequestInitiator(
+    const std::optional<url::Origin>& request_initiator) {
+  request_info_.request_initiator = request_initiator;
+}
+
 std::string DownloadItemImpl::GetSuggestedFilename() const {
   return request_info_.suggested_filename;
 }
@@ -1283,9 +1294,18 @@ DownloadItem::DownloadCreationType DownloadItemImpl::GetDownloadCreationType()
   return request_info_.credentials_mode;
 }
 
+::network::mojom::RequestMode DownloadItemImpl::GetFetchRequestMode() const {
+  return request_info_.fetch_request_mode;
+}
+
 const std::optional<net::IsolationInfo>& DownloadItemImpl::GetIsolationInfo()
     const {
   return request_info_.isolation_info;
+}
+
+void DownloadItemImpl::SetIsolationInfo(
+    const std::optional<net::IsolationInfo>& isolation_info) {
+  request_info_.isolation_info = isolation_info;
 }
 
 void DownloadItemImpl::OnContentCheckCompleted(DownloadDangerType danger_type,
@@ -2673,6 +2693,14 @@ void DownloadItemImpl::ResumeInterruptedDownload(
   download_params->set_hash_of_partial_file(GetHash());
   download_params->set_hash_state(std::exchange(hash_state_, std::nullopt));
   download_params->set_guid(guid_);
+  download_params->set_fetch_request_mode(request_info_.fetch_request_mode);
+  download_params->set_credentials_mode(request_info_.credentials_mode);
+  if (request_info_.request_initiator.has_value()) {
+    download_params->set_initiator(*request_info_.request_initiator);
+  }
+  if (request_info_.isolation_info.has_value()) {
+    download_params->set_isolation_info(*request_info_.isolation_info);
+  }
 
   if (url_loader_factory_) {
     download_params->set_url_loader_factory(url_loader_factory_->Clone());

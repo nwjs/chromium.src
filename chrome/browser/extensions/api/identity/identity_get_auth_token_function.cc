@@ -22,7 +22,6 @@
 #include "base/notreached.h"
 #include "base/strings/strcat.h"
 #include "base/time/time.h"
-#include "base/timer/timer.h"
 #include "base/trace_event/trace_event.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
@@ -30,6 +29,7 @@
 #include "chrome/browser/extensions/api/identity/identity_api.h"
 #include "chrome/browser/extensions/api/identity/identity_get_auth_token_error.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/signin/account_reconcilor_factory.h"
 #include "chrome/browser/signin/chrome_device_id_helper.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/signin/signin_ui_util_extensions.h"
@@ -125,6 +125,14 @@ CoreAccountInfo GetSigninPrimaryAccount(Profile* profile) {
 }
 
 #if BUILDFLAG(ENABLE_DESKTOP_ANDROID_EXTENSIONS)
+// Maximum time spent waiting for the account to become available in the cookie
+// jar before giving up on showing the remote consent dialog.
+constexpr base::TimeDelta kWaitForCookiesTimeout = base::Seconds(10);
+
+// Mutable copy of `kWaitForCookiesTimeout` so that tests can shorten it;
+// see `ScopedCookieWaiterTimeoutForTesting`.
+base::TimeDelta g_wait_for_cookies_timeout = kWaitForCookiesTimeout;
+
 bool IsAccountInCookieJar(const signin::AccountsInCookieJarInfo& cookie_info,
                           const CoreAccountInfo& account_info) {
   if (!cookie_info.AreAccountsFresh()) {
@@ -155,34 +163,6 @@ class IdentityGetAuthTokenFunction::RefreshTokensLoadedWaiter
                           signin::IdentityManager::Observer>
       identity_manager_observation_{this};
 };
-
-#if BUILDFLAG(ENABLE_DESKTOP_ANDROID_EXTENSIONS)
-class IdentityGetAuthTokenFunction::AccountsInCookieUpdatedWaiter
-    : public signin::IdentityManager::Observer {
- public:
-  static constexpr base::TimeDelta kCookieUpdatedWaiterTimeout =
-      base::Seconds(10);
-
-  AccountsInCookieUpdatedWaiter(signin::IdentityManager& identity_manager,
-                                const CoreAccountInfo& account_info,
-                                base::OnceCallback<void(bool)> callback);
-
-  // signin::IdentityManager::Observer:
-  void OnAccountsInCookieUpdated(
-      const signin::AccountsInCookieJarInfo& accounts_in_cookie_jar_info,
-      const GoogleServiceAuthError& error) override;
-
- private:
-  void OnTimeout();
-
-  CoreAccountInfo account_info_;
-  base::OnceCallback<void(bool)> callback_;
-  base::ScopedObservation<signin::IdentityManager,
-                          signin::IdentityManager::Observer>
-      identity_manager_observation_{this};
-  base::OneShotTimer timer_;
-};
-#endif
 
 #if BUILDFLAG(IS_CHROMEOS)
 
@@ -276,7 +256,7 @@ ExtensionFunction::ResponseAction IdentityGetAuthTokenFunction::Run() {
       params->details &&
       params->details->enable_granular_permissions.value_or(false);
 
-  DCHECK(extension());
+  CHECK(extension(), base::NotFatalUntil::M161);
   const auto& oauth2_info = OAuth2ManifestHandler::GetOAuth2Info(*extension());
 
   // Check that the necessary information is present in the manifest.
@@ -411,38 +391,42 @@ void IdentityGetAuthTokenFunction::GetAuthTokenForAccount(
 }
 
 #if BUILDFLAG(ENABLE_DESKTOP_ANDROID_EXTENSIONS)
-bool IdentityGetAuthTokenFunction::ShouldDelayRemoteConsent() {
-  signin::IdentityManager* identity_manager =
-      IdentityManagerFactory::GetForProfile(GetProfile());
-  signin::AccountsInCookieJarInfo accounts_in_cookie_jar_info =
-      identity_manager->GetAccountsInCookieJar();
-  return !IsAccountInCookieJar(accounts_in_cookie_jar_info,
-                               token_key_.account_info);
-}
-
 void IdentityGetAuthTokenFunction::StartWaitingForCookies() {
-  DCHECK(!accounts_in_cookie_updated_waiter_);
-  signin::IdentityManager* identity_manager =
-      IdentityManagerFactory::GetForProfile(GetProfile());
-  base::OnceCallback<void(bool)> cookie_callback = base::BindOnce(
-      &IdentityGetAuthTokenFunction::OnCookiesUpdatedForRemoteConsent,
-      weak_ptr_factory_.GetWeakPtr());
-  accounts_in_cookie_updated_waiter_ =
-      std::make_unique<AccountsInCookieUpdatedWaiter>(
-          *identity_manager, token_key_.account_info,
-          std::move(cookie_callback));
+  // A tracker from a previous wait, if any, has already reported its result.
+  web_signin_tracker_.reset();
+  // The tracker may report its result synchronously from its constructor,
+  // e.g. if the account reconcilor is already in an error state. Handling the
+  // result may finish the request and delete this
+  // `IdentityGetAuthTokenFunction`, so it is deferred until the tracker is
+  // constructed.
+  web_signin_tracker_ = std::make_unique<signin::WebSigninTracker>(
+      IdentityManagerFactory::GetForProfile(GetProfile()),
+      AccountReconcilorFactory::GetForProfile(GetProfile()),
+      token_key_.account_info.account_id,
+      base::BindOnce(&IdentityGetAuthTokenFunction::OnWebSigninTrackerResult,
+                     weak_ptr_factory_.GetWeakPtr()),
+      g_wait_for_cookies_timeout);
+
+  if (synchronous_tracker_result_) {
+    // May delete this `IdentityGetAuthTokenFunction`.
+    OnWebSigninTrackerResult(
+        *std::exchange(synchronous_tracker_result_, std::nullopt));
+  }
 }
 
-void IdentityGetAuthTokenFunction::OnCookiesUpdatedForRemoteConsent(
-    bool success) {
-  accounts_in_cookie_updated_waiter_.reset();
+void IdentityGetAuthTokenFunction::OnWebSigninTrackerResult(
+    signin::WebSigninTracker::Result result) {
+  if (!web_signin_tracker_) {
+    // Called from the tracker constructor, as `web_signin_tracker_` is not
+    // assigned yet. Handled by `StartWaitingForCookies()`.
+    synchronous_tracker_result_ = result;
+    return;
+  }
 
-  signin::IdentityManager* identity_manager =
-      IdentityManagerFactory::GetForProfile(GetProfile());
+  // Not resetting `web_signin_tracker_`, as this callback is run by the
+  // tracker itself.
 
-  signin::AccountsInCookieJarInfo accounts_in_cookie_jar_info =
-      identity_manager->GetAccountsInCookieJar();
-  if (!success) {
+  if (result != signin::WebSigninTracker::Result::kSuccess) {
     CompleteMintTokenFlow();
     SigninFailed();
     return;
@@ -506,7 +490,7 @@ bool IdentityGetAuthTokenFunction::ShouldStartSigninFlow() {
 }
 
 void IdentityGetAuthTokenFunction::StartSigninFlow() {
-  DCHECK(ShouldStartSigninFlow());
+  CHECK(ShouldStartSigninFlow(), base::NotFatalUntil::M161);
 
   // All cached tokens are invalid because the user is not signed in.
   IdentityAPI* id_api =
@@ -605,7 +589,7 @@ void IdentityGetAuthTokenFunction::StartMintToken(
                       IdentityMintRequestQueue::GetRequestTrack(this), "type",
                       type);
 
-  DCHECK(extension());
+  CHECK(extension(), base::NotFatalUntil::M161);
   const auto& oauth2_info = OAuth2ManifestHandler::GetOAuth2Info(*extension());
   IdentityAPI* id_api = IdentityAPI::GetFactoryInstance()->Get(GetProfile());
   IdentityTokenCacheValue cache_entry =
@@ -669,7 +653,8 @@ void IdentityGetAuthTokenFunction::StartMintToken(
         break;
     }
   } else {
-    DCHECK(type == IdentityMintRequestQueue::MINT_TYPE_INTERACTIVE);
+    CHECK(type == IdentityMintRequestQueue::MINT_TYPE_INTERACTIVE,
+          base::NotFatalUntil::M161);
 
     switch (cache_status) {
       case IdentityTokenCacheValue::CACHE_STATUS_TOKEN:
@@ -679,7 +664,7 @@ void IdentityGetAuthTokenFunction::StartMintToken(
         break;
       case IdentityTokenCacheValue::CACHE_STATUS_NOTFOUND:
       case IdentityTokenCacheValue::CACHE_STATUS_REMOTE_CONSENT:
-        ShowRemoteConsentDialog();
+        StartRemoteConsentFlow();
         break;
       case IdentityTokenCacheValue::CACHE_STATUS_REMOTE_CONSENT_APPROVED:
         consent_result_ = cache_entry.consent_result();
@@ -807,10 +792,11 @@ void IdentityGetAuthTokenFunction::OnPrimaryAccountChanged(
 
   const CoreAccountInfo& primary_account_info =
       event_details.GetCurrentState().primary_account;
-  DCHECK(token_key_.account_info.IsEmpty());
+  CHECK(token_key_.account_info.IsEmpty(), base::NotFatalUntil::M161);
   token_key_.account_info = primary_account_info;
 
-  DCHECK(!GetSigninPrimaryAccount(GetProfile()).IsEmpty());
+  CHECK(!GetSigninPrimaryAccount(GetProfile()).IsEmpty(),
+        base::NotFatalUntil::M161);
   waiting_on_account_ = false;
   scoped_identity_manager_observation_.Reset();
 
@@ -873,7 +859,7 @@ void IdentityGetAuthTokenFunction::OnGaiaRemoteConsentFlowApproved(
     const GaiaId& gaia_id) {
   TRACE_EVENT_INSTANT("identity", "OnGaiaRemoteConsentFlowApproved",
                       IdentityMintRequestQueue::GetRequestTrack(this));
-  DCHECK(!consent_result.empty());
+  CHECK(!consent_result.empty(), base::NotFatalUntil::M161);
   remote_consent_approved_ = true;
 
   AccountInfo account = IdentityManagerFactory::GetForProfile(GetProfile())
@@ -921,9 +907,9 @@ void IdentityGetAuthTokenFunction::OnGetAccessTokenComplete(
   // By the time we get here we should no longer have an outstanding access
   // token request.
 #if BUILDFLAG(IS_CHROMEOS)
-  DCHECK(!device_oauth2_token_fetcher_);
+  CHECK(!device_oauth2_token_fetcher_, base::NotFatalUntil::M161);
 #endif
-  DCHECK(!token_key_account_access_token_fetcher_);
+  CHECK(!token_key_account_access_token_fetcher_, base::NotFatalUntil::M161);
   if (access_token) {
     TRACE_EVENT_END("identity",
                     IdentityMintRequestQueue::GetRequestTrack(this));
@@ -965,7 +951,7 @@ void IdentityGetAuthTokenFunction::OnIdentityAPIShutdown() {
   refresh_tokens_loaded_waiter_.reset();
   scoped_identity_manager_observation_.Reset();
 #if BUILDFLAG(ENABLE_DESKTOP_ANDROID_EXTENSIONS)
-  accounts_in_cookie_updated_waiter_.reset();
+  web_signin_tracker_.reset();
 #endif
   extensions::IdentityAPI::GetFactoryInstance()
       ->Get(GetProfile())
@@ -993,7 +979,7 @@ void IdentityGetAuthTokenFunction::StartTokenKeyAccountAccessTokenRequest() {
 
 void IdentityGetAuthTokenFunction::StartGaiaRequest(
     const std::string& login_access_token) {
-  DCHECK(!login_access_token.empty());
+  CHECK(!login_access_token.empty(), base::NotFatalUntil::M161);
   mint_token_flow_ = CreateMintTokenFlow();
   mint_token_flow_->Start(GetProfile()->GetURLLoaderFactory(),
                           login_access_token);
@@ -1038,16 +1024,22 @@ void IdentityGetAuthTokenFunction::ShowExtensionLoginPrompt() {
 }
 #endif
 
-void IdentityGetAuthTokenFunction::ShowRemoteConsentDialog() {
+void IdentityGetAuthTokenFunction::StartRemoteConsentFlow() {
 #if BUILDFLAG(ENABLE_DESKTOP_ANDROID_EXTENSIONS)
   // On Android, Gaia session cookies are reconciled asynchronously after
   // sign-in. Defer showing the remote consent dialog until cookies are
   // ready in the cookie jar to prevent loading a blank consent page.
-  if (ShouldDelayRemoteConsent()) {
+  if (!IsAccountInCookieJar(IdentityManagerFactory::GetForProfile(GetProfile())
+                                ->GetAccountsInCookieJar(),
+                            token_key_.account_info)) {
     StartWaitingForCookies();
     return;
   }
 #endif
+  ShowRemoteConsentDialog();
+}
+
+void IdentityGetAuthTokenFunction::ShowRemoteConsentDialog() {
   gaia_remote_consent_flow_ = std::make_unique<GaiaRemoteConsentFlow>(
       this, GetProfile(), token_key_, resolution_data_, user_gesture());
   gaia_remote_consent_flow_->Start();
@@ -1070,7 +1062,7 @@ IdentityGetAuthTokenFunction::CreateMintTokenFlow() {
 }
 
 std::string IdentityGetAuthTokenFunction::GetOAuth2ClientId() const {
-  DCHECK(extension());
+  CHECK(extension(), base::NotFatalUntil::M161);
   const auto& oauth2_info = OAuth2ManifestHandler::GetOAuth2Info(*extension());
 
   std::string client_id;
@@ -1155,7 +1147,7 @@ IdentityGetAuthTokenFunction::GetErrorFromInteractivityStatus(
       status = interactivity_status_for_consent_;
       break;
   }
-  DCHECK(!IsInteractionAllowed(status));
+  CHECK(!IsInteractionAllowed(status), base::NotFatalUntil::M161);
 
   IdentityGetAuthTokenError::State state =
       IdentityGetAuthTokenError::State::kNone;
@@ -1176,7 +1168,8 @@ IdentityGetAuthTokenFunction::GetErrorFromInteractivityStatus(
     case InteractivityStatus::kAllowedWithActivity:
       NOTREACHED();
   }
-  DCHECK_NE(state, IdentityGetAuthTokenError::State::kNone);
+  CHECK_NE(state, IdentityGetAuthTokenError::State::kNone,
+           base::NotFatalUntil::M161);
   return IdentityGetAuthTokenError(state);
 }
 
@@ -1197,38 +1190,16 @@ void IdentityGetAuthTokenFunction::RefreshTokensLoadedWaiter::
 }
 
 #if BUILDFLAG(ENABLE_DESKTOP_ANDROID_EXTENSIONS)
-IdentityGetAuthTokenFunction::AccountsInCookieUpdatedWaiter::
-    AccountsInCookieUpdatedWaiter(signin::IdentityManager& identity_manager,
-                                  const CoreAccountInfo& account_info,
-                                  base::OnceCallback<void(bool)> callback)
-    : account_info_(account_info), callback_(std::move(callback)) {
-  CHECK(callback_);
-
-  identity_manager_observation_.Observe(&identity_manager);
-  // `base::Unretained(this)` is safe because `this` owns
-  // `timer_`.
-  timer_.Start(FROM_HERE, kCookieUpdatedWaiterTimeout,
-               base::BindOnce(&AccountsInCookieUpdatedWaiter::OnTimeout,
-                              base::Unretained(this)));
+IdentityGetAuthTokenFunction::ScopedCookieWaiterTimeoutForTesting::
+    ScopedCookieWaiterTimeoutForTesting(base::TimeDelta timeout) {
+  // Nesting is not supported: the destructor restores the default.
+  CHECK_EQ(g_wait_for_cookies_timeout, kWaitForCookiesTimeout);
+  g_wait_for_cookies_timeout = timeout;
 }
 
-void IdentityGetAuthTokenFunction::AccountsInCookieUpdatedWaiter::
-    OnAccountsInCookieUpdated(
-        const signin::AccountsInCookieJarInfo& accounts_in_cookie_jar_info,
-        const GoogleServiceAuthError& error) {
-  if (error.state() != GoogleServiceAuthError::NONE ||
-      !IsAccountInCookieJar(accounts_in_cookie_jar_info, account_info_)) {
-    return;
-  }
-
-  timer_.Stop();
-  identity_manager_observation_.Reset();
-  std::move(callback_).Run(/*success=*/true);
-}
-
-void IdentityGetAuthTokenFunction::AccountsInCookieUpdatedWaiter::OnTimeout() {
-  identity_manager_observation_.Reset();
-  std::move(callback_).Run(/*success=*/false);
+IdentityGetAuthTokenFunction::ScopedCookieWaiterTimeoutForTesting::
+    ~ScopedCookieWaiterTimeoutForTesting() {
+  g_wait_for_cookies_timeout = kWaitForCookiesTimeout;
 }
 #endif
 

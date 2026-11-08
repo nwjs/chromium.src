@@ -67,6 +67,13 @@ BASE_DECLARE_FEATURE(kCorsNonWildcardRequestHeadersSupport);
 COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
 BASE_DECLARE_FEATURE(kCorsPreflightCacheKeyTaintedOrigin);
 
+// When enabled, disallows treating 'Intervention' as a CORS-safelisted header
+// in network/CORS checks (aligning with WHATWG Fetch) and stops attaching the
+// outgoing 'Intervention' HTTP request header to document.write intervention
+// fetches in Blink.
+COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
+BASE_DECLARE_FEATURE(kDisallowInterventionInCorsSafelistedHeaders);
+
 COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
 BASE_DECLARE_FEATURE(kOmitCorsClientCert);
 
@@ -176,6 +183,13 @@ BASE_DECLARE_FEATURE(kUpdateRequestForCorsRedirect);
 // StartRequest().
 COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
 BASE_DECLARE_FEATURE(kAvoidCorsURLLoaderRestartOnRedirect);
+
+// https://crbug.com/571161435
+// Kill switch. When enabled, requests with CredentialsMode::kSameOrigin allow
+// credentials and client certificates when `disable_web_security` is enabled on
+// the URLLoaderFactoryParams.
+COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
+BASE_DECLARE_FEATURE(kAllowSameOriginCredentialsWithDisableWebSecurity);
 
 COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
 BASE_DECLARE_FEATURE(kBrowsingTopics);
@@ -378,6 +392,14 @@ BASE_DECLARE_FEATURE(kBindURLLoaderFactoryToHighPriorityTaskRunner);
 // ignore_isolated_world_origin is false.
 COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
 BASE_DECLARE_FEATURE(kEnforceIsolatedWorldOriginLock);
+
+// Kill switch. When enabled, proxy auth challenges for requests with
+// `do_not_prompt_for_login` are forwarded, flagged as such, to the
+// URLLoaderNetworkServiceObserver so that non-UI credential sources (e.g.
+// extensions) can answer them. Server auth challenges for such requests are
+// always cancelled.
+COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
+BASE_DECLARE_FEATURE(kForwardProxyAuthWithoutPrompt);
 
 }  // namespace network::features
 

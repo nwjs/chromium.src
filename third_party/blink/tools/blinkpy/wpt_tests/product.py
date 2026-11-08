@@ -20,7 +20,10 @@ IOS_DEVICE = 'iPhone 14 Pro'
 
 def do_delay_imports():
     global devil_chromium, devil_env, apk_helper
-    global device_utils, webview_app, avd, \
+    global \
+        device_utils, \
+        webview_app, \
+        avd, \
         fuchsia_cuttlefish_emulator_environment
     global CommandFailedError, SyncParallelizer
     # Packages here are only isolated when running test for Android
@@ -33,8 +36,10 @@ def do_delay_imports():
     from devil.android.device_errors import CommandFailedError
     from devil.android.tools import webview_app
     from devil.utils.parallelizer import SyncParallelizer
-    from pylib.local.emulator import (avd,
-                                      fuchsia_cuttlefish_emulator_environment)
+    from pylib.local.emulator import (
+        avd,
+        fuchsia_cuttlefish_emulator_environment,
+    )
 
 
 @memoized
@@ -63,6 +68,7 @@ class Product:
         name (str): The official wpt-accepted name of this product.
         aliases (list[str]): Human-friendly aliases for the official name.
     """
+
     name = ''
     aliases = []
 
@@ -80,7 +86,6 @@ class Product:
 
     def update_runner_options(self, options: argparse.Namespace):
         options.processes = self.processes
-        # pylint: disable=assignment-from-none
         options.browser_version = self.get_version()
         if self._options.stable:
             options.channel = 'stable'
@@ -90,8 +95,9 @@ class Product:
             options.install_webdriver = True
             options.yes = True
         else:
-            options.webdriver_binary = (self._options.webdriver_binary
-                                        or self.webdriver_binary)
+            options.webdriver_binary = (
+                self._options.webdriver_binary or self.webdriver_binary
+            )
         options.webdriver_args.extend(self.additional_webdriver_args())
 
     @functools.cached_property
@@ -99,8 +105,9 @@ class Product:
         if self._options.child_processes:
             return self._options.child_processes
         elif self._options.wrapper:
-            _log.info('Defaulting to 1 worker because of debugging option '
-                      '`--wrapper`')
+            _log.info(
+                'Defaulting to 1 worker because of debugging option `--wrapper`'
+            )
             return 1
         else:
             return self._port.default_child_processes()
@@ -118,12 +125,11 @@ class Product:
         if self._host.platform.is_win():
             path = 'chromedriver.exe'
         else:
-            path = 'chromedriver'  #linux and mac
+            path = 'chromedriver'  # linux and mac
         return self._port.build_path(path)
 
 
 class DesktopProduct(Product):
-
     def update_runner_options(self, options: argparse.Namespace):
         super().update_runner_options(options)
         options.binary = self._port.path_to_driver()
@@ -136,17 +142,23 @@ class DesktopProduct(Product):
             '--js-flags=--expose-gc',
             # Disable overlay scrollbar fadeout for consistent screenshots.
             '--disable-features=ScrollbarAnimations',
+            # Keep focused carets visible for deterministic screenshots.
+            '--disable-blink-features=CaretBlinking',
         ]
         fs = self._host.filesystem
-        if (self._options.wrapper
-                and fs.basename(self._options.wrapper[0]) == 'rr'):
+        if (
+            self._options.wrapper
+            and fs.basename(self._options.wrapper[0]) == 'rr'
+        ):
             debug_args = [
                 '--no-sandbox',
                 '--disable-hang-monitor',
             ]
             args.extend(debug_args)
-            _log.info(f'Running {self.name!r} with {" ".join(debug_args)!r} '
-                      'because of debugging option `--wrapper=rr`')
+            _log.info(
+                f'Running {self.name!r} with {" ".join(debug_args)!r} '
+                'because of debugging option `--wrapper=rr`'
+            )
         if self._options.wrapper and self._host.platform.is_win():
             # The adapter will generate a batch file wrapping the browser
             # command. Because `cmd.exe` doesn't have an equivalent of Unix's
@@ -194,11 +206,13 @@ class ChromeiOS(Product):
         # which overrides [0].
         #
         # [0]: https://github.com/web-platform-tests/wpt/blob/b6027ab/tools/wpt/browser.py#L1558
-        return self._host.executive.run_command([
-            self.webdriver_binary,
-            f'--build-dir={self._port.build_path()}',
-            '--version',
-        ]).strip()
+        return self._host.executive.run_command(
+            [
+                self.webdriver_binary,
+                f'--build-dir={self._port.build_path()}',
+                '--version',
+            ]
+        ).strip()
 
     @property
     def processes(self) -> int:
@@ -207,13 +221,19 @@ class ChromeiOS(Product):
     @property
     def webdriver_binary(self) -> str:
         return self._port._path_finder.path_from_chromium_base(
-            'ios', 'chrome', 'test', 'wpt', 'tools',
-            'run_cwt_chromedriver_wrapper.py')
+            'ios',
+            'chrome',
+            'test',
+            'wpt',
+            'tools',
+            'run_cwt_chromedriver_wrapper.py',
+        )
 
     def additional_webdriver_args(self):
         # Set up xcode log output dir.
         output_dir = self._host.filesystem.join(
-            self._port.artifacts_directory(), 'xcode-output')
+            self._port.artifacts_directory(), 'xcode-output'
+        )
         return [
             f'--out-dir={output_dir}',
             f'--os={IOS_VERSION}',
@@ -230,7 +250,7 @@ class ChromeAndroidBase(Product):
             self.browser_apk = options.browser_apk
         else:
             self.browser_apk = self.default_browser_apk
-        self.adb_binary = devil_env.config.FetchPath('adb')  # pylint: disable=undefined-variable;
+        self.adb_binary = devil_env.config.FetchPath('adb')
         self.devices = []
 
     @contextlib.contextmanager
@@ -245,39 +265,28 @@ class ChromeAndroidBase(Product):
     @contextlib.contextmanager
     def _install_chrome_stable(self, device):
         install_script = self._port._path_finder.path_from_chromium_base(
-            'clank', 'bin', 'install_chrome.py')
-        self._host.executive.run_command([
-            install_script,
-            '--serial',
-            device.serial,
-            '--channel',
-            'stable',
-            '--adb',
-            self.adb_binary,
-            '--package',
-            'TrichromeChromeGoogle6432',
-        ])
+            'clank', 'bin', 'install_chrome.py'
+        )
+        self._host.executive.run_command(
+            [
+                install_script,
+                '--serial',
+                device.serial,
+                '--channel',
+                'stable',
+                '--adb',
+                self.adb_binary,
+                '--package',
+                'TrichromeChromeGoogle6432',
+            ]
+        )
         try:
             yield
         finally:
             # Do nothing as install_chrome.py does not uninstall.
             pass
 
-    @contextlib.contextmanager
-    def _install_incremental_apk(self, device):
-        """Helper context manager for ensuring a device uninstalls incremental
-        APK."""
-        install_script = self._port.build_path('bin/chrome_public_apk')
-        self._host.executive.run_command(
-            [install_script, 'install', '--device', device])
-        try:
-            yield
-        finally:
-            self._host.executive.run_command(
-                [install_script, 'uninstall', '--device', device])
-
     def get_devices(self):
-        # pylint: disable=undefined-variable
         serial = None
         if self._options.avd_config:
             _log.info(f'Installing emulator from {self._options.avd_config}')
@@ -292,29 +301,34 @@ class ChromeAndroidBase(Product):
 
             parallelizer = SyncParallelizer(instances)
             self._tasks.callback(parallelizer.Stop)
-            parallelizer.Start(writable_system=True,
-                               window=self._options.emulator_window)
+            parallelizer.Start(
+                writable_system=True, window=self._options.emulator_window
+            )
         elif fuchsia_cuttlefish_emulator_environment.IsSupported():
             _log.info('Launching Cuttlefish emulator')
             cuttlefish = (
                 fuchsia_cuttlefish_emulator_environment.CuttlefishInstance(
-                    adb_path=self.adb_binary))
+                    adb_path=self.adb_binary
+                )
+            )
             self._tasks.callback(cuttlefish.Stop)
             serial = cuttlefish.Start()
 
-        #TODO(weizhong): when choose device, make sure abi matches with target
+        # TODO(weizhong): when choose device, make sure abi matches with target
         kwargs = {'device_arg': serial} if serial else {}
         return device_utils.DeviceUtils.HealthyDevices(**kwargs)
 
     @contextlib.contextmanager
     def test_env(self):
         with super().test_env():
-            devil_chromium.Initialize(adb_path=self.adb_binary)  # pylint: disable=undefined-variable;
+            devil_chromium.Initialize(adb_path=self.adb_binary)
             self.devices = self.get_devices()
             if not self.devices:
-                raise Exception('No devices attached to this host. '
-                                "Make sure to provide '--avd-config' "
-                                'if using only emulators.')
+                raise Exception(
+                    'No devices attached to this host. '
+                    "Make sure to provide '--avd-config' "
+                    'if using only emulators.'
+                )
 
             if not self._options.no_install:
                 self.provision_devices()
@@ -333,12 +347,19 @@ class ChromeAndroidBase(Product):
             device = self.devices[0]
             try:
                 version = device.GetApplicationVersion(version_provider)
-                _log.info('Product version: %s %s (package: %r)', self.name,
-                          version, version_provider)
+                _log.info(
+                    'Product version: %s %s (package: %r)',
+                    self.name,
+                    version,
+                    version_provider,
+                )
                 return version
-            except CommandFailedError:  # pylint: disable=undefined-variable;
-                _log.warning('Failed to retrieve version of %s (package: %r)',
-                             self.name, version_provider)
+            except CommandFailedError:
+                _log.warning(
+                    'Failed to retrieve version of %s (package: %r)',
+                    self.name,
+                    version_provider,
+                )
         return None
 
     @property
@@ -364,7 +385,6 @@ class ChromeAndroidBase(Product):
         if self._options.stable:
             return 'com.android.chrome'
         if self.browser_apk:
-            # pylint: disable=undefined-variable;
             with contextlib.suppress(apk_helper.ApkHelperError):
                 return apk_helper.GetPackageName(self.browser_apk)
         return None
@@ -390,7 +410,7 @@ class ChromeAndroidBase(Product):
     def provision_devices(self):
         """Provisions a set of Android devices in parallel."""
         contexts = [self._provision_device(device) for device in self.devices]
-        self._tasks.enter_context(SyncParallelizer(contexts))  # pylint: disable=undefined-variable;
+        self._tasks.enter_context(SyncParallelizer(contexts))
 
     @contextlib.contextmanager
     def _provision_device(self, device):
@@ -404,11 +424,10 @@ class ChromeAndroidBase(Product):
                 exit_stack.enter_context(self._install_apk(device, apk))
             if self._options.stable:
                 install_context_manager = self._install_chrome_stable(device)
-            elif self._port._build_is_incremental_install():
-                install_context_manager = self._install_incremental_apk(device)
             else:
                 install_context_manager = self._install_apk(
-                    device, self.browser_apk)
+                    device, self.browser_apk
+                )
             exit_stack.enter_context(cm=install_context_manager)
             _log.info('Provisioned device (serial: %s)', device.serial)
             yield
@@ -435,18 +454,17 @@ class WebView(ChromeAndroidBase):
 
     def _install_webview(self, device):
         # Prioritize local builds.
-        # pylint: disable=undefined-variable;
         return webview_app.UseWebViewProvider(device, self.webview_provider)
 
     def get_browser_package_name(self):
-        return (super().get_browser_package_name()
-                or 'org.chromium.webview_shell')
+        return (
+            super().get_browser_package_name() or 'org.chromium.webview_shell'
+        )
 
     def get_version_provider_package_name(self):
         # Use the version from the webview provider, not the shell, since the
         # provider is distributed to end users. The shell is developer-facing,
         # so its version is usually not actively updated.
-        # pylint: disable=undefined-variable;
         with contextlib.suppress(apk_helper.ApkHelperError):
             return apk_helper.GetPackageName(self.webview_provider)
 
@@ -464,7 +482,4 @@ class ChromeAndroid(ChromeAndroidBase):
 
     @property
     def default_browser_apk(self):
-        if self._port._build_is_incremental_install():
-            return self._port.build_path('apks',
-                                         'ChromePublic_incremental.apk')
         return self._port.build_path('apks', 'ChromePublic.apk')

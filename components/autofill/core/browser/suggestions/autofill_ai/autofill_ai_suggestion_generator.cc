@@ -7,6 +7,7 @@
 #include <stddef.h>
 
 #include <algorithm>
+#include <functional>
 #include <map>
 #include <memory>
 #include <ranges>
@@ -72,6 +73,7 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/gfx/range/range.h"
 #include "url/gurl.h"
+#include "url/origin.h"
 #include "url/url_constants.h"
 
 namespace autofill {
@@ -138,6 +140,11 @@ class AttributeTypeAssignment {
       return {};
     }
     return it->second;
+  }
+
+  const base::flat_map<EntityType, std::vector<AutofillFieldWithAttributeType>>&
+  map() const LIFETIME_BOUND {
+    return map_;
   }
 
  private:
@@ -523,6 +530,10 @@ bool CanFillSomeField(const EntityInstance& entity,
 using EntityPayload = EntityInstance::PersonalContextRecordTypePayload;
 using SourceType = EntityPayload::Source::Type;
 
+// TODO(crbug.com/555710154): Replace recency ordering with a relevance score
+// once available on the client.
+constexpr size_t kMaxSourceAttributionCitations = 5;
+
 std::u16string PayloadSourceToAppName(SourceType source_type) {
   switch (source_type) {
     case SourceType::kPhotos:
@@ -532,16 +543,35 @@ std::u16string PayloadSourceToAppName(SourceType source_type) {
   }
 }
 
-// Groups valid source URLs by their `SourceType`.
+// Returns the (at most) `kMaxSourceAttributionCitations` most recent sources
+// with a valid URL, newest first. Sources with a null timestamp sort last;
+// ties keep their original (server) order.
+//
+// The returned pointers point into `payload_sources` and must not outlive it.
+std::vector<const EntityPayload::Source*> SelectMostRecentSources(
+    base::span<const EntityPayload::Source> payload_sources) {
+  std::vector<const EntityPayload::Source*> sources;
+  for (const EntityPayload::Source& source : payload_sources) {
+    if (source.url.is_valid()) {
+      sources.push_back(&source);
+    }
+  }
+  std::ranges::stable_sort(sources, std::ranges::greater(),
+                           &EntityPayload::Source::timestamp);
+  sources.resize(std::min(sources.size(), kMaxSourceAttributionCitations));
+  return sources;
+}
+
+// Groups the at most `kMaxSourceAttributionCitations` most recent valid sources
+// by `SourceType`, with URLs within each app ordered newest first.
 //
 // Returns a `base::flat_map` which keeps entries sorted by `SourceType`.
 base::flat_map<SourceType, std::vector<GURL>> GroupSourcesByApp(
     base::span<const EntityPayload::Source> payload_sources) {
   base::flat_map<SourceType, std::vector<GURL>> app_urls;
-  for (const EntityPayload::Source& source : payload_sources) {
-    if (source.url.is_valid()) {
-      app_urls[source.type()].emplace_back(source.url);
-    }
+  for (const EntityPayload::Source* source :
+       SelectMostRecentSources(payload_sources)) {
+    app_urls[source->type()].emplace_back(source->url);
   }
   return app_urls;
 }
@@ -873,15 +903,22 @@ std::optional<AttributeType> GetDomainFilterAttributeType(
   }
 }
 
-// Returns whether the `entity` is allowed to be suggested on `page_url`.
+// Returns whether the `entity` is allowed to be suggested as a primary
+// suggestion for `trigger_field_origin` on `client`.
 // For domain-constrained entity types (such as `kOrder` or `kShipment`), this
-// requires their associated domain to match the domain of `page_url` (via PSL
+// requires `trigger_field_origin` to match the primary main frame's origin and
+// the entity's associated domain to match the primary main frame's URL (via PSL
 // matching). For other entity types, returns true.
-bool IsAllowedForPageUrl(const EntityInstance& entity, const GURL& page_url) {
+bool IsAllowedForPageUrl(const EntityInstance& entity,
+                         const AutofillClient& client,
+                         const url::Origin& trigger_field_origin) {
   std::optional<AttributeType> domain_attr_type =
       GetDomainFilterAttributeType(entity.type());
   if (!domain_attr_type) {
     return true;
+  }
+  if (client.GetLastCommittedPrimaryMainFrameOrigin() != trigger_field_origin) {
+    return false;
   }
   base::optional_ref<const AttributeInstance> domain_attr =
       entity.attribute(*domain_attr_type);
@@ -893,27 +930,27 @@ bool IsAllowedForPageUrl(const EntityInstance& entity, const GURL& page_url) {
     return false;
   }
   return affiliations::IsExtendedPublicSuffixDomainMatch(
-      GetGURLFromDomain(domain_val), page_url, {});
+      GetGURLFromDomain(domain_val),
+      client.GetLastCommittedPrimaryMainFrameURL(), {});
 }
 
 std::vector<const EntityInstance*> GetEntitiesForSuggestion(
     std::vector<const EntityInstance*> entities,
     const AttributeTypeAssignment& assignment,
-    const FieldGlobalId& trigger_field_id,
-    const std::string& app_locale,
-    const GURL& page_url) {
+    const FormFieldData& trigger_field,
+    const AutofillClient& client) {
   std::erase_if(entities, [&](const EntityInstance* entity) {
     base::optional_ref<const AutofillFieldWithAttributeType>
-        trigger_field_with_type =
-            FindField(assignment.Find(entity->type()), trigger_field_id);
+        trigger_field_with_type = FindField(assignment.Find(entity->type()),
+                                            trigger_field.global_id());
     return !trigger_field_with_type ||
            !EntityShouldProduceSuggestion(*entity, *trigger_field_with_type,
-                                          app_locale) ||
-           !IsAllowedForPageUrl(*entity, page_url);
+                                          client.GetAppLocale()) ||
+           !IsAllowedForPageUrl(*entity, client, trigger_field.origin());
   });
   return DedupedEntitiesForSuggestions(
       OrderedEntitiesForSuggestion(std::move(entities)), assignment,
-      app_locale);
+      client.GetAppLocale());
 }
 
 std::vector<Suggestion> CreateFetchingAmbientSuggestions() {
@@ -1103,7 +1140,6 @@ std::optional<Suggestion> CreateDomainFallbackSuggestion(
     bool has_primary_suggestions,
     base::span<const EntityInstance> all_entities,
     const AttributeTypeAssignment& assignment,
-    const GURL& page_url,
     AutofillClient& client,
     DenseSet<AutofillAiUiSection>* ui_sections) {
   if (!CanFieldBeFilledByEntityType(assignment, trigger_field.global_id(),
@@ -1113,7 +1149,8 @@ std::optional<Suggestion> CreateDomainFallbackSuggestion(
 
   std::vector<const EntityInstance*> fallback_entities;
   for (const EntityInstance& entity : all_entities) {
-    if (entity.type() != entity_type || IsAllowedForPageUrl(entity, page_url)) {
+    if (entity.type() != entity_type ||
+        IsAllowedForPageUrl(entity, client, trigger_field.origin())) {
       continue;
     }
 
@@ -1186,9 +1223,7 @@ void AppendDomainFallbackSuggestions(
         if (std::optional<Suggestion> fallback_suggestion =
                 CreateDomainFallbackSuggestion(
                     form, trigger_field, entity_type, has_primary_suggestions,
-                    all_entities, assignment,
-                    client.GetLastCommittedPrimaryMainFrameURL(), client,
-                    &ui_sections)) {
+                    all_entities, assignment, client, &ui_sections)) {
           suggestions.push_back(std::move(*fallback_suggestion));
         }
         break;
@@ -1277,7 +1312,7 @@ std::vector<Suggestion> CreateAutofillAiFillingSuggestions(
     const AttributeTypeAssignment& assignment,
     AutofillClient& client) {
   const DenseSet<EntityType> entity_types_being_fetched =
-      GetEntityTypesBeingFetched(trigger_field, client);
+      GetEntityTypesBeingFetched(assignment.map(), trigger_field, client);
   const bool should_show_fetching_suggestions =
       !entity_types_being_fetched.empty();
 
@@ -1374,14 +1409,11 @@ void AutofillAiSuggestionGenerator::GenerateSuggestions(
   const bool is_fillable =
       GetFieldsFillableByAutofillAi(*form_structure, client)
           .contains(trigger_field.global_id());
-  const bool is_fetching_data_for_field =
-      !GetEntityTypesBeingFetched(*trigger_autofill_field, client).empty();
   const bool should_show_private_inference_notice =
       ShouldShowPrivateInferenceNotice(*trigger_autofill_field, assignment,
                                        client.GetPrefs());
 
-  if ((!is_fillable && !is_fetching_data_for_field &&
-       !should_show_private_inference_notice) ||
+  if ((!is_fillable && !should_show_private_inference_notice) ||
       SuppressSuggestionsForAutocompleteUnrecognizedField(
           *trigger_autofill_field, GetAcUnrecognizedBehavior(client))) {
     callback({SuggestionDataSource::kAutofillAi, {}});
@@ -1389,8 +1421,7 @@ void AutofillAiSuggestionGenerator::GenerateSuggestions(
   }
 
   std::vector<const EntityInstance*> entities = GetEntitiesForSuggestion(
-      GetFillableEntityInstances(client), assignment, trigger_field.global_id(),
-      client.GetAppLocale(), client.GetLastCommittedPrimaryMainFrameURL());
+      GetFillableEntityInstances(client), assignment, trigger_field, client);
 
   std::vector<Suggestion> suggestions = CreateAutofillAiFillingSuggestions(
       *form_structure, *trigger_autofill_field,

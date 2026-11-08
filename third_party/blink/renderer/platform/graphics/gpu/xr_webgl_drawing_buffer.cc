@@ -262,7 +262,6 @@ void XRWebGLDrawingBuffer::UseSharedBuffer(
   //
   // TODO(https://crbug.com/1111526): Investigate handling context loss and
   // recovery for cases where these assumptions may not be accurate.
-  DCHECK(buffer_sync_token.HasData());
   DCHECK(buffer_shared_image);
   DVLOG(3) << __func__
            << ": mailbox=" << buffer_shared_image->mailbox().ToDebugString()
@@ -337,6 +336,14 @@ XRWebGLDrawingBuffer::DoneWithSharedBuffer() {
     gl->BindFramebuffer(GL_FRAMEBUFFER, framebuffer_);
     gl->DiscardFramebufferEXT(GL_FRAMEBUFFER, 2, kAttachments);
   }
+
+  // Detach the shared buffer from the framebuffer to prevent access to an
+  // orphaned attachment.
+  gl->BindFramebuffer(GL_FRAMEBUFFER, WantExplicitResolve()
+                                          ? resolved_framebuffer_
+                                          : framebuffer_);
+  gl->FramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
+                           0, 0);
 
   // Always bind to the default framebuffer as a hint to the GPU to start
   // rendering now.

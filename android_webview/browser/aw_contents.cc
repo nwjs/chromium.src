@@ -22,6 +22,7 @@
 #include "android_webview/browser/aw_renderer_priority.h"
 #include "android_webview/browser/aw_settings.h"
 #include "android_webview/browser/aw_web_contents_delegate.h"
+#include "android_webview/browser/content_restriction/aw_content_restriction_manager_client.h"
 #include "android_webview/browser/gfx/aw_picture.h"
 #include "android_webview/browser/gfx/browser_view_renderer.h"
 #include "android_webview/browser/gfx/child_frame.h"
@@ -60,9 +61,9 @@
 #include "base/location.h"
 #include "base/memory/memory_pressure_listener.h"
 #include "base/memory/raw_ptr.h"
+#include "base/memory/unsafe_shared_memory_region.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/no_destructor.h"
-#include "base/not_fatal_until.h"
 #include "base/notimplemented.h"
 #include "base/notreached.h"
 #include "base/pickle.h"
@@ -92,6 +93,8 @@
 #include "components/sensitive_content/android/android_sensitive_content_client.h"
 #include "components/viz/common/surfaces/frame_sink_id.h"
 #include "content/public/browser/android/child_process_importance.h"
+#include "content/public/browser/android/message_payload.h"
+#include "content/public/browser/android/message_port_helper.h"
 #include "content/public/browser/android/synchronous_compositor.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
@@ -118,6 +121,8 @@
 #include "net/base/registry_controlled_domains/registry_controlled_domain.h"
 #include "net/cert/x509_certificate.h"
 #include "net/cert/x509_util.h"
+#include "third_party/blink/public/common/messaging/message_port_descriptor.h"
+#include "third_party/blink/public/common/messaging/string_message_codec.h"
 #include "third_party/blink/public/common/navigation/navigation_params.h"
 #include "third_party/blink/public/common/web_preferences/web_preferences.h"
 #include "third_party/jni_zero/default_conversions.h"
@@ -184,11 +189,12 @@ class AwContentsUserData : public base::SupportsUserData::Data {
   explicit AwContentsUserData(AwContents* ptr) : contents_(ptr) {}
 
   static AwContents* GetContents(WebContents* web_contents) {
-    if (!web_contents)
-      return NULL;
+    if (!web_contents) {
+      return nullptr;
+    }
     AwContentsUserData* data = static_cast<AwContentsUserData*>(
         web_contents->GetUserData(kAwContentsUserDataKey));
-    return data ? data->contents_.get() : NULL;
+    return data ? data->contents_.get() : nullptr;
   }
 
  private:
@@ -326,9 +332,7 @@ AwContents::AwContents(std::unique_ptr<WebContents> web_contents)
   AwContentsLifecycleNotifier::GetInstance().OnWebViewCreated(this);
   AwBrowserProcess::GetInstance()->visibility_metrics_logger()->AddClient(this);
 
-  if (base::FeatureList::IsEnabled(features::kWebViewRendererKeepAlive)) {
-    UpdateAwRenderProcessAssociation();
-  }
+  UpdateAwRenderProcessAssociation();
 
   if (base::FeatureList::IsEnabled(
           features::kWebViewInitRendererDuringWebContentsCreation)) {
@@ -430,15 +434,13 @@ void AwContents::InitSensitiveContentClient(JNIEnv* env) {
 AwContents::~AwContents() {
   DCHECK_EQ(this, AwContents::FromWebContents(web_contents_.get()));
 
-  if (base::FeatureList::IsEnabled(features::kWebViewRendererKeepAlive)) {
-    if (associated_rph_id_) {
-      if (auto* old_rph =
-              content::RenderProcessHost::FromID(associated_rph_id_)) {
-        AwRenderProcessKeepAlive::GetInstanceForRenderProcessHost(old_rph)
-            ->RemoveAwContents();
-      }
-      associated_rph_id_ = content::ChildProcessId();
+  if (associated_rph_id_) {
+    if (auto* old_rph =
+            content::RenderProcessHost::FromID(associated_rph_id_)) {
+      AwRenderProcessKeepAlive::GetInstanceForRenderProcessHost(old_rph)
+          ->RemoveAwContents();
     }
+    associated_rph_id_ = content::ChildProcessId();
   }
 
   web_contents_->RemoveUserData(kAwContentsUserDataKey);
@@ -447,10 +449,11 @@ AwContents::~AwContents() {
           FindHelper::FromWebContents(web_contents_.get())) {
     find_helper->SetListener(nullptr);
   }
-  if (icon_helper_.get())
-    icon_helper_->SetListener(NULL);
+  if (icon_helper_.get()) {
+    icon_helper_->SetListener(nullptr);
+  }
   uint32_t instance_count =
-    g_instance_count.fetch_add(-1, std::memory_order_relaxed) - 1;
+      g_instance_count.fetch_add(-1, std::memory_order_relaxed) - 1;
   // When the last WebView is destroyed free all discardable memory allocated by
   // Chromium, because the app process may continue to run for a long time
   // without ever using another WebView.
@@ -474,16 +477,18 @@ base::android::ScopedJavaLocalRef<jobject> AwContents::GetWebContents(
     JNIEnv* env) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   DCHECK(web_contents_);
-  if (!web_contents_)
+  if (!web_contents_) {
     return base::android::ScopedJavaLocalRef<jobject>();
+  }
 
   return web_contents_->GetJavaWebContents();
 }
 
 base::android::ScopedJavaLocalRef<jobject> AwContents::GetBrowserContext(
     JNIEnv* env) {
-  if (!web_contents_)
+  if (!web_contents_) {
     return base::android::ScopedJavaLocalRef<jobject>();
+  }
   return AwBrowserContext::FromWebContents(web_contents_.get())
       ->GetJavaBrowserContext();
 }
@@ -586,6 +591,50 @@ void AwContents::DocumentHasImages(JNIEnv* env,
       base::BindOnce(&DocumentHasImagesCallback, j_message));
 }
 
+void AwContents::PostSharedArrayBufferMessageToMainFrame(
+    JNIEnv* env,
+    const JavaRef<jobject>& payload_obj,
+    const std::u16string& target_origin,
+    const JavaRef<jobjectArray>& ports) {
+  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+
+  blink::WebMessagePayload payload =
+      content::android::ConvertToWebMessagePayloadFromJava(
+          ScopedJavaLocalRef<jobject>(payload_obj));
+  auto* region = std::get_if<base::UnsafeSharedMemoryRegion>(&payload);
+
+  // Take the ports back from Java regardless of whether the message survives:
+  // the caller has already handed them over, and leaving the wrappers behind
+  // would strand ports that are neither usable nor transferred.
+  std::vector<blink::MessagePortDescriptor> released_ports =
+      content::android::ReleaseJavaMessagePort(env, ports);
+
+  // Only a SharedArrayBuffer travels this way; anything else should have gone
+  // over WebContents::PostMessageToMainFrame(). An invalid region means the
+  // Java buffer could not be mapped, e.g. because it was already closed.
+  if (!region || !region->IsValid()) {
+    return;
+  }
+
+  // Everything an embedder must not control (a serialized payload, blobs, user
+  // activation, delegated capability, task attribution, the sender's agent
+  // cluster) is absent from EmbedderTransferableMessage by construction. The
+  // renderer serializes the buffer itself; see
+  // WebLocalFrame::PostEmbedderMessageEvent().
+  auto embedder_message = mojom::EmbedderTransferableMessage::New();
+  embedder_message->ports = std::move(released_ports);
+  embedder_message->shared_array_buffer = std::move(*region);
+
+  // An empty target origin is postMessage()'s "*" wildcard.
+  std::optional<url::Origin> origin;
+  if (!target_origin.empty()) {
+    origin = url::Origin::Create(GURL(target_origin));
+  }
+
+  render_view_host_ext_->PostEmbedderMessageEvent(origin,
+                                                  std::move(embedder_message));
+}
+
 namespace {
 void GenerateMHTMLCallback(const JavaRef<jobject>& callback,
                            const base::FilePath& path,
@@ -620,8 +669,9 @@ bool AwContents::OnReceivedHttpAuthRequest(const JavaRef<jobject>& handler,
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   JNIEnv* env = AttachCurrentThread();
   ScopedJavaLocalRef<jobject> obj = java_ref_.get(env);
-  if (!obj)
+  if (!obj) {
     return false;
+  }
 
   devtools_instrumentation::ScopedEmbedderCallbackTask embedder_callback(
       "onReceivedHttpAuthRequest");
@@ -689,8 +739,9 @@ void AwContents::ShowGeolocationPrompt(const GURL& requesting_frame,
 void AwContents::InvokeGeolocationCallback(bool value,
                                            const std::string& origin) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
-  if (pending_geolocation_prompts_.empty())
+  if (pending_geolocation_prompts_.empty()) {
     return;
+  }
 
   GURL callback_origin(origin);
   if (callback_origin.DeprecatedGetOriginAsURL() ==
@@ -757,8 +808,9 @@ void AwContents::OnPermissionRequestCanceled(AwPermissionRequest* request) {
   JNIEnv* env = AttachCurrentThread();
   ScopedJavaLocalRef<jobject> j_request = request->GetJavaObject();
   ScopedJavaLocalRef<jobject> j_ref = java_ref_.get(env);
-  if (!j_request || !j_ref)
+  if (!j_request || !j_ref) {
     return;
+  }
 
   Java_AwContents_onPermissionRequestCanceled(env, j_ref, j_request);
 }
@@ -786,8 +838,9 @@ void AwContents::RequestGeolocationPermission(const GURL& origin,
                                               PermissionCallback callback) {
   JNIEnv* env = AttachCurrentThread();
   ScopedJavaLocalRef<jobject> obj = java_ref_.get(env);
-  if (!obj)
+  if (!obj) {
     return;
+  }
 
   ShowGeolocationPrompt(origin, std::move(callback));
   return;
@@ -796,8 +849,9 @@ void AwContents::RequestGeolocationPermission(const GURL& origin,
 void AwContents::CancelGeolocationPermissionRequests(const GURL& origin) {
   JNIEnv* env = AttachCurrentThread();
   ScopedJavaLocalRef<jobject> obj = java_ref_.get(env);
-  if (!obj)
+  if (!obj) {
     return;
+  }
 
   HideGeolocationPrompt(origin);
   return;
@@ -878,8 +932,9 @@ void AwContents::OnFindResultReceived(int active_ordinal,
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   JNIEnv* env = AttachCurrentThread();
   ScopedJavaLocalRef<jobject> obj = java_ref_.get(env);
-  if (!obj)
+  if (!obj) {
     return;
+  }
 
   Java_AwContents_onFindResultReceived(env, obj, active_ordinal, match_count,
                                        finished);
@@ -900,8 +955,9 @@ void AwContents::OnReceivedIcon(const GURL& icon_url, const SkBitmap& bitmap) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   JNIEnv* env = AttachCurrentThread();
   ScopedJavaLocalRef<jobject> obj = java_ref_.get(env);
-  if (!obj)
+  if (!obj) {
     return;
+  }
 
   content::NavigationEntry* entry =
       web_contents_->GetController().GetLastCommittedEntry();
@@ -917,8 +973,9 @@ void AwContents::OnReceivedTouchIconUrl(const std::string& url,
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   JNIEnv* env = AttachCurrentThread();
   ScopedJavaLocalRef<jobject> obj = java_ref_.get(env);
-  if (!obj)
+  if (!obj) {
     return;
+  }
 
   Java_AwContents_onReceivedTouchIconUrl(env, obj, url, precomposed);
 }
@@ -927,8 +984,9 @@ void AwContents::PostInvalidate(bool inside_vsync) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   JNIEnv* env = AttachCurrentThread();
   ScopedJavaLocalRef<jobject> obj = java_ref_.get(env);
-  if (obj)
+  if (obj) {
     Java_AwContents_postInvalidate(env, obj, inside_vsync);
+  }
 }
 
 void AwContents::OnNewPicture() {
@@ -982,13 +1040,15 @@ void AwContents::UpdateLastHitTestData(JNIEnv* env) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
 
   ScopedJavaLocalRef<jobject> obj = java_ref_.get(env);
-  if (!obj)
+  if (!obj) {
     return;
+  }
 
   android_webview::mojom::HitTestDataPtr data =
       render_view_host_ext_->TakeLastHitTestData();
-  if (!data)
+  if (!data) {
     return;
+  }
 
   // Make sure to null the Java object if data is empty/invalid.
   std::optional<std::string> extra_data_for_type;
@@ -1038,10 +1098,11 @@ void AwContents::SetViewVisibility(JNIEnv* env, bool visible) {
 void AwContents::SetWindowVisibility(JNIEnv* env, bool visible) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   browser_view_renderer_.SetWindowVisibility(visible);
-  if (visible)
+  if (visible) {
     AwContentsLifecycleNotifier::GetInstance().OnWebViewWindowBeVisible(this);
-  else
+  } else {
     AwContentsLifecycleNotifier::GetInstance().OnWebViewWindowBeInvisible(this);
+  }
   AwBrowserProcess::GetInstance()
       ->visibility_metrics_logger()
       ->ClientVisibilityChanged(this);
@@ -1214,8 +1275,9 @@ gfx::Point AwContents::GetLocationOnScreen() {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   JNIEnv* env = AttachCurrentThread();
   ScopedJavaLocalRef<jobject> obj = java_ref_.get(env);
-  if (!obj)
+  if (!obj) {
     return gfx::Point();
+  }
   std::vector<int> location;
   JavaIntArrayToIntVector(env, Java_AwContents_getLocationOnScreen(env, obj),
                           &location);
@@ -1226,8 +1288,9 @@ void AwContents::ScrollContainerViewTo(const gfx::Point& new_value) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   JNIEnv* env = AttachCurrentThread();
   ScopedJavaLocalRef<jobject> obj = java_ref_.get(env);
-  if (!obj)
+  if (!obj) {
     return;
+  }
   Java_AwContents_scrollContainerViewTo(env, obj, new_value.x(), new_value.y());
 }
 
@@ -1239,8 +1302,9 @@ void AwContents::UpdateScrollState(const gfx::Point& max_scroll_offset,
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   JNIEnv* env = AttachCurrentThread();
   ScopedJavaLocalRef<jobject> obj = java_ref_.get(env);
-  if (!obj)
+  if (!obj) {
     return;
+  }
   Java_AwContents_updateScrollState(
       env, obj, max_scroll_offset.x(), max_scroll_offset.y(),
       contents_size_dip.width(), contents_size_dip.height(), page_scale_factor,
@@ -1253,8 +1317,9 @@ void AwContents::DidOverscroll(const gfx::Vector2d& overscroll_delta,
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   JNIEnv* env = AttachCurrentThread();
   ScopedJavaLocalRef<jobject> obj = java_ref_.get(env);
-  if (!obj)
+  if (!obj) {
     return;
+  }
   Java_AwContents_didOverscroll(env, obj, overscroll_delta.x(),
                                 overscroll_delta.y(), overscroll_velocity.x(),
                                 overscroll_velocity.y(), inside_vsync);
@@ -1263,8 +1328,9 @@ void AwContents::DidOverscroll(const gfx::Vector2d& overscroll_delta,
 ui::TouchHandleDrawable* AwContents::CreateDrawable() {
   JNIEnv* env = AttachCurrentThread();
   const ScopedJavaLocalRef<jobject> obj = java_ref_.get(env);
-  if (!obj)
+  if (!obj) {
     return nullptr;
+  }
   return reinterpret_cast<ui::TouchHandleDrawable*>(
       Java_AwContents_onCreateTouchHandle(env, obj));
 }
@@ -1315,8 +1381,9 @@ void AwContents::OnWebLayoutPageScaleFactorChanged(float page_scale_factor) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   JNIEnv* env = AttachCurrentThread();
   ScopedJavaLocalRef<jobject> obj = java_ref_.get(env);
-  if (!obj)
+  if (!obj) {
     return;
+  }
   Java_AwContents_onWebLayoutPageScaleFactorChanged(env, obj,
                                                     page_scale_factor);
 }
@@ -1326,8 +1393,9 @@ void AwContents::OnWebLayoutContentsSizeChanged(
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   JNIEnv* env = AttachCurrentThread();
   ScopedJavaLocalRef<jobject> obj = java_ref_.get(env);
-  if (!obj)
+  if (!obj) {
     return;
+  }
   gfx::Size contents_size_css =
       ScaleToRoundedSize(contents_size, 1 / browser_view_renderer_.dip_scale());
   Java_AwContents_onWebLayoutContentsSizeChanged(
@@ -1352,8 +1420,9 @@ void InvokeVisualStateCallback(const JavaObjectWeakGlobalRef& java_ref,
                                bool result) {
   JNIEnv* env = AttachCurrentThread();
   ScopedJavaLocalRef<jobject> obj = java_ref.get(env);
-  if (!obj)
+  if (!obj) {
     return;
+  }
   Java_AwContents_invokeVisualStateCallback(env, obj, callback, request_id);
 }
 }  // namespace
@@ -1372,8 +1441,7 @@ int32_t AwContents::GetEffectivePriority(JNIEnv* env) {
               ->GetProcess()
               ->GetEffectiveImportance()) {
     case content::ChildProcessImportance::NOT_PERCEPTIBLE:
-      NOTREACHED(base::NotFatalUntil::M140);
-      [[fallthrough]];
+      NOTREACHED();
     case content::ChildProcessImportance::NORMAL:
       return static_cast<int32_t>(RendererPriority::WAIVED);
     case content::ChildProcessImportance::MODERATE:
@@ -1666,12 +1734,14 @@ void AwContents::TrimMemory(JNIEnv* env, int32_t level, bool visible) {
   // Not urgent enough. TRIM_MEMORY_UI_HIDDEN is treated specially because
   // it does not indicate memory pressure, but merely that the app is
   // backgrounded.
-  if (level < TRIM_MEMORY_RUNNING_LOW || level == TRIM_MEMORY_UI_HIDDEN)
+  if (level < TRIM_MEMORY_RUNNING_LOW || level == TRIM_MEMORY_UI_HIDDEN) {
     return;
+  }
 
   // Do not release resources on view we expect to get DrawGL soon.
-  if (level < TRIM_MEMORY_BACKGROUND && visible)
+  if (level < TRIM_MEMORY_BACKGROUND && visible) {
     return;
+  }
 
   browser_view_renderer_.TrimMemory();
 }
@@ -1704,9 +1774,7 @@ void LogSiteVisitOnBackgroundThread(int64_t site_hash) {
 }  // namespace
 
 void AwContents::PrimaryPageChanged(content::Page& page) {
-  if (base::FeatureList::IsEnabled(features::kWebViewRendererKeepAlive)) {
-    UpdateAwRenderProcessAssociation();
-  }
+  UpdateAwRenderProcessAssociation();
   // TODO(https://crbug.com/378601799): Consider allowing prerendered pages
   // triggered by the WebView prerender API to outlive PrimaryPageChanged. See
   // the issue for the context.
@@ -1750,6 +1818,26 @@ void AwContents::PrimaryPageChanged(content::Page& page) {
 
 void AwContents::DidFinishNavigation(
     content::NavigationHandle* navigation_handle) {
+  // Record histogram when we detect same-page navigations and content
+  // restriction is enabled for tracking purposes.
+  if (base::FeatureList::IsEnabled(
+          features::kWebViewContentRestrictionSupport) &&
+      navigation_handle->IsSameDocument() && web_contents_) {
+    auto* aw_browser_context =
+        static_cast<AwBrowserContext*>(web_contents_->GetBrowserContext());
+    if (aw_browser_context) {
+      auto* crm_client =
+          aw_browser_context->GetContentRestrictionManagerClient();
+      if (crm_client && crm_client->IsContentRestrictionEnabled()) {
+        base::UmaHistogramEnumeration(
+            "Android.WebView.ContentRestriction."
+            "RequestBypassedThrottleReason",
+            ContentRestrictionRequestBypassedThrottleReason::
+                kSamePageNavigation);
+      }
+    }
+  }
+
   // If this request was blocked in any way, broadcast an error.
   net::Error error_code = navigation_handle->GetNetErrorCode();
   if (!net::IsRequestBlockedError(error_code) &&
@@ -1775,8 +1863,9 @@ void AwContents::DidFinishNavigation(
 
   AwContentsClientBridge* client =
       AwContentsClientBridge::FromWebContents(web_contents_.get());
-  if (!client)
+  if (!client) {
     return;
+  }
 
   AwWebResourceRequest request(navigation_handle->GetURL().spec(),
                                navigation_handle->IsPost() ? "POST" : "GET",
@@ -1808,16 +1897,18 @@ void AwContents::RenderViewReady() {
 bool AwContents::CanShowInterstitial() {
   JNIEnv* env = AttachCurrentThread();
   const ScopedJavaLocalRef<jobject> obj = java_ref_.get(env);
-  if (!obj)
+  if (!obj) {
     return false;
+  }
   return Java_AwContents_canShowInterstitial(env, obj);
 }
 
 int AwContents::GetErrorUiType() {
   JNIEnv* env = AttachCurrentThread();
   const ScopedJavaLocalRef<jobject> obj = java_ref_.get(env);
-  if (!obj)
+  if (!obj) {
     return false;
+  }
   return Java_AwContents_getErrorUiType(env, obj);
 }
 
@@ -1834,8 +1925,9 @@ void AwContents::RendererUnresponsive(
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   JNIEnv* env = AttachCurrentThread();
   ScopedJavaLocalRef<jobject> obj = java_ref_.get(env);
-  if (!obj)
+  if (!obj) {
     return;
+  }
 
   AwRenderProcess* aw_render_process =
       AwRenderProcess::GetInstanceForRenderProcessHost(render_process_host);
@@ -1848,8 +1940,9 @@ void AwContents::RendererResponsive(
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   JNIEnv* env = AttachCurrentThread();
   ScopedJavaLocalRef<jobject> obj = java_ref_.get(env);
-  if (!obj)
+  if (!obj) {
     return;
+  }
 
   AwRenderProcess* aw_render_process =
       AwRenderProcess::GetInstanceForRenderProcessHost(render_process_host);
@@ -1863,14 +1956,16 @@ AwContents::RenderProcessGoneResult AwContents::OnRenderProcessGone(
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   JNIEnv* env = AttachCurrentThread();
   ScopedJavaLocalRef<jobject> obj = java_ref_.get(env);
-  if (!obj)
+  if (!obj) {
     return RenderProcessGoneResult::kHandled;
+  }
 
   bool result =
       Java_AwContents_onRenderProcessGone(env, obj, child_process_id, crashed);
 
-  if (HasException(env))
+  if (HasException(env)) {
     return RenderProcessGoneResult::kException;
+  }
 
   return result ? RenderProcessGoneResult::kHandled
                 : RenderProcessGoneResult::kUnhandled;

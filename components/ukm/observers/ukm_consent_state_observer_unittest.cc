@@ -4,7 +4,6 @@
 
 #include "components/ukm/observers/ukm_consent_state_observer.h"
 
-#include "base/observer_list.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "components/metrics/metrics_features.h"
@@ -23,8 +22,7 @@
 #if BUILDFLAG(IS_CHROMEOS)
 #include "chromeos/components/kiosk/kiosk_test_utils.h"  // nogncheck
 #include "chromeos/components/mgs/managed_guest_session_test_utils.h"
-#include "components/user_manager/fake_user_manager.h"
-#include "components/user_manager/scoped_user_manager.h"
+#include "components/session_manager/test/user_session_test_environment.h"
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
 namespace ukm {
@@ -66,13 +64,7 @@ class MockSyncService : public syncer::TestSyncService {
         true, base::Time::Now(), base::Time::Now(),
         sync_pb::SyncEnums::UNKNOWN_ORIGIN, base::Minutes(1), false));
 
-    NotifyObserversOfStateChanged();
-  }
-
-  void Shutdown() override {
-    for (auto& observer : observers_) {
-      observer.OnSyncShutdown(this);
-    }
+    FireStateChanged();
   }
 
 #if BUILDFLAG(IS_CHROMEOS)
@@ -86,27 +78,9 @@ class MockSyncService : public syncer::TestSyncService {
     }
 
     GetUserSettings()->SetSelectedOsTypes(false, selected_os_types);
-    NotifyObserversOfStateChanged();
+    FireStateChanged();
   }
 #endif  // BUILDFLAG(IS_CHROMEOS)
-
- private:
-  // syncer::TestSyncService:
-  void AddObserver(syncer::SyncServiceObserver* observer) override {
-    observers_.AddObserver(observer);
-  }
-  void RemoveObserver(syncer::SyncServiceObserver* observer) override {
-    observers_.RemoveObserver(observer);
-  }
-
-  void NotifyObserversOfStateChanged() {
-    for (auto& observer : observers_) {
-      observer.OnStateChanged(this);
-    }
-  }
-
-  // The list of observers of the SyncService state.
-  base::ObserverList<syncer::SyncServiceObserver> observers_;
 };
 
 class TestUkmConsentStateObserver : public UkmConsentStateObserver {
@@ -430,17 +404,29 @@ TEST_F(UkmConsentStateObserverTest, VerifyConflictingProfilesRevokesConsent) {
 // Test consent state for kiosk.
 class KioskUkmConsentStateObserverTest : public UkmConsentStateObserverTest {
  public:
+  void SetUp() override {
+    UkmConsentStateObserverTest::SetUp();
+    ash::test::UserSessionTestEnvironment::RegisterLocalStatePrefs(
+        local_state_.registry());
+    user_session_test_environment_ =
+        std::make_unique<ash::test::UserSessionTestEnvironment>(&local_state_);
+    chromeos::SetUpFakeChromeAppKioskSession();
+  }
+
+  void TearDown() override {
+    user_session_test_environment_.reset();
+    UkmConsentStateObserverTest::TearDown();
+  }
+
   bool is_ukm_collection_enabled() const { return GetParam(); }
+
+ private:
+  TestingPrefServiceSimple local_state_;
+  std::unique_ptr<ash::test::UserSessionTestEnvironment>
+      user_session_test_environment_;
 };
 
 TEST_P(KioskUkmConsentStateObserverTest, VerifyDefaultConsent) {
-  // Enter Kiosk session.
-  TestingPrefServiceSimple local_state;
-  user_manager::UserManager::RegisterPrefs(local_state.registry());
-  user_manager::ScopedUserManager user_manager(
-      std::make_unique<user_manager::FakeUserManager>(&local_state));
-  chromeos::SetUpFakeChromeAppKioskSession();
-
   sync_preferences::TestingPrefServiceSyncable prefs;
   RegisterUrlKeyedAnonymizedDataCollectionPref(prefs);
   TestUkmConsentStateObserver observer;
@@ -504,6 +490,33 @@ TEST_P(MgsUkmConsentStateObserverTest, VerifyAppsOnlyConsent) {
 INSTANTIATE_TEST_SUITE_P(MgsUkmConsentStateObserverTest,
                          MgsUkmConsentStateObserverTest,
                          ::testing::Bool());
+
+#else  // !BUILDFLAG(IS_CHROMEOS)
+
+TEST_F(UkmConsentStateObserverTest, AppsConsentWithWebAppsOnly) {
+  sync_preferences::TestingPrefServiceSyncable prefs;
+  RegisterUrlKeyedAnonymizedDataCollectionPref(prefs);
+  SetUrlKeyedAnonymizedDataCollectionEnabled(&prefs, /*enabled=*/true);
+
+  MockSyncService sync;
+  sync.SetMaxTransportState(syncer::SyncService::TransportState::ACTIVE);
+  // Simulate syncer::APPS not being active (e.g., deprecated on non-ChromeOS),
+  // while syncer::WEB_APPS remains active.
+  sync.SetFailedDataTypes({syncer::APPS});
+
+  TestUkmConsentStateObserver observer;
+  observer.StartObserving(&sync, &prefs);
+
+  EXPECT_TRUE(observer.GetUkmConsentState().Has(APPS));
+  ExpectDwaAllowedForAllProfiles(observer, true);
+
+  // If WEB_APPS is not active, APPS consent should be false (even if legacy
+  // APPS is active).
+  sync.SetFailedDataTypes({syncer::WEB_APPS});
+  sync.FireStateChanged();
+
+  EXPECT_FALSE(observer.GetUkmConsentState().Has(APPS));
+}
 
 #endif  // BUILDFLAG(IS_CHROMEOS)
 

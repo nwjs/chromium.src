@@ -27,6 +27,7 @@
 #include "base/command_line.h"
 #include "base/compiler_specific.h"
 #include "base/containers/fixed_flat_set.h"
+#include "base/containers/span.h"
 #include "base/cpu.h"
 #include "base/environment.h"
 #include "base/feature_list.h"
@@ -818,7 +819,7 @@ void FillNV12Padding(const VAImage& image,
     base::CheckedNumeric<size_t> num_bytes_above(visible_height);
     num_bytes_above *= base::checked_cast<size_t>(stride);
     libyuv::SetPlane(
-        /*dst_y=*/plane_data + num_bytes_above.ValueOrDie(),
+        /*dst_y=*/UNSAFE_TODO(plane_data + num_bytes_above.ValueOrDie()),
         /*dst_stride_y=*/stride,
         /*width=*/stride,
         /*height=*/base::checked_cast<int>(image_height - visible_height),
@@ -989,8 +990,7 @@ std::vector<VAEntrypoint> GetEntryPointsForProfile(const base::Lock* va_lock,
       {VAEntrypointVideoProc}    // kVideoProcess.
       ,
   });
-  static_assert(std::size(kAllowedEntryPoints) == VaapiWrapper::kCodecModeMax,
-                "");
+  static_assert(kAllowedEntryPoints.size() == VaapiWrapper::kCodecModeMax, "");
 
   std::vector<VAEntrypoint> entrypoints;
   std::ranges::copy_if(va_entrypoints, std::back_inserter(entrypoints),
@@ -1166,10 +1166,8 @@ class VASupportedProfiles {
                               std::vector<VAConfigAttrib>& required_attribs,
                               ProfileInfo* profile_info) const;
 
-  std::vector<ProfileInfo> supported_profiles_[VaapiWrapper::kCodecModeMax];
-  static_assert(std::extent<decltype(supported_profiles_)>() ==
-                    VaapiWrapper::kCodecModeMax,
-                "|supported_profiles_| size is incorrect.");
+  std::array<std::vector<ProfileInfo>, VaapiWrapper::kCodecModeMax>
+      supported_profiles_;
 
   const ReportErrorToUMACB report_error_to_uma_cb_;
 };
@@ -1185,13 +1183,13 @@ const VASupportedProfiles::ProfileInfo* VASupportedProfiles::IsProfileSupported(
     VAProfile va_profile,
     VAEntrypoint va_entrypoint) const {
   auto iter = std::ranges::find_if(
-      UNSAFE_TODO(supported_profiles_[mode]),
+      supported_profiles_[mode],
       [va_profile, va_entrypoint](const ProfileInfo& profile) {
         return profile.va_profile == va_profile &&
                (va_entrypoint == kVAEntrypointInvalid ||
                 profile.va_entrypoint == va_entrypoint);
       });
-  if (iter != UNSAFE_TODO(supported_profiles_[mode]).end()) {
+  if (iter != supported_profiles_[mode].end()) {
     return &*iter;
   }
   return nullptr;
@@ -1274,8 +1272,7 @@ void VASupportedProfiles::FillSupportedProfileInfos(
         supported_profile_infos.push_back(profile_info);
       }
     }
-    UNSAFE_TODO(supported_profiles_[static_cast<int>(mode)]) =
-        supported_profile_infos;
+    supported_profiles_[mode] = supported_profile_infos;
   }
 }
 
@@ -2252,7 +2249,7 @@ std::map<VAProfile, std::vector<VAEntrypoint>>
 VaapiWrapper::GetSupportedConfigurationsForCodecModeForTesting(CodecMode mode) {
   std::map<VAProfile, std::vector<VAEntrypoint>> configurations;
   for (const auto& supported_profile :
-       UNSAFE_TODO(VASupportedProfiles::Get().supported_profiles_[mode])) {
+       VASupportedProfiles::Get().supported_profiles_[mode]) {
     configurations[supported_profile.va_profile].push_back(
         supported_profile.va_entrypoint);
   }
@@ -2735,7 +2732,7 @@ std::unique_ptr<ScopedVASurface> VaapiWrapper::CreateVASurfaceWithUsageHints(
                                            va_rt_format);
 }
 
-VaapiStatus::Or<std::unique_ptr<NativePixmapAndSizeInfo>>
+base::expected<std::unique_ptr<NativePixmapAndSizeInfo>, VaapiStatus>
 VaapiWrapper::ExportVASurfaceAsNativePixmapDmaBufUnwrapped(
     VASurfaceID va_surface_id,
     const gfx::Size& va_surface_size) {
@@ -2747,21 +2744,22 @@ VaapiWrapper::ExportVASurfaceAsNativePixmapDmaBufUnwrapped(
     base::AutoLockMaybe auto_lock(va_lock_.get());
     VAStatus va_res = vaSyncSurface(va_display_, va_surface_id);
     VA_SUCCESS_OR_RETURN(va_res, VaapiFunctions::kVASyncSurface,
-                         VaapiStatus::Codes::kNoSurface);
+                         base::unexpected(VaapiStatus::Codes::kNoSurface));
     va_res = vaExportSurfaceHandle(
         va_display_, va_surface_id, VA_SURFACE_ATTRIB_MEM_TYPE_DRM_PRIME_2,
         VA_EXPORT_SURFACE_READ_ONLY | VA_EXPORT_SURFACE_SEPARATE_LAYERS,
         &descriptor);
-    VA_SUCCESS_OR_RETURN(va_res, VaapiFunctions::kVAExportSurfaceHandle,
-                         VaapiStatus::Codes::kFailedToExportSurface);
+    VA_SUCCESS_OR_RETURN(
+        va_res, VaapiFunctions::kVAExportSurfaceHandle,
+        base::unexpected(VaapiStatus::Codes::kFailedToExportSurface));
   }
 
   gfx::NativePixmapHandle handle;
   CHECK_GE(descriptor.num_objects, 1u);
   handle.modifier = descriptor.objects[0].drm_format_modifier;
   std::vector<base::ScopedFD> fds;
-  for (size_t index = 0; index < descriptor.num_objects; ++index) {
-    const auto& object = UNSAFE_TODO(descriptor.objects[index]);
+  for (const auto& object :
+       base::span(descriptor.objects).first(descriptor.num_objects)) {
     // The modifier should not change for different planes.
     CHECK_EQ(handle.modifier, object.drm_format_modifier);
 
@@ -2797,13 +2795,14 @@ VaapiWrapper::ExportVASurfaceAsNativePixmapDmaBufUnwrapped(
       si_format = viz::SinglePlaneFormat::kBGRA_8888;
       break;
     default:
-      return VaapiStatus{VaapiStatus::Codes::kFailedToExportSurface,
-                         "Cannot export surface with unknown FOURCC", "fourcc",
-                         FourccToString(descriptor.fourcc)};
+      return base::unexpected(
+          VaapiStatus{VaapiStatus::Codes::kFailedToExportSurface,
+                      "Cannot export surface with unknown FOURCC", "fourcc",
+                      FourccToString(descriptor.fourcc)});
   }
 
-  for (uint32_t index = 0; index < descriptor.num_layers; ++index) {
-    const auto& layer = UNSAFE_TODO(descriptor.layers[index]);
+  for (const auto& layer :
+       base::span(descriptor.layers).first(descriptor.num_layers)) {
     // According to va/va_drmcommon.h, if VA_EXPORT_SURFACE_SEPARATE_LAYERS is
     // specified, each layer should contain one plane.
     DCHECK_EQ(1u, layer.num_planes);
@@ -2845,22 +2844,23 @@ VaapiWrapper::ExportVASurfaceAsNativePixmapDmaBufUnwrapped(
            .Contains(gfx::Rect(va_surface_size))) {
     VaapiStatus error = {VaapiStatus::Codes::kFailedToExportSurface,
                          "Surface is too large for buffer"};
-    return std::move(error)
-        .WithData("surface_size", va_surface_size.ToString())
-        .WithData("buffer_size",
-                  exported_pixmap->va_surface_resolution.ToString());
+    return base::unexpected(
+        std::move(error)
+            .WithData("surface_size", va_surface_size.ToString())
+            .WithData("buffer_size",
+                      exported_pixmap->va_surface_resolution.ToString()));
   }
   exported_pixmap->pixmap = base::MakeRefCounted<gfx::NativePixmapDmaBuf>(
       va_surface_size, si_format, std::move(handle));
   return exported_pixmap;
 }
 
-VaapiStatus::Or<std::unique_ptr<NativePixmapAndSizeInfo>>
+base::expected<std::unique_ptr<NativePixmapAndSizeInfo>, VaapiStatus>
 VaapiWrapper::ExportVASurfaceAsNativePixmapDmaBuf(
     const ScopedVASurface& scoped_va_surface) {
   VAAPI_CHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   if (!scoped_va_surface.IsValid()) {
-    return VaapiStatus::Codes::kFailedToExportSurface;
+    return base::unexpected(VaapiStatus::Codes::kFailedToExportSurface);
   }
   return ExportVASurfaceAsNativePixmapDmaBufUnwrapped(scoped_va_surface.id(),
                                                       scoped_va_surface.size());

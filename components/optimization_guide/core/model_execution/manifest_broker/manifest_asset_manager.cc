@@ -19,7 +19,6 @@
 #include "base/logging.h"
 #include "base/memory/weak_ptr.h"
 #include "base/metrics/histogram_functions.h"
-#include "base/notimplemented.h"
 #include "base/power_monitor/power_monitor.h"
 #include "base/sequence_checker.h"
 #include "base/strings/string_number_conversions.h"
@@ -29,7 +28,6 @@
 #include "base/values.h"
 #include "base/version.h"
 #include "build/branding_buildflags.h"
-#include "components/crx_file/id_util.h"
 #include "components/optimization_guide/core/model_execution/component_download_observer.h"
 #include "components/optimization_guide/core/model_execution/manifest_broker/manifest.h"
 #include "components/optimization_guide/core/model_execution/model_execution_prefs.h"
@@ -46,6 +44,14 @@
 namespace optimization_guide {
 
 BASE_FEATURE(kOnDeviceModelEviction, base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kScanForOrphanedManifestAssets, base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE_PARAM(base::TimeDelta,
+                   kOrphanedManifestAssetScanDelay,
+                   &kScanForOrphanedManifestAssets,
+                   "scan_delay",
+                   base::Seconds(5));
 
 namespace {
 // TTL for disk space evaluation result.
@@ -200,6 +206,15 @@ void ManifestAssetManager::ComponentContext::SetUninstalling() {
   version_ = std::nullopt;
 }
 
+void ManifestAssetManager::ComponentContext::SetOrphaned(
+    const std::optional<base::Version>& version) {
+  CHECK_EQ(state_, ComponentState::kNotRegistered);
+  CHECK(requested_version_.empty());
+  CHECK(!version || version->IsValid());
+  requested_version_ =
+      version ? version->GetString() : std::string(kUninstallingVersion);
+}
+
 ManifestAssetManager::ComponentContext
 ManifestAssetManager::ComponentContext::FromValue(
     const base::DictValue& value) {
@@ -310,22 +325,15 @@ bool ManifestAssetManager::DiskSpaceStatus::IsFresh() const {
          (base::Time::Now() - last_evaluated_) < kDiskSpaceFreshnessThreshold;
 }
 
-bool ManifestAssetManager::DiskSpaceStatus::CanSupportOnDemandInstall() const {
+bool ManifestAssetManager::DiskSpaceStatus::IsSufficientForOnDemandInstall()
+    const {
   return free_space_.has_value() &&
          features::IsFreeDiskSpaceSufficientForOnDeviceModelInstall(
              free_space_.value());
 }
 
-bool ManifestAssetManager::DiskSpaceStatus::CanSupportProactiveDownload()
+bool ManifestAssetManager::DiskSpaceStatus::IsSufficientForBackgroundInstall()
     const {
-  if (!base::FeatureList::IsEnabled(
-          features::kOnDeviceModelBackgroundDownload)) {
-    return false;
-  }
-  if (!base::PowerMonitor::GetInstance()->IsInitialized() ||
-      base::PowerMonitor::GetInstance()->IsOnBatteryPower()) {
-    return false;
-  }
   return free_space_.has_value() &&
          features::IsFreeDiskSpaceSufficientForBackgroundOnDeviceModelInstall(
              free_space_.value());
@@ -362,7 +370,7 @@ bool AssetPriorities::IsAtLeast(AssetPriority priority,
 ManifestAssetManager::ManifestAssetManager(
     PrefService& local_state,
     UsageTracker& usage_tracker,
-    Delegate& delegate,
+    ManifestAssetManagerDelegate& delegate,
     component_updater::ComponentUpdateService* component_update_service,
     std::unique_ptr<ManifestSolutionFactory> factory)
     : local_state_(local_state),
@@ -378,6 +386,15 @@ ManifestAssetManager::ManifestAssetManager(
 
   // Register observers for when we might need to update the registrations.
   usage_tracker_observation_.Observe(&usage_tracker);
+
+  // Schedule a one-time scan for orphaned assets on disk after initialization.
+  if (base::FeatureList::IsEnabled(kScanForOrphanedManifestAssets)) {
+    base::SingleThreadTaskRunner::GetCurrentDefault()->PostDelayedTask(
+        FROM_HERE,
+        base::BindOnce(&ManifestAssetManager::ScanForOrphanedAssets,
+                       weak_ptr_factory_.GetWeakPtr()),
+        kOrphanedManifestAssetScanDelay.Get());
+  }
 }
 
 ManifestAssetManager::~ManifestAssetManager() {
@@ -400,42 +417,49 @@ std::optional<std::string> ManifestAssetManager::GetCrxIdForAsset(
     return std::nullopt;
   }
 
-  std::vector<uint8_t> public_key_hash;
-  if (!base::HexStringToBytes(it->second.public_key(), &public_key_hash)) {
+  return GetCrxIdFromPublicKeyHex(it->second.public_key());
+}
+
+std::optional<base::flat_set<std::string>>
+ManifestAssetManager::GetRequiredComponentIdsForUseCase(
+    const std::string& use_case) const {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  if (!factory_) {
     return std::nullopt;
   }
-  return crx_file::id_util::GenerateIdFromHash(public_key_hash);
+
+  std::optional<absl::flat_hash_set<Manifest::AssetId>> required_assets =
+      factory_->manifest().GetRequiredAssets(use_case);
+  if (!required_assets) {
+    return std::nullopt;
+  }
+
+  base::flat_set<std::string> component_ids;
+  for (const auto& asset_id : *required_assets) {
+    if (std::optional<std::string> crx_id = GetCrxIdForAsset(asset_id)) {
+      component_ids.insert(*crx_id);
+    }
+  }
+  return component_ids;
 }
 
 void ManifestAssetManager::AddDownloadProgressObserver(
     const std::string& use_case,
     mojo::PendingRemote<on_device_model::mojom::DownloadObserver> observer) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  if (!factory_) {
+  std::optional<base::flat_set<std::string>> component_ids =
+      GetRequiredComponentIdsForUseCase(use_case);
+  if (!component_ids) {
     return;
   }
 
-  std::optional<absl::flat_hash_set<Manifest::AssetId>> required_assets =
-      factory_->manifest().GetRequiredAssets(use_case);
-
-  if (!required_assets) {
-    return;
+  auto& entry = progress_managers_[use_case];
+  if (!entry.manager) {
+    entry.component_ids = *component_ids;
+    entry.manager = std::make_unique<OnDeviceModelDownloadProgressManager>(
+        component_update_service_, std::move(*component_ids));
   }
-
-  base::flat_set<std::string> component_ids;
-  for (const auto& asset_id : *required_assets) {
-    auto crx_id = GetCrxIdForAsset(asset_id);
-    if (crx_id) {
-      component_ids.insert(*crx_id);
-    }
-  }
-
-  auto& progress_manager = progress_managers_[use_case];
-  if (!progress_manager) {
-    progress_manager = std::make_unique<OnDeviceModelDownloadProgressManager>(
-        component_update_service_, std::move(component_ids));
-  }
-  progress_manager->AddObserver(std::move(observer));
+  entry.manager->AddObserver(std::move(observer));
 }
 
 void ManifestAssetManager::AddAssetDownloadObserver(
@@ -468,8 +492,12 @@ void ManifestAssetManager::UpdateSolutionFactory(
   // TODO(holte): Potentially defer stopping the old factory from providing new
   // solutions until we actually download assets for the new factory.
   factory_ = std::move(factory);
+  std::erase_if(progress_managers_, [&](const auto& item) {
+    const auto& [use_case, entry] = item;
+    return GetRequiredComponentIdsForUseCase(use_case) != entry.component_ids;
+  });
   if (std::optional<base::ByteSize> free_space =
-          disk_space_status_.GetFreeSpace()) {
+          disk_space_status_.free_space()) {
     factory_->UpdateFreeDiskSpace(free_space);
   }
 
@@ -495,13 +523,6 @@ void ManifestAssetManager::RefreshSolutions() {
   if (factory_) {
     factory_->UpdateSolutions();
   }
-}
-
-// static
-bool ManifestAssetManager::VerifyInstallation(const base::FilePath& install_dir,
-                                              const base::DictValue& manifest) {
-  // TODO(crbug.com/489511499): implement proper verification logic.
-  return base::PathExists(install_dir);
 }
 
 void ManifestAssetManager::OnPriorityIncrease(
@@ -537,6 +558,32 @@ bool ManifestAssetManager::IsEvictionEnabled() const {
          base::FeatureList::IsEnabled(kOnDeviceModelEviction);
 }
 
+void ManifestAssetManager::ScanForOrphanedAssets() {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  delegate_->GetInstalledAssets(
+      base::BindOnce(&ManifestAssetManager::OnOrphanedAssetsFound,
+                     weak_ptr_factory_.GetWeakPtr()));
+}
+
+void ManifestAssetManager::OnOrphanedAssetsFound(
+    std::vector<ManifestAssetManagerDelegate::InstalledAsset>
+        installed_assets) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  std::vector<std::string> keys_to_save;
+  for (const auto& asset : installed_assets) {
+    ComponentContext& context =
+        *ledger_.GetOrCreateContext(asset.public_key_hex);
+    if (!context.NeedsCleanup()) {
+      context.SetOrphaned(asset.version);
+      keys_to_save.push_back(asset.public_key_hex);
+    }
+  }
+  if (!keys_to_save.empty()) {
+    ledger_.SaveContexts(keys_to_save);
+    UpdateRegistrations();
+  }
+}
+
 void ManifestAssetManager::OnDiskSpaceEvaluated(
     std::optional<base::ByteSize> free_space) {
   TRACE_EVENT("optimization_guide",
@@ -548,7 +595,51 @@ void ManifestAssetManager::OnDiskSpaceEvaluated(
   UpdateRegistrations();
 }
 
-bool ManifestAssetManager::ShouldInstall(
+bool ManifestAssetManager::CanSupportProactiveDownload() const {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  if (!base::FeatureList::IsEnabled(
+          features::kOnDeviceModelBackgroundDownload)) {
+    return false;
+  }
+  if (!base::PowerMonitor::GetInstance()->IsInitialized() ||
+      base::PowerMonitor::GetInstance()->IsOnBatteryPower()) {
+    return false;
+  }
+  return disk_space_status_.IsSufficientForBackgroundInstall();
+}
+
+bool ManifestAssetManager::ShouldRetain(const ComponentContext& context) const {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  // If the component already has the target version requested (downloading or
+  // installed), retain it unless eviction is enabled and its priority has
+  // dropped below kRetain.
+  return !IsEvictionEnabled() ||
+         asset_priorities_.IsAtLeast(AssetPriority::kRetain,
+                                     context.asset_id());
+}
+
+bool ManifestAssetManager::ShouldRegisterNewVersion(
+    const ComponentContext& context) const {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  DCHECK(disk_space_status_.IsFresh());
+  if (!disk_space_status_.IsSufficientForOnDemandInstall()) {
+    if (std::optional<base::ByteSize> free_space =
+            disk_space_status_.free_space()) {
+      base::UmaHistogramCounts100(
+          "OptimizationGuide.ModelExecution.OnDeviceModelInstallCriteria."
+          "AtRegistration.DiskSpaceWhenNotEnoughAvailable",
+          free_space->InGiB());
+    }
+    return false;
+  }
+  return asset_priorities_.IsAtLeast(AssetPriority::kBestEffort,
+                                     context.asset_id()) ||
+         (CanSupportProactiveDownload() &&
+          asset_priorities_.IsAtLeast(AssetPriority::kSpeculative,
+                                      context.asset_id()));
+}
+
+bool ManifestAssetManager::ShouldInstallOrRetain(
     const ComponentContext& context,
     const proto::OnDemandComponent* component) const {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
@@ -569,31 +660,17 @@ bool ManifestAssetManager::ShouldInstall(
   // components/component_updater/required_components_controller.h.
   return true;
 #else
-  if (context.requested_version() == component->target_version()) {
-    // The component is either downloading or already installed.
-    return !IsEvictionEnabled() ||
-           asset_priorities_.IsAtLeast(AssetPriority::kRetain,
-                                       context.asset_id());
-  }
-  if (!disk_space_status_.CanSupportOnDemandInstall()) {
-    std::optional<base::ByteSize> free_space =
-        disk_space_status_.GetFreeSpace();
-    if (free_space) {
-      base::UmaHistogramCounts100(
-          "OptimizationGuide.ModelExecution.OnDeviceModelInstallCriteria."
-          "AtRegistration.DiskSpaceWhenNotEnoughAvailable",
-          free_space->InGiB());
-    }
-    return false;
-  }
-  if (asset_priorities_.IsAtLeast(AssetPriority::kBestEffort,
-                                  context.asset_id())) {
-    return true;
-  }
-  return disk_space_status_.CanSupportProactiveDownload() &&
-         asset_priorities_.IsAtLeast(AssetPriority::kSpeculative,
-                                     context.asset_id());
+  return context.requested_version() == component->target_version()
+             ? ShouldRetain(context)
+             : ShouldRegisterNewVersion(context);
 #endif
+}
+
+bool ManifestAssetManager::ShouldRequestForegroundDownload(
+    const ComponentContext& context) const {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  return asset_priorities_.IsAtLeast(AssetPriority::kUserBlocking,
+                                     context.asset_id());
 }
 
 void ManifestAssetManager::RecordEvictableAssetsCount() const {
@@ -652,7 +729,7 @@ void ManifestAssetManager::UpdateRegistrations() {
     }
     const proto::OnDemandComponent* component =
         factory_->manifest().GetAssetByPublicKey(public_key);
-    if (!ShouldInstall(context, component)) {
+    if (!ShouldInstallOrRetain(context, component)) {
       if (context.NeedsCleanup()) {
         RecordUninstallReason(context, component);
         context.SetUninstalling();
@@ -697,8 +774,7 @@ void ManifestAssetManager::UpdateRegistrations() {
     NotifyFactory(public_key, context);
 
     if (context.state() == ComponentState::kRegistered) {
-      if (asset_priorities_.IsAtLeast(AssetPriority::kUserBlocking,
-                                      context.asset_id())) {
+      if (ShouldRequestForegroundDownload(context)) {
         context.SetOnDemandDownloading();
         // This doesn't change a persistent state, so it's okay to not save.
         delegate_->RequestUpdate(public_key,
@@ -829,19 +905,6 @@ void ManifestAssetManager::NotifyFactory(const std::string& public_key,
                              context.AsAssetState(component->target_version()));
 }
 
-std::vector<mojom::BrokerPropertyInfoPtr>
-ManifestAssetManager::GetBrokerProperties() const {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  std::vector<mojom::BrokerPropertyInfoPtr> properties;
-  properties.push_back(mojom::BrokerPropertyInfo::New(
-      "Supports Installs",
-      disk_space_status_.CanSupportOnDemandInstall() ? "true" : "false"));
-  properties.push_back(mojom::BrokerPropertyInfo::New(
-      "Supports Proactive Downloads",
-      disk_space_status_.CanSupportProactiveDownload() ? "true" : "false"));
-  return properties;
-}
-
 std::vector<mojom::BrokerAssetInfoPtr> ManifestAssetManager::GetBrokerAssets()
     const {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
@@ -853,11 +916,10 @@ std::vector<mojom::BrokerAssetInfoPtr> ManifestAssetManager::GetBrokerAssets()
 
     // Fetch initial download progress if available.
     if (component_update_service_) {
-      std::vector<uint8_t> hash;
-      if (base::HexStringToBytes(public_key, &hash)) {
-        std::string crx_id = crx_file::id_util::GenerateIdFromHash(hash);
+      if (std::optional<std::string> crx_id =
+              GetCrxIdFromPublicKeyHex(public_key)) {
         if (auto progress =
-                GetDownloadProgress(component_update_service_, crx_id)) {
+                GetDownloadProgress(component_update_service_, *crx_id)) {
           asset_info->bytes_downloaded = progress->first;
           asset_info->bytes_total = progress->second;
         }

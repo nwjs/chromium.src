@@ -91,13 +91,13 @@ source_set("impl") {
     "//chrome/browser/preloading/prefetch/search_prefetch",
     "//chrome/browser/profiles",
     "//chrome/browser/profiles:profile_io_data",
+    "//chrome/browser/search",
     "//chrome/browser/search_engines",
     "//chrome/browser/signin",
     "//chrome/browser/sync",
     "//chrome/browser/sync:factories",
     "//chrome/browser/tab_group_sync:factories",
     "//chrome/browser/translate",
-    "//chrome/browser/ui",
     "//chrome/browser/ui:ui_features",
     "//chrome/browser/ui/omnibox",
     "//chrome/browser/ui/tabs:tabs_public",
@@ -160,8 +160,6 @@ source_set("impl") {
       "//extensions/browser",
     ]
   }
-
-  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
 }
 
 source_set("aim_eligibility_service") {
@@ -229,8 +227,8 @@ if (!is_android) {
       "//chrome/browser/profiles:profile",
       "//chrome/browser/search_engines",
       "//chrome/browser/signin",
-      "//chrome/browser/ui",
       "//chrome/browser/ui:browser_commands",
+      "//chrome/browser/ui:browser_tabstrip",
       "//chrome/browser/ui:browser_window_header",
       "//chrome/browser/ui/browser_window",
       "//chrome/browser/ui/lens:test_support",

@@ -198,35 +198,30 @@ struct WebRtcEventLogPeerConnectionKey {
 
   bool operator==(const WebRtcEventLogPeerConnectionKey& other) const {
     // Each RPH is associated with exactly one BrowserContext.
-    DCHECK(render_process_id != other.render_process_id ||
-           browser_context_id == other.browser_context_id);
-    // If render_process_id and lid are the same, then render_frame_id is also
-    // the same.
-    DCHECK(render_process_id != other.render_process_id || lid != other.lid ||
-           render_frame_id == other.render_frame_id);
+    CHECK(render_process_id != other.render_process_id ||
+              browser_context_id == other.browser_context_id,
+          base::NotFatalUntil::M161);
 
-    const bool equal = std::tie(render_process_id, lid) ==
-                       std::tie(other.render_process_id, other.lid);
-
-    return equal;
+    return std::tie(render_process_id, lid, render_frame_id) ==
+           std::tie(other.render_process_id, other.lid, other.render_frame_id);
   }
 
   bool operator<(const WebRtcEventLogPeerConnectionKey& other) const {
     // Each RPH is associated with exactly one BrowserContext.
+    // TODO(crbug.com/572678236): CHECK-exclusion: Convert to a CHECK once we
+    // are confident it won't be triggered.
     DCHECK(render_process_id != other.render_process_id ||
            browser_context_id == other.browser_context_id);
-    // If render_process_id and lid are the same, then render_frame_id is also
-    // the same.
-    DCHECK(render_process_id != other.render_process_id || lid != other.lid ||
-           render_frame_id == other.render_frame_id);
 
-    return std::tie(render_process_id, lid) <
-           std::tie(other.render_process_id, other.lid);
+    return std::tie(render_process_id, lid, render_frame_id) <
+           std::tie(other.render_process_id, other.lid, other.render_frame_id);
   }
 
-  // These two fields are the actual key; any peer connection is uniquely
-  // identifiable by the renderer process in which it lives, and its ID within
-  // that process.
+  // `render_process_id`, `lid`, and `render_frame_id` form the key. Including
+  // `render_frame_id` ensures that delayed removal notifications (e.g. from
+  // ~PeerConnectionTrackerHost after a renderer crash and process reuse) do not
+  // collide with peer connections created in a different frame with the same
+  // `lid`.
   int render_process_id;
   int lid;  // Renderer-local PeerConnection ID.
 
@@ -235,9 +230,8 @@ struct WebRtcEventLogPeerConnectionKey {
   // always necessary, so it makes sense to remember it along with the key.
   BrowserContextId browser_context_id;
 
-  // The frame ID is not actually part of the key, since `lid` is kept unique
-  // per renderer process. The frame ID is needed to obtain the RenderFrameHost
-  // used for communicating with the renderer process.
+  // The frame ID is also needed to obtain the RenderFrameHost used for
+  // communicating with the renderer process.
   int render_frame_id;
 };
 

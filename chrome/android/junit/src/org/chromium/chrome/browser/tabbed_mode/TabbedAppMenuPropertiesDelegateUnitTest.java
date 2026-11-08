@@ -34,7 +34,9 @@ import android.content.Context;
 import android.content.pm.PackageManager;
 import android.text.Spannable;
 import android.view.ContextThemeWrapper;
+import android.view.LayoutInflater;
 import android.view.View;
+import android.widget.TextView;
 
 import androidx.annotation.Nullable;
 
@@ -128,6 +130,8 @@ import org.chromium.chrome.browser.toolbar.menu_button.MenuItemState;
 import org.chromium.chrome.browser.toolbar.menu_button.MenuUiState;
 import org.chromium.chrome.browser.translate.TranslateBridge;
 import org.chromium.chrome.browser.translate.TranslateBridgeJni;
+import org.chromium.chrome.browser.ttc.TtcKeyedService;
+import org.chromium.chrome.browser.ttc.TtcKeyedServiceFactory;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuDelegate;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuHandler;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuItemProperties;
@@ -180,6 +184,7 @@ import org.chromium.ui.modelutil.MVCListAdapter;
 import org.chromium.ui.modelutil.MVCListAdapter.ListItem;
 import org.chromium.ui.modelutil.MVCListAdapter.ModelList;
 import org.chromium.ui.modelutil.PropertyModel;
+import org.chromium.ui.modelutil.PropertyModelChangeProcessor;
 import org.chromium.url.GURL;
 import org.chromium.url.JUnitTestGURLs;
 
@@ -206,7 +211,8 @@ import java.util.Set;
     TabGroupsFeatureMap.UPDATE_TAB_GROUP_COLORS,
     ChromeFeatureList.IN_APP_WINDOW_MANAGER_DEPRECATION,
     ChromeFeatureList.SUBMENUS_IN_APP_MENU_LFF,
-    ChromeFeatureList.INCOGNITO_MODE_FORCED_ANDROID
+    ChromeFeatureList.INCOGNITO_MODE_FORCED_ANDROID,
+    ChromeFeatureList.TTC
 })
 @EnableFeatures({
     ChromeFeatureList.SUBMENUS_IN_APP_MENU,
@@ -254,7 +260,6 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
     @Mock private TabModel mTabModel;
     @Mock private TabModel mIncognitoTabModel;
     @Mock private ToolbarManager mToolbarManager;
-    @Mock private View mDecorView;
     @Mock private LayoutStateProvider mLayoutStateProvider;
     @Mock private ManagedBrowserUtils.Natives mManagedBrowserUtilsJniMock;
     @Mock private Profile mProfile;
@@ -297,6 +302,7 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
     private ShadowPackageManager mShadowPackageManager;
 
     private FakeBookmarkModel mBookmarkModel;
+    private final View mDecorView = new View(ContextUtils.getApplicationContext());
     private final ActivityTabProvider mActivityTabProvider = new ActivityTabProvider();
     private final OneshotSupplierImpl<LayoutStateProvider> mLayoutStateProviderSupplier =
             new OneshotSupplierImpl<>();
@@ -556,6 +562,19 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
         when(tabmodel.getTabAt(1)).thenReturn(mockTab2);
     }
 
+    private void setDecorViewWidthDp(int widthDp) {
+        mDecorView.layout(
+                0,
+                0,
+                (int)
+                        (widthDp
+                                * ContextUtils.getApplicationContext()
+                                        .getResources()
+                                        .getDisplayMetrics()
+                                        .density),
+                0);
+    }
+
     @Test
     @Config(qualifiers = "sw320dp")
     public void testShouldShowIconRow_Phone() {
@@ -565,14 +584,7 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
     @Test
     @Config(qualifiers = "sw600dp")
     public void testShouldShowIconRow_Tablet() {
-        when(mDecorView.getWidth())
-                .thenReturn(
-                        (int)
-                                (600
-                                        * ContextUtils.getApplicationContext()
-                                                .getResources()
-                                                .getDisplayMetrics()
-                                                .density));
+        setDecorViewWidthDp(600);
         assertFalse(mTabbedAppMenuPropertiesDelegate.shouldShowIconRow());
     }
 
@@ -581,28 +593,14 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
     @EnableFeatures(ChromeFeatureList.TOOLBAR_TABLET_RESIZE_REFACTOR)
     public void testShouldShowIconRow_Tablet_MissingToolbarComponents() {
         doReturn(true).when(mToolbarManager).areAnyToolbarComponentsMissingForWidth(any());
-        when(mDecorView.getWidth())
-                .thenReturn(
-                        (int)
-                                (600
-                                        * ContextUtils.getApplicationContext()
-                                                .getResources()
-                                                .getDisplayMetrics()
-                                                .density));
+        setDecorViewWidthDp(600);
         assertTrue(mTabbedAppMenuPropertiesDelegate.shouldShowIconRow());
     }
 
     @Test
     @Config(qualifiers = "sw600dp")
     public void testShouldShowIconRow_TabletNarrow() {
-        when(mDecorView.getWidth())
-                .thenReturn(
-                        (int)
-                                (100
-                                        * ContextUtils.getApplicationContext()
-                                                .getResources()
-                                                .getDisplayMetrics()
-                                                .density));
+        setDecorViewWidthDp(100);
         assertTrue(mTabbedAppMenuPropertiesDelegate.shouldShowIconRow());
     }
 
@@ -2641,6 +2639,63 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
     }
 
     @Test
+    public void testIncognitoMenuItemViewBinder_EnabledState() {
+        Context context =
+                new ContextThemeWrapper(
+                        ContextUtils.getApplicationContext(), R.style.Theme_BrowserUI_DayNight);
+        View view = LayoutInflater.from(context).inflate(R.layout.custom_view_menu_item, null);
+        View title = view.findViewById(R.id.title);
+
+        PropertyModel model =
+                new PropertyModel.Builder(AppMenuItemProperties.ALL_KEYS)
+                        .with(AppMenuItemProperties.MENU_ITEM_ID, R.id.new_incognito_tab_menu_id)
+                        .with(AppMenuItemProperties.ENABLED, false)
+                        .build();
+        PropertyModelChangeProcessor.create(model, view, IncognitoMenuItemViewBinder::bind);
+
+        assertFalse(view.isEnabled());
+        assertFalse(view.isFocusable());
+        assertFalse(title.isEnabled());
+        assertFalse(title.isFocusable());
+
+        model.set(AppMenuItemProperties.ENABLED, true);
+        assertTrue(view.isEnabled());
+        assertTrue(view.isFocusable());
+        assertTrue(title.isEnabled());
+        assertFalse(title.isFocusable());
+    }
+
+    @Test
+    public void testIncognitoMenuItemViewBinder_ShortcutText() {
+        Context context =
+                new ContextThemeWrapper(
+                        ContextUtils.getApplicationContext(), R.style.Theme_BrowserUI_DayNight);
+        View view = LayoutInflater.from(context).inflate(R.layout.custom_view_menu_item, null);
+        TextView shortcut = view.findViewById(R.id.menu_item_shortcut);
+
+        PropertyModel model =
+                new PropertyModel.Builder(AppMenuItemProperties.ALL_KEYS)
+                        .with(AppMenuItemProperties.MENU_ITEM_ID, R.id.new_incognito_window_menu_id)
+                        .build();
+        PropertyModelChangeProcessor.create(model, view, IncognitoMenuItemViewBinder::bind);
+
+        assertEquals(View.GONE, shortcut.getVisibility());
+
+        model.set(AppMenuItemProperties.SHORTCUT_TEXT, "Ctrl+Shift+N");
+        assertEquals(View.VISIBLE, shortcut.getVisibility());
+        assertEquals("Ctrl+Shift+N", shortcut.getText().toString());
+
+        model.set(AppMenuItemProperties.SHORTCUT_TEXT, "");
+        assertEquals(View.GONE, shortcut.getVisibility());
+
+        model.set(AppMenuItemProperties.SHORTCUT_TEXT, "Ctrl+Shift+N");
+        assertEquals(View.VISIBLE, shortcut.getVisibility());
+
+        model.set(AppMenuItemProperties.SHORTCUT_TEXT, null);
+        assertEquals(View.GONE, shortcut.getVisibility());
+    }
+
+    @Test
     public void readerModeEntryPointEnabled() {
         setUpMocksForPageMenu();
         when(mTab.getUrl()).thenReturn(JUnitTestGURLs.EXAMPLE_URL);
@@ -2706,6 +2761,7 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
     @Test
     @EnableFeatures({ChromeFeatureList.SUBMENUS_IN_APP_MENU})
     public void nameWindowMenuVisible_Api31Enabled() {
+        MultiWindowTestUtils.ensureInitialized();
         setUpMocksForPageMenu();
         setMenuOptions(new MenuOptions());
         MultiWindowUtils.setMultiInstanceApi31EnabledForTesting(true);
@@ -3603,6 +3659,7 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
         setUpMocksForPageMenu();
         Token token1 = new Token(1L, 1L);
         when(mTabModel.getAllTabGroupIds()).thenReturn(Set.of(token1));
+        when(mTabModel.containsTabGroup(token1)).thenReturn(true);
         when(mTab.getUrl()).thenReturn(GURL.emptyGURL());
         ModelList modelList = mTabbedAppMenuPropertiesDelegate.getMenuItems();
         assertTrue(isMenuVisible(modelList, R.id.tab_groups_parent_menu_id));
@@ -4163,6 +4220,62 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
     }
 
     @Test
+    @EnableFeatures(ChromeFeatureList.TTC)
+    public void ttcItemEnabled() {
+        setUpMocksForPageMenu();
+        when(mTab.isIncognito()).thenReturn(false);
+        TtcKeyedService service = mock(TtcKeyedService.class);
+        when(service.isEnabled()).thenReturn(true);
+        TtcKeyedServiceFactory.setForTesting(service);
+
+        ModelList modelList = mTabbedAppMenuPropertiesDelegate.getMenuItems();
+
+        assertTrue(isMenuVisible(modelList, R.id.ttc_menu_id));
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.TTC)
+    public void ttcItemDisabled_Incognito() {
+        setUpMocksForPageMenu();
+        when(mTab.isIncognito()).thenReturn(true);
+        TtcKeyedService service = mock(TtcKeyedService.class);
+        when(service.isEnabled()).thenReturn(true);
+        TtcKeyedServiceFactory.setForTesting(service);
+
+        ModelList modelList = mTabbedAppMenuPropertiesDelegate.getMenuItems();
+
+        assertFalse(isMenuVisible(modelList, R.id.ttc_menu_id));
+    }
+
+    @Test
+    @DisableFeatures(ChromeFeatureList.TTC)
+    public void ttcItemDisabled_FeatureDisabled() {
+        setUpMocksForPageMenu();
+        when(mTab.isIncognito()).thenReturn(false);
+        TtcKeyedService service = mock(TtcKeyedService.class);
+        when(service.isEnabled()).thenReturn(true);
+        TtcKeyedServiceFactory.setForTesting(service);
+
+        ModelList modelList = mTabbedAppMenuPropertiesDelegate.getMenuItems();
+
+        assertFalse(isMenuVisible(modelList, R.id.ttc_menu_id));
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.TTC)
+    public void ttcItemDisabled_ServiceNotEnabled() {
+        setUpMocksForPageMenu();
+        when(mTab.isIncognito()).thenReturn(false);
+        TtcKeyedService service = mock(TtcKeyedService.class);
+        when(service.isEnabled()).thenReturn(false);
+        TtcKeyedServiceFactory.setForTesting(service);
+
+        ModelList modelList = mTabbedAppMenuPropertiesDelegate.getMenuItems();
+
+        assertFalse(isMenuVisible(modelList, R.id.ttc_menu_id));
+    }
+
+    @Test
     @EnableFeatures({ChromeFeatureList.SUBMENUS_IN_APP_MENU})
     public void testTabGroupsItem_Present() {
         setUpMocksForPageMenu();
@@ -4219,7 +4332,7 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
         when(anotherTabModel.getTabGroupCount()).thenReturn(1);
         Token groupId = Token.createRandom();
         when(anotherTabModel.getAllTabGroupIds()).thenReturn(Set.of(groupId));
-        when(anotherTabModel.tabGroupExists(groupId)).thenReturn(true);
+        when(anotherTabModel.containsTabGroup(groupId)).thenReturn(true);
         when(anotherTabModel.getTabGroupTitle(groupId)).thenReturn("Group");
         when(anotherTabModel.getTabsInGroup(groupId)).thenReturn(List.of());
 

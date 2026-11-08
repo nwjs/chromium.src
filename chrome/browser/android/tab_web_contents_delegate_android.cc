@@ -13,21 +13,29 @@
 #include <utility>
 #include <vector>
 
+#include "base/android/content_uri_utils.h"
 #include "base/android/jni_android.h"
 #include "base/android/jni_string.h"
 #include "base/android/scoped_java_ref.h"
 #include "base/command_line.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/rand_util.h"
+#include "base/strings/escape.h"
+#include "base/strings/strcat.h"
+#include "base/strings/string_util.h"
 #include "base/task/single_thread_task_runner.h"
+#include "base/task/thread_pool.h"
 #include "chrome/browser/actor/actor_util.h"
 #include "chrome/browser/android/customtabs/client_data_header_web_contents_observer.h"
 #include "chrome/browser/android/framebust_intervention/framebust_blocked_delegate_android.h"
 #include "chrome/browser/android/tab_android.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
+#include "chrome/browser/content_settings/page_specific_content_settings_delegate.h"
+#include "chrome/browser/content_settings/request_desktop_site_web_contents_observer_android.h"
 #include "chrome/browser/content_settings/sound_content_setting_observer.h"
 #include "chrome/browser/devtools/devtools_window.h"
 #include "chrome/browser/file_select_helper.h"
@@ -35,6 +43,8 @@
 #include "chrome/browser/history/history_tab_helper.h"
 #include "chrome/browser/media/protected_media_identifier_permission_context.h"
 #include "chrome/browser/media/webrtc/media_capture_devices_dispatcher.h"
+#include "chrome/browser/optimization_guide/optimization_guide_web_contents_observer.h"
+#include "chrome/browser/page_load_metrics/page_load_metrics_initialize.h"
 #include "chrome/browser/password_manager/chrome_password_manager_client.h"
 #include "chrome/browser/picture_in_picture/picture_in_picture_window_manager.h"
 #include "chrome/browser/preloading/preloading_prefs.h"
@@ -42,6 +52,7 @@
 #include "chrome/browser/safe_browsing/chrome_password_reuse_detection_manager_client.h"
 #include "chrome/browser/safe_browsing/safe_browsing_navigation_observer_manager_factory.h"
 #include "chrome/browser/safe_browsing/safe_browsing_service.h"
+#include "chrome/browser/subresource_filter/chrome_content_subresource_filter_web_contents_helper_factory.h"
 #include "chrome/browser/ui/android/tab_model/tab_model_list.h"
 #include "chrome/browser/ui/blocked_content/chrome_popup_navigation_delegate.h"
 #include "chrome/browser/ui/navigator/browser_navigator_params.h"
@@ -57,6 +68,7 @@
 #include "components/blocked_content/popup_blocker.h"
 #include "components/blocked_content/popup_tracker.h"
 #include "components/browser_ui/util/android/url_constants.h"
+#include "components/content_settings/browser/page_specific_content_settings.h"
 #include "components/external_intents/android/external_intents_features.h"
 #include "components/find_in_page/find_notification_details.h"
 #include "components/find_in_page/find_tab_helper.h"
@@ -67,8 +79,12 @@
 #include "components/navigation_interception/intercept_navigation_delegate.h"
 #include "components/no_state_prefetch/browser/no_state_prefetch_manager.h"
 #include "components/optimization_guide/content/browser/page_content_proto_provider.h"
+#include "components/optimization_guide/core/optimization_guide_features.h"
 #include "components/paint_preview/buildflags/buildflags.h"
+#include "components/pdf/common/constants.h"
 #include "components/safe_browsing/content/browser/safe_browsing_navigation_observer.h"
+#include "content/public/browser/browser_context.h"
+#include "content/public/browser/download_manager_delegate.h"
 #include "content/public/browser/file_select_listener.h"
 #include "content/public/browser/initiator_navigation_state.h"
 #include "content/public/browser/navigation_controller.h"
@@ -83,6 +99,7 @@
 #include "content/public/common/content_features.h"
 #include "media/mojo/mojom/media_types.mojom.h"
 #include "net/base/filename_util.h"
+#include "net/base/mime_util.h"
 #include "services/network/public/mojom/web_sandbox_flags.mojom.h"
 #include "skia/ext/region_ops.h"
 #include "third_party/blink/public/common/features_generated.h"
@@ -166,10 +183,27 @@ void ShowFramebustBlockMessageInternal(
       base::NullCallback());
 }
 
-// The amount of time to disallow repeated pointer lock calls after the user
-// successfully escapes from one lock request.
-constexpr base::TimeDelta kEffectiveUserEscapeDuration =
-    base::Milliseconds(1250);
+constexpr char kPdfPageUrlPrefix[] = "chrome-native://pdf/link?url=";
+
+// Returns the MIME type of the file selected in the file picker, which may be
+// either a content URI or a regular file path.
+std::string GetSelectedFileMimeType(const base::FilePath& file_path) {
+  if (file_path.IsContentUri()) {
+    return base::GetContentUriMimeType(file_path);
+  }
+  std::string mime_type;
+  net::GetMimeTypeFromFile(file_path, &mime_type);
+  return mime_type;
+}
+
+// Returns whether a PDF selected via the open file dialog should be shown in
+// the inline PDF viewer. Respects the existing platform support and incognito
+// checks.
+bool ShouldOpenSelectedPdfInline(content::BrowserContext* browser_context) {
+  content::DownloadManagerDelegate* delegate =
+      browser_context->GetDownloadManagerDelegate();
+  return delegate && delegate->ShouldOpenPdfInline();
+}
 
 class OpenFileSelectListener : public content::FileSelectListener {
  public:
@@ -181,7 +215,7 @@ class OpenFileSelectListener : public content::FileSelectListener {
                     blink::mojom::FileChooserParams::Mode mode) override {
     // The Ctrl+O shortcut requests Mode::kOpen, which never enables
     // multi-selection in the Android file picker, so only one file is expected.
-    DCHECK_LE(files.size(), 1u);
+    CHECK_LE(files.size(), 1u, base::NotFatalUntil::M161);
 
     if (!web_contents_ || files.empty() || !files[0]->is_native_file()) {
       return;
@@ -192,6 +226,41 @@ class OpenFileSelectListener : public content::FileSelectListener {
     if (!url.is_valid() || !url.has_scheme()) {
       url = net::FilePathToFileURL(file_path);
     }
+
+    if (!url.is_valid() ||
+        !ShouldOpenSelectedPdfInline(web_contents_->GetBrowserContext())) {
+      OnMimeTypeResolved(std::move(url), std::string());
+      return;
+    }
+
+    base::ThreadPool::PostTaskAndReplyWithResult(
+        FROM_HERE, {base::MayBlock(), base::TaskPriority::USER_BLOCKING},
+        base::BindOnce(&GetSelectedFileMimeType, file_path),
+        base::BindOnce(&OpenFileSelectListener::OnMimeTypeResolved,
+                       base::WrapRefCounted(this), std::move(url)));
+  }
+
+  void OnMimeTypeResolved(GURL url, const std::string& mime_type) {
+    // The WebContents may have been destroyed while resolving the MIME type.
+    if (!web_contents_) {
+      return;
+    }
+
+    // LoadURL() from C++ bypasses TabImpl#loadUrl(), which is where PDF
+    // navigations are detected and the PDF native page is shown. When inline
+    // PDF viewing is enabled, wrap the URL in a chrome-native://pdf/ URL so the
+    // tab shows the PDF native page, mirroring PdfUtils#encodePdfPageUrl.
+    // Otherwise, load the raw URL to keep the original behavior.
+    if (url.is_valid() &&
+        base::EqualsCaseInsensitiveASCII(mime_type, pdf::kPDFMimeType)) {
+      url = GURL(base::StrCat(
+          {kPdfPageUrlPrefix,
+           base::EscapeQueryParamValue(url.spec(), /*use_plus=*/true)}));
+
+      base::UmaHistogramBoolean("Android.Pdf.DownloadUrlEncoded",
+                                url.is_valid());
+    }
+
     if (url.is_valid()) {
       web_contents_->GetController().LoadURL(
           url, content::Referrer(), ui::PAGE_TRANSITION_TYPED, std::string());
@@ -265,8 +334,28 @@ namespace android {
 
 TabWebContentsDelegateAndroid::TabWebContentsDelegateAndroid(
     JNIEnv* env,
-    const jni_zero::JavaRef<jobject>& obj)
-    : WebContentsDelegateAndroid(env, obj) {}
+    const jni_zero::JavaRef<jobject>& obj,
+    content::WebContents* web_contents)
+    : WebContentsDelegateAndroid(env, obj),
+      content::WebContentsObserver(web_contents) {
+  // `web_contents` may be null if this delegate is being constructed before
+  // any WebContents exists yet, to be attached to one later via SetDelegate().
+  if (!web_contents) {
+    return;
+  }
+
+  // FindTabHelper may already exist if this delegate is replacing an earlier
+  // one on a WebContents that has already had its tab helpers attached (see
+  // TabAndroid::UpdateDelegates()). In that case, register with it right
+  // away: DidReceiveFindReply()'s lazy registration only works when this
+  // observer is added before FindTabHelper's own, which holds for the usual
+  // construction order (this delegate before AttachTabHelpers()) but not for
+  // a later re-attachment.
+  if (find_in_page::FindTabHelper* find_tab_helper =
+          find_in_page::FindTabHelper::FromWebContents(web_contents)) {
+    find_result_observations_.AddObservation(find_tab_helper);
+  }
+}
 
 TabWebContentsDelegateAndroid::~TabWebContentsDelegateAndroid() = default;
 
@@ -375,25 +464,6 @@ void TabWebContentsDelegateAndroid::NavigationStateChangedDeferred(
     WebContents* source,
     content::InvalidateTypes changed_flags) {
   WebContentsDelegateAndroid::NavigationStateChanged(source, changed_flags);
-}
-
-void TabWebContentsDelegateAndroid::FindReply(
-    WebContents* web_contents,
-    int request_id,
-    int number_of_matches,
-    const gfx::Rect& selection_rect,
-    int active_match_ordinal,
-    bool final_update) {
-  find_in_page::FindTabHelper* find_tab_helper =
-      find_in_page::FindTabHelper::FromWebContents(web_contents);
-  if (!find_result_observations_.IsObservingSource(find_tab_helper))
-    find_result_observations_.AddObservation(find_tab_helper);
-
-  find_tab_helper->HandleFindReply(request_id,
-                                   number_of_matches,
-                                   selection_rect,
-                                   active_match_ordinal,
-                                   final_update);
 }
 
 void TabWebContentsDelegateAndroid::FindMatchRectsReply(
@@ -585,9 +655,11 @@ WebContents* TabWebContentsDelegateAndroid::AddNewContents(
     bool user_gesture,
     bool* was_blocked) {
   // No code for this yet.
-  DCHECK_NE(disposition, WindowOpenDisposition::SAVE_TO_DISK);
+  CHECK_NE(disposition, WindowOpenDisposition::SAVE_TO_DISK,
+           base::NotFatalUntil::M161);
   // Can't create a new contents for the current tab - invalid case.
-  DCHECK_NE(disposition, WindowOpenDisposition::CURRENT_TAB);
+  CHECK_NE(disposition, WindowOpenDisposition::CURRENT_TAB,
+           base::NotFatalUntil::M161);
 
   if (disposition == WindowOpenDisposition::NEW_PICTURE_IN_PICTURE) {
     const GURL& opener_url = source ? source->GetLastCommittedURL() : GURL();
@@ -622,6 +694,22 @@ WebContents* TabWebContentsDelegateAndroid::AddNewContents(
   }
 
   TabHelpers::AttachTabHelpers(new_contents.get());
+  CreateSubresourceFilterWebContentsHelper(new_contents.get());
+  content_settings::PageSpecificContentSettings::CreateForWebContents(
+      new_contents.get(), std::make_unique<PageSpecificContentSettingsDelegate>(
+                              new_contents.get()));
+  Profile* profile =
+      Profile::FromBrowserContext(new_contents->GetBrowserContext());
+  if (!profile->IsOffTheRecord()) {
+    HistoryTabHelper::GetOrCreateForWebContents(new_contents.get());
+  }
+  if (optimization_guide::features::IsOptimizationHintsEnabled()) {
+    OptimizationGuideWebContentsObserver::CreateForWebContents(
+        new_contents.get());
+  }
+  InitializePageLoadMetricsForWebContents(new_contents.get());
+  RequestDesktopSiteWebContentsObserverAndroid::CreateForWebContents(
+      new_contents.get());
 
   JNIEnv* env = AttachCurrentThread();
   ScopedJavaLocalRef<jobject> obj = GetJavaDelegate(env);
@@ -778,6 +866,21 @@ void TabWebContentsDelegateAndroid::OnFindTabHelperDestroyed(
   find_result_observations_.RemoveObservation(helper);
 }
 
+void TabWebContentsDelegateAndroid::DidReceiveFindReply(
+    int request_id,
+    int number_of_matches,
+    const gfx::Rect& selection_rect,
+    int active_match_ordinal,
+    bool final_update) {
+  // FindTabHelper itself now handles the reply; this just lazily starts
+  // observing it for the higher-level OnFindResultAvailable() notification.
+  find_in_page::FindTabHelper* find_tab_helper =
+      find_in_page::FindTabHelper::FromWebContents(web_contents());
+  if (!find_result_observations_.IsObservingSource(find_tab_helper)) {
+    find_result_observations_.AddObservation(find_tab_helper);
+  }
+}
+
 bool TabWebContentsDelegateAndroid::ShouldEnableEmbeddedMediaExperience()
     const {
   JNIEnv* env = base::android::AttachCurrentThread();
@@ -875,17 +978,6 @@ TabWebContentsDelegateAndroid::PreHandleKeyboardEvent(
             env, obj, reinterpret_cast<intptr_t>(&event))) {
       return content::KeyboardEventProcessingResult::HANDLED;
     }
-
-    // ExclusiveAccessManager handles the pointer lock escape.
-    if (!base::FeatureList::IsEnabled(
-            features::kEnableExclusiveAccessManager)) {
-      auto* rwhva = source->GetTopLevelRenderWidgetHostView();
-      if (rwhva && rwhva->IsPointerLocked()) {
-        rwhva->UnlockPointer();
-        pointer_lock_last_user_escape_time_ = base::TimeTicks::Now();
-        return content::KeyboardEventProcessingResult::HANDLED;
-      }
-    }
   }
 
   return WebContentsDelegateAndroid::PreHandleKeyboardEvent(source, event);
@@ -901,45 +993,18 @@ void TabWebContentsDelegateAndroid::RequestPointerLock(
     return;
   }
 
-  if (base::FeatureList::IsEnabled(features::kEnableExclusiveAccessManager)) {
-    JNIEnv* env = AttachCurrentThread();
+  JNIEnv* env = AttachCurrentThread();
 
-    ScopedJavaLocalRef<jobject> obj = GetJavaDelegate(env);
-    if (obj.is_null()) {
-      return;
-    }
-
-    Java_TabWebContentsDelegateAndroidImpl_requestPointerLock(
-        env, obj, web_contents, user_gesture, last_unlocked_by_target);
+  ScopedJavaLocalRef<jobject> obj = GetJavaDelegate(env);
+  if (obj.is_null()) {
     return;
   }
 
-  // TODO(https://crbug.com/415732870): remove this part once
-  // ExclusiveAccessManager is released.
-  if (!last_unlocked_by_target && !web_contents->IsFullscreen()) {
-    if (!user_gesture) {
-      web_contents->GotResponseToPointerLockRequest(
-          blink::mojom::PointerLockResult::kRequiresUserGesture);
-      return;
-    }
-    if (base::TimeTicks::Now() <
-        pointer_lock_last_user_escape_time_ + kEffectiveUserEscapeDuration) {
-      web_contents->GotResponseToPointerLockRequest(
-          blink::mojom::PointerLockResult::kUserRejected);
-      return;
-    }
-  }
-
-  web_contents->GotResponseToPointerLockRequest(
-      blink::mojom::PointerLockResult::kSuccess);
+  Java_TabWebContentsDelegateAndroidImpl_requestPointerLock(
+      env, obj, web_contents, user_gesture, last_unlocked_by_target);
 }
 
 void TabWebContentsDelegateAndroid::LostPointerLock() {
-  if (!base::FeatureList::IsEnabled(features::kEnableExclusiveAccessManager)) {
-    WebContentsDelegateAndroid::LostPointerLock();
-    return;
-  }
-
   JNIEnv* env = AttachCurrentThread();
 
   ScopedJavaLocalRef<jobject> obj = GetJavaDelegate(env);

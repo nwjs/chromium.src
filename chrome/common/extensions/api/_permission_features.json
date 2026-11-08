@@ -37,15 +37,6 @@
       "5F13EB3D4C8E5A012DF6F03BB4766532C41A07E23CC9F7963FEEB77BBBC7334D"
     ]
   }],
-  "accessibilityPrivate": {
-    "channel": "stable",
-    "extension_types": ["extension", "legacy_packaged_app", "platform_app"],
-    "platforms": ["chromeos"],
-    "allowlist": [
-      "0D209B5E4401BB8E7873B5AB5B1346A1CB067015",  // http://crbug.com/40113485
-      "2FCBCE08B34CCA1728A85F1EFBD9A34DD2558B2E"
-    ]
-  },
   "accessibilityServicePrivate": {
     "channel": "stable",
     "component_extensions_auto_granted": false,
@@ -103,23 +94,6 @@
     "channel": "stable",
     "extension_types": ["extension", "legacy_packaged_app"]
   },
-  "certificateProvider": [{
-    "channel": "stable",
-    "platforms": ["chromeos"],
-    "extension_types": ["extension", "platform_app"]
-  }, {
-    "channel": "stable",
-    "component_extensions_auto_granted": false,
-    "extension_types": ["login_screen_extension"],
-    "location": "policy",
-    "platforms": ["chromeos"],
-    "allowlist": [
-      // https://crbug.com/40758574
-      "6B748A5C005F21B7CBCF4170C2F883E435DEB511",   // DriveLock Smart Card Middleware
-      "075FF17D52ED6E3C2E5EC4D99F188E7A25AF47EA",   // Beta DriveLock Smart Card Middleware
-      "5C825E850034490380BCB756D43ABB2CF537AA91"    // b/359290130
-    ]
-  }],
   "chromePrivate": {
     "channel": "stable",
     "extension_types": ["extension", "legacy_packaged_app"],
@@ -212,10 +186,6 @@
     "allowlist": [
       "37358CF0945B962A2F3783C2F8DB929B169818A4" // Contextual Tasks Component Extension
     ]
-  },
-  "cookies": {
-    "channel": "stable",
-    "extension_types": ["extension", "legacy_packaged_app"]
   },
   "crashReportPrivate": {
     "channel": "dev",
@@ -514,21 +484,6 @@
     "extension_types": ["extension", "legacy_packaged_app"],
     "platforms": ["chromeos"]
   },
-  "imageLoaderPrivate": [{
-    "channel": "stable",
-    "component_extensions_auto_granted": false,
-    "extension_types": ["extension"],
-    "location": "component",
-    "platforms": ["chromeos"],
-    "allowlist": [
-      "74E2D32A61B08D29521A8C4E360F581DE78F5CA5"  // Image loader
-    ]
-  }, {
-    "channel": "trunk",
-    "platforms": ["chromeos"],
-    "extension_types": ["extension"],
-    "location": "component"
-  }],
   "languageSettingsPrivate": [
     {
       "channel": "trunk",
@@ -619,23 +574,6 @@
       "36F5326E7683E204CE9CE1532093D8BB9CD5D280"  // AuthX in-session extension
     ]
   }],
-  "loginScreenUi": [{
-    "channel": "stable",
-    "dependencies": ["behavior:imprivata_login_screen_extension"],
-    "extension_types": ["login_screen_extension"],
-    "location": "policy",
-    "platforms": ["chromeos"]
-  }, {
-    "channel": "stable",
-    "extension_types": ["login_screen_extension"],
-    "location": "policy",
-    "platforms": ["chromeos"],
-    "allowlist": [
-      "7FE4A999359A456C4B0FB7B7AD85CEA29CA50519", // Login screen APIs test extension
-      // https://crbug.com/433867146
-      "4B7E9789426EBD1BB3F99D72690DAE303FC042DF"  // AuthX Secure for ChromeOS
-    ]
-  }],
   "loginState": [{
     "channel": "stable",
     "extension_types": ["extension"],
@@ -647,15 +585,37 @@
     "location": "policy",
     "platforms": ["chromeos"],
     "allowlist": [
-      "93B7178E8C275515C38D4F43D9DF4648F0EA9B03",   // Identity Card Connector
-      "EC3DE21E048B67319893889529354DFBFA96FD23",   // https://crbug.com/1233881
-      "A19608AC34215B127FF9D7C006D67F5C8ED8146D",   // https://crbug.com/1233881
+      // Identity Card Connector
+      "93B7178E8C275515C38D4F43D9DF4648F0EA9B03",
+      // Identity Card Connector (SHA-256)
+      "BABE7AD8BDBAFCD146D50861BF6981DA7AC2961C1982E5F78EDBD7A5FAA62259",
+      // https://crbug.com/1233881
+      // Smart Card Connector
+      "EC3DE21E048B67319893889529354DFBFA96FD23",
+      // Smart Card Connector (SHA-256)
+      "1F4D08BD4FBDAAD15E4EAD73E4ED9966E4276C636F9898810B30E614EED4AB03",
+      // Smart Card Connector Beta
+      "A19608AC34215B127FF9D7C006D67F5C8ED8146D",
+      // Smart Card Connector Beta (SHA-256)
+      "168BEAE720DEAFA08E9369F5D3D1DFF43DC9B00723AAA65F8F2B170147D60676",
       // https://crbug.com/40758574
-      "6B748A5C005F21B7CBCF4170C2F883E435DEB511",   // DriveLock Smart Card Middleware
-      "075FF17D52ED6E3C2E5EC4D99F188E7A25AF47EA",   // Beta DriveLock Smart Card Middleware
-      "5C825E850034490380BCB756D43ABB2CF537AA91",   // b/359290130
+      // DriveLock Smart Card Middleware
+      "6B748A5C005F21B7CBCF4170C2F883E435DEB511",
+      // DriveLock Smart Card Middleware (SHA-256)
+      "F1B2CF2E3EE82CCEDF0B9C004A0F40763C8BDFBFFCB4FEEB8126CF9BB50D24EF",
+      // Beta DriveLock Smart Card Middleware
+      "075FF17D52ED6E3C2E5EC4D99F188E7A25AF47EA",
+      // Beta DriveLock Smart Card Middleware (SHA-256)
+      "510E0C76D368F445731C223EFD9EFC97C27507DC6696EC3545F9A5A396BD9838",
+      // b/359290130
+      "5C825E850034490380BCB756D43ABB2CF537AA91",
+      // b/359290130 (SHA-256)
+      "BAC4ABAB5445D64536BDE1C030C68961E820086FFE450DE13C3F83B2E830B123",
       // https://crbug.com/433867146
-      "4B7E9789426EBD1BB3F99D72690DAE303FC042DF"    // AuthX Secure for ChromeOS
+      // AuthX Secure for ChromeOS
+      "4B7E9789426EBD1BB3F99D72690DAE303FC042DF",
+      // AuthX Secure for ChromeOS (SHA-256)
+      "728AA38F805D9F046321CA8CFE30621958B2F45C1920F3172B64A9A459DABFF5"
     ]
   }, {
     "channel": "stable",
@@ -667,8 +627,15 @@
     "extension_types": ["platform_app"],
     "platforms": ["chromeos"],
     "allowlist": [
-      "EC3DE21E048B67319893889529354DFBFA96FD23",  // https://crbug.com/1233881
-      "A19608AC34215B127FF9D7C006D67F5C8ED8146D"   // https://crbug.com/1233881
+      // https://crbug.com/1233881
+      // Smart Card Connector
+      "EC3DE21E048B67319893889529354DFBFA96FD23",
+      // Smart Card Connector (SHA-256)
+      "1F4D08BD4FBDAAD15E4EAD73E4ED9966E4276C636F9898810B30E614EED4AB03",
+      // Smart Card Connector Beta
+      "A19608AC34215B127FF9D7C006D67F5C8ED8146D",
+      // Smart Card Connector Beta (SHA-256)
+      "168BEAE720DEAFA08E9369F5D3D1DFF43DC9B00723AAA65F8F2B170147D60676"
     ]
   }],
   "webcamPrivate": {
@@ -710,8 +677,15 @@
       "location": "policy",
       "platforms": ["chromeos"],
       "allowlist": [
-        "93B7178E8C275515C38D4F43D9DF4648F0EA9B03", // Identity Card Connector
-        "1FC31C9D42DF1B51EA7648F73DF26400322999A8"  // https://crbug.com/383855830
+        // Identity Card Connector
+        "93B7178E8C275515C38D4F43D9DF4648F0EA9B03",
+        // Identity Card Connector (SHA-256)
+        "BABE7AD8BDBAFCD146D50861BF6981DA7AC2961C1982E5F78EDBD7A5FAA62259",
+        // https://crbug.com/383855830
+        // IDmelon Accesskey
+        "1FC31C9D42DF1B51EA7648F73DF26400322999A8",
+        // IDmelon Accesskey (SHA-256)
+        "C42CACC20C2A7F53A6F8DD2EE85F1FC2333DD6EB030BEA91B9CA9D9DDD6D570D"
       ]
     }
   ],
@@ -841,7 +815,7 @@
   "proxyOverrideRulesPrivate": {
     "channel": "stable",
     "extension_types": ["extension"],
-    "platforms": ["linux", "mac", "win"],
+    "platforms": ["chromeos", "linux", "mac", "win"],
     "allowlist" : [
       "031E5E4A54C39E4F46E11CE643584E9187915908",  // https://crbug.com/40592958 SecureConnect
       "349E89FE0296161007623C0B4096B617D7CECD54",  // https://crbug.com/40592958 SecureConnect
@@ -1052,15 +1026,6 @@
   "ttsEngine": {
     "channel": "stable",
     "extension_types": ["extension", "legacy_packaged_app"]
-  },
-  "usersPrivate": {
-    "channel": "trunk",
-    "platforms": ["chromeos"],
-    "extension_types": ["extension", "platform_app"],
-    "allowlist": [
-      // ChromeOS Autotest extension.
-      "0D209B5E4401BB8E7873B5AB5B1346A1CB067015"
-    ]
   },
   "wallpaper": {
     "channel": "stable",

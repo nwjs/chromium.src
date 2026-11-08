@@ -5,20 +5,34 @@
 #ifndef CHROME_BROWSER_SELECTION_SUGGESTION_SERVICE_H_
 #define CHROME_BROWSER_SELECTION_SUGGESTION_SERVICE_H_
 
+#include <cstdint>
 #include <memory>
+#include <optional>
 #include <vector>
 
+#include "base/containers/flat_map.h"
+#include "base/feature_list.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/raw_ref.h"
-#include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
 #include "chrome/browser/selection/suggestion.h"
 #include "chrome/browser/selection/suggestion_tool.h"
 #include "ui/base/unowned_user_data/scoped_unowned_user_data.h"
 
+class GoogleGroupsManager;
+
 namespace content {
 class WebContents;
 }
+
+namespace optimization_guide {
+class ModelQualityLogEntry;
+struct OptimizationGuideModelExecutionResult;
+class RemoteModelExecutor;
+namespace proto {
+class SmartSelectionSuggestionsRequest;
+}  // namespace proto
+}  // namespace optimization_guide
 
 namespace tabs {
 class TabInterface;
@@ -26,13 +40,20 @@ class TabInterface;
 
 namespace selection {
 
+// Callback signature for suggestions retrieval.
+using SuggestionsCallback = base::OnceCallback<void(
+    std::vector<std::unique_ptr<Suggestion>> suggestions)>;
+
 // TabFeature associated service for requesting zero-state or context-aware
 // selection suggestions from registered feature tools.
 class SuggestionService {
  public:
   DECLARE_USER_DATA(SuggestionService);
 
-  explicit SuggestionService(tabs::TabInterface* tab);
+  SuggestionService(
+      tabs::TabInterface* tab,
+      optimization_guide::RemoteModelExecutor* remote_model_executor,
+      const GoogleGroupsManager* google_groups_manager);
   virtual ~SuggestionService();
 
   SuggestionService(const SuggestionService&) = delete;
@@ -42,7 +63,8 @@ class SuggestionService {
   static SuggestionService* FromTabWebContents(
       content::WebContents* tab_web_contents);
 
-  // Registration interface for internal Chrome feature tools.
+  // Registers `tool`. There must not be a tool with the same `ToolId` already
+  // registered.
   void RegisterTool(SuggestionTool* tool);
   void UnregisterTool(SuggestionTool* tool);
 
@@ -53,20 +75,33 @@ class SuggestionService {
 
   // Requests zero-state or context-aware suggestions from registered tools
   // for the active selection context in the tab's WebContents.
-  virtual void RequestSuggestions(const AreaOfInterest& processed_area,
+  virtual void RequestSuggestions(AreaOfInterest processed_area,
                                   SuggestionsCallback callback);
 
  private:
-  struct ActiveRequest;
+  // Returns whether `feature` is enabled for the profile, falling back to
+  // `base::FeatureList::IsEnabled` if `google_groups_manager_` is null.
+  bool IsFeatureGroupEnabled(const base::Feature& feature) const;
 
-  void OnToolSuggestions(
-      scoped_refptr<ActiveRequest> active_request,
-      bool& tool_completed,
-      std::vector<std::unique_ptr<Suggestion>> suggestions,
-      bool complete);
+  // Attaches `png_bytes` (if any) to `request` and sends it to MES.
+  void SendServerSuggestionsRequest(
+      AreaOfInterest processed_area,
+      SuggestionsCallback callback,
+      optimization_guide::proto::SmartSelectionSuggestionsRequest request,
+      std::optional<std::vector<uint8_t>> png_bytes);
+
+  // Processes the server response by calling tools to convert the response into
+  // `Suggestion`s and calling the initial `callback` with them.
+  void OnServerSuggestions(
+      AreaOfInterest processed_area,
+      SuggestionsCallback callback,
+      optimization_guide::OptimizationGuideModelExecutionResult result,
+      std::unique_ptr<optimization_guide::ModelQualityLogEntry> log_entry);
 
   const raw_ref<tabs::TabInterface> tab_;
-  std::vector<raw_ptr<SuggestionTool>> tools_;
+  const raw_ptr<optimization_guide::RemoteModelExecutor> remote_model_executor_;
+  const raw_ptr<const GoogleGroupsManager> google_groups_manager_;
+  base::flat_map<SuggestionTool::ToolId, raw_ptr<SuggestionTool>> tools_;
 
   ui::ScopedUnownedUserData<SuggestionService> scoped_unowned_user_data_;
 

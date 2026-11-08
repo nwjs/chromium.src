@@ -42,4 +42,6 @@ public interface WebViewNavigationBoundaryInterface extends IsomorphicObjectBoun
     /* WebResourceError */ @Nullable InvocationHandler getWebResourceError();
 
     @Nullable Map<String, String> getResponseHeaders();
+
+    /* WebViewNavigationState */ InvocationHandler snapshotState();
 }

@@ -10,7 +10,6 @@ include_rules = [
   # Files residing in certain directories (e.g., //chrome/browser) are listed
   # individually. Other dependencies within //chrome are listed on a per-
   # directory basis. See //tools/chromeos/gen_deps.sh for details.
-  "+chrome/browser/apps/app_discovery_service",
   "+chrome/browser/apps/app_service",
   "+chrome/browser/ash/app_list",
   "+chrome/browser/ash/arc",
@@ -19,13 +18,11 @@ include_rules = [
   "+chrome/browser/ash/extensions",
   "+chrome/browser/ash/file_manager",
   "+chrome/browser/ash/file_suggest",
-  "+chrome/browser/ash/profiles",
   "+chrome/browser/ash/release_notes",
   "+chrome/browser/ash/system_web_apps",
   "+chrome/browser/autocomplete",
   "+chrome/browser/bitmap_fetcher",
   "+chrome/browser/extensions/extension_service.h",
-  "+chrome/browser/favicon",
   "+chrome/browser/platform_util.h",
   "+chrome/browser/profiles",
   "+chrome/browser/screen_ai",
@@ -55,13 +52,18 @@ include_rules = [
 ]
 
 specific_include_rules = {
-  # SearchControllerFactory resolves the bookmarks::BookmarkModel that
-  # OmniboxProvider takes by constructor.
-  "search_controller_factory\\.cc": [
-    "+chrome/browser/bookmarks/bookmark_model_factory.h",
-  ],
+  # Only the omnibox tests still create the BookmarkModel via
+  # chrome/browser/bookmarks's factory; production receives it as a
+  # CreateSearchController parameter, resolved by AppListClientImpl through
+  # ash::BookmarkModelProvider.
   "omnibox_(result|provider)_unittest\\.cc": [
     "+chrome/browser/bookmarks/bookmark_model_factory.h",
+  ],
+  # OmniboxProviderTest installs the favicon and history services that
+  # OmniboxProvider now takes by constructor.
+  "omnibox_provider_unittest\\.cc": [
+    "+chrome/browser/favicon/favicon_service_factory.h",
+    "+chrome/browser/history/history_service_factory.h",
   ],
   ".*(unittest|browsertest)\\.cc": [
     "+chrome/browser/web_applications/web_app_provider.h",

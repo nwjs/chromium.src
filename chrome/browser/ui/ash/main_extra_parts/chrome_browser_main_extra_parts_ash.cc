@@ -348,7 +348,9 @@ void ChromeBrowserMainExtraPartsAsh::PreProfileInit() {
   wallpaper_controller_client_ =
       std::make_unique<WallpaperControllerClientImpl>(
           CHECK_DEREF(g_browser_process->local_state()),
-          std::make_unique<wallpaper_handlers::WallpaperFetcherDelegateImpl>());
+          std::make_unique<wallpaper_handlers::WallpaperFetcherDelegateImpl>(
+              g_browser_process->GetFeatures()->application_locale_storage(),
+              g_browser_process->shared_url_loader_factory()));
   wallpaper_controller_client_->Init();
 
   session_controller_client_ = std::make_unique<SessionControllerClientImpl>(
@@ -436,8 +438,7 @@ void ChromeBrowserMainExtraPartsAsh::PreProfileInit() {
       ash::SystemGeolocationSource::
           CreateGeolocationSystemPermissionManagerOnAsh());
 
-  ui::HeatmapPalmDetector::SetInstance(
-      std::make_unique<ash::HeatmapPalmDetectorImpl>());
+  heatmap_palm_detector_ = std::make_unique<ash::HeatmapPalmDetectorImpl>();
 
   // Required by `read_write_cards_manager_` and
   // `mahi_media_app_content_manager_`.
@@ -636,6 +637,8 @@ void ChromeBrowserMainExtraPartsAsh::PostMainMessageLoopRun() {
     device::GeolocationSystemPermissionManager::GetInstance()->Shutdown();
   }
   device::GeolocationSystemPermissionManager::SetInstance(nullptr);
+
+  heatmap_palm_detector_.reset();
 
   settings_window_manager_.reset();
   system_tray_client_.reset();

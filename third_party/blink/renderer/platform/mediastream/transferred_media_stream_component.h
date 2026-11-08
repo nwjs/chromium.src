@@ -5,13 +5,17 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_PLATFORM_MEDIASTREAM_TRANSFERRED_MEDIA_STREAM_COMPONENT_H_
 #define THIRD_PARTY_BLINK_RENDERER_PLATFORM_MEDIASTREAM_TRANSFERRED_MEDIA_STREAM_COMPONENT_H_
 
+#include "base/functional/callback_forward.h"
 #include "base/memory/raw_ptr.h"
+#include "third_party/blink/public/platform/media/video_capture.h"
+#include "third_party/blink/public/platform/modules/mediastream/web_media_stream_sink.h"
 #include "third_party/blink/public/platform/modules/mediastream/web_media_stream_track.h"
-#include "third_party/blink/renderer/platform/audio/audio_source_provider.h"
 #include "third_party/blink/renderer/platform/heap/collection_support/heap_vector.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
+#include "third_party/blink/renderer/platform/heap/member.h"
 #include "third_party/blink/renderer/platform/mediastream/media_stream_component.h"
 #include "third_party/blink/renderer/platform/mediastream/media_stream_track_platform.h"
+#include "third_party/blink/renderer/platform/platform_export.h"
 #include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
 #include "third_party/blink/renderer/platform/wtf/vector.h"
 
@@ -67,8 +71,8 @@ class PLATFORM_EXPORT TransferredMediaStreamComponent final
   void AddSink(WebMediaStreamAudioSink* sink) override;
   void AddSink(WebMediaStreamSink* sink,
                const VideoCaptureDeliverFrameCB& callback,
-               MediaStreamVideoSink::IsSecure is_secure,
-               MediaStreamVideoSink::UsesAlpha uses_alpha) override;
+               WebMediaStreamSink::IsSecure is_secure,
+               WebMediaStreamSink::UsesAlpha uses_alpha) override;
 
   String ToString() const override;
 
@@ -78,8 +82,8 @@ class PLATFORM_EXPORT TransferredMediaStreamComponent final
   struct AddSinkArgs {
     raw_ptr<WebMediaStreamSink> sink;
     VideoCaptureDeliverFrameCB callback;
-    MediaStreamVideoSink::IsSecure is_secure;
-    MediaStreamVideoSink::UsesAlpha uses_alpha;
+    WebMediaStreamSink::IsSecure is_secure;
+    WebMediaStreamSink::UsesAlpha uses_alpha;
   };
 
   Member<MediaStreamComponent> component_;

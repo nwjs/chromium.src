@@ -17,8 +17,6 @@ static_library("auth") {
     "arc_robot_auth_code_fetcher.h",
   ]
 
-  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
-
   deps = [
     "//ash/constants",
     "//ash/webui/settings/public/constants",
@@ -80,7 +78,6 @@ source_set("browser_tests") {
     "//chrome/browser/ash/test:test_support",
     "//chrome/browser/profiles:profile",
     "//chrome/browser/signin",
-    "//chrome/browser/ui",
     "//chrome/browser/ui:chrome_pages",
     "//chrome/browser/ui/ash/account_manager",
     "//chrome/browser/ui/ash/account_manager:test_support",

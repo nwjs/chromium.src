@@ -45,6 +45,11 @@
  * can overlay the animation's container div.
  * Must have static positioning otherwise so the error and placeholder
  * voice search text change the height of voice_search and thus composebox.
+ * Note: when static (in error mode), this '#container''s 'width: 100%'
+ * resolves against the parent composebox ':host'. Thus, host must set
+ * 'display: block' and '--cr-composebox-width' since others that control
+ * height/width, like '#composebox' and 'search-animated-glow', are hidden in
+ * error state.
  */
 :host(:not([is-permission-prompt-open])) #container:not(.has-error) {
   inset: 0;
@@ -212,24 +217,12 @@
   position: relative;
 }
 
-/* Voice search uses the search token blues on every surface, instead of
+/* Voice search uses the search token blue on every surface, instead of
  * inheriting whichever submit color the embedding composebox happens to use.
+ * The button is always active, even before any speech has been recognized.
  */
 #submitButton {
   --color-composebox-submit-button-background: #346BF1;
-}
-
-#submitButton[disabled] {
-  --color-composebox-submit-button-background: #C2D3FB;
-}
-
-/* The shared submit button fades itself out when disabled. The inactive color
- * above is already the faded token, so keep both background layers at full
- * opacity.
- */
-#submitButton[disabled]::part(submit-icon),
-#submitButton[disabled]::part(button-energy) {
-  opacity: 1;
 }
 
 :host-context([webui-rounded-icons]) #stopButton {
@@ -314,6 +307,12 @@
 #input.hidden {
   opacity: 0;
   pointer-events: none;
+}
+
+:host(.permission-prompt-showing) {
+  --voice-search-minimum-height: var(--cr_composebox_minimum_height, 121px);
+  min-height: var(--cr_composebox_minimum_height, 121px);
+  min-width: var(--cr_composebox_minimum_width, 0);
 }
 
 /* Hide submit/stop buttons (if applicable) if permission prompt is showing. */

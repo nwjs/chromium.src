@@ -19,13 +19,14 @@ import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 
+import org.chromium.base.ContextUtils;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.chrome.browser.suggestions.tile.tile_edit_dialog.CustomTileEditCoordinator.CustomLinksDuplicateChecker;
 import org.chromium.chrome.browser.suggestions.tile.tile_edit_dialog.CustomTileEditCoordinator.TileValueChangeHandler;
 import org.chromium.ui.modaldialog.DialogDismissalCause;
 import org.chromium.ui.modaldialog.ModalDialogManager;
 import org.chromium.ui.modaldialog.ModalDialogManager.ModalDialogType;
-import org.chromium.ui.modelutil.PropertyModel;
+import org.chromium.ui.modaldialog.ModalDialogProperties;
 import org.chromium.url.GURL;
 import org.chromium.url.JUnitTestGURLs;
 
@@ -35,26 +36,28 @@ public class CustomTileEditCoordinatorUnitTest {
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
 
     @Mock private ModalDialogManager mModalDialogManager;
-    @Mock private CustomTileEditView mView;
     @Mock private CustomTileEditMediator mMediator;
     @Mock private TileValueChangeHandler mTileValueChangeHandler;
     @Mock private CustomLinksDuplicateChecker mCustomLinksDuplicateChecker;
-    @Mock private PropertyModel mDialogModel;
 
     private static final String TEST_TITLE = "Test Title";
     private static final GURL TEST_URL = JUnitTestGURLs.URL_1;
     private static final GURL TEST_DUPLICATE_URL = JUnitTestGURLs.URL_2;
 
+    private CustomTileEditView mView;
+
     @Before
     public void setUp() {
-        when(mView.getDialogModel()).thenReturn(mDialogModel);
+        mView = new CustomTileEditView(ContextUtils.getApplicationContext(), null);
     }
 
     @Test
     public void testConstructor_SetsDelegates() {
         CustomTileEditCoordinator coordinator = createAndSetupCoordinator();
 
-        verify(mView).setMediatorDelegate(eq(mMediator));
+        // The view forwards user interactions to the mediator.
+        mView.onClick(mView.getDialogModel(), ModalDialogProperties.ButtonType.NEGATIVE);
+        verify(mMediator).onCancel();
         verify(mMediator).setDelegates(eq(mView), eq(coordinator));
     }
 
@@ -83,7 +86,7 @@ public class CustomTileEditCoordinatorUnitTest {
 
         // Expect the Mediator to call showEditDialog().
         coordinator.showEditDialog();
-        verify(mModalDialogManager).showDialog(eq(mDialogModel), eq(ModalDialogType.APP));
+        verify(mModalDialogManager).showDialog(eq(mView.getDialogModel()), eq(ModalDialogType.APP));
     }
 
     @Test
@@ -93,7 +96,9 @@ public class CustomTileEditCoordinatorUnitTest {
 
         coordinator.closeEditDialog(/* isSubmit= */ true);
         verify(mModalDialogManager)
-                .dismissDialog(eq(mDialogModel), eq(DialogDismissalCause.POSITIVE_BUTTON_CLICKED));
+                .dismissDialog(
+                        eq(mView.getDialogModel()),
+                        eq(DialogDismissalCause.POSITIVE_BUTTON_CLICKED));
     }
 
     @Test
@@ -103,7 +108,9 @@ public class CustomTileEditCoordinatorUnitTest {
 
         coordinator.closeEditDialog(/* isSubmit= */ false);
         verify(mModalDialogManager)
-                .dismissDialog(eq(mDialogModel), eq(DialogDismissalCause.NEGATIVE_BUTTON_CLICKED));
+                .dismissDialog(
+                        eq(mView.getDialogModel()),
+                        eq(DialogDismissalCause.NEGATIVE_BUTTON_CLICKED));
     }
 
     @Test

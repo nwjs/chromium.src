@@ -828,8 +828,13 @@ error::Error GLES2DecoderPassthroughImpl::DoCompressedTexSubImage3D(
 
 error::Error GLES2DecoderPassthroughImpl::DoContextVisibilityHintCHROMIUM(
     GLboolean visibility) {
-  if (feature_info_->IsWebGLContext())
+  if (feature_info_->IsWebGLContext()) {
     context_->SetVisibility(visibility == GL_TRUE);
+    if (visibility == GL_FALSE &&
+        feature_info_->feature_flags().angle_trim_memory) {
+      api()->glTrimMemoryANGLEFn(GL_MEMORY_TRIM_HIGH_ANGLE);
+    }
+  }
   return error::kNoError;
 }
 
@@ -1521,6 +1526,14 @@ error::Error GLES2DecoderPassthroughImpl::DoGetBufferSubDataCHROMIUM(
       api()->glMapBufferRangeFn(target, offset, size, GL_MAP_READ_BIT);
   if (!map_ptr) {
     return error::kNoError;
+  }
+
+  if (feature_info_->workarounds().check_graphics_reset_status_after_readback &&
+      CheckResetStatus()) {
+    // The driver reset underneath the blocking map; do not deliver bytes the
+    // discarded readback may never have written.
+    group_->LoseContexts(error::kUnknown);
+    return error::kLostContext;
   }
 
   UNSAFE_TODO(memcpy(data, map_ptr, static_cast<size_t>(size)));
@@ -2263,10 +2276,13 @@ error::Error GLES2DecoderPassthroughImpl::DoWritePixelsYUVINTERNAL(
       return error::kNoError;
     }
   }
-  ScopedPixelLocalStorageInterrupt scoped_pls_interrupt(this);
   auto* shared_context_state = lazy_context_->shared_context_state();
-  ui::ScopedMakeCurrent smc(shared_context_state->context(),
-                            shared_context_state->surface());
+  ScopedSharedContextCurrent scoped_current(
+      this, shared_context_state->context(), shared_context_state->surface());
+  if (!scoped_current.IsContextCurrent()) {
+    MarkContextLost(error::kMakeCurrentFailed);
+    return error::kLostContext;
+  }
 
   if (src_yuv_plane_config > static_cast<int>(SkYUVAInfo::PlaneConfig::kLast)) {
     InsertError(GL_INVALID_ENUM,
@@ -2469,9 +2485,13 @@ error::Error GLES2DecoderPassthroughImpl::DoReadbackARGBImagePixelsINTERNAL(
       return error::kNoError;
     }
   }
-  ScopedPixelLocalStorageInterrupt scoped_pls_interrupt(this);
-  ui::ScopedMakeCurrent smc(lazy_context_->shared_context_state()->context(),
-                            lazy_context_->shared_context_state()->surface());
+  ScopedSharedContextCurrent scoped_current(
+      this, lazy_context_->shared_context_state()->context(),
+      lazy_context_->shared_context_state()->surface());
+  if (!scoped_current.IsContextCurrent()) {
+    MarkContextLost(error::kMakeCurrentFailed);
+    return error::kLostContext;
+  }
 
   if (dst_sk_color_type > kLastEnum_SkColorType) {
     InsertError(GL_INVALID_ENUM,
@@ -2585,6 +2605,33 @@ error::Error GLES2DecoderPassthroughImpl::DoReadbackARGBImagePixelsINTERNAL(
       helper.ReadPixels(src_x, src_y, plane_index, row_bytes, dst_info,
                         pixel_address, std::move(source_shared_image));
 
+  // A device reset that occurs while the readback executes can complete it
+  // without error while the destination was never written on certain GPUs. This
+  // readback runs on `lazy_context_`'s shared context (current
+  // under `smc` above), so poll that context's reset status; the decoder's
+  // own CheckResetStatus() requires the decoder context to be current. On a
+  // latched reset, scrub the destination and lose the context instead of
+  // delivering unwritten allocation contents.
+  auto* readback_context_state = lazy_context_->shared_context_state();
+  if (feature_info_->workarounds().check_graphics_reset_status_after_readback &&
+      !readback_context_state->context_lost() &&
+      readback_context_state->CheckResetStatus(/*needs_gl=*/false)) {
+    // SAFETY: `pixel_address` was validated against shared memory for
+    // exactly `byte_size` bytes when the readback was set up above.
+    std::ranges::fill(UNSAFE_BUFFERS(base::span(
+                          static_cast<uint8_t*>(pixel_address), byte_size)),
+                      0);
+    InsertError(GL_INVALID_OPERATION,
+                "readback aborted: device reset detected");
+    // CheckResetStatus() above latched the robustness verdict on
+    // `readback_context_state`; carry it over rather than flattening to
+    // kUnknown, matching what the raster decoder's observer path reports
+    // for the same event.
+    MarkContextLost(*readback_context_state->context_lost_reason());
+    group_->LoseContexts(error::kUnknown);
+    return error::kLostContext;
+  }
+
   if (!helper_result.has_value()) {
     InsertError(helper_result.error().gl_error, helper_result.error().msg);
   } else {
@@ -2612,7 +2659,32 @@ error::Error GLES2DecoderPassthroughImpl::DoReadPixels(GLint x,
                  feature_info_->gl_version_info().is_es3);
   api()->glReadPixelsRobustANGLEFn(x, y, width, height, format, type, bufsize,
                                    length, columns, rows, pixels);
-  *success = CheckErrorCallbackState() ? 0 : 1;
+  bool had_error = CheckErrorCallbackState();
+  // A device reset that occurs while this call is blocked can release the
+  // wait with no GL error and a destination the GPU never wrote — or, when
+  // ANGLE's own readback reset check is active, with a context-lost error
+  // after the destination was already written. In either case, if the
+  // robustness extension reports a reset, scrub the destination and lose
+  // the context instead of leaving unwritten allocation contents
+  // client-visible.
+  if (feature_info_->workarounds().check_graphics_reset_status_after_readback &&
+      !WasContextLost() && CheckResetStatus()) {
+    if (bound_buffers_[GL_PIXEL_PACK_BUFFER] == 0 && pixels && bufsize > 0) {
+      // `*length` is reported by the now-untrusted GL stack; scrub the full
+      // Chrome-validated destination window rather than trusting the report
+      // for coverage (an under-report would leave driver bytes in place).
+      // SAFETY: the caller validated `pixels` against shared memory for
+      // exactly `bufsize` bytes before issuing the read.
+      std::ranges::fill(
+          UNSAFE_BUFFERS(base::span(static_cast<uint8_t*>(pixels),
+                                    static_cast<size_t>(bufsize))),
+          0);
+    }
+    *success = 0;
+    group_->LoseContexts(error::kUnknown);
+    return error::kLostContext;
+  }
+  *success = had_error ? 0 : 1;
   return error::kNoError;
 }
 
@@ -4751,9 +4823,13 @@ error::Error GLES2DecoderPassthroughImpl::DoCopySharedImageINTERNAL(
       return error::kNoError;
     }
   }
-  ScopedPixelLocalStorageInterrupt scoped_pls_interrupt(this);
-  ui::ScopedMakeCurrent smc(lazy_context_->shared_context_state()->context(),
-                            lazy_context_->shared_context_state()->surface());
+  ScopedSharedContextCurrent scoped_current(
+      this, lazy_context_->shared_context_state()->context(),
+      lazy_context_->shared_context_state()->surface());
+  if (!scoped_current.IsContextCurrent()) {
+    MarkContextLost(error::kMakeCurrentFailed);
+    return error::kLostContext;
+  }
   CopySharedImageHelper helper(group_->shared_image_representation_factory(),
                                lazy_context_->shared_context_state());
   auto result = helper.CopySharedImage(xoffset, yoffset, x, y, width, height,
@@ -4781,9 +4857,13 @@ error::Error GLES2DecoderPassthroughImpl::DoCopySharedImageToTextureINTERNAL(
       return error::kNoError;
     }
   }
-  ScopedPixelLocalStorageInterrupt scoped_pls_interrupt(this);
-  ui::ScopedMakeCurrent smc(lazy_context_->shared_context_state()->context(),
-                            lazy_context_->shared_context_state()->surface());
+  ScopedSharedContextCurrent scoped_current(
+      this, lazy_context_->shared_context_state()->context(),
+      lazy_context_->shared_context_state()->surface());
+  if (!scoped_current.IsContextCurrent()) {
+    MarkContextLost(error::kMakeCurrentFailed);
+    return error::kLostContext;
+  }
 
   if (target != GL_TEXTURE_2D && target != GL_TEXTURE_RECTANGLE_ANGLE) {
     InsertError(GL_INVALID_VALUE, "Invalid texture target");

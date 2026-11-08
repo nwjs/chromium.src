@@ -688,78 +688,162 @@ if (is_linux || is_chromeos || is_android) {
       libs = [ "dl" ]
     }
 
-    # dump_syms is a host tool, so only compile it for the host system.
-    executable("dump_syms") {
-      sources = [
-        "breakpad/src/common/dwarf/bytereader.cc",
-        "breakpad/src/common/dwarf/dwarf2diehandler.cc",
-        "breakpad/src/common/dwarf/dwarf2reader.cc",
-        "breakpad/src/common/dwarf/elf_reader.cc",
-        "breakpad/src/common/dwarf/elf_reader.h",
-        "breakpad/src/common/dwarf_cfi_to_module.cc",
-        "breakpad/src/common/dwarf_cfi_to_module.h",
-        "breakpad/src/common/dwarf_cu_to_module.cc",
-        "breakpad/src/common/dwarf_cu_to_module.h",
-        "breakpad/src/common/dwarf_line_to_module.cc",
-        "breakpad/src/common/dwarf_line_to_module.h",
-        "breakpad/src/common/dwarf_range_list_handler.cc",
-        "breakpad/src/common/dwarf_range_list_handler.h",
-        "breakpad/src/common/language.cc",
-        "breakpad/src/common/language.h",
-        "breakpad/src/common/linux/crc32.cc",
-        "breakpad/src/common/linux/crc32.h",
-        "breakpad/src/common/linux/dump_symbols.cc",
-        "breakpad/src/common/linux/dump_symbols.h",
-        "breakpad/src/common/linux/elf_symbols_to_module.cc",
-        "breakpad/src/common/linux/elf_symbols_to_module.h",
-        "breakpad/src/common/linux/elfutils.cc",
-        "breakpad/src/common/linux/elfutils.h",
-        "breakpad/src/common/linux/file_id.cc",
-        "breakpad/src/common/linux/file_id.h",
-        "breakpad/src/common/linux/guid_creator.h",
-        "breakpad/src/common/linux/linux_libc_support.cc",
-        "breakpad/src/common/linux/linux_libc_support.h",
-        "breakpad/src/common/linux/memory_mapped_file.cc",
-        "breakpad/src/common/linux/memory_mapped_file.h",
-        "breakpad/src/common/memory_allocator.h",
-        "breakpad/src/common/memory_range.h",
-        "breakpad/src/common/module.cc",
-        "breakpad/src/common/module.h",
-        "breakpad/src/common/path_helper.cc",
-        "breakpad/src/common/path_helper.h",
-        "breakpad/src/common/scoped_ptr.h",
-        "breakpad/src/common/stabs_reader.cc",
-        "breakpad/src/common/stabs_reader.h",
-        "breakpad/src/common/stabs_to_module.cc",
-        "breakpad/src/common/stabs_to_module.h",
-        "breakpad/src/tools/linux/dump_syms/dump_syms.cc",
-      ]
+    # NW.js: when cross-compiling for mac from a non-mac host, the mac host
+    # toolchain does not exist, so build Breakpad's Mach-O/dSYM dumper for the
+    # build host instead. It needs no macOS SDK or libSystem: breakpad ships
+    # sanitised Mach-O headers in breakpad/src/third_party/mac_headers, and
+    # common/mac/{byteswap,arch_utilities} have non-Apple implementations.
+    # Note: breakpad/src/common/mac must NOT be on the include path here --
+    # common/mac/byteswap.h does "#include_next <byteswap.h>", which would
+    # otherwise resolve to itself and leave bswap_16 undefined.
+    if (target_os == "mac") {
+      executable("dump_syms") {
+        sources = [
+          "breakpad/src/common/dwarf/bytereader.cc",
+          "breakpad/src/common/dwarf/dwarf2diehandler.cc",
+          "breakpad/src/common/dwarf/dwarf2reader.cc",
+          "breakpad/src/common/dwarf/elf_reader.cc",
+          "breakpad/src/common/dwarf/elf_reader.h",
+          "breakpad/src/common/dwarf_cfi_to_module.cc",
+          "breakpad/src/common/dwarf_cfi_to_module.h",
+          "breakpad/src/common/dwarf_cu_to_module.cc",
+          "breakpad/src/common/dwarf_cu_to_module.h",
+          "breakpad/src/common/dwarf_line_to_module.cc",
+          "breakpad/src/common/dwarf_line_to_module.h",
+          "breakpad/src/common/dwarf_range_list_handler.cc",
+          "breakpad/src/common/dwarf_range_list_handler.h",
+          "breakpad/src/common/language.cc",
+          "breakpad/src/common/language.h",
+          "breakpad/src/common/mac/arch_utilities.cc",
+          "breakpad/src/common/mac/arch_utilities.h",
+          "breakpad/src/common/mac/dump_syms.cc",
+          "breakpad/src/common/mac/dump_syms.h",
+          "breakpad/src/common/mac/file_id.cc",
+          "breakpad/src/common/mac/file_id.h",
+          "breakpad/src/common/mac/macho_id.cc",
+          "breakpad/src/common/mac/macho_id.h",
+          "breakpad/src/common/mac/macho_reader.cc",
+          "breakpad/src/common/mac/macho_reader.h",
+          "breakpad/src/common/mac/macho_utilities.cc",
+          "breakpad/src/common/mac/macho_utilities.h",
+          "breakpad/src/common/mac/macho_walker.cc",
+          "breakpad/src/common/mac/macho_walker.h",
+          "breakpad/src/common/md5.cc",
+          "breakpad/src/common/md5.h",
+          "breakpad/src/common/module.cc",
+          "breakpad/src/common/module.h",
+          "breakpad/src/common/path_helper.cc",
+          "breakpad/src/common/path_helper.h",
+          "breakpad/src/common/stabs_reader.cc",
+          "breakpad/src/common/stabs_reader.h",
+          "breakpad/src/common/stabs_to_module.cc",
+          "breakpad/src/common/stabs_to_module.h",
+          "breakpad/src/tools/mac/dump_syms/dump_syms_tool.cc",
+        ]
 
-      # There are some warnings in this code.
-      configs -= [ "//build/config/compiler:chromium_code" ]
-      configs += [ "//build/config/compiler:no_chromium_code" ]
+        include_dirs = [
+          "breakpad/src",
+          # Scrubbed Mach-O headers (mach-o/, mach/, architecture/, ...).
+          "breakpad/src/third_party/mac_headers",
+          # common/memory_allocator.h includes
+          # "third_party/lss/linux_syscall_support.h".
+          "../..",
+        ]
 
-      # dwarf2reader.cc uses dynamic_cast. Because we don't typically
-      # don't support RTTI, we enable it for this single target. Since
-      # dump_syms doesn't share any object files with anything else,
-      # this doesn't end up polluting Chrome itself.
-      configs -= [ "//build/config/compiler:no_rtti" ]
-      configs += [ "//build/config/compiler:rtti" ]
+        defines = [ "HAVE_MACH_O_NLIST_H" ]
 
-      # Breakpad rev 583 introduced this flag.
-      # Using this define, stabs_reader.h will include a.out.h to
-      # build on Linux.
-      defines = [ "HAVE_A_OUT_H" ]
+        configs -= [ "//build/config/compiler:chromium_code" ]
+        configs += [ "//build/config/compiler:no_chromium_code" ]
 
-      include_dirs = [ "breakpad/src" ]
+        # dwarf2reader.cc uses dynamic_cast.
+        configs -= [ "//build/config/compiler:no_rtti" ]
+        configs += [ "//build/config/compiler:rtti" ]
 
-      # Rust demangle support.
-      deps = [ "//third_party/rust/rustc_demangle_capi/v0_1:lib" ]
-      defines += [ "HAVE_RUSTC_DEMANGLE" ]
-      include_dirs += [ "//third_party/rust/chromium_crates_io/vendor/rustc-demangle-capi-v0_1/include" ]
-      sources += [ "//third_party/rust/chromium_crates_io/vendor/rustc-demangle-capi-v0_1/include/rustc_demangle.h" ]
+        # The DWARF utilities require -funsigned-char.
+        cflags = [ "-funsigned-char" ]
 
-      libs = [ "z" ]
+        # Rust demangle support.
+        deps = [ "//third_party/rust/rustc_demangle_capi/v0_1:lib" ]
+        defines += [ "HAVE_RUSTC_DEMANGLE" ]
+        include_dirs += [ "//third_party/rust/chromium_crates_io/vendor/rustc-demangle-capi-v0_1/include" ]
+        sources += [ "//third_party/rust/chromium_crates_io/vendor/rustc-demangle-capi-v0_1/include/rustc_demangle.h" ]
+
+        libs = [ "z" ]
+      }
+    } else {
+      # dump_syms is a host tool, so only compile it for the host system.
+      executable("dump_syms") {
+        sources = [
+          "breakpad/src/common/dwarf/bytereader.cc",
+          "breakpad/src/common/dwarf/dwarf2diehandler.cc",
+          "breakpad/src/common/dwarf/dwarf2reader.cc",
+          "breakpad/src/common/dwarf/elf_reader.cc",
+          "breakpad/src/common/dwarf/elf_reader.h",
+          "breakpad/src/common/dwarf_cfi_to_module.cc",
+          "breakpad/src/common/dwarf_cfi_to_module.h",
+          "breakpad/src/common/dwarf_cu_to_module.cc",
+          "breakpad/src/common/dwarf_cu_to_module.h",
+          "breakpad/src/common/dwarf_line_to_module.cc",
+          "breakpad/src/common/dwarf_line_to_module.h",
+          "breakpad/src/common/dwarf_range_list_handler.cc",
+          "breakpad/src/common/dwarf_range_list_handler.h",
+          "breakpad/src/common/language.cc",
+          "breakpad/src/common/language.h",
+          "breakpad/src/common/linux/crc32.cc",
+          "breakpad/src/common/linux/crc32.h",
+          "breakpad/src/common/linux/dump_symbols.cc",
+          "breakpad/src/common/linux/dump_symbols.h",
+          "breakpad/src/common/linux/elf_symbols_to_module.cc",
+          "breakpad/src/common/linux/elf_symbols_to_module.h",
+          "breakpad/src/common/linux/elfutils.cc",
+          "breakpad/src/common/linux/elfutils.h",
+          "breakpad/src/common/linux/file_id.cc",
+          "breakpad/src/common/linux/file_id.h",
+          "breakpad/src/common/linux/guid_creator.h",
+          "breakpad/src/common/linux/linux_libc_support.cc",
+          "breakpad/src/common/linux/linux_libc_support.h",
+          "breakpad/src/common/linux/memory_mapped_file.cc",
+          "breakpad/src/common/linux/memory_mapped_file.h",
+          "breakpad/src/common/memory_allocator.h",
+          "breakpad/src/common/memory_range.h",
+          "breakpad/src/common/module.cc",
+          "breakpad/src/common/module.h",
+          "breakpad/src/common/path_helper.cc",
+          "breakpad/src/common/path_helper.h",
+          "breakpad/src/common/scoped_ptr.h",
+          "breakpad/src/common/stabs_reader.cc",
+          "breakpad/src/common/stabs_reader.h",
+          "breakpad/src/common/stabs_to_module.cc",
+          "breakpad/src/common/stabs_to_module.h",
+          "breakpad/src/tools/linux/dump_syms/dump_syms.cc",
+        ]
+
+        # There are some warnings in this code.
+        configs -= [ "//build/config/compiler:chromium_code" ]
+        configs += [ "//build/config/compiler:no_chromium_code" ]
+
+        # dwarf2reader.cc uses dynamic_cast. Because we don't typically
+        # don't support RTTI, we enable it for this single target. Since
+        # dump_syms doesn't share any object files with anything else,
+        # this doesn't end up polluting Chrome itself.
+        configs -= [ "//build/config/compiler:no_rtti" ]
+        configs += [ "//build/config/compiler:rtti" ]
+
+        # Breakpad rev 583 introduced this flag.
+        # Using this define, stabs_reader.h will include a.out.h to
+        # build on Linux.
+        defines = [ "HAVE_A_OUT_H" ]
+
+        include_dirs = [ "breakpad/src" ]
+
+        # Rust demangle support.
+        deps = [ "//third_party/rust/rustc_demangle_capi/v0_1:lib" ]
+        defines += [ "HAVE_RUSTC_DEMANGLE" ]
+        include_dirs += [ "//third_party/rust/chromium_crates_io/vendor/rustc-demangle-capi-v0_1/include" ]
+        sources += [ "//third_party/rust/chromium_crates_io/vendor/rustc-demangle-capi-v0_1/include/rustc_demangle.h" ]
+
+        libs = [ "z" ]
+      }
     }
   } else if (current_toolchain == default_toolchain) {
     # The default toolchain builds the system-allocator binaries, which are

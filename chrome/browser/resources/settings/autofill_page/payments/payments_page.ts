@@ -75,7 +75,6 @@ export interface SettingsPaymentsPageElement {
     menuRemoveCreditCard: HTMLElement,
     menuAddVirtualCard: HTMLElement,
     menuRemoveVirtualCard: HTMLElement,
-    paymentMethodsActionMenu: CrLazyRenderLitElement<CrActionMenuElement>,
     paymentsList: SettingsPaymentsListElement,
   };
 }
@@ -323,18 +322,6 @@ export class SettingsPaymentsPageElement extends
 
   private setCreditCards_(cardList: chrome.autofillPrivate.CreditCardEntry[]) {
     this.creditCards = cardList;
-
-    // To align with Android, only record this histogram when the pref is
-    // enabled.
-    if (this.prefsInitialized_ &&
-        (this.creditCardEnabledSyntheticPref_.value ||
-         PrefService.getInstance()
-             .getPref<boolean>('autofill.credit_card_enabled')
-             .value)) {
-      MetricsBrowserProxyImpl.getInstance().recordBooleanHistogram(
-          'Autofill.PaymentMethodsSettingsPage.CardsViewedWithoutExistingCards',
-          this.creditCards.length === 0);
-    }
   }
 
   /**
@@ -346,12 +333,20 @@ export class SettingsPaymentsPageElement extends
     return this.showIbanSettingsEnabled_;
   }
 
+  private getPaymentMethodsActionMenu_(): CrActionMenuElement {
+    const el = this.shadowRoot
+                   .querySelector<CrLazyRenderLitElement<CrActionMenuElement>>(
+                       '#paymentMethodsActionMenu');
+    assert(el);
+    return el.get();
+  }
+
   /**
    * Opens the dropdown menu to add a credit/debit card or IBAN.
    */
   protected onAddPaymentMethodClick_(e: Event) {
     const target = e.currentTarget as HTMLElement;
-    this.$.paymentMethodsActionMenu.get().showAt(target, {
+    this.getPaymentMethodsActionMenu_().showAt(target, {
       anchorAlignmentX: AnchorAlignment.BEFORE_END,
       anchorAlignmentY: AnchorAlignment.AFTER_END,
       noOffset: true,
@@ -384,10 +379,6 @@ export class SettingsPaymentsPageElement extends
   protected onAddCreditCardClick_(e: Event) {
     e.preventDefault();
 
-    MetricsBrowserProxyImpl.getInstance().recordBooleanHistogram(
-        'Autofill.PaymentMethodsSettingsPage.AddCardClickedWithoutExistingCards2',
-        this.creditCards.length === 0);
-
     const date = new Date();  // Default to current month/year.
     const expirationMonth = date.getMonth() + 1;  // Months are 0 based.
     this.activeCreditCard_ = {
@@ -396,7 +387,7 @@ export class SettingsPaymentsPageElement extends
     };
     this.showCreditCardDialog_ = true;
     if (this.showIbanSettingsEnabled_) {
-      this.$.paymentMethodsActionMenu.get().close();
+      this.getPaymentMethodsActionMenu_().close();
     }
   }
 
@@ -411,7 +402,7 @@ export class SettingsPaymentsPageElement extends
   protected onAddIbanClick_(e: Event) {
     e.preventDefault();
     this.showIbanDialog_ = true;
-    this.$.paymentMethodsActionMenu.get().close();
+    this.getPaymentMethodsActionMenu_().close();
   }
 
   protected onIbanDialogClose_() {

@@ -29,6 +29,7 @@
 #import "ios/chrome/browser/app_bar/ui/app_bar_constants.h"
 #import "ios/chrome/browser/app_bar/ui/app_bar_consumer.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin/signin_constants.h"
+#import "ios/chrome/browser/bubble/model/tab_based_iph_browser_agent.h"
 #import "ios/chrome/browser/cobrowse/model/cobrowse_context.h"
 #import "ios/chrome/browser/fullscreen/model/fullscreen_browser_agent.h"
 #import "ios/chrome/browser/fullscreen/model/fullscreen_browser_agent_observer_bridge.h"
@@ -50,6 +51,7 @@
 #import "ios/chrome/browser/lens_overlay/model/lens_overlay_tab_helper.h"
 #import "ios/chrome/browser/lens_overlay/public/lens_overlay_availability_utils.h"
 #import "ios/chrome/browser/lens_overlay/public/lens_overlay_entrypoint.h"
+#import "ios/chrome/browser/net/model/network_change_observer_bridge.h"
 #import "ios/chrome/browser/ntp/model/new_tab_page_tab_helper.h"
 #import "ios/chrome/browser/ntp/model/new_tab_page_util.h"
 #import "ios/chrome/browser/policy/model/policy_util.h"
@@ -64,6 +66,7 @@
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
 #import "ios/chrome/browser/shared/model/url/chrome_url_constants.h"
+#import "ios/chrome/browser/shared/model/web_state_list/active_web_state_observation_forwarder.h"
 #import "ios/chrome/browser/shared/model/web_state_list/tab_group.h"
 #import "ios/chrome/browser/shared/model/web_state_list/tab_group_utils.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
@@ -86,6 +89,7 @@
 #import "ios/chrome/browser/toolbar/ui/buttons/toolbar_button_menu_factory_delegate.h"
 #import "ios/chrome/browser/url_loading/model/url_loading_browser_agent.h"
 #import "ios/chrome/browser/url_loading/model/url_loading_params.h"
+#import "ios/chrome/browser/web/model/web_navigation_browser_agent.h"
 #import "ios/web/public/web_state.h"
 #import "ios/web/public/web_state_observer_bridge.h"
 #import "net/base/network_change_notifier.h"
@@ -103,31 +107,6 @@ class AppBarMediatorPassKeyFactory {
 }  // namespace layout_state
 
 namespace {
-
-// Observes network connection changes to update Assistant button.
-class NetworkChangeObserverBridge
-    : public net::NetworkChangeNotifier::NetworkChangeObserver {
- public:
-  explicit NetworkChangeObserverBridge(void (^on_network_changed)())
-      : on_network_changed_(on_network_changed) {
-    net::NetworkChangeNotifier::AddNetworkChangeObserver(this);
-  }
-
-  ~NetworkChangeObserverBridge() override {
-    net::NetworkChangeNotifier::RemoveNetworkChangeObserver(this);
-  }
-
-  // net::NetworkChangeNotifier::NetworkChangeObserver implementation:
-  void OnNetworkChanged(
-      net::NetworkChangeNotifier::ConnectionType type) override {
-    if (on_network_changed_) {
-      on_network_changed_();
-    }
-  }
-
- private:
-  __strong void (^on_network_changed_)();
-};
 
 // Assistant button states by decreasing priority: the button shows the first
 // eligible one. If none is eligible, the last one is shown, disabled.
@@ -167,11 +146,13 @@ inline LayoutStateAssistantPassKey PassKey() {
 }  // namespace
 
 @interface AppBarMediator () <AuthenticationServiceObserving,
+                              CRWWebStateObserver,
                               GeminiBrowserAgentObserving,
                               GeminiServiceObserving,
                               IdentityManagerObserving,
                               IncognitoStateObserver,
                               LensOverlayStateNotifierObserver,
+                              NetworkChangeObserving,
                               PrefObserverDelegate,
                               SceneStateObserver,
                               SearchEngineObserving,
@@ -191,6 +172,9 @@ inline LayoutStateAssistantPassKey PassKey() {
 @end
 
 @implementation AppBarMediator {
+  std::unique_ptr<web::WebStateObserverBridge> _webStateObserver;
+  std::unique_ptr<ActiveWebStateObservationForwarder>
+      _activeWebStateObservationForwarder;
   std::unique_ptr<WebStateListObserverBridge> _observerBridge;
   raw_ptr<WebStateList> _regularWebStateList;
   raw_ptr<WebStateList> _incognitoWebStateList;
@@ -204,6 +188,10 @@ inline LayoutStateAssistantPassKey PassKey() {
   raw_ptr<FullscreenBrowserAgent> _incognitoFullscreenBrowserAgent;
   std::unique_ptr<FullscreenBrowserAgentObserverBridge>
       _incognitoFullscreenObserver;
+  raw_ptr<WebNavigationBrowserAgent> _regularNavigationBrowserAgent;
+  raw_ptr<WebNavigationBrowserAgent> _incognitoNavigationBrowserAgent;
+  raw_ptr<TabBasedIPHBrowserAgent> _regularTabBasedIPHAgent;
+  raw_ptr<TabBasedIPHBrowserAgent> _incognitoTabBasedIPHAgent;
   raw_ptr<PrefService> _prefService;
   raw_ptr<AuthenticationService> _authenticationService;
   std::unique_ptr<AuthenticationServiceObserverBridge>
@@ -236,34 +224,43 @@ inline LayoutStateAssistantPassKey PassKey() {
 }
 
 - (instancetype)
-        initWithRegularWebStateList:(WebStateList*)regularWebStateList
-              incognitoWebStateList:(WebStateList*)incognitoWebStateList
-        regularFullscreenController:
-            (FullscreenController*)regularFullscreenController
-      incognitoFullscreenController:
-          (FullscreenController*)incognitoFullscreenController
-      regularFullscreenBrowserAgent:
-          (FullscreenBrowserAgent*)regularFullscreenBrowserAgent
-    incognitoFullscreenBrowserAgent:
-        (FullscreenBrowserAgent*)incognitoFullscreenBrowserAgent
-               regularActionFactory:(BrowserActionFactory*)regularActionFactory
-             incognitoActionFactory:
-                 (BrowserActionFactory*)incognitoActionFactory
-                            profile:(ProfileIOS*)profile
-                        prefService:(PrefService*)prefService
-                 templateURLService:(TemplateURLService*)templateURLService
-              authenticationService:
-                  (AuthenticationService*)authenticationService
-                    identityManager:(signin::IdentityManager*)identityManager
-                      geminiService:(GeminiService*)geminiService
-                 geminiBrowserAgent:(GeminiBrowserAgent*)geminiBrowserAgent
-              aimEligibilityService:
-                  (AimEligibilityService*)aimEligibilityService
-                          URLLoader:(UrlLoadingBrowserAgent*)URLLoader
-                       tabGridState:(TabGridState*)tabGridState
-                     incognitoState:(IncognitoState*)incognitoState
-           lensOverlayStateNotifier:
-               (LensOverlayStateNotifier*)lensOverlayStateNotifier {
+           initWithRegularWebStateList:(WebStateList*)regularWebStateList
+                 incognitoWebStateList:(WebStateList*)incognitoWebStateList
+           regularFullscreenController:
+               (FullscreenController*)regularFullscreenController
+         incognitoFullscreenController:
+             (FullscreenController*)incognitoFullscreenController
+         regularFullscreenBrowserAgent:
+             (FullscreenBrowserAgent*)regularFullscreenBrowserAgent
+       incognitoFullscreenBrowserAgent:
+           (FullscreenBrowserAgent*)incognitoFullscreenBrowserAgent
+      regularWebNavigationBrowserAgent:
+          (WebNavigationBrowserAgent*)regularNavigationBrowserAgent
+    incognitoWebNavigationBrowserAgent:
+        (WebNavigationBrowserAgent*)incognitoNavigationBrowserAgent
+               regularTabBasedIPHAgent:
+                   (TabBasedIPHBrowserAgent*)regularTabBasedIPHAgent
+             incognitoTabBasedIPHAgent:
+                 (TabBasedIPHBrowserAgent*)incognitoTabBasedIPHAgent
+                  regularActionFactory:
+                      (BrowserActionFactory*)regularActionFactory
+                incognitoActionFactory:
+                    (BrowserActionFactory*)incognitoActionFactory
+                               profile:(ProfileIOS*)profile
+                           prefService:(PrefService*)prefService
+                    templateURLService:(TemplateURLService*)templateURLService
+                 authenticationService:
+                     (AuthenticationService*)authenticationService
+                       identityManager:(signin::IdentityManager*)identityManager
+                         geminiService:(GeminiService*)geminiService
+                    geminiBrowserAgent:(GeminiBrowserAgent*)geminiBrowserAgent
+                 aimEligibilityService:
+                     (AimEligibilityService*)aimEligibilityService
+                             URLLoader:(UrlLoadingBrowserAgent*)URLLoader
+                          tabGridState:(TabGridState*)tabGridState
+                        incognitoState:(IncognitoState*)incognitoState
+              lensOverlayStateNotifier:
+                  (LensOverlayStateNotifier*)lensOverlayStateNotifier {
   self = [super init];
   if (self) {
     _regularWebStateList = regularWebStateList;
@@ -275,6 +272,14 @@ inline LayoutStateAssistantPassKey PassKey() {
 
     _regularFullscreenBrowserAgent = regularFullscreenBrowserAgent;
     _incognitoFullscreenBrowserAgent = incognitoFullscreenBrowserAgent;
+
+    if (IsFiveButtonAppBarLayoutEnabled()) {
+      _webStateObserver = std::make_unique<web::WebStateObserverBridge>(self);
+      _regularNavigationBrowserAgent = regularNavigationBrowserAgent;
+      _incognitoNavigationBrowserAgent = incognitoNavigationBrowserAgent;
+      _regularTabBasedIPHAgent = regularTabBasedIPHAgent;
+      _incognitoTabBasedIPHAgent = incognitoTabBasedIPHAgent;
+    }
 
     _URLLoader = URLLoader;
     _profile = profile;
@@ -317,9 +322,8 @@ inline LayoutStateAssistantPassKey PassKey() {
               }));
     }
 
-    _networkChangeObserver = std::make_unique<NetworkChangeObserverBridge>(^{
-      [weakSelf updateAssistantButton];
-    });
+    _networkChangeObserver =
+        std::make_unique<NetworkChangeObserverBridge>(self);
 
     _tabGridState = tabGridState;
     [_tabGridState addObserver:self];
@@ -438,6 +442,22 @@ inline LayoutStateAssistantPassKey PassKey() {
   }
 }
 
+- (void)setIncognitoNavigationBrowserAgent:
+    (WebNavigationBrowserAgent*)navigationBrowserAgent {
+  CHECK(IsFiveButtonAppBarLayoutEnabled(), base::NotFatalUntil::M163);
+  if (navigationBrowserAgent == _incognitoNavigationBrowserAgent) {
+    return;
+  }
+  _incognitoNavigationBrowserAgent = navigationBrowserAgent;
+  [self updateConsumer];
+}
+
+- (void)setIncognitoTabBasedIPHBrowserAgent:
+    (TabBasedIPHBrowserAgent*)iphBrowserAgent {
+  CHECK(IsFiveButtonAppBarLayoutEnabled(), base::NotFatalUntil::M163);
+  _incognitoTabBasedIPHAgent = iphBrowserAgent;
+}
+
 - (void)setIncognitoActionFactory:
     (BrowserActionFactory*)incognitoActionFactory {
   if (incognitoActionFactory) {
@@ -488,6 +508,14 @@ inline LayoutStateAssistantPassKey PassKey() {
   _incognitoFullscreenBrowserAgent = nullptr;
   _regularFullscreenHandler = nil;
   _incognitoFullscreenHandler = nil;
+  if (IsFiveButtonAppBarLayoutEnabled()) {
+    _regularNavigationBrowserAgent = nullptr;
+    _incognitoNavigationBrowserAgent = nullptr;
+    _regularTabBasedIPHAgent = nullptr;
+    _incognitoTabBasedIPHAgent = nullptr;
+    _activeWebStateObservationForwarder.reset();
+    _webStateObserver.reset();
+  }
   _lensOverlayHandler = nil;
   [_tabGridState removeObserver:self];
   [_incognitoState removeObserver:self];
@@ -538,6 +566,32 @@ inline LayoutStateAssistantPassKey PassKey() {
   } else if (preferenceName == prefs::kAppBarAssistantButtonPreferredState) {
     [self updateAssistantButton];
   }
+}
+
+#pragma mark - CRWWebStateObserver
+
+- (void)webState:(web::WebState*)webState didLoadPageWithSuccess:(BOOL)success {
+  if (!IsFiveButtonAppBarLayoutEnabled()) {
+    // Navigation buttons are not in the App Bar.
+    return;
+  }
+  [self updateConsumer];
+}
+
+- (void)webStateDidStopLoading:(web::WebState*)webState {
+  if (!IsFiveButtonAppBarLayoutEnabled()) {
+    // Navigation buttons are not in the App Bar.
+    return;
+  }
+  [self updateConsumer];
+}
+
+- (void)webStateDidChangeBackForwardState:(web::WebState*)webState {
+  if (!IsFiveButtonAppBarLayoutEnabled()) {
+    // Navigation buttons are not in the App Bar.
+    return;
+  }
+  [self updateConsumer];
 }
 
 #pragma mark - WebStateListObserving
@@ -781,6 +835,50 @@ inline LayoutStateAssistantPassKey PassKey() {
   [self recordAssistantButtonStateSelection:preferredState];
 }
 
+- (void)navigateBack {
+  CHECK(IsFiveButtonAppBarLayoutEnabled(), base::NotFatalUntil::M163);
+  if (!self.currentWebStateList) {
+    return;
+  }
+  BOOL incognito = self.currentWebStateList == _incognitoWebStateList;
+  WebNavigationBrowserAgent* navigationBrowserAgent =
+      incognito ? _incognitoNavigationBrowserAgent
+                : _regularNavigationBrowserAgent;
+
+  if (!navigationBrowserAgent) {
+    return;
+  }
+  navigationBrowserAgent->GoBack();
+
+  TabBasedIPHBrowserAgent* tabBasedIPHAgent =
+      incognito ? _incognitoTabBasedIPHAgent : _regularTabBasedIPHAgent;
+  if (tabBasedIPHAgent) {
+    tabBasedIPHAgent->NotifyBackForwardButtonTap();
+  }
+}
+
+- (void)navigateForward {
+  CHECK(IsFiveButtonAppBarLayoutEnabled(), base::NotFatalUntil::M163);
+  if (!self.currentWebStateList) {
+    return;
+  }
+  BOOL incognito = self.currentWebStateList == _incognitoWebStateList;
+  WebNavigationBrowserAgent* navigationBrowserAgent =
+      incognito ? _incognitoNavigationBrowserAgent
+                : _regularNavigationBrowserAgent;
+
+  if (!navigationBrowserAgent) {
+    return;
+  }
+  navigationBrowserAgent->GoForward();
+
+  TabBasedIPHBrowserAgent* tabBasedIPHAgent =
+      incognito ? _incognitoTabBasedIPHAgent : _regularTabBasedIPHAgent;
+  if (tabBasedIPHAgent) {
+    tabBasedIPHAgent->NotifyBackForwardButtonTap();
+  }
+}
+
 #pragma mark - ToolbarButtonMenuFactoryDelegate
 
 - (void)addNewTabInCurrentTabGroup {
@@ -796,8 +894,18 @@ inline LayoutStateAssistantPassKey PassKey() {
 }
 
 - (void)navigateToPageForItem:(web::NavigationItem*)item {
-  // App bar does not have web navigation functionality in its button menus.
-  NOTREACHED();
+  if (!IsFiveButtonAppBarLayoutEnabled()) {
+    // App bar does not have web navigation functionality in its button menus.
+    return;
+  }
+  web::WebState* activeWebState = [self activeWebState];
+  if (!activeWebState) {
+    return;
+  }
+
+  int index = activeWebState->GetNavigationManager()->GetIndexOfItem(item);
+  DCHECK_NE(index, -1);
+  activeWebState->GetNavigationManager()->GoToIndex(index);
 }
 
 #pragma mark - AuthenticationServiceObserving
@@ -810,7 +918,10 @@ inline LayoutStateAssistantPassKey PassKey() {
 
 - (void)geminiFloatyInvokedChanged:(BOOL)isInvoked {
   [self updateAssistantButton];
-  [self.layoutState setGeminiFloatyInvoked:isInvoked passKey:PassKey()];
+  // After migration layout state will be updated from assistant container.
+  if (!IsIOSGeminiBottomSheetMigrationEnabled()) {
+    [self.layoutState setGeminiFloatyInvoked:isInvoked passKey:PassKey()];
+  }
 
   if (IsFullscreenRefactoringEnabled()) {
     if (_regularFullscreenBrowserAgent) {
@@ -866,11 +977,20 @@ inline LayoutStateAssistantPassKey PassKey() {
   [self updateAssistantButton];
 }
 
+#pragma mark - NetworkChangeObserving
+
+- (void)onNetworkChanged:(net::NetworkChangeNotifier::ConnectionType)type {
+  [self updateAssistantButton];
+}
+
 #pragma mark - Properties
 
 - (void)setCurrentWebStateList:(WebStateList*)currentWebStateList {
   if (_currentWebStateList) {
     _currentWebStateList->RemoveObserver(_observerBridge.get());
+    if (IsFiveButtonAppBarLayoutEnabled()) {
+      _activeWebStateObservationForwarder.reset();
+    }
   }
 
   if (currentWebStateList != _currentWebStateList) {
@@ -882,6 +1002,11 @@ inline LayoutStateAssistantPassKey PassKey() {
 
   if (_currentWebStateList) {
     _currentWebStateList->AddObserver(_observerBridge.get());
+    if (IsFiveButtonAppBarLayoutEnabled()) {
+      _activeWebStateObservationForwarder =
+          std::make_unique<ActiveWebStateObservationForwarder>(
+              _currentWebStateList, _webStateObserver.get());
+    }
   }
   [self updateConsumer];
 }
@@ -931,9 +1056,10 @@ inline LayoutStateAssistantPassKey PassKey() {
       _tabGridState.currentPage == TabGridPageTabGroups;
   BOOL isTabGroupVisible = self.currentTabGroup != nullptr;
 
-  [self updateButtonMenusForIncognito:incognito
-               isTabGroupsPageVisible:isTabGroupsPageVisible
-                    isTabGroupVisible:isTabGroupVisible];
+  [self updateButtonMenusForActiveWebState:activeWebState
+                                 incognito:incognito
+                    isTabGroupsPageVisible:isTabGroupsPageVisible
+                         isTabGroupVisible:isTabGroupVisible];
 
   [self.consumer updateTabCount:tabCount];
   [self.consumer setTabGridVisible:_tabGridState.tabGridVisible];
@@ -941,15 +1067,26 @@ inline LayoutStateAssistantPassKey PassKey() {
   [self.consumer setTabGroupVisible:isTabGroupVisible];
   [self.consumer
       setInTabGroup:GetGroupForActiveWebState(self.currentWebStateList)];
-
+  if (IsFiveButtonAppBarLayoutEnabled()) {
+    WebNavigationBrowserAgent* navigationBrowserAgent =
+        incognito ? _incognitoNavigationBrowserAgent
+                  : _regularNavigationBrowserAgent;
+    if (activeWebState && navigationBrowserAgent) {
+      [self.consumer
+          setCanNavigateBack:navigationBrowserAgent->CanGoBack(activeWebState)
+                     forward:navigationBrowserAgent->CanGoForward(
+                                 activeWebState)];
+    }
+  }
   [self updateAssistantButton];
   [self updateButtonsForCurrentTabGridPage];
 }
 
 // Updates the button menus on the consumer.
-- (void)updateButtonMenusForIncognito:(BOOL)incognito
-               isTabGroupsPageVisible:(BOOL)isTabGroupsPageVisible
-                    isTabGroupVisible:(BOOL)isTabGroupVisible {
+- (void)updateButtonMenusForActiveWebState:(web::WebState*)activeWebState
+                                 incognito:(BOOL)incognito
+                    isTabGroupsPageVisible:(BOOL)isTabGroupsPageVisible
+                         isTabGroupVisible:(BOOL)isTabGroupVisible {
   ToolbarButtonMenuFactory* buttonMenuFactory =
       incognito ? _incognitoButtonMenuFactory : _regularButtonMenuFactory;
 
@@ -960,6 +1097,23 @@ inline LayoutStateAssistantPassKey PassKey() {
                forButtonType:AppBarButtonTypeNewTab];
     }
     return;
+  }
+
+  if (IsFiveButtonAppBarLayoutEnabled()) {
+    if (activeWebState) {
+      [self.consumer
+                setMenu:[buttonMenuFactory
+                            menuForNavigationButton:activeWebState
+                                                        ->GetNavigationManager()
+                                                        ->GetBackwardItems()]
+          forButtonType:AppBarButtonTypeBack];
+      [self.consumer
+                setMenu:[buttonMenuFactory
+                            menuForNavigationButton:activeWebState
+                                                        ->GetNavigationManager()
+                                                        ->GetForwardItems()]
+          forButtonType:AppBarButtonTypeForward];
+    }
   }
 
   [self.consumer setMenu:[buttonMenuFactory menuForNewTabButton]
@@ -1474,6 +1628,7 @@ inline LayoutStateAssistantPassKey PassKey() {
     case kGeminiEntryFlowResultCancelled:
     case kGeminiEntryFlowResultPageIneligible:
     case kGeminiEntryFlowResultUnknown:
+    case kGeminiEntryFlowResultNoConsent:
       break;
   }
 }

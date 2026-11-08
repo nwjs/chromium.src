@@ -183,13 +183,12 @@ void PopulateStyleData(const content::BrowserAccessibilityAndroid& node,
     AXStyleData::AddRange(style_data->background_colors,
                           static_cast<int>(node.GetBackgroundColor()), start,
                           end);
-    if (const auto& family = node.GetInheritedFontFamilyName();
-        !family.empty()) {
+    if (auto family = node.GetInheritedFontFamilyName(); !family.empty()) {
       AXStyleData::AddRange(style_data->font_families, std::move(family), start,
                             end);
     }
     // GetLanguage() gets the inherited language locale.
-    if (const auto& lang = node.GetLanguage(); !lang.empty()) {
+    if (auto lang = node.GetLanguage(); !lang.empty()) {
       AXStyleData::AddRange(style_data->locales, std::move(lang), start, end);
     }
   }
@@ -2324,8 +2323,9 @@ BrowserAccessibilityAndroid::GetSortDirection() const {
       return ANDROID_SORT_DIRECTION_DESCENDING;
     case ax::mojom::SortDirection::kOther:
       return ANDROID_SORT_DIRECTION_OTHER;
-    case ax::mojom::SortDirection::kNone:
     case ax::mojom::SortDirection::kUnsorted:
+      return ANDROID_SORT_DIRECTION_NONE;
+    case ax::mojom::SortDirection::kNone:
       NOTREACHED();
   }
   return ANDROID_SORT_DIRECTION_NONE;

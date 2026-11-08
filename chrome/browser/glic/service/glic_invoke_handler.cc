@@ -5,12 +5,13 @@
 #include "chrome/browser/glic/service/glic_invoke_handler.h"
 
 #include <utility>
+#include <variant>
 
 #include "base/barrier_closure.h"
 #include "base/check.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
-#include "base/notimplemented.h"
+#include "base/notreached.h"
 #include "base/task/sequenced_task_runner.h"
 #include "build/build_config.h"
 #include "chrome/browser/glic/host/host.h"
@@ -31,6 +32,7 @@
 #include "chrome/common/url_constants.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/web_contents.h"
+#include "third_party/abseil-cpp/absl/functional/overload.h"
 #include "ui/base/base_window.h"
 
 namespace glic {
@@ -50,25 +52,39 @@ ShowOptions CreateShowOptions(
           ? mojom::WebClientMode::kText
           : mojom::WebClientMode::kUnknown;
   ShowOptions show_options = std::visit(
-      absl::Overload{[&](const GlicInvokeHandler::TabSurface& tab_surface) {
-                       SidePanelShowOptions side_panel_options{
-                           *tab_surface.tab};
-                       // TODO(b/562983414): Infer a more specific pin trigger
-                       // from the invocation source.
-                       side_panel_options.pin_trigger =
-                           GlicPinTrigger::kInstanceCreation;
-                       side_panel_options.pin_on_bind = options.pin_on_bind;
-                       return ShowOptions(side_panel_options);
-                     },
-                     [&](Floating) {
-                       return ShowOptions::ForFloating(
-                           /*source_tab=*/tabs::TabHandle::Null(),
-                           floating_initial_mode);
-                     }},
+      absl::Overload{
+          [&](const GlicInvokeHandler::TabSurface& tab_surface) {
+            SidePanelShowOptions side_panel_options{*tab_surface.tab};
+            // TODO(b/562983414): Infer a more specific pin trigger
+            // from the invocation source.
+            side_panel_options.pin_trigger = GlicPinTrigger::kInstanceCreation;
+            side_panel_options.pin_on_bind = options.pin_on_bind;
+            return ShowOptions(side_panel_options);
+          },
+          [&](Floating) {
+            return ShowOptions::ForFloating(
+                /*source_tab=*/tabs::TabHandle::Null(), floating_initial_mode);
+          }},
       resolved_target);
   show_options.invocation_source = options.GetInvocationSource();
   show_options.focus_on_show = options.focus_on_show;
   return show_options;
+}
+
+GlicInvokeError ToInvokeError(InstanceRemovalReason reason) {
+  switch (reason) {
+    case InstanceRemovalReason::kBlankInstanceClosed:
+      return GlicInvokeError::kInstanceDestroyedBlankInstanceClosed;
+    case InstanceRemovalReason::kUnbound:
+      return GlicInvokeError::kInstanceDestroyedUnbound;
+    case InstanceRemovalReason::kArchived:
+      return GlicInvokeError::kInstanceDestroyedArchived;
+    case InstanceRemovalReason::kSignedOut:
+      return GlicInvokeError::kInstanceDestroyedSignedOut;
+    case InstanceRemovalReason::kShutdown:
+      return GlicInvokeError::kInstanceDestroyedShutdown;
+  }
+  NOTREACHED();
 }
 
 }  // namespace
@@ -152,11 +168,14 @@ GlicInvokeHandler::ResolvedTarget GlicInvokeHandler::ResolveTargetSurface(
     tabs::TabInterface* tab = tab_handle->Get();
     if (tab) {
       BrowserWindowInterface* browser = tab->GetBrowserWindowInterface();
-      // Allow detached / background tabs for actuation, reject non-normal browser windows.
+      // Allow detached / background tabs for actuation, reject non-normal
+      // browser windows.
       bool is_background_actuation =
-        !browser && target.actuation_target == mojom::ActuationTarget::kTargetSurface;
+          !browser &&
+          target.actuation_target == mojom::ActuationTarget::kTargetSurface;
       bool is_normal_browser =
-        browser && browser->GetType() == BrowserWindowInterface::Type::TYPE_NORMAL;
+          browser &&
+          browser->GetType() == BrowserWindowInterface::Type::TYPE_NORMAL;
 
       if (is_background_actuation || is_normal_browser) {
         return {TabSurface{tab, /*is_new=*/false}};
@@ -166,6 +185,16 @@ GlicInvokeHandler::ResolvedTarget GlicInvokeHandler::ResolveTargetSurface(
   }
 
   return {TabSurface{/*tab=*/nullptr, /*is_new=*/false}};
+}
+
+// static
+EmbedderType GlicInvokeHandler::GetEmbedderType(
+    const ResolvedTarget& resolved_target) {
+  // A tab target is shown in that tab's side panel.
+  return std::visit(
+      absl::Overload{[](const TabSurface&) { return EmbedderType::kSidePanel; },
+                     [](const Floating&) { return EmbedderType::kFloaty; }},
+      resolved_target);
 }
 
 bool GlicInvokeHandler::IsFloatingTarget() const {
@@ -218,12 +247,6 @@ GlicInvokeHandler::GlicInvokeHandler(
         base::BindRepeating(&GlicInvokeHandler::OnTabWillDetach,
                             weak_ptr_factory_.GetWeakPtr()));
   }
-
-  // As the handler holds a raw pointer to GlicInstanceImpl, it must listen to
-  // its destruction.
-  instance_destruction_subscription_ = instance_->RegisterWillBeDestroyed(
-      base::BindOnce(&GlicInvokeHandler::OnInstanceWillBeDestroyed,
-                     weak_ptr_factory_.GetWeakPtr()));
 }
 
 GlicInvokeHandler::~GlicInvokeHandler() = default;
@@ -253,6 +276,11 @@ bool GlicInvokeHandler::RequiresClientInvoke(const GlicInvokeOptions& options,
 }
 
 void GlicInvokeHandler::Invoke() {
+  // Ensure the invocation source is set so that any following events are
+  // properly logged to the corresponding source.
+  instance_->instance_metrics().MaybeSetInitialInvocationSource(
+      options_.GetInvocationSource());
+
   timeout_timer_.Start(FROM_HERE, options_.timeout.value_or(kDefaultTimeout),
                        base::BindOnce(&GlicInvokeHandler::OnError,
                                       weak_ptr_factory_.GetWeakPtr(),
@@ -404,18 +432,12 @@ void GlicInvokeHandler::Invoke() {
           },
           weak_ptr_factory_.GetWeakPtr()));
 
-  int target_embedder_type = -1;
-  if (std::holds_alternative<TabSurface>(resolved_target_)) {
-    target_embedder_type = 0;
-  } else if (std::holds_alternative<Floating>(resolved_target_)) {
-    target_embedder_type = 1;
-  } else {
-    NOTIMPLEMENTED();
-  }
-
-  metrics_->RecordStarted(
-      options_.feature_mode.value_or(mojom::FeatureMode::kUnspecified),
-      target_embedder_type);
+  // The feature mode and embedder type were set on `metrics_` by the
+  // coordinator while resolving this invocation. The client load state is
+  // captured here, before any task has run, so it reflects what the
+  // invocation inherited rather than what it caused.
+  metrics_->SetClientLoadStateAtStart(instance_->host().client_load_state());
+  metrics_->RecordStarted();
   instance_->instance_metrics().SetActiveInvocationId(
       metrics_->GetInvocationId());
   main_task_->Start(base::BindOnce(&GlicInvokeHandler::OnSuccess,
@@ -437,16 +459,16 @@ void GlicInvokeHandler::Cancel(GlicInvokeError error) {
   OnError(error);
 }
 
+void GlicInvokeHandler::CancelForInstanceRemoval(InstanceRemovalReason reason) {
+  OnError(ToInvokeError(reason));
+}
+
 void GlicInvokeHandler::OnTabWillDetach(
     tabs::TabInterface* tab,
     tabs::TabInterface::DetachReason reason) {
   if (reason == tabs::TabInterface::DetachReason::kDelete) {
     OnError(GlicInvokeError::kTabClosed);
   }
-}
-
-void GlicInvokeHandler::OnInstanceWillBeDestroyed(GlicInstance* instance) {
-  OnError(GlicInvokeError::kInstanceDestroyed);
 }
 
 void GlicInvokeHandler::OnConversationInfoChanged(

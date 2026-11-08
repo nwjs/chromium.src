@@ -56,6 +56,7 @@
 #include "mojo/public/cpp/system/wait.h"
 #include "net/base/completion_repeating_callback.h"
 #include "net/base/features.h"
+#include "net/base/host_port_pair.h"
 #include "net/base/io_buffer.h"
 #include "net/base/ip_endpoint.h"
 #include "net/base/isolation_info.h"
@@ -115,6 +116,7 @@
 #include "services/network/public/cpp/ip_address_space_util.h"
 #include "services/network/public/cpp/loading_params.h"
 #include "services/network/public/cpp/resource_request.h"
+#include "services/network/public/cpp/trust_token_http_headers.h"
 #include "services/network/public/mojom/cookie_access_observer.mojom.h"
 #include "services/network/public/mojom/early_hints.mojom.h"
 #include "services/network/public/mojom/http_raw_headers.mojom.h"
@@ -1053,6 +1055,30 @@ class URLLoaderTest : public testing::Test {
     context().mutable_factory_params().is_trusted = is_trusted;
     context().mutable_factory_params().cookie_setting_overrides =
         cookie_setting_overrides_;
+  }
+
+  // Starts `proxy_server` as an HTTP proxy that requires basic auth with
+  // "PROXY_USER" / "PROXY_PASS", and replaces the URLRequestContext with one
+  // that sends all requests through it.
+  void UseAuthenticatingProxy(net::EmbeddedTestServer& proxy_server) {
+    net::test_server::RegisterProxyBasicAuthHandler(proxy_server, "PROXY_USER",
+                                                    "PROXY_PASS");
+    proxy_server.AddDefaultHandlers(
+        base::FilePath(FILE_PATH_LITERAL("services/test/data")));
+    ASSERT_TRUE(proxy_server.Start());
+
+    net::URLRequestContextBuilder context_builder;
+    context_builder.set_proxy_resolution_service(
+        net::ConfiguredProxyResolutionService::CreateFixedFromPacResultForTest(
+            "PROXY " + proxy_server.host_port_pair().ToString(),
+            TRAFFIC_ANNOTATION_FOR_TESTS));
+    auto test_network_delegate = std::make_unique<net::TestNetworkDelegate>();
+    unowned_test_network_delegate_ = test_network_delegate.get();
+    context_builder.set_network_delegate(std::move(test_network_delegate));
+    context_builder.set_client_socket_factory_for_testing(GetSocketFactory());
+    context().set_url_request_context(nullptr);
+    url_request_context_ = context_builder.Build();
+    context().set_url_request_context(url_request_context_.get());
   }
 
   // Adds a MultipleWritesInterceptor for MultipleWritesInterceptor::GetURL()
@@ -4395,6 +4421,7 @@ class ClientCertAndHttpAuthObserver : public TestURLLoaderNetworkObserver {
       int32_t request_id,
       const GURL& url,
       bool first_auth_attempt,
+      bool do_not_prompt_for_login,
       const net::AuthChallengeInfo& auth_info,
       const scoped_refptr<net::HttpResponseHeaders>& head_headers,
       mojo::PendingRemote<mojom::AuthChallengeResponder>
@@ -4421,6 +4448,7 @@ class ClientCertAndHttpAuthObserver : public TestURLLoaderNetworkObserver {
     auth_challenge_responder_remote->OnAuthCredentials(auth_credentials_);
     ++on_auth_required_call_counter_;
     last_seen_response_headers_ = head_headers;
+    last_do_not_prompt_for_login_ = do_not_prompt_for_login;
   }
 
   void OnCertificateRequested(
@@ -4492,12 +4520,18 @@ class ClientCertAndHttpAuthObserver : public TestURLLoaderNetworkObserver {
     return last_seen_response_headers_.get();
   }
 
+  // std::nullopt if OnAuthRequired() was never called.
+  std::optional<bool> last_do_not_prompt_for_login() const {
+    return last_do_not_prompt_for_login_;
+  }
+
  private:
   CredentialsResponse credentials_response_ =
       CredentialsResponse::NO_CREDENTIALS;
   std::optional<net::AuthCredentials> auth_credentials_;
   int on_auth_required_call_counter_ = 0;
   scoped_refptr<net::HttpResponseHeaders> last_seen_response_headers_;
+  std::optional<bool> last_do_not_prompt_for_login_;
   CertificateResponse certificate_response_ = CertificateResponse::INVALID;
   scoped_refptr<net::SSLPrivateKey> ssl_private_key_;
   scoped_refptr<net::X509Certificate> certificate_;
@@ -4763,24 +4797,7 @@ TEST_F(URLLoaderTest, ServerHttpAuthFlagNotSet) {
 // request receives and responds to a proxy authentication challenge.
 TEST_F(URLLoaderTest, ServerHttpAuthFlagNotSetForProxy) {
   net::EmbeddedTestServer proxy_server(net::EmbeddedTestServer::TYPE_HTTP);
-  net::test_server::RegisterProxyBasicAuthHandler(proxy_server, "PROXY_USER",
-                                                  "PROXY_PASS");
-  proxy_server.AddDefaultHandlers(
-      base::FilePath(FILE_PATH_LITERAL("services/test/data")));
-  ASSERT_TRUE(proxy_server.Start());
-
-  net::URLRequestContextBuilder context_builder;
-  context_builder.set_proxy_resolution_service(
-      net::ConfiguredProxyResolutionService::CreateFixedFromPacResultForTest(
-          "PROXY " + proxy_server.host_port_pair().ToString(),
-          TRAFFIC_ANNOTATION_FOR_TESTS));
-  auto test_network_delegate = std::make_unique<net::TestNetworkDelegate>();
-  unowned_test_network_delegate_ = test_network_delegate.get();
-  context_builder.set_network_delegate(std::move(test_network_delegate));
-  context_builder.set_client_socket_factory_for_testing(GetSocketFactory());
-  context().set_url_request_context(nullptr);
-  url_request_context_ = context_builder.Build();
-  context().set_url_request_context(url_request_context_.get());
+  ASSERT_NO_FATAL_FAILURE(UseAuthenticatingProxy(proxy_server));
 
   ClientCertAndHttpAuthObserver client_auth_observer;
   client_auth_observer.set_credentials_response(
@@ -4804,6 +4821,114 @@ TEST_F(URLLoaderTest, ServerHttpAuthFlagNotSetForProxy) {
 
   // This should be false as we do not set the flag for proxy auth.
   EXPECT_FALSE(client()->response_head()->did_use_server_http_auth);
+  ASSERT_FALSE(url_loader);
+}
+
+// Tests that a proxy auth challenge for a request with
+// `do_not_prompt_for_login` is forwarded to the observer, flagged as such, so
+// that credential sources that don't show UI can answer it.
+TEST_F(URLLoaderTest, DoNotPromptForLoginForwardsProxyAuthChallenge) {
+  net::EmbeddedTestServer proxy_server(net::EmbeddedTestServer::TYPE_HTTP);
+  ASSERT_NO_FATAL_FAILURE(UseAuthenticatingProxy(proxy_server));
+
+  ClientCertAndHttpAuthObserver client_auth_observer;
+  client_auth_observer.set_credentials_response(
+      ClientCertAndHttpAuthObserver::CredentialsResponse::
+          CORRECT_PROXY_CREDENTIALS);
+
+  ResourceRequest request = CreateResourceRequest(
+      "GET", test_server()->GetURL(kHostnameWithAliases, "/hello.html"));
+  request.do_not_prompt_for_login = true;
+  base::RunLoop delete_run_loop;
+  mojo::Remote<mojom::URLLoader> loader;
+  context().mutable_factory_params().process_id = kProcessId;
+  context().mutable_factory_params().is_orb_enabled = false;
+  URLLoaderOptions url_loader_options;
+  url_loader_options.url_loader_network_observer = client_auth_observer.Bind();
+  std::unique_ptr<URLLoader> url_loader = url_loader_options.MakeURLLoader(
+      context(), DeleteLoaderCallback(&delete_run_loop, &url_loader),
+      loader.BindNewPipeAndPassReceiver(), request, client()->CreateRemote());
+
+  client()->RunUntilComplete();
+  delete_run_loop.Run();
+
+  EXPECT_EQ(net::OK, client()->completion_status().error_code);
+  ASSERT_TRUE(client()->response_head()->headers);
+  EXPECT_EQ(200, client()->response_head()->headers->response_code());
+  EXPECT_EQ(1, client_auth_observer.on_auth_required_call_counter());
+  EXPECT_THAT(client_auth_observer.last_do_not_prompt_for_login(),
+              Optional(true));
+  ASSERT_FALSE(url_loader);
+}
+
+// Tests that, when the `kForwardProxyAuthWithoutPrompt` kill switch is
+// disabled, a proxy auth challenge for a request with `do_not_prompt_for_login`
+// is cancelled without notifying the observer.
+TEST_F(URLLoaderTest,
+       DoNotPromptForLoginCancelsProxyAuthChallengeWithoutForwarding) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndDisableFeature(features::kForwardProxyAuthWithoutPrompt);
+
+  net::EmbeddedTestServer proxy_server(net::EmbeddedTestServer::TYPE_HTTP);
+  ASSERT_NO_FATAL_FAILURE(UseAuthenticatingProxy(proxy_server));
+
+  ClientCertAndHttpAuthObserver client_auth_observer;
+  client_auth_observer.set_credentials_response(
+      ClientCertAndHttpAuthObserver::CredentialsResponse::
+          CORRECT_PROXY_CREDENTIALS);
+
+  ResourceRequest request = CreateResourceRequest(
+      "GET", test_server()->GetURL(kHostnameWithAliases, "/hello.html"));
+  request.do_not_prompt_for_login = true;
+  base::RunLoop delete_run_loop;
+  mojo::Remote<mojom::URLLoader> loader;
+  context().mutable_factory_params().process_id = kProcessId;
+  context().mutable_factory_params().is_orb_enabled = false;
+  URLLoaderOptions url_loader_options;
+  url_loader_options.url_loader_network_observer = client_auth_observer.Bind();
+  std::unique_ptr<URLLoader> url_loader = url_loader_options.MakeURLLoader(
+      context(), DeleteLoaderCallback(&delete_run_loop, &url_loader),
+      loader.BindNewPipeAndPassReceiver(), request, client()->CreateRemote());
+
+  client()->RunUntilComplete();
+  delete_run_loop.Run();
+
+  EXPECT_EQ(net::OK, client()->completion_status().error_code);
+  ASSERT_TRUE(client()->response_head()->headers);
+  EXPECT_EQ(net::HTTP_PROXY_AUTHENTICATION_REQUIRED,
+            client()->response_head()->headers->response_code());
+  EXPECT_EQ(0, client_auth_observer.on_auth_required_call_counter());
+  EXPECT_EQ(std::nullopt, client_auth_observer.last_do_not_prompt_for_login());
+  ASSERT_FALSE(url_loader);
+}
+
+// Tests that a server auth challenge for a request with
+// `do_not_prompt_for_login` is cancelled without notifying the observer.
+TEST_F(URLLoaderTest, DoNotPromptForLoginCancelsServerAuthChallenge) {
+  ClientCertAndHttpAuthObserver client_auth_observer;
+  client_auth_observer.set_credentials_response(
+      ClientCertAndHttpAuthObserver::CredentialsResponse::CORRECT_CREDENTIALS);
+
+  ResourceRequest request =
+      CreateResourceRequest("GET", test_server()->GetURL(kTestAuthURL));
+  request.do_not_prompt_for_login = true;
+  base::RunLoop delete_run_loop;
+  mojo::Remote<mojom::URLLoader> loader;
+  context().mutable_factory_params().process_id = kProcessId;
+  context().mutable_factory_params().is_orb_enabled = false;
+  URLLoaderOptions url_loader_options;
+  url_loader_options.url_loader_network_observer = client_auth_observer.Bind();
+  std::unique_ptr<URLLoader> url_loader = url_loader_options.MakeURLLoader(
+      context(), DeleteLoaderCallback(&delete_run_loop, &url_loader),
+      loader.BindNewPipeAndPassReceiver(), request, client()->CreateRemote());
+
+  client()->RunUntilComplete();
+  delete_run_loop.Run();
+
+  EXPECT_EQ(net::OK, client()->completion_status().error_code);
+  ASSERT_TRUE(client()->response_head()->headers);
+  EXPECT_EQ(401, client()->response_head()->headers->response_code());
+  EXPECT_EQ(0, client_auth_observer.on_auth_required_call_counter());
   ASSERT_FALSE(url_loader);
 }
 
@@ -6813,6 +6938,9 @@ class MockTrustTokenRequestHelper : public TrustTokenRequestHelper {
     std::optional<net::HttpRequestHeaders> headers;
     if (result == mojom::TrustTokenOperationStatus::kOk) {
       headers.emplace();
+      headers->SetHeader(kTrustTokensSecTrustTokenHeader, "mock-pst-value");
+      headers->SetHeader(kTrustTokensSecTrustTokenVersionHeader,
+                         "mock-pst-version");
     }
 
     switch (operation_synchrony_) {
@@ -7366,6 +7494,104 @@ TEST_P(URLLoaderSyncOrAsyncTrustTokenOperationTest,
       trust_token_observer.observed_tokens(),
       testing::ElementsAre(MatchesTrustTokenDetails(
           test_server()->GetOrigin(), test_server()->GetOrigin(), true)));
+}
+
+// Request headers attached by the Trust Tokens helper should not be forwarded
+// to a cross-origin redirect target.
+TEST_P(URLLoaderSyncOrAsyncTrustTokenOperationTest,
+       RemovesTrustTokenHeadersOnCrossOriginRedirect) {
+  GURL url = test_server()->GetURL(
+      "/server-redirect?" +
+      test_server()->GetURL("other.test", "/echo").spec());
+  ResourceRequest request = CreateResourceRequest("GET", url);
+  request.trust_token_params =
+      OptionalTrustTokenParams(mojom::TrustTokenParams::New());
+
+  base::RunLoop delete_run_loop;
+  mojo::Remote<mojom::URLLoader> loader;
+  std::unique_ptr<URLLoader> url_loader;
+  context().mutable_factory_params().process_id =
+      OriginatingProcessId::browser();
+
+  URLLoaderOptions url_loader_options;
+  url_loader_options.trust_token_helper_factory =
+      std::make_unique<MockTrustTokenRequestHelperFactory>(
+          mojom::TrustTokenOperationStatus::kOk /* on_begin */,
+          std::nullopt /* on_finalize */, GetParam(),
+          &outbound_trust_token_operation_was_successful_);
+  url_loader = url_loader_options.MakeURLLoader(
+      context(), DeleteLoaderCallback(&delete_run_loop, &url_loader),
+      loader.BindNewPipeAndPassReceiver(), request, client()->CreateRemote());
+
+  client()->RunUntilRedirectReceived();
+
+  const auto& request_headers1 = sent_request().headers;
+  EXPECT_NE(request_headers1.end(),
+            request_headers1.find(kTrustTokensSecTrustTokenHeader));
+  EXPECT_NE(request_headers1.end(),
+            request_headers1.find(kTrustTokensSecTrustTokenVersionHeader));
+
+  loader->FollowRedirect(/*headers_update_params=*/{},
+                         /*new_url=*/std::nullopt);
+  client()->RunUntilComplete();
+  delete_run_loop.Run();
+
+  const auto& request_headers2 = sent_request().headers;
+  EXPECT_EQ(request_headers2.end(),
+            request_headers2.find(kTrustTokensSecTrustTokenHeader));
+  EXPECT_EQ(request_headers2.end(),
+            request_headers2.find(kTrustTokensSecTrustTokenVersionHeader));
+
+  EXPECT_EQ(client()->completion_status().error_code,
+            net::ERR_TRUST_TOKEN_OPERATION_FAILED);
+  EXPECT_EQ(client()->completion_status().trust_token_operation_status,
+            mojom::TrustTokenOperationStatus::kBadResponse);
+}
+
+// Request headers attached by the Trust Tokens helper should be retained on a
+// same-origin redirect.
+TEST_P(URLLoaderSyncOrAsyncTrustTokenOperationTest,
+       RetainsTrustTokenHeadersOnSameOriginRedirect) {
+  GURL url = test_server()->GetURL("/server-redirect?" +
+                                   test_server()->GetURL("/echo").spec());
+  ResourceRequest request = CreateResourceRequest("GET", url);
+  request.trust_token_params =
+      OptionalTrustTokenParams(mojom::TrustTokenParams::New());
+
+  base::RunLoop delete_run_loop;
+  mojo::Remote<mojom::URLLoader> loader;
+  std::unique_ptr<URLLoader> url_loader;
+  context().mutable_factory_params().process_id =
+      OriginatingProcessId::browser();
+
+  URLLoaderOptions url_loader_options;
+  url_loader_options.trust_token_helper_factory =
+      std::make_unique<MockTrustTokenRequestHelperFactory>(
+          mojom::TrustTokenOperationStatus::kOk /* on_begin */,
+          mojom::TrustTokenOperationStatus::kOk /* on_finalize */, GetParam(),
+          &outbound_trust_token_operation_was_successful_);
+  url_loader = url_loader_options.MakeURLLoader(
+      context(), DeleteLoaderCallback(&delete_run_loop, &url_loader),
+      loader.BindNewPipeAndPassReceiver(), request, client()->CreateRemote());
+
+  client()->RunUntilRedirectReceived();
+
+  const auto& request_headers1 = sent_request().headers;
+  EXPECT_NE(request_headers1.end(),
+            request_headers1.find(kTrustTokensSecTrustTokenHeader));
+  EXPECT_NE(request_headers1.end(),
+            request_headers1.find(kTrustTokensSecTrustTokenVersionHeader));
+
+  loader->FollowRedirect(/*headers_update_params=*/{},
+                         /*new_url=*/std::nullopt);
+  client()->RunUntilComplete();
+  delete_run_loop.Run();
+
+  const auto& request_headers2 = sent_request().headers;
+  EXPECT_NE(request_headers2.end(),
+            request_headers2.find(kTrustTokensSecTrustTokenHeader));
+  EXPECT_NE(request_headers2.end(),
+            request_headers2.find(kTrustTokensSecTrustTokenVersionHeader));
 }
 
 TEST_F(URLLoaderTest, OnRawRequestClientSecurityStateFactory) {

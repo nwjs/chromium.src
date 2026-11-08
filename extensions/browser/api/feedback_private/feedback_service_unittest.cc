@@ -29,9 +29,8 @@
 #if BUILDFLAG(IS_CHROMEOS)
 #include "base/base64.h"
 #include "chromeos/ash/components/dbus/debug_daemon/debug_daemon_client.h"
-#include "components/user_manager/fake_user_manager.h"
-#include "components/user_manager/scoped_user_manager.h"
-#include "components/user_manager/user_manager.h"
+#include "components/prefs/testing_pref_service.h"
+#include "components/session_manager/test/user_session_test_environment.h"
 #include "crypto/hpke.h"
 #include "crypto/keypair.h"
 #endif  // BUILDFLAG(IS_CHROMEOS)
@@ -45,24 +44,24 @@ using testing::StrictMock;
 
 namespace {
 
-const std::string kFakeKey = "fake key";
-const std::string kFakeValue = "fake value";
-const std::string kTabTitleValue = "some sensitive info";
+constexpr char kFakeKey[] = "fake key";
+constexpr char kFakeValue[] = "fake value";
+constexpr char kTabTitleValue[] = "some sensitive info";
 #if BUILDFLAG(IS_CHROMEOS)
 constexpr char kVariationsFetchHpkeKey[] =
     "https://www.gstatic.com/chromeos-feedback-variations-encryption-key/"
     "public_keyset.json";
-const std::string kTestPublicKeyResponseBody =
+constexpr char kTestPublicKeyResponseBody[] =
     "{\"primaryKeyId\":123,\"key\":[{\"keyData\":{\"typeUrl\":\"type."
     "googleapis.com/"
     "google.crypto.tink.HpkePublicKey\",\"value\":"
     "\"EgYIARABGAIaIKeVK4N3icUhM5YF+Pp5S6PWAg9OlY8zP9oLL9qv4IYS\","
     "\"keyMaterialType\":\"ASYMMETRIC_PUBLIC\"},\"status\":\"ENABLED\","
     "\"keyId\":456,\"outputPrefixType\":\"RAW\"}]}";
-const std::string kTestBase64HpkePrivateKey =
+constexpr char kTestBase64HpkePrivateKey[] =
     "IHbZB+CCrEXra2WGQx/jFQ+a0NSpVCauqy2uC9NH8Hs=";
 // Command line variation string returned during testing.
-const std::string kTestCommandLineVariations =
+constexpr char kTestCommandLineVariations[] =
     " --enable-features=\"*TestBlinkFeatureDefault,"
     "TestFeatureForBrowserTest1\" "
     "--disable-features=\"TestFeatureForBrowserTest2\" "
@@ -183,7 +182,18 @@ void VerifyAttachment(std::string_view name,
 
 class FeedbackServiceTest : public ApiUnitTest {
  protected:
-  FeedbackServiceTest() {
+  FeedbackServiceTest() = default;
+  ~FeedbackServiceTest() override = default;
+
+  void SetUp() override {
+#if BUILDFLAG(IS_CHROMEOS)
+    ash::test::UserSessionTestEnvironment::RegisterLocalStatePrefs(
+        local_state_.registry());
+    user_session_test_environment_ =
+        std::make_unique<ash::test::UserSessionTestEnvironment>(&local_state_);
+#endif  // BUILDFLAG(IS_CHROMEOS)
+    ApiUnitTest::SetUp();
+
 #if BUILDFLAG(IS_CHROMEOS)
     test_url_loader_factory_.AddResponse(
         kVariationsFetchHpkeKey, kTestPublicKeyResponseBody, net::HTTP_OK);
@@ -191,20 +201,20 @@ class FeedbackServiceTest : public ApiUnitTest {
     test_shared_loader_factory_ =
         base::MakeRefCounted<network::WeakWrapperSharedURLLoaderFactory>(
             &test_url_loader_factory_);
-    CHECK(scoped_temp_dir_.CreateUniqueTempDir());
+    ASSERT_TRUE(scoped_temp_dir_.CreateUniqueTempDir());
     mock_uploader_ = std::make_unique<StrictMock<MockFeedbackUploader>>(
         /*is_off_the_record=*/false, scoped_temp_dir_.GetPath(),
         test_shared_loader_factory_);
     feedback_data_ = base::MakeRefCounted<FeedbackData>(
         mock_uploader_->AsWeakPtr(), nullptr);
-#if BUILDFLAG(IS_CHROMEOS)
-    auto fake_user_manager = std::make_unique<user_manager::FakeUserManager>();
-    scoped_user_manager_ = std::make_unique<user_manager::ScopedUserManager>(
-        std::move(fake_user_manager));
-#endif  // BUILDFLAG(IS_CHROMEOS)
   }
 
-  ~FeedbackServiceTest() override = default;
+  void TearDown() override {
+    ApiUnitTest::TearDown();
+#if BUILDFLAG(IS_CHROMEOS)
+    user_session_test_environment_.reset();
+#endif  // BUILDFLAG(IS_CHROMEOS)
+  }
 
   void TestSendFeedbackConcerningTabTitles(bool send_tab_titles) {
     feedback_data_->AddLog(kFakeKey, kFakeValue);
@@ -334,7 +344,9 @@ class FeedbackServiceTest : public ApiUnitTest {
   }
 
 #if BUILDFLAG(IS_CHROMEOS)
-  std::unique_ptr<user_manager::ScopedUserManager> scoped_user_manager_;
+  TestingPrefServiceSimple local_state_;
+  std::unique_ptr<ash::test::UserSessionTestEnvironment>
+      user_session_test_environment_;
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
   base::ScopedTempDir scoped_temp_dir_;

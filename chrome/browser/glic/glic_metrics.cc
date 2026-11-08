@@ -404,11 +404,7 @@ void GlicMetrics::OnOptInImpression(OptInFlow flow) {
 }
 
 void GlicMetrics::OnOptInAccepted(OptInFlow flow) {
-  if (base::FeatureList::IsEnabled(features::kGlicOnboardingMetricsMigration)) {
-    base::RecordAction(base::UserMetricsAction("Glic.Onboarding.OptInAccept"));
-  } else {
-    base::RecordAction(base::UserMetricsAction("Glic.Fre.Accept"));
-  }
+  base::RecordAction(base::UserMetricsAction("Glic.Onboarding.OptInAccept"));
   base::UmaHistogramEnumeration("Glic.Fre.Accept.FlowSource", flow);
 }
 
@@ -1042,5 +1038,34 @@ ChromeRelativePosition GlicMetrics::GetChromeRelativePositionOfPoint(
 }
 
 #endif  // !BUILDFLAG(IS_ANDROID)
+
+void RecordHotkeyCleared(prefs::DefaultHotkeyScope default_scope,
+                         bool is_global,
+                         bool launcher_enabled) {
+  if (default_scope == prefs::DefaultHotkeyScope::kGlobal) {
+    base::UmaHistogramEnumeration(
+        "Glic.Preferences.HotkeyCleared",
+        is_global ? GlicHotkeyCleared::kDefaultGlobalWithGlobalScope
+                  : GlicHotkeyCleared::kDefaultGlobalWithLocalScope);
+  } else if (default_scope == prefs::DefaultHotkeyScope::kLocal) {
+    base::UmaHistogramEnumeration(
+        "Glic.Preferences.HotkeyCleared",
+        is_global ? GlicHotkeyCleared::kDefaultLocalWithGlobalScope
+                  : GlicHotkeyCleared::kDefaultLocalWithLocalScope);
+  } else if (launcher_enabled) {
+    // When `default_scope` is `kNotMigrated` (i.e. `kGlicHotkeyLocalScope` is
+    // disabled) and the launcher is enabled, the user has an active global
+    // hotkey and maps to `kDefaultGlobalWithGlobalScope` for Control vs.
+    // Treatment comparison.
+    base::UmaHistogramEnumeration(
+        "Glic.Preferences.HotkeyCleared",
+        GlicHotkeyCleared::kDefaultGlobalWithGlobalScope);
+  }
+}
+
+void RecordHotkeyScopeChange(GlicHotkeyScopeChange scope_change) {
+  base::UmaHistogramEnumeration("Glic.Preferences.HotkeyScopeChange",
+                                scope_change);
+}
 
 }  // namespace glic

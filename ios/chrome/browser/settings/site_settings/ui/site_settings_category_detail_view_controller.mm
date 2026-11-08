@@ -18,6 +18,7 @@
 #import "ios/chrome/browser/shared/ui/table_view/cells/legacy_table_view_cell.h"
 #import "ios/chrome/browser/shared/ui/table_view/cells/table_view_detail_icon_item.h"
 #import "ios/chrome/browser/shared/ui/table_view/cells/table_view_disclosure_header_footer_item.h"
+#import "ios/chrome/browser/shared/ui/table_view/cells/table_view_text_header_footer_item.h"
 #import "ios/chrome/browser/shared/ui/table_view/cells/table_view_url_item.h"
 #import "ios/chrome/browser/shared/ui/table_view/table_view_favicon_data_source.h"
 #import "ios/chrome/browser/shared/ui/table_view/table_view_model.h"
@@ -45,7 +46,8 @@ enum SectionIdentifier {
 
 // Item types for the Category Detail table view.
 enum ItemType {
-  ItemTypeDefaultSettingAsk = kItemTypeEnumZero,
+  ItemTypeDefaultSettingHeader = kItemTypeEnumZero,
+  ItemTypeDefaultSettingAsk,
   ItemTypeDefaultSettingBlock,
   ItemTypeAllowedHeader,
   ItemTypeAllowedSite,
@@ -97,6 +99,7 @@ enum ItemType {
   self.tableView.accessibilityIdentifier =
       kSiteSettingsCategoryDetailTableViewId;
   self.tableView.allowsMultipleSelectionDuringEditing = YES;
+  self.tableView.estimatedRowHeight = UITableViewAutomaticDimension;
 
   _searchController =
       [[UISearchController alloc] initWithSearchResultsController:nil];
@@ -153,13 +156,16 @@ enum ItemType {
   [self loadDefaultSettingSection];
 
   // 2. Allowed Section (only if non-empty).
-  [self loadSitesSectionWithIdentifier:SectionIdentifierAllowed
-                            headerType:ItemTypeAllowedHeader
-                              itemType:ItemTypeAllowedSite
-                             titleText:l10n_util::GetNSString(
-                                           IDS_IOS_SITE_SETTINGS_ALLOWED)
-                            sectionTag:@"Allowed"
-                                 sites:_filteredAllowedSites];
+  [self
+      loadSitesSectionWithIdentifier:SectionIdentifierAllowed
+                          headerType:ItemTypeAllowedHeader
+                            itemType:ItemTypeAllowedSite
+                           titleText:l10n_util::GetNSString(
+                                         IDS_IOS_SITE_SETTINGS_ALLOWED)
+                        subtitleText:l10n_util::GetNSString(
+                                         IDS_IOS_SITE_SETTINGS_ALLOWED_SUBTITLE)
+                          sectionTag:@"Allowed"
+                               sites:_filteredAllowedSites];
 
   // 3. Not Allowed Section (only if non-empty).
   [self loadSitesSectionWithIdentifier:SectionIdentifierNotAllowed
@@ -167,6 +173,7 @@ enum ItemType {
                               itemType:ItemTypeNotAllowedSite
                              titleText:l10n_util::GetNSString(
                                            IDS_IOS_SITE_SETTINGS_NOT_ALLOWED)
+                          subtitleText:nil
                             sectionTag:@"NotAllowed"
                                  sites:_filteredNotAllowedSites];
 }
@@ -189,7 +196,13 @@ enum ItemType {
 }
 
 - (void)updateUIForEditState {
-  [super updateUIForEditState];
+  // Do not call super. `SettingsRootTableViewController` calls `beginUpdates`
+  // and `endUpdates` to animate row height changes for cells that grow taller
+  // in edit mode. SiteSettings has no cells that change height in edit mode,
+  // and calling `beginUpdates`/`endUpdates` after `reloadData` corrupts
+  // self-sizing cell heights.
+  [self.navigationController setToolbarHidden:self.shouldHideToolbar
+                                     animated:YES];
   [self updatedToolbarForEditState];
 }
 
@@ -211,9 +224,14 @@ enum ItemType {
       [sitesToDelete addObject:siteException];
     }
   }
-  [self setEditing:NO animated:YES];
-  [self updateUIForEditState];
   [self.mutator deleteSettingsForSites:sitesToDelete];
+  __weak __typeof(self) weakSelf = self;
+  base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+      FROM_HERE, base::BindOnce(^{
+        if (weakSelf.editing) {
+          [weakSelf setEditing:NO animated:YES];
+        }
+      }));
 }
 
 #pragma mark - SiteSettingsCategoryDetailConsumer
@@ -307,6 +325,12 @@ enum ItemType {
   return isSiteExceptionSection ? nil : superIndexPath;
 }
 
+- (BOOL)tableView:(UITableView*)tableView
+    shouldIndentWhileEditingRowAtIndexPath:(NSIndexPath*)indexPath {
+  TableViewItem* item = [self.tableViewModel itemAtIndexPath:indexPath];
+  return [item isKindOfClass:[TableViewURLItem class]];
+}
+
 - (void)tableView:(UITableView*)tableView
     didSelectRowAtIndexPath:(NSIndexPath*)indexPath {
   [super tableView:tableView didSelectRowAtIndexPath:indexPath];
@@ -374,6 +398,20 @@ enum ItemType {
       [UISwipeActionsConfiguration configurationWithActions:@[ deleteAction ]];
 }
 
+- (void)tableView:(UITableView*)tableView
+    willBeginEditingRowAtIndexPath:(NSIndexPath*)indexPath {
+  // Do not call super. `UITableViewController` invokes `setEditing:YES` by
+  // default when a single row swipe begins, which would erroneously put the
+  // toolbar and search bar into multi-select edit mode.
+}
+
+- (void)tableView:(UITableView*)tableView
+    didEndEditingRowAtIndexPath:(NSIndexPath*)indexPath {
+  // Do not call super. `UITableViewController` invokes `setEditing:NO` by
+  // default when a single row swipe ends, which triggers `beginUpdates` /
+  // `endUpdates` mid-reload when `reloadData` resets an active swipe action.
+}
+
 #pragma mark - UISearchControllerDelegate
 
 - (void)willPresentSearchController:(UISearchController*)searchController {
@@ -404,17 +442,20 @@ enum ItemType {
 
 #pragma mark - Private
 
-// Updates edit mode, navigation bar search controller visibility, and toolbar
-// buttons when the visible site exceptions change, then reloads the table view.
+// Reloads the table view, then updates edit mode, navigation bar search
+// controller visibility, and toolbar buttons when the visible site exceptions
+// change.
 - (void)reloadSitesAndUpdateEditState {
+  [self reloadData];
+  [self.tableView layoutIfNeeded];
   if (self.isViewLoaded) {
     if (![self editButtonEnabled] && self.tableView.editing) {
       [self setEditing:NO animated:YES];
+    } else {
+      [self updatedToolbarForEditState];
     }
     [self updateNavigationBar];
-    [self updateUIForEditState];
   }
-  [self reloadData];
 }
 
 // Shows the search bar in the navigation item only when site exceptions exist.
@@ -520,6 +561,20 @@ enum ItemType {
   TableViewModel* model = self.tableViewModel;
   [model addSectionWithIdentifier:SectionIdentifierDefaultSetting];
 
+  BOOL hasSiteExceptions =
+      _allAllowedSites.count > 0 || _allNotAllowedSites.count > 0;
+  if (hasSiteExceptions) {
+    TableViewTextHeaderFooterItem* header =
+        [[TableViewTextHeaderFooterItem alloc]
+            initWithType:ItemTypeDefaultSettingHeader];
+    header.text =
+        l10n_util::GetNSString(IDS_IOS_SITE_SETTINGS_DEFAULT_BEHAVIOR_HEADER);
+    header.subtitle =
+        l10n_util::GetNSString(IDS_IOS_SITE_SETTINGS_DEFAULT_BEHAVIOR_SUBTITLE);
+    [model setHeader:header
+        forSectionWithIdentifier:SectionIdentifierDefaultSetting];
+  }
+
   TableViewDetailIconItem* askItem =
       [[TableViewDetailIconItem alloc] initWithType:ItemTypeDefaultSettingAsk];
   askItem.text = [self askOptionTitle];
@@ -553,6 +608,7 @@ enum ItemType {
                             headerType:(ItemType)headerType
                               itemType:(ItemType)itemType
                              titleText:(NSString*)titleText
+                          subtitleText:(NSString*)subtitleText
                             sectionTag:(NSString*)sectionTag
                                  sites:(NSArray<SiteSettingsSiteException*>*)
                                            sites {
@@ -569,6 +625,7 @@ enum ItemType {
   TableViewDisclosureHeaderFooterItem* header =
       [[TableViewDisclosureHeaderFooterItem alloc] initWithType:headerType];
   header.text = titleText;
+  header.subtitleText = subtitleText;
   header.collapsed = [model sectionIsCollapsed:sectionIdentifier];
   [model setHeader:header forSectionWithIdentifier:sectionIdentifier];
 
@@ -603,6 +660,10 @@ enum ItemType {
 // for the site exception at `indexPath`.
 - (void)configureSiteExceptionCell:(UITableViewCell*)cell
                        atIndexPath:(NSIndexPath*)indexPath {
+  UIView* selectedBackgroundView = [[UIView alloc] init];
+  selectedBackgroundView.backgroundColor =
+      [UIColor colorNamed:kGroupedSecondaryBackgroundColor];
+  cell.selectedBackgroundView = selectedBackgroundView;
   SiteSettingsSiteException* siteException =
       [self siteExceptionForIndexPath:indexPath];
   if (!siteException) {

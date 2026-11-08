@@ -7,19 +7,30 @@
 
 #include "base/time/time.h"
 #include "third_party/blink/public/strings/grit/blink_strings.h"
+#include "third_party/blink/public/web/web_performance_metrics_for_reporting.h"
+#include "third_party/blink/renderer/core/dom/document.h"
+#include "third_party/blink/renderer/core/dom/element.h"
 #include "third_party/blink/renderer/core/html/html_image_element.h"
+#include "third_party/blink/renderer/core/loader/resource/image_resource.h"
 #include "third_party/blink/renderer/core/loader/resource/image_resource_content.h"
 #include "third_party/blink/renderer/core/paint/timing/mock_paint_timing_callback_manager.h"
 #include "third_party/blink/renderer/core/paint/timing/paint_timing.h"
 #include "third_party/blink/renderer/core/paint/timing/paint_timing_client.h"
 #include "third_party/blink/renderer/core/paint/timing/paint_timing_detector.h"
 #include "third_party/blink/renderer/core/paint/timing/paint_timing_record.h"
+#include "third_party/blink/renderer/core/performance_entry_names.h"
 #include "third_party/blink/renderer/core/scroll/scroll_types.h"
 #include "third_party/blink/renderer/core/svg/svg_image_element.h"
 #include "third_party/blink/renderer/core/testing/core_unit_test_helper.h"
 #include "third_party/blink/renderer/core/timing/dom_window_performance.h"
+#include "third_party/blink/renderer/core/timing/largest_contentful_paint.h"
+#include "third_party/blink/renderer/core/timing/performance_timing_for_reporting.h"
+#include "third_party/blink/renderer/core/timing/window_performance.h"
 #include "third_party/blink/renderer/platform/graphics/unaccelerated_static_bitmap_image.h"
+#include "third_party/blink/renderer/platform/loader/fetch/memory_cache.h"
+#include "third_party/blink/renderer/platform/loader/fetch/resource_request.h"
 #include "third_party/blink/renderer/platform/testing/testing_platform_support.h"
+#include "third_party/blink/renderer/platform/wtf/casting.h"
 #include "third_party/skia/include/core/SkImage.h"
 #include "third_party/skia/include/core/SkSurface.h"
 
@@ -56,54 +67,89 @@ class PaintTimingTestingPlatformSupport : public TestingPlatformSupport {
   }
 };
 
-// A `PaintTimingClient` that tracks the number of `PaintTimingRecord`s waiting
-// for presentation time by observing paint and presentation for each record.
-class PendingPaintTimingRecordObserverClient
-    : public GarbageCollected<PendingPaintTimingRecordObserverClient>,
+// A `PaintTimingClient` that tracks the counts of painted records.
+class PaintTimingRecordObserverClient final
+    : public GarbageCollected<PaintTimingRecordObserverClient>,
       public PaintTimingClient {
  public:
-  void Trace(Visitor* visitor) const override {
-    visitor->Trace(pending_text_records_);
-    visitor->Trace(pending_image_records_);
+  void Trace(Visitor* visitor) const override {}
+
+  Type GetType() const override { return Type::kTest; }
+
+  OptionalPaintTimingCallback OnPaintFinished(
+      const HeapVector<Member<ImageRecord>>& image_records,
+      const HeapVector<Member<TextRecord>>& text_records) override {
+    painted_text_record_count_ += text_records.size();
+    painted_image_record_count_ += image_records.size();
+    return std::nullopt;
   }
 
-  void OnElementLastContentfulPaint(TextRecord* record,
-                                    bool was_previously_presented) override {
-    // Only track records that are needed by some other client. This works
-    // because this observer is added after the default clients, specifically
-    // LCP for these tests.
-    if (record->IsNeededForPaintTiming()) {
-      pending_text_records_.insert(record);
-    }
+  void OnElementFirstContentfulPaint(ImageRecord*) override {
+    ++image_first_paint_count_;
   }
 
-  void OnElementLastContentfulPaint(ImageRecord* record) override {
-    // Only track records that are needed by some other client. This works
-    // because this observer is added after the default clients, specifically
-    // LCP for these tests.
-    if (record->IsNeededForPaintTiming()) {
-      pending_image_records_.insert(record);
-    }
+  // Returns the total number of text or image records that have been painted.
+  wtf_size_t PaintedImageRecordCount() const {
+    return painted_image_record_count_;
+  }
+  wtf_size_t PaintedTextRecordCount() const {
+    return painted_text_record_count_;
   }
 
-  void OnFramePresented(const HeapVector<Member<ImageRecord>>& image_records,
-                        const HeapVector<Member<TextRecord>>& text_records,
-                        const HeapVector<Member<ElementTimingInfo>>&,
-                        const DOMPaintTimingInfo&) override {
-    for (TextRecord* record : text_records) {
-      pending_text_records_.erase(record);
-    }
-    for (ImageRecord* record : image_records) {
-      pending_image_records_.erase(record);
-    }
-  }
-
-  wtf_size_t PendingTextRecordsSize() { return pending_text_records_.size(); }
-  wtf_size_t PendingImageRecordsSize() { return pending_image_records_.size(); }
+  // Returns the total number of times `OnElementFirstContentfulPaint()` has
+  // been called.
+  wtf_size_t ImageFirstPaintCount() const { return image_first_paint_count_; }
 
  private:
-  HeapHashSet<Member<TextRecord>> pending_text_records_;
-  HeapHashSet<Member<ImageRecord>> pending_image_records_;
+  wtf_size_t painted_image_record_count_ = 0;
+  wtf_size_t painted_text_record_count_ = 0;
+  wtf_size_t image_first_paint_count_ = 0;
+};
+
+// Helper class for getting LCP candidate information in unit tests. Can be used
+// as a mixin for test classes, e.g. to support main frame LCP, or separately,
+// e.g. to support LCP in iframes.
+class LcpTestSupport {
+ public:
+  LcpTestSupport() = default;
+
+  explicit LcpTestSupport(Document& document) { AttachTo(document); }
+
+  virtual ~LcpTestSupport() = default;
+
+  void AttachTo(Document& document) { document_ = &document; }
+
+  // Returns the current `LargestContentfulPaint`, which is the last candidate
+  // emitted to the performance timeline.
+  const LargestContentfulPaint* CurrentLcpCandidate() const {
+    PerformanceEntryVector entries = GetLcpEntries();
+    return entries.empty() ? nullptr
+                           : To<LargestContentfulPaint>(entries.back().Get());
+  }
+
+  // Returns the number of candidates emitted to the performance timeline.
+  wtf_size_t LcpCandidateCount() const { return GetLcpEntries().size(); }
+
+  // Returns the LCP information reported to metrics.
+  const LargestContentfulPaintDetailsForReporting& LcpDetailsForReporting()
+      const {
+    CHECK(document_);
+    CHECK(document_->domWindow());
+    return DOMWindowPerformance::performance(*document_->domWindow())
+        ->timingForReporting()
+        ->LargestContentfulPaintDetailsForMetrics();
+  }
+
+ private:
+  PerformanceEntryVector GetLcpEntries() const {
+    CHECK(document_);
+    CHECK(document_->domWindow());
+    return DOMWindowPerformance::performance(*document_->domWindow())
+        ->getBufferedEntriesByType(
+            performance_entry_names::kLargestContentfulPaint);
+  }
+
+  WeakPersistent<Document> document_;
 };
 
 class PaintTimingTestBase : public RenderingTest {
@@ -165,6 +211,7 @@ class PaintTimingTestBase : public RenderingTest {
   }
 
   void TearDown() override {
+    MemoryCache::Get()->EvictResources();
     mock_callback_manager_->Shutdown();
     RenderingTest::TearDown();
   }
@@ -196,7 +243,7 @@ class PaintTimingTestBase : public RenderingTest {
 
   void SimulatePresentationTime() {
     AdvanceClock(kQuantumOfTime);
-    mock_callback_manager_->OnAnimationFramePresented(NowTicks());
+    mock_callback_manager_->OnAnimationFramePresented(base::TimeTicks::Now());
     mock_callback_manager_->InvokeCallbacksForNextAnimationFrame();
   }
 
@@ -215,20 +262,10 @@ class PaintTimingTestBase : public RenderingTest {
 
   void SimulatePassOfTime() { AdvanceClock(kQuantumOfTime); }
 
-  base::TimeTicks NowTicks() { return base::TimeTicks::Now(); }
-
   PaintTiming& GetPaintTiming() { return PaintTiming::From(GetDocument()); }
-
-  PaintTiming& GetChildFramePaintTiming() {
-    return PaintTiming::From(ChildDocument());
-  }
 
   PaintTimingDetector& GetPaintTimingDetector() {
     return PaintTimingDetector::From(GetDocument());
-  }
-
-  PaintTimingDetector& GetChildPaintTimingDetector() {
-    return PaintTimingDetector::From(ChildDocument());
   }
 
   gfx::Rect GetViewportRect(LocalFrameView& view) {
@@ -250,8 +287,8 @@ class PaintTimingTestBase : public RenderingTest {
     GetPaintTiming().NotifyInputEvent(WebInputEvent::Type::kKeyUp);
   }
 
-  // Sets the image content the given `id`, which must be an `ImageElement` or
-  // `SVGImageElement`. Returns the corresponding `ImageResourceContent`.
+  // Sets the image content for the given `id`, which must be an `ImageElement`
+  // or `SVGImageElement`. Returns the corresponding `ImageResourceContent`.
   ImageResourceContent* SetImageContent(
       const char* id,
       int width,
@@ -270,6 +307,28 @@ class PaintTimingTestBase : public RenderingTest {
       ImageStatus status = ImageStatus::kLoaded) {
     return SetImageContentImpl(ChildDocument().getElementById(AtomicString(id)),
                                width, height, bytes, status);
+  }
+
+  // Creates an `ImageResource` for `url` and adds it to `MemoryCache` so CSS
+  // `url(...)` references (e.g. `background-image`) resolve to it in tests.
+  ImageResourceContent* AddImageToMemoryCache(const char* url,
+                                              int width,
+                                              int height,
+                                              int bytes,
+                                              ImageStatus status) {
+    ImageResourceContent* content =
+        CreateImageForTest(width, height, bytes, status);
+    ResourceRequest request{KURL(url)};
+    request.SetRequestorOrigin(
+        GetDocument().GetExecutionContext()->GetSecurityOrigin());
+    auto* image_resource = MakeGarbageCollected<ImageResource>(
+        request, ResourceLoaderOptions(/*world_for_csp=*/nullptr), content);
+    image_resource->SetStatus(status == ImageStatus::kLoaded
+                                  ? ResourceStatus::kCached
+                                  : ResourceStatus::kPending);
+    image_resource->SetCacheIdentifier(MemoryCache::DefaultCacheIdentifier());
+    MemoryCache::Get()->Add(image_resource);
+    return content;
   }
 
  private:

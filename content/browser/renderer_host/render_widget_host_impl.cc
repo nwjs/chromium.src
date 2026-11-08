@@ -292,8 +292,7 @@ std::vector<DropData::Metadata> DropDataToMetaData(const DropData& drop_data) {
 
   for (const auto& file_system_file : drop_data.file_system_files) {
     if (!file_system_file.url.is_empty()) {
-      metadata.push_back(
-          DropData::Metadata::CreateForFileSystemUrl(file_system_file.url));
+      metadata.push_back(DropData::Metadata::CreateForFileSystemFile());
     }
   }
 
@@ -1708,8 +1707,10 @@ void RenderWidgetHostImpl::SetNewContentRenderingTimeoutForTesting(
 }
 
 void RenderWidgetHostImpl::ForwardMouseEvent(const WebMouseEvent& mouse_event) {
+  // Detect delegate possibly destroying `this` in `PreHandleMouseEvent()`.
+  const auto weak_this = weak_factory_.GetWeakPtr();
   ForwardMouseEventWithLatencyInfo(mouse_event, ui::LatencyInfo());
-  if (owner_delegate_) {
+  if (weak_this && owner_delegate_) {
     owner_delegate_->RenderWidgetDidForwardMouseEvent(mouse_event);
   }
 }
@@ -1753,6 +1754,13 @@ void RenderWidgetHostImpl::ForwardMouseEventWithLatencyInfo(
         }
       }
     }
+  }
+
+  // Protect against delegate handling possibly destroying `this`.
+  const auto weak_this = weak_factory_.GetWeakPtr();
+  // `!IsIgnoringWebInputEvents()` implies `delegate_` is non-null.
+  if (delegate_->PreHandleMouseEvent(mouse_event) || !weak_this) {
+    return;
   }
 
   auto* touch_emulator = GetTouchEmulator(/*create_if_necessary=*/false);
@@ -2436,7 +2444,7 @@ void RenderWidgetHostImpl::OnUpdateDragOperation(
     bool document_is_handling_drag) {
   RenderViewHostDelegateView* view = delegate_->GetDelegateView();
   if (view) {
-    view->UpdateDragOperation(current_op, document_is_handling_drag);
+    view->UpdateDragOperation(current_op, document_is_handling_drag, this);
   }
   std::move(callback).Run(current_op, document_is_handling_drag);
 }
@@ -2480,6 +2488,10 @@ void RenderWidgetHostImpl::RendererExited() {
     view_->RenderProcessGone();
     SetView(nullptr);  // The View should be deleted by RenderProcessGone.
   }
+
+  // Without a view, pending snapshots can never complete: a redraw response
+  // will not arrive from the dead renderer, and in-flight surface copies fail.
+  FailPendingSnapshots();
 }
 
 void RenderWidgetHostImpl::ResetStateForCreatedRenderWidget(
@@ -4054,7 +4066,9 @@ void RenderWidgetHostImpl::OnSnapshotFromSurfaceReceived(
     int retry_count,
     const content::CopyFromSurfaceResult& result) {
   static constexpr int kMaxRetries = 5;
-  if (!result.has_value() && retry_count < kMaxRetries) {
+  // A copy in flight when the renderer exited fails after the view is gone, so
+  // there is nothing to retry from.
+  if (!result.has_value() && retry_count < kMaxRetries && GetView()) {
     GetView()->CopyFromSurface(
         gfx::Rect(), gfx::Size(), base::TimeDelta(),
         base::BindOnce(&RenderWidgetHostImpl::OnSnapshotFromSurfaceReceived,
@@ -4098,6 +4112,25 @@ void RenderWidgetHostImpl::OnSnapshotReceived(int snapshot_id,
     GetWakeLock()->CancelWakeLock();
   }
 #endif
+}
+
+void RenderWidgetHostImpl::FailPendingSnapshots() {
+  // Take the maps first so callbacks can request new snapshots.
+  PendingSnapshotMap surface_snapshots =
+      std::exchange(pending_surface_browser_snapshots_, {});
+  PendingSnapshotMap window_snapshots =
+      std::exchange(pending_browser_snapshots_, {});
+#if BUILDFLAG(IS_MAC)
+  if (!window_snapshots.empty()) {
+    GetWakeLock()->CancelWakeLock();
+  }
+#endif
+  for (auto& [snapshot_id, callback] : surface_snapshots) {
+    std::move(callback).Run(gfx::Image());
+  }
+  for (auto& [snapshot_id, callback] : window_snapshots) {
+    std::move(callback).Run(gfx::Image());
+  }
 }
 
 ui::BrowserAccessibilityManager*

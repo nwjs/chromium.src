@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <array>
 #include <memory>
+#include <set>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -17,21 +18,31 @@
 #include "base/containers/flat_set.h"
 #include "base/functional/bind.h"
 #include "base/json/json_reader.h"
+#include "base/memory/ptr_util.h"
 #include "base/memory/raw_ptr.h"
 #include "base/no_destructor.h"
+#include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/synchronization/lock.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/values.h"
 #include "third_party/skia/include/core/SkBitmap.h"
+#include "ui/base/interaction/element_identifier.h"
 #include "ui/base/metadata/base_type_conversion.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/metadata/metadata_types.h"
+#include "ui/base/models/combobox_model.h"
+#include "ui/base/models/dialog_model.h"
+#include "ui/base/models/dialog_model_field.h"
 #include "ui/base/models/image_model.h"
 #include "ui/base/models/table_model.h"
+#include "ui/base/mojom/dialog_button.mojom.h"
+#include "ui/base/mojom/ui_base_types.mojom-shared.h"
+#include "ui/base/ui_base_types.h"
 #include "ui/color/color_provider_manager.h"
 #include "ui/color/color_provider_utils.h"
 #include "ui/gfx/geometry/insets.h"
@@ -39,10 +50,14 @@
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/geometry/size.h"
 #include "ui/gfx/image/image_skia.h"
+#include "ui/gfx/native_ui_util.h"
 #include "ui/gfx/paint_vector_icon.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/background.h"
 #include "ui/views/border.h"
+#include "ui/views/bubble/bubble_border.h"
+#include "ui/views/bubble/bubble_dialog_delegate_view.h"
+#include "ui/views/bubble/bubble_dialog_model_host.h"
 #include "ui/views/controls/button/checkbox.h"
 #include "ui/views/controls/button/md_text_button.h"
 #include "ui/views/controls/button/radio_button.h"
@@ -71,6 +86,8 @@
 #include "ui/views/view.h"
 #include "ui/views/view_class_properties.h"
 #include "ui/views/view_utils.h"
+#include "ui/views/widget/widget.h"
+#include "ui/views/window/dialog_delegate.h"
 
 namespace views::examples {
 
@@ -269,6 +286,22 @@ DEFINE_ENUM_CONVERTERS(
     {views::style::TextStyle::STYLE_LINK_3, u"STYLE_LINK_3"},
     {views::style::TextStyle::STYLE_LINK_4, u"STYLE_LINK_4"},
     {views::style::TextStyle::STYLE_LINK_5, u"STYLE_LINK_5"})
+
+DEFINE_ENUM_CONVERTERS(ui::mojom::ModalType,
+                       {ui::mojom::ModalType::kNone, u"kNone"},
+                       {ui::mojom::ModalType::kWindow, u"kWindow"},
+                       {ui::mojom::ModalType::kChild, u"kChild"},
+                       {ui::mojom::ModalType::kSystem, u"kSystem"})
+
+DEFINE_ENUM_CONVERTERS(views::BubbleBorder::Shadow,
+                       {views::BubbleBorder::Shadow::STANDARD_SHADOW,
+                        u"STANDARD_SHADOW"},
+                       {views::BubbleBorder::Shadow::NO_SHADOW, u"NO_SHADOW"})
+
+DEFINE_ENUM_CONVERTERS(ui::mojom::DialogButton,
+                       {ui::mojom::DialogButton::kNone, u"kNone"},
+                       {ui::mojom::DialogButton::kOk, u"kOk"},
+                       {ui::mojom::DialogButton::kCancel, u"kCancel"})
 
 namespace views::examples {
 
@@ -1759,6 +1792,154 @@ const gfx::VectorIcon* FindVectorIconByName(std::string_view name) {
   return it != kIcons->end() ? it->second : nullptr;
 }
 
+std::optional<ui::ImageModel> ParseImageModel(std::string_view spec,
+                                              views::View* context_view,
+                                              std::string* error_msg) {
+  if (spec.empty()) {
+    if (error_msg) {
+      *error_msg = "Empty image specification";
+    }
+    return std::nullopt;
+  }
+
+  std::vector<std::string> parts = base::SplitString(
+      spec, ",", base::TRIM_WHITESPACE, base::SPLIT_WANT_NONEMPTY);
+  if (parts.empty()) {
+    if (error_msg) {
+      *error_msg = "Empty image specification";
+    }
+    return std::nullopt;
+  }
+
+  if (parts[0] == "solid") {
+    if (parts.size() < 2) {
+      if (error_msg) {
+        *error_msg =
+            "Solid image requires at least a color: solid,color[,width,height]";
+      }
+      return std::nullopt;
+    }
+    std::u16string color_resolved;
+    if (context_view) {
+      if (!ResolveValue(context_view, "image.color", PropertyType::kColor,
+                        base::UTF8ToUTF16(parts[1]), &color_resolved,
+                        error_msg)) {
+        return std::nullopt;
+      }
+    } else {
+      color_resolved = base::UTF8ToUTF16(parts[1]);
+    }
+    std::optional<SkColor> color = ParseColor(color_resolved, context_view);
+    if (!color) {
+      if (error_msg) {
+        *error_msg = "Failed to parse color: " + parts[1];
+      }
+      return std::nullopt;
+    }
+    int width = 16;
+    int height = 16;
+    if (parts.size() >= 3) {
+      if (!base::StringToInt(parts[2], &width)) {
+        if (error_msg) {
+          *error_msg = "Invalid solid image width: " + parts[2];
+        }
+        return std::nullopt;
+      }
+    }
+    if (parts.size() >= 4) {
+      if (!base::StringToInt(parts[3], &height)) {
+        if (error_msg) {
+          *error_msg = "Invalid solid image height: " + parts[3];
+        }
+        return std::nullopt;
+      }
+    } else if (parts.size() == 3) {
+      height = width;
+    }
+    if (width <= 0 || height <= 0) {
+      if (error_msg) {
+        *error_msg =
+            "Invalid solid image dimensions: width and height must be positive";
+      }
+      return std::nullopt;
+    }
+    SkBitmap bitmap;
+    bitmap.allocN32Pixels(width, height);
+    if (bitmap.isNull()) {
+      if (error_msg) {
+        *error_msg = "Failed to allocate bitmap for solid image";
+      }
+      return std::nullopt;
+    }
+    bitmap.eraseColor(*color);
+    return ui::ImageModel::FromImageSkia(
+        gfx::ImageSkia::CreateFrom1xBitmap(bitmap));
+  }
+
+  std::string icon_token = parts[0];
+  if (base::StartsWith(icon_token,
+                       "vector_icon:", base::CompareCase::INSENSITIVE_ASCII)) {
+    icon_token = icon_token.substr(12);
+  }
+  const gfx::VectorIcon* icon = FindVectorIconByName(icon_token);
+  if (icon) {
+    int size = 16;
+    if (parts.size() >= 2) {
+      if (!base::StringToInt(parts[1], &size)) {
+        if (error_msg) {
+          *error_msg = "Invalid vector icon size: " + parts[1];
+        }
+        return std::nullopt;
+      }
+      if (size <= 0) {
+        if (error_msg) {
+          *error_msg = "Vector icon size must be positive: " + parts[1];
+        }
+        return std::nullopt;
+      }
+    }
+    if (parts.size() >= 3) {
+      std::string color_part = parts[2];
+      if (base::StartsWith(color_part,
+                           "ColorId:", base::CompareCase::INSENSITIVE_ASCII)) {
+        std::string color_name = color_part.substr(8);
+        std::optional<ui::ColorId> color_id = ui::NameToColorId(color_name);
+        if (color_id) {
+          return ui::ImageModel::FromVectorIcon(*icon, *color_id, size);
+        }
+        if (error_msg) {
+          *error_msg = "Unknown ColorId: " + color_name;
+        }
+        return std::nullopt;
+      }
+      std::u16string color_resolved;
+      if (context_view) {
+        if (!ResolveValue(context_view, "image.color", PropertyType::kColor,
+                          base::UTF8ToUTF16(color_part), &color_resolved,
+                          error_msg)) {
+          return std::nullopt;
+        }
+      } else {
+        color_resolved = base::UTF8ToUTF16(color_part);
+      }
+      std::optional<SkColor> color = ParseColor(color_resolved, context_view);
+      if (!color) {
+        if (error_msg) {
+          *error_msg = "Failed to parse color: " + color_part;
+        }
+        return std::nullopt;
+      }
+      return ui::ImageModel::FromVectorIcon(*icon, *color, size);
+    }
+    return ui::ImageModel::FromVectorIcon(*icon, ui::kColorIcon, size);
+  }
+
+  if (error_msg) {
+    *error_msg = "Unsupported image format or unknown icon: " + parts[0];
+  }
+  return std::nullopt;
+}
+
 class ImageDynamicProperty : public DynamicProperty {
  public:
   const std::string_view name() const override {
@@ -1777,91 +1958,12 @@ class ImageDynamicProperty : public DynamicProperty {
       return false;
     }
 
-    std::string value_utf8 = base::UTF16ToUTF8(value_str);
-    std::vector<std::string> parts = base::SplitString(
-        value_utf8, ",", base::TRIM_WHITESPACE, base::SPLIT_WANT_NONEMPTY);
-    if (parts.empty()) {
-      *error_msg = "Empty image specification";
+    auto model = ParseImageModel(base::UTF16ToUTF8(value_str), view, error_msg);
+    if (!model) {
       return false;
     }
-
-    if (parts[0] == "solid") {
-      if (parts.size() < 2) {
-        *error_msg =
-            "Solid image requires at least a color: solid,color[,width,height]";
-        return false;
-      }
-      std::u16string color_resolved;
-      if (!ResolveValue(view, "image.color", PropertyType::kColor,
-                        base::UTF8ToUTF16(parts[1]), &color_resolved,
-                        error_msg)) {
-        return false;
-      }
-      std::optional<SkColor> color = ParseColor(color_resolved, view);
-      if (!color) {
-        *error_msg = "Failed to parse color: " + parts[1];
-        return false;
-      }
-      int width = 16;
-      int height = 16;
-      if (parts.size() >= 3) {
-        base::StringToInt(parts[2], &width);
-      }
-      if (parts.size() >= 4) {
-        base::StringToInt(parts[3], &height);
-      } else if (parts.size() == 3) {
-        height = width;
-      }
-      SkBitmap bitmap;
-      bitmap.allocN32Pixels(width, height);
-      bitmap.eraseColor(*color);
-      image_view->SetImage(ui::ImageModel::FromImageSkia(
-          gfx::ImageSkia::CreateFrom1xBitmap(bitmap)));
-      return true;
-    }
-
-    std::string icon_token = parts[0];
-    if (base::StartsWith(
-            icon_token, "vector_icon:", base::CompareCase::INSENSITIVE_ASCII)) {
-      icon_token = icon_token.substr(12);
-    }
-    const gfx::VectorIcon* icon = FindVectorIconByName(icon_token);
-    if (icon) {
-      int size = 16;
-      if (parts.size() >= 2) {
-        base::StringToInt(parts[1], &size);
-      }
-      if (parts.size() >= 3) {
-        std::string color_part = parts[2];
-        if (base::StartsWith(
-                color_part, "ColorId:", base::CompareCase::INSENSITIVE_ASCII)) {
-          std::string color_name = color_part.substr(8);
-          std::optional<ui::ColorId> color_id = ui::NameToColorId(color_name);
-          if (color_id) {
-            image_view->SetImage(
-                ui::ImageModel::FromVectorIcon(*icon, *color_id, size));
-            return true;
-          }
-        }
-        std::u16string color_resolved;
-        if (ResolveValue(view, "image.color", PropertyType::kColor,
-                         base::UTF8ToUTF16(color_part), &color_resolved,
-                         error_msg)) {
-          std::optional<SkColor> color = ParseColor(color_resolved, view);
-          if (color) {
-            image_view->SetImage(
-                ui::ImageModel::FromVectorIcon(*icon, *color, size));
-            return true;
-          }
-        }
-      }
-      image_view->SetImage(
-          ui::ImageModel::FromVectorIcon(*icon, ui::kColorIcon, size));
-      return true;
-    }
-
-    *error_msg = "Unsupported image format or unknown icon: " + parts[0];
-    return false;
+    image_view->SetImage(std::move(*model));
+    return true;
   }
 };
 
@@ -2277,6 +2379,1710 @@ bool JsonViewBuilder::ApplyPropertiesRecursive(views::View* view,
   }
 
   return true;
+}
+
+namespace {
+
+class JsonComboboxModel : public ui::ComboboxModel {
+ public:
+  explicit JsonComboboxModel(std::vector<std::u16string> items,
+                             std::optional<size_t> default_index = std::nullopt)
+      : items_(std::move(items)), default_index_(default_index) {}
+  ~JsonComboboxModel() override = default;
+
+  size_t GetItemCount() const override { return items_.size(); }
+  std::u16string GetItemAt(size_t index) const override {
+    return index < items_.size() ? items_[index] : u"";
+  }
+  std::optional<size_t> GetDefaultIndex() const override {
+    if (default_index_.has_value()) {
+      return default_index_;
+    }
+    return items_.empty() ? std::nullopt : std::make_optional<size_t>(0);
+  }
+
+ private:
+  std::vector<std::u16string> items_;
+  std::optional<size_t> default_index_;
+};
+
+class JsonDialogDelegate : public views::BubbleDialogDelegate {
+ public:
+  JsonDialogDelegate(views::View* anchor_view,
+                     BubbleBorder::Arrow arrow,
+                     bool is_bubble)
+      : BubbleDialogDelegate(anchor_view, arrow), is_bubble_(is_bubble) {
+    if (is_bubble) {
+      set_close_on_deactivate(true);
+    } else {
+      set_close_on_deactivate(false);
+    }
+  }
+
+  JsonDialogDelegate(const JsonDialogDelegate&) = delete;
+  JsonDialogDelegate& operator=(const JsonDialogDelegate&) = delete;
+  ~JsonDialogDelegate() override = default;
+
+  bool is_bubble() const { return is_bubble_; }
+
+ private:
+  bool is_bubble_ = false;
+};
+
+ui::mojom::ModalType ParseModalType(const std::string& str,
+                                    ui::mojom::ModalType default_val) {
+  if (str.empty()) {
+    return default_val;
+  }
+  return ui::metadata::TypeConverter<ui::mojom::ModalType>::FromString(
+             base::UTF8ToUTF16(str))
+      .value_or(default_val);
+}
+
+views::BubbleBorder::Arrow ParseArrow(const std::string& str) {
+  if (str.empty()) {
+    return views::BubbleBorder::TOP_LEFT;
+  }
+  return ui::metadata::TypeConverter<views::BubbleBorder::Arrow>::FromString(
+             base::UTF8ToUTF16(str))
+      .value_or(views::BubbleBorder::TOP_LEFT);
+}
+
+std::optional<ui::ButtonStyle> ParseButtonStyle(const std::string& str) {
+  if (str.empty()) {
+    return std::nullopt;
+  }
+  return ui::metadata::TypeConverter<ui::ButtonStyle>::FromString(
+      base::UTF8ToUTF16(str));
+}
+
+}  // namespace
+
+bool JsonViewBuilder::IsDialogOrBubbleSpec(const base::DictValue& dict) {
+  const std::string* type_ptr = dict.FindString("type");
+  if (type_ptr) {
+    std::string lower = base::ToLowerASCII(*type_ptr);
+    if (lower == "dialog" || lower == "bubble" || lower == "dialogmodel") {
+      return true;
+    }
+  }
+  return dict.FindDict("dialog_model") != nullptr ||
+         dict.FindDict("dialog") != nullptr ||
+         dict.FindDict("bubble") != nullptr;
+}
+
+bool JsonViewBuilder::IsDialogModelSpec(const base::DictValue& dict) {
+  const std::string* type_ptr = dict.FindString("type");
+  if (type_ptr && base::ToLowerASCII(*type_ptr) == "dialogmodel") {
+    return true;
+  }
+  return dict.FindDict("dialog_model") != nullptr;
+}
+
+class DialogModelProperty {
+ public:
+  virtual ~DialogModelProperty() = default;
+  virtual std::string_view name() const = 0;
+  virtual bool SetValue(ui::DialogModel::Builder& builder,
+                        const base::Value& value,
+                        std::string* error_msg) = 0;
+};
+
+class DialogModelTitleProperty : public DialogModelProperty {
+ public:
+  std::string_view name() const override { return "title"; }
+  bool SetValue(ui::DialogModel::Builder& builder,
+                const base::Value& value,
+                std::string* error_msg) override {
+    if (!value.is_string()) {
+      if (error_msg) {
+        *error_msg = "Property 'title' must be a string";
+      }
+      return false;
+    }
+    builder.SetTitle(base::UTF8ToUTF16(value.GetString()));
+    return true;
+  }
+};
+
+class DialogModelSubtitleProperty : public DialogModelProperty {
+ public:
+  std::string_view name() const override { return "subtitle"; }
+  bool SetValue(ui::DialogModel::Builder& builder,
+                const base::Value& value,
+                std::string* error_msg) override {
+    if (!value.is_string()) {
+      if (error_msg) {
+        *error_msg = "Property 'subtitle' must be a string";
+      }
+      return false;
+    }
+    builder.SetSubtitle(base::UTF8ToUTF16(value.GetString()));
+    return true;
+  }
+};
+
+class DialogModelAccessibleTitleProperty : public DialogModelProperty {
+ public:
+  std::string_view name() const override { return "accessible_title"; }
+  bool SetValue(ui::DialogModel::Builder& builder,
+                const base::Value& value,
+                std::string* error_msg) override {
+    if (!value.is_string()) {
+      if (error_msg) {
+        *error_msg = "Property 'accessible_title' must be a string";
+      }
+      return false;
+    }
+    builder.SetAccessibleTitle(base::UTF8ToUTF16(value.GetString()));
+    return true;
+  }
+};
+
+class DialogModelIsAlertDialogProperty : public DialogModelProperty {
+ public:
+  std::string_view name() const override { return "is_alert_dialog"; }
+  bool SetValue(ui::DialogModel::Builder& builder,
+                const base::Value& value,
+                std::string* error_msg) override {
+    if (!value.is_bool()) {
+      if (error_msg) {
+        *error_msg = "Property 'is_alert_dialog' must be a boolean";
+      }
+      return false;
+    }
+    if (value.GetBool()) {
+      builder.SetIsAlertDialog();
+    }
+    return true;
+  }
+};
+
+class DialogModelCloseOnDeactivateProperty : public DialogModelProperty {
+ public:
+  std::string_view name() const override { return "close_on_deactivate"; }
+  bool SetValue(ui::DialogModel::Builder& builder,
+                const base::Value& value,
+                std::string* error_msg) override {
+    if (!value.is_bool()) {
+      if (error_msg) {
+        *error_msg = "Property 'close_on_deactivate' must be a boolean";
+      }
+      return false;
+    }
+    if (!value.GetBool()) {
+      builder.DisableCloseOnDeactivate();
+    }
+    return true;
+  }
+};
+
+class DialogModelShowCloseButtonProperty : public DialogModelProperty {
+ public:
+  explicit DialogModelShowCloseButtonProperty(std::string_view name)
+      : name_(name) {}
+  std::string_view name() const override { return name_; }
+  bool SetValue(ui::DialogModel::Builder& builder,
+                const base::Value& value,
+                std::string* error_msg) override {
+    if (!value.is_bool()) {
+      if (error_msg) {
+        *error_msg = base::StrCat({"Property '", name_, "' must be a boolean"});
+      }
+      return false;
+    }
+    builder.OverrideShowCloseButton(value.GetBool());
+    return true;
+  }
+
+ private:
+  std::string name_;
+};
+
+class DialogModelIconProperty : public DialogModelProperty {
+ public:
+  std::string_view name() const override { return "icon"; }
+  bool SetValue(ui::DialogModel::Builder& builder,
+                const base::Value& value,
+                std::string* error_msg) override {
+    if (!value.is_string()) {
+      if (error_msg) {
+        *error_msg = "Property 'icon' must be a string";
+      }
+      return false;
+    }
+    auto icon_model = ParseImageModel(value.GetString(), nullptr, error_msg);
+    if (!icon_model) {
+      return false;
+    }
+    builder.SetIcon(std::move(*icon_model));
+    return true;
+  }
+};
+
+class DialogModelBannerProperty : public DialogModelProperty {
+ public:
+  std::string_view name() const override { return "banner"; }
+  bool SetValue(ui::DialogModel::Builder& builder,
+                const base::Value& value,
+                std::string* error_msg) override {
+    if (!value.is_string()) {
+      if (error_msg) {
+        *error_msg = "Property 'banner' must be a string";
+      }
+      return false;
+    }
+    auto banner_model = ParseImageModel(value.GetString(), nullptr, error_msg);
+    if (!banner_model) {
+      return false;
+    }
+    builder.SetBannerImage(std::move(*banner_model));
+    return true;
+  }
+};
+
+class DialogModelMainImageProperty : public DialogModelProperty {
+ public:
+  std::string_view name() const override { return "main_image"; }
+  bool SetValue(ui::DialogModel::Builder& builder,
+                const base::Value& value,
+                std::string* error_msg) override {
+    if (!value.is_string()) {
+      if (error_msg) {
+        *error_msg = "Property 'main_image' must be a string";
+      }
+      return false;
+    }
+    auto main_image_model =
+        ParseImageModel(value.GetString(), nullptr, error_msg);
+    if (!main_image_model) {
+      return false;
+    }
+    builder.SetMainImage(std::move(*main_image_model));
+    return true;
+  }
+};
+
+bool ApplyButtonsAndDefaults(ui::DialogModel::Builder& builder,
+                             const base::DictValue& dict,
+                             std::string* error_msg) {
+  bool has_buttons = false;
+  bool has_ok = false;
+  bool has_cancel = false;
+
+  const base::Value* buttons_val = dict.Find("buttons");
+  if (buttons_val) {
+    has_buttons = true;
+    if (buttons_val->is_dict()) {
+      const base::DictValue& buttons_dict = buttons_val->GetDict();
+      for (const auto [btn_name, _] : buttons_dict) {
+        if (btn_name != "ok" && btn_name != "accept" && btn_name != "cancel" &&
+            btn_name != "extra") {
+          if (error_msg) {
+            *error_msg = "Unknown button type in buttons dict: " + btn_name;
+          }
+          return false;
+        }
+      }
+      const base::DictValue* ok_btn = buttons_dict.FindDict("ok");
+      if (!ok_btn) {
+        ok_btn = buttons_dict.FindDict("accept");
+      }
+      if (ok_btn) {
+        has_ok = true;
+        ui::DialogModel::Button::Params params;
+        const std::string* label = ok_btn->FindString("label");
+        if (!label) {
+          label = ok_btn->FindString("text");
+        }
+        if (label) {
+          params.SetLabel(base::UTF8ToUTF16(*label));
+        }
+        if (const std::string* style_str = ok_btn->FindString("style")) {
+          auto style = ParseButtonStyle(*style_str);
+          if (!style) {
+            if (error_msg) {
+              *error_msg = "Invalid button style: " + *style_str;
+            }
+            return false;
+          }
+          params.SetStyle(*style);
+        }
+        if (const base::Value* enabled_val = ok_btn->Find("enabled")) {
+          if (!enabled_val->is_bool()) {
+            if (error_msg) {
+              *error_msg = "Button 'enabled' property must be a boolean";
+            }
+            return false;
+          }
+          params.SetEnabled(enabled_val->GetBool());
+        }
+        builder.AddOkButton(base::DoNothing(), params);
+      }
+
+      const base::DictValue* cancel_btn = buttons_dict.FindDict("cancel");
+      if (cancel_btn) {
+        has_cancel = true;
+        ui::DialogModel::Button::Params params;
+        const std::string* label = cancel_btn->FindString("label");
+        if (!label) {
+          label = cancel_btn->FindString("text");
+        }
+        if (label) {
+          params.SetLabel(base::UTF8ToUTF16(*label));
+        }
+        if (const std::string* style_str = cancel_btn->FindString("style")) {
+          auto style = ParseButtonStyle(*style_str);
+          if (!style) {
+            if (error_msg) {
+              *error_msg = "Invalid button style: " + *style_str;
+            }
+            return false;
+          }
+          params.SetStyle(*style);
+        }
+        if (const base::Value* enabled_val = cancel_btn->Find("enabled")) {
+          if (!enabled_val->is_bool()) {
+            if (error_msg) {
+              *error_msg = "Button 'enabled' property must be a boolean";
+            }
+            return false;
+          }
+          params.SetEnabled(enabled_val->GetBool());
+        }
+        builder.AddCancelButton(base::DoNothing(), params);
+      }
+
+      const base::DictValue* extra_btn = buttons_dict.FindDict("extra");
+      if (extra_btn) {
+        ui::DialogModel::Button::Params params;
+        const std::string* label = extra_btn->FindString("label");
+        if (!label) {
+          label = extra_btn->FindString("text");
+        }
+        if (!label || label->empty()) {
+          if (error_msg) {
+            *error_msg = "Extra button requires a non-empty label";
+          }
+          return false;
+        }
+        params.SetLabel(base::UTF8ToUTF16(*label));
+        if (const std::string* style_str = extra_btn->FindString("style")) {
+          auto style = ParseButtonStyle(*style_str);
+          if (!style) {
+            if (error_msg) {
+              *error_msg = "Invalid button style: " + *style_str;
+            }
+            return false;
+          }
+          params.SetStyle(*style);
+        }
+        if (const base::Value* enabled_val = extra_btn->Find("enabled")) {
+          if (!enabled_val->is_bool()) {
+            if (error_msg) {
+              *error_msg = "Button 'enabled' property must be a boolean";
+            }
+            return false;
+          }
+          params.SetEnabled(enabled_val->GetBool());
+        }
+        builder.AddExtraButton(base::DoNothing(), params);
+      }
+    } else if (buttons_val->is_list()) {
+      int mask = 0;
+      for (const auto& item : buttons_val->GetList()) {
+        if (!item.is_string()) {
+          if (error_msg) {
+            *error_msg = "Button entry in 'buttons' list must be a string";
+          }
+          return false;
+        }
+        auto btn =
+            ui::metadata::TypeConverter<ui::mojom::DialogButton>::FromString(
+                base::UTF8ToUTF16(item.GetString()));
+        if (!btn) {
+          if (error_msg) {
+            *error_msg = "Invalid dialog button in list: " + item.GetString();
+          }
+          return false;
+        }
+        mask |= static_cast<int>(*btn);
+      }
+      if (mask & static_cast<int>(ui::mojom::DialogButton::kOk)) {
+        has_ok = true;
+        builder.AddOkButton(base::DoNothing());
+      }
+      if (mask & static_cast<int>(ui::mojom::DialogButton::kCancel)) {
+        has_cancel = true;
+        builder.AddCancelButton(base::DoNothing());
+      }
+    } else {
+      if (error_msg) {
+        *error_msg = "Property 'buttons' must be a dictionary or list";
+      }
+      return false;
+    }
+  }
+
+  if (!has_buttons) {
+    builder.AddOkButton(base::DoNothing());
+    builder.AddCancelButton(base::DoNothing());
+    has_ok = true;
+    has_cancel = true;
+  }
+
+  const base::Value* default_btn_val = dict.Find("override_default_button");
+  if (!default_btn_val) {
+    default_btn_val = dict.Find("default_button");
+  }
+  if (default_btn_val) {
+    if (!default_btn_val->is_string()) {
+      if (error_msg) {
+        *error_msg = "Property 'default_button' must be a string";
+      }
+      return false;
+    }
+    const std::string& default_btn_str = default_btn_val->GetString();
+    auto btn = ui::metadata::TypeConverter<ui::mojom::DialogButton>::FromString(
+        base::UTF8ToUTF16(default_btn_str));
+    if (!btn.has_value()) {
+      if (error_msg) {
+        *error_msg = "Unknown default button: " + default_btn_str;
+      }
+      return false;
+    }
+    if (*btn == ui::mojom::DialogButton::kOk && !has_ok) {
+      if (error_msg) {
+        *error_msg =
+            "Cannot override default button to kOk because Ok button is not "
+            "configured";
+      }
+      return false;
+    }
+    if (*btn == ui::mojom::DialogButton::kCancel && !has_cancel) {
+      if (error_msg) {
+        *error_msg =
+            "Cannot override default button to kCancel because Cancel button "
+            "is not configured";
+      }
+      return false;
+    }
+    builder.OverrideDefaultButton(*btn);
+  }
+
+  return true;
+}
+
+class DialogModelFootnoteProperty : public DialogModelProperty {
+ public:
+  std::string_view name() const override { return "footnote"; }
+  bool SetValue(ui::DialogModel::Builder& builder,
+                const base::Value& value,
+                std::string* error_msg) override {
+    if (value.is_string()) {
+      builder.SetFootnote(
+          ui::DialogModelLabel(base::UTF8ToUTF16(value.GetString())));
+      return true;
+    }
+    if (value.is_dict()) {
+      const std::string* fn_text = value.GetDict().FindString("text");
+      if (!fn_text) {
+        fn_text = value.GetDict().FindString("label");
+      }
+      if (!fn_text) {
+        if (error_msg) {
+          *error_msg = "Footnote dictionary requires 'text' or 'label'";
+        }
+        return false;
+      }
+      builder.SetFootnote(ui::DialogModelLabel(base::UTF8ToUTF16(*fn_text)));
+      return true;
+    }
+    if (error_msg) {
+      *error_msg = "Property 'footnote' must be a string or dictionary";
+    }
+    return false;
+  }
+};
+
+ui::ElementIdentifier GetOrCreateElementIdentifier(const std::string& name) {
+  if (name.empty()) {
+    return ui::ElementIdentifier();
+  }
+  ui::ElementIdentifier existing =
+      ui::ElementIdentifier::FromName(name.c_str());
+  if (existing) {
+    return existing;
+  }
+  static base::NoDestructor<base::Lock> lock;
+  base::AutoLock auto_lock(*lock);
+  existing = ui::ElementIdentifier::FromName(name.c_str());
+  if (existing) {
+    return existing;
+  }
+  static base::NoDestructor<std::set<std::string>> string_pool;
+  static base::NoDestructor<
+      std::vector<std::unique_ptr<ui::internal::UniqueIdentifierProvider>>>
+      providers;
+  const std::string& perm_name = *string_pool->insert(name).first;
+  auto provider = base::WrapUnique(
+      new ui::internal::UniqueIdentifierProvider{perm_name.c_str()});
+  ui::ElementIdentifier new_id(provider.get());
+  providers->push_back(std::move(provider));
+  std::ignore = new_id.GetName();
+  return new_id;
+}
+
+class DialogModelFieldHandler {
+ public:
+  virtual ~DialogModelFieldHandler() = default;
+  virtual bool AddField(ui::DialogModel::Builder& builder,
+                        ui::ElementIdentifier field_id,
+                        const base::DictValue& dict,
+                        std::string* error_msg) = 0;
+};
+
+class ParagraphFieldHandler : public DialogModelFieldHandler {
+ public:
+  bool AddField(ui::DialogModel::Builder& builder,
+                ui::ElementIdentifier field_id,
+                const base::DictValue& dict,
+                std::string* error_msg) override {
+    std::string text;
+    if (const std::string* t = dict.FindString("text")) {
+      text = *t;
+    } else if (const std::string* l = dict.FindString("label")) {
+      text = *l;
+    }
+    std::string header;
+    if (const std::string* h = dict.FindString("header")) {
+      header = *h;
+    }
+    builder.AddParagraph(ui::DialogModelLabel(base::UTF8ToUTF16(text)),
+                         base::UTF8ToUTF16(header), field_id);
+    return true;
+  }
+};
+
+class CheckboxFieldHandler : public DialogModelFieldHandler {
+ public:
+  bool AddField(ui::DialogModel::Builder& builder,
+                ui::ElementIdentifier field_id,
+                const base::DictValue& dict,
+                std::string* error_msg) override {
+    std::string label;
+    if (const std::string* l = dict.FindString("label")) {
+      label = *l;
+    } else if (const std::string* t = dict.FindString("text")) {
+      label = *t;
+    }
+    bool checked = dict.FindBool("checked").value_or(false);
+    builder.AddCheckbox(
+        field_id, ui::DialogModelLabel(base::UTF8ToUTF16(label)),
+        ui::DialogModelCheckbox::Params().SetIsChecked(checked));
+    return true;
+  }
+};
+
+class ComboboxFieldHandler : public DialogModelFieldHandler {
+ public:
+  bool AddField(ui::DialogModel::Builder& builder,
+                ui::ElementIdentifier field_id,
+                const base::DictValue& dict,
+                std::string* error_msg) override {
+    std::string label =
+        dict.FindString("label") ? *dict.FindString("label") : "";
+    std::vector<std::u16string> items;
+    const base::ListValue* options = dict.FindList("options");
+    if (!options) {
+      options = dict.FindList("items");
+    }
+    if (options) {
+      for (const auto& item : *options) {
+        if (item.is_string()) {
+          items.push_back(base::UTF8ToUTF16(item.GetString()));
+        }
+      }
+    }
+    if (items.empty()) {
+      if (error_msg) {
+        *error_msg = "Combobox field requires a non-empty 'options' list";
+      }
+      return false;
+    }
+
+    std::optional<size_t> default_idx;
+    const base::Value* idx_val = dict.Find("selected_index");
+    if (!idx_val) {
+      idx_val = dict.Find("default_index");
+    }
+    if (idx_val) {
+      if (!idx_val->is_int()) {
+        if (error_msg) {
+          *error_msg = "Property 'selected_index' must be an integer";
+        }
+        return false;
+      }
+      int idx = idx_val->GetInt();
+      if (idx < 0 || static_cast<size_t>(idx) >= items.size()) {
+        if (error_msg) {
+          *error_msg = base::StringPrintf(
+              "Combobox index %d is out of bounds (options count: %zu)", idx,
+              items.size());
+        }
+        return false;
+      }
+      default_idx = static_cast<size_t>(idx);
+    }
+    builder.AddCombobox(
+        field_id, base::UTF8ToUTF16(label),
+        std::make_unique<JsonComboboxModel>(std::move(items), default_idx));
+    return true;
+  }
+};
+
+class TextfieldFieldHandler : public DialogModelFieldHandler {
+ public:
+  bool AddField(ui::DialogModel::Builder& builder,
+                ui::ElementIdentifier field_id,
+                const base::DictValue& dict,
+                std::string* error_msg) override {
+    std::string label =
+        dict.FindString("label") ? *dict.FindString("label") : "";
+    std::string text = dict.FindString("text") ? *dict.FindString("text") : "";
+    std::string accessible_name;
+    if (const std::string* an = dict.FindString("accessible_name")) {
+      accessible_name = *an;
+    } else if (const std::string* at = dict.FindString("accessible_text")) {
+      accessible_name = *at;
+    } else if (const std::string* ph = dict.FindString("placeholder")) {
+      accessible_name = *ph;
+    } else if (const std::string* pht = dict.FindString("placeholdertext")) {
+      accessible_name = *pht;
+    }
+
+    if (label.empty() && accessible_name.empty()) {
+      if (error_msg) {
+        *error_msg =
+            "Textfield requires either a non-empty 'label' or "
+            "'accessible_name'";
+      }
+      return false;
+    }
+
+    ui::DialogModelTextfield::Params params;
+    if (!accessible_name.empty()) {
+      params.SetAccessibleName(base::UTF8ToUTF16(accessible_name));
+    }
+    builder.AddTextfield(field_id, base::UTF8ToUTF16(label),
+                         base::UTF8ToUTF16(text), params);
+    return true;
+  }
+};
+
+class PasswordFieldHandler : public DialogModelFieldHandler {
+ public:
+  bool AddField(ui::DialogModel::Builder& builder,
+                ui::ElementIdentifier field_id,
+                const base::DictValue& dict,
+                std::string* error_msg) override {
+    std::string label =
+        dict.FindString("label") ? *dict.FindString("label") : "";
+    std::string accessible_text;
+    if (const std::string* at = dict.FindString("accessible_text")) {
+      accessible_text = *at;
+    } else if (const std::string* an = dict.FindString("accessible_name")) {
+      accessible_text = *an;
+    } else {
+      accessible_text = label;
+    }
+
+    if (label.empty() && accessible_text.empty()) {
+      if (error_msg) {
+        *error_msg =
+            "Password field requires either a non-empty 'label' or "
+            "'accessible_name'";
+      }
+      return false;
+    }
+
+    std::string incorrect_password_text;
+    if (const std::string* ipt = dict.FindString("incorrect_password_text")) {
+      incorrect_password_text = *ipt;
+    } else if (const std::string* et = dict.FindString("error_text")) {
+      incorrect_password_text = *et;
+    }
+
+    builder.AddPasswordField(field_id, base::UTF8ToUTF16(label),
+                             base::UTF8ToUTF16(accessible_text),
+                             base::UTF8ToUTF16(incorrect_password_text));
+    return true;
+  }
+};
+
+class SeparatorFieldHandler : public DialogModelFieldHandler {
+ public:
+  bool AddField(ui::DialogModel::Builder& builder,
+                ui::ElementIdentifier field_id,
+                const base::DictValue& dict,
+                std::string* error_msg) override {
+    builder.AddSeparator();
+    return true;
+  }
+};
+
+class TitleItemFieldHandler : public DialogModelFieldHandler {
+ public:
+  bool AddField(ui::DialogModel::Builder& builder,
+                ui::ElementIdentifier field_id,
+                const base::DictValue& dict,
+                std::string* error_msg) override {
+    std::string label =
+        dict.FindString("label") ? *dict.FindString("label") : "";
+    builder.AddTitleItem(base::UTF8ToUTF16(label), field_id);
+    return true;
+  }
+};
+
+class MenuItemFieldHandler : public DialogModelFieldHandler {
+ public:
+  bool AddField(ui::DialogModel::Builder& builder,
+                ui::ElementIdentifier field_id,
+                const base::DictValue& dict,
+                std::string* error_msg) override {
+    std::string label;
+    if (const std::string* l = dict.FindString("label")) {
+      label = *l;
+    } else if (const std::string* t = dict.FindString("text")) {
+      label = *t;
+    }
+
+    ui::ImageModel icon_model;
+    if (const base::Value* icon_val = dict.Find("icon")) {
+      if (!icon_val->is_string()) {
+        if (error_msg) {
+          *error_msg = "Property 'icon' must be a string";
+        }
+        return false;
+      }
+      if (!icon_val->GetString().empty()) {
+        auto parsed_icon =
+            ParseImageModel(icon_val->GetString(), nullptr, error_msg);
+        if (!parsed_icon) {
+          return false;
+        }
+        icon_model = std::move(*parsed_icon);
+      }
+    }
+
+    ui::DialogModelMenuItem::Params params;
+    if (field_id) {
+      params.SetId(field_id);
+    }
+    if (const base::Value* is_enabled = dict.Find("is_enabled")) {
+      if (!is_enabled->is_bool()) {
+        if (error_msg) {
+          *error_msg = "Property 'is_enabled' must be a boolean";
+        }
+        return false;
+      }
+      params.SetIsEnabled(is_enabled->GetBool());
+    } else if (const base::Value* enabled = dict.Find("enabled")) {
+      if (!enabled->is_bool()) {
+        if (error_msg) {
+          *error_msg = "Property 'enabled' must be a boolean";
+        }
+        return false;
+      }
+      params.SetIsEnabled(enabled->GetBool());
+    }
+
+    builder.AddMenuItem(std::move(icon_model), base::UTF8ToUTF16(label),
+                        base::DoNothing(), params);
+    return true;
+  }
+};
+
+class CustomViewFieldHandler : public DialogModelFieldHandler {
+ public:
+  bool AddField(ui::DialogModel::Builder& builder,
+                ui::ElementIdentifier field_id,
+                const base::DictValue& dict,
+                std::string* error_msg) override {
+    const base::DictValue* view_dict = dict.FindDict("view");
+    if (!view_dict) {
+      if (error_msg) {
+        *error_msg = "Missing 'view' specification for custom field";
+      }
+      return false;
+    }
+    auto custom_view = JsonViewBuilder::BuildView(*view_dict, error_msg);
+    if (!custom_view) {
+      return false;
+    }
+    if (!JsonViewBuilder::ApplyPropertiesRecursive(custom_view.get(),
+                                                   *view_dict, error_msg)) {
+      return false;
+    }
+    std::string ftype_str = dict.FindString("field_type")
+                                ? *dict.FindString("field_type")
+                                : "kControl";
+    views::BubbleDialogModelHost::FieldType custom_field_type =
+        views::BubbleDialogModelHost::FieldType::kControl;
+    if (ftype_str == "kText" || ftype_str == "text") {
+      custom_field_type = views::BubbleDialogModelHost::FieldType::kText;
+    } else if (ftype_str == "kMenuItem" || ftype_str == "menu_item") {
+      custom_field_type = views::BubbleDialogModelHost::FieldType::kMenuItem;
+    }
+    builder.AddCustomField(
+        std::make_unique<views::BubbleDialogModelHost::CustomView>(
+            std::move(custom_view), custom_field_type),
+        field_id);
+    return true;
+  }
+};
+
+class DialogModelFieldsProperty : public DialogModelProperty {
+ public:
+  DialogModelFieldsProperty() {
+    auto paragraph = std::make_unique<ParagraphFieldHandler>();
+    field_handlers_["paragraph"] = paragraph.get();
+    field_handlers_["text"] = paragraph.get();
+    field_handlers_["label"] = paragraph.get();
+    owned_handlers_.push_back(std::move(paragraph));
+
+    auto checkbox = std::make_unique<CheckboxFieldHandler>();
+    field_handlers_["checkbox"] = checkbox.get();
+    owned_handlers_.push_back(std::move(checkbox));
+
+    auto combobox = std::make_unique<ComboboxFieldHandler>();
+    field_handlers_["combobox"] = combobox.get();
+    owned_handlers_.push_back(std::move(combobox));
+
+    auto textfield = std::make_unique<TextfieldFieldHandler>();
+    field_handlers_["textfield"] = textfield.get();
+    owned_handlers_.push_back(std::move(textfield));
+
+    auto password = std::make_unique<PasswordFieldHandler>();
+    field_handlers_["password_field"] = password.get();
+    field_handlers_["password"] = password.get();
+    owned_handlers_.push_back(std::move(password));
+
+    auto separator = std::make_unique<SeparatorFieldHandler>();
+    field_handlers_["separator"] = separator.get();
+    owned_handlers_.push_back(std::move(separator));
+
+    auto title_item = std::make_unique<TitleItemFieldHandler>();
+    field_handlers_["title_item"] = title_item.get();
+    owned_handlers_.push_back(std::move(title_item));
+
+    auto menu_item = std::make_unique<MenuItemFieldHandler>();
+    field_handlers_["menu_item"] = menu_item.get();
+    owned_handlers_.push_back(std::move(menu_item));
+
+    auto custom = std::make_unique<CustomViewFieldHandler>();
+    field_handlers_["custom_view"] = custom.get();
+    field_handlers_["custom_field"] = custom.get();
+    field_handlers_["custom"] = custom.get();
+    owned_handlers_.push_back(std::move(custom));
+  }
+
+  std::string_view name() const override { return "fields"; }
+
+  bool SetValue(ui::DialogModel::Builder& builder,
+                const base::Value& value,
+                std::string* error_msg) override {
+    if (!value.is_list()) {
+      if (error_msg) {
+        *error_msg = "Property 'fields' must be a list";
+      }
+      return false;
+    }
+    for (const auto& field_val : value.GetList()) {
+      if (!field_val.is_dict()) {
+        if (error_msg) {
+          *error_msg = "Field entry in 'fields' list must be a dictionary";
+        }
+        return false;
+      }
+      const base::DictValue& field_dict = field_val.GetDict();
+      const std::string* ftype = field_dict.FindString("type");
+      std::string field_type = ftype ? base::ToLowerASCII(*ftype) : "paragraph";
+
+      ui::ElementIdentifier field_id;
+      if (const std::string* id_s = field_dict.FindString("id")) {
+        field_id = GetOrCreateElementIdentifier(*id_s);
+      } else if (std::optional<int> id_i = field_dict.FindInt("id");
+                 id_i.has_value()) {
+        field_id = GetOrCreateElementIdentifier(base::NumberToString(*id_i));
+      }
+
+      auto it = field_handlers_.find(field_type);
+      if (it == field_handlers_.end()) {
+        if (error_msg) {
+          *error_msg = "Unknown field type: " + field_type;
+        }
+        return false;
+      }
+      if (!it->second->AddField(builder, field_id, field_dict, error_msg)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+ private:
+  std::vector<std::unique_ptr<DialogModelFieldHandler>> owned_handlers_;
+  base::flat_map<std::string, DialogModelFieldHandler*> field_handlers_;
+};
+
+class DialogModelHandler {
+ public:
+  static DialogModelHandler* GetInstance() {
+    static base::NoDestructor<DialogModelHandler> instance;
+    return instance.get();
+  }
+
+  DialogModelHandler() {
+    RegisterProperty(std::make_unique<DialogModelTitleProperty>());
+    RegisterProperty(std::make_unique<DialogModelSubtitleProperty>());
+    RegisterProperty(std::make_unique<DialogModelAccessibleTitleProperty>());
+    RegisterProperty(std::make_unique<DialogModelIsAlertDialogProperty>());
+    RegisterProperty(std::make_unique<DialogModelCloseOnDeactivateProperty>());
+    RegisterProperty(std::make_unique<DialogModelShowCloseButtonProperty>(
+        "override_show_close_button"));
+    RegisterProperty(std::make_unique<DialogModelShowCloseButtonProperty>(
+        "show_close_button"));
+    RegisterProperty(std::make_unique<DialogModelIconProperty>());
+    RegisterProperty(std::make_unique<DialogModelBannerProperty>());
+    RegisterProperty(std::make_unique<DialogModelMainImageProperty>());
+    RegisterProperty(std::make_unique<DialogModelFieldsProperty>());
+    RegisterProperty(std::make_unique<DialogModelFootnoteProperty>());
+  }
+
+  void RegisterProperty(std::unique_ptr<DialogModelProperty> prop) {
+    properties_[base::ToLowerASCII(prop->name())] = std::move(prop);
+  }
+
+  DialogModelProperty* GetProperty(std::string_view name) const {
+    auto it = properties_.find(base::ToLowerASCII(name));
+    return it != properties_.end() ? it->second.get() : nullptr;
+  }
+
+  bool ApplyProperties(ui::DialogModel::Builder& builder,
+                       const base::DictValue& dict,
+                       std::string* error_msg) {
+    if (const base::Value* arrow_val = dict.Find("arrow")) {
+      if (!arrow_val->is_string()) {
+        if (error_msg) {
+          *error_msg = "Property 'arrow' must be a string";
+        }
+        return false;
+      }
+      auto parsed =
+          ui::metadata::TypeConverter<views::BubbleBorder::Arrow>::FromString(
+              base::UTF8ToUTF16(arrow_val->GetString()));
+      if (!parsed) {
+        if (error_msg) {
+          *error_msg = "Invalid arrow: " + arrow_val->GetString();
+        }
+        return false;
+      }
+    }
+    if (const base::Value* modal_val = dict.Find("modal_type")) {
+      if (!modal_val->is_string()) {
+        if (error_msg) {
+          *error_msg = "Property 'modal_type' must be a string";
+        }
+        return false;
+      }
+      auto modal =
+          ui::metadata::TypeConverter<ui::mojom::ModalType>::FromString(
+              base::UTF8ToUTF16(modal_val->GetString()));
+      if (!modal) {
+        if (error_msg) {
+          *error_msg = "Invalid modal_type: " + modal_val->GetString();
+        }
+        return false;
+      }
+    }
+    if (const base::Value* desktop_val =
+            dict.Find("use_desktop_widget_override")) {
+      if (!desktop_val->is_bool()) {
+        if (error_msg) {
+          *error_msg =
+              "Property 'use_desktop_widget_override' must be a boolean";
+        }
+        return false;
+      }
+    }
+
+    if (!ApplyButtonsAndDefaults(builder, dict, error_msg)) {
+      return false;
+    }
+
+    for (const auto [key, val] : dict) {
+      if (key == "type" || key == "modal_type" || key == "arrow" ||
+          key == "buttons" || key == "override_default_button" ||
+          key == "default_button" || key == "use_desktop_widget_override") {
+        continue;
+      }
+      auto* prop = GetProperty(key);
+      if (!prop) {
+        if (error_msg) {
+          *error_msg = "Unknown property in DialogModel: " + key;
+        }
+        return false;
+      }
+      if (!prop->SetValue(builder, val, error_msg)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+ private:
+  base::flat_map<std::string, std::unique_ptr<DialogModelProperty>> properties_;
+};
+
+std::unique_ptr<ui::DialogModel> JsonViewBuilder::BuildDialogModel(
+    const base::DictValue& dict,
+    std::string* error_msg) {
+  const base::DictValue* model_dict = &dict;
+  if (const base::DictValue* nested = dict.FindDict("dialog_model")) {
+    model_dict = nested;
+  }
+
+  ui::DialogModel::Builder builder;
+  if (!DialogModelHandler::GetInstance()->ApplyProperties(builder, *model_dict,
+                                                          error_msg)) {
+    // ui::DialogModel::Builder enforces CHECK(!model_) in its destructor.
+    // Call Build() to extract and discard the model so ~Builder() doesn't
+    // CHECK.
+    std::ignore = builder.Build();
+    return nullptr;
+  }
+  return builder.Build();
+}
+
+class DialogDelegateProperty {
+ public:
+  virtual ~DialogDelegateProperty() = default;
+  virtual std::string_view name() const = 0;
+  virtual bool SetValue(JsonDialogDelegate* delegate,
+                        const base::Value& value,
+                        std::string* error_msg) = 0;
+};
+
+class DialogDelegateTitleProperty : public DialogDelegateProperty {
+ public:
+  std::string_view name() const override { return "title"; }
+  bool SetValue(JsonDialogDelegate* delegate,
+                const base::Value& value,
+                std::string* error_msg) override {
+    if (!value.is_string()) {
+      if (error_msg) {
+        *error_msg = "Property 'title' must be a string";
+      }
+      return false;
+    }
+    delegate->SetTitle(base::UTF8ToUTF16(value.GetString()));
+    return true;
+  }
+};
+
+class DialogDelegateAccessibleTitleProperty : public DialogDelegateProperty {
+ public:
+  std::string_view name() const override { return "accessible_title"; }
+  bool SetValue(JsonDialogDelegate* delegate,
+                const base::Value& value,
+                std::string* error_msg) override {
+    if (!value.is_string()) {
+      if (error_msg) {
+        *error_msg = "Property 'accessible_title' must be a string";
+      }
+      return false;
+    }
+    delegate->SetAccessibleTitle(base::UTF8ToUTF16(value.GetString()));
+    return true;
+  }
+};
+
+class DialogDelegateModalTypeProperty : public DialogDelegateProperty {
+ public:
+  std::string_view name() const override { return "modal_type"; }
+  bool SetValue(JsonDialogDelegate* delegate,
+                const base::Value& value,
+                std::string* error_msg) override {
+    if (!value.is_string()) {
+      if (error_msg) {
+        *error_msg = "Property 'modal_type' must be a string";
+      }
+      return false;
+    }
+    auto modal = ui::metadata::TypeConverter<ui::mojom::ModalType>::FromString(
+        base::UTF8ToUTF16(value.GetString()));
+    if (!modal) {
+      if (error_msg) {
+        *error_msg = "Invalid modal_type: " + value.GetString();
+      }
+      return false;
+    }
+    delegate->SetModalType(*modal);
+    return true;
+  }
+};
+
+class DialogDelegateCloseOnDeactivateProperty : public DialogDelegateProperty {
+ public:
+  std::string_view name() const override { return "close_on_deactivate"; }
+  bool SetValue(JsonDialogDelegate* delegate,
+                const base::Value& value,
+                std::string* error_msg) override {
+    if (!value.is_bool()) {
+      if (error_msg) {
+        *error_msg = "Property 'close_on_deactivate' must be a boolean";
+      }
+      return false;
+    }
+    delegate->set_close_on_deactivate(value.GetBool());
+    return true;
+  }
+};
+
+class DialogDelegateShowCloseButtonProperty : public DialogDelegateProperty {
+ public:
+  std::string_view name() const override { return "show_close_button"; }
+  bool SetValue(JsonDialogDelegate* delegate,
+                const base::Value& value,
+                std::string* error_msg) override {
+    if (!value.is_bool()) {
+      if (error_msg) {
+        *error_msg = "Property 'show_close_button' must be a boolean";
+      }
+      return false;
+    }
+    delegate->SetShowCloseButton(value.GetBool());
+    return true;
+  }
+};
+
+class DialogDelegateShadowProperty : public DialogDelegateProperty {
+ public:
+  std::string_view name() const override { return "shadow"; }
+  bool SetValue(JsonDialogDelegate* delegate,
+                const base::Value& value,
+                std::string* error_msg) override {
+    if (!value.is_string()) {
+      if (error_msg) {
+        *error_msg = "Property 'shadow' must be a string";
+      }
+      return false;
+    }
+    const std::string& shadow_str = value.GetString();
+    if (shadow_str == "DIALOG_SHADOW") {
+      delegate->set_shadow(views::BubbleBorder::DIALOG_SHADOW);
+      return true;
+    }
+    auto shadow =
+        ui::metadata::TypeConverter<views::BubbleBorder::Shadow>::FromString(
+            base::UTF8ToUTF16(shadow_str));
+    if (!shadow) {
+      if (error_msg) {
+        *error_msg = "Invalid shadow type: " + shadow_str;
+      }
+      return false;
+    }
+    delegate->set_shadow(*shadow);
+    return true;
+  }
+};
+
+class DialogDelegateButtonsProperty : public DialogDelegateProperty {
+ public:
+  std::string_view name() const override { return "buttons"; }
+  bool SetValue(JsonDialogDelegate* delegate,
+                const base::Value& value,
+                std::string* error_msg) override {
+    if (value.is_int()) {
+      delegate->SetButtons(value.GetInt());
+      return true;
+    }
+    if (value.is_string()) {
+      auto btn =
+          ui::metadata::TypeConverter<ui::mojom::DialogButton>::FromString(
+              base::UTF8ToUTF16(value.GetString()));
+      if (!btn) {
+        if (error_msg) {
+          *error_msg = "Invalid dialog button: " + value.GetString();
+        }
+        return false;
+      }
+      delegate->SetButtons(static_cast<int>(*btn));
+      return true;
+    }
+    if (value.is_list()) {
+      int mask = 0;
+      for (const auto& item : value.GetList()) {
+        if (!item.is_string()) {
+          if (error_msg) {
+            *error_msg = "Button entry in 'buttons' list must be a string";
+          }
+          return false;
+        }
+        auto btn =
+            ui::metadata::TypeConverter<ui::mojom::DialogButton>::FromString(
+                base::UTF8ToUTF16(item.GetString()));
+        if (!btn) {
+          if (error_msg) {
+            *error_msg = "Invalid dialog button in list: " + item.GetString();
+          }
+          return false;
+        }
+        mask |= static_cast<int>(*btn);
+      }
+      delegate->SetButtons(mask);
+      return true;
+    }
+    if (error_msg) {
+      *error_msg = "Property 'buttons' must be an integer, string, or list";
+    }
+    return false;
+  }
+};
+
+class DialogDelegateOkButtonLabelProperty : public DialogDelegateProperty {
+ public:
+  std::string_view name() const override { return "ok_button_label"; }
+  bool SetValue(JsonDialogDelegate* delegate,
+                const base::Value& value,
+                std::string* error_msg) override {
+    if (!value.is_string()) {
+      if (error_msg) {
+        *error_msg = "Property 'ok_button_label' must be a string";
+      }
+      return false;
+    }
+    delegate->SetButtonLabel(ui::mojom::DialogButton::kOk,
+                             base::UTF8ToUTF16(value.GetString()));
+    return true;
+  }
+};
+
+class DialogDelegateCancelButtonLabelProperty : public DialogDelegateProperty {
+ public:
+  std::string_view name() const override { return "cancel_button_label"; }
+  bool SetValue(JsonDialogDelegate* delegate,
+                const base::Value& value,
+                std::string* error_msg) override {
+    if (!value.is_string()) {
+      if (error_msg) {
+        *error_msg = "Property 'cancel_button_label' must be a string";
+      }
+      return false;
+    }
+    delegate->SetButtonLabel(ui::mojom::DialogButton::kCancel,
+                             base::UTF8ToUTF16(value.GetString()));
+    return true;
+  }
+};
+
+class DialogDelegateDefaultButtonProperty : public DialogDelegateProperty {
+ public:
+  std::string_view name() const override { return "default_button"; }
+  bool SetValue(JsonDialogDelegate* delegate,
+                const base::Value& value,
+                std::string* error_msg) override {
+    if (!value.is_string()) {
+      if (error_msg) {
+        *error_msg = "Property 'default_button' must be a string";
+      }
+      return false;
+    }
+    auto btn = ui::metadata::TypeConverter<ui::mojom::DialogButton>::FromString(
+        base::UTF8ToUTF16(value.GetString()));
+    if (!btn) {
+      if (error_msg) {
+        *error_msg = "Unknown default button: " + value.GetString();
+      }
+      return false;
+    }
+    delegate->SetDefaultButton(static_cast<int>(*btn));
+    return true;
+  }
+};
+
+class DialogDelegateExtraButtonLabelProperty : public DialogDelegateProperty {
+ public:
+  std::string_view name() const override { return "extra_button_label"; }
+  bool SetValue(JsonDialogDelegate* delegate,
+                const base::Value& value,
+                std::string* error_msg) override {
+    if (!value.is_string()) {
+      if (error_msg) {
+        *error_msg = "Property 'extra_button_label' must be a string";
+      }
+      return false;
+    }
+    delegate->SetExtraView(std::make_unique<views::MdTextButton>(
+        views::Button::PressedCallback(),
+        base::UTF8ToUTF16(value.GetString())));
+    return true;
+  }
+};
+
+class DialogDelegateFootnoteProperty : public DialogDelegateProperty {
+ public:
+  std::string_view name() const override { return "footnote"; }
+  bool SetValue(JsonDialogDelegate* delegate,
+                const base::Value& value,
+                std::string* error_msg) override {
+    if (!value.is_string()) {
+      if (error_msg) {
+        *error_msg = "Property 'footnote' must be a string";
+      }
+      return false;
+    }
+    delegate->SetFootnoteView(
+        std::make_unique<views::Label>(base::UTF8ToUTF16(value.GetString())));
+    return true;
+  }
+};
+
+class DialogDelegateUseDesktopWidgetOverrideProperty
+    : public DialogDelegateProperty {
+ public:
+  std::string_view name() const override {
+    return "use_desktop_widget_override";
+  }
+  bool SetValue(JsonDialogDelegate* delegate,
+                const base::Value& value,
+                std::string* error_msg) override {
+    if (!value.is_bool()) {
+      if (error_msg) {
+        *error_msg = "Property 'use_desktop_widget_override' must be a boolean";
+      }
+      return false;
+    }
+    delegate->set_use_desktop_widget_override(value.GetBool());
+    return true;
+  }
+};
+
+class DialogDelegateHandler {
+ public:
+  static DialogDelegateHandler* GetInstance() {
+    static base::NoDestructor<DialogDelegateHandler> instance;
+    return instance.get();
+  }
+
+  DialogDelegateHandler() {
+    RegisterProperty(std::make_unique<DialogDelegateTitleProperty>());
+    RegisterProperty(std::make_unique<DialogDelegateAccessibleTitleProperty>());
+    RegisterProperty(std::make_unique<DialogDelegateModalTypeProperty>());
+    RegisterProperty(
+        std::make_unique<DialogDelegateCloseOnDeactivateProperty>());
+    RegisterProperty(std::make_unique<DialogDelegateShowCloseButtonProperty>());
+    RegisterProperty(std::make_unique<DialogDelegateShadowProperty>());
+    RegisterProperty(std::make_unique<DialogDelegateButtonsProperty>());
+    RegisterProperty(std::make_unique<DialogDelegateOkButtonLabelProperty>());
+    RegisterProperty(
+        std::make_unique<DialogDelegateCancelButtonLabelProperty>());
+    RegisterProperty(std::make_unique<DialogDelegateDefaultButtonProperty>());
+    RegisterProperty(
+        std::make_unique<DialogDelegateExtraButtonLabelProperty>());
+    RegisterProperty(std::make_unique<DialogDelegateFootnoteProperty>());
+    RegisterProperty(
+        std::make_unique<DialogDelegateUseDesktopWidgetOverrideProperty>());
+  }
+
+  void RegisterProperty(std::unique_ptr<DialogDelegateProperty> prop) {
+    properties_[base::ToLowerASCII(prop->name())] = std::move(prop);
+  }
+
+  DialogDelegateProperty* GetProperty(std::string_view name) const {
+    auto it = properties_.find(base::ToLowerASCII(name));
+    return it != properties_.end() ? it->second.get() : nullptr;
+  }
+
+  bool ApplyProperties(JsonDialogDelegate* delegate,
+                       const base::DictValue& dict,
+                       std::string* error_msg) {
+    if (const base::Value* arrow_val = dict.Find("arrow")) {
+      if (!arrow_val->is_string()) {
+        if (error_msg) {
+          *error_msg = "Property 'arrow' must be a string";
+        }
+        return false;
+      }
+      auto parsed =
+          ui::metadata::TypeConverter<views::BubbleBorder::Arrow>::FromString(
+              base::UTF8ToUTF16(arrow_val->GetString()));
+      if (!parsed) {
+        if (error_msg) {
+          *error_msg = "Invalid arrow: " + arrow_val->GetString();
+        }
+        return false;
+      }
+    }
+
+    bool has_buttons = false;
+    for (const auto [key, val] : dict) {
+      if (key == "type" || key == "arrow" || key == "contents" ||
+          key == "view" || key == "children") {
+        continue;
+      }
+      if (key == "buttons") {
+        has_buttons = true;
+      }
+      auto* prop = GetProperty(key);
+      if (!prop) {
+        if (error_msg) {
+          *error_msg = "Unknown property in Dialog: " + key;
+        }
+        return false;
+      }
+      if (!prop->SetValue(delegate, val, error_msg)) {
+        return false;
+      }
+    }
+    if (!has_buttons) {
+      delegate->SetButtons(static_cast<int>(ui::mojom::DialogButton::kOk) |
+                           static_cast<int>(ui::mojom::DialogButton::kCancel));
+    }
+    return true;
+  }
+
+ private:
+  base::flat_map<std::string, std::unique_ptr<DialogDelegateProperty>>
+      properties_;
+};
+
+std::unique_ptr<views::DialogDelegate> JsonViewBuilder::BuildDialogDelegate(
+    const base::DictValue& dict,
+    std::string* error_msg) {
+  if (IsDialogModelSpec(dict)) {
+    std::unique_ptr<ui::DialogModel> model = BuildDialogModel(dict, error_msg);
+    if (!model) {
+      return nullptr;
+    }
+
+    const base::DictValue* model_dict = &dict;
+    if (const base::DictValue* nested = dict.FindDict("dialog_model")) {
+      model_dict = nested;
+    }
+
+    std::string modal_str = model_dict->FindString("modal_type")
+                                ? *model_dict->FindString("modal_type")
+                                : "kChild";
+    ui::mojom::ModalType modal_type =
+        ParseModalType(modal_str, ui::mojom::ModalType::kChild);
+    bool is_bubble = (modal_type == ui::mojom::ModalType::kNone);
+
+    BubbleBorder::Arrow arrow = BubbleBorder::TOP_LEFT;
+    if (const std::string* arrow_str = model_dict->FindString("arrow")) {
+      arrow = ParseArrow(*arrow_str);
+    }
+
+    std::unique_ptr<views::BubbleDialogModelHost> host;
+    if (is_bubble) {
+      host = std::make_unique<views::BubbleDialogModelHost>(
+          std::move(model), nullptr, arrow, /*autosize=*/true,
+          /*owned_by_widget=*/false);
+    } else {
+      host = views::BubbleDialogModelHost::CreateModal(
+          std::move(model), modal_type, /*autosize=*/true,
+          /*owned_by_widget=*/false);
+      host->SetArrow(arrow);
+    }
+
+    bool use_desktop_widget = true;
+    if (std::optional<bool> override_val =
+            model_dict->FindBool("use_desktop_widget_override")) {
+      use_desktop_widget = *override_val;
+    }
+    host->set_use_desktop_widget_override(use_desktop_widget);
+    return host;
+  }
+
+  const base::DictValue* dialog_dict = &dict;
+  if (const base::DictValue* nested = dict.FindDict("dialog")) {
+    dialog_dict = nested;
+  } else if (const base::DictValue* nested_bubble = dict.FindDict("bubble")) {
+    dialog_dict = nested_bubble;
+  }
+
+  const std::string* type_ptr = dialog_dict->FindString("type");
+  std::string type = type_ptr ? base::ToLowerASCII(*type_ptr) : "dialog";
+  bool is_bubble = (type == "bubble");
+
+  BubbleBorder::Arrow arrow =
+      is_bubble ? BubbleBorder::TOP_LEFT : BubbleBorder::NONE;
+  if (const std::string* arrow_str = dialog_dict->FindString("arrow")) {
+    arrow = ParseArrow(*arrow_str);
+  }
+
+  auto delegate =
+      std::make_unique<JsonDialogDelegate>(nullptr, arrow, is_bubble);
+
+  // Set default modal type first
+  delegate->SetModalType(is_bubble ? ui::mojom::ModalType::kNone
+                                   : ui::mojom::ModalType::kWindow);
+
+  // Default to desktop widget so that the dialog is another top-level desktop
+  // window above the invoking window.
+  delegate->set_use_desktop_widget_override(true);
+
+  if (!DialogDelegateHandler::GetInstance()->ApplyProperties(
+          delegate.get(), *dialog_dict, error_msg)) {
+    return nullptr;
+  }
+
+  // Build and install contents view
+  const base::Value* contents_val = dialog_dict->Find("contents");
+  if (!contents_val) {
+    contents_val = dialog_dict->Find("view");
+  }
+  if (contents_val && !contents_val->is_dict()) {
+    if (error_msg) {
+      *error_msg = "Property 'contents' must be a dictionary";
+    }
+    return nullptr;
+  }
+  const base::DictValue* contents_dict =
+      contents_val ? &contents_val->GetDict() : nullptr;
+
+  const base::Value* children_val = dialog_dict->Find("children");
+  if (children_val && !children_val->is_list()) {
+    if (error_msg) {
+      *error_msg = "Property 'children' must be a list";
+    }
+    return nullptr;
+  }
+  const base::ListValue* children =
+      children_val ? &children_val->GetList() : nullptr;
+
+  std::unique_ptr<views::View> contents_view;
+  if (contents_dict) {
+    contents_view = JsonViewBuilder::BuildView(*contents_dict, error_msg);
+    if (!contents_view) {
+      return nullptr;
+    }
+    if (!JsonViewBuilder::ApplyPropertiesRecursive(contents_view.get(),
+                                                   *contents_dict, error_msg)) {
+      return nullptr;
+    }
+  } else if (children) {
+    auto box_view = std::make_unique<views::BoxLayoutView>();
+    box_view->SetOrientation(views::BoxLayout::Orientation::kVertical);
+    box_view->SetBetweenChildSpacing(10);
+    box_view->SetInsideBorderInsets(gfx::Insets::VH(10, 10));
+    for (const auto& child_val : *children) {
+      if (!child_val.is_dict()) {
+        if (error_msg) {
+          *error_msg = "Child entry in 'children' list must be a dictionary";
+        }
+        return nullptr;
+      }
+      auto child_view =
+          JsonViewBuilder::BuildView(child_val.GetDict(), error_msg);
+      if (!child_view) {
+        return nullptr;
+      }
+      views::View* raw_child = box_view->AddChildView(std::move(child_view));
+      if (!JsonViewBuilder::ApplyPropertiesRecursive(
+              raw_child, child_val.GetDict(), error_msg)) {
+        return nullptr;
+      }
+    }
+    contents_view = std::move(box_view);
+  } else {
+    auto default_view = std::make_unique<views::BoxLayoutView>();
+    default_view->SetOrientation(views::BoxLayout::Orientation::kVertical);
+    contents_view = std::move(default_view);
+  }
+
+  delegate->SetContentsView(std::move(contents_view));
+  return delegate;
+}
+
+JsonViewBuilder::DialogWidgetResult::DialogWidgetResult() = default;
+
+JsonViewBuilder::DialogWidgetResult::DialogWidgetResult(
+    std::unique_ptr<views::Widget> widget,
+    std::unique_ptr<views::DialogDelegate> delegate)
+    : delegate(std::move(delegate)), widget(std::move(widget)) {}
+
+JsonViewBuilder::DialogWidgetResult::~DialogWidgetResult() {
+  // Widget must always be destroyed before DialogDelegate.
+  widget.reset();
+  delegate.reset();
+}
+
+JsonViewBuilder::DialogWidgetResult::DialogWidgetResult(DialogWidgetResult&&) =
+    default;
+
+JsonViewBuilder::DialogWidgetResult&
+JsonViewBuilder::DialogWidgetResult::operator=(DialogWidgetResult&&) = default;
+
+JsonViewBuilder::DialogWidgetResult JsonViewBuilder::ShowDialogOrBubble(
+    const base::DictValue& dict,
+    views::View* anchor_view,
+    gfx::NativeWindow parent_window,
+    std::string* error_msg) {
+  std::unique_ptr<views::DialogDelegate> delegate =
+      BuildDialogDelegate(dict, error_msg);
+  if (!delegate) {
+    return {};
+  }
+
+  // Ensure client ownership of the widget
+  delegate->SetOwnershipOfNewWidget(
+      views::Widget::InitParams::CLIENT_OWNS_WIDGET);
+
+  auto* bubble_delegate = delegate->AsBubbleDialogDelegate();
+  views::DialogDelegate* raw_delegate = delegate.get();
+
+  gfx::NativeView parent_view =
+      parent_window ? gfx::GetViewForWindow(parent_window) : gfx::NativeView();
+  if (!parent_view && anchor_view && anchor_view->GetWidget()) {
+    parent_view = anchor_view->GetWidget()->GetNativeView();
+  }
+
+  if (bubble_delegate && (anchor_view || delegate->GetModalType() ==
+                                             ui::mojom::ModalType::kNone)) {
+    if (anchor_view) {
+      bubble_delegate->SetAnchorView(anchor_view);
+      if (delegate->GetModalType() == ui::mojom::ModalType::kWindow) {
+        delegate->SetModalType(ui::mojom::ModalType::kChild);
+      }
+    }
+    if (parent_view) {
+      bubble_delegate->set_parent_window(parent_view);
+    }
+    std::unique_ptr<views::Widget> widget =
+        views::BubbleDialogDelegate::CreateBubble(bubble_delegate);
+    if (!widget) {
+      if (error_msg) {
+        *error_msg = "Failed to initialize bubble widget";
+      }
+      return {};
+    }
+    widget->Show();
+    return {std::move(widget), std::move(delegate)};
+  }
+
+  views::Widget* raw_widget = views::DialogDelegate::CreateDialogWidget(
+      raw_delegate, parent_window, parent_view);
+  if (!raw_widget) {
+    if (error_msg) {
+      *error_msg = "Failed to initialize dialog widget";
+    }
+    return {};
+  }
+  std::unique_ptr<views::Widget> widget = base::WrapUnique(raw_widget);
+  widget->Show();
+  return {std::move(widget), std::move(delegate)};
 }
 
 }  // namespace views::examples

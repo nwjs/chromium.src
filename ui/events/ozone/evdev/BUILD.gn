@@ -160,7 +160,7 @@ component("evdev") {
       "//chromeos/ash/components/feature_usage",
     ]
     visibility += [
-      "//chrome/browser/ui",
+      "//chrome/browser",
       "//chrome/browser/ui/ash/main_extra_parts",
       "//chromeos/ash/components/heatmap/*",
     ]
@@ -214,10 +214,6 @@ component("evdev") {
     "//ui/events/*",
     "//ui/ozone/*",
   ]
-
-  # TODO(crbug.com/40031409): Fix code that adds exit-time destructors and
-  # enable the diagnostic by removing this line.
-  configs += [ "//build/config/compiler:no_exit_time_destructors" ]
 }
 
 source_set("mouse_button_property") {

@@ -17,10 +17,6 @@
 #include "chrome/common/actor.mojom-forward.h"
 #include "components/actor/core/aggregated_journal.h"
 
-namespace tabs {
-class TabInterface;
-}
-
 namespace actor {
 
 class ActorTask;
@@ -81,7 +77,10 @@ class ToolController {
       mojom::ActionResultPtr action_result,
       ObservationDelayController::Result observation_result);
 
-  mojom::ActionResultPtr ValidateTargetTab(const tabs::TabInterface* tab) const;
+  // Validates the target surface of `tool`. Returns OK if the tool has no
+  // target, kTabWentAway if the surface is gone, and kActionTargetCrossProfile
+  // if it belongs to another profile.
+  mojom::ActionResultPtr ValidateTarget(const Tool& tool) const;
 
   AggregatedJournal& journal() { return tool_delegate_->GetJournal(); }
 

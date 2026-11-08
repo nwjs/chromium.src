@@ -19,13 +19,13 @@ import com.android.webview.chromium.CallbackConverter;
 import com.android.webview.chromium.ProfileStore;
 import com.android.webview.chromium.SharedStatics;
 import com.android.webview.chromium.SharedTracingControllerAdapter;
-import com.android.webview.chromium.WebContent;
 import com.android.webview.chromium.WebSurface;
 import com.android.webview.chromium.WebViewChromiumAwInit;
 import com.android.webview.chromium.WebkitToSharedGlueConverter;
 
 import org.chromium.android_webview.AwServiceWorkerController;
 import org.chromium.android_webview.AwTracingController;
+import org.chromium.android_webview.AwWebContent;
 import org.chromium.android_webview.StartupCallSite;
 import org.chromium.android_webview.StartupDiagnostics;
 import org.chromium.android_webview.StartupTasksRunner;
@@ -35,13 +35,15 @@ import org.chromium.base.TraceEvent;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.content_public.browser.SharedArrayBuffer;
 import org.chromium.support_lib_boundary.StaticsBoundaryInterface;
-import org.chromium.support_lib_boundary.WebContentConfig;
-import org.chromium.support_lib_boundary.WebSurfaceEvent;
 import org.chromium.support_lib_boundary.WebViewProviderFactoryBoundaryInterface;
 import org.chromium.support_lib_boundary.WebViewStartUpCallbackBoundaryInterface;
 import org.chromium.support_lib_boundary.WebViewStartUpConfigBoundaryInterface;
 import org.chromium.support_lib_boundary.util.BoundaryInterfaceReflectionUtil;
 import org.chromium.support_lib_boundary.util.Features;
+import org.chromium.support_lib_boundary.web.WebContentConfig;
+import org.chromium.support_lib_boundary.web.WebProviderFactoryBoundaryInterface;
+import org.chromium.support_lib_boundary.web.WebSurfaceEvent;
+import org.chromium.support_lib_boundary.web.util.WebFeatures;
 
 import java.lang.reflect.InvocationHandler;
 import java.util.ArrayList;
@@ -53,7 +55,8 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 /** Support library glue version of WebViewChromiumFactoryProvider. */
-public class SupportLibWebViewChromiumFactory implements WebViewProviderFactoryBoundaryInterface {
+public class SupportLibWebViewChromiumFactory
+        implements WebViewProviderFactoryBoundaryInterface, WebProviderFactoryBoundaryInterface {
     // SupportLibWebkitToCompatConverterAdapter
     private final InvocationHandler mCompatConverterAdapter;
     private final WebViewChromiumAwInit mAwInit;
@@ -110,6 +113,7 @@ public class SupportLibWebViewChromiumFactory implements WebViewProviderFactoryB
                 Features.WEB_MESSAGE_ARRAY_BUFFER,
                 Features.IMAGE_DRAG_DROP,
                 Features.USER_AGENT_METADATA,
+                Features.USER_AGENT_METADATA_FORM_FACTORS,
                 Features.MULTI_PROFILE,
                 Features.WEBVIEW_MEDIA_INTEGRITY_API_STATUS,
                 Features.MUTE_AUDIO,
@@ -154,12 +158,15 @@ public class SupportLibWebViewChromiumFactory implements WebViewProviderFactoryB
                 Features.DOWNLOAD_FAVICONS_ENABLED,
                 Features.HTTP_CACHE_MANAGER,
                 Features.WEB_VIEW_NAVIGATION_LISTENER_NAVIGATION_VISIBLE,
-                Features.NAVIGATION_GET_RESPONSE_HEADERS + Features.DEV_SUFFIX,
-                Features.WEB_CONTENT,
+                Features.NAVIGATION_GET_RESPONSE_HEADERS,
+                WebFeatures.WEB_CONTENT,
                 Features.WEBVIEW_NAVIGATE_DRAIN_PREFETCH,
-                Features.NAVIGATION_GET_NAVIGATION_START_UPTIME_MILLIS + Features.DEV_SUFFIX,
+                Features.NAVIGATION_GET_NAVIGATION_START_UPTIME_MILLIS,
                 Features.WEB_MESSAGE_SHARED_ARRAY_BUFFER + Features.DEV_SUFFIX,
-                Features.WEB_SURFACE + Features.DEV_SUFFIX,
+                WebFeatures.WEB_SURFACE + WebFeatures.DEV_SUFFIX,
+                Features.ADD_QUIC_HINTS_WILDCARDS,
+                Features.THEME_COLOR_CALLBACK + Features.DEV_SUFFIX,
+                Features.NAVIGATION_LISTENER_NAVIGATION_STATE,
                 // Add new features above. New features must include `+ Features.DEV_SUFFIX`
                 // when they're initially added (this can be removed in a future CL). The one
                 // exception is when adding a new method to an interface that extends from
@@ -397,6 +404,28 @@ public class SupportLibWebViewChromiumFactory implements WebViewProviderFactoryB
         ApiCall.CREATE_SHARED_ARRAY_BUFFER,
         ApiCall.WEB_MESSAGE_PAYLOAD_GET_AS_SHARED_ARRAY_BUFFER,
         ApiCall.CREATE_WEB_SURFACE,
+        ApiCall.REDIRECT_PARAMETERS_GET_RESPONSE_HEADERS,
+        ApiCall.REDIRECT_PARAMETERS_GET_STATUS_CODE,
+        ApiCall.NAVIGATION_STATE_GET_URL,
+        ApiCall.NAVIGATION_STATE_WAS_INITIATED_BY_PAGE,
+        ApiCall.NAVIGATION_STATE_IS_SAME_DOCUMENT,
+        ApiCall.NAVIGATION_STATE_IS_RELOAD,
+        ApiCall.NAVIGATION_STATE_IS_HISTORY,
+        ApiCall.NAVIGATION_STATE_IS_RESTORE,
+        ApiCall.NAVIGATION_STATE_IS_BACK,
+        ApiCall.NAVIGATION_STATE_IS_FORWARD,
+        ApiCall.NAVIGATION_STATE_DID_COMMIT,
+        ApiCall.NAVIGATION_STATE_DID_COMMIT_ERROR_PAGE,
+        ApiCall.NAVIGATION_STATE_GET_STATUS_CODE,
+        ApiCall.NAVIGATION_STATE_GET_NAVIGATION_START_UPTIME_MILLIS,
+        ApiCall.NAVIGATION_STATE_GET_PAGE_STATE,
+        ApiCall.NAVIGATION_STATE_GET_WEB_RESOURCE_ERROR,
+        ApiCall.NAVIGATION_STATE_GET_RESPONSE_HEADERS,
+        ApiCall.NAVIGATION_STATE_GET_NAVIGATION,
+        ApiCall.PAGE_STATE_GET_URL,
+        ApiCall.PAGE_STATE_GET_PAGE,
+        ApiCall.NAVIGATION_SNAPSHOT_STATE,
+        ApiCall.PAGE_SNAPSHOT_STATE,
         // Add new constants above. The final constant should have a trailing comma for cleaner
         // diffs.
         ApiCall.COUNT, // Added to suppress WrongConstant in #recordApiCall
@@ -616,8 +645,30 @@ public class SupportLibWebViewChromiumFactory implements WebViewProviderFactoryB
         int CREATE_SHARED_ARRAY_BUFFER = 209;
         int WEB_MESSAGE_PAYLOAD_GET_AS_SHARED_ARRAY_BUFFER = 210;
         int CREATE_WEB_SURFACE = 211;
+        int REDIRECT_PARAMETERS_GET_RESPONSE_HEADERS = 212;
+        int REDIRECT_PARAMETERS_GET_STATUS_CODE = 213;
+        int NAVIGATION_STATE_GET_URL = 214;
+        int NAVIGATION_STATE_WAS_INITIATED_BY_PAGE = 215;
+        int NAVIGATION_STATE_IS_SAME_DOCUMENT = 216;
+        int NAVIGATION_STATE_IS_RELOAD = 217;
+        int NAVIGATION_STATE_IS_HISTORY = 218;
+        int NAVIGATION_STATE_IS_RESTORE = 219;
+        int NAVIGATION_STATE_IS_BACK = 220;
+        int NAVIGATION_STATE_IS_FORWARD = 221;
+        int NAVIGATION_STATE_DID_COMMIT = 222;
+        int NAVIGATION_STATE_DID_COMMIT_ERROR_PAGE = 223;
+        int NAVIGATION_STATE_GET_STATUS_CODE = 224;
+        int NAVIGATION_STATE_GET_NAVIGATION_START_UPTIME_MILLIS = 225;
+        int NAVIGATION_STATE_GET_PAGE_STATE = 226;
+        int NAVIGATION_STATE_GET_WEB_RESOURCE_ERROR = 227;
+        int NAVIGATION_STATE_GET_RESPONSE_HEADERS = 228;
+        int NAVIGATION_STATE_GET_NAVIGATION = 229;
+        int PAGE_STATE_GET_URL = 230;
+        int PAGE_STATE_GET_PAGE = 231;
+        int NAVIGATION_SNAPSHOT_STATE = 232;
+        int PAGE_SNAPSHOT_STATE = 233;
         // Remember to update AndroidXWebkitApiCall in enums.xml when adding new values here
-        int COUNT = 212;
+        int COUNT = 234;
     }
 
     // LINT.ThenChange(/tools/metrics/histograms/metadata/android/enums.xml:AndroidXWebkitApiCall)
@@ -670,7 +721,7 @@ public class SupportLibWebViewChromiumFactory implements WebViewProviderFactoryB
             recordApiCall(ApiCall.BUILD_WEB_CONTENT);
             WebContentBuilder builder = new WebContentBuilder();
             buildConfig.accept(builder);
-            WebContent webContent = builder.build();
+            AwWebContent webContent = builder.build();
             SupportLibWebContentAdapter adapter = new SupportLibWebContentAdapter(webContent);
             return BoundaryInterfaceReflectionUtil.createInvocationHandlerFor(adapter);
         }

@@ -18,9 +18,9 @@
 #include "chrome/test/payments/payment_app_install_util.h"
 #include "components/payments/content/service_worker_payment_app_finder_test_api.h"
 #include "components/payments/content/test_payment_manifest_downloader.h"
-#include "components/payments/content/web_payments_web_data_service.h"
 #include "components/payments/core/const_csp_checker.h"
 #include "components/payments/core/features.h"
+#include "components/payments/core/web_payments_web_data_service.h"
 #include "components/permissions/permission_request_manager.h"
 #include "components/webdata_services/web_data_service_wrapper_factory.h"
 #include "content/public/browser/render_frame_host.h"
@@ -149,14 +149,10 @@ class ServiceWorkerPaymentAppFinderBrowserTest : public InProcessBrowserTest {
     content::WebContents* web_contents =
         browser()->tab_strip_model()->GetActiveWebContents();
     content::BrowserContext* context = web_contents->GetBrowserContext();
-    mojo::Remote<network::mojom::URLLoaderFactory> renderer_url_loader_factory;
-    web_contents->GetPrimaryMainFrame()->CreateNetworkServiceDefaultFactory(
-        renderer_url_loader_factory.BindNewPipeAndPassReceiver());
     auto downloader = std::make_unique<TestDownloader>(
         GetCSPChecker(),
         context->GetDefaultStoragePartition()
             ->GetURLLoaderFactoryForBrowserProcess(),
-        std::move(renderer_url_loader_factory),
         web_contents->GetPrimaryMainFrame()->GetWeakDocumentPtr());
     downloader->AddTestServerURL("https://alicepay.test/",
                                  alicepay_.GetURL("alicepay.test", "/"));

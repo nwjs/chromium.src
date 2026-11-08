@@ -43,11 +43,10 @@ chromium-metrics-reviews@google.com.
 
 <variants name="HasCriticalActions">
   <variant name="WithCriticalActions"
-      summary="results contained agent visits and critical actions were
-               queried from the database"/>
+      summary="results were non-empty and critical actions were queried from
+               the database"/>
   <variant name="WithoutCriticalActions"
-      summary="results contained no agent visits or the critical actions
-               feature is disabled"/>
+      summary="results were empty or the critical actions feature is disabled"/>
 </variants>
 
 <variants name="PassagePriority">
@@ -111,8 +110,20 @@ chromium-metrics-reviews@google.com.
   </token>
 </histogram>
 
+<histogram name="History.BrowsingHistory.QueryDuration" units="ms"
+    expires_after="2027-09-01">
+  <owner>wylieb@chromium.org</owner>
+  <owner>chrome-collections@google.com</owner>
+  <summary>
+    Records the roundtrip duration (in milliseconds) from initiating a browsing
+    history query pass in BrowsingHistoryService (on initial load, search, or
+    continuation pagination) to delivering the assembled results to the
+    BrowsingHistoryDriver. Logged across Desktop, Android, and iOS.
+  </summary>
+</histogram>
+
 <histogram name="History.BrowsingHistoryResult.DuplicateVisitsCount"
-    units="visits" expires_after="2027-01-31">
+    units="visits" expires_after="2027-04-04">
   <owner>zalmashni@google.com</owner>
   <owner>rainhard@chromium.org</owner>
   <component>1456716</component>
@@ -1297,7 +1308,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="History.DatabaseTooOld" enum="HistoryDatabaseVersion"
-    expires_after="2027-01-17">
+    expires_after="2027-04-04">
   <owner>jpgravel@chromium.org</owner>
   <owner>etienneb@chromium.org</owner>
   <component>1456716</component>
@@ -2653,6 +2664,48 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram
+    name="History.SyncedJourneys.DatabaseOperationSuccess.{JourneysDbOperation}"
+    enum="BooleanSuccess" expires_after="2027-01-05">
+  <owner>hempjudith@google.com</owner>
+  <owner>chrome-sequel-dev@google.com</owner>
+  <summary>
+    Whether a write to the synced journeys tables in the History database
+    succeeded. Recorded by JourneysSyncBridge {JourneysDbOperation}. Failures
+    include an unavailable History database. A failed add/update or delete stops
+    journeys sync with kJourneysDatabaseError until Chrome restarts; a failed
+    delete-all leaves journeys on disk after sync was turned off.
+  </summary>
+  <token key="JourneysDbOperation">
+    <variant name="AddOrUpdateJourneys"
+        summary="for the additions and updates of an incoming sync batch,
+                 only if the batch contains any"/>
+    <variant name="DeleteAllJourneys"
+        summary="when sync is disabled for the data type"/>
+    <variant name="DeleteJourneys"
+        summary="for the deletions of an incoming sync batch, only if the
+                 batch contains any"/>
+  </token>
+</histogram>
+
+<histogram name="History.SyncedJourneys.Resolution.Result"
+    enum="SyncedJourneyResolutionResult" expires_after="2027-01-05">
+  <owner>hempjudith@google.com</owner>
+  <owner>chrome-sequel-dev@google.com</owner>
+  <summary>
+    Outcome of resolving the visits of one stored synced journey against the
+    local visits and urls tables; only fully resolved journeys are returned to
+    callers. Recorded for every stored journey on each
+    HistoryService::GetAllJourneys() query, so the same journey is counted again
+    on every query. Not recorded for GetJourney(), which re-resolves a journey
+    from that list when its details page is opened. If several visits fail, only
+    the first failed lookup is recorded. Missing visit is expected after history
+    deletion or expiry, or before another device's visits have synced; Missing
+    URL indicates an inconsistent History database and should stay close to
+    zero.
+  </summary>
+</histogram>
+
 <histogram name="History.TopSites.QueryFromHistoryTime" units="ms"
     expires_after="2025-06-08">
   <owner>mahmadi@chromium.org</owner>
@@ -2859,7 +2912,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="HistoryPage.ActorContextMenuActions"
-    enum="VisitContextMenuAction" expires_after="2027-01-31">
+    enum="VisitContextMenuAction" expires_after="2027-04-04">
   <owner>zalmashni@google.com</owner>
   <owner>chrome-browser-privacy-team@google.com</owner>
   <summary>
@@ -2869,7 +2922,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="HistoryPage.ActorItemsShown" enum="BooleanVisible"
-    expires_after="2027-01-31">
+    expires_after="2027-04-04">
   <owner>zalmashni@google.com</owner>
   <owner>chrome-browser-privacy-team@google.com</owner>
   <summary>
@@ -2886,8 +2939,8 @@ chromium-metrics-reviews@google.com.
   <summary>
     Records the category of critical action (e.g. form fill, password manager
     login, federated login, download, or OTP) opened from the chrome://history
-    page. Recorded in WebUI when the user clicks an action linkout row under an
-    agent-annotated visit to navigate to its external management surface.
+    page. Recorded in WebUI when the user clicks an action linkout row under a
+    history visit to navigate to its external management surface.
   </summary>
 </histogram>
 
@@ -2896,11 +2949,11 @@ chromium-metrics-reviews@google.com.
   <owner>kalinino@google.com</owner>
   <owner>polonium@google.com</owner>
   <summary>
-    Records the total number of critical actions attached to a single
-    agent-annotated browsing history visit item on the chrome://history page.
-    Recorded for each agent-annotated visit whenever browsing history entries
-    are retrieved and prepared for display (on initial page load, search, or
-    infinite scroll).
+    Records the total number of critical actions attached to a single browsing
+    history visit item on the chrome://history page. Recorded for each visit
+    that has at least one critical action attached whenever browsing history
+    entries are retrieved and prepared for display (on initial page load,
+    search, or infinite scroll).
   </summary>
 </histogram>
 
@@ -2910,14 +2963,14 @@ chromium-metrics-reviews@google.com.
   <owner>polonium@google.com</owner>
   <summary>
     Records the time (in milliseconds) taken to query and retrieve critical
-    actions from the local database for agent-annotated history visits. Recorded
-    each time chrome://history receives a batch of history results containing
-    agent visits and completes fetching their corresponding critical actions.
+    actions from the local database for history visits. Recorded each time
+    chrome://history receives a non-empty batch of history results and completes
+    fetching their corresponding critical actions.
   </summary>
 </histogram>
 
 <histogram name="HistoryPage.NonActorContextMenuActions"
-    enum="VisitContextMenuAction" expires_after="2027-01-31">
+    enum="VisitContextMenuAction" expires_after="2027-04-04">
   <owner>zalmashni@google.com</owner>
   <owner>chrome-browser-privacy-team@google.com</owner>
   <summary>
@@ -2956,6 +3009,18 @@ chromium-metrics-reviews@google.com.
     Recorded for queries where {HasCriticalActions}.
   </summary>
   <token key="HasCriticalActions" variants="HasCriticalActions"/>
+</histogram>
+
+<histogram name="HistoryPage.TimeToFirstVisibleContent" units="ms"
+    expires_after="2027-09-01">
+  <owner>wylieb@chromium.org</owner>
+  <owner>chrome-collections@google.com</owner>
+  <summary>
+    Records the time (in milliseconds) from navigation start (timeOrigin) to the
+    animation frame where the loading state is removed and browsing history
+    entries become visible in the chrome://history WebUI. Only logged when the
+    page is in the foreground (document.visibilityState === 'visible').
+  </summary>
 </histogram>
 
 </histograms>

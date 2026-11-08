@@ -400,6 +400,8 @@ chromium-metrics-reviews@google.com.
   <int value="126" label="SubscriptionEligibilitySubscriptionBenefits"/>
   <int value="127" label="CustomLinksInitializedMobile"/>
   <int value="128" label="CustomLinksListMobile"/>
+  <int value="129" label="SiteTokenProviderPref"/>
+  <int value="130" label="ReaderForAccessibility"/>
 <!-- LINT.ThenChange(/components/sync_preferences/common_syncable_prefs_database.cc:CommonSyncablePref)-->
 
 <!-- LINT.IfChange(ChromeSyncablePref) -->
@@ -1511,18 +1513,6 @@ chromium-metrics-reviews@google.com.
   <int value="1" label="Unknown reason"/>
 </enum>
 
-<!-- LINT.IfChange(SyncMetadataConsistency) -->
-
-<enum name="SyncMetadataConsistency">
-  <int value="0" label="Metadata consistent"/>
-  <int value="1" label="Cache GUID mismatch"/>
-  <int value="2" label="Data type ID mismatch"/>
-  <int value="3" label="Empty persisted authenticated Gaia ID"/>
-  <int value="4" label="Authenticated Gaia ID mismatch"/>
-</enum>
-
-<!-- LINT.ThenChange(/components/sync/model/client_tag_based_data_type_processor.cc:SyncMetadataConsistency) -->
-
 <!-- LINT.IfChange(SyncModelError) -->
 
 <enum name="SyncModelError">
@@ -1721,6 +1711,7 @@ chromium-metrics-reviews@google.com.
   <int value="193" label="kTabContextContainerFailedToDeserializeSpecifics"/>
   <int value="194" label="kJourneysFailedToLoadMetadata"/>
   <int value="195" label="kJourneysDatabaseError"/>
+  <int value="196" label="kAutofillEntitySuppressionEncryptionUnavailable"/>
 </enum>
 
 <!-- LINT.ThenChange(/components/sync/model/model_error.h:Type) -->
@@ -1865,6 +1856,25 @@ chromium-metrics-reviews@google.com.
 </enum>
 
 <!-- LINT.ThenChange(/components/sync/base/data_type_histogram.h:SyncToSigninMigrationExtensionsStep) -->
+
+<!-- LINT.IfChange(SyncToSigninMigrationReadingListPrefMigrationState) -->
+
+<enum name="SyncToSigninMigrationReadingListPrefMigrationState">
+  <summary>
+    The state of the Reading List pref migration for a signed-in, non-syncing
+    user, as determined on startup by the fix-up for users who were migrated
+    from syncing to signed-in before the migration handled Reading List (see
+    crbug.com/568406887).
+  </summary>
+  <int value="0" label="Fix applied: toggle was unset and got enabled"/>
+  <int value="1" label="Handled by the Sync-to-Signin migration"/>
+  <int value="2" label="Toggle already explicitly set"/>
+  <int value="3" label="Fix needed but feature disabled: toggle still unset"/>
+  <int value="4" label="Profile was never migrated"/>
+  <int value="5" label="A different account was migrated"/>
+</enum>
+
+<!-- LINT.ThenChange(/components/browser_sync/sync_to_signin_migration.cc:ReadingListPrefMigrationState) -->
 
 <!-- LINT.IfChange(SyncToSigninMigrationReadingListStep) -->
 

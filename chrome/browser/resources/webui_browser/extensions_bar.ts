@@ -14,6 +14,7 @@ import {PageCallbackRouter, PageHandlerFactory, PageHandlerRemote} from '/shared
 import type {ExtensionActionInfo} from '/shared/extensions_bar_data_model.mojom-webui.js';
 import type {IconUpdate} from '/shared/icon_handle.mojom-webui.js';
 import {IconTable} from '/shared/icon_table.js';
+import {HighlightTracker} from '/shared/toolbar_button.js';
 
 import {ExtensionElement} from './extension.js';
 import {getCss} from './extensions_bar.css.js';
@@ -47,6 +48,9 @@ export class ExtensionsBarElement extends CrLitElement {
   private iconTable_: IconTable = IconTable.getInstance();
   private extensionsMenuButton: CrIconButtonElement;
   private trackedElementManager: TrackedElementManager;
+  // Tracks whether a bubble is anchored to the extensions menu button.
+  private menuButtonHighlightTracker_: HighlightTracker =
+      new HighlightTracker();
 
   constructor() {
     super();
@@ -57,16 +61,15 @@ export class ExtensionsBarElement extends CrLitElement {
     this.extensionsMenuButton.title =
         loadTimeData.getString('tooltipExtensionsButton');
     this.extensionsMenuButton.addEventListener(
-        'pointerdown', (e: PointerEvent) => {
-          if (e.button === 0) {
-            this.handler.onPointerDown('');
-          }
-        });
+        'pointerdown', this.menuButtonHighlightTracker_.onPointerdown);
     this.extensionsMenuButton.addEventListener(
         'click', this.extensionMenuButtonClicked.bind(this));
     this.trackedElementManager.startTracking(
-        this.extensionsMenuButton, 'kExtensionsMenuButtonElementId',
-        {secondaryId: 'ext:'});
+        this.extensionsMenuButton, 'kExtensionsMenuButtonElementId', {
+          secondaryId: 'ext:',
+          onHighlightChanged:
+              this.menuButtonHighlightTracker_.onHighlightChanged,
+        });
 
     const factory = PageHandlerFactory.getRemote();
     factory.createPageHandler(
@@ -127,12 +130,8 @@ export class ExtensionsBarElement extends CrLitElement {
     this.visible = (this.buttons.size !== 0);
   }
 
-  onClick(id: string, isPointerInteraction: boolean = false) {
-    this.handler.executeUserAction(id, isPointerInteraction);
-  }
-
-  onPointerDown(id: string) {
-    this.handler.onPointerDown(id);
+  onClick(id: string) {
+    this.handler.executeUserAction(id);
   }
 
   onContextMenu(source: MenuSourceType, id: string) {
@@ -140,7 +139,10 @@ export class ExtensionsBarElement extends CrLitElement {
   }
 
   private extensionMenuButtonClicked(e: PointerEvent) {
-    this.handler.toggleExtensionsMenuFromWebUI(e.pointerType !== '');
+    if (this.menuButtonHighlightTracker_.shouldSkipClick(e)) {
+      return;
+    }
+    this.handler.toggleExtensionsMenuFromWebUI();
   }
 
   /* Still TODO things:

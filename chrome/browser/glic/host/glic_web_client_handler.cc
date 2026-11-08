@@ -6,6 +6,7 @@
 
 #include <utility>
 
+#include "base/auto_reset.h"
 #include "base/callback_list.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
@@ -44,6 +45,7 @@
 #include "chrome/browser/glic/host/glic.mojom-shared.h"
 #include "chrome/browser/glic/host/glic.mojom.h"
 #include "chrome/browser/glic/host/glic_annotation_manager.h"
+#include "chrome/browser/glic/host/glic_client_data_storage.h"
 #include "chrome/browser/glic/host/glic_cookie_synchronizer.h"
 #include "chrome/browser/glic/host/glic_page_handler.h"
 #include "chrome/browser/glic/host/glic_skills_manager.h"
@@ -372,6 +374,7 @@ class GlicWebClientHandler
       public BrowserAttachObserver,
       public ActiveStateCalculator::Observer,
       public BrowserIsOpenCalculator::Observer,
+      public GlicClientDataStorage::Observer,
       public GlicWebClientResponsivenessMonitor::Delegate {
  public:
   explicit GlicWebClientHandler(
@@ -525,10 +528,6 @@ class GlicWebClientHandler
         base::BindRepeating(&GlicWebClientHandler::OnPrefChanged,
                             base::Unretained(this)));
     pref_change_registrar_.Add(
-        glic::prefs::kGlicGeminiEnterpriseSettings,
-        base::BindRepeating(&GlicWebClientHandler::OnPrefChanged,
-                            base::Unretained(this)));
-    pref_change_registrar_.Add(
         glic::prefs::kGlicFileUploadAllowed,
         base::BindRepeating(&GlicWebClientHandler::OnPrefChanged,
                             base::Unretained(this)));
@@ -536,6 +535,10 @@ class GlicWebClientHandler
         prefs::kGlicZoomLevel,
         base::BindRepeating(&GlicWebClientHandler::OnPrefChanged,
                             base::Unretained(this)));
+    if (base::FeatureList::IsEnabled(features::kGlicClientDataStorage)) {
+      client_storage_observation_.Observe(
+          &glic_service_->client_data_storage());
+    }
     web_actuation_pref_subscription_ =
         glic_service_->enabling().RegisterOnUserEnabledActuationOnWebChanged(
             base::BindRepeating(
@@ -717,16 +720,24 @@ class GlicWebClientHandler
         exact_match_tab ? exact_match_tab : pattern_match_tab;
 
     if (found_tab) {
+      const tabs::TabHandle tab_handle = found_tab->GetHandle();
       BrowserWindowInterface* browser = found_tab->GetBrowserWindowInterface();
-      if (browser) {
-        if (browser->GetWindow()) {
-          browser->GetWindow()->Activate();
-        }
-        if (TabListInterface* tab_list = TabListInterface::From(browser)) {
-          tab_list->ActivateTab(found_tab->GetHandle());
+      if (browser && browser->GetWindow()) {
+        browser->GetWindow()->Activate();
+      }
+      tabs::TabInterface* const tab_to_activate = tab_handle.Get();
+      if (!tab_to_activate) {
+        std::move(callback).Run(nullptr);
+        return;
+      }
+      if (BrowserWindowInterface* active_browser =
+              tab_to_activate->GetBrowserWindowInterface()) {
+        if (TabListInterface* tab_list =
+                TabListInterface::From(active_browser)) {
+          tab_list->ActivateTab(tab_handle);
         }
       }
-      mojom::TabDataPtr tab_data = CreateTabData(found_tab);
+      mojom::TabDataPtr tab_data = CreateTabData(tab_to_activate);
       std::move(callback).Run(std::move(tab_data));
       return;
     }
@@ -807,17 +818,20 @@ class GlicWebClientHandler
   }
 
   void OnModeChange(glic::mojom::WebClientMode new_mode) override {
+    LogApiRequest(GlicHostApiRequestId::kOnModeChange);
     glic_service_->metrics()->SetWebClientMode(new_mode);
     host().OnInteractionModeChange(new_mode);
   }
 
   void OnMicrophoneStatusChange(glic::mojom::MicrophoneStatus status) override {
+    LogApiRequest(GlicHostApiRequestId::kOnMicrophoneStatusChange);
     host().OnMicrophoneStatusChanged(status);
   }
 
   void ResizeWidget(const gfx::Size& size,
                     base::TimeDelta duration,
                     ResizeWidgetCallback callback) override {
+    LogApiRequest(GlicHostApiRequestId::kResizeWindow);
     host().ResizePanel(size, duration, std::move(callback));
   }
 
@@ -1028,6 +1042,34 @@ class GlicWebClientHandler
         std::move(receiver));
   }
 
+  void SetClientStorageItem(const std::string& key,
+                            const std::optional<std::string>& value,
+                            SetClientStorageItemCallback callback) override {
+    LogApiRequest(GlicHostApiRequestId::kSetClientStorageItem);
+    if (base::FeatureList::IsEnabled(features::kGlicClientDataStorage)) {
+      // Suppress `OnClientStorageItemChanged()` on this handler while mutating
+      // storage so we don't send a redundant `NotifyClientStorageItemChanged`
+      // back to the client that originated the write. Other open Glic instances
+      // still receive the notification.
+      base::AutoReset<bool> ignore(&ignore_client_storage_pref_change_, true);
+      glic_service_->client_data_storage().SetItem(key, value);
+    }
+    std::move(callback).Run();
+  }
+
+  void ClearClientStorage(ClearClientStorageCallback callback) override {
+    LogApiRequest(GlicHostApiRequestId::kClearClientStorage);
+    if (base::FeatureList::IsEnabled(features::kGlicClientDataStorage)) {
+      // Suppress `OnClientStorageCleared()` on this handler while clearing
+      // storage so we don't send a redundant `NotifyClientStorageCleared` back
+      // to the client that originated the clear. Other open Glic instances
+      // still receive the notification.
+      base::AutoReset<bool> ignore(&ignore_client_storage_pref_change_, true);
+      glic_service_->client_data_storage().Clear();
+    }
+    std::move(callback).Run();
+  }
+
   void ActivateTab(int32_t tab_id) override {
     tabs::TabInterface* tab = tabs::TabHandle(tab_id).Get();
     if (!tab) {
@@ -1093,6 +1135,7 @@ class GlicWebClientHandler
 
   void SetAudioDucking(bool enabled,
                        SetAudioDuckingCallback callback) override {
+    LogApiRequest(GlicHostApiRequestId::kSetAudioDucking);
     // NEEDS_ANDROID_IMPL: AudioDucking not in android build.
 #if !BUILDFLAG(IS_ANDROID)
     content::RenderFrameHost* guest_frame = host_->GetGuestMainFrame();
@@ -1110,16 +1153,19 @@ class GlicWebClientHandler
   }
 
   void SetMinimumPanelSize(const gfx::Size& size) override {
+    LogApiRequest(GlicHostApiRequestId::kSetMinimumWidgetSize);
     host().SetMinimumWidgetSize(size);
   }
 
   void EnableDragResize(bool enabled) override {
+    LogApiRequest(GlicHostApiRequestId::kEnableDragResize);
     host().SetDragResizeEnabled(enabled);
   }
 
   void SetMicrophonePermissionState(
       bool enabled,
       SetMicrophonePermissionStateCallback callback) override {
+    LogApiRequest(GlicHostApiRequestId::kSetMicrophonePermissionState);
     pref_service_->SetBoolean(prefs::kGlicMicrophoneEnabled, enabled);
     if (enabled) {
       base::RecordAction(
@@ -1134,6 +1180,7 @@ class GlicWebClientHandler
   void SetLocationPermissionState(
       bool enabled,
       SetLocationPermissionStateCallback callback) override {
+    LogApiRequest(GlicHostApiRequestId::kSetLocationPermissionState);
     pref_service_->SetBoolean(prefs::kGlicGeolocationEnabled, enabled);
     if (enabled) {
       base::RecordAction(
@@ -1148,6 +1195,7 @@ class GlicWebClientHandler
   void SetTabContextPermissionState(
       bool enabled,
       SetTabContextPermissionStateCallback callback) override {
+    LogApiRequest(GlicHostApiRequestId::kSetTabContextPermissionState);
     pref_service_->SetBoolean(prefs::kGlicTabContextEnabled, enabled);
     if (enabled) {
       base::RecordAction(
@@ -1162,6 +1210,7 @@ class GlicWebClientHandler
   void SetClosedCaptioningSetting(
       bool enabled,
       SetClosedCaptioningSettingCallback callback) override {
+    LogApiRequest(GlicHostApiRequestId::kSetClosedCaptioningSetting);
     pref_service_->SetBoolean(prefs::kGlicClosedCaptioningEnabled, enabled);
     if (enabled) {
       base::RecordAction(
@@ -1176,6 +1225,7 @@ class GlicWebClientHandler
   void SetActuationOnWebSetting(
       bool enabled,
       SetActuationOnWebSettingCallback callback) override {
+    LogApiRequest(GlicHostApiRequestId::kSetActuationOnWebSetting);
     glic_service_->enabling().SetUserEnabledActuationOnWeb(enabled);
     base::RecordAction(
         enabled ? base::UserMetricsAction("GlicUserEnabledActuationOnWeb")
@@ -1389,11 +1439,13 @@ class GlicWebClientHandler
   }
 
   void OnOptinImpression() override {
+    LogApiRequest(GlicHostApiRequestId::kOnOptinImpression);
     host().instance_metrics().OnOptinImpression();
   }
 
   void OnUserInputSubmitted(mojom::WebClientMode mode,
                             mojom::PromptType prompt_type) override {
+    LogApiRequest(GlicHostApiRequestId::kOnUserInputSubmitted);
     if (base::FeatureList::IsEnabled(
             features::kGlicFixTimeToFirstQueryKillSwitch)) {
       glic_service_->metrics()->OnUserInputSubmitted(mode, prompt_type);
@@ -1408,20 +1460,24 @@ class GlicWebClientHandler
   }
 
   void OnContextUploadStarted() override {
+    LogApiRequest(GlicHostApiRequestId::kOnContextUploadStarted);
     glic_service_->metrics()->OnContextUploadStarted();
   }
 
   void OnContextUploadCompleted() override {
+    LogApiRequest(GlicHostApiRequestId::kOnContextUploadCompleted);
     glic_service_->metrics()->OnContextUploadCompleted();
   }
 
   void OnReaction(mojom::MetricUserInputReactionType reaction_type) override {
+    LogApiRequest(GlicHostApiRequestId::kOnReaction);
     host().instance_metrics().OnReaction(reaction_type);
   }
 
   // TODO(crbug.com/450026474): Remove call to GlicMetrics once
   // non-profile-scoped metrics are logged entirely from GlicInstanceMetrics.
   void OnResponseStarted() override {
+    LogApiRequest(GlicHostApiRequestId::kOnResponseStarted);
     host().instance_metrics_backwards_compatibility().OnResponseStarted();
     host().instance_metrics().RecordAttachedContextTabCount(
         GetSharingManagerInternal().GetNumPinnedTabs());
@@ -1430,6 +1486,7 @@ class GlicWebClientHandler
   // TODO(crbug.com/450026474): Remove call to GlicMetrics once
   // non-profile-scoped metrics are logged entirely from GlicInstanceMetrics.
   void OnResponseStopped(mojom::OnResponseStoppedDetailsPtr details) override {
+    LogApiRequest(GlicHostApiRequestId::kOnResponseStopped);
     mojom::ResponseStopCause cause = mojom::ResponseStopCause::kUnknown;
     if (details) {
       cause = details->cause;
@@ -1438,28 +1495,34 @@ class GlicWebClientHandler
   }
 
   void OnSessionTerminated() override {
+    LogApiRequest(GlicHostApiRequestId::kOnSessionTerminated);
     glic_service_->metrics()->OnSessionTerminated();
   }
 
   void OnTurnCompleted(glic::mojom::WebClientModel model,
                        base::TimeDelta duration) override {
+    LogApiRequest(GlicHostApiRequestId::kOnTurnCompleted);
     host().instance_metrics().OnTurnCompleted(model, duration);
   }
 
   void OnResponseRated(bool positive) override {
+    LogApiRequest(GlicHostApiRequestId::kOnResponseRated);
     glic_service_->metrics()->OnResponseRated(positive);
   }
 
   void OnClosedCaptionsShown() override {
+    LogApiRequest(GlicHostApiRequestId::kOnClosedCaptionsShown);
     glic_service_->metrics()->LogClosedCaptionsShown();
   }
 
   void OnActionSubmitted(bool is_retry) override {
+    LogApiRequest(GlicHostApiRequestId::kOnActionSubmitted);
     host().instance_metrics().OnActionSubmitted(is_retry);
   }
 
   void SetSyntheticExperimentState(const std::string& trial_name,
                                    const std::string& group_name) override {
+    LogApiRequest(GlicHostApiRequestId::kSetSyntheticExperimentState);
     g_browser_process->GetFeatures()
         ->glic_synthetic_trial_manager()
         ->SetSyntheticExperimentState(trial_name, group_name);
@@ -1481,6 +1544,7 @@ class GlicWebClientHandler
 
   void GetOsMicrophonePermissionStatus(
       GetOsMicrophonePermissionStatusCallback callback) override {
+    LogApiRequest(GlicHostApiRequestId::kGetOsMicrophonePermissionStatus);
     std::move(callback).Run(system_permission_settings::IsAllowed(
         ContentSettingsType::MEDIASTREAM_MIC));
   }
@@ -1494,6 +1558,7 @@ class GlicWebClientHandler
   }
 
   void SetOnboardingCompleted() override {
+    LogApiRequest(GlicHostApiRequestId::kSetOnboardingCompleted);
     glic_service_->metrics()->OnTrustFirstOnboardingAccept();
     glic_service_->enabling().SetCompletedFre(prefs::FreStatus::kCompleted);
 
@@ -1688,6 +1753,7 @@ class GlicWebClientHandler
   void SubscribeToTabData(
       int32_t tab_id,
       ::mojo::PendingRemote<mojom::TabDataHandler> receiver) override {
+    LogApiRequest(GlicHostApiRequestId::kSubscribeToTabData);
     glic_service_->tab_data_observer().SubscribeToTabData(tab_id,
                                                           std::move(receiver));
   }
@@ -1712,20 +1778,6 @@ class GlicWebClientHandler
   }
 
  private:
-  glic::mojom::GeminiEnterpriseSettingsPtr GetGeminiEnterpriseSettingsPtr()
-      const {
-    std::optional<glic::mojom::GeminiEnterpriseSettings>
-        gemini_enterprise_settings =
-            GlicEnabling::GetGeminiEnterpriseSettings(profile_);
-    if (gemini_enterprise_settings.has_value()) {
-      return glic::mojom::GeminiEnterpriseSettings::New(
-          gemini_enterprise_settings->project_id,
-          gemini_enterprise_settings->app_id,
-          gemini_enterprise_settings->location);
-    }
-    return nullptr;
-  }
-
   bool ComputeCanAttach() const { return floating_panel_can_attach_; }
 
   void NotifyCanAttachChanged() {
@@ -1747,6 +1799,7 @@ class GlicWebClientHandler
     pinned_tab_data_changed_subscription_ = {};
     web_actuation_pref_subscription_ = {};
     consent_subscription_ = {};
+    client_storage_observation_.Reset();
     browser_attach_observation_.reset();
   }
 
@@ -1805,9 +1858,6 @@ class GlicWebClientHandler
     } else if (pref_name == prefs::kGlicDefaultTabContextEnabled) {
       web_client_->NotifyDefaultTabContextPermissionStateChanged(
           pref_service_->GetBoolean(pref_name));
-    } else if (pref_name == glic::prefs::kGlicGeminiEnterpriseSettings) {
-      web_client_->NotifyGeminiEnterpriseSettingsChanged(
-          GetGeminiEnterpriseSettingsPtr());
     } else if (pref_name == glic::prefs::kGlicFileUploadAllowed) {
       web_client_->NotifyFileUploadStateChanged(
           glic::prefs::GetFileUploadAllowedCapability(profile_->GetPrefs()));
@@ -1815,6 +1865,21 @@ class GlicWebClientHandler
       web_client_->NotifyZoomLevelChanged(GetZoomFactor(pref_service_));
     } else {
       DCHECK(false) << "Unknown Glic permission pref changed: " << pref_name;
+    }
+  }
+
+  // GlicClientDataStorage::Observer implementation.
+  void OnClientStorageItemChanged(
+      const std::string& key,
+      const std::optional<std::string>& value) override {
+    if (!ignore_client_storage_pref_change_) {
+      web_client_->NotifyClientStorageItemChanged(key, value);
+    }
+  }
+
+  void OnClientStorageCleared() override {
+    if (!ignore_client_storage_pref_change_) {
+      web_client_->NotifyClientStorageCleared();
     }
   }
 
@@ -1884,6 +1949,9 @@ class GlicWebClientHandler
   base::CallbackListSubscription act_on_web_capability_changed_subscription_;
   base::CallbackListSubscription web_actuation_pref_subscription_;
   base::CallbackListSubscription consent_subscription_;
+  base::ScopedObservation<GlicClientDataStorage,
+                          GlicClientDataStorage::Observer>
+      client_storage_observation_{this};
   base::CallbackListSubscription panel_state_subscription_;
   mojo::Receiver<mojom::WebClientHandler> receiver_;
   mojo::Remote<glic::mojom::WebClient> web_client_;
@@ -1899,6 +1967,7 @@ class GlicWebClientHandler
   std::unique_ptr<DebouncerDeduper> debouncer_deduper_;
   std::unique_ptr<PageMetadataManager> page_metadata_manager_;
   bool floating_panel_can_attach_ = false;
+  bool ignore_client_storage_pref_change_ = false;
 #if !BUILDFLAG(IS_ANDROID)
   std::unique_ptr<GlicToolsHolder> ai_overlay_tools_;
 #endif

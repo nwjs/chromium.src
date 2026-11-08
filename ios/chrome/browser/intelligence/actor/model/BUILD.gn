@@ -16,24 +16,29 @@ source_set("model") {
     "actor_service_factory.mm",
     "actor_task.h",
     "actor_task.mm",
+    "actor_task_background_worker.h",
+    "actor_task_background_worker.mm",
     "actor_web_state_policy_decider.h",
     "actor_web_state_policy_decider.mm",
+    "posted_observer_list.h",
+    "posted_observer_list.mm",
   ]
-  public_deps = [ "//components/sessions:session_id" ]
+  public_deps = [
+    "//components/actor/core:journal",
+    "//components/sessions:session_id",
+    "//ios/chrome/browser/intelligence/actor/metrics",
+  ]
   deps = [
-    ":intervention_handler",
     ":tab_helper",
     "//base",
     "//components/actor/core",
-    "//components/actor/core:journal",
+    "//components/actor/public/mojom:mojo_bindings",
     "//components/keyed_service/core",
     "//components/optimization_guide/proto:optimization_guide_proto",
     "//components/origin_gating/core",
 
     # TODO(crbug.com/496196467): Invert dependencies on //ios/chrome/app/.
-    "//ios/chrome/app/application_delegate:app_state",
     "//ios/chrome/app/background_task",
-    "//ios/chrome/app/profile",
     "//ios/chrome/browser/intelligence/actor/public:actor_control_state",
     "//ios/chrome/browser/intelligence/actor/public:actor_task_ui_protocols",
     "//ios/chrome/browser/intelligence/actor/public:actor_types",
@@ -47,9 +52,7 @@ source_set("model") {
     "//ios/chrome/browser/intelligence/features",
     "//ios/chrome/browser/intelligence/proto_wrappers",
     "//ios/chrome/browser/origin_gating/model",
-    "//ios/chrome/browser/shared/coordinator/scene:scene_state_header",
     "//ios/chrome/browser/shared/model/browser",
-    "//ios/chrome/browser/shared/model/browser:utils",
     "//ios/chrome/browser/shared/model/profile",
     "//ios/chrome/browser/shared/model/profile:profile_keyed_service_factory",
     "//ios/chrome/browser/shared/model/web_state_list",
@@ -77,18 +80,6 @@ source_set("tab_helper") {
   ]
 }
 
-source_set("intervention_handler") {
-  sources = [
-    "actor_task_intervention_handler.h",
-    "actor_task_intervention_handler.mm",
-  ]
-  deps = [
-    "//base",
-    "//ios/chrome/browser/intelligence/actor/public:actor_task_ui_protocols",
-    "//ios/chrome/browser/intelligence/actor/tools/model:actor_tool_interface",
-  ]
-}
-
 source_set("unit_tests") {
   testonly = true
   sources = [
@@ -97,8 +88,10 @@ source_set("unit_tests") {
     "actor_origin_gating_checker_delegate_ios_unittest.mm",
     "actor_service_unittest.mm",
     "actor_tab_helper_unittest.mm",
+    "actor_task_background_worker_unittest.mm",
     "actor_task_unittest.mm",
     "actor_web_state_policy_decider_unittest.mm",
+    "posted_observer_list_unittest.mm",
   ]
   deps = [
     ":model",
@@ -111,13 +104,12 @@ source_set("unit_tests") {
     "//components/origin_gating/core",
 
     # TODO(crbug.com/496196467): Invert dependencies on //ios/chrome/app/.
-    "//ios/chrome/app/application_delegate:app_state",
     "//ios/chrome/app/background_task",
     "//ios/chrome/app/background_task:features",
-    "//ios/chrome/app/profile",
     "//ios/chrome/browser/intelligence/actor/public:actor_control_state",
     "//ios/chrome/browser/intelligence/actor/public:actor_task_ui_protocols",
     "//ios/chrome/browser/intelligence/actor/public:actor_types",
+    "//ios/chrome/browser/intelligence/actor/test:test_support",
     "//ios/chrome/browser/intelligence/actor/tools/model:actor_tool_factory",
     "//ios/chrome/browser/intelligence/actor/tools/model:actor_tool_interface",
     "//ios/chrome/browser/intelligence/actor/tools/model:navigate_tool",
@@ -128,7 +120,6 @@ source_set("unit_tests") {
     "//ios/chrome/browser/intelligence/proto_wrappers",
     "//ios/chrome/browser/intelligence/proto_wrappers:page_context_extractor_feature",
     "//ios/chrome/browser/origin_gating/model",
-    "//ios/chrome/browser/shared/coordinator/scene:scene_state_header",
     "//ios/chrome/browser/shared/model/browser",
     "//ios/chrome/browser/shared/model/browser/test:test_support",
     "//ios/chrome/browser/shared/model/profile/test",

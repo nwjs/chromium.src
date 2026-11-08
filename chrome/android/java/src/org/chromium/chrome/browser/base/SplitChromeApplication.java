@@ -30,7 +30,6 @@ import org.chromium.build.BuildConfig;
 import org.chromium.build.annotations.IdentifierNameString;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
-import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.init.InitializeFeatureList;
 import org.chromium.chrome.modules.on_demand.OnDemandModule;
 import org.chromium.components.variations.firstrun.VariationsSeedFetcher;
@@ -206,6 +205,13 @@ public class SplitChromeApplication extends SplitCompatApplication {
             return;
         }
 
+        // Set up the Linker to load the library in the main process. Without it
+        // the LibraryLoader.ensureInitialized() will not use
+        // PreferAddress.FIND_RESERVED, which would silently disable some RELRO
+        // sharing.
+        LibraryLoader.getInstance().getMediator().ensureInitializedInMainProcess();
+
+        // Load the native library.
         LibraryLoader.getInstance().ensureInitialized();
 
         if (BuildConfig.IS_FOR_TEST) {
@@ -245,14 +251,13 @@ public class SplitChromeApplication extends SplitCompatApplication {
                                 // Create a throwaway instance of ChromeTabbedActivity. This will
                                 // warm up the chrome ClassLoader, and perform loading of classes
                                 // used early in startup in the background.
-                                Class<?> chromePreloadClass =
+                                // As of Sept 2026, the `newInstance()` improves startup performance
+                                // by roughly 0.5%.
+                                var _ =
                                         chromeContext
                                                 .getClassLoader()
-                                                .loadClass(sChromePreloadName);
-                                if (!ChromeFeatureList.sTweakApplicationPreloadSkipNewInstance
-                                        .isEnabled()) {
-                                    var _ = chromePreloadClass.newInstance();
-                                }
+                                                .loadClass(sChromePreloadName)
+                                                .newInstance();
                             } catch (ReflectiveOperationException e) {
                                 throw new RuntimeException(e);
                             }
@@ -262,10 +267,6 @@ public class SplitChromeApplication extends SplitCompatApplication {
 
     @Override
     protected void performBrowserProcessPreloading(Context context) {
-        if (ChromeFeatureList.sTweakApplicationPreloadLoadNativeFirst.isEnabled()) {
-            loadNativeLibraryAndInitFeatureList();
-        }
-
         // The chrome split has a large amount of code, which can slow down startup. Loading
         // this in the background allows us to do this in parallel with startup tasks which do
         // not depend on code in the chrome split.
@@ -278,13 +279,7 @@ public class SplitChromeApplication extends SplitCompatApplication {
                 new SplitPreloader.PreloadHooks() {
                     @Override
                     public void runImmediatelyInBackgroundThread(Context chromeContext) {
-                        if (ChromeFeatureList.sTweakApplicationPreloadSkipWarmUp.isEnabled()) {
-                            return;
-                        }
                         warmUpClassLoader(chromeContext);
-                        if (!ChromeFeatureList.sTweakApplicationPreloadMoveWarmUp.isEnabled()) {
-                            mWarmUpClassLoaderLatch.countDown();
-                        }
                     }
 
                     @Override
@@ -313,13 +308,11 @@ public class SplitChromeApplication extends SplitCompatApplication {
                     }
                 });
 
-        if (!ChromeFeatureList.sTweakApplicationPreloadLoadNativeFirst.isEnabled()) {
-            loadNativeLibraryAndInitFeatureList();
-        }
+        loadNativeLibraryAndInitFeatureList();
 
-        if (ChromeFeatureList.sTweakApplicationPreloadMoveWarmUp.isEnabled()) {
-            mWarmUpClassLoaderLatch.countDown();
-        }
+        // Warm up the class loader after initializing the feature list, because the constructor of
+        // ChromeTabbedActivity may query flags.
+        mWarmUpClassLoaderLatch.countDown();
     }
 
     @Override

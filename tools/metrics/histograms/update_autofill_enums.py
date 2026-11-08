@@ -14,6 +14,7 @@ import re
 
 import setup_modules  # pylint: disable=unused-import
 
+
 from chromium_src.components.autofill.core.browser.data_model.autofill_ai.entity_schema_parser import (
   parse_entity_schema,
 )

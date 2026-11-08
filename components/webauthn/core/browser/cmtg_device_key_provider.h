@@ -7,9 +7,10 @@
 
 #include <cstdint>
 #include <memory>
+#include <utility>
 #include <vector>
 
-#include "base/functional/callback_forward.h"
+#include "base/functional/callback.h"
 #include "base/types/expected.h"
 #include "components/keyed_service/core/keyed_service.h"
 
@@ -20,7 +21,21 @@ namespace webauthn {
 class CmtgDeviceKeyProvider : public KeyedService {
  public:
   enum class Error {
+    // The request could not be completed due to a network or HTTP error.
     kNetworkError,
+    // The server's response could not be parsed.
+    kParseError,
+    // An OAuth access token for the request could not be fetched.
+    kAccessTokenError,
+  };
+
+  enum class Operation {
+    // Calls GetCmtgWrapperKeys to fetch wrapper keys for all devices in the
+    // trust group.
+    kGetAssertion,
+    // Calls GetOrCreateCmtgWrapperKey to fetch or create the calling device's
+    // own wrapper key.
+    kMakeCredential,
   };
 
   using Callback = base::OnceCallback<void(
@@ -38,8 +53,9 @@ class CmtgDeviceKeyProvider : public KeyedService {
 
   ~CmtgDeviceKeyProvider() override = default;
 
-  // Fetches the device keys.
+  // Fetches the device keys for the given `operation`.
   [[nodiscard]] virtual std::unique_ptr<Request> GetDeviceKeys(
+      Operation operation,
       Callback callback) = 0;
 };
 

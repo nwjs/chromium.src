@@ -20,13 +20,17 @@ source_set("actor") {
     "actor_actions_runner.h",
     "actor_commit_deferring_condition.h",
     "actor_critical_action_logger.h",
+    "actor_enterprise_policy_checker.h",
     "actor_keyed_service.h",
     "actor_keyed_service_factory.h",
+    "actor_keyed_service_proto_wrapper.h",
     "actor_metrics.h",
     "actor_navigation_throttle.h",
     "actor_proto_conversion.h",
     "actor_surface.h",
+    "actor_surface_handle.h",
     "actor_surface_registry.h",
+    "actor_surface_tab_helper.h",
     "actor_tab_close_skip_beforeunload_user_data.h",
     "actor_tab_data.h",
     "actor_task.h",
@@ -34,6 +38,7 @@ source_set("actor") {
     "actor_util.h",
     "enterprise_policy_checker.h",
     "execution_engine.h",
+    "headless_web_contents_manager.h",
     "site_policy.h",
     "tab_annotation_manager.h",
     "tab_observation_controller.h",
@@ -42,6 +47,7 @@ source_set("actor") {
     "tools/attempt_login_tool_request.h",
     "tools/attempt_otp_filling_tool_request.h",
     "tools/bookmark_management_tool_request.h",
+    "tools/change_password_tool_request.h",
     "tools/click_tool_request.h",
     "tools/drag_and_release_tool_request.h",
     "tools/file_upload_tool_request.h",
@@ -64,10 +70,12 @@ source_set("actor") {
     "tools/translate_page_tool_request.h",
     "tools/type_tool_request.h",
     "tools/wait_tool_request.h",
+    "transport/actor_keyed_service_adapter.h",
   ]
   public_deps = [
     ":types",
     "//base",
+    "//chrome/browser/actor/tools/registry",
     "//chrome/browser/actor/ui:dom_node_geometry",
     "//chrome/browser/glic:mojo_bindings",
     "//chrome/browser/origin_gating",
@@ -80,6 +88,7 @@ source_set("actor") {
     "//components/actor/core",
     "//components/actor/core:journal",
     "//components/actor/core:task_id",
+    "//components/actor/transport",
     "//components/autofill/core/browser/integrators/actor:actor_form_filling_types",
     "//components/critical_actions/core/browser",
     "//components/download/content/public",
@@ -102,6 +111,7 @@ source_set("actor") {
     ]
     public += [
       "tools/load_and_extract_content_tool_request.h",
+      "tools/open_known_page_tool_request.h",
       "tools/switch_tab_tool_request.h",
       "tools/tab_management_tool_request.h",
       "tools/window_management_tool_request.h",
@@ -122,18 +132,21 @@ source_set("impl") {
     "actor_actions_runner.cc",
     "actor_commit_deferring_condition.cc",
     "actor_critical_action_logger.cc",
+    "actor_enterprise_policy_checker.cc",
     "actor_keyed_service.cc",
     "actor_keyed_service_factory.cc",
+    "actor_keyed_service_proto_wrapper.cc",
     "actor_metrics.cc",
     "actor_navigation_throttle.cc",
     "actor_proto_conversion.cc",
     "actor_script_tool_receiver.cc",
     "actor_script_tool_receiver.h",
+    "actor_surface_handle.cc",
     "actor_surface_impl.cc",
     "actor_surface_impl.h",
     "actor_surface_registry.cc",
+    "actor_surface_tab_helper.cc",
     "actor_tab_close_skip_beforeunload_user_data.cc",
-    "actor_tab_data.cc",
     "actor_task.cc",
     "actor_task_metadata.cc",
     "actor_util.cc",
@@ -141,6 +154,7 @@ source_set("impl") {
     "aggregated_journal_render_frame_binder.h",
     "enterprise_policy_checker.cc",
     "execution_engine.cc",
+    "headless_web_contents_manager.cc",
     "site_policy.cc",
     "tab_annotation_manager.cc",
     "tab_observation_controller.cc",
@@ -163,6 +177,9 @@ source_set("impl") {
     "tools/bookmark_management_tool.cc",
     "tools/bookmark_management_tool.h",
     "tools/bookmark_management_tool_request.cc",
+    "tools/change_password_tool.cc",
+    "tools/change_password_tool.h",
+    "tools/change_password_tool_request.cc",
     "tools/click_tool_request.cc",
     "tools/drag_and_release_tool_request.cc",
     "tools/file_upload_tool.cc",
@@ -213,11 +230,14 @@ source_set("impl") {
     "tools/wait_tool.cc",
     "tools/wait_tool.h",
     "tools/wait_tool_request.cc",
+    "transport/actor_keyed_service_adapter.cc",
   ]
   deps = [
     ":actor",
+    ":actor_tab_data_impl",
     ":variants",
     "//chrome/browser:browser_process",
+    "//chrome/browser/actor/tools/registry:impl",
     "//chrome/browser/actor/ui",
     "//chrome/browser/actor/ui:event_dispatcher",
     "//chrome/browser/affiliations",
@@ -239,7 +259,6 @@ source_set("impl") {
     "//chrome/browser/signin",
     "//chrome/browser/tab_list",
     "//chrome/browser/translate",
-    "//chrome/browser/ui",
     "//chrome/browser/ui/browser_window",
     "//chrome/browser/ui/browser_window:create_browser_window",
     "//chrome/browser/ui/navigator",
@@ -249,18 +268,19 @@ source_set("impl") {
     "//components/actor/core:logging",
     "//components/affiliations/core/browser:affiliations",
     "//components/affiliations/core/browser/domain_matching",
+    "//components/autofill/content/browser",
     "//components/autofill/core/browser",
     "//components/autofill/core/browser/integrators/actor:actor_form_filling_types",
     "//components/bookmarks/browser",
     "//components/content_settings/core/common",
     "//components/critical_actions/core/browser",
+    "//components/enterprise/buildflags",
     "//components/favicon/core",
     "//components/feature_engagement/public",
     "//components/history/core/browser",
     "//components/lookalikes/core",
     "//components/one_time_tokens/core/browser",
     "//components/optimization_guide/proto:optimization_guide_proto",
-    "//components/optimization_guide/proto:optimization_guide_proto_extras",
     "//components/page_load_metrics/browser",
     "//components/password_manager/core/browser",
     "//components/password_manager/core/browser/actor_login:actor_login_service_impl",
@@ -284,12 +304,9 @@ source_set("impl") {
     "//third_party/perfetto:libperfetto",
     "//third_party/perfetto/protos/perfetto/config:zero_gen",
     "//third_party/perfetto/protos/perfetto/trace/perfetto:zero_gen",
-    "//ui/base/metadata",
     "//ui/gfx/codec",
     "//url",
   ]
-
-  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
 
   if (is_android) {
     deps += [
@@ -306,6 +323,9 @@ source_set("impl") {
       "tools/load_and_extract_content_tool.cc",
       "tools/load_and_extract_content_tool.h",
       "tools/load_and_extract_content_tool_request.cc",
+      "tools/open_known_page_tool.cc",
+      "tools/open_known_page_tool.h",
+      "tools/open_known_page_tool_request.cc",
       "tools/switch_tab_tool.cc",
       "tools/switch_tab_tool.h",
       "tools/switch_tab_tool_request.cc",
@@ -317,6 +337,7 @@ source_set("impl") {
       "tools/window_management_tool_request.cc",
     ]
     deps += [
+      "//chrome/browser/ui:browser_tabstrip",
       "//chrome/browser/ui/tabs:tab_strip",
       "//chrome/browser/ui/tabs:tab_strip_model_observer",
     ]
@@ -327,6 +348,26 @@ source_set("impl") {
       "//chrome/browser/ui:browser_window_header",
     ]
   }
+}
+
+# actor_tab_data.cc is split from :impl into an internal source_set with
+# public = [] to isolate the dependency on proto_extras, which otherwise
+# propagates heavy order-only build dependencies to downstream targets.
+source_set("actor_tab_data_impl") {
+  visibility = [ ":*" ]
+  public = []
+  sources = [ "actor_tab_data.cc" ]
+  deps = [
+    ":actor",
+    "//base",
+    "//chrome/browser/actor/ui:dom_node_geometry",
+    "//chrome/browser/ui/tabs:tabs_public",
+    "//chrome/common",
+    "//components/optimization_guide/proto:optimization_guide_proto",
+    "//components/optimization_guide/proto:optimization_guide_proto_extras_equal",
+    "//ui/base/metadata",
+    "//ui/base/unowned_user_data",
+  ]
 }
 
 source_set("variants") {
@@ -391,6 +432,7 @@ source_set("test_support") {
   deps = [ ":actor" ]
 
   public_deps = [
+    ":impl",
     "//base",
     "//chrome/browser/actor/ui:event_dispatcher",
     "//chrome/browser/actor/ui:test_support",
@@ -406,6 +448,8 @@ source_set("unit_tests") {
     "actor_actions_runner_unittest.cc",
     "actor_commit_deferring_condition_unittest.cc",
     "actor_critical_action_logger_unittest.cc",
+    "actor_enterprise_policy_checker_unittest.cc",
+    "actor_keyed_service_proto_wrapper_unittest.cc",
     "actor_keyed_service_unittest.cc",
     "actor_metrics_unittest.cc",
     "actor_navigation_throttle_unittest.cc",
@@ -417,6 +461,7 @@ source_set("unit_tests") {
     "actor_task_unittest.cc",
     "actor_test_util_unittest.cc",
     "execution_engine_unittest.cc",
+    "headless_web_contents_manager_unittest.cc",
     "tab_annotation_manager_unittest.cc",
     "tab_observation_strategy_unittest.cc",
     "tools/actor_login_flow_verifier_unittest.cc",
@@ -424,11 +469,15 @@ source_set("unit_tests") {
     "tools/attempt_login_tool_request_unittest.cc",
     "tools/attempt_otp_filling_tool_request_unittest.cc",
     "tools/attempt_otp_filling_tool_unittest.cc",
+    "tools/change_password_tool_request_unittest.cc",
+    "tools/change_password_tool_unittest.cc",
     "tools/click_tool_request_unittest.cc",
     "tools/file_upload_tool_request_unittest.cc",
     "tools/file_upload_tool_unittest.cc",
+    "tools/media_control_tool_request_unittest.cc",
     "tools/page_search_utils_unittest.cc",
     "tools/type_tool_request_unittest.cc",
+    "transport/actor_keyed_service_adapter_unittest.cc",
   ]
   deps = [
     ":actor",
@@ -440,9 +489,11 @@ source_set("unit_tests") {
     "ui:event_dispatcher",
     "ui:test_support",
     "//base/test:test_support",
+    "//chrome/browser/actor/tools/registry:unit_tests",
     "//chrome/browser/autofill/actor",
     "//chrome/browser/bookmarks",
     "//chrome/browser/critical_actions",
+    "//chrome/browser/glic",
     "//chrome/browser/history",
     "//chrome/browser/optimization_guide",
     "//chrome/browser/optimization_guide:test_support",
@@ -459,6 +510,7 @@ source_set("unit_tests") {
     "//components/history/core/test",
     "//components/optimization_guide/proto:optimization_guide_proto",
     "//components/optimization_guide/proto:optimization_guide_proto_fuzzable",
+    "//components/policy/core/common:test_support",
     "//components/tabs:test_support",
     "//components/ukm:test_support",
     "//testing/gtest",
@@ -504,7 +556,10 @@ source_set("tools_test_support") {
     "//testing/gtest",
   ]
   if (is_android) {
-    deps += [ "//chrome/test:test_support_ui_android" ]
+    deps += [
+      "//chrome/browser/actor/android",
+      "//chrome/test:test_support_ui_android",
+    ]
   } else {
     deps += [ "//chrome/test:test_support_ui" ]
   }
@@ -535,6 +590,7 @@ source_set("browser_tests") {
     "//chrome/browser/affiliations",
     "//chrome/browser/autofill/actor",
     "//chrome/browser/glic",
+    "//chrome/browser/glic/actor",
     "//chrome/browser/glic/actor:browser_tests",
     "//chrome/browser/glic/test_support",
     "//chrome/browser/lookalikes:test_support",
@@ -542,8 +598,6 @@ source_set("browser_tests") {
     "//chrome/browser/optimization_guide:test_support",
     "//chrome/browser/safe_browsing",
     "//chrome/browser/subscription_eligibility",
-    "//chrome/browser/ui",
-    "//chrome/browser/ui:ui_features",
     "//chrome/browser/ui/browser_window",
     "//chrome/browser/ui/zoom",
     "//chrome/test:test_support",
@@ -572,7 +626,10 @@ source_set("browser_tests") {
       "//chrome/browser/ui:browser_commands",
       "//chrome/test:test_support_ui",
     ]
-    sources += [ "actor_keyed_service_browsertest_desktop.cc" ]
+    sources += [
+      "actor_keyed_service_browsertest_desktop.cc",
+      "actor_surface_tab_helper_browsertest.cc",
+    ]
   }
 
   if (is_linux) {
@@ -600,6 +657,7 @@ source_set("browser_tests") {
       "tools/navigate_tool_browsertest.cc",
       "tools/observation_delay_controller_browsertest.cc",
       "tools/observation_delay_metrics_browsertest.cc",
+      "tools/open_known_page_tool_browsertest.cc",
       "tools/page_stability_browsertest.cc",
       "tools/page_stability_metrics_browsertest.cc",
       "tools/page_target_util_browsertest.cc",

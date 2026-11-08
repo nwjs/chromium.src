@@ -289,22 +289,6 @@ struct ContextualSearch : Config<ContextualSearch> {
   int loading_suggestions_opacity_animation_duration;
 };
 
-// If enabled, allows MIA zero-prefix suggestions in NTP omnibox and realbox.
-struct MiaZPS : Config<MiaZPS> {
-  DECLARE_FEATURE(kOmniboxMiaZPS);
-
-  MiaZPS();
-  MiaZPS(const MiaZPS&);
-  MiaZPS(MiaZPS&&);
-  MiaZPS& operator=(const MiaZPS&);
-  MiaZPS& operator=(MiaZPS&&);
-  ~MiaZPS();
-  bool enabled;
-  // Whether to use non-normalized text for local history zp suggestions.
-  bool local_history_non_normalized_contents;
-  bool suppress_psuggest_backfill_with_mia;
-};
-
 BASE_DECLARE_FEATURE(kEmbeddedPermissionEnabled);
 
 // A config struct for the omnibox toolbelt.
@@ -506,19 +490,6 @@ struct SearchAggregatorProvider : Config<SearchAggregatorProvider> {
   // If enabled, Chrome will blend search suggestions with other Omnibox
   // suggestions without requiring keyword mode.
   bool require_shortcut;
-};
-
-// If enabled, uses RichAnswerTemplate instead of SuggestionAnswer to display
-// answers.
-struct SuggestionAnswerMigration : Config<SuggestionAnswerMigration> {
-  DECLARE_FEATURE(kOmniboxSuggestionAnswerMigration);
-  SuggestionAnswerMigration();
-  SuggestionAnswerMigration(const SuggestionAnswerMigration&);
-  SuggestionAnswerMigration(SuggestionAnswerMigration&&);
-  SuggestionAnswerMigration& operator=(const SuggestionAnswerMigration&);
-  SuggestionAnswerMigration& operator=(SuggestionAnswerMigration&&);
-  ~SuggestionAnswerMigration();
-  bool enabled;
 };
 
 struct OmniboxZpsSuggestionLimit : Config<OmniboxZpsSuggestionLimit> {

@@ -21,15 +21,14 @@ import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.clearInvocations;
-import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
-import static org.mockito.Mockito.withSettings;
 
 import static org.chromium.chrome.browser.keyboard_accessory.AccessoryAction.CREDMAN_CONDITIONAL_UI_REENTRY;
 import static org.chromium.chrome.browser.keyboard_accessory.AccessoryAction.GENERATE_PASSWORD_AUTOMATIC;
@@ -40,18 +39,20 @@ import static org.chromium.chrome.browser.keyboard_accessory.bar_component.Keybo
 import static org.chromium.chrome.browser.keyboard_accessory.bar_component.KeyboardAccessoryProperties.DISMISS_ITEM;
 import static org.chromium.chrome.browser.keyboard_accessory.bar_component.KeyboardAccessoryProperties.HAS_STICKY_LAST_ITEM;
 import static org.chromium.chrome.browser.keyboard_accessory.bar_component.KeyboardAccessoryProperties.HAS_SUGGESTIONS;
-import static org.chromium.chrome.browser.keyboard_accessory.bar_component.KeyboardAccessoryProperties.OBFUSCATED_CHILD_AT_CALLBACK;
 import static org.chromium.chrome.browser.keyboard_accessory.bar_component.KeyboardAccessoryProperties.SELECTED_SUGGESTION_INDEX;
 import static org.chromium.chrome.browser.keyboard_accessory.bar_component.KeyboardAccessoryProperties.SHEET_OPENER_ITEM;
-import static org.chromium.chrome.browser.keyboard_accessory.bar_component.KeyboardAccessoryProperties.SHOW_SWIPING_IPH;
 import static org.chromium.chrome.browser.keyboard_accessory.bar_component.KeyboardAccessoryProperties.SKIP_CLOSING_ANIMATION;
 import static org.chromium.chrome.browser.keyboard_accessory.bar_component.KeyboardAccessoryProperties.STYLE;
 import static org.chromium.chrome.browser.keyboard_accessory.bar_component.KeyboardAccessoryProperties.VISIBLE;
 
+import android.content.Context;
+import android.view.View;
+import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.TextView;
 
 import androidx.annotation.StringRes;
+import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.test.core.app.ApplicationProvider;
 
@@ -67,7 +68,6 @@ import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 
-import org.chromium.base.Callback;
 import org.chromium.base.DeviceInfo;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.supplier.ObservableSuppliers;
@@ -81,7 +81,7 @@ import org.chromium.chrome.browser.autofill.autofill_ai.EntityDataManager;
 import org.chromium.chrome.browser.autofill.autofill_ai.EntityDataManagerFactory;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.keyboard_accessory.AccessoryAction;
-import org.chromium.chrome.browser.keyboard_accessory.NavigationDirection;
+import org.chromium.chrome.browser.keyboard_accessory.NavigationAction;
 import org.chromium.chrome.browser.keyboard_accessory.R;
 import org.chromium.chrome.browser.keyboard_accessory.bar_component.KeyboardAccessoryProperties.ActionBarItem;
 import org.chromium.chrome.browser.keyboard_accessory.bar_component.KeyboardAccessoryProperties.AutofillBarItem;
@@ -137,14 +137,36 @@ import java.util.List;
     ChromeFeatureList.AUTOFILL_AMBIENT_AUTOFILL_SUPPRESSION,
 })
 public class KeyboardAccessoryControllerTest {
+    /** Adapter that renders a fixed number of plain, fixed-size views. */
+    private static class TestBarItemsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
+        private final int mItemCount;
+
+        TestBarItemsAdapter(int itemCount) {
+            mItemCount = itemCount;
+        }
+
+        @Override
+        public RecyclerView.ViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
+            View view = new View(parent.getContext());
+            view.setLayoutParams(new RecyclerView.LayoutParams(100, 100));
+            return new RecyclerView.ViewHolder(view) {};
+        }
+
+        @Override
+        public void onBindViewHolder(RecyclerView.ViewHolder holder, int position) {}
+
+        @Override
+        public int getItemCount() {
+            return mItemCount;
+        }
+    }
+
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
 
     @Mock private PropertyObserver<PropertyKey> mMockPropertyObserver;
     @Mock private ListObservable.ListObserver<Void> mMockActionListObserver;
     @Mock private KeyboardAccessoryCoordinator.BarVisibilityDelegate mMockBarVisibilityDelegate;
     @Mock private AccessorySheetCoordinator.SheetVisibilityDelegate mMockSheetVisibilityDelegate;
-    @Mock private KeyboardAccessoryView mMockView;
-    @Mock private RecyclerView mMockBarItemsView;
     @Mock private KeyboardAccessoryButtonGroupCoordinator mMockButtonGroup;
     @Mock private KeyboardAccessoryCoordinator.TabSwitchingDelegate mMockTabSwitchingDelegate;
     @Mock private AutofillDelegate mMockAutofillDelegate;
@@ -163,6 +185,9 @@ public class KeyboardAccessoryControllerTest {
             new KeyboardAccessoryData.Tab("Passwords", 0, null, 0, 0, null);
 
     private KeyboardAccessoryCoordinator mCoordinator;
+    private KeyboardAccessoryView mView;
+    private RecyclerView mBarItemsView;
+    private LinearLayoutManager mBarItemsLayoutManager;
     private PropertyModel mModel;
     private KeyboardAccessoryMediator mMediator;
     private SettableNonNullObservableSupplier<EdgeToEdgeController> mEdgeToEdgeControllerSupplier;
@@ -203,7 +228,9 @@ public class KeyboardAccessoryControllerTest {
                         mMockSheetVisibilityDelegate,
                         mEdgeToEdgeControllerSupplier,
                         mInsetObserver,
-                        new FakeViewProvider<>(mMockView),
+                        // The bar view is never provided: inflating and binding it requires
+                        // native dependencies (e.g. the feature engagement tracker).
+                        new FakeViewProvider<>(),
                         mMockDismissRunnable);
         mMediator = mCoordinator.getMediatorForTesting();
         mModel = mMediator.getModelForTesting();
@@ -770,50 +797,6 @@ public class KeyboardAccessoryControllerTest {
     }
 
     @Test
-    public void testCreatesAddressItemWithIph() {
-        AutofillSuggestion addressSuggestion =
-                new AutofillSuggestion.Builder()
-                        .setLabel("John")
-                        .setSubLabel("Main Str")
-                        .setSuggestionType(SuggestionType.ADDRESS_ENTRY)
-                        .setFeatureForIph("")
-                        .build();
-        mCoordinator.setSuggestions(
-                List.of(addressSuggestion, addressSuggestion, addressSuggestion),
-                mMockAutofillDelegate);
-
-        // assertThat(getAutofillItemAt(0).getFeatureForIph(), is(nullValue()));
-        // mCoordinator.prepareUserEducation();
-        assertThat(
-                getAutofillItemAt(0).getFeatureForIph(),
-                is(FeatureConstants.KEYBOARD_ACCESSORY_ADDRESS_FILL_FEATURE));
-        assertThat(getAutofillItemAt(1).getFeatureForIph(), is(nullValue()));
-        assertThat(getAutofillItemAt(2).getFeatureForIph(), is(nullValue()));
-    }
-
-    @Test
-    public void testCreatesPaymentItemWithIph() {
-        AutofillSuggestion paymentSuggestion =
-                new AutofillSuggestion.Builder()
-                        .setLabel("John")
-                        .setSubLabel("4828 ****")
-                        .setSuggestionType(SuggestionType.CREDIT_CARD_ENTRY)
-                        .setFeatureForIph("")
-                        .build();
-        mCoordinator.setSuggestions(
-                List.of(paymentSuggestion, paymentSuggestion, paymentSuggestion),
-                mMockAutofillDelegate);
-
-        // assertThat(getAutofillItemAt(0).getFeatureForIph(), is(nullValue()));
-        // mCoordinator.prepareUserEducation();
-        assertThat(
-                getAutofillItemAt(0).getFeatureForIph(),
-                is(FeatureConstants.KEYBOARD_ACCESSORY_PAYMENT_FILLING_FEATURE));
-        assertThat(getAutofillItemAt(1).getFeatureForIph(), is(nullValue()));
-        assertThat(getAutofillItemAt(2).getFeatureForIph(), is(nullValue()));
-    }
-
-    @Test
     public void testIphFeatureSetForAutofillSuggestion() {
         AutofillSuggestion paymentSuggestion =
                 new AutofillSuggestion.Builder()
@@ -835,35 +818,6 @@ public class KeyboardAccessoryControllerTest {
         // Other suggestions also have explicit IPH strings, but only the first suggestion's string
         // is shown.
         assertThat(getAutofillItemAt(1).getFeatureForIph(), is(nullValue()));
-        assertThat(getAutofillItemAt(2).getFeatureForIph(), is(nullValue()));
-    }
-
-    @Test
-    public void testCreatesIphForSecondPasswordItem() {
-        AutofillSuggestion passwordSuggestion1 =
-                new AutofillSuggestion.Builder()
-                        .setLabel("John")
-                        .setSubLabel("****")
-                        .setSuggestionType(SuggestionType.PASSWORD_ENTRY)
-                        .setFeatureForIph("")
-                        .build();
-        AutofillSuggestion passwordSuggestion2 =
-                new AutofillSuggestion.Builder()
-                        .setLabel("Eva")
-                        .setSubLabel("*******")
-                        .setSuggestionType(SuggestionType.PASSWORD_ENTRY)
-                        .setFeatureForIph("")
-                        .build();
-        mCoordinator.setSuggestions(
-                List.of(passwordSuggestion1, passwordSuggestion2, passwordSuggestion2),
-                mMockAutofillDelegate);
-
-        // assertThat(getAutofillItemAt(0).getFeatureForIph(), is(nullValue()));
-        // mCoordinator.prepareUserEducation();
-        assertThat(getAutofillItemAt(0).getFeatureForIph(), is(nullValue()));
-        assertThat(
-                getAutofillItemAt(1).getFeatureForIph(),
-                is(FeatureConstants.KEYBOARD_ACCESSORY_PASSWORD_FILLING_FEATURE));
         assertThat(getAutofillItemAt(2).getFeatureForIph(), is(nullValue()));
     }
 
@@ -899,26 +853,6 @@ public class KeyboardAccessoryControllerTest {
         assertTrue(mModel.get(SKIP_CLOSING_ANIMATION));
         mCoordinator.show();
         assertFalse(mModel.get(SKIP_CLOSING_ANIMATION));
-    }
-
-    @Test
-    public void testShowSwipingIphUntilVisibilityIsReset() {
-        // By default, no IPH is shown but the model holds a callback to notify the mediator.
-        mCoordinator.show();
-        Callback<Integer> obfuscatedChildAt = mModel.get(OBFUSCATED_CHILD_AT_CALLBACK);
-        assertThat(obfuscatedChildAt, notNullValue());
-        assertFalse(mModel.get(SHOW_SWIPING_IPH));
-
-        // Notify the mediator to show the IPH because at least one of three items is not visible.
-        mModel.get(BAR_ITEMS).add(mock(BarItem.class));
-        mModel.get(BAR_ITEMS).add(mock(BarItem.class));
-        mModel.get(BAR_ITEMS).add(mock(BarItem.class));
-        obfuscatedChildAt.onResult(1);
-        assertTrue(mModel.get(SHOW_SWIPING_IPH));
-
-        // Any change that changes the visibility should reset the swiping IPH.
-        mModel.set(VISIBLE, false);
-        assertFalse(mModel.get(SHOW_SWIPING_IPH));
     }
 
     @Test
@@ -1472,11 +1406,11 @@ public class KeyboardAccessoryControllerTest {
     }
 
     @Test
-    public void testNavigateSuggestions() {
+    public void testNavigate() {
         // Navigation returns false when there are no suggestions.
         mCoordinator.setSuggestions(List.of(), mMockAutofillDelegate);
-        assertFalse(mCoordinator.navigateSuggestions(NavigationDirection.FORWARD));
-        assertFalse(mCoordinator.navigateSuggestions(NavigationDirection.BACKWARD));
+        assertFalse(mCoordinator.navigate(NavigationAction.FORWARD));
+        assertFalse(mCoordinator.navigate(NavigationAction.BACKWARD));
 
         AutofillSuggestion suggestion1 =
                 new AutofillSuggestion.Builder()
@@ -1498,7 +1432,7 @@ public class KeyboardAccessoryControllerTest {
 
         // Navigate forward (Right arrow): notifies delegate for suggestion 1 (index 0).
         // Navigation does not update visual selection directly.
-        assertTrue(mCoordinator.navigateSuggestions(NavigationDirection.FORWARD));
+        assertTrue(mCoordinator.navigate(NavigationAction.FORWARD));
         verify(mMockAutofillDelegate).suggestionSelectionStateChanged(0, true);
         assertThat(mCoordinator.getSelectedSuggestionForTesting(), nullValue());
 
@@ -1507,7 +1441,7 @@ public class KeyboardAccessoryControllerTest {
         assertThat(mCoordinator.getSelectedSuggestionForTesting(), is(0));
 
         // Navigate forward again: notifies delegate for suggestion 2 (index 1).
-        assertTrue(mCoordinator.navigateSuggestions(NavigationDirection.FORWARD));
+        assertTrue(mCoordinator.navigate(NavigationAction.FORWARD));
         verify(mMockAutofillDelegate).suggestionSelectionStateChanged(1, true);
         assertThat(mCoordinator.getSelectedSuggestionForTesting(), is(0));
 
@@ -1516,7 +1450,7 @@ public class KeyboardAccessoryControllerTest {
         assertThat(mCoordinator.getSelectedSuggestionForTesting(), is(1));
 
         // Navigate forward again: wraps around to suggestion 1 (index 0).
-        assertTrue(mCoordinator.navigateSuggestions(NavigationDirection.FORWARD));
+        assertTrue(mCoordinator.navigate(NavigationAction.FORWARD));
         verify(mMockAutofillDelegate, times(2)).suggestionSelectionStateChanged(0, true);
         assertThat(mCoordinator.getSelectedSuggestionForTesting(), is(1));
 
@@ -1525,13 +1459,13 @@ public class KeyboardAccessoryControllerTest {
         assertThat(mCoordinator.getSelectedSuggestionForTesting(), is(0));
 
         // Navigate backward (Left arrow): wraps around to suggestion 2 (index 1).
-        assertTrue(mCoordinator.navigateSuggestions(NavigationDirection.BACKWARD));
+        assertTrue(mCoordinator.navigate(NavigationAction.BACKWARD));
         verify(mMockAutofillDelegate, times(2)).suggestionSelectionStateChanged(1, true);
         assertThat(mCoordinator.getSelectedSuggestionForTesting(), is(0));
 
         // Reset selection and navigate backward: selects first suggestion (suggestion 1, index 0).
         mCoordinator.setSelectedSuggestion(null);
-        assertTrue(mCoordinator.navigateSuggestions(NavigationDirection.BACKWARD));
+        assertTrue(mCoordinator.navigate(NavigationAction.BACKWARD));
         verify(mMockAutofillDelegate, times(3)).suggestionSelectionStateChanged(0, true);
         assertThat(mCoordinator.getSelectedSuggestionForTesting(), nullValue());
 
@@ -1541,7 +1475,7 @@ public class KeyboardAccessoryControllerTest {
     }
 
     @Test
-    public void testNavigateSuggestionsInRtl() {
+    public void testNavigateInRtl() {
         LocalizationUtils.setRtlForTesting(true);
 
         AutofillSuggestion suggestion1 =
@@ -1575,19 +1509,19 @@ public class KeyboardAccessoryControllerTest {
         mCoordinator.setSelectedSuggestion(1);
 
         // In RTL, navigating forward (Right arrow) moves visually right towards index 0.
-        assertTrue(mCoordinator.navigateSuggestions(NavigationDirection.FORWARD));
+        assertTrue(mCoordinator.navigate(NavigationAction.FORWARD));
         inOrder.verify(mMockAutofillDelegate).suggestionSelectionStateChanged(0, true);
 
         // Reset to middle suggestion.
         mCoordinator.setSelectedSuggestion(1);
 
         // In RTL, navigating backward (Left arrow) moves visually left towards index 2.
-        assertTrue(mCoordinator.navigateSuggestions(NavigationDirection.BACKWARD));
+        assertTrue(mCoordinator.navigate(NavigationAction.BACKWARD));
         inOrder.verify(mMockAutofillDelegate).suggestionSelectionStateChanged(2, true);
     }
 
     @Test
-    public void testNavigateSuggestionsWithFilteredSuggestions() {
+    public void testNavigateWithFilteredSuggestions() {
         AutofillSuggestion addressSuggestion1 =
                 new AutofillSuggestion.Builder()
                         .setLabel("Suggestion 1")
@@ -1611,7 +1545,7 @@ public class KeyboardAccessoryControllerTest {
 
         // Navigate forward: should notify Address1 (original index 1) without updating visual
         // selection.
-        assertTrue(mCoordinator.navigateSuggestions(NavigationDirection.FORWARD));
+        assertTrue(mCoordinator.navigate(NavigationAction.FORWARD));
         verify(mMockAutofillDelegate).suggestionSelectionStateChanged(1, true);
         assertThat(mCoordinator.getSelectedSuggestionForTesting(), nullValue());
 
@@ -1620,7 +1554,7 @@ public class KeyboardAccessoryControllerTest {
         assertThat(mCoordinator.getSelectedSuggestionForTesting(), is(1));
 
         // Navigate forward again: should notify Address2 (original index 2).
-        assertTrue(mCoordinator.navigateSuggestions(NavigationDirection.FORWARD));
+        assertTrue(mCoordinator.navigate(NavigationAction.FORWARD));
         verify(mMockAutofillDelegate).suggestionSelectionStateChanged(2, true);
         assertThat(mCoordinator.getSelectedSuggestionForTesting(), is(1));
 
@@ -1629,7 +1563,7 @@ public class KeyboardAccessoryControllerTest {
         assertThat(mCoordinator.getSelectedSuggestionForTesting(), is(2));
 
         // Navigate forward again: wraps around to Address1 (original index 1).
-        assertTrue(mCoordinator.navigateSuggestions(NavigationDirection.FORWARD));
+        assertTrue(mCoordinator.navigate(NavigationAction.FORWARD));
         verify(mMockAutofillDelegate, times(2)).suggestionSelectionStateChanged(1, true);
         assertThat(mCoordinator.getSelectedSuggestionForTesting(), is(2));
 
@@ -1639,7 +1573,7 @@ public class KeyboardAccessoryControllerTest {
     }
 
     @Test
-    public void testNavigateSuggestionsSkipsDisabledSuggestions() {
+    public void testNavigateSkipsDisabledSuggestions() {
         AutofillSuggestion suggestion1 =
                 new AutofillSuggestion.Builder()
                         .setLabel("Suggestion 1")
@@ -1669,7 +1603,7 @@ public class KeyboardAccessoryControllerTest {
         assertThat(mCoordinator.getSelectedSuggestionForTesting(), nullValue());
 
         // Navigate forward: should notify Suggestion 1 (index 0) without updating visual selection.
-        assertTrue(mCoordinator.navigateSuggestions(NavigationDirection.FORWARD));
+        assertTrue(mCoordinator.navigate(NavigationAction.FORWARD));
         verify(mMockAutofillDelegate).suggestionSelectionStateChanged(0, true);
         assertThat(mCoordinator.getSelectedSuggestionForTesting(), nullValue());
 
@@ -1679,7 +1613,7 @@ public class KeyboardAccessoryControllerTest {
 
         // Navigate forward again: skips unselectable suggestion and notifies Suggestion 3 (index
         // 2).
-        assertTrue(mCoordinator.navigateSuggestions(NavigationDirection.FORWARD));
+        assertTrue(mCoordinator.navigate(NavigationAction.FORWARD));
         verify(mMockAutofillDelegate).suggestionSelectionStateChanged(2, true);
         assertThat(mCoordinator.getSelectedSuggestionForTesting(), is(0));
 
@@ -1689,7 +1623,7 @@ public class KeyboardAccessoryControllerTest {
 
     @Test
     public void testSelectingSuggestionScrollsItsBarItemIntoView() {
-        setUpMockBarItemsView();
+        setUpBarItemsView();
         mCoordinator.setSuggestions(createSuggestions(4), mMockAutofillDelegate);
 
         // The first three suggestions share a group at BAR_ITEMS[0], the fourth one is
@@ -1700,47 +1634,52 @@ public class KeyboardAccessoryControllerTest {
 
         // Each of the grouped suggestions scrolls to the group's position.
         for (int suggestionIndex = 0; suggestionIndex < 3; suggestionIndex++) {
-            clearInvocations(mMockBarItemsView);
+            clearInvocations(mBarItemsLayoutManager);
             selectSuggestionAndBind(suggestionIndex);
-            verify(mMockBarItemsView).smoothScrollToPosition(0);
+            verify(mBarItemsLayoutManager).smoothScrollToPosition(any(), any(), eq(0));
         }
 
         // The ungrouped suggestion scrolls to its own position.
-        clearInvocations(mMockBarItemsView);
+        clearInvocations(mBarItemsLayoutManager);
         selectSuggestionAndBind(3);
-        verify(mMockBarItemsView).smoothScrollToPosition(1);
+        verify(mBarItemsLayoutManager).smoothScrollToPosition(any(), any(), eq(1));
 
         // Clearing the selection doesn't scroll anywhere.
-        clearInvocations(mMockBarItemsView);
+        clearInvocations(mBarItemsLayoutManager);
         selectSuggestionAndBind(null);
-        verify(mMockBarItemsView, never()).smoothScrollToPosition(anyInt());
+        verify(mBarItemsLayoutManager, never()).smoothScrollToPosition(any(), any(), anyInt());
     }
 
     @Test
     public void testSelectingAlreadyAttachedSuggestionDoesNotScroll() {
-        setUpMockBarItemsView();
+        setUpBarItemsView();
         // The bar item rendering the suggestion is attached, so `updateSelection` scrolls it into
         // view with chip precision and no coarse scroll is needed.
-        when(mMockBarItemsView.findViewHolderForAdapterPosition(anyInt()))
-                .thenReturn(mock(RecyclerView.ViewHolder.class));
+        mBarItemsView.measure(
+                View.MeasureSpec.makeMeasureSpec(1000, View.MeasureSpec.EXACTLY),
+                View.MeasureSpec.makeMeasureSpec(100, View.MeasureSpec.EXACTLY));
+        mBarItemsView.layout(0, 0, 1000, 100);
+        assertThat(mBarItemsView.findViewHolderForAdapterPosition(0), is(notNullValue()));
         mCoordinator.setSuggestions(createSuggestions(1), mMockAutofillDelegate);
 
         selectSuggestionAndBind(0);
 
-        verify(mMockBarItemsView, never()).smoothScrollToPosition(anyInt());
+        verify(mBarItemsLayoutManager, never()).smoothScrollToPosition(any(), any(), anyInt());
     }
 
     /**
-     * Makes the mocked accessory view expose a mocked {@link RecyclerView} with an adapter. The
-     * adapter is created with its real constructor because {@link
-     * RecyclerView.Adapter#notifyItemChanged} is final and would otherwise run against an
-     * uninitialized mock.
+     * Creates an (uninflated) accessory view exposing a real {@link RecyclerView} with a small
+     * adapter and a spied {@link LinearLayoutManager} to observe scroll requests.
      */
-    private void setUpMockBarItemsView() {
-        mMockView.mBarItemsView = mMockBarItemsView;
-        doReturn(mock(RecyclerView.Adapter.class, withSettings().useConstructor()))
-                .when(mMockBarItemsView)
-                .getAdapter();
+    private void setUpBarItemsView() {
+        Context context = ApplicationProvider.getApplicationContext();
+        mView = new KeyboardAccessoryView(context, null);
+        mBarItemsView = new RecyclerView(context);
+        mBarItemsLayoutManager =
+                spy(new LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false));
+        mBarItemsView.setLayoutManager(mBarItemsLayoutManager);
+        mBarItemsView.setAdapter(new TestBarItemsAdapter(3));
+        mView.mBarItemsView = mBarItemsView;
     }
 
     /**
@@ -1771,7 +1710,16 @@ public class KeyboardAccessoryControllerTest {
      */
     private void selectSuggestionAndBind(Integer suggestionIndex) {
         mCoordinator.setSelectedSuggestion(suggestionIndex);
-        KeyboardAccessoryViewBinder.bind(mModel, mMockView, SELECTED_SUGGESTION_INDEX);
+        KeyboardAccessoryViewBinder.bind(mModel, mView, SELECTED_SUGGESTION_INDEX);
+    }
+
+    @Test
+    public void testAcceptFallbackDelegatesToTabSwitcher() {
+        when(mMockTabSwitchingDelegate.clickSelectedButton()).thenReturn(true);
+        assertTrue(mCoordinator.acceptFallback());
+
+        when(mMockTabSwitchingDelegate.clickSelectedButton()).thenReturn(false);
+        assertFalse(mCoordinator.acceptFallback());
     }
 
     private int getGenerationImpressionCount() {

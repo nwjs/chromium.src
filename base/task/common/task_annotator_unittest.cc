@@ -4,6 +4,8 @@
 
 #include "base/task/common/task_annotator.h"
 
+#include <stdint.h>
+
 #include <algorithm>
 #include <vector>
 
@@ -27,6 +29,7 @@
 #include "partition_alloc/buildflags.h"
 #include "partition_alloc/extended_api.h"
 #include "partition_alloc/partition_alloc_for_testing.h"
+#include "partition_alloc/partition_alloc_public_constants.h"
 #include "partition_alloc/scheduler_loop_quarantine_support.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -58,7 +61,7 @@ class TaskAnnotatorBacktraceIntegrationTest
     : public ::testing::Test,
       public TaskAnnotator::ObserverForTesting {
  public:
-  using ExpectedTrace = std::vector<const void*>;
+  using ExpectedTrace = std::vector<uintptr_t>;
 
   TaskAnnotatorBacktraceIntegrationTest() = default;
 
@@ -105,7 +108,7 @@ class TaskAnnotatorBacktraceIntegrationTest
       if (i < expected_trace.size()) {
         EXPECT_EQ(expected_trace[i], state.task_backtrace[i]);
       } else {
-        EXPECT_EQ(nullptr, state.task_backtrace[i]);
+        EXPECT_EQ(0, state.task_backtrace[i]);
       }
     }
     EXPECT_EQ(expected_ipc_hash, state.ipc_hash);
@@ -159,7 +162,7 @@ class TaskAnnotatorBacktraceIntegrationTest
   // thread.
   struct TaskState {
     Location posted_from;
-    std::array<const void*, PendingTask::kTaskBacktraceLength> task_backtrace =
+    std::array<uintptr_t, PendingTask::kTaskBacktraceLength> task_backtrace =
         {};
     uint32_t ipc_hash = 0;
   };

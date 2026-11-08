@@ -226,21 +226,6 @@ public class TabListModel extends ModelList {
      * Find the Nth TAB card in the {@link TabListModel}.
      *
      * @param n N of the Nth TAB card.
-     * @return The index of Nth TAB card in the {@link TabListModel} or TabModel.INVALID_TAB_INDEX
-     *     if not enough tabs exist.
-     */
-    public int indexOfNthTabCardOrInvalid(int n) {
-        int index = indexOfNthTabCard(n);
-        if (index < 0 || index >= size() || !TabProperties.isTabOrTabGroup(get(index).model)) {
-            return TabModel.INVALID_TAB_INDEX;
-        }
-        return index;
-    }
-
-    /**
-     * Find the Nth TAB card in the {@link TabListModel}.
-     *
-     * @param n N of the Nth TAB card.
      * @return The index of Nth TAB card in the {@link TabListModel} or the index after the last tab
      *     card if {@code n} exceeds the number of tabs.
      */
@@ -260,13 +245,17 @@ public class TabListModel extends ModelList {
         return lastTabIndex + 1;
     }
 
-    /** Returns the filter index of a tab from its view index. */
-    public int indexOfTabCardsOrInvalid(int index) {
-        if (index < 0 || index >= size() || !TabProperties.isTabOrTabGroup(get(index).model)) {
-            return TabModel.INVALID_TAB_INDEX;
-        }
-
-        return getTabCardCountsBefore(index);
+    /**
+     * Returns the tab group ID of the tab group card at the given index, or null if the index is
+     * out of bounds or the card is not a tab group header.
+     *
+     * @param index The index within the model list.
+     * @return The {@link Token} tab group ID or null.
+     */
+    public @Nullable Token getTabGroupIdForIndex(int index) {
+        if (!isValidIndex(index)) return null;
+        PropertyModel model = get(index).model;
+        return TabProperties.isTabGroupHeader(model) ? model.get(TAB_GROUP_HEADER_ID) : null;
     }
 
     /**

@@ -394,6 +394,35 @@ AppShortcutShelfItemController::GetAppMenuItems(
   return items;
 }
 
+base::expected<aura::Window*, std::u16string>
+AppShortcutShelfItemController::GetAppMenuItemWindow(int command_id) {
+  if (command_id < 0 || static_cast<size_t>(command_id) >= AppMenuSize()) {
+    return base::unexpected(std::u16string());
+  }
+  ash::BrowserDelegate* browser = nullptr;
+  if (app_menu_cached_by_browsers_) {
+    browser = app_menu_browsers_[command_id];
+  } else {
+    // Cached tabs may have been destroyed while the menu is open; look up the
+    // browser without dereferencing them (same as ExecuteCommand()). The
+    // browser window only shows its active tab, so other tabs have no window to
+    // preview.
+    content::WebContents* web_contents = app_menu_web_contents_[command_id];
+    browser =
+        ash::BrowserController::GetInstance()->GetBrowserForTab(web_contents);
+    if (browser && browser->GetActiveWebContents() != web_contents) {
+      return base::unexpected(
+          ChromeShelfController::instance()->GetAppMenuInactiveTabTooltip(
+              *browser));
+    }
+  }
+  aura::Window* window = browser ? browser->GetNativeWindow() : nullptr;
+  if (!window) {
+    return base::unexpected(std::u16string());
+  }
+  return window;
+}
+
 void AppShortcutShelfItemController::GetContextMenu(
     int64_t display_id,
     GetContextMenuCallback callback) {

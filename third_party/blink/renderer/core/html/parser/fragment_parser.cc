@@ -139,6 +139,7 @@ DocumentFragment* ParseHTMLFragmentInternal(
     return fragment;
   }
 
+  CHECK(!sanitizer);
   bool was_valid = fragment->ParseXML(markup, context_element, exception_state,
                                       parser_content_policy);
   if (!was_valid) {
@@ -163,6 +164,19 @@ inline void RemoveElementPreservingChildren(DocumentFragment* fragment,
   fragment->RemoveChild(element);
 }
 
+bool HasNonEmptySanitizer(
+    const V8UnionSanitizerOrSanitizerConfigOrSanitizerPresets* sanitizer) {
+  if (!sanitizer) {
+    return false;
+  }
+  if (sanitizer->IsSanitizerConfig()) {
+    return !Sanitizer::IsEmpty(sanitizer->GetAsSanitizerConfig());
+  }
+  // Explicit Sanitizer instances (e.g., `new Sanitizer()`) and presets always
+  // require vetting by the default policy when Trusted Types are enforced.
+  return true;
+}
+
 }  // namespace
 
 FragmentParserOptions::FragmentParserOptions(TrustedHTMLParserOptions* options)
@@ -183,10 +197,13 @@ FragmentParserOptions::FragmentParserOptions(SetHTMLUnsafeOptions* options)
                     RuntimeEnabledFeatures::SetHTMLCanRunScriptsEnabled())
                        ? RunScripts::kRunScripts
                        : RunScripts::kDontRunScripts),
-      sanitizer_init_(options->sanitizer()) {}
+      sanitizer_init_(options->getSanitizerOr(nullptr)),
+      requires_default_policy_(run_scripts_ == RunScripts::kRunScripts ||
+                               HasNonEmptySanitizer(sanitizer_init_)) {}
 
 FragmentParserOptions::FragmentParserOptions(ParseHTMLUnsafeOptions* options)
-    : sanitizer_init_(options->sanitizer()) {}
+    : sanitizer_init_(options->getSanitizerOr(nullptr)),
+      requires_default_policy_(HasNonEmptySanitizer(sanitizer_init_)) {}
 
 FragmentParserOptions::FragmentParserOptions(SetHTMLOptions* options)
     : sanitizer_init_(options->sanitizer()) {}
@@ -205,18 +222,13 @@ FragmentParserOptions FragmentParserOptions::From(
 }
 
 // static
-FragmentParserConfig FragmentParserConfig::ForContainer(
-    ContainerNode* context,
-    Sanitizer::Mode mode,
-    const AtomicString& interface_name,
-    const AtomicString& property_name) {
+FragmentParserConfig FragmentParserConfig::ForContainer(ContainerNode* context,
+                                                        Sanitizer::Mode mode) {
   CHECK(context->IsElementNode() || context->IsShadowRoot());
   return {.sanitizer_mode = mode,
           .parse_declarative_shadows =
               FragmentParserConfig::ParseDeclarativeShadowRoots::kParse,
           .force_html = FragmentParserConfig::ForceHtml::kForce,
-          .interface_name = interface_name,
-          .property_name = property_name,
           .context_element = context->IsElementNode()
                                  ? To<Element>(context)
                                  : &To<ShadowRoot>(context)->host(),
@@ -238,23 +250,11 @@ DocumentFragment* ParseHTMLFragment(const String& markup,
           ? kAllowScriptingContentAndDoNotMarkAlreadyStarted
           : kAllowScriptingContent;
 
-  const bool should_sanitize =
-      options.WillSanitize() ||
-      (config.sanitizer_mode == Sanitizer::Mode::kSafe);
-
-  if (should_sanitize &&
-      config.force_html != FragmentParserConfig::ForceHtml::kForce &&
-      config.context_element &&
-      config.context_element->GetDocument().IsXMLDocument()) {
-    exception_state.ThrowTypeError(
-        "Sanitization is not supported in XML documents.");
+  StreamingSanitizer* streaming_sanitizer =
+      SanitizerAPI::CreateStreamingSanitizer(config.sanitizer_mode, options,
+                                             exception_state);
+  if (exception_state.HadException()) {
     return nullptr;
-  }
-
-  StreamingSanitizer* streaming_sanitizer = nullptr;
-  if (should_sanitize && RuntimeEnabledFeatures::StreamingSanitizerEnabled()) {
-    streaming_sanitizer = SanitizerAPI::CreateStreamingSanitizer(
-        config.sanitizer_mode, options, exception_state);
   }
 
   if (streaming_sanitizer &&
@@ -266,16 +266,9 @@ DocumentFragment* ParseHTMLFragment(const String& markup,
   DocumentFragment* fragment = ParseHTMLFragmentInternal(
       markup, config.context_element, content_policy,
       config.parse_declarative_shadows, config.force_html,
-      should_sanitize ? ForceInertTemplate::kForce
-                      : ForceInertTemplate::kDontForce,
+      streaming_sanitizer ? ForceInertTemplate::kForce
+                          : ForceInertTemplate::kDontForce,
       config.registry, exception_state, streaming_sanitizer);
-
-  if (fragment && should_sanitize &&
-      (!streaming_sanitizer || !fragment->GetDocument().IsHTMLDocument())) {
-    SanitizerAPI::SanitizeInternal(config.sanitizer_mode,
-                                   config.context_element, fragment, options,
-                                   exception_state);
-  }
 
   if (exception_state.HadException()) {
     return nullptr;

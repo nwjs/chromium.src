@@ -8,6 +8,7 @@
 #include <cstring>
 #include <utility>
 
+#include "base/check_deref.h"
 #include "base/check_op.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
@@ -24,7 +25,8 @@
 #include "chrome/browser/ui/views/extensions/dialogs/print_job_confirmation_dialog.h"
 #include "chrome/common/pref_names.h"
 #include "components/prefs/pref_service.h"
-#include "components/user_manager/user_manager.h"
+#include "components/session_manager/core/session.h"
+#include "components/session_manager/core/session_manager.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_thread.h"
 #include "extensions/browser/blob_reader.h"
@@ -100,7 +102,7 @@ PrintJobSubmitter::PrintJobSubmitter(
       request_(std::move(request)),
       local_printer_(local_printer),
       callback_(std::move(callback)) {
-  DCHECK(extension);
+  CHECK(extension, base::NotFatalUntil::M161);
   if (native_window) {
     native_window_tracker_ = ui::NativeWindowTracker::Create(native_window);
   }
@@ -110,8 +112,8 @@ PrintJobSubmitter::~PrintJobSubmitter() = default;
 
 // static
 void PrintJobSubmitter::Run(std::unique_ptr<PrintJobSubmitter> submitter) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
-  DCHECK(submitter->callback_);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M161);
+  CHECK(submitter->callback_, base::NotFatalUntil::M161);
   PrintJobSubmitter* ptr = submitter.get();
   ptr->callback_ = std::move(ptr->callback_)
                        .Then(base::OnceClosure(
@@ -149,10 +151,10 @@ bool PrintJobSubmitter::CheckPrintTicket() {
 void PrintJobSubmitter::CheckPrinter() {
   CHECK(local_printer_);
   local_printer_->GetCapability(
-      // TODO(crbug.com/354842935): Replace by ash::AnnotatedAccountId.
       // TODO(crbug.com/479647640): Check if we should use current user than
       // primary user.
-      user_manager::UserManager::Get()->GetPrimaryUser()->GetAccountId(),
+      CHECK_DEREF(session_manager::SessionManager::Get()->GetPrimarySession())
+          .account_id(),
       request_.job.printer_id,
       base::BindOnce(&PrintJobSubmitter::CheckCapabilitiesCompatibility,
                      weak_ptr_factory_.GetWeakPtr()));
@@ -266,8 +268,8 @@ void PrintJobSubmitter::ShowPrintJobConfirmationDialog(
 }
 
 void PrintJobSubmitter::OnPrintJobConfirmationDialogClosed(bool accepted) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
-  DCHECK(callback_);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M161);
+  CHECK(callback_, base::NotFatalUntil::M161);
   // If the user hasn't accepted a print job or the extension is
   // unloaded/disabled by the time the dialog is closed, reject the request.
   if (!accepted || !ExtensionRegistry::Get(browser_context_)
@@ -297,18 +299,18 @@ void PrintJobSubmitter::StartPrintJob() {
 
 void PrintJobSubmitter::OnPrintJobCreated(
     std::optional<printing::PrintJobCreatedInfo> info) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M161);
   if (!info) {
     FireErrorCallback(kPrintingFailed);
     return;
   }
-  DCHECK(callback_);
+  CHECK(callback_, base::NotFatalUntil::M161);
   std::move(callback_).Run(std::move(*info));
 }
 
 void PrintJobSubmitter::FireErrorCallback(const std::string& error) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
-  DCHECK(callback_);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M161);
+  CHECK(callback_, base::NotFatalUntil::M161);
   base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
       FROM_HERE, base::BindOnce(std::move(callback_), base::unexpected(error)));
 }

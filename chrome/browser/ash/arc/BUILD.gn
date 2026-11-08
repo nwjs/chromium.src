@@ -27,8 +27,6 @@ static_library("arc") {
     "icon_decode_request.h",
   ]
 
-  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
-
   deps = [
     ":arc_util",
     "//ash",
@@ -188,6 +186,7 @@ source_set("unit_tests") {
     "//chrome/browser/ash/arc/tts:unit_tests",
     "//chrome/browser/ash/arc/vmm:unit_tests",
     "//chrome/browser/ash/arc/wallpaper:unit_tests",
+    "//chrome/test/base:browser_with_test_window_test",
     "//chrome/test/base:testing_browser_process",
   ]
 }
@@ -236,8 +235,6 @@ source_set("arc_util") {
 }
 
 source_set("arc_util_impl") {
-  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
-
   sources = [ "arc_util.cc" ]
 
   deps = [
@@ -266,6 +263,7 @@ source_set("arc_util_impl") {
     "//chromeos/components/mgs",
     "//components/embedder_support:user_agent",
     "//components/prefs",
+    "//components/session_manager/core",
     "//components/user_manager",
     "//content/public/browser",
     "//content/public/common",

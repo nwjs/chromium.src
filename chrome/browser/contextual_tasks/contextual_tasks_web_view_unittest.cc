@@ -24,6 +24,8 @@
 #include "chrome/browser/contextual_tasks/contextual_tasks_ui_service.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_ui_service_factory.h"
 #include "chrome/browser/contextual_tasks/mock_contextual_tasks_ui_service_delegate.h"
+#include "chrome/browser/signin/chrome_signin_client_factory.h"
+#include "chrome/browser/signin/chrome_signin_client_test_util.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/test/mock_browser_window_interface.h"
 #include "chrome/browser/ui/lens/lens_search_controller.h"
@@ -37,17 +39,21 @@
 #include "components/variations/scoped_variations_ids_provider.h"
 #include "content/public/browser/file_select_listener.h"
 #include "content/public/browser/render_process_host.h"
+#include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/web_contents_delegate.h"
 #include "content/public/test/browser_task_environment.h"
 #include "content/public/test/navigation_simulator.h"
 #include "content/public/test/test_renderer_host.h"
 #include "content/public/test/web_contents_tester.h"
+#include "services/network/test/test_url_loader_factory.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/blink/public/common/web_preferences/web_preferences.h"
 #include "third_party/blink/public/mojom/choosers/file_chooser.mojom.h"
 #include "ui/base/unowned_user_data/unowned_user_data_host.h"
 #include "ui/shell_dialogs/fake_select_file_dialog.h"
 #include "ui/shell_dialogs/select_file_dialog.h"
+#include "ui/views/background.h"
 
 using testing::_;
 using testing::NiceMock;
@@ -101,7 +107,13 @@ class ContextualTasksWebViewTest : public testing::Test {
         /*disabled_features=*/{});
 
     ASSERT_TRUE(profile_manager_.SetUp());
-    profile_ = profile_manager_.CreateTestingProfile("testing_profile");
+    TestingProfile::TestingFactories factories;
+    factories.push_back(TestingProfile::TestingFactory{
+        ChromeSigninClientFactory::GetInstance(),
+        base::BindRepeating(&BuildChromeSigninClientWithURLLoader,
+                            &test_url_loader_factory_)});
+    profile_ = profile_manager_.CreateTestingProfile("testing_profile",
+                                                     std::move(factories));
     browser_window_ = std::make_unique<NiceMock<MockBrowserWindowInterface>>();
 
     ON_CALL(*browser_window_, GetProfile()).WillByDefault(Return(profile_));
@@ -131,6 +143,7 @@ class ContextualTasksWebViewTest : public testing::Test {
   TestingProfileManager profile_manager_{TestingBrowserProcess::GetGlobal()};
   content::RenderViewHostTestEnabler rvh_test_enabler_;
   base::test::ScopedFeatureList feature_list_;
+  network::TestURLLoaderFactory test_url_loader_factory_;
   raw_ptr<TestingProfile> profile_ = nullptr;
   BrowserWindowFeatures browser_window_features_;
   ui::UnownedUserDataHost unowned_user_data_host_;
@@ -427,6 +440,8 @@ TEST_F(ContextualTasksWebViewTest, RunFileChooserOpensFileDialog) {
   web_view_ = std::make_unique<ContextualTasksWebView>(browser_window_.get());
   std::unique_ptr<content::WebContents> web_contents =
       content::WebContentsTester::CreateTestWebContents(profile_, nullptr);
+  web_contents->GetPrimaryMainFrame()->GetView()->SetBounds(
+      gfx::Rect(0, 0, 800, 600));
   web_view_->SetWebContents(web_contents.get());
   content::NavigationSimulator::NavigateAndCommitFromBrowser(
       web_contents.get(), GURL("https://www.google.com/search?q=test"));
@@ -924,6 +939,51 @@ TEST_F(ContextualTasksWebViewTest,
   redirect_sim->CommitErrorPage();
   EXPECT_FALSE(toolbar_ui->IsAiPage());
   EXPECT_EQ(toolbar_ui->GetThreadTitle(), std::nullopt);
+}
+
+TEST_F(ContextualTasksWebViewTest,
+       ConfiguresBackgroundColorAndColorSchemeForLightAndDarkMode) {
+  web_view_ = std::make_unique<ContextualTasksWebView>(browser_window_.get());
+  std::unique_ptr<content::WebContents> light_web_contents =
+      content::WebContentsTester::CreateTestWebContents(profile_, nullptr);
+  web_view_->SetWebContents(light_web_contents.get());
+  content::RenderFrameHostTester::For(light_web_contents->GetPrimaryMainFrame())
+      ->InitializeRenderFrameIfNeeded();
+
+  ASSERT_NE(web_view_->GetBackground(), nullptr);
+  EXPECT_EQ(web_view_->GetBackground()->color(),
+            ui::ColorVariant(SK_ColorWHITE));
+  ASSERT_NE(light_web_contents->GetRenderWidgetHostView(), nullptr);
+  EXPECT_EQ(light_web_contents->GetRenderWidgetHostView()->GetBackgroundColor(),
+            SK_ColorTRANSPARENT);
+  EXPECT_EQ(
+      light_web_contents->GetOrCreateWebPreferences().preferred_color_scheme,
+      blink::mojom::PreferredColorScheme::kLight);
+
+  // Switch the browser window to an OTR (dark mode) profile and verify that
+  // Stratus dark mode background color (rgb(34, 36, 43)), transparent
+  // WebContents base background, and kDark color scheme are applied.
+  Profile* otr_profile =
+      profile_->GetPrimaryOTRProfile(/*create_if_needed=*/true);
+  ON_CALL(*browser_window_, GetProfile()).WillByDefault(Return(otr_profile));
+
+  auto dark_web_view =
+      std::make_unique<ContextualTasksWebView>(browser_window_.get());
+  std::unique_ptr<content::WebContents> dark_web_contents =
+      content::WebContentsTester::CreateTestWebContents(otr_profile, nullptr);
+  dark_web_view->SetWebContents(dark_web_contents.get());
+  content::RenderFrameHostTester::For(dark_web_contents->GetPrimaryMainFrame())
+      ->InitializeRenderFrameIfNeeded();
+
+  ASSERT_NE(dark_web_view->GetBackground(), nullptr);
+  EXPECT_EQ(dark_web_view->GetBackground()->color(),
+            ui::ColorVariant(SkColorSetRGB(34, 36, 43)));
+  ASSERT_NE(dark_web_contents->GetRenderWidgetHostView(), nullptr);
+  EXPECT_EQ(dark_web_contents->GetRenderWidgetHostView()->GetBackgroundColor(),
+            SK_ColorTRANSPARENT);
+  EXPECT_EQ(
+      dark_web_contents->GetOrCreateWebPreferences().preferred_color_scheme,
+      blink::mojom::PreferredColorScheme::kDark);
 }
 
 }  // namespace

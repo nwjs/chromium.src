@@ -12,6 +12,7 @@
 #include "ash/controls/contextual_tooltip.h"
 #include "ash/public/cpp/wallpaper/wallpaper_controller.h"
 #include "ash/public/cpp/wallpaper/wallpaper_info.h"
+#include "ash/wallpaper/sea_pen_fetcher.h"
 #include "ash/wallpaper/sea_pen_wallpaper_manager.h"
 #include "ash/wallpaper/wallpaper_utils/sea_pen_metadata_utils.h"
 #include "ash/webui/common/mojom/sea_pen.mojom.h"
@@ -74,11 +75,26 @@ void OnSeaPenImageSaved(const AccountId& account_id,
 PersonalizationAppSeaPenProviderImpl::PersonalizationAppSeaPenProviderImpl(
     content::WebUI* web_ui,
     std::unique_ptr<wallpaper_handlers::WallpaperFetcherDelegate>
-        wallpaper_fetcher_delegate)
+        wallpaper_fetcher_delegate,
+    manta::MantaService* manta_service)
     : PersonalizationAppSeaPenProviderBase(
           web_ui,
           std::move(wallpaper_fetcher_delegate),
+          manta_service,
           manta::proto::FeatureName::CHROMEOS_WALLPAPER) {}
+
+PersonalizationAppSeaPenProviderImpl::PersonalizationAppSeaPenProviderImpl(
+    content::WebUI* web_ui,
+    std::unique_ptr<wallpaper_handlers::WallpaperFetcherDelegate>
+        wallpaper_fetcher_delegate,
+    manta::MantaService* manta_service,
+    std::unique_ptr<SeaPenFetcher> sea_pen_fetcher)
+    : PersonalizationAppSeaPenProviderBase(
+          web_ui,
+          std::move(wallpaper_fetcher_delegate),
+          manta_service,
+          manta::proto::FeatureName::CHROMEOS_WALLPAPER,
+          std::move(sea_pen_fetcher)) {}
 
 PersonalizationAppSeaPenProviderImpl::~PersonalizationAppSeaPenProviderImpl() =
     default;

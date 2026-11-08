@@ -72,6 +72,7 @@ source_set("impl") {
   }
   deps += [
     ":hats",
+    "//base/i18n:language_tag",
     "//chrome/browser:browser_process",
     "//chrome/browser:global_features",
     "//chrome/browser/content_settings:content_settings_factory",
@@ -92,6 +93,8 @@ source_set("impl") {
     "//components/content_settings/core/common",
     "//components/lens:features",
     "//components/metrics_services_manager",
+    "//components/page_info/core",
+    "//components/password_manager/core/browser/features:password_features",
     "//components/password_manager/core/common",
     "//components/permissions",
     "//components/permissions:permissions_common",
@@ -113,7 +116,6 @@ source_set("impl") {
     # performance_controls_hats_service.h,
     # performance_controls_hats_service_factory.h, and site_settings_helper.h
     # ... but without a circular dependency.
-    "//chrome/browser/ui",
   ]
   if (is_android) {
     deps += [
@@ -127,7 +129,6 @@ source_set("impl") {
       "//pdf:features",
     ]
   }
-  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
 }
 
 if (is_android) {
@@ -196,6 +197,7 @@ if (!is_android) {
       "//chrome/browser:browser_process",
       "//chrome/browser/policy:test_support",
       "//chrome/browser/prefs",
+      "//chrome/browser/ui:browser_tabstrip",
       "//chrome/browser/ui:bubble_anchor_util",
       "//chrome/browser/ui/page_info",
       "//chrome/browser/ui/views/page_info",

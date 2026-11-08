@@ -7,7 +7,9 @@
 #include <memory>
 #include <utility>
 
+#include "base/feature_list.h"
 #include "base/task/single_thread_task_runner.h"
+#include "build/build_config.h"
 #include "components/viz/common/gpu/raster_context_provider.h"
 #include "components/viz/common/resources/release_callback.h"
 #include "components/viz/common/resources/shared_image_format_utils.h"
@@ -16,14 +18,19 @@
 #include "gpu/command_buffer/client/raster_interface.h"
 #include "gpu/command_buffer/client/shared_image_interface.h"
 #include "gpu/command_buffer/common/capabilities.h"
+#include "gpu/command_buffer/common/shared_image_capabilities.h"
 #include "gpu/command_buffer/common/shared_image_usage.h"
 #include "gpu/command_buffer/common/sync_token.h"
+#include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/public/platform/web_graphics_context_3d_provider.h"
+#include "third_party/blink/renderer/platform/graphics/canvas_image_provider.h"
+#include "third_party/blink/renderer/platform/graphics/gpu/canvas_utils.h"
 #include "third_party/blink/renderer/platform/graphics/gpu/shared_gpu_context.h"
 #include "third_party/blink/renderer/platform/graphics/graphics_context.h"
 #include "third_party/blink/renderer/platform/graphics/mailbox_ref.h"
 #include "third_party/blink/renderer/platform/graphics/mailbox_texture_backing.h"
+#include "third_party/blink/renderer/platform/graphics/memory_managed_paint_recorder.h"
 #include "third_party/blink/renderer/platform/graphics/skia/skia_utils.h"
 #include "third_party/blink/renderer/platform/graphics/unaccelerated_static_bitmap_image.h"
 #include "third_party/blink/renderer/platform/scheduler/public/thread_scheduler.h"
@@ -103,6 +110,146 @@ AcceleratedStaticBitmapImage::CreateFromExternalSharedImage(
       base::PlatformThreadRef(),
       ThreadScheduler::Current()->CleanupTaskRunner(),
       std::move(release_callback)));
+}
+
+// static
+scoped_refptr<StaticBitmapImage> AcceleratedStaticBitmapImage::CreateFromRaster(
+    const gfx::Size& size,
+    viz::SharedImageFormat format,
+    SkAlphaType alpha_type,
+    const gfx::ColorSpace& color_space,
+    const gfx::HDRMetadata& hdr_metadata,
+    base::WeakPtr<WebGraphicsContext3DProviderWrapper> context_provider_wrapper,
+    gpu::SharedImageUsageSet shared_image_usage_flags,
+    base::FunctionRef<void(cc::PaintCanvas&)> draw_callback,
+    scoped_refptr<const cc::AnimatedImageFrameIndexMap>
+        animated_image_frame_index_map) {
+  CHECK(kAllowedReadUsages.HasAll(shared_image_usage_flags));
+
+  // IsGpuCompositingEnabled can re-create the context if it has been lost, do
+  // this up front so that we can fail early and not expose ourselves to
+  // use after free bugs (crbug.com/1126424)
+  const bool is_gpu_compositing_enabled =
+      SharedGpuContext::IsGpuCompositingEnabled();
+
+  // If the context is lost we don't want to re-create it here, the resulting
+  // resource provider would be invalid anyway
+  if (!context_provider_wrapper ||
+      !context_provider_wrapper->ContextProvider().RasterInterface() ||
+      context_provider_wrapper->ContextProvider().IsContextLost()) {
+    return nullptr;
+  }
+
+  const auto& capabilities =
+      context_provider_wrapper->ContextProvider().GetCapabilities();
+  if ((size.width() < 1 || size.height() < 1 ||
+       size.width() > capabilities.max_texture_size ||
+       size.height() > capabilities.max_texture_size)) {
+    return nullptr;
+  }
+
+  // TODO(crbug.com/40767377): Pass in info as is for all cases.
+  // Overriding the info to use RGBA instead of N32 is needed because code
+  // elsewhere assumes RGBA. OTOH the software path seems to be assuming N32
+  // somewhere in the later pipeline but for offscreen canvas only.
+  bool should_force_bgra8_to_rgba =
+      !shared_image_usage_flags.Has(gpu::SHARED_IMAGE_USAGE_WEBGPU_READ);
+
+#if BUILDFLAG(IS_LINUX)
+  // WebGpu preferred canvas on linux is RGBA and interop (vk on gl) is
+  // dependent on canvas copies being RGBA (not BGRA).
+  should_force_bgra8_to_rgba = true;
+#endif
+
+  if (format != viz::SinglePlaneFormat::kRGBA_F16 &&
+      should_force_bgra8_to_rgba) {
+    format = viz::SinglePlaneFormat::kRGBA_8888;
+  }
+
+  if (shared_image_usage_flags.Has(gpu::SHARED_IMAGE_USAGE_SCANOUT)) {
+    const bool is_scanout_supported =
+        is_gpu_compositing_enabled &&
+        IsScanoutSupportedForCanvasWithFormat(format, capabilities) &&
+        context_provider_wrapper->ContextProvider()
+            .SharedImageInterface()
+            ->GetCapabilities()
+            .supports_scanout_shared_images;
+
+    if (!is_scanout_supported) {
+      shared_image_usage_flags.RemoveAll(gpu::SHARED_IMAGE_USAGE_SCANOUT);
+    }
+#if BUILDFLAG(IS_MAC)
+    if (shared_image_usage_flags.Has(gpu::SHARED_IMAGE_USAGE_SCANOUT) &&
+        format == viz::SinglePlaneFormat::kRGBA_8888) {
+      // GPU-accelerated scanout usage on Mac uses IOSurface. Must switch from
+      // RGBA_8888 to BGRA_8888 in that case.
+      format = viz::SinglePlaneFormat::kBGRA_8888;
+    }
+#endif
+  }
+
+  // This SharedImage is written via RasterSharedImage() below.
+  shared_image_usage_flags |= gpu::SHARED_IMAGE_USAGE_RASTER_WRITE;
+  // Add WEBGPU_READ usage to allow importing into WebGPU without a copy.
+  if (base::FeatureList::IsEnabled(kCanvasResourceIsWebGPUCompatible)) {
+    shared_image_usage_flags |= gpu::SHARED_IMAGE_USAGE_WEBGPU_READ;
+  }
+
+  auto shared_image =
+      context_provider_wrapper->ContextProvider()
+          .SharedImageInterface()
+          ->CreateSharedImage(
+              {format, size, color_space, kTopLeft_GrSurfaceOrigin, alpha_type,
+               shared_image_usage_flags, "CanvasResourceRaster"},
+              gpu::kNullSurfaceHandle);
+
+  MemoryManagedPaintRecorder recorder(size, /*client=*/nullptr);
+  draw_callback(recorder.getRecordingCanvas());
+
+  cc::ImageDecodeCache* cache_f16 = nullptr;
+  if (shared_image->format() == viz::SinglePlaneFormat::kRGBA_F16) {
+    cache_f16 = context_provider_wrapper->ContextProvider().ImageDecodeCache(
+        kRGBA_F16_SkColorType);
+  }
+  cc::ImageDecodeCache* cache_rgba8 =
+      context_provider_wrapper->ContextProvider().ImageDecodeCache(
+          kN32_SkColorType);
+  CanvasImageProvider image_provider(
+      cache_rgba8, cache_f16, color_space, shared_image->format(),
+      cc::PlaybackImageProvider::RasterMode::kGpu, context_provider_wrapper);
+  if (animated_image_frame_index_map) {
+    image_provider.SetAnimatedImageFrameIndexes(
+        std::move(animated_image_frame_index_map));
+  }
+
+  gpu::SyncToken sync_token =
+      context_provider_wrapper->ContextProvider()
+          .RasterInterface()
+          ->RasterSharedImage(
+              shared_image, shared_image->creation_sync_token(),
+              recorder.ReleaseMainRecording(), &image_provider,
+              /*needs_clear=*/true);
+  image_provider.ReleaseLockedImages();
+  image_provider.UnbindTextureBackedImages();
+
+  if (context_provider_wrapper->ContextProvider().IsContextLost()) {
+    return nullptr;
+  }
+
+  auto release_callback = blink::BindOnce(
+      [](scoped_refptr<gpu::ClientSharedImage> shared_image,
+         const gpu::SyncToken& sync_token, bool is_lost) {
+        if (sync_token.HasData()) {
+          shared_image->UpdateDestructionSyncToken(sync_token);
+        }
+      },
+      shared_image);
+
+  return CreateFromCanvasSharedImage(
+      std::move(shared_image), sync_token, alpha_type, hdr_metadata,
+      std::move(context_provider_wrapper), base::PlatformThread::CurrentRef(),
+      ThreadScheduler::Current()->CleanupTaskRunner(),
+      std::move(release_callback));
 }
 
 AcceleratedStaticBitmapImage::AcceleratedStaticBitmapImage(

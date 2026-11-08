@@ -28,10 +28,17 @@ class WebUI;
 
 namespace wallpaper_handlers {
 class WallpaperFetcherDelegate;
-class SeaPenFetcher;
 }  // namespace wallpaper_handlers
 
+namespace manta {
+class MantaService;
+}  // namespace manta
+
 class Profile;
+
+namespace ash {
+class SeaPenFetcher;
+}  // namespace ash
 
 namespace ash::personalization_app {
 
@@ -45,10 +52,16 @@ class PersonalizationAppSeaPenProviderBase
     : public ::ash::common::SeaPenProvider,
       public ::ash::personalization_app::mojom::SeaPenProvider {
  public:
+  // `manta_service` is null for profiles that have no MantaService, such as
+  // guest sessions. The personalization and VC background UIs still run in
+  // those sessions, but SeaPen is off, so GetOrCreateSeaPenFetcher() builds a
+  // SeaPenFetcher without a SnapperProvider. It is a KeyedService that outlives
+  // this provider. Not owned.
   PersonalizationAppSeaPenProviderBase(
       content::WebUI* web_ui,
       std::unique_ptr<wallpaper_handlers::WallpaperFetcherDelegate>
           wallpaper_fetcher_delegate,
+      manta::MantaService* manta_service,
       manta::proto::FeatureName feature_name);
 
   ~PersonalizationAppSeaPenProviderBase() override;
@@ -104,9 +117,20 @@ class PersonalizationAppSeaPenProviderBase
 
   void MakeTransparent() override;
 
-  wallpaper_handlers::SeaPenFetcher* GetOrCreateSeaPenFetcher();
+  SeaPenFetcher* GetOrCreateSeaPenFetcher();
 
  protected:
+  // Testing constructor that injects `sea_pen_fetcher` in place of the one
+  // GetOrCreateSeaPenFetcher() would otherwise build lazily. See the public
+  // constructor for `manta_service`.
+  PersonalizationAppSeaPenProviderBase(
+      content::WebUI* web_ui,
+      std::unique_ptr<wallpaper_handlers::WallpaperFetcherDelegate>
+          wallpaper_fetcher_delegate,
+      manta::MantaService* manta_service,
+      manta::proto::FeatureName feature_name,
+      std::unique_ptr<SeaPenFetcher> sea_pen_fetcher);
+
   virtual void SetSeaPenObserverInternal() = 0;
 
   virtual void SelectRecentSeaPenImageInternal(
@@ -191,6 +215,10 @@ class PersonalizationAppSeaPenProviderBase
   const std::unique_ptr<wallpaper_handlers::WallpaperFetcherDelegate>
       wallpaper_fetcher_delegate_;
 
+  // The profile's MantaService, or null for profiles that have no MantaService,
+  // such as guest sessions. See the constructor. Not owned.
+  const raw_ptr<manta::MantaService> manta_service_;
+
   // A map of image id to image. These are not yet stored to disk. They are
   // thumbnail sized and only stored in memory.
   std::map<uint32_t, const SeaPenImage> sea_pen_images_;
@@ -208,7 +236,7 @@ class PersonalizationAppSeaPenProviderBase
   // Constructed lazily at the time of the first request and then persists for
   // the rest of the delegate's lifetime, unless preemptively or subsequently
   // replaced by a mock in a test.
-  std::unique_ptr<wallpaper_handlers::SeaPenFetcher> sea_pen_fetcher_;
+  std::unique_ptr<SeaPenFetcher> sea_pen_fetcher_;
 
   const raw_ptr<content::WebUI> web_ui_ = nullptr;
 

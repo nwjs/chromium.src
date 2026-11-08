@@ -7,6 +7,7 @@
 
 #include <memory>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "base/functional/callback.h"
@@ -87,8 +88,9 @@ class PasswordProtectionService;
 #endif
 
 namespace device_reauth {
+class DeviceAuthAvailabilityChecker;
 class DeviceAuthenticator;
-}
+}  // namespace device_reauth
 
 namespace version_info {
 enum class Channel;
@@ -260,10 +262,19 @@ class PasswordManagerClient {
   // Checks whether user re-authentication should be triggered before password
   // filling.
   virtual bool IsReauthBeforeFillingRequired(
+      device_reauth::DeviceAuthAvailabilityChecker* checker);
+
+  // TODO(crbug.com/568405852): Remove with `kDeviceReauthRefactor`.
+  virtual bool IsReauthBeforeFillingRequiredLegacy(
       device_reauth::DeviceAuthenticator* authenticator);
 
-  // Returns a pointer to a DeviceAuthenticator. Might be null if
-  // BiometricAuthentication is not available for a given platform.
+  // Creates a `DeviceAuthAvailabilityChecker`, or returns null if device auth
+  // isn't supported on this platform (e.g. Linux).
+  virtual std::unique_ptr<device_reauth::DeviceAuthAvailabilityChecker>
+  GetDeviceAuthAvailabilityChecker();
+
+  // Creates a `DeviceAuthenticator`, or returns null if device auth isn't
+  // supported on this platform (e.g. Linux).
   virtual std::unique_ptr<device_reauth::DeviceAuthenticator>
   GetDeviceAuthenticator();
 
@@ -459,15 +470,13 @@ class PasswordManagerClient {
   GetPasswordProtectionService() const = 0;
 #endif
 
-  // Maybe triggers a hats survey that measures the user's perception of
-  // Autofill for passwords. When triggering happens, the survey dialog will be
-  // displayed with a 5s delay. This survey should be triggered after form
-  // submissions.
-  // `filling_assistance` will be logged together with the responses as
-  // in-product data and should be a string representation of the
-  // `FillingAssistance` enum, i.e "Manually filled".
-  virtual void TriggerUserPerceptionOfPasswordManagerSurvey(
-      const std::string& filling_assistance);
+  // Triggers a survey to ask the user about their experience regarding
+  // personalization features in Chrome. When triggering happens, the survey
+  // dialog will be displayed with a 5s delay. This survey should be triggered
+  // after form submissions. `filling_assistance` should be a human-readable
+  // string that is sent to the server in addition to the survey answers (PSD).
+  virtual void TriggerPersonalizationAndTrustSurvey(
+      std::string_view filling_assistance);
 
 #if defined(ON_FOCUS_PING_ENABLED) && BUILDFLAG(SAFE_BROWSING_AVAILABLE)
   // Checks the safe browsing reputation of the webpage when the

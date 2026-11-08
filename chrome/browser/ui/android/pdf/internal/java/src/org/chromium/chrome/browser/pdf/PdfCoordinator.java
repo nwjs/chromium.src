@@ -25,6 +25,7 @@ import android.provider.OpenableColumns;
 import android.system.Os;
 import android.text.format.Formatter;
 import android.util.SparseArray;
+import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -32,7 +33,6 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import androidx.annotation.NonNull;
 import androidx.annotation.StringRes;
 import androidx.annotation.VisibleForTesting;
 import androidx.appcompat.app.AlertDialog;
@@ -406,12 +406,27 @@ public class PdfCoordinator
             mPdfView = pdfView;
             mIsPdfViewSetup = false;
 
+            pdfView.setOnKeyListener(this::handleFindInPageKey);
+
             if (getView() != null && mViewTag != null) getView().setTag(mViewTag);
             if (PdfUtils.isInlinePdfV2Enabled()) {
                 pdfView.setFormFillingEnabled(
                         PdfUtils.isInlinePdfV2FormFillingEnabled() && !isEditModeEnabled());
             }
             maybeSetupPdfView();
+        }
+
+        @VisibleForTesting
+        boolean handleFindInPageKey(View v, int keyCode, KeyEvent event) {
+            if (keyCode == KeyEvent.KEYCODE_F && event.hasModifiers(KeyEvent.META_CTRL_ON)) {
+                if (event.getAction() == KeyEvent.ACTION_DOWN && event.getRepeatCount() == 0) {
+                    if (mDelegate != null) {
+                        mDelegate.findInPage();
+                    }
+                }
+                return true;
+            }
+            return false;
         }
 
         private void maybeSetupPdfView() {
@@ -633,6 +648,9 @@ public class PdfCoordinator
                 mPdfView.removeOnFirstContentLoadListener(mFirstContentLoadListener);
             }
             mFirstContentLoadListener = null;
+            if (mPdfView != null) {
+                mPdfView.setOnKeyListener(null);
+            }
             mPdfView = null;
         }
 
@@ -787,6 +805,7 @@ public class PdfCoordinator
             super.onEnterEditMode();
             PdfUtils.recordEditFabAction();
             if (mDelegate != null) {
+                setTextSearchActive(false);
                 mDelegate.onEditModeChanged(true);
             }
         }
@@ -1343,8 +1362,7 @@ public class PdfCoordinator
                         PdfUtils.recordEditFabAction();
                         openPdfInExternalEditor();
                     });
-            if (view instanceof ViewGroup) {
-                ViewGroup group = (ViewGroup) view;
+            if (view instanceof ViewGroup group) {
                 for (int i = 0; i < group.getChildCount(); i++) {
                     overrideClickListeners(group.getChildAt(i));
                 }
@@ -1367,11 +1385,27 @@ public class PdfCoordinator
     @Override
     public boolean findInPage() {
         if (mChromePdfViewerFragment != null && mChromePdfViewerFragment.mIsLoadDocumentSuccess) {
+            if (isEditModeActive()) {
+                if (hasUnsavedChanges()) {
+                    showFindInPageDisabledToast();
+                    return false;
+                }
+                exitEditMode();
+            }
             mChromePdfViewerFragment.setTextSearchActive(true);
             PdfUtils.recordFindInPage(mFindInPageCount++);
             return true;
         }
         return false;
+    }
+
+    @VisibleForTesting
+    void showFindInPageDisabledToast() {
+        Toast.makeText(
+                        mActivity,
+                        R.string.pdf_find_in_page_disabled_unsaved_changes,
+                        Toast.LENGTH_SHORT)
+                .show();
     }
 
     /**
@@ -1871,7 +1905,6 @@ public class PdfCoordinator
 
         if (targetPackage == null) {
             targetPackage = PackageUtils.getDefaultAssistantPackageName(mActivity);
-            PdfUtils.recordGetAssistantPackageResult(targetPackage != null);
         }
 
         if (targetPackage != null) {
@@ -1909,7 +1942,6 @@ public class PdfCoordinator
             return null;
         }
         var assistantPackageName = PackageUtils.getDefaultAssistantPackageName(mActivity);
-        PdfUtils.recordGetAssistantPackageResult(assistantPackageName != null);
         if (assistantPackageName != null) {
             mActivity.grantUriPermission(
                     assistantPackageName, mUri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
@@ -1929,7 +1961,7 @@ public class PdfCoordinator
     }
 
     @Override
-    public void onUrlChanged(@NonNull String url) {
+    public void onUrlChanged(String url) {
         mUrl = url;
     }
 

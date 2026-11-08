@@ -1550,7 +1550,7 @@ TEST_P(WebDatabaseMigrationTestEncryption, MigrateVersion136ToCurrent) {
   ASSERT_NO_FATAL_FAILURE(LoadDatabase(FILE_PATH_LITERAL("version_136.sql")));
   const char kTestUrl[] = "chrome://test/?q={searchTerms}";
   const std::string_view kTestKeyword = "@testing";
-  const TemplateURLID kTestId = 1;
+  const TemplateURLID kTestId(1);
   {
     sql::Database connection(sql::test::kTestTag);
     ASSERT_TRUE(connection.Open(GetDatabasePath()));
@@ -1559,7 +1559,7 @@ TEST_P(WebDatabaseMigrationTestEncryption, MigrateVersion136ToCurrent) {
 
     // Insert a keyword to test that it is migrated correctly.
     ASSERT_TRUE(connection.ExecuteScriptForTesting(base::StrCat(
-        {"INSERT INTO keywords VALUES(", base::NumberToString(kTestId),
+        {"INSERT INTO keywords VALUES(", base::NumberToString(kTestId.value()),
          ",'Test','", kTestKeyword, "','','", kTestUrl,
          "',1,'',0,0,'','',0,0,0,'','[]','','','','','',0,0,1,2,0,0);"})));
   }
@@ -1611,7 +1611,7 @@ INSTANTIATE_TEST_SUITE_P(/*empty*/,
 // enabled.
 TEST_F(WebDatabaseMigrationTest, MigrateVersion136ToCurrentBadUrl) {
   ASSERT_NO_FATAL_FAILURE(LoadDatabase(FILE_PATH_LITERAL("version_136.sql")));
-  const TemplateURLID kTestId = 99;
+  const TemplateURLID kTestId(99);
   {
     sql::Database connection(sql::test::kTestTag);
     ASSERT_TRUE(connection.Open(GetDatabasePath()));
@@ -1620,7 +1620,7 @@ TEST_F(WebDatabaseMigrationTest, MigrateVersion136ToCurrentBadUrl) {
 
     // Insert a keyword to test that it is migrated correctly.
     ASSERT_TRUE(connection.ExecuteScriptForTesting(base::StrCat(
-        {"INSERT INTO keywords VALUES(", base::NumberToString(kTestId),
+        {"INSERT INTO keywords VALUES(", base::NumberToString(kTestId.value()),
          ",'Test','@test','','", /*url=*/"",
          "',1,'',0,0,'','',0,0,0,'','[]','','','','','',0,0,1,2,0,0);"})));
   }
@@ -1984,7 +1984,7 @@ TEST_F(WebDatabaseMigrationTest, MigrateVersion151ToCurrent) {
   ASSERT_NO_FATAL_FAILURE(LoadDatabase(FILE_PATH_LITERAL("version_151.sql")));
   const char kTestUrl[] = "chrome://test/?q={searchTerms}";
   const std::string_view kTestKeyword = "@testing";
-  const TemplateURLID kTestId = 1;
+  const TemplateURLID kTestId(1);
   const int kTestStarterPackId = 1234;
   const int kTestEnforcedByPolicy = 1;
   {
@@ -1997,8 +1997,9 @@ TEST_F(WebDatabaseMigrationTest, MigrateVersion151ToCurrent) {
         {"INSERT INTO keywords (id, short_name, keyword, favicon_url, url, "
          "safe_for_autoreplace, url_hash, starter_pack_id, enforced_by_policy) "
          "VALUES (",
-         base::NumberToString(kTestId), ",'Test','", kTestKeyword, "','','",
-         kTestUrl, "',1, NULL,", base::NumberToString(kTestStarterPackId), ",",
+         base::NumberToString(kTestId.value()), ",'Test','", kTestKeyword,
+         "','','", kTestUrl, "',1, NULL,",
+         base::NumberToString(kTestStarterPackId), ",",
          base::NumberToString(kTestEnforcedByPolicy), ");"})));
   }
   {
@@ -2015,7 +2016,7 @@ TEST_F(WebDatabaseMigrationTest, MigrateVersion151ToCurrent) {
     sql::Statement stmt(connection.GetUniqueStatement(
         base::StrCat({"SELECT url, keyword, starter_pack_id, "
                       "enforced_by_policy FROM keywords WHERE id=",
-                      base::NumberToString(kTestId)})));
+                      base::NumberToString(kTestId.value())})));
     EXPECT_TRUE(stmt.Step());
     EXPECT_EQ(kTestUrl, stmt.ColumnString(0));
     EXPECT_EQ(kTestKeyword, stmt.ColumnString(1));
@@ -2337,7 +2338,6 @@ TEST_F(WebDatabaseMigrationTest, MigrateVersion157ToCurrent) {
     sql::MetaTable meta_table;
     ASSERT_TRUE(meta_table.Init(&connection, WebDatabase::kCurrentVersionNumber,
                                 WebDatabase::kCurrentVersionNumber));
-    EXPECT_EQ(158, meta_table.GetCompatibleVersionNumber());
 
     // The remaining offer tables now declare `offer_id` as a string column.
     const std::string schema = connection.GetSchema();
@@ -2351,6 +2351,82 @@ TEST_F(WebDatabaseMigrationTest, MigrateVersion157ToCurrent) {
 
     // The rows written by the older client are gone; offers are server-provided
     // data that the next sync repopulates.
+    for (const char* table : {"offer_data", "offer_merchant_domain"}) {
+      sql::Statement s(connection.GetUniqueStatement(
+          base::StrCat({"SELECT COUNT(*) FROM ", table})));
+      ASSERT_TRUE(s.Step());
+      EXPECT_EQ(0, s.ColumnInt(0)) << table;
+    }
+  }
+}
+
+// Version 159 adds the autofill_ai_entities_metadata_wallet table.
+TEST_F(WebDatabaseMigrationTest, MigrateVersion158ToCurrent) {
+  ASSERT_NO_FATAL_FAILURE(LoadDatabase(FILE_PATH_LITERAL("version_158.sql")));
+  {
+    sql::Database connection(sql::test::kTestTag);
+    ASSERT_TRUE(connection.Open(GetDatabasePath()));
+    EXPECT_EQ(158, VersionFromConnection(&connection));
+    EXPECT_FALSE(
+        connection.DoesTableExist("autofill_ai_entities_metadata_wallet"));
+  }
+
+  DoMigration();
+
+  {
+    sql::Database connection(sql::test::kTestTag);
+    ASSERT_TRUE(connection.Open(GetDatabasePath()));
+    EXPECT_EQ(WebDatabase::kCurrentVersionNumber,
+              VersionFromConnection(&connection));
+    EXPECT_TRUE(
+        connection.DoesTableExist("autofill_ai_entities_metadata_wallet"));
+    EXPECT_TRUE(connection.DoesColumnExist(
+        "autofill_ai_entities_metadata_wallet", "entity_guid"));
+    EXPECT_TRUE(connection.DoesColumnExist(
+        "autofill_ai_entities_metadata_wallet", "management_url"));
+  }
+}
+
+// Version 160 recreates the offer tables with a `NOT NULL` `issue_time` column
+// in `offer_data`.
+TEST_F(WebDatabaseMigrationTest, MigrateVersion159ToCurrent) {
+  ASSERT_NO_FATAL_FAILURE(LoadDatabase(FILE_PATH_LITERAL("version_159.sql")));
+
+  // Verify pre-conditions.
+  {
+    sql::Database connection(sql::test::kTestTag);
+    ASSERT_TRUE(connection.Open(GetDatabasePath()));
+    EXPECT_EQ(159, VersionFromConnection(&connection));
+    EXPECT_FALSE(connection.DoesColumnExist("offer_data", "issue_time"));
+
+    ASSERT_TRUE(connection.Execute(
+        "INSERT INTO offer_data (offer_id, offer_reward_amount, expiry, "
+        "offer_details_url, promo_code) VALUES ('123', '5%', 100, "
+        "'https://example.com', 'PROMO');"));
+    ASSERT_TRUE(connection.Execute(
+        "INSERT INTO offer_merchant_domain (offer_id, merchant_domain) VALUES "
+        "('123', 'https://example.com');"));
+  }
+
+  DoMigration();
+
+  // Verify post-conditions.
+  {
+    sql::Database connection(sql::test::kTestTag);
+    ASSERT_TRUE(connection.Open(GetDatabasePath()));
+    EXPECT_EQ(WebDatabase::kCurrentVersionNumber,
+              VersionFromConnection(&connection));
+
+    // Old versions cannot insert offers without an `issue_time`, so the
+    // compatible version number is updated.
+    sql::MetaTable meta_table;
+    ASSERT_TRUE(meta_table.Init(&connection, WebDatabase::kCurrentVersionNumber,
+                                WebDatabase::kCurrentVersionNumber));
+
+    EXPECT_TRUE(connection.DoesColumnExist("offer_data", "issue_time"));
+
+    // The tables are recreated, so existing offers are dropped. They are
+    // repopulated by the next sync.
     for (const char* table : {"offer_data", "offer_merchant_domain"}) {
       sql::Statement s(connection.GetUniqueStatement(
           base::StrCat({"SELECT COUNT(*) FROM ", table})));

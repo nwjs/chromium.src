@@ -1,13 +1,92 @@
 The **PriorityVotingSystem** is responsible for assigning the
-priority of all the frames and workers in the graph.
+priority of the votable nodes in the graph.
 
-This is done through a system of voting where each voter can increase the
-priority of an execution context independently, and the vote with the highest
-priority determines which priority the given frame or worker will be assigned.
+This is done through a system of voting where each voter can independently
+increase the priority of a graph node, and the vote with the highest
+priority determines which priority that graph node will be assigned.
 
-The **RootVoteObserver** is a simple layer on top of the voting system that
-receives the final vote for an execution context and does the actual assignment
-to the graph node.
+A **VoteContext** identifies the graph node that a vote targets. It is a
+`std::variant` that explicitly lists the votable node types (currently
+`FrameNode`, `WorkerNode`, `PageNode` and `ProcessNode`). Voting on any other
+node type fails to compile.
 
-Each voter tracks a single property of an execution context and casts their vote
-via their voting channel to the **MaxVoteAggregator**.
+## Vote flow
+
+```
+Frames
+======
+
+PageToFrameVoteExpander -+
+                         +-> MaxVoteAggregator -> PrioritySetter -> FrameNode -> ProcessPriorityAggregator
+           Other voters -+
+
+Workers
+=======
+
+Voters -> MaxVoteAggregator -> PrioritySetter -> WorkerNode -> ProcessPriorityAggregator
+
+Processes
+=========
+
+ProcessPriorityAggregator -+
+                           +-> MaxVoteAggregator -> PrioritySetter -> ProcessNode
+             Other voters -+
+
+Pages
+=====
+
+Voters -> MaxVoteAggregator -> PageToFrameVoteExpander
+```
+
+Every vote goes into a single **MaxVoteAggregator**, through a voting channel.
+The top vote of a node in the aggregator is therefore its final priority.
+
+Each voter tracks a single property of a vote context and casts their vote
+via their voting channel to the MaxVoteAggregator.
+
+The observers of the MaxVoteAggregator are:
+- The **PrioritySetter** assigns the top vote of frames, workers and (renderer)
+  processes to their priority, or their default priority when they have no
+  vote.
+- The **PageToFrameVoteExpander** casts the top vote of pages on every frame of
+  the page, back into the MaxVoteAggregator, where it is aggregated with the
+  frames' own votes.
+
+The **ProcessPriorityAggregator** follows the priority of every frame and worker
+(as set by the PrioritySetter), and casts the highest priority of the frames
+and workers hosted by a process as a vote on that process, where it is
+aggregated with the votes cast directly on the process. This vote is cast even
+when it is the lowest priority, so that a process drops from its initial high
+priority once it hosts a frame or worker.
+
+The **PriorityVotingSystem** owns the MaxVoteAggregator, and builds each of
+these from it. It also verifies that no votes are leaked.
+
+## Invariants
+
+- **No cycles:** Derived votes only flow from pages to frames, and from frames
+  and workers to processes. Processes never cast votes. The MaxVoteAggregator
+  CHECKs that the top vote for a node doesn't change while its observers are
+  being notified, which catches any cycle.
+- **Re-entrancy:** Votes can be cast while the MaxVoteAggregator is notifying
+  its observers, both by voters (e.g. the InheritParentPriorityVoter votes on
+  child frames when the PrioritySetter sets the priority of a frame) and by the
+  PageToFrameVoteExpander and the ProcessPriorityAggregator, so the aggregator
+  supports being re-entered.
+- **Timing:** The PriorityVotingSystem must be added to the graph before any
+  node (this is CHECKed), so that the ProcessPriorityAggregator sees every frame
+  and worker being added. The priority of a frame or worker is taken into
+  account in the vote on its process once it is added to the graph, and is
+  followed until it is removed.
+  Page votes can't change while a frame of the page is being removed (this is
+  CHECKed).
+- **No leaks:** Voters must remove their votes on a node before it is removed
+  from the graph (this is CHECKed).
+
+## Voters vs. derived votes
+
+Some voters (e.g. **InheritClientPriorityVoter**) also derive votes from the
+priority of other nodes. They are voters because they implement an optional
+policy. The derived votes cast on frames (from their page) and on processes
+(from their frames and workers) are part of the voting system itself: they are
+always needed for the priorities to be correct.

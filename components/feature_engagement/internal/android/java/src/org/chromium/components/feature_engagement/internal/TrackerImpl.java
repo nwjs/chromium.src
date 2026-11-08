@@ -17,12 +17,13 @@ import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.components.feature_engagement.Tracker;
 import org.chromium.components.feature_engagement.TriggerDetails;
-import org.chromium.components.feature_engagement.TriggerState;
 import org.chromium.ui.UiSwitches;
 
+import java.util.function.BooleanSupplier;
+
 /**
- * Java side of the JNI bridge between TrackerImpl in Java
- * and C++. All method calls are delegated to the native C++ class.
+ * Java side of the JNI bridge between TrackerImpl in Java and C++. All method calls are delegated
+ * to the native C++ class.
  */
 @JNINamespace("feature_engagement")
 @NullMarked
@@ -59,6 +60,9 @@ public class TrackerImpl implements Tracker {
     /** The pointer to the feature_engagement::TrackerImplAndroid JNI bridge. */
     private long mNativePtr;
 
+    // Defaults to true; flag-guarded by kAndroidUserEducationFramework in TrackerFactory.
+    private BooleanSupplier mPromotionsEnabledSupplier = () -> true;
+
     @CalledByNative
     private static TrackerImpl create(long nativePtr) {
         return new TrackerImpl(nativePtr);
@@ -66,6 +70,11 @@ public class TrackerImpl implements Tracker {
 
     private TrackerImpl(long nativePtr) {
         mNativePtr = nativePtr;
+    }
+
+    @Override
+    public void setPromotionsEnabledSupplier(BooleanSupplier supplier) {
+        mPromotionsEnabledSupplier = supplier;
     }
 
     @Override
@@ -80,6 +89,9 @@ public class TrackerImpl implements Tracker {
         if (CommandLine.getInstance().hasSwitch(UiSwitches.ENABLE_SCREENSHOT_UI_MODE)) {
             return false;
         }
+        if (!mPromotionsEnabledSupplier.getAsBoolean()) {
+            return false;
+        }
 
         assert mNativePtr != 0;
         return TrackerImplJni.get().shouldTriggerHelpUi(mNativePtr, feature);
@@ -91,12 +103,18 @@ public class TrackerImpl implements Tracker {
         if (CommandLine.getInstance().hasSwitch(UiSwitches.ENABLE_SCREENSHOT_UI_MODE)) {
             return new TriggerDetails(false, false);
         }
+        if (!mPromotionsEnabledSupplier.getAsBoolean()) {
+            return new TriggerDetails(false, false);
+        }
         assert mNativePtr != 0;
         return TrackerImplJni.get().shouldTriggerHelpUiWithSnooze(mNativePtr, feature);
     }
 
     @Override
     public boolean wouldTriggerHelpUi(String feature) {
+        if (!mPromotionsEnabledSupplier.getAsBoolean()) {
+            return false;
+        }
         assert mNativePtr != 0;
         return TrackerImplJni.get().wouldTriggerHelpUi(mNativePtr, feature);
     }
@@ -105,13 +123,6 @@ public class TrackerImpl implements Tracker {
     public boolean hasEverTriggered(String feature, boolean fromWindow) {
         assert mNativePtr != 0;
         return TrackerImplJni.get().hasEverTriggered(mNativePtr, feature, fromWindow);
-    }
-
-    @Override
-    @TriggerState
-    public int getTriggerState(String feature) {
-        assert mNativePtr != 0;
-        return TrackerImplJni.get().getTriggerState(mNativePtr, feature);
     }
 
     @Override
@@ -196,8 +207,6 @@ public class TrackerImpl implements Tracker {
         boolean wouldTriggerHelpUi(long nativeTrackerImplAndroid, String feature);
 
         boolean hasEverTriggered(long nativeTrackerImplAndroid, String feature, boolean fromWindow);
-
-        int getTriggerState(long nativeTrackerImplAndroid, String feature);
 
         void dismissed(long nativeTrackerImplAndroid, String feature);
 

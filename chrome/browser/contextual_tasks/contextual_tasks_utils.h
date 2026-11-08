@@ -77,6 +77,21 @@ void RecordInnerFrameContentsHttpResponseCode(int http_status_code,
 // for the given profile (checking AIM and Fusebox eligibility).
 bool IsTabSharingEligible(Profile* profile);
 
+// Returns true if contextual tasks updated entry points are enabled for the
+// given profile. Checks the feature flag, whether the contextual tasks side
+// panel is available, and AIM eligibility.
+bool AreContextualTasksUpdatedEntryPointsEnabled(Profile* profile);
+
+// Returns true if the "Ask Google..." context menu item should be shown.
+bool ShouldShowAskGoogleContextMenu(Profile* profile);
+
+// Returns true if "Ask Google..." entry points should be routed to the omnibox.
+bool ShouldRouteAskGoogleToOmnibox(Profile* profile);
+
+// Returns true if the contextual tasks context menu items should be grouped
+// into a submenu.
+bool ShouldUseContextualTasksContextMenuSubmenu(Profile* profile);
+
 // Returns true if tab sharing is eligible and context sharing is enabled for
 // the given profile.
 bool CanShareTabContext(Profile* profile);
@@ -93,27 +108,23 @@ void RecordTabAddedMetric(
     BrowserWindowInterface* browser_window_interface = nullptr);
 
 #if !BUILDFLAG(IS_ANDROID)
-using TabContextSnapshotCallback = base::OnceCallback<void(
-    const base::UnguessableToken& context_token,
-    std::unique_ptr<lens::ContextualInputData> page_content_data)>;
-
 // Captures page context for the given `tab_id` and uploads it to
-// `session_handle` (or snapshots it via `on_snapshot` when `delay_upload` is
-// true). Creates a context token on `session_handle`, initiates async page
-// context extraction via TabContextualizationController, underlines the tab
-// strip if enabled, and on completion checks that the token is still an
-// uploaded context token before starting upload or snapshotting.
-// If `on_context_uploaded` is provided, it is invoked after upload/snapshot.
+// `session_handle`. Creates a context token on `session_handle`, initiates
+// async page context extraction via TabContextualizationController, underlines
+// the tab strip if enabled, and on completion checks that the token is still an
+// uploaded context token before starting the upload.
+// If `on_context_uploaded` is provided, it is invoked after the upload starts.
 // Returns the created context token on success, or an error.
+// Not used for delayed (auto-suggested chip) tabs: those are recorded via
+// ContextualSearchSessionHandle::AddPendingDelayedTab() and captured and
+// uploaded at submit by QueryContextualizer.
 base::expected<base::UnguessableToken,
                contextual_search::ContextUploadErrorType>
 CaptureAndUploadTabContext(
     int32_t tab_id,
     contextual_search::ContextualSearchSessionHandle* session_handle,
-    bool delay_upload = false,
     base::RepeatingClosure on_context_uploaded = base::DoNothing(),
-    BrowserWindowInterface* browser_window_interface = nullptr,
-    TabContextSnapshotCallback on_snapshot = base::NullCallback());
+    BrowserWindowInterface* browser_window_interface = nullptr);
 
 // Removes the local tab underline for `tab_id` if context management is
 // enabled.
@@ -179,6 +190,10 @@ GURL GetContextualTasksFunctionalURL(content::WebContents* web_contents);
 // Returns the pretty display URL (e.g. chrome://google.com/search) for the
 // given WebContents if it is a Contextual Tasks page.
 GURL GetContextualTasksDisplayURL(content::WebContents* web_contents);
+
+// Returns true if the given URL is valid for sharing as tab context with AI
+// Mode (matches the composebox '+' menu tab picker eligibility).
+bool IsUrlValidForContextSharing(const GURL& url);
 
 // Returns the effective pin state for the contextual tasks button.
 bool GetEffectivePinState(Profile* profile);

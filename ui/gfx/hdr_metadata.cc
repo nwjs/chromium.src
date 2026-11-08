@@ -5,9 +5,9 @@
 #include "ui/gfx/hdr_metadata.h"
 
 #include <algorithm>
-#include <iomanip>
 #include <sstream>
 
+#include "base/check_op.h"
 #include "skia/ext/skcolorspace_primaries.h"
 #include "third_party/skia/include/core/SkColorSpace.h"
 #include "third_party/skia/include/core/SkData.h"
@@ -131,30 +131,6 @@ COMPARE_END()
 
 }  // namespace
 
-std::string HdrMetadataExtendedRange::ToString() const {
-  std::stringstream ss;
-  ss << std::fixed << std::setprecision(4) << "{"
-     << "current_headroom:" << current_headroom << ", "
-     << "desired_headroom:" << desired_headroom << "}";
-  return ss.str();
-}
-
-std::weak_ordering HdrMetadataExtendedRange::operator<=>(
-    const HdrMetadataExtendedRange& other) const {
-  const auto& a = *this;
-  const auto& b = other;
-  auto cmp = std::weak_ordering::equivalent;
-  COMPARE_MEMBER(current_headroom);
-  COMPARE_MEMBER(desired_headroom);
-  return std::weak_ordering::equivalent;
-}
-
-// static
-bool HdrMetadataAgtm::IsEnabled() {
-  static bool result = base::FeatureList::IsEnabled(features::kHdrAgtm);
-  return result;
-}
-
 HDRMetadata::HDRMetadata() = default;
 
 HDRMetadata::HDRMetadata(const skhdr::Metadata& sk_hdr_metadata) {
@@ -181,9 +157,6 @@ HDRMetadata& HDRMetadata::operator=(const HDRMetadata& rhs) = default;
 HDRMetadata::~HDRMetadata() = default;
 
 void HDRMetadata::SetSerializedAgtm(base::span<const uint8_t> data) {
-  if (!HdrMetadataAgtm::IsEnabled()) {
-    return;
-  }
   skhdr::AdaptiveGlobalToneMap agtm;
   if (agtm.parse(MakeSkDataFromSpanWithoutCopy(data).get())) {
     agtm_ = agtm;
@@ -198,12 +171,30 @@ void HDRMetadata::SetSerializedAgtm(base::span<const uint8_t> data) {
   }
 }
 
+void HDRMetadata::SetHdrReferenceWhite(float nits) {
+  if (!agtm_) {
+    agtm_.emplace();
+  }
+  agtm_->fHdrReferenceWhite = nits;
+}
+
+void HDRMetadata::SetExtendedRangeWithHeadroom(float hdr_headroom) {
+  CHECK_GE(hdr_headroom, 0.f);
+  CHECK_LE(hdr_headroom, 6.f);
+  if (!agtm_) {
+    agtm_.emplace();
+  }
+  agtm_->fHeadroomAdaptiveToneMap =
+      skhdr::AdaptiveGlobalToneMap::HeadroomAdaptiveToneMap{
+          .fBaselineHdrHeadroom = hdr_headroom,
+          .fGainApplicationSpacePrimaries = SkNamedPrimaries::kRec2020,
+      };
+}
+
 void HDRMetadata::Reset() {
   mdcv_.reset();
   clli_.reset();
   agtm_.reset();
-  ndwl_.reset();
-  extended_range.reset();
 }
 
 void HDRMetadata::MergeMetadataFrom(const HDRMetadata& other) {
@@ -215,12 +206,6 @@ void HDRMetadata::MergeMetadataFrom(const HDRMetadata& other) {
   }
   if (other.agtm_) {
     agtm_ = other.agtm_;
-  }
-  if (other.ndwl_) {
-    ndwl_ = other.ndwl_;
-  }
-  if (other.extended_range) {
-    extended_range = other.extended_range;
   }
 }
 
@@ -240,12 +225,8 @@ float HDRMetadata::GetContentMaxLuminance(const HDRMetadata& metadata) {
 float HDRMetadata::GetWaylandReferenceLuminance(
     const ColorSpace& color_space,
     const HDRMetadata& hdr_metadata) {
-  if (HdrMetadataAgtm::IsEnabled() && hdr_metadata.agtm_) {
+  if (hdr_metadata.agtm_) {
     return hdr_metadata.agtm_->fHdrReferenceWhite;
-  }
-
-  if (hdr_metadata.ndwl_.has_value() && hdr_metadata.ndwl_.value() > 0.f) {
-    return hdr_metadata.ndwl_.value();
   }
 
   if (color_space.GetTransferID() == ColorSpace::TransferID::PQ ||
@@ -301,12 +282,6 @@ std::string HDRMetadata::ToString() const {
   if (clli_) {
     ss << "clli:" << clli_->toString().c_str() << ", ";
   }
-  if (ndwl_) {
-    ss << "ndwl:" << *ndwl_ << ", ";
-  }
-  if (extended_range) {
-    ss << "extended_range:" << extended_range->ToString() << ", ";
-  }
   if (agtm_) {
     ss << "agtm:" << agtm_->toString().c_str() << ", ";
   }
@@ -322,11 +297,9 @@ std::weak_ordering HDRMetadata::operator<=>(const HDRMetadata& other) const {
   const auto& a = *this;
   const auto& b = other;
   auto cmp = std::weak_ordering::equivalent;
-  COMPARE_MEMBER(ndwl_);
   COMPARE_MEMBER(clli_);
   COMPARE_MEMBER(mdcv_);
   COMPARE_MEMBER(agtm_);
-  COMPARE_MEMBER(extended_range);
   return std::weak_ordering::equivalent;
 }
 

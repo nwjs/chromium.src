@@ -209,9 +209,13 @@ const char* AllActiveSessionsGoingAwayReasonToString(
       return "CertDBChanged";
     case kCertVerifierChanged:
       return "CertVerifierChanged";
+    case kSSLContextConfigChanged:
+      return "SSLContextConfigChanged";
   }
 }
 
+// TODO(crbug.com/557126867): Deprecate `HistogramCreateSessionFailure` and
+// `Net.QuicSession.CreationError` in favor of `QuicSocketConfigStep`.
 void HistogramCreateSessionFailure(enum CreateSessionFailure error) {
   UMA_HISTOGRAM_ENUMERATION("Net.QuicSession.CreationError", error,
                             CREATION_ERROR_MAX);
@@ -669,9 +673,11 @@ bool QuicSessionPool::QuicCryptoClientConfigKey::operator<(
 
 std::tuple<const NetworkAnonymizationKey&,
            const ProxyChain&,
-           const SessionUsage&>
+           const SessionUsage&,
+           QuicSessionPool::SSLContextConfigGeneration>
 QuicSessionPool::QuicCryptoClientConfigKey::Tie() const {
-  return std::tie(network_anonymization_key, proxy_chain, session_usage);
+  return std::tie(network_anonymization_key, proxy_chain, session_usage,
+                  ssl_config_generation);
 }
 
 QuicSessionPool::CryptoClientConfigHandle::CryptoClientConfigHandle(
@@ -760,6 +766,7 @@ QuicSessionPool::QuicSessionPool(
   InitializeMigrationOptions();
   cert_verifier_->AddObserver(this);
   CertDatabase::GetInstance()->AddObserver(this);
+  ssl_config_service_->AddObserver(this);
 #if BUILDFLAG(IS_ANDROID)
   RegisterPreFreezeTask();
 #endif
@@ -789,6 +796,7 @@ QuicSessionPool::~QuicSessionPool() {
 
   CertDatabase::GetInstance()->RemoveObserver(this);
   cert_verifier_->RemoveObserver(this);
+  ssl_config_service_->RemoveObserver(this);
   if (params_.close_sessions_on_ip_change ||
       params_.goaway_sessions_on_ip_change) {
     NetworkChangeNotifier::RemoveIPAddressObserver(this);
@@ -1020,6 +1028,7 @@ int QuicSessionPool::RequestSession(
     active_jobs_[session_key] = std::move(job);
     return rv;
   }
+
   if (rv == OK) {
     auto it = active_sessions_.find(session_key);
     CHECK(it != active_sessions_.end());
@@ -1027,7 +1036,10 @@ int QuicSessionPool::RequestSession(
       return ERR_QUIC_PROTOCOL_ERROR;
     }
     QuicChromiumClientSession* session = it->second;
+    job->RecordCompleteTime(session);
     request->SetSession(session->CreateHandle(std::move(destination)));
+  } else {
+    job->RecordCompleteTime(/*session=*/nullptr);
   }
   return rv;
 }
@@ -1206,11 +1218,12 @@ void QuicSessionPool::ClearCachedStatesInCryptoConfig(
   }
 }
 
-void QuicSessionPool::ConnectAndConfigureSocket(CompletionOnceCallback callback,
-                                                DatagramClientSocket* socket,
-                                                IPEndPoint addr,
-                                                handles::NetworkHandle network,
-                                                const SocketTag& socket_tag) {
+void QuicSessionPool::ConnectAndConfigureSocket(
+    ConnectAndConfigureCallback callback,
+    DatagramClientSocket* socket,
+    IPEndPoint addr,
+    handles::NetworkHandle network,
+    const SocketTag& socket_tag) {
   socket->UseNonBlockingIO();
 
   int rv;
@@ -1239,13 +1252,13 @@ void QuicSessionPool::ConnectAndConfigureSocket(CompletionOnceCallback callback,
 }
 
 void QuicSessionPool::FinishConnectAndConfigureSocket(
-    CompletionOnceCallback callback,
+    ConnectAndConfigureCallback callback,
     DatagramClientSocket* socket,
     const SocketTag& socket_tag,
     int rv) {
   if (rv != OK) {
-    OnFinishConnectAndConfigureSocketError(
-        std::move(callback), CREATION_ERROR_CONNECTING_SOCKET, rv);
+    OnFinishConnectAndConfigureSocketError(std::move(callback),
+                                           QuicSocketConfigStep::kConnect, rv);
     return;
   }
 
@@ -1254,7 +1267,7 @@ void QuicSessionPool::FinishConnectAndConfigureSocket(
   rv = socket->SetReceiveBufferSize(kQuicSocketReceiveBufferSize);
   if (rv != OK) {
     OnFinishConnectAndConfigureSocketError(
-        std::move(callback), CREATION_ERROR_SETTING_RECEIVE_BUFFER, rv);
+        std::move(callback), QuicSocketConfigStep::kSetReceiveBufferSize, rv);
     return;
   }
 
@@ -1262,14 +1275,14 @@ void QuicSessionPool::FinishConnectAndConfigureSocket(
   // SetDoNotFragment is not implemented on all platforms, so ignore errors.
   if (rv != OK && rv != ERR_NOT_IMPLEMENTED) {
     OnFinishConnectAndConfigureSocketError(
-        std::move(callback), CREATION_ERROR_SETTING_DO_NOT_FRAGMENT, rv);
+        std::move(callback), QuicSocketConfigStep::kSetDoNotFragment, rv);
     return;
   }
 
   rv = socket->SetRecvTos();
   if (rv != OK) {
     OnFinishConnectAndConfigureSocketError(
-        std::move(callback), CREATION_ERROR_SETTING_RECEIVE_ECN, rv);
+        std::move(callback), QuicSocketConfigStep::kSetReceiveEcn, rv);
     return;
   }
 
@@ -1278,7 +1291,7 @@ void QuicSessionPool::FinishConnectAndConfigureSocket(
     rv = socket->SetSendBufferSize(send_buffer_size.value());
     if (rv != OK) {
       OnFinishConnectAndConfigureSocketError(
-          std::move(callback), CREATION_ERROR_SETTING_SEND_BUFFER, rv);
+          std::move(callback), QuicSocketConfigStep::kSetSendBufferSize, rv);
       return;
     }
   }
@@ -1302,8 +1315,9 @@ void QuicSessionPool::FinishConnectAndConfigureSocket(
 
   base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
       FROM_HERE,
-      base::BindOnce(&QuicSessionPool::DoCallback, weak_factory_.GetWeakPtr(),
-                     std::move(callback), rv));
+      base::BindOnce(&QuicSessionPool::DoConnectAndConfigureCallback,
+                     weak_factory_.GetWeakPtr(), std::move(callback), rv,
+                     /*error_step=*/std::nullopt));
 }
 
 bool QuicSessionPool::CanWaiveIpMatching(
@@ -1329,19 +1343,40 @@ bool QuicSessionPool::CanWaiveIpMatching(
 }
 
 void QuicSessionPool::OnFinishConnectAndConfigureSocketError(
-    CompletionOnceCallback callback,
-    enum CreateSessionFailure error,
+    ConnectAndConfigureCallback callback,
+    QuicSocketConfigStep step,
     int rv) {
   DCHECK(callback);
-  HistogramCreateSessionFailure(error);
+  // TODO(crbug.com/557126867): Remove this switch once `CreateSessionFailure`
+  // and its related UMA logging are deprecated.
+  switch (step) {
+    case QuicSocketConfigStep::kConnect:
+      HistogramCreateSessionFailure(CREATION_ERROR_CONNECTING_SOCKET);
+      break;
+    case QuicSocketConfigStep::kSetReceiveBufferSize:
+      HistogramCreateSessionFailure(CREATION_ERROR_SETTING_RECEIVE_BUFFER);
+      break;
+    case QuicSocketConfigStep::kSetDoNotFragment:
+      HistogramCreateSessionFailure(CREATION_ERROR_SETTING_DO_NOT_FRAGMENT);
+      break;
+    case QuicSocketConfigStep::kSetReceiveEcn:
+      HistogramCreateSessionFailure(CREATION_ERROR_SETTING_RECEIVE_ECN);
+      break;
+    case QuicSocketConfigStep::kSetSendBufferSize:
+      HistogramCreateSessionFailure(CREATION_ERROR_SETTING_SEND_BUFFER);
+      break;
+  }
   base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
-      FROM_HERE,
-      base::BindOnce(&QuicSessionPool::DoCallback, weak_factory_.GetWeakPtr(),
-                     std::move(callback), rv));
+      FROM_HERE, base::BindOnce(&QuicSessionPool::DoConnectAndConfigureCallback,
+                                weak_factory_.GetWeakPtr(), std::move(callback),
+                                rv, step));
 }
 
-void QuicSessionPool::DoCallback(CompletionOnceCallback callback, int rv) {
-  std::move(callback).Run(rv);
+void QuicSessionPool::DoConnectAndConfigureCallback(
+    ConnectAndConfigureCallback callback,
+    int rv,
+    std::optional<QuicSocketConfigStep> error_step) {
+  std::move(callback).Run(rv, error_step);
 }
 
 int QuicSessionPool::ConfigureSocket(DatagramClientSocket* socket,
@@ -1575,6 +1610,16 @@ void QuicSessionPool::OnTrustStoreChanged() {
 void QuicSessionPool::OnCertVerifierChanged() {
   // Flush sessions if the CertCerifier configuration has changed.
   MarkAllActiveSessionsGoingAway(kCertVerifierChanged);
+}
+
+void QuicSessionPool::OnSSLContextConfigChanged() {
+  ssl_config_generation_ = ssl_config_generation_generator_.GenerateNextId();
+  // Clear cached configs that must have been created under the previous
+  // SSLContextConfig.
+  recent_crypto_config_map_.Clear();
+  // Flush sessions if the SSL configuration has changed. Configs will be
+  // dropped from `active_crypto_config_map_` as old sessions drain.
+  MarkAllActiveSessionsGoingAway(kSSLContextConfigChanged);
 }
 
 void QuicSessionPool::set_has_quic_ever_worked_on_current_network(
@@ -1812,19 +1857,24 @@ void QuicSessionPool::OnJobComplete(
   job->set_is_deleting();
 
   if (rv == OK) {
+    auto session_it = active_sessions_.find(job->key().session_key());
+    CHECK(session_it != active_sessions_.end());
+    QuicChromiumClientSession* session = session_it->second;
+    job->RecordCompleteTime(session);
+
     if (!has_quic_ever_worked_on_current_network_) {
       set_has_quic_ever_worked_on_current_network(true);
     }
 
-    auto session_it = active_sessions_.find(job->key().session_key());
-    CHECK(session_it != active_sessions_.end());
-    QuicChromiumClientSession* session = session_it->second;
     for (QuicSessionRequest* request : job->requests()) {
       // Do not notify |request| yet.
       request->SetSession(session->CreateHandle(job->key().destination()));
     }
-  } else if (rv < 0) {
-    NotifyOnConnectionFailure(job->key().session_key());
+  } else {
+    job->RecordCompleteTime(/*session=*/nullptr);
+    if (rv < 0) {
+      NotifyOnConnectionFailure(job->key().session_key());
+    }
   }
 
   for (QuicSessionRequest* request : job->requests()) {
@@ -2200,18 +2250,23 @@ int QuicSessionPool::CreateSessionAsync(
   std::unique_ptr<DatagramClientSocket> socket(CreateSocket(
       key.session_key().target_network(), net_log.net_log(), net_log.source()));
   DatagramClientSocket* socket_ptr = socket.get();
-  CompletionOnceCallback connect_and_configure_callback = base::BindOnce(
-      &QuicSessionPool::FinishCreateSession, weak_factory_.GetWeakPtr(),
-      std::move(callback), std::move(key), quic_version, cert_verify_flags,
-      require_confirmation, peer_address, std::move(metadata),
-      dns_resolution_start_time, dns_resolution_end_time,
-      std::move(resolution_details),
-      /*session_max_packet_length=*/0, net_log,
-      // TODO(crbug.com/518753285): Stop setting the network that should be used
-      // due to connection migration via ConnectAndConfigureSocket. Instead,
-      // rely on the new parameter in `CreateSocket`.
-      network, std::move(socket), session_creation_initiator,
-      quic_connection_reuse_details, connection_management_config);
+  ConnectAndConfigureCallback connect_and_configure_callback = base::BindOnce(
+      [](CompletionOnceCallback cb, int rv,
+         std::optional<QuicSocketConfigStep> /*error_step*/) {
+        std::move(cb).Run(rv);
+      },
+      base::BindOnce(
+          &QuicSessionPool::FinishCreateSession, weak_factory_.GetWeakPtr(),
+          std::move(callback), std::move(key), quic_version, cert_verify_flags,
+          require_confirmation, peer_address, std::move(metadata),
+          dns_resolution_start_time, dns_resolution_end_time,
+          std::move(resolution_details),
+          /*session_max_packet_length=*/0, net_log,
+          // TODO(crbug.com/518753285): Stop setting the network that should be
+          // used due to connection migration via ConnectAndConfigureSocket.
+          // Instead, rely on the new parameter in `CreateSocket`.
+          network, std::move(socket), session_creation_initiator,
+          quic_connection_reuse_details, connection_management_config));
 
   // If migrate_sessions_on_network_change_v2 is on, passing in
   // handles::kInvalidNetworkHandle will bind the socket to the default network.
@@ -2843,9 +2898,7 @@ void QuicSessionPool::UnmapSessionFromSessionAliases(
 
 std::unique_ptr<QuicSessionPool::CryptoClientConfigHandle>
 QuicSessionPool::CreateCryptoConfigHandle(QuicCryptoClientConfigKey key) {
-  if (!use_network_anonymization_key_for_crypto_configs_) {
-    key.network_anonymization_key = NetworkAnonymizationKey();
-  }
+  NormalizeCryptoConfigKey(key);
 
   // If there's a matching entry in |active_crypto_config_map_|, create a
   // CryptoClientConfigHandle for it.
@@ -2919,8 +2972,12 @@ QuicSessionPool::CreateCryptoConfigHandle(QuicCryptoClientConfigKey key) {
 void QuicSessionPool::OnAllCryptoClientRefReleased(
     QuicCryptoClientConfigMap::iterator& map_iterator) {
   DCHECK_EQ(0, map_iterator->second->num_refs());
-  recent_crypto_config_map_.Put(map_iterator->first,
-                                std::move(map_iterator->second));
+  DCHECK(!map_iterator->first.ssl_config_generation.is_null());
+  // Don't stash the config if it was created under a previous SSLContextConfig.
+  if (map_iterator->first.ssl_config_generation == ssl_config_generation_) {
+    recent_crypto_config_map_.Put(map_iterator->first,
+                                  std::move(map_iterator->second));
+  }
   active_crypto_config_map_.erase(map_iterator);
 }
 
@@ -2959,6 +3016,14 @@ void QuicSessionPool::CheckQuicSessionKeyMismatch(
                                 destination, session_key, active_key));
 }
 
+void QuicSessionPool::NormalizeCryptoConfigKey(
+    QuicCryptoClientConfigKey& key) const {
+  if (!use_network_anonymization_key_for_crypto_configs_) {
+    key.network_anonymization_key = NetworkAnonymizationKey();
+  }
+  key.ssl_config_generation = ssl_config_generation_;
+}
+
 std::unique_ptr<QuicCryptoClientConfigHandle>
 QuicSessionPool::GetCryptoConfigForTesting(QuicCryptoClientConfigKey key) {
   return CreateCryptoConfigHandle(std::move(key));
@@ -2968,9 +3033,7 @@ bool QuicSessionPool::CryptoConfigCacheIsEmptyForTesting(
     const quic::QuicServerId& server_id,
     QuicCryptoClientConfigKey key) {
   quic::QuicCryptoClientConfig::CachedState* cached = nullptr;
-  if (!use_network_anonymization_key_for_crypto_configs_) {
-    key.network_anonymization_key = NetworkAnonymizationKey();
-  }
+  NormalizeCryptoConfigKey(key);
   auto map_iterator = active_crypto_config_map_.find(key);
   if (map_iterator != active_crypto_config_map_.end()) {
     cached = map_iterator->second->config()->LookupOrCreate(server_id);
@@ -2985,9 +3048,7 @@ bool QuicSessionPool::CryptoConfigCacheIsEmptyForTesting(
 
 bool QuicSessionPool::CryptoConfigSessionCacheIsEmptyForTesting(
     QuicCryptoClientConfigKey key) {
-  if (!use_network_anonymization_key_for_crypto_configs_) {
-    key.network_anonymization_key = NetworkAnonymizationKey();
-  }
+  NormalizeCryptoConfigKey(key);
   quic::QuicCryptoClientConfig* config = nullptr;
   auto map_iterator = active_crypto_config_map_.find(key);
   if (map_iterator != active_crypto_config_map_.end()) {

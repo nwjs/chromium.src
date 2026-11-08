@@ -5,9 +5,12 @@
 #include "chrome/browser/ui/views/omnibox/omnibox_popup_presenter_base.h"
 
 #include "base/memory/raw_ptr.h"
+#include "base/run_loop.h"
+#include "base/task/single_thread_task_runner.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "chrome/browser/ui/omnibox/omnibox_controller.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_popup_presenter_delegate.h"
+#include "chrome/browser/ui/views/omnibox/omnibox_popup_webui_base_content.h"
 #include "chrome/browser/ui/views/omnibox/rounded_omnibox_results_frame.h"
 #include "components/omnibox/browser/test_omnibox_client.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -42,6 +45,24 @@ class TestShadowOmniboxPopupPresenter : public TestOmniboxPopupPresenter {
   using TestOmniboxPopupPresenter::TestOmniboxPopupPresenter;
 
   bool ShouldDrawShadowInWebUI() const override { return true; }
+};
+
+// Presenter that defers its content and never creates it, so that each
+// creation attempt can be counted.
+class TestCountingDeferredPresenter : public TestOmniboxPopupPresenter {
+ public:
+  using TestOmniboxPopupPresenter::TestOmniboxPopupPresenter;
+
+  int create_count() const { return create_count_; }
+
+ protected:
+  std::unique_ptr<OmniboxPopupWebUIBaseContent> CreateWebUIContent() override {
+    ++create_count_;
+    return nullptr;
+  }
+
+ private:
+  int create_count_ = 0;
 };
 
 class TestDeferredOmniboxPopupPresenter : public OmniboxPopupPresenterBase {
@@ -97,6 +118,9 @@ class OmniboxPopupPresenterBaseTest : public views::ViewsTestBase {
     auto test_widget = CreateTestWidget(std::move(params));
 
     widget_ptr_ = test_widget.get();
+    test_widget->MakeCloseSynchronous(
+        base::BindOnce(&OmniboxPopupPresenterBase::OnWidgetClosed,
+                       base::Unretained(presenter_.get())));
     presenter_->set_widget_for_testing(std::move(test_widget));
   }
 
@@ -130,6 +154,8 @@ class OmniboxPopupPresenterBaseTest : public views::ViewsTestBase {
     presenter_->OnWidgetClosed(views::Widget::ClosedReason::kUnspecified);
   }
 
+  void ShowWidget() { presenter_->ShowWidget(base::TimeTicks::Now()); }
+
   base::WeakPtr<OmniboxPopupPresenterBase> GetVisualStateWeakPtr(
       OmniboxPopupPresenterBase* presenter) {
     return presenter->visual_state_weak_factory_.GetWeakPtr();
@@ -137,6 +163,14 @@ class OmniboxPopupPresenterBaseTest : public views::ViewsTestBase {
 
   int GetContentHeight(OmniboxPopupPresenterBase* presenter) {
     return presenter->content_height_;
+  }
+
+  // Runs the tasks posted to the current thread so far.
+  void RunPostedTasks() {
+    base::RunLoop run_loop;
+    base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE, run_loop.QuitClosure());
+    run_loop.Run();
   }
 };
 
@@ -230,6 +264,7 @@ TEST_F(OmniboxPopupPresenterBaseTest, ResetsOnAllClosureStates) {
 }
 
 TEST_F(OmniboxPopupPresenterBaseTest, PermissionPromptShowingStateAndReset) {
+  ShowWidget();
   EXPECT_FALSE(presenter_->IsPermissionPromptPreventingClose());
 
   // Calling `SetPermissionPromptShowing(true)` locks presenter via
@@ -241,7 +276,7 @@ TEST_F(OmniboxPopupPresenterBaseTest, PermissionPromptShowingStateAndReset) {
   presenter_->ResetPermissionPromptShowingState();
   EXPECT_FALSE(presenter_->IsPermissionPromptPreventingClose());
 
-  // `OnPromptRemoved` puts it in dismissal mode.
+  // `OnPromptRemoved` puts it in dismissal mode when shown.
   presenter_->OnPromptRemoved();
   EXPECT_TRUE(presenter_->IsPermissionPromptPreventingClose());
 
@@ -263,6 +298,15 @@ TEST_F(OmniboxPopupPresenterBaseTest, PermissionPromptShowingStateAndReset) {
 
   // Resetting clears state.
   presenter_->ResetPermissionPromptShowingState();
+  EXPECT_FALSE(presenter_->IsPermissionPromptPreventingClose());
+
+  // When the popup widget is hidden externally (e.g. during window teardown),
+  // `OnPromptRemoved` should clear `is_prompt_showing_` without entering
+  // dismissal mode.
+  presenter_->SetPermissionPromptShowing(true);
+  widget_ptr_->Hide();
+  EXPECT_FALSE(presenter_->IsShown());
+  presenter_->OnPromptRemoved();
   EXPECT_FALSE(presenter_->IsPermissionPromptPreventingClose());
 }
 
@@ -394,4 +438,64 @@ TEST_F(OmniboxPopupPresenterBaseTest, ContentHeightClampedBelowShadowMargin) {
   presenter->OnContentHeightChanged(1);
 
   EXPECT_EQ(GetContentHeight(presenter.get()), 1);
+}
+
+// When ash hides the popup on switching users, and the omnibox closes the popup
+// while it is already hidden externally, the widget must be released so ash
+// cannot re-show it on switching back.
+TEST_F(OmniboxPopupPresenterBaseTest, DiscardsWidgetWhenHiddenExternally) {
+  ShowWidget();
+  ASSERT_TRUE(widget_ptr_->IsVisible());
+
+  // Ash hides the popup on switching users.
+  widget_ptr_->Hide();
+
+  // Omnibox closes the popup while it was already hidden externally.
+  presenter_->Hide();
+
+  // The widget should be discarded so external window management cannot
+  // re-show it.
+  EXPECT_EQ(presenter_->GetWidget(), nullptr);
+  EXPECT_FALSE(presenter_->IsShown());
+}
+
+// When closed normally while visible, the widget should be hidden but kept
+// alive for reuse.
+TEST_F(OmniboxPopupPresenterBaseTest, RetainsWidgetWhenHiddenNormally) {
+  ShowWidget();
+  ASSERT_TRUE(widget_ptr_->IsVisible());
+
+  presenter_->Hide();
+
+  EXPECT_NE(presenter_->GetWidget(), nullptr);
+  EXPECT_FALSE(presenter_->GetWidget()->IsVisible());
+  EXPECT_FALSE(presenter_->IsShown());
+}
+
+// A redundant `Hide()` while already closed must not discard the cached widget.
+TEST_F(OmniboxPopupPresenterBaseTest, RedundantHideDoesNotDiscardWidget) {
+  ShowWidget();
+  presenter_->Hide();
+  ASSERT_NE(presenter_->GetWidget(), nullptr);
+
+  presenter_->Hide();
+
+  EXPECT_NE(presenter_->GetWidget(), nullptr);
+  EXPECT_FALSE(presenter_->IsShown());
+}
+
+// Repeated browser window presentations before the creation task runs post
+// only that one task, and none of them creates the content inline.
+TEST_F(OmniboxPopupPresenterBaseTest, BrowserWindowPresentationPostsOneTask) {
+  auto presenter = std::make_unique<TestCountingDeferredPresenter>(
+      nullptr, dummy_delegate_, controller_.get());
+
+  presenter->OnBrowserWindowPresented();
+  presenter->OnBrowserWindowPresented();
+  EXPECT_EQ(presenter->create_count(), 0);
+  RunPostedTasks();
+  presenter->OnBrowserWindowPresented();
+  RunPostedTasks();
+
+  EXPECT_EQ(presenter->create_count(), 1);
 }

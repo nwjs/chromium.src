@@ -6,8 +6,8 @@
 
 #include <bit>
 #include <optional>
+#include <ranges>
 
-#include "base/containers/adapters.h"
 #include "base/notreached.h"
 #include "third_party/blink/renderer/core/animation/css/css_animations.h"
 #include "third_party/blink/renderer/core/animation/css_interpolation_environment.h"
@@ -910,7 +910,7 @@ void StyleCascade::ApplyInterpolation(
     To<TransitionInterpolation>(interpolation).Apply(environment);
   }
 
-  // Applying a color property interpolation will also unconditionally apply
+  // Applying a color property interpolation inside a link will also apply
   // the -internal-visited- counterpart (see CSSColorInterpolationType::
   // ApplyStandardPropertyValue). To make sure !important rules in :visited
   // selectors win over animations, we re-apply the -internal-visited property
@@ -1290,7 +1290,7 @@ StyleCascade::MakeFunctionContextFromMixinAndResolveSubstitutions(
       // Find the last-declared value with a matching container query (if
       // any), and apply it.
       for (const MixinParameterBindings::CQDependentValue& candidate :
-           base::Reversed(candidates)) {
+           std::views::reverse(candidates)) {
         if (EvaluateContainerQueries(state_.GetElement(), state_.GetPseudoId(),
                                      *candidate.container_queries,
                                      state_.NearestSizeContainer(),

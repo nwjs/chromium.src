@@ -35,18 +35,17 @@ source_set("impl") {
     "no_state_prefetch_manager_factory.cc",
     "no_state_prefetch_tab_helper.cc",
   ]
-  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
   deps = [
     ":no_state_prefetch",
     "//base",
     "//chrome/browser/content_settings:content_settings_factory",
     "//chrome/browser/history",
+    "//chrome/browser/page_load_metrics",
     "//chrome/browser/predictors",
     "//chrome/browser/preloading:prefs",
     "//chrome/browser/profiles:profile",
     "//chrome/browser/sync:factories",
     "//chrome/browser/task_manager",
-    "//chrome/browser/ui",
     "//chrome/browser/ui:tab_helpers",
     "//chrome/common",
     "//components/content_settings/core/browser:cookie_settings",
@@ -55,7 +54,11 @@ source_set("impl") {
     "//extensions/buildflags",
   ]
   if (enable_extensions_core) {
-    deps += [ "//extensions/browser" ]
+    deps += [
+      "//chrome/browser/extensions",
+      "//extensions/browser",
+      "//extensions/common:mojom",
+    ]
   }
 }
 

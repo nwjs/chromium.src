@@ -60,6 +60,7 @@ namespace {
 void UpdateRefreshTokenForAccount(
     ProfileOAuth2TokenService* token_service,
     AccountTrackerService* account_tracker_service,
+    GaiaCookieManagerService* gaia_cookie_manager_service,
     IdentityManager* identity_manager,
     const CoreAccountId& account_id,
     const std::string& new_token,
@@ -70,6 +71,9 @@ void UpdateRefreshTokenForAccount(
             account_id)
       << "To set the refresh token for an unknown account, use "
          "MakeAccountAvailable()";
+  // Tests that make accounts available don't set Gaia cookies.
+  gaia_cookie_manager_service->set_ignore_missing_gaia_cookies_for_testing(
+      true);
 
   // Ensure that refresh tokens are loaded; some platforms enforce the invariant
   // that refresh token mutation cannot occur until refresh tokens are loaded,
@@ -225,7 +229,9 @@ AccountAvailabilityOptions AccountAvailabilityOptionsBuilder::Build(
 // -----------------------------------------------------------------------------
 
 void WaitForRefreshTokensLoaded(IdentityManager* identity_manager) {
-  base::RunLoop run_loop;
+  // See the comment in `SetCookieAccounts()` for why this run loop has to
+  // allow nestable tasks.
+  base::RunLoop run_loop{base::RunLoop::Type::kNestableTasksAllowed};
   TestIdentityManagerObserver load_credentials_observer(identity_manager);
   load_credentials_observer.SetOnRefreshTokensLoadedCallback(
       run_loop.QuitClosure());
@@ -401,6 +407,10 @@ void WaitForPrimaryAccount(IdentityManager* identity_manager,
 
 AccountInfo MakeAccountAvailable(IdentityManager* identity_manager,
                                  const AccountAvailabilityOptions& options) {
+  // Tests that make accounts available don't set Gaia cookies.
+  identity_manager->GetGaiaCookieManagerService()
+      ->set_ignore_missing_gaia_cookies_for_testing(true);
+
   if (options.refresh_token.has_value()) {
     // Wait until tokens are loaded, otherwise the account will be removed as
     // soon as tokens finish loading.
@@ -471,7 +481,8 @@ void SetRefreshTokenForAccount(IdentityManager* identity_manager,
                                const TokenBindingInfo& token_binding_info) {
   UpdateRefreshTokenForAccount(
       identity_manager->GetTokenService(),
-      identity_manager->GetAccountTrackerService(), identity_manager,
+      identity_manager->GetAccountTrackerService(),
+      identity_manager->GetGaiaCookieManagerService(), identity_manager,
       account_id,
       token_value.empty()
           ? "refresh_token_for_" + account_id.ToString() + "_" +
@@ -486,6 +497,7 @@ void SetInvalidRefreshTokenForAccount(
     signin_metrics::SourceForRefreshTokenOperation source) {
   UpdateRefreshTokenForAccount(identity_manager->GetTokenService(),
                                identity_manager->GetAccountTrackerService(),
+                               identity_manager->GetGaiaCookieManagerService(),
                                identity_manager, account_id,
                                GaiaConstants::kInvalidRefreshToken,
                                TokenBindingInfo(), source);
@@ -550,7 +562,13 @@ void SetCookieAccounts(
                                     /*verified=*/true});
   }
 
-  base::RunLoop run_loop;
+  // `kNestableTasksAllowed` is required because this helper is also called
+  // from within a nested run loop (e.g. from test code driven by a browser
+  // test's own run loop, or from a fake that runs while a production flow is
+  // on the stack). A `kDefault` run loop only processes application tasks
+  // when it is the outermost one, so the `/ListAccounts` response below would
+  // never be delivered and this would hang. See `RunLoop::Run()`.
+  base::RunLoop run_loop{base::RunLoop::Type::kNestableTasksAllowed};
   TestIdentityManagerObserver cookie_observer(identity_manager);
   cookie_observer.SetOnAccountsInCookieUpdatedCallback(run_loop.QuitClosure());
 
@@ -560,6 +578,7 @@ void SetCookieAccounts(
   GaiaCookieManagerService* cookie_manager =
       identity_manager->GetGaiaCookieManagerService();
   cookie_manager->set_list_accounts_stale_for_testing(true);
+  cookie_manager->set_ignore_missing_gaia_cookies_for_testing(true);
   // Clears cached LIST_ACCOUNTS requests, so that the new request can trigger
   // the observers instead of being assumed as having an identical result as the
   // previous one.
@@ -639,6 +658,7 @@ void SetFreshnessOfAccountsInGaiaCookie(IdentityManager* identity_manager,
                                         bool accounts_are_fresh) {
   GaiaCookieManagerService* cookie_manager =
       identity_manager->GetGaiaCookieManagerService();
+  cookie_manager->set_ignore_missing_gaia_cookies_for_testing(true);
   cookie_manager->set_list_accounts_stale_for_testing(!accounts_are_fresh);
 }
 

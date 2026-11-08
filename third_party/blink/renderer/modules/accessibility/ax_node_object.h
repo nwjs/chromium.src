@@ -426,7 +426,6 @@ class MODULES_EXPORT AXNodeObject : public AXObject {
   void AddPseudoElementChildrenFromLayoutTree();
   bool CanAddLayoutChild(LayoutObject& child);
   void AddInlineTextBoxChildren();
-  void AddInlineTextBoxChildrenWithBlockFlowIterator();
   void AddImageMapChildren();
   void AddPopupChildren();
   bool HasValidHTMLTableStructureAndLayout() const;

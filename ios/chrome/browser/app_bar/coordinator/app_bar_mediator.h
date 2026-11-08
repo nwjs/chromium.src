@@ -33,11 +33,13 @@ class ProfileIOS;
 @class SceneLayoutState;
 @class SceneState;
 @protocol SettingsCommands;
+class TabBasedIPHBrowserAgent;
 @protocol TabGridCommands;
 @class TabGridState;
 @protocol TabGroupsCommands;
 class TemplateURLService;
 class UrlLoadingBrowserAgent;
+class WebNavigationBrowserAgent;
 class WebStateList;
 
 @protocol AppBarMediatorDelegate
@@ -103,34 +105,43 @@ class WebStateList;
 
 // Initializes the mediator with the two web state lists.
 - (instancetype)
-        initWithRegularWebStateList:(WebStateList*)regularWebStateList
-              incognitoWebStateList:(WebStateList*)incognitoWebStateList
-        regularFullscreenController:
-            (FullscreenController*)regularFullscreenController
-      incognitoFullscreenController:
-          (FullscreenController*)incognitoFullscreenController
-      regularFullscreenBrowserAgent:
-          (FullscreenBrowserAgent*)regularFullscreenBrowserAgent
-    incognitoFullscreenBrowserAgent:
-        (FullscreenBrowserAgent*)incognitoFullscreenBrowserAgent
-               regularActionFactory:(BrowserActionFactory*)regularActionFactory
-             incognitoActionFactory:
-                 (BrowserActionFactory*)incognitoActionFactory
-                            profile:(ProfileIOS*)profile
-                        prefService:(PrefService*)prefService
-                 templateURLService:(TemplateURLService*)templateURLService
-              authenticationService:
-                  (AuthenticationService*)authenticationService
-                    identityManager:(signin::IdentityManager*)identityManager
-                      geminiService:(GeminiService*)geminiService
-                 geminiBrowserAgent:(GeminiBrowserAgent*)geminiBrowserAgent
-              aimEligibilityService:
-                  (AimEligibilityService*)aimEligibilityService
-                          URLLoader:(UrlLoadingBrowserAgent*)URLLoader
-                       tabGridState:(TabGridState*)tabGridState
-                     incognitoState:(IncognitoState*)incognitoState
-           lensOverlayStateNotifier:
-               (LensOverlayStateNotifier*)lensOverlayStateNotifier;
+           initWithRegularWebStateList:(WebStateList*)regularWebStateList
+                 incognitoWebStateList:(WebStateList*)incognitoWebStateList
+           regularFullscreenController:
+               (FullscreenController*)regularFullscreenController
+         incognitoFullscreenController:
+             (FullscreenController*)incognitoFullscreenController
+         regularFullscreenBrowserAgent:
+             (FullscreenBrowserAgent*)regularFullscreenBrowserAgent
+       incognitoFullscreenBrowserAgent:
+           (FullscreenBrowserAgent*)incognitoFullscreenBrowserAgent
+      regularWebNavigationBrowserAgent:
+          (WebNavigationBrowserAgent*)regularNavigationBrowserAgent
+    incognitoWebNavigationBrowserAgent:
+        (WebNavigationBrowserAgent*)incognitoNavigationBrowserAgent
+               regularTabBasedIPHAgent:
+                   (TabBasedIPHBrowserAgent*)regularTabBasedIPHAgent
+             incognitoTabBasedIPHAgent:
+                 (TabBasedIPHBrowserAgent*)incognitoTabBasedIPHAgent
+                  regularActionFactory:
+                      (BrowserActionFactory*)regularActionFactory
+                incognitoActionFactory:
+                    (BrowserActionFactory*)incognitoActionFactory
+                               profile:(ProfileIOS*)profile
+                           prefService:(PrefService*)prefService
+                    templateURLService:(TemplateURLService*)templateURLService
+                 authenticationService:
+                     (AuthenticationService*)authenticationService
+                       identityManager:(signin::IdentityManager*)identityManager
+                         geminiService:(GeminiService*)geminiService
+                    geminiBrowserAgent:(GeminiBrowserAgent*)geminiBrowserAgent
+                 aimEligibilityService:
+                     (AimEligibilityService*)aimEligibilityService
+                             URLLoader:(UrlLoadingBrowserAgent*)URLLoader
+                          tabGridState:(TabGridState*)tabGridState
+                        incognitoState:(IncognitoState*)incognitoState
+              lensOverlayStateNotifier:
+                  (LensOverlayStateNotifier*)lensOverlayStateNotifier;
 
 - (instancetype)init NS_UNAVAILABLE;
 
@@ -144,6 +155,14 @@ class WebStateList;
 // Resets the incognito fullscreen browser agent.
 - (void)setIncognitoFullscreenBrowserAgent:
     (FullscreenBrowserAgent*)fullscreenBrowserAgent;
+
+// Resets the incognito navigation browser agent.
+- (void)setIncognitoNavigationBrowserAgent:
+    (WebNavigationBrowserAgent*)navigationBrowserAgent;
+
+// Resets the incognito tab-based IPH browser agent.
+- (void)setIncognitoTabBasedIPHBrowserAgent:
+    (TabBasedIPHBrowserAgent*)iphBrowserAgent;
 
 // Resets the incognito action factory.
 - (void)setIncognitoActionFactory:(BrowserActionFactory*)incognitoActionFactory;

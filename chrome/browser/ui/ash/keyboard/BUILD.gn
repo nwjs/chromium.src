@@ -18,8 +18,6 @@ static_library("keyboard") {
     "chrome_keyboard_web_contents.h",
   ]
 
-  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
-
   deps = [
     "//ash",
     "//ash/constants",
@@ -88,7 +86,6 @@ source_set("browser_tests") {
     "//chrome/browser/apps/platform_apps:browser_test_support",
     "//chrome/browser/ash/input_method:test_support",
     "//chrome/browser/profiles:profile",
-    "//chrome/browser/ui",
     "//chrome/browser/ui:browser_window_header",
     "//chrome/test:test_support",
     "//extensions/browser",

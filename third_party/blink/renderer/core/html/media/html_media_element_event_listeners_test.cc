@@ -26,6 +26,7 @@
 #include "third_party/blink/renderer/core/html/track/vtt/vtt_cue.h"
 #include "third_party/blink/renderer/core/loader/empty_clients.h"
 #include "third_party/blink/renderer/core/testing/page_test_base.h"
+#include "third_party/blink/renderer/platform/heap/persistent.h"
 #include "third_party/blink/renderer/platform/heap/thread_state.h"
 #include "third_party/blink/renderer/platform/media/media_player_client.h"
 #include "third_party/blink/renderer/platform/scheduler/public/event_loop.h"
@@ -72,7 +73,10 @@ class FakeWebMediaPlayer final : public EmptyWebMediaPlayer {
   }
   void Pause(PauseReason pause_reason) override { playing_ = false; }
   void Shutdown() override {
-    client_->MediaRemotingStopped(MediaPlayerClient::kMediaRemotingStopNoText);
+    if (client_) {
+      client_->MediaRemotingStopped(
+          MediaPlayerClient::kMediaRemotingStopNoText);
+    }
     EmptyWebMediaPlayer::Shutdown();
   }
   bool Paused() const override { return !playing_; }
@@ -83,6 +87,7 @@ class FakeWebMediaPlayer final : public EmptyWebMediaPlayer {
     current_time_ = last_seek_time_;
     last_seek_time_ = -1;
 
+    CHECK(client_);
     client_->TimeChanged();
     if (playing_)
       ScheduleTimeIncrement();
@@ -124,6 +129,7 @@ class FakeWebMediaPlayer final : public EmptyWebMediaPlayer {
     // Notify the client if we've reached the end of the set duration
     if (current_time_ >= duration_) {
       current_time_ = duration_;
+      CHECK(client_);
       client_->TimeChanged();
     } else {
       ScheduleTimeIncrement();
@@ -133,7 +139,7 @@ class FakeWebMediaPlayer final : public EmptyWebMediaPlayer {
     context_->GetAgent()->event_loop()->PerformMicrotaskCheckpoint();
   }
 
-  raw_ptr<MediaPlayerClient, UnprotectedInRelease | DanglingUntriaged> client_;
+  WeakPersistent<MediaPlayerClient> client_;
   WeakPersistent<ExecutionContext> context_;
   mutable double current_time_ = 0;
   bool playing_ = false;
@@ -378,8 +384,6 @@ class MockEventListener final : public NativeEventListener {
   MOCK_METHOD2(Invoke, void(ExecutionContext* executionContext, Event*));
 };
 
-static const base::TickClock* s_platform_clock_;
-
 class HTMLMediaElementWithMockSchedulerTest
     : public HTMLMediaElementEventListenersTest {
  protected:
@@ -393,8 +397,6 @@ class HTMLMediaElementWithMockSchedulerTest
   void SetUp() override {
     EnablePlatform();
 
-    s_platform_clock_ = GetTickClock();
-
     // DocumentParserTiming has DCHECKS to make sure time > 0.0.
     AdvanceClock(base::Seconds(1));
     // Tests rely on start time being a multiple of 250ms.
@@ -404,8 +406,6 @@ class HTMLMediaElementWithMockSchedulerTest
 
     HTMLMediaElementEventListenersTest::SetUp();
   }
-
-  static base::TimeTicks Now() { return s_platform_clock_->NowTicks(); }
 
  private:
   std::unique_ptr<base::subtle::ScopedTimeClockOverrides> time_overrides_;

@@ -372,7 +372,6 @@
 <translation id="2079545284768500474">Geri al</translation>
 <translation id="2086334242442703436">Emoji Seçiciyi Aç</translation>
 <translation id="2089550919269323883"><ph name="VM_NAME" /> öğesinin yüklenmesi, kurumsal politika tarafından engellendi. Destek almak için lütfen sistem yöneticinizle iletişime geçin. Hata kodu <ph name="ERROR" />.</translation>
-<translation id="2093792000875799555">Chromebook Haberleri için Steam</translation>
 <translation id="209965399369889474">Ağa bağlı değilsiniz</translation>
 <translation id="2107581415810719320">Diğer Düğme <ph name="BUTTON_NUMBER" /></translation>
 <translation id="2107914222138020205">USB-C kablonuz Thunderbolt'u desteklemiyor. Cihaz performansı sınırlı olabilir.</translation>
@@ -422,6 +421,7 @@
 <translation id="2293443480080733021">Hangi göreve odaklanmak istersiniz? Görevi eklemek için Enter tuşuna basın.</translation>
 <translation id="229397294990920565">Mobil veriler kapanıyor...</translation>
 <translation id="2295777434187870477">Mikrofon açık, düğmeye basılırsa girişin sesi kapatılacak.</translation>
+<translation id="2296880470921996802">Pano geçmişi, BT yöneticiniz tarafından devre dışı bırakıldı</translation>
 <translation id="2302092602801625023">Bu hesap Family Link tarafından yönetiliyor</translation>
 <translation id="2303600792989757991">Pencere genel bakışını değiştir</translation>
 <translation id="2304702218354340897">Yüzle kumanda özelliğini kapatmak istediğinizden emin misiniz?</translation>
@@ -928,7 +928,6 @@ Cihazınızı güç kaynağına bağlayın.</translation>
 <translation id="3697991387880191195">Ekran görüntüsü alma kısayoluna basın</translation>
 <translation id="3702809606464356667">Mevcut masadaki pencereler gösteriliyor, tüm masalardaki pencerelerin gösterilmesi için Yukarı ok tuşuna basın</translation>
 <translation id="3705722231355495246">-</translation>
-<translation id="3706423975342040244">Eğlence</translation>
 <translation id="370665806235115550">Yükleniyor...</translation>
 <translation id="3707093869106077605"><ph name="UNAVAILABLE_DLC_ONE" /> ve <ph name="UNAVAILABLE_DLC_TWO" /> kullanılamıyor.</translation>
 <translation id="3708186454126126312">Daha önce bağlanılmış cihazlar</translation>
@@ -975,7 +974,6 @@ Cihazınızı güç kaynağına bağlayın.</translation>
 <translation id="3824784079442479685">Bu işlem, <ph name="APP_NAME" /> uygulamalarının yanı sıra kamera izni olan tüm uygulamaların ve web sitelerinin kameraya erişmesine izin verir Web sayfasını yenilemeniz veya uygulamayı yeniden başlatmanız gerekebilir.</translation>
 <translation id="3826099427150913765">Şifreye geç</translation>
 <translation id="383058930331066723">Pil tasarrufu modu açık</translation>
-<translation id="3831226344927851293">Eğitim görünümünden çık</translation>
 <translation id="383629559565718788">Klavye ayarlarını göster</translation>
 <translation id="384082539148746321">Şablon silinsin mi?</translation>
 <translation id="3844627820291068572"><ph name="MODIFIER_ONE" /><ph name="MODIFIER_TWO" />, ardından <ph name="KEY_ONE" /> veya <ph name="KEY_TWO" /> ya da <ph name="KEY_THREE" /> veya <ph name="KEY_FOUR" /></translation>
@@ -1022,6 +1020,7 @@ Cihazınızı güç kaynağına bağlayın.</translation>
 <translation id="3977512764614765090">Pil %<ph name="PERCENTAGE" /> dolu ve şarj oluyor.</translation>
 <translation id="3978162107953847778">Tarama geçmişiniz ve Google Drive gibi yerlerdeki bağlantıları ekleyin. Emojiler, resim dosyaları ve diğer öğeleri de ekleyebilirsiniz. <ph name="LINK_TO_LEARN_MORE" /></translation>
 <translation id="3982013579989864579">Ses çıkışı değiştirilsin mi?</translation>
+<translation id="3983903378684256134">Chromebook'ta Steam</translation>
 <translation id="3984536049089846927">Sonraki sayfa</translation>
 <translation id="3986082989454912832">Cevapla</translation>
 <translation id="3990002060657467458">Kablosuz, Bluetooth ve ses seviyesi gibi sık kullanılan denetimler Hızlı Ayarlar'da yer alır. Ekran görüntüsü almak için de bu menüyü kullanabilirsiniz.</translation>
@@ -1578,10 +1577,8 @@ Bağlı cihaz yok.</translation>
 <translation id="5551974246223970793">Sayfa ararken aramayla ilgili bir sonraki eşleşmeye git</translation>
 <translation id="5556459405103347317">Yeniden Yükle</translation>
 <translation id="5558091555391176027">Yakındakilerle Paylaş özelliğinin yüksek görünürlüğünü aç/kapat</translation>
-<translation id="5558314826121965174">Yaratıcılık</translation>
 <translation id="556042886152191864">Düğme</translation>
 <translation id="5570122939431135380">Yeni sekmeyi yeni gizli pencerede aç</translation>
-<translation id="5572632238877308040">Temel Uygulamalar</translation>
 <translation id="5575528586625653441">Demo kayıt isteğiyle ilgili bir sorun oluştu.</translation>
 <translation id="557563299383177668">Sonraki paragraf</translation>
 <translation id="5577082622442191756">Bluetooth'u aç/kapat. <ph name="STATE_TEXT" />.</translation>
@@ -1616,7 +1613,6 @@ Bağlı cihaz yok.</translation>
 <translation id="5667546120811588575">Google Play kuruluyor...</translation>
 <translation id="5669267381087807207">Etkinleştiriliyor</translation>
 <translation id="5671658447180261823"><ph name="SUGGESTION_NAME" /> önerisini kaldır</translation>
-<translation id="5672890847723042801">Yardımcı programlar</translation>
 <translation id="5673434351075758678">Ayarlarınız senkronize edildikten sonra "<ph name="FROM_LOCALE" />" olan dil "<ph name="TO_LOCALE" />" olarak değiştirildi.</translation>
 <translation id="5675363643668471212">Raf öğesi</translation>
 <translation id="5677022547882470786">Arama yapılacak bir alan seçmek için sürükleyin veya boşluk tuşuna basın</translation>
@@ -1641,6 +1637,7 @@ Bağlı cihaz yok.</translation>
 <translation id="5727460725221669831">Şifrenizi unuttuysanız veya Google Hesabınızın şifresini yakın zamanda değiştirdiyseniz bu kullanıcıyı kurtarmayı deneyin.</translation>
 <translation id="5733630091161562207">Karşılama bildirimi</translation>
 <translation id="573413375004481890">Bu cihaz tüm ekranlarınızı destekleyemediği için bir tanesinin bağlantısı kesildi</translation>
+<translation id="5739548907438839901"><ph name="SIZE" /> disk alanı açıldı.</translation>
 <translation id="574392208103952083">Orta</translation>
 <translation id="5745612484876805746">Gece Işığı güneş battığında otomatik olarak açılır</translation>
 <translation id="5749214722697335450">Kullanım ve teşhis verilerini gönder. Teşhis, cihaz ve uygulama kullanımı verilerini otomatik olarak Google'a göndererek Android deneyiminizin iyileştirilmesine yardımcı olun. Bu veriler, sistem ve uygulama kararlılığı ile diğer özellikleri iyileştirmeye yardımcı olur. Bazı birleştirilmiş veriler, Google uygulamalarına ve iş ortaklarına da (ör. Android geliştiricileri) yardımcı olur. Ek Web ve Uygulama Etkinliği ayarınız açıksa bu veriler Google Hesabınıza kaydedilebilir. <ph name="BEGIN_LINK1" />Metrikler hakkında daha fazla bilgi<ph name="BEGIN_LINK1_END" />Daha Fazla Bilgi<ph name="END_LINK1" /></translation>
@@ -1791,7 +1788,6 @@ Bağlı cihaz yok.</translation>
 <translation id="6127395413317891856">İnternete bağlı değilsiniz. Bağlantınızı kontrol edip tekrar deneyin.</translation>
 <translation id="6129953537138746214">Boşluk</translation>
 <translation id="6132714462430777655">Okula kayıt atlansın mı?</translation>
-<translation id="6136872094979134163">Chromebook için Steam haberleri alınamıyor.</translation>
 <translation id="6137566720514957455"><ph name="USER_EMAIL_ADDRESS" /> için kaldırma iletişim kutusunu aç</translation>
 <translation id="6141205840878048728">Hangi göreve odaklanmak istersiniz?</translation>
 <translation id="6141988275892716286">İndirme işlemini onaylayın</translation>
@@ -1871,7 +1867,6 @@ Bağlı cihaz yok.</translation>
 <translation id="6348449481487610270"><ph name="MODIFIER_ONE" /><ph name="MODIFIER_TWO" /><ph name="KEY_ONE" /> ardından <ph name="MODIFIER_THREE" /><ph name="KEY_TWO" /> veya <ph name="KEY_THREE" /></translation>
 <translation id="6352082849089527770">Bilinmeyen ağlar</translation>
 <translation id="6359587239691116345">En son özellikleri ve güvenlik iyileştirmelerini edinin. Bu güncellemeyi reddederseniz cihazınız artık düzgün çalışmayabilir, ayrıca güvenlik ve performans sorunları yaşayabilirsiniz.</translation>
-<translation id="6362833380917912748">Yerleşik uygulamalarınızı tanıyın</translation>
 <translation id="6364386432014869981">Yerleşik dokunmatik alan etkinleştirildi</translation>
 <translation id="6376931439017688372">Bluetooth açık</translation>
 <translation id="6378515133128829137">Pencereyi sağa sabitle</translation>
@@ -2096,7 +2091,6 @@ Yeni yüklenmiş</translation>
 <translation id="7014684956566476813"><ph name="DEVICE_NAME" /> adlı cihaza bağlanıldı</translation>
 <translation id="7015766095477679451">Saat <ph name="COME_BACK_TIME" /> olduğunda geri gelin.</translation>
 <translation id="70168403932084660">Masa 6</translation>
-<translation id="702252130983202758">Uygulamalarınız</translation>
 <translation id="7025533177575372252"><ph name="DEVICE_NAME" /> cihazınızı telefonunuza bağlayın</translation>
 <translation id="7026338066939101231">Azalt</translation>
 <translation id="7029307918966275733">Crostini yüklü değil. Kredileri görüntülemek için lütfen Crostini yükleyin.</translation>
@@ -2219,6 +2213,7 @@ Yeni yüklenmiş</translation>
 <translation id="7413851974711031813">Kapatmak için escape tuşuna basın</translation>
 <translation id="7416471219712049036">Geçerli sayfayı kaydet</translation>
 <translation id="742594950370306541">Kamera kullanımda.</translation>
+<translation id="7430466159639897874">Kullanımdan kaldırılan "Chromebook'ta Steam" özelliği için ayrılmış kullanılmayan disk alanınız (<ph name="SIZE" />) var.</translation>
 <translation id="743058460480092004">Kamera ve mikrofon kullanımda.</translation>
 <translation id="7433708794692032816"><ph name="DEVICE_TYPE" /> cihazınızı kullanmaya devam etmek için akıllı kartı takın</translation>
 <translation id="7440404390546433462">Google Arama</translation>
@@ -2360,6 +2355,7 @@ Cihazı kapatmak için cihazın güç düğmesini tekrar basılı tutun.</transl
 <translation id="7781335840981796660">Tüm kullanıcı hesapları ve yerel veriler kaldırılır.</translation>
 <translation id="7781829728241885113">Dün</translation>
 <translation id="7787212146956232129">Giriş ve çıkış cihazları ayarlandı. Değiştirmek için Ayarlar'a gidin.</translation>
+<translation id="7790757511772316441">Boş disk alanı</translation>
 <translation id="7792590255364786396">Görünür</translation>
 <translation id="7796735576426975947">Yeni bildirim gösterilmiyor</translation>
 <translation id="7798302898096527229">İptal etmek için Ara veya Üst Karakter tuşuna basın.</translation>
@@ -2535,7 +2531,6 @@ Cihazı kapatmak için cihazın güç düğmesini tekrar basılı tutun.</transl
 <translation id="8277261673056602147">Ekrandaki metni vurgula</translation>
 <translation id="8281886186245836920">Atla</translation>
 <translation id="8282784978194352587">Başardınız!</translation>
-<translation id="8287009018010202411">Verimlilik</translation>
 <translation id="828708037801473432">Kapalı</translation>
 <translation id="8289128870594824098">Disk boyutu</translation>
 <translation id="8297006494302853456">Zayıf</translation>
@@ -2630,7 +2625,6 @@ Cihazı kapatmak için cihazın güç düğmesini tekrar basılı tutun.</transl
 <translation id="8598235756057743477">Uygulamalarınızı ada veya renge göre sıralama</translation>
 <translation id="8599864823732014237">Kurumsal kayıt atlansın mı?</translation>
 <translation id="8609384513243082612">Yeni sekme açar</translation>
-<translation id="861045123704058818">Uygulamalar geçici olarak kategoriye göre düzenlenir</translation>
 <translation id="8612338981637220013">Çok iyi!</translation>
 <translation id="8613164732773110792">Yalnızca küçük harfler, rakamlar, alt çizgiler veya kısa çizgiler</translation>
 <translation id="8614517853887502247">Görüntüleme koruması açık olduğundan <ph name="APP_1_TITLE" /> ve <ph name="APP_2_TITLE" /> bildirimleri gösterilmiyor</translation>
@@ -2822,7 +2816,6 @@ Cihazı kapatmak için cihazın güç düğmesini tekrar basılı tutun.</transl
 <translation id="9129245940793250979">Arka Düğme</translation>
 <translation id="9133335900048457298">Korunan içerik kaydedilemez</translation>
 <translation id="9139720510312328767">Sonraki harfi sil</translation>
-<translation id="9148058034647219655">Çıkış</translation>
 <translation id="9151906066336345901">end</translation>
 <translation id="9159421884295554245">Pano'da ara</translation>
 <translation id="9168436347345867845">Daha sonra yap</translation>

@@ -4,6 +4,7 @@
  */
 
 :root {
+  --bg-hover: rgba(0, 0, 255, 0.15);
   --body-padding: 5px;
   --color-sep: #888;
   --splitter-size: 7px;
@@ -42,6 +43,20 @@ button {
   }
 }
 
+label {
+  align-items: center;
+  display: inline-flex;
+  flex-direction: row;
+  gap: 5px;
+  height: 1.4em;
+  justify-content: flex-start;
+}
+
+label,
+select {
+  cursor: pointer;
+}
+
 .hidden {
   display: none !important;
 }
@@ -63,6 +78,14 @@ button {
   & > * {
     flex-shrink: 0;
   }
+}
+
+label:has(#sel-zoom) {
+  margin-left: 263px;
+}
+
+#sel-zoom {
+  width: 110px;
 }
 
 #div-main {
@@ -117,7 +140,17 @@ button {
     align-items: safe center;
   }
 
+  &[data-force-scroll="x"] {
+    overflow-x: scroll;
+  }
+
+  &[data-force-scroll="y"] {
+    overflow-y: scroll;
+  }
+
   .screenshot-inner {
+    --screenshot-width: 0px;
+    --screenshot-height: 0px;
     cursor: crosshair;
     flex-shrink: 0;
     position: relative;
@@ -125,14 +158,17 @@ button {
 
   .canv-base {
     display: block;
+    height: var(--screenshot-height);
     image-rendering: pixelated;
     transition: opacity 0.15s;
+    width: var(--screenshot-width);
   }
 }
 
 #div-screenshot-info {
   background-color: #f8f9fa;
   box-sizing: border-box;
+  contain: strict;
   display: flex;
   flex-shrink: 0;
   font-family: monospace;
@@ -151,6 +187,28 @@ button {
 
   &[data-show="size"] .div-size-info {
     display: flex;
+  }
+
+  .div-size-info {
+    .sp-size-device {
+      text-align: right;
+      width: 40ch;
+    }
+
+    .sp-size-scaled {
+      width: 40ch;
+    }
+  }
+
+  &.too-narrow {
+    .sp-size-device,
+    .sp-separator {
+      display: none;
+    }
+
+    .sp-size-scaled {
+      width: auto;
+    }
   }
 }
 
@@ -202,6 +260,7 @@ button {
 }
 
 #div-view-tree {
+  contain: content;
   flex-grow: 1;
   overflow-y: auto;
   padding: 10px;
@@ -216,6 +275,10 @@ button {
     font-family: monospace;
     height: 24px;
     white-space: nowrap;
+
+    &.hovered-view {
+      background-color: var(--bg-hover);
+    }
 
     &.expanded {
       .tree-toggle span {
@@ -274,6 +337,7 @@ button {
   background-color: #f8f9fa;
   border-top: solid 1px var(--color-sep);
   box-sizing: border-box;
+  contain: strict;
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
@@ -282,7 +346,36 @@ button {
   justify-content: flex-start;
   padding: 10px;
   user-select: none;
+  white-space: nowrap;
   width: 100%;
+
+  .view-info .view-class,
+  .hint-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .view-info {
+    display: flex;
+    flex-direction: column;
+
+    .view-class {
+      font-weight: bold;
+    }
+
+    .view-dims {
+      align-items: flex-start;
+      color: #007bff;
+      display: inline-flex;
+      gap: 15px;
+      flex-direction: row;
+      justify-content: flex-start;
+
+      .size-dp {
+        font-weight: bold;
+      }
+    }
+  }
 
   .hint-text {
     color: #666;

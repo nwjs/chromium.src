@@ -27,11 +27,6 @@ BASE_FEATURE(kNWNewWin,
 
 // All features in alphabetical order.
 
-// Marks navigations as aborted when the NavigationHandle is destroyed mid
-// navigation, likely due to a tab closure. This is a kill switch.
-BASE_FEATURE(kAbortNavigationsFromTabClosures,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Allows loading Top Chrome Webium.
 BASE_FEATURE(kDebugTopChromeWebUI, base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -41,7 +36,7 @@ BASE_FEATURE(kAndroidCaptureKeyEvents, base::FEATURE_ENABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_MAC)
 // Enables Aperitif helper executables.
-BASE_FEATURE(kAperitifHelpers, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kAperitifHelpers, base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 
 // DevTools frontend for Android.
@@ -420,6 +415,11 @@ BASE_FEATURE(kFedCm, base::FEATURE_ENABLED_BY_DEFAULT);
 // API.
 BASE_FEATURE(kFedCmAutofill, base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Enables showing FedCM accounts for passive mode requests in an ambient
+// bubble, instead of the regular FedCM dialog. This is separate from
+// kFedCmAmbientUI, which shows FedCM in the omnibox.
+BASE_FEATURE(kFedCmAmbientBubble, base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Enables the FedCM ambient UI.
 BASE_FEATURE(kFedCmAmbientUI, base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -497,6 +497,10 @@ BASE_FEATURE(kFedCmNativeIdPs, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables browser-side focus verification when crossing fenced boundaries.
 BASE_FEATURE(kFencedFramesEnforceFocus, base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Enforces a minimum top-level window size for file chooser dialogs to mitigate
+// UI occlusion spoofing (see crbug.com/479258455).
+BASE_FEATURE(kFileChooserMinWindowSize, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // This is a kill switch for focusing the RenderWidgetHostViewAndroid on
 // ActionDown on every touch sequence if not focused already, please see
@@ -676,7 +680,14 @@ const char kIsolateOriginsFieldTrialParamName[] = "OriginsList";
 
 // Enables process isolation for subframe error pages. See
 // https://crbug.com/40134629.
-BASE_FEATURE(kIsolateSubframeErrorPages, base::FEATURE_DISABLED_BY_DEFAULT);
+// TODO(crbug.com/40134629): Enable by default on Android as well.
+BASE_FEATURE(kIsolateSubframeErrorPages,
+#if BUILDFLAG(IS_ANDROID)
+             base::FEATURE_DISABLED_BY_DEFAULT
+#else
+             base::FEATURE_ENABLED_BY_DEFAULT
+#endif
+);
 
 #if BUILDFLAG(IS_ANDROID)
 // Enables the ability to specification a renderer that does not use Java.
@@ -744,13 +755,7 @@ const base::FeatureParam<double> kNavigationConfidenceEpsilonValue{
 // When NavigationNetworkResponseQueue is enabled, the browser will schedule
 // some tasks related to navigation network responses in a kHigh priority
 // queue.
-BASE_FEATURE(kNavigationNetworkResponseQueue,
-#if BUILDFLAG(IS_CHROMEOS)
-             base::FEATURE_DISABLED_BY_DEFAULT
-#else
-             base::FEATURE_ENABLED_BY_DEFAULT
-#endif
-);
+BASE_FEATURE(kNavigationNetworkResponseQueue, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // When PrioritizeMainFrameNavigationNetworkResponse is enabled, the browser
 // will schedule tasks related to primary main frame navigation network
@@ -802,6 +807,41 @@ BASE_FEATURE(kPreconnectManagerDirectFastPath,
 // to the server when a prefetched page is activated.
 BASE_FEATURE(kPrefetchActivationBeacon, base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Controls the behavior of a prefetch ahead of an imminent navigation, i.e. a
+// prefetch triggered by a signal that the navigation is (almost) certain to
+// happen soon. See `PrefetchRequest::is_ahead_of_imminent_navigation()`.
+BASE_FEATURE(kPrefetchAheadOfImminentNavigation,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+constexpr base::FeatureParam<
+    PrefetchAheadOfImminentNavigationForceWaitNVSHeaderPolicy>::Option
+    kPrefetchAheadOfImminentNavigationForceWaitNVSHeaderPolicyOptions[] = {
+        {PrefetchAheadOfImminentNavigationForceWaitNVSHeaderPolicy::kNotUse,
+         "NotUse"},
+        {PrefetchAheadOfImminentNavigationForceWaitNVSHeaderPolicy::
+             kUseIfNoHint,
+         "UseIfNoHint"},
+        {PrefetchAheadOfImminentNavigationForceWaitNVSHeaderPolicy::kAlwaysUse,
+         "AlwaysUse"},
+    };
+
+// Policy of forcing `PrefetchMatchResolver` to wait for the No-Vary-Search
+// header of a prefetch ahead of an imminent navigation.
+const base::FeatureParam<
+    PrefetchAheadOfImminentNavigationForceWaitNVSHeaderPolicy>
+    kPrefetchAheadOfImminentNavigationForceWaitNVSHeaderPolicy{
+        &kPrefetchAheadOfImminentNavigation,
+        "force_wait_no_vary_search_header_policy",
+        PrefetchAheadOfImminentNavigationForceWaitNVSHeaderPolicy::kUseIfNoHint,
+        &kPrefetchAheadOfImminentNavigationForceWaitNVSHeaderPolicyOptions};
+
+// If true, `PrefetchMatchResolver` uses `BlockUntilHeadTimeout` also for a
+// prefetch ahead of an imminent navigation.
+const base::FeatureParam<bool>
+    kPrefetchAheadOfImminentNavigationUseBlockUntilHeadTimeout{
+        &kPrefetchAheadOfImminentNavigation, "use_block_until_head_timeout",
+        false};
+
 // Allow starting prefetch request from off the main thread. Please see
 // crbug.com/452389538 for more details.
 BASE_FEATURE(kPrefetchOffTheMainThread, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -827,6 +867,12 @@ BASE_FEATURE(kPrefetchProxy, base::FEATURE_ENABLED_BY_DEFAULT);
 // https://crbug.com/496807663
 BASE_FEATURE(kPrefetchRequestStatusListenerAsync,
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+// This feature was used to launch the prefetch migration from embedder layer to
+// content/, and this work has finished and the old implementation was deleted.
+// Now this flag is just for injecting parameters through field trials as an
+// umbrella feature.
+BASE_FEATURE(kPrefetchUseContentRefactor, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Killswitch for UA override issue fix (crbug.com/441612842) in preloading.
 BASE_FEATURE(kPreloadingRespectUserAgentOverride,
@@ -1455,11 +1501,6 @@ const base::FeatureParam<bool>
         "prevent_window_content_changes_for_nodes_not_likely_in_android",
         false};
 
-// When enabled, supports atomic announcements, meaning that when
-// aria-atomic=true, the entire live region will be announced not just the node
-// that changed.
-BASE_FEATURE(kAccessibilityAtomicLiveRegions, base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Enables the second iteration of AccessibilityPageZoom, which continues
 // the work completed in the first experiment and the subsequent fast-follow.
 // This version of the experiment explores enabling OS-level adjustments.
@@ -1545,11 +1586,6 @@ BASE_FEATURE(kWebauthnDisabledOnAuto,
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_ANDROID)
 
-// Enables Exclusive Access Manager on Android platform
-#if BUILDFLAG(IS_ANDROID)
-BASE_FEATURE(kEnableExclusiveAccessManager, base::FEATURE_ENABLED_BY_DEFAULT);
-#endif
-
 // Sets IO threads to kInteractive all the time.
 BASE_FEATURE(kIOThreadInteractiveThreadType, base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -1567,12 +1603,7 @@ const base::FeatureParam<CapturingState>::Option kNavigationCapturingParams[] =
 
 const base::FeatureParam<CapturingState> kNavigationCapturingDefaultState{
     &kPwaNavigationCapturing, "link_capturing_state",
-#if BUILDFLAG(IS_CHROMEOS)
-    CapturingState::kReimplDefaultOff,
-#else
-    CapturingState::kReimplDefaultOn,
-#endif
-    &kNavigationCapturingParams};
+    CapturingState::kReimplDefaultOn, &kNavigationCapturingParams};
 
 const base::FeatureParam<std::string> kForcedOffCapturingAppsOnFirstNavigation{
     &kPwaNavigationCapturing, "initial_nav_forced_off_apps", ""};

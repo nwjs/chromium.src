@@ -34,7 +34,7 @@ source_set("internal") {
     # //c/b/ui/browser_window.
     visibility = [
       ":*",
-      "//chrome/browser/ui",
+      "//chrome/browser",
     ]
     sources += [
       "android/android_base_window.cc",
@@ -68,10 +68,7 @@ source_set("internal") {
       "embedder_browser_window_features.cc",
       "global_browser_collection_platform_delegate_non_android.cc",
     ]
-    public_deps = [
-      "//chrome/browser:browser_public_dependencies",
-      "//chrome/browser/ui:browser_live_tab_context",
-    ]
+    public_deps = [ "//chrome/browser/ui:browser_live_tab_context" ]
 
     deps += [
       "//chrome/browser:global_features",
@@ -86,6 +83,7 @@ source_set("internal") {
       "//chrome/browser/lens/region_search",
       "//chrome/browser/media/router:media_router_feature",
       "//chrome/browser/prefs",
+      "//chrome/browser/signin",
       "//chrome/browser/skills:public",
       "//chrome/browser/tab_group_sync:factories",
       "//chrome/browser/ttc/core",
@@ -134,6 +132,7 @@ source_set("internal") {
       "//chrome/browser/ui/tabs/tab_strip_api/controllers",
       "//chrome/browser/ui/tabs/tab_strip_api/tab_strip_model_impl",
       "//chrome/browser/ui/toasts",
+      "//chrome/browser/ui/toolbar",
       "//chrome/browser/ui/toolbar/chrome_labs",
       "//chrome/browser/ui/views:color_provider_browser_helper",
       "//chrome/browser/ui/views/animations",
@@ -142,6 +141,7 @@ source_set("internal") {
       "//chrome/browser/ui/views/download",
       "//chrome/browser/ui/views/frame:contents_border_controller",
       "//chrome/browser/ui/views/frame:find_bar_owner_views",
+      "//chrome/browser/ui/views/frame:horizontal_tab_strip_region_view",
       "//chrome/browser/ui/views/frame:multi_contents_view",
       "//chrome/browser/ui/views/fullscreen_control",
       "//chrome/browser/ui/views/interaction:impl",
@@ -228,10 +228,10 @@ source_set("internal") {
     if (is_win) {
       deps += [ "//chrome/browser/ui/views/frame:windows_taskbar_icon_updater" ]
     }
-  }
 
-  if (enable_extensions_core) {
-    deps += [ "//chrome/browser/extensions" ]
+    if (enable_extensions_core) {
+      deps += [ "//chrome/browser/extensions" ]
+    }
   }
 
   if (!is_android) {

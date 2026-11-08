@@ -47,6 +47,7 @@
 #include "third_party/blink/renderer/core/html/html_document.h"
 #include "third_party/blink/renderer/core/html/html_install_element.h"
 #include "third_party/blink/renderer/core/html_names.h"
+#include "third_party/blink/renderer/core/script_tools/model_context.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/wtf/hash_map.h"
 #include "third_party/blink/renderer/platform/wtf/size_assertions.h"
@@ -545,6 +546,7 @@ PseudoId CSSSelector::GetPseudoId(PseudoType type) {
     case kPseudoOpen:
     case kPseudoOptional:
     case kPseudoOutOfRange:
+    case kPseudoOverscrollClosed:
     case kPseudoOverscrollOpen:
     case kPseudoParent:
     case kPseudoPart:
@@ -751,6 +753,7 @@ constexpr static NameToPseudoStruct kPseudoTypeWithoutArgumentsMap[] = {
     {"optional", CSSSelector::kPseudoOptional},
     {"out-of-range", CSSSelector::kPseudoOutOfRange},
     {"overscroll-backdrop", CSSSelector::kPseudoOverscrollBackdrop},
+    {"overscroll-closed", CSSSelector::kPseudoOverscrollClosed},
     {"overscroll-open", CSSSelector::kPseudoOverscrollOpen},
     {"past", CSSSelector::kPseudoPastCue},
     {"paused", CSSSelector::kPseudoPaused},
@@ -932,7 +935,8 @@ CSSSelector::PseudoType CSSSelector::NameToPseudoType(
   if ((match->type == CSSSelector::kPseudoToolFormActive ||
        match->type == CSSSelector::kPseudoToolSubmitActive) &&
       document &&
-      !RuntimeEnabledFeatures::WebMCPEnabled(document->GetExecutionContext())) {
+      !ModelContext::IsDeclarativeWebMCPEnabled(
+          document->GetExecutionContext())) {
     return CSSSelector::kPseudoUnknown;
   }
 
@@ -948,8 +952,10 @@ CSSSelector::PseudoType CSSSelector::NameToPseudoType(
 
   if ((match->type == CSSSelector::kPseudoOverscrollAreaParent ||
        match->type == CSSSelector::kPseudoOverscrollBackdrop ||
+       match->type == CSSSelector::kPseudoOverscrollClosed ||
        match->type == CSSSelector::kPseudoOverscrollOpen) &&
-      !RuntimeEnabledFeatures::OverscrollGesturesEnabled()) {
+      !RuntimeEnabledFeatures::OverscrollAreasEnabled(
+          document ? document->GetExecutionContext() : nullptr)) {
     return CSSSelector::kPseudoUnknown;
   }
 
@@ -1199,6 +1205,7 @@ void CSSSelector::UpdatePseudoType(AtomicString value,
     case kPseudoOpen:
     case kPseudoOptional:
     case kPseudoOutOfRange:
+    case kPseudoOverscrollClosed:
     case kPseudoOverscrollOpen:
     case kPseudoParent:
     case kPseudoPastCue:
@@ -1872,6 +1879,9 @@ bool CSSSelector::IsTreeAbidingPseudoElement() const {
           GetPseudoType() == kPseudoViewTransitionNew ||
           GetPseudoType() == kPseudoOverscrollAreaParent ||
           GetPseudoType() == kPseudoSkeleton ||
+          GetPseudoType() == kPseudoScrollMarkerGroup ||
+          GetPseudoType() == kPseudoScrollMarker ||
+          GetPseudoType() == kPseudoScrollButton ||
           IsElementBackedPseudoElement(GetPseudoType()));
 }
 
@@ -1992,6 +2002,7 @@ bool CSSSelector::IsAllowedAfterPart() const {
     case kPseudoModal:
     case kPseudoMuted:
     case kPseudoOptional:
+    case kPseudoOverscrollClosed:
     case kPseudoOverscrollOpen:
     case kPseudoPermissionGranted:
     case kPseudoPlaceholderShown:

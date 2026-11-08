@@ -1003,7 +1003,6 @@
           'timeout_sec': 5400,
           'autotest_name': 'chromium',
         },
-        'experiment_percentage': 100,
       },
       'sql_unittests': {
         'skylab': {
@@ -2431,7 +2430,7 @@
           'chromedriver',
           '--binary',
           'chrome',
-          '--use-xvfb',
+          '--no-xvfb',
         ],
         'mac_args': [
           '--chromedriver',
@@ -2492,6 +2491,17 @@
           '--no-xvfb',
         ],
       },
+    },
+
+    'openscreen_chromium_gtests': {
+      'cast_unittests': {},
+      'components_unittests': {
+        'swarming': {
+          'shards': 2,
+        },
+      },
+      'media_unittests': {},
+      'openscreen_unittests': {},
     },
 
     'optimization_guide_android_gtests': {
@@ -3512,14 +3522,14 @@
       'chrome_ai_wpt_tests_manifest_cpu_gemma4_suite': {
         'mixins': [
           'chrome-intelligence-swarming-pool',
-          'non-gce',
+          'gce',
           'x64_ai_wpt_shards',
         ],
       },
       'chrome_ai_wpt_tests_manifest_cpu_suite': {
         'mixins': [
           'chrome-intelligence-swarming-pool',
-          'non-gce',
+          'gce',
           'x64_ai_wpt_shards',
         ],
       },
@@ -3589,8 +3599,8 @@
         ],
       },
       'ondevice_api_scrape_tests_suite': {
-        'mixins': [
-          'gce',
+        'variants': [
+          'NVIDIA_GEFORCE_GTX_1660',
         ],
       },
       'ondevice_stability_tests_suite': {
@@ -3698,8 +3708,10 @@
         ],
       },
       'ondevice_api_scrape_tests_suite': {
-        'mixins': [
-          'gce',
+        'variants': [
+          'AMD_RADEON_RX_5500_XT',
+          'INTEL_UHD_630_OR_770',
+          'NVIDIA_GEFORCE_GTX_1660',
         ],
       },
       'ondevice_stability_tests_suite': {

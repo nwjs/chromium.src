@@ -259,8 +259,13 @@ public class FirstRunIntegrationTest {
 
     private FirstRunActivity launchFirstRunActivityAndWaitForNativeInitialization() {
         FirstRunActivity firstRunActivity = launchFirstRunActivity();
+        // Each test method cold-starts native in a fresh process (@DoNotBatch), which can exceed
+        // the default poll timeout on loaded emulators.
         CriteriaHelper.pollUiThread(
-                () -> firstRunActivity.getNativeInitializationPromise().isFulfilled());
+                () -> firstRunActivity.getNativeInitializationPromise().isFulfilled(),
+                "FirstRunActivity native initialization did not complete",
+                CriteriaHelper.DEFAULT_MAX_TIME_TO_POLL_LONG,
+                CriteriaHelper.DEFAULT_POLLING_INTERVAL);
         return firstRunActivity;
     }
 
@@ -490,6 +495,32 @@ public class FirstRunIntegrationTest {
                 .dismissHistorySync();
 
         waitForActivity(BlankUiTestActivity.class);
+    }
+
+    @Test
+    @MediumTest
+    // Sign-in is not supported on automotive devices.
+    @Restriction({DeviceRestriction.RESTRICTION_TYPE_NON_AUTO})
+    public void testSkipWelcomePageUpdatedWhenNavigatingThroughWelcomePage() throws Exception {
+        mSigninTestRule.addAccount(TestAccounts.AADC_ADULT_ACCOUNT);
+        initializePreferences(FirstRunPagesTestCase.createWithShowAllPromos());
+
+        FirstRunActivity firstRunActivity = launchFirstRunActivity();
+        FirstRunNavigationHelper navigationHelper =
+                new FirstRunNavigationHelper(firstRunActivity)
+                        .ensurePagesCreationSucceeded()
+                        .ensureWelcomePageIsCurrentPage();
+        Assert.assertFalse(FirstRunStatus.shouldSkipWelcomePage());
+
+        // Moving past the welcome page should mark it as skippable.
+        navigationHelper
+                .continueAndSignIn(TestAccounts.AADC_ADULT_ACCOUNT)
+                .ensureDefaultSearchEnginePromoIsCurrentPage();
+        Assert.assertTrue(FirstRunStatus.shouldSkipWelcomePage());
+
+        // Going back to the welcome page should make it shown again.
+        navigationHelper.goBackToPreviousPage().ensureWelcomePageIsCurrentPage();
+        Assert.assertFalse(FirstRunStatus.shouldSkipWelcomePage());
     }
 
     @Test

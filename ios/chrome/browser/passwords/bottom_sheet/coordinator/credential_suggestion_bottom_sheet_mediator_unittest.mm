@@ -22,6 +22,7 @@
 #import "components/password_manager/core/browser/passkey_credential.h"
 #import "components/password_manager/core/browser/password_manager_test_utils.h"
 #import "components/password_manager/core/browser/password_store/test_password_store.h"
+#import "components/password_manager/core/browser/password_string.h"
 #import "components/password_manager/ios/password_manager_java_script_feature.h"
 #import "components/password_manager/ios/shared_password_controller.h"
 #import "components/password_manager/ios/test_helpers.h"
@@ -86,6 +87,7 @@ constexpr autofill::FormRendererId kFormRendererId(1);
 constexpr autofill::FieldRendererId kUsernameFieldRendererId(2);
 constexpr autofill::FieldRendererId kPasswordFieldRendererId(3);
 
+constexpr char kTestRpId[] = "foo.com";
 constexpr char kTestUsername1[] = "user1@gmail.com";
 constexpr char kTestDisplayName1[] = "User One";
 constexpr char kTestUsername2[] = "user2@gmail.com";
@@ -464,7 +466,7 @@ class CredentialSuggestionBottomSheetMediatorTest : public PlatformTest {
     std::vector<password_manager::PasskeyCredential> passkeys = {
         password_manager::PasskeyCredential(
             password_manager::PasskeyCredential::Source::kICloudKeychain,
-            password_manager::PasskeyCredential::RpId("foo.com"),
+            password_manager::PasskeyCredential::RpId(kTestRpId),
             password_manager::PasskeyCredential::CredentialId(credential_id),
             password_manager::PasskeyCredential::UserId(user_id),
             password_manager::PasskeyCredential::Username(username),
@@ -635,7 +637,8 @@ TEST_F(CredentialSuggestionBottomSheetMediatorTest,
 
   password_manager::CredentialUIEntry expectedCredential;
   expectedCredential.username = u"test1";
-  expectedCredential.password = u"test1password";
+  expectedCredential.password =
+      password_manager::PasswordString(u"test1password");
   password_manager::CredentialFacet facet;
   GURL URL(u"http://www.example.com/");
   facet.signon_realm = URL.spec();
@@ -662,7 +665,8 @@ TEST_F(CredentialSuggestionBottomSheetMediatorTest,
 
   password_manager::CredentialUIEntry expectedCredential;
   expectedCredential.username = u"test1";
-  expectedCredential.password = u"test1password";
+  expectedCredential.password =
+      password_manager::PasswordString(u"test1password");
   password_manager::CredentialFacet facet;
   GURL URL(u"http://www.example.com/");
   facet.signon_realm = URL.spec();
@@ -842,7 +846,7 @@ TEST_F(CredentialSuggestionBottomSheetMediatorTest,
   page_world_frames_manager->AddWebFrame(std::move(page_world_main_frame));
 
   sync_pb::WebauthnCredentialSpecifics passkey;
-  passkey.set_rp_id("foo.com");
+  passkey.set_rp_id(kTestRpId);
   passkey.set_credential_id(
       std::string(credential_id.begin(), credential_id.end()));
   passkey.set_sync_id(base::RandBytesAsString(16));
@@ -884,7 +888,7 @@ TEST_F(CredentialSuggestionBottomSheetMediatorTest,
 
   webauthn::IOSPasskeyClient::RequestInfo request_info(
       kMainFrameId, "request_id", remote_token);
-  device::PublicKeyCredentialRpEntity rp_entity("foo.com");
+  device::PublicKeyCredentialRpEntity rp_entity(kTestRpId);
   std::vector<uint8_t> challenge;
   webauthn::PasskeyRequestParams request_params(
       std::move(request_info), std::move(rp_entity), std::move(challenge),
@@ -941,4 +945,42 @@ TEST_F(CredentialSuggestionBottomSheetMediatorTest,
   // Verify that FetchKeys was called with kCompleted!
   EXPECT_EQ(fake_client->last_user_verification_status(),
             webauthn::PasskeyUserVerificationStatus::kCompleted);
+}
+
+// Tests that passkey credentials are fetched for the form and can be retrieved
+// for a passkey suggestion.
+TEST_F(CredentialSuggestionBottomSheetMediatorTest, FetchesPasskeyCredentials) {
+  NSString* displayName = base::SysUTF8ToNSString(kTestDisplayName1);
+  std::vector<uint8_t> credentialId = {1, 2, 3, 4};
+  std::vector<uint8_t> userId = {5, 6, 7, 8};
+
+  FormSuggestion* passkeySuggestion = [FormSuggestion
+      suggestionWithValue:displayName
+       displayDescription:nil
+                     icon:nil
+                     type:autofill::SuggestionType::kWebauthnCredential
+                  payload:autofill::Suggestion::Payload(
+                              autofill::Suggestion::Guid(
+                                  base::Base64Encode(credentialId)))
+           requiresReauth:YES];
+
+  SetUpMockPasskeyDelegate(credentialId, userId, kTestUsername1,
+                           kTestDisplayName1);
+  id mockController = SetupSuggestionsMockAndInitialize(@[ passkeySuggestion ]);
+
+  password_manager::CredentialUIEntry expectedCredential(
+      password_manager::PasskeyCredential(
+          password_manager::PasskeyCredential::Source::kICloudKeychain,
+          password_manager::PasskeyCredential::RpId(kTestRpId),
+          password_manager::PasskeyCredential::CredentialId(credentialId),
+          password_manager::PasskeyCredential::UserId(userId),
+          password_manager::PasskeyCredential::Username(kTestUsername1),
+          password_manager::PasskeyCredential::DisplayName(kTestDisplayName1)));
+
+  std::optional<password_manager::CredentialUIEntry> credential =
+      [mediator_ getCredentialForFormSuggestion:passkeySuggestion];
+  ASSERT_TRUE(credential.has_value());
+  EXPECT_EQ(credential.value(), expectedCredential);
+
+  [mockController stopMocking];
 }

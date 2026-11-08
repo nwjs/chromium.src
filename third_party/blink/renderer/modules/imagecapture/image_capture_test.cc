@@ -2,14 +2,16 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-
 #include "third_party/blink/renderer/modules/imagecapture/image_capture.h"
 
 #include "base/functional/callback_helpers.h"
+#include "base/test/bind.h"
 #include "base/time/time.h"
 #include "media/base/video_frame.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/blink/public/platform/modules/mediastream/web_media_stream_sink.h"
+#include "third_party/blink/public/platform/web_graphics_context_3d_provider.h"
 #include "third_party/blink/public/web/web_heap.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_function.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise_resolver.h"
@@ -36,6 +38,8 @@
 #include "third_party/blink/renderer/modules/mediastream/mock_media_stream_track.h"
 #include "third_party/blink/renderer/modules/mediastream/mock_video_capturer_source.h"
 #include "third_party/blink/renderer/platform/bindings/script_state.h"
+#include "third_party/blink/renderer/platform/graphics/gpu/shared_gpu_context.h"
+#include "third_party/blink/renderer/platform/heap/persistent.h"
 #include "third_party/blink/renderer/platform/testing/io_task_runner_testing_platform_support.h"
 #include "third_party/blink/renderer/platform/testing/task_environment.h"
 
@@ -659,8 +663,8 @@ class MockMediaStreamComponent
   MOCK_METHOD4(AddSink,
                void(WebMediaStreamSink*,
                     const VideoCaptureDeliverFrameCB&,
-                    MediaStreamVideoSink::IsSecure,
-                    MediaStreamVideoSink::UsesAlpha));
+                    WebMediaStreamSink::IsSecure,
+                    WebMediaStreamSink::UsesAlpha));
   MOCK_CONST_METHOD0(ToString, String());
 };
 
@@ -701,8 +705,8 @@ class ImageCaptureTest : public testing::Test {
     ON_CALL(*component_, AddSink(_, _, _, _))
         .WillByDefault([&](WebMediaStreamSink* sink,
                            const VideoCaptureDeliverFrameCB& callback,
-                           MediaStreamVideoSink::IsSecure is_secure,
-                           MediaStreamVideoSink::UsesAlpha uses_alpha) {
+                           WebMediaStreamSink::IsSecure is_secure,
+                           WebMediaStreamSink::UsesAlpha uses_alpha) {
           platform_track_->AddSink(sink, callback, is_secure, uses_alpha);
           if (produce_frame_on_add_sink_) {
             callback.Run(media::VideoFrame::CreateBlackFrame(gfx::Size(1, 1)),
@@ -1609,6 +1613,38 @@ TEST_F(ImageCaptureTest, GrabFrameOfLiveTrackIsFulfilled) {
   ScriptPromiseTester tester(scope.GetScriptState(), result);
   tester.WaitUntilSettled();
   EXPECT_TRUE(tester.IsFulfilled());
+}
+
+TEST_F(ImageCaptureTest, GrabFrameSurvivesOwnerCollectionDuringConversion) {
+  V8TestingScope scope;
+  SetupTrackMocks(scope);
+  track_->SetReadyState(V8MediaStreamTrackState::Enum::kLive);
+  track_->setEnabled(true);
+  track_->SetMuted(false);
+
+  WeakPersistent<ImageCapture> weak_image_capture(image_capture_.Get());
+  SharedGpuContext::Reset();
+  base::ScopedClosureRunner reset_context(
+      base::BindOnce(&SharedGpuContext::Reset));
+  SharedGpuContext::SetContextProviderFactoryForTesting(
+      base::BindLambdaForTesting(
+          [&]() -> std::unique_ptr<WebGraphicsContext3DProvider> {
+            // GPU channel initialization can run callbacks which trigger GC.
+            if (image_capture_) {
+              image_capture_.Clear();
+              WebHeap::CollectAllGarbageForTesting();
+              EXPECT_FALSE(weak_image_capture);
+            }
+            return nullptr;
+          }));
+
+  auto result = image_capture_->grabFrame(scope.GetScriptState());
+
+  ScriptPromiseTester tester(scope.GetScriptState(), result);
+  tester.WaitUntilSettled();
+  EXPECT_FALSE(weak_image_capture);
+  EXPECT_TRUE(tester.IsFulfilled());
+  EXPECT_EQ(0u, platform_track_->CountSinks());
 }
 
 TEST_F(ImageCaptureTest, GrabFrameOfMutedTrackIsFulfilled) {

@@ -14,16 +14,14 @@ static_library("users_private") {
     "users_private_delegate_factory.h",
   ]
 
-  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
-
   deps = [
     "//base",
     "//chrome/browser/ash/ownership",
     "//chrome/browser/ash/profiles",
     "//chrome/browser/profiles:profile",
-    "//chrome/common",
     "//chromeos/ash/components/install_attributes",
     "//chromeos/ash/components/settings",
+    "//chromeos/ash/experiences/extensions/common/api",
     "//components/keyed_service/core",
     "//components/session_manager/core",
     "//components/user_manager",
@@ -46,10 +44,10 @@ source_set("browser_tests") {
     "//chrome/browser/ash/login/lock",
     "//chrome/browser/ash/login/lock:test_support",
     "//chrome/browser/ash/ownership",
-    "//chrome/common",
     "//chrome/test:test_support",
     "//chromeos/ash/components/policy/device_policy:test_support",
     "//chromeos/ash/components/settings",
+    "//chromeos/ash/experiences/extensions/common/api",
     "//components/keyed_service/core",
     "//components/ownership",
     "//components/prefs",

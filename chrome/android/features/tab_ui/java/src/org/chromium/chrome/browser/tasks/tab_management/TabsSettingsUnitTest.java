@@ -340,7 +340,7 @@ public class TabsSettingsUnitTest {
         assertTrue(shareTitlesAndUrlsWithOsSwitch.isVisible());
         assertTrue(learnMoreTextMessagePreference.isVisible());
 
-        View view = Mockito.mock(View.class);
+        View view = new View(mActivity);
         tabsSettings.onLearnMoreClicked(view);
         verify(mCustomTabLauncher).openUrlInCct(eq(mActivity), eq(TabsSettings.LEARN_MORE_URL));
     }

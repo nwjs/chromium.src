@@ -10,15 +10,17 @@
 #include "base/test/metrics/histogram_tester.h"
 #include "chrome/browser/actor/actor_keyed_service_factory.h"
 #include "chrome/browser/actor/actor_keyed_service_fake.h"
+#include "chrome/browser/actor/actor_surface_registry.h"
 #include "chrome/browser/actor/resources/grit/actor_browser_resources.h"
 #include "chrome/browser/actor/ui/actor_ui_metrics.h"
 #include "chrome/browser/glic/browser_ui/activity_list_bubble/glic_activity_list_bubble_controller.h"
 #include "chrome/browser/glic/browser_ui/activity_list_bubble/glic_activity_list_bubble_row_button.h"
 #include "chrome/browser/glic/browser_ui/glic_split_button_controller.h"
 #include "chrome/browser/glic/glic_profile_manager.h"
+#include "chrome/browser/glic/public/features.h"
 #include "chrome/browser/glic/public/glic_enabling.h"
 #include "chrome/browser/glic/public/glic_keyed_service_factory.h"
-#include "chrome/browser/glic/public/service/glic_activity_manager.h"
+#include "chrome/browser/glic/public/service/legacy_glic_activity_manager.h"
 #include "chrome/browser/glic/test_support/glic_test_environment.h"
 #include "chrome/browser/glic/test_support/mock_glic_keyed_service.h"
 #include "chrome/browser/ui/browser_window/test/mock_browser_window_interface.h"
@@ -54,8 +56,8 @@ class ActorTaskListBubbleTest : public ChromeViewsTestBase {
     ChromeViewsTestBase::SetUp();
 
     std::vector<base::test::FeatureRefAndParams> enabled_features = {
-        {features::kGlicActor,
-         {{features::kGlicActorPolicyControlExemption.name, "true"}}}};
+        {features::kGlicActor, {}},
+        {features::kGlicActorPolicyControlExemption, {}}};
     feature_list_.InitWithFeaturesAndParameters(std::move(enabled_features),
                                                 {});
 
@@ -91,6 +93,7 @@ class ActorTaskListBubbleTest : public ChromeViewsTestBase {
 
     mock_tab_ = std::make_unique<MockTabInterface>();
     ON_CALL(*mock_tab_, GetProfile()).WillByDefault(testing::Return(profile_));
+    actor_service_->GetSurfaceRegistry().OnTabCreated(*mock_tab_);
 
     browser_window_interface_ = std::make_unique<MockBrowserWindowInterface>();
     ON_CALL(*browser_window_interface_, GetUnownedUserDataHost)

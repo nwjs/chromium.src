@@ -12,6 +12,7 @@
 
 #include "base/atomic_sequence_num.h"
 #include "base/check.h"
+#include "base/containers/flat_set.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
@@ -97,6 +98,11 @@ GlicInvokeOptions CreateInvokeOptions(
     if (!trigger_req.initial_prompt.empty()) {
       options.prompts.push_back(trigger_req.initial_prompt);
     }
+    auto et_payload = mojom::ExperimentalTriggeringPayload::New();
+    et_payload->payment_metadata = trigger_req.payment_metadata;
+    options.source_or_payload =
+        mojom::InvocationPayload::NewExperimentalTriggering(
+            std::move(et_payload));
   } else if (std::holds_alternative<ContinueActuationRequest>(
                  request.payload)) {
     options.feature_mode = mojom::FeatureMode::kActuation;
@@ -312,10 +318,41 @@ class ExperimentalTriggeringUpdatesHandler
         receiver_(this) {}
 
   ~ExperimentalTriggeringUpdatesHandler() override {
+    RemovePendingTask();
     if (is_actuation_started_ && !outcome_recorded_) {
       RecordOutcome(GlicExperimentalTriggeringExecutionOutcome::
                         kDestroyedBeforeCompletion);
     }
+  }
+
+  void RemovePendingTask() {
+    if (!coordinator_ || !coordinator_->profile_) {
+      return;
+    }
+    if (auto* actor_service =
+            actor::ActorKeyedService::Get(coordinator_->profile_)) {
+      actor_service->RemovePendingTask(context_id_);
+    }
+  }
+
+  void ObserveActorTaskCreation() {
+    if (!instance_ || actuating_subscription_) {
+      return;
+    }
+    if (auto* task_manager = instance_->GetActorTaskManager()) {
+      actuating_subscription_ =
+          task_manager->AddActuatingChangedCallback(base::BindRepeating(
+              &ExperimentalTriggeringUpdatesHandler::OnActuatingChanged,
+              weak_ptr_factory_.GetWeakPtr()));
+    }
+  }
+
+  void OnActuatingChanged(bool is_actuating) {
+    if (!is_actuating) {
+      return;
+    }
+    actuating_subscription_ = {};
+    RemovePendingTask();
   }
 
   std::optional<ExperimentalTriggeringResponse> OnRequest(
@@ -326,6 +363,10 @@ class ExperimentalTriggeringUpdatesHandler
     if (update_callback) {
       update_callback_ = std::move(update_callback);
     }
+    base::ScopedClosureRunner cleanup_runner(base::BindOnce(
+        &GlicExperimentalTriggeringCoordinator::OnUpdatesHandlerCleanup,
+        coordinator_, context_id_));
+
     if (!request.task_metadata.has_value()) {
       result_logger.set_result(GlicExperimentalTriggeringIncomingMessageResult::
                                    kMissingTaskMetadata);
@@ -341,10 +382,6 @@ class ExperimentalTriggeringUpdatesHandler
       last_seen_sequence_number_ =
           *request.task_metadata->sender_sequence_number;
     }
-
-    base::ScopedClosureRunner cleanup_runner(base::BindOnce(
-        &GlicExperimentalTriggeringCoordinator::OnUpdatesHandlerCleanup,
-        coordinator_, context_id_));
 
     return std::visit(
         absl::Overload{
@@ -609,12 +646,26 @@ class ExperimentalTriggeringUpdatesHandler
     SubscribeForTriggeringUpdates(std::move(instance));
   }
 
-  void OnInvokeError(GlicInvokeError error) {
+  void OnInvokeSuccess(int invoke_id) { pending_invoke_ids_.erase(invoke_id); }
+
+  void OnInvokeError(int invoke_id, GlicInvokeError error) {
+    pending_invoke_ids_.erase(invoke_id);
     if (error == GlicInvokeError::kSuperseded) {
+      // Handlers are shared per context id, so a continuation request invokes
+      // on the same handler that owns the in-flight invocation it supersedes.
+      // If another invocation started by this handler is still in flight, it
+      // is the one that superseded this invocation and is now responsible for
+      // this handler, so it must not be torn down.
+      if (!pending_invoke_ids_.empty()) {
+        return;
+      }
+      RemovePendingTask();
+      // Superseded by some other (non experimental triggering) invocation.
       outcome_recorded_ = true;
       CleanupAsync();
       return;
     }
+    RemovePendingTask();
     DLOG(WARNING) << "Glic invocation failed with error: "
                   << GlicInvokeErrorToString(error);
     HandleTerminalUpdate(TaskUpdate::State::kFailed,
@@ -626,6 +677,7 @@ class ExperimentalTriggeringUpdatesHandler
   }
 
   void OnDisconnect() {
+    RemovePendingTask();
     HandleTerminalUpdate(TaskUpdate::State::kFailed,
                          TaskUpdate::DataType::kErrorMessage,
                          GlicExperimentalTriggeringExecutionOutcome::
@@ -772,9 +824,14 @@ class ExperimentalTriggeringUpdatesHandler
     options.on_client_connected =
         base::BindOnce(&ExperimentalTriggeringUpdatesHandler::OnClientConnected,
                        weak_ptr_factory_.GetWeakPtr());
+    const int invoke_id = next_invoke_id_++;
+    pending_invoke_ids_.insert(invoke_id);
+    options.on_success =
+        base::BindOnce(&ExperimentalTriggeringUpdatesHandler::OnInvokeSuccess,
+                       weak_ptr_factory_.GetWeakPtr(), invoke_id);
     options.on_error =
         base::BindOnce(&ExperimentalTriggeringUpdatesHandler::OnInvokeError,
-                       weak_ptr_factory_.GetWeakPtr());
+                       weak_ptr_factory_.GetWeakPtr(), invoke_id);
 
     auto response = CreateResponseMessage(
         context_id_, TaskUpdate::State::kStarting, std::nullopt, "",
@@ -800,6 +857,9 @@ class ExperimentalTriggeringUpdatesHandler
         passkey_, std::move(options), std::move(auto_submit_options));
     if (weak_this) {
       weak_this->instance_ = std::move(instance);
+      if (!is_continuation) {
+        weak_this->ObserveActorTaskCreation();
+      }
     }
 
     result_logger.set_result(
@@ -1444,6 +1504,7 @@ class ExperimentalTriggeringUpdatesHandler
   InvokeWithAutoSubmitPasskey passkey_;
   base::WeakPtr<GlicExperimentalTriggeringCoordinator> coordinator_;
   base::WeakPtr<GlicInstance> instance_;
+  base::CallbackListSubscription actuating_subscription_;
   std::unique_ptr<actor::ActorActionsRunner> actions_runner_;
   base::OneShotTimer actions_timeout_timer_;
   mojo::Receiver<mojom::ExperimentalTriggeringUpdatesHandler> receiver_;
@@ -1458,6 +1519,10 @@ class ExperimentalTriggeringUpdatesHandler
   bool first_response_received_ = false;
   bool outcome_recorded_ = false;
   bool is_cleaning_up_ = false;
+  // Ids of invocations started by this handler that have neither succeeded nor
+  // failed yet.
+  base::flat_set<int> pending_invoke_ids_;
+  int next_invoke_id_ = 0;
   base::TimeTicks task_start_time_;
   base::TimeTicks turn_start_time_;
 
@@ -1594,6 +1659,11 @@ GlicExperimentalTriggeringCoordinator::OnRequest(
 
 void GlicExperimentalTriggeringCoordinator::OnUpdatesHandlerCleanup(
     const std::string& context_id) {
+  if (profile_) {
+    if (auto* actor_service = actor::ActorKeyedService::Get(profile_)) {
+      actor_service->RemovePendingTask(context_id);
+    }
+  }
   auto it = context_id_to_updates_handler_map_.find(context_id);
   if (it != context_id_to_updates_handler_map_.end()) {
     context_id_to_updates_handler_map_.erase(it);
@@ -1608,7 +1678,7 @@ GlicExperimentalTriggeringCoordinator::GetCapabilities(
       syncer::DeviceInfo::GlicExperimentalTriggeringState::kUnavailable) {
     return {};
   }
-  base::flat_set<std::string> capabilities;
+  base::flat_set<std::string> capabilities = {kGlicCapabilityStructuredYields};
   if (base::FeatureList::IsEnabled(
           features::kGlicExperimentalTriggeringScreenshot)) {
     capabilities.insert(kGlicCapabilityScreenshot);

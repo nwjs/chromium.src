@@ -23,6 +23,7 @@ import "services/webnn/public/mojom/webnn_service_introspection.mojom";
 import "ui/gfx/geometry/mojom/geometry.mojom";
 import "ui/gfx/mojom/buffer_types.mojom";
 import "ui/gl/mojom/gpu_preference.mojom";
+import "services/viz/privileged/mojom/gl/gpu_client_type.mojom";
 
 [EnableIf=is_chromeos]
 import "chromeos/ash/experiences/arc/mojom/protected_buffer_manager.mojom";
@@ -73,8 +74,7 @@ interface GpuService {
   EstablishGpuChannel(
       int32 client_id,
       uint64 client_tracing_id,
-      bool is_gpu_host,
-      bool enable_extra_handles_validation,
+      GpuClientType client_type,
       handle<message_pipe> channel_handle)  => (
           bool success,
           gpu.mojom.GpuInfo gpu_info,

@@ -131,6 +131,7 @@ enum InstallStatus {
                                       // due to a conflict during upload.
   CONFIGURE_APP_CONTAINER_SANDBOX_SUCCESS = 78,
   CONFIGURE_APP_CONTAINER_SANDBOX_FAILED = 79,
+  // LINT.IfChange(InstallComponent)
   INSTALL_COMPONENT_SUCCESS = 80,  // Successfully installed component DLL to
                                    // system dir.
   INSTALL_COMPONENT_FAILED_INTERNAL = 81,  // Failed to install component DLL
@@ -142,6 +143,7 @@ enum InstallStatus {
   INSTALL_COMPONENT_INVALID_INPUT = 84,     // Failed due to invalid input
                                          // structure, manifest, or unsupported
                                          // component.
+  // LINT.ThenChange(/chrome/browser/component_updater/install_product_component_win.cc:MapInstallerExitCode)
   MAX_INSTALL_STATUS = 85,  // When adding a new result, bump this and update
                             // the SetupInstallResult enum in enums.xml.
 };
@@ -270,6 +272,22 @@ inline constexpr char kArchiveResourceType[] = "archive-resource-type";
 // install.
 inline constexpr char kUncompressedArchive[] = "uncompressed-archive";
 
+// Installs a Chrome component from the inner CRX at the specified path into
+// the Chrome application directory (system-level if kSystemLevel is present,
+// or user-level otherwise).
+inline constexpr char kInstallComponent[] = "install-component";
+
+// The Windows Security Identifier (SID) of the calling user for per-user
+// component installation. For a system-level install, the user identified by
+// this SID is granted access to the installed component. The process that
+// launches setup must therefore derive it from the authenticated token of the
+// user on whose behalf the component is installed, and never from input
+// supplied by that user or any other untrusted party.
+inline constexpr char kUserSid[] = "user-sid";
+
+// The canonicalized user data directory for per-user component installation.
+inline constexpr char kUdd[] = "udd";
+
 // Specify the file path of Chrome initial preference file.
 inline constexpr char kInstallerData[] = "installerdata";
 
@@ -341,10 +359,6 @@ inline constexpr char kShowEula[] = "show-eula";
 // Saves the specified device management token to the registry.
 inline constexpr char kStoreDMToken[] = "store-dmtoken";
 
-// Installs a Chrome component from the specified source path to the
-// system-level Chrome directory.
-inline constexpr char kInstallComponent[] = "install-component";
-
 // Install Chrome to system wise location. The default is per user install.
 inline constexpr char kSystemLevel[] = "system-level";
 
@@ -392,6 +406,8 @@ inline constexpr wchar_t kCmdStoreDMToken[] = L"store-dmtoken";
 inline constexpr wchar_t kCmdDeleteDMToken[] = L"delete-dmtoken";
 inline constexpr wchar_t kCmdInstallPEH[] = L"install-peh";
 inline constexpr wchar_t kCmdInstallComponent[] = L"install-component";
+inline constexpr wchar_t kCmdInstallComponentForUser[] =
+    L"install-component-for-user";
 
 // LINT.IfChange(kEulaSentinelFile)
 inline constexpr wchar_t kEulaSentinelFile[] = L"EULA Accepted";

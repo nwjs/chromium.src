@@ -7,6 +7,7 @@ package org.chromium.chrome.browser.compositor.overlay_panel;
 import android.app.Activity;
 import android.content.Context;
 import android.view.ViewGroup;
+import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 
 import androidx.test.annotation.UiThreadTest;
@@ -65,10 +66,10 @@ public class OverlayPanelManagerTest {
 
     @Mock private LayoutManagerImpl mLayoutManager;
     @Mock private BrowserControlsStateProvider mBrowserControlsStateProvider;
-    @Mock private ViewGroup mCompositorViewHolder;
     @Mock private Tab mTab;
     @Mock private InsetObserver mInsetObserver;
 
+    private ViewGroup mCompositorViewHolder;
     Activity mActivity;
     ActivityWindowAndroid mWindowAndroid;
 
@@ -186,6 +187,7 @@ public class OverlayPanelManagerTest {
                 ThreadUtils.runOnUiThreadBlocking(
                         () -> {
                             mActivity = activityTestRule.getActivity();
+                            mCompositorViewHolder = new FrameLayout(mActivity);
                             return new ActivityWindowAndroid(
                                     mActivity,
                                     /* listenToActivityState= */ true,

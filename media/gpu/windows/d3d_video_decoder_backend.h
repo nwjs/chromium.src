@@ -69,13 +69,11 @@ class D3DVideoDecoderBackend {
                             VideoChromaSampling chroma_sampling,
                             const gpu::GpuPreferences& gpu_preferences,
                             const gpu::GpuDriverBugWorkarounds& gpu_workarounds,
-                            bool use_shared_handle,
                             MediaLog* media_log) = 0;
 
   virtual D3DStatus::Or<std::unique_ptr<TextureSelector>> CreateTextureSelector(
       D3DDecoderConfigurator* decoder_configurator,
       const VideoDecoderConfig& config,
-      const gpu::GpuPreferences& gpu_preferences,
       const gpu::GpuDriverBugWorkarounds& gpu_workarounds,
       bool use_shared_handle,
       MediaLog* media_log) = 0;
@@ -111,8 +109,6 @@ class D3DVideoDecoderBackend {
       MediaLog* media_log,
       base::OnceCallback<void(scoped_refptr<D3DPictureBuffer>)>
           init_done_cb) = 0;
-
-  virtual D3DStatus WaitForDecodeComplete(D3DPictureBuffer* picture_buffer) = 0;
 
   // Returns true if standard DXVA HEVC range-extension profiles should be used
   // for `config`.

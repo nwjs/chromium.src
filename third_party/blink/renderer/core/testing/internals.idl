@@ -289,6 +289,8 @@ interface Internals {
     void setDarkPreferredRootScrollbarColorScheme(Document document);
     void setForcedColorsAndDarkPreferredColorScheme(Document document);
 
+    void setAccentColor(DOMString color_value);
+
     [RaisesException] void setShouldRevealPassword(Element element, boolean reveal);
 
     [CallWith=ScriptState] Promise<any> createResolvedPromise(any value);
@@ -325,9 +327,10 @@ interface Internals {
     InternalsUkmRecorder initializeUKMRecorder();
     CallbackFunctionTest callbackFunctionTest();
     // Creates and returns an `NADCAttributeTest` object, which provides test
-    // functions to test attributes with the IDL extended attributei
+    // functions to test attributes with the IDL extended attribute
     // `NoAllocDirectCall`.
     NADCAttributeTest nadcAttributeTest();
+    PassAsSpanTest passAsSpanTest();
 
     DOMString selectedHTMLForClipboard();
     DOMString selectedTextForClipboard();

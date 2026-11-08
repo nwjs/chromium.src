@@ -43,6 +43,41 @@ chromium-metrics-reviews@google.com.
   <variant name=".Unknown" summary=""/>
 </variants>
 
+<!-- LINT.IfChange(PrewarmOutcome) -->
+
+<variants name="DeviceBoundSessionPrewarmOutcome">
+  <variant name=".FatalError"
+      summary="with a fatal error that terminated the session"/>
+  <variant name=".NotYetNeeded"
+      summary="with no session needing a refresh yet"/>
+  <variant name=".OtherTransientError"
+      summary="with a server or signing error"/>
+  <variant name=".Success" summary="with a successful refresh"/>
+  <variant name=".Unreachable" summary="with the refresh endpoint unreachable"/>
+</variants>
+
+<!-- LINT.ThenChange(//chrome/browser/net/device_bound_session_prewarmer.cc:PrewarmOutcome) -->
+
+<variants name="DeviceBoundSessionRefreshType">
+  <variant name=".MissingCookie" summary="a missing cookie"/>
+  <variant name=".Proactive" summary="the proactive refresh heuristics"/>
+</variants>
+
+<!-- LINT.IfChange(RegistrationType) -->
+
+<variants name="DeviceBoundSessionRegistrationType">
+  <variant name=".Federated"
+      summary="federated session registrations (reusing a provider session
+               key)"/>
+  <variant name=".SingleSignOn"
+      summary="single sign-on session registrations (using a pre-provisioned
+               key)"/>
+  <variant name=".Standalone"
+      summary="standalone session registrations (generating a new key)"/>
+</variants>
+
+<!-- LINT.ThenChange(//net/device_bound_sessions/session_service_impl.h:RegistrationType) -->
+
 <variants name="DnsOverHttpsSecure">
   <variant name="Insecure" summary="DoH is not enabled"/>
   <variant name="Secure" summary="DoH is enabled"/>
@@ -162,9 +197,29 @@ chromium-metrics-reviews@google.com.
       summary="Triggered by server preferred address available."/>
   <variant name="OnWriteError" summary="Triggered by a socket write error."/>
   <variant name="Unknown" summary="Triggered by unknown cause."/>
+  <variant name="WaitForNewNetworkPostNetworkDisconnected"
+      summary="Triggered by waiting for a new network post network
+               disconnected."/>
+  <variant name="WaitForNewNetworkPostWriteError"
+      summary="Triggered by waiting for a new network post write error."/>
 </variants>
 
 <!-- LINT.ThenChange(//net/quic/quic_migration_attempt_context.h:QuicMigrationAttemptCause) -->
+
+<!-- LINT.IfChange(QuicSocketConfigStep) -->
+
+<variants name="QuicSocketConfigStep">
+  <variant name="Connect" summary="Connecting and binding the socket."/>
+  <variant name="SetDoNotFragment"
+      summary="Setting the do-not-fragment socket option."/>
+  <variant name="SetReceiveBufferSize"
+      summary="Setting the receive buffer size."/>
+  <variant name="SetReceiveEcn"
+      summary="Setting the receive ECN / TOS socket option."/>
+  <variant name="SetSendBufferSize" summary="Setting the send buffer size."/>
+</variants>
+
+<!-- LINT.ThenChange(//net/quic/quic_socket_config_step.h:QuicSocketConfigStep) -->
 
 <variants name="ReferrerPolicySameOrigin">
   <variant name=".CrossOrigin" summary="Cross-origin requests."/>
@@ -284,6 +339,14 @@ chromium-metrics-reviews@google.com.
   <variant name="WillStartRequest"/>
 </variants>
 
+<variants name="WaitForNewNetworkCause">
+  <variant name="WaitForNewNetworkPostNetworkDisconnected"
+      summary="Triggered by waiting for a new network post network
+               disconnected."/>
+  <variant name="WaitForNewNetworkPostWriteError"
+      summary="Triggered by waiting for a new network post write error."/>
+</variants>
+
 <variants name="WillProcessResponseThrottleNames">
   <variant name="MimeSniffingThrottle"/>
   <variant name="SafeBrowsingBrowserThrottle"/>
@@ -336,7 +399,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="HttpCache.AccessToDone2{HttpCacheAccessToDoneCases}"
-    units="ms" expires_after="2027-01-31">
+    units="ms" expires_after="2027-04-04">
   <owner>morlovich@chromium.org</owner>
   <owner>olivierli@chromium.org</owner>
   <summary>
@@ -366,7 +429,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="HttpCache.BeforeSend{HttpCacheBeforeSendCases}" units="ms"
-    expires_after="2027-01-31">
+    expires_after="2027-04-04">
   <owner>morlovich@chromium.org</owner>
   <owner>yhirano@chromium.org</owner>
   <summary>
@@ -1196,7 +1259,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Net.AlternateProtocolUsage" enum="AlternateProtocolUsage"
-    expires_after="2027-02-02">
+    expires_after="2027-04-04">
   <owner>dschinazi@chromium.org</owner>
   <owner>src/net/OWNERS</owner>
   <summary>
@@ -1206,7 +1269,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Net.AlternateProtocolUsageGoogle"
-    enum="AlternateProtocolUsage" expires_after="2027-02-02">
+    enum="AlternateProtocolUsage" expires_after="2027-04-04">
   <owner>dschinazi@chromium.org</owner>
   <owner>src/net/OWNERS</owner>
   <summary>
@@ -1244,6 +1307,19 @@ chromium-metrics-reviews@google.com.
 
     Warning: this histogram was expired from 2024-04-03 to 2024-05-31; data may
     be missing.
+  </summary>
+</histogram>
+
+<histogram name="Net.Android.BindToNetworkDuration" units="microseconds"
+    expires_after="2027-04-01">
+  <owner>ricea@chromium.org</owner>
+  <owner>src/net/OWNERS</owner>
+  <summary>
+    Records the time spent in the android_setsocknetwork() NDK call inside
+    net::android::BindToNetwork(). Recorded once for every call to
+    BindToNetwork() that invokes android_setsocknetwork(), regardless of whether
+    it succeeds or fails. Only recorded on Android, for which a high-resolution
+    clock is always available.
   </summary>
 </histogram>
 
@@ -1428,6 +1504,29 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="Net.Certificate.SerialNumberLength" units="bytes"
+    expires_after="2027-03-28">
+  <owner>davidben@chromium.org</owner>
+  <owner>chrome-secure-web-and-net@chromium.org</owner>
+  <summary>
+    The length in bytes of the serial number in a parsed X.509 certificate.
+    Recorded each time a certificate is parsed with default options via
+    net::x509_util::CreateParsedCertificate.
+  </summary>
+</histogram>
+
+<histogram name="Net.Certificate.SerialNumberType"
+    enum="NetCertificateSerialNumberType" expires_after="2027-03-28">
+  <owner>davidben@chromium.org</owner>
+  <owner>chrome-secure-web-and-net@chromium.org</owner>
+  <summary>
+    Whether the serial number in a parsed X.509 certificate is a valid positive
+    DER INTEGER, zero, negative, or not a valid INTEGER at all. Recorded each
+    time a certificate is parsed with default options via
+    net::x509_util::CreateParsedCertificate.
+  </summary>
+</histogram>
+
 <histogram name="Net.Certificate.TrustAnchor.Request" enum="NetTrustAnchors"
     expires_after="2027-03-14">
   <owner>mattm@chromium.org</owner>
@@ -1523,16 +1622,6 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="Net.CertVerifier.AndroidTrustStoreInit" units="ms"
-    expires_after="2024-04-28">
-  <owner>hchao@chromium.org</owner>
-  <owner>mattm@chromium.org</owner>
-  <summary>
-    Time needed to initialize the Android platform Trust store when using the
-    builtin certificate verifier on Android.
-  </summary>
-</histogram>
-
 <histogram name="Net.CertVerifier.CTRequirementStatus"
     enum="CTRequirementStatus" expires_after="2027-03-21">
   <owner>mattm@chromium.org</owner>
@@ -1543,7 +1632,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Net.CertVerifier.DoVerifyOnWorkerThreadTime{HostType}"
-    units="ms" expires_after="2027-01-31">
+    units="ms" expires_after="2027-04-04">
   <owner>nidhijaju@chromium.org</owner>
   <owner>chrome-network-stack@google.com</owner>
   <summary>
@@ -1558,107 +1647,6 @@ chromium-metrics-reviews@google.com.
     <variant name=".GoogleWithAlpnH3"
         summary="Google hosted servers with ALPN h3"/>
   </token>
-</histogram>
-
-<histogram name="Net.CertVerifier.MacKeychainCerts.IntermediateCacheInitTime"
-    units="ms" expires_after="2024-02-01">
-  <owner>mattm@chromium.org</owner>
-  <owner>hchao@chromium.org</owner>
-  <summary>
-    When initializing the builtin certificate verifier on Mac using the
-    DomainCacheFullCerts implementation of the system trust store integration,
-    this records how long it took to query the Mac keychain and initialize the
-    cache of intermediate certificates.
-
-    Warning: this histogram was expired from 2023-04-09 to 2023-06-07(M116);
-    data may be missing.
-  </summary>
-</histogram>
-
-<histogram name="Net.CertVerifier.MacKeychainCerts.IntermediateCount"
-    units="certificates" expires_after="2024-04-28">
-  <owner>mattm@chromium.org</owner>
-  <owner>hchao@chromium.org</owner>
-  <summary>
-    When initializing the builtin certificate verifier on Mac using the
-    DomainCacheFullCerts or KeychainCacheFullCerts implementation of the system
-    trust store integration, this records the number of certificates that were
-    included in the cache of intermediate certificates.
-  </summary>
-</histogram>
-
-<histogram name="Net.CertVerifier.MacKeychainCerts.TotalCount"
-    units="certificates" expires_after="2024-04-28">
-  <owner>mattm@chromium.org</owner>
-  <owner>hchao@chromium.org</owner>
-  <summary>
-    When initializing the builtin certificate verifier on Mac using the
-    DomainCacheFullCerts or KeychainCacheFullCerts implementation of the system
-    trust store integration, this records the number of certificates found in
-    the Mac keychain.
-  </summary>
-</histogram>
-
-<histogram name="Net.CertVerifier.MacKeychainCerts.TrustCount"
-    units="certificates" expires_after="2024-02-01">
-  <owner>mattm@chromium.org</owner>
-  <owner>hchao@chromium.org</owner>
-  <summary>
-    When initializing the builtin certificate verifier on Mac using the
-    KeychainCacheFullCerts implementation of the system trust store integration,
-    this records the number of certificates found in the Mac keychain which had
-    trust records marking them as either trusted or distrusted.
-  </summary>
-</histogram>
-
-<histogram name="Net.CertVerifier.MacTrustDomainCacheInitTime" units="ms"
-    expires_after="2024-04-28">
-  <owner>mattm@chromium.org</owner>
-  <owner>hchao@chromium.org</owner>
-  <summary>
-    When the builtin certificate verifier is used on Mac and the platform
-    trusted certificates cache is initialized (or re-initialized if keychain
-    trust settings changed), records how long it took to initialize all the
-    trust domain caches. Only recorded by the DomainCacheFullCerts
-    implementation, which may or may not be used depending on Finch trial
-    parameters.
-  </summary>
-</histogram>
-
-<histogram name="Net.CertVerifier.MacTrustDomainCertCount.{Domain}"
-    units="certificates" expires_after="2024-02-01">
-  <owner>mattm@chromium.org</owner>
-  <owner>hchao@chromium.org</owner>
-  <summary>
-    When the builtin certificate verifier is used on Mac and the platform
-    trusted certificates cache is initialized (or re-initialized if keychain
-    trust settings changed), records the number of certificates read from the
-    {Domain} trust domain. Only counts certificates that were successfully
-    parsed. Only recorded by the DomainCacheFullCerts implementation, which may
-    or may not be used depending on Finch trial parameters.
-
-    Warning: this histogram was expired from 2023-04-09 to 2023-06-07(M116);
-    data may be missing.
-  </summary>
-  <token key="Domain">
-    <variant name="Admin"/>
-    <variant name="System"/>
-    <variant name="User"/>
-  </token>
-</histogram>
-
-<histogram name="Net.CertVerifier.MacTrustImplCacheInitTime" units="ms"
-    expires_after="2024-04-28">
-  <owner>mattm@chromium.org</owner>
-  <owner>hchao@chromium.org</owner>
-  <summary>
-    When the builtin certificate verifier is used on Mac and the platform
-    trusted certificates cache is initialized (or re-initialized if keychain
-    trust settings changed), records how long it took to initialize both the
-    trust cache and the intermediates cache. Only recorded by the
-    DomainCacheFullCerts and KeychainCacheFullCerts implementations, which may
-    or may not be used depending on Finch trial parameters.
-  </summary>
 </histogram>
 
 <histogram
@@ -1682,7 +1670,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Net.CertVerifier.Qwac.1Qwac" enum="NetCertVerifier1QwacResult"
-    expires_after="2026-11-16">
+    expires_after="2027-11-16">
   <owner>mattm@chromium.org</owner>
   <owner>src/net/cert/OWNERS</owner>
   <summary>
@@ -1696,7 +1684,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Net.CertVerifier.Qwac.2QwacBinding"
-    enum="NetCertVerifier2QwacBindingResult" expires_after="2026-11-16">
+    enum="NetCertVerifier2QwacBindingResult" expires_after="2027-11-16">
   <owner>mattm@chromium.org</owner>
   <owner>src/net/cert/OWNERS</owner>
   <summary>
@@ -1712,7 +1700,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Net.CertVerifier.Qwac.2QwacLinkProcessing"
-    enum="NetCertVerifier2QwacLinkProcessingResult" expires_after="2026-11-16">
+    enum="NetCertVerifier2QwacLinkProcessingResult" expires_after="2027-11-16">
   <owner>mattm@chromium.org</owner>
   <owner>src/net/cert/OWNERS</owner>
   <summary>
@@ -1757,7 +1745,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Net.ConnectionInfo.MainFrame" enum="ConnectionInfo"
-    expires_after="2027-02-02">
+    expires_after="2027-04-04">
   <owner>dschinazi@chromium.org</owner>
   <owner>src/net/OWNERS</owner>
   <summary>
@@ -1768,7 +1756,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Net.ConnectionInfo.SubResource" enum="ConnectionInfo"
-    expires_after="2027-02-02">
+    expires_after="2027-04-04">
   <owner>dschinazi@chromium.org</owner>
   <owner>src/net/OWNERS</owner>
   <summary>
@@ -1805,7 +1793,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Net.CountOfQuicServerInfos" units="configs"
-    expires_after="2027-02-02">
+    expires_after="2027-04-04">
   <owner>dschinazi@chromium.org</owner>
   <owner>src/net/quic/OWNERS</owner>
   <summary>
@@ -1884,7 +1872,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Net.DeviceBoundSessions.GoogleRegistrationIsFromStandard"
-    enum="Boolean" expires_after="2027-01-24">
+    enum="Boolean" expires_after="2027-03-28">
   <owner>thefrog@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -1954,8 +1942,6 @@ chromium-metrics-reviews@google.com.
   </token>
 </histogram>
 
-<!-- LINT.IfChange(PrewarmDurationOutcome) -->
-
 <histogram name="Net.DeviceBoundSessions.Prewarm.Duration{Outcome}" units="ms"
     expires_after="2027-09-30">
   <owner>ahijazi@chromium.org</owner>
@@ -1972,20 +1958,8 @@ chromium-metrics-reviews@google.com.
     one, in this order: .OtherTransientError, .Unreachable, .FatalError,
     .Success, .NotYetNeeded.
   </summary>
-  <token key="Outcome">
-    <variant name=".FatalError"
-        summary="with a fatal error that terminated the session"/>
-    <variant name=".NotYetNeeded"
-        summary="with no session needing a refresh yet"/>
-    <variant name=".OtherTransientError"
-        summary="with a server or signing error"/>
-    <variant name=".Success" summary="with a successful refresh"/>
-    <variant name=".Unreachable"
-        summary="with the refresh endpoint unreachable"/>
-  </token>
+  <token key="Outcome" variants="DeviceBoundSessionPrewarmOutcome"/>
 </histogram>
-
-<!-- LINT.ThenChange(//chrome/browser/net/device_bound_session_prewarmer.cc:PrewarmDurationOutcome) -->
 
 <histogram name="Net.DeviceBoundSessions.Prewarm.NextRefreshDelay" units="ms"
     expires_after="2027-09-30">
@@ -2002,6 +1976,25 @@ chromium-metrics-reviews@google.com.
     returned a next refresh time, i.e. whenever that time is used to schedule
     the next pre-warm.
   </summary>
+</histogram>
+
+<histogram name="Net.DeviceBoundSessions.Prewarm.Trigger{Outcome}"
+    enum="DeviceBoundSessionPrewarmTrigger" expires_after="2027-09-30">
+  <owner>ahijazi@chromium.org</owner>
+  <owner>chrome-counter-abuse-alerts@google.com</owner>
+  <summary>
+    Records what caused a Device Bound Session
+    (https://github.com/w3c/webappsec-dbsc/blob/main/README.md) pre-warm to be
+    issued, e.g. the pre-warmer starting, the next refresh time being reached, a
+    retry after an error, connectivity returning, or a new session. Recorded for
+    a pre-warm that completed {Outcome}.
+
+    Logged once per completed pre-warm that found at least one bound session,
+    i.e. alongside Net.DeviceBoundSessions.Prewarm.Duration.
+  </summary>
+  <token key="Outcome" variants="DeviceBoundSessionPrewarmOutcome">
+    <variant name="" summary="with any result"/>
+  </token>
 </histogram>
 
 <histogram name="Net.DeviceBoundSessions.PrewarmResult.{PrewarmType}"
@@ -2114,6 +2107,43 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="Net.DeviceBoundSessions.RefreshDuration" units="ms"
+    expires_after="2027-10-07">
+  <owner>oussamajb@google.com</owner>
+  <owner>chrome-counter-abuse-alerts@google.com</owner>
+  <summary>
+    Records the end-to-end latency of refreshing a Device Bound Session
+    (https://github.com/w3c/webappsec-dbsc/blob/main/README.md#refresh-procedure),
+    measured from the start of the session refresh attempt (including any key
+    restoration, network request, and challenge signing) until the refresh
+    network fetch completes. Logged on every refresh request fetch completion
+    (same condition as Net.DeviceBoundSessions.RefreshResult; not logged if key
+    restoration fails or all deferred requests are canceled before the fetch
+    starts). Recorded for all triggers and outcomes.
+  </summary>
+</histogram>
+
+<histogram name="Net.DeviceBoundSessions.RefreshDuration{RefreshType}{Outcome}"
+    units="ms" expires_after="2027-10-07">
+  <owner>oussamajb@google.com</owner>
+  <owner>chrome-counter-abuse-alerts@google.com</owner>
+  <summary>
+    Records the end-to-end latency of refreshing a Device Bound Session
+    (https://github.com/w3c/webappsec-dbsc/blob/main/README.md#refresh-procedure),
+    measured from the start of the session refresh attempt (including any key
+    restoration, network request, and challenge signing) until the refresh
+    network fetch completes. Logged on every refresh request fetch completion
+    (same condition as Net.DeviceBoundSessions.RefreshResult; not logged if key
+    restoration fails or all deferred requests are canceled before the fetch
+    starts). Recorded for refreshes triggered by {RefreshType}, for {Outcome}.
+  </summary>
+  <token key="RefreshType" variants="DeviceBoundSessionRefreshType"/>
+  <token key="Outcome">
+    <variant name=".Failure" summary="failed refresh attempts"/>
+    <variant name=".Success" summary="successful refresh attempts"/>
+  </token>
+</histogram>
+
 <histogram name="Net.DeviceBoundSessions.RefreshQuotaExceededLastResult"
     enum="DeviceBoundSessionError" expires_after="2027-04-19">
   <owner>alexilin@chromium.org</owner>
@@ -2135,10 +2165,42 @@ chromium-metrics-reviews@google.com.
     This is logged every time we attempt to refresh the cookies bound by a
     session due to {RefreshType}.
   </summary>
-  <token key="RefreshType">
+  <token key="RefreshType" variants="DeviceBoundSessionRefreshType">
     <variant name="" summary="any refresh trigger"/>
-    <variant name=".MissingCookie" summary="a missing cookie"/>
-    <variant name=".Proactive" summary="the proactive refresh heuristics"/>
+  </token>
+</histogram>
+
+<histogram name="Net.DeviceBoundSessions.RegistrationDuration" units="ms"
+    expires_after="2027-10-07">
+  <owner>oussamajb@google.com</owner>
+  <owner>chrome-counter-abuse-alerts@google.com</owner>
+  <summary>
+    Records the end-to-end latency of registering a Device Bound Session
+    (https://github.com/w3c/webappsec-dbsc/blob/main/README.md), measured from
+    when the registration request is initiated (including any key creation or
+    lookup, network request, and challenge signing) until registration finishes.
+    Logged on every registration completion regardless of registration type or
+    outcome.
+  </summary>
+</histogram>
+
+<histogram
+    name="Net.DeviceBoundSessions.RegistrationDuration{RegistrationType}{Outcome}"
+    units="ms" expires_after="2027-10-07">
+  <owner>oussamajb@google.com</owner>
+  <owner>chrome-counter-abuse-alerts@google.com</owner>
+  <summary>
+    Records the end-to-end latency of registering a Device Bound Session
+    (https://github.com/w3c/webappsec-dbsc/blob/main/README.md), measured from
+    when the registration request is initiated (including any key creation or
+    lookup, network request, and challenge signing) until registration finishes.
+    Logged on every registration completion for {RegistrationType}, covering
+    {Outcome}.
+  </summary>
+  <token key="RegistrationType" variants="DeviceBoundSessionRegistrationType"/>
+  <token key="Outcome">
+    <variant name=".Failure" summary="failed registration attempts only"/>
+    <variant name=".Success" summary="successful registration attempts only"/>
   </token>
 </histogram>
 
@@ -2147,15 +2209,13 @@ chromium-metrics-reviews@google.com.
   <owner>drubery@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
-    This records the outcome of {RegistrationType} Device Bound Session
-    registration (https://github.com/w3c/webappsec-dbsc/blob/main/README.md).
-    This is logged every time we attempt to register a new session.
+    This records the outcome of a Device Bound Session registration
+    (https://github.com/w3c/webappsec-dbsc/blob/main/README.md) for
+    {RegistrationType}. This is logged every time we attempt to register a new
+    session.
   </summary>
-  <token key="RegistrationType">
-    <variant name="" summary="any"/>
-    <variant name=".Federated" summary="a federated"/>
-    <variant name=".SingleSignOn" summary="a single sign-on"/>
-    <variant name=".Standalone" summary="a standalone"/>
+  <token key="RegistrationType" variants="DeviceBoundSessionRegistrationType">
+    <variant name="" summary="any registration type"/>
   </token>
 </histogram>
 
@@ -2175,7 +2235,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Net.DeviceBoundSessions.RequestDeferralDecision3"
-    enum="DeviceBoundSessionUsage2" expires_after="2027-01-24">
+    enum="DeviceBoundSessionUsage2" expires_after="2027-03-28">
   <owner>thefrog@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -2462,35 +2522,6 @@ chromium-metrics-reviews@google.com.
   </token>
 </histogram>
 
-<histogram name="Net.DNS.DnsHosts.Count" units="count"
-    expires_after="2024-09-01">
-  <owner>horo@chromium.org</owner>
-  <owner>net-dev@chromium.org</owner>
-  <summary>
-    The number of hosts parsed from a Hosts file. Reported whenever a Hosts file
-    is read and parsed.
-  </summary>
-</histogram>
-
-<histogram name="Net.DNS.DnsHosts.EstimateMemoryUsage" units="bytes"
-    expires_after="2024-09-01">
-  <owner>horo@chromium.org</owner>
-  <owner>net-dev@chromium.org</owner>
-  <summary>
-    Estimated memory usage to keep the parsed result of a Hosts file. Reported
-    whenever a Hosts file is read and parsed.
-  </summary>
-</histogram>
-
-<histogram name="Net.DNS.DnsHosts.FileSize" units="bytes"
-    expires_after="2024-09-01">
-  <owner>horo@chromium.org</owner>
-  <owner>net-dev@chromium.org</owner>
-  <summary>
-    The file size of a Hosts file. Reported whenever a Hosts file is read.
-  </summary>
-</histogram>
-
 <histogram name="Net.DNS.DnsPlatformAndroidAttempt.FdAlreadyReadable"
     enum="Boolean" expires_after="2027-05-22">
   <owner>stefanoduo@chromium.org</owner>
@@ -2607,7 +2638,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Net.DNS.DnsTransaction.SecureValidated.{DohProviderId}FailureError"
-    enum="NetErrorCodes" expires_after="2027-01-31">
+    enum="NetErrorCodes" expires_after="2027-04-04">
   <owner>awillia@chromium.org</owner>
   <owner>src/net/dns/OWNERS</owner>
   <summary>
@@ -2659,7 +2690,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Net.DNS.DnsTransaction.{DohProviderId}{Protocol}.SessionSource"
-    enum="NetworkSessionSource" expires_after="2027-01-31">
+    enum="NetworkSessionSource" expires_after="2027-04-04">
   <owner>bashi@chromium.org</owner>
   <owner>blink-network-stack@google.com</owner>
   <summary>
@@ -2701,7 +2732,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Net.DNS.DnsTransaction.{DohProviderId}{Protocol}.{SessionSource}.{EarlyDataStatus}.Time"
-    units="ms" expires_after="2027-01-31">
+    units="ms" expires_after="2027-04-04">
   <owner>bashi@chromium.org</owner>
   <owner>blink-network-stack@google.com</owner>
   <summary>
@@ -2720,7 +2751,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Net.DNS.DnsTransaction.{DohProviderId}{Protocol}.{SessionSource}.{Outcome}Time"
-    units="ms" expires_after="2027-01-31">
+    units="ms" expires_after="2027-04-04">
   <owner>bashi@chromium.org</owner>
   <owner>blink-network-stack@google.com</owner>
   <summary>
@@ -2781,7 +2812,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram name="Net.DNS.FallbackFromSecureTransactionPreferred"
     enum="FallbackFromSecureTransactionPreferredReason"
-    expires_after="2027-01-31">
+    expires_after="2027-04-04">
   <owner>bcb@chromium.org</owner>
   <owner>src/net/dns/OWNERS</owner>
   <summary>
@@ -3017,7 +3048,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Net.DNS.JobAttemptedHttps" enum="Boolean"
-    expires_after="2026-10-09">
+    expires_after="2027-10-09">
   <owner>bashi@chromium.org</owner>
   <owner>net-dev@chromium.org</owner>
   <summary>
@@ -3432,6 +3463,18 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="Net.ErrorCodesForHTTPSGoogleSubresources" enum="NetErrorCodes"
+    expires_after="never">
+<!-- expires-never: Core network stack health metric -->
+
+  <owner>nidhijaju@chromium.org</owner>
+  <owner>chrome-network-stack@google.com</owner>
+  <summary>
+    Positive net error codes that subresource requests to https://www.google.com
+    end with, including net::OK and net::ERR_ABORTED.
+  </summary>
+</histogram>
+
 <histogram name="Net.ErrorCodesForIsolatedAppScheme" enum="NetErrorCodes"
     expires_after="2027-03-14">
   <owner>giovax@chromium.org</owner>
@@ -3490,6 +3533,20 @@ chromium-metrics-reviews@google.com.
     the alternative error page (rather than the dino) is shown. Reported when
     the error page html is being prepared. See
     `NetErrorHelper::GenerateLocalizedErrorPage` (crbug.com/1280518).
+  </summary>
+</histogram>
+
+<histogram name="Net.HttpAuth.SchemeAllowedByAllSchemesPolicy"
+    enum="HttpAuthSchemeAllowedTarget" expires_after="2027-02-01">
+  <owner>ydago@chromium.org</owner>
+  <owner>src/net/OWNERS</owner>
+  <summary>
+    Recorded when HTTP authentication challenge scheme resolution succeeds
+    specifically because the target (proxy or server/origin) was allowed to use
+    all HTTP authentication schemes by enterprise policy (either
+    AllHttpAuthSchemesAllowedForOrigins or AllHttpAuthSchemesAllowedForProxies),
+    despite the scheme not being in the default or administrator-configured
+    AuthSchemes.
   </summary>
 </histogram>
 
@@ -3734,7 +3791,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Net.HttpJob.ProxyTypeFailed" enum="ProxyScheme"
-    expires_after="2027-02-02">
+    expires_after="2027-04-04">
   <owner>dschinazi@chromium.org</owner>
   <owner>rch@chromium.org</owner>
   <owner>src/net/OWNERS</owner>
@@ -3748,7 +3805,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Net.HttpJob.ProxyTypeSuccess" enum="ProxyScheme"
-    expires_after="2027-02-02">
+    expires_after="2027-04-04">
   <owner>dschinazi@chromium.org</owner>
   <owner>rch@chromium.org</owner>
   <owner>src/net/OWNERS</owner>
@@ -3862,7 +3919,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Net.HttpProxy.ConnectLatency.{HttpVersion}.{ProxySchema}.{Result}"
-    units="ms" expires_after="2027-02-02">
+    units="ms" expires_after="2027-04-04">
   <owner>dschinazi@chromium.org</owner>
   <owner>src/net/OWNERS</owner>
   <summary>
@@ -3888,6 +3945,19 @@ chromium-metrics-reviews@google.com.
     <variant name="Success"/>
     <variant name="TimedOut"/>
   </token>
+</histogram>
+
+<histogram name="Net.HttpProxy.LinuxSystemResolver.Status"
+    enum="LinuxProxyResolutionStatus" expires_after="2027-09-29">
+  <owner>thomasanderson@chromium.org</owner>
+  <owner>net-dev@chromium.org</owner>
+  <summary>
+    Records the status of Linux system proxy resolution requests, which are
+    resolved by the org.freedesktop.portal.ProxyResolver XDG desktop portal when
+    --use-system-proxy-resolver is passed. Recorded for every proxy resolution
+    request made through the Linux system proxy resolver. Aborted requests
+    (e.g., during browser shutdown) are not recorded.
+  </summary>
 </histogram>
 
 <histogram name="Net.HttpProxy.MacSystemResolver.OsError"
@@ -3987,7 +4057,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Net.HttpStreamFactory.OnStreamReadyCallbackDelay" units="ms"
-    expires_after="2026-11-15">
+    expires_after="2027-03-28">
   <owner>bashi@chromium.org</owner>
   <owner>blink-network-stack@google.com</owner>
   <summary>
@@ -4046,7 +4116,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Net.HttpStreamPool.JobCompleteTime4.{Result}" units="ms"
-    expires_after="2026-10-11">
+    expires_after="2027-10-11">
   <owner>bashi@chromium.org</owner>
   <owner>blink-network-stack@google.com</owner>
   <summary>
@@ -4063,7 +4133,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Net.HttpStreamPool.JobControllerCallRequestCompleteDelay"
-    units="ms" expires_after="2026-10-25">
+    units="ms" expires_after="2027-10-25">
   <owner>bashi@chromium.org</owner>
   <owner>blink-network-stack@google.com</owner>
   <summary>
@@ -4170,7 +4240,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Net.HttpStreamPool.TcpBasedAttemptDelay" units="ms"
-    expires_after="2026-10-11">
+    expires_after="2027-10-11">
   <owner>bashi@chromium.org</owner>
   <owner>blink-network-stack@google.com</owner>
   <summary>
@@ -4447,7 +4517,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Net.NetworkChangeNotifier.NewConnectionType"
-    enum="NetworkConnectionType" expires_after="2027-02-02">
+    enum="NetworkConnectionType" expires_after="2027-04-04">
   <owner>dschinazi@chromium.org</owner>
   <owner>src/net/OWNERS</owner>
   <summary>
@@ -4513,41 +4583,26 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram
-    name="Net.NetworkTransaction.Create{StreamType}Time3{HostType}.{Protocol}{AddressFamily}"
-    units="ms" expires_after="2027-01-31">
-  <owner>bashi@chromium.org</owner>
-  <owner>blink-network-stack@google.com</owner>
-  <summary>Deprecated. Replaced by Create{StreamType}Time4.</summary>
-  <token key="StreamType">
-    <variant name="HttpStream"/>
-    <variant name="WebSocketStream"/>
-  </token>
-  <token key="HostType">
-    <variant name=""/>
-    <variant name=".GoogleHost"/>
-  </token>
-  <token key="Protocol" variants="NegotiatedProtocolCoalesced"/>
-  <token key="AddressFamily">
-    <variant name=""/>
-    <variant name=".IPv4"/>
-    <variant name=".IPv6"/>
-    <variant name=".Unspecified"/>
-  </token>
-</histogram>
-
-<histogram
-    name="Net.NetworkTransaction.Create{StreamType}Time4{HostType}.{Protocol}{AddressFamily}"
-    units="ms" expires_after="2027-01-31">
+    name="Net.NetworkTransaction.Create{StreamType}Time{HistogramVersion}{HostType}.{Protocol}{AddressFamily}"
+    units="ms" expires_after="2027-04-04">
   <owner>bashi@chromium.org</owner>
   <owner>blink-network-stack@google.com</owner>
   <summary>
     The time taken for creating a(n) {StreamType}. Recorded in
     HttpNetworkTransaction::DoCreateStreamComplete when the stream creation
     completes successfully for the first time (i.e. not for retries).
+    {HistogramVersion}
   </summary>
   <token key="StreamType">
     <variant name="HttpStream"/>
     <variant name="WebSocketStream"/>
+  </token>
+  <token key="HistogramVersion">
+    <variant name="4"
+        summary="Deprecated (capped at 10 seconds). Replaced by version 5."/>
+    <variant name="5"
+        summary="Version 5 extends the maximum bucket range from 10 seconds
+                 to 3 minutes."/>
   </token>
   <token key="HostType">
     <variant name=""/>
@@ -4807,7 +4862,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Net.NetworkTransaction.{Protocol}StreamCreationTime3.{NewOrExisting}"
-    units="ms" expires_after="2026-10-11">
+    units="ms" expires_after="2027-10-11">
   <owner>bashi@chromium.org</owner>
   <owner>blink-network-stack@google.com</owner>
   <summary>
@@ -4944,16 +4999,6 @@ chromium-metrics-reviews@google.com.
   <token key="Trigger" variants="QuicMigrationAttemptCause"/>
 </histogram>
 
-<histogram name="Net.Quic.Migration.Attempt.FailureReason"
-    enum="QuicMigrationAttemptFailureReason" expires_after="2027-08-01">
-  <owner>stefanoduo@google.com</owner>
-  <owner>src/net/quic/OWNERS</owner>
-  <summary>
-    Records the failure reason for eligible QUIC connection migration attempts
-    that failed.
-  </summary>
-</histogram>
-
 <histogram name="Net.Quic.Migration.Attempt.FailureReason.ByTrigger.{Trigger}"
     enum="QuicMigrationAttemptFailureReason" expires_after="2027-08-01">
   <owner>stefanoduo@google.com</owner>
@@ -4963,6 +5008,20 @@ chromium-metrics-reviews@google.com.
     migration cause {Trigger}.
   </summary>
   <token key="Trigger" variants="QuicMigrationAttemptCause"/>
+</histogram>
+
+<histogram name="Net.Quic.Migration.Attempt.FailureReason{HostType}"
+    enum="QuicMigrationAttemptFailureReason" expires_after="2027-04-04">
+  <owner>stefanoduo@google.com</owner>
+  <owner>src/net/quic/OWNERS</owner>
+  <summary>
+    Records the failure reason for eligible QUIC connection migration attempts
+    that failed. {HostType}
+  </summary>
+  <token key="HostType">
+    <variant name=""/>
+    <variant name=".GoogleHost" summary="For Google hosts only."/>
+  </token>
 </histogram>
 
 <histogram name="Net.Quic.Migration.Attempt.Ineligible"
@@ -4983,6 +5042,68 @@ chromium-metrics-reviews@google.com.
   <summary>
     Same as Net.Quic.Migration.Attempt.Ineligible, but partitioned by the
     migration cause {Trigger}.
+  </summary>
+  <token key="Trigger" variants="QuicMigrationAttemptCause"/>
+</histogram>
+
+<histogram name="Net.Quic.Migration.Attempt.SocketConfigError.NetError"
+    enum="NetErrorCodes" expires_after="2027-08-01">
+  <owner>stefanoduo@google.com</owner>
+  <owner>src/net/quic/OWNERS</owner>
+  <summary>
+    Records the net error code when socket configuration failed during an
+    eligible QUIC connection migration attempt.
+  </summary>
+</histogram>
+
+<histogram
+    name="Net.Quic.Migration.Attempt.SocketConfigError.NetError.ByStep.{Step}"
+    enum="NetErrorCodes" expires_after="2027-08-01">
+  <owner>stefanoduo@google.com</owner>
+  <owner>src/net/quic/OWNERS</owner>
+  <summary>
+    Same as Net.Quic.Migration.Attempt.SocketConfigError.NetError, but
+    partitioned by the socket configuration step {Step}. We expect the majority
+    (all?) of the failures to be in the connect step, so this should be
+    deprecated shortly after verifying that belief.
+  </summary>
+  <token key="Step" variants="QuicSocketConfigStep"/>
+</histogram>
+
+<histogram
+    name="Net.Quic.Migration.Attempt.SocketConfigError.NetError.ByTrigger.{Trigger}"
+    enum="NetErrorCodes" expires_after="2027-08-01">
+  <owner>stefanoduo@google.com</owner>
+  <owner>src/net/quic/OWNERS</owner>
+  <summary>
+    Same as Net.Quic.Migration.Attempt.SocketConfigError.NetError, but
+    partitioned by the migration cause {Trigger}.
+  </summary>
+  <token key="Trigger" variants="QuicMigrationAttemptCause"/>
+</histogram>
+
+<histogram name="Net.Quic.Migration.Attempt.SocketConfigError.Step"
+    enum="QuicSocketConfigStep" expires_after="2027-08-01">
+  <owner>stefanoduo@google.com</owner>
+  <owner>src/net/quic/OWNERS</owner>
+  <summary>
+    Records the socket configuration step that failed during an eligible QUIC
+    connection migration attempt. We expect the majority (all?) of the failures
+    to be in the connect step, so this should be deprecated shortly after
+    verifying that belief.
+  </summary>
+</histogram>
+
+<histogram
+    name="Net.Quic.Migration.Attempt.SocketConfigError.Step.ByTrigger.{Trigger}"
+    enum="QuicSocketConfigStep" expires_after="2027-08-01">
+  <owner>stefanoduo@google.com</owner>
+  <owner>src/net/quic/OWNERS</owner>
+  <summary>
+    Same as Net.Quic.Migration.Attempt.SocketConfigError.Step, but partitioned
+    by the migration cause {Trigger}. We expect the majority (all?) of the
+    failures to be in the connect step, so this should be deprecated shortly
+    after verifying that belief.
   </summary>
   <token key="Trigger" variants="QuicMigrationAttemptCause"/>
 </histogram>
@@ -5020,6 +5141,29 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="Net.Quic.Migration.Attempt.WaitForNewNetwork.Duration"
+    units="ms" expires_after="2027-08-01">
+  <owner>stefanoduo@google.com</owner>
+  <owner>src/net/quic/OWNERS</owner>
+  <summary>
+    Time elapsed from when a QUIC connection had no alternate network and
+    started waiting for a new network to connect, until a new network connected.
+    Only recorded when a new network connects while waiting.
+  </summary>
+</histogram>
+
+<histogram
+    name="Net.Quic.Migration.Attempt.WaitForNewNetwork.Duration.ByTrigger.{Trigger}"
+    units="ms" expires_after="2027-08-01">
+  <owner>stefanoduo@google.com</owner>
+  <owner>src/net/quic/OWNERS</owner>
+  <summary>
+    Same as Net.Quic.Migration.Attempt.WaitForNewNetwork.Duration, but
+    partitioned by the migration cause {Trigger}.
+  </summary>
+  <token key="Trigger" variants="WaitForNewNetworkCause"/>
+</histogram>
+
 <histogram name="Net.QuicActiveSessionCount.{GoingAwayReason}" units="sesions"
     expires_after="2027-02-07">
   <owner>nidhijaju@chromium.org</owner>
@@ -5034,11 +5178,13 @@ chromium-metrics-reviews@google.com.
         summary="the certificate veriier changed"/>
     <variant name="ClockSkewDetected" summary="a clock skew was detected"/>
     <variant name="IPAddressChanged" summary="an IP address changed"/>
+    <variant name="SSLContextConfigChanged"
+        summary="the SSLContextConfig changed"/>
   </token>
 </histogram>
 
 <histogram name="Net.QuicActiveSessions" units="units"
-    expires_after="2027-02-02">
+    expires_after="2027-04-04">
   <owner>dschinazi@chromium.org</owner>
   <owner>src/net/quic/OWNERS</owner>
   <summary>
@@ -5388,7 +5534,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Net.QuicHandshakeState" enum="QuicHandshakeState"
-    expires_after="2027-02-02">
+    expires_after="2027-04-04">
   <owner>dschinazi@chromium.org</owner>
   <owner>src/net/quic/OWNERS</owner>
   <summary>
@@ -5609,6 +5755,40 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram
+    name="Net.QuicSession.AsyncDnsJob.AttemptTime.{Result}.{AttemptOrder}.{AddressFamily}"
+    units="ms" expires_after="2027-02-28">
+  <owner>bashi@chromium.org</owner>
+  <owner>blink-network-stack@google.com</owner>
+  <summary>
+    The time from the start of a connection attempt by a
+    QuicSessionPool::EndpointConnector to when {Result}. Partitioned by the
+    job-wide attempt order ({AttemptOrder}) and the endpoint's address family
+    ({AddressFamily}). Recorded once per connection attempt started by a
+    QuicSessionPool::AsyncDnsJob. Only recorded when the AsyncDnsQuicJob feature
+    is enabled.
+  </summary>
+  <token key="Result">
+    <variant name="Canceled"
+        summary="the attempt was canceled before completing for reasons other
+                 than another connector settling the job"/>
+    <variant name="Failure" summary="the attempt failed"/>
+    <variant name="Success" summary="the attempt succeeded"/>
+    <variant name="Superseded"
+        summary="the attempt was canceled because another connector settled
+                 the job"/>
+  </token>
+  <token key="AttemptOrder">
+    <variant name="First" summary="first attempt"/>
+    <variant name="Second" summary="second attempt"/>
+    <variant name="ThirdOrLater" summary="third or later attempt"/>
+  </token>
+  <token key="AddressFamily">
+    <variant name="IPv4" summary="IPv4"/>
+    <variant name="IPv6" summary="IPv6"/>
+  </token>
+</histogram>
+
+<histogram
     name="Net.QuicSession.AsyncDnsJob.SuccessfulAttemptElapsedTime.{MeasurementPoint}"
     units="ms" expires_after="2027-02-28">
   <owner>bashi@chromium.org</owner>
@@ -5781,7 +5961,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Net.QuicSession.CloseSessionOnError" enum="NetErrorCodes"
-    expires_after="2027-02-02">
+    expires_after="2027-04-04">
   <owner>dschinazi@chromium.org</owner>
   <owner>src/net/quic/OWNERS</owner>
   <summary>
@@ -5826,7 +6006,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Net.QuicSession.ConnectionClose.HandshakeFailureUnknown.QuicError"
-    enum="QuicErrorCodes" expires_after="2027-02-02">
+    enum="QuicErrorCodes" expires_after="2027-04-04">
   <owner>dschinazi@chromium.org</owner>
   <owner>src/net/quic/OWNERS</owner>
   <summary>
@@ -5839,7 +6019,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Net.QuicSession.ConnectionClose.HandshakeNotConfirmed.Reason"
-    enum="QuicHandshakeFailureReason" expires_after="2027-02-02">
+    enum="QuicHandshakeFailureReason" expires_after="2027-04-04">
   <owner>dschinazi@chromium.org</owner>
   <owner>src/net/quic/OWNERS</owner>
   <summary>The reason a QUIC handshake failed.</summary>
@@ -5911,7 +6091,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Net.QuicSession.ConnectionCloseErrorCodeServerIetfTransport{GQuicMissing}{ServerType}{HandshakeType}"
-    enum="QuicTransportErrorCodes" expires_after="2027-02-02">
+    enum="QuicTransportErrorCodes" expires_after="2027-04-04">
   <owner>dschinazi@chromium.org</owner>
   <owner>src/net/quic/OWNERS</owner>
   <summary>
@@ -5947,7 +6127,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Net.QuicSession.ConnectionCloseErrorCode{Closer}{ServerType}{HandshakeType}"
-    enum="QuicErrorCodes" expires_after="2027-02-02">
+    enum="QuicErrorCodes" expires_after="2027-04-04">
   <owner>dschinazi@chromium.org</owner>
   <owner>src/net/quic/OWNERS</owner>
   <summary>
@@ -6028,7 +6208,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Net.QuicSession.ConnectionMigration{ConnectionMigrationCause}"
-    enum="QuicConnectionMigrationStatus" expires_after="2027-02-02">
+    enum="QuicConnectionMigrationStatus" expires_after="2027-04-04">
   <owner>dschinazi@chromium.org</owner>
   <owner>src/net/quic/OWNERS</owner>
   <summary>
@@ -6153,7 +6333,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Net.QuicSession.FinchConfigIsValid" enum="Boolean"
-    expires_after="2027-02-02">
+    expires_after="2027-04-04">
   <owner>dschinazi@chromium.org</owner>
   <owner>src/net/quic/OWNERS</owner>
   <summary>
@@ -6256,7 +6436,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Net.QuicSession.HandshakeConfirmedTime" units="Milliseconds"
-    expires_after="2027-02-02">
+    expires_after="2027-04-04">
   <owner>dschinazi@chromium.org</owner>
   <owner>src/net/quic/OWNERS</owner>
   <summary>
@@ -6349,7 +6529,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Net.QuicSession.HandshakeTimeout.PathDegradingDetected"
-    enum="BooleanDetected" expires_after="2027-02-02">
+    enum="BooleanDetected" expires_after="2027-04-04">
   <owner>dschinazi@chromium.org</owner>
   <owner>src/net/quic/OWNERS</owner>
   <summary>
@@ -6404,7 +6584,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Net.QuicSession.HostResolution.HandshakeConfirmedTime"
-    units="Milliseconds" expires_after="2027-02-02">
+    units="Milliseconds" expires_after="2027-04-04">
   <owner>dschinazi@chromium.org</owner>
   <owner>src/net/quic/OWNERS</owner>
   <summary>
@@ -6563,7 +6743,7 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="Net.QuicSession.MinRTT" units="ms" expires_after="2027-02-02">
+<histogram name="Net.QuicSession.MinRTT" units="ms" expires_after="2027-04-04">
   <owner>dschinazi@chromium.org</owner>
   <owner>src/net/quic/OWNERS</owner>
   <summary>
@@ -6625,13 +6805,6 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="Net.QuicSession.NumMigrations" units="units"
-    expires_after="2026-11-29">
-  <owner>renjietang@chromium.org</owner>
-  <owner>src/net/quic/OWNERS</owner>
-  <summary>The number of successful migrations for a QUIC session.</summary>
-</histogram>
-
 <histogram name="Net.QuicSession.NumMigrationsExercisedBeforePublicReset"
     units="migrations" expires_after="2027-02-02">
   <owner>dschinazi@chromium.org</owner>
@@ -6640,6 +6813,19 @@ chromium-metrics-reviews@google.com.
     Number of connection migrations exercised before the connection receives a
     public reset.
   </summary>
+</histogram>
+
+<histogram name="Net.QuicSession.NumMigrations{HostType}" units="units"
+    expires_after="2027-04-04">
+  <owner>stefanoduo@google.com</owner>
+  <owner>src/net/quic/OWNERS</owner>
+  <summary>
+    The number of successful migrations for a QUIC session. {HostType}
+  </summary>
+  <token key="HostType">
+    <variant name=""/>
+    <variant name=".GoogleHost" summary="For Google hosts only."/>
+  </token>
 </histogram>
 
 <histogram name="Net.QuicSession.NumOpenStreams" units="units"
@@ -6871,7 +7057,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Net.QuicSession.PacketRetransmitsPerMille" units="permille"
-    expires_after="2027-02-02">
+    expires_after="2027-04-04">
   <owner>dschinazi@chromium.org</owner>
   <owner>src/net/quic/OWNERS</owner>
   <summary>
@@ -6938,7 +7124,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Net.QuicSession.PortMigration"
-    enum="QuicConnectionMigrationStatus" expires_after="2027-02-02">
+    enum="QuicConnectionMigrationStatus" expires_after="2027-04-04">
   <owner>dschinazi@chromium.org</owner>
   <owner>src/net/quic/OWNERS</owner>
   <summary>The result of a QUIC port migration attempt.</summary>
@@ -7019,7 +7205,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Net.QuicSession.QuicVersion" units="units"
-    expires_after="2027-02-02">
+    expires_after="2027-04-04">
   <owner>dschinazi@chromium.org</owner>
   <owner>src/net/quic/OWNERS</owner>
   <summary>Version of the QUIC protocol used for this connection.</summary>
@@ -7189,7 +7375,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Net.QuicSession.RstStreamErrorCodeClient"
-    enum="QuicRstStreamErrorCodes" expires_after="2027-02-02">
+    enum="QuicRstStreamErrorCodes" expires_after="2027-04-04">
   <owner>dschinazi@chromium.org</owner>
   <owner>src/net/quic/OWNERS</owner>
   <summary>
@@ -7316,7 +7502,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Net.QuicSession.SmoothedRTT" units="ms"
-    expires_after="2027-02-02">
+    expires_after="2027-04-04">
   <owner>dschinazi@chromium.org</owner>
   <owner>src/net/quic/OWNERS</owner>
   <summary>
@@ -7363,14 +7549,14 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Net.QuicSession.StopSendingErrorCodeClient"
-    enum="QuicRstStreamErrorCodes" expires_after="2027-02-02">
+    enum="QuicRstStreamErrorCodes" expires_after="2027-04-04">
   <owner>dschinazi@chromium.org</owner>
   <owner>src/net/quic/OWNERS</owner>
   <summary>The QUIC error code that we sent in a STOP_SENDING frame.</summary>
 </histogram>
 
 <histogram name="Net.QuicSession.StopSendingErrorCodeServer"
-    enum="QuicRstStreamErrorCodes" expires_after="2027-02-02">
+    enum="QuicRstStreamErrorCodes" expires_after="2027-04-04">
   <owner>dschinazi@chromium.org</owner>
   <owner>src/net/quic/OWNERS</owner>
   <summary>
@@ -7541,7 +7727,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Net.QuicSession.UndecryptablePacketsReceivedWithDecrypter"
-    units="units" expires_after="2027-02-02">
+    units="units" expires_after="2027-04-04">
   <owner>dschinazi@chromium.org</owner>
   <owner>src/net/quic/OWNERS</owner>
   <summary>
@@ -7549,6 +7735,22 @@ chromium-metrics-reviews@google.com.
     session is closed. Only includes packets where a decryption key was present
     for the packet's encryption level.
   </summary>
+</histogram>
+
+<histogram
+    name="Net.QuicSession.UnusedConnectionIdsAtMigrationAttempt{HostType}"
+    units="connection IDs" expires_after="2027-08-01">
+  <owner>stefanoduo@google.com</owner>
+  <owner>src/net/quic/OWNERS</owner>
+  <summary>
+    The number of unused peer connection IDs available when a QUIC connection
+    migration or probing attempt begins. Recorded at the start of probing,
+    non-probing migration, or multi-port path creation. {HostType}
+  </summary>
+  <token key="HostType">
+    <variant name=""/>
+    <variant name=".GoogleHost" summary="Google hosts only."/>
+  </token>
 </histogram>
 
 <histogram name="Net.QuicSession.ValidConnectionTime" units="ms"
@@ -7585,7 +7787,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Net.QuicSession.WriteError" enum="NetErrorCodes"
-    expires_after="2027-02-02">
+    expires_after="2027-04-04">
   <owner>dschinazi@chromium.org</owner>
   <owner>src/net/quic/OWNERS</owner>
   <summary>
@@ -7628,7 +7830,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Net.QuicSession.ZeroRttReason{HostType}"
-    enum="SSLHandshakeEarlyDataReason" expires_after="2027-02-02">
+    enum="SSLHandshakeEarlyDataReason" expires_after="2027-04-04">
   <owner>dschinazi@chromium.org</owner>
   <owner>src/net/quic/OWNERS</owner>
   <summary>
@@ -7688,7 +7890,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Net.QuicSessionAttempt.CryptoConnectTime.{SuccessOrFailure}"
-    units="ms" expires_after="2026-10-25">
+    units="ms" expires_after="2027-10-25">
   <owner>bashi@chromium.org</owner>
   <owner>blink-network-stack@google.com</owner>
   <summary>
@@ -7697,6 +7899,27 @@ chromium-metrics-reviews@google.com.
     asynchronously.
   </summary>
   <token key="SuccessOrFailure" variants="SuccessOrFailure"/>
+</histogram>
+
+<histogram name="Net.QuicSessionPool.JobCompleteTime.{Result}" units="ms"
+    expires_after="2027-09-28">
+  <owner>bashi@chromium.org</owner>
+  <owner>blink-network-stack@google.com</owner>
+  <summary>
+    The time from when a QuicSessionPool::Job is created to when it completes.
+    Recorded when a QuicSessionPool::Job completes synchronously or
+    asynchronously. For the address family variants, the address family is based
+    on the peer address of the resulting session (including pooled or proxied
+    sessions).
+  </summary>
+  <token key="Result">
+    <variant name="Failure" summary="Job failed"/>
+    <variant name="Success" summary="Job succeeded"/>
+    <variant name="Success.IPv4" summary="Job succeeded with IPv4"/>
+    <variant name="Success.IPv6" summary="Job succeeded with IPv6"/>
+    <variant name="Success.Unspecified"
+        summary="Job succeeded with an unspecified address family"/>
+  </token>
 </histogram>
 
 <histogram name="Net.QuicStreamFactory.AttemptMigrationBeforeHandshake"
@@ -8771,7 +8994,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Net.SpdySessionGet" enum="SpdySessionGet"
-    expires_after="2027-02-02">
+    expires_after="2027-04-04">
   <owner>dschinazi@chromium.org</owner>
   <owner>src/net/OWNERS</owner>
   <summary>The type of SPDY Session used when looking up a session.</summary>
@@ -9507,7 +9730,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Net.StructuredHeaders.DecimalWithZeroFractionalDigits"
-    enum="Boolean" expires_after="2027-01-24">
+    enum="Boolean" expires_after="2027-03-28">
   <owner>apaseltiner@chromium.org</owner>
   <owner>net-dev@chromium.org</owner>
   <summary>
@@ -9591,7 +9814,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Net.TcpConnectAttempt.Latency.Success" units="ms"
-    expires_after="2027-01-31">
+    expires_after="2027-04-04">
   <owner>bashi@chromium.org</owner>
   <owner>src/net/OWNERS</owner>
   <summary>
@@ -9752,7 +9975,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Net.TrustTokens.OperationOutcome.{TrustTokenOperationType}"
-    enum="TrustTokenOperationStatus" expires_after="2027-01-31">
+    enum="TrustTokenOperationStatus" expires_after="2027-04-04">
   <owner>svaldez@chromium.org</owner>
   <owner>timhuber@google.com</owner>
   <summary>
@@ -9874,12 +10097,6 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="Net.UDPSocketWinClose" units="ms" expires_after="2024-03-24">
-  <owner>dschinazi@chromium.org</owner>
-  <owner>src/net/OWNERS</owner>
-  <summary>The time spent in closesocket call in UDPSocketWin::Close.</summary>
-</histogram>
-
 <histogram name="Net.URLLoader.AcceptCH.NeedsObserverCheck" enum="Boolean"
     expires_after="2026-08-09">
   <owner>yyanagisawa@chromium.org</owner>
@@ -9956,7 +10173,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Net.URLLoader.HasHeaderClient" enum="Boolean"
-    expires_after="2027-01-24">
+    expires_after="2027-03-28">
   <owner>bashi@chromium.org</owner>
   <owner>blink-network-stack@google.com</owner>
   <summary>
@@ -9966,7 +10183,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Net.URLLoader.OnBeforeSendHeadersDuration" units="ms"
-    expires_after="2027-01-24">
+    expires_after="2027-03-28">
   <owner>bashi@chromium.org</owner>
   <owner>blink-network-stack@google.com</owner>
   <summary>
@@ -10177,7 +10394,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Net.WebTransport.NegotiatedWebTransportVersion"
-    enum="NegotiatedWebTransportVersion" expires_after="2026-10-04">
+    enum="NegotiatedWebTransportVersion" expires_after="2027-10-04">
   <owner>bashi@chromium.org</owner>
   <owner>blink-network-stack@google.com</owner>
   <summary>
@@ -10459,7 +10676,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SimpleCache.{CacheInstance}IndexInitializeMethod"
-    enum="SimpleCacheIndexInitializeMethod" expires_after="2027-01-31">
+    enum="SimpleCacheIndexInitializeMethod" expires_after="2027-04-04">
   <owner>wanderview@chromium.org</owner>
   <owner>morlovich@chromium.org</owner>
   <summary>

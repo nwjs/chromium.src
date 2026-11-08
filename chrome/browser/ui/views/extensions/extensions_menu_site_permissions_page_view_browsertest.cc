@@ -7,7 +7,6 @@
 #include <vector>
 
 #include "base/memory/scoped_refptr.h"
-#include "build/build_config.h"
 #include "chrome/browser/extensions/chrome_test_extension_loader.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/views/extensions/extensions_menu_coordinator.h"
@@ -17,9 +16,11 @@
 #include "chrome/browser/ui/views/extensions/extensions_request_access_button.h"
 #include "chrome/browser/ui/views/extensions/extensions_toolbar_browsertest.h"
 #include "chrome/browser/ui/views/extensions/extensions_toolbar_button.h"
+#include "chrome/common/chrome_features.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/browser_test.h"
+#include "content/public/test/browser_test_utils.h"
 #include "extensions/browser/permissions/scripting_permissions_modifier.h"
 #include "extensions/browser/permissions/site_permissions_helper.h"
 #include "extensions/browser/permissions_manager.h"
@@ -59,6 +60,11 @@ class ExtensionsSitePermissionsPageViewBrowserTest
   ExtensionsSitePermissionsPageViewBrowserTest& operator=(
       const ExtensionsSitePermissionsPageViewBrowserTest&) = delete;
 
+  // Opens menu on the main page with `close_on_deactivate` disabled before
+  // showing the widget so that asynchronous/concurrent window deactivation in
+  // parallel browser_tests does not close the menu.
+  void ShowMenu();
+
   // Opens menu and navigates to site permissions page for `extension_id`. This
   // will CHECK if extension cannot have a site permissions page (e.g
   // restricted site).
@@ -82,27 +88,31 @@ class ExtensionsSitePermissionsPageViewBrowserTest
   ExtensionsMenuMainPageView* main_page();
   ExtensionsMenuSitePermissionsPageView* site_permissions_page();
 
- private:
-  base::test::ScopedFeatureList scoped_feature_list_;
+  // ExtensionsToolbarBrowserTest:
+  void TearDownOnMainThread() override;
 };
 
 ExtensionsSitePermissionsPageViewBrowserTest::
-    ExtensionsSitePermissionsPageViewBrowserTest() {
-  scoped_feature_list_.InitAndEnableFeature(
-      extensions_features::kExtensionsMenuAccessControl);
+    ExtensionsSitePermissionsPageViewBrowserTest()
+    : ExtensionsToolbarBrowserTest(
+          /*enabled_features=*/{extensions_features::
+                                    kExtensionsMenuAccessControl},
+          /*disabled_features=*/{features::kWebUIExtensionsContainer}) {}
+
+void ExtensionsSitePermissionsPageViewBrowserTest::ShowMenu() {
+  std::unique_ptr<views::BubbleDialogDelegate> bubble_delegate =
+      menu_coordinator()->CreateExtensionsMenuBubbleDialogDelegateForTesting(
+          views::BubbleAnchor(extensions_button()), extensions_container());
+  bubble_delegate->set_close_on_deactivate(false);
+  views::BubbleDialogDelegate::CreateBubbleDeprecated(
+      std::move(bubble_delegate),
+      views::Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET)
+      ->Show();
 }
 
 void ExtensionsSitePermissionsPageViewBrowserTest::ShowSitePermissionsPage(
     extensions::ExtensionId extension_id) {
-  menu_coordinator()->Show(views::BubbleAnchor(extensions_button()),
-                           extensions_container());
-  if (views::Widget* menu_widget =
-          menu_coordinator()->GetExtensionsMenuWidget()) {
-    if (auto* bubble_delegate =
-            menu_widget->widget_delegate()->AsBubbleDialogDelegate()) {
-      bubble_delegate->set_close_on_deactivate(false);
-    }
-  }
+  ShowMenu();
   menu_coordinator()->GetDelegateForTesting()->OpenSitePermissionsPage(
       extension_id);
 }
@@ -147,17 +157,16 @@ ExtensionsSitePermissionsPageViewBrowserTest::site_permissions_page() {
                        : nullptr;
 }
 
-// TODO(crbug.com/565744038): Re-enable this test on Windows.
-#if BUILDFLAG(IS_WIN)
-#define MAYBE_AddAndRemoveExtensionWhenSitePermissionsPageIsOpen \
-  DISABLED_AddAndRemoveExtensionWhenSitePermissionsPageIsOpen
-#else
-#define MAYBE_AddAndRemoveExtensionWhenSitePermissionsPageIsOpen \
-  AddAndRemoveExtensionWhenSitePermissionsPageIsOpen
-#endif
-IN_PROC_BROWSER_TEST_F(
-    ExtensionsSitePermissionsPageViewBrowserTest,
-    MAYBE_AddAndRemoveExtensionWhenSitePermissionsPageIsOpen) {
+void ExtensionsSitePermissionsPageViewBrowserTest::TearDownOnMainThread() {
+  if (views::Widget* menu_widget =
+          menu_coordinator()->GetExtensionsMenuWidget()) {
+    menu_widget->CloseNow();
+  }
+  ExtensionsToolbarBrowserTest::TearDownOnMainThread();
+}
+
+IN_PROC_BROWSER_TEST_F(ExtensionsSitePermissionsPageViewBrowserTest,
+                       AddAndRemoveExtensionWhenSitePermissionsPageIsOpen) {
   auto extensionA =
       InstallExtensionWithHostPermissions("A Extension", {"<all_urls>"});
 
@@ -297,7 +306,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionsSitePermissionsPageViewBrowserTest,
 
   NavigateAndCommit(GURL("http://www.url.com"));
   ShowSitePermissionsPage(extensionA->id());
-  EXPECT_TRUE(IsSitePermissionsPageOpened(extensionA->id()));
+  ASSERT_TRUE(IsSitePermissionsPageOpened(extensionA->id()));
 
   // RunScheduledLayout() is needed due to widget auto-resize.
   views::test::RunScheduledLayout(site_permissions_page());
@@ -326,6 +335,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionsSitePermissionsPageViewBrowserTest,
 
   // Toggle on the shows requests button for extension A and verify it is
   // requesting access in the toolbar.
+  ASSERT_TRUE(site_permissions_page());
   ClickButton(site_permissions_page()->GetShowRequestsToggleForTesting());
   WaitForAnimation();
   EXPECT_THAT(GetExtensionsShowingRequests(),
@@ -564,6 +574,37 @@ IN_PROC_BROWSER_TEST_F(
   EXPECT_FALSE(IsSitePermissionsPageOpened(extension->id()));
 }
 
+// Tests that uncommitted navigations (e.g. 204 No Content or aborted old frame
+// navigations) and subframe navigations do not close the site permissions page.
+IN_PROC_BROWSER_TEST_F(
+    ExtensionsSitePermissionsPageViewBrowserTest,
+    UncommittedOrSubframeNavigationDoesNotCloseSitePermissionsPage) {
+  auto extension =
+      InstallExtensionWithHostPermissions("Extension", {"<all_urls>"});
+
+  NavigateAndCommit(
+      embedded_test_server()->GetURL("www.a.com", "/iframe.html"));
+  ShowSitePermissionsPage(extension->id());
+  ASSERT_FALSE(IsMainPageOpened());
+  ASSERT_TRUE(IsSitePermissionsPageOpened(extension->id()));
+
+  // An uncommitted main-frame navigation (204 No Content) should not cause the
+  // menu to navigate back to the main page.
+  EXPECT_FALSE(content::NavigateToURL(
+      web_contents(),
+      embedded_test_server()->GetURL("www.a.com", "/nocontent")));
+  EXPECT_FALSE(IsMainPageOpened());
+  EXPECT_TRUE(IsSitePermissionsPageOpened(extension->id()));
+
+  // Navigating a subframe should also not cause the menu to navigate back to
+  // the main page.
+  ASSERT_TRUE(content::NavigateIframeToURL(
+      web_contents(), "test",
+      embedded_test_server()->GetURL("www.b.com", "/title1.html")));
+  EXPECT_FALSE(IsMainPageOpened());
+  EXPECT_TRUE(IsSitePermissionsPageOpened(extension->id()));
+}
+
 // Tests that the site access radio buttons are mutually exclusive, and focusing
 // a radio button does not result in multiple selected radio buttons.
 IN_PROC_BROWSER_TEST_F(ExtensionsSitePermissionsPageViewBrowserTest,
@@ -752,16 +793,7 @@ IN_PROC_BROWSER_TEST_F(
             PermissionsManager::UserSiteAccess::kOnClick);
 
   // Open the Extensions Menu main page while on `origin_a_url`.
-  menu_coordinator()->Show(
-      /*anchor=*/views::BubbleAnchor(extensions_button()),
-      /*extensions_container_views=*/extensions_container());
-  if (views::Widget* menu_widget =
-          menu_coordinator()->GetExtensionsMenuWidget()) {
-    if (auto* bubble_delegate =
-            menu_widget->widget_delegate()->AsBubbleDialogDelegate()) {
-      bubble_delegate->set_close_on_deactivate(/*close=*/false);
-    }
-  }
+  ShowMenu();
   ASSERT_TRUE(IsMainPageOpened());
   LayoutMenuIfNecessary();
 

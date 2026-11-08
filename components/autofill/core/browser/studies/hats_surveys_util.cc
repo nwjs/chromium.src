@@ -31,6 +31,10 @@
 #include "components/autofill/core/browser/metrics/field_filling_stats_and_score_metrics.h"
 #include "components/autofill/core/common/autofill_constants.h"
 #include "components/autofill/core/common/autofill_features.h"
+#include "components/personal_context/core/personal_context_eligibility_service.h"
+#include "components/personal_context/core/personal_context_types.h"
+#include "net/base/registry_controlled_domains/registry_controlled_domain.h"
+#include "url/origin.h"
 
 namespace autofill {
 
@@ -48,8 +52,13 @@ bool CanTriggerPersonalizationAndTrustSurvey(const FormStructure& form,
       case FillingProduct::kAutofillAi:
         return base::FeatureList::IsEnabled(
             features::kAutofillPersonalizationAndTrustAutofillAiSurvey);
-      case FillingProduct::kNone:
       case FillingProduct::kCreditCard:
+        return base::FeatureList::IsEnabled(
+            features::kAutofillPersonalizationAndTrustCreditCardSurvey);
+      case FillingProduct::kOneTimePassword:
+        return base::FeatureList::IsEnabled(
+            features::kAutofillPersonalizationAndTrustOneTimePasswordSurvey);
+      case FillingProduct::kNone:
       case FillingProduct::kMerchantPromoCode:
       case FillingProduct::kIban:
       case FillingProduct::kAutocomplete:
@@ -58,7 +67,6 @@ bool CanTriggerPersonalizationAndTrustSurvey(const FormStructure& form,
       case FillingProduct::kLoyaltyCard:
       case FillingProduct::kIdentityCredential:
       case FillingProduct::kDataList:
-      case FillingProduct::kOneTimePassword:
       case FillingProduct::kPasskey:
       case FillingProduct::kAtMemory:
         NOTIMPLEMENTED();
@@ -80,9 +88,10 @@ bool CanTriggerPersonalizationAndTrustSurvey(const FormStructure& form,
       case FillingProduct::kAddress:
         return kMinRequiredFieldsForHeuristics;
       case FillingProduct::kAutofillAi:
+      case FillingProduct::kCreditCard:
+      case FillingProduct::kOneTimePassword:
         return 1;
       case FillingProduct::kNone:
-      case FillingProduct::kCreditCard:
       case FillingProduct::kMerchantPromoCode:
       case FillingProduct::kIban:
       case FillingProduct::kAutocomplete:
@@ -91,7 +100,6 @@ bool CanTriggerPersonalizationAndTrustSurvey(const FormStructure& form,
       case FillingProduct::kLoyaltyCard:
       case FillingProduct::kIdentityCredential:
       case FillingProduct::kDataList:
-      case FillingProduct::kOneTimePassword:
       case FillingProduct::kPasskey:
       case FillingProduct::kAtMemory:
         NOTIMPLEMENTED();
@@ -124,11 +132,15 @@ HatsSurveyStringData CollectPersonalizationAndTrustFillingData(
   size_t num_manually_filled = 0;
   FieldTypeSet all_field_types;
   FillingProductSet filling_products_used;
+  bool is_bnpl_used = false;
 
   for (const std::unique_ptr<AutofillField>& field : submitted_form) {
     all_field_types.insert_all(field->Type().GetTypes());
     if (field->filling_product() != FillingProduct::kNone) {
       filling_products_used.insert(field->filling_product());
+    }
+    if (field->was_filled_with_bnpl()) {
+      is_bnpl_used = true;
     }
 
     const autofill_metrics::FieldFillingStatus status =
@@ -170,37 +182,44 @@ HatsSurveyStringData CollectPersonalizationAndTrustFillingData(
     }
   }
 
-  return {{"All field types", FieldTypeSetToString(all_field_types)},
-          {"Total number of fields in form",
-           base::NumberToString(submitted_form.field_count())},
-          {"Number of correctly filled fields",
-           base::NumberToString(num_correctly_filled)},
-          {"Number of fields that were submitted empty without filling",
-           base::NumberToString(num_submitted_empty)},
-          {"Number of fields that were modified after filling",
-           base::NumberToString(num_modified_after_filling)},
-          {"Number of fields that were cleared after filling",
-           base::NumberToString(num_cleared_after_filling)},
-          {"Number of fields that were manually filled without filling",
-           base::NumberToString(num_manually_filled)},
-          {"Filling products used",
-           base::JoinString(
-               base::ToVector(filling_products_used, &FillingProductToString),
-               ", ")},
-          {"AutofillAi entity record types used",
-           ListToString(autofill_ai_record_types_used,
-                        &EntityRecordTypeToMetricsString)},
-          {"AutofillAi entity types used",
-           ListToString(autofill_ai_entity_types_used,
-                        &EntityType::name_as_string)},
-          {"Time since last Autofill use",
-           submitted_form.last_filling_timestamp()
-               .transform([](base::TimeTicks time) {
+  // Prevent identification of the visited website by recording (potentially
+  // unique) high field counts as "20+".
+  constexpr int kMaxRecordedFieldCount = 20;
+  return {
+      {"All field types", FieldTypeSetToString(all_field_types)},
+      {"Total number of fields in form",
+       FormatCountForHats(submitted_form.field_count(),
+                          kMaxRecordedFieldCount)},
+      {"Number of correctly filled fields",
+       FormatCountForHats(num_correctly_filled, kMaxRecordedFieldCount)},
+      {"Number of fields that were submitted empty without filling",
+       FormatCountForHats(num_submitted_empty, kMaxRecordedFieldCount)},
+      {"Number of fields that were modified after filling",
+       FormatCountForHats(num_modified_after_filling, kMaxRecordedFieldCount)},
+      {"Number of fields that were cleared after filling",
+       FormatCountForHats(num_cleared_after_filling, kMaxRecordedFieldCount)},
+      {"Number of fields that were manually filled without filling",
+       FormatCountForHats(num_manually_filled, kMaxRecordedFieldCount)},
+      {"Filling products used",
+       base::JoinString(
+           base::ToVector(filling_products_used, &FillingProductToString),
+           ", ")},
+      {"AutofillAi entity record types used",
+       ListToString(autofill_ai_record_types_used,
+                    &EntityRecordTypeToMetricsString)},
+      {"AutofillAi entity types used",
+       ListToString(autofill_ai_entity_types_used,
+                    &EntityType::name_as_string)},
+      {"BNPL used", is_bnpl_used ? "true" : "false"},
+      {"Time since last Autofill use",
+       submitted_form.last_filling_timestamp()
+           .transform(
+               [](base::TimeTicks time) {
                  return base::NumberToString(
                      std::max(base::TimeDelta(), base::TimeTicks::Now() - time)
                          .InSeconds());
                })
-               .value_or("")}};
+           .value_or("")}};
 }
 
 }  // namespace
@@ -209,19 +228,49 @@ void MaybeTriggerFormSubmissionHatsSurveys(
     AutofillClient& client,
     const FormStructure& submitted_form) {
   for (FillingProduct filling_product :
-       std::array{FillingProduct::kAutofillAi, FillingProduct::kAddress}) {
+       std::array{FillingProduct::kAutofillAi, FillingProduct::kOneTimePassword,
+                  FillingProduct::kCreditCard, FillingProduct::kAddress}) {
     if (CanTriggerPersonalizationAndTrustSurvey(submitted_form,
                                                 filling_product)) {
       // Product was used on at least one field in the submitted form, initiate
       // attempt to show survey. To prevent timing-dependent behavior when
       // triggering multiple surveys, return after first attempt to start a
       // survey. For this reason, try to trigger rarely used products first.
-      client.TriggerPersonalizationAndTrustSurveys(
-          filling_product, CollectPersonalizationAndTrustFillingData(
-                               submitted_form, client.GetAutofillAiManager()));
+      HatsSurveyStringData survey_data =
+          CollectPersonalizationAndTrustFillingData(
+              submitted_form, client.GetAutofillAiManager());
+      survey_data.merge(
+          CollectPersonalizationAndTrustClientContextData(client));
+      client.TriggerPersonalizationAndTrustSurveys(filling_product,
+                                                   std::move(survey_data));
       return;
     }
   }
+}
+
+std::string FormatCountForHats(int count, int limit) {
+  return count >= limit ? base::StrCat({base::NumberToString(limit), "+"})
+                        : base::NumberToString(count);
+}
+
+HatsSurveyStringData CollectPersonalizationAndTrustClientContextData(
+    const AutofillClient& client) {
+  personal_context::PersonalContextEligibilityService* eligibility_service =
+      client.GetPersonalContextEligibilityService();
+  const bool pi_available =
+      eligibility_service &&
+      eligibility_service->GetEligibilityState() ==
+          personal_context::PersonalContextEligibilityState::kEligible;
+
+  std::string domain = net::registry_controlled_domains::GetDomainAndRegistry(
+      client.GetLastCommittedPrimaryMainFrameOrigin(),
+      net::registry_controlled_domains::INCLUDE_PRIVATE_REGISTRIES);
+
+  return {
+      {"GIC opt-in accepted", client.IsGlicConsented() ? "true" : "false"},
+      {"Personal Intelligence available", pi_available ? "true" : "false"},
+      {"Origin of the website (eTLD+1)", std::move(domain)},
+  };
 }
 
 RecentUserAutofillAiInteractionsForHats::

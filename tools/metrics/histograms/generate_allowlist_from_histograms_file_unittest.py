@@ -8,6 +8,7 @@ import xml.etree.ElementTree as ET
 
 import setup_modules  # pylint: disable=unused-import
 
+
 import chromium_src.tools.metrics.histograms.generate_allowlist_from_histograms_file as generate_allowlist_from_histograms_file
 
 _EXPECTED_FILE_CONTENT = """\

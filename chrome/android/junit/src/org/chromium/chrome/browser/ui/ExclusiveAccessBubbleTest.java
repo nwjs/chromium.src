@@ -4,6 +4,8 @@
 
 package org.chromium.chrome.browser.ui;
 
+import android.app.Activity;
+
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Rule;
@@ -14,8 +16,11 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
+import org.robolectric.Robolectric;
 
+import org.chromium.base.DeviceInfo;
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ui.messages.snackbar.Snackbar;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 
@@ -30,6 +35,48 @@ public class ExclusiveAccessBubbleTest {
     @Before
     public void setUp() {
         Mockito.when(mExclusiveAccessContext.getSnackbarManager()).thenReturn(mSnackbarManager);
+        Mockito.when(mSnackbarManager.canShowSnackbar()).thenReturn(true);
+    }
+
+    @Test
+    public void testShowWhenCannotShowSnackbar_NotOrphaned() {
+        Mockito.when(mSnackbarManager.canShowSnackbar()).thenReturn(false);
+        ExclusiveAccessBubble bubble = ExclusiveAccessBubble.create(mExclusiveAccessContext);
+
+        bubble.update("Test text");
+        Assert.assertFalse(
+                "Bubble should not be visible or orphaned when snackbars cannot be shown",
+                bubble.isVisible());
+        Mockito.verify(mSnackbarManager, Mockito.never()).showSnackbar(Mockito.any());
+
+        // Directly invoking show() when canShowSnackbar() is false must also not orphan mSnackbar.
+        bubble.show();
+        Assert.assertFalse(bubble.isVisible());
+        Mockito.verify(mSnackbarManager, Mockito.never()).showSnackbar(Mockito.any());
+
+        // When the activity returns to foreground, show() should now succeed.
+        Mockito.when(mSnackbarManager.canShowSnackbar()).thenReturn(true);
+        bubble.show();
+        Assert.assertTrue(bubble.isVisible());
+        Mockito.verify(mSnackbarManager, Mockito.times(1)).showSnackbar(Mockito.any());
+    }
+
+    @Test
+    public void testUpdateWhenCannotShowSnackbar_HidesBubble() {
+        ExclusiveAccessBubble bubble = ExclusiveAccessBubble.create(mExclusiveAccessContext);
+        bubble.update("Initial text");
+        Assert.assertTrue(bubble.isVisible());
+        Mockito.verify(mSnackbarManager, Mockito.times(1)).showSnackbar(Mockito.any());
+
+        // When snackbars cannot be shown (e.g. activity is paused or backgrounded),
+        // updating—even with identical text—must dismiss the active snackbar to avoid
+        // leaving an orphaned reference.
+        Mockito.when(mSnackbarManager.canShowSnackbar()).thenReturn(false);
+        bubble.update("Initial text");
+        Assert.assertFalse(
+                "Bubble should be safely hidden when updating while snackbars cannot be shown",
+                bubble.isVisible());
+        Mockito.verify(mSnackbarManager, Mockito.times(1)).dismissSnackbars(Mockito.any());
     }
 
     @Test
@@ -96,5 +143,22 @@ public class ExclusiveAccessBubbleTest {
         Assert.assertSame(firstSnackbar, secondSnackbar);
         Assert.assertEquals("Press and hold Esc", secondSnackbar.getTextForTesting());
         Mockito.verify(mSnackbarManager, Mockito.never()).dismissSnackbars(Mockito.any());
+    }
+
+    @Test
+    public void testCustomFullscreenExitInstructionAutomotive() {
+        Activity activity = Robolectric.buildActivity(Activity.class).setup().get();
+        Mockito.when(mExclusiveAccessContext.getActivity()).thenReturn(activity);
+        ExclusiveAccessBubble bubble = ExclusiveAccessBubble.create(mExclusiveAccessContext);
+
+        DeviceInfo.setIsAutomotiveForTesting(true);
+        Assert.assertEquals(
+                activity.getString(R.string.immersive_fullscreen_automotive_toolbar_improvements),
+                bubble.getCustomFullscreenExitInstruction(/* origin= */ null));
+        Assert.assertEquals(
+                activity.getString(
+                        R.string.immersive_fullscreen_automotive_toolbar_improvements_with_origin,
+                        "example.com"),
+                bubble.getCustomFullscreenExitInstruction("example.com"));
     }
 }

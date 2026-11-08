@@ -18,7 +18,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.robolectric.Shadows.shadowOf;
 
-import android.app.Activity;
 import android.graphics.drawable.Drawable;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -26,6 +25,7 @@ import android.view.View;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 
+import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.widget.SearchView;
 import androidx.appcompat.widget.Toolbar;
 import androidx.core.view.AccessibilityDelegateCompat;
@@ -137,6 +137,19 @@ public class SettingsMenuHelperUnitTest {
         @Override
         public void onPrepareOptionsMenu(Menu menu) {
             mPrepareOptionsMenuCalled = true;
+        }
+    }
+
+    private static class TestOnBackPressedCallback extends OnBackPressedCallback {
+        boolean mBackPressed;
+
+        TestOnBackPressedCallback() {
+            super(/* enabled= */ true);
+        }
+
+        @Override
+        public void handleOnBackPressed() {
+            mBackPressed = true;
         }
     }
 
@@ -545,11 +558,12 @@ public class SettingsMenuHelperUnitTest {
 
     @Test
     public void testUpdateNavigationIcon_ShowSingleColumn() {
-        Activity activity = mock(Activity.class);
+        TestOnBackPressedCallback backPressedCallback = new TestOnBackPressedCallback();
+        mActivity.getOnBackPressedDispatcher().addCallback(backPressedCallback);
 
         SettingsMenuHelper.updateNavigationIcon(
                 mToolbar,
-                activity,
+                mActivity,
                 /* shownInTab= */ false,
                 /* show= */ true,
                 /* isMultiColumn= */ false,
@@ -564,7 +578,7 @@ public class SettingsMenuHelperUnitTest {
         assertTrue(navigationButton.hasOnClickListeners());
 
         navigationButton.performClick();
-        verify(activity).onBackPressed();
+        assertTrue(backPressedCallback.mBackPressed);
     }
 
     @Test
@@ -588,11 +602,12 @@ public class SettingsMenuHelperUnitTest {
 
     @Test
     public void testUpdateNavigationIcon_ShowSingleColumn_shownInTabDetailSettings() {
-        Activity activity = mock(Activity.class);
+        TestOnBackPressedCallback backPressedCallback = new TestOnBackPressedCallback();
+        mActivity.getOnBackPressedDispatcher().addCallback(backPressedCallback);
 
         SettingsMenuHelper.updateNavigationIcon(
                 mToolbar,
-                activity,
+                mActivity,
                 /* shownInTab= */ true,
                 /* show= */ true,
                 /* isMultiColumn= */ false,
@@ -608,7 +623,7 @@ public class SettingsMenuHelperUnitTest {
         assertNotNull(shadowOf(navigationButton).getOnClickListener());
 
         navigationButton.performClick();
-        verify(activity).onBackPressed();
+        assertTrue(backPressedCallback.mBackPressed);
     }
 
     @Test
@@ -735,11 +750,31 @@ public class SettingsMenuHelperUnitTest {
                 /* isMainSettings= */ false);
     }
 
+    @Test
+    public void testUpdateNavigationIcon_withExtraImageButton_returnsNavButton() {
+        ImageButton extraButton = new ImageButton(mActivity);
+        mToolbar.addView(extraButton, 0);
+
+        SettingsMenuHelper.updateNavigationIcon(
+                mToolbar,
+                mActivity,
+                /* shownInTab= */ true,
+                /* show= */ true,
+                /* isMultiColumn= */ true,
+                /* isMainSettings= */ false);
+
+        View navigationButton = getNavigationButton();
+        assertNotNull(navigationButton);
+        assertFalse(navigationButton.isClickable());
+        assertTrue(extraButton.isClickable());
+    }
+
     /** Returns the navigation button on the toolbar. */
     private View getNavigationButton() {
         for (int i = 0; i < mToolbar.getChildCount(); i++) {
             View child = mToolbar.getChildAt(i);
-            if (child instanceof ImageButton) {
+            if (child instanceof ImageButton
+                    && ((ImageButton) child).getDrawable() == mToolbar.getNavigationIcon()) {
                 return child;
             }
         }

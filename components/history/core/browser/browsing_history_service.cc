@@ -12,6 +12,8 @@
 #include <utility>
 
 #include "base/check.h"
+#include "base/containers/flat_map.h"
+#include "base/containers/to_vector.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
@@ -29,7 +31,11 @@
 #include "components/history/core/browser/history_backend.h"
 #include "components/history/core/browser/history_types.h"
 #include "components/keyed_service/core/service_access_type.h"
+#include "components/sync/base/user_selectable_type.h"
 #include "components/sync/protocol/history_delete_directive_specifics.pb.h"
+#include "components/sync/service/sync_user_settings.h"
+#include "components/sync_device_info/device_info.h"
+#include "components/sync_device_info/device_name_util.h"
 
 namespace history {
 
@@ -90,6 +96,7 @@ struct BrowsingHistoryService::QueryHistoryState
 
   std::u16string search_text;
   QueryOptions original_options;
+  base::TimeTicks query_start_time;
 
   QuerySourceStatus local_status = UNINITIALIZED;
   // Should always be sorted in reverse chronological order.
@@ -120,7 +127,7 @@ BrowsingHistoryService::HistoryEntry::HistoryEntry(
     int typed_count,
     bool is_actor_visit,
     std::optional<std::string> app_id,
-    history::VisitID visit_id)
+    VisitID visit_id)
     : entry_type(entry_type),
       url(url),
       title(title),
@@ -135,7 +142,7 @@ BrowsingHistoryService::HistoryEntry::HistoryEntry(
       is_actor_visit(is_actor_visit),
       app_id(app_id) {
   all_timestamps[url].insert(time);
-  if (visit_id != history::kInvalidVisitID) {
+  if (visit_id != kInvalidVisitID) {
     all_visit_ids.push_back(visit_id);
   }
 }
@@ -159,21 +166,25 @@ BrowsingHistoryService::QueryResultsInfo::~QueryResultsInfo() = default;
 BrowsingHistoryService::BrowsingHistoryService(
     BrowsingHistoryDriver* driver,
     HistoryService* local_history,
-    syncer::SyncService* sync_service)
+    syncer::SyncService* sync_service,
+    syncer::DeviceInfoTracker* device_info_tracker)
     : BrowsingHistoryService(driver,
                              local_history,
                              sync_service,
-                             std::make_unique<base::OneShotTimer>()) {}
+                             std::make_unique<base::OneShotTimer>(),
+                             device_info_tracker) {}
 
 BrowsingHistoryService::BrowsingHistoryService(
     BrowsingHistoryDriver* driver,
     HistoryService* local_history,
     syncer::SyncService* sync_service,
-    std::unique_ptr<base::OneShotTimer> web_history_timer)
+    std::unique_ptr<base::OneShotTimer> web_history_timer,
+    syncer::DeviceInfoTracker* device_info_tracker)
     : web_history_timer_(std::move(web_history_timer)),
       driver_(driver),
       local_history_(local_history),
       sync_service_(sync_service),
+      device_info_tracker_(device_info_tracker),
       clock_(new base::DefaultClock()) {
   DCHECK(driver_);
 
@@ -219,6 +230,7 @@ void BrowsingHistoryService::OnStateChanged(syncer::SyncService* sync) {
 
 void BrowsingHistoryService::OnSyncShutdown(syncer::SyncService* sync) {
   sync_service_observation_.Reset();
+  device_info_tracker_ = nullptr;
 }
 
 void BrowsingHistoryService::WebHistoryTimeout(
@@ -245,6 +257,8 @@ void BrowsingHistoryService::QueryHistory(const std::u16string& search_text,
 
 void BrowsingHistoryService::QueryHistoryInternal(
     scoped_refptr<QueryHistoryState> state) {
+  state->query_start_time = base::TimeTicks::Now();
+
   // Anything in-flight is invalid.
   query_task_tracker_.TryCancelAll();
   web_history_request_.reset();
@@ -514,8 +528,7 @@ bool BrowsingHistoryService::ShouldQueryRemote(const QueryHistoryState& state) {
 
 #if !BUILDFLAG(IS_IOS)
   // Actor visits are local-only and user visits should not be queried.
-  if (history::IsBrowsingHistoryActorIntegrationM3Enabled() &&
-      !state.original_options.include_user_visits) {
+  if (!state.original_options.include_user_visits) {
     return false;
   }
 #endif
@@ -880,6 +893,11 @@ void BrowsingHistoryService::ReturnResultsToDriver(
                            (!CanRetry(state->remote_status) ||
                             state->original_options.app_id != kNoAppIdFilter);
   info.sync_timed_out = state->remote_status == TIMED_OUT;
+  if (!state->query_start_time.is_null()) {
+    base::UmaHistogramTimes("History.BrowsingHistory.QueryDuration",
+                            base::TimeTicks::Now() - state->query_start_time);
+    state->query_start_time = base::TimeTicks();
+  }
   base::OnceClosure continuation =
       base::BindOnce(&BrowsingHistoryService::QueryHistoryInternal,
                      weak_factory_.GetWeakPtr(), std::move(state));
@@ -998,7 +1016,7 @@ void BrowsingHistoryService::WebHistoryQueryComplete(
           /*blocked_visit=*/false, visit.favicon_url, 0, 0,
           /*is_actor_visit=*/false,
           /*app_id=*/std::nullopt,
-          /*visit_id=*/history::kInvalidVisitID);
+          /*visit_id=*/kInvalidVisitID);
     }
     state->remote_status = query_history_result->has_more_results
                                ? MORE_RESULTS
@@ -1058,6 +1076,7 @@ void BrowsingHistoryService::HistoryServiceBeingDeleted(
   // not dangle.
   history_service_observation_.Reset();
   local_history_ = nullptr;
+  device_info_tracker_ = nullptr;
 }
 
 void BrowsingHistoryService::OnWebHistoryDeleted() {
@@ -1066,6 +1085,38 @@ void BrowsingHistoryService::OnWebHistoryDeleted() {
   if (!has_pending_delete_request_) {
     driver_->HistoryDeleted();
   }
+}
+
+std::vector<BrowsingHistoryService::ClientGroup>
+BrowsingHistoryService::GetAllSyncedClientsGroupedByName() const {
+  if (!base::FeatureList::IsEnabled(history::kBrowsingHistoryFilterByDevice)) {
+    return {};
+  }
+
+  if (!device_info_tracker_) {
+    return {};
+  }
+
+  if (!sync_service_ ||
+      !(sync_service_->GetUserSettings()->GetSelectedTypes().Has(
+          syncer::UserSelectableType::kHistory))) {
+    return {};
+  }
+
+  std::vector<const syncer::DeviceInfo*> synced_devices =
+      device_info_tracker_->GetAllChromeDeviceInfo();
+
+  base::flat_map<std::string, std::vector<std::string>> uniquely_named_groups;
+
+  for (const syncer::DeviceInfo* device_info : synced_devices) {
+    uniquely_named_groups[syncer::GetDeviceDisplayName(device_info)].push_back(
+        device_info->guid());
+  }
+
+  return base::ToVector(uniquely_named_groups, [](auto& pair) {
+    return ClientGroup{.name = std::move(pair.first),
+                       .client_ids = std::move(pair.second)};
+  });
 }
 
 }  // namespace history

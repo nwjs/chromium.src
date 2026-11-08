@@ -18,6 +18,7 @@
 #include "base/notimplemented.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/types/pass_key.h"
+#include "build/branding_buildflags.h"
 #include "chrome/browser/contextual_cueing/features.h"
 #include "chrome/browser/glic/host/glic.mojom.h"
 #include "chrome/browser/glic/public/glic_enabling.h"
@@ -57,6 +58,7 @@
 #include "components/signin/public/base/signin_metrics.h"
 #include "components/skills/public/skill.h"
 #include "components/skills/public/skills_service.h"
+#include "components/vector_icons/vector_icons.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_view_host.h"
@@ -71,6 +73,10 @@
 #include "ui/base/window_open_disposition.h"
 #include "ui/gfx/image/image_skia.h"
 #include "ui/views/view.h"
+
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
+#include "chrome/browser/indigo/resources/vector_icons.h"
+#endif
 
 namespace indigo {
 
@@ -171,6 +177,27 @@ IndigoPageActionController* IndigoPageActionController::From(
   return Get(tab->GetUnownedUserDataHost());
 }
 
+// static
+const gfx::VectorIcon& IndigoPageActionController::GetEntryPointVectorIcon() {
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
+  return kFaceRetouchIcon;
+#else
+  return vector_icons::kButtonMagicIcon;
+#endif
+}
+
+bool IndigoPageActionController::IsPageEligible() const {
+  return EvaluateTriggerState().source.has_value();
+}
+
+void IndigoPageActionController::OnContextMenuShown() {
+  if (context_menu_shown_on_current_page_) {
+    return;
+  }
+  context_menu_shown_on_current_page_ = true;
+  RecordShownEntryPoint(IndigoPageActionEntryPoint::kContextMenu);
+}
+
 void IndigoPageActionController::InvokeAction(EntryPoint entry_point) {
   RecordClickedEntryPoint(entry_point, last_anchored_message_priority_);
 
@@ -178,22 +205,31 @@ void IndigoPageActionController::InvokeAction(EntryPoint entry_point) {
     return;
   }
 
-  const bool skip_glic_invoke = (entry_point == EntryPoint::kErrorToast);
-
   switch (entry_point) {
     case EntryPoint::kErrorToast:
+      indigo_service_->GetCombinedEligibility(base::BindOnce(
+          &IndigoPageActionController::CheckEligibilityForOnboarding,
+          invoke_weak_ptr_factory_.GetWeakPtr(), base::TimeTicks::Now(),
+          IndigoTransformationTriggerSource::kErrorToastRetry));
+      return;
+    case EntryPoint::kContextMenu:
+      indigo_service_->GetCombinedEligibility(base::BindOnce(
+          &IndigoPageActionController::CheckEligibilityForOnboarding,
+          invoke_weak_ptr_factory_.GetWeakPtr(), base::TimeTicks::Now(),
+          IndigoTransformationTriggerSource::kContextMenu));
+      return;
     case EntryPoint::kAnchoredMessage:
       indigo_service_->GetCombinedEligibility(base::BindOnce(
           &IndigoPageActionController::CheckEligibilityForOnboarding,
           invoke_weak_ptr_factory_.GetWeakPtr(), base::TimeTicks::Now(),
-          skip_glic_invoke));
+          IndigoTransformationTriggerSource::kPageAction));
       return;
     case EntryPoint::kSuggestionChip:
       if (glic::GlicSidePanelCoordinator::IsShowing(&tab())) {
         indigo_service_->GetCombinedEligibility(base::BindOnce(
             &IndigoPageActionController::CheckEligibilityForOnboarding,
             invoke_weak_ptr_factory_.GetWeakPtr(), base::TimeTicks::Now(),
-            skip_glic_invoke));
+            IndigoTransformationTriggerSource::kPageAction));
         return;
       }
       ShowAnchoredMessage(
@@ -204,7 +240,7 @@ void IndigoPageActionController::InvokeAction(EntryPoint entry_point) {
 
 void IndigoPageActionController::CheckEligibilityForOnboarding(
     base::TimeTicks start_time,
-    bool skip_glic_invoke,
+    IndigoTransformationTriggerSource trigger_source,
     const CombinedEligibility& eligibility) {
   base::UmaHistogramTimes("Indigo.Discovery.EligibilityCheck.Latency",
                           base::TimeTicks::Now() - start_time);
@@ -230,15 +266,15 @@ void IndigoPageActionController::CheckEligibilityForOnboarding(
 
   // Show onboarding if the user is ready to onboard, or if it's forced.
   if (eligibility.ReadyToOnboard() || force_onboarding) {
-    ShowOnboardingDialog(OnboardingDisposition::kDefault, skip_glic_invoke);
+    ShowOnboardingDialog(OnboardingDisposition::kDefault, trigger_source);
     return;
   }
 
-  ContinueInvoke(skip_glic_invoke, eligibility);
+  ContinueInvoke(trigger_source, eligibility);
 }
 
 void IndigoPageActionController::ContinueInvoke(
-    bool skip_glic_invoke,
+    IndigoTransformationTriggerSource trigger_source,
     const CombinedEligibility& eligibility) {
   content::WebContents* web_contents = tab().GetContents();
   if (!web_contents) {
@@ -254,12 +290,15 @@ void IndigoPageActionController::ContinueInvoke(
     return;
   }
 
-  const bool invoked_glic = !skip_glic_invoke && MaybeInvokeGlic();
+  // Only the primary page action chip opens the Glic side panel; retries and
+  // secondary entry points execute the agent inline.
+  const bool should_invoke_glic =
+      (trigger_source == IndigoTransformationTriggerSource::kPageAction);
+  const bool invoked_glic = should_invoke_glic && MaybeInvokeGlic();
   if (!invoked_glic) {
-    // The glic invocation path will trigger the Indigo agent after the panel is opened.
-    TriggerIndigoAgent(skip_glic_invoke
-                           ? IndigoTransformationTriggerSource::kErrorToastRetry
-                           : IndigoTransformationTriggerSource::kPageAction);
+    // The glic invocation path will trigger the Indigo agent after the panel is
+    // opened.
+    TriggerIndigoAgent(trigger_source);
   }
 }
 
@@ -394,7 +433,7 @@ void IndigoPageActionController::TriggerIndigoAgentWithDelay(
 
 void IndigoPageActionController::ShowOnboardingDialog(
     OnboardingDisposition disposition,
-    bool skip_glic_invoke) {
+    IndigoTransformationTriggerSource trigger_source) {
   if (!indigo_service_ || onboarding_dialog_) {
     return;
   }
@@ -422,7 +461,7 @@ void IndigoPageActionController::ShowOnboardingDialog(
 
   auto callback = base::BindOnce(
       &IndigoPageActionController::OnOnboardingDialogClosed,
-      invoke_weak_ptr_factory_.GetWeakPtr(), disposition, skip_glic_invoke);
+      invoke_weak_ptr_factory_.GetWeakPtr(), disposition, trigger_source);
 
   if (onboarding_dialog_factory_for_testing_) {
     onboarding_dialog_ = onboarding_dialog_factory_for_testing_.Run(
@@ -531,6 +570,7 @@ void IndigoPageActionController::DidFinishNavigation(
       tab().GetContents(), navigation_handle->IsSameDocument());
   last_anchored_message_priority_ = std::nullopt;
   last_trigger_source_ = std::nullopt;
+  context_menu_shown_on_current_page_ = false;
   UpdateEntryPointsState();
 
   if (optimization_guide_) {
@@ -543,14 +583,14 @@ void IndigoPageActionController::DidFinishNavigation(
 }
 
 void IndigoPageActionController::TabWillBecomeHidden(tabs::TabInterface* tab) {
-  DCHECK_EQ(tab, &this->tab());
+  CHECK_EQ(tab, &this->tab(), base::NotFatalUntil::M161);
   if (toolbar_) {
     toolbar_->TabWillBecomeHidden();
   }
 }
 
 void IndigoPageActionController::TabDidBecomeVisible(tabs::TabInterface* tab) {
-  DCHECK_EQ(tab, &this->tab());
+  CHECK_EQ(tab, &this->tab(), base::NotFatalUntil::M161);
   if (!toolbar_) {
     return;
   }
@@ -591,7 +631,7 @@ void IndigoPageActionController::TriggerRegeneration(
 void IndigoPageActionController::OnReplaceOriginalPhoto(
     IndigoToolbar* toolbar) {
   ShowOnboardingDialog(OnboardingDisposition::kReplacePhoto,
-                       /*skip_glic_invoke=*/true);
+                       IndigoTransformationTriggerSource::kReplacePhoto);
 }
 
 void IndigoPageActionController::OnDeleteOriginalPhoto(IndigoToolbar* toolbar) {
@@ -680,6 +720,7 @@ void IndigoPageActionController::ResetTriggeringState() {
   metadata_classifier_.Reset();
   last_anchored_message_priority_ = std::nullopt;
   last_trigger_source_ = std::nullopt;
+  context_menu_shown_on_current_page_ = false;
   UpdateEntryPointsState();
 }
 
@@ -762,7 +803,7 @@ void IndigoPageActionController::RecordTriggerSource() {
 
 void IndigoPageActionController::OnOnboardingDialogClosed(
     OnboardingDisposition disposition,
-    bool skip_glic_invoke,
+    IndigoTransformationTriggerSource trigger_source,
     const OnboardingResult& result) {
   const bool acknowledged = result.acknowledge_chrome_disclaimer;
   onboarding_dialog_.reset();
@@ -790,11 +831,11 @@ void IndigoPageActionController::OnOnboardingDialogClosed(
 
     if (disposition == OnboardingDisposition::kReplacePhoto) {
       indigo_service_->NotifyPhotoChanged();
-      TriggerRegeneration(IndigoTransformationTriggerSource::kReplacePhoto);
+      TriggerRegeneration(trigger_source);
     } else {
       indigo_service_->GetCombinedEligibility(base::BindOnce(
           &IndigoPageActionController::ContinueInvoke,
-          invoke_weak_ptr_factory_.GetWeakPtr(), skip_glic_invoke));
+          invoke_weak_ptr_factory_.GetWeakPtr(), trigger_source));
     }
   }
 }

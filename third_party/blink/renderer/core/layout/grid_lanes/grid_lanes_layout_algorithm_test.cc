@@ -204,29 +204,22 @@ class GridLanesLayoutAlgorithmTest : public BaseLayoutAlgorithmTest {
   }
 
   GridLanesDataVector GetFragmentedGridLanesData() {
-    // Run the grid-lanes algorithm directly in a fragmentation context. The
-    // fragmentation pass currently only collects initial item offsets into the
-    // break token and does not add child layout results, so advancing to
-    // pre-paint would fail its layout-state checks.
-    //
-    // TODO(almaher): Once grid-lanes item fragmentation is supported, test this
-    // with a multicolumn container through a normal full lifecycle.
-    AdvanceToLayoutPhase();
-    BlockNode node(GetLayoutBoxByElementId("grid-lanes"));
-    const auto space = ConstructBlockLayoutTestConstraintSpace(
-        {WritingMode::kHorizontalTb, TextDirection::kLtr},
-        LogicalSize(LayoutUnit(300), kIndefiniteSize),
-        /*stretch_inline_size_if_auto=*/true,
-        node.CreatesNewFormattingContext(),
-        /*fragmentainer_space_available=*/LayoutUnit(30));
-    const auto fragment_geometry =
-        CalculateInitialFragmentGeometry(space, node, /*break_token=*/nullptr);
+    InsertStyleElement(R"CSS(
+      body {
+        column-count: 2;
+        column-fill: auto;
+        column-gap: 0;
+        height: 30px;
+        margin: 0;
+        width: 600px;
+      }
+    )CSS");
+    UpdateAllLifecyclePhasesForTest();
 
-    GridLanesLayoutAlgorithm algorithm({node, fragment_geometry, space});
-    const LayoutResult* result = algorithm.Layout();
-    const auto* fragment =
-        To<PhysicalBoxFragment>(&result->GetPhysicalFragment());
-    const BlockBreakToken* break_token = fragment->GetBreakToken();
+    const LayoutBox* grid_lanes = GetLayoutBoxByElementId("grid-lanes");
+    CHECK_GT(grid_lanes->PhysicalFragmentCount(), 1u);
+    const BlockBreakToken* break_token =
+        grid_lanes->GetPhysicalFragment(0)->GetBreakToken();
     CHECK(break_token);
     return To<GridLanesBreakTokenData>(break_token->TokenData())->grid_lanes;
   }
@@ -3354,8 +3347,8 @@ TEST_F(GridLanesLayoutAlgorithmTest, PopulateDensePackedBreakTokenData) {
   ASSERT_EQ(spanner.items_densely_packed_above.size(), 1u);
   const auto& packed_item = *spanner.items_densely_packed_above[0];
 
-  // The packed item's shared placement record is found by its collection index
-  // and end-aligned within the opening above the spanner.
+  // The packed item's shared placement record is resolved by its stable lane
+  // path and end-aligned within the opening above the spanner.
   EXPECT_EQ(spanner.PlacementData().offset,
             (LogicalOffset{LayoutUnit(), LayoutUnit(20)}));
   EXPECT_EQ(packed_item.PlacementData().offset,
@@ -3466,7 +3459,7 @@ TEST_F(GridLanesLayoutAlgorithmTest,
 }
 
 TEST_F(GridLanesLayoutAlgorithmTest,
-       PopulateDenseItemAboveDenseSpannerUsesRootSpanner) {
+       PopulateDenseItemAboveDenseSpannerUsesParentSpanner) {
   SetBodyInnerHTML(R"HTML(
     <div id="grid-lanes" style="display: grid-lanes; height: 200px;
         grid-template-columns: repeat(4, 100px); grid-auto-flow: dense;
@@ -3483,22 +3476,21 @@ TEST_F(GridLanesLayoutAlgorithmTest,
 
   const auto grid_lanes = GetFragmentedGridLanesData();
 
-  // Lane 2 has one direct root spanner with both packed items nested under it.
+  // Lane 2 has one direct root spanner, a packed spanner, and an item packed
+  // above that spanner.
   ASSERT_EQ(grid_lanes.size(), 4u);
   ASSERT_EQ(grid_lanes[0]->item_data.size(), 2u);
   ASSERT_EQ(grid_lanes[1]->item_data.size(), 1u);
   ASSERT_EQ(grid_lanes[2]->item_data.size(), 2u);
   ASSERT_EQ(grid_lanes[3]->item_data.size(), 2u);
   const auto& root_spanner = *grid_lanes[1]->item_data[0];
-  ASSERT_EQ(root_spanner.items_densely_packed_above.size(), 2u);
+  ASSERT_EQ(root_spanner.items_densely_packed_above.size(), 1u);
   const auto& packed_spanner = *root_spanner.items_densely_packed_above[0];
-  const auto& packed_item = *root_spanner.items_densely_packed_above[1];
+  ASSERT_EQ(packed_spanner.items_densely_packed_above.size(), 1u);
+  const auto& packed_item = *packed_spanner.items_densely_packed_above[0];
 
-  // The single-lane item uses the opening above the packed spanner but remains
-  // a sibling under the original root instead of nesting under that spanner.
   EXPECT_EQ(packed_spanner.PlacementData().offset,
             (LogicalOffset{LayoutUnit(100), LayoutUnit(10)}));
-  EXPECT_TRUE(packed_spanner.items_densely_packed_above.empty());
   EXPECT_EQ(packed_item.PlacementData().offset,
             (LogicalOffset{LayoutUnit(100), LayoutUnit()}));
 }

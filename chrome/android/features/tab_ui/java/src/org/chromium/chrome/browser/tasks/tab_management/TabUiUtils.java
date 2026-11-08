@@ -4,12 +4,8 @@
 
 package org.chromium.chrome.browser.tasks.tab_management;
 
-import static org.chromium.build.NullUtil.assumeNonNull;
-
-import android.app.Activity;
 import android.content.Context;
 import android.os.Build;
-import android.text.TextUtils;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.FrameLayout;
@@ -24,21 +20,14 @@ import org.chromium.base.Token;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
-import org.chromium.chrome.browser.collaboration.CollaborationServiceFactory;
 import org.chromium.chrome.browser.data_sharing.DataSharingTabManager;
 import org.chromium.chrome.browser.data_sharing.ui.shared_image_tiles.SharedImageTilesCoordinator;
 import org.chromium.chrome.browser.data_sharing.ui.shared_image_tiles.SharedImageTilesView;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
-import org.chromium.chrome.browser.profiles.Profile;
-import org.chromium.chrome.browser.signin.services.IdentityServicesProvider;
 import org.chromium.chrome.browser.tab.Tab;
-import org.chromium.chrome.browser.tab_group_sync.TabGroupSyncServiceFactory;
-import org.chromium.chrome.browser.tab_group_sync.TabGroupSyncUtils;
-import org.chromium.chrome.browser.tab_ui.ActionConfirmationManager;
-import org.chromium.chrome.browser.tab_ui.ActionConfirmationManager.MaybeBlockingResult;
 import org.chromium.chrome.browser.tabmodel.TabClosingSource;
 import org.chromium.chrome.browser.tabmodel.TabClosureParams;
-import org.chromium.chrome.browser.tabmodel.TabGroupTitleUtils;
+import org.chromium.chrome.browser.tabmodel.TabGroupUtils;
 import org.chromium.chrome.browser.tabmodel.TabList;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelActionListener;
@@ -46,10 +35,7 @@ import org.chromium.chrome.tab_ui.R;
 import org.chromium.components.browser_ui.widget.ActionConfirmationResult;
 import org.chromium.components.collaboration.CollaborationService;
 import org.chromium.components.collaboration.CollaborationServiceShareOrManageEntryPoint;
-import org.chromium.components.data_sharing.GroupData;
 import org.chromium.components.data_sharing.member_role.MemberRole;
-import org.chromium.components.signin.base.AccountInfo;
-import org.chromium.components.signin.identitymanager.IdentityManager;
 import org.chromium.components.tab_group_sync.EitherId.EitherGroupId;
 import org.chromium.components.tab_group_sync.LocalTabGroupId;
 import org.chromium.components.tab_group_sync.SavedTabGroup;
@@ -69,7 +55,7 @@ public class TabUiUtils {
      * Closes a tab group and maybe shows a confirmation dialog.
      *
      * @param tabModel The {@link TabModel} to act on.
-     * @param tabId The ID of one of the tabs in the tab group.
+     * @param tabGroupId The {@link Token} of the tab group to close.
      * @param tabClosingSource The tab closing source, e.g. the tablet tab strip.
      * @param allowUndo Whether to allow undo of the tab group closure.
      * @param hideTabGroups Whether to hide or delete the tab group.
@@ -77,18 +63,12 @@ public class TabUiUtils {
      */
     public static void closeTabGroup(
             TabModel tabModel,
-            int tabId,
+            @Nullable Token tabGroupId,
             @TabClosingSource int tabClosingSource,
             boolean allowUndo,
             boolean hideTabGroups,
             @Nullable Callback<Boolean> didCloseCallback) {
-        @Nullable Tab tab = tabModel.getTabById(tabId);
-        if (tab == null) {
-            Callback.runNullSafe(didCloseCallback, false);
-            return;
-        }
-        TabClosureParams.Builder builder =
-                TabClosureParams.forCloseTabGroup(tabModel, tab.getTabGroupId());
+        TabClosureParams.Builder builder = TabClosureParams.forCloseTabGroup(tabModel, tabGroupId);
         if (builder == null) {
             Callback.runNullSafe(didCloseCallback, false);
             return;
@@ -138,10 +118,64 @@ public class TabUiUtils {
      * @param tabGroupId The id of the tab group.
      */
     public static void ungroupTabGroup(TabModel tabModel, Token tabGroupId) {
-        if (!tabModel.tabGroupExists(tabGroupId)) return;
+        if (!tabModel.containsTabGroup(tabGroupId)) return;
 
         tabModel.getTabUngrouper()
                 .ungroupTabGroup(tabGroupId, /* trailing= */ false, /* allowDialog= */ true);
+    }
+
+    /**
+     * Reorders an entire tab group in the given direction (up/previous or down/next).
+     *
+     * @param tabModel The active {@link TabModel}.
+     * @param groupId The {@link Token} ID of the tab group.
+     * @param toPrevious Whether to move to previous (up) or next (down).
+     * @return Whether the group was successfully reordered.
+     */
+    public static boolean reorderTabGroup(
+            @Nullable TabModel tabModel, Token groupId, boolean toPrevious) {
+        if (tabModel == null) return false;
+        int newIndex =
+                getIndexPastAdjacentTabOrGroup(
+                        tabModel, tabModel.getTabsInGroup(groupId), toPrevious);
+        if (newIndex == TabModel.INVALID_TAB_INDEX) return false;
+        tabModel.moveGroupToIndex(groupId, newIndex);
+        return true;
+    }
+
+    /**
+     * Returns the {@link TabModel} index to move {@code tabsToMove} to so it jumps past the
+     * adjacent tab or tab group, or {@link TabModel#INVALID_TAB_INDEX} if there is no adjacent item
+     * on the same side of the pinned boundary.
+     *
+     * @param tabModel The {@link TabModel} containing the tabs.
+     * @param tabsToMove The contiguous tabs being moved, either a whole tab group or one tab.
+     * @param toPrevious Whether to move earlier (up / previous) or later (down / next).
+     * @return The target {@link TabModel} index, or {@link TabModel#INVALID_TAB_INDEX} if the move
+     *     is invalid.
+     */
+    static int getIndexPastAdjacentTabOrGroup(
+            TabModel tabModel, List<Tab> tabsToMove, boolean toPrevious) {
+        if (tabsToMove.isEmpty()) return TabModel.INVALID_TAB_INDEX;
+        int boundaryIndex =
+                toPrevious
+                        ? TabGroupUtils.getFirstTabModelIndexForList(tabModel, tabsToMove)
+                        : TabGroupUtils.getLastTabModelIndexForList(tabModel, tabsToMove);
+        if (boundaryIndex == TabModel.INVALID_TAB_INDEX) return TabModel.INVALID_TAB_INDEX;
+        int adjacentIndex = toPrevious ? boundaryIndex - 1 : boundaryIndex + 1;
+        Tab adjacentTab = tabModel.getTabAt(adjacentIndex);
+        // Never jump across the pinned / unpinned boundary. The model would clamp it to a no-op.
+        if (adjacentTab == null || adjacentTab.getIsPinned() != tabsToMove.get(0).getIsPinned()) {
+            return TabModel.INVALID_TAB_INDEX;
+        }
+        Token adjacentGroupId = adjacentTab.getTabGroupId();
+        if (adjacentGroupId == null) return adjacentIndex;
+
+        List<Tab> adjacentGroup = tabModel.getTabsInGroup(adjacentGroupId);
+        if (adjacentGroup.isEmpty()) return TabModel.INVALID_TAB_INDEX;
+        return toPrevious
+                ? TabGroupUtils.getFirstTabModelIndexForList(tabModel, adjacentGroup)
+                : TabGroupUtils.getLastTabModelIndexForList(tabModel, adjacentGroup);
     }
 
     /**
@@ -154,7 +188,7 @@ public class TabUiUtils {
      */
     public static boolean updateTabGroupColor(
             TabModel tabModel, Token tabGroupId, @TabGroupColorId int newGroupColor) {
-        if (!tabModel.tabGroupExists(tabGroupId)) return false;
+        if (!tabModel.containsTabGroup(tabGroupId)) return false;
 
         int curGroupColor = tabModel.getTabGroupColor(tabGroupId);
         if (curGroupColor != newGroupColor) {
@@ -175,7 +209,7 @@ public class TabUiUtils {
     public static boolean updateTabGroupTitle(
             TabModel tabModel, Token tabGroupId, String newGroupTitle) {
         assert newGroupTitle != null;
-        if (!tabModel.tabGroupExists(tabGroupId)) return false;
+        if (!tabModel.containsTabGroup(tabGroupId)) return false;
 
         String curGroupTitle = tabModel.getTabGroupTitle(tabGroupId);
         if (!newGroupTitle.equals(curGroupTitle)) {
@@ -183,89 +217,6 @@ public class TabUiUtils {
             return true;
         }
         return false;
-    }
-
-    /**
-     * Leave or deletes a shared tab group, prompting to user to verify first.
-     *
-     * @param context Used to load resources.
-     * @param tabModel Used to pull dependencies from.
-     * @param actionConfirmationManager Used to show a confirmation dialog.
-     * @param modalDialogManager Used to show error dialogs.
-     * @param tabId The local id of the tab being left.
-     */
-    public static void exitSharedTabGroupWithDialog(
-            Context context,
-            TabModel tabModel,
-            ActionConfirmationManager actionConfirmationManager,
-            ModalDialogManager modalDialogManager,
-            int tabId) {
-        assert isDataSharingFunctionalityEnabled();
-        assert actionConfirmationManager != null;
-
-        Profile profile = assumeNonNull(tabModel.getProfile());
-        TabGroupSyncService tabGroupSyncService =
-                assumeNonNull(TabGroupSyncServiceFactory.getForProfile(profile));
-        IdentityManager identityManager =
-                assumeNonNull(IdentityServicesProvider.get().getIdentityManager(profile));
-        CollaborationService collaborationService =
-                CollaborationServiceFactory.getForProfile(profile);
-
-        @Nullable SavedTabGroup savedTabGroup =
-                TabGroupSyncUtils.getSavedTabGroupFromTabId(tabId, tabModel, tabGroupSyncService);
-
-        @Nullable AccountInfo account = identityManager.getPrimaryAccountInfo();
-        if (savedTabGroup == null
-                || TextUtils.isEmpty(savedTabGroup.collaborationId)
-                || account == null) {
-            showGenericErrorDialog(context, modalDialogManager);
-            return;
-        }
-
-        String collaborationId = savedTabGroup.collaborationId;
-        @Nullable GroupData shareGroup = collaborationService.getGroupData(collaborationId);
-        if (shareGroup == null) {
-            showGenericErrorDialog(context, modalDialogManager);
-            return;
-        }
-
-        @MemberRole
-        int memberRole = collaborationService.getCurrentUserRoleForGroup(collaborationId);
-        Callback<MaybeBlockingResult> onActionConfirmation =
-                (MaybeBlockingResult maybeBlockingResult) -> {
-                    if (maybeBlockingResult.result
-                            != ActionConfirmationResult.CONFIRMATION_NEGATIVE) {
-                        assert maybeBlockingResult.finishBlocking != null;
-                        exitCollaborationWithoutWarning(
-                                context,
-                                modalDialogManager,
-                                collaborationService,
-                                collaborationId,
-                                memberRole,
-                                maybeBlockingResult.finishBlocking);
-                    } else if (maybeBlockingResult.finishBlocking != null) {
-                        assert false : "Should not be reachable.";
-                        // Do the safe thing and run the runnable anyway.
-                        maybeBlockingResult.finishBlocking.run();
-                    }
-                };
-
-        // The default title is not included in the savedTabGroup data. Use the filter to get the
-        // last known title for the tab group.
-        String title = savedTabGroup.title;
-        Tab tab = tabModel.getTabById(tabId);
-        if (tab != null || TextUtils.isEmpty(title)) {
-            Token tabGroupId = tab == null ? null : tab.getTabGroupId();
-            title = TabGroupTitleUtils.getDisplayableTitle(context, tabModel, tabGroupId);
-        }
-
-        if (memberRole == MemberRole.OWNER) {
-            actionConfirmationManager.processDeleteSharedGroupAttempt(title, onActionConfirmation);
-        } else if (memberRole == MemberRole.MEMBER) {
-            actionConfirmationManager.processLeaveGroupAttempt(title, onActionConfirmation);
-        } else {
-            showGenericErrorDialog(context, modalDialogManager);
-        }
     }
 
     /**
@@ -322,29 +273,24 @@ public class TabUiUtils {
     }
 
     /**
-     * Create share flows to initiate tab group share.
+     * Starts the share flow for a tab group.
      *
-     * @param activity that contains the current tab group.
      * @param tabModel The {@link TabModel} to act on.
-     * @param dataSharingTabManager The {@link} DataSharingTabManager managing communication between
+     * @param dataSharingTabManager The {@link DataSharingTabManager} managing communication between
      *     UI and DataSharing services.
-     * @param tabId The local id of the tab.
-     * @param tabGroupDisplayName The display name of the current group title.
+     * @param tabGroupId The {@link Token} of the tab group.
+     * @param entry The entry point for the share flow.
      */
     public static void startShareTabGroupFlow(
-            Activity activity,
             TabModel tabModel,
             DataSharingTabManager dataSharingTabManager,
-            int tabId,
-            String tabGroupDisplayName,
+            @Nullable Token tabGroupId,
             @CollaborationServiceShareOrManageEntryPoint int entry) {
-        Tab tab = tabModel.getTabById(tabId);
-        // The tab may have been closed in parallel with the share starting. Skip if this happens.
-        if (tab == null) return;
+        // The tab group may have been closed in parallel with the share starting. Skip if this
+        // happens.
+        if (tabGroupId == null || !tabModel.containsTabGroup(tabGroupId)) return;
 
-        LocalTabGroupId localTabGroupId = TabGroupSyncUtils.getLocalTabGroupId(tab);
-        if (localTabGroupId == null) return;
-
+        LocalTabGroupId localTabGroupId = new LocalTabGroupId(tabGroupId);
         dataSharingTabManager.createOrManageFlow(
                 EitherGroupId.createLocalId(localTabGroupId), entry, CallbackUtils.emptyCallback());
     }
@@ -507,13 +453,10 @@ public class TabUiUtils {
             return;
         }
 
-        View emptyStateContainer =
-                rootView.findViewById(R.id.empty_state_container);
-        View emptyStateIllustration =
-                rootView.findViewById(R.id.empty_state_icon);
+        View emptyStateContainer = rootView.findViewById(R.id.empty_state_container);
+        View emptyStateIllustration = rootView.findViewById(R.id.empty_state_icon);
 
-        if (emptyStateContainer instanceof ScrollView) {
-            ScrollView scrollView = (ScrollView) emptyStateContainer;
+        if (emptyStateContainer instanceof ScrollView scrollView) {
             FrameLayout.LayoutParams scrollParams =
                     (FrameLayout.LayoutParams) scrollView.getLayoutParams();
             scrollParams.width = FrameLayout.LayoutParams.WRAP_CONTENT;
@@ -523,12 +466,8 @@ public class TabUiUtils {
         }
 
         if (emptyStateIllustration != null
-                && emptyStateIllustration.getParent() instanceof View) {
-            View container = (View) emptyStateIllustration.getParent();
-            container.setBackgroundResource(
-                    R.drawable.xr_empty_state_backplate);
+                && emptyStateIllustration.getParent() instanceof View container) {
+            container.setBackgroundResource(R.drawable.xr_empty_state_backplate);
         }
     }
-
-
 }

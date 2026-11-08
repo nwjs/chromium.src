@@ -430,6 +430,8 @@ chromium-metrics-reviews@google.com.
   <int value="4" label="Payload too large"/>
   <int value="5" label="Reached Frame ID span limit"/>
   <int value="6" label="In flight duration too high (after encoding)"/>
+  <int value="7" label="Invalid referenced frame ID"/>
+  <int value="8" label="Dropped by encoder"/>
 </enum>
 
 <enum name="CastStreamingVideoEncoderType">
@@ -731,6 +733,16 @@ chromium-metrics-reviews@google.com.
   <int value="1" label="Unknown error"/>
   <int value="2" label="Error - Video Capturer Service crashed"/>
 </enum>
+
+<!-- LINT.IfChange(DisplayAffinityResult) -->
+
+<enum name="DisplayAffinityResult">
+  <int value="0" label="Success"/>
+  <int value="1" label="Skipped due to remote session"/>
+  <int value="2" label="SetWindowDisplayAffinity failed"/>
+</enum>
+
+<!-- LINT.ThenChange(//ui/views/widget/desktop_aura/desktop_window_tree_host_win.h:DisplayAffinityResult) -->
 
 <enum name="DisplayCapturePolicyResult">
   <int value="0" label="kDisallowed"/>
@@ -2369,17 +2381,6 @@ chromium-metrics-reviews@google.com.
   <int value="3" label="Prediction stays at Smooth after update"/>
 </enum>
 
-<enum name="SupportZeroCopyImportType">
-  <summary>
-    Corresponds to whether Zero Copy import to WebGPU is supported for
-    VideoFrames backed by Mappable SI
-  </summary>
-  <int value="0" label="EmptyBuffer"/>
-  <int value="1" label="SharedMemory"/>
-  <int value="2" label="NativePixmapSupported"/>
-  <int value="3" label="NativePixmapUnsupported"/>
-</enum>
-
 <enum name="SymphoniaDecodeStatus">
   <int value="0" label="Ok"/>
   <int value="1" label="UnexpectedEndOfStream"/>
@@ -2847,6 +2848,19 @@ chromium-metrics-reviews@google.com.
   <int value="41" label="1792x1008"/>
   <int value="42" label="2592x1944"/>
 </enum>
+
+<!-- LINT.IfChange(VoiceIsolationCreationResult) -->
+
+<enum name="VoiceIsolationCreationResult">
+  <int value="0" label="Success"/>
+  <int value="1" label="Interpreter creation failed"/>
+  <int value="2" label="Delegate creation failed"/>
+  <int value="3" label="Tensor allocation failed"/>
+  <int value="4" label="Incompatible model"/>
+  <int value="5" label="Warmup failed"/>
+</enum>
+
+<!-- LINT.ThenChange(//media/webrtc/voice_isolation/voice_isolation_component.h:VoiceIsolationCreationResult) -->
 
 <!-- LINT.IfChange(VoiceIsolationStartupResult) -->
 

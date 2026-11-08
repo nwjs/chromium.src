@@ -12,6 +12,7 @@ jonross@chromium.org
 alexmos@chromium.org
 arthursonzogni@chromium.org
 creis@chromium.org
+lbrady@google.com
 nasko@chromium.org
 rakina@chromium.org
 
@@ -29,7 +30,7 @@ per-file *android*=boliu@chromium.org
 per-file embedded_frame_sink*.*=kylechar@chromium.org
 
 # DirectWrite font code.
-per-file dwrite_*=drott@chromium.org
+per-file dwrite_*=andresrperez@chromium.org
 
 
 # Clipboard
@@ -42,6 +43,9 @@ per-file cookie_*=file://net/cookies/OWNERS
 per-file agent_scheduling_group*=dom@chromium.org
 per-file agent_scheduling_group*=kouhei@chromium.org
 per-file agent_scheduling_group*=haraken@chromium.org
+
+# WebMCP and script tools.
+per-file model_context_user_data*=dom@chromium.org
 
 per-file render_process_host_impl_receiver_bindings.cc=set noparent
 per-file render_process_host_impl_receiver_bindings.cc=file://ipc/SECURITY_OWNERS

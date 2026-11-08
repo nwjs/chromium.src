@@ -45,9 +45,11 @@
 #include "chrome/browser/navigation_predictor/search_engine_preconnector.h"
 #include "chrome/browser/net/chrome_network_delegate.h"
 #include "chrome/browser/net/net_error_tab_helper.h"
+#include "chrome/browser/net/stub_resolver_config_reader.h"
 #include "chrome/browser/net/system_network_context_manager.h"
 #include "chrome/browser/notifications/notification_display_service_tester.h"
 #include "chrome/browser/predictors/loading_predictor_config.h"
+#include "chrome/browser/preloading/preloading_features.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_attributes_entry.h"
 #include "chrome/browser/profiles/profile_attributes_storage.h"
@@ -389,6 +391,14 @@ void InProcessBrowserTest::Initialize() {
   // Disable session restore infobar the experiment as it causes test failures.
   disabled_features.push_back(features::kSessionRestoreInfobar);
 #endif
+#if BUILDFLAG(IS_WIN) && defined(ADDRESS_SANITIZER)
+  // Prewarming the default search engine background page spawns an extra
+  // prerender renderer process and warms up a compositor during browser
+  // startup, causing significant overhead and shard timeouts in browser_tests
+  // on win-asan (crbug.com/563340729). Dedicated prewarm tests explicitly
+  // enable it via ScopedPrewarmFeatureList.
+  disabled_features.push_back(features::kPrewarm);
+#endif
   // In-product help can conflict with tests' expected window activation and
   // focus. Individual tests can re-enable IPH.
   block_all_iph_feature_list_.InitWithNoFeaturesAllowed();
@@ -604,6 +614,8 @@ void InProcessBrowserTest::TearDown() {
 #endif
   BrowserTestBase::TearDown();
 
+  StubResolverConfigReader::SetDnsOverriddenForTesting(false);
+
 #if BUILDFLAG(IS_MAC)
   fake_window_focus_.reset();
 #endif
@@ -635,6 +647,9 @@ size_t InProcessBrowserTest::GetTestPreCount() {
 void InProcessBrowserTest::CreatedBrowserMainParts(
     content::BrowserMainParts* parts) {
   BrowserTestBase::CreatedBrowserMainParts(parts);
+  if (host_resolver()) {
+    StubResolverConfigReader::SetDnsOverriddenForTesting(true);
+  }
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
   static_cast<ChromeBrowserMainParts*>(parts)->AddParts(
       std::make_unique<ChromeBrowserMainExtraPartsBrowserProcessInjection>());
@@ -669,10 +684,11 @@ void InProcessBrowserTest::RecordPropertyFromMap(
 void InProcessBrowserTest::SetUpLocalStatePrefService(
     PrefService* local_state) {
 #if BUILDFLAG(IS_WIN)
-  // Put the current build version number in the prefs, so that pinned taskbar
-  // icons aren't migrated.
+  // Put the current build version number and time in the prefs, so that pinned
+  // taskbar icons aren't migrated.
   local_state->SetString(prefs::kShortcutMigrationVersion,
                          std::string(version_info::GetVersionNumber()));
+  local_state->SetTime(prefs::kShortcutMigrationTime, base::Time::Now());
 #endif  // BUILDFLAG(IS_WIN);
 }
 

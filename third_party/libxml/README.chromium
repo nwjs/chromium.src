@@ -3,7 +3,7 @@ URL: http://xmlsoft.org
 Version: 81c05bafd4d7df6da91ccf8eab8f539cc78421d8
 Revision: 81c05bafd4d7df6da91ccf8eab8f539cc78421d8
 Update Mechanism: Manual
-CPEPrefix: cpe:/a:xmlsoft:libxml2:2.14.6
+CPEPrefix: cpe:/a:xmlsoft:libxml2:2.16.0
 License: MIT
 License File: src/Copyright
 Security Critical: yes
@@ -24,7 +24,7 @@ Modifications:
   truncation in xmlEscapeText that can lead to an undersized allocation and
   heap-buffer-overflow.
 - parser-check-eof-trailing-whitespace.patch: Allow trailing whitespace in
-  xmlParserCheckEOF instead of treating it as a fatal error.
+  xmlParserCheckEOF and use the caller's error code for other trailing content.
 - parser-grow-capacity-check.patch: Fixes a heap-buffer-overflow in case the new
   buffer length gets clamped to the maximum value without leaving enough
   headroom.

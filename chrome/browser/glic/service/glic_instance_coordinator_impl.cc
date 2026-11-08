@@ -153,8 +153,8 @@ GlicInstanceCoordinatorImpl::GlicInstanceCoordinatorImpl(
   tab_observer_ = GlicTabObserver::Create(
       profile_, base::BindRepeating(&GlicInstanceCoordinatorImpl::OnTabEvent,
                                     weak_ptr_factory_.GetWeakPtr()));
-  hotkey_manager_ =
-      std::make_unique<InstanceIndependentHotkeyManager>(this, profile_, enabling);
+  hotkey_manager_ = std::make_unique<InstanceIndependentHotkeyManager>(
+      this, profile_, enabling);
   onboarding_tracker_ =
       std::make_unique<GlicOnboardingTracker>(profile_, enabling);
   metrics_.StartPeriodicMemoryMetricsRecording();
@@ -165,6 +165,11 @@ GlicInstanceCoordinatorImpl::~GlicInstanceCoordinatorImpl() {
   active_instance_sharing_manager_->SetActiveSharingManager(nullptr);
 
   for (auto& [id, instance] : instances_) {
+    for (auto& handler : TakeInvokeHandlers(instance.get())) {
+      if (handler) {
+        handler->CancelForInstanceRemoval(InstanceRemovalReason::kShutdown);
+      }
+    }
     instance->CloseInstanceAndShutdown();
   }
 
@@ -222,24 +227,27 @@ void GlicInstanceCoordinatorImpl::OnInstanceVisibilityChanged(
 
 bool GlicInstanceCoordinatorImpl::IsInvoking(
     const GlicInstanceImpl* instance) const {
-  return invoke_handlers_.contains(const_cast<GlicInstanceImpl*>(instance));
+  return FindClientInvokeHandler(const_cast<GlicInstanceImpl*>(instance)) !=
+         nullptr;
 }
 
 void GlicInstanceCoordinatorImpl::CancelInvoke(GlicInstanceImpl* instance) {
-  // Take ownership of the handlers first, as cancelling them re-enters
-  // OnInvokeHandlerComplete().
+  for (auto& handler : TakeInvokeHandlers(instance)) {
+    if (handler) {
+      handler->Cancel(GlicInvokeError::kCancelled);
+    }
+  }
+}
+
+std::vector<std::unique_ptr<GlicInvokeHandler>>
+GlicInstanceCoordinatorImpl::TakeInvokeHandlers(GlicInstance* instance) {
   auto [begin, end] = invoke_handlers_.equal_range(instance);
   std::vector<std::unique_ptr<GlicInvokeHandler>> handlers;
   for (auto it = begin; it != end; ++it) {
     handlers.push_back(std::move(it->second));
   }
   invoke_handlers_.erase(begin, end);
-
-  for (auto& handler : handlers) {
-    if (handler) {
-      handler->Cancel(GlicInvokeError::kCancelled);
-    }
-  }
+  return handlers;
 }
 
 void GlicInstanceCoordinatorImpl::OnInvoked(mojom::InvocationSource source,
@@ -267,7 +275,7 @@ void GlicInstanceCoordinatorImpl::OnPrimaryAccountChanged(
   if (event_details.GetEventTypeFor(signin::ConsentLevel::kSignin) ==
       signin::PrimaryAccountChangeEvent::Type::kCleared) {
     // Close all instances on sign-out.
-    RemoveAllInstances();
+    RemoveAllInstances(InstanceRemovalReason::kSignedOut);
   }
 }
 
@@ -277,15 +285,9 @@ void GlicInstanceCoordinatorImpl::NotifyActiveInstanceChanged() {
 
 void GlicInstanceCoordinatorImpl::ComputeContentAccessIndicator() {
   if (active_instance_) {
-    if (base::FeatureList::IsEnabled(features::kGlicLiveModeOnlyGlow)) {
-      service_->SetContextAccessIndicator(
-          active_instance_->IsShowing() && active_instance_->IsLiveMode() &&
-          active_instance_->host().IsContextAccessIndicatorEnabled());
-    } else {
-      service_->SetContextAccessIndicator(
-          active_instance_->IsShowing() &&
-          active_instance_->host().IsContextAccessIndicatorEnabled());
-    }
+    service_->SetContextAccessIndicator(
+        active_instance_->IsShowing() && active_instance_->IsLiveMode() &&
+        active_instance_->host().IsContextAccessIndicatorEnabled());
   } else {
     service_->SetContextAccessIndicator(false);
   }
@@ -414,6 +416,21 @@ GlicInstanceCoordinatorImpl::ActivateTabWithConversation(
   target_browser->GetWindow()->Activate();
 
   return GlicInstanceCoordinator::ActivateTabResult::kSuccess;
+}
+
+GlicInstance* GlicInstanceCoordinatorImpl::GetInstanceForConversationId(
+    const std::string& conversation_id) const {
+  return GetInstanceImplForConversationId(conversation_id);
+}
+
+GlicInstance* GlicInstanceCoordinatorImpl::GetInstanceForTaskId(
+    int task_id) const {
+  for (const auto& [id, instance] : instances_) {
+    if (instance->task_id() == task_id) {
+      return instance.get();
+    }
+  }
+  return nullptr;
 }
 
 GlicInstance* GlicInstanceCoordinatorImpl::GetInstanceForTab(
@@ -622,7 +639,7 @@ void GlicInstanceCoordinatorImpl::Shutdown() {
 
   for (auto& [instance, handler] : handlers) {
     if (handler) {
-      handler->Cancel(GlicInvokeError::kInstanceDestroyed);
+      handler->CancelForInstanceRemoval(InstanceRemovalReason::kShutdown);
     }
   }
 
@@ -639,9 +656,10 @@ void GlicInstanceCoordinatorImpl::Close(const CloseOptions& options) {
   CloseFloaty(options);
 }
 
-void GlicInstanceCoordinatorImpl::RemoveAllInstances() {
+void GlicInstanceCoordinatorImpl::RemoveAllInstances(
+    InstanceRemovalReason reason) {
   while (!instances_.empty()) {
-    RemoveInstance(instances_.begin()->first);
+    RemoveInstance(instances_.begin()->first, reason);
   }
 }
 
@@ -673,6 +691,8 @@ base::WeakPtr<GlicInstanceImpl> GlicInstanceCoordinatorImpl::InvokeInternal(
     bool bypass_in_progress_check) {
   auto metrics =
       std::make_unique<GlicInvokeMetrics>(options.GetInvocationSource());
+  metrics->SetFeatureMode(
+      options.feature_mode.value_or(mojom::FeatureMode::kUnspecified));
 
   if (!GlicEnabling::IsEnabledForProfile(profile_)) {
     metrics->RecordError(GlicInvokeError::kProfileNotEnabled);
@@ -715,6 +735,8 @@ base::WeakPtr<GlicInstanceImpl> GlicInstanceCoordinatorImpl::InvokeInternal(
   auto resolve_surface = [&]() -> bool {
     resolved_target =
         GlicInvokeHandler::ResolveTargetSurface(profile_, options.target);
+    metrics->SetEmbedderType(
+        GlicInvokeHandler::GetEmbedderType(resolved_target));
     if (const auto* tab_surface =
             std::get_if<GlicInvokeHandler::TabSurface>(&resolved_target)) {
       tab = tab_surface->tab;
@@ -874,24 +896,11 @@ base::WeakPtr<GlicInstanceImpl> GlicInstanceCoordinatorImpl::InvokeInternal(
     }
   }
 
-  if (bypass_in_progress_check) {
-    auto handler = std::make_unique<GlicInvokeHandler>(
-        *instance, resolved_target, std::move(options),
-        std::move(auto_submit_options), auto_submit_passkey, std::move(metrics),
-        base::DoNothing());
-    GlicInvokeHandler* handler_ptr = handler.get();
-    handler_ptr->set_completion_callback(
-        base::BindOnce([](std::unique_ptr<GlicInvokeHandler> h, GlicInstance*,
-                          GlicInvokeHandler*) {},
-                       std::move(handler)));
-    handler_ptr->Invoke();
-    return instance->GetWeakPtr();
-  }
-
   // Only invocations that send an invoke message to the web client conflict
   // with each other. Invocations that merely show the UI can safely run
   // simultaneously with any other invocation on the same instance.
-  if (GlicInvokeHandler::RequiresClientInvoke(
+  if (!bypass_in_progress_check &&
+      GlicInvokeHandler::RequiresClientInvoke(
           options, auto_submit_passkey.has_value())) {
     if (GlicInvokeHandler* in_progress = FindClientInvokeHandler(instance)) {
       if (options.supersede_if_in_progress) {
@@ -903,7 +912,7 @@ base::WeakPtr<GlicInstanceImpl> GlicInstanceCoordinatorImpl::InvokeInternal(
             RemoveInvokeHandler(instance, in_progress);
         old_handler->Cancel(GlicInvokeError::kSuperseded);
       } else {
-        metrics->RecordError(GlicInvokeError::kInvokeInProgress);
+        metrics->RecordInvokeInProgressError(in_progress->invocation_id());
         if (options.on_error) {
           std::move(options.on_error).Run(GlicInvokeError::kInvokeInProgress);
         }
@@ -981,7 +990,7 @@ void GlicInstanceCoordinatorImpl::ArchiveInstanceWithFrame(
     content::RenderFrameHost* render_frame_host) {
   for (auto& [id, instance] : instances_) {
     if (instance->host().IsWebContentPresentAndMatches(render_frame_host)) {
-      RemoveInstance(id);
+      RemoveInstance(id, InstanceRemovalReason::kArchived);
       return;
     }
   }
@@ -1222,7 +1231,6 @@ GlicInstanceCoordinatorImpl::CreateInstanceImpl(std::optional<InstanceId> id) {
       contextual_cueing_service_);
 }
 
-
 GlicInstanceImpl*
 GlicInstanceCoordinatorImpl::GetOrCreateInstanceImplForFloaty() {
   auto* floaty_instance = GetInstanceWithFloaty();
@@ -1303,7 +1311,8 @@ void GlicInstanceCoordinatorImpl::InvokeAndLogToggle(
   }
 }
 
-void GlicInstanceCoordinatorImpl::RemoveInstance(InstanceId id) {
+void GlicInstanceCoordinatorImpl::RemoveInstance(InstanceId id,
+                                                 InstanceRemovalReason reason) {
   auto it = instances_.find(id);
   if (it == instances_.end()) {
     // This instance has already been removed, so there's no work to do.
@@ -1312,6 +1321,13 @@ void GlicInstanceCoordinatorImpl::RemoveInstance(InstanceId id) {
   GlicInstanceImpl* instance = it->second.get();
   OnInstanceActivationChanged(instance, false);
   actuating_changed_subscriptions_.erase(id);
+
+  // Invocations hold a reference to `instance`, so end them first.
+  for (auto& handler : TakeInvokeHandlers(instance)) {
+    if (handler) {
+      handler->CancelForInstanceRemoval(reason);
+    }
+  }
 
   // Remove the instance first, and then delete. This way,
   // instances_ will not include the instance being deleted while

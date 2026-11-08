@@ -5,6 +5,8 @@
 #include "components/exo/surface.h"
 
 #include <algorithm>
+#include <array>
+#include <ranges>
 #include <string_view>
 #include <utility>
 
@@ -12,8 +14,6 @@
 #include "ash/public/cpp/window_properties.h"
 #include "ash/wm/desks/desks_util.h"
 #include "base/check_op.h"
-#include "base/containers/adapters.h"
-#include "base/containers/flat_set.h"
 #include "base/feature_list.h"
 #include "base/functional/callback_helpers.h"
 #include "base/logging.h"
@@ -21,6 +21,7 @@
 #include "base/metrics/histogram_macros.h"
 #include "base/notreached.h"
 #include "base/numerics/safe_conversions.h"
+#include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/to_string.h"
 #include "base/system/sys_info.h"
@@ -87,6 +88,10 @@ BASE_FEATURE(kDisableNonYUVOverlaysFromExo, base::FEATURE_DISABLED_BY_DEFAULT);
 
 namespace {
 
+// Devices on which non-YUV overlays are disabled; see ShouldDisableOverlay().
+constexpr auto kOverlayBlockedDevices =
+    std::to_array<std::string_view>({"DRALLION", "HATCH", "VOLTEER"});
+
 // A property key containing the surface that is associated with
 // window. If unset, no surface is associated with window.
 DEFINE_UI_CLASS_PROPERTY_KEY(Surface*, kSurfaceKey, nullptr)
@@ -113,12 +118,10 @@ bool ListContainsEntry(T& list, U key) {
 bool ShouldDisableOverlay(viz::SharedImageFormat format) {
   static bool is_blocked_device = false;
   static bool is_initialized = false;
-  static const base::flat_set<std::string> blocked_devices = {
-      "DRALLION", "HATCH", "VOLTEER"};
   if (!is_initialized) {
     is_initialized = true;
-    std::string device_model = base::SysInfo::HardwareModelName();
-    is_blocked_device = blocked_devices.contains(device_model);
+    is_blocked_device = std::ranges::contains(
+        kOverlayBlockedDevices, base::SysInfo::HardwareModelName());
   }
 
   if (!is_blocked_device) {
@@ -318,16 +321,15 @@ class CustomWindowTargeter : public aura::WindowTargeter {
 };
 
 const std::string& GetApplicationId(aura::Window* window) {
-  static const std::string empty_app_id;
   if (!window)
-    return empty_app_id;
+    return base::EmptyString();
   while (window) {
     const std::string* app_id = exo::GetShellApplicationId(window);
     if (app_id)
       return *app_id;
     window = window->parent();
   }
-  return empty_app_id;
+  return base::EmptyString();
 }
 
 int surface_id = 0;
@@ -1016,7 +1018,7 @@ bool Surface::UpdateDisplay(int64_t old_display, int64_t new_display) {
       return false;
     }
   }
-  for (const auto& sub_surface_entry : base::Reversed(sub_surfaces_)) {
+  for (const auto& sub_surface_entry : std::views::reverse(sub_surfaces_)) {
     auto* sub_surface = sub_surface_entry.first;
     if (!sub_surface->UpdateDisplay(old_display, new_display))
       return false;
@@ -1221,7 +1223,7 @@ void Surface::CommitSurfaceHierarchy(bool synchronized) {
   surface_hierarchy_content_bounds_ =
       gfx::Rect(gfx::ToCeiledSize(content_size_));
 
-  for (const auto& render_layer_entry : base::Reversed(render_layers_)) {
+  for (const auto& render_layer_entry : std::views::reverse(render_layers_)) {
     auto* render_layer = render_layer_entry.first;
     render_layer->CommitSurfaceHierarchy(synchronized);
   }
@@ -1241,7 +1243,7 @@ void Surface::CommitSurfaceHierarchy(bool synchronized) {
       hit_test_region_ = input_rect;
     }
 
-    for (const auto& sub_surface_entry : base::Reversed(sub_surfaces_)) {
+    for (const auto& sub_surface_entry : std::views::reverse(sub_surfaces_)) {
       auto* sub_surface = sub_surface_entry.first;
       gfx::Vector2d offset =
           gfx::ToRoundedPoint(sub_surface_entry.second).OffsetFromOrigin();
@@ -1264,13 +1266,13 @@ void Surface::AppendSurfaceHierarchyCallbacks(
   presentation_callbacks->splice(presentation_callbacks->end(),
                                  state_.presentation_callbacks);
 
-  for (const auto& render_layer_entry : base::Reversed(render_layers_)) {
+  for (const auto& render_layer_entry : std::views::reverse(render_layers_)) {
     auto* render_layer = render_layer_entry.first;
     render_layer->AppendSurfaceHierarchyCallbacks(frame_callbacks,
                                                   presentation_callbacks);
   }
 
-  for (const auto& sub_surface_entry : base::Reversed(sub_surfaces_)) {
+  for (const auto& sub_surface_entry : std::views::reverse(sub_surfaces_)) {
     auto* sub_surface = sub_surface_entry.first;
     sub_surface->AppendSurfaceHierarchyCallbacks(frame_callbacks,
                                                  presentation_callbacks);
@@ -1286,7 +1288,7 @@ void Surface::AppendSurfaceHierarchyContentsToFrame(
     viz::CompositorFrame* frame) {
   // The top most sub-surface is at the front of the RenderPass's quad_list,
   // so we need composite sub-surface in reversed order.
-  for (const auto& sub_surface_entry : base::Reversed(sub_surfaces_)) {
+  for (const auto& sub_surface_entry : std::views::reverse(sub_surfaces_)) {
     auto* sub_surface = sub_surface_entry.first;
     // Synchronously commit all pending state of the sub-surface and its
     // descendents.
@@ -1301,7 +1303,7 @@ void Surface::AppendSurfaceHierarchyContentsToFrame(
 
   // Make sure the sub_surfaces are rendered before render_layers for this
   // surface s.t. sub_surfaces are rendered above the render_layers.
-  for (const auto& render_layer_entry : base::Reversed(render_layers_)) {
+  for (const auto& render_layer_entry : std::views::reverse(render_layers_)) {
     auto* render_layer = render_layer_entry.first;
     // Synchronously commit all pending state of the layer and its descendents.
     gfx::PointF to_root_px =

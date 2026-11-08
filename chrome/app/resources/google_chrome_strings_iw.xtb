@@ -28,6 +28,7 @@
 <translation id="1194807384646768652">‏Chrome חסם את ההורדה הזאת כי לרוב לא מתבצעת הורדה של קבצים מהסוג הזה ויכול להיות שהקובץ מסוכן</translation>
 <translation id="1197860368385086056">‏בפתיחה הבאה של Chrome במכשיר <ph name="DEVICE_TYPE" />, תופיע הנחיה להפעיל התראות על מעקב מחירים.</translation>
 <translation id="1203500561924088507">תודה שהתקנת. עליך להפעיל מחדש את הדפדפן לפני השימוש ב-<ph name="BUNDLE_NAME" />.</translation>
+<translation id="122321322139970942">‏יש <ph name="IMPORTANT_UPDATE" /> בהמתנה. כדי לשמור על בטיחות הגלישה, Chrome יתעדכן בפעם הבאה שלא תהיה פעילות במשך <ph name="IDLE_DURATION" />.</translation>
 <translation id="1226003169284463347">‏כדי לקבל גישה לסימניות ולנתונים נוספים מכל המכשירים, צריך להתחבר ל-Chrome</translation>
 <translation id="1278833599417554002">‏הפעלה מחדש לצורך עדכון &amp;Chrome</translation>
 <translation id="1289911795790071537">‏פתיחת החיפוש באמצעות Chrome</translation>
@@ -198,6 +199,7 @@
 <translation id="2857540653560290388">‏הפעלת Chrome...</translation>
 <translation id="286025080868315611">‏למה הורדות מסוימות נחסמות ב-Chrome</translation>
 <translation id="2861074815332034794">‏מתבצע עדכון של Chrome (<ph name="PROGRESS_PERCENT" />)</translation>
+<translation id="2869959624320573933">‏כניסה ל-Chrome</translation>
 <translation id="2875053229394024379">‏כשנכנסים ל-Chrome באמצעות חשבון Google, אפשר להשתמש בפרופיל Chrome עם Gemini. <ph name="BEGIN_LINK" />איך להיכנס לחשבון ב-Chrome<ph name="END_LINK" /></translation>
 <translation id="2876628302275096482">‏<ph name="BEGIN_LINK" />מידע נוסף לגבי השמירה על פרטיות הנתונים ב-Chrome<ph name="END_LINK" /></translation>
 <translation id="2885378588091291677">מנהל המשימות</translation>
@@ -298,6 +300,7 @@
 <translation id="3795971588916395511">Google ChromeOS</translation>
 <translation id="3809772425479558446">‏כדי להשתמש ב-Google Chrome, נדרש Windows מגרסה 10 ואילך.</translation>
 <translation id="3810973564298564668">ניהול</translation>
+<translation id="383455301564000773">‏משדרגים ל-Windows 11? כדאי להוריד את Chrome ל-OneDrive כדי להיות מוכנים מהיום הראשון.</translation>
 <translation id="383928141529488001">‏ל-Google Chrome נדרשת גישה ל-Bluetooth כדי למצוא 
  מכשירי Bluetooth. <ph name="IDS_SERIAL_DEVICE_CHOOSER_AUTHORIZE_BLUETOOTH_LINK" /></translation>
 <translation id="3846683726093018685">**סיכום:** במשפט אחד של פחות מ-30 מילים, צריך לתאר את הנושא והמטרה העיקריים של התוכן בצילום המסך.
@@ -325,7 +328,6 @@
 <translation id="4050175100176540509">הגרסה החדשה כוללת שיפורי בטיחות חשובים ותכונות חדשות.</translation>
 <translation id="4053720452172726777">‏פעולות נוספות ב-Google Chrome</translation>
 <translation id="408393047846373801">‏כדי לקבל גישה לסיסמאות ולנתונים נוספים בכל המכשירים שלך, כדאי להיכנס ל-Chrome. לאחר הכניסה, הסיסמה הזו תישמר בחשבון שלך ב-Google.</translation>
-<translation id="409936259433005390">‏רוצה לשדרג בקרוב ל-Windows 11? כדאי להתכונן ולהוריד את תוכנת ההתקנה של Chrome ל-OneDrive.</translation>
 <translation id="4102173024714616627">‏תוספים הם רכיבים נוספים שמאפשרים לך להתאים אישית את Chrome. תוספים עוזרים לך להתאים את Chrome לצרכים שלך, בין אם זה לשמור על הסדר או לפשט משימות יומיומיות.</translation>
 <translation id="4110895483821904099">‏הגדרת הפרופיל החדש שלך ב-Chrome</translation>
 <translation id="4111566860456076004">‏‫Chrome לא יכול לאמת את מקור התוסף הזה, ויכול להיות שהוא לא בטוח. צריך להסיר אותו מ-Chrome כדי לא לאפשר לו יותר לראות ולשנות את הנתונים שלך באתרים שאליהם תתבצע כניסה, כולל הפרטים האישיים שלך.</translation>
@@ -493,12 +495,12 @@
 <translation id="5899008323405946573">‏רוצה להשתמש בכלי ה-AI הטובים ביותר של Google? כשאפליקציית Chrome מותקנת בטלפון שלך זה אפשרי</translation>
 <translation id="5903106910045431592"><ph name="PAGE_TITLE" /> – כניסה לרשת</translation>
 <translation id="5924017743176219022">מתבצעת התחברות לאינטרנט…</translation>
-<translation id="5925596746603389877">‏הורדת תוכנת ההתקנה של Chrome</translation>
 <translation id="5940385492829620908">‏היסטוריית האתרים, הסימניות ופריטים נוספים מ-Chrome נמצאים כאן.</translation>
 <translation id="5941711191222866238">מזעור</translation>
 <translation id="5941830788786076944">‏Google Chrome יהיה דפדפן ברירת המחדל</translation>
 <translation id="5947104538377036631">‏קיצור דרך ב-Chrome</translation>
 <translation id="5960071705175224773">ההגדרות שלך שונו על ידי אפליקציה לא ידועה</translation>
+<translation id="5960404530854194706">‏‫Chrome יתעדכן כשלא תהיה פעילות</translation>
 <translation id="5980111191913430208">‏תוספים, אפליקציות ועיצובים ממקורות לא מוכרים עלולים להזיק למכשיר. ההמלצה של Chromium היא להתקין אותם רק מ<ph name="IDS_EXTENSION_WEB_STORE_TITLE" /></translation>
 <translation id="6003112304606738118">מתבצעת הורדה… יש עוד <ph name="HOURS" /> שע'</translation>
 <translation id="6008161919456049856">‏הסיסמאות, אמצעי התשלום והכתובות ששמרת בחשבון שלך ב-Google יוסרו מהמכשיר הזה. כדי להשתמש בהם שוב ב-Chrome, צריך להיכנס שוב לחשבון.</translation>
@@ -555,6 +557,7 @@
 <translation id="6360449101159168105">‏בזמן שהכרטיסייה הזו לא הייתה פעילה, התפנה זיכרון כדי ש-Chrome ימשיך לפעול במהירות. ניתן לבחור להחריג תמיד את האתר הזה כדי שיישאר במצב פעיל.</translation>
 <translation id="6362984640667950211">‏החשבון של <ph name="EXISTING_USER" /> כבר מחובר. כדי לשמור על סביבת גלישה נפרדת, אפשר להיכנס ל-Chrome בפרופיל נפרד בתור <ph name="USER_EMAIL_ADDRESS" />. אפשר לקבל גם את רשימת הקריאה ופריטים נוספים בכל המכשירים.</translation>
 <translation id="6388799252195623474">אני רוצה עזרה בנושא הזה</translation>
+<translation id="6401458660421980302">‏כדי לשלוח את הכרטיסייה הזו למכשיר אחר, צריך להיכנס ל-Chrome במכשיר האחר</translation>
 <translation id="6412673304250309937">‏המערכת בודקת כתובות URL ששמורות ב-Chrome ומכילות רשימות של אתרים לא בטוחים. אם אתר מסוים מנסה לגנוב סיסמה או אם המערכת מזהה הורדה של קובץ מזיק, Chrome עשוי גם לשלוח כתובות URL לבדיקה באמצעות 'גלישה בטוחה'. הנתונים שנשלחים לבדיקה כוללים ביטים מהתוכן של הדף.</translation>
 <translation id="6417690341895039567">{COUNT,plural, =1{‏לפי הגדרת הארגון, Chrome נסגר אוטומטית כשלא משתמשים בו במשך דקה. נתוני הגלישה נמחקים. בין הנתונים שיימחקו: היסטוריה, מילוי אוטומטי והורדות.}one{‏לפי הגדרת הארגון, Chrome נסגר אוטומטית כשלא משתמשים בו במשך # דקות. נתוני הגלישה נמחקים. בין הנתונים שיימחקו: היסטוריה, מילוי אוטומטי והורדות.}two{‏לפי הגדרת הארגון, Chrome נסגר אוטומטית כשלא משתמשים בו במשך # דקות. נתוני הגלישה נמחקים. בין הנתונים שיימחקו: היסטוריה, מילוי אוטומטי והורדות.}other{‏לפי הגדרת הארגון, Chrome נסגר אוטומטית כשלא משתמשים בו במשך # דקות. נתוני הגלישה נמחקים. בין הנתונים שיימחקו: היסטוריה, מילוי אוטומטי והורדות.}}</translation>
 <translation id="6418662306461808273">‏לעבור לפרופיל Chrome קיים?</translation>
@@ -581,8 +584,10 @@
 <translation id="6556755379298048869">חיפוש באמצעות מקשי הקיצור.</translation>
 <translation id="6585124893636629274">‏סגירת Gemini ב-Chrome</translation>
 <translation id="659498884637196217">‏שמורה במנהל הסיסמאות של Google במכשיר הזה</translation>
+<translation id="660312897435669152">‏‫Chrome רוצה להתקין עדכון</translation>
 <translation id="6612152958212564387">‏נתוני השימוש ודוחות הקריסה שלך לא נשלחים ל-Google. <ph name="BEGIN_LINK" />ניהול<ph name="END_LINK" /></translation>
 <translation id="6613949864921837107">‏רוצה סנכרון מושלם של הסיסמאות, הסימניות וההיסטוריה שלך בין מכשירים? כדאי להגדיר את Chrome כדפדפן ברירת המחדל.</translation>
+<translation id="6621391692573306628">‏כדי לשלוח את הכרטיסייה הזו למכשיר אחר, צריך להיכנס ל-Chrome בשני המכשירים</translation>
 <translation id="6631524303639368205">‏אפשר להמשיך מהמקום שבו הפסקת: Chrome שחזר את הכרטיסיות מהסשן האחרון שלך. כדי להשבית את האפשרות הזאת, צריך לעבור אל</translation>
 <translation id="6632012506031284914">‏כדי לחפש באמצעות Chrome.</translation>
 <translation id="6632473616050862500">‏השימוש ב-ChromeOS Flex מתאפשר בזכות <ph name="BEGIN_LINK_CROS_OSS" />תוכנת קוד פתוח<ph name="END_LINK_CROS_OSS" /> נוספת.</translation>
@@ -770,6 +775,7 @@
 <translation id="8260086374035800939">‏אם Gemini פתוח ב-Chrome, החלונית הצדדית תישאר פתוחה גם כשיוצרים כרטיסיות חדשות</translation>
 <translation id="8267953129876836456">‏יש ל-Chrome כמה המלצות לגבי בטיחות שכדאי לבדוק</translation>
 <translation id="8286862437124483331">‏Google Chrome מנסה להציג סיסמאות. יש להקליד את הסיסמה שלך ל-Windows כדי לאפשר זאת.</translation>
+<translation id="8291415872436043161">‏להורדת Chrome</translation>
 <translation id="829923460755755423">‏ניתן להוסיף קיצור דרך למנהל הסיסמאות של Google</translation>
 <translation id="8313851650939857356">שגיאת הפעלה: <ph name="STARTUP_ERROR" />.</translation>
 <translation id="8321888067342493336">שמירה כתמונה</translation>

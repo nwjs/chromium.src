@@ -38,6 +38,8 @@ export import AutofillSuggestion = generated.AutofillSuggestion;
 export import CaptureRegionParams = generated.CaptureRegionParams;
 export import CaptureRegionResult = generated.CaptureRegionResult;
 export import CapturedRegion = generated.CapturedRegion;
+export import CloseAuthTabOptions = generated.CloseAuthTabOptions;
+export import CloseAuthTabResponse = generated.CloseAuthTabResponse;
 export import CloseSignInTabOptions = generated.CloseSignInTabOptions;
 export import ConversationInfo = generated.ConversationInfo;
 export import CounterAbuseVerdict = generated.CounterAbuseVerdict;
@@ -46,6 +48,8 @@ export import CreateSkillRequest = generated.CreateSkillRequest;
 export import CreateTabOptions = generated.CreateTabOptions;
 export import Credential = generated.Credential;
 export import DocumentData = generated.DocumentData;
+export import ExperimentalTriggeringPayload =
+    generated.ExperimentalTriggeringPayload;
 export import ExperimentalTriggeringUpdate =
     generated.ExperimentalTriggeringUpdate;
 export import FormFillingRequest = generated.FormFillingRequest;
@@ -64,6 +68,8 @@ export import ImageInfo = generated.ImageInfo;
 export import InvokeOptions = generated.InvokeOptions;
 export import MetaTag = generated.MetaTag;
 export import OnResponseStoppedDetails = generated.OnResponseStoppedDetails;
+export import OpenAuthTabOptions = generated.OpenAuthTabOptions;
+export import OpenAuthTabResponse = generated.OpenAuthTabResponse;
 export import OpenPinnedTabPickerOptions = generated.OpenPinnedTabPickerOptions;
 export import OpenSettingsOptions = generated.OpenSettingsOptions;
 export import OpenSignInTabOptions = generated.OpenSignInTabOptions;
@@ -115,10 +121,12 @@ export import ActorTaskState = generated.ActorTaskState;
 export import ActorTaskStopReason = generated.ActorTaskStopReason;
 export import ActuationTarget = generated.ActuationTarget;
 export import AdditionalContextSource = generated.AdditionalContextSource;
+export import AuthTabPurpose = generated.AuthTabPurpose;
 export import CancelActionsResult = generated.CancelActionsResult;
 export import CaptureRegionErrorReason = generated.CaptureRegionErrorReason;
 export import ClientCapabilities = generated.ClientCapabilities;
 export import ClientErrorDialogType = generated.ClientErrorDialogType;
+export import CloseAuthTabResult = generated.CloseAuthTabResult;
 export import CloseSignInTabResult = generated.CloseSignInTabResult;
 export import CreateTaskErrorReason = generated.CreateTaskErrorReason;
 export import CredentialType = generated.CredentialType;
@@ -134,6 +142,7 @@ export import LightweightPageFeature = generated.LightweightPageFeature;
 export import MetricUserInputReactionType =
     generated.MetricUserInputReactionType;
 export import MicrophoneStatus = generated.MicrophoneStatus;
+export import OpenAuthTabResult = generated.OpenAuthTabResult;
 export import OpenSignInTabResult = generated.OpenSignInTabResult;
 export import PanelStateKind = generated.PanelStateKind;
 export import PerformActionsErrorReason = generated.PerformActionsErrorReason;
@@ -208,6 +217,7 @@ export declare interface AdditionalContextPart {
 export declare interface InvocationPayload {
   universalCart?: UniversalCartPayload;
   skillsPayload?: SkillsPayload;
+  experimentalTriggering?: ExperimentalTriggeringPayload;
 }
 
 /**
@@ -1385,6 +1395,43 @@ export declare interface GlicBrowserHost {
    */
   processCounterAbuseVerdict?
       (tabId: string, verdict: CounterAbuseVerdict): void;
+
+  /**
+   * Returns an object providing synchronous persistent key-value storage for
+   * the web client, backed by Chrome preferences.
+   */
+  getClientStorage?(): GlicClientStorage;
+}
+
+/**
+ * Provides synchronous key-value storage backed by Chrome preferences,
+ * with an API equivalent to the standard Web Storage `Storage` interface.
+ */
+export declare interface GlicClientStorage {
+  /** Returns the number of key/value pairs currently present in storage. */
+  readonly length: number;
+  /**
+   * Returns the name of the nth key in storage, or null if `index` is
+   * less than 0 or greater than or equal to `length`.
+   */
+  key(index: number): string|null;
+  /**
+   * Returns the current value associated with the given `key`, or null if the
+   * given `key` does not exist.
+   */
+  getItem(key: string): string|null;
+  /**
+   * Sets the value of the pair identified by `key` to `value`, creating a new
+   * key/value pair if none existed for `key` previously.
+   */
+  setItem(key: string, value: string): void;
+  /**
+   * Removes the key/value pair with the given `key`, if a key/value pair with
+   * the given `key` exists.
+   */
+  removeItem(key: string): void;
+  /** Removes all key/value pairs, if there are any. */
+  clear(): void;
 }
 
 /** Information about a conversation. */

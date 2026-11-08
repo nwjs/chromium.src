@@ -33,6 +33,7 @@
 
 class ActorBorderViewController;
 class ActorUiWindowController;
+class AvatarToolbarIphController;
 class BookmarkBarController;
 class BookmarksSidePanelCoordinator;
 class BookmarksServiceFeature;
@@ -109,7 +110,6 @@ class SendTabToSelfIphController;
 class TabMenuModelDelegate;
 class TabStripModel;
 class TabStripServiceFeature;
-class TabsFromOtherDevicesSidePanelCoordinator;
 class ToastService;
 class TranslateBubbleController;
 class UIControllerFactory;
@@ -318,6 +318,8 @@ class BrowserWindowFeatures {
   // set of commands are enabled.
   std::unique_ptr<web_app::AppBrowserController> app_browser_controller_;
 
+  std::unique_ptr<AvatarToolbarIphController> avatar_toolbar_iph_controller_;
+
   std::unique_ptr<BookmarkBarController> bookmark_bar_controller_;
   std::unique_ptr<BookmarksServiceFeature> bookmarks_service_feature_;
   std::unique_ptr<BookmarksSidePanelCoordinator>
@@ -455,8 +457,6 @@ class BrowserWindowFeatures {
   // Controller for managing TabStrip UI decoupled TabStrip platform.
   std::unique_ptr<tabs_api::TabStripUIControllerImpl> tab_strip_ui_controller_;
 
-  std::unique_ptr<TabsFromOtherDevicesSidePanelCoordinator>
-      tabs_from_other_devices_side_panel_coordinator_;
   std::unique_ptr<ToastService> toast_service_;
   std::unique_ptr<TranslateBubbleController> translate_bubble_controller_;
   std::unique_ptr<ttc::EntrypointController> ttc_entrypoint_controller_;

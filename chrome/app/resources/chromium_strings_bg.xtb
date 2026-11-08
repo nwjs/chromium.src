@@ -21,6 +21,7 @@
 <translation id="1185134272377778587">Всичко за Chromium</translation>
 <translation id="1186645291482254714">Получавайте сигнали за проследяване на цените с Chromium на телефона си</translation>
 <translation id="1203500561924088507">Благодарим ви, че инсталирахте <ph name="BUNDLE_NAME" />. Трябва да рестартирате браузъра си, преди да използвате това приложение.</translation>
+<translation id="1222365723190436821">Предстои <ph name="IMPORTANT_UPDATE" />. За да сърфирате безопасно, Chromium ще се актуализира следващия път, когато няма активност в продължение на <ph name="IDLE_DURATION" />.</translation>
 <translation id="1232234696885483911">Когато отворите функцията за търсене на изображения, заглавието, URL адресът и съдържанието на страницата, включително PDF файловете, автоматично ще бъдат изпратени до сървъра. <ph name="LEARN_MORE" /></translation>
 <translation id="123265588161106468">Докато сте в профила си, можете да използвате в Chromium паролите си и др. от профила си в Google. За да промените това, отворете „Вашият профил в Chromium“.</translation>
 <translation id="1244381985120794049">Показване на Gemini в Chromium в лентата с менюта на Mac</translation>
@@ -226,6 +227,7 @@
 <translation id="3286538390144397061">Рестартиране сега</translation>
 <translation id="328888136576916638">Ключовете на приложния програмен интерфейс (API) на Google липсват. Някои функции на Chromium ще бъдат деактивирани.</translation>
 <translation id="3296368748942286671">Да продължават да се изпълняват приложения на заден план, когато Chromium е затворен</translation>
+<translation id="3300632735252839402">Chromium ще се актуализира, когато не използвате устройството</translation>
 <translation id="3313189106987092621">Chromium ще ви предупреди, преди да зареди сайт, който използва незащитена връзка</translation>
 <translation id="3316771292331273802">Когато затворите всички прозорци на Chromium, ще излезете от профилите си в повечето сайтове с изключение на профила си в Google, ако сте влезли в профила си в Chromium. За да позволите на сайтовете да ви помнят, <ph name="SETTINGS_LINK" />.</translation>
 <translation id="3352986031709923790">горен десен ъгъл на областта за търсене: <ph name="RIGHT" />% отдясно, <ph name="TOP" />% отгоре</translation>
@@ -234,6 +236,7 @@
 <translation id="3387527074123400161">Chromium OS</translation>
 <translation id="3406848076815591792">Искате ли да превключите към съществуващ потребителски профил в Chromium?</translation>
 <translation id="3412460710772753638">В мениджъра на пароли на това устройство</translation>
+<translation id="3425452599984451640">Chromium иска да се актуализира</translation>
 <translation id="3427159664004296878">Влезте в Chromium, за да получите отметките си и др. от <ph name="DEVICE" /></translation>
 <translation id="3438772217992559640">Търсене в този раздел с функцията за търсене на изображения</translation>
 <translation id="3455907671758333080">Разширете обхвата на подобрената защита от Безопасно сърфиране с Chromium на телефона си</translation>
@@ -376,6 +379,7 @@
 <translation id="5074496654342756568">Осъществявайте достъп до всичките си любими услуги на Google с Chromium на устройството си <ph name="DEVICE_TYPE" /></translation>
 <translation id="5123973130450702873">Chromium се нуждае от разрешение да проследява ръцете ви</translation>
 <translation id="5141988424377517949">Не сте посещавали този сайт наскоро. Chromium премахна разрешенията „<ph name="PERMISSION_1" />“, „<ph name="PERMISSION_2" />“ и „<ph name="PERMISSION_3" />“.</translation>
+<translation id="5171868502429358653">Вход в Chromium</translation>
 <translation id="5174969993834422967">Обикновено блокирате известията. За да разрешите на този сайт да ви изпраща такива, кликнете върху иконата за известия в десния ъгъл на лентата за местоположението.</translation>
 <translation id="5174983315706567306">Няма достатъчно място на диска.</translation>
 <translation id="5187123684706427865">Изисква се повторно удостоверяване за профила в Chromium</translation>
@@ -385,6 +389,7 @@
 <translation id="5249261924633168472">Отваряне на връзката в прозорец в режим „инко&amp;гнито“ на Chromium</translation>
 <translation id="5276305953263010518">Изтеглете приложението Chromium, за да запазвате пароли в движение</translation>
 <translation id="5277894862589591112">За да приложите промените си, рестартирайте Chromium</translation>
+<translation id="5278909220224474621">За да изпратите този раздел до друго устройство, влезте в профила си в Chromium и на двете устройства</translation>
 <translation id="5286907366254680517">Разпознато</translation>
 <translation id="5289287148052354622">Изтеглете приложението Chromium</translation>
 <translation id="5294316920224716406">При сърфиране в режим „инкогнито“ Chromium ще ви предупреди, преди да зареди сайт, който използва незащитена връзка</translation>
@@ -750,6 +755,7 @@
 <translation id="8648201657708811153">Google Chrome for Testing не може да бъде зададен като браузъра ви по подразбиране.</translation>
 <translation id="8676101123715131330">Търсене с Chromium от всяко място</translation>
 <translation id="8697124171261953979">То също контролира коя страница се показва при стартиране на Chromium или при търсене от полето за всичко.</translation>
+<translation id="8702213505203810093">За да изпратите този раздел до друго устройство, влезте в профила си в Chromium там</translation>
 <translation id="8704119203788522458">Това е вашият Chromium</translation>
 <translation id="8712637175834984815">Разбрах</translation>
 <translation id="8719993436687031146">Искате ли да влезете в Chromium?</translation>

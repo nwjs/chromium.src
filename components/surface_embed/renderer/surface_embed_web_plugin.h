@@ -67,6 +67,8 @@ class SurfaceEmbedWebPlugin : public blink::WebPlugin,
   void UpdateRenderThrottlingStatus(bool is_throttled,
                                     bool subtree_throttled,
                                     bool display_locked) override;
+  void DidChangeDataAttribute(const blink::WebString& name,
+                              const blink::WebString& new_value) override;
   blink::WebInputEventResult HandleInputEvent(
       const blink::WebCoalescedInputEvent& event,
       ui::Cursor* cursor) override;
@@ -82,6 +84,7 @@ class SurfaceEmbedWebPlugin : public blink::WebPlugin,
   // Destroy via ->Destroy().
   ~SurfaceEmbedWebPlugin() override;
   SurfaceEmbedWebPlugin(const base::UnguessableToken& contents_id,
+                        bool allow_pinch_zoom,
                         content::RenderFrame* render_frame,
                         const blink::WebPluginParams& params);
 
@@ -116,6 +119,7 @@ class SurfaceEmbedWebPlugin : public blink::WebPlugin,
 
   // The child contents ID parsed from the `data-content-id` attribute.
   base::UnguessableToken contents_id_;
+  bool allow_pinch_zoom_;
 
   raw_ptr<blink::WebPluginContainer> container_ = nullptr;
   scoped_refptr<cc::SurfaceLayer> layer_;

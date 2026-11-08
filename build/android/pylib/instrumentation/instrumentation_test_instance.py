@@ -209,7 +209,8 @@ def GenerateTestResults(
     if current_result:
         if current_result.GetType() == base_test_result.ResultType.UNKNOWN:
             crashed = result_code == _ACTIVITY_RESULT_CANCELED and any(
-                _NATIVE_CRASH_RE.search(l) for l in result_bundle.values()
+                _NATIVE_CRASH_RE.search(l)
+                for l in result_bundle.values()  # noqa: E741
             )
             if crashed:
                 current_result.SetType(base_test_result.ResultType.CRASH)
@@ -618,7 +619,6 @@ class InstrumentationTestInstance(test_instance.TestInstance):
         self._forced_queryable_additional_apks = []
         self._instant_additional_apks = []
         self._apk_under_test = None
-        self._apk_under_test_incremental_install_json = None
         self._modules = None
         self._fake_modules = None
         self._additional_locales = None
@@ -626,7 +626,6 @@ class InstrumentationTestInstance(test_instance.TestInstance):
         self._suite = None
         self._test_apk = None
         self._test_apk_as_instant = False
-        self._test_apk_incremental_install_json = None
         self._test_package = None
         self._junit4_runner_class = None
         self._uses_base_instrumentation = None
@@ -755,17 +754,6 @@ class InstrumentationTestInstance(test_instance.TestInstance):
 
         self._test_apk_as_instant = args.test_apk_as_instant
 
-        self._apk_under_test_incremental_install_json = (
-            args.apk_under_test_incremental_install_json
-        )
-        self._test_apk_incremental_install_json = (
-            args.test_apk_incremental_install_json
-        )
-
-        if self._test_apk_incremental_install_json:
-            assert self._suite.endswith('_incremental')
-            self._suite = self._suite[: -len('_incremental')]
-
         self._modules = args.modules
         self._fake_modules = args.fake_modules
         self._additional_locales = args.additional_locales
@@ -798,19 +786,9 @@ class InstrumentationTestInstance(test_instance.TestInstance):
             test_apk_metadata.get('org.chromium.useNativeCoverageListener')
         )
         if self._junit4_runner_class:
-            if self._test_apk_incremental_install_json:
-                for name, value in test_apk_metadata.items():
-                    if (
-                        name.startswith('incremental-install-instrumentation-')
-                        and value == _BASE_INSTRUMENTATION_CLASS_NAME
-                    ):
-                        self._uses_base_instrumentation = True
-                        break
-            else:
-                self._uses_base_instrumentation = (
-                    self._junit4_runner_class
-                    == _BASE_INSTRUMENTATION_CLASS_NAME
-                )
+            self._uses_base_instrumentation = (
+                self._junit4_runner_class == _BASE_INSTRUMENTATION_CLASS_NAME
+            )
 
         self._package_info = None
         if self._apk_under_test:
@@ -912,7 +890,7 @@ class InstrumentationTestInstance(test_instance.TestInstance):
             self._flags.extend(args.command_line_flags)
         if args.device_flags_file:
             with open(args.device_flags_file) as device_flags_file:
-                stripped_lines = (l.strip() for l in device_flags_file)
+                stripped_lines = (l.strip() for l in device_flags_file)  # noqa: E741
                 self._flags.extend(flag for flag in stripped_lines if flag)
         if (
             args.strict_mode
@@ -1010,10 +988,6 @@ class InstrumentationTestInstance(test_instance.TestInstance):
     @property
     def apk_under_test(self):
         return self._apk_under_test
-
-    @property
-    def apk_under_test_incremental_install_json(self):
-        return self._apk_under_test_incremental_install_json
 
     @property
     def approve_app_links_package(self):
@@ -1144,10 +1118,6 @@ class InstrumentationTestInstance(test_instance.TestInstance):
     @property
     def test_apk_as_instant(self):
         return self._test_apk_as_instant
-
-    @property
-    def test_apk_incremental_install_json(self):
-        return self._test_apk_incremental_install_json
 
     @property
     def test_filters(self):
@@ -1284,7 +1254,6 @@ class InstrumentationTestInstance(test_instance.TestInstance):
     def IsApkInstant(self, apk):
         return apk in self._instant_additional_apks
 
-    # pylint: disable=no-self-use
     def _InflateTests(self, tests):
         inflated_tests = []
         for clazz in tests:

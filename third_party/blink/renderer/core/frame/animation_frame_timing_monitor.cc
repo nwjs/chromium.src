@@ -66,18 +66,28 @@ constexpr base::TimeDelta kCongestionIdleGap = base::Milliseconds(5);
 
 AnimationFrameTimingMonitor::AnimationFrameTimingMonitor(Client& client,
                                                          CoreProbeSink* sink)
-    : client_(client) {
+    : client_(&client), probe_sink_(sink) {
   Thread::Current()->AddTaskTimeObserver(this);
   if (!IsMainThread()) {
     CHECK(RuntimeEnabledFeatures::LongAnimationFrameWorkerEnabled());
   }
-  sink->AddAnimationFrameTimingMonitor(this);
+  if (probe_sink_) {
+    probe_sink_->AddAnimationFrameTimingMonitor(this);
+  }
   enabled_ = true;
 }
 
 void AnimationFrameTimingMonitor::Shutdown() {
   enabled_ = false;
+  current_frame_timing_info_.Clear();
+  current_scripts_.clear();
+  congestion_scripts_.clear();
   frame_handling_input_ = nullptr;
+  task_attributed_window_ = nullptr;
+  if (probe_sink_) {
+    probe_sink_->RemoveAnimationFrameTimingMonitor(this);
+    probe_sink_ = nullptr;
+  }
   Thread::Current()->RemoveTaskTimeObserver(this);
 }
 
@@ -304,6 +314,9 @@ void AnimationFrameTimingMonitor::OnWorkerTaskCompleted(
     base::TimeTicks start_time,
     base::TimeTicks end_time,
     base::TimeTicks desired_execution_time) {
+  if (!enabled_) {
+    return;
+  }
   entry_point_depth_ = 0;
   pending_script_info_ = std::nullopt;
   current_task_start_ = base::TimeTicks();
@@ -390,6 +403,9 @@ void AnimationFrameTimingMonitor::OnMainThreadTaskCompleted(
     base::TimeTicks start_time,
     base::TimeTicks end_time,
     LocalFrame* frame) {
+  if (!enabled_) {
+    return;
+  }
   HeapVector<Member<ScriptTimingInfo>> scripts;
 
   bool did_pause = false;
@@ -763,6 +779,8 @@ void AnimationFrameTimingMonitor::Trace(Visitor* visitor) const {
   visitor->Trace(frame_handling_input_);
   visitor->Trace(task_attributed_window_);
   visitor->Trace(congestion_scripts_);
+  visitor->Trace(client_);
+  visitor->Trace(probe_sink_);
 }
 
 BASE_FEATURE(kAlwaysLogLOAFURL, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -944,14 +962,9 @@ void AnimationFrameTimingMonitor::WillHandlePromise(
       .class_like_name = class_like_name,
       .property_like_name = property_like_name,
       .source_location = {.url = location->Url(script_state->GetIsolate()),
-                          .char_position = location->CharPosition()}};
-
-  if (RuntimeEnabledFeatures::LongAnimationFrameSourceLineColumnEnabled()) {
-    pending_script_info_->source_location.line_number =
-        location->LineNumber() + 1;
-    pending_script_info_->source_location.column_number =
-        location->ColumnNumber() + 1;
-  }
+                          .char_position = location->CharPosition(),
+                          .line_number = location->LineNumber(),
+                          .column_number = location->ColumnNumber()}};
 }
 
 void AnimationFrameTimingMonitor::Will(

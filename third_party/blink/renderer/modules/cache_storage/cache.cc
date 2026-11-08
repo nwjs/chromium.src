@@ -221,6 +221,11 @@ class Cache::BarrierCallbackForPutResponse final
   // Must be called prior to starting the load of any response.
   ScriptPromise<IDLUndefined> Promise() const { return resolver_->Promise(); }
 
+  void Detach() {
+    Stop();
+    resolver_->Detach();
+  }
+
   AbortSignal* Signal() const {
     return abort_controller_ ? abort_controller_->signal() : nullptr;
   }
@@ -549,12 +554,12 @@ class Cache::BarrierCallbackForPutComplete final
               blob_data_handle->GetType())) {
         continue;
       }
-      uint64_t side_data_blob_size =
-          operation->response->side_data_blob_for_cache_put
-              ? operation->response->side_data_blob_for_cache_put->size()
+      uint64_t side_data_size =
+          operation->response->side_data_for_cache_put
+              ? operation->response->side_data_for_cache_put->size()
               : 0;
       global_scope->CountCacheStorageInstalledScript(blob_data_handle->size(),
-                                                     side_data_blob_size);
+                                                     side_data_size);
     }
   }
 
@@ -666,7 +671,6 @@ class Cache::CodeCacheHandleCallbackForPut final
     scoped_refptr<CachedMetadata> cached_metadata =
         GenerateFullCodeCache(script_text, initial_encoding);
     if (cached_metadata) {
-      auto side_data_blob_data = std::make_unique<BlobData>();
       if (RuntimeEnabledFeatures::ServiceWorkerCodeCacheHashingEnabled()) {
         ParkableString source_text(script_text.Impl());
         const ParkableString::DigestHolder digest_holder = source_text.Digest();
@@ -675,17 +679,11 @@ class Cache::CodeCacheHandleCallbackForPut final
         Vector<uint8_t> serialized_data =
             ScriptCachedMetadataHandlerWithHashing::AddHashHeader(
                 base::span(digest), cached_metadata->SerializedData());
-        side_data_blob_data->AppendBytes(serialized_data);
-        batch_operation->response->side_data_blob_for_cache_put =
-            BlobDataHandle::Create(std::move(side_data_blob_data),
-                                   serialized_data.size());
+        batch_operation->response->side_data_for_cache_put =
+            mojo_base::BigBuffer(base::span(serialized_data));
       } else {
-        base::span<const uint8_t> serialized_data =
-            cached_metadata->SerializedData();
-        side_data_blob_data->AppendBytes(serialized_data);
-        batch_operation->response->side_data_blob_for_cache_put =
-            BlobDataHandle::Create(std::move(side_data_blob_data),
-                                   serialized_data.size());
+        batch_operation->response->side_data_for_cache_put =
+            mojo_base::BigBuffer(cached_metadata->SerializedData());
       }
     }
 
@@ -888,6 +886,11 @@ ScriptPromise<IDLUndefined> Cache::put(ScriptState* script_state,
       script_state, barrier_callback, /*index=*/0,
       /*require_ok_response=*/false, trace_id);
   loader->OnResponse(response, exception_state);
+
+  if (exception_state.HadException()) {
+    barrier_callback->Detach();
+    return EmptyPromise();
+  }
 
   return promise;
 }
@@ -1158,8 +1161,13 @@ ScriptPromise<IDLUndefined> Cache::AddAllImpl(
     // internally.
     auto* on_reject =
         MakeGarbageCollected<FetchRejectHandler>(barrier_callback);
-    scoped_fetcher_->Fetch(script_state, info, init, exception_state)
-        .Then(script_state, on_resolve, on_reject);
+    auto fetch_promise =
+        scoped_fetcher_->Fetch(script_state, info, init, exception_state);
+    if (exception_state.HadException()) {
+      barrier_callback->Detach();
+      return EmptyPromise();
+    }
+    fetch_promise.Then(script_state, on_resolve, on_reject);
   }
 
   return promise;

@@ -13,7 +13,6 @@ source_set("common") {
 
   deps = [
     "//base",
-    "//chrome/browser:browser_public_dependencies",
     "//chrome/browser/ui/browser_window",
     "//chrome/browser/ui/navigator",
     "//components/tabs:public",
@@ -65,7 +64,6 @@ source_set("browser_tests") {
   ]
   if (!is_android) {
     deps += [
-      "//chrome/browser/ui",
       "//chrome/browser/ui:browser_commands",
       "//chrome/browser/ui/tabs:tab_strip",
     ]

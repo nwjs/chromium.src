@@ -22,6 +22,7 @@
 #include "components/background_fetch/job_details.h"
 #include "components/download/public/background_service/background_download_service.h"
 #include "components/download/public/common/download_features.h"
+#include "components/offline_items_collection/core/fail_state.h"
 #include "components/offline_items_collection/core/offline_content_aggregator.h"
 #include "components/offline_items_collection/core/offline_item.h"
 #include "content/public/browser/background_fetch_description.h"
@@ -44,8 +45,8 @@ BackgroundFetchDelegateImpl::BackgroundFetchDelegateImpl(Profile* profile)
                                     profile->IsOffTheRecord())),
       offline_content_aggregator_(OfflineContentAggregatorFactory::GetForKey(
           profile->GetProfileKey())) {
-  DCHECK(profile_);
-  DCHECK(!provider_namespace_.empty());
+  CHECK(profile_, base::NotFatalUntil::M161);
+  CHECK(!provider_namespace_.empty(), base::NotFatalUntil::M161);
   offline_content_aggregator_->RegisterProvider(provider_namespace_, this);
 
   // Ensure that downloads UI components are initialized to handle the UI
@@ -62,7 +63,7 @@ BackgroundFetchDelegateImpl::~BackgroundFetchDelegateImpl() {
 }
 
 void BackgroundFetchDelegateImpl::MarkJobComplete(const std::string& job_id) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M161);
   background_fetch::JobDetails* job_details = GetJobDetails(job_id);
   RecordBackgroundFetchDeletingRegistrationUkmEvent(
       job_details->fetch_description->origin, job_details->cancelled_from_ui);
@@ -74,9 +75,11 @@ void BackgroundFetchDelegateImpl::UpdateUI(
     const std::string& job_id,
     const std::optional<std::string>& title,
     const std::optional<SkBitmap>& icon) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
-  DCHECK(title || icon);             // One of the UI options must be updatable.
-  DCHECK(!icon || !icon->isNull());  // The |icon|, if provided, is not null.
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M161);
+  CHECK(title || icon,
+        base::NotFatalUntil::M161);  // One of the UI options must be updatable.
+  CHECK(!icon || !icon->isNull(),
+        base::NotFatalUntil::M161);  // The |icon|, if provided, is not null.
 
   background_fetch::JobDetails* job_details =
       GetJobDetails(job_id, /*allow_null=*/true);
@@ -87,7 +90,7 @@ void BackgroundFetchDelegateImpl::UpdateUI(
   if (title && job_details->fetch_description->title != *title)
     job_details->fetch_description->title = *title;
 
-  DCHECK(ui_state_map_.contains(job_id));
+  CHECK(ui_state_map_.contains(job_id), base::NotFatalUntil::M161);
   UiState& ui_state = ui_state_map_[job_id];
 
   if (icon) {
@@ -224,7 +227,7 @@ BackgroundFetchDelegateImpl::GetDownloadService() {
 
 void BackgroundFetchDelegateImpl::OnJobDetailsCreated(
     const std::string& job_id) {
-  DCHECK(!ui_state_map_.contains(job_id));
+  CHECK(!ui_state_map_.contains(job_id), base::NotFatalUntil::M161);
   UiState& ui_state = ui_state_map_[job_id];
   offline_items_collection::OfflineItem offline_item(
       offline_items_collection::ContentId(provider_namespace_, job_id));
@@ -277,7 +280,7 @@ void BackgroundFetchDelegateImpl::UpdateOfflineItem(const std::string& job_id) {
 
   content::BackgroundFetchDescription* fetch_description =
       job_details->fetch_description.get();
-  DCHECK_GT(fetch_description->total_requests, 0);
+  CHECK_GT(fetch_description->total_requests, 0, base::NotFatalUntil::M161);
 
   offline_items_collection::OfflineItem* offline_item =
       &ui_state_map_[job_id].offline_item;
@@ -312,6 +315,8 @@ void BackgroundFetchDelegateImpl::UpdateOfflineItem(const std::string& job_id) {
   switch (job_details->job_state) {
     case JobState::kCancelled:
       offline_item->state = OfflineItemState::CANCELLED;
+      offline_item->fail_state =
+          offline_items_collection::FailState::USER_CANCELED;
       break;
     case JobState::kDownloadsComplete:
       // This includes cases when the download failed, or completed but the

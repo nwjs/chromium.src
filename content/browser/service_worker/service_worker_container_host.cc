@@ -16,6 +16,7 @@
 #include "base/metrics/histogram_functions.h"
 #include "base/strings/stringprintf.h"
 #include "base/task/single_thread_task_runner.h"
+#include "content/browser/renderer_host/render_frame_host_impl.h"
 #include "content/browser/service_worker/service_worker_client.h"
 #include "content/browser/service_worker/service_worker_consts.h"
 #include "content/browser/service_worker/service_worker_context_core.h"
@@ -483,6 +484,27 @@ void ServiceWorkerContainerHostForClient::PostMessageToClient(
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   CHECK(service_worker_client().is_execution_ready());
 
+  if (message.delegated_capability ==
+      blink::mojom::DelegatedCapability::kPopup) {
+    if (base::FeatureList::IsEnabled(
+            blink::features::kCapabilityDelegationPopup) &&
+        version.HasPendingWindowInteractionEvent() &&
+        service_worker_client().IsContainerForWindowClient()) {
+      GlobalRenderFrameHostId rfh_id =
+          service_worker_client().GetRenderFrameHostId();
+      if (auto* rfh = RenderFrameHostImpl::FromID(rfh_id)) {
+        rfh->AllowPopupThroughCapabilityDelegation();
+      }
+    } else {
+      message.delegated_capability = blink::mojom::DelegatedCapability::kNone;
+    }
+  } else if (message.delegated_capability !=
+             blink::mojom::DelegatedCapability::kNone) {
+    mojo::ReportBadMessage(
+        "Service workers can only delegate the popup capability.");
+    return;
+  }
+
   blink::mojom::ServiceWorkerObjectInfoPtr info;
   if (base::WeakPtr<ServiceWorkerObjectHost> object_host =
           version_object_manager().GetOrCreateHost(&version)) {
@@ -590,8 +612,10 @@ void ServiceWorkerContainerHostForClient::SendSetController(
 
   CHECK(service_worker_client().controller_registration(),
         base::NotFatalUntil::M159);
-  CHECK_EQ(service_worker_client().controller_registration()->active_version(),
-           controller(), base::NotFatalUntil::M159);
+  // TODO(crbug.com/571334917): CHECK-exclusion: Convert to a CHECK once we are
+  // confident it won't be triggered.
+  DCHECK_EQ(service_worker_client().controller_registration()->active_version(),
+            controller());
 
   // TODO(crbug.com/331279951): Remove these crash keys after investigation.
   SCOPED_CRASH_KEY_NUMBER(

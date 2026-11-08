@@ -4,7 +4,9 @@
 
 #include "content/browser/cache_storage/background_fetch_cache_entry_handler_impl.h"
 
-#include "mojo/public/cpp/bindings/remote.h"
+#include <optional>
+
+#include "services/network/public/cpp/resource_request_body.h"
 #include "third_party/blink/public/common/blob/blob_utils.h"
 
 namespace content {
@@ -37,7 +39,9 @@ BackgroundFetchCacheEntryHandlerImpl::CreatePutContext(
 
   return std::make_unique<PutContext>(
       std::move(request), std::move(response), std::move(response_blob),
-      response_blob_size, std::move(request_blob), request_blob_size, trace_id);
+      response_blob_size, std::move(request_blob),
+      /*side_data_blob_size=*/request_blob_size,
+      /*side_data_buffer=*/std::nullopt, trace_id);
 }
 
 void BackgroundFetchCacheEntryHandlerImpl::PopulateResponseBody(
@@ -56,8 +60,9 @@ void BackgroundFetchCacheEntryHandlerImpl::PopulateRequestBody(
     return;
   }
 
-  request->blob =
-      CreateBlob(std::move(blob_entry), CacheStorageCache::INDEX_SIDE_DATA);
+  request->body = base::MakeRefCounted<network::ResourceRequestBody>();
+  request->body->AppendDataPipe(CreateDataPipeGetter(
+      std::move(blob_entry), CacheStorageCache::INDEX_SIDE_DATA));
 }
 
 base::WeakPtr<CacheStorageCacheEntryHandler>

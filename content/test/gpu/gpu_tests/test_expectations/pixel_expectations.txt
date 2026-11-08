@@ -190,22 +190,6 @@ crbug.com/575305 [ android android-webview-instrumentation ] Pixel_WebGLSadCanva
 # context loss which results in hardware decoder loss.
 crbug.com/580386 [ android ] Pixel_Video_Context_Loss_MP4 [ Skip ]
 
-# Skip dual gpu switching tests on Mac Nvidia because this
-# configuration has been forced to use only the low-power GPU due to
-# graphics driver bugs.
-crbug.com/1047573 [ mac angle-opengl nvidia ] Pixel_WebGLLowToHighPower [ Skip ]
-crbug.com/1047573 [ mac angle-opengl nvidia ] Pixel_WebGLLowToHighPowerAlphaFalse [ Skip ]
-crbug.com/1047573 [ mac angle-opengl nvidia ] Pixel_WebGLHighToLowPower [ Skip ]
-crbug.com/1048892 [ mac angle-opengl nvidia ] Pixel_OffscreenCanvasIBRCWebGLHighPerfMain [ Skip ]
-crbug.com/1048892 [ mac angle-opengl nvidia ] Pixel_OffscreenCanvasIBRCWebGLHighPerfWorker [ Skip ]
-
-# Metal does not switch the GPU of existing contexts.
-crbug.com/1448964 [ mac angle-metal ] Pixel_WebGLLowToHighPower [ Skip ]
-crbug.com/1448964 [ mac angle-metal ] Pixel_WebGLLowToHighPowerAlphaFalse [ Skip ]
-crbug.com/1448964 [ mac angle-metal ] Pixel_WebGLHighToLowPower [ Skip ]
-crbug.com/1448964 [ mac angle-metal ] Pixel_OffscreenCanvasIBRCWebGLHighPerfMain [ Skip ]
-crbug.com/1448964 [ mac angle-metal ] Pixel_OffscreenCanvasIBRCWebGLHighPerfWorker [ Skip ]
-
 # Cannot use file in Chromium checkout for fake video capture device on Android,
 # ChromeOS, or Fuchsia.
 crbug.com/1129879 [ android ] Pixel_Video_Media_Stream_Incompatible_Stride [ Skip ]
@@ -279,7 +263,7 @@ crbug.com/1372155 [ android android-sm-a137f ] Pixel_WebGLFloat [ Skip ]
 [ fuchsia ] Pixel_MeetEffects* [ Skip ]
 
 # WebGpu is not supported on x86 nvidia
-crbug.com/42240193 [ win10 nvidia target-cpu-32 ] Pixel_WebGPU* [ Skip ]
+crbug.com/42240193 [ win nvidia target-cpu-32 ] Pixel_WebGPU* [ Skip ]
 
 ###############################
 # Temporary Skip Expectations #
@@ -432,8 +416,8 @@ crbug.com/1290953 [ android android-pixel-4 android-webview-instrumentation ] Pi
 
 crbug.com/1477318 [ mac ] Pixel_WebGLPreservedAfterTabSwitch [ RetryOnFailure ]
 
-crbug.com/546131821 [ android android-pixel-6 angle-opengles passthrough renderer-skia-vulkan ] Pixel_VideoStreamFrom2DCanvas [ RetryOnFailure ]
-crbug.com/546131821 [ android android-pixel-6 angle-opengles passthrough renderer-skia-vulkan ] Pixel_VideoStreamFromWebGLAlphaCanvas [ RetryOnFailure ]
+crbug.com/546131821 [ android android-pixel-6 ] Pixel_VideoStreamFrom2DCanvas [ RetryOnFailure ]
+crbug.com/546131821 [ android android-pixel-6 ] Pixel_VideoStreamFromWebGLAlphaCanvas [ RetryOnFailure ]
 
 
 # Fails with hung renderer
@@ -547,8 +531,6 @@ crbug.com/558993697 [ android android-pixel-11-pro-xl android-webview-instrument
 crbug.com/558993697 [ android android-pixel-11-pro-xl android-webview-instrumentation ] Pixel_CanvasLowLatencyWebGLDrawImage [ Failure ]
 crbug.com/558993697 [ android android-pixel-11-pro-xl android-webview-instrumentation ] Pixel_CanvasLowLatencyWebGLOccluded [ Failure ]
 crbug.com/558993697 [ android android-pixel-11-pro-xl android-webview-instrumentation ] Pixel_CanvasLowLatencyWebGLRoundedCorners [ Failure ]
-crbug.com/558993697 [ android android-pixel-11-pro-xl android-webview-instrumentation ] Pixel_OffscreenCanvasIBRCWebGLMain [ Failure ]
-crbug.com/558993697 [ android android-pixel-11-pro-xl android-webview-instrumentation ] Pixel_OffscreenCanvasIBRCWebGLWorker [ Failure ]
 crbug.com/558993697 [ android android-pixel-11-pro-xl android-webview-instrumentation ] Pixel_OffscreenCanvasIBRCWorker [ Failure ]
 crbug.com/558993697 [ android android-pixel-11-pro-xl android-webview-instrumentation ] Pixel_OffscreenCanvasTransferAfterStyleResize [ Failure ]
 crbug.com/558993697 [ android android-pixel-11-pro-xl android-webview-instrumentation ] Pixel_OffscreenCanvasTransferBeforeStyleResize [ Failure ]
@@ -597,6 +579,14 @@ crbug.com/544795245 [ mac apple-angle-metal-renderer:-apple-m2 asan ] Pixel_View
 # Pixel 6 failures
 # Periodically exhibits flaky timeouts
 crbug.com/559557324 [ android android-Pixel-6 android-chromium ] Pixel_Video_Context_Loss_VP9 [ RetryOnFailure ]
+
+# 32-bit GPU process virtual address space exhaustion (E_OUTOFMEMORY)
+crbug.com/417782068 [ win nvidia-0x2184 target-cpu-32 ] Pixel_MediaFoundationClearDirectComposition [ Failure ]
+
+# Linux/Wayland NVIDIA RTX 4070 Super failures
+crbug.com/563391402 [ linux nvidia-0x2783 display-server-wayland ] Pixel_OffscreenCanvasUnaccelerated2DGPUCompositing [ Failure ]
+crbug.com/563391402 [ linux nvidia-0x2783 display-server-wayland ] Pixel_OffscreenCanvasUnaccelerated2DGPUCompositingWorker [ Failure ]
+crbug.com/563391402 [ linux nvidia-0x2783 display-server-wayland ] Pixel_Video_AV1 [ Failure ]
 
 #######################################################################
 # Automated Entries After This Point - Do Not Manually Add Below Here #

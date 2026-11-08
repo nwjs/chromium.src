@@ -16,7 +16,6 @@
 #include "base/timer/elapsed_timer.h"
 #include "base/token.h"
 #include "base/types/optional_ref.h"
-#include "components/autofill/core/browser/integrators/at_memory/at_memory_query_service.h"
 #include "components/autofill/core/browser/integrators/at_memory/memory_search_result.h"
 #include "components/autofill/core/browser/metrics/autofill_metrics.h"
 #include "components/autofill/core/browser/ui/autofill_suggestion_delegate.h"
@@ -83,6 +82,27 @@ enum class AtMemoryUiSessionOutcome {
 };
 // LINT.ThenChange(//tools/metrics/histograms/metadata/autofill/enums.xml:AutofillAtMemoryUiSessionOutcome)
 
+// LINT.IfChange(AutofillAtMemoryStateRestored)
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+//
+// Describes which persisted search state (if any) was restored when the
+// AtMemory popup was shown with search statefulness enabled.
+enum class AtMemoryStateRestored {
+  // No search state was persisted for the field, so the popup started from the
+  // initial (empty query) state.
+  kNewSession = 0,
+  // A query that was typed but not submitted was restored.
+  kRestoredWithExistingQuery = 1,
+  // A submitted query whose response was still pending was restored.
+  kRestoredWhileSearching = 2,
+  // A submitted query together with its final response (results or an error)
+  // was restored.
+  kRestoredWithResponse = 3,
+  kMaxValue = kRestoredWithResponse,
+};
+// LINT.ThenChange(//tools/metrics/histograms/metadata/autofill/enums.xml:AutofillAtMemoryStateRestored)
+
 // Encapsulates the state and logging logic for the AtMemory search funnel.
 // This class tracks the progression of a user's interaction with the AtMemory
 // suggestions, from the initial display to the submission of a query.
@@ -101,15 +121,23 @@ class AtMemoryMetricsRecorder {
   AtMemoryMetricsRecorder& operator=(const AtMemoryMetricsRecorder&) = delete;
   ~AtMemoryMetricsRecorder();
 
-  // Records that the popup UI was successfully displayed to the user.
-  // This emits the "PopupDisplayed" metric. This method is idempotent; only
-  // the first call per session will record metrics, and subsequent calls
-  // with potentially different trigger sources are ignored. This is consistent
-  // with the popup lifecycle, where a change in trigger mechanism would
-  // typically result in the popup being hidden and a new session starting.
+  // Records that the popup UI was displayed to the user and emits
+  // "Autofill.AtMemory.SearchBarDisplayed" once per display. Repeated calls
+  // while the popup stays visible (e.g. when its suggestions are updated) are
+  // ignored until `OnPopupHidden()` is called. With search statefulness a
+  // session can span several displays; the trigger source of the first one is
+  // kept for the session-level UKM.
   void OnPopupShown(
       AutofillSuggestionTriggerSource trigger_source,
       const AutofillSuggestionDelegate::SuggestionUiMetadata& metadata);
+
+  // Records that the popup UI was hidden, so the next `OnPopupShown()` counts
+  // as a new display.
+  void OnPopupHidden();
+
+  // Records which persisted search state (if any) was restored when the popup
+  // was displayed. Emits "Autofill.AtMemory.StateRestored".
+  void OnStateRestored(AtMemoryStateRestored state_restored);
 
   // Records that a search query was submitted during this session.
   void OnQuerySubmitted(std::u16string_view query);
@@ -128,6 +156,9 @@ class AtMemoryMetricsRecorder {
   // Records that the suggestion was successfully filled.
   void MarkFilled();
 
+  // Returns if a suggestion was successfully filled this session.
+  bool IsFilled() const { return suggestion_filled_in_session_; }
+
   // LINT.IfChange(FetchPiiSource)
   // The source of PII data fetched during filling.
   enum class FetchPiiSource {
@@ -145,10 +176,8 @@ class AtMemoryMetricsRecorder {
   // Records the completion of the asynchronous PII fetching process.
   void OnFetchPiiCompleted();
 
-  // Records the failure reason of the asynchronous PII fetching process using
-  // `PersonalContextService`.
-  void OnFetchPersonalContextPiiDataFailed(
-      AtMemoryQueryService::SpiiRetrievalFailureReason reason);
+  size_t query_count() const { return query_count_; }
+  size_t query_results_count() const { return query_results_count_; }
 
  private:
   friend class AtMemoryMetricsRecorderTestApi;
@@ -178,15 +207,25 @@ class AtMemoryMetricsRecorder {
   const FormSignature form_signature_;
   const FieldSignature field_signature_;
 
-  // The trigger source of the popup. It is `std::nullopt` until `OnPopupShown`
-  // is called, serving as a signal that the popup was shown.
+  // The trigger source of the first display of the popup in this session. It
+  // is `std::nullopt` until `OnPopupShown` is called, serving as a signal that
+  // the popup was shown.
   std::optional<AutofillMetrics::AtMemoryTriggerSource> source_;
+
+  // Whether the popup is currently displayed, i.e. `OnPopupShown` was called
+  // and `OnPopupHidden` was not called since.
+  bool is_popup_displayed_ = false;
 
   // Counts the number of queries submitted during this session.
   size_t query_count_ = 0;
 
-  // Counts the number of query responses received during this session.
+  // Counts the number of query responses received during this session. Used
+  // by UMA session outcome metrics to determine if the session was dismissed
+  // before receiving results.
   size_t query_response_count_ = 0;
+
+  // Number of search results for the last query shown to the user.
+  size_t query_results_count_ = 0;
 
   // Whether any suggestion has been accepted during the lifetime of `this`.
   bool suggestion_accepted_in_session_ = false;

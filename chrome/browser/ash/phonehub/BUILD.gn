@@ -20,7 +20,6 @@ static_library("phonehub") {
 
   public_deps = [
     "//base",
-    "//chrome/browser:browser_public_dependencies",
     "//chrome/browser/ash/attestation",
     "//chrome/browser/profiles:profile",
     "//chromeos/ash/components/network",
@@ -83,7 +82,6 @@ source_set("unit_tests") {
     "//chrome/browser/ash/attestation:test_support",
     "//chrome/browser/ash/login/users:test_support",
     "//chrome/browser/ash/sync",
-    "//chrome/browser/ui",
     "//chrome/browser/ui/ash/holding_space",
     "//chrome/browser/ui/ash/holding_space:test_support",
     "//chrome/common",

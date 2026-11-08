@@ -9,7 +9,11 @@
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
 #include "base/test/gtest_util.h"
-#include "components/origin_gating/core/types.h"
+#include "components/origin_gating/core/decision.h"
+#include "components/origin_gating/core/decision_attribution.h"
+#include "components/origin_gating/core/decision_source.h"
+#include "components/origin_gating/core/gateable_event.h"
+#include "components/origin_gating/core/gating_decision.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "url/gurl.h"
@@ -20,6 +24,8 @@ using testing::VariantWith;
 
 namespace origin_gating {
 namespace {
+
+using CacheScope = OriginGatingConfiguration::CacheScope;
 
 enum class TestCustomPredicate {
   kCustom1,
@@ -64,7 +70,7 @@ TEST(OriginGatingConfigurationTest, StoresPredicatesInOrder) {
           {custom1, GateableEventSet::All()},
           {custom2, GateableEventSet::All()},
       },
-      /*use_site_keyed_cache=*/false);
+      CacheScope::kOrigin);
 
   EXPECT_THAT(
       config.predicates(),
@@ -88,7 +94,7 @@ TEST(OriginGatingConfigurationTest, CheckFails_NoVerdict) {
       {
         OriginGatingConfiguration config(
             {{DecisionSource::kNoVerdict, GateableEventSet::All()}},
-            /*use_site_keyed_cache=*/false);
+            CacheScope::kOrigin);
       },
       "");
 }
@@ -96,7 +102,7 @@ TEST(OriginGatingConfigurationTest, CheckFails_NoVerdict) {
 TEST(OriginGatingConfigurationTest, CheckFails_AllowSameOriginOnPageAction) {
   EXPECT_CHECK_DEATH(OriginGatingConfiguration(
       {{DecisionSource::kAllowSameOrigin, GateableEventSet::All()}},
-      /*use_site_keyed_cache=*/false));
+      CacheScope::kOrigin));
 }
 
 TEST(OriginGatingConfigurationTest, CheckFails_MultipleCustomPredicateDomains) {
@@ -119,7 +125,7 @@ TEST(OriginGatingConfigurationTest, CheckFails_MultipleCustomPredicateDomains) {
                 {custom1, GateableEventSet::All()},
                 {custom2, GateableEventSet::All()},
             },
-            /*use_site_keyed_cache=*/false);
+            CacheScope::kOrigin);
       },
       "");
 }
@@ -129,20 +135,20 @@ TEST(OriginGatingConfigurationTest, UsesCache) {
       {{DecisionSource::kAllowSameOrigin,
         {GateableEvent::kNavigationRequest,
          GateableEvent::kNavigationResponse}}},
-      /*use_site_keyed_cache=*/false);
-  EXPECT_FALSE(config_without_cache.uses_cache());
+      CacheScope::kOrigin);
+  EXPECT_EQ(config_without_cache.cache_scope(), std::nullopt);
 
   OriginGatingConfiguration config_with_user_confirmation_cache(
       {{DecisionSource::kCacheWithUserConfirmation, GateableEventSet::All()}},
-      /*use_site_keyed_cache=*/false);
-  EXPECT_TRUE(config_with_user_confirmation_cache.uses_cache());
+      CacheScope::kOrigin);
+  EXPECT_EQ(config_with_user_confirmation_cache.cache_scope(),
+            CacheScope::kOrigin);
 
   OriginGatingConfiguration config_with_unconfirmed_cache(
       {{DecisionSource::kCacheWithoutUserConfirmation,
         GateableEventSet::All()}},
-      /*use_site_keyed_cache=*/true);
-  EXPECT_TRUE(config_with_unconfirmed_cache.uses_cache());
-  EXPECT_TRUE(config_with_unconfirmed_cache.use_site_keyed_cache());
+      CacheScope::kSite);
+  EXPECT_EQ(config_with_unconfirmed_cache.cache_scope(), CacheScope::kSite);
 }
 
 TEST(PredicateConfigurationTest, AppliesToOnlyConfiguredEvents) {

@@ -70,6 +70,9 @@ void BackgroundThumbnailVideoCapturer::Start(
 
   constexpr int kMaxFrameRate = 2;
   video_capturer_ = source_view->CreateVideoCapturer();
+  // Mark the capture as secure because tab hover card thumbnail previews are a
+  // trusted internal browser UI feature.
+  video_capturer_->SetIsSecure(true);
   video_capturer_->SetResolutionConstraints(capture_info_.target_size,
                                             capture_info_.target_size, false);
   video_capturer_->SetAutoThrottlingEnabled(false);
@@ -140,7 +143,7 @@ void BackgroundThumbnailVideoCapturer::OnFrameCaptured(
 
   // The SkBitmap's pixels will be marked as immutable, but the installPixels()
   // API requires a non-const pointer. So, cast away the const.
-  void* const pixels = const_cast<void*>(mapping.memory());
+  void* const pixels = const_cast<uint8_t*>(mapping.data());
 
   // Call installPixels() with a |releaseProc| that: 1) notifies the capturer
   // that this consumer has finished with the frame, and 2) releases the shared

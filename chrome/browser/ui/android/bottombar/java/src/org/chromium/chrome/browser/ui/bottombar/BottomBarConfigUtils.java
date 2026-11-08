@@ -4,8 +4,6 @@
 
 package org.chromium.chrome.browser.ui.bottombar;
 
-import static org.chromium.build.NullUtil.assumeNonNull;
-
 import android.content.Context;
 
 import org.chromium.base.DeviceInfo;
@@ -15,6 +13,8 @@ import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
 import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.ui.native_page.NativePage;
+import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.components.embedder_support.util.UrlUtilities;
 import org.chromium.ui.base.DeviceFormFactor;
 
@@ -27,18 +27,57 @@ public class BottomBarConfigUtils {
 
     private BottomBarConfigUtils() {}
 
-    // LINT.IfChange(isBottomBarEnabled)
-    /** Whether the bottom bar is enabled. */
+    /**
+     * Returns whether the bottom bar is enabled, i.e. the device and feature flag are eligible and
+     * the user has not turned it off in Settings. Most callers checking whether the bottom bar is
+     * active should use this method.
+     */
     public static boolean isBottomBarEnabled(Context context) {
+        return isBottomBarEligible(context) && isBottomBarUserEnabled();
+    }
+
+    /**
+     * Returns whether the bottom bar is eligible on this device, i.e. the feature flag is enabled
+     * and the form factor supports it. This does not take the user's Settings choice into account.
+     */
+    private static boolean isBottomBarEligible(Context context) {
         return !DeviceFormFactor.isNonMultiDisplayContextOnTablet(context)
                 && !DeviceInfo.isAutomotive()
                 && ChromeFeatureList.sAndroidBottomBar.isEnabled();
     }
-    // LINT.ThenChange(//chrome/browser/ui/android/toolbar/java/src/org/chromium/chrome/browser/toolbar/ToolbarVariationUtils.java:isToolbarUiRefactorEnabled)
 
-    /** Whether AI Mode is enabled in the bottom bar. */
-    public static boolean isAimEnabled() {
-        return ChromeFeatureList.sAndroidBottomBarAim.isEnabled();
+    /**
+     * Returns whether the "Show bottom toolbar" switch should be offered in Settings: the bottom
+     * bar must be eligible on this device and the show_settings_toggle param must be on. Never true
+     * when the AndroidBottomBar flag is off.
+     */
+    public static boolean shouldShowSettingsToggle(Context context) {
+        return isBottomBarEligible(context)
+                && ChromeFeatureList.sAndroidBottomBarShowSettingsToggle.getValue();
+    }
+
+    /**
+     * Returns whether the user has the bottom bar turned on in Settings. Until the user flips the
+     * switch, the default comes from the default_user_enabled feature param; once the user has made
+     * an explicit choice it is kept regardless of the param. Feature consumers should call {@link
+     * #isBottomBarEnabled(Context)} instead.
+     */
+    public static boolean isBottomBarUserEnabled() {
+        return ChromeSharedPreferences.getInstance()
+                .readBoolean(
+                        ChromePreferenceKeys.BOTTOM_BAR_ENABLED,
+                        ChromeFeatureList.sAndroidBottomBarDefaultUserEnabled.getValue());
+    }
+
+    /**
+     * Sets whether the user has the bottom bar turned on in Settings. Because the bottom bar
+     * container stub is only inflated during startup (see {@code
+     * ToolbarManager#enableBottomControls()}), toggling this setting requires recreating {@code
+     * ChromeTabbedActivity} (e.g. via {@code Activity#recreate()}) to take effect.
+     */
+    public static void setBottomBarUserEnabled(boolean enabled) {
+        ChromeSharedPreferences.getInstance()
+                .writeBoolean(ChromePreferenceKeys.BOTTOM_BAR_ENABLED, enabled);
     }
 
     /**
@@ -49,11 +88,6 @@ public class BottomBarConfigUtils {
         int heightDp = ChromeFeatureList.sAndroidBottomBarHeightDp.getValue();
         if (heightDp <= 0) return DEFAULT_BOTTOM_BAR_HEIGHT_DP;
         return Math.clamp(heightDp, MIN_BOTTOM_BAR_HEIGHT_DP, MAX_BOTTOM_BAR_HEIGHT_DP);
-    }
-
-    /** Whether to include the home button in the bottom bar if the flag is enabled. */
-    public static boolean shouldIncludeHomeButtonIfEnabled() {
-        return !ChromeFeatureList.sAndroidBottomBarKeepHomeButtonInToolbar.getValue();
     }
 
     /** Whether to include the app menu button in the bottom bar if the flag is enabled. */
@@ -71,19 +105,15 @@ public class BottomBarConfigUtils {
         return ChromeFeatureList.sAndroidBottomBarShowBottomBarOnGts.getValue();
     }
 
-    /** Whether to disable the bottom bar on the regular NTP. */
-    public static boolean shouldDisableOnNtp() {
-        return ChromeFeatureList.sAndroidBottomBarDisableOnNtp.getValue();
-    }
-
     /**
      * Whether bottom controls scroll-off is enabled for the given tab. Scroll-off is enabled for
      * regular (non-incognito) NTP when the bottom bar is enabled.
      */
     public static boolean isNtpScrollOffEnabled(@Nullable Tab tab, @Nullable Context context) {
         if (tab == null || context == null) return false;
-        return !tab.isIncognito()
-                && isNtpWithBottomBar(tab, context)
+        return !tab.isOffTheRecord()
+                && isNtp(tab)
+                && isBottomBarEnabled(context)
                 && ChromeFeatureList.sAndroidBottomBarNtpScrollOffEnabled.getValue();
     }
 
@@ -98,16 +128,9 @@ public class BottomBarConfigUtils {
      */
     public static boolean shouldForceBothConstraintsForBottomControls(
             @Nullable Tab tab, @Nullable Context context) {
-        if (tab == null || context == null) return false;
-
-        if (isNtp(tab) && !tab.isIncognito() && shouldDisableOnNtp()) return false;
+        if (tab == null || context == null || !isBottomBarEnabled(context)) return false;
 
         return tab.isNativePage() || UrlUtilities.isInternalScheme(tab.getUrl());
-    }
-
-    /** Whether the given tab is a regular NTP (excludes incognito). */
-    public static boolean isRegularNtp(@Nullable Tab tab) {
-        return isNtp(tab) && !assumeNonNull(tab).isIncognito();
     }
 
     /** Whether to always use the filled GLIC icon. */
@@ -115,27 +138,16 @@ public class BottomBarConfigUtils {
         return ChromeFeatureList.sAndroidBottomBarAlwaysUseFilledGlicIcon.getValue();
     }
 
-    /** Whether to bypass geofencing country check for GLIC. */
-    public static boolean bypassGlicGeofencing() {
-        return ChromeFeatureList.sAndroidBottomBarBypassGlicGeofencing.getValue();
-    }
-
-    /** Whether to bypass geofencing country check for AI Mode. */
-    public static boolean bypassAimGeofencing() {
-        return ChromeFeatureList.sAndroidBottomBarBypassAimGeofencing.getValue();
-    }
-
-    private static boolean isNtpWithBottomBar(Tab tab, Context context) {
-        return isNtp(tab)
-                && isBottomBarEnabled(context)
-                && (tab.isIncognito() || !shouldDisableOnNtp());
-    }
-
-    /** Whether the given tab is any NTP (regular or incognito). */
-    private static boolean isNtp(@Nullable Tab tab) {
-        return tab != null
-                && tab.getNativePage() != null
-                && "newtab".equals(tab.getNativePage().getHost());
+    /**
+     * Whether the given tab is showing any NTP (regular or incognito).
+     *
+     * <p>Keys off the native page rather than the URL: the visible URL changes when a navigation
+     * starts, but the native page is only swapped when it commits. Frozen tabs keep a
+     * FrozenNativePage with the original host.
+     */
+    public static boolean isNtp(@Nullable Tab tab) {
+        NativePage nativePage = tab == null ? null : tab.getNativePage();
+        return nativePage != null && UrlConstants.NTP_HOST.equals(nativePage.getHost());
     }
 
     /** Whether the feature parameter to show the GLIC setting toggle is enabled. */

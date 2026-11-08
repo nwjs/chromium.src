@@ -9,20 +9,18 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import android.app.Activity;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.ActivityInfo;
-import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.net.Uri;
 
@@ -41,6 +39,7 @@ import org.robolectric.shadows.ShadowPackageManager;
 
 import org.chromium.base.TriState;
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.base.test.RobolectricUtil;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.chrome.browser.browserservices.verification.ChromeOriginVerifier;
@@ -56,6 +55,7 @@ import org.chromium.content.webid.IdentityRequestDialogDismissReason;
 import org.chromium.content_public.common.ContentFeatures;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.base.WindowAndroid.IntentCallback;
+import org.chromium.ui.modaldialog.ModalDialogManager;
 import org.chromium.url.GURL;
 
 import java.lang.ref.WeakReference;
@@ -81,13 +81,12 @@ public class NativeAppTest {
 
     @Mock private Tab mTab;
     @Mock private WindowAndroid mWindowAndroid;
+    @Mock private ModalDialogManager mModalDialogManager;
     @Mock private BottomSheetController mBottomSheetController;
     @Mock private AccountSelectionComponent.Delegate mMockDelegate;
 
     private AccountSelectionCoordinator mCoordinator;
     private Activity mActivity;
-    private Context mSpyContext;
-    private PackageManager mSpyPackageManager;
     private ShadowActivity mShadowActivity;
     private ShadowPackageManager mShadowPackageManager;
     private ChromeOriginVerifier mMockOriginVerifier;
@@ -95,17 +94,15 @@ public class NativeAppTest {
     @Before
     public void setUp() {
         mActivity = Robolectric.setupActivity(Activity.class);
-        mSpyContext = spy(mActivity);
-        mSpyPackageManager = spy(mActivity.getPackageManager());
-        doReturn(mSpyPackageManager).when(mSpyContext).getPackageManager();
 
         mShadowActivity = Shadows.shadowOf(mActivity);
         mShadowPackageManager = Shadows.shadowOf(mActivity.getPackageManager());
 
-        WeakReference<Context> contextRef = new WeakReference<>(mSpyContext);
+        WeakReference<Context> contextRef = new WeakReference<>(mActivity);
         when(mWindowAndroid.getContext()).thenReturn(contextRef);
-        WeakReference<Activity> activityRef = new WeakReference<>((Activity) mSpyContext);
+        WeakReference<Activity> activityRef = new WeakReference<>(mActivity);
         when(mWindowAndroid.getActivity()).thenReturn(activityRef);
+        when(mWindowAndroid.getModalDialogManager()).thenReturn(mModalDialogManager);
 
         mMockOriginVerifier = mock(ChromeOriginVerifier.class);
         ChromeOriginVerifierFactory.setInstanceForTesting(mMockOriginVerifier);
@@ -131,15 +128,20 @@ public class NativeAppTest {
                         mMockDelegate);
     }
 
+    /**
+     * Registers an app whose activity handles CONTINUE_URL but does not declare a MIME type. Uses
+     * an IntentFilter (rather than addResolveInfoForIntent(), which matches regardless of the
+     * queried MIME type) so that queries with a MIME type correctly do not match.
+     */
     private void registerFakeApp(String packageName) {
-        Intent intent = new Intent(Intent.ACTION_VIEW);
-        intent.addCategory(Intent.CATEGORY_BROWSABLE);
-        intent.setData(Uri.parse(CONTINUE_URL.getSpec()));
-        ResolveInfo resolveInfo = new ResolveInfo();
-        resolveInfo.activityInfo = new ActivityInfo();
-        resolveInfo.activityInfo.packageName = packageName;
-        resolveInfo.activityInfo.name = packageName + ".LoginActivity";
-        mShadowPackageManager.addResolveInfoForIntent(intent, resolveInfo);
+        ComponentName component = new ComponentName(packageName, packageName + ".LoginActivity");
+        mShadowPackageManager.addActivityIfNotPresent(component);
+        IntentFilter filter = new IntentFilter(Intent.ACTION_VIEW);
+        filter.addCategory(Intent.CATEGORY_BROWSABLE);
+        Uri uri = Uri.parse(CONTINUE_URL.getSpec());
+        filter.addDataScheme(uri.getScheme());
+        filter.addDataAuthority(uri.getHost(), null);
+        mShadowPackageManager.addIntentFilterForActivity(component, filter);
     }
 
     private void registerFakeApp(String packageName, String mimeType) {
@@ -263,15 +265,6 @@ public class NativeAppTest {
     public void testFallbackToCctWhenAppRegisteredWithoutMimeType() {
         // Register app without MIME type
         registerFakeApp(IDP_PACKAGE);
-
-        // Stub package manager to return empty for MIME type queries (workaround Robolectric bug)
-        doReturn(java.util.Collections.emptyList())
-                .when(mSpyPackageManager)
-                .queryIntentActivities(
-                        argThat(
-                                (Intent intent) ->
-                                        "application/web-identity+json".equals(intent.getType())),
-                        anyInt());
 
         mCoordinator.showModalDialog(CONTINUE_URL);
 
@@ -418,6 +411,8 @@ public class NativeAppTest {
 
         boolean result = mCoordinator.showNativeAppUi(createTestRequestOptions(configUrl));
         assertEquals(true, result);
+        // Verification outcomes are always delivered after showNativeAppUi() returns.
+        RobolectricUtil.runAllBackgroundAndUi();
 
         verify(mMockDelegate).onNativeAppResult("delegated_token");
         verify(mMockDelegate, never()).onDismissed(anyInt());
@@ -472,6 +467,7 @@ public class NativeAppTest {
 
         mCoordinator.close();
         pendingVerifications.get(0).run();
+        RobolectricUtil.runAllBackgroundAndUi();
 
         verify(mWindowAndroid, never())
                 .showIntent(any(Intent.class), any(IntentCallback.class), any());
@@ -505,6 +501,8 @@ public class NativeAppTest {
         NativeAppRequestOptions requestOptions =
                 new NativeAppRequestOptions(configUrl, "https://rp.com", ASSERTION_PARAMS, "", "");
         assertEquals(true, mCoordinator.showNativeAppUi(requestOptions));
+        // Verification outcomes are always delivered after showNativeAppUi() returns.
+        RobolectricUtil.runAllBackgroundAndUi();
         verify(mWindowAndroid).showIntent(any(Intent.class), any(IntentCallback.class), any());
     }
 
@@ -532,6 +530,8 @@ public class NativeAppTest {
 
         boolean result = mCoordinator.showNativeAppUi(createTestRequestOptions(configUrl));
         assertEquals(true, result);
+        // Verification outcomes are always delivered after showNativeAppUi() returns.
+        RobolectricUtil.runAllBackgroundAndUi();
 
         ArgumentCaptor<IdentityCredentialTokenError> errorCaptor =
                 ArgumentCaptor.forClass(IdentityCredentialTokenError.class);
@@ -561,6 +561,8 @@ public class NativeAppTest {
 
         boolean result = mCoordinator.showNativeAppUi(createTestRequestOptions(configUrl));
         assertEquals(true, result);
+        // Verification outcomes are always delivered after showNativeAppUi() returns.
+        RobolectricUtil.runAllBackgroundAndUi();
 
         ArgumentCaptor<IdentityCredentialTokenError> errorCaptor =
                 ArgumentCaptor.forClass(IdentityCredentialTokenError.class);
@@ -579,6 +581,8 @@ public class NativeAppTest {
 
         boolean result = mCoordinator.showNativeAppUi(createTestRequestOptions(configUrl));
         assertEquals(true, result);
+        // Verification outcomes are always delivered after showNativeAppUi() returns.
+        RobolectricUtil.runAllBackgroundAndUi();
 
         verify(mMockDelegate).onDismissed(IdentityRequestDialogDismissReason.OTHER);
         verify(mMockDelegate, never()).onNativeAppResult(any());
@@ -600,6 +604,8 @@ public class NativeAppTest {
 
         boolean result = mCoordinator.showNativeAppUi(createTestRequestOptions(configUrl));
         assertEquals(true, result);
+        // Verification outcomes are always delivered after showNativeAppUi() returns.
+        RobolectricUtil.runAllBackgroundAndUi();
 
         verify(mMockDelegate).onDismissed(IdentityRequestDialogDismissReason.OTHER);
         verify(mMockDelegate, never()).onNativeAppResult(any());
@@ -648,19 +654,25 @@ public class NativeAppTest {
 
         boolean result = mCoordinator.showNativeAppUi(createTestRequestOptions(configUrl));
         assertEquals(true, result);
+        // Verification outcomes are always delivered after showNativeAppUi() returns.
+        RobolectricUtil.runAllBackgroundAndUi();
 
         verify(mMockDelegate).onNativeAppResult("delegated_token_app2");
         verify(mMockDelegate, never()).onDismissed(anyInt());
     }
 
     @Test
-    public void testDelegatedFlowDismissedWhenNoAppInstalled() {
+    public void testDelegatedFlowReturnsFalseWhenNoAppInstalled() {
         GURL configUrl = new GURL("https://idp.com/fedcm.json");
 
+        // With no app to hand off to, the UI is not shown. This must be reported through the
+        // return value rather than by dismissing, which would destroy the native caller before
+        // showNativeAppUi() returns.
         boolean result = mCoordinator.showNativeAppUi(createTestRequestOptions(configUrl));
-        assertEquals(true, result);
+        assertEquals(false, result);
+        RobolectricUtil.runAllBackgroundAndUi();
 
-        verify(mMockDelegate).onDismissed(IdentityRequestDialogDismissReason.OTHER);
+        verify(mMockDelegate, never()).onDismissed(anyInt());
         verify(mMockDelegate, never()).onNativeAppResult(any());
         verify(mWindowAndroid, never()).showIntent(any(Intent.class), any(), any());
     }
@@ -683,6 +695,8 @@ public class NativeAppTest {
 
         boolean result = mCoordinator.showNativeAppUi(createTestRequestOptions(configUrl));
         assertEquals(true, result);
+        // Verification outcomes are always delivered after showNativeAppUi() returns.
+        RobolectricUtil.runAllBackgroundAndUi();
 
         verify(mMockDelegate).onDismissed(IdentityRequestDialogDismissReason.OTHER);
         verify(mMockDelegate, never()).onNativeAppResult(any());
@@ -700,5 +714,47 @@ public class NativeAppTest {
 
         verify(mMockDelegate, never()).onDismissed(anyInt());
         verify(mMockDelegate, never()).onNativeAppResult(any());
+    }
+
+    // Regression test for crbug.com/568275220. Digital Asset Links verification can complete
+    // synchronously. The resulting dismissal must not happen before showNativeAppUi() returns
+    // true, because dismissing destroys the native caller.
+    @Test
+    public void testDelegatedFlowDoesNotDismissBeforeReturningWhenVerificationFailsSynchronously() {
+        GURL configUrl = new GURL("https://idp.com/fedcm.json");
+        registerFakeAppForDelegatedFlow(IDP_PACKAGE, configUrl);
+
+        doAnswer(
+                        invocation -> {
+                            OriginVerificationListener listener = invocation.getArgument(0);
+                            Origin origin = invocation.getArgument(1);
+                            listener.onOriginVerified(IDP_PACKAGE, origin, false, TriState.TRUE);
+                            return null;
+                        })
+                .when(mMockOriginVerifier)
+                .start(any(OriginVerificationListener.class), any(Origin.class));
+
+        assertEquals(true, mCoordinator.showNativeAppUi(createTestRequestOptions(configUrl)));
+        verify(mMockDelegate, never()).onDismissed(anyInt());
+
+        RobolectricUtil.runAllBackgroundAndUi();
+        verify(mMockDelegate).onDismissed(IdentityRequestDialogDismissReason.OTHER);
+    }
+
+    // Regression test for crbug.com/568275220. As above, but verification succeeds synchronously
+    // and launching the app fails, which also dismisses.
+    @Test
+    public void testDelegatedFlowDoesNotDismissBeforeReturningWhenLaunchFails() {
+        GURL configUrl = new GURL("https://idp.com/fedcm.json");
+        registerFakeAppForDelegatedFlow(IDP_PACKAGE, configUrl);
+        when(mWindowAndroid.showIntent(any(Intent.class), any(IntentCallback.class), any()))
+                .thenReturn(false);
+
+        assertEquals(true, mCoordinator.showNativeAppUi(createTestRequestOptions(configUrl)));
+        verify(mMockDelegate, never()).onDismissed(anyInt());
+        verify(mWindowAndroid, never()).showIntent(any(Intent.class), any(), any());
+
+        RobolectricUtil.runAllBackgroundAndUi();
+        verify(mMockDelegate).onDismissed(IdentityRequestDialogDismissReason.OTHER);
     }
 }

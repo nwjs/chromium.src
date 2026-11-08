@@ -18,10 +18,12 @@
 #include "ui/gfx/geometry/point.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/geometry/size.h"
+#include "ui/gfx/geometry/vector2d.h"
 #include "ui/views/controls/button/label_button.h"
 #include "ui/views/input_protection/input_protection_interactive_test.h"
 #include "ui/views/input_protection/input_protection_specification.h"
 #include "ui/views/input_protection/occluded_widget_input_protector.h"
+#include "ui/views/input_protection/view_bounds_and_visibility_input_protection_policy.h"
 #include "ui/views/input_protection/window_activation_input_protection_policy.h"
 #include "ui/views/test/views_test_base.h"
 #include "ui/views/test/widget_activation_waiter.h"
@@ -38,6 +40,7 @@ namespace views::test {
 
 namespace {
 
+DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kContentsViewId);
 DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kPrimaryButtonId);
 DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kSecondaryButtonId);
 DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kPrimaryAotButtonId);
@@ -70,6 +73,7 @@ class InputProtectionInteractiveUiTest : public InputProtectionInteractiveTest {
     widget_->SetBounds(kInitialWidgetBounds);
 
     auto contents = std::make_unique<View>();
+    contents->SetProperty(kElementIdentifierKey, kContentsViewId);
     auto primary_button = std::make_unique<LabelButton>(
         base::BindRepeating(
             &InputProtectionInteractiveUiTest::OnPrimaryButtonClicked,
@@ -77,6 +81,10 @@ class InputProtectionInteractiveUiTest : public InputProtectionInteractiveTest {
         u"Primary Button");
     primary_button->SetProperty(kElementIdentifierKey, kPrimaryButtonId);
     primary_button->SetIsDefault(true);
+    primary_button->AddAccelerator(
+        ui::Accelerator(ui::VKEY_DOWN, ui::EF_CONTROL_DOWN));
+    primary_button->AddAccelerator(
+        ui::Accelerator(ui::VKEY_RIGHT, ui::EF_SHIFT_DOWN));
     gfx::Rect primary_button_bounds(kPrimaryButtonOrigin, kButtonSize);
     primary_button->SetBoundsRect(primary_button_bounds);
     contents->AddChildView(std::move(primary_button));
@@ -95,6 +103,7 @@ class InputProtectionInteractiveUiTest : public InputProtectionInteractiveTest {
     contents->AddChildView(std::move(secondary_button));
 
     widget_->SetContentsView(std::move(contents));
+    widget_->widget_delegate()->SetEnableArrowKeyTraversal(true);
     WidgetVisibleWaiter waiter(widget_.get());
     widget_->Show();
     waiter.Wait();
@@ -204,6 +213,40 @@ TEST_F(InputProtectionInteractiveUiTest,
       CheckViewProperty(kPrimaryButtonId, &View::HasFocus, true));
 }
 
+// Verifies that unmodified arrow key focus navigation is not blocked during
+// input protection.
+TEST_F(InputProtectionInteractiveUiTest,
+       ArrowKeyTraversalAllowedDuringInputProtection) {
+  RunTestSequence(EnableInputEventActivationProtection(),
+                  TriggerShowCooldown(kPrimaryButtonId),
+                  FocusElement(kPrimaryButtonId),
+                  KeyPressAndRelease(kPrimaryButtonId, ui::VKEY_DOWN),
+                  CheckViewProperty(kSecondaryButtonId, &View::HasFocus, true),
+                  KeyPressAndRelease(kSecondaryButtonId, ui::VKEY_UP),
+                  CheckViewProperty(kPrimaryButtonId, &View::HasFocus, true));
+}
+
+// Verifies that arrow keys with modifiers (e.g. Ctrl+Down or Shift+Right) are
+// not treated as focus navigation and are blocked during input protection.
+TEST_F(InputProtectionInteractiveUiTest,
+       ModifiedArrowKeysBlockedDuringInputProtection) {
+  RunTestSequence(
+      EnableInputEventActivationProtection(),
+      TriggerShowCooldown(kPrimaryButtonId), FocusElement(kPrimaryButtonId),
+      KeyPressAndReleaseExpectingBlocked(kPrimaryButtonId, ui::VKEY_DOWN,
+                                         primary_click_count(),
+                                         ui::EF_CONTROL_DOWN),
+      CheckViewProperty(kPrimaryButtonId, &View::HasFocus, true),
+      KeyPressAndReleaseExpectingBlocked(kPrimaryButtonId, ui::VKEY_RIGHT,
+                                         primary_click_count(),
+                                         ui::EF_SHIFT_DOWN),
+      CheckViewProperty(kPrimaryButtonId, &View::HasFocus, true),
+      AdvancePastInputProtectionInterval(),
+      KeyPressAndReleaseExpectingAllowed(kPrimaryButtonId, ui::VKEY_DOWN,
+                                         primary_click_count(),
+                                         ui::EF_CONTROL_DOWN));
+}
+
 // Verifies that pressing the Space key on a focused button is blocked during
 // input protection.
 TEST_F(InputProtectionInteractiveUiTest, SpaceKeyBlockedDuringInputProtection) {
@@ -298,6 +341,27 @@ TEST_F(InputProtectionInteractiveUiTest, MovedAotWindowEnforcesCooldown) {
       ClickExpectingBlocked(kPrimaryButtonId, primary_click_count()),
       AdvancePastInputProtectionInterval(),
       // After cooldown expires, clicks at the vacated position succeed.
+      ClickExpectingAllowed(kPrimaryButtonId, primary_click_count()));
+}
+
+// Verifies that moving or resizing a tracked widget resets the input
+// protection cooldown via `WidgetStationarityMonitor`, blocking clicks during
+// the cooldown and allowing them after it expires.
+TEST_F(InputProtectionInteractiveUiTest,
+       WidgetStationarityChangeEnforcesCooldown) {
+  RunTestSequence(
+      EnableInputEventActivationProtection(),
+      TrackWidgetStationarity(kPrimaryButtonId),
+      AdvancePastInputProtectionInterval(),
+      // Moving the widget triggers a stationarity cooldown.
+      MoveWidgetBy(kPrimaryButtonId, gfx::Vector2d(20, 20)),
+      ClickExpectingBlocked(kPrimaryButtonId, primary_click_count()),
+      AdvancePastInputProtectionInterval(),
+      ClickExpectingAllowed(kPrimaryButtonId, primary_click_count()),
+      // Resizing the widget also triggers a stationarity cooldown.
+      ResizeWidgetBy(kPrimaryButtonId, gfx::Vector2d(20, 20)),
+      ClickExpectingBlocked(kPrimaryButtonId, primary_click_count()),
+      AdvancePastInputProtectionInterval(),
       ClickExpectingAllowed(kPrimaryButtonId, primary_click_count()));
 }
 
@@ -415,6 +479,18 @@ TEST_F(InputProtectionInteractiveUiTest, TabKeyTraversalAllowedWhileOccluded) {
       CheckViewProperty(kSecondaryButtonId, &View::HasFocus, true));
 }
 
+// Verifies that unmodified arrow key focus navigation is not blocked even when
+// an element is actively occluded by an Always-On-Top window.
+TEST_F(InputProtectionInteractiveUiTest,
+       ArrowKeyTraversalAllowedWhileOccluded) {
+  RunTestSequence(
+      OccludeElementWithAotWindow(kPrimaryButtonId),
+      // Reactivate target surface so it can receive focus (required on macOS).
+      ActivateSurface(kPrimaryButtonId), FocusElement(kPrimaryButtonId),
+      KeyPressAndRelease(kPrimaryButtonId, ui::VKEY_DOWN),
+      CheckViewProperty(kSecondaryButtonId, &View::HasFocus, true));
+}
+
 // Verifies that assistive technology (accessibility mode) bypasses input
 // protection restrictions.
 TEST_F(InputProtectionInteractiveUiTest,
@@ -517,7 +593,7 @@ TEST_F(InputProtectionInteractiveUiTest,
           base::BindRepeating(
               &InputProtectionInteractiveUiTest::OnBubbleButtonClicked,
               base::Unretained(this)),
-          {MakePolicy<WindowActivationInputProtectionPolicy>()}),
+          {MakePolicy<WindowActivationInputProtectionPolicy, Widget*>()}),
       // Activate the bubble surface while the parent window is visible.
       InAnyContext(ActivateSurface(kBubbleButtonId)),
       // While parent is visible, `WindowActivationInputProtectionPolicy` does
@@ -541,6 +617,78 @@ TEST_F(InputProtectionInteractiveUiTest,
       // After cooldown expires, click is allowed.
       InAnyContext(
           ClickExpectingAllowed(kBubbleButtonId, bubble_click_count())));
+}
+
+// Verifies that `ViewBoundsAndVisibilityInputProtectionPolicy` blocks
+// interactions on a protected view after its position or size changes while
+// allowing interactions on an unprotected sibling view, and allows interactions
+// on the protected view after the cooldown expires.
+TEST_F(InputProtectionInteractiveUiTest, ViewBoundsChangeEnforcesCooldown) {
+  RunTestSequence(
+      EnableInputEventActivationProtection(
+          kPrimaryButtonId,
+          {MakePolicy<ViewBoundsAndVisibilityInputProtectionPolicy, View&>()}),
+      AdvancePastInputProtectionInterval(),
+      // Moving the protected button triggers a cooldown for that button, while
+      // the unprotected secondary button remains clickable.
+      MoveViewBy(kPrimaryButtonId, gfx::Vector2d(10, 0)),
+      ClickExpectingBlocked(kPrimaryButtonId, primary_click_count()),
+      ClickExpectingAllowed(kSecondaryButtonId, secondary_click_count()),
+      AdvancePastInputProtectionInterval(),
+      ClickExpectingAllowed(kPrimaryButtonId, primary_click_count()),
+      // Resizing the protected button also triggers a cooldown.
+      ResizeViewBy(kPrimaryButtonId, gfx::Vector2d(20, 10)),
+      ClickExpectingBlocked(kPrimaryButtonId, primary_click_count()),
+      AdvancePastInputProtectionInterval(),
+      ClickExpectingAllowed(kPrimaryButtonId, primary_click_count()));
+}
+
+// Verifies that `ViewBoundsAndVisibilityInputProtectionPolicy` blocks
+// interactions on a protected child view when an ancestor view moves (shifting
+// the child within the widget), but ignores ancestor resizes that do not move
+// the child.
+TEST_F(InputProtectionInteractiveUiTest,
+       AncestorBoundsChangeEnforcesCooldownOnProtectedChild) {
+  RunTestSequence(
+      EnableInputEventActivationProtection(
+          kPrimaryButtonId,
+          {MakePolicy<ViewBoundsAndVisibilityInputProtectionPolicy, View&>()}),
+      AdvancePastInputProtectionInterval(),
+      // Resizing the parent container without moving `kPrimaryButtonId` does
+      // not trigger a cooldown.
+      ResizeViewBy(kContentsViewId, gfx::Vector2d(50, 50)),
+      ClickExpectingAllowed(kPrimaryButtonId, primary_click_count()),
+      // Moving the parent container shifts `kPrimaryButtonId` within the
+      // widget and triggers a cooldown for `kPrimaryButtonId`, while
+      // `kSecondaryButtonId` remains allowed.
+      MoveViewBy(kContentsViewId, gfx::Vector2d(0, 10)),
+      ClickExpectingBlocked(kPrimaryButtonId, primary_click_count()),
+      ClickExpectingAllowed(kSecondaryButtonId, secondary_click_count()),
+      AdvancePastInputProtectionInterval(),
+      ClickExpectingAllowed(kPrimaryButtonId, primary_click_count()));
+}
+
+// Verifies that `ViewBoundsAndVisibilityInputProtectionPolicy` blocks
+// interactions when the protected view is attached to a visible widget or
+// transitions from hidden to visible, while allowing interactions on an
+// unprotected sibling view.
+TEST_F(InputProtectionInteractiveUiTest, ViewVisibilityChangeEnforcesCooldown) {
+  RunTestSequence(
+      // Enabling the policy on an already drawn view in a visible widget
+      // immediately starts the cooldown for the protected view only.
+      EnableInputEventActivationProtection(
+          kPrimaryButtonId,
+          {MakePolicy<ViewBoundsAndVisibilityInputProtectionPolicy, View&>()}),
+      ClickExpectingBlocked(kPrimaryButtonId, primary_click_count()),
+      ClickExpectingAllowed(kSecondaryButtonId, secondary_click_count()),
+      AdvancePastInputProtectionInterval(),
+      ClickExpectingAllowed(kPrimaryButtonId, primary_click_count()),
+      // Hiding and re-showing the protected view triggers a new cooldown.
+      TriggerViewVisibilityCooldown(kPrimaryButtonId),
+      ClickExpectingBlocked(kPrimaryButtonId, primary_click_count()),
+      ClickExpectingAllowed(kSecondaryButtonId, secondary_click_count()),
+      AdvancePastInputProtectionInterval(),
+      ClickExpectingAllowed(kPrimaryButtonId, primary_click_count()));
 }
 
 }  // namespace views::test

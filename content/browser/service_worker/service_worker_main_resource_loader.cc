@@ -337,7 +337,7 @@ void ServiceWorkerMainResourceLoader::StartRequest(
 
     base::ElapsedTimer router_evaluation_timer;
     response_head_->load_timing.service_worker_router_evaluation_start =
-        base::TimeTicks::Now();
+        router_evaluation_timer.start_time();
     auto eval_result = active_worker->router_evaluator()->Evaluate(
         resource_request_, running_status);
     router_info->router_evaluation_time = router_evaluation_timer.Elapsed();
@@ -1154,6 +1154,12 @@ bool ServiceWorkerMainResourceLoader::MaybeStartSyntheticNetworkRequest(
     // Synthetic response is not enabled in reloading the page.
     RecordSyntheticResponseEligibility(
         SyntheticResponseEligibility::kNotEligibleByReload);
+    return false;
+  }
+  if (resource_request_.load_flags & net::LOAD_SKIP_CACHE_VALIDATION) {
+    // Back/forward history navigations and tab restores set
+    // `net::LOAD_SKIP_CACHE_VALIDATION` to prefer cached content without
+    // revalidation. Synthetic response must not intercept these navigations.
     return false;
   }
 

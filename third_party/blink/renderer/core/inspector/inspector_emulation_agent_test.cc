@@ -5,11 +5,13 @@
 #include "third_party/blink/renderer/core/inspector/inspector_emulation_agent.h"
 
 #include "base/feature_list.h"
+#include "base/memory/raw_ptr.h"
 #include "media/media_buildflags.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/buildflags.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/mojom/cpu_performance.mojom-blink.h"
+#include "third_party/blink/public/web/web_script_source.h"
 #include "third_party/blink/renderer/core/exported/web_view_impl.h"
 #include "third_party/blink/renderer/core/frame/frame_test_helpers.h"
 #include "third_party/blink/renderer/core/frame/web_local_frame_impl.h"
@@ -17,6 +19,7 @@
 #include "third_party/blink/renderer/core/inspector/protocol/protocol.h"
 #include "third_party/blink/renderer/core/loader/document_loader.h"
 #include "third_party/blink/renderer/core/probe/core_probes.h"
+#include "third_party/blink/renderer/platform/bindings/v8_binding.h"
 #include "third_party/blink/renderer/platform/scheduler/public/page_scheduler.h"
 #include "third_party/blink/renderer/platform/scheduler/public/thread_cpu_throttler.h"
 #include "third_party/blink/renderer/platform/testing/task_environment.h"
@@ -24,6 +27,7 @@
 #include "third_party/blink/renderer/platform/testing/url_test_helpers.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_builder.h"
 #include "third_party/inspector_protocol/crdtp/span.h"
+#include "v8/include/v8.h"
 
 namespace blink {
 
@@ -100,7 +104,7 @@ TEST_F(InspectorEmulationAgentTest,
   auto* agent = MakeGarbageCollected<InspectorEmulationAgent>(
       web_frame, *virtual_time_controller);
   agent->Init(frame->GetProbeSink(), &dispatcher, &session_state,
-              V8SessionHolder());
+              V8SessionHolder(), ClientIsTrusted(true));
 
   auto protocol_rect = protocol::DOM::Rect::create()
                            .setX(10)
@@ -137,7 +141,7 @@ TEST_F(InspectorEmulationAgentTest,
   auto* agent = MakeGarbageCollected<InspectorEmulationAgent>(
       web_frame, *virtual_time_controller);
   agent->Init(frame->GetProbeSink(), &dispatcher, &session_state,
-              V8SessionHolder());
+              V8SessionHolder(), ClientIsTrusted(true));
 
   const gfx::Rect expected_rect(10, 500, 380, 250);
   auto protocol_rect = protocol::DOM::Rect::create()
@@ -203,7 +207,7 @@ TEST_F(InspectorEmulationAgentTest, MultiSessionCPUThrottlingRestoreTest) {
   auto* agent_a = MakeGarbageCollected<InspectorEmulationAgent>(
       web_frame, *virtual_time_controller);
   agent_a->Init(frame->GetProbeSink(), &dispatcher_a, &session_state_a,
-                V8SessionHolder());
+                V8SessionHolder(), ClientIsTrusted(true));
 
   DummyFrontendChannel channel_b;
   protocol::UberDispatcher dispatcher_b(&channel_b);
@@ -213,7 +217,7 @@ TEST_F(InspectorEmulationAgentTest, MultiSessionCPUThrottlingRestoreTest) {
   auto* agent_b = MakeGarbageCollected<InspectorEmulationAgent>(
       web_frame, *virtual_time_controller);
   agent_b->Init(frame->GetProbeSink(), &dispatcher_b, &session_state_b,
-                V8SessionHolder());
+                V8SessionHolder(), ClientIsTrusted(true));
 
   // Initially, throttling thread should not exist (no throttling active).
   EXPECT_DOUBLE_EQ(blink::scheduler::ThreadCPUThrottler::GetInstance()
@@ -275,7 +279,7 @@ TEST_F(InspectorEmulationAgentTest, CPUPerformanceOverrideRestoreAndDisable) {
   auto* agent = MakeGarbageCollected<InspectorEmulationAgent>(
       web_frame, *virtual_time_controller);
   agent->Init(frame->GetProbeSink(), &dispatcher, &session_state,
-              V8SessionHolder());
+              V8SessionHolder(), ClientIsTrusted(true));
 
   // Without an override.
   mojom::blink::PerformanceTier tier = mojom::blink::PerformanceTier::kUltra;
@@ -339,7 +343,8 @@ class MutatingBodyLoader : public WebNavigationBodyLoader {
  private:
   Persistent<InspectorEmulationAgent> agent_;
   Persistent<LocalFrame> frame_;
-  Persistent<DocumentLoader>* loader2_;
+  raw_ptr<Persistent<DocumentLoader>, UnprotectedInRelease | DanglingUntriaged>
+      loader2_;
   bool mutated_ = false;
   bool test_ready_ = false;
 };
@@ -361,7 +366,7 @@ TEST_F(InspectorEmulationAgentTest, VirtualTimePolicyIteratorInvalidation) {
   auto* agent = MakeGarbageCollected<InspectorEmulationAgent>(
       web_frame, *virtual_time_controller);
   agent->Init(frame->GetProbeSink(), &dispatcher, &session_state,
-              V8SessionHolder());
+              V8SessionHolder(), ClientIsTrusted(true));
 
   double base_ms = 0;
   agent->setVirtualTimePolicy(protocol::Emulation::VirtualTimePolicyEnum::Pause,

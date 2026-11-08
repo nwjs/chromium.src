@@ -11,6 +11,7 @@
 #include <string_view>
 
 #include "base/memory/ptr_util.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/strings/string_util.h"
 #include "build/build_config.h"
 #include "net/base/net_errors.h"
@@ -175,7 +176,7 @@ HttpAuthHandlerRegistryFactory::Create(
   auto ntlm_factory = std::make_unique<HttpAuthHandlerNTLM::Factory>();
 #if BUILDFLAG(IS_WIN)
   ntlm_factory->set_sspi_library(
-      std::make_unique<SSPILibraryDefault>(NTLMSP_NAME));
+      base::MakeRefCounted<SSPILibraryDefault>(NTLMSP_NAME));
 #endif  // BUILDFLAG(IS_WIN)
   registry_factory->RegisterSchemeFactory(kNtlmAuthScheme,
                                           std::move(ntlm_factory));
@@ -185,10 +186,10 @@ HttpAuthHandlerRegistryFactory::Create(
       negotiate_auth_system_factory);
 #if BUILDFLAG(IS_WIN)
   negotiate_factory->set_library(
-      std::make_unique<SSPILibraryDefault>(NEGOSSP_NAME));
+      base::MakeRefCounted<SSPILibraryDefault>(NEGOSSP_NAME));
 #elif BUILDFLAG(USE_EXTERNAL_GSSAPI)
   negotiate_factory->set_library(
-      std::make_unique<GSSAPISharedLibrary>(gssapi_library_name));
+      base::MakeRefCounted<GSSAPISharedLibrary>(gssapi_library_name));
 #endif
   registry_factory->RegisterSchemeFactory(kNegotiateAuthScheme,
                                           std::move(negotiate_factory));
@@ -221,17 +222,22 @@ int HttpAuthHandlerRegistryFactory::CreateAuthHandler(
     handler->reset();
     net_error = ERR_INVALID_RESPONSE;
   } else {
-    bool all_schemes_allowed_for_origin =
+    const bool all_schemes_allowed =
         http_auth_preferences() &&
         http_auth_preferences()->IsAllowedToUseAllHttpAuthSchemes(
-            scheme_host_port);
-    auto* factory = all_schemes_allowed_for_origin || IsSchemeAllowed(scheme)
+            scheme_host_port, target);
+    bool is_scheme_allowed = IsSchemeAllowed(scheme);
+    auto* factory = all_schemes_allowed || is_scheme_allowed
                         ? GetSchemeFactory(scheme)
                         : nullptr;
     if (!factory) {
       handler->reset();
       net_error = ERR_UNSUPPORTED_AUTH_SCHEME;
     } else {
+      if (all_schemes_allowed && !is_scheme_allowed) {
+        base::UmaHistogramEnumeration("Net.HttpAuth.SchemeAllowedByAllSchemesPolicy",
+                                      target);
+      }
       net_error = factory->CreateAuthHandler(
           challenge, target, ssl_info, network_anonymization_key,
           scheme_host_port, reason, digest_nonce_count, net_log, host_resolver,

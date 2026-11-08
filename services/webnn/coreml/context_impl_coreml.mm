@@ -50,6 +50,11 @@ ContextImplCoreml::Create(
   return context_impl;
 }
 
+// static
+ContextProperties ContextImplCoreml::GetContextProperties() {
+  return GraphBuilderCoreml::GetContextProperties();
+}
+
 ContextImplCoreml::ContextImplCoreml(
     mojo::PendingReceiver<mojom::WebNNContext> receiver,
     base::WeakPtr<WebNNContextProviderImpl> context_provider,
@@ -63,7 +68,7 @@ ContextImplCoreml::ContextImplCoreml(
     : WebNNContextImpl(std::move(receiver),
                        std::move(context_provider),
                        ContextBackendUma::kCoreML,
-                       GraphBuilderCoreml::GetContextProperties(),
+                       GetContextProperties(),
                        std::move(options),
                        mojo::ScopedDataPipeConsumerHandle(),
                        mojo::ScopedDataPipeProducerHandle(),
@@ -164,18 +169,6 @@ void ContextImplCoreml::OnCompiledModelCopied(
     return;
   }
 
-  // Reconstruct coreml_name_to_operand_name mapping.
-  std::vector<std::pair<std::string, std::string>> coreml_name_to_operand_name;
-  coreml_name_to_operand_name.reserve(
-      compiled_graph->input_binding_names.size() +
-      compiled_graph->output_binding_names.size());
-  for (const auto& [name, coreml_name] : compiled_graph->input_binding_names) {
-    coreml_name_to_operand_name.emplace_back(coreml_name, name);
-  }
-  for (const auto& [name, coreml_name] : compiled_graph->output_binding_names) {
-    coreml_name_to_operand_name.emplace_back(coreml_name, name);
-  }
-
   // Wrap the copied model path's parent directory in ScopedTempDir to manage
   // its lifetime. It will be deleted once the graph is destroyed.
   base::ScopedTempDir compiled_model_dir;
@@ -184,7 +177,8 @@ void ContextImplCoreml::OnCompiledModelCopied(
   // Load the copied model.
   GraphImplCoreml::CreateAndLoadCompiledModel(
       *this, std::move(compiled_model_dir),
-      std::move(coreml_name_to_operand_name),
+      std::move(compiled_graph->input_binding_names),
+      std::move(compiled_graph->output_binding_names),
       base::BindOnce(
           [](base::WeakPtr<ContextImplCoreml> context,
              LoadCompiledGraphCallback callback,

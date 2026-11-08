@@ -13,7 +13,7 @@
 #include "base/containers/flat_set.h"
 #include "base/functional/callback_forward.h"
 #include "base/functional/function_ref.h"
-#include "base/memory/advanced_memory_safety_checks.h"
+#include "base/memory/sanitized_object.h"
 #include "base/values.h"
 #include "build/build_config.h"
 #include "build/buildflag.h"
@@ -162,7 +162,7 @@ class Page;
 class CONTENT_EXPORT RenderFrameHost : public IPC::Listener {
   // Do not remove this macro!
   // The macro is maintained by the memory safety team.
-  ADVANCED_MEMORY_SAFETY_CHECKS();
+  SANITIZED_OBJECT();
 
  public:
   // Returns the RenderFrameHost given its ID and the ID of its render process.
@@ -1223,13 +1223,6 @@ class CONTENT_EXPORT RenderFrameHost : public IPC::Listener {
   // TODO(crbug.com/40615943): Remove this from the content public API when
   // RenderDocument is fully enabled.
   virtual bool ShouldChangeRenderFrameHostOnSameSiteNavigation() const = 0;
-
-  // The embedder calls this method when a prediction model believes that the
-  // user is likely to click on an anchor element and wants to report the
-  // likelihood of the click. The `score` is the probability that a user will
-  // click on the `url`, and it is a value between 0 and 1.
-  virtual void OnPreloadingHeuristicsModelDone(const GURL& url,
-                                               float score) = 0;
 
   // Checks if `seqno` is known to have originated from this RFH. `callback`
   // will only be called with true if `seqno` represents the last clipboard

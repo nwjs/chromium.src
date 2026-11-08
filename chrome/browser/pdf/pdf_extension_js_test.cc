@@ -261,6 +261,10 @@ IN_PROC_BROWSER_TEST_P(PDFExtensionJSTest, ViewerToolbar) {
   RunTestsInJsModule("viewer_toolbar_test.js", "test.pdf");
 }
 
+IN_PROC_BROWSER_TEST_P(PDFExtensionJSTest, TwoUpViewPersistence) {
+  RunTestsInJsModule("two_up_view_persistence_test.js", "test.pdf");
+}
+
 IN_PROC_BROWSER_TEST_P(PDFExtensionJSTest, ViewerPdfSidenav) {
   // Although this test file does not require a PDF to be loaded, loading the
   // elements without loading a PDF is difficult.
@@ -271,6 +275,11 @@ IN_PROC_BROWSER_TEST_P(PDFExtensionJSTest, ViewerThumbnailBar) {
   // Although this test file does not require a PDF to be loaded, loading the
   // elements without loading a PDF is difficult.
   RunTestsInJsModule("viewer_thumbnail_bar_test.js", "test.pdf");
+}
+
+IN_PROC_BROWSER_TEST_P(PDFExtensionJSTest, ThumbnailLazyLoading) {
+  // This file has 538 pages so there will be many thumbnails to load
+  RunTestsInJsModule("thumbnail_lazy_loading_test.js", "linearized.pdf");
 }
 
 IN_PROC_BROWSER_TEST_P(PDFExtensionJSTest, ViewerThumbnail) {

@@ -29,10 +29,12 @@ source_set("compose") {
     "//components/prefs",
     "//components/segmentation_platform/public",
     "//components/signin/public/identity_manager",
+    "//components/tabs:public",
     "//components/translate/core/browser",
     "//content/public/browser",
     "//mojo/public/cpp/bindings",
     "//services/metrics/public/cpp:metrics_cpp",
+    "//ui/base/unowned_user_data",
   ]
 }
 
@@ -179,12 +181,12 @@ if (!is_android) {
       "//chrome/browser/profiles:profile",
       "//chrome/browser/segmentation_platform",
       "//chrome/browser/signin",
-      "//chrome/browser/ui",
       "//chrome/browser/ui/hats:test_support",
       "//chrome/browser/ui/tabs:tab_enums",
       "//chrome/browser/ui/tabs:tab_strip",
       "//chrome/browser/ui/views/compose",
       "//chrome/browser/ui/views/frame:browser_view_header",
+      "//chrome/browser/ui/webui/feedback",
       "//chrome/common:constants",
       "//chrome/test:test_support",
       "//chrome/test:test_support_ui",

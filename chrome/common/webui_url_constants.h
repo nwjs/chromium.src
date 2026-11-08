@@ -238,9 +238,11 @@ inline constexpr char kChromeUIUntrustedNtpMicrosoftAuthHost[] =
 inline constexpr char kChromeUIUntrustedNtpMicrosoftAuthURL[] =
     "chrome-untrusted://ntp-microsoft-auth/";
 inline constexpr char kChromeUINTPTilesInternalsHost[] = "ntp-tiles-internals";
-inline constexpr char kChromeUIOmniboxHost[] = "omnibox";
-inline constexpr char kChromeUIOmniboxAimEligibilityPage[] =
-    "omnibox/aim-eligibility";
+inline constexpr char kChromeUIOmniboxInternalsAimEligibilityPage[] =
+    "omnibox-internals/aim-eligibility";
+inline constexpr char kChromeUIOmniboxInternalsHost[] = "omnibox-internals";
+inline constexpr char kChromeUIOmniboxInternalsURL[] =
+    "chrome://omnibox-internals/";
 inline constexpr char kChromeUIOmniboxPopupHost[] = "omnibox-popup.top-chrome";
 inline constexpr char kChromeUIOmniboxEverywhereHost[] =
     "omnibox-everywhere.top-chrome";
@@ -250,7 +252,6 @@ inline constexpr char kChromeUIOmniboxPopupURL[] =
     "chrome://omnibox-popup.top-chrome/";
 inline constexpr char kChromeUIOmniboxPopupAimURL[] =
     "chrome://omnibox-popup.top-chrome/omnibox_popup_aim.html";
-inline constexpr char kChromeUIOmniboxURL[] = "chrome://omnibox/";
 inline constexpr char kChromeUIOrganizerPanelHost[] =
     "organizer-panel.top-chrome";
 inline constexpr char kChromeUIOrganizerPanelURL[] =
@@ -384,6 +385,9 @@ inline constexpr char kChromeUINativeNewTabURL[] = "chrome-native://newtab/";
 inline constexpr char kChromeUINotificationsInternalsHost[] =
     "notifications-internals";
 inline constexpr char kChromeUISnippetsInternalsHost[] = "snippets-internals";
+inline constexpr char kChromeUITabStripNtbHost[] = "tabstrip-ntb.top-chrome";
+inline constexpr char kChromeUITabStripNtbURL[] =
+    "chrome://tabstrip-ntb.top-chrome/";
 inline constexpr char kChromeUIWebApksHost[] = "webapks";
 #else
 inline constexpr char kChromeUIAppServiceInternalsHost[] =
@@ -429,10 +433,6 @@ inline constexpr char kChromeUISearchSettingsPath[] = "/search";
 inline constexpr char kChromeUITabSearchHost[] = "tab-search.top-chrome";
 inline constexpr char kChromeUITabSearchURL[] =
     "chrome://tab-search.top-chrome/";
-inline constexpr char kChromeUITabsFromOtherDevicesSidePanelHost[] =
-    "tabs-from-other-devices.top-chrome";
-inline constexpr char kChromeUITabsFromOtherDevicesSidePanelURL[] =
-    "chrome://tabs-from-other-devices.top-chrome/";
 inline constexpr char kChromeUIUntrustedReadAnythingSidePanelHost[] =
     "read-anything-side-panel.top-chrome";
 inline constexpr char kChromeUIUntrustedReadAnythingSidePanelURL[] =
@@ -563,6 +563,7 @@ inline constexpr char kExperimentalAISettingsSubPage[] = "ai";
 inline constexpr char kFileSystemSettingsSubpage[] =
     "content/filesystem/siteDetails";
 inline constexpr char kGlicSettingsSubpage[] = "ai/gemini";
+inline constexpr char kGlicEnterpriseSettingsSubpage[] = "ai/geminienterprise";
 inline constexpr char kGlicLoginSettingsSubpage[] = "ai/gemini/login";
 inline constexpr char kGoogleServicesSubpage[] = "googleServices";
 inline constexpr char kHandlerSettingsSubPage[] = "handlers";

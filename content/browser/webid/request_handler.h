@@ -1,0 +1,603 @@
+// Copyright 2020 The Chromium Authors
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#ifndef CONTENT_BROWSER_WEBID_REQUEST_HANDLER_H_
+#define CONTENT_BROWSER_WEBID_REQUEST_HANDLER_H_
+
+#include <memory>
+#include <string>
+#include <vector>
+
+#include "base/containers/flat_map.h"
+#include "base/containers/queue.h"
+#include "base/functional/callback_forward.h"
+#include "base/functional/function_ref.h"
+#include "base/memory/raw_ptr.h"
+#include "base/memory/raw_ref.h"
+#include "base/memory/scoped_refptr.h"
+#include "base/memory/weak_ptr.h"
+#include "base/time/time.h"
+#include "base/trace_event/trace_event.h"
+#include "content/browser/webid/accounts_fetcher.h"
+#include "content/browser/webid/delegation/federated_sd_jwt_handler.h"
+#include "content/browser/webid/fedcm_request_spec.h"
+#include "content/browser/webid/identity_provider_info.h"
+#include "content/browser/webid/identity_registry.h"
+#include "content/browser/webid/identity_registry_delegate.h"
+#include "content/browser/webid/idp_network_request_manager.h"
+#include "content/browser/webid/idp_registration_handler.h"
+#include "content/browser/webid/metrics.h"
+#include "content/browser/webid/url_computations.h"
+#include "content/common/content_export.h"
+#include "content/public/browser/document_user_data.h"
+#include "content/public/browser/navigation_ui_data.h"
+#include "content/public/browser/web_contents.h"
+#include "content/public/browser/webid/autofill_source.h"
+#include "content/public/browser/webid/federated_identity_api_permission_context_delegate.h"
+#include "content/public/browser/webid/federated_identity_permission_context_delegate.h"
+#include "content/public/browser/webid/identity_request_dialog_controller.h"
+#include "mojo/public/cpp/bindings/receiver_set.h"
+#include "third_party/blink/public/mojom/credentialmanagement/credential_manager.mojom.h"
+#include "third_party/blink/public/mojom/webid/federated_request.mojom-shared.h"
+#include "third_party/blink/public/mojom/webid/federated_request.mojom.h"
+#include "url/gurl.h"
+
+namespace content {
+
+class FederatedIdentityAutoReauthnPermissionContextDelegate;
+class FederatedIdentityPermissionContextDelegate;
+class RenderFrameHost;
+
+namespace webid {
+
+class RequestService;
+
+// RequestHandler represents a single WebID-related request from the renderer.
+// It is owned and managed by RequestService.
+class CONTENT_EXPORT RequestHandler
+    : public blink::mojom::FederatedRequest,
+      public FederatedIdentityPermissionContextDelegate::
+          IdpSigninStatusObserver,
+      public IdentityRegistryDelegate,
+      public AutofillSource {
+ public:
+  using RequestTokenCallback =
+      base::OnceCallback<void(blink::mojom::RequestTokenStatus,
+                              const std::optional<GURL>&,
+                              std::optional<base::Value>,
+                              blink::mojom::TokenErrorPtr,
+                              bool)>;
+
+  RequestHandler(RenderFrameHost* rfh, RequestService& request_service);
+
+  RequestHandler(const RequestHandler&) = delete;
+  RequestHandler& operator=(const RequestHandler&) = delete;
+
+  ~RequestHandler() override;
+
+  RenderFrameHost& render_frame_host() const { return *render_frame_host_; }
+
+  const url::Origin& origin() const {
+    return render_frame_host().GetLastCommittedOrigin();
+  }
+
+  void BindReceiver(
+      mojo::PendingReceiver<blink::mojom::FederatedRequest> pending_receiver);
+
+  // Starts the token request. Returns true if the request started successfully
+  // and is now pending. Returns false if the request was terminated immediately
+  // (e.g. due to permissions policy, invalid parameters, or being rejected in
+  // favor of an existing request).
+  // This is an overload of the mojo version of RequestToken.
+  // |navigation_handle| is passed when this request was triggered by navigation
+  // interception, so that we can use this handle for user activation checking
+  // and setting up parameters for a later redirect. This is virtual so that it
+  // can be mocked.
+  virtual bool RequestToken(scoped_refptr<FedCmRequestSpec> spec,
+                            RequestTokenCallback callback);
+
+  // blink::mojom::FederatedRequest:
+  void Abort() override;
+
+  // FederatedIdentityPermissionContextDelegate::IdpSigninStatusObserver:
+  void OnIdpSigninStatusReceived(const url::Origin& idp_config_origin,
+                                 bool idp_signin_status) override;
+
+  base::WeakPtr<RequestHandler> GetWeakPtr();
+
+  // FederatedIdentityModalDialogViewDelegate:
+  void OnClose() override;
+  bool OnResolve(GURL idp_config_url,
+                 const std::optional<std::string>& account_id,
+                 blink::mojom::ResolveTokenParamsPtr params) override;
+  void OnOriginMismatch(Method method,
+                        const url::Origin& expected,
+                        const url::Origin& actual) override;
+
+  void OnIntentResolved(const std::string& token);
+
+  // content::webid::AutofillSource
+  const std::optional<std::vector<IdentityRequestAccountPtr>>
+  GetAutofillSuggestions() const override;
+  void NotifyAutofillSuggestionAccepted(
+      const GURL& idp,
+      const std::string& account_id,
+      bool show_modal,
+      OnFederatedTokenReceivedCallback callback) override;
+
+  // Returns whether the API is enabled or not.
+  FederatedIdentityApiPermissionContextDelegate::PermissionStatus
+  GetApiPermissionStatus();
+
+  // For use by the devtools protocol for browser automation.
+  IdentityRequestDialogController* GetDialogController();
+
+  const std::vector<scoped_refptr<IdentityProviderData>>& GetSortedIdpData()
+      const {
+    return idp_data_for_display_;
+  }
+
+  const std::vector<scoped_refptr<IdentityRequestAccount>>& GetAccounts()
+      const {
+    return accounts_;
+  }
+
+  ::password_manager::CredentialMediationRequirement GetMediationRequirement()
+      const {
+    return spec_->mediation_requirement();
+  }
+
+  // These values are persisted to logs. Entries should not be renumbered and
+  // numeric values should never be reused.
+  // LINT.IfChange(DialogType)
+
+  enum class DialogType {
+    kNone = 0,
+    kSelectAccount = 1,
+    kAutoReauth = 2,
+    kConfirmIdpLogin = 3,
+    kError = 4,
+    // Popups are not technically dialogs in the strict sense, but because they
+    // are mutually exclusive with browser UI dialogs we use this enum for them
+    // as well.
+    kLoginToIdpPopup = 5,
+    kContinueOnPopup = 6,
+    kErrorUrlPopup = 7,
+    kMaxValue = kErrorUrlPopup
+  };
+
+  // LINT.ThenChange(//tools/metrics/histograms/metadata/blink/enums.xml:FedCmDialogType)
+
+  void OnNativeAppResult(
+      DialogType dialog_type,
+      const GURL& idp_config_url,
+      IdentityRequestDialogController::NativeAppResult result);
+  void OnNativeAppLoginFinished(const GURL& idp_config_url);
+
+  DialogType GetDialogType() const { return dialog_type_; }
+
+  enum IdentitySelectionType { kExplicit, kAutoPassive, kAutoActive };
+
+  bool ShouldNotifyDevtoolsForDialogType(DialogType type);
+
+  void AcceptAccountsDialogForDevtools(const GURL& config_url,
+                                       const IdentityRequestAccount& account);
+  void DismissAccountsDialogForDevtools(bool should_embargo);
+  void AcceptConfirmIdpLoginDialogForDevtools();
+  void DismissConfirmIdpLoginDialogForDevtools();
+  bool UseAnotherAccountForDevtools(const IdentityProviderData& provider);
+  bool HasMoreDetailsButtonForDevtools();
+  void ClickErrorDialogGotItForDevtools();
+  void ClickErrorDialogMoreDetailsForDevtools();
+  void DismissErrorDialogForDevtools();
+
+  // Whether we can show the continue_on popup (not using mediation: silent,
+  // etc.)
+  bool CanShowContinueOnPopup() const;
+
+  bool HasUserTriedToSignInToIdp(const GURL& idp_config_url) {
+    return idps_user_tried_to_signin_to_.contains(idp_config_url);
+  }
+
+  UseOtherAccountResult ComputeUseOtherAccountResult(
+      blink::mojom::FederatedRequestResult result,
+      const std::optional<GURL>& selected_idp_config_url);
+
+  void FilterAccounts(
+      const GURL& idp_config_url,
+      const GURL& idp_login_url,
+      std::vector<scoped_refptr<IdentityRequestAccount>>& accounts);
+
+  void SetIdpLoginInfo(const GURL& idp_login_url,
+                       const std::string& login_hint,
+                       const std::string& domain_hint);
+  void SetWellKnownAndConfigFetchedTime(base::TimeTicks time);
+
+  // Called when there is an error in fetching information to show the prompt
+  // for a given IDP - `idp_info`, but we do not need to show failure UI for the
+  // IDP.
+  void OnAccountsResultsReceived(
+      base::TimeTicks well_known_and_config_fetched_time,
+      std::vector<AccountsFetcher::Result> results);
+
+  void OnFetchDataForIdpFailed(std::unique_ptr<IdentityProviderInfo> idp_info,
+                               blink::mojom::FederatedRequestResult result,
+                               std::optional<RequestIdTokenStatus> token_status,
+                               bool should_delay_callback);
+
+  // Called when all of the data needed to display the FedCM prompt has been
+  // fetched for `idp_info`. Accounts should be moved instead of copied to this
+  // function.
+  void OnFetchDataForIdpSucceeded(
+      IdpNetworkRequestManager::AccountsResponse accounts,
+      std::unique_ptr<IdentityProviderInfo> idp_info);
+
+  void MaybeShowActiveModeModalDialog(const GURL& idp_config_url,
+                                      const GURL& idp_login_url);
+  void MaybeShowNativeAppUi(std::unique_ptr<IdentityProviderInfo> idp_info);
+  void OnNativeAppUiResult(
+      const GURL& idp_config_url,
+      IdentityRequestDialogController::NativeAppResult result);
+
+  void SetAccountsFetchedTime(base::TimeTicks time) {
+    accounts_fetched_time_ = time;
+  }
+  void SetClientMetadataFetchedTime(base::TimeTicks time) {
+    client_metadata_fetched_time_ = time;
+  }
+
+  url::Origin GetEmbeddingOrigin() const;
+
+  GURL login_url() { return login_url_; }
+  const std::vector<GURL>& idp_order() const { return spec_->idp_order(); }
+  bool HadAccountIdBeforeLogin(const std::string& account_id) {
+    return account_ids_before_login_.contains(account_id);
+  }
+
+  // Called when there is an error fetching information to show the prompt for a
+  // given IDP, and because of the mismatch this IDP must be present in the
+  // dialog we show to the user.
+  void OnIdpMismatch(std::unique_ptr<IdentityProviderInfo> idp_info);
+
+  void CompleteRequestWithError(
+      blink::mojom::FederatedRequestResult result,
+      std::optional<RequestIdTokenStatus> token_status,
+      bool should_delay_callback);
+
+  // Completes request. Displays a dialog if there is an error and the error is
+  // during a fetch triggered by an IdP sign-in status change.
+  void CompleteRequest(blink::mojom::FederatedRequestResult result,
+                       std::optional<RequestIdTokenStatus> token_status,
+                       std::optional<IdentityCredentialTokenError> token_error,
+                       const std::optional<GURL>& selected_idp_config_url,
+                       std::optional<base::Value> token_data,
+                       bool should_delay_callback);
+
+ private:
+  friend class RequestHandlerTest;
+  friend class IdentityCredentialSourceImpl;  // for OnAccountSelected
+  friend class TestIdentityCredentialSourceImpl;
+  friend class RequestService;
+
+  struct FetchData {
+    FetchData();
+    ~FetchData();
+
+    // Set of config URLs of IDPs that have yet to be processed.
+    std::set<GURL> pending_idps;
+
+    // Whether accounts endpoint fetch succeeded for at least one IdP.
+    bool did_succeed_for_at_least_one_idp{false};
+  };
+
+  struct AutoReauthnInfo {
+    AutoReauthnInfo();
+    ~AutoReauthnInfo();
+    AutoReauthnInfo(const AutoReauthnInfo&);
+    AutoReauthnInfo& operator=(const AutoReauthnInfo&);
+
+    bool is_eligible = false;
+    scoped_refptr<IdentityProviderData> idp = nullptr;
+    scoped_refptr<IdentityRequestAccount> account = nullptr;
+  };
+
+  bool HasPendingRequest() const;
+
+  // Fetch well-known, config, accounts and client metadata endpoints for
+  // passed-in IdPs. Uses parameters from `token_request_get_infos_`.
+  // When retrying a single IdP whose .well-known and config endpoints are
+  // already cached in `idp_infos_`, bypasses ConfigFetcher and directly
+  // fetches the accounts endpoint.
+  void FetchEndpointsForIdps(const std::set<GURL>& idp_config_urls);
+
+  void MaybeShowAccountsDialog();
+  void OnGetPassiveDialogVolume(
+      const std::set<GURL>& unique_idps,
+      IdentityRequestDialogController::PassiveDialogVolume dialog_volume);
+  // To be called immediately after ShowAccountsDialog for correct devtools
+  // integration and metrics reporting.
+  // `did_succeed_for_at_least_one_idp` needs to be passed as a parameter
+  // because `fetch_data_` has been cleared at this point.
+  void AfterAccountsDialogShown(bool did_succeed_for_at_least_one_idp);
+  void ShowModalDialog(DialogType dialog_type,
+                       const GURL& idp_config_url,
+                       const GURL& url_to_show);
+  void ShowErrorDialog(const GURL& idp_config_url,
+                       FetchStatus status,
+                       std::optional<IdentityCredentialTokenError> error);
+  // Called when we should show a failure dialog in the case where a single IDP
+  // account fetch resulted in a mismatch with its login status.
+  void ShowSingleIdpFailureDialog();
+  void OnAccountsDisplayed();
+
+  void OnAccountSelected(const GURL& idp_config_url,
+                         const std::string& account_id,
+                         bool is_sign_in);
+  void OnDismissFailureDialog(
+      IdentityRequestDialogController::DismissReason dismiss_reason);
+  void OnDismissErrorDialog(
+      const GURL& idp_config_url,
+      FetchStatus status,
+      IdentityRequestDialogController::DismissReason dismiss_reason);
+  void OnDialogDismissed(
+      IdentityRequestDialogController::DismissReason dismiss_reason);
+  void CompleteTokenRequest(
+      const GURL& idp_config_url,
+      FetchStatus status,
+      std::optional<base::Value> token,
+      std::optional<IdentityCredentialTokenError> token_error,
+      bool should_delay_callback);
+  void OnTokenResponseReceived(
+      blink::mojom::IdentityProviderRequestOptionsPtr idp,
+      FetchStatus status,
+      IdpNetworkRequestManager::TokenResult&& result);
+  void OnContinueOnResponseReceived(
+      blink::mojom::IdentityProviderRequestOptionsPtr idp,
+      FetchStatus status,
+      const GURL& url);
+
+  void OnRedirectToResponseReceived(
+      blink::mojom::IdentityProviderRequestOptionsPtr idp,
+      FetchStatus status,
+      blink::mojom::RedirectParams::Tag method,
+      const GURL& redirect_to,
+      const std::string& request_body);
+  void RedirectTo(const GURL& idp_config_url,
+                  blink::mojom::RedirectParams::Tag method,
+                  const GURL& redirect_to,
+                  const std::string& request_body);
+
+  // Called after we get at token (either from the ID assertion endpoint or
+  // from IdentityProvider.resolve) to update our various permissions.
+  void MarkUserAsSignedIn(const GURL& idp_config_url,
+                          const std::string& account_id);
+
+  void OnConnectionError();
+
+  void CleanUp();
+
+  // Records metrics and console errors.
+  void RecordMetricsAndConsoleError(
+      blink::mojom::FederatedRequestResult result,
+      std::optional<RequestIdTokenStatus> token_status,
+      const std::optional<GURL>& selected_idp_config_url);
+
+  void CompleteRequestInternal(
+      blink::mojom::FederatedRequestResult result,
+      std::optional<IdentityCredentialTokenError> token_error,
+      const std::optional<GURL>& selected_idp_config_url,
+      std::optional<base::Value> token_data,
+      bool is_auto_selected);
+
+  // Creates an inspector issue related to a federated authentication request to
+  // the Issues panel in DevTools.
+  void AddDevToolsIssue(blink::mojom::FederatedRequestResult result);
+
+  // Adds a console error message related to a federated authentication request
+  // issue. The Issues panel is preferred, but for now we also surface console
+  // error messages since it is much simpler to add.
+  void AddConsoleErrorMessage(blink::mojom::FederatedRequestResult result);
+
+  // Returns true and the `IdentityProviderData` + `IdentityRequestAccount` for
+  // the only returning account. Returns false if there are multiple returning
+  // accounts or no returning account.
+  bool GetAccountForAutoReauthn(
+      scoped_refptr<IdentityProviderData>* out_idp_data,
+      scoped_refptr<IdentityRequestAccount>* out_account);
+
+  // Check if auto re-authn is available so we can skip fetching accounts if the
+  // auto re-authn flow is guaranteed to fail.
+  bool ShouldFailBeforeFetchingAccounts(const GURL& config_url);
+
+  void AssembleAndSortAccounts();
+  AutoReauthnInfo CheckAutoReauthnEligibility();
+
+  // Check if the site requires user mediation due to a previous
+  // `preventSilentAccess` call.
+  bool RequiresUserMediation();
+  void SetRequiresUserMediation(bool requires_user_mediation,
+                                base::OnceClosure callback);
+
+  // Trigger a dialog to prompt the user to login to the IdP. `can_append_hints`
+  // is true if the caller allows the login url to be augmented with login and
+  // domain hints.
+  void LoginToIdP(bool can_append_hints,
+                  const GURL& idp_config_url,
+                  GURL login_url);
+
+  void RecordErrorMetrics(
+      blink::mojom::IdentityProviderRequestOptionsPtr idp,
+      IdpNetworkRequestManager::FedCmTokenResponseType token_response_type,
+      std::optional<IdpNetworkRequestManager::FedCmErrorDialogType>
+          error_dialog_type,
+      std::optional<IdpNetworkRequestManager::FedCmErrorUrlType>
+          error_url_type);
+
+  std::unique_ptr<Metrics> CreateFedCmMetrics();
+
+  bool IsNewlyLoggedIn(const IdentityRequestAccount& account);
+
+  // Returns whether we'll be using an ambient UI for a passive call.
+  bool IsUsingAmbient() const;
+
+  blink::mojom::RpMode GetRpMode() const { return spec_->rp_mode(); }
+
+  // Shows a FedCM UI and returns true if it succeeded and the RequestHandler
+  // was not destroyed. Showing a FedCM UI may cause the tab to drop fullscreen
+  // or lose focus, during which the frame may be detached and this
+  // RequestHandler destroyed.
+  bool ShowDialog(base::FunctionRef<bool()> show_dialog_callback);
+
+  // If the client metadata has not been received yet the UI may not be able to
+  // show a correct title, so we need to indicate that in the RelyingPartyData.
+  RelyingPartyData CreateRpData(bool client_metadata_received) const;
+
+  FederatedIdentityApiPermissionContextDelegate* api_permission_delegate()
+      const;
+  FederatedIdentityAutoReauthnPermissionContextDelegate*
+  auto_reauthn_permission_delegate() const;
+  FederatedIdentityPermissionContextDelegate* permission_delegate() const;
+
+  std::unique_ptr<IdpNetworkRequestManager> network_manager_;
+
+  // Helper that records FedCM UMA and UKM metrics. Initialized in the
+  // RequestToken() method, so all metrics must be recorded after that.
+  std::unique_ptr<Metrics> fedcm_metrics_;
+
+  // Populated by OnFetchDataForIdpSucceeded() and OnIdpMismatch().
+  base::flat_map<GURL, std::unique_ptr<IdentityProviderInfo>> idp_infos_;
+  // Populated by MaybeShowAccountsDialog().
+  std::vector<scoped_refptr<IdentityProviderData>> idp_data_for_display_;
+
+  // The accounts to be displayed by the UI.
+  std::vector<scoped_refptr<IdentityRequestAccount>> accounts_;
+  // The accounts that were filtered out during fetching.
+  std::vector<scoped_refptr<IdentityRequestAccount>> filtered_accounts_;
+
+  // Contains the set of account IDs of an IDP before a login URL is displayed
+  // to the user. Used to compute the account ID of the account that the user
+  // logs in to. Populated by LoginToIdP().
+  base::flat_set<std::string> account_ids_before_login_;
+
+  // Maps the login URL to the info that may be added as query parameters to
+  // that URL. Populated by OnAllConfigAndWellKnownFetched().
+  base::flat_map<GURL, IdentityProviderLoginUrlInfo> idp_login_infos_;
+
+  raw_ptr<RenderFrameHost> render_frame_host_;
+  // RequestService owns `this`, so it is expected to outlive it.
+  const raw_ref<RequestService> request_service_;
+
+  // The account that was selected by the user. This is only applicable to the
+  // mediation flow.
+  std::string account_id_;
+  base::TimeTicks start_time_;
+  base::TimeTicks well_known_and_config_fetched_time_;
+  base::TimeTicks accounts_fetched_time_;
+  base::TimeTicks client_metadata_fetched_time_;
+  base::TimeTicks ready_to_display_accounts_dialog_time_;
+  base::TimeTicks accounts_dialog_display_time_;
+  base::TimeTicks select_account_time_;
+  base::TimeTicks id_assertion_response_time_;
+  // This gets set at the beginning of a request. It indicates whether we
+  // should bypass the delay to notify the renderer, for use in automated
+  // tests when the delay is irrelevant to the test but slows it down
+  // unncessarily.
+  bool should_complete_request_immediately_{false};
+  // While there could be both token request and user info request when a user
+  // visits a site, it's worth noting that they must be from different render
+  // frames. e.g. one top frame rp.example and one iframe idp.example.
+  // Therefore,
+  // 1. if one of the requests exists, the other one shouldn't. e.g. if the
+  // iframe requests user info, it cannot request token at the same time.
+  // 2. the user info request should not set "HasPendingRequest" on the page
+  // (multiple per page). It's OK to have multiple concurrent user info requests
+  // since there's no browser UI involved. e.g. rp.example embeds
+  // iframe1.example and iframe2.example. Both iframes can request user info
+  // simultaneously.
+  RequestTokenCallback request_token_callback_;
+
+  OnFederatedTokenReceivedCallback token_received_callback_for_autofill_;
+
+  std::unique_ptr<AccountsFetcher> fedcm_accounts_fetcher_;
+
+  std::unique_ptr<FederatedSdJwtHandler> federated_sdjwt_handler_;
+
+  // TODO(crbug.com/40238075): Refactor these member variables introduced
+  // through the multi IDP prototype implementation to make them less confusing.
+
+  // Parameters passed to RequestToken().
+  base::flat_map<GURL, AccountsFetcher::IdentityProviderGetInfo>
+      token_request_get_infos_;
+
+  // Data related to in-progress FetchEndpointsForIdps() fetch.
+  FetchData fetch_data_;
+
+  // The set of IDPs that the user has tried to sign in to since the start of
+  // the current request.
+  base::flat_set<GURL> idps_user_tried_to_signin_to_;
+
+  // If dialog_type_ is kConfirmIdpLogin, this is the login URL for the IDP. If
+  // LoginToIdp() is called, this is the login URL for the IDP. Does not include
+  // the filters as query parameters, if any.
+  GURL login_url_;
+
+  // If dialog_type_ is kError or a popup is open, this is the config URL for
+  // the IDP.
+  GURL config_url_;
+
+  // If dialog_type_ is kError, this is the fetch status of the token request.
+  FetchStatus token_request_status_;
+
+  // If dialog_type_ is kError, this is the token error.
+  std::optional<IdentityCredentialTokenError> token_error_;
+
+  DialogType dialog_type_ = DialogType::kNone;
+  IdentitySelectionType identity_selection_type_ = kExplicit;
+  IdentityRequestDialogController::PassiveDialogVolume passive_dialog_volume_ =
+      IdentityRequestDialogController::PassiveDialogVolume::kDefault;
+
+  // Time when the accounts dialog is last shown for metrics purposes.
+  std::optional<base::TimeTicks> accounts_dialog_shown_time_;
+
+  // Time when the mismatch dialog is last shown for metrics purposes.
+  std::optional<base::TimeTicks> mismatch_dialog_shown_time_;
+  // Whether a mismatch dialog has been shown for the current request.
+  bool has_shown_mismatch_{false};
+
+  // Type of error URL for metrics and devtools issue purposes.
+  std::optional<IdpNetworkRequestManager::FedCmErrorUrlType> error_url_type_;
+
+  // Keeps track of the state of the use other account flow. Is std::nullopt
+  // when the flow is not active.
+  std::optional<UseOtherAccountResult> use_other_account_account_result_;
+
+  // Whether a token request has been sent.
+  bool has_sent_token_request_{false};
+
+  // Keeps track of the state of the verifying dialog. Is std::nullopt when the
+  // verifying dialog has not been shown.
+  std::optional<VerifyingDialogResult> verifying_dialog_result_;
+
+  perfetto::NamedTrack perfetto_track_;
+
+  scoped_refptr<FedCmRequestSpec> spec_;
+
+  // Whether the callback for the current request has been delayed.
+  bool complete_request_delayed_{false};
+
+  // Whether we are currently in the `RedirectTo` flow. This is used to ignore
+  // dismissals triggered by tab closure on Android during the navigation.
+  bool in_redirect_to_{false};
+
+  bool did_show_ui_{false};
+
+  mojo::ReceiverSet<blink::mojom::FederatedRequest> receivers_;
+
+  base::WeakPtrFactory<RequestHandler> weak_ptr_factory_{this};
+};
+
+}  // namespace webid
+}  // namespace content
+
+#endif  // CONTENT_BROWSER_WEBID_REQUEST_HANDLER_H_

@@ -21,8 +21,10 @@
 #include "content/browser/cache_storage/cache_storage_cache_handle.h"
 #include "content/browser/cache_storage/cache_storage_manager.h"
 #include "content/browser/cache_storage/scoped_writable_entry.h"
+#include "mojo/public/cpp/base/big_buffer.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "net/disk_cache/disk_cache.h"
+#include "services/network/public/mojom/data_pipe_getter.mojom-forward.h"
 #include "storage/browser/blob/blob_data_builder.h"
 #include "third_party/blink/public/mojom/cache_storage/cache_storage.mojom.h"
 
@@ -43,6 +45,7 @@ struct PutContext {
              uint64_t blob_size,
              mojo::PendingRemote<blink::mojom::Blob> side_data_blob,
              uint64_t side_data_blob_size,
+             std::optional<mojo_base::BigBuffer> side_data_buffer,
              int64_t trace_id);
 
   PutContext(const PutContext&) = delete;
@@ -55,8 +58,10 @@ struct PutContext {
   blink::mojom::FetchAPIResponsePtr response;
   mojo::PendingRemote<blink::mojom::Blob> blob;
   uint64_t blob_size;
+  // TODO(crbug.com/567175133): remove these in favor of `side_data_buffer`.
   mojo::PendingRemote<blink::mojom::Blob> side_data_blob;
   uint64_t side_data_blob_size;
+  std::optional<mojo_base::BigBuffer> side_data_buffer;
   int64_t trace_id;
 
   // Provided while writing to the cache.
@@ -146,6 +151,10 @@ class CacheStorageCacheEntryHandler {
       scoped_refptr<DiskCacheBlobEntry> blob_entry,
       CacheStorageCache::EntryIndex disk_cache_index,
       CacheStorageCache::EntryIndex side_data_disk_cache_index);
+
+  mojo::PendingRemote<network::mojom::DataPipeGetter> CreateDataPipeGetter(
+      scoped_refptr<DiskCacheBlobEntry> blob_entry,
+      CacheStorageCache::EntryIndex disk_cache_index);
 
   // Wrapper for storage::mojom::BlobStorageContext bound to this sequence.
   scoped_refptr<BlobStorageContextWrapper> blob_storage_context_;

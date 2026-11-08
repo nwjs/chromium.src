@@ -19,7 +19,6 @@
 
 #include "base/check.h"
 #include "base/check_op.h"
-#include "base/feature_list.h"
 #include "base/i18n/rtl.h"
 #include "base/i18n/time_formatting.h"
 #include "base/metrics/histogram_macros.h"
@@ -43,7 +42,6 @@
 #include "components/autofill/core/browser/suggestions/suggestion.h"
 #include "components/autofill/core/common/autofill_clock.h"
 #include "components/autofill/core/common/autofill_constants.h"
-#include "components/autofill/core/common/autofill_payments_features.h"
 #include "components/autofill/core/common/autofill_regexes.h"
 #include "components/autofill/core/common/credit_card_network_identifiers.h"
 #include "components/autofill/core/common/credit_card_number_validation.h"
@@ -291,11 +289,7 @@ std::u16string CreditCard::NetworkForDisplay(const std::string& network) {
 int CreditCard::IconResourceId(Suggestion::Icon icon) {
   switch (icon) {
     case Suggestion::Icon::kCardAmericanExpress:
-      return base::FeatureList::IsEnabled(
-                 features::kAutofillEnableNewAmexNetworkArt)
-                 ? IDR_AUTOFILL_METADATA_CC_AMEX_NEW
-             : ShouldUseNewFopDisplay() ? IDR_AUTOFILL_METADATA_CC_AMEX
-                                        : IDR_AUTOFILL_METADATA_CC_AMEX_OLD;
+      return IDR_AUTOFILL_METADATA_CC_AMEX_NEW;
     case Suggestion::Icon::kCardDiners:
       return ShouldUseNewFopDisplay() ? IDR_AUTOFILL_METADATA_CC_DINERS
                                       : IDR_AUTOFILL_METADATA_CC_DINERS_OLD;
@@ -362,7 +356,7 @@ int CreditCard::IconResourceId(Suggestion::Icon icon) {
     case Suggestion::Icon::kKey:
     case Suggestion::Icon::kLocation:
     case Suggestion::Icon::kLocationSpark:
-    case Suggestion::Icon::kLoyalty:
+    case Suggestion::Icon::kLoyaltyPrograms:
     case Suggestion::Icon::kMagic:
     case Suggestion::Icon::kMailAsterisk:
     case Suggestion::Icon::kNoIcon:
@@ -999,8 +993,9 @@ std::pair<std::u16string, std::u16string> CreditCard::LabelPieces() const {
   }
 
   if (ShouldUseNewFopDisplay()) {
-    if (CardIdentifierForAutofillDisplay().has_value()) {
-      return std::make_pair(CardIdentifierForAutofillDisplay().value(),
+    if (std::optional<std::u16string> identifier =
+            CardIdentifierForAutofillDisplay()) {
+      return std::make_pair(*std::move(identifier),
                             NetworkAndLastFourDigits(/*obfuscation_length=*/2));
     }
     return std::make_pair(NetworkAndLastFourDigits(/*obfuscation_length=*/2),

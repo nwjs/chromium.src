@@ -4,8 +4,6 @@
 # found in the LICENSE file.
 """Tests for local_device_gtest_test_run."""
 
-# pylint: disable=protected-access
-
 import os
 import random
 import sys
@@ -22,7 +20,7 @@ from pylib.local.device import local_device_environment
 from pylib.local.device import local_device_gtest_run
 
 
-def isSliceInList(s, l):
+def isSliceInList(s, l):  # noqa: E741
     lenOfSlice = len(s)
     return any(
         s == l[i : lenOfSlice + i] for i in range(len(l) - lenOfSlice + 1)
@@ -265,7 +263,6 @@ class LocalDeviceGtestRunTest(unittest.TestCase):
         mock_ti.use_existing_test_data = False
         mock_ti.additional_apks = []
         mock_ti.apk_helper = None
-        mock_ti.test_apk_incremental_install_json = None
 
         delegate = local_device_gtest_run._ApkDelegate(mock_ti, mock_env)
 

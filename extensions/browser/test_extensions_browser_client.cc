@@ -171,6 +171,9 @@ bool TestExtensionsBrowserClient::HasOffTheRecordContext(
 
 BrowserContext* TestExtensionsBrowserClient::GetOffTheRecordContext(
     BrowserContext* context) {
+  if (context == incognito_context_) {
+    return context;
+  }
   if (context == main_context_) {
     return incognito_context_;
   }
@@ -239,6 +242,11 @@ bool TestExtensionsBrowserClient::CanExtensionCrossIncognito(
     const extensions::Extension* extension,
     content::BrowserContext* context) const {
   return false;
+}
+
+BrowserContextLifetimeTracker*
+TestExtensionsBrowserClient::GetBrowserContextLifetimeTracker() {
+  return nullptr;
 }
 
 base::FilePath TestExtensionsBrowserClient::GetBundleResourcePath(

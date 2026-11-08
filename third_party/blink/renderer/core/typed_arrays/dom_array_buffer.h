@@ -7,6 +7,7 @@
 
 #include <algorithm>
 
+#include "base/check_is_test.h"
 #include "base/compiler_specific.h"
 #include "base/containers/span.h"
 #include "partition_alloc/oom.h"
@@ -44,7 +45,6 @@ class CORE_EXPORT DOMArrayBuffer : public DOMArrayBufferBase {
     contents.ByteSpan().copy_from(source);
     return Create(std::move(contents));
   }
-
   static DOMArrayBuffer* Create(scoped_refptr<SharedBuffer>);
   static DOMArrayBuffer* Create(const Vector<base::span<const uint8_t>>&);
 
@@ -61,6 +61,8 @@ class CORE_EXPORT DOMArrayBuffer : public DOMArrayBufferBase {
   static DOMArrayBuffer* CreateUninitializedOrNull(size_t num_elements,
                                                    size_t element_byte_size);
 
+  // Note: passing an invalid ArrayBufferContents (such as created by
+  // the default constructor) results in a detached ArrayBuffer.
   explicit DOMArrayBuffer(ArrayBufferContents contents)
       : DOMArrayBufferBase(std::move(contents)) {}
 
@@ -91,7 +93,17 @@ class CORE_EXPORT DOMArrayBuffer : public DOMArrayBufferBase {
 
   void Trace(Visitor*) const override;
 
-  bool IsDetached() const override;
+  static void SetArrayBufferDetachCallback(v8::Isolate* isolate);
+
+  bool IsDetached() const { return !contents_.BackingStore(); }
+
+  // Blink-side code generally does not need to detach array buffers, so this
+  // method is just for tests. In production, a common way to detach a buffer
+  // is via performing its transfer.
+  void DetachForTesting() {
+    CHECK_IS_TEST();
+    contents_.Reset();
+  }
 
   v8::Local<v8::Object> AssociateWithWrapper(
       v8::Isolate* isolate,
@@ -106,6 +118,9 @@ class CORE_EXPORT DOMArrayBuffer : public DOMArrayBufferBase {
   v8::Maybe<bool> TransferDetachable(v8::Isolate*,
                                      v8::Local<v8::Value> detach_key,
                                      ArrayBufferContents& result);
+  bool DetachWrappers(v8::Isolate* isolate, v8::Local<v8::Value> detach_key);
+  static void OnArrayBufferDetached(v8::Isolate* isolate,
+                                    v8::Local<v8::ArrayBuffer> buffer);
 
   // Detach key can be any ECMAScript value (i.e. v8::Value), however, we don't
   // want to use a v8::Context-sensitive detach key like v8::Object. So, we

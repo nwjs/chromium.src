@@ -84,7 +84,8 @@
       {
         "args": [
           "--enable-pixel-output-in-tests",
-          "--git-revision=${got_revision}"
+          "--git-revision=${got_revision}",
+          "--bypass-skia-gold-functionality"
         ],
         "isolate_profile_data": true,
         "merge": {
@@ -110,6 +111,7 @@
         "test_id_prefix": "ninja://ash:ash_pixeltests/"
       },
       {
+        "enable_rts_filtering": true,
         "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -238,7 +240,8 @@
       },
       {
         "args": [
-          "--git-revision=${got_revision}"
+          "--git-revision=${got_revision}",
+          "--bypass-skia-gold-functionality"
         ],
         "isolate_profile_data": true,
         "merge": {
@@ -493,6 +496,7 @@
         "test_id_prefix": "ninja://components:components_browsertests/"
       },
       {
+        "enable_rts_filtering": true,
         "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -530,6 +534,7 @@
         "test_id_prefix": "ninja://ui/compositor:compositor_unittests/"
       },
       {
+        "enable_rts_filtering": true,
         "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -1505,7 +1510,8 @@
         "args": [
           "--enable-features=TreesInViz",
           "--test-launcher-filter-file=../../testing/buildbot/filters/trees_in_viz.blink_platform_unittests.filter",
-          "--git-revision=${got_revision}"
+          "--git-revision=${got_revision}",
+          "--bypass-skia-gold-functionality"
         ],
         "isolate_profile_data": true,
         "merge": {
@@ -1749,6 +1755,7 @@
         "swarming": {
           "dimensions": {
             "cpu": "x86-64",
+            "machine_type": "e2-standard-8",
             "os": "Ubuntu-22.04"
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"

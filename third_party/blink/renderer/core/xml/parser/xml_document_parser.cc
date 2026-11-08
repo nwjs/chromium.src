@@ -39,6 +39,7 @@
 #include "base/compiler_specific.h"
 #include "base/containers/heap_array.h"
 #include "base/memory/raw_ptr.h"
+#include "base/memory/raw_ptr_exclusion.h"
 #include "base/numerics/safe_conversions.h"
 #include "third_party/blink/renderer/core/css/style_engine.h"
 #include "third_party/blink/renderer/core/dom/cdata_section.h"
@@ -163,8 +164,10 @@ static inline bool HasNoStyleInformation(Document* document) {
 }
 
 struct xmlSAX2Namespace {
-  xmlChar* prefix;
-  xmlChar* uri;
+  // RAW_PTR_EXCLUSION: #reinterpret-cast-trivial-type
+  RAW_PTR_EXCLUSION xmlChar* prefix;
+  // RAW_PTR_EXCLUSION: #reinterpret-cast-trivial-type
+  RAW_PTR_EXCLUSION xmlChar* uri;
 
   void CloneTo(xmlSAX2Namespace& to_ns) const {
     to_ns.prefix = xmlStrdup(prefix);
@@ -181,11 +184,16 @@ static_assert(std::is_trivial_v<xmlSAX2Namespace> &&
 static_assert(sizeof(xmlSAX2Namespace) == sizeof(xmlChar*) * 2);
 
 struct xmlSAX2Attributes {
-  xmlChar* localname;
-  xmlChar* prefix;
-  xmlChar* uri;
-  xmlChar* value;
-  xmlChar* end;
+  // RAW_PTR_EXCLUSION: #reinterpret-cast-trivial-type
+  RAW_PTR_EXCLUSION xmlChar* localname;
+  // RAW_PTR_EXCLUSION: #reinterpret-cast-trivial-type
+  RAW_PTR_EXCLUSION xmlChar* prefix;
+  // RAW_PTR_EXCLUSION: #reinterpret-cast-trivial-type
+  RAW_PTR_EXCLUSION xmlChar* uri;
+  // RAW_PTR_EXCLUSION: #reinterpret-cast-trivial-type
+  RAW_PTR_EXCLUSION xmlChar* value;
+  // RAW_PTR_EXCLUSION: #reinterpret-cast-trivial-type
+  RAW_PTR_EXCLUSION xmlChar* end;
 
   base::span<const xmlChar> ValueSpan() const {
     // SAFETY: ValueLength() returns the distance between `end` and
@@ -1280,7 +1288,20 @@ void XMLDocumentParser::StartElementNs(
     return;
   }
 
-  SetAttributes(new_element, prefixed_attributes, GetParserContentPolicy());
+  if (reactions.has_value()) {
+    // A synchronous custom element constructor ran and may have manipulated
+    // the element (set attributes, appended children, or inserted it into the
+    // tree), so the batched ParserSetAttributes() path is no longer safe. Set
+    // the attributes one by one, as HTMLConstructionSite::CreateElement does.
+    if (!ScriptingContentIsAllowed(GetParserContentPolicy())) {
+      new_element->StripScriptingAttributes(prefixed_attributes);
+    }
+    for (const auto& attribute : prefixed_attributes) {
+      new_element->setAttribute(attribute.GetName(), attribute.Value());
+    }
+  } else {
+    SetAttributes(new_element, prefixed_attributes, GetParserContentPolicy());
+  }
 
   if (parsing_fragment_ && encountered_namespace_reset &&
       !ancestor_resetting_namespace_) {
@@ -2004,6 +2025,21 @@ bool XMLDocumentParser::ShouldMarkScriptAlreadyStarted() const {
       // XMLHTTPRequest.responseXML parses with XML scripting support disabled:
       // See: https://xhr.spec.whatwg.org/#document-response, step 6
       document_->IsXHRDocument() ||
+      // XSLTProcessor.transformToDocument (and any other XML document with a
+      // null browsing context) must mark script elements as already started
+      // and never execute them.
+      // See:
+      // https://html.spec.whatwg.org/multipage/scripting.html#scriptTagXSLT
+      // Documents without a frame (a null browsing context) do not have a
+      // `script_runner_` in XMLDocumentParser, so `EndElementNs()` returns
+      // early without calling `ScriptLoader::PrepareScript()` (which would
+      // otherwise mark scripts as already started and bail out before execution
+      // due to the null browsing context). Checking `!document_->GetFrame()`
+      // marks scripts as already started upon creation in frameless XML
+      // documents, covering `XSLTProcessor.transformToDocument()` (which
+      // creates a frameless Document and parses via `Document::SetContent()`
+      // without setting `IsDOMParserDocument()` or `IsXHRDocument()`):
+      !document_->GetFrame() ||
       // All XML parse results created as part of XML fragment parsing:
       // See:
       // https://html.spec.whatwg.org/multipage/xhtml.html#xml-scripting-support-disabled,

@@ -612,6 +612,28 @@ component("storage_access_api_mojom_support") {
   defines = [ "IS_STORAGE_ACCESS_API_MOJOM_TRAITS_IMPL" ]
 }
 
+# This component is separate from cpp_base as it is a dependency of
+# //services/network/public/mojom:mojom_http_request_headers.
+component("http_request_headers_mojom_support") {
+  sources = [
+    "http_request_headers_mojom_traits.cc",
+    "http_request_headers_mojom_traits.h",
+    "http_request_headers_update_params.cc",
+    "http_request_headers_update_params.h",
+  ]
+  public_deps = [
+    "//base",
+    "//net",
+    "//services/network/public/mojom:mojom_http_request_headers_shared",
+  ]
+  deps = [
+    ":crash_keys",
+    "//mojo/public/cpp/base:shared_typemap_traits",
+  ]
+  configs += [ "//build/config/compiler:wexit_time_destructors" ]
+  defines = [ "IS_NETWORK_CPP_HTTP_REQUEST_HEADERS_IMPL" ]
+}
+
 component("cpp_base") {
   output_name = "network_cpp_base"
 
@@ -628,10 +650,6 @@ component("cpp_base") {
     "cross_origin_opener_policy_mojom_traits.h",
     "data_element.cc",
     "data_element.h",
-    "http_request_headers_mojom_traits.cc",
-    "http_request_headers_mojom_traits.h",
-    "http_request_headers_update_params.cc",
-    "http_request_headers_update_params.h",
     "isolation_info_mojom_traits.cc",
     "isolation_info_mojom_traits.h",
     "load_timing_info_mojom_traits.cc",
@@ -676,6 +694,10 @@ component("cpp_base") {
     "web_transport_error_mojom_traits.h",
     "web_transport_http_request_headers_mojom_traits.cc",
     "web_transport_http_request_headers_mojom_traits.h",
+    "web_transport_keying_material_params_mojom_traits.cc",
+    "web_transport_keying_material_params_mojom_traits.h",
+    "web_transport_send_stream_stats_mojom_traits.cc",
+    "web_transport_send_stream_stats_mojom_traits.h",
   ]
 
   configs += [ "//build/config/compiler:wexit_time_destructors" ]
@@ -687,6 +709,7 @@ component("cpp_base") {
     ":cross_origin_embedder_policy",
     ":document_isolation_policy",
     ":fetch_retry_options",
+    ":http_request_headers_mojom_support",
     ":integrity_metadata_mojom_support",
     ":integrity_policy",
     ":ip_address_mojom_support",
@@ -708,6 +731,7 @@ component("cpp_base") {
     "//mojo/public/mojom/base",
     "//net",
     "//services/network/public/mojom:cookies_mojom",
+    "//services/network/public/mojom:mojom_network_anonymization_key",
     "//services/network/public/mojom:mojom_network_isolation_key",
     "//services/network/public/mojom:mojom_storage_access_api",
     "//services/network/public/mojom:url_loader_base",
@@ -821,6 +845,7 @@ source_set("tests") {
     "headers_matcher_unittest.cc",
     "host_resolver_mojom_traits_unittest.cc",
     "http_request_headers_mojom_traits_unittest.cc",
+    "http_request_headers_update_params_unittest.cc",
     "http_response_headers_mojom_traits_unittest.cc",
     "initiator_lock_compatibility_unittest.cc",
     "integrity_policy_parser_unittest.cc",
@@ -883,6 +908,7 @@ source_set("tests") {
     "url_util_unittest.cc",
     "web_sandbox_flags_unittest.cc",
     "web_transport_http_request_headers_mojom_traits_unittest.cc",
+    "web_transport_keying_material_params_mojom_traits_unittest.cc",
     "websocket_utils_unittest.cc",
     "x_frame_options_parser_unittest.cc",
   ]

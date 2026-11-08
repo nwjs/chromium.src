@@ -14,6 +14,10 @@
 #include "base/memory/weak_ptr.h"
 #include "build/build_config.h"
 #include "build/buildflag.h"
+#if BUILDFLAG(IS_ANDROID)
+#include "base/android/device_info.h"
+#include "chrome/browser/flags/android/chrome_feature_list.h"
+#endif  // BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/page_image_service/image_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_avatar_icon_util.h"
@@ -134,8 +138,9 @@ content::WebUIDataSource* CreateAndAddHistoryUIHTMLSource(Profile* profile) {
   source->AddLocalizedStrings(kHistorySyncStrings);
 #endif  // !BUILDFLAG(IS_CHROMEOS)
 
-  source->AddBoolean("isBrowsingHistoryActorIntegrationM3Enabled",
-                     history::IsBrowsingHistoryActorIntegrationM3Enabled());
+  source->AddBoolean(
+      "isBrowsingHistoryFilterByDeviceEnabled",
+      base::FeatureList::IsEnabled(history::kBrowsingHistoryFilterByDevice));
   source->AddBoolean("isCriticalActionsEnabled", is_critical_actions_enabled);
   source->AddBoolean("isCriticalActionsChatLinkoutsEnabled",
                      is_critical_actions_chat_linkouts_enabled);
@@ -169,6 +174,17 @@ HistoryUIConfig::CreateWebUIController(content::WebUI* web_ui,
 #endif  // !BUILDFLAG(IS_ANDROID)
   return std::make_unique<HistoryUI>(web_ui);
 }
+
+#if BUILDFLAG(IS_ANDROID)
+bool HistoryUIConfig::IsWebUIEnabled(content::BrowserContext* browser_context) {
+  // LINT.IfChange(AndroidDesktopWebUiHistory)
+  return base::android::device_info::is_desktop() &&
+         base::FeatureList::IsEnabled(
+             chrome::android::kAndroidDesktopWebUiHistory);
+  // LINT.ThenChange(//chrome/browser/history/java/src/org/chromium/chrome/browser/history/HistoryFeatures.java:AndroidDesktopWebUiHistory,
+  // //chrome/browser/android/ntp/new_tab_page_url_handler.cc:AndroidDesktopWebUiHistory)
+}
+#endif  // BUILDFLAG(IS_ANDROID)
 
 HistoryUI::HistoryUI(content::WebUI* web_ui)
     : ui::MojoWebUIController(web_ui, /*enable_chrome_send=*/true) {

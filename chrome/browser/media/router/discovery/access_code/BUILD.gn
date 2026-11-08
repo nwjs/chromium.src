@@ -27,7 +27,6 @@ static_library("access_code_cast_feature") {
     "//components/user_prefs",
     "//components/version_info:channel",
   ]
-  configs += [ "//build/config/compiler:wexit_time_destructors" ]
 }
 
 if (!is_android) {
@@ -48,7 +47,6 @@ if (!is_android) {
     ]
     public_deps = [
       "//base",
-      "//chrome/browser:browser_public_dependencies",
       "//chrome/browser/profiles:profile",
       "//components/media_router/browser",
       "//components/media_router/common",
@@ -79,7 +77,6 @@ if (!is_android) {
       "//google_apis",
       "//services/preferences/public/cpp",
     ]
-    configs += [ "//build/config/compiler:wexit_time_destructors" ]
   }
 
   source_set("interactive_ui_tests") {

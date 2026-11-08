@@ -12,7 +12,6 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 import android.app.Activity;
 import android.app.Service;
@@ -26,6 +25,7 @@ import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
+import org.robolectric.Robolectric;
 import org.robolectric.shadows.ShadowLooper;
 
 import org.chromium.base.ActivityState;
@@ -44,15 +44,16 @@ import org.chromium.components.browser_ui.notifications.ForegroundServiceUtils;
 public class GracefulShutdownServiceImplTest {
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
 
-    @Mock private Activity mActivity;
     @Mock private Context mContext;
     @Mock private ForegroundServiceUtils mMockForegroundServiceUtils;
     @Mock private SplitCompatService mMockService;
 
+    private Activity mActivity;
     private GracefulShutdownServiceImpl mService;
 
     @Before
     public void setUp() {
+        mActivity = Robolectric.buildActivity(Activity.class).get();
         ForegroundServiceUtils.setInstanceForTesting(mMockForegroundServiceUtils);
         mService = new GracefulShutdownServiceImpl();
         lenient().when(mMockService.getString(anyInt())).thenReturn("test_title");
@@ -189,18 +190,19 @@ public class GracefulShutdownServiceImplTest {
     @Test
     @EnableFeatures(ChromeFeatureList.TAB_ANDROID_GRACEFUL_SHUTDOWN)
     public void testMaybeStartGracefulShutdown_launchFailed() {
-        when(mActivity.isFinishing()).thenReturn(true);
+        mActivity.finish();
         ApplicationStatus.onStateChangeForTesting(mActivity, ActivityState.CREATED);
 
-        when(mContext.startForegroundService(any()))
-                .thenThrow(new IllegalStateException("ForegroundServiceStartNotAllowedException"));
+        doThrow(new IllegalStateException("ForegroundServiceStartNotAllowedException"))
+                .when(mMockForegroundServiceUtils)
+                .startForegroundService(any());
 
         var watcher =
                 HistogramWatcher.newSingleRecordWatcher(
                         "Tab.Android.GracefulShutdownStatus",
                         GracefulShutdownService.Status.LAUNCH_FAILED);
 
-        GracefulShutdownService.maybeStartGracefulShutdown(mContext);
+        GracefulShutdownServiceImpl.maybeStartGracefulShutdown(mContext);
 
         watcher.assertExpected();
         ApplicationStatus.onStateChangeForTesting(mActivity, ActivityState.DESTROYED);
@@ -209,18 +211,19 @@ public class GracefulShutdownServiceImplTest {
     @Test
     @EnableFeatures(ChromeFeatureList.TAB_ANDROID_GRACEFUL_SHUTDOWN)
     public void testMaybeStartGracefulShutdown_securityException() {
-        when(mActivity.isFinishing()).thenReturn(true);
+        mActivity.finish();
         ApplicationStatus.onStateChangeForTesting(mActivity, ActivityState.CREATED);
 
-        when(mContext.startForegroundService(any()))
-                .thenThrow(new SecurityException("Foreground service not allowed"));
+        doThrow(new SecurityException("Foreground service not allowed"))
+                .when(mMockForegroundServiceUtils)
+                .startForegroundService(any());
 
         var watcher =
                 HistogramWatcher.newSingleRecordWatcher(
                         "Tab.Android.GracefulShutdownStatus",
                         GracefulShutdownService.Status.LAUNCH_FAILED);
 
-        GracefulShutdownService.maybeStartGracefulShutdown(mContext);
+        GracefulShutdownServiceImpl.maybeStartGracefulShutdown(mContext);
 
         watcher.assertExpected();
         ApplicationStatus.onStateChangeForTesting(mActivity, ActivityState.DESTROYED);
@@ -229,7 +232,7 @@ public class GracefulShutdownServiceImplTest {
     @Test
     @EnableFeatures(ChromeFeatureList.TAB_ANDROID_GRACEFUL_SHUTDOWN)
     public void testMaybeStartGracefulShutdown_success() {
-        when(mActivity.isFinishing()).thenReturn(true);
+        mActivity.finish();
         ApplicationStatus.onStateChangeForTesting(mActivity, ActivityState.CREATED);
 
         var watcher =
@@ -237,9 +240,9 @@ public class GracefulShutdownServiceImplTest {
                         "Tab.Android.GracefulShutdownStatus",
                         GracefulShutdownService.Status.LAUNCH_ATTEMPTED);
 
-        GracefulShutdownService.maybeStartGracefulShutdown(mContext);
+        GracefulShutdownServiceImpl.maybeStartGracefulShutdown(mContext);
 
-        verify(mContext).startForegroundService(any(Intent.class));
+        verify(mMockForegroundServiceUtils).startForegroundService(any(Intent.class));
         watcher.assertExpected();
         ApplicationStatus.onStateChangeForTesting(mActivity, ActivityState.DESTROYED);
     }

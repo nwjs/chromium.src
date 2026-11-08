@@ -22,6 +22,7 @@
 
 #include "base/compiler_specific.h"
 #include "base/containers/span.h"
+#include "base/containers/to_vector.h"
 #include "base/debug/alias.h"
 #include "base/debug/crash_logging.h"
 #include "base/debug/dump_without_crashing.h"
@@ -229,7 +230,9 @@ HistogramBase* Histogram::Factory::Build() {
     PersistentHistogramAllocator::Reference histogram_ref = 0;
     std::unique_ptr<HistogramBase> tentative_histogram;
     PersistentHistogramAllocator* allocator = GlobalHistogramAllocator::Get();
-    if (allocator) {
+    const bool should_persist =
+        (flags_ & HistogramBase::kPersistentHistogramFlagsMask) != 0;
+    if (allocator && should_persist) {
       tentative_histogram = allocator->AllocateHistogram(
           histogram_type_, name_, name_hash_, minimum_, maximum_,
           registered_ranges, flags_, &histogram_ref);
@@ -1288,7 +1291,7 @@ class CustomHistogram::Factory : public Histogram::Factory {
  public:
   Factory(std::string_view name,
           uint64_t name_hash,
-          const std::vector<Sample32>* custom_ranges,
+          base::span<const Sample32> custom_ranges,
           int32_t flags)
       : Histogram::Factory(name, name_hash, CUSTOM_HISTOGRAM, 0, 0, 0, flags) {
     custom_ranges_ = custom_ranges;
@@ -1300,7 +1303,7 @@ class CustomHistogram::Factory : public Histogram::Factory {
  protected:
   BucketRanges* CreateRanges() override {
     // Remove the duplicates in the custom ranges array.
-    std::vector<int> ranges = *custom_ranges_;
+    std::vector<int> ranges = base::ToVector(custom_ranges_);
     ranges.push_back(0);  // Ensure we have a zero value.
     ranges.push_back(HistogramBase::kSampleType_MAX);
     std::ranges::sort(ranges);
@@ -1323,26 +1326,26 @@ class CustomHistogram::Factory : public Histogram::Factory {
   }
 
  private:
-  raw_ptr<const std::vector<Sample32>> custom_ranges_;
+  base::raw_span<const Sample32> custom_ranges_;
 };
 
 HistogramBase* CustomHistogram::FactoryGet(
     std::string_view name,
-    const std::vector<Sample32>& custom_ranges,
+    base::span<const Sample32> custom_ranges,
     int32_t flags) {
   return FactoryGetInternal(name, custom_ranges, flags);
 }
 
 HistogramBase* CustomHistogram::FactoryGet(
     const std::string& name,
-    const std::vector<Sample32>& custom_ranges,
+    base::span<const Sample32> custom_ranges,
     int32_t flags) {
   return FactoryGetInternal(name, custom_ranges, flags);
 }
 
 HistogramBase* CustomHistogram::FactoryGet(
     const char* name,
-    const std::vector<Sample32>& custom_ranges,
+    base::span<const Sample32> custom_ranges,
     int32_t flags) {
   return FactoryGetInternal(name, custom_ranges, flags);
 }
@@ -1367,6 +1370,7 @@ HistogramType CustomHistogram::GetHistogramType() const {
 std::vector<Sample32> CustomHistogram::ArrayToCustomEnumRanges(
     base::span<const Sample32> values) {
   std::vector<Sample32> all_values;
+  all_values.reserve(values.size() * 2);
   for (Sample32 value : values) {
     all_values.push_back(value);
 
@@ -1454,16 +1458,16 @@ HistogramBase* CustomHistogram::DeserializeInfoImpl(PickleIterator* iter,
 // static
 HistogramBase* CustomHistogram::FactoryGetInternal(
     std::string_view name,
-    const std::vector<Sample32>& custom_ranges,
+    base::span<const Sample32> custom_ranges,
     int32_t flags) {
   CHECK(ValidateCustomRanges(custom_ranges));
 
-  return Factory(name, HashMetricName(name), &custom_ranges, flags).Build();
+  return Factory(name, HashMetricName(name), custom_ranges, flags).Build();
 }
 
 // static
 bool CustomHistogram::ValidateCustomRanges(
-    const std::vector<Sample32>& custom_ranges) {
+    base::span<const Sample32> custom_ranges) {
   bool has_valid_range = false;
   for (Sample32 sample : custom_ranges) {
     if (sample < 0 || sample > HistogramBase::kSampleType_MAX - 1) {

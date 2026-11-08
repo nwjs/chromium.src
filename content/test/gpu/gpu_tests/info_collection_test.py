@@ -107,7 +107,7 @@ class InfoCollectionTest(gpu_integration_test.GpuIntegrationTest):
   def RunActualGpuTest(self, test_path: str, args: ct.TestArgs) -> None:
     del test_path  # Unused in this particular GPU test.
     # Make sure the GPU process is started
-    self.tab.action_runner.Navigate('chrome:gpu')
+    self.tab.action_runner.Navigate('chrome:gpu?skip-dawn-info')
 
     # Gather the IDs detected by the GPU process
     system_info = self.browser.GetSystemInfo()
@@ -285,9 +285,7 @@ class InfoCollectionTest(gpu_integration_test.GpuIntegrationTest):
       )
 
     # Enable advanced protection (AAPM).
-    # pylint: disable=protected-access
     device = self.browser.platform._platform_backend.device
-    # pylint: enable=protected-access
     try:
       device.RunShellCommand(
         ['cmd', 'advanced_protection', 'set-protection-enabled', 'true'],

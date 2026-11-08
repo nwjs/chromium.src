@@ -55,8 +55,10 @@ namespace {
 constexpr size_t kFullSpaceTextLength = 0;
 constexpr size_t kReducedSpaceTextLength = 500;
 
-void EnsurePageActionEnabled(actions::ActionId action_id) {
-  auto* action = actions::ActionManager::Get().FindAction(action_id);
+void EnsurePageActionEnabled(BrowserWindowInterface* browser,
+                             actions::ActionId action_id) {
+  auto* action = actions::ActionManager::Get().FindAction(
+      action_id, BrowserActions::From(browser)->root_action_item());
   CHECK(action);
   action->SetEnabled(true);
   action->SetVisible(true);
@@ -175,7 +177,7 @@ class PageActionUiTestBase {
   }
 
   void ShowSuggestionChip(actions::ActionId action_id) const {
-    EnsurePageActionEnabled(action_id);
+    EnsurePageActionEnabled(GetBrowser(), action_id);
     page_action_controller()->ShowSuggestionChip(
         action_id, {.should_animate = false, .should_announce_chip = false});
   }
@@ -189,7 +191,7 @@ class PageActionUiTestBase {
                            AnchoredMessageActionIconType icon_type,
                            std::optional<ui::ImageModel> anchored_message_icon,
                            std::unique_ptr<ui::SimpleMenuModel> menu) const {
-    EnsurePageActionEnabled(action_id);
+    EnsurePageActionEnabled(GetBrowser(), action_id);
     page_action_controller()->SetAnchoredMessageText(action_id, text);
     page_action_controller()->SetAnchoredMessageAction(action_id, icon_type,
                                                        std::move(menu));
@@ -207,12 +209,12 @@ class PageActionUiTestBase {
   }
 
   void ShowPageAction(actions::ActionId action_id) const {
-    EnsurePageActionEnabled(action_id);
+    EnsurePageActionEnabled(GetBrowser(), action_id);
     page_action_controller()->Show(action_id);
   }
 
   void HidePageAction(actions::ActionId action_id) const {
-    EnsurePageActionEnabled(action_id);
+    EnsurePageActionEnabled(GetBrowser(), action_id);
     page_action_controller()->Hide(action_id);
   }
 
@@ -1203,6 +1205,39 @@ IN_PROC_BROWSER_TEST_F(PageActionPixelShowAnchoredMessageTest,
       WaitForDrawerAnimation(),
       WaitForHide(
           AnchoredMessageBubbleView::kAnchoredMessageExpandedContentId));
+}
+
+IN_PROC_BROWSER_TEST_F(PageActionPixelShowAnchoredMessageTest,
+                       ClickingPageActionIconDowngradesAnchoredMessageToChip) {
+  auto* action_item = actions::ActionManager::Get().FindAction(
+      kActionShowTranslate,
+      BrowserActions::From(browser())->root_action_item());
+  ASSERT_TRUE(action_item);
+  const int initial_invoke_count = action_item->GetInvokeCount();
+
+  RunTestSequence(
+      Do([this]() {
+        AdjustAvailableSpace(kFullSpaceTextLength);
+        ShowTestAnchoredMessage(u"Anchored Message Text",
+                                AnchoredMessageActionIconType::kNone,
+                                std::nullopt, nullptr);
+      }),
+      WaitForShow(AnchoredMessageBubbleView::kAnchoredMessageBubbleId),
+      CheckResult(
+          [this]() { return GetTestPageAction().ShouldShowSuggestionChip(); },
+          false),
+      PressButton(kTranslatePageActionElementId),
+      WaitForHide(AnchoredMessageBubbleView::kAnchoredMessageBubbleId),
+      Do([this]() { FastForwardAnimation(GetTestPageAction()); }),
+      CheckResult(
+          [this]() { return GetTestPageAction().ShouldShowSuggestionChip(); },
+          true),
+      Check([this]() {
+        return testing::ExplainMatchResult(IsChipExpanded(),
+                                           GetTestPageAction(), nullptr);
+      }),
+      CheckResult([action_item]() { return action_item->GetInvokeCount(); },
+                  initial_invoke_count));
 }
 
 struct PageActionPixelTestParams {

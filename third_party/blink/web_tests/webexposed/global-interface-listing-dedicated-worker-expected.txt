@@ -494,6 +494,14 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     method constructor
 [Worker]     method contains
 [Worker]     method item
+[Worker] interface DecisionModel
+[Worker]     static method availability
+[Worker]     static method create
+[Worker]     attribute @@toStringTag
+[Worker]     getter preference
+[Worker]     method constructor
+[Worker]     method decide
+[Worker]     method destroy
 [Worker] interface DecompressionStream
 [Worker]     attribute @@toStringTag
 [Worker]     getter readable
@@ -516,8 +524,6 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     method use
 [Worker] interface ElementImage
 [Worker]     attribute @@toStringTag
-[Worker]     getter height
-[Worker]     getter width
 [Worker]     method close
 [Worker]     method constructor
 [Worker] interface EncodedAudioChunk
@@ -954,7 +960,6 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     attribute @@toStringTag
 [Worker]     getter label
 [Worker]     method constructor
-[Worker]     method copyElementImageToTexture
 [Worker]     method copyExternalImageToTexture
 [Worker]     method drawElementImageToTexture
 [Worker]     method onSubmittedWorkDone
@@ -1590,7 +1595,7 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     method constructor
 [Worker]     method convertToBlob
 [Worker]     method getContext
-[Worker]     method getElementTransform
+[Worker]     method getElementImageDefaultSize
 [Worker]     method transferToImageBitmap
 [Worker]     method updateElementGeometry
 [Worker]     setter height
@@ -2374,6 +2379,7 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     getter writable
 [Worker]     method constructor
 [Worker] interface TextDetector
+[Worker]     static method create
 [Worker]     attribute @@toStringTag
 [Worker]     method constructor
 [Worker]     method detect
@@ -3450,7 +3456,6 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     method stencilMaskSeparate
 [Worker]     method stencilOp
 [Worker]     method stencilOpSeparate
-[Worker]     method texElementImage2D
 [Worker]     method texElementSubImage2D
 [Worker]     method texImage2D
 [Worker]     method texImage3D
@@ -3955,7 +3960,6 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     method stencilMaskSeparate
 [Worker]     method stencilOp
 [Worker]     method stencilOpSeparate
-[Worker]     method texElementImage2D
 [Worker]     method texElementSubImage2D
 [Worker]     method texImage2D
 [Worker]     method texParameterf
@@ -4077,6 +4081,7 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     method createBidirectionalStream
 [Worker]     method createSendGroup
 [Worker]     method createUnidirectionalStream
+[Worker]     method exportKeyingMaterial
 [Worker]     method getStats
 [Worker]     setter anticipatedConcurrentIncomingBidirectionalStreams
 [Worker]     setter anticipatedConcurrentIncomingUnidirectionalStreams

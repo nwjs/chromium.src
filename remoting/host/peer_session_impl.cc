@@ -23,6 +23,7 @@
 #include "base/memory/ptr_util.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/scoped_refptr.h"
+#include "base/notreached.h"
 #include "base/sequence_checker.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
@@ -31,6 +32,7 @@
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/time/time.h"
+#include "base/types/expected.h"
 #include "build/build_config.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "remoting/base/capabilities.h"
@@ -67,6 +69,8 @@
 #include "remoting/host/remote_open_url/url_forwarder_control_message_handler.h"
 #include "remoting/host/security_key/security_key_auth_handler.h"
 #include "remoting/host/security_key/security_key_data_channel_handler.h"
+#include "remoting/host/terminal_error.h"
+#include "remoting/host/terminal_session.h"
 #include "remoting/host/terminal_session_manager.h"
 #include "remoting/host/webauthn/remote_webauthn_constants.h"
 #include "remoting/host/webauthn/remote_webauthn_message_handler.h"
@@ -97,7 +101,6 @@
 #include "third_party/webrtc/modules/desktop_capture/desktop_capture_types.h"
 #include "third_party/webrtc/modules/desktop_capture/desktop_capturer.h"
 #include "third_party/webrtc/modules/desktop_capture/desktop_geometry.h"
-#include "third_party/webrtc/modules/desktop_capture/mouse_cursor.h"
 #include "ui/events/types/event_type.h"
 
 namespace {
@@ -129,6 +132,42 @@ void LogVideoTrack(int index,
            << "', pos=" << track.position_x() << "," << track.position_y()
            << ", " << track.width() << "x" << track.height() << ", dpi=["
            << track.x_dpi() << "," << track.y_dpi() << "]";
+}
+
+remoting::protocol::TerminalControl::CreateTerminalResponse::Error::Reason
+ToProtoReason(remoting::TerminalError::Reason reason) {
+  using ProtoError =
+      remoting::protocol::TerminalControl::CreateTerminalResponse::Error;
+  switch (reason) {
+    case remoting::TerminalError::Reason::kInternalError:
+      return ProtoError::INTERNAL_ERROR;
+    case remoting::TerminalError::Reason::kBusy:
+      return ProtoError::BUSY;
+    case remoting::TerminalError::Reason::kPtyError:
+      return ProtoError::PTY_ERROR;
+    case remoting::TerminalError::Reason::kTmuxMissing:
+      return ProtoError::TMUX_MISSING;
+    case remoting::TerminalError::Reason::kLaunchFailed:
+      return ProtoError::LAUNCH_FAILED;
+  }
+  NOTREACHED();
+}
+
+void SetCreateTerminalError(
+    const remoting::TerminalError& error,
+    remoting::protocol::TerminalControl::CreateTerminalResponse::Error*
+        proto_error) {
+  proto_error->set_reason(ToProtoReason(error.reason));
+  if (error.system_error_code.has_value()) {
+    proto_error->set_code(*error.system_error_code);
+  }
+  // A default-constructed base::Location has no file name (and an invalid line
+  // number), so only report the location if it is valid.
+  if (const char* file_name = error.location.file_name()) {
+    proto_error->set_file_name(file_name);
+    proto_error->set_line_number(error.location.line_number());
+  }
+  proto_error->set_error_message(error.message);
 }
 
 }  // namespace
@@ -479,21 +518,6 @@ void PeerSessionImpl::SetCapabilities(
     }
   }
 
-  host_cursor_rendered_by_client_ = HasCapability(
-      capabilities_, protocol::kClientRenderedHostCursorCapability);
-  if (host_cursor_rendered_by_client_ && cursor_visible_) {
-    // OnCursorVisibilityChanged(true) could have been called with
-    // `host_cursor_rendered_by_client_` being false, e.g., if the IT2ME
-    // helpee moves the cursor before the session is connected, so we call it
-    // again with the updated boolean, which updates MouseShapePump to send the
-    // cursor position to the client.
-    OnCursorVisibilityChanged(true);
-    // OnCursorVisibilityChanged(true) does not hide the host-rendered cursor if
-    // `host_cursor_rendered_by_client_` is true, so we need to call
-    // SetComposeEnabledOnVideoStreams(false) to explicitly hide it.
-    SetComposeEnabledOnVideoStreams(false);
-  }
-
   data_channel_manager_.OnRegistrationComplete();
 
   VLOG(1) << "Client capabilities: " << *client_capabilities_;
@@ -627,21 +651,12 @@ void PeerSessionImpl::ControlTerminal(
   }
 
   if (terminal_control.has_create_request()) {
-    // Create a new terminal session and store the ID. We'll use this ID to
-    // identify the terminal session when sending output to the client. Bind the
-    // callbacks to the weak factory to ensure that the callbacks are not
-    // called after the client session is disconnected.
-    int32_t id = terminal_session_manager_->CreateTerminal();
-
-    protocol::TerminalControl response;
-    auto* create_response = response.mutable_create_response();
-    if (id != -1) {
-      create_response->set_terminal_id(id);
-    } else {
-      create_response->mutable_error()->set_reason(
-          protocol::TerminalControl::CreateTerminalResponse::Error::FAILED);
-    }
-    connection_->client_stub()->DeliverTerminalControl(response);
+    // Create a new terminal session. The response, containing either the ID
+    // that identifies the session in subsequent messages or an error, is sent
+    // once the session has started. Bind the callback to the weak factory to
+    // ensure that it is not called after the client session is disconnected.
+    terminal_session_manager_->CreateTerminal(base::BindOnce(
+        &PeerSessionImpl::OnTerminalCreated, weak_factory_.GetWeakPtr()));
 
   } else if (terminal_control.has_terminal_input()) {
     const auto& input = terminal_control.terminal_input();
@@ -657,6 +672,19 @@ void PeerSessionImpl::ControlTerminal(
     int32_t terminal_id = terminal_control.remove_request().terminal_id();
     terminal_session_manager_->CloseTerminal(terminal_id);
   }
+}
+
+void PeerSessionImpl::OnTerminalCreated(
+    base::expected<int32_t, TerminalError> result) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  protocol::TerminalControl response;
+  auto* create_response = response.mutable_create_response();
+  if (result.has_value()) {
+    create_response->set_terminal_id(*result);
+  } else {
+    SetCreateTerminalError(result.error(), create_response->mutable_error());
+  }
+  connection_->client_stub()->DeliverTerminalControl(response);
 }
 
 void PeerSessionImpl::SendTerminalOutput(int32_t terminal_id,
@@ -811,10 +839,8 @@ void PeerSessionImpl::OnConnectionChannelsConnected() {
   mouse_shape_pump_ = std::make_unique<MouseShapePump>(
       desktop_environment_->CreateMouseCursorMonitor(),
       connection_->client_stub());
-  mouse_shape_pump_->SetMouseCursorMonitorCallback(this);
   mouse_shape_pump_->SetCursorCaptureInterval(base::Hertz(target_framerate_));
-  mouse_shape_pump_->SetSendCursorPositionToClient(
-      host_cursor_rendered_by_client_ && cursor_visible_);
+  mouse_shape_pump_->SetSendCursorPositionToClient(cursor_visible_);
 
   // Create KeyboardLayoutMonitor to send keyboard layout.
   // Unretained is sound because callback will never be called after
@@ -1000,37 +1026,8 @@ void PeerSessionImpl::OnSessionServicesClientConnected(
 void PeerSessionImpl::OnCursorVisibilityChanged(bool visible) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   cursor_visible_ = visible;
-  if (host_cursor_rendered_by_client_) {
-    if (mouse_shape_pump_) {
-      mouse_shape_pump_->SetSendCursorPositionToClient(cursor_visible_);
-    }
-  } else {
-    SetComposeEnabledOnVideoStreams(visible);
-  }
-}
-
-void PeerSessionImpl::OnMouseCursor(
-    std::unique_ptr<webrtc::MouseCursor> mouse_cursor) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-
-  for (const auto& [_, video_stream] : video_streams_) {
-    video_stream->SetMouseCursor(
-        base::WrapUnique(webrtc::MouseCursor::CopyOf(*mouse_cursor)));
-  }
-}
-
-void PeerSessionImpl::OnMouseCursorPosition(
-    const webrtc::DesktopVector& position) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  if (host_cursor_rendered_by_client_) {
-    // The following code is for updating the cursor position in
-    // DesktopAndCursorComposer. If the host cursor is rendered by the client,
-    // then we don't need to do that.
-    return;
-  }
-
-  for (const auto& [_, video_stream] : video_streams_) {
-    video_stream->SetMouseCursorPosition(position);
+  if (mouse_shape_pump_) {
+    mouse_shape_pump_->SetSendCursorPositionToClient(cursor_visible_);
   }
 }
 
@@ -1129,14 +1126,13 @@ void PeerSessionImpl::OnDesktopEnvironmentCreated(
     host_capabilities_.append(protocol::kRemoteOpenUrlCapability);
   }
 
-  host_capabilities_.append(" ");
-  host_capabilities_.append(protocol::kClientRenderedHostCursorCapability);
   if (security_key_auth_handler_) {
     host_capabilities_.append(" ");
     host_capabilities_.append(protocol::kSecurityKeyV2Capability);
   }
 
-  if (effective_policies_.allow_terminal_mode.value_or(true)) {
+  if (TerminalSession::IsSupported() &&
+      effective_policies_.allow_terminal_mode.value_or(true)) {
     host_capabilities_.append(" ");
     host_capabilities_.append(protocol::kTerminalModeCapability);
   }
@@ -1529,12 +1525,6 @@ void PeerSessionImpl::OnActiveDisplayChanged(webrtc::ScreenId display) {
   protocol::ActiveDisplay active_display;
   active_display.set_screen_id(display);
   connection_->client_stub()->SetActiveDisplay(active_display);
-}
-
-void PeerSessionImpl::SetComposeEnabledOnVideoStreams(bool enabled) {
-  for (const auto& [_, video_stream] : video_streams_) {
-    video_stream->SetComposeEnabled(enabled);
-  }
 }
 
 PeerSessionImplFactory::PeerSessionImplFactory(

@@ -371,7 +371,7 @@
                            SigninResult:(SigninCoordinatorResult)signinResult
                      completionIdentity:(id<SystemIdentity>)completionIdentity
                             hasAccounts:(BOOL)hasAccounts {
-  CHECK_EQ(self.addAccountCoordinator, coordinator, base::NotFatalUntil::M151);
+  CHECK_EQ(self.addAccountCoordinator, coordinator);
   if (hasAccounts) {
     RecordConsistencyPromoUserAction(
         signin_metrics::AccountConsistencyPromoAction::ADD_ACCOUNT_COMPLETED,
@@ -426,14 +426,17 @@
                                    prefilledEmail:nil
                              continuationProvider:_continuationProvider];
   __weak ConsistencyPromoSigninCoordinator* weakSelf = self;
-  self.addAccountCoordinator.signinCompletion =
-      ^(SigninCoordinator* coordinator, SigninCoordinatorResult signinResult,
-        id<SystemIdentity> signinCompletionIdentity) {
-        [weakSelf addAccountCompletionWithCoordinator:coordinator
-                                         SigninResult:signinResult
-                                   completionIdentity:signinCompletionIdentity
-                                          hasAccounts:hasAccounts];
-      };
+  self.addAccountCoordinator.signinCompletion = ^(
+      SigninCoordinator* coordinator,
+      SigninCoordinatorResultOrIdentity result) {
+    SigninCoordinatorResult signinResult =
+        signin::SigninCoordinatorResultFromSigninCoordinatorResultOrIdentity(
+            result);
+    [weakSelf addAccountCompletionWithCoordinator:coordinator
+                                     SigninResult:signinResult
+                               completionIdentity:result.value_or(nil)
+                                      hasAccounts:hasAccounts];
+  };
   [self.addAccountCoordinator start];
 }
 

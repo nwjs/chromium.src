@@ -126,7 +126,8 @@ class CONTENT_EXPORT WebContentsViewAndroid : public WebContentsView,
       const gfx::Rect& drag_obj_rect,
       const blink::mojom::DragEventSourceInfo& event_info) override;
   void UpdateDragOperation(ui::mojom::DragOperation operation,
-                           bool document_is_handling_drag) override;
+                           bool document_is_handling_drag,
+                           RenderWidgetHostImpl* source_rwh) override;
   void GotFocus(RenderWidgetHostImpl* render_widget_host) override;
   void LostFocus(RenderWidgetHostImpl* render_widget_host) override;
   void TakeFocus(bool reverse) override;
@@ -197,6 +198,13 @@ class CONTENT_EXPORT WebContentsViewAndroid : public WebContentsView,
       DragInaccessibleImage_MixedMimeTypes_PreservesStringTypes);
   FRIEND_TEST_ALL_PREFIXES(WebContentsViewAndroidTest,
                            OnDragEnded_ResetsDropDataAndSecurityInfo);
+  FRIEND_TEST_ALL_PREFIXES(
+      WebContentsViewAndroidTest,
+      CanDragEnter_RejectedSuppressesDragEnterLocationAndDrop);
+  FRIEND_TEST_ALL_PREFIXES(WebContentsViewAndroidTest,
+                           CanDragEnter_AcceptedSetsTargetRwh);
+  FRIEND_TEST_ALL_PREFIXES(WebContentsViewAndroidTest,
+                           UpdateDragOperation_IgnoresStaleTargetRwh);
 
   void OnDragEntered(const gfx::PointF& location,
                      const gfx::PointF& screen_location);
@@ -311,6 +319,10 @@ class CONTENT_EXPORT WebContentsViewAndroid : public WebContentsView,
   // the document has registeted interest in the dropped data and the
   // renderer process should pass the data to the document on drop.
   bool document_is_handling_drag_ = false;
+  // Set to true when `WebContentsDelegate::CanDragEnter` rejects the current
+  // drag so subsequent `ACTION_DRAG_LOCATION` and `ACTION_DROP` events do not
+  // re-invoke `CanDragEnter` or dispatch drag events to the renderer.
+  bool drag_rejected_by_delegate_ = false;
 
   // Manages the animation during a session history navigation.
   std::unique_ptr<BackForwardTransitionAnimationManagerAndroid>

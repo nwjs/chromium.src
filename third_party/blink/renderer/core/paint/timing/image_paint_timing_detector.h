@@ -71,7 +71,7 @@ class CORE_EXPORT ImagePaintTimingDetector final
   // Records an image paint for <img> tags, background images, <video> poster
   // images, and first video frames. The `StyleImage` will be nullptr unless
   // there is a background image.
-  void RecordImage(const LayoutObject&,
+  void RecordImage(const LayoutObject& image_layout_object,
                    const gfx::Size& intrinsic_size,
                    const MediaTiming&,
                    const PropertyTreeStateOrAlias& current_paint_properties,
@@ -124,12 +124,12 @@ class CORE_EXPORT ImagePaintTimingDetector final
   // node can have multiple associated `StyleImage`s.
   base::TimeTicks LoadTime(const StyleImage&) const;
 
+  // Returns true if any of the persistent data structures (persisting across
+  // frames, i.e. pending images, recorded images, or load times), have entries.
+  // Used for testing image removal cleanup.
+  bool HasPersistentImageStateForTest() const;
+
  private:
-  friend class ImagePaintTimingDetectorTestBase;
-  friend class LargestContentfulPaintCalculatorTest;
-
-  void SendRectsToHud();
-
   // Returns the viewport size, initializing the cached `viewport_size_` if
   // needed.
   uint64_t ViewportSize();
@@ -139,10 +139,6 @@ class CORE_EXPORT ImagePaintTimingDetector final
   // Removes the image data associated with the `MediaRecordIdHash` from all
   // collections.
   void RemoveRecord(MediaRecordIdHash);
-
-  // Sets the first animated frame time for the given `ImageRecord` based on the
-  // record's `MediaTiming`, which must be a VideoTiming.
-  void SetVideoFirstAnimatedFrameTime(ImageRecord*);
 
   base::TimeTicks LoadTime(MediaRecordIdHash) const;
 

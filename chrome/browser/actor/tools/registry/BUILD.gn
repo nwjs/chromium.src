@@ -1,0 +1,68 @@
+# Copyright 2026 The Chromium Authors
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+source_set("registry") {
+  public = [
+    "tool_definition.h",
+    "tool_definition_builder.h",
+    "tool_registry.h",
+    "tool_schema_builder.h",
+  ]
+  public_deps = [ "//base" ]
+}
+
+source_set("impl") {
+  sources = [
+    "tool_definition.cc",
+    "tool_definition_builder.cc",
+    "tool_registry.cc",
+    "tool_schema_builder.cc",
+  ]
+  deps = [
+    ":registry",
+    "//base",
+    "//chrome/browser/actor",
+    "//chrome/browser/actor:variants",
+  ]
+}
+
+source_set("test_support") {
+  testonly = true
+  sources = [
+    "tool_definition_test_util.cc",
+    "tool_definition_test_util.h",
+  ]
+  public_deps = [
+    ":registry",
+    "//testing/gmock",
+  ]
+  deps = [
+    "//base",
+    "//base/test:test_support",
+  ]
+}
+
+source_set("unit_tests") {
+  testonly = true
+  sources = [
+    "tool_definition_builder_unittest.cc",
+    "tool_definition_test_util_unittest.cc",
+    "tool_definition_unittest.cc",
+    "tool_registry_unittest.cc",
+    "tool_schema_builder_unittest.cc",
+  ]
+  deps = [
+    ":impl",
+    ":registry",
+    ":test_support",
+    "//base",
+    "//base/test:test_support",
+    "//chrome/browser/actor",
+    "//chrome/browser/actor:variants",
+    "//chrome/test:test_support",
+    "//content/test:test_support",
+    "//testing/gmock",
+    "//testing/gtest",
+  ]
+}

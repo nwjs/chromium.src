@@ -9,10 +9,8 @@
 #include "base/memory/raw_ref.h"
 #include "components/account_id/account_id.h"
 #include "components/soda/constants.h"
-#include "content/public/browser/web_ui.h"
 
 class ApplicationLocaleStorage;
-class PrefService;
 
 namespace consent_auditor {
 class ConsentAuditor;
@@ -36,11 +34,10 @@ class VariationsService;
  */
 class ChromeRecorderAppUIDelegate : public ash::RecorderAppUIDelegate {
  public:
-  // `local_state`, `application_locale_storage`, `variations_service`,
-  // `user_manager`, `identity_manager`, and `consent_auditor` must not be null
-  // and must outlive `this`.
+  // `application_locale_storage`, `variations_service`, `user_manager`,
+  // `identity_manager`, and `consent_auditor` must not be null and must
+  // outlive `this`.
   ChromeRecorderAppUIDelegate(
-      PrefService* local_state,
       const ApplicationLocaleStorage* application_locale_storage,
       variations::VariationsService* variations_service,
       user_manager::UserManager* user_manager,
@@ -53,8 +50,6 @@ class ChromeRecorderAppUIDelegate : public ash::RecorderAppUIDelegate {
       delete;
 
   // ash::RecorderAppUIDelegate
-  void InstallSoda(speech::LanguageCode language_code) override;
-
   std::u16string GetLanguageDisplayName(
       speech::LanguageCode language_code) override;
 
@@ -70,11 +65,8 @@ class ChromeRecorderAppUIDelegate : public ash::RecorderAppUIDelegate {
       const sync_pb::UserConsentTypes::RecorderSpeakerLabelConsent& consent)
       override;
 
-  media_device_salt::MediaDeviceSaltService* GetMediaDeviceSaltService(
-      content::BrowserContext* context) override;
 
  private:
-  const raw_ref<PrefService> local_state_;
   const raw_ref<const ApplicationLocaleStorage> application_locale_storage_;
   const raw_ref<variations::VariationsService> variations_service_;
   const raw_ref<user_manager::UserManager> user_manager_;

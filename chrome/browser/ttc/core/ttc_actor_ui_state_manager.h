@@ -27,6 +27,8 @@ class TtcActorUiStateManager : public actor::ui::ActorUiStateManagerInterface {
 #if !BUILDFLAG(IS_ANDROID)
   void LazyInitTabTracker() override;
 #endif
+  base::WeakPtr<actor::ActorNavigationThrottle::Delegate>
+  GetNavigationDelegate() override;
 };
 
 }  // namespace ttc

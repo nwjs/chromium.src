@@ -131,6 +131,7 @@
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "mojo/public/cpp/bindings/self_owned_receiver.h"
+#include "net/base/auth.h"
 #include "net/base/features.h"
 #include "net/base/net_errors.h"
 #include "net/cookies/cookie_setting_override.h"
@@ -493,6 +494,7 @@ class LoginHandlerDelegate {
       const GURL& url,
       scoped_refptr<net::HttpResponseHeaders> response_headers,
       bool first_auth_attempt,
+      bool do_not_prompt_for_login,
       FrameTreeNodeId frame_tree_node_id)
       : auth_challenge_responder_(std::move(auth_challenge_responder)),
         auth_info_(auth_info),
@@ -504,6 +506,7 @@ class LoginHandlerDelegate {
         url_(url),
         response_headers_(std::move(response_headers)),
         first_auth_attempt_(first_auth_attempt),
+        do_not_prompt_for_login_(do_not_prompt_for_login),
         web_contents_(web_contents ? web_contents->GetWeakPtr() : nullptr),
         browser_context_(browser_context->GetWeakPtr()),
         frame_tree_node_id_(frame_tree_node_id) {
@@ -559,7 +562,7 @@ class LoginHandlerDelegate {
         auth_info_, web_contents_.get(), browser_context_.get(), request_id_,
         is_request_for_primary_main_frame_navigation_,
         is_request_for_navigation_, url_, response_headers_,
-        first_auth_attempt_, guest,
+        first_auth_attempt_, do_not_prompt_for_login_, guest,
         base::BindOnce(&LoginHandlerDelegate::OnAuthCredentials,
                        weak_factory_.GetWeakPtr()));
     creating_login_delegate_ = false;
@@ -589,6 +592,7 @@ class LoginHandlerDelegate {
   GURL url_;
   const scoped_refptr<net::HttpResponseHeaders> response_headers_;
   bool first_auth_attempt_;
+  const bool do_not_prompt_for_login_;
   base::WeakPtr<WebContents> web_contents_;
   base::WeakPtr<BrowserContext> browser_context_;
   std::unique_ptr<LoginDelegate> login_delegate_;
@@ -2038,10 +2042,15 @@ void StoragePartitionImpl::OnAuthRequired(
     int32_t request_id,
     const GURL& url,
     bool first_auth_attempt,
+    bool do_not_prompt_for_login,
     const net::AuthChallengeInfo& auth_info,
     const scoped_refptr<net::HttpResponseHeaders>& head_headers,
     mojo::PendingRemote<network::mojom::AuthChallengeResponder>
         auth_challenge_responder) {
+  // The network service only forwards proxy challenges for requests that must
+  // not prompt for login.
+  DCHECK(!do_not_prompt_for_login || auth_info.is_proxy);
+
   URLLoaderNetworkContext context =
       url_loader_network_observers_.current_context();
   URLLoaderNetworkContext original_context = context;
@@ -2103,8 +2112,12 @@ void StoragePartitionImpl::OnAuthRequired(
 
   // If the request is for a prerendering page, prerendering should be cancelled
   // because the embedder may show UI for auth requests, and it's unsuitable for
-  // a hidden page.
-  if (CancelIfPrerendering(context.navigation_or_document(),
+  // a hidden page. Requests that must not prompt for login never show UI (only
+  // non-UI credential sources may answer them), so they don't cancel
+  // prerendering. Their challenges used to be cancelled in the network service
+  // without reaching here.
+  if (!do_not_prompt_for_login &&
+      CancelIfPrerendering(context.navigation_or_document(),
                            PrerenderFinalStatus::kLoginAuthRequested)) {
     return;
   }
@@ -2209,7 +2222,8 @@ void StoragePartitionImpl::OnAuthRequired(
       std::move(auth_challenge_responder), current_web_contents,
       browser_context_, auth_info, *is_primary_main_frame_navigation,
       *is_navigation_request, process_id, request_id, url, head_headers,
-      first_auth_attempt, frame_tree_node_id);  // deletes self
+      first_auth_attempt, do_not_prompt_for_login,
+      frame_tree_node_id);  // deletes self
 }
 
 void StoragePartitionImpl::OnLocalNetworkAccessPermissionRequired(
@@ -2762,33 +2776,62 @@ void StoragePartitionImpl::OnCanSendDomainReliabilityUpload(
 
 void StoragePartitionImpl::OnClearSiteData(
     const GURL& url,
+    const std::optional<net::SchemefulSite>& top_level_site,
+    const std::optional<base::UnguessableToken>& nonce,
     const std::string& header_value,
     int load_flags,
     const std::optional<net::CookiePartitionKey>& cookie_partition_key,
     bool partitioned_state_allowed_only,
     OnClearSiteDataCallback callback) {
   CHECK(initialized_, base::NotFatalUntil::M159);
-
-  base::WeakPtr<WebContents> weak_web_contents;
-  WebContents* web_contents =
-      url_loader_network_observers_.current_context().GetWebContents();
-  if (web_contents) {
-    weak_web_contents = web_contents->GetWeakPtr();
-    GetContentClient()->browser()->LogWebFeatureForCurrentPage(
-        web_contents->GetPrimaryMainFrame(),
-        blink::mojom::WebFeature::kClearSiteData);
+  // Theoretically, it's possible for CHIPS/3PCP to be off while storage
+  // partitioning is enabled, so we cannot directly derive `nonce` and
+  // `top_level_site` from `cookie_partition_key`. That said, where
+  // `cookie_partition_key` is set, it should match `nonce` and
+  // `top_level_site`. Enforcement is delayed to ensure no WebView problems.
+  if (cookie_partition_key) {
+    CHECK(top_level_site, base::NotFatalUntil::M160);
+    CHECK_EQ(*top_level_site, cookie_partition_key->site(),
+             base::NotFatalUntil::M160);
+    if (cookie_partition_key->nonce()) {
+      CHECK(nonce, base::NotFatalUntil::M160);
+      CHECK_EQ(*nonce, *cookie_partition_key->nonce(),
+               base::NotFatalUntil::M160);
+    } else {
+      CHECK(!nonce, base::NotFatalUntil::M160);
+    }
   }
 
-  std::optional<blink::StorageKey> storage_key = CalculateStorageKey(
-      url::Origin::Create(url),
-      cookie_partition_key.has_value()
-          ? base::OptionalToPtr(cookie_partition_key.value().nonce())
-          : nullptr);
+  URLLoaderNetworkContext& context =
+      url_loader_network_observers_.current_context();
+  // Attribute the feature use to the document that received the header. For a
+  // navigation, that document doesn't exist yet, so defer recording until the
+  // navigation commits. The header may also have been sent by a redirect
+  // response, which must not be attributed to a cross-origin document.
+  if (NavigationOrDocumentHandle* navigation_or_document =
+          context.navigation_or_document()) {
+    if (NavigationRequest* navigation_request =
+            navigation_or_document->GetNavigationRequest()) {
+      navigation_request->AddWebFeatureToLog(
+          blink::mojom::WebFeature::kClearSiteData, url::Origin::Create(url));
+    } else if (RenderFrameHost* rfh = navigation_or_document->GetDocument()) {
+      GetContentClient()->browser()->LogWebFeatureForCurrentPage(
+          rfh, blink::mojom::WebFeature::kClearSiteData);
+    }
+  }
+
+  // TODO(crbug.com/567972108): This function is quite fragile as the render
+  // frame host tree may not be able to accurately calculate the StorageKey in
+  // some cases (like cross-site fetches). Ideally the network service would be
+  // able to calculate and send the accurate storage key directly.
+  std::optional<blink::StorageKey> storage_key =
+      CalculateStorageKeyForClearSiteData(url::Origin::Create(url),
+                                          top_level_site, nonce);
 
   ClearSiteDataHandler::HandleHeader(
-      browser_context()->GetWeakPtr(), weak_web_contents, GetConfig(), url,
-      header_value, load_flags, cookie_partition_key, storage_key,
-      partitioned_state_allowed_only, std::move(callback));
+      browser_context()->GetWeakPtr(), context.navigation_or_document(),
+      GetConfig(), url, header_value, load_flags, cookie_partition_key,
+      storage_key, partitioned_state_allowed_only, std::move(callback));
 }
 
 #if BUILDFLAG(IS_ANDROID)
@@ -2954,7 +2997,9 @@ void StoragePartitionImpl::DataDeletionHelper::OnTaskComplete(
 }
 
 void StoragePartitionImpl::DataDeletionHelper::RecordUnfinishedSubTasks() {
-  CHECK(!pending_tasks_.empty(), base::NotFatalUntil::M159);
+  // TODO(crbug.com/571708559): CHECK-exclusion: Convert to a CHECK once we are
+  // confident it won't be triggered.
+  DCHECK(!pending_tasks_.empty());
   for (TracingDataType task : pending_tasks_) {
     base::UmaHistogramEnumeration(
         "History.ClearBrowsingData.Duration.SlowTasks180sStoragePartition",
@@ -3696,9 +3741,11 @@ void StoragePartitionImpl::BindSessionStorageAreaForProcess(
                                         base::DoNothing());
 }
 
-std::optional<blink::StorageKey> StoragePartitionImpl::CalculateStorageKey(
+std::optional<blink::StorageKey>
+StoragePartitionImpl::CalculateStorageKeyForClearSiteData(
     const url::Origin& origin,
-    const base::UnguessableToken* nonce) {
+    const std::optional<net::SchemefulSite>& top_level_site,
+    const std::optional<base::UnguessableToken>& nonce) {
   if (!blink::StorageKey::IsThirdPartyStoragePartitioningEnabled()) {
     return std::nullopt;
   }
@@ -3730,7 +3777,22 @@ std::optional<blink::StorageKey> StoragePartitionImpl::CalculateStorageKey(
     return std::nullopt;
   }
 
-  return frame_host->CalculateStorageKey(origin, nonce);
+  blink::StorageKey proposed_storage_key =
+      frame_host->CalculateStorageKey(origin, base::OptionalToPtr(nonce));
+
+  // It's possible to get a 1P key above despite being in a cross-site fetch.
+  // The logic below resolves the issue by reconstructing the 3P key using
+  // trusted data from the network service to derive the correct 3P StorageKey.
+  // This ensures when a Clear-Site-Data header is seen in a 1P context on a
+  // fetch we clear 1P and 3P data, but when the same header is seen in a 3P
+  // context, only the 3P data is cleared.
+  if (proposed_storage_key.IsFirstPartyContext() && top_level_site &&
+      *top_level_site != proposed_storage_key.top_level_site()) {
+    proposed_storage_key = blink::StorageKey::Create(
+        proposed_storage_key.origin(), *top_level_site,
+        blink::mojom::AncestorChainBit::kCrossSite);
+  }
+  return proposed_storage_key;
 }
 
 GlobalRenderFrameHostId

@@ -115,8 +115,8 @@
 #include "chrome/browser/ash/shimless_rma/chrome_shimless_rma_delegate.h"
 #include "chromeos/ash/components/browser_context_helper/browser_context_types.h"
 #include "chromeos/components/kiosk/kiosk_utils.h"
-#include "components/user_manager/user.h"
-#include "components/user_manager/user_manager.h"
+#include "components/session_manager/core/session.h"
+#include "components/session_manager/core/session_manager.h"
 #endif
 
 #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
@@ -196,7 +196,8 @@ bool ShouldUseQuietUI(content::WebContents* web_contents,
 std::optional<url::Origin> GetCurrentKioskOrigin() {
   if (chromeos::IsWebKioskSession()) {
     const AccountId& account_id =
-        user_manager::UserManager::Get()->GetPrimaryUser()->GetAccountId();
+        CHECK_DEREF(session_manager::SessionManager::Get()->GetPrimarySession())
+            .account_id();
     DCHECK(ash::KioskWebAppManager::IsInitialized());
     const ash::KioskWebAppData* app_data =
         ash::KioskWebAppManager::Get()->GetAppByAccountId(account_id);
@@ -206,7 +207,8 @@ std::optional<url::Origin> GetCurrentKioskOrigin() {
 
   if (chromeos::IsIwaKioskSession()) {
     const AccountId& account_id =
-        user_manager::UserManager::Get()->GetPrimaryUser()->GetAccountId();
+        CHECK_DEREF(session_manager::SessionManager::Get()->GetPrimarySession())
+            .account_id();
     const ash::KioskIwaData* iwa_data =
         CHECK_DEREF(ash::KioskIwaManager::Get()).GetApp(account_id);
     return CHECK_DEREF(iwa_data).origin();
@@ -829,36 +831,13 @@ std::optional<GURL> ChromePermissionsClient::GetCanonicalOriginOverride(
   return std::nullopt;
 }
 
+#if BUILDFLAG(ENABLE_EXTENSIONS) && !BUILDFLAG(IS_ANDROID)
 std::optional<GURL> ChromePermissionsClient::GetEmbeddingOriginOverride(
     const GURL& requesting_origin,
     content::RenderFrameHost* render_frame_host) {
   content::WebContents* web_contents =
       content::WebContents::FromRenderFrameHost(render_frame_host);
-  content::WebContents* embedder_web_contents =
-      web_contents->GetOutermostWebContents();
-  url::Origin embedder =
-      embedder_web_contents->GetPrimaryMainFrame()->GetLastCommittedOrigin();
 
-  // New Tab Page:
-  // Use the WebContents origin as the embedding origin when the requesting
-  // origin is the NTP (chrome://new-tab-page).
-  // Note that the embedding origin is later transformed to the DSE origin via
-  // `GetCanonicalOriginOverride()`.
-  if (embedder == GetNewTabOrigin() || embedder == GetNtpOrigin()) {
-    return embedder.GetURL();
-  }
-
-  if (embedder == GetContextualTasksOrigin() ||
-      embedder == GetOmniboxPopupOrigin() ||
-      embedder == GetOmniboxEverywhereOrigin()) {
-    // Omnibox Popup, Omnibox Everywhere, and Contextual Tasks:
-    // Use the WebContents origin as the embedding origin.
-    // Note that the embedding origin is later transformed to the DSE origin via
-    // `GetCanonicalOriginOverride()`.
-    return embedder.GetURL();
-  }
-
-#if BUILDFLAG(ENABLE_EXTENSIONS) && !BUILDFLAG(IS_ANDROID)
   // When a MIME handler extension is rendered as an OOPIF, key the
   // embedding origin to the extension so prompts and content settings
   // are attributed to the extension that produced the streamed content,
@@ -884,10 +863,10 @@ std::optional<GURL> ChromePermissionsClient::GetEmbeddingOriginOverride(
       }
     }
   }
-#endif  // BUILDFLAG(ENABLE_EXTENSIONS) && !BUILDFLAG(IS_ANDROID)
 
   return std::nullopt;
 }
+#endif  // BUILDFLAG(ENABLE_EXTENSIONS) && !BUILDFLAG(IS_ANDROID)
 
 std::optional<content::PermissionResult>
 ChromePermissionsClient::GetPermissionResultOverride(

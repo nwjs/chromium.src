@@ -145,9 +145,6 @@ bool ShouldIgnoreHistorySyncDeclineLimits();
 // Returns `std::nullopt` if no override is specified.
 std::optional<int> GetForcedInactivityThresholdForSafetyCheckNotifications();
 
-// Returns the forced state of the Tips (Magic Stack) module.
-std::optional<int> GetForcedTipsMagicStackState();
-
 // Whether the Lens Shop state for Tips (Magic Stack) should display a product
 // image.
 bool ShouldDisplayLensShopTipWithImage();
@@ -223,6 +220,26 @@ enum class UniversalOptOutEligibilityOverride {
 
 // Returns the forced state of Universal Opt-Out eligibility.
 UniversalOptOutEligibilityOverride GetUniversalOptOutEligibilityOverride();
+
+// Key in NSUserDefaults for simulated web extension loading delay and failure.
+extern NSString* const kWebExtensionLoadDelay;
+
+// Values for `kWebExtensionLoadDelay` in NSUserDefaults.
+extern NSString* const kWebExtensionLoadDelayNoDelayFail;
+extern NSString* const kWebExtensionLoadDelay1s;
+extern NSString* const kWebExtensionLoadDelay1sFail;
+extern NSString* const kWebExtensionLoadDelay5s;
+extern NSString* const kWebExtensionLoadDelay5sFail;
+
+// Returns the simulated delay for loading the web extension.
+base::TimeDelta GetWebExtensionLoadDelay();
+
+// Whether loading the web extension should simulate a failure.
+bool ShouldWebExtensionLoadFail();
+
+// Returns true if the web extension load delay experimental flag is set to
+// default.
+bool IsWebExtensionLoadDelayDefault();
 
 // Whether App Switcher AI summarization external URL testing is enabled.
 bool IsAppSwitcherAISummarizationTestingExternalURLEnabled();

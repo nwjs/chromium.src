@@ -11,6 +11,7 @@
 #include "base/containers/to_vector.h"
 #include "base/logging.h"
 #include "base/memory/ptr_util.h"
+#include "base/notreached.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
@@ -211,9 +212,8 @@ std::optional<ChromeRootStoreData::Anchor> CreateChromeRootStoreDataAnchor(
     return std::nullopt;
   }
 
-  auto parsed = bssl::ParsedCertificate::Create(
-      net::x509_util::CreateCryptoBuffer(anchor.der()),
-      net::x509_util::DefaultParseCertificateOptions(), nullptr);
+  auto parsed = net::x509_util::CreateParsedCertificate(
+      net::x509_util::CreateCryptoBuffer(anchor.der()), nullptr);
   if (!parsed) {
     LOG(ERROR) << "Error parsing cert for update";
     return std::nullopt;
@@ -323,8 +323,7 @@ ChromeRootStoreData::ChromeRootStoreData(
       cert = x509_util::CreateCryptoBuffer(cert_info.root_cert_der);
     }
     bssl::CertErrors errors;
-    auto parsed = bssl::ParsedCertificate::Create(
-        std::move(cert), x509_util::DefaultParseCertificateOptions(), &errors);
+    auto parsed = x509_util::CreateParsedCertificate(std::move(cert), &errors);
     // There should always be a valid cert, because we should be parsing Chrome
     // Root Store static data compiled in.
     CHECK(parsed);
@@ -346,8 +345,7 @@ ChromeRootStoreData::ChromeRootStoreData(
       cert = x509_util::CreateCryptoBuffer(cert_bytes);
     }
     bssl::CertErrors errors;
-    auto parsed = bssl::ParsedCertificate::Create(
-        std::move(cert), x509_util::DefaultParseCertificateOptions(), &errors);
+    auto parsed = x509_util::CreateParsedCertificate(std::move(cert), &errors);
     CHECK(parsed);
     // crs_root_id is not populated for eutl certs, since it isn't quite the
     // same thing. If we want to add an eutl usage histogram, we'd need to
@@ -451,10 +449,39 @@ TrustStoreChrome::TrustStoreChrome(
         }
       }
 
-      auto bssl_mtc_anchor = std::make_shared<const bssl::MTCAnchor>(
-          issuer.base_id, issuer.signature_algorithm,
-          bssl::UpRef(issuer.key.get()), std::move(trusted_subtrees));
-      CHECK(trust_store_.AddMTCTrustAnchor(std::move(bssl_mtc_anchor)));
+      std::shared_ptr<const bssl::MTCAnchor> bssl_mtc_anchor;
+      switch (issuer.spec_version) {
+        case chrome_root_store::SPEC_VERSION_DRAFT05:
+          bssl_mtc_anchor = std::make_shared<const bssl::MTCAnchor>(
+              issuer.base_id, issuer.signature_algorithm,
+              bssl::UpRef(issuer.key.get()), std::move(trusted_subtrees));
+          break;
+        case chrome_root_store::SPEC_VERSION_DRAFT07:
+          bssl_mtc_anchor = bssl::MTCAnchor::CreatePlants07(
+              issuer.base_id, issuer.signature_algorithm,
+              bssl::UpRef(issuer.key.get()), std::move(trusted_subtrees));
+          break;
+        default:
+          // Unknown spec versions are filtered out in ParseAndFilterSigner, so
+          // we don't need to cleanly handle it here.
+          NOTREACHED();
+      }
+      if (!bssl_mtc_anchor ||
+          !trust_store_.AddMTCTrustAnchor(std::move(bssl_mtc_anchor))) {
+        // TODO(crbug.com/452986180): ignoring an invalid issuer at this point
+        // isn't ideal. The way code is structured now makes that a bit hard to
+        // handle a failure here properly since if it got this far the
+        // component update has already been accepted and replaced any
+        // previous component data, TAI code has already decided it's ok to
+        // advertise the TAI for this issuer, etc.
+        //
+        // Also the failure may have just been the trusted_subtrees from
+        // fastpush component being invalid, perhaps we should try again but
+        // creating the MTCAnchor with no trusted subtrees? (Even then, we'd
+        // already be advertising TAI for the landmarks, so it wouldn't really
+        // help much.)
+        continue;
+      }
 
       mtc_anchor_extra_data_.emplace(issuer.base_id,
                                      std::move(trust_store_anchor_data));
@@ -1051,6 +1078,27 @@ bool ParseAndFilterSigner(const chrome_root_store::Signer& signer_proto,
     signer.key = x509_util::CreateCryptoBufferFromStaticDataUnsafe(*key);
   }
 
+  switch (signer_proto.spec_version()) {
+    case chrome_root_store::SPEC_VERSION_DRAFT05:
+    case chrome_root_store::SPEC_VERSION_DRAFT07:
+      signer.spec_version = signer_proto.spec_version();
+      break;
+    case chrome_root_store::SPEC_VERSION_UNSET:
+      // TODO(crbug.com/452986180): The signer_set.textproto doesn't have spec
+      // version on existing issuers, so consider any issuer without a version
+      // as plants-05. Remove this after the proto has been updated with
+      // versions on all issuers.
+      signer.spec_version = chrome_root_store::SPEC_VERSION_DRAFT05;
+      break;
+    default:
+      if (signer.type == chrome_root_store::SIGNER_TYPE_ISSUER) {
+        // An unknown spec version causes an issuer to be ignored, but is not
+        // considered a parsing failure. Spec version is not required on
+        // mirrors.
+        return true;
+      }
+  }
+
   std::optional<bssl::SignatureAlgorithm> sigalg =
       SignerSignatureAlgorithmToBsslSignatureAlgorithm(
           signer_proto.signature_algorithm());
@@ -1271,6 +1319,7 @@ Signer Signer::CreateForTesting(chrome_root_store::SignerType type,
   signer.type = type;
   signer.realm = chrome_root_store::REALM_PUBLICLY_TRUSTED;
   signer.signature_algorithm = bssl::SignatureAlgorithm::kMldsa44;
+  signer.spec_version = chrome_root_store::SPEC_VERSION_DRAFT07;
 
   return signer;
 }

@@ -171,6 +171,8 @@ SET TIMEOUT: annotation-model/scripts/ajv.min.js
 SET TIMEOUT: apng/animated-png-timeout.html
 SET TIMEOUT: avif/animated-avif-timeout.html
 SET TIMEOUT: jpegxl/animated-img-timeout.html
+SET TIMEOUT: clear-site-data/no-cors-fetch-iframe.https.sub.html
+SET TIMEOUT: clear-site-data/no-cors-fetch-window.https.sub.html
 SET TIMEOUT: cookies/resources/testharness-helpers.js
 SET TIMEOUT: common/reftest-wait.js
 SET TIMEOUT: compute-pressure/resources/support-iframe.html
@@ -441,7 +443,6 @@ SET TIMEOUT: document-policy/font-display/override-to-optional.tentative.html
 SET TIMEOUT: geolocation/watchposition-timeout.https.window.js
 SET TIMEOUT: permissions-policy/experimental-features/resources/focus-without-user-activation-iframe-tentative.html
 SET TIMEOUT: html/browsers/windows/auxiliary-browsing-contexts/resources/close-opener.html
-SET TIMEOUT: html/cross-origin-embedder-policy/resources/reporting-worker.js
 SET TIMEOUT: html/cross-origin-opener-policy/navigate-to-aboutblank.https.html
 SET TIMEOUT: html/cross-origin-opener-policy/navigate-top-to-aboutblank.https.html
 SET TIMEOUT: html/dom/documents/dom-tree-accessors/Document.currentScript.html

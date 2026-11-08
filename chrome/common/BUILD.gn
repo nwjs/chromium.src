@@ -7,6 +7,7 @@ import("//build/config/chrome_build.gni")
 import("//build/util/process_version.gni")
 import("//chrome/browser/downgrade/buildflags.gni")
 import("//chrome/common/features.gni")
+import("//chrome/common/request_header_integrity/buildflags.gni")
 import("//components/cdm/common/playready.gni")
 import("//components/offline_pages/buildflags/features.gni")
 import("//components/signin/features.gni")
@@ -84,7 +85,6 @@ source_set("channel_info") {
     "channel_info.cc",
     "channel_info.h",
   ]
-  configs += [ "//build/config/compiler:wexit_time_destructors" ]
   deps = [ "//build:branding_buildflags" ]
   public_deps = [
     "//base",
@@ -112,7 +112,6 @@ source_set("ini_parser") {
     "ini_parser.cc",
     "ini_parser.h",
   ]
-  configs += [ "//build/config/compiler:wexit_time_destructors" ]
   deps = [ "//base" ]
 }
 
@@ -125,7 +124,6 @@ group("common") {
 
 source_set("request_code_constants") {
   sources = [ "chrome_resource_request_blocked_reason.h" ]
-  configs += [ "//build/config/compiler:wexit_time_destructors" ]
   public_deps = [ "//content/public/common" ]
 }
 
@@ -178,10 +176,7 @@ static_library("common_lib") {
   ]
   defines = []
 
-  configs += [
-    "//build/config:precompiled_headers",
-    "//build/config/compiler:wexit_time_destructors",
-  ]
+  configs += [ "//build/config:precompiled_headers" ]
 
   public_deps = [
     ":buildflags",
@@ -200,7 +195,6 @@ static_library("common_lib") {
     "//chrome/app/theme:theme_resources",
     "//chrome/common:constants",
     "//chrome/common/net",
-    "//chrome/common/platform_runtime",
     "//chrome/common/profiler",
     "//chrome/common/search:mojo_bindings",
     "//chrome/installer/util:with_no_strings",
@@ -471,7 +465,6 @@ static_library("non_code_constants") {
     "chrome_switches.h",
     "env_vars.h",
   ]
-  configs += [ "//build/config/compiler:wexit_time_destructors" ]
 
   deps = [
     ":buildflags",
@@ -503,7 +496,6 @@ component("chrome_features") {
     "chrome_features.cc",
     "chrome_features.h",
   ]
-  configs += [ "//build/config/compiler:wexit_time_destructors" ]
 
   deps = [
     ":buildflags",
@@ -531,7 +523,6 @@ static_library("url_constants") {
     "webui_url_constants.cc",
     "webui_url_constants.h",
   ]
-  configs += [ "//build/config/compiler:wexit_time_destructors" ]
 
   public_deps = [
     ":buildflags",
@@ -571,7 +562,6 @@ static_library("constants") {
     "pref_font_webkit_names.h",
     "pref_names.h",
   ]
-  configs += [ "//build/config/compiler:wexit_time_destructors" ]
 
   public_deps = [
     ":buildflags",
@@ -674,8 +664,6 @@ if (is_mac) {
       "mac/app_mode_common.h",
       "mac/app_mode_common.mm",
     ]
-
-    configs += [ "//build/config/compiler:wexit_time_destructors" ]
 
     deps = [
       ":constants",
@@ -806,6 +794,11 @@ mojom("mojo_bindings") {
   if (enable_pdf) {
     enabled_features += [ "enable_pdf" ]
   }
+
+  if (enable_request_header_integrity && !is_android) {
+    enabled_features += [ "enable_request_header_integrity" ]
+    public_deps += [ "//services/network/public/mojom:url_loader_base" ]
+  }
 }
 
 mojom("glic_enums_mojom") {
@@ -840,4 +833,70 @@ mojom("supervised_user_commands_mojom") {
 mojom("offline_page_auto_fetcher_mojom") {
   sources = [ "offline_page_auto_fetcher.mojom" ]
   public_deps = [ "//url/mojom:url_mojom_gurl" ]
+}
+
+if (!is_android) {
+  source_set("browser_tests") {
+    testonly = true
+    defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
+    sources = [ "chrome_paths_browsertest.cc" ]
+    deps = [
+      "//chrome/test:test_support",
+      "//chrome/test:test_support_ui",
+      "//content/test:test_support",
+      "//testing/gtest",
+    ]
+    if (is_posix && !is_chromeos) {
+      sources += [ "time_format_browsertest.cc" ]
+    }
+    if (is_mac) {
+      sources += [ "mac/app_mode_chrome_locator_browsertest.mm" ]
+    }
+  }
+}
+
+source_set("unit_tests") {
+  testonly = true
+  sources = [
+    "chrome_content_client_unittest.cc",
+    "chrome_paths_unittest.cc",
+    "crash_keys_unittest.cc",
+    "google_url_loader_throttle_unittest.cc",
+    "ini_parser_unittest.cc",
+    "pref_names_util_unittest.cc",
+    "webui_util_unittest.cc",
+  ]
+  deps = [
+    "//chrome/test:test_support",
+    "//testing/gmock",
+    "//testing/gtest",
+  ]
+  if (is_win) {
+    sources += [
+      "chrome_constants_win_unittest.cc",
+      "conflicts/module_watcher_win_unittest.cc",
+      "conflicts/remote_module_watcher_win_unittest.cc",
+    ]
+  }
+  if (is_mac) {
+    sources += [ "mac/app_mode_common_unittest.mm" ]
+  }
+  if (is_chromeos) {
+    sources += [ "chrome_constants_ash_unittest.cc" ]
+  }
+  if (enable_pdf) {
+    sources += [ "pdf_util_unittest.cc" ]
+    deps += [ "//pdf:content_restriction" ]
+  }
+  if (!is_android && !is_chromeos) {
+    sources += [ "channel_info_unittest.cc" ]
+  }
+  if (enable_widevine_cdm_component && is_linux) {
+    sources += [ "media/component_widevine_cdm_hint_file_linux_unittest.cc" ]
+  }
+  if (enable_widevine && is_linux) {
+    sources += [ "media/cdm_registration_unittest.cc" ]
+    deps += [ "//third_party/widevine/cdm:headers" ]
+    data_deps = [ "//third_party/widevine/cdm" ]
+  }
 }

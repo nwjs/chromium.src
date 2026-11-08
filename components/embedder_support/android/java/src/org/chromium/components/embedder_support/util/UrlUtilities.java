@@ -18,6 +18,7 @@ import org.chromium.build.annotations.Contract;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.components.url_formatter.UrlFormatter;
+import org.chromium.content_public.common.ContentUrlConstants;
 import org.chromium.url.GURL;
 
 import java.util.ArrayList;
@@ -326,6 +327,7 @@ public class UrlUtilities {
         if (!gurl.isValid() || !isInternalScheme(gurl)) return false;
         return UrlConstants.NTP_HOST.equals(gurl.getHost())
                 || UrlConstants.NEW_TAB_PAGE_HOST.equals(gurl.getHost())
+                || UrlConstants.NEW_TAB_PAGE_THIRD_PARTY_HOST.equals(gurl.getHost())
                 || UrlConstants.NEW_TAB_PAGE_URL_LEGACY.equals(gurl.getValidSpecOrEmpty());
     }
 
@@ -345,6 +347,18 @@ public class UrlUtilities {
         // chrome:// scheme so that GURL parses the host correctly.
         GURL gurl = UrlFormatter.fixupUrl(url);
         return isNtpUrl(gurl);
+    }
+
+    /**
+     * @param url The GURL to check.
+     * @return Whether the passed in URL is for the NTP or about:blank.
+     */
+    public static boolean isNtpOrAboutBlank(@Nullable GURL url) {
+        if (url == null) return false;
+        String urlString = url.getValidSpecOrEmpty();
+        return isNtpUrl(url)
+                || TextUtils.equals(urlString, ContentUrlConstants.ABOUT_BLANK_DISPLAY_URL)
+                || TextUtils.equals(urlString, ContentUrlConstants.ABOUT_BLANK_URL);
     }
 
     /**

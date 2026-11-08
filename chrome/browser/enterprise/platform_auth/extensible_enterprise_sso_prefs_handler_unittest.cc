@@ -19,6 +19,7 @@
 #include "base/strings/sys_string_conversions.h"
 #include "base/task/current_thread.h"
 #include "base/values.h"
+#include "chrome/browser/enterprise/platform_auth/extensible_enterprise_sso_metadata.h"
 #include "chrome/browser/enterprise/platform_auth/scoped_cf_prefs_observer_override.h"
 #include "chrome/common/pref_names.h"
 #include "components/prefs/testing_pref_service.h"
@@ -30,6 +31,7 @@ namespace enterprise_auth {
 namespace {
 
 const CFStringRef kInvalidPropID(CFSTR("INVALID_ID"));
+const CFStringRef kEmptyPropID(CFSTR(""));
 
 }  // namespace
 
@@ -37,7 +39,7 @@ using ScopedPropList = base::apple::ScopedCFTypeRef<CFPropertyListRef>;
 
 class TestCFWrapper : public CFPreferencesObserver {
  public:
-  explicit TestCFWrapper(base::RepeatingClosure* callback, Config* config)
+  explicit TestCFWrapper(base::RepeatingClosure* callback, RawConfig* config)
       : callback_(callback), config_(config) {}
 
   void Subscribe(base::RepeatingClosure on_update) override {
@@ -52,13 +54,13 @@ class TestCFWrapper : public CFPreferencesObserver {
     }
   }
 
-  base::OnceCallback<Config()> GetReadConfigCallback() override {
-    return base::BindOnce([](Config config) { return config; }, *config_);
+  base::OnceCallback<RawConfig()> GetReadConfigCallback() override {
+    return base::BindOnce([](RawConfig config) { return config; }, *config_);
   }
 
  private:
   raw_ptr<base::RepeatingClosure> callback_;
-  raw_ptr<Config> config_;
+  raw_ptr<RawConfig> config_;
 };
 
 class ExtensibleEnterpriseSSOPrefsHandlerTest : public testing::Test {
@@ -92,10 +94,9 @@ class ExtensibleEnterpriseSSOPrefsHandlerTest : public testing::Test {
   }
 
   void SetHostsPropertyOverride(ScopedPropList hosts) {
-    ScopedPropList extension_id_prop = base::apple::ScopedCFTypeRef(
-        ExtensibleEnterpriseSSOPrefsHandler::kOktaSSOExtensionID);
-    ScopedPropList team_id_prop = base::apple::ScopedCFTypeRef(
-        ExtensibleEnterpriseSSOPrefsHandler::kOktaSSOTeamID);
+    ScopedPropList extension_id_prop =
+        base::apple::ScopedCFTypeRef(kOktaSsoExtensionId);
+    ScopedPropList team_id_prop = base::apple::ScopedCFTypeRef(kOktaSsoTeamId);
     SetConfigOverride(std::move(extension_id_prop), std::move(team_id_prop),
                       std::move(hosts));
   }
@@ -107,7 +108,7 @@ class ExtensibleEnterpriseSSOPrefsHandlerTest : public testing::Test {
   void SetConfigOverride(ScopedPropList extension_id,
                          ScopedPropList team_id,
                          ScopedPropList hosts) {
-    config_ = CFPreferencesObserver::Config(
+    config_ = CFPreferencesObserver::RawConfig(
         std::move(extension_id), std::move(team_id), std::move(hosts));
   }
 
@@ -133,9 +134,9 @@ class ExtensibleEnterpriseSSOPrefsHandlerTest : public testing::Test {
   }
 
   content::BrowserTaskEnvironment task_environment_;
-  CFPreferencesObserver::Config config_{/*extension_id=*/ScopedPropList(),
-                                        /*team_id=*/ScopedPropList(),
-                                        /*hosts=*/ScopedPropList()};
+  CFPreferencesObserver::RawConfig config_{/*extension_id=*/ScopedPropList(),
+                                           /*team_id=*/ScopedPropList(),
+                                           /*hosts=*/ScopedPropList()};
   std::unique_ptr<ExtensibleEnterpriseSSOPrefsHandler> prefs_handler_;
   base::RepeatingClosure notification_callback_;
   TestingPrefServiceSimple pref_service_;
@@ -333,16 +334,18 @@ INSTANTIATE_TEST_SUITE_P(
     All,
     ExtensibleEnterpriseSSOPrefsHandlerConfigTest,
     testing::Values(
-        ConfigTestParams({kInvalidPropID,
-                          ExtensibleEnterpriseSSOPrefsHandler::kOktaSSOTeamID}),
-        ConfigTestParams(
-            {ExtensibleEnterpriseSSOPrefsHandler::kOktaSSOExtensionID,
-             kInvalidPropID}),
-        ConfigTestParams({nullptr,
-                          ExtensibleEnterpriseSSOPrefsHandler::kOktaSSOTeamID}),
-        ConfigTestParams(
-            {ExtensibleEnterpriseSSOPrefsHandler::kOktaSSOExtensionID,
-             nullptr}),
-        ConfigTestParams({nullptr, nullptr})));
+        ConfigTestParams({kInvalidPropID, kOktaSsoTeamId}),
+        ConfigTestParams({kOktaSsoExtensionId, kInvalidPropID}),
+        ConfigTestParams({nullptr, kOktaSsoTeamId}),
+        ConfigTestParams({kOktaSsoExtensionId, nullptr}),
+        ConfigTestParams({nullptr, nullptr}),
+        ConfigTestParams({kEmptyPropID, kOktaSsoTeamId}),
+        ConfigTestParams({kOktaSsoExtensionId, kEmptyPropID}),
+        ConfigTestParams({kEmptyPropID, kEmptyPropID}),
+        // Microsoft is a supported IdP, but host syncing is Okta-only.
+        ConfigTestParams({kMicrosoftSsoExtensionId, kMicrosoftSsoTeamId}),
+        // IDs from different IdPs must not be combined.
+        ConfigTestParams({kOktaSsoExtensionId, kMicrosoftSsoTeamId}),
+        ConfigTestParams({kMicrosoftSsoExtensionId, kOktaSsoTeamId})));
 
 }  // namespace enterprise_auth

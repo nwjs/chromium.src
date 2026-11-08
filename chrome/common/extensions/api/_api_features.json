@@ -18,46 +18,6 @@
     "dependencies": ["permission:accessibilityFeatures.read"],
     "contexts": ["privileged_extension"]
   }],
-  "accessibilityPrivate": {
-    "dependencies": ["permission:accessibilityPrivate"],
-    "contexts": ["privileged_extension"]
-  },
-  "accessibilityPrivate.onTwoFingerTouchStart": {
-    "channel": "stable",
-    "contexts": ["privileged_extension"],
-    "dependencies": [],
-    "extension_types": ["platform_app"],
-    "session_types": ["kiosk"],
-    "allowlist": [
-       "E703483CEF33DEC18B4B6DD84B5C776FB9182BDB",  // http://crbug.com/717501
-       "A3BC37E2148AC4E99BE4B16AF9D42DD1E592BBBE",  // http://crbug.com/717501
-       "1C93BD3CF875F4A73C0B2A163BB8FBDA8B8B3D80",  // http://crbug.com/717501
-       "307E96539209F95A1A8740C713E6998A73657D96",  // http://crbug.com/717501
-       "4F25792AF1AA7483936DE29C07806F203C7170A0",  // http://crbug.com/717501
-       "BD8781D757D830FC2E85470A1B6E8A718B7EE0D9",  // http://crbug.com/717501
-       "4AC2B6C63C6480D150DFDA13E4A5956EB1D0DDBB",  // http://crbug.com/717501
-       "81986D4F846CEDDDB962643FA501D1780DD441BB",  // http://crbug.com/717501
-       "A9A9FC0228ADF541F0334F22BEFB8F9C245B21D7"   // http://crbug.com/839189
-    ]
-  },
-  "accessibilityPrivate.onTwoFingerTouchStop": {
-    "channel": "stable",
-    "contexts": ["privileged_extension"],
-    "dependencies": [],
-    "extension_types": ["platform_app"],
-    "session_types": ["kiosk"],
-    "allowlist": [
-       "E703483CEF33DEC18B4B6DD84B5C776FB9182BDB",  // http://crbug.com/717501
-       "A3BC37E2148AC4E99BE4B16AF9D42DD1E592BBBE",  // http://crbug.com/717501
-       "1C93BD3CF875F4A73C0B2A163BB8FBDA8B8B3D80",  // http://crbug.com/717501
-       "307E96539209F95A1A8740C713E6998A73657D96",  // http://crbug.com/717501
-       "4F25792AF1AA7483936DE29C07806F203C7170A0",  // http://crbug.com/717501
-       "BD8781D757D830FC2E85470A1B6E8A718B7EE0D9",  // http://crbug.com/717501
-       "4AC2B6C63C6480D150DFDA13E4A5956EB1D0DDBB",  // http://crbug.com/717501
-       "81986D4F846CEDDDB962643FA501D1780DD441BB",  // http://crbug.com/717501
-       "A9A9FC0228ADF541F0334F22BEFB8F9C245B21D7"   // http://crbug.com/839189
-    ]
-  },
   "accessibilityServicePrivate": {
     "dependencies": ["permission:accessibilityServicePrivate"],
     "contexts": ["privileged_extension"],
@@ -91,6 +51,20 @@
     "contexts": ["privileged_extension"],
     "dependencies": ["permission:experimentalAiData"]
   },
+  "experimentalAiData.getNodeForDomNodeId": {
+    "contexts": ["content_script"],
+    "component_extensions_auto_granted": false,
+    "allowlist": [
+      "C01350F1D6603DCC4F1340831ABBB089BF7E56E0"  // APC Debugging Extension
+    ]
+  },
+  "experimentalAiData.getDomNodeId": {
+    "contexts": ["content_script"],
+    "component_extensions_auto_granted": false,
+    "allowlist": [
+      "C01350F1D6603DCC4F1340831ABBB089BF7E56E0"  // APC Debugging Extension
+    ]
+  },
   "glicPrivate": {
     "contexts": ["privileged_extension"],
     "dependencies": ["permission:glicPrivate"],
@@ -101,9 +75,18 @@
   },
   "app": {
     "blocklist": [
-      "2FC374607C2DF285634B67C64A2E356C607091C3",  // Quickoffice
-      "3727DD3E564B6055387425027AD74C58784ACC15",  // Quickoffice internal
-      "12E618C3C6E97495AAECF2AC12DEB082353241C6",  // QO component extension
+      // Quickoffice
+      "2FC374607C2DF285634B67C64A2E356C607091C3",
+      // Quickoffice (SHA-256)
+      "5F81F9FE1F4F499490466BC3861653FE72DE22E2BA8E4E5769DED9FB2C7EE2D0",
+      // Quickoffice internal
+      "3727DD3E564B6055387425027AD74C58784ACC15",
+      // Quickoffice internal (SHA-256)
+      "04C5C683BDBBDA3120FDD1043E96E551185C57F38BE14EE17B5993F6AD4C592F",
+      // QO component extension
+      "12E618C3C6E97495AAECF2AC12DEB082353241C6",
+      // QO component extension (SHA-256)
+      "0EEEFAA87E292CD986DD0528E90F9128A936B1C4E1C53E7FAA0244594C69DF94",
       "06BE211D5F014BAB34BC22D9DDA09C63A81D828E",  // Official xkb extension
       "F94EE6AB36D6C6588670B2B01EB65212D9C64E33",  // Open source xkb extension
       "B9EF10DDFEA11EF77873CC5009809E5037FC4C7A"   // Google input tools
@@ -216,21 +199,6 @@
     "dependencies": ["permission:browsingData"],
     "contexts": ["privileged_extension"]
   },
-  "certificateProvider": {
-    "dependencies": ["permission:certificateProvider"],
-    "contexts": ["privileged_extension"]
-  },
-  "certificateProvider.onCertificatesRequested": {
-    "max_manifest_version": 2
-  },
-  "certificateProvider.onSignDigestRequested": {
-    "max_manifest_version": 2
-  },
-  "certificateProviderInternal": {
-    "internal": true,
-    "dependencies": ["permission:certificateProvider"],
-    "contexts": ["privileged_extension"]
-  },
   "chromeosInfoPrivate": [{
     "dependencies": ["permission:chromeosInfoPrivate"],
     "contexts": ["privileged_extension"]
@@ -314,10 +282,6 @@
   },
   "contextMenus": {
     "dependencies": ["permission:contextMenus"],
-    "contexts": ["privileged_extension"]
-  },
-  "cookies": {
-    "dependencies": ["permission:cookies"],
     "contexts": ["privileged_extension"]
   },
   "crashReportPrivate": [{
@@ -596,10 +560,6 @@
     ],
     "disallow_for_service_workers": true
   },
-  "imageLoaderPrivate": {
-    "dependencies": ["permission:imageLoaderPrivate"],
-    "contexts": ["privileged_extension"]
-  },
   "input.ime": {
     "dependencies": ["permission:input"],
     "contexts": ["privileged_extension"],
@@ -672,11 +632,20 @@
     "dependencies": ["permission:login"],
     "contexts": ["privileged_extension"],
     "allowlist": [
-      "93B7178E8C275515C38D4F43D9DF4648F0EA9B03", // Identity Card Connector
-      "7FE4A999359A456C4B0FB7B7AD85CEA29CA50519", // Login screen APIs test extension
+      // Identity Card Connector
+      "93B7178E8C275515C38D4F43D9DF4648F0EA9B03",
+      // Identity Card Connector (SHA-256)
+      "BABE7AD8BDBAFCD146D50861BF6981DA7AC2961C1982E5F78EDBD7A5FAA62259",
+      // Login screen APIs test extension
+      "7FE4A999359A456C4B0FB7B7AD85CEA29CA50519",
+      // Login screen APIs test extension (SHA-256)
+      "9C98730E21CB6AC1A7EA3CE3D528F8CD68BDBDA5BFCD008965F9AB1C1B0C82ED",
       "3F5995FE79A861F019C6F093BEF98D73FA9D3A5F", // Login screen APIs in-session test extension
       // https://crbug.com/433867146
-      "4B7E9789426EBD1BB3F99D72690DAE303FC042DF", // AuthX Secure for ChromeOS
+      // AuthX Secure for ChromeOS
+      "4B7E9789426EBD1BB3F99D72690DAE303FC042DF",
+      // AuthX Secure for ChromeOS (SHA-256)
+      "728AA38F805D9F046321CA8CFE30621958B2F45C1920F3172B64A9A459DABFF5",
       // https://crbug.com/485245112
       "36F5326E7683E204CE9CE1532093D8BB9CD5D280"  // AuthX in-session extension
     ]
@@ -687,11 +656,20 @@
   }, {
     "dependencies": ["permission:login"],
     "allowlist": [
-      "93B7178E8C275515C38D4F43D9DF4648F0EA9B03", // Identity Card Connector
-      "7FE4A999359A456C4B0FB7B7AD85CEA29CA50519", // Login screen APIs test extension
+      // Identity Card Connector
+      "93B7178E8C275515C38D4F43D9DF4648F0EA9B03",
+      // Identity Card Connector (SHA-256)
+      "BABE7AD8BDBAFCD146D50861BF6981DA7AC2961C1982E5F78EDBD7A5FAA62259",
+      // Login screen APIs test extension
+      "7FE4A999359A456C4B0FB7B7AD85CEA29CA50519",
+      // Login screen APIs test extension (SHA-256)
+      "9C98730E21CB6AC1A7EA3CE3D528F8CD68BDBDA5BFCD008965F9AB1C1B0C82ED",
       "3F5995FE79A861F019C6F093BEF98D73FA9D3A5F", // Login screen APIs in-session test extension
       // https://crbug.com/433867146
-      "4B7E9789426EBD1BB3F99D72690DAE303FC042DF", // AuthX Secure for ChromeOS
+      // AuthX Secure for ChromeOS
+      "4B7E9789426EBD1BB3F99D72690DAE303FC042DF",
+      // AuthX Secure for ChromeOS (SHA-256)
+      "728AA38F805D9F046321CA8CFE30621958B2F45C1920F3172B64A9A459DABFF5",
       // https://crbug.com/485245112
       "36F5326E7683E204CE9CE1532093D8BB9CD5D280", // AuthX in-session extension
       // Only has access to login.exitCurrentSession
@@ -709,10 +687,6 @@
   }],
   "loginScreenStorage": {
     "dependencies": ["permission:loginScreenStorage"],
-    "contexts": ["privileged_extension"]
-  },
-  "loginScreenUi": {
-    "dependencies": ["permission:loginScreenUi"],
     "contexts": ["privileged_extension"]
   },
   "loginState": {

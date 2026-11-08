@@ -9,13 +9,44 @@
 #include "third_party/blink/renderer/core/dom/pseudo_element.h"
 #include "third_party/blink/renderer/core/html/html_body_element.h"
 #include "third_party/blink/renderer/core/style/computed_style.h"
+#include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 
 namespace blink {
+
+namespace {
+
+// A former overscroll container still has a tracker with areas to remove.
+//
+// This runs for every element during style recalc, so the cheap checks come
+// first and the (out-of-line, for origin trials) feature check only runs if
+// they pass.
+bool IsOrWasOverscrollContainer(const Element& element) {
+  if (element.GetOverscrollAreaTracker()) {
+    // Trackers are only created by registering an overscroll area, which
+    // requires the feature to be enabled.
+    DCHECK(RuntimeEnabledFeatures::OverscrollAreasEnabled(
+        element.GetExecutionContext()));
+    return true;
+  }
+  const ComputedStyle* style = element.GetComputedStyle();
+  if (!style || style->EffectiveOverscrollContainerType() ==
+                    EOverscrollContainerType::kNone) {
+    return false;
+  }
+  // The UA style sheet is parsed once per process, so a non-none container
+  // type does not imply that the feature is enabled for this document.
+  return RuntimeEnabledFeatures::OverscrollAreasEnabled(
+      element.GetExecutionContext());
+}
+
+}  // namespace
 
 StyleRecalcContext StyleRecalcContext::FromInclusiveAncestors(
     Element& start_element,
     PseudoId pseudo_id) {
   StyleRecalcContext result;
+  result.is_overscroll_container_child =
+      IsOrWasOverscrollContainer(start_element);
   for (Element* element = &start_element; element;
        element = FlatTreeTraversal::ParentElement(*element)) {
     if (const ComputedStyle* style = element->GetComputedStyle()) {
@@ -92,6 +123,7 @@ StyleRecalcContext StyleRecalcContext::FromParentContext(
   result.anchor_evaluator = nullptr;
   result.try_set = nullptr;
   result.try_tactics_set = nullptr;
+  result.is_overscroll_container_child = IsOrWasOverscrollContainer(element);
 
   if (!result.has_content_visibility_auto_locked_ancestor) {
     if (const DisplayLockContext* display_lock_context =

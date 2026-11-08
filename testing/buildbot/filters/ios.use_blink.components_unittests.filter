@@ -31,7 +31,6 @@
 -AutofillAgentTest.DidSelectSuggestion_ClearFormEntry
 -AutofillAgentTest.FillData_UnknowFieldIdInResults
 -AutofillAgentTest.FillData_UpdateWithResults
--SharedPasswordControllerTest.DidFillField
 
 # TODO(crbug.com/332933545): Test currently fails on iOS Blink.
 -LanguageDetectionJavascriptTest.DetectLanguageWithNoTranslateMeta
@@ -158,34 +157,19 @@
 -PasswordFormHelperTest.FillUsernameAndPassword_TriggerSubmission
 
 # TODO(crbug.com/40281649): Test currently fails on iOS blink.
--SharedPasswordControllerTest.PasswordManagerIsNotNotifiedAboutHeuristicsPredictions
--SharedPasswordControllerTest.CheckIfSuggestionsAvailableForFormCrossOriginIframe
--SharedPasswordControllerTest.CheckNoSuggestionsAreAvailableForNonPasswordForm
--SharedPasswordControllerTest.DeclinePasswordGenerationDialog
--SharedPasswordControllerTest.DidRegisterFormActivityForFormCrossOriginIframe
--SharedPasswordControllerTest.DidRegisterFormRemovalForFormCrossOriginIframe
--SharedPasswordControllerTest.DoesntInterpretElementAdditionsAsFormSubmission
--SharedPasswordControllerTest.FormHelperDidSubmitFormForFormCrossOriginIframe
--SharedPasswordControllerTest.FormHelperSetsUpUniqueIDsForNewFrame
--SharedPasswordControllerTest.FormsArePropagatedOnHTMLPageLoad
--SharedPasswordControllerTest.FrameDidBecomeAvailableCrossOriginIframe
--SharedPasswordControllerTest.FrameWillBecomeUnavailableCrossOriginIframe
--SharedPasswordControllerTest.LastFocusedFieldData
--SharedPasswordControllerTest.NoFormsArePropagatedOnNonHTMLPageLoad
--SharedPasswordControllerTest.PasswordManagerDidNavigationMainFrameOnNavigationFinished
--SharedPasswordControllerTest.PresavesGeneratedPassword
--SharedPasswordControllerTest.RetrieveSuggestionsForFormCrossOriginIframe
--SharedPasswordControllerTest.ReturnsGenerateSuggestionIfFormIsEligibleForGeneration
--SharedPasswordControllerTest.ReturnsNoSuggestionsIfFrameDestroyed
--SharedPasswordControllerTest.ReturnsNoSuggestionsIfNoneAreAvailable
--SharedPasswordControllerTest.ReturnsSuggestionsIfAvailable
--SharedPasswordControllerTest.SuggestsGeneratedPassword
--SharedPasswordControllerTest.TriggerPasswordGeneration
 -SharedPasswordControllerTest.FillField
--SharedPasswordControllerTest.ReturnsPasskeyAndPasswordSuggestionsWhenAvailable
 -SharedPasswordControllerTest.ScrollAndCheckViewAreaVisible
--SharedPasswordControllerTest.SelectPasskeySuggestion
--SharedPasswordControllerTest.SelectPasswordSuggestionWithAutoSubmission
+
+# TODO(crbug.com/571624237): SharedPasswordControllerTest.ActorLoginToolRescansFormsFoo
+# tests below added by https://crrev.com/c/8337068 have been failing on iOS Blink.
+-SharedPasswordControllerTest.ActorLoginToolRescansForms_FrameDestroyedDuringExtraction
+-SharedPasswordControllerTest.ActorLoginToolRescansForms_MultipleFrames_QueriesSameOriginOnly
+-SharedPasswordControllerTest.ActorLoginToolRescansForms_MultipleSameOriginFrames_NoFormsFound
+-SharedPasswordControllerTest.ActorLoginToolRescansForms_NilNoFormsFoundHandler
+-SharedPasswordControllerTest.ActorLoginToolRescansForms_NoFrames
+-SharedPasswordControllerTest.ActorLoginToolRescansForms_NonHTML
+-SharedPasswordControllerTest.ActorLoginToolRescansForms_SingleFrame_FormsFound
+-SharedPasswordControllerTest.ActorLoginToolRescansForms_SingleFrame_NoFormsFound
 
 # TODO(crbug.com/40945948): Test currently fails on iOS blink.
 -SecurityStateUtilsTest.GetMaliciousContentStatus
@@ -230,8 +214,6 @@
 -AutofillAgentTestFrameInitializationOrderFrames.MainFrameAvailableThenPageLoadedThenIframeAvailable
 -AutofillAgentTestFrameInitializationOrderFrames.PageLoadedThenIframeThenMainFrame
 -AutofillAgentTestFrameInitializationOrderFrames.PageLoadedThenMainFrameThenIframe
--SharedPasswordControllerTest.PasswordManagerIsNotifiedAboutServerPredictions_AcrossFrames
--SharedPasswordControllerTest.PasswordManagerIsNotifiedAboutServerPredictions_SingleFrame
 
 # TODO(crbug.com/364348914): These tests have been failing since
 # https://crrev.com/c/5774002.
@@ -261,19 +243,10 @@
 -RemoteFrameTokenRegistrationTest.MainFrameRegistersItself
 -RemoteFrameTokenRegistrationTest.ParentFrameIgnoresChildRegistration
 
-# TODO(crbug.com/371838042): These tests have been failing since
-# https://crrev.com/c/5888544.
--SharedPasswordControllerTest.PresavesGeneratedPassword_Empty
--SharedPasswordControllerTest.TriggerPasswordGeneration_Proactively
-
 # TODO(crbug.com/380309588): These tests have been failing since
 # https://crrev.com/c/6000833.
 -FormSubmittedHookTest.TestFormSubmittedHook
 -FormSubmittedHookTest.TestFormSubmittedHookAcrossIframes
-
-# TODO(crbug.com/381917887): This test has been failing since
-# https://crrev.com/c/6038336.
--SharedPasswordControllerTest.PasswordManagerIsNotifiedAboutModelPredictions
 
 # TODO(crbug.com/388135869): This test has been failing since
 # https://crrev.com/c/6143155.
@@ -382,44 +355,7 @@
 -SuggestionControllerJavaScriptFeatureTest.SelectNextAndPreviousElementWithTabOrder
 -SuggestionControllerJavaScriptFeatureTest.SelectNextAndPreviousElementWithTabOrderAndCrossFrame
 
-# TODO(crbug.com/514423252): SafariDataImporter and SqliteVfs multiprocess tests
-# crash on iOS Blink.
--SafariDataImporterTest.Bookmarks_Basic
--SafariDataImporterTest.Bookmarks_Folders
--SafariDataImporterTest.Bookmarks_MiscJunk
--SafariDataImporterTest.Bookmarks_NoTopLevelDL
--SafariDataImporterTest.Bookmarks_ReadingList
--SafariDataImporterTest.CancelImport
--SafariDataImporterTest.DuplicateBookmarkFolders
--SafariDataImporterTest.HandleGarbageFile
--SafariDataImporterTest.HandleNonASCIIFile
--SafariDataImporterTest.ImportBookmarks
--SafariDataImporterTest.ImportBookmarksBlockedByPolicy
--SafariDataImporterTest.ImportCreditCard
--SafariDataImporterTest.ImportFileEndToEnd
--SafariDataImporterTest.ImportFileEndToEndWithDefaultThreshold
--SafariDataImporterTest.ImportHistory
--SafariDataImporterTest.ImportHistoryBlockedByPolicy
--SafariDataImporterTest.ImportPasswords
--SafariDataImporterTest.ImportPasswordsBlockedByPolicy
--SafariDataImporterTest.ImportPaymentCardsBlockedByPolicy
--SafariDataImporterTest.ImportReadingListBlockedByPolicy
--SafariDataImporterTest.ImportsEmptyFolder
--SafariDataImporterTest.ImportSingleBookmark
--SafariDataImporterTest.ImportsMultipleBookmarks
--SafariDataImporterTest.ImportsMultipleReadingListItems
--SafariDataImporterTest.ImportsNestedBookmark
--SafariDataImporterTest.ImportToBothStoresSequentially
--SafariDataImporterTest.ImportWithNoBookmarks
--SafariDataImporterTest.NoPassword
--SafariDataImporterTest.NoPaymentCard
--SafariDataImporterTest.PasswordImport
--SafariDataImporterTest.PasswordImportConflicts
--SafariDataImporterTest.PasswordsImportedToAccountStoreWhenSyncIsEnabled
--SafariDataImporterTest.PasswordsImportedToProfileStoreWhenSyncIsDisabled
--SafariDataImporterTest.PasswordsImportLocallyWithSyncTypesListDisabled
--SafariDataImporterTest.PrepareImportFileTwice
--SafariDataImporterTest.TotalFailure
+# TODO(crbug.com/514423252): SqliteVfs multiprocess tests crash on iOS Blink.
 -SqliteVfsMultiprocessTest.AbandonAndReconnect/Rollback
 -SqliteVfsMultiprocessTest.AbandonAndReconnect/Wal
 -SqliteVfsMultiprocessTest.AbandonReadOnlyShared/Rollback
@@ -464,14 +400,15 @@
 
 # TODO(crbug.com/538332325): PasskeyTabHelperTest have been failing on iOS blink
 # port. Some of the tests were added by https://crrev.com/c/7868131.
+-PasskeyTabHelperTest.ConditionalCreateOffTheRecordDefersToRenderer
 -PasskeyTabHelperTest.HandleAssertionEmptyRemoteFrameIdGraceful
 -PasskeyTabHelperTest.HandleAssertionMalformedRemoteFrameIdGraceful
--PasskeyTabHelperTest.StartPasskeyCreationWithExcludedCredential
 -PasskeyTabHelperTest.HandleCreateRequestedEventDefersOnInvalidOrigin
 -PasskeyTabHelperTest.HandleGetRequestedEventDefersOnInvalidOrigin
--PasskeyTabHelperTest.StartPasskeyCreationFromCrossOriginIframe
 -PasskeyTabHelperTest.StartPasskeyAssertionFailureDoesNotLogBrowserAssistedLogin
 -PasskeyTabHelperTest.StartPasskeyAssertionSuccessLogsBrowserAssistedLogin
+-PasskeyTabHelperTest.StartPasskeyCreationFromCrossOriginIframe
+-PasskeyTabHelperTest.StartPasskeyCreationWithExcludedCredential
 
 # TODO(crbug.com/517208683): The test is flaky on the ios-blink and tvos bots.
 # The test was updated by https://crrev.com/c/7676358.

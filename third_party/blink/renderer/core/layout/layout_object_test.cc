@@ -21,12 +21,14 @@
 #include "third_party/blink/renderer/core/layout/layout_text_fragment.h"
 #include "third_party/blink/renderer/core/layout/layout_view.h"
 #include "third_party/blink/renderer/core/loader/resource/image_resource_content.h"
+#include "third_party/blink/renderer/core/paint/paint_layer.h"
 #include "third_party/blink/renderer/core/svg/svg_g_element.h"
 #include "third_party/blink/renderer/core/testing/core_unit_test_helper.h"
 #include "third_party/blink/renderer/core/testing/sim/sim_request.h"
 #include "third_party/blink/renderer/core/testing/sim/sim_test.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
 #include "third_party/blink/renderer/platform/json/json_values.h"
+#include "third_party/blink/renderer/platform/testing/runtime_enabled_features_test_helpers.h"
 #include "third_party/skia/include/docs/SkPDFDocument.h"
 #include "ui/gfx/geometry/decomposed_transform.h"
 
@@ -198,18 +200,18 @@ TEST_F(LayoutObjectTest, BackdropFilterAsGroupingProperty) {
     <div id=target3 style="position: relative"></div>
   )HTML");
   EXPECT_TRUE(GetLayoutObjectByElementId("target1")
-                  ->StyleRef()
+                  ->Style()
                   .HasGroupingPropertyForUsedTransformStyle3D());
   EXPECT_TRUE(GetLayoutObjectByElementId("target2")
-                  ->StyleRef()
+                  ->Style()
                   .HasGroupingPropertyForUsedTransformStyle3D());
-  EXPECT_FALSE(GetLayoutObjectByElementId("target1")->StyleRef().Preserves3D());
-  EXPECT_FALSE(GetLayoutObjectByElementId("target2")->StyleRef().Preserves3D());
+  EXPECT_FALSE(GetLayoutObjectByElementId("target1")->Style().Preserves3D());
+  EXPECT_FALSE(GetLayoutObjectByElementId("target2")->Style().Preserves3D());
 
   EXPECT_FALSE(GetLayoutObjectByElementId("target3")
-                   ->StyleRef()
+                   ->Style()
                    .HasGroupingPropertyForUsedTransformStyle3D());
-  EXPECT_TRUE(GetLayoutObjectByElementId("target3")->StyleRef().Preserves3D());
+  EXPECT_TRUE(GetLayoutObjectByElementId("target3")->Style().Preserves3D());
 }
 
 TEST_F(LayoutObjectTest, BlendModeAsGroupingProperty) {
@@ -219,14 +221,14 @@ TEST_F(LayoutObjectTest, BlendModeAsGroupingProperty) {
     <div id=target2 style="position: relative"></div>
   )HTML");
   EXPECT_TRUE(GetLayoutObjectByElementId("target1")
-                  ->StyleRef()
+                  ->Style()
                   .HasGroupingPropertyForUsedTransformStyle3D());
-  EXPECT_FALSE(GetLayoutObjectByElementId("target1")->StyleRef().Preserves3D());
+  EXPECT_FALSE(GetLayoutObjectByElementId("target1")->Style().Preserves3D());
 
   EXPECT_FALSE(GetLayoutObjectByElementId("target2")
-                   ->StyleRef()
+                   ->Style()
                    .HasGroupingPropertyForUsedTransformStyle3D());
-  EXPECT_TRUE(GetLayoutObjectByElementId("target2")->StyleRef().Preserves3D());
+  EXPECT_TRUE(GetLayoutObjectByElementId("target2")->Style().Preserves3D());
 }
 
 TEST_F(LayoutObjectTest, CSSClipAsGroupingProperty) {
@@ -238,18 +240,18 @@ TEST_F(LayoutObjectTest, CSSClipAsGroupingProperty) {
     <div id=target3 style="position: relative"></div>
   )HTML");
   EXPECT_FALSE(GetLayoutObjectByElementId("target1")
-                   ->StyleRef()
+                   ->Style()
                    .HasGroupingPropertyForUsedTransformStyle3D());
-  EXPECT_TRUE(GetLayoutObjectByElementId("target1")->StyleRef().Preserves3D());
+  EXPECT_TRUE(GetLayoutObjectByElementId("target1")->Style().Preserves3D());
   EXPECT_TRUE(GetLayoutObjectByElementId("target2")
-                  ->StyleRef()
+                  ->Style()
                   .HasGroupingPropertyForUsedTransformStyle3D());
-  EXPECT_FALSE(GetLayoutObjectByElementId("target2")->StyleRef().Preserves3D());
+  EXPECT_FALSE(GetLayoutObjectByElementId("target2")->Style().Preserves3D());
 
   EXPECT_FALSE(GetLayoutObjectByElementId("target3")
-                   ->StyleRef()
+                   ->Style()
                    .HasGroupingPropertyForUsedTransformStyle3D());
-  EXPECT_TRUE(GetLayoutObjectByElementId("target3")->StyleRef().Preserves3D());
+  EXPECT_TRUE(GetLayoutObjectByElementId("target3")->Style().Preserves3D());
 }
 
 TEST_F(LayoutObjectTest, ClipPathAsGroupingProperty) {
@@ -259,14 +261,14 @@ TEST_F(LayoutObjectTest, ClipPathAsGroupingProperty) {
     <div id=target2 style="position: relative"></div>
   )HTML");
   EXPECT_TRUE(GetLayoutObjectByElementId("target1")
-                  ->StyleRef()
+                  ->Style()
                   .HasGroupingPropertyForUsedTransformStyle3D());
-  EXPECT_FALSE(GetLayoutObjectByElementId("target1")->StyleRef().Preserves3D());
+  EXPECT_FALSE(GetLayoutObjectByElementId("target1")->Style().Preserves3D());
 
   EXPECT_FALSE(GetLayoutObjectByElementId("target2")
-                   ->StyleRef()
+                   ->Style()
                    .HasGroupingPropertyForUsedTransformStyle3D());
-  EXPECT_TRUE(GetLayoutObjectByElementId("target2")->StyleRef().Preserves3D());
+  EXPECT_TRUE(GetLayoutObjectByElementId("target2")->Style().Preserves3D());
 }
 
 TEST_F(LayoutObjectTest, IsolationAsGroupingProperty) {
@@ -276,14 +278,14 @@ TEST_F(LayoutObjectTest, IsolationAsGroupingProperty) {
     <div id=target2 style="position: relative"></div>
   )HTML");
   EXPECT_TRUE(GetLayoutObjectByElementId("target1")
-                  ->StyleRef()
+                  ->Style()
                   .HasGroupingPropertyForUsedTransformStyle3D());
-  EXPECT_FALSE(GetLayoutObjectByElementId("target1")->StyleRef().Preserves3D());
+  EXPECT_FALSE(GetLayoutObjectByElementId("target1")->Style().Preserves3D());
 
   EXPECT_FALSE(GetLayoutObjectByElementId("target2")
-                   ->StyleRef()
+                   ->Style()
                    .HasGroupingPropertyForUsedTransformStyle3D());
-  EXPECT_TRUE(GetLayoutObjectByElementId("target2")->StyleRef().Preserves3D());
+  EXPECT_TRUE(GetLayoutObjectByElementId("target2")->Style().Preserves3D());
 }
 
 TEST_F(LayoutObjectTest, MaskAsGroupingProperty) {
@@ -294,14 +296,14 @@ TEST_F(LayoutObjectTest, MaskAsGroupingProperty) {
     <div id=target2 style="position: relative"></div>
   )HTML");
   EXPECT_TRUE(GetLayoutObjectByElementId("target1")
-                  ->StyleRef()
+                  ->Style()
                   .HasGroupingPropertyForUsedTransformStyle3D());
-  EXPECT_FALSE(GetLayoutObjectByElementId("target1")->StyleRef().Preserves3D());
+  EXPECT_FALSE(GetLayoutObjectByElementId("target1")->Style().Preserves3D());
 
   EXPECT_FALSE(GetLayoutObjectByElementId("target2")
-                   ->StyleRef()
+                   ->Style()
                    .HasGroupingPropertyForUsedTransformStyle3D());
-  EXPECT_TRUE(GetLayoutObjectByElementId("target2")->StyleRef().Preserves3D());
+  EXPECT_TRUE(GetLayoutObjectByElementId("target2")->Style().Preserves3D());
 }
 
 TEST_F(LayoutObjectTest, UseCountContainWithoutContentVisibility) {
@@ -664,6 +666,78 @@ TEST_F(LayoutObjectTest, SubtreeAndDelayFullPaintInvalidation) {
   EXPECT_FALSE(object->SubtreeShouldDoFullPaintInvalidation());
   EXPECT_FALSE(object->ShouldDoFullPaintInvalidation());
   EXPECT_FALSE(object->ShouldDelayFullPaintInvalidation());
+}
+
+TEST_F(LayoutObjectTest, NoPaintInvalidationWhileStayingInvisible) {
+  // crbug.com/41254682: paint-only style changes (e.g. from an animation) on
+  // an object that was and stays visibility:hidden paint nothing, so they
+  // should not trigger paint invalidation.
+  SetBodyInnerHTML(R"HTML(
+    <div id="target" style="visibility: hidden; width: 100px; height: 100px;
+        background: blue"></div>
+  )HTML");
+  Element* target = GetElementById("target");
+  LayoutObject* object = target->GetLayoutObject();
+  EXPECT_FALSE(object->ShouldCheckForPaintInvalidation());
+
+  target->SetInlineStyleProperty(CSSPropertyID::kBackgroundColor, "green");
+  GetDocument().UpdateStyleAndLayoutTree();
+  EXPECT_FALSE(object->ShouldDoFullPaintInvalidation());
+  EXPECT_FALSE(object->BackgroundNeedsFullPaintInvalidation());
+  EXPECT_FALSE(object->ShouldCheckForPaintInvalidation());
+  EXPECT_FALSE(object->PaintingLayer()->SelfNeedsRepaint());
+  UpdateAllLifecyclePhasesForTest();
+
+  // Becoming visible still requires paint invalidation.
+  target->SetInlineStyleProperty(CSSPropertyID::kVisibility, "visible");
+  GetDocument().UpdateStyleAndLayoutTree();
+  EXPECT_TRUE(object->ShouldDoFullPaintInvalidation());
+  UpdateAllLifecyclePhasesForTest();
+
+  // So does becoming hidden.
+  target->SetInlineStyleProperty(CSSPropertyID::kVisibility, "hidden");
+  GetDocument().UpdateStyleAndLayoutTree();
+  EXPECT_TRUE(object->ShouldDoFullPaintInvalidation());
+}
+
+TEST_F(LayoutObjectTest, VisibleDescendantOfInvisibleObjectStillInvalidates) {
+  // A visibility:visible descendant of a visibility:hidden object paints, so
+  // inherited paint-only style changes on the hidden ancestor must still
+  // invalidate the descendant (via the descendant's own style diff) even
+  // though the ancestor's own paint invalidation is skipped.
+  SetBodyInnerHTML(R"HTML(
+    <div id="hidden" style="visibility: hidden; color: blue">
+      <div id="visible" style="visibility: visible; width: 100px;
+          height: 100px; background: currentColor">text</div>
+    </div>
+  )HTML");
+  Element* hidden = GetElementById("hidden");
+  LayoutObject* hidden_object = hidden->GetLayoutObject();
+  LayoutObject* visible_object = GetLayoutObjectByElementId("visible");
+
+  // `color` inherits into the visible descendant and affects its painted
+  // background (currentColor).
+  hidden->SetInlineStyleProperty(CSSPropertyID::kColor, "green");
+  GetDocument().UpdateStyleAndLayoutTree();
+  EXPECT_FALSE(hidden_object->ShouldDoFullPaintInvalidation());
+  EXPECT_TRUE(visible_object->ShouldDoFullPaintInvalidation());
+}
+
+TEST_F(LayoutObjectTest, PaintInvalidationWhileStayingInvisibleKillSwitch) {
+  // With the feature disabled, style changes on invisible objects still
+  // invalidate paint.
+  ScopedSkipPaintInvalidationWhileStayingInvisibleForTest disabled(false);
+  SetBodyInnerHTML(R"HTML(
+    <div id="target" style="visibility: hidden; width: 100px; height: 100px;
+        background: blue"></div>
+  )HTML");
+  Element* target = GetElementById("target");
+  LayoutObject* object = target->GetLayoutObject();
+
+  target->SetInlineStyleProperty(CSSPropertyID::kBackgroundColor, "green");
+  GetDocument().UpdateStyleAndLayoutTree();
+  EXPECT_TRUE(object->ShouldDoFullPaintInvalidation());
+  EXPECT_TRUE(object->BackgroundNeedsFullPaintInvalidation());
 }
 
 TEST_F(LayoutObjectTest, SubtreePaintPropertyUpdateReasons) {
@@ -2100,7 +2174,7 @@ TEST_F(LayoutObjectTest, NoEllipsisForAnonymousBlockWithNonBlockParent) {
   // block flow inside the flex container.
   const LayoutObject* flex_layout = GetLayoutObjectByElementId("flex");
   ASSERT_TRUE(flex_layout);
-  EXPECT_FALSE(flex_layout->BehavesLikeBlockContainer());
+  EXPECT_FALSE(flex_layout->CanApplyTextOverflow());
 
   const LayoutObject* child = flex_layout->SlowFirstChild();
   while (child && !child->IsAnonymousBlockFlow()) {

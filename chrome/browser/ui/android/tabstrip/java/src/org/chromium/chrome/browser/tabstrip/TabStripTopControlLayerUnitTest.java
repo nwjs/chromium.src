@@ -25,6 +25,7 @@ import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 
+import org.chromium.base.ContextUtils;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.CallbackHelper;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
@@ -43,8 +44,8 @@ public class TabStripTopControlLayerUnitTest {
     @Mock private ControlContainer mControlContainer;
     @Mock private TabStripSceneLayerHolder mTabStripSceneLayerHolder;
     @Mock private BrowserControlsStateProvider mBrowserControls;
-    @Mock private View mControlContainerView;
 
+    private final View mControlContainerView = new View(ContextUtils.getApplicationContext());
     private TabStripTopControlLayer mTabStripTopControlLayer;
     private final CallbackHelper mOnTransitionStartedCallback = new CallbackHelper();
     private final CallbackHelper mOnTokenUpdateCallback = new CallbackHelper();

@@ -8,7 +8,6 @@
 
 #import "ios/chrome/browser/shared/ui/animated_promo/animated_promo_utils.h"
 #import "ios/chrome/browser/shared/ui/symbols/symbols.h"
-#import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
 #import "ios/chrome/common/ui/button_stack/button_stack_configuration.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
 #import "ios/chrome/common/ui/util/constraints_ui_util.h"
@@ -17,6 +16,7 @@
 #import "ios/public/provider/chrome/browser/lottie/lottie_animation_api.h"
 #import "ios/public/provider/chrome/browser/lottie/lottie_animation_configuration.h"
 #import "ui/base/l10n/l10n_util_mac.h"
+#import "ui/gfx/color_palette.h"
 
 namespace {
 // Lottie animation asset name.
@@ -27,8 +27,6 @@ constexpr CGFloat kBannerTitleGap = 24;
 constexpr CGFloat kSubtitleBottomMargin = 16;
 // Spacing between the text box boundary and the scroll container view.
 constexpr CGFloat kSubtitleHorizontalMargin = 16;
-// Checkmark icon point size in the checklist.
-constexpr CGFloat kCheckmarkSymbolPointSize = 24;
 // Vertical spacing between each item in the checklist.
 constexpr CGFloat kRowSpacing = 12;
 // Horizontal spacing between the checkmark icon and text in the checklist.
@@ -71,7 +69,6 @@ constexpr CGFloat kChecklistHorizontalMargin = 34;
 
   UIView* checklistView = [self createChecklistView];
   [self.specificContentView addSubview:checklistView];
-
   [NSLayoutConstraint activateConstraints:@[
     [checklistView.topAnchor
         constraintEqualToAnchor:self.specificContentView.topAnchor],
@@ -91,6 +88,8 @@ constexpr CGFloat kChecklistHorizontalMargin = 34;
 
   [super viewDidLoad];
   [NSLayoutConstraint activateConstraints:@[
+    [self.bannerImageView.widthAnchor
+        constraintEqualToAnchor:self.view.widthAnchor],
     [self.subtitleLabel.widthAnchor
         constraintLessThanOrEqualToAnchor:self.contentView.widthAnchor
                                  constant:-2 * kSubtitleHorizontalMargin],
@@ -125,48 +124,41 @@ constexpr CGFloat kChecklistHorizontalMargin = 34;
   return animationView;
 }
 
-// TODO(crbug.com/559166203): Update color hex with existing skcolors
 // Configures the animation with semantic and custom colors for light and dark
 // modes.
 - (void)configureAnimationColors {
   // Green palette.
-  ConfigureAnimationSemanticColor(_animationViewWrapper, kGreen100Color,
+  ConfigureAnimationSemanticColor(_animationViewWrapper, @"kGreen100Color",
                                   kGreen100Color);
   ConfigureAnimationCustomColor(_animationViewWrapper, @"A8DAB5",
-                                UIColorFromRGB(0XA8DAB5),
-                                UIColorFromRGB(0X5BB974));
-  ConfigureAnimationSemanticColor(_animationViewWrapper, @"kGreen400Keypath",
+                                gfx::kGoogleGreen200, gfx::kGoogleGreen400);
+  ConfigureAnimationSemanticColor(_animationViewWrapper, @"kGreen400Color",
                                   kGreen400Color);
-  ConfigureAnimationSemanticColor(_animationViewWrapper, @"kGreen800Keypath",
+  ConfigureAnimationSemanticColor(_animationViewWrapper, @"kGreen800Color",
                                   kGreen800Color);
 
   // Yellow / Orange palette.
-  ConfigureAnimationCustomColor(_animationViewWrapper, @"0XEA8600",
-                                UIColorFromRGB(0XEA8600),
-                                UIColorFromRGB(0XFEF7E0));
-  ConfigureAnimationCustomColor(_animationViewWrapper, @"0xFEEFC3",
-                                UIColorFromRGB(0xFEEFC3),
-                                UIColorFromRGB(0xFA8600));
-  ConfigureAnimationCustomColor(_animationViewWrapper, @"0xFDD663",
-                                UIColorFromRGB(0xFDD663),
-                                UIColorFromRGB(0xEA8600));
-  ConfigureAnimationCustomColor(_animationViewWrapper, @"0xFBBC04",
-                                UIColorFromRGB(0xFBBC04),
-                                UIColorFromRGB(0xFCC934));
+  ConfigureAnimationCustomColor(_animationViewWrapper, @"EA8600",
+                                gfx::kGoogleYellow800, gfx::kGoogleYellow050);
+  ConfigureAnimationCustomColor(_animationViewWrapper, @"FEEFC3",
+                                gfx::kGoogleYellow100, gfx::kGoogleYellow800);
+  ConfigureAnimationCustomColor(_animationViewWrapper, @"FDD663",
+                                gfx::kGoogleYellow300, gfx::kGoogleYellow800);
+  ConfigureAnimationCustomColor(_animationViewWrapper, @"FBBC04",
+                                gfx::kGoogleYellow500, gfx::kGoogleYellow400);
 
   // Purple palette.
-  ConfigureAnimationCustomColor(_animationViewWrapper, @"0x7627BB",
-                                UIColorFromRGB(0x7627BB),
-                                UIColorFromRGB(0xF3E8FD));
-  ConfigureAnimationCustomColor(_animationViewWrapper, @"0xF0DDF0",
-                                UIColorFromRGB(0xF0DDF0),
-                                UIColorFromRGB(0x8430CE));
-  ConfigureAnimationCustomColor(_animationViewWrapper, @"0xA142F4",
-                                UIColorFromRGB(0xA142F4),
-                                UIColorFromRGB(0xC58AF9));
-  ConfigureAnimationCustomColor(_animationViewWrapper, @"0xD7AEFB",
-                                UIColorFromRGB(0xD7AEFB),
-                                UIColorFromRGB(0xA142F4));
+  ConfigureAnimationCustomColor(_animationViewWrapper, @"7627BB",
+                                gfx::kGooglePurple800, gfx::kGooglePurple050);
+  ConfigureAnimationCustomColor(_animationViewWrapper, @"F0DDF0",
+                                SkColorSetRGB(0xF0, 0xDD, 0xF0),
+                                gfx::kGooglePurple700);
+  // TODO(crbug.com/568788012): Update the Lottie JSON and color mappings once
+  // the missing `D7AEFB` keypath and `A142F4` mock alignment are resolved.
+  ConfigureAnimationCustomColor(_animationViewWrapper, @"A142F4",
+                                gfx::kGooglePurple500, gfx::kGooglePurple300);
+  ConfigureAnimationCustomColor(_animationViewWrapper, @"D7AEFB",
+                                gfx::kGooglePurple500, gfx::kGooglePurple200);
 }
 
 // Creates a checklist view with blue checkmarks, promo content, and a bottom
@@ -182,7 +174,10 @@ constexpr CGFloat kChecklistHorizontalMargin = 34;
   UIStackView* verticalStack = [[UIStackView alloc] init];
   verticalStack.translatesAutoresizingMaskIntoConstraints = NO;
   verticalStack.axis = UILayoutConstraintAxisVertical;
-  verticalStack.spacing = kRowSpacing;
+  UIFontMetrics* fontMetrics =
+      [UIFontMetrics metricsForTextStyle:UIFontTextStyleHeadline];
+  verticalStack.spacing = [fontMetrics scaledValueForValue:kRowSpacing];
+
   verticalStack.alignment = UIStackViewAlignmentLeading;
 
   UIImage* checkmarkImage = [self checkmarkImage];
@@ -237,8 +232,9 @@ constexpr CGFloat kChecklistHorizontalMargin = 34;
 
 // Returns a blue checkmark symbol for the checklist items.
 - (UIImage*)checkmarkImage {
-  UIImage* checkmark =
-      SymbolWithPointSize(SymbolCheckmark, kCheckmarkSymbolPointSize);
+  UIImageSymbolConfiguration* configuration = [UIImageSymbolConfiguration
+      configurationWithTextStyle:UIFontTextStyleHeadline];
+  UIImage* checkmark = SymbolWithConfiguration(SymbolCheckmark, configuration);
   return [checkmark imageWithTintColor:[UIColor colorNamed:kBlueColor]
                          renderingMode:UIImageRenderingModeAlwaysOriginal];
 }

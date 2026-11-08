@@ -502,11 +502,6 @@ void Preferences::RegisterProfilePrefs(
       ash::prefs::kHatsGeneralCameraPrioritizedLastInteractionTimestamp,
       base::Time());
 
-  registry->RegisterInt64Pref(ash::prefs::kHatsBluetoothRevampCycleEndTs, 0);
-
-  registry->RegisterBooleanPref(ash::prefs::kHatsBluetoothRevampIsSelected,
-                                false);
-
   registry->RegisterInt64Pref(ash::prefs::kHatsBatteryLifeCycleEndTs, 0);
 
   registry->RegisterBooleanPref(ash::prefs::kHatsBatteryLifeIsSelected, false);
@@ -514,32 +509,6 @@ void Preferences::RegisterProfilePrefs(
   registry->RegisterInt64Pref(ash::prefs::kHatsPeripheralsCycleEndTs, 0);
 
   registry->RegisterBooleanPref(ash::prefs::kHatsPeripheralsIsSelected, false);
-
-  // Personalization HaTS survey prefs for avatar, screensaver, and wallpaper
-  // features.
-  registry->RegisterInt64Pref(
-      ash::prefs::kHatsPersonalizationAvatarSurveyCycleEndTs, 0);
-  registry->RegisterBooleanPref(
-      ash::prefs::kHatsPersonalizationAvatarSurveyIsSelected, false);
-  registry->RegisterInt64Pref(
-      ash::prefs::kHatsPersonalizationScreensaverSurveyCycleEndTs, 0);
-  registry->RegisterBooleanPref(
-      ash::prefs::kHatsPersonalizationScreensaverSurveyIsSelected, false);
-  registry->RegisterInt64Pref(
-      ash::prefs::kHatsPersonalizationWallpaperSurveyCycleEndTs, 0);
-  registry->RegisterBooleanPref(
-      ash::prefs::kHatsPersonalizationWallpaperSurveyIsSelected, false);
-
-  // MediaApp HaTS prefs for Pdf and Photos experiences.
-  registry->RegisterInt64Pref(ash::prefs::kHatsMediaAppPdfCycleEndTs, 0);
-  registry->RegisterBooleanPref(ash::prefs::kHatsMediaAppPdfIsSelected, false);
-  registry->RegisterInt64Pref(ash::prefs::kHatsPhotosExperienceCycleEndTs, 0);
-  registry->RegisterBooleanPref(ash::prefs::kHatsPhotosExperienceIsSelected,
-                                false);
-
-  // Office HaTS prefs.
-  registry->RegisterInt64Pref(ash::prefs::kHatsOfficeSurveyCycleEndTs, 0);
-  registry->RegisterBooleanPref(ash::prefs::kHatsOfficeSurveyIsSelected, false);
 
   // Slow and Laggy Deep Dive HaTS prefs.
   registry->RegisterInt64Pref(
@@ -644,12 +613,6 @@ void Preferences::RegisterProfilePrefs(
   registry->RegisterBooleanPref(prefs::kShowGeminiIntroScreenEnabled, true);
 
   registry->RegisterBooleanPref(prefs::kShowTouchpadScrollScreenEnabled, true);
-
-  // Settings HaTS survey prefs for Settings and Settings Search features.
-  registry->RegisterInt64Pref(ash::prefs::kHatsOsSettingsSearchSurveyCycleEndTs,
-                              0);
-  registry->RegisterBooleanPref(
-      ash::prefs::kHatsOsSettingsSearchSurveyIsSelected, false);
 
   registry->RegisterBooleanPref(prefs::kShowDisplaySizeScreenEnabled, true);
 

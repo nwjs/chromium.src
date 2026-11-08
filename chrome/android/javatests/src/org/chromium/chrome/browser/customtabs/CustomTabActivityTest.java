@@ -125,7 +125,6 @@ import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.base.test.util.MinAndroidSdkLevel;
 import org.chromium.base.test.util.RequiresRestart;
 import org.chromium.base.test.util.Restriction;
-import org.chromium.base.test.util.UserActionTester;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.IntentHandler;
@@ -3006,54 +3005,6 @@ public class CustomTabActivityTest {
         openAppMenuAndAssertMenuShown();
         Assert.assertNull(
                 "Share option should be hidden.", activity.findViewById(R.id.share_menu_id));
-    }
-
-    @Test
-    @MediumTest
-    public void omniboxInCct_testInteractiveOmniboxOnEligibleCcts() throws Exception {
-        // Permit Omnibox for any upcoming intent(s).
-        var connection = Mockito.spy(CustomTabsConnection.getInstance());
-        doReturn(true).when(connection).shouldEnableOmniboxForIntent(any());
-        CustomTabsConnection.setInstanceForTesting(connection);
-
-        Intent intent = createMinimalCustomTabIntent();
-        mCustomTabActivityTestRule.startCustomTabActivityWithIntent(intent);
-        var tab = getActivity().getActivityTab();
-        ChromeTabUtils.waitForTabPageLoaded(tab, mTestPage);
-
-        var titleBar =
-                mCustomTabActivityTestRule.getActivity().findViewById(R.id.title_url_container);
-        Assert.assertTrue(titleBar.hasOnClickListeners());
-
-        var url = mCustomTabActivityTestRule.getActivity().findViewById(R.id.url_bar);
-        Assert.assertNotNull(
-                "Url bar should have an accessibility delegate.", url.getAccessibilityDelegate());
-
-        UserActionTester userActionTester = new UserActionTester();
-        ThreadUtils.runOnUiThreadBlocking(() -> titleBar.performClick());
-        assertThat(userActionTester.getActions(), Matchers.hasItem("CustomTabs.OmniboxClicked"));
-    }
-
-    @Test
-    @MediumTest
-    public void omniboxInCct_testNonInteractiveOmniboxWhenIntentNotEligible() {
-        // By default, omnibox in CCT is not permitted and no stubbing is necessary.
-        Intent intent = createMinimalCustomTabIntent();
-        mCustomTabActivityTestRule.startCustomTabActivityWithIntent(intent);
-        var tab = getActivity().getActivityTab();
-        ChromeTabUtils.waitForTabPageLoaded(tab, mTestPage);
-
-        var titleBar =
-                mCustomTabActivityTestRule.getActivity().findViewById(R.id.title_url_container);
-        assertNull(
-                "Page info hasn't been shown, so PageInfoController should be null.",
-                PageInfoController.getLastPageInfoController());
-        // For a non-interactive omnibox, clicking the title bar should show Page Info instead of
-        // activating the omnibox.
-        ThreadUtils.runOnUiThreadBlocking(() -> titleBar.performClick());
-        assertNotNull(
-                "Page info should have been shown.",
-                PageInfoController.getLastPageInfoController());
     }
 
     @Test

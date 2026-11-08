@@ -52,6 +52,7 @@
 
 #if BUILDFLAG(IS_MAC)
 #include "chrome/browser/ui/fullscreen_util_mac.h"
+#include "ui/views/views_features.h"
 #endif
 
 DEFINE_USER_DATA(ToastController);
@@ -158,6 +159,14 @@ bool ToastController::MaybeShowToast(ToastParams params) {
 #if BUILDFLAG(IS_MAC)
 void ToastController::OnWidgetActivationChanged(views::Widget* widget,
                                                 bool active) {
+  // These workarounds are only needed when focusing a View in an inactive
+  // widget does not activate the widget.
+  // TODO(crbug.com/40486728): Remove once kMacActivateWidgetOnFocusRequest is
+  // removed.
+  if (base::FeatureList::IsEnabled(
+          views::features::kMacActivateWidgetOnFocusRequest)) {
+    return;
+  }
   if (active) {
     // Clears the stored focus view so that after widget activation occurs,
     // focus will not advance out of the widget and into the ContentsWebView.
@@ -253,7 +262,11 @@ void ToastController::OnOmniboxPopupVisibilityChanged(bool popup_is_open) {
 void ToastController::UpdateToastWidgetVisibility(bool show_toast_widget) {
   if (toast_widget_) {
     if (show_toast_widget) {
-      toast_widget_->ShowInactive();
+      // Avoid calling ShowInactive() if the toast is already visible, as doing
+      // so could deactivate an already-active toast widget.
+      if (!toast_widget_->IsVisible()) {
+        toast_widget_->ShowInactive();
+      }
     } else {
       toast_widget_->Hide();
     }
@@ -365,6 +378,7 @@ void ToastController::CreateToast(ToastParams params,
                      params.action_button_string_replacement_params,
                      std::nullopt),
         spec->GetActionButtonCallback(
+                browser_window_interface_,
                 std::move(params.action_button_callback_data))
             .Then(base::BindRepeating(&RecordToastActionButtonClicked,
                                       params.toast_id)));

@@ -25,6 +25,7 @@ import androidx.recyclerview.widget.RecyclerView.LayoutManager;
 import org.chromium.base.CallbackController;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.DeviceInfo;
+import org.chromium.base.ResettersForTesting;
 import org.chromium.base.supplier.MonotonicObservableSupplier;
 import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.OneshotSupplierImpl;
@@ -169,6 +170,7 @@ public class MainSettings extends ChromeBaseSettingsFragment
     private @Nullable Parcelable mSavedListState;
 
     // Avoids using large numbers of dependencies to simplify testing / mocking.
+    private static boolean sSkipPreferencesForTesting;
     private boolean mSkipUpdatePreferencesForTesting;
 
     public MainSettings() {
@@ -197,6 +199,10 @@ public class MainSettings extends ChromeBaseSettingsFragment
 
     @Override
     public void onCreatePreferences(@Nullable Bundle savedInstanceState, @Nullable String rootKey) {
+        if (sSkipPreferencesForTesting) {
+            setPreferenceScreen(getPreferenceManager().createPreferenceScreen(requireContext()));
+            return;
+        }
         createPreferences();
     }
 
@@ -204,6 +210,8 @@ public class MainSettings extends ChromeBaseSettingsFragment
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         mPageTitle.set(getString(R.string.settings));
+        if (sSkipPreferencesForTesting) return;
+
         SigninManager signinManager = IdentityServicesProvider.get().getSigninManager(getProfile());
         assumeNonNull(signinManager);
         if (signinManager.isSigninSupported(/* requireUpdatedPlayServices= */ false)) {
@@ -259,6 +267,8 @@ public class MainSettings extends ChromeBaseSettingsFragment
         super.onDestroy();
         setMultiColumnSettings(null, null);
         mCallbackController.destroy();
+        if (sSkipPreferencesForTesting) return;
+
         SigninManager signinManager = IdentityServicesProvider.get().getSigninManager(getProfile());
         assumeNonNull(signinManager);
         if (signinManager.isSigninSupported(/* requireUpdatedPlayServices= */ false)) {
@@ -274,6 +284,8 @@ public class MainSettings extends ChromeBaseSettingsFragment
     @Override
     public void onStart() {
         super.onStart();
+        if (sSkipPreferencesForTesting) return;
+
         TemplateUrlService templateUrlService =
                 TemplateUrlServiceFactory.getForProfile(getProfile());
         if (templateUrlService != null) {
@@ -306,6 +318,7 @@ public class MainSettings extends ChromeBaseSettingsFragment
     @Override
     public void onStop() {
         super.onStop();
+        if (sSkipPreferencesForTesting) return;
 
         HomepageManager.getInstance().removeListener(this);
 
@@ -342,9 +355,22 @@ public class MainSettings extends ChromeBaseSettingsFragment
         }
     }
 
+    /**
+     * Handles a click on a main menu row that opens an external activity. The detail pane doesn't
+     * change, so under SettingsInTabUrlNav the highlight keeps tracking the page that is shown.
+     */
+    private void onExternalActivityPreferenceClicked(Preference preference) {
+        // TODO(crbug.com/565417618): Remove the legacy path once SettingsInTabUrlNav launches.
+        if (!ChromeFeatureList.sSettingsInTabUrlNav.isEnabled()) {
+            onPreferenceSelected(preference);
+        }
+    }
+
     @Override
     public void onConfigurationChanged(Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
+        if (sSkipPreferencesForTesting) return;
+
         // Ensure the preference disabled state is reflected when device is folded or unfolded.
         updateAddressBarPreference();
     }
@@ -430,7 +456,7 @@ public class MainSettings extends ChromeBaseSettingsFragment
             Preference notifications = findPreference(PREF_NOTIFICATIONS);
             notifications.setOnPreferenceClickListener(
                     preference -> {
-                        onPreferenceSelected(preference);
+                        onExternalActivityPreferenceClicked(preference);
                         startActivity(intent);
                         // We handle the click so the default action isn't triggered.
                         return true;
@@ -572,7 +598,7 @@ public class MainSettings extends ChromeBaseSettingsFragment
 
     private void updatePreferences() {
         // Avoids using large numbers of dependencies to simplify testing / mocking.
-        if (mSkipUpdatePreferencesForTesting) {
+        if (mSkipUpdatePreferencesForTesting || sSkipPreferencesForTesting) {
             return;
         }
 
@@ -727,7 +753,7 @@ public class MainSettings extends ChromeBaseSettingsFragment
         passwordsPreference.setProfile(getProfile());
         passwordsPreference.setOnPreferenceClickListener(
                 preference -> {
-                    onPreferenceSelected(preference);
+                    onExternalActivityPreferenceClicked(preference);
                     showPasswordSettings(
                             getActivity(),
                             getProfile(),
@@ -790,7 +816,7 @@ public class MainSettings extends ChromeBaseSettingsFragment
             }
             return false;
         } else if (key.equals(PREF_DEFAULT_BROWSER)) {
-            Activity activity = ActivityUtil.getActivityFromContext(context);
+            Activity activity = ContextUtils.activityFromContext(context);
             assumeNonNull(activity);
             showDefaultBrowserSettings(activity);
             return false;
@@ -979,6 +1005,11 @@ public class MainSettings extends ChromeBaseSettingsFragment
     @Override
     public @AnimationType int getAnimationType() {
         return AnimationType.PROPERTY;
+    }
+
+    public static void setSkipPreferencesForTesting(boolean skip) {
+        sSkipPreferencesForTesting = skip;
+        ResettersForTesting.register(() -> sSkipPreferencesForTesting = false);
     }
 
     public void setSkipUpdatePreferencesForTesting(boolean skip) {

@@ -10,6 +10,7 @@ import json
 import os
 import re
 import sys
+import tempfile
 import textwrap
 import unittest
 
@@ -24,7 +25,6 @@ from mb import mb
 
 
 # Call has argument input to match subprocess.run
-# pylint: disable=redefined-builtin
 class FakeMBW(mb.MetaBuildWrapper):
   def __init__(self, win32=False):
     super().__init__()
@@ -645,6 +645,26 @@ class UnitTest(unittest.TestCase):
       ['gen', '-c', 'debug_remoteexec', '//out/Default'], mbw=mbw, ret=1
     )
 
+  def test_gn_gen_without_output_options(self):
+    commands = {
+      'analyze': ['/tmp/in.json', '/tmp/out.json'],
+      'gen': [],
+      'get-swarming-command': ['foo_unittests'],
+      'isolate': ['foo_unittests'],
+      'isolate-everything': [],
+      'run': ['foo_unittests'],
+      'zip': ['foo_unittests', '/tmp/tests.zip'],
+    }
+    for command, extra_args in commands.items():
+      for ret in (0, 7):
+        with self.subTest(command=command, ret=ret):
+          mbw = self.fake_mbw()
+          mbw.ParseArgs([command, '//out/Default'] + extra_args)
+          mbw.cmds.append((ret, 'GN output', ''))
+          self.assertEqual(mbw.RunGNGen(mb.DefaultVals()), ret)
+          self.assertEqual(len(mbw.calls), 1)
+          self.assertNotIn('--ide=json', mbw.calls[0])
+
   def test_gen_swarming(self):
     files = {
       '/tmp/swarming_targets': 'base_unittests\n',
@@ -919,6 +939,23 @@ class UnitTest(unittest.TestCase):
       ret=1,
     )
 
+  def test_isolate_everything_stops_on_runtime_deps_gn_failure(self):
+    mbw = self.fake_mbw(
+      files={
+        '/fake_src/out/Default/toolchain.ninja': '',
+        '/fake_src/out/Default/args.gn': 'is_debug=false\n',
+      }
+    )
+    mbw.cmds.extend(
+      [
+        (0, '//foo:foo_unittests\n', ''),  # gn ls
+        (7, 'Runtime dependency generation failed\n', ''),  # gn gen
+      ]
+    )
+    self.check(['isolate-everything', '//out/Default'], mbw=mbw, ret=7)
+    self.assertEqual([command[1] for command in mbw.calls], ['ls', 'gen'])
+    self.assertIn('GN gen failed: 7', mbw.err)
+
   def test_isolate(self):
     files = {
       '/fake_src/out/Default/toolchain.ninja': '',
@@ -952,6 +989,41 @@ class UnitTest(unittest.TestCase):
     self.check(
       ['isolate', '//out/Default', 'base_unittests'], files=files, ret=0
     )
+
+  def test_get_config_stops_on_gn_gen_failure(self):
+    selectors = [
+      ['-m', 'fake_builder_group', '-b', 'fake_debug_builder'],
+      ['-c', 'debug_remoteexec'],
+    ]
+    with tempfile.TemporaryDirectory() as directory:
+      archive = os.path.join(directory, 'tests.zip')
+      commands = [
+        (['zip'], ['foo_unittests', archive]),
+        (['zip', '--no-build'], ['foo_unittests', archive]),
+        (['isolate'], ['foo_unittests']),
+        (['isolate', '--no-build'], ['foo_unittests']),
+        (['run', '--force'], ['foo_unittests']),
+        (['run', '--force', '--no-build'], ['foo_unittests']),
+        (['isolate-everything'], []),
+        (['get-swarming-command'], ['foo_unittests']),
+      ]
+      for win32 in (False, True):
+        for command, extra_args in commands:
+          for selector in selectors:
+            with self.subTest(win32=win32, command=command, selector=selector):
+              mbw = self.fake_mbw(win32=win32)
+              mbw.cmds.append((7, 'GN include check failed\n', ''))
+              self.check(
+                command + selector + ['//out/Default'] + extra_args,
+                mbw=mbw,
+                ret=7,
+              )
+              self.assertEqual(len(mbw.calls), 1)
+              self.assertEqual(mbw.calls[0][1], 'gen')
+              self.assertIn('GN include check failed', mbw.out)
+              self.assertIn('GN gen failed: 7', mbw.err)
+              self.assertNotIn('AttributeError', mbw.err)
+              self.assertFalse(os.path.exists(archive))
 
   def test_dedup_runtime_deps(self):
     files = {

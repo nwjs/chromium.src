@@ -57,7 +57,6 @@
 #include "chrome/browser/ash/accessibility/magnification_manager.h"
 #include "chrome/browser/ash/accessibility/select_to_speak_event_handler_delegate_impl.h"
 #include "chrome/browser/ash/policy/enrollment/enrollment_requisition_manager.h"
-#include "chrome/browser/ash/profiles/profile_helper.h"
 #include "chrome/browser/extensions/api/braille_display_private/stub_braille_controller.h"
 #include "chrome/browser/extensions/component_loader.h"
 #include "chrome/browser/profiles/profile_manager.h"
@@ -65,12 +64,12 @@
 #include "chrome/browser/ui/ash/multi_user/multi_user_util.h"
 #include "chrome/browser/ui/singleton_tabs.h"
 #include "chrome/common/chrome_paths.h"
-#include "chrome/common/extensions/api/accessibility_private.h"
 #include "chromeos/ash/components/audio/sounds.h"
 #include "chromeos/ash/components/browser_context_helper/browser_context_helper.h"
 #include "chromeos/ash/components/browser_context_helper/browser_context_types.h"
 #include "chromeos/ash/components/dbus/upstart/upstart_client.h"
 #include "chromeos/ash/components/language_packs/language_pack_manager.h"
+#include "chromeos/ash/experiences/extensions/common/api/accessibility_private.h"
 #include "chromeos/ash/experiences/settings_ui/settings_app_manager.h"
 #include "chromeos/ash/grit/ash_resources.h"
 #include "chromeos/constants/devicetype.h"
@@ -82,6 +81,7 @@
 #include "components/prefs/pref_member.h"
 #include "components/prefs/pref_service.h"
 #include "components/prefs/scoped_user_pref_update.h"
+#include "components/session_manager/core/session.h"
 #include "components/soda/soda_installer.h"
 #include "components/user_manager/known_user.h"
 #include "components/user_prefs/user_prefs.h"
@@ -99,7 +99,6 @@
 #include "extensions/common/extension.h"
 #include "extensions/common/extension_resource.h"
 #include "media/base/audio_codecs.h"
-#include "services/accessibility/buildflags.h"
 #include "services/audio/public/cpp/sounds/global_sounds_manager.h"
 #include "services/audio/public/cpp/sounds/sounds_manager.h"
 #include "ui/accessibility/accessibility_features.h"
@@ -498,13 +497,17 @@ AccessibilityManager* AccessibilityManager::Get() {
 
 // static
 void AccessibilityManager::ShowAccessibilityHelp() {
-  auto* user = user_manager::UserManager::Get()->GetActiveUser();
-  if (!user) {
+  // TODO(crbug.com/278643115): Take the account_id from the callers.
+  const session_manager::Session* session =
+      session_manager::SessionManager::Get()->GetActiveSession();
+  // No active session before login.
+  if (!session) {
     return;
   }
   ShowSingletonTab(
       Profile::FromBrowserContext(
-          BrowserContextHelper::Get()->GetBrowserContextByUser(user)),
+          BrowserContextHelper::Get()->GetBrowserContextByAccountId(
+              session->account_id())),
       GURL(ash::external_urls::kAccessibilityHelpURL));
 }
 
@@ -798,11 +801,6 @@ void AccessibilityManager::OnSpokenFeedbackChanged() {
         kUserSpokenFeedbackEnabled, enabled);
   }
 
-  // TODO(crbug.com/1355633): Refactor a helper class that uses either
-  // AccessibilityExtensionLoader or AccessibilityServiceClient when
-  // setting profile or turning on/off extensions depending on the state
-  // of the flag. That class will own both the loaders and the
-  // AccessibilityServiceClient.
   if (enabled) {
     chromevox_loader_->SetBrowserContext(
         profile_,

@@ -35,8 +35,11 @@ import org.robolectric.Shadows;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.IntentUtils;
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.base.test.util.Features.DisableFeatures;
+import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.chrome.browser.IntentHandler;
 import org.chromium.chrome.browser.document.ChromeLauncherActivity;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.multiwindow.MultiWindowUtils;
 import org.chromium.chrome.browser.omnibox.suggestions.OmniboxLoadUrlParams;
 import org.chromium.chrome.browser.tab.Tab;
@@ -48,6 +51,7 @@ import org.chromium.chrome.browser.ui.searchactivityutils.SearchActivityExtras;
 import org.chromium.chrome.browser.ui.searchactivityutils.SearchActivityExtras.IntentOrigin;
 import org.chromium.chrome.browser.ui.searchactivityutils.SearchActivityExtras.ResolutionType;
 import org.chromium.chrome.browser.ui.searchactivityutils.SearchActivityExtras.SearchType;
+import org.chromium.components.omnibox.AutocompleteRequestType;
 import org.chromium.content_public.common.ResourceRequestBody;
 import org.chromium.ui.base.PageTransition;
 import org.chromium.url.GURL;
@@ -73,7 +77,7 @@ public class SearchActivityUtilsUnitTest {
 
     private final Activity mActivity = Robolectric.buildActivity(TestActivity.class).setup().get();
     private final SearchActivityClientImpl mClient =
-            new SearchActivityClientImpl(mActivity, IntentOrigin.CUSTOM_TAB);
+            new SearchActivityClientImpl(mActivity, IntentOrigin.HUB);
 
     public @Rule MockitoRule mMockitoRule = MockitoJUnit.rule();
     private @Mock ResourceRequestBody.Natives mResourceRequestBodyJni;
@@ -109,7 +113,7 @@ public class SearchActivityUtilsUnitTest {
         mClient.requestOmniboxForResult(mClient.newIntentBuilder().setPageUrl(EMPTY_URL).build());
 
         var intent = Shadows.shadowOf(mActivity).getNextStartedActivityForResult().intent;
-        assertEquals(IntentOrigin.CUSTOM_TAB, SearchActivityUtils.getIntentOrigin(intent));
+        assertEquals(IntentOrigin.HUB, SearchActivityUtils.getIntentOrigin(intent));
     }
 
     @Test
@@ -133,7 +137,7 @@ public class SearchActivityUtilsUnitTest {
         mClient.requestOmniboxForResult(mClient.newIntentBuilder().setPageUrl(EMPTY_URL).build());
 
         var intent = Shadows.shadowOf(mActivity).getNextStartedActivityForResult().intent;
-        assertEquals(IntentOrigin.CUSTOM_TAB, SearchActivityUtils.getIntentOrigin(intent));
+        assertEquals(IntentOrigin.HUB, SearchActivityUtils.getIntentOrigin(intent));
 
         // Invalid variants
         intent.setAction(null);
@@ -150,6 +154,77 @@ public class SearchActivityUtilsUnitTest {
         var intent = Shadows.shadowOf(mActivity).getNextStartedActivityForResult().intent;
         intent.removeExtra(IntentUtils.TRUSTED_APPLICATION_CODE_EXTRA);
         assertEquals(SearchType.TEXT, SearchActivityUtils.getIntentSearchType(intent));
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.ONE_STEP_AIM_ACCESS)
+    public void getIntentRequestType_trustedIntent() {
+        var intent =
+                mClient.newIntentBuilder().setRequestType(AutocompleteRequestType.AI_MODE).build();
+        assertEquals(
+                AutocompleteRequestType.AI_MODE, SearchActivityUtils.getIntentRequestType(intent));
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.ONE_STEP_AIM_ACCESS)
+    public void getIntentRequestType_untrustedIntent() {
+        var intent =
+                mClient.newIntentBuilder().setRequestType(AutocompleteRequestType.AI_MODE).build();
+        intent.removeExtra(IntentUtils.TRUSTED_APPLICATION_CODE_EXTRA);
+        assertEquals(
+                AutocompleteRequestType.SEARCH, SearchActivityUtils.getIntentRequestType(intent));
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.ONE_STEP_AIM_ACCESS)
+    public void getIntentRequestType_webSearch() {
+        Intent intent = buildWebSearchIntent("query");
+        intent.putExtra(SearchActivityExtras.EXTRA_REQUEST_TYPE, AutocompleteRequestType.AI_MODE);
+        assertEquals(
+                AutocompleteRequestType.SEARCH, SearchActivityUtils.getIntentRequestType(intent));
+    }
+
+    @Test
+    @DisableFeatures(ChromeFeatureList.ONE_STEP_AIM_ACCESS)
+    public void getIntentRequestType_featureDisabled() {
+        var intent =
+                mClient.newIntentBuilder().setRequestType(AutocompleteRequestType.AI_MODE).build();
+        assertEquals(
+                AutocompleteRequestType.SEARCH, SearchActivityUtils.getIntentRequestType(intent));
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.ONE_STEP_AIM_ACCESS)
+    public void getIntentSession_trustedIntent() {
+        var intent =
+                mClient.newIntentBuilder()
+                        .setSearchType(SearchType.VOICE)
+                        .setRequestType(AutocompleteRequestType.AI_MODE)
+                        .build();
+        intent.putExtra(SearchManager.QUERY, "query");
+
+        SearchActivitySession session = SearchActivityUtils.getIntentSession(intent);
+        assertEquals(IntentOrigin.HUB, session.intentOrigin);
+        assertEquals(SearchType.VOICE, session.searchType);
+        assertEquals(AutocompleteRequestType.AI_MODE, session.requestType);
+        assertEquals("query", session.query);
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.ONE_STEP_AIM_ACCESS)
+    public void getIntentSession_untrustedIntent() {
+        var intent =
+                mClient.newIntentBuilder()
+                        .setSearchType(SearchType.VOICE)
+                        .setRequestType(AutocompleteRequestType.AI_MODE)
+                        .build();
+        intent.removeExtra(IntentUtils.TRUSTED_APPLICATION_CODE_EXTRA);
+
+        SearchActivitySession session = SearchActivityUtils.getIntentSession(intent);
+        assertEquals(IntentOrigin.UNKNOWN, session.intentOrigin);
+        assertEquals(SearchType.TEXT, session.searchType);
+        assertEquals(AutocompleteRequestType.SEARCH, session.requestType);
+        assertNull(session.query);
     }
 
     @Test
@@ -316,7 +391,7 @@ public class SearchActivityUtilsUnitTest {
                 mClient.newIntentBuilder().setPageUrl(GOOD_URL).setReferrer("").build());
 
         var intent = Shadows.shadowOf(mActivity).getNextStartedActivityForResult().intent;
-        assertEquals(IntentOrigin.CUSTOM_TAB, SearchActivityUtils.getIntentOrigin(intent));
+        assertEquals(IntentOrigin.HUB, SearchActivityUtils.getIntentOrigin(intent));
         assertNull(SearchActivityUtils.getReferrer(intent));
 
         // Remove trust
@@ -330,7 +405,7 @@ public class SearchActivityUtilsUnitTest {
                 mClient.newIntentBuilder().setPageUrl(GOOD_URL).setReferrer(null).build());
 
         var intent = Shadows.shadowOf(mActivity).getNextStartedActivityForResult().intent;
-        assertEquals(IntentOrigin.CUSTOM_TAB, SearchActivityUtils.getIntentOrigin(intent));
+        assertEquals(IntentOrigin.HUB, SearchActivityUtils.getIntentOrigin(intent));
         assertNull(SearchActivityUtils.getReferrer(intent));
 
         // Remove trust

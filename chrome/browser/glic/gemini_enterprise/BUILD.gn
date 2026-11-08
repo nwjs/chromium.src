@@ -5,9 +5,9 @@
 # GEiC Finch and command-line configuration helpers.
 #
 # This is a GLiC-internal helper, not a general purpose enablement check; see
-# geic_enabling.h. Including geic_enabling.h is restricted to an allowlist in
-# chrome/browser/glic/host/DEPS so that feature code goes through GLiC's
-# enablement utilities instead.
+# geic_enabling.h. Including geic_enabling.h is restricted to allowlists in
+# chrome/browser/glic/DEPS and chrome/browser/glic/host/DEPS so that feature
+# code goes through GLiC's enablement utilities instead.
 source_set("geic_enabling") {
   sources = [
     "geic_enabling.cc",
@@ -40,6 +40,8 @@ source_set("url_allowlist") {
 
 source_set("gemini_enterprise") {
   sources = [
+    "geic_managed_tab.cc",
+    "geic_managed_tab.h",
     "glic_gemini_enterprise_manager.cc",
     "glic_gemini_enterprise_manager.h",
   ]
@@ -59,6 +61,7 @@ source_set("gemini_enterprise") {
     "//content/public/browser",
     "//google_apis",
     "//mojo/public/cpp/bindings",
+    "//ui/base",
     "//url",
   ]
 }

@@ -22,7 +22,8 @@
 
 #include "base/compiler_specific.h"
 
-#define LOG_E(...) ((void)__android_log_print(ANDROID_LOG_ERROR, "linker-jni", __VA_ARGS__))
+#define LOG_E(...) \
+  ((void)__android_log_print(ANDROID_LOG_ERROR, "linker-jni", __VA_ARGS__))
 
 #include "base/android/linker/ashmem.h"
 // Must come after all headers that specialize FromJniType() / ToJniType().
@@ -37,6 +38,7 @@ LibInfo_class s_lib_info_fields;
 
 // Guarded by |mLock| in Linker.java.
 RelroSharingStatus s_relro_sharing_status = RelroSharingStatus::NOT_ATTEMPTED;
+int s_relro_not_shared_percentage = 100;
 
 // Saved JavaVM passed to JNI_OnLoad().
 JavaVM* s_java_vm = nullptr;
@@ -538,9 +540,9 @@ bool NativeLibInfo::CreateSharedRelroFd() {
   return true;
 }
 
-bool NativeLibInfo::ReplaceRelroWithSharedOne() const {
+bool NativeLibInfo::ReplaceRelroWithSharedOne(size_t size) const {
   LOG_INFO("Entering");
-  if (relro_fd_ == -1 || !relro_start_ || !relro_size_) {
+  if (relro_fd_ == -1 || !relro_start_ || !size) {
     LOG_ERROR("Replacement RELRO not ready");
     return false;
   }
@@ -548,14 +550,14 @@ bool NativeLibInfo::ReplaceRelroWithSharedOne() const {
   // Map as read-only to *atomically* replace the RELRO region provided by the
   // dynamic linker. To avoid memory corruption it is important that the
   // contents of both memory regions is identical.
-  void* new_addr = mmap(reinterpret_cast<void*>(relro_start_), relro_size_,
-                        PROT_READ, MAP_FIXED | MAP_SHARED, relro_fd_, 0);
+  void* new_addr = mmap(reinterpret_cast<void*>(relro_start_), size, PROT_READ,
+                        MAP_FIXED | MAP_SHARED, relro_fd_, 0);
   if (new_addr == MAP_FAILED) {
     PLOG_ERROR("mmap: replace RELRO");
     return false;
   }
 
-  LOG_INFO("Replaced RELRO at 0x%" PRIxPTR, relro_start_);
+  LOG_INFO("Replaced RELRO at 0x%" PRIxPTR " (size=0x%zx)", relro_start_, size);
   return true;
 }
 
@@ -601,7 +603,7 @@ bool NativeLibInfo::LoadLibrary(const String& library_path,
     LOG_ERROR("Failed to create shared RELRO");
     return false;
   }
-  if (!ReplaceRelroWithSharedOne()) {
+  if (!ReplaceRelroWithSharedOne(relro_size_)) {
     LOG_ERROR("Failed to convert RELRO to shared memory");
     CloseRelroFd();
     return false;
@@ -615,37 +617,65 @@ bool NativeLibInfo::LoadLibrary(const String& library_path,
   return true;
 }
 
-bool NativeLibInfo::RelroIsIdentical(
+size_t NativeLibInfo::FindRelroCommonPrefix(
     const NativeLibInfo& other_lib_info) const {
-  // Abandon sharing if contents of the incoming RELRO region does not match the
-  // current one. This can be useful for debugging, but should never happen in
-  // the field.
+  // Abandon sharing if the shape of the incoming RELRO region differs from the
+  // current one. Check the native library size as well.
   if (other_lib_info.relro_start_ != relro_start_ ||
       other_lib_info.relro_size_ != relro_size_ ||
-      other_lib_info.load_size_ != load_size_) {
-    LOG_ERROR("Incoming RELRO size does not match RELRO of the loaded library");
-    return false;
+      other_lib_info.load_size_ != load_size_ || relro_size_ == 0) {
+    LOG_ERROR(
+        "Incoming LibInfo does not match the current loaded library: "
+        "relro_start=(0x%" PRIxPTR " vs. 0x%" PRIxPTR
+        "), relro_size=(0x%zx vs. 0x%zx), load_size=(0x%zx vs. 0x%zx)",
+        other_lib_info.relro_start_, relro_start_, other_lib_info.relro_size_,
+        relro_size_, other_lib_info.load_size_, load_size_);
+    return 0;
   }
+
+  // Map the shared memory for comparison.
   void* shared_relro_address =
       mmap(nullptr, other_lib_info.relro_size_, PROT_READ, MAP_SHARED,
            other_lib_info.relro_fd_, 0);
   if (shared_relro_address == MAP_FAILED) {
     PLOG_ERROR("mmap: check RELRO is identical");
-    return false;
+    return 0;
   }
-  void* current_relro_address = reinterpret_cast<void*>(relro_start_);
-  int not_equal = UNSAFE_TODO(
-      memcmp(shared_relro_address, current_relro_address, relro_size_));
+
+  // A few relocations depend on the process that loads the library, such as
+  // R_AARCH64_TLSDESC. Luckily, LLD puts them in `.got` section in a somewhat
+  // compact way near the end of PT_GNU_RELRO. Find the identical prefix
+  // truncated to a page boundary so that the common part of RELRO can still be
+  // shared.
+  const size_t kPageSize = GetPageSize();
+  const uint8_t* shared_relro =
+      static_cast<const uint8_t*>(shared_relro_address);
+  const uint8_t* this_relro = reinterpret_cast<const uint8_t*>(relro_start_);
+  size_t common_size = 0;
+  while (common_size + kPageSize <= relro_size_) {
+    // SAFETY: `other_lib_info.relro_size_ == relro_size_` is guaranteed by the
+    // first condition in this function. The mmap above succeeded providing
+    // valid memory for `shared_relro`. The loop condition guarantees bytes
+    // remain in both buffers.
+    if (UNSAFE_BUFFERS(memcmp(shared_relro + common_size,
+                              this_relro + common_size, kPageSize)) != 0) {
+      break;
+    }
+    common_size += kPageSize;
+  }
+
+  // Unmap the temporary address range used for comparison.
   munmap(shared_relro_address, relro_size_);
-  if (not_equal) {
+
+  if (common_size == 0) {
     LOG_ERROR("Relocations are not identical, giving up.");
-    return false;
   }
-  return true;
+  return common_size;
 }
 
 bool NativeLibInfo::CompareRelroAndReplaceItBy(
     const NativeLibInfo& other_lib_info) {
+  s_relro_not_shared_percentage = 100;
   if (other_lib_info.relro_fd_ == -1) {
     LOG_ERROR("No shared region to use");
     s_relro_sharing_status = RelroSharingStatus::EXTERNAL_RELRO_FD_NOT_PROVIDED;
@@ -665,13 +695,14 @@ bool NativeLibInfo::CompareRelroAndReplaceItBy(
     return false;
   }
 
-  if (!RelroIsIdentical(other_lib_info)) {
+  size_t common_size = FindRelroCommonPrefix(other_lib_info);
+  if (common_size == 0) {
     LOG_ERROR("RELRO is not identical");
     s_relro_sharing_status = RelroSharingStatus::NOT_IDENTICAL;
     return false;
   }
 
-  // Make it shared.
+  // Make the common prefix shared.
   //
   // The alternative approach to invoke mprotect+mremap is probably faster than
   // munmap+mmap here. The advantage of the latter is that it removes all
@@ -679,13 +710,15 @@ bool NativeLibInfo::CompareRelroAndReplaceItBy(
   //  * It does not rely on disallowing mprotect(PROT_WRITE)
   //  * This way |ReplaceRelroWithSharedOne()| is reused across spawning RELRO
   //    and receiving it
-  if (!other_lib_info.ReplaceRelroWithSharedOne()) {
+  if (!other_lib_info.ReplaceRelroWithSharedOne(common_size)) {
     LOG_ERROR("Failed to use relro_fd");
     s_relro_sharing_status = RelroSharingStatus::REMAP_FAILED;
     return false;
   }
 
   s_relro_sharing_status = RelroSharingStatus::SHARED;
+  s_relro_not_shared_percentage = static_cast<int>(
+      static_cast<uint64_t>(relro_size_ - common_size) * 100 / relro_size_);
   return true;
 }
 
@@ -768,6 +801,7 @@ Java_org_chromium_base_library_1loader_LinkerJni_nativeUseRelros(
   NativeLibInfo incoming_lib_info = {env, remote_lib_info_obj};
   if (!incoming_lib_info.CopyFromJavaObject()) {
     s_relro_sharing_status = RelroSharingStatus::CORRUPTED_IN_JAVA;
+    s_relro_not_shared_percentage = 100;
     return false;
   }
 
@@ -788,6 +822,13 @@ Java_org_chromium_base_library_1loader_LinkerJni_nativeGetRelroSharingResult(
     JNIEnv* env,
     jclass clazz) {
   return static_cast<int32_t>(s_relro_sharing_status);
+}
+
+JNI_ZERO_BOUNDARY_EXPORT int32_t
+Java_org_chromium_base_library_1loader_LinkerJni_nativeGetRelroNotSharedPercentage(
+    JNIEnv* env,
+    jclass clazz) {
+  return s_relro_not_shared_percentage;
 }
 
 bool LinkerJNIInit(JavaVM* vm, JNIEnv* env) {

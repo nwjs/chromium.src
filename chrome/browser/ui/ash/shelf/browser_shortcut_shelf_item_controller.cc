@@ -15,7 +15,6 @@
 #include "ash/wm/window_animations.h"
 #include "base/metrics/user_metrics.h"
 #include "base/metrics/user_metrics_action.h"
-#include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/ash/app_restore/full_restore_service.h"
 #include "chrome/browser/ash/app_restore/full_restore_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
@@ -294,7 +293,6 @@ BrowserShortcutShelfItemController::GetAppMenuItems(
       base::RecordAction(base::UserMetricsAction(
           "Shelf_BrowserShortcutShelfItem_ShowWindows"));
       app_menu_items.emplace_back(browser, std::nullopt);
-      auto* tab = browser->GetActiveWebContents();
       const gfx::Image& icon =
           ui::ResourceBundle::GetSharedInstance().GetImageNamed(
               (browser->IsOffTheRecord() &&
@@ -302,16 +300,8 @@ BrowserShortcutShelfItemController::GetAppMenuItems(
                   ? IDR_ASH_SHELF_LIST_INCOGNITO_BROWSER
                   : IDR_ASH_SHELF_LIST_BROWSER);
 
-      // Set the title of the app menu item to the browser window title if the
-      // user set one on the window. Otherwise, use the title defined in
-      // ChromeShelfController.
-      std::optional<std::string> browser_title =
-          browser->GetUserDefinedWindowTitle();
-      std::u16string item_title = browser_title.has_value()
-                                      ? base::UTF8ToUTF16(*browser_title)
-                                      : controller->GetAppMenuTitle(tab);
-
-      items.push_back({static_cast<int>(app_menu_items.size() - 1), item_title,
+      items.push_back({static_cast<int>(app_menu_items.size() - 1),
+                       controller->GetAppMenuWindowTitle(*browser),
                        icon.AsImageSkia()});
     } else {
       base::RecordAction(
@@ -334,6 +324,37 @@ BrowserShortcutShelfItemController::GetAppMenuItems(
   return items;
 }
 
+base::expected<aura::Window*, std::u16string>
+BrowserShortcutShelfItemController::GetAppMenuItemWindow(int command_id) {
+  if (command_id < 0 ||
+      static_cast<size_t>(command_id) >= app_menu_items_.size()) {
+    return base::unexpected(std::u16string());
+  }
+  ash::BrowserDelegate* browser = app_menu_items_[command_id].first;
+  if (!browser) {
+    return base::unexpected(std::u16string());
+  }
+  // The browser window only shows its active tab, so other tabs have no window
+  // to preview.
+  const std::optional<size_t> tab_index = app_menu_items_[command_id].second;
+  if (tab_index.has_value()) {
+    content::WebContents* tab = browser->GetWebContentsAt(*tab_index);
+    if (!tab) {
+      return base::unexpected(std::u16string());
+    }
+    if (tab != browser->GetActiveWebContents()) {
+      return base::unexpected(
+          ChromeShelfController::instance()->GetAppMenuInactiveTabTooltip(
+              *browser));
+    }
+  }
+  aura::Window* window = browser->GetNativeWindow();
+  if (!window) {
+    return base::unexpected(std::u16string());
+  }
+  return window;
+}
+
 void BrowserShortcutShelfItemController::GetContextMenu(
     int64_t display_id,
     GetContextMenuCallback callback) {
@@ -350,10 +371,8 @@ void BrowserShortcutShelfItemController::ExecuteCommand(bool from_context_menu,
   DCHECK(!from_context_menu);
 
   // Check that the index is valid and the browser has not been closed.
-  // It's unclear why, but the browser's window may be null: crbug.com/41444285
   if (command_id < static_cast<int64_t>(app_menu_items_.size()) &&
-      app_menu_items_[command_id].first &&
-      app_menu_items_[command_id].first->GetWindow()) {
+      app_menu_items_[command_id].first) {
     ash::BrowserDelegate* browser = app_menu_items_[command_id].first;
     const std::optional<size_t> tab_index = app_menu_items_[command_id].second;
     if (event_flags & (ui::EF_SHIFT_DOWN | ui::EF_MIDDLE_MOUSE_BUTTON)) {

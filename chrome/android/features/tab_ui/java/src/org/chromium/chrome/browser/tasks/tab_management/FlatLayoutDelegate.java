@@ -25,21 +25,6 @@ class FlatLayoutDelegate extends TabListLayoutDelegate {
     }
 
     @Override
-    boolean requiresThumbnailUpdateOnDeselect() {
-        return false;
-    }
-
-    @Override
-    boolean requiresThumbnailUpdateOnSelect() {
-        return true;
-    }
-
-    @Override
-    boolean supportsTabGroups() {
-        return false;
-    }
-
-    @Override
     boolean isChildTabRepresentedByGroupCard(Tab tab) {
         return false;
     }

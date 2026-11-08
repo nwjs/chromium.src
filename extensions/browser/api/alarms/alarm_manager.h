@@ -63,6 +63,10 @@ struct Alarm {
   base::TimeDelta minimum_granularity;
 };
 
+namespace api::alarms {
+bool operator==(const api::alarms::Alarm&, const api::alarms::Alarm&);
+}  //  namespace api::alarms
+
 // Manages the currently pending alarms for every extension in a profile.
 // There is one manager per virtual Profile.
 class AlarmManager : public BrowserContextKeyedAPI,
@@ -154,6 +158,11 @@ class AlarmManager : public BrowserContextKeyedAPI,
                            PerExtensionLastPollTime);
   FRIEND_TEST_ALL_PREFIXES(ExtensionAlarmsSchedulingTest,
                            PollFrequencyFromStoredAlarm);
+  FRIEND_TEST_ALL_PREFIXES(ExtensionAlarmsSchedulingTest,
+                           PollWritesToStorageOncePerExtension);
+  FRIEND_TEST_ALL_PREFIXES(ExtensionAlarmsSchedulingTest, ClearAll);
+  FRIEND_TEST_ALL_PREFIXES(ExtensionAlarmsCreateStateStoreWriteEfficiency,
+                           CreateAlarmStateStoreWriteEfficiency);
   FRIEND_TEST_ALL_PREFIXES(ExtensionAlarmsTest, OldPersistentAlarmFromStorage);
   friend class BrowserContextKeyedAPIFactory<AlarmManager>;
 
@@ -201,13 +210,18 @@ class AlarmManager : public BrowserContextKeyedAPI,
   // must be valid.
   void RemoveAlarmIterator(const AlarmIterator& iter);
 
-  // Callback for when an alarm fires.
+  // Callback for when an alarm fires. Does not write to storage; the caller
+  // is responsible for calling WriteToStorage() afterwards.
   void OnAlarm(AlarmIterator iter);
 
   // Internal helper to add an alarm and start the timer with the given delay.
-  void AddAlarmImpl(const ExtensionId& extension_id, Alarm alarm);
+  // Returns true if a persistent alarm was modified (persistent alarm
+  // overwritten by a non-persistent alarm, persistent alarm updated, or
+  // persistent alarm was added).
+  bool AddAlarmImpl(const ExtensionId& extension_id, Alarm alarm);
 
   // Internal helper to remove all alarms for an extension from memory.
+  // Returns true if an extension had at least one persistent alarm.
   bool RemoveAllAlarmsInternal(const ExtensionId& extension_id);
 
   // Syncs our alarm data for the given extension to/from the state storage.
@@ -231,6 +245,10 @@ class AlarmManager : public BrowserContextKeyedAPI,
   // Executes `action` for given extension, making sure that the extension's
   // alarm data has been synced from the storage.
   void RunWhenReady(const ExtensionId& extension_id, ReadyAction action);
+
+  // Helper function which stops internal timer and resets next poll timestamp.
+  // Caller should call this only when there are no registered alarms.
+  void StopTimer();
 
   // ExtensionRegistryObserver implementation.
   void OnExtensionLoaded(content::BrowserContext* browser_context,

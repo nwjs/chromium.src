@@ -8,22 +8,21 @@
  * settings for passwords, payment methods, addresses and more.
  */
 import 'chrome://resources/cr_elements/cr_view_manager/cr_view_manager.js';
-import '/shared/settings/prefs/prefs.js';
 import './autofill_page.js';
-import '../settings_shared.css.js';
 
 import type {CrViewManagerElement} from 'chrome://resources/cr_elements/cr_view_manager/cr_view_manager.js';
 import {assert} from 'chrome://resources/js/assert.js';
-import {PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
+import {CrLitElement} from 'chrome://resources/lit/v3_0/lit.rollup.js';
 
 import {loadTimeData} from '../i18n_setup.js';
 import {routes} from '../route.js';
-import {RouteObserverMixin} from '../router.js';
 import type {Route} from '../router.js';
+import {RouteObserverMixinLit} from '../router.js';
 import type {SettingsPlugin} from '../settings_main/settings_plugin.js';
-import {SearchableViewContainerMixin} from '../settings_page/searchable_view_container_mixin.js';
+import {SearchableViewContainerMixinLit} from '../settings_page/searchable_view_container_mixin_lit.js';
 
-import {getTemplate} from './autofill_page_index.html.js';
+import {getCss} from './autofill_page_index.css.js';
+import {getHtml} from './autofill_page_index.html.js';
 import {DataManagementSurvey, SavedInfoHandlerImpl} from './saved_info_handler_proxy.js';
 
 
@@ -34,7 +33,7 @@ export interface SettingsAutofillPageIndexElement {
 }
 
 const SettingsAutofillPageIndexElementBase =
-    SearchableViewContainerMixin(RouteObserverMixin(PolymerElement));
+    SearchableViewContainerMixinLit(RouteObserverMixinLit(CrLitElement));
 
 export class SettingsAutofillPageIndexElement extends
     SettingsAutofillPageIndexElementBase implements SettingsPlugin {
@@ -42,33 +41,25 @@ export class SettingsAutofillPageIndexElement extends
     return 'settings-autofill-page-index';
   }
 
-  static get template() {
-    return getTemplate();
+  static override get styles() {
+    return getCss();
   }
 
-  static get properties() {
+  override render() {
+    return getHtml.bind(this)();
+  }
+
+  static override get properties() {
     return {
-      prefs: Object,
-
-      isShoppingEnabled_: {
-        type: Boolean,
-        value() {
-          return loadTimeData.getBoolean('shoppingIntegrationEnabled');
-        },
-      },
-
-      showSuggestionsFromGeminiSettings_: {
-        type: Boolean,
-        value() {
-          return loadTimeData.getBoolean('showSuggestionsFromGeminiSettings');
-        },
-      },
+      isShoppingEnabled_: {type: Boolean},
+      showSuggestionsFromGeminiSettings_: {type: Boolean},
     };
   }
 
-  declare prefs: Record<string, unknown>;
-  declare private isShoppingEnabled_: boolean;
-  declare private showSuggestionsFromGeminiSettings_: boolean;
+  protected accessor isShoppingEnabled_: boolean =
+      loadTimeData.getBoolean('shoppingIntegrationEnabled');
+  protected accessor showSuggestionsFromGeminiSettings_: boolean =
+      loadTimeData.getBoolean('showSuggestionsFromGeminiSettings');
 
   override currentRouteChanged(newRoute: Route, oldRoute?: Route) {
     super.currentRouteChanged(newRoute, oldRoute);
@@ -141,11 +132,9 @@ export class SettingsAutofillPageIndexElement extends
 
 declare global {
   interface HTMLElementTagNameMap {
-    'settings-autofill-page-index':
-        SettingsAutofillPageIndexElement;
+    'settings-autofill-page-index': SettingsAutofillPageIndexElement;
   }
 }
 
 customElements.define(
-    SettingsAutofillPageIndexElement.is,
-    SettingsAutofillPageIndexElement);
+    SettingsAutofillPageIndexElement.is, SettingsAutofillPageIndexElement);

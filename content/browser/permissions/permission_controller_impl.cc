@@ -16,6 +16,7 @@
 #include "components/content_settings/core/common/content_settings.h"
 #include "components/content_settings/core/common/content_settings_types.h"
 #include "content/browser/permissions/permission_service_context.h"
+#include "content/browser/permissions/permission_subscription_impl.h"
 #include "content/browser/permissions/permission_util.h"
 #include "content/browser/renderer_host/render_frame_host_impl.h"
 #include "content/public/browser/browser_context.h"
@@ -409,12 +410,9 @@ PermissionControllerImpl::GetSubscriptionsStatuses(
 
 void PermissionControllerImpl::NotifyChangedSubscriptions(
     const SubscriptionsStatusMap& old_statuses) {
-  // A callback may unsubscribe another subscription of this batch, so each
-  // callback is paired with a weak pointer to its subscription and is skipped
-  // if that subscription is gone by the time it would run.
-  std::vector<
-      std::pair<base::WeakPtr<PermissionResultSubscription>, base::OnceClosure>>
-      callbacks;
+  // Callbacks are collected first and run only after the loop below, to prevent
+  // re-entrance issues.
+  std::vector<base::OnceClosure> callbacks;
   for (const auto& it : old_statuses) {
     auto key = it.first;
     PermissionResultSubscription* subscription = subscriptions_.Lookup(key);
@@ -427,15 +425,11 @@ void PermissionControllerImpl::NotifyChangedSubscriptions(
       // This is a private method that is called internally if a permission
       // status was set by DevTools. Suppress permission status override
       // verification and always notify listeners.
-      callbacks.emplace_back(subscription->GetWeakPtr(),
-                             base::BindOnce(subscription->callback, new_result,
-                                            /*ignore_status_override=*/true));
+      callbacks.push_back(base::BindOnce(subscription->callback, new_result,
+                                         /*ignore_status_override=*/true));
     }
   }
-  for (auto& [subscription, callback] : callbacks) {
-    if (!subscription) {
-      continue;
-    }
+  for (auto& callback : callbacks) {
     std::move(callback).Run();
   }
 }
@@ -836,6 +830,13 @@ void PermissionControllerImpl::PermissionResultChange(
     SubscriptionId subscription_id,
     PermissionResult result,
     bool ignore_status_override) {
+  PermissionResultSubscription* subscription =
+      subscriptions_.Lookup(subscription_id);
+  // The subscription may have been unsubscribed concurrently (e.g. by another
+  // callback in the same batch).
+  if (!subscription) {
+    return;
+  }
   // Check if the permission status override should be ignored. The verification
   // is suppressed if a permission status change was initiated by DevTools. In
   // all other cases permission status override is always checked.
@@ -843,11 +844,6 @@ void PermissionControllerImpl::PermissionResultChange(
     callback.Run(result);
     return;
   }
-  PermissionResultSubscription* subscription =
-      subscriptions_.Lookup(subscription_id);
-  // Callers must not deliver a change for a subscription that was already
-  // removed.
-  CHECK(subscription);
   std::optional<PermissionResult> permission_result = permission_overrides_.Get(
       url::Origin::Create(subscription->requesting_origin),
       url::Origin::Create(subscription->embedding_origin),
@@ -858,7 +854,7 @@ void PermissionControllerImpl::PermissionResultChange(
   }
 }
 
-PermissionController::SubscriptionId
+std::unique_ptr<PermissionController::PermissionSubscription>
 PermissionControllerImpl::SubscribeToPermissionResultChange(
     blink::mojom::PermissionDescriptorPtr permission_descriptor,
     RenderProcessHost* render_process_host,
@@ -899,7 +895,7 @@ PermissionControllerImpl::SubscribeToPermissionResultChange(
     delegate->SetSubscriptions(&subscriptions_);
     delegate->OnPermissionStatusChangeSubscriptionAdded(id);
   }
-  return id;
+  return std::make_unique<PermissionSubscriptionImpl>(GetWeakPtr(), id);
 }
 
 void PermissionControllerImpl::UnsubscribeFromPermissionResultChange(
@@ -980,6 +976,10 @@ void PermissionControllerImpl::NotifyEventListener() {
   if (onchange_listeners_callback_for_tests_) {
     onchange_listeners_callback_for_tests_.Run();
   }
+}
+
+base::WeakPtr<PermissionControllerImpl> PermissionControllerImpl::GetWeakPtr() {
+  return weak_factory_.GetWeakPtr();
 }
 
 }  // namespace content

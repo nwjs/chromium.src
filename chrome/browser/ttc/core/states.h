@@ -5,8 +5,11 @@
 #ifndef CHROME_BROWSER_TTC_CORE_STATES_H_
 #define CHROME_BROWSER_TTC_CORE_STATES_H_
 
+#include <iosfwd>
+
 namespace ttc {
 
+// GENERATED_JAVA_ENUM_PACKAGE: org.chromium.chrome.browser.ttc
 enum class ServiceState {
   // TTC is unavailable for this profile.
   kProfileIneligible,
@@ -25,6 +28,8 @@ enum class SessionLifecycle {
   // The session has been disconnected and is no longer usable.
   kFinished,
 };
+
+std::ostream& operator<<(std::ostream& os, SessionLifecycle lifecycle);
 
 }  // namespace ttc
 

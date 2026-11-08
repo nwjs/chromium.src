@@ -64,6 +64,8 @@ class SpeechRecognitionRecognizerImplTest
         /*mask_offensive_words=*/true);
     auto soda_client = std::make_unique<NiceMock<::soda::MockSodaClient>>();
     soda_client_ = soda_client.get();
+    ON_CALL(*soda_client_, IsInitialized())
+        .WillByDefault(testing::Return(true));
     recognizer_->SetSodaClientForTesting(std::move(soda_client));
   }
 
@@ -330,6 +332,83 @@ TEST_F(SpeechRecognitionRecognizerImplTest,
   ASSERT_FALSE(timestamps.has_value());
 }
 
+TEST_F(SpeechRecognitionRecognizerImplTest,
+       HandlesResultsWithInvertedAndNegativeAudioTimestamps) {
+  CreateRecognizer(CreateOptions(), kPrimaryLanguageName);
+
+  // Audio from media time [10s, 12s) corresponds to speech time [0s, 2s).
+  SendAudio(recognizer_.get(), base::Seconds(2), base::Seconds(10));
+
+  // 1. Inverted timestamps (`audio_end_time < audio_start_time`).
+  // Without clamping, Mojo deserialization fails with
+  // VALIDATION_ERROR_DESERIALIZATION_FAILED.
+  media::SpeechRecognitionResult inverted_result;
+  inverted_result.transcription = "inverted";
+  inverted_result.is_final = false;
+  inverted_result.timing_information = media::TimingInformation();
+  inverted_result.timing_information->audio_start_time = base::Seconds(2);
+  inverted_result.timing_information->audio_end_time = base::Seconds(1);
+
+  recognizer_->recognition_event_callback().Run(std::move(inverted_result));
+  WaitForRecognitionEvent();
+
+  ASSERT_TRUE(last_received_result_.timing_information.has_value());
+  EXPECT_EQ(last_received_result_.timing_information->audio_start_time,
+            base::Seconds(2));
+  EXPECT_EQ(last_received_result_.timing_information->audio_end_time,
+            base::Seconds(2));
+  EXPECT_FALSE(last_received_result_.timing_information
+                   ->originating_media_timestamps.has_value());
+
+  // 2. Negative start timestamp (`audio_start_time < 0`, `audio_end_time > 0`).
+  // Should clamp `audio_start_time` to 0s and compute media timestamps for
+  // [0s, 2s) -> [10s, 12s).
+  media::SpeechRecognitionResult negative_start_result;
+  negative_start_result.transcription = "negative start";
+  negative_start_result.is_final = true;
+  negative_start_result.timing_information = media::TimingInformation();
+  negative_start_result.timing_information->audio_start_time =
+      base::Seconds(-1);
+  negative_start_result.timing_information->audio_end_time = base::Seconds(2);
+  negative_start_result.timing_information->hypothesis_parts =
+      std::vector<media::HypothesisParts>{
+          media::HypothesisParts({"negative"}, base::Seconds(-1)),
+          media::HypothesisParts({"start"}, base::Seconds(5))};
+
+  recognizer_->recognition_event_callback().Run(
+      std::move(negative_start_result));
+  WaitForRecognitionEvent();
+
+  ASSERT_TRUE(last_received_result_.timing_information.has_value());
+  EXPECT_EQ(last_received_result_.timing_information->audio_start_time,
+            base::Seconds(0));
+  EXPECT_EQ(last_received_result_.timing_information->audio_end_time,
+            base::Seconds(2));
+  ASSERT_TRUE(last_received_result_.timing_information
+                  ->originating_media_timestamps.has_value());
+  ASSERT_EQ(last_received_result_.timing_information
+                ->originating_media_timestamps->size(),
+            1u);
+  EXPECT_EQ((*last_received_result_.timing_information
+                  ->originating_media_timestamps)[0]
+                .start,
+            base::Seconds(10));
+  EXPECT_EQ((*last_received_result_.timing_information
+                  ->originating_media_timestamps)[0]
+                .end,
+            base::Seconds(12));
+  ASSERT_TRUE(
+      last_received_result_.timing_information->hypothesis_parts.has_value());
+  ASSERT_EQ(last_received_result_.timing_information->hypothesis_parts->size(),
+            2u);
+  EXPECT_EQ((*last_received_result_.timing_information->hypothesis_parts)[0]
+                .hypothesis_part_offset,
+            base::Seconds(0));
+  EXPECT_EQ((*last_received_result_.timing_information->hypothesis_parts)[1]
+                .hypothesis_part_offset,
+            base::Seconds(2));
+}
+
 TEST_F(SpeechRecognitionRecognizerImplTest, ResetSodaWithDifferentCaseLang) {
   config_paths_[kPrimaryLanguageName] = base::FilePath::FromASCII("/fake/path");
   CreateRecognizer(CreateOptions(), kPrimaryLanguageNameLowerCase);
@@ -441,6 +520,59 @@ TEST_F(SpeechRecognitionRecognizerImplTest, EmptyHypothesisDoesNotCrash) {
 
   EXPECT_EQ(0, recognition_event_count_);
   EXPECT_TRUE(last_received_result_.transcription.empty());
+}
+
+TEST_F(SpeechRecognitionRecognizerImplTest, DestroySodaWhenClientDisconnects) {
+  CreateRecognizer(CreateOptions(), kPrimaryLanguageName);
+
+  // Disconnecting the client remote should release the SODA instance and
+  // prevent subsequent ResetSoda() calls from re-initializing it.
+  base::RunLoop run_loop;
+  EXPECT_CALL(*soda_client_, Destroy()).WillOnce([&]() { run_loop.Quit(); });
+  receiver_.reset();
+  run_loop.Run();
+
+  EXPECT_CALL(*soda_client_, Reset(_, _, _)).Times(0);
+  recognizer_->OnLanguagePackInstalled(config_paths());
+}
+
+TEST_F(SpeechRecognitionRecognizerImplTest,
+       DoNotResetUninitializedSodaOnLanguagePackInstalled) {
+  CreateRecognizer(CreateOptions(), kPrimaryLanguageName);
+  ON_CALL(*soda_client_, IsInitialized()).WillByDefault(testing::Return(false));
+
+  base::flat_map<std::string, base::FilePath> updated_paths;
+  updated_paths[kPrimaryLanguageName] = base::FilePath::FromASCII("/new/path");
+
+  // Updating language pack paths while SODA is uninitialized should not
+  // eagerly initialize SODA.
+  EXPECT_CALL(*soda_client_, Reset(_, _, _)).Times(0);
+  recognizer_->OnLanguagePackInstalled(updated_paths);
+
+  // When audio finally arrives, SODA should be initialized with the updated
+  // config paths.
+  EXPECT_CALL(*soda_client_, Reset(_, _, _)).Times(1);
+  SendAudio(recognizer_.get(), base::Seconds(1), base::Seconds(0));
+  EXPECT_EQ("/new/path", recognizer_->GetExtendedSodaConfigMsgForTesting()
+                             ->language_pack_directory());
+}
+
+TEST_F(SpeechRecognitionRecognizerImplTest, DestroySodaOnContinuousSilence) {
+  auto options = CreateOptions();
+  options->skip_continuously_empty_audio = true;
+  CreateRecognizer(std::move(options), kPrimaryLanguageName);
+
+  // Send silent audio within the 10-second threshold; SODA should not be
+  // destroyed yet.
+  EXPECT_CALL(*soda_client_, Destroy()).Times(0);
+  SendAudio(recognizer_.get(), base::Seconds(1), base::Seconds(0));
+
+  // Advance past the 10-second silence threshold and send another silent
+  // buffer; SODA should be destroyed and no audio forwarded to SODA.
+  task_environment_.FastForwardBy(base::Seconds(11));
+  EXPECT_CALL(*soda_client_, Destroy()).Times(1);
+  EXPECT_CALL(*soda_client_, AddAudio(_, _)).Times(0);
+  SendAudio(recognizer_.get(), base::Seconds(1), base::Seconds(11));
 }
 
 }  // namespace speech

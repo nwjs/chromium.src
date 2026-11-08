@@ -21,6 +21,7 @@
 #include "base/types/pass_key.h"
 #include "chrome/browser/actor/actor_task.h"
 #include "chrome/browser/actor/actor_task_delegate.h"
+#include "chrome/browser/actor/tools/registry/tool_registry.h"
 #include "chrome/browser/glic/host/glic.mojom.h"
 #include "chrome/browser/page_content_annotations/multi_source_page_context_fetcher.h"
 #include "chrome/browser/profiles/profile_observer.h"
@@ -48,10 +49,12 @@ namespace ui {
 class ActorUiStateManager;
 class ActorUiStateManagerInterface;
 class UiEventDispatcher;
-}
+}  // namespace ui
 
+class ActorSurfaceRegistry;
 class EnterprisePolicyChecker;
 class ActorTaskMetadata;
+class HeadlessWebContentsManager;
 class ToolRequest;
 class TabObservationStrategy;
 
@@ -82,12 +85,16 @@ class ActorKeyedService : public KeyedService,
   // Stop and clear all active tasks for testing only.
   void ResetForTesting();
 
+  using AllowedSchemes = ActorTask::AllowedSchemes;
+
   // Starts a new task with an execution engine and returns the new task's id.
   // `options`, when provided, contains information used to initialize the task.
   // The provided `policy_checker` and `ui_state_manager` must be non-null and
   // must outlive the ActorTask.
-  TaskId CreateTask(const TaskSourceInfo& source_info,
-                    const EnterprisePolicyChecker* policy_checker);
+  TaskId CreateTask(
+      const TaskSourceInfo& source_info,
+      const EnterprisePolicyChecker* policy_checker,
+      AllowedSchemes allowed_schemes = AllowedSchemes::kRequireHttpsOrHttp);
   TaskId CreateTaskWithOptions(
       const TaskSourceInfo& source_info,
       const EnterprisePolicyChecker* policy_checker,
@@ -95,7 +102,8 @@ class ActorKeyedService : public KeyedService,
       base::WeakPtr<ActorTaskDelegate> delegate,
       actor::ui::ActorUiStateManagerInterface* ui_state_manager,
       std::optional<glic::mojom::InvocationSource> initial_invocation_source =
-          std::nullopt);
+          std::nullopt,
+      AllowedSchemes allowed_schemes = AllowedSchemes::kRequireHttpsOrHttp);
   TaskId CreateTaskForTesting(
       std::unique_ptr<actor::ui::UiEventDispatcher> ui_event_dispatcher,
       const TaskSourceInfo& source_info,
@@ -103,7 +111,8 @@ class ActorKeyedService : public KeyedService,
       webui::mojom::TaskOptionsPtr options,
       base::WeakPtr<ActorTaskDelegate> delegate,
       std::optional<glic::mojom::InvocationSource> initial_invocation_source =
-          std::nullopt);
+          std::nullopt,
+      AllowedSchemes allowed_schemes = AllowedSchemes::kRequireHttpsOrHttp);
 
   // Executes the given ToolRequest actions using the execution engine for the
   // given task id.
@@ -125,6 +134,14 @@ class ActorKeyedService : public KeyedService,
 
   // The associated journal for the associated profile.
   AggregatedJournal& GetJournal() LIFETIME_BOUND { return journal_; }
+
+  // The registry of surfaces the actor can act on for the associated profile.
+  ActorSurfaceRegistry& GetSurfaceRegistry() LIFETIME_BOUND;
+
+  // The shared browser tool registry for the associated profile.
+  const ToolRegistry& tool_registry() const LIFETIME_BOUND {
+    return tool_registry_;
+  }
 
   // The associated ActorUiStateManager for the associated profile.
   ui::ActorUiStateManager* GetActorUiStateManager(
@@ -265,6 +282,11 @@ class ActorKeyedService : public KeyedService,
   base::CallbackListSubscription AddPendingTaskCountChangedCallback(
       PendingTaskCountChangedCallback callback);
 
+  using PendingTaskAddedCallback =
+      base::RepeatingCallback<void(const std::string&)>;
+  base::CallbackListSubscription AddPendingTaskAddedCallback(
+      PendingTaskAddedCallback callback);
+
 #if BUILDFLAG(IS_ANDROID)
   using EnsureForegroundServiceStartedCallback =
       base::RepeatingCallback<void(const std::string&)>;
@@ -284,7 +306,8 @@ class ActorKeyedService : public KeyedService,
       webui::mojom::TaskOptionsPtr options,
       base::WeakPtr<ActorTaskDelegate> delegate,
       actor::ui::ActorUiStateManagerInterface* ui_state_manager,
-      std::optional<glic::mojom::InvocationSource> initial_invocation_source);
+      std::optional<glic::mojom::InvocationSource> initial_invocation_source,
+      AllowedSchemes allowed_schemes);
 
   // The callback used for ExecutorEngine::Act.
   void OnActionsFinished(
@@ -315,6 +338,12 @@ class ActorKeyedService : public KeyedService,
   // ActorUiStateManagerInterface* passed in via CreateTaskImpl instead.
   std::unique_ptr<ui::ActorUiStateManager> actor_ui_state_manager_;
 
+  // Declared before `surface_registry_` so the manager outlives the registry
+  // that uses it, and before `active_tasks_` so tasks are destroyed before
+  // surfaces.
+  std::unique_ptr<HeadlessWebContentsManager> headless_web_contents_manager_;
+  std::unique_ptr<ActorSurfaceRegistry> surface_registry_;
+
   std::map<TaskId, std::unique_ptr<ActorTask>> active_tasks_;
 
   // Tasks that are stopped are deleted asynchronously by being placed into this
@@ -342,6 +371,8 @@ class ActorKeyedService : public KeyedService,
   base::flat_map<std::string, PendingTask> pending_tasks_;
   base::RepeatingCallbackList<void(size_t)>
       pending_task_count_change_callback_list_;
+  base::RepeatingCallbackList<void(const std::string&)>
+      pending_task_added_callback_list_;
 
 #if BUILDFLAG(IS_ANDROID)
   base::RepeatingCallbackList<void(const std::string&)>
@@ -350,6 +381,9 @@ class ActorKeyedService : public KeyedService,
 
   // Owns this.
   raw_ptr<Profile> profile_;
+
+  // Catalog of shared browser tool definitions returned by `tool_registry()`.
+  ToolRegistry tool_registry_;
 
   base::WeakPtrFactory<ActorKeyedService> weak_ptr_factory_{this};
 };

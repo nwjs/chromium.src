@@ -106,10 +106,6 @@
 # This is for things like tests that will never be supported on a particular
 # platform/configuration.
 
-# Require page actions - which are only supported in pixel tests.
-crbug.com/1048892 TraceTest_OffscreenCanvasIBRCWebGLMain [ Skip ]
-crbug.com/1048892 TraceTest_OffscreenCanvasIBRCWebGLWorker [ Skip ]
-
 # The TraceTest versions of the pixel tests' Video_Context_Loss tests
 # appear flaky on multiple platforms. These are mainly meant to run as
 # pixel tests so they're being skipped in this test suite.
@@ -170,10 +166,10 @@ crbug.com/dawn/549 [ fuchsia ] WebGPUCachingTraceTest_* [ Skip ]
 [ fuchsia fuchsia-board-astro ] TraceTest_Video_HEVC [ Skip ]
 
 # WebGpu is not supported on x86 nvidia
-crbug.com/42240193 [ win10 nvidia target-cpu-32 ] WebGPUTraceTest_WebGPUCanvasDisableOneCopyCapture_Accelerated [ Skip ]
-crbug.com/42240193 [ win10 nvidia target-cpu-32 ] WebGPUTraceTest_WebGPUCanvasOneCopyCapture [ Skip ]
-crbug.com/42240193 [ win10 nvidia target-cpu-32 ] WebGPUTraceTest_WebGPUCanvasOneCopyCapture_Hidden [ Skip ]
-crbug.com/42240193 [ win10 nvidia target-cpu-32 ] WebGPUCachingTraceTest_* [ Skip ]
+crbug.com/42240193 [ win nvidia target-cpu-32 ] WebGPUTraceTest_WebGPUCanvasDisableOneCopyCapture_Accelerated [ Skip ]
+crbug.com/42240193 [ win nvidia target-cpu-32 ] WebGPUTraceTest_WebGPUCanvasOneCopyCapture [ Skip ]
+crbug.com/42240193 [ win nvidia target-cpu-32 ] WebGPUTraceTest_WebGPUCanvasOneCopyCapture_Hidden [ Skip ]
+crbug.com/42240193 [ win nvidia target-cpu-32 ] WebGPUCachingTraceTest_* [ Skip ]
 
 ###############################
 # Temporary Skip Expectations #
@@ -224,7 +220,7 @@ crbug.com/329138770 [ graphite-enabled no-clang-coverage nvidia-0x2184 nvidia_lt
 crbug.com/329138770 [ graphite-enabled no-clang-coverage nvidia-0x2184 nvidia_lt_32.0.15.8180 release target-cpu-32 win10 ] WebGPUCachingTraceTest_RenderPipelineIncognito [ Failure ]
 
 # Very Flaky on all win platforms
-crbug.com/517156647 [ no-clang-coverage release target-cpu-64 win11 ] SwapChainTraceTest_IsOpaque [ Failure ]
+crbug.com/517156647 [ no-clang-coverage release win ] SwapChainTraceTest_IsOpaque [ Failure ]
 
 # Win/AMD RX 7600 / RX 5500XT failures
 crbug.com/402989071 [ win11 amd ] TraceTest_MediaFoundationD3D11VideoCapture [ Failure ]
@@ -304,6 +300,12 @@ crbug.com/515133241 [ win11 nvidia-0x2c02 ] OverlayModeTraceTest_DirectCompositi
 crbug.com/453704683 [ win11 qualcomm-0x36334330 ] OverlayModeTraceTest_DirectComposition* [ Failure ]
 
 crbug.com/536977885 [ mac asan apple-angle-metal-renderer:-apple-m2 ] * [ RetryOnFailure ]
+
+crbug.com/567498386 [ win10 nvidia-0x2184 target-cpu-32 ] OverlayModeTraceTest_DirectComposition_Video_MP4_FourColors_Aspect_4x3 [ Failure ]
+
+crbug.com/568529652 [ android android-pixel-2 ] TraceTest_Canvas2DRedBox [ RetryOnFailure ]
+crbug.com/568316653 [ win10 intel-0x4680 ] VideoPathTraceTest_DirectComposition_Underlay [ RetryOnFailure ]
+crbug.com/568316653 [ win10 intel-0x4680 ] VideoPathTraceTest_DirectComposition_Video_MP4_Rounded_Corner [ RetryOnFailure ]
 
 ###############################
 # Permanent Slow Expectations #

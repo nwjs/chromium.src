@@ -11,6 +11,7 @@ import static androidx.test.espresso.action.ViewActions.pressKey;
 import static androidx.test.espresso.action.ViewActions.replaceText;
 import static androidx.test.espresso.assertion.ViewAssertions.doesNotExist;
 import static androidx.test.espresso.assertion.ViewAssertions.matches;
+import static androidx.test.espresso.matcher.RootMatchers.isDialog;
 import static androidx.test.espresso.matcher.ViewMatchers.isAssignableFrom;
 import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
 import static androidx.test.espresso.matcher.ViewMatchers.isFocused;
@@ -67,6 +68,7 @@ import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.transit.AutoResetCtaTransitTestRule;
 import org.chromium.chrome.test.transit.ChromeTransitTestRules;
 import org.chromium.chrome.test.transit.page.CtaPageStation;
+import org.chromium.components.browser_ui.modaldialog.ModalDialogView;
 import org.chromium.components.tab_groups.TabGroupColorId;
 import org.chromium.components.tab_groups.TabGroupsFeatureMap;
 import org.chromium.ui.KeyboardVisibilityDelegate;
@@ -78,10 +80,7 @@ import org.chromium.ui.modaldialog.ModalDialogManager;
 /** Instrumentation tests for tab strip group title long-press menu popup */
 @RunWith(ChromeJUnit4ClassRunner.class)
 @Batch(Batch.PER_CLASS)
-// TODO(crbug.com/419289558): Re-enable color surface feature flags
 @DisableFeatures({
-    ChromeFeatureList.ANDROID_SURFACE_COLOR_UPDATE,
-    ChromeFeatureList.GRID_TAB_SWITCHER_SURFACE_COLOR_UPDATE,
     ChromeFeatureList.ANDROID_THEME_MODULE,
     TabGroupsFeatureMap.UPDATE_TAB_GROUP_COLORS,
     ChromeFeatureList.USE_WEB_UI_NTP_ANDROID
@@ -101,6 +100,7 @@ public class TabStripGroupContextMenuTest {
 
     @Before
     public void setUp() throws Exception {
+        ModalDialogView.disableButtonTapProtectionForTesting();
         mPage = mActivityTestRule.startOnBlankPage();
         mInitialRegularActivity = (ChromeTabbedActivity) mPage.getActivity();
         mStripLayoutHelper =
@@ -169,7 +169,7 @@ public class TabStripGroupContextMenuTest {
         // Verify confirmation dialog is showing and tab group is ungrouped after confirming the
         // action.
         verifyModalDialog(/* shouldShow= */ true);
-        onView(withText(R.string.ungroup_tab_group_action)).perform(click());
+        onView(withText(R.string.ungroup_tab_group_action)).inRoot(isDialog()).perform(click());
         int finalTabCount =
                 ThreadUtils.runOnUiThreadBlocking(() -> tabModel.getTabCountForGroup(mTabGroupId));
         assertEquals("Tab group should be ungrouped", 0, finalTabCount);
@@ -252,7 +252,7 @@ public class TabStripGroupContextMenuTest {
         // Assert tab group is closed and undo option showed.
         assertFalse(
                 "Tab group should be closed",
-                ThreadUtils.runOnUiThreadBlocking(() -> tabModel.tabGroupExists(mTabGroupId)));
+                ThreadUtils.runOnUiThreadBlocking(() -> tabModel.containsTabGroup(mTabGroupId)));
         assertEquals("Expected only one tab to be present", 1, getTabCountOnUiThread(tabModel));
         Tab firstTab = ThreadUtils.runOnUiThreadBlocking(() -> tabModel.getTabAt(0));
         assertEquals(
@@ -294,7 +294,7 @@ public class TabStripGroupContextMenuTest {
         // Assert tab group is closed and undo option not showed.
         assertFalse(
                 "Tab group should be closed",
-                ThreadUtils.runOnUiThreadBlocking(() -> tabModel.tabGroupExists(mTabGroupId)));
+                ThreadUtils.runOnUiThreadBlocking(() -> tabModel.containsTabGroup(mTabGroupId)));
         assertEquals("Expected only one tab to be present", 1, getTabCountOnUiThread(tabModel));
         Tab firstTab = ThreadUtils.runOnUiThreadBlocking(() -> tabModel.getTabAt(0));
         assertEquals(
@@ -333,10 +333,10 @@ public class TabStripGroupContextMenuTest {
         // Verify confirmation dialog is showing and tab group is deleted after confirming the
         // action.
         verifyModalDialog(/* shouldShow= */ true);
-        onView(withText(R.string.delete_tab_group_action)).perform(click());
+        onView(withText(R.string.delete_tab_group_action)).inRoot(isDialog()).perform(click());
         assertFalse(
                 "Tab group should be deleted",
-                ThreadUtils.runOnUiThreadBlocking(() -> tabModel.tabGroupExists(mTabGroupId)));
+                ThreadUtils.runOnUiThreadBlocking(() -> tabModel.containsTabGroup(mTabGroupId)));
         assertEquals("Expected only one tab to be present", 1, getTabCountOnUiThread(tabModel));
         Tab firstTab = ThreadUtils.runOnUiThreadBlocking(() -> tabModel.getTabAt(0));
         assertEquals(

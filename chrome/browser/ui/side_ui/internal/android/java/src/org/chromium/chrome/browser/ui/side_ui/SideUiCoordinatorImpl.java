@@ -13,13 +13,13 @@ import android.transition.Transition;
 import android.transition.TransitionManager;
 import android.transition.TransitionSet;
 import android.util.ArrayMap;
+import android.util.ArraySet;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewGroup.MarginLayoutParams;
 import android.view.ViewParent;
 import android.view.ViewStub;
 
-import androidx.annotation.ColorInt;
 import androidx.annotation.Px;
 import androidx.annotation.VisibleForTesting;
 import androidx.core.view.animation.PathInterpolatorCompat;
@@ -46,12 +46,9 @@ import org.chromium.chrome.browser.layouts.LayoutType;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.chrome.browser.lifecycle.ConfigurationChangedObserver;
 import org.chromium.chrome.browser.tab.Tab;
-import org.chromium.chrome.browser.tabmodel.IncognitoStateProvider;
-import org.chromium.chrome.browser.tabmodel.IncognitoStateProvider.IncognitoStateObserver;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.SideUiSpecs.SideUiSize;
 import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.UiUpdateRequest.UpdateReason;
-import org.chromium.components.browser_ui.styles.ChromeColors;
 import org.chromium.ui.base.ViewUtils;
 import org.chromium.ui.util.TokenHolder;
 
@@ -59,6 +56,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 /** Implementation of {@link SideUiCoordinator}. */
 @NullMarked
@@ -66,8 +64,7 @@ final class SideUiCoordinatorImpl
         implements SideUiCoordinator,
                 ConfigurationChangedObserver,
                 BrowserControlsStateProvider.Observer,
-                FullscreenManager.Observer,
-                IncognitoStateObserver {
+                FullscreenManager.Observer {
 
     private static final long TRANSITION_DURATION_MS = 350L;
 
@@ -77,7 +74,6 @@ final class SideUiCoordinatorImpl
     private final BrowserControlsVisibilityManager mBrowserControlsVisibilityManager;
     private final BrowserStateBrowserControlsVisibilityDelegate mBrowserControlsVisibilityDelegate;
     private final FullscreenManager mFullscreenManager;
-    private final IncognitoStateProvider mIncognitoStateProvider;
 
     private final ViewGroup mAnchorContainerParent;
 
@@ -122,7 +118,6 @@ final class SideUiCoordinatorImpl
     private final SideUiTransitionListener mSideUiTransitionListener =
             new SideUiTransitionListener();
 
-    private final SideUiWebContentHairlineManager mWebContentsHairlineManager;
     private final TabModelSelector mTabModelSelector;
 
     private int mBrowserControlsToken = TokenHolder.INVALID_TOKEN;
@@ -133,6 +128,14 @@ final class SideUiCoordinatorImpl
      * <p>This is used to prevent re-entrancy into {@link #updateUiInternal}.
      */
     private boolean mIsUpdatingUi;
+
+    /**
+     * Maps the {@link SideUiId} of each {@link SideUiContainer} whose UI updates are paused to the
+     * {@link SideUiSize} it had when it was paused, which it keeps until it's resumed.
+     *
+     * <p>A container is only paused while it's registered.
+     */
+    private final Map<@SideUiId Integer, SideUiSize> mPausedSideUiSizes = new ArrayMap<>();
 
     /**
      * Constructor for a {@link SideUiCoordinatorImpl}.
@@ -150,9 +153,6 @@ final class SideUiCoordinatorImpl
      *     containers.
      * @param leftAnchorContainerStub The {@link ViewStub} for the left-anchored container.
      * @param rightAnchorContainerStub The {@link ViewStub} for the right-anchored container.
-     * @param webContentHairlineContainerStub The {@link ViewStub} for the web content hairline
-     *     container.
-     * @param incognitoStateProvider The {@link IncognitoStateProvider} to observe incognito state.
      * @param tabModelSelector The {@link TabModelSelector} to query tabs.
      */
     /* package */ SideUiCoordinatorImpl(
@@ -165,8 +165,6 @@ final class SideUiCoordinatorImpl
             ViewGroup anchorContainerParent,
             ViewStub leftAnchorContainerStub,
             ViewStub rightAnchorContainerStub,
-            ViewStub webContentHairlineContainerStub,
-            IncognitoStateProvider incognitoStateProvider,
             TabModelSelector tabModelSelector) {
         mParentActivity = parentActivity;
         mActivityLifecycleDispatcher = activityLifecycleDispatcher;
@@ -174,7 +172,6 @@ final class SideUiCoordinatorImpl
         mFullscreenManager = fullscreenManager;
         mTopControlsStacker = topControlsStacker;
         mAnchorContainerParent = anchorContainerParent;
-        mIncognitoStateProvider = incognitoStateProvider;
         mTabModelSelector = tabModelSelector;
 
         mBrowserControlsVisibilityDelegate =
@@ -194,23 +191,10 @@ final class SideUiCoordinatorImpl
                                 AnchorSide.RIGHT,
                                 new SideUiSize(/* reservedWidth= */ 0, HeightType.NOT_APPLICABLE)));
 
-        webContentHairlineContainerStub.setLayoutResource(
-                R.layout.side_ui_web_content_hairline_container);
-        SideUiWebContentHairlineContainer webContentHairlineContainer =
-                (SideUiWebContentHairlineContainer) webContentHairlineContainerStub.inflate();
-        mWebContentsHairlineManager =
-                new SideUiWebContentHairlineManager(
-                        browserControlVisibilityManager,
-                        /* sideUiStateProvider= */ this,
-                        webContentHairlineContainer,
-                        incognitoStateProvider,
-                        topControlsStacker);
-
         layoutStateProviderSupplier.onAvailable(
                 mCallbackController.makeCancelable(this::onLayoutStateProviderAvailable));
         browserControlVisibilityManager.addObserver(this);
         mFullscreenManager.addObserver(this);
-        mIncognitoStateProvider.addIncognitoStateObserverAndTrigger(this);
         mActivityLifecycleDispatcher.register(this);
     }
 
@@ -244,6 +228,7 @@ final class SideUiCoordinatorImpl
                 new SideUiResizeHandler(
                         mParentActivity,
                         assumeNonNull(mAnchorContainers.get(anchorSide)),
+                        mAnchorContainerParent,
                         sideUiContainer,
                         /* sideUiCoordinator= */ this));
     }
@@ -258,6 +243,10 @@ final class SideUiCoordinatorImpl
         //
         // Therefore, we shouldn't assert that the given SideUiContainer is already registered.
         if (!mSideUiContainers.contains(sideUiContainer)) return;
+
+        // If the container is paused, bring it to the latest state, as if it had resumed its UI
+        // updates itself before being unregistered.
+        resumeSideUiUpdatesInternal(sideUiContainer.getSideUiId());
 
         // End any in-progress transition before the container is removed. The transition end
         // callback resolves containers from mSideUiContainers, so it must run while this container
@@ -274,6 +263,37 @@ final class SideUiCoordinatorImpl
     public void updateUi(UiUpdateRequest request) {
         ThreadUtils.assertOnUiThread();
         updateUiInternal(request);
+    }
+
+    @Override
+    public void pauseSideUiUpdates(@SideUiId int sideUiId) {
+        ThreadUtils.assertOnUiThread();
+        assert !mIsUpdatingUi : "UI updates can't be paused during a UI update";
+        if (mPausedSideUiSizes.containsKey(sideUiId)) return;
+
+        SideUiContainer sideUiContainer = getSideUiContainerById(sideUiId);
+        if (sideUiContainer == null) return;
+
+        // End any in-progress transition, so that the container is paused at a settled state rather
+        // than midway through an animation. This also commits the transition's specs.
+        endAnimations();
+
+        mPausedSideUiSizes.put(
+                sideUiId,
+                getCurrentSideUiSpecsInternal().getSideUiSize(sideUiContainer.getAnchorSide()));
+    }
+
+    @Override
+    public void resumeSideUiUpdates(@SideUiId int sideUiId) {
+        ThreadUtils.assertOnUiThread();
+        assert !mIsUpdatingUi : "UI updates can't be resumed during a UI update";
+        resumeSideUiUpdatesInternal(sideUiId);
+    }
+
+    @Override
+    public boolean areSideUiUpdatesPaused(@SideUiId int sideUiId) {
+        ThreadUtils.assertOnUiThread();
+        return mPausedSideUiSizes.containsKey(sideUiId);
     }
 
     @Override
@@ -295,11 +315,10 @@ final class SideUiCoordinatorImpl
         mCallbackController.destroy();
         mSideUiContainers.clear();
         mResizeHandlers.clear();
+        mPausedSideUiSizes.clear();
         mCurrentSideUiSpecs = new SideUiSpecs(Map.of());
         mBrowserControlsVisibilityManager.removeObserver(this);
         mFullscreenManager.removeObserver(this);
-        mIncognitoStateProvider.removeObserver(this);
-        mWebContentsHairlineManager.destroy();
         mActivityLifecycleDispatcher.unregister(this);
     }
 
@@ -443,18 +462,6 @@ final class SideUiCoordinatorImpl
                         UpdateReason.FULL_SCREEN_MODE_EXITED));
     }
 
-    // IncognitoStateObserver implementation:
-    @Override
-    public void onIncognitoStateChanged(boolean isIncognito) {
-        ThreadUtils.assertOnUiThread();
-
-        @ColorInt
-        int backgroundColor = ChromeColors.getDefaultBgColor(mParentActivity, isIncognito);
-        for (ViewGroup anchorContainer : mAnchorContainers.values()) {
-            anchorContainer.setBackgroundColor(backgroundColor);
-        }
-    }
-
     @VisibleForTesting
     @Nullable SideUiContainer getSideUiContainerById(@SideUiId int id) {
         for (SideUiContainer container : mSideUiContainers) {
@@ -468,6 +475,43 @@ final class SideUiCoordinatorImpl
             if (container.getAnchorSide() == side) return container;
         }
         return null;
+    }
+
+    /**
+     * Returns the registered {@link SideUiContainer}s in the order their sizes are determined.
+     *
+     * <p>Paused containers come first, as their sizes are fixed until they're resumed, so the other
+     * containers are laid out around them, as if the paused containers had the highest priority.
+     * Otherwise, a higher-priority container could take the width a paused container keeps
+     * reserving, instead of being auto-closed. The rest follow in descending order of priority.
+     */
+    private List<SideUiContainer> getSideUiContainersInLayoutOrder() {
+        if (mPausedSideUiSizes.isEmpty()) return mSideUiContainers;
+
+        List<SideUiContainer> containers = new ArrayList<>(mSideUiContainers.size());
+        for (var container : mSideUiContainers) {
+            if (mPausedSideUiSizes.containsKey(container.getSideUiId())) containers.add(container);
+        }
+        for (var container : mSideUiContainers) {
+            if (!mPausedSideUiSizes.containsKey(container.getSideUiId())) containers.add(container);
+        }
+        return containers;
+    }
+
+    /**
+     * Resumes UI updates for a paused {@link SideUiContainer}, and runs a non-animated UI update to
+     * bring it to the latest state. No-op if the container isn't paused.
+     *
+     * @param sideUiId The ID of the {@link SideUiContainer} to resume UI updates for.
+     */
+    private void resumeSideUiUpdatesInternal(@SideUiId int sideUiId) {
+        if (mPausedSideUiSizes.remove(sideUiId) == null) return;
+
+        updateUiInternal(
+                new UiUpdateRequest(
+                        /* sideUiId= */ null,
+                        /* suppressAnimations= */ true,
+                        UpdateReason.UPDATES_RESUMED));
     }
 
     private void notifyContainersOnUiUpdateStarting(
@@ -561,7 +605,9 @@ final class SideUiCoordinatorImpl
             @Px int currentReservedWidth = currentSideUiSpecs.getReservedWidth(anchorSide);
             @Px int newReservedWidth = newSideUiSpecs.getReservedWidth(anchorSide);
             if (currentReservedWidth != 0 && newReservedWidth == 0) {
-                container.onWillAutoClose();
+                boolean isShowable =
+                        newSideUiShowability.mShowableSideUiIds.contains(container.getSideUiId());
+                container.onWillAutoClose(isShowable);
             } else if (currentReservedWidth == 0 && newReservedWidth != 0) {
                 container.onWillAutoRestore();
             }
@@ -590,7 +636,6 @@ final class SideUiCoordinatorImpl
             @Nullable TransitionSet transitionSet =
                     suppressAnimations ? null : collectTransitions(uiUpdateSpecs);
             commitNewSideUiSpecs(uiUpdateSpecs, transitionSet);
-            mWebContentsHairlineManager.update();
         }
 
         // 9. Sync the resize handles. This is also done when specs change, but a container can
@@ -665,30 +710,38 @@ final class SideUiCoordinatorImpl
     private SideUiShowability determineSideUiShowability(
             @Px int windowWidth, @Px int minWebContentsWidth, boolean isFullscreen) {
         int availableWidth = windowWidth - minWebContentsWidth;
-        List<@SideUiId Integer> showableSideUiIds = new ArrayList<>();
-        List<@SideUiId Integer> unShowableSideUiIds = new ArrayList<>();
+        Set<@SideUiId Integer> showableSideUiIds = new ArraySet<>();
+        Set<@SideUiId Integer> unShowableSideUiIds = new ArraySet<>();
 
         @Nullable Tab currentTab = mTabModelSelector.getCurrentTab();
-        if (currentTab == null) {
-            for (var container : mSideUiContainers) {
-                unShowableSideUiIds.add(container.getSideUiId());
-            }
-            return new SideUiShowability(showableSideUiIds, unShowableSideUiIds);
-        }
 
-        for (var container : mSideUiContainers) {
-            int showableReservedWidth =
-                    container.determineShowableSize(availableWidth, windowWidth, isFullscreen)
-                            .mReservedWidth;
+        for (var container : getSideUiContainersInLayoutOrder()) {
+            // A paused container keeps the size it had when it was paused, so it's showable iff it
+            // is showing, even without a tab.
+            @Nullable SideUiSize pausedSize = mPausedSideUiSizes.get(container.getSideUiId());
+            int showableReservedWidth;
+            if (pausedSize != null) {
+                showableReservedWidth = pausedSize.mReservedWidth;
+            } else {
+                showableReservedWidth =
+                        currentTab != null
+                                ? container.determineShowableSize(
+                                                availableWidth, windowWidth, isFullscreen)
+                                        .mReservedWidth
+                                : 0;
+            }
             if (showableReservedWidth > 0) {
                 showableSideUiIds.add(container.getSideUiId());
             } else {
                 unShowableSideUiIds.add(container.getSideUiId());
             }
 
-            // If a SideUiContainer is showable and has content to show, it will be shown.
-            // Therefore, we should subtract the showable width from the available width.
-            if (showableReservedWidth > 0 && container.hasContentToShow(currentTab)) {
+            // If a SideUiContainer is showable and has content to show, or is paused while showing,
+            // it will be shown. Therefore, we should subtract the showable width from the available
+            // width.
+            if (showableReservedWidth > 0
+                    && (pausedSize != null
+                            || (currentTab != null && container.hasContentToShow(currentTab)))) {
                 availableWidth = Math.max(availableWidth - showableReservedWidth, 0);
             }
         }
@@ -716,7 +769,8 @@ final class SideUiCoordinatorImpl
      * @param windowWidth The current window width (in px).
      * @param minWebContentsWidth The minimum width reserved for {@code WebContents} (in px).
      * @param isFullscreen Whether the app is in persistent fullscreen mode.
-     * @param tab The target {@link Tab} to compute specs for, or {@code null} for the current tab.
+     * @param tab The target {@link Tab} to compute specs for, or {@code null} if there's no current
+     *     tab.
      * @return The new {@link SideUiSpecs}.
      */
     private SideUiSpecs determineSideUiSpecs(
@@ -732,16 +786,16 @@ final class SideUiCoordinatorImpl
             sideUiSpecs.put(side, new SideUiSize(0, HeightType.NOT_APPLICABLE));
         }
 
-        if (tab == null) {
-            return new SideUiSpecs(sideUiSpecs);
-        }
-
-        for (var container : mSideUiContainers) {
-            SideUiSize newSideUiSize =
-                    container.hasContentToShow(tab)
-                            ? container.determineShowableSize(
-                                    availableWidth, windowWidth, isFullscreen)
-                            : new SideUiSize(0, HeightType.NOT_APPLICABLE);
+        for (var container : getSideUiContainersInLayoutOrder()) {
+            // A paused container keeps the size it had when it was paused, even without a tab.
+            @Nullable SideUiSize newSideUiSize = mPausedSideUiSizes.get(container.getSideUiId());
+            if (newSideUiSize == null) {
+                newSideUiSize =
+                        tab != null && container.hasContentToShow(tab)
+                                ? container.determineShowableSize(
+                                        availableWidth, windowWidth, isFullscreen)
+                                : new SideUiSize(0, HeightType.NOT_APPLICABLE);
+            }
             sideUiSpecs.put(container.getAnchorSide(), newSideUiSize);
             availableWidth = Math.max(availableWidth - newSideUiSize.mReservedWidth, 0);
         }
@@ -800,6 +854,13 @@ final class SideUiCoordinatorImpl
             transitionSet.addTransition(
                     SideUiContainerTransition.createContainerTransition(
                             anchorContainer, side, oldRenderedWidth, newRenderedWidth));
+            // Move the resize handle along with the container's inner edge on resize. Showing and
+            // hiding slide the whole anchor container, which already moves the handle.
+            SideUiResizeHandler resizeHandler = mResizeHandlers.get(side);
+            if (resizeHandler != null && oldRenderedWidth > 0 && newRenderedWidth > 0) {
+                Transition handleTransition = resizeHandler.createResizeTransition();
+                if (handleTransition != null) transitionSet.addTransition(handleTransition);
+            }
         }
 
         List<Transition> transitions =

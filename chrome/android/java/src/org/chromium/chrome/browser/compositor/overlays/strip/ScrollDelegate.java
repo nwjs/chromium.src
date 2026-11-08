@@ -130,9 +130,7 @@ public class ScrollDelegate {
         mScroller = new StackScroller(context);
     }
 
-    /**
-     * @return The current scroll offset under the dynamic coordinate system (see class doc).
-     */
+    /** Returns the current scroll offset under the dynamic coordinate system (see class doc). */
     public float getScrollOffset() {
         return mScrollOffset;
     }
@@ -198,7 +196,10 @@ public class ScrollDelegate {
             if (view.isDraggedOffStrip()) continue;
 
             if (view instanceof final StripLayoutTab tab) {
-                totalViewWidth += (tab.getWidth() - tabOverlapWidth);
+                boolean useRealWidth = tab.isCollapsed() || tab.isDying() || tab.getIsPinned();
+                float tabWidth =
+                        useRealWidth || cachedTabWidth == 0.f ? tab.getWidth() : cachedTabWidth;
+                totalViewWidth += (tabWidth - tabOverlapWidth);
             } else if (view instanceof StripLayoutGroupTitle groupTitle) {
                 float overlapWidth = groupTitleOverlapWidth;
                 if (groupTitle.isCollapsed()) {
@@ -392,22 +393,20 @@ public class ScrollDelegate {
         mScrollOffsetLimit = scrollOffsetLimit;
     }
 
-    /**
-     * @return The scroll offset limit under the dynamic coordinate system (see class doc).
-     */
+    /** Returns the scroll offset limit under the dynamic coordinate system (see class doc). */
     float getScrollOffsetLimitForTesting() {
         return mScrollOffsetLimit;
     }
 
-    /**
-     * @return The scroller.
-     */
+    /** Returns the scroller. */
     StackScroller getScrollerForTesting() {
         return mScroller;
     }
 
     // Abort scroll animation and set offset.
     void finishScrollForTesting() {
+        if (mScroller.isFinished()) return;
+
         mScroller.abortAnimation();
         setScrollOffset(mScroller.getFinalX());
     }

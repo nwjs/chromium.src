@@ -1,0 +1,146 @@
+// Copyright 2026 The Chromium Authors
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+module suggest_template_info.mojom;
+
+import "components/omnibox/browser/fusebox_action.mojom";
+import "mojo/public/mojom/base/string16.mojom";
+import "url/mojom/url.mojom";
+
+// The color of a FormattedString fragment. Maps to FormattedString.ColorType in
+// //third_party/omnibox_proto/formatted_string.proto. The values must match, so
+// that the proto values can be cast directly.
+// LINT.IfChange(ColorType)
+enum ColorType {
+  kUnknown = 0,
+  kCanvas = 1,
+  kSurface = 2,
+  kPrimary = 3,
+  kTertiary = 4,
+  kOnTertiary = 5,
+  kOnSurfaceLinkVisited = 6,
+  kOnSurfaceDefault = 7,
+  kOnSurfacePositive = 8,
+  kOnSurfaceNegative = 9,
+  kOnSurfaceEmphasis = 10,
+  kOnSurfaceDeemphasis = 11,
+  kOutlineDefault = 12,
+  kSubtitleText = 13,
+};
+// LINT.ThenChange(//third_party/omnibox_proto/formatted_string.proto:ColorType)
+
+// A styled part of a FormattedString. It covers the text from `start_index` up
+// to the next fragment's `start_index`, or to the end of the text. Maps to
+// FormattedString.FormattedStringFragment in
+// //third_party/omnibox_proto/formatted_string.proto.
+struct FormattedStringFragment {
+  // UTF-16 offset into FormattedString.text.
+  uint32 start_index;
+  ColorType color = ColorType.kUnknown;
+  bool is_bolded;
+};
+
+// Text with per-fragment styling. Maps to FormattedString in
+// //third_party/omnibox_proto/formatted_string.proto.
+struct FormattedString {
+  mojo_base.mojom.String16 text;
+  // Sorted by `start_index`. If empty, the whole text is unstyled.
+  array<FormattedStringFragment> fragments;
+  // The text for screen readers, if it differs from `text`.
+  mojo_base.mojom.String16? a11y_text;
+};
+
+// LINT.IfChange(SuggestStyle)
+// Style of the suggestion match as reported in SuggestTemplateInfo.
+// NOTE: Must match StandardSuggestStyle in
+// //third_party/omnibox_proto/suggest_template_info.proto exactly as values
+// are cast directly between them.
+enum SuggestStyle {
+  kUnspecified = 0,
+  kDefault = 1,
+  kEnriched = 2,
+  kAnnotated = 3,
+  kRichImage = 4,
+};
+// LINT.ThenChange(//third_party/omnibox_proto/suggest_template_info.proto:StandardSuggestStyle)
+
+// The icon of a suggestion. Maps to SuggestTemplateInfo.IconType in
+// //third_party/omnibox_proto/suggest_template_info.proto. The values must
+// match, so that the proto values can be cast directly. They are also recorded
+// by the NTP action chips histograms.
+// LINT.IfChange(IconType)
+enum IconType {
+  kIconTypeUnspecified = 0,
+  kHistory = 1,
+  kSearchLoop = 2,
+  kSearchLoopWithSparkle = 3,
+  kTrending = 4,
+  kSubArrowRight = 5,
+  kGlobeWithSearchLoop = 6,
+  kBanana = 7,
+  kFavicon = 8,
+  kNotesSpark = 9,
+  kDraftSpark = 10,
+  kLightbulb = 11,
+  kAttachFile = 12,
+  kSchool = 13,
+  kInkPen = 14,
+  kTab = 15,
+  kPhotoSpark = 16,
+  kBolt = 17,
+  kImageCreate = 18,
+};
+// LINT.ThenChange(//tools/metrics/histograms/metadata/new_tab_page/enums.xml:ActionChipIconType)
+
+// Where to display the secondary text relative to the primary text.
+// Maps to SuggestTemplateInfo.SecondaryTextPlacement in
+// //third_party/omnibox_proto/suggest_template_info.proto.
+// LINT.IfChange(SecondaryTextPlacement)
+enum SecondaryTextPlacement {
+  kUnspecified = 0,
+  // Show secondary text in front of primary text (e.g. on the same line).
+  kInFrontOfPrimaryText = 1,
+  // Show secondary text below primary text (e.g. on a new line).
+  kBelowPrimaryText = 2,
+};
+// LINT.ThenChange(//third_party/omnibox_proto/suggest_template_info.proto:SecondaryTextPlacement)
+
+// An image to display with the suggestion. Maps to SuggestTemplateInfo.Image in
+// //third_party/omnibox_proto/suggest_template_info.proto.
+struct Image {
+  // The URL of the image. Either an external URL or a data URI.
+  url.mojom.Url url;
+  // The dominant color of the image (e.g. "#757575"). Used to paint a
+  // placeholder while the image is loading.
+  string dominant_color;
+};
+
+// Presentation template for a suggestion. Its fields should correspond to the
+// client-supported, rendering-relevant subset of the SuggestTemplateInfo proto
+// message in //third_party/omnibox_proto/suggest_template_info.proto.
+//
+// This is populated for every match at the Mojo boundary, including matches
+// that did not receive a SuggestTemplateInfo from the server (e.g. local
+// provider matches), for which the browser synthesizes the equivalent values.
+// This lets the WebUI render all matches from a single presentation contract
+// rather than re-deriving layout from match types or ad-hoc flags.
+struct SuggestTemplateInfo {
+  // The primary text of the suggestion and its styling.
+  FormattedString primary_text;
+  // The secondary text of the suggestion (e.g. a subtitle) and its styling.
+  FormattedString secondary_text;
+  // Where to display the secondary text relative to the primary text.
+  SecondaryTextPlacement secondary_text_placement =
+      SecondaryTextPlacement.kUnspecified;
+  // The image to display with the suggestion, if any.
+  Image? image;
+  // The style of the suggestion, as provided by the server.
+  SuggestStyle style = SuggestStyle.kUnspecified;
+  // The icon to display in front of the primary text.
+  // TODO(crbug.com/573635047): Use this in the searchbox WebUI too.
+  IconType type_icon = IconType.kIconTypeUnspecified;
+  // FuseboxAction carries client behavior and configuration to apply when the
+  // user accepts a suggestion.
+  fusebox_action.mojom.FuseboxAction? fusebox_action;
+};

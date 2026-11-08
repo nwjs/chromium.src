@@ -33,7 +33,7 @@
 /cardboard-java/src
 /cast_core/prebuilts
 /cast_web_runtime
-/checkstyle/**/*.jar
+/checkstyle/cipd
 /chromeos_login_manager
 /chromeos_text_input
 /cld_2/src
@@ -42,7 +42,7 @@
 /cros
 /custom_tabs_client/src
 /cygwin
-/data_sharing_sdk
+/data_sharing_sdk/cipd
 /devserver
 /directxsdk
 /dragonbox/src
@@ -60,7 +60,7 @@
 /glslang/src
 /gn/
 /gnu_binutils/
-/google-java-format/cipd/*.jar
+/google-java-format/cipd/
 /google-truth/src/
 /googlefonts_testdata/data
 /guava/lib/

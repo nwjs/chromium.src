@@ -5,8 +5,8 @@
 #include "chrome/browser/ai/ai_manager.h"
 
 #include <memory>
+#include <vector>
 
-#include "base/command_line.h"
 #include "base/files/file_path.h"
 #include "base/memory/raw_ptr.h"
 #include "base/task/current_thread.h"
@@ -18,6 +18,7 @@
 #include "chrome/browser/ai/ai_test_utils.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/optimization_guide/mock_optimization_guide_keyed_service.h"
+#include "chrome/browser/optimization_guide/model_execution/optimization_guide_global_state.h"
 #include "chrome/test/base/testing_browser_process.h"
 #include "components/keyed_service/core/keyed_service.h"
 #include "components/optimization_guide/core/delivery/model_info.h"
@@ -26,13 +27,13 @@
 #include "components/optimization_guide/core/model_execution/test/mock_on_device_capability.h"
 #include "components/optimization_guide/core/optimization_guide_features.h"
 #include "components/optimization_guide/core/optimization_guide_proto_util.h"
-#include "components/optimization_guide/core/optimization_guide_switches.h"
 #include "components/optimization_guide/proto/passage_embeddings_model_metadata.pb.h"
 #include "components/optimization_guide/proto/string_value.pb.h"
 #include "components/optimization_guide/public/mojom/model_broker.mojom-shared.h"
 #include "components/policy/core/common/policy_pref_names.h"
 #include "components/prefs/pref_service.h"
 #include "content/public/browser/web_contents.h"
+#include "content/public/test/test_renderer_host.h"
 #include "mojo/public/cpp/test_support/test_utils.h"
 #include "mojo/public/mojom/base/work_in_progress.mojom.h"
 #include "services/on_device_model/public/cpp/features.h"
@@ -40,6 +41,7 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/features_generated.h"
 #include "third_party/blink/public/mojom/ai/ai_common.mojom.h"
+#include "third_party/blink/public/mojom/ai/ai_decision_model.mojom.h"
 #include "third_party/blink/public/mojom/ai/ai_language_model.mojom.h"
 #include "third_party/blink/public/mojom/ai/ai_manager.mojom.h"
 #include "third_party/blink/public/mojom/ai/ai_rewriter.mojom.h"
@@ -56,7 +58,6 @@
 using optimization_guide::MockSession;
 
 using testing::_;
-using testing::AtMost;
 using testing::NiceMock;
 
 namespace {
@@ -255,26 +256,6 @@ class AIManagerTest : public AITestUtils::AITestBase {
 #endif
 };
 
-// Tests that involve invalid on-device model file paths should not crash when
-// the associated RFH is destroyed.
-TEST_F(AIManagerTest, NoUAFWithInvalidOnDeviceModelPath) {
-  auto* command_line = base::CommandLine::ForCurrentProcess();
-  command_line->AppendSwitchASCII(
-      optimization_guide::switches::kOnDeviceModelExecutionOverride,
-      "invalid-on-device-model-file-path");
-
-  base::MockCallback<blink::mojom::AIManager::CanCreateLanguageModelCallback>
-      callback;
-  EXPECT_CALL(callback, Run(_)).Times(AtMost(1));
-  ai_manager_->CanCreateLanguageModel(/*options=*/{}, callback.Get());
-
-  // The callback may still be pending, delete the WebContents and destroy the
-  // associated RFH, which should not result in a UAF.
-  DeleteContents();
-
-  task_environment()->RunUntilIdle();
-}
-
 TEST_F(AIManagerTest, CanCreate) {
   // Model is not downloaded until first session is created, so `CanCreate`
   // returns `kDownloadable`.
@@ -430,7 +411,6 @@ TEST_F(AIManagerTest, CanCreateSemanticEmbedderCrashLimit) {
   service_launcher->controller()->MaybeUpdateModelInfo(std::nullopt);
 }
 
-
 TEST_F(AIManagerTest, CanCreateFeatureDisabled) {
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitWithFeatures(
@@ -453,6 +433,190 @@ TEST_F(AIManagerTest, CanCreateFeatureDisabled) {
   ai_manager_->CanCreateRewriter(/*options=*/{}, callback.Get());
   ai_manager_->CanCreateProofreader(/*options=*/{}, callback.Get());
 }
+
+#if !BUILDFLAG(IS_ANDROID)
+TEST_F(AIManagerTest, CanCreateDecisionModel) {
+  {
+    base::test::ScopedFeatureList feature_list;
+    feature_list.InitAndDisableFeature(blink::features::kAIDecisionModelAPI);
+    base::test::TestFuture<blink::mojom::ModelAvailabilityCheckResult> future;
+    ai_manager_->CanCreateDecisionModel(
+        blink::mojom::AIDecisionModelCreateOptions::New(),
+        future.GetCallback());
+    EXPECT_EQ(future.Get(), blink::mojom::ModelAvailabilityCheckResult::
+                                kUnavailableFeatureNotEnabled);
+  }
+
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(blink::features::kAIDecisionModelAPI);
+  {
+    auto options = blink::mojom::AIDecisionModelCreateOptions::New();
+    options->expected_input_languages = MakeLanguageCodeVector({"tlh"});
+    base::test::TestFuture<blink::mojom::ModelAvailabilityCheckResult> future;
+    ai_manager_->CanCreateDecisionModel(std::move(options),
+                                        future.GetCallback());
+    EXPECT_EQ(future.Get(), blink::mojom::ModelAvailabilityCheckResult::
+                                kUnavailableUnsupportedLanguage);
+  }
+  {
+    mojo::PendingRemote<blink::mojom::AIManagerCreateDecisionModelClient>
+        client;
+    std::ignore = client.InitWithNewPipeAndPassReceiver();
+    mojo::test::BadMessageObserver bad_message_observer;
+    GetAIManagerRemote()->CreateDecisionModel(
+        std::move(client), blink::mojom::AIDecisionModelCreateOptions::New(),
+        mojo::NullRemote());
+    EXPECT_EQ(bad_message_observer.WaitForBadMessage(),
+              "At least one question is required.");
+  }
+  {
+    mojo::PendingRemote<blink::mojom::AIManagerCreateDecisionModelClient>
+        client;
+    std::ignore = client.InitWithNewPipeAndPassReceiver();
+    auto options = blink::mojom::AIDecisionModelCreateOptions::New();
+    options->expected_input_languages = MakeLanguageCodeVector({"tlh"});
+    mojo::test::BadMessageObserver bad_message_observer;
+    GetAIManagerRemote()->CreateDecisionModel(
+        std::move(client), std::move(options), mojo::NullRemote());
+    EXPECT_EQ(bad_message_observer.WaitForBadMessage(),
+              "Unsupported language options");
+  }
+}
+
+class TestCreateDecisionModelClient
+    : public blink::mojom::AIManagerCreateDecisionModelClient {
+ public:
+  using Result =
+      base::expected<mojo::PendingRemote<blink::mojom::AIDecisionModel>,
+                     blink::mojom::AIManagerCreateClientError>;
+
+  mojo::PendingRemote<blink::mojom::AIManagerCreateDecisionModelClient>
+  BindNewPipeAndPassRemote() {
+    return receiver_.BindNewPipeAndPassRemote();
+  }
+  base::test::TestFuture<Result>& result() { return result_; }
+  const blink::mojom::QuotaErrorInfoPtr& quota_error_info() const {
+    return quota_error_info_;
+  }
+
+  // blink::mojom::AIManagerCreateDecisionModelClient:
+  void OnSessionCreated(mojo::PendingRemote<blink::mojom::AIDecisionModel>
+                            decision_model) override {
+    result_.SetValue(std::move(decision_model));
+  }
+  void OnError(blink::mojom::AIManagerCreateClientError error,
+               blink::mojom::QuotaErrorInfoPtr quota_error_info) override {
+    quota_error_info_ = std::move(quota_error_info);
+    result_.SetValue(base::unexpected(error));
+  }
+
+ private:
+  base::test::TestFuture<Result> result_;
+  blink::mojom::QuotaErrorInfoPtr quota_error_info_;
+  mojo::Receiver<blink::mojom::AIManagerCreateDecisionModelClient> receiver_{
+      this};
+};
+
+blink::mojom::AIDecisionModelCreateOptionsPtr
+MakeBooleanDecisionModelOptions() {
+  auto options = blink::mojom::AIDecisionModelCreateOptions::New();
+  auto question = blink::mojom::AIDecisionModelQuestion::New();
+  question->id = "urgent";
+  question->prompt = "Is it urgent?";
+  question->type = blink::mojom::AIDecisionModelQuestionType::kBoolean;
+  options->questions.push_back(std::move(question));
+  return options;
+}
+
+// Enables the Decisions API, and the CPU backend and manifest broker it needs.
+void EnableLanguageModelDecisionModel(
+    base::test::ScopedFeatureList& feature_list) {
+  feature_list.InitWithFeatures(
+      {blink::features::kAIDecisionModelAPI,
+       on_device_model::features::kOnDeviceModelForceCpuBackend,
+       optimization_guide::kOptimizationGuideManifestBroker},
+      {});
+}
+
+TEST_F(AIManagerTest, CanCreateDecisionModelWithLanguageModelBackend) {
+  base::test::ScopedFeatureList feature_list;
+  EnableLanguageModelDecisionModel(feature_list);
+  // Uses the Prompt API's foundation model, which is downloadable.
+  {
+    base::test::TestFuture<blink::mojom::ModelAvailabilityCheckResult> future;
+    ai_manager_->CanCreateDecisionModel(
+        blink::mojom::AIDecisionModelCreateOptions::New(),
+        future.GetCallback());
+    EXPECT_EQ(future.Get(),
+              blink::mojom::ModelAvailabilityCheckResult::kDownloadable);
+  }
+  {
+    base::test::TestFuture<blink::mojom::ModelAvailabilityCheckResult> future;
+    ai_manager_->CanCreateDecisionModel(MakeBooleanDecisionModelOptions(),
+                                        future.GetCallback());
+    EXPECT_EQ(future.Get(),
+              blink::mojom::ModelAvailabilityCheckResult::kDownloadable);
+  }
+}
+
+TEST_F(AIManagerTest, CreateDecisionModelWithLanguageModelBackend) {
+  base::test::ScopedFeatureList feature_list;
+  EnableLanguageModelDecisionModel(feature_list);
+
+  TestCreateDecisionModelClient client;
+  GetAIManagerRemote()->CreateDecisionModel(client.BindNewPipeAndPassRemote(),
+                                            MakeBooleanDecisionModelOptions(),
+                                            /*monitor=*/mojo::NullRemote());
+  auto created = client.result().Take();
+  ASSERT_TRUE(created.has_value());
+  mojo::Remote<blink::mojom::AIDecisionModel> decision_model(
+      std::move(created).value());
+
+  base::test::TestFuture<
+      base::expected<blink::mojom::AIDecisionModelResultPtr,
+                     blink::mojom::AIDecisionModelDecideErrorPtr>>
+      decided;
+  decision_model->Decide("The checkout page crashes.", decided.GetCallback());
+  auto result = decided.Take();
+  ASSERT_TRUE(result.has_value());
+  ASSERT_EQ(result.value()->decisions.size(), 1u);
+  const auto& decision = result.value()->decisions[0];
+  EXPECT_EQ(decision->question_id, "urgent");
+  // The fake service scores every option 0.5.
+  ASSERT_EQ(decision->probabilities.size(), 2u);
+  EXPECT_FLOAT_EQ(decision->probabilities[0]->probability, 0.5f);
+  EXPECT_FLOAT_EQ(decision->probabilities[1]->probability, 0.5f);
+}
+
+TEST_F(AIManagerTest, CreateDecisionModelForwardsQuotaErrorInfo) {
+  base::test::ScopedFeatureList feature_list;
+  EnableLanguageModelDecisionModel(feature_list);
+  // Every prompt is too large for the model.
+  constexpr uint32_t kPromptSize = 100000;
+  SetSizeInTokens(kPromptSize);
+
+  TestCreateDecisionModelClient client;
+  GetAIManagerRemote()->CreateDecisionModel(client.BindNewPipeAndPassRemote(),
+                                            MakeBooleanDecisionModelOptions(),
+                                            /*monitor=*/mojo::NullRemote());
+  auto created = client.result().Take();
+  ASSERT_FALSE(created.has_value());
+  EXPECT_EQ(created.error(),
+            blink::mojom::AIManagerCreateClientError::kInitialInputTooLarge);
+  ASSERT_TRUE(client.quota_error_info());
+  // The prompt plus at least one token of input.
+  EXPECT_EQ(client.quota_error_info()->requested, kPromptSize + 1);
+  EXPECT_LT(client.quota_error_info()->quota, kPromptSize);
+}
+#else
+TEST_F(AIManagerTest, CanCreateDecisionModelUnavailableOnAndroid) {
+  base::test::TestFuture<blink::mojom::ModelAvailabilityCheckResult> future;
+  ai_manager_->CanCreateDecisionModel(
+      blink::mojom::AIDecisionModelCreateOptions::New(), future.GetCallback());
+  EXPECT_EQ(future.Get(), blink::mojom::ModelAvailabilityCheckResult::
+                              kUnavailableFeatureNotEnabled);
+}
+#endif  // !BUILDFLAG(IS_ANDROID)
 
 TEST_F(AIManagerTest, CanCreateEnterprisePolicyDisabled) {
   SetBuiltInAIAPIsEnterprisePolicy(false);
@@ -492,6 +656,9 @@ TEST_F(AIManagerTest, CanCreateLocalStateEnterprisePolicyDisabled) {
 
 TEST_F(AIManagerTest, CanCreateLocalStateUserSettingsDisabled) {
   SetOnDeviceAiUserSetting(false);
+  auto* tester = content::RenderFrameHostTester::For(main_rfh());
+  const size_t baseline_count = tester->GetConsoleMessages().size();
+
   base::MockCallback<
       base::OnceCallback<void(blink::mojom::ModelAvailabilityCheckResult)>>
       callback;
@@ -505,6 +672,67 @@ TEST_F(AIManagerTest, CanCreateLocalStateUserSettingsDisabled) {
   ai_manager_->CanCreateRewriter(/*options=*/{}, callback.Get());
   ai_manager_->CanCreateProofreader(/*options=*/{}, callback.Get());
   ai_manager_->CanCreateSemanticEmbedder(callback.Get());
+
+  const auto& messages = tester->GetConsoleMessages();
+  ASSERT_EQ(messages.size(), baseline_count + 1);
+  EXPECT_EQ(messages.back(),
+            "On-device AI is disabled in Chrome settings. To use Built-In AI "
+            "APIs, enable \"On-device AI\" in chrome://settings/ai.");
+
+  SetOnDeviceAiUserSetting(true);
+}
+
+TEST_F(AIManagerTest,
+       DoesNotLogSettingsDisabledWarningForOtherUnavailabilityReasons) {
+  auto* tester = content::RenderFrameHostTester::For(main_rfh());
+  const size_t baseline_count = tester->GetConsoleMessages().size();
+
+  // 1. When the user setting is enabled, no warning is logged.
+  SetOnDeviceAiUserSetting(true);
+  {
+    auto options = blink::mojom::AISummarizerCreateOptions::New();
+    options->output_language = blink::mojom::AILanguageCode::New("en");
+    base::test::TestFuture<blink::mojom::ModelAvailabilityCheckResult> future;
+    ai_manager_->CanCreateSummarizer(std::move(options), future.GetCallback());
+    EXPECT_EQ(future.Get(),
+              blink::mojom::ModelAvailabilityCheckResult::kDownloadable);
+    EXPECT_EQ(tester->GetConsoleMessages().size(), baseline_count);
+  }
+
+  // 2. When blocked by enterprise policy or feature flag (even if the user
+  // setting is also false), the user-setting warning is not logged.
+  SetOnDeviceAiUserSetting(false);
+  SetBuiltInAIAPIsEnterprisePolicy(false);
+  {
+    base::MockCallback<
+        base::OnceCallback<void(blink::mojom::ModelAvailabilityCheckResult)>>
+        callback;
+    EXPECT_CALL(callback, Run(blink::mojom::ModelAvailabilityCheckResult::
+                                  kUnavailableEnterprisePolicyDisabled))
+        .Times(2);
+    ai_manager_->CanCreateLanguageModel(/*options=*/{}, callback.Get());
+    ai_manager_->CanCreateSummarizer(/*options=*/{}, callback.Get());
+    EXPECT_EQ(tester->GetConsoleMessages().size(), baseline_count);
+  }
+  SetBuiltInAIAPIsEnterprisePolicy(true);
+
+  {
+    base::test::ScopedFeatureList scoped_feature_list;
+    scoped_feature_list.InitWithFeatures(
+        {}, {blink::features::kAIPromptAPI,
+             blink::features::kAIPromptAPIMultimodalInput,
+             blink::features::kAISummarizationAPI});
+    base::MockCallback<
+        base::OnceCallback<void(blink::mojom::ModelAvailabilityCheckResult)>>
+        callback;
+    EXPECT_CALL(callback, Run(blink::mojom::ModelAvailabilityCheckResult::
+                                  kUnavailableFeatureNotEnabled))
+        .Times(2);
+    ai_manager_->CanCreateLanguageModel(/*options=*/{}, callback.Get());
+    ai_manager_->CanCreateSummarizer(/*options=*/{}, callback.Get());
+    EXPECT_EQ(tester->GetConsoleMessages().size(), baseline_count);
+  }
+
   SetOnDeviceAiUserSetting(true);
 }
 

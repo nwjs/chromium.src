@@ -199,6 +199,7 @@ pa_buildflag_header("buildflags") {
     "RAW_PTR_ZERO_ON_DESTRUCT=$raw_ptr_zero_on_destruct",
     "RAW_PTR_ZERO_ON_MOVE=$raw_ptr_zero_on_move",
     "REALLOC_GROWTH_FACTOR_MITIGATION=$partition_alloc_realloc_growth_factor_mitigation",
+    "REMOVE_UNPROTECTED_IN_RELEASE_TRAIT=$remove_unprotected_in_release_trait",
     "RECORD_ALLOC_INFO=$record_alloc_info",
     "SHIM_SUPPORTS_ALLOC_TOKEN=$shim_supports_alloc_token",
     "SHIM_SUPPORTS_SIZED_DEALLOC=$shim_supports_sized_dealloc",
@@ -518,6 +519,7 @@ if (is_clang_or_gcc) {
       "partition_stats.cc",
       "partition_stats.h",
       "partition_superpage_extent_entry.h",
+      "partition_tls.cc",
       "partition_tls.h",
       "random.cc",
       "random.h",
@@ -560,9 +562,13 @@ if (is_clang_or_gcc) {
       sources += [
         "page_allocator_internals_posix.cc",
         "page_allocator_internals_posix.h",
+        "partition_tls_posix.cc",
       ]
     } else if (is_fuchsia) {
-      sources += [ "page_allocator_internals_fuchsia.h" ]
+      sources += [
+        "page_allocator_internals_fuchsia.h",
+        "partition_tls_posix.cc",
+      ]
     }
     if (is_android) {
       # The Android NDK supports PR_MTE_* macros as of NDK r23.
@@ -1111,6 +1117,7 @@ if (build_with_chromium) {
         "pointers/realloc_protected_iterator_unittest.cc",
         "reverse_bytes_unittest.cc",
         "scheduler_loop_quarantine_unittest.cc",
+        "stack/stack_unittest.cc",
         "thread_cache_unittest.cc",
       ]
 

@@ -16,7 +16,6 @@
 #include "base/run_loop.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/threading/thread_restrictions.h"
-#include "base/values.h"
 #include "chrome/browser/actor/actor_keyed_service.h"
 #include "chrome/browser/actor/actor_proto_conversion.h"
 #include "chrome/browser/actor/enterprise_policy_checker.h"
@@ -26,6 +25,7 @@
 #include "chrome/browser/actor/tools/drag_and_release_tool_request.h"
 #include "chrome/browser/actor/tools/find_and_highlight_tool_request.h"
 #include "chrome/browser/actor/tools/history_tool_request.h"
+#include "chrome/browser/actor/tools/media_control_tool_request.h"
 #include "chrome/browser/actor/tools/move_mouse_tool_request.h"
 #include "chrome/browser/actor/tools/navigate_tool_request.h"
 #include "chrome/browser/actor/tools/page_tool_request.h"
@@ -58,7 +58,6 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/base/window_open_disposition.h"
 #include "ui/gfx/geometry/point.h"
-#include "url/url_util.h"
 
 namespace actor {
 
@@ -524,21 +523,38 @@ Actions MakeScriptTool(content::RenderFrameHost& rfh,
   return action;
 }
 
-Actions MakeMediaControl(tabs::TabHandle tab_handle,
-                         MediaControl media_control,
-                         std::optional<actor::TaskId> task_id) {
+Actions MakePlayMedia(tabs::TabHandle tab_handle,
+                      std::optional<actor::TaskId> task_id) {
   Actions action;
   auto* media_control_action = action.add_actions()->mutable_media_control();
   media_control_action->set_tab_id(tab_handle.raw_value());
-
-  if (std::get_if<PlayMedia>(&media_control)) {
-    media_control_action->mutable_play();
-  } else if (std::get_if<PauseMedia>(&media_control)) {
-    media_control_action->mutable_pause();
-  } else if (const auto* seek = std::get_if<SeekMedia>(&media_control)) {
-    media_control_action->mutable_seek()->set_seek_time_milliseconds(
-        seek->seek_time_milliseconds);
+  media_control_action->mutable_play();
+  if (task_id.has_value()) {
+    action.set_task_id(task_id->value());
   }
+  return action;
+}
+
+Actions MakePauseMedia(tabs::TabHandle tab_handle,
+                       std::optional<actor::TaskId> task_id) {
+  Actions action;
+  auto* media_control_action = action.add_actions()->mutable_media_control();
+  media_control_action->set_tab_id(tab_handle.raw_value());
+  media_control_action->mutable_pause();
+  if (task_id.has_value()) {
+    action.set_task_id(task_id->value());
+  }
+  return action;
+}
+
+Actions MakeSeekMedia(tabs::TabHandle tab_handle,
+                      base::TimeDelta seek_time,
+                      std::optional<actor::TaskId> task_id) {
+  Actions action;
+  auto* media_control_action = action.add_actions()->mutable_media_control();
+  media_control_action->set_tab_id(tab_handle.raw_value());
+  media_control_action->mutable_seek()->set_seek_time_milliseconds(
+      seek_time.InMilliseconds());
   if (task_id.has_value()) {
     action.set_task_id(task_id->value());
   }
@@ -597,21 +613,16 @@ std::unique_ptr<ToolRequest> MakeClickRequest(TabInterface& tab,
 }
 
 std::unique_ptr<ToolRequest> MakeHistoryBackRequest(TabInterface& tab) {
-  return std::make_unique<HistoryToolRequest>(
-      tab.GetHandle(), HistoryToolRequest::Direction::kBack);
+  return std::make_unique<HistoryBackToolRequest>(tab.GetHandle());
 }
 
 std::unique_ptr<ToolRequest> MakeHistoryForwardRequest(TabInterface& tab) {
-  return std::make_unique<HistoryToolRequest>(
-      tab.GetHandle(), HistoryToolRequest::Direction::kForward);
+  return std::make_unique<HistoryForwardToolRequest>(tab.GetHandle());
 }
 
-std::unique_ptr<ToolRequest> MakeHistoryReloadRequest(TabInterface& tab,
-                                                      bool bypass_cache) {
-  HistoryToolRequest::Direction direction =
-      bypass_cache ? HistoryToolRequest::Direction::kReloadBypassingCache
-                   : HistoryToolRequest::Direction::kReload;
-  return std::make_unique<HistoryToolRequest>(tab.GetHandle(), direction);
+std::unique_ptr<ToolRequest> MakeReloadPageRequest(TabInterface& tab,
+                                                   bool bypass_cache) {
+  return std::make_unique<ReloadPageToolRequest>(tab.GetHandle(), bypass_cache);
 }
 
 std::unique_ptr<ToolRequest> MakeMouseMoveRequest(content::RenderFrameHost& rfh,
@@ -764,11 +775,17 @@ std::unique_ptr<ToolRequest> MakeScriptToolRequest(
       name, input_arguments);
 }
 
-std::unique_ptr<ToolRequest> MakeMediaControlRequest(
-    tabs::TabInterface& tab,
-    MediaControl media_control) {
-  return std::make_unique<MediaControlToolRequest>(tab.GetHandle(),
-                                                   media_control);
+std::unique_ptr<ToolRequest> MakePlayMediaRequest(tabs::TabInterface& tab) {
+  return std::make_unique<PlayMediaToolRequest>(tab.GetHandle());
+}
+
+std::unique_ptr<ToolRequest> MakePauseMediaRequest(tabs::TabInterface& tab) {
+  return std::make_unique<PauseMediaToolRequest>(tab.GetHandle());
+}
+
+std::unique_ptr<ToolRequest> MakeSeekMediaRequest(tabs::TabInterface& tab,
+                                                  base::TimeDelta seek_time) {
+  return std::make_unique<SeekMediaToolRequest>(tab.GetHandle(), seek_time);
 }
 
 std::unique_ptr<ToolRequest> MakeTranslatePageRequest(tabs::TabInterface& tab) {
@@ -993,6 +1010,9 @@ TestTabState::TestTabState(content::WebContents* web_contents) {
       .WillByDefault(::testing::ReturnRef(user_data_host));
 
   tab_data = std::make_unique<ActorTabData>(&tab);
+  if (web_contents) {
+    actor_surface_tab_helper = std::make_unique<ActorSurfaceTabHelper>(tab);
+  }
 }
 
 TestTabState::~TestTabState() {

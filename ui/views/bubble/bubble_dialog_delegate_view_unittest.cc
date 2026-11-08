@@ -248,6 +248,46 @@ TEST_F(BubbleDialogDelegateViewTest, CreateDelegate) {
   EXPECT_TRUE(bubble_observer.widget_closed());
 }
 
+TEST_F(BubbleDialogDelegateViewTest, BorderStyleInsetsAppliedToBorder) {
+  std::unique_ptr<Widget> anchor_widget = CreateTestWidget(
+      Widget::InitParams::CLIENT_OWNS_WIDGET, Widget::InitParams::TYPE_WINDOW);
+  TestBubbleDialogDelegateView* bubble_delegate =
+      new TestBubbleDialogDelegateView(anchor_widget->GetContentsView());
+  const gfx::Insets kInsets = gfx::Insets::VH(3, 7);
+  bubble_delegate->set_border_style(
+      {.insets = kInsets, .draw_border_stroke = true});
+  EXPECT_EQ(kInsets, bubble_delegate->border_style().insets);
+  EXPECT_EQ(true, bubble_delegate->border_style().draw_border_stroke);
+
+  Widget* bubble_widget =
+      BubbleDialogDelegateView::CreateBubble(bubble_delegate);
+  bubble_widget->Show();
+
+  BubbleBorder* border = bubble_delegate->GetBubbleFrameView()->bubble_border();
+  EXPECT_EQ(kInsets, border->GetInsets());
+  bubble_widget->CloseNow();
+}
+
+TEST_F(BubbleDialogDelegateViewTest, DefaultBorderStyleKeepsDefaultInsets) {
+  std::unique_ptr<Widget> anchor_widget = CreateTestWidget(
+      Widget::InitParams::CLIENT_OWNS_WIDGET, Widget::InitParams::TYPE_WINDOW);
+  TestBubbleDialogDelegateView* bubble_delegate =
+      new TestBubbleDialogDelegateView(anchor_widget->GetContentsView());
+  EXPECT_FALSE(bubble_delegate->border_style().insets.has_value());
+  EXPECT_FALSE(bubble_delegate->border_style().draw_border_stroke.has_value());
+
+  Widget* bubble_widget =
+      BubbleDialogDelegateView::CreateBubble(bubble_delegate);
+  bubble_widget->Show();
+
+  BubbleBorder* border = bubble_delegate->GetBubbleFrameView()->bubble_border();
+  // A border with the same arrow/shadow and no explicit insets.
+  BubbleBorder expected_border(border->arrow(), border->shadow());
+  expected_border.set_visible_arrow(border->visible_arrow());
+  EXPECT_EQ(expected_border.GetInsets(), border->GetInsets());
+  bubble_widget->CloseNow();
+}
+
 TEST_F(BubbleDialogDelegateViewTest, CreateBubbleWithUniquePtrAndCallback) {
   std::unique_ptr<Widget> anchor_widget = CreateTestWidget(
       Widget::InitParams::CLIENT_OWNS_WIDGET, Widget::InitParams::TYPE_WINDOW);
@@ -1774,29 +1814,63 @@ TEST_F(BubbleDialogDelegateViewTest, SizeToContentsDuringDestruction) {
   bubble_widget->CloseNow();
 }
 
-TEST_F(BubbleDialogDelegateViewTest, ClampToWorkArea) {
+TEST_F(BubbleDialogDelegateViewTest, AdjustIfOffscreenClampsToWorkArea) {
+#if BUILDFLAG(IS_OZONE)
+  if (!ui::OzonePlatform::GetInstance()
+           ->GetPlatformProperties()
+           .supports_global_screen_coordinates) {
+    GTEST_SKIP();
+  }
+#endif
   std::unique_ptr<Widget> anchor_widget = CreateTestWidget(
       Widget::InitParams::CLIENT_OWNS_WIDGET, Widget::InitParams::TYPE_WINDOW);
   TestBubbleDialogDelegateView* bubble_delegate =
       new TestBubbleDialogDelegateView(nullptr);
   bubble_delegate->set_parent_window(anchor_widget->GetNativeView());
-  bubble_delegate->set_clamp_to_work_area(true);
   const gfx::Rect work_area{800, 600};
   bubble_delegate->set_available_screen_bounds_callback(base::BindRepeating(
       [](const gfx::Rect& work_area, const gfx::Rect&) { return work_area; },
       work_area));
 
+  bubble_delegate->set_adjust_if_offscreen(true);
   Widget* bubble_widget =
       BubbleDialogDelegateView::CreateBubble(bubble_delegate);
   bubble_widget->Show();
 
-  // Set an anchor rect outside the work area; the bubble bounds should be
-  // clamped to fit within `work_area`.
+  // Set an anchor rect outside the work area; when `adjust_if_offscreen()` is
+  // true, the bubble bounds should be clamped to `work_area`.
   bubble_delegate->SetAnchorRect({900, 700, 10, 10});
   EXPECT_TRUE(work_area.Contains(bubble_delegate->GetBubbleBounds()));
   EXPECT_TRUE(work_area.Contains(bubble_widget->GetWindowBoundsInScreen()));
 
   bubble_widget->CloseNow();
+
+  // When `adjust_if_offscreen()` is false, the bubble bounds should not be
+  // clamped to `work_area`.
+  auto* unadjusted_delegate = new TestBubbleDialogDelegateView(nullptr);
+  unadjusted_delegate->set_parent_window(anchor_widget->GetNativeView());
+  unadjusted_delegate->set_available_screen_bounds_callback(base::BindRepeating(
+      [](const gfx::Rect& work_area, const gfx::Rect&) { return work_area; },
+      work_area));
+  unadjusted_delegate->set_adjust_if_offscreen(false);
+  Widget* unadjusted_widget =
+      BubbleDialogDelegateView::CreateBubble(unadjusted_delegate);
+  unadjusted_widget->Show();
+
+  unadjusted_delegate->SetAnchorRect({900, 700, 10, 10});
+  EXPECT_FALSE(work_area.Contains(unadjusted_delegate->GetBubbleBounds()));
+  EXPECT_FALSE(
+      work_area.Contains(unadjusted_widget->GetWindowBoundsInScreen()));
+
+  unadjusted_widget->CloseNow();
+}
+
+TEST_F(BubbleDialogDelegateViewTest, AcceptDragDrop) {
+  auto bubble_delegate =
+      std::make_unique<TestBubbleDialogDelegateView>(nullptr);
+  EXPECT_FALSE(bubble_delegate->accept_drag_drop());
+  bubble_delegate->set_accept_drag_drop(true);
+  EXPECT_TRUE(bubble_delegate->accept_drag_drop());
 }
 
 }  // namespace views

@@ -293,6 +293,7 @@ class AtMemoryBottomSheetMediator implements AtMemorySearchBarView.Delegate {
         return new PropertyModel.Builder(IllustrationCardItemProperties.ALL_KEYS)
                 .with(IllustrationCardItemProperties.TITLE, suggestion.getLabel())
                 .with(IllustrationCardItemProperties.SUBTITLE, suggestion.getSublabel())
+                .with(IllustrationCardItemProperties.ROTATING_PLACEHOLDERS, List.of())
                 .build();
     }
 
@@ -304,7 +305,19 @@ class AtMemoryBottomSheetMediator implements AtMemorySearchBarView.Delegate {
                 .with(
                         IllustrationCardItemProperties.SUBTITLE,
                         mContext.getString(R.string.autofill_at_memory_zero_state_subtitle))
+                .with(
+                        IllustrationCardItemProperties.ROTATING_PLACEHOLDERS,
+                        getZeroStatePlaceholders())
                 .build();
+    }
+
+    private List<String> getZeroStatePlaceholders() {
+        return List.of(
+                mContext.getString(R.string.autofill_at_memory_zero_state_subtitle_order_number),
+                mContext.getString(
+                        R.string.autofill_at_memory_zero_state_subtitle_flight_confirmation_code),
+                mContext.getString(R.string.autofill_at_memory_zero_state_subtitle_tracking_number),
+                mContext.getString(R.string.autofill_at_memory_zero_state_subtitle_hotel_address));
     }
 
     private PropertyModel createAiDisclosureModel() {
@@ -355,6 +368,9 @@ class AtMemoryBottomSheetMediator implements AtMemorySearchBarView.Delegate {
                 .with(
                         SuggestionItemProperties.ON_FLYOUT_CLICKED,
                         () -> onFlyoutClicked(suggestion, position))
+                .with(
+                        SuggestionItemProperties.FLYOUT_CONTENT_DESCRIPTION,
+                        getFlyoutContentDescription(suggestion))
                 .build();
     }
 
@@ -393,5 +409,11 @@ class AtMemoryBottomSheetMediator implements AtMemorySearchBarView.Delegate {
             default:
                 return 0;
         }
+    }
+
+    private String getFlyoutContentDescription(AutofillSuggestion suggestion) {
+        AtMemoryPayload payload = suggestion.getAtMemoryPayload();
+        String dataType = payload != null ? payload.getTypeName() : "";
+        return mContext.getString(R.string.at_memory_open_flyout, dataType, suggestion.getLabel());
     }
 }

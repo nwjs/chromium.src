@@ -1108,7 +1108,7 @@ class MathFunctionParser {
       const CSSParserContext& context,
       CSSParserLocalContext& local_context,
       CSSPrimitiveValue::ValueRange value_range,
-      const Flags parsing_flags = Flags({Flag::AllowPercent}),
+      const Flags parsing_flags = Flags(),
       CSSAnchorQueryTypes allowed_anchor_queries = kCSSAnchorQueryTypesNone,
       const CSSColorChannelMap& color_channel_map = {})
       : stream_(&stream), savepoint_(stream.Save()) {
@@ -1244,7 +1244,11 @@ CSSPrimitiveValue* ConsumeIntegerOrNumberCalc(
     return value;
   }
 
-  MathFunctionParser math_parser(stream, context, local_context, value_range);
+  using enum CSSMathExpressionNode::Flag;
+  using Flags = CSSMathExpressionNode::Flags;
+
+  MathFunctionParser math_parser(stream, context, local_context, value_range,
+                                 Flags({AllowPercent}));
   if (const CSSMathFunctionValue* calculation = math_parser.Value()) {
     if (calculation->Category() != kCalcNumber) {
       return nullptr;
@@ -1275,7 +1279,10 @@ CSSPrimitiveValue* ConsumeNumber(CSSParserTokenStream& stream,
         stream.ConsumeIncludingWhitespace().NumericValue(),
         token.GetUnitType());
   }
-  MathFunctionParser math_parser(stream, context, local_context, value_range);
+  using enum CSSMathExpressionNode::Flag;
+  using Flags = CSSMathExpressionNode::Flags;
+  MathFunctionParser math_parser(stream, context, local_context, value_range,
+                                 Flags({AllowPercent}));
   if (const CSSMathFunctionValue* calculation = math_parser.Value()) {
     if (calculation->Category() != kCalcNumber) {
       return nullptr;
@@ -1410,7 +1417,10 @@ CSSPrimitiveValue* ConsumePercent(CSSParserTokenStream& stream,
         stream.ConsumeIncludingWhitespace().NumericValue(),
         CSSPrimitiveValue::UnitType::kPercentage);
   }
-  MathFunctionParser math_parser(stream, context, local_context, value_range);
+  using enum CSSMathExpressionNode::Flag;
+  using Flags = CSSMathExpressionNode::Flags;
+  MathFunctionParser math_parser(stream, context, local_context, value_range,
+                                 Flags({AllowPercent}));
   if (const CSSMathFunctionValue* calculation = math_parser.Value()) {
     if (calculation->Category() == kCalcPercent) {
       return math_parser.ConsumeValue();
@@ -1577,8 +1587,7 @@ static CSSPrimitiveValue* ConsumeMathFunctionAngle(
     const CSSParserContext& context,
     CSSParserLocalContext& local_context) {
   MathFunctionParser math_parser(stream, context, local_context,
-                                 CSSPrimitiveValue::ValueRange::kAll,
-                                 CSSMathExpressionNode::Flags());
+                                 CSSPrimitiveValue::ValueRange::kAll);
   if (const CSSMathFunctionValue* calculation = math_parser.Value()) {
     if (calculation->Category() != kCalcAngle) {
       return nullptr;
@@ -1619,8 +1628,7 @@ CSSPrimitiveValue* ConsumeTime(CSSParserTokenStream& stream,
     }
     return nullptr;
   }
-  MathFunctionParser math_parser(stream, context, local_context, value_range,
-                                 CSSMathExpressionNode::Flags());
+  MathFunctionParser math_parser(stream, context, local_context, value_range);
   if (const CSSMathFunctionValue* calculation = math_parser.Value()) {
     if (calculation->Category() == kCalcTime) {
       return math_parser.ConsumeValue();
@@ -1648,8 +1656,7 @@ CSSPrimitiveValue* ConsumeResolution(CSSParserTokenStream& stream,
   }
 
   MathFunctionParser math_parser(stream, context, local_context,
-                                 CSSPrimitiveValue::ValueRange::kNonNegative,
-                                 CSSMathExpressionNode::Flags());
+                                 CSSPrimitiveValue::ValueRange::kNonNegative);
   const CSSMathFunctionValue* math_value = math_parser.Value();
   if (math_value && math_value->IsResolution()) {
     return math_parser.ConsumeValue();
@@ -2182,18 +2189,6 @@ static std::optional<ColorInterpolationSpace> ConsumeColorInterpolationSpace(
 
 namespace {
 
-bool IsAllowedValueInParserContext(
-    const CSSValue* value,
-    const ColorParserContext& color_parser_context) {
-  if (auto* primitive_value = DynamicTo<CSSPrimitiveValue>(value)) {
-    return (color_parser_context.InElementContext() ||
-            !primitive_value->IsElementDependent()) &&
-           (color_parser_context.InPropertyContext() ||
-            !primitive_value->HasRandomFunctions());
-  }
-  return true;
-}
-
 // https://www.w3.org/TR/css-color-5/#color-mix
 CSSValue* ConsumeColorMixFunction(
     CSSParserTokenStream& stream,
@@ -2230,7 +2225,7 @@ CSSValue* ConsumeColorMixFunction(
         ConsumeColor(stream, context, local_context, color_parser_context);
     CSSPrimitiveValue* p1 = ConsumePercent(stream, context, local_context,
                                            CSSPrimitiveValue::ValueRange::kAll);
-    if (!IsAllowedValueInParserContext(p1, color_parser_context)) {
+    if (!IsAllowedColorValue(p1, color_parser_context)) {
       return nullptr;
     }
     // Color can come after the percentage
@@ -2256,7 +2251,7 @@ CSSValue* ConsumeColorMixFunction(
         ConsumeColor(stream, context, local_context, color_parser_context);
     CSSPrimitiveValue* p2 = ConsumePercent(stream, context, local_context,
                                            CSSPrimitiveValue::ValueRange::kAll);
-    if (!IsAllowedValueInParserContext(p2, color_parser_context)) {
+    if (!IsAllowedColorValue(p2, color_parser_context)) {
       return nullptr;
     }
     // Color can come after the percentage
@@ -2476,6 +2471,18 @@ CSSValue* ConsumeAbsoluteColor(CSSParserTokenStream& stream,
                                CSSParserLocalContext& local_context) {
   return ConsumeColor(stream, context, local_context,
                       ColorParserContext::AbsoluteColorContext());
+}
+
+bool IsAllowedColorValue(const CSSValue* value,
+                         const ColorParserContext& color_parser_context) {
+  if (const CSSPrimitiveValue* primitive_value =
+          DynamicTo<CSSPrimitiveValue>(value)) {
+    return (color_parser_context.InElementContext() ||
+            !primitive_value->IsElementDependent()) &&
+           (color_parser_context.InPropertyContext() ||
+            !primitive_value->HasRandomFunctions());
+  }
+  return true;
 }
 
 CSSValue* ConsumeColorWithoutElementAndPropertyContext(
@@ -2981,7 +2988,10 @@ static CSSPrimitiveValue* ConsumeGradientAngleOrPercent(
   if (token.GetType() == kPercentageToken) {
     return ConsumePercent(stream, context, local_context, value_range);
   }
-  MathFunctionParser math_parser(stream, context, local_context, value_range);
+  using enum CSSMathExpressionNode::Flag;
+  using Flags = CSSMathExpressionNode::Flags;
+  MathFunctionParser math_parser(stream, context, local_context, value_range,
+                                 Flags({AllowPercent}));
   if (const CSSMathFunctionValue* calculation = math_parser.Value()) {
     CalculationResultCategory category = calculation->Category();
     if (category == kCalcAngle || category == kCalcPercent ||

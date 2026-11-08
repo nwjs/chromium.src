@@ -12,9 +12,10 @@
 #include <vector>
 
 #include "base/containers/flat_map.h"
+#include "base/containers/flat_set.h"
 #include "base/functional/callback.h"
-#include "base/memory/ref_counted.h"
-#include "base/time/time.h"
+#include "base/memory/weak_ptr.h"
+#include "build/build_config.h"
 #include "components/signin/public/identity_manager/account_info.h"
 #include "components/trusted_vault/local_recovery_factor.h"
 #include "components/trusted_vault/proto/local_trusted_vault.pb.h"
@@ -24,7 +25,6 @@
 #include "components/trusted_vault/trusted_vault_server_constants.h"
 #include "components/trusted_vault/trusted_vault_throttling_connection.h"
 #include "google_apis/gaia/gaia_id.h"
-#include "google_apis/gaia/google_service_auth_error.h"
 
 namespace signin {
 class AccountsInCookieJarInfo;
@@ -37,8 +37,7 @@ namespace trusted_vault {
 // dedicated sequence (using thread pool). Can be constructed on any thread/
 // sequence.
 class StandaloneTrustedVaultBackend
-    : public base::RefCountedThreadSafe<StandaloneTrustedVaultBackend>,
-      public TrustedVaultDegradedRecoverabilityHandler::Observer {
+    : public TrustedVaultDegradedRecoverabilityHandler::Observer {
  public:
   using FetchKeysCallback = base::OnceCallback<void(
       const std::vector<std::vector<uint8_t>>& vault_keys)>;
@@ -51,7 +50,8 @@ class StandaloneTrustedVaultBackend
 
     Delegate& operator=(const Delegate&) = delete;
 
-    virtual void NotifyRecoverabilityDegradedChanged() = 0;
+    virtual void NotifyRecoverabilityDegradedChanged(
+        SecurityDomainId security_domain) = 0;
   };
 
   class LocalRecoveryFactorsFactory {
@@ -67,8 +67,7 @@ class StandaloneTrustedVaultBackend
     // Note that the returned LocalRecoveryFactor's will keep a reference to
     // |storage| and |connection|.
     virtual std::vector<std::unique_ptr<LocalRecoveryFactor>>
-    CreateLocalRecoveryFactors(SecurityDomainId security_domain_id,
-                               StandaloneTrustedVaultStorage* storage,
+    CreateLocalRecoveryFactors(StandaloneTrustedVaultStorage* storage,
                                TrustedVaultThrottlingConnection* connection,
                                const CoreAccountInfo& primary_account) = 0;
   };
@@ -90,7 +89,6 @@ class StandaloneTrustedVaultBackend
 #if BUILDFLAG(IS_MAC)
       const std::string& icloud_keychain_access_group_prefix,
 #endif
-      SecurityDomainId security_domain_id,
       std::unique_ptr<StandaloneTrustedVaultStorage> storage,
       std::unique_ptr<Delegate> delegate,
       std::unique_ptr<TrustedVaultConnection> connection);
@@ -98,6 +96,7 @@ class StandaloneTrustedVaultBackend
       delete;
   StandaloneTrustedVaultBackend& operator=(
       const StandaloneTrustedVaultBackend& other) = delete;
+  ~StandaloneTrustedVaultBackend() override;
 
   // TrustedVaultDegradedRecoverabilityHandler::Observer implementation.
   void OnDegradedRecoverabilityChanged(
@@ -112,16 +111,19 @@ class StandaloneTrustedVaultBackend
   // failure or if current state isn't sufficient it will populate locally
   // available keys regardless of their freshness.
   void FetchKeys(const CoreAccountInfo& account_info,
+                 SecurityDomainId security_domain,
                  FetchKeysCallback callback);
 
   // Replaces keys for given |gaia_id| both in memory and on disk.
   void StoreKeys(const GaiaId& gaia_id,
+                 SecurityDomainId security_domain,
                  const std::vector<std::vector<uint8_t>>& keys,
                  int last_key_version);
 
   // Marks vault keys as stale.  Afterwards, the next FetchKeys() call for this
   // |account_info| will trigger a key download attempt.
-  bool MarkLocalKeysAsStale(const CoreAccountInfo& account_info);
+  bool MarkLocalKeysAsStale(const CoreAccountInfo& account_info,
+                            SecurityDomainId security_domain);
 
   // Sets/resets |primary_account_|.
   void SetPrimaryAccount(const std::optional<CoreAccountInfo>& primary_account,
@@ -138,30 +140,30 @@ class StandaloneTrustedVaultBackend
   // Returns whether recoverability of the keys is degraded and user action is
   // required to add a new method.
   void GetIsRecoverabilityDegraded(const CoreAccountInfo& account_info,
+                                   SecurityDomainId security_domain,
                                    base::OnceCallback<void(bool)> cb);
 
   // Registers a new trusted recovery method that can be used to retrieve keys.
   void AddTrustedRecoveryMethod(const GaiaId& gaia_id,
+                                SecurityDomainId security_domain,
                                 const std::vector<uint8_t>& public_key,
                                 int method_type_hint,
-                                base::OnceClosure cb);
+                                base::OnceCallback<void(bool)> cb);
 
   void ClearLocalDataForAccount(const CoreAccountInfo& account_info);
 
   std::optional<CoreAccountInfo> GetPrimaryAccountForTesting() const;
 
-  bool IsDeviceRegisteredForTesting(const GaiaId& gaia_id);
-
   std::vector<uint8_t> GetLastAddedRecoveryMethodPublicKeyForTesting() const;
-  int GetLastKeyVersionForTesting(const GaiaId& gaia_id);
+  int GetLastKeyVersionForTesting(const GaiaId& gaia_id,
+                                  SecurityDomainId security_domain);
 
   bool HasPendingTrustedRecoveryMethodForTesting() const;
 
   // Runs |cb| when the backend becomes idle.
   void WaitForIdleForTesting(base::OnceClosure cb);
 
-  static scoped_refptr<StandaloneTrustedVaultBackend> CreateForTesting(
-      SecurityDomainId security_domain_id,
+  static std::unique_ptr<StandaloneTrustedVaultBackend> CreateForTesting(
       std::unique_ptr<StandaloneTrustedVaultStorage> storage,
       std::unique_ptr<Delegate> delegate,
       std::unique_ptr<TrustedVaultThrottlingConnection> connection,
@@ -169,13 +171,10 @@ class StandaloneTrustedVaultBackend
           local_recovery_factors_factory);
 
  private:
-  friend class base::RefCountedThreadSafe<StandaloneTrustedVaultBackend>;
-
   // Constructor which allows specifying a TrustedVaultThrottlingConnection and
   // a LocalRecoveryFactorsFactory.
   // Only used in tests.
   StandaloneTrustedVaultBackend(
-      SecurityDomainId security_domain_id,
       std::unique_ptr<StandaloneTrustedVaultStorage> storage,
       std::unique_ptr<Delegate> delegate,
       std::unique_ptr<TrustedVaultThrottlingConnection> connection,
@@ -186,45 +185,52 @@ class StandaloneTrustedVaultBackend
   GetDownloadKeysStatusForUMAFromResponse(
       TrustedVaultDownloadKeysStatus response_status);
 
-  ~StandaloneTrustedVaultBackend() override;
-
   // Attempts to register local recovery factors in case they're not yet
   // registered and currently available local data is sufficient to do it. Also
   // records registration related metrics.
-  void MaybeRegisterLocalRecoveryFactors();
+  void MaybeRegisterLocalRecoveryFactors(SecurityDomainId security_domain);
+  void MaybeRegisterLocalRecoveryFactorsForAllDomains();
 
-  // Attempts to honor the pending operation stored in
-  // |pending_trusted_recovery_method_|.
-  void MaybeProcessPendingTrustedRecoveryMethod();
+  // Attempts to honor the pending operations stored in
+  // |pending_trusted_recovery_methods_|.
+  void MaybeProcessPendingTrustedRecoveryMethods();
 
   // Called when registration of a local recovery factor for |gaia_id| is
   // completed (either successfully or not). |storage_| must contain
   // LocalTrustedVaultPerUser for given |gaia_id|.
   void OnRecoveryFactorRegistered(
       LocalRecoveryFactorType local_recovery_factor_type,
-      SecurityDomainId security_domain_id,
+      SecurityDomainId security_domain,
       TrustedVaultRegistrationStatus status,
       int key_version,
       bool had_local_keys);
 
-  void AttemptRecoveryFactor(size_t local_recovery_factor);
+  void AttemptRecoveryFactor(SecurityDomainId security_domain,
+                             size_t local_recovery_factor);
   void OnKeysRecovered(size_t current_local_recovery_factor,
-                       SecurityDomainId security_domain_id,
+                       SecurityDomainId security_domain,
                        LocalRecoveryFactor::RecoveryStatus status,
                        const std::vector<std::vector<uint8_t>>& new_vault_keys,
                        int last_vault_key_version);
 
-  void OnTrustedRecoveryMethodAdded(base::OnceClosure cb);
+  void OnTrustedRecoveryMethodAdded(SecurityDomainId security_domain,
+                                    base::OnceCallback<void(bool)> cb,
+                                    TrustedVaultRegistrationStatus status,
+                                    int unused_epoch);
 
   // Invokes |callback| with currently available keys for |gaia_id|.
   void FulfillFetchKeys(
       const GaiaId& gaia_id,
+      SecurityDomainId security_domain,
       FetchKeysCallback callback,
       std::optional<TrustedVaultRecoverKeysOutcomeForUMA> status_for_uma);
 
   // Same as above, but takes parameters from |ongoing_fetch_keys|, used when
   // keys are fetched asynchronously, after keys downloading attempt.
   void FulfillOngoingFetchKeys(
+      SecurityDomainId security_domain,
+      std::optional<TrustedVaultRecoverKeysOutcomeForUMA> status_for_uma);
+  void FulfillAllOngoingFetchKeys(
       std::optional<TrustedVaultRecoverKeysOutcomeForUMA> status_for_uma);
 
   // Removes all data for non-primary accounts if they were previously marked
@@ -232,8 +238,6 @@ class StandaloneTrustedVaultBackend
   void RemoveNonPrimaryAccountKeysIfMarkedForDeletion();
 
   void NotifyIdleForTestingIfNecessary();
-
-  const SecurityDomainId security_domain_id_;
 
   const std::unique_ptr<StandaloneTrustedVaultStorage> storage_;
 
@@ -262,8 +266,9 @@ class StandaloneTrustedVaultBackend
   std::vector<std::unique_ptr<LocalRecoveryFactor>> local_recovery_factors_;
 
   // Tracks the number of ongoing registration attempts for each recovery
-  // factor type.
-  base::flat_map<LocalRecoveryFactorType, int> ongoing_registration_attempts_;
+  // factor type and security domain.
+  base::flat_map<std::pair<SecurityDomainId, LocalRecoveryFactorType>, int>
+      ongoing_registration_attempts_;
 
   // Error state of refresh token for |primary_account_|.
   RefreshTokenErrorState refresh_token_error_state_ =
@@ -281,11 +286,12 @@ class StandaloneTrustedVaultBackend
     ~PendingTrustedRecoveryMethod();
 
     GaiaId gaia_id;
+    SecurityDomainId security_domain;
     std::vector<uint8_t> public_key;
     int method_type_hint;
-    base::OnceClosure completion_callback;
+    base::OnceCallback<void(bool)> completion_callback;
   };
-  std::optional<PendingTrustedRecoveryMethod> pending_trusted_recovery_method_;
+  std::vector<PendingTrustedRecoveryMethod> pending_trusted_recovery_methods_;
 
   // Keys fetching is asynchronous when it involves sending request to the
   // server, this structure encapsulates the data needed to process the response
@@ -304,22 +310,25 @@ class StandaloneTrustedVaultBackend
     GaiaId gaia_id;
     std::vector<FetchKeysCallback> callbacks;
   };
-  std::optional<OngoingFetchKeys> ongoing_fetch_keys_;
+  base::flat_map<SecurityDomainId, OngoingFetchKeys> ongoing_fetch_keys_;
 
   // Same as above, but specifically used for recoverability-related requests.
   // TODO(crbug.com/40178774): Move elsewhere.
-  std::unique_ptr<TrustedVaultConnection::Request>
-      ongoing_add_recovery_method_request_;
+  base::flat_map<SecurityDomainId,
+                 std::unique_ptr<TrustedVaultConnection::Request>>
+      ongoing_add_recovery_method_requests_;
 
   // Used to take care of polling the degraded recoverability state from the
   // server for the |primary_account|. Instance changes whenever
   // |primary_account| changes.
-  std::unique_ptr<TrustedVaultDegradedRecoverabilityHandler>
-      degraded_recoverability_handler_;
+  base::flat_map<SecurityDomainId,
+                 std::unique_ptr<TrustedVaultDegradedRecoverabilityHandler>>
+      degraded_recoverability_handlers_;
 
   std::vector<uint8_t> last_added_recovery_method_public_key_for_testing_;
 
-  bool recovery_factor_registration_state_recorded_to_uma_ = false;
+  base::flat_set<SecurityDomainId>
+      recovery_factor_registration_state_recorded_to_uma_;
 
   // If GetIsRecoverabilityDegraded() gets invoked before
   // SetPrimaryAccount(), the execution gets deferred until
@@ -338,9 +347,10 @@ class StandaloneTrustedVaultBackend
     ~PendingGetIsRecoverabilityDegraded();
 
     CoreAccountInfo account_info;
+    SecurityDomainId security_domain;
     base::OnceCallback<void(bool)> completion_callback;
   };
-  std::optional<PendingGetIsRecoverabilityDegraded>
+  std::vector<PendingGetIsRecoverabilityDegraded>
       pending_get_is_recoverability_degraded_;
 
   std::vector<base::OnceClosure> idle_callbacks_for_testing_;

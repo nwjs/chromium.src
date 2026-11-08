@@ -1226,6 +1226,102 @@ TEST_P(PaintPropertyTreeBuilderTest, TransformNodesInSVG) {
             rect_with2d_transform_properties->PaintOffsetTranslation());
 }
 
+TEST_P(PaintPropertyTreeBuilderTest, SVGChild3DTransform) {
+  ScopedSvgCss3dTransformsForTest svg_css_3d_transforms(true);
+  SetBodyInnerHTML(R"HTML(
+    <style>
+      rect {
+        transform: perspective(100px) rotateY(45deg);
+        transform-origin: 50px 25px;
+      }
+      g { transform: translateZ(10px); }
+    </style>
+    <svg width='100px' height='100px'>
+      <rect id='rect3d' width='100px' height='100px'/>
+      <g id='g3d'><circle r='10'/></g>
+    </svg>
+  )HTML");
+
+  // The 3D components of an SVG child transform must be preserved in the
+  // transform paint node instead of being flattened to 2D affine.
+  const ObjectPaintProperties* rect_properties =
+      GetLayoutObjectByElementId("rect3d")->FirstFragment().PaintProperties();
+  ASSERT_NE(nullptr, rect_properties);
+  ASSERT_NE(nullptr, rect_properties->Transform());
+  gfx::Transform matrix;
+  matrix.ApplyPerspectiveDepth(100);
+  matrix.RotateAboutYAxis(45);
+  // SVG's transform origin is baked into the transform.
+  matrix.ApplyTransformOrigin(50, 25, 0);
+  EXPECT_EQ(matrix, rect_properties->Transform()->Matrix());
+  EXPECT_EQ(gfx::Point3F(0, 0, 0), rect_properties->Transform()->Origin());
+
+  // A purely-3D transform (identity when flattened to 2D) must still create
+  // a transform node.
+  const ObjectPaintProperties* g_properties =
+      GetLayoutObjectByElementId("g3d")->FirstFragment().PaintProperties();
+  ASSERT_NE(nullptr, g_properties);
+  ASSERT_NE(nullptr, g_properties->Transform());
+  EXPECT_EQ(MakeTranslationMatrix(0, 0, 10),
+            g_properties->Transform()->Matrix());
+}
+
+TEST_P(PaintPropertyTreeBuilderTest, SVGTransformAnimationWith3DTransform) {
+  ScopedSvgCss3dTransformsForTest svg_css_3d_transforms(true);
+  SetBodyInnerHTML(R"HTML(
+    <svg width="200" height="200">
+      <rect id="rect"
+            style="animation: 2s infinite spin; transform-origin: 50% 50%">
+    </svg>
+    <style>
+      @keyframes spin {
+        0% { transform: perspective(100px) rotateY(0); }
+        100% { transform: perspective(100px) rotateY(360deg); }
+      }
+    </style>
+  )HTML");
+
+  auto* properties = PaintPropertiesForElement("rect");
+  ASSERT_TRUE(properties);
+  auto* transform_node = properties->Transform();
+  ASSERT_TRUE(transform_node);
+  EXPECT_TRUE(transform_node->HasActiveTransformAnimation());
+  gfx::Transform matrix;
+  matrix.ApplyPerspectiveDepth(100);
+  EXPECT_EQ(matrix, transform_node->Matrix());
+  EXPECT_EQ(gfx::Point3F(100, 100, 0), transform_node->Origin());
+}
+
+TEST_P(PaintPropertyTreeBuilderTest, SVGRootPerspectiveAppliesToChildren) {
+  ScopedSvgCss3dTransformsForTest svg_css_3d_transforms(true);
+  SetBodyInnerHTML(R"HTML(
+    <svg id='svg' width='200' height='200'
+         style='border: 1px solid black; perspective: 300px'>
+      <rect id='rect' width='100' height='100'
+            style='transform: translateZ(-100px)'/>
+    </svg>
+  )HTML");
+
+  const ObjectPaintProperties* svg_properties =
+      GetLayoutObjectByElementId("svg")->FirstFragment().PaintProperties();
+  ASSERT_NE(nullptr, svg_properties);
+  ASSERT_NE(nullptr, svg_properties->Perspective());
+  ASSERT_NE(nullptr, svg_properties->ReplacedContentTransform());
+
+  // The svg root's perspective node must reach 3D-transformed SVG children:
+  // neither the replaced content transform nor the child transform may
+  // flatten the inherited transform.
+  EXPECT_FALSE(
+      svg_properties->ReplacedContentTransform()->FlattensInheritedTransform());
+  const ObjectPaintProperties* rect_properties =
+      GetLayoutObjectByElementId("rect")->FirstFragment().PaintProperties();
+  ASSERT_NE(nullptr, rect_properties);
+  ASSERT_NE(nullptr, rect_properties->Transform());
+  EXPECT_FALSE(rect_properties->Transform()->FlattensInheritedTransform());
+  EXPECT_EQ(MakeTranslationMatrix(0, 0, -100),
+            rect_properties->Transform()->Matrix());
+}
+
 TEST_P(PaintPropertyTreeBuilderTest, SVGViewBoxTransform) {
   SetBodyInnerHTML(R"HTML(
     <style>
@@ -3268,7 +3364,7 @@ TEST_P(PaintPropertyTreeBuilderTest, FlatTransformStyleEndsRenderingContext) {
   LayoutObject* b = GetLayoutObjectByElementId("b");
   const ObjectPaintProperties* b_properties =
       b->FirstFragment().PaintProperties();
-  ASSERT_FALSE(a->StyleRef().Preserves3D());
+  ASSERT_FALSE(a->Style().Preserves3D());
 
   ASSERT_TRUE(a_properties->Transform() && b_properties->Transform());
 
@@ -3303,7 +3399,7 @@ TEST_P(PaintPropertyTreeBuilderTest, NestedRenderingContexts) {
   LayoutObject* b = GetLayoutObjectByElementId("b");
   const ObjectPaintProperties* b_properties =
       b->FirstFragment().PaintProperties();
-  ASSERT_FALSE(a->StyleRef().Preserves3D());
+  ASSERT_FALSE(a->Style().Preserves3D());
   ASSERT_TRUE(a_properties->Transform() && b_properties->Transform());
 
   // #a should participate in a rendering context (due to its parent). Its child
@@ -6722,7 +6818,7 @@ TEST_P(PaintPropertyTreeBuilderTest, SimpleOpacityChangeDoesNotCausePacUpdate) {
               properties->Effect()->GetCompositorElementId());
   ASSERT_TRUE(cc_effect);
   EXPECT_FLOAT_EQ(cc_effect->opacity, 0.5f);
-  EXPECT_TRUE(cc_effect->effect_changed);
+  EXPECT_TRUE(cc_effect->effect_changed());
   EXPECT_FALSE(GetChromeClient()
                    .layer_tree_host()
                    ->property_trees()
@@ -6735,7 +6831,7 @@ TEST_P(PaintPropertyTreeBuilderTest, SimpleOpacityChangeDoesNotCausePacUpdate) {
   UpdateAllLifecyclePhasesExceptPaint();
   EXPECT_FLOAT_EQ(properties->Effect()->Opacity(), 0.9f);
   EXPECT_FLOAT_EQ(cc_effect->opacity, 0.9f);
-  EXPECT_TRUE(cc_effect->effect_changed);
+  EXPECT_TRUE(cc_effect->effect_changed());
   EXPECT_EQ(pac->NeedsUpdate(), PaintArtifactCompositor::UpdateType::kNone);
   EXPECT_TRUE(GetChromeClient()
                   .layer_tree_host()
@@ -8239,9 +8335,10 @@ TEST_P(PaintPropertyTreeBuilderTest, ScrollAxisLockPropagatesToCc) {
 }
 
 TEST_P(PaintPropertyTreeBuilderTest, ElementCanvasTransformPropertyTree) {
+  GetDocument().GetSettings()->SetScriptEnabled(true);
   SetBodyInnerHTML(R"HTML(
     <canvas content=drawable id="canvas">
-      <div id="target" style="translate: 10px 20px"></div>
+      <div id="target" drawable style="translate: 10px 20px"></div>
     </canvas>
   )HTML");
 
@@ -8267,8 +8364,8 @@ TEST_P(PaintPropertyTreeBuilderTest, ElementCanvasTransformPropertyTree) {
 TEST_P(PaintPropertyTreeBuilderTest, ElementCanvasClipPropertyTree) {
   GetDocument().GetSettings()->SetScriptEnabled(true);
   SetBodyInnerHTML(R"HTML(
-    <canvas layoutsubtree id="canvas">
-      <div id="target" style="translate: 10px 20px"></div>
+    <canvas content=drawable id="canvas">
+      <div id="target" drawable style="translate: 10px 20px"></div>
     </canvas>
   )HTML");
 
@@ -8279,7 +8376,7 @@ TEST_P(PaintPropertyTreeBuilderTest, ElementCanvasClipPropertyTree) {
   ASSERT_TRUE(canvas_clip);
   EXPECT_TRUE(canvas_clip->LayoutClipRect().IsInfinite());
   ASSERT_TRUE(properties->Effect());
-  EXPECT_EQ(canvas_clip, &properties->Effect()->CanvasChildContentClip());
+  EXPECT_EQ(canvas_clip, &properties->Effect()->CanvasDrawableContentClip());
 
   target_element->SetCanvasClip(FloatClipRect(gfx::RectF(10, 20, 30, 40)));
   UpdateAllLifecyclePhasesExceptPaint();

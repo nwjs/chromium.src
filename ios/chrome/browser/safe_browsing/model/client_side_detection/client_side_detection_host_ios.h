@@ -119,6 +119,7 @@ class ClientSideDetectionHostIOS
       GURL phishing_url,
       ClientSideDetectionType request_type,
       std::optional<IntelligentScanVerdict> intelligent_scan_verdict,
+      bool is_phishing,
       bool should_show_scam_warning) override;
   void UpdateDebuggingMetadataWithNetworkResult(
       GURL phishing_url,
@@ -195,14 +196,13 @@ class ClientSideDetectionHostIOS
                                           PreClassificationCheckResult reason);
 
   // Callback invoked when CSD allowlist lookup completes. Initiates
-  // high-confidence allowlist check.
+  // high-confidence allowlist check if the CSD allowlist did not match.
   void OnAllowlistCheckDone(const GURL& url, bool match_allowlist);
 
   // Callback invoked when High-Confidence allowlist lookup completes. Evaluates
   // allowlist results and logs duration metrics.
   void OnHighConfidenceAllowlistCheckDone(
       const GURL& url,
-      bool match_allowlist,
       base::TimeTicks check_start_time,
       bool url_on_high_confidence_allowlist,
       std::optional<SafeBrowsingDatabaseManager::

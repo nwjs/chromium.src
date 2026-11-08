@@ -32,4 +32,13 @@ void RecordDictationStreamExitStatus(DictationStreamExitStatus status) {
   base::UmaHistogramEnumeration(kStreamExitReasonHistogramName, status);
 }
 
+void RecordDictationStreamStartLatency(base::TimeDelta latency) {
+  base::UmaHistogramTimes(kStreamStartLatencyHistogramName, latency);
+}
+
+void RecordDictationStreamAbandonedBeforeListening(base::TimeDelta elapsed) {
+  base::UmaHistogramMediumTimes(kStreamAbandonedBeforeListeningHistogramName,
+                                elapsed);
+}
+
 }  // namespace dictation

@@ -83,6 +83,10 @@ void IdleManagerImpl::AddMonitor(
     return;
   }
 
+  // Observe permission changes while monitors are registered.
+  // CloseAllMonitors() drops the subscription when the last one disconnects.
+  SubscribeToPermissionChanges();
+
   if (monitors_.empty() && !state_override_) {
     observer_.Observe(ui::IdlePollingService::GetInstance());
     last_state_ = CheckIdleState();
@@ -94,6 +98,18 @@ void IdleManagerImpl::AddMonitor(
 }
 
 bool IdleManagerImpl::HasPermission() {
+  // Opaque origins cannot be granted or hold IDLE_DETECTION permissions.
+  // Furthermore, if any ancestor frame in the tree has an opaque origin,
+  // subframes must not be granted access because the embedding origin
+  // calculation would fall back to the visible URL. Returning false directly
+  // avoids consulting the permission controller's visible URL fallback logic.
+  for (RenderFrameHost* rfh = render_frame_host_; rfh;
+       rfh = rfh->GetParentOrOuterDocument()) {
+    if (rfh->GetLastCommittedOrigin().opaque()) {
+      return false;
+    }
+  }
+
   PermissionController* permission_controller =
       render_frame_host_->GetBrowserContext()->GetPermissionController();
   CHECK(permission_controller, base::NotFatalUntil::M159);
@@ -106,11 +122,44 @@ bool IdleManagerImpl::HasPermission() {
   return status == PermissionStatus::GRANTED;
 }
 
+void IdleManagerImpl::SubscribeToPermissionChanges() {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+
+  permission_subscription_ =
+      render_frame_host_->GetBrowserContext()
+          ->GetPermissionController()
+          ->SubscribeToPermissionResultChange(
+              content::PermissionDescriptorUtil::
+                  CreatePermissionDescriptorForPermissionType(
+                      blink::PermissionType::IDLE_DETECTION),
+              /*render_process_host=*/nullptr, render_frame_host_,
+              render_frame_host_->GetLastCommittedOrigin().GetURL(),
+              /*should_include_device_status=*/false,
+              base::BindRepeating(&IdleManagerImpl::OnPermissionStatusChanged,
+                                  weak_factory_.GetWeakPtr()));
+}
+
+void IdleManagerImpl::OnPermissionStatusChanged(PermissionResult result) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+
+  if (result.status != PermissionStatus::GRANTED) {
+    CloseAllMonitors();
+  }
+}
+
+void IdleManagerImpl::CloseAllMonitors() {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+
+  monitors_.Clear();
+  observer_.Reset();
+  permission_subscription_.reset();
+}
+
 void IdleManagerImpl::OnMonitorDisconnected(mojo::RemoteSetElementId id) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
   if (monitors_.empty()) {
-    observer_.Reset();
+    CloseAllMonitors();
   }
 }
 

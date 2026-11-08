@@ -27,13 +27,6 @@ Once you have Chrome Android/WebView and `chromedriver` built, you can launch
 `run_wpt_tests.py` to run WPTs. You can either run the tests on an Android
 emulator or a real Android device.
 
-Note: You can enable [Incremental Install](/build/android/incremental_install/README.md)
-for Chrome Android by setting `incremental_install = True` in your `args.gn`
-file.
-
-This will cause the test harness to use the build directory's incremental
-installation script instead of the default browser APK.
-
 ### Running WPTs on an Android emulator
 
 You will need to follow the steps in
@@ -63,17 +56,14 @@ To run the example in WebView:
 $ third_party/blink/tools/run_wpt_tests.py \
   -t Default \
   -p android_webview \
-  --webview-provider out/Default/apks/TrichromeWebView64.apk \
-  --additional-apk out/Default/apks/TrichromeLibrary64.apk \
+  --webview-provider out/Default/apks/SystemWebView64.apk \
   --avd-config=tools/android/avd/proto/android_33_google_apis_x64.textpb \
   external/wpt/badging/badge-success.https.html
 ```
 
 * `-p webview`: Runs the tests using WebView.
-* `--webview-provider out/.../TrichromeWebView64.apk`: Specify
-TrichromeWebView64 as WebView APK.
-* `--additional-apk out/.../TrichromeLibrary64.apk`: Install TrichromeLibrary64
-needed for the WebView APK after Android 10 (see [WebView Channels](/android_webview/docs/channels.md)).
+* `--webview-provider out/.../SystemWebView64.apk`: Specify
+SystemWebView64 as WebView APK.
 
 Alternatively, you can launch the emulator yourself and `run_wpt_tests.py` will
 detect and connect to the emulator and run WPTs with it. This can save you the

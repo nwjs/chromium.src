@@ -15,6 +15,7 @@
 #include <vector>
 
 #include "base/containers/flat_map.h"
+#include "base/files/file_path.h"
 #include "base/functional/callback.h"
 #include "base/gtest_prod_util.h"
 #include "base/memory/scoped_refptr.h"
@@ -23,6 +24,7 @@
 #include "base/task/sequenced_task_runner.h"
 #include "base/time/time.h"
 #include "base/timer/timer.h"
+#include "base/types/optional_ref.h"
 #include "base/values.h"
 #include "build/build_config.h"
 #include "chrome/browser/startup_data.h"
@@ -534,6 +536,8 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
   bool WebPreferencesNeedUpdateForColorRelatedStateChanges(
       content::WebContents& web_contents,
       const content::SiteInstance& main_frame_site) const override;
+  ui::ColorProviderKey::ForcedColors GetForcedColorsForWebContents(
+      content::WebContents& web_contents) const override;
   void BrowserURLHandlerCreated(content::BrowserURLHandler* handler) override;
   base::FilePath GetDefaultDownloadDirectory() override;
   std::string GetDefaultDownloadName() override;
@@ -576,9 +580,12 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
       content::PosixFileDescriptorInfo* mappings) override;
 #endif  // BUILDFLAG(IS_POSIX) && !BUILDFLAG(IS_MAC)
 #if BUILDFLAG(IS_WIN)
-  bool PreSpawnChild(sandbox::TargetConfig* config,
-                     sandbox::mojom::Sandbox sandbox_type,
-                     ChildSpawnFlags flags) override;
+  bool PreSpawnChild(
+      sandbox::TargetConfig* config,
+      sandbox::mojom::Sandbox sandbox_type,
+      ChildSpawnFlags flags,
+      base::optional_ref<const ChildModule> child_module) override;
+  std::optional<ChildModule> GetChildModule() override;
   std::wstring GetAppContainerSidForSandboxType(
       sandbox::mojom::Sandbox sandbox_type,
       AppContainerFlags flags) override;
@@ -818,6 +825,7 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
       const GURL& url,
       scoped_refptr<net::HttpResponseHeaders> response_headers,
       bool first_auth_attempt,
+      bool do_not_prompt_for_login,
       content::GuestPageHolder* guest,
       content::LoginDelegate::LoginAuthRequiredCallback auth_required_callback)
       override;
@@ -925,6 +933,8 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
   bool IsClipboardPasteAllowed(
       content::RenderFrameHost* render_frame_host) override;
 
+  bool IsClipboardAllowedForServiceWorker(const url::Origin& origin) override;
+
   std::optional<GURL> MaybeOverrideSourceURLForClipboardAccess(
       content::RenderFrameHost* render_frame_host,
       const GURL& original_url) override;
@@ -1012,6 +1022,9 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
 #if !BUILDFLAG(IS_ANDROID)
   static base::TimeDelta GetKeepaliveTimerTimeout(
       content::BrowserContext* context);
+  bool IsKeepaliveTimerRunningForTesting() const {
+    return keepalive_timer_.IsRunning();
+  }
 #endif  // !BUILDFLAG(IS_ANDROID)
 
   bool SuppressDifferentOriginSubframeJSDialogs(
@@ -1105,10 +1118,10 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
   bool ShouldAllowBackForwardCacheForCacheControlNoStorePage(
       content::BrowserContext* browser_context) override;
 
-  bool IsBlobUrlPartitioningEnabled(
-      content::BrowserContext* browser_context) override;
+  bool IsUrlAllowedForBackForwardCache(content::BrowserContext* browser_context,
+                                       const GURL& url) override;
 
-  bool ShouldReduceAcceptLanguage(
+  bool IsBlobUrlPartitioningEnabled(
       content::BrowserContext* browser_context) override;
 
   bool IsClearWindowNameForNewBrowsingContextGroupAllowed(
@@ -1162,9 +1175,9 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
       override;
 #endif  // BUILDFLAG(ENABLE_ON_DEVICE_TRANSLATION)
 
-  // Binds to a new instance of
+  // Binds to an existing or new instance of
   // `language_detection::ContentLanguageDetectionDriver` which receives the
-  // model from Optimization Guide. The instance becomes owned
+  // model from Optimization Guide. The instance is owned by
   // `context_user_data` to ensure it does not outlive the execution context for
   // which it was created.
   void BindLanguageDetectionDriver(
@@ -1254,6 +1267,8 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
       const GURL& url,
       const std::string& embedder_histogram_suffix) override;
 
+  bool IsExemptFromWindowSizeCheck(const GURL& url) override;
+
  protected:
   static bool HandleWebUI(GURL* url, content::BrowserContext* browser_context);
   static bool HandleWebUIReverse(GURL* url,
@@ -1274,6 +1289,7 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
   virtual std::unique_ptr<HttpAuthCoordinator> CreateHttpAuthCoordinator();
 
  private:
+  friend class ChromeContentBrowserClientDiskCacheDirTest;
   friend class DisableWebRtcEncryptionFlagTest;
   friend class InProcessBrowserTest;
 

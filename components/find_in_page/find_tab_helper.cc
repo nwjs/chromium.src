@@ -22,7 +22,8 @@ using content::WebContents;
 namespace find_in_page {
 
 FindTabHelper::FindTabHelper(WebContents* web_contents)
-    : content::WebContentsUserData<FindTabHelper>(*web_contents) {}
+    : content::WebContentsUserData<FindTabHelper>(*web_contents),
+      content::WebContentsObserver(web_contents) {}
 
 FindTabHelper::~FindTabHelper() {
   for (auto& observer : observers_)
@@ -41,6 +42,7 @@ void FindTabHelper::StartFinding(std::u16string search_string,
                                  bool forward_direction,
                                  bool case_sensitive,
                                  bool find_match,
+                                 bool scroll_to_match,
                                  bool run_synchronously_for_testing) {
   // Remove the carriage return character, which generally isn't in web content.
   const char16_t kInvalidChars[] = u"\r";
@@ -79,6 +81,7 @@ void FindTabHelper::StartFinding(std::u16string search_string,
   options->new_session = new_session;
   options->find_match = find_match;
   options->run_synchronously_for_testing = run_synchronously_for_testing;
+  options->scroll_to_match = scroll_to_match;
   GetWebContents().Find(find_text_, std::move(options), /*skip_delay=*/false,
                         [this, new_session](int request_id) {
                           current_find_request_id_ = request_id;
@@ -152,11 +155,11 @@ void FindTabHelper::RequestFindMatchRects(int current_version) {
 }
 #endif
 
-void FindTabHelper::HandleFindReply(int request_id,
-                                    int number_of_matches,
-                                    const gfx::Rect& selection_rect,
-                                    int active_match_ordinal,
-                                    bool final_update) {
+void FindTabHelper::DidReceiveFindReply(int request_id,
+                                        int number_of_matches,
+                                        const gfx::Rect& selection_rect,
+                                        int active_match_ordinal,
+                                        bool final_update) {
   // Ignore responses for requests that have been aborted.
   // Ignore responses for requests from previous sessions. That way we won't act
   // on stale results when the user has already typed in another query.

@@ -6,6 +6,11 @@ import("//build/config/ui.gni")
 import("//extensions/buildflags/buildflags.gni")
 
 source_set("window_management") {
+  visibility = [
+    "//chrome/browser/*",
+    "//chrome/test/*",
+  ]
+
   public = [
     "isolated_web_apps_window_open_permission_service.h",
     "isolated_web_apps_window_open_permission_service_factory.h",
@@ -21,6 +26,11 @@ source_set("window_management") {
 }
 
 source_set("impl") {
+  visibility = [
+    ":*",
+    "//chrome/browser:*",
+  ]
+
   sources = [
     "isolated_web_apps_window_open_permission_service.cc",
     "isolated_web_apps_window_open_permission_service_delegate.cc",
@@ -58,7 +68,6 @@ if (toolkit_views) {
       "//chrome/browser/content_settings:content_settings_factory",
       "//chrome/browser/notifications",
       "//chrome/browser/profiles:profile",
-      "//chrome/browser/ui",
       "//chrome/browser/ui/browser_window",
       "//chrome/browser/ui/web_applications",
       "//chrome/browser/web_applications",

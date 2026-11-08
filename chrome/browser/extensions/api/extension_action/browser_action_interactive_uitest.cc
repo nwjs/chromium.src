@@ -5,7 +5,6 @@
 #include <array>
 #include <memory>
 
-#include "base/feature_list.h"
 #include "base/files/file_util.h"
 #include "base/memory/raw_ptr.h"
 #include "base/run_loop.h"
@@ -42,7 +41,6 @@
 #include "content/public/browser/host_zoom_map.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_observer.h"
-#include "content/public/common/content_features.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
 #include "content/public/test/download_test_observer.h"
@@ -258,7 +256,7 @@ class BrowserActionInteractiveTest : public ExtensionApiTest {
   bool HasPopupNativeView() {
     ToolbarActionViewModel* popup_owner =
         extensions_container()->popup_owner_for_testing();
-    return popup_owner ? !!popup_owner->GetPopupNativeView() : false;
+    return popup_owner ? !!popup_owner->GetPopupNativeViewForTesting() : false;
   }
 
   // Trigger a focus loss to close the popup.
@@ -266,7 +264,7 @@ class BrowserActionInteractiveTest : public ExtensionApiTest {
     ToolbarActionViewModel* popup_owner =
         extensions_container()->popup_owner_for_testing();
     EXPECT_TRUE(popup_owner);
-    EXPECT_TRUE(popup_owner->GetPopupNativeView());
+    EXPECT_TRUE(popup_owner->GetPopupNativeViewForTesting());
     ExtensionHostTestHelper host_helper(profile());
 
 #if BUILDFLAG(IS_MAC)
@@ -295,7 +293,7 @@ class BrowserActionInteractiveTest : public ExtensionApiTest {
   ExtensionsToolbarDesktop* extensions_container() {
     return BrowserView::GetBrowserViewForBrowser(browser())
         ->toolbar()
-        ->extensions_container();
+        ->extensions_container_for_testing();
   }
 
   int num_popup_hosts_created() const { return host_watcher_->created(); }
@@ -369,13 +367,6 @@ IN_PROC_BROWSER_TEST_F(BrowserActionInteractiveTest, MAYBE_TestOpenPopup) {
 #endif
 IN_PROC_BROWSER_TEST_F(BrowserActionInteractiveTest,
                        MAYBE_TestOpenPopupIncognito) {
-#if BUILDFLAG(IS_MAC)
-  if (base::FeatureList::IsEnabled(features::kInitialWebUI)) {
-    GTEST_SKIP() << "Skipping test because it fails with InitialWebUI enabled "
-                    "on Mac. See crbug.com/464087732.";
-  }
-#endif  // BUILDFLAG(IS_MAC)
-
   // Load the extension with incognito support.
   const Extension* extension = LoadExtension(
       test_data_dir_.AppendASCII("browser_action").AppendASCII("open_popup"),
@@ -508,17 +499,9 @@ IN_PROC_BROWSER_TEST_F(BrowserActionInteractiveTest, FocusLossClosesPopup1) {
 }
 
 // Test that the extension popup is closed when the browser window is focused.
-// TODO(crbug.com/556054354): Flaky on Windows.
-#if BUILDFLAG(IS_WIN)
-#define MAYBE_FocusLossClosesPopup2 DISABLED_FocusLossClosesPopup2
-#else
-#define MAYBE_FocusLossClosesPopup2 FocusLossClosesPopup2
-#endif
-IN_PROC_BROWSER_TEST_F(BrowserActionInteractiveTest,
-                       MAYBE_FocusLossClosesPopup2) {
-  // Load a first extension that can open a popup.
+IN_PROC_BROWSER_TEST_F(BrowserActionInteractiveTest, FocusLossClosesPopup2) {
   ASSERT_TRUE(
-      LoadExtension(test_data_dir_.AppendASCII("browser_action/popup")));
+      LoadExtension(test_data_dir_.AppendASCII("browser_action/open_popup")));
   const Extension* extension = GetSingleLoadedExtension();
   ASSERT_TRUE(extension) << message_;
   OpenPopupViaToolbar(extension->id());
@@ -683,7 +666,8 @@ IN_PROC_BROWSER_TEST_F(BrowserActionInteractiveTest, DestroyHWNDDoesNotCrash) {
   ToolbarActionViewModel* popup_owner =
       extensions_container()->popup_owner_for_testing();
   ASSERT_TRUE(popup_owner);
-  const gfx::NativeView popup_view = popup_owner->GetPopupNativeView();
+  const gfx::NativeView popup_view =
+      popup_owner->GetPopupNativeViewForTesting();
   EXPECT_NE(gfx::NativeView(), popup_view);
 
   const HWND popup_hwnd = views::HWNDForNativeView(popup_view);
@@ -855,7 +839,7 @@ IN_PROC_BROWSER_TEST_F(BrowserActionInteractiveTest,
 // Regression test for crbug.com/40455833.
 IN_PROC_BROWSER_TEST_F(BrowserActionInteractiveTest, OpenPopupOnPopup) {
   // Open a new web popup window.
-  NavigateParams params(browser(), GURL("http://www.google.com/"),
+  NavigateParams params(browser(), GURL("https://www.google.com/"),
                         ui::PAGE_TRANSITION_LINK);
   params.disposition = WindowOpenDisposition::NEW_POPUP;
   params.window_action = NavigateParams::WindowAction::kShowWindow;
@@ -863,16 +847,9 @@ IN_PROC_BROWSER_TEST_F(BrowserActionInteractiveTest, OpenPopupOnPopup) {
   ASSERT_TRUE(params.browser);
   BrowserWindowInterface* popup_browser = params.browser;
   // Verify it is a popup, and it is the active window.
-  // The window isn't considered "active" on MacOSX for odd reasons. The more
-  // important test is that it *is* considered the last active browser, since
-  // that's what we check when we try to open the popup.
-  // TODO(crbug.com/40711219): Now that this is an interactive test, is this
-  // ifdef still necessary?
-#if !BUILDFLAG(IS_MAC)
   ui_test_utils::BrowserActivationWaiter waiter(popup_browser);
   waiter.WaitForActivation();
   EXPECT_TRUE(popup_browser->GetWindow()->IsActive());
-#endif
   EXPECT_FALSE(browser()->GetWindow()->IsActive());
   EXPECT_FALSE(
       WindowFeatureController::From(popup_browser)
@@ -1041,7 +1018,7 @@ class NavigatingExtensionPopupInteractiveTest
     content::WebContents* popup = popup_observer.Wait();
 
     // Verify popup is visible.
-    ASSERT_TRUE(model->GetPopupNativeView());
+    ASSERT_TRUE(model->GetPopupNativeViewForTesting());
 
     GURL popup_url = popup_extension().GetResourceURL("popup.html");
     EXPECT_EQ(popup_url, popup->GetLastCommittedURL());
@@ -1084,7 +1061,7 @@ class NavigatingExtensionPopupInteractiveTest
 
       extensions_container()->HideActivePopup();
       ASSERT_FALSE(extensions_container()->popup_owner_for_testing());
-      ASSERT_FALSE(model->GetPopupNativeView());
+      ASSERT_FALSE(model->GetPopupNativeViewForTesting());
     }
 
     // Make sure that the web navigation did not succeed somewhere outside of

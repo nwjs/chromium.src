@@ -18,6 +18,7 @@ class WebContents;
 namespace glic {
 class Host;
 class GlicWebClientManager;
+class ScopedModalDialogManagerDelegate;
 
 // Abstract interface managing the lifecycle, presentation, and client routing
 // of the WebContents backing a Glic panel instance.
@@ -39,6 +40,10 @@ class GlicWebContentsManager {
   // Attaches this manager's WebContents to the provided Host. This must be
   // called exactly once when the manager is connected to a live panel host.
   virtual void AttachToHost(Host* host) = 0;
+
+  // Attaches `delegate` to all WebContents managed by this manager.
+  virtual void AttachModalDialogManagerDelegate(
+      ScopedModalDialogManagerDelegate& delegate) = 0;
 
   // Sets the visibility state of the managed WebContents.
   virtual void SetVisibility(content::Visibility visibility) = 0;
@@ -80,9 +85,21 @@ class GlicWebContentsManager {
   // to the user rather than reloaded.
   virtual bool ShouldReloadOnShow() const = 0;
 
+  // Returns true if the manager or any of its managed WebContents has crashed
+  // (e.g. its renderer process terminated abnormally).
+  virtual bool IsCrashed() const = 0;
+
   // Performs a zoom action (ZoomIn, ZoomOut, Reset) on the managed guest
   // contents.
   virtual void Zoom(mojom::ZoomAction zoom_action, ZoomSource source) {}
+
+  // Registers a callback invoked if the manager encounters an error requiring
+  // reload (i.e. ShouldReloadOnShow() becomes true). Used by the warming pool
+  // to discard failed background containers immediately.
+  //
+  // If ShouldReloadOnShow() is already true when this method is called, the
+  // callback is scheduled asynchronously via PostTask to avoid reentrancy.
+  virtual void SetErrorCallback(base::RepeatingClosure callback) {}
 };
 
 }  // namespace glic

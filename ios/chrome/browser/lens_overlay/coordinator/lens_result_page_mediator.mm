@@ -347,6 +347,10 @@ inline constexpr char kDarkModeParameterDarkValue[] = "1";
       return;
     }
 
+    if (!URL.SchemeIsHTTPOrHTTPS()) {
+      return;
+    }
+
     [self.delegate lensResultPageOpenURLInNewTabRequested:URL];
     [self.delegate
          lensResultPageMediator:self
@@ -523,6 +527,11 @@ inline constexpr char kDarkModeParameterDarkValue[] = "1";
       return nullptr;
     }
   }
+
+  if (!URL.SchemeIsHTTPOrHTTPS()) {
+    return nullptr;
+  }
+
   // Open the URL in a new tab.
   [self.delegate lensResultPageOpenURLInNewTabRequested:URL];
   [self.delegate
@@ -567,6 +576,22 @@ inline constexpr char kDarkModeParameterDarkValue[] = "1";
                                  (void (^)(SecIdentityRef))handler {
   _browserWebStateDelegate->OnAuthRequired(webState, protectionSpace,
                                            base::BindOnce(handler));
+}
+
+- (void)webState:(web::WebState*)webState
+    didRequestProxyAuthForProtectionSpace:(NSURLProtectionSpace*)protectionSpace
+                       proposedCredential:(NSURLCredential*)proposedCredential
+                          failureResponse:(NSURLResponse*)failureResponse
+                        completionHandler:(void (^)(NSString* username,
+                                                    NSString* password,
+                                                    NSError* error))handler
+    API_AVAILABLE(ios(18.1)) {
+  if (!handler) {
+    return;
+  }
+  _browserWebStateDelegate->OnProxyAuthChallenge(
+      webState, protectionSpace, proposedCredential, failureResponse,
+      base::BindOnce(handler));
 }
 
 // This API can be used to show custom input views in the web view.

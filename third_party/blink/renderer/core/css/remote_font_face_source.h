@@ -16,8 +16,9 @@ namespace blink {
 
 class CSSFontFace;
 class Document;
-class FontSelector;
 class FontCustomPlatformData;
+class FontSelector;
+class IftCustomFontData;
 
 class RemoteFontFaceSource final : public CSSFontFaceSource,
                                    public FontResourceClient {
@@ -62,6 +63,8 @@ class RemoteFontFaceSource final : public CSSFontFaceSource,
 
   // For UMA reporting
   bool HadBlankText() override { return histograms_.HadBlankText(); }
+
+  ExecutionContext* GetExecutionContext() const;
 
   void Trace(Visitor*) const override;
 
@@ -155,6 +158,8 @@ class RemoteFontFaceSource final : public CSSFontFaceSource,
 
   // |nullptr| if font is not loaded or failed to decode.
   Member<const FontCustomPlatformData> custom_font_data_;
+  // |nullptr| if font is not an IFT font.
+  Member<IftCustomFontData> ift_custom_font_data_;
   // |nullptr| if font is not loaded or failed to decode.
   String url_;
 

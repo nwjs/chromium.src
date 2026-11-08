@@ -16,7 +16,7 @@ import("//third_party/jni_zero/jni_zero.gni")
 source_set("android") {
   visibility = [
     ":*",
-    "//chrome/browser/ui",
+    "//chrome/browser",
   ]
   sources = [
     "side_panel_coordinator_android.cc",
@@ -52,8 +52,8 @@ source_set("dev") {
   # The window-scoped dev feature is initialized from Java side, so it needs to
   # be included in the C++ "glue" target (//c/b/ui).
   visibility = [
+    "//chrome/browser",
     "//chrome/browser/android:tabs_impl",
-    "//chrome/browser/ui",
   ]
   sources = [
     "dev/side_panel_tab_scoped_dev_feature.cc",
@@ -112,10 +112,12 @@ android_library("java") {
     "//chrome/browser/profiles/android:java",
     "//chrome/browser/tab:java",
     "//chrome/browser/tabmodel:java",
+    "//chrome/browser/ui/android/strings:ui_strings_grd",
     "//chrome/browser/ui/browser_window/public/android:factory_java",
     "//chrome/browser/ui/browser_window/public/android:java",
     "//chrome/browser/ui/side_panel/android:java",
     "//chrome/browser/ui/side_ui/public:java",
+    "//components/browser_ui/styles/android:java",
     "//components/thin_webview:java",
     "//third_party/androidx:androidx_annotation_annotation_java",
     "//third_party/androidx:androidx_core_core_java",
@@ -247,6 +249,7 @@ android_library("javatests") {
     "//chrome/browser/url_constants/android:java",
     "//chrome/test/android:chrome_java_integration_test_support",
     "//chrome/test/android:chrome_java_transit",
+    "//components/browser_ui/styles/android:java",
     "//components/browser_ui/widget/android:test_support_java",
     "//content/public/android:content_full_java",
     "//net/android:net_java_test_support",

@@ -495,6 +495,25 @@ compiled_action("generate_country_native_names") {
   deps = [ "//third_party/icu:copy_icudata($default_toolchain)" ]
 }
 
+source_set("country_names_impl") {
+  visibility = [ ":browser" ]
+  public = []
+  sources = get_target_outputs(":generate_country_native_names") + [
+              "geo/country_names.cc",
+              "geo/country_names.h",
+              "geo/country_names_for_locale.h",
+            ]
+  deps = [
+    ":buildflags",
+    ":country_data",
+    ":generate_country_native_names",
+    "//base",
+    "//base:i18n",
+    "//components/autofill/core/common",
+    "//third_party/icu",
+  ]
+}
+
 proto_library("amount_extraction_heuristic_regexes_proto") {
   sources = [ "payments/amount_extraction_heuristic_regexes.proto" ]
 }
@@ -797,7 +816,6 @@ static_library("browser") {
     "geo/alternative_state_name_map_updater.h",
     "geo/autofill_country.cc",
     "geo/autofill_country.h",
-    "geo/country_names.cc",
     "geo/country_names.h",
     "geo/country_names_for_locale.cc",
     "geo/country_names_for_locale.h",
@@ -847,6 +865,9 @@ static_library("browser") {
     "integrators/autofill_ai/metrics/personal_context_metrics.h",
     "integrators/compose/autofill_compose_delegate.h",
     "integrators/identity_credential/identity_credential_delegate.h",
+    "integrators/one_time_tokens/gmail_otp_opt_in_coordinator.cc",
+    "integrators/one_time_tokens/gmail_otp_opt_in_coordinator.h",
+    "integrators/one_time_tokens/gmail_otp_opt_in_result.h",
     "integrators/one_time_tokens/metrics/otp_form_event_logger.cc",
     "integrators/one_time_tokens/metrics/otp_form_event_logger.h",
     "integrators/one_time_tokens/otp_field_detector.cc",
@@ -854,6 +875,8 @@ static_library("browser") {
     "integrators/one_time_tokens/otp_manager.h",
     "integrators/one_time_tokens/otp_manager_impl.cc",
     "integrators/one_time_tokens/otp_manager_impl.h",
+    "integrators/one_time_tokens/otp_manager_legacy_impl.cc",
+    "integrators/one_time_tokens/otp_manager_legacy_impl.h",
     "integrators/one_time_tokens/otp_metrics_tracker.cc",
     "integrators/one_time_tokens/otp_metrics_tracker.h",
     "integrators/one_time_tokens/otp_phish_guard_delegate.h",
@@ -1082,6 +1105,8 @@ static_library("browser") {
     "payments/payments_requests/get_bnpl_payment_instrument_for_fetching_vcn_request.h",
     "payments/payments_requests/get_card_upload_details_request.cc",
     "payments/payments_requests/get_card_upload_details_request.h",
+    "payments/payments_requests/get_data_for_agent_request.cc",
+    "payments/payments_requests/get_data_for_agent_request.h",
     "payments/payments_requests/get_details_for_create_bnpl_payment_instrument_request.cc",
     "payments/payments_requests/get_details_for_create_bnpl_payment_instrument_request.h",
     "payments/payments_requests/get_details_for_create_card_request.cc",
@@ -1113,6 +1138,8 @@ static_library("browser") {
     "payments/payments_requests/unmask_iban_request.h",
     "payments/payments_requests/update_bnpl_payment_instrument_request.cc",
     "payments/payments_requests/update_bnpl_payment_instrument_request.h",
+    "payments/payments_requests/update_card_request.cc",
+    "payments/payments_requests/update_card_request.h",
     "payments/payments_requests/update_virtual_card_enrollment_request.cc",
     "payments/payments_requests/update_virtual_card_enrollment_request.h",
     "payments/payments_requests/upload_card_request.cc",
@@ -1354,7 +1381,6 @@ static_library("browser") {
     "webdata/valuables/valuables_table.h",
   ]
 
-  sources += get_target_outputs(":generate_country_native_names")
   sources += get_target_outputs(":regex_patterns_inl_h")
   sources += get_target_outputs(":entity_schema_enums_and_functions")
 
@@ -1395,6 +1421,8 @@ static_library("browser") {
       "ui/addresses/android/dropdown_key_value_android.h",
       "ui/addresses/android/supported_countries_cache.cc",
       "ui/addresses/android/supported_countries_cache.h",
+      "ui/autofill_tapjacking_protector.cc",
+      "ui/autofill_tapjacking_protector.h",
     ]
   }
 
@@ -1478,8 +1506,8 @@ static_library("browser") {
     ":autofill_address_rewriter_resources",
     ":autofill_alternative_state_name_map_resources",
     ":buildflags",
+    ":country_names_impl",
     ":entity_schema_enums_and_functions",
-    ":generate_country_native_names",
     ":regex_patterns_inl_h",
     "//base",
     "//base:i18n",
@@ -1627,6 +1655,7 @@ if (is_android) {
       "$target_gen_dir/data_model/autofill_ai/entity_type_names.h",
       "data_model/autofill_ai/entity_instance.h",
       "data_model/autofill_ai/entity_type.h",
+      "integrators/autofill_ai/metrics/autofill_ai_metrics.h",
       "permissions/autofill_ai/autofill_ai_permission_util.h",
     ]
     deps = [ ":entity_schema_enums_and_functions" ]
@@ -1656,6 +1685,8 @@ static_library("test_support") {
     "data_manager/addresses/test_address_data_manager.h",
     "data_manager/autofill_ai/entity_data_manager_test_util.cc",
     "data_manager/autofill_ai/entity_data_manager_test_util.h",
+    "data_manager/autofill_ai/mock_entity_suppression_manager.cc",
+    "data_manager/autofill_ai/mock_entity_suppression_manager.h",
     "data_manager/payments/payments_data_manager_test_api.cc",
     "data_manager/payments/payments_data_manager_test_api.h",
     "data_manager/payments/payments_data_manager_test_util.cc",
@@ -1741,6 +1772,7 @@ static_library("test_support") {
     "integrators/one_time_tokens/mock_otp_manager.cc",
     "integrators/one_time_tokens/mock_otp_manager.h",
     "integrators/one_time_tokens/otp_manager_impl_test_api.h",
+    "integrators/one_time_tokens/otp_manager_legacy_impl_test_api.h",
     "integrators/optimization_guide/mock_autofill_optimization_guide_decider.cc",
     "integrators/optimization_guide/mock_autofill_optimization_guide_decider.h",
     "integrators/password_manager/mock_password_manager_delegate.cc",
@@ -1950,6 +1982,13 @@ static_library("test_support") {
     ]
   }
 
+  if (is_android) {
+    sources += [
+      "ui/mock_autofill_tapjacking_protector.cc",
+      "ui/mock_autofill_tapjacking_protector.h",
+    ]
+  }
+
   configs += [
     "//build/config/compiler:wexit_time_destructors",
     "//build/config/compiler:wglobal_constructors",
@@ -2140,9 +2179,11 @@ source_set("unit_tests") {
     "integrators/autofill_ai/autofill_ai_wallet_util_unittest.cc",
     "integrators/autofill_ai/management_util_unittest.cc",
     "integrators/autofill_ai/metrics/autofill_ai_logger_unittest.cc",
+    "integrators/one_time_tokens/gmail_otp_opt_in_coordinator_unittest.cc",
     "integrators/one_time_tokens/metrics/otp_form_event_logger_unittest.cc",
     "integrators/one_time_tokens/otp_field_detector_unittest.cc",
     "integrators/one_time_tokens/otp_manager_impl_unittest.cc",
+    "integrators/one_time_tokens/otp_manager_legacy_impl_unittest.cc",
     "integrators/one_time_tokens/otp_metrics_tracker_unittest.cc",
     "integrators/one_time_tokens/otp_suggestion_unittest.cc",
     "integrators/optimization_guide/autofill_optimization_guide_decider_unittest.cc",
@@ -2217,6 +2258,7 @@ source_set("unit_tests") {
     "payments/payments_requests/get_bnpl_payment_instrument_for_fetching_url_request_unittest.cc",
     "payments/payments_requests/get_bnpl_payment_instrument_for_fetching_vcn_request_unittest.cc",
     "payments/payments_requests/get_card_upload_details_request_unittest.cc",
+    "payments/payments_requests/get_data_for_agent_request_unittest.cc",
     "payments/payments_requests/get_details_for_create_bnpl_payment_instrument_request_unittest.cc",
     "payments/payments_requests/get_details_for_create_card_request_unittest.cc",
     "payments/payments_requests/get_details_for_enrollment_request_unittest.cc",
@@ -2229,6 +2271,7 @@ source_set("unit_tests") {
     "payments/payments_requests/unmask_card_request_unittest.cc",
     "payments/payments_requests/unmask_iban_request_unittest.cc",
     "payments/payments_requests/update_bnpl_payment_instrument_request_unittest.cc",
+    "payments/payments_requests/update_card_request_unittest.cc",
     "payments/payments_requests/update_virtual_card_enrollment_request_unittest.cc",
     "payments/payments_requests/upload_card_request_unittest.cc",
     "payments/payments_requests/upload_iban_request_unittest.cc",
@@ -2390,6 +2433,7 @@ source_set("unit_tests") {
     "//base/test:test_support",
     "//base/version_info",
     "//build:blink_buildflags",
+    "//components/affiliations/core/browser:test_support",
     "//components/autofill/core/browser/actor:unit_tests",
     "//components/autofill/core/common:autofill_regex",
     "//components/autofill/core/common:credit_card_number_validation",

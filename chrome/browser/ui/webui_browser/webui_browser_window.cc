@@ -810,6 +810,8 @@ void WebUIBrowserWindow::OnActiveTabChanged(content::WebContents* old_contents,
   // State of extensions depends on what's active --- e.g. some may be disabled
   // on some URLs.
   extensions_container_->NotifyOfAllActions();
+
+  UpdateTitleBar();
 }
 
 void WebUIBrowserWindow::OnTabDetached(content::WebContents* contents,
@@ -1113,14 +1115,6 @@ WebUIBrowserWindow::GetWebContentsModalDialogHostFor(
 
 void WebUIBrowserWindow::ShowAvatarBubbleFromAvatarButton(
     bool is_source_accelerator) {
-  NOTIMPLEMENTED_LOG_ONCE();
-}
-
-void WebUIBrowserWindow::MaybeShowProfileSwitchIPH() {
-  NOTIMPLEMENTED_LOG_ONCE();
-}
-
-void WebUIBrowserWindow::MaybeShowSupervisedUserProfileSignInIPH() {
   NOTIMPLEMENTED_LOG_ONCE();
 }
 

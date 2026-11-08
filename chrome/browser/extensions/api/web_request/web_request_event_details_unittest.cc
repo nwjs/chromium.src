@@ -9,6 +9,7 @@
 
 #include "base/check_deref.h"
 #include "base/no_destructor.h"
+#include "base/strings/string_util.h"
 #include "base/values.h"
 #include "extensions/browser/api/web_request/web_request_api_constants.h"
 #include "extensions/browser/api/web_request/web_request_api_helpers.h"
@@ -39,6 +40,7 @@ TEST(WebRequestEventDetailsTest, SetResponseHeaders) {
       "HTTP/1.0 200 OK\r\n"
       "Key1: Value1\r\n"
       "X-Chrome-ID-Consistency-Response: Value2\r\n"
+      "X-Chrome-Manage-Accounts: Value3\r\n"
       "\r\n";
   auto headers = base::MakeRefCounted<net::HttpResponseHeaders>(
       net::HttpUtil::AssembleRawHeaders(headers_string));
@@ -54,16 +56,21 @@ TEST(WebRequestEventDetailsTest, SetResponseHeaders) {
         details.GetFilteredDict(kFilter, nullptr, std::string(), false);
     const base::ListValue* filtered_headers = dict.FindList("responseHeaders");
     ASSERT_TRUE(filtered_headers);
-    ASSERT_EQ(2u, filtered_headers->size());
+    ASSERT_EQ(3u, filtered_headers->size());
     const base::DictValue& first_header =
         CHECK_DEREF(filtered_headers)[0].GetDict();
     const base::DictValue& second_header =
         CHECK_DEREF(filtered_headers)[1].GetDict();
+    const base::DictValue& third_header =
+        CHECK_DEREF(filtered_headers)[2].GetDict();
     EXPECT_EQ("Key1", CHECK_DEREF(first_header.FindString("name")));
     EXPECT_EQ("Value1", CHECK_DEREF(first_header.FindString("value")));
     EXPECT_EQ("X-Chrome-ID-Consistency-Response",
               CHECK_DEREF(second_header.FindString("name")));
     EXPECT_EQ("Value2", CHECK_DEREF(second_header.FindString("value")));
+    EXPECT_EQ("X-Chrome-Manage-Accounts",
+              CHECK_DEREF(third_header.FindString("name")));
+    EXPECT_EQ("Value3", CHECK_DEREF(third_header.FindString("value")));
   }
 
   {
@@ -82,6 +89,53 @@ TEST(WebRequestEventDetailsTest, SetResponseHeaders) {
     EXPECT_EQ("Key1", CHECK_DEREF(header.FindString("name")));
     EXPECT_EQ("Value1", CHECK_DEREF(header.FindString("value")));
   }
+}
+
+// Tests that a status line that is valid UTF-8 is passed through unchanged.
+TEST(WebRequestEventDetailsTest, SetResponseHeaders_StatusLineUTF8) {
+  auto headers = base::MakeRefCounted<net::HttpResponseHeaders>(
+      net::HttpUtil::AssembleRawHeaders("HTTP/1.1 200 OK \xC3\xA9t\xC3\xA9"
+                                        "\r\n"
+                                        "\r\n"));
+  WebRequestInfoInitParams params;
+  params.url = GURL("http://www.example.com");
+  WebRequestInfo request_info(std::move(params));
+  WebRequestEventDetails details(request_info, /*extra_info_spec=*/0);
+  details.SetResponseHeaders(request_info, headers.get());
+
+  base::DictValue dict = details.GetFilteredDict(
+      /*extra_info_spec=*/0, nullptr, std::string(), false);
+  EXPECT_EQ(200, dict.FindInt(keys::kStatusCodeKey));
+  EXPECT_EQ("HTTP/1.1 200 OK \xC3\xA9t\xC3\xA9",
+            CHECK_DEREF(dict.FindString(keys::kStatusLineKey)));
+}
+
+// Tests that a status line containing bytes that are not valid UTF-8 doesn't
+// crash (base::Value requires UTF-8) and that invalid sequences are replaced
+// with U+FFFD. Regression test for crbug.com/539400310.
+TEST(WebRequestEventDetailsTest, SetResponseHeaders_StatusLineNotUTF8) {
+  auto headers = base::MakeRefCounted<net::HttpResponseHeaders>(
+      net::HttpUtil::AssembleRawHeaders("HTTP/1.1 200 OK\xFF"
+                                        "\r\n"
+                                        "Key1: Value1\r\n"
+                                        "\r\n"));
+  // Sanity check: net passes the reason phrase through unmodified.
+  ASSERT_FALSE(
+      base::IsStringUTF8AllowingNoncharacters(headers->GetStatusLine()));
+
+  WebRequestInfoInitParams params;
+  params.url = GURL("http://www.example.com");
+  WebRequestInfo request_info(std::move(params));
+  WebRequestEventDetails details(request_info, /*extra_info_spec=*/0);
+  details.SetResponseHeaders(request_info, headers.get());
+
+  base::DictValue dict = details.GetFilteredDict(
+      /*extra_info_spec=*/0, nullptr, std::string(), false);
+  EXPECT_EQ(200, dict.FindInt(keys::kStatusCodeKey));
+  const std::string& status_line =
+      CHECK_DEREF(dict.FindString(keys::kStatusLineKey));
+  EXPECT_TRUE(base::IsStringUTF8AllowingNoncharacters(status_line));
+  EXPECT_EQ("HTTP/1.1 200 OK\xEF\xBF\xBD", status_line);
 }
 
 std::unique_ptr<WebRequestInfo> CreateFakeRequestInfoWithSSL(

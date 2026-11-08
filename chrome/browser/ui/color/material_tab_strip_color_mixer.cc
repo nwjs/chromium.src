@@ -37,34 +37,24 @@ void AddMaterialTabStripColorMixer(ui::ColorProvider* provider,
       ui::kColorSysStateHeaderHover};
   mixer[kColorTabStripComboButtonSeparator] = {ui::kColorSysDivider};
   mixer[kColorTabStripControlButtonInkDrop] = {ui::kColorSysStateHeaderHover};
+  mixer[kColorTabStripControlButtonInkDropFrameInactive] = {
+      ui::kColorSysStateHeaderHoverInactive};
   mixer[kColorTabStripControlButtonInkDropRipple] = {
+      ui::kColorSysStateRippleNeutralOnSubtle};
+  mixer[kColorTabStripControlButtonInkDropRippleFrameInactive] = {
       ui::kColorSysStateRippleNeutralOnSubtle};
 
   // TODO(tbergquist): Use kColorSysStateHeaderHoverInactive, once it exists.
   mixer[kColorTabBackgroundInactiveHoverFrameInactive] = {
       ui::kColorSysStateHeaderHoverInactive};
 
-  if (key.frame_style == ui::ColorProviderKey::FrameStyle::kGlass) {
-    constexpr SkAlpha kSelectedTabOpacity = 0.80 * SK_AlphaOPAQUE;
-    mixer[kColorTabBackgroundSelectedFrameActive] = {
-        ui::SetAlpha(ui::GetResultingPaintColor(ui::kColorSysStateHeaderSelect,
-                                                ui::kColorSysHeader),
-                     kSelectedTabOpacity)};
-    mixer[kColorTabBackgroundSelectedFrameInactive] = {
-        ui::SetAlpha(ui::GetResultingPaintColor(ui::kColorSysStateHeaderSelect,
-                                                ui::kColorSysHeaderInactive),
-                     kSelectedTabOpacity)};
-    mixer[kColorTabStripScrollButtonBackground] = {SK_ColorTRANSPARENT};
-  } else {
-    mixer[kColorTabBackgroundSelectedFrameActive] = {
-        ui::GetResultingPaintColor(ui::kColorSysStateHeaderSelect,
-                                   kColorTabBackgroundInactiveFrameActive)};
-    mixer[kColorTabBackgroundSelectedFrameInactive] = {
-        ui::GetResultingPaintColor(ui::kColorSysStateHeaderSelect,
-                                   kColorTabBackgroundInactiveFrameInactive)};
-    mixer[kColorTabStripScrollButtonBackground] = {
-        kColorTabBackgroundInactiveFrameActive};
-  }
+  mixer[kColorTabBackgroundSelectedFrameActive] = {ui::GetResultingPaintColor(
+      ui::kColorSysStateHeaderSelect, kColorTabBackgroundInactiveFrameActive)};
+  mixer[kColorTabBackgroundSelectedFrameInactive] = {
+      ui::GetResultingPaintColor(ui::kColorSysStateHeaderSelect,
+                                 kColorTabBackgroundInactiveFrameInactive)};
+  mixer[kColorTabStripScrollButtonBackground] = {
+      kColorTabBackgroundInactiveFrameActive};
   mixer[kColorTabBackgroundSelectedHoverFrameActive] = {
       ui::GetResultingPaintColor(ui::kColorSysStateHoverDimBlendProtection,
                                  kColorTabBackgroundSelectedFrameActive)};

@@ -1,0 +1,21 @@
+// Copyright 2026 The Chromium Authors
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+syntax = "proto2";
+
+option java_multiple_files = true;
+option java_package = "org.chromium.components.sync.protocol";
+
+option optimize_for = LITE_RUNTIME;
+
+package sync_pb;
+
+import "google/protobuf/timestamp.proto";
+
+// Access token wrapping an encrypted container key and key name.
+message TabContextContainerAccessToken {
+  optional string name = 1;
+  optional bytes encrypted_container_key = 2;
+  optional google.protobuf.Timestamp expire_time = 3;
+}

@@ -56,7 +56,8 @@ void InspectServiceWorkerBackgroundHelper(
 void InspectServiceWorkerBackground(const Extension* extension,
                                     Profile* profile,
                                     DevToolsOpenedByAction opened_by) {
-  DCHECK(BackgroundInfo::IsServiceWorkerBased(extension));
+  CHECK(BackgroundInfo::IsServiceWorkerBased(extension),
+        base::NotFatalUntil::M161);
   content::DevToolsAgentHost::List targets =
       content::DevToolsAgentHost::GetOrCreateAll();
   for (const scoped_refptr<content::DevToolsAgentHost>& host : targets) {
@@ -73,8 +74,9 @@ void InspectServiceWorkerBackground(const Extension* extension,
 void InspectInactiveServiceWorkerBackground(const Extension* extension,
                                             Profile* profile,
                                             DevToolsOpenedByAction opened_by) {
-  DCHECK(extension);
-  DCHECK(BackgroundInfo::IsServiceWorkerBased(extension));
+  CHECK(extension, base::NotFatalUntil::M161);
+  CHECK(BackgroundInfo::IsServiceWorkerBased(extension),
+        base::NotFatalUntil::M161);
   const auto context_id = LazyContextId::ForExtension(profile, extension);
   context_id.GetTaskQueue()->AddPendingTask(
       context_id,

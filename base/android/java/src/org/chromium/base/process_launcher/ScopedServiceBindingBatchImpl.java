@@ -4,12 +4,14 @@
 
 package org.chromium.base.process_launcher;
 
+import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.MessageQueue;
 
+import androidx.annotation.ChecksSdkIntAtLeast;
+
 import org.chromium.base.BaseFeatureList;
-import org.chromium.base.BindingRequestQueue;
 import org.chromium.base.TraceEvent;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
@@ -31,7 +33,7 @@ import org.chromium.build.annotations.Nullable;
  * the queue is flushed.
  */
 @NullMarked
-/*package*/ final class ScopedServiceBindingBatchImpl implements ScopedServiceBindingBatch {
+/*package*/ final class ScopedServiceBindingBatchImpl extends ScopedServiceBindingBatch {
     // Arbitrary trace id which does not overlap the PID range.
     private static final long TRACE_ID_ON_MAIN_THREAD = (1 << 22) + 1;
     private static final long TRACE_ID_ON_LAUNCHER_THREAD = TRACE_ID_ON_MAIN_THREAD + 1;
@@ -71,7 +73,7 @@ import org.chromium.build.annotations.Nullable;
     /**
      * Returns a ScopedServiceBindingBatchImpl if the feature is activated, otherwise returns null.
      */
-    static @Nullable ScopedServiceBindingBatchImpl scoped() {
+    public static @Nullable ScopedServiceBindingBatchImpl scoped() {
         ContextHolder contextHolder = sContextHolder;
         if (contextHolder == null) {
             return null;
@@ -87,7 +89,7 @@ import org.chromium.build.annotations.Nullable;
         sContextHolder = null;
     }
 
-    static boolean tryActivate(Handler launcherHandler) {
+    public static boolean tryActivate(Handler launcherHandler) {
         assert sContextHolder == null : "ScopedServiceBindingBatchImpl was already activated.";
 
         BindingRequestQueue queue;
@@ -96,7 +98,7 @@ import org.chromium.build.annotations.Nullable;
                     || !BaseFeatureList.sRebindServiceBatchApi.isEnabled()) {
                 return false;
             }
-            queue = BindingRequestQueueImpl.getInstance();
+            queue = BindingRequestQueue.getInstance();
         } else {
             queue = sBindingRequestQueueForTesting;
         }
@@ -128,7 +130,8 @@ import org.chromium.build.annotations.Nullable;
      *
      * <p>This must be called on the process launcher thread.
      */
-    static boolean shouldBatchUpdate() {
+    @ChecksSdkIntAtLeast(api = Build.VERSION_CODES.CINNAMON_BUN)
+    public static boolean shouldBatchUpdate() {
         ContextHolder contextHolder = sContextHolder;
         if (contextHolder == null) {
             return false;
@@ -142,7 +145,7 @@ import org.chromium.build.annotations.Nullable;
      *
      * <p>This must be called on the process launcher thread while shouldBatchUpdate() is true.
      */
-    static BindingRequestQueue getBindingRequestQueue() {
+    public static BindingRequestQueue getBindingRequestQueue() {
         ContextHolder contextHolder = sContextHolder;
         assert contextHolder != null;
         assert contextHolder.mLauncherHandler.getLooper() == Looper.myLooper();
@@ -165,6 +168,9 @@ import org.chromium.build.annotations.Nullable;
         mContextHolder.mBatchUpdateCount++;
     }
 
+    // The queue exists only when batching was activated, which requires SDK 37. @RequiresApi
+    // cannot be used here because it would propagate to close(), which is a public API.
+    @SuppressWarnings("NewApi")
     private void endOnLauncherThread() {
         mContextHolder.mBatchUpdateCount--;
         if (mContextHolder.mBatchUpdateCount == 0) {

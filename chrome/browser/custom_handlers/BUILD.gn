@@ -75,7 +75,6 @@ if (!is_android) {
       "//chrome/browser/extensions:test_support",
       "//chrome/browser/profiles:profile",
       "//chrome/browser/renderer_context_menu:test_support",
-      "//chrome/browser/ui",
       "//chrome/browser/ui/browser_window",
       "//chrome/browser/ui/content_settings",
       "//chrome/browser/ui/content_settings:test_support",
@@ -89,5 +88,8 @@ if (!is_android) {
       "//content/test:test_support",
       "//testing/gtest",
     ]
+    if (is_mac) {
+      deps += [ "//chrome/test/base:test_utils_mac" ]
+    }
   }
 }

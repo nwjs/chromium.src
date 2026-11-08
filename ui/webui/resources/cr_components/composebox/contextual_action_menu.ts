@@ -25,7 +25,7 @@ import type {InputState} from '//resources/mojo/components/omnibox/composebox/co
 import {InputType, ModelMode, ToolMode} from '//resources/mojo/components/omnibox/composebox/composebox_query.mojom-webui.js';
 import type {UnguessableToken} from '//resources/mojo/mojo/public/mojom/base/unguessable_token.mojom-webui.js';
 
-import {getLoadTimeBoolean, mapMetricsSourceToTabPickerSurface, recordBoolean, recordContextAdditionMethod, recordEnumerationValue, recordTabPickerTabSelected, SmartTabSharingSurface} from './common.js';
+import {getLoadTimeBoolean, mapMetricsSourceToTabPickerSurface, recordBoolean, recordContextAdditionMethod, recordEnumerationValue, recordSingleTabMenuItemAction, recordTabPickerTabSelected, SingleTabMenuItemAction, SingleTabType, SmartTabSharingSurface} from './common.js';
 import {getCss} from './contextual_action_menu.css.js';
 import {getHtml} from './contextual_action_menu.html.js';
 import {WindowProxy} from './window_proxy.js';
@@ -136,7 +136,6 @@ export class ContextualActionMenuElement extends
       },
       shareTabsFlyoutPosition_: {type: String},
       sharingTabsText_: {type: String},
-      uploadButtonDisabled: {type: Boolean},
       isSidePanel: {type: Boolean},
       recentTabId: {type: Number},
       unboundedMenuEnabled: {
@@ -146,6 +145,8 @@ export class ContextualActionMenuElement extends
       },
       isOpen_: {type: Boolean},
       contextMenuTooltipsEnabled: {type: Boolean},
+      singleTabIndex_: {type: Number},
+      singleTab_: {type: Object},
     };
   }
 
@@ -162,7 +163,6 @@ export class ContextualActionMenuElement extends
   accessor contextMenuTooltipsEnabled: boolean =
       getLoadTimeBoolean('composeboxContextMenuTooltipsEnabled', false);
   accessor disableAutoReposition: boolean = false;
-  accessor uploadButtonDisabled: boolean = false;
   accessor isSidePanel: boolean = false;
   accessor shareTabsFlyoutOpen: boolean = false;
   accessor unboundedMenuEnabled: boolean = false;
@@ -187,6 +187,13 @@ export class ContextualActionMenuElement extends
       loadTimeData.getBoolean('ShowContextMenuHeaders');
   protected enableTabDeselection_: boolean =
       getLoadTimeBoolean('composeboxContextMenuEnableTabDeselection', false);
+  // Whether the "single tab" arm of context management is enabled.
+  private singleTabMenuItemEnabled_: boolean =
+      getLoadTimeBoolean('composeboxSingleTabMenuItemEnabled', false);
+  // Index in `tabSuggestions` of the tab backing the single tab menu item
+  // (-1 if none), and the tab itself.
+  protected accessor singleTabIndex_: number = -1;
+  protected accessor singleTab_: TabInfo|null = null;
   protected accessor shareTabsFlyoutPosition_: string = 'right';
   protected accessor sharingTabsText_: string = '';
   // Only close menu if the context management flag and the
@@ -245,6 +252,14 @@ export class ContextualActionMenuElement extends
 
   override willUpdate(changedProperties: PropertyValues<this>) {
     super.willUpdate(changedProperties);
+
+    if (changedProperties.has('tabSuggestions') ||
+        changedProperties.has('recentTabId')) {
+      this.singleTabIndex_ = this.computeSingleTabIndex_();
+      this.singleTab_ = this.singleTabIndex_ === -1 ?
+          null :
+          this.tabSuggestions[this.singleTabIndex_]!;
+    }
 
     if (!this.closeMenuOnSelect && changedProperties.has('selectedTabIds') &&
         this.pendingTabAddId_ !== null) {
@@ -596,9 +611,6 @@ export class ContextualActionMenuElement extends
   }
 
   private isItemDisabled_<T>(item: T, disabledItems: T[]|undefined): boolean {
-    if (this.uploadButtonDisabled) {
-      return true;
-    }
     if (!this.inputState || !disabledItems) {
       return true;
     }
@@ -610,9 +622,6 @@ export class ContextualActionMenuElement extends
   }
 
   protected isToolDisabled_(tool: ToolMode): boolean {
-    if (this.uploadButtonDisabled) {
-      return true;
-    }
     if (this.isToolActive_(tool)) {
       return false;
     }
@@ -781,9 +790,6 @@ export class ContextualActionMenuElement extends
   }
 
   protected isInputTypeDisabled_(inputType: InputType): boolean {
-    if (this.uploadButtonDisabled) {
-      return true;
-    }
     const limitReached = this.fileNum >= this.maxFileCount_;
     if (this.inputState) {
       return limitReached ||
@@ -862,8 +868,23 @@ export class ContextualActionMenuElement extends
     return activeRestoredTabs.concat(reversedRestored);
   }
 
-  protected isRecentTab_(tabId: number): boolean {
-    return this.recentTabId !== null && tabId === this.recentTabId;
+  // The single tab menu item mirrors the tab the backend reports as most
+  // recent, the current tab in the side panel, or the most recently active tab
+  // on the NTP. Returns its index in `tabSuggestions`, or -1 if the arm is
+  // disabled or the tab is not among the suggestions.
+  private computeSingleTabIndex_(): number {
+    if (!this.singleTabMenuItemEnabled_ || this.recentTabId === null) {
+      return -1;
+    }
+    return this.tabSuggestions.findIndex(tab => tab.tabId === this.recentTabId);
+  }
+
+  // Whether to render the single tab menu item. `singleTab_` is null when the
+  // arm is disabled; the row is also hidden while Smart Tab Sharing is active,
+  // since the STS toggle replaces the manual tab section.
+  protected shouldShowSingleTabItem_(): boolean {
+    return this.singleTab_ !== null &&
+        !(this.smartTabSharingVisible && this.smartTabSharingActive);
   }
 
   protected onSmartTabSharingItemClick_() {
@@ -885,6 +906,10 @@ export class ContextualActionMenuElement extends
     e.stopPropagation();
 
     const tabElement = e.currentTarget! as HTMLButtonElement;
+    const singleTabType = tabElement.id === 'singleTabItem' ?
+        (this.isSidePanel ? SingleTabType.CURRENT_TAB :
+                            SingleTabType.RECENT_TAB) :
+        undefined;
     const tabInfo = this.tabSuggestions[Number(tabElement.dataset['index'])];
 
     assert(tabInfo);
@@ -915,12 +940,26 @@ export class ContextualActionMenuElement extends
       // (non-restored) when multi-tab selection is enabled.
       if (this.enableTabDeselection_ ||
           (this.enableMultiTabSelection_ && !isRestored)) {
+        if (singleTabType) {
+          recordSingleTabMenuItemAction(
+              singleTabType === SingleTabType.CURRENT_TAB ?
+                  SingleTabMenuItemAction.CURRENT_TAB_DESELECTED :
+                  SingleTabMenuItemAction.RECENT_TAB_DESELECTED,
+              this.metricsSource_);
+        }
         this.deleteTabContext_(tabInfo.tabId);
         return;
       }
     }
+    if (singleTabType) {
+      recordSingleTabMenuItemAction(
+          singleTabType === SingleTabType.CURRENT_TAB ?
+              SingleTabMenuItemAction.CURRENT_TAB_SELECTED :
+              SingleTabMenuItemAction.RECENT_TAB_SELECTED,
+          this.metricsSource_);
+    }
     this.recordTabSelectedMetric_(tabInfo);
-    this.addTabContext_(tabInfo);
+    this.addTabContext_(tabInfo, singleTabType);
     recordContextAdditionMethod(
         ComposeboxContextAddedMethod.CONTEXT_MENU, this.metricsSource_);
   }
@@ -956,13 +995,14 @@ export class ContextualActionMenuElement extends
     this.maybeCloseMenuBasedOnEntrypoint_();
   }
 
-  protected addTabContext_(tabInfo: TabInfo) {
+  protected addTabContext_(tabInfo: TabInfo, singleTabType?: SingleTabType) {
     this.fire('add-tab-context', {
       id: tabInfo.tabId,
       title: tabInfo.title,
       url: tabInfo.url,
       delayUpload: false,
       origin: TabAttachmentSource.kContextMenu,
+      singleTabType,
     });
     this.maybeCloseMenuBasedOnEntrypoint_();
   }
@@ -1035,7 +1075,7 @@ export class ContextualActionMenuElement extends
 
       this.updateComplete.then(() => {
         const firstTabItem = this.shadowRoot.querySelector<HTMLElement>(
-            '.share-tabs-flyout button.dropdown-item');
+            '.share-tabs-flyout button.dropdown-item:not([disabled])');
         if (firstTabItem) {
           firstTabItem.focus();
         }
@@ -1059,7 +1099,7 @@ export class ContextualActionMenuElement extends
       return;
     }
 
-    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Tab') {
       const flyout =
           this.shadowRoot.querySelector<HTMLElement>('.share-tabs-flyout');
       if (!flyout) {
@@ -1077,7 +1117,7 @@ export class ContextualActionMenuElement extends
       const focused = this.shadowRoot.activeElement as HTMLElement;
       const index = items.indexOf(focused);
 
-      const next = e.key === 'ArrowDown';
+      const next = e.key === 'ArrowDown' || (e.key === 'Tab' && !e.shiftKey);
       const numOptions = items.length;
       let nextIndex;
       if (index === -1) {

@@ -39,6 +39,7 @@
 #include "chrome/browser/gcm/gcm_profile_service_factory.h"
 #include "chrome/browser/gcm/instance_id/instance_id_profile_service_factory.h"
 #include "chrome/browser/net/system_network_context_manager.h"
+#include "chrome/browser/preloading/scoped_prewarm_feature_list.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/profiles/profile_test_util.h"
 #include "chrome/browser/profiles/profiles_state.h"
@@ -170,6 +171,41 @@ int GetNumClients(SyncTest::TestType test_type) {
   NOTREACHED();
 }
 
+// Creates a fake GCMProfileService to simulate sync invalidations.
+std::unique_ptr<KeyedService> CreateGCMProfileService(
+    content::BrowserContext* context) {
+  scoped_refptr<base::SequencedTaskRunner> blocking_task_runner(
+      base::ThreadPool::CreateSequencedTaskRunner(
+          {base::MayBlock(), base::TaskPriority::BEST_EFFORT,
+           base::TaskShutdownBehavior::SKIP_ON_SHUTDOWN}));
+
+  Profile* profile = Profile::FromBrowserContext(context);
+  auto fake_gcm_driver =
+      std::make_unique<FakeSyncGCMDriver>(profile, blocking_task_runner);
+  fake_gcm_driver->WaitForAppIdBeforeConnection(
+      fake_server::FakeServerSyncInvalidationSender::kSyncInvalidationsAppId);
+  return std::make_unique<gcm::FakeGCMProfileService>(
+      std::move(fake_gcm_driver));
+}
+
+// Returns the `FakeGCMDriverForInstanceID` for `profile`.
+// `CreateGCMProfileService` is registered as the testing factory in
+// `OnProfileCreationStarted()`, and `GCMProfileServiceFactory` caches a single
+// `KeyedService` instance per `Profile` until `KeyedService`s are destroyed
+// (which happens after `OnProfileWillBeDestroyed()`), so `GetForProfile()` is
+// guaranteed to return the same `FakeGCMProfileService` instance throughout
+// the profile's lifetime.
+instance_id::FakeGCMDriverForInstanceID* GetFakeGCMDriverForProfile(
+    Profile* profile) {
+  auto* gcm_profile_service = static_cast<gcm::FakeGCMProfileService*>(
+      gcm::GCMProfileServiceFactory::GetForProfile(profile));
+  CHECK(gcm_profile_service);
+  instance_id::FakeGCMDriverForInstanceID* fake_gcm_driver =
+      gcm_profile_service->GetFakeGCMDriver();
+  CHECK(fake_gcm_driver);
+  return fake_gcm_driver;
+}
+
 #if BUILDFLAG(IS_CHROMEOS)
 constexpr auto kAccountId1 =
     AccountId::Literal::FromUserEmailGaiaId("user1@gmail.com",
@@ -204,6 +240,11 @@ class SyncTest::ClosedBrowserObserver : public BrowserCollectionObserver {
 };
 #endif
 
+class SyncTest::ScopedPrewarmDisabler {
+  test::ScopedPrewarmFeatureList prewarm_feature_list_{
+      test::ScopedPrewarmFeatureList::PrewarmState::kDisabled};
+};
+
 SyncTest::SyncClientState::SyncClientState() = default;
 SyncTest::SyncClientState::~SyncClientState() = default;
 SyncTest::SyncClientState::SyncClientState(SyncClientState&&) = default;
@@ -219,11 +260,17 @@ SyncTest::SyncTest(TestType test_type)
       test_construction_time_(base::Time::Now()),
       num_clients_(GetNumClients(test_type_)),
       sync_run_loop_timeout_(FROM_HERE, TestTimeouts::action_max_timeout()),
-      previous_profile_(nullptr) {
+      previous_profile_(nullptr),
+      prewarm_disabler_(std::make_unique<ScopedPrewarmDisabler>()) {
   // Any RunLoop timeout will by default result in test failure.
   sync_run_loop_timeout_.SetAddGTestFailureOnTimeout();
 
   sync_datatype_helper::AssociateWithTest(this);
+
+#if BUILDFLAG(IS_ANDROID)
+  // DisableNetwork()/EnableNetwork() use NetworkConnectionChangeSimulator.
+  set_use_test_network_connection_tracker(false);
+#endif
 }
 
 SyncTest::~SyncTest() = default;
@@ -478,7 +525,7 @@ std::vector<raw_ptr<Profile, VectorExperimental>> SyncTest::GetAllProfiles() {
     // Profile can be null if it was destroyed earlier (e.g. in
     // OnProfileWillBeDestroyed).
     if (client.profile) {
-      profiles.push_back(client.profile);
+      profiles.push_back(client.profile.get());
     }
   }
   return profiles;
@@ -688,12 +735,8 @@ void SyncTest::InitializeProfile(int index, Profile* profile) {
 #endif
 
   if (server_type_ == IN_PROCESS_FAKE_SERVER) {
-    // Make sure that an instance of GCMProfileService has been created. This is
-    // required for some tests which only call SetupClients().
-    gcm::GCMProfileServiceFactory::GetForProfile(profile);
-    CHECK(profile_to_fake_gcm_driver_.contains(profile));
     fake_server_sync_invalidation_sender_->AddFakeGCMDriver(
-        profile_to_fake_gcm_driver_[profile]);
+        GetFakeGCMDriverForProfile(profile));
   }
 
   SyncServiceImplHarness::SigninType signin_type =
@@ -736,10 +779,13 @@ bool SyncTest::SetupSyncInternal(SetupSyncMode setup_mode,
     DVLOG(1) << "Setting up " << client_index << " client";
 
     if (setup_mode == SetupSyncMode::kSyncTransportOnly) {
+      // Select history-related types before the engine initializes, so that the
+      // initial configuration already includes them, instead of reconfiguring
+      // right after.
       if (!client->SignInNoWaitForCompletion(account) ||
-          !client->AwaitEngineInitialization() ||
           (enable_history_sync_in_transport_mode &&
-           !client->EnableHistorySyncNoWaitForCompletion())) {
+           !client->EnableHistorySyncNoWaitForCompletion()) ||
+          !client->AwaitEngineInitialization()) {
         ADD_FAILURE() << "SetupSync() failed.";
         return false;
       }
@@ -914,11 +960,18 @@ void SyncTest::TearDownOnMainThread() {
     fake_server_.reset();
   }
 
-  for (const SyncClientState& client : clients_) {
+  for (SyncClientState& client : clients_) {
     Profile* profile = client.profile;
     // Profile could be removed earlier.
     if (profile) {
       profile->RemoveObserver(this);
+
+      // Clear `harness` and `profile` now since `this` is no longer observing
+      // `profile` (so `OnProfileWillBeDestroyed()` will not be called), and
+      // closing the browsers below may destroy `profile` before `clients_` is
+      // cleared.
+      client.harness.reset();
+      client.profile = nullptr;
 
 #if BUILDFLAG(IS_ANDROID)
       // In Android browser tests, the Profile and thus the SyncService does not
@@ -991,9 +1044,6 @@ void SyncTest::TearDownOnMainThread() {
 #endif
 
   clients_.clear();
-  profile_to_fake_gcm_driver_.clear();
-  // TODO(crbug.com/40798524): There are various other Profile-related members
-  // around like profile_to_*_map_ - those should probably be cleaned up too.
 
 // Clean up the browser observer.
 #if !BUILDFLAG(IS_ANDROID)
@@ -1006,13 +1056,12 @@ void SyncTest::TearDownOnMainThread() {
 void SyncTest::OnProfileWillBeDestroyed(Profile* profile) {
   profile->RemoveObserver(this);
 
-  if (server_type_ == IN_PROCESS_FAKE_SERVER) {
-    CHECK(profile_to_fake_gcm_driver_.contains(profile));
-    if (fake_server_sync_invalidation_sender_) {
-      fake_server_sync_invalidation_sender_->RemoveFakeGCMDriver(
-          profile_to_fake_gcm_driver_[profile]);
-    }
-    profile_to_fake_gcm_driver_.erase(profile);
+  if (server_type_ == IN_PROCESS_FAKE_SERVER &&
+      fake_server_sync_invalidation_sender_) {
+    // `KeyedService`s are destroyed after `OnProfileWillBeDestroyed()`, so
+    // `FakeGCMProfileService` (and its `FakeGCMDriver`) is still alive here.
+    fake_server_sync_invalidation_sender_->RemoveFakeGCMDriver(
+        GetFakeGCMDriverForProfile(profile));
   }
 
   for (size_t index = 0; index < clients_.size(); ++index) {
@@ -1058,32 +1107,10 @@ void SyncTest::OnProfileCreationStarted(Profile* profile) {
   CHECK(GetFakeServer());
 
   gcm::GCMProfileServiceFactory::GetInstance()->SetTestingFactory(
-      profile, base::BindRepeating(&SyncTest::CreateGCMProfileService,
-                                   base::Unretained(this)));
+      profile, base::BindRepeating(&CreateGCMProfileService));
   ChromeSigninClientFactory::GetInstance()->SetTestingFactory(
       profile, base::BindRepeating(&BuildChromeSigninClientWithURLLoader,
                                    &test_url_loader_factory_));
-}
-
-std::unique_ptr<KeyedService> SyncTest::CreateGCMProfileService(
-    content::BrowserContext* context) {
-  scoped_refptr<base::SequencedTaskRunner> blocking_task_runner(
-      base::ThreadPool::CreateSequencedTaskRunner(
-          {base::MayBlock(), base::TaskPriority::BEST_EFFORT,
-           base::TaskShutdownBehavior::SKIP_ON_SHUTDOWN}));
-
-  Profile* profile = Profile::FromBrowserContext(context);
-  CHECK(!profile_to_fake_gcm_driver_.contains(profile))
-      << "CreateGCMProfileService called multiple times for profile: "
-      << profile->GetDebugName() << ", is_otr: " << context->IsOffTheRecord();
-
-  auto fake_gcm_driver =
-      std::make_unique<FakeSyncGCMDriver>(profile, blocking_task_runner);
-  profile_to_fake_gcm_driver_[profile] = fake_gcm_driver.get();
-  fake_gcm_driver->WaitForAppIdBeforeConnection(
-      fake_server::FakeServerSyncInvalidationSender::kSyncInvalidationsAppId);
-  return std::make_unique<gcm::FakeGCMProfileService>(
-      std::move(fake_gcm_driver));
 }
 
 bool SyncTest::ResetSyncForPrimaryAccount() {

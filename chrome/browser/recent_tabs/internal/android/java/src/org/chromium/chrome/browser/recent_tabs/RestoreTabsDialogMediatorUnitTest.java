@@ -28,6 +28,7 @@ import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 
+import org.chromium.base.ContextUtils;
 import org.chromium.base.DeviceInfo;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
@@ -61,8 +62,8 @@ public class RestoreTabsDialogMediatorUnitTest {
     @Mock private Profile mProfile;
     @Mock private Tracker mTracker;
     @Mock private Context mContext;
-    @Mock private View mContent;
 
+    private final View mContent = new View(ContextUtils.getApplicationContext());
     private PropertyModel mModel = RestoreTabsProperties.createDefaultModel();
     private PropertyModel mDialogModel;
     private final RestoreTabsDialogMediator mMediator = new RestoreTabsDialogMediator();

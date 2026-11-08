@@ -35,6 +35,7 @@
 #import "ios/chrome/browser/composebox/ui/composebox_ui_config.h"
 #import "ios/chrome/browser/composebox/ui/composebox_ui_input_state.h"
 #import "ios/chrome/browser/composebox/ui/composebox_ui_util.h"
+#import "ios/chrome/browser/intelligence/proto_wrappers/page_context_utils.h"
 #import "ios/chrome/browser/search_engines/model/search_engine_observer_bridge.h"
 #import "ios/chrome/browser/shared/model/url/url_util.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
@@ -335,12 +336,14 @@ contextual_search::DriveConsentState ConsentStateFromDisclaimerStatus(
           self, _templateURLService);
     }
 
-    __weak __typeof(self) weakSelf = self;
-    _aimEligibilitySubscription =
-        _aimEligibilityService->RegisterEligibilityChangedCallback(
-            base::BindRepeating(^{
-              [weakSelf onAimEligibilityChanged];
-            }));
+    if (_aimEligibilityService) {
+      __weak __typeof(self) weakSelf = self;
+      _aimEligibilitySubscription =
+          _aimEligibilityService->RegisterEligibilityChangedCallback(
+              base::BindRepeating(^{
+                [weakSelf onAimEligibilityChanged];
+              }));
+    }
 
     [self updateSearchboxConfig];
   }
@@ -573,11 +576,17 @@ contextual_search::DriveConsentState ConsentStateFromDisclaimerStatus(
     return NO;
   }
 
-  BOOL isNTP = IsUrlNtp(webState->GetVisibleURL());
+  const GURL& URL = webState->GetVisibleURL();
+  if (IsAimURL(URL) || IsAimZeroStateURL(URL)) {
+    return NO;
+  }
+
+  BOOL isExtractable =
+      CanExtractPageContextForWebState(webState, [self isEligibleToUploadPdf]);
   BOOL alreadyProcessed =
       attachedWebStateIDs.contains(webState->GetUniqueIdentifier());
 
-  return !isNTP && !alreadyProcessed && [self isContentSharingEnabled];
+  return isExtractable && !alreadyProcessed && [self isContentSharingEnabled];
 }
 
 - (NSUInteger)maxTabAttachmentCount {
@@ -626,7 +635,7 @@ contextual_search::DriveConsentState ConsentStateFromDisclaimerStatus(
         ComposeboxMenuSharedTab* tab =
             [[ComposeboxMenuSharedTab alloc] initWithURL:item.tabURL
                                                    title:item.title
-                                             serverToken:item.serverToken
+                                     inputItemIdentifier:item.identifier
                                                  favicon:item.leadingIconImage];
         [sharedTabs addObject:tab];
       }
@@ -895,7 +904,7 @@ contextual_search::DriveConsentState ConsentStateFromDisclaimerStatus(
     return;
   }
   __weak __typeof(self) weakSelf = self;
-  _inputStateSubscription = _inputStateModel->subscribe(
+  _inputStateSubscription = _inputStateModel->Subscribe(
       base::BindRepeating(^(const contextual_search::InputState& inputState) {
         [weakSelf didUpdateInputState:inputState];
       }));
@@ -1155,7 +1164,7 @@ contextual_search::DriveConsentState ConsentStateFromDisclaimerStatus(
     return;
   }
 
-  _inputStateModel->setActiveModel(requestedModelMode);
+  _inputStateModel->SetActiveModel(requestedModelMode);
 
   contextual_search::ContextualSearchMetricsRecorder* recorder =
       _sessionHandle ? _sessionHandle->GetMetricsRecorder() : nullptr;
@@ -1180,7 +1189,7 @@ contextual_search::DriveConsentState ConsentStateFromDisclaimerStatus(
     recorder->RecordToolMode(activeTool);
   }
 
-  _inputStateModel->setActiveTool(activeTool);
+  _inputStateModel->SetActiveTool(activeTool);
 }
 
 #pragma mark - Eligibility & Availability

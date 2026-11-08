@@ -38,7 +38,9 @@
 #include "ui/events/base_event_utils.h"
 #include "ui/events/test/event_generator.h"
 #include "ui/gfx/canvas.h"
+#include "ui/gfx/range/range.h"
 #include "ui/gfx/render_text.h"
+#include "ui/gfx/render_text_test_api.h"
 #include "ui/gfx/text_constants.h"
 #include "ui/gfx/text_elider.h"
 #include "ui/strings/grit/ui_strings.h"
@@ -847,6 +849,81 @@ TEST_F(LabelTest, TextChangeWithoutLayout) {
   label()->OnPaint(&canvas);
   EXPECT_TRUE(label()->display_text_);
   EXPECT_EQ(u"Altered", label()->display_text_->GetDisplayText());
+}
+
+// By default, '&' is shown as is.
+TEST_F(LabelTest, MnemonicModeNoneKeepsMarkers) {
+  label()->SetText(u"Se&ttings");
+  EXPECT_EQ(label()->GetMnemonicMode(), Label::MnemonicMode::kNone);
+  EXPECT_EQ(label()->GetText(), u"Se&ttings");
+}
+
+// kHide removes the markers without underlining the mnemonic.
+TEST_F(LabelTest, MnemonicModeHideRemovesMarkers) {
+  label()->SetMnemonicMode(Label::MnemonicMode::kHide);
+  label()->SetText(u"Q&&&A");
+  label()->SetBounds(0, 0, 200, 200);
+  EXPECT_EQ(label()->GetText(), u"Q&A");
+  EXPECT_EQ(label()->GetViewAccessibility().GetCachedName(), u"Q&A");
+
+  gfx::Canvas canvas(gfx::Size(200, 200), 1.0f, true);
+  label()->OnPaint(&canvas);
+  ASSERT_TRUE(label()->display_text_);
+  gfx::test::RenderTextTestApi render_text(label()->display_text_.get());
+  const auto& underlines = render_text.styles()[gfx::TEXT_STYLE_UNDERLINE];
+  EXPECT_EQ(underlines.breaks().size(), 1u);
+  EXPECT_FALSE(underlines.breaks().front().second);
+}
+
+// kUnderline removes the markers and underlines only the mnemonic.
+TEST_F(LabelTest, MnemonicModeUnderlineUnderlinesMnemonic) {
+  label()->SetText(u"Se&ttings");
+  label()->SetBounds(0, 0, 200, 200);
+  label()->SetMnemonicMode(Label::MnemonicMode::kUnderline);
+  EXPECT_EQ(label()->GetText(), u"Settings");
+
+  gfx::Canvas canvas(gfx::Size(200, 200), 1.0f, true);
+  label()->OnPaint(&canvas);
+  ASSERT_TRUE(label()->display_text_);
+  gfx::test::RenderTextTestApi render_text(label()->display_text_.get());
+  const auto& underlines = render_text.styles()[gfx::TEXT_STYLE_UNDERLINE];
+  EXPECT_FALSE(underlines.GetBreak(1)->second);
+  EXPECT_TRUE(underlines.GetBreak(2)->second);
+  EXPECT_FALSE(underlines.GetBreak(3)->second);
+}
+
+// Changing the text style rebuilds the painted text, which keeps the
+// underline.
+TEST_F(LabelTest, MnemonicUnderlineSurvivesTextStyleChange) {
+  label()->SetMnemonicMode(Label::MnemonicMode::kUnderline);
+  label()->SetText(u"Se&ttings");
+  label()->SetBounds(0, 0, 200, 200);
+  label()->SetTextStyle(style::STYLE_EMPHASIZED);
+
+  gfx::Canvas canvas(gfx::Size(200, 200), 1.0f, true);
+  label()->OnPaint(&canvas);
+  ASSERT_TRUE(label()->display_text_);
+  gfx::test::RenderTextTestApi render_text(label()->display_text_.get());
+  EXPECT_TRUE(
+      render_text.styles()[gfx::TEXT_STYLE_UNDERLINE].GetBreak(2)->second);
+}
+
+// Setting a text with the same displayed text but no marker removes the
+// underline.
+TEST_F(LabelTest, MnemonicUnderlineFollowsText) {
+  label()->SetMnemonicMode(Label::MnemonicMode::kUnderline);
+  label()->SetText(u"Se&ttings");
+  label()->SetText(u"Settings");
+  label()->SetBounds(0, 0, 200, 200);
+  EXPECT_EQ(label()->GetText(), u"Settings");
+
+  gfx::Canvas canvas(gfx::Size(200, 200), 1.0f, true);
+  label()->OnPaint(&canvas);
+  ASSERT_TRUE(label()->display_text_);
+  gfx::test::RenderTextTestApi render_text(label()->display_text_.get());
+  const auto& underlines = render_text.styles()[gfx::TEXT_STYLE_UNDERLINE];
+  EXPECT_EQ(underlines.breaks().size(), 1u);
+  EXPECT_FALSE(underlines.breaks().front().second);
 }
 
 TEST_F(LabelTest, AccessibleNameAndRole) {
@@ -1857,6 +1934,31 @@ TEST_F(LabelSelectionTest, KeyboardActions) {
   EXPECT_FALSE(label()->GetSelectable());
   event_generator()->PressKey(ui::VKEY_A, kControlCommandModifier);
   EXPECT_EQ(std::u16string(), GetSelectedText());
+}
+
+// Labels do not register Ctrl+C with the FocusManager, but the focused
+// selectable label still copies when the accelerator is delivered to it
+// directly, as BrowserView::CutCopyPaste() does for the Chrome menu's Copy.
+TEST_F(LabelSelectionTest, CopyAcceleratorNotRegistered) {
+  const std::u16string text = u"Label copy accelerator";
+  label()->SetText(text);
+  label()->SizeToPreferredSize();
+  const ui::Accelerator copy_accelerator(ui::VKEY_C, ui::EF_CONTROL_DOWN);
+  EXPECT_FALSE(
+      widget()->GetFocusManager()->IsAcceleratorRegistered(copy_accelerator));
+
+  ASSERT_TRUE(label()->SetSelectable(true));
+  EXPECT_FALSE(
+      widget()->GetFocusManager()->IsAcceleratorRegistered(copy_accelerator));
+
+  PerformClick(gfx::Point());
+  EXPECT_EQ(label(), GetFocusedView());
+  label()->SelectAll();
+  // BrowserView::CutCopyPaste() calls these through View.
+  View* focused_view = label();
+  ASSERT_TRUE(focused_view->CanHandleAccelerators());
+  EXPECT_TRUE(focused_view->AcceleratorPressed(copy_accelerator));
+  EXPECT_EQ(text, GetClipboardText(ui::ClipboardBuffer::kCopyPaste));
 }
 
 // Verify the context menu options are enabled and disabled appropriately.

@@ -9,8 +9,15 @@ source_set("voice_isolation") {
   visibility = [ "//media/webrtc/*" ]
 
   sources = [
+    "band_split_voice_isolation.cc",
+    "band_split_voice_isolation.h",
+    "buffered_voice_isolation.cc",
+    "buffered_voice_isolation.h",
     "passthrough_voice_isolation.cc",
     "passthrough_voice_isolation.h",
+    "spectral_voice_isolation_component.h",
+    "speech_mask_estimator.cc",
+    "speech_mask_estimator.h",
     "stft_voice_isolation.cc",
     "stft_voice_isolation.h",
     "tflite_voice_isolation.cc",
@@ -49,18 +56,44 @@ source_set("mock_voice_isolation") {
   ]
 }
 
+source_set("test_support") {
+  testonly = true
+  sources = [
+    "voice_isolation_test_utils.cc",
+    "voice_isolation_test_utils.h",
+  ]
+  deps = [
+    "//base",
+    "//base/test:test_support",
+    "//media/webrtc",
+  ]
+  public_deps = [
+    "//third_party/flatbuffers",
+    "//third_party/tflite",
+  ]
+  data = [
+    "test_model_1_2_160_2.tflite",
+    "test_model_stateful_1_2_160_2.tflite",
+  ]
+}
+
 source_set("unit_tests") {
   testonly = true
   deps = [
     ":mock_voice_isolation",
+    ":test_support",
+    "//base/test:test_support",
     "//media/webrtc",
     "//testing/gmock",
     "//testing/gtest",
+    "//third_party/flatbuffers",
     "//third_party/tflite",
   ]
-  data = [ "test_model_1_2_160_2.tflite" ]
   sources = [
+    "band_split_voice_isolation_unittest.cc",
+    "buffered_voice_isolation_unittest.cc",
     "passthrough_voice_isolation_unittest.cc",
+    "speech_mask_estimator_unittest.cc",
     "stft_voice_isolation_unittest.cc",
     "tflite_voice_isolation_unittest.cc",
     "voice_isolation_unittest.cc",
@@ -72,6 +105,7 @@ if (chrome_wide_echo_cancellation_supported) {
     testonly = true
     sources = [ "voice_isolation_wav_tool.cc" ]
     deps = [
+      "//base",
       "//components/optimization_guide/core/inference:op_resolver",
       "//media/webrtc",
     ]

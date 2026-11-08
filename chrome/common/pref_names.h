@@ -941,6 +941,14 @@ inline constexpr char kImportDialogSavedPasswords[] =
 inline constexpr char kImportDialogSearchEngine[] =
     "import_dialog_search_engine";
 
+// A dictionary mapping foreign session tags (see
+// `sync_sessions::SyncedSession::GetSessionTag()`) to `true` for synced devices
+// whose tabs the user has chosen to hide in this profile via
+// `chrome://settings/deviceTabVisibility`. Sessions are visible by default and
+// removed from the dictionary when re-enabled.
+inline constexpr char kDeviceTabVisibilityHiddenSessions[] =
+    "sync.device_tab_visibility_hidden_sessions";
+
 // Profile avatar and name
 inline constexpr char kProfileAvatarIndex[] = "profile.avatar_index";
 inline constexpr char kProfileName[] = "profile.name";
@@ -1191,11 +1199,6 @@ inline constexpr char kPartitionedBlobUrlUsage[] =
 inline constexpr char kXSLTDeprecationBannerSuppressed[] =
     "profile.xslt_deprecation_banner_suppressed";
 
-// Boolean value indicating if the Reduce Accept-Language feature should be
-// enabled. Defaults to network::features::kReduceAcceptLanguage field trial.
-inline constexpr char kReduceAcceptLanguageEnabled[] =
-    "profile.reduce_accept_language_enabled";
-
 // Boolean indicating if JS dialogs triggered from a different origin iframe
 // should be blocked. Has no effect if
 // "SuppressDifferentOriginSubframeJSDialogs" feature is disabled.
@@ -1203,7 +1206,7 @@ inline constexpr char kSuppressDifferentOriginSubframeJSDialogs[] =
     "suppress_different_origin_subframe_js_dialogs";
 
 // Enum indicating if the user agent reduction feature should be forced enabled
-// or disabled. Defaults to blink::features::kReduceUserAgent field trial.
+// or disabled.
 inline constexpr char kUserAgentReduction[] = "user_agent_reduction";
 
 #if !BUILDFLAG(IS_ANDROID)
@@ -1211,6 +1214,14 @@ inline constexpr char kUserAgentReduction[] = "user_agent_reduction";
 // the tab strip.
 inline constexpr char kOrganizerPanelEntrypointEnabled[] =
     "organizer_panel.entrypoint_enabled";
+// Dictionary mapping organizer panel section IDs to a boolean indicating
+// whether the section is expanded.
+inline constexpr char kOrganizerPanelSectionsExpanded[] =
+    "organizer_panel.sections_expanded";
+// Dictionary mapping organizer panel section IDs to a boolean indicating
+// whether the section shows all items.
+inline constexpr char kOrganizerPanelSectionsShowAll[] =
+    "organizer_panel.sections_show_all";
 inline constexpr char kProjectsPanelEntrypointEnabled[] =
     "projects_panel.entrypoint_enabled";
 
@@ -1274,6 +1285,11 @@ inline constexpr char kVerticalTabsCollapsedState[] =
 // width. Only used during startup when session restore is not used.
 inline constexpr char kVerticalTabsUncollapsedWidth[] =
     "vertical_tabs.uncollapsed_width";
+
+// Time representing the last time the everything menu button in the vertical
+// tab strip top container was pressed.
+inline constexpr char kVerticalTabsEverythingMenuLastPressed[] =
+    "vertical_tabs.everything_menu_last_pressed";
 #endif  // !BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(ENABLE_COMPOSE)
@@ -1574,6 +1590,11 @@ inline constexpr char kScheduledRestartLastNudgeTime[] =
     "restart.scheduled_restart_last_nudge_time";
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 
+// Pref name for controlling presentation of promotions, including full-tab
+// promotional and/or educational content.
+// This preference replaces browser.promotional_tabs_enabled.
+inline constexpr char kPromotionsEnabled[] = "browser.promotions_enabled";
+
 #if !BUILDFLAG(IS_ANDROID)
 #if !BUILDFLAG(IS_CHROMEOS)
 // Boolean that specifies whether or not to show security warnings for some
@@ -1588,11 +1609,6 @@ inline constexpr char kCommandLineFlagSecurityWarningsEnabled[] =
 // `NTPFooterExtensionAttributionEnabled` policy.
 inline constexpr char kNTPFooterExtensionAttributionEnabled[] =
     "ntp_footer.settings.extension_attribution";
-
-// Pref name for controlling presentation of promotions, including full-tab
-// promotional and/or educational content.
-// This preference replaces browser.promotional_tabs_enabled.
-inline constexpr char kPromotionsEnabled[] = "browser.promotions_enabled";
 
 // Boolean that specifies whether or not showing the unsupported OS warning is
 // suppressed. False by default. Controlled by the SuppressUnsupportedOSWarning
@@ -1610,6 +1626,11 @@ static_assert(std::string_view(kWasRestarted) ==
 // Dictionary containing the number of tabs and windows before a restart.
 inline constexpr char kPreSmartRestartSessionState[] =
     "session.pre_smart_restart_session_state";
+
+// Dictionary containing the number of profiles with open windows before a
+// restart.
+inline constexpr char kPreSmartRestartProfileCounts[] =
+    "session.pre_smart_restart_profile_counts";
 
 #if BUILDFLAG(IS_MAC)
 // Boolean preference controlling zero window relaunch per enterprise policy.
@@ -2016,6 +2037,8 @@ inline constexpr char kAuthSchemes[] = "auth.schemes";
 // from "auth.schemes".
 inline constexpr char kAllHttpAuthSchemesAllowedForOrigins[] =
     "auth.http_auth_allowed_for_origins";
+inline constexpr char kAllHttpAuthSchemesAllowedForProxies[] =
+    "auth.http_auth_allowed_for_proxies";
 
 // Boolean that specifies whether to disable CNAME lookups when generating
 // Kerberos SPN.
@@ -2278,6 +2301,12 @@ inline constexpr char kSameOriginTabCaptureAllowedByOrigins[] =
 // Boolean determining whether the glass frame is enabled.
 inline constexpr char kGlassFrameEnabled[] = "glass_frame.enabled";
 
+// Int64 pref used by the metrics::DailyEvent owned by
+// GlassFrameMetricsReporter to record the last time daily glass frame
+// metrics were sampled.
+inline constexpr char kGlassFrameDailySample[] =
+    "glass_frame.last_daily_sample";
+
 #if BUILDFLAG(IS_CHROMEOS)
 // An any-api scoped refresh token for enterprise-enrolled devices.  Allows
 // for connection to Google APIs when the user isn't logged in.  Currently used
@@ -2442,6 +2471,10 @@ inline constexpr char kHardwareAccelerationModePrevious[] =
 
 
 #if !BUILDFLAG(IS_ANDROID)
+// A boolean specifying whether dynamic child module patching is enabled.
+inline constexpr char kDynamicPatchingEnabled[] =
+    "child_module.dynamic_patching_enabled";
+
 // A boolean where true means that the browser has previously attempted to
 // enable autoupdate and failed, so the next out-of-date browser start should
 // not prompt the user to enable autoupdate, it should offer to reinstall Chrome
@@ -2472,6 +2505,11 @@ inline constexpr char kNetworkProfileLastWarningTime[] =
 // shell_integration::win::MigrateTaskbarPins() completed.
 inline constexpr char kShortcutMigrationVersion[] =
     "browser.shortcut_migration_version";
+
+// The last time at which shell_integration::win::MigrateTaskbarPins()
+// completed.
+inline constexpr char kShortcutMigrationTime[] =
+    "browser.shortcut_migration_time";
 #endif  // BUILDFLAG(IS_WIN)
 
 // An integer that is incremented whenever changes are made to app shortcuts.
@@ -2508,6 +2546,9 @@ inline constexpr char kWatchdogExtensionActive[] =
 // given by the PartnerBookmarksProvider and either the user-visible renamed
 // title or an empty string if the bookmark node was removed.
 inline constexpr char kPartnerBookmarkMappings[] = "partnerbookmarks.mappings";
+
+// Boolean that is true when the AppStoreRatingEnabled policy is enabled.
+inline constexpr char kAppRatingPolicyEnabled[] = "app_rating_policy_enabled";
 #endif  // BUILDFLAG(IS_ANDROID)
 
 // Whether DNS Quick Check is disabled in proxy resolution.

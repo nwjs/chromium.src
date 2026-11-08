@@ -5,8 +5,10 @@
 #include "chrome/browser/ui/views/web_apps/web_app_blocked_migration_infobar_delegate.h"
 
 #include "base/memory/raw_ptr.h"
+#include "base/test/scoped_feature_list.h"
 #include "base/test/simple_test_clock.h"
 #include "base/time/default_clock.h"
+#include "chrome/browser/infobars/infobar_features.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
@@ -35,7 +37,6 @@
 #include "content/public/test/browser_test.h"
 #include "content/public/test/test_navigation_observer.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
-#include "third_party/blink/public/common/features.h"
 #include "ui/views/controls/button/md_text_button.h"
 #include "ui/views/test/button_test_api.h"
 #include "ui/views/test/widget_test.h"
@@ -43,9 +44,19 @@
 namespace web_app {
 
 class WebAppBlockedMigrationInfoBarDelegateBrowserTest
-    : public WebAppBrowserTestBase {
+    : public WebAppBrowserTestBase,
+      public testing::WithParamInterface<bool> {
  public:
-  WebAppBlockedMigrationInfoBarDelegateBrowserTest() = default;
+  WebAppBlockedMigrationInfoBarDelegateBrowserTest() {
+    if (GetParam()) {
+      feature_list_.InitAndEnableFeatureWithParameters(
+          infobars::kCentralizedInfoBarFramework,
+          {{"MigratedWebAppBlockedMigration", "true"}});
+    } else {
+      feature_list_.InitAndDisableFeature(
+          infobars::kCentralizedInfoBarFramework);
+    }
+  }
   WebAppBlockedMigrationInfoBarDelegateBrowserTest(
       const WebAppBlockedMigrationInfoBarDelegateBrowserTest&) = delete;
   WebAppBlockedMigrationInfoBarDelegateBrowserTest& operator=(
@@ -92,10 +103,11 @@ class WebAppBlockedMigrationInfoBarDelegateBrowserTest
   }
 
  private:
+  base::test::ScopedFeatureList feature_list_;
   base::SimpleTestClock test_clock_;
 };
 
-IN_PROC_BROWSER_TEST_F(WebAppBlockedMigrationInfoBarDelegateBrowserTest,
+IN_PROC_BROWSER_TEST_P(WebAppBlockedMigrationInfoBarDelegateBrowserTest,
                        ShowInfoBarForPolicyAppWithPendingMigration) {
   ASSERT_TRUE(embedded_test_server()->Start());
   const GURL app_url = embedded_test_server()->GetURL(
@@ -115,7 +127,7 @@ IN_PROC_BROWSER_TEST_F(WebAppBlockedMigrationInfoBarDelegateBrowserTest,
   EXPECT_TRUE(WebAppBlockedMigrationInfoBarDelegate::FindInfoBar(web_contents));
 }
 
-IN_PROC_BROWSER_TEST_F(WebAppBlockedMigrationInfoBarDelegateBrowserTest,
+IN_PROC_BROWSER_TEST_P(WebAppBlockedMigrationInfoBarDelegateBrowserTest,
                        KeepInfoBarWhenWebAppNavigateAway) {
   ASSERT_TRUE(embedded_test_server()->Start());
   const GURL app_url = embedded_test_server()->GetURL(
@@ -141,7 +153,7 @@ IN_PROC_BROWSER_TEST_F(WebAppBlockedMigrationInfoBarDelegateBrowserTest,
   EXPECT_TRUE(WebAppBlockedMigrationInfoBarDelegate::FindInfoBar(web_contents));
 }
 
-IN_PROC_BROWSER_TEST_F(WebAppBlockedMigrationInfoBarDelegateBrowserTest,
+IN_PROC_BROWSER_TEST_P(WebAppBlockedMigrationInfoBarDelegateBrowserTest,
                        RemoveInfoBarWhenReparentBackToNonAppBrowser) {
   ASSERT_TRUE(embedded_test_server()->Start());
   const GURL app_url = embedded_test_server()->GetURL(
@@ -172,7 +184,7 @@ IN_PROC_BROWSER_TEST_F(WebAppBlockedMigrationInfoBarDelegateBrowserTest,
 
 // Regression test for crbug.com/494294070. The infobar blocking migration shows
 // up without a navigation to the destination app.
-IN_PROC_BROWSER_TEST_F(WebAppBlockedMigrationInfoBarDelegateBrowserTest,
+IN_PROC_BROWSER_TEST_P(WebAppBlockedMigrationInfoBarDelegateBrowserTest,
                        InfoBarShowsUpWithoutNavigationToDestApp) {
   ASSERT_TRUE(embedded_test_server()->Start());
   const GURL app_url = embedded_test_server()->GetURL(
@@ -194,7 +206,7 @@ IN_PROC_BROWSER_TEST_F(WebAppBlockedMigrationInfoBarDelegateBrowserTest,
   EXPECT_TRUE(WebAppBlockedMigrationInfoBarDelegate::FindInfoBar(web_contents));
 }
 
-IN_PROC_BROWSER_TEST_F(WebAppBlockedMigrationInfoBarDelegateBrowserTest,
+IN_PROC_BROWSER_TEST_P(WebAppBlockedMigrationInfoBarDelegateBrowserTest,
                        RemoveInfoBarWhenMigrationIsGone) {
   ASSERT_TRUE(embedded_test_server()->Start());
   const GURL app_url = embedded_test_server()->GetURL(
@@ -243,7 +255,7 @@ IN_PROC_BROWSER_TEST_F(WebAppBlockedMigrationInfoBarDelegateBrowserTest,
       WebAppBlockedMigrationInfoBarDelegate::FindInfoBar(web_contents));
 }
 
-IN_PROC_BROWSER_TEST_F(WebAppBlockedMigrationInfoBarDelegateBrowserTest,
+IN_PROC_BROWSER_TEST_P(WebAppBlockedMigrationInfoBarDelegateBrowserTest,
                        DoNotShowInfoBarIfDismissedRecently) {
   ASSERT_TRUE(embedded_test_server()->Start());
   const GURL app_url = embedded_test_server()->GetURL(
@@ -270,7 +282,7 @@ IN_PROC_BROWSER_TEST_F(WebAppBlockedMigrationInfoBarDelegateBrowserTest,
       WebAppBlockedMigrationInfoBarDelegate::FindInfoBar(web_contents));
 }
 
-IN_PROC_BROWSER_TEST_F(WebAppBlockedMigrationInfoBarDelegateBrowserTest,
+IN_PROC_BROWSER_TEST_P(WebAppBlockedMigrationInfoBarDelegateBrowserTest,
                        ShowInfoBarIfDismissedMoreThanAWeekAgo) {
   ASSERT_TRUE(embedded_test_server()->Start());
   const GURL app_url = embedded_test_server()->GetURL(
@@ -298,7 +310,7 @@ IN_PROC_BROWSER_TEST_F(WebAppBlockedMigrationInfoBarDelegateBrowserTest,
   EXPECT_TRUE(WebAppBlockedMigrationInfoBarDelegate::FindInfoBar(web_contents));
 }
 
-IN_PROC_BROWSER_TEST_F(WebAppBlockedMigrationInfoBarDelegateBrowserTest,
+IN_PROC_BROWSER_TEST_P(WebAppBlockedMigrationInfoBarDelegateBrowserTest,
                        InfobarDismissalUpdatesRegistry) {
   ASSERT_TRUE(embedded_test_server()->Start());
   const GURL app_url = embedded_test_server()->GetURL(
@@ -324,11 +336,42 @@ IN_PROC_BROWSER_TEST_F(WebAppBlockedMigrationInfoBarDelegateBrowserTest,
   EXPECT_TRUE(app->pending_migration_info()->last_ignored_time().has_value());
 }
 
+IN_PROC_BROWSER_TEST_P(WebAppBlockedMigrationInfoBarDelegateBrowserTest,
+                       InfobarAcceptUpdatesRegistry) {
+  ASSERT_TRUE(embedded_test_server()->Start());
+  const GURL app_url = embedded_test_server()->GetURL(
+      "/web_apps/migration/migrate_from/suggest.html");
+  webapps::AppId app_id = ForceInstallWebApp(profile(), app_url).value();
+
+  const GURL target_app_url = embedded_test_server()->GetURL(
+      "/web_apps/migration/migrate_to/suggest.html");
+  ForceInstallWebApp(profile(), target_app_url);
+  provider().command_manager().AwaitAllCommandsCompleteForTesting();
+
+  BrowserWindowInterface* app_browser =
+      ::web_app::LaunchWebAppBrowserAndWait(profile(), app_id);
+  content::WebContents* web_contents =
+      app_browser->GetTabStripModel()->GetActiveWebContents();
+
+  ClickInfoBarAccept(web_contents);
+  provider().command_manager().AwaitAllCommandsCompleteForTesting();
+
+  const WebApp* app = provider().registrar_unsafe().GetAppById(app_id);
+  ASSERT_TRUE(app);
+  ASSERT_TRUE(app->pending_migration_info().has_value());
+  EXPECT_TRUE(app->pending_migration_info()->last_ignored_time().has_value());
+}
+
+INSTANTIATE_TEST_SUITE_P(All,
+                         WebAppBlockedMigrationInfoBarDelegateBrowserTest,
+                         testing::Bool(),
+                         [](const testing::TestParamInfo<bool>& info) {
+                           return info.param ? "Migrated" : "Legacy";
+                         });
+
 class WebAppBlockedMigrationInfoBarDelegateUiTest
     : public SupportsTestUi<WebAppBrowserTestBase, TestBrowserUi> {
  public:
-  WebAppBlockedMigrationInfoBarDelegateUiTest() = default;
-
   void ShowUi(const std::string& name) override {
     ASSERT_TRUE(embedded_test_server()->Start());
     const GURL app_url = embedded_test_server()->GetURL(

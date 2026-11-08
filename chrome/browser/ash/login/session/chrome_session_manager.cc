@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ash/login/session/chrome_session_manager.h"
 
+#include <functional>
 #include <memory>
 
 #include "ash/constants/ash_features.h"
@@ -150,7 +151,7 @@ void UpsertStubUserToAccountManager(const user_manager::User& user,
       ash::AccountManagerFactory::Get()->GetAccountManager(
           profile_path.value());
 
-  DCHECK(account_manager->IsInitialized());
+  CHECK(account_manager->IsInitialized(), base::NotFatalUntil::M161);
 
   const ::account_manager::AccountKey account_key =
       ::account_manager::AccountKey::FromGaiaId(
@@ -160,7 +161,8 @@ void UpsertStubUserToAccountManager(const user_manager::User& user,
       account_key, /*raw_email=*/user.GetDisplayEmail(),
       account_manager::AccountManager::kInvalidToken);
 
-  DCHECK(account_manager->IsTokenAvailable(account_key));
+  CHECK(account_manager->IsTokenAvailable(account_key),
+        base::NotFatalUntil::M161);
 
   // 2. Seed it into `IdentityManager`.
   // TODO(hidehiko): Consider to rework on user session management, and
@@ -199,8 +201,9 @@ void UpsertStubUserToAccountManager(const user_manager::User& user,
   CHECK_EQ(identity_manager->GetPrimaryAccountInfo(consent_level).gaia,
            user.GetAccountId().GetGaiaId());
 
-  DCHECK_EQ(account_id, identity_manager->GetPrimaryAccountId(
-                            signin::ConsentLevel::kSignin));
+  CHECK_EQ(account_id,
+           identity_manager->GetPrimaryAccountId(signin::ConsentLevel::kSignin),
+           base::NotFatalUntil::M161);
   VLOG(1) << "Seed IdentityManager for stub account, "
           << "success=" << !account_id.empty();
 }
@@ -328,7 +331,7 @@ void LaunchShimlessRma() {
 }
 
 // The callback invoked when RmadClient determines that RMA is required.
-void OnRmaIsRequiredResponse() {
+void OnRmaIsRequiredResponse(PrefService& local_state) {
   VLOG(1) << "ChromeSessionManager::OnRmaIsRequiredResponse";
   switch (session_manager::SessionManager::Get()->session_state()) {
     case session_manager::SessionState::UNKNOWN:
@@ -357,7 +360,8 @@ void OnRmaIsRequiredResponse() {
             *base::CommandLine::ForCurrentProcess();
         base::CommandLine command_line(browser_command_line);
         command_line.AppendSwitch(switches::kLaunchRma);
-        RestartChrome(command_line, RestartChromeReason::kUserless);
+        RestartChrome(local_state, command_line,
+                      RestartChromeReason::kUserless);
         break;
       }
     }
@@ -468,7 +472,7 @@ void ChromeSessionManager::Initialize(
     // If the RMA state is detected later, OnRmaIsRequiredResponse() is invoked
     // to append the kLaunchRma switch and restart Chrome in RMA mode.
     RmadClient::Get()->SetRmaRequiredCallbackForSessionManager(
-        base::BindOnce(&OnRmaIsRequiredResponse));
+        base::BindOnce(&OnRmaIsRequiredResponse, std::ref(local_state_.get())));
   } else {
     VLOG(1) << "ChromeSessionManager::Initialize Shimless RMA is not allowed";
   }

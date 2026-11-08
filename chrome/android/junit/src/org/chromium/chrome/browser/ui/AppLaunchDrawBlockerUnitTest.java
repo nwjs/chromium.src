@@ -62,7 +62,6 @@ public class AppLaunchDrawBlockerUnitTest {
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
 
     @Mock private ActivityLifecycleDispatcher mActivityLifecycleDispatcher;
-    @Mock private View mView;
     @Mock private ViewTreeObserver mViewTreeObserver;
     @Mock private Profile mProfile;
     @Mock private TemplateUrlServiceFactory.Natives mTemplateUrlServiceFactory;
@@ -85,6 +84,7 @@ public class AppLaunchDrawBlockerUnitTest {
 
     private static final int INITIAL_TIME = 1000;
 
+    private View mView;
     private Intent mIntent;
     private final Supplier<View> mViewSupplier = () -> mView;
     private final Supplier<Intent> mIntentSupplier = () -> mIntent;
@@ -95,7 +95,13 @@ public class AppLaunchDrawBlockerUnitTest {
     @Before
     public void setUp() {
         SystemClock.setCurrentTimeMillis(INITIAL_TIME);
-        when(mView.getViewTreeObserver()).thenReturn(mViewTreeObserver);
+        mView =
+                new View(ApplicationProvider.getApplicationContext()) {
+                    @Override
+                    public ViewTreeObserver getViewTreeObserver() {
+                        return mViewTreeObserver;
+                    }
+                };
         TemplateUrlServiceFactoryJni.setInstanceForTesting(mTemplateUrlServiceFactory);
         TemplateUrlServiceFactory.setInstanceForTesting(mTemplateUrlService);
 

@@ -191,10 +191,7 @@ static_library("protocol") {
     "webrtc_video_renderer_adapter.h",
   ]
 
-  configs += [
-    "//build/config:precompiled_headers",
-    "//build/config/compiler:wexit_time_destructors",
-  ]
+  configs += [ "//build/config:precompiled_headers" ]
 
   public_deps = [
     ":errors",
@@ -330,6 +327,7 @@ source_set("unit_tests") {
     "chromium_socket_factory_unittest.cc",
     "clipboard_echo_filter_unittest.cc",
     "clipboard_filter_unittest.cc",
+    "clipboard_thread_proxy_unittest.cc",
     "coordinate_conversion_test.cc",
     "coordinate_converter_unittest.cc",
     "data_channel_manager_unittest.cc",

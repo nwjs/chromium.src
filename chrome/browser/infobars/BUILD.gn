@@ -86,8 +86,13 @@ source_set("unit_tests") {
     "//components/infobars/core",
     "//content/public/browser",
     "//testing/gtest",
+    "//ui/base",
     "//url",
   ]
+
+  if (toolkit_views) {
+    deps += [ "//ui/views" ]
+  }
 }
 
 if (!is_android) {
@@ -106,8 +111,7 @@ if (!is_android) {
       "//base",
       "//chrome/browser/devtools",
       "//chrome/browser/infobars:test_support",
-      "//chrome/browser/omnibox",
-      "//chrome/browser/ui",
+      "//chrome/browser/ui:browser_tabstrip",
       "//chrome/browser/ui:collected_cookies_infobar_delegate",
       "//chrome/browser/ui:ui_features",
       "//chrome/browser/ui/browser_window",
@@ -139,6 +143,7 @@ if (!is_android) {
     if (toolkit_views) {
       deps += [
         "//chrome/browser/ui/views/infobars",
+        "//chrome/browser/ui/views/js_optimization",
         "//chrome/browser/ui/views/site_data",
       ]
     }

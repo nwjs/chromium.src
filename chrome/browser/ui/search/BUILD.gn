@@ -3,6 +3,7 @@
 # found in the LICENSE file.
 
 import("//build/config/chromeos/args.gni")
+import("//ui/webui/webui_features.gni")
 
 assert(!is_ios)
 
@@ -20,24 +21,33 @@ source_set("search") {
     "//components/ntp_tiles",
     "//content/public/browser",
   ]
-  if (!is_android) {
+  if (enable_webui_ntp) {
     sources += [
       "chrome_search_navigation_throttle.h",
-      "instant_controller.h",
       "new_tab_page_navigation_throttle.h",
-      "omnibox_utils.h",
       "search_ipc_router.h",
       "search_ipc_router_policy_impl.h",
       "search_tab_helper.h",
     ]
+    if (!is_android) {
+      sources += [
+        "instant_controller.h",
+        "omnibox_utils.h",
+      ]
+    }
 
     public_deps += [
-      "//chrome/browser/ui/omnibox",
-      "//chrome/browser/ui/tabs:tab_strip_model_observer",
       "//chrome/common/search:mojo_bindings",
       "//components/omnibox/common",
       "//mojo/public/cpp/bindings",
+      "//ui/base/unowned_user_data",
     ]
+    if (!is_android) {
+      public_deps += [
+        "//chrome/browser/ui/omnibox",
+        "//chrome/browser/ui/tabs:tab_strip_model_observer",
+      ]
+    }
   }
 }
 
@@ -57,17 +67,12 @@ source_set("impl") {
     "//components/prefs",
     "//components/search",
   ]
-  if (!is_android) {
+  if (enable_webui_ntp) {
     sources += [
       "chrome_search_navigation_throttle.cc",
-      "instant_controller.cc",
       "new_tab_page_navigation_throttle.cc",
       "search_ipc_router.cc",
       "search_ipc_router_policy_impl.cc",
-
-      # The two files below cause circular dependencies against //c/b:b or
-      # //c/b/ui:ui.
-      "omnibox_utils.cc",
       "search_tab_helper.cc",
     ]
     deps += [
@@ -76,25 +81,33 @@ source_set("impl") {
       "//chrome/browser/history",
       "//chrome/browser/profiles:profile",
       "//chrome/browser/signin",
-      "//chrome/browser/ui:browser_window_header",
-      "//chrome/browser/ui:tab_modal_confirm_dialog",
-      "//chrome/browser/ui:tab_modal_confirm_dialog_delegate",
-      "//chrome/browser/ui/bookmarks",
-      "//chrome/browser/ui/browser_window",
-      "//chrome/browser/ui/location_bar",
-      "//chrome/browser/ui/omnibox",
-      "//chrome/browser/ui/tab_contents",
-      "//chrome/browser/ui/tabs:tab_strip",
-      "//chrome/browser/ui/user_education",
+      "//chrome/browser/ui/color:color_headers",
       "//components/bookmarks/browser",
       "//components/feature_engagement/public:feature_constants",
       "//components/navigation_metrics",
       "//components/profile_metrics",
+      "//components/tabs:public",
       "//components/vector_icons",
       "//content/public/browser",
     ]
-
-    public_deps = [ "//chrome/browser:browser_public_dependencies" ]
+    if (!is_android) {
+      sources += [
+        "instant_controller.cc",
+        "omnibox_utils.cc",
+      ]
+      deps += [
+        "//chrome/browser/ui:browser_window_header",
+        "//chrome/browser/ui:tab_modal_confirm_dialog",
+        "//chrome/browser/ui:tab_modal_confirm_dialog_delegate",
+        "//chrome/browser/ui/bookmarks",
+        "//chrome/browser/ui/browser_window",
+        "//chrome/browser/ui/location_bar",
+        "//chrome/browser/ui/omnibox",
+        "//chrome/browser/ui/tab_contents",
+        "//chrome/browser/ui/tabs:tab_strip",
+        "//chrome/browser/ui/user_education",
+      ]
+    }
   }
 }
 
@@ -175,6 +188,7 @@ if (!is_android) {
       "//chrome/browser/search",
       "//chrome/browser/search_engines",
       "//chrome/browser/ui:browser_commands",
+      "//chrome/browser/ui:browser_tabstrip",
       "//chrome/browser/ui/browser_window",
       "//chrome/browser/ui/search",
       "//chrome/browser/ui/search:test_support_ui",
@@ -220,12 +234,45 @@ if (!is_android) {
       "//components/omnibox/common",
       "//components/search",
       "//components/search_engines",
+      "//components/tabs:test_support",
       "//content/public/browser",
       "//content/test:test_support",
       "//ipc",
       "//ipc:message_support",
       "//net",
       "//ui/base:types",
+      "//url",
+    ]
+  }
+}
+
+if (is_android && enable_webui_ntp) {
+  source_set("android_unit_tests") {
+    testonly = true
+    sources = [ "search_tab_helper_android_unittest.cc" ]
+    deps = [
+      ":impl",
+      ":search",
+      "//base",
+      "//base/test:test_support",
+      "//chrome/browser/flags:flags_android",
+      "//chrome/browser/profiles:profile",
+      "//chrome/browser/search",
+      "//chrome/browser/search_engines",
+      "//chrome/common",
+      "//chrome/common/search:mojo_bindings",
+      "//chrome/test:test_support",
+      "//chrome/test/base:browser_test_waiters",
+      "//chrome/test/base:chrome_render_view_host_test_harness",
+      "//components/search",
+      "//components/search_engines",
+      "//components/tabs:public",
+      "//components/tabs:test_support",
+      "//content/public/browser",
+      "//content/test:test_support",
+      "//mojo/public/cpp/bindings",
+      "//testing/gmock",
+      "//testing/gtest",
       "//url",
     ]
   }

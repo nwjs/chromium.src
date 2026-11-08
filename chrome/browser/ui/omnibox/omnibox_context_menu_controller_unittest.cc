@@ -5,9 +5,14 @@
 #include "chrome/browser/ui/omnibox/omnibox_context_menu_controller.h"
 
 #include <memory>
+#include <optional>
+#include <string>
 #include <utility>
+#include <vector>
 
+#include "base/strings/string_number_conversions.h"
 #include "base/test/metrics/histogram_tester.h"
+#include "base/test/scoped_feature_list.h"
 #include "build/branding_buildflags.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/app/vector_icons/vector_icons.h"
@@ -15,6 +20,7 @@
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service_factory.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/test/mock_browser_window_interface.h"
+#include "chrome/browser/ui/contextual_search/searchbox_context_data.h"
 #include "chrome/browser/ui/omnibox/omnibox_controller.h"
 #include "chrome/browser/ui/omnibox/omnibox_next_features.h"
 #include "chrome/browser/ui/omnibox/omnibox_popup_state_manager.h"
@@ -29,11 +35,13 @@
 #include "chrome/test/base/testing_profile.h"
 #include "components/contextual_search/contextual_search_types.h"
 #include "components/contextual_tasks/public/features.h"
+#include "components/favicon_base/favicon_types.h"
 #include "components/lens/lens_overlay_mime_type.h"
 #include "components/omnibox/browser/test_omnibox_client.h"
 #include "components/omnibox/common/composebox_features.h"
 #include "components/policy/core/common/mock_configuration_policy_provider.h"
 #include "components/policy/core/common/policy_service_impl.h"
+#include "components/strings/grit/components_strings.h"
 #include "components/vector_icons/vector_icons.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/browser_task_environment.h"
@@ -49,6 +57,7 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/models/image_model.h"
 #include "ui/base/ui_base_features.h"
+#include "ui/gfx/image/image_unittest_util.h"
 
 class FakeContextualSearchboxHandler : public ContextualSearchboxHandler {
  public:
@@ -56,12 +65,18 @@ class FakeContextualSearchboxHandler : public ContextualSearchboxHandler {
                                  content::WebContents* web_contents)
       : ContextualSearchboxHandler(
             mojo::PendingReceiver<searchbox::mojom::PageHandler>(),
-            mojo::PendingRemote<searchbox::mojom::Page>(),
+            MakeDummyPageRemote(),
             profile,
             web_contents,
             nullptr,
             base::NullCallback()) {}
   ~FakeContextualSearchboxHandler() override = default;
+
+  static mojo::PendingRemote<searchbox::mojom::Page> MakeDummyPageRemote() {
+    mojo::PendingRemote<searchbox::mojom::Page> page_remote;
+    std::ignore = page_remote.InitWithNewPipeAndPassReceiver();
+    return page_remote;
+  }
 
   bool IsSmartTabSharingActive() const override { return active_; }
   void SetSmartTabSharingActive(bool active) override { active_ = active; }
@@ -92,6 +107,7 @@ class TestOmniboxContextMenuController : public OmniboxContextMenuController {
   using OmniboxContextMenuController::input_type_for_command_id_;
   using OmniboxContextMenuController::IsInputTypeEnabled;
   using OmniboxContextMenuController::OmniboxContextMenuController;
+  using OmniboxContextMenuController::OnFaviconDataAvailable;
   using OmniboxContextMenuController::OnGetInputState;
   using OmniboxContextMenuController::OnInputStateChanged;
 
@@ -794,11 +810,12 @@ TEST_F(OmniboxContextMenuControllerTest,
                   ->GetIndexOfCommandId(IDC_OMNIBOX_CONTEXT_SHARED_TABS_SUBMENU)
                   .has_value());
 
-  // 4. Verify: Toggle IS in submenu at index 0
+  // 4. Verify: Toggle IS in submenu, directly below the "Automatically add
+  // tabs" header.
   ASSERT_TRUE(controller()->shared_tabs_menu_model());
   EXPECT_EQ(controller()->shared_tabs_menu_model()->GetIndexOfCommandId(
                 IDC_OMNIBOX_CONTEXT_SMART_TAB_SHARING),
-            0u);
+            1u);
 
   // 5. Verify: Minor icon is empty (unchecked)
   size_t index =
@@ -815,6 +832,91 @@ TEST_F(OmniboxContextMenuControllerTest,
   EXPECT_FALSE(icon.IsEmpty());
   EXPECT_TRUE(icon.IsVectorIcon());
   EXPECT_EQ(icon.GetVectorIcon().vector_icon(), &kScreensaverAutoIcon);
+}
+
+TEST_F(OmniboxContextMenuControllerTest,
+       SmartTabSharingSubmenuShowsSectionHeaders) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitFromCommandLine(
+      "ContextManagementInComposebox,ContextManagementInOmnibox,"
+      "ContextualTasksForceEntryPointEligibility,"
+      "ContextualTasksContext<ContextualTasksContextStudy."
+      "ContextualTasksContextGroup:ContextualTasksContextSmartTabSharing/true",
+      "AimUsePecApi");
+
+  FakeContextualSearchboxHandler fake_handler(profile_.get(),
+                                              web_contents_.get());
+  controller()->SetContextualSearchboxHandler(&fake_handler);
+
+  std::vector<OmniboxContextMenuController::TabInfo> mock_tabs;
+  OmniboxContextMenuController::TabInfo tab;
+  tab.tab_id = 1;
+  tab.title = u"Tab 1";
+  tab.url = GURL("https://example.com");
+  mock_tabs.push_back(tab);
+  controller()->SetMockTabs(mock_tabs);
+
+  fake_handler.active_ = false;
+  controller()->RebuildMenu();
+
+  ui::SimpleMenuModel* submenu = controller()->shared_tabs_menu_model();
+  ASSERT_TRUE(submenu);
+  ASSERT_EQ(submenu->GetItemCount(), 5u);
+
+  // "Automatically add tabs" header, then the toggle.
+  EXPECT_EQ(submenu->GetTypeAt(0), ui::MenuModel::TYPE_TITLE);
+  EXPECT_EQ(submenu->GetLabelAt(0),
+            l10n_util::GetStringUTF16(
+                IDS_STS_MEGAPLUS_AUTOMATICALLY_ADD_TABS_HEADER));
+  EXPECT_EQ(submenu->GetCommandIdAt(1), IDC_OMNIBOX_CONTEXT_SMART_TAB_SHARING);
+
+  // Separator, then "Manually add tabs" header, then the tab list.
+  EXPECT_EQ(submenu->GetTypeAt(2), ui::MenuModel::TYPE_SEPARATOR);
+  EXPECT_EQ(submenu->GetTypeAt(3), ui::MenuModel::TYPE_TITLE);
+  EXPECT_EQ(
+      submenu->GetLabelAt(3),
+      l10n_util::GetStringUTF16(IDS_STS_MEGAPLUS_MANUALLY_ADD_TABS_HEADER));
+  EXPECT_EQ(submenu->GetLabelAt(4), u"Tab 1");
+  EXPECT_EQ(submenu->GetElementIdentifierAt(4),
+            OmniboxContextMenuController::kFirstTabMenuItemIdForTesting);
+}
+
+TEST_F(OmniboxContextMenuControllerTest,
+       SmartTabSharingSubmenuHidesSectionHeadersWhenHeadersDisabled) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitFromCommandLine(
+      "ContextManagementInComposebox,ContextManagementInOmnibox,"
+      "ContextualTasksForceEntryPointEligibility,"
+      "WebUIOmniboxAimPopup:Omnibox_ShowContextMenuHeaders/false,"
+      "ContextualTasksContext<ContextualTasksContextStudy."
+      "ContextualTasksContextGroup:ContextualTasksContextSmartTabSharing/true",
+      "AimUsePecApi");
+  ASSERT_FALSE(omnibox::kShowContextMenuHeaders.Get());
+
+  FakeContextualSearchboxHandler fake_handler(profile_.get(),
+                                              web_contents_.get());
+  controller()->SetContextualSearchboxHandler(&fake_handler);
+
+  std::vector<OmniboxContextMenuController::TabInfo> mock_tabs;
+  OmniboxContextMenuController::TabInfo tab;
+  tab.tab_id = 1;
+  tab.title = u"Tab 1";
+  tab.url = GURL("https://example.com");
+  mock_tabs.push_back(tab);
+  controller()->SetMockTabs(mock_tabs);
+
+  fake_handler.active_ = false;
+  controller()->RebuildMenu();
+
+  ui::SimpleMenuModel* submenu = controller()->shared_tabs_menu_model();
+  ASSERT_TRUE(submenu);
+  ASSERT_EQ(submenu->GetItemCount(), 3u);
+  EXPECT_EQ(submenu->GetCommandIdAt(0), IDC_OMNIBOX_CONTEXT_SMART_TAB_SHARING);
+  EXPECT_EQ(submenu->GetTypeAt(1), ui::MenuModel::TYPE_SEPARATOR);
+  EXPECT_EQ(submenu->GetLabelAt(2), u"Tab 1");
+  for (size_t i = 0; i < submenu->GetItemCount(); ++i) {
+    EXPECT_NE(submenu->GetTypeAt(i), ui::MenuModel::TYPE_TITLE);
+  }
 }
 
 TEST_F(OmniboxContextMenuControllerTest,
@@ -1328,4 +1430,337 @@ TEST_F(OmniboxContextMenuControllerTest,
       "ContextualSearch.TabPicker.SelectedTabIsActive.Omnibox", 0);
   histogram_tester.ExpectUniqueSample(
       "ContextualSearch.TabPicker.SelectedTabPosition.Omnibox", 0, 1);
+}
+
+class OmniboxContextMenuControllerSingleTabItemTest
+    : public OmniboxContextMenuControllerTest {
+ public:
+  OmniboxContextMenuControllerSingleTabItemTest() {
+    feature_list_.InitWithFeaturesAndParameters(
+        {{omnibox::kContextManagementInComposebox,
+          {{omnibox::kContextManagementInComposeboxSingleTabMenuItem.name,
+            "true"}}},
+         {omnibox::kContextManagementInOmnibox, {}},
+         {omnibox::kAimUsePecApi, {}}},
+        {});
+  }
+
+  void SetUp() override {
+    OmniboxContextMenuControllerTest::SetUp();
+    omnibox::InputState state;
+    state.allowed_input_types.push_back(
+        omnibox::InputType::INPUT_TYPE_BROWSER_TAB);
+    controller()->OnInputStateChanged(state);
+  }
+
+  static OmniboxContextMenuController::TabInfo MakeTab(
+      int tab_id,
+      std::u16string title,
+      bool is_active_tab,
+      bool is_checked = false) {
+    OmniboxContextMenuController::TabInfo tab;
+    tab.tab_id = tab_id;
+    tab.title = std::move(title);
+    tab.url = GURL("https://example.com/" + base::NumberToString(tab_id));
+    tab.is_active_tab = is_active_tab;
+    tab.is_checked = is_checked;
+    return tab;
+  }
+
+  std::optional<size_t> SingleTabIndex() {
+    return controller()->menu_model()->GetIndexOfCommandId(
+        IDC_OMNIBOX_CONTEXT_SINGLE_TAB);
+  }
+
+  std::optional<size_t> SubmenuIndex() {
+    return controller()->menu_model()->GetIndexOfCommandId(
+        IDC_OMNIBOX_CONTEXT_SHARED_TABS_SUBMENU);
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+TEST_F(OmniboxContextMenuControllerSingleTabItemTest,
+       ShowsCurrentTabAboveAddTabsRow) {
+  controller()->SetMockTabs({MakeTab(1, u"Active", /*is_active_tab=*/true),
+                             MakeTab(2, u"Other", /*is_active_tab=*/false)});
+  controller()->RebuildMenu();
+
+  ui::SimpleMenuModel* menu = controller()->menu_model();
+  ASSERT_TRUE(SingleTabIndex().has_value());
+  ASSERT_TRUE(SubmenuIndex().has_value());
+  EXPECT_EQ(*SingleTabIndex() + 1, *SubmenuIndex());
+
+  const size_t index = *SingleTabIndex();
+  EXPECT_EQ(menu->GetTypeAt(index), ui::MenuModel::TYPE_COMMAND);
+  EXPECT_EQ(menu->GetLabelAt(index), u"Active");
+  EXPECT_EQ(menu->GetMinorTextAt(index), u"");
+  EXPECT_TRUE(menu->GetMinorIconAt(index).IsEmpty());
+  EXPECT_FALSE(menu->GetIconAt(index).IsEmpty());
+  EXPECT_EQ(menu->GetElementIdentifierAt(index),
+            OmniboxContextMenuController::kSingleTabMenuItemIdForTesting);
+}
+
+TEST_F(OmniboxContextMenuControllerSingleTabItemTest,
+       ShowsRecentTabWhenNoActiveTab) {
+  controller()->SetMockTabs({MakeTab(1, u"Recent", /*is_active_tab=*/false),
+                             MakeTab(2, u"Older", /*is_active_tab=*/false)});
+  controller()->RebuildMenu();
+
+  ui::SimpleMenuModel* menu = controller()->menu_model();
+  ASSERT_TRUE(SingleTabIndex().has_value());
+  const size_t index = *SingleTabIndex();
+  EXPECT_EQ(menu->GetLabelAt(index), u"Recent");
+  EXPECT_EQ(menu->GetMinorTextAt(index), u"");
+}
+
+TEST_F(OmniboxContextMenuControllerSingleTabItemTest,
+       SurfacesActiveTabEvenWhenNotFirst) {
+  // Checked tabs sort ahead of the active tab in `GetRecentTabs()`, so the
+  // active tab is not necessarily at index 0.
+  controller()->SetMockTabs(
+      {MakeTab(1, u"Checked", /*is_active_tab=*/false, /*is_checked=*/true),
+       MakeTab(2, u"Active", /*is_active_tab=*/true)});
+  controller()->RebuildMenu();
+
+  ui::SimpleMenuModel* menu = controller()->menu_model();
+  ASSERT_TRUE(SingleTabIndex().has_value());
+  EXPECT_EQ(menu->GetLabelAt(*SingleTabIndex()), u"Active");
+  EXPECT_EQ(menu->GetMinorTextAt(*SingleTabIndex()), u"");
+}
+
+TEST_F(OmniboxContextMenuControllerSingleTabItemTest,
+       CheckmarkReflectsSelection) {
+  controller()->SetMockTabs(
+      {MakeTab(1, u"Active", /*is_active_tab=*/true, /*is_checked=*/true)});
+  controller()->RebuildMenu();
+
+  ui::SimpleMenuModel* menu = controller()->menu_model();
+  ASSERT_TRUE(SingleTabIndex().has_value());
+  EXPECT_FALSE(menu->GetMinorIconAt(*SingleTabIndex()).IsEmpty());
+}
+
+TEST_F(OmniboxContextMenuControllerSingleTabItemTest, TabRemainsInFlyout) {
+  controller()->SetMockTabs({MakeTab(1, u"Active", /*is_active_tab=*/true),
+                             MakeTab(2, u"Other", /*is_active_tab=*/false)});
+  controller()->RebuildMenu();
+
+  ui::SimpleMenuModel* submenu = controller()->shared_tabs_menu_model();
+  ASSERT_TRUE(submenu);
+  ASSERT_EQ(submenu->GetItemCount(), 2u);
+  EXPECT_EQ(submenu->GetLabelAt(0), u"Active");
+  EXPECT_EQ(submenu->GetLabelAt(1), u"Other");
+}
+
+TEST_F(OmniboxContextMenuControllerSingleTabItemTest,
+       HiddenWhenSmartTabSharingActive) {
+  base::test::ScopedFeatureList sts_feature_list;
+  sts_feature_list.InitFromCommandLine(
+      "ContextualTasksForceEntryPointEligibility,"
+      "ContextualTasksContext<ContextualTasksContextStudy."
+      "ContextualTasksContextGroup:ContextualTasksContextSmartTabSharing/true",
+      "");
+
+  FakeContextualSearchboxHandler fake_handler(profile_.get(),
+                                              web_contents_.get());
+  controller()->SetContextualSearchboxHandler(&fake_handler);
+  controller()->SetMockTabs({MakeTab(1, u"Active", /*is_active_tab=*/true)});
+
+  fake_handler.active_ = true;
+  controller()->RebuildMenu();
+  EXPECT_FALSE(SingleTabIndex().has_value());
+  EXPECT_TRUE(controller()
+                  ->menu_model()
+                  ->GetIndexOfCommandId(IDC_OMNIBOX_CONTEXT_SMART_TAB_SHARING)
+                  .has_value());
+
+  fake_handler.active_ = false;
+  controller()->RebuildMenu();
+  EXPECT_TRUE(SingleTabIndex().has_value());
+}
+
+TEST_F(OmniboxContextMenuControllerSingleTabItemTest, HiddenWhenNoTabs) {
+  controller()->SetMockTabs({});
+  controller()->RebuildMenu();
+  EXPECT_FALSE(SingleTabIndex().has_value());
+}
+
+TEST_F(OmniboxContextMenuControllerSingleTabItemTest,
+       AliasResolvesToUnderlyingTabCommand) {
+  controller()->SetMockTabs({MakeTab(1, u"Other", /*is_active_tab=*/false),
+                             MakeTab(2, u"Active", /*is_active_tab=*/true)});
+  controller()->RebuildMenu();
+
+  // The active tab is the second suggestion, i.e. command 33000 + 1.
+  constexpr int kActiveTabCommandId = 33000 + 1;
+  EXPECT_TRUE(controller()->IsCommandIdEnabled(IDC_OMNIBOX_CONTEXT_SINGLE_TAB));
+  EXPECT_TRUE(controller()->IsCommandIdEnabled(kActiveTabCommandId));
+  EXPECT_TRUE(controller()->IsCommandIdVisible(IDC_OMNIBOX_CONTEXT_SINGLE_TAB));
+  EXPECT_TRUE(controller()->IsCommandIdVisible(kActiveTabCommandId));
+
+  controller()->SetTabContextEnabled(false);
+  EXPECT_FALSE(
+      controller()->IsCommandIdEnabled(IDC_OMNIBOX_CONTEXT_SINGLE_TAB));
+  controller()->SetTabContextEnabled(true);
+
+  // Executing the alias behaves like executing the flyout row for the same
+  // tab, including the tab picker telemetry for that tab's position.
+  base::HistogramTester histogram_tester;
+  controller()->ExecuteCommand(IDC_OMNIBOX_CONTEXT_SINGLE_TAB, 0);
+  histogram_tester.ExpectUniqueSample(
+      "ContextualSearch.TabPicker.SelectedTabIsActive.Omnibox", true, 1);
+  histogram_tester.ExpectUniqueSample(
+      "ContextualSearch.TabPicker.SelectedTabPosition.Omnibox", 1, 1);
+  histogram_tester.ExpectUniqueSample(
+      "ContextualSearch.SingleTabMenuItem.Action.Omnibox",
+      omnibox::SingleTabMenuItemAction::kCurrentTabSelected, 1);
+}
+
+TEST_F(OmniboxContextMenuControllerSingleTabItemTest,
+       SingleTabItemMetrics_SelectAndDeselectCurrentTab) {
+  SearchboxContextData searchbox_context_data(
+      browser_window_interface_.GetUnownedUserDataHost());
+  FakeContextualSearchboxHandler fake_handler(profile_.get(),
+                                              web_contents_.get());
+  controller()->SetContextualSearchboxHandler(&fake_handler);
+  controller()->SetMockTabs({MakeTab(1, u"Active", /*is_active_tab=*/true),
+                             MakeTab(2, u"Other", /*is_active_tab=*/false)});
+  controller()->RebuildMenu();
+
+  base::HistogramTester histogram_tester;
+  controller()->ExecuteCommand(IDC_OMNIBOX_CONTEXT_SINGLE_TAB, 0);
+  histogram_tester.ExpectUniqueSample(
+      "ContextualSearch.SingleTabMenuItem.Action.Omnibox",
+      omnibox::SingleTabMenuItemAction::kCurrentTabSelected, 1);
+  auto pending_context = searchbox_context_data.TakePendingContext();
+  ASSERT_TRUE(pending_context);
+  ASSERT_EQ(1u, pending_context->file_infos.size());
+  ASSERT_TRUE(pending_context->file_infos[0]->is_tab_attachment());
+  EXPECT_TRUE(pending_context->file_infos[0]
+                  ->get_tab_attachment()
+                  ->from_single_tab_menu_item);
+  EXPECT_TRUE(
+      pending_context->file_infos[0]->get_tab_attachment()->is_active_tab);
+
+  // Stage tab 1 as uploaded and execute `IDC_OMNIBOX_CONTEXT_SINGLE_TAB` again
+  // to deselect it.
+  fake_handler.selected_tabs[base::UnguessableToken::Create()] = 1;
+  controller()->ExecuteCommand(IDC_OMNIBOX_CONTEXT_SINGLE_TAB, 0);
+  histogram_tester.ExpectBucketCount(
+      "ContextualSearch.SingleTabMenuItem.Action.Omnibox",
+      omnibox::SingleTabMenuItemAction::kCurrentTabDeselected, 1);
+  histogram_tester.ExpectTotalCount(
+      "ContextualSearch.SingleTabMenuItem.Action.Omnibox", 2);
+}
+
+TEST_F(OmniboxContextMenuControllerSingleTabItemTest,
+       SingleTabItemMetrics_SelectAndDeselectRecentTab) {
+  SearchboxContextData searchbox_context_data(
+      browser_window_interface_.GetUnownedUserDataHost());
+  FakeContextualSearchboxHandler fake_handler(profile_.get(),
+                                              web_contents_.get());
+  controller()->SetContextualSearchboxHandler(&fake_handler);
+  controller()->SetMockTabs({MakeTab(1, u"Recent", /*is_active_tab=*/false),
+                             MakeTab(2, u"Older", /*is_active_tab=*/false)});
+  controller()->RebuildMenu();
+
+  base::HistogramTester histogram_tester;
+  controller()->ExecuteCommand(IDC_OMNIBOX_CONTEXT_SINGLE_TAB, 0);
+  histogram_tester.ExpectUniqueSample(
+      "ContextualSearch.SingleTabMenuItem.Action.Omnibox",
+      omnibox::SingleTabMenuItemAction::kRecentTabSelected, 1);
+  auto pending_context = searchbox_context_data.TakePendingContext();
+  ASSERT_TRUE(pending_context);
+  ASSERT_EQ(1u, pending_context->file_infos.size());
+  ASSERT_TRUE(pending_context->file_infos[0]->is_tab_attachment());
+  EXPECT_TRUE(pending_context->file_infos[0]
+                  ->get_tab_attachment()
+                  ->from_single_tab_menu_item);
+  EXPECT_FALSE(
+      pending_context->file_infos[0]->get_tab_attachment()->is_active_tab);
+
+  // Stage tab 1 as uploaded and execute `IDC_OMNIBOX_CONTEXT_SINGLE_TAB` again
+  // to deselect it.
+  fake_handler.selected_tabs[base::UnguessableToken::Create()] = 1;
+  controller()->ExecuteCommand(IDC_OMNIBOX_CONTEXT_SINGLE_TAB, 0);
+  histogram_tester.ExpectBucketCount(
+      "ContextualSearch.SingleTabMenuItem.Action.Omnibox",
+      omnibox::SingleTabMenuItemAction::kRecentTabDeselected, 1);
+  histogram_tester.ExpectTotalCount(
+      "ContextualSearch.SingleTabMenuItem.Action.Omnibox", 2);
+}
+
+TEST_F(OmniboxContextMenuControllerSingleTabItemTest,
+       SingleTabItemMetrics_FlyoutDoesNotRecordSingleTabMetrics) {
+  SearchboxContextData searchbox_context_data(
+      browser_window_interface_.GetUnownedUserDataHost());
+  FakeContextualSearchboxHandler fake_handler(profile_.get(),
+                                              web_contents_.get());
+  controller()->SetContextualSearchboxHandler(&fake_handler);
+  controller()->SetMockTabs({MakeTab(1, u"Active", /*is_active_tab=*/true),
+                             MakeTab(2, u"Other", /*is_active_tab=*/false)});
+  controller()->RebuildMenu();
+
+  base::HistogramTester histogram_tester;
+  // Execute the flyout command (33000) directly instead of
+  // `IDC_OMNIBOX_CONTEXT_SINGLE_TAB`.
+  controller()->ExecuteCommand(33000, 0);
+  auto pending_context = searchbox_context_data.TakePendingContext();
+  ASSERT_TRUE(pending_context);
+  ASSERT_EQ(1u, pending_context->file_infos.size());
+  ASSERT_TRUE(pending_context->file_infos[0]->is_tab_attachment());
+  EXPECT_FALSE(pending_context->file_infos[0]
+                   ->get_tab_attachment()
+                   ->from_single_tab_menu_item);
+  fake_handler.selected_tabs[base::UnguessableToken::Create()] = 1;
+  controller()->ExecuteCommand(33000, 0);
+
+  histogram_tester.ExpectTotalCount(
+      "ContextualSearch.SingleTabMenuItem.Action.Omnibox", 0);
+}
+
+TEST_F(OmniboxContextMenuControllerSingleTabItemTest,
+       FaviconUpdatesMainMenuRow) {
+  controller()->SetMockTabs({MakeTab(1, u"Active", /*is_active_tab=*/true)});
+  controller()->RebuildMenu();
+  ASSERT_TRUE(SingleTabIndex().has_value());
+
+  favicon_base::FaviconImageResult result;
+  result.image = gfx::test::CreateImage(16, 16);
+  controller()->OnFaviconDataAvailable(IDC_OMNIBOX_CONTEXT_SINGLE_TAB, result);
+
+  ui::ImageModel icon =
+      controller()->menu_model()->GetIconAt(*SingleTabIndex());
+  EXPECT_TRUE(icon.IsImage());
+  // The flyout row keeps its own (default) icon.
+  EXPECT_FALSE(controller()->shared_tabs_menu_model()->GetIconAt(0).IsImage());
+}
+
+TEST_F(OmniboxContextMenuControllerTest, SingleTabItem_HiddenWhenParamOff) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeaturesAndParameters(
+      {{omnibox::kContextManagementInComposebox,
+        {{omnibox::kContextManagementInComposeboxSingleTabMenuItem.name,
+          "false"}}},
+       {omnibox::kContextManagementInOmnibox, {}},
+       {omnibox::kAimUsePecApi, {}}},
+      {});
+
+  OmniboxContextMenuController::TabInfo tab;
+  tab.tab_id = 1;
+  tab.title = u"Active";
+  tab.url = GURL("https://example.com");
+  tab.is_active_tab = true;
+  controller()->SetMockTabs({tab});
+  omnibox::InputState state;
+  state.allowed_input_types.push_back(
+      omnibox::InputType::INPUT_TYPE_BROWSER_TAB);
+  controller()->OnInputStateChanged(state);
+
+  EXPECT_FALSE(controller()
+                   ->menu_model()
+                   ->GetIndexOfCommandId(IDC_OMNIBOX_CONTEXT_SINGLE_TAB)
+                   .has_value());
+  ASSERT_TRUE(controller()->shared_tabs_menu_model());
 }

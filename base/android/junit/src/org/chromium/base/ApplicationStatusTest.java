@@ -233,7 +233,7 @@ public class ApplicationStatusTest {
 
     private Window.Callback createWindowCallbackProxy() {
         return ApplicationStatus.createWindowCallbackProxy(
-                mock(Activity.class), mock(Window.Callback.class));
+                Robolectric.buildActivity(Activity.class).get(), mock(Window.Callback.class));
     }
 
     @Test

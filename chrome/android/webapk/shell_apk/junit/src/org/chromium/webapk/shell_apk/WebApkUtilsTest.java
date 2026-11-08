@@ -6,42 +6,43 @@ package org.chromium.webapk.shell_apk;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
-import static org.mockito.Mockito.doReturn;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verify;
 import static org.robolectric.Robolectric.setupActivity;
 
 import android.app.Activity;
+import android.content.ComponentName;
 import android.content.Context;
+import android.content.Intent;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
+import android.net.Uri;
 import android.os.Bundle;
 import android.view.View;
 
 import org.junit.Assert;
 import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.Mock;
-import org.mockito.junit.MockitoJUnit;
-import org.mockito.junit.MockitoRule;
 import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.Shadows;
 import org.robolectric.shadows.ShadowPackageManager;
 
 import org.chromium.components.webapk.lib.common.WebApkMetaDataKeys;
+import org.chromium.webapk.test.WebApkTestHelper;
+
+import java.util.ArrayList;
+import java.util.Arrays;
 
 /** Tests for WebApkUtils. */
 @RunWith(RobolectricTestRunner.class)
 public class WebApkUtilsTest {
-    @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
-    @Mock private Context mMockApplicationContext;
-    @Mock private PackageManager mMockPackageManager;
-
     protected static final String WEBAPK_PACKAGE_NAME = "org.chromium.test";
 
     private Context mContext;
@@ -123,11 +124,8 @@ public class WebApkUtilsTest {
     @Test
     public void testStatusBarBlackInAutomotive() {
         // Create an "automotive" Activity.
-        Activity testActivity = spy(setupActivity(Activity.class));
-        doReturn(mMockApplicationContext).when(testActivity).getApplicationContext();
-        when(mMockApplicationContext.getPackageManager()).thenReturn(mMockPackageManager);
-        when(mMockPackageManager.hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE))
-                .thenReturn(true);
+        mPackageManager.setSystemFeature(PackageManager.FEATURE_AUTOMOTIVE, true);
+        Activity testActivity = setupActivity(Activity.class);
         View rootView = testActivity.getWindow().getDecorView().getRootView();
 
         WebApkUtils.setStatusBarColor(testActivity, Color.RED);
@@ -145,5 +143,69 @@ public class WebApkUtilsTest {
                 rootView.getSystemUiVisibility() & View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);
 
         testActivity.finish();
+    }
+
+    /**
+     * Tests that {@link WebApkUtils#grantUriPermissionToHostBrowserIfShare} catches {@link
+     * SecurityException} when granting URI permission fails (e.g. when the sending app omits {@link
+     * Intent#FLAG_GRANT_READ_URI_PERMISSION}) and continues granting permissions for remaining
+     * URIs.
+     */
+    @Test
+    public void testGrantUriPermissionToHostBrowserIfShareCatchesSecurityException() {
+        Context spyContext = spy(mContext);
+        Uri ungrantedUri = Uri.parse("content://com.example.provider/ungranted");
+        Uri grantedUri = Uri.parse("content://com.example.provider/granted");
+        doThrow(new SecurityException("No permission"))
+                .when(spyContext)
+                .grantUriPermission(
+                        anyString(), eq(ungrantedUri), eq(Intent.FLAG_GRANT_READ_URI_PERMISSION));
+
+        String shareActivityClassName =
+                WebApkTestHelper.getGeneratedShareTargetActivityClassName(0);
+        Bundle metadata = new Bundle();
+        metadata.putString(WebApkMetaDataKeys.START_URL, "https://pwa.rocks/");
+        Bundle shareMetadata = new Bundle();
+        shareMetadata.putString(WebApkMetaDataKeys.SHARE_ACTION, "https://pwa.rocks/share");
+        shareMetadata.putString(WebApkMetaDataKeys.SHARE_METHOD, "POST");
+        WebApkTestHelper.registerWebApkWithMetaData(
+                mContext.getPackageName(), metadata, new Bundle[] {shareMetadata});
+
+        // Test single ungranted URI in ACTION_SEND.
+        Intent sendIntent = new Intent(Intent.ACTION_SEND);
+        sendIntent.setComponent(
+                new ComponentName(mContext.getPackageName(), shareActivityClassName));
+        sendIntent.putExtra(Intent.EXTRA_STREAM, ungrantedUri);
+        HostBrowserLauncherParams sendParams =
+                HostBrowserLauncherParams.createForIntent(
+                        spyContext,
+                        sendIntent,
+                        new HostBrowserUtils.PackageNameAndComponentName("com.chrome.beta"),
+                        /* dialogShown= */ false,
+                        /* launchTimeMs= */ -1,
+                        /* splashShownTimeMs= */ -1);
+        WebApkUtils.grantUriPermissionToHostBrowserIfShare(spyContext, sendParams);
+
+        // Test multiple URIs in ACTION_SEND_MULTIPLE (including null and ungranted URI).
+        Intent sendMultipleIntent = new Intent(Intent.ACTION_SEND_MULTIPLE);
+        sendMultipleIntent.setComponent(
+                new ComponentName(mContext.getPackageName(), shareActivityClassName));
+        ArrayList<Uri> streamUris = new ArrayList<>(Arrays.asList(null, ungrantedUri, grantedUri));
+        sendMultipleIntent.putParcelableArrayListExtra(Intent.EXTRA_STREAM, streamUris);
+        HostBrowserLauncherParams sendMultipleParams =
+                HostBrowserLauncherParams.createForIntent(
+                        spyContext,
+                        sendMultipleIntent,
+                        new HostBrowserUtils.PackageNameAndComponentName("com.chrome.beta"),
+                        /* dialogShown= */ false,
+                        /* launchTimeMs= */ -1,
+                        /* splashShownTimeMs= */ -1);
+        WebApkUtils.grantUriPermissionToHostBrowserIfShare(spyContext, sendMultipleParams);
+
+        verify(spyContext)
+                .grantUriPermission(
+                        eq("com.chrome.beta"),
+                        eq(grantedUri),
+                        eq(Intent.FLAG_GRANT_READ_URI_PERMISSION));
     }
 }

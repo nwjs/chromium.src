@@ -12,7 +12,6 @@
 #include "base/debug/dump_without_crashing.h"
 #include "base/functional/bind.h"
 #include "base/location.h"
-#include "base/metrics/histogram_macros.h"
 #include "base/task/single_thread_task_runner.h"
 #include "build/build_config.h"
 #include "components/input/cursor_manager.h"
@@ -72,7 +71,8 @@ RenderWidgetHostViewChildFrame::RenderWidgetHostViewChildFrame(
     const display::ScreenInfos& parent_screen_infos)
     : RenderWidgetHostViewBase(widget_host),
       frame_sink_id_(widget_host->GetFrameSinkId()),
-      frame_connector_(nullptr) {
+      frame_connector_(nullptr),
+      mouse_wheel_phase_handler_(this) {
   // TODO(enne): this appears to have a null current() in some tests.
   screen_infos_ = parent_screen_infos;
 
@@ -251,6 +251,9 @@ void RenderWidgetHostViewChildFrame::Focus() {
 }
 
 bool RenderWidgetHostViewChildFrame::HasFocus() {
+  if (has_focus_for_testing_.has_value()) {
+    return *has_focus_for_testing_;
+  }
   if (!frame_connector_) {
     return false;
   }
@@ -503,11 +506,22 @@ RenderWidgetHostViewBase* RenderWidgetHostViewChildFrame::GetRootView() {
                           : nullptr;
 }
 
+input::RenderWidgetHostViewInput*
+RenderWidgetHostViewChildFrame::GetPinchZoomTarget() {
+  return frame_connector_ ? frame_connector_->GetPinchZoomTarget() : nullptr;
+}
+
 #if BUILDFLAG(IS_WIN)
 bool RenderWidgetHostViewChildFrame::ShouldInitiateStylusWriting() {
   auto* root = GetRootView();
   return root ? root->ShouldInitiateStylusWriting()
               : RenderWidgetHostViewBase::ShouldInitiateStylusWriting();
+}
+
+std::optional<gfx::Vector2dF>
+RenderWidgetHostViewChildFrame::GetStylusHandwritingPixelsPerInch() {
+  auto* root = GetRootView();
+  return root ? root->GetStylusHandwritingPixelsPerInch() : std::nullopt;
 }
 
 void RenderWidgetHostViewChildFrame::OnStartStylusWriting() {
@@ -791,6 +805,8 @@ void RenderWidgetHostViewChildFrame::GestureEventAck(
   TRACE_EVENT1("input", "RenderWidgetHostViewChildFrame::GestureEventAck",
                "type", blink::WebInputEvent::GetName(event.GetType()));
 
+  mouse_wheel_phase_handler_.GestureEventAck(event, ack_result);
+
 #if !BUILDFLAG(IS_ANDROID)
   HandleSwipeToMoveCursorGestureAck(event);
 #endif
@@ -881,6 +897,11 @@ void RenderWidgetHostViewChildFrame::DidStopFlinging() {
     selection_controller_client_->DidStopFlinging();
 }
 
+MouseWheelPhaseHandler*
+RenderWidgetHostViewChildFrame::GetMouseWheelPhaseHandler() {
+  return &mouse_wheel_phase_handler_;
+}
+
 blink::mojom::PointerLockResult RenderWidgetHostViewChildFrame::LockPointer(
     bool request_unadjusted_movement) {
   if (frame_connector_)
@@ -957,12 +978,6 @@ void RenderWidgetHostViewChildFrame::PreProcessTouchEvent(
   }
 
   FrameConnector::RootViewFocusState state = frame_connector_->HasFocus();
-#if BUILDFLAG(IS_ANDROID)
-  UMA_HISTOGRAM_ENUMERATION(
-      "Android.FocusChanged.RenderWidgetHostViewChildFrame.RootViewFocusState",
-      state);
-#endif
-
   if (state == FrameConnector::RootViewFocusState::kNotFocused) {
     Focus();
   }
@@ -1058,9 +1073,10 @@ uint64_t RenderWidgetHostViewChildFrame::GetNSViewId() const {
 
 #endif  // BUILDFLAG(IS_MAC)
 
-void RenderWidgetHostViewChildFrame::CopyFromSurface(
+void RenderWidgetHostViewChildFrame::CopyFromSurfaceImpl(
     const gfx::Rect& src_subrect,
     const gfx::Size& output_size,
+    bool is_copy_request_secure,
     base::TimeDelta timeout,
     base::OnceCallback<void(const content::CopyFromSurfaceResult&)> callback) {
   if (!IsSurfaceAvailableForCopy()) {
@@ -1082,6 +1098,7 @@ void RenderWidgetHostViewChildFrame::CopyFromSurface(
                         .GetOutScopedBitmapAndMetadata()));
               },
               std::move(callback)));
+  request->set_is_secure(is_copy_request_secure);
 
   // Run result callback on the current thread in case `callback` needs to run
   // on the current thread. See http://crbug.com/1431363.

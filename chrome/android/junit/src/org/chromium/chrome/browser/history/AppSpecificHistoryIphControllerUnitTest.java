@@ -23,6 +23,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
+import org.robolectric.Robolectric;
 import org.robolectric.annotation.Config;
 
 import org.chromium.base.Callback;
@@ -55,7 +56,7 @@ public class AppSpecificHistoryIphControllerUnitTest {
     @Mock private Profile mMockProfile;
     @Mock private Tracker mTracker;
 
-    @Mock private Activity mActivity;
+    private Activity mActivity;
     private AppSpecificHistoryIphController mController;
 
     @Before
@@ -64,6 +65,7 @@ public class AppSpecificHistoryIphControllerUnitTest {
         when(mTracker.wouldTriggerHelpUi(FeatureConstants.APP_SPECIFIC_HISTORY_FEATURE))
                 .thenReturn(true);
         TrackerFactory.setTrackerForTests(mTracker);
+        mActivity = Robolectric.buildActivity(Activity.class).get();
         mController = new AppSpecificHistoryIphController(mActivity, () -> mMockProfile);
         mController.setUserEducationHelperForTesting(mUserEducationHelper);
     }
@@ -75,7 +77,6 @@ public class AppSpecificHistoryIphControllerUnitTest {
 
     @Test
     @Config(sdk = Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
-    @SuppressWarnings("DirectInvocationOnMock")
     public void testShowsIphOnPageLoad() {
         mController.maybeShowIph();
         var captor = ArgumentCaptor.forClass(IphCommand.class);

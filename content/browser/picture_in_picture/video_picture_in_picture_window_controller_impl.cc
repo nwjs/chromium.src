@@ -7,6 +7,7 @@
 #include <set>
 #include <utility>
 
+#include "base/memory/weak_ptr.h"
 #include "components/viz/common/surfaces/surface_id.h"
 #include "content/browser/media/media_web_contents_observer.h"
 #include "content/browser/media/session/media_session_impl.h"
@@ -226,7 +227,9 @@ bool VideoPictureInPictureWindowControllerImpl::TogglePlayPause() {
   // This comes from the window, rather than the renderer, so we must actually
   // have a window at this point.
   CHECK(window_, base::NotFatalUntil::M159);
-  CHECK(active_session_, base::NotFatalUntil::M159);
+  // TODO(crbug.com/563908053): CHECK-exclusion: Convert to a CHECK once we are
+  // confident it won't be triggered.
+  DCHECK(active_session_);
 
   if (IsPlayerActive()) {
     return PauseInternal();
@@ -238,7 +241,9 @@ void VideoPictureInPictureWindowControllerImpl::Play() {
   // This comes from the window, rather than the renderer, so we must actually
   // have a window at this point.
   CHECK(window_, base::NotFatalUntil::M159);
-  CHECK(active_session_, base::NotFatalUntil::M159);
+  // TODO(crbug.com/572378290): CHECK-exclusion: Convert to a CHECK once we are
+  // confident it won't be triggered.
+  DCHECK(active_session_);
 
   PlayInternal();
 }
@@ -316,7 +321,11 @@ PictureInPictureResult VideoPictureInPictureWindowControllerImpl::StartSession(
   WebContentsDelegate* delegate = web_contents()->GetDelegate();
   if (delegate && (IsImmersive() ? delegate->IsImmersivePlaybackEnabled()
                                  : delegate->IsPictureInPictureEnabled())) {
+    base::WeakPtr<WebContents> weak_web_contents = web_contents()->GetWeakPtr();
     result = GetWebContentsImpl()->EnterPictureInPicture();
+    if (!weak_web_contents) {
+      return PictureInPictureResult::kNotSupported;
+    }
   }
 
   // Picture-in-Picture may not be supported by all embedders, so we should only
@@ -420,6 +429,15 @@ void VideoPictureInPictureWindowControllerImpl::SetPlaybackControlsVisibility(
 
   if (window_) {
     window_->SetPlaybackControlsVisibility(is_visible);
+  }
+}
+
+void VideoPictureInPictureWindowControllerImpl::OnPictureInPictureStateChanged(
+    const MediaPlayerId& player_id,
+    bool is_picture_in_picture) {
+  if (WebContentsImpl* web_contents = GetWebContentsImpl()) {
+    web_contents->media_web_contents_observer()->OnPictureInPictureStateChanged(
+        player_id, is_picture_in_picture);
   }
 }
 

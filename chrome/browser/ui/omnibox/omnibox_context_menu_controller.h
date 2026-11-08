@@ -101,6 +101,9 @@ class OmniboxContextMenuController : public ui::SimpleMenuModel::Delegate {
   // submenu, so tests must select this item first to make the tab rows
   // reachable.
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kSharedTabsSubmenuIdForTesting);
+  // Identifies the standalone current/recent tab row when the single tab
+  // menu item arm of context management is enabled.
+  DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kSingleTabMenuItemIdForTesting);
   // If `contextual_searchbox_handler` is provided (primarily for dependency
   // injection in unit tests), it will be used instead of looking up the active
   // handler dynamically from `web_contents`.
@@ -115,6 +118,7 @@ class OmniboxContextMenuController : public ui::SimpleMenuModel::Delegate {
     base::TimeTicks last_active;
     bool is_active_tab = false;
     bool is_checked = false;
+    bool from_single_tab_menu_item = false;
   };
 
   OmniboxContextMenuController(const OmniboxContextMenuController&) = delete;
@@ -240,6 +244,14 @@ class OmniboxContextMenuController : public ui::SimpleMenuModel::Delegate {
   void AddSeparator();
   // Adds recent tabs as items to the menu.
   void AddRecentTabItems();
+  std::optional<size_t> GetSingleTabIndex(
+      const std::vector<TabInfo>& tabs) const;
+  // Adds the standalone single tab menu item for `tab` directly to the main
+  // menu.
+  void AddSingleTabItem(const TabInfo& tab, int tab_command_id);
+  // Maps `IDC_OMNIBOX_CONTEXT_SINGLE_TAB` to the command ID of the tab it
+  // aliases. All other command IDs are returned unchanged.
+  int ResolveCommandId(int command_id) const;
   // Adds the contextual input items to the menu.
   void AddContextualInputItems();
   // Adds the tool items to the menu.
@@ -302,6 +314,12 @@ class OmniboxContextMenuController : public ui::SimpleMenuModel::Delegate {
   void OpenAiMode(
       OmniboxEditModel::AimActivation activation,
       omnibox_everywhere::mojom::ComposeboxInitialStatePtr initial_state);
+  // Selects `tool_mode` or `model_mode` in the searchbox handler and records
+  // the selection. Without a handler, which happens before the AI Mode page
+  // loads, adds the selection to the pending searchbox context, which the
+  // page receives and applies when it is shown.
+  void SetActiveToolMode(omnibox::ToolMode tool_mode);
+  void SetActiveModelMode(omnibox::ModelMode model_mode);
   virtual OmniboxPopupUI* GetOmniboxPopupUI() const;
   virtual bool IsLoomnibox() const;
   virtual ContextualSearchboxHandler* GetContextualSearchboxHandler() const;
@@ -322,6 +340,7 @@ class OmniboxContextMenuController : public ui::SimpleMenuModel::Delegate {
   raw_ptr<FaviconService> favicon_service_;
   int next_command_id_ = 0;
   int min_tools_and_models_command_id_ = 0;
+  std::optional<int> single_tab_command_id_;
 
   omnibox::InputState input_state_;
 

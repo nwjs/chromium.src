@@ -46,8 +46,8 @@ if (is_android) {
     deps = [
       "//components/vrp_flags:buildflags",
       "//third_party/rust/font_types/v0_12:lib",
-      "//third_party/rust/read_fonts/v0_43:lib",
-      "//third_party/rust/skrifa/v0_46:lib",
+      "//third_party/rust/read_fonts/v0_45:lib",
+      "//third_party/rust/skrifa/v0_48:lib",
     ]
   }
 }
@@ -70,6 +70,7 @@ rust_static_library("child_process_security_policy_impl") {
   sources = [
     "security/cpsp/child_process_security_policy_impl.rs",
     "security/cpsp/lib.rs",
+    "security/cpsp/process_lock.rs",
     "security/cpsp/process_state.rs",
   ]
   cxx_bindings = [
@@ -193,6 +194,7 @@ source_set("browser") {
     "//components/ukm/debug:util",
     "//components/url_formatter",
     "//components/url_matcher",
+    "//components/url_pattern",
     "//components/variations",
     "//components/variations/net",
     "//components/version_info",
@@ -232,6 +234,7 @@ source_set("browser") {
     "//content/public/common:content_descriptor_keys",
     "//content/public/common/zygote:buildflags",
     "//content/services/devtools_media_encoding_service/public/mojom",
+    "//content/services/resource_broker/public/mojom",
     "//crypto",
     "//device/base",
     "//device/bluetooth",
@@ -541,8 +544,8 @@ source_set("browser") {
     "background_fetch/storage/get_metadata_task.h",
     "background_fetch/storage/get_registration_task.cc",
     "background_fetch/storage/get_registration_task.h",
-    "background_fetch/storage/get_request_blob_task.cc",
-    "background_fetch/storage/get_request_blob_task.h",
+    "background_fetch/storage/get_request_body_task.cc",
+    "background_fetch/storage/get_request_body_task.h",
     "background_fetch/storage/image_helpers.cc",
     "background_fetch/storage/image_helpers.h",
     "background_fetch/storage/mark_registration_for_deletion_task.cc",
@@ -940,8 +943,6 @@ source_set("browser") {
     "dom_storage/dom_storage_context_wrapper.h",
     "dom_storage/session_storage_namespace_handle_impl.cc",
     "dom_storage/session_storage_namespace_handle_impl.h",
-    "download/data_url_blob_reader.cc",
-    "download/data_url_blob_reader.h",
     "download/download_item_utils.cc",
     "download/download_manager_impl.cc",
     "download/download_manager_impl.h",
@@ -1114,8 +1115,6 @@ source_set("browser") {
     "idle/idle_manager_impl.h",
     "image_capture/image_capture_impl.cc",
     "image_capture/image_capture_impl.h",
-    "in_memory_federated_permission_context.cc",
-    "in_memory_federated_permission_context.h",
     "indexed_db/indexed_db_internals_ui.cc",
     "indexed_db/indexed_db_internals_ui.h",
     "installedapp/fetch_related_apps_task.h",
@@ -1212,7 +1211,6 @@ source_set("browser") {
     "renderer_preferences_util.cc",
     "renderer_preferences_util.h",
     "web_contents_based_canceller.cc",
-    "web_contents_based_canceller.h",
 
     # TODO(crbug.com/202736352): This is built even if enable_screen_capture is
     # false. Consider better separation of the screen capture and the other
@@ -1309,10 +1307,12 @@ source_set("browser") {
     "memory/scheduler_loop_quarantine_web_contents_observer.h",
     "memory/swap_metrics_driver_impl.cc",
     "memory/swap_metrics_driver_impl.h",
-    "memory_coordinator/browser_memory_coordinator.cc",
-    "memory_coordinator/browser_memory_coordinator.h",
+    "memory_coordinator/browser_memory_coordinator_impl.cc",
+    "memory_coordinator/browser_memory_coordinator_impl.h",
     "memory_coordinator/child_memory_consumer_registry_host.cc",
     "memory_coordinator/child_memory_consumer_registry_host.h",
+    "memory_coordinator/zero_limit_policy.cc",
+    "memory_coordinator/zero_limit_policy.h",
     "message_port_provider.cc",
     "metrics/histogram_shared_memory_config.cc",
     "metrics/histogram_shared_memory_config.h",
@@ -1416,6 +1416,8 @@ source_set("browser") {
     "permissions/permission_service_context.h",
     "permissions/permission_service_impl.cc",
     "permissions/permission_service_impl.h",
+    "permissions/permission_subscription_impl.cc",
+    "permissions/permission_subscription_impl.h",
     "picture_in_picture/document_picture_in_picture_navigation_throttle.cc",
     "picture_in_picture/document_picture_in_picture_navigation_throttle.h",
     "picture_in_picture/document_picture_in_picture_window_controller_impl.cc",
@@ -1594,6 +1596,8 @@ source_set("browser") {
     "process_internals/process_internals_ui.h",
     "process_lock.cc",
     "process_lock.h",
+    "process_lock_shim.cc",
+    "process_lock_shim.h",
     "process_reuse_policy.h",
     "process_visibility_util.cc",
     "push_messaging/push_messaging_context.cc",
@@ -1913,6 +1917,8 @@ source_set("browser") {
     "renderer_host/visible_time_request_trigger.h",
     "resolve_proxy_helper.cc",
     "resolve_proxy_helper.h",
+    "resource_broker/resource_broker_host.cc",
+    "resource_broker/resource_broker_host.h",
     "resource_coordinator_service.cc",
     "sandboxed_opaque_origin_creator.cc",
     "sandboxed_opaque_origin_creator.h",
@@ -2283,6 +2289,8 @@ source_set("browser") {
     "webid/idp_network_request_manager.h",
     "webid/idp_registration_handler.cc",
     "webid/idp_registration_handler.h",
+    "webid/in_memory_federated_permission_context.cc",
+    "webid/in_memory_federated_permission_context.h",
     "webid/mappers.cc",
     "webid/mappers.h",
     "webid/metrics.cc",
@@ -2291,8 +2299,8 @@ source_set("browser") {
     "webid/navigation_interceptor.h",
     "webid/network_request_manager.cc",
     "webid/network_request_manager.h",
-    "webid/request.cc",
-    "webid/request.h",
+    "webid/request_handler.cc",
+    "webid/request_handler.h",
     "webid/request_page_data.cc",
     "webid/request_page_data.h",
     "webid/request_service.cc",
@@ -2517,8 +2525,17 @@ source_set("browser") {
     deps += [ "//media/mojo/mojom" ]
   }
 
+  if (enable_mdns) {
+    sources += [
+      "renderer_host/no_op_mdns_responder.cc",
+      "renderer_host/no_op_mdns_responder.h",
+    ]
+  }
+
   if (is_p2p_enabled) {
     sources += [
+      "renderer_host/p2p/no_op_p2p_socket_manager.cc",
+      "renderer_host/p2p/no_op_p2p_socket_manager.h",
       "renderer_host/p2p/socket_dispatcher_host.cc",
       "renderer_host/p2p/socket_dispatcher_host.h",
     ]
@@ -2925,6 +2942,8 @@ source_set("browser") {
         "media/capture/desktop_capture_device_mac.h",
         "media/capture/desktop_capture_util_mac.h",
         "media/capture/desktop_capture_util_mac.mm",
+        "media/capture/fake_screen_capture_picker_mac.h",
+        "media/capture/fake_screen_capture_picker_mac.mm",
         "media/capture/io_surface_capture_device_base_mac.cc",
         "media/capture/io_surface_capture_device_base_mac.h",
         "media/capture/mouse_cursor_overlay_controller_mac.mm",
@@ -3357,6 +3376,8 @@ source_set("browser") {
       # The WebAuthn devtools protocol API is not supported in Android yet.
       "$target_gen_dir/devtools/protocol/web_authn.cc",
       "$target_gen_dir/devtools/protocol/web_authn.h",
+      "ai/echo_ai_decision_model.cc",
+      "ai/echo_ai_decision_model.h",
       "devtools/protocol/webauthn_handler.cc",
       "devtools/protocol/webauthn_handler.h",
       "media/session/audio_focus_delegate_default.cc",

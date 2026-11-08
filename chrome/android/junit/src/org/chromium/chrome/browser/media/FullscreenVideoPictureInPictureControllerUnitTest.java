@@ -5,7 +5,8 @@
 package org.chromium.chrome.browser.media;
 
 import static org.junit.Assert.assertFalse;
-import static org.mockito.ArgumentMatchers.any;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -13,6 +14,7 @@ import static org.mockito.Mockito.when;
 
 import android.app.Activity;
 import android.app.ActivityManager;
+import android.app.AppOpsManager;
 import android.app.PictureInPictureParams;
 import android.content.ComponentName;
 import android.content.Context;
@@ -29,9 +31,12 @@ import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
+import org.robolectric.Robolectric;
 import org.robolectric.Shadows;
 import org.robolectric.annotation.Config;
+import org.robolectric.shadows.ShadowActivity;
 import org.robolectric.shadows.ShadowPackageManager;
+import org.robolectric.shadows.ShadowPowerManager;
 import org.robolectric.shadows.ShadowSystemClock;
 
 import org.chromium.base.ContextUtils;
@@ -41,8 +46,10 @@ import org.chromium.base.test.RobolectricUtil;
 import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.chrome.browser.ActivityTabProvider;
 import org.chromium.chrome.browser.fullscreen.FullscreenManager;
+import org.chromium.chrome.browser.media.FullscreenVideoPictureInPictureController.MetricsEndReason;
 import org.chromium.chrome.browser.media.FullscreenVideoPictureInPictureController.PipEntered;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.util.BrowserUiUtils;
 import org.chromium.content_public.browser.MediaSession;
 import org.chromium.content_public.browser.WebContentsObserver;
 import org.chromium.content_public.browser.test.mock.MockWebContents;
@@ -55,14 +62,25 @@ import java.util.concurrent.TimeUnit;
 @RunWith(BaseRobolectricTestRunner.class)
 @Config(shadows = {ShadowPackageManager.class, ShadowSystemClock.class})
 public class FullscreenVideoPictureInPictureControllerUnitTest {
+    /** Robolectric does not shadow setPictureInPictureParams(), so record the params here. */
+    private static class TestActivity extends Activity {
+        private PictureInPictureParams mLastPipParams;
+
+        @Override
+        public void setPictureInPictureParams(PictureInPictureParams params) {
+            mLastPipParams = params;
+        }
+    }
+
     @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
-    @Mock private Activity mActivity;
     @Mock private FullscreenManager mFullscreenManager;
     @Mock private Tab mTab;
     @Mock private MockWebContents mWebContents;
     @Mock private MediaSession mMediaSession;
-    @Mock private PowerManager mPowerManager;
 
+    private TestActivity mActivity;
+    private ShadowActivity mShadowActivity;
+    private ShadowPowerManager mShadowPowerManager;
     // Not a mock, since it's just a container and `final` anyway.
     private final UserDataHost mUserDataHost = new UserDataHost();
     private final ActivityTabProvider mActivityTabProvider = new ActivityTabProvider();
@@ -98,13 +116,13 @@ public class FullscreenVideoPictureInPictureControllerUnitTest {
         shadowPackageManager.setSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE, true);
         mActivityTabProvider.setForTesting(mTab);
 
-        when(mActivity.getSystemService(Context.ACTIVITY_SERVICE))
-                .thenReturn((ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE));
-        when(mActivity.getSystemService(Context.POWER_SERVICE)).thenReturn(mPowerManager);
-        when(mActivity.getPackageManager()).thenReturn(context.getPackageManager());
+        mActivity = Robolectric.buildActivity(TestActivity.class).get();
+        mShadowActivity = Shadows.shadowOf(mActivity);
+        mShadowPowerManager =
+                Shadows.shadowOf((PowerManager) mActivity.getSystemService(Context.POWER_SERVICE));
         when(mTab.getWebContents()).thenReturn(mWebContents);
         when(mTab.getUserDataHost()).thenReturn(mUserDataHost);
-        when(mPowerManager.isInteractive()).thenReturn(true);
+        mShadowPowerManager.setIsInteractive(true);
 
         mController =
                 new FullscreenVideoPictureInPictureControllerWithOverrides(
@@ -135,7 +153,19 @@ public class FullscreenVideoPictureInPictureControllerUnitTest {
     public void attemptPictureInPictureSuccessfully() {
         setHasFullscreenVideo(true);
         mController.attemptPictureInPicture();
-        verify(mActivity, times(1)).enterPictureInPictureMode(any());
+        assertTrue(mActivity.isInPictureInPictureMode());
+    }
+
+    /**
+     * Verify that full screen video will try to enter PiP on Android Q. Unlike web
+     * Picture-in-Picture, fullscreen video PiP does not require Android R.
+     */
+    @Test
+    @Config(sdk = Build.VERSION_CODES.Q)
+    public void attemptPictureInPictureSuccessfullyOnAndroidQ() {
+        setHasFullscreenVideo(true);
+        mController.attemptPictureInPicture();
+        assertTrue(mActivity.isInPictureInPictureMode());
     }
 
     /** Verify that lack of full screen video results in no pip */
@@ -143,7 +173,35 @@ public class FullscreenVideoPictureInPictureControllerUnitTest {
     public void pictureInPictureFailsWithoutVideo() {
         setHasFullscreenVideo(false);
         mController.attemptPictureInPicture();
-        verify(mActivity, times(0)).enterPictureInPictureMode(any());
+        assertFalse(mActivity.isInPictureInPictureMode());
+    }
+
+    /**
+     * Verify that Picture in Picture is blocked when disallowed via AppOpsManager system settings.
+     */
+    @Test
+    public void pictureInPictureBlockedWhenAppOpsDisabled() {
+        setHasFullscreenVideo(true);
+        Shadows.shadowOf((AppOpsManager) mActivity.getSystemService(Context.APP_OPS_SERVICE))
+                .setMode(
+                        AppOpsManager.OPSTR_PICTURE_IN_PICTURE,
+                        mActivity.getApplicationInfo().uid,
+                        mActivity.getPackageName(),
+                        AppOpsManager.MODE_IGNORED);
+        mController.attemptPictureInPicture();
+        assertFalse(mActivity.isInPictureInPictureMode());
+    }
+
+    /**
+     * Verify that Picture in Picture is blocked for the car display when running in Android Auto
+     * Projected mode.
+     */
+    @Test
+    public void pictureInPictureBlockedWhenCarDisplayAndroidAutoProjected() {
+        setHasFullscreenVideo(true);
+        BrowserUiUtils.setIsAndroidAutoProjectedForTesting(true);
+        mController.attemptPictureInPicture();
+        assertFalse(mActivity.isInPictureInPictureMode());
     }
 
     /** Verify that having a registered no-pip component in recent tasks blocks PiP. */
@@ -153,17 +211,16 @@ public class FullscreenVideoPictureInPictureControllerUnitTest {
         String testActivityName = "org.chromium.chrome.browser.media.TestNoPipActivity";
         FullscreenVideoPictureInPictureController.registerNoPipComponentName(testActivityName);
 
-        ActivityManager activityManager = mock(ActivityManager.class);
         ActivityManager.AppTask appTask = mock(ActivityManager.AppTask.class);
         ActivityManager.RecentTaskInfo taskInfo = new ActivityManager.RecentTaskInfo();
         taskInfo.topActivity =
                 new ComponentName(ContextUtils.getApplicationContext(), testActivityName);
         when(appTask.getTaskInfo()).thenReturn(taskInfo);
-        when(activityManager.getAppTasks()).thenReturn(List.of(appTask));
-        when(mActivity.getSystemService(Context.ACTIVITY_SERVICE)).thenReturn(activityManager);
+        Shadows.shadowOf((ActivityManager) mActivity.getSystemService(Context.ACTIVITY_SERVICE))
+                .setAppTasks(List.of(appTask));
 
         mController.attemptPictureInPicture();
-        verify(mActivity, times(0)).enterPictureInPictureMode(any());
+        assertFalse(mActivity.isInPictureInPictureMode());
     }
 
     /** Verify that disableAutoPictureInPicture disables auto-enter. */
@@ -171,10 +228,8 @@ public class FullscreenVideoPictureInPictureControllerUnitTest {
     @Config(sdk = Build.VERSION_CODES.TIRAMISU)
     public void disableAutoPictureInPicture() {
         FullscreenVideoPictureInPictureController.disableAutoPictureInPicture(mActivity);
-        ArgumentCaptor<PictureInPictureParams> captor =
-                ArgumentCaptor.forClass(PictureInPictureParams.class);
-        verify(mActivity).setPictureInPictureParams(captor.capture());
-        assertFalse(captor.getValue().isAutoEnterEnabled());
+        assertNotNull(mActivity.mLastPipParams);
+        assertFalse(mActivity.mLastPipParams.isAutoEnterEnabled());
     }
 
     /** After starting pip, dismiss should move the task to back if it's been long enough. */
@@ -182,11 +237,18 @@ public class FullscreenVideoPictureInPictureControllerUnitTest {
     public void pictureInPictureIsDismissedAfterEnoughTime() {
         enterPip();
         verify(mFullscreenManager).addObserver(mFullscreenObserverCaptor.capture());
+        HistogramWatcher watcher =
+                HistogramWatcher.newBuilder()
+                        .expectIntRecordTimes(
+                                FullscreenVideoPictureInPictureController.EXIT_REASON_HISTOGRAM,
+                                MetricsEndReason.LEFT_FULLSCREEN,
+                                1)
+                        .build();
         mFullscreenObserverCaptor.getValue().onExitFullscreen(mTab);
-        verify(mActivity, times(1)).moveTaskToBack(true);
+        assertTrue(mShadowActivity.isTaskMovedToBack());
         // Verify that a second call does not dismiss a second time.
         mFullscreenObserverCaptor.getValue().onExitFullscreen(mTab);
-        verify(mActivity, times(1)).moveTaskToBack(true);
+        watcher.assertExpected();
     }
 
     /**
@@ -199,13 +261,46 @@ public class FullscreenVideoPictureInPictureControllerUnitTest {
         verify(mFullscreenManager).addObserver(mFullscreenObserverCaptor.capture());
         // Leave the clock at 0, which should cause it to post rather than call back.
         mFullscreenObserverCaptor.getValue().onExitFullscreen(mTab);
-        verify(mActivity, times(0)).moveTaskToBack(true);
+        assertFalse(mShadowActivity.isTaskMovedToBack());
         // Advance the clock so that it has been long enough, and run all delayed tasks.
         ShadowSystemClock.advanceBy(
                 FullscreenVideoPictureInPictureController.MIN_EXIT_DELAY_MILLIS + 10L,
                 TimeUnit.MILLISECONDS);
         runUntilIdle();
-        verify(mActivity, times(1)).moveTaskToBack(true);
+        assertTrue(mShadowActivity.isTaskMovedToBack());
+    }
+
+    /**
+     * A dismiss that arrives while another one is deferred should not preempt it, so that the first
+     * reason is the one that's recorded.
+     */
+    @Test
+    public void deferredDismissIsNotPreemptedByLaterDismiss() {
+        // Do not call `enterPip()`, because we do not want to advance the clock.
+        mController.onEnteredPictureInPictureMode();
+        verify(mFullscreenManager).addObserver(mFullscreenObserverCaptor.capture());
+        verify(mWebContents).addObserver(mWebContentsObserverCaptor.capture());
+        HistogramWatcher watcher =
+                HistogramWatcher.newBuilder()
+                        .expectIntRecord(
+                                FullscreenVideoPictureInPictureController.EXIT_REASON_HISTOGRAM,
+                                MetricsEndReason.LEFT_FULLSCREEN)
+                        .build();
+
+        // Leaving fullscreen right after entering pip defers the dismiss.
+        mFullscreenObserverCaptor.getValue().onExitFullscreen(mTab);
+        assertFalse(mShadowActivity.isTaskMovedToBack());
+
+        // The WebContents reports that it left fullscreen too, after the minimum delay has passed
+        // but before the deferred dismiss has run.
+        ShadowSystemClock.advanceBy(
+                FullscreenVideoPictureInPictureController.MIN_EXIT_DELAY_MILLIS + 10L,
+                TimeUnit.MILLISECONDS);
+        mWebContentsObserverCaptor.getValue().hasEffectivelyFullscreenVideoChange(false);
+
+        runUntilIdle();
+        assertTrue(mShadowActivity.isTaskMovedToBack());
+        watcher.assertExpected();
     }
 
     /** Stash will pause the video, then restart it when un-stashed. */
@@ -281,21 +376,21 @@ public class FullscreenVideoPictureInPictureControllerUnitTest {
         enterPip();
         verify(mWebContents).addObserver(mWebContentsObserverCaptor.capture());
         mWebContentsObserverCaptor.getValue().mediaStartedPlaying(0, true, true);
-        when(mPowerManager.isInteractive()).thenReturn(false);
+        mShadowPowerManager.setIsInteractive(false);
 
         // Expect that there will be no attempt to exit pip yet, because the screen is off.
         // Instead, it will be deferred until it unlocks and we get an `onStart` about it.  We call
         // `onResume` simply as a convenient way to indicate that the pip window should be closed.
         mController.onResume();
-        verify(mActivity, times(0)).moveTaskToBack(true);
+        assertFalse(mShadowActivity.isTaskMovedToBack());
         // The media should be paused, though, just as if pip had closed.
         verify(mMediaSession, times(1)).suspend(SuspendType.SYSTEM);
 
         // When the device is unlocked, we will get `onStart`.  This should cause pip to close
         // because it's still deferred from the `onResume` call, above.
-        when(mPowerManager.isInteractive()).thenReturn(true);
+        mShadowPowerManager.setIsInteractive(true);
         mController.onStart();
-        verify(mActivity, times(1)).moveTaskToBack(true);
+        assertTrue(mShadowActivity.isTaskMovedToBack());
     }
 
     @Test
@@ -304,7 +399,7 @@ public class FullscreenVideoPictureInPictureControllerUnitTest {
         enterPip();
 
         mController.onStart();
-        verify(mActivity, times(0)).moveTaskToBack(true);
+        assertFalse(mShadowActivity.isTaskMovedToBack());
     }
 
     @Test
@@ -316,7 +411,7 @@ public class FullscreenVideoPictureInPictureControllerUnitTest {
         enterPip();
 
         mController.onResume();
-        verify(mActivity, times(1)).moveTaskToBack(true);
+        assertTrue(mShadowActivity.isTaskMovedToBack());
     }
 
     @Test

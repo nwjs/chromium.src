@@ -11,6 +11,7 @@ import android.graphics.drawable.GradientDrawable;
 import android.text.TextUtils;
 
 import org.chromium.base.Token;
+import org.chromium.base.supplier.NullableObservableSupplier;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.profiles.Profile;
@@ -58,14 +59,18 @@ public class TabGroupUtils {
     /**
      * This method gets the selected tab of the group where {@code tab} is in.
      *
-     * <p>TODO(crbug.com/496272676): Remove once ANDROID_TAB_UI_REFACTOR is launched.
+     * <p>TODO(crbug.com/496272676): Remove once ANDROID_TAB_UI_REFACTOR is cleaned up; the sole
+     * caller is GroupedLayoutDelegate's legacy fallback path (!mUseTabGroupCardType).
      *
      * @param tabModel The tab model that owns the {@code tab}.
      * @param tab The {@link Tab}.
      * @return The selected tab of the group which contains the {@code tab}.
      */
     public static Tab getSelectedTabInGroupForTab(TabModel tabModel, Tab tab) {
-        return assumeNonNull(tabModel.getRepresentativeTabAt(tabModel.representativeIndexOf(tab)));
+        Token tabGroupId = tab.getTabGroupId();
+        if (tabGroupId == null) return tab;
+        Tab selectedTab = getSelectedOrFirstTabInGroup(tabModel, tabGroupId);
+        return selectedTab != null ? selectedTab : tab;
     }
 
     /**
@@ -113,15 +118,15 @@ public class TabGroupUtils {
      *
      * @param tabModel The {@link TabModel} to act on.
      * @param url The url to load the new tab with.
-     * @param parentId The ID of one of the tabs in the tab group.
+     * @param tabGroupId The {@link Token} of the tab group.
      * @param type The launch type of the new tab.
      */
     public static void openUrlInGroup(
-            TabModel tabModel, String url, int parentId, @TabLaunchType int type) {
-        List<Tab> relatedTabs = tabModel.getRelatedTabList(parentId);
-        if (relatedTabs.isEmpty()) return;
+            TabModel tabModel, String url, @Nullable Token tabGroupId, @TabLaunchType int type) {
+        List<Tab> tabsInGroup = tabModel.getTabsInGroup(tabGroupId);
+        if (tabsInGroup.isEmpty()) return;
 
-        Tab lastTab = relatedTabs.get(relatedTabs.size() - 1);
+        Tab lastTab = tabsInGroup.get(tabsInGroup.size() - 1);
         TabCreator tabCreator = tabModel.getTabCreator();
         LoadUrlParams loadUrlParams = new LoadUrlParams(url);
         tabCreator.createNewTab(loadUrlParams, type, lastTab);
@@ -160,8 +165,8 @@ public class TabGroupUtils {
         tabGroupId = tabs.get(0).getTabGroupId();
         assumeNonNull(tabGroupId);
 
-        // 3. Apply the tab group attributes (color, collapsed state, and title) using the new
-        // rootId.
+        // 3. Apply the tab group attributes (color, collapsed state, and title) using the
+        // tabGroupId.
         tabModel.setTabGroupColor(tabGroupId, tabGroupColor);
         tabModel.setTabGroupTitle(tabGroupId, tabGroupTitle);
         if (shouldApplyCollapse) {
@@ -208,31 +213,6 @@ public class TabGroupUtils {
             }
         }
         return false;
-    }
-
-    /**
-     * Checks to see if a tab group is shared.
-     *
-     * @param tabModel The {@link TabModel} that owns the tabs in the tab group.
-     * @param groupId The group id representing the tab group.
-     */
-    public static boolean isTabGroupShared(TabModel tabModel, Token groupId) {
-        Profile profile = tabModel.getProfile();
-        if (profile == null
-                || profile.isOffTheRecord()
-                || !TabGroupSyncFeatures.isTabGroupSyncEnabled(profile)) {
-            return false;
-        }
-
-        TabGroupSyncService tabGroupSyncService = TabGroupSyncServiceFactory.getForProfile(profile);
-        if (tabGroupSyncService == null) return false;
-
-        LocalTabGroupId localTabGroupId = new LocalTabGroupId(groupId);
-        SavedTabGroup savedTabGroup = tabGroupSyncService.getGroup(localTabGroupId);
-        if (savedTabGroup == null) return false;
-
-        @Nullable String collaborationId = savedTabGroup.collaborationId;
-        return !TextUtils.isEmpty(collaborationId);
     }
 
     /**
@@ -353,14 +333,13 @@ public class TabGroupUtils {
      * Filters the given list of tabs, returning a new list containing only the tabs that are part
      * of a tab group.
      *
-     * @param tabModel The {@link TabModel} used to find grouped tabs.
      * @param tabs The list of {@link Tab}s to filter.
      * @return A new list of {@link Tab}s that are in a tab group.
      */
-    public static List<Tab> getGroupedTabs(TabModel tabModel, List<Tab> tabs) {
+    public static List<Tab> getGroupedTabs(List<Tab> tabs) {
         List<Tab> groupedTabs = new ArrayList<>();
         for (Tab tab : tabs) {
-            if (tabModel.isTabInTabGroup(tab)) groupedTabs.add(tab);
+            if (tab.getTabGroupId() != null) groupedTabs.add(tab);
         }
         return groupedTabs;
     }
@@ -407,7 +386,24 @@ public class TabGroupUtils {
         return false;
     }
 
-    public static boolean hasTabGroups(@Nullable TabModel tabModel) {
-        return hasTabGroups(tabModel, /* selectorsForAllWindows= */ null);
+    /**
+     * Returns the selected tab for the tab group with {@code tabGroupId} if it belongs to the
+     * group, or falls back to the first tab in the group. Returns {@code null} if the group does
+     * not exist or is empty.
+     *
+     * @param tabModel The {@link TabModel} that owns the tab group.
+     * @param tabGroupId The {@link Token} of the tab group.
+     * @return The selected {@link Tab} or first {@link Tab} in the group, or {@code null}.
+     */
+    public static @Nullable Tab getSelectedOrFirstTabInGroup(
+            TabModel tabModel, @Nullable Token tabGroupId) {
+        if (tabGroupId == null) return null;
+        NullableObservableSupplier<Tab> currentTabSupplier = tabModel.getCurrentTabSupplier();
+        Tab currentTab = currentTabSupplier != null ? currentTabSupplier.get() : null;
+        if (currentTab != null && tabGroupId.equals(currentTab.getTabGroupId())) {
+            return currentTab;
+        }
+        List<Tab> tabsInGroup = tabModel.getTabsInGroup(tabGroupId);
+        return tabsInGroup.isEmpty() ? null : tabsInGroup.get(0);
     }
 }

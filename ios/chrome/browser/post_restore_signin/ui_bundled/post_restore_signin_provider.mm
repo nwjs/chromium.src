@@ -180,9 +180,9 @@
 
   __weak __typeof(self) weakSelf = self;
   SigninCoordinatorCompletionCallback completion =
-      ^(SigninCoordinator* coordinator, SigninCoordinatorResult result,
-        id<SystemIdentity> completionIdentity) {
-        if (result == SigninCoordinatorResultSuccess) {
+      ^(SigninCoordinator* coordinator,
+        SigninCoordinatorResultOrIdentity result) {
+        if (result.has_value()) {
           [weakSelf signinDone];
         }
       };
@@ -199,8 +199,7 @@
 
 - (void)signinDone {
   if (![self isSignedIn]) {
-    NOTREACHED(base::NotFatalUntil::M150);
-    return;
+    NOTREACHED();
   }
   _syncService->GetUserSettings()->SetSelectedType(
       syncer::UserSelectableType::kHistory, _historySyncEnabled);

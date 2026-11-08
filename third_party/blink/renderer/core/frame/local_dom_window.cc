@@ -39,6 +39,7 @@
 #include "cc/input/snap_selection_strategy.h"
 #include "net/base/registry_controlled_domains/registry_controlled_domain.h"
 #include "net/storage_access_api/status.h"
+#include "third_party/blink/public/common/dom/dom_node_id.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/switches.h"
 #include "third_party/blink/public/mojom/devtools/inspector_issue.mojom-blink.h"
@@ -225,6 +226,7 @@ class LocalDOMWindow::NetworkStateObserver final
 
   void Trace(Visitor* visitor) const override {
     ExecutionContextLifecycleObserver::Trace(visitor);
+    NetworkStateNotifier::NetworkStateObserver::Trace(visitor);
   }
 
  private:
@@ -818,7 +820,7 @@ void LocalDOMWindow::AddConsoleMessageImpl(ConsoleMessage* console_message,
         line_number = parser->LineNumber().OneBasedInt();
       }
     }
-    Vector<DOMNodeId> nodes(console_message->Nodes());
+    Vector<DOMNodeIdType> nodes(console_message->Nodes());
     std::optional<mojom::blink::ConsoleMessageCategory> category =
         console_message->Category();
     console_message = MakeGarbageCollected<ConsoleMessage>(
@@ -1425,38 +1427,9 @@ void LocalDOMWindow::DispatchMessageEventWithOriginCheck(
     event = MessageEvent::CreateError(event);
   }
 
-  if (event->delegatedCapability() ==
-      mojom::blink::DelegatedCapability::kPaymentRequest) {
-    UseCounter::Count(this, WebFeature::kCapabilityDelegationOfPaymentRequest);
-    payment_request_token_.Activate();
-  }
-
-  if (event->delegatedCapability() ==
-      mojom::blink::DelegatedCapability::kFullscreenRequest) {
-    UseCounter::Count(this,
-                      WebFeature::kCapabilityDelegationOfFullscreenRequest);
-    fullscreen_request_token_.Activate();
-  }
-  if (RuntimeEnabledFeatures::CapabilityDelegationDisplayCaptureRequestEnabled(
-          this) &&
-      event->delegatedCapability() ==
-          mojom::blink::DelegatedCapability::kDisplayCaptureRequest) {
-    // TODO(crbug.com/1412770): Add use counter.
-    display_capture_request_token_.Activate();
-  }
-  if (RuntimeEnabledFeatures::CapabilityDelegationDigitalCredentialsEnabled(
-          this)) {
-    if (event->delegatedCapability() ==
-        mojom::blink::DelegatedCapability::kDigitalCredentialsCreate) {
-      UseCounter::Count(
-          this, WebFeature::kCapabilityDelegationOfDigitalCredentialsCreate);
-      digital_credentials_create_token_.Activate();
-    } else if (event->delegatedCapability() ==
-               mojom::blink::DelegatedCapability::kDigitalCredentialsGet) {
-      UseCounter::Count(
-          this, WebFeature::kCapabilityDelegationOfDigitalCredentialsGet);
-      digital_credentials_get_token_.Activate();
-    }
+  if (event->delegatedCapability() !=
+      mojom::blink::DelegatedCapability::kNone) {
+    ActivateDelegatedCapability(event->delegatedCapability());
   }
 
   event->SetShouldMeasureDataAccessBeforeOrigin();
@@ -1469,6 +1442,52 @@ void LocalDOMWindow::DispatchMessageEventWithOriginCheck(
     EnqueueEvent(*event, TaskType::kInternalDefault);
   } else {
     DispatchEvent(*event);
+  }
+}
+
+void LocalDOMWindow::ActivateDelegatedCapability(
+    mojom::blink::DelegatedCapability delegated_capability) {
+  switch (delegated_capability) {
+    case mojom::blink::DelegatedCapability::kNone:
+      return;
+    case mojom::blink::DelegatedCapability::kPaymentRequest:
+      UseCounter::Count(this,
+                        WebFeature::kCapabilityDelegationOfPaymentRequest);
+      payment_request_token_.Activate();
+      return;
+    case mojom::blink::DelegatedCapability::kFullscreenRequest:
+      UseCounter::Count(this,
+                        WebFeature::kCapabilityDelegationOfFullscreenRequest);
+      fullscreen_request_token_.Activate();
+      return;
+    case mojom::blink::DelegatedCapability::kDisplayCaptureRequest:
+      if (RuntimeEnabledFeatures::
+              CapabilityDelegationDisplayCaptureRequestEnabled(this)) {
+        // TODO(crbug.com/40255428): Add use counter.
+        display_capture_request_token_.Activate();
+      }
+      return;
+    case mojom::blink::DelegatedCapability::kDigitalCredentialsCreate:
+      if (RuntimeEnabledFeatures::CapabilityDelegationDigitalCredentialsEnabled(
+              this)) {
+        UseCounter::Count(
+            this, WebFeature::kCapabilityDelegationOfDigitalCredentialsCreate);
+        digital_credentials_create_token_.Activate();
+      }
+      return;
+    case mojom::blink::DelegatedCapability::kDigitalCredentialsGet:
+      if (RuntimeEnabledFeatures::CapabilityDelegationDigitalCredentialsEnabled(
+              this)) {
+        UseCounter::Count(
+            this, WebFeature::kCapabilityDelegationOfDigitalCredentialsGet);
+        digital_credentials_get_token_.Activate();
+      }
+      return;
+    case mojom::blink::DelegatedCapability::kPopup:
+      if (RuntimeEnabledFeatures::CapabilityDelegationPopupEnabled(this)) {
+        popup_request_token_.Activate();
+      }
+      return;
   }
 }
 
@@ -2540,6 +2559,12 @@ DOMWindow* LocalDOMWindow::open(v8::Isolate* isolate,
   frame_request.GetResourceRequest().SetReferrerString(referrer.referrer);
   frame_request.GetResourceRequest().SetReferrerPolicy(
       referrer.referrer_policy);
+
+  bool has_user_gesture = LocalFrame::HasTransientUserActivation(GetFrame());
+  if (popup_request_token_.ConsumeIfActive()) {
+    has_user_gesture = true;
+  }
+  frame_request.GetResourceRequest().SetHasUserGesture(has_user_gesture);
 
   FrameTree::FindResult result =
       GetFrame()->Tree().FindOrCreateFrameForNavigation(

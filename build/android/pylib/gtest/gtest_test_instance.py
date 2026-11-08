@@ -158,7 +158,7 @@ def ParseGTestListTests(raw_list):
                 current = test_case
         else:
             test = test.strip()
-            if test and not 'YOU HAVE' in test:
+            if test and 'YOU HAVE' not in test:
                 test_name = test.split()[0]
                 ret += [current + test_name]
     return ret
@@ -207,7 +207,7 @@ def ParseGTestOutput(output, symbolizer, device_abi):
                 )
             )
 
-    for l in output:
+    for l in output:  # noqa: E741
         matcher = _RE_TEST_STATUS.match(l)
         launcher_main_start_match = _RE_LAUNCHER_MAIN_START.match(l)
         if skipping_failure_summary:
@@ -478,10 +478,6 @@ class GtestTestInstance(test_instance.TestInstance):
             if os.path.exists(exe_dist_dir):
                 self._exe_dist_dir = exe_dist_dir
 
-        incremental_part = ''
-        if args.test_apk_incremental_install_json:
-            incremental_part = '_incremental'
-
         self._test_launcher_batch_limit = MAX_BATCH_SIZE
         if (
             args.test_launcher_batch_limit
@@ -492,10 +488,7 @@ class GtestTestInstance(test_instance.TestInstance):
         apk_path = os.path.join(
             constants.GetOutDirectory(),
             '%s_apk' % self._suite,
-            '%s-debug%s.apk' % (self._suite, incremental_part),
-        )
-        self._test_apk_incremental_install_json = (
-            args.test_apk_incremental_install_json
+            '%s-debug.apk' % self._suite,
         )
         if not os.path.exists(apk_path):
             self._apk_helper = None
@@ -567,7 +560,7 @@ class GtestTestInstance(test_instance.TestInstance):
             self._flags.extend(args.command_line_flags)
         if args.device_flags_file:
             with open(args.device_flags_file) as f:
-                stripped_lines = (l.strip() for l in f)
+                stripped_lines = (l.strip() for l in f)  # noqa: E741
                 self._flags.extend(flag for flag in stripped_lines if flag)
         if args.run_disabled:
             self._flags.append('--gtest_also_run_disabled_tests')
@@ -675,10 +668,6 @@ class GtestTestInstance(test_instance.TestInstance):
     @property
     def symbolizer(self):
         return self._symbolizer
-
-    @property
-    def test_apk_incremental_install_json(self):
-        return self._test_apk_incremental_install_json
 
     @property
     def test_launcher_batch_limit(self):
@@ -830,7 +819,7 @@ class GtestTestInstance(test_instance.TestInstance):
             with open(disabled_tests_file_path) as disabled_tests_file:
                 disabled_filter_items += [
                     '%s' % l
-                    for l in (line.strip() for line in disabled_tests_file)
+                    for l in (line.strip() for line in disabled_tests_file)  # noqa: E741
                     if l and not l.startswith('#')
                 ]
 

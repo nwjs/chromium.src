@@ -20,7 +20,7 @@ rather than calling this system directly.
 
 We often add new features, but some are hard to find. Both new and old features
 could benefit from being surfaced for users that we believe would be the ones
-who benefit the most. This has lead to the effort of providing direct in-product
+who benefit the most. This has led to the effort of providing direct in-product
 help to our end users that should be extremely context aware to maximize the
 value of the new information.
 
@@ -41,7 +41,7 @@ before. However, that leads to a few issues that this component tries to solve:
     *   If other In-Product Help has been shown within the current session, we
         might not want to show a different one.
     *   Whether we have shown a particular In-Product Help or not might be a
-        precondition for whether we should show different one.
+        precondition for whether we should show a different one.
 *   Users should be able to try out a feature on their own for some time before
     they see help.
     *   We should show In-Product Help only if they don't seem to use it, but we
@@ -83,7 +83,7 @@ backend whenever such events happen.
 
 To ensure that it is possible to know whether a feature has been used or not as
 input to the algorithm to decide whether to show IPH and for tracking purposes,
-the frontend needs to inform whenever the feature has been used.
+the frontend needs to inform the backend whenever the feature has been used.
 
 Lastly, some preconditions might require something to never have happened. The
 first time a user has an IPH available, that will typically be true, since the
@@ -319,11 +319,6 @@ that portion of the `feature_name` in the `actions.xml` file above.
 
 For a full description of these actions and the histograms recorded by the tracker, see [Metrics and Telemetry](#metrics-and-telemetry) below.
 
-### Writing a configuration
-
-
-
-
 ### Using the feature_engagement::Tracker
 
 To retrieve the `feature_engagement::Tracker` you need to use your platform
@@ -361,52 +356,12 @@ addition you are required to inform when the feature has been dismissed:
 tracker->Dismissed(feature_engagement::kIPHGoatTeleportationFeature);
 ```
 
-#### Inspecting whether IPH has already been triggered for a feature
-
-Sometimes additional tracking is required to figure out if In-Product Help for a
-particular feature should be shown, and sometimes this is costly. If the
-In-Product Help has already been shown for that feature, it might not be
-necessary any more to do the additional tracking of state.
-
-To check if the triggering condition has already been fulfilled (i.e. can not
-currently be triggered again), you can call:
-
-```c++
-// TriggerState is { HAS_BEEN_DISPLAYED, HAS_NOT_BEEN_DISPLAYED, NOT_READY }.
-Tracker::TriggerState trigger_state =
-    GetTriggerState(feature_engagement::kIPHGoatTeleportationFeature);
-```
-
-Inspecting this state requires the Tracker to already have been initialized,
-else `NOT_READY` is always returned. See `IsInitialized()` and
-`AddOnInitializedCallback(...)` for how to ensure the call to this is delayed.
-
-##### A note about TriggerState naming
-
-The values of the `TriggerState` enum are `HAS_BEEN_DISPLAYED`, `HAS_NOT_BEEN_DISPLAYED`,
-and `NOT_READY`. However, it is possible for the IPH to have been displayed at least
-once but for the `TriggerState` result to be `HAS_NOT_BEEN_DISPLAYED`.
-
-This is because the `TriggerState` enums are named in a way that assumes that
-`event_trigger` comparators have a value of `==0` (i.e. the IPH has never been shown
-within the search window), which is true for most `FeatureConfig`s.
-
-The true interpretation of the states is as follows:
-
-*   `HAS_BEEN_DISPLAYED`: `event_trigger` condition is NOT met and in-product
-    help will not be displayed if `Tracker` is asked.
-*   `HAS_NOT_BEEN_DISPLAYED`: `event_trigger` condition is met and in-product
-    help **might** be displayed if `Tracker` is asked. Note that only the `event_trigger`
-    condition is checked; `WouldTriggerHelpUI` checks all of the relevant conditions.
-*   `NOT_READY`: `Tracker` not fully initialized yet, so it is unable to inspect
-    the state.
-
 #### Inspecting whether IPH would have been triggered for a feature
 
-Another way to check the internal state of the `Tracker` is to invoke
-`feature_engagement::Tracker::WouldTriggerHelpUI` which is basically the same as
-invoking `feature_engagement::Tracker::ShouldTriggerHelpUI`, but being allowed
-to ignore the state. It is still required to invoke
+To check the internal state of the `Tracker` without triggering the UI, you can
+invoke `feature_engagement::Tracker::WouldTriggerHelpUI` which is basically the
+same as invoking `feature_engagement::Tracker::ShouldTriggerHelpUI`, but being
+allowed to ignore the state. It is still required to invoke
 `feature_engagement::Tracker::ShouldTriggerHelpUI` if In-Product Help should be
 shown.
 
@@ -460,7 +415,7 @@ it:
 *   Use a command line flag to manually enable the feature, e.g.:
 
     ```sh
-    chrome --enable-features=IPH_GoatTeleportationFeature
+    chrome --enable-features=IPH_GoatTeleportation
     ```
 
 *   Use a field trial configuration to enable the feature, either using a
@@ -520,7 +475,7 @@ something like this:
             "event_used": "name:goat_teleportation_used;comparator:any;window:0;storage:360",
             "event_1": "name:related_fun_thing_happened;comparator:>=1;window:360;storage:360"
           },
-          "enable_features": ["IPH_GoatTeleportationFeature"],
+          "enable_features": ["IPH_GoatTeleportation"],
           "disable_features": []
         }
       ]
@@ -578,8 +533,8 @@ How to select a feature or features is described below.
 1.  Go to chrome://flags
 2.  Find “In-Product Help Demo Mode” (#in-product-help-demo-mode-choice)
 3.  Select the feature you want with the "Enabled " prefix, for example for
-    `IPH_GoatTeleportationFeature` you would select:
-    *   Enabled IPH_GoatTeleportationFeature
+    `kIPHGoatTeleportationFeature` you would select:
+    *   Enabled IPH_GoatTeleportation
 4.  Restart Chrome
 
 
@@ -620,8 +575,8 @@ Preferred format:
   "IPH_GoatTeleportation_blocked_by": "{BlockedBy}",
   "IPH_GoatTeleportation_blocking": "{Blocking}",
   "IPH_GoatTeleportation_event_###": "{EventConfig}",
-  "IPH_GoatTeleportation_snooze_params": "{SnoozeParams}"
-  "IPH_GoatTeleportation_tracking_only": "{Boolean}"
+  "IPH_GoatTeleportation_snooze_params": "{SnoozeParams}",
+  "IPH_GoatTeleportation_tracking_only": "{Boolean}",
   "IPH_GoatTeleportation_groups": {GroupList},
   "IPH_GoatTeleportation_x_???": "..."
  }
@@ -642,8 +597,8 @@ Special-case format (use with caution, see below):
   "blocked_by": "{BlockedBy}",
   "blocking": "{Blocking}",
   "event_###": "{EventConfig}",
-  "snooze_params": "{SnoozeParams}"
-  "tracking_only": "{Boolean}"
+  "snooze_params": "{SnoozeParams}",
+  "tracking_only": "{Boolean}",
   "groups": {GroupList},
   "x_???": "..."
  }
@@ -802,7 +757,7 @@ all described below:
 *   `comparator`
     *   The comparator for the event. See [Comparator](#Comparator) below.
 *   `window`
-    *   Search for this occurrences of the event within this window.
+    *   Search for occurrences of the event within this window.
     *   The value must be given as a number of days.
     *   For value N, the following holds:
         *   `0` Nothing should be counted. Always returns 0 as a result.
@@ -810,7 +765,7 @@ all described below:
         *   `2+` |current_day| plus |N-1| more days should be counted.
     *   Value client side data type: uint32_t
 *   `storage`
-    *   Store client side data related to events for this event minimum this
+    *   Store client side data related to events for this event for at least this
         long.
     *   The value must be given as a number of days.
     *   For value N, the following holds:
@@ -997,14 +952,14 @@ The SnoozeParams is a comma separated data structure with the following two key-
 *   `max_limit`
 
     * The maximum amount of times an IPH bubble is shown to the client before being force dismissed.
-    * The value must be given as a number of recurrence.
+    * The value must be given as a number of recurrences.
         * If `N = 0`, the IPH bubble will be dismissed after the first occurrence.
         * If `N = 1`, the IPH bubble will be dismissed after the 2nd occurrence.
     * Value client side data type: uint32_t
 
 *   `snooze_interval`
 
-    * The interval between when the client snoozes the IPH bubble and when the IPH is elligible to be shown to the client again.
+    * The interval between when the client snoozes the IPH bubble and when the IPH is eligible to be shown to the client again.
     * The value must be given as a number of days.
         * If `N=1`, the IPH bubble will not be shown again to the client in the next 1 day (24 hours).
     * Value client side data type: uint32_t
@@ -1012,7 +967,7 @@ The SnoozeParams is a comma separated data structure with the following two key-
 
 **Examples**
 
-The IPH bubble will be force dismissed after 2 snoozes, which means it will be shown to the client exactly 3 times. The IPH bubble will be shown no less then 4 days apart.
+The IPH bubble will be force dismissed after 2 snoozes, which means it will be shown to the client exactly 3 times. The IPH bubble will be shown no less than 4 days apart.
 
 ```
 max_limit:2,snooze_interval:4
@@ -1129,7 +1084,7 @@ correctly.
 
 3.  Pass the command line along to the binary you are planning on running.
 
-    Note: For Android you need to ensure that all arguments are are within one
+    Note: For Android you need to ensure that all arguments are within one
     set of double quotes. In particular, for the Android target
     `chrome_public_apk` it would be:
 
@@ -1139,7 +1094,7 @@ correctly.
 
 ### Printf debugging
 
-Several parts of the feature engagement tracker has some debug logging
+Several parts of the feature engagement tracker have some debug logging
 available. To see if the current checked in code covers your needs, try starting
 a debug build of chrome with the following command line arguments:
 
@@ -1155,9 +1110,9 @@ switch:
 
  * `chrome --propagate-iph-for-testing`
    - disables all IPH
- * `chrome --propagate-iph-for-testing=IPH_GoatTeleportationFeature,IPH_FlyingCowFeature`
-   - disables all IPH except for "IPH_GoatTeleportationFeature" and
-   "IPH_FlyingCowFeature".
+ * `chrome --propagate-iph-for-testing=IPH_GoatTeleportation,IPH_FlyingCow`
+   - disables all IPH except for "IPH_GoatTeleportation" and
+   "IPH_FlyingCow".
 
 ## Development of `//components/feature_engagement`
 
@@ -1218,11 +1173,13 @@ week, and at most 3 times per year, as long as the user hasn't used the feature
 at all in the last 2 years. We want it to be available from day 1, but we do not
 want it to show if any other IPHs have shown this session.
 
-The configuration will look like this:
+### Writing a Feature Configuration
+
+The field trial configuration will look like this:
 
 ```
 {
-  "availability": ">=0",
+  "availability": "any",
   "session_rate": "<1",
   "event_trigger": "name:goat_teleportation_iph_trigger;comparator:==0;window:7;storage:360",
   "event_used": "name:goat_teleportation_used;comparator:==0;window:720;storage:720",
@@ -1237,7 +1194,7 @@ often placed in `//components/feature_engagement/public/feature_configurations.c
   if (kIPHGoatTeleportationFeature.name == feature->name) {
     FeatureConfig config;
     config.valid = true;
-    config.availability = Comparator(GREATER_THAN_OR_EQUAL, 0);
+    config.availability = kAlwaysAvailable;
     config.session_rate = Comparator(LESS_THAN, 1);
 
     // IPH is shown at most once per week (7 days).

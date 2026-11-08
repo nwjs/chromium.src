@@ -94,6 +94,10 @@ class WebUIPageActionControl::WebUIPageActionDelegate
       base::RepeatingClosure callback) override {
     anchored_message_collapse_callback_ = std::move(callback);
   }
+  void SetAnchoredMessageDowngradeCallback(
+      base::RepeatingClosure callback) override {
+    anchored_message_downgrade_callback_ = std::move(callback);
+  }
   void SetClickCallback(
       base::RepeatingCallback<void(page_actions::PageActionTrigger)> callback)
       override {
@@ -213,6 +217,8 @@ class WebUIPageActionControl::WebUIPageActionDelegate
   base::RepeatingClosure anchored_message_expand_callback_ = base::DoNothing();
   base::RepeatingClosure anchored_message_collapse_callback_ =
       base::DoNothing();
+  base::RepeatingClosure anchored_message_downgrade_callback_ =
+      base::DoNothing();
   base::RepeatingCallback<void(page_actions::PageActionTrigger)>
       click_callback_ = base::DoNothing();
 
@@ -275,6 +281,7 @@ void WebUIPageActionControl::WebUIPageActionDelegate::SetController(
     anchored_message_close_callback_ = base::DoNothing();
     anchored_message_expand_callback_ = base::DoNothing();
     anchored_message_collapse_callback_ = base::DoNothing();
+    anchored_message_downgrade_callback_ = base::DoNothing();
     click_callback_ = base::DoNothing();
     ResetCachedState();
   }
@@ -338,6 +345,7 @@ void WebUIPageActionControl::WebUIPageActionDelegate::OnPageActionModelChanged(
     element_shown_subscription_ = {};
 
     // Then, close the active bubble widget if it is currently open.
+    // TODO(b/571160141): Animate out like PageActionView.
     if (anchored_message_widget_ && !anchored_message_widget_->IsClosed()) {
       anchored_message_widget_->CloseWithReason(
           views::Widget::ClosedReason::kUnspecified);
@@ -492,6 +500,12 @@ void WebUIPageActionControl::WebUIPageActionDelegate::NotifyClick(
     return;
   }
 
+  if (IsAnchoredMessageVisible() ||
+      observation_.GetSource()->ShouldShowAnchoredMessage()) {
+    anchored_message_downgrade_callback_.Run();
+    return;
+  }
+
   click_callback_.Run(trigger);
 
   auto builder =
@@ -606,6 +620,7 @@ void WebUIPageActionControl::WebUIPageActionDelegate::
   if (anchored_message_widget_) {
     // Don't steal focus when shown.
     anchored_message_widget_->ShowInactive();
+    anchored_message_->AnimateIn();
   } else {
     anchored_message_ = nullptr;
   }

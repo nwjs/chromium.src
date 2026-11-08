@@ -68,7 +68,13 @@ class MockTranslateBubbleModel : public TranslateBubbleModel {
 
   int GetNumberOfSourceLanguages() const override { return 1000; }
 
-  int GetNumberOfTargetLanguages() const override { return 1000; }
+  int GetNumberOfTargetLanguages() const override {
+    return number_of_target_languages_;
+  }
+
+  void SetNumberOfTargetLanguages(int count) {
+    number_of_target_languages_ = count;
+  }
 
   std::u16string GetSourceLanguageNameAt(int index) const override {
     return u"English";
@@ -180,6 +186,7 @@ class MockTranslateBubbleModel : public TranslateBubbleModel {
 
   ViewState current_view_state_;
   translate::TranslateErrors error_type_ = translate::TranslateErrors::NONE;
+  int number_of_target_languages_ = 1000;
   int source_language_index_ = 1;
   int target_language_index_ = 2;
   bool never_translate_language_ = false;
@@ -267,7 +274,9 @@ class TranslateBubbleViewTest : public ChromeViewsTestBase {
 
   void PressButton(TranslateBubbleView::ButtonID id) {
     views::Button* button =
-        static_cast<views::Button*>(bubble_->GetViewByID(id));
+        id == TranslateBubbleView::BUTTON_ID_ALWAYS_TRANSLATE
+            ? bubble_->GetAlwaysTranslateCheckbox()
+            : static_cast<views::Button*>(bubble_->GetViewByID(id));
     views::test::ButtonTestApi(button).NotifyClick(
         ui::KeyEvent(ui::EventType::kKeyPressed, ui::VKEY_RETURN,
                      ui::DomCode::ENTER, ui::EF_NONE));
@@ -300,6 +309,14 @@ class TranslateBubbleViewTest : public ChromeViewsTestBase {
   views::View* advanced_view_source() { return bubble_->advanced_view_source_; }
 
   views::View* advanced_view_target() { return bubble_->advanced_view_target_; }
+
+  views::LabelButton* advanced_reset_button_target() {
+    return bubble_->advanced_reset_button_target_;
+  }
+
+  views::LabelButton* advanced_done_button_target() {
+    return bubble_->advanced_done_button_target_;
+  }
 
   TranslateLanguageSearchView* translate_language_search_view() {
     return bubble_->translate_language_search_view_;
@@ -435,7 +452,43 @@ TEST_F(TranslateBubbleViewTest, AlwaysTranslateCheckboxAndDoneButton) {
   EXPECT_EQ(1, mock_model_->set_always_translate_called_count_);
 }
 
+TEST_F(TranslateBubbleViewTest, AlwaysTranslateControlsTrackSourceLanguage) {
+  base::test::ScopedFeatureList features;
+  features.InitAndEnableFeature(translate::kTranslateLanguageSearchUI);
+  mock_model_->source_language_index_ = 0;
+  mock_model_->SetShouldShowAlwaysTranslateShortcut(false);
+  CreateAndShowBubble();
+
+  ASSERT_TRUE(bubble_->always_translate_checkbox_);
+  ASSERT_TRUE(bubble_->choose_language_button_);
+  EXPECT_FALSE(bubble_->always_translate_checkbox_->GetVisible());
+  EXPECT_TRUE(bubble_->choose_language_button_->GetVisible());
+
+  mock_model_->should_always_translate_ = true;
+  mock_model_->SetShouldShowAlwaysTranslateShortcut(true);
+  bubble_->SwitchView(TranslateBubbleModel::VIEW_STATE_SOURCE_LANGUAGE);
+  ASSERT_TRUE(bubble_->advanced_always_translate_checkbox_);
+  EXPECT_FALSE(bubble_->advanced_always_translate_checkbox_->GetVisible());
+  bubble_->source_language_combobox_->SetSelectedIndex(1);
+  bubble_->SourceLanguageChanged();
+  EXPECT_TRUE(bubble_->always_translate_checkbox_->GetVisible());
+  EXPECT_TRUE(bubble_->advanced_always_translate_checkbox_->GetVisible());
+  EXPECT_TRUE(bubble_->advanced_always_translate_checkbox_->GetChecked());
+  EXPECT_FALSE(bubble_->choose_language_button_->GetVisible());
+
+  mock_model_->SetShouldShowAlwaysTranslateShortcut(false);
+  bubble_->source_language_combobox_->SetSelectedIndex(0);
+  bubble_->SourceLanguageChanged();
+  EXPECT_FALSE(bubble_->always_translate_checkbox_->GetVisible());
+  EXPECT_FALSE(bubble_->advanced_always_translate_checkbox_->GetVisible());
+  EXPECT_FALSE(bubble_->advanced_always_translate_checkbox_->GetChecked());
+  EXPECT_TRUE(bubble_->choose_language_button_->GetVisible());
+  PressButton(TranslateBubbleView::BUTTON_ID_DONE);
+  EXPECT_FALSE(mock_model_->should_always_translate_);
+}
+
 TEST_F(TranslateBubbleViewTest, SourceResetButton) {
+  mock_model_->should_always_translate_ = true;
   CreateAndShowBubble();
   bubble_->SwitchView(TranslateBubbleModel::VIEW_STATE_SOURCE_LANGUAGE);
 
@@ -443,16 +496,20 @@ TEST_F(TranslateBubbleViewTest, SourceResetButton) {
   // disabled.
   EXPECT_FALSE(bubble_->advanced_reset_button_source_->GetEnabled());
 
-  // Change the language selection. The reset button should be enabled.
-  bubble_->source_language_combobox_->SetSelectedIndex(10);
+  // Select Unknown. The checkbox is hidden and the reset button is enabled.
+  bubble_->source_language_combobox_->SetSelectedIndex(0);
   bubble_->SourceLanguageChanged();
-  EXPECT_EQ(10u, bubble_->source_language_combobox_->GetSelectedIndex());
+  EXPECT_EQ(0u, bubble_->source_language_combobox_->GetSelectedIndex());
   EXPECT_TRUE(bubble_->advanced_reset_button_source_->GetEnabled());
+  EXPECT_FALSE(bubble_->advanced_always_translate_checkbox_->GetVisible());
+  EXPECT_FALSE(bubble_->advanced_always_translate_checkbox_->GetChecked());
 
-  // Press the reset button. Language should change back to initial selection.
+  // Reset restores the original language and its always-translate setting.
   PressButton(TranslateBubbleView::BUTTON_ID_RESET);
   EXPECT_EQ(1u, bubble_->source_language_combobox_->GetSelectedIndex());
   EXPECT_FALSE(bubble_->advanced_reset_button_source_->GetEnabled());
+  EXPECT_TRUE(bubble_->advanced_always_translate_checkbox_->GetVisible());
+  EXPECT_TRUE(bubble_->advanced_always_translate_checkbox_->GetChecked());
 }
 
 TEST_F(TranslateBubbleViewTest, TargetResetButton) {
@@ -982,5 +1039,196 @@ TEST_F(TranslateBubbleViewTest,
   views::Textfield* search_field = GetSearchField(search_view);
   ASSERT_TRUE(search_field);
 
+  EXPECT_TRUE(search_field->HasFocus());
+}
+
+TEST_F(TranslateBubbleViewTest, ArrowKeyNavigationInSearchView) {
+  base::test::ScopedFeatureList features(translate::kTranslateLanguageSearchUI);
+  mock_model_->SetNumberOfTargetLanguages(2);
+  std::unique_ptr<translate::TranslatePrefs> translate_prefs =
+      std::make_unique<translate::TranslatePrefs>(profile_.GetPrefs());
+  translate_prefs->SetRecentTargetLanguage("es");
+
+  CreateAndShowBubble();
+  SwitchView(TranslateBubbleModel::VIEW_STATE_TARGET_LANGUAGE);
+
+  TranslateLanguageSearchView* search_view = translate_language_search_view();
+  ASSERT_TRUE(search_view);
+  views::Textfield* search_field = GetSearchField(search_view);
+  ASSERT_TRUE(search_field);
+  views::BoxLayoutView* list_view = GetListView(search_view);
+  ASSERT_TRUE(list_view);
+
+  // Children are: [0] recent HoverButton, [1] Separator, [2] first HoverButton,
+  // [3] second HoverButton.
+  ASSERT_EQ(list_view->children().size(), 4u);
+
+  // Pressing Down arrow from search_field moves focus to the first HoverButton.
+  ui::KeyEvent down_event(ui::EventType::kKeyPressed, ui::VKEY_DOWN,
+                          ui::EF_NONE);
+  bubble_->GetWidget()->OnKeyEvent(&down_event);
+  EXPECT_TRUE(list_view->children()[0]->HasFocus());
+
+  // Pressing Down arrow again moves focus to the second HoverButton (skipping
+  // the views::Separator at index 1).
+  ui::KeyEvent down_event_2(ui::EventType::kKeyPressed, ui::VKEY_DOWN,
+                            ui::EF_NONE);
+  bubble_->GetWidget()->OnKeyEvent(&down_event_2);
+  EXPECT_TRUE(list_view->children()[2]->HasFocus());
+
+  // Pressing Up arrow moves focus back to the first HoverButton.
+  ui::KeyEvent up_event(ui::EventType::kKeyPressed, ui::VKEY_UP, ui::EF_NONE);
+  bubble_->GetWidget()->OnKeyEvent(&up_event);
+  EXPECT_TRUE(list_view->children()[0]->HasFocus());
+
+  // Pressing Up arrow on the first HoverButton returns focus to search_field.
+  ui::KeyEvent up_event_to_search(ui::EventType::kKeyPressed, ui::VKEY_UP,
+                                  ui::EF_NONE);
+  bubble_->GetWidget()->OnKeyEvent(&up_event_to_search);
+  EXPECT_TRUE(search_field->HasFocus());
+}
+
+TEST_F(TranslateBubbleViewTest, DownArrowOnLastLanguageDoesNotMoveFocus) {
+  base::test::ScopedFeatureList features(translate::kTranslateLanguageSearchUI);
+  mock_model_->SetNumberOfTargetLanguages(2);
+
+  CreateAndShowBubble();
+  SwitchView(TranslateBubbleModel::VIEW_STATE_TARGET_LANGUAGE);
+
+  TranslateLanguageSearchView* search_view = translate_language_search_view();
+  ASSERT_TRUE(search_view);
+  views::BoxLayoutView* list_view = GetListView(search_view);
+  ASSERT_TRUE(list_view);
+
+  ASSERT_EQ(list_view->children().size(), 2u);
+
+  list_view->children().back()->RequestFocus();
+  EXPECT_TRUE(list_view->children().back()->HasFocus());
+
+  ui::KeyEvent down_event(ui::EventType::kKeyPressed, ui::VKEY_DOWN,
+                          ui::EF_NONE);
+  bubble_->GetWidget()->OnKeyEvent(&down_event);
+  EXPECT_TRUE(list_view->children().back()->HasFocus());
+}
+
+TEST_F(TranslateBubbleViewTest,
+       UpArrowAndModifiedKeysInSearchFieldKeepFocusOnSearchField) {
+  base::test::ScopedFeatureList features(translate::kTranslateLanguageSearchUI);
+  mock_model_->SetNumberOfTargetLanguages(2);
+
+  CreateAndShowBubble();
+  SwitchView(TranslateBubbleModel::VIEW_STATE_TARGET_LANGUAGE);
+
+  TranslateLanguageSearchView* search_view = translate_language_search_view();
+  ASSERT_TRUE(search_view);
+  views::Textfield* search_field = GetSearchField(search_view);
+  ASSERT_TRUE(search_field);
+  views::BoxLayoutView* list_view = GetListView(search_view);
+  ASSERT_TRUE(list_view);
+  EXPECT_TRUE(search_field->HasFocus());
+
+  // Pressing Shift+Down in the search field should not move focus out of it.
+  ui::KeyEvent shift_down_event(ui::EventType::kKeyPressed, ui::VKEY_DOWN,
+                                ui::EF_SHIFT_DOWN);
+  bubble_->GetWidget()->OnKeyEvent(&shift_down_event);
+  EXPECT_TRUE(search_field->HasFocus());
+
+  // Pressing Up arrow while in search_field keeps focus on search_field.
+  ui::KeyEvent up_event(ui::EventType::kKeyPressed, ui::VKEY_UP, ui::EF_NONE);
+  bubble_->GetWidget()->OnKeyEvent(&up_event);
+  EXPECT_TRUE(search_field->HasFocus());
+
+  // Pressing modified or non-vertical keys while a language button is focused
+  // keeps focus on that button.
+  ASSERT_FALSE(list_view->children().empty());
+  views::View* first_button = list_view->children().front();
+  first_button->RequestFocus();
+  EXPECT_TRUE(first_button->HasFocus());
+
+  ui::KeyEvent button_shift_down(ui::EventType::kKeyPressed, ui::VKEY_DOWN,
+                                 ui::EF_SHIFT_DOWN);
+  bubble_->GetWidget()->OnKeyEvent(&button_shift_down);
+  EXPECT_TRUE(first_button->HasFocus());
+
+  ui::KeyEvent button_left_event(ui::EventType::kKeyPressed, ui::VKEY_LEFT,
+                                 ui::EF_NONE);
+  bubble_->GetWidget()->OnKeyEvent(&button_left_event);
+  EXPECT_TRUE(first_button->HasFocus());
+}
+
+TEST_F(TranslateBubbleViewTest, FocusReturnsToSearchFieldOnLanguageSelection) {
+  base::test::ScopedFeatureList features(translate::kTranslateLanguageSearchUI);
+  mock_model_->SetNumberOfTargetLanguages(2);
+
+  CreateAndShowBubble();
+  SwitchView(TranslateBubbleModel::VIEW_STATE_TARGET_LANGUAGE);
+
+  TranslateLanguageSearchView* search_view = translate_language_search_view();
+  ASSERT_TRUE(search_view);
+  views::Textfield* search_field = GetSearchField(search_view);
+  ASSERT_TRUE(search_field);
+  views::BoxLayoutView* list_view = GetListView(search_view);
+  ASSERT_TRUE(list_view);
+
+  ASSERT_FALSE(list_view->children().empty());
+  HoverButton* first_button =
+      views::AsViewClass<HoverButton>(list_view->children().front());
+  ASSERT_TRUE(first_button);
+  first_button->RequestFocus();
+  EXPECT_TRUE(first_button->HasFocus());
+
+  views::test::ButtonTestApi(first_button)
+      .NotifyClick(ui::KeyEvent(ui::EventType::kKeyPressed, ui::VKEY_RETURN,
+                                ui::DomCode::ENTER, ui::EF_NONE));
+
+  EXPECT_TRUE(list_view->children().empty());
+  EXPECT_TRUE(search_field->HasFocus());
+
+  // Pressing Down arrow when the language list is empty keeps focus on
+  // search_field.
+  ui::KeyEvent down_event(ui::EventType::kKeyPressed, ui::VKEY_DOWN,
+                          ui::EF_NONE);
+  bubble_->GetWidget()->OnKeyEvent(&down_event);
+  EXPECT_TRUE(search_field->HasFocus());
+}
+
+TEST_F(TranslateBubbleViewTest, FocusReturnsToSearchFieldOnReset) {
+  base::test::ScopedFeatureList features(translate::kTranslateLanguageSearchUI);
+  mock_model_->SetNumberOfTargetLanguages(3);
+
+  CreateAndShowBubble();
+  SwitchView(TranslateBubbleModel::VIEW_STATE_TARGET_LANGUAGE);
+
+  TranslateLanguageSearchView* search_view = translate_language_search_view();
+  ASSERT_TRUE(search_view);
+  views::Textfield* search_field = GetSearchField(search_view);
+  ASSERT_TRUE(search_field);
+  views::BoxLayoutView* list_view = GetListView(search_view);
+  ASSERT_TRUE(list_view);
+
+  // Select a different target language (index 0 instead of initial index 2) so
+  // the Reset button becomes enabled.
+  ASSERT_FALSE(list_view->children().empty());
+  HoverButton* first_button =
+      views::AsViewClass<HoverButton>(list_view->children().front());
+  ASSERT_TRUE(first_button);
+  views::test::ButtonTestApi(first_button)
+      .NotifyClick(ui::KeyEvent(ui::EventType::kKeyPressed, ui::VKEY_RETURN,
+                                ui::DomCode::ENTER, ui::EF_NONE));
+
+  views::LabelButton* reset_button = advanced_reset_button_target();
+  views::LabelButton* done_button = advanced_done_button_target();
+  ASSERT_TRUE(reset_button);
+  ASSERT_TRUE(done_button);
+  EXPECT_TRUE(reset_button->GetEnabled());
+
+  reset_button->RequestFocus();
+  EXPECT_TRUE(reset_button->HasFocus());
+  views::test::ButtonTestApi(reset_button)
+      .NotifyClick(ui::KeyEvent(ui::EventType::kKeyPressed, ui::VKEY_RETURN,
+                                ui::DomCode::ENTER, ui::EF_NONE));
+
+  EXPECT_FALSE(reset_button->GetEnabled());
+  EXPECT_FALSE(done_button->HasFocus());
   EXPECT_TRUE(search_field->HasFocus());
 }

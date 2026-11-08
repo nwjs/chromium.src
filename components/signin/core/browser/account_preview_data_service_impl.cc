@@ -6,6 +6,8 @@
 
 #include <absl/container/flat_hash_set.h>
 
+#include <algorithm>
+
 #include "base/barrier_closure.h"
 #include "base/check_deref.h"
 #include "base/feature_list.h"
@@ -20,6 +22,7 @@
 #include "components/signin/core/browser/account_preview_heuristic.h"
 #include "components/signin/core/browser/account_preview_metrics_recorder.h"
 #include "components/signin/public/base/persistent_repeating_timer.h"
+#include "components/signin/public/base/signin_client.h"
 #include "components/signin/public/base/signin_pref_names.h"
 #include "components/signin/public/base/signin_switches.h"
 #include "components/signin/public/identity_manager/account_info.h"
@@ -28,7 +31,15 @@
 #include "components/signin/public/identity_manager/identity_utils.h"
 #include "components/sync/base/data_type.h"
 #include "components/sync/service/sync_service.h"
+#include "mojo/public/cpp/bindings/pending_remote.h"
+#include "net/base/network_anonymization_key.h"
+#include "net/base/schemeful_site.h"
+#include "net/traffic_annotation/network_traffic_annotation.h"
+#include "services/network/public/cpp/constants.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
+#include "services/network/public/mojom/connection_change_observer_client.mojom.h"
+#include "services/network/public/mojom/fetch_api.mojom-shared.h"
+#include "services/network/public/mojom/network_context.mojom.h"
 
 namespace signin {
 
@@ -39,6 +50,8 @@ constexpr char kPreferredAccountDictDataTypeKey[] = "data_type";
 constexpr char kPreferredAccountDictQuartileKey[] = "quartile";
 constexpr char kPreferredAccountDictOtherDeviceFormFactorKey[] =
     "other_device_form_factor";
+constexpr char kPreferredAccountDictOtherDeviceEnabledDataTypesKey[] =
+    "other_device_enabled_data_types";
 #if BUILDFLAG(IS_ANDROID)
 constexpr char kExternalAppAccountDictGaiaIdKey[] = "gaia_id";
 constexpr char kExternalAppAccountDictTimestampKey[] = "timestamp";
@@ -73,7 +86,10 @@ void RecordSuccessfulFetchingMetrics(
     case AccountPreviewDataServiceImpl::FetchTriggerCause::
         kRefreshTokenInvalidated:
     case AccountPreviewDataServiceImpl::FetchTriggerCause::
-        kExternalAppAccountUpdated: {
+        kExternalAppAccountUpdated:
+    case AccountPreviewDataServiceImpl::FetchTriggerCause::kPrimaryAccountSet:
+    case AccountPreviewDataServiceImpl::FetchTriggerCause::
+        kPrimaryAccountCleared: {
       int count = pref_service->GetInteger(
           prefs::kAccountPreviewNonPeriodicFetchCountPref);
       pref_service->SetInteger(prefs::kAccountPreviewNonPeriodicFetchCountPref,
@@ -90,10 +106,108 @@ void RecordSuccessfulFetchingMetrics(
   }
 }
 
+std::optional<AccountPreviewDataService::AccountPreviewPreference>
+ReadAccountPreviewPreferenceFromPrefs(const PrefService& profile_prefs,
+                                      std::string_view pref_name) {
+  const base::DictValue& dict = profile_prefs.GetDict(pref_name);
+  const std::string* gaia_id_str =
+      dict.FindString(kPreferredAccountDictGaiaIdKey);
+  if (!gaia_id_str || gaia_id_str->empty()) {
+    return std::nullopt;
+  }
+
+  AccountPreviewDataService::AccountPreviewPreference preference;
+  preference.gaia_id = GaiaId(*gaia_id_str);
+
+  const base::ListValue* data_types_list =
+      dict.FindList(kPreferredAccountDictDataTypesKey);
+  if (data_types_list) {
+    for (const base::Value& val : *data_types_list) {
+      if (val.is_dict()) {
+        const base::DictValue& info_dict = val.GetDict();
+        const std::optional<int> dt_int =
+            info_dict.FindInt(kPreferredAccountDictDataTypeKey);
+        const std::optional<int> q_int =
+            info_dict.FindInt(kPreferredAccountDictQuartileKey);
+        if (dt_int.has_value() && q_int.has_value()) {
+          syncer::DataType data_type =
+              syncer::GetDataTypeFromStableIdentifier(*dt_int);
+          std::optional<SyncDataQuartile> quartile =
+              SyncDataQuartileFromValue(*q_int);
+          if (syncer::IsRealDataType(data_type) && quartile.has_value()) {
+            preference.preferred_data_types.push_back({
+                .data_type = data_type,
+                .quartile = *quartile,
+            });
+          }
+        }
+      }
+    }
+  }
+
+  std::optional<int> form_factor_int =
+      dict.FindInt(kPreferredAccountDictOtherDeviceFormFactorKey);
+  if (form_factor_int.has_value() &&
+      sync_pb::SyncEnums::DeviceFormFactor_IsValid(*form_factor_int)) {
+    preference.other_device_info.form_factor =
+        static_cast<sync_pb::SyncEnums_DeviceFormFactor>(*form_factor_int);
+  }
+
+  if (const base::ListValue* other_device_data_types_list =
+          dict.FindList(kPreferredAccountDictOtherDeviceEnabledDataTypesKey)) {
+    for (const base::Value& val : *other_device_data_types_list) {
+      if (std::optional<int> dt_int = val.GetIfInt()) {
+        syncer::DataType data_type =
+            syncer::GetDataTypeFromStableIdentifier(*dt_int);
+        if (syncer::IsRealDataType(data_type)) {
+          preference.other_device_info.enabled_data_types.Put(data_type);
+        }
+      }
+    }
+  }
+
+  return preference;
+}
+
+void WriteAccountPreviewPreferenceToPrefs(
+    PrefService& profile_prefs,
+    std::string_view pref_name,
+    std::optional<AccountPreviewDataService::AccountPreviewPreference>
+        preference) {
+  if (!preference.has_value()) {
+    profile_prefs.ClearPref(pref_name);
+    return;
+  }
+
+  base::DictValue dict;
+  dict.Set(kPreferredAccountDictGaiaIdKey, preference->gaia_id.ToString());
+  base::ListValue data_types_list;
+  for (const PreferredDataTypeInfo& info : preference->preferred_data_types) {
+    base::DictValue info_dict;
+    info_dict.Set(kPreferredAccountDictDataTypeKey,
+                  syncer::DataTypeToStableIdentifier(info.data_type));
+    info_dict.Set(kPreferredAccountDictQuartileKey,
+                  SyncDataQuartileToValue(info.quartile));
+    data_types_list.Append(std::move(info_dict));
+  }
+  dict.Set(kPreferredAccountDictDataTypesKey, std::move(data_types_list));
+  dict.Set(kPreferredAccountDictOtherDeviceFormFactorKey,
+           static_cast<int>(preference->other_device_info.form_factor));
+  base::ListValue other_device_data_types_list;
+  for (syncer::DataType data_type :
+       preference->other_device_info.enabled_data_types) {
+    other_device_data_types_list.Append(
+        syncer::DataTypeToStableIdentifier(data_type));
+  }
+  dict.Set(kPreferredAccountDictOtherDeviceEnabledDataTypesKey,
+           std::move(other_device_data_types_list));
+  profile_prefs.SetDict(pref_name, std::move(dict));
+}
 
 }  // namespace
 
 AccountPreviewDataServiceImpl::AccountPreviewDataServiceImpl(
+    SigninClient* signin_client,
     IdentityManager* identity_manager,
     syncer::SyncService* sync_service,
     PrefService* local_state,
@@ -102,7 +216,8 @@ AccountPreviewDataServiceImpl::AccountPreviewDataServiceImpl(
     std::unique_ptr<WaitForNetworkCallbackHelper> network_delay_helper,
     version_info::Channel channel,
     const metrics::ProfileMetricsService* profile_metrics_service)
-    : identity_manager_(identity_manager),
+    : signin_client_(signin_client),
+      identity_manager_(identity_manager),
       sync_service_(sync_service),
       local_state_(local_state),
       profile_prefs_(profile_prefs),
@@ -112,6 +227,7 @@ AccountPreviewDataServiceImpl::AccountPreviewDataServiceImpl(
       metrics_recorder_(*profile_prefs,
                         *identity_manager,
                         *profile_metrics_service) {
+  CHECK(signin_client_);
   CHECK(network_delay_helper_);
   pref_change_registrar_.Init(profile_prefs_);
   pref_change_registrar_.Add(
@@ -149,6 +265,11 @@ bool AccountPreviewDataServiceImpl::IsRateLimited() const {
 std::optional<AccountPreviewDataService::AccountPreviewPreference>
 AccountPreviewDataServiceImpl::GetPreferredAccountForPromo() const {
   return ReadPreferredAccountFromPrefs();
+}
+
+std::optional<AccountPreviewDataService::AccountPreviewPreference>
+AccountPreviewDataServiceImpl::GetPreferredAccountForSwitching() const {
+  return ReadSwitchingAccountFromPrefs();
 }
 
 void AccountPreviewDataServiceImpl::GetPreviewPreferenceForAccount(
@@ -211,11 +332,19 @@ void AccountPreviewDataServiceImpl::UpdateExternalAppAccount(
     return;
   }
 
+  CHECK(identity_manager_);
+  if (!identity_manager_->AreRefreshTokensLoaded()) {
+    deferred_external_app_account_update_callback_ =
+        base::BindOnce(&AccountPreviewDataServiceImpl::UpdateExternalAppAccount,
+                       weak_ptr_factory_.GetWeakPtr(), email);
+    return;
+  }
+
   std::optional<GaiaId> current_external_account =
       ReadExternalAppAccountFromPrefs();
   std::optional<GaiaId> new_external_account;
 
-  if (email.has_value() && !email->empty() && identity_manager_) {
+  if (email.has_value() && !email->empty()) {
     AccountInfo account_info =
         identity_manager_->FindExtendedAccountInfoByEmailAddress(*email);
     if (!account_info.IsEmpty() && !account_info.GetGaiaId().empty()) {
@@ -250,6 +379,44 @@ AccountPreviewDataServiceImpl::GetExternalAppAccountForTesting() const {
 }
 #endif
 
+void AccountPreviewDataServiceImpl::OnPrimaryAccountChanged(
+    const PrimaryAccountChangeEvent& event_details) {
+  PrimaryAccountChangeEvent::Type event_type =
+      event_details.GetEventTypeFor(ConsentLevel::kSignin);
+  if (event_type == PrimaryAccountChangeEvent::Type::kNone) {
+    return;
+  }
+
+  WriteSwitchingAccountToPrefs(/*preference=*/std::nullopt);
+
+  switch (event_type) {
+    case PrimaryAccountChangeEvent::Type::kNone:
+      NOTREACHED();
+    case PrimaryAccountChangeEvent::Type::kCleared:
+      waiting_for_primary_account_token_ = false;
+      EnsureAllAccountsFetched(FetchTriggerCause::kPrimaryAccountCleared);
+      return;
+    case PrimaryAccountChangeEvent::Type::kSet: {
+      // On sign-in, the ordering between `OnPrimaryAccountChanged()` and
+      // `OnRefreshTokenUpdatedForAccount()` is not guaranteed. If refresh
+      // tokens are already loaded and the token for the primary account is not
+      // available yet, wait for `OnRefreshTokenUpdatedForAccount()` to trigger
+      // the fetch with `kPrimaryAccountSet`. If refresh tokens are not loaded
+      // yet, `EnsureAllAccountsFetched()` will defer the fetch until
+      // `OnRefreshTokensLoaded()`.
+      const CoreAccountId& primary_account_id =
+          event_details.GetCurrentState().primary_account.account_id;
+      if (identity_manager_->AreRefreshTokensLoaded() &&
+          !identity_manager_->HasAccountWithRefreshToken(primary_account_id)) {
+        waiting_for_primary_account_token_ = true;
+        return;
+      }
+      EnsureAllAccountsFetched(FetchTriggerCause::kPrimaryAccountSet);
+      return;
+    }
+  }
+}
+
 void AccountPreviewDataServiceImpl::OnRefreshTokenUpdatedForAccount(
     const CoreAccountInfo& account_info) {
   // This prevents startup refresh token updates from triggering unexpected
@@ -265,7 +432,15 @@ void AccountPreviewDataServiceImpl::OnRefreshTokenUpdatedForAccount(
     return;
   }
 
-  EnsureAllAccountsFetched(FetchTriggerCause::kRefreshTokenUpdated);
+  FetchTriggerCause cause = FetchTriggerCause::kRefreshTokenUpdated;
+  if (waiting_for_primary_account_token_ &&
+      account_info.account_id ==
+          identity_manager_->GetPrimaryAccountId(ConsentLevel::kSignin)) {
+    waiting_for_primary_account_token_ = false;
+    cause = FetchTriggerCause::kPrimaryAccountSet;
+  }
+
+  EnsureAllAccountsFetched(cause);
 }
 
 void AccountPreviewDataServiceImpl::OnRefreshTokenRemovedForAccount(
@@ -350,6 +525,11 @@ void AccountPreviewDataServiceImpl::OnRefreshTokensLoaded() {
   if (deferred_fetch_on_loaded_tokens_callback_) {
     std::move(deferred_fetch_on_loaded_tokens_callback_).Run();
   }
+#if BUILDFLAG(IS_ANDROID)
+  if (deferred_external_app_account_update_callback_) {
+    std::move(deferred_external_app_account_update_callback_).Run();
+  }
+#endif
 }
 
 void AccountPreviewDataServiceImpl::OnIdentityManagerShutdown(
@@ -424,9 +604,11 @@ void AccountPreviewDataServiceImpl::EnsureAllAccountsFetched(
   // preferred data is exactly equivalent to the current list of accounts. This
   // will directly be false for all periodic refreshes since the previous list
   // and results are cleared during periodic refreshes.
-  // In case the external app account was updated, we want to trigger a new
-  // preferred account computation, so we need to bypass this optimization.
+  // In case the external app account or primary account was updated, we want to
+  // trigger a new account computation, so we need to bypass this optimization.
   if (cause != FetchTriggerCause::kExternalAppAccountUpdated &&
+      cause != FetchTriggerCause::kPrimaryAccountSet &&
+      cause != FetchTriggerCause::kPrimaryAccountCleared &&
       switches::kAccountPreviewDataPersistAccounts.Get() &&
       !HaveAccountsMutatedSinceLastFetch(accounts)) {
     base::UmaHistogramEnumeration(
@@ -543,7 +725,48 @@ void AccountPreviewDataServiceImpl::StartFetch(const GaiaId& gaia_id) {
     return;
   }
 
+  // Preconnect to the Sync Preview server before starting the fetcher (which
+  // first requests an OAuth access token) so the connection handshake runs in
+  // parallel with token acquisition.
+  MaybePreconnectSockets();
   it->second->Start();
+}
+
+void AccountPreviewDataServiceImpl::MaybePreconnectSockets() {
+  if (!base::FeatureList::IsEnabled(
+          switches::kEnableAccountPreviewDataFetchOptimizations) ||
+      !switches::kAccountPreviewDataPreconnect.Get()) {
+    return;
+  }
+
+  // Only preconnect if no other fetcher in the current batch has started yet,
+  // avoiding redundant PreconnectSockets IPCs when fetching multiple accounts.
+  if (std::ranges::any_of(active_fetchers_, [](const auto& pair) {
+        return pair.second->is_started();
+      })) {
+    return;
+  }
+
+  // Preconnect the HTTPS socket to the Sync Preview server while the OAuth
+  // token is being fetched, saving connection establishment round-trips.
+  // Using the base URL is sufficient because socket pools are keyed by origin,
+  // and both statistics and entity previews requests are multiplexed over the
+  // same HTTP/2 or HTTP/3 connection.
+  // Note: `AccountPreviewDataFetcher::kCredentialsMode` (`kOmit` ->
+  // `PRIVACY_MODE_ENABLED`) and the same-site `NetworkAnonymizationKey` must
+  // match the `ResourceRequest`s created by `AccountPreviewDataFetcher` (which
+  // get an automatically assigned same-site `IsolationInfo` from the browser
+  // process `URLLoaderFactory`) so the preconnected socket is reused.
+  const GURL base_url =
+      AccountPreviewDataFetcher::GetBaseUrlForChannel(channel_);
+  signin_client_->GetNetworkContext()->PreconnectSockets(
+      /*num_streams=*/1, base_url, AccountPreviewDataFetcher::kCredentialsMode,
+      net::NetworkAnonymizationKey::CreateSameSite(
+          net::SchemefulSite(base_url)),
+      network::GetNoOpNetworkRestrictionsId(),
+      net::MutableNetworkTrafficAnnotationTag(
+          AccountPreviewDataFetcher::GetTrafficAnnotation()),
+      /*keepalive_config=*/std::nullopt, mojo::NullRemote());
 }
 
 std::vector<AccountPreviewHeuristicContext>
@@ -586,6 +809,9 @@ AccountPreviewDataServiceImpl::GetHeuristicContexts() const {
 #else
         .is_external_app_primary = false,
 #endif
+        .is_signed_in_on_other_profile =
+            signin_client_->IsAccountSignedInOnOtherProfile(
+                account.GetGaiaId()),
     });
   }
   return contexts;
@@ -606,6 +832,10 @@ void AccountPreviewDataServiceImpl::ComputeAndStoreSwitchingAccount(
     base::span<const AccountPreviewHeuristicContext> contexts) {
   AccountSwitchingSelectionResult result =
       ComputeAccountSwitchingSelection(contexts);
+  if (base::FeatureList::IsEnabled(
+          switches::kEnableAccountPreviewSwitchingAccount)) {
+    WriteSwitchingAccountToPrefs(result.preference);
+  }
   metrics_recorder_.RecordSwitchingHeuristicResult(result);
 }
 
@@ -684,76 +914,27 @@ void AccountPreviewDataServiceImpl::OnAllFetchesCompleted(
 
 std::optional<AccountPreviewDataService::AccountPreviewPreference>
 AccountPreviewDataServiceImpl::ReadPreferredAccountFromPrefs() const {
-  const base::DictValue& dict =
-      profile_prefs_->GetDict(prefs::kAccountPreviewPreference);
-  const std::string* gaia_id_str =
-      dict.FindString(kPreferredAccountDictGaiaIdKey);
-  if (!gaia_id_str || gaia_id_str->empty()) {
-    return std::nullopt;
-  }
-
-  AccountPreviewPreference preference;
-  preference.gaia_id = GaiaId(*gaia_id_str);
-
-  const base::ListValue* data_types_list =
-      dict.FindList(kPreferredAccountDictDataTypesKey);
-  if (data_types_list) {
-    for (const base::Value& val : *data_types_list) {
-      if (val.is_dict()) {
-        const base::DictValue& info_dict = val.GetDict();
-        const std::optional<int> dt_int =
-            info_dict.FindInt(kPreferredAccountDictDataTypeKey);
-        const std::optional<int> q_int =
-            info_dict.FindInt(kPreferredAccountDictQuartileKey);
-        if (dt_int.has_value() && q_int.has_value()) {
-          syncer::DataType data_type =
-              syncer::GetDataTypeFromStableIdentifier(*dt_int);
-          std::optional<SyncDataQuartile> quartile =
-              SyncDataQuartileFromValue(*q_int);
-          if (syncer::IsRealDataType(data_type) && quartile.has_value()) {
-            preference.preferred_data_types.push_back({
-                .data_type = data_type,
-                .quartile = *quartile,
-            });
-          }
-        }
-      }
-    }
-  }
-
-  std::optional<int> form_factor_int =
-      dict.FindInt(kPreferredAccountDictOtherDeviceFormFactorKey);
-  if (form_factor_int.has_value() &&
-      sync_pb::SyncEnums::DeviceFormFactor_IsValid(*form_factor_int)) {
-    preference.other_device_form_factor =
-        static_cast<sync_pb::SyncEnums_DeviceFormFactor>(*form_factor_int);
-  }
-
-  return preference;
+  return ReadAccountPreviewPreferenceFromPrefs(
+      *profile_prefs_, prefs::kAccountPreviewPreference);
 }
 
 void AccountPreviewDataServiceImpl::WritePreferredAccountToPrefs(
     std::optional<AccountPreviewPreference> preference) {
-  if (!preference.has_value()) {
-    profile_prefs_->ClearPref(prefs::kAccountPreviewPreference);
-    return;
-  }
+  WriteAccountPreviewPreferenceToPrefs(
+      *profile_prefs_, prefs::kAccountPreviewPreference, std::move(preference));
+}
 
-  base::DictValue dict;
-  dict.Set(kPreferredAccountDictGaiaIdKey, preference->gaia_id.ToString());
-  base::ListValue data_types_list;
-  for (const PreferredDataTypeInfo& info : preference->preferred_data_types) {
-    base::DictValue info_dict;
-    info_dict.Set(kPreferredAccountDictDataTypeKey,
-                  syncer::DataTypeToStableIdentifier(info.data_type));
-    info_dict.Set(kPreferredAccountDictQuartileKey,
-                  SyncDataQuartileToValue(info.quartile));
-    data_types_list.Append(std::move(info_dict));
-  }
-  dict.Set(kPreferredAccountDictDataTypesKey, std::move(data_types_list));
-  dict.Set(kPreferredAccountDictOtherDeviceFormFactorKey,
-           static_cast<int>(preference->other_device_form_factor));
-  profile_prefs_->SetDict(prefs::kAccountPreviewPreference, std::move(dict));
+std::optional<AccountPreviewDataService::AccountPreviewPreference>
+AccountPreviewDataServiceImpl::ReadSwitchingAccountFromPrefs() const {
+  return ReadAccountPreviewPreferenceFromPrefs(
+      *profile_prefs_, prefs::kAccountPreviewSwitchingPreference);
+}
+
+void AccountPreviewDataServiceImpl::WriteSwitchingAccountToPrefs(
+    std::optional<AccountPreviewPreference> preference) {
+  WriteAccountPreviewPreferenceToPrefs(
+      *profile_prefs_, prefs::kAccountPreviewSwitchingPreference,
+      std::move(preference));
 }
 
 void AccountPreviewDataServiceImpl::ResetTimer() {
@@ -863,9 +1044,23 @@ void AccountPreviewDataServiceImpl::ProcessAccountRemoval(
     active_fetchers_.erase(gaia_id);
   }
 
+  bool should_recompute = false;
   auto preferred_account = GetPreferredAccountForPromo();
   if (preferred_account && preferred_account->gaia_id == gaia_id) {
     WritePreferredAccountToPrefs(/*preference=*/std::nullopt);
+    should_recompute = true;
+  }
+
+  const bool is_primary = account_id == identity_manager_->GetPrimaryAccountId(
+                                            ConsentLevel::kSignin);
+  auto switching_account = GetPreferredAccountForSwitching();
+  if (is_primary ||
+      (switching_account && switching_account->gaia_id == gaia_id)) {
+    WriteSwitchingAccountToPrefs(/*preference=*/std::nullopt);
+    should_recompute = true;
+  }
+
+  if (should_recompute) {
     EnsureAllAccountsFetched(trigger_cause);
   }
 }
@@ -877,12 +1072,17 @@ void AccountPreviewDataServiceImpl::ClearMemoryData() {
   all_accounts_fetched_barrier_.Reset();
   batch_gaia_ids_.clear();
   account_id_to_gaia_id_.clear();
+  waiting_for_primary_account_token_ = false;
   deferred_fetch_on_loaded_tokens_callback_.Reset();
+#if BUILDFLAG(IS_ANDROID)
+  deferred_external_app_account_update_callback_.Reset();
+#endif
 }
 
 void AccountPreviewDataServiceImpl::ClearStoredResults() {
   profile_prefs_->ClearPref(prefs::kAccountPreviewDataLastFetchAccounts);
   WritePreferredAccountToPrefs(/*preference=*/std::nullopt);
+  WriteSwitchingAccountToPrefs(/*preference=*/std::nullopt);
 }
 
 void AccountPreviewDataServiceImpl::ClearAllDataAndResults() {

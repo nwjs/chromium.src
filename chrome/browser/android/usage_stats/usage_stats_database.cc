@@ -102,6 +102,8 @@ std::string CreateWebsiteEventKey(int64_t seconds_since_unix_epoch,
   char unixTime[kUnixTimeDigits + 1];
   ssize_t printed = base::strings::SafeSPrintf(unixTime, kUnixTimeFormat,
                                                seconds_since_unix_epoch);
+  // TODO(crbug.com/574478015): CHECK-exclusion: Convert to a CHECK once we are
+  // confident it won't be triggered.
   DCHECK(printed == kUnixTimeDigits);
 
   // Create the key from the time and fqdn (example: 01548276551_foo.com).

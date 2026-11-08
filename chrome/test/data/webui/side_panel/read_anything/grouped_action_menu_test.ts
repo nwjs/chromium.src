@@ -4,19 +4,16 @@
 
 import 'chrome-untrusted://read-anything-side-panel.top-chrome/read_anything.js';
 
+import {loadTimeData} from '//resources/js/load_time_data.js';
 import {ToolbarEvent} from 'chrome-untrusted://read-anything-side-panel.top-chrome/read_anything.js';
 import type {GroupedActionMenuElement} from 'chrome-untrusted://read-anything-side-panel.top-chrome/read_anything.js';
-import {assertEquals, assertFalse, assertTrue} from 'chrome-untrusted://webui-test/chai_assert.js';
+import {assertEquals, assertFalse, assertNotEquals, assertTrue} from 'chrome-untrusted://webui-test/chai_assert.js';
 import {eventToPromise, microtasksFinished} from 'chrome-untrusted://webui-test/test_util.js';
 
-import {assertTestSettingsAreNotDefaultSettings, getItemsInMenu, setupTestEnvironment} from './common.js';
+import {getItemsInMenu, setupTestEnvironment} from './common.js';
 
 suite('GroupedActionMenuElement', () => {
   let menu: GroupedActionMenuElement;
-
-  suiteSetup(() => {
-    assertTestSettingsAreNotDefaultSettings();
-  });
 
   setup(() => {
     setupTestEnvironment();
@@ -104,18 +101,20 @@ suite('GroupedActionMenuElement', () => {
       {
         header: {title: 'Header 1', separator: false},
         items: [
-          {title: 'Item 1', data: 1, selected: true},
+          {title: 'Item 1', data: 1},
           {title: 'Item 2', data: 2},
         ],
         eventName: ToolbarEvent.THEME,
+        selectedValue: 1,
       },
       {
         header: {title: 'Header 2', separator: true},
         items: [
-          {title: 'Item 3', data: 3, selected: true},
+          {title: 'Item 3', data: 3},
           {title: 'Item 4', data: 4},
         ],
         eventName: ToolbarEvent.LINE_SPACING,
+        selectedValue: 3,
       },
     ];
     await microtasksFinished();
@@ -188,5 +187,37 @@ suite('GroupedActionMenuElement', () => {
     assertEquals('dialog', buttons[0]!.getAttribute('aria-haspopup'));
     // Items that act immediately shouldn't claim to open anything.
     assertFalse(buttons[1]!.hasAttribute('aria-haspopup'));
+  });
+
+  test('items that open a dialog show a trailing ellipsis', async () => {
+    menu.menuGroups = [
+      {
+        header: {title: 'Header 1', separator: false},
+        items: [
+          {title: 'Opens Dialog', data: 1, opensDialog: true},
+          {title: 'Immediate Action', data: 2},
+        ],
+        eventName: ToolbarEvent.THEME,
+      },
+    ];
+    await microtasksFinished();
+
+    const buttons = getItemsInMenu(menu.$.lazyMenu);
+    assertEquals(2, buttons.length);
+
+    const expected =
+        loadTimeData.getStringF('menuItemOpensDialogLabel', 'Opens Dialog');
+    // Guards against an empty or placeholder-only format string.
+    assertNotEquals('Opens Dialog', expected);
+    assertEquals(expected, buttons[0]!.textContent.trim());
+    // The accessible name and tooltip keep the bare title because
+    // aria-haspopup="dialog" already conveys that a dialog opens.
+    assertEquals('Opens Dialog', buttons[0]!.getAttribute('aria-label'));
+    assertEquals('Opens Dialog', buttons[0]!.getAttribute('title'));
+
+    // Items that act immediately are not decorated.
+    assertEquals('Immediate Action', buttons[1]!.textContent.trim());
+    assertEquals('Immediate Action', buttons[1]!.getAttribute('aria-label'));
+    assertEquals('Immediate Action', buttons[1]!.getAttribute('title'));
   });
 });

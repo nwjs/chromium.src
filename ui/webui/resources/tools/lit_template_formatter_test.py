@@ -14,7 +14,7 @@ _SRC_PATH = os.path.normpath(os.path.join(_HERE_DIR, '..', '..', '..', '..'))
 _NODE_PATH = os.path.join(_SRC_PATH, 'third_party', 'node')
 sys.path.append(_NODE_PATH)
 
-import node
+import node  # noqa: E402
 
 
 def _check_clang_format_works():
@@ -168,6 +168,9 @@ class LitTemplateFormatterTest(unittest.TestCase):
       "test_line_length_wrapping.html.ts",
       "test_line_length_wrapping.html.ts",
     )
+
+  def testEscapedCharacters(self):
+    self._run_test("test_escaped_characters.html.ts")
 
   def testDryRunModeFormatted(self):
     filename = "test_basic_expressions.html.ts"

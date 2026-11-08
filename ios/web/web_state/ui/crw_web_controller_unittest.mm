@@ -50,6 +50,7 @@
 #import "ios/web/test/test_url_constants.h"
 #import "ios/web/test/web_test_with_web_controller.h"
 #import "ios/web/test/wk_web_view_crash_utils.h"
+#import "ios/web/web_state/crw_web_view.h"
 #import "ios/web/web_state/ui/crw_content_view.h"
 #import "ios/web/web_state/ui/crw_web_controller.h"
 #import "ios/web/web_state/ui/crw_web_controller_container_view.h"
@@ -65,6 +66,7 @@
 #import "third_party/ocmock/OCMock/OCMock.h"
 #import "third_party/ocmock/gtest_support.h"
 #import "third_party/ocmock/ocmock_extensions.h"
+#import "ui/base/device_form_factor.h"
 #import "url/scheme_host_port.h"
 
 @interface CRWWebController (Testing)
@@ -103,9 +105,9 @@ using base::test::ios::kWaitForJSCompletionTimeout;
 using base::test::ios::kWaitForPageLoadTimeout;
 using base::test::ios::WaitUntilConditionOrTimeout;
 
-// Subclass of WKWebView to check that the observers are removed when the web
+// Subclass of `CRWWebView` to check that the observers are removed when the web
 // state is destroyed.
-@interface CRWFakeWKWebViewObserverCount : WKWebView
+@interface CRWFakeWKWebViewObserverCount : CRWWebView
 
 // Array storing the different key paths observed.
 @property(nonatomic, strong) NSMutableArray<NSString*>* keyPaths;
@@ -214,7 +216,7 @@ class CRWWebControllerTest : public WebTestWithWebController {
 
   // Creates WebView mock.
   UIView* CreateMockWebView(CRWFakeBackForwardList* wk_list) {
-    WKWebView* result = [OCMockObject mockForClass:[WKWebView class]];
+    CRWWebView* result = [OCMockObject mockForClass:[CRWWebView class]];
 
     OCMStub([result backForwardList]).andReturn(wk_list);
     // This uses `andDo` rather than `andReturn` since the URL it returns needs
@@ -225,7 +227,11 @@ class CRWWebControllerTest : public WebTestWithWebController {
     OCMStub([result
         setNavigationDelegate:AssignValueToVariable(navigation_delegate_)]);
     OCMStub([result serverTrust]);
-    OCMStub([result setUIDelegate:OCMOCK_ANY]);
+    OCMStub([result setUIDelegate:AssignValueToVariable(ui_delegate_)]);
+    OCMStub([result UIDelegate]).andDo(^(NSInvocation* invocation) {
+      id<WKUIDelegate> ui_delegate = ui_delegate_;
+      [invocation setReturnValue:&ui_delegate];
+    });
     OCMStub([result frame]).andReturn(UIScreen.mainScreen.bounds);
     OCMStub(
         [result setCustomUserAgent:AssignValueToVariable(custom_user_agent_)]);
@@ -259,6 +265,7 @@ class CRWWebControllerTest : public WebTestWithWebController {
             [invocation setReturnValue:&mock_web_view_obscured_content_insets_];
           });
     }
+    OCMStub([result setShouldSuppressInputViews:NO]);
     OCMStub([result isLoading]);
     OCMStub([result stopLoading]);
     OCMStub([result removeFromSuperview]);
@@ -269,6 +276,7 @@ class CRWWebControllerTest : public WebTestWithWebController {
   }
 
   __weak id<WKNavigationDelegate> navigation_delegate_;
+  __weak id<WKUIDelegate> ui_delegate_;
   NSString* custom_user_agent_;
   UIEdgeInsets mock_web_view_obscured_content_insets_ = UIEdgeInsetsZero;
   UIScrollView* scroll_view_;
@@ -357,6 +365,37 @@ TEST_F(CRWWebControllerTest, UnsetObscuredContentInsetsPreservesWebViewInsets) {
     EXPECT_TRUE(UIEdgeInsetsEqualToEdgeInsets(
         external_insets, web_controller().obscuredContentInsets));
   }
+}
+
+// Tests `shouldSuppressInputViews` default value, toggling this property, and
+// propagating the state when creating a new web view.
+TEST_F(CRWWebControllerTest, SetShouldSuppressInputViews) {
+  // TODO(crbug.com/556733164): Add iPad support.
+  if (ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_TABLET) {
+    GTEST_SKIP();
+  }
+  EXPECT_FALSE(web_controller().shouldSuppressInputViews);
+
+  OCMExpect([mock_web_view_ setShouldSuppressInputViews:YES]);
+  web_controller().shouldSuppressInputViews = YES;
+  EXPECT_TRUE(web_controller().shouldSuppressInputViews);
+  EXPECT_OCMOCK_VERIFY(mock_web_view_);
+
+  [web_controller() removeWebView];
+  EXPECT_TRUE(web_controller().shouldSuppressInputViews);
+
+  CRWWebView* created_web_view = base::apple::ObjCCastStrict<CRWWebView>(
+      [web_controller() ensureWebViewCreated]);
+  ASSERT_TRUE(created_web_view);
+  EXPECT_TRUE(created_web_view.shouldSuppressInputViews);
+
+  web_controller().shouldSuppressInputViews = NO;
+  EXPECT_FALSE(web_controller().shouldSuppressInputViews);
+  EXPECT_FALSE(created_web_view.shouldSuppressInputViews);
+
+  web_controller().shouldSuppressInputViews = YES;
+  EXPECT_TRUE(web_controller().shouldSuppressInputViews);
+  EXPECT_TRUE(created_web_view.shouldSuppressInputViews);
 }
 
 // Tests that a web view is created after calling -[ensureWebViewCreated] and
@@ -699,6 +738,184 @@ TEST_F(JavaScriptDialogPresenterTest, InvisibleWebState) {
 
   EXPECT_NSEQ([NSNull null], ExecuteJavaScript(@"prompt('Yes?', 'No')"));
   ASSERT_TRUE(requested_prompt_dialogs().empty());
+}
+
+// Test fixture for testing JavaScript dialog presentation with a mocked
+// WKWebView.
+class CRWWebControllerJavaScriptDialogTest : public CRWWebControllerTest {
+ protected:
+  CRWWebControllerJavaScriptDialogTest() : page_url_(kTestURLString) {}
+
+  void SetUp() override {
+    CRWWebControllerTest::SetUp();
+    web_state()->WasShown();
+
+    // Simulate a committed navigation to `page_url_`.
+    NSString* url_string = base::SysUTF8ToNSString(page_url_.spec());
+    SetWebViewURL(url_string);
+    [navigation_delegate_ webView:mock_web_view_
+        didStartProvisionalNavigation:nil];
+    [fake_wk_list_ setCurrentURL:url_string];
+    [navigation_delegate_ webView:mock_web_view_ didCommitNavigation:nil];
+
+    web_state()->SetDelegate(&web_state_delegate_);
+  }
+
+  void TearDown() override {
+    web_state()->SetDelegate(nullptr);
+    CRWWebControllerTest::TearDown();
+  }
+
+  // Creates a mocked `WKFrameInfo` for a subframe with `subframe_url`.
+  WKFrameInfo* CreateSubframeInfo(const GURL& subframe_url) {
+    url::Origin origin = url::Origin::Create(subframe_url);
+    WKSecurityOrigin* security_origin = OCMClassMock([WKSecurityOrigin class]);
+    OCMStub([security_origin protocol])
+        .andReturn(base::SysUTF8ToNSString(origin.scheme()));
+    OCMStub([security_origin host])
+        .andReturn(base::SysUTF8ToNSString(origin.host()));
+    OCMStub([security_origin port]).andReturn(origin.port());
+
+    NSURLRequest* request =
+        [NSURLRequest requestWithURL:net::NSURLWithGURL(subframe_url)];
+    WKFrameInfo* frame_info = OCMClassMock([WKFrameInfo class]);
+    OCMStub([frame_info isMainFrame]).andReturn(NO);
+    OCMStub([frame_info request]).andReturn(request);
+    OCMStub([frame_info securityOrigin]).andReturn(security_origin);
+    return frame_info;
+  }
+
+  // Invokes the `WKUIDelegate` alert panel callback for `frame_info`.
+  void RunAlertForFrame(WKFrameInfo* frame_info, NSString* message) {
+    __block bool completed = false;
+    [ui_delegate_ webView:mock_web_view_
+        runJavaScriptAlertPanelWithMessage:message
+                          initiatedByFrame:frame_info
+                         completionHandler:^{
+                           completed = true;
+                         }];
+    EXPECT_TRUE(completed);
+  }
+
+  // Invokes the `WKUIDelegate` confirm panel callback for `frame_info` and
+  // returns the result passed to its completion handler.
+  BOOL RunConfirmForFrame(WKFrameInfo* frame_info, NSString* message) {
+    __block bool completed = false;
+    __block BOOL confirm_result = NO;
+    [ui_delegate_ webView:mock_web_view_
+        runJavaScriptConfirmPanelWithMessage:message
+                            initiatedByFrame:frame_info
+                           completionHandler:^(BOOL result) {
+                             confirm_result = result;
+                             completed = true;
+                           }];
+    EXPECT_TRUE(completed);
+    return confirm_result;
+  }
+
+  // Invokes the `WKUIDelegate` prompt panel callback for `frame_info` and
+  // returns the result passed to its completion handler.
+  NSString* RunPromptForFrame(WKFrameInfo* frame_info,
+                              NSString* prompt,
+                              NSString* default_text) {
+    __block bool completed = false;
+    __block NSString* prompt_result = nil;
+    [ui_delegate_ webView:mock_web_view_
+        runJavaScriptTextInputPanelWithPrompt:prompt
+                                  defaultText:default_text
+                             initiatedByFrame:frame_info
+                            completionHandler:^(NSString* result) {
+                              prompt_result = result;
+                              completed = true;
+                            }];
+    EXPECT_TRUE(completed);
+    return prompt_result;
+  }
+
+  // Returns the fake JavaScript dialog presenter.
+  FakeJavaScriptDialogPresenter* js_dialog_presenter() {
+    return web_state_delegate_.GetFakeJavaScriptDialogPresenter();
+  }
+
+  // Returns the list of requested alert dialogs.
+  const std::vector<std::unique_ptr<FakeJavaScriptAlertDialog>>&
+  requested_alert_dialogs() {
+    return js_dialog_presenter()->requested_alert_dialogs();
+  }
+
+  // Returns the list of requested confirm dialogs.
+  const std::vector<std::unique_ptr<FakeJavaScriptConfirmDialog>>&
+  requested_confirm_dialogs() {
+    return js_dialog_presenter()->requested_confirm_dialogs();
+  }
+
+  // Returns the list of requested prompt dialogs.
+  const std::vector<std::unique_ptr<FakeJavaScriptPromptDialog>>&
+  requested_prompt_dialogs() {
+    return js_dialog_presenter()->requested_prompt_dialogs();
+  }
+
+  // Returns whether any dialog has been requested.
+  bool JSDialogPresenterHasDialogs() {
+    return !requested_alert_dialogs().empty() ||
+           !requested_confirm_dialogs().empty() ||
+           !requested_prompt_dialogs().empty();
+  }
+
+  // Returns the origin of `page_url_`.
+  const url::Origin page_origin() { return url::Origin::Create(page_url_); }
+
+ private:
+  FakeWebStateDelegate web_state_delegate_;
+  GURL page_url_;
+};
+
+// Tests that `window.alert`, `window.confirm` and `window.prompt` dialogs
+// initiated by a subframe are not shown if the visible URL has a different
+// origin from the main frame's committed URL.
+TEST_F(CRWWebControllerJavaScriptDialogTest, DifferentVisibleUrlSubframe) {
+  static constexpr std::string_view kPendingURL = "https://pending.test/";
+  static constexpr std::string_view kSubframeURL = "https://subframe.test/";
+  ASSERT_FALSE(JSDialogPresenterHasDialogs());
+
+  // Change visible URL.
+  AddPendingItem(GURL(kPendingURL), ui::PAGE_TRANSITION_TYPED);
+  web_controller().webStateImpl->SetIsLoading(true);
+  ASSERT_NE(page_origin().GetURL(),
+            web_state()->GetVisibleURL().DeprecatedGetOriginAsURL());
+
+  WKFrameInfo* frame_info = CreateSubframeInfo(GURL(kSubframeURL));
+
+  RunAlertForFrame(frame_info, @"test");
+  ASSERT_TRUE(requested_alert_dialogs().empty());
+
+  EXPECT_FALSE(RunConfirmForFrame(frame_info, @"test"));
+  ASSERT_TRUE(requested_confirm_dialogs().empty());
+
+  EXPECT_FALSE(RunPromptForFrame(frame_info, @"Yes?", @"No"));
+  ASSERT_TRUE(requested_prompt_dialogs().empty());
+}
+
+// Tests that a `window.alert` dialog initiated by a subframe with a different
+// origin from the main frame is shown when the visible URL matches the main
+// frame's committed URL.
+TEST_F(CRWWebControllerJavaScriptDialogTest, DifferentOriginSubframe) {
+  static constexpr std::string_view kSubframeURL = "https://subframe.test/";
+  ASSERT_FALSE(JSDialogPresenterHasDialogs());
+
+  GURL subframe_url(kSubframeURL);
+  WKFrameInfo* frame_info = CreateSubframeInfo(subframe_url);
+
+  RunAlertForFrame(frame_info, @"test");
+
+  ASSERT_EQ(1U, requested_alert_dialogs().size());
+  ASSERT_TRUE(requested_confirm_dialogs().empty());
+  ASSERT_TRUE(requested_prompt_dialogs().empty());
+  auto& dialog = requested_alert_dialogs().front();
+  EXPECT_EQ(web_state(), dialog->web_state);
+  EXPECT_EQ(url::Origin::Create(subframe_url), dialog->origin);
+  EXPECT_NE(page_origin(), dialog->origin);
+  EXPECT_NSEQ(@"test", dialog->message_text);
 }
 
 // Test fixture for testing visible security state.
@@ -1991,6 +2208,77 @@ TEST_F(CRWWebControllerPolicyDeciderTest,
   EXPECT_EQ(GURL(kRedirectURL), allowed_failing_url);
 }
 
+// Tests that a committed NavigationItem with an app-specific VirtualURL but a
+// non-app-specific actual URL (such as `about://newtab/` with virtual URL
+// `chrome://newtab/`) does not grant privileges to navigate to app-specific
+// WebUI URLs via renderer-initiated navigations.
+TEST_F(
+    CRWWebControllerPolicyDeciderTest,
+    NonAppSpecificURLWithAppSpecificVirtualURLDoesNotGrantAppSpecificNavigation) {
+  WKNavigation* navigation =
+      static_cast<WKNavigation*>([[NSObject alloc] init]);
+  SetWebViewURL(@"about://newtab/");
+  [navigation_delegate_ webView:mock_web_view_
+      didStartProvisionalNavigation:navigation];
+  [fake_wk_list_ setCurrentURL:@"about://newtab/"];
+  [navigation_delegate_ webView:mock_web_view_ didCommitNavigation:navigation];
+  [navigation_delegate_ webView:mock_web_view_ didFinishNavigation:navigation];
+
+  NavigationItem* last_committed =
+      web_state()->GetNavigationManager()->GetLastCommittedItem();
+  ASSERT_TRUE(last_committed);
+  last_committed->SetVirtualURL(GURL(kTestAppSpecificURL));
+  EXPECT_EQ(GURL("about://newtab/"), last_committed->GetURL());
+  EXPECT_EQ(GURL(kTestAppSpecificURL), last_committed->GetVirtualURL());
+
+  NSURL* app_url = [NSURL URLWithString:@(kTestAppSpecificURL)];
+  NSMutableURLRequest* app_request =
+      [NSMutableURLRequest requestWithURL:app_url];
+  app_request.mainDocumentURL = [NSURL URLWithString:@"about://newtab/"];
+
+  FakeWKFrameInfo* main_frame = [[FakeWKFrameInfo alloc] init];
+  main_frame.mainFrame = YES;
+  main_frame.webView = mock_web_view_;
+
+  CRWFakeWKNavigationAction* action = [[CRWFakeWKNavigationAction alloc] init];
+  action.request = app_request;
+  action.navigationType = WKNavigationTypeLinkActivated;
+  action.targetFrame = (WKFrameInfo*)main_frame;
+
+  // Because the committed actual URL (`about://newtab/`) is not app-specific,
+  // a renderer-initiated navigation to an app-specific URL must be cancelled.
+  __block bool callback_called = false;
+  [navigation_delegate_ webView:mock_web_view_
+      decidePolicyForNavigationAction:action
+                          preferences:[[WKWebpagePreferences alloc] init]
+                      decisionHandler:^(WKNavigationActionPolicy policy,
+                                        WKWebpagePreferences* ignored) {
+                        EXPECT_EQ(policy, WKNavigationActionPolicyCancel);
+                        callback_called = true;
+                      }];
+  ASSERT_TRUE(WaitUntilConditionOrTimeout(kWaitForPageLoadTimeout, ^{
+    return callback_called;
+  }));
+  EXPECT_FALSE(WebStateImpl::FromWebState(web_state())->HasWebUI());
+
+  // When both the actual URL and VirtualURL of the committed item are
+  // app-specific, the renderer-initiated navigation is allowed.
+  last_committed->SetURL(GURL(kTestAppSpecificURL));
+  app_request.mainDocumentURL = app_url;
+  callback_called = false;
+  [navigation_delegate_ webView:mock_web_view_
+      decidePolicyForNavigationAction:action
+                          preferences:[[WKWebpagePreferences alloc] init]
+                      decisionHandler:^(WKNavigationActionPolicy policy,
+                                        WKWebpagePreferences* ignored) {
+                        EXPECT_EQ(policy, WKNavigationActionPolicyAllow);
+                        callback_called = true;
+                      }];
+  ASSERT_TRUE(WaitUntilConditionOrTimeout(kWaitForPageLoadTimeout, ^{
+    return callback_called;
+  }));
+}
+
 // Test fixture for window.open tests.
 class WindowOpenByDomTest : public WebTestWithWebController {
  protected:
@@ -2247,7 +2535,7 @@ class CRWWebControllerWebProcessTest : public WebTestWithWebController {
     [web_controller() injectWebViewContentView:webViewContentView];
 
     // This test intentionally crashes the render process.
-    SetIgnoreRenderProcessCrashesDuringTesting(true);
+    StopObservingWebStatesForRenderProcessGone();
   }
   WKWebView* web_view_;
 };

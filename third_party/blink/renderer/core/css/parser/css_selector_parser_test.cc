@@ -198,7 +198,12 @@ TEST(CSSSelectorParserTest, ValidSimpleAfterPseudoElementInCompound) {
                               "::-webkit-scrollbar:not(:horizontal)",
                               "::slotted(span)::before",
                               "::slotted(div)::after",
-                              "::slotted(div)::view-transition"};
+                              "::slotted(div)::view-transition",
+                              "::slotted(div)::scroll-marker-group",
+                              "::slotted(div)::scroll-marker",
+                              "::slotted(div)::scroll-button(up)",
+                              "::slotted(div):is()",
+                              "::slotted(div):not(:where(#id))"};
 
   HeapVector<CSSSelector> arena;
   for (StringView test_case : test_cases) {
@@ -234,6 +239,8 @@ TEST(CSSSelectorParserTest, InvalidSimpleAfterPseudoElementInCompound) {
       "video::-webkit-media-text-track-region-container.scrolling",
       "div ::before.a",
       "::slotted(div):hover",
+      "::slotted(div):not(:first-child)",
+      "::slotted(div):not(#id)",
       "::slotted(div)::slotted(span)",
       "::slotted(div)::before:hover",
       "::slotted(div)::before::slotted(span)",
@@ -1958,7 +1965,7 @@ TEST_P(LangParsingFlagDependentTest, ExtendedLangRangesParsing) {
 
 TEST(CSSSelectorParserTest, ToolFormSubmitActive_Disabled) {
   ScopedWebMCPForTest scoped_webmcp_feature(false);
-  ScopedWebMCPTestingForTest scoped_webmcp_testing_feature(false);
+  ScopedDeclarativeWebMCPForTest scoped_declarative_webmcp_feature(false);
   ScopedWebMCPDeclarativeFileInputForTest scoped_webmcp_file_input_feature(
       false);
   ScopedWebMCPFormAssociatedCustomElementsForTest scoped_webmcp_face_feature(
@@ -1969,7 +1976,8 @@ TEST(CSSSelectorParserTest, ToolFormSubmitActive_Disabled) {
   Document& document = dummy_holder->GetDocument();
   auto* context = MakeGarbageCollected<CSSParserContext>(document);
 
-  // Test that these pseudo classes are not valid with the WebMCP flag disabled
+  // Test that these pseudo classes are not valid with the DeclarativeWebMCP
+  // flag disabled.
   HeapVector<CSSSelector> arena;
   CSSParserTokenStream stream1(":tool-form-active");
   base::span<CSSSelector> tool_form_active = CSSSelectorParser::ParseSelector(

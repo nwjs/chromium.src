@@ -33,13 +33,16 @@ import org.chromium.chrome.browser.notifications.NotificationConstants;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabDelegateFactory;
+import org.chromium.chrome.browser.tab.TabLaunchType;
+import org.chromium.chrome.browser.tabmodel.TabCreator;
+import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorSupplier;
 import org.chromium.chrome.browser.tabwindow.TabWindowManager;
 import org.chromium.components.embedder_support.util.UrlUtilities;
+import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.ui.base.WindowAndroid;
 
-import java.util.List;
 import java.util.Set;
 
 /** Android implementation of {@link ActorForegroundServiceController}. */
@@ -80,8 +83,7 @@ public class ActorForegroundServiceControllerImpl implements ActorForegroundServ
     public void startService(String glicTriggerMessageId) {
         ensureBackgroundActuationManagerCreated();
         Context context = ContextUtils.getApplicationContext();
-        ActorForegroundServiceImpl.startActorForegroundServiceWithGlicTriggerMessageId(
-                context, glicTriggerMessageId);
+        ActorForegroundServiceImpl.startActorForegroundService(context);
     }
 
     @Override
@@ -147,21 +149,17 @@ public class ActorForegroundServiceControllerImpl implements ActorForegroundServ
     public void restoreActiveWindowBackgroundTabs(
             TabModelSelector selector,
             WindowAndroid window,
-            TabDelegateFactory tabDelegateFactory) {
+            TabDelegateFactory tabDelegateFactory,
+            long waitDurationMs,
+            boolean isColdStart) {
         ThreadUtils.assertOnUiThread();
         if (mBackgroundActuationManager == null) return;
         int activeWindowId =
                 TabWindowManagerSingleton.getInstance().getWindowIdForSelector(selector);
         if (activeWindowId == TabWindowManager.INVALID_WINDOW_ID) return;
 
-        List<BackgroundSession> sessionsToRemove =
-                ActorBackgroundActuationManager.restoreActiveWindowBackgroundTabs(
-                        selector,
-                        activeWindowId,
-                        window,
-                        mBackgroundActuationManager.getBackgroundSessions(),
-                        tabDelegateFactory);
-        mBackgroundActuationManager.removeBackgroundSessions(sessionsToRemove);
+        mBackgroundActuationManager.restoreActiveWindowBackgroundTabs(
+                selector, activeWindowId, window, tabDelegateFactory, waitDurationMs, isColdStart);
     }
 
     @Override
@@ -170,6 +168,26 @@ public class ActorForegroundServiceControllerImpl implements ActorForegroundServ
             mBackgroundActuationManager.destroy();
             mBackgroundActuationManager = null;
         }
+    }
+
+    @Override
+    public void startBackgroundActuation(Profile profile, String glicTriggerMessageId) {
+        ThreadUtils.assertOnUiThread();
+        if (isTabbedActivityVisible()) {
+            ActorKeyedService actorService = ActorKeyedServiceFactory.getForProfile(profile);
+            if (actorService != null) {
+                Tab appendedTab = generateForegroundTabForTask();
+                if (appendedTab != null) {
+                    actorService.setTabReady(appendedTab, glicTriggerMessageId);
+                } else {
+                    actorService.notifyBackgroundSetupFailed(glicTriggerMessageId);
+                }
+            }
+            return;
+        }
+        ensureBackgroundActuationManagerCreated();
+        assert mBackgroundActuationManager != null;
+        mBackgroundActuationManager.startBackgroundActuation(profile, glicTriggerMessageId);
     }
 
     @Override
@@ -253,6 +271,35 @@ public class ActorForegroundServiceControllerImpl implements ActorForegroundServ
 
         int state = ApplicationStatus.getStateForActivity(asyncActivity);
         return state == ActivityState.STARTED || state == ActivityState.RESUMED;
+    }
+
+    private static @Nullable Tab generateForegroundTabForTask() {
+        int windowId = MultiWindowUtils.getInstanceIdForViewIntent();
+        Activity activity = MultiWindowUtils.getActivityById(windowId);
+        if (activity instanceof AsyncInitializationActivity) {
+            TabModelSelector selector =
+                    TabModelSelectorSupplier.getValueOrNullFrom(
+                            ((AsyncInitializationActivity) activity).getWindowAndroid());
+            if (selector != null) {
+                Tab lastActiveTab = selector.getCurrentTab();
+                if (lastActiveTab != null
+                        && !lastActiveTab.isIncognito()
+                        && UrlUtilities.isNtpUrl(lastActiveTab.getUrl())) {
+                    return lastActiveTab;
+                }
+                TabModel model = selector.getModel(false);
+                if (model != null) {
+                    TabCreator tabCreator = model.getTabCreator();
+                    if (tabCreator != null) {
+                        return tabCreator.createNewTab(
+                                new LoadUrlParams("about:blank"),
+                                TabLaunchType.FROM_TAB_LIST_INTERFACE_BACKGROUND,
+                                null);
+                    }
+                }
+            }
+        }
+        return null;
     }
 
     @Override

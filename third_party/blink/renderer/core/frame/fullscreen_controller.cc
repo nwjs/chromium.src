@@ -151,7 +151,7 @@ void FullscreenController::DidEnterFullscreen() {
 
   state_ = State::kFullscreen;
 
-  NotifyFramesOfFullscreenEntry(true /* success */);
+  NotifyFramesOfFullscreenEntry(true /* granted */);
 
   // TODO(foolip): If the top level browsing context (main frame) ends up with
   // no fullscreen element, exit fullscreen again to recover.
@@ -184,7 +184,14 @@ void FullscreenController::DidExitFullscreen() {
 
   UpdatePageScaleConstraints(true);
 
-  state_ = State::kInitial;
+  // A new `requestFullscreen()` call can begin before an exit is processed,
+  // so preserve the state for the newer request.
+  const bool entry_pending = !pending_frames_->empty() &&
+                             (state_ == State::kEnteringFullscreen ||
+                              state_ == State::kChangingFullscreenDisplays);
+  if (!entry_pending) {
+    state_ = State::kInitial;
+  }
 
   // Notify the topmost local frames that we have exited fullscreen.
   // |Fullscreen::DidExitFullscreen()| will take care of descendant frames.
@@ -359,7 +366,9 @@ void FullscreenController::RestoreBackgroundColorOverride() {
 void FullscreenController::NotifyFramesOfFullscreenEntry(bool granted) {
   // Notify all pending local frames in order whether or not we successfully
   // entered fullscreen.
-  for (LocalFrame* frame : *pending_frames_) {
+  HeapVector<Member<LocalFrame>> pending_frames(*pending_frames_);
+  pending_frames_->clear();
+  for (LocalFrame* frame : pending_frames) {
     if (frame) {
       if (Document* document = frame->GetDocument()) {
         Fullscreen::DidResolveEnterFullscreenRequest(*document, granted);
@@ -377,7 +386,6 @@ void FullscreenController::NotifyFramesOfFullscreenEntry(bool granted) {
       Fullscreen::DidResolveEnterFullscreenRequest(*document, granted);
     }
   }
-  pending_frames_->clear();
 }
 
 void FullscreenController::EnterFullscreenCallback(bool granted) {

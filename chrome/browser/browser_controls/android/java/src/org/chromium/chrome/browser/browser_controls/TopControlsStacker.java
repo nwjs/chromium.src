@@ -4,6 +4,7 @@
 
 package org.chromium.chrome.browser.browser_controls;
 
+import android.content.Context;
 import android.os.Handler;
 import android.util.SparseIntArray;
 
@@ -12,12 +13,14 @@ import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.Callback;
 import org.chromium.base.Log;
+import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.build.annotations.Contract;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.cc.input.BrowserControlsState;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.components.browser_ui.util.BrowserControlsVisibilityDelegate;
+import org.chromium.ui.base.WindowAndroid;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -50,6 +53,7 @@ public class TopControlsStacker implements BrowserControlsStateProvider.Observer
         TopControlType.HAIRLINE,
         TopControlType.PROGRESS_BAR,
         TopControlType.TAB_SHARING_TOOLBAR,
+        TopControlType.TOP_SCALP,
     })
     public @interface TopControlType {
         int STATUS_INDICATOR = 0;
@@ -59,6 +63,7 @@ public class TopControlsStacker implements BrowserControlsStateProvider.Observer
         int HAIRLINE = 4;
         int PROGRESS_BAR = 5;
         int TAB_SHARING_TOOLBAR = 6;
+        int TOP_SCALP = 7;
     }
 
     // LINT.ThenChange(:TopControlTypeName)
@@ -113,9 +118,17 @@ public class TopControlsStacker implements BrowserControlsStateProvider.Observer
         int NEVER_SCROLLABLE = 1;
     }
 
+    private static final String HISTOGRAM_NUMBER_OF_VISIBLE_LAYERS =
+            "Android.TopControlsStacker.NumberOfVisibleLayers";
+    private static final String HISTOGRAM_PERCENTAGE_MAX_HEIGHT =
+            "Android.TopControlsStacker.PercentageOfWindowUsedByTopControlsAtMaxHeight";
+    private static final String HISTOGRAM_PERCENTAGE_MIN_HEIGHT =
+            "Android.TopControlsStacker.PercentageOfWindowUsedByTopControlsAtMinHeight";
+
     // The pre-defined stack order for different top controls.
     private static final @TopControlType int[] STACK_ORDER =
             new int[] {
+                TopControlType.TOP_SCALP,
                 TopControlType.STATUS_INDICATOR,
                 TopControlType.TABSTRIP,
                 TopControlType.TOOLBAR,
@@ -148,6 +161,8 @@ public class TopControlsStacker implements BrowserControlsStateProvider.Observer
 
     private final BrowserControlsSizer mBrowserControlsSizer;
     private final BrowserControlsVisibilityDelegate mBrowserControlsVisibilityDelegate;
+    private final Context mContext;
+    private final WindowAndroid mWindowAndroid;
     private final Callback<@BrowserControlsState Integer> mBrowserControlsStateCallback =
             this::updateBrowserControlsState;
     private @BrowserControlsState int mBrowserControlsState = BrowserControlsState.BOTH;
@@ -168,13 +183,19 @@ public class TopControlsStacker implements BrowserControlsStateProvider.Observer
      *
      * @param browserControlsSizer {@link BrowserControlsSizer} to request browser controls changes.
      * @param browserControlsVisibilityDelegate The visibility delegate for the whole app.
+     * @param context Context in which the stacker is operating.
+     * @param windowAndroid The window in which the top controls stack is displaying.
      */
     public TopControlsStacker(
             BrowserControlsSizer browserControlsSizer,
-            BrowserControlsVisibilityDelegate browserControlsVisibilityDelegate) {
+            BrowserControlsVisibilityDelegate browserControlsVisibilityDelegate,
+            Context context,
+            WindowAndroid windowAndroid) {
         mControls = new HashMap<>();
         mBrowserControlsSizer = browserControlsSizer;
         mBrowserControlsVisibilityDelegate = browserControlsVisibilityDelegate;
+        mContext = context;
+        mWindowAndroid = windowAndroid;
 
         mBrowserControlsSizer.addObserver(this);
         mBrowserControlsVisibilityDelegate.addSyncObserverAndPostIfNonNull(
@@ -764,6 +785,32 @@ public class TopControlsStacker implements BrowserControlsStateProvider.Observer
                 topOffset, topControlsMinHeightOffset, requestNewFrame || isVisibilityForced);
     }
 
+    /** Notifies that the active tab has completed a cross-document navigation in the main frame. */
+    public void notifyDidFinishNavigationInPrimaryMainFrame() {
+        recordLayerMetrics();
+    }
+
+    private void recordLayerMetrics() {
+        int numberOfVisibleLayers = 0;
+        for (@TopControlType int type : STACK_ORDER) {
+            TopControlLayer layer = mControls.get(type);
+            if (!isLayerHidden(layer)) {
+                numberOfVisibleLayers++;
+            }
+        }
+        RecordHistogram.recordSparseHistogram(
+                HISTOGRAM_NUMBER_OF_VISIBLE_LAYERS, numberOfVisibleLayers);
+
+        int windowHeight = BrowserControlsUtils.getWindowHeight(mContext, mWindowAndroid);
+        if (windowHeight <= 0 || mTotalHeight < 0 || mMinHeight < 0) return;
+        RecordHistogram.recordPercentageHistogram(
+                HISTOGRAM_PERCENTAGE_MAX_HEIGHT,
+                BrowserControlsUtils.calculatePercentageOfWindowUsed(mTotalHeight, windowHeight));
+        RecordHistogram.recordPercentageHistogram(
+                HISTOGRAM_PERCENTAGE_MIN_HEIGHT,
+                BrowserControlsUtils.calculatePercentageOfWindowUsed(mMinHeight, windowHeight));
+    }
+
     /** Tear down |this| and clear all existing controls from the Map. */
     public void destroy() {
         if (mPendingRequest != null) {
@@ -826,6 +873,8 @@ public class TopControlsStacker implements BrowserControlsStateProvider.Observer
                 return "PROGRESS_BAR";
             case TopControlType.TAB_SHARING_TOOLBAR:
                 return "TAB_SHARING_TOOLBAR";
+            case TopControlType.TOP_SCALP:
+                return "TOP_SCALP";
         }
         assert false : "Unknown TopControlType: " + type;
         return "";

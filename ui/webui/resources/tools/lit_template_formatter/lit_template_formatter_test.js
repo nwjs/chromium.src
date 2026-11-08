@@ -183,6 +183,21 @@ suite('lit_template_formatter', () => {
     assert.ok(
         !p2.code.includes(': \'\''),
         'Ternary expression should not contain the temporary else branch');
+
+    const invalidMap = new Map([
+      [
+        `${TEMPLATE_PREFIX}-1`,
+        {
+          code: '${this.items.map(item => {\n  return html`',
+          indent: 4,
+          isTemplate: true,
+        },
+      ],
+    ]);
+    await assert.rejects(
+        formatTsExpressions(
+            invalidMap, clangFormatPath, join(__dirname, 'dummy.ts')),
+        /Unsupported nested html`\.\.\.` expression:[\s\S]*return html`/);
   });
 
   test('serializeHtmlAst', () => {
@@ -206,21 +221,29 @@ suite('lit_template_formatter', () => {
         serialized, expectedSerialized,
         'Serialized output with wrapped attributes must match exactly');
 
-    // Test 2: lit-template-format off/on blocks
+    // Test 2: lit-template-format off/on blocks (including expressions) and
+    // void closing tag removal without injecting blank lines.
     const blockTemplate = `
       <div>
         <!-- lit-template-format-off -->
-        <span   class="weird-spacing" >No Formatting</span>
+        <span   class="weird-spacing" >${EXPR_PREFIX}-1</span>
         <!-- lit-template-format-on -->
+        <img src="foo.png">
+        </img>
       </div>
     `;
-    const blockMap = new Map();
+    const blockMap = new Map([
+      [`${EXPR_PREFIX}-1`, {code: '${this.unformattedExpr}'}],
+    ]);
     const blockAst = prepareHtmlAst(blockTemplate, blockMap);
     const blockSerialized = serializeHtmlAst(blockAst, blockMap, false);
     assert.ok(
         blockSerialized.includes(
-            '<span   class="weird-spacing" >No Formatting</span>'),
-        'lit-template-format off block must be preserved exactly');
+            '<span   class="weird-spacing" >${this.unformattedExpr}</span>'),
+        'lit-template-format off block with expressions must be preserved');
+    assert.ok(
+        blockSerialized.includes('<img src="foo.png">\n</div>'),
+        'Removing </img> on its own line must not inject a blank line');
 
     // Test 3: Partial attribute expressions with prefixes and suffixes
     const mixedAttrTemplate = `
@@ -243,5 +266,29 @@ suite('lit_template_formatter', () => {
     } longer-static-class-2 \${this.someOtherClass}">
 </div>`;
     assert.strictEqual(mixedSerialized, expectedMixed);
+
+    // Test 4: Text nodes with static text and expressions exceeding 80 chars
+    const mixedTextTemplate = `
+      <div>
+        Manifest loaded successfully: ${EXPR_PREFIX}-1 version${
+        EXPR_PREFIX}-2 available.
+      </div>
+    `;
+    const mixedTextMap = new Map([
+      [`${EXPR_PREFIX}-1`, {code: '${this.versionOptions_.length}'}],
+      [
+        `${EXPR_PREFIX}-2`,
+        {code: '${this.versionOptions_.length === 1 ? \'\' : \'s\'}'},
+      ],
+    ]);
+    const mixedTextAst = prepareHtmlAst(mixedTextTemplate, mixedTextMap);
+    const mixedTextSerialized =
+        serializeHtmlAst(mixedTextAst, mixedTextMap, false);
+    const expectedMixedText = `
+<div>
+  Manifest loaded successfully: \${this.versionOptions_.length} version\${
+      this.versionOptions_.length === 1 ? '' : 's'} available.
+</div>`;
+    assert.strictEqual(mixedTextSerialized, expectedMixedText);
   });
 });

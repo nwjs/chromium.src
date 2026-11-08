@@ -4,15 +4,26 @@
 
 #include "third_party/blink/renderer/platform/mediastream/webaudio_media_stream_source.h"
 
+#include <cstddef>
 #include <utility>
 
-#include "base/functional/callback_helpers.h"
+#include "base/check_op.h"
+#include "base/compiler_specific.h"
+#include "base/containers/span.h"
 #include "base/logging.h"
+#include "base/memory/scoped_refptr.h"
 #include "base/numerics/safe_conversions.h"
+#include "base/synchronization/lock.h"
 #include "base/task/single_thread_task_runner.h"
+#include "base/threading/thread_checker.h"
+#include "base/time/time.h"
 #include "media/base/audio_bus.h"
-#include "media/base/audio_glitch_info.h"
+#include "media/base/channel_layout.h"
+#include "third_party/blink/renderer/platform/mediastream/media_stream_audio_source.h"
 #include "third_party/blink/renderer/platform/wtf/cross_thread_functional.h"
+#include "third_party/blink/renderer/platform/wtf/functional.h"
+#include "third_party/blink/renderer/platform/wtf/vector.h"
+#include "third_party/blink/renderer/platform/wtf/wtf_size_t.h"
 
 namespace blink {
 
@@ -63,7 +74,7 @@ void WebAudioMediaStreamSource::SetFormat(int number_of_channels,
   VLOG(1) << "WebAudio media stream source changed format to: channels="
           << number_of_channels << ", sample_rate=" << sample_rate;
 
-  CHECK_LE(number_of_channels, 32, base::NotFatalUntil::M151);
+  CHECK_LE(number_of_channels, 32);
 
   // Set the format used by this WebAudioMediaStreamSource. We are using 10ms
   // data as a buffer size since that is the native buffer size of WebRtc packet

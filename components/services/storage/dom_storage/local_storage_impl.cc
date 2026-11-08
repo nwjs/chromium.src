@@ -299,9 +299,8 @@ void LocalStorageImpl::ShutDown() {
   // Nothing to do if no connection to the database was ever finished.
   if (connection_state_ == CONNECTION_FINISHED) {
     // Flush any uncommitted data.
-    for (const auto& it : areas_) {
-      auto* area = it.second->storage_area();
-      area->ScheduleImmediateCommit();
+    for (const auto& [storage_key, storage_area_holder] : areas_) {
+      storage_area_holder->storage_area()->ScheduleImmediateCommit();
     }
 
     if (database_ && !force_keep_session_state_ &&
@@ -310,12 +309,38 @@ void LocalStorageImpl::ShutDown() {
           std::move(origins_to_purge_on_shutdown_));
     }
   }
+
+  for (const auto& [storage_key, storage_area_holder] : areas_) {
+    StorageAreaImpl* area = storage_area_holder->storage_area();
+    // Record data loss, which happens when this storage area destructs before
+    // persisting changes to `database_`.
+    //
+    // TODO(crbug.com/503422295): Monitor these histograms and if dropping
+    // changes is common then handle that here.
+    const bool data_loss_during_migration =
+        area->HasPendingCommit() && database_ && database_->is_migrating();
+
+    base::UmaHistogramBoolean("Storage.LocalStorage.MigrationDroppedChanges",
+                              data_loss_during_migration);
+
+    base::UmaHistogramBoolean("Storage.LocalStorage.ShutdownDroppedChanges",
+                              area->has_pending_load_read_write_tasks());
+  }
 }
 
 void LocalStorageImpl::PurgeMemory() {
+  const bool database_migration_in_progress =
+      database_ && database_->is_migrating();
+
   for (auto it = areas_.begin(); it != areas_.end();) {
-    if (it->second->has_bindings()) {
+    StorageAreaHolder& storage_area_holder = *it->second;
+    if (storage_area_holder.has_bindings()) {
       it->second->storage_area()->PurgeMemory();
+      ++it;
+    } else if (storage_area_holder.storage_area()->HasPendingCommit() &&
+               database_migration_in_progress) {
+      // To avoid losing the pending commit, don't purge the storage area during
+      // migration.
       ++it;
     } else {
       it = areas_.erase(it);
@@ -349,11 +374,21 @@ void LocalStorageImpl::PurgeUnusedAreasIfNeeded() {
     return;
   }
 
+  const bool database_migration_in_progress =
+      database_ && database_->is_migrating();
+
   for (auto it = areas_.begin(); it != areas_.end();) {
-    if (it->second->has_bindings())
+    StorageAreaHolder& storage_area_holder = *it->second;
+    if (storage_area_holder.has_bindings()) {
       ++it;
-    else
+    } else if (storage_area_holder.storage_area()->HasPendingCommit() &&
+               database_migration_in_progress) {
+      // To avoid losing the pending commit, don't purge the storage area during
+      // migration.
+      ++it;
+    } else {
       it = areas_.erase(it);
+    }
   }
 }
 
@@ -675,6 +710,11 @@ void LocalStorageImpl::OnCommitResult(DbStatus status) {
     RecordCommitErrorCountAtReset("LocalStorage", commit_error_count_,
                                   metrics_type);
     commit_error_count_ = 0;
+    return;
+  }
+
+  if (database_ && database_->is_migrating()) {
+    // Don't delete the source database while a migration is in progress.
     return;
   }
 

@@ -7,7 +7,6 @@ import {html} from '//resources/lit/v3_0/lit.rollup.js';
 import type {CategoriesElement} from './categories.js';
 
 export function getHtml(this: CategoriesElement) {
-  // clang-format off
   return html`<!--_html_template_start_-->
 <div class="sp-card">
   <sp-heading id="heading" @back-button-click="${this.onBackButtonClick_}"
@@ -16,8 +15,8 @@ export function getHtml(this: CategoriesElement) {
     <h2 slot="heading">$i18n{categoriesHeader}</h2>
   </sp-heading>
   <cr-grid columns="6" disable-arrow-navigation>
-    <div class="tile" tabindex="0" id="classicChromeTile"
-        role="button" @click="${this.onClassicChromeClick_}"
+    <div class="tile" tabindex="0" id="classicChromeTile" role="button"
+        @click="${this.onClassicChromeClick_}"
         aria-current="${this.isClassicChromeSelected_}">
       <customize-chrome-check-mark-wrapper
           ?checked="${this.isClassicChromeSelected_}">
@@ -28,8 +27,8 @@ export function getHtml(this: CategoriesElement) {
       <div class="label">$i18n{classicChrome}</div>
     </div>
     ${this.wallpaperSearchEnabled_ ? html`
-      <div class="tile" tabindex="0" id="wallpaperSearchTile"
-          role="button" @click="${this.onWallpaperSearchClick_}"
+      <div class="tile" tabindex="0" id="wallpaperSearchTile" role="button"
+          @click="${this.onWallpaperSearchClick_}"
           aria-current="${this.isWallpaperSearchSelected_}">
         <customize-chrome-check-mark-wrapper
             ?checked="${this.isWallpaperSearchSelected_}">
@@ -42,8 +41,8 @@ export function getHtml(this: CategoriesElement) {
         <div class="label">$i18n{wallpaperSearchTileLabel}</div>
       </div>
     ` : ''}
-    <div class="tile" tabindex="0" id="uploadImageTile"
-        role="button" @click="${this.onUploadImageClick_}"
+    <div class="tile" tabindex="0" id="uploadImageTile" role="button"
+        @click="${this.onUploadImageClick_}"
         aria-current="${this.isLocalImageSelected_}">
       <customize-chrome-check-mark-wrapper
           ?checked="${this.isLocalImageSelected_}">
@@ -62,11 +61,9 @@ export function getHtml(this: CategoriesElement) {
             ?checked="${this.isCollectionSelected_(item.id)}">
           <div class="image-container">
             <img is="cr-auto-img" data-index="${index}"
-                auto-src="${item.previewImageUrl}"
-                draggable="false"
+                auto-src="${item.previewImageUrl}" draggable="false"
                 @load="${this.onPreviewImageLoad_}"
                 @error="${this.onPreviewImageError_}">
-            </img>
           </div>
         </customize-chrome-check-mark-wrapper>
         <div class="label">${item.label}</div>
@@ -75,7 +72,7 @@ export function getHtml(this: CategoriesElement) {
     <div class="tile" tabindex="0" role="button"
         @click="${this.onChromeWebStoreClick_}" id="chromeWebStoreTile">
       <div class="image-container">
-        <img id="chromeWebStore" src="icons/chrome_web_store.svg"></img>
+        <img id="chromeWebStore" src="icons/chrome_web_store.svg">
       </div>
       <div class="label">
         <div class="cr-icon icon-external"></div>
@@ -85,5 +82,4 @@ export function getHtml(this: CategoriesElement) {
   </cr-grid>
 </div>
 <!--_html_template_end_-->`;
-  // clang-format on
 }

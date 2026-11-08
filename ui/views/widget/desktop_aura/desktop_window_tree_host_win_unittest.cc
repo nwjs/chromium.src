@@ -15,8 +15,11 @@
 #include <vector>
 
 #include "base/functional/function_ref.h"
+#include "base/memory/weak_ptr.h"
 #include "base/run_loop.h"
 #include "base/task/single_thread_task_runner.h"
+#include "base/test/bind.h"
+#include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/threading/platform_thread.h"
 #include "base/win/windows_version.h"
@@ -24,7 +27,13 @@
 #include "ui/accessibility/platform/ax_platform_node_delegate.h"
 #include "ui/accessibility/platform/ax_platform_node_win.h"
 #include "ui/accessibility/platform/ax_system_caret_win.h"
+#include "ui/aura/client/cursor_client.h"
 #include "ui/aura/window.h"
+#include "ui/aura/window_event_dispatcher.h"
+#include "ui/aura/window_tree_host.h"
+#include "ui/base/ui_base_features.h"
+#include "ui/events/test/event_generator.h"
+#include "ui/gfx/geometry/vector2d.h"
 #include "ui/views/focus/focus_manager.h"
 #include "ui/views/test/desktop_window_tree_host_win_test_api.h"
 #include "ui/views/test/widget_test.h"
@@ -76,6 +85,46 @@ TEST_F(DesktopWindowTreeHostWinTest, RedundantSetCapture) {
 
   handler->ReleaseCapture();
   EXPECT_FALSE(handler->HasCapture());
+}
+
+// Verifies that the latched mouse_pressed_handler_ is cleared when the move
+// loop ends, even though the loop swallows the WM_LBUTTONUP that would
+// normally clear it.
+TEST_F(DesktopWindowTreeHostWinTest, RunMoveLoopClearsMousePressedHandler) {
+  Widget widget;
+  Widget::InitParams params = CreateParams(
+      Widget::InitParams::CLIENT_OWNS_WIDGET, Widget::InitParams::TYPE_WINDOW);
+  params.bounds = gfx::Rect(100, 100, 200, 200);
+  widget.Init(std::move(params));
+  widget.Show();
+
+  aura::Window* window = widget.GetNativeWindow();
+  aura::WindowEventDispatcher* dispatcher = window->GetHost()->dispatcher();
+
+  ui::test::EventGenerator generator(window->GetRootWindow());
+  generator.MoveMouseTo(window->GetBoundsInScreen().CenterPoint());
+  generator.PressLeftButton();
+  ASSERT_TRUE(dispatcher->mouse_pressed_handler());
+
+  // No matching release: that is what the move loop does to the WM_LBUTTONUP.
+  // Without real mouse input the loop can exit before pumping this task, so
+  // bind weakly -- it may run after `widget` is gone.
+  base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
+      FROM_HERE,
+      base::BindLambdaForTesting([weak_widget = widget.GetWeakPtr()]() {
+        if (weak_widget) {
+          weak_widget->EndMoveLoop();
+        }
+      }));
+  widget.RunMoveLoop(gfx::Vector2d(), Widget::MoveLoopSource::kMouse,
+                     Widget::MoveLoopEscapeBehavior::kDontHide);
+
+  // Without this the expectation below would also pass if the loop had
+  // destroyed the host, taking the latch with it.
+  ASSERT_TRUE(widget.GetNativeWindow());
+  ASSERT_EQ(dispatcher, widget.GetNativeWindow()->GetHost()->dispatcher());
+
+  EXPECT_FALSE(dispatcher->mouse_pressed_handler());
 }
 
 TEST_F(DesktopWindowTreeHostWinTest, SetAllowScreenshots) {
@@ -165,6 +214,7 @@ class DesktopWindowTreeHostWinRemoteSessionTest
 
 TEST_P(DesktopWindowTreeHostWinRemoteSessionTest, UpdateDisplayAffinity) {
   const RemoteSessionExclusionTestParams& test_params = GetParam();
+  base::HistogramTester histogram_tester;
 
   ::base::test::ScopedFeatureList scoped_feature_list;
   if (test_params.feature_enabled) {
@@ -194,6 +244,15 @@ TEST_P(DesktopWindowTreeHostWinRemoteSessionTest, UpdateDisplayAffinity) {
   HWND hwnd = host_api.GetHWND();
   EXPECT_TRUE(::GetWindowDisplayAffinity(hwnd, &affinity));
 
+  const auto expected_bucket =
+      test_params.expect_exclusion
+          ? DesktopWindowTreeHostWin::DisplayAffinityResult::kSuccess
+          : DesktopWindowTreeHostWin::DisplayAffinityResult::
+                kSkippedRemoteSession;
+  constexpr char kHistogram[] =
+      "Media.DocumentPictureInPicture.Win.DisplayAffinityResult";
+  histogram_tester.ExpectUniqueSample(kHistogram, expected_bucket, 1);
+
   if (test_params.expect_exclusion) {
     if (base::win::GetVersion() >= base::win::Version::WIN10_20H1) {
       EXPECT_EQ(static_cast<DWORD>(WDA_EXCLUDEFROMCAPTURE), affinity);
@@ -203,6 +262,17 @@ TEST_P(DesktopWindowTreeHostWinRemoteSessionTest, UpdateDisplayAffinity) {
   } else {
     EXPECT_EQ(static_cast<DWORD>(WDA_NONE), affinity);
   }
+
+  // Hiding and showing again is the same activation and records nothing new.
+  widget.Hide();
+  widget.Show();
+  histogram_tester.ExpectUniqueSample(kHistogram, expected_bucket, 1);
+
+  // Turning exclusion off and on again on a visible widget is a new
+  // activation.
+  widget.SetExcludeFromScreenCapture(false);
+  widget.SetExcludeFromScreenCapture(true);
+  histogram_tester.ExpectUniqueSample(kHistogram, expected_bucket, 2);
 }
 
 INSTANTIATE_TEST_SUITE_P(
@@ -799,6 +869,56 @@ TEST_F(DesktopWindowTreeHostWinTest, ExcludeContextWindowsFromCapture) {
   parent_widget.CloseNow();
 }
 
+// Display affinity must not be propagated to hidden owned windows, since that
+// makes DWM draw them as blank rectangles. Chromium widgets pick it up when
+// they are shown.
+TEST_F(DesktopWindowTreeHostWinTest,
+       ExcludeFromCaptureSkipsHiddenOwnedWindows) {
+  Widget parent_widget;
+  HWND parent_hwnd =
+      InitTestWidget(parent_widget,
+                     CreateParams(Widget::InitParams::CLIENT_OWNS_WIDGET,
+                                  Widget::InitParams::TYPE_WINDOW),
+                     /*exclude_capture=*/false);
+
+  // Simulate a hidden non-Chromium window owned by `parent_hwnd` on the UI
+  // thread (e.g. a helper window of a third-party input method).
+  HWND hidden_hwnd =
+      ::CreateWindowExW(0, L"STATIC", L"", WS_POPUP, 0, 0, 100, 100,
+                        parent_hwnd, nullptr, nullptr, nullptr);
+  ASSERT_NE(nullptr, hidden_hwnd);
+
+  // Also create an owned Chromium widget that has not been shown yet.
+  Widget child_widget;
+  Widget::InitParams child_params = CreateParams(
+      Widget::InitParams::CLIENT_OWNS_WIDGET, Widget::InitParams::TYPE_MENU);
+  child_params.parent = parent_widget.GetNativeWindow();
+  child_widget.Init(std::move(child_params));
+  HWND child_hwnd =
+      child_widget.GetNativeWindow()->GetHost()->GetAcceleratedWidget();
+
+  // Enabling exclusion on the parent must not apply affinity to hidden owned
+  // windows.
+  parent_widget.SetExcludeFromScreenCapture(true);
+  DWORD affinity = WDA_NONE;
+  EXPECT_TRUE(::GetWindowDisplayAffinity(hidden_hwnd, &affinity));
+  EXPECT_EQ(static_cast<DWORD>(WDA_NONE), affinity);
+  EXPECT_TRUE(::GetWindowDisplayAffinity(child_hwnd, &affinity));
+  EXPECT_EQ(static_cast<DWORD>(WDA_NONE), affinity);
+
+  // Once shown, the Chromium child widget inherits its owner's affinity, while
+  // the hidden non-Chromium window remains untouched.
+  child_widget.Show();
+  EXPECT_TRUE(::GetWindowDisplayAffinity(child_hwnd, &affinity));
+  EXPECT_EQ(GetExpectedExclusionAffinity(), affinity);
+  EXPECT_TRUE(::GetWindowDisplayAffinity(hidden_hwnd, &affinity));
+  EXPECT_EQ(static_cast<DWORD>(WDA_NONE), affinity);
+
+  ::DestroyWindow(hidden_hwnd);
+  child_widget.CloseNow();
+  parent_widget.CloseNow();
+}
+
 TEST_F(DesktopWindowTreeHostWinTest, ContextTooltipAccessibilityTree) {
   // HWND ownership: browser -> bubble -> tooltip. The context-created tooltip
   // has no Widget parent and must not also appear directly under browser.
@@ -1022,6 +1142,53 @@ TEST_F(DesktopWindowTreeHostWinTest, MissingWmDestroyDoesNotCrash) {
   ::DestroyWindow(widget_hwnd);
   EXPECT_TRUE(widget.IsClosed());
   g_original_wndproc = nullptr;
+}
+
+TEST_F(DesktopWindowTreeHostWinTest, RestoresHiddenCursorOnCancelMode) {
+  base::test::ScopedFeatureList feature_list(
+      ::features::kHideCursorWhileTyping);
+
+  WidgetAutoclosePtr widget(CreateTopLevelNativeWidget());
+  widget->Show();
+
+  aura::client::CursorClient* cursor_client =
+      aura::client::GetCursorClient(widget->GetNativeWindow()->GetRootWindow());
+  ASSERT_TRUE(cursor_client);
+  EXPECT_TRUE(cursor_client->IsCursorVisible());
+  EXPECT_NE(nullptr, ::GetCursor());
+
+  // Hide the cursor.
+  cursor_client->HideCursor();
+  EXPECT_FALSE(cursor_client->IsCursorVisible());
+  EXPECT_EQ(nullptr, ::GetCursor());
+
+  // When a native dialog opens, the host receives WM_CANCELMODE and should
+  // restore the cursor.
+  ::SendMessage(widget->GetNativeWindow()->GetHost()->GetAcceleratedWidget(),
+                WM_CANCELMODE, 0, 0);
+  EXPECT_TRUE(cursor_client->IsCursorVisible());
+  EXPECT_NE(nullptr, ::GetCursor());
+}
+
+TEST_F(DesktopWindowTreeHostWinTest,
+       DoesNotRestoreHiddenCursorOnCancelModeWhenFeatureDisabled) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndDisableFeature(::features::kHideCursorWhileTyping);
+
+  WidgetAutoclosePtr widget(CreateTopLevelNativeWidget());
+  widget->Show();
+
+  aura::client::CursorClient* cursor_client =
+      aura::client::GetCursorClient(widget->GetNativeWindow()->GetRootWindow());
+  ASSERT_TRUE(cursor_client);
+  EXPECT_TRUE(cursor_client->IsCursorVisible());
+
+  cursor_client->HideCursor();
+  EXPECT_FALSE(cursor_client->IsCursorVisible());
+
+  ::SendMessage(widget->GetNativeWindow()->GetHost()->GetAcceleratedWidget(),
+                WM_CANCELMODE, 0, 0);
+  EXPECT_FALSE(cursor_client->IsCursorVisible());
 }
 
 }  // namespace test

@@ -7,6 +7,10 @@ package org.chromium.chrome.browser.omnibox.fusebox.consent;
 import static org.chromium.build.NullUtil.assumeNonNull;
 
 import android.app.Activity;
+import android.content.Intent;
+import android.graphics.drawable.Drawable;
+import android.net.Uri;
+import android.provider.Browser;
 import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -14,10 +18,14 @@ import android.view.ViewGroup.LayoutParams;
 import android.webkit.JavascriptInterface;
 import android.widget.FrameLayout;
 
+import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.CheckResult;
 import androidx.annotation.ColorInt;
+import androidx.browser.customtabs.CustomTabsIntent;
+import androidx.core.content.ContextCompat;
 
 import org.chromium.base.Callback;
+import org.chromium.base.IntentUtils;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.lifetime.LifetimeAssert;
 import org.chromium.base.version_info.VersionInfo;
@@ -27,7 +35,8 @@ import org.chromium.chrome.browser.content.WebContentsFactory;
 import org.chromium.chrome.browser.omnibox.R;
 import org.chromium.chrome.browser.omnibox.fusebox.DriveDisclaimerBridge;
 import org.chromium.chrome.browser.profiles.Profile;
-import org.chromium.components.browser_ui.styles.SemanticColorUtils;
+import org.chromium.components.embedder_support.delegate.WebContentsDelegateAndroid;
+import org.chromium.components.embedder_support.util.UrlUtilities;
 import org.chromium.components.embedder_support.view.ContentView;
 import org.chromium.components.origin_matcher.OriginMatcher;
 import org.chromium.components.thinwebview.ThinWebView;
@@ -50,7 +59,9 @@ import org.chromium.ui.modaldialog.ModalDialogProperties.DialogStyles;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.util.ColorUtils;
 import org.chromium.ui.widget.LoadingView;
+import org.chromium.url.GURL;
 
+import java.lang.ref.WeakReference;
 import java.util.List;
 
 /**
@@ -71,13 +82,25 @@ public class DriveConsentDialog
     private @Nullable Callback<Boolean> mOnConsentComplete;
     private final boolean mIsDarkMode;
     private final @Nullable LifetimeAssert mLifetimeAssert = LifetimeAssert.create(this);
+    private final WebContentsDelegateAndroid mWebContentsDelegate =
+            new WebContentsDelegateAndroid() {
+                @Override
+                public boolean shouldCreateWebContents(GURL targetUrl) {
+                    openCustomTab(targetUrl);
+                    // Return false so native IsWebContentsCreationOverridden returns true,
+                    // preventing an unparented WebContents popup from being created.
+                    return false;
+                }
+            };
 
     private @Nullable WebContents mWebContents;
     private @Nullable ThinWebView mThinWebView;
     private @Nullable DriveConsentKitClient mClient;
     private @Nullable LoadingView mSpinner;
+    private @Nullable View mLoadingOverlay;
     private @Nullable PropertyModel mModalDialogModel;
     private boolean mDestroyed;
+    private boolean mFinishing;
     private boolean mConsentGranted;
 
     /**
@@ -92,7 +115,8 @@ public class DriveConsentDialog
     @CheckResult
     public static @Nullable DriveConsentDialog show(
             WindowAndroid windowAndroid, Profile profile, Callback<Boolean> onConsentComplete) {
-        Activity activity = windowAndroid.getActivity().get();
+        WeakReference<Activity> activityRef = windowAndroid.getActivity();
+        Activity activity = activityRef == null ? null : activityRef.get();
         ModalDialogManager modalDialogManager = windowAndroid.getModalDialogManager();
         IntentRequestTracker tracker = windowAndroid.getIntentRequestTracker();
         if (activity == null
@@ -134,18 +158,11 @@ public class DriveConsentDialog
                         || consentUrl.startsWith(CONSENT_ORIGIN + "?")
                 : "Consent URL origin diverged from the JS bridge allowlist: " + consentUrl;
 
-        // Create WebContents, set up the client, and inject the JS bridge.
+        // Create WebContents and attach Android view delegates.
         WebContents webContents =
                 WebContentsFactory.createWebContents(
                         profile, /* initiallyHidden= */ false, /* initializeRenderer= */ false);
         mWebContents = webContents;
-        DriveConsentKitClient client = new DriveConsentKitClient(webContents, profile, this);
-        mClient = client;
-        if (!injectBridge(webContents, client)) {
-            return false;
-        }
-
-        // Attach Android view delegates.
         ContentView contentView = ContentView.createContentView(mActivity, webContents);
         webContents.setDelegates(
                 VersionInfo.getProductVersion(),
@@ -154,9 +171,18 @@ public class DriveConsentDialog
                 windowAndroid,
                 WebContents.createDefaultInternalsHolder());
 
+        // Set up the client and inject the JS bridge. JavascriptInjector requires the WebContents
+        // to be initialized by setDelegates() first.
+        DriveConsentKitClient client = new DriveConsentKitClient(webContents, profile, this);
+        mClient = client;
+        if (!injectBridge(webContents, client)) {
+            return false;
+        }
+
         // Create ThinWebView and configure the ConsentKit user agent.
         IntentRequestTracker tracker = assumeNonNull(windowAndroid.getIntentRequestTracker());
-        @ColorInt int backgroundColor = SemanticColorUtils.getDefaultBgColor(mActivity);
+        @ColorInt
+        int backgroundColor = ContextCompat.getColor(mActivity, R.color.default_bg_color_baseline);
         ThinWebView thinWebView =
                 createThinWebView(webContents, contentView, tracker, backgroundColor);
         mThinWebView = thinWebView;
@@ -164,13 +190,19 @@ public class DriveConsentDialog
 
         // Build the layout with a loading spinner and display the modal dialog.
         FrameLayout container = buildContentContainer(thinWebView.getView());
+        // An opaque overlay as the background for the spinner, ensuring smooth UI transition.
+        mLoadingOverlay = container.findViewById(R.id.drive_consent_loading_overlay);
+        mLoadingOverlay.setBackgroundColor(backgroundColor);
         LoadingView spinner = container.findViewById(R.id.drive_consent_spinner);
-        spinner.showLoadingUi();
+        spinner.showLoadingUi(/* skipDelay= */ true);
         mSpinner = spinner;
 
         PropertyModel modalDialogModel = buildModalDialogModel(container);
         mModalDialogModel = modalDialogModel;
         mModalDialogManager.showDialog(modalDialogModel, ModalDialogType.APP);
+        // Match the dialog window background to the page.
+        Drawable windowBackground = container.getRootView().getBackground();
+        if (windowBackground != null) windowBackground.mutate().setTint(backgroundColor);
         contentView.requestFocus();
 
         // Start loading the page once the view is attached and sized.
@@ -209,7 +241,6 @@ public class DriveConsentDialog
             IntentRequestTracker tracker,
             @ColorInt int backgroundColor) {
         ThinWebViewConstraints constraints = new ThinWebViewConstraints();
-        constraints.supportsOpacity = true;
         constraints.backgroundColor = backgroundColor;
         ThinWebView thinWebView =
                 ThinWebViewFactory.create(
@@ -217,7 +248,10 @@ public class DriveConsentDialog
         thinWebView.attachWebContents(
                 webContents,
                 contentView,
-                new ThinWebViewAttachParams.Builder().setSupportTheming(true).build());
+                new ThinWebViewAttachParams.Builder()
+                        .setSupportTheming(true)
+                        .setWebContentsDelegate(mWebContentsDelegate)
+                        .build());
         return thinWebView;
     }
 
@@ -238,7 +272,15 @@ public class DriveConsentDialog
                 .with(ModalDialogProperties.CONTROLLER, this)
                 .with(ModalDialogProperties.CUSTOM_VIEW, customView)
                 .with(ModalDialogProperties.CANCEL_ON_TOUCH_OUTSIDE, false)
-                .with(ModalDialogProperties.DIALOG_STYLES, DialogStyles.FULLSCREEN_DIALOG)
+                .with(ModalDialogProperties.DIALOG_STYLES, DialogStyles.DIALOG_WHEN_LARGE)
+                .with(
+                        ModalDialogProperties.APP_MODAL_DIALOG_BACK_PRESS_HANDLER,
+                        new OnBackPressedCallback(/* enabled= */ true) {
+                            @Override
+                            public void handleOnBackPressed() {
+                                finish(/* granted= */ false);
+                            }
+                        })
                 .build();
     }
 
@@ -250,13 +292,16 @@ public class DriveConsentDialog
     @Override
     public void onDismiss(PropertyModel model, @DialogDismissalCause int dismissalCause) {
         mModalDialogModel = null;
-        finish(/* granted= */ false);
+        destroy();
     }
 
     // DriveConsentKitClient.Delegate implementation.
 
     @Override
     public void onPageFirstPaint() {
+        if (mLoadingOverlay != null) {
+            mLoadingOverlay.setVisibility(View.GONE);
+        }
         if (mSpinner != null) {
             mSpinner.hideLoadingUi();
         }
@@ -272,12 +317,38 @@ public class DriveConsentDialog
         finish(granted);
     }
 
+    private void openCustomTab(GURL url) {
+        if (mDestroyed || !UrlUtilities.isHttpOrHttps(url)) return;
+        CustomTabsIntent customTabsIntent =
+                new CustomTabsIntent.Builder()
+                        .setShowTitle(true)
+                        .setColorScheme(
+                                mIsDarkMode
+                                        ? CustomTabsIntent.COLOR_SCHEME_DARK
+                                        : CustomTabsIntent.COLOR_SCHEME_LIGHT)
+                        .build();
+        Intent intent = customTabsIntent.intent;
+        intent.setData(Uri.parse(url.getSpec()));
+        intent.setPackage(mActivity.getPackageName());
+        intent.putExtra(Browser.EXTRA_APPLICATION_ID, mActivity.getPackageName());
+        IntentUtils.addTrustedIntentExtras(intent);
+        IntentUtils.safeStartActivity(mActivity, intent);
+    }
+
     private void finish(boolean granted) {
-        if (mDestroyed) {
+        if (mDestroyed || mFinishing) {
             return;
         }
         mConsentGranted = granted;
-        destroy();
+        View overlay = mLoadingOverlay;
+        if (overlay == null || !overlay.isAttachedToWindow()) {
+            destroy();
+            return;
+        }
+        // Show the overlay over the SurfaceView so the whole dialog fades out together.
+        mFinishing = true;
+        overlay.setVisibility(View.VISIBLE);
+        overlay.post(this::destroy);
     }
 
     private void notifyConsentComplete(boolean granted) {
@@ -321,6 +392,7 @@ public class DriveConsentDialog
             mSpinner.destroy();
             mSpinner = null;
         }
+        mLoadingOverlay = null;
 
         notifyConsentComplete(mConsentGranted);
     }
@@ -329,11 +401,19 @@ public class DriveConsentDialog
         mSpinner = spinner;
     }
 
+    void setLoadingOverlayForTesting(View loadingOverlay) {
+        mLoadingOverlay = loadingOverlay;
+    }
+
     void setModalDialogModelForTesting(PropertyModel model) {
         mModalDialogModel = model;
     }
 
     boolean isDestroyedForTesting() {
         return mDestroyed;
+    }
+
+    WebContentsDelegateAndroid getWebContentsDelegateForTesting() {
+        return mWebContentsDelegate;
     }
 }

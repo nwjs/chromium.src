@@ -37,6 +37,54 @@ export enum CloseSignInTabResult {
   NO_SIGN_IN_TAB = 3,
 }
 
+export enum AuthTabPurpose {
+  // Unknown or unsupported purpose (e.g. sent by a newer web client). Always
+  // rejected.
+  UNKNOWN = 0,
+  // GEiC sign-in. The URL must be on the GAIA or configured guest origin.
+  SIGN_IN = 1,
+  // 3P connector OAuth consent. The URL must be the GE OAuth redirector
+  // (path `/oauth-redirect`) on the default GE redirector origin
+  // (vertexaisearch.cloud.google.com) or the configured guest origin. The 3P
+  // provider URL (`continue_uri`) is intentionally not validated.
+  CONNECTOR_OAUTH = 2,
+}
+
+export enum OpenAuthTabResult {
+  UNKNOWN = 0,
+  // The auth tab was opened (or an existing one for the same purpose reused).
+  SUCCESS = 1,
+  // No URL was provided in options.
+  ERROR_NO_URL = 2,
+  // The provided URL was disallowed for the requested purpose.
+  ERROR_DISALLOWED_URL = 3,
+  // Failed to open the tab (e.g. off-the-record profile, no browser window).
+  ERROR_FAILURE = 4,
+  // The requested purpose is unknown or unsupported.
+  ERROR_INVALID_PURPOSE = 5,
+}
+
+export enum CloseAuthTabResult {
+  UNKNOWN = 0,
+  // The active auth tab was found and closed, and focus was restored to the
+  // originating tab.
+  CLOSED_ACTIVE = 1,
+  // The auth tab was closed, but it was not the active tab when closed, so
+  // focus was left undisturbed.
+  CLOSED_INACTIVE = 2,
+  // An auth tab was previously opened for this purpose, but had already been
+  // closed.
+  ALREADY_CLOSED = 3,
+  // No auth tab was open or tracked for this purpose.
+  NO_AUTH_TAB = 4,
+  // The requested purpose is unknown or unsupported.
+  ERROR_INVALID_PURPOSE = 5,
+  // The tab opened for this purpose was navigated away from the flow by the
+  // user (e.g. to an unrelated site), so it was left open and is no longer
+  // tracked.
+  NAVIGATED_AWAY = 6,
+}
+
 export enum FileUploadPolicyState {
   ENABLED = 0,
   DISABLED = 1,
@@ -675,6 +723,18 @@ export enum InvocationSource {
   HISTORY_PAGE_CHAT_LINKOUT = 43,
   // From the Context Hub topics UI.
   CONTEXT_HUB_TOPICS = 44,
+  // From the Context Hub AutoTodos UI.
+  CONTEXT_HUB_AUTO_TODOS = 45,
+  // User clicked "Ask Gemini" on a link in the context menu. Android only;
+  // desktop has no link-specific item.
+  WEB_CONTENTS_CONTEXT_MENU_LINK = 46,
+  // User clicked "Ask Gemini" on the page in the context menu. On desktop,
+  // also clicks that don't attach the selection.
+  WEB_CONTENTS_CONTEXT_MENU_PAGE = 47,
+  // User clicked "Ask Gemini" on selected text, from the context menu on
+  // desktop (when the selection is attached) or the text selection menu on
+  // Android.
+  WEB_CONTENTS_CONTEXT_MENU_TEXT_SELECTION = 48,
 }
 
 // Target for actuation.
@@ -696,14 +756,47 @@ export enum ActuationTarget {
 
 // Options for opening the sign-in tab.
 export declare interface OpenSignInTabOptions {
-  // The URL to navigate to for sign-in.
+  // The URL to navigate to. If not provided or empty, the openSignInTab
+  // method will return `kErrorNoUrl`.
   signinUrl?: string;
 }
 
 // Options for closing the sign-in tab.
 export declare interface CloseSignInTabOptions {}
 
-// Settings for Gemini Enterprise.
+// Options for opening an auth tab.
+export declare interface OpenAuthTabOptions {
+  // The use case for the tab; selects the URL allowlist and tracked tab.
+  purpose: AuthTabPurpose;
+  // The URL to navigate to. If not provided or empty, the openAuthTab
+  // method will return `kErrorNoUrl`.
+  url?: string;
+}
+
+// Options for closing an auth tab.
+export declare interface CloseAuthTabOptions {
+  // The use case whose tab should be closed.
+  purpose: AuthTabPurpose;
+}
+
+// Response for `OpenAuthTab`. A struct (rather than a bare enum) so that
+// fields can be added later without breaking the glic API's backwards
+// compatibility.
+export declare interface OpenAuthTabResponse {
+  // The result of attempting to open the auth tab.
+  result: OpenAuthTabResult;
+}
+
+// Response for `CloseAuthTab`. A struct (rather than a bare enum) so that
+// fields can be added later without breaking the glic API's backwards
+// compatibility.
+export declare interface CloseAuthTabResponse {
+  // The result of attempting to close the auth tab.
+  result: CloseAuthTabResult;
+}
+
+// TODO(b/570016708): Remove once web client usages are eliminated.
+// Deprecated: Formerly settings for Gemini Enterprise as a Tool.
 export declare interface GeminiEnterpriseSettings {
   projectId: string;
   appId: string;
@@ -1105,6 +1198,14 @@ export declare interface UniversalCartPayload {
   // This metadata is received from the same Google endpoint we receive the
   // actual invocation prompt from. Opaque to the browser.
   serializedMetadata: ArrayBuffer;
+}
+
+// Payload for Experimental Triggering invocation.
+export declare interface ExperimentalTriggeringPayload {
+  // Opaque payment metadata received from the server as part of the request
+  // that triggered this invocation. Passed through verbatim; opaque to the
+  // browser. May be empty.
+  paymentMetadata: ArrayBuffer;
 }
 
 // Options for invoking Glic.

@@ -154,10 +154,12 @@ void OnSodaResponse(const char* serialized_proto,
 
     if (result.has_timing_metrics()) {
       speech_recognition_result.timing_information = media::TimingInformation();
-      speech_recognition_result.timing_information->audio_start_time =
-          base::Microseconds(result.timing_metrics().audio_start_time_usec());
-      speech_recognition_result.timing_information->audio_end_time =
-          base::Microseconds(result.timing_metrics().event_end_time_usec());
+      speech_recognition_result.timing_information->audio_start_time = std::max(
+          base::Microseconds(result.timing_metrics().audio_start_time_usec()),
+          base::TimeDelta());
+      speech_recognition_result.timing_information->audio_end_time = std::max(
+          base::Microseconds(result.timing_metrics().event_end_time_usec()),
+          speech_recognition_result.timing_information->audio_start_time);
     }
 
     callbacks.recognition.Run(std::move(speech_recognition_result));
@@ -223,7 +225,9 @@ SpeechRecognitionRecognizerImpl::~SpeechRecognitionRecognizerImpl() {
 void SpeechRecognitionRecognizerImpl::OnLanguagePackInstalled(
     base::flat_map<std::string, base::FilePath> config_paths) {
   config_paths_ = config_paths;
-  ResetSoda();
+  if (soda_client_ && soda_client_->IsInitialized()) {
+    ResetSoda();
+  }
 }
 
 void SpeechRecognitionRecognizerImpl::Create(
@@ -275,6 +279,27 @@ void SpeechRecognitionRecognizerImpl::OnRecognitionEvent(
     using SpeechTimestamp = SpeechTimestampEstimator::SpeechTimestamp;
     auto& timing_info = event.timing_information.value();
 
+    // SODA can emit negative or inverted audio timestamps (e.g. when
+    // subtracting preamble length or during text formatting alignment). Clamp
+    // timestamps so that `audio_start_time >= 0` and `audio_end_time >=
+    // audio_start_time`, as required by Mojo deserialization in
+    // TimingInformation StructTraits.
+    timing_info.audio_start_time =
+        std::max(timing_info.audio_start_time, base::TimeDelta());
+    timing_info.audio_end_time =
+        std::max(timing_info.audio_end_time, timing_info.audio_start_time);
+
+    if (timing_info.hypothesis_parts.has_value()) {
+      base::TimeDelta prev_offset = base::TimeDelta();
+      const base::TimeDelta max_offset =
+          timing_info.audio_end_time - timing_info.audio_start_time;
+      for (auto& part : *timing_info.hypothesis_parts) {
+        part.hypothesis_part_offset =
+            std::clamp(part.hypothesis_part_offset, prev_offset, max_offset);
+        prev_offset = part.hypothesis_part_offset;
+      }
+    }
+
     // During ResetSoda(), we reset `timestamp_estimator_`, and the next few
     // transcriptions might have missing or wrong timestamps, but they should
     // quickly return to being consistent.
@@ -301,6 +326,8 @@ void SpeechRecognitionRecognizerImpl::OnRecognitionEvent(
     }
     if (!media_timestamps.empty()) {
       timing_info.originating_media_timestamps = std::move(media_timestamps);
+    } else {
+      timing_info.originating_media_timestamps.reset();
     }
   }
 
@@ -314,6 +341,9 @@ void SpeechRecognitionRecognizerImpl::OnRecognitionEvent(
 void SpeechRecognitionRecognizerImpl::
     OnSpeechRecognitionRecognitionEventCallback(bool success) {
   is_client_requesting_speech_recognition_ = success;
+  if (!is_client_requesting_speech_recognition_ && soda_client_) {
+    soda_client_->Destroy();
+  }
 }
 
 void SpeechRecognitionRecognizerImpl::OnLanguageIdentificationEvent(
@@ -389,6 +419,9 @@ void SpeechRecognitionRecognizerImpl::SetSodaClientForTesting(
 
 void SpeechRecognitionRecognizerImpl::OnClientHostDisconnected() {
   is_client_requesting_speech_recognition_ = false;
+  if (soda_client_) {
+    soda_client_->Destroy();
+  }
 }
 
 void SpeechRecognitionRecognizerImpl::SendAudioToSpeechRecognitionService(
@@ -411,6 +444,9 @@ void SpeechRecognitionRecognizerImpl::SendAudioToSpeechRecognitionService(
       caption_bubble_visible_duration_ += duration;
     } else {
       caption_bubble_hidden_duration_ += duration;
+      if (soda_client_) {
+        soda_client_->Destroy();
+      }
       return;
     }
   }
@@ -455,7 +491,12 @@ void SpeechRecognitionRecognizerImpl::SendAudioToSpeechRecognitionService(
     // computations, once we're fairly sure the silence isn't meaningful.
     constexpr base::TimeDelta kSilenceThreshold = base::Seconds(10);
     if (now - last_non_empty_audio_time_ > kSilenceThreshold) {
-      // No nonzero data for several seconds. Don't send this buffer of zeroes.
+      // No nonzero data for several seconds. Don't send this buffer of zeroes,
+      // and release the SODA instance to free memory until non-empty audio
+      // resumes.
+      if (soda_client_) {
+        soda_client_->Destroy();
+      }
 
       // Forward `media_start_pts` since we can seek into the middle of long
       // stretches of silence.
@@ -498,6 +539,7 @@ void SpeechRecognitionRecognizerImpl::UpdateRecognitionContext(
   }
 
   auto serialized = context.SerializeAsString();
+
   RecognitionContext serialized_recognition_context;
   serialized_recognition_context.recognition_context = serialized.c_str();
   serialized_recognition_context.recognition_context_size = serialized.size();
@@ -585,7 +627,9 @@ void SpeechRecognitionRecognizerImpl::OnLanguageChanged(
 void SpeechRecognitionRecognizerImpl::OnMaskOffensiveWordsChanged(
     bool mask_offensive_words) {
   mask_offensive_words_ = mask_offensive_words;
-  ResetSoda();
+  if (soda_client_ && soda_client_->IsInitialized()) {
+    ResetSoda();
+  }
 }
 
 void SpeechRecognitionRecognizerImpl::ResetSodaWithNewLanguage(
@@ -594,7 +638,9 @@ void SpeechRecognitionRecognizerImpl::ResetSodaWithNewLanguage(
   if (config_and_exists.second) {
     config_paths_[language_name] = config_and_exists.first;
     primary_language_name_ = language_name;
-    ResetSoda();
+    if (soda_client_ && soda_client_->IsInitialized()) {
+      ResetSoda();
+    }
   }
 }
 
@@ -618,6 +664,10 @@ void SpeechRecognitionRecognizerImpl::RecordDuration() {
 }
 
 void SpeechRecognitionRecognizerImpl::ResetSoda() {
+  if (!is_client_requesting_speech_recognition_) {
+    return;
+  }
+
   // Initialize the SODA instance.
   auto api_key = google_apis::GetSodaAPIKey();
 

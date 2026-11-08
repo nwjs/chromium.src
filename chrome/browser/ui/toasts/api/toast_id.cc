@@ -127,6 +127,10 @@ std::string_view GetToastName(ToastId toast_id) {
       return "EmailVerificationError";
     case ToastId::kAutofillAiSuggestionRemoved:
       return "AutofillAiSuggestionRemoved";
+    case ToastId::kTtcGenericError:
+      return "TtcGenericError";
+    case ToastId::kTtcNoMicrophoneError:
+      return "TtcNoMicrophoneError";
   }
 
   NOTREACHED();

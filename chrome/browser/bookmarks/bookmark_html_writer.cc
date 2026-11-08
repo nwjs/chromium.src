@@ -369,7 +369,7 @@ class Writer : public base::RefCountedThreadSafe<Writer> {
   // Writes out the text string (as UTF8). The text is escaped based on
   // type.
   [[nodiscard]] bool Write(const std::string& text, TextType type) {
-    DCHECK(base::IsStringUTF8(text));
+    CHECK(base::IsStringUTF8(text), base::NotFatalUntil::M161);
     std::string utf8_string;
 
     switch (type) {
@@ -550,6 +550,8 @@ BookmarkFaviconFetcher::BookmarkFaviconFetcher(
     const base::FilePath& path,
     bookmark_html_writer::BookmarksExportCallback callback)
     : profile_(profile), path_(path), callback_(std::move(callback)) {
+  // TODO(crbug.com/572628651): CHECK-exclusion: Convert to a CHECK once we are
+  // confident it won't be triggered.
   DCHECK(!profile->IsOffTheRecord());
 }
 

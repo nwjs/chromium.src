@@ -205,6 +205,7 @@ void InspectorTraceEvents::DidFinishLoading(uint64_t identifier,
                                             DocumentLoader* loader,
                                             base::TimeTicks finish_time,
                                             int64_t encoded_data_length,
+                                            uint64_t,
                                             int64_t decoded_body_length) {
   DEVTOOLS_TIMELINE_TRACE_EVENT_INSTANT(
       "ResourceFinish", inspector_resource_finish_event::Data, loader,
@@ -1191,6 +1192,18 @@ void inspector_evaluate_script_event::Data(perfetto::TracedValue context,
                                            const TextPosition& text_position) {
   auto dict = std::move(context).WriteDictionary();
   FillLocation(dict, url, v8::UnboundScript::kNoScriptId, text_position);
+  dict.Add("frame", IdentifiersFactory::FrameId(frame));
+  SetCallStack(isolate, dict);
+}
+
+void inspector_evaluate_module_event::Data(perfetto::TracedValue context,
+                                           v8::Isolate* isolate,
+                                           LocalFrame* frame,
+                                           const String& url,
+                                           int script_id,
+                                           const TextPosition& text_position) {
+  auto dict = std::move(context).WriteDictionary();
+  FillLocation(dict, url, script_id, text_position);
   dict.Add("frame", IdentifiersFactory::FrameId(frame));
   SetCallStack(isolate, dict);
 }

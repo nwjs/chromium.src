@@ -27,6 +27,7 @@ import org.mockito.Mockito;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 
+import org.chromium.base.ContextUtils;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.RobolectricUtil;
 import org.chromium.chrome.browser.browser_controls.BottomControlsStacker;
@@ -44,11 +45,11 @@ public class MiniPlayerMediatorUnitTest {
 
     private PropertyModel mModel;
     private MiniPlayerMediator mMediator;
+    private final View mView = new View(ContextUtils.getApplicationContext());
 
     @Mock private BottomControlsStacker mBottomControlsStacker;
     @Mock private BrowserControlsStateProvider mBrowserControlsStateProvider;
     @Mock private MiniPlayerCoordinator mCoordinator;
-    @Mock private View mView;
 
     @Captor
     private ArgumentCaptor<BrowserControlsStateProvider.Observer> mBrowserControlsObserverCaptor;

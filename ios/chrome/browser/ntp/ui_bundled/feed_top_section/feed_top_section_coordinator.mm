@@ -14,6 +14,7 @@
 #import "components/signin/public/base/signin_metrics.h"
 #import "ios/chrome/browser/authentication/ui_bundled/continuation.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin/signin_coordinator.h"
+#import "ios/chrome/browser/authentication/ui_bundled/signin/signin_utils.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin_presenter.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin_promo_view_mediator.h"
 #import "ios/chrome/browser/ntp/ui_bundled/feed_top_section/feed_top_section_mediator.h"
@@ -35,6 +36,7 @@
 #import "ios/chrome/browser/shared/public/commands/scene_commands.h"
 #import "ios/chrome/browser/shared/public/commands/settings_commands.h"
 #import "ios/chrome/browser/shared/public/commands/snackbar_commands.h"
+#import "ios/chrome/browser/signin/model/account_preview_data_service_factory.h"
 #import "ios/chrome/browser/signin/model/authentication_service.h"
 #import "ios/chrome/browser/signin/model/authentication_service_factory.h"
 #import "ios/chrome/browser/signin/model/chrome_account_manager_service.h"
@@ -50,6 +52,7 @@ using base::UmaHistogramEnumeration;
 using base::UserMetricsAction;
 
 @interface FeedTopSectionCoordinator () <
+    FeedTopSectionMediatorDelegate,
     NotificationsOptInAlertCoordinatorDelegate,
     SigninPromoViewMediatorDelegate>
 
@@ -114,6 +117,8 @@ using base::UserMetricsAction;
                               authService:AuthenticationServiceFactory::
                                               GetForProfile(profile)
                               prefService:profile->GetPrefs()
+                accountPreviewDataService:AccountPreviewDataServiceFactory::
+                                              GetForProfile(profile)
                               syncService:syncService
                               accessPoint:signin_metrics::AccessPoint::
                                               kNtpFeedTopPromo
@@ -138,6 +143,7 @@ using base::UserMetricsAction;
                                       TemplateURLPrepopulateData::google.id;
   self.feedTopSectionMediator.isDefaultSearchEngine = isDefaultSearchEngine;
   self.feedTopSectionMediator.presenter = self;
+  self.feedTopSectionMediator.delegate = self;
   self.feedTopSectionMediator.NTPDelegate = self.NTPDelegate;
   self.feedTopSectionViewController.delegate = self.feedTopSectionMediator;
   self.feedTopSectionViewController.feedTopSectionMutator =
@@ -148,6 +154,7 @@ using base::UserMetricsAction;
 
 - (void)stop {
   _viewController = nil;
+  self.feedTopSectionMediator.delegate = nil;
   [self.feedTopSectionMediator shutdown];
   [self.signinPromoMediator disconnect];
   self.signinPromoMediator.consumer = nil;
@@ -157,6 +164,17 @@ using base::UserMetricsAction;
 }
 
 #pragma mark - Public
+
+- (BOOL)feedTopSectionVisible {
+  return self.feedTopSectionMediator.feedTopSectionVisible;
+}
+
+#pragma mark - FeedTopSectionMediatorDelegate
+
+- (void)feedTopSectionMediator:(FeedTopSectionMediator*)mediator
+           didUpdateVisibility:(BOOL)visible {
+  [self.NTPDelegate feedTopSectionDidUpdateVisibility:visible];
+}
 
 - (void)signinPromoHasChangedVisibility:(BOOL)visible {
   if (!self.isSignInPromoEnabled ||
@@ -171,7 +189,7 @@ using base::UserMetricsAction;
     return;
   }
   if (visible) {
-    [self.signinPromoMediator signingPromoDidBecomeVisible];
+    [self.signinPromoMediator signinPromoDidBecomeVisible];
   } else {
     [self.signinPromoMediator signinPromoViewIsHidden];
   }
@@ -184,9 +202,11 @@ using base::UserMetricsAction;
            command:(ShowSigninCommand*)command {
   __weak __typeof(self) weakSelf = self;
   [command addSigninCompletion:^(SigninCoordinator* coordinator,
-                                 SigninCoordinatorResult result,
-                                 id<SystemIdentity>) {
-    [weakSelf.signinPromoMediator signinDidCompleteWithResult:result];
+                                 SigninCoordinatorResultOrIdentity result) {
+    SigninCoordinatorResult signinResult =
+        signin::SigninCoordinatorResultFromSigninCoordinatorResultOrIdentity(
+            result);
+    [weakSelf.signinPromoMediator signinDidCompleteWithResult:signinResult];
   }];
   [self.NTPDelegate showSigninWithCommand:command];
 }

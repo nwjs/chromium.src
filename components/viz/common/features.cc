@@ -45,6 +45,11 @@ BASE_FEATURE(kAndroidDumpForBadCompositedUiState,
 BASE_FEATURE(kAndroidSurfaceControlHdrOverlays,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// When a window is occluded, whether it should become invisible, and the
+// visibility update should be propagated to viz. This is required to reclaim
+// buffers service-side.
+BASE_FEATURE(kPropagateOcclusionToVizAndroid,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_ANDROID)
 
 // If enabled, each render pass eligible for scanout gets its own BufferQueue.
@@ -412,6 +417,10 @@ BASE_FEATURE(kDisplaySchedulerAsClient, base::FEATURE_ENABLED_BY_DEFAULT);
 // should be removed as soon as we confirm that the optimization is stable.
 BASE_FEATURE(kRpdqFilterLookupOptimizations, base::FEATURE_ENABLED_BY_DEFAULT);
 
+// Kill switch for constraining render pass texture sampling to logical content
+// bounds. Remove after the behavior is stable.
+BASE_FEATURE(kRenderPassBackingLogicalBounds, base::FEATURE_ENABLED_BY_DEFAULT);
+
 // When enabled, bypasses deadlocks caused by outdated activation dependency
 // tokens when parent frame submission lags behind child surface execution.
 BASE_FEATURE(kBypassOutdatedSurfaceActivation,
@@ -422,6 +431,19 @@ BASE_FEATURE(kBypassOutdatedSurfaceActivation,
 // downsampling and then upsampling the content, keeping text sharp
 // (crbug.com/513611535).
 BASE_FEATURE(kRenderNonMergedSurfaceAtBackingScale,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Kill switch for https://crbug.com/569098933. When enabled, SoftwareRenderer
+// reads an unscaled copy into a client provided SharedImage directly, instead
+// of into an intermediate bitmap that is then drawn into the SharedImage.
+BASE_FEATURE(kSoftwareReadbackIntoBlitDestination,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Kill switch for https://crbug.com/569098933. When enabled, SoftwareRenderer
+// draws the first quad in a freshly cleared transparent render pass with
+// kSrcOver whenever the quad's blend mode evaluates to the source color onto a
+// transparent destination, allowing Skia to use its fast legacy blitters.
+BASE_FEATURE(kUseSrcOverForFirstQuadInTransparentPass,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_WIN)

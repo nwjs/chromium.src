@@ -372,7 +372,6 @@
 <translation id="2079545284768500474">Huỷ</translation>
 <translation id="2086334242442703436">Mở Bộ chọn biểu tượng cảm xúc</translation>
 <translation id="2089550919269323883">Chính sách doanh nghiệp không cho phép cài đặt <ph name="VM_NAME" />. Vui lòng liên hệ với quản trị viên hệ thống để được hỗ trợ. Mã lỗi là <ph name="ERROR" />.</translation>
-<translation id="2093792000875799555">Tin tức về Steam cho Chromebook</translation>
 <translation id="209965399369889474">Chưa kết nối với mạng</translation>
 <translation id="2107581415810719320">Nút khác: <ph name="BUTTON_NUMBER" /></translation>
 <translation id="2107914222138020205">Cáp USB-C của bạn không hỗ trợ Thunderbolt. Hiệu suất của thiết bị có thể bị hạn chế.</translation>
@@ -422,6 +421,7 @@
 <translation id="2293443480080733021">Bạn muốn tập trung vào việc gì? Nhấn phím Enter để thêm việc cần làm.</translation>
 <translation id="229397294990920565">Đang tắt dữ liệu di động...</translation>
 <translation id="2295777434187870477">Micrô đang bật. Nhấn vào nút bật tắt sẽ tắt micrô và không thu được tiếng.</translation>
+<translation id="2296880470921996802">Quản trị viên CNTT của bạn đã tắt nhật ký bảng nhớ tạm</translation>
 <translation id="2302092602801625023">Tài khoản này do Family Link quản lý</translation>
 <translation id="2303600792989757991">Tổng quan về chuyển đổi cửa sổ</translation>
 <translation id="2304702218354340897">Bạn có chắc chắn muốn tắt tính năng điều khiển bằng khuôn mặt không?</translation>
@@ -928,7 +928,6 @@ Hãy sạc thiết bị.</translation>
 <translation id="3697991387880191195">Nhấn phím tắt chụp ảnh màn hình</translation>
 <translation id="3702809606464356667">Đang hiện các cửa sổ của không gian làm việc hiện tại, hãy nhấn phím Mũi tên lên để hiển thị các cửa sổ của mọi không gian làm việc</translation>
 <translation id="3705722231355495246">-</translation>
-<translation id="3706423975342040244">Giải trí</translation>
 <translation id="370665806235115550">Đang tải...</translation>
 <translation id="3707093869106077605">Bạn chưa thể sử dụng <ph name="UNAVAILABLE_DLC_ONE" /> và <ph name="UNAVAILABLE_DLC_TWO" />.</translation>
 <translation id="3708186454126126312">Đã kết nối trước đây</translation>
@@ -975,7 +974,6 @@ Hãy sạc thiết bị.</translation>
 <translation id="3824784079442479685">Nếu bạn bật, <ph name="APP_NAME" /> và tất cả ứng dụng cũng như trang web có quyền truy cập máy ảnh sẽ có thể sử dụng máy ảnh. Bạn có thể cần làm mới trang web hoặc khởi động lại ứng dụng.</translation>
 <translation id="3826099427150913765">Chuyển sang mật khẩu</translation>
 <translation id="383058930331066723">Chế độ trình tiết kiệm pin đang bật</translation>
-<translation id="3831226344927851293">Thoát chế độ xem hướng dẫn</translation>
 <translation id="383629559565718788">Hiển thị các tùy chọn cài đặt bàn phím</translation>
 <translation id="384082539148746321">Bạn muốn xoá mẫu?</translation>
 <translation id="3844627820291068572"><ph name="MODIFIER_ONE" /><ph name="MODIFIER_TWO" /> rồi đến <ph name="KEY_ONE" />, <ph name="KEY_TWO" />, <ph name="KEY_THREE" /> hoặc <ph name="KEY_FOUR" /></translation>
@@ -1022,6 +1020,7 @@ Hãy sạc thiết bị.</translation>
 <translation id="3977512764614765090">Pin ở mức <ph name="PERCENTAGE" />% và đang sạc.</translation>
 <translation id="3978162107953847778">Chèn đường liên kết từ các vị trí như nhật ký duyệt web và Google Drive. Bạn cũng có thể chèn biểu tượng cảm xúc, tệp hình ảnh và nội dung khác. <ph name="LINK_TO_LEARN_MORE" /></translation>
 <translation id="3982013579989864579">Chuyển đầu ra âm thanh?</translation>
+<translation id="3983903378684256134">Steam trên Chromebook</translation>
 <translation id="3984536049089846927">Trang tiếp theo</translation>
 <translation id="3986082989454912832">Trả lời</translation>
 <translation id="3990002060657467458">Các tuỳ chọn kiểm soát thường dùng như Wi-Fi, Bluetooth và âm lượng sẽ nằm trong phần Cài đặt nhanh. Bạn cũng có thể vào phần này để chụp ảnh màn hình.</translation>
@@ -1578,10 +1577,8 @@ Chưa kết nối thiết bị nào.</translation>
 <translation id="5551974246223970793">Khi tìm kiếm trên trang, hãy chuyển đến kết quả phù hợp tiếp theo cho nội dung tìm kiếm</translation>
 <translation id="5556459405103347317">Tải lại</translation>
 <translation id="5558091555391176027">Bật/tắt chế độ hiển thị ở mức cao cho tính năng Chia sẻ lân cận</translation>
-<translation id="5558314826121965174">Sáng tạo</translation>
 <translation id="556042886152191864">Nút</translation>
 <translation id="5570122939431135380">Mở thẻ mới trong Cửa sổ ẩn danh mới</translation>
-<translation id="5572632238877308040">Ứng dụng thiết yếu</translation>
 <translation id="5575528586625653441">Đã xảy ra lỗi với yêu cầu đăng ký chế độ minh họa.</translation>
 <translation id="557563299383177668">Đoạn tiếp theo</translation>
 <translation id="5577082622442191756">Bật/tắt Bluetooth. <ph name="STATE_TEXT" />.</translation>
@@ -1616,7 +1613,6 @@ Chưa kết nối thiết bị nào.</translation>
 <translation id="5667546120811588575">Đang thiết lập Google Play...</translation>
 <translation id="5669267381087807207">Đang kích hoạt</translation>
 <translation id="5671658447180261823">Xóa đề xuất <ph name="SUGGESTION_NAME" /></translation>
-<translation id="5672890847723042801">Phần mềm tiện ích</translation>
 <translation id="5673434351075758678">Từ "<ph name="FROM_LOCALE" />" sang "<ph name="TO_LOCALE" />" sau khi đồng bộ hóa cài đặt của bạn.</translation>
 <translation id="5675363643668471212">Mục trong giá</translation>
 <translation id="5677022547882470786">Kéo hoặc nhấn phím cách để chọn khu vực cần tìm kiếm</translation>
@@ -1641,6 +1637,7 @@ Chưa kết nối thiết bị nào.</translation>
 <translation id="5727460725221669831">Nếu gần đây bạn quên mật khẩu hoặc thay đổi mật khẩu của Tài khoản Google, hãy thử khôi phục người dùng này.</translation>
 <translation id="5733630091161562207">Thông báo chào mừng</translation>
 <translation id="573413375004481890">Thiết bị này không thể hỗ trợ tất cả màn hình của bạn nên một màn hình đã bị ngắt kết nối</translation>
+<translation id="5739548907438839901">Đã giải phóng <ph name="SIZE" /> dung lượng ổ đĩa.</translation>
 <translation id="574392208103952083">Trung bình</translation>
 <translation id="5745612484876805746">Chế độ Ánh sáng đêm sẽ tự động bật khi trời tối</translation>
 <translation id="5749214722697335450">Gửi dữ liệu sử dụng và dữ liệu chẩn đoán. Giúp cải thiện trải nghiệm của bạn trên Android bằng cách tự động gửi dữ liệu chẩn đoán, dữ liệu về thiết bị và dữ liệu về mức sử dụng ứng dụng cho Google. Dữ liệu này sẽ giúp tăng độ ổn định của hệ thống và ứng dụng cũng như cải thiện các mặt khác. Một số dữ liệu tổng hợp cũng sẽ giúp ích cho các ứng dụng và đối tác của Google, chẳng hạn như nhà phát triển Android. Nếu bạn bật chế độ cài đặt Hoạt động bổ sung trên web và ứng dụng thì dữ liệu này có thể được lưu vào Tài khoản Google của bạn. <ph name="BEGIN_LINK1" />Tìm hiểu thêm về các chỉ số<ph name="BEGIN_LINK1_END" />Tìm hiểu thêm<ph name="END_LINK1" /></translation>
@@ -1791,7 +1788,6 @@ Chưa kết nối thiết bị nào.</translation>
 <translation id="6127395413317891856">Bạn chưa kết nối mạng. Hãy kiểm tra kết nối rồi thử lại.</translation>
 <translation id="6129953537138746214">Phím cách</translation>
 <translation id="6132714462430777655">Bỏ qua quy trình đăng ký học?</translation>
-<translation id="6136872094979134163">Không thể truy xuất tin tức về Steam cho Chromebook.</translation>
 <translation id="6137566720514957455">Mở hộp thoại xóa tài khoản cho <ph name="USER_EMAIL_ADDRESS" /></translation>
 <translation id="6141205840878048728">Bạn muốn tập trung vào việc gì?</translation>
 <translation id="6141988275892716286">Xác nhận tải xuống</translation>
@@ -1871,7 +1867,6 @@ Chưa kết nối thiết bị nào.</translation>
 <translation id="6348449481487610270"><ph name="MODIFIER_ONE" /><ph name="MODIFIER_TWO" /><ph name="KEY_ONE" /> rồi đến <ph name="MODIFIER_THREE" /><ph name="KEY_TWO" /> hoặc <ph name="KEY_THREE" /></translation>
 <translation id="6352082849089527770">Mạng không xác định</translation>
 <translation id="6359587239691116345">Nhận các tính năng mới nhất và mức độ bảo mật cao hơn. Nếu bạn từ chối bản cập nhật này, thiết bị của bạn có thể sẽ không còn hoạt động bình thường. Đồng thời, bạn có thể gặp các vấn đề về hiệu suất và bảo mật.</translation>
-<translation id="6362833380917912748">Tìm hiểu về các ứng dụng tích hợp sẵn</translation>
 <translation id="6364386432014869981">Bàn di chuột tích hợp sẵn đang bật</translation>
 <translation id="6376931439017688372">Bluetooth đang bật</translation>
 <translation id="6378515133128829137">Ghim cửa sổ sang bên phải</translation>
@@ -2096,7 +2091,6 @@ Mới cài đặt</translation>
 <translation id="7014684956566476813">Đã kết nối với thiết bị có tên <ph name="DEVICE_NAME" /></translation>
 <translation id="7015766095477679451">Quay lại lúc <ph name="COME_BACK_TIME" />.</translation>
 <translation id="70168403932084660">Không gian làm việc 6</translation>
-<translation id="702252130983202758">Ứng dụng của bạn</translation>
 <translation id="7025533177575372252">Kết nối <ph name="DEVICE_NAME" /> với điện thoại của bạn</translation>
 <translation id="7026338066939101231">Giảm</translation>
 <translation id="7029307918966275733">Chưa cài đặt Crostini. Vui lòng cài đặt Crostini để xem thông tin về người đóng góp.</translation>
@@ -2219,6 +2213,7 @@ Mới cài đặt</translation>
 <translation id="7413851974711031813">Nhấn phím Escape để đóng</translation>
 <translation id="7416471219712049036">Lưu trang hiện tại</translation>
 <translation id="742594950370306541">Máy ảnh đang được sử dụng.</translation>
+<translation id="7430466159639897874">Bạn có dung lượng ổ đĩa chưa sử dụng (<ph name="SIZE" />) được phân bổ cho tính năng "Steam trên Chromebook" vốn đã bị ngừng hỗ trợ.</translation>
 <translation id="743058460480092004">Máy ảnh và micrô đang được sử dụng.</translation>
 <translation id="7433708794692032816">Lắp thẻ thông minh để tiếp tục sử dụng <ph name="DEVICE_TYPE" /> của bạn</translation>
 <translation id="7440404390546433462">Google Tìm kiếm</translation>
@@ -2360,6 +2355,7 @@ Mới cài đặt</translation>
 <translation id="7781335840981796660">Tất cả tài khoản người dùng và dữ liệu trên máy đều sẽ bị xóa.</translation>
 <translation id="7781829728241885113">Hôm qua</translation>
 <translation id="7787212146956232129">Đã thiết lập thiết bị đầu vào và đầu ra. Chuyển đến phần Cài đặt để thay đổi.</translation>
+<translation id="7790757511772316441">Giải phóng dung lượng ổ đĩa</translation>
 <translation id="7792590255364786396">Hiển thị</translation>
 <translation id="7796735576426975947">Đã ẩn thông báo mới</translation>
 <translation id="7798302898096527229">Nhấn phím Search hoặc Shift để hủy.</translation>
@@ -2535,7 +2531,6 @@ Mới cài đặt</translation>
 <translation id="8277261673056602147">Đánh dấu văn bản trên màn hình</translation>
 <translation id="8281886186245836920">Bỏ qua</translation>
 <translation id="8282784978194352587">Bạn đã làm được!</translation>
-<translation id="8287009018010202411">Năng suất</translation>
 <translation id="828708037801473432">Đang tắt</translation>
 <translation id="8289128870594824098">Dung lượng ổ đĩa</translation>
 <translation id="8297006494302853456">Yếu</translation>
@@ -2630,7 +2625,6 @@ Mới cài đặt</translation>
 <translation id="8598235756057743477">Sắp xếp ứng dụng theo tên hoặc màu sắc</translation>
 <translation id="8599864823732014237">Bỏ qua quy trình đăng ký doanh nghiệp?</translation>
 <translation id="8609384513243082612">Mở thẻ mới</translation>
-<translation id="861045123704058818">Ứng dụng được sắp xếp tạm thời theo danh mục</translation>
 <translation id="8612338981637220013">Xuất sắc!</translation>
 <translation id="8613164732773110792">Chỉ các ký tự viết thường, chữ số, dấu gạch dưới hoặc dấu gạch ngang</translation>
 <translation id="8614517853887502247">Đã ẩn thông báo của <ph name="APP_1_TITLE" /> và <ph name="APP_2_TITLE" /> do đang bật chế độ chống nhìn lén</translation>
@@ -2822,7 +2816,6 @@ Mới cài đặt</translation>
 <translation id="9129245940793250979">Nút phía sau</translation>
 <translation id="9133335900048457298">Không thể ghi nội dung được bảo vệ</translation>
 <translation id="9139720510312328767">Xoá chữ cái tiếp theo</translation>
-<translation id="9148058034647219655">Thoát</translation>
 <translation id="9151906066336345901">end</translation>
 <translation id="9159421884295554245">Tìm trong Bảng nhớ tạm</translation>
 <translation id="9168436347345867845">Thực hiện sau</translation>

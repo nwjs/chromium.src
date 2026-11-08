@@ -108,7 +108,7 @@ bool PropertyTreeManager::DirectlyUpdateCompositedOpacityValue(
   auto& cc_effect = property_trees->effect_tree_mutable().MutableNode(cc_id);
 
   cc_effect.opacity = effect.Opacity();
-  cc_effect.effect_changed = true;
+  cc_effect.SetEffectChanged(cc::DamageReason::kUntracked);
   property_trees->effect_tree_mutable().set_needs_update(true);
   host.SetNeedsCommit();
   return true;
@@ -210,7 +210,6 @@ namespace {
 void UpdateCcScrollingContentsCullRect(
     cc::ScrollTree& scroll_tree,
     const ScrollPaintPropertyNode& scroll_node) {
-  CHECK(RuntimeEnabledFeatures::ScrollingContentsCullRectOnScrollNodeEnabled());
   gfx::Rect cull_rect = scroll_node.ScrollingContentsCullRect();
   if (cull_rect.Contains(scroll_node.ContentsRect())) {
     scroll_tree.ClearScrollingContentsCullRect(
@@ -592,10 +591,7 @@ int PropertyTreeManager::EnsureCompositorTransformNode(
       compositor_scroll_node.main_thread_repaint_reasons.PutAll(
           NonCompositedMainThreadRepaintReasons(transform_node));
     }
-    if (RuntimeEnabledFeatures::
-            ScrollingContentsCullRectOnScrollNodeEnabled()) {
-      UpdateCcScrollingContentsCullRect(scroll_tree_, *scroll_node);
-    }
+    UpdateCcScrollingContentsCullRect(scroll_tree_, *scroll_node);
   }
 
   compositor_node.visible_frame_element_id =
@@ -972,15 +968,15 @@ std::optional<gfx::RRectF> PropertyTreeManager::ShaderBasedRRect(
     return std::nullopt;
   }
 
-  auto WidthAndHeightAreTheSame = [](const gfx::SizeF& size) {
+  auto width_and_height_are_the_same = [](const gfx::SizeF& size) {
     return size.width() == size.height();
   };
 
   const FloatRoundedRect::Radii& radii = clip.PaintClipRect().GetRadii();
-  if (!WidthAndHeightAreTheSame(radii.TopLeft()) ||
-      !WidthAndHeightAreTheSame(radii.TopRight()) ||
-      !WidthAndHeightAreTheSame(radii.BottomRight()) ||
-      !WidthAndHeightAreTheSame(radii.BottomLeft())) {
+  if (!width_and_height_are_the_same(radii.TopLeft()) ||
+      !width_and_height_are_the_same(radii.TopRight()) ||
+      !width_and_height_are_the_same(radii.BottomRight()) ||
+      !width_and_height_are_the_same(radii.BottomLeft())) {
     return std::nullopt;
   }
 
@@ -1369,8 +1365,11 @@ void PropertyTreeManager::PopulateCcEffectNode(
     effect_node.filters = filter->AsCcFilterOperations();
   }
   effect_node.double_sided = !transform.IsBackfaceHidden();
-  effect_node.effect_changed =
-      effect.NodeChanged() != PaintPropertyChangeType::kUnchanged;
+  if (effect.NodeChanged() != PaintPropertyChangeType::kUnchanged) {
+    effect_node.SetEffectChanged(cc::DamageReason::kUntracked);
+  } else {
+    effect_node.ClearEffectChanged();
+  }
 
   effect_node.view_transition_element_resource_id =
       effect.ViewTransitionElementResourceId();

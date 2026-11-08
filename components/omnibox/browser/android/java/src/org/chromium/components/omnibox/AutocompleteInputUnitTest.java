@@ -39,6 +39,7 @@ import java.util.Set;
 
 /** Tests for {@link AutocompleteInput}. */
 @RunWith(BaseRobolectricTestRunner.class)
+@EnableFeatures(OmniboxFeatureList.SERVE_JAVA_CACHED_ZERO_SUGGEST)
 public class AutocompleteInputUnitTest {
     @Rule
     public final MockitoRule mMockitoRule = MockitoJUnit.rule().strictness(Strictness.STRICT_STUBS);
@@ -118,6 +119,15 @@ public class AutocompleteInputUnitTest {
                         PageClassification.INSTANT_NTP_WITH_OMNIBOX_AS_STARTING_FOCUS,
                         PageClassification.SEARCH_RESULT_PAGE_NO_SEARCH_TERM_REPLACEMENT,
                         PageClassification.OTHER));
+    }
+
+    @Test
+    @DisableFeatures(OmniboxFeatureList.SERVE_JAVA_CACHED_ZERO_SUGGEST)
+    @EnableFeatures(
+            OmniboxFeatureList.JUMP_START_OMNIBOX + ":jump_start_cover_recently_visited_page/true")
+    public void isInCacheableContext_serveJavaCachedZeroSuggestDisabled() {
+        OmniboxFeatures.setJumpStartOmniboxEnabled(true);
+        verifyCacheablePageClasses(Set.of());
     }
 
     @Test
@@ -273,16 +283,23 @@ public class AutocompleteInputUnitTest {
     @Test
     public void getPageClassification_forFuseboxRequests() {
         Map<@PageClassification Integer, @PageClassification Integer> testCases =
-                Map.of(
+                Map.ofEntries(
                         // NTP
-                        PageClassification.INSTANT_NTP_WITH_OMNIBOX_AS_STARTING_FOCUS,
-                        PageClassification.NTP_OMNIBOX_COMPOSEBOX,
+                        Map.entry(
+                                PageClassification.INSTANT_NTP_WITH_OMNIBOX_AS_STARTING_FOCUS,
+                                PageClassification.NTP_OMNIBOX_COMPOSEBOX),
                         // SRP
-                        PageClassification.SEARCH_RESULT_PAGE_NO_SEARCH_TERM_REPLACEMENT,
-                        PageClassification.SRP_OMNIBOX_COMPOSEBOX,
+                        Map.entry(
+                                PageClassification.SEARCH_RESULT_PAGE_NO_SEARCH_TERM_REPLACEMENT,
+                                PageClassification.SRP_OMNIBOX_COMPOSEBOX),
                         // Web
-                        PageClassification.OTHER, //
-                        PageClassification.OTHER_OMNIBOX_COMPOSEBOX);
+                        Map.entry(
+                                PageClassification.OTHER,
+                                PageClassification.OTHER_OMNIBOX_COMPOSEBOX),
+                        // SearchActivity
+                        Map.entry(
+                                PageClassification.ANDROID_SHORTCUTS_WIDGET,
+                                PageClassification.OTHER_OMNIBOX_COMPOSEBOX));
 
         for (@AutocompleteRequestType
         int requestType :

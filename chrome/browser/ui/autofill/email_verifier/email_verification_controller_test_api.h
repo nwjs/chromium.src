@@ -5,7 +5,6 @@
 #ifndef CHROME_BROWSER_UI_AUTOFILL_EMAIL_VERIFIER_EMAIL_VERIFICATION_CONTROLLER_TEST_API_H_
 #define CHROME_BROWSER_UI_AUTOFILL_EMAIL_VERIFIER_EMAIL_VERIFICATION_CONTROLLER_TEST_API_H_
 
-#include <memory>
 #include <optional>
 
 #include "base/memory/raw_ref.h"
@@ -21,14 +20,13 @@ class EmailVerificationControllerTestApi {
       EmailVerificationController& controller)
       : controller_(controller) {}
 
-  EmailVerificationPopupController* popup_controller() {
-    return controller_->popup_controller_.get();
-  }
-  void set_popup_controller(
-      std::unique_ptr<EmailVerificationPopupController> controller) {
-    controller_->popup_controller_ = std::move(controller);
+  EmailVerificationPopupController& popup_controller() {
+    return controller_->popup_controller_;
   }
 
+  using PromptState = EmailVerificationController::PromptState;
+
+  PromptState prompt_state() const { return controller_->prompt_state_; }
   bool is_hide_popup_timer_running() const {
     return controller_->hide_popup_timer_.IsRunning();
   }

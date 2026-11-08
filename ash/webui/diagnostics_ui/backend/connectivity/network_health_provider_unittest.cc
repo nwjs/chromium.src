@@ -28,7 +28,6 @@
 #include "chromeos/ash/components/network/onc/network_onc_utils.h"
 #include "chromeos/ash/components/network/system_token_cert_db_storage.h"
 #include "chromeos/ash/components/network/technology_state_controller.h"
-#include "chromeos/ash/components/test/ash_test_suite.h"
 #include "chromeos/ash/services/network_config/cros_network_config.h"
 #include "chromeos/ash/services/network_config/in_process_instance.h"
 #include "chromeos/services/network_config/public/mojom/cros_network_config.mojom.h"
@@ -45,7 +44,6 @@
 #include "dbus/object_path.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/cros_system_api/dbus/shill/dbus-constants.h"
-#include "ui/base/resource/resource_bundle.h"
 
 namespace ash::diagnostics {
 
@@ -158,7 +156,7 @@ void VerifyNetworkDataErrorBucketCounts(
 
 class NetworkHealthProviderTest : public AshTestBase {
  public:
-  NetworkHealthProviderTest() { set_start_session(false); }
+  NetworkHealthProviderTest() = default;
 
   NetworkHealthProviderTest(const NetworkHealthProviderTest&) = delete;
   NetworkHealthProviderTest& operator=(const NetworkHealthProviderTest&) =
@@ -166,10 +164,12 @@ class NetworkHealthProviderTest : public AshTestBase {
 
   ~NetworkHealthProviderTest() override = default;
 
-  void SetUp() override {
-    ui::ResourceBundle::CleanupSharedInstance();
-    AshTestSuite::LoadTestResources();
+  void SetUpInitParams(AshTestHelper::InitParams& init_params) override {
+    AshTestBase::SetUpInitParams(init_params);
+    init_params.start_session = false;
+  }
 
+  void SetUp() override {
     user_session_test_environment_ =
         std::make_unique<ash::test::UserSessionTestEnvironment>(local_state());
     const AccountId account_id =

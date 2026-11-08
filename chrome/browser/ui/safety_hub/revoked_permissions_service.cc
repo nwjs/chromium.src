@@ -105,10 +105,9 @@ base::TimeDelta RevokedPermissionsService::GetRepeatedUpdateInterval() {
 
 RevokedPermissionsTabHelper::RevokedPermissionsTabHelper(
     content::WebContents* web_contents,
-    RevokedPermissionsService* unused_site_permission_service)
+    RevokedPermissionsService* revoked_permissions_service)
     : content::WebContentsObserver(web_contents),
-      unused_site_permission_service_(
-          unused_site_permission_service->AsWeakPtr()) {}
+      revoked_permissions_service_(revoked_permissions_service->AsWeakPtr()) {}
 
 RevokedPermissionsTabHelper::~RevokedPermissionsTabHelper() = default;
 
@@ -126,16 +125,10 @@ PermissionsData::PermissionsData(const PermissionsData& other)
 }
 
 void RevokedPermissionsTabHelper::PrimaryPageChanged(content::Page& page) {
-  Profile* profile =
-      Profile::FromBrowserContext(web_contents()->GetBrowserContext());
-  DisruptiveNotificationPermissionsManager::MaybeReportFalsePositive(
-      profile, page.GetMainDocument().GetLastCommittedURL(),
-      DisruptiveNotificationPermissionsManager::FalsePositiveReason::kPageVisit,
-      page.GetMainDocument().GetPageUkmSourceId());
-
-  if (unused_site_permission_service_) {
-    unused_site_permission_service_->OnPageVisited(
-        page.GetMainDocument().GetLastCommittedOrigin());
+  if (revoked_permissions_service_) {
+    revoked_permissions_service_->OnPageVisited(
+        page.GetMainDocument().GetLastCommittedOrigin(),
+        page.GetMainDocument().GetPageUkmSourceId());
   }
 }
 
@@ -152,11 +145,11 @@ RevokedPermissionsService::RevokedPermissionsService(
   pref_change_registrar_->Init(prefs);
 
 #if BUILDFLAG(IS_ANDROID)
-    pref_change_registrar_->Add(
-        safety_hub_prefs::kUnusedSitePermissionsRevocationEnabled,
-        base::BindRepeating(&RevokedPermissionsService::
-                                OnPermissionsAutorevocationControlChanged,
-                            base::Unretained(this)));
+  pref_change_registrar_->Add(
+      safety_hub_prefs::kUnusedSitePermissionsRevocationEnabled,
+      base::BindRepeating(
+          &RevokedPermissionsService::OnPermissionsAutorevocationControlChanged,
+          base::Unretained(this)));
 #else   // BUILDFLAG(IS_ANDROID)
   pref_change_registrar_->Add(
       safety_hub_prefs::kUnusedSitePermissionsRevocationEnabled,
@@ -165,26 +158,25 @@ RevokedPermissionsService::RevokedPermissionsService(
           base::Unretained(this)));
 #endif  // BUILDFLAG(IS_ANDROID)
 
-    RevokedPermissionsOSNotificationDisplayManager*
-        notification_display_manager =
-            RevokedPermissionsOSNotificationDisplayManagerFactory::
-                GetForProfile(Profile::FromBrowserContext(browser_context_));
+  RevokedPermissionsOSNotificationDisplayManager* notification_display_manager =
+      RevokedPermissionsOSNotificationDisplayManagerFactory::GetForProfile(
+          Profile::FromBrowserContext(browser_context_));
 #if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
-    auto* v5_manager =
-        safe_browsing::V5GetHashProtocolManagerFactory::GetForBrowserContext(
-            browser_context_);
+  auto* v5_manager =
+      safe_browsing::V5GetHashProtocolManagerFactory::GetForBrowserContext(
+          browser_context_);
 #endif
-    abusive_notification_manager_ =
-        std::make_unique<AbusiveNotificationPermissionsManager>(
+  abusive_notification_manager_ =
+      std::make_unique<AbusiveNotificationPermissionsManager>(
 #if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
-            g_browser_process->safe_browsing_service()
-                ? g_browser_process->safe_browsing_service()->database_manager()
-                : nullptr,
-            v5_manager ? v5_manager->GetWeakPtr() : nullptr,
+          g_browser_process->safe_browsing_service()
+              ? g_browser_process->safe_browsing_service()->database_manager()
+              : nullptr,
+          v5_manager ? v5_manager->GetWeakPtr() : nullptr,
 #else
-            nullptr, nullptr,
+          nullptr, nullptr,
 #endif
-            hcsm(), pref_change_registrar_->prefs());
+          hcsm(), pref_change_registrar_->prefs());
 
   pref_change_registrar_->Add(
       prefs::kSafeBrowsingEnabled,
@@ -252,16 +244,15 @@ void RevokedPermissionsService::OnContentSettingChanged(
       (IsAbusiveNotificationAutoRevocationEnabled() &&
        abusive_notification_manager_->IsRevocationRunning()) ||
       (disruptive_notification_manager_ &&
-       disruptive_notification_manager_->IsChangingContentSettings());
+       disruptive_notification_manager_->IsRevocationRunning());
   if (is_revocation_running) {
     return;
   }
 
   if (content_settings::IsPermissionEligibleForAutoRevocation(
           content_type_set.GetType())) {
-    unused_site_permissions_manager_
-        ->DeletePatternFromRevokedUnusedSitePermissionList(primary_pattern,
-                                                           secondary_pattern);
+    unused_site_permissions_manager_->OnPermissionChanged(primary_pattern,
+                                                          secondary_pattern);
   }
 
   if (content_type_set.GetType() == ContentSettingsType::NOTIFICATIONS) {
@@ -299,12 +290,11 @@ void RevokedPermissionsService::Shutdown() {
 void RevokedPermissionsService::RegrantPermissionsForOrigin(
     const url::Origin& origin) {
   if (IsAbusiveNotificationAutoRevocationEnabled()) {
-    abusive_notification_manager_->RegrantPermissionForOriginIfNecessary(
-        origin.GetURL());
+    abusive_notification_manager_->RegrantPermissionForOrigin(origin);
   }
 
   if (disruptive_notification_manager_) {
-    disruptive_notification_manager_->RegrantPermissionForUrl(origin.GetURL());
+    disruptive_notification_manager_->RegrantPermissionForOrigin(origin);
   }
 
   unused_site_permissions_manager_->RegrantPermissionsForOrigin(origin);
@@ -316,16 +306,17 @@ void RevokedPermissionsService::UndoRegrantPermissionsForOrigin(
   for (const auto& [type, value] : permissions_data.permissions) {
     permission_types.insert(type);
   }
+  GURL rep_url = permissions_data.primary_pattern.ToRepresentativeUrl();
+  CHECK(rep_url.is_valid());
+  url::Origin origin = url::Origin::Create(rep_url);
   if (IsAbusiveNotificationAutoRevocationEnabled()) {
-    abusive_notification_manager_->UndoRegrantPermissionForOriginIfNecessary(
-        GURL(permissions_data.primary_pattern.ToString()), permission_types,
-        permissions_data.constraints.Clone());
+    abusive_notification_manager_->UndoRegrantPermissionForOrigin(
+        origin, permission_types, permissions_data.constraints.Clone());
   }
 
   if (disruptive_notification_manager_) {
-    disruptive_notification_manager_->UndoRegrantPermissionForUrl(
-        GURL(permissions_data.primary_pattern.ToString()), permission_types,
-        permissions_data.constraints.Clone());
+    disruptive_notification_manager_->UndoRegrantPermissionForOrigin(
+        origin, permission_types, permissions_data.constraints.Clone());
   }
 
   unused_site_permissions_manager_->UndoRegrantPermissionsForOrigin(
@@ -341,19 +332,17 @@ void RevokedPermissionsService::ClearRevokedPermissionsList() {
     disruptive_notification_manager_->ClearRevokedPermissionsList();
   }
 
-  for (const auto& revoked_permissions : hcsm()->GetSettingsForOneType(
-           ContentSettingsType::REVOKED_UNUSED_SITE_PERMISSIONS)) {
-    unused_site_permissions_manager_
-        ->DeletePatternFromRevokedUnusedSitePermissionList(
-            revoked_permissions.primary_pattern,
-            revoked_permissions.secondary_pattern);
-  }
+  unused_site_permissions_manager_->ClearRevokedPermissionsList();
 }
 
 // Called by TabHelper when a URL was visited.
-void RevokedPermissionsService::OnPageVisited(const url::Origin& origin) {
+void RevokedPermissionsService::OnPageVisited(const url::Origin& origin,
+                                              ukm::SourceId ukm_source_id) {
   CHECK(unused_site_permissions_manager_);
   unused_site_permissions_manager_->OnPageVisited(origin);
+  if (disruptive_notification_manager_) {
+    disruptive_notification_manager_->OnPageVisited(origin, ukm_source_id);
+  }
 }
 
 base::OnceCallback<std::unique_ptr<SafetyHubResult>()>
@@ -383,27 +372,13 @@ std::unique_ptr<SafetyHubResult> RevokedPermissionsService::UpdateOnUIThread(
 
 std::unique_ptr<RevokedPermissionsResult>
 RevokedPermissionsService::GetRevokedPermissions() {
-  ContentSettingsForOneType settings = hcsm()->GetSettingsForOneType(
-      ContentSettingsType::REVOKED_UNUSED_SITE_PERMISSIONS);
   auto result = std::make_unique<RevokedPermissionsResult>();
 
-  for (auto& revoked_permissions : settings) {
-    PermissionsData permissions_data;
-    permissions_data.primary_pattern = revoked_permissions.primary_pattern;
-    base::Value& stored_value = revoked_permissions.setting_value;
-    permissions_data.permissions =
-        unused_site_permissions_manager_->ExtractRevokedPermissions(
-            std::move(stored_value));
-
-    permissions_data.constraints = content_settings::ContentSettingConstraints(
-        revoked_permissions.metadata.expiration() -
-        revoked_permissions.metadata.lifetime());
-    permissions_data.constraints.set_lifetime(
-        revoked_permissions.metadata.lifetime());
-
+  for (auto& permissions_data :
+       unused_site_permissions_manager_->GetRevokedPermissions()) {
     // If the origin has a revoked notification, add `NOTIFICATIONS` to
     // the list of revoked permissions.
-    const GURL& url = GURL(revoked_permissions.primary_pattern.ToString());
+    const GURL url(permissions_data.primary_pattern.ToString());
     if (safety_hub_util::IsUrlRevokedAbusiveNotification(hcsm(), url)) {
       CHECK(IsAbusiveNotificationAutoRevocationEnabled());
       permissions_data.permissions.insert(std::make_pair(
@@ -417,7 +392,7 @@ RevokedPermissionsService::GetRevokedPermissions() {
           ContentSettingsType::REVOKED_ABUSIVE_NOTIFICATION_PERMISSIONS,
           &info));
       CHECK(!stored_abusive_value.is_none());
-      if (revoked_permissions.metadata.expiration() <
+      if (permissions_data.constraints.expiration() <
           info.metadata.expiration()) {
         permissions_data.constraints = GetConstraintFromInfo(info);
       }
@@ -447,7 +422,7 @@ RevokedPermissionsService::GetRevokedPermissions() {
           ContentSettingsType::REVOKED_DISRUPTIVE_NOTIFICATION_PERMISSIONS,
           &info));
       CHECK(!stored_disruptive_value.is_none());
-      if (revoked_permissions.metadata.expiration() <
+      if (permissions_data.constraints.expiration() <
           info.metadata.expiration()) {
         permissions_data.constraints = GetConstraintFromInfo(info);
       }
@@ -499,7 +474,7 @@ RevokedPermissionsService::GetRevokedPermissions() {
 
   if (disruptive_notification_manager_) {
     ContentSettingsForOneType revoked_disruptive_notifications =
-        disruptive_notification_manager_->GetRevokedNotifications(hcsm());
+        disruptive_notification_manager_->GetRevokedPermissions();
     for (const auto& permission : revoked_disruptive_notifications) {
       // Skip origins with revoked unused site permissions, since these were
       // handled above.
@@ -541,16 +516,8 @@ void RevokedPermissionsService::RestoreDeletedRevokedPermissionsList(
     const std::vector<PermissionsData>& permissions_data_list) {
   for (const auto& permissions_data : permissions_data_list) {
     if (IsUnusedPermissionRevocation(permissions_data.revocation_type)) {
-      base::flat_map<ContentSettingsType, base::Value> cloned_permissions;
-      for (const auto& [type, value] : permissions_data.permissions) {
-        cloned_permissions[type] = value.Clone();
-      }
-      unused_site_permissions_manager_
-          ->StorePermissionInUnusedSitePermissionSetting(
-              std::move(cloned_permissions),
-              permissions_data.constraints.Clone(),
-              permissions_data.primary_pattern,
-              ContentSettingsPattern::Wildcard());
+      unused_site_permissions_manager_->RestoreDeletedRevokedPermission(
+          permissions_data);
     }
 
     if (IsAbusiveNotificationAutoRevocationEnabled() &&
@@ -579,18 +546,6 @@ void RevokedPermissionsService::OnPermissionsAutorevocationControlChanged() {
   } else {
     StopTimer();
   }
-}
-
-std::vector<ContentSettingEntry>
-RevokedPermissionsService::GetTrackedUnusedPermissionsForTesting() {
-  return unused_site_permissions_manager_
-      ->GetTrackedUnusedPermissionsForTesting();  // IN-TEST
-}
-
-UnusedSitePermissionsManager::UntimestampedPermissionList
-RevokedPermissionsService::GetUntimestampedPermissionsForTesting() {
-  return unused_site_permissions_manager_
-      ->GetUntimestampedPermissionsForTesting();  // IN-TEST
 }
 
 void RevokedPermissionsService::SetClockForTesting(base::Clock* clock) {

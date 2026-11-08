@@ -80,7 +80,7 @@ GuestTosScreen::~GuestTosScreen() = default;
 void GuestTosScreen::ShowImpl() {
   if (!view_)
     return;
-  const std::string& locale = application_locale_storage_->Get();
+  const std::string locale(application_locale_storage_->GetTag().tag_string());
   view_->Show(GetGoogleEulaOnlineUrl(locale), GetCrosEulaOnlineUrl(locale));
 }
 
@@ -118,7 +118,7 @@ void GuestTosScreen::OnAccept(bool enable_usage_stats) {
 }
 
 void GuestTosScreen::OnOobeGuestPrefWriteDone() {
-  DCHECK(exit_callback_);
+  CHECK(exit_callback_, base::NotFatalUntil::M161);
 
   exit_callback_.Run(Result::ACCEPT);
 }

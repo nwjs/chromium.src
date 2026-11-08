@@ -56,6 +56,8 @@ class WalletPassAccessManagerImpl : public EntityDataManager::Observer,
       const EntityInstance::EntityId& entity_id,
       GetUnmaskedEntityInstanceCallback callback) override;
   void PreloadDetailsForUpsertPass(EntityType entity_type) override;
+  std::optional<GetDetailsForUpsertPassResponse>
+  ExtractPreloadedDetailsForUpsertPass(EntityType entity_type) override;
   void GetDetailsForUpsertPass(
       EntityType entity_type,
       GetDetailsForUpsertPassCallback callback) override;
@@ -94,8 +96,13 @@ class WalletPassAccessManagerImpl : public EntityDataManager::Observer,
   void FetchDetailsForUpsertPass(wallet::WalletHttpClient::PassType pass_type,
                                  GetDetailsForUpsertPassCallback callback);
 
+  // Extracts a preloaded `GetDetailsForUpsertPassResponse` for `entity_type`
+  // from `upsert_details_cache_` if present, triggering a background refill.
+  std::optional<GetDetailsForUpsertPassResponse>
+  ConsumeCachedDetailsForUpsertPass(EntityType entity_type);
+
   // Invoked when an asynchronous background preload request completes.
-  // Stores the successful response in `upsert_details_cache_`.
+  // Stores valid responses in `upsert_details_cache_`.
   void OnPreloadDetailsForUpsertPassComplete(
       wallet::WalletHttpClient::PassType pass_type,
       base::expected<GetDetailsForUpsertPassResponse,
@@ -112,10 +119,11 @@ class WalletPassAccessManagerImpl : public EntityDataManager::Observer,
 
   // Cache of preloaded details for upserting passes.
   // Entries are populated by `PreloadDetailsForUpsertPass` and consumed on
-  // read via `GetDetailsForUpsertPass` because Google Wallet `context_token`s
-  // are single-use. Because tokens and disclosure lines validate user consent
-  // for a given pass type and do not depend on client-side entity instances,
-  // entries are not affected by entity data changes.
+  // read via `ExtractPreloadedDetailsForUpsertPass` or
+  // `GetDetailsForUpsertPass` because Google Wallet `context_token`s are
+  // single-use. Because tokens and disclosure lines validate user consent for a
+  // given pass type and do not depend on client-side entity instances, entries
+  // are not affected by entity data changes.
   absl::flat_hash_map<wallet::WalletHttpClient::PassType,
                       GetDetailsForUpsertPassResponse>
       upsert_details_cache_;

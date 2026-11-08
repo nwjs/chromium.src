@@ -22,6 +22,7 @@ namespace indigo {
 class IndigoPageActionController;
 }
 
+class ContextHubPageHandler;
 class GlicPasswordChangeActuator;
 
 namespace ttc {
@@ -37,8 +38,8 @@ namespace glic {
 
 class GlicExperimentalTriggeringCoordinator;
 class GlicInternalsPageHandler;
-class PromptSuggestion;
 class SelectionOverlayController;
+class SelectionSuggestion;
 
 template <mojom::InvocationSource Source>
 class AndroidAutoSubmitPasskeyHelper;
@@ -61,6 +62,7 @@ class InvokeWithAutoSubmitPasskeyProvider {
       content::GlobalRenderFrameHostId rfh_id);
   friend class extensions::GlicPrivateInvokeFunction;
   friend class extensions::PdfViewerPrivateGlicSummarizeFunction;
+  friend class ::ContextHubPageHandler;
   friend class ::GlicPasswordChangeActuator;
   friend class GlicInternalsPageHandler;
   friend class GlicInstanceCoordinatorBrowserTest;
@@ -69,9 +71,9 @@ class InvokeWithAutoSubmitPasskeyProvider {
   friend class GlicApiTestPasskeys;
   friend class GlicExperimentalTriggeringCoordinator;
   friend class GlicCueTarget;
-  friend class GlicSelectionObserver;
-  friend class PromptSuggestion;
+  friend class GlicSelectionWidgetController;
   friend class SelectionOverlayController;
+  friend class SelectionSuggestion;
   friend class ::indigo::IndigoPageActionController;
   friend class ::ttc::AiOverlayTools;
   friend class ::skills::SkillsUiTabController;

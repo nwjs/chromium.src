@@ -434,38 +434,6 @@
 		</dict>
 		<dict>
 			<key>Type</key>
-			<string>PSMultiValueSpecifier</string>
-			<key>Title</key>
-			<string>Tips (Magic Stack) State</string>
-			<key>Key</key>
-			<string>TipsMagicStackStateOverride</string>
-			<key>DefaultValue</key>
-			<integer>0</integer>
-			<key>Values</key>
-			<array>
-				<integer>0</integer>
-				<integer>1</integer>
-				<integer>2</integer>
-				<integer>3</integer>
-				<integer>4</integer>
-				<integer>5</integer>
-				<integer>6</integer>
-				<integer>7</integer>
-			</array>
-			<key>Titles</key>
-			<array>
-				<string>None</string>
-				<string>Lens Search</string>
-				<string>Lens Shop</string>
-				<string>Lens Translate</string>
-				<string>Address Bar Position</string>
-				<string>Save Passwords</string>
-				<string>Autofill Passwords</string>
-				<string>Enhanced Safe Browsing</string>
-			</array>
-		</dict>
-		<dict>
-			<key>Type</key>
 			<string>PSToggleSwitchSpecifier</string>
 			<key>Title</key>
 			<string>Force product image in Lens Shop Tip</string>
@@ -768,6 +736,34 @@
 		</dict>
 		<dict>
 			<key>Type</key>
+			<string>PSMultiValueSpecifier</string>
+			<key>Title</key>
+			<string>Web Extension Loading Delay</string>
+			<key>Key</key>
+			<string>WebExtensionLoadDelay</string>
+			<key>DefaultValue</key>
+			<string></string>
+			<key>Values</key>
+			<array>
+				<string></string>
+				<string>NoDelayFail</string>
+				<string>Delay1s</string>
+				<string>Delay1sFail</string>
+				<string>Delay5s</string>
+				<string>Delay5sFail</string>
+			</array>
+			<key>Titles</key>
+			<array>
+				<string>No delay</string>
+				<string>No delay fail</string>
+				<string>delay 1s</string>
+				<string>delay 1s fail</string>
+				<string>delay 5s</string>
+				<string>delay 5s fail</string>
+			</array>
+		</dict>
+		<dict>
+			<key>Type</key>
 			<string>PSGroupSpecifier</string>
 			<key>Title</key>
 			<string>Enterprise Settings</string>
@@ -1038,7 +1034,6 @@
 			<key>DefaultValue</key>
 			<integer>0</integer>
 			<key>Values</key>
-			<!-- Non-zero values must align exactly with their corresponding enum values in push_notification_client_id.h -->
 			<array>
 				<integer>0</integer>
 				<integer>8</integer>

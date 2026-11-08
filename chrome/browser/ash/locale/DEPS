@@ -14,10 +14,15 @@ include_rules = [
   # Files residing in certain directories (e.g., //chrome/browser) are listed
   # individually. Other dependencies within //chrome are listed on a per-
   # directory basis. See //tools/chromeos/gen_deps.sh for details.
-  "+chrome/app/chrome_command_ids.h",
   "+chrome/browser/ash/base",
   "+chrome/browser/ash/settings",
   "+chrome/browser/profiles",
   "+chrome/common",
-  "+chrome/test/base",
 ]
+
+specific_include_rules = {
+  # Only tests need these //chrome dependencies.
+  "startup_settings_cache_browsertest\\.cc": [
+    "+chrome/test/base",
+  ],
+}

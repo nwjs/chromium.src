@@ -151,7 +151,7 @@ void FullscreenBrowserAgent::IncrementalScroll(CGFloat amount,
     return;
   }
 
-  if (IsFullscreenEasedTransitionsEnabled() && is_animating_) {
+  if (is_animating_) {
     return;
   }
 
@@ -174,12 +174,16 @@ void FullscreenBrowserAgent::IncrementalScroll(CGFloat amount,
     bottom_progress_ = top_progress_;
   } else {
     CGFloat top_delta = max_insets_.top - min_insets_.top;
-    UpdateProgress(top_progress_, amount, top_delta);
     CGFloat bottom_delta = max_insets_.bottom - min_insets_.bottom;
-    if (bottom_delta > 0) {
+    if (top_delta > 0 && bottom_delta > 0) {
+      UpdateProgress(top_progress_, amount, top_delta);
       UpdateProgress(bottom_progress_, amount, bottom_delta);
-    } else {
+    } else if (top_delta > 0) {
+      UpdateProgress(top_progress_, amount, top_delta);
       bottom_progress_ = top_progress_;
+    } else if (bottom_delta > 0) {
+      UpdateProgress(bottom_progress_, amount, bottom_delta);
+      top_progress_ = bottom_progress_;
     }
   }
 
@@ -537,6 +541,8 @@ void FullscreenBrowserAgent::ExitForceFullscreen(PassKey pass_key) {
 
 void FullscreenBrowserAgent::InvalidateInsetRange() {
   invalidating_inset_range_ = true;
+  UIEdgeInsets old_min_insets = min_insets_;
+  UIEdgeInsets old_max_insets = max_insets_;
   min_insets_ = UIEdgeInsetsZero;
   max_insets_ = UIEdgeInsetsZero;
 
@@ -553,8 +559,11 @@ void FullscreenBrowserAgent::InvalidateInsetRange() {
 
   updating_obscured_insets_ = false;
 
-  for (auto& observer : observers_) {
-    observer.DidUpdateObscuredInsetRange(this);
+  if (!UIEdgeInsetsEqualToEdgeInsets(old_min_insets, min_insets_) ||
+      !UIEdgeInsetsEqualToEdgeInsets(old_max_insets, max_insets_)) {
+    for (auto& observer : observers_) {
+      observer.DidUpdateObscuredInsetRange(this);
+    }
   }
 
   NotifyObserversOfUpdatedState();

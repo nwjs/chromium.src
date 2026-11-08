@@ -1,0 +1,54 @@
+// Copyright 2026 The Chromium Authors
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+import {html} from 'chrome://resources/lit/v3_0/lit.rollup.js';
+
+import type {SettingsShoppingPageElement} from './shopping_page.js';
+
+export function getHtml(this: SettingsShoppingPageElement) {
+  return html`<!--_html_template_start_-->
+<settings-subpage page-title="$i18n{shoppingCardTitle}" class="multi-card">
+  <div class="card">
+    <settings-toggle-button id="optInToggle"
+        ?disabled="${this.optInToggleDisabled_()}"
+        @settings-boolean-control-change="${
+            this.onOptInToggleSettingsBooleanControlChange_}"
+        .pref="${this.shoppingOptedIn_}"
+        no-extension-indicator
+        label="$i18n{shoppingOptInToggleLabel}"
+        sub-label="$i18n{shoppingOptInToggleSubLabel}">
+    </settings-toggle-button>
+    ${this.showSuggestionsFromGeminiSettings_ ? html`
+      <cr-link-row label="$i18n{autofillPersonalContextSettingsTitle}"
+          sub-label="$i18n{autofillPersonalContextSettingsSubpageSummary}"
+          id="suggestionsFromGeminiLinkRow"
+          @click="${this.onSuggestionsFromGeminiClick_}" class="hr">
+      </cr-link-row>
+    ` : ''}
+    ${this.extensionControlledIndicatorIsVisible_() ? html`
+      <div class="cr-row continuation">
+        <extension-controlled-indicator class="flex"
+            id="autofillExtensionIndicator"
+            extension-id="${this.profileEnabledPref_!.extensionId}"
+            extension-name="${this.profileEnabledPref_!.controlledByName}"
+            ?extension-can-be-disabled="${
+                !!this.profileEnabledPref_!.extensionCanBeDisabled}">
+        </extension-controlled-indicator>
+      </div>
+    ` : ''}
+  </div>
+
+  <!-- Entities list card -->
+  <div class="card">
+    <settings-autofill-ai-entries-list
+        list-title="$i18n{shoppingCardTitle}"
+        page-name="Shopping"
+        .allowedEntityTypes="${this.allowedEntityTypes_}"
+        .metricEntityTypes="${this.metricEntityTypes_}"
+        .allowNewEntitiesAdditionPref="${this.shoppingOptedIn_}">
+    </settings-autofill-ai-entries-list>
+  </div>
+</settings-subpage>
+<!--_html_template_end_-->`;
+}

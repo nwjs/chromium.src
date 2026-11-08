@@ -93,7 +93,6 @@ public class CustomTabAppMenuPropertiesDelegateUnitTest {
     @Mock private MultiWindowModeStateDispatcher mMultiWindowModeStateDispatcher;
     @Mock private TabModelSelector mTabModelSelector;
     @Mock private ToolbarManager mToolbarManager;
-    @Mock private View mDecorView;
     @Mock private CommerceFeatureUtils.Natives mCommerceFeatureUtilsJniMock;
     @Mock private BookmarkModel mBookmarkModel;
     @Mock private WebContents mWebContents;
@@ -104,6 +103,7 @@ public class CustomTabAppMenuPropertiesDelegateUnitTest {
 
     @Mock private Verifier mVerifier;
 
+    private final View mDecorView = new View(ContextUtils.getApplicationContext());
     private final ActivityTabProvider mActivityTabProvider = new ActivityTabProvider();
     private final SettableMonotonicObservableSupplier<BookmarkModel> mBookmarkModelSupplier =
             ObservableSuppliers.createMonotonic();

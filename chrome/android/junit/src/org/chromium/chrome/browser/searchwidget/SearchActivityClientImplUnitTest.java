@@ -36,6 +36,7 @@ import org.chromium.chrome.browser.omnibox.suggestions.OmniboxLoadUrlParams;
 import org.chromium.chrome.browser.ui.searchactivityutils.SearchActivityExtras;
 import org.chromium.chrome.browser.ui.searchactivityutils.SearchActivityExtras.IntentOrigin;
 import org.chromium.chrome.browser.ui.searchactivityutils.SearchActivityExtras.SearchType;
+import org.chromium.components.omnibox.AutocompleteRequestType;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.content_public.common.ResourceRequestBody;
 import org.chromium.ui.base.PageTransition;
@@ -58,7 +59,7 @@ public class SearchActivityClientImplUnitTest {
 
     private final Activity mActivity = Robolectric.buildActivity(TestActivity.class).setup().get();
     private final SearchActivityClientImpl mClient =
-            new SearchActivityClientImpl(mActivity, IntentOrigin.CUSTOM_TAB);
+            new SearchActivityClientImpl(mActivity, IntentOrigin.HUB);
 
     @Before
     public void setUp() {
@@ -79,13 +80,16 @@ public class SearchActivityClientImplUnitTest {
                 new int[] {
                     IntentOrigin.SEARCH_WIDGET,
                     IntentOrigin.QUICK_ACTION_SEARCH_WIDGET,
-                    IntentOrigin.CUSTOM_TAB,
+                    IntentOrigin.HUB,
                 };
 
         for (int origin : origins) {
             String action =
                     String.format(
-                            SearchActivityClientImpl.ACTION_SEARCH_FORMAT, origin, SearchType.TEXT);
+                            SearchActivityClientImpl.ACTION_SEARCH_FORMAT,
+                            origin,
+                            SearchType.TEXT,
+                            AutocompleteRequestType.SEARCH);
 
             // null URL
             var client = new SearchActivityClientImpl(mActivity, origin);
@@ -114,7 +118,7 @@ public class SearchActivityClientImplUnitTest {
                 new int[] {
                     IntentOrigin.SEARCH_WIDGET,
                     IntentOrigin.QUICK_ACTION_SEARCH_WIDGET,
-                    IntentOrigin.CUSTOM_TAB,
+                    IntentOrigin.HUB,
                 };
 
         for (int origin : origins) {
@@ -122,7 +126,8 @@ public class SearchActivityClientImplUnitTest {
                     String.format(
                             SearchActivityClientImpl.ACTION_SEARCH_FORMAT,
                             origin,
-                            SearchType.VOICE);
+                            SearchType.VOICE,
+                            AutocompleteRequestType.SEARCH);
 
             // null URL
             var client = new SearchActivityClientImpl(mActivity, origin);
@@ -151,13 +156,16 @@ public class SearchActivityClientImplUnitTest {
                 new int[] {
                     IntentOrigin.SEARCH_WIDGET,
                     IntentOrigin.QUICK_ACTION_SEARCH_WIDGET,
-                    IntentOrigin.CUSTOM_TAB,
+                    IntentOrigin.HUB,
                 };
 
         for (int origin : origins) {
             String action =
                     String.format(
-                            SearchActivityClientImpl.ACTION_SEARCH_FORMAT, origin, SearchType.LENS);
+                            SearchActivityClientImpl.ACTION_SEARCH_FORMAT,
+                            origin,
+                            SearchType.LENS,
+                            AutocompleteRequestType.SEARCH);
 
             // null URL
             var client = new SearchActivityClientImpl(mActivity, origin);
@@ -177,6 +185,27 @@ public class SearchActivityClientImplUnitTest {
             assertEquals(SearchType.LENS, SearchActivityUtils.getIntentSearchType(intent));
             assertEquals(origin, SearchActivityUtils.getIntentOrigin(intent));
         }
+    }
+
+    @Test
+    public void intentBuilder_forAiModeRequest() {
+        var intent =
+                mClient.newIntentBuilder().setRequestType(AutocompleteRequestType.AI_MODE).build();
+
+        assertEquals(
+                AutocompleteRequestType.AI_MODE,
+                IntentUtils.safeGetIntExtra(
+                        intent,
+                        SearchActivityExtras.EXTRA_REQUEST_TYPE,
+                        AutocompleteRequestType.SEARCH));
+        // PendingIntent equality ignores extras, so the action must carry the request type.
+        assertEquals(
+                String.format(
+                        SearchActivityClientImpl.ACTION_SEARCH_FORMAT,
+                        IntentOrigin.HUB,
+                        SearchType.TEXT,
+                        AutocompleteRequestType.AI_MODE),
+                intent.getAction());
     }
 
     @Test

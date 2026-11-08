@@ -81,10 +81,10 @@ source_set("impl") {
     "//chrome/browser:browser_features",
     "//chrome/browser/chooser_controller",
     "//chrome/browser/content_settings:content_settings_factory",
+    "//chrome/browser/net",
     "//chrome/browser/notifications:system_notification_helper",
     "//chrome/browser/profiles:profile",
     "//chrome/browser/profiles:profile_manager",
-    "//chrome/browser/ui",
     "//chrome/browser/ui/dialogs",
     "//chrome/common",
     "//chrome/common:chrome_features",
@@ -159,8 +159,6 @@ source_set("impl") {
     ]
   }
 
-  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
-
   if (!is_android) {
     deps += [
       "//chrome/browser/ui:browser_tab_strip_tracker",
@@ -193,6 +191,7 @@ source_set("unit_tests") {
     "//base/test:test_support",
     "//chrome/test:test_support",
     "//chrome/test/base:chrome_render_view_host_test_harness",
+    "//chrome/test/base:testing_browser_process",
     "//content/test:test_support",
     "//services/device/public/cpp:test_support",
   ]
@@ -267,7 +266,7 @@ if (is_linux || is_mac || is_win) {
     deps = [
       ":usb",
       "//base",
-      "//chrome/browser/ui",
+      "//chrome/browser",
       "//chrome/browser/ui/tabs:tab_strip",
       "//chrome/test:test_support_ui",
       "//content/public/browser",
@@ -305,6 +304,7 @@ source_set("platform_browser_tests") {
     "//chrome/browser:browser_process",
     "//chrome/browser:chrome_content_browser_client",
     "//chrome/browser/content_settings:content_settings_factory",
+    "//chrome/browser/ui/dialogs:browser_dialogs",
     "//chrome/browser/ui/navigator",
     "//chrome/test:test_support",
     "//chrome/test/base:chrome_test_utils",
@@ -338,6 +338,7 @@ if (!is_android) {
       ":test_support",
       "//base/test:test_support",
       "//chrome/app:command_ids",
+      "//chrome/browser",
       "//chrome/browser:browser_process",
       "//chrome/browser/content_settings:content_settings_factory",
       "//chrome/browser/device_notifications:browser_test_support",
@@ -345,13 +346,13 @@ if (!is_android) {
       "//chrome/browser/notifications",
       "//chrome/browser/notifications:system_notification_helper",
       "//chrome/browser/profiles:profile",
-      "//chrome/browser/ui",
       "//chrome/browser/ui/tabs:tab_strip",
       "//chrome/browser/web_applications",
       "//chrome/browser/web_applications:web_applications_test_support",
       "//chrome/common:chrome_features",
       "//chrome/test:test_support",
       "//chrome/test:test_support_ui",
+      "//chrome/test/base:testing_browser_process",
       "//components/account_id",
       "//components/content_settings/core/browser",
       "//components/content_settings/core/common",

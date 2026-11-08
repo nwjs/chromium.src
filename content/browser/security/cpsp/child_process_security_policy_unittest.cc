@@ -32,7 +32,6 @@
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/security_principal.h"
 #include "content/public/browser/site_isolation_policy.h"
-#include "content/public/common/bindings_policy.h"
 #include "content/public/common/content_client.h"
 #include "content/public/common/content_features.h"
 #include "content/public/common/content_switches.h"
@@ -170,6 +169,10 @@ class ChildProcessSecurityPolicyTest
                    ? "_ProcessStateEnabled"
                    : "_ProcessStateDisabled");
     return result;
+  }
+
+  bool IsRustProcessStateEnabled() const {
+    return std::get<1>(GetParam()) == CpspRustFeature::kProcessState;
   }
 
   void SetUp() override {
@@ -511,6 +514,28 @@ TEST_P(ChildProcessSecurityPolicyTest, BlobSchemeTest) {
                                GURL("blob:filesystem:http://localhost/path")));
   EXPECT_FALSE(p->CanCommitURL(kRendererID,
                                GURL("filesystem:blob:http://localhost/guid")));
+
+  p->Remove(kRendererProcess);
+}
+
+TEST_P(ChildProcessSecurityPolicyTest, OpaqueBlobAndFileSystemSchemeTest) {
+  const GURL opaque_blob_url("blob:null/some-guid");
+  const GURL opaque_file_system_url(
+      "filesystem:chrome-error://chromewebdata/temporary/a.gif");
+  ASSERT_TRUE(opaque_blob_url.is_valid());
+  ASSERT_TRUE(opaque_file_system_url.is_valid());
+  ASSERT_TRUE(opaque_file_system_url.inner_url());
+  ASSERT_TRUE(url::Origin::Create(opaque_blob_url).opaque());
+  ASSERT_TRUE(url::Origin::Create(opaque_file_system_url).opaque());
+
+  ChildProcessSecurityPolicyImpl* p =
+      ChildProcessSecurityPolicyImpl::GetInstance();
+  p->AddForTesting(kRendererProcess, browser_context());
+
+  EXPECT_TRUE(p->CanRequestURL(kRendererID, opaque_blob_url));
+  EXPECT_TRUE(p->CanCommitURL(kRendererID, opaque_blob_url));
+  EXPECT_FALSE(p->CanRequestURL(kRendererID, opaque_file_system_url));
+  EXPECT_FALSE(p->CanCommitURL(kRendererID, opaque_file_system_url));
 
   p->Remove(kRendererProcess);
 }
@@ -1199,124 +1224,83 @@ TEST_P(ChildProcessSecurityPolicyTest, CanServiceWebUIBindings) {
   const GURL url(GetWebUIURL("thumb/http://www.google.com/"));
   const GURL other_url(GetWebUIURL("not-thumb/"));
   const url::Origin origin = url::Origin::Create(url);
-  {
-    p->AddForTesting(kRendererProcess, browser_context());
-    LockProcessIfNeeded(kRendererProcess, browser_context(), url);
 
-    EXPECT_FALSE(p->HasWebUIBindings(kRendererID));
+  p->AddForTesting(kRendererProcess, browser_context());
+  LockProcessIfNeeded(kRendererProcess, browser_context(), url);
 
-    EXPECT_FALSE(p->CanRequestURL(kRendererID, url));
-    EXPECT_FALSE(p->CanCommitURL(kRendererID, url));
-    EXPECT_TRUE(p->CanRedirectToURL(url));
+  EXPECT_FALSE(p->HasWebUIBindings(kRendererProcess));
 
-    EXPECT_FALSE(p->CanRequestURL(kRendererID, other_url));
-    EXPECT_FALSE(p->CanCommitURL(kRendererID, other_url));
-    EXPECT_TRUE(p->CanRedirectToURL(other_url));
+  EXPECT_FALSE(p->CanRequestURL(kRendererID, url));
+  EXPECT_FALSE(p->CanCommitURL(kRendererID, url));
+  EXPECT_TRUE(p->CanRedirectToURL(url));
 
-    p->GrantWebUIBindings(kRendererID,
-                          BindingsPolicySet({BindingsPolicyValue::kWebUi}));
+  EXPECT_FALSE(p->CanRequestURL(kRendererID, other_url));
+  EXPECT_FALSE(p->CanCommitURL(kRendererID, other_url));
+  EXPECT_TRUE(p->CanRedirectToURL(other_url));
 
-    EXPECT_TRUE(p->HasWebUIBindings(kRendererID));
+  p->GrantWebUIBindings(kRendererProcess);
 
-    EXPECT_FALSE(p->CanRequestURL(kRendererID, url));
-    EXPECT_FALSE(p->CanCommitURL(kRendererID, url));
-    EXPECT_TRUE(p->CanRedirectToURL(url));
+  EXPECT_TRUE(p->HasWebUIBindings(kRendererProcess));
 
-    EXPECT_FALSE(p->CanRequestURL(kRendererID, other_url));
-    EXPECT_FALSE(p->CanCommitURL(kRendererID, other_url));
-    EXPECT_TRUE(p->CanRedirectToURL(other_url));
+  EXPECT_FALSE(p->CanRequestURL(kRendererID, url));
+  EXPECT_FALSE(p->CanCommitURL(kRendererID, url));
+  EXPECT_TRUE(p->CanRedirectToURL(url));
 
-    p->GrantCommitOrigin(kRendererID, origin);
+  EXPECT_FALSE(p->CanRequestURL(kRendererID, other_url));
+  EXPECT_FALSE(p->CanCommitURL(kRendererID, other_url));
+  EXPECT_TRUE(p->CanRedirectToURL(other_url));
 
-    EXPECT_TRUE(p->CanRequestURL(kRendererID, url));
-    EXPECT_TRUE(p->CanCommitURL(kRendererID, url));
-    EXPECT_TRUE(p->CanRedirectToURL(url));
+  p->GrantCommitOrigin(kRendererID, origin);
 
-    EXPECT_FALSE(p->CanRequestURL(kRendererID, other_url));
-    EXPECT_FALSE(p->CanCommitURL(kRendererID, other_url));
-    EXPECT_TRUE(p->CanRedirectToURL(other_url));
+  EXPECT_TRUE(p->CanRequestURL(kRendererID, url));
+  EXPECT_TRUE(p->CanCommitURL(kRendererID, url));
+  EXPECT_TRUE(p->CanRedirectToURL(url));
 
-    p->Remove(kRendererProcess);
-  }
+  EXPECT_FALSE(p->CanRequestURL(kRendererID, other_url));
+  EXPECT_FALSE(p->CanCommitURL(kRendererID, other_url));
+  EXPECT_TRUE(p->CanRedirectToURL(other_url));
 
-  {
-    p->AddForTesting(kRendererProcess, browser_context());
-    LockProcessIfNeeded(kRendererProcess, browser_context(), url);
+  p->Remove(kRendererProcess);
 
-    EXPECT_FALSE(p->HasWebUIBindings(kRendererID));
+  // Post a task to the IO loop that then posts a task to the UI loop.
+  // This should cause the |run_loop| to return after the removal has completed.
+  base::RunLoop run_loop;
+  GetIOThreadTaskRunner({})->PostTaskAndReply(FROM_HERE, base::DoNothing(),
+                                              run_loop.QuitClosure());
+  run_loop.Run();
 
-    EXPECT_FALSE(p->CanRequestURL(kRendererID, url));
-    EXPECT_FALSE(p->CanCommitURL(kRendererID, url));
-    EXPECT_TRUE(p->CanRedirectToURL(url));
+  EXPECT_FALSE(p->HasWebUIBindings(kRendererProcess));
+}
 
-    EXPECT_FALSE(p->CanRequestURL(kRendererID, other_url));
-    EXPECT_FALSE(p->CanCommitURL(kRendererID, other_url));
-    EXPECT_TRUE(p->CanRedirectToURL(other_url));
+TEST_P(ChildProcessSecurityPolicyTest, CanServiceWebUIBindingsWithHandle) {
+  ChildProcessSecurityPolicyImpl* p =
+      ChildProcessSecurityPolicyImpl::GetInstance();
 
-    p->GrantWebUIBindings(kRendererID,
-                          BindingsPolicySet({BindingsPolicyValue::kMojoWebUi}));
+  const GURL url(GetWebUIURL("thumb/http://www.google.com/"));
 
-    EXPECT_TRUE(p->HasWebUIBindings(kRendererID));
+  p->AddForTesting(kRendererProcess, browser_context());
+  LockProcessIfNeeded(kRendererProcess, browser_context(), url);
+  EXPECT_FALSE(p->HasWebUIBindings(kRendererProcess));
 
-    EXPECT_FALSE(p->CanRequestURL(kRendererID, url));
-    EXPECT_FALSE(p->CanCommitURL(kRendererID, url));
-    EXPECT_TRUE(p->CanRedirectToURL(url));
+  p->GrantWebUIBindings(kRendererProcess);
+  EXPECT_TRUE(p->HasWebUIBindings(kRendererProcess));
 
-    EXPECT_FALSE(p->CanRequestURL(kRendererID, other_url));
-    EXPECT_FALSE(p->CanCommitURL(kRendererID, other_url));
-    EXPECT_TRUE(p->CanRedirectToURL(other_url));
+  // Creating a Handle should make the ProcessState live beyond Remove.
+  auto handle = p->CreateHandle(kRendererProcess);
+  p->Remove(kRendererProcess);
+  EXPECT_TRUE(p->HasWebUIBindings(kRendererProcess));
 
-    p->GrantCommitOrigin(kRendererID, origin);
+  // Invalidate `handle` so it does not preserve process state anymore.
+  handle = ChildProcessSecurityPolicyImpl::Handle();
 
-    EXPECT_TRUE(p->CanRequestURL(kRendererID, url));
-    EXPECT_TRUE(p->CanCommitURL(kRendererID, url));
-    EXPECT_TRUE(p->CanRedirectToURL(url));
+  // Post a task to the IO loop that then posts a task to the UI loop.
+  // This should cause the |run_loop| to return after the removal has completed.
+  base::RunLoop run_loop;
+  GetIOThreadTaskRunner({})->PostTaskAndReply(FROM_HERE, base::DoNothing(),
+                                              run_loop.QuitClosure());
+  run_loop.Run();
 
-    EXPECT_FALSE(p->CanRequestURL(kRendererID, other_url));
-    EXPECT_FALSE(p->CanCommitURL(kRendererID, other_url));
-    EXPECT_TRUE(p->CanRedirectToURL(other_url));
-
-    p->Remove(kRendererProcess);
-  }
-
-  {
-    p->AddForTesting(kRendererProcess, browser_context());
-    LockProcessIfNeeded(kRendererProcess, browser_context(), url);
-
-    EXPECT_FALSE(p->HasWebUIBindings(kRendererID));
-
-    EXPECT_FALSE(p->CanRequestURL(kRendererID, url));
-    EXPECT_FALSE(p->CanCommitURL(kRendererID, url));
-    EXPECT_TRUE(p->CanRedirectToURL(url));
-
-    EXPECT_FALSE(p->CanRequestURL(kRendererID, other_url));
-    EXPECT_FALSE(p->CanCommitURL(kRendererID, other_url));
-    EXPECT_TRUE(p->CanRedirectToURL(other_url));
-
-    p->GrantWebUIBindings(kRendererID, kWebUIBindingsPolicySet);
-
-    EXPECT_TRUE(p->HasWebUIBindings(kRendererID));
-
-    EXPECT_FALSE(p->CanRequestURL(kRendererID, url));
-    EXPECT_FALSE(p->CanCommitURL(kRendererID, url));
-    EXPECT_TRUE(p->CanRedirectToURL(url));
-
-    EXPECT_FALSE(p->CanRequestURL(kRendererID, other_url));
-    EXPECT_FALSE(p->CanCommitURL(kRendererID, other_url));
-    EXPECT_TRUE(p->CanRedirectToURL(other_url));
-
-    p->GrantCommitOrigin(kRendererID, origin);
-
-    EXPECT_TRUE(p->CanRequestURL(kRendererID, url));
-    EXPECT_TRUE(p->CanCommitURL(kRendererID, url));
-    EXPECT_TRUE(p->CanRedirectToURL(url));
-
-    EXPECT_FALSE(p->CanRequestURL(kRendererID, other_url));
-    EXPECT_FALSE(p->CanCommitURL(kRendererID, other_url));
-    EXPECT_TRUE(p->CanRedirectToURL(other_url));
-
-    p->Remove(kRendererProcess);
-  }
+  EXPECT_FALSE(p->HasWebUIBindings(kRendererProcess));
 }
 
 TEST_P(ChildProcessSecurityPolicyTest, RemoveRace) {
@@ -1330,12 +1314,12 @@ TEST_P(ChildProcessSecurityPolicyTest, RemoveRace) {
 
   p->GrantCommitURL(kRendererID, url);
   p->GrantReadFile(kRendererProcess, file);
-  p->GrantWebUIBindings(kRendererID, kWebUIBindingsPolicySet);
+  p->GrantWebUIBindings(kRendererProcess);
 
   EXPECT_TRUE(p->CanRequestURL(kRendererID, url));
   EXPECT_TRUE(p->CanRedirectToURL(url));
   EXPECT_TRUE(p->CanReadFile(kRendererProcess, file));
-  EXPECT_TRUE(p->HasWebUIBindings(kRendererID));
+  EXPECT_TRUE(p->HasWebUIBindings(kRendererProcess));
 
   p->Remove(kRendererProcess);
 
@@ -1347,7 +1331,7 @@ TEST_P(ChildProcessSecurityPolicyTest, RemoveRace) {
   EXPECT_FALSE(p->CanRequestURL(kRendererID, url));
   EXPECT_TRUE(p->CanRedirectToURL(url));
   EXPECT_FALSE(p->CanReadFile(kRendererProcess, file));
-  EXPECT_FALSE(p->HasWebUIBindings(kRendererID));
+  EXPECT_FALSE(p->HasWebUIBindings(kRendererProcess));
 }
 
 TEST_P(ChildProcessSecurityPolicyTest, HandleDuplicate) {
@@ -3422,12 +3406,19 @@ TEST_P(ChildProcessSecurityPolicyTest, CannotLockUsedProcessToSite) {
   // If the process is then considered used (e.g., by loading content), it
   // should not be possible to lock it to another site.
   p->SetProcessIsUsed(kRendererProcess);
+  EXPECT_FALSE(p->GetProcessLock(kRendererProcess).is_unused());
+
   EXPECT_CHECK_DEATH_WITH(
       {
         p->LockProcess(bar_instance->GetIsolationContext(), kRendererProcess,
                        ProcessLock::FromSiteInfo(bar_instance->GetSiteInfo()));
       },
-      "Cannot lock an already used process to .*bar\\.com");
+      // Ensure that the Rust implementation caused the CHECK failure when
+      // Rust is enabled.
+      IsRustProcessStateEnabled()
+          ? "process_lock\\.rs[\\s\\S]*Cannot lock an already used process to "
+            ".*bar\\.com"
+          : "Cannot lock an already used process to .*bar\\.com");
 
   // We need to remove it otherwise other tests may fail.
   p->Remove(kRendererProcess);

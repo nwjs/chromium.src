@@ -212,6 +212,7 @@ public class TabPersistentStoreImpl implements TabPersistentStore {
     private @Nullable SparseIntArray mIncognitoTabsRestored;
     private Set<@TabId Integer> mBackgroundTabIds = Collections.emptySet();
     private Set<@TabId Integer> mRemainingBackgroundTabIds = Collections.emptySet();
+    private boolean mBackgroundTabsInitialized;
     private @Nullable AsyncTask<@Nullable DataInputStream> mPrefetchTabListTask;
     private @Nullable TabModelSelectorMetadata mLastSavedMetadata;
     // Tracks whether this TabPersistentStore's tabs are being loaded.
@@ -525,6 +526,9 @@ public class TabPersistentStoreImpl implements TabPersistentStore {
         mCancelIncognitoTabLoads = ignoreIncognitoFiles;
         mNormalTabsRestored = new SparseIntArray();
         mIncognitoTabsRestored = new SparseIntArray();
+        mBackgroundTabIds = Collections.emptySet();
+        mRemainingBackgroundTabIds = Collections.emptySet();
+        mBackgroundTabsInitialized = false;
     }
 
     @Override
@@ -542,6 +546,7 @@ public class TabPersistentStoreImpl implements TabPersistentStore {
         mRemainingBackgroundTabIds =
                 BackgroundTabRestorationHelper.claimRemainingBackgroundTabIds(
                         mOrchestratorType, mTabModelSelector, ignoreRegularFiles, mIsAuthoritative);
+        mBackgroundTabsInitialized = true;
 
         try {
             mTabRestoreStartTime = SystemClock.elapsedRealtime();
@@ -646,7 +651,7 @@ public class TabPersistentStoreImpl implements TabPersistentStore {
         if (mSeenTabUrlMap == null && !mTabsToRestore.isEmpty()) {
             mSeenTabUrlMap = new HashMap<>();
         }
-        if (mBackgroundTabIds.isEmpty()) {
+        if (!mBackgroundTabsInitialized) {
             mBackgroundTabIds =
                     BackgroundTabRestorationHelper.fetchBackgroundTabIds(
                             mOrchestratorType,
@@ -660,6 +665,7 @@ public class TabPersistentStoreImpl implements TabPersistentStore {
                             mTabModelSelector,
                             mCancelNormalTabLoads,
                             mIsAuthoritative);
+            mBackgroundTabsInitialized = true;
         }
         if (setActiveTab) {
             // Restore and select the active tab, which is first in the restore list.
@@ -1033,11 +1039,6 @@ public class TabPersistentStoreImpl implements TabPersistentStore {
             return;
         }
 
-        if (mSaveTabTask != null && mSaveTabTask.mId == tab.getId()) {
-            RecordHistogram.recordCount100Histogram(
-                    "Tabs.PotentialDoubleDirty.SaveQueueSize", mTabsToSave.size());
-        }
-
         mTabsToSave.addLast(tab);
     }
 
@@ -1137,6 +1138,7 @@ public class TabPersistentStoreImpl implements TabPersistentStore {
         mDestroyed = true;
         mBackgroundTabIds = Collections.emptySet();
         mRemainingBackgroundTabIds = Collections.emptySet();
+        mBackgroundTabsInitialized = false;
         if (mTabModelObserver != null) {
             mTabModelSelector.getModel(false).removeObserver(mTabModelObserver);
             mTabModelSelector.getModel(true).removeObserver(mTabModelObserver);
@@ -1612,8 +1614,7 @@ public class TabPersistentStoreImpl implements TabPersistentStore {
             mLoadInProgress = false;
 
             // If tabs are done being merged into this instance, save the tab metadata file for this
-            // TabPersistentStore and delete the metadata file for the other instance, then notify
-            // observers.
+            // TabPersistentStore and delete the metadata file for the other instance.
             if (mPersistencePolicy.isMergeInProgress()) {
                 // This eventually calls saveTabModelSelectorMetadata() which must
                 // be called from the UI thread. #mergeState() starts an async task
@@ -1622,7 +1623,6 @@ public class TabPersistentStoreImpl implements TabPersistentStore {
                 for (String mergedFileName : new HashSet<>(mMergedFileNames)) {
                     deleteFileAsync(mergedFileName);
                 }
-                for (TabPersistentStoreObserver observer : mObservers) observer.onStateMerged();
             }
 
             recordLegacyTabCountMetrics();

@@ -15,10 +15,10 @@
 #include "base/strings/strcat.h"
 #include "components/google/core/common/google_util.h"
 #include "components/page_load_metrics/browser/navigation_handle_user_data.h"
+#include "components/page_load_metrics/browser/navigation_initiator.h"
 #include "components/page_load_metrics/browser/page_load_metrics_util.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/common/content_features.h"
-#include "ui/base/page_transition_types.h"
 
 namespace {
 
@@ -107,47 +107,11 @@ bool IsPrefetch(content::UsedInstantLoad used_instant_load) {
 
 std::string GetNavigationInitiatorString(
     content::NavigationHandle& navigation_handle) {
-  if (ui::PageTransitionCoreTypeIs(navigation_handle.GetPageTransition(),
-                                   ui::PAGE_TRANSITION_RELOAD)) {
-    return "Reload";
-  }
-
-  if ((navigation_handle.GetPageTransition() &
-       ui::PAGE_TRANSITION_FORWARD_BACK) ||
-      navigation_handle.IsServedFromBackForwardCache()) {
-    int history_offset = navigation_handle.GetNavigationEntryOffset();
-    if (history_offset > 0) {
-      return "Forward";
-    }
-
-    if (history_offset < 0) {
-      return "Backward";
-    }
-
-    return "Other";
-  }
-
-  auto* user_data =
-      page_load_metrics::NavigationHandleUserData::GetForNavigationHandle(
-          navigation_handle);
-  if (user_data) {
-    return user_data->navigation_type_string();
-  }
-
-  if (navigation_handle.IsRendererInitiated() &&
-      navigation_handle.HasUserGesture()) {
-    if (ui::PageTransitionCoreTypeIs(navigation_handle.GetPageTransition(),
-                                     ui::PAGE_TRANSITION_LINK)) {
-      return "LinkClick";
-    }
-
-    if (ui::PageTransitionCoreTypeIs(navigation_handle.GetPageTransition(),
-                                     ui::PAGE_TRANSITION_FORM_SUBMIT)) {
-      return "FormSubmission";
-    }
-  }
-
-  return "Other";
+  // TODO(https://crbug.com/517725655): Hold the `NavigationInitiator` itself
+  // in `NavigationData` and drop this function. `name()` points to a static
+  // string, so the `std::string` copy is unnecessary.
+  return std::string(
+      page_load_metrics::GetNavigationInitiator(navigation_handle).name());
 }
 
 bool GetServedByLegacySearchPrefetch(

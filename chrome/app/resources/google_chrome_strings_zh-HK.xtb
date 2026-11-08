@@ -30,6 +30,7 @@
 <translation id="1194807384646768652">由於此檔案類型不是常見的下載項目，可能含有危險內容，因此 Chrome 已禁止下載</translation>
 <translation id="1197860368385086056">下次在 <ph name="DEVICE_TYPE" /> 上開啟 Chrome 時，系統會提示你啟用價格追蹤通知。</translation>
 <translation id="1203500561924088507">多謝安裝。您必須先重新啟動瀏覽器，才能使用 <ph name="BUNDLE_NAME" />。</translation>
+<translation id="122321322139970942"><ph name="IMPORTANT_UPDATE" />有待處理。為確保瀏覽安全，Chrome 會在你下次閒置 <ph name="IDLE_DURATION" />後更新。</translation>
 <translation id="1226003169284463347">如要在你的所有裝置上取用書籤及其他設定，請登入 Chrome</translation>
 <translation id="1278833599417554002">重新啟動以更新 &amp;Chrome</translation>
 <translation id="1289911795790071537">開啟 Chrome 搜尋功能</translation>
@@ -202,6 +203,7 @@
 <translation id="2857540653560290388">正在啟動 Chrome…</translation>
 <translation id="286025080868315611">瞭解 Chrome 封鎖部分下載內容的原因</translation>
 <translation id="2861074815332034794">正在更新 Chrome (<ph name="PROGRESS_PERCENT" />)</translation>
+<translation id="2869959624320573933">登入 Chrome</translation>
 <translation id="2875053229394024379">以 Google 帳戶登入 Chrome 後，你便可配合 Gemini 使用 Chrome 設定檔。<ph name="BEGIN_LINK" />瞭解如何登入 Chrome<ph name="END_LINK" /></translation>
 <translation id="2876628302275096482">進一步瞭解 <ph name="BEGIN_LINK" />Chrome 如何確保你的資料保密<ph name="END_LINK" /></translation>
 <translation id="2885378588091291677">工作管理員</translation>
@@ -302,6 +304,7 @@
 <translation id="3795971588916395511">Google Chrome OS</translation>
 <translation id="3809772425479558446">Google Chrome 只支援 Windows 10 或以上版本的作業系統。</translation>
 <translation id="3810973564298564668">管理</translation>
+<translation id="383455301564000773">要升級至 Windows 11 嗎？將 Chrome 下載至 OneDrive，預先準備即可隨時開始。</translation>
 <translation id="383928141529488001">Google Chrome 需要藍牙存取權才能探索藍牙裝置。<ph name="IDS_SERIAL_DEVICE_CHOOSER_AUTHORIZE_BLUETOOTH_LINK" /></translation>
 <translation id="3846683726093018685">**摘要：**以不多於 30 個字的一句話，描述螢幕截圖的主體及內容目的。
 
@@ -328,7 +331,6 @@
 <translation id="4050175100176540509">最新版本提供重大保安改良和新功能。</translation>
 <translation id="4053720452172726777">自訂及控制 Google Chrome</translation>
 <translation id="408393047846373801">如要在你的所有裝置上存取密碼和其他資料，請登入 Chrome。登入後，此密碼會儲存至你的 Google 帳戶。</translation>
-<translation id="409936259433005390">即將升級至 Windows 11？請將 Chrome 安裝程式下載至 OneDrive，預先準備即可隨時開始。</translation>
 <translation id="4102173024714616627">擴充程式是可讓你自訂 Chrome 的外掛程式，從保持條理以至簡化日常工作，營造屬於你的 Chrome 體驗。</translation>
 <translation id="4110895483821904099">設定新的 Chrome 設定檔</translation>
 <translation id="4111566860456076004">Chrome 無法驗證此擴充程式的來源，因此可能不安全。請從 Chrome 中移除此擴充程式，令其無法再查看及變更你瀏覽的網站相關資料，包括個人資料。</translation>
@@ -500,12 +502,12 @@ Google Chrome 無法復原您的設定。</translation>
 <translation id="5899008323405946573">透過手機的 Chrome 應用程式使用 Google 最強大的 AI 工具</translation>
 <translation id="5903106910045431592"><ph name="PAGE_TITLE" /> - 網絡登入</translation>
 <translation id="5924017743176219022">正在連線至互聯網…</translation>
-<translation id="5925596746603389877">下載 Chrome 安裝程式</translation>
 <translation id="5940385492829620908">您的網頁、書籤和其他 Chrome 資料在這裡直播。</translation>
 <translation id="5941711191222866238">最小化</translation>
 <translation id="5941830788786076944">將 Google Chrome 設為預設瀏覽器</translation>
 <translation id="5947104538377036631">Chrome 捷徑</translation>
 <translation id="5960071705175224773">你的設定已由不明應用程式變更</translation>
+<translation id="5960404530854194706">Chrome 會在你閒置時更新</translation>
 <translation id="5980111191913430208">來源不明的擴充程式、應用程式和主題可能會損害你的裝置。Chromium 建議你只透過「<ph name="IDS_EXTENSION_WEB_STORE_TITLE" />」安裝這些項目</translation>
 <translation id="6003112304606738118">正在下載… 剩餘 <ph name="HOURS" /> 小時</translation>
 <translation id="6008161919456049856">你儲存在 Google 帳戶中的密碼、付款方法和地址將從此裝置中移除。如要再次在 Chrome 中使用這些資料，請重新登入。</translation>
@@ -562,6 +564,7 @@ Google Chrome 無法復原您的設定。</translation>
 <translation id="6360449101159168105">當此分頁處於閒置狀態時，系統會釋出記憶體，加快 Chrome 的運作速度。您可選擇一律不讓此網站進入閒置狀態。</translation>
 <translation id="6362984640667950211"><ph name="EXISTING_USER" />已登入。如要分開保存你的瀏覽資料，請在 Chrome 登入你的個人檔案 (<ph name="USER_EMAIL_ADDRESS" />)。你也可在你的所有裝置上取用閱讀清單及其他內容。</translation>
 <translation id="6388799252195623474">幫幫我</translation>
+<translation id="6401458660421980302">如要將此分頁傳送至其他裝置，請在該裝置上登入 Chrome</translation>
 <translation id="6412673304250309937">使用儲存在 Chrome 中的不安全網站清單來檢查網址。如果有網站試圖盜取您的密碼，或當您下載有害檔案時，Chrome 亦可能將網址 (包括部分網頁內容) 傳送至「安全瀏覽」功能。</translation>
 <translation id="6417690341895039567">{COUNT,plural, =1{根據機構規定，Chrome 會在閒置 1 分鐘後自動關閉。屆時系統將刪除瀏覽資料，當中可能包括記錄、自動填入資料和下載檔案。}other{根據機構規定，Chrome 會在閒置 # 分鐘後自動關閉。屆時系統將刪除瀏覽資料，當中可能包括記錄、自動填入資料和下載檔案。}}</translation>
 <translation id="6418662306461808273">要切換至現有 Chrome 設定檔嗎？</translation>
@@ -588,8 +591,10 @@ Google Chrome 無法復原您的設定。</translation>
 <translation id="6556755379298048869">使用鍵盤快速鍵搜尋。</translation>
 <translation id="6585124893636629274">關閉 Chrome 版 Gemini</translation>
 <translation id="659498884637196217">前往此裝置的「Google 密碼管理工具」進行更新</translation>
+<translation id="660312897435669152">Chrome 需要更新</translation>
 <translation id="6612152958212564387">你的使用情況統計和當機報告不會傳送給 Google。<ph name="BEGIN_LINK" />管理<ph name="END_LINK" /></translation>
 <translation id="6613949864921837107">將 Chrome 設定為預設瀏覽器，在所有裝置上同步更新密碼、書籤和記錄。</translation>
+<translation id="6621391692573306628">如要將此分頁傳送至其他裝置，請在這兩部裝置上登入 Chrome</translation>
 <translation id="6631524303639368205">開啟上次瀏覽的內容：Chrome 已還原上個工作階段的分頁。如要關閉此功能，請前往</translation>
 <translation id="6632012506031284914">即可使用 Chrome 搜尋。</translation>
 <translation id="6632473616050862500">ChromeOS Flex 的開發全賴其他<ph name="BEGIN_LINK_CROS_OSS" />開放原始碼軟件<ph name="END_LINK_CROS_OSS" />協助才得以面世。</translation>
@@ -777,6 +782,7 @@ Google Chrome 無法復原您的設定。</translation>
 <translation id="8260086374035800939">建立新分頁時，如果 Chrome 版 Gemini 已開啟，側面板亦會保持開啟</translation>
 <translation id="8267953129876836456">Chrome 發現一些安全性建議需要你審核</translation>
 <translation id="8286862437124483331">Google Chrome 正在嘗試顯示密碼。如果您同意，請輸入您的 Windows 密碼。</translation>
+<translation id="8291415872436043161">下載 Chrome</translation>
 <translation id="829923460755755423">新增「Google 密碼管理工具」的捷徑</translation>
 <translation id="8313851650939857356">啟動錯誤：<ph name="STARTUP_ERROR" />。</translation>
 <translation id="8321888067342493336">儲存為圖片</translation>

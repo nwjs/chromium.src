@@ -2,7 +2,6 @@
 # Copyright 2025 The Chromium Authors
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
-
 """Performance test suite for video playback on a laptop device.
 
 This script uses Selenium and Chromedriver to automate performance tests for
@@ -44,6 +43,7 @@ CHROME_OPTIONS = [
     "--start-fullscreen",
 ]
 
+
 def connect_to_remote_driver(chrome_options, binary_location):
     """Attempts to connect to the remote chromedriver via the tunnel."""
     logging.info("Attempting connection to %s.", common.REMOTE_URL)
@@ -55,15 +55,15 @@ def connect_to_remote_driver(chrome_options, binary_location):
     for _ in range(20):
         try:
             driver = webdriver.Remote(
-                command_executor=common.REMOTE_URL,
-                options=chrome_options
+                command_executor=common.REMOTE_URL, options=chrome_options
             )
             logging.info("Successfully connected!")
             return driver
-        except Exception as e: #pylint: disable=broad-exception-caught
+        except Exception as e:  # pylint: disable=broad-exception-caught
             logging.info("Tunnel not yet up. Sleeping ... Error: %s", e)
             time.sleep(2)
     raise RuntimeError("Could not connect to the remote chromedriver.")
+
 
 def setup_test_environment(args, chrome_version):
     """
@@ -79,35 +79,26 @@ def setup_test_environment(args, chrome_version):
     """
     if args.sender_os == 'cros':
         return common.setup_cros_environment(
-            args, chrome_version, CHROME_OPTIONS)
+            args, chrome_version, CHROME_OPTIONS
+        )
 
-    common.terminate_old_chromedriver(args)
-    remote_app_path, actual_version = common.install_and_setup_chrome(
-        args, chrome_version)
-    common.wait_for_chromedriver(args)
-    tunnel_proc = common.start_ssh_tunnel(args)
+    sender = common.make_sender(args)
+    sender.terminate_chromedriver()
+    remote_app_path, actual_version = sender.install_chrome(chrome_version)
+    sender.wait_for_chromedriver()
+    tunnel_proc = sender.start_tunnel()
 
     chrome_options = ChromeOptions()
     for option in CHROME_OPTIONS:
         chrome_options.add_argument(option)
 
-    binary_path = None
-    if args.sender_os == 'mac':
-        binary_path = (f'{remote_app_path}/Contents/MacOS/Google Chrome for '
-                       'Testing')
-        logging.info(
-            "Mac OS detected. Setting binary_location to: %s",
-            binary_path)
-    elif args.sender_os == 'win':
-        logging.info(
-            "Windows OS detected. Setting binary_location to: %s",
-            remote_app_path)
-        binary_path = remote_app_path
-
+    binary_path = sender.chrome_binary_path(remote_app_path)
+    logging.info("Setting binary_location to: %s", binary_path)
     chrome_options.binary_location = binary_path
     driver = connect_to_remote_driver(chrome_options, binary_path)
 
     return driver, tunnel_proc, actual_version
+
 
 # pylint: disable=too-many-locals
 def run_performance_test(video_file: str, driver: webdriver, args):
@@ -127,41 +118,55 @@ def run_performance_test(video_file: str, driver: webdriver, args):
         subprocess.Popen: The Popen object for the ffmpeg recording process.
     """
     # force video output to mp4
-    output_file = os.path.join(common.RECORDINGS_DIR,
-                               video_file.replace('.webm', '.mp4'))
+    output_file = os.path.join(
+        common.RECORDINGS_DIR, video_file.replace('.webm', '.mp4')
+    )
 
     host_recording_cmd = [
         'ffmpeg',
         # Overwrite output files without asking.
         '-y',
         # Set the input format to Video4Linux2.
-        '-f', 'video4linux2',
+        '-f',
+        'video4linux2',
         # Force V4L2 capture framerate to 60fps.
-        '-framerate', '60',
+        '-framerate',
+        '60',
         # Set the input pixel format.
-        '-input_format', 'yuyv422',
+        '-input_format',
+        'yuyv422',
         # Specify the input file (video device).
-        '-i', '/dev/video1',
+        '-i',
+        '/dev/video1',
         # Set the size of the input buffer to help prevent dropped frames.
-        '-thread_queue_size', '1024',
+        '-thread_queue_size',
+        '1024',
         # Set the video codec to libx264 (H.264).
-        '-c:v', 'libx264',
+        '-c:v',
+        'libx264',
         # Use the ultrafast preset for real-time encoding.
-        '-preset', 'ultrafast',
+        '-preset',
+        'ultrafast',
         # Set the Constant Rate Factor for quality (lower is better).
-        '-crf', '28',
+        '-crf',
+        '28',
         # Set the output pixel format for compatibility.
-        '-pix_fmt', 'yuv420p',
+        '-pix_fmt',
+        'yuv420p',
         # Set the Group of Pictures (GOP) size for better seeking.
-        '-g', '60',
+        '-g',
+        '60',
         # Set the duration of the recording.
-        '-t', '35',
-        output_file
+        '-t',
+        '35',
+        output_file,
     ]
 
     wait = WebDriverWait(driver, 30)
-    driver.get(f'http://{common.LOCAL_HOST_IP}:'
-               f'{common.SERVER_PORT}/video.html?file={video_file}')
+    driver.get(
+        f'http://{common.LOCAL_HOST_IP}:'
+        f'{common.SERVER_PORT}/video.html?file={video_file}'
+    )
     wait.until(ec.presence_of_element_located((By.ID, "video")))
 
     glances_proc = None
@@ -170,24 +175,27 @@ def run_performance_test(video_file: str, driver: webdriver, args):
     else:
         csv_remote_path = f"/tmp/glances_{video_file}.csv"
     csv_local_path = os.path.join(
-        common.TRACES_DIR, f"glances_{video_file}.csv")
+        common.TRACES_DIR, f"glances_{video_file}.csv"
+    )
 
     try:
-        glances_proc = common.start_glances_monitoring(
-            args, csv_remote_path)
+        glances_proc = common.start_glances_monitoring(args, csv_remote_path)
 
         # pylint: disable=consider-using-with
         rec_proc_local = subprocess.Popen(
             host_recording_cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            text=True)
+            text=True,
+        )
 
-        logging.info("ffmpeg recording process started. Waiting for 'Stream "
-                     "mapping:' confirmation...")
+        logging.info(
+            "ffmpeg recording process started. Waiting for 'Stream "
+            "mapping:' confirmation..."
+        )
 
         while True:
-            line = rec_proc_local.stderr.readline() # Use local variable
+            line = rec_proc_local.stderr.readline()  # Use local variable
             if line:
                 line = line.strip()
                 logging.info("FFMPEG STARTUP: %s", line)
@@ -199,8 +207,9 @@ def run_performance_test(video_file: str, driver: webdriver, args):
             """Waits a condition on the element once a second for at most 30
             seconds, returns True if the condition met."""
             start = time.time()
-            while not driver.execute_script(f'return arguments[0].{condition};',
-                                            element):
+            while not driver.execute_script(
+                f'return arguments[0].{condition};', element
+            ):
                 if time.time() - start >= 30:
                     return False
                 time.sleep(1)
@@ -208,15 +217,20 @@ def run_performance_test(video_file: str, driver: webdriver, args):
 
         video = driver.find_element(By.ID, 'video')
 
-        with common.measures.time_consumption(
-            video_file, 'video_perf', 'playback', 'loading'), \
-             RepeatingLog(f'Waiting for video {video_file} to be loaded.'):
+        with (
+            common.measures.time_consumption(
+                video_file, 'video_perf', 'playback', 'loading'
+            ),
+            RepeatingLog(f'Waiting for video {video_file} to be loaded.'),
+        ):
             if not _wait_js_condition(driver, video, 'readyState >= 2'):
                 logging.warning(
                     '%s may never be loaded, still go ahead to play it.',
-                    video_file)
-                common.measures.average(video_file, 'video_perf', 'playback',
-                                 'failed_to_load').record(1)
+                    video_file,
+                )
+                common.measures.average(
+                    video_file, 'video_perf', 'playback', 'failed_to_load'
+                ).record(1)
 
         video.click()
         logging.info("Started playing video.")
@@ -228,18 +242,21 @@ def run_performance_test(video_file: str, driver: webdriver, args):
         logging.info("recording finished.")
 
         results = common.video_analyzer.from_original_video(
-            output_file, f"/usr/local/cipd/videostack_videos_30s/{video_file}")
+            output_file, f"/usr/local/cipd/videostack_videos_30s/{video_file}"
+        )
 
         if not results:
-            raise RuntimeError("Missing video analyzer results. See log for "
-                               "further details.")
+            raise RuntimeError(
+                "Missing video analyzer results. See log for further details."
+            )
 
         def record(key: str) -> None:
             # If the video_analyzer does not generate any result, treat it as an
             # error and use the default value to filter them out instead of
             # failing the tests.
             common.measures.average(video_file, 'video_perf', key).record(
-                results.get(key, common.FAIL_CODE))
+                results.get(key, common.FAIL_CODE)
+            )
 
         for metric in common.METRICS:
             record(metric)
@@ -252,13 +269,17 @@ def run_performance_test(video_file: str, driver: webdriver, args):
         if glances_proc:
             try:
                 common.stop_glances_monitoring(
-                    args, glances_proc, csv_remote_path, csv_local_path)
+                    args, glances_proc, csv_remote_path, csv_local_path
+                )
                 common.parse_glances_csv_and_record(
-                    video_file, csv_local_path, args.sender_os)
+                    video_file, csv_local_path, args.sender_os
+                )
             except Exception as e:
                 logging.error(
-                    "Failed to stop or parse glances monitoring: %s", e)
+                    "Failed to stop or parse glances monitoring: %s", e
+                )
     return rec_proc_local
+
 
 def main():
     """
@@ -284,10 +305,13 @@ def main():
         '--chrome-version',
         default=None,
         help='Chrome for Testing version to use. Defaults to the latest '
-    'known good version.')
-    parser.add_argument('--sender-os',
-                        choices=['mac', 'win', 'linux', 'cros'],
-                        help='OS of the sender device.')
+        'known good version.',
+    )
+    parser.add_argument(
+        '--sender-os',
+        choices=['mac', 'win', 'linux', 'cros'],
+        help='OS of the sender device.',
+    )
     args, _ = parser.parse_known_args()
     cv = args.chrome_version
 
@@ -312,7 +336,7 @@ def main():
             rec_proc = None
             try:
                 rec_proc = run_performance_test(video['name'], driver, args)
-            except Exception: # pylint: disable=broad-exception-caught
+            except Exception:  # pylint: disable=broad-exception-caught
                 logging.exception("Error during video %s test", video['name'])
                 raise
             finally:
@@ -320,6 +344,7 @@ def main():
     finally:
         common.finalize_results(actual_version)
         common.teardown_test_environment(driver, tunnel_proc, args)
+
 
 if __name__ == '__main__':
     with common.StartProcess(common.server.start, [common.SERVER_PORT], True):

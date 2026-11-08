@@ -1,27 +1,26 @@
 // Copyright 2025 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
-// Copyright 2025 The Chromium Authors
-// Use of this source code is governed by a BSD-style license that can be
-// found in the LICENSE file.
 
 import 'chrome-untrusted://read-anything-side-panel.top-chrome/read_anything.js';
 
 import {ContentType, HIGHLIGHTED_LINK_CLASS, LOG_EMPTY_DELAY_MS, MIN_MS_TO_READ, previousReadHighlightClass, ReadAloudNode} from 'chrome-untrusted://read-anything-side-panel.top-chrome/read_anything.js';
 import type {ContentController, ContentListener, NodeStore, SpeechController} from 'chrome-untrusted://read-anything-side-panel.top-chrome/read_anything.js';
-import {assertArrayEquals, assertEquals, assertFalse, assertNotEquals, assertStringContains, assertTrue} from 'chrome-untrusted://webui-test/chai_assert.js';
+import {assertArrayEquals, assertDeepEquals, assertEquals, assertFalse, assertNotEquals, assertStringContains, assertTrue} from 'chrome-untrusted://webui-test/chai_assert.js';
 import {MockTimer} from 'chrome-untrusted://webui-test/mock_timer.js';
 import {microtasksFinished} from 'chrome-untrusted://webui-test/test_util.js';
 
-import {setupTestEnvironment, stubAnimationFrame} from './common.js';
+import {setupBasicSpeech, setupTestEnvironment, stubAnimationFrame} from './common.js';
 import type {TestContentBrowserProxy} from './test_content_browser_proxy.js';
 import type {TestMetricsBrowserProxy} from './test_metrics_browser_proxy.js';
 import type {TestReadAloudModelBrowserProxy} from './test_read_aloud_browser_proxy.js';
+import type {TestSpeechBrowserProxy} from './test_speech_browser_proxy.js';
 import type {TestVisualBrowserProxy} from './test_visual_browser_proxy.js';
 
 suite('ContentController', () => {
   let contentController: ContentController;
   let nodeStore: NodeStore;
+  let speech: TestSpeechBrowserProxy;
   let speechController: SpeechController;
   let metrics: TestMetricsBrowserProxy;
   let readAloudModel: TestReadAloudModelBrowserProxy;
@@ -39,6 +38,7 @@ suite('ContentController', () => {
     metrics = result.metrics;
     readAloudModel = result.readAloudModel;
     nodeStore = result.nodeStore;
+    speech = result.speech;
     speechController = result.speechController;
     contentController = result.contentController;
 
@@ -478,6 +478,51 @@ suite('ContentController', () => {
       assertEquals('overline', root.style.textDecoration);
     });
 
+    test('builds a superscript text node', () => {
+      visualBrowserProxy.pdf = true;
+      const text = '1';
+      contentBrowserProxy.textContentMap = {[contentBrowserProxy.rootId]: text};
+      contentBrowserProxy.isSuperscriptMap = {
+        [contentBrowserProxy.rootId]: true,
+      };
+
+      const root = contentController.updateContent();
+
+      assertTrue(!!root);
+      assertEquals('SUP', root.nodeName);
+      assertEquals(text, root.textContent);
+    });
+
+    test('builds a subscript text node', () => {
+      visualBrowserProxy.pdf = true;
+      const text = '2';
+      contentBrowserProxy.textContentMap = {[contentBrowserProxy.rootId]: text};
+      contentBrowserProxy.isSubscriptMap = {[contentBrowserProxy.rootId]: true};
+
+      const root = contentController.updateContent();
+
+      assertTrue(!!root);
+      assertEquals('SUB', root.nodeName);
+      assertEquals(text, root.textContent);
+    });
+
+    test('does not wrap superscript or subscript when not a PDF', () => {
+      visualBrowserProxy.pdf = false;
+      const text = '1';
+      contentBrowserProxy.textContentMap = {[contentBrowserProxy.rootId]: text};
+      contentBrowserProxy.isSuperscriptMap = {
+        [contentBrowserProxy.rootId]: true,
+      };
+      contentBrowserProxy.isSubscriptMap = {[contentBrowserProxy.rootId]: true};
+
+      const root = contentController.updateContent();
+
+      assertTrue(root instanceof Text);
+      assertEquals(text, root.textContent);
+      assertEquals(0, contentBrowserProxy.getCallCount('isSuperscript'));
+      assertEquals(0, contentBrowserProxy.getCallCount('isSubscript'));
+    });
+
     test('builds an element with a text child', () => {
       const parentId = 10;
       const childId = 11;
@@ -548,6 +593,105 @@ suite('ContentController', () => {
       assertEquals(inputText, root.textContent);
     });
 
+    suite('block tracking', () => {
+      const pdfRootId = 1;
+      const paragraphId = 10;
+      const paragraphTextId = 11;
+      const linkId = 12;
+      const linkTextId = 13;
+      const headingLineId = 20;
+      const headingLineTextId = 21;
+
+      setup(() => {
+        // A paragraph with a link, followed by a heading line, which is
+        // shown as a <span>.
+        contentBrowserProxy.rootId = pdfRootId;
+        contentBrowserProxy.htmlTagMap = {
+          [pdfRootId]: 'span',
+          [paragraphId]: 'p',
+          [linkId]: 'a',
+          [headingLineId]: 'span',
+        };
+        contentBrowserProxy.childrenMap = {
+          [pdfRootId]: [paragraphId, headingLineId],
+          [paragraphId]: [paragraphTextId, linkId],
+          [linkId]: [linkTextId],
+          [headingLineId]: [headingLineTextId],
+        };
+        contentBrowserProxy.textContentMap = {
+          [paragraphTextId]: 'Follow the ',
+          [linkTextId]: 'link',
+          [headingLineTextId]: 'Heading',
+        };
+        contentBrowserProxy.urlMap = {[linkId]: 'https://www.google.com/'};
+        contentBrowserProxy.translatePdfEnabled = true;
+        visualBrowserProxy.pdf = true;
+      });
+
+      test('groups text by the innermost block', () => {
+        contentController.updateContent();
+
+        assertTrue(nodeStore.isBlock(paragraphId));
+        assertFalse(nodeStore.isBlock(linkId));
+        assertFalse(nodeStore.isBlock(pdfRootId));
+        assertEquals(paragraphId, nodeStore.getBlockIdForText(paragraphTextId));
+        assertEquals(paragraphId, nodeStore.getBlockIdForText(linkTextId));
+      });
+
+      test('groups text that is not in a block by its parent', () => {
+        contentController.updateContent();
+
+        assertTrue(nodeStore.isBlock(headingLineId));
+        assertEquals(
+            headingLineId, nodeStore.getBlockIdForText(headingLineTextId));
+      });
+
+      test('groups text in nested blocks by the innermost block', () => {
+        const divId = 30;
+        const divTextId = 31;
+        contentBrowserProxy.htmlTagMap[divId] = 'div';
+        contentBrowserProxy.childrenMap[pdfRootId] = [divId];
+        contentBrowserProxy.childrenMap[divId] = [divTextId, paragraphId];
+        contentBrowserProxy.textContentMap[divTextId] = 'Before';
+
+        contentController.updateContent();
+
+        assertEquals(divId, nodeStore.getBlockIdForText(divTextId));
+        assertEquals(paragraphId, nodeStore.getBlockIdForText(paragraphTextId));
+      });
+
+      test('registers text in document order', () => {
+        contentController.updateContent();
+
+        assertDeepEquals(
+            {
+              anchorNodeId: paragraphTextId,
+              anchorOffset: 0,
+              focusNodeId: headingLineTextId,
+              focusOffset: 'Heading'.length,
+            },
+            nodeStore.getAxSelectionForBlockRange(paragraphId, headingLineId));
+      });
+
+      test('does not track blocks if disabled', () => {
+        contentBrowserProxy.translatePdfEnabled = false;
+
+        contentController.updateContent();
+
+        assertFalse(nodeStore.isBlock(paragraphId));
+        assertEquals(undefined, nodeStore.getBlockIdForText(paragraphTextId));
+      });
+
+      test('does not track blocks if not a PDF', () => {
+        visualBrowserProxy.pdf = false;
+
+        contentController.updateContent();
+
+        assertFalse(nodeStore.isBlock(paragraphId));
+        assertEquals(undefined, nodeStore.getBlockIdForText(paragraphTextId));
+      });
+    });
+
     test('link visibility toggled toggles links with Readability', async () => {
       const url = 'https://www.relsilicon.com/';
       contentBrowserProxy.activeDistillationMethod =
@@ -615,6 +759,68 @@ suite('ContentController', () => {
       assertEquals('', root.style.display);
       assertArrayEquals([rootId], visualBrowserProxy.fetchedImages);
     });
+
+    test(
+        'builds a figure with display none when images disabled and no selection',
+        () => {
+          const rootId = contentBrowserProxy.rootId;
+          const childId = 11;
+          const captionText = 'A scenic landscape';
+          visualBrowserProxy.imagesEnabled = false;
+          contentBrowserProxy.hasValidSelectionVal = false;
+          contentBrowserProxy.htmlTagMap = {[rootId]: 'figure', [childId]: ''};
+          contentBrowserProxy.textContentMap = {[childId]: captionText};
+          contentBrowserProxy.childrenMap = {[rootId]: [childId]};
+
+          const root = contentController.updateContent();
+
+          assertTrue(root instanceof HTMLElement);
+          assertEquals('FIGURE', root.nodeName);
+          assertEquals('none', root.style.display);
+        });
+
+    test(
+        'builds a figure with display visible when images disabled and figure is selected',
+        () => {
+          const rootId = contentBrowserProxy.rootId;
+          const childId = 11;
+          const captionText = 'A scenic landscape';
+          visualBrowserProxy.imagesEnabled = false;
+          contentBrowserProxy.hasValidSelectionVal = true;
+          contentBrowserProxy.startNodeId = childId;
+          contentBrowserProxy.endNodeId = childId;
+          contentBrowserProxy.htmlTagMap = {[rootId]: 'figure', [childId]: ''};
+          contentBrowserProxy.textContentMap = {[childId]: captionText};
+          contentBrowserProxy.childrenMap = {[rootId]: [childId]};
+
+          const root = contentController.updateContent();
+
+          assertTrue(root instanceof HTMLElement);
+          assertEquals('FIGURE', root.nodeName);
+          assertEquals('', root.style.display);
+          assertEquals(captionText, root.textContent);
+        });
+
+    test(
+        'builds a figure with display none when images disabled and selection is unrelated',
+        () => {
+          const rootId = contentBrowserProxy.rootId;
+          const childId = 11;
+          const captionText = 'A scenic landscape';
+          visualBrowserProxy.imagesEnabled = false;
+          contentBrowserProxy.hasValidSelectionVal = true;
+          contentBrowserProxy.startNodeId = 99;
+          contentBrowserProxy.endNodeId = 99;
+          contentBrowserProxy.htmlTagMap = {[rootId]: 'figure', [childId]: ''};
+          contentBrowserProxy.textContentMap = {[childId]: captionText};
+          contentBrowserProxy.childrenMap = {[rootId]: [childId]};
+
+          const root = contentController.updateContent();
+
+          assertTrue(root instanceof HTMLElement);
+          assertEquals('FIGURE', root.nodeName);
+          assertEquals('none', root.style.display);
+        });
 
     test('builds a button as a <div> tag', () => {
       const rootId = 5;
@@ -720,6 +926,24 @@ suite('ContentController', () => {
       assertEquals('B', root.nodeName);
       assertEquals(text, root.textContent);
       assertEquals('overline', root.style.textDecoration);
+    });
+
+    test('builds a bolded superscript text node', () => {
+      visualBrowserProxy.pdf = true;
+      const text = '1';
+      contentBrowserProxy.textContentMap = {[contentBrowserProxy.rootId]: text};
+      contentBrowserProxy.shouldBoldMap = {[contentBrowserProxy.rootId]: true};
+      contentBrowserProxy.isSuperscriptMap = {
+        [contentBrowserProxy.rootId]: true,
+      };
+
+      const root = contentController.updateContent();
+
+      assertTrue(root instanceof HTMLElement);
+      assertEquals('SUP', root.nodeName);
+      assertTrue(!!root.firstElementChild);
+      assertEquals('B', root.firstElementChild.nodeName);
+      assertEquals(text, root.textContent);
     });
 
     test('builds child elements with different text directions', () => {
@@ -916,6 +1140,70 @@ suite('ContentController', () => {
           assertEquals(url, link.href);
           assertEquals(text, link.textContent);
         });
+
+    test(
+        'read aloud state resets on new content (Readability enabled)',
+        async () => {
+          contentBrowserProxy.activeDistillationMethod =
+              contentBrowserProxy.distillationTypeReadability;
+
+          let resetCallCount = 0;
+          speechController.resetForNewContent = () => {
+            resetCallCount++;
+          };
+
+          contentBrowserProxy.htmlContent =
+              '<div> My name is Regina George.</div>';
+
+          contentController.updateContent();
+          await microtasksFinished();
+
+          assertEquals(
+              1, resetCallCount,
+              'resetForNewContent() should have been called once');
+        });
+
+    test(
+        'calls updateContentForScreen2x if readability enabled and has failed',
+        async () => {
+          contentBrowserProxy.activeDistillationMethod =
+              contentBrowserProxy.distillationTypeScreen2x;
+
+          let callCount = 0;
+          contentController.updateContentForScreen2x =
+              (_shadowRoot?: ShadowRoot) => {
+                callCount++;
+                return null;
+              };
+
+          contentController.updateContent();
+          await microtasksFinished();
+
+          assertEquals(
+              1, callCount,
+              'updateContentForScreen2x() should have been called');
+        });
+
+    test(
+        'calls updateContentForReadability if readability enabled and success',
+        async () => {
+          contentBrowserProxy.activeDistillationMethod =
+              contentBrowserProxy.distillationTypeReadability;
+
+          let callCount = 0;
+          contentController.updateContentForReadability =
+              (_shadowRoot?: ShadowRoot) => {
+                callCount++;
+                return null;
+              };
+
+          contentController.updateContent();
+          await microtasksFinished();
+
+          assertEquals(
+              1, callCount,
+              'updateContentForReadability() should have been called');
+        });
   });
 
   suite('updateLinks', () => {
@@ -970,6 +1258,31 @@ suite('ContentController', () => {
       assertTrue(!!link);
       assertEquals(linkUrl, link.href);
     });
+
+    test(
+        'does not set href on link with empty url when toggling links', () => {
+          const textId = 53;
+          contentBrowserProxy.rootId = linkId;
+          contentBrowserProxy.htmlTagMap = {[linkId]: 'a', [textId]: ''};
+          contentBrowserProxy.urlMap = {[linkId]: ''};
+          contentBrowserProxy.textContentMap = {[textId]: 'Internal Ref'};
+          contentBrowserProxy.childrenMap = {[linkId]: [textId]};
+          visualBrowserProxy.linksEnabled = true;
+
+          const root = contentController.updateContent();
+          assertTrue(!!root);
+          shadowRoot.appendChild(root);
+          assertFalse(!!shadowRoot.querySelector('a')?.hasAttribute('href'));
+
+          // Hide links, then show links again.
+          visualBrowserProxy.linksEnabled = false;
+          contentController.updateLinks(shadowRoot);
+          assertFalse(!!shadowRoot.querySelector('span[data-link]'));
+
+          visualBrowserProxy.linksEnabled = true;
+          contentController.updateLinks(shadowRoot);
+          assertFalse(!!shadowRoot.querySelector('a'));
+        });
 
     test('restores previous highlighting when hiding links', () => {
       const innerSpan = document.createElement('span');
@@ -1070,6 +1383,104 @@ suite('ContentController', () => {
               newInnerSpan.classList.contains(previousReadHighlightClass));
           assertFalse(newInnerSpan.classList.contains(HIGHLIGHTED_LINK_CLASS));
         });
+
+    suite('with speech', () => {
+      const textId = 45;
+      const linkText = 'Try to keep it hidden';
+      const noLinksHtml = '<span data-link="' + linkUrl +
+          '"><span class="parent-of-highlight"><span class="' +
+          'current-read-highlight">Try</span> to keep it hidden</span></span>';
+      const linksHtml = '<a href="' + linkUrl +
+          '"><span class="parent-of-highlight"><span class="' +
+          'current-read-highlight">Try</span> to keep it hidden</span></a>';
+
+      setup(() => {
+        setupBasicSpeech(speech);
+        contentBrowserProxy.rootId = linkId;
+        contentBrowserProxy.htmlTagMap = {[linkId]: 'a'};
+        contentBrowserProxy.textContentMap = {[textId]: linkText};
+        contentBrowserProxy.childrenMap = {[linkId]: [textId]};
+        contentBrowserProxy.urlMap = {[linkId]: linkUrl};
+
+        const root = contentController.updateContent();
+        assertTrue(!!root);
+        shadowRoot.appendChild(root);
+
+        let calls = 0;
+        readAloudModel.setInitialized(true);
+        readAloudModel.setCurrentTextContent(linkText);
+        readAloudModel.getCurrentTextSegments = () => {
+          calls++;
+          if (calls === 1) {
+            return [{
+              node: ReadAloudNode.create(nodeStore.getDomNode(textId)!)!,
+              start: 0,
+              length: 3,
+            }];
+          } else {
+            return [];
+          }
+        };
+      });
+
+      test('hides links when speech active', () => {
+        speechController.onPlayPauseToggle(
+            shadowRoot.firstElementChild as HTMLElement);
+        contentController.updateLinks(shadowRoot);
+        assertEquals(noLinksHtml, shadowRoot.innerHTML);
+      });
+
+      test('shows links when speech paused', () => {
+        speechController.onPlayPauseToggle(
+            shadowRoot.firstElementChild as HTMLElement);
+        contentController.updateLinks(shadowRoot);
+
+        speechController.onPlayPauseToggle(
+            shadowRoot.firstElementChild as HTMLElement);
+        contentController.updateLinks(shadowRoot);
+
+        assertEquals(linksHtml, shadowRoot.innerHTML);
+      });
+
+      test('shows links when speech finished', async () => {
+        const expectedHTML = '<a href="' + linkUrl +
+            '"><span class="parent-of-highlight"><span class="">' +
+            'Try</span> to keep it hidden</span></a>';
+        speechController.onPlayPauseToggle(
+            shadowRoot.firstElementChild as HTMLElement);
+        contentController.updateLinks(shadowRoot);
+
+        const spoken = await speech.whenCalled('speak');
+        spoken.onend();
+        contentController.updateLinks(shadowRoot);
+
+        assertEquals(expectedHTML, shadowRoot.innerHTML);
+      });
+
+      test('hides links when speech active and links disabled', () => {
+        visualBrowserProxy.linksEnabled = false;
+        contentController.updateLinks(shadowRoot);
+
+        speechController.onPlayPauseToggle(
+            shadowRoot.firstElementChild as HTMLElement);
+        contentController.updateLinks(shadowRoot);
+        assertEquals(noLinksHtml, shadowRoot.innerHTML);
+      });
+
+      test('hides links when speech paused and links disabled', () => {
+        visualBrowserProxy.linksEnabled = false;
+        contentController.updateLinks(shadowRoot);
+        speechController.onPlayPauseToggle(
+            shadowRoot.firstElementChild as HTMLElement);
+        contentController.updateLinks(shadowRoot);
+
+        speechController.onPlayPauseToggle(
+            shadowRoot.firstElementChild as HTMLElement);
+        contentController.updateLinks(shadowRoot);
+
+        assertEquals(noLinksHtml, shadowRoot.innerHTML);
+      });
+    });
   });
 
   suite('loadImages', () => {
@@ -1170,12 +1581,16 @@ suite('ContentController', () => {
     const id1 = 2;
     const textId = 4;
     const id3 = 6;
+    const captionId = 8;
+    const captionTextId = 10;
     let shadowRoot: ShadowRoot;
     let canvas: HTMLCanvasElement;
     let figure: HTMLElement;
     let textNode: Text;
+    let captionTextNode: Text;
 
     setup(() => {
+      contentBrowserProxy.hasValidSelectionVal = false;
       const container = document.createElement('div');
       document.body.appendChild(container);
       shadowRoot = container.attachShadow({mode: 'open'});
@@ -1186,12 +1601,18 @@ suite('ContentController', () => {
       shadowRoot.appendChild(canvas);
 
       figure = document.createElement('figure');
+      const figcaption = document.createElement('figcaption');
+      captionTextNode = document.createTextNode('Caption text');
+      figcaption.appendChild(captionTextNode);
+      figure.appendChild(figcaption);
       shadowRoot.appendChild(figure);
 
       // Associate nodes with IDs for the test.
       nodeStore.setDomNode(canvas, id1);
       nodeStore.setDomNode(textNode, textId);
       nodeStore.setDomNode(figure, id3);
+      nodeStore.setDomNode(figcaption, captionId);
+      nodeStore.setDomNode(captionTextNode, captionTextId);
     });
 
     test('hides images and associated text nodes when disabled', async () => {
@@ -1205,6 +1626,8 @@ suite('ContentController', () => {
       assertEquals('none', figure.style.display);
       assertTrue(nodeStore.areNodesAllHidden(
           [ReadAloudNode.createFromAxNode(textId)!]));
+      assertTrue(nodeStore.areNodesAllHidden(
+          [ReadAloudNode.createFromAxNode(captionTextId)!]));
       assertTrue(receivedContentChange);
     });
 
@@ -1225,6 +1648,47 @@ suite('ContentController', () => {
       assertTrue(receivedContentChange);
     });
 
+    test(
+        'shows figure and does not hide caption text nodes when images disabled with figure selected',
+        async () => {
+          visualBrowserProxy.imagesEnabled = false;
+          contentBrowserProxy.hasValidSelectionVal = true;
+          contentBrowserProxy.startNodeId = captionTextId;
+          contentBrowserProxy.endNodeId = captionTextId;
+          contentController.setState(ContentType.HAS_CONTENT);
+
+          contentController.updateImages(shadowRoot);
+          await microtasksFinished();
+
+          assertEquals('none', canvas.style.display);
+          assertEquals('', figure.style.display);
+          assertTrue(nodeStore.areNodesAllHidden(
+              [ReadAloudNode.createFromAxNode(textId)!]));
+          assertFalse(nodeStore.areNodesAllHidden(
+              [ReadAloudNode.createFromAxNode(captionTextId)!]));
+          assertTrue(receivedContentChange);
+        });
+
+    test(
+        'hides figure when images disabled with unrelated selection',
+        async () => {
+          visualBrowserProxy.imagesEnabled = false;
+          contentBrowserProxy.hasValidSelectionVal = true;
+          contentBrowserProxy.startNodeId = 99;
+          contentBrowserProxy.endNodeId = 99;
+          const unrelatedNode = document.createElement('p');
+          shadowRoot.appendChild(unrelatedNode);
+          nodeStore.setDomNode(unrelatedNode, 99);
+
+          contentController.setState(ContentType.HAS_CONTENT);
+
+          contentController.updateImages(shadowRoot);
+          await microtasksFinished();
+
+          assertEquals('none', canvas.style.display);
+          assertEquals('none', figure.style.display);
+        });
+
     test('notifies of content change with readability', async () => {
       visualBrowserProxy.imagesEnabled = false;
       contentBrowserProxy.activeDistillationMethod =
@@ -1237,6 +1701,28 @@ suite('ContentController', () => {
 
       assertTrue(receivedContentChange);
     });
+
+    test(
+        'readability: hides figure and images when disabled even with selection',
+        async () => {
+          contentBrowserProxy.activeDistillationMethod =
+              contentBrowserProxy.distillationTypeReadability;
+          visualBrowserProxy.imagesEnabled = false;
+          contentBrowserProxy.hasValidSelectionVal = true;
+          contentBrowserProxy.startNodeId = captionTextId;
+          contentBrowserProxy.endNodeId = captionTextId;
+          contentController.setState(ContentType.HAS_CONTENT);
+
+          const img = document.createElement('img');
+          shadowRoot.appendChild(img);
+
+          contentController.updateImages(shadowRoot);
+          await microtasksFinished();
+
+          assertEquals('none', img.style.display);
+          assertEquals('none', figure.style.display);
+          assertTrue(receivedContentChange);
+        });
 
     test('updates read aloud state when images are updated', async () => {
       const containerElement = document.createElement('div');
@@ -1277,6 +1763,136 @@ suite('ContentController', () => {
       assertTrue(resetForNewContent);
       assertTrue(updateReadAloudStateCalled);
       assertTrue(containerPassedToUpdateReadAloudState);
+    });
+
+    suite('figure with caption', () => {
+      const altText = 'No man is worth the aggravation';
+      const figureId = 2;
+      const imageId = 3;
+      const captionId = 4;
+      const captionTextId = 5;
+      const caption = 'That\'s ancient history';
+
+      setup(() => {
+        shadowRoot.replaceChildren();
+        contentBrowserProxy.rootId = figureId;
+        contentBrowserProxy.altText = altText;
+        contentBrowserProxy.htmlTagMap = {
+          [figureId]: 'figure',
+          [imageId]: 'img',
+          [captionId]: 'figcaption',
+        };
+        contentBrowserProxy.childrenMap = {
+          [figureId]: [imageId, captionId],
+          [captionId]: [captionTextId],
+        };
+        contentBrowserProxy.textContentMap = {[captionTextId]: caption};
+        const root = contentController.updateContent();
+        assertTrue(!!root);
+        shadowRoot.appendChild(root);
+      });
+
+      test('shows figures and captions when enabled', async () => {
+        const expectedHtml = '<figure><canvas alt="' + altText +
+            '" class="downloaded-image">' +
+            '</canvas><figcaption>' + caption + '</figcaption></figure>';
+        visualBrowserProxy.imagesEnabled = true;
+        contentController.updateImages(shadowRoot);
+        await microtasksFinished();
+
+        assertEquals(expectedHtml, shadowRoot.innerHTML);
+      });
+
+      test('hides figures and captions when disabled', async () => {
+        const expectedHtml = '<figure style="display:' +
+            ' none;"><canvas alt="' + altText + '" class="downloaded-image"' +
+            ' style="display: none;"></canvas><figcaption' +
+            '>' + caption + '</figcaption></figure>';
+        visualBrowserProxy.imagesEnabled = false;
+        contentController.updateImages(shadowRoot);
+        await microtasksFinished();
+
+        assertEquals(expectedHtml, shadowRoot.innerHTML);
+      });
+
+      test('onImagesVisibilityChanged sets empty when caption hidden', () => {
+        const container = document.createElement('div');
+        container.appendChild(shadowRoot.firstElementChild!);
+        shadowRoot.appendChild(container);
+
+        visualBrowserProxy.imagesEnabled = false;
+        contentController.onImagesVisibilityChanged(container, shadowRoot);
+
+        assertTrue(contentController.isEmpty());
+      });
+    });
+
+    suite('with readability', () => {
+      setup(() => {
+        shadowRoot.replaceChildren();
+        contentBrowserProxy.activeDistillationMethod =
+            contentBrowserProxy.distillationTypeReadability;
+      });
+
+      test('shows and hides images when toggled', async () => {
+        contentBrowserProxy.htmlContent = '<img src="foo.png">;';
+        const root = contentController.updateContent();
+        assertTrue(!!root);
+        shadowRoot.appendChild(root);
+
+        const img = shadowRoot.querySelector('img')!;
+        assertTrue(!!img);
+
+        visualBrowserProxy.imagesEnabled = true;
+        contentController.updateImages(shadowRoot);
+        await microtasksFinished();
+        assertEquals('', img.style.display);
+
+        visualBrowserProxy.imagesEnabled = false;
+        contentController.updateImages(shadowRoot);
+        await microtasksFinished();
+        assertEquals('none', img.style.display);
+      });
+
+      test('shows and hides figures and captions when toggled', async () => {
+        const caption = 'That\'s ancient history';
+        contentBrowserProxy.htmlContent =
+            '<figure><img src="foo.png"><figcaption>' + caption +
+            '</figcaption></figure>';
+        const root = contentController.updateContent();
+        assertTrue(!!root);
+        shadowRoot.appendChild(root);
+
+        const figure = shadowRoot.querySelector('figure')!;
+        const figcaption = shadowRoot.querySelector('figcaption')!;
+
+        visualBrowserProxy.imagesEnabled = true;
+        contentController.updateImages(shadowRoot);
+        await microtasksFinished();
+        assertEquals('', figure.style.display);
+        assertEquals(caption, figcaption.textContent);
+
+        visualBrowserProxy.imagesEnabled = false;
+        contentController.updateImages(shadowRoot);
+        await microtasksFinished();
+        assertEquals('none', figure.style.display);
+      });
+
+      test('onImagesVisibilityChanged sets empty when caption hidden', () => {
+        contentBrowserProxy.htmlContent =
+            '<figure><img src="foo.png"><figcaption>Caption</figcaption>' +
+            '</figure>';
+        const root = contentController.updateContent();
+        assertTrue(!!root);
+        const container = document.createElement('div');
+        container.appendChild(root);
+        shadowRoot.appendChild(container);
+
+        visualBrowserProxy.imagesEnabled = false;
+        contentController.onImagesVisibilityChanged(container, shadowRoot);
+
+        assertTrue(contentController.isEmpty());
+      });
     });
   });
 
@@ -1344,6 +1960,20 @@ suite('ContentController', () => {
                        'onRenderedTextBlocksAvailable')[1] as string[];
       assertEquals(1, sentBlocks.length);
       assertEquals('Second call', sentBlocks[0]);
+    });
+
+    test('sets empty when container has no visible text nodes', () => {
+      const container = document.createElement('div');
+      const hidden = document.createElement('figure');
+      hidden.style.display = 'none';
+      hidden.textContent = 'Hidden caption';
+      container.appendChild(hidden);
+      document.body.appendChild(container);
+      contentController.setState(ContentType.HAS_CONTENT);
+
+      contentController.onRenderedTextBlocksAvailable(container);
+
+      assertTrue(contentController.isEmpty());
     });
   });
 
@@ -1466,6 +2096,7 @@ suite('ContentController', () => {
 
       assertFalse(!!nodeStore.getDomNode(axId));
       assertTrue(!!spans[0]);
+      assertFalse('link' in spans[0].dataset);
       assertEquals(1, spans.length);
       assertEquals(0, anchors.length);
       assertEquals('Text with no URL', spans[0].textContent);
@@ -1480,6 +2111,7 @@ suite('ContentController', () => {
       assertFalse(!!nodeStore.getDomNode(axId));
       assertEquals(0, anchors.length);
       assertEquals(1, spans.length);
+      assertFalse('link' in spans[0]!.dataset);
     });
 
     test(
@@ -1495,6 +2127,28 @@ suite('ContentController', () => {
           assertFalse(!!nodeStore.getDomNode(axId));
           assertEquals(0, anchors.length);
           assertEquals(1, spans.length);
+          assertFalse('link' in spans[0]!.dataset);
+        });
+
+    test(
+        'unmatched anchor does not turn back into link when toggling links',
+        () => {
+          const host = document.createElement('div');
+          document.body.appendChild(host);
+          const shadowRoot = host.attachShadow({mode: 'open'});
+          shadowRoot.appendChild(container);
+          contentBrowserProxy.axTreeAnchorsVal = {};
+
+          contentController.updateAnchorsForReadability(shadowRoot);
+          assertEquals(0, shadowRoot.querySelectorAll('a').length);
+
+          visualBrowserProxy.linksEnabled = false;
+          contentController.updateLinks(shadowRoot);
+          visualBrowserProxy.linksEnabled = true;
+          contentController.updateLinks(shadowRoot);
+
+          assertEquals(0, shadowRoot.querySelectorAll('a').length);
+          assertEquals(1, shadowRoot.querySelectorAll('span').length);
         });
 
     test('does nothing if not in Readability mode', () => {
@@ -1786,6 +2440,376 @@ suite('ContentController', () => {
       assertStringContains(content.textContent || '', 'Safe text');
       assertStringContains(content.textContent || '', 'Inside toolbar');
       assertStringContains(content.textContent || '', 'Math content');
+    });
+  });
+
+  suite('footnote navigation', () => {
+    let root: ShadowRoot;
+    let container: HTMLElement;
+    let containerScroller: HTMLElement;
+
+    setup(() => {
+      const host = document.createElement('div');
+      document.body.appendChild(host);
+      root = host.attachShadow({mode: 'open'});
+      containerScroller = document.createElement('div');
+      containerScroller.id = 'containerScroller';
+      container = document.createElement('div');
+      container.id = 'container';
+      containerScroller.appendChild(container);
+      root.appendChild(containerScroller);
+    });
+
+    test('buildSubtree_ sets element.id when getHtmlId is available', () => {
+      const divId = 10;
+      const textId = 11;
+      contentBrowserProxy.rootId = divId;
+      contentBrowserProxy.htmlTagMap = {[divId]: 'div'};
+      contentBrowserProxy.childrenMap = {[divId]: [textId]};
+      contentBrowserProxy.textContentMap = {[textId]: 'Some text content'};
+      contentBrowserProxy.htmlIdMap = {[divId]: 'footnote-target'};
+
+      const rendered = contentController.updateContent();
+      assertTrue(!!rendered);
+      container.appendChild(rendered);
+
+      const renderedDiv = container.querySelector('#footnote-target');
+      assertTrue(!!renderedDiv);
+      assertEquals('footnote-target', renderedDiv.id);
+    });
+
+    test(
+        'click handler intercepts same-page hash links and does not scroll immediately',
+        async () => {
+          const linkId = 10;
+          const textId = 11;
+          const targetId = 12;
+          const documentUrl = 'https://www.example.com/page.html';
+          const targetUrl = 'https://www.example.com/page.html#footnote-1';
+
+          contentBrowserProxy.rootId = 1;
+          contentBrowserProxy.childrenMap = {
+            1: [linkId, targetId],
+            [linkId]: [textId],
+          };
+          contentBrowserProxy.htmlTagMap = {
+            1: 'div',
+            [linkId]: 'a',
+            [targetId]: 'p',
+          };
+          contentBrowserProxy.textContentMap = {
+            [textId]: 'Footnote Link',
+            [targetId]: 'Footnote Target Content',
+          };
+          contentBrowserProxy.urlMap = {[linkId]: targetUrl};
+          contentBrowserProxy.htmlIdMap = {[targetId]: 'footnote-1'};
+          contentBrowserProxy.documentUrl = documentUrl;
+
+          const rendered = contentController.updateContent();
+          assertTrue(!!rendered);
+          container.appendChild(rendered);
+
+          const targetElement =
+              container.querySelector<HTMLElement>('#footnote-1');
+          assertTrue(!!targetElement);
+          let scrollIntoViewCalled = false;
+          let scrollOptions: ScrollIntoViewOptions|undefined;
+          targetElement.scrollIntoView = (options) => {
+            scrollIntoViewCalled = true;
+            scrollOptions = options as ScrollIntoViewOptions;
+          };
+
+          const linkElement = container.querySelector<HTMLAnchorElement>('a');
+          assertTrue(!!linkElement);
+          linkElement.click();
+
+          const linkClickedId =
+              await contentBrowserProxy.whenCalled('onLinkClicked');
+          assertEquals(linkId, linkClickedId);
+          assertFalse(scrollIntoViewCalled);
+
+          contentController.scrollToAnchor(targetUrl, root);
+          assertTrue(scrollIntoViewCalled);
+          assertTrue(!!scrollOptions);
+          assertEquals('smooth', scrollOptions.behavior);
+        });
+
+    test('click handler falls back to default for external links', async () => {
+      const linkId = 10;
+      const textId = 11;
+      const documentUrl = 'https://www.example.com/page.html';
+      const targetUrl = 'https://www.different-domain.com/page.html#footnote-1';
+
+      contentBrowserProxy.rootId = 1;
+      contentBrowserProxy.childrenMap = {1: [linkId], [linkId]: [textId]};
+      contentBrowserProxy.htmlTagMap = {1: 'div', [linkId]: 'a'};
+      contentBrowserProxy.textContentMap = {[textId]: 'External Link'};
+      contentBrowserProxy.urlMap = {[linkId]: targetUrl};
+      contentBrowserProxy.documentUrl = documentUrl;
+
+      const rendered = contentController.updateContent();
+      assertTrue(!!rendered);
+      container.appendChild(rendered);
+
+      // Setup a mock target in DOM that would scroll if it were same-document
+      const target = document.createElement('div');
+      target.id = 'footnote-1';
+      container.appendChild(target);
+      let scrollIntoViewCalled = false;
+      target.scrollIntoView = () => {
+        scrollIntoViewCalled = true;
+      };
+
+      // Find the link and click it
+      const linkElement = container.querySelector<HTMLAnchorElement>('a');
+      assertTrue(!!linkElement);
+      linkElement.click();
+
+      const linkClickedId =
+          await contentBrowserProxy.whenCalled('onLinkClicked');
+      assertEquals(linkId, linkClickedId);
+      assertFalse(scrollIntoViewCalled);
+    });
+
+    test(
+        'click handler triggers real navigation for mailto links', async () => {
+          const linkId = 10;
+          const textId = 11;
+          const documentUrl = 'https://www.example.com/page.html';
+          const targetUrl = 'mailto:test@example.com';
+
+          contentBrowserProxy.rootId = 1;
+          contentBrowserProxy.childrenMap = {1: [linkId], [linkId]: [textId]};
+          contentBrowserProxy.htmlTagMap = {1: 'div', [linkId]: 'a'};
+          contentBrowserProxy.textContentMap = {[textId]: 'Email Link'};
+          contentBrowserProxy.urlMap = {[linkId]: targetUrl};
+          contentBrowserProxy.documentUrl = documentUrl;
+
+          let scrollToCalled = false;
+          containerScroller.scrollTo = () => {
+            scrollToCalled = true;
+          };
+
+          const rendered = contentController.updateContent();
+          assertTrue(!!rendered);
+          container.appendChild(rendered);
+
+          const linkElement = container.querySelector<HTMLAnchorElement>('a');
+          assertTrue(!!linkElement);
+          linkElement.click();
+
+          const linkClickedId =
+              await contentBrowserProxy.whenCalled('onLinkClicked');
+          assertEquals(linkId, linkClickedId);
+          assertFalse(scrollToCalled, 'Should not scroll');
+        });
+
+    test(
+        'click handler falls back to default if target is missing',
+        async () => {
+          const linkId = 10;
+          const textId = 11;
+          const documentUrl = 'https://www.example.com/page.html';
+          const targetUrl =
+              'https://www.example.com/page.html#footnote-missing';
+
+          contentBrowserProxy.rootId = 1;
+          contentBrowserProxy.childrenMap = {1: [linkId], [linkId]: [textId]};
+          contentBrowserProxy.htmlTagMap = {1: 'div', [linkId]: 'a'};
+          contentBrowserProxy
+              .textContentMap = {[textId]: 'Missing Target Link'};
+          contentBrowserProxy.urlMap = {[linkId]: targetUrl};
+          contentBrowserProxy.documentUrl = documentUrl;
+
+          let scrollToCalled = false;
+          containerScroller.scrollTo = () => {
+            scrollToCalled = true;
+          };
+
+          const rendered = contentController.updateContent();
+          assertTrue(!!rendered);
+          container.appendChild(rendered);
+
+          const linkElement = container.querySelector<HTMLAnchorElement>('a');
+          assertTrue(!!linkElement);
+          linkElement.click();
+
+          const linkClickedId =
+              await contentBrowserProxy.whenCalled('onLinkClicked');
+          assertEquals(linkId, linkClickedId);
+          assertFalse(scrollToCalled);
+        });
+
+    suite('scrollToAnchor', () => {
+      test('scrolls to target', () => {
+        const targetId = 'footnote-1';
+        const target = document.createElement('div');
+        target.id = targetId;
+        container.appendChild(target);
+
+        let scrollIntoViewCalled = false;
+        let scrollOptions: ScrollIntoViewOptions|undefined;
+        target.scrollIntoView = (options) => {
+          scrollIntoViewCalled = true;
+          scrollOptions = options as ScrollIntoViewOptions;
+        };
+
+        contentBrowserProxy.documentUrl = 'https://example.com/page.html';
+        const result = contentController.scrollToAnchor(
+            'https://example.com/page.html#footnote-1', root);
+
+        assertTrue(result);
+        assertTrue(scrollIntoViewCalled);
+        assertEquals('smooth', scrollOptions?.behavior);
+      });
+
+      test('scrolls to top on empty hash', () => {
+        let scrollToCalled = false;
+        let scrollToOptions: ScrollToOptions|undefined;
+        containerScroller.scrollTo = (options) => {
+          scrollToCalled = true;
+          scrollToOptions = options as ScrollToOptions;
+        };
+
+        contentBrowserProxy.documentUrl = 'https://example.com/page.html';
+        const result = contentController.scrollToAnchor(
+            'https://example.com/page.html', root);
+
+        assertTrue(result);
+        assertTrue(scrollToCalled);
+        assertEquals(0, scrollToOptions?.top);
+        assertEquals('smooth', scrollToOptions?.behavior);
+      });
+
+      test('resolves relative links', () => {
+        const targetId = 'footnote-1';
+        const target = document.createElement('div');
+        target.id = targetId;
+        container.appendChild(target);
+
+        let scrollIntoViewCalled = false;
+        target.scrollIntoView = () => {
+          scrollIntoViewCalled = true;
+        };
+
+        contentBrowserProxy.documentUrl = 'https://example.com/page.html';
+
+        // Test hash only
+        let result = contentController.scrollToAnchor('#footnote-1', root);
+        assertTrue(result);
+        assertTrue(scrollIntoViewCalled);
+
+        // Reset and test relative path
+        scrollIntoViewCalled = false;
+        result =
+            contentController.scrollToAnchor('./page.html#footnote-1', root);
+        assertTrue(result);
+        assertTrue(scrollIntoViewCalled);
+      });
+
+      test('ignores different page URLs', () => {
+        contentBrowserProxy.documentUrl = 'https://example.com/page.html';
+        const result = contentController.scrollToAnchor(
+            'https://different.com/page.html#footnote-1', root);
+        assertFalse(result);
+      });
+
+      test('ignores different pathnames', () => {
+        contentBrowserProxy.documentUrl = 'https://example.com/page.html';
+        const result = contentController.scrollToAnchor(
+            'https://example.com/other.html#footnote-1', root);
+        assertFalse(result);
+      });
+
+      test('ignores different search parameters', () => {
+        contentBrowserProxy.documentUrl =
+            'https://example.com/page.html?query=1';
+        const result = contentController.scrollToAnchor(
+            'https://example.com/page.html?query=2#footnote-1', root);
+        assertFalse(result);
+      });
+
+      test('scrolls with identical search parameters', () => {
+        const targetId = 'footnote-1';
+        const target = document.createElement('div');
+        target.id = targetId;
+        container.appendChild(target);
+
+        let scrollIntoViewCalled = false;
+        target.scrollIntoView = () => {
+          scrollIntoViewCalled = true;
+        };
+
+        contentBrowserProxy.documentUrl =
+            'https://example.com/page.html?query=1';
+        const result = contentController.scrollToAnchor(
+            'https://example.com/page.html?query=1#footnote-1', root);
+
+        assertTrue(result);
+        assertTrue(scrollIntoViewCalled);
+      });
+
+      test('handles invalid URLs gracefully', () => {
+        contentBrowserProxy.documentUrl = 'https://example.com/page.html';
+        const result = contentController.scrollToAnchor('invalid://url', root);
+        assertFalse(result);
+      });
+
+      test('handles malformed URI percent-encoding gracefully', () => {
+        contentBrowserProxy.documentUrl = 'https://example.com/page.html';
+
+        // Test hash only with malformed percent-encoding
+        let result = contentController.scrollToAnchor('#foo%2', root);
+        assertFalse(result);
+
+        // Test relative path with malformed percent-encoding
+        result = contentController.scrollToAnchor('./page.html#foo%2', root);
+        assertFalse(result);
+      });
+
+      test('falls back to top on #top hash if element is missing', () => {
+        let scrollToCalled = false;
+        let scrollToOptions: ScrollToOptions|undefined;
+        containerScroller.scrollTo = (options) => {
+          scrollToCalled = true;
+          scrollToOptions = options as ScrollToOptions;
+        };
+
+        contentBrowserProxy.documentUrl = 'https://example.com/page.html';
+
+        // Test hash only
+        let result = contentController.scrollToAnchor('#top', root);
+        assertTrue(result);
+        assertTrue(scrollToCalled);
+        assertEquals(0, scrollToOptions?.top);
+        assertEquals('smooth', scrollToOptions?.behavior);
+
+        // Reset and test absolute URL
+        scrollToCalled = false;
+        result = contentController.scrollToAnchor(
+            'https://example.com/page.html#top', root);
+        assertTrue(result);
+        assertTrue(scrollToCalled);
+        assertEquals(0, scrollToOptions?.top);
+        assertEquals('smooth', scrollToOptions?.behavior);
+      });
+
+      test('scrolls to element on #top hash if element is present', () => {
+        const targetId = 'top';
+        const target = document.createElement('div');
+        target.id = targetId;
+        container.appendChild(target);
+
+        let scrollIntoViewCalled = false;
+        target.scrollIntoView = () => {
+          scrollIntoViewCalled = true;
+        };
+
+        contentBrowserProxy.documentUrl = 'https://example.com/page.html';
+        const result = contentController.scrollToAnchor('#top', root);
+        assertTrue(result);
+        assertTrue(scrollIntoViewCalled);
+      });
     });
   });
 });

@@ -5,7 +5,6 @@
 #include "net/cert/internal/trust_store_android.h"
 
 #include "base/logging.h"
-#include "base/metrics/histogram_macros.h"
 #include "base/task/task_traits.h"
 #include "base/task/thread_pool.h"
 #include "base/threading/scoped_blocking_call.h"
@@ -29,9 +28,8 @@ class TrustStoreAndroid::Impl
 
     for (auto& root : roots) {
       bssl::CertErrors errors;
-      auto parsed = bssl::ParsedCertificate::Create(
-          net::x509_util::CreateCryptoBuffer(root),
-          net::x509_util::DefaultParseCertificateOptions(), &errors);
+      auto parsed = net::x509_util::CreateParsedCertificate(
+          net::x509_util::CreateCryptoBuffer(root), &errors);
       if (!parsed) {
         LOG(ERROR) << "Error parsing certificate:\n" << errors.ToDebugString();
         continue;
@@ -114,7 +112,6 @@ TrustStoreAndroid::MaybeInitializeAndGetImpl() {
   // OnTrustStoreChanged() calls in rapid succession.
   int current_generation = generation_.load();
   if (!impl_ || impl_->generation() != current_generation) {
-    SCOPED_UMA_HISTOGRAM_LONG_TIMER("Net.CertVerifier.AndroidTrustStoreInit");
     impl_ = base::MakeRefCounted<TrustStoreAndroid::Impl>(current_generation);
   }
 

@@ -26,6 +26,7 @@ import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
+import org.robolectric.Robolectric;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Feature;
@@ -39,11 +40,11 @@ import java.util.function.Supplier;
 public class TwaSplashControllerTest {
     @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
 
-    @Mock public Activity mActivity;
     @Mock public SplashController mSplashController;
     @Mock public Supplier<SplashController> mSplashControllerSupplier;
     @Mock public BrowserServicesIntentDataProvider mIntentDataProvider;
 
+    private Activity mActivity;
     private Intent mIntent;
     private Bundle mSplashParams;
 
@@ -51,6 +52,7 @@ public class TwaSplashControllerTest {
 
     @Before
     public void setUp() {
+        mActivity = Robolectric.buildActivity(Activity.class).setup().get();
         doReturn(mSplashController).when(mSplashControllerSupplier).get();
 
         mIntent = new Intent();

@@ -653,6 +653,12 @@ bool WebAppBrowserController::IsUrlInAppScope(const GURL& url) const {
   return scope->IsInScope(url, {.allow_http_to_https_upgrade = true});
 }
 
+bool WebAppBrowserController::IsOriginAllowedForAboutBlankPopup(
+    const url::Origin& origin) const {
+  return AppBrowserController::IsOriginAllowedForAboutBlankPopup(origin) ||
+         (!origin.opaque() && IsUrlInAppScope(origin.GetURL()));
+}
+
 WebAppBrowserController* WebAppBrowserController::AsWebAppBrowserController() {
   return this;
 }
@@ -691,6 +697,20 @@ std::u16string WebAppBrowserController::GetTitle() const {
   }
 
   if (raw_title.empty()) {
+    return app_name;
+  }
+
+#if BUILDFLAG(IS_CHROMEOS)
+  // Do not omit the page title for System Web Apps (such as Terminal, Files, or
+  // Settings), as ChromeOS window management and Tast tests rely on the active
+  // page/tab title being present in the window title.
+  if (system_app()) {
+    return base::StrCat({app_name, u" - ", raw_title});
+  }
+#endif  // BUILDFLAG(IS_CHROMEOS)
+
+  if (!has_tab_strip() &&
+      provider_->ui_manager().GetNumWindowsForApp(app_id()) == 1) {
     return app_name;
   }
 

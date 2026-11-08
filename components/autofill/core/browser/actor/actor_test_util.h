@@ -72,9 +72,15 @@ class TestCreditCardAccessManager : public CreditCardAccessManager {
   void PrepareToFetchCreditCard() override {}
 
   void FetchCreditCard(const CreditCard*,
+                       bool require_user_confirmation,
                        OnCreditCardFetchedCallback callback) override;
 
   [[nodiscard]] bool RunCreditCardFetchedCallback(const CreditCard& card);
+
+  MOCK_METHOD(void,
+              RetrieveCreditCardForOpaqueToken,
+              (const std::string&, OnCreditCardRetrievedForOpaqueTokenCallback),
+              (override));
 
  private:
   OnCreditCardFetchedCallback callback_;
@@ -97,6 +103,7 @@ class TestBrowserAutofillManagerWithTestCCAM
       const FieldGlobalId& field_id,
       const FillingPayload& filling_payload,
       AutofillTriggerSource trigger_source,
+      bool require_user_confirmation,
       const base::flat_set<FieldGlobalId>& blocked_fields) override;
 
   FieldGlobalId last_trigger_field_id() const { return last_trigger_field_id_; }

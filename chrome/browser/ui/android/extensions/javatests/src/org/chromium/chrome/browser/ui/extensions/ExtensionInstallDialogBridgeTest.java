@@ -4,7 +4,9 @@
 
 package org.chromium.chrome.browser.ui.extensions;
 
-import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -14,12 +16,15 @@ import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.view.View;
 import android.widget.LinearLayout;
+import android.widget.RadioButton;
+import android.widget.RadioGroup;
 import android.widget.TextView;
 
 import androidx.test.core.app.ApplicationProvider;
 
 import com.google.android.material.textfield.TextInputEditText;
 
+import org.jni_zero.JniUniquePtr;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Rule;
@@ -50,16 +55,22 @@ public class ExtensionInstallDialogBridgeTest {
     private static final String ACCEPT_BUTTON_LABEL = "Add extension";
     private static final String CANCEL_BUTTON_LABEL = "Cancel";
     private static final String PERMISSIONS_HEADING = "It can:";
-    private static final String PERMISSIONS_SHOW_DETAILS = "Show Details";
-    private static final String PERMISSIONS_HIDE_DETAILS = "Hide Details";
+    private static final String PERMISSIONS_SHOW_DETAILS = "Show all";
+    private static final String PERMISSIONS_HIDE_DETAILS = "Show less";
     private static final String JUSTIFICATION_HEADING =
             "Justification for requesting this extension:";
     private static final String JUSTIFICATION_PLACEHOLDER = "Enter justification...";
     private static final String JUSTIFICATION_TEXT_INPUT = "This is a test justification.";
-    private static final long NATIVE_INSTALL_EXTENSION_DIALOG_VIEW = 100L;
+    private static final String SITE_ACCESS_HEADING = "Allow site access";
+    private static final String SITE_ACCESS_ON_CLICK = "When you click the extension";
+    private static final String SITE_ACCESS_ALWAYS_ALL_SITES = "Always on all sites";
     private static final Bitmap ICON = Bitmap.createBitmap(24, 24, Bitmap.Config.ARGB_8888);
 
     @Mock private Natives mNativeMock;
+
+    @Mock
+    private JniUniquePtr<ExtensionInstallDialogBridge.NativeExtensionInstallDialogViewAndroid>
+            mNativePtr;
 
     private FakeModalDialogManager mModalDialogManager;
     private Resources mResources;
@@ -76,8 +87,7 @@ public class ExtensionInstallDialogBridgeTest {
         ExtensionInstallDialogBridgeJni.setInstanceForTesting(mNativeMock);
 
         mExtensionInstallDialogBridge =
-                new ExtensionInstallDialogBridge(
-                        NATIVE_INSTALL_EXTENSION_DIALOG_VIEW, mActivity, mModalDialogManager);
+                new ExtensionInstallDialogBridge(mNativePtr, mActivity, mModalDialogManager);
     }
 
     /** Helper method to build and show the dialog with standard test data. */
@@ -121,12 +131,16 @@ public class ExtensionInstallDialogBridgeTest {
      */
     @Test
     public void testDialogWithPermissions() throws Exception {
-        String[] permissionsText = {"Permission #1", "Permission #2"};
-        String[] permissionsDetails = {"", "Details #1"};
+        // Parallel arrays where each index i across the three arrays defines a separate
+        // permission scenario tested together in this dialog:
+        String[] permissionsText = {"Permission #1", "Permission #2", "Permission #3"};
+        String[] permissionsVisibleDetails = {"", "Visible Details #1", "Visible Details #2"};
+        String[] permissionsDetails = {"", "Details #1", ""};
 
         mExtensionInstallDialogBridge.withPermissions(
                 PERMISSIONS_HEADING,
                 permissionsText,
+                permissionsVisibleDetails,
                 permissionsDetails,
                 PERMISSIONS_SHOW_DETAILS,
                 PERMISSIONS_HIDE_DETAILS);
@@ -148,6 +162,8 @@ public class ExtensionInstallDialogBridgeTest {
         View permissionOne = permissionsContainer.getChildAt(permissionOneIndex + 1);
         TextViewWithLeading permissionOneMainText =
                 permissionOne.findViewById(R.id.permission_item_text);
+        TextViewWithLeading permissionOneVisibleDetails =
+                permissionOne.findViewById(R.id.permission_item_visible_details);
         TextViewWithLeading permissionOneToggle =
                 permissionOne.findViewById(R.id.permission_item_toggle);
         TextViewWithLeading permissionOneDetails =
@@ -157,6 +173,10 @@ public class ExtensionInstallDialogBridgeTest {
                 permissionsText[permissionOneIndex],
                 permissionOneMainText.getText().toString());
         Assert.assertEquals(
+                "Permission one visible details should be hidden.",
+                View.GONE,
+                permissionOneVisibleDetails.getVisibility());
+        Assert.assertEquals(
                 "Permission one toggle should be hidden, since permission has no details",
                 View.GONE,
                 permissionOneToggle.getVisibility());
@@ -165,11 +185,13 @@ public class ExtensionInstallDialogBridgeTest {
                 View.GONE,
                 permissionOneDetails.getVisibility());
 
-        // Verify second permission with no details.
+        // Verify second permission with details.
         int permissionTwoIndex = 1;
         View permissionTwo = permissionsContainer.getChildAt(permissionTwoIndex + 1);
         TextViewWithLeading permissionTwoMainText =
                 permissionTwo.findViewById(R.id.permission_item_text);
+        TextViewWithLeading permissionTwoVisibleDetails =
+                permissionTwo.findViewById(R.id.permission_item_visible_details);
         TextViewWithLeading permissionTwoToggle =
                 permissionTwo.findViewById(R.id.permission_item_toggle);
         TextViewWithLeading permissionTwoDetails =
@@ -178,6 +200,14 @@ public class ExtensionInstallDialogBridgeTest {
                 "Permission two text does not match.",
                 permissionsText[permissionTwoIndex],
                 permissionTwoMainText.getText().toString());
+        Assert.assertEquals(
+                "Permission two visible details should be visible.",
+                View.VISIBLE,
+                permissionTwoVisibleDetails.getVisibility());
+        Assert.assertEquals(
+                "Permission two visible details does not match.",
+                permissionsVisibleDetails[permissionTwoIndex],
+                permissionTwoVisibleDetails.getText().toString());
         Assert.assertEquals(
                 "Permission two toggle should be visible.",
                 View.VISIBLE,
@@ -210,6 +240,40 @@ public class ExtensionInstallDialogBridgeTest {
                 "Permissions two toggle text should revert.",
                 PERMISSIONS_SHOW_DETAILS,
                 permissionTwoToggle.getText().toString());
+
+        // Verify third permission with details.
+        int permissionThreeIndex = 2;
+        View permissionThree = permissionsContainer.getChildAt(permissionThreeIndex + 1);
+        TextViewWithLeading permissionThreeMainText =
+                permissionThree.findViewById(R.id.permission_item_text);
+        TextViewWithLeading permissionThreeVisibleDetails =
+                permissionThree.findViewById(R.id.permission_item_visible_details);
+        TextViewWithLeading permissionThreeToggle =
+                permissionThree.findViewById(R.id.permission_item_toggle);
+        TextViewWithLeading permissionThreeDetails =
+                permissionThree.findViewById(R.id.permission_item_details);
+        Assert.assertEquals(
+                "Permission three text does not match.",
+                permissionsText[permissionThreeIndex],
+                permissionThreeMainText.getText().toString());
+        Assert.assertEquals(
+                "Permission three visible details should be visible.",
+                View.VISIBLE,
+                permissionThreeVisibleDetails.getVisibility());
+        Assert.assertEquals(
+                "Permission three visible details does not match.",
+                permissionsVisibleDetails[permissionThreeIndex],
+                permissionThreeVisibleDetails.getText().toString());
+        Assert.assertEquals(
+                "Permission three toggle should be hidden, since permission has no collapsed"
+                    + " details.",
+                View.GONE,
+                permissionThreeToggle.getVisibility());
+        Assert.assertEquals(
+                "Permission three details should be hidden, since permission has no collapsed"
+                    + " details.",
+                View.GONE,
+                permissionThreeDetails.getVisibility());
     }
 
     /**
@@ -243,8 +307,8 @@ public class ExtensionInstallDialogBridgeTest {
 
         // Verify the native method was called with the input text.
         verify(mNativeMock, times(1))
-                .onDialogAccepted(NATIVE_INSTALL_EXTENSION_DIALOG_VIEW, JUSTIFICATION_TEXT_INPUT);
-        verify(mNativeMock, times(1)).destroy(NATIVE_INSTALL_EXTENSION_DIALOG_VIEW);
+                .onDialogAccepted(same(mNativePtr), eq(JUSTIFICATION_TEXT_INPUT), eq(false));
+        verify(mNativePtr, times(1)).destroy();
     }
 
     /**
@@ -317,31 +381,30 @@ public class ExtensionInstallDialogBridgeTest {
 
         // 1. Click when active: this should call native.
         storeLink.performClick();
-        verify(mNativeMock, times(1))
-                .onStoreLinkClicked(NATIVE_INSTALL_EXTENSION_DIALOG_VIEW, storeUrl);
+        verify(mNativeMock, times(1)).onStoreLinkClicked(same(mNativePtr), eq(storeUrl));
 
-        // Reset mock for the next check.
+        // 2. Dismiss, which destroys and clears the pointer, then click again: this should NOT
+        // call native.
+        mExtensionInstallDialogBridge.onDismiss(null, DialogDismissalCause.DISMISSED_BY_NATIVE);
         reset(mNativeMock);
-
-        // 2. Clear pointer and click again: this should NOT call native.
-        mExtensionInstallDialogBridge.clearNativePtr();
         storeLink.performClick();
-        verify(mNativeMock, times(0))
-                .onStoreLinkClicked(NATIVE_INSTALL_EXTENSION_DIALOG_VIEW, storeUrl);
+        verify(mNativeMock, times(0)).onStoreLinkClicked(any(), any());
     }
 
     /** Tests that onDismiss does not call native methods after the native pointer is cleared. */
     @Test
     public void testOnDismissAfterPointerCleared() {
-        // 1. Clear the pointer manually.
-        mExtensionInstallDialogBridge.clearNativePtr();
+        // 1. Dismiss once, which destroys and clears the pointer.
+        mExtensionInstallDialogBridge.onDismiss(null, DialogDismissalCause.DISMISSED_BY_NATIVE);
+        reset(mNativeMock);
 
-        // 2. Trigger onDismiss.
+        // 2. Trigger onDismiss again.
         mExtensionInstallDialogBridge.onDismiss(null, DialogDismissalCause.DISMISSED_BY_NATIVE);
 
         // 3. Verify no JNI calls were made to onDialogDismissed or onDialogCanceled.
-        verify(mNativeMock, times(0)).onDialogDismissed(anyLong());
-        verify(mNativeMock, times(0)).onDialogCanceled(anyLong());
+        verify(mNativeMock, times(0)).onDialogDismissed(any());
+        verify(mNativeMock, times(0)).onDialogCanceled(any());
+        verify(mNativePtr, times(1)).destroy();
     }
 
     /** Tests that tapjacking protections are correctly applied to the dialog model. */
@@ -372,8 +435,8 @@ public class ExtensionInstallDialogBridgeTest {
 
         String justification = "";
         verify(mNativeMock, times(1))
-                .onDialogAccepted(NATIVE_INSTALL_EXTENSION_DIALOG_VIEW, justification);
-        verify(mNativeMock, times(1)).destroy(NATIVE_INSTALL_EXTENSION_DIALOG_VIEW);
+                .onDialogAccepted(same(mNativePtr), eq(justification), eq(false));
+        verify(mNativePtr, times(1)).destroy();
     }
 
     /**
@@ -386,8 +449,8 @@ public class ExtensionInstallDialogBridgeTest {
 
         mModalDialogManager.clickNegativeButton();
 
-        verify(mNativeMock, times(1)).onDialogCanceled(NATIVE_INSTALL_EXTENSION_DIALOG_VIEW);
-        verify(mNativeMock, times(1)).destroy(NATIVE_INSTALL_EXTENSION_DIALOG_VIEW);
+        verify(mNativeMock, times(1)).onDialogCanceled(same(mNativePtr));
+        verify(mNativePtr, times(1)).destroy();
     }
 
     /**
@@ -403,7 +466,105 @@ public class ExtensionInstallDialogBridgeTest {
         mModalDialogManager.dismissDialog(model, DialogDismissalCause.UNKNOWN);
 
         Assert.assertNull(mModalDialogManager.getShownDialogModel());
-        verify(mNativeMock, times(1)).onDialogDismissed(NATIVE_INSTALL_EXTENSION_DIALOG_VIEW);
-        verify(mNativeMock, times(1)).destroy(NATIVE_INSTALL_EXTENSION_DIALOG_VIEW);
+        verify(mNativeMock, times(1)).onDialogDismissed(same(mNativePtr));
+        verify(mNativePtr, times(1)).destroy();
+    }
+
+    /** Tests that the dialog displays the site access options correctly. */
+    @Test
+    public void testDialogWithSiteAccessOptions() throws Exception {
+        mExtensionInstallDialogBridge.withSiteAccessOptions(
+                SITE_ACCESS_HEADING, SITE_ACCESS_ON_CLICK, SITE_ACCESS_ALWAYS_ALL_SITES);
+        buildAndShowDialog();
+        PropertyModel dialogModel = mModalDialogManager.getShownDialogModel();
+        View customView = dialogModel.get(ModalDialogProperties.CUSTOM_VIEW);
+
+        LinearLayout siteAccessContainer = customView.findViewById(R.id.site_access_container);
+        Assert.assertEquals(View.VISIBLE, siteAccessContainer.getVisibility());
+
+        TextView headingView = customView.findViewById(R.id.site_access_heading);
+        Assert.assertEquals(SITE_ACCESS_HEADING, headingView.getText());
+
+        RadioGroup radioGroup = customView.findViewById(R.id.site_access_radio_group);
+        Assert.assertNotNull("Site access radio group must exist.", radioGroup);
+
+        RadioButton onClickRadioButton = customView.findViewById(R.id.site_access_on_click);
+        Assert.assertNotNull("On click radio button must exist.", onClickRadioButton);
+        Assert.assertEquals(SITE_ACCESS_ON_CLICK, onClickRadioButton.getText());
+        Assert.assertTrue(
+                "On click radio button should be checked by default.",
+                onClickRadioButton.isChecked());
+
+        RadioButton alwaysAllSitesRadioButton =
+                customView.findViewById(R.id.site_access_always_all_sites);
+        Assert.assertNotNull(
+                "Always all sites radio button must exist.", alwaysAllSitesRadioButton);
+        Assert.assertEquals(SITE_ACCESS_ALWAYS_ALL_SITES, alwaysAllSitesRadioButton.getText());
+        Assert.assertFalse(
+                "Always all sites radio button should not be checked by default.",
+                alwaysAllSitesRadioButton.isChecked());
+    }
+
+    /**
+     * Tests that accepting the dialog with the default 'on click' option selected withholds
+     * permissions.
+     */
+    @Test
+    public void testAcceptWithSiteAccessOnClickWithholdsPermissions() throws Exception {
+        mExtensionInstallDialogBridge.withSiteAccessOptions(
+                SITE_ACCESS_HEADING, SITE_ACCESS_ON_CLICK, SITE_ACCESS_ALWAYS_ALL_SITES);
+        buildAndShowDialog();
+
+        mModalDialogManager.clickPositiveButton();
+
+        verify(mNativeMock, times(1)).onDialogAccepted(same(mNativePtr), eq(""), eq(true));
+        verify(mNativePtr, times(1)).destroy();
+    }
+
+    /**
+     * Tests that accepting the dialog after selecting 'always on all sites' grants permissions
+     * (does not withhold permissions).
+     */
+    @Test
+    public void testAcceptWithSiteAccessAlwaysAllSitesGrantsPermissions() throws Exception {
+        mExtensionInstallDialogBridge.withSiteAccessOptions(
+                SITE_ACCESS_HEADING, SITE_ACCESS_ON_CLICK, SITE_ACCESS_ALWAYS_ALL_SITES);
+        buildAndShowDialog();
+        PropertyModel dialogModel = mModalDialogManager.getShownDialogModel();
+        View customView = dialogModel.get(ModalDialogProperties.CUSTOM_VIEW);
+
+        RadioButton alwaysAllSitesRadioButton =
+                customView.findViewById(R.id.site_access_always_all_sites);
+        alwaysAllSitesRadioButton.performClick();
+
+        mModalDialogManager.clickPositiveButton();
+
+        verify(mNativeMock, times(1)).onDialogAccepted(same(mNativePtr), eq(""), eq(false));
+        verify(mNativePtr, times(1)).destroy();
+    }
+
+    /**
+     * Tests that when both justification and site access options are present, accepting the dialog
+     * passes both justification text and the site access choice.
+     */
+    @Test
+    public void testDialogWithJustificationAndSiteAccessOptions() throws Exception {
+        mExtensionInstallDialogBridge.withJustification(
+                JUSTIFICATION_HEADING, JUSTIFICATION_PLACEHOLDER);
+        mExtensionInstallDialogBridge.withSiteAccessOptions(
+                SITE_ACCESS_HEADING, SITE_ACCESS_ON_CLICK, SITE_ACCESS_ALWAYS_ALL_SITES);
+        buildAndShowDialog();
+        PropertyModel dialogModel = mModalDialogManager.getShownDialogModel();
+        View customView = dialogModel.get(ModalDialogProperties.CUSTOM_VIEW);
+
+        TextInputEditText justificationInputText =
+                customView.findViewById(R.id.justification_input_text);
+        justificationInputText.setText(JUSTIFICATION_TEXT_INPUT);
+
+        mModalDialogManager.clickPositiveButton();
+
+        verify(mNativeMock, times(1))
+                .onDialogAccepted(same(mNativePtr), eq(JUSTIFICATION_TEXT_INPUT), eq(true));
+        verify(mNativePtr, times(1)).destroy();
     }
 }

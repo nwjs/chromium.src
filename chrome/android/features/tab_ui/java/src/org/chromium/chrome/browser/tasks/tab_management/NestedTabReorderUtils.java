@@ -8,7 +8,6 @@ import org.chromium.base.Token;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.tab.Tab;
-import org.chromium.chrome.browser.tab.TabId;
 import org.chromium.chrome.browser.tabmodel.TabGroupMergeNotificationType;
 import org.chromium.chrome.browser.tabmodel.TabGroupUtils;
 import org.chromium.chrome.browser.tabmodel.TabModel;
@@ -170,7 +169,7 @@ public class NestedTabReorderUtils {
     /**
      * Performs basic list reordering by updating the {@link TabModel} immediately.
      *
-     * <p>- Group headers use moveRelatedTabs() to fire didMoveTabGroup(), which TabListMediator
+     * <p>- Group headers use moveGroupToIndex() to fire onTabGroupMoved(), which TabListMediator
      * observes to update top-level UI rows.
      *
      * <p>- Child tabs use moveTab() because they move within their group, firing
@@ -186,7 +185,11 @@ public class NestedTabReorderUtils {
     public static void moveTabOrGroup(
             TabModel tabModel, int currentTabId, int destinationIndex, boolean isGroup) {
         if (isGroup) {
-            tabModel.moveRelatedTabs(currentTabId, destinationIndex);
+            Tab currentTab = tabModel.getTabById(currentTabId);
+            Token tabGroupId = currentTab != null ? currentTab.getTabGroupId() : null;
+            if (tabGroupId != null) {
+                tabModel.moveGroupToIndex(tabGroupId, destinationIndex);
+            }
         } else {
             tabModel.moveTab(currentTabId, destinationIndex);
         }
@@ -292,16 +295,13 @@ public class NestedTabReorderUtils {
         ListItem item = modelList.get(pos);
         if (item.model == null) return false;
 
-        int currentTabId = getRepresentativeTabId(tabModel, item);
-        if (currentTabId == Tab.INVALID_TAB_ID) return false;
-
-        boolean isGroupHeader = isTabGroupHeader(item);
-        boolean isSolitaryChild = isSolitaryChild(tabModel, item.model);
-        boolean isGroup = isGroupHeader || isSolitaryChild;
-
-        if (isGroup) {
-            return reorderTabGroupByAnchorTabId(tabModel, currentTabId, toPrevious);
+        if (isTabGroupHeader(item) || isSolitaryChild(tabModel, item.model)) {
+            Token groupId = getTabGroupId(item.model);
+            return groupId != null && TabUiUtils.reorderTabGroup(tabModel, groupId, toPrevious);
         }
+
+        int currentTabId = getTabId(item.model);
+        if (currentTabId == Tab.INVALID_TAB_ID) return false;
 
         // If at the end of the list, a child tab can still move down to ungroup out of the group.
         if (!toPrevious && pos == modelList.size() - 1) {
@@ -322,22 +322,6 @@ public class NestedTabReorderUtils {
     // =============================================================================================
     // Context Menu Reorder Entry Points
     // =============================================================================================
-
-    /**
-     * Reorders an entire tab group in the given direction (up/previous or down/next).
-     *
-     * @param tabModel The active {@link TabModel}.
-     * @param groupId The {@link Token} ID of the tab group.
-     * @param toPrevious Whether to move to previous (up) or next (down).
-     * @return Whether the group was successfully reordered.
-     */
-    public static boolean reorderTabGroup(
-            @Nullable TabModel tabModel, Token groupId, boolean toPrevious) {
-        if (tabModel == null) return false;
-        List<Tab> tabs = tabModel.getTabsInGroup(groupId);
-        if (tabs == null || tabs.isEmpty()) return false;
-        return reorderTabGroupByAnchorTabId(tabModel, tabs.get(0).getId(), toPrevious);
-    }
 
     /**
      * Reorders a single tab or pinned tab in the given direction (up/previous or down/next).
@@ -403,38 +387,6 @@ public class NestedTabReorderUtils {
     // =============================================================================================
     // Private Helpers
     // =============================================================================================
-
-    /**
-     * Helper to reorder a tab group before or after an adjacent group/item.
-     *
-     * @param tabModel The active {@link TabModel}.
-     * @param tabId The anchor tab ID of the group.
-     * @param toPrevious Whether to move forward (up / previous) or backward (down / next).
-     * @return Whether the group was successfully reordered.
-     */
-    private static boolean reorderTabGroupByAnchorTabId(
-            TabModel tabModel, @TabId int tabId, boolean toPrevious) {
-        List<Tab> currentGroup = tabModel.getRelatedTabList(tabId);
-        int adjacentIndex;
-        if (toPrevious) {
-            adjacentIndex = TabGroupUtils.getFirstTabModelIndexForList(tabModel, currentGroup) - 1;
-        } else {
-            adjacentIndex = TabGroupUtils.getLastTabModelIndexForList(tabModel, currentGroup) + 1;
-        }
-        Tab adjacentTab = tabModel.getTabAt(adjacentIndex);
-        if (adjacentTab == null || adjacentTab.getIsPinned()) return false;
-
-        List<Tab> adjacentGroup = tabModel.getRelatedTabList(adjacentTab.getId());
-        int newIndex;
-        if (toPrevious) {
-            newIndex = TabGroupUtils.getFirstTabModelIndexForList(tabModel, adjacentGroup);
-        } else {
-            newIndex = TabGroupUtils.getLastTabModelIndexForList(tabModel, adjacentGroup);
-        }
-
-        tabModel.moveRelatedTabs(tabId, newIndex);
-        return true;
-    }
 
     /** Returns whether the given {@link ListItem} represents a tab group header card. */
     private static boolean isTabGroupHeader(ListItem item) {

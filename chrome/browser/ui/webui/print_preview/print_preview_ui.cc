@@ -101,9 +101,7 @@ namespace {
 
 // TODO(crbug.com/558757898): Remove flag once it is fully rolled out.
 // Enables sending non-modifiable (PDF) documents to the print compositor.
-BASE_FEATURE(kPdfWatermarkPrintCompositor,
-             "PdfWatermarkPrintCompositor",
-             base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kPdfWatermarkPrintCompositor, base::FEATURE_ENABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_MAC)
 const char16_t kBasicPrintShortcut[] = u"(⌥⌘P)";
@@ -346,7 +344,6 @@ void AddPrintPreviewFlags(content::WebUIDataSource* source, Profile* profile) {
       "isEnterpriseManaged",
       policy::ManagementServiceFactory::GetForPlatform()->IsManaged());
 
-
 #if BUILDFLAG(IS_CHROMEOS)
   source->AddBoolean("isBorderlessPrintingEnabled", true);
   source->AddBoolean("isUseManagedPrintJobOptionsInPrintPreviewEnabled",
@@ -446,7 +443,7 @@ bool PrintPreviewUIConfig::IsWebUIEnabled(
 }
 
 bool PrintPreviewUIConfig::ShouldHandleURL(const GURL& url) {
-  return url.GetPath() == "/" || url.GetPath() == "/test_loader.html";
+  return url.path() == "/" || url.path() == "/test_loader.html";
 }
 
 PrintPreviewUIConfig::~PrintPreviewUIConfig() = default;
@@ -1147,9 +1144,9 @@ void PrintPreviewUI::MetafileReadyForPrinting(
       // Page metafile is used to composite into the document at same time.
       // Need to provide particulars of how many pages are required before
       // document will be completed.
-      client->FinishDocumentComposition(
-          params->document_cookie, params->expected_pages_count,
-          std::move(wrapped_callback));
+      client->FinishDocumentComposition(params->document_cookie,
+                                        params->expected_pages_count,
+                                        std::move(wrapped_callback));
     } else {
       content::RenderFrameHost* render_frame_host =
           PrintViewManager::FromWebContents(web_contents)->print_preview_rfh();
@@ -1157,8 +1154,7 @@ void PrintPreviewUI::MetafileReadyForPrinting(
         return;
       }
       if (!LooksLikePdf(
-              metafile
-                  .MapAt(0, std::min<size_t>(1024, metafile.GetSize()))
+              metafile.MapAt(0, std::min<size_t>(1024, metafile.GetSize()))
                   .GetMemoryAsSpan<const uint8_t>())) {
         return;
       }

@@ -48,6 +48,7 @@
 #include "chrome/browser/profiles/profile_key.h"
 #include "chrome/browser/profiles/profile_metrics.h"
 #include "chrome/browser/reduce_accept_language/reduce_accept_language_factory.h"
+#include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/ssl/stateful_ssl_host_state_delegate_factory.h"
 #include "chrome/browser/themes/theme_service.h"
 #include "chrome/browser/transition_manager/full_browser_transition_manager.h"
@@ -110,6 +111,7 @@
 #include "chrome/browser/extensions/extension_special_storage_policy.h"
 #include "chrome/browser/ui/webui/extensions/extension_icon_source.h"
 #include "extensions/browser/api/web_request/extension_web_request_event_router.h"
+#include "extensions/browser/process_manager.h"
 #endif
 
 #if BUILDFLAG(ENABLE_GUEST_VIEW)
@@ -220,6 +222,15 @@ void OffTheRecordProfileImpl::Init() {
       this, std::make_unique<extensions::ExtensionIconSource>(profile_));
 
   extensions::WebRequestEventRouter::OnOTRBrowserContextCreated(profile_, this);
+
+  // ProcessManagerFactory does not override
+  // ServiceIsCreatedWithBrowserContext(), and previously IncognitoProcessManager
+  // was only created during CreateBrowserContextServices() as a side effect of
+  // eager ApiResourceManager services calling ProcessManager::Get() in their
+  // constructors. Explicitly instantiate ProcessManager here so it continues to
+  // observe ExtensionRegistry for split-mode extensions when the OTR profile is
+  // created.
+  extensions::ProcessManager::Get(this);
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 
   // The DomDistillerViewerSource is not a normal WebUI so it must be registered
@@ -244,6 +255,10 @@ void OffTheRecordProfileImpl::Init() {
 
   key_->SetProtoDatabaseProvider(
       GetDefaultStoragePartition()->GetProtoDatabaseProvider());
+
+  if (IsEnterpriseIsolatedModeProfile()) {
+    IdentityManagerFactory::GetForProfile(this)->OnNetworkInitialized();
+  }
 
   if (IsIncognitoProfile())
     base::RecordAction(base::UserMetricsAction("IncognitoMode_Started"));

@@ -1,0 +1,197 @@
+// Copyright 2026 The Chromium Authors
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+import {html} from 'chrome://resources/lit/v3_0/lit.rollup.js';
+
+import type {SettingsContactInfoPageElement} from './contact_info_page.js';
+
+export function getHtml(this: SettingsContactInfoPageElement) {
+  return html`<!--_html_template_start_-->
+  <settings-subpage page-title="$i18n{contactInfoTitle}"
+      learn-more-url="$i18n{addressesAndPaymentMethodsLearnMoreURL}"
+      class="multi-card">
+    <div class="card">
+      <settings-toggle-button id="autofillProfileToggle"
+          no-extension-indicator label="$i18n{enableProfilesLabel}"
+          sub-label="$i18n{enableProfilesSublabel}"
+          .pref="${this.profileEnabledSyntheticPref_}"
+          @settings-boolean-control-change="${
+              this.onAutofillProfileToggleSettingsBooleanControlChange_}">
+      </settings-toggle-button>
+      <div id="otpFillingLoadingRow" class="cr-row hr cr-padded-text"
+          aria-live="polite" aria-busy="true"
+          ?hidden="${!this.shouldShowOtpFillingLoadingRow_()}">
+        <div class="flex" id="otpFillingLoadingLabelWrapper">
+          <div class="label">$i18n{enableGmailOtpFillingTitle}</div>
+          <div class="cr-secondary-text label"
+              id="otpFillingLoadingSubLabel">
+            <div id="otpFillingLoadingSubLabelWithLink"
+                .innerHTML="${this.getGmailOtpFillingDescription_()}"
+                @click="${this.onGmailOtpFillingLinkClick_}">
+            </div>
+          </div>
+        </div>
+        <div id="otpFillingLoadingSpinner" class="spinner"></div>
+      </div>
+      <settings-toggle-button id="autofillOtpFillingToggle" class="hr"
+          ?hidden="${!this.shouldShowOtpFillingToggle_()}"
+          label="$i18n{enableGmailOtpFillingTitle}"
+          sub-label-with-link="$i18n{enableGmailOtpFillingDescription}"
+          @sub-label-link-clicked="${
+              this.onGmailOtpFillingSubLabelLinkClicked_}"
+          @settings-boolean-control-change="${
+              this.onAutofillOtpFillingToggleSettingsBooleanControlChange_}"
+          .pref="${this.otpFillingTogglePref_}"
+          no-set-pref>
+      </settings-toggle-button>
+      ${this.profileEnabledSyntheticPref_?.extensionId ? html`
+        <div class="cr-row continuation">
+          <extension-controlled-indicator class="flex"
+              id="autofillExtensionIndicator"
+              .extensionId="${this.profileEnabledSyntheticPref_.extensionId}"
+              .extensionName="${
+                  this.profileEnabledSyntheticPref_.controlledByName || ''}"
+              .extensionCanBeDisabled="${
+                  this.profileEnabledSyntheticPref_.extensionCanBeDisabled ||
+                  false}">
+          </extension-controlled-indicator>
+        </div>
+      ` : ''}
+    </div>
+    <div class="card">
+      <div class="cr-row continuation">
+        <h2 class="flex">$i18n{addresses}</h2>
+        <cr-button id="addAddress" class="header-aligned-button"
+            @click="${this.onAddAddressClick_}"
+            aria-label="$i18n{addAddressTitle}"
+            ?disabled="${!this.profileEnabledSyntheticPref_?.value}">
+          $i18n{add}
+        </cr-button>
+      </div>
+      <div class="list-frame" aria-label="$i18n{addressesTableAriaLabel}"
+          role="list">
+        <div id="addressList" class="vertical-list" role="none">
+          ${this.addresses.map((item, index) => html`
+            <div class="list-item" role="listitem">
+              <div class="start">
+                <span id="addressSummary">
+                  <span class="ellipses">
+                    ${item.metadata?.summaryLabel}
+                  </span>
+                  <span class="ellipses">
+                    ${item.metadata?.summarySublabel}
+                  </span>
+                </span>
+                <cr-icon
+                    id="address-row-icon"
+                    icon="${this.getAddressIcon_(item)}"
+                    ?hidden="${!this.shouldShowAddressIcon_(item)}"
+                    aria-label="${this.getA11yLabelForIcon_(item)}"
+                    role="img">
+                </cr-icon>
+              </div>
+              <cr-icon-button class="icon-more-vert address-menu"
+                  data-index="${index}"
+                  @click="${this.onAddressMenuClick_}"
+                  title="${this.moreActionsTitle_(item)}">
+              </cr-icon-button>
+            </div>
+          `)}
+        </div>
+        <div id="noAddressesLabel" class="list-item"
+            ?hidden="${this.addresses.length > 0}">
+          $i18n{noAddressesFound}
+        </div>
+      </div>
+      <cr-action-menu id="addressSharedMenu" role-description="$i18n{menu}">
+        ${this.isGoogleProfileAddress_() ? html`
+          <button
+              id="menuEditAddress"
+              class="dropdown-item external-link-style"
+              @click="${this.onMenuEditAddressClick_}"
+              aria-label="$i18n{homeWorkAddressAccessiblityLabel}">
+            <span class="label">$i18n{edit}</span>
+            <cr-icon icon="cr:open-in-new" aria-hidden="true"></cr-icon>
+          </button>
+
+          <button id="menuRemoveAddress"
+              class="dropdown-item"
+              @click="${this.onMenuRemoveAddressClick_}">
+            ${this.getMenuRemoveAddressLabel_()}
+          </button>
+        ` : html`
+          <button id="menuEditAddress" class="dropdown-item"
+              @click="${this.onMenuEditAddressClick_}">$i18n{edit}</button>
+
+          <button id="menuRemoveAddress" class="dropdown-item"
+              @click="${this.onMenuRemoveAddressClick_}">
+            ${this.getMenuRemoveAddressLabel_()}
+          </button>
+        `}
+      </cr-action-menu>
+      ${this.showAddressDialog_ ? html`
+        <settings-address-edit-dialog .address="${this.activeAddress!}"
+            .accountInfo="${this.accountInfo_}"
+            @close="${this.onAddressDialogClose_}">
+        </settings-address-edit-dialog>
+      ` : ''}
+      ${this.showAddressRemoveConfirmationDialog_ ? html`
+        <settings-address-remove-confirmation-dialog
+            .address="${this.activeAddress!}"
+            .accountInfo="${this.accountInfo_}"
+            @close="${this.onAddressRemoveConfirmationDialogClose_}">
+        </settings-address-remove-confirmation-dialog>
+      ` : ''}
+      ${this.showGmailOtpDisclaimerDialog_ ? html`
+        <settings-gmail-otp-disclaimer-dialog
+            @close="${this.onGmailOtpDisclaimerDialogClose_}">
+        </settings-gmail-otp-disclaimer-dialog>
+      ` : ''}
+      ${this.showEmailRemoveConfirmationDialog_ ? html`
+        <settings-simple-confirmation-dialog id="emailRemoveConfirmationDialog"
+            title-text="$i18n{removeVerifiedEmailPermissionTitle}"
+            body-text="${this.getEmailRemoveConfirmationDescription_()}"
+            confirm-text="$i18n{remove}"
+            @close="${this.onEmailRemoveConfirmationDialogClose_}">
+        </settings-simple-confirmation-dialog>
+      ` : ''}
+    </div>
+    <div class="card">
+      <div class="cr-row continuation">
+        <h2 class="flex">$i18n{emailVerificationSectionTitle}</h2>
+      </div>
+      ${this.isEmailVerificationProtocolEnabled_ ? html`
+        <settings-toggle-button id="autofillEmailVerificationToggle"
+            no-extension-indicator label="$i18n{emailVerificationLabel}"
+            pref-key="autofill.email_verification_enabled">
+        </settings-toggle-button>
+        <div class="vertical-list">
+          ${this.emailVerificationAddresses_.map((item, index) => html`
+            <div class="list-item">
+              <site-favicon
+                  url="${this.getIssuerSite_(item)}">
+              </site-favicon>
+              <div class="start">${item}</div>
+              <cr-icon-button class="icon-more-vert email-menu"
+                  data-index="${index}"
+                  @click="${this.onEmailMenuClick_}">
+              </cr-icon-button>
+            </div>
+          `)}
+        </div>
+        <div id="noEmailsLabel" class="list-item"
+            ?hidden="${this.emailVerificationAddresses_.length > 0}">
+          $i18n{emailVerificationEmptyLabel}
+        </div>
+      ` : ''}
+      <cr-action-menu id="emailSharedMenu" role-description="$i18n{menu}">
+        <button id="menuRemoveEmail" class="dropdown-item"
+            @click="${this.onMenuRemoveEmailClick_}">
+          $i18n{removeVerifiedEmailPermission}
+        </button>
+      </cr-action-menu>
+    </div>
+  </settings-subpage>
+<!--_html_template_end_-->`;
+}

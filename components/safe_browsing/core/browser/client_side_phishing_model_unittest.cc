@@ -22,6 +22,7 @@
 #include "base/memory/shared_memory_mapping.h"
 #include "base/path_service.h"
 #include "base/run_loop.h"
+#include "base/strings/string_view_util.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/task_traits.h"
 #include "base/task/thread_pool.h"
@@ -184,7 +185,7 @@ class ClientSidePhishingModelTest : public testing::Test {
   }
 
   void ValidateTargetEmbeddings(
-      const std::vector<TargetEmbedding>& target_embeddings) {
+      base::span<const TargetEmbedding> target_embeddings) {
     ASSERT_EQ(target_embeddings.size(), static_cast<size_t>(3));
     // Verify thresholds match.
     EXPECT_FLOAT_EQ(target_embeddings[0].threshold, .9);
@@ -252,8 +253,7 @@ void GetFlatBufferStringFromMappedMemory(
   ASSERT_TRUE(region.IsValid());
   base::ReadOnlySharedMemoryMapping mapping = region.Map();
   ASSERT_TRUE(mapping.IsValid());
-  *output = std::string(reinterpret_cast<const char*>(mapping.memory()),
-                        mapping.size());
+  *output = std::string(base::as_string_view(base::span(mapping)));
 }
 
 }  // namespace

@@ -8,6 +8,7 @@
 #include "base/feature_list.h"
 #include "base/memory/post_delayed_memory_reduction_task.h"
 #include "base/memory/raw_ref.h"
+#include "base/memory/scoped_refptr.h"
 #include "base/no_destructor.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/time/time.h"
@@ -15,6 +16,8 @@
 #include "cc/paint/paint_record.h"
 #include "third_party/blink/renderer/platform/graphics/flush_reason.h"
 #include "third_party/blink/renderer/platform/graphics/paint/paint_canvas.h"
+#include "third_party/blink/renderer/platform/heap/garbage_collected.h"
+#include "third_party/blink/renderer/platform/heap/persistent.h"
 #include "third_party/blink/renderer/platform/instrumentation/histogram.h"
 #include "third_party/blink/renderer/platform/platform_export.h"
 #include "third_party/blink/renderer/platform/wtf/hash_set.h"
@@ -22,7 +25,7 @@
 
 namespace blink {
 
-class Canvas2DResourceProvider;
+class StaticBitmapImage;
 
 inline constexpr char kCanvasHibernationEventHistogramName[] =
     "Blink.Canvas.HibernationEvents2";
@@ -32,18 +35,20 @@ PLATFORM_EXPORT BASE_DECLARE_FEATURE(kCanvasHibernationSnapshotZstd);
 // All the fields are main-thread only. See DCheckInvariant() for invariants.
 class PLATFORM_EXPORT CanvasHibernationHandler {
  public:
-  class Delegate {
+  class Delegate : public GarbageCollectedMixin {
    public:
     virtual ~Delegate() = default;
 
-    virtual Canvas2DResourceProvider* GetSharedImageProvider() const = 0;
-    virtual bool HasResourceProvider() const = 0;
+    virtual bool HasBacking() const = 0;
+    virtual bool IsBackingValid() const = 0;
+    virtual bool IsBackingAccelerated() const = 0;
     virtual bool IsPageVisible() const = 0;
     virtual bool IsContextLost() const = 0;
-    virtual void ResetResourceProvider() = 0;
+    virtual void ResetBacking() = 0;
     virtual void SetNeedsCompositingUpdate() = 0;
     virtual void ClearCanvas2DLayerTexture() {}
     virtual std::optional<cc::PaintRecord> FlushCanvas(FlushReason reason) = 0;
+    virtual scoped_refptr<StaticBitmapImage> Snapshot() = 0;
   };
 
   // The values of the enum entries must not change because they are used for
@@ -178,7 +183,7 @@ class PLATFORM_EXPORT CanvasHibernationHandler {
   int height_;
   int bytes_per_pixel_;
 
-  const base::raw_ref<Delegate> delegate_;
+  const WeakPersistent<Delegate> delegate_;
   base::WeakPtrFactory<CanvasHibernationHandler> weak_ptr_factory_{this};
 };
 

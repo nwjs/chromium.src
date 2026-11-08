@@ -10,6 +10,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -21,8 +22,10 @@ import android.view.HapticFeedbackConstants;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.Shadows;
 import org.robolectric.annotation.Config;
 
+import org.chromium.base.Token;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Feature;
 import org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutGroupTitle;
@@ -30,8 +33,6 @@ import org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutTab;
 import org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutUtils;
 import org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutView;
 import org.chromium.chrome.browser.compositor.overlays.strip.reorder.ReorderDelegate.ReorderType;
-import org.chromium.chrome.browser.tab.Tab;
-import org.chromium.chrome.browser.tab.TabId;
 import org.chromium.chrome.browser.tab.TabSelectionType;
 
 import java.util.Arrays;
@@ -54,15 +55,9 @@ public class GroupReorderStrategyTest extends ReorderStrategyTestBase {
     private static final float DRAG_PAST_EXPANDED_GROUP_FAIL = 40.f;
     private static final float DRAG_PAST_EXPANDED_GROUP_SUCCESS = 80.f;
 
-    // Data = [Tab1]  [Group1]([Tab2])  [Group2]([Tab3])
-    private StripLayoutGroupTitle mGroupTitle1;
-    private StripLayoutGroupTitle mGroupTitle2;
     private StripLayoutTab mStripTab1;
     private StripLayoutTab mStripTab2;
     private StripLayoutTab mStripTab3;
-
-    private StripLayoutView[] mExpandedGroup;
-    private StripLayoutView[] mCollapsedGroup;
 
     // Target
     private GroupReorderStrategy mStrategy;
@@ -140,7 +135,9 @@ public class GroupReorderStrategyTest extends ReorderStrategyTestBase {
 
         verify(mAnimationHost).finishAnimationsAndPushTabUpdates();
         verify(mAnimationHost).startAnimations(anyList(), isNull());
-        verify(mContainerView).performHapticFeedback(eq(HapticFeedbackConstants.LONG_PRESS));
+        assertEquals(
+                HapticFeedbackConstants.LONG_PRESS,
+                Shadows.shadowOf(mContainerView).lastHapticFeedbackPerformed());
     }
 
     /**
@@ -228,15 +225,54 @@ public class GroupReorderStrategyTest extends ReorderStrategyTestBase {
 
     @Test
     @Feature("Pinned Tabs")
-    public void testUpdateReorder_fail_pinnedTabs() {
-        //   <------------------
-        // [PinnedTab1]  [ExpandedGroup]  [CollapsedGroup]
-        mStripTab1.setIsPinned(true);
-        Tab tab1 = mModel.getTabAt(0);
-        tab1.setIsPinned(true);
+    public void testUpdateReorder_success_pastUnpinnedTabWithPinnedTabPresent() {
+        setupStripViewsWithPinnedTabs();
 
-        // Drag threshold reached, but reordering across the pinned/unpinned tabs should fail.
+        // In this layout: [PinnedTab1](index 0), [PinnedTab2](index 1), [UngroupedTab](index 2),
+        // [ExpandedGroup](index 3), [CollapsedGroup](index 4).
+        // Reordering ExpandedGroup past UngroupedTab should succeed and place the group at index 2
+        // (right after PinnedTab2).
+        testUpdateReorder_success(
+                mExpandedGroup, -TAB_WIDTH, -DRAG_PAST_TAB_SUCCESS, /* expectedIndex= */ 2);
+    }
+
+    @Test
+    @Feature("Pinned Tabs")
+    public void testUpdateReorder_fail_dragGroupPastPinnedTab() {
+        setupStripViewsWithPinnedTabs();
+
+        // 1. Reorder past UngroupedTab to place the group at index 2 (adjacent to PinnedTab2).
+        testUpdateReorder_success(
+                mExpandedGroup, -TAB_WIDTH, -DRAG_PAST_TAB_SUCCESS, /* expectedIndex= */ 2);
+
+        // 2. Clear invocations and reset offset so the second drag starts from rest at index 2.
+        clearInvocations(mModel, mAnimationHost);
+        for (StripLayoutView view : mExpandedGroup) {
+            view.setOffsetX(0f);
+        }
+
+        // 3. Attempting to drag further past PinnedTab2 fails.
         testUpdateReorder_fail(mExpandedGroup, -DRAG_PAST_TAB_SUCCESS);
+        verify(mModel, never()).moveGroupToIndex(eq(mInteractingGroupTitle.getTabGroupId()), eq(1));
+    }
+
+    @Test
+    @Feature("Pinned Tabs")
+    public void testUpdateReorder_clamping_groupTowardStart() {
+        setupStripViewsWithPinnedTabs();
+
+        // Drag group far toward start. While reordering past pinned tabs is forbidden, visually
+        // the drag offset is clamped against the first view of the strip (mPinnedTab1) per Case 2
+        // edge-clamping logic (matching Desktop drag behavior).
+        float dragDeltaX = -200f;
+        startReorderAndDragGroup(mExpandedGroup, dragDeltaX);
+
+        float expectedLimit = mPinnedTab1.getIdealX() - mInteractingGroupTitle.getIdealX();
+        assertEquals(
+                "Offset should be clamped against the first pinned tab.",
+                expectedLimit,
+                mInteractingGroupTitle.getOffsetX(),
+                DELTA);
     }
 
     @Test
@@ -327,9 +363,7 @@ public class GroupReorderStrategyTest extends ReorderStrategyTestBase {
 
     @SuppressWarnings("DirectInvocationOnMock")
     private void verifySuccessfulDrag(int expectedIndex, float expectedOffset) {
-        @TabId
-        int lastShownTabId = mModel.getGroupLastShownTabId(mInteractingGroupTitle.getTabGroupId());
-        verify(mModel).moveRelatedTabs(lastShownTabId, expectedIndex);
+        verify(mModel).moveGroupToIndex(mInteractingGroupTitle.getTabGroupId(), expectedIndex);
         verify(mAnimationHost).startAnimations(anyList(), isNull());
 
         for (StripLayoutView view : mDraggedGroup) {
@@ -339,9 +373,8 @@ public class GroupReorderStrategyTest extends ReorderStrategyTestBase {
 
     @SuppressWarnings("DirectInvocationOnMock")
     private void verifyFailedDrag(float expectedOffset) {
-        @TabId
-        int lastShownTabId = mModel.getGroupLastShownTabId(mInteractingGroupTitle.getTabGroupId());
-        verify(mModel, never()).moveRelatedTabs(eq(lastShownTabId), anyInt());
+        verify(mModel, never())
+                .moveGroupToIndex(eq(mInteractingGroupTitle.getTabGroupId()), anyInt());
         verify(mAnimationHost, never()).startAnimations(anyList(), isNull());
 
         for (StripLayoutView view : mDraggedGroup) {
@@ -351,9 +384,7 @@ public class GroupReorderStrategyTest extends ReorderStrategyTestBase {
 
     @SuppressWarnings("DirectInvocationOnMock")
     private void verifySuccessfulRestore(int initialIndex) {
-        @TabId
-        int lastShownTabId = mModel.getGroupLastShownTabId(mInteractingGroupTitle.getTabGroupId());
-        verify(mModel).moveRelatedTabs(lastShownTabId, initialIndex);
+        verify(mModel).moveGroupToIndex(mInteractingGroupTitle.getTabGroupId(), initialIndex);
     }
 
     // ============================================================================================
@@ -362,7 +393,7 @@ public class GroupReorderStrategyTest extends ReorderStrategyTestBase {
 
     /**
      * Updates {@code mStripTabs} and the {@code idealX} for the dragged {@link StripLayoutView}s in
-     * response to a {@link TabModel#moveRelatedTabs}. This "fakes" a tab strip rebuild.
+     * response to a {@link TabModel#moveGroupToIndex}. This "fakes" a tab strip rebuild.
      */
     private void mockRebuildForViews(StripLayoutView[] draggedGroup, float deltaFromNewPosition) {
         doAnswer(
@@ -370,12 +401,13 @@ public class GroupReorderStrategyTest extends ReorderStrategyTestBase {
                             for (StripLayoutView view : draggedGroup) {
                                 view.setIdealX(view.getIdealX() + deltaFromNewPosition);
                             }
-                            int id = invocation.getArgument(0);
+                            Token tabGroupId = invocation.getArgument(0);
+                            int id = mModel.getTabsInGroup(tabGroupId).get(0).getId();
                             int index = Math.min(mStripTabs.length - 1, invocation.getArgument(1));
                             mStripTabs[index] = StripLayoutUtils.findTabById(mStripTabs, id);
                             return null;
                         })
                 .when(mModel)
-                .moveRelatedTabs(anyInt(), anyInt());
+                .moveGroupToIndex(any(), anyInt());
     }
 }

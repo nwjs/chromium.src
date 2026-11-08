@@ -11,7 +11,10 @@
 #include "base/notimplemented.h"
 #include "chrome/browser/ttc/app/audio_controller.h"
 #include "chrome/browser/ttc/core/session_controller.h"
+#include "chrome/browser/ttc/core/session_journal.h"
 #include "chrome/browser/ttc/core/states.h"
+#include "components/actor/core/journal_details_builder.h"
+#include "components/ttc/app/public/error_codes.h"
 
 namespace ttc {
 
@@ -40,6 +43,9 @@ void ConversationImpl::Start() {
   playback_completion_subscription_ =
       audio_controller_->AddPlaybackCompletionListener(base::BindRepeating(
           &ConversationImpl::OnPlaybackCompleted, base::Unretained(this)));
+  audio_capture_error_subscription_ =
+      audio_controller_->AddErrorListener(base::BindRepeating(
+          &ConversationImpl::OnBackendError, base::Unretained(this)));
   audio_controller_->StartCapture();
 
   backend_->Connect(this);
@@ -54,6 +60,7 @@ void ConversationImpl::Stop() {
   audio_capture_subscription_ = {};
   audio_energy_subscription_ = {};
   playback_completion_subscription_ = {};
+  audio_capture_error_subscription_ = {};
 
   audio_controller_->StopCapture();
   audio_controller_->StopPlayback();
@@ -74,7 +81,7 @@ void ConversationImpl::SendContextUpdate(
   backend_->SendContextUpdate(url, title, apc);
 }
 
-void ConversationImpl::OnPageContextChanged() {
+void ConversationImpl::OnPageContextInvalidated() {
   NOTIMPLEMENTED();
 }
 
@@ -91,18 +98,18 @@ void ConversationImpl::OnPlaybackCompleted(int64_t sequence_number) {
   backend_->ReportPlaybackStatus(sequence_number);
 }
 
-void ConversationImpl::OnApplicationInitialized() {
+void ConversationImpl::OnBackendInitialized() {
   backend_->SendToolSetUpdate(session_controller_->GetToolDefinitions());
   session_controller_->SetSessionLifecycle(SessionLifecycle::kLive);
 }
 
-void ConversationImpl::OnApplicationClosed() {
-  session_controller_->SetSessionLifecycle(SessionLifecycle::kFinished);
+void ConversationImpl::OnBackendClosed() {
+  session_controller_->GetJournal().Log("TtcBackendClosed", {});
+  session_controller_->EndSessionAsync();
 }
 
-void ConversationImpl::OnApplicationError(ErrorCode error) {
-  // TODO(b/561677132): Show the error in some way.
-  session_controller_->SetSessionLifecycle(SessionLifecycle::kFinished);
+void ConversationImpl::OnBackendError(ErrorCode error) {
+  session_controller_->OnError(error);
 }
 
 void ConversationImpl::OnTranscriptions(
@@ -119,6 +126,12 @@ void ConversationImpl::OnAudioOutput(base::span<const int16_t> audio_data,
 void ConversationImpl::OnGenerationStateChanged(bool started,
                                                 bool completed,
                                                 bool interrupted) {
+  session_controller_->GetJournal().Log("TtcGenerationStateChanged",
+                                        actor::JournalDetailsBuilder()
+                                            .Add("started", started)
+                                            .Add("completed", completed)
+                                            .Add("interrupted", interrupted)
+                                            .Build());
   if (interrupted) {
     audio_controller_->ClearPlaybackQueue();
   }
@@ -128,6 +141,10 @@ void ConversationImpl::OnToolCall(const ToolRequest& tool_request,
                                   ToolResponseCallback response_callback) {
   session_controller_->ProcessToolCall(tool_request,
                                        std::move(response_callback));
+}
+
+void ConversationImpl::OnJournalEvent(const ServerJournalEvent& journal_event) {
+  session_controller_->GetJournal().HandleServerJournalEvent(journal_event);
 }
 
 }  // namespace ttc

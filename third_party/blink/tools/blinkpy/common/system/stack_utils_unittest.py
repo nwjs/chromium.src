@@ -54,8 +54,9 @@ class StackUtilsTest(unittest.TestCase):
             msgs.append(msg)
 
         thread_id = current_thread_id()
-        stack_utils.log_thread_state(logger, 'test-thread', thread_id,
-                                     'is tested')
+        stack_utils.log_thread_state(
+            logger, 'test-thread', thread_id, 'is tested'
+        )
         self.assertTrue(msgs)
 
     def test_log_traceback(self):
@@ -66,6 +67,6 @@ class StackUtilsTest(unittest.TestCase):
 
         try:
             raise ValueError
-        except:
+        except:  # noqa: E722
             stack_utils.log_traceback(logger, sys.exc_info()[2])
         self.assertTrue(msgs)

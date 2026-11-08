@@ -5,47 +5,85 @@
 #ifndef CHROME_BROWSER_ACTOR_TOOLS_MEDIA_CONTROL_TOOL_REQUEST_H_
 #define CHROME_BROWSER_ACTOR_TOOLS_MEDIA_CONTROL_TOOL_REQUEST_H_
 
-#include <variant>
+#include <optional>
+#include <string_view>
 
+#include "base/time/time.h"
 #include "chrome/browser/actor/tools/tool_request.h"
 
 namespace actor {
+class ToolRequestVisitorFunctor;
 
-// A media control action to start or resume media playback.
-struct PlayMedia {};
-
-// A media control action to pause media playback.
-struct PauseMedia {};
-
-// A media control action to seek to a specific time in the media.
-struct SeekMedia {
-  int64_t seek_time_milliseconds;
-};
-
-// A variant that holds one of several possible media control actions.
-using MediaControl = std::variant<PlayMedia, PauseMedia, SeekMedia>;
-
-// Returns the name of the media control variant.
-std::string MediaControlName(const MediaControl& media_control);
-
-// A tool request for performing a media control action on a specific tab.
-class MediaControlToolRequest : public TabToolRequest {
+// Starts or resumes media playback in a specific tab.
+class PlayMediaToolRequest : public TabToolRequest {
  public:
-  static constexpr char kName[] = "MediaControl";
+  static constexpr char kName[] = "PlayMedia";
+  // Canonical model-facing name exposed in LLM prompt schemas and indexed by
+  // `ToolRegistry` for lookup and routing via `GetToolDefinition()`.
+  static constexpr std::string_view kModelFacingName = "play_video";
 
-  explicit MediaControlToolRequest(tabs::TabHandle tab_handle,
-                                   MediaControl media_control);
-  ~MediaControlToolRequest() override;
+  explicit PlayMediaToolRequest(tabs::TabHandle tab_handle);
+  ~PlayMediaToolRequest() override;
+
+  // Returns the `ToolId::kPlayVideo` tool schema definition.
+  static std::optional<ToolDefinition> GetToolDefinition();
 
   // TabToolRequest:
   CreateToolResult CreateTool(TaskId task_id,
                               ToolDelegate& tool_delegate) const override;
   void Apply(ToolRequestVisitorFunctor& f) const override;
   std::string_view Name() const override;
-  std::string JournalEvent() const override;
+};
+
+// Pauses media playback in a specific tab.
+class PauseMediaToolRequest : public TabToolRequest {
+ public:
+  static constexpr char kName[] = "PauseMedia";
+  // Canonical model-facing name exposed in LLM prompt schemas and indexed by
+  // `ToolRegistry` for lookup and routing via `GetToolDefinition()`.
+  static constexpr std::string_view kModelFacingName = "pause_video";
+
+  explicit PauseMediaToolRequest(tabs::TabHandle tab_handle);
+  ~PauseMediaToolRequest() override;
+
+  // Returns the `ToolId::kPauseVideo` tool schema definition.
+  static std::optional<ToolDefinition> GetToolDefinition();
+
+  // TabToolRequest:
+  CreateToolResult CreateTool(TaskId task_id,
+                              ToolDelegate& tool_delegate) const override;
+  void Apply(ToolRequestVisitorFunctor& f) const override;
+  std::string_view Name() const override;
+};
+
+// Seeks to a specific time in the media in a specific tab.
+class SeekMediaToolRequest : public TabToolRequest {
+ public:
+  static constexpr char kName[] = "SeekMedia";
+  // Canonical model-facing name exposed in LLM prompt schemas and indexed by
+  // `ToolRegistry` for lookup and routing via `GetToolDefinition()`.
+  static constexpr std::string_view kModelFacingName = "seek_to_timestamp";
+  // JSON argument key for the target timecode parameter.
+  static constexpr std::string_view kTimecodeParam = "timecode";
+
+  // Parses a timecode of the form "S", "M:SS" or "H:MM:SS" (e.g. "30", "1:45",
+  // "1:02:15"). Returns std::nullopt if `timecode` is malformed.
+  static std::optional<base::TimeDelta> FromTimecode(std::string_view timecode);
+
+  SeekMediaToolRequest(tabs::TabHandle tab_handle, base::TimeDelta seek_time);
+  ~SeekMediaToolRequest() override;
+
+  // Returns the `ToolId::kSeekToTimestamp` tool schema definition.
+  static std::optional<ToolDefinition> GetToolDefinition();
+
+  // TabToolRequest:
+  CreateToolResult CreateTool(TaskId task_id,
+                              ToolDelegate& tool_delegate) const override;
+  void Apply(ToolRequestVisitorFunctor& f) const override;
+  std::string_view Name() const override;
 
  private:
-  MediaControl media_control_;
+  base::TimeDelta seek_time_;
 };
 
 }  // namespace actor

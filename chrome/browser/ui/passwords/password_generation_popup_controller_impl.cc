@@ -47,7 +47,7 @@
 #include "content/public/browser/render_widget_host.h"
 #include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/web_contents.h"
-#include "ui/accessibility/platform/ax_platform.h"
+#include "third_party/blink/public/common/input/web_input_event.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/display/types/display_constants.h"
 #include "ui/events/keycodes/keyboard_codes.h"
@@ -171,24 +171,43 @@ PasswordGenerationPopupControllerImpl::GetWeakPtr() {
 
 bool PasswordGenerationPopupControllerImpl::HandleKeyPressEvent(
     const input::NativeWebKeyboardEvent& event) {
+  const int allowed_modifiers = event.windows_key_code == ui::VKEY_TAB
+                                    ? blink::WebInputEvent::kShiftKey
+                                    : blink::WebInputEvent::kNoModifiers;
+  if (event.GetModifiers() & blink::WebInputEvent::kKeyModifiers &
+      ~allowed_modifiers) {
+    return false;
+  }
+
   switch (event.windows_key_code) {
+    case ui::VKEY_TAB:
+      // Don't consume Tab key when nothing is selected in the popup, so users
+      // can Tab through the password field without being unexpectedly trapped.
+      // Once entered, Tab and Shift+Tab cycle focus between the Accept and
+      // Cancel buttons inside the password generation popup.
+      if (selected_element_ == PasswordGenerationPopupElement::kNone) {
+        return false;
+      }
+      [[fallthrough]];
     case ui::VKEY_UP:
     case ui::VKEY_DOWN:
       if (!IsSelectable()) {
         return false;
       }
-
-      SelectElement(cancel_button_selected()
-                        ? PasswordGenerationPopupElement::kAcceptButton
-                        : PasswordGenerationPopupElement::kCancelButton);
+      if (selected_element_ == PasswordGenerationPopupElement::kNone) {
+        SelectElement(event.windows_key_code == ui::VKEY_DOWN
+                          ? PasswordGenerationPopupElement::kAcceptButton
+                          : PasswordGenerationPopupElement::kCancelButton);
+      } else {
+        SelectElement(cancel_button_selected()
+                          ? PasswordGenerationPopupElement::kAcceptButton
+                          : PasswordGenerationPopupElement::kCancelButton);
+      }
       return true;
     case ui::VKEY_ESCAPE:
       HideImpl();
       return true;
     case ui::VKEY_RETURN:
-    case ui::VKEY_TAB:
-      // We suppress tab if the password is selected because we will
-      // automatically advance focus anyway.
       return PossiblyAcceptSelectedElement();
     default:
       return false;
@@ -279,9 +298,17 @@ void PasswordGenerationPopupControllerImpl::GeneratePasswordValue(
   }
 }
 
-void PasswordGenerationPopupControllerImpl::Show(GenerationUIState state) {
+bool PasswordGenerationPopupControllerImpl::Show(GenerationUIState state,
+                                                 bool is_manually_triggered) {
   CHECK(!current_generated_password_.empty());
+  if (!driver_) {
+    HideImpl();
+    return false;
+  }
+
   state_ = state;
+  selected_element_ = PasswordGenerationPopupElement::kNone;
+  base::WeakPtr<PasswordGenerationPopupControllerImpl> weak_this = GetWeakPtr();
 
   if (base::FeatureList::IsEnabled(
           password_manager::features::
@@ -289,22 +316,20 @@ void PasswordGenerationPopupControllerImpl::Show(GenerationUIState state) {
     content::WebContents* web_contents = GetWebContents();
     if (!web_contents || autofill::IsPointerLocked(web_contents)) {
       HideImpl();
-      return;
+      return false;
     }
 
     // Block tab fullscreen to prevent UI spoofing. The block will be released
     // when `this` is destroyed.
     if (!fullscreen_blocker_) {
-      base::WeakPtr<PasswordGenerationPopupControllerImpl> weak_this =
-          GetWeakPtr();
       std::optional<base::ScopedClosureRunner> fullscreen_blocker =
           web_contents->ForSecurityDropFullscreen(display::kInvalidDisplayId);
       if (!weak_this) {
-        return;
+        return false;
       }
-      if (!fullscreen_blocker) {
+      if (!fullscreen_blocker || !driver_) {
         HideImpl();
-        return;
+        return false;
       }
       fullscreen_blocker_ = std::move(*fullscreen_blocker);
     }
@@ -316,7 +341,7 @@ void PasswordGenerationPopupControllerImpl::Show(GenerationUIState state) {
     // Treat popup as being hidden if creation fails.
     if (!view_) {
       HideImpl();
-      return;
+      return false;
     }
     key_press_handler_manager_->RegisterKeyPressHandler(base::BindRepeating(
         [](base::WeakPtr<PasswordGenerationPopupControllerImpl> weak_this,
@@ -326,30 +351,47 @@ void PasswordGenerationPopupControllerImpl::Show(GenerationUIState state) {
         GetWeakPtr()));
     if (!view_->Show()) {
       // The instance is deleted after this point.
-      return;
+      return false;
     }
   } else {
     view_->UpdateState();
     if (!view_->UpdateBoundsAndRedrawPopup()) {
       // The instance is deleted after this point.
-      return;
+      return false;
     }
+  }
+
+  if (!weak_this) {
+    return false;
+  }
+  if (!driver_) {
+    HideImpl();
+    return false;
   }
 
   // Preview password on show in generation state.
   if (state_ == kOfferGeneration) {
     driver_->PreviewGenerationSuggestion(current_generated_password_);
 
-    // For screen reader users, select the accept button on show so that
-    // virtual focus announces the suggestion and popup content immediately.
-    if (ui::AXPlatform::GetInstance().IsScreenReaderActive()) {
+    // When manually triggered, e.g. via context menu, select the accept button
+    // on show so that focus enters the popup immediately without requiring
+    // arrow keys first.
+    if (is_manually_triggered) {
       SelectElement(PasswordGenerationPopupElement::kAcceptButton);
+      if (!weak_this) {
+        return false;
+      }
+      if (!driver_) {
+        HideImpl();
+        return false;
+      }
     }
   }
 
   if (observer_) {
     observer_->OnPopupShown(state_);
   }
+  return true;
 }
 
 void PasswordGenerationPopupControllerImpl::UpdateGeneratedPassword(

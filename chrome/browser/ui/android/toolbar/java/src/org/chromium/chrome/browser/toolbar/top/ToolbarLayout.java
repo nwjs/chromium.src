@@ -50,6 +50,7 @@ import org.chromium.chrome.browser.toolbar.ToolbarDataProvider;
 import org.chromium.chrome.browser.toolbar.ToolbarProgressBar;
 import org.chromium.chrome.browser.toolbar.ToolbarTabController;
 import org.chromium.chrome.browser.toolbar.back_button.BackButtonCoordinator;
+import org.chromium.chrome.browser.toolbar.download_button.DownloadButtonCoordinator;
 import org.chromium.chrome.browser.toolbar.extensions.ExtensionsToolbarCoordinator;
 import org.chromium.chrome.browser.toolbar.forward_button.ForwardButtonCoordinator;
 import org.chromium.chrome.browser.toolbar.home_button.HomeButtonCoordinator;
@@ -157,6 +158,10 @@ public abstract class ToolbarLayout extends FrameLayout
      * @param reloadButtonCoordinator The coordinator for the reload button.
      * @param backButtonCoordinator The coordinator for the back button.
      * @param forwardButtonCoordinator The coordinator for the forward button.
+     * @param homeButtonCoordinator The coordinator for the home button.
+     * @param signinButtonCoordinator The coordinator for the signin button.
+     * @param downloadButtonCoordinator The coordinator for the download button.
+     * @param themeColorProvider The provider for theme colors.
      * @param incognitoStateProvider The {@link IncognitoStateProvider} for observering incognito
      *     state.
      * @param incognitoWindowCountSupplier A supplier for the number of incognito windows, used by
@@ -179,6 +184,7 @@ public abstract class ToolbarLayout extends FrameLayout
             @Nullable ForwardButtonCoordinator forwardButtonCoordinator,
             HomeButtonCoordinator homeButtonCoordinator,
             @Nullable SigninButtonCoordinator signinButtonCoordinator,
+            @Nullable DownloadButtonCoordinator downloadButtonCoordinator,
             ThemeColorProvider themeColorProvider,
             IncognitoStateProvider incognitoStateProvider,
             @Nullable Supplier<Integer> incognitoWindowCountSupplier,
@@ -616,7 +622,7 @@ public abstract class ToolbarLayout extends FrameLayout
      * @param drawable The icon for the button.
      * @param description The content description for the button.
      * @param listener The {@link OnClickListener} to use for clicks to the button.
-     * @param {@link ButtonType} of the button.
+     * @param type The {@link ButtonType} of the button.
      */
     protected void addCustomActionButton(
             Drawable drawable, String description, OnClickListener listener, int type) {
@@ -767,16 +773,18 @@ public abstract class ToolbarLayout extends FrameLayout
     }
 
     /**
-     * @return Whether or not the toolbar is incognito branded.
-     * @see {@link ToolbarDataProvider#isIncognitoBranded()}
+     * Returns whether or not the toolbar is incognito branded.
+     *
+     * @see ToolbarDataProvider#isIncognitoBranded()
      */
     protected boolean isIncognitoBranded() {
         return mToolbarDataProvider.isIncognitoBranded();
     }
 
     /**
-     * @return Whether or not the toolbar is off the record.
-     * @see {@link ToolbarDataProvider#isOffTheRecord()}
+     * Returns whether or not the toolbar is off the record.
+     *
+     * @see ToolbarDataProvider#isOffTheRecord()
      */
     protected boolean isOffTheRecord() {
         return mToolbarDataProvider.isOffTheRecord();
@@ -959,6 +967,15 @@ public abstract class ToolbarLayout extends FrameLayout
      *     0.
      */
     public void onToEdgeChange(int newTopPadding) {}
+
+    /**
+     * @return The top padding most recently applied by {@link #onToEdgeChange(int)}, or 0 if this
+     *     toolbar doesn't support drawing edge-to-edge.
+     * @see Toolbar#getEdgeToEdgeTopPadding()
+     */
+    public int getEdgeToEdgeTopPadding() {
+        return 0;
+    }
 
     public void setIsBottomMostTopControlsLayer(boolean isBottomMostLayer) {
         mIsBottomMostTopControlsLayer = isBottomMostLayer;

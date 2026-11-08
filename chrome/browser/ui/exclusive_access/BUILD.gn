@@ -70,7 +70,6 @@ source_set("exclusive_access") {
     ]
   }
   if (!is_android) {
-    public_deps += [ "//chrome/browser:browser_public_dependencies" ]
     deps += [
       "//chrome/browser:browser_process",
       "//chrome/browser/ui:browser_command_controller",
@@ -120,6 +119,7 @@ if (!is_android) {
     deps = [
       ":test_support",
       "//chrome/test/base:chrome_render_view_host_test_harness",
+      "//chrome/test/base:testing_browser_process",
       "//components/fullscreen_control",
     ]
   }
@@ -137,6 +137,7 @@ if (!is_android) {
       ":test_support",
       "//chrome/browser/content_settings:content_settings_factory",
       "//chrome/browser/ui:browser_commands",
+      "//chrome/browser/ui:browser_tabstrip",
       "//chrome/browser/ui:browser_window_header",
       "//chrome/browser/ui:ui_features",
       "//chrome/browser/ui/browser_window",
@@ -164,11 +165,13 @@ if (!is_android) {
         "//chrome/browser/content_settings:content_settings_factory",
         "//chrome/browser/preloading:test_support",
         "//chrome/browser/ui:browser_commands",
+        "//chrome/browser/ui:browser_tabstrip",
         "//chrome/browser/ui:browser_window_header",
         "//chrome/browser/ui:test_support",
         "//chrome/browser/ui/browser_web_contents_delegate",
         "//chrome/browser/ui/browser_window",
         "//chrome/browser/ui/browser_window:create_browser_window",
+        "//chrome/browser/ui/dialogs:browser_dialogs",
         "//chrome/browser/ui/fullscreen",
         "//chrome/browser/ui/test:test_support",
         "//chrome/browser/ui/web_applications/test:test_support_ui",

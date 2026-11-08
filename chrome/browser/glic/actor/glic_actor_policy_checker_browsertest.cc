@@ -26,6 +26,7 @@
 #include "chrome/browser/glic/actor/glic_actor_test_util.h"
 #include "chrome/browser/glic/glic_enums.h"
 #include "chrome/browser/glic/glic_pref_names.h"
+#include "chrome/browser/glic/public/features.h"
 #include "chrome/browser/glic/public/glic_keyed_service.h"
 #include "chrome/browser/glic/public/glic_keyed_service_factory.h"
 #include "chrome/browser/glic/test_support/glic_browser_test.h"
@@ -97,10 +98,8 @@ class GlicActorPolicyCheckerBrowserTestBase : public GlicBrowserTest {
   GlicActorPolicyCheckerBrowserTestBase() {
     scoped_feature_list_.InitWithFeaturesAndParameters(
         /* enabled_features = */
-        {{features::kGlicActor,
-          {{features::kGlicActorPolicyControlExemption.name, "false"}}},
-         {features::kGlicUserStatusCheck, {}}},
-        /* disabled_features = */ {});
+        {{features::kGlicActor, {}}, {features::kGlicUserStatusCheck, {}}},
+        /* disabled_features = */ {features::kGlicActorPolicyControlExemption});
   }
   ~GlicActorPolicyCheckerBrowserTestBase() override = default;
 
@@ -1118,9 +1117,8 @@ class GlicApiActorPolicyCheckerBrowserTest
     scoped_feature_list_.InitWithFeaturesAndParameters(
         /* enabled_features = */
         {{features::kGlicActor,
-          {{features::kGlicActorPolicyControlExemption.name, "false"},
-           {features::kGlicActorEligibleTiers.name, "1"}}}},
-        /* disabled_features = */ {});
+          {{features::kGlicActorEligibleTiers.name, "1"}}}},
+        /* disabled_features = */ {features::kGlicActorPolicyControlExemption});
   }
   ~GlicApiActorPolicyCheckerBrowserTest() override = default;
 
@@ -1367,9 +1365,9 @@ class GlicApiActorPolicyCheckerBrowserTestExemption
   GlicApiActorPolicyCheckerBrowserTestExemption() {
     scoped_feature_list_.InitWithFeaturesAndParameters(
         /* enabled_features = */
-        {{features::kGlicActor,
-          {{features::kGlicActorPolicyControlExemption.name, "true"},
-           {features::kGlicActorEligibleTiers.name, "1"}}}},
+        {{features::kGlicActorPolicyControlExemption, {}},
+         {features::kGlicActor,
+          {{features::kGlicActorEligibleTiers.name, "1"}}}},
         /* disabled_features = */ {});
   }
   ~GlicApiActorPolicyCheckerBrowserTestExemption() override = default;

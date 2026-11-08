@@ -24,7 +24,7 @@
 #include "third_party/blink/renderer/core/page/chrome_client.h"
 #include "third_party/blink/renderer/core/page/page.h"
 #include "third_party/blink/renderer/core/paint/paint_layer.h"
-#include "third_party/blink/renderer/core/paint/timing/image_element_timing.h"
+#include "third_party/blink/renderer/core/paint/timing/element_timing.h"
 #include "third_party/blink/renderer/core/paint/timing/image_paint_timing_detector.h"
 #include "third_party/blink/renderer/core/paint/timing/largest_contentful_paint_manager.h"
 #include "third_party/blink/renderer/core/paint/timing/paint_timing.h"
@@ -55,23 +55,6 @@
 namespace blink {
 
 namespace {
-
-// In the context of FCP++, we define contentful background image as one that
-// satisfies all of the following conditions:
-// * has image reources attached to style of the object, i.e.,
-//  { background-image: url('example.gif') }
-// * not attached to <body> or <html>
-// This function contains the above heuristics.
-bool IsBackgroundImageContentful(const LayoutObject& object,
-                                 const Image& image) {
-  // Background images attached to <body> or <html> are likely for background
-  // purpose, so we rule them out.
-  if (IsA<LayoutView>(object) || object.IsBody() ||
-      object.IsDocumentElement()) {
-    return false;
-  }
-  return true;
-}
 
 void ReportImagePixelInaccuracy(HTMLImageElement* image_element) {
   DCHECK(image_element);
@@ -164,23 +147,15 @@ PaintTimingDetector& PaintTimingDetector::From(Document& document) {
 
 // static
 void PaintTimingDetector::NotifyBackgroundImagePaint(
-    Node& node,
+    const LayoutObject& image_layout_object,
     const Image& image,
     const StyleImage& style_image,
     const PropertyTreeStateOrAlias& current_paint_chunk_properties,
     const gfx::Rect& image_border) {
-  LayoutObject* object = node.GetLayoutObject();
-  if (!object) {
-    return;
-  }
-
-  auto& paint_timing = PaintTiming::From(object->GetDocument());
-  paint_timing.GetImageElementTiming()->NotifyBackgroundImagePaint(
-      node, style_image, current_paint_chunk_properties, image_border);
-
-  if (!IsBackgroundImageContentful(*object, image)) {
-    return;
-  }
+  auto& paint_timing = PaintTiming::From(image_layout_object.GetDocument());
+  paint_timing.GetElementTiming()->NotifyBackgroundImagePaint(
+      image_layout_object, style_image, current_paint_chunk_properties,
+      image_border);
 
   ImageResourceContent* cached_image = style_image.CachedImage();
   DCHECK(cached_image);
@@ -188,26 +163,27 @@ void PaintTimingDetector::NotifyBackgroundImagePaint(
   // the case of SVGs. Figure out why and if we can remove this footgun.
   paint_timing.GetPaintTimingDetector()
       .GetImagePaintTimingDetector()
-      .RecordImage(*object, image.Size(), *cached_image,
+      .RecordImage(image_layout_object, image.Size(), *cached_image,
                    current_paint_chunk_properties, &style_image, image_border);
 }
 
 // static
 void PaintTimingDetector::NotifyImagePaint(
-    const LayoutObject& object,
+    const LayoutObject& image_layout_object,
     const gfx::Size& intrinsic_size,
     const MediaTiming& media_timing,
     const PropertyTreeStateOrAlias& current_paint_chunk_properties,
     const gfx::Rect& image_border) {
-  auto& paint_timing = PaintTiming::From(object.GetDocument());
-  paint_timing.GetImageElementTiming()->NotifyImagePaint(
-      object, media_timing, current_paint_chunk_properties, image_border);
+  auto& paint_timing = PaintTiming::From(image_layout_object.GetDocument());
+  paint_timing.GetElementTiming()->NotifyImagePaint(
+      image_layout_object, media_timing, current_paint_chunk_properties,
+      image_border);
 
   if (IgnorePaintTimingScope::ShouldIgnore()) {
     return;
   }
 
-  Node* image_node = object.GetNode();
+  Node* image_node = image_layout_object.GetNode();
   HTMLImageElement* element = DynamicTo<HTMLImageElement>(image_node);
 
   if (element) {
@@ -217,7 +193,7 @@ void PaintTimingDetector::NotifyImagePaint(
 
   paint_timing.GetPaintTimingDetector()
       .GetImagePaintTimingDetector()
-      .RecordImage(object, intrinsic_size, media_timing,
+      .RecordImage(image_layout_object, intrinsic_size, media_timing,
                    current_paint_chunk_properties, nullptr, image_border);
 }
 
@@ -258,8 +234,6 @@ void PaintTimingDetector::NotifyBackgroundImageFinished(
 void PaintTimingDetector::NotifyImageRemoved(
     const LayoutObject& object,
     const ImageResourceContent* cached_image) {
-  paint_timing_->GetImageElementTiming()->NotifyImageRemoved(object,
-                                                             cached_image);
   image_paint_timing_detector_->NotifyImageRemoved(object, cached_image);
 }
 

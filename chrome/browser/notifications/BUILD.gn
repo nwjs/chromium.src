@@ -112,6 +112,7 @@ source_set("notifications") {
   if (is_win) {
     public += [
       "notification_platform_bridge_win.h",
+      "win/notification_image_retainer.h",
       "win/notification_launch_id.h",
       "win/notification_metrics.h",
       "win/notification_template_builder.h",
@@ -189,10 +190,7 @@ source_set("impl") {
     "scheduler/notification_schedule_service_factory.cc",
   ]
 
-  public_deps = [
-    ":notifications",
-    "//chrome/browser:browser_public_dependencies",
-  ]
+  public_deps = [ ":notifications" ]
 
   deps = [
     "//chrome/browser:browser_features",
@@ -217,6 +215,9 @@ source_set("impl") {
     "//components/site_engagement/content",
     "//components/visibility_timer",
     "//ui/message_center",
+    "//chrome/app:generated_resources",
+    "//components/search_engines",
+    "//ui/native_theme",
     "//ui/strings:ui_strings_grit",
   ]
 
@@ -299,6 +300,7 @@ source_set("impl") {
   if (is_win) {
     sources += [
       "notification_platform_bridge_win.cc",
+      "win/notification_image_retainer.cc",
       "win/notification_launch_id.cc",
       "win/notification_metrics.cc",
       "win/notification_template_builder.cc",
@@ -307,6 +309,7 @@ source_set("impl") {
 
     deps += [
       "//chrome/browser:shell_integration",
+      "//net",
       "//third_party/libxml:xml_writer",
     ]
   }
@@ -376,7 +379,6 @@ source_set("system_notification_helper_impl") {
   deps = [
     ":notifications",
     ":system_notification_helper",
-    "//chrome/browser:browser_public_dependencies",
     "//ui/message_center/public/cpp",
   ]
 }
@@ -443,6 +445,7 @@ source_set("unit_tests") {
   ]
 
   deps = [
+    ":impl",
     ":notifications",
     ":test_support",
     "//base",
@@ -480,8 +483,12 @@ source_set("unit_tests") {
       "muted_notification_handler_unittest.cc",
       "screen_capture_notification_blocker_unittest.cc",
     ]
-    deps +=
-        [ "//chrome/browser/web_applications:web_applications_test_support" ]
+    deps += [
+      "//chrome/browser/web_applications:isolated_web_app_test",
+      "//chrome/browser/web_applications:web_applications_test_support",
+      "//components/web_package",
+      "//components/webapps/services/web_app_origin_association/test:test_support",
+    ]
   }
 
   if (is_android) {
@@ -504,12 +511,14 @@ source_set("unit_tests") {
       "win/fake_notification_image_retainer.cc",
       "win/fake_notification_image_retainer.h",
       "win/notification_helper_launches_chrome_unittest.cc",
+      "win/notification_image_retainer_unittest.cc",
       "win/notification_launch_id_unittest.cc",
       "win/notification_template_builder_unittest.cc",
     ]
     deps += [
       "//chrome/common/notifications",
       "//chrome/installer/setup:lib",
+      "//chrome/test/base:process_helpers_win",
     ]
   }
 
@@ -608,6 +617,7 @@ if (!is_android) {
           "notification_interactive_uitest_support.cc",
           "notification_interactive_uitest_support.h",
         ]
+        deps += [ "//chrome/browser/ui:browser_tabstrip" ]
       }
 
       if (is_win) {
@@ -704,6 +714,8 @@ if (is_android) {
       "android/java/src/org/chromium/chrome/browser/notifications/NotificationIntentInterceptorTest.java",
       "android/java/src/org/chromium/chrome/browser/notifications/NotificationSystemStatusUtilUnitTest.java",
       "android/java/src/org/chromium/chrome/browser/notifications/NotificationTestUtil.java",
+      "android/java/src/org/chromium/chrome/browser/notifications/NotificationUmaTrackerTest.java",
+      "android/java/src/org/chromium/chrome/browser/notifications/NotificationWrapperBuilderFactoryTest.java",
       "android/java/src/org/chromium/chrome/browser/notifications/PendingIntentProviderTest.java",
       "android/java/src/org/chromium/chrome/browser/notifications/StandardNotificationBuilderTest.java",
       "android/java/src/org/chromium/chrome/browser/notifications/ThrottlingNotificationSchedulerTest.java",
@@ -746,36 +758,6 @@ if (is_android) {
       "//third_party/mockito:mockito_java",
       "//ui/android:ui_java_test_support",
       "//ui/android:ui_no_recycler_view_java",
-    ]
-  }
-
-  android_library("javatests") {
-    testonly = true
-    resources_package = "org.chromium.chrome.browser.notifications"
-
-    sources = [ "android/java/src/org/chromium/chrome/browser/notifications/NotificationWrapperBuilderFactoryTest.java" ]
-
-    deps = [
-      ":java",
-      ":java_resources",
-      "//base:base_java",
-      "//base:base_java_test_support",
-      "//chrome/browser/flags:java",
-      "//chrome/browser/preferences:java",
-      "//chrome/test/android:chrome_java_integration_test_support",
-      "//components/browser_ui/notifications/android:java",
-      "//components/browser_ui/util/android:java",
-      "//components/browser_ui/widget/android:java",
-      "//content/public/test/android:content_java_test_support",
-      "//third_party/androidx:androidx_annotation_annotation_java",
-      "//third_party/androidx:androidx_test_core_java",
-      "//third_party/androidx:androidx_test_monitor_java",
-      "//third_party/androidx:androidx_test_runner_java",
-      "//third_party/hamcrest:hamcrest_core_java",
-      "//third_party/hamcrest:hamcrest_library_java",
-      "//third_party/junit",
-      "//third_party/mockito:mockito_java",
-      "//url:gurl_java",
     ]
   }
 

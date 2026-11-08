@@ -12,11 +12,9 @@ from blinkpy.w3c.gerrit import (
     OutputOption,
 )
 # Some unused arguments may be included to match the real class's API.
-# pylint: disable=unused-argument
 
 
 class MockGerritAPI:
-
     def __init__(self, raise_error=False):
         self.exportable_cls = []
         self.request_posted = []
@@ -31,7 +29,8 @@ class MockGerritAPI:
 
     def query_cl_comments_and_revisions(self, change_id):
         return self.query_cl(
-            change_id, OutputOption.MESSAGES | OutputOption.ALL_REVISIONS)
+            change_id, OutputOption.MESSAGES | OutputOption.ALL_REVISIONS
+        )
 
     def query_cl(self, change_id, query_options=GerritAPI.DEFAULT_OUTPUT):
         self.cls_queried.append(change_id)

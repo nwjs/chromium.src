@@ -23,13 +23,10 @@
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
 #include "chrome/browser/contextual_cueing/features.h"
 #include "chrome/browser/file_system_access/chrome_file_system_access_permission_context.h"
-#include "chrome/browser/glic/actor/glic_actor_policy_checker.h"
 #include "chrome/browser/glic/glic_pref_names.h"
 #include "chrome/browser/glic/glic_settings_util.h"
 #include "chrome/browser/glic/public/features.h"
 #include "chrome/browser/glic/public/glic_enabling.h"
-#include "chrome/browser/glic/public/glic_keyed_service.h"
-#include "chrome/browser/glic/public/glic_keyed_service_factory.h"
 #include "chrome/browser/history_embeddings/history_embeddings_utils.h"
 #include "chrome/browser/indigo/resources/grit/indigo_strings.h"
 #include "chrome/browser/net/system_network_context_manager.h"
@@ -47,6 +44,7 @@
 #include "chrome/browser/signin/chrome_signin_client_factory.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/signin/signin_ui_util.h"
+#include "chrome/browser/skills/skills_service_factory.h"
 #include "chrome/browser/subscription_eligibility/subscription_eligibility_service_factory.h"
 #include "chrome/browser/sync/sync_service_factory.h"
 #include "chrome/browser/ui/managed_ui.h"
@@ -54,11 +52,11 @@
 #include "chrome/browser/ui/side_panel/side_panel_prefs.h"
 #include "chrome/browser/ui/signin/account_preview_utils.h"
 #include "chrome/browser/ui/tabs/features.h"
+#include "chrome/browser/ui/tabs/organizer/organizer_panel_utils.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_utils.h"
 #include "chrome/browser/ui/tabs/tab_strip_prefs.h"
 #include "chrome/browser/ui/toasts/toast_features.h"
 #include "chrome/browser/ui/ui_features.h"
-#include "chrome/browser/ui/views/tabs/organizer/organizer_panel_utils.h"
 #include "chrome/browser/ui/webui/management/management_ui.h"
 #include "chrome/browser/ui/webui/policy_indicator_localized_strings_provider.h"
 #include "chrome/browser/ui/webui/settings/glic_handler.h"
@@ -686,8 +684,6 @@ void AddAppearanceStrings(content::WebUIDataSource* html_source,
       base::FeatureList::IsEnabled(features::kTabHoverCardImages));
   html_source->AddBoolean("showGlassEffectEnabled",
                           features::IsGlassFrameEnabled());
-  html_source->AddBoolean("showVerticalTabsExpandOnHoverEnabled",
-                          tabs::IsVerticalTabsExpandOnHoverFeatureEnabled());
   html_source->AddBoolean("showOrganizerPanelEnabled",
                           organizer_panel::IsOrganizerPanelFeatureEnabled());
   html_source->AddBoolean(
@@ -742,6 +738,7 @@ void AddClearBrowsingDataStrings(content::WebUIDataSource* html_source,
       {"clearPasswords", IDS_SETTINGS_CLEAR_PASSWORDS},
       {"clearFormData", IDS_SETTINGS_CLEAR_FORM_DATA},
       {"clearHostedAppData", IDS_SETTINGS_CLEAR_HOSTED_APP_DATA},
+      {"clearSkills", IDS_SETTINGS_CLEAR_SKILLS},
       {"clearPeriod15Min", IDS_SETTINGS_CLEAR_PERIOD_15_MIN},
       {"clearPeriod15Minutes", IDS_SETTINGS_CLEAR_PERIOD_15_MINUTES},
       {"clearPeriodHour", IDS_SETTINGS_CLEAR_PERIOD_HOUR},
@@ -817,6 +814,10 @@ void AddClearBrowsingDataStrings(content::WebUIDataSource* html_source,
                                   ->IsClearPrimaryAccountAllowed());
 #endif  // !BUILDFLAG(IS_CHROMEOS)
 
+  html_source->AddBoolean(
+      "showDeleteSkillsDataType",
+      skills::SkillsServiceFactory::GetForProfile(profile) != nullptr);
+
   html_source->AddLocalizedStrings(kLocalizedStrings);
 }
 
@@ -855,20 +856,6 @@ void AddDownloadsStrings(content::WebUIDataSource* html_source) {
       {"showDownloadsWhenFinished", IDS_SETTINGS_DOWNLOADS_SHOW_WHEN_FINISHED},
   };
   html_source->AddLocalizedStrings(kLocalizedStrings);
-}
-
-bool IsWebActuationDisabledForEnterprise(Profile* profile) {
-  if (!base::FeatureList::IsEnabled(features::kGlicActor)) {
-    return false;
-  }
-  auto* glic_service =
-      glic::GlicKeyedServiceFactory::GetGlicKeyedService(profile);
-  if (!glic_service) {
-    return false;
-  }
-  return !glic_service->actor_policy_checker().CanActOnWeb() &&
-         glic_service->actor_policy_checker().CannotActOnWebReason() ==
-             glic::GlicActorPolicyChecker::CannotActReason::kDisabledByPolicy;
 }
 
 void AddGeicStrings(content::WebUIDataSource* html_source) {
@@ -1196,8 +1183,9 @@ void AddGlicStrings(content::WebUIDataSource* html_source, Profile* profile) {
       base::FeatureList::IsEnabled(features::kGlicDaisyChainNewTabs));
   html_source->AddBoolean("glicWebActuationFeatureEnabled",
                           GlicHandler::ShouldShowWebActuationToggle(profile));
-  html_source->AddBoolean("isWebActuationDisabledForEnterprise",
-                          IsWebActuationDisabledForEnterprise(profile));
+  html_source->AddBoolean(
+      "isWebActuationDisabledForEnterprise",
+      GlicHandler::IsWebActuationDisabledForEnterprise(profile));
   html_source->AddBoolean("glicActorEnabled",
                           base::FeatureList::IsEnabled(features::kGlicActor));
   html_source->AddBoolean(
@@ -1693,6 +1681,8 @@ void AddAutofillStrings(content::WebUIDataSource* html_source,
       {"enableProfilesSublabel", IDS_AUTOFILL_ENABLE_PROFILES_TOGGLE_SUBLABEL},
       {"enableGmailOtpFillingTitle",
        IDS_AUTOFILL_GMAIL_OTP_FILLING_TOGGLE_TITLE},
+      {"gmailOtpFillingLearnMoreA11yLabel",
+       IDS_AUTOFILL_GMAIL_OTP_OPT_IN_LEARN_MORE_A11Y_NAME},
       {"gmailOtpRequiredTitle", IDS_AUTOFILL_GMAIL_OTP_REQUIRED_TITLE},
       {"emailVerificationLabel",
        IDS_AUTOFILL_SETTINGS_EMAIL_VERIFICATION_LABEL},
@@ -2126,7 +2116,9 @@ void AddAutofillStrings(content::WebUIDataSource* html_source,
       l10n_util::GetStringFUTF16(
           IDS_AUTOFILL_GMAIL_OTP_FILLING_TOGGLE_DESCRIPTION,
           chrome::kGmailOtpFillingLearnMoreURL,
-          l10n_util::GetStringUTF16(IDS_SETTINGS_OPENS_IN_NEW_TAB)));
+          l10n_util::GetStringUTF16(IDS_SETTINGS_OPENS_IN_NEW_TAB),
+          l10n_util::GetStringUTF16(
+              IDS_AUTOFILL_GMAIL_OTP_OPT_IN_LEARN_MORE_A11Y_NAME)));
   html_source->AddString("gmailOtpFillingLearnMoreUrl",
                          chrome::kGmailOtpFillingLearnMoreURL);
 
@@ -2149,8 +2141,8 @@ void AddAutofillStrings(content::WebUIDataSource* html_source,
       autofill_client &&
           autofill::MayPerformAutofillAiAction(
               *autofill_client, autofill::AutofillAiAction::kOptIn));
-  // TODO(crbug.com/515356902): Check enable/disable eligibility per entity type,
-  // similar to how it is done on Clank. See crrev.com/c/7847781
+  // TODO(crbug.com/515356902): Check enable/disable eligibility per entity
+  // type, similar to how it is done on Clank. See crrev.com/c/7847781
   html_source->AddBoolean(
       "canEnableOrDisableAutofillAi",
       autofill_client &&
@@ -3169,8 +3161,7 @@ void AddSafetyHubStrings(content::WebUIDataSource* html_source) {
 
   const bool is_disruptive_notification_revocation_enabled =
       base::FeatureList::IsEnabled(
-          features::kSafetyHubDisruptiveNotificationRevocation) &&
-      !features::kSafetyHubDisruptiveNotificationRevocationShadowRun.Get();
+          features::kSafetyHubDisruptiveNotificationRevocation);
   html_source->AddString(
       "safetyHubUnusedSitePermissionsSettingSublabel",
       l10n_util::GetStringUTF16(
@@ -4471,10 +4462,6 @@ void AddSystemStrings(content::WebUIDataSource* html_source) {
       {"featureNotificationsLabel",
        IDS_SETTINGS_SYSTEM_FEATURE_NOTIFICATIONS_LABEL},
 #endif  // BUILDFLAG(IS_WIN) && BUILDFLAG(GOOGLE_CHROME_BRANDING)
-#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
-      {"onDeviceAiLinkSubtitle",
-       IDS_SETTINGS_SYSTEM_ON_DEVICE_AI_LINK_SUBTITLE},
-#endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
   };
   html_source->AddLocalizedStrings(kLocalizedStrings);
 

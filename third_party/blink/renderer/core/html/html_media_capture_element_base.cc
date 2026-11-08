@@ -10,6 +10,7 @@
 #include "third_party/blink/renderer/core/dom/events/event.h"
 #include "third_party/blink/renderer/core/event_type_names.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
+#include "third_party/blink/renderer/core/html/html_capability_element_metrics_util.h"
 #include "third_party/blink/renderer/core/html/user_media_request_provider.h"
 #include "third_party/blink/renderer/core/inspector/console_message.h"
 #include "third_party/blink/renderer/core/inspector/inspector_audits_issue.h"
@@ -74,6 +75,8 @@ void HTMLMediaCaptureElementBase::OnPermissionStatusChange(
   HTMLCapabilityElementBase::OnPermissionStatusChange(permission_name, status);
 
   if (PermissionsGranted() && HasPendingPermissionRequest()) {
+    RecordCapabilityElementMediaRequestFlow(
+        TagQName(), CapabilityElementMediaRequestFlow::kClickWithPromptGranted);
     StartMediaStreamRequest();
   }
 }
@@ -83,6 +86,8 @@ void HTMLMediaCaptureElementBase::OnEmbeddedPermissionsDecided(
   HTMLCapabilityElementBase::OnEmbeddedPermissionsDecided(result);
   if (result == mojom::blink::EmbeddedPermissionControlResult::kDismissed ||
       result == mojom::blink::EmbeddedPermissionControlResult::kDenied) {
+    RecordCapabilityElementMediaRequestOutcome(
+        TagQName(), CapabilityElementMediaRequestOutcome::kNotAllowedError);
     SetError(MakeGarbageCollected<DOMException>(
         DOMExceptionCode::kNotAllowedError,
         result == mojom::blink::EmbeddedPermissionControlResult::kDismissed
@@ -120,9 +125,17 @@ bool HTMLMediaCaptureElementBase::HandleMediaCaptureActivation(Event& event) {
 
   if (PermissionsGranted()) {
     HTMLCapabilityElementBase::HandleActivation(
-        event,
-        blink::BindOnce(&HTMLMediaCaptureElementBase::StartMediaStreamRequest,
-                        WrapWeakPersistent(this)));
+        event, blink::BindOnce(
+                   [](HTMLMediaCaptureElementBase* element) {
+                     if (element) {
+                       RecordCapabilityElementMediaRequestFlow(
+                           element->TagQName(),
+                           CapabilityElementMediaRequestFlow::
+                               kClickWithPermissionAlreadyGranted);
+                       element->StartMediaStreamRequest();
+                     }
+                   },
+                   WrapWeakPersistent(this)));
     return true;
   }
   return false;
@@ -154,6 +167,8 @@ void HTMLMediaCaptureElementBase::DefaultEventHandler(Event& event) {
 
 void HTMLMediaCaptureElementBase::OnActivationFailed(
     const String& error_message) {
+  RecordCapabilityElementMediaRequestOutcome(
+      TagQName(), CapabilityElementMediaRequestOutcome::kActivationFailed);
   SetError(MakeGarbageCollected<DOMException>(
       DOMExceptionCode::kInvalidStateError, error_message));
   EnqueueEvent(*Event::Create(event_type_names::kError),
@@ -208,14 +223,6 @@ void HTMLMediaCaptureElementBase::UpdateAppearance() {
   UpdateIcon(permission_count == 1 ? permission_name
                                    : PermissionName::VIDEO_CAPTURE);
 
-  if (IsIconOnly()) {
-    if (permission_text_span() &&
-        !permission_text_span()->textContent().empty()) {
-      permission_text_span()->setInnerText(g_empty_string);
-    }
-    return;
-  }
-
   AtomicString language_string = ComputeInheritedLanguage().ToAsciiLower();
   bool granted = ShouldShowGrantedAppearance();
 
@@ -227,8 +234,7 @@ void HTMLMediaCaptureElementBase::UpdateAppearance() {
   uint16_t translated_message_id =
       GetTranslatedMessageID(untranslated_message_id, language_string);
   CHECK(translated_message_id);
-  permission_text_span()->setInnerText(
-      GetLocale().QueryString(translated_message_id));
+  SetPermissionText(GetLocale().QueryString(translated_message_id));
 }
 
 void HTMLMediaCaptureElementBase::UpdateIcon(PermissionName permission) {

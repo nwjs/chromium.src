@@ -17,6 +17,7 @@ import static org.mockito.Mockito.when;
 
 import android.view.MotionEvent;
 import android.view.ViewGroup;
+import android.widget.FrameLayout;
 
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
 
@@ -30,6 +31,7 @@ import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 
+import org.chromium.base.ContextUtils;
 import org.chromium.base.DeviceInfo;
 import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.SettableMonotonicObservableSupplier;
@@ -62,7 +64,6 @@ public class LayoutManagerChromeUnitTest {
             new ActivityScenarioRule<>(TestActivity.class);
 
     private @Mock LayoutManagerHost mHost;
-    private @Mock ViewGroup mContentContainer;
     private @Mock HubLayoutDependencyHolder mHubLayoutDependencyHolder;
     private @Mock ToolbarSwipeLayout mToolbarSwipeLayout;
     private @Mock Tab mTab;
@@ -70,6 +71,8 @@ public class LayoutManagerChromeUnitTest {
     private @Mock HubLayout mHubLayout;
     private @Mock TabModelSelector mTabModelSelector;
 
+    private final ViewGroup mContentContainer =
+            new FrameLayout(ContextUtils.getApplicationContext());
     private final SettableNullableObservableSupplier<TabSwitcher> mTabSwitcherSupplier =
             ObservableSuppliers.createNullable();
     private final SettableNullableObservableSupplier<TabModelSelector> mTabModelSelectorSupplier =
@@ -253,6 +256,26 @@ public class LayoutManagerChromeUnitTest {
         Assert.assertFalse(
                 observer.willAddedTabBeSelected(
                         TabLaunchType.FROM_HISTORY_NAVIGATION_BACKGROUND, /* incognito= */ false));
+        Assert.assertFalse(
+                observer.willAddedTabBeSelected(
+                        TabLaunchType.FROM_REPARENTING_BACKGROUND, /* incognito= */ false));
+        Assert.assertFalse(
+                observer.willAddedTabBeSelected(
+                        TabLaunchType.FROM_RESTORE, /* incognito= */ false));
+        Assert.assertFalse(
+                observer.willAddedTabBeSelected(TabLaunchType.FROM_RESTORE, /* incognito= */ true));
+        Assert.assertFalse(
+                observer.willAddedTabBeSelected(
+                        TabLaunchType.FROM_RESTORE_TABS_UI, /* incognito= */ false));
+        Assert.assertTrue(
+                observer.willAddedTabBeSelected(
+                        TabLaunchType.FROM_RESTORE_TABS_UI, /* incognito= */ true));
+        Assert.assertFalse(
+                observer.willAddedTabBeSelected(
+                        TabLaunchType.FROM_BROWSER_ACTIONS, /* incognito= */ false));
+        Assert.assertTrue(
+                observer.willAddedTabBeSelected(
+                        TabLaunchType.FROM_BROWSER_ACTIONS, /* incognito= */ true));
     }
 
     @Test

@@ -246,12 +246,10 @@ public class FullscreenManagerTest {
     @Test
     @MediumTest
     @Feature({"Fullscreen"})
+    @DisabledTest(message = "https://crbug.com/456056229")
     @DisableFeatures({
         ChromeFeatureList.FULLSCREEN_INSETS_API_MIGRATION,
-        ChromeFeatureList.FULLSCREEN_INSETS_API_MIGRATION_ON_AUTOMOTIVE,
-        // TODO(https://crbug.com/456056229): investigate supporting delayed fullscreen entry when
-        // using exclusive access manager
-        ChromeFeatureList.ENABLE_EXCLUSIVE_ACCESS_MANAGER
+        ChromeFeatureList.FULLSCREEN_INSETS_API_MIGRATION_ON_AUTOMOTIVE
     })
     public void testDelayedPersistentFullscreenLegacy() {
         WebPageStation page = mActivityTestRule.startOnUrl(LONG_HTML_TEST_PAGE);
@@ -278,13 +276,11 @@ public class FullscreenManagerTest {
     @Test
     @MediumTest
     @Feature({"Fullscreen"})
+    @DisabledTest(message = "https://crbug.com/456056229")
     @EnableFeatures({
         ChromeFeatureList.FULLSCREEN_INSETS_API_MIGRATION,
         ChromeFeatureList.FULLSCREEN_INSETS_API_MIGRATION_ON_AUTOMOTIVE
     })
-    // TODO(https://crbug.com/456056229): investigate supporting delayed fullscreen entry when
-    // using exclusive access manager
-    @DisableFeatures({ChromeFeatureList.ENABLE_EXCLUSIVE_ACCESS_MANAGER})
     public void testDelayedPersistentFullscreen() {
         WebPageStation page = mActivityTestRule.startOnUrl(LONG_HTML_TEST_PAGE);
 
@@ -996,6 +992,7 @@ public class FullscreenManagerTest {
         // TODO(crbug.com/489060623): Update the test for snap animation.
         ChromeFeatureList.BROWSER_CONTROLS_SCROLL_SNAP_ANIMATION
     })
+    @DisabledTest(message = "crbug.com/567177128")
     public void testBrowserControlsShownWhenInputIsFocusedLegacy() throws TimeoutException {
         FullscreenManagerTestUtils.disableBrowserOverrides();
         WebPageStation page =
@@ -1209,6 +1206,7 @@ public class FullscreenManagerTest {
         ChromeFeatureList.FULLSCREEN_INSETS_API_MIGRATION,
         ChromeFeatureList.FULLSCREEN_INSETS_API_MIGRATION_ON_AUTOMOTIVE
     })
+    @DisabledTest(message = "https://crbug.com/572586223")
     public void testFullscreenExitWithSelectionPopPresentLegacy() throws InterruptedException {
         WebPageStation page = mActivityTestRule.startOnUrl(FULLSCREEN_WITH_SELECTION_POPUP);
 
@@ -1216,10 +1214,7 @@ public class FullscreenManagerTest {
         Tab tab = page.getTab();
 
         // Click to trigger java scripts callback
-        TestTouchUtils.singleClick(
-                InstrumentationRegistry.getInstrumentation(),
-                activity.getResources().getDisplayMetrics().widthPixels * 0.5f,
-                activity.getResources().getDisplayMetrics().heightPixels * 0.5f);
+        TouchCommon.singleClickView(tab.getView());
 
         final TabWebContentsDelegateAndroid delegate = TabTestUtils.getTabWebContentsDelegate(tab);
         ThreadUtils.runOnUiThreadBlocking(
@@ -1264,6 +1259,7 @@ public class FullscreenManagerTest {
         ChromeFeatureList.FULLSCREEN_INSETS_API_MIGRATION,
         ChromeFeatureList.FULLSCREEN_INSETS_API_MIGRATION_ON_AUTOMOTIVE
     })
+    @DisabledTest(message = "https://crbug.com/568648439")
     public void testFullscreenExitWithSelectionPopPresent_BackGestureRefactor()
             throws InterruptedException {
         WebPageStation page = mActivityTestRule.startOnUrl(FULLSCREEN_WITH_SELECTION_POPUP);
@@ -1272,10 +1268,7 @@ public class FullscreenManagerTest {
         Tab tab = page.getTab();
 
         // Click to trigger java scripts callback
-        TestTouchUtils.singleClick(
-                InstrumentationRegistry.getInstrumentation(),
-                activity.getResources().getDisplayMetrics().widthPixels * 0.5f,
-                activity.getResources().getDisplayMetrics().heightPixels * 0.5f);
+        TouchCommon.singleClickView(tab.getView());
 
         final TabWebContentsDelegateAndroid delegate = TabTestUtils.getTabWebContentsDelegate(tab);
         ThreadUtils.runOnUiThreadBlocking(

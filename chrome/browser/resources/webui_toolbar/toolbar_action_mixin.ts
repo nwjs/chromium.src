@@ -4,10 +4,9 @@
 
 import {assertNotReached} from '//resources/js/assert.js';
 import type {CrLitElement, PropertyValues} from '//resources/lit/v3_0/lit.rollup.js';
+import type {HelpBubbleAnchor} from '/shared/toolbar_button.js';
+import {HelpBubbleAnchorMixin, HighlightTracker, setHasHelpBubble} from '/shared/toolbar_button.js';
 import type {HelpBubbleMixinInterface} from 'chrome://resources/cr_components/help_bubble/help_bubble_mixin_interface.js';
-
-import type {HelpBubbleAnchor} from './toolbar_button.js';
-import {HelpBubbleAnchorMixin, setHasHelpBubble} from './toolbar_button.js';
 
 type Constructor<T> = new (...args: any[]) => T;
 
@@ -15,9 +14,10 @@ export interface ToolbarActionMixinInterface<T> extends
     HelpBubbleMixinInterface, HelpBubbleAnchor {
   state: T;
   // Set if the TrackedElementManager indicates the element should be
-  // highlighted.
+  // highlighted. A reactive mirror of `highlightTracker.highlighted`, for
+  // rendering.
   trackedHighlighted: boolean;
-  lastUnhighlightedTime: number;
+  highlightTracker: HighlightTracker;
   getElementId(state: T): string|undefined;
   getSecondaryElementId(): string|undefined;
   getMimeType(): string;
@@ -56,7 +56,7 @@ export const ToolbarActionMixin =
 
         accessor state: T = initialState;
         accessor trackedHighlighted: boolean = false;
-        lastUnhighlightedTime: number = 0;
+        highlightTracker: HighlightTracker = new HighlightTracker();
 
         private registerHelpBubbleController_: AbortController|null = null;
 
@@ -139,9 +139,7 @@ export const ToolbarActionMixin =
           this.registerHelpBubble(newId, this, {
             secondaryId: this.getSecondaryElementId(),
             onHighlightChanged: (highlighted: boolean) => {
-              if (this.trackedHighlighted && !highlighted) {
-                this.lastUnhighlightedTime = performance.now();
-              }
+              this.highlightTracker.onHighlightChanged(highlighted);
               this.trackedHighlighted = highlighted;
             },
             onHelpBubbleShown: () => setHasHelpBubble(this, true),
@@ -155,8 +153,10 @@ export const ToolbarActionMixin =
         // configured with delegatesFocus, which Lit doesn't do by default for
         // wrapper elements.
         override focus() {
-          const button = this.shadowRoot?.querySelector(
-                             'cr-icon-button, cr-button') as HTMLElement;
+          const button =
+              this.shadowRoot?.querySelector(
+                  'toolbar-chip-button, cr-icon-button, cr-button') as
+              HTMLElement;
           if (button) {
             button.focus();
           }

@@ -8,7 +8,6 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
@@ -103,7 +102,7 @@ public final class OpenInBrowserButtonControllerUnitTest {
                         .ADAPTIVE_BUTTON_IN_TOP_TOOLBAR_CUSTOMIZATION_OPEN_IN_BROWSER_FEATURE;
         doReturn(true).when(mTracker).shouldTriggerHelpUi(feature);
 
-        View view = mock(View.class);
+        View view = new View(mContext);
         mOpenInBrowserButtonController.get(mTab).getButtonSpec().getOnClickListener().onClick(view);
 
         verify(mTracker, times(1))

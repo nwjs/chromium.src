@@ -200,8 +200,6 @@ BASE_DECLARE_FEATURE(kAlwaysRegisterSessionsInvalidationsAndroid);
 
 // If enabled, the android.os.Build.FINGERPRINT prefix is uploaded in
 // DeviceInfo.
-// TODO(crbug.com/522788942): Consolidate this with
-// kSyncUseServerDeterminedDeviceName.
 BASE_DECLARE_FEATURE(kSyncUploadAndroidBuildFingerprintPrefix);
 #endif  // BUILDFLAG(IS_ANDROID)
 
@@ -215,21 +213,9 @@ BASE_DECLARE_FEATURE(kEstimateNewSignInUsersWithFinchAvailablePopulation);
 // sign-in status for short-lived sessions instead of the default OFF value.
 BASE_DECLARE_FEATURE(kSyncFixWebSigninSessionDurationForShortLivedSessions);
 
-// If enabled, simplifies the device naming architecture by using the
-// most user friendly name that can be computed for a device (the so-called
-// "preferred name" in legacy path) as a single source of truth, bypassing the
-// legacy deduplication and name-based local device filtering. This affects Send
-// Tab to Self and Sharing features.
-BASE_DECLARE_FEATURE(kSyncSimplifyDeviceNaming);
-
-// If enabled alongside `kSyncSimplifyDeviceNaming`, disambiguates duplicate
-// device display names using release channel labels (e.g., "(Canary)").
+// If enabled, disambiguates duplicate device display names using release
+// channel labels (e.g., "(Canary)").
 BASE_DECLARE_FEATURE(kSyncDisambiguateDeviceNamesWithChannel);
-
-// If enabled, uses the server-determined model name (marketing name) as the
-// preferred name (and fallback name) if available. This provides a more
-// recognizable name for the user.
-BASE_DECLARE_FEATURE(kSyncUseServerDeterminedDeviceName);
 
 // If enabled, copies selected types preferences from global profile preferences
 // to account-keyed preferences upon a DISABLE_SYNC_ON_CLIENT protocol error
@@ -243,6 +229,35 @@ BASE_DECLARE_FEATURE(kSyncNigoriAuthenticateIV);
 // KEYSTORE_PASSPHRASE (if encrypt_everything is false) or
 // CUSTOM_PASSPHRASE (if encrypt_everything is true).
 BASE_DECLARE_FEATURE(kSyncMigrateFromImplicitPassphrase);
+
+// When enabled, on-disk LoopbackServer state is migrated to use client tag
+// hash and deterministic server IDs for bookmarks.
+BASE_DECLARE_FEATURE(kSyncMigrateLoopbackServerBookmarksToClientTagHash);
+
+#if !BUILDFLAG(IS_CHROMEOS)
+// If enabled, prevents registration of controllers for APPS and APP_SETTINGS
+// data types. Used as a kill switch during deprecation.
+// TODO(crbug.com/40267153): Enable `kSyncWipeAppsAndAppSettingsData` when
+// cleaning up this kill switch.
+BASE_DECLARE_FEATURE(kSyncDoNotSyncAppsAndAppSettings);
+
+// If enabled, wipes existing APPS and APP_SETTINGS data and metadata from
+// DataTypeStore on startup.
+// TODO(crbug.com/40267153): Enable by default when cleaning up
+// `kSyncDoNotSyncAppsAndAppSettings`, and remove after enough time.
+BASE_DECLARE_FEATURE(kSyncWipeAppsAndAppSettingsData);
+#endif  // !BUILDFLAG(IS_CHROMEOS)
+
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+// Enables the "Device tab visibility" subpage in Chrome Settings to choose
+// which synced devices appear in cross-device tab lists.
+BASE_DECLARE_FEATURE(kDeviceTabVisibilitySettings);
+
+// Adds a top-level "Device tabs" entry to the desktop app menu that lists open
+// tabs from the user's other devices, and removes them from the History
+// submenu.
+BASE_DECLARE_FEATURE(kCrossDeviceTabsInAppMenu);
+#endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 
 }  // namespace syncer
 

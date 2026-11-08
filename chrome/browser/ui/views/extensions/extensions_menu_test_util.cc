@@ -46,7 +46,7 @@ ExtensionsMenuTestUtil::ExtensionsMenuTestUtil(BrowserWindowInterface* browser)
       browser_(browser) {
   extensions_toolbar_ = BrowserView::GetBrowserViewForBrowser(browser_)
                             ->toolbar()
-                            ->extensions_container();
+                            ->extensions_container_for_testing();
 }
 
 ExtensionsMenuTestUtil::~ExtensionsMenuTestUtil() {
@@ -101,7 +101,8 @@ void ExtensionsMenuTestUtil::Press(const extensions::ExtensionId& id) {
 gfx::NativeView ExtensionsMenuTestUtil::GetPopupNativeView() {
   ToolbarActionViewModel* popup_owner =
       extensions_toolbar_->popup_owner_for_testing();
-  return popup_owner ? popup_owner->GetPopupNativeView() : gfx::NativeView();
+  return popup_owner ? popup_owner->GetPopupNativeViewForTesting()
+                     : gfx::NativeView();
 }
 
 bool ExtensionsMenuTestUtil::HasPopup() {

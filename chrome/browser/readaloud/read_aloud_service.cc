@@ -8,16 +8,20 @@
 #include <utility>
 
 #include "base/functional/bind.h"
+#include "base/i18n/rtl.h"
 #include "base/metrics/histogram_functions.h"
+#include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/unguessable_token.h"
 #include "chrome/browser/dom_distiller/dom_distiller_service_factory.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/readaloud/audio_generation/overview_generation_broker.h"
 #include "chrome/browser/readaloud/audio_generation/speech_synthesis_broker.h"
 #include "chrome/browser/readaloud/read_aloud_audio_broker.h"
 #include "chrome/browser/readaloud/read_aloud_playback_session.h"
+#include "chrome/browser/readaloud/voice_preview_controller.h"
 #include "chrome/common/readaloud/read_aloud_constants.h"
 #include "components/dom_distiller/content/browser/distiller_page_web_contents.h"
 #include "components/dom_distiller/core/distiller_page.h"
@@ -31,16 +35,56 @@
 #include "mojo/public/cpp/bindings/message.h"
 
 namespace readaloud {
+namespace {
+
+std::vector<std::string_view> ExtractDistilledPageTexts(
+    const dom_distiller::DistilledArticleProto* article_proto) {
+  std::vector<std::string_view> page_texts;
+  if (!article_proto) {
+    return page_texts;
+  }
+  page_texts.reserve(article_proto->pages_size());
+  for (const auto& page : article_proto->pages()) {
+    page_texts.push_back(page.text_content());
+  }
+  return page_texts;
+}
+
+// Returns sanitized `value` suitable for UI display. Neutralizes BIDI control
+// characters via SanitizeUserSuppliedString and truncates at UTF-8 codepoint
+// boundaries to kMaxOverviewMetadataLength.
+std::string SanitizeMetadata(std::string_view value) {
+  if (value.empty()) {
+    return std::string();
+  }
+  std::u16string u16_value = base::UTF8ToUTF16(value);
+  base::i18n::SanitizeUserSuppliedString(&u16_value);
+  std::string sanitized = base::UTF16ToUTF8(u16_value);
+  if (sanitized.size() > kMaxOverviewMetadataLength) {
+    sanitized =
+        base::TruncateUTF8ToByteSize(sanitized, kMaxOverviewMetadataLength);
+  }
+  return sanitized;
+}
+
+}  // namespace
 
 ReadAloudService::ReadAloudService(
     Profile* profile,
     PlaybackControllerBinder controller_binder,
     ReadAloudAudioBroker::AudioStreamFactoryBinder factory_binder)
     : profile_(profile),
-      controller_binder_(std::move(controller_binder)),
-      audio_broker_(
-          std::make_unique<ReadAloudAudioBroker>(std::move(factory_binder))),
-      speech_synthesis_broker_(std::make_unique<SpeechSynthesisBroker>()) {}
+      controller_binder_(controller_binder),
+      audio_broker_(std::make_unique<ReadAloudAudioBroker>(factory_binder)),
+      speech_synthesis_broker_(std::make_unique<SpeechSynthesisBroker>()),
+      overview_generation_broker_(std::make_unique<OverviewGenerationBroker>()),
+      voice_preview_controller_(std::make_unique<VoicePreviewController>(
+          profile,
+          speech_synthesis_broker_.get(),
+          base::BindRepeating(&ReadAloudService::OnVoicePreviewStateChanged,
+                              base::Unretained(this)),
+          std::move(controller_binder),
+          std::move(factory_binder))) {}
 
 ReadAloudService::~ReadAloudService() = default;
 
@@ -48,80 +92,114 @@ void ReadAloudService::SetDelegate(std::unique_ptr<Delegate> delegate) {
   delegate_ = std::move(delegate);
 }
 
+void ReadAloudService::NotifyPlaybackStateChanged(
+    read_aloud::mojom::PlaybackState state) {
+  if (delegate_) {
+    delegate_->OnPlaybackStateChanged(state);
+  }
+}
+
+void ReadAloudService::OnVoicePreviewStateChanged(
+    std::string_view voice_id,
+    read_aloud::mojom::PlaybackState state) {
+  if (delegate_) {
+    delegate_->OnVoicePreviewPlaybackStateChanged(voice_id, state);
+  }
+}
+
 void ReadAloudService::Play(content::WebContents* new_web_contents) {
   if (!new_web_contents) {
     return;
   }
 
+  ResetVoicePreview();
+
   if (new_web_contents != web_contents()) {
     Initialize(new_web_contents);
   }
 
-  read_aloud::mojom::PlaybackState previous_state = GetCurrentPlaybackState();
+  user_requested_play_ = true;
 
   // Start or resume audio playback.
-  CHECK(active_session_);
-  active_session_->NotifyPlaybackStarted();
+  CHECK(media_session_);
+  media_session_->NotifyPlaybackStarted();
 
-  if (utility_player_.is_bound()) {
+  // In overview mode, the utility Play() is deferred until
+  // OnOverviewGenerated() has loaded the script, so the utility play-on-ready
+  // watchdog does not race the browser-owned overview generation wait.
+  if (utility_player_.is_bound() && !IsWaitingForOverviewContent()) {
     utility_player_->Play();
-  }
-
-  // TODO(b/562011435): Defer notifying kPlaying until playback is ready.
-  // Notify the UI/client delegate if the playback state transitioned.
-  read_aloud::mojom::PlaybackState current_state = GetCurrentPlaybackState();
-  if (current_state != previous_state && delegate_) {
-    delegate_->OnPlaybackStateChanged(current_state);
   }
 }
 
 void ReadAloudService::Pause() {
-  read_aloud::mojom::PlaybackState previous_state = GetCurrentPlaybackState();
-  if (active_session_) {
-    active_session_->NotifyPlaybackPaused();
+  user_requested_play_ = false;
+
+  if (media_session_) {
+    media_session_->NotifyPlaybackPaused();
   }
 
   if (utility_player_.is_bound()) {
     utility_player_->Pause();
   }
 
-  // Notify the UI/client delegate if the playback state transitioned.
-  read_aloud::mojom::PlaybackState current_state = GetCurrentPlaybackState();
-  if (current_state != previous_state && delegate_) {
-    delegate_->OnPlaybackStateChanged(current_state);
+  // TODO(b/562011435): Handle late kPlaying updates arriving from utility
+  // after Pause() is called.
+  if (media_session_ && media_session_->is_playback_in_progress()) {
+    NotifyPlaybackStateChanged(read_aloud::mojom::PlaybackState::kPaused);
   }
 }
 
 void ReadAloudService::Stop() {
+  ResetVoicePreview();
+  ResetPlayback();
+  NotifyPlaybackStateChanged(read_aloud::mojom::PlaybackState::kStopped);
+}
+
+void ReadAloudService::ResetPlayback() {
+  user_requested_play_ = false;
+
   // Detach observer since tracking is only needed during active playback.
   Observe(nullptr);
 
   // Stop active audio playback and release media session resources.
-  read_aloud::mojom::PlaybackState previous_state = GetCurrentPlaybackState();
-  if (active_session_) {
-    active_session_->NotifyPlaybackStopped();
-    active_session_.reset();
+  if (media_session_) {
+    media_session_->NotifyPlaybackStopped();
+    media_session_.reset();
   }
 
   // Cancel any ongoing page distillation request and reset timing metrics.
   viewer_handle_.reset();
+  if (overview_generation_broker_) {
+    overview_generation_broker_->InvalidatePendingRequests();
+  }
+  overview_script_loaded_ = false;
   distillation_start_time_ = base::TimeTicks();
-  current_title_.clear();
+  article_title_.clear();
   current_publisher_.clear();
-  current_duration_ = base::Seconds(0);
 
   // Stopping the Utility Process and any of their connections.
   ResetUtilityConnection();
+}
 
-  // Notify the UI/client delegate if the playback state transitioned.
-  read_aloud::mojom::PlaybackState current_state = GetCurrentPlaybackState();
-  if (current_state != previous_state && delegate_) {
-    delegate_->OnPlaybackStateChanged(current_state);
+void ReadAloudService::SeekToWord(int segment_index, int character_offset) {
+  if (segment_index < 0 || character_offset < 0) {
+    return;
+  }
+  if (utility_player_.is_bound()) {
+    utility_player_->SeekToWord(static_cast<uint32_t>(segment_index),
+                                static_cast<uint32_t>(character_offset));
   }
 }
 
-void ReadAloudService::SeekToWordIndex(int word_index) {}
-void ReadAloudService::Seek(base::TimeDelta absolute_time) {}
+void ReadAloudService::Seek(base::TimeDelta absolute_time) {
+  if (absolute_time.is_negative() || absolute_time.is_max()) {
+    return;
+  }
+  if (utility_player_.is_bound()) {
+    utility_player_->SeekToTime(absolute_time);
+  }
+}
 void ReadAloudService::SeekRelative(base::TimeDelta offset) {}
 void ReadAloudService::SetPlaybackRate(float rate) {
   if (utility_player_.is_bound()) {
@@ -142,26 +220,31 @@ void ReadAloudService::PreviewVoice(std::string_view voice_id) {
   // Pause active article playback while previewing a voice.
   Pause();
 
-  // Notify the UI/client delegate that voice preview playback is buffering.
-  if (delegate_) {
-    delegate_->OnVoicePreviewPlaybackStateChanged(
-        voice_id, read_aloud::mojom::PlaybackState::kBuffering);
+  if (voice_preview_controller_) {
+    voice_preview_controller_->PlayPreview(voice_id);
   }
+}
 
-  // TODO(b/522835686): Implement actual voice preview audio synthesis via the
-  // utility process player and notify the delegate when playback transitions to
-  // read_aloud::mojom::PlaybackState::kPlaying.
+void ReadAloudService::PauseVoicePreview() {
+  if (voice_preview_controller_) {
+    voice_preview_controller_->PausePreview();
+  }
 }
 
 void ReadAloudService::StopVoicePreview() {
-  // TODO(b/522835686): Stop actual voice preview audio playback in the utility
-  // process player.
+  if (voice_preview_controller_) {
+    voice_preview_controller_->StopPreview();
+  }
+}
 
-  // Notify the UI/client delegate that voice preview playback has stopped.
-  // Passing an empty string indicates that any active voice preview is stopped.
-  if (delegate_) {
-    delegate_->OnVoicePreviewPlaybackStateChanged(
-        /*voice_id=*/"", read_aloud::mojom::PlaybackState::kStopped);
+void ReadAloudService::ResetVoicePreview() {
+  if (voice_preview_controller_) {
+    voice_preview_controller_->StopPreview();
+    // Guard against clobbering a new preview if `state_changed_callback_`
+    // re-entrantly started one during `StopPreview()`.
+    if (!voice_preview_controller_->IsPreviewActive()) {
+      voice_preview_controller_->Reset();
+    }
   }
 }
 void ReadAloudService::SetPlaybackMode(PlaybackMode mode) {
@@ -195,25 +278,9 @@ void ReadAloudService::OnSessionResumed() {
   Play(web_contents());
 }
 
-bool ReadAloudService::IsPlaybackPaused() const {
-  return !active_session_ || active_session_->is_paused();
-}
-
-read_aloud::mojom::PlaybackState ReadAloudService::GetCurrentPlaybackState()
-    const {
-  if (!active_session_) {
-    return read_aloud::mojom::PlaybackState::kStopped;
-  }
-  if (!active_session_->is_playback_in_progress()) {
-    return read_aloud::mojom::PlaybackState::kStopped;
-  }
-  return active_session_->is_paused()
-             ? read_aloud::mojom::PlaybackState::kPaused
-             : read_aloud::mojom::PlaybackState::kPlaying;
-}
-
 void ReadAloudService::Shutdown() {
-  Stop();
+  ResetPlayback();
+  voice_preview_controller_.reset();
   weak_factory_.InvalidateWeakPtrs();
   if (delegate_) {
     delegate_->OnNativeDestroyed();
@@ -269,9 +336,9 @@ void ReadAloudService::OnArticleReady(
   // Processed before checking utility_player_.is_bound() so service state
   // retains the distilled title independently of utility transport binding.
   if (article_proto && !article_proto->title().empty()) {
-    current_title_ = article_proto->title();
+    article_title_ = article_proto->title();
     if (delegate_) {
-      delegate_->OnMetadataAvailable(current_title_, current_publisher_);
+      delegate_->OnMetadataAvailable(article_title_, current_publisher_);
     }
   }
 
@@ -279,9 +346,12 @@ void ReadAloudService::OnArticleReady(
     return;
   }
 
+  std::vector<std::string_view> page_texts =
+      ExtractDistilledPageTexts(article_proto);
+
   if (playback_mode_ == PlaybackMode::kOverview) {
-    // TODO(b/548552257): Connect to the Page Summary API to summarize the
-    // distilled article before sending to utility_player_.
+    RequestOverviewGeneration(page_texts);
+    return;
   }
 
   // Rule of Two Enforcement: Distilled webpage text originates from untrusted
@@ -291,17 +361,92 @@ void ReadAloudService::OnArticleReady(
   // TextSegment structs and forward them to the sandboxed Utility process for
   // chunking and synthesis.
   std::vector<read_aloud::mojom::TextSegmentPtr> segments;
-  segments.reserve(article_proto->pages_size());
-  for (int i = 0; i < article_proto->pages_size(); ++i) {
-    const dom_distiller::DistilledPageProto& page = article_proto->pages(i);
+  segments.reserve(page_texts.size());
+  for (size_t i = 0; i < page_texts.size(); ++i) {
     auto segment = read_aloud::mojom::TextSegment::New();
     segment->segment_index = static_cast<uint32_t>(i);
-    if (page.has_text_content()) {
-      segment->text = base::UTF8ToUTF16(page.text_content());
-    }
+    segment->text = base::UTF8ToUTF16(page_texts[i]);
+    segment->speaker = read_aloud::mojom::Speaker::kSpeaker1;
     segments.push_back(std::move(segment));
   }
   utility_player_->SetTextContent(std::move(segments));
+}
+
+void ReadAloudService::RequestOverviewGeneration(
+    const std::vector<std::string_view>& page_texts) {
+  if (delegate_) {
+    delegate_->OnHighlightingSupported(false);
+  }
+
+  OptimizationGuideKeyedService* opt_guide_service =
+      profile_ ? OptimizationGuideKeyedServiceFactory::GetForProfile(profile_)
+               : nullptr;
+
+  std::string page_content = base::JoinString(page_texts, "\n\n");
+  GURL page_url =
+      web_contents() ? web_contents()->GetLastCommittedURL() : GURL();
+
+  // AI Overviews are supported in English language only.
+  // Hardcoding the language code maximizes prompt/prefix cache hit rates.
+  overview_generation_broker_->GenerateOverview(
+      opt_guide_service, article_title_, page_content, page_url,
+      kAiOverviewLanguageCode,
+      base::BindOnce(&ReadAloudService::OnOverviewGenerated,
+                     weak_factory_.GetWeakPtr()));
+}
+
+void ReadAloudService::OnOverviewGenerated(mojo_base::BigBuffer response_bytes,
+                                           bool success) {
+  if (!utility_player_.is_bound() ||
+      playback_mode_ != PlaybackMode::kOverview) {
+    return;
+  }
+
+  if (!success || response_bytes.size() == 0) {
+    // TODO(b/564908361): Record UMA metric for overview generation failure.
+    HandlePlaybackError("Overview generation failed");
+    return;
+  }
+
+  // If user did not cancel play, signal Play() so that content
+  // starts playing as soon as the overview text content is set.
+  if (user_requested_play_) {
+    utility_player_->Play();
+  }
+  utility_player_->SetOverviewContent(
+      std::move(response_bytes),
+      base::BindOnce(&ReadAloudService::OnOverviewContentSet,
+                     weak_factory_.GetWeakPtr()));
+}
+
+void ReadAloudService::OnOverviewContentSet(bool success,
+                                            const std::string& title) {
+  if (!utility_player_.is_bound() ||
+      playback_mode_ != PlaybackMode::kOverview) {
+    return;
+  }
+
+  if (!success) {
+    // TODO(b/564908361): Record UMA metric for overview content parsing
+    // failure.
+    HandlePlaybackError("Overview content parsing failed");
+    return;
+  }
+
+  // Set the generated overview title.
+  const std::string sanitized_title = SanitizeMetadata(title);
+  if (delegate_) {
+    delegate_->OnMetadataAvailable(
+        sanitized_title.empty() ? article_title_ : sanitized_title,
+        current_publisher_);
+  }
+
+  // TODO(b/564908361): Record UMA metric for overview generation success.
+  overview_script_loaded_ = true;
+}
+
+bool ReadAloudService::IsWaitingForOverviewContent() const {
+  return playback_mode_ == PlaybackMode::kOverview && !overview_script_loaded_;
 }
 
 void ReadAloudService::OnArticleUpdated(
@@ -311,18 +456,17 @@ void ReadAloudService::Initialize(content::WebContents* new_web_contents) {
   if (!new_web_contents) {
     return;
   }
-  Stop();
+  ResetVoicePreview();
+  ResetPlayback();
   Observe(new_web_contents);
-  active_session_ =
+  media_session_ =
       std::make_unique<ReadAloudPlaybackSession>(new_web_contents, this);
 
-  current_duration_ = base::Seconds(0);
-
   ProvideInitialMetadata();
+  NotifyPlaybackStateChanged(
+      read_aloud::mojom::PlaybackState::kPlaybackCreation);
   if (delegate_) {
-    delegate_->OnPlaybackStateChanged(
-        read_aloud::mojom::PlaybackState::kPlaybackCreation);
-    delegate_->OnPlaybackProgressUpdated(base::Seconds(0), current_duration_);
+    delegate_->OnPlaybackProgressUpdated(base::TimeDelta(), base::TimeDelta());
   }
 
   DistillPage(new_web_contents);
@@ -334,13 +478,13 @@ void ReadAloudService::ProvideInitialMetadata() {
   if (!web_contents()) {
     return;
   }
-  current_title_ = base::UTF16ToUTF8(web_contents()->GetTitle());
+  article_title_ = base::UTF16ToUTF8(web_contents()->GetTitle());
   current_publisher_ = base::UTF16ToUTF8(
       url_formatter::FormatUrlForDisplayOmitSchemePathAndTrivialSubdomains(
           web_contents()->GetLastCommittedURL()));
 
   if (delegate_) {
-    delegate_->OnMetadataAvailable(current_title_, current_publisher_);
+    delegate_->OnMetadataAvailable(article_title_, current_publisher_);
   }
 }
 
@@ -457,33 +601,49 @@ void ReadAloudService::OnDistillationFailed(
 
 void ReadAloudService::OnPlaybackStateChanged(
     read_aloud::mojom::PlaybackState state) {
-  // Browser-only lifecycle states. The utility process is never permitted to
-  // send these, so receiving one is a protocol violation.
-  if (state == read_aloud::mojom::PlaybackState::kStopped ||
-      state == read_aloud::mojom::PlaybackState::kPlaybackCreation) {
+  switch (state) {
+    case read_aloud::mojom::PlaybackState::kEndOfStream:
+      user_requested_play_ = false;
+      NotifyPlaybackStateChanged(state);
+      return;
+    case read_aloud::mojom::PlaybackState::kPaused:
+    case read_aloud::mojom::PlaybackState::kBuffering:
+    case read_aloud::mojom::PlaybackState::kPlaying:
+      // TODO(b/562011435): Utility-initiated pauses do not reach MediaSession.
+      // media_session_->NotifyPlaybackPaused() should be called so the OS
+      // notification reflects the paused state.
+      NotifyPlaybackStateChanged(state);
+      return;
+    case read_aloud::mojom::PlaybackState::kError:
+      HandlePlaybackError("Playback error reported by utility process");
+      return;
+    case read_aloud::mojom::PlaybackState::kStopped:
+    case read_aloud::mojom::PlaybackState::kPlaybackCreation:
+      utility_observer_receiver_.ReportBadMessage(
+          "ReadAloudService: browser-only PlaybackState received from utility");
+      return;
+  }
+}
+
+void ReadAloudService::OnPlaybackProgressChanged(base::TimeDelta elapsed,
+                                                 base::TimeDelta duration) {
+  if (elapsed.is_negative() || duration.is_negative() ||
+      duration > kMaxPlaybackDuration || elapsed > duration) {
     utility_observer_receiver_.ReportBadMessage(
-        "ReadAloudService: browser-only PlaybackState received from utility");
+        "ReadAloudService: invalid playback progress received from utility");
     return;
   }
-
-  // TODO(b/562011435): Forward the remaining states to `delegate_` so the UI
-  // reflects the playback state actually reported by the utility process, and
-  // route kError through HandlePlaybackError().
-}
-
-void ReadAloudService::OnPlaybackDurationChanged(base::TimeDelta duration) {
-  current_duration_ = std::max(base::Seconds(0), duration);
-}
-
-void ReadAloudService::OnWordBoundaryReached(uint32_t segment_index,
-                                             uint32_t character_offset,
-                                             base::TimeDelta audio_timestamp) {
-  if (!current_duration_.is_positive() || !delegate_) {
-    return;
+  if (delegate_) {
+    delegate_->OnPlaybackProgressUpdated(elapsed, duration);
   }
-  base::TimeDelta clamped_elapsed =
-      std::clamp(audio_timestamp, base::Seconds(0), current_duration_);
-  delegate_->OnPlaybackProgressUpdated(clamped_elapsed, current_duration_);
+}
+
+void ReadAloudService::OnWordBoundaryReached(
+    uint32_t /*segment_index*/,
+    uint32_t /*character_offset*/,
+    base::TimeDelta /*audio_timestamp*/) {
+  // Playback progress is reported by OnPlaybackProgressChanged().
+  // TODO(b/524283143): Forward the word range to the UI for highlighting.
 }
 
 void ReadAloudService::OnTextChunked(
@@ -500,7 +660,7 @@ void ReadAloudService::OnTextChunked(
 
 void ReadAloudService::RequestSpeechSynthesis(
     const std::u16string& text_chunk,
-    read_aloud::mojom::Speaker /*speaker*/,  // TODO(b/559821661)
+    read_aloud::mojom::Speaker speaker,
     uint64_t /*sequence_id*/,
     read_aloud::mojom::ReadAloudPlaybackControllerClient::
         RequestSpeechSynthesisCallback callback) {
@@ -515,8 +675,15 @@ void ReadAloudService::RequestSpeechSynthesis(
         OptimizationGuideKeyedServiceFactory::GetForProfile(profile_);
   }
 
-  speech_synthesis_broker_->SynthesizeSpeech(opt_guide_service, text_chunk,
-                                             std::move(callback));
+  std::string_view voice_id_override;
+  if (playback_mode_ == PlaybackMode::kOverview) {
+    voice_id_override = (speaker == read_aloud::mojom::Speaker::kSpeaker2)
+                            ? SpeechSynthesisBroker::kOverviewVoiceSpeaker2
+                            : SpeechSynthesisBroker::kOverviewVoiceSpeaker1;
+  }
+
+  speech_synthesis_broker_->SynthesizeSpeech(
+      opt_guide_service, text_chunk, voice_id_override, std::move(callback));
 }
 
 }  // namespace readaloud

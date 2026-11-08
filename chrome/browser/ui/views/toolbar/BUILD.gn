@@ -18,6 +18,7 @@ source_set("toolbar") {
     "chrome_labs/chrome_labs_coordinator.h",
     "chrome_labs/chrome_labs_item_view.h",
     "chrome_labs/chrome_labs_view_controller.h",
+    "download_button.h",
     "home_button.h",
     "overflow_button.h",
     "overflow_menu.h",
@@ -175,6 +176,8 @@ source_set("impl") {
     "chrome_labs/chrome_labs_coordinator.cc",
     "chrome_labs/chrome_labs_item_view.cc",
     "chrome_labs/chrome_labs_view_controller.cc",
+    "download_button_views.cc",
+    "download_button_views.h",
     "home_button.cc",
     "overflow_button.cc",
     "overflow_menu.cc",
@@ -214,6 +217,13 @@ source_set("impl") {
     "webui_toolbar_extensions_container_wrapper.cc",
     "webui_toolbar_web_view.cc",
   ]
+
+  if (is_mac) {
+    sources += [
+      "webui_toolbar_web_view_util_mac.h",
+      "webui_toolbar_web_view_util_mac.mm",
+    ]
+  }
 
   deps = [
     ":toolbar",
@@ -263,6 +273,7 @@ source_set("impl") {
     "//chrome/browser/ui:browser_command_controller",
     "//chrome/browser/ui:browser_commands",
     "//chrome/browser/ui:browser_content_setting_bubble_model_delegate",
+    "//chrome/browser/ui:browser_tabstrip",
     "//chrome/browser/ui:browser_window_header",
     "//chrome/browser/ui:intent_picker_tab_helper",
     "//chrome/browser/ui:layout_constants",
@@ -395,28 +406,35 @@ if (!is_android) {
     sources = [
       "mock_webui_toolbar_control_delegate.cc",
       "mock_webui_toolbar_control_delegate.h",
+      "pinned_action_test_accessor.cc",
+      "pinned_action_test_accessor.h",
       "test_support/app_menu_test_accessor.cc",
       "test_support/app_menu_test_accessor.h",
+      "test_support/glic_button_test_accessor.cc",
+      "test_support/glic_button_test_accessor.h",
       "webui_test_utils.cc",
       "webui_test_utils.h",
     ]
     deps = [
       ":toolbar",
       "//base",
+      "//chrome/browser",
       "//chrome/browser/headless:command_processor",
-      "//chrome/browser/ui",
       "//chrome/browser/ui:ui_features",
       "//chrome/browser/ui/interaction",
       "//chrome/browser/ui/toolbar",
       "//chrome/browser/ui/views/frame",
       "//chrome/browser/ui/views/frame:browser_view_header",
       "//chrome/browser/ui/views/profiles:avatar_toolbar_button",
+      "//chrome/browser/ui/waap:manager",
       "//chrome/browser/ui/window_feature_controller",
       "//components/metrics:content",
       "//content/test:test_support",
       "//testing/gmock",
       "//testing/gtest",
+      "//ui/actions",
       "//ui/views",
+      "//ui/views:test_support",
       "//ui/views/interaction:test_support",
     ]
   }
@@ -442,9 +460,11 @@ if (!is_android) {
       "//base",
       "//base/test:test_support",
       "//chrome/browser:flags",
+      "//chrome/browser/signin",
       "//chrome/browser/ui:browser_actions",
       "//chrome/browser/ui:browser_command_controller",
       "//chrome/browser/ui:browser_commands",
+      "//chrome/browser/ui:browser_tabstrip",
       "//chrome/browser/ui:browser_window_header",
       "//chrome/browser/ui:layout_constants",
       "//chrome/browser/ui:ui_features",
@@ -466,6 +486,7 @@ if (!is_android) {
       "//chrome/browser/ui/views/page_info",
       "//chrome/browser/ui/views/web_apps/frame_toolbar:test_support",
       "//chrome/browser/ui/views/web_apps/frame_toolbar:web_app_frame_toolbar_view",
+      "//chrome/browser/ui/waap:manager",
       "//chrome/browser/ui/webui/searchbox:searchbox_test_utils",
       "//chrome/browser/ui/webui/webui_toolbar:impl",
       "//chrome/browser/web_applications:web_applications_test_support",
@@ -479,11 +500,13 @@ if (!is_android) {
       "//components/version_info",
       "//components/webui/flags",
       "//content/test:test_support",
+      "//extensions/browser",
       "//testing/gtest",
       "//ui/accessibility",
       "//ui/actions",
       "//ui/base",
       "//ui/base/dragdrop:types",
+      "//ui/base/interaction:test_support",
       "//ui/base/mojom",
       "//ui/compositor",
       "//ui/views",
@@ -505,6 +528,15 @@ if (!is_android) {
 
       if (is_win || is_mac || is_linux) {
         sources += [ "webui_media_toolbar_button_browsertest.cc" ]
+      }
+
+      if (is_win) {
+        # Accessibility event tests rely on Aura APIs (EventGenerator,
+        # TooltipControllerTestHelper).
+        sources += [
+          "browser_app_menu_button_dump_accessibility_events_browsertest.cc",
+        ]
+        deps += [ "//chrome/browser/ui/views/accessibility:dump_accessibility_events_views_browsertest_base" ]
       }
 
       deps += [
@@ -556,6 +588,7 @@ if (!is_android && !is_chromeos_device) {
         "toolbar_view_interactive_uitest.cc",
         "webui_and_views_toolbar_interactive_uitest_base.cc",
         "webui_and_views_toolbar_interactive_uitest_base.h",
+        "webui_glic_control_interactive_uitest.cc",
         "webui_home_control_interactive_uitest.cc",
         "webui_home_control_test_base.cc",
         "webui_home_control_test_base.h",
@@ -586,9 +619,11 @@ if (!is_android && !is_chromeos_device) {
       "//chrome/browser/bookmarks",
       "//chrome/browser/devtools",
       "//chrome/browser/extensions",
+      "//chrome/browser/glic",
       "//chrome/browser/preloading",
       "//chrome/browser/profiles:misc",
       "//chrome/browser/profiles:profile",
+      "//chrome/browser/ui:accelerator_utils_headers",
       "//chrome/browser/ui:browser_actions",
       "//chrome/browser/ui:browser_command_controller",
       "//chrome/browser/ui:browser_commands",
@@ -604,7 +639,6 @@ if (!is_android && !is_chromeos_device) {
       "//chrome/browser/ui/tabs:tab_menu",
       "//chrome/browser/ui/tabs:tab_strip",
       "//chrome/browser/ui/translate:test_support",
-      "//chrome/browser/ui/views/extensions:extension_popup",
       "//chrome/browser/ui/views/extensions:extensions_menu_coordinator",
       "//chrome/browser/ui/views/extensions:extensions_toolbar_button",
       "//chrome/browser/ui/views/extensions:test_support",
@@ -636,7 +670,10 @@ if (!is_android && !is_chromeos_device) {
       "//ui/views",
     ]
     if (is_chromeos) {
-      deps += [ "//components/user_manager" ]
+      deps += [
+        "//chromeos/constants",
+        "//components/user_manager",
+      ]
     }
     if (toolkit_views) {
       deps += [

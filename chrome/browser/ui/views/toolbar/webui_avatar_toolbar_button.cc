@@ -13,6 +13,7 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/layout_constants.h"
+#include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/profiles/avatar_toolbar_button_state_manager.h"
 #include "chrome/browser/ui/views/profiles/profile_menu_coordinator.h"
 #include "chrome/browser/ui/views/toolbar/webui_toolbar_web_view.h"
@@ -79,7 +80,6 @@ toolbar_ui_api::mojom::AvatarToolbarButtonState MapAvatarState(
 WebUIAvatarToolbarButton::WebUIAvatarToolbarButton(
     WebUIToolbarControlDelegate* delegate)
     : delegate_(delegate) {
-  EnsureProfileMenuCoordinatorObserved();
   // Only build the state manager when `delegate_` provides a browser and
   // ProfileManager exists -- lightweight test doubles don't set up a full
   // browser_process environment (notably no ProfileManager), which
@@ -95,54 +95,10 @@ WebUIAvatarToolbarButton::WebUIAvatarToolbarButton(
 WebUIAvatarToolbarButton::~WebUIAvatarToolbarButton() = default;
 
 void WebUIAvatarToolbarButton::Initialize() {
-  EnsureProfileMenuCoordinatorObserved();
   if (delegate_->GetView()->GetWidget()) {
     CHECK(!is_initialized_);
     is_initialized_ = true;
     UpdateState();
-  }
-}
-
-void WebUIAvatarToolbarButton::OnClicked(bool is_pointer_interaction) {
-  EnsureProfileMenuCoordinatorObserved();
-  const bool suppress =
-      reopen_suppressor_.ShouldSuppressBubbleShow(is_pointer_interaction);
-  if (reopen_suppressor_.IsShowing()) {
-    reopen_suppressor_.Close();
-    return;
-  }
-  if (suppress) {
-    return;
-  }
-  ButtonPressed(/*is_source_accelerator=*/false);
-}
-
-void WebUIAvatarToolbarButton::OnMousePressed() {
-  EnsureProfileMenuCoordinatorObserved();
-  reopen_suppressor_.OnMousePressed();
-}
-
-void WebUIAvatarToolbarButton::OnProfileMenuShown(views::Widget* widget) {
-  reopen_suppressor_.Observe(widget);
-}
-
-void WebUIAvatarToolbarButton::OnProfileMenuCoordinatorDestroyed() {
-  profile_menu_observation_.Reset();
-}
-
-void WebUIAvatarToolbarButton::EnsureProfileMenuCoordinatorObserved() {
-  if (profile_menu_observation_.IsObserving()) {
-    return;
-  }
-  if (!delegate_->GetBrowser()) {
-    return;
-  }
-  if (auto* coordinator =
-          ProfileMenuCoordinator::From(delegate_->GetBrowser())) {
-    profile_menu_observation_.Observe(coordinator);
-    if (coordinator->IsShowing()) {
-      reopen_suppressor_.Observe(coordinator->GetProfileMenuWidget());
-    }
   }
 }
 
@@ -262,25 +218,9 @@ bool WebUIAvatarToolbarButton::HasExplicitButtonState() const {
   return state_manager_ && state_manager_->HasExplicitButtonState();
 }
 
-void WebUIAvatarToolbarButton::MaybeShowProfileSwitchIPH() {
-  if (state_manager_ && delegate_->GetView()->GetWidget()) {
-    state_manager_->MaybeShowProfileSwitchIPH();
-  }
+bool WebUIAvatarToolbarButton::IsReadyForIPH() const {
+  return state_manager_ && delegate_->GetView()->GetWidget();
 }
-
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
-void WebUIAvatarToolbarButton::MaybeShowSupervisedUserSignInIPH() {
-  if (state_manager_ && delegate_->GetView()->GetWidget()) {
-    state_manager_->MaybeShowSupervisedUserSignInIPH();
-  }
-}
-
-void WebUIAvatarToolbarButton::MaybeShowSignInBenefitsIPH() {
-  if (state_manager_ && delegate_->GetView()->GetWidget()) {
-    state_manager_->MaybeShowSignInBenefitsIPH();
-  }
-}
-#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 
 void WebUIAvatarToolbarButton::ClearActiveStateForTesting() {
   CHECK(state_manager_);

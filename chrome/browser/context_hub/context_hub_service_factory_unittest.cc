@@ -7,6 +7,7 @@
 #include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/functional/bind.h"
+#include "base/test/gmock_callback_support.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/test_future.h"
 #include "chrome/browser/context_hub/context_hub_service.h"
@@ -16,11 +17,16 @@
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service_factory.h"
 #include "chrome/browser/page_content_annotations/page_content_extraction_service_factory.h"
 #include "chrome/browser/personal_context/personal_context_service_factory.h"
+#include "chrome/browser/sync/tab_context_sync_service_factory.h"
 #include "chrome/test/base/testing_profile.h"
 #include "components/keyed_service/content/browser_context_dependency_manager.h"
 #include "components/optimization_guide/core/optimization_guide_features.h"
 #include "components/page_content_annotations/content/page_content_extraction_service.h"
+#include "components/sync_tab_context/mock_tab_context_sync_service.h"
+#include "components/sync_tab_context/tab_context_sync_service.h"
+#include "components/sync_tab_context/upload_outcome.h"
 #include "content/public/test/browser_task_environment.h"
+#include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace context_hub {
@@ -166,6 +172,74 @@ TEST_F(ContextHubServiceFactoryTest,
   EXPECT_EQ(entries[0].tab_title, "Title");
   EXPECT_TRUE(base::PathExists(
       profile.GetPath().Append(FILE_PATH_LITERAL("ContextHub.db"))));
+}
+
+TEST_F(ContextHubServiceFactoryTest,
+       CreatesServiceWithTabContextSyncMemoryBankWhenFlagEnabled) {
+  scoped_feature_list_.InitWithFeatures(
+      /*enabled_features=*/{features::kContextHub, features::kMemoryBanks,
+                            features::kContextHubTabContextSyncStorage},
+      /*disabled_features=*/{features::kContextHubDatabaseStorage});
+
+  TestingProfile::Builder builder;
+  builder.AddTestingFactory(
+      TabContextSyncServiceFactory::GetInstance(),
+      base::BindRepeating([](content::BrowserContext* context)
+                              -> std::unique_ptr<KeyedService> {
+        auto mock = std::make_unique<
+            testing::NiceMock<sync_tab_context::MockTabContextSyncService>>();
+        ON_CALL(*mock, CreateContainer())
+            .WillByDefault(testing::Return(
+                sync_tab_context::ContainerId(base::Uuid::GenerateRandomV4())));
+        ON_CALL(*mock, UploadPageContext(testing::_, testing::_, testing::_,
+                                         testing::_))
+            .WillByDefault(base::test::RunOnceCallbackRepeatedly<3>(
+                sync_tab_context::UploadOutcome::kSucceeded));
+        return mock;
+      }));
+  std::unique_ptr<TestingProfile> profile = builder.Build();
+
+  ContextHubService* service =
+      ContextHubServiceFactory::GetForProfile(profile.get());
+  ASSERT_NE(nullptr, service);
+
+  base::test::TestFuture<bool> save_future;
+  service->SaveMemoryBankEntry(
+      MemoryBankEntry(MemoryBankType::kTab, GURL("https://example.com"),
+                      "Title", "Page text"),
+      save_future.GetCallback());
+  EXPECT_TRUE(save_future.Get());
+
+  base::test::TestFuture<std::vector<MemoryBankEntry>> get_entries_future;
+  service->GetAllEntries(get_entries_future.GetCallback());
+  auto entries = get_entries_future.Get();
+  ASSERT_EQ(entries.size(), 1u);
+  EXPECT_EQ(entries[0].tab_title, "Title");
+  EXPECT_FALSE(base::PathExists(
+      profile->GetPath().Append(FILE_PATH_LITERAL("ContextHub.db"))));
+}
+
+TEST_F(ContextHubServiceFactoryTest,
+       FallsBackToNoOpWhenTabContextSyncServiceMissing) {
+  scoped_feature_list_.InitWithFeatures(
+      /*enabled_features=*/{features::kContextHub, features::kMemoryBanks,
+                            features::kContextHubTabContextSyncStorage},
+      /*disabled_features=*/{features::kContextHubDatabaseStorage});
+  TestingProfile profile;
+  ContextHubService* service =
+      ContextHubServiceFactory::GetForProfile(&profile);
+  ASSERT_NE(nullptr, service);
+
+  base::test::TestFuture<bool> save_future;
+  service->SaveMemoryBankEntry(
+      MemoryBankEntry(MemoryBankType::kTab, GURL("https://example.com"),
+                      "Title", "Page text"),
+      save_future.GetCallback());
+  EXPECT_FALSE(save_future.Get());
+
+  base::test::TestFuture<std::vector<MemoryBankEntry>> get_entries_future;
+  service->GetAllEntries(get_entries_future.GetCallback());
+  EXPECT_TRUE(get_entries_future.Get().empty());
 }
 
 TEST_F(ContextHubServiceFactoryTest,

@@ -26,6 +26,8 @@ import android.util.TypedValue;
 import android.view.View;
 
 import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentManager;
+import androidx.lifecycle.Lifecycle;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceFragmentCompat;
 import androidx.preference.PreferenceScreen;
@@ -64,7 +66,7 @@ import org.chromium.components.sync.SyncService;
 /** Unit tests for {@link SettingsHostFragment}. */
 @RunWith(BaseRobolectricTestRunner.class)
 @Config(qualifiers = "w720dp-h1024dp")
-@EnableFeatures({ChromeFeatureList.SETTINGS_IN_TAB, ChromeFeatureList.SETTINGS_MULTI_COLUMN})
+@EnableFeatures(ChromeFeatureList.SETTINGS_IN_TAB)
 public class SettingsHostFragmentTest {
     @Rule
     public ActivityScenarioRule<TestChromeBaseAppCompatActivity> mActivityScenarios =
@@ -357,6 +359,61 @@ public class SettingsHostFragmentTest {
         assertEquals(0, multiColumnSettings.getChildFragmentManager().getBackStackEntryCount());
     }
 
+    /**
+     * Regression test for crbug.com/571768954: showing a detail fragment while the activity's
+     * FragmentManager has already saved its state (e.g. during post-native tab restoration while
+     * the activity is stopped) must defer the transaction until onResume() instead of crashing in
+     * FragmentManager.checkStateLoss().
+     */
+    @Test
+    public void testShowFragment_WhenStateSaved_DefersUntilResume() {
+        mSettingsHostFragment = new TestMultiColumnSettingsHostFragment();
+        mActivity
+                .getSupportFragmentManager()
+                .beginTransaction()
+                .add(
+                        android.R.id.content,
+                        mSettingsHostFragment,
+                        SettingsHostFragment.SETTINGS_NATIVE_PAGE_TAG)
+                .commitNow();
+
+        MultiColumnSettings multiColumnSettings =
+                (MultiColumnSettings) mSettingsHostFragment.getActiveFragment();
+        assertNotNull(multiColumnSettings);
+
+        mActivityScenarios.getScenario().moveToState(Lifecycle.State.CREATED);
+        assertTrue(multiColumnSettings.getChildFragmentManager().isStateSaved());
+
+        Bundle args = new Bundle();
+        args.putString("test_key", "test_value");
+        SecondFakeSettingsFragment fragment = new SecondFakeSettingsFragment();
+        fragment.setArguments(args);
+        boolean shown =
+                mSettingsHostFragment.showFragment(
+                        fragment, /* addToBackStack= */ true, /* tag= */ "test_tag");
+        assertTrue("showFragment should succeed when state is saved", shown);
+        assertEquals(
+                "Transaction should be deferred while state is saved",
+                0,
+                multiColumnSettings.getChildFragmentManager().getBackStackEntryCount());
+
+        mActivityScenarios.getScenario().moveToState(Lifecycle.State.RESUMED);
+        multiColumnSettings.getChildFragmentManager().executePendingTransactions();
+
+        Fragment detail =
+                multiColumnSettings
+                        .getChildFragmentManager()
+                        .findFragmentById(R.id.preferences_detail);
+        assertTrue(
+                "Deferred detail fragment should be shown after resuming",
+                detail instanceof SecondFakeSettingsFragment);
+        assertEquals("test_value", detail.getArguments().getString("test_key"));
+        assertEquals(1, multiColumnSettings.getChildFragmentManager().getBackStackEntryCount());
+        assertEquals(
+                "test_tag",
+                multiColumnSettings.getChildFragmentManager().getBackStackEntryAt(0).getName());
+    }
+
     @Test
     @Config(qualifiers = "w320dp")
     public void testShowFragment_NullFragment_SingleColumn_RemovesDetailFragment() {
@@ -396,6 +453,68 @@ public class SettingsHostFragmentTest {
                 multiColumnSettings
                         .getChildFragmentManager()
                         .findFragmentById(R.id.preferences_detail));
+    }
+
+    /**
+     * Regression test for the root settings counterpart of crbug.com/571768954: showing main
+     * settings in single-column mode pops the detail back stack, which FragmentManager refuses
+     * while its state is saved (e.g. during post-native tab restoration while the activity is
+     * stopped). The request must be deferred until onResume() instead of crashing in
+     * FragmentManager.checkStateLoss(), and must supersede a detail page deferred before it.
+     */
+    @Test
+    @Config(qualifiers = "w320dp")
+    public void testShowFragment_NullFragment_SingleColumn_WhenStateSaved_DefersUntilResume() {
+        DeviceInfo.setIsDesktopForTesting(true);
+        mSettingsHostFragment = new TestSingleColumnMultiColumnSettingsHostFragment();
+        mActivity
+                .getSupportFragmentManager()
+                .beginTransaction()
+                .add(
+                        android.R.id.content,
+                        mSettingsHostFragment,
+                        SettingsHostFragment.SETTINGS_NATIVE_PAGE_TAG)
+                .commitNow();
+
+        MultiColumnSettings multiColumnSettings =
+                (MultiColumnSettings) mSettingsHostFragment.getActiveFragment();
+        assertNotNull(multiColumnSettings);
+        FragmentManager fragmentManager = multiColumnSettings.getChildFragmentManager();
+
+        // Open a detail page on the back stack, as a page opened from search is.
+        multiColumnSettings.showDetailFragment(
+                new SecondFakeSettingsFragment(), /* addToBackStack= */ true, /* tag= */ null);
+        fragmentManager.executePendingTransactions();
+        assertEquals(1, fragmentManager.getBackStackEntryCount());
+
+        mActivityScenarios.getScenario().moveToState(Lifecycle.State.CREATED);
+        assertTrue(fragmentManager.isStateSaved());
+
+        // A detail page requested while state is saved is deferred until onResume(). A later
+        // request for main settings must win over it.
+        multiColumnSettings.showDetailFragment(
+                new FirstFakeSettingsFragment(), /* addToBackStack= */ false, /* tag= */ null);
+        boolean shown =
+                mSettingsHostFragment.showFragment(
+                        null, /* addToBackStack= */ false, /* tag= */ null);
+        assertTrue("showFragment should succeed when state is saved", shown);
+        assertEquals(
+                "Back stack should be left alone while state is saved",
+                1,
+                fragmentManager.getBackStackEntryCount());
+
+        mActivityScenarios.getScenario().moveToState(Lifecycle.State.RESUMED);
+        fragmentManager.executePendingTransactions();
+        ShadowLooper.idleMainLooper();
+        fragmentManager.executePendingTransactions();
+
+        assertEquals(
+                "Back stack should be cleared after resuming",
+                0,
+                fragmentManager.getBackStackEntryCount());
+        assertNull(
+                "Detail fragment should be removed when returning to root settings",
+                fragmentManager.findFragmentById(R.id.preferences_detail));
     }
 
     @Test

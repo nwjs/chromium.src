@@ -122,6 +122,7 @@ class MockTabStripModelObserver : public TabStripModelObserver {
     MOVE,
     CHANGE,
     PINNED,
+    BLOCKED,
     REPLACED,
     CLOSE_ALL,
     CLOSE_ALL_CANCELED,
@@ -394,6 +395,10 @@ class MockTabStripModelObserver : public TabStripModelObserver {
     states_.emplace_back(tab->GetContents(), index, PINNED);
   }
 
+  void OnTabBlockedStateChanged(tabs::TabInterface* tab) override {
+    states_.emplace_back(tab->GetContents(), std::nullopt, BLOCKED);
+  }
+
   void WillCloseAllTabs(TabStripModel* tab_strip_model) override {
     states_.emplace_back(nullptr, std::nullopt, CLOSE_ALL);
   }
@@ -427,6 +432,7 @@ class MockTabStripModelObserver : public TabStripModelObserver {
             {MOVE, "MOVE"},
             {CHANGE, "CHANGE"},
             {PINNED, "PINNED"},
+            {BLOCKED, "BLOCKED"},
             {REPLACED, "REPLACED"},
             {CLOSE_ALL, "CLOSE_ALL"},
             {CLOSE_ALL_CANCELED, "CLOSE_ALL_CANCELED"},
@@ -4202,49 +4208,44 @@ TEST_F(TabStripModelTest, TestContextMenuCloseCommands) {
   EXPECT_TRUE(tabstrip()->empty());
 }
 
-TEST_F(TabStripModelTest, GetIndicesClosedByCommand) {
-  const auto indicesClosedAsString =
-      [this](int index, TabStripModel::ContextMenuCommand id) {
-        std::vector<int> indices =
-            tabstrip()->GetIndicesClosedByCommand(index, id);
-        std::string result;
-        for (size_t i = 0; i < indices.size(); ++i) {
-          if (i != 0) {
-            result += " ";
-          }
-          result += base::NumberToString(indices[i]);
-        }
-        return result;
-      };
+TEST_F(TabStripModelTest, HasIndicesClosedByCommand) {
+  const auto has = [this](int index, TabStripModel::ContextMenuCommand id) {
+    return tabstrip()->HasIndicesClosedByCommand(index, id);
+  };
 
-  for (int i = 0; i < 5; ++i) {
+  // A single tab: neither command closes anything.
+  tabstrip()->AppendWebContents(CreateWebContents(), true);
+  EXPECT_FALSE(has(0, TabStripModel::CommandCloseTabsToRight));
+  EXPECT_FALSE(has(0, TabStripModel::CommandCloseOtherTabs));
+
+  for (int i = 1; i < 5; ++i) {
     tabstrip()->AppendWebContents(CreateWebContents(), true);
   }
 
-  EXPECT_EQ("4 3 2 1",
-            indicesClosedAsString(0, TabStripModel::CommandCloseTabsToRight));
-  EXPECT_EQ("4 3 2",
-            indicesClosedAsString(1, TabStripModel::CommandCloseTabsToRight));
+  EXPECT_TRUE(has(0, TabStripModel::CommandCloseTabsToRight));
+  EXPECT_TRUE(has(3, TabStripModel::CommandCloseTabsToRight));
+  // Nothing to the right of the last tab.
+  EXPECT_FALSE(has(4, TabStripModel::CommandCloseTabsToRight));
 
-  EXPECT_EQ("4 3 2 1",
-            indicesClosedAsString(0, TabStripModel::CommandCloseOtherTabs));
-  EXPECT_EQ("4 3 2 0",
-            indicesClosedAsString(1, TabStripModel::CommandCloseOtherTabs));
+  EXPECT_TRUE(has(0, TabStripModel::CommandCloseOtherTabs));
+  EXPECT_TRUE(has(4, TabStripModel::CommandCloseOtherTabs));
 
-  // Pin the first two tabs. Pinned tabs shouldn't be closed by the close other
+  // Pin the first two tabs. Pinned tabs aren't closed by the close other
   // commands.
   tabstrip()->SetTabPinned(0, true);
   tabstrip()->SetTabPinned(1, true);
 
-  EXPECT_EQ("4 3 2",
-            indicesClosedAsString(0, TabStripModel::CommandCloseTabsToRight));
-  EXPECT_EQ("4 3",
-            indicesClosedAsString(2, TabStripModel::CommandCloseTabsToRight));
+  EXPECT_TRUE(has(0, TabStripModel::CommandCloseTabsToRight));
+  EXPECT_TRUE(has(4, TabStripModel::CommandCloseOtherTabs));
 
-  EXPECT_EQ("4 3 2",
-            indicesClosedAsString(0, TabStripModel::CommandCloseOtherTabs));
-  EXPECT_EQ("4 3",
-            indicesClosedAsString(2, TabStripModel::CommandCloseOtherTabs));
+  // With every other tab pinned, closing the other tabs from the last one
+  // closes nothing, while closing to the right of a pinned tab still does.
+  tabstrip()->SetTabPinned(2, true);
+  tabstrip()->SetTabPinned(3, true);
+
+  EXPECT_FALSE(has(4, TabStripModel::CommandCloseOtherTabs));
+  EXPECT_FALSE(has(4, TabStripModel::CommandCloseTabsToRight));
+  EXPECT_TRUE(has(0, TabStripModel::CommandCloseTabsToRight));
 
   tabstrip()->CloseAllTabs();
   EXPECT_TRUE(tabstrip()->empty());

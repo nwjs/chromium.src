@@ -37,6 +37,7 @@
 #include "components/saved_tab_groups/public/tab_group_sync_service.h"
 #include "components/tabs/public/tab_group.h"
 #include "ui/actions/actions.h"
+#include "ui/base/accelerators/menu_label_accelerator_util.h"
 #include "ui/base/class_property.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/models/image_model.h"
@@ -91,8 +92,15 @@ void TabGroupDynamicMenu::BuildTabGroupsAction(
         GetTabGroupContextMenuColorId(group->color()), gfx::kFaviconSize);
 
     auto group_builder = actions::ActionItem::Builder();
-    group_builder.SetText(group_title).SetImage(group_icon);
+    group_builder.SetText(ui::EscapeMenuLabelAmpersands(group_title))
+        .SetImage(group_icon)
+        .SetInvokeActionCallback(base::BindRepeating(
+            &TabGroupDynamicMenu::PerformTabGroupAction, base::Unretained(this),
+            tab_groups::TabGroupMenuAction::Type::OPEN_IN_BROWSER,
+            browser_window_interface_));
     auto group_action = std::move(group_builder).Build();
+    group_action->SetProperty(kSavedTabGroupGuidKey,
+                              std::make_unique<base::Uuid>(uuid));
     if (i == 0) {
       group_action->SetProperty(views::kElementIdentifierKey,
                                 tab_groups::STGEverythingMenu::kTabGroup);
@@ -233,6 +241,9 @@ void TabGroupDynamicMenu::BuildTabGroupCommands(
                                                   : kZoomInMapOldIcon))
             .SetProperty(AppMenuActionItem::kDisplayTypeKey,
                          AppMenuActionItem::DisplayType::kRow)
+            .SetProperty(
+                views::kElementIdentifierKey,
+                tab_groups::STGTabsMenuModel::kToggleGroupFocusStateMenuItem)
             .Build();
 
     focus_item->SetProperty(kSavedTabGroupGuidKey,
@@ -342,7 +353,9 @@ void TabGroupDynamicMenu::BuildTabGroupData(
     favicon::FaviconService* favicon_service,
     actions::ActionItem* parent_item) {
   auto header_item = AppMenuActionItem::CreateHeader(
-      l10n_util::GetStringUTF16(IDS_TABS_TITLE_CXMENU));
+      l10n_util::GetStringUTF16(IDS_TABS_TITLE_CXMENU),
+      /*container_color=*/std::nullopt,
+      tab_groups::STGTabsMenuModel::kTabsTitleItem);
   parent_item->AddChild(std::move(header_item));
 
   const auto& saved_tabs = group->saved_tabs();
@@ -355,8 +368,9 @@ void TabGroupDynamicMenu::BuildTabGroupData(
     GURL tab_url = tab.url();
 
     auto tab_builder = actions::ActionItem::Builder();
-    tab_builder.SetText(tab_title).SetImage(tab_icon).SetInvokeActionCallback(
-        base::BindRepeating(
+    tab_builder.SetText(ui::EscapeMenuLabelAmpersands(tab_title))
+        .SetImage(tab_icon)
+        .SetInvokeActionCallback(base::BindRepeating(
             [](base::WeakPtr<TabGroupDynamicMenu> self, GURL url,
                actions::ActionItem* item,
                actions::ActionInvocationContext context) {

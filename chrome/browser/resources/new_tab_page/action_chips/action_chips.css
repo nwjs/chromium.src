@@ -226,12 +226,15 @@
 }
 
 .action-chip-icon-container {
+  align-items: center;
   align-self: flex-start;
   background-position: center;
   background-repeat: no-repeat;
   background-size: 100%;
   border-radius: 100%;
+  display: flex;
   height: 24px;
+  justify-content: center;
   margin-top: 8px;
   mask-position: center;
   mask-repeat: no-repeat;
@@ -244,8 +247,8 @@
 
 .action-chip-recent-tab-favicon {
   border-radius: 2px;
-  height: 24px;
-  width: 24px;
+  height: 16px;
+  width: 16px;
 }
 
 .action-chip-text-container {
@@ -327,7 +330,11 @@
 }
 
 
-/* Responsive container widths and reserved min-heights:
+/* Responsive container widths and reserved min-heights. Breakpoints are
+ * measured against the NTP's main column (the rhsWrapper query container
+ * declared on #rhsWrapper in app.css) instead of the window, so the chips
+ * keep their side margins when the column is narrower than the window (e.g.
+ * when the LHS panel is shown).
  * - Standard chips: height 56px, gap 14px, margin-bottom 40px.
  *   - >=900px (1 row):  56px + 40px = 96px.
  *   - >=672px (2 rows): (56px * 2) + 14px + 40px = 166px.
@@ -339,7 +346,7 @@
  *   - >=560px (3 rows): (40px * 3) + (8px * 2) + 40px = 176px.
  *   - <560px (3 rows): (40px * 3) + (8px * 2) + 40px = 176px.
  */
-@media (min-width: 560px) {
+@container rhsWrapper (min-width: 560px) {
   :host {
     --ntp-chips-container-width: 449px;
     min-height: 236px;
@@ -350,7 +357,7 @@
   }
 }
 
-@media (min-width: 672px) {
+@container rhsWrapper (min-width: 672px) {
   :host {
     --ntp-chips-container-width: 561px;
     min-height: 166px;
@@ -361,7 +368,7 @@
   }
 }
 
-@media (min-width: 900px) {
+@container rhsWrapper (min-width: 900px) {
   :host {
     --ntp-chips-container-width: 746px;
     min-height: 96px;

@@ -80,7 +80,6 @@
 #include "ui/gl/gl_implementation.h"
 #include "ui/gl/gl_switches.h"
 #include "ui/gl/gl_utils.h"
-#include "ui/gl/gpu_switching_manager.h"
 #include "ui/gl/init/create_gr_gl_interface.h"
 #include "ui/gl/init/gl_factory.h"
 #include "url/gurl.h"
@@ -915,8 +914,7 @@ bool GpuServiceImpl::IsExiting() const {
 void GpuServiceImpl::EstablishGpuChannel(
     int32_t client_id,
     uint64_t client_tracing_id,
-    bool is_gpu_host,
-    bool enable_extra_handles_validation,
+    mojom::GpuClientType client_type,
     mojo::ScopedMessagePipeHandle channel_handle,
     EstablishGpuChannelCallback callback) {
   if (io_runner_->BelongsToCurrentThread()) {
@@ -938,16 +936,14 @@ void GpuServiceImpl::EstablishGpuChannel(
     main_runner_->PostTask(
         FROM_HERE,
         base::BindOnce(&GpuServiceImpl::EstablishGpuChannel, weak_ptr_,
-                       client_id, client_tracing_id, is_gpu_host,
-                       enable_extra_handles_validation,
+                       client_id, client_tracing_id, client_type,
                        std::move(channel_handle), std::move(wrap_callback)));
     return;
   }
 
   auto channel_token = base::UnguessableToken::Create();
   gpu::GpuChannel* gpu_channel = gpu_channel_manager_->EstablishChannel(
-      channel_token, client_id, client_tracing_id, is_gpu_host,
-      enable_extra_handles_validation, gpu_extra_info_, gpu_info_,
+      channel_token, client_id, client_tracing_id, client_type, gpu_info_,
       gpu_feature_info_);
 
   if (!gpu_channel) {
@@ -1073,8 +1069,9 @@ void GpuServiceImpl::DisplayAdded() {
   }
   DVLOG(1) << "GPU: A monitor is plugged in";
 
-  if (!in_host_process())
-    ui::GpuSwitchingManager::GetInstance()->NotifyDisplayAdded();
+#if BUILDFLAG(IS_WIN)
+  gl::DirectCompositionOverlayCapsMonitor::GetInstance()->OnDisplayAdded();
+#endif
 }
 
 void GpuServiceImpl::DisplayRemoved() {
@@ -1085,8 +1082,9 @@ void GpuServiceImpl::DisplayRemoved() {
   }
   DVLOG(1) << "GPU: A monitor is unplugged ";
 
-  if (!in_host_process())
-    ui::GpuSwitchingManager::GetInstance()->NotifyDisplayRemoved();
+#if BUILDFLAG(IS_WIN)
+  gl::DirectCompositionOverlayCapsMonitor::GetInstance()->OnDisplayRemoved();
+#endif
 }
 
 void GpuServiceImpl::DisplayMetricsChanged() {
@@ -1098,8 +1096,10 @@ void GpuServiceImpl::DisplayMetricsChanged() {
   }
   DVLOG(1) << "GPU: Display Metrics changed";
 
-  if (!in_host_process())
-    ui::GpuSwitchingManager::GetInstance()->NotifyDisplayMetricsChanged();
+#if BUILDFLAG(IS_WIN)
+  gl::DirectCompositionOverlayCapsMonitor::GetInstance()
+      ->OnDisplayMetricsChanged();
+#endif
 }
 
 void GpuServiceImpl::DestroyAllChannels() {
@@ -1310,8 +1310,7 @@ bool GpuServiceImpl::IsGMBNV12Supported() {
   auto format = MultiPlaneFormat::kNV12;
   auto buffer_usage = gfx::BufferUsage::GPU_READ_CPU_READ_WRITE;
 
-  if (!gpu::SharedImageFactory::IsNativeBufferSupported(format, buffer_usage,
-                                                        gpu_extra_info_)) {
+  if (!gpu::SharedImageFactory::IsNativeBufferSupported(format, buffer_usage)) {
     return false;
   }
 
@@ -1390,9 +1389,8 @@ gpu::SharedImageManager* GpuServiceImpl::CreateSharedImageManager(
   const bool display_context_on_another_thread =
       features::IsDrDcEnabled(gpu_feature_info_);
 
-  // |display_context_on_another_thread|, features::IsUsingRawDraw(),
-  // kAlwaysUseRealBufferTestingOnOzone, and kSharedBitmapToSharedImage
-  // requires |thread_safe_manager| to be true.
+  // |display_context_on_another_thread|, kAlwaysUseRealBufferTestingOnOzone,
+  // and kSharedBitmapToSharedImage requires |thread_safe_manager| to be true.
   bool thread_safe_manager = true;
   owned_shared_image_manager_ = std::make_unique<gpu::SharedImageManager>(
       thread_safe_manager, display_context_on_another_thread,

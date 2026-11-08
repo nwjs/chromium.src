@@ -149,6 +149,7 @@
 如需详细了解有效的网址格式，请访问 https://chromeenterprise.google/policies/url-patterns/。“*”不是此政策可接受的值。
 
 如果未设置此政策，所有源在调用这些 API 前，都需要用户先执行一个手势。</translation>
+<translation id="109520268628625781">在低信任环境中，启用由政策安装且会覆盖默认搜索引擎或“新标签页”页面设置的扩展程序</translation>
 <translation id="1095209545735032039">禁止在这些网站上使用 Serial API</translation>
 <translation id="1096105751829466145">默认搜索服务提供商</translation>
 <translation id="1099282607296956954">为所有网站启用网站隔离功能</translation>
@@ -400,6 +401,15 @@
 <translation id="1272798957154751008">允许将 Chromad 设备迁移到云管理服务</translation>
 <translation id="1274997165432133392">Cookie 及其他网站数据</translation>
 <translation id="1277411517984768103">允许为用户运行 <ph name="BOREALIS_NAME" /></translation>
+<translation id="1281420319219324116">此政策用于配置启用 <ph name="PROVISION_MANAGED_CLIENT_CERTIFICATE_FOR_BROWSER_POLICY_NAME" /> 以后预配的托管客户端证书。
+
+<ph name="COMMON_NAME_SOURCE_FIELD" /> 字段用于指定证书的主题通用名称 (CN) 的来源：
+
+- 如果未设置或设为 <ph name="DEVICE_ID_VALUE" />，证书的主题通用名称会设为受管理浏览器的虚拟设备 ID。
+
+- 如果设为 <ph name="COMPUTER_NAME_VALUE" />，证书的主题通用名称会设为机器的主机名。
+
+如果 <ph name="PROVISION_MANAGED_CLIENT_CERTIFICATE_FOR_BROWSER_POLICY_NAME" /> 已停用或未设置，此政策将不会产生任何影响。</translation>
 <translation id="1285819498003746288">Event.path API 将不可用。</translation>
 <translation id="1290722184971934486">如果此政策设为 <ph name="BLOCK_WINDOW_MANAGEMENT_POLICY_NAME" />（值 2），默认情况下，系统会自动拒绝向网站授予窗口管理权限。此设置会限制网站的以下功能：查看设备屏幕的相关信息，以及使用该信息在特定屏幕上打开并放置窗口或者请求进入全屏模式。
 
@@ -715,6 +725,12 @@ Chrome 政策的优先级高于此政策，例如：如果某个扩展程序已�
 <translation id="1488008594883876680">启用 <ph name="ARC_VM" /> 映像预加载</translation>
 <translation id="1488724823347505879">允许将 Android 应用中的内容分享给 Web 应用</translation>
 <translation id="1490962807364514840">CPU 运行时计数器遥测数据收集时间间隔（以毫秒为单位）。</translation>
+<translation id="1491289760513245366">此政策允许您指定哪些源可以使用 <ph name="PRODUCT_NAME" /> 支持的所有 HTTP 身份验证方案，而无需考虑 <ph name="AUTH_SCHEMES_POLICY_NAME" /> 政策。
+
+从 <ph name="PRODUCT_NAME" /> 161 版开始，此政策仅适用于目标服务器源，不适用于代理服务器的身份验证质询。如需允许代理服务器使用所有 HTTP 身份验证方案，请改用 <ph name="ALL_HTTP_AUTH_SCHEMES_ALLOWED_FOR_PROXIES_POLICY_NAME" /> 政策。在 161 版之前，与此政策匹配的代理服务器也可以使用所有 HTTP 身份验证方案，除非设置了 <ph name="ALL_HTTP_AUTH_SCHEMES_ALLOWED_FOR_PROXIES_POLICY_NAME" /> 政策。
+
+      请按 <ph name="URL_SCHEME_FORMAT_LINK" /> 中的说明处理源的格式。最多可在 <ph name="ALL_HTTP_AUTH_ALLOWED_FOR_ORIGINS_POLICY_NAME" /> 中定义 1,000 个例外情况。
+      主机组件可以使用通配符（例如，“*:8000”匹配端口 8000 上的所有主机）。如需匹配所有方案或所有端口，请完全忽略相应组件（例如，“example.com”匹配任何方案和任何端口）。主机名（例如“example.com”）也与其子网域匹配。如需完全匹配某个主机并排除其子网域，请在其前面加上一个点（例如“.example.com”）。如需匹配所有源，请使用单个星号（“*”）。</translation>
 <translation id="1492223733885011596">此政策可为 <ph name="PRODUCT_OS_NAME" /> 上的表情符号选择器启用 GIF 支持。
 如果已启用此政策，表情符号选择器将支持 GIF 表情符号。
 如果已停用或未设置此政策，表情符号选择器将不支持 GIF 表情符号。
@@ -775,6 +791,7 @@ Chrome 政策的优先级高于此政策，例如：如果某个扩展程序已�
 
       如需详细了解有效的 <ph name="URL_LABEL" /> 格式，请访问 https://chromeenterprise.google/policies/url-patterns。允许使用通配符 <ph name="WILDCARD_VALUE" />。</translation>
 <translation id="1539343118617844331">学校</translation>
+<translation id="154021430160122148">配置 <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" /> Web 应用网址（Beta 版）</translation>
 <translation id="1542491165152947087">允许用户在其设备上开启或关闭 <ph name="PRIVACY_SANDBOX_NAME" /> 广告主题设置。</translation>
 <translation id="1542958897137600427">启用客户端证书配置</translation>
 <translation id="1550295162561011575">设置此政策后，管理员就可以配置在 <ph name="PRODUCT_NAME" /> 设备上启动应用的自动化设置。这些应用可在用户登录时启动，也可由用户从启动器中一并启动。</translation>
@@ -1098,6 +1115,7 @@ Chrome 政策的优先级高于此政策，例如：如果某个扩展程序已�
 注意：此政策仅适用于支持扩展程序的平台。</translation>
 <translation id="1708496595873025510">对变体种子的提取设置限制条件</translation>
 <translation id="1709154322133526432">允许在启动浏览器时检查是否为默认浏览器</translation>
+<translation id="1710938341108039345">停用剪贴板历史记录</translation>
 <translation id="1713829924716792485">如果此政策已启用或未设置，用户便能连接到远程访问主机以在客户端和主机之间传输文件。此政策不适用于远程协助连接，因为这类连接不支持文件传输。
 
       如果此政策已停用，系统将禁止传输文件。</translation>
@@ -1513,7 +1531,6 @@ ChromeOS M184 将是最后一个支持 Chrome 应用的 ChromeOS 里程碑版本
 - 不要屏蔽 devtools://*，而是使用 <ph name="DEVELOPER_TOOLS_AVAILABILITY_POLICY_NAME" />、<ph name="DEVELOPER_TOOLS_AVAILABILITY_ALLOWLIST_POLICY_NAME" /> 或 <ph name="DEVELOPER_TOOLS_AVAILABILITY_BLOCKLIST_POLICY_NAME" /> 政策之一。</translation>
 <translation id="1957093168333856467">停用无障碍虚拟键盘</translation>
 <translation id="1958110911685486719">已启用 PDF XFA 表单支持</translation>
-<translation id="1960059835237529462">允许向用户显示弹出式提醒“<ph name="IOS_NAME" /> App Store 评分”</translation>
 <translation id="1960416154405676350">启用 <ph name="GOOGLE_LENS_PRODUCT_NAME" />区域搜索。</translation>
 <translation id="1961091374249454164">此政策仅适用于受管理的访客会话。
       通过设置此政策，您可指定一个扩展程序 ID 列表，以表明要从受限受管理访客会话清理过程中排除哪些扩展程序（请参阅 <ph name="DEVICE_RESTRICTED_MANAGED_GUEST_SESSION_ENABLED_POLICY_NAME" />）。
@@ -1681,17 +1698,6 @@ ChromeOS M184 将是最后一个支持 Chrome 应用的 ChromeOS 里程碑版本
 <translation id="2057317273526988987">允许访问指定的一系列网址</translation>
 <translation id="205807990145127714">要针对信号强度事件报告的遥测数据。</translation>
 <translation id="2060153898336610735">根据当前语言自动设置</translation>
-<translation id="2060316966423154087">指定用户能否让 <ph name="PRODUCT_NAME" /> 使用生成式 AI 更好地了解表单并帮助他们填写更多字段。
-
-0 = 效果与 1 相同。在 M153 之前，此设置允许 Google 使用相关数据改进其 AI 模型。相关数据可能包括提示、输入、输出、素材和书面反馈，具体取决于相应功能。除非下文另有说明，否则默认值是 0。
-
-1 表示允许使用相应功能，但不允许 Google 使用相关数据（包括提示、输入、输出、素材和书面反馈）改进模型。对于受 <ph name="GOOGLE_ADMIN_CONSOLE_PRODUCT_NAME" />管理的企业用户和受 <ph name="GOOGLE_WORKSPACE_PRODUCT_NAME" /> 管理的教育版账号，默认值是 1。
-
-2 表示不允许使用此功能。
-
-如果此政策未设置，其行为将由 <ph name="GEN_AI_DEFAULT_SETTINGS_POLICY_NAME" /> 政策决定。
-
-如需详细了解生成式 AI 功能的数据处理机制，请访问 https://support.google.com/chrome/a?p=generative_ai_settings。</translation>
 <translation id="2061123930713023976">允许调试网络数据包捕获流程</translation>
 <translation id="2061810934846663491">为远程访问主机配置所需的域名</translation>
 <translation id="2062632109797189011">重新启用已弃用的 window.webkitStorageInfo API</translation>
@@ -2155,6 +2161,13 @@ IPv4 地址的前缀为 0010；IPv6 地址的前缀为 0020。对于双栈网络
 
 注意：在浏览器运行期间，只有新启动的渲染程序进程才会反映对此政策的更改。</translation>
 <translation id="2354439478396602136">在 <ph name="PRODUCT_OS_NAME" /> 启动器中显示推荐的应用</translation>
+<translation id="2355126045573728327">设置此政策后，系统会指定一个 <ph name="ANDROID_NAME" /> 应用软件包名称列表（例如 <ph name="EXAMPLE_PACKAGE_NAME" />），其中的应用会在用户登录 <ph name="PRODUCT_OS_NAME" /> 时自动启动。
+
+这些应用还必须通过 <ph name="ARC_POLICY_NAME" /> 配置为强制安装。安装完成后，这些应用会自动启动。
+
+目前，系统只会启动列表中的第一个应用。
+
+如果此政策未设置或为空，则系统不会在用户登录时自动启动任何 <ph name="ANDROID_NAME" /> 应用。</translation>
 <translation id="2355876547176311490">禁止远程访问主机使用中继服务器</translation>
 <translation id="2358176879566587521">此政策已被移除。它与这个版本的 <ph name="PRODUCT_NAME" /> 不兼容。如需了解详情，请访问 https://support.google.com/chrome/a/answer/7643500</translation>
 <translation id="235987002603620567">NewBaseUrlInheritanceBehavior 是 <ph name="PRODUCT_NAME" /> 的一项功能，可让 <ph name="ABOUT_BLANK_PAGE" /> 和 <ph name="ABOUT_SRCDOC_PAGE" /> 框架通过其启动器的基准网址快照一致地沿用其基准网址值。有关详情，请参阅 https://chromestatus.com/feature/5161101671530496。
@@ -2636,15 +2649,6 @@ PAC 样式的字符串：
 <translation id="2608535066974278204">用于指定重新启动时间范围长度的时间段（以分钟为单位）。</translation>
 <translation id="2608887839902987727">禁止强制门户身份验证忽略代理设置</translation>
 <translation id="2608985885792348429">默认剪贴板设置</translation>
-<translation id="2613388238625781546">出于隐私考虑，我们计划对 <ph name="AL_HEADER_NAME" /> HTTP 请求标头和 JavaScript <ph name="JS_GETTER_NAME" /> getter 进行缩减。
-为方便测试和确保兼容性，此政策可让您启用或停用“<ph name="ALR_FEATURE_NAME" />”功能。
-
-如果此政策已启用或未设置，则将通过现场试验机制来实施“<ph name="ALR_FEATURE_NAME" />”功能。
-如果此政策已停用，现场试验机制将无法启用“<ph name="ALR_FEATURE_NAME" />”功能。
-
-如需详细了解此功能，请访问：https://github.com/explainers-by-googlers/reduce-accept-language.
-
-注意：在浏览器运行期间，只有新启动的渲染程序进程才会反映对此政策的更改。</translation>
 <translation id="2613493229743687635">借助 <ph name="GET_ALL_SCREENS_MEDIA_NAME" /> API，独立的 Web 应用（由其源标识）可以一次截取多个界面，而无需额外的用户许可。
       如果未设置此政策，则任何 Web 应用都不能使用 <ph name="GET_ALL_SCREENS_MEDIA_NAME" />。
 为了加强隐私保护，此政策不支持在会话期间更新政策值，因此只有用户退出并重新登录后，相关更改才会生效。
@@ -2750,6 +2754,7 @@ PAC 样式的字符串：
       </translation>
 <translation id="2697717608663878828">启用经过 TLS 加密的 ClientHello 实验</translation>
 <translation id="2699836109975228367">为登录屏幕启用单声道音频</translation>
+<translation id="2701554183194485203"><ph name="ANDROID_NAME" /> 应用会在登录时自动启动</translation>
 <translation id="2702023190395322609">启用媒体推荐内容</translation>
 <translation id="2702682139813393777">强制通过 cmd.exe 启动 Windows 原生消息传递主机</translation>
 <translation id="270582584528242502">在用户尝试退出时不显示警告对话框</translation>
@@ -3481,8 +3486,6 @@ PAC 样式的字符串：
 <translation id="3152135410085709340">允许这些网站使用 PDF 查看器对 file:// 网址进行本地文件访问</translation>
 <translation id="3152425128389603870">使“统一桌面”功能可供用户使用，并使其在默认情况下处于启用状态</translation>
 <translation id="3159375329008977062">允许用户通过界面导出/导入 Crostini 容器</translation>
-<translation id="3163167792874598128">如果此政策未设置或已启用，弹出式提醒“App Store 评分”可能每年最多向用户显示 1 次。
-如果此政策已停用，系统将不会向用户显示弹出式提醒“App Store 评分”。</translation>
 <translation id="3163880369487075383">此政策用于控制是否可以为顶层跨网站导航清除 window.name，从而导致在启用 ClearCrossSiteCrossBrowsingContextGroupWindowName 变体时创建新的浏览上下文群组。
 
 ClearCrossSiteCrossBrowsingContextGroupWindowName 变体可控制是否为顶层跨网站导航清除 window.name。此类导航的示例包括：用户通过多功能框导航到新网站，或点击指向新网站的链接，而该链接使用“target='_blank' rel='noopener'”。在这些情况下清除 window.name 可防止信息通过 window.name 属性在网站之间泄露，从而增强用户隐私保护。ClearWindowNameForNewBrowsingContextGroup 政策已生效，以恢复先前的行为。如果已启用 ClearCrossSiteCrossBrowsingContextGroupWindowName 变体，并且此政策已启用或未设置，则系统会为符合条件的导航清除 window.name。如果此政策已停用，则不会清除 window.name。
@@ -3574,6 +3577,7 @@ ClearCrossSiteCrossBrowsingContextGroupWindowName 变体可控制是否为顶层
 <translation id="3222088741899353813">在登录屏幕上，鼠标左键是主按键</translation>
 <translation id="322359555555487980">确定变体在 <ph name="PRODUCT_OS_NAME" />中的可用情况</translation>
 <translation id="3229163415739929305">如果此政策已启用或未设置，系统会启用页面加载元数据提取功能和用以提升浏览体验的机器学习模型。如果此政策已停用，可能会导致某些功能无法正常运行。</translation>
+<translation id="3230956492238004242">启用动态子模块修补</translation>
 <translation id="3231311173895401135">让浏览器决定是否支持</translation>
 <translation id="3231837273069128027">通过设置此政策，您可以配置 <ph name="TPM_FIRMWARE_UPDATE_TPM" /> 固件更新的可用性和行为。
 
@@ -3722,6 +3726,23 @@ Microsoft Outlook 卡片需要由管理员进行额外配置。如需详细了�
       如果此政策未设置，系统代理服务将不可用。</translation>
 <translation id="3341649870321644698">仅允许播放专注模式音乐。</translation>
 <translation id="334231891933432876">一旦用户的账号身份验证失效，就立即强制用户退出登录</translation>
+<translation id="3344546660724331957">控制是否允许在低信任环境中启用由政策强制安装或推荐安装且会覆盖默认搜索引擎或“新标签页”页面设置的扩展程序。
+
+此政策仅适用于低信任环境（例如在本地配置政策、无网域或云管理的设备）。高信任环境不受影响：
+
+在 <ph name="MS_WIN_NAME" /> 上，此政策不适用于已加入 <ph name="MS_AD_NAME" /> 网域的实例、已加入 <ph name="MS_AAD_NAME" /> 的实例或已在 <ph name="CHROME_BROWSER_CLOUD_MANAGEMENT_NAME" />中注册的实例。
+
+在 <ph name="MAC_OS_NAME" /> 上，此政策不适用于通过 MDM 进行管理的实例、已通过 MCX 加入网域的实例或已在 <ph name="CHROME_BROWSER_CLOUD_MANAGEMENT_NAME" />中注册的实例。
+
+在这些高信任实例中，由政策安装且会覆盖默认搜索引擎或“新标签页”页面设置的扩展程序将保持启用状态。
+
+如果已启用，<ph name="PRODUCT_NAME" /> 会允许在低信任环境中安装由政策安装且会覆盖默认搜索引擎或“新标签页”页面设置的扩展程序，并保持启用状态。
+
+如果已停用或未配置，<ph name="PRODUCT_NAME" /> 会阻止在低信任环境中安装由政策安装且会覆盖默认搜索引擎或“新标签页”页面设置的扩展程序。如已安装，则会将其移除。
+
+如果受影响的扩展程序经过更新后不再覆盖这些设置，<ph name="PRODUCT_NAME" /> 将在 7 天内自动完成安装。
+
+这是一项暂时性政策，将在未来版本中移除。</translation>
 <translation id="3345323903592385588">虚拟机配置在安装程序中的显示顺序。如果指定了多个虚拟机配置，具有最小 display_order 值的虚拟机配置将显示在列表顶部。默认值为 0。</translation>
 <translation id="3349823333182687926">通过设置此政策，您可以创建一个网址格式列表，指定哪些网站能够使用窗口和标签页捕获功能。
 
@@ -3916,6 +3937,11 @@ Microsoft Outlook 卡片需要由管理员进行额外配置。如需详细了�
 <translation id="3485200437120267231">停用登录拦截功能</translation>
 <translation id="3485222925928396648">Google Chat（自 135 版起受支持）</translation>
 <translation id="3487651201232258606">原生消息传递</translation>
+<translation id="3490064150371176690">控制是否可向用户显示应用内评分宣传内容。
+
+如果此政策已启用或未设置，系统每年最多向用户显示 1 次“应用商店评分”宣传内容。
+
+如果此政策已停用，系统将不会向用户显示“应用商店评分”宣传内容。</translation>
 <translation id="3492351353716550742">不使用默认引荐来源网址政策值 no-referrer-when-downgrade</translation>
 <translation id="3492834335089638487">此政策用于控制设备对来源不受信任（不是来自 Google Play 商店）的 Android 应用的使用。
 
@@ -4052,6 +4078,7 @@ Microsoft Outlook 卡片需要由管理员进行额外配置。如需详细了�
 此政策取代了已弃用的 <ph name="WINDOW_PLACEMENT_ALLOWED_FOR_URLS_POLICY_NAME" /> 政策。</translation>
 <translation id="3568762199045490351">超时设置为 0 毫秒的 JavaScript setTimeout() 将会延迟到 1 毫秒。</translation>
 <translation id="3574450691573438824">停用设备系统日志上传</translation>
+<translation id="357461884473178606">可使用所有 HTTP 身份验证方案的代理服务器列表</translation>
 <translation id="3575011234198230041">HTTP 身份验证</translation>
 <translation id="3575159471980949522">不允许用户将电话号码从 Chrome 发送到 Android 设备</translation>
 <translation id="3577251398714997599">针对含侵扰性广告的网站的广告设置</translation>
@@ -4847,6 +4874,7 @@ SwiftShader 曾用于在没有 GPU 加速的系统（例如无头系统或虚拟
 
 
 扩展程序的可用性仍由其他政策控制。</translation>
+<translation id="4109107305343689466">为用户或个人资料配置托管的客户端证书</translation>
 <translation id="4112585124048467596">如果您设置了此政策，系统将会从同步操作（无论是 <ph name="CHROME_SYNC_NAME" />还是漫游个人资料同步）中排除所有指定的数据类型。这有助于缩减漫游个人资料的大小，或者限制向 <ph name="CHROME_SYNC_NAME" />服务器上传的数据类型。
 
       此政策当前可用的数据类型为：“apps”“autofill”“bookmarks”“extensions”“preferences”“passwords”“payments”“productComparison”“readingList”“tabs”“themes”“typedUrls”“wifiConfigurations”。这些名称区分大小写！
@@ -4883,7 +4911,6 @@ SwiftShader 曾用于在没有 GPU 加速的系统（例如无头系统或虚拟
 <translation id="4136603825567209889">启用关于用户标识信息的报告</translation>
 <translation id="4138655880188755661">时限</translation>
 <translation id="4140646780789794190">禁止向 PluginVm 共享诊断数据</translation>
-<translation id="4141430435877011529"><ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" /> 应用所属的多区域或位置。如需详细了解 <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" /> 位置，请访问 https://docs.cloud.google.com/gemini/enterprise/docs/locations。</translation>
 <translation id="4144417751555442768">生成式 AI</translation>
 <translation id="4145383150978634398">为用户提供统一桌面模式选项</translation>
 <translation id="4146319954420095470">（警告！此依赖项很快将被舍弃，请开始改用 <ph name="GLS_POLICY_NAME" />）如果此政策设为 <ph name="BLOCK_GEOLOCATION_SETTING" />，<ph name="PRODUCT_OS_NAME" /> 系统服务和 Android 应用将无法使用位置信息。如果此政策设为任何其他值或未设置，则当 Android 应用想要使用位置信息时，系统会请求用户允许使用。</translation>
@@ -5051,6 +5078,11 @@ SwiftShader 曾用于在没有 GPU 加速的系统（例如无头系统或虚拟
 
 格式不正确的网域将被忽略。</translation>
 <translation id="4238777612788632629">版本过期则快速重新启动</translation>
+<translation id="4239692047060622956">此政策用于控制是否启用 <ph name="PRODUCT_OS_NAME" /> 剪贴板历史记录功能。
+
+如果已启用或未设置此政策，系统会启用剪贴板历史记录功能，而且用户可以使用剪贴板历史记录键盘快捷键访问之前复制的内容。
+
+如果已停用此政策，系统会停用剪贴板历史记录功能，而用户无法打开剪贴板历史记录菜单，且所有已存储的剪贴板历史记录项都会被清除。</translation>
 <translation id="4239720644496144453">缓存不适用于 Android 应用。如果多个用户都想安装同一款 Android 应用，系统便会分别为每个用户重新下载相应的 Android 应用。</translation>
 <translation id="4239949495354048254">允许将文件上传到 Chrome 中的 Gemini。</translation>
 <translation id="4242583077375244471">如果此政策已启用，<ph name="PRODUCT_NAME" /> 会使用内置的证书验证程序来验证服务器证书，并会将 Chrome 根存储区作为公共信任来源。
@@ -5165,6 +5197,7 @@ SwiftShader 曾用于在没有 GPU 加速的系统（例如无头系统或虚拟
 用户无法覆盖管理员的选择。如果未设置此政策，用户将获得消费者体验，即可以自由修改系统位置信息设置，并且默认值为 <ph name="GLS_ALLOWED" />。
 
 注意：此政策已弃用 <ph name="ARC_GLS_POLICY_NAME" /> 政策。此外，如果您设置了此政策，<ph name="DEFAULT_GEO_SETTING_POLICY_NAME" /> 将不再影响 <ph name="PRODUCT_OS_NAME" /> 上的 <ph name="ANDROID_NAME" /> 位置偏好设置。</translation>
+<translation id="4341191248574927458">启用 ChromeOS 剪贴板历史记录</translation>
 <translation id="4341199399451274159">如果 <ph name="DEFAULT_SEARCH_PROVIDER_ENABLED_POLICY_NAME" /> 已开启，您便可通过设置 <ph name="DEFAULT_SEARCH_PROVIDER_ENCODINGS_POLICY_NAME" /> 来指定搜索服务提供商支持的字符编码。编码是 UTF-8、GB2312 和 ISO-8859-1 之类的代码页名称。系统会按照您指定的顺序尝试这些编码。
 
       如果您不设置 <ph name="DEFAULT_SEARCH_PROVIDER_ENCODINGS_POLICY_NAME" />，系统将使用 UTF-8。</translation>
@@ -5588,6 +5621,14 @@ SwiftShader 曾用于在没有 GPU 加速的系统（例如无头系统或虚拟
       如果您未设置此政策，<ph name="PRODUCT_NAME" /> 会使用默认大小。用户可以使用 --disk-cache-size flag 更改此设置。
 
       注意：此政策中指定的值会被用作对浏览器中各种缓存子系统的提示。因此，所有缓存的实际磁盘总消耗将会变得更高，但仍会与指定的值在同一数量级。</translation>
+<translation id="4582488040806837065">此政策用于配置启用 <ph name="PROVISION_MANAGED_CLIENT_CERTIFICATE_FOR_USER_POLICY_NAME" /> 以后预配的托管客户端证书。
+
+<ph name="COMMON_NAME_SOURCE_FIELD" /> 字段用于指定证书的主题通用名称 (CN) 的来源：
+- 如果未设置或设为 <ph name="PROFILE_ID_VALUE" />，证书的主题通用名称将设置为浏览器个人资料 ID。
+
+- 如果设为 <ph name="COMPUTER_NAME_VALUE" />，证书的主题通用名称会设为机器的主机名。注意：如果将此属性设为 <ph name="COMPUTER_NAME_VALUE" />，系统会在个人资料级证书中使用设备级属性，这会对非受管设备或共用设备的隐私造成影响，因为证书中会包含机器主机名。
+
+如果 <ph name="PROVISION_MANAGED_CLIENT_CERTIFICATE_FOR_USER_POLICY_NAME" /> 已停用或未设置，此政策将不会产生任何影响。</translation>
 <translation id="4591366717022345234">为用户提供 Quick Fix Build</translation>
 <translation id="4593391169954484940">相应文件的 SHA-256 哈希值。</translation>
 <translation id="4594027034164195984">允许第三方图片显示身份验证提示</translation>
@@ -6225,6 +6266,13 @@ SwiftShader 曾用于在没有 GPU 加速的系统（例如无头系统或虚拟
 <translation id="4947257516265472776">强制启用 <ph name="YOUTUBE_PRODUCT_NAME" />“严格”受限模式</translation>
 <translation id="494924690085329212">在用户退出后重新启动（如果 Android 已启动）。</translation>
 <translation id="4950447493143157880">一律不使用内置 DNS 客户端</translation>
+<translation id="4953257833692039804">控制 <ph name="PRODUCT_NAME" /> 是否动态地将已暂存的安全更新应用于新启动的子进程（例如渲染程序进程），而无需完全重启浏览器。
+
+如果 <ph name="COMPONENT_UPDATES_ENABLED_POLICY_NAME" /> 已停用，则不会安装任何新模块以供使用。
+
+如果此政策已启用或未设置，<ph name="PRODUCT_NAME" /> 可能会使用动态暂存的子模块二进制文件（如果有）启动新的子进程。
+
+如果此政策已停用，<ph name="PRODUCT_NAME" /> 将立即停止将动态暂存的子模块二进制文件应用于新启动的子进程（包括已下载或暂存在本地的所有更新），并且需要完全重启浏览器才能应用更新。已在运行的子进程将继续保持原样。此设置会停用动态修补，但不会停用所有组件更新。</translation>
 <translation id="4953541641325278286">不允许任何网站检测用户的空闲状态</translation>
 <translation id="4954352279763128540">旨在将预填充的域名添加到 Kerberos 身份验证对话框。
 
@@ -6585,6 +6633,7 @@ SwiftShader 曾用于在没有 GPU 加速的系统（例如无头系统或虚拟
           如需详细了解有效的网址格式，请访问 https://chromeenterprise.google/policies/url-patterns。<ph name="WILDCARD_VALUE" /> 不是此政策可接受的值。</translation>
 <translation id="5182483318861266793">将文件架放置到屏幕右侧</translation>
 <translation id="51859390023061147">停用“完全还原”功能。</translation>
+<translation id="5188507662885416844">停用动态子模块修补</translation>
 <translation id="5189360528842591274">仅允许连接到此列表中的蓝牙服务</translation>
 <translation id="5191007233343702012">使用标准标签页优先级</translation>
 <translation id="5191476996923842491">setTimeout() 函数延迟的默认行为。</translation>
@@ -7553,13 +7602,6 @@ Microsoft SharePoint 和 OneDrive 卡片需要由管理员进行额外配置。�
 如果此政策已停用或未设置，浏览器功能启动流程将决定是否使用自适应缓冲。</translation>
 <translation id="579556027056000499">网址中的内容的 SHA-256 哈希值。</translation>
 <translation id="5800329278018669527">处于离线状态时不弹出网络配置提示</translation>
-<translation id="5800627752428920394">此政策用于控制当网页进入往返缓存时，是否断开活跃的 WebSocket 连接。以前，活跃的 WebSocket 连接会阻止网页存储在往返缓存中，但 <ph name="PRODUCT_NAME" /> 已更改此行为，改为断开 WebSocket 连接，从而允许缓存网页并在断开连接的状态下恢复网页。
-
-如果此政策已启用或未设置，当网页进入往返缓存时，WebSocket 会断开连接。
-
-如果此政策已停用，当网页进入往返缓存时，WebSocket 将不会断开连接。由于往返缓存不支持活跃的 WebSocket，这意味着具有活跃 WebSocket 的网页不会被缓存。
-
-此政策只是暂时性措施，日后会被移除。</translation>
 <translation id="5802931736499687181">停用加密报告管道</translation>
 <translation id="5803715507113569033">此政策让管理员能够配置 <ph name="MICROSOFT_ONE_DRIVE_NAME" /> 的装载方式。
 
@@ -7868,7 +7910,6 @@ IP 地址空间覆盖有两种形式：
 <translation id="5962271004971310788">为能够在无痕模式下导航而必须允许用户在该模式下运行的扩展程序</translation>
 <translation id="5963752574792883406">端口 990（可在 2022 年 2 月 1 日之前解禁）</translation>
 <translation id="596523880465577341">此政策已被弃用且不再受支持，请改用“<ph name="EXTENSION_INSTALL_ALLOWLIST_POLICY_NAME" />”政策。</translation>
-<translation id="5965344524743236327">要启用的 <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" /> 实例所对应的 <ph name="GOOGLE_CLOUD_PRODUCT_NAME" /> 项目的 ID 或编号。如需详细了解项目 ID，请访问 https://docs.cloud.google.com/resource-manager/docs/creating-managing-projects。</translation>
 <translation id="5966615072639944554">允许扩展程序使用 Remote Attestation API</translation>
 <translation id="596732417280023843">证书资料的名称。</translation>
 <translation id="5972475504452039694">此政策允许您设置一个网址格式列表，用于指定不允许哪些网站自动下载多个文件。
@@ -8292,7 +8333,6 @@ IP 地址空间覆盖有两种形式：
 <translation id="6264247808139384018">如果此政策已启用或未设置，使用密码验证身份的用户便可以锁定屏幕。
 
 如果此政策已停用，用户将无法锁定屏幕（只能退出用户会话）。</translation>
-<translation id="6265114688953151459"><ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" /> 引擎的唯一标识符。必须为 1-63 个字符，并且必须匹配以下格式：[a-z0-9][a-z0-9-_]*。如需了解详情，请访问 https://docs.cloud.google.com/gemini/enterprise/docs/reference/rest/v1/projects.locations.collections.engines#Engine。</translation>
 <translation id="6265892395051519509">允许在这些网站上使用传感器</translation>
 <translation id="6266043141694454734">确定是否使用 Chrome 根存储区和内置的证书验证程序来验证服务器证书</translation>
 <translation id="6266686172120601139">为 Web Audio 启用自适应缓冲</translation>
@@ -8507,6 +8547,17 @@ Origin-Agent-Cluster HTTP 标头可控制是将某个文档隔离在以源为键
       如果此政策设为 False，系统会阻止加载 Signed HTTP Exchange (SXG) 内容。</translation>
 <translation id="6368011194414932347">配置主页网址</translation>
 <translation id="6368403635025849609">在这些网站上允许 JavaScript</translation>
+<translation id="6368652917086795891">在 <ph name="PRODUCT_NAME" /> 中配置 <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" /> 的连接设置。
+
+<ph name="GEMINI_ENTERPRISE_URL_POLICY_NAME" /> 政策将取代本政策。如果同时设置了这两项政策，则以 <ph name="GEMINI_ENTERPRISE_URL_POLICY_NAME" /> 为准。
+
+此政策通过 <ph name="GEMINI_ENTERPRISE_SETTINGS_URL_POLICY_VALUE" /> 配置 <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" /> Web 应用网址，该网址必须是使用 https 协议、指向 <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" /> 域名且不包含用户名或密码的有效网址。如果未满足这些要求，系统会忽略此政策，并且 <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" /> 将保持未配置状态。
+
+如果设置了此政策，系统会为使用受管理账号或受管理浏览器登录的用户配置 <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" />。
+
+如果未设置此政策，系统将不会配置 <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" />。
+
+请注意，此政策不会控制常规的 <ph name="GOOGLE_GEMINI_PRODUCT_NAME" /> 集成，该集成可通过 <ph name="GEMINI_SETTINGS_POLICY_NAME" /> 政策控制。</translation>
 <translation id="6368671810229507360">WebRTC</translation>
 <translation id="6370742079247037704">禁止使用内置 AI API。</translation>
 <translation id="6371005337713685988">Related Website Sets 设置</translation>
@@ -8596,6 +8647,7 @@ Origin-Agent-Cluster HTTP 标头可控制是将某个文档隔离在以源为键
       虚拟键盘可能会改用紧凑布局，具体取决于输入法。</translation>
 <translation id="6404064917675764807">不报告 CRD 会话事件</translation>
 <translation id="6404360891305375004">允许通过网络共享文件</translation>
+<translation id="6406382122206104500">允许在 <ph name="IOS_NAME" /> 和 <ph name="ANDROID_NAME" /> 上向用户显示应用评分宣传内容</translation>
 <translation id="6407093060083181305">配置扩展程序安装屏蔽名单</translation>
 <translation id="640827304541402854">禁止从远程访问主机穿越防火墙</translation>
 <translation id="6410847321564585975">网站活动报告许可名单</translation>
@@ -9037,6 +9089,19 @@ Related Website Set 中的所有网站都必须是采用 HTTPS 协议的可注�
 <translation id="6659877981632400997">上下文菜单中不会有可将图片分享到 <ph name="GOOGLE_PHOTOS_PRODUCT_NAME" /> 的菜单项。</translation>
 <translation id="6661178198729301029">为受管理个人资料启用云报告功能</translation>
 <translation id="666203515318060501">允许使用增强型自动填充功能，但不改进 AI 模型。</translation>
+<translation id="6663125232571868480">此政策已弃用，从 M157 起不再有效，因为“<ph name="ALR_FEATURE_NAME" />”功能已停用。<ph name="AL_HEADER_NAME" /> HTTP 请求标头和 JavaScript <ph name="JS_GETTER_NAME" /> getter 会继续提供完整的已配置语言列表。
+
+在 M157 之前，出于隐私原因，我们计划对 <ph name="AL_HEADER_NAME" /> HTTP 请求标头和 JavaScript <ph name="JS_GETTER_NAME" /> getter 进行缩减。
+
+为方便测试和确保兼容性，此政策可让您启用或停用“<ph name="ALR_FEATURE_NAME" />”功能。
+
+如果此政策已启用或未设置，则将通过现场试验来实施“<ph name="ALR_FEATURE_NAME" />”功能。
+
+如果此政策已停用，现场试验将无法启用“<ph name="ALR_FEATURE_NAME" />”功能。
+
+如需详细了解此功能，请访问：https://github.com/explainers-by-googlers/reduce-accept-language.
+
+注意：在浏览器运行期间，只有新启动的渲染程序进程才会反映对此政策的更改。</translation>
 <translation id="6665670272107384733">指定用户必须按什么样的频率输入密码才能使用快速解锁功能</translation>
 <translation id="6667586534922258705">在登录屏幕和锁定的屏幕上显示“显示密码”按钮</translation>
 <translation id="6668559639284945695">此政策允许还原为旧版 Cookie 范围行为。
@@ -9478,6 +9543,7 @@ Related Website Set 中的所有网站都必须是采用 HTTPS 协议的可注�
 <translation id="6953246833109449226">配置在线密码不匹配时的行为</translation>
 <translation id="695532899547292238">启用自助服务终端应用日志收集功能</translation>
 <translation id="6956272732789158625">不允许任何网站使用密钥生成功能</translation>
+<translation id="6956741245151252020">为浏览器配置托管的客户端证书</translation>
 <translation id="6960996423652450945">禁止在登录屏幕上使用插入符号突出显示</translation>
 <translation id="6961602002757991199">如果此政策设为一个有效网址，<ph name="PRODUCT_NAME" /> 就会从该网址下载网站列表，并参照 <ph name="BROWSER_SWITCHER_URL_GREYLIST_POLICY_NAME" /> 政策的设定应用相应规则。这些政策会阻止 <ph name="PRODUCT_NAME" /> 和备用浏览器互相打开。
 
@@ -10256,11 +10322,6 @@ Related Website Set 中的所有网站都必须是采用 HTTPS 协议的可注�
 <translation id="7410074797376205571">允许 <ph name="CHROME_REMOTE_DESKTOP_PRODUCT_NAME" /> 执行远程主机通过代理发送的 WebAuthn API 请求。</translation>
 <translation id="7412456346709338637">启用 Thunderbolt/USB4 外围设备数据访问</translation>
 <translation id="7414890119082492552">无偏好设置。</translation>
-<translation id="7416222110012824615">此政策用于控制 XSLT 功能（XSLTProcessor JavaScript API 和 XSL 处理指令）的可用性。
-如果此政策已启用，无论浏览器中此功能的默认状态如何，XSLT 都将可用。
-如果此政策已停用，无论浏览器中此功能的默认状态如何，XSLT 都将不可用。
-如果此政策未设置，XSLT 的可用性将由浏览器的默认设置和现场试验决定。
-此政策是一项暂时性措施，将在 M164 中移除。</translation>
 <translation id="7416280188470120885">此政策旨在配置 <ph name="PRODUCT_NAME" />，使其对 TLS 1.3 中的首选密钥协议算法（受支持的群组）进行排序，以反映对特定合规制度所批准算法的偏好。
 
 设置此政策并不能保证系统会协商使用任何特定算法。
@@ -10281,6 +10342,19 @@ Related Website Set 中的所有网站都必须是采用 HTTPS 协议的可注�
 
 对于 155 及更低版本，此政策仅在设备级别有效。</translation>
 <translation id="7417438464912687020">允许与这台计算机建立远程访问连接</translation>
+<translation id="7417697379573574567">此政策已在 M157 中弃用，请改用 <ph name="AUTOFILL_GEN_AI_SETTINGS_POLICY_NAME" />。
+
+指定用户能否让 <ph name="PRODUCT_NAME" /> 使用生成式 AI 更好地了解表单并帮助他们填写更多字段。
+
+0 = 效果与 1 相同。在 M153 之前，此设置允许 Google 使用相关数据改进其 AI 模型。相关数据可能包括提示、输入、输出、素材和书面反馈，具体取决于相应功能。除非下文另有说明，否则默认值是 0。
+
+1 表示允许使用相应功能，但不允许 Google 使用相关数据（包括提示、输入、输出、素材和书面反馈）改进模型。对于受 <ph name="GOOGLE_ADMIN_CONSOLE_PRODUCT_NAME" />管理的企业用户和受 <ph name="GOOGLE_WORKSPACE_PRODUCT_NAME" /> 管理的教育版账号，默认值是 1。
+
+2 表示不允许使用此功能。
+
+如果此政策未设置，其行为将由 <ph name="GEN_AI_DEFAULT_SETTINGS_POLICY_NAME" /> 政策决定。
+
+如需详细了解生成式 AI 功能的数据处理机制，请访问 https://support.google.com/chrome/a?p=generative_ai_settings。</translation>
 <translation id="7417972229667085380">演示模式下待机延迟时间的调整幅度（百分比）（已弃用）</translation>
 <translation id="7421230730436851224">一律不在沙盒中处理音频</translation>
 <translation id="7421483919690710988">设置媒体磁盘缓存大小（字节）</translation>
@@ -10319,6 +10393,15 @@ Related Website Set 中的所有网站都必须是采用 HTTPS 协议的可注�
 
 对于普通用户，未设置此政策在功能上等同于将它设为“<ph name="ALLOWED_NAME" />”；对于企业用户，未设置此政策即默认设为“<ph name="DISALLOWED_NAME" />”。</translation>
 <translation id="7438982301540282785">自动设置 <ph name="MICROSOFT_ONE_DRIVE_NAME" /></translation>
+<translation id="7441961773829108385">配置 <ph name="PRODUCT_NAME" /> 连接到的 <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" /> Web 应用网址。
+
+该值必须是使用 https 协议、指向 <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" /> 域名且不包含用户名或密码的有效网址。如果未满足这些要求，系统会忽略此政策，并且 <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" /> 将保持未配置状态。
+
+如果设置了此政策，系统会为使用受管理账号或受管理浏览器登录的用户配置 <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" />。
+
+如果未设置此政策，系统将不会配置 <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" />。
+
+请注意，此政策不会控制常规的 <ph name="GOOGLE_GEMINI_PRODUCT_NAME" /> 集成，该集成可通过 <ph name="GEMINI_SETTINGS_POLICY_NAME" /> 政策控制。</translation>
 <translation id="7443356543619955157">通过设置此政策，您可以允许向某部 <ph name="PRODUCT_OS_NAME" />设备推送要用于其所有用户的网络配置。网络配置是 JSON 格式的字符串，如 Open Network Configuration 格式所定义。</translation>
 <translation id="744349502210151344">默认值：XSLT 可用性将由浏览器默认设置和现场试验决定。</translation>
 <translation id="7446978687387327623">允许“安全浏览”功能通过代理进行实时检查</translation>
@@ -10580,10 +10663,6 @@ Gemini 只能在部分国家/地区启用，并且仅支持部分语言。设置
       如果此政策设为 False 或未设置，系统将会关闭这种报告。
       在这两种情况下，使用 DataLeakPreventionRulesList 中的 ALLOW 级限制定义的规则将不会报告事件。</translation>
 <translation id="7648907905084499629">让所有网站上的 Cookie 都采用 <ph name="FEATURE_NAME_SAMESITE_BY_DEFAULT_COOKIES" /> 行为</translation>
-<translation id="7649831723389657756">此政策允许您指定哪些来源可以使用 <ph name="PRODUCT_NAME" /> 支持的所有 HTTP 身份验证方案，而无需考虑 <ph name="AUTH_SCHEMES_POLICY_NAME" /> 政策。
-
-      请按 <ph name="URL_SCHEME_FORMAT_LINK" /> 中的说明处理来源的格式。最多可在 <ph name="ALL_HTTP_AUTH_ALLOWED_FOR_ORIGINS_POLICY_NAME" /> 中定义 1,000 个例外情况。
-      主机组件可以使用通配符（例如，“*:8000”匹配端口 8000 上的所有主机）。如需匹配所有方案或所有端口，请完全忽略相应组件（例如，“example.com”匹配任何方案和任何端口）。主机名（例如“example.com”）也与其子网域匹配。如需完全匹配某个主机并排除其子网域，请在其前面加上一个点（例如“.example.com”）。如需匹配所有来源，请使用单个星号 ('*')。</translation>
 <translation id="7652330587655863759">身份验证的类型。
 
 *“none”：不执行身份验证。
@@ -11234,6 +11313,12 @@ Gemini 只能在部分国家/地区启用，并且仅支持部分语言。设置
 <translation id="8066428282805800713">在 ChromeOS Flex 上发送其他硬件数据</translation>
 <translation id="8071371098891664137">如果为 <ph name="PRINTERS_BULK_ACCESS_MODE_POLICY_NAME" /> 选择了 <ph name="PRINTERS_BLOCKLIST" />，您便可通过设置 <ph name="PRINTERS_BULK_BLOCKLIST_POLICY_NAME" /> 来指定用户不能使用哪些打印机。除了与此政策中所列 ID 对应的打印机之外，其他所有打印机都可供用户使用。ID 必须与 <ph name="PRINTERS_BULK_CONFIGURATION_POLICY_NAME" /> 所指定文件内的<ph name="ID_FIELD" />或<ph name="GUID_FIELD" />字段相符。</translation>
 <translation id="8076539570602616846">仅允许符合条件的 Google 账号通过 <ph name="PRODUCT_NAME" /> PDF 查看器将 PDF 文件保存到 Google 云端硬盘</translation>
+<translation id="8078224178125125527">此政策允许您指定哪些代理服务器可以使用 <ph name="PRODUCT_NAME" /> 支持的所有 HTTP 身份验证方案，而无需考虑 <ph name="AUTH_SCHEMES_POLICY_NAME" /> 政策。
+
+请按 <ph name="URL_SCHEME_FORMAT_LINK" /> 中说明的网址屏蔽清单过滤器格式处理代理服务器的格式。最多可定义 1,000 个例外情况。
+主机组件可以使用通配符（例如，“*:8080”匹配端口 8080 上的所有代理）。主机名（例如“proxy.example.com”）也与其子网域匹配。如需完全匹配某个主机并排除其子网域，请在其前面加上一个点（例如“.proxy.example.com”）。
+
+如果未设置此政策，则代理身份验证仅支持 <ph name="AUTH_SCHEMES_POLICY_NAME" /> 政策中指定的 HTTP 身份验证方案（如果该政策也未设置，则仅支持默认方案）。</translation>
 <translation id="8078297389450285582">如果此政策已启用或未设置，系统会开启智能调暗模式，并可推迟屏幕变暗的时间。倘若屏幕变暗时间推迟了，系统会随之调整屏幕关闭延迟时间、屏幕锁定延迟时间和闲置延迟时间，以使它们保持在原有设置下与屏幕变暗延迟时间的间隔。
 
           如果此政策已停用，智能调暗模式将不会影响屏幕变暗时间。</translation>
@@ -11630,6 +11715,7 @@ Gemini 只能在部分国家/地区启用，并且仅支持部分语言。设置
       应以毫秒为单位指定此政策的值。</translation>
 <translation id="8330437518362176921">下载和更新自助服务终端 Chrome 应用时仅使用政策提供的更新网址</translation>
 <translation id="8331479227794770304">启用粘滞键</translation>
+<translation id="8331940246704699384">启用由政策安装且会覆盖默认搜索引擎或“新标签页”页面设置的扩展程序</translation>
 <translation id="8332822245414537447">停用 RSA 密钥用法检查</translation>
 <translation id="8334685561819743286">在用户输入内容时停用实体键盘自动更正功能</translation>
 <translation id="8336986243404088829">此政策可将渲染程序进程隔离到单个 CPU 核心，并阻止其他进程共享该核心，从而缓解边信道跨进程内存攻击。<ph name="MS_WIN_NAME" /> 11 24H2 及更高版本支持此缓解措施。如果操作系统没有所需的调度支持，此政策将没有任何效力。在某些高负载场景下，此政策可能会导致性能降低，其影响类似于停用超线程功能。如需了解详情，请参阅 https://learn.microsoft.com/zh-cn/windows/win32/api/winnt/ns-winnt-process_mitigation_side_channel_isolation_policy
@@ -11774,6 +11860,7 @@ Gemini 只能在部分国家/地区启用，并且仅支持部分语言。设置
 <translation id="8437147918598002525">在严格模式下启用 HTTPS-Only 模式</translation>
 <translation id="8441105784056442638">启用“完全还原”功能</translation>
 <translation id="844322176712318428">允许使用 Translator API</translation>
+<translation id="8443398105049037546">启用剪贴板历史记录</translation>
 <translation id="8444157920689124099">启用应用绑定加密</translation>
 <translation id="8445576299806775661">每次实施完重大版本更新后，Chrome 都会为用户浏览数据的某些部分创建快照，以供日后执行紧急版本回滚时使用。如果对某个版本执行了紧急回滚，且用户拥有与此版本对应的快照，系统便会恢复相应快照中的数据。这就使得用户能够继续拥有自己的书签和自动填充数据等设置。
 
@@ -11871,6 +11958,13 @@ Gemini 只能在部分国家/地区启用，并且仅支持部分语言。设置
 <translation id="8489169564515126823">已停用：滚动条默认不可聚焦。</translation>
 <translation id="8489964335640955763">PluginVm</translation>
 <translation id="8493645415242333585">停用保存浏览器历史记录的功能</translation>
+<translation id="8494605948258449467">此政策用于控制当网页进入往返缓存时，是否断开活跃的 WebSocket 连接。以前，活跃的 WebSocket 连接会阻止网页存储在往返缓存中，但 <ph name="PRODUCT_NAME" /> 已更改此行为，改为断开 WebSocket 连接，从而允许缓存网页并在断开连接的状态下恢复网页。
+
+如果此政策已启用或未设置，当网页进入往返缓存时，WebSocket 会断开连接。
+
+如果此政策已停用，当网页进入往返缓存时，WebSocket 将不会断开连接。由于往返缓存不支持活跃的 WebSocket，这意味着具有活跃 WebSocket 的网页不会被缓存。
+
+此政策已在 <ph name="PRODUCT_NAME" /> 157 版中弃用，并将在 167 版中移除。</translation>
 <translation id="8499172469244085141">默认设置（用户可以覆盖）</translation>
 <translation id="8499359456965625209">此政策已被弃用。
 
@@ -12669,6 +12763,11 @@ Gemini 只能在部分国家/地区启用，并且仅支持部分语言。设置
 <translation id="9015759770696099204">F11/F12 设置已停用</translation>
 <translation id="9015952763003753868">使 <ph name="CORS" /> 预检请求中的 <ph name="ACAM_HEADER_NAME" /> 匹配合乎规范</translation>
 <translation id="9020630127193895800">键盘背光颜色：靛蓝色</translation>
+<translation id="9025073735776703766">此政策用于控制 XSLT 功能（XSLTProcessor JavaScript API 和 XSL 处理指令）的可用性。
+如果此政策已启用，无论浏览器中此功能的默认状态如何，XSLT 都将可用。
+如果此政策已停用，无论浏览器中此功能的默认状态如何，XSLT 都将不可用。
+如果此政策未设置，XSLT 的可用性将由浏览器的默认设置和现场试验决定。
+此政策是一项暂时性措施，将在 M176 中移除。</translation>
 <translation id="9025912013525357598">保留所有媒体类型的 DataURL 空白</translation>
 <translation id="9029815312472546960">禁止在这些网站上使用 Device Attributes API</translation>
 <translation id="9031831501689819108">启用旧版浏览器支持</translation>
@@ -12801,21 +12900,6 @@ Gemini 只能在部分国家/地区启用，并且仅支持部分语言。设置
 <translation id="9122865885571719292">控制 <ph name="PRODUCT_OS_NAME" /> 是否在登录时恢复上次会话以及如何恢复。
 此政策生效的前提是 <ph name="FULL_RESTORE_ENABLED_NAME" /> 政策设为 true。</translation>
 <translation id="9123464369663964441">让用户能够添加例外情况以允许显示混合内容</translation>
-<translation id="9123738611041078443">在 <ph name="PRODUCT_NAME" /> 中配置 <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" /> 的连接设置。
-
-如需配置 <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" />，管理员必须提供以下任一项：
-* <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" /> Web 应用网址 (<ph name="GEMINI_ENTERPRISE_SETTINGS_URL_POLICY_VALUE" />)，或
-* 所有三个旧版参数：<ph name="GEMINI_ENTERPRISE_SETTINGS_PROJECT_ID_POLICY_VALUE" />、<ph name="GEMINI_ENTERPRISE_SETTINGS_APP_ID_POLICY_VALUE" /> 和 <ph name="GEMINI_ENTERPRISE_SETTINGS_LOCATION_POLICY_VALUE" />。如果仅指定这三个参数的部分子集，而不指定网址，则 <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" /> 将保持未配置状态。
-
-<ph name="GEMINI_ENTERPRISE_SETTINGS_URL_POLICY_VALUE" /> 参数必须是使用 https 协议、指向 <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" /> 域名且不包含用户名或密码的有效网址。如果未满足这些要求，系统会忽略此政策，并且 <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" /> 将保持未配置状态。
-
-如果同时配置了 <ph name="GEMINI_ENTERPRISE_SETTINGS_URL_POLICY_VALUE" /> 参数和旧版参数，则以 <ph name="GEMINI_ENTERPRISE_SETTINGS_URL_POLICY_VALUE" /> 参数为准。
-
-如果设置了此政策，系统会为使用受管理账号或受管理浏览器登录的用户配置 <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" />。
-
-如果未设置此政策，系统将不会配置 <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" />。
-
-请注意，此政策不会控制常规的 <ph name="GOOGLE_GEMINI_PRODUCT_NAME" /> 集成，该集成可通过 <ph name="GEMINI_SETTINGS_POLICY_NAME" /> 政策控制。</translation>
 <translation id="9124770007620653639">一律不将网域可靠性数据发送给 Google</translation>
 <translation id="9126331659955304300">允许从本地文件系统、相机和 Google 个人资料中选择用户头像</translation>
 <translation id="9126694586349976283">允许使用内置 AI API。</translation>
@@ -12831,6 +12915,7 @@ Gemini 只能在部分国家/地区启用，并且仅支持部分语言。设置
 <translation id="9133526448421932754">键盘背光颜色：黄色</translation>
 <translation id="9135033364005346124">启用“<ph name="CLOUD_PRINT_NAME" />”代理</translation>
 <translation id="9135095804754272364">在检测到 USB 设备时显示通知</translation>
+<translation id="9135676404321186528">在低信任环境中，移除由政策安装且会覆盖默认搜索引擎或“新标签页”页面设置的扩展程序</translation>
 <translation id="9136212796239682721">停用下载气泡界面</translation>
 <translation id="9136399279941091445">放宽所指定设备政策的非办公时段</translation>
 <translation id="9139775903828905867">控制用于触发 F11 的快捷键</translation>

@@ -1,0 +1,143 @@
+// Copyright 2025 The Chromium Authors
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+{{generated_disclaimer}}
+
+// This needs be be before `apply plugin: ChromiumPlugin` because otherwise we
+// would not have access to it early enough (inside the ResolutionStrategy
+// closure).
+// This map is empty when rolling but is filled by fetch_all.py in the rolled
+// copy of this file so that non-rolling runs (e.g. --output-subdir) reuse the
+// resolved values of all the '+' versions instead of re-resolving.
+project.ext.versionCache = [:]
+{{version_overrides}}
+
+apply plugin: ChromiumPlugin
+
+repositories {
+    google()
+    mavenCentral()
+    // <ANDROIDX_REPO>
+}
+
+dependencies {
+    // Use testCompile to have requires_robolectric = true set on targets.
+    testCompileLatest 'org.robolectric:robolectric:+'
+
+    supportsAndroidCompileLatest 'com.google.guava:guava:+'
+    compileLatest 'org.jetbrains.kotlinx:kotlinx-coroutines-guava:+'
+
+    // Libraries from Google:
+    compileLatest 'com.google.protobuf:protobuf-javalite:+'
+    compileLatest 'com.google.android.libraries.identity.googleid:googleid:+'
+    compileLatest 'com.google.android.material:material:+'
+    compileLatest 'com.google.android.play:app-update:+'
+    compileLatest 'com.google.android.play:feature-delivery:+'
+    compileLatest 'com.google.android.play:review:+'
+    compileLatest 'com.google.mlkit:common:+'
+    compileLatest 'com.google.mlkit:genai-common:+'
+    compileLatest 'com.google.mlkit:genai-prompt:+'
+    androidTestCompileLatest 'com.google.truth:truth:+'
+
+    // A dependency of androidx.xr.runtime:runtime, but must be listed here in
+    // order to be auto-rolled and not manually rolled.
+    compileLatest 'com.google.ar:impress:0.0.12'
+
+    // Play Services & Firebase
+    compileLatest 'com.google.android.gms:play-services-auth-api-phone:+'
+    compileLatest 'com.google.android.gms:play-services-auth-base:18.3.0'
+    compileLatest 'com.google.android.gms:play-services-auth-blockstore:+'
+    compileLatest 'com.google.android.gms:play-services-auth:21.4.0'
+    compileLatest 'com.google.android.gms:play-services-base:+'
+    compileLatest 'com.google.android.gms:play-services-basement:+'
+    // TODO(https://crbug.com/477567669): Compile the latest version once these
+    // packages are fixed.
+    compileLatest 'com.google.android.gms:play-services-cast-framework:22.2.0'
+    compileLatest 'com.google.android.gms:play-services-cast:22.2.0'
+    compileLatest 'com.google.android.gms:play-services-fido:+'
+    compileLatest 'com.google.android.gms:play-services-gcm:+'
+    compileLatest 'com.google.android.gms:play-services-identity-credentials:+'
+    compileLatest 'com.google.android.gms:play-services-iid:+'
+    compileLatest 'com.google.android.gms:play-services-instantapps:+'
+    compileLatest 'com.google.android.gms:play-services-location:+'
+    compileLatest 'com.google.android.gms:play-services-tasks:+'
+    compileLatest 'com.google.android.gms:play-services-time:+'
+    compileLatest 'com.google.android.gms:play-services-vision-common:+'
+    compileLatest 'com.google.android.gms:play-services-vision:+'
+    compileLatest 'com.google.firebase:firebase-messaging:+'
+    compileLatest 'com.google.firebase:firebase-common:+'
+    compileLatest 'com.google.firebase:firebase-installations:+'
+
+    // Other libraries
+    compileLatest 'com.airbnb.android:lottie:+'
+    compileLatest 'com.google.errorprone:error_prone_annotations:+'
+    testCompileLatest 'com.google.errorprone:error_prone_test_helpers:+'
+    compileLatest 'org.jspecify:jspecify:+'
+    compileLatest 'javax.inject:javax.inject:+'
+    compileLatest 'javax.annotation:javax.annotation-api:+'
+    compileLatest 'com.squareup.leakcanary:leakcanary-android:+'
+    compileLatest 'com.squareup.leakcanary:leakcanary-android-core:+'
+    compileLatest 'com.squareup.leakcanary:shark:+'
+    compileLatest 'com.squareup.leakcanary:shark-android:+'
+    androidTestCompileLatest 'com.squareup.leakcanary:leakcanary-android-instrumentation:+'
+    buildCompileLatest 'org.ow2.asm:asm:+'
+    buildCompileLatest 'org.ow2.asm:asm-commons:+'
+    buildCompileLatest 'com.android.extensions.xr:extensions-xr:+'
+
+    // Needed by internal targets
+    supportsAndroidCompileLatest 'com.google.auto.service:auto-service-annotations:+'
+    supportsAndroidCompileLatest 'com.google.code.findbugs:jsr305:+'
+    supportsAndroidCompileLatest 'com.google.j2objc:j2objc-annotations:+'
+    supportsAndroidCompileLatest 'com.squareup.okio:okio-jvm:+'
+    compileLatest 'io.grpc:grpc-api:+'
+    compileLatest 'io.grpc:grpc-stub:+'
+    supportsAndroidCompileLatest 'io.reactivex.rxjava2:rxandroid:+'
+    supportsAndroidCompileLatest 'org.checkerframework:checker-qual:+'
+    supportsAndroidCompileLatest 'org.checkerframework:checker-util:+'
+    supportsAndroidCompileLatest 'org.codehaus.mojo:animal-sniffer-annotations:+'
+    supportsAndroidCompileLatest 'org.jetbrains.kotlinx:atomicfu-jvm:+'
+    supportsAndroidCompileLatest 'org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:+'
+    supportsAndroidCompileLatest 'org.reactivestreams:reactive-streams:+'
+    compileLatest 'org.jetbrains.kotlinx:kotlinx-coroutines-android:+'
+
+    // Needed by androidx and by doubledown targets. Pinned; version must
+    // match the resolveVersion overrides in ChromiumDepGraph.groovy.
+    compileLatest 'org.jetbrains.kotlinx:kotlinx-serialization-core-jvm:1.7.3'
+    compileLatest 'org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3'
+
+    // Pinned; migrated from //third_party/android_deps (crbug.com/562517138).
+    androidTestCompileLatest 'com.google.android.apps.common.testing.accessibility.framework:accessibility-test-framework:4.0.0'
+    androidTestCompileLatest 'com.googlecode.java-diff-utils:diffutils:1.3.0'
+    // Version 1.2 is needed by espresso-web, but we'll newer 1.2.1.
+    androidTestCompileLatest 'org.ccil.cowan.tagsoup:tagsoup:1.2.1'
+
+    androidTestCompileLatest 'org.mockito:mockito-android:5.19.0'
+    androidTestCompileLatest 'org.mockito:mockito-core:5.19.0'
+    androidTestCompileLatest 'org.mockito:mockito-subclass:5.19.0'
+
+    // Declared as a top-level dep so that //third_party/byte_buddy can depend
+    // on it. The version must match the byte-buddy that mockito depends on
+    // (see byte-buddy-agent / byte-buddy-android), otherwise gradle resolves
+    // to the higher of the two anyway.
+    androidTestCompileLatest 'net.bytebuddy:byte-buddy:1.17.6'
+
+    // Needed by androidx and by doubledown targets.
+    compileLatest 'org.jetbrains.kotlin:kotlin-parcelize-runtime:1.9.22'
+
+    // Used by resource shrinking.
+    // buildCompileNoDepsLatest targets do not bring in any of their
+    // dependencies, this list of targets is carefully curated for the use of
+    // the resources shrinker. If these are needed for something other than the
+    // resources shrinker, use buildCompileLatest instead.
+    buildCompileNoDepsLatest 'com.android.tools:sdk-common:30.2.0-beta01'
+    buildCompileNoDepsLatest 'com.android.tools:common:30.2.0-beta01'
+    buildCompileNoDepsLatest 'com.android.tools.layoutlib:layoutlib-api:30.2.0-beta01'
+}
+
+task setUpRepository(type: BuildConfigGenerator) {
+    pathToBuildGradle = 'third_party/android_deps'
+    cipdPackagePrefix = 'chromium/third_party/android_deps/autorolled'
+    internalTargetVisibility = [ '//third_party/androidx:*', ':*' ]
+    writeBoM = true
+}

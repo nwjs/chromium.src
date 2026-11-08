@@ -17,7 +17,6 @@
 #include "base/functional/callback_helpers.h"
 #include "base/json/json_reader.h"
 #include "base/json/json_string_value_serializer.h"
-#include "base/metrics/histogram_macros.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/task_traits.h"
 #include "base/thread_annotations.h"
@@ -46,16 +45,6 @@ namespace {
 // existing entries get an empty NetworkAnonymizationKey value.
 const int kCurrentVersionNumber = 2;
 const int kCompatibleVersionNumber = 2;
-
-// Histogram names
-const char kNumberOfLoadedNelPoliciesHistogramName[] =
-    "ReportingAndNEL.NumberOfLoadedNELPolicies";
-const char kNumberOfLoadedNelPolicies2HistogramName[] =
-    "ReportingAndNEL.NumberOfLoadedNELPolicies2";
-const char kNumberOfLoadedReportingEndpoints2HistogramName[] =
-    "ReportingAndNEL.NumberOfLoadedReportingEndpoints2";
-const char kNumberOfLoadedReportingEndpointGroups2HistogramName[] =
-    "ReportingAndNEL.NumberOfLoadedReportingEndpointGroups2";
 }  // namespace
 
 base::TaskPriority GetReportingAndNelStoreBackgroundSequencePriority() {
@@ -237,7 +226,7 @@ class SQLitePersistentReportingAndNelStore::Backend
       NelPoliciesLoadedCallback loaded_callback);
 
   // Calls |loaded_callback| with the loaded NEL policies (which may be empty if
-  // loading was unsuccessful). If loading was successful, also report metrics.
+  // loading was unsuccessful).
   void CompleteLoadNelPoliciesAndNotifyInForeground(
       NelPoliciesLoadedCallback loaded_callback,
       std::vector<NetworkErrorLoggingService::NelPolicy> loaded_policies,
@@ -250,17 +239,12 @@ class SQLitePersistentReportingAndNelStore::Backend
       ReportingClientsLoadedCallback loaded_callback);
 
   // Calls |loaded_callback| with the loaded endpoints and endpoint groups
-  // (which may be empty if loading was unsuccessful). If loading was
-  // successful, also report metrics.
+  // (which may be empty if loading was unsuccessful).
   void CompleteLoadReportingClientsAndNotifyInForeground(
       ReportingClientsLoadedCallback loaded_callback,
       std::vector<ReportingEndpoint> loaded_endpoints,
       std::vector<CachedReportingEndpointGroup> loaded_endpoint_groups,
       bool load_success);
-
-  void RecordNumberOfLoadedNelPolicies(size_t count);
-  void RecordNumberOfLoadedReportingEndpoints(size_t count);
-  void RecordNumberOfLoadedReportingEndpointGroups(size_t count);
 
   // Total number of pending operations (may not match the sum of the number of
   // elements in the pending operations queues, due to operation coalescing).
@@ -1331,11 +1315,7 @@ void SQLitePersistentReportingAndNelStore::Backend::
         bool load_success) {
   DCHECK(client_task_runner()->RunsTasksInCurrentSequence());
 
-  if (load_success) {
-    RecordNumberOfLoadedNelPolicies(loaded_policies.size());
-  } else {
-    DCHECK(loaded_policies.empty());
-  }
+  DCHECK(load_success || loaded_policies.empty());
 
   std::move(loaded_callback).Run(std::move(loaded_policies));
 }
@@ -1451,41 +1431,11 @@ void SQLitePersistentReportingAndNelStore::Backend::
         bool load_success) {
   DCHECK(client_task_runner()->RunsTasksInCurrentSequence());
 
-  if (load_success) {
-    RecordNumberOfLoadedReportingEndpoints(loaded_endpoints.size());
-    RecordNumberOfLoadedReportingEndpointGroups(loaded_endpoint_groups.size());
-  } else {
-    DCHECK(loaded_endpoints.empty());
-    DCHECK(loaded_endpoint_groups.empty());
-  }
+  DCHECK(load_success || loaded_endpoints.empty());
+  DCHECK(load_success || loaded_endpoint_groups.empty());
 
   std::move(loaded_callback)
       .Run(std::move(loaded_endpoints), std::move(loaded_endpoint_groups));
-}
-
-void SQLitePersistentReportingAndNelStore::Backend::
-    RecordNumberOfLoadedNelPolicies(size_t count) {
-  // The NetworkErrorLoggingService stores up to 1000 policies.
-  UMA_HISTOGRAM_COUNTS_1000(kNumberOfLoadedNelPoliciesHistogramName, count);
-  // TODO(crbug.com/40054414): Remove this metric once the investigation is
-  // done.
-  UMA_HISTOGRAM_COUNTS_10000(kNumberOfLoadedNelPolicies2HistogramName, count);
-}
-
-void SQLitePersistentReportingAndNelStore::Backend::
-    RecordNumberOfLoadedReportingEndpoints(size_t count) {
-  // TODO(crbug.com/40054414): Remove this metric once the investigation is
-  // done.
-  UMA_HISTOGRAM_COUNTS_10000(kNumberOfLoadedReportingEndpoints2HistogramName,
-                             count);
-}
-
-void SQLitePersistentReportingAndNelStore::Backend::
-    RecordNumberOfLoadedReportingEndpointGroups(size_t count) {
-  // TODO(crbug.com/40054414): Remove this metric once the investigation is
-  // done.
-  UMA_HISTOGRAM_COUNTS_10000(
-      kNumberOfLoadedReportingEndpointGroups2HistogramName, count);
 }
 
 SQLitePersistentReportingAndNelStore::SQLitePersistentReportingAndNelStore(

@@ -30,6 +30,7 @@ Es posible que algunas funciones no estén disponibles y que no se guarden los c
 <translation id="1194807384646768652">Chrome ha bloqueado esta descarga porque el tipo de archivo no se descarga habitualmente y podría ser peligroso</translation>
 <translation id="1197860368385086056">La próxima vez que abras Chrome en tu <ph name="DEVICE_TYPE" />, verás una petición para habilitar las alertas de seguimiento de precios.</translation>
 <translation id="1203500561924088507">Gracias por realizar la instalación. Debes reiniciar tu navegador para poder usar <ph name="BUNDLE_NAME" />.</translation>
+<translation id="122321322139970942">Hay una <ph name="IMPORTANT_UPDATE" /> pendiente. Para protegerte mientras navegas, Chrome se actualizará la próxima vez que no lo uses durante <ph name="IDLE_DURATION" />.</translation>
 <translation id="1226003169284463347">Para acceder a tus marcadores y otros elementos en todos tus dispositivos, inicia sesión en Chrome</translation>
 <translation id="1278833599417554002">Reiniciar para actualizar &amp;Chrome</translation>
 <translation id="1289911795790071537">Abrir la búsqueda con Chrome</translation>
@@ -202,6 +203,7 @@ Si esta página no funciona correctamente, prueba a permitir la optimización.</
 <translation id="2857540653560290388">Iniciando Chrome...</translation>
 <translation id="286025080868315611">Averigua por qué bloquea Chrome algunas descargas</translation>
 <translation id="2861074815332034794">Actualizando Chrome (<ph name="PROGRESS_PERCENT" />)</translation>
+<translation id="2869959624320573933">Inicia sesión en Chrome</translation>
 <translation id="2875053229394024379">Si inicias sesión en Chrome con tu cuenta de Google, podrás usar tu perfil de Chrome con Gemini. <ph name="BEGIN_LINK" />Consulta cómo iniciar sesión en Chrome<ph name="END_LINK" />.</translation>
 <translation id="2876628302275096482">Más información sobre <ph name="BEGIN_LINK" />cómo protege Chrome la privacidad de tus datos<ph name="END_LINK" /></translation>
 <translation id="2885378588091291677">Administrador de tareas</translation>
@@ -302,6 +304,7 @@ Si esta página no funciona correctamente, prueba a permitir la optimización.</
 <translation id="3795971588916395511">Google ChromeOS</translation>
 <translation id="3809772425479558446">Google Chrome requiere Windows 10 o una versión posterior.</translation>
 <translation id="3810973564298564668">Gestionar</translation>
+<translation id="383455301564000773">¿Vas a actualizar a Windows 11? Descarga Chrome en OneDrive para que todo esté listo desde el primer día.</translation>
 <translation id="383928141529488001">Google Chrome necesita acceso al Bluetooth para buscar 
  dispositivos Bluetooth. <ph name="IDS_SERIAL_DEVICE_CHOOSER_AUTHORIZE_BLUETOOTH_LINK" /></translation>
 <translation id="3846683726093018685">**Resumir:** en una sola frase de menos de 30 palabras, describe el tema principal y la finalidad del contenido de la captura de pantalla.
@@ -329,7 +332,6 @@ Si esta página no funciona correctamente, prueba a permitir la optimización.</
 <translation id="4050175100176540509">En la última versión puedes encontrar mejoras de seguridad importantes y nuevas funciones.</translation>
 <translation id="4053720452172726777">Personaliza y controla Google Chrome</translation>
 <translation id="408393047846373801">Para acceder a tus contraseñas y más en todos tus dispositivos, inicia sesión en Chrome. Esta contraseña se guardará en tu cuenta de Google cuando inicies sesión.</translation>
-<translation id="409936259433005390">¿Vas a actualizar a Windows 11 pronto? Descarga el instalador de Chrome en OneDrive para que todo esté listo desde el primer día.</translation>
 <translation id="4102173024714616627">Las extensiones son complementos que te permiten personalizar Chrome. Las extensiones te ayudan a mantener el orden y simplificar las tareas cotidianas, entre otras cosas, para que puedas personalizar Chrome a tu gusto.</translation>
 <translation id="4110895483821904099">Configura tu nuevo perfil de Chrome</translation>
 <translation id="4111566860456076004">Chrome no puede verificar el origen de esta extensión y podría no ser segura. Elimínala de Chrome para que no pueda ver ni cambiar tus datos en los sitios que visites, incluida tu información personal.</translation>
@@ -501,12 +503,12 @@ Google Chrome no puede recuperar tu configuración.</translation>
 <translation id="5899008323405946573">Usa las mejores herramientas de IA de Google con la aplicación Chrome en tu teléfono</translation>
 <translation id="5903106910045431592"><ph name="PAGE_TITLE" />, inicio de sesión en la red</translation>
 <translation id="5924017743176219022">Conectando a Internet...</translation>
-<translation id="5925596746603389877">Descargar instalador de Chrome</translation>
 <translation id="5940385492829620908">Aquí puedes encontrar tus páginas web, tus marcadores y otros contenidos de Chrome.</translation>
 <translation id="5941711191222866238">Minimizar</translation>
 <translation id="5941830788786076944">Establecer Google Chrome como navegador predeterminado</translation>
 <translation id="5947104538377036631">Acceso directo de Chrome</translation>
 <translation id="5960071705175224773">Una aplicación desconocida ha cambiado tu configuración</translation>
+<translation id="5960404530854194706">Chrome se actualizará cuando no estés usando el dispositivo</translation>
 <translation id="5980111191913430208">Las extensiones, las aplicaciones y los temas de fuentes desconocidas pueden dañar tu dispositivo. Chrome recomienda instalarlos únicamente desde <ph name="IDS_EXTENSION_WEB_STORE_TITLE" />.</translation>
 <translation id="6003112304606738118">Descargando... Horas restantes: <ph name="HOURS" />.</translation>
 <translation id="6008161919456049856">Las contraseñas, los métodos de pago y las direcciones que hayas guardado en tu cuenta de Google se eliminarán de este dispositivo. Para usarlos de nuevo en Chromium, vuelve a iniciar sesión.</translation>
@@ -563,6 +565,7 @@ Google Chrome no puede recuperar tu configuración.</translation>
 <translation id="6360449101159168105">Mientras esta pestaña estaba inactiva, se ha liberado memoria para que Chrome siga funcionando rápido. Si quieres, puedes excluir este sitio para que no pueda estar inactivo.</translation>
 <translation id="6362984640667950211">Ya has iniciado sesión con <ph name="EXISTING_USER" />. Para mantener tu información de navegación aparte, inicia sesión en Chrome con tu perfil de <ph name="USER_EMAIL_ADDRESS" />. También tendrás tu lista de lectura y otra información en todos tus dispositivos.</translation>
 <translation id="6388799252195623474">ayúdame con esto</translation>
+<translation id="6401458660421980302">Para enviar esta pestaña a otro dispositivo, inicia sesión en Chrome en ese dispositivo</translation>
 <translation id="6412673304250309937">Comprueba las URL guardadas en Chrome con una lista de sitios que no son seguros. Si un sitio web intenta robarte la contraseña o te descargas un archivo dañino, puede que Chrome también envíe URL, así como fragmentos de contenido de la página, a Navegación segura.</translation>
 <translation id="6417690341895039567">{COUNT,plural, =1{Tu organización cerrará Chrome automáticamente cuando lleve 1 minuto sin usarse. Los datos de navegación se eliminarán. Esto podría incluir el historial, los datos de Autocompletar y las descargas.}other{Tu organización cerrará Chrome automáticamente cuando lleve # minutos sin usarse. Los datos de navegación se eliminarán. Esto podría incluir el historial, los datos de Autocompletar y las descargas.}}</translation>
 <translation id="6418662306461808273">¿Cambiar a un perfil de Chrome?</translation>
@@ -589,8 +592,10 @@ Google Chrome no puede recuperar tu configuración.</translation>
 <translation id="6556755379298048869">Busca con una combinación de teclas.</translation>
 <translation id="6585124893636629274">Cerrar Gemini en Chrome</translation>
 <translation id="659498884637196217">En el Gestor de contraseñas de Google de este dispositivo</translation>
+<translation id="660312897435669152">Chrome quiere actualizarse</translation>
 <translation id="6612152958212564387">No estás enviando estadísticas de uso ni informes sobre fallos a Google. <ph name="BEGIN_LINK" />Gestionar<ph name="END_LINK" /></translation>
 <translation id="6613949864921837107">Mantén tus contraseñas, marcadores e historial perfectamente sincronizados en todos tus dispositivos configurando Chrome como navegador predeterminado.</translation>
+<translation id="6621391692573306628">Para enviar esta pestaña a otro dispositivo, inicia sesión en Chrome en ambos dispositivos</translation>
 <translation id="6631524303639368205">Continúa por donde lo dejaste: Chrome ha restaurado las pestañas de tu última sesión. Puedes desactivar esta opción en</translation>
 <translation id="6632012506031284914">para buscar con Chrome.</translation>
 <translation id="6632473616050862500">ChromeOS Flex se ha creado gracias a <ph name="BEGIN_LINK_CROS_OSS" />software libre<ph name="END_LINK_CROS_OSS" /> adicional.</translation>
@@ -778,6 +783,7 @@ Google Chrome no puede recuperar tu configuración.</translation>
 <translation id="8260086374035800939">Si Gemini en Chrome está abierto, el panel lateral permanece abierto al crear nuevas pestañas</translation>
 <translation id="8267953129876836456">Chrome ha encontrado algunas recomendaciones de seguridad para que las revises</translation>
 <translation id="8286862437124483331">Google Chrome está intentando mostrar contraseñas. Para permitirlo, escribe tu contraseña de Windows.</translation>
+<translation id="8291415872436043161">Descarga Chrome</translation>
 <translation id="829923460755755423">Añade un acceso directo al Gestor de contraseñas de Google</translation>
 <translation id="8313851650939857356">Error de arranque: <ph name="STARTUP_ERROR" />.</translation>
 <translation id="8321888067342493336">Guardar como imagen</translation>

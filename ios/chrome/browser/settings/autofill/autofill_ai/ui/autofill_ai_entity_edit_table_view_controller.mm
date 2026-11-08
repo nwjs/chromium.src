@@ -6,6 +6,7 @@
 
 #import "base/apple/foundation_util.h"
 #import "base/strings/sys_string_conversions.h"
+#import "components/autofill/core/browser/integrators/autofill_ai/metrics/autofill_ai_metrics.h"
 #import "components/strings/grit/components_strings.h"
 #import "ios/chrome/browser/autofill/autofill_ai/public/autofill_ai_constants.h"
 #import "ios/chrome/browser/autofill/autofill_ai/public/autofill_ai_ui_util.h"
@@ -50,6 +51,16 @@ typedef NS_ENUM(NSInteger, SectionIdentifier) {
 typedef NS_ENUM(NSInteger, ItemType) {
   ItemTypeFooter = kItemTypeEnumZero,
 };
+
+// Returns whether `urls` contains an entry matching `target_url`.
+bool ContainsURL(NSArray<CrURL*>* urls, const GURL& target_url) {
+  for (CrURL* url in urls) {
+    if (url.gurl == target_url) {
+      return true;
+    }
+  }
+  return false;
+}
 }  // namespace
 
 @interface AutofillAIEntityEditTableViewController () <
@@ -72,6 +83,12 @@ typedef NS_ENUM(NSInteger, ItemType) {
 
   // Legal message lines to display in the footer.
   NSArray<AutofillLegalMessageLine*>* _legalMessages;
+
+  // URLs from the legal message lines displayed in the footer.
+  NSArray<CrURL*>* _legalMessageURLs;
+
+  // Whether `kLegalMessageShown` has already been logged for this presentation.
+  BOOL _hasLoggedLegalMessageShown;
 
   // The bottom save button displayed when creating a new entity.
   ChromeButton* _saveButton;
@@ -260,21 +277,24 @@ typedef NS_ENUM(NSInteger, ItemType) {
   if (_titleText.length > 0) {
     [self setTitle:_titleText];
   }
+  [self reloadFooterIfNotVisible];
 }
 
 - (void)setUserEmail:(NSString*)userEmail {
   _userEmail = [userEmail copy];
+  [self reloadFooterIfNotVisible];
 }
 
 // Sets the legal messages to be displayed in the footer.
-// Note: This does not dynamically reload the footer if the view is already
-// loaded, intentionally preventing legal disclosures from jarringly appearing
-// mid-session (e.g. while the user is typing or scrolling). Re-entering the
-// view (e.g. closing and tapping "+Add" again) creates a brand new
-// `UIViewController` instance, so the updated legal messages will be cleanly
-// rendered during the next presentation's initial `loadModel`.
+// Note: Like the other footer inputs, this does not reload the footer once the
+// view is on screen, intentionally preventing legal disclosures from jarringly
+// appearing mid-session (e.g. while the user is typing or scrolling).
+// Re-entering the view (e.g. closing and tapping "+Add" again) creates a brand
+// new `UIViewController` instance, so the updated legal messages will be
+// cleanly rendered during the next presentation.
 - (void)setLegalMessages:(NSArray<AutofillLegalMessageLine*>*)legalMessages {
   _legalMessages = [legalMessages copy];
+  [self reloadFooterIfNotVisible];
 }
 
 - (void)updateItem:(TableViewItem*)item {
@@ -606,6 +626,11 @@ typedef NS_ENUM(NSInteger, ItemType) {
 #pragma mark - TableViewLinkHeaderFooterItemDelegate
 
 - (void)view:(TableViewLinkHeaderFooterView*)view didTapLinkURL:(CrURL*)URL {
+  if (ContainsURL(_legalMessageURLs, URL.gurl)) {
+    autofill::LogWalletNoticeFunnelEvent(
+        autofill::AutofillAiWalletNoticeFunnelEvents::kLinkClicked,
+        /*in_settings=*/true);
+  }
   [self.delegate didTapLinkWithURL:URL];
 }
 
@@ -850,27 +875,52 @@ typedef NS_ENUM(NSInteger, ItemType) {
   return autofill::GetSaveEntityToWalletFooterText(_userEmail);
 }
 
-// Creates and configures the footer item based on current model data.
-// TODO(crbug.com/560036149): Dynamically reload the table view footer. Any
-// property contributing to `createFooterItem`, such as `_isServerWalletItem`,
-// `_userEmail` and `_legalMessages`, must ensure the footer reflects its
-// updated state. Such a change must preserve the deliberate behavior documented
-// on `setLegalMessages:`, which keeps disclosures from appearing mid-session.
+// Rebuilds the footer so it reflects the latest footer inputs, without touching
+// the attributes section. This keeps the footer correct regardless of the order
+// in which the mediator calls the consumer setters. Skipped before the view is
+// loaded, since `loadModel` builds the footer from the latest inputs anyway,
+// and once the view is on screen, so that the footer (notably the legal
+// disclosures) never changes under the user mid-session.
+- (void)reloadFooterIfNotVisible {
+  if (!self.isViewLoaded || self.view.window) {
+    return;
+  }
+
+  TableViewModel* model = self.tableViewModel;
+  if (![model hasSectionForSectionIdentifier:SectionIdentifierFooter]) {
+    return;
+  }
+
+  [model setFooter:[self createFooterItem]
+      forSectionWithIdentifier:SectionIdentifierFooter];
+  NSInteger footerSectionIndex =
+      [model sectionForSectionIdentifier:SectionIdentifierFooter];
+  [self.tableView
+        reloadSections:[NSIndexSet indexSetWithIndex:footerSectionIndex]
+      withRowAnimation:UITableViewRowAnimationNone];
+}
+
+// Creates and configures the footer item based on current model data. Any
+// setter of a property contributing to it, such as `_isServerWalletItem`,
+// `_userEmail` and `_legalMessages`, must call `reloadFooterIfNotVisible`.
 - (TableViewLinkHeaderFooterItem*)createFooterItem {
   // `urls` must be filled in the same order the links appear in the text, so
   // the storage notice is built before the disclosure legal messages.
   NSMutableArray<CrURL*>* urls = [NSMutableArray array];
   NSString* storageNoticeText = [self textForStorageNoticeAppendingURLsTo:urls];
 
+  NSMutableArray<CrURL*>* legalMessageURLs = [NSMutableArray array];
   NSMutableArray<NSString*>* disclosureLegalMessageTexts =
       [NSMutableArray array];
   for (AutofillLegalMessageLine* disclosureLegalMessage in _legalMessages) {
     NSString* lineText = autofill::TextForDisclosureLegalMessageAppendingURLsTo(
-        disclosureLegalMessage, urls);
+        disclosureLegalMessage, legalMessageURLs);
     if (lineText.length > 0) {
       [disclosureLegalMessageTexts addObject:lineText];
     }
   }
+  [urls addObjectsFromArray:legalMessageURLs];
+  _legalMessageURLs = legalMessageURLs;
 
   // The disclosure legal messages form a single block, separated from the
   // storage notice by a blank line.
@@ -889,6 +939,12 @@ typedef NS_ENUM(NSInteger, ItemType) {
   footer.text = text;
   footer.urls = urls;
   if (hasLegalMessages) {
+    if (!_hasLoggedLegalMessageShown) {
+      _hasLoggedLegalMessageShown = YES;
+      autofill::LogWalletNoticeFunnelEvent(
+          autofill::AutofillAiWalletNoticeFunnelEvents::kLegalMessageShown,
+          /*in_settings=*/true);
+    }
     footer.accessibilityIdentifier = kAutofillAISaveEntityLegalDisclosureId;
   }
   return footer;

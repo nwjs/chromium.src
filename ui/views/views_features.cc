@@ -25,6 +25,12 @@ BASE_FEATURE(kAllowWindowCaptureExclusionInRemoteSessions,
 // stable.
 BASE_FEATURE(kApplyInitialUrlToWebContents, base::FEATURE_ENABLED_BY_DEFAULT);
 
+// When enabled, drag and drop is only enabled for widgets that accept drag and
+// drop and require drag and drop support (e.g. not tooltips, popups, or
+// widgets where accept_events is false).
+BASE_FEATURE(kDisableDragDropForUnneededWidgets,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Enables input protection by blocking interaction with views that are
 // currently or were recently obscured by always-on-top windows, and prevents
 // unintended events on security-sensitive UI that appears and activates
@@ -54,6 +60,20 @@ BASE_FEATURE(kKeyboardAccessibleTooltipInViews,
 BASE_FEATURE(kNativeViewHostManagesLayers, base::FEATURE_ENABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_MAC)
+// When enabled, focusing a View in an inactive Widget makes the Widget's window
+// key (i.e. activates it), matching the behavior on other platforms. This is a
+// kill switch, see crbug.com/40486728.
+// TODO(crbug.com/40486728): Remove this flag once the behavior is stable.
+BASE_FEATURE(kMacActivateWidgetOnFocusRequest,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+// When enabled, tell the browser compositor when the window is on an inactive
+// space, to allow it to reclaim resources. Should be enabled alongside
+// `features::kDetectSpaceChangeViaOcclusion` so that windows become visible
+// immediately during interactive space swipe gestures.
+BASE_FEATURE(kNotifyCompositorOfSpaceVisibilityOnMacOs,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // When enabled, tell the browser compositor when the window is hidden, to allow
 // it to reclaim resources.
 BASE_FEATURE(kNotifyCompositorOfWindowVisibilityOnMacOs,

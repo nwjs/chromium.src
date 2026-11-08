@@ -4,6 +4,7 @@
 
 #include "third_party/blink/renderer/core/frame/csp/content_security_policy.h"
 
+#include "base/memory/raw_ptr_exclusion.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/with_feature_override.h"
@@ -603,7 +604,8 @@ TEST_F(ContentSecurityPolicyTest, NonceMultiplePolicy) {
 TEST_F(ContentSecurityPolicyTest, DirectiveType) {
   struct TestCase {
     CSPDirectiveName type;
-    const String& name;
+    // RAW_PTR_EXCLUSION: Stack-scoped.
+    RAW_PTR_EXCLUSION const String& name;
   } cases[] = {
       {CSPDirectiveName::BaseURI, "base-uri"},
       {CSPDirectiveName::BlockAllMixedContent, "block-all-mixed-content"},
@@ -2000,6 +2002,46 @@ TEST_F(ContentSecurityPolicyTest, AddHashReportSanitization) {
   // This expectation will also FAIL if url is not sanitized (fragment will
   // remain).
   EXPECT_EQ("https://example.test/script.js", body->subresourceURL());
+}
+
+TEST_F(ContentSecurityPolicyTest, ReportViolationBypassingScheme) {
+  SchemeRegistry::RegisterURLSchemeAsBypassingContentSecurityPolicy(
+      "chrome-extension");
+
+  auto* policy = MakeGarbageCollected<ContentSecurityPolicy>();
+  policy->BindToDelegate(execution_context->GetContentSecurityPolicyDelegate());
+  policy->AddPolicies(ParseContentSecurityPolicies(
+      "script-src 'none'", ContentSecurityPolicyType::kEnforce,
+      ContentSecurityPolicySource::kHTTP, *secure_origin));
+
+  const KURL chrome_extension_url("chrome-extension://abcdefg/script.js");
+  SourceLocation* source_location = MakeGarbageCollected<SourceLocation>(
+      chrome_extension_url.GetString(), String(), 1, 1, nullptr);
+
+  // Trigger a CSP violation report for a chrome-extension resource in
+  // example.test. The report should be dropped.
+  execution_context->SetURL(KURL("https://example.test"));
+  policy->ReportViolation(
+      "script-src 'none'", CSPDirectiveName::ScriptSrc, "Blocked", KURL(),
+      Vector<String>(), false, "script-src 'none'",
+      ContentSecurityPolicyType::kEnforce,
+      ContentSecurityPolicyViolationType::kInlineViolation, source_location);
+
+  EXPECT_EQ(0u, policy->violation_reports_sent_.size());
+
+  // Trigger a CSP violation report for a chrome-extension resource in
+  // chrome-extension itself. Now the report should be sent.
+  execution_context->SetURL(KURL("chrome-extension://abcdefg"));
+  policy->ReportViolation(
+      "script-src 'none'", CSPDirectiveName::ScriptSrc, "Blocked", KURL(),
+      Vector<String>(), false, "script-src 'none'",
+      ContentSecurityPolicyType::kEnforce,
+      ContentSecurityPolicyViolationType::kInlineViolation, source_location);
+  EXPECT_EQ(1u, policy->violation_reports_sent_.size());
+
+  SchemeRegistry::
+      RemoveURLSchemeRegisteredAsBypassingContentSecurityPolicyForTest(
+          "chrome-extension");
 }
 
 }  // namespace blink

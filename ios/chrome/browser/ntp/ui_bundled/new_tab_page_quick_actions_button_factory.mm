@@ -20,6 +20,7 @@
 namespace {
 
 using ntp_tiles::AimButtonRefactorArm;
+using ntp_tiles::GetAimButtonRefactorArm;
 
 // The border radius for a quick action button.
 constexpr CGFloat kButtonCornerRadius = 24.0;
@@ -39,7 +40,7 @@ NSString* const kFakeboxMatchingBackgroundColor =
 
 // Returns the point size for the symbol in a Quick Action button.
 CGFloat SymbolPointSizeForButton(BOOL has_title) {
-  AimButtonRefactorArm arm = ntp_tiles::GetAimButtonRefactorArm();
+  AimButtonRefactorArm arm = GetAimButtonRefactorArm();
   BOOL ai_merchandising_chips_enabled =
       arm == AimButtonRefactorArm::kImageGenerationQuickAction ||
       arm == AimButtonRefactorArm::kAttachImageQuickAction;
@@ -129,27 +130,31 @@ UIButton* CreateQuickActionButton(UIImage* image, NSString* title) {
 
 @implementation NewTabPageQuickActionsButtonFactory
 
-+ (UIButton*)aimButtonWithTitle:(NSString*)title icon:(UIImage*)icon {
-  // TODO(crbug.com/549020046): Add an accessibility label to this button.
++ (UIButton*)aimButtonWithTitle:(NSString*)title
+                           icon:(UIImage*)icon
+             accessibilityLabel:(NSString*)accessibilityLabel {
   UIButton* aimButton = CreateQuickActionButton(icon, title);
   aimButton.accessibilityIdentifier = kNTPAIMQuickActionIdentifier;
+  aimButton.accessibilityLabel = accessibilityLabel;
   return aimButton;
 }
 
 + (void)updateButton:(UIButton*)button
-           withTitle:(NSString*)title
-                icon:(UIImage*)icon {
+             withTitle:(NSString*)title
+                  icon:(UIImage*)icon
+    accessibilityLabel:(NSString*)accessibilityLabel {
   if (!button) {
     return;
   }
   UIButtonConfiguration* configuration = button.configuration;
   ConfigureButtonTitleAndIcon(configuration, icon, title);
   button.configuration = configuration;
+  button.accessibilityLabel = accessibilityLabel;
 }
 
 + (UIButton*)aimImageGenerationButton {
-  CHECK_EQ(ntp_tiles::GetAimButtonRefactorArm(),
-           ntp_tiles::AimButtonRefactorArm::kImageGenerationQuickAction);
+  CHECK_EQ(GetAimButtonRefactorArm(),
+           AimButtonRefactorArm::kImageGenerationQuickAction);
   // TODO(crbug.com/549020046): Add an accessibility label to this button.
   UIImage* icon =
       QuickActionButtonIconWithSymbol(SymbolImageCreate, /*has_title=*/false);
@@ -161,8 +166,9 @@ UIButton* CreateQuickActionButton(UIImage* image, NSString* title) {
 }
 
 + (UIButton*)aimAttachImageButton {
-  CHECK_EQ(ntp_tiles::GetAimButtonRefactorArm(),
-           ntp_tiles::AimButtonRefactorArm::kAttachImageQuickAction);
+  AimButtonRefactorArm arm = GetAimButtonRefactorArm();
+  CHECK(arm == AimButtonRefactorArm::kAttachImageQuickAction ||
+        arm == AimButtonRefactorArm::kImageGenerationQuickAction);
   // TODO(crbug.com/549020046): Add an accessibility label to this button.
   UIImage* icon = QuickActionButtonIconWithSymbol(SymbolPhotoBadgePlus,
                                                   /*has_title=*/false);

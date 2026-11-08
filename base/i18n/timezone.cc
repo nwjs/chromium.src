@@ -8,6 +8,7 @@
 #include <string>
 
 #include "base/check.h"
+#include "base/features.h"
 #include "base/i18n/icu4c_tag_converter.h"  // nogncheck
 #include "base/i18n/language_tag.h"
 #include "base/i18n/unicodestring.h"
@@ -98,11 +99,19 @@ TimeZone TimeZone::FromString(std::string_view id) {
 
 // static
 TimeZone TimeZone::GMT() {
+  if (features::IsI18nOptimizationsEnabled()) {
+    return TimeZone(std::make_unique<Impl>(
+        base::WrapUnique(icu::TimeZone::getGMT()->clone())));
+  }
   return FromString("GMT");
 }
 
 // static
 TimeZone TimeZone::Unknown() {
+  if (features::IsI18nOptimizationsEnabled()) {
+    return TimeZone(std::make_unique<Impl>(
+        base::WrapUnique(icu::TimeZone::getUnknown().clone())));
+  }
   return FromString("Etc/Unknown");
 }
 
@@ -162,6 +171,11 @@ void TimeZone::GetOffset(base::Time time,
                          bool is_local,
                          base::TimeDelta& raw_offset,
                          base::TimeDelta& dst_offset) const {
+  if (time.is_inf()) {
+    raw_offset = GetRawOffset();
+    dst_offset = base::TimeDelta();
+    return;
+  }
   int32_t raw_ms = 0;
   int32_t dst_ms = 0;
   UErrorCode status = U_ZERO_ERROR;
@@ -177,6 +191,9 @@ bool TimeZone::UseDaylightTime() const {
 }
 
 bool TimeZone::InDaylightTime(base::Time time) const {
+  if (time.is_inf()) {
+    return false;
+  }
   UErrorCode status = U_ZERO_ERROR;
   bool in_daylight = impl_->icu_timezone->inDaylightTime(
       time.InMillisecondsFSinceUnixEpoch(), status);

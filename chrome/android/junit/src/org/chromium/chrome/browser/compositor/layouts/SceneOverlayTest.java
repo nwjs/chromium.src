@@ -15,6 +15,7 @@ import android.content.res.Resources;
 import android.graphics.RectF;
 import android.util.DisplayMetrics;
 import android.view.ViewGroup;
+import android.widget.FrameLayout;
 
 import org.junit.Before;
 import org.junit.Rule;
@@ -26,6 +27,7 @@ import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.mockito.stubbing.Answer;
 
+import org.chromium.base.ContextUtils;
 import org.chromium.base.supplier.MonotonicObservableSupplier;
 import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.test.BaseRobolectricTestRunner;
@@ -51,8 +53,6 @@ public class SceneOverlayTest {
 
     @Mock private LayoutManagerHost mLayoutManagerHost;
 
-    @Mock private ViewGroup mContainerView;
-
     @Mock private ToolbarThemeColorProvider mToolbarThemeColorProvider;
 
     // Use different classes so the overlays can be uniquely ordered. Each supported class has an
@@ -66,6 +66,7 @@ public class SceneOverlayTest {
     @Mock private SceneOverlay mOverlay6;
     @Mock private Layout mLayout;
 
+    private final ViewGroup mContainerView = new FrameLayout(ContextUtils.getApplicationContext());
     private final DisplayMetrics mDisplayMetrics = new DisplayMetrics();
     private final MonotonicObservableSupplier<TabContentManager> mTabContentManagerSupplier =
             ObservableSuppliers.alwaysNull();

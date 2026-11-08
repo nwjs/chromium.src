@@ -19,9 +19,7 @@
 
 namespace universal_optout::features {
 
-BASE_FEATURE(kUniversalOptOut,
-             "UniversalOptOut",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kUniversalOptOut, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kUniversalOptOutExtension, base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -61,11 +59,20 @@ bool IsUniversalOptOutEnabled() {
 const base::FeatureParam<std::string> kTargetLocations{&kUniversalOptOut,
                                                        "target_locations", ""};
 
+const base::FeatureParam<bool> kForceEligible{&kUniversalOptOut,
+                                              "force_eligible", false};
+
 const base::FeatureParam<base::TimeDelta> kEligibilityWindow{
     &kUniversalOptOut, "eligibility_window", base::Days(30)};
 
 const base::FeatureParam<base::TimeDelta> kTrailingEligibilityWindow{
     &kUniversalOptOut, "trailing_eligibility_window", base::Days(90)};
+
+const base::FeatureParam<double> kEligibilityThresholdRatio{
+    &kUniversalOptOut, "eligibility_threshold_ratio", 0.5};
+
+const base::FeatureParam<double> kTrailingEligibilityThresholdRatio{
+    &kUniversalOptOut, "trailing_eligibility_threshold_ratio", 0.5};
 
 std::vector<std::string> GetTargetLocations() {
   return base::SplitString(kTargetLocations.Get(), ",", base::TRIM_WHITESPACE,

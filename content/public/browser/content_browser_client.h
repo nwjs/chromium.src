@@ -19,12 +19,15 @@
 #include "base/byte_size.h"
 #include "base/containers/flat_map.h"
 #include "base/containers/flat_set.h"
+#include "base/files/file_path.h"
 #include "base/functional/callback_forward.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/supports_user_data.h"
 #include "base/time/time.h"
+#include "base/types/optional_ref.h"
 #include "base/types/strong_alias.h"
 #include "base/values.h"
+#include "base/version.h"
 #include "build/build_config.h"
 #include "build/buildflag.h"
 #include "components/download/public/common/quarantine_connection.h"
@@ -96,6 +99,7 @@
 #include "ui/base/clipboard/clipboard_metadata.h"
 #include "ui/base/page_transition_types.h"
 #include "ui/base/window_open_disposition.h"
+#include "ui/color/color_provider_key.h"
 
 #if (BUILDFLAG(IS_POSIX) && !BUILDFLAG(IS_MAC)) || BUILDFLAG(IS_FUCHSIA)
 #include "base/posix/global_descriptors.h"
@@ -118,7 +122,6 @@ class GURL;
 
 namespace base {
 class CommandLine;
-class FilePath;
 class Location;
 class SequencedTaskRunner;
 class ScopedClosureRunner;
@@ -1356,6 +1359,14 @@ class CONTENT_EXPORT ContentBrowserClient {
       WebContents& web_contents,
       const SiteInstance& main_frame_site) const;
 
+  // Returns the forced-colors palette for `web_contents`.
+  virtual ui::ColorProviderKey::ForcedColors GetForcedColorsForWebContents(
+      WebContents& web_contents) const;
+
+  // Returns whether `WebContents` should initialize font-related
+  // `RendererPreferences` from system settings. Defaults to true.
+  virtual bool ShouldUpdateFontRendererPreferencesFromSystemSettings() const;
+
   // Notifies that BrowserURLHandler has been created, so that the embedder can
   // optionally add their own handlers.
   virtual void BrowserURLHandlerCreated(BrowserURLHandler* handler) {}
@@ -1663,14 +1674,36 @@ class CONTENT_EXPORT ContentBrowserClient {
     kAppContainerFlagDisableAppContainer = 1 << 0,
   };
 
+  // A child module to use for a child process in place of the one that shipped
+  // with the browser.
+  struct ChildModule {
+    // The version of the child module.
+    base::Version version;
+
+    // The path to the child module's binary. A sandbox configuration created
+    // for one child process may be reused for others that use the same
+    // `version`, so the path for a given version must not change.
+    base::FilePath path;
+
+    friend bool operator==(const ChildModule&, const ChildModule&) = default;
+  };
+
   // This may be called on the PROCESS_LAUNCHER thread before the child process
   // configuration is set. It gives the embedder a chance to modify the sandbox
-  // configuration. Returns false if configuration is invalid and the child
-  // should not spawn. Only use this for embedder-specific policies, as
-  // standard sandbox policies are configured by the content layer.
-  virtual bool PreSpawnChild(sandbox::TargetConfig* config,
-                             sandbox::mojom::Sandbox sandbox_type,
-                             ChildSpawnFlags flags);
+  // configuration. `child_module`, if present, specifies the child module to
+  // use for this child process. Returns false if configuration is invalid and
+  // the child should not spawn. Only use this for embedder-specific policies,
+  // as standard sandbox policies are configured by the content layer.
+  virtual bool PreSpawnChild(
+      sandbox::TargetConfig* config,
+      sandbox::mojom::Sandbox sandbox_type,
+      ChildSpawnFlags flags,
+      base::optional_ref<const ChildModule> child_module);
+
+  // Returns the child module to use for a new child process if different from
+  // the one that shipped with the browser, or std::nullopt otherwise. Called on
+  // the UI thread.
+  virtual std::optional<ChildModule> GetChildModule();
 
   // This may be called on the PROCESS_LAUNCHER thread before the child process
   // is launched. It gives the embedder a chance to indicate that a process will
@@ -2342,6 +2375,12 @@ class CONTENT_EXPORT ContentBrowserClient {
   // for a navigation of the primary main frame.
   // |is_request_for_navigation| is whether the request is for a navigation.
   // |first_auth_attempt| is needed by AwHttpAuthHandler constructor.
+  // |do_not_prompt_for_login| is true if the request must not show login UI
+  // (see network::ResourceRequest::do_not_prompt_for_login). This is only the
+  // case for proxy auth challenges. The embedder must not show login UI for
+  // such requests, but may still provide credentials from sources that don't
+  // involve UI (e.g. extensions or enterprise policy). Otherwise it should
+  // return nullptr or run |auth_required_callback| with std::nullopt.
   // |guest_page_holder| is set if the auth is occurring in the context of
   // a guest view.
   // |auth_required_callback| is used to transfer auth credentials to
@@ -2382,6 +2421,7 @@ class CONTENT_EXPORT ContentBrowserClient {
       const GURL& url,
       scoped_refptr<net::HttpResponseHeaders> response_headers,
       bool first_auth_attempt,
+      bool do_not_prompt_for_login,
       GuestPageHolder* guest_page_holder,
       LoginDelegate::LoginAuthRequiredCallback auth_required_callback);
 
@@ -2629,6 +2669,12 @@ class CONTENT_EXPORT ContentBrowserClient {
   // this check starts.
   virtual bool IsClipboardPasteAllowed(
       content::RenderFrameHost* render_frame_host);
+
+  // Returns whether a service worker with `origin` may be given a
+  // ClipboardHost at all. This runs once, when the interface is bound, and
+  // answers only whether this class of context is ever eligible, not whether
+  // any individual clipboard call is allowed.
+  virtual bool IsClipboardAllowedForServiceWorker(const url::Origin& origin);
 
   // Determines if a clipboard paste containing |data| of type |data_type| is
   // allowed in this renderer frame.  Possible data types supported for paste
@@ -3054,14 +3100,16 @@ class CONTENT_EXPORT ContentBrowserClient {
   virtual bool ShouldAllowBackForwardCacheForCacheControlNoStorePage(
       content::BrowserContext* browser_context);
 
+  // Returns false if documents at `url` must not be stored in, or restored
+  // from, the back/forward cache (e.g. because `url` is blocked by enterprise
+  // policy).
+  virtual bool IsUrlAllowedForBackForwardCache(
+      content::BrowserContext* browser_context,
+      const GURL& url);
+
   // Determine whether Blob URL fetching should be restricted for a given
   // context.
   virtual bool IsBlobUrlPartitioningEnabled(
-      content::BrowserContext* browser_context);
-
-  // Checks if the given BrowserContext allows to reduce Accept-Language in HTTP
-  // header and Javascript getter.
-  virtual bool ShouldReduceAcceptLanguage(
       content::BrowserContext* browser_context);
 
   // Checks whether window.name is allowed to be cleared for top-level
@@ -3386,6 +3434,11 @@ class CONTENT_EXPORT ContentBrowserClient {
   virtual bool OriginSupportsConcreteCrossOriginIsolation(
       content::BrowserContext* browser_context,
       const url::Origin& origin);
+
+  // Returns true if `url` belongs to a privileged or trusted scheme (such as
+  // WebUI, DevTools, or an embedder-specific extension scheme) that should be
+  // exempt from top-level window size checks in `WebContentsBasedCanceller`.
+  virtual bool IsExemptFromWindowSizeCheck(const GURL& url);
 };
 
 }  // namespace content

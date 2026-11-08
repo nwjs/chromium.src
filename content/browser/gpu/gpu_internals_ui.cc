@@ -56,7 +56,6 @@
 #include "ui/display/util/gpu_info_util.h"
 #include "ui/gfx/buffer_usage_util.h"
 #include "ui/gfx/gpu_extra_info.h"
-#include "ui/gl/gpu_switching_manager.h"
 
 #if BUILDFLAG(IS_WIN)
 #include "base/win/windows_version.h"
@@ -624,10 +623,8 @@ base::Value GetDawnInfo() {
 // This class receives javascript messages from the renderer.
 // Note that the WebUI infrastructure runs on the UI thread, therefore all of
 // this class's methods are expected to run on the UI thread.
-class GpuMessageHandler
-    : public WebUIMessageHandler,
-      public GpuDataManagerObserver,
-      public ui::GpuSwitchingObserver {
+class GpuMessageHandler : public WebUIMessageHandler,
+                          public GpuDataManagerObserver {
  public:
   GpuMessageHandler();
 
@@ -712,8 +709,14 @@ void GpuMessageHandler::HandleGetGpuInfo(const base::ListValue& args) {
 
   // Tell GpuDataManager it should have full GpuInfo. If the
   // Gpu process has not run yet, this will trigger its launch.
+  uint32_t request = GpuDataManagerImpl::kGpuInfoRequestAll;
+  if (WebContents* web_contents = web_ui()->GetWebContents();
+      web_contents &&
+      web_contents->GetLastCommittedURL().query().contains("skip-dawn-info")) {
+    request &= ~GpuDataManagerImpl::kGpuInfoRequestDawnInfo;
+  }
   GpuDataManagerImpl::GetInstance()->RequestGpuInfoIfNeeded(
-      GpuDataManagerImpl::kGpuInfoRequestAll,
+      static_cast<GpuDataManagerImpl::GpuInfoRequest>(request),
       /*delayed=*/false);
 
   // Send current snapshot of gpu info. Any future updates will be communicated

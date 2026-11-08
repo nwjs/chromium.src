@@ -7,26 +7,32 @@
 #include <memory>
 #include <utility>
 
+#include "base/check_deref.h"
+#include "base/dcheck_is_on.h"
 #include "base/functional/bind.h"
 #include "base/location.h"
-#include "base/notimplemented.h"
+#include "base/no_destructor.h"
+#include "base/state_transitions.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/types/pass_key.h"
 #include "build/build_config.h"
+#include "chrome/browser/actor/actor_keyed_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ttc/app/public/conversation.h"
+#include "chrome/browser/ttc/core/session_journal.h"
 #include "chrome/browser/ttc/core/session_view.h"
 #include "chrome/browser/ttc/core/ttc_keyed_service.h"
 #include "chrome/browser/ttc/core/ttc_page_context_monitor.h"
-#include "components/tabs/public/tab_interface.h"
+#include "chrome/browser/ttc/core/voice_focused_contents_tracker.h"
+#include "components/actor/core/journal_details_builder.h"
+#include "components/optimization_guide/proto/features/common_quality_data.pb.h"
 #include "content/public/browser/web_contents.h"
+#include "url/gurl.h"
 
 #if BUILDFLAG(IS_ANDROID)
-#include "chrome/browser/ui/android/tab_model/tab_model.h"
-#include "chrome/browser/ui/android/tab_model/tab_model_list.h"
+#include "chrome/browser/ttc/android/session_view_android.h"
 #else
 #include "chrome/browser/ttc/core/session_view_impl.h"
-#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/profile_browser_collection.h"
 #endif
 
@@ -34,14 +40,26 @@ namespace ttc {
 
 namespace {
 
-std::unique_ptr<SessionView> MakeSessionView(
-    [[maybe_unused]] SessionViewDelegate& delegate) {
+std::unique_ptr<SessionView> MakeSessionView(SessionViewDelegate& delegate) {
 #if BUILDFLAG(IS_ANDROID)
-  // SessionViewImpl is views-based; Android will need its own implementation.
-  return nullptr;
+  return std::make_unique<SessionViewAndroid>(delegate);
 #else
   return std::make_unique<SessionViewImpl>(delegate);
 #endif
+}
+
+void DCheckSessionLifecycleTransition(SessionLifecycle from,
+                                      SessionLifecycle to) {
+#if DCHECK_IS_ON()
+  static const base::NoDestructor<base::StateTransitions<SessionLifecycle>>
+      kTransitions(base::StateTransitions<SessionLifecycle>({
+          {SessionLifecycle::kInitializing,
+           {SessionLifecycle::kLive, SessionLifecycle::kFinished}},
+          {SessionLifecycle::kLive, {SessionLifecycle::kFinished}},
+          {SessionLifecycle::kFinished, {}},
+      }));
+  DCHECK_STATE_TRANSITION(kTransitions, from, to);
+#endif  // DCHECK_IS_ON()
 }
 
 }  // namespace
@@ -49,29 +67,35 @@ std::unique_ptr<SessionView> MakeSessionView(
 SessionControllerImpl::SessionControllerImpl(TtcKeyedService& service)
     : service_(service),
       session_view_(MakeSessionView(*this)),
+      voice_focused_contents_tracker_(
+          VoiceFocusedContentsTracker::Create(CHECK_DEREF(service.profile()))),
+      actor_task_holder_(*this),
+      journal_(CHECK_DEREF(actor::ActorKeyedService::Get(service.profile()))
+                   .GetJournal(),
+               actor_task_holder_.task_id()),
       tool_controller_(*this) {
+  GetJournal().Log("TtcSessionStart", {});
+
+  voice_focused_contents_tracker_observation_.Observe(
+      voice_focused_contents_tracker_.get());
+
   // Created here rather than in the initializer list because MakeConversation()
   // calls back into GetProfile() on this object.
   conversation_ =
       service.MakeConversation(base::PassKey<SessionControllerImpl>(), *this);
-
-  if (content::WebContents* contents = GetObservedWebContents()) {
-    // TODO(b/555800359): Reset page_context_monitor_ on active tab changes.
-    page_context_monitor_ = std::make_unique<TtcPageContextMonitor>(
-        *contents,
-        base::BindRepeating(&SessionControllerImpl::OnPageContextChanged,
-                            base::Unretained(this)));
-  }
-
-  if (conversation_) {
-    conversation_->Start();
-  }
+  conversation_->Start();
 }
 
 SessionControllerImpl::~SessionControllerImpl() {
-  if (conversation_) {
-    conversation_->Stop();
-  }
+  conversation_->Stop();
+
+  GetJournal().Log(
+      "TtcSessionEnd",
+      actor::JournalDetailsBuilder().Add("state", session_lifecycle_).Build());
+}
+
+SessionJournal& SessionControllerImpl::GetJournal() {
+  return journal_;
 }
 
 SessionLifecycle SessionControllerImpl::GetSessionLifecycle() const {
@@ -83,21 +107,14 @@ void SessionControllerImpl::SetSessionLifecycle(SessionLifecycle lifecycle) {
     return;
   }
 
+  DCheckSessionLifecycleTransition(session_lifecycle_, lifecycle);
+
+  GetJournal().Log("TtcSessionLifecycle",
+                   actor::JournalDetailsBuilder()
+                       .Add("current_state", session_lifecycle_)
+                       .Add("new_state", lifecycle)
+                       .Build());
   session_lifecycle_ = lifecycle;
-
-  if (session_lifecycle_ == SessionLifecycle::kFinished) {
-    EndSessionAsync();
-  }
-}
-
-void SessionControllerImpl::GetPageContext(FetchCompleteCallback callback) {
-  if (!page_context_monitor_) {
-    std::move(callback).Run(base::unexpected(
-        page_content_annotations::FetchPageContextError::kWebContentsWentAway));
-    return;
-  }
-
-  page_context_monitor_->StartNewFetch(std::move(callback));
 }
 
 Profile* SessionControllerImpl::GetProfile() {
@@ -107,6 +124,10 @@ Profile* SessionControllerImpl::GetProfile() {
 void SessionControllerImpl::ProcessToolCall(
     const ToolRequest& tool_request,
     ToolResponseCallback tool_response_callback) {
+  // TODO(b/552544497): Ideally the task would stop only if the Ttc session
+  // ends but there are currently a few ways for tasks to be stopped
+  // externally.
+  actor_task_holder_.EnsureTaskCreated();
   tool_controller_.ProcessToolCall(tool_request,
                                    std::move(tool_response_callback));
 }
@@ -116,12 +137,6 @@ std::vector<ToolDefinition> SessionControllerImpl::GetToolDefinitions() {
 }
 
 void SessionControllerImpl::UserAudioLevelUpdate(float audio_level) {
-  // Android doesn't have a SessionView implementation yet.
-  if (!session_view_) {
-    NOTIMPLEMENTED();
-    return;
-  }
-
   session_view_->UpdateAudioLevel(audio_level);
 }
 
@@ -136,43 +151,72 @@ BrowserWindowInterface* SessionControllerImpl::GetBrowserWindowInterface() {
 }
 
 void SessionControllerImpl::OnSessionInitialized() {
-  if (!session_view_) {
-    NOTIMPLEMENTED();
-    return;
-  }
-
   session_view_->OnSessionInitialized();
 }
 
+void SessionControllerImpl::OnError(ErrorCode error) {
+  const bool is_fatal = IsFatal(error);
+  GetJournal().Log("TtcError", actor::JournalDetailsBuilder()
+                                   .AddError(error)
+                                   .Add("fatal", is_fatal)
+                                   .Build());
+
+  if (session_lifecycle_ == SessionLifecycle::kFinished) {
+    return;
+  }
+
+  if (is_fatal) {
+    EndSessionAsync();
+  }
+
+  session_view_->OnError(error);
+}
+
 void SessionControllerImpl::EndSessionAsync() {
+  SetSessionLifecycle(SessionLifecycle::kFinished);
+
   // Ending the session destroys this object so it must be done asynchronously.
   base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
       FROM_HERE,
       base::BindOnce(&TtcKeyedService::EndSession, service_->GetWeakPtr()));
 }
 
-content::WebContents* SessionControllerImpl::GetObservedWebContents() {
-#if BUILDFLAG(IS_ANDROID)
-  Profile* profile = service_->profile();
-  for (TabModel* model : TabModelList::models()) {
-    if (model->GetProfile() == profile && model->IsActiveModel()) {
-      tabs::TabInterface* active_tab = model->GetActiveTab();
-      return active_tab ? active_tab->GetContents() : nullptr;
-    }
+void SessionControllerImpl::OnVoiceFocusedContentsChanged(
+    content::WebContents* web_contents) {
+  if (!page_context_monitor_ && !web_contents) {
+    return;
   }
-  return nullptr;
-#else
-  BrowserWindowInterface* window = GetBrowserWindowInterface();
-  tabs::TabInterface* active_tab =
-      window ? window->GetActiveTabInterface() : nullptr;
-  return active_tab ? active_tab->GetContents() : nullptr;
-#endif
+  page_context_monitor_.reset();
+  if (web_contents) {
+    page_context_monitor_ = std::make_unique<TtcPageContextMonitor>(
+        *web_contents,
+        base::BindRepeating(&Conversation::OnPageContextInvalidated,
+                            base::Unretained(conversation_.get())),
+        base::BindRepeating(&SessionControllerImpl::OnPageContextFetched,
+                            base::Unretained(this)));
+  }
+  conversation_->OnPageContextInvalidated();
 }
 
-void SessionControllerImpl::OnPageContextChanged() {
-  if (conversation_) {
-    conversation_->OnPageContextChanged();
+content::WebContents* SessionControllerImpl::GetVoiceFocusedWebContents() {
+  return voice_focused_contents_tracker_->GetActiveWebContents();
+}
+
+actor::TaskId SessionControllerImpl::GetActorTaskId() const {
+  return actor_task_holder_.task_id();
+}
+
+void SessionControllerImpl::OnPageContextFetched(
+    const PageContextResult& result) {
+  if (!result.has_value()) {
+    // TODO(b/555804152): Signal to the model when page context cannot be
+    // fetched or is ineligible.
+    return;
   }
+  const optimization_guide::proto::AnnotatedPageContent& apc =
+      result->annotated_page_content->data;
+  conversation_->SendContextUpdate(GURL(apc.main_frame_data().url()),
+                                   apc.main_frame_data().title(), apc);
 }
 
 }  // namespace ttc

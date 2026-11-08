@@ -24,6 +24,7 @@
 #include "build/build_config.h"
 #include "chrome/browser/extensions/api/messaging/native_messaging_host_manifest.h"
 #include "chrome/browser/extensions/api/messaging/native_messaging_launch_from_native.h"
+#include "chrome/browser/extensions/api/messaging/native_messaging_logging.h"
 #include "chrome/browser/extensions/api/messaging/native_process_launcher.h"
 #include "chrome/browser/profiles/profile.h"
 #include "content/public/browser/browser_context.h"
@@ -78,13 +79,13 @@ NativeMessageProcessHost::NativeMessageProcessHost(
 #endif
       read_pending_(false),
       write_pending_(false) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M161);
 
   task_runner_ = content::GetIOThreadTaskRunner({});
 }
 
 NativeMessageProcessHost::~NativeMessageProcessHost() {
-  DCHECK(task_runner_->BelongsToCurrentThread());
+  CHECK(task_runner_->BelongsToCurrentThread(), base::NotFatalUntil::M161);
 
   if (process_.IsValid()) {
 // Kill the host process if necessary to make sure we don't leave zombies.
@@ -124,7 +125,7 @@ std::unique_ptr<NativeMessageHost> NativeMessageProcessHost::CreateWithLauncher(
     const ExtensionId& source_extension_id,
     const std::string& native_host_name,
     std::unique_ptr<NativeProcessLauncher> launcher) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M161);
 
   std::unique_ptr<NativeMessageHost> process(new NativeMessageProcessHost(
       source_extension_id, native_host_name, std::move(launcher)));
@@ -133,7 +134,7 @@ std::unique_ptr<NativeMessageHost> NativeMessageProcessHost::CreateWithLauncher(
 }
 
 void NativeMessageProcessHost::LaunchHostProcess() {
-  DCHECK(task_runner_->BelongsToCurrentThread());
+  CHECK(task_runner_->BelongsToCurrentThread(), base::NotFatalUntil::M161);
 
   GURL origin(std::string(kExtensionScheme) + "://" + source_extension_id_);
   launcher_->Launch(
@@ -148,7 +149,7 @@ void NativeMessageProcessHost::OnHostProcessLaunched(
     base::PlatformFile read_file,
     std::unique_ptr<net::FileStream> read_stream,
     std::unique_ptr<net::FileStream> write_stream) {
-  DCHECK(task_runner_->BelongsToCurrentThread());
+  CHECK(task_runner_->BelongsToCurrentThread(), base::NotFatalUntil::M161);
 
   switch (result) {
     case NativeProcessLauncher::RESULT_INVALID_NAME:
@@ -181,7 +182,7 @@ void NativeMessageProcessHost::OnHostProcessLaunched(
 }
 
 void NativeMessageProcessHost::OnMessage(const std::string& json) {
-  DCHECK(task_runner_->BelongsToCurrentThread());
+  CHECK(task_runner_->BelongsToCurrentThread(), base::NotFatalUntil::M161);
 
   if (closed_) {
     return;
@@ -222,8 +223,8 @@ void NativeMessageProcessHost::OnMessage(const std::string& json) {
 }
 
 void NativeMessageProcessHost::Start(Client* client) {
-  DCHECK(task_runner_->BelongsToCurrentThread());
-  DCHECK(!client_);
+  CHECK(task_runner_->BelongsToCurrentThread(), base::NotFatalUntil::M161);
+  CHECK(!client_, base::NotFatalUntil::M161);
   client_ = client;
   task_runner_->PostTask(
       FROM_HERE, base::BindOnce(&NativeMessageProcessHost::LaunchHostProcess,
@@ -240,7 +241,7 @@ void NativeMessageProcessHost::WaitRead() {
     return;
   }
 
-  DCHECK(!read_pending_);
+  CHECK(!read_pending_, base::NotFatalUntil::M161);
 
   // On POSIX FileStream::Read() uses blocking thread pool, so it's better to
   // wait for the file to become readable before calling DoRead(). Otherwise it
@@ -258,7 +259,7 @@ void NativeMessageProcessHost::WaitRead() {
 }
 
 void NativeMessageProcessHost::DoRead() {
-  DCHECK(task_runner_->BelongsToCurrentThread());
+  CHECK(task_runner_->BelongsToCurrentThread(), base::NotFatalUntil::M161);
 
   while (!closed_ && !read_pending_) {
     read_buffer_ = base::MakeRefCounted<net::IOBufferWithSize>(kReadBufferSize);
@@ -271,8 +272,8 @@ void NativeMessageProcessHost::DoRead() {
 
 void NativeMessageProcessHost::OnRead(
     base::expected<base::ByteSize, net::Error> result) {
-  DCHECK(task_runner_->BelongsToCurrentThread());
-  DCHECK(read_pending_);
+  CHECK(task_runner_->BelongsToCurrentThread(), base::NotFatalUntil::M161);
+  CHECK(read_pending_, base::NotFatalUntil::M161);
   read_pending_ = false;
 
   HandleReadResult(result);
@@ -281,7 +282,7 @@ void NativeMessageProcessHost::OnRead(
 
 void NativeMessageProcessHost::HandleReadResult(
     base::expected<base::ByteSize, net::Error> result) {
-  DCHECK(task_runner_->BelongsToCurrentThread());
+  CHECK(task_runner_->BelongsToCurrentThread(), base::NotFatalUntil::M161);
 
   if (closed_) {
     return;
@@ -307,7 +308,7 @@ void NativeMessageProcessHost::HandleReadResult(
 
 void NativeMessageProcessHost::ProcessIncomingData(
     const char* data, int data_size) {
-  DCHECK(task_runner_->BelongsToCurrentThread());
+  CHECK(task_runner_->BelongsToCurrentThread(), base::NotFatalUntil::M161);
 
   incoming_data_.append(data, data_size);
 
@@ -321,8 +322,8 @@ void NativeMessageProcessHost::ProcessIncomingData(
         *UNSAFE_TODO(reinterpret_cast<const uint32_t*>(incoming_data_.data()));
 
     if (message_size > kMaximumNativeMessageSize) {
-      LOG(ERROR) << "Native Messaging host tried sending a message that is "
-                 << message_size << " bytes long.";
+      NM_LOG(ERROR) << "Native Messaging host tried sending a message that is "
+                    << message_size << " bytes long.";
       Close(kHostInputOutputError);
       return;
     }
@@ -343,7 +344,7 @@ void NativeMessageProcessHost::ProcessIncomingData(
 }
 
 void NativeMessageProcessHost::DoWrite() {
-  DCHECK(task_runner_->BelongsToCurrentThread());
+  CHECK(task_runner_->BelongsToCurrentThread(), base::NotFatalUntil::M161);
 
   while (!write_pending_ && !closed_) {
     if (!current_write_buffer_.get() ||
@@ -368,22 +369,22 @@ void NativeMessageProcessHost::DoWrite() {
 
 void NativeMessageProcessHost::HandleWriteResult(
     base::expected<base::ByteSize, net::Error> result) {
-  DCHECK(task_runner_->BelongsToCurrentThread());
+  CHECK(task_runner_->BelongsToCurrentThread(), base::NotFatalUntil::M161);
 
   if (!result.has_value()) {
     if (result.error() == net::ERR_IO_PENDING) {
       write_pending_ = true;
     } else {
-      LOG(ERROR) << "Error when writing to Native Messaging host: "
-                 << result.error();
+      NM_LOG(ERROR) << "Error when writing to Native Messaging host: "
+                    << result.error();
       Close(kHostInputOutputError);
     }
     return;
   }
 
   if (result->is_zero()) {
-    LOG(ERROR) << "Error when writing to Native Messaging host: unexpected "
-                  "zero-length write";
+    NM_LOG(ERROR) << "Error when writing to Native Messaging host: unexpected "
+                     "zero-length write";
     Close(kHostInputOutputError);
     return;
   }
@@ -393,9 +394,9 @@ void NativeMessageProcessHost::HandleWriteResult(
 
 void NativeMessageProcessHost::OnWritten(
     base::expected<base::ByteSize, net::Error> result) {
-  DCHECK(task_runner_->BelongsToCurrentThread());
+  CHECK(task_runner_->BelongsToCurrentThread(), base::NotFatalUntil::M161);
 
-  DCHECK(write_pending_);
+  CHECK(write_pending_, base::NotFatalUntil::M161);
   write_pending_ = false;
 
   HandleWriteResult(result);
@@ -403,10 +404,11 @@ void NativeMessageProcessHost::OnWritten(
 }
 
 void NativeMessageProcessHost::Close(const std::string& error_message) {
-  DCHECK(task_runner_->BelongsToCurrentThread());
+  CHECK(task_runner_->BelongsToCurrentThread(), base::NotFatalUntil::M161);
 
   if (!closed_) {
     closed_ = true;
+    VLOG(1) << "Closing native messaging channel: " << error_message;
 #if BUILDFLAG(IS_POSIX)
     read_controller_.reset();
 #endif

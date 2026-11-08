@@ -176,16 +176,16 @@ std::array<
     g_roots = {};
 
 PA_ALWAYS_INLINE size_t PartitionIndexFromAllocToken(AllocToken alloc_token) {
+#if PA_BUILDFLAG(ENABLE_AUTO_PARTITIONING)
   return AllocTokenHasPointerValue(alloc_token) ? kPointerPartitionIndex
                                                 : kDefaultPartitionIndex;
+#else
+  return kDefaultPartitionIndex;
+#endif
 }
 
 partition_alloc::PartitionRoot* Allocator(size_t partition_index) {
-#if PA_BUILDFLAG(ENABLE_AUTO_PARTITIONING)
   return g_roots[partition_index].Get();
-#else
-  return g_roots[kDefaultPartitionIndex].Get();
-#endif
 }
 
 // Original g_root_ if it was replaced by ConfigurePartitions().
@@ -349,6 +349,24 @@ void* PartitionAllocFunctionsInternal<base_alloc_flags, base_free_flags>::
   return AllocateAlignedMemory<base_alloc_flags |
                                partition_alloc::AllocFlags::kReturnNull>(
       alignment, size, alloc_token);
+}
+
+// static
+template <partition_alloc::AllocFlags base_alloc_flags,
+          partition_alloc::FreeFlags base_free_flags>
+void* PartitionAllocFunctionsInternal<base_alloc_flags, base_free_flags>::
+    AlignedCallocUnchecked(size_t n,
+                           size_t size,
+                           size_t alignment,
+                           AllocToken alloc_token,
+                           void* context) {
+  partition_alloc::ScopedDisallowAllocations guard{};
+  const size_t total =
+      partition_alloc::internal::base::CheckMul(n, size).ValueOrDie();
+  return AllocateAlignedMemory<base_alloc_flags |
+                               partition_alloc::AllocFlags::kReturnNull |
+                               partition_alloc::AllocFlags::kZeroFill>(
+      alignment, total, alloc_token);
 }
 
 // aligned_realloc documentation is
@@ -605,9 +623,8 @@ PartitionAllocFunctionsInternal<base_alloc_flags,
       return;
     }
   }
-  partition_alloc::PartitionRoot::FreeInUnknownRoot<
-      base_free_flags | partition_alloc::FreeFlags::kWithSizeHint>(
-      object, {.size = size});
+  partition_alloc::PartitionRoot::FreeInUnknownRoot<base_free_flags>(
+      object, partition_alloc::FreeSizeHint{size});
 }
 
 // static
@@ -645,10 +662,9 @@ PA_ALWAYS_INLINE void PartitionAllocFunctionsInternal<
   // alignments, ensuring correct size adjustments, 2) Alignment only affects
   // the size determination, so always calling aligned Free doesn't incur
   // overhead, and 3) it avoids the binary size increase.
-  partition_alloc::PartitionRoot::FreeInUnknownRoot<
-      base_free_flags | partition_alloc::FreeFlags::kWithSizeHint |
-      partition_alloc::FreeFlags::kWithAlignmentHint>(
-      object, {.size = size, .alignment = alignment});
+  partition_alloc::PartitionRoot::FreeInUnknownRoot<base_free_flags>(
+      object, partition_alloc::FreeSizeHint{size},
+      partition_alloc::FreeAlignmentHint{alignment});
 }
 
 // static
@@ -977,6 +993,16 @@ void* DelegatedAlignedMallocUncheckedFn(size_t size,
       size, alignment, alloc_token, context);
 }
 
+void* DelegatedAlignedCallocUncheckedFn(size_t n,
+                                        size_t size,
+                                        size_t alignment,
+                                        AllocToken alloc_token,
+                                        void* context) {
+  const AllocatorDispatch* delegate = GetDelegate();
+  PA_MUSTTAIL return delegate->aligned_calloc_unchecked_function(
+      n, size, alignment, alloc_token, context);
+}
+
 void* DelegatedAlignedReallocFn(void* address,
                                 size_t size,
                                 size_t alignment,
@@ -1026,6 +1052,7 @@ void InstallCustomDispatch(AllocatorDispatch* dispatch) {
 #endif  // PA_BUILDFLAG(IS_APPLE)
   PA_DCHECK(dispatch->aligned_malloc_function != nullptr);
   PA_DCHECK(dispatch->aligned_malloc_unchecked_function != nullptr);
+  PA_DCHECK(dispatch->aligned_calloc_unchecked_function != nullptr);
   PA_DCHECK(dispatch->aligned_realloc_function != nullptr);
   PA_DCHECK(dispatch->aligned_realloc_unchecked_function != nullptr);
   PA_DCHECK(dispatch->aligned_free_function != nullptr);
@@ -1106,7 +1133,7 @@ void ConfigurePartitions(
     partition_alloc::internal::SchedulerLoopQuarantineConfig
         scheduler_loop_quarantine_thread_local_config,
     partition_alloc::internal::SchedulerLoopQuarantineConfig
-        scheduler_loop_quarantine_for_advanced_memory_safety_checks_config,
+        scheduler_loop_quarantine_for_sanitized_object_config,
     EventuallyZeroFreedMemory eventually_zero_freed_memory,
     EnableTighterAlignedAllocBound enable_tighter_aligned_alloc_bound) {
   partition_alloc::PartitionOptions opts;
@@ -1131,8 +1158,8 @@ void ConfigurePartitions(
       scheduler_loop_quarantine_global_config;
   opts.scheduler_loop_quarantine_thread_local_config =
       scheduler_loop_quarantine_thread_local_config;
-  opts.scheduler_loop_quarantine_for_advanced_memory_safety_checks_config =
-      scheduler_loop_quarantine_for_advanced_memory_safety_checks_config;
+  opts.scheduler_loop_quarantine_for_sanitized_object_config =
+      scheduler_loop_quarantine_for_sanitized_object_config;
   opts.memory_tagging = {
       .enabled = enable_memory_tagging
                      ? partition_alloc::PartitionOptions::kEnabled
@@ -1229,6 +1256,7 @@ const AllocatorDispatch AllocatorDispatch::default_dispatch = {
     .try_free_default_function = &DelegatedTryFreeDefaultFn,
     .aligned_malloc_function = &DelegatedAlignedMallocFn,
     .aligned_malloc_unchecked_function = &DelegatedAlignedMallocUncheckedFn,
+    .aligned_calloc_unchecked_function = &DelegatedAlignedCallocUncheckedFn,
     .aligned_realloc_function = &DelegatedAlignedReallocFn,
     .aligned_realloc_unchecked_function = &DelegatedAlignedReallocUncheckedFn,
     .aligned_free_function = &DelegatedAlignedFreeFn,

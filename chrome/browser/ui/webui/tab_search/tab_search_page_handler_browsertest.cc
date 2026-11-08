@@ -44,6 +44,7 @@
 #include "chrome/browser/ui/tabs/saved_tab_groups/tab_group_sync_service_initialized_observer.h"
 #include "chrome/browser/ui/tabs/split_tab_metrics.h"
 #include "chrome/browser/ui/tabs/tab_enums.h"
+#include "chrome/browser/ui/tabs/tab_group_deletion_dialog_controller.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/webui/metrics_reporter/metrics_reporter.h"
 #include "chrome/browser/ui/webui/metrics_reporter/mock_metrics_reporter.h"
@@ -551,6 +552,13 @@ IN_PROC_BROWSER_TEST_P(TabSearchPageHandlerTest,
 
 IN_PROC_BROWSER_TEST_P(TabSearchPageHandlerTest, TabsAndGroups) {
   ASSERT_TRUE(browser()->tab_strip_model()->SupportsTabGroups());
+
+  // TODO(crbug.com/571588484): Test the tab closure with the
+  // tab group deletion dialog enabled.
+  if (auto* dialog_controller =
+          tab_groups::DeletionDialogController::From(browser1())) {
+    dialog_controller->SetPrefsPreventShowingDialogForTesting(true);
+  }
 
   // Add tabs to a browser.
   AddTabWithTitle(browser1(), tab_url1_, kTabName1);
@@ -1565,6 +1573,9 @@ IN_PROC_BROWSER_TEST_P(TabSearchPageHandlerTest, RecentlyClosedSplitView) {
   ASSERT_EQ(2u, split_view->tab_urls.size());
   EXPECT_EQ(tab_url2_.spec(), split_view->tab_urls[0].spec());
   EXPECT_EQ(tab_url1_.spec(), split_view->tab_urls[1].spec());
+  ASSERT_EQ(2u, split_view->tab_titles.size());
+  EXPECT_EQ(kTabName2, split_view->tab_titles[0]);
+  EXPECT_EQ(kTabName1, split_view->tab_titles[1]);
 
   EXPECT_CALL(page_, TabUpdated(_)).Times(testing::AnyNumber());
   EXPECT_CALL(page_, TabsRemoved(_)).Times(testing::AnyNumber());

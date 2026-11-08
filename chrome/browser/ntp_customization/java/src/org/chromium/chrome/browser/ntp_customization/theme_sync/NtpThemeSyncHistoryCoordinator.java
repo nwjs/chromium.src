@@ -11,7 +11,6 @@ import android.graphics.Bitmap;
 import android.view.View;
 import android.view.ViewGroup;
 
-import androidx.annotation.ColorInt;
 import androidx.annotation.VisibleForTesting;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -194,7 +193,8 @@ public class NtpThemeSyncHistoryCoordinator {
                             image.collectionId,
                             /* isUploadedImage= */ false,
                             /* isDailyRefreshEnabled= */ false,
-                            image.attribution);
+                            image.attribution,
+                            image.attributionUrl);
             if (mImageFetcher == null) {
                 mImageFetcher = NtpCustomizationUtils.createImageFetcher(mProfile);
             }
@@ -290,11 +290,13 @@ public class NtpThemeSyncHistoryCoordinator {
             NtpBackgroundDataGroup remoteDataGroup = mNtpBackgroundDataGroups[i];
             if (remoteDataGroup == null || remoteDataGroup.isEmpty()) continue;
 
-            // Finds the first remote data which isn't in the local history.
+            // Finds the first remote data which isn't shown yet.
             for (NtpBackgroundDataBase data : remoteDataGroup) {
-                // Checks if the current remote data exists in the local history.
-                int index = localGroup.indexOf(data);
-                if (index == -1) {
+                // mDataShowingList already contains the local history and any entries added for
+                // the previous platforms: the same theme can be the latest selection on several
+                // platforms, and each platform has its own history list, so it would otherwise be
+                // added once per platform.
+                if (!mDataShowingList.contains(data)) {
                     // Adds the data and stops here.
                     addBackgroundDataFromOtherPlatforms(data);
                     break;
@@ -360,6 +362,12 @@ public class NtpThemeSyncHistoryCoordinator {
             buildDefaultForThemeCollectionData(themeCollectionData);
             // Updates the data after the information is completed.
             mNtpBackgroundDataManager.updateRemoteSyncDataToSharedPreference(themeCollectionData);
+        }
+
+        // The download runs while the rest of the list is being built, so another platform may
+        // have contributed the same theme in the meantime.
+        if (mDataShowingList.contains(themeCollectionData)) {
+            return;
         }
 
         mDataShowingList.add(themeCollectionData);
@@ -451,7 +459,7 @@ public class NtpThemeSyncHistoryCoordinator {
 
     /**
      * Called when the full-size image bitmap for a theme collection is fetched. Updates the
-     * background data with the bitmap, primary color, and file path, and applies the new theme.
+     * background data with the bitmap and file path, and applies the new theme.
      *
      * @param themeCollectionData The {@link NtpBackgroundDataThemeCollection} being updated.
      * @param bitmap The full-size image bitmap.
@@ -461,17 +469,6 @@ public class NtpThemeSyncHistoryCoordinator {
         if (bitmap == null || mIsDestroyed) return;
 
         themeCollectionData.setBitmap(bitmap);
-        if (themeCollectionData.getPrimaryColor() == null) {
-            // Calculates and sets the primary color if not already present before applying.
-            @Nullable Bitmap smallBitmap = themeCollectionData.getPreviewBitmap();
-            if (smallBitmap == null) {
-                smallBitmap = bitmap;
-            }
-            @ColorInt
-            Integer primaryColor =
-                    NtpCustomizationUtils.pickAndSavePrimaryColor(assumeNonNull(smallBitmap));
-            themeCollectionData.setPrimaryColor(primaryColor);
-        }
         buildDefaultForThemeCollectionData(themeCollectionData);
 
         NtpCustomizationConfigManager.getInstance()

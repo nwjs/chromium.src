@@ -38,15 +38,16 @@ public class ToolbarIphControllerUnitTest {
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
 
     @Mock private UserEducationHelper mUserEducationHelper;
-    @Mock private View mAnchorView;
     @Captor private ArgumentCaptor<IphCommand> mIphCommandCaptor;
 
     private Context mContext;
+    private View mAnchorView;
     private ToolbarIphController mController;
 
     @Before
     public void setUp() {
         mContext = ApplicationProvider.getApplicationContext();
+        mAnchorView = new View(mContext);
         mController = new ToolbarIphController(mContext, mUserEducationHelper);
     }
 

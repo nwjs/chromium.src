@@ -8,18 +8,20 @@ import '//resources/cr_elements/icons.html.js';
 import './icons.html.js';
 import './memory_bank_chat/memory_bank_chat.js';
 import './memory_banks/memory_banks.js';
+import './record_replay/record_replay.js';
+import './smart_search/smart_search.js';
 import './tab_groups/tab_groups.js';
 import './taskbox/ai_taskbox.js';
-import './smart_search/smart_search.js';
 import './topics/topics_view.js';
 
+import {getTrustedHTML} from '//resources/js/static_types.js';
 import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
 
 import {getCss} from './app.css.js';
 import {getHtml} from './app.html.js';
 
 export type ViewType = 'launchpad'|'memory-banks'|'tab-groups'|
-    'memory-bank-chat'|'topics'|'jumpstart';
+    'memory-bank-chat'|'topics'|'jumpstart'|'record-replay';
 
 const VALID_VIEWS: Set<ViewType> = new Set([
   'launchpad',
@@ -28,6 +30,7 @@ const VALID_VIEWS: Set<ViewType> = new Set([
   'memory-bank-chat',
   'topics',
   'jumpstart',
+  'record-replay',
 ]);
 const STORAGE_KEY = 'context_hub_current_view';
 
@@ -104,6 +107,27 @@ export class ContextHubAppElement extends CrLitElement {
 
   protected onSelectorClick_(e: MouseEvent) {
     e.preventDefault();
+  }
+
+  protected getCurrentViewElement_() {
+    switch (this.currentView_) {
+      case 'launchpad':
+        return getTrustedHTML`<ai-taskbox></ai-taskbox>`;
+      case 'memory-banks':
+        return getTrustedHTML`<memory-banks></memory-banks>`;
+      case 'memory-bank-chat':
+        return getTrustedHTML`<memory-bank-chat></memory-bank-chat>`;
+      case 'tab-groups':
+        return getTrustedHTML`<tab-groups></tab-groups>`;
+      case 'topics':
+        return getTrustedHTML`<topics-view></topics-view>`;
+      case 'jumpstart':
+        return getTrustedHTML`<smart-search></smart-search>`;
+      case 'record-replay':
+        return getTrustedHTML`<record-replay></record-replay>`;
+      default:
+        return '';
+    }
   }
 }
 

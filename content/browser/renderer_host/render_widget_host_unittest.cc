@@ -7,9 +7,11 @@
 
 #include <limits>
 #include <memory>
+#include <optional>
 #include <string_view>
 #include <tuple>
 #include <utility>
+#include <vector>
 
 #include "base/command_line.h"
 #include "base/functional/bind.h"
@@ -18,12 +20,14 @@
 #include "base/run_loop.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/single_thread_task_runner.h"
+#include "base/test/bind.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/run_until.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/simple_test_tick_clock.h"
 #include "base/time/time.h"
 #include "base/timer/timer.h"
+#include "base/types/expected.h"
 #include "base/unguessable_token.h"
 #include "build/build_config.h"
 #include "cc/mojom/render_frame_metadata.mojom.h"
@@ -53,6 +57,7 @@
 #include "content/common/features.h"
 #include "content/public/browser/global_dom_node_id.h"
 #include "content/public/browser/keyboard_event_processing_result.h"
+#include "content/public/browser/render_widget_host_view.h"
 #include "content/public/common/content_features.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/common/drop_data.h"
@@ -94,6 +99,7 @@
 #include "ui/events/gesture_detection/gesture_provider_config_helper.h"
 #include "ui/events/keycodes/keyboard_codes.h"
 #include "ui/gfx/canvas.h"
+#include "ui/gfx/image/image.h"
 
 #if BUILDFLAG(IS_ANDROID)
 #include "content/browser/renderer_host/render_widget_host_view_android.h"
@@ -272,6 +278,21 @@ class TestView : public TestRenderWidgetHostView {
     return TestRenderWidgetHostView::GetCompositorViewportPixelSize();
   }
 
+  // Holds copy requests so tests control when and how they complete.
+  void CopyFromSurfaceImpl(
+      const gfx::Rect& src_rect,
+      const gfx::Size& output_size,
+      bool is_copy_request_secure,
+      base::TimeDelta timeout,
+      base::OnceCallback<void(const CopyFromSurfaceResult&)> callback)
+      override {
+    copy_from_surface_callbacks_.push_back(std::move(callback));
+  }
+  std::vector<base::OnceCallback<void(const CopyFromSurfaceResult&)>>
+  TakeCopyFromSurfaceCallbacks() {
+    return std::move(copy_from_surface_callbacks_);
+  }
+
  protected:
   WebMouseWheelEvent unhandled_wheel_event_;
   int unhandled_wheel_event_count_;
@@ -285,6 +306,8 @@ class TestView : public TestRenderWidgetHostView {
   viz::ParentLocalSurfaceIdAllocator local_surface_id_allocator_;
   display::ScreenInfo screen_info_;
   gfx::Insets insets_;
+  std::vector<base::OnceCallback<void(const CopyFromSurfaceResult&)>>
+      copy_from_surface_callbacks_;
 };
 
 // MockRenderViewHostDelegateView ------------------------------------------
@@ -1564,6 +1587,59 @@ TEST_F(RenderWidgetHostTest, ReceiveFrameTokenFromCrashedRenderer) {
   host_->DidProcessFrame(1, base::TimeTicks::Now());
 }
 
+// A surface copy that fails after the renderer exited must not be retried
+// through the view, which is gone at that point.
+TEST_F(RenderWidgetHostTest, SurfaceSnapshotCopyFailsAfterRendererExited) {
+  // Issues the surface copy without waiting for a ForceRedraw() response,
+  // which MockWidget never sends.
+  base::test::ScopedFeatureList feature_list(
+      features::kCDPScreenshotNewSurface);
+  std::optional<gfx::Image> snapshot;
+  host_->GetSnapshotFromBrowser(
+      base::BindLambdaForTesting(
+          [&](const gfx::Image& image) { snapshot = image; }),
+      /*from_surface=*/true);
+  auto copy_callbacks = view_->TakeCopyFromSurfaceCallbacks();
+  ASSERT_EQ(1u, copy_callbacks.size());
+
+  // Simulate a renderer crash while the copy is in flight.
+  host_->SetView(nullptr);
+  host_->RendererExited();
+
+  std::move(copy_callbacks[0])
+      .Run(base::unexpected(CopyFromSurfaceError::kFrameGone));
+
+  ASSERT_TRUE(snapshot.has_value());
+  EXPECT_TRUE(snapshot->IsEmpty());
+}
+
+// Snapshots still waiting on the renderer when it exits are failed instead of
+// staying pending forever.
+TEST_F(RenderWidgetHostTest, PendingSnapshotsFailWhenRendererExits) {
+  std::optional<gfx::Image> surface_snapshot;
+  std::optional<gfx::Image> window_snapshot;
+  // MockWidget never answers ForceRedraw(), so both requests stay pending.
+  host_->GetSnapshotFromBrowser(
+      base::BindLambdaForTesting(
+          [&](const gfx::Image& image) { surface_snapshot = image; }),
+      /*from_surface=*/true);
+  host_->GetSnapshotFromBrowser(
+      base::BindLambdaForTesting(
+          [&](const gfx::Image& image) { window_snapshot = image; }),
+      /*from_surface=*/false);
+  EXPECT_FALSE(surface_snapshot.has_value());
+  EXPECT_FALSE(window_snapshot.has_value());
+
+  // Simulate a renderer crash.
+  host_->SetView(nullptr);
+  host_->RendererExited();
+
+  ASSERT_TRUE(surface_snapshot.has_value());
+  EXPECT_TRUE(surface_snapshot->IsEmpty());
+  ASSERT_TRUE(window_snapshot.has_value());
+  EXPECT_TRUE(window_snapshot->IsEmpty());
+}
+
 TEST_F(RenderWidgetHostTest, ReceiveFrameTokenFromDeletedRenderWidget) {
   // The RenderWidget sends a monotonically increasing frame token.
   host_->DidProcessFrame(2, base::TimeTicks::Now());
@@ -2799,6 +2875,15 @@ TEST_F(RenderWidgetHostDragTest, DragEnterDoesNotLeakPaths) {
       base::FilePath(FILE_PATH_LITERAL("/another/absolute/path/to/file2.txt")),
       base::FilePath());
 
+  // Regression test for https://crbug.com/553276670: `file_system_files` URLs
+  // must not be sent to hovered renderers on DragTargetDragEnter(), as they
+  // contain mount identifiers, user hashes, and full directory paths.
+  DropData::FileSystemFileInfo file_system_file;
+  file_system_file.url = GURL(
+      "filesystem:chrome://file-manager/external/"
+      "odfs:odfs:secret_username_hash/private/dir/report.pdf");
+  drop_data.file_system_files.push_back(file_system_file);
+
   // Call DragTargetDragEnter.
   base::RunLoop run_loop;
   GetRenderWidgetHost()->DragTargetDragEnter(
@@ -2810,10 +2895,10 @@ TEST_F(RenderWidgetHostDragTest, DragEnterDoesNotLeakPaths) {
           run_loop.QuitClosure()));
   run_loop.Run();
 
-  // Verify that the paths sent to renderer are sanitized to BaseName.
+  // Verify that the paths and filesystem URLs sent to renderer are sanitized.
   const auto& captured_drag_data = mock_frame_widget.drag_data();
   ASSERT_TRUE(captured_drag_data);
-  ASSERT_EQ(captured_drag_data->items.size(), 2u);
+  ASSERT_EQ(captured_drag_data->items.size(), 3u);
 
   const auto& item1 = captured_drag_data->items[0];
   ASSERT_TRUE(item1->is_file());
@@ -2827,6 +2912,10 @@ TEST_F(RenderWidgetHostDragTest, DragEnterDoesNotLeakPaths) {
   EXPECT_EQ(item2->get_file()->path,
             base::FilePath(FILE_PATH_LITERAL("file2.txt")));
   EXPECT_TRUE(item2->get_file()->display_name.empty());
+
+  const auto& item3 = captured_drag_data->items[2];
+  ASSERT_TRUE(item3->is_file_system_file());
+  EXPECT_TRUE(item3->get_file_system_file()->url.is_empty());
 }
 
 // A plain <img> drag on macOS populates `file_contents` but supplies neither a

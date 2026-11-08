@@ -140,6 +140,7 @@
 #include "ui/views/controls/focus_ring.h"
 #include "ui/views/controls/textfield/textfield.h"
 #include "ui/views/focus/focus_manager.h"
+#include "ui/views/metrics.h"
 #include "ui/views/view_class_properties.h"
 #include "ui/views/widget/widget.h"
 #include "url/gurl.h"
@@ -596,7 +597,8 @@ void OmniboxViewViews::SetFocus(bool is_user_initiated) {
     // native textfield has `FocusBehavior::NEVER`. Delegate directly to the
     // popup view to open and focus the WebUI searchbox input.
     if (auto* popup_view = location_bar_view_->GetOmniboxPopupView()) {
-      popup_view->OnFocus(/*query_zps=*/is_user_initiated, select_all);
+      popup_view->OnFocus(/*query_zps=*/is_user_initiated, select_all,
+                          /*show_full_url=*/false);
     }
   } else {
     // On browser startup while WebUI is still initializing asynchronously,
@@ -605,7 +607,12 @@ void OmniboxViewViews::SetFocus(bool is_user_initiated) {
     RequestFocus();
   }
 
-  if (omnibox_already_focused) {
+  // Re-focusing the already focused omnibox exits keyword mode, e.g. when the
+  // user presses Ctrl+L while in keyword mode. Once the full WebUI omnibox is
+  // ready, `LocationBarView` no longer reaches here, and the remaining caller,
+  // `search::FocusOmnibox()`, focuses it invisibly for NTP fakeboxes, which
+  // shouldn't exit keyword mode either.
+  if (omnibox_already_focused && !is_full_webui_ready) {
     controller()->edit_model()->ClearKeyword();
   }
 
@@ -803,9 +810,46 @@ void OmniboxViewViews::ShowContextMenuForViewImpl(
     views::View* source,
     const gfx::Point& point,
     ui::mojom::MenuSourceType source_type) {
+  if (HandOffContextMenuToWebUI(point, source_type)) {
+    return;
+  }
   PrepareToShowContextMenu(
       base::BindOnce(&OmniboxViewViews::ShowContextMenuForViewImplComplete,
                      weak_factory_.GetWeakPtr(), point, source_type));
+}
+
+bool OmniboxViewViews::HandOffContextMenuToWebUI(
+    const gfx::Point& point,
+    ui::mojom::MenuSourceType source_type) {
+  if (!IsFullWebUIOmniboxReady() || !location_bar_view_) {
+    return false;
+  }
+  // Open and focus the WebUI omnibox if it isn't already open. On Windows a
+  // right-click gets here after `OnMouseReleased()` has done so, but touch,
+  // keyboard and accessibility requests reach this method directly.
+  auto* popup_state_manager = controller()->popup_state_manager();
+  if (popup_state_manager->popup_state() != OmniboxPopupState::kFull) {
+    SelectAll(true);
+    location_bar_view_->OpenOmniboxPopup(/*query_zps=*/false);
+    // `OpenOmniboxPopup()` doesn't report failure, and it's ignored briefly
+    // after any popup state change. Show the native menu if it didn't open.
+    if (popup_state_manager->popup_state() != OmniboxPopupState::kFull) {
+      return false;
+    }
+  }
+  // Mac/Linux: the menu is shown on press. Consume the release, like
+  // `MenuRunner::RunMenuAt()`, so `OnMouseReleased()` doesn't refocus the
+  // WebUI omnibox and drop this request.
+  if (is_mouse_pressed_) {
+    select_all_on_mouse_release_ = false;
+    is_mouse_pressed_ = false;
+    filter_drag_events_for_unelision_ = false;
+    if (GetWidget() && GetWidget()->GetRootView()) {
+      GetWidget()->GetRootView()->SetMouseAndGestureHandler(nullptr);
+    }
+  }
+  auto* popup_view = location_bar_view_->GetOmniboxPopupView();
+  return popup_view && popup_view->RequestWebUIContextMenu(point, source_type);
 }
 
 void OmniboxViewViews::ShowContextMenuForViewImplComplete(
@@ -1150,6 +1194,18 @@ void OmniboxViewViews::OnTemporaryTextMaybeChanged(
 void OmniboxViewViews::OnInlineAutocompleteTextMaybeChanged(
     const std::u16string& user_text,
     const std::u16string& inline_autocompletion) {
+  // In Full WebUI mode, the WebUI renders autocomplete results, and the native
+  // textfield only handles the mouse gestures that hand focus and the selection
+  // off to it. Don't let results that arrive in the middle of such a gesture
+  // overwrite the text. E.g. the second press of a double-click on the elided
+  // URL unelides it and selects a word. If the zero-prefix suggestions that the
+  // first click requested arrive before the second release, setting their text
+  // here would re-elide the URL and drop that selection, so the release would
+  // hand off the whole elided URL instead of the word.
+  if (is_mouse_pressed_ && IsFullWebUIOmniboxReady()) {
+    return;
+  }
+
   std::u16string display_text = user_text + inline_autocompletion;
   if (display_text == GetText()) {
     return;
@@ -1423,6 +1479,36 @@ bool OmniboxViewViews::OnMousePressed(const ui::MouseEvent& event) {
   is_mouse_pressed_ = true;
   is_user_initiated_focus_ = true;
 
+  // A single click starts a new click gesture. Later clicks of a multi-click
+  // gesture (e.g. a double-click) inherit whether the first click requested
+  // zero-prefix suggestions.
+  //
+  // Detect later clicks the same way `views::SelectionController` does (time
+  // and distance since the last click), rather than via
+  // `event.GetClickCount()`. In Full WebUI mode, the first click opens the
+  // popup over the location bar, so the second click is forwarded from the
+  // popup's widget. On macOS, its platform click count then restarts at 1, even
+  // though `views::SelectionController` still treats it as a double-click.
+  //
+  // `GetLastClickTime()` and `GetLastClickRootLocation()` still describe the
+  // previous left press here, since `views::Textfield::OnMousePressed()` below
+  // updates them.
+  if (event.IsOnlyLeftMouseButton()) {
+    const base::TimeTicks last_click_time = GetLastClickTime();
+    const bool continues_click_gesture =
+        event.GetClickCount() > 1 ||
+        (!last_click_time.is_null() &&
+         event.time_stamp() - last_click_time <=
+             views::GetDoubleClickInterval() &&
+         !ExceededDragThreshold(event.root_location() -
+                                GetLastClickRootLocation()));
+    if (!continues_click_gesture) {
+      click_gesture_requested_zps_ = false;
+    }
+  } else {
+    click_gesture_requested_zps_ = false;
+  }
+
   // In Full WebUI mode, `controller()->IsPopupOpen()` may return false on the
   // New Tab Page (NTP) before query suggestions arrive. Check physical popup
   // visibility to avoid re-arming `select_all_on_mouse_release_` when forwarded
@@ -1565,9 +1651,13 @@ void OmniboxViewViews::OnMouseReleased(const ui::MouseEvent& event) {
   // drag is detected, the mouse cursor might end up a few characters distant
   // from the original click position, leading to selection of some characters
   // rather than the whole-URL selection the user intended.
-  if (base::FeatureList::IsEnabled(omnibox::kShowPopupOnMouseReleased) &&
+  //
+  // The same condition gates zero-prefix suggestions in Full WebUI mode below.
+  const bool should_query_zps =
       event.IsOnlyLeftMouseButton() &&
-      (select_all_on_mouse_release_ || GetText().empty())) {
+      (select_all_on_mouse_release_ || GetText().empty());
+  if (base::FeatureList::IsEnabled(omnibox::kShowPopupOnMouseReleased) &&
+      should_query_zps) {
     controller()->edit_model()->StartZeroSuggestRequest();
   }
   select_all_on_mouse_release_ = false;
@@ -1590,16 +1680,40 @@ void OmniboxViewViews::OnMouseReleased(const ui::MouseEvent& event) {
     // `OmniboxEditModel::Unelide()`, which forces `view_->SelectAll(true)` and
     // clobbers partial drag or double-click word selections made during mouse
     // interactions.
+    //
+    // Only a click that focuses the omnibox (or one on an empty omnibox)
+    // queries zero-prefix suggestions. A drag or a multi-click selection only
+    // hands focus and the selection off to WebUI, without opening the
+    // dropdown.
+    //
+    // However, the later clicks of a multi-click gesture whose first click
+    // opened the dropdown (e.g. a double-click from the unfocused location
+    // bar) must keep it open. Sync their selection while preserving the
+    // WebUI's current matches (a plain selection sync without `query_zps`
+    // clears them), which also stops any in-flight zero-prefix query rather
+    // than re-requesting one for the new selection.
+    const bool preserve_matches = !should_query_zps &&
+                                  event.IsOnlyLeftMouseButton() &&
+                                  click_gesture_requested_zps_;
+    click_gesture_requested_zps_ |= should_query_zps;
     if (location_bar_view_) {
-      location_bar_view_->OpenOmniboxPopup(/*query_zps=*/true);
+      // A left click that focuses the omnibox (or one on an empty omnibox)
+      // opens the suggestions dropdown. A right-click should focus the omnibox
+      // and select its text without showing suggestions, since the context menu
+      // follows this release.
+      location_bar_view_->OpenOmniboxPopup(should_query_zps);
 
       // Transfer selection to the full webui popup (necessary when the popup
       // is already open and double-click events are forwarded).
-      if (location_bar_view_->GetOmniboxPopupView() &&
-          base::FeatureList::IsEnabled(
-              omnibox::kWebUIOmniboxFullPopupDoubleClick)) {
-        location_bar_view_->GetOmniboxPopupView()->SyncNativeStateToWebUI(
-            /*query_zps=*/false);
+      if (auto* popup_view = location_bar_view_->GetOmniboxPopupView();
+          popup_view && base::FeatureList::IsEnabled(
+                            omnibox::kWebUIOmniboxFullPopupDoubleClick)) {
+        if (preserve_matches) {
+          popup_view->SyncNativeStateToWebUIPreservingMatches();
+        } else {
+          popup_view->SyncNativeStateToWebUI(/*query_zps=*/false,
+                                             /*show_full_url=*/false);
+        }
       }
     }
   }
@@ -1624,8 +1738,17 @@ void OmniboxViewViews::OnMouseCaptureLost() {
 void OmniboxViewViews::OnGestureEvent(ui::GestureEvent* event) {
   PermitExternalProtocolHandler();
 
+  const bool is_popup_open =
+      controller()->IsPopupOpen() ||
+      (IsFullWebUIOmnibox() && location_bar_view_ &&
+       location_bar_view_->GetOmniboxPopupView() &&
+       location_bar_view_->GetOmniboxPopupView()->IsOpen());
+  const bool is_tap_valid =
+      event->type() == ui::EventType::kGestureTap &&
+      (!IsFullWebUIOmniboxReady() || event->details().tap_count() == 1);
+
   const bool gesture_should_take_focus =
-      !HasFocus() && event->type() == ui::EventType::kGestureTap;
+      !is_popup_open && is_tap_valid && !HasFocus();
   if (gesture_should_take_focus) {
     select_all_on_gesture_tap_ = true;
 
@@ -1659,6 +1782,19 @@ void OmniboxViewViews::OnGestureEvent(ui::GestureEvent* event) {
       event->type() == ui::EventType::kGestureLongPress ||
       event->type() == ui::EventType::kGestureLongTap) {
     select_all_on_gesture_tap_ = false;
+  }
+
+  if (event->type() == ui::EventType::kGestureTap &&
+      IsFullWebUIOmniboxReady()) {
+    if (location_bar_view_) {
+      location_bar_view_->OpenOmniboxPopup(/*query_zps=*/true);
+      if (location_bar_view_->GetOmniboxPopupView() &&
+          base::FeatureList::IsEnabled(
+              omnibox::kWebUIOmniboxFullPopupDoubleClick)) {
+        location_bar_view_->GetOmniboxPopupView()->SyncNativeStateToWebUI(
+            /*query_zps=*/false, /*show_full_url=*/false);
+      }
+    }
   }
 }
 
@@ -1783,6 +1919,21 @@ void OmniboxViewViews::OnBlur() {
       focus_manager && focus_manager->GetFocusedView() &&
       focus_manager->GetFocusedView() != this;
 
+  // In Full WebUI mode, focus only moves from the native textfield to
+  // `LocationBarView` when `LocationBarView::OnFullWebUiOmniboxReady()` hands
+  // it off to the WebUI omnibox (e.g. the user started typing in a new window
+  // before WebUI was ready). That isn't a blur, but the popup is still closed,
+  // so the checks below would treat it as one.
+  if (IsFullWebUIOmnibox() && focus_manager &&
+      focus_manager->GetFocusedView() == location_bar_view_) {
+    // The native textfield stays visible whenever the popup is closed, but it
+    // can't take focus anymore, so it won't get another `OnBlur()`. Restore how
+    // it displays text while unfocused now.
+    ElideAndResetScrollPosition();
+    ClearAccessibilityLabel();
+    return;
+  }
+
   const OmniboxPopupState popup_state =
       controller()->popup_state_manager()->popup_state();
   if (popup_state == OmniboxPopupState::kFull ||
@@ -1872,10 +2023,26 @@ void OmniboxViewViews::OnBlur() {
   // Deselect the text. Ensures the cursor is an I-beam.
   SetSelectedRange(gfx::Range(GetCursorPosition()));
 
-  // When deselected, elide and reset scroll position. After eliding, the old
-  // scroll offset is meaningless (since the string is guaranteed to fit within
-  // the view). The scroll must be reset or the text may be rendered partly or
-  // wholly off-screen.
+  ElideAndResetScrollPosition();
+
+  aim_hint_shown_ = false;
+
+  // `location_bar_view_` can be null in tests.
+  if (location_bar_view_) {
+    location_bar_view_->OnOmniboxBlurred();
+
+    // The location bar needs to repaint without a focus ring.
+    location_bar_view_->SchedulePaint();
+  }
+
+  ClearAccessibilityLabel();
+  InstallPlaceholderText();
+}
+
+void OmniboxViewViews::ElideAndResetScrollPosition() {
+  // After eliding, the old scroll offset is meaningless (since the string is
+  // guaranteed to fit within the view). The scroll must be reset or the text
+  // may be rendered partly or wholly off-screen.
   //
   // Important: Since the URL can contain bidirectional text, it is important to
   // set the display offset directly to 0 (not simply scroll to the start of the
@@ -1893,19 +2060,6 @@ void OmniboxViewViews::OnBlur() {
   // whitespace to the left of the elision point.
   render_text->SetWhitespaceElision(false);
   render_text->SetDisplayOffset(0);
-
-  aim_hint_shown_ = false;
-
-  // `location_bar_view_` can be null in tests.
-  if (location_bar_view_) {
-    location_bar_view_->OnOmniboxBlurred();
-
-    // The location bar needs to repaint without a focus ring.
-    location_bar_view_->SchedulePaint();
-  }
-
-  ClearAccessibilityLabel();
-  InstallPlaceholderText();
 }
 
 bool OmniboxViewViews::SupportsEmoji() const {

@@ -13,6 +13,7 @@ import {TrackedElementManager} from '//resources/js/tracked_element/tracked_elem
 import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
 import type {PropertyValues} from '//resources/lit/v3_0/lit.rollup.js';
 import {type Range as MojomRange} from '//resources/mojo/ui/gfx/range/mojom/range.mojom-webui.js';
+import {BUTTON_LEFT, BUTTON_RIGHT, getEventDispositionFlags} from '/shared/toolbar_button.js';
 import type {AdjustOmniboxTextForCopyResult} from '/shared/toolbar_ui_api.mojom-webui.js';
 import type {OmniboxActionDropFile, OmniboxActionDropText, OmniboxActionFocusChange, OmniboxActionPointer, OmniboxActionTextInput, OmniboxTextPortion, OmniboxViewState} from '/shared/toolbar_ui_api_data_model.mojom-webui.js';
 import {FocusRequestTarget, OmniboxTextColor} from '/shared/toolbar_ui_api_data_model.mojom-webui.js';
@@ -22,7 +23,6 @@ import {BrowserProxyImpl, INVALID_FOCUS_REQUEST_HANDLE} from './browser_proxy.js
 import type {BrowserProxy, FocusRequestHandle} from './browser_proxy.js';
 import {getCss} from './readonly_omnibox.css.js';
 import {getHtml} from './readonly_omnibox.html.js';
-import {BUTTON_LEFT, BUTTON_RIGHT, getEventDispositionFlags} from './toolbar_button.js';
 
 export interface ReadonlyOmniboxElement {
   $: {
@@ -291,6 +291,7 @@ export class ReadonlyOmniboxElement extends CrLitElement {
 
   // Records whether handling of first click's mouse up selected all text.
   private didSelectAllOnClickOne_: boolean = false;
+  private didUnelideOnClickOne_: boolean = false;
 
   // The time when we last acquired focus. This is used so that mouse down
   // handling can tell whether it previously had focus or it was acquired
@@ -667,8 +668,8 @@ export class ReadonlyOmniboxElement extends CrLitElement {
         // due to existing selection, so clear it again to let normal behavior
         // happen.
         input.setSelectionRange(0, 0);
-      } else {
-        // If we did not select all, we may have elided, so default behavior
+      } else if (this.didUnelideOnClickOne_) {
+        // If we did not select all, we may have unelided, so default behavior
         // could screw up and select the wrong word. Fortunately, in that case
         // selectionStart will be correct, including adjustment, so we select
         // the word it points at.
@@ -710,6 +711,10 @@ export class ReadonlyOmniboxElement extends CrLitElement {
       unelision = this.unelideAndUpdateSelection(
           event.detail === 1 ? UnelisionGesture.MOUSE_RELEASE :
                                UnelisionGesture.DOUBLE_CLICK);
+    }
+
+    if (event.detail === 1) {
+      this.didUnelideOnClickOne_ = unelision;
     }
 
     if (willSelectAll) {

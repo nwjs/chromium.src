@@ -1287,6 +1287,12 @@
     "type": "additional_compile_target",
     "skip_usage_check": True,
   },
+  "ios_chrome_all_eg2tests_module": {
+    "label": "//ios/chrome/test/earl_grey2:ios_chrome_all_eg2tests_module",
+    "type": "generated_script",
+    "module_scheme": "xctest",
+    "skip_usage_check": True,
+  },
   "ios_chrome_bookmarks_eg2tests_module": {
     "label": "//ios/chrome/test/earl_grey2:ios_chrome_bookmarks_eg2tests_module",
     "type": "generated_script",
@@ -1303,6 +1309,11 @@
     "type": "generated_script",
     "module_scheme": "xctest",
     "skip_usage_check": True,
+  },
+  "ios_chrome_perf_benchmarks_eg2tests_module": {
+    "label": "//ios/chrome/test/earl_grey2:ios_chrome_perf_benchmarks_eg2tests_module",
+    "type": "generated_script",
+    "module_scheme": "xctest",
   },
   "ios_chrome_settings_eg2tests_module": {
     "label": "//ios/chrome/test/earl_grey2:ios_chrome_settings_eg2tests_module",
@@ -1666,7 +1677,6 @@
     "label": "//chrome/browser/media/router:openscreen_unittests",
     "type": "console_test_launcher",
     "module_scheme": "gtest",
-    "skip_usage_check": True,
   },
   "optimization_guide_gpu_unittests": {
     "label": "//components/optimization_guide/internal:optimization_guide_gpu_unittests",
@@ -1700,7 +1710,7 @@
     "skip_usage_check": True,
   },
   "partition_alloc_perftests": {
-    "label": "//base/allocator/partition_allocator/src/partition_alloc:partition_alloc_perftests",
+    "label": "//base:partition_alloc_perftests",
     "type": "script",
     "script": "//testing/scripts/run_performance_tests.py",
     "skip_usage_check": True,

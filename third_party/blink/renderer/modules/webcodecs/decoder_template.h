@@ -64,7 +64,7 @@ class MODULES_EXPORT DecoderTemplate
   DEFINE_ATTRIBUTE_EVENT_LISTENER(dequeue, kDequeue)
   void configure(const ConfigType*, ExceptionState&);
   void decode(const InputType*, ExceptionState&);
-  ScriptPromise<IDLUndefined> flush(ExceptionState&);
+  ScriptPromise<IDLUndefined> flush(ScriptState*, ExceptionState&);
   void reset(ExceptionState&);
   void close(ExceptionState&);
   V8CodecState state() const { return state_; }
@@ -106,6 +106,9 @@ class MODULES_EXPORT DecoderTemplate
 
   // Called when the active configuration changes after a configure().
   virtual void OnActiveConfigChanged(const MediaConfigType& config);
+
+  // Called when the decoder is reset via reset() or Shutdown().
+  virtual void OnReset();
 
   // Virtual for UTs.
   virtual MediaDecoderType* decoder() { return decoder_.get(); }
@@ -221,6 +224,9 @@ class MODULES_EXPORT DecoderTemplate
 
   bool dequeue_event_pending_ = false;
 
+  // The `ScriptState` in which this decoder was created. Used for lifetime
+  // checks and callback invocation. Do not use it to create values returned to
+  // callers (e.g. promises), which may be in a different world or realm.
   Member<ScriptState> script_state_;
   Member<OutputCallbackType> output_cb_;
   Member<V8WebCodecsErrorCallback> error_cb_;

@@ -22,7 +22,7 @@
 #include "third_party/blink/renderer/core/streams/underlying_sink_base.h"
 #include "third_party/blink/renderer/core/streams/writable_stream.h"
 #include "third_party/blink/renderer/core/streams/writable_stream_default_controller.h"
-#include "third_party/blink/renderer/core/typed_arrays/dom_array_piece.h"
+#include "third_party/blink/renderer/core/typed_arrays/dom_array_buffer_util.h"
 #include "third_party/blink/renderer/modules/direct_sockets/stream_wrapper.h"
 #include "third_party/blink/renderer/modules/direct_sockets/tcp_readable_stream_wrapper.h"
 #include "third_party/blink/renderer/platform/bindings/exception_code.h"
@@ -145,19 +145,19 @@ void TCPWritableStreamWrapper::WriteDataAsynchronously() {
   DCHECK(data_pipe_);
   DCHECK(buffer_source_);
 
-  DOMArrayPiece array_piece(buffer_source_);
+  base::span<const uint8_t> data =
+      AsSpan<SharedBufferPolicy::kDisallow>(*buffer_source_);
   // From https://webidl.spec.whatwg.org/#dfn-get-buffer-source-copy, if the
   // buffer source is detached then an empty byte sequence is returned, which
   // means the write is complete.
-  if (array_piece.IsDetached()) {
+  if (data.empty()) {
     FinalizeWrite();
     return;
   }
-  size_t written =
-      WriteDataSynchronously(array_piece.ByteSpan().subspan(offset_));
+  size_t written = WriteDataSynchronously(data.subspan(offset_));
 
-  DCHECK_LE(offset_ + written, array_piece.ByteLength());
-  if (offset_ + written == array_piece.ByteLength()) {
+  DCHECK_LE(offset_ + written, data.size());
+  if (offset_ + written == data.size()) {
     FinalizeWrite();
     return;
   }
@@ -191,8 +191,8 @@ size_t TCPWritableStreamWrapper::WriteDataSynchronously(
 void TCPWritableStreamWrapper::FinalizeWrite() {
   if (buffer_source_) {
     // report to CDP
-    DOMArrayPiece array_piece(buffer_source_);
-    base::span<const uint8_t> data = array_piece.ByteSpan();
+    base::span<const uint8_t> data =
+        AsSpan<SharedBufferPolicy::kDisallow>(*buffer_source_);
     probe::DirectTCPSocketChunkSent(*GetScriptState(), inspector_id_, data);
   }
 

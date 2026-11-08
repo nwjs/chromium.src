@@ -81,6 +81,10 @@ constexpr float kPointsToPixels = static_cast<float>(printing::kPixelsPerInch) /
 
 constexpr float kFontSizeMinimumFactor = 3.0f;
 
+// Caps recursion into nested Form XObjects, which malformed PDFs can nest
+// arbitrarily deep. Real documents rarely nest more than a few levels.
+constexpr int kMaxFormDepth = 32;
+
 gfx::SizeF GetPageSizeInPoints(FPDF_PAGE page) {
   return gfx::SizeF(FPDF_GetPageWidthF(page), FPDF_GetPageHeightF(page));
 }
@@ -306,6 +310,22 @@ AccessibilityTextStyleInfo CalculateTextRunStyleInfo(FPDF_TEXTPAGE text_page,
   return style_info;
 }
 
+// Returns the natural language specified by the innermost marked-content
+// sequence containing `page_object`, or an empty string if none is specified.
+std::string GetPageObjectLanguage(FPDF_PAGEOBJECT page_object) {
+  CHECK(::features::IsPdfAccessibilityHeuristicEnhancementsEnabled());
+  int mark_count = FPDFPageObj_CountMarks(page_object);
+  for (int i = mark_count - 1; i >= 0; --i) {
+    FPDF_PAGEOBJECTMARK mark = FPDFPageObj_GetMark(page_object, i);
+    std::optional<std::u16string> lang =
+        GetPageObjectMarkStringParam(mark, "Lang");
+    if (lang.has_value()) {
+      return base::UTF16ToUTF8(lang.value());
+    }
+  }
+  return std::string();
+}
+
 // Returns true if the text_object on the given `text_page` at the given
 // `char_index` has the same text style as the text run. `is_searchified`
 // indicates that the text and style are from searchify.
@@ -445,6 +465,50 @@ gfx::Range GetLinkTextRange(int32_t start_char_index, int32_t char_count) {
   return gfx::Range(start_char_index, start_char_index + char_count);
 }
 
+// Recursively checks whether `form_object` contains both visible text and at
+// least one graphical primitive (path, image, or shading).
+void CheckFormObjectContentsForGraphics(
+    FPDF_PAGEOBJECT form_object,
+    std::set<FPDF_PAGEOBJECT>& visited_forms,
+    int depth,
+    bool* has_visible_text,
+    bool* has_graphics) {
+  if (depth >= kMaxFormDepth) {
+    return;
+  }
+
+  CHECK(form_object);
+  if (!visited_forms.insert(form_object).second) {
+    return;
+  }
+
+  int count = FPDFFormObj_CountObjects(form_object);
+  for (int i = 0; i < count && (!*has_visible_text || !*has_graphics); ++i) {
+    FPDF_PAGEOBJECT child = FPDFFormObj_GetObject(form_object, i);
+    if (!child) {
+      continue;
+    }
+
+    switch (FPDFPageObj_GetType(child)) {
+      case FPDF_PAGEOBJ_TEXT:
+        if (FPDFTextObj_GetTextRenderMode(child) !=
+            FPDF_TEXTRENDERMODE_INVISIBLE) {
+          *has_visible_text = true;
+        }
+        break;
+      case FPDF_PAGEOBJ_PATH:
+      case FPDF_PAGEOBJ_IMAGE:
+      case FPDF_PAGEOBJ_SHADING:
+        *has_graphics = true;
+        break;
+      case FPDF_PAGEOBJ_FORM:
+        CheckFormObjectContentsForGraphics(child, visited_forms, depth + 1,
+                                           has_visible_text, has_graphics);
+        break;
+    }
+  }
+}
+
 }  // namespace
 
 PDFiumPage::LinkTarget::LinkTarget() : page(-1) {}
@@ -520,6 +584,8 @@ void PDFiumPage::ReloadTextPage() {
   associated_text_run_indices_.clear();
   calculated_links_ = false;
   links_.clear();
+  calculated_graphics_ = false;
+  graphics_.clear();
   calculated_annotations_ = false;
   highlights_.clear();
   calculated_page_object_text_run_breaks_ = false;
@@ -558,6 +624,24 @@ void PDFiumPage::CalculatePageObjectTextRunBreaks() {
       // Don't insert a break if the highlight is at the end of the page text.
       if (next_text_run_break_index < chars_count) {
         page_object_text_run_breaks_.insert(next_text_run_break_index);
+      }
+    }
+  }
+
+  // Split text runs at graphic boundaries so surrounding text is not merged
+  // with text inside a graphic.
+  if (::features::IsPdfAccessibilityHeuristicEnhancementsEnabled()) {
+    CalculateGraphics();
+    for (const auto& graphic : graphics_) {
+      if (graphic.start_char_index >= 0 &&
+          graphic.start_char_index < chars_count) {
+        page_object_text_run_breaks_.insert(graphic.start_char_index);
+        int next_text_run_break_index =
+            graphic.start_char_index + graphic.char_count;
+        // Don't insert a break if the graphic is at the end of the page text.
+        if (next_text_run_break_index < chars_count) {
+          page_object_text_run_breaks_.insert(next_text_run_break_index);
+        }
       }
     }
   }
@@ -1029,6 +1113,29 @@ std::vector<AccessibilityHighlightInfo> PDFiumPage::GetHighlightInfo() {
   return highlight_info;
 }
 
+std::vector<AccessibilityFormGraphicInfo> PDFiumPage::GetFormGraphicInfo() {
+  std::vector<AccessibilityFormGraphicInfo> graphic_info;
+  if (!::features::IsPdfAccessibilityHeuristicEnhancementsEnabled() ||
+      !available_) {
+    return graphic_info;
+  }
+
+  CalculateTextRuns();
+  CalculateGraphics();
+
+  graphic_info.reserve(graphics_.size());
+  for (const Graphic& graphic : graphics_) {
+    graphic_info.push_back(
+        {.bounds = gfx::RectF(graphic.bounding_rect),
+         .text_range = GetEnclosingTextRunRangeForCharRange(
+             text_runs_, graphic.start_char_index, graphic.char_count)});
+  }
+
+  std::ranges::sort(graphic_info,
+                    CompareTextRuns<AccessibilityFormGraphicInfo>);
+  return graphic_info;
+}
+
 PDFiumPage::Area PDFiumPage::GetLinkTargetAtIndex(int link_index,
                                                   LinkTarget* target) {
   if (!available_ || link_index < 0)
@@ -1375,6 +1482,9 @@ AccessibilityTextRunInfo PDFiumPage::CalculateTextRunInfoAt(
 
   FPDF_PAGEOBJECT text_object =
       FPDFText_GetTextObject(text_page, actual_start_char_index);
+  if (::features::IsPdfAccessibilityHeuristicEnhancementsEnabled()) {
+    info.language = GetPageObjectLanguage(text_object);
+  }
 
   // Continue adding characters until heuristics indicate we should end the text
   // run.
@@ -1390,16 +1500,27 @@ AccessibilityTextRunInfo PDFiumPage::CalculateTextRunInfoAt(
         GetFloatCharRectInPixels(page, text_page, char_index);
 
     if (!base::IsUnicodeWhitespace(character)) {
-      // Heuristic: End the text run if the text style of the current character
-      // is different from the text run's style. The style can only be different
-      // if the FPDF_PAGEOBJECTs are different, so check the FPDF_PAGEOBJECTs
-      // first to make the comparison faster.
+      // Heuristic: End the text run if the text style or language of the
+      // current character is different from the text run's style. The style and
+      // language can only be different if the FPDF_PAGEOBJECTs are different,
+      // so check the FPDF_PAGEOBJECTs first to make the comparison faster.
       FPDF_PAGEOBJECT current_text_object =
           FPDFText_GetTextObject(text_page, char_index);
-      if (current_text_object != text_object &&
-          !AreTextStyleEqual(text_page, char_index, info.style,
-                             info.is_searchified)) {
-        break;
+      if (current_text_object != text_object) {
+        if (!AreTextStyleEqual(text_page, char_index, info.style,
+                               info.is_searchified)) {
+          break;
+        }
+
+        if (::features::IsPdfAccessibilityHeuristicEnhancementsEnabled()) {
+          if (GetPageObjectLanguage(current_text_object) != info.language) {
+            break;
+          }
+
+          // Update `text_object` to avoid re-checking style and language for
+          // remaining characters in `current_text_object`.
+          text_object = current_text_object;
+        }
       }
 
       // Heuristic: End text run if character isn't going in the same direction.
@@ -1466,13 +1587,25 @@ AccessibilityTextRunInfo PDFiumPage::CalculateTextRunInfoAt(
   info.len = char_index - start_char_index;
   info.style.font_size = text_run_font_size;
   info.bounds = text_run_bounds;
-  // Infer text direction from first and last character of the text run. We
-  // can't base our decision on the character direction, since a character of a
-  // RTL language will have an angle of 0 when not rotated, just like a
-  // character in a LTR language.
-  info.direction = char_index - actual_start_char_index > 1
-                       ? GetDirectionFromAngle(text_run_angle)
-                       : AccessibilityTextDirection::kNone;
+  // Infer text direction for the run:
+  // - If the characters are rotated (`char_direction != kLeftToRight`), use
+  //   `char_direction`.
+  // - If the characters are unrotated (`char_direction == kLeftToRight`), they
+  //   can be either LTR or RTL. Only use `text_run_angle` when it indicates
+  //   `kRightToLeft`; otherwise use `char_direction` (`kLeftToRight`) so height
+  //   differences between adjacent characters (e.g. "1.") do not skew the
+  //   direction to vertical.
+  const AccessibilityTextDirection angle_direction =
+      GetDirectionFromAngle(text_run_angle);
+  if (char_index - actual_start_char_index <= 1) {
+    info.direction = AccessibilityTextDirection::kNone;
+  } else if (::features::IsPdfAccessibilityHeuristicEnhancementsEnabled() &&
+             (char_direction != AccessibilityTextDirection::kLeftToRight ||
+              angle_direction != AccessibilityTextDirection::kRightToLeft)) {
+    info.direction = char_direction;
+  } else {
+    info.direction = angle_direction;
+  }
   return info;
 }
 
@@ -1706,6 +1839,49 @@ void PDFiumPage::CalculateImages() {
   }
 }
 
+void PDFiumPage::CalculateGraphics() {
+  if (!::features::IsPdfAccessibilityHeuristicEnhancementsEnabled() ||
+      calculated_graphics_) {
+    return;
+  }
+
+  calculated_graphics_ = true;
+  FPDF_PAGE page = GetPage();
+  int page_object_count = FPDFPage_CountObjects(page);
+  for (int i = 0; i < page_object_count; ++i) {
+    FPDF_PAGEOBJECT page_object = FPDFPage_GetObject(page, i);
+    if (FPDFPageObj_GetType(page_object) != FPDF_PAGEOBJ_FORM) {
+      continue;
+    }
+
+    const PdfRect bounds = GetPageObjectBounds(page_object).value_or(PdfRect());
+    if (bounds.IsEmpty()) {
+      continue;
+    }
+
+    // Only treat the form as a graphic if it combines graphical primitives with
+    // visible text (excluding text-only forms and decorative shapes).
+    bool has_visible_text = false;
+    bool has_graphics = false;
+    std::set<FPDF_PAGEOBJECT> visited_forms;
+    CheckFormObjectContentsForGraphics(page_object, visited_forms, /*depth=*/0,
+                                       &has_visible_text, &has_graphics);
+    if (!has_visible_text || !has_graphics) {
+      continue;
+    }
+
+    // Calculate underlying text range of graphic.
+    Graphic graphic;
+    if (GetUnderlyingTextRangeForRect(bounds.AsGfxRectF(),
+                                      &graphic.start_char_index,
+                                      &graphic.char_count)) {
+      graphic.bounding_rect = PageToScreen(gfx::Point(), /*zoom=*/1.0, bounds,
+                                           PageOrientation::kOriginal);
+      graphics_.push_back(std::move(graphic));
+    }
+  }
+}
+
 void PDFiumPage::PopulateTextRunTypeAndImageAltText() {
   CalculateTextRuns();
   CalculateImages();
@@ -1768,20 +1944,23 @@ void PDFiumPage::PopulateTextRunTypeAndImageAltTextForStructElement(
 }
 
 void PDFiumPage::PopulateAnnotations() {
-  if (calculated_annotations_)
+  if (calculated_annotations_) {
     return;
+  }
 
   FPDF_PAGE page = GetPage();
-  if (!page)
+  if (!page) {
     return;
+  }
 
   int annotation_count = FPDFPage_GetAnnotCount(page);
   for (int i = 0; i < annotation_count; ++i) {
     ScopedFPDFAnnotation annot(FPDFPage_GetAnnot(page, i));
-    DCHECK(annot);
-    FPDF_ANNOTATION_SUBTYPE subtype = FPDFAnnot_GetSubtype(annot.get());
+    if (!annot) {
+      continue;
+    }
 
-    switch (subtype) {
+    switch (FPDFAnnot_GetSubtype(annot.get())) {
       case FPDF_ANNOT_HIGHLIGHT: {
         PopulateHighlight(annot.get());
         break;

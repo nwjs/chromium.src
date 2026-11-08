@@ -36,6 +36,7 @@ TODO(crbug.com/40196262): Do a proper 3-stage build
 import argparse
 import base64
 import collections
+import functools
 import hashlib
 import json
 import platform
@@ -186,7 +187,7 @@ RUST_BETA_SYSROOT_DIR = os.path.join(
 # cipd desc infra/3pp/static_libs/openssl/linux-amd64 --version <instance id>
 # - A version tag looks like: `version:2@1.1.1j.chromium.2` and we
 #   store the part after the `2@` here.
-CIPD_DOWNLOAD_URL = f'https://chrome-infra-packages.appspot.com/dl'
+CIPD_DOWNLOAD_URL = 'https://chrome-infra-packages.appspot.com/dl'
 OPENSSL_CIPD_LINUX_AMD_PATH = 'infra/3pp/static_libs/openssl/linux-amd64'
 OPENSSL_CIPD_LINUX_AMD_VERSION = '1.1.1j.chromium.2'
 OPENSSL_CIPD_MAC_AMD_PATH = 'infra/3pp/static_libs/openssl/mac-amd64'
@@ -216,18 +217,14 @@ TEST_SUITES = [
 ]
 
 
-def InstallRustBetaSysroot(rust_git_hash, target_triples):
+def InstallRustBetaSysroot(target_triples):
     if os.path.exists(RUST_BETA_SYSROOT_DIR):
         RmTree(RUST_BETA_SYSROOT_DIR)
-    InstallBetaPackage(
-        FetchBetaPackage('cargo', rust_git_hash), RUST_BETA_SYSROOT_DIR
-    )
-    InstallBetaPackage(
-        FetchBetaPackage('rustc', rust_git_hash), RUST_BETA_SYSROOT_DIR
-    )
+    InstallBetaPackage(FetchBetaPackage('cargo'), RUST_BETA_SYSROOT_DIR)
+    InstallBetaPackage(FetchBetaPackage('rustc'), RUST_BETA_SYSROOT_DIR)
     for t in target_triples:
         InstallBetaPackage(
-            FetchBetaPackage('rust-std', rust_git_hash, triple=t),
+            FetchBetaPackage('rust-std', triple=t),
             RUST_BETA_SYSROOT_DIR,
         )
 
@@ -286,7 +283,7 @@ def VerifyStage0JsonHash(stage0_json_url=None):
     sys.exit(1)
 
 
-def FetchBetaPackage(name, rust_git_hash, triple=None):
+def FetchBetaPackage(name, triple=None):
     '''Downloads the beta package specified for the compiler build
 
     If `triple` is not specified, it downloads a package for the current
@@ -297,17 +294,12 @@ def FetchBetaPackage(name, rust_git_hash, triple=None):
     triple = triple if triple else RustTargetTriple()
     filename = f'{name}-beta-{triple}'
 
-    # Pull the stage0 to find the package intended to be used to build this
-    # version of the Rust compiler.
-    STAGE0_JSON_URL = (
-        'https://chromium.googlesource.com/external/github.com/'
-        'rust-lang/rust/+/{GIT_HASH}/src/stage0?format=TEXT'
-    )
-    base64_text = FetchUrl(
-        STAGE0_JSON_URL.format(GIT_HASH=rust_git_hash)
-    ).decode("utf-8")
-    stage0 = base64.b64decode(base64_text).decode("utf-8")
-    lines = stage0.splitlines()
+    # Read the stage0 to find the package intended to be used to build this
+    # version of the Rust compiler.  Read the local file (rather than
+    # fetching it from Gitiles) to avoid a network dependency.  This is the
+    # same file that `VerifyStage0JsonHash` checks and that `x.py` uses.
+    with open(STAGE0_JSON_PATH, encoding='utf-8') as f:
+        lines = f.read().splitlines()
 
     # The stage0 file contains the path to all tarballs it uses binaries from.
     for l in lines:
@@ -334,7 +326,7 @@ def InstallBetaPackage(package_dir, install_dir):
     cmd += [
         os.path.join(package_dir, 'install.sh'),
         f'--destdir={install_dir}',
-        f'--prefix=',
+        '--prefix=',
     ]
 
     if sys.platform.startswith('linux'):
@@ -423,12 +415,7 @@ class XPy:
             self._env['LD'] = os.path.join(self._llvm_bins_path, 'clang')
 
         if sys.platform == 'darwin':
-            # The system/xcode compiler would find system SDK correctly, but
-            # the Clang we've built does not. See
-            # https://github.com/llvm/llvm-project/issues/45225
-            sdk_path = subprocess.check_output(
-                ['xcrun', '--show-sdk-path'], text=True
-            ).rstrip()
+            sdk_path = GetMacSdkPath()
             self._env['CFLAGS'] += f' -isysroot {sdk_path}'
             self._env['CXXFLAGS'] += f' -isysroot {sdk_path}'
             self._env['LDFLAGS'] += f' -isysroot {sdk_path}'
@@ -666,6 +653,16 @@ def RustTargetTriple():
         return 'x86_64-unknown-linux-gnu'
 
 
+@functools.cache
+def GetMacSdkPath():
+    # The system/xcode compiler would find system SDK correctly, but
+    # the Clang we've built does not. See
+    # https://github.com/llvm/llvm-project/issues/45225
+    return subprocess.check_output(
+        ['xcrun', '--show-sdk-path'], text=True
+    ).rstrip()
+
+
 # Build the LLVM libraries and install them .
 def BuildLLVMLibraries(skip_checkout, llvm_force_head_revision):
     print(f'Building the host LLVM in {RUST_HOST_LLVM_BUILD_DIR}...')
@@ -806,24 +803,14 @@ def GitApplyLLVMDependentCherryPicks():
     #         'https://github.com/rust-lang/rust.git',
     #     )
 
-    # TODO: Remove once
-    # https://github.com/rust-lang/rust/pull/163128 rolls into rust.
+    # TODO(crbug.com/567940072): Remove once
+    # https://github.com/rust-lang/rust/pull/163546 rolls into rust.
     if IsGitAncestorToHead(
-        LLVM_DIR, '4200a8e34e488aaf9c1b5b1966aa4c1bbec8b4d5'
+        LLVM_DIR, 'ea14603e78faa0eda6041ffe0519d451985b4faa'
     ):
         GitCherryPick(
             RUST_SRC_DIR,
-            '99188ef36d20ffc724b5649895e5e4df2c794faf',
-            'https://github.com/rust-lang/rust.git',
-        )
-    # TODO: Remove once
-    # https://github.com/rust-lang/rust/pull/163113 rolls into rust.
-    if IsGitAncestorToHead(
-        LLVM_DIR, 'cf40ab1dc19aa9b42e0725fec1e5cf34f898a4d4'
-    ):
-        GitCherryPick(
-            RUST_SRC_DIR,
-            '9acb7866d472c7055eabef228ce961c821251719',
+            '937145bcebff9cafefdbad652b7463a8ed04fe1f',
             'https://github.com/rust-lang/rust.git',
         )
 
@@ -1045,7 +1032,7 @@ def main():
             # the hash is valid.
             return 0
         CheckoutGitRepo('Rust', RUST_GIT_URL, checkout_revision, RUST_SRC_DIR)
-        path = FetchBetaPackage('cargo', checkout_revision)
+        path = FetchBetaPackage('cargo')
         if sys.platform == 'win32':
             cargo_bin = os.path.join(path, 'cargo', 'bin', 'cargo.exe')
         else:
@@ -1135,7 +1122,7 @@ def main():
             RmTree(RUST_BUILD_DIR)
 
     if not args.skip_test:
-        print(f'Building stage 2 artifacts and running tests...')
+        print('Building stage 2 artifacts and running tests...')
         xpy.run('test', xpy_args + GetTestArgs())
 
     if not args.skip_install:
@@ -1194,7 +1181,7 @@ def main():
 
         if args.gnrt_stdlib:
             print('Building gnrt...')
-            InstallRustBetaSysroot(checkout_revision, [RustTargetTriple()])
+            InstallRustBetaSysroot([RustTargetTriple()])
             print('Beta sysroot installed.')
             build_cmd = [
                 sys.executable,

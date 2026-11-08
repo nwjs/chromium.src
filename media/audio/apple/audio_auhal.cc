@@ -21,6 +21,7 @@
 #include "base/metrics/histogram_macros.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/strings/strcat.h"
+#include "base/strings/string_number_conversions.h"
 #include "base/strings/stringprintf.h"
 #include "base/time/time.h"
 #include "base/trace_event/typed_macros.h"
@@ -202,12 +203,14 @@ void ReportFramesRequestedUma(int number_of_frames_requested) {
 AUHALStream::AUHALStream(AudioManagerApple* manager,
                          const AudioParameters& params,
                          AudioDeviceID device,
+                         const std::string& device_unique_id,
                          const AudioManager::LogCallback& log_callback)
     : id_(base::UnguessableToken::Create()),
       manager_(manager),
       params_(params),
       source_(nullptr),
       device_(device),
+      device_unique_id_(device_unique_id),
       volume_(1),
       stopped_(true),
       last_sample_time_(0.0),
@@ -636,8 +639,16 @@ bool AUHALStream::ConfigureAUHAL() {
     return false;
   }
 
-  if (!manager_->MaybeChangeBufferSize(device_, local_audio_unit->audio_unit(),
-                                       0, params_.frames_per_buffer())) {
+  OSStatus result = manager_->MaybeChangeBufferSize(
+      device_, local_audio_unit->audio_unit(), /*element=*/0,
+      params_.frames_per_buffer());
+  if (result != noErr) {
+    std::string device_name =
+        manager_->GetDeviceNameFromCache(device_unique_id_, /*is_input=*/false);
+    SendLogMessage(
+        base::StrCat({"MaybeChangeBufferSize failed for device ", device_name,
+                      " (", logging::DescriptionFromOSStatus(result), ", code ",
+                      base::NumberToString(result), ")"}));
     return false;
   }
 
@@ -645,7 +656,7 @@ bool AUHALStream::ConfigureAUHAL() {
   AURenderCallbackStruct callback;
   callback.inputProc = InputProc;
   callback.inputProcRefCon = this;
-  OSStatus result = AudioUnitSetProperty(
+  result = AudioUnitSetProperty(
       local_audio_unit->audio_unit(), kAudioUnitProperty_SetRenderCallback,
       kAudioUnitScope_Input, AUElement::OUTPUT, &callback, sizeof(callback));
   if (result != noErr)

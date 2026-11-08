@@ -27,6 +27,7 @@
 #include "third_party/blink/renderer/core/layout/hit_test_result.h"
 #include "third_party/blink/renderer/core/layout/layout_box_model_object.h"
 #include "third_party/blink/renderer/core/layout/svg/svg_resources.h"
+#include "third_party/blink/renderer/core/layout/svg/transform_helper.h"
 #include "third_party/blink/renderer/core/layout/svg/transformed_hit_test_location.h"
 #include "third_party/blink/renderer/core/paint/clip_path_clipper.h"
 #include "third_party/blink/renderer/core/paint/paint_info.h"
@@ -43,12 +44,22 @@ namespace {
 
 enum class ClipStrategy { kNone, kMask, kPath };
 
-ClipStrategy ModifyStrategyForClipPath(const ComputedStyle& style,
+// A kPath strategy requires the clip shape to be representable as a path.
+ClipStrategy ModifyStrategyForClipPath(const LayoutObject& layout_object,
                                        ClipStrategy strategy) {
-  // If the shape in the clip-path gets clipped too then fallback to masking.
-  if (strategy != ClipStrategy::kPath || !style.HasClipPath())
+  if (strategy != ClipStrategy::kPath) {
     return strategy;
-  return ClipStrategy::kMask;
+  }
+  // The shape in the clip-path gets clipped too.
+  if (layout_object.Style().HasClipPath()) {
+    return ClipStrategy::kMask;
+  }
+  // PathFromElement() would flatten a 3D transform.
+  // TODO(crbug.com/41310059): Support 3D transforms on clip path content.
+  if (TransformHelper::HasCss3DTransform(layout_object)) {
+    return ClipStrategy::kMask;
+  }
+  return strategy;
 }
 
 ClipStrategy DetermineClipStrategy(const SVGGraphicsElement& element) {
@@ -57,7 +68,7 @@ ClipStrategy DetermineClipStrategy(const SVGGraphicsElement& element) {
     return ClipStrategy::kNone;
   if (DisplayLockUtilities::LockedAncestorPreventingLayout(*layout_object))
     return ClipStrategy::kNone;
-  const ComputedStyle& style = layout_object->StyleRef();
+  const ComputedStyle& style = layout_object->Style();
   if (style.Display() == EDisplay::kNone ||
       style.Visibility() != EVisibility::kVisible) {
     return ClipStrategy::kNone;
@@ -70,7 +81,7 @@ ClipStrategy DetermineClipStrategy(const SVGGraphicsElement& element) {
     // Text requires masking.
     strategy = ClipStrategy::kMask;
   }
-  return ModifyStrategyForClipPath(style, strategy);
+  return ModifyStrategyForClipPath(*layout_object, strategy);
 }
 
 ClipStrategy DetermineClipStrategy(const SVGElement& element) {
@@ -83,15 +94,15 @@ ClipStrategy DetermineClipStrategy(const SVGElement& element) {
     if (DisplayLockUtilities::LockedAncestorPreventingLayout(
             *use_layout_object))
       return ClipStrategy::kNone;
-    if (use_layout_object->StyleRef().Display() == EDisplay::kNone)
+    if (use_layout_object->Style().Display() == EDisplay::kNone) {
       return ClipStrategy::kNone;
+    }
     const SVGGraphicsElement* shape_element =
         svg_use_element->VisibleTargetGraphicsElementForClipping();
     if (!shape_element)
       return ClipStrategy::kNone;
     ClipStrategy shape_strategy = DetermineClipStrategy(*shape_element);
-    return ModifyStrategyForClipPath(use_layout_object->StyleRef(),
-                                     shape_strategy);
+    return ModifyStrategyForClipPath(*use_layout_object, shape_strategy);
   }
   auto* svg_graphics_element = DynamicTo<SVGGraphicsElement>(element);
   if (!svg_graphics_element)
@@ -295,7 +306,7 @@ bool LayoutSVGResourceClipper::FindCycleFromSelf() const {
   NOT_DESTROYED();
   // Check nested clip-path.
   if (auto* reference_clip =
-          DynamicTo<ReferenceClipPathOperation>(StyleRef().ClipPath())) {
+          DynamicTo<ReferenceClipPathOperation>(Style().ClipPath())) {
     // The resource can be null if the reference is external but external
     // references are not allowed.
     if (SVGResource* resource = reference_clip->Resource()) {

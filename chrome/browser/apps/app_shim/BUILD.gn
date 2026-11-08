@@ -38,12 +38,7 @@ source_set("app_shim") {
     "web_app_shim_manager_delegate_mac.h",
   ]
 
-  configs += [ "//build/config/compiler:wexit_time_destructors" ]
-
-  public_deps = [
-    ":app_shim_listener",
-    "//chrome/browser:browser_public_dependencies",
-  ]
+  public_deps = [ ":app_shim_listener" ]
 
   deps = [
     "//apps",

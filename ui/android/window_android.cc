@@ -12,6 +12,7 @@
 #include "base/android/jni_string.h"
 #include "base/android/jni_weak_ref.h"
 #include "base/android/scoped_java_ref.h"
+#include "base/check.h"
 #include "base/feature_list.h"
 #include "base/logging.h"
 #include "base/metrics/histogram_macros.h"
@@ -145,14 +146,22 @@ void WindowAndroid::RemoveObserver(WindowAndroidObserver* observer) {
 }
 
 void WindowAndroid::AttachCompositor(WindowAndroidCompositor* compositor) {
-  if (compositor_ && compositor != compositor_)
+  if (compositor_ && compositor != compositor_) {
     DetachCompositor();
+  }
 
   compositor_ = compositor;
-  observer_list_.Notify(&WindowAndroidObserver::OnAttachCompositor);
+  if (compositor_) {
+    JNIEnv* env = AttachCurrentThread();
+    compositor_->SetWindowOccluded(java_window_->isOccluded(env));
+    observer_list_.Notify(&WindowAndroidObserver::OnAttachCompositor);
+  }
 }
 
 void WindowAndroid::DetachCompositor() {
+  if (compositor_) {
+    compositor_->SetWindowOccluded(false);
+  }
   observer_list_.Notify(&WindowAndroidObserver::OnDetachCompositor);
   observer_list_.Clear();
   compositor_ = nullptr;
@@ -206,6 +215,13 @@ void WindowAndroid::Animate(base::TimeTicks begin_frame_time) {
 void WindowAndroid::OnVisibilityChanged(JNIEnv* env, bool visible) {
   observer_list_.Notify(&WindowAndroidObserver::OnRootWindowVisibilityChanged,
                         visible);
+}
+
+void WindowAndroid::OnOcclusionChanged(JNIEnv* env, bool occluded) {
+  TRACE_EVENT("ui", "WindowAndroid::OnOcclusionChanged", "occluded", occluded);
+  if (compositor_) {
+    compositor_->SetWindowOccluded(occluded);
+  }
 }
 
 void WindowAndroid::OnActivityStopped(JNIEnv* env) {
@@ -389,9 +405,8 @@ void WindowAndroid::ReleasePointerLock(ViewAndroid& view_android) {
 }
 
 void WindowAndroid::OnWindowPointerLockRelease(JNIEnv* env) {
-  DCHECK(pointer_locking_view_);
-  pointer_locking_view_->OnPointerLockRelease();
-  pointer_locking_view_ = nullptr;
+  CHECK(pointer_locking_view_);
+  std::exchange(pointer_locking_view_, nullptr)->OnPointerLockRelease();
 }
 
 void WindowAndroid::OnWindowPositionChanged(JNIEnv* env) {

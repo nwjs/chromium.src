@@ -42,9 +42,49 @@
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/web_contents.h"
+#include "pdf/buildflags.h"
+#include "printing/buildflags/buildflags.h"
+#include "services/metrics/public/cpp/ukm_builders.h"
+#include "services/metrics/public/cpp/ukm_recorder.h"
 #include "ui/accessibility/accessibility_features.h"
 #include "ui/base/window_open_disposition.h"
 #include "ui/events/keycodes/keyboard_codes.h"
+#include "url/gurl.h"
+
+#if BUILDFLAG(ENABLE_PDF)
+#include <string>
+#include <vector>
+
+#include "base/strings/string_split.h"
+#include "base/strings/string_util.h"
+#include "chrome/browser/pdf/pdf_extension_util.h"
+#include "components/translate/content/browser/content_translate_driver.h"
+#endif  // BUILDFLAG(ENABLE_PDF)
+
+#if BUILDFLAG(ENABLE_PRINTING)
+#include "chrome/browser/printing/printing_init.h"
+#endif
+
+#if BUILDFLAG(ENABLE_PDF)
+GURL GetPdfUrlWithFitToWidth(const GURL& pdf_url) {
+  std::vector<std::string> params =
+      base::SplitString(pdf_url.ref(), "&", base::KEEP_WHITESPACE,
+                        base::SPLIT_WANT_NONEMPTY);
+
+  // Replace any existing view params, including duplicates, with a single one.
+  std::erase_if(params, [](const std::string& param) {
+    return param == "view" || base::StartsWith(param, "view=");
+  });
+  params.push_back("view=FitH");
+
+  // `Replacements` doesn't own the string, so it must outlive
+  // `ReplaceComponents()`.
+  const std::string ref = base::JoinString(params, "&");
+  GURL::Replacements replacements;
+  replacements.SetRefStr(ref);
+  return pdf_url.ReplaceComponents(replacements);
+}
+#endif  // BUILDFLAG(ENABLE_PDF)
 
 ///////////////////////////////////////////////////////////////////////////////
 // WebContentsObserverInstance
@@ -99,10 +139,20 @@ ReadAnythingControllerGlue::ReadAnythingControllerGlue(
 bool ReadAnythingController::freeze_distillation_for_testing_ = false;
 
 // static
+base::TimeDelta ReadAnythingController::ai_playback_iph_delay_ =
+    ReadAnythingController::kAiPlaybackIphDefaultDelay;
+
+// static
 void ReadAnythingController::
     SetFreezeDistillationOnCreationForTesting(  // IN-TEST
         bool locked) {
   freeze_distillation_for_testing_ = locked;
+}
+
+// static
+void ReadAnythingController::SetAiPlaybackIphDelayForTesting(  // IN-TEST
+    base::TimeDelta delay) {
+  ai_playback_iph_delay_ = delay;
 }
 
 ReadAnythingController* ReadAnythingController::From(tabs::TabInterface* tab) {
@@ -201,6 +251,7 @@ void ReadAnythingController::RemoveImmersiveActivationObserver(
 }
 
 void ReadAnythingController::OnEntryShown(ReadAnythingOpenTrigger trigger) {
+  last_open_trigger_ = trigger;
   observers_.Notify(&Observer::Activate, /*active=*/true, trigger,
                     /*completed_session_duration=*/std::nullopt);
   // At the moment, services are created for normal, guest, and incognito
@@ -239,12 +290,37 @@ void ReadAnythingController::OnEntryShown(ReadAnythingOpenTrigger trigger) {
       user_ed->MaybeShowFeaturePromo(
           feature_engagement::kIPHReadingModePresentationModeFeature);
     }
+    if (features::IsReadAnythingReadAloudExperimentalPlaybackUiEnabled() &&
+        distillation_state_ == DistillationState::kDistillationWithContent &&
+        !ai_playback_iph_timer_.IsRunning()) {
+      ai_playback_iph_timer_.Start(
+          FROM_HERE, ai_playback_iph_delay_,
+          base::BindOnce(&ReadAnythingController::MaybeShowAiPlaybackIph,
+                         weak_factory_.GetWeakPtr()));
+    }
   }
 
   MaybeUpdateFindBarController();
+
+#if BUILDFLAG(ENABLE_PDF)
+  // When Reading Mode opens for PDF translation, the PDF viewer's viewport
+  // becomes narrower, so fit the PDF to the new width.
+  if (trigger == ReadAnythingOpenTrigger::kPdfTranslation) {
+    content::WebContents* contents = tab_->GetContents();
+    if (contents && contents->GetPrimaryMainFrame()) {
+      pdf_extension_util::DispatchShouldUpdateViewportEvent(
+          contents->GetPrimaryMainFrame(),
+          GetPdfUrlWithFitToWidth(contents->GetLastCommittedURL()));
+    }
+  }
+#endif  // BUILDFLAG(ENABLE_PDF)
 }
 
 void ReadAnythingController::OnEntryHidden() {
+  if (features::IsReadAnythingReadAloudExperimentalPlaybackUiEnabled() &&
+      !is_presentation_transitioning_) {
+    ai_playback_iph_timer_.Stop();
+  }
   std::optional<base::TimeDelta> completed_session_duration =
       RecordEntryHiddenMetrics();
 
@@ -336,6 +412,14 @@ ReadAnythingContentsWrapper ReadAnythingController::GetOrCreateWebUIWrapper(
     webui::SetTabInterface(web_ui_wrapper_->web_contents(), tab_);
     find_in_page::FindTabHelper::CreateForWebContents(
         web_ui_wrapper_->web_contents());
+#if BUILDFLAG(ENABLE_PRINTING)
+    // Lets Immersive Reading Mode print this WebContents. Printing is attached
+    // once, for the WebContents' whole lifetime.
+    if (features::IsImmersiveReadAnythingPrintEnabled()) {
+      printing::InitializePrintingForWebContents(
+          web_ui_wrapper_->web_contents());
+    }
+#endif
   }
   return std::move(web_ui_wrapper_);
 }
@@ -502,8 +586,9 @@ void ReadAnythingController::CloseSidePanelUI(ReadAnythingCloseReason reason) {
         (reason == ReadAnythingCloseReason::kTabSwitched)
             ? SidePanelEntryHideReason::kBackgrounded
             : SidePanelEntryHideReason::kSidePanelClosed;
-    side_panel_ui->Close(hide_reason,
-                         /*suppress_animations=*/true);
+    // Only user-initiated closes should animate.
+    bool suppress_animations = reason != ReadAnythingCloseReason::kClosedByUser;
+    side_panel_ui->Close(hide_reason, suppress_animations);
   }
 }
 
@@ -745,6 +830,7 @@ void ReadAnythingController::OnDistillationStateChanged(
     return;
   }
 
+  distillation_state_ = new_state;
   auto* user_ed =
       BrowserUserEducationInterface::From(tab_->GetBrowserWindowInterface());
 
@@ -752,6 +838,15 @@ void ReadAnythingController::OnDistillationStateChanged(
     if (user_ed) {
       user_ed->AbortFeaturePromo(
           feature_engagement::kIPHReadingModeLineFocusFeature);
+    }
+    if (features::IsReadAnythingReadAloudExperimentalPlaybackUiEnabled()) {
+      ai_playback_iph_timer_.Stop();
+      if (user_ed) {
+        user_ed->AbortFeaturePromo(
+            feature_engagement::kIPHReadingModeAiPlaybackFeature);
+        user_ed->AbortFeaturePromo(
+            feature_engagement::kIPHReadingModeAiPlaybackSettingsFeature);
+      }
     }
 
     if (GetPresentationState() == PresentationState::kInImmersiveOverlay) {
@@ -761,16 +856,90 @@ void ReadAnythingController::OnDistillationStateChanged(
 
       TogglePresentation(/*is_user_initiated=*/false);
     }
-  } else if (features::IsReadAnythingLineFocusEnabled() &&
-             new_state == DistillationState::kDistillationWithContent &&
+  } else if (new_state == DistillationState::kDistillationWithContent &&
              GetPresentationState() != PresentationState::kInactive &&
              user_ed) {
-    // Only show the line focus IPH if there is content because line focus does
-    // not do anything on an empty page.
-    user_ed->MaybeShowFeaturePromo(
-        feature_engagement::kIPHReadingModeLineFocusFeature);
+    if (features::IsReadAnythingLineFocusEnabled()) {
+      // Only show the line focus IPH if there is content because line focus
+      // does not do anything on an empty page.
+      user_ed->MaybeShowFeaturePromo(
+          feature_engagement::kIPHReadingModeLineFocusFeature);
+    }
+    if (features::IsReadAnythingReadAloudExperimentalPlaybackUiEnabled() &&
+        !ai_playback_iph_timer_.IsRunning()) {
+      ai_playback_iph_timer_.Start(
+          FROM_HERE, ai_playback_iph_delay_,
+          base::BindOnce(&ReadAnythingController::MaybeShowAiPlaybackIph,
+                         weak_factory_.GetWeakPtr()));
+    }
   }
-  distillation_state_ = new_state;
+}
+
+void ReadAnythingController::MaybeShowAiPlaybackIph() {
+  CHECK(features::IsReadAnythingReadAloudExperimentalPlaybackUiEnabled());
+  if (GetPresentationState() == PresentationState::kInactive ||
+      distillation_state_ != DistillationState::kDistillationWithContent) {
+    return;
+  }
+  if (auto* user_ed = BrowserUserEducationInterface::From(
+          tab_->GetBrowserWindowInterface())) {
+    user_ed->MaybeShowFeaturePromo(
+        feature_engagement::kIPHReadingModeAiPlaybackFeature);
+  }
+}
+
+void ReadAnythingController::OnAiPlaybackStateChanged(bool enabled) {
+  if (!features::IsReadAnythingReadAloudExperimentalPlaybackUiEnabled() ||
+      !enabled) {
+    return;
+  }
+  ai_playback_iph_timer_.Stop();
+  if (auto* user_ed = BrowserUserEducationInterface::From(
+          tab_->GetBrowserWindowInterface())) {
+    user_ed->NotifyFeaturePromoFeatureUsed(
+        feature_engagement::kIPHReadingModeAiPlaybackFeature,
+        FeaturePromoFeatureUsedAction::kClosePromoIfPresent);
+    user_ed->MaybeShowFeaturePromo(
+        feature_engagement::kIPHReadingModeAiPlaybackSettingsFeature);
+  }
+}
+
+void ReadAnythingController::OnDistillationStatus(
+    read_anything::mojom::DistillationStatus status,
+    int word_count) {
+  content::WebContents* web_contents = tab_->GetContents();
+#if BUILDFLAG(ENABLE_PDF)
+  if (last_open_trigger_ == ReadAnythingOpenTrigger::kPdfTranslation &&
+      status == read_anything::mojom::DistillationStatus::kSuccess) {
+    // Target the tab's WebContents because ContentTranslateDriver is attached
+    // to the outer primary tab WebContents, not the inner GuestView
+    // WebContents hosting the PDF.
+    if (web_contents) {
+      auto* driver =
+          translate::ContentTranslateDriver::FromWebContents(web_contents);
+      if (driver) {
+        driver->MaybeTriggerPendingPdfTranslation();
+      }
+    }
+  }
+#endif  // BUILDFLAG(ENABLE_PDF)
+  if (last_open_trigger_ == ReadAnythingOpenTrigger::kOmniboxChip) {
+    if (status != read_anything::mojom::DistillationStatus::kStillRunning) {
+      last_open_trigger_ = ReadAnythingOpenTrigger::kUnknown;
+      base::UmaHistogramEnumeration(
+          "Accessibility.ReadAnything.DistillationStatusAfterOmnibox", status);
+      base::UmaHistogramCustomCounts(
+          "Accessibility.ReadAnything.WordsDistilledAfterOmnibox", word_count,
+          1, kMaxWordsDistilled, kWordsDistilledBuckets);
+
+      if (web_contents && web_contents->GetPrimaryMainFrame()) {
+        ukm::builders::Accessibility_ReadAnything_OmniboxEntryPointDistillation(
+            web_contents->GetPrimaryMainFrame()->GetPageUkmSourceId())
+            .SetDistillationStatus(static_cast<int>(status))
+            .Record(ukm::UkmRecorder::Get());
+      }
+    }
+  }
 }
 
 void ReadAnythingController::SetDwellTimeForTesting(base::TimeTicks test_time) {

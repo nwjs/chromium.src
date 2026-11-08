@@ -162,9 +162,9 @@ BASE_FEATURE_PARAM(base::TimeDelta,
 
 BASE_FEATURE(kCacheControlImmutable, base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kHttpCacheZstdDecompression, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kHttpCacheZstdDecompression, base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kHttpCacheZstdCompression, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kHttpCacheZstdCompression, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kRendererAccessibleHttpCache, base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE_PARAM(bool,
@@ -863,6 +863,16 @@ BASE_FEATURE(kQuicIgnoreRedundantOnNetworkMadeDefault,
 BASE_FEATURE(kQuicLongerIdleConnectionTimeout,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE(kQuicAlwaysCancelPreExistingProbingOnMigration,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kQuicWaitForNewNetworkTimeout, base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE_PARAM(base::TimeDelta,
+                   kQuicWaitForNewNetworkTimeoutParam,
+                   &kQuicWaitForNewNetworkTimeout,
+                   "timeout",
+                   base::Seconds(10));
+
 BASE_FEATURE(kLowerQuicMaxPacketSize, base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE_PARAM(size_t,
                    kQuicMaxPacketSize,
@@ -967,7 +977,7 @@ BASE_FEATURE(kPermitTcpSocketPoolConnectBackupJobs,
 BASE_FEATURE(kLocalNetworkPermissionCheck, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kIgnoreQuicCryptoConfigMemoryPressure,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kIgnoreQuicCryptoConfigMemoryPressureForDoh,
              base::FEATURE_ENABLED_BY_DEFAULT);

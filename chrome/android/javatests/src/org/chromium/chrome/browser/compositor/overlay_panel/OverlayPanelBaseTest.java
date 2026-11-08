@@ -11,6 +11,7 @@ import android.app.Activity;
 import android.content.Context;
 import android.graphics.Rect;
 import android.view.ViewGroup;
+import android.widget.FrameLayout;
 
 import androidx.annotation.Nullable;
 import androidx.test.annotation.UiThreadTest;
@@ -79,7 +80,6 @@ public class OverlayPanelBaseTest {
 
     @Mock private LayoutManagerImpl mLayoutManager;
     @Mock private BrowserControlsStateProvider mBrowserControlsStateProvider;
-    @Mock private ViewGroup mCompositorViewHolder;
     @Mock private Profile mProfile;
     @Mock private Tab mTab;
     @Mock private InsetObserver mInsetObserver;
@@ -90,6 +90,7 @@ public class OverlayPanelBaseTest {
     private ArgumentCaptor<BrowserControlsStateProvider.Observer>
             mBrowserControlsStateProviderObserverCaptor;
 
+    private ViewGroup mCompositorViewHolder;
     Activity mActivity;
     ActivityWindowAndroid mWindowAndroid;
     MockOverlayPanel mNoExpandPanel;
@@ -203,6 +204,7 @@ public class OverlayPanelBaseTest {
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     mActivity = activityTestRule.getActivity();
+                    mCompositorViewHolder = new FrameLayout(mActivity);
                     mWindowAndroid =
                             new ActivityWindowAndroid(
                                     mActivity,

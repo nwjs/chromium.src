@@ -961,7 +961,7 @@ TEST_F(WebAppShortcutCreatorTest, RevealAppShimInFinder) {
   EXPECT_TRUE(shortcut_creator.CreateShortcuts(SHORTCUT_CREATION_AUTOMATED,
                                                ShortcutLocations()));
 
-  EXPECT_CALL(shortcut_creator, RevealAppShimInFinder(_));
+  EXPECT_CALL(shortcut_creator, RevealAppShimInFinder(_)).Times(1);
   EXPECT_TRUE(shortcut_creator.CreateShortcuts(SHORTCUT_CREATION_BY_USER,
                                                ShortcutLocations()));
 }

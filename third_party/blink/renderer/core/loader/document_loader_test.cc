@@ -379,12 +379,13 @@ class DocumentLoaderSimTest : public SimTest {
         .ToChecked();
   }
 
-  SimRequest* main_resource_for_reenter_ = nullptr;
+  raw_ptr<SimRequest, UnprotectedInRelease | DanglingUntriaged>
+      main_resource_for_reenter_ = nullptr;
   int reenter_call_count_ = 0;
 
  private:
   static void ReenterThunk(const v8::FunctionCallbackInfo<v8::Value>& info) {
-    v8::Local<v8::External> external_that = info.Data().As<v8::External>();
+    v8::Local<v8::External> external_that = info.DataV2().As<v8::External>();
     DocumentLoaderSimTest* that = static_cast<DocumentLoaderSimTest*>(
         external_that->Value(gin::kExternalPointerTypeTagDefaultTag));
     that->Reenter();
@@ -460,8 +461,8 @@ TEST_F(DocumentLoaderSimTest, ProcessDataBuffer_Buffered) {
 // Test reentrancy into DocumentLoader during the initial `CommitData()` call.
 TEST_F(DocumentLoaderSimTest, ProcessDataBuffer_ReentrancyFromInitialCommit) {
   SimRequest main_resource("https://example.com", "text/html");
-  base::AutoReset<SimRequest*> main_resource_reset(&main_resource_for_reenter_,
-                                                   &main_resource);
+  base::AutoReset<raw_ptr<SimRequest, UnprotectedInRelease | DanglingUntriaged>>
+      main_resource_reset(&main_resource_for_reenter_, &main_resource);
   LoadURL("https://example.com");
 
   InstallReenterHelper(MainFrame());
@@ -478,8 +479,8 @@ TEST_F(DocumentLoaderSimTest, ProcessDataBuffer_ReentrancyFromInitialCommit) {
 // buffered data.
 TEST_F(DocumentLoaderSimTest, ProcessDataBuffer_ReentrancyDuringIteration) {
   SimRequest main_resource("https://example.com", "text/html");
-  base::AutoReset<SimRequest*> main_resource_reset(&main_resource_for_reenter_,
-                                                   &main_resource);
+  base::AutoReset<raw_ptr<SimRequest, UnprotectedInRelease | DanglingUntriaged>>
+      main_resource_reset(&main_resource_for_reenter_, &main_resource);
   LoadURL("https://example.com");
 
   // `BlockParser()` ensures DocumentLoader buffers data, which is necessary to
@@ -710,9 +711,6 @@ TEST_P(DocumentLoaderTest, SameOriginNavigation_WithStorageAccess) {
                   ->LastNavigationHadTrustedInitiator());
 
   histogram_tester.ExpectUniqueSample(
-      "API.StorageAccess.DocumentLoadedWithStorageAccess", /*sample=*/true,
-      /*expected_bucket_count=*/1);
-  histogram_tester.ExpectUniqueSample(
       "API.StorageAccess.DocumentInheritedStorageAccess", /*sample=*/true,
       /*expected_bucket_count=*/1);
 }
@@ -743,9 +741,6 @@ TEST_P(DocumentLoaderTest, CrossOriginNavigation) {
                    .GetDocumentLoader()
                    ->LastNavigationHadTrustedInitiator());
 
-  histogram_tester.ExpectUniqueSample(
-      "API.StorageAccess.DocumentLoadedWithStorageAccess", /*sample=*/false,
-      /*expected_bucket_count=*/1);
   histogram_tester.ExpectUniqueSample(
       "API.StorageAccess.DocumentInheritedStorageAccess", /*sample=*/false,
       /*expected_bucket_count=*/1);

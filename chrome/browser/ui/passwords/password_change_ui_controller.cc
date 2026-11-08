@@ -38,6 +38,7 @@
 #include "ui/gfx/geometry/insets.h"
 #include "ui/gfx/geometry/rounded_corners_f.h"
 #include "ui/gfx/vector_icon_types.h"
+#include "ui/lottie/animation.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/background.h"
 #include "ui/views/bubble/bubble_border.h"
@@ -226,8 +227,8 @@ std::unique_ptr<views::View> CreateInfoBoxRow(
 std::unique_ptr<views::View> CreatePrivateInferenceNoticeBox(
     base::RepeatingClosure navigate_to_settings_callback) {
   ChromeLayoutProvider* layout_provider = ChromeLayoutProvider::Get();
-  const int radius = layout_provider->GetDistanceMetric(
-      DISTANCE_FEATURE_FIRST_RUN_INFO_BOX_ROUNDED_BORDER_RADIUS);
+  const int radius = layout_provider->GetCornerRadiusMetric(
+      kFeatureFirstRunInfoBoxRoundedBorderRadius);
 
   // Label 1: Data sharing notice.
   auto label1 =
@@ -344,7 +345,13 @@ CreateOfferChangePasswordDialogWithPrivateInference(
                     &views::BubbleDialogDelegate::background_color,
                     base::Unretained(host)));
         animation_view->GetViewAccessibility().SetIsIgnored(true);
+        auto* animation_view_ptr = animation_view.get();
         frame_view->SetHeaderView(std::move(animation_view));
+        animation_view_ptr->Stop();
+        animation_view_ptr->Play(
+            lottie::Animation::PlaybackConfig::CreateWithStyle(
+                lottie::Animation::Style::kLinear,
+                *animation_view_ptr->animated_image()));
       },
       base::Unretained(model_host.get())));
 

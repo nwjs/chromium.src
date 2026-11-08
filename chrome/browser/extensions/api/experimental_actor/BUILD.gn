@@ -14,14 +14,11 @@ source_set("experimental_actor") {
     "experimental_actor_api.h",
   ]
 
-  configs += [ "//build/config/compiler:wexit_time_destructors" ]
-
   deps = [
     "//base",
     "//chrome/browser/actor",
     "//chrome/browser/ai",
     "//chrome/browser/extensions",
-    "//chrome/browser/ui",
     "//components/actor/core:journal",
     "//components/actor/core:task_id",
   ]

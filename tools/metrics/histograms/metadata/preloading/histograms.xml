@@ -23,6 +23,10 @@ chromium-metrics-reviews@google.com.
 <variants name="ChromeInitiatorLocation">
   <variant name="Backward" summary="Initiated by a back navigation"/>
   <variant name="BookmarkBar" summary="Initiated from BookmarkBar"/>
+  <variant name="ContextMenuOpenLink"
+      summary="Initiated by opening a link from the context menu"/>
+  <variant name="ContextMenuSearch"
+      summary="Initiated by searching the selected text from the context menu"/>
   <variant name="FormSubmission" summary="Initiated by a form submission"/>
   <variant name="Forward" summary="Initiated by a forward navigation"/>
   <variant name="LinkClick" summary="Initiated by a link click"/>
@@ -41,9 +45,6 @@ chromium-metrics-reviews@google.com.
                velocity and acceleration suggest it will leave soon. The
                output of this predictor is mouse velocity instead of a
                logit/probability."/>
-  <variant name="OnPreloadingHeuristicsMLModel"
-      summary="The estimated probability that a user will click on a link
-               that is calculated by preloading heuristic ML model."/>
 </variants>
 
 <variants name="GroundTruth">
@@ -56,6 +57,10 @@ chromium-metrics-reviews@google.com.
       summary="All initiator locations. No additional condition."/>
   <variant name="Backward" summary="Initiated by a back navigation"/>
   <variant name="BookmarkBar" summary="Initiated from BookmarkBar"/>
+  <variant name="ContextMenuOpenLink"
+      summary="Initiated by opening a link from the context menu"/>
+  <variant name="ContextMenuSearch"
+      summary="Initiated by searching the selected text from the context menu"/>
   <variant name="FormSubmission" summary="Initiated by a form submission"/>
   <variant name="Forward" summary="Initiated by a forward navigation"/>
   <variant name="LinkClick" summary="Initiated by a link click"/>
@@ -131,8 +136,6 @@ chromium-metrics-reviews@google.com.
   <variant name="PointerDownOnNewTabPage"
       summary="When preloading is triggered by mouse down NewTabPage on
                Desktop."/>
-  <variant name="PreloadingHeuristicsMLModel"
-      summary="When preloading is triggered by an ML model prediction."/>
   <variant name="PrewarmDefaultSearchEngine"
       summary="When the default search engine needs to prerender a prewarm
                page."/>
@@ -368,7 +371,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Preloading.Prefetch.PrePrefetch.PrePrefetchServiceThreadBlockTime"
-    units="ms" expires_after="2026-10-18">
+    units="ms" expires_after="2027-04-18">
   <owner>taiyo@chromium.org</owner>
   <owner>chrome-prerendering@google.com</owner>
   <summary>
@@ -380,7 +383,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Preloading.Prefetch.PrePrefetch.StartResult"
-    enum="PrePrefetchStartResult" expires_after="2026-10-18">
+    enum="PrePrefetchStartResult" expires_after="2027-04-18">
   <owner>taiyo@chromium.org</owner>
   <owner>chrome-prerendering@google.com</owner>
   <summary>
@@ -509,7 +512,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="PreloadServingMetrics.PageLoad.Clients.PaintTiming.NavigationToFirstContentfulPaint.{WithPreloadSuffix}"
-    units="ms" expires_after="2027-01-31">
+    units="ms" expires_after="2027-04-04">
   <owner>kenoss@chromium.org</owner>
   <owner>chrome-prerendering@google.com</owner>
   <summary>
@@ -742,7 +745,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="{PreloadServingMetricsPrefix}.PrefetchMatchMetrics.PotentialMatchThen.MatchDuration{PreloadServingMetricsActualMatchSuffix}"
-    units="ms" expires_after="2027-01-31">
+    units="ms" expires_after="2027-04-04">
   <owner>kenoss@chromium.org</owner>
   <owner>chrome-prerendering@google.com</owner>
   <summary>

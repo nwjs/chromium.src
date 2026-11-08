@@ -7,38 +7,59 @@ package org.chromium.chrome.browser.history;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 
+import java.util.Collections;
+import java.util.List;
 import java.util.Objects;
 
 /** Options for querying browsing history. */
 @NullMarked
 public class QueryOptions {
+    // App Id to restrict the query to. If empty, visits from all apps are returned.
     public final @Nullable String appId;
+    // Hostname to restrict the query to. If empty, visits from all hosts are returned.
     public final @Nullable String hostName;
-    public final @Nullable String clientId;
+    // Client IDs to restrict the query to. If empty, visits from all clients are returned.
+    public final List<String> clientIds;
+    // Whether to include visits with a source other than SOURCE_ACTOR.
+    public final boolean includeUserVisits;
+    // Whether to include visits with SOURCE_ACTOR.
+    public final boolean includeActorVisits;
 
     public QueryOptions() {
-        this(null, null, null);
+        this(
+                /* appId= */ null,
+                /* hostName= */ null,
+                Collections.emptyList(),
+                /* includeUserVisits= */ true,
+                /* includeActorVisits= */ true);
     }
 
     public QueryOptions(
-            @Nullable String appId, @Nullable String hostName, @Nullable String clientId) {
+            @Nullable String appId,
+            @Nullable String hostName,
+            List<String> clientIds,
+            boolean includeUserVisits,
+            boolean includeActorVisits) {
         this.appId = appId;
         this.hostName = hostName;
-        this.clientId = clientId;
+        this.clientIds = List.copyOf(clientIds);
+        this.includeUserVisits = includeUserVisits;
+        this.includeActorVisits = includeActorVisits;
     }
 
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
-        if (!(o instanceof QueryOptions)) return false;
-        QueryOptions that = (QueryOptions) o;
+        if (!(o instanceof QueryOptions that)) return false;
         return Objects.equals(appId, that.appId)
                 && Objects.equals(hostName, that.hostName)
-                && Objects.equals(clientId, that.clientId);
+                && Objects.equals(clientIds, that.clientIds)
+                && includeUserVisits == that.includeUserVisits
+                && includeActorVisits == that.includeActorVisits;
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(appId, hostName, clientId);
+        return Objects.hash(appId, hostName, clientIds, includeUserVisits, includeActorVisits);
     }
 }

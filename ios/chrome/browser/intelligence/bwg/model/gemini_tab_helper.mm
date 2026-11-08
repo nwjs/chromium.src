@@ -8,7 +8,6 @@
 #import "base/functional/callback_helpers.h"
 #import "base/memory/weak_ptr.h"
 #import "base/metrics/histogram_functions.h"
-#import "base/metrics/user_metrics.h"
 #import "base/strings/string_number_conversions.h"
 #import "base/strings/string_util.h"
 #import "base/strings/sys_string_conversions.h"
@@ -52,7 +51,6 @@
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 #import "ios/chrome/browser/shared/model/url/chrome_url_constants.h"
 #import "ios/chrome/browser/shared/model/url/url_util.h"
-#import "ios/chrome/browser/shared/model/utils/first_run_util.h"
 #import "ios/chrome/browser/shared/public/commands/gemini_commands.h"
 #import "ios/chrome/browser/shared/public/commands/help_commands.h"
 #import "ios/chrome/browser/shared/public/commands/location_bar_badge_commands.h"
@@ -518,9 +516,6 @@ void GeminiTabHelper::DidFinishNavigation(
   }
 
   const GURL& current_url = navigation_context->GetUrl().GetWithoutRef();
-  if (IsAimURL(current_url)) {
-    base::RecordAction(base::UserMetricsAction("MobileGeminiPromptSent"));
-  }
   if (previous_main_frame_url_ == current_url) {
     return;
   }
@@ -685,25 +680,6 @@ void GeminiTabHelper::OnCanApplyContextualCueingDecision(
 
   if (!web_state_ || !web_state_->IsVisible() ||
       !latest_load_contextual_cueing_metadata_) {
-    return;
-  }
-
-  ProfileIOS* profile =
-      ProfileIOS::FromBrowserState(web_state_->GetBrowserState());
-
-  // TODO(crbug.com/461595639): Remove pref checks to fully migrate logic to
-  // FET.
-  bool floaty_shown = profile->GetPrefs()->GetBoolean(prefs::kIOSBwgConsent);
-  bool should_wait_for_new_user =
-      !ShouldSkipBWGPromoNewUserDelay() && IsFirstRunRecent(base::Days(1));
-
-  // Show promo if eligible.
-  if (IsGeminiNavigationPromoEnabled() && !should_wait_for_new_user &&
-      !floaty_shown && !gemini::DidUserSeeGeminiPromo(profile->GetPrefs()) &&
-      feature_engagement::TrackerFactory::GetForProfile(profile)
-          ->WouldTriggerHelpUI(
-              feature_engagement::kIPHiOSGeminiFullscreenPromoFeature)) {
-    [gemini_handler_ showGeminiPromoIfPageIsEligible];
     return;
   }
 

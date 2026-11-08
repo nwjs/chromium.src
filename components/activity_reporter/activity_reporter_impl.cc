@@ -11,11 +11,13 @@
 #include "base/functional/callback.h"
 #include "base/functional/callback_helpers.h"
 #include "base/memory/ref_counted.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/task/task_traits.h"
 #include "base/task/thread_pool.h"
 #include "base/time/time.h"
 #include "base/version_info/channel.h"
 #include "base/version_info/version_info.h"
+#include "build/build_config.h"
 #include "components/activity_reporter/activity_reporter.h"
 #include "components/activity_reporter/buildflags.h"
 #include "components/activity_reporter/configurator.h"
@@ -26,9 +28,26 @@
 #include "components/update_client/persisted_data.h"
 #include "components/update_client/update_client.h"
 
+#if BUILDFLAG(IS_WIN)
+#include "components/activity_reporter/virtual_machine_win.h"
+#endif
+
 namespace activity_reporter {
 
 namespace {
+
+InitialDateLastActiveState ToState(int dla) {
+  if (dla == update_client::kDateUnknown) {
+    return InitialDateLastActiveState::kUnknown;
+  }
+  if (dla == update_client::kDateFirstTime) {
+    return InitialDateLastActiveState::kFirstTimeUnpersisted;
+  }
+  if (dla >= 0) {
+    return InitialDateLastActiveState::kPersisted;
+  }
+  return InitialDateLastActiveState::kInvalid;
+}
 
 class ActivityReporterImpl : public ActivityReporter {
  public:
@@ -48,10 +67,14 @@ class ActivityReporterImpl : public ActivityReporter {
             pref_service_provider, network_fetcher_factory, channel_provider,
             per_user_install);
     update_client::PersistedData* data = configurator->GetPersistedData();
-    if (data && data->GetDateLastActive(std::string(kChromeActivityId)) ==
-                    update_client::kDateUnknown) {
-      data->SetDateLastActive(std::string(kChromeActivityId),
-                              update_client::kDateFirstTime);
+    if (data) {
+      const int dla = data->GetDateLastActive(std::string(kChromeActivityId));
+      base::UmaHistogramEnumeration(
+          "ActivityReporter.InitialDateLastActiveState", ToState(dla));
+      if (dla == update_client::kDateUnknown) {
+        data->SetDateLastActive(std::string(kChromeActivityId),
+                                update_client::kDateFirstTime);
+      }
     }
     update_client_ = update_client::UpdateClientFactory(configurator);
   }
@@ -83,6 +106,11 @@ class ActivityReporterImpl : public ActivityReporter {
       return;
     }
     last_reported_ = base::Time::Now();
+#if BUILDFLAG(IS_WIN)
+    // Recorded once per Chrome active ping sent, so that the samples are
+    // weighted by active use.
+    RecordVirtualMachineHistogramsAsync();
+#endif
     update_client_->CheckForUpdate(
         std::string{kChromeActivityId},
         base::BindOnce(

@@ -14,12 +14,15 @@
 #include "base/files/file_path.h"
 #include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
+#include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
 #include "base/sequence_checker.h"
+#include "base/task/updateable_sequenced_task_runner.h"
 #include "base/thread_annotations.h"
 #include "base/time/time.h"
 #include "components/optimization_guide/core/model_execution/manifest_broker/manifest.h"
+#include "components/optimization_guide/core/model_execution/manifest_broker/manifest_asset_manager_delegate.h"
 #include "components/optimization_guide/core/model_execution/performance_class.h"
 #include "components/optimization_guide/public/mojom/model_broker_debug.mojom.h"
 #include "components/prefs/pref_change_registrar.h"
@@ -32,28 +35,17 @@ namespace optimization_guide {
 // Notifies an observer when the manifest changes.
 class ManifestMonitor {
  public:
-  // Delegate to avoid depending on the InstallPolicy directly.
-  class Delegate {
-   public:
-    // Returns the base install directory for on-demand models.
-    virtual base::CallbackListSubscription ListenForManifestReady(
-        base::RepeatingCallback<void(base::FilePath)> on_ready) = 0;
-
-    // Gets the available free disk space in the install directory on a
-    // background thread.
-    virtual void GetFreeDiskSpace(
-        base::OnceCallback<void(std::optional<base::ByteSize>)> callback)
-        const = 0;
-  };
-
   ManifestMonitor(PrefService& local_state,
                   PerformanceClassifier& performance_classifier,
-                  Delegate& delegate);
+                  ManifestMonitorDelegate& delegate);
   ~ManifestMonitor();
 
   // Sets the callback to be called when the manifest changes.
   // This is called once the ManifestBrokerState is fully constructed.
   void SetCallback(base::RepeatingClosure on_manifest_changed);
+
+  // Increases the task priority for loading the manifest.
+  void RaiseLoadPriority();
 
   // Returns the current manifest, once selected.
   const std::optional<Manifest>& manifest() const { return manifest_; }
@@ -92,6 +84,8 @@ class ManifestMonitor {
   // Outputs:
   std::optional<Manifest> manifest_;
   base::RepeatingClosure on_manifest_changed_;
+
+  scoped_refptr<base::UpdateableSequencedTaskRunner> load_task_runner_;
 
   // Subscriptions:
   PrefChangeRegistrar pref_change_registrar_;

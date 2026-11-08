@@ -1270,7 +1270,6 @@ bool WebGPUDecoderImpl::IsFeatureExposed(wgpu::FeatureName feature) const {
     case wgpu::FeatureName::AdapterPropertiesVk:
     case wgpu::FeatureName::AdapterPropertiesMemoryHeaps:
     case wgpu::FeatureName::ShaderModuleCompilationOptions:
-    case wgpu::FeatureName::AtomicVec2uMinMax:
       return safety_level_ == webgpu::SafetyLevel::kUnsafe ||
              safety_level_ == webgpu::SafetyLevel::kSafeExperimental;
     case wgpu::FeatureName::CoreFeaturesAndLimits:
@@ -1297,7 +1296,8 @@ bool WebGPUDecoderImpl::IsFeatureExposed(wgpu::FeatureName feature) const {
     case wgpu::FeatureName::PrimitiveIndex:
     case wgpu::FeatureName::TextureComponentSwizzle:
     case wgpu::FeatureName::SubgroupSizeControl:
-    case wgpu::FeatureName::TextureCompressionUnaligned: {
+    case wgpu::FeatureName::TextureCompressionUnaligned:
+    case wgpu::FeatureName::AtomicVec2uMinMax: {
       // Likely case when no features are blocked.
       if (runtime_unsafe_features_.empty() ||
           safety_level_ == webgpu::SafetyLevel::kUnsafe) {
@@ -1506,15 +1506,22 @@ WGPUFuture WebGPUDecoderImpl::RequestDeviceImpl(
       // D3DImageBacking. This feature should always be supported when
       // running on the D3D12 backend.
       wgpu::FeatureName::SharedBufferMemoryD3D12Resource,
-
-      // Require platform-specific SharedBufferMemory feature to support
-      // importing transfer buffer into Dawn as shared buffer memory in dawn
-      // wire.
-      wgpu::FeatureName::SharedBufferMemoryFromWindowsHandle,
   };
   for (const wgpu::FeatureName& feature : kOptionalFeatures) {
     if (adapter_obj.HasFeature(feature)) {
       required_features.push_back(feature);
+    }
+  }
+
+  // Require platform-specific SharedBufferMemory feature to support
+  // importing transfer buffer into Dawn as shared buffer memory in dawn
+  // wire.
+  if (base::FeatureList::IsEnabled(
+          features::kWebGPUUseDedicatedTransferBuffer)) {
+    if (adapter_obj.HasFeature(
+            wgpu::FeatureName::SharedBufferMemoryHostPointer)) {
+      required_features.push_back(
+          wgpu::FeatureName::SharedBufferMemoryHostPointer);
     }
   }
 
@@ -2558,7 +2565,7 @@ error::Error WebGPUDecoderImpl::HandleSetWebGPUExecutionContextToken(
       break;
     }
     default:
-      NOTREACHED();
+      return error::kInvalidArguments;
   }
   isolation_key_provider_->GetIsolationKey(
       execution_context_token,

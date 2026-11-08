@@ -62,25 +62,39 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="V8.CFIPkeyMprotect" enum="PkeyMprotectResult"
-    expires_after="2026-10-01">
-  <owner>emaxx@google.com</owner>
-  <owner>v8-security@google.com</owner>
-  <summary>
-    The result of trying to pkey_mprotect the ThreadIsolationData at runtime.
-
-    This metric is recorded once at renderer startup when the
-    ThreadIsolatedAllocator is initialized.
-  </summary>
-</histogram>
-
 <histogram name="V8.CodeCacheRejectReason" enum="V8CodeCacheRejectReason"
-    expires_after="2027-01-24">
+    expires_after="2027-03-28">
   <owner>marja@chromium.org</owner>
   <owner>v8-runtime@chromium.org</owner>
   <summary>
     Reason code data has been rejected when attempting to deserialize.
   </summary>
+</histogram>
+
+<histogram name="V8.CompileDeserializeMicroSeconds{Thread}{ScriptType}"
+    units="microseconds" expires_after="2027-04-04">
+  <owner>jgruber@chromium.org</owner>
+  <owner>leszeks@chromium.org</owner>
+  <owner>v8-runtime@google.com</owner>
+  <summary>
+    Time spent deserializing {ScriptType} code {Thread}, used by V8 code
+    caching.
+
+    Warning: This metric may include reports from clients with low-resolution
+    clocks (i.e. on Windows, ref. |TimeTicks::IsHighResolution()|). Such reports
+    will cause this metric to have an abnormal distribution. When considering
+    revising this histogram, see UMA_HISTOGRAM_CUSTOM_MICROSECONDS_TIMES for the
+    solution.
+  </summary>
+  <token key="Thread">
+    <variant name="" summary="(on any thread)"/>
+    <variant name=".MainThread" summary="on the main thread"/>
+  </token>
+  <token key="ScriptType">
+    <variant name="" summary="script"/>
+    <variant name=".Classic" summary="classic script"/>
+    <variant name=".Module" summary="module script"/>
+  </token>
 </histogram>
 
 <histogram name="V8.CompileLazyMicroSeconds" units="microseconds"
@@ -166,11 +180,25 @@ chromium-metrics-reviews@google.com.
     <variant name=".BackgroundThread"
         summary="in compiling a script (incl. parsing) on a background
                  thread."/>
+    <variant name=".BackgroundThread.Classic"
+        summary="in compiling a classic script (incl. parsing) on a
+                 background thread."/>
+    <variant name=".BackgroundThread.Module"
+        summary="in compiling a module script (incl. parsing) on a background
+                 thread."/>
+    <variant name=".Classic"
+        summary="in compiling a classic script (incl. parsing/caching)"/>
     <variant name=".ConsumeCache"
         summary="in compiling a script when the 'compilation' is
                  deserializing it from the code cache"/>
     <variant name=".ConsumeCache.BackgroundThread"
         summary="in compiling a script on a background thread when the
+                 'compilation' is deserializing it from the code cache"/>
+    <variant name=".ConsumeCache.BackgroundThread.Classic"
+        summary="in compiling a classic script on a background thread when
+                 the 'compilation' is deserializing it from the code cache"/>
+    <variant name=".ConsumeCache.BackgroundThread.Module"
+        summary="in compiling a module script on a background thread when the
                  'compilation' is deserializing it from the code cache"/>
     <variant name=".ConsumeCache.Failed"
         summary="in compiling a script (incl. parsing/caching) when the
@@ -179,6 +207,17 @@ chromium-metrics-reviews@google.com.
     <variant name=".IsolateCacheHit"
         summary="in compiling a script (incl. parsing/caching) in the case
                  where the V8 isolate's compilation cache is hit."/>
+    <variant name=".MainThread"
+        summary="in compiling a script (incl. parsing/caching) on the main
+                 thread."/>
+    <variant name=".MainThread.Classic"
+        summary="in compiling a classic script (incl. parsing/caching) on the
+                 main thread."/>
+    <variant name=".MainThread.Module"
+        summary="in compiling a module script (incl. parsing/caching) on the
+                 main thread."/>
+    <variant name=".Module"
+        summary="in compiling a module script (incl. parsing/caching)"/>
     <variant name=".ProduceCache"
         summary="in compiling a script (incl. parsing) and serializing it for
                  the code cache"/>
@@ -187,13 +226,13 @@ chromium-metrics-reviews@google.com.
   </token>
 </histogram>
 
-<histogram name="V8.Compile{Action}MicroSeconds" units="microseconds"
+<histogram name="V8.CompileSerializeMicroSeconds" units="microseconds"
     expires_after="2028-07-01">
   <owner>jgruber@chromium.org</owner>
   <owner>leszeks@chromium.org</owner>
   <owner>v8-runtime@google.com</owner>
   <summary>
-    Time spent {Action} code, used by V8 code caching.
+    Time spent serializing code, used by V8 code caching.
 
     Warning: This metric may include reports from clients with low-resolution
     clocks (i.e. on Windows, ref. |TimeTicks::IsHighResolution()|). Such reports
@@ -201,10 +240,6 @@ chromium-metrics-reviews@google.com.
     revising this histogram, see UMA_HISTOGRAM_CUSTOM_MICROSECONDS_TIMES for the
     solution.
   </summary>
-  <token key="Action">
-    <variant name="Deserialize" summary="deserializing"/>
-    <variant name="Serialize" summary="serializing"/>
-  </token>
 </histogram>
 
 <histogram name="V8.Compile{Thread}MicroSeconds.Cumulative.Interactive"
@@ -1483,7 +1518,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="V8.SandboxReservationSizeGB" units="GB"
-    expires_after="2027-01-30">
+    expires_after="2027-04-04">
   <owner>mlippautz@chromium.org</owner>
   <owner>ishell@chromium.org</owner>
   <summary>
@@ -1650,7 +1685,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="V8.WasmCompilationMethod" enum="WasmCompilationMethod"
-    expires_after="2027-01-31">
+    expires_after="2027-04-04">
   <owner>ecmziegler@chromium.org</owner>
   <owner>wasm-runtime@google.com</owner>
   <summary>
@@ -1661,7 +1696,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="V8.WasmCompileFunctionMicroSeconds{V8WasmSeparateAsmAndWasm}"
-    units="microseconds" expires_after="2027-01-31">
+    units="microseconds" expires_after="2027-04-04">
   <owner>ecmziegler@chromium.org</owner>
   <owner>clemensb@chromium.org</owner>
   <owner>wasm-runtime@google.com</owner>
@@ -1705,7 +1740,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="V8.WasmCompileModuleAsyncMicroSeconds" units="microseconds"
-    expires_after="2027-01-31">
+    expires_after="2027-04-04">
   <owner>ecmziegler@chromium.org</owner>
   <owner>clemensb@chromium.org</owner>
   <owner>wasm-runtime@google.com</owner>
@@ -1717,7 +1752,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="V8.WasmCompileModuleMicroSeconds{V8WasmSeparateAsmAndWasm}"
-    units="microseconds" expires_after="2027-01-31">
+    units="microseconds" expires_after="2027-04-04">
   <owner>ecmziegler@chromium.org</owner>
   <owner>clemensb@chromium.org</owner>
   <owner>wasm-runtime@google.com</owner>
@@ -1737,7 +1772,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="V8.WasmCompileModuleStreamingMicroSeconds"
-    units="microseconds" expires_after="2027-01-31">
+    units="microseconds" expires_after="2027-04-04">
   <owner>ecmziegler@chromium.org</owner>
   <owner>clemensb@chromium.org</owner>
   <owner>wasm-runtime@google.com</owner>
@@ -1805,7 +1840,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="V8.WasmFinishModuleStreamingMicroSeconds" units="microseconds"
-    expires_after="2027-01-31">
+    expires_after="2027-04-04">
   <owner>clemensb@chromium.org</owner>
   <owner>wasm-runtime@google.com</owner>
   <summary>
@@ -1819,7 +1854,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="V8.WasmFunctionsPerModule{V8WasmSeparateAsmAndWasm}"
-    units="functions" expires_after="2027-01-31">
+    units="functions" expires_after="2027-04-04">
   <owner>ecmziegler@chromium.org</owner>
   <owner>clemensb@chromium.org</owner>
   <owner>wasm-runtime@google.com</owner>
@@ -1851,7 +1886,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="V8.WasmInstantiateModuleMicroSeconds{V8WasmSeparateAsmAndWasm}"
-    units="microseconds" expires_after="2027-01-31">
+    units="microseconds" expires_after="2027-04-04">
   <owner>ecmziegler@chromium.org</owner>
   <owner>clemensb@chromium.org</owner>
   <owner>wasm-runtime@google.com</owner>
@@ -1894,7 +1929,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="V8.WasmMemoryProtectionKeysSupport" enum="BooleanSupported"
-    expires_after="2027-01-31">
+    expires_after="2027-04-04">
   <owner>clemensb@chromium.org</owner>
   <owner>jkummerow@chromium.org</owner>
   <owner>ecmziegler@chromium.org</owner>
@@ -1932,7 +1967,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="V8.WasmModuleCodeSizePercentFreed" units="%"
-    expires_after="2027-01-31">
+    expires_after="2027-04-04">
   <owner>ecmziegler@chromium.org</owner>
   <owner>clemensb@chromium.org</owner>
   <owner>wasm-runtime@google.com</owner>
@@ -1955,7 +1990,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="V8.WasmModuleNumberOfCodeGCsTriggered" units="gcs"
-    expires_after="2027-01-24">
+    expires_after="2027-03-28">
   <owner>ecmziegler@chromium.org</owner>
   <owner>clemensb@chromium.org</owner>
   <owner>wasm-runtime@google.com</owner>
@@ -1966,7 +2001,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="V8.WasmModuleNumberOfCodeSpaces" units="spaces"
-    expires_after="2027-01-31">
+    expires_after="2027-04-04">
   <owner>ecmziegler@chromium.org</owner>
   <owner>clemensb@chromium.org</owner>
   <owner>wasm-runtime@google.com</owner>
@@ -1991,7 +2026,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="V8.WasmModulesPerEngine" units="count"
-    expires_after="2027-01-31">
+    expires_after="2027-04-04">
   <owner>clemensb@chromium.org</owner>
   <owner>ecmziegler@chromium.org</owner>
   <owner>wasm-runtime@google.com</owner>
@@ -2002,7 +2037,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="V8.WasmModulesPerIsolate" units="count"
-    expires_after="2027-01-31">
+    expires_after="2027-04-04">
   <owner>clemensb@chromium.org</owner>
   <owner>ecmziegler@chromium.org</owner>
   <owner>wasm-runtime@google.com</owner>

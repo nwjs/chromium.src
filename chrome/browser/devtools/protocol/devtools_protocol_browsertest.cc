@@ -12,6 +12,7 @@
 #include "base/memory/memory_pressure_listener_registry.h"
 #include "base/memory/raw_ptr.h"
 #include "base/path_service.h"
+#include "base/process/process.h"
 #include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
@@ -61,9 +62,12 @@
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/page_navigator.h"
+#include "content/public/browser/render_frame_host.h"
+#include "content/public/browser/render_process_host.h"
 #include "content/public/browser/ssl_status.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/content_features.h"
+#include "content/public/common/content_switches.h"
 #include "content/public/common/referrer.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
@@ -1708,7 +1712,51 @@ IN_PROC_BROWSER_TEST_F(DevToolsProtocolTest, UntrustedClient) {
   EXPECT_FALSE(SendCommandSync(
       "Memory.prepareForLeakDetection"));        // Implemented in content
   EXPECT_FALSE(SendCommandSync("Cast.enable"));  // Implemented in content
+  EXPECT_FALSE(SendCommandSync(
+      "Target.setRemoteLocations",
+      base::DictValue().Set("locations",
+                            base::ListValue())));  // Implemented in chrome
   EXPECT_TRUE(SendCommandSync("Accessibility.enable"));
+}
+
+IN_PROC_BROWSER_TEST_F(DevToolsProtocolTest, SetRemoteLocations) {
+  base::test::TestFuture<void> version_request_received;
+  base::RepeatingClosure on_version_request =
+      version_request_received.GetSequenceBoundRepeatingCallback();
+  embedded_test_server()->RegisterRequestMonitor(base::BindLambdaForTesting(
+      [on_version_request](const net::test_server::HttpRequest& request) {
+        if (request.relative_url == "/json/version") {
+          on_version_request.Run();
+        }
+      }));
+  ASSERT_TRUE(embedded_test_server()->Start());
+
+  base::DictValue params;
+  params.Set("locations",
+             base::ListValue().Append(
+                 base::DictValue()
+                     .Set("host", "127.0.0.1")
+                     .Set("port", embedded_test_server()->port())));
+
+  SetIsTrusted(false);
+  Attach();
+  EXPECT_FALSE(SendCommandSync("Target.setRemoteLocations", params.Clone()));
+  ASSERT_TRUE(error());
+  EXPECT_THAT(error()->FindString("message"),
+              testing::Pointee(testing::Eq(
+                  "Cannot set remote locations from untrusted client")));
+  EXPECT_FALSE(version_request_received.IsReady());
+
+  DetachProtocolClient();
+  SetIsTrusted(true);
+  Attach();
+  EXPECT_TRUE(SendCommandSync("Target.setRemoteLocations", std::move(params)));
+#if !BUILDFLAG(IS_ANDROID)
+  EXPECT_TRUE(version_request_received.Wait());
+#endif  // !BUILDFLAG(IS_ANDROID)
+  EXPECT_TRUE(
+      SendCommandSync("Target.setRemoteLocations",
+                      base::DictValue().Set("locations", base::ListValue())));
 }
 
 #if !BUILDFLAG(IS_ANDROID)
@@ -2715,6 +2763,65 @@ IN_PROC_BROWSER_TEST_F(DevToolsProtocolTest,
   // CDP `Target.getTargets` result should contain the new target.
   SendCommandSync("Target.getTargets");
   EXPECT_EQ(initial_count + 1, result()->FindList("targetInfos")->size());
+}
+
+IN_PROC_BROWSER_TEST_F(DevToolsProtocolTest,
+                       HiddenTargetRunsAtForegroundPriority) {
+  // Ensure that background timer throttling is not globally disabled by a
+  // command-line flag, which would invalidate the premise of this test
+  // (that hidden targets bypass standard background throttling).
+  ASSERT_FALSE(base::CommandLine::ForCurrentProcess()->HasSwitch(
+      switches::kDisableBackgroundTimerThrottling));
+
+  // Attach to the browser-level DevTools target to send commands.
+  AttachToBrowserTarget();
+
+  // Create a new target via CDP `Target.createTarget` with `hidden: true`.
+  // This explicitly creates a headless/hidden WebContents.
+  base::DictValue params;
+  params.Set("url", "data:text/html,hidden");
+  params.Set("hidden", true);
+  SendCommandSync("Target.createTarget", std::move(params));
+  const std::string* target_id = result()->FindString("targetId");
+  ASSERT_TRUE(target_id);
+
+  // Retrieve the DevToolsAgentHost and the underlying WebContents for the
+  // created target.
+  scoped_refptr<content::DevToolsAgentHost> target_host =
+      content::DevToolsAgentHost::GetForId(*target_id);
+  ASSERT_TRUE(target_host);
+
+  content::WebContents* hidden_contents = target_host->GetWebContents();
+  ASSERT_TRUE(hidden_contents);
+
+  // When `Target.createTarget` is called, the WebContents is created immediately,
+  // but the underlying renderer process might not be fully spawned and initialized
+  // until the navigation to the initial URL completes.
+  // We wait for the load to finish to ensure the renderer process is fully up
+  // and its OS priority has settled.
+  ASSERT_TRUE(content::WaitForLoadStop(hidden_contents));
+
+  // Ensure the hidden target runs in its own renderer process separate from the
+  // visible browser window. If they shared a process, the foreground priority
+  // of the visible window might mask the priority we're trying to test.
+  ASSERT_NE(hidden_contents->GetPrimaryMainFrame()->GetProcess(),
+            // Get the WebContents of the currently active, visible tab in the
+            // normal browser window.
+            browser()
+                ->tab_strip_model()
+                ->GetActiveWebContents()
+                ->GetPrimaryMainFrame()
+                ->GetProcess());
+
+  // Verify two key properties of the hidden target:
+  // 1. It remains visually hidden (Visibility::HIDDEN), avoiding unnecessary
+  //    rendering/compositing work.
+  // 2. Its underlying renderer process runs at foreground (kUserBlocking) OS
+  //    scheduling priority, bypassing the aggressive background throttling that
+  //    PerformanceManager normally applies to hidden WebContents.
+  EXPECT_EQ(hidden_contents->GetVisibility(), content::Visibility::HIDDEN);
+  EXPECT_EQ(hidden_contents->GetPrimaryMainFrame()->GetProcess()->GetPriority(),
+            base::Process::Priority::kUserBlocking);
 }
 
 IN_PROC_BROWSER_TEST_F(DevToolsProtocolTest,

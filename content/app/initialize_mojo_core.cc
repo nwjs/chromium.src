@@ -12,10 +12,8 @@
 #include "content/public/common/content_switches.h"
 #include "mojo/core/embedder/configuration.h"
 #include "mojo/core/embedder/embedder.h"
-#include "mojo/core/embedder/features.h"
 #include "mojo/public/c/system/functions.h"
 #include "mojo/public/c/system/types.h"
-#include "mojo/public/cpp/base/shared_memory_utils.h"
 #include "mojo/public/cpp/platform/platform_channel.h"
 #include "sandbox/policy/mojom/sandbox.mojom.h"
 #include "sandbox/policy/sandbox_type.h"
@@ -44,14 +42,11 @@ void InitializeMojoCore() {
     if (!config.is_broker_process)
       config.force_direct_shared_memory_allocation = true;
   } else {
-#if BUILDFLAG(IS_WIN)
-    // On Windows it's not necessary to broker shared memory allocation, as
-    // even sandboxed processes can allocate their own without trouble.
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_APPLE)
+    // On Windows, Android and Apple platforms it is not necessary to broker
+    // shared memory allocation. Sandboxed processes are allowed to allocate
+    // shared memory directly.
     config.force_direct_shared_memory_allocation = true;
-#elif BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_APPLE)
-    // Brokering is not necessary on these platforms too.
-    config.force_direct_shared_memory_allocation = base::FeatureList::IsEnabled(
-        mojo::core::kMojoDirectSharedMemoryAllocation);
 #endif
 
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
@@ -79,8 +74,8 @@ void InitializeMojoCore() {
   // will simply fail.
   //
   // Note #2: some platforms can directly allocated shared memory in a
-  // sandboxed process. The defines below must be in sync with the
-  // implementation of mojo::NodeController::CreateSharedBuffer().
+  // sandboxed process. The defines below must be in sync with
+  // mojo::core::ipcz_driver::BaseSharedMemoryService::CreateWritableRegion().
 #if !BUILDFLAG(IS_APPLE) && !BUILDFLAG(IS_FUCHSIA) && !BUILDFLAG(IS_ANDROID)
   if (sandbox::policy::IsUnsandboxedSandboxType(
           sandbox::policy::SandboxTypeFromCommandLine(
@@ -96,7 +91,7 @@ void InitializeMojoCore() {
     DCHECK(!config.is_broker_process);
     // Otherwise, this is a sandboxed process that will need brokering to
     // allocate shared memory.
-    mojo::SharedMemoryUtils::InstallBaseHooks();
+    mojo::core::InstallMojoIpczBaseSharedMemoryHooks();
   }
 #endif  // !BUILDFLAG(IS_APPLE) && !BUILDFLAG(IS_FUCHSIA)
 }

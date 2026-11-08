@@ -30,7 +30,7 @@
 #include "chrome/browser/ui/views/toolbar/webui_reload_control.h"
 #include "chrome/browser/ui/views/toolbar/webui_split_tabs_control.h"
 #include "chrome/browser/ui/views/toolbar/webui_toolbar_extensions_container_wrapper.h"
-#include "chrome/browser/ui/webui/webui_toolbar/adapters/navigation_controls_state_fetcher.h"
+#include "chrome/browser/ui/webui/webui_toolbar/adapters/toolbar_state_fetcher.h"
 #include "chrome/browser/ui/webui/webui_toolbar/browser_controls_service.h"
 #include "chrome/browser/ui/webui/webui_toolbar/icon_table.h"
 #include "chrome/browser/ui/webui/webui_toolbar/toolbar_ui_service.h"
@@ -141,8 +141,7 @@ class WebUIToolbarControlDelegate {
       const gfx::PointF& drop_position) = 0;
 
   // Read the latest state.
-  virtual const toolbar_ui_api::mojom::NavigationControlsState& GetState()
-      const = 0;
+  virtual const toolbar_ui_api::mojom::ToolbarState& GetState() const = 0;
 };
 
 // A view that displays one or more adjacent controls on the toolbar as a single
@@ -202,6 +201,13 @@ class WebUIToolbarWebView
   // ToolbarView::DestroyWebUIToolbarWebContents) as well as in the destructor.
   void DestroyWebContents();
 
+  // Called by the owner (e.g. `ToolbarView::Init()`) once all toolbar
+  // components needed by `WebUIToolbarUI::Init()` (such as the location bar)
+  // have been initialized. Triggers `MaybeInitWebUI()`, which initializes the
+  // WebUI immediately if its navigation has already finished and committed, or
+  // defers initialization until `DidFinishNavigation()`.
+  void ToolbarInitialized();
+
   // May be nullptr.
   WebUILocationBar* GetLocationBar() { return location_bar_.get(); }
 
@@ -211,8 +217,8 @@ class WebUIToolbarWebView
   GetBrowserControlsDelegate() override;
   toolbar_ui_api::ToolbarUIService::ToolbarUIServiceDelegate*
   GetToolbarUIServiceDelegate() override;
-  std::unique_ptr<toolbar_ui_api::NavigationControlsStateFetcher>
-  GetNavigationControlsStateFetcher() override;
+  std::unique_ptr<toolbar_ui_api::ToolbarStateFetcher> GetToolbarStateFetcher()
+      override;
   std::unique_ptr<toolbar_ui_api::IconTableFetcher> GetIconTableFetcher()
       override;
   CommandUpdater* GetCommandUpdater() override;
@@ -284,26 +290,20 @@ class WebUIToolbarWebView
   void OnToolbarDropFile(const gfx::PointF& drop_position) override;
   base::expected<std::monostate, mojo_base::mojom::ErrorPtr> OnOmniboxAction(
       toolbar_ui_api::mojom::OmniboxActionPtr action) override;
-  void ShowAvatarMenu(bool is_pointer_interaction) override;
-  void OnAvatarButtonMousePressed() override;
+  void ShowAvatarMenu() override;
   void SetAvatarButtonHovered(bool hovered) override;
   void SetAvatarButtonFocused(bool focused) override;
   void SetAvatarButtonIPHPromoShowing(bool showing) override;
   void OnAppMenuFocusChanged(bool focused) override;
-  void ExecuteExtensionAction(const std::string& extension_id,
-                              bool is_pointer_interaction) override;
-  void OnExtensionActionPointerDown(const std::string& extension_id) override;
+  void ExecuteExtensionAction(const std::string& extension_id) override;
   void ShowExtensionContextMenu(const std::string& extension_id,
                                 ui::mojom::MenuSourceType source) override;
   base::expected<toolbar_ui_api::mojom::AdjustOmniboxTextForCopyResultPtr,
                  mojo_base::mojom::ErrorPtr>
   AdjustOmniboxTextForCopy(const std::u16string& text,
                            int32_t selection_start) override;
-  void OnPerformanceInterventionButtonClicked(
-      bool is_mouse_interaction) override;
-  void OnPerformanceInterventionButtonMousePressed() override;
-  void OnMediaButtonClicked(bool is_mouse_interaction) override;
-  void OnMediaButtonMousePressed() override;
+  void OnPerformanceInterventionButtonClicked() override;
+  void OnMediaButtonClicked() override;
   void OnGlicButtonClicked() override;
 
   // BrowserControlsService::BrowserControlsServiceDelegate:
@@ -408,6 +408,11 @@ class WebUIToolbarWebView
     return GetWebUIToolbarUI();
   }
 
+  // Synchronously performs the state push that PostPushToolbarState() has
+  // coalesced into a pending task, if any, so tests can observe the latest
+  // state on the WebUI side without spinning the message loop.
+  void FlushPendingToolbarStateForTesting();
+
  private:
   FRIEND_TEST_ALL_PREFIXES(WebUIToolbarWebViewPixelBrowserTest,
                            CheckReloadButtonColor);
@@ -490,8 +495,7 @@ class WebUIToolbarWebView
       override;
   void OnPageActionChanged(
       std::vector<toolbar_ui_api::mojom::PageActionStatePtr> state) override;
-  const toolbar_ui_api::mojom::NavigationControlsState& GetState()
-      const override;
+  const toolbar_ui_api::mojom::ToolbarState& GetState() const override;
   void OnAvatarControlStateChanged(
       toolbar_ui_api::mojom::AvatarControlStatePtr state) override;
   void OnMediaControlStateChanged(
@@ -503,8 +507,7 @@ class WebUIToolbarWebView
   std::optional<GURL> ConsumeDroppedUrl(
       const gfx::PointF& drop_position) override;
 
-  toolbar_ui_api::mojom::NavigationControlsStatePtr
-  GetNavigationControlsState();
+  toolbar_ui_api::mojom::ToolbarStatePtr GetToolbarState();
 
   // Reloads the WebUI toolbar to recover from crashes or unresponsiveness.
   void RecoverFromRendererCrashOrUnresponsiveness();
@@ -534,9 +537,12 @@ class WebUIToolbarWebView
   WebUIToolbarUI* GetWebUIToolbarUI() const override;
 
   void OnTouchUiChanged();
-  void PostPushNavigationState();
+  void PostPushToolbarState();
   void MaybeInitializePageDependentControls();
-  void PushNavigationState();
+  void PushToolbarState();
+  // Initializes `WebUIToolbarUI` once both `is_toolbar_initialized_` and
+  // `is_webui_navigation_finished_` are true.
+  void MaybeInitWebUI();
   toolbar_ui_api::mojom::BackForwardControlStatePtr GetBackForwardState() const;
 
   // Which buttons have overflowed, and the size of the location bar, if
@@ -613,11 +619,11 @@ class WebUIToolbarWebView
   const bool is_webui_toolbar_fully_enabled_ =
       features::IsWebUIToolbarFullyEnabled();
 
-  // The most recent NavigationControlsState, consisting of the state of all
+  // The most recent ToolbarState, consisting of the state of all
   // controls managed by the toolbar. This may or may not have been sent to
   // `web_ui`. If this state has not yet been sent, then there must be a pending
-  // PushNavigationState() call.
-  toolbar_ui_api::mojom::NavigationControlsState last_queued_state_;
+  // PushToolbarState() call.
+  toolbar_ui_api::mojom::ToolbarState last_queued_state_;
 
   InitializationState initialization_state_ =
       InitializationState::kUninitialized;
@@ -680,6 +686,13 @@ class WebUIToolbarWebView
   // True if the WebContents was pre-loaded.
   bool is_preloaded_ = false;
 
+  // True once the WebUI page navigation has finished and committed.
+  bool is_webui_navigation_finished_ = false;
+
+  // True once the owner has called `ToolbarInitialized()`, i.e. all
+  // dependencies needed by `WebUIToolbarUI::Init()` are ready.
+  bool is_toolbar_initialized_ = false;
+
   std::unique_ptr<content::ScopedAccessibilityMode> scoped_accessibility_mode_;
 
   // True if the location bar has a higher priority (lower order) than the home
@@ -699,7 +712,7 @@ class WebUIToolbarWebView
 
   // This WeakPtrFactory is used to keep tabs on pending state pushes, and then
   // used to cancel them if the state is later updated again before we post a
-  // later PushNavigationState().
+  // later PushToolbarState().
   base::WeakPtrFactory<WebUIToolbarWebView> state_push_weak_ptr_factory_{this};
 
   base::WeakPtrFactory<WebUIToolbarWebView> weak_ptr_factory_{this};

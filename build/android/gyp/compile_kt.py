@@ -7,6 +7,7 @@
 import argparse
 import logging
 import os
+import platform
 import shutil
 import sys
 import time
@@ -15,6 +16,10 @@ import compile_java
 
 from util import build_utils
 import action_helpers  # build_utils adds //build to sys.path.
+
+_KOTLINC_GRAALVM_PATH = os.path.join(
+    build_utils.KOTLIN_HOME, 'bin', 'kotlinc-graalvm'
+)
 
 
 def _RunCompiler(
@@ -160,21 +165,48 @@ def main(argv):
     argv = build_utils.ExpandFileArgs(argv)
     args, source_files = _ParseOptions(argv)
 
-    kotlinc_cmd = [build_utils.KOTLINC_PATH]
+    if sys.platform == 'linux' and platform.machine() == 'x86_64':
+        kotlinc_cmd = [
+            _KOTLINC_GRAALVM_PATH,
+            '-Xmx1G',
+            # Native images have no java.home, which -jdk-home needs in order
+            # to open the JDK's jrt:/ filesystem.
+            f'-Djava.home={build_utils.JAVA_HOME}',
+            # The binary cannot infer this from its own location.
+            '-kotlin-home',
+            build_utils.KOTLIN_HOME,
+            # This plugin lives in jars that are not part of the binary.
+            '-Xdisable-default-scripting-plugin',
+        ]
+    else:
+        kotlinc_cmd = [
+            build_utils.KOTLINC_PATH,
+            # We typically set a default of 1G for java commands, see
+            # build_utils.JavaCmd. This may help prevent OOMs.
+            '-J-Xmx1G',
+        ]
 
     kotlinc_cmd += [
+        # Keep consistent with javac_args release flag in
+        # //build/android/gyp/compile_java.py.
+        # LINT.IfChange
         "-jvm-target",
-        "11",
-        '-no-jdk',  # Avoid depending on the bundled JDK.
+        "25",
+        "-Xjdk-release=25",
+        # LINT.ThenChange(//build/android/gyp/compile_java.py)
+        # Resolve JDK classes (java.*, javax.*, etc.) from our checked-in JDK
+        # so that Kotlin compiles in targets without android.jar on the
+        # classpath (javac does the same via --release). When android.jar is
+        # on the classpath, kotlinc still prefers its copy of a class and only
+        # falls back to the JDK for classes that android.jar lacks.
+        '-jdk-home',
+        build_utils.JAVA_HOME,
         # Avoid depending on the bundled Kotlin stdlib. This may have a version
         # skew with the one in //third_party/android_deps (which is the one we
         # prefer to use).
         '-no-stdlib',
         # Avoid depending on the bundled Kotlin reflect libs.
         '-no-reflect',
-        # We typically set a default of 1G for java commands, see
-        # build_utils.JavaCmd. This may help prevent OOMs.
-        '-J-Xmx1G',
     ]
     if args.compiler_plugin_jar:
         kotlinc_cmd += [

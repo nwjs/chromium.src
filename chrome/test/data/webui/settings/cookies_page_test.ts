@@ -6,26 +6,47 @@
 import {flush} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 import type {SettingsCollapseRadioButtonElement, SettingsRadioGroupElement, SettingsCookiesPageElement} from 'chrome://settings/lazy_load.js';
 import {ContentSettingsTypes, SITE_EXCEPTION_WILDCARD, SiteSettingsBrowserProxyImpl,ThirdPartyCookieBlockingSetting} from 'chrome://settings/lazy_load.js';
-import type {ControlledRadioButtonElement, SettingsPrefsElement, SettingsToggleButtonElement} from 'chrome://settings/settings.js';
-import {CrSettingsPrefs, loadTimeData, MetricsBrowserProxyImpl, PrivacyElementInteractions, resetRouterForTesting, Router, routes} from 'chrome://settings/settings.js';
+import type {ControlledRadioButtonElement, SettingsToggleButtonElement} from 'chrome://settings/settings.js';
+import {loadTimeData, MetricsBrowserProxyImpl, PrefsBrowserProxy, PrefService, PrivacyElementInteractions, resetRouterForTesting, Router, routes} from 'chrome://settings/settings.js';
 import {assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
-import {eventToPromise, isChildVisible} from 'chrome://webui-test/test_util.js';
+import {eventToPromise, isChildVisible, microtasksFinished} from 'chrome://webui-test/test_util.js';
 import {flushTasks} from 'chrome://webui-test/polymer_test_util.js';
 
 import {TestMetricsBrowserProxy} from './test_metrics_browser_proxy.js';
+import {TestPrefsBrowserProxy} from './test_prefs_browser_proxy.js';
 import {TestSiteSettingsBrowserProxy} from './test_site_settings_browser_proxy.js';
 import {createContentSettingTypeToValuePair, createRawSiteException, createSiteSettingsPrefs} from './test_util.js';
 
 // clang-format on
 
+function getInitialPrefs(): chrome.settingsPrivate.PrefObject[] {
+  return [
+    {
+      key: 'enable_do_not_track',
+      type: chrome.settingsPrivate.PrefType.BOOLEAN,
+      value: false,
+    },
+    {
+      key: 'generated.third_party_cookie_blocking_setting',
+      type: chrome.settingsPrivate.PrefType.NUMBER,
+      value: ThirdPartyCookieBlockingSetting.INCOGNITO_ONLY,
+    },
+    {
+      key: 'universal_optout.enabled',
+      type: chrome.settingsPrivate.PrefType.BOOLEAN,
+      value: false,
+    },
+  ];
+}
+
 suite('CookiesPageTest', function() {
   let siteSettingsBrowserProxy: TestSiteSettingsBrowserProxy;
   let testMetricsBrowserProxy: TestMetricsBrowserProxy;
   let page: SettingsCookiesPageElement;
-  let settingsPrefs: SettingsPrefsElement;
+  let prefService: PrefService;
 
   function thirdPartyCookieBlockingSettingGroup(): SettingsRadioGroupElement {
-    const group = page.shadowRoot!.querySelector<SettingsRadioGroupElement>(
+    const group = page.shadowRoot.querySelector<SettingsRadioGroupElement>(
         '#thirdPartyCookieBlockingSettingGroup');
     assertTrue(!!group);
     return group;
@@ -33,7 +54,7 @@ suite('CookiesPageTest', function() {
 
   function blockAll3pc(): SettingsCollapseRadioButtonElement {
     const blockAll3pc =
-        page.shadowRoot!.querySelector<SettingsCollapseRadioButtonElement>(
+        page.shadowRoot.querySelector<SettingsCollapseRadioButtonElement>(
             '#blockAll3pc');
     assertTrue(!!blockAll3pc);
     return blockAll3pc;
@@ -41,7 +62,7 @@ suite('CookiesPageTest', function() {
 
   function block3pcIncognito(): SettingsCollapseRadioButtonElement {
     const block3pcIncognito =
-        page.shadowRoot!.querySelector<SettingsCollapseRadioButtonElement>(
+        page.shadowRoot.querySelector<SettingsCollapseRadioButtonElement>(
             '#block3pcIncognito');
     assertTrue(!!block3pcIncognito);
     return block3pcIncognito;
@@ -49,27 +70,23 @@ suite('CookiesPageTest', function() {
 
   function createPage() {
     page = document.createElement('settings-cookies-page');
-    page.prefs = settingsPrefs.prefs!;
-
-    // Enable one of the PS APIs.
-    page.set('prefs.privacy_sandbox.m1.topics_enabled.value', true);
-    page.set(
-        'prefs.generated.third_party_cookie_blocking_setting.value',
-        ThirdPartyCookieBlockingSetting.INCOGNITO_ONLY);
     document.body.appendChild(page);
-    flush();
   }
 
   suiteSetup(function() {
     loadTimeData.overrideValues({settingsRefresh2026: ''});
-    settingsPrefs = document.createElement('settings-prefs');
-    return CrSettingsPrefs.initialized;
   });
 
-  setup(function() {
+  setup(async function() {
     resetRouterForTesting();
 
     document.body.innerHTML = window.trustedTypes!.emptyHTML;
+
+    const prefsBrowserProxy = new TestPrefsBrowserProxy(getInitialPrefs());
+    PrefsBrowserProxy.setInstance(prefsBrowserProxy);
+    PrefService.resetInstanceForTesting();
+    prefService = PrefService.getInstance();
+    await prefService.whenInitialized();
 
     testMetricsBrowserProxy = new TestMetricsBrowserProxy();
     MetricsBrowserProxyImpl.setInstance(testMetricsBrowserProxy);
@@ -77,6 +94,7 @@ suite('CookiesPageTest', function() {
     SiteSettingsBrowserProxyImpl.setInstance(siteSettingsBrowserProxy);
 
     createPage();
+    await microtasksFinished();
   });
 
   teardown(function() {
@@ -87,7 +105,7 @@ suite('CookiesPageTest', function() {
   test('SubpageTitle', function() {
     assertEquals(
         page.i18n('thirdPartyCookiesPageTitle'),
-        page.shadowRoot!.querySelector('settings-subpage')!.pageTitle);
+        page.shadowRoot.querySelector('settings-subpage')!.pageTitle);
   });
 
   test('ElementVisibility', async function() {
@@ -113,7 +131,8 @@ suite('CookiesPageTest', function() {
     blockAll3pc().click();
     await eventToPromise('change', thirdPartyCookieBlockingSettingGroup());
     assertEquals(
-        page.getPref('generated.third_party_cookie_blocking_setting.value'),
+        prefService.getPref('generated.third_party_cookie_blocking_setting')
+            .value,
         ThirdPartyCookieBlockingSetting.BLOCK_THIRD_PARTY);
     let result =
         await testMetricsBrowserProxy.whenCalled('recordSettingsPageHistogram');
@@ -126,7 +145,8 @@ suite('CookiesPageTest', function() {
     block3pcIncognito().click();
     await eventToPromise('change', thirdPartyCookieBlockingSettingGroup());
     assertEquals(
-        page.getPref('generated.third_party_cookie_blocking_setting.value'),
+        prefService.getPref('generated.third_party_cookie_blocking_setting')
+            .value,
         ThirdPartyCookieBlockingSetting.INCOGNITO_ONLY);
     result =
         await testMetricsBrowserProxy.whenCalled('recordSettingsPageHistogram');
@@ -142,29 +162,29 @@ suite('CookiesPageTest', function() {
 
 suite('UniversalOptOut', function() {
   let page: SettingsCookiesPageElement;
-  let settingsPrefs: SettingsPrefsElement;
+  let prefService: PrefService;
   let testMetricsBrowserProxy: TestMetricsBrowserProxy;
 
-  suiteSetup(function() {
-    settingsPrefs = document.createElement('settings-prefs');
-    return CrSettingsPrefs.initialized;
-  });
-
-  function createPage(showSettings: boolean) {
+  async function createPage(showSettings: boolean) {
     resetRouterForTesting();
 
     document.body.innerHTML = window.trustedTypes!.emptyHTML;
     loadTimeData.overrideValues({showUniversalOptOutSettings: showSettings});
+
+    const prefsBrowserProxy = new TestPrefsBrowserProxy(getInitialPrefs());
+    PrefsBrowserProxy.setInstance(prefsBrowserProxy);
+    PrefService.resetInstanceForTesting();
+    prefService = PrefService.getInstance();
+    await prefService.whenInitialized();
+
     testMetricsBrowserProxy = new TestMetricsBrowserProxy();
     MetricsBrowserProxyImpl.setInstance(testMetricsBrowserProxy);
 
     page = document.createElement('settings-cookies-page');
-    page.prefs = settingsPrefs.prefs!;
-    page.setPrefValue('universal_optout.enabled', false);
 
     Router.getInstance().navigateTo(routes.COOKIES);
     document.body.appendChild(page);
-    flush();
+    await microtasksFinished();
   }
 
   teardown(function() {
@@ -173,8 +193,8 @@ suite('UniversalOptOut', function() {
   });
 
   test('UniversalOptOutEnabled', async function() {
-    createPage(true);
-    const subpage = page.shadowRoot!.querySelector('settings-subpage');
+    await createPage(true);
+    const subpage = page.shadowRoot.querySelector('settings-subpage');
     assertTrue(!!subpage);
     assertEquals(
         page.i18n('thirdPartyCookiesAndSiteDataPageTitle'), subpage.pageTitle);
@@ -188,28 +208,27 @@ suite('UniversalOptOut', function() {
     assertEquals('Privacy.UniversalOptOut.SettingsVisibility', histogramName);
     assertTrue(visible);
 
-    const toggle = page.shadowRoot!.querySelector<SettingsToggleButtonElement>(
+    const toggle = page.shadowRoot.querySelector<SettingsToggleButtonElement>(
         '#universalOptOutToggle');
     assertTrue(!!toggle);
     assertEquals(page.i18n('universalOptOutLearnMoreURL'), toggle.learnMoreUrl);
-    const pref = page.getPref<boolean>('universal_optout.enabled');
 
     assertFalse(toggle.checked);
-    assertFalse(pref.value);
+    assertFalse(prefService.getPref<boolean>('universal_optout.enabled').value);
 
     toggle.click();
-    flush();
+    await microtasksFinished();
     assertTrue(toggle.checked);
-    assertTrue(pref.value);
+    assertTrue(prefService.getPref<boolean>('universal_optout.enabled').value);
     assertEquals(
         'Privacy.UniversalOptOut.SettingsToggleOn',
         await testMetricsBrowserProxy.whenCalled('recordAction'));
     testMetricsBrowserProxy.reset();
 
     toggle.click();
-    flush();
+    await microtasksFinished();
     assertFalse(toggle.checked);
-    assertFalse(pref.value);
+    assertFalse(prefService.getPref<boolean>('universal_optout.enabled').value);
     assertEquals(
         'Privacy.UniversalOptOut.SettingsToggleOff',
         await testMetricsBrowserProxy.whenCalled('recordAction'));
@@ -217,8 +236,8 @@ suite('UniversalOptOut', function() {
   });
 
   test('UniversalOptOutDisabled', async function() {
-    createPage(false);
-    const subpage = page.shadowRoot!.querySelector('settings-subpage');
+    await createPage(false);
+    const subpage = page.shadowRoot.querySelector('settings-subpage');
     assertTrue(!!subpage);
     assertEquals(page.i18n('thirdPartyCookiesPageTitle'), subpage.pageTitle);
     assertFalse(isChildVisible(page, '#cookiesHeader'));
@@ -236,23 +255,21 @@ suite('UniversalOptOut', function() {
 suite('ExceptionsList', function() {
   let siteSettingsBrowserProxy: TestSiteSettingsBrowserProxy;
   let page: SettingsCookiesPageElement;
-  let settingsPrefs: SettingsPrefsElement;
 
-  suiteSetup(function() {
-    settingsPrefs = document.createElement('settings-prefs');
-    return CrSettingsPrefs.initialized;
-  });
-
-  setup(function() {
+  setup(async function() {
     document.body.innerHTML = window.trustedTypes!.emptyHTML;
+
+    const prefsBrowserProxy = new TestPrefsBrowserProxy(getInitialPrefs());
+    PrefsBrowserProxy.setInstance(prefsBrowserProxy);
+    PrefService.resetInstanceForTesting();
+    await PrefService.getInstance().whenInitialized();
 
     siteSettingsBrowserProxy = new TestSiteSettingsBrowserProxy();
     SiteSettingsBrowserProxyImpl.setInstance(siteSettingsBrowserProxy);
 
     page = document.createElement('settings-cookies-page');
-    page.prefs = settingsPrefs.prefs!;
     document.body.appendChild(page);
-    flush();
+    await microtasksFinished();
   });
 
   test('ExceptionsSearch', async function() {
@@ -271,20 +288,22 @@ suite('ExceptionsList', function() {
     page.searchTerm = 'foo';
     siteSettingsBrowserProxy.setPrefs(exceptionPrefs);
     await siteSettingsBrowserProxy.whenCalled('getExceptionList');
+    await microtasksFinished();
     flush();
 
-    const exceptionList = page.shadowRoot!.querySelector('site-list');
+    const exceptionList = page.shadowRoot.querySelector('site-list');
     assertTrue(!!exceptionList);
     assertTrue(isChildVisible(exceptionList, 'site-list-entry'));
 
     page.searchTerm = 'unrelated.com';
+    await microtasksFinished();
     flush();
 
     assertFalse(isChildVisible(exceptionList, 'site-list-entry'));
   });
 
   test('ExceptionListHasCorrectCookieExceptionType', function() {
-    const exceptionList = page.shadowRoot!.querySelector('site-list');
+    const exceptionList = page.shadowRoot.querySelector('site-list');
     assertTrue(!!exceptionList);
     assertEquals(
         'third-party', exceptionList.getAttribute('cookies-exception-type'));
@@ -295,10 +314,10 @@ suite('CookiesPageSettingsRefresh2026Test', function() {
   let siteSettingsBrowserProxy: TestSiteSettingsBrowserProxy;
   let testMetricsBrowserProxy: TestMetricsBrowserProxy;
   let page: SettingsCookiesPageElement;
-  let settingsPrefs: SettingsPrefsElement;
+  let prefService: PrefService;
 
   function thirdPartyCookieBlockingSettingGroup(): SettingsRadioGroupElement {
-    const group = page.shadowRoot!.querySelector<SettingsRadioGroupElement>(
+    const group = page.shadowRoot.querySelector<SettingsRadioGroupElement>(
         '#thirdPartyCookieBlockingSettingGroup');
     assertTrue(!!group);
     return group;
@@ -306,7 +325,7 @@ suite('CookiesPageSettingsRefresh2026Test', function() {
 
   function blockAll3pc(): ControlledRadioButtonElement {
     const blockAll3pc =
-        page.shadowRoot!.querySelector<ControlledRadioButtonElement>(
+        page.shadowRoot.querySelector<ControlledRadioButtonElement>(
             '#blockAll3pc');
     assertTrue(!!blockAll3pc);
     return blockAll3pc;
@@ -314,7 +333,7 @@ suite('CookiesPageSettingsRefresh2026Test', function() {
 
   function block3pcIncognito(): ControlledRadioButtonElement {
     const block3pcIncognito =
-        page.shadowRoot!.querySelector<ControlledRadioButtonElement>(
+        page.shadowRoot.querySelector<ControlledRadioButtonElement>(
             '#block3pcIncognito');
     assertTrue(!!block3pcIncognito);
     return block3pcIncognito;
@@ -322,28 +341,24 @@ suite('CookiesPageSettingsRefresh2026Test', function() {
 
   function createPage() {
     page = document.createElement('settings-cookies-page');
-    page.prefs = settingsPrefs.prefs!;
-
-    // Enable one of the PS APIs.
-    page.set('prefs.privacy_sandbox.m1.topics_enabled.value', true);
-    page.set(
-        'prefs.generated.third_party_cookie_blocking_setting.value',
-        ThirdPartyCookieBlockingSetting.INCOGNITO_ONLY);
     document.body.appendChild(page);
-    flush();
   }
 
   suiteSetup(function() {
     loadTimeData.overrideValues({
       settingsRefresh2026: 'true',
     });
-    settingsPrefs = document.createElement('settings-prefs');
-    return CrSettingsPrefs.initialized;
   });
 
-  setup(function() {
+  setup(async function() {
     resetRouterForTesting();
     document.body.innerHTML = window.trustedTypes!.emptyHTML;
+
+    const prefsBrowserProxy = new TestPrefsBrowserProxy(getInitialPrefs());
+    PrefsBrowserProxy.setInstance(prefsBrowserProxy);
+    PrefService.resetInstanceForTesting();
+    prefService = PrefService.getInstance();
+    await prefService.whenInitialized();
 
     testMetricsBrowserProxy = new TestMetricsBrowserProxy();
     MetricsBrowserProxyImpl.setInstance(testMetricsBrowserProxy);
@@ -351,6 +366,7 @@ suite('CookiesPageSettingsRefresh2026Test', function() {
     SiteSettingsBrowserProxyImpl.setInstance(siteSettingsBrowserProxy);
 
     createPage();
+    await microtasksFinished();
   });
 
   teardown(function() {
@@ -368,7 +384,7 @@ suite('CookiesPageSettingsRefresh2026Test', function() {
   test('SubpageTitle', function() {
     assertEquals(
         page.i18n('thirdPartyCookiesPageTitle'),
-        page.shadowRoot!.querySelector('settings-subpage')!.pageTitle);
+        page.shadowRoot.querySelector('settings-subpage')!.pageTitle);
   });
 
   test('ElementVisibility', async function() {
@@ -393,7 +409,8 @@ suite('CookiesPageSettingsRefresh2026Test', function() {
     blockAll3pc().click();
     await eventToPromise('change', thirdPartyCookieBlockingSettingGroup());
     assertEquals(
-        page.getPref('generated.third_party_cookie_blocking_setting.value'),
+        prefService.getPref('generated.third_party_cookie_blocking_setting')
+            .value,
         ThirdPartyCookieBlockingSetting.BLOCK_THIRD_PARTY);
     let result =
         await testMetricsBrowserProxy.whenCalled('recordSettingsPageHistogram');
@@ -406,7 +423,8 @@ suite('CookiesPageSettingsRefresh2026Test', function() {
     block3pcIncognito().click();
     await eventToPromise('change', thirdPartyCookieBlockingSettingGroup());
     assertEquals(
-        page.getPref('generated.third_party_cookie_blocking_setting.value'),
+        prefService.getPref('generated.third_party_cookie_blocking_setting')
+            .value,
         ThirdPartyCookieBlockingSetting.INCOGNITO_ONLY);
     result =
         await testMetricsBrowserProxy.whenCalled('recordSettingsPageHistogram');

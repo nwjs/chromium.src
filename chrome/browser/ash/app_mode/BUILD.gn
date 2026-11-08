@@ -72,7 +72,6 @@ static_library("app_mode") {
 
   public_deps = [
     "//ash/public/cpp",
-    "//chrome/browser:browser_public_dependencies",
     "//chrome/browser/ash/system",
     "//chrome/browser/web_applications",
     "//chromeos/ash/components/dbus/cros_disks",
@@ -226,7 +225,6 @@ source_set("unit_tests") {
     "//chrome/browser/ash/policy/core",
     "//chrome/browser/ash/settings:test_support",
     "//chrome/browser/chromeos/app_mode",
-    "//chrome/browser/ui",
     "//chrome/browser/ui/apps",
     "//chrome/browser/ui/views:task_manager_view",
     "//chrome/browser/web_applications:web_applications_test_support",
@@ -293,7 +291,6 @@ source_set("browser_tests") {
     "//chrome/browser/devtools:test_support",
     "//chrome/browser/extensions",
     "//chrome/browser/lifetime:termination_notification",
-    "//chrome/browser/ui",
     "//chrome/browser/ui:browser_init_state",
     "//chrome/browser/ui/ash/system_web_apps",
     "//chrome/browser/ui/views:task_manager_view",

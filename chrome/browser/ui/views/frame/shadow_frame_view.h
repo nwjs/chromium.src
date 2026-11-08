@@ -8,6 +8,7 @@
 #include <memory>
 #include <optional>
 
+#include "ui/gfx/geometry/rounded_corners_f.h"
 #include "ui/views/view.h"
 
 namespace views {
@@ -42,9 +43,14 @@ class ShadowFrameView : public views::View {
   // Sets the shadow corner radius.
   void SetShadowCornerRadius(int corner_radius);
 
+  // Sets the shadow corners individually. These should be the corners in
+  // screen space - i.e. already mirrored for RtL.
+  void SetShadowCornerRadii(const gfx::RoundedCornersF& corners);
+
  protected:
   // views::View:
   void OnThemeChanged() override;
+  void AddedToWidget() override;
 
  private:
   void UpdateShadowColors();
@@ -55,7 +61,7 @@ class ShadowFrameView : public views::View {
   // This default configuration is designed to have broadly-acceptable values,
   // but should be changed to specific values when shipping a feature using this
   // class.
-  int corner_radius_ = 8;
+  gfx::RoundedCornersF corners_{8.f};
   double shadow_opacity_ = 1.0;
   std::optional<bool> was_dark_;
 

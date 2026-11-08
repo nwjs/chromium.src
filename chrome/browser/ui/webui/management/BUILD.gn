@@ -16,11 +16,11 @@ source_set("management") {
     "management_ui_constants.h",
     "management_ui_handler.h",
   ]
-  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
   deps = [
     "//base",
     "//chrome/app:generated_resources",
     "//chrome/app/theme:theme_resources",
+    "//chrome/browser:browser_features",
     "//chrome/browser:browser_process",
     "//chrome/browser:browser_process_platform_part",
     "//chrome/browser/enterprise",
@@ -55,6 +55,7 @@ source_set("management") {
     deps += [
       "//chrome/browser/apps/app_service",
       "//chrome/browser/device_api",
+      "//chrome/browser/ui/webui:theme_source",
       "//chrome/browser/web_applications",
     ]
   }
@@ -93,10 +94,7 @@ source_set("management") {
     ]
   }
   if (enable_extensions_core) {
-    deps += [
-      "//chrome/browser/extensions",
-      "//chrome/browser/ui/webui:theme_source",
-    ]
+    deps += [ "//chrome/browser/extensions" ]
   }
 }
 
@@ -111,6 +109,7 @@ source_set("unit_tests") {
     "//base",
     "//base/test:test_support",
     "//chrome/browser/enterprise/connectors/test:test_support",
+    "//chrome/browser/net",
     "//chrome/browser/prefs",
     "//chrome/browser/profiles:profile",
     "//chrome/test:test_support",
@@ -160,7 +159,6 @@ if (!is_android) {
       "//chrome/browser/profile_resetter",
       "//chrome/browser/profiles:profile",
       "//chrome/browser/signin:signin_browser_test_base",
-      "//chrome/browser/ui",
       "//chrome/browser/ui:ui_features",
       "//chrome/browser/web_applications:web_applications_test_support",
       "//chrome/test:test_support",

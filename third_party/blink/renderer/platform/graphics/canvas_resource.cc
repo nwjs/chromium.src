@@ -326,14 +326,18 @@ void CanvasResourceSharedImage::EndExternalWrite(
   // complete.
   WaitSyncToken(external_write_sync_token);
 
-  std::unique_ptr<gpu::RasterScopedAccess> access =
-      BeginAccess(/*readonly=*/true);
   // Additionally ensure that the next compositor read waits for the external
   // write to complete by ensuring that a new sync token is generated on the
   // internal interface as part of generating the TransferableResource. This new
   // sync token will be chained after `external_write_sync_token` thanks to the
   // wait above.
-  EndAccess(std::move(access));
+  std::unique_ptr<gpu::RasterScopedAccess> access =
+      GetSharedImage()->BeginRasterAccess(RasterInterface(),
+                                          acquire_sync_token_,
+                                          /*readonly=*/true);
+  auto sync_token = gpu::RasterScopedAccess::EndAccess(std::move(access));
+  SetReleaseSyncToken(sync_token);
+  GetSharedImage()->UpdateDestructionSyncToken(sync_token);
 }
 
 void CanvasResourceSharedImage::UploadSoftwareRenderingResults(
@@ -375,22 +379,6 @@ void CanvasResourceSharedImage::WaitSyncToken(
     acquire_sync_token_ = sync_token;
     GetSharedImage()->UpdateDestructionSyncToken(acquire_sync_token_);
   }
-}
-
-std::unique_ptr<gpu::RasterScopedAccess> CanvasResourceSharedImage::BeginAccess(
-    bool readonly) {
-  return GetSharedImage()->BeginRasterAccess(RasterInterface(),
-                                             acquire_sync_token_, readonly);
-}
-
-void CanvasResourceSharedImage::EndAccess(
-    std::unique_ptr<gpu::RasterScopedAccess> access) {
-  CHECK(!GetSharedImage()->is_software());
-  DCHECK(!is_cross_thread());
-
-  auto sync_token = gpu::RasterScopedAccess::EndAccess(std::move(access));
-  SetReleaseSyncToken(sync_token);
-  GetSharedImage()->UpdateDestructionSyncToken(sync_token);
 }
 
 void CanvasResourceSharedImage::NotifyResourceLost() {

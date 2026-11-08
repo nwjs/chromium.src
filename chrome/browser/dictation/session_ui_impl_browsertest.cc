@@ -142,7 +142,7 @@ class DictationSessionUiImplBrowserTest
   auto StartDictationStream(DictationStreamStartTrigger trigger) {
     return Do([this, trigger]() {
       dictation_service().session_controller()->StartDictationStream(
-          DefaultInPageTarget(web_contents()), trigger);
+          DefaultInPageTarget(web_contents()), trigger, base::TimeTicks::Now());
     });
   }
 
@@ -159,8 +159,8 @@ class DictationSessionUiImplBrowserTest
 
   auto CheckElementWithinBounds(ui::ElementIdentifier element_id,
                                 const gfx::Rect& target_bounds) {
-    return InAnyContext(
-        CheckElement(element_id, [&target_bounds](ui::TrackedElement* el) {
+    return InAnyContext(CheckElement(
+        element_id, [this, &target_bounds](ui::TrackedElement* el) {
           const views::View* const view = AsView(el);
           const gfx::Rect view_bounds = view->GetBoundsInScreen();
           return target_bounds.Contains(view_bounds.origin());
@@ -846,6 +846,26 @@ IN_PROC_BROWSER_TEST_P(DictationSessionUiImplBrowserTest,
                              target_bounds),
     ToggleFullscreen(),
     LookupTargetElementBounds(kWebContentsElementId, "#text_id", target_bounds),
+    CheckElementWithinBounds(DictationOverlayView::kViewElementIdForTesting,
+                             target_bounds)
+  );
+  // clang-format on
+}
+
+IN_PROC_BROWSER_TEST_P(DictationSessionUiImplBrowserTest,
+                       OverlayPositionUsesEditContextSelectionBounds) {
+  DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kWebContentsElementId);
+  const GURL url =
+      embedded_test_server()->GetURL("/dictation/edit_context_selection.html");
+  gfx::Rect target_bounds;
+
+  // clang-format off
+  RunTestSequence(
+    InstrumentTab(kWebContentsElementId),
+    NavigateWebContents(kWebContentsElementId, url),
+    StartSessionWithTarget(kWebContentsElementId, "#canvas"),
+    InAnyContext(WaitForShow(DictationOverlayView::kViewElementIdForTesting)),
+    LookupTargetElementBounds(kWebContentsElementId, "#canvas", target_bounds),
     CheckElementWithinBounds(DictationOverlayView::kViewElementIdForTesting,
                              target_bounds)
   );

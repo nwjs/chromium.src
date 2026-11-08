@@ -25,6 +25,7 @@ import static org.robolectric.Robolectric.buildActivity;
 import android.app.Activity;
 import android.view.ViewGroup;
 import android.view.Window;
+import android.widget.FrameLayout;
 
 import org.junit.Before;
 import org.junit.Rule;
@@ -45,6 +46,7 @@ import org.chromium.base.supplier.OneshotSupplierImpl;
 import org.chromium.base.supplier.SettableMonotonicObservableSupplier;
 import org.chromium.base.supplier.SupplierUtils;
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController.SheetState;
@@ -67,32 +69,34 @@ public class BottomSheetControllerImplUnitTest {
     private static final int APP_HEADER_HEIGHT = 42;
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
 
-    @Mock private ScrimManager mScrimManager;
-    @Mock private KeyboardVisibilityDelegate mKeyboardVisibilityDelegate;
-    @Mock private ViewGroup mRoot;
-    @Mock private DesktopWindowStateManager mDesktopWindowStateManager;
-    @Mock private AppHeaderState mAppHeaderState;
-    @Mock private BottomSheet mBottomSheet;
-    @Mock private BottomSheetContent mSheetContent;
-    @Mock private InsetObserver mInsetObserver;
-    @Captor ArgumentCaptor<BottomSheetObserver> mBottomSheetObserverCaptor;
-    @Captor ArgumentCaptor<PropertyModel> mScrimPropertyModelCaptor;
-
-    private BottomSheetControllerImpl mController;
     private final OneshotSupplierImpl<ScrimManager> mScrimManagerSupplier =
             new OneshotSupplierImpl<>();
-    private Window mWindow;
     private final OneshotSupplierImpl<ViewGroup> mRootSupplier = new OneshotSupplierImpl<>();
     private final SettableMonotonicObservableSupplier<Integer> mEdgeToEdgeBottomInsetSupplier =
             ObservableSuppliers.createMonotonic();
+
+    private @Mock ScrimManager mScrimManager;
+    private @Mock KeyboardVisibilityDelegate mKeyboardVisibilityDelegate;
+    private @Mock DesktopWindowStateManager mDesktopWindowStateManager;
+    private @Mock AppHeaderState mAppHeaderState;
+    private @Mock BottomSheetCoordinator mBottomSheet;
+    private @Mock BottomSheetContent mSheetContent;
+    private @Mock BottomSheetContent mOtherSheetContent;
+    private @Mock InsetObserver mInsetObserver;
+    private @Captor ArgumentCaptor<BottomSheetObserver> mBottomSheetObserverCaptor;
+    private @Captor ArgumentCaptor<PropertyModel> mScrimPropertyModelCaptor;
+
+    private BottomSheetControllerImpl mController;
+    private Window mWindow;
+    private FrameLayout mRoot;
 
     @Before
     public void setUp() {
         Activity activity = buildActivity(Activity.class).setup().get();
         activity.setTheme(R.style.Theme_BrowserUI_DayNight);
         mWindow = activity.getWindow();
-        when(mRoot.getContext()).thenReturn(activity);
-        when(mRoot.findViewById(R.id.bottom_sheet)).thenReturn(mBottomSheet);
+        mRoot = new FrameLayout(activity);
+        when(mBottomSheet.getView()).thenReturn(new BottomSheetView(activity, null));
         mScrimManagerSupplier.set(mScrimManager);
         mRootSupplier.set(mRoot);
         mController =
@@ -106,6 +110,7 @@ public class BottomSheetControllerImplUnitTest {
                         mDesktopWindowStateManager,
                         mInsetObserver,
                         /* enableLargeFormFactorUi= */ false);
+        mController.setBottomSheetForTesting(mBottomSheet);
     }
 
     @Test
@@ -116,7 +121,7 @@ public class BottomSheetControllerImplUnitTest {
         mController.onAppHeaderStateChanged(mAppHeaderState);
 
         // Simulate sheet initialization, this should kick off
-        // BottomSheet#onAppHeaderHeightChange().
+        // BottomSheetCoordinator#onAppHeaderHeightChange().
         mController.runSheetInitializerForTesting();
         verify(mBottomSheet)
                 .init(
@@ -213,14 +218,15 @@ public class BottomSheetControllerImplUnitTest {
         verify(mScrimManager).showScrim(mScrimPropertyModelCaptor.capture());
         var callback =
                 mScrimPropertyModelCaptor.getValue().get(ScrimProperties.VISIBILITY_CALLBACK);
+        assertEquals(1.0f, mRoot.getZ(), 0f);
 
         // 2. Trigger callback to hide scrim -> verify Z-elevation is cleared.
         callback.onResult(false);
-        verify(mRoot, times(2)).setZ(0.0f);
+        assertEquals(0.0f, mRoot.getZ(), 0f);
 
         // 3. Trigger callback to show scrim -> verify Z-elevation is elevated again.
         callback.onResult(true);
-        verify(mRoot, times(2)).setZ(1.0f);
+        assertEquals(1.0f, mRoot.getZ(), 0f);
     }
 
     @Test
@@ -267,13 +273,13 @@ public class BottomSheetControllerImplUnitTest {
         // 2. Set bottom controls offset to 100 while scrim is visible -> margin must stay 0.
         mController.setBottomControlsOffset(100);
         verify(mBottomSheet, times(3)).setBottomMargin(0);
-        verify(mRoot, times(3)).setZ(1.0f);
+        assertEquals(1.0f, mRoot.getZ(), 0f);
 
         // 3. Hide scrim via callback -> with coversBottomControls() true, bottom margin must
         // remain 0 and Z-axis must stay elevated (1.0f) rather than shifting to offset (100).
         callback.onResult(false);
         verify(mBottomSheet, times(4)).setBottomMargin(0);
-        verify(mRoot, times(4)).setZ(1.0f);
+        assertEquals(1.0f, mRoot.getZ(), 0f);
     }
 
     // Verify that when requestShowContent is called with content specifying coversBottomControls()
@@ -301,7 +307,7 @@ public class BottomSheetControllerImplUnitTest {
         // Verify that the bottom margin was adjusted to 0 and Z-axis was elevated for this content.
         verify(mBottomSheet).showContent(content);
         verify(mBottomSheet, atLeastOnce()).setBottomMargin(0);
-        verify(mRoot, atLeastOnce()).setZ(1.0f);
+        assertEquals(1.0f, mRoot.getZ(), 0f);
     }
 
     @Test
@@ -312,7 +318,7 @@ public class BottomSheetControllerImplUnitTest {
 
         doReturn(true).when(mBottomSheet).isSheetOpen();
         mBottomSheetObserverCaptor.getValue().onSheetOpened(StateChangeReason.NONE);
-        verify(mRoot).setZ(1.0f);
+        assertEquals(1.0f, mRoot.getZ(), 0f);
     }
 
     @Test
@@ -514,9 +520,7 @@ public class BottomSheetControllerImplUnitTest {
 
         // Simulate sheet going to HIDDEN state.
         when(mBottomSheet.getSheetState()).thenReturn(SheetState.HIDDEN);
-        mBottomSheetObserverCaptor
-                .getValue()
-                .onSheetStateChanged(SheetState.HIDDEN, StateChangeReason.NONE);
+        simulateSheetHidden(StateChangeReason.NONE);
 
         // 3. Verify HIGH content is shown.
         verify(mBottomSheet).showContent(highContent);
@@ -526,12 +530,156 @@ public class BottomSheetControllerImplUnitTest {
         mBottomSheetObserverCaptor.getValue().onSheetClosed(StateChangeReason.BACK_PRESS);
 
         // Simulate sheet going to HIDDEN state again after dismissal.
+        simulateSheetHidden(StateChangeReason.NONE);
+
+        // 5. Verify COBROWSE content returns.
+        verify(mBottomSheet, times(2)).showContent(cobrowseContent);
+    }
+
+    @Test
+    @EnableFeatures(BottomSheetFeatureMap.BOTTOM_SHEET_DEFER_CONTENT_SWAP_ON_HIDDEN)
+    public void testSheetHidden_ShowsNextContentOnceStateChangeCommitted() {
+        BottomSheetContent nextContent = showContentAndQueueNextContent();
+        // Destroying the hidden content hides it again.
+        doAnswer(
+                        invocation -> {
+                            mController.hideContent(mSheetContent, /* animate= */ true);
+                            return null;
+                        })
+                .doNothing()
+                .when(mSheetContent)
+                .destroy();
+
+        var noRecords =
+                HistogramWatcher.newBuilder().expectNoRecords("Android.BottomSheet.Closed").build();
         mBottomSheetObserverCaptor
                 .getValue()
                 .onSheetStateChanged(SheetState.HIDDEN, StateChangeReason.NONE);
 
-        // 5. Verify COBROWSE content returns.
-        verify(mBottomSheet, times(2)).showContent(cobrowseContent);
+        // Nothing happens until every observer has been notified.
+        verify(mSheetContent, never()).destroy();
+        verify(mBottomSheet, never()).showContent(any());
+        noRecords.assertExpected();
+
+        // Then the next content is shown before the hidden content is destroyed, so hiding the
+        // hidden content from destroy() is a no-op.
+        var watcher =
+                HistogramWatcher.newBuilder()
+                        .expectIntRecord("Android.BottomSheet.Closed", StateChangeReason.NONE)
+                        .build();
+        commitSheetStateChange(SheetState.HIDDEN);
+        InOrder inOrder = inOrder(mBottomSheet, mSheetContent);
+        inOrder.verify(mBottomSheet).showContent(nextContent);
+        inOrder.verify(mSheetContent).destroy();
+
+        // The swap happens at most once.
+        commitSheetStateChange(SheetState.HIDDEN);
+        verify(mBottomSheet).showContent(any());
+        verify(mSheetContent).destroy();
+        watcher.assertExpected();
+    }
+
+    @Test
+    @EnableFeatures(BottomSheetFeatureMap.BOTTOM_SHEET_DEFER_CONTENT_SWAP_ON_HIDDEN)
+    public void testSheetHidden_SkipsSwapIfSheetNoLongerHidden() {
+        BottomSheetContent nextContent = showContentAndQueueNextContent();
+        var noRecords =
+                HistogramWatcher.newBuilder().expectNoRecords("Android.BottomSheet.Closed").build();
+
+        mBottomSheetObserverCaptor
+                .getValue()
+                .onSheetStateChanged(SheetState.HIDDEN, StateChangeReason.NONE);
+        when(mBottomSheet.getSheetState()).thenReturn(SheetState.PEEK);
+        commitSheetStateChange(SheetState.PEEK);
+
+        // The content is showing again, so it is neither replaced nor destroyed.
+        verify(mBottomSheet, never()).showContent(nextContent);
+        verify(mSheetContent, never()).destroy();
+        noRecords.assertExpected();
+    }
+
+    @Test
+    @EnableFeatures(BottomSheetFeatureMap.BOTTOM_SHEET_DEFER_CONTENT_SWAP_ON_HIDDEN)
+    public void testSheetHidden_DestroyReleasesLastSuppressionToken_ShowsNextContent() {
+        BottomSheetContent nextContent = showContentAndQueueNextContent();
+        when(mBottomSheet.getOpeningState()).thenReturn(SheetState.PEEK);
+        // Hide the open content, and suppress the sheet while it is hiding.
+        when(mBottomSheet.getSheetState()).thenReturn(SheetState.PEEK);
+        mController.hideContent(mSheetContent, /* animate= */ true);
+        when(mBottomSheet.isHiding()).thenReturn(true);
+        int token = mController.suppressSheet(StateChangeReason.NONE);
+        // Destroying the hidden content releases the last suppression token.
+        doAnswer(
+                        invocation -> {
+                            mController.unsuppressSheet(token);
+                            return null;
+                        })
+                .when(mSheetContent)
+                .destroy();
+
+        when(mBottomSheet.getSheetState()).thenReturn(SheetState.HIDDEN);
+        simulateSheetHidden(StateChangeReason.NONE);
+
+        // The suppressed sheet drops the hidden content before destroying it. The destroyed
+        // content isn't reopened, and the next content is shown and opened once.
+        verify(mSheetContent).destroy();
+        verify(mSheetContent, never()).shouldRestoreStateOnUnsuppress();
+        InOrder inOrder = inOrder(mBottomSheet, mSheetContent);
+        inOrder.verify(mBottomSheet).showContent(null);
+        inOrder.verify(mSheetContent).destroy();
+        inOrder.verify(mBottomSheet).showContent(nextContent);
+        inOrder.verify(mBottomSheet).setSheetState(SheetState.PEEK, true);
+        verify(mBottomSheet, times(2)).showContent(any());
+        verify(mBottomSheet).setSheetState(SheetState.PEEK, true);
+    }
+
+    /**
+     * Makes {@link #mSheetContent} the current content of the hidden sheet and queues another
+     * content behind it.
+     *
+     * @return The queued content.
+     */
+    private BottomSheetContent showContentAndQueueNextContent() {
+        mController.runSheetInitializerForTesting();
+        verify(mBottomSheet).addObserver(mBottomSheetObserverCaptor.capture());
+        when(mSheetContent.getBackPressStateChangedSupplier())
+                .thenReturn(ObservableSuppliers.alwaysFalse());
+        // Like the real sheet, showing content makes it the current content.
+        doAnswer(
+                        invocation -> {
+                            doReturn(invocation.getArgument(0))
+                                    .when(mBottomSheet)
+                                    .getCurrentSheetContent();
+                            return null;
+                        })
+                .when(mBottomSheet)
+                .showContent(any());
+        when(mBottomSheet.getCurrentSheetContent()).thenReturn(mSheetContent);
+        when(mBottomSheet.getSheetState()).thenReturn(SheetState.HIDDEN);
+
+        BottomSheetContent nextContent = mock(BottomSheetContent.class);
+        when(nextContent.getBackPressStateChangedSupplier())
+                .thenReturn(ObservableSuppliers.alwaysFalse());
+        assertFalse(mController.requestShowContent(nextContent, /* animate= */ true));
+        return nextContent;
+    }
+
+    /** Signals that every observer has been notified of the latest state change. */
+    private void commitSheetStateChange(@SheetState int state) {
+        mBottomSheetObserverCaptor
+                .getValue()
+                .onSheetStateChangeCommitted(state, StateChangeReason.NONE);
+    }
+
+    /**
+     * Simulates the sheet reaching {@link SheetState#HIDDEN}: notifies the controller's observer,
+     * then commits the state change.
+     */
+    private void simulateSheetHidden(@StateChangeReason int reason) {
+        mBottomSheetObserverCaptor.getValue().onSheetStateChanged(SheetState.HIDDEN, reason);
+        mBottomSheetObserverCaptor
+                .getValue()
+                .onSheetStateChangeCommitted(SheetState.HIDDEN, reason);
     }
 
     @Test
@@ -640,15 +788,15 @@ public class BottomSheetControllerImplUnitTest {
                 visibilityCallback != null);
 
         // 4. Verify that the synchronous callback trigger set Z to 1.0f initially.
-        verify(mRoot).setZ(1.0f);
+        assertEquals(1.0f, mRoot.getZ(), 0f);
 
         // 5. Trigger the callback with false -> verify Z-elevation is cleared.
         visibilityCallback.onResult(false);
-        verify(mRoot, times(2)).setZ(0.0f);
+        assertEquals(0.0f, mRoot.getZ(), 0f);
 
         // 6. Trigger the callback with true -> verify Z-elevation is elevated again.
         visibilityCallback.onResult(true);
-        verify(mRoot, times(2)).setZ(1.0f);
+        assertEquals(1.0f, mRoot.getZ(), 0f);
     }
 
     @Test
@@ -670,7 +818,7 @@ public class BottomSheetControllerImplUnitTest {
         verify(mScrimManager, never()).showScrim(any());
 
         // 4. Verify that Z-elevation remains 0.0f (not elevated to 1.0f automatically).
-        verify(mRoot, never()).setZ(1.0f);
+        assertEquals(0.0f, mRoot.getZ(), 0f);
     }
 
     @Test
@@ -757,7 +905,39 @@ public class BottomSheetControllerImplUnitTest {
     }
 
     @Test
+    @EnableFeatures(BottomSheetFeatureMap.BOTTOM_SHEET_DEFER_CONTENT_SWAP_ON_HIDDEN)
     public void testMetrics_SheetHidden_RecordsClosedReason() {
+        mController.runSheetInitializerForTesting();
+        verify(mBottomSheet).addObserver(mBottomSheetObserverCaptor.capture());
+
+        BottomSheetContent content = mock(BottomSheetContent.class);
+        when(content.getBackPressStateChangedSupplier())
+                .thenReturn(ObservableSuppliers.alwaysFalse());
+        when(mBottomSheet.getCurrentSheetContent()).thenReturn(content);
+
+        // Nothing is recorded until every observer has been notified.
+        var noRecords =
+                HistogramWatcher.newBuilder().expectNoRecords("Android.BottomSheet.Closed").build();
+        mBottomSheetObserverCaptor
+                .getValue()
+                .onSheetStateChanged(SheetState.HIDDEN, StateChangeReason.BACK_PRESS);
+        noRecords.assertExpected();
+
+        var watcher =
+                HistogramWatcher.newBuilder()
+                        .expectIntRecord("Android.BottomSheet.Closed", StateChangeReason.BACK_PRESS)
+                        .build();
+
+        mBottomSheetObserverCaptor
+                .getValue()
+                .onSheetStateChangeCommitted(SheetState.HIDDEN, StateChangeReason.BACK_PRESS);
+
+        watcher.assertExpected();
+    }
+
+    @Test
+    @DisableFeatures(BottomSheetFeatureMap.BOTTOM_SHEET_DEFER_CONTENT_SWAP_ON_HIDDEN)
+    public void testMetrics_SheetHidden_DeferContentSwapDisabled_RecordsClosedReason() {
         mController.runSheetInitializerForTesting();
         verify(mBottomSheet).addObserver(mBottomSheetObserverCaptor.capture());
 
@@ -792,8 +972,22 @@ public class BottomSheetControllerImplUnitTest {
     }
 
     @Test
-    @EnableFeatures(BottomSheetFeatureMap.BOTTOM_SHEET_TYPES)
+    @EnableFeatures({
+        BottomSheetFeatureMap.BOTTOM_SHEET_TYPES,
+        BottomSheetFeatureMap.BOTTOM_SHEET_DEFER_CONTENT_SWAP_ON_HIDDEN
+    })
     public void testShowContent_HighPrioritySheetPreemptsAndRestoresLowerPrioritySheet() {
+        doTestHighPrioritySheetPreemptsAndRestoresLowerPrioritySheet();
+    }
+
+    @Test
+    @EnableFeatures(BottomSheetFeatureMap.BOTTOM_SHEET_TYPES)
+    @DisableFeatures(BottomSheetFeatureMap.BOTTOM_SHEET_DEFER_CONTENT_SWAP_ON_HIDDEN)
+    public void testShowContent_HighPriorityPreemptsAndRestores_DeferContentSwapDisabled() {
+        doTestHighPrioritySheetPreemptsAndRestoresLowerPrioritySheet();
+    }
+
+    private void doTestHighPrioritySheetPreemptsAndRestoresLowerPrioritySheet() {
         mController.runSheetInitializerForTesting();
         verify(mBottomSheet).addObserver(mBottomSheetObserverCaptor.capture());
         when(mBottomSheet.getOpeningState()).thenReturn(SheetState.PEEK);
@@ -824,17 +1018,13 @@ public class BottomSheetControllerImplUnitTest {
 
         // Simulate sheet A going to HIDDEN state.
         when(mBottomSheet.getSheetState()).thenReturn(SheetState.HIDDEN);
-        mBottomSheetObserverCaptor
-                .getValue()
-                .onSheetStateChanged(SheetState.HIDDEN, StateChangeReason.NONE);
+        simulateSheetHidden(StateChangeReason.NONE);
         verify(contentA, never()).destroy();
         when(mBottomSheet.getCurrentSheetContent()).thenReturn(contentB);
 
         // 3. Close sheet B.
         mBottomSheetObserverCaptor.getValue().onSheetClosed(StateChangeReason.BACK_PRESS);
-        mBottomSheetObserverCaptor
-                .getValue()
-                .onSheetStateChanged(SheetState.HIDDEN, StateChangeReason.NONE);
+        simulateSheetHidden(StateChangeReason.NONE);
         verify(contentB).destroy();
         verify(contentA, never()).destroy();
 
@@ -884,17 +1074,13 @@ public class BottomSheetControllerImplUnitTest {
 
         // Simulate sheet A going to HIDDEN state.
         when(mBottomSheet.getSheetState()).thenReturn(SheetState.HIDDEN);
-        mBottomSheetObserverCaptor
-                .getValue()
-                .onSheetStateChanged(SheetState.HIDDEN, StateChangeReason.NONE);
+        simulateSheetHidden(StateChangeReason.NONE);
         verify(contentA).destroy();
         when(mBottomSheet.getCurrentSheetContent()).thenReturn(contentB);
 
         // 3. Close sheet B.
         mBottomSheetObserverCaptor.getValue().onSheetClosed(StateChangeReason.BACK_PRESS);
-        mBottomSheetObserverCaptor
-                .getValue()
-                .onSheetStateChanged(SheetState.HIDDEN, StateChangeReason.NONE);
+        simulateSheetHidden(StateChangeReason.NONE);
 
         // 4. Sheet A is not brought back after B closes; the sheet is left empty.
         InOrder inOrder = inOrder(mBottomSheet);
@@ -904,6 +1090,250 @@ public class BottomSheetControllerImplUnitTest {
 
         // Ensure contentA wasn't shown a second time
         verify(mBottomSheet, times(1)).showContent(contentA);
+    }
+
+    @Test
+    @EnableFeatures(BottomSheetFeatureMap.BOTTOM_SHEET_DEFER_CONTENT_SWAP_ON_HIDDEN)
+    public void testClearRequestsAndHide_DestroysQueuedContent() {
+        BottomSheetContent queuedContent = showContentAndQueueNextContent();
+
+        mController.clearRequestsAndHide();
+
+        // The queued content will never be shown, so it is destroyed. The current content is
+        // hidden and destroyed as before.
+        verify(queuedContent).destroy();
+        verify(mSheetContent).destroy();
+        verify(mBottomSheet, never()).showContent(queuedContent);
+        verify(mBottomSheet).showContent(null);
+    }
+
+    @Test
+    @DisableFeatures(BottomSheetFeatureMap.BOTTOM_SHEET_DEFER_CONTENT_SWAP_ON_HIDDEN)
+    public void testClearRequestsAndHide_DeferContentSwapDisabled_DoesNotDestroyQueuedContent() {
+        BottomSheetContent queuedContent = showContentAndQueueNextContent();
+
+        mController.clearRequestsAndHide();
+
+        verify(queuedContent, never()).destroy();
+        verify(mSheetContent).destroy();
+        verify(mBottomSheet, never()).showContent(queuedContent);
+        verify(mBottomSheet).showContent(null);
+    }
+
+    @Test
+    @EnableFeatures(BottomSheetFeatureMap.BOTTOM_SHEET_DEFER_CONTENT_SWAP_ON_HIDDEN)
+    public void testClearRequestsAndHide_KeepsQueuedContentWithCustomLifecycle() {
+        BottomSheetContent queuedContent = showContentAndQueueNextContent();
+        when(queuedContent.hasCustomLifecycle()).thenReturn(true);
+
+        mController.clearRequestsAndHide();
+
+        // The owner of the content manages its lifecycle: it is neither dropped nor destroyed, and
+        // it is shown once the current content is hidden.
+        verify(queuedContent, never()).destroy();
+        verify(mBottomSheet).showContent(queuedContent);
+        verify(mSheetContent).destroy();
+    }
+
+    @Test
+    @EnableFeatures(BottomSheetFeatureMap.BOTTOM_SHEET_DEFER_CONTENT_SWAP_ON_HIDDEN)
+    public void testClearRequestsAndHide_DestroyRequestsContent_ShowsRequestedContent() {
+        BottomSheetContent queuedContent = showContentAndQueueNextContent();
+        when(mOtherSheetContent.getBackPressStateChangedSupplier())
+                .thenReturn(ObservableSuppliers.alwaysFalse());
+        // Destroying the cleared content requests other content.
+        doAnswer(
+                        invocation -> {
+                            mController.requestShowContent(mOtherSheetContent, /* animate= */ true);
+                            return null;
+                        })
+                .when(queuedContent)
+                .destroy();
+
+        mController.clearRequestsAndHide();
+
+        // The new request isn't cleared, and it is shown now that the sheet is hidden.
+        verify(queuedContent).destroy();
+        verify(mBottomSheet).showContent(mOtherSheetContent);
+    }
+
+    @Test
+    @EnableFeatures({
+        BottomSheetFeatureMap.BOTTOM_SHEET_TYPES,
+        BottomSheetFeatureMap.BOTTOM_SHEET_DEFER_CONTENT_SWAP_ON_HIDDEN
+    })
+    public void testClearRequestsAndHide_PreemptedSheetIsDestroyedWhenHidden() {
+        showSheetPreemptedByOtherSheet();
+
+        // The requests are cleared while the preempted sheet is still animating to HIDDEN.
+        when(mBottomSheet.getSheetState()).thenReturn(SheetState.SCROLLING);
+        mController.clearRequestsAndHide();
+
+        // The preempting sheet will never be shown. The preempted sheet is still on screen, so it
+        // is destroyed once it is hidden.
+        verify(mOtherSheetContent).destroy();
+        verify(mSheetContent, never()).destroy();
+
+        when(mBottomSheet.getSheetState()).thenReturn(SheetState.HIDDEN);
+        simulateSheetHidden(StateChangeReason.NONE);
+
+        // The preempted sheet is dismissed instead of coming back after the preempting sheet, and
+        // each sheet is destroyed once.
+        verify(mSheetContent).destroy();
+        verify(mOtherSheetContent).destroy();
+        verify(mBottomSheet).showContent(mSheetContent);
+        verify(mBottomSheet, never()).showContent(mOtherSheetContent);
+        verify(mBottomSheet).showContent(null);
+    }
+
+    @Test
+    @EnableFeatures({
+        BottomSheetFeatureMap.BOTTOM_SHEET_TYPES,
+        BottomSheetFeatureMap.BOTTOM_SHEET_DEFER_CONTENT_SWAP_ON_HIDDEN
+    })
+    public void testClearRequestsAndHide_DuringPendingContentSwap_PreemptedSheetDestroyed() {
+        showSheetPreemptedByOtherSheet();
+
+        // The requests are cleared by an observer that is notified that the preempted sheet is
+        // hidden.
+        when(mBottomSheet.getSheetState()).thenReturn(SheetState.HIDDEN);
+        mBottomSheetObserverCaptor
+                .getValue()
+                .onSheetStateChanged(SheetState.HIDDEN, StateChangeReason.NONE);
+        mController.clearRequestsAndHide();
+
+        verify(mOtherSheetContent).destroy();
+        verify(mSheetContent, never()).destroy();
+
+        // The preempted sheet is destroyed once the pending content swap is done.
+        commitSheetStateChange(SheetState.HIDDEN);
+
+        verify(mSheetContent).destroy();
+        verify(mOtherSheetContent).destroy();
+        verify(mBottomSheet).showContent(mSheetContent);
+        verify(mBottomSheet, never()).showContent(mOtherSheetContent);
+        verify(mBottomSheet).showContent(null);
+    }
+
+    @Test
+    @EnableFeatures({
+        BottomSheetFeatureMap.BOTTOM_SHEET_TYPES,
+        BottomSheetFeatureMap.BOTTOM_SHEET_DEFER_CONTENT_SWAP_ON_HIDDEN
+    })
+    public void testClearRequestsAndHide_SheetClosedWhilePreempting_DestroyedOnceWhenHidden() {
+        showSheetPreemptedAndNotifySheetClosed();
+
+        when(mBottomSheet.getSheetState()).thenReturn(SheetState.SCROLLING);
+        mController.clearRequestsAndHide();
+
+        // The current sheet is still on screen, so it isn't destroyed yet, and onSheetClosed() did
+        // not queue it a second time.
+        verify(mOtherSheetContent).destroy();
+        verify(mSheetContent, never()).destroy();
+
+        when(mBottomSheet.getSheetState()).thenReturn(SheetState.HIDDEN);
+        simulateSheetHidden(StateChangeReason.NONE);
+
+        verify(mSheetContent).destroy();
+        verify(mOtherSheetContent).destroy();
+        verify(mBottomSheet).showContent(mSheetContent);
+        verify(mBottomSheet, never()).showContent(mOtherSheetContent);
+        verify(mBottomSheet).showContent(null);
+    }
+
+    @Test
+    @EnableFeatures({
+        BottomSheetFeatureMap.BOTTOM_SHEET_TYPES,
+        BottomSheetFeatureMap.BOTTOM_SHEET_DEFER_CONTENT_SWAP_ON_HIDDEN
+    })
+    public void testClearRequestsAndHide_AfterSheetClosedWhilePreempting_DestroyedOnce() {
+        showSheetPreemptedAndNotifySheetClosed();
+
+        // The preempting sheet is shown once the preempted sheet is hidden; onSheetClosed() did
+        // not queue the preempted sheet a second time.
+        when(mBottomSheet.getSheetState()).thenReturn(SheetState.HIDDEN);
+        simulateSheetHidden(StateChangeReason.NONE);
+        verify(mBottomSheet).showContent(mOtherSheetContent);
+        when(mBottomSheet.getCurrentSheetContent()).thenReturn(mOtherSheetContent);
+        when(mBottomSheet.getSheetState()).thenReturn(SheetState.PEEK);
+
+        mController.clearRequestsAndHide();
+
+        // The preempted sheet will never be shown again, so it is destroyed, only once. The shown
+        // sheet is destroyed once it is hidden.
+        verify(mSheetContent).destroy();
+        verify(mOtherSheetContent, never()).destroy();
+
+        when(mBottomSheet.getSheetState()).thenReturn(SheetState.HIDDEN);
+        simulateSheetHidden(StateChangeReason.NONE);
+
+        verify(mSheetContent).destroy();
+        verify(mOtherSheetContent).destroy();
+        verify(mBottomSheet).showContent(mSheetContent);
+        verify(mBottomSheet).showContent(null);
+    }
+
+    @Test
+    @EnableFeatures(BottomSheetFeatureMap.BOTTOM_SHEET_DEFER_CONTENT_SWAP_ON_HIDDEN)
+    public void testSheetClosed_WhileContentIsDismissedWithoutAnimation_DoesNotRequeueIt() {
+        BottomSheetContent next = showContentAndQueueNextContent();
+        // Make the queued content able to supersede the current one, so that closing the sheet
+        // would normally queue the current content again.
+        when(mSheetContent.getPriority()).thenReturn(BottomSheetContent.ContentPriority.LOW);
+        when(mBottomSheet.getSheetState()).thenReturn(SheetState.FULL);
+
+        // The sheet closes while the current content is being dismissed.
+        mController.hideContent(mSheetContent, /* animate= */ false);
+        mBottomSheetObserverCaptor.getValue().onSheetClosed(StateChangeReason.NONE);
+
+        verify(mBottomSheet, never()).setSheetState(SheetState.HIDDEN, true);
+
+        when(mBottomSheet.getSheetState()).thenReturn(SheetState.HIDDEN);
+        simulateSheetHidden(StateChangeReason.NONE);
+
+        // The dismissed content is destroyed instead of coming back after the queued content.
+        verify(mSheetContent).destroy();
+        verify(mBottomSheet).showContent(next);
+        verify(mBottomSheet, never()).showContent(mSheetContent);
+    }
+
+    /**
+     * Shows {@link #mSheetContent}, then has {@link #mOtherSheetContent} preempt it: the sheet
+     * starts animating to {@link SheetState#HIDDEN} and {@link #mSheetContent} is queued again, to
+     * come back after {@link #mOtherSheetContent} is closed. Requires {@link
+     * BottomSheetFeatureMap#BOTTOM_SHEET_TYPES}.
+     */
+    private void showSheetPreemptedByOtherSheet() {
+        mController.runSheetInitializerForTesting();
+        verify(mBottomSheet).addObserver(mBottomSheetObserverCaptor.capture());
+        when(mBottomSheet.getOpeningState()).thenReturn(SheetState.PEEK);
+
+        BottomSheetType typeA = new BottomSheetType.Builder().setSuppressible(true).build();
+        when(mSheetContent.getSheetType()).thenReturn(typeA);
+        when(mSheetContent.getBackPressStateChangedSupplier())
+                .thenReturn(ObservableSuppliers.alwaysFalse());
+        BottomSheetType typeB =
+                new BottomSheetType.Builder().setUserInitiated(true).setModal(true).build();
+        when(mOtherSheetContent.getSheetType()).thenReturn(typeB);
+        when(mOtherSheetContent.getBackPressStateChangedSupplier())
+                .thenReturn(ObservableSuppliers.alwaysFalse());
+
+        assertTrue(mController.requestShowContent(mSheetContent, /* animate= */ true));
+        when(mBottomSheet.getCurrentSheetContent()).thenReturn(mSheetContent);
+        when(mBottomSheet.isSheetOpen()).thenReturn(true);
+
+        assertTrue(mController.requestShowContent(mOtherSheetContent, /* animate= */ true));
+        verify(mBottomSheet).setSheetState(SheetState.HIDDEN, true);
+    }
+
+    /**
+     * Same as {@link #showSheetPreemptedByOtherSheet()}, then notifies that the sheet is closed
+     * while it is animating to {@link SheetState#HIDDEN}, which must not queue {@link
+     * #mSheetContent} a second time.
+     */
+    private void showSheetPreemptedAndNotifySheetClosed() {
+        showSheetPreemptedByOtherSheet();
+        mBottomSheetObserverCaptor.getValue().onSheetClosed(StateChangeReason.NONE);
     }
 
     @Test

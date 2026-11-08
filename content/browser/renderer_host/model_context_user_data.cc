@@ -112,13 +112,28 @@ void ModelContextUserData::RegisterScriptTool(
     return;
   }
 
-  // Kill the renderer if it tries to register a duplicate tool name, because
-  // the renderer should prevent this.
-  auto it = std::find_if(script_tools_.begin(), script_tools_.end(),
-                         [&](const blink::mojom::ScriptToolPtr& t) {
-                           return t->name == tool->name;
-                         });
-  if (it != script_tools_.end()) {
+  // Kill the renderer if it tries to register a tool without a `tool_id`, or
+  // with a `tool_id` that is already registered in `this`. The renderer mints
+  // this ID, but the browser verifies that it is present and unique.
+  if (!tool->tool_id ||
+      std::ranges::any_of(script_tools_,
+                          [&](const blink::mojom::ScriptToolPtr& t) {
+                            return t->tool_id == tool->tool_id;
+                          })) {
+    bad_message::ReceivedBadMessage(
+        render_frame_host().GetProcess(),
+        bad_message::RFHI_WEBMCP_REGISTER_INVALID_TOOL_ID);
+    std::move(callback).Run();
+    return;
+  }
+
+  // Kill the renderer if it tries to register a duplicate tool name (*even* if
+  // `tool_id` is unique), because the renderer should prevent this. Tools must
+  // be unique in both ID and name within `this`.
+  if (std::ranges::any_of(script_tools_,
+                          [&](const blink::mojom::ScriptToolPtr& t) {
+                            return t->name == tool->name;
+                          })) {
     bad_message::ReceivedBadMessage(
         render_frame_host().GetProcess(),
         bad_message::RFHI_WEBMCP_REGISTER_DUPLICATE_TOOL_NAME);
@@ -156,19 +171,22 @@ void ModelContextUserData::RegisterScriptTool(
   std::move(callback).Run();
 }
 
-void ModelContextUserData::UnregisterScriptTool(const std::string& name) {
+void ModelContextUserData::UnregisterScriptTool(
+    const base::UnguessableToken& tool_id) {
   if (!IsWebMCPEnabled(render_frame_host())) {
     bad_message::ReceivedBadMessage(render_frame_host().GetProcess(),
                                     bad_message::RFHI_WEBMCP_NOT_ENABLED);
     return;
   }
 
-  auto it = std::find_if(
-      script_tools_.begin(), script_tools_.end(),
-      [&](const blink::mojom::ScriptToolPtr& t) { return t->name == name; });
+  auto it = std::find_if(script_tools_.begin(), script_tools_.end(),
+                         [&](const blink::mojom::ScriptToolPtr& t) {
+                           return t->tool_id == tool_id;
+                         });
   if (it == script_tools_.end()) {
-    bad_message::ReceivedBadMessage(render_frame_host().GetProcess(),
-                                    bad_message::RFHI_WEBMCP_UNKNOWN_TOOL_NAME);
+    bad_message::ReceivedBadMessage(
+        render_frame_host().GetProcess(),
+        bad_message::RFHI_WEBMCP_UNREGISTER_INVALID_TOOL_ID);
     return;
   }
 

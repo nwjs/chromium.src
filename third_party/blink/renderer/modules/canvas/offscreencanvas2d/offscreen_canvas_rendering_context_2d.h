@@ -21,16 +21,13 @@
 
 namespace blink {
 
-class Canvas2DBitmapProvider;
-class Canvas2DResourceProvider;
 class ExceptionState;
 class ExecutionContext;
 class MemoryManagedPaintCanvas;
 
 class MODULES_EXPORT OffscreenCanvasRenderingContext2D final
     : public ScriptWrappable,
-      public BaseRenderingContext2D,
-      public FlushForImageObserver {
+      public BaseRenderingContext2D {
   DEFINE_WRAPPERTYPEINFO();
 
  public:
@@ -66,8 +63,6 @@ class MODULES_EXPORT OffscreenCanvasRenderingContext2D final
   V8OffscreenRenderingContext* AsV8OffscreenRenderingContext() final;
   void Stop() final { NOTREACHED(); }
   scoped_refptr<StaticBitmapImage> GetImage() final;
-  scoped_refptr<StaticBitmapImage> PaintRenderingResultsToSnapshot(
-      SourceDrawingBuffer source_buffer) override;
   void Reset() override;
   // CanvasRenderingContext - ActiveScriptWrappable
   // This method will avoid this class to be garbage collected, as soon as
@@ -87,8 +82,7 @@ class MODULES_EXPORT OffscreenCanvasRenderingContext2D final
   int Width() const final;
   int Height() const final;
 
-  bool CanCreateResourceProvider() final;
-  bool Is2DCanvasAccelerated() const override;
+  bool CanCreateBacking() final;
 
   // Offscreen canvas doesn't have any notion of image orientation.
   RespectImageOrientationEnum RespectImageOrientation() const final {
@@ -98,13 +92,9 @@ class MODULES_EXPORT OffscreenCanvasRenderingContext2D final
   Color GetCurrentColor() const final;
 
   MemoryManagedPaintCanvas* GetOrCreatePaintCanvas() final;
-  void RecordingCleared() override;
 
   void WillDraw(const gfx::Rect& dirty_rect,
                 CanvasPerformanceMonitor::DrawType) final;
-
-  // FlushForImageObserver implementation
-  void OnFlushForImage(cc::PaintImage::ContentId content_id) override;
 
   sk_sp<PaintFilter> StateGetFilter() final;
 
@@ -127,7 +117,6 @@ class MODULES_EXPORT OffscreenCanvasRenderingContext2D final
   ExecutionContext* GetTopExecutionContext() const override;
 
   std::optional<cc::PaintRecord> FlushCanvas(FlushReason) override;
-  base::ByteSize AllocatedBufferSize() const override;
 
  protected:
   OffscreenCanvas* HostAsOffscreenCanvas() const final;
@@ -144,16 +133,9 @@ class MODULES_EXPORT OffscreenCanvasRenderingContext2D final
  private:
   void FinalizeFrame(FlushReason) final;
 
-  bool IsPaintable() const final;
-
   scoped_refptr<CanvasResource> ProduceCanvasResource(FlushReason);
 
-  bool InitializeResourceProvider() override;
-  bool IsResourceProviderValid() const;
-  void ResetResourceProvider();
-
-  std::unique_ptr<Canvas2DResourceProvider> shared_image_provider_;
-  std::unique_ptr<Canvas2DBitmapProvider> bitmap_provider_;
+  bool InitializeBacking() override;
 };
 
 }  // namespace blink

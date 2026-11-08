@@ -372,7 +372,6 @@
 <translation id="2079545284768500474">တစ်ဆင့်နောက်ပြန်ရန်</translation>
 <translation id="2086334242442703436">‘အီမိုဂျီရွေးချယ်စနစ်’ ဖွင့်ရန်</translation>
 <translation id="2089550919269323883"><ph name="VM_NAME" /> ထည့်သွင်းခြင်းကို လုပ်ငန်းမူဝါဒက ပိတ်ထားသည်။ အကူအညီအတွက် သင်၏ စနစ်စီမံခန့်ခွဲသူကို ဆက်သွယ်ပါ။ အမှားကုဒ်မှာ <ph name="ERROR" /> ဖြစ်သည်။</translation>
-<translation id="2093792000875799555">Chromebook အတွက် Steam သတင်း</translation>
 <translation id="209965399369889474">ကွန်ရက်ချိတ်ဆက်မထားပါ</translation>
 <translation id="2107581415810719320">အခြားခလုတ် <ph name="BUTTON_NUMBER" /> ခု</translation>
 <translation id="2107914222138020205">သင့် USB-C ကေဘယ်သည် Thunderbolt ကို မပံ့ပိုးပါ။ စက်၏စွမ်းဆောင်ရည်သည် အကန့်အသတ်ရှိနိုင်သည်။</translation>
@@ -422,6 +421,7 @@
 <translation id="2293443480080733021">သင်ဘာကို ပြလိုပါသလဲ။ လုပ်ဆောင်စရာ ထည့်ရန်အတွက် ‘Enter ခလုတ်’ နှိပ်ပါ။</translation>
 <translation id="229397294990920565">မိုဘိုင်းဒေတာကို ပိတ်နေပါသည်...</translation>
 <translation id="2295777434187870477">မိုက်ဖွင့်ထားသည်၊ ပိတ်လိုက်ခြင်းဖြင့် အသံတိတ်သွားပါမည်။</translation>
+<translation id="2296880470921996802">ကလစ်ဘုတ်မှတ်တမ်းကို သင်၏ IT စီမံခန့်ခွဲသူက ပိတ်ထားသည်</translation>
 <translation id="2302092602801625023">ဤအကောင့်ကို Family Link က ကြီးကြပ်ထားသည်</translation>
 <translation id="2303600792989757991">ဝင်ဒိုး ခြုံငုံမြင်ရပုံ ကစားကြည့်ခြင်း</translation>
 <translation id="2304702218354340897">အမူအရာဖြင့် ထိန်းချုပ်ခြင်းကို ပိတ်လိုပါသလား။</translation>
@@ -928,7 +928,6 @@
 <translation id="3697991387880191195">ဖန်သားပြင်ပုံ ဖြတ်လမ်းလင့်ခ်ကို နှိပ်ပါ</translation>
 <translation id="3702809606464356667">လက်ရှိမျက်နှာပြင်နေရာမှ ဝင်းဒိုးများကို ပြနေသည်၊ မျက်နှာပြင်နေရာ အားလုံးမှ ဝင်းဒိုးများကို ပြရန် ‘အပေါ်ညွှန်မြား’ ကီးကို နှိပ်ပါ</translation>
 <translation id="3705722231355495246">-</translation>
-<translation id="3706423975342040244">ဖျော်ဖြေရေး</translation>
 <translation id="370665806235115550">တင်ပေးနေ...</translation>
 <translation id="3707093869106077605"><ph name="UNAVAILABLE_DLC_ONE" /> နှင့် <ph name="UNAVAILABLE_DLC_TWO" /> မရနိုင်ပါ။</translation>
 <translation id="3708186454126126312">ယခင် ချိတ်ဆက်ထားသည်များ</translation>
@@ -975,7 +974,6 @@
 <translation id="3824784079442479685">၎င်းက <ph name="APP_NAME" /> နှင့် ကင်မရာခွင့်ပြုချက်တောင်းသည့် အက်ပ်နှင့် ဝဘ်ဆိုက်အားလုံးကို ကင်မရာသုံးခွင့်ပြုသည်။ အင်တာနက်စာမျက်နှာကို ပြန်လည်စတင်ရမည် (သို့) အက်ပ်ကို ပြန်စရမည်။</translation>
 <translation id="3826099427150913765">စကားဝှက်သို့ ပြောင်းရန်</translation>
 <translation id="383058930331066723">ဘက်ထရီအားထိန်းမုဒ် ဖွင့်ထားသည်</translation>
-<translation id="3831226344927851293">ရှင်းလင်းပို့ချချက်မြင်ကွင်းမှ ထွက်ရန်</translation>
 <translation id="383629559565718788">ကီးဘုတ်ဆက်တင်များကို ပြရန်</translation>
 <translation id="384082539148746321">နမူနာ ပုံစံကို ဖျက်မလား။</translation>
 <translation id="3844627820291068572"><ph name="MODIFIER_ONE" /><ph name="MODIFIER_TWO" /> ထို့နောက် <ph name="KEY_ONE" /> (သို့) <ph name="KEY_TWO" /> (သို့) <ph name="KEY_THREE" /> (သို့) <ph name="KEY_FOUR" /></translation>
@@ -1022,6 +1020,7 @@
 <translation id="3977512764614765090">ဘက်ထရီသည် <ph name="PERCENTAGE" />% ရှိပြီး အားသွင်းနေပါသည်။</translation>
 <translation id="3978162107953847778">သင့်ကြည့်ရှုမှုမှတ်တမ်းနှင့် Google Drive ကဲ့သို့သော နေရာများမှ လင့်ခ်များ ထည့်ပါ။ အီမိုဂျီ၊ ပုံပါဝင်သောဖိုင် စသည်တို့လည်း ထည့်နိုင်သည်။ <ph name="LINK_TO_LEARN_MORE" /></translation>
 <translation id="3982013579989864579">အသံထွက်မည့် ကိရိယာ ပြောင်းမလား။</translation>
+<translation id="3983903378684256134">Chromebook ရှိ Steam</translation>
 <translation id="3984536049089846927">နောက်စာမျက်နှာ</translation>
 <translation id="3986082989454912832">ဖြေဆိုရန်</translation>
 <translation id="3990002060657467458">Wi-Fi၊ ဘလူးတုသ်နှင့် အသံအတိုးအကျယ်ကဲ့သို့ မကြာခဏအသုံးပြုသည့် ထိန်းချုပ်မှုများသည် အမြန်ဆက်တင်များတွင်ရှိသည်။ ဖန်သားပြင်ဓာတ်ပုံရိုက်ရန် ဤသို့လည်း သွားနိုင်သည်။</translation>
@@ -1578,10 +1577,8 @@
 <translation id="5551974246223970793">စာမျက်နှာရှာသောအခါ ရှာဖွေမှုအတွက် လာမည့်ကိုက်ညီမှုသို့ သွားရန်</translation>
 <translation id="5556459405103347317">ပြန်တင်ရန်</translation>
 <translation id="5558091555391176027">‘အနီးတစ်ဝိုက် မျှဝေခြင်း’ အထူးမြင်နိုင်မှုကို ပြောင်းရန်</translation>
-<translation id="5558314826121965174">ဖန်တီးနိုင်စွမ်း</translation>
 <translation id="556042886152191864">ခလုတ်</translation>
 <translation id="5570122939431135380">ရုပ်ဖျက် ဝင်းဒိုးအသစ်တွင် တဘ်အသစ်ဖွင့်ရန်</translation>
-<translation id="5572632238877308040">မရှိမဖြစ်များ</translation>
 <translation id="5575528586625653441">သရုပ်ပြမုဒ် မှတ်ပုံတင်ခြင်းတောင်းဆိုချက်တွင် အမှားအယွင်းရှိနေသည်။</translation>
 <translation id="557563299383177668">နောက်စာပိုဒ်</translation>
 <translation id="5577082622442191756">ဘလူးတုသ် ပြောင်းရန်။ <ph name="STATE_TEXT" />။</translation>
@@ -1616,7 +1613,6 @@
 <translation id="5667546120811588575">Google Play ကို စနစ်ထည့်သွင်းနေသည်...</translation>
 <translation id="5669267381087807207">အစပြုနေသည်</translation>
 <translation id="5671658447180261823"><ph name="SUGGESTION_NAME" /> အကြံပြုချက် ဖယ်ရှားရန်</translation>
-<translation id="5672890847723042801">အထောက်အကူပြု ဆော့ဖ်ဝဲလ်များ</translation>
 <translation id="5673434351075758678">သင့်ဆက်တင်များ စင့်ခ်လုပ်ပြီးနောက် "<ph name="FROM_LOCALE" />" မှ "<ph name="TO_LOCALE" />" သို့။</translation>
 <translation id="5675363643668471212">စင်ပစ္စည်း</translation>
 <translation id="5677022547882470786">ရှာမည့်အပိုင်းရွေးရန် ဖိဆွဲပါ (သို့) နေရာခြားခလုတ်နှိပ်ပါ</translation>
@@ -1641,6 +1637,7 @@
 <translation id="5727460725221669831">သင့်စကားဝှက်မေ့သွားပါက (သို့) သင့် Google Account စကားဝှက်ကို မကြာသေးမီက ပြောင်းထားပါက ဤအသုံးပြုသူကို ပြန်လည်ရယူကြည့်ပါ။</translation>
 <translation id="5733630091161562207">ကြိုဆိုရေး အကြောင်းကြားချက်</translation>
 <translation id="573413375004481890">ဤစက်သည် သင့်ဖန်သားပြင်ပြသမှုများအားလုံးကို မပံ့ပိုးသည့်အတွက် တစ်ခုကို ချိတ်ဆက်မှုဖြုတ်လိုက်ပါပြီ</translation>
+<translation id="5739548907438839901">ဒစ်ခ်နေရာ <ph name="SIZE" /> ကို ရှင်းလိုက်သည်။</translation>
 <translation id="574392208103952083">အလယ်အလတ်</translation>
 <translation id="5745612484876805746">နေဝင်ချိန်တွင် 'ညအလင်းရောင်' အလိုအလျောက် ပွင့်လာပါမည်</translation>
 <translation id="5749214722697335450">အသုံးပြုမှုနှင့် အမှားရှာဖွေမှုဒေတာ ပို့ပါ။ အမှားရှာဖွေမှု၊ စက်နှင့် အက်ပ်အသုံးပြုမှု ဒေတာများကို Google သို့ အလိုအလျောက်ပို့၍ Android အသုံးပြုမှု ပိုမိုကောင်းမွန်လာစေရန် ကူညီပါ။ ၎င်းကို စနစ်နှင့် အက်ပ်တည်ငြိမ်မှု၊ အခြားမွမ်းမံမှုများအတွက် အသုံးပြုပါမည်။ ပေါင်းစည်းထားသည့် ဒေတာအချို့က Google အက်ပ်များနှင့် Android ဆော့ဖ်ဝဲရေးသူများကဲ့သို့ ပါတနာများကိုလည်း ကူညီပါမည်။ သင်၏ ထပ်တိုး ‘ဝဘ်နှင့်အက်ပ်လုပ်ဆောင်ချက်’ ဆက်တင်ကို ဖွင့်ထားပါက ဤဒေတာကို သင့် Google အကောင့်တွင် သိမ်းနိုင်သည်။ <ph name="BEGIN_LINK1" />မက်ထရစ်များအကြောင်း ပိုမိုလေ့လာရန်<ph name="BEGIN_LINK1_END" />ပိုမိုလေ့လာရန်<ph name="END_LINK1" /></translation>
@@ -1791,7 +1788,6 @@
 <translation id="6127395413317891856">သင် အော့ဖ်လိုင်းဖြစ်နေသည်။ ချိတ်ဆက်မှုကို စစ်ဆေးပြီး ထပ်စမ်းကြည့်ပါ။</translation>
 <translation id="6129953537138746214">နေရာခြား</translation>
 <translation id="6132714462430777655">ကျောင်းအပ်နှံမှုကို ကျော်မလား။</translation>
-<translation id="6136872094979134163">Chromebook အတွက် Steam သတင်းကို ပြန်ယူ၍ မရလိုက်ပါ။</translation>
 <translation id="6137566720514957455"><ph name="USER_EMAIL_ADDRESS" /> အတွက် ဖယ်ရှားမှုဒိုင်ယာလော့ခ် ဖွင့်မည်</translation>
 <translation id="6141205840878048728">သင်ဘာကို ပြလိုပါသလဲ။</translation>
 <translation id="6141988275892716286">ဒေါင်းလုဒ်လုပ်ရန် အတည်ပြုခြင်း</translation>
@@ -1871,7 +1867,6 @@
 <translation id="6348449481487610270"><ph name="MODIFIER_ONE" /><ph name="MODIFIER_TWO" /><ph name="KEY_ONE" /> ထို့နောက် <ph name="MODIFIER_THREE" /><ph name="KEY_TWO" /> (သို့) <ph name="KEY_THREE" /></translation>
 <translation id="6352082849089527770">အမျိုးအမည်မသိ ကွန်ရက်များ</translation>
 <translation id="6359587239691116345">နောက်ဆုံးထုတ်ဝန်ဆောင်မှုနှင့် လုံခြုံရေးတိုးမြှင့်မှုများ ရယူနိုင်သည်။ ဤအပ်ဒိတ်ကို ငြင်းပယ်ပါက သင့်စက် မှန်ကန်စွာ အလုပ်မလုပ်တော့ဘဲ လုံခြုံရေးနှင့် စွမ်းဆောင်မှုပြဿနာများ ကြုံတွေ့ရနိုင်သည်။</translation>
-<translation id="6362833380917912748">အသင့်ပါအက်ပ်များကို သိအောင်လုပ်ပါ</translation>
 <translation id="6364386432014869981">အသင့်ပါပြီးသား တာ့ချ်ပက်ကို ဖွင့်ထားသည်</translation>
 <translation id="6376931439017688372">ဘလူးတုသ်ကို ဖွင့်ထားသည်</translation>
 <translation id="6378515133128829137">ဝင်းဒိုးကို ညာဘက်တွင် ပင်ထိုးရန်</translation>
@@ -2096,7 +2091,6 @@
 <translation id="7014684956566476813"><ph name="DEVICE_NAME" /> စက်သို့ ချိတ်ဆက်ထားသည်</translation>
 <translation id="7015766095477679451"><ph name="COME_BACK_TIME" /> ၌ ပြန်လာပါ။</translation>
 <translation id="70168403932084660">မျက်နှာပြင်နေရာ ၆</translation>
-<translation id="702252130983202758">သင်၏ အက်ပ်များ</translation>
 <translation id="7025533177575372252">သင်၏ <ph name="DEVICE_NAME" /> ကို သင့်ဖုန်းဖြင့် ချိတ်ဆက်ပါ</translation>
 <translation id="7026338066939101231">လျှော့ခြင်း</translation>
 <translation id="7029307918966275733">Crostini ထည့်သွင်းမထားပါ။ ခရက်ဒစ်များကြည့်ရန် Crostini ထည့်သွင်းပါ။</translation>
@@ -2219,6 +2213,7 @@
 <translation id="7413851974711031813">ပိတ်ရန် escape ကို နှိပ်ပါ</translation>
 <translation id="7416471219712049036">လက်ရှိစာမျက်နှာ သိမ်းရန်</translation>
 <translation id="742594950370306541">ကင်မရာကို အသုံးပြုနေသည်။</translation>
+<translation id="7430466159639897874">ရပ်ဆိုင်းထားသော “Chromebook ရှိ Steam” လုပ်ဆောင်ချက်အတွက် ခွဲဝေသတ်မှတ်ထားသော အသုံးမပြုသည့် ဒစ်ခ်နေရာ (<ph name="SIZE" />) ရှိသည်။</translation>
 <translation id="743058460480092004">ကင်မရာ နှင့် မိုက်ခရိုဖုန်းကို အသုံးပြုနေသည်။</translation>
 <translation id="7433708794692032816">သင်၏ <ph name="DEVICE_TYPE" /> ကို ဆက်သုံးရန် စမတ်ကတ် ထည့်သွင်းပါ</translation>
 <translation id="7440404390546433462">Google Search</translation>
@@ -2360,6 +2355,7 @@
 <translation id="7781335840981796660">အသုံးပြုသူ အကောင့်များ နှင့် ဒေတာ အားလုံး ဖယ်ရှားပစ်မည်။</translation>
 <translation id="7781829728241885113">မနေ့က</translation>
 <translation id="7787212146956232129">အသံအဝင်အထွက် ကိရိယာများ သတ်မှတ်ထားသည်။ ပြောင်းရန် ဆက်တင်များသို့ သွားပါ။</translation>
+<translation id="7790757511772316441">ဒစ်ခ်နေရာလွတ် ပြုလုပ်ရန်</translation>
 <translation id="7792590255364786396">မြင်နိုင်သည်</translation>
 <translation id="7796735576426975947">အကြောင်းကြားချက်အသစ် ဖျောက်ထားသည်</translation>
 <translation id="7798302898096527229">ပယ်ဖျက်ရန် Search သို့မဟုတ် Shift ခလုတ်ကို နှိပ်ပါ။</translation>
@@ -2535,7 +2531,6 @@
 <translation id="8277261673056602147">သင့်ဖန်သားပြင်ပေါ်ရှိ စာသားကို မြင်သာအောင်လုပ်ရန်</translation>
 <translation id="8281886186245836920">ကျော်ရန်</translation>
 <translation id="8282784978194352587">အောင်မြင်သွားပါပြီ။</translation>
-<translation id="8287009018010202411">အလုပ်ပြီးမြောက်မှု</translation>
 <translation id="828708037801473432">ပိတ်ရန်</translation>
 <translation id="8289128870594824098">ဒစ်ခ်အရွယ်အစား</translation>
 <translation id="8297006494302853456">အားမကောင်းပါ</translation>
@@ -2630,7 +2625,6 @@
 <translation id="8598235756057743477">အက်ပ်များကို အမည် (သို့) အရောင်ဖြင့်စီရန်</translation>
 <translation id="8599864823732014237">လုပ်ငန်းသုံးတွင် စာရင်းသွင်းခြင်းကို ကျော်မလား။</translation>
 <translation id="8609384513243082612">တဘ်အသစ် ဖွင့်ရန်</translation>
-<translation id="861045123704058818">အက်ပ်များကို အမျိုးအစားအလိုက် ယာယီစုစည်းထားသည်</translation>
 <translation id="8612338981637220013">အလုပ်ကောင်းမွန်သည်။</translation>
 <translation id="8613164732773110792">အက္ခရာအသေးများ၊ ဂဏန်းများ၊ အောက်မျဉ်းများ သို့မဟုတ် မျဉ်းတိုများသာ</translation>
 <translation id="8614517853887502247">ကြည့်ရှုမှုဆိုင်ရာ အကာအကွယ်ကို ဖွင့်ထားသောကြောင့် <ph name="APP_1_TITLE" /> နှင့် <ph name="APP_2_TITLE" /> အကြောင်းကြားချက်များကို ဖျောက်ထားသည်</translation>
@@ -2823,7 +2817,6 @@
 <translation id="9129245940793250979">နောက်ခလုတ်</translation>
 <translation id="9133335900048457298">ကာကွယ်ထားသော အကြောင်းအရာကို ရိုက်ကူး၍မရပါ</translation>
 <translation id="9139720510312328767">လာမည့်စာလုံးကို ဖျက်ရန်</translation>
-<translation id="9148058034647219655">ထွက်</translation>
 <translation id="9151906066336345901">End</translation>
 <translation id="9159421884295554245">ကလစ်ဘုတ်တွင် ရှာရန်</translation>
 <translation id="9168436347345867845">နောက်မှလုပ်ရန်</translation>

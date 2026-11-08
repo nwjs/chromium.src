@@ -70,7 +70,6 @@ class SkiaGoldTestCase:
   here. Additional information should be stored in the appropriate subclass.
   """
 
-  # pylint: disable=too-many-arguments
   def __init__(
     self,
     name: str,
@@ -96,7 +95,6 @@ class SkiaGoldTestCase:
     )
     self.refresh_after_finish = refresh_after_finish
 
-  # pylint: enable=too-many-arguments
 
 
 class SkiaGoldIntegrationTestBase(gpu_integration_test.GpuIntegrationTest):
@@ -371,15 +369,9 @@ class SkiaGoldIntegrationTestBase(gpu_integration_test.GpuIntegrationTest):
     # TODO(senorblanco): This should probably be checking
     # for the presence of the extensions in system_info.gpu_aux_attributes
     # in order to check for MSAA, rather than sniffing the blocklist.
-    params.msaa = not (
-      (
-        'disable_chromium_framebuffer_multisample'
-        in system_info.gpu.driver_bug_workarounds
-      )
-      or (
-        'disable_multisample_render_to_texture'
-        in system_info.gpu.driver_bug_workarounds
-      )
+    params.msaa = (
+      'disable_multisample_render_to_texture'
+      not in system_info.gpu.driver_bug_workarounds
     )
     params.model_name = system_info.model_name
     params.driver_version = device.driver_version
@@ -473,7 +465,6 @@ class SkiaGoldIntegrationTestBase(gpu_integration_test.GpuIntegrationTest):
     }
     return gpu_keys
 
-  # pylint: disable=no-self-use
   def GetGoldOptionalKeys(self) -> dict[str, str]:
     """Get all the optional JSON metadata that will be passed to goldctl.
 
@@ -482,7 +473,6 @@ class SkiaGoldIntegrationTestBase(gpu_integration_test.GpuIntegrationTest):
     """
     return {}
 
-  # pylint: enable=no-self-use
 
   def _UploadTestResultToSkiaGold(
     self,

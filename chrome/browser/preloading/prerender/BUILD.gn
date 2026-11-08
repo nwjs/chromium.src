@@ -2,6 +2,8 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import("//extensions/buildflags/buildflags.gni")
+
 source_set("prerender") {
   public = [
     "dse_prewarm_navigation_throttle.h",
@@ -37,20 +39,35 @@ source_set("impl") {
     "//chrome/browser:after_startup_task_utils",
     "//chrome/browser:browser_features",
     "//chrome/browser:chrome_content_browser_client",
+    "//chrome/browser/content_settings",
     "//chrome/browser/headless",
+    "//chrome/browser/optimization_guide",
     "//chrome/browser/page_load_metrics",
     "//chrome/browser/preloading",
     "//chrome/browser/preloading/prefetch/search_prefetch",
     "//chrome/browser/preloading/prefetch/search_prefetch:field_trial_settings",
     "//chrome/browser/search_engines",
+    "//chrome/browser/subresource_filter",
     "//chrome/browser/task_manager",
-    "//chrome/browser/ui",
     "//chrome/browser/ui:tab_helpers",
+    "//chrome/browser/ui/browser_window",
     "//chrome/common:chrome_features",
+    "//components/content_settings/browser",
+    "//components/optimization_guide/core:features",
     "//components/page_load_metrics/browser",
     "//components/page_load_metrics/google/browser",
     "//components/tabs:impl",
+    "//extensions/buildflags",
   ]
+
+  if (enable_extensions_core) {
+    deps += [
+      "//chrome/browser/extensions",
+      "//chrome/browser/extensions/api/web_navigation",
+      "//extensions/browser",
+      "//extensions/common:mojom",
+    ]
+  }
 
   if (is_chromeos) {
     deps += [ "//chromeos/components/kiosk" ]
@@ -144,6 +161,7 @@ if (!is_android) {
       ":test_support",
       "//base",
       "//base/test:test_support",
+      "//chrome/browser",
       "//chrome/browser/autocomplete",
       "//chrome/browser/preloading",
       "//chrome/browser/preloading/prefetch/search_prefetch",
@@ -151,7 +169,6 @@ if (!is_android) {
       "//chrome/browser/profiles:profile",
       "//chrome/browser/safe_browsing:test_support",
       "//chrome/browser/search_engines",
-      "//chrome/browser/ui",
       "//chrome/browser/ui:browser_commands",
       "//chrome/browser/ui:browser_window_header",
       "//chrome/browser/ui/browser_window",

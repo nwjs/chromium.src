@@ -71,7 +71,7 @@
 #include "content/browser/browser_thread_impl.h"
 #include "content/browser/first_party_sets/first_party_sets_handler_impl.h"
 #include "content/browser/gpu/gpu_main_thread_factory.h"
-#include "content/browser/memory_coordinator/browser_memory_coordinator.h"
+#include "content/browser/memory_coordinator/browser_memory_coordinator_impl.h"
 #include "content/browser/renderer_host/render_process_host_impl.h"
 #include "content/browser/scheduler/browser_task_executor.h"
 #include "content/browser/service_host/utility_process_host.h"
@@ -110,7 +110,6 @@
 #include "media/base/media.h"
 #include "media/media_buildflags.h"
 #include "mojo/core/embedder/embedder.h"
-#include "mojo/public/cpp/base/shared_memory_utils.h"
 #include "mojo/public/cpp/bindings/self_owned_receiver.h"
 #include "mojo/public/cpp/bindings/sync_call_restrictions.h"
 #include "mojo/public/cpp/platform/platform_channel.h"
@@ -1288,7 +1287,8 @@ int ContentMainRunnerImpl::RunBrowser(MainFunctionParams main_params,
     }
 
     memory_pressure_listener_registry_.emplace();
-    browser_memory_coordinator_ = std::make_unique<BrowserMemoryCoordinator>();
+    browser_memory_coordinator_ =
+        std::make_unique<BrowserMemoryCoordinatorImpl>();
 
     std::optional<int> pre_browser_main_exit_code = delegate_->PreBrowserMain();
     if (pre_browser_main_exit_code.has_value())
@@ -1324,6 +1324,10 @@ int ContentMainRunnerImpl::RunBrowser(MainFunctionParams main_params,
         delegate_->PostEarlyInitialization(invoked_in_browser);
     if (post_early_initialization_exit_code.has_value())
       return post_early_initialization_exit_code.value();
+
+    // The memory coordinator policies are feature-gated, so they must be
+    // initialized after the FeatureList.
+    browser_memory_coordinator_->InitializePolicies();
 
     if (HasDisableBestEffortTasksSwitch()) {
       best_effort_fence_.emplace();

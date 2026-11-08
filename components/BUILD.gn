@@ -184,6 +184,7 @@ test("components_unittests") {
     "//components/account_settings:unit_tests",
     "//components/activity_reporter:unit_tests",
     "//components/actor/core:unit_tests",
+    "//components/actor/transport:unit_tests",
     "//components/affiliations/core/browser:unit_tests",
     "//components/affiliations/core/browser/domain_matching:unit_tests",
     "//components/apdu:unit_tests",
@@ -236,6 +237,7 @@ test("components_unittests") {
     "//components/enterprise/device_trust/core/attestation:unit_tests",
     "//components/enterprise/device_trust/core/signals:unit_tests",
     "//components/enterprise/device_trust/core/signals/decorators/common:unit_tests",
+    "//components/facilitated_payments/core/metrics:unit_tests",
     "//components/facilitated_payments/core/validation:unit_tests",
     "//components/favicon/core:unit_tests",
     "//components/favicon_base:unit_tests",
@@ -352,6 +354,7 @@ test("components_unittests") {
     "//components/skills:unit_tests",
     "//components/speech:unit_tests",
     "//components/sqlite_encrypted_vfs:unit_tests",
+    "//components/sqlite_migration_vfs:unit_tests",
     "//components/sqlite_proto:unit_tests",
     "//components/sqlite_vfs:unit_tests",
     "//components/ssl_errors:unit_tests",
@@ -376,6 +379,7 @@ test("components_unittests") {
     "//components/translate/core/browser:unit_tests",
     "//components/translate/core/common:unit_tests",
     "//components/translate/core/language_detection:unit_tests",
+    "//components/ttc/app:unit_tests",
     "//components/ukm:unit_tests",
     "//components/undo:unit_tests",
     "//components/unexportable_keys:unit_tests",
@@ -489,6 +493,7 @@ test("components_unittests") {
       "//components/drive:unit_tests",
       "//components/embedder_support:unit_tests",
       "//components/endpoint_fetcher:unit_tests",
+      "//components/facilitated_payments/content/browser:unit_tests",
       "//components/facilitated_payments/content/renderer:unit_tests",
       "//components/favicon/content:unit_tests",
       "//components/feed/core/v2:core_unit_tests",
@@ -679,6 +684,7 @@ test("components_unittests") {
       "//components/android_autofill/browser:unit_tests",
       "//components/autofill/android:main_autofill_java",
       "//components/browser_ui/accessibility/android:unit_tests",
+      "//components/browser_ui/contacts_picker/android:unit_tests",
       "//components/browser_ui/site_settings/android:unit_tests",
       "//components/cdm/browser:unit_tests",
       "//components/collaboration/internal:comments_native_java_unittests_java",
@@ -696,9 +702,7 @@ test("components_unittests") {
       "//components/enterprise/device_attestation/android:device_attestation_java",
       "//components/facilitated_payments/android:unit_tests",
       "//components/facilitated_payments/android/java",
-      "//components/facilitated_payments/content/browser:unit_tests",
       "//components/facilitated_payments/core/browser:unit_tests",
-      "//components/facilitated_payments/core/metrics:unit_tests",
       "//components/fcm/android:fcm_java",
       "//components/gcm_driver/instance_id:test_support",
       "//components/gcm_driver/instance_id/android:instance_id_driver_java",
@@ -1013,11 +1017,14 @@ test("components_unittests") {
     "CupEcdsaFuzzTest.EcdsaCupTestOneInputDoesNotCrash",
     "CupMldsa44FuzzTest.Mldsa44CupTestOneInputDoesNotCrash",
     "CurrencyFormatterFuzzTest.FormatDoesNotCrash",
+    "LocalDomainsStorageMigrationFuzzTest.MigrationAndMutationsMatchLegacyAdapter",
     "PaymentCurrencyAmountFuzzTest.FromValueDictDoesNotCrash",
     "PrivacySandboxAttestationsParserFuzzTest.ParseAttestationsFromStringDoesNotCrash",
     "PwgEncoderFuzzTest.EncodeDoesNotCrash",
     "RustStreamFramerFuzzTest.FeedDoesNotCrashOnArbitraryChunks",
     "TranslateUtilFuzzTest.GetTranslateSecurityOriginDoesNotCrash",
+    "WebPaymentsTelemetryFuzzTest.ThreeDSecureTelemetryChallengePostData",
+    "WebPaymentsTelemetryFuzzTest.ThreeDSecureTelemetryChallengeResponseValue",
   ]
 }
 
@@ -1167,6 +1174,7 @@ if (use_blink) {
       "//components/dom_distiller/core",
       "//components/dom_distiller/core:test_support",
       "//components/error_page/content/browser:browser_tests",
+      "//components/facilitated_payments/content/renderer:browser_tests",
       "//components/input:browser_tests",
       "//components/js_injection/browser:browser_tests",
       "//components/metrics:content",
@@ -1362,10 +1370,6 @@ if (use_blink) {
       ]
     }
 
-    # TODO(crbug.com/40031409): Fix code that adds exit-time destructors and
-    # enable the diagnostic by removing this line.
-    configs += [ "//build/config/compiler:no_exit_time_destructors" ]
-
     if (enable_guest_contents && !is_chromeos) {
       deps += [ "//components/guest_contents/browser:browser_tests" ]
     }
@@ -1456,6 +1460,7 @@ if (is_android) {
       "//components/background_task_scheduler:components_background_task_scheduler_junit_tests",
       "//components/browser_ui/bottomsheet/android/internal:junit_tests",
       "//components/browser_ui/client_certificate/android:junit",
+      "//components/browser_ui/contacts_picker/android:junit",
       "//components/browser_ui/desktop_windowing/android:junit",
       "//components/browser_ui/media/android:junit",
       "//components/browser_ui/photo_picker/android:junit",
@@ -1475,6 +1480,7 @@ if (is_android) {
       "//components/download/network:junit",
       "//components/embedder_support/android:components_embedder_support_junit_tests",
       "//components/embedder_support/android:virtual_structure_junit_tests",
+      "//components/external_intents/android:junit",
       "//components/facilitated_payments/android/junit",
       "//components/fcm/android:components_fcm_junit_tests",
       "//components/gcm_driver/android:components_gcm_driver_junit_tests",

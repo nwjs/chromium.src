@@ -22,17 +22,14 @@ constexpr size_t kFramesToProcessMask = ~(kPackedFloatsPerRegister - 1u);
 bool IsAligned(const float*);
 
 // Direct vector convolution:
-// dest[k] = sum(source[k+m]*filter[m*filter_stride]) for all m
-// provided that |prepared_filter_p| is |prepared_filter->Data()| and that
-// |prepared_filter| is prepared with |PrepareFilterForConv|.
-void Conv(const float* source_p,
-          const float* prepared_filter_p,
-          float* dest_p,
-          size_t frames_to_process,
+// dest[k] = sum(source[k+m]*filter[filter.size()-1-m]) for all m
+// provided that |prepared_filter| is prepared with |PrepareFilterForConv|.
+void Conv(base::span<const float> source,
+          base::span<const float> prepared_filter,
+          base::span<float> dest,
           size_t filter_size);
 
-void PrepareFilterForConv(const float* filter_p,
-                          size_t filter_size,
+void PrepareFilterForConv(base::span<const float> filter,
                           AudioFloatArray* prepared_filter);
 
 // dest[k] = source1[k] + source2[k]
@@ -76,13 +73,12 @@ float Vsvesq(base::span<const float> source);
 
 // real_dest[k] = real1[k] * real2[k] - imag1[k] * imag2[k]
 // imag_dest[k] = real1[k] * imag2[k] + imag1[k] * real2[k]
-void Zvmul(const float* real1p,
-           const float* imag1p,
-           const float* real2p,
-           const float* imag2p,
-           float* real_dest_p,
-           float* imag_dest_p,
-           size_t frames_to_process);
+void Zvmul(base::span<const float> real1,
+           base::span<const float> imag1,
+           base::span<const float> real2,
+           base::span<const float> imag2,
+           base::span<float> real_dest,
+           base::span<float> imag_dest);
 
 }  // namespace sse
 }  // namespace vector_math

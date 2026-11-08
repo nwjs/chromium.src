@@ -29,13 +29,13 @@ import org.junit.runner.RunWith;
 import org.chromium.base.ApiCompatibilityUtils;
 import org.chromium.base.ApkInfo;
 import org.chromium.base.ContextUtils;
+import org.chromium.base.DeviceInfo;
 import org.chromium.base.FakeTimeTestRule;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.Criteria;
 import org.chromium.base.test.util.CriteriaHelper;
 import org.chromium.base.test.util.DisableIf;
-import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.base.test.util.Restriction;
@@ -69,7 +69,6 @@ import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.url.GURL;
 import org.chromium.url.Origin;
 
-import java.net.URL;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -138,6 +137,7 @@ public class NavigateTest {
                 new TabLoadObserver(mActivityTestRule.getActivityTab(), expectedTitle, null);
         mOmnibox.sendKey(KeyEvent.KEYCODE_ENTER);
         observer.assertLoaded();
+        mOmnibox.checkFocus(false);
 
         // The URL has been set before the page notification was broadcast, so it is safe to access.
         return mOmnibox.getText();
@@ -165,7 +165,6 @@ public class NavigateTest {
     @Restriction(DeviceFormFactor.TABLET_OR_DESKTOP)
     @MediumTest
     @Feature({"Navigation"})
-    @DisabledTest(message = "Flaky. See crbug.com/380238040")
     public void testNavigateMany() throws Exception {
         final String[] urls =
                 mTestServer.getURLs(
@@ -187,7 +186,6 @@ public class NavigateTest {
     @Test
     @MediumTest
     @Feature({"Navigation"})
-    @DisableIf.Device(DeviceFormFactor.DESKTOP) // https://crbug.com/526803990
     public void testNavigateLandscape() throws Exception {
         mActivityTestRule
                 .getActivity()
@@ -205,12 +203,11 @@ public class NavigateTest {
     @Test
     @MediumTest
     @Feature({"Navigation"})
-    @DisabledTest(message = "https://crbug.com/346968609")
     public void testOpenAndNavigate() throws Exception {
         final String url = mTestServer.getURL("/chrome/test/data/android/navigate/simple.html");
         navigateAndObserve(url);
 
-        final int tabCount = mActivityTestRule.getActivity().getCurrentTabModel().getCount();
+        final int tabCount = mActivityTestRule.tabsCount(/* incognito= */ false);
         ChromeTabUtils.newTabFromMenu(
                 InstrumentationRegistry.getInstrumentation(), mActivityTestRule.getActivity());
         UiUtils.settleDownUI(InstrumentationRegistry.getInstrumentation());
@@ -218,7 +215,7 @@ public class NavigateTest {
         Assert.assertEquals(
                 "Wrong number of tabs",
                 tabCount + 1,
-                mActivityTestRule.getActivity().getCurrentTabModel().getCount());
+                mActivityTestRule.tabsCount(/* incognito= */ false));
         String result = typeInOmniboxAndNavigate(url, "Simple");
         Assert.assertEquals(expectedLocation(url), result);
     }
@@ -227,13 +224,12 @@ public class NavigateTest {
     @Test
     @MediumTest
     @Feature({"Navigation"})
-        @DisableIf.Device(DeviceFormFactor.TABLET_OR_DESKTOP) // https://crbug.com/339299609, https://crbug.com/376375165
-        public void testOpenLink() throws Exception {
+    public void testOpenLink() throws Exception {
         String url1 = mTestServer.getURL("/chrome/test/data/android/google.html");
         String url2 = mTestServer.getURL("/chrome/test/data/android/about.html");
 
         navigateAndObserve(url1);
-        mActivityTestRule.assertWaitForPageScaleFactorMatch(0.5f);
+        waitForPageScaleFactor(0.5f);
 
         Tab tab = mActivityTestRule.getActivityTab();
 
@@ -390,14 +386,12 @@ public class NavigateTest {
     @Test
     @MediumTest
     @Feature({"Navigation"})
-    @DisableIf.Device(
-            DeviceFormFactor.TABLET_OR_DESKTOP) // https://crbug.com/339299609, https://crbug.com/376375165
     public void testTabObserverOnPageLoadStarted() throws Exception {
         final String url1 = mTestServer.getURL("/chrome/test/data/android/google.html");
         final String url2 = mTestServer.getURL("/chrome/test/data/android/about.html");
 
         navigateAndObserve(url1);
-        mActivityTestRule.assertWaitForPageScaleFactorMatch(0.5f);
+        waitForPageScaleFactor(0.5f);
 
         TabObserver onPageLoadStartedObserver =
                 new TabObserver() {
@@ -422,7 +416,6 @@ public class NavigateTest {
     @Test
     @MediumTest
     @Feature({"Navigation"})
-    @DisableIf.Device(DeviceFormFactor.DESKTOP) // https://crbug.com/526803990
     public void testNavigateRedirect() throws Exception {
         final String initialUrl =
                 mTestServer.getURL("/chrome/test/data/android/redirect/about.html");
@@ -446,7 +439,6 @@ public class NavigateTest {
     @Test
     @MediumTest
     @Feature({"Navigation"})
-    @DisableIf.Device(DeviceFormFactor.DESKTOP) // https://crbug.com/526803990
     public void testIntentFallbackRedirection() throws Exception {
         final String fallbackUrl =
                 mTestServer.getURL("/chrome/test/data/android/redirect/about.html");
@@ -514,7 +506,6 @@ public class NavigateTest {
     @Restriction(DeviceFormFactor.PHONE)
     @MediumTest
     @Feature({"Navigation"})
-    @DisableIf.Device(DeviceFormFactor.DESKTOP) // https://crbug.com/526803990
     public void testNavigateBack() throws Exception {
         final String[] urls = {
             mTestServer.getURL("/chrome/test/data/android/navigate/one.html"),
@@ -771,7 +762,6 @@ public class NavigateTest {
 
     @Test
     @DisableIf.Build(hardware_is = "sprout", message = "fails on android-one: crbug.com/40439157")
-    @DisableIf.Device(DeviceFormFactor.DESKTOP) // https://crbug.com/376375165
     @MediumTest
     @Feature({"Navigation"})
     @CommandLineFlags.Add({"ip-address-space-overrides=[::1]:0=public"})
@@ -822,7 +812,7 @@ public class NavigateTest {
                                     + "  }"
                                     + "</script>"
                                     + "<body id='body' onclick='spoof()'></body>"));
-            mActivityTestRule.assertWaitForPageScaleFactorMatch(0.5f);
+            waitForPageScaleFactor(0.5f);
 
             // Click the page, which triggers the URL load.
             DOMUtils.clickNode(mActivityTestRule.getWebContents(), "body");
@@ -833,7 +823,7 @@ public class NavigateTest {
             // Wait for the url to change.
             final Tab tab =
                     ThreadUtils.runOnUiThreadBlocking(() -> TabModelUtils.getCurrentTab(model));
-            mActivityTestRule.assertWaitForPageScaleFactorMatch(0.75f);
+            waitForPageScaleFactor(0.75f);
             CriteriaHelper.pollInstrumentationThread(
                     () -> {
                         Criteria.checkThat(getTabUrlOnUiThread(tab), Matchers.is(mockedUrl));
@@ -850,12 +840,11 @@ public class NavigateTest {
 
     /**
      * Test that if the browser launches a renderer initiated intent towards itself, the url load
-     * will be renderer initiated and has the correct origin.
+     * will be renderer initiated and has an opaque origin.
      */
     @Test
     @MediumTest
     @Feature({"Navigation"})
-    @DisabledTest(message = "crbug.com/40720772")
     public void testRendererInitiatedIntentNavigate() throws Exception {
         final String finalUrl =
                 mTestServer.getURL("/chrome/test/data/android/renderer_initiated/final.html");
@@ -893,7 +882,7 @@ public class NavigateTest {
                                         Base64.URL_SAFE));
 
         navigateAndObserve(firstUrl);
-        mActivityTestRule.assertWaitForPageScaleFactorMatch(0.5f);
+        waitForPageScaleFactor(0.5f);
 
         TabObserver onPageLoadStartedObserver =
                 new TabObserver() {
@@ -902,22 +891,30 @@ public class NavigateTest {
                             Tab tab, LoadUrlParams params, LoadUrlResult loadUrlResult) {
                         tab.removeObserver(this);
                         // Check that the final URL will be loaded properly, and the navigation
-                        // is renderer initiated and has the correct origin.
+                        // is renderer initiated and has an opaque origin.
                         Assert.assertEquals(finalUrl, params.getUrl());
                         Assert.assertEquals(true, params.getIsRendererInitiated());
-                        try {
-                            URL url = new URL(finalUrl);
-                            Origin origin = params.getInitiatorOrigin();
-                            Assert.assertEquals(url.getHost(), origin.getHost());
-                        } catch (Exception e) {
-                            throw new AssertionError("Cannot parse URL:" + finalUrl, e);
-                        }
+                        Origin origin = params.getInitiatorOrigin();
+                        Assert.assertNotNull(origin);
+                        Assert.assertTrue(origin.isOpaque());
                     }
                 };
         Tab tab = mActivityTestRule.getActivityTab();
         ThreadUtils.runOnUiThreadBlocking(() -> tab.addObserver(onPageLoadStartedObserver));
         DOMUtils.clickNode(tab.getWebContents(), "rendererInitiated");
         ChromeTabUtils.waitForTabPageLoaded(tab, finalUrl);
+    }
+
+    private void waitForPageScaleFactor(float mobileScale) {
+        Tab tab = mActivityTestRule.getActivityTab();
+        boolean useDesktopScale =
+                DeviceInfo.isDesktop()
+                        || ThreadUtils.runOnUiThreadBlocking(
+                                () ->
+                                        tab.getWebContents()
+                                                .getNavigationController()
+                                                .getUseDesktopUserAgent());
+        mActivityTestRule.assertWaitForPageScaleFactorMatch(useDesktopScale ? 1.0f : mobileScale);
     }
 
     private String getTabUrlOnUiThread(final Tab tab) {

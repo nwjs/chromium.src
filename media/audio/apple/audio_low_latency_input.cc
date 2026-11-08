@@ -167,11 +167,13 @@ AUAudioInputStream::AUAudioInputStream(
     AudioManagerApple* manager,
     const AudioParameters& input_params,
     AudioDeviceID audio_device_id,
+    const std::string& device_unique_id,
     const AudioManager::LogCallback& log_callback)
     : id_(base::UnguessableToken::Create()),
       manager_(manager),
       input_params_(input_params),
       input_device_id_(audio_device_id),
+      device_unique_id_(device_unique_id),
       fifo_(input_params.channels(),
             input_params.frames_per_buffer(),
             kNumberOfBlocksBufferInFifo),
@@ -423,13 +425,7 @@ bool AUAudioInputStream::OpenAUHAL() {
     return false;
   }
 
-  // Modify the IO buffer size if not already set correctly for the selected
-  // device. The status of other active audio input and output streams is
-  // involved in the final setting.
-  if (!manager_->MaybeChangeBufferSize(input_device_id_, audio_unit_, 1,
-                                       input_params_.frames_per_buffer())) {
-    HandleError(kAudioUnitErr_FormatNotSupported,
-                "Modifying IO buffer size failed.");
+  if (!ChangeBufferSize()) {
     return false;
   }
 
@@ -574,13 +570,7 @@ bool AUAudioInputStream::OpenVoiceProcessingAU() {
     return false;
   }
 
-  // Modify the IO buffer size if not already set correctly for the selected
-  // device. The status of other active audio input and output streams is
-  // involved in the final setting.
-  if (!manager_->MaybeChangeBufferSize(input_device_id_, audio_unit_, 1,
-                                       input_params_.frames_per_buffer())) {
-    HandleError(kAudioUnitErr_FormatNotSupported,
-                "Modifying IO buffer size failed.");
+  if (!ChangeBufferSize()) {
     return false;
   }
 
@@ -621,6 +611,22 @@ bool AUAudioInputStream::OpenVoiceProcessingAU() {
 
   UndoDucking(output_device_id_for_aec_);
 #endif
+  return true;
+}
+
+bool AUAudioInputStream::ChangeBufferSize() {
+  OSStatus result = manager_->MaybeChangeBufferSize(
+      input_device_id_, audio_unit_, /*element=*/1,
+      input_params_.frames_per_buffer());
+  if (result != noErr) {
+    std::string device_name =
+        manager_->GetDeviceNameFromCache(device_unique_id_, /*is_input=*/true);
+    HandleError(result,
+                base::StrCat({"Modifying IO buffer size failed for device ",
+                              device_name})
+                    .c_str());
+    return false;
+  }
   return true;
 }
 
@@ -867,7 +873,13 @@ double AUAudioInputStream::GetMaxVolume() {
 void AUAudioInputStream::SetVolume(double volume) {
   DVLOG(1) << __FUNCTION__ << " this " << this << " volume=" << volume << ")";
 
-  manager_->SetInputVolume(input_device_id_, volume);
+  OSStatus result = manager_->SetInputVolume(input_device_id_, volume);
+  if (result != noErr) {
+    SendLog(base::StrCat({"Failed to set volume for device ",
+                          manager_->GetDeviceNameFromCache(device_unique_id_,
+                                                           /*is_input=*/true)}),
+            result);
+  }
 
   // Update the AGC volume level based on the last setting above. Note that,
   // the volume-level resolution is not infinite and it is therefore not

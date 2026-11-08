@@ -8,7 +8,6 @@
 // windows.h must be included before shellapi.h
 #include <windows.h>
 
-#include <delayimp.h>
 #include <shellapi.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -39,15 +38,18 @@
 #include "base/notreached.h"
 #include "base/path_service.h"
 #include "base/scoped_native_library.h"
+#include "base/strings/cstring_view.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/strings/sys_string_conversions.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/thread_pool.h"
+#include "base/time/time.h"
 #include "base/trace_event/trace_event.h"
 #include "base/types/expected.h"
 #include "base/version.h"
+#include "base/win/delayload_helpers.h"
 #include "base/win/pe_image.h"
 #include "base/win/wrapped_window_proc.h"
 #include "build/branding_buildflags.h"
@@ -372,25 +374,52 @@ void UpdatePwaLaunchersForProfile(const base::FilePath& profile_dir) {
 }
 
 void MigratePinnedTaskBarShortcutsIfNeeded() {
+  PrefService* local_state = g_browser_process->local_state();
+  if (!local_state) {
+    return;
+  }
+
+  const bool migrate_shortcut_location = base::FeatureList::IsEnabled(
+      shell_integration::win::kMigrateTaskbarShortcutLocation);
+
   // Update this number when users should go through a taskbar shortcut
-  // migration again. The last reason to do this was crrev.com/798174. @
-  // 86.0.4231.0.
+  // migration again (https://crbug.com/559652784 for 156.0.8069.0, and
+  // crrev.com/798174 for 86.0.4231.0).
   //
   // Note: If shortcut updates need to be done once after a future OS upgrade,
   // that should be done by re-versioning Active Setup (see //chrome/installer
   // and https://crbug.com/41234315 for details).
-  const base::Version kLastVersionNeedingMigration({86, 0, 4231, 0});
+  const base::Version kLastVersionNeedingMigration =
+      migrate_shortcut_location ? base::Version({156, 0, 8069, 0})
+                                : base::Version({86, 0, 4231, 0});
 
-  PrefService* local_state = g_browser_process->local_state();
-  if (local_state) {
-    const base::Version last_version_migrated(
-        local_state->GetString(prefs::kShortcutMigrationVersion));
-    if (!last_version_migrated.IsValid() ||
-        last_version_migrated < kLastVersionNeedingMigration) {
-      shell_integration::win::MigrateTaskbarPins(base::BindOnce(
-          &PrefService::SetString, base::Unretained(local_state),
-          prefs::kShortcutMigrationVersion, version_info::GetVersionNumber()));
+  const base::Version last_version_migrated(
+      local_state->GetString(prefs::kShortcutMigrationVersion));
+  bool needs_migration = !last_version_migrated.IsValid() ||
+                         last_version_migrated < kLastVersionNeedingMigration;
+
+  // Periodically re-check taskbar shortcuts to repair shortcuts pinned after
+  // the initial migration (e.g., pinned from the Start Menu or Desktop).
+  if (!needs_migration && migrate_shortcut_location) {
+    const base::TimeDelta migration_interval =
+        shell_integration::win::kTaskbarShortcutMigrationInterval.Get();
+    if (migration_interval.is_positive()) {
+      const base::TimeDelta elapsed =
+          base::Time::Now() -
+          local_state->GetTime(prefs::kShortcutMigrationTime);
+      needs_migration = elapsed.is_negative() || elapsed > migration_interval;
     }
+  }
+
+  if (needs_migration) {
+    shell_integration::win::MigrateTaskbarPins(base::BindOnce(
+        [](PrefService* local_state) {
+          local_state->SetString(prefs::kShortcutMigrationVersion,
+                                 version_info::GetVersionNumber());
+          local_state->SetTime(prefs::kShortcutMigrationTime,
+                               base::Time::Now());
+        },
+        base::Unretained(local_state)));
   }
 }
 
@@ -520,7 +549,51 @@ const char kMissingLocaleDataTitle[] = "Missing File Error";
 const char kMissingLocaleDataMessage[] =
     "Unable to find locale data files. Please reinstall.";
 
+void LoadAllImportsForCoreDlls() {
+  // Core DLLs are linked with /DELAYLOAD in chrome.dll because they're not
+  // needed in child processes.
+  //
+  // In the browser process, core DLLs are always loaded early during startup
+  // (see crrev.com/c/8501898).
+  //
+  // Even if a DLL is loaded, delay-load imports are resolved lazily on first
+  // call via GetProcAddressForCaller, which acquires a critical section in
+  // apphelp.dll (SE_GetProcAddressForCaller). If another thread holds this
+  // critical section, the UI thread blocks on NtWaitForAlertByThreadId. Field
+  // data shows that this is a non-trivial source of jank.
+  //
+  // To eliminate this jank, this method resolves all delay-load imports for
+  // user32.dll, uxtheme.dll, gdi32.dll, imm32.dll and dwmapi.dll (loading those
+  // that aren't already loaded). It is called either:
+  // - In PreCreateThreads() (kPreCreateThreads). At this point, no task
+  //   executes on the ThreadPool due to an active execution fence (released in
+  //   BrowserMainLoop::CreateThreads()), so the apphelp.dll critical section
+  //   should rarely be contended.
+  // - Right after the FeatureList is created, before the ThreadPool is started
+  //   (kBeforeThreadPoolStart). The risk of contention is slightly lower, but
+  //   the main benefit is that imports are resolved even earlier, which avoids
+  //   more standalone (one import at a time) resolutions.
+  //
+  // These DLLs are required by the browser process, so a failure to load one
+  // of them or to resolve one of their imports is fatal (with crash keys
+  // identifying the module) rather than silently ignored.
+  static constexpr base::cstring_view kDlls[] = {
+      "USER32.dll", "dwmapi.dll", "UxTheme.dll", "GDI32.dll", "IMM32.dll",
+  };
+  for (base::cstring_view dll : kDlls) {
+    base::win::LoadAllImportsForDll(dll);
+  }
+}
+
 }  // namespace
+
+void MaybeLoadAllImportsForCoreDlls(
+    features::EagerlyResolveCoreDllsImportsTiming timing) {
+  if (base::FeatureList::IsEnabled(features::kEagerlyResolveCoreDllsImports) &&
+      features::kEagerlyResolveCoreDllsImportsTiming.Get() == timing) {
+    LoadAllImportsForCoreDlls();
+  }
+}
 
 int DoUninstallTasks(bool chrome_still_running) {
   // We want to show a warning to user (and exit) if Chrome is already running
@@ -613,6 +686,9 @@ void ChromeBrowserMainPartsWin::PreCreateMainMessageLoop() {
 }
 
 int ChromeBrowserMainPartsWin::PreCreateThreads() {
+  MaybeLoadAllImportsForCoreDlls(
+      features::EagerlyResolveCoreDllsImportsTiming::kPreCreateThreads);
+
   // Set crash keys containing the registry values used to determine Chrome's
   // update channel at process startup; see https://crbug.com/41235563.
   const auto& details = install_static::InstallDetails::Get();

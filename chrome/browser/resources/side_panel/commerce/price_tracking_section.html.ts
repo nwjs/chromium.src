@@ -7,7 +7,6 @@ import {html} from '//resources/lit/v3_0/lit.rollup.js';
 import type {PriceTrackingSectionElement} from './price_tracking_section.js';
 
 export function getHtml(this: PriceTrackingSectionElement) {
-  // clang-format off
   return html`<!--_html_template_start_-->
 <div id="toggleSection">
   <div id="toggleText">
@@ -17,10 +16,11 @@ export function getHtml(this: PriceTrackingSectionElement) {
     <div id="toggleAnnotation">
       ${this.toggleAnnotationText_}
       <span ?hidden="${!this.showSaveLocationText_}">
-        ${this.saveLocationStartText_}<a href="#"
-            id="toggleAnnotationButton"
-            @click="${this.onToggleAnnotationButtonClick_}"
-            >${this.folderName_}</a>${this.saveLocationEndText_}
+        ${this.saveLocationStartText_}<!--
+        --><a href="#" id="toggleAnnotationButton"
+            @click="${this.onToggleAnnotationButtonClick_}"><!--
+          -->${this.folderName_}<!--
+        --></a>${this.saveLocationEndText_}
       </span>
     </div>
   </div>
@@ -31,5 +31,4 @@ export function getHtml(this: PriceTrackingSectionElement) {
   </cr-toggle>
 </div>
 <!--_html_template_end_-->`;
-  // clang-format on
 }

@@ -5,14 +5,17 @@
 #include "ui/views/controls/menu/menu_item_view.h"
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 
 #include "base/memory/raw_ptr.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/bind.h"
+#include "base/test/gtest_util.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/accessibility/ax_action_data.h"
+#include "ui/actions/actions.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_header_macros.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
@@ -25,7 +28,9 @@
 #include "ui/gfx/geometry/insets.h"
 #include "ui/strings/grit/ui_strings.h"
 #include "ui/views/accessibility/view_accessibility.h"
+#include "ui/views/actions/action_view_controller.h"
 #include "ui/views/controls/image_view.h"
+#include "ui/views/controls/menu/menu_config.h"
 #include "ui/views/controls/menu/menu_runner.h"
 #include "ui/views/controls/menu/menu_separator.h"
 #include "ui/views/controls/menu/submenu_view.h"
@@ -56,6 +61,23 @@ TEST_F(MenuItemViewUnitTest, AddAndRemoveChildren) {
   root_menu.RemoveMenuItem(item);
 
   EXPECT_TRUE(submenu->GetMenuItems().empty());
+}
+
+using MenuItemViewDeathTest = MenuItemViewUnitTest;
+
+// Only the root item may hold the controller; other items reach it through
+// GetMenuController().
+TEST_F(MenuItemViewDeathTest, SetControllerOnNonRootItem) {
+  views::TestMenuItemView root_menu;
+  MenuItemView* item = root_menu.AppendMenuItem(0);
+  EXPECT_CHECK_DEATH(item->SetController(nullptr));
+}
+
+// Cancel() acts on the root's controller, so it must be called on the root.
+TEST_F(MenuItemViewDeathTest, CancelOnNonRootItem) {
+  views::TestMenuItemView root_menu;
+  MenuItemView* item = root_menu.AppendMenuItem(0);
+  EXPECT_CHECK_DEATH(item->Cancel());
 }
 
 TEST_F(MenuItemViewUnitTest, AppendMenuItemSeparator) {
@@ -182,6 +204,88 @@ TEST_F(MenuItemViewUnitTest, UseMnemonicOnPlatform) {
     EXPECT_EQ('t', item2->GetMnemonic());
   } else {
     EXPECT_EQ(0, item1->GetMnemonic());
+    EXPECT_EQ(0, item2->GetMnemonic());
+  }
+}
+
+namespace {
+
+// Returns the SHOW_PREFIX / HIDE_PREFIX of the flags used to draw
+// the item's title. 0 means that '&' is drawn as is.
+int GetMnemonicPrefixFlags(const MenuItemView* item) {
+  return TestMenuItemView::GetDrawStringFlagsFor(item) &
+         (gfx::Canvas::SHOW_PREFIX | gfx::Canvas::HIDE_PREFIX);
+}
+
+}  // namespace
+
+// A menu asked to show its mnemonics (when opened with the keyboard) underlines
+// them.
+TEST_F(MenuItemViewUnitTest, ShowsMnemonicsWhenRequested) {
+  views::TestMenuItemView root_menu;
+  views::MenuItemView* submenu_item = root_menu.AppendSubMenu(1, u"&Submenu");
+  views::MenuItemView* nested_item =
+      submenu_item->AppendMenuItem(2, u"&Nested");
+  views::MenuItemView* literal_item = root_menu.AppendMenuItem(3, u"A&B");
+  literal_item->set_may_have_mnemonics(false);
+
+  root_menu.PrepareForRun(/*has_mnemonics=*/true, /*show_mnemonics=*/true);
+
+  // Every item reports the root menu item's state.
+  EXPECT_TRUE(root_menu.ShouldShowMnemonics());
+  EXPECT_TRUE(submenu_item->ShouldShowMnemonics());
+  EXPECT_TRUE(nested_item->ShouldShowMnemonics());
+
+  // Titles underline their mnemonic, unless the item can't have one.
+  EXPECT_EQ(gfx::Canvas::SHOW_PREFIX, GetMnemonicPrefixFlags(nested_item));
+  EXPECT_EQ(0, GetMnemonicPrefixFlags(literal_item));
+}
+
+// A menu not asked to show its mnemonics (when opened with the mouse)
+// hides them.
+TEST_F(MenuItemViewUnitTest, HidesMnemonicsWhenNotRequested) {
+  // Windows can be set to always underline mnemonics ("Underline access
+  // keys"), which this test can't override.
+  if (MenuConfig::instance().show_mnemonics) {
+    GTEST_SKIP() << "The OS is set to always show mnemonics";
+  }
+
+  views::TestMenuItemView root_menu;
+  views::MenuItemView* item = root_menu.AppendMenuItem(1, u"&Item");
+
+  root_menu.PrepareForRun(/*has_mnemonics=*/true, /*show_mnemonics=*/false);
+
+  EXPECT_FALSE(root_menu.ShouldShowMnemonics());
+  EXPECT_FALSE(item->ShouldShowMnemonics());
+  EXPECT_EQ(gfx::Canvas::HIDE_PREFIX, GetMnemonicPrefixFlags(item));
+}
+
+// A menu without mnemonics never shows them, even if asked to. Its titles
+// draw '&' as is.
+TEST_F(MenuItemViewUnitTest, IgnoresMnemonicsWhenMenuHasNone) {
+  views::TestMenuItemView root_menu;
+  views::MenuItemView* item = root_menu.AppendMenuItem(1, u"A&B");
+
+  root_menu.PrepareForRun(/*has_mnemonics=*/false, /*show_mnemonics=*/true);
+
+  EXPECT_FALSE(root_menu.ShouldShowMnemonics());
+  EXPECT_FALSE(item->ShouldShowMnemonics());
+  EXPECT_EQ(0, GetMnemonicPrefixFlags(item));
+}
+
+// "&&" shows a literal "&", so it isn't a mnemonic marker. A single "&" after
+// it still is.
+TEST_F(MenuItemViewUnitTest, EscapedAmpersandIsNotMnemonic) {
+  views::TestMenuItemView root_menu;
+  views::MenuItemView* item1 = root_menu.AppendMenuItem(1, u"AT&&T");
+  views::MenuItemView* item2 = root_menu.AppendMenuItem(2, u"Q&&&A");
+
+  root_menu.set_has_mnemonics(true);
+
+  EXPECT_EQ(0, item1->GetMnemonic());
+  if (MenuConfig::instance().use_mnemonics) {
+    EXPECT_EQ('a', item2->GetMnemonic());
+  } else {
     EXPECT_EQ(0, item2->GetMnemonic());
   }
 }
@@ -622,6 +726,48 @@ TEST_F(MenuItemViewLayoutTest, TitleItemWithBorder) {
             title_without_border->GetContentStart());
 }
 
+// Tests that background padding is added to the item's height, and that the
+// content keeps its place in the row, which starts below the top padding.
+TEST_F(MenuItemViewLayoutTest, BackgroundPaddingSurroundsRow) {
+  MenuItemView* item = root_menu()->AppendSubMenu(2, u"Submenu");
+  item->AppendMenuItem(3, u"Submenu Item");
+  MenuItemView* padded_item = root_menu()->AppendSubMenu(4, u"Submenu");
+  padded_item->AppendMenuItem(5, u"Submenu Item");
+  MenuItemView::MenuItemBackground background(ui::kColorMenuBackground,
+                                              /*corner_radius=*/0);
+  background.top_padding = 6;
+  background.bottom_padding = 4;
+  padded_item->SetMenuItemBackground(background);
+
+  PerformLayout();
+
+  EXPECT_EQ(item->height() + 10, padded_item->height());
+  ImageView* arrow = TestMenuItemView::submenu_arrow_image_view(item);
+  ImageView* padded_arrow =
+      TestMenuItemView::submenu_arrow_image_view(padded_item);
+  ASSERT_TRUE(arrow);
+  ASSERT_TRUE(padded_arrow);
+  EXPECT_EQ(arrow->y() + 6, padded_arrow->y());
+}
+
+// Tests that a container item lays out its child in the row, inside the
+// background's padding.
+TEST_F(MenuItemViewLayoutTest, ContainerLayoutRespectsBackgroundPadding) {
+  test_item()->set_vertical_margin(0);
+  View* child_view = test_item()->AddChildView(std::make_unique<View>());
+  child_view->SetPreferredSize(gfx::Size(200, 50));
+  MenuItemView::MenuItemBackground background(ui::kColorMenuBackground,
+                                              /*corner_radius=*/0);
+  background.top_padding = 6;
+  background.bottom_padding = 4;
+  test_item()->SetMenuItemBackground(background);
+
+  PerformLayout();
+
+  EXPECT_EQ(gfx::Insets::TLBR(6, 0, 4, 0),
+            test_item()->GetLocalBounds().InsetsFrom(child_view->bounds()));
+}
+
 class MenuItemViewPaintUnitTest : public ViewsTestBase {
  public:
   MenuItemViewPaintUnitTest() = default;
@@ -823,6 +969,45 @@ TEST_F(MenuItemViewPaintUnitTest, DontSchedulePaintFromOnPaint) {
   gfx::Canvas canvas(submenu_item->size(), 1.f, false /* opaque */);
   submenu_item->OnPaint(&canvas);
   EXPECT_FALSE(ViewTestApi(submenu_arrow_image_view).needs_paint());
+}
+
+// Tests that the selection highlight doesn't cover the background's padding,
+// and is clipped to the background's rounded corner next to the padding.
+TEST_F(MenuItemViewPaintUnitTest, HighlightSkipsBackgroundPadding) {
+  constexpr int kPadding = 6;
+  MenuItemView* item = menu_item_view()->AppendMenuItem(1);
+  MenuItemView::MenuItemBackground background(
+      ui::kColorMenuBackground, /*top_radius=*/12, /*bottom_radius=*/0,
+      /*horizontal_margin=*/0);
+  background.top_padding = kPadding;
+  item->SetMenuItemBackground(background);
+  item->SetSelectedColorId(ui::kColorMenuItemBackgroundSelected);
+
+  menu_runner()->RunMenuAt(widget(), nullptr, gfx::Rect(),
+                           MenuAnchorPosition::kTopLeft,
+                           ui::mojom::MenuSourceType::kKeyboard);
+
+  auto paint = [item](bool selected) {
+    item->SetSelected(selected);
+    gfx::Canvas canvas(item->size(), 1.f, /*is_opaque=*/false);
+    item->OnPaint(&canvas);
+    return canvas.GetBitmap();
+  };
+  const SkBitmap unselected = paint(false);
+  const SkBitmap selected = paint(true);
+  auto is_highlighted = [&](int x, int y) {
+    return unselected.getColor(x, y) != selected.getColor(x, y);
+  };
+
+  // The padding isn't highlighted, but the row below it is.
+  const int center_x = item->width() / 2;
+  EXPECT_FALSE(is_highlighted(center_x, kPadding / 2));
+  EXPECT_TRUE(is_highlighted(center_x, (kPadding + item->height()) / 2));
+
+  // At the top of the row, the highlight follows the background's curve: the
+  // corner pixel is outside the curve, and a pixel just inside is highlighted.
+  EXPECT_FALSE(is_highlighted(0, kPadding));
+  EXPECT_TRUE(is_highlighted(2, kPadding));
 }
 
 TEST_F(MenuItemViewPaintUnitTest, SelectionIconColors) {
@@ -1355,4 +1540,68 @@ TEST_F(MenuItemViewA11yTest, ActionViewInterfaceTest) {
   EXPECT_FALSE(item->GetEnabled());
   EXPECT_FALSE(item->GetVisible());
 }
+
+// An item bound to an ActionItem shows the action's text with its mnemonic
+// marker, so the mnemonic works. The accessible name doesn't contain the
+// marker.
+TEST_F(MenuItemViewUnitTest, TitleIsActionItemTextWithMnemonic) {
+  views::TestMenuItemView root_menu;
+  MenuItemView* item = root_menu.AppendMenuItem(1);
+  root_menu.set_has_mnemonics(true);
+  std::unique_ptr<actions::ActionItem> action_item =
+      actions::ActionItem::Builder().SetText(u"Settin&gs").Build();
+  ActionViewController action_view_controller;
+  action_view_controller.CreateActionViewRelationship(
+      item, action_item->GetAsWeakPtr());
+
+  EXPECT_EQ(item->title(), u"Settin&gs");
+  if (MenuConfig::instance().use_mnemonics) {
+    EXPECT_EQ('g', item->GetMnemonic());
+  } else {
+    EXPECT_EQ(0, item->GetMnemonic());
+  }
+  EXPECT_EQ(MenuItemView::GetAccessibleNameForMenuItem(
+                item->title(), std::u16string(), std::nullopt),
+            u"Settings");
+}
+
+// "&&" in an ActionItem's text shows a literal "&" and isn't used as a
+// mnemonic.
+TEST_F(MenuItemViewUnitTest, ActionItemTextWithAmpersandHasNoMnemonic) {
+  views::TestMenuItemView root_menu;
+  MenuItemView* item = root_menu.AppendMenuItem(1);
+  root_menu.set_has_mnemonics(true);
+  std::unique_ptr<actions::ActionItem> action_item =
+      actions::ActionItem::Builder().SetText(u"AT&&T").Build();
+  ActionViewController action_view_controller;
+  action_view_controller.CreateActionViewRelationship(
+      item, action_item->GetAsWeakPtr());
+
+  EXPECT_EQ(item->title(), u"AT&&T");
+  EXPECT_EQ(0, item->GetMnemonic());
+  EXPECT_EQ(MenuItemView::GetAccessibleNameForMenuItem(
+                item->title(), std::u16string(), std::nullopt),
+            u"AT&T");
+}
+
+// The title keeps the mnemonic marker when the ActionItem changes.
+TEST_F(MenuItemViewUnitTest, TitleKeepsMnemonicWhenActionItemChanges) {
+  views::TestMenuItemView root_menu;
+  MenuItemView* item = root_menu.AppendMenuItem(1);
+  std::unique_ptr<actions::ActionItem> action_item =
+      actions::ActionItem::Builder().SetText(u"Settin&gs").Build();
+  ActionViewController action_view_controller;
+  action_view_controller.CreateActionViewRelationship(
+      item, action_item->GetAsWeakPtr());
+
+  action_item->SetEnabled(false);
+
+  EXPECT_FALSE(item->GetEnabled());
+  EXPECT_EQ(item->title(), u"Settin&gs");
+
+  action_item->SetText(u"&Options");
+
+  EXPECT_EQ(item->title(), u"&Options");
+}
+
 }  // namespace views

@@ -286,6 +286,97 @@ TEST_F(ValuableSyncBridgeTest, IsEntityDataValid_ImportConstraints) {
   }
 }
 
+// Tests that specifics w/o a management URL are counted but considered valid.
+TEST_F(ValuableSyncBridgeTest, IsEntityDataValid_MissingManagementUrl) {
+  base::test::ScopedFeatureList feature_list(
+      {features::kAutofillAiImportConstraintsForSync,
+       features::kAutofillAiWalletServerProvidedDeepLink});
+  sync_pb::AutofillValuableSpecifics specifics =
+      CreateSpecificsFromEntityInstance(GetServerVehicleEntityInstance(),
+                                        /*base_specifics=*/{});
+
+  base::HistogramTester histogram_tester;
+  EXPECT_TRUE(
+      bridge().IsEntityDataValid(*CreateEntityDataFromSpecifics(specifics)));
+  histogram_tester.ExpectUniqueSample(
+      "Autofill.Ai.ValuableSync.ManagementUrlStatus",
+      ValuableSyncBridge::AutofillAiWalletManagementUrlSyncStatus::
+          kMissingOrEmpty,
+      1);
+  histogram_tester.ExpectUniqueSample(
+      "Autofill.Ai.ValuableSync.ManagementUrlStatus.Vehicle",
+      ValuableSyncBridge::AutofillAiWalletManagementUrlSyncStatus::
+          kMissingOrEmpty,
+      1);
+}
+
+// Tests a successful check of specifics with a management URL.
+TEST_F(ValuableSyncBridgeTest, IsEntityDataValid_ValidManagementUrl) {
+  base::test::ScopedFeatureList feature_list(
+      {features::kAutofillAiImportConstraintsForSync,
+       features::kAutofillAiWalletServerProvidedDeepLink});
+  sync_pb::AutofillValuableSpecifics specifics =
+      CreateSpecificsFromEntityInstance(GetServerVehicleEntityInstance(),
+                                        /*base_specifics=*/{});
+  specifics.set_pass_view_url("https://wallet.google.com/wallet/passes/123");
+
+  base::HistogramTester histogram_tester;
+  EXPECT_TRUE(
+      bridge().IsEntityDataValid(*CreateEntityDataFromSpecifics(specifics)));
+  histogram_tester.ExpectUniqueSample(
+      "Autofill.Ai.ValuableSync.ManagementUrlStatus",
+      ValuableSyncBridge::AutofillAiWalletManagementUrlSyncStatus::kValid, 1);
+  histogram_tester.ExpectUniqueSample(
+      "Autofill.Ai.ValuableSync.ManagementUrlStatus.Vehicle",
+      ValuableSyncBridge::AutofillAiWalletManagementUrlSyncStatus::kValid, 1);
+}
+
+// Tests that specifics with an invalid management URL are counted and flagged
+// as illegal.
+TEST_F(ValuableSyncBridgeTest, IsEntityDataValid_InvalidManagementUrl) {
+  base::test::ScopedFeatureList feature_list(
+      {features::kAutofillAiImportConstraintsForSync,
+       features::kAutofillAiWalletServerProvidedDeepLink});
+  sync_pb::AutofillValuableSpecifics specifics =
+      CreateSpecificsFromEntityInstance(GetServerVehicleEntityInstance(),
+                                        /*base_specifics=*/{});
+  specifics.set_pass_view_url("https://illegal.site.com/");
+
+  base::HistogramTester histogram_tester;
+  EXPECT_FALSE(
+      bridge().IsEntityDataValid(*CreateEntityDataFromSpecifics(specifics)));
+  histogram_tester.ExpectUniqueSample(
+      "Autofill.Ai.ValuableSync.ManagementUrlStatus",
+      ValuableSyncBridge::AutofillAiWalletManagementUrlSyncStatus::kInvalid, 1);
+  histogram_tester.ExpectUniqueSample(
+      "Autofill.Ai.ValuableSync.ManagementUrlStatus.Vehicle",
+      ValuableSyncBridge::AutofillAiWalletManagementUrlSyncStatus::kInvalid, 1);
+}
+
+// Tests that specifics with an invalid management URL are counted but not
+// flagged as illegal if the feature flag for Wallet deeplinks is not enabled.
+TEST_F(ValuableSyncBridgeTest,
+       IsEntityDataValid_InvalidManagementUrl_FeatureDisabled) {
+  base::test::ScopedFeatureList feature_list(
+      {features::kAutofillAiImportConstraintsForSync});
+  sync_pb::AutofillValuableSpecifics specifics =
+      CreateSpecificsFromEntityInstance(GetServerVehicleEntityInstance(),
+                                        /*base_specifics=*/{});
+  specifics.set_pass_view_url("https://illegal.site.com/");
+
+  base::HistogramTester histogram_tester;
+  // The illegal URL is tolerated if the deeplink feature is not enabled.
+  EXPECT_TRUE(
+      bridge().IsEntityDataValid(*CreateEntityDataFromSpecifics(specifics)));
+  // The illegal URL is still counted, though.
+  histogram_tester.ExpectUniqueSample(
+      "Autofill.Ai.ValuableSync.ManagementUrlStatus",
+      ValuableSyncBridge::AutofillAiWalletManagementUrlSyncStatus::kInvalid, 1);
+  histogram_tester.ExpectUniqueSample(
+      "Autofill.Ai.ValuableSync.ManagementUrlStatus.Vehicle",
+      ValuableSyncBridge::AutofillAiWalletManagementUrlSyncStatus::kInvalid, 1);
+}
+
 #if !BUILDFLAG(IS_IOS)
 TEST_F(ValuableSyncBridgeTest, IsEntityDataValid_NonEmptyId) {
   // Valid case.
@@ -354,6 +445,16 @@ TEST_F(ValuableSyncBridgeTest, IsOfferEntityDataValid) {
                          /*description=*/"50% off your next purchase",
                          /*pass_view_url=*/"https://safeway.com/offer-details",
                          /*offer_title_image_url=*/"invalid_url"))));
+
+  // Description is optional and does not affect validity.
+  specifics.mutable_offer()->clear_description();
+  EXPECT_TRUE(
+      bridge().IsEntityDataValid(*CreateEntityDataFromSpecifics(specifics)));
+  EXPECT_TRUE(bridge().IsEntityDataValid(
+      *CreateEntityDataFromSpecifics(TestOfferSpecifics(
+          kId1, /*offer_code=*/"SAFEWAY50",
+          /*description=*/"",
+          /*pass_view_url=*/"https://safeway.com/offer-details"))));
 }
 
 // The server is not required to send numeric offer ids, so ids that cannot be
@@ -369,34 +470,28 @@ TEST_F(ValuableSyncBridgeTest, IsOfferEntityDataValid_NonNumericId) {
   }
 }
 
-TEST_F(ValuableSyncBridgeTest, IsOfferEntityDataInvalid) {
+TEST_F(ValuableSyncBridgeTest, IsOfferEntityDataInvalid_Id) {
   base::test::ScopedFeatureList feature_list{
       features::kAutofillEnableWalletDirectOffers};
   // Invalid id.
   EXPECT_FALSE(bridge().IsEntityDataValid(
       *CreateEntityDataFromSpecifics(TestOfferSpecifics(kInvalidId))));
+}
 
+TEST_F(ValuableSyncBridgeTest, IsOfferEntityDataInvalid_OfferCode) {
+  base::test::ScopedFeatureList feature_list{
+      features::kAutofillEnableWalletDirectOffers};
   // Invalid offer code.
   EXPECT_FALSE(bridge().IsEntityDataValid(
       *CreateEntityDataFromSpecifics(TestOfferSpecifics(
           kId1, /*offer_code=*/"",
           /*description=*/"50% off your next purchase",
           /*pass_view_url=*/"https://safeway.com/offer-details"))));
+}
 
-  // Invalid description.
-  EXPECT_FALSE(bridge().IsEntityDataValid(
-      *CreateEntityDataFromSpecifics(TestOfferSpecifics(
-          kId1, /*offer_code=*/"SAFEWAY50",
-          /*description=*/"",
-          /*pass_view_url=*/"https://safeway.com/offer-details"))));
-
-  // Missing description.
-  sync_pb::AutofillValuableSpecifics empty_description_specifics =
-      TestOfferSpecifics(kId1);
-  empty_description_specifics.mutable_offer()->clear_description();
-  EXPECT_FALSE(bridge().IsEntityDataValid(
-      *CreateEntityDataFromSpecifics(empty_description_specifics)));
-
+TEST_F(ValuableSyncBridgeTest, IsOfferEntityDataInvalid_OfferDetailsUrl) {
+  base::test::ScopedFeatureList feature_list{
+      features::kAutofillEnableWalletDirectOffers};
   // Invalid offer details url.
   EXPECT_FALSE(bridge().IsEntityDataValid(*CreateEntityDataFromSpecifics(
       TestOfferSpecifics(kId1, /*offer_code=*/"SAFEWAY50",
@@ -415,7 +510,11 @@ TEST_F(ValuableSyncBridgeTest, IsOfferEntityDataInvalid) {
   missing_pass_view_url_specifics.clear_pass_view_url();
   EXPECT_FALSE(bridge().IsEntityDataValid(
       *CreateEntityDataFromSpecifics(missing_pass_view_url_specifics)));
+}
 
+TEST_F(ValuableSyncBridgeTest, IsOfferEntityDataInvalid_IssuerDomains) {
+  base::test::ScopedFeatureList feature_list{
+      features::kAutofillEnableWalletDirectOffers};
   // Missing issuer domains.
   sync_pb::AutofillValuableSpecifics empty_issuer_domains_specifics =
       TestOfferSpecifics(kId1);
@@ -437,7 +536,11 @@ TEST_F(ValuableSyncBridgeTest, IsOfferEntityDataInvalid) {
       "invalid_url");
   EXPECT_FALSE(bridge().IsEntityDataValid(
       *CreateEntityDataFromSpecifics(invalid_issuer_domain_specifics)));
+}
 
+TEST_F(ValuableSyncBridgeTest, IsOfferEntityDataInvalid_OfferShortTitle) {
+  base::test::ScopedFeatureList feature_list{
+      features::kAutofillEnableWalletDirectOffers};
   // Invalid offer short title.
   EXPECT_FALSE(bridge().IsEntityDataValid(*CreateEntityDataFromSpecifics(
       TestOfferSpecifics(kId1, /*offer_code=*/"SAFEWAY50",
@@ -452,7 +555,11 @@ TEST_F(ValuableSyncBridgeTest, IsOfferEntityDataInvalid) {
   empty_short_title_specifics.mutable_offer()->clear_offer_short_title();
   EXPECT_FALSE(bridge().IsEntityDataValid(
       *CreateEntityDataFromSpecifics(empty_short_title_specifics)));
+}
 
+TEST_F(ValuableSyncBridgeTest, IsOfferEntityDataInvalid_Expiry) {
+  base::test::ScopedFeatureList feature_list{
+      features::kAutofillEnableWalletDirectOffers};
   // Invalid expiry (<= 0).
   EXPECT_FALSE(bridge().IsEntityDataValid(*CreateEntityDataFromSpecifics(
       TestOfferSpecifics(kId1, /*offer_code=*/"SAFEWAY50",
@@ -469,6 +576,27 @@ TEST_F(ValuableSyncBridgeTest, IsOfferEntityDataInvalid) {
       ->clear_expiration_time_unix_epoch_micros();
   EXPECT_FALSE(bridge().IsEntityDataValid(
       *CreateEntityDataFromSpecifics(missing_expiry_specifics)));
+}
+
+// The issue time is optional, so offers without one must not be dropped.
+TEST_F(ValuableSyncBridgeTest, IsOfferEntityDataValid_OptionalIssueTime) {
+  base::test::ScopedFeatureList feature_list{
+      features::kAutofillEnableWalletDirectOffers};
+  // Missing issue time.
+  sync_pb::AutofillValuableSpecifics missing_issue_time_specifics =
+      TestOfferSpecifics(kId1);
+  missing_issue_time_specifics.mutable_offer()
+      ->clear_issue_time_unix_epoch_micros();
+  EXPECT_TRUE(bridge().IsEntityDataValid(
+      *CreateEntityDataFromSpecifics(missing_issue_time_specifics)));
+
+  // Non-positive issue time.
+  sync_pb::AutofillValuableSpecifics negative_issue_time_specifics =
+      TestOfferSpecifics(kId1);
+  negative_issue_time_specifics.mutable_offer()
+      ->set_issue_time_unix_epoch_micros(-1);
+  EXPECT_TRUE(bridge().IsEntityDataValid(
+      *CreateEntityDataFromSpecifics(negative_issue_time_specifics)));
 }
 
 TEST_F(ValuableSyncBridgeTest, IsOfferEntityDataInvalid_FeatureDisabled) {
@@ -507,10 +635,8 @@ TEST_F(ValuableSyncBridgeTest, MergeFullSyncData_Offers) {
   EXPECT_EQ(offers[0].GetDisplayStrings().value_prop_text,
             "50% off your next purchase");
   EXPECT_EQ(offers[0].GetOfferRewardAmount(), "50% off");
-  // The expiry is truncated to millisecond precision at ingestion, since that
-  // is the precision `PaymentsAutofillTable` persists.
   EXPECT_EQ(offers[0].GetExpiry(),
-            base::Time::UnixEpoch() + base::Milliseconds(123456));
+            base::Time::UnixEpoch() + base::Microseconds(123456789));
 }
 
 // Tests that syncing the same offers twice doesn't notify observers.
@@ -976,8 +1102,8 @@ TEST_F(ValuableSyncBridgeTest, EntityInstanceChanged_AddUpdate) {
       .WillOnce([](const std::string&,
                    std::unique_ptr<syncer::EntityData> entity_data,
                    syncer::MetadataChangeList*) {
-        EXPECT_FALSE(
-            entity_data->specifics.autofill_valuable().has_context_token());
+        EXPECT_FALSE(entity_data->specifics.autofill_valuable()
+                         .has_legal_message_token());
       });
   bridge().EntityInstanceChanged(
       EntityInstanceChange(EntityInstanceChange::ADD, vehicle.guid(), vehicle),
@@ -987,8 +1113,8 @@ TEST_F(ValuableSyncBridgeTest, EntityInstanceChanged_AddUpdate) {
       .WillOnce([](const std::string&,
                    std::unique_ptr<syncer::EntityData> entity_data,
                    syncer::MetadataChangeList*) {
-        EXPECT_FALSE(
-            entity_data->specifics.autofill_valuable().has_context_token());
+        EXPECT_FALSE(entity_data->specifics.autofill_valuable()
+                         .has_legal_message_token());
       });
   bridge().EntityInstanceChanged(
       EntityInstanceChange(EntityInstanceChange::UPDATE, vehicle.guid(),
@@ -996,8 +1122,8 @@ TEST_F(ValuableSyncBridgeTest, EntityInstanceChanged_AddUpdate) {
       /*context_token=*/std::nullopt);
 }
 
-// Tests that `EntityInstanceChanged()` includes the context token.
-TEST_F(ValuableSyncBridgeTest, EntityInstanceChanged_WithContextToken) {
+// Tests that `EntityInstanceChanged()` includes the legal message token.
+TEST_F(ValuableSyncBridgeTest, EntityInstanceChanged_WithLegalMessageToken) {
   ON_CALL(mock_processor(), IsTrackingMetadata).WillByDefault(Return(true));
   const EntityInstance vehicle = GetServerVehicleEntityInstance();
 
@@ -1006,8 +1132,9 @@ TEST_F(ValuableSyncBridgeTest, EntityInstanceChanged_WithContextToken) {
                            std::unique_ptr<syncer::EntityData> entity_data,
                            syncer::MetadataChangeList* metadata) {
         ASSERT_EQ(storage_key, vehicle.guid().value());
-        EXPECT_EQ(entity_data->specifics.autofill_valuable().context_token(),
-                  "test_token");
+        EXPECT_EQ(
+            entity_data->specifics.autofill_valuable().legal_message_token(),
+            "test_token");
       });
 
   bridge().EntityInstanceChanged(

@@ -714,10 +714,6 @@ gfx::GpuMemoryBufferType ClientSharedImage::GetGpuMemoryBufferType() const {
   return mappable_buffer_ ? mappable_buffer_->GetType() : gfx::EMPTY_BUFFER;
 }
 
-bool ClientSharedImage::SupportsZeroCopyWebGPUImport() const {
-  return mappable_buffer_ && mappable_buffer_->SupportsZeroCopyWebGPUImport();
-}
-
 gfx::GpuMemoryBufferHandle ClientSharedImage::CloneGpuMemoryBufferHandle()
     const {
   // Supported only if this ClientSI is backed by a MappableBuffer that is
@@ -782,18 +778,7 @@ void ClientSharedImage::CreateGpuFenceForSyncTokens(
     base::OnceCallback<void(std::unique_ptr<gfx::GpuFence>)> callback) {
   CHECK(gl && context_support);
 
-  if (base::FeatureList::IsEnabled(
-          features::kUseAutomaticSyncTokenManagement)) {
-    // Ignore the the input `sync_tokens`.
-    SyncToken dummy_sync_token;
-    for (auto& shared_image : shared_images) {
-      shared_image->WaitSyncTokenInternal(gl, dummy_sync_token);
-    }
-  } else {
-    for (auto& sync_token : sync_tokens) {
-      gl->WaitSyncTokenCHROMIUM(sync_token.GetConstData());
-    }
-  }
+  WaitSyncTokensInternal(std::move(shared_images), std::move(sync_tokens), gl);
 
   GLuint id = gl->CreateGpuFenceCHROMIUM();
   context_support->GetGpuFence(id, std::move(callback));
@@ -822,6 +807,27 @@ gpu::SyncToken ClientSharedImage::BackingWasExternallyUpdated(
 
   sii->UpdateSharedImage(SyncToken(), std::move(acquire_fence), mailbox());
   return StoreSyncTokenInternal(sii->GenUnverifiedSyncToken());
+}
+
+void ClientSharedImage::CopyToGpuMemoryBufferAsync(
+    const SyncToken& sync_token,
+    base::OnceCallback<void(bool)> callback) {
+  CHECK(sii_holder_);
+  auto sii = GetSharedImageInterface();
+  if (!sii) {
+    std::move(callback).Run(false);
+    return;
+  }
+
+  std::vector<SyncToken> sync_tokens;
+  if (base::FeatureList::IsEnabled(
+          features::kUseAutomaticSyncTokenManagement)) {
+    sync_tokens = CollectSyncTokens();
+  } else if (sync_token.HasData()) {
+    sync_tokens.push_back(sync_token);
+  }
+  sii->CopyToGpuMemoryBufferAsync(std::move(sync_tokens), mailbox(),
+                                  std::move(callback));
 }
 
 void ClientSharedImage::OnMemoryDump(
@@ -1066,6 +1072,27 @@ void ClientSharedImage::RunOnTaskRunner(
                std::move(result_cb));
 }
 
+void ClientSharedImage::WaitSyncTokenAndFinish(gles2::GLES2Interface* gl,
+                                               const SyncToken& sync_token) {
+  CHECK(gl);
+  if (!base::FeatureList::IsEnabled(
+          features::kUseAutomaticSyncTokenManagement) &&
+      !sync_token.HasData()) {
+    return;
+  }
+  WaitSyncTokenInternal(gl, sync_token);
+  gl->Finish();
+}
+
+void ClientSharedImage::WaitSyncTokenAndFinish(
+    std::vector<scoped_refptr<ClientSharedImage>> shared_images,
+    std::vector<SyncToken> sync_tokens,
+    gles2::GLES2Interface* gl) {
+  CHECK(gl);
+  WaitSyncTokensInternal(std::move(shared_images), std::move(sync_tokens), gl);
+  gl->Finish();
+}
+
 void ClientSharedImage::WaitSyncTokenInternal(InterfaceBase* ib,
                                               const SyncToken& sync_token) {
   if (base::FeatureList::IsEnabled(
@@ -1078,6 +1105,24 @@ void ClientSharedImage::WaitSyncTokenInternal(InterfaceBase* ib,
     }
   } else {
     ib->WaitSyncTokenCHROMIUM(sync_token.GetConstData());
+  }
+}
+
+void ClientSharedImage::WaitSyncTokensInternal(
+    std::vector<scoped_refptr<ClientSharedImage>> shared_images,
+    std::vector<SyncToken> sync_tokens,
+    InterfaceBase* ib) {
+  if (base::FeatureList::IsEnabled(
+          features::kUseAutomaticSyncTokenManagement)) {
+    // Ignore the input `sync_tokens`.
+    SyncToken dummy_sync_token;
+    for (auto& shared_image : shared_images) {
+      shared_image->WaitSyncTokenInternal(ib, dummy_sync_token);
+    }
+  } else {
+    for (auto& sync_token : sync_tokens) {
+      ib->WaitSyncTokenCHROMIUM(sync_token.GetConstData());
+    }
   }
 }
 

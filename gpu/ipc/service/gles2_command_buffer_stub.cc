@@ -79,9 +79,17 @@ gpu::ContextResult GLES2CommandBufferStub::Initialize(
 
   const auto& attribs = *init_params.attribs->get_gles();
 
-#if !BUILDFLAG(IS_WIN)
+#if BUILDFLAG(IS_WIN)
   if (attribs.context_type == CONTEXT_TYPE_OPENGLES2 &&
-      !channel_->is_gpu_host()) {
+      channel_->client_type() != viz::mojom::GpuClientType::kBrowser &&
+      channel_->client_type() != viz::mojom::GpuClientType::kXR) {
+    LOG(ERROR) << "ContextResult::kFatalFailure: CONTEXT_TYPE_OPENGLES2 is not "
+                  "allowed";
+    return gpu::ContextResult::kFatalFailure;
+  }
+#else
+  if (attribs.context_type == CONTEXT_TYPE_OPENGLES2 &&
+      channel_->client_type() != viz::mojom::GpuClientType::kBrowser) {
     LOG(ERROR) << "ContextResult::kFatalFailure: CONTEXT_TYPE_OPENGLES2 is not "
                   "allowed";
     return gpu::ContextResult::kFatalFailure;
@@ -404,7 +412,13 @@ void GLES2CommandBufferStub::GetGpuFenceHandle(
   if (manager->IsValidGpuFence(gpu_fence_id)) {
     std::unique_ptr<gfx::GpuFence> gpu_fence =
         manager->GetGpuFence(gpu_fence_id);
-    handle = gpu_fence->GetGpuFenceHandle().Clone();
+    if (gpu_fence) {
+      handle = gpu_fence->GetGpuFenceHandle().Clone();
+    } else {
+      DLOG(ERROR) << "Failed to retrieve GpuFence";
+      command_buffer_->SetParseError(error::kLostContext);
+      CheckContextLost();
+    }
   } else {
     // Retrieval failed. This shouldn't happen, force context loss to avoid
     // inconsistent state.

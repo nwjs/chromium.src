@@ -55,6 +55,7 @@ class HTMLSink : public UnderlyingSinkBase {
     CHECK(parser_);
     CHECK(root_insertion_point_);
     if (chunk.V8ValueFor(script_state)->IsSymbol()) {
+      parser_->StopParsing();
       exception_state.ThrowTypeError("Cannot stream symbols into HTML");
       return ToResolvedUndefinedPromise(script_state);
     }
@@ -64,12 +65,14 @@ class HTMLSink : public UnderlyingSinkBase {
         exception_state);
 
     if (exception_state.HadException()) {
+      parser_->StopParsing();
       return ToResolvedUndefinedPromise(script_state);
     }
 
     if (root_insertion_point_->ref_node &&
         root_insertion_point_->ref_node->parentNode() !=
             root_insertion_point_->target) {
+      parser_->StopParsing();
       exception_state.ThrowDOMException(
           DOMExceptionCode::kHierarchyRequestError,
           "The ref_node is no longer a child of the target.");
@@ -90,6 +93,7 @@ class HTMLSink : public UnderlyingSinkBase {
                                     ScriptValue reason,
                                     ExceptionState& exception_state) override {
     parser_->StopParsing();
+    parser_->Detach();
     return ToResolvedUndefinedPromise(script_state);
   }
 
@@ -135,10 +139,10 @@ WritableStream* HTMLStream::Create(ScriptState* script_state,
     return nullptr;
   }
 
-  if (!SanitizerAPI::AllowMutatingRootElement(sanitizer_mode, target)) {
-    exception_state.ThrowDOMException(
-        DOMExceptionCode::kNoModificationAllowedError,
-        "Cannot stream safely into a script element");
+  if (auto* element = DynamicTo<Element>(target);
+      element && element->IsScriptElement()) {
+    exception_state.ThrowDOMException(DOMExceptionCode::kNotSupportedError,
+                                      "Cannot stream into a script element");
     return nullptr;
   }
 
@@ -150,14 +154,27 @@ WritableStream* HTMLStream::Create(ScriptState* script_state,
   auto* root_insertion_point =
       MakeGarbageCollected<ParserRootInsertionPoint>(*target, ref_node);
 
-  Element* context_element = DynamicTo<Element>(target);
-  if (ShadowRoot* shadow = DynamicTo<ShadowRoot>(target)) {
+  // The target was validated above to be exactly one of: an Element, a
+  // ShadowRoot, or a <template>'s content DocumentFragment. Each needs a
+  // context element for fragment parsing and a custom element registry for
+  // constructing top-level custom elements.
+  Element* context_element = nullptr;
+  CustomElementRegistry* registry = nullptr;
+  if (auto* element = DynamicTo<Element>(target)) {
+    context_element = element;
+    registry = element->customElementRegistry();
+  } else if (auto* shadow = DynamicTo<ShadowRoot>(target)) {
+    // A shadow root may have its own scoped registry, distinct from its host's.
     context_element = &shadow->host();
-  } else if (is_template_content) {
+    registry = shadow->customElementRegistry();
+  } else {
+    CHECK(is_template_content);
+    // Template contents live in the inert template document, where custom
+    // elements are never constructed. Parse with the <template> element as
+    // context, but deliberately leave `registry` null.
     context_element =
         static_cast<TemplateContentDocumentFragment*>(target)->Host();
   }
-
   CHECK(context_element);
 
   auto* sanitizer = options.sanitizer_init()
@@ -168,15 +185,10 @@ WritableStream* HTMLStream::Create(ScriptState* script_state,
     return nullptr;
   }
 
-  // TODO(crbug.com/544919880): this call doesn't look correct. It should be a
-  // parser flag. See https://github.com/whatwg/html/issues/12652
-  target->GetDocument().setAllowDeclarativeShadowRoots(true);
-
   DocumentParser* parser = MakeGarbageCollected<HTMLDocumentParser>(
       target->GetDocument().createDocumentFragment(), context_element,
       parser_content_policy, ParserPrefetchPolicy::kDisallowPrefetching,
-      context_element->customElementRegistry(), sanitizer,
-      root_insertion_point);
+      registry, sanitizer, root_insertion_point);
 
   return WritableStream::CreateWithCountQueueingStrategy(
       script_state,

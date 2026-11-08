@@ -309,7 +309,6 @@ public class BottomBarView extends LinearLayout {
             case ActionId.HOME_BUTTON:
                 return mHomeContainer;
             case ActionId.GLIC:
-            case ActionId.AI_MODE:
                 return mExtraContainer;
             case ActionId.NEW_TAB:
                 return mNewTabContainer;
@@ -325,12 +324,10 @@ public class BottomBarView extends LinearLayout {
     /**
      * Inflates all ViewStubs in the bottom bar for testing purposes. This respects configuration
      * flags, so it will not inflate buttons that should not be present in the current configuration
-     * (e.g., Home or App Menu).
+     * (e.g., App Menu).
      */
     public void inflateAllStubsForTesting() {
-        if (BottomBarConfigUtils.shouldIncludeHomeButtonIfEnabled()) {
-            mHomeContainer.inflateStub();
-        }
+        mHomeContainer.inflateStub();
         mExtraContainer.inflateStub();
         mNewTabContainer.inflateStub();
         mTabSwitcherContainer.inflateStub();

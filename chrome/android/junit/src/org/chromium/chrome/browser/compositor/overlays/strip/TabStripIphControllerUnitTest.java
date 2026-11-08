@@ -31,6 +31,7 @@ import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 
+import org.chromium.base.ContextUtils;
 import org.chromium.base.Token;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.chrome.R;
@@ -59,7 +60,6 @@ public class TabStripIphControllerUnitTest {
     @Mock private UserEducationHelper mUserEducationHelper;
     @Mock private Resources mResources;
     @Mock private Tracker mTracker;
-    @Mock private View mContainerView;
     @Mock private StripLayoutView.StripLayoutViewOnClickHandler mClickHandler;
     @Mock private StripLayoutView.StripLayoutViewOnLongClickHandler mLongClickHandler;
     @Mock private StripLayoutView.StripLayoutViewOnKeyboardFocusHandler mKeyboardFocusHandler;
@@ -69,6 +69,7 @@ public class TabStripIphControllerUnitTest {
     @Mock
     private StripLayoutGroupTitle.StripLayoutGroupTitleDelegate mStripLayoutGroupTitleDelegate;
 
+    private final View mContainerView = new View(ContextUtils.getApplicationContext());
     private StripLayoutGroupTitle mGroupTitle;
     private StripLayoutTab mTab;
     private TabStripIphController mController;

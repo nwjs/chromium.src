@@ -150,7 +150,7 @@ void ScopedSVGPaintState::ApplyPaintPropertyState(
     filter_clip = nullptr;
   }
 
-  if (paint_info_.GetPaintFlags() & PaintFlag::kPrivacyPreserving) {
+  if (paint_info_.GetPaintFlags() & PaintFlag::kReadBackAllowedRendering) {
     while (effect && (effect->Unalias().IsInTaintedSubtree())) {
       filter_clip = nullptr;
       effect = effect->Parent();
@@ -201,7 +201,7 @@ ScopedSVGPaintState::PaintBehavior ScopedSVGPaintState::ComputePaintBehavior(
   if (paint_info.phase == PaintPhase::kForeground &&
       RuntimeEnabledFeatures::SvgFilterPaintsForHiddenContentEnabled() &&
       !paint_info.IsRenderingClipPathAsMaskImage() &&
-      object.StyleRef().Filter().HasReferenceFilter()) {
+      object.Style().Filter().HasReferenceFilter()) {
     return {PaintComponent::kReferenceFilter};
   }
 

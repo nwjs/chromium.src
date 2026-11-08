@@ -14,12 +14,7 @@ source_set("quick_answers") {
     "quick_answers_ui_controller.h",
   ]
 
-  configs += [ "//build/config/compiler:wexit_time_destructors" ]
-
-  public_deps = [
-    "//chrome/browser:browser_public_dependencies",
-    "//chrome/browser/ui/ash/quick_answers/ui",
-  ]
+  public_deps = [ "//chrome/browser/ui/ash/quick_answers/ui" ]
 
   # quick_answers_ui_controller.h/.cc includes headers owned by the ui:
   # target above, while its .cc files include quick_answers_ui_controller.h
@@ -76,7 +71,6 @@ source_set("unit_tests") {
     "//chrome/test:test_support",
     "//chrome/test/base:testing_browser_process",
     "//chromeos/components/kiosk",
-    "//chromeos/components/kiosk:test_support",
     "//chromeos/components/magic_boost/public/cpp",
     "//chromeos/components/magic_boost/test:fake_magic_boost_state",
     "//chromeos/components/quick_answers",

@@ -15,8 +15,6 @@ import android.graphics.drawable.Drawable;
 import androidx.annotation.IntDef;
 import androidx.annotation.VisibleForTesting;
 
-import jp.tomorrowkey.android.gifplayer.BaseGifImage;
-
 import org.chromium.base.Callback;
 import org.chromium.base.Log;
 import org.chromium.base.ObserverList;
@@ -25,7 +23,6 @@ import org.chromium.base.task.AsyncTask;
 import org.chromium.base.task.TaskTraits;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
-import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.logo.LogoBridge.Logo;
 import org.chromium.chrome.browser.logo.LogoBridge.LogoObserver;
 import org.chromium.chrome.browser.logo.LogoCoordinator.VisibilityObserver;
@@ -59,17 +56,26 @@ public class LogoMediator implements TemplateUrlServiceObserver {
 
     private static final String TAG = "Logo";
 
+    // This enum must match the numbering for NewTabPageLogoShown in enums.xml and
+    // LogoImpressionType in ntp_user_data_logger.h, which records the same histograms
+    // from the Android WebUI NTP and must therefore use an identical bucket layout.
+    // LINT.IfChange(LogoShownId)
     @IntDef({
         LogoShownId.STATIC_LOGO_SHOWN,
         LogoShownId.CTA_IMAGE_SHOWN,
+        LogoShownId.ANIMATED_LOGO_SHOWN,
         LogoShownId.LOGO_SHOWN_COUNT
     })
     @Retention(RetentionPolicy.SOURCE)
     private @interface LogoShownId {
         int STATIC_LOGO_SHOWN = 0;
         int CTA_IMAGE_SHOWN = 1;
-        int LOGO_SHOWN_COUNT = 2;
+        int ANIMATED_LOGO_SHOWN = 2;
+        int LOGO_SHOWN_COUNT = 3;
     }
+
+    // LINT.ThenChange(//chrome/browser/ui/search/ntp_user_data_logger.h:LogoImpressionType,
+    // //tools/metrics/histograms/metadata/new_tab_page/enums.xml:NewTabPageLogoShown)
 
     private static final String LOGO_SHOWN_TIME_UMA_NAME = "NewTabPage.LogoShownTime2";
 
@@ -404,46 +410,40 @@ public class LogoMediator implements TemplateUrlServiceObserver {
         }
 
         mImageFetcher.fetchGif(
-                ImageFetcher.Params.create(
+                ImageFetcher.Params.createFromTrustedSource(
                         mAnimatedLogoUrl, ImageFetcher.NTP_ANIMATED_LOGO_UMA_CLIENT_NAME),
                 (ImageDataFetchResult animatedLogoImageFetchResult) -> {
                     if (mLogoBridge == null || animatedLogoImageFetchResult.imageData == null) {
                         return;
                     }
 
-                    if (ChromeFeatureList.isEnabled(ChromeFeatureList.ANIMATED_GIF_REFACTOR)) {
-                        new AsyncTask<@Nullable Drawable>() {
-                            @Override
-                            protected @Nullable Drawable doInBackground() {
-                                try {
-                                    Drawable drawable =
-                                            ImageDecoder.decodeDrawable(
-                                                    ImageDecoder.createSource(
-                                                            ByteBuffer.wrap(
-                                                                    animatedLogoImageFetchResult
-                                                                            .imageData)));
-                                    if (!(drawable instanceof AnimatedImageDrawable)) {
-                                        Log.e(TAG, "Drawable is not animated.", drawable);
-                                        return null;
-                                    }
-                                    return drawable;
-                                } catch (IOException ex) {
-                                    Log.e(TAG, "Failed to parse logo", ex);
+                    new AsyncTask<@Nullable AnimatedImageDrawable>() {
+                        @Override
+                        protected @Nullable AnimatedImageDrawable doInBackground() {
+                            try {
+                                Drawable drawable =
+                                        ImageDecoder.decodeDrawable(
+                                                ImageDecoder.createSource(
+                                                        ByteBuffer.wrap(
+                                                                animatedLogoImageFetchResult
+                                                                        .imageData)));
+                                if (!(drawable instanceof AnimatedImageDrawable)) {
+                                    Log.e(TAG, "Drawable is not animated.", drawable);
                                     return null;
                                 }
+                                return (AnimatedImageDrawable) drawable;
+                            } catch (IOException ex) {
+                                Log.e(TAG, "Failed to parse logo", ex);
+                                return null;
                             }
+                        }
 
-                            @Override
-                            protected void onPostExecute(@Nullable Drawable result) {
-                                if (result == null) return;
-                                mLogoModel.set(LogoProperties.ANIMATED_LOGO, result);
-                            }
-                        }.executeWithTaskTraits(TaskTraits.USER_VISIBLE);
-                    } else {
-                        mLogoModel.set(
-                                LogoProperties.ANIMATED_LOGO,
-                                new BaseGifImage(animatedLogoImageFetchResult.imageData));
-                    }
+                        @Override
+                        protected void onPostExecute(@Nullable AnimatedImageDrawable result) {
+                            if (result == null) return;
+                            mLogoModel.set(LogoProperties.ANIMATED_LOGO, result);
+                        }
+                    }.executeWithTaskTraits(TaskTraits.USER_VISIBLE);
                 });
     }
 

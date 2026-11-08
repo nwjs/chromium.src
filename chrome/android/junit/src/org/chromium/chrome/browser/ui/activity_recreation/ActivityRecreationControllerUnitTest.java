@@ -5,6 +5,7 @@
 package org.chromium.chrome.browser.ui.activity_recreation;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.any;
@@ -23,7 +24,9 @@ import static org.chromium.chrome.browser.ui.activity_recreation.ActivityRecreat
 import android.content.Context;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.Parcel;
 import android.os.PersistableBundle;
+import android.view.View;
 
 import androidx.test.core.app.ApplicationProvider;
 
@@ -44,6 +47,7 @@ import org.chromium.base.supplier.OneshotSupplierImpl;
 import org.chromium.base.supplier.SettableMonotonicObservableSupplier;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Features.EnableFeatures;
+import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.ActivityTabProvider;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.layouts.LayoutManager;
@@ -69,7 +73,6 @@ public class ActivityRecreationControllerUnitTest {
     @Mock private Handler mHandler;
     @Mock private Tab mActivityTab;
     @Mock private WebContents mWebContents;
-    @Mock private ContentView mContentView;
     @Mock private KeyboardVisibilityDelegate mKeyboardVisibilityDelegate;
     @Mock private Bundle mSavedInstanceState;
     @Mock private ExclusiveAccessManager mExclusiveAccessManager;
@@ -77,12 +80,19 @@ public class ActivityRecreationControllerUnitTest {
     @Captor private ArgumentCaptor<Runnable> mRunnableCaptor;
     @Captor private ArgumentCaptor<AutocompleteInput> mAutocompleteInputCaptor;
 
+    private ContentView mContentView;
+    private View mSidePanelView;
     private final ActivityTabProvider mActivityTabProvider = new ActivityTabProvider();
     private ActivityRecreationController mActivityRecreationController;
+    private @Nullable View mSidePanelContentView;
 
     @Before
     public void setUp() {
         Context context = ApplicationProvider.getApplicationContext();
+        mContentView = ContentView.createContentView(context, /* webContents= */ null);
+        mSidePanelView = new View(context);
+        // A detached view is in touch mode on newer SDKs.
+        mSidePanelView.setFocusableInTouchMode(true);
         ViewAndroidDelegate viewAndroidDelegate =
                 ViewAndroidDelegate.createBasicDelegate(mContentView);
         KeyboardVisibilityDelegate.setInstanceForTesting(mKeyboardVisibilityDelegate);
@@ -201,6 +211,86 @@ public class ActivityRecreationControllerUnitTest {
         mActivityRecreationController.saveUiState(bundle);
         ActivityRecreationUiState uiState = bundle.getParcelable(ACTIVITY_RECREATION_UI_STATE);
         Assert.assertNull("UI state should not be saved", uiState);
+    }
+
+    @Test
+    public void testSaveUiState_sidePanelFocused() {
+        Bundle bundle = new Bundle();
+        mSidePanelContentView = mSidePanelView;
+        assertTrue(mSidePanelView.requestFocus());
+        mActivityRecreationController.prepareUiState();
+        mActivityRecreationController.saveUiState(bundle);
+        ActivityRecreationUiState uiState = bundle.getParcelable(ACTIVITY_RECREATION_UI_STATE);
+        Assert.assertNotNull("UI state should be saved", uiState);
+        assertTrue("Side panel should be focused", uiState.mIsSidePanelFocused);
+    }
+
+    @Test
+    public void testSaveUiState_sidePanelNotFocused() {
+        Bundle bundle = new Bundle();
+        mSidePanelContentView = mSidePanelView;
+        assertFalse(mSidePanelView.hasFocus());
+        mActivityRecreationController.prepareUiState();
+        mActivityRecreationController.saveUiState(bundle);
+        ActivityRecreationUiState uiState = bundle.getParcelable(ACTIVITY_RECREATION_UI_STATE);
+        Assert.assertNull("UI state should not be saved", uiState);
+    }
+
+    @Test
+    public void testUiState_sidePanelFocused_parcelRoundTrip() {
+        ActivityRecreationUiState uiState = new ActivityRecreationUiState();
+        uiState.mIsSidePanelFocused = true;
+        Parcel parcel = Parcel.obtain();
+        uiState.writeToParcel(parcel, 0);
+        parcel.setDataPosition(0);
+        ActivityRecreationUiState restored =
+                ActivityRecreationUiState.CREATOR.createFromParcel(parcel);
+        parcel.recycle();
+        assertTrue("Side panel focus should be restored", restored.mIsSidePanelFocused);
+    }
+
+    @Test
+    public void testRestoreUiState_sidePanelFocused_layoutPendingShow() {
+        ActivityRecreationUiState uiState = new ActivityRecreationUiState();
+        uiState.mIsSidePanelFocused = true;
+        doReturn(uiState).when(mSavedInstanceState).getParcelable(ACTIVITY_RECREATION_UI_STATE);
+        mActivityRecreationController.restoreUiState(mSavedInstanceState);
+        verify(mLayoutManager).addObserver(mLayoutStateObserverCaptor.capture());
+
+        // The side panel is shown by the time the layout is done showing.
+        mSidePanelContentView = mSidePanelView;
+        doReturn(true).when(mLayoutManager).isLayoutVisible(LayoutType.BROWSING);
+        mLayoutStateObserverCaptor.getValue().onFinishedShowing(LayoutType.BROWSING);
+        verify(mHandler).post(mRunnableCaptor.capture());
+        assertFalse(mSidePanelView.hasFocus());
+        mRunnableCaptor.getValue().run();
+        assertTrue(mSidePanelView.hasFocus());
+    }
+
+    @Test
+    public void testRestoreUiState_sidePanelFocused_nonBrowsingLayoutDoneShowing() {
+        ActivityRecreationUiState uiState = new ActivityRecreationUiState();
+        uiState.mIsSidePanelFocused = true;
+        doReturn(uiState).when(mSavedInstanceState).getParcelable(ACTIVITY_RECREATION_UI_STATE);
+        mActivityRecreationController.restoreUiState(mSavedInstanceState);
+        verify(mLayoutManager).addObserver(mLayoutStateObserverCaptor.capture());
+
+        mSidePanelContentView = mSidePanelView;
+        // A non-browsing layout (e.g. HUB) finishes showing.
+        mLayoutStateObserverCaptor.getValue().onFinishedShowing(LayoutType.HUB);
+        verify(mLayoutManager, never()).removeObserver(any());
+        verify(mHandler, never()).removeCallbacksAndMessages(any());
+        verify(mHandler, never()).post(any());
+
+        // Then BROWSING layout finishes showing.
+        doReturn(true).when(mLayoutManager).isLayoutVisible(LayoutType.BROWSING);
+        mLayoutStateObserverCaptor.getValue().onFinishedShowing(LayoutType.BROWSING);
+
+        verify(mHandler).post(mRunnableCaptor.capture());
+        assertFalse(mSidePanelView.hasFocus());
+        mRunnableCaptor.getValue().run();
+        verify(mLayoutManager).removeObserver(mLayoutStateObserverCaptor.getValue());
+        assertTrue(mSidePanelView.hasFocus());
     }
 
     @Test
@@ -430,19 +520,18 @@ public class ActivityRecreationControllerUnitTest {
 
     private void initializeSavedInstanceState(
             boolean urlBarFocused,
-            String urlBarText,
+            @Nullable String urlBarText,
             boolean keyboardVisible,
             boolean tabSwitcherVisible,
             boolean isPointerLock,
             boolean isKeyboardLock) {
-        ActivityRecreationUiState uiState =
-                new ActivityRecreationUiState(
-                        urlBarFocused,
-                        urlBarText,
-                        keyboardVisible,
-                        tabSwitcherVisible,
-                        isPointerLock,
-                        isKeyboardLock);
+        ActivityRecreationUiState uiState = new ActivityRecreationUiState();
+        uiState.mIsUrlBarFocused = urlBarFocused;
+        uiState.mUrlBarEditText = urlBarText;
+        uiState.mIsKeyboardShown = keyboardVisible;
+        uiState.mIsTabSwitcherShown = tabSwitcherVisible;
+        uiState.mIsPointerLocked = isPointerLock;
+        uiState.mIsKeyboardLocked = isKeyboardLock;
         doReturn(uiState).when(mSavedInstanceState).getParcelable(ACTIVITY_RECREATION_UI_STATE);
     }
 
@@ -458,6 +547,7 @@ public class ActivityRecreationControllerUnitTest {
                         layoutManagerSupplier,
                         mActivityTabProvider,
                         mHandler,
-                        mExclusiveAccessManager);
+                        mExclusiveAccessManager,
+                        () -> mSidePanelContentView);
     }
 }

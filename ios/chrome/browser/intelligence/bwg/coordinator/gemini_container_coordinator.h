@@ -6,21 +6,16 @@
 #define IOS_CHROME_BROWSER_INTELLIGENCE_BWG_COORDINATOR_GEMINI_CONTAINER_COORDINATOR_H_
 
 #import "ios/chrome/browser/shared/coordinator/chrome_coordinator/chrome_coordinator.h"
+
+class GURL;
 @class GeminiStartupState;
 
 // Coordinator for managing the presentation and lifecycle of the Gemini
 // Container.
 @interface GeminiContainerCoordinator : ChromeCoordinator
 
-// Initializes the coordinator with the given startup state, base view
-// controller, and browser.
-- (instancetype)initWithBaseViewController:(UIViewController*)viewController
-                                   browser:(Browser*)browser
-                              startupState:(GeminiStartupState*)startupState
-    NS_DESIGNATED_INITIALIZER;
-
-- (instancetype)initWithBaseViewController:(UIViewController*)viewController
-                                   browser:(Browser*)browser NS_UNAVAILABLE;
+// Startup state used to initialize the Gemini content.
+@property(nonatomic, strong) GeminiStartupState* startupState;
 
 // Dismisses the assistant container.
 - (void)dismissWithCompletion:(void (^)(void))completion;
@@ -28,6 +23,9 @@
 // Minimizes the assistant container to its smallest detent while keeping it
 // visible.
 - (void)minimize;
+
+// Presents `URL` in a web modal sheet over the Gemini container.
+- (void)showWebModalForURL:(const GURL&)URL;
 
 @end
 

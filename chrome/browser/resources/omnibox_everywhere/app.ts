@@ -13,7 +13,6 @@ import '//resources/cr_components/search/animated_glow.js';
 
 import type {ComposeboxState} from '//resources/cr_components/composebox/common.js';
 import type {ComposeboxVoiceSearchElement, VoicePermissionPromptState} from '//resources/cr_components/composebox/composebox_voice_search.js';
-import type {MostVisitedElement} from '//resources/cr_components/most_visited/most_visited.js';
 import {browserProxyFactory} from '//resources/cr_components/most_visited/most_visited.mojom-webui.js';
 import type {MostVisitedInfo} from '//resources/cr_components/most_visited/most_visited.mojom-webui.js';
 import type {SearchAnimatedGlowElement} from '//resources/cr_components/search/animated_glow.js';
@@ -50,13 +49,6 @@ export interface OmniboxEverywhereAppElement {
   $: {
     content: HTMLElement,
     dialogAnchor: HTMLElement,
-    searchbox: OmniboxEverywhereOmniboxElement,
-    composebox: OmniboxEverywhereComposeboxElement,
-    mostVisited: MostVisitedElement,
-    voiceSearchDialog: HTMLDialogElement,
-    voiceSearchCardContainer: HTMLElement,
-    voiceSearchGlow: SearchAnimatedGlowElement,
-    voiceSearch: ComposeboxVoiceSearchElement,
   };
 }
 
@@ -89,10 +81,6 @@ export class OmniboxEverywhereAppElement extends CrLitElement {
 
   static override get properties() {
     return {
-      omniboxPopupDebugEnabled_: {
-        type: Boolean,
-        reflect: true,
-      },
       isComposeboxMode_: {type: Boolean},
       searchboxLayoutMode_: {type: String},
       caretAnimationsEnabled_: {type: Boolean},
@@ -147,8 +135,6 @@ export class OmniboxEverywhereAppElement extends CrLitElement {
     };
   }
 
-  protected accessor omniboxPopupDebugEnabled_ =
-      loadTimeData.getBoolean('omniboxPopupDebugEnabled');
   protected accessor isHotkeyDropdownOpen_: boolean = false;
   protected accessor isActive_: boolean = true;
   protected accessor isComposeboxMode_: boolean = false;
@@ -791,7 +777,9 @@ export class OmniboxEverywhereAppElement extends CrLitElement {
     }
 
     if (this.isComposeboxMode_) {
-      const composebox = this.$.composebox;
+      const composebox =
+          this.shadowRoot.querySelector<OmniboxEverywhereComposeboxElement>(
+              '#composebox');
       if (composebox) {
         composebox.setInputText(trimmedQuery);
         if (submit) {
@@ -806,7 +794,9 @@ export class OmniboxEverywhereAppElement extends CrLitElement {
         }
       }
     } else {
-      const searchbox = this.$.searchbox;
+      const searchbox =
+          this.shadowRoot.querySelector<OmniboxEverywhereOmniboxElement>(
+              '#searchbox');
       if (searchbox) {
         searchbox.setInputText(trimmedQuery);
         if (submit) {

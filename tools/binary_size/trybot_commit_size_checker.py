@@ -6,7 +6,8 @@
 """Creates several files used by the size trybot to monitor size regressions.
 
 To test locally:
-1. Run diagnose_bloat.py to create some entries in out/binary-size-results
+1. Run diagnose_bloat.py --target=chrome_and_webview_32_minimal_apks to create
+   some entries in out/binary-size-results
 2. Run this script with:
 HASH1=some hash within out/binary-size-results
 HASH2=some hash within out/binary-size-results
@@ -16,7 +17,7 @@ tools/binary_size/trybot_commit_size_checker.py \
     --review-subject "Testing 123" \
     --review-url "https://google.com" \
     --size-config-json-name \
-        out/binary-size-build/config/Trichrome_size_config.json \
+        out/binary-size-build/config/ChromeAndWebView_size_config.json \
     --before-dir out/binary-size-results/$HASH1 \
     --after-dir out/binary-size-results/$HASH2 \
     --results-path output.json \
@@ -406,7 +407,7 @@ def _GenerateBinarySizePluginDetails(metrics, sizediff_filename):
       # The Gerrit plugin looks for this name to put it in the summary.
       name = 'Android Binary Size'
     elif log_name == _RESOURCE_SIZES_64_LOG:
-      name = 'Android Binary Size (arm64 high end) (TrichromeLibrary64.apk)'
+      name = 'Android Binary Size (arm64 high end)'
     listing = {
       'name': name,
       'delta': '{} {}'.format(_FormatNumber(delta.actual), delta.units),
@@ -442,7 +443,7 @@ def _FormatNumber(number):
 # return original filename. Basically allows comparing x_32 targets with x
 # targets built under 32bit target_cpu without failing the script due to
 # different file names. Remove once migration is complete.
-def _UseAlterantiveIfMissing(path):
+def _UseAlternativeIfMissing(path):
   if not os.path.isfile(path):
     parent, name = os.path.split(path)
     path = os.path.join(parent, name.replace('32', '', 1))
@@ -510,16 +511,16 @@ def main():
     config = json.load(fh)
 
   if args.local_test:
-    size_filename = 'Trichrome32.minimal.apks.size'
+    size_filename = 'ChromeAndWebView32.minimal.apks.size'
   else:
     size_filename = config['supersize_input_file'] + '.size'
 
   before_mapping_paths = [
-    _UseAlterantiveIfMissing(before_path_resolver(f))
+    _UseAlternativeIfMissing(before_path_resolver(f))
     for f in config['mapping_files']
   ]
   after_mapping_paths = [
-    _UseAlterantiveIfMissing(after_path_resolver(f))
+    _UseAlternativeIfMissing(after_path_resolver(f))
     for f in config['mapping_files']
   ]
 
@@ -530,8 +531,8 @@ def main():
 
   logging.info('Creating Supersize diff')
   supersize_diff_lines, delta_size_info = _CreateSupersizeDiff(
-    _UseAlterantiveIfMissing(before_path_resolver(size_filename)),
-    _UseAlterantiveIfMissing(after_path_resolver(size_filename)),
+    _UseAlternativeIfMissing(before_path_resolver(size_filename)),
+    _UseAlternativeIfMissing(after_path_resolver(size_filename)),
     args.review_subject,
     args.review_url,
   )
@@ -568,18 +569,18 @@ def main():
   resources_diff_lines = []
   if unused_resources_paths and r_txt_paths:
     unused_resources_before_paths = [
-      _UseAlterantiveIfMissing(before_path_resolver(p))
+      _UseAlternativeIfMissing(before_path_resolver(p))
       for p in unused_resources_paths
     ]
     unused_resources_after_paths = [
-      _UseAlterantiveIfMissing(after_path_resolver(p))
+      _UseAlternativeIfMissing(after_path_resolver(p))
       for p in unused_resources_paths
     ]
     r_txt_before_paths = [
-      _UseAlterantiveIfMissing(before_path_resolver(p)) for p in r_txt_paths
+      _UseAlternativeIfMissing(before_path_resolver(p)) for p in r_txt_paths
     ]
     r_txt_after_paths = [
-      _UseAlterantiveIfMissing(after_path_resolver(p)) for p in r_txt_paths
+      _UseAlternativeIfMissing(after_path_resolver(p)) for p in r_txt_paths
     ]
     resources_diff_lines = _CreateResourceDiffLines(
       unused_resources_before_paths,

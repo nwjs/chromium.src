@@ -16,8 +16,6 @@ static_library("quick_insert") {
     "quick_insert_thumbnail_loader.h",
   ]
 
-  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
-
   deps = [
     "//ash",
     "//ash/constants",
@@ -34,10 +32,10 @@ static_library("quick_insert") {
     "//chrome/browser/ash/input_method",
     "//chrome/browser/ash/lobster",
     "//chrome/browser/ash/login/session",
-    "//chrome/browser/bookmarks",
     "//chrome/browser/profiles:profile",
     "//chrome/browser/ui/ash/thumbnail_loader",
     "//chrome/common",
+    "//chromeos/ash/components/bookmarks:bookmark_model_provider",
     "//chromeos/ash/components/browser_context_helper",
     "//chromeos/ash/components/drivefs/mojom",
     "//chromeos/ash/components/editor_menu/public/cpp",
@@ -77,12 +75,13 @@ source_set("unit_tests") {
     "//chrome/browser/ash/fileapi",
     "//chrome/browser/ash/fileapi/test:test_support",
     "//chrome/browser/ash/input_method",
+    "//chrome/browser/bookmarks",
     "//chrome/browser/history",
     "//chrome/browser/search_engines",
-    "//chrome/browser/ui",
     "//chrome/browser/ui/webui/ash/mako",
     "//chrome/common",
     "//chrome/test:test_support",
+    "//chrome/test/base:browser_with_test_window_test",
     "//chrome/test/base:testing_browser_process",
     "//chromeos/ash/components/disks",
     "//chromeos/ash/components/disks:test_support",
@@ -130,7 +129,6 @@ source_set("browser_tests") {
     "//chrome/browser/bookmarks",
     "//chrome/browser/history",
     "//chrome/browser/profiles:profile",
-    "//chrome/browser/ui",
     "//chrome/test:test_support",
     "//components/bookmarks/browser",
     "//components/bookmarks/test",
@@ -162,7 +160,6 @@ if (!is_chromeos_device) {
       "//chrome/browser/ash/accessibility",
       "//chrome/browser/ash/accessibility:test_support",
       "//chrome/browser/history",
-      "//chrome/browser/ui",
       "//chrome/browser/ui/interaction",
       "//chrome/test/base/ash/interactive:test_support",
       "//content/test:test_support",

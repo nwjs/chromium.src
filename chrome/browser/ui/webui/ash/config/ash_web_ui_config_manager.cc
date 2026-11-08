@@ -5,6 +5,7 @@
 #include "chrome/browser/ui/webui/ash/config/ash_web_ui_config_manager.h"
 
 #include <memory>
+#include <ranges>
 #include <utility>
 
 #include "ash/constants/ash_features.h"
@@ -45,7 +46,6 @@
 #include "base/check_deref.h"
 #include "base/check_is_test.h"
 #include "base/check_op.h"
-#include "base/containers/adapters.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
 #include "base/sequence_checker.h"
@@ -53,7 +53,6 @@
 #include "chrome/browser/app_mode/app_mode_utils.h"
 #include "chrome/browser/ash/annotator/untrusted_annotator_ui_config.h"
 #include "chrome/browser/ash/boca/receiver/receiver_handler_delegate_impl.h"
-#include "chrome/browser/ash/borealis/borealis_motd_ui_impl.h"
 #include "chrome/browser/ash/diagnostics/system_routine_controller_delegate_impl.h"
 #include "chrome/browser/ash/eche_app/eche_app_manager_factory.h"
 #include "chrome/browser/ash/login/demo_mode/demo_session.h"
@@ -83,7 +82,6 @@
 #include "chrome/browser/ash/system_web_apps/apps/vc_background_ui/vc_background_ui_utils.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/feedback/feedback_dialog_utils.h"
-#include "chrome/browser/global_features.h"
 #include "chrome/browser/ui/ash/holding_space/holding_space_keyed_service.h"
 #include "chrome/browser/ui/ash/holding_space/holding_space_keyed_service_factory.h"
 #include "chrome/browser/ui/select_file_policy/chrome_select_file_policy.h"
@@ -138,8 +136,9 @@
 #include "chromeos/ash/components/browser_context_helper/annotated_account_id.h"
 #include "chromeos/ash/components/consent_auditor/consent_auditor_provider.h"
 #include "chromeos/ash/components/install_attributes/install_attributes.h"
+#include "chromeos/ash/components/manta/manta_service_provider.h"
+#include "chromeos/ash/components/media_device_salt/media_device_salt_service_provider.h"
 #include "chromeos/ash/components/signin/identity_manager_provider.h"
-#include "chromeos/ash/experiences/guest_os/borealis/motd/borealis_motd_ui.h"
 #include "components/application_locale_storage/application_locale_storage.h"
 #include "content/public/browser/webui_config.h"
 #include "content/public/browser/webui_config_map.h"
@@ -270,9 +269,32 @@ std::unique_ptr<content::WebUIConfig> MakeHelpAppUIConfig(
   return std::make_unique<HelpAppUIConfig>(create_controller_func);
 }
 
-std::unique_ptr<content::WebUIConfig> MakeRecorderAppUIConfig() {
+std::unique_ptr<content::WebUIConfig> MakeCameraAppUIConfig() {
   CreateWebUIControllerFunc create_controller_func = base::BindRepeating(
       [](content::WebUI* web_ui,
+         const GURL& url) -> std::unique_ptr<content::WebUIController> {
+        Profile* profile = Profile::FromWebUI(web_ui);
+        const AccountId& account_id =
+            CHECK_DEREF(AnnotatedAccountId::Get(profile->GetOriginalProfile()));
+        return std::make_unique<CameraAppUI>(
+            web_ui, std::make_unique<ChromeCameraAppUIDelegate>(web_ui),
+            MediaDeviceSaltServiceProvider::Get().Find(account_id));
+      });
+
+  return std::make_unique<CameraAppUIConfig>(create_controller_func);
+}
+
+// `local_state` and `application_locale_storage` must not be null and must
+// outlive the returned config.
+std::unique_ptr<content::WebUIConfig> MakeRecorderAppUIConfig(
+    PrefService* local_state,
+    const ApplicationLocaleStorage* application_locale_storage) {
+  CHECK(local_state);
+  CHECK(application_locale_storage);
+  CreateWebUIControllerFunc create_controller_func = base::BindRepeating(
+      [](PrefService* local_state,
+         const ApplicationLocaleStorage* application_locale_storage,
+         content::WebUI* web_ui,
          const GURL& url) -> std::unique_ptr<content::WebUIController> {
         Profile* profile = Profile::FromWebUI(web_ui);
         const AccountId& account_id =
@@ -281,15 +303,19 @@ std::unique_ptr<content::WebUIConfig> MakeRecorderAppUIConfig() {
             IdentityManagerProvider::Get().Find(account_id);
         consent_auditor::ConsentAuditor* consent_auditor =
             ConsentAuditorProvider::Get().Find(account_id);
+        media_device_salt::MediaDeviceSaltService* media_device_salt_service =
+            MediaDeviceSaltServiceProvider::Get().Find(account_id);
 
         auto delegate = std::make_unique<ChromeRecorderAppUIDelegate>(
-            g_browser_process->local_state(),
-            g_browser_process->GetFeatures()->application_locale_storage(),
-            g_browser_process->variations_service(),
+            application_locale_storage, g_browser_process->variations_service(),
             user_manager::UserManager::Get(), account_id, identity_manager,
             consent_auditor);
-        return std::make_unique<RecorderAppUI>(web_ui, std::move(delegate));
-      });
+        return std::make_unique<RecorderAppUI>(
+            local_state, web_ui, std::move(delegate),
+            CHECK_DEREF(media_device_salt_service));
+      },
+      base::Unretained(local_state),
+      base::Unretained(application_locale_storage));
 
   return std::make_unique<RecorderAppUIConfig>(create_controller_func);
 }
@@ -339,6 +365,23 @@ std::unique_ptr<content::WebUIConfig> MakeOSFeedbackUIConfig(
   return std::make_unique<OSFeedbackUIConfig>(create_controller_func);
 }
 
+// `local_state` must be non-null and must outlive the returned config.
+std::unique_ptr<content::WebUIConfig> MakeShimlessRMADialogUIConfig(
+    PrefService* local_state) {
+  CreateWebUIControllerFunc create_controller_func = base::BindRepeating(
+      [](PrefService* local_state, content::WebUI* web_ui,
+         const GURL& url) -> std::unique_ptr<content::WebUIController> {
+        auto delegate =
+            std::make_unique<shimless_rma::ChromeShimlessRmaDelegate>(
+                local_state);
+        return std::make_unique<ShimlessRMADialogUI>(web_ui,
+                                                     std::move(delegate));
+      },
+      base::Unretained(local_state));
+
+  return std::make_unique<ShimlessRMADialogUIConfig>(create_controller_func);
+}
+
 }  // namespace
 
 // static
@@ -381,8 +424,7 @@ void AshWebUIConfigManager::RegisterWebUIConfigs() {
   // All `WebUIConfig`s should be registered here, irrespective of whether their
   // `WebUI` is enabled or not. To conditionally enable/disable a WebUI,
   // developers should override `WebUIConfig::IsWebUIEnabled()`.
-  AddWebUIConfig(MakeComponentConfigWithDelegate<CameraAppUIConfig, CameraAppUI,
-                                                 ChromeCameraAppUIDelegate>());
+  AddWebUIConfig(MakeCameraAppUIConfig());
   AddWebUIConfig(std::make_unique<cellular_setup::MobileSetupUIConfig>(
       &application_locale_storage_.get()));
   AddWebUIConfig(std::make_unique<chromeos::ChromeURLDisabledUIConfig>());
@@ -397,7 +439,6 @@ void AshWebUIConfigManager::RegisterWebUIConfigs() {
       &application_locale_storage_.get()));
   AddWebUIConfig(std::make_unique<BluetoothPairingDialogUIConfig>());
   AddWebUIConfig(std::make_unique<BocaReceiverUIConfig>());
-  AddWebUIConfig(std::make_unique<borealis::BorealisMOTDUIConfig>());
   AddWebUIConfig(std::make_unique<cloud_upload::CloudUploadUIConfig>());
   AddWebUIConfig(std::make_unique<ColorInternalsUIConfig>());
   AddWebUIConfig(std::make_unique<ConfirmPasswordChangeUIConfig>());
@@ -459,7 +500,23 @@ void AshWebUIConfigManager::RegisterWebUIConfigs() {
   AddWebUIConfig(
       std::make_unique<personalization_app::PersonalizationAppUIConfig>(
           base::BindRepeating(
-              personalization_app::CreatePersonalizationAppUI)));
+              [](const ApplicationLocaleStorage* application_locale_storage,
+                 scoped_refptr<network::SharedURLLoaderFactory>
+                     shared_url_loader_factory,
+                 content::WebUI* web_ui,
+                 const GURL& url) -> std::unique_ptr<content::WebUIController> {
+                Profile* profile = Profile::FromWebUI(web_ui);
+                const AccountId& account_id = CHECK_DEREF(
+                    AnnotatedAccountId::Get(profile->GetOriginalProfile()));
+                manta::MantaService* manta_service =
+                    MantaServiceProvider::Get().Find(account_id);
+                return personalization_app::CreatePersonalizationAppUI(
+                    application_locale_storage,
+                    std::move(shared_url_loader_factory), web_ui, url,
+                    manta_service);
+              },
+              base::Unretained(&application_locale_storage_.get()),
+              shared_url_loader_factory_)));
   AddWebUIConfig(std::make_unique<PowerUIConfig>());
   AddWebUIConfig(
       std::make_unique<printing::printing_manager::PrintManagementUIConfig>(
@@ -467,7 +524,8 @@ void AshWebUIConfigManager::RegisterWebUIConfigs() {
               &printing::print_management::PrintingManagerFactory::
                   CreatePrintManagementUIController)));
   AddWebUIConfig(std::make_unique<multidevice::ProximityAuthUIConfig>());
-  AddWebUIConfig(MakeRecorderAppUIConfig());
+  AddWebUIConfig(MakeRecorderAppUIConfig(&local_state_.get(),
+                                         &application_locale_storage_.get()));
   AddWebUIConfig(
       std::make_unique<RemoteMaintenanceCurtainUIConfig>(&local_state_.get()));
   AddWebUIConfig(
@@ -476,9 +534,7 @@ void AshWebUIConfigManager::RegisterWebUIConfigs() {
   AddWebUIConfig(MakeComponentConfigWithDelegate<ScanningUIConfig, ScanningUI,
                                                  ChromeScanningAppDelegate>());
   AddWebUIConfig(std::make_unique<SetTimeUIConfig>(&local_state_.get()));
-  AddWebUIConfig(MakeComponentConfigWithDelegate<
-                 ShimlessRMADialogUIConfig, ShimlessRMADialogUI,
-                 shimless_rma::ChromeShimlessRmaDelegate>());
+  AddWebUIConfig(MakeShimlessRMADialogUIConfig(&local_state_.get()));
   AddWebUIConfig(std::make_unique<ShortcutCustomizationAppUIConfig>());
   AddWebUIConfig(std::make_unique<SlowTraceControllerConfig>());
   AddWebUIConfig(std::make_unique<SlowUIConfig>());
@@ -489,7 +545,24 @@ void AshWebUIConfigManager::RegisterWebUIConfigs() {
                  policy::local_user_files::LocalFilesMigrationUIConfig>());
   AddWebUIConfig(std::make_unique<UrgentPasswordExpiryNotificationUIConfig>());
   AddWebUIConfig(std::make_unique<vc_background_ui::VcBackgroundUIConfig>(
-      base::BindRepeating(vc_background_ui::CreateVcBackgroundUI)));
+      base::BindRepeating(
+          [](const ApplicationLocaleStorage* application_locale_storage,
+             scoped_refptr<network::SharedURLLoaderFactory>
+                 shared_url_loader_factory,
+             content::WebUI* web_ui,
+             const GURL& url) -> std::unique_ptr<content::WebUIController> {
+            Profile* profile = Profile::FromWebUI(web_ui);
+            const AccountId& account_id = CHECK_DEREF(
+                AnnotatedAccountId::Get(profile->GetOriginalProfile()));
+            manta::MantaService* manta_service =
+                MantaServiceProvider::Get().Find(account_id);
+            return vc_background_ui::CreateVcBackgroundUI(
+                application_locale_storage,
+                std::move(shared_url_loader_factory), web_ui, url,
+                manta_service);
+          },
+          base::Unretained(&application_locale_storage_.get()),
+          shared_url_loader_factory_)));
   AddWebUIConfig(std::make_unique<GrowthInternalsUIConfig>());
   AddWebUIConfig(
       std::make_unique<FloatingWorkspaceUIConfig>(&local_state_.get()));
@@ -514,7 +587,8 @@ void AshWebUIConfigManager::RegisterUntrustedWebUIConfigs() {
   AddUntrustedWebUIConfig(
       std::make_unique<eche_app::UntrustedEcheAppUIConfig>());
   AddUntrustedWebUIConfig(std::make_unique<MediaAppGuestUIConfig>());
-  AddUntrustedWebUIConfig(std::make_unique<HelpAppUntrustedUIConfig>());
+  AddUntrustedWebUIConfig(std::make_unique<HelpAppUntrustedUIConfig>(
+      &application_locale_storage_.get()));
   AddUntrustedWebUIConfig(std::make_unique<CameraAppUntrustedUIConfig>());
   AddUntrustedWebUIConfig(
       std::make_unique<HelpAppKidsMagazineUntrustedUIConfig>());
@@ -554,7 +628,7 @@ void AshWebUIConfigManager::AddUntrustedWebUIConfig(
 
 void AshWebUIConfigManager::Unregister() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  for (const auto& url : base::Reversed(registered_urls_to_unregister_)) {
+  for (const auto& url : std::views::reverse(registered_urls_to_unregister_)) {
     CHECK(content::WebUIConfigMap::GetInstance().RemoveConfig(url));
   }
   registered_urls_to_unregister_.clear();

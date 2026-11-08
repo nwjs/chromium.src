@@ -12,6 +12,7 @@
 #include "base/state_transitions.h"
 #include "net/http/http_no_vary_search_data.h"
 #include "services/network/public/mojom/no_vary_search.mojom-blink.h"
+#include "third_party/blink/public/common/dom/dom_node_id.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/mojom/use_counter/metrics/web_feature.mojom-shared.h"
 #include "third_party/blink/public/platform/browser_interface_broker_proxy.h"
@@ -23,6 +24,7 @@
 #include "third_party/blink/renderer/core/execution_context/agent.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
 #include "third_party/blink/renderer/core/frame/event_handler_registry.h"
+#include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/html/anchor_element_utils.h"
 #include "third_party/blink/renderer/core/html/html_anchor_element.h"
@@ -165,7 +167,7 @@ std::optional<Referrer> GetReferrer(const SpeculationRule* rule,
         mojom::blink::ConsoleMessageSource::kOther,
         mojom::blink::ConsoleMessageLevel::kWarning,
         MakeReferrerWarning(action, url, referrer, link));
-    Vector<DOMNodeId> nodes;
+    Vector<DOMNodeIdType> nodes;
     if (rule_set.source()->GetNodeId()) {
       nodes.push_back(*rule_set.source()->GetNodeId());
     }

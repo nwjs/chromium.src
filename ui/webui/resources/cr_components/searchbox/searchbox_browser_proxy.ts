@@ -12,9 +12,10 @@
  * these Mojo-based searchbox types.
  */
 
-import {SuggestStyle} from '//resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 import type {Action, AutocompleteMatch, AutocompleteResult, InputKeywordModel, MatchKeywordModel, PageHandlerInterface} from '//resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 import {KeywordType, PageCallbackRouter, PageHandlerFactory, PageHandlerRemote} from '//resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
+import {ColorType, IconType, SecondaryTextPlacement, SuggestStyle} from '//resources/mojo/components/omnibox/browser/suggest_template_info.mojom-webui.js';
+import type {FormattedString, FormattedStringFragment, SuggestTemplateInfo} from '//resources/mojo/components/omnibox/browser/suggest_template_info.mojom-webui.js';
 
 export function createAutocompleteMatch(
     modifiers: Partial<AutocompleteMatch> = {}): AutocompleteMatch {
@@ -26,27 +27,42 @@ export function createAutocompleteMatch(
     isSearchType: false,
     isEnterpriseSearchAggregatorPeopleType: false,
     showContextualDescription: false,
+    descriptionIconPath: '',
     supportsDeletion: false,
     suggestionGroupId: -1,
-    contents: '',
-    contentsClass: [{offset: 0, style: 0}],
-    description: '',
-    descriptionClass: [{offset: 0, style: 0}],
     destinationUrl: '',
     inlineAutocompletion: '',
     fillIntoEdit: '',
     iconPath: '',
     iconUrl: '',
-    imageDominantColor: '',
-    imageUrl: '',
     isContextualSuggestion: false,
     removeButtonA11yLabel: '',
     type: '',
-    isTwoRowSuggestion: false,
     tailSuggestCommonPrefix: null,
     keywordModel: null,
+    suggestTemplate: createSuggestTemplateInfo(),
+    urlEmphasis: null,
+  };
+
+  return Object.assign(base, modifiers);
+}
+
+export function createFormattedString(
+    text: string = '',
+    fragments: FormattedStringFragment[] = []): FormattedString {
+  return {text, fragments, a11yText: null};
+}
+
+export function createSuggestTemplateInfo(
+    modifiers: Partial<SuggestTemplateInfo> = {}): SuggestTemplateInfo {
+  const base: SuggestTemplateInfo = {
+    primaryText: createFormattedString(),
+    secondaryText: createFormattedString(),
+    secondaryTextPlacement: SecondaryTextPlacement.kUnspecified,
+    image: null,
+    style: SuggestStyle.kUnspecified,
+    typeIcon: IconType.kIconTypeUnspecified,
     fuseboxAction: null,
-    suggestStyle: SuggestStyle.kUnspecified,
   };
 
   return Object.assign(base, modifiers);
@@ -69,15 +85,20 @@ export function createAutocompleteResultForTesting(
 
 export function createSearchMatchForTesting(
     modifiers: Partial<AutocompleteMatch> = {}): AutocompleteMatch {
+  const dimFragment: FormattedStringFragment = {
+    startIndex: 0,
+    color: ColorType.kOnSurfaceDeemphasis,
+    isBolded: false,
+  };
   const base = createAutocompleteMatch({
     isSearchType: true,
-    contents: 'hello world',
-    contentsClass: [{offset: 0, style: 0}],
-    description: 'Google search',
-    descriptionClass: [{offset: 0, style: 4}],
     destinationUrl: 'https://www.google.com/search?q=hello+world',
     fillIntoEdit: 'hello world',
     type: 'search-what-you-typed',
+    suggestTemplate: createSuggestTemplateInfo({
+      primaryText: createFormattedString('hello world'),
+      secondaryText: createFormattedString('Google search', [dimFragment]),
+    }),
   });
 
   return Object.assign(base, modifiers);

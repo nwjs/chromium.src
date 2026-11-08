@@ -48,7 +48,6 @@ source_set("impl") {
     "//content/public/browser",
     "//extensions/buildflags",
   ]
-  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
 
   if (enable_extensions) {
     deps += [ "//chrome/browser/apps/app_service" ]
@@ -134,7 +133,6 @@ if (!is_android && !is_chromeos_device) {
         ":sync",
         "//base",
         "//base/test:test_support",
-        "//chrome/browser/ui",
         "//chrome/common",
         "//chrome/test:test_support_ui",
         "//content/test:test_support",

@@ -41,7 +41,6 @@ mojom("mojom") {
   }
 
   public_deps = [
-    ":hdr_metadata",
     ":native_handle_types",
     "//mojo/public/mojom/base",
     "//services/viz/public/mojom/compositing:shared_image_format",
@@ -536,10 +535,6 @@ mojom("hdr_metadata") {
   cpp_typemaps = [
     {
       types = [
-        {
-          mojom = "gfx.mojom.HdrMetadataExtendedRange"
-          cpp = "::gfx::HdrMetadataExtendedRange"
-        },
         {
           mojom = "gfx.mojom.HDRMetadata"
           cpp = "::gfx::HDRMetadata"

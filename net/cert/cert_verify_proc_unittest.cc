@@ -3525,8 +3525,10 @@ TEST_P(CertVerifyProcInternalWithNetFetchingTest,
   CertVerifyResult verify_result;
   int error = Verify(chain.get(), kHostname, flags, &verify_result);
 
-  // Should fail, leaf is revoked.
-  EXPECT_THAT(error, IsError(ERR_CERT_REVOKED));
+  // Verification should succeed: SHA-1 signature algorithm is not supported
+  // and soft-fail checking will ignore the inability to get revocation
+  // status.
+  EXPECT_THAT(error, IsOk());
   EXPECT_TRUE(verify_result.cert_status & CERT_STATUS_REV_CHECKING_ENABLED);
 }
 
@@ -4630,8 +4632,13 @@ TEST_P(CertVerifyProcConstraintsTest,
        ExtendedKeyUsageNoServerAuthIntermediate) {
   chain_[2]->SetExtendedKeyUsages({bssl::der::Input(bssl::kCodeSigning)});
 
-  if (verify_proc_type() == CERT_VERIFY_PROC_ANDROID ||
-      VerifyProcTypeIsIOSAtMostOS15()) {
+  if (verify_proc_type() == CERT_VERIFY_PROC_ANDROID) {
+    // Depending on the Conscrypt version, intermediate EKU constraints
+    // may or may not be enforced as ag/41604313 changed the
+    // parsing to be more strict.
+    EXPECT_THAT(Verify(),
+                testing::AnyOf(IsOk(), IsError(ERR_CERT_AUTHORITY_INVALID)));
+  } else if (VerifyProcTypeIsIOSAtMostOS15()) {
     EXPECT_THAT(Verify(), IsOk());
   } else {
     EXPECT_THAT(Verify(), IsError(ERR_CERT_INVALID));

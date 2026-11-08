@@ -31,7 +31,7 @@ const char kQuickenSiteSearchExpiryForTesting[] =
     "quicken-site-search-expiry-for-testing";
 
 BASE_FEATURE(kVisitCustomSearchOnUndefaulting,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kIgnoreSearchProviderOverrides, base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -77,7 +77,7 @@ const base::FeatureParam<std::string> kSearchEngineChoiceTriggerRepromptParams{
 
 
 BASE_FEATURE(kWipeChoicePrefsOnMissingDefaultSearchEngine,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kPrefetchParameterFix, base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -95,7 +95,7 @@ BASE_FEATURE(kClankDefaultSearchApi, base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kKwdbRefreshDebugging, base::FEATURE_DISABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_ANDROID)
-BASE_FEATURE(kApplyDeviceChoiceRenewal, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kApplyDeviceChoiceRenewal, base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_ANDROID)
 
 #if !BUILDFLAG(IS_ANDROID)

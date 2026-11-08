@@ -101,7 +101,7 @@ public class ActorTabStateHelper {
         List<BackgroundSession> sessions = new ArrayList<>();
         TabGroupSyncService syncService = getTabGroupSyncService(model);
 
-        for (Tab originalTab : model) {
+        for (Tab originalTab : TabModelUtils.convertTabListToListOfTabs(model)) {
             if (originalTab == null) continue;
 
             Integer taskId = activeTabIdToTaskId.get(originalTab.getId());
@@ -299,7 +299,7 @@ public class ActorTabStateHelper {
             int destinationTabId) {
         if (syncService == null || !ActorUtils.isTabGroupSyncHandlingEnabled()) return;
         LocalTabGroupId localTabGroupId = TabGroupSyncUtils.getLocalTabGroupId(sourceTab);
-        if (localTabGroupId == null || !model.tabGroupExists(localTabGroupId.tabGroupId)) return;
+        if (localTabGroupId == null || !model.containsTabGroup(localTabGroupId.tabGroupId)) return;
 
         SavedTabGroup savedGroup = syncService.getGroup(localTabGroupId);
         if (savedGroup == null) return;

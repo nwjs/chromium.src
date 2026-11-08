@@ -6,17 +6,19 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <iterator>
 #include <map>
 #include <memory>
 #include <optional>
-#include <variant>
+#include <string>
+#include <utility>
 
 #include "base/barrier_closure.h"
 #include "base/base64.h"
+#include "base/containers/flat_set.h"
 #include "base/feature_list.h"
 #include "base/functional/callback.h"
 #include "base/functional/callback_helpers.h"
-#include "base/metrics/histogram_functions.h"
 #include "base/no_destructor.h"
 #include "base/notimplemented.h"
 #include "base/numerics/safe_conversions.h"
@@ -27,12 +29,16 @@
 #include "base/unguessable_token.h"
 #include "chrome/browser/actor/actor_keyed_service.h"
 #include "chrome/browser/actor/actor_metrics.h"
+#include "chrome/browser/actor/actor_surface.h"
 #include "chrome/browser/actor/actor_task.h"
+#include "chrome/browser/actor/tool_request_variant.h"
 #include "chrome/browser/actor/tools/attempt_form_filling_tool_request.h"
 #include "chrome/browser/actor/tools/attempt_login_tool_request.h"
 #include "chrome/browser/actor/tools/attempt_otp_filling_tool_request.h"
+#include "chrome/browser/actor/tools/change_password_tool_request.h"
 #include "chrome/browser/actor/tools/click_tool_request.h"
 #include "chrome/browser/actor/tools/drag_and_release_tool_request.h"
+#include "chrome/browser/actor/tools/file_upload_tool_request.h"
 #include "chrome/browser/actor/tools/history_tool_request.h"
 #include "chrome/browser/actor/tools/load_and_extract_content_tool_request.h"
 #include "chrome/browser/actor/tools/media_control_tool_request.h"
@@ -76,6 +82,8 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/content_features.h"
 #include "net/base/schemeful_site.h"
+#include "third_party/abseil-cpp/absl/container/flat_hash_set.h"
+#include "third_party/abseil-cpp/absl/functional/overload.h"
 #include "ui/base/window_open_disposition.h"
 
 #if !BUILDFLAG(SKIP_ANDROID_UNMIGRATED_ACTOR_FILES)
@@ -99,7 +107,9 @@ using apc::ActivateWindowAction;
 using apc::AttemptFormFillingAction;
 using apc::AttemptLoginAction;
 using apc::AttemptOtpFillingAction;
+using apc::ChangePasswordAction;
 using apc::ClickAction;
+using apc::ClickToUploadAction;
 using apc::CloseTabAction;
 using apc::CloseWindowAction;
 using apc::CreateTabAction;
@@ -503,7 +513,46 @@ std::unique_ptr<ToolRequest> CreateLoadAndExtractContentRequest(
 
   return std::make_unique<LoadAndExtractContentToolRequest>(std::move(urls));
 }
+
 #endif  // !BUILDFLAG(SKIP_ANDROID_UNMIGRATED_ACTOR_FILES)
+
+base::expected<std::unique_ptr<ToolRequest>, mojom::ActionResultCode>
+CreateClickToUploadRequest(const ClickToUploadAction& action) {
+  if (!base::FeatureList::IsEnabled(actor::kGlicActorFileUploadTool)) {
+    return base::unexpected(mojom::ActionResultCode::kToolUnknown);
+  }
+
+  TabHandle tab_handle = GetTabHandle(action);
+  if (tab_handle == TabHandle::Null()) {
+    return base::unexpected(mojom::ActionResultCode::kTabWentAway);
+  }
+
+  if (!action.has_target()) {
+    return base::unexpected(mojom::ActionResultCode::kArgumentsInvalid);
+  }
+
+  std::optional<PageTarget> target = ToPageTarget(action.target());
+  if (!target) {
+    return base::unexpected(mojom::ActionResultCode::kArgumentsInvalid);
+  }
+
+  if (action.files().empty()) {
+    return base::unexpected(mojom::ActionResultCode::kFileUploadEmptyFileList);
+  }
+
+  std::vector<FileUploadSource> files;
+  files.reserve(action.files_size());
+  for (const ClickToUploadAction::File& file : action.files()) {
+    // The download URL is the only way to obtain the file contents.
+    if (!file.has_download_url()) {
+      return base::unexpected(mojom::ActionResultCode::kArgumentsInvalid);
+    }
+    files.emplace_back(GURL(file.download_url()), file.file_name());
+  }
+
+  return std::make_unique<FileUploadToolRequest>(tab_handle, *target,
+                                                 std::move(files));
+}
 
 std::unique_ptr<ToolRequest> CreateBackRequest(
     const HistoryBackAction& action) {
@@ -511,8 +560,7 @@ std::unique_ptr<ToolRequest> CreateBackRequest(
   if (tab_handle == TabHandle::Null()) {
     return nullptr;
   }
-  return std::make_unique<HistoryToolRequest>(
-      tab_handle, HistoryToolRequest::Direction::kBack);
+  return std::make_unique<HistoryBackToolRequest>(tab_handle);
 }
 
 std::unique_ptr<ToolRequest> CreateForwardRequest(
@@ -521,8 +569,7 @@ std::unique_ptr<ToolRequest> CreateForwardRequest(
   if (tab_handle == TabHandle::Null()) {
     return nullptr;
   }
-  return std::make_unique<HistoryToolRequest>(
-      tab_handle, HistoryToolRequest::Direction::kForward);
+  return std::make_unique<HistoryForwardToolRequest>(tab_handle);
 }
 
 std::unique_ptr<ToolRequest> CreateWaitRequest(const WaitAction& action) {
@@ -649,8 +696,8 @@ std::unique_ptr<ToolRequest> CreateAttemptFormFillingRequest(
     requests.push_back(request);
   }
 
-  return std::make_unique<AttemptFormFillingToolRequest>(tab_handle,
-                                                         std::move(requests));
+  return std::make_unique<AttemptFormFillingToolRequest>(
+      tab_handle, std::move(requests), action.credit_card_opaque_token());
 }
 
 std::unique_ptr<ToolRequest> CreateAttemptOtpFillingRequest(
@@ -682,6 +729,20 @@ std::unique_ptr<ToolRequest> CreateAttemptOtpFillingRequest(
   return std::make_unique<AttemptOtpFillingToolRequest>(
       tab_handle, std::move(trigger_fields), action.for_signin(),
       ToActorOtpType(action.predicted_otp_type()));
+}
+
+std::unique_ptr<ToolRequest> CreateChangePasswordRequest(
+    const ChangePasswordAction& action) {
+  if (!base::FeatureList::IsEnabled(
+          password_manager::features::kChangePasswordTool)) {
+    return nullptr;
+  }
+
+  const tabs::TabHandle tab_handle = GetTabHandle(action);
+  if (tab_handle == TabHandle::Null()) {
+    return nullptr;
+  }
+  return std::make_unique<ChangePasswordToolRequest>(tab_handle);
 }
 
 std::unique_ptr<ToolRequest> CreateScriptToolRequest(
@@ -718,23 +779,18 @@ std::unique_ptr<ToolRequest> CreateMediaControlRequest(
     return nullptr;
   }
 
-  MediaControl media_control;
   switch (action.media_control_action_case()) {
     case MediaControlAction::kPlay:
-      media_control = PlayMedia();
-      break;
+      return std::make_unique<PlayMediaToolRequest>(tab_handle);
     case MediaControlAction::kPause:
-      media_control = PauseMedia();
-      break;
+      return std::make_unique<PauseMediaToolRequest>(tab_handle);
     case MediaControlAction::kSeek:
-      media_control = SeekMedia{.seek_time_milliseconds =
-                                    action.seek().seek_time_milliseconds()};
-      break;
+      return std::make_unique<SeekMediaToolRequest>(
+          tab_handle,
+          base::Milliseconds(action.seek().seek_time_milliseconds()));
     default:
       return nullptr;
   }
-
-  return std::make_unique<MediaControlToolRequest>(tab_handle, media_control);
 }
 
 std::unique_ptr<ToolRequest> CreateTranslatePageRequest(
@@ -871,6 +927,11 @@ CreateToolRequest(const optimization_guide::proto::Action& action) {
           action.attempt_otp_filling();
       return CreateAttemptOtpFillingRequest(attempt_otp_fill_action);
     }
+    case optimization_guide::proto::Action::kChangePassword: {
+      const ChangePasswordAction& change_password_action =
+          action.change_password();
+      return CreateChangePasswordRequest(change_password_action);
+    }
     case optimization_guide::proto::Action::kScriptTool: {
       const ScriptToolAction& script_tool_action = action.script_tool();
       return CreateScriptToolRequest(script_tool_action);
@@ -909,6 +970,11 @@ CreateToolRequest(const optimization_guide::proto::Action& action) {
           load_and_extract_content_action);
     }
 #endif  // !BUILDFLAG(SKIP_ANDROID_UNMIGRATED_ACTOR_FILES)
+    case optimization_guide::proto::Action::kClickToUpload: {
+      const ClickToUploadAction& click_to_upload_action =
+          action.click_to_upload();
+      return CreateClickToUploadRequest(click_to_upload_action);
+    }
     case optimization_guide::proto::Action::kYieldToUser:
       NOTIMPLEMENTED();
       break;
@@ -922,6 +988,85 @@ CreateToolRequest(const optimization_guide::proto::Action& action) {
 
   return base::unexpected(mojom::ActionResultCode::kArgumentsInvalid);
 }
+
+using ActuationCapability = apc::RuleMetadata::ActuationCapability;
+
+// A callable that maps a `T` tool request to `kCapability`. Used to build
+// `kGetCapabilityFn` below.
+template <typename T, ActuationCapability kCapability>
+constexpr auto ToCapability =
+    [](const T&) -> ActuationCapability { return kCapability; };
+
+// `CAPABILITY_UNKNOWN` is never added to a rule's `allowed_tools`, so it is
+// never allowed by a `TaskPolicyConfig`.
+template <typename T>
+constexpr auto ToUnknown =
+    ToCapability<T, apc::RuleMetadata::CAPABILITY_UNKNOWN>;
+
+// Maps each `ToolRequestVariant` alternative to its `ActuationCapability`. The
+// build flags mirror `ToolRequestVariant`, which omits those types on Android.
+constexpr absl::Overload kGetCapabilityFn{
+    ToCapability<AttemptLoginToolRequest,
+                 apc::RuleMetadata::CAPABILITY_ATTEMPT_LOGIN>,
+    ToCapability<AttemptFormFillingToolRequest,
+                 apc::RuleMetadata::CAPABILITY_ATTEMPT_FORM_FILLING>,
+    ToCapability<AttemptOtpFillingToolRequest,
+                 apc::RuleMetadata::CAPABILITY_ATTEMPT_OTP_FILLING>,
+    ToCapability<ClickToolRequest, apc::RuleMetadata::CAPABILITY_CLICK>,
+    ToCapability<DragAndReleaseToolRequest,
+                 apc::RuleMetadata::CAPABILITY_DRAG_AND_RELEASE>,
+    ToCapability<FileUploadToolRequest,
+                 apc::RuleMetadata::CAPABILITY_CLICK_TO_UPLOAD>,
+    ToCapability<HistoryBackToolRequest, apc::RuleMetadata::CAPABILITY_BACK>,
+    ToCapability<HistoryForwardToolRequest,
+                 apc::RuleMetadata::CAPABILITY_FORWARD>,
+    ToCapability<MoveMouseToolRequest,
+                 apc::RuleMetadata::CAPABILITY_MOVE_MOUSE>,
+    ToCapability<NavigateToolRequest, apc::RuleMetadata::CAPABILITY_NAVIGATE>,
+    ToCapability<PauseMediaToolRequest,
+                 apc::RuleMetadata::CAPABILITY_MEDIA_CONTROL>,
+    ToCapability<PlayMediaToolRequest,
+                 apc::RuleMetadata::CAPABILITY_MEDIA_CONTROL>,
+    ToCapability<ScriptToolRequest, apc::RuleMetadata::CAPABILITY_SCRIPT_TOOL>,
+    ToCapability<ScrollToolRequest, apc::RuleMetadata::CAPABILITY_SCROLL>,
+    ToCapability<ScrollToToolRequest, apc::RuleMetadata::CAPABILITY_SCROLL_TO>,
+    ToCapability<SeekMediaToolRequest,
+                 apc::RuleMetadata::CAPABILITY_MEDIA_CONTROL>,
+    ToCapability<SelectToolRequest, apc::RuleMetadata::CAPABILITY_SELECT>,
+    ToCapability<TranslatePageToolRequest,
+                 apc::RuleMetadata::CAPABILITY_TRANSLATE_PAGE>,
+    ToCapability<TypeToolRequest, apc::RuleMetadata::CAPABILITY_TYPE>,
+    ToCapability<WaitToolRequest, apc::RuleMetadata::CAPABILITY_WAIT>,
+#if !BUILDFLAG(SKIP_ANDROID_UNMIGRATED_ACTOR_FILES)
+    ToCapability<ActivateTabToolRequest,
+                 apc::RuleMetadata::CAPABILITY_ACTIVATE_TAB>,
+    ToCapability<ActivateWindowToolRequest,
+                 apc::RuleMetadata::CAPABILITY_ACTIVATE_WINDOW>,
+    ToCapability<CloseTabToolRequest, apc::RuleMetadata::CAPABILITY_CLOSE_TAB>,
+    ToCapability<CloseWindowToolRequest,
+                 apc::RuleMetadata::CAPABILITY_CLOSE_WINDOW>,
+    ToCapability<CreateTabToolRequest,
+                 apc::RuleMetadata::CAPABILITY_CREATE_TAB>,
+    ToCapability<CreateWindowToolRequest,
+                 apc::RuleMetadata::CAPABILITY_CREATE_WINDOW>,
+    ToCapability<LoadAndExtractContentToolRequest,
+                 apc::RuleMetadata::CAPABILITY_LOAD_AND_EXTRACT_CONTENT>,
+#endif  // !BUILDFLAG(SKIP_ANDROID_UNMIGRATED_ACTOR_FILES)
+
+    // Tools that don't have an `ActuationCapability` in the proto yet.
+    ToUnknown<AddBookmarkToolRequest>,
+    ToUnknown<ChangePasswordToolRequest>,
+    ToUnknown<FindAndHighlightToolRequest>,
+    ToUnknown<PerformSearchToolRequest>,
+    ToUnknown<ReloadPageToolRequest>,
+    ToUnknown<RemoveBookmarkToolRequest>,
+#if !BUILDFLAG(SKIP_ANDROID_UNMIGRATED_ACTOR_FILES)
+    ToUnknown<EnterFullscreenToolRequest>,
+    ToUnknown<ExitFullscreenToolRequest>,
+    ToUnknown<OpenKnownPageToolRequest>,
+    ToUnknown<SwitchTabToolRequest>,
+#endif  // !BUILDFLAG(SKIP_ANDROID_UNMIGRATED_ACTOR_FILES)
+};
 
 }  // namespace
 
@@ -1179,14 +1324,16 @@ ConvertLocation(const optimization_guide::proto::Location& location) {
 
 base::expected<origin_gating::TaskPolicyConfig::Rule, std::string_view>
 ConvertRule(const optimization_guide::proto::LocationRule& location_rule) {
-  std::vector<origin_gating::TaskPolicyConfig::Location> navigation_sources;
+  absl::flat_hash_set<origin_gating::TaskPolicyConfig::Location>
+      navigation_sources;
+  navigation_sources.reserve(location_rule.navigation_sources_size());
   for (const auto& nav_source : location_rule.navigation_sources()) {
     if (!nav_source.has_source()) {
       return base::unexpected("NavigationSource has no source location set");
     }
     ASSIGN_OR_RETURN(origin_gating::TaskPolicyConfig::Location source,
                      ConvertLocation(nav_source.source()));
-    navigation_sources.emplace_back(source);
+    navigation_sources.insert(source);
   }
   origin_gating::TaskPolicyConfig::Rule::ResourceSet resources;
   for (const auto& resource : location_rule.metadata().accessible_resources()) {
@@ -1199,19 +1346,9 @@ ConvertRule(const optimization_guide::proto::LocationRule& location_rule) {
         break;
     }
   }
-  origin_gating::TaskPolicyConfig::Rule::CapabilitySet capabilities;
-  for (const auto& capability : location_rule.metadata().capabilities()) {
-    switch (capability) {
-      case optimization_guide::proto::RuleMetadata::CAPABILITY_ALL:
-        capabilities.Put(
-            origin_gating::TaskPolicyConfig::Rule::Capability::kAll);
-        break;
-      case optimization_guide::proto::RuleMetadata::CAPABILITY_UNKNOWN:
-        break;
-    }
-  }
-  return origin_gating::TaskPolicyConfig::Rule(std::move(navigation_sources),
-                                               resources, capabilities);
+  return origin_gating::TaskPolicyConfig::Rule(
+      std::move(navigation_sources), resources,
+      ConvertCapabilitiesToTools(location_rule.metadata()));
 }
 
 apc::TabObservation::TabObservationResult ToTabObservationResult(
@@ -1595,6 +1732,8 @@ void BuildActionsResultWithObservations(
     // TODO(crbug.com/434263095): We should probably avoid capturing
     // observations if an action fails with kUrlBlocked. That might be better
     // implemented by not putting the tab into the LastActedTabs set.
+    // TODO(b/565820285): Decide how to handle headless surfaces here: observe
+    // them, or skip them until headless observation is supported.
     TabInterface* tab = handle.Get();
     if (!tab) {
       apc::TabObservation* tab_observation = response->add_tabs();
@@ -1713,6 +1852,50 @@ CreateActorJournalFetchPageProgressListener(
                                                                  task_id);
 }
 
+absl::flat_hash_set<origin_gating::ClientTool> GetAllActorTools() {
+  using optimization_guide::proto::RuleMetadata;
+  absl::flat_hash_set<origin_gating::ClientTool> tools;
+  for (int i = RuleMetadata::ActuationCapability_MIN;
+       i <= RuleMetadata::ActuationCapability_MAX; ++i) {
+    if (!RuleMetadata::ActuationCapability_IsValid(i)) {
+      continue;
+    }
+    auto cap = static_cast<ActuationCapability>(i);
+    if (cap == RuleMetadata::CAPABILITY_UNKNOWN ||
+        cap == RuleMetadata::CAPABILITY_ALL) {
+      continue;
+    }
+    tools.insert(origin_gating::ClientTool(cap));
+  }
+  return tools;
+}
+
+absl::flat_hash_set<origin_gating::ClientTool> ConvertCapabilitiesToTools(
+    const optimization_guide::proto::RuleMetadata& metadata) {
+  auto capabilities = base::MakeFlatSet<ActuationCapability>(
+      metadata.capabilities(), std::less<>(), [](int capability) {
+        if (!apc::RuleMetadata::ActuationCapability_IsValid(capability)) {
+          VLOG(1) << "Ignoring unknown actuation capability: " << capability;
+          return apc::RuleMetadata::CAPABILITY_UNKNOWN;
+        }
+        return static_cast<ActuationCapability>(capability);
+      });
+  if (capabilities.contains(apc::RuleMetadata::CAPABILITY_ALL)) {
+    return GetAllActorTools();
+  }
+  capabilities.erase(apc::RuleMetadata::CAPABILITY_UNKNOWN);
+  absl::flat_hash_set<origin_gating::ClientTool> tools;
+  std::ranges::transform(
+      capabilities, std::inserter(tools, tools.end()),
+      [](ActuationCapability cap) { return origin_gating::ClientTool(cap); });
+  return tools;
+}
+
+origin_gating::ClientTool GetClientToolForRequest(const ToolRequest& request) {
+  return origin_gating::ClientTool(
+      std::visit(kGetCapabilityFn, ConvertToVariant(request)));
+}
+
 origin_gating::TaskPolicyConfig ConvertAgentContainerConfig(
     const optimization_guide::proto::AgentContainerConfig& config) {
   origin_gating::TaskPolicyConfig::LocationRules location_rules;
@@ -1737,15 +1920,19 @@ origin_gating::TaskPolicyConfig ConvertAgentContainerConfig(
       VLOG(1) << "Duplicate rule for " << destination.ToDebugString();
     }
   }
-  return origin_gating::TaskPolicyConfig(std::move(location_rules));
+  return origin_gating::TaskPolicyConfig(
+      /*location_rules=*/std::move(location_rules),
+      /*navigate_tool=*/origin_gating::ClientTool(
+          apc::RuleMetadata::CAPABILITY_NAVIGATE));
 }
 
-std::optional<mojom::ActionResultCode> MaybeGetErrorCodeForTab(
-    tabs::TabInterface* tab_interface) {
-  if (!tab_interface || !tab_interface->GetContents() ||
-      tab_interface->GetContents()->IsBeingDestroyed()) {
+std::optional<mojom::ActionResultCode> MaybeGetErrorCodeForActorSurface(
+    ActorSurface* actor_surface) {
+  content::WebContents* contents =
+      actor_surface ? actor_surface->GetWebContents() : nullptr;
+  if (!contents || contents->IsBeingDestroyed()) {
     return mojom::ActionResultCode::kTabWentAway;
-  } else if (tab_interface->GetContents()->IsCrashed()) {
+  } else if (contents->IsCrashed()) {
     return mojom::ActionResultCode::kRendererCrashed;
   }
   return std::nullopt;

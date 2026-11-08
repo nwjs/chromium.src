@@ -28,7 +28,6 @@ static_library("internet") {
     "//ash/webui/network_ui:network_health_resource_provider",
     "//ash/webui/settings/public/constants:mojom",
     "//chrome/app:generated_resources",
-    "//chrome/browser:browser_public_dependencies",
     "//chrome/browser/apps/app_service",
     "//chrome/browser/ash/app_list/arc",
     "//chrome/browser/chromeos/extensions/vpn_provider",
@@ -46,6 +45,7 @@ static_library("internet") {
     "//chromeos/strings",
     "//components/onc",
     "//components/prefs",
+    "//components/session_manager/core",
     "//components/strings:components_strings",
     "//components/user_manager",
     "//content/public/browser",
@@ -66,6 +66,7 @@ source_set("unit_tests") {
   deps = [
     ":internet",
     "//chrome/test:test_support",
+    "//chrome/test/base:browser_with_test_window_test",
     "//chromeos/ash/components/tether:test_support",
     "//content/test:test_support",
     "//testing/gtest",

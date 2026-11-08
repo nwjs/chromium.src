@@ -44,21 +44,6 @@ class ProfileDynamicMenuTest : public ActionAppMenuTestBase {
               return std::make_unique<syncer::TestSyncService>();
             }));
   }
-
-  actions::BaseAction* FindChildAction(actions::ActionItem* parent,
-                                       actions::ActionId action_id) {
-    if (!parent) {
-      return nullptr;
-    }
-    for (const auto& child : parent->GetChildren().children()) {
-      if (auto* action_item = child->GetActionItem()) {
-        if (action_item->GetActionId() == action_id) {
-          return child.get();
-        }
-      }
-    }
-    return nullptr;
-  }
 };
 
 TEST_F(ProfileDynamicMenuTest, BuildSyncSection_GuestProfile) {
@@ -103,11 +88,8 @@ TEST_F(ProfileDynamicMenuTest, BuildSyncSection_StandardProfile) {
 
   EXPECT_FALSE(parent_item->GetChildren().children().empty());
   // Verify the sync section divider is added.
-  EXPECT_EQ(parent_item->GetChildren()
-                .children()
-                .back()
-                ->GetActionItem()
-                ->GetProperty(AppMenuActionItem::kDisplayTypeKey),
+  EXPECT_EQ(parent_item->GetChildren().children().back()->GetProperty(
+                AppMenuActionItem::kDisplayTypeKey),
             AppMenuActionItem::DisplayType::kDivider);
 }
 
@@ -153,7 +135,7 @@ TEST_F(ProfileDynamicMenuTest, BuildSyncSection_SyncError) {
 
   // When Sync has a passphrase error, the passphrase dialog action row should
   // be populated.
-  EXPECT_NE(FindChildAction(parent_item.get(), kActionShowSyncPassphraseDialog),
+  EXPECT_NE(FindBaseAction(parent_item.get(), kActionShowSyncPassphraseDialog),
             nullptr);
 }
 #endif  // !BUILDFLAG(IS_CHROMEOS)
@@ -175,20 +157,16 @@ TEST_F(ProfileDynamicMenuTest, BuildOtherProfiles_MultipleProfiles) {
 
   const auto& children = parent_item->GetChildren().children();
   ASSERT_EQ(children.size(), 4u);
-  EXPECT_EQ(children[0]->GetActionItem()->GetProperty(
-                AppMenuActionItem::kDisplayTypeKey),
+  EXPECT_EQ(children[0]->GetProperty(AppMenuActionItem::kDisplayTypeKey),
             AppMenuActionItem::DisplayType::kDivider);
-  EXPECT_EQ(children[1]->GetActionItem()->GetProperty(
-                AppMenuActionItem::kDisplayTypeKey),
+  EXPECT_EQ(children[1]->GetProperty(AppMenuActionItem::kDisplayTypeKey),
             AppMenuActionItem::DisplayType::kHeader);
   EXPECT_EQ(children[1]->GetActionItem()->GetText(),
             l10n_util::GetStringUTF16(IDS_OTHER_CHROME_PROFILES_TITLE));
-  EXPECT_EQ(children[2]->GetActionItem()->GetProperty(
-                AppMenuActionItem::kDisplayTypeKey),
+  EXPECT_EQ(children[2]->GetProperty(AppMenuActionItem::kDisplayTypeKey),
             AppMenuActionItem::DisplayType::kRow);
   EXPECT_EQ(children[2]->GetActionItem()->GetText(), u"Profile 2");
-  EXPECT_EQ(children[3]->GetActionItem()->GetProperty(
-                AppMenuActionItem::kDisplayTypeKey),
+  EXPECT_EQ(children[3]->GetProperty(AppMenuActionItem::kDisplayTypeKey),
             AppMenuActionItem::DisplayType::kDivider);
 }
 
@@ -210,11 +188,9 @@ TEST_F(ProfileDynamicMenuTest, BuildOtherProfiles_SingleProfile) {
   // no trailing separator.
   const auto& children = parent_item->GetChildren().children();
   ASSERT_EQ(children.size(), 2u);
-  EXPECT_EQ(children[0]->GetActionItem()->GetProperty(
-                AppMenuActionItem::kDisplayTypeKey),
+  EXPECT_EQ(children[0]->GetProperty(AppMenuActionItem::kDisplayTypeKey),
             AppMenuActionItem::DisplayType::kDivider);
-  EXPECT_EQ(children[1]->GetActionItem()->GetProperty(
-                AppMenuActionItem::kDisplayTypeKey),
+  EXPECT_EQ(children[1]->GetProperty(AppMenuActionItem::kDisplayTypeKey),
             AppMenuActionItem::DisplayType::kHeader);
   EXPECT_EQ(children[1]->GetActionItem()->GetText(),
             l10n_util::GetStringUTF16(IDS_OTHER_CHROME_PROFILES_TITLE));
@@ -234,4 +210,28 @@ TEST_F(ProfileDynamicMenuTest, BuildOtherProfiles_GuestProfile) {
   menu.BuildOtherProfiles(parent_item.get());
 
   EXPECT_TRUE(parent_item->GetChildren().children().empty());
+}
+
+TEST_F(ProfileDynamicMenuTest,
+       BuildOtherProfiles_AmpersandInProfileNameNotMnemonic) {
+  TestingProfileManager profile_manager(TestingBrowserProcess::GetGlobal());
+  ASSERT_TRUE(profile_manager.SetUp());
+
+  TestingProfile* profile1 = profile_manager.CreateTestingProfile("Profile 1");
+  profile_manager.CreateTestingProfile("Jane&Doe");
+
+  ON_CALL(mock_window_interface_, GetProfile())
+      .WillByDefault(testing::Return(profile1));
+
+  ProfileDynamicMenu menu(&mock_window_interface_);
+  auto parent_item = actions::ActionItem::Builder().Build();
+
+  menu.BuildOtherProfiles(parent_item.get());
+
+  const auto& children = parent_item->GetChildren().children();
+  ASSERT_EQ(children.size(), 4u);
+  // GetProfileMenuDisplayName escapes '&' once; BuildOtherProfiles must not
+  // escape it a second time.
+  EXPECT_EQ(children[2]->GetActionItem()->GetTextWithMnemonic(), u"Jane&&Doe");
+  EXPECT_EQ(children[2]->GetActionItem()->GetText(), u"Jane&Doe");
 }

@@ -55,7 +55,7 @@ using ::ui::CompositionText;
 using ::ui::FakeTextInputClient;
 using ::ui::TextInputClient;
 
-const std::u16string kSampleText = u"あいうえお";
+constexpr char16_t kSampleText[] = u"あいうえお";
 
 using KeyEventCallback = TextInputMethod::KeyEventDoneCallback;
 
@@ -2000,6 +2000,94 @@ TEST_F(InputMethodAshTest, GetSurroundingTextInfoInNoneField) {
 
   SurroundingTextInfo info = input_method_ash_->GetSurroundingTextInfo();
   EXPECT_TRUE(info.surrounding_text.empty());
+}
+
+TEST_F(InputMethodAshKeyEventTest,
+       PipelinedKeyEventsHandledByImeDoNotDropCommits) {
+  input_type_ = ui::TEXT_INPUT_TYPE_TEXT;
+  input_method_ash_->OnTextInputTypeChanged(this);
+
+  ui::KeyEvent event1(ui::EventType::kKeyPressed, ui::VKEY_T, ui::DomCode::US_T,
+                      ui::EF_NONE, ui::DomKey::FromCharacter('t'),
+                      ui::EventTimeForNow());
+  input_method_ash_->DispatchKeyEvent(&event1);
+  KeyEventCallback first_callback =
+      mock_ime_engine_handler_->last_passed_callback();
+
+  ui::KeyEvent event2(ui::EventType::kKeyPressed, ui::VKEY_E, ui::DomCode::US_E,
+                      ui::EF_NONE, ui::DomKey::FromCharacter('e'),
+                      ui::EventTimeForNow());
+  input_method_ash_->DispatchKeyEvent(&event2);
+  KeyEventCallback second_callback =
+      mock_ime_engine_handler_->last_passed_callback();
+
+  // First key event completes in the IME engine.
+  input_method_ash_->ConfirmComposition(/*reset_engine=*/false);
+  input_method_ash_->CommitText(
+      u"t", TextInputClient::InsertTextCursorBehavior::kMoveCursorAfterText);
+  EXPECT_EQ(0, inserted_char_);
+  std::move(first_callback).Run(ui::ime::KeyEventHandledState::kHandledByIME);
+
+  EXPECT_EQ(u't', inserted_char_);
+  EXPECT_TRUE(inserted_text_.empty());
+  EXPECT_EQ(dispatched_key_event_.key_code(), ui::VKEY_T);
+
+  inserted_char_ = 0;
+
+  // Second key event is still in flight; its commit should remain buffered
+  // until its ProcessKeyEvent callback runs, and then dispatch the real key
+  // event rather than a fabricated VKEY_PROCESSKEY.
+  input_method_ash_->ConfirmComposition(/*reset_engine=*/false);
+  input_method_ash_->CommitText(
+      u"e", TextInputClient::InsertTextCursorBehavior::kMoveCursorAfterText);
+  EXPECT_EQ(0, inserted_char_);
+  EXPECT_TRUE(inserted_text_.empty());
+
+  std::move(second_callback).Run(ui::ime::KeyEventHandledState::kHandledByIME);
+
+  EXPECT_EQ(u'e', inserted_char_);
+  EXPECT_TRUE(inserted_text_.empty());
+  EXPECT_EQ(dispatched_key_event_.key_code(), ui::VKEY_E);
+}
+
+TEST_F(InputMethodAshKeyEventTest,
+       DroppedKeyEventCallbackDiscardsBufferedResultsAndUnblocksCommits) {
+  input_type_ = ui::TEXT_INPUT_TYPE_TEXT;
+  input_method_ash_->OnTextInputTypeChanged(this);
+
+  ui::KeyEvent event1(ui::EventType::kKeyPressed, ui::VKEY_T, ui::DomCode::US_T,
+                      ui::EF_NONE, ui::DomKey::FromCharacter('t'),
+                      ui::EventTimeForNow());
+  input_method_ash_->DispatchKeyEvent(&event1);
+  KeyEventCallback dropped_callback =
+      mock_ime_engine_handler_->last_passed_callback();
+
+  // Buffer IME operations while the key event is in flight.
+  input_method_ash_->CommitText(
+      u"stale",
+      TextInputClient::InsertTextCursorBehavior::kMoveCursorAfterText);
+  input_method_ash_->SetComposingRange(0, 1, {});
+  std::optional<bool> autocorrect_result;
+  input_method_ash_->SetAutocorrectRange(
+      gfx::Range(0, 1), base::BindOnce([](std::optional<bool>* out,
+                                          bool result) { *out = result; },
+                                       &autocorrect_result));
+  EXPECT_FALSE(autocorrect_result.has_value());
+
+  // Drop the callback without invoking it (e.g. when InputMethodEngine
+  // discards a callback after the input context changes).
+  dropped_callback.Reset();
+
+  // Buffered autocorrect callback should be resolved with false and buffered
+  // operations discarded.
+  EXPECT_EQ(false, autocorrect_result);
+  EXPECT_TRUE(inserted_text_.empty());
+
+  // Subsequent non-key-event commits (such as virtual keyboard or candidate
+  // selection) should be committed immediately rather than buffered forever.
+  input_method_ash_->CommitText(
+      u"x", TextInputClient::InsertTextCursorBehavior::kMoveCursorAfterText);
+  EXPECT_EQ(u"x", inserted_text_);
 }
 
 }  // namespace ash

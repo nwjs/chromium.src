@@ -37,7 +37,6 @@
 #import "components/send_tab_to_self/send_tab_to_self_entry.h"
 #import "components/send_tab_to_self/send_tab_to_self_model.h"
 #import "components/send_tab_to_self/send_tab_to_self_sync_service.h"
-#import "components/send_tab_to_self/target_device_info.h"
 #import "components/sync/base/pref_names.h"
 #import "components/sync/service/sync_service.h"
 #import "components/sync/service/sync_user_settings.h"
@@ -637,8 +636,10 @@ UIViewController* FindBrowserViewController(UIViewController* root) {
 }
 
 + (NSUInteger)windowCount [[nodiscard]] {
-  // If the scene API is in use, return the count of open sessions.
-  return UIApplication.sharedApplication.openSessions.count;
+  // If the scene API is in use, return the count of open sessions and
+  // connected scenes.
+  return std::max(UIApplication.sharedApplication.openSessions.count,
+                  UIApplication.sharedApplication.connectedScenes.count);
 }
 
 + (NSUInteger)foregroundWindowCount [[nodiscard]] {
@@ -1461,7 +1462,12 @@ UIViewController* FindBrowserViewController(UIViewController* root) {
 }
 
 + (BOOL)areMultipleWindowsSupported {
-  return base::ios::IsMultipleScenesSupported();
+  if (!base::ios::IsMultipleScenesSupported()) {
+    return NO;
+  }
+  SceneState* sceneState = chrome_test_util::GetMainController()
+                               .appState.connectedScenes.firstObject;
+  return sceneState.multipleScenesAvailable;
 }
 
 + (BOOL)isUseLensToSearchForImageEnabled {
@@ -1484,12 +1490,20 @@ UIViewController* FindBrowserViewController(UIViewController* root) {
   return IsChromeNextIaEnabled();
 }
 
++ (BOOL)isNextOldDesignEnabled {
+  return IsNextOldDesignEnabled();
+}
+
 + (BOOL)isOverflowMenuNTPRefactorEnabled {
   return IsOverflowMenuNTPRefactorEnabled();
 }
 
 + (BOOL)isPinnedTabsEnabled {
   return IsPinnedTabsEnabled();
+}
+
++ (BOOL)isAimCobrowseWebSelectionSearchEnabled {
+  return IsAimCobrowseWebSelectionSearchEnabled();
 }
 
 #pragma mark - ContentSettings

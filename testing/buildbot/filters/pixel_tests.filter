@@ -29,6 +29,7 @@ BrowserViewTabbedLayoutImplUiTest.*
 BubbleFrameViewBrowserTest.*
 BubbleSignInPromoInteractiveUITest.*
 CaptionBubbleBrowserTest.*
+CastBrowserControllerTest.*
 ChromeLabs*UiTest.*
 ChromeSignoutConfirmationPromptPixelTest.*
 ChromeSignoutConfirmationPromptWithExtensionsPixelTest.*
@@ -56,7 +57,7 @@ DesktopMediaPickerViewsBrowserTest.*
 DesktopPaymentsWindowManagerInteractiveUiTest*
 *DeviceSignalsDisclaimerModalPixelTest.*
 *DeviceSignalsDisclaimerProfilePickerPixelTest.*
-DocumentPictureInPicturePixelTest.*
+*DocumentPictureInPicturePixelTest.*
 EditAddressProfileDialogControllerImplTest.InvokeUi_*
 *EmbeddedPermissionPromptUiTest.InvokeUi_*
 MahiMenuPixelBrowserTest.*
@@ -189,6 +190,7 @@ WebAppConfirmViewBrowserTest.*
 WebAppInstallDialogBrowserTest.*
 WebAppMenuBrowserTest.*
 WebAppUpdateReviewDialog.*
+WebUIToolbarGlicPixelInteractiveUiTest.*
 WebUIToolbarPixelInteractiveUiTest.*
 ZoomBubbleDialogTest.*
 

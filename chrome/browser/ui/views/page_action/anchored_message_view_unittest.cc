@@ -7,6 +7,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <vector>
 
 #include "base/test/scoped_run_loop_timeout.h"
 #include "chrome/browser/ui/page_action/test_support/mock_page_action_model.h"
@@ -19,17 +20,31 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/models/image_model.h"
 #include "ui/base/ui_base_features.h"
+#include "ui/compositor/layer.h"
+#include "ui/compositor/layer_animator.h"
 #include "ui/events/keycodes/keyboard_codes.h"
 #include "ui/events/test/event_generator.h"
+#include "ui/events/test/test_event.h"
+#include "ui/gfx/animation/animation.h"
+#include "ui/gfx/animation/animation_test_api.h"
+#include "ui/gfx/geometry/rect.h"
+#include "ui/gfx/geometry/transform.h"
+#include "ui/gfx/geometry/vector2d.h"
+#include "ui/gfx/scoped_animation_duration_scale_mode.h"
 #include "ui/menus/simple_menu_model.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/bubble/bubble_dialog_delegate_view.h"
+#include "ui/views/bubble/bubble_frame_view.h"
+#include "ui/views/controls/button/button.h"
 #include "ui/views/controls/button/label_button.h"
 #include "ui/views/controls/button/menu_button.h"
 #include "ui/views/controls/focus_ring.h"
 #include "ui/views/controls/image_view.h"
+#include "ui/views/interaction/element_tracker_views.h"
 #include "ui/views/interaction/interactive_views_test.h"
+#include "ui/views/layout/animating_layout_manager.h"
 #include "ui/views/test/button_test_api.h"
+#include "ui/views/test/views_test_utils.h"
 #include "ui/views/view.h"
 #include "ui/views/view_utils.h"
 #include "ui/views/widget/widget.h"
@@ -161,11 +176,43 @@ class AnchoredMessageBubbleViewTest
         });
   }
 
+  views::View* GetView(ui::ElementIdentifier id) {
+    return views::ElementTrackerViews::GetInstance()->GetFirstMatchingView(
+        id, views::ElementTrackerViews::GetContextForView(bubble_view_));
+  }
+
+  void ShowExpandableContent() {
+    expandable_content_.emplace();
+    expandable_content_->heading = u"Heading";
+    expandable_content_->items.push_back({test_image_, test_text_});
+    expandable_content_->items.push_back({test_image_, u"Second item text"});
+    ON_CALL(model_, GetAnchoredMessageExpandableContent())
+        .WillByDefault(ReturnRef(expandable_content_));
+    bubble_view_->UpdateContent(model_);
+    views::test::RunScheduledLayout(bubble_widget_.get());
+  }
+
+  void ClickExpandButton() {
+    views::test::ButtonTestApi(
+        views::AsViewClass<views::Button>(
+            GetView(AnchoredMessageBubbleView::kAnchoredMessageExpandButtonId)))
+        .NotifyClick(ui::test::TestEvent());
+  }
+
+  // Returns the layer of the expanded items, which fade with the drawer.
+  ui::Layer* GetExpandedItemsLayer() {
+    return GetView(AnchoredMessageBubbleView::kAnchoredMessageExpandedContentId)
+        ->children()
+        .back()
+        ->layer();
+  }
+
  protected:
   NiceMock<MockPageActionModel> model_;
   NiceMock<MockAnchoredMessageDelegate> delegate_;
   std::optional<ui::ImageModel> no_icon_;
   std::optional<AnchoredMessageExpandableContent> empty_expandable_content_;
+  std::optional<AnchoredMessageExpandableContent> expandable_content_;
   std::optional<ui::ImageModel> test_icon_opt_ = ui::ImageModel::FromVectorIcon(
       features::IsRoundedIconsEnabled() ? vector_icons::kInstallDesktopIcon
                                         : vector_icons::kInstallDesktopOldIcon);
@@ -514,6 +561,88 @@ TEST_F(AnchoredMessageBubbleViewTest, ExpandButtonTooltip) {
                          /*expanded=*/true));
 }
 
+TEST_F(AnchoredMessageBubbleViewTest, ExpandAnimationRevealsContentInPlace) {
+  ShowExpandableContent();
+  gfx::ScopedAnimationDurationScaleMode normal_duration(
+      gfx::ScopedAnimationDurationScaleMode::NORMAL_DURATION);
+  auto render_mode = gfx::AnimationTestApi::SetRichAnimationRenderMode(
+      gfx::Animation::RichAnimationRenderMode::FORCE_ENABLED);
+  auto* layout = static_cast<views::AnimatingLayoutManager*>(
+      bubble_view_->GetLayoutManager());
+  gfx::AnimationContainerTestApi animation_api(
+      layout->GetAnimationContainerForTesting());
+
+  ClickExpandButton();
+  animation_api.IncrementTime(layout->animation_duration() / 2);
+  views::test::RunScheduledLayout(bubble_widget_.get());
+
+  // Midway, the drawer is partly open and its contents are already at their
+  // final bounds, so they are clipped rather than resized.
+  views::View* content =
+      GetView(AnchoredMessageBubbleView::kAnchoredMessageExpandedContentId);
+  EXPECT_TRUE(content->GetVisible());
+  EXPECT_GT(content->height(), 0);
+  EXPECT_LT(content->height(), content->GetPreferredSize().height());
+  std::vector<gfx::Rect> midway_bounds;
+  for (const views::View* child : content->children()) {
+    midway_bounds.push_back(child->bounds());
+  }
+
+  animation_api.IncrementTime(layout->animation_duration() / 2);
+  views::test::RunScheduledLayout(bubble_widget_.get());
+
+  EXPECT_EQ(content->GetPreferredSize().height(), content->height());
+  ASSERT_EQ(midway_bounds.size(), content->children().size());
+  for (size_t i = 0; i < midway_bounds.size(); ++i) {
+    EXPECT_EQ(midway_bounds[i], content->children()[i]->bounds());
+  }
+}
+
+TEST_F(AnchoredMessageBubbleViewTest, ExpandedItemsFadeWithDrawer) {
+  ShowExpandableContent();
+  gfx::ScopedAnimationDurationScaleMode normal_duration(
+      gfx::ScopedAnimationDurationScaleMode::NORMAL_DURATION);
+  auto render_mode = gfx::AnimationTestApi::SetRichAnimationRenderMode(
+      gfx::Animation::RichAnimationRenderMode::FORCE_ENABLED);
+
+  ClickExpandButton();
+  ui::Layer* items_layer = GetExpandedItemsLayer();
+  ASSERT_TRUE(items_layer);
+  EXPECT_EQ(0.0f, items_layer->opacity());
+  EXPECT_EQ(1.0f, items_layer->GetTargetOpacity());
+  items_layer->GetAnimator()->StopAnimating();
+  EXPECT_EQ(1.0f, items_layer->opacity());
+
+  // Items rebuilt while expanded stay visible.
+  bubble_view_->UpdateContent(model_);
+  items_layer = GetExpandedItemsLayer();
+  EXPECT_EQ(1.0f, items_layer->opacity());
+
+  ClickExpandButton();
+  EXPECT_EQ(0.0f, items_layer->GetTargetOpacity());
+  items_layer->GetAnimator()->StopAnimating();
+  EXPECT_EQ(0.0f, items_layer->opacity());
+}
+
+TEST_F(AnchoredMessageBubbleViewTest,
+       ExpandedItemsDoNotFadeWithoutRichAnimations) {
+  ShowExpandableContent();
+  gfx::ScopedAnimationDurationScaleMode normal_duration(
+      gfx::ScopedAnimationDurationScaleMode::NORMAL_DURATION);
+  auto render_mode = gfx::AnimationTestApi::SetRichAnimationRenderMode(
+      gfx::Animation::RichAnimationRenderMode::FORCE_DISABLED);
+
+  ClickExpandButton();
+  ui::Layer* items_layer = GetExpandedItemsLayer();
+  ASSERT_TRUE(items_layer);
+  EXPECT_FALSE(items_layer->GetAnimator()->is_animating());
+  EXPECT_EQ(1.0f, items_layer->opacity());
+
+  ClickExpandButton();
+  EXPECT_FALSE(items_layer->GetAnimator()->is_animating());
+  EXPECT_EQ(0.0f, items_layer->opacity());
+}
+
 TEST_F(AnchoredMessageBubbleViewTest,
        FocusRestoredToMenuButtonAfterMenuDismissed) {
   ui::SimpleMenuModel menu_model(nullptr);
@@ -575,6 +704,68 @@ TEST_F(AnchoredMessageBubbleViewTest, GetAnchorRectPlacement) {
   EXPECT_EQ(anchor_rect.bottom(), anchor_bounds.bottom() + 2);
   EXPECT_EQ(anchor_rect.y(), anchor_bounds.y() - 2);
   EXPECT_EQ(anchor_rect.right(), anchor_bounds.CenterPoint().x() + 24);
+}
+
+TEST_F(AnchoredMessageBubbleViewTest, AnimateOutClosesWidgetWhenEnded) {
+  gfx::ScopedAnimationDurationScaleMode non_zero(
+      gfx::ScopedAnimationDurationScaleMode::NON_ZERO_DURATION);
+
+  views::View* frame = bubble_view_->GetBubbleFrameView();
+  ASSERT_TRUE(frame->layer());
+  EXPECT_FALSE(frame->layer()->fills_bounds_opaquely());
+
+  bubble_view_->AnimateIn();
+  EXPECT_EQ(frame->layer()->GetTargetTransform(), gfx::Transform());
+  EXPECT_EQ(frame->layer()->GetTargetOpacity(), 1.0f);
+  frame->layer()->GetAnimator()->StopAnimating();
+
+  bubble_view_->AnimateOut();
+  EXPECT_TRUE(bubble_view_->is_closing());
+  EXPECT_EQ(frame->layer()->GetTargetTransform(),
+            gfx::Transform::MakeTranslation(0, -16));
+  EXPECT_EQ(frame->layer()->GetTargetOpacity(), 0.0f);
+  EXPECT_FALSE(bubble_widget_->IsClosed());
+
+  frame->layer()->GetAnimator()->StopAnimating();
+  EXPECT_TRUE(bubble_widget_->IsClosed());
+}
+
+TEST_F(AnchoredMessageBubbleViewTest, AnimateInCancelsAnimateOut) {
+  gfx::ScopedAnimationDurationScaleMode non_zero(
+      gfx::ScopedAnimationDurationScaleMode::NON_ZERO_DURATION);
+
+  views::View* frame = bubble_view_->GetBubbleFrameView();
+  bubble_view_->AnimateOut();
+  bubble_view_->AnimateIn();
+  EXPECT_FALSE(bubble_view_->is_closing());
+  EXPECT_EQ(frame->layer()->GetTargetOpacity(), 1.0f);
+
+  frame->layer()->GetAnimator()->StopAnimating();
+  EXPECT_FALSE(bubble_widget_->IsClosed());
+}
+
+TEST_F(AnchoredMessageBubbleViewTest, AnimateOutHoldsPositionWhenAnchorMoves) {
+  gfx::ScopedAnimationDurationScaleMode non_zero(
+      gfx::ScopedAnimationDurationScaleMode::NON_ZERO_DURATION);
+  views::View* anchor_view = anchor_widget_->GetContentsView();
+  const gfx::Rect bounds = bubble_widget_->GetWindowBoundsInScreen();
+  const gfx::Vector2d offset(20, 0);
+
+  bubble_view_->AnimateOut();
+  anchor_view->SetPosition(anchor_view->origin() + offset);
+  EXPECT_EQ(bubble_widget_->GetWindowBoundsInScreen(), bounds);
+
+  bubble_view_->AnimateIn();
+  EXPECT_EQ(bubble_widget_->GetWindowBoundsInScreen(), bounds + offset);
+}
+
+TEST_F(AnchoredMessageBubbleViewTest,
+       AnimateOutClosesImmediatelyWithoutAnimation) {
+  gfx::ScopedAnimationDurationScaleMode zero(
+      gfx::ScopedAnimationDurationScaleMode::ZERO_DURATION);
+
+  bubble_view_->AnimateOut();
+  EXPECT_TRUE(bubble_widget_->IsClosed());
 }
 
 }  // namespace page_actions

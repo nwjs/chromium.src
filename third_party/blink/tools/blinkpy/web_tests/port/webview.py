@@ -32,26 +32,11 @@ from blinkpy.web_tests.port import linux
 class WebviewPort(linux.LinuxPort):
     port_name = 'webview'
 
-    SUPPORTED_VERSIONS = ('webview', )
+    SUPPORTED_VERSIONS = ('webview',)
     FALLBACK_PATHS = {}
-    FALLBACK_PATHS['webview'] = (
-        ['webview'] + linux.LinuxPort.latest_platform_fallback_path())
-
-    def default_expectations_files(self):
-        """Returns a list of paths to expectations files that apply by default.
-
-        There are other "test expectations" files that may be applied if
-        the --additional-expectations flag is passed; those aren't included
-        here.
-        """
-        return list(
-            filter(None, [
-                self.path_to_generic_test_expectations_file(),
-                self._filesystem.join(self.web_tests_dir(), 'NeverFixTests'),
-                self._filesystem.join(self.web_tests_dir(),
-                                      'StaleTestExpectations'),
-                self._filesystem.join(self.web_tests_dir(), 'SlowTests')
-            ]))
+    FALLBACK_PATHS['webview'] = [
+        'webview'
+    ] + linux.LinuxPort.latest_platform_fallback_path()
 
     def default_child_processes(self):
         # Test against a single device by default to avoid timeouts
@@ -62,5 +47,6 @@ class WebviewPort(linux.LinuxPort):
         return True
 
     def path_to_smoke_tests_file(self):
-        return self._filesystem.join(self.web_tests_dir(), 'TestLists',
-                                     'webview.filter')
+        return self._filesystem.join(
+            self.web_tests_dir(), 'TestLists', 'webview.filter'
+        )

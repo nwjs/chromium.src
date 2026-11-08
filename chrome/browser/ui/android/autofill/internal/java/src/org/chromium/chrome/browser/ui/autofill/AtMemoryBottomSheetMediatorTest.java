@@ -48,8 +48,6 @@ import org.chromium.chrome.browser.autofill.settings.options.AutofillOptionsFrag
 import org.chromium.chrome.browser.autofill.settings.options.AutofillOptionsReferrer;
 import org.chromium.chrome.browser.autofill.settings.personal_context.AutofillPersonalContextFragment;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
-import org.chromium.chrome.browser.personal_context.first_run.PersonalContextFirstRunService;
-import org.chromium.chrome.browser.personal_context.first_run.PersonalContextFirstRunServiceJni;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.settings.SettingsNavigationFactory;
 import org.chromium.chrome.browser.ui.autofill.AtMemoryBottomSheetProperties.FlyoutProperties;
@@ -80,7 +78,6 @@ public class AtMemoryBottomSheetMediatorTest {
 
     @Mock private AtMemoryBottomSheetCoordinator.Delegate mDelegate;
     @Mock private HomeProperties.SearchDelegate mSearchDelegate;
-    @Mock private PersonalContextFirstRunService.Natives mFirstRunServiceJniMock;
     @Mock private SettingsNavigation mSettingsNavigation;
     @Mock private UserPrefs.Natives mUserPrefsJniMock;
     @Mock private PrefService mPrefService;
@@ -93,7 +90,6 @@ public class AtMemoryBottomSheetMediatorTest {
 
     @Before
     public void setUp() {
-        PersonalContextFirstRunServiceJni.setInstanceForTesting(mFirstRunServiceJniMock);
         SettingsNavigationFactory.setInstanceForTesting(mSettingsNavigation);
         UserPrefsJni.setInstanceForTesting(mUserPrefsJniMock);
         when(mUserPrefsJniMock.get(mProfile)).thenReturn(mPrefService);
@@ -467,6 +463,27 @@ public class AtMemoryBottomSheetMediatorTest {
 
         assertEquals(1, mModelList.size());
         assertEquals(HomeProperties.ItemType.ILLUSTRATION_CARD, mModelList.get(0).type);
+        PropertyModel model = mModelList.get(0).model;
+        var context = ApplicationProvider.getApplicationContext();
+        assertEquals(
+                context.getString(R.string.autofill_at_memory_zero_state_title),
+                model.get(IllustrationCardItemProperties.TITLE));
+        assertEquals(
+                context.getString(R.string.autofill_at_memory_zero_state_subtitle),
+                model.get(IllustrationCardItemProperties.SUBTITLE));
+        String flightConfirmationCode =
+                context.getString(
+                        R.string.autofill_at_memory_zero_state_subtitle_flight_confirmation_code);
+        assertEquals(
+                List.of(
+                        context.getString(
+                                R.string.autofill_at_memory_zero_state_subtitle_order_number),
+                        flightConfirmationCode,
+                        context.getString(
+                                R.string.autofill_at_memory_zero_state_subtitle_tracking_number),
+                        context.getString(
+                                R.string.autofill_at_memory_zero_state_subtitle_hotel_address)),
+                model.get(IllustrationCardItemProperties.ROTATING_PLACEHOLDERS));
     }
 
     @Test
@@ -487,6 +504,9 @@ public class AtMemoryBottomSheetMediatorTest {
                 "Find and fill with Gemini",
                 mModelList.get(0).model.get(IllustrationCardItemProperties.TITLE));
         assertEquals("", mModelList.get(0).model.get(IllustrationCardItemProperties.SUBTITLE));
+        assertEquals(
+                List.of(),
+                mModelList.get(0).model.get(IllustrationCardItemProperties.ROTATING_PLACEHOLDERS));
     }
 
     @Test
@@ -800,5 +820,34 @@ public class AtMemoryBottomSheetMediatorTest {
         mMediator.show(List.of(), /* searchBarInitialValue= */ null);
 
         assertEquals("city", mHomeModel.get(HomeProperties.SEARCH_BAR_INITIAL_VALUE));
+    }
+
+    @Test
+    public void testFlyoutContentDescription() {
+        AutofillSuggestion childSuggestion =
+                new AutofillSuggestion.Builder()
+                        .setLabel("Hilton Check-in")
+                        .setSubLabel("May 16")
+                        .build();
+        AutofillSuggestion suggestion =
+                new AutofillSuggestion.Builder()
+                        .setIconId(R.drawable.flight)
+                        .setLabel("KLM204")
+                        .setPayload(new AtMemoryPayload("Flight"))
+                        .setSubLabel("Flight ⋅ 15 May ⋅ SEA - MUC")
+                        .setSuggestionType(SuggestionType.AT_MEMORY_SEARCH_RESULT)
+                        .setChildren(List.of(childSuggestion))
+                        .build();
+
+        mMediator.show(List.of(suggestion), /* searchBarInitialValue= */ null);
+
+        assertEquals(
+                "Show more for Flight KLM204",
+                mModelList
+                        .get(0)
+                        .model
+                        .get(
+                                AtMemoryBottomSheetProperties.SuggestionItemProperties
+                                        .FLYOUT_CONTENT_DESCRIPTION));
     }
 }

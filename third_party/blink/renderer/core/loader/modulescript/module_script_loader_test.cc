@@ -156,10 +156,6 @@ class ModuleScriptLoaderTest : public PageTestBase {
         ->RunUntilIdle();
   }
 
-  const base::TickClock* GetTickClock() override {
-    return PageTestBase::GetTickClock();
-  }
-
  protected:
   const KURL url_;
   const scoped_refptr<const SecurityOrigin> security_origin_;
@@ -222,9 +218,7 @@ void ModuleScriptLoaderTest::InitializeForWorklet() {
       url_, mojom::blink::ScriptType::kModule, "GlobalScopeName", "UserAgent",
       UserAgentMetadata(), nullptr /* web_worker_fetch_context */,
       Vector<network::mojom::blink::ContentSecurityPolicyPtr>(),
-      Vector<network::mojom::blink::ContentSecurityPolicyPtr>(),
-      network::mojom::ReferrerPolicy::kDefault,
-      DocumentPolicy::DocumentPolicyBundle{}, security_origin_.get(),
+      network::mojom::ReferrerPolicy::kDefault, security_origin_.get(),
       true /* is_secure_context */, HttpsState::kModern,
       nullptr /* worker_clients */, nullptr /* content_settings_client */,
       nullptr /* inherited_trial_features */, base::UnguessableToken::Create(),

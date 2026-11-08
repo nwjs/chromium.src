@@ -10,16 +10,15 @@ static_library("assistant") {
     "assistant_browser_delegate_impl.h",
   ]
 
-  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
-
   deps = [
     "//ash/constants",
     "//ash/public/cpp",
     "//base",
+    "//build:branding_buildflags",
     "//chrome/browser/apps/app_service",
     "//chrome/browser/profiles",
     "//chrome/browser/profiles:profile",
-    "//chrome/browser/ui/views/frame:browser_view_header",
+    "//chrome/browser/ui/browser_window",
     "//chrome/browser/web_applications",
     "//chromeos/ash/components/browser_context_helper",
     "//chromeos/ash/components/browser_delegate",

@@ -6,12 +6,14 @@ package org.chromium.chrome.browser.tab.tab_restore;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+
 import static org.chromium.base.ThreadUtils.runOnUiThreadBlocking;
 
 import androidx.test.filters.MediumTest;
 
 import org.junit.After;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -22,6 +24,7 @@ import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.CriteriaHelper;
 import org.chromium.base.test.util.Features.DisableFeatures;
+import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.app.tabmodel.ArchivedTabModelOrchestrator;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
@@ -31,10 +34,12 @@ import org.chromium.chrome.browser.ntp.RecentlyClosedEntry;
 import org.chromium.chrome.browser.ntp.RecentlyClosedGroup;
 import org.chromium.chrome.browser.ntp.RecentlyClosedTab;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tab.TabRestoreEntryId;
 import org.chromium.chrome.browser.tab.TabSelectionType;
 import org.chromium.chrome.browser.tab.TabState;
 import org.chromium.chrome.browser.tab.TabStateExtractor;
 import org.chromium.chrome.browser.tab.TabTestUtils;
+import org.chromium.chrome.browser.tab.WebContentsState;
 import org.chromium.chrome.browser.tabmodel.TabClosureParams;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
@@ -46,6 +51,7 @@ import org.chromium.chrome.test.util.ChromeTabUtils;
 import org.chromium.chrome.test.util.TabRestoreServiceUtils;
 import org.chromium.components.tab_groups.TabGroupColorId;
 
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -69,6 +75,10 @@ public class HistoricalTabSaverImplTest {
     private static final String TEST_PAGE_2 = "/chrome/test/data/android/simple.html";
     private static final String TEST_PAGE_3 = "/chrome/test/data/android/google.html";
     private static final String TEST_PAGE_4 = "/chrome/test/data/android/theme_color_test.html";
+
+    private static final String SAVE_DURATION_TAB = "Tabs.HistoricalTabSaver.SaveDuration.Tab";
+    private static final String SAVE_DURATION_GROUP = "Tabs.HistoricalTabSaver.SaveDuration.Group";
+    private static final String SAVE_DURATION_BULK = "Tabs.HistoricalTabSaver.SaveDuration.Bulk";
 
     @Rule
     public AutoResetCtaTransitTestRule mActivityTestRule =
@@ -106,11 +116,16 @@ public class HistoricalTabSaverImplTest {
     @MediumTest
     public void testCreateHistoricalTab_NotFrozen_HistoricalTabCreated() {
         mActivityTestRule.loadUrl(getUrl(TEST_PAGE_1));
-        TabRestoreServiceUtils.createTabEntry(mTabModel, mTab);
+        HistogramWatcher watcher = expectOnlySaveDuration(SAVE_DURATION_TAB);
+        @TabRestoreEntryId int id = TabRestoreServiceUtils.createTabEntry(mTabModel, mTab);
+        watcher.assertExpected();
 
         ArrayList<HistoricalEntry> expectedEntries = new ArrayList<>();
         expectedEntries.add(new HistoricalEntry(mTab));
         assertEntriesAre(Collections.singletonList(expectedEntries));
+        RecentlyClosedTab entry =
+                (RecentlyClosedTab) TabRestoreServiceUtils.getEntries(mTabModelSelector).get(0);
+        assertEquals(entry.getSessionId(), id);
     }
 
     /**
@@ -150,10 +165,43 @@ public class HistoricalTabSaverImplTest {
         // Clear the entry created by freezing the tab.
         TabRestoreServiceUtils.clearEntries(mTabModelSelector);
 
-        TabRestoreServiceUtils.createTabEntry(mTabModel, frozenTab);
+        int id = TabRestoreServiceUtils.createTabEntry(mTabModel, frozenTab);
 
         List<List<HistoricalEntry>> empty = new ArrayList<>();
         assertEntriesAre(empty);
+        assertEquals(HistoricalTabSaver.INVALID_TAB_RESTORE_ENTRY_ID, id);
+    }
+
+    /**
+     * Tests that a save which reaches native but stores nothing still records its duration. The
+     * frozen tab's state is non-null (so Java does not filter it) but invalid, so native falls back
+     * to an empty WebContents with no navigations and TabRestoreService adds no entry.
+     */
+    @Test
+    @MediumTest
+    @DisableFeatures(ChromeFeatureList.LOAD_ALL_TABS_AT_STARTUP)
+    public void testCreateHistoricalTab_NothingStored_RecordsSaveDuration() {
+        final Tab tab =
+                mActivityTestRule.loadUrlInNewTab(getUrl(TEST_PAGE_1), /* incognito= */ false);
+        final Tab frozenTab = freezeTab(tab);
+
+        runOnUiThreadBlocking(
+                () ->
+                        TabTestUtils.setWebContentsState(
+                                frozenTab,
+                                new WebContentsState(
+                                        ByteBuffer.allocateDirect(0),
+                                        WebContentsState.INVALID_BUFFER_VERSION)));
+        // Clear the entry created by freezing the tab.
+        TabRestoreServiceUtils.clearEntries(mTabModelSelector);
+
+        HistogramWatcher watcher = expectOnlySaveDuration(SAVE_DURATION_TAB);
+        int id = TabRestoreServiceUtils.createTabEntry(mTabModel, frozenTab);
+        watcher.assertExpected();
+
+        List<List<HistoricalEntry>> empty = new ArrayList<>();
+        assertEntriesAre(empty);
+        assertEquals(HistoricalTabSaver.INVALID_TAB_RESTORE_ENTRY_ID, id);
     }
 
     /** Tests saving a single group. Needs native to test saving a group to TabRestoreService. */
@@ -170,12 +218,18 @@ public class HistoricalTabSaverImplTest {
                         new Token(1L, 2L),
                         "Foo",
                         TabGroupColorId.GREY,
-                        Arrays.asList(new Tab[] {tab0, tab1}));
-        TabRestoreServiceUtils.createTabOrGroupEntry(mTabModel, group);
+                        Arrays.asList(new Tab[] {tab0, tab1}),
+                        /* savedTabGroupSyncId= */ null);
+        HistogramWatcher watcher = expectOnlySaveDuration(SAVE_DURATION_GROUP);
+        @TabRestoreEntryId int id = TabRestoreServiceUtils.createTabOrGroupEntry(mTabModel, group);
+        watcher.assertExpected();
 
         ArrayList<HistoricalEntry> expectedEntries = new ArrayList<>();
         expectedEntries.add(group);
         assertEntriesAre(Collections.singletonList(expectedEntries));
+        RecentlyClosedGroup entry =
+                (RecentlyClosedGroup) TabRestoreServiceUtils.getEntries(mTabModelSelector).get(0);
+        assertEquals(entry.getSessionId(), id);
     }
 
     /**
@@ -203,7 +257,8 @@ public class HistoricalTabSaverImplTest {
                         new Token(3L, 4L),
                         "Foo",
                         TabGroupColorId.GREY,
-                        Arrays.asList(new Tab[] {frozenTab0, frozenTab1}));
+                        Arrays.asList(new Tab[] {frozenTab0, frozenTab1}),
+                        /* savedTabGroupSyncId= */ null);
         TabRestoreServiceUtils.createTabOrGroupEntry(mTabModel, group);
 
         ArrayList<HistoricalEntry> expectedEntries = new ArrayList<>();
@@ -238,11 +293,13 @@ public class HistoricalTabSaverImplTest {
                         new Token(3L, 7L),
                         "Foo",
                         TabGroupColorId.GREY,
-                        Arrays.asList(new Tab[] {frozenTab0, frozenTab1}));
-        TabRestoreServiceUtils.createTabOrGroupEntry(mTabModel, group);
+                        Arrays.asList(new Tab[] {frozenTab0, frozenTab1}),
+                        /* savedTabGroupSyncId= */ null);
+        @TabRestoreEntryId int id = TabRestoreServiceUtils.createTabOrGroupEntry(mTabModel, group);
 
         List<List<HistoricalEntry>> empty = new ArrayList<>();
         assertEntriesAre(empty);
+        assertEquals(HistoricalTabSaver.INVALID_TAB_RESTORE_ENTRY_ID, id);
     }
 
     /**
@@ -262,8 +319,9 @@ public class HistoricalTabSaverImplTest {
                         new Token(3784L, 5498L),
                         null,
                         TabGroupColorId.GREY,
-                        Arrays.asList(new Tab[] {tab0, tab1}));
-        TabRestoreServiceUtils.createTabOrGroupEntry(mTabModel, group);
+                        Arrays.asList(new Tab[] {tab0, tab1}),
+                        /* savedTabGroupSyncId= */ null);
+        @TabRestoreEntryId int id = TabRestoreServiceUtils.createTabOrGroupEntry(mTabModel, group);
 
         ArrayList<HistoricalEntry> expectedEntries = new ArrayList<>();
         expectedEntries.add(group);
@@ -293,11 +351,19 @@ public class HistoricalTabSaverImplTest {
                         new Token(9L, 38490L),
                         "baz",
                         TabGroupColorId.GREY,
-                        Arrays.asList(new Tab[] {tab1, tab2})));
+                        Arrays.asList(new Tab[] {tab1, tab2}),
+                        /* savedTabGroupSyncId= */ null));
         expectedEntries.add(new HistoricalEntry(tab3));
-        TabRestoreServiceUtils.createWindowEntry(mTabModel, expectedEntries);
+        HistogramWatcher watcher = expectOnlySaveDuration(SAVE_DURATION_BULK);
+        @TabRestoreEntryId
+        int id = TabRestoreServiceUtils.createWindowEntry(mTabModel, expectedEntries);
+        watcher.assertExpected();
 
         assertEntriesAre(Collections.singletonList(expectedEntries));
+        RecentlyClosedBulkEvent entry =
+                (RecentlyClosedBulkEvent)
+                        TabRestoreServiceUtils.getEntries(mTabModelSelector).get(0);
+        assertEquals(entry.getSessionId(), id);
     }
 
     /**
@@ -353,10 +419,12 @@ public class HistoricalTabSaverImplTest {
         ArrayList<HistoricalEntry> expectedEntries = new ArrayList<>();
         expectedEntries.add(new HistoricalEntry(frozenTab0));
         expectedEntries.add(new HistoricalEntry(frozenTab1));
-        TabRestoreServiceUtils.createWindowEntry(mTabModel, expectedEntries);
+        @TabRestoreEntryId
+        int id = TabRestoreServiceUtils.createWindowEntry(mTabModel, expectedEntries);
 
         List<List<HistoricalEntry>> empty = new ArrayList<>();
         assertEntriesAre(empty);
+        assertEquals(HistoricalTabSaver.INVALID_TAB_RESTORE_ENTRY_ID, id);
     }
 
     /** Tests saving a mix of entries in sequence. Requires native as a full end-to-end test. */
@@ -381,7 +449,8 @@ public class HistoricalTabSaverImplTest {
                         new Token(78493L, 4389L),
                         "baz",
                         TabGroupColorId.GREY,
-                        Arrays.asList(new Tab[] {tab1, tab2})));
+                        Arrays.asList(new Tab[] {tab1, tab2}),
+                        /* savedTabGroupSyncId= */ null));
         TabRestoreServiceUtils.createWindowEntry(mTabModel, window);
         expectedEntries.add(window);
 
@@ -390,7 +459,8 @@ public class HistoricalTabSaverImplTest {
                         new Token(43L, 389L),
                         "group",
                         TabGroupColorId.BLUE,
-                        Arrays.asList(new Tab[] {tab3, tab2}));
+                        Arrays.asList(new Tab[] {tab3, tab2}),
+                        /* savedTabGroupSyncId= */ null);
         TabRestoreServiceUtils.createTabOrGroupEntry(mTabModel, group);
         expectedEntries.add(Arrays.asList(new HistoricalEntry[] {group}));
 
@@ -455,7 +525,7 @@ public class HistoricalTabSaverImplTest {
         // Reverse actual entries as it is sorted by most recent.
         Collections.reverse(actualEntries);
 
-        Assert.assertEquals("Entry count mismatch.", expectedEntries.size(), actualEntries.size());
+        assertEquals("Entry count mismatch.", expectedEntries.size(), actualEntries.size());
         for (int i = 0; i < expectedEntries.size(); ++i) {
             assertThat(expectedEntries.get(i)).isNotEmpty();
 
@@ -475,14 +545,13 @@ public class HistoricalTabSaverImplTest {
 
     private void assertTabEquals(
             int i, HistoricalEntry expectedTab, RecentlyClosedEntry recentEntry) {
-        Assert.assertTrue(
-                "Entry " + i + " is not a tab.", recentEntry instanceof RecentlyClosedTab);
+        assertTrue("Entry " + i + " is not a tab.", recentEntry instanceof RecentlyClosedTab);
         RecentlyClosedTab recentTab = (RecentlyClosedTab) recentEntry;
-        Assert.assertEquals(
+        assertEquals(
                 "Entry " + i + " title mismatch.",
                 ChromeTabUtils.getTitleOnUiThread(expectedTab.getTabs().get(0)),
                 recentTab.getTitle());
-        Assert.assertEquals(
+        assertEquals(
                 "Entry " + i + " url mismatch.",
                 ChromeTabUtils.getUrlOnUiThread(expectedTab.getTabs().get(0)),
                 recentTab.getUrl());
@@ -490,27 +559,26 @@ public class HistoricalTabSaverImplTest {
 
     private void assertGroupEquals(
             int i, HistoricalEntry expectedGroup, RecentlyClosedEntry recentEntry) {
-        Assert.assertTrue(
-                "Entry " + i + " is not a group.", recentEntry instanceof RecentlyClosedGroup);
+        assertTrue("Entry " + i + " is not a group.", recentEntry instanceof RecentlyClosedGroup);
         RecentlyClosedGroup recentGroup = (RecentlyClosedGroup) recentEntry;
 
         // Reverse tabs as they are sorted by most recent.
         Collections.reverse(recentGroup.getTabs());
 
-        Assert.assertEquals(
+        assertEquals(
                 "Entry " + i + " title mismatch.",
                 expectedGroup.getGroupTitle() == null ? "" : expectedGroup.getGroupTitle(),
                 recentGroup.getTitle());
-        Assert.assertEquals(
+        assertEquals(
                 "Entry " + i + " tab count mismatch.",
                 expectedGroup.getTabs().size(),
                 recentGroup.getTabs().size());
         for (int j = 0; j < expectedGroup.getTabs().size(); j++) {
-            Assert.assertEquals(
+            assertEquals(
                     "Entry " + i + " tab " + j + " title mismatch.",
                     ChromeTabUtils.getTitleOnUiThread(expectedGroup.getTabs().get(j)),
                     recentGroup.getTabs().get(j).getTitle());
-            Assert.assertEquals(
+            assertEquals(
                     "Entry " + i + " tab " + j + " url mismatch.",
                     ChromeTabUtils.getUrlOnUiThread(expectedGroup.getTabs().get(j)),
                     recentGroup.getTabs().get(j).getUrl());
@@ -519,7 +587,7 @@ public class HistoricalTabSaverImplTest {
 
     private void assertBulkClosureEquals(
             int i, List<HistoricalEntry> entries, RecentlyClosedEntry recentEntry) {
-        Assert.assertTrue(
+        assertTrue(
                 "Entry " + i + " is not a bulk closure.",
                 recentEntry instanceof RecentlyClosedBulkEvent);
         RecentlyClosedBulkEvent recentBulk = (RecentlyClosedBulkEvent) recentEntry;
@@ -540,20 +608,20 @@ public class HistoricalTabSaverImplTest {
         // Reverse tabs as they are sorted by most recent.
         Collections.reverse(recentBulk.getTabs());
 
-        Assert.assertEquals(
+        assertEquals(
                 "Entry " + i + " group count mismatch.",
                 new HashSet<>(groupTitles.values()).size(),
                 recentBulk.getTabGroupIdToTitleMap().size());
         for (int j = 0; j < expectedTabs.size(); j++) {
-            Assert.assertEquals(
+            assertEquals(
                     "Entry " + i + " tab " + j + " title mismatch.",
                     ChromeTabUtils.getTitleOnUiThread(expectedTabs.get(j)),
                     recentBulk.getTabs().get(j).getTitle());
-            Assert.assertEquals(
+            assertEquals(
                     "Entry " + i + " tab " + j + " url mismatch.",
                     ChromeTabUtils.getUrlOnUiThread(expectedTabs.get(j)),
                     recentBulk.getTabs().get(j).getUrl());
-            Assert.assertEquals(
+            assertEquals(
                     "Entry " + i + " tab " + j + " group mismatch.",
                     groupTitles.get(expectedTabs.get(j)),
                     recentBulk
@@ -581,6 +649,22 @@ public class HistoricalTabSaverImplTest {
 
     private String getUrl(String relativeUrl) {
         return mActivityTestRule.getTestServer().getURL(relativeUrl);
+    }
+
+    /**
+     * Returns a watcher expecting exactly one sample of {@code histogram} and none of the other
+     * SaveDuration histograms. The samples are recorded in native.
+     */
+    private static HistogramWatcher expectOnlySaveDuration(String histogram) {
+        HistogramWatcher.Builder builder = HistogramWatcher.newBuilder();
+        for (String name : List.of(SAVE_DURATION_TAB, SAVE_DURATION_GROUP, SAVE_DURATION_BULK)) {
+            if (name.equals(histogram)) {
+                builder.expectAnyRecordTimes(name, 1);
+            } else {
+                builder.expectNoRecords(name);
+            }
+        }
+        return builder.build();
     }
 
     private void selectFirstTab() {

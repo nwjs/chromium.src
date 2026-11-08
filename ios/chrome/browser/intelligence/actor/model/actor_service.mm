@@ -5,20 +5,25 @@
 #import "ios/chrome/browser/intelligence/actor/model/actor_service.h"
 
 #import <algorithm>
+#import <optional>
 #import <set>
 
 #import "base/barrier_callback.h"
+#import "base/base64.h"
 #import "base/check.h"
 #import "base/functional/bind.h"
-#import "base/strings/sys_string_conversions.h"
+#import "base/ios/crb_protocol_observers.h"
+#import "base/location.h"
+#import "base/task/sequenced_task_runner.h"
 #import "components/actor/core/aggregated_journal.h"
-#import "ios/chrome/app/application_delegate/app_state.h"
-#import "ios/chrome/app/background_task/background_continued_processing_app_agent.h"
-#import "ios/chrome/app/background_task/background_continued_processing_task_configuration.h"
-#import "ios/chrome/app/background_task/background_continued_processing_task_context.h"
-#import "ios/chrome/app/profile/profile_state.h"
+#import "components/actor/core/journal_details_builder.h"
+#import "components/actor/core/task_source_info.h"
+#import "components/actor/public/mojom/actor_types.mojom.h"
+#import "components/optimization_guide/proto/features/actions_data.pb.h"
 #import "ios/chrome/browser/intelligence/actor/model/actor_task.h"
+#import "ios/chrome/browser/intelligence/actor/model/actor_task_background_worker.h"
 #import "ios/chrome/browser/intelligence/actor/public/actor_task_intervention_delegate.h"
+#import "ios/chrome/browser/intelligence/actor/public/actor_task_lifecycle_observer.h"
 #import "ios/chrome/browser/intelligence/actor/public/actor_task_updates_observer.h"
 #import "ios/chrome/browser/intelligence/actor/public/actor_types.h"
 #import "ios/chrome/browser/intelligence/actor/tools/model/actor_tool_factory.h"
@@ -30,22 +35,58 @@
 #import "ios/chrome/browser/intelligence/features/features.h"
 #import "ios/chrome/browser/intelligence/proto_wrappers/page_context_wrapper.h"
 #import "ios/chrome/browser/intelligence/proto_wrappers/page_context_wrapper_config.h"
-#import "ios/chrome/browser/shared/coordinator/scene/scene_state.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
 #import "ios/chrome/browser/shared/model/browser/browser_list.h"
 #import "ios/chrome/browser/shared/model/browser/browser_list_factory.h"
-#import "ios/chrome/browser/shared/model/browser/browser_list_utils.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 #import "ios/chrome/browser/shared/model/web_state_list/browser_util.h"
 #import "ios/web/public/web_state.h"
+#import "url/gurl.h"
 
 namespace actor {
+
+namespace {
+
+// Serializes and logs the given batch of `actions` as an Actions proto
+// associated with `task_id` to `journal` for Protoshop inspection and Perfetto
+// tracing.
+void LogActionsProto(
+    AggregatedJournal* journal,
+    ActorTaskId task_id,
+    const std::vector<optimization_guide::proto::Action>& actions) {
+  if (!journal) {
+    return;
+  }
+  optimization_guide::proto::Actions actions_proto;
+  actions_proto.set_task_id(task_id.value());
+  actions_proto.mutable_actions()->Reserve(actions.size());
+  for (const auto& action : actions) {
+    *actions_proto.add_actions() = action;
+  }
+  journal->LogProto(GURL(), task_id, "PerformActions", /*details=*/{},
+                    actions_proto,
+                    "chrome_intelligence_proto_features.Actions");
+}
+
+// Posts `callback` with `result`. Early replies are posted so that callers are
+// never re-entered from within `ActorService::PerformActions()`.
+void PostPerformActionsReply(PerformActionsCallback callback,
+                             PerformActionsResult result) {
+  base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+      FROM_HERE, base::BindOnce(std::move(callback), std::move(result)));
+}
+
+}  // namespace
 
 ActorService::ActorService(ProfileIOS* profile)
     : profile_(profile),
       tool_factory_(std::make_unique<ActorToolFactory>(profile)),
       journal_(std::make_unique<AggregatedJournal>()) {
   CHECK(tool_factory_);
+  lifecycle_observers_ =
+      static_cast<CRBProtocolObservers<ActorTaskLifecycleObserver>*>(
+          [CRBProtocolObservers
+              observersWithProtocol:@protocol(ActorTaskLifecycleObserver)]);
 }
 
 ActorService::~ActorService() {
@@ -53,21 +94,21 @@ ActorService::~ActorService() {
 }
 
 void ActorService::Shutdown() {
+  // TODO(crbug.com/568342921): Gracefully cleanup tasks.
   task_observers_.clear();
   active_tasks_.clear();
 }
 
 ActorTaskId ActorService::CreateTask(const std::string& title,
+                                     const TaskSourceInfo& source_info,
                                      bool allow_incognito_web_states) {
   CHECK(IsActorEnabled());
 
   const ActorTaskId task_id = next_task_id_.GenerateNextId();
   BrowserList* browser_list = BrowserListFactory::GetForProfile(profile_);
   auto task = std::make_unique<ActorTask>(
-      task_id, title, allow_incognito_web_states, journal_.get(),
+      task_id, title, source_info, allow_incognito_web_states, journal_.get(),
       tool_factory_.get(), browser_list);
-
-  RegisterBackgroundTask(task.get());
 
   for (id<ActorTaskUpdatesObserver> observer : task_observers_) {
     if (observer) {
@@ -76,6 +117,8 @@ ActorTaskId ActorService::CreateTask(const std::string& title,
   }
 
   active_tasks_[task_id] = std::move(task);
+  [lifecycle_observers_ actorServiceDidStartTaskWithID:task_id
+                                            sourceInfo:source_info];
   return task_id;
 }
 
@@ -86,12 +129,29 @@ void ActorService::PerformActions(
     PerformActionsCallback callback) {
   CHECK(IsActorEnabled());
 
+  LogActionsProto(journal_.get(), task_id, actions);
+
   auto it = active_tasks_.find(task_id);
   if (it == active_tasks_.end()) {
-    // TODO(crbug.com/503054406): Return high level error for non-existent
-    // task.
     PerformActionsResult actions_result;
-    std::move(callback).Run(std::move(actions_result));
+    actions_result.action_results =
+        MakeActionResults(mojom::ActionResultCode::kTaskWentAway);
+    PostPerformActionsReply(std::move(callback), std::move(actions_result));
+    return;
+  }
+
+  // Reject before `AddControlledWebStates`, so that a rejected request does not
+  // leave its target WebStates controlled by the task.
+  // TODO(crbug.com/568338837): Rely on the `ActorTask::Act()` check once the
+  // task registers its controlled WebStates.
+  if (it->second->HasPendingAct()) {
+    constexpr mojom::ActionResultCode kRejectionCode =
+        mojom::ActionResultCode::kExecutionEngineExistingAction;
+    LogActRejection(*journal_, task_id, "ActorService::PerformActions",
+                    kRejectionCode);
+    PerformActionsResult actions_result;
+    actions_result.action_results = MakeActionResults(kRejectionCode);
+    PostPerformActionsReply(std::move(callback), std::move(actions_result));
     return;
   }
 
@@ -119,6 +179,12 @@ void ActorService::RequestTabObservation(ActorTaskId task_id,
     return;
   }
 
+  const GURL last_committed_url = web_state->GetLastCommittedURL();
+  std::unique_ptr<AggregatedJournal::PendingAsyncEntry> journal_entry =
+      journal_->CreatePendingAsyncEntry(
+          last_committed_url, task_id, MakeBrowserTrackUUID(task_id),
+          "RequestTabObservation", /*details=*/{});
+
   PageContextWrapperConfigBuilder builder;
   builder.SetUseRichExtraction(true);
   builder.SetUseRichExtractionWithActionable(true);
@@ -133,6 +199,7 @@ void ActorService::RequestTabObservation(ActorTaskId task_id,
       completionCallback:base::BindOnce(
                              &ActorService::OnPageContextExtractionComplete,
                              weak_ptr_factory_.GetWeakPtr(), web_state_id,
+                             last_committed_url, std::move(journal_entry),
                              std::move(callback))];
 
   pending_observations_[web_state_id] = page_context_wrapper;
@@ -168,6 +235,10 @@ void ActorService::InterruptTask(ActorTaskId task_id,
   // task-initiated stops directly through `ActorService::StopTask`.
   it = active_tasks_.find(task_id);
   if (it != active_tasks_.end() && IsTerminalState(it->second->GetState())) {
+    [lifecycle_observers_
+        actorServiceDidStopTaskWithID:task_id
+                           sourceInfo:it->second->source_info()
+                           finalState:it->second->GetState()];
     active_tasks_.erase(it);
   }
 }
@@ -178,6 +249,10 @@ void ActorService::StopTask(ActorTaskId task_id,
   auto it = active_tasks_.find(task_id);
   if (it != active_tasks_.end()) {
     it->second->Stop(reason);
+    [lifecycle_observers_
+        actorServiceDidStopTaskWithID:task_id
+                           sourceInfo:it->second->source_info()
+                           finalState:it->second->GetState()];
   }
   active_tasks_.erase(task_id);
 }
@@ -191,8 +266,7 @@ void ActorService::StopAllTasks() {
   }
 }
 
-// TODO(crbug.com/556295233): Add new ActorService observation pattern for
-// coarse updates (task started/completed).
+// TODO(crbug.com/556295233): Remove once the granular observer is implemented.
 void ActorService::AddTaskUpdatesObserver(
     id<ActorTaskUpdatesObserver> observer) {
   if (!observer || std::ranges::contains(task_observers_, observer)) {
@@ -205,14 +279,50 @@ void ActorService::AddTaskUpdatesObserver(
   }
 }
 
-// TODO(crbug.com/556295233): Add new ActorService observation pattern for
-// coarse updates (task started/completed).
+// TODO(crbug.com/556295233): Remove once the granular observer is implemented.
 void ActorService::RemoveTaskUpdatesObserver(
     id<ActorTaskUpdatesObserver> observer) {
   std::erase(task_observers_, observer);
   for (const auto& [task_id, task] : active_tasks_) {
     task->RemoveObserver(observer);
   }
+}
+
+bool ActorService::AddTaskUpdatesObserver(
+    ActorTaskId task_id,
+    id<ActorTaskUpdatesObserver> observer) {
+  auto it = active_tasks_.find(task_id);
+  if (!observer || it == active_tasks_.end()) {
+    return false;
+  }
+  it->second->AddObserver(observer);
+  return true;
+}
+
+void ActorService::RemoveTaskUpdatesObserver(
+    ActorTaskId task_id,
+    id<ActorTaskUpdatesObserver> observer) {
+  auto it = active_tasks_.find(task_id);
+  if (!observer || it == active_tasks_.end()) {
+    return;
+  }
+  it->second->RemoveObserver(observer);
+}
+
+void ActorService::AddTaskLifecycleObserver(
+    id<ActorTaskLifecycleObserver> observer) {
+  if (!observer) {
+    return;
+  }
+  [lifecycle_observers_ addObserver:observer];
+}
+
+void ActorService::RemoveTaskLifecycleObserver(
+    id<ActorTaskLifecycleObserver> observer) {
+  if (!observer) {
+    return;
+  }
+  [lifecycle_observers_ removeObserver:observer];
 }
 
 std::optional<ActorTaskState> ActorService::GetActiveTaskState() const {
@@ -248,13 +358,57 @@ void ActorService::AddControlledWebState(ActorTaskId task_id,
   }
 }
 
+std::vector<base::WeakPtr<ActorTaskBackgroundWorker>>
+ActorService::GetWeakTaskBackgroundWorkers() {
+  std::vector<base::WeakPtr<ActorTaskBackgroundWorker>> workers;
+  workers.reserve(active_tasks_.size());
+  for (const auto& [task_id, task] : active_tasks_) {
+    workers.push_back(task->background_worker()->GetWeakPtr());
+  }
+  return workers;
+}
+
 #pragma mark - Private
 
 void ActorService::OnPageContextExtractionComplete(
     web::WebStateID web_state_id,
+    const GURL& last_committed_url,
+    std::unique_ptr<AggregatedJournal::PendingAsyncEntry> pending_journal_entry,
     TabObservationCallback callback,
     PageContextWrapperCallbackResponse response) {
   pending_observations_.erase(web_state_id);
+
+  if (pending_journal_entry) {
+    if (!response.has_value() || !response.value()) {
+      pending_journal_entry->EndEntry(
+          JournalDetailsBuilder()
+              .AddError("Failed to extract page context")
+              .Build());
+    } else {
+      const optimization_guide::proto::PageContext& page_context =
+          *response.value();
+      if (page_context.has_annotated_page_content()) {
+        const auto& apc = page_context.annotated_page_content();
+        std::vector<uint8_t> buffer(apc.ByteSizeLong());
+        if (apc.SerializeToArray(buffer.data(), buffer.size())) {
+          pending_journal_entry->GetJournal().LogAnnotatedPageContent(
+              last_committed_url, pending_journal_entry->GetTaskId(), buffer);
+        }
+      }
+      if (page_context.has_tab_screenshot()) {
+        std::optional<std::vector<uint8_t>> decoded_screenshot =
+            base::Base64Decode(page_context.tab_screenshot());
+        if (decoded_screenshot.has_value()) {
+          pending_journal_entry->GetJournal().LogScreenshot(
+              last_committed_url, pending_journal_entry->GetTaskId(),
+              "image/png", *decoded_screenshot,
+              /*iframe_data=*/std::nullopt);
+        }
+      }
+      pending_journal_entry->EndEntry({});
+    }
+  }
+
   std::move(callback).Run(std::move(response));
 }
 
@@ -352,69 +506,6 @@ web::WebState* ActorService::GetWebState(web::WebStateID web_state_id,
 
   return browser_and_index.browser->GetWebStateList()->GetWebStateAt(
       browser_and_index.tab_index);
-}
-
-bool ActorService::RegisterBackgroundTask(ActorTask* task) {
-  CHECK(task);
-  const ActorTaskId task_id = task->task_id();
-  if (!IsGeminiActorBackgroundingEnabled()) {
-    LogJournalEvent(*journal_, GURL(), task_id,
-                    "ActorService::RegisterBackgroundTask",
-                    {{"status", "feature_disabled"}});
-    return false;
-  }
-
-  BrowserList* browser_list = BrowserListFactory::GetForProfile(profile_);
-  Browser* browser =
-      browser_list_utils::GetMostActiveSceneBrowser(browser_list);
-  SceneState* scene_state = browser ? browser->GetSceneState() : nil;
-  if (!scene_state) {
-    LogJournalEvent(*journal_, GURL(), task_id,
-                    "ActorService::RegisterBackgroundTask",
-                    {{"status", "no_active_scene"}});
-    return false;
-  }
-  AppState* app_state = scene_state.profileState.appState;
-
-  BackgroundContinuedProcessingAppAgent* agent =
-      [BackgroundContinuedProcessingAppAgent agentFromApp:app_state];
-  if (!agent) {
-    LogJournalEvent(*journal_, GURL(), task_id,
-                    "ActorService::RegisterBackgroundTask",
-                    {{"status", "no_backgrounding_task_app_agent"}});
-    return false;
-  }
-
-  base::WeakPtr<ActorService> weak_service = weak_ptr_factory_.GetWeakPtr();
-
-  void (^expiration_handler)(void) = ^{
-    if (weak_service) {
-      weak_service->StopTask(task_id, ActorTaskStoppedReason::kShutdown);
-    }
-  };
-
-  BackgroundContinuedProcessingTaskConfiguration* config =
-      [[BackgroundContinuedProcessingTaskConfiguration alloc]
-              initWithTitle:base::SysUTF8ToNSString(task->title())
-                   subtitle:@""
-          expirationHandler:expiration_handler];
-
-  std::string task_id_string = base::NumberToString(task_id.value());
-  BackgroundContinuedProcessingTaskContext* context =
-      [agent requestTaskWithIdentifier:base::SysUTF8ToNSString(task_id_string)
-                         configuration:config];
-  if (!context) {
-    LogJournalEvent(*journal_, GURL(), task_id,
-                    "ActorService::RegisterBackgroundTask",
-                    {{"status", "request_background_task_rejected"}});
-    return false;
-  }
-
-  task->SetBackgroundTaskContext(context);
-  LogJournalEvent(*journal_, GURL(), task_id,
-                  "ActorService::RegisterBackgroundTask",
-                  {{"status", "success (not guaranteed to be executed)"}});
-  return true;
 }
 
 }  // namespace actor

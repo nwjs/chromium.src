@@ -18,6 +18,7 @@
 #include "base/check.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
+#include "base/functional/callback_helpers.h"
 #include "base/i18n/char_iterator.h"
 #include "base/memory/weak_ptr.h"
 #include "base/strings/string_util.h"
@@ -206,19 +207,23 @@ ui::EventDispatchDetails InputMethodAsh::DispatchKeyEvent(ui::KeyEvent* event) {
   // See http://crbug.com/1392491.
   dispatch_details_.reset();
 
-  handling_key_event_ = true;
+  base::ScopedClosureRunner in_flight = StartHandlingKeyEvent();
   GetEngine()->ProcessKeyEvent(
       *event, base::BindOnce(&InputMethodAsh::ProcessKeyEventDone,
                              weak_ptr_factory_.GetWeakPtr(),
                              // Pass the ownership of the new copied event.
-                             base::Owned(new ui::KeyEvent(*event))));
+                             base::Owned(new ui::KeyEvent(*event)),
+                             std::move(in_flight)));
   return dispatch_details_.value_or(ui::EventDispatchDetails());
 }
 
 void InputMethodAsh::ProcessKeyEventDone(
     ui::KeyEvent* event,
+    base::ScopedClosureRunner in_flight,
     ui::ime::KeyEventHandledState handled_state) {
   DCHECK(event);
+  in_flight.ReplaceClosure(base::BindOnce(
+      &InputMethodAsh::FinishHandlingKeyEvent, weak_ptr_factory_.GetWeakPtr()));
   bool is_handled_by_char_composer = false;
   if (event->type() == ui::EventType::kKeyPressed) {
     if (handled_state != ui::ime::KeyEventHandledState::kNotHandled) {
@@ -250,7 +255,38 @@ void InputMethodAsh::ProcessKeyEventDone(
     dispatch_details_ = ProcessKeyEventPostIME(event, handled_state_to_process,
                                                /* stopped_propagation */ false);
   }
-  handling_key_event_ = false;
+  // The key event is no longer in flight. If the engine drops the callback
+  // instead, `in_flight`'s destructor runs `OnKeyEventCallbackDropped()`.
+  in_flight.RunAndReset();
+}
+
+base::ScopedClosureRunner InputMethodAsh::StartHandlingKeyEvent() {
+  ++num_handling_key_events_;
+  return base::ScopedClosureRunner(
+      base::BindOnce(&InputMethodAsh::OnKeyEventCallbackDropped,
+                     weak_ptr_factory_.GetWeakPtr()));
+}
+
+void InputMethodAsh::FinishHandlingKeyEvent() {
+  CHECK_GT(num_handling_key_events_, 0u);
+  --num_handling_key_events_;
+}
+
+void InputMethodAsh::OnKeyEventCallbackDropped() {
+  FinishHandlingKeyEvent();
+  if (IsHandlingKeyEvent()) {
+    return;  // A still-in-flight key event will flush pending results.
+  }
+  // Nothing will flush results buffered for the dropped key event, so discard
+  // them to avoid leaking stale pending state into subsequent operations.
+  pending_composition_ = std::nullopt;
+  pending_composition_range_.reset();
+  pending_commit_ = std::nullopt;
+  composition_changed_ = false;
+  if (pending_autocorrect_range_) {
+    std::move(pending_autocorrect_range_->callback).Run(false);
+    pending_autocorrect_range_.reset();
+  }
 }
 
 void InputMethodAsh::OnTextInputTypeChanged(TextInputClient* client) {
@@ -487,7 +523,7 @@ bool InputMethodAsh::SetComposingRange(
 
   // If we have pending key events, then delay the operation until
   // |ProcessKeyEventPostIME|. Otherwise, process it immediately.
-  if (handling_key_event_) {
+  if (IsHandlingKeyEvent()) {
     composition_changed_ = true;
     pending_composition_range_ =
         PendingSetCompositionRange{composition_range, non_empty_text_spans};
@@ -516,7 +552,7 @@ void InputMethodAsh::SetAutocorrectRange(
 
   // If we have pending key events, then delay the operation until
   // |ProcessKeyEventPostIME|. Otherwise, process it immediately.
-  if (handling_key_event_) {
+  if (IsHandlingKeyEvent()) {
     if (pending_autocorrect_range_) {
       std::move(pending_autocorrect_range_->callback).Run(false);
     }
@@ -874,7 +910,7 @@ void InputMethodAsh::CommitText(
 
   // If we are not handling key event, do not bother sending text result if the
   // focused text input client does not support text input.
-  if (!handling_key_event_ && !IsTextInputTypeNone()) {
+  if (!IsHandlingKeyEvent() && !IsTextInputTypeNone()) {
     const base::WeakPtr<TextInputClient> prev_client =
         GetTextInputClient() ? GetTextInputClient()->AsWeakPtr() : nullptr;
     if (!SendFakeProcessKeyEvent(true)) {
@@ -924,7 +960,7 @@ void InputMethodAsh::UpdateCompositionText(const CompositionText& text,
     composing_text_ = true;
   }
 
-  if (!handling_key_event_) {
+  if (!IsHandlingKeyEvent()) {
     // If we receive a composition text without pending key event, then we need
     // to send it to the focused text input client directly.
     const base::WeakPtr<TextInputClient> prev_client =
@@ -950,7 +986,7 @@ void InputMethodAsh::HidePreeditText() {
   composition_changed_ = true;
   pending_composition_ = std::nullopt;
 
-  if (!handling_key_event_) {
+  if (!IsHandlingKeyEvent()) {
     const base::WeakPtr<TextInputClient> prev_client =
         GetTextInputClient() ? GetTextInputClient()->AsWeakPtr() : nullptr;
     if (prev_client && prev_client->HasCompositionText()) {

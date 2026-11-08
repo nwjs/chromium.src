@@ -168,7 +168,6 @@ chromium-metrics-reviews@google.com.
   <variant name=".ReloadButtonUI"/>
   <variant name=".ShoppingInsightsSidePanel"/>
   <variant name=".TabSearch"/>
-  <variant name=".TabsFromOtherDevicesSidePanel"/>
   <variant name=".UserEducation"/>
 </variants>
 
@@ -248,7 +247,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ContextMenu.LensSupportStatus" enum="LensSupportStatus"
-    expires_after="2027-01-31">
+    expires_after="2027-04-04">
   <owner>benwgold@google.com</owner>
   <owner>lens-chrome@google.com</owner>
   <summary>
@@ -379,7 +378,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="DefaultBrowser.InfoBar.UserInteraction"
-    enum="DefaultBrowserInfoBarUserInteraction" expires_after="2027-01-31">
+    enum="DefaultBrowserInfoBarUserInteraction" expires_after="2027-04-04">
   <owner>pmonette@chromium.org</owner>
   <owner>robliao@chromium.org</owner>
   <summary>
@@ -388,7 +387,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="DefaultBrowser.PinInfoBar.UserInteraction"
-    enum="PinInfoBarUserInteraction" expires_after="2027-01-24">
+    enum="PinInfoBarUserInteraction" expires_after="2027-03-28">
   <owner>jessemckenna@google.com</owner>
   <owner>davidbienvenu@chromium.org</owner>
   <summary>
@@ -647,7 +646,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="InitialWebUI.NewWindow{CreationSource}.{ExistingWindow}.BrowserWindowToReloadButton.FirstPaintGap{Version}"
-    units="ms" expires_after="2027-01-31">
+    units="ms" expires_after="2027-04-04">
   <owner>mych@chromium.org</owner>
   <owner>chrome-webium-product-eng@google.com</owner>
   <summary>
@@ -868,7 +867,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="InitialWebUI.Startup{Scenario}.BrowserWindowToReloadButton.FirstPaintGap{StartupTemperature}"
-    units="ms" expires_after="2027-01-31">
+    units="ms" expires_after="2027-04-04">
   <owner>mych@chromium.org</owner>
   <owner>chrome-webium-product-eng@google.com</owner>
   <summary>
@@ -935,7 +934,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="InitialWebUI.Startup{Scenario}.ReloadButton.{PaintType}{StartupTemperature}"
-    units="ms" expires_after="2027-01-31">
+    units="ms" expires_after="2027-04-04">
   <owner>mych@chromium.org</owner>
   <owner>chrome-webium-product-eng@google.com</owner>
   <summary>
@@ -1120,7 +1119,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="RenderViewContextMenu.Shown" enum="RenderViewContextMenuItem"
-    expires_after="2027-01-31">
+    expires_after="2027-04-04">
   <owner>avi@chromium.org</owner>
   <owner>edwardjung@chromium.org</owner>
   <owner>mpearson@chromium.org</owner>
@@ -1261,7 +1260,7 @@ features through Chrome Labs. -->
 </histogram>
 
 <histogram name="Views.FocusRing.RefreshLayer.Time" units="microseconds"
-    expires_after="2027-01-24">
+    expires_after="2027-03-28">
   <owner>gjc@google.com</owner>
   <owner>chrome-loading@google.com</owner>
   <summary>
@@ -1273,7 +1272,7 @@ features through Chrome Labs. -->
 </histogram>
 
 <histogram name="Views.FocusRing.RefreshLayer.Time.NotCached"
-    units="microseconds" expires_after="2027-01-24">
+    units="microseconds" expires_after="2027-03-28">
   <owner>gjc@google.com</owner>
   <owner>chrome-loading@google.com</owner>
   <summary>
@@ -1285,7 +1284,7 @@ features through Chrome Labs. -->
 </histogram>
 
 <histogram name="Views.InvalidatesDuringLayout" units="count"
-    expires_after="2027-01-24">
+    expires_after="2027-03-28">
   <owner>dpranke@chromium.org</owner>
   <owner>elainechien@chromium.org</owner>
   <owner>kylixrd@chromium.org</owner>
@@ -1293,20 +1292,6 @@ features through Chrome Labs. -->
     Records the number of times a view's InvalidateLayout() method is called
     during a Layout() call. Calling InvalidateLayout() during a layout call
     should never be necessary.
-  </summary>
-</histogram>
-
-<histogram name="Views.LayoutCallDepth" units="count"
-    expires_after="2025-07-06">
-  <owner>dpranke@chromium.org</owner>
-  <owner>elainechien@chromium.org</owner>
-  <owner>kylixrd@chromium.org</owner>
-  <summary>
-    The maximum reentrant call depth seen during a view's layout. Normally this
-    value will be one (Layout() was not reentered). But, we know Layout() is
-    reentered sometimes in some views (where the value will be two), and want to
-    measure how often that is. We also want to know if Layout() is ever
-    reentered more than two deep.
   </summary>
 </histogram>
 
@@ -1327,7 +1312,7 @@ features through Chrome Labs. -->
 
 <histogram
     name="Views.{Process}.NumColorProvidersInitializedDuringOnNativeThemeUpdated"
-    units="providers" expires_after="2027-01-31">
+    units="providers" expires_after="2027-04-04">
   <owner>pkasting@chromium.org</owner>
   <owner>tluk@chromium.org</owner>
   <owner>skau@chromium.org</owner>
@@ -1392,7 +1377,7 @@ features through Chrome Labs. -->
 </histogram>
 
 <histogram name="WebUI.CreatedForUrl" enum="WebUIUrlHashes"
-    expires_after="2027-01-24">
+    expires_after="2027-03-28">
   <owner>dpapad@chromium.org</owner>
   <owner>chrome-webui@google.com</owner>
   <summary>URLs for which Chrome creates WebUIControllers.</summary>
@@ -1530,10 +1515,15 @@ features through Chrome Labs. -->
     <variant name=".About"/>
     <variant name=".AddNewProfile"/>
     <variant name=".AppInfo"/>
+    <variant name=".AskGoogleAboutThisPage"/>
     <variant name=".BetaForum"/>
     <variant name=".BookmarkAllTabs"/>
+    <variant name=".BookmarkBarAlwaysHide"/>
+    <variant name=".BookmarkBarAlwaysShow"/>
+    <variant name=".BookmarkBarOnlyOnNtp"/>
     <variant name=".BookmarkPage"/>
     <variant name=".Cast"/>
+    <variant name=".ChromeEnterpriseReleaseNotes"/>
     <variant name=".ChromeOSRestart"/>
     <variant name=".ChromeTips"/>
     <variant name=".ChromeWhatsNew"/>
@@ -1542,6 +1532,7 @@ features through Chrome Labs. -->
     <variant name=".Copy"/>
     <variant name=".CopyUrl"/>
     <variant name=".CreateHostedApp"/>
+    <variant name=".CreateNewTabGroup"/>
     <variant name=".CreateQrCode"/>
     <variant name=".CustomizeChrome"/>
     <variant name=".Cut"/>
@@ -1554,6 +1545,7 @@ features through Chrome Labs. -->
     <variant name=".Feedback"/>
     <variant name=".Find"/>
     <variant name=".FindExtensions"/>
+    <variant name=".GlobalError"/>
     <variant name=".HelpPage"/>
     <variant name=".ImportSettings"/>
     <variant name=".InstallPwa"/>
@@ -1561,7 +1553,10 @@ features through Chrome Labs. -->
     <variant name=".ManageChromeProfiles"/>
     <variant name=".ManageExtensions"/>
     <variant name=".ManageGoogleAccount"/>
+    <variant name=".ManageSkills"/>
+    <variant name=".NameWindow"/>
     <variant name=".NewIncognitoWindow"/>
+    <variant name=".NewIsolatedWindow"/>
     <variant name=".NewTab"/>
     <variant name=".NewWindow"/>
     <variant name=".OpenBookmark"/>
@@ -1576,16 +1571,22 @@ features through Chrome Labs. -->
     <variant name=".ProfilingEnabled"/>
     <variant name=".ReadingListAddTab"/>
     <variant name=".ReadingListShowUi"/>
+    <variant name=".ReportUnsafeSite"/>
     <variant name=".RequestTabletSite"/>
     <variant name=".RestoreTab"/>
     <variant name=".SafetyHubNotificationManageExtensions"/>
     <variant name=".SafetyHubNotificationOpenSafetyHub"/>
     <variant name=".SafetyHubNotificationPasswordCheck"/>
+    <variant name=".SavedTabGroupDelete"/>
+    <variant name=".SavedTabGroupOpenInBrowser"/>
+    <variant name=".SavedTabGroupOpenInNewWindow"/>
+    <variant name=".SavedTabGroupPin"/>
     <variant name=".SavePage"/>
     <variant name=".SeeDeviceTabs"/>
     <variant name=".SendToDevices"/>
     <variant name=".SetBrowserAsDefault"/>
     <variant name=".Settings"/>
+    <variant name=".SharingHubScreenshot"/>
     <variant name=".ShowAddresses"/>
     <variant name=".ShowBookmarkBar"/>
     <variant name=".ShowBookmarkMgr"/>
@@ -1599,6 +1600,7 @@ features through Chrome Labs. -->
     <variant name=".ShowIdentityDocs"/>
     <variant name=".ShowKaleidoscope"/>
     <variant name=".ShowLensOverlay"/>
+    <variant name=".ShowManagementPage"/>
     <variant name=".ShowPasswordManager"/>
     <variant name=".ShowPaymentMethods"/>
     <variant name=".ShowPerformanceSettings"/>
@@ -1606,14 +1608,20 @@ features through Chrome Labs. -->
     <variant name=".ShowSavedTabGroups"/>
     <variant name=".ShowSignin"/>
     <variant name=".ShowSigninWhenPaused"/>
+    <variant name=".ShowSkillsAndExtensions"/>
+    <variant name=".ShowSyncPassphraseDialog"/>
     <variant name=".ShowSyncSettings"/>
     <variant name=".ShowTranslate"/>
     <variant name=".ShowTravel"/>
     <variant name=".ShowTurnOnSync"/>
     <variant name=".SiteSettings"/>
     <variant name=".SwitchToAnotherProfile"/>
+    <variant name=".TabSearch"/>
+    <variant name=".TakeScreenshot"/>
     <variant name=".TaskManager"/>
+    <variant name=".ToggleVerticalTabs"/>
     <variant name=".TtcAppMenu"/>
+    <variant name=".UpgradeDialog"/>
     <variant name=".ViewSource"/>
     <variant name=".VisitChromeWebStore"/>
     <variant name=".Win8MetroRestart"/>

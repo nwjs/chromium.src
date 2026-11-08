@@ -18,6 +18,7 @@
 #include "components/lens/lens_features.h"
 #include "components/omnibox/common/omnibox_feature_configs.h"
 #include "components/page_info/core/features.h"
+#include "components/password_manager/core/browser/features/password_features.h"
 #include "components/permissions/features.h"
 #include "components/permissions/permission_hats_trigger_helper.h"
 #include "components/privacy_sandbox/privacy_sandbox_features.h"
@@ -32,9 +33,8 @@
 #if !BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/contextual_cueing/features.h"  // nogncheck
 #include "chrome/browser/download/download_warning_desktop_hats_utils.h"
+#include "chrome/browser/metrics/critical_user_journeys/critical_user_journey.h"
 #include "chrome/browser/metrics/critical_user_journeys/features.h"
-#include "components/password_manager/core/browser/features/password_features.h"  // nogncheck
-#include "components/password_manager/core/browser/features/password_manager_features_util.h"  // nogncheck
 #include "components/performance_manager/public/features.h"  // nogncheck
 #include "components/permissions/constants.h"                // nogncheck
 #else
@@ -320,12 +320,6 @@ std::vector<hats::SurveyConfig> GetAllSurveyConfigs() {
       &::autofill::features::kAutofillAddressUserDeclinedSaveSurvey,
       kHatsSurveyTriggerAutofillAddressUserDeclinedSave);
 
-  survey_configs.emplace_back(
-      &password_manager::features::kAutofillPasswordUserPerceptionSurvey,
-      kHatsSurveyTriggerAutofillPasswordUserPerception,
-      /*presupplied_trigger_id=*/std::nullopt, std::vector<std::string>{},
-      std::vector<std::string>{"Filling assistance"});
-
   survey_configs.emplace_back(&features::kAutofillAddressSurvey,
                               kHatsSurveyTriggerAutofillAddress);
   survey_configs.emplace_back(&features::kAutofillCardSurvey,
@@ -580,6 +574,13 @@ std::vector<hats::SurveyConfig> GetAllSurveyConfigs() {
 
   // Performance Controls surveys.
   survey_configs.emplace_back(
+      &performance_manager::features::kPerformanceControlsPerformanceSurvey,
+      kHatsSurveyTriggerPerformanceControlsPerformance,
+      /*presupplied_trigger_id=*/std::nullopt,
+      std::vector<std::string>{"Memory Saver Mode Enabled",
+                               "Battery Saver Mode Enabled"},
+      std::vector<std::string>{});
+  survey_configs.emplace_back(
       &performance_manager::features::kPerformanceControlsPPMSurvey,
       kHatsSurveyTriggerPerformanceControlsPPM,
       /*presupplied_trigger_id=*/std::nullopt,
@@ -592,6 +593,22 @@ std::vector<hats::SurveyConfig> GetAllSurveyConfigs() {
           "Performance Characteristics (OS and Total Memory)"},
       /*log_responses_to_uma=*/true,
       /*log_responses_to_ukm=*/true);
+  survey_configs.emplace_back(
+      &performance_manager::features::
+          kPerformanceControlsBatteryPerformanceSurvey,
+      kHatsSurveyTriggerPerformanceControlsBatteryPerformance,
+      /*presupplied_trigger_id=*/std::nullopt,
+      std::vector<std::string>{"Memory Saver Mode Enabled",
+                               "Battery Saver Mode Enabled"},
+      std::vector<std::string>{});
+  survey_configs.emplace_back(
+      &performance_manager::features::
+          kPerformanceControlsMemorySaverOptOutSurvey,
+      kHatsSurveyTriggerPerformanceControlsMemorySaverOptOut);
+  survey_configs.emplace_back(
+      &performance_manager::features::
+          kPerformanceControlsBatterySaverOptOutSurvey,
+      kHatsSurveyTriggerPerformanceControlsBatterySaverOptOut);
 
   // Red Warning surveys.
   survey_configs.emplace_back(
@@ -652,35 +669,48 @@ std::vector<hats::SurveyConfig> GetAllSurveyConfigs() {
       DownloadWarningHatsProductSpecificData::GetStringDataFields(
           DownloadWarningHatsType::kDownloadsPageIgnore));
 
+  std::vector<std::string> cuj_string_psd_fields{metrics::kCujTerminalStateKey};
   survey_configs.emplace_back(
       &metrics::kHappinessTrackingSurveysForDownloadJourney,
       metrics::kHatsSurveyTriggerDownloadJourney,
-      /*presupplied_trigger_id=*/"mL46CjHkE0ugnJ3q1cK0NsAQJpTP");
+      /*presupplied_trigger_id=*/"mL46CjHkE0ugnJ3q1cK0NsAQJpTP",
+      /*product_specific_bits_data_fields=*/std::vector<std::string>{},
+      /*product_specific_string_data_fields=*/cuj_string_psd_fields);
 
   survey_configs.emplace_back(
       &metrics::kHappinessTrackingSurveysForPinExtensionJourney,
       metrics::kHatsSurveyTriggerPinExtensionJourney,
-      /*presupplied_trigger_id=*/"8RJXcn5t20ugnJ3q1cK0VLDGHPAz");
+      /*presupplied_trigger_id=*/"8RJXcn5t20ugnJ3q1cK0VLDGHPAz",
+      /*product_specific_bits_data_fields=*/std::vector<std::string>{},
+      /*product_specific_string_data_fields=*/cuj_string_psd_fields);
 
   survey_configs.emplace_back(
       &metrics::kHappinessTrackingSurveysForClearBrowsingHistory,
       metrics::kHatsSurveyTriggerClearBrowsingHistory,
-      /*presupplied_trigger_id=*/"R8iDTcjjT0ugnJ3q1cK0TiRRjjy4");
+      /*presupplied_trigger_id=*/"R8iDTcjjT0ugnJ3q1cK0TiRRjjy4",
+      /*product_specific_bits_data_fields=*/std::vector<std::string>{},
+      /*product_specific_string_data_fields=*/cuj_string_psd_fields);
 
   survey_configs.emplace_back(
       &metrics::kHappinessTrackingSurveysForCustomizeChromeJourney,
       metrics::kHatsSurveyTriggerCustomizeChromeJourney,
-      /*presupplied_trigger_id=*/"nJLJ12m7C0ugnJ3q1cK0VCq4ZXpB");
+      /*presupplied_trigger_id=*/"nJLJ12m7C0ugnJ3q1cK0VCq4ZXpB",
+      /*product_specific_bits_data_fields=*/std::vector<std::string>{},
+      /*product_specific_string_data_fields=*/cuj_string_psd_fields);
 
   survey_configs.emplace_back(
       &metrics::kHappinessTrackingSurveysForReadAnythingJourney,
       metrics::kHatsSurveyTriggerReadAnythingJourney,
-      /*presupplied_trigger_id=*/"rmkq5NvrA0ugnJ3q1cK0SNirMLq1");
+      /*presupplied_trigger_id=*/"rmkq5NvrA0ugnJ3q1cK0SNirMLq1",
+      /*product_specific_bits_data_fields=*/std::vector<std::string>{},
+      /*product_specific_string_data_fields=*/cuj_string_psd_fields);
 
   survey_configs.emplace_back(
       &metrics::kHappinessTrackingSurveysForTabSearchJourney,
       metrics::kHatsSurveyTriggerTabSearchJourney,
-      /*presupplied_trigger_id=*/"AD85aHvUu0ugnJ3q1cK0UCSRt6XZ");
+      /*presupplied_trigger_id=*/"AD85aHvUu0ugnJ3q1cK0UCSRt6XZ",
+      /*product_specific_bits_data_fields=*/std::vector<std::string>{},
+      /*product_specific_string_data_fields=*/cuj_string_psd_fields);
 
   // Lens overlay surveys.
   survey_configs.emplace_back(
@@ -761,31 +791,53 @@ std::vector<hats::SurveyConfig> GetAllSurveyConfigs() {
                                "referring_app"});
 #endif  // #if !BUILDFLAG(IS_ANDROID)
 
+  auto with_client_context_psd_fields = [](std::vector<std::string> fields) {
+    fields.insert(
+        fields.end(),
+        {
+            // Whether the user has accepted the Gemini in Chrome opt-in.
+            "GIC opt-in accepted",
+            // Whether Personal Intelligence is available for the user.
+            "Personal Intelligence available",
+            // eTLD+1 of the origin of the primary main frame where the survey
+            // was triggered.
+            "Origin of the website (eTLD+1)",
+        });
+    return fields;
+  };
   const std::vector<std::string>
-      autofill_personalization_and_trust_product_specific_data = {
-          // Comma-separated list of all field types in the submitted form. The
-          // types are sent in canonical order with duplicates removed.
-          "All field types",
+      autofill_personalization_and_trust_product_specific_data =
+          with_client_context_psd_fields({
+              // Comma-separated list of all field types in the submitted form.
+              // The types are sent in canonical order with duplicates removed.
+              "All field types",
 
-          "Total number of fields in form",
-          "Number of correctly filled fields",
-          "Number of fields that were submitted empty without filling",
-          "Number of fields that were modified after filling",
-          "Number of fields that were cleared after filling",
-          "Number of fields that were manually filled without filling",
+              // Due to privacy constraints, these counts are only accurately
+              // recorded until 20. For higher values, "20+" is stored instead.
+              "Total number of fields in form",
+              "Number of correctly filled fields",
+              "Number of fields that were submitted empty without filling",
+              "Number of fields that were modified after filling",
+              "Number of fields that were cleared after filling",
+              "Number of fields that were manually filled without filling",
 
-          // Comma-separated list of the filling products that were used on the
-          // fields of the submitted form. The list is in canonical order with
-          // duplicates removed.
-          "Filling products used",
-          // For each filling using AutofillAi, the kind of record that was used
-          // (local, wallet, personal context).
-          "AutofillAi entity record types used",
-          // For each filling using AutofillAi, the entity type that was filled.
-          "AutofillAi entity types used",
-          // Time between form submission and the last Autofill use, in seconds.
-          "Time since last Autofill use",
-      };
+              // Comma-separated list of the filling products that were used on
+              // the fields of the submitted form. The list is in canonical
+              // order with duplicates removed.
+              "Filling products used",
+              // For each filling using AutofillAi, the kind of record that was
+              // used (local, wallet, personal context).
+              "AutofillAi entity record types used",
+              // For each filling using AutofillAi, the entity type that was
+              // filled.
+              "AutofillAi entity types used",
+              // Indicates whether a BNPL virtual card was used to fill any
+              // field.
+              "BNPL used",
+              // Time between form submission and the last Autofill use, in
+              // seconds.
+              "Time since last Autofill use",
+          });
   survey_configs.emplace_back(
       &::autofill::features::kAutofillPersonalizationAndTrustAddressSurvey,
       kHatsSurveyTriggerAutofillPersonalizationAndTrustAddressFilled,
@@ -798,6 +850,48 @@ std::vector<hats::SurveyConfig> GetAllSurveyConfigs() {
       /*presupplied_trigger_id=*/std::nullopt,
       /*product_specific_bits_data_fields=*/std::vector<std::string>{},
       autofill_personalization_and_trust_product_specific_data);
+  survey_configs.emplace_back(
+      &::autofill::features::kAutofillPersonalizationAndTrustCreditCardSurvey,
+      kHatsSurveyTriggerAutofillPersonalizationAndTrustCreditCardFilled,
+      /*presupplied_trigger_id=*/std::nullopt,
+      /*product_specific_bits_data_fields=*/std::vector<std::string>{},
+      autofill_personalization_and_trust_product_specific_data);
+  survey_configs.emplace_back(
+      &::autofill::features::
+          kAutofillPersonalizationAndTrustOneTimePasswordSurvey,
+      kHatsSurveyTriggerAutofillPersonalizationAndTrustOneTimePasswordFilled,
+      /*presupplied_trigger_id=*/std::nullopt,
+      /*product_specific_bits_data_fields=*/std::vector<std::string>{},
+      autofill_personalization_and_trust_product_specific_data);
+  survey_configs.emplace_back(
+      &password_manager::features::
+          kAutofillPersonalizationAndTrustPasswordSurvey,
+      kHatsSurveyTriggerAutofillPersonalizationAndTrustPasswordFilled,
+      /*presupplied_trigger_id=*/std::nullopt,
+      /*product_specific_bits_data_fields=*/std::vector<std::string>{},
+      /*product_specific_string_data_fields=*/
+      std::vector<std::string>{"Filling assistance"});
+  survey_configs.emplace_back(
+      &::autofill::features::kAutofillPersonalizationAndTrustAtMemorySurvey,
+      kHatsSurveyTriggerAutofillPersonalizationAndTrustAtMemoryFilled,
+      /*presupplied_trigger_id=*/std::nullopt,
+      /*product_specific_bits_data_fields=*/std::vector<std::string>{},
+      /*product_specific_string_data_fields=*/
+      with_client_context_psd_fields({}));
+  survey_configs.emplace_back(
+      &::autofill::features::kAutofillPersonalizationAndTrustAtMemorySurvey,
+      kHatsSurveyTriggerAutofillPersonalizationAndTrustAtMemoryDismissed,
+      /*presupplied_trigger_id=*/std::nullopt,
+      /*product_specific_bits_data_fields=*/std::vector<std::string>{},
+      /*product_specific_string_data_fields=*/
+      with_client_context_psd_fields({
+          // Description of how the AtMemory popup was dismissed.
+          "Type of dismissal",
+          // Number of queries during AtMemory session.
+          "Query count",
+          // Number of results that were found for the last query.
+          "Query results count",
+      }));
 
   survey_configs.emplace_back(
       &omnibox_feature_configs::HappinessTrackingSurveyForOmniboxOnFocusZps::
@@ -914,7 +1008,6 @@ std::optional<uint64_t> SurveyConfig::ValidateHatsSurveyUkmId(
              ? hats_survey_ukm_id
              : std::nullopt;
 }
-
 
 void GetActiveSurveyConfigs(SurveyConfigs& survey_configs_by_triggers_) {
   auto surveys = GetAllSurveyConfigs();

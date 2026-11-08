@@ -333,6 +333,8 @@ class LocationBarView
                            AddContextButtonVisibilityAndClick);
   FRIEND_TEST_ALL_PREFIXES(LocationBarViewAddContextButtonBrowserTest,
                            PrefChangesAddContextButtonVisibility);
+  FRIEND_TEST_ALL_PREFIXES(FullWebUIOmniboxInteractiveTest,
+                           NativeFocusHandoffKeepsDraftAndSelection);
   using ContentSettingViews =
       std::vector<raw_ptr<ContentSettingImageView, VectorExperimental>>;
 
@@ -392,6 +394,18 @@ class LocationBarView
   // to process input and display suggestions.
   void OnFullWebUiOmniboxReady();
 
+  // Forwards focus to the WebUI omnibox. Like `OmniboxViewViews::SetFocus()`,
+  // this selects all when `select_all` is true or the omnibox didn't already
+  // have focus.
+  void ForwardFocusToWebUI(bool query_zps, bool select_all, bool show_full_url);
+
+  // Creates `omnibox_popup_aim_presenter_` if it doesn't exist yet and the
+  // profile is eligible for the AI Mode popup. Returns whether it exists.
+  bool CreateOmniboxPopupAimPresenterIfEligible();
+
+  // Retries creating the AI Mode popup presenter until it succeeds.
+  void OnAimEligibilityChanged();
+
   // Called when the popup state changes (classic, AIM, or none).
   void OnPopupStateChanged(OmniboxPopupState old_state,
                            OmniboxPopupState new_state);
@@ -406,6 +420,10 @@ class LocationBarView
   // TODO(crbug.com/40251974): Remove this once state manager is proven
   //  reliable.
   void ClearInPopupStateTransition();
+
+  // Once the location bar is drawn again, reopens the Full WebUI popup closed
+  // in `VisibilityChanged()` if the edit model still has a draft.
+  void RestoreOmniboxStateIfDrawn();
 
   // LocationBar:
   void FocusSearch() override;
@@ -425,6 +443,7 @@ class LocationBarView
   void OnBoundsChanged(const gfx::Rect& previous_bounds) override;
   bool GetNeedsNotificationWhenVisibleBoundsChange() const override;
   void OnVisibleBoundsChanged() override;
+  void VisibilityChanged(views::View* starting_from, bool is_visible) override;
   void OnFocus() override;
   void OnPaintBorder(gfx::Canvas* canvas) override;
   // LocationBarView directs mouse button events from
@@ -446,6 +465,8 @@ class LocationBarView
   bool CanStartDragForView(View* sender,
                            const gfx::Point& press_pt,
                            const gfx::Point& p) override;
+
+  bool ShouldUsePopupOpenAppearance() const;
 
   bool ShouldHidePageActionIcons() const;
 
@@ -539,8 +560,11 @@ class LocationBarView
 
   // The view holding the regular results popup.
   std::unique_ptr<OmniboxPopupView> omnibox_popup_view_;
-  // The presenter controlling the showing of the AI mode popup.
+  // The presenter controlling the showing of the AI mode popup. Null until the
+  // profile is eligible for it.
   std::unique_ptr<OmniboxPopupAimPresenter> omnibox_popup_aim_presenter_;
+  // Set while waiting for the profile to become eligible for the AI mode popup.
+  base::CallbackListSubscription aim_eligibility_subscription_;
 
   base::CallbackListSubscription popup_state_changed_subscription_;
 
@@ -639,6 +663,10 @@ class LocationBarView
   // TODO(crbug.com/40251974): Remove this once state manager is proven
   //  reliable.
   bool in_popup_state_transition_ = false;
+  // True while routing Views focus to `LocationBarView` so
+  // `LocationBarView::OnFocus()` skips its default WebUI focus forwarding and
+  // leaves it to the caller's `ForwardFocusToWebUI()` call.
+  bool moving_focus_to_webui_ = false;
   // Caches the latest toolbar visibility state for re-evaluating focus
   // behavior.
   bool is_toolbar_visible_ = true;

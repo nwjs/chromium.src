@@ -78,6 +78,7 @@ class MockModelContextHost : public mojom::blink::ModelContextHost {
 
   void RegisterScriptTool(mojom::blink::ScriptToolPtr tool,
                           RegisterScriptToolCallback callback) override {
+    tool_names_by_id_.insert(tool->tool_id.value(), tool->name);
     registered_tools_.push_back(tool->name);
     if (model_context_.is_bound()) {
       model_context_->NotifyToolChange();
@@ -85,7 +86,13 @@ class MockModelContextHost : public mojom::blink::ModelContextHost {
     std::move(callback).Run();
   }
 
-  void UnregisterScriptTool(const String& name) override {
+  void UnregisterScriptTool(const base::UnguessableToken& tool_id) override {
+    auto it = tool_names_by_id_.find(tool_id);
+    if (it == tool_names_by_id_.end()) {
+      return;
+    }
+    const String name = it->value;
+    tool_names_by_id_.erase(it);
     registered_tools_.erase(
         std::remove(registered_tools_.begin(), registered_tools_.end(), name),
         registered_tools_.end());
@@ -119,6 +126,7 @@ class MockModelContextHost : public mojom::blink::ModelContextHost {
   mojo::Receiver<mojom::blink::ModelContextHost> receiver_{this};
   mojo::Remote<mojom::blink::ModelContext> model_context_;
   Vector<String> registered_tools_;
+  HashMap<base::UnguessableToken, String> tool_names_by_id_;
 };
 
 class ModelContextTestBase : public SimTest {
@@ -184,6 +192,7 @@ class ModelContextTest : public ModelContextTestBase {
 
  private:
   ScopedWebMCPForTest scoped_webmcp_{true};
+  ScopedDeclarativeWebMCPForTest scoped_declarative_webmcp_{true};
 };
 
 TEST_F(ModelContextTest, ExecuteDeclarativeFormTool_InvalidInput) {
@@ -755,11 +764,12 @@ TEST_F(ModelContextTest, CancelToolUnregistered) {
       return new Promise(() => {});
     }
 
+    const controller = new AbortController();
     document.modelContext.registerTool({
       execute: hang,
       name: "hang",
       description: "never resolves",
-    });
+    }, {signal: controller.signal});
   </script>
 )");
 
@@ -779,7 +789,8 @@ TEST_F(ModelContextTest, CancelToolUnregistered) {
   ASSERT_TRUE(success);
 
   // Unregister the tool while execution is pending.
-  model_context->UnregisterTool("hang");
+  MainFrame().ExecuteScript(WebScriptSource("controller.abort()"));
+  ASSERT_TRUE(model_context->ListTools().empty());
 
   // Attempting to cancel should still succeed and clean up the pending
   // execution.
@@ -856,11 +867,15 @@ class MockDeclarativeTool : public GarbageCollected<MockDeclarativeTool>,
   void CancelTool() override {}
 
   String ToolName() const override { return "test_tool"; }
+  const base::UnguessableToken& ToolId() const override { return tool_id_; }
   String ToolDescription() const override { return "description"; }
   String ToolTitle() const override { return "title"; }
   String ComputeInputSchema() override { return "{}"; }
   Element* FormElement() const override { return nullptr; }
   void Trace(Visitor* visitor) const override {}
+
+ private:
+  const base::UnguessableToken tool_id_ = base::UnguessableToken::Create();
 };
 
 TEST_F(ModelContextTest, ForEachScriptToolGC) {
@@ -870,8 +885,10 @@ TEST_F(ModelContextTest, ForEachScriptToolGC) {
 
   auto* model_context = ModelContextSupplement::modelContext(GetDocument());
 
+  base::UnguessableToken tool_id;
   {
     auto* mock_tool = MakeGarbageCollected<MockDeclarativeTool>();
+    tool_id = mock_tool->ToolId();
     model_context->RegisterDeclarativeTool(mock_tool);
   }
 
@@ -888,7 +905,7 @@ TEST_F(ModelContextTest, ForEachScriptToolGC) {
   EXPECT_TRUE(found);
 
   // Now unregister it.
-  model_context->UnregisterTool("test_tool");
+  model_context->UnregisterTool(tool_id);
 
   // Trigger GC again. Now it should be reclaimed.
   ThreadState::Current()->CollectAllGarbageForTesting();
@@ -1020,6 +1037,7 @@ class ModelContextMetricsTest : public SimTest {
 
  private:
   ScopedWebMCPForTest scoped_webmcp_{true};
+  ScopedDeclarativeWebMCPForTest scoped_declarative_webmcp_{true};
 };
 
 TEST_F(ModelContextMetricsTest, RecordToolCountHistogram) {

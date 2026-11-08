@@ -12,20 +12,28 @@ import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import android.app.Activity;
+import android.content.Context;
+import android.content.res.Configuration;
 import android.os.Bundle;
 
 import androidx.fragment.app.Fragment;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.Robolectric;
 import org.robolectric.annotation.Config;
 
+import org.chromium.base.ActivityState;
+import org.chromium.base.ApplicationStatus;
+import org.chromium.base.ContextUtils;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.chrome.browser.about_settings.AboutChromeSettings;
 import org.chromium.chrome.browser.about_settings.LegalInformationSettings;
 import org.chromium.chrome.browser.appearance.settings.AppearanceSettingsFragment;
 import org.chromium.chrome.browser.appearance.settings.BookmarkBarSettingsFragment;
+import org.chromium.chrome.browser.appearance.settings.TabPositionSettingsFragment;
 import org.chromium.chrome.browser.autofill.settings.AutofillAndPasswordsFragment;
 import org.chromium.chrome.browser.autofill.settings.AutofillAndPasswordsFragment.AutofillSettingsReferrer;
 import org.chromium.chrome.browser.autofill.settings.options.AutofillOptionsFragment;
@@ -54,11 +62,14 @@ import org.chromium.chrome.browser.safe_browsing.settings.StandardProtectionSett
 import org.chromium.chrome.browser.signin.services.IdentityServicesProvider;
 import org.chromium.chrome.browser.sync.settings.ManageSyncSettings;
 import org.chromium.chrome.browser.sync.settings.PersonalizeGoogleServicesSettings;
+import org.chromium.chrome.browser.toolbar.adaptive.settings.AdaptiveToolbarSettingsFragment;
 import org.chromium.chrome.browser.tracing.settings.DeveloperSettings;
 import org.chromium.chrome.browser.tracing.settings.TracingCategoriesSettings;
 import org.chromium.chrome.browser.tracing.settings.TracingSettings;
+import org.chromium.chrome.browser.ui.vertical_tabs.VerticalTabUtils;
 import org.chromium.components.browser_ui.site_settings.AllSiteSettings;
 import org.chromium.components.browser_ui.site_settings.ChosenObjectSettings;
+import org.chromium.components.browser_ui.site_settings.CookieSettings;
 import org.chromium.components.browser_ui.site_settings.GroupedWebsitesSettings;
 import org.chromium.components.browser_ui.site_settings.LocationPermissionSubpageSettings;
 import org.chromium.components.browser_ui.site_settings.SingleCategorySettings;
@@ -69,10 +80,13 @@ import org.chromium.components.browser_ui.site_settings.StorageAccessSubpageSett
 import org.chromium.components.browser_ui.site_settings.Website;
 import org.chromium.components.browser_ui.site_settings.WebsiteAddress;
 import org.chromium.components.browser_ui.site_settings.WebsiteGroup;
+import org.chromium.components.content_settings.CookieControlsMode;
 import org.chromium.components.signin.identitymanager.IdentityManager;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -129,6 +143,44 @@ public class SettingsFragmentRegistryTest {
         assertEquals(
                 TracingSettings.CategoryType.NON_DEFAULT,
                 validTypeRes.args.getInt(TracingCategoriesSettings.EXTRA_CATEGORY_TYPE));
+    }
+
+    @Test
+    public void testResolveCookies_showsPageForExplainedModes() {
+        for (int mode :
+                new int[] {
+                    CookieControlsMode.BLOCK_THIRD_PARTY, CookieControlsMode.INCOGNITO_ONLY
+                }) {
+            SettingsFragmentRegistry.Resolution resolution =
+                    resolve("chrome://settings/cookies?mode=" + mode);
+            assertNull(resolution.redirectUrl);
+            assertEquals(CookieSettings.class, resolution.fragmentClass);
+            assertEquals(mode, resolution.args.getInt(CookieSettings.EXTRA_COOKIE_PAGE_STATE));
+        }
+    }
+
+    @Test
+    public void testResolveCookies_redirectsWithoutExplainedMode() {
+        String thirdPartyCookiesUrl =
+                "chrome://settings/siteSettings/category?category=third_party_cookies";
+        assertRedirects("chrome://settings/cookies", thirdPartyCookiesUrl);
+        assertRedirects(
+                "chrome://settings/cookies?mode=" + CookieControlsMode.OFF, thirdPartyCookiesUrl);
+        assertRedirects("chrome://settings/cookies?mode=nonsense", thirdPartyCookiesUrl);
+        // The raw argument key, as written before the "mode" parameter was registered, is read
+        // back as a String rather than a mode.
+        assertRedirects(
+                "chrome://settings/cookies?cookie_page_state="
+                        + CookieControlsMode.BLOCK_THIRD_PARTY,
+                thirdPartyCookiesUrl);
+
+        // The redirect lands on the category page itself rather than redirecting again.
+        SettingsFragmentRegistry.Resolution resolution = resolve(thirdPartyCookiesUrl);
+        assertNull(resolution.redirectUrl);
+        assertEquals(SingleCategorySettings.class, resolution.fragmentClass);
+        assertEquals(
+                SiteSettingsCategory.preferenceKey(SiteSettingsCategory.Type.THIRD_PARTY_COOKIES),
+                resolution.args.getString(SingleCategorySettings.EXTRA_CATEGORY));
     }
 
     @Test
@@ -406,6 +458,53 @@ public class SettingsFragmentRegistryTest {
     }
 
     @Test
+    public void testUrlPreservesArgs_cookiePageStateRoundTrips() {
+        Bundle args = new Bundle();
+        args.putInt(CookieSettings.EXTRA_COOKIE_PAGE_STATE, CookieControlsMode.BLOCK_THIRD_PARTY);
+        String url = SettingsFragmentRegistry.createUrlForFragment(CookieSettings.class, args);
+        assertEquals("chrome://settings/cookies?mode=" + CookieControlsMode.BLOCK_THIRD_PARTY, url);
+        assertTrue(SettingsFragmentRegistry.urlPreservesArgs(url, args));
+    }
+
+    @Test
+    public void testCreateUrlForFragment_clearBrowsingDataOmitsReferrer() {
+        Bundle args = ClearBrowsingDataFragment.createFragmentArgs(Activity.class.getName());
+        assertEquals(
+                "chrome://settings/clearBrowsingData",
+                SettingsFragmentRegistry.createUrlForFragment(
+                        ClearBrowsingDataFragment.class, args));
+    }
+
+    @Test
+    public void testCreateUrlForFragment_toolbarLeavesArgsOut() {
+        assertEquals(
+                "chrome://settings/toolbar",
+                SettingsFragmentRegistry.createUrlForFragment(
+                        AdaptiveToolbarSettingsFragment.class, createToolbarUiStateArgs()));
+    }
+
+    /** Regression test for https://crbug.com/571411602. */
+    @Test
+    public void testUrlPreservesArgs_toolbarArgsAreOptional() {
+        // None of the arguments is carried by the URL, but they are optional, so the URL can
+        // replace the Intent rather than falling back to opening the settings root.
+        assertTrue(
+                SettingsFragmentRegistry.urlPreservesArgs(
+                        "chrome://settings/toolbar", createToolbarUiStateArgs()));
+    }
+
+    @Test
+    public void testResolveToolbar_ignoresQuery() {
+        SettingsFragmentRegistry.Resolution resolution =
+                resolve(
+                        "chrome://settings/toolbar?can_show_ui=true&preference_selection=1"
+                                + "&auto_button_caption=2");
+        assertNull(resolution.redirectUrl);
+        assertEquals(AdaptiveToolbarSettingsFragment.class, resolution.fragmentClass);
+        assertTrue(resolution.args.isEmpty());
+    }
+
+    @Test
     public void testUrlPreservesArgs_unregisteredIntLosesItsType() {
         // An int argument whose key has no registered query parameter is still written out, under
         // its raw key, but it is read back as the String "3" because there is no type information
@@ -673,15 +772,20 @@ public class SettingsFragmentRegistryTest {
     }
 
     @Test
-    public void testResolveShowsMainSettingsForUnroutedUrls() {
+    public void testResolveRedirectsUnroutedUrlsToTheSettingsRoot() {
+        // An unknown path with no registered ancestor redirects to the root, rather than showing
+        // main settings in place, so the unknown Url does not stay in the omnibox and history.
+        assertRedirects("chrome://settings/notAPage", "chrome://settings");
+        assertRedirects("chrome://settings/foo?bar=baz", "chrome://settings");
+        assertRedirects("chrome-native://settings/foo/", "chrome://settings");
+
         // ChosenObjectSettings has no URL: it is identified by a serialized device descriptor.
-        SettingsFragmentRegistry.Resolution resolution = resolve("chrome://settings/chosenObject");
-        assertNull(resolution.redirectUrl);
-        assertEquals(MainSettings.class, resolution.fragmentClass);
+        assertRedirects("chrome://settings/chosenObject", "chrome://settings");
         assertNull(
                 SettingsFragmentRegistry.getFragmentClassForUrl("chrome://settings/chosenObject"));
 
-        resolution = resolve("chrome://settings/notAPage");
+        // The root itself is shown, so the redirect cannot loop.
+        SettingsFragmentRegistry.Resolution resolution = resolve("chrome://settings");
         assertNull(resolution.redirectUrl);
         assertEquals(MainSettings.class, resolution.fragmentClass);
     }
@@ -834,9 +938,79 @@ public class SettingsFragmentRegistryTest {
         IdentityServicesProvider.setIdentityManagerForTesting(identityManager);
     }
 
+    @Test
+    public void testResolveShowsTabPositionWhenVerticalTabsEligible() {
+        VerticalTabUtils.setIsVerticalTabsEligibleForTesting(true);
+
+        SettingsFragmentRegistry.Resolution resolution = resolve("chrome://settings/tabPosition");
+        assertNull(resolution.redirectUrl);
+        assertEquals(TabPositionSettingsFragment.class, resolution.fragmentClass);
+        assertEquals(
+                "chrome://settings/tabPosition",
+                SettingsFragmentRegistry.createUrlForFragment(
+                        TabPositionSettingsFragment.class, null));
+    }
+
+    @Test
+    public void testResolveRedirectsTabPositionWhenVerticalTabsIneligible() {
+        // The page asserts that the device is eligible for vertical tabs, so it must not be built
+        // for a URL typed or replayed from history on a device that is not.
+        VerticalTabUtils.setIsVerticalTabsEligibleForTesting(false);
+
+        assertRedirects("chrome://settings/tabPosition", "chrome://settings/appearance");
+    }
+
+    /** Activity that pins smallestScreenWidthDp to 600dp like ChromeBaseAppCompatActivity. */
+    public static class TabletOverrideActivity extends Activity {
+        @Override
+        protected void attachBaseContext(Context newBase) {
+            super.attachBaseContext(newBase);
+            Configuration overrideConfig = new Configuration();
+            overrideConfig.smallestScreenWidthDp = 600;
+            applyOverrideConfiguration(overrideConfig);
+        }
+    }
+
+    @Test
+    @Config(qualifiers = "sw320dp")
+    @EnableFeatures({ChromeFeatureList.SETTINGS_IN_TAB, ChromeFeatureList.ANDROID_VERTICAL_TABS})
+    public void testResolveTabPositionUsesTrackedActivityContext() {
+        // In portrait multi-window mode on a tablet, the application context loses its -sw600dp
+        // qualifier while ChromeBaseAppCompatActivity overrides smallestScreenWidthDp to retain it.
+        assertFalse(VerticalTabUtils.isVerticalTabsEligible(ContextUtils.getApplicationContext()));
+
+        Activity activity =
+                Robolectric.buildActivity(TabletOverrideActivity.class)
+                        .create()
+                        .start()
+                        .resume()
+                        .get();
+        ApplicationStatus.onStateChangeForTesting(activity, ActivityState.RESUMED);
+        assertTrue(VerticalTabUtils.isVerticalTabsEligible(activity));
+
+        SettingsFragmentRegistry.Resolution resolution = resolve("chrome://settings/tabPosition");
+        assertNull(resolution.redirectUrl);
+        assertEquals(TabPositionSettingsFragment.class, resolution.fragmentClass);
+    }
+
     /** Resolves a URL for the cases that do not depend on browser state. */
     private static SettingsFragmentRegistry.Resolution resolve(String url) {
         return SettingsFragmentRegistry.resolve(url, mock(Profile.class));
+    }
+
+    /**
+     * Returns arguments of the types the toolbar shortcut's "Edit shortcut" menu passes. The values
+     * are arbitrary.
+     */
+    private static Bundle createToolbarUiStateArgs() {
+        Bundle args = new Bundle();
+        args.putBoolean(AdaptiveToolbarSettingsFragment.ARG_UI_STATE_CAN_SHOW_UI, true);
+        args.putIntegerArrayList(
+                AdaptiveToolbarSettingsFragment.ARG_UI_STATE_RANKED_TOOLBAR_BUTTON_STATES,
+                new ArrayList<>(List.of(1, 2)));
+        args.putInt(AdaptiveToolbarSettingsFragment.ARG_UI_STATE_PREFERENCE_SELECTION, 1);
+        args.putInt(AdaptiveToolbarSettingsFragment.ARG_UI_STATE_AUTO_BUTTON_CAPTION, 2);
+        return args;
     }
 
     private static void assertRedirects(String url, String expectedRedirectUrl) {

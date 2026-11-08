@@ -8,6 +8,7 @@
 #include <list>
 #include <memory>
 #include <optional>
+#include <ostream>
 #include <string_view>
 #include <utility>
 #include <variant>
@@ -179,6 +180,7 @@ struct InteractionSequence::Configuration {
   ElementContext context;
   AbortedCallback aborted_callback;
   CompletedCallback completed_callback;
+  raw_ptr<TestDelegate> test_delegate = nullptr;
 };
 
 InteractionSequence::Builder::Builder()
@@ -291,6 +293,14 @@ InteractionSequence::Builder::SetDefaultStepStartMode(
   return *this;
 }
 
+InteractionSequence::Builder&
+InteractionSequence::Builder::SetDelegateForTesting(
+    TestDelegate* test_delegate) {
+  CHECK(!configuration_->test_delegate);
+  configuration_->test_delegate = test_delegate;
+  return *this;
+}
+
 void InteractionSequence::Builder::PopulateSubsequenceStepStacks() {
   for (const auto& step : configuration_->steps) {
     if (step->type != StepType::kSubsequence) {
@@ -339,6 +349,9 @@ InteractionSequence::Builder::BuildSubsequence(
   if (reference_config && !configuration_->step_start_mode) {
     configuration_->step_start_mode = *reference_config->step_start_mode;
   }
+
+  // Copy the parent's delegate.
+  configuration_->test_delegate = reference_config->test_delegate;
 
   return base::WrapUnique(
       new InteractionSequence(std::move(configuration_), reference_step));
@@ -828,6 +841,10 @@ void InteractionSequence::OnElementHidden(TrackedElement* element) {
   }
 
   if (current_step_ && current_step_->element == element) {
+    // This element pointer is no longer valid and we can stop watching.
+    current_step_->subscription = ElementTracker::Subscription();
+    current_step_->element = nullptr;
+
     // If the current step is marked as needing to remain visible and we haven't
     // seen the triggering event for the next step, abort.
     if (current_step_->must_remain_visible.value() &&
@@ -844,10 +861,6 @@ void InteractionSequence::OnElementHidden(TrackedElement* element) {
       Abort(AbortedReason::kElementHiddenBetweenTriggerAndStepStart);
       return;
     }
-
-    // This element pointer is no longer valid and we can stop watching.
-    current_step_->subscription = ElementTracker::Subscription();
-    current_step_->element = nullptr;
   }
 
   // If we got a hidden callback and it wasn't to abort the current step, it
@@ -1220,10 +1233,19 @@ void InteractionSequence::CompleteStepTransition() {
   step_transition_callback_ = base::BindOnce(&InteractionSequence::FinishStep,
                                              weak_factory_.GetWeakPtr());
 
+  if (configuration_->test_delegate) {
+    configuration_->test_delegate->OnStepStartCallbackWillRun(this);
+    CHECK(abort_guard) << "Test delegates may not destroy a sequence.";
+  }
   RunIfValid(std::move(current_step_->start_callback), this,
              current_step_->element.get());
   if (!abort_guard) {
     return;
+  }
+
+  if (configuration_->test_delegate) {
+    configuration_->test_delegate->OnStepStartCallbackDone(this);
+    CHECK(abort_guard) << "Test delegates may not destroy a sequence.";
   }
 
   if (step_transition_callback_) {
@@ -1255,6 +1277,9 @@ void InteractionSequence::FinishStep(bool success) {
     CompletedCallback completed_callback =
         std::move(configuration_->completed_callback);
     std::unique_ptr<Step> last_step = std::move(current_step_);
+    if (configuration_->test_delegate) {
+      configuration_->test_delegate->OnSequenceDestroying(this);
+    }
     RunIfValid(std::move(last_step->end_callback), last_step->element.get());
     RunIfValid(std::move(completed_callback));
     RunIfValid(std::move(quit_closure));
@@ -1491,6 +1516,10 @@ void InteractionSequence::Abort(AbortedReason reason) {
   // This blows up any abort guards and pending callbacks.
   weak_factory_.InvalidateWeakPtrs();
 
+  if (configuration_->test_delegate) {
+    configuration_->test_delegate->OnSequenceDestroying(this);
+  }
+
   // Note that if the sequence has already been aborted, this is a no-op, the
   // callbacks will already be null.
   if (current_step) {
@@ -1629,12 +1658,12 @@ void InteractionSequence::BuildSubsequences(const Step* current_step) {
   for (auto& subsequence_data : next_step()->subsequence_data) {
     if (!subsequence_data.sequence) {
       subsequence_data.builder.SetContext(configuration_->context);
-      subsequence_data.builder.SetCompletedCallback(
-          base::BindOnce(&InteractionSequence::OnSubsequenceCompleted,
-                         AsWeakPtr(), SubsequenceHandle(&subsequence_data)));
-      subsequence_data.builder.SetAbortedCallback(
-          base::BindOnce(&InteractionSequence::OnSubsequenceAborted,
-                         AsWeakPtr(), SubsequenceHandle(&subsequence_data)));
+      subsequence_data.builder.SetCompletedCallback(base::BindOnce(
+          &InteractionSequence::OnSubsequenceCompleted, AsWeakPtr(),
+          static_cast<SubsequenceHandle>(&subsequence_data)));
+      subsequence_data.builder.SetAbortedCallback(base::BindOnce(
+          &InteractionSequence::OnSubsequenceAborted, AsWeakPtr(),
+          static_cast<SubsequenceHandle>(&subsequence_data)));
       subsequence_data.sequence = subsequence_data.builder.BuildSubsequence(
           configuration_.get(), current_step);
 
@@ -1709,14 +1738,21 @@ void PrintTo(InteractionSequence::StepStartMode mode, std::ostream* os) {
 }
 
 void PrintTo(const InteractionSequence::AbortedData& data, std::ostream* os) {
-  *os << "on step " << data.step_index;
-  if (!data.step_description.empty()) {
-    *os << " (" << data.step_description << ")";
+  // The description should be more descriptive than the type.
+  if (data.step_description.empty()) {
+    *os << "on step of type " << data.step_type;
+  } else {
+    *os << "on step: " << data.step_description;
   }
-  *os << " with reason " << data.aborted_reason << "; step type "
-      << data.step_type << "; id " << data.element_id;
+
+  *os << "\nReason: " << data.aborted_reason;
+
+  // The element contains the ID so no need to print both.
   if (data.element) {
-    *os << "; element " << data.element.get();
+    *os << "\nElement " << *data.element.get();
+  } else {
+    // ElementIdentifier prints out "ElementIdentifier" so no prefix is needed.
+    *os << "\n" << data.element_id;
   }
 
   // Pointer to the failure data whose nested step stack should be printed at
@@ -1724,25 +1760,16 @@ void PrintTo(const InteractionSequence::AbortedData& data, std::ostream* os) {
   // subsequence will handle printing its own stack recursively.
   const InteractionSequence::AbortedData* aborted_data_with_stack = &data;
   if (data.aborted_reason ==
-      InteractionSequence::AbortedReason::kSubsequenceFailed) {
+          InteractionSequence::AbortedReason::kSubsequenceFailed ||
+      (data.aborted_reason ==
+           InteractionSequence::AbortedReason::kSequenceTimedOut &&
+       !data.subsequence_failures.empty())) {
     aborted_data_with_stack = nullptr;
-    *os << "\nsubsequence failures:";
-    size_t i = 0;
+    *os << "\nSubsequence failures:\n";
+    size_t i = 1;
     for (auto& subsequence : data.subsequence_failures) {
       if (subsequence) {
-        *os << "\n - subsequence " << i << " failed: " << *subsequence;
-      }
-      ++i;
-    }
-  } else if (data.aborted_reason ==
-                 InteractionSequence::AbortedReason::kSequenceTimedOut &&
-             !data.subsequence_failures.empty()) {
-    aborted_data_with_stack = nullptr;
-    *os << "\nsubsequence failures and timeouts:";
-    size_t i = 0;
-    for (auto& subsequence : data.subsequence_failures) {
-      if (subsequence) {
-        *os << "\n - subsequence " << i << ": " << *subsequence;
+        *os << "\nSubsequence " << i << " failed " << *subsequence << "\n";
       }
       ++i;
     }
@@ -1751,18 +1778,21 @@ void PrintTo(const InteractionSequence::AbortedData& data, std::ostream* os) {
              !data.subsequence_failures.empty() &&
              data.subsequence_failures[0].has_value()) {
     const auto& next_step = data.subsequence_failures[0].value();
-    *os << "; while waiting for { step " << next_step.step_index << " (";
+    *os << "\nWhile waiting for { ";
     if (next_step.step_description.empty()) {
-      *os << next_step.step_type;
+      *os << "step of type " << next_step.step_type;
     } else {
-      *os << next_step.step_description;
+      *os << "step \"" << next_step.step_description << "\"";
     }
-    *os << "); id " << next_step.element_id << " }";
+    *os << "; " << next_step.element_id << " }";
     aborted_data_with_stack = &next_step;
   }
 
-  if (aborted_data_with_stack) {
+  if (aborted_data_with_stack &&
+      aborted_data_with_stack->step_stack.size() > 1) {
     *os << aborted_data_with_stack->step_stack;
+  } else {
+    *os << "\nNo step stack available; step number is " << data.step_index;
   }
 }
 

@@ -78,6 +78,9 @@ const CGFloat kPromoMaxImpressionCount = 3;
 
   // The entry point the mediator was initialized from.
   gemini::EntryPoint _entryPoint;
+
+  // The type of First Run flow.
+  GeminiFirstRunType _firstRunType;
 }
 
 - (instancetype)initWithPrefService:(PrefService*)prefService
@@ -88,6 +91,7 @@ const CGFloat kPromoMaxImpressionCount = 3;
                     identityManager:(signin::IdentityManager*)identityManager
                             tracker:(feature_engagement::Tracker*)tracker
                          entryPoint:(gemini::EntryPoint)entryPoint
+                       firstRunType:(GeminiFirstRunType)firstRunType
                   completionHandler:(void (^)(BOOL success))completion {
   self = [super init];
   if (self) {
@@ -97,6 +101,7 @@ const CGFloat kPromoMaxImpressionCount = 3;
     _authService = authService;
     _tracker = tracker;
     _entryPoint = entryPoint;
+    _firstRunType = firstRunType;
     _FRECompletion = completion;
     _identityManager = identityManager;
     _geminiOverlayPreparationStartTime = base::TimeTicks::Now();
@@ -116,14 +121,6 @@ const CGFloat kPromoMaxImpressionCount = 3;
   _tracker = nullptr;
   _identityManager = nullptr;
   _authService = nullptr;
-}
-
-- (BOOL)shouldShowPromo {
-  BOOL promoImpressionsExhausted =
-      _prefService->GetInteger(prefs::kIOSBWGPromoImpressionCount) >=
-      kPromoMaxImpressionCount;
-
-  return ShouldForceBWGPromo() || !promoImpressionsExhausted;
 }
 
 - (GeminiConsentConfiguration*)consentConfigurationForFirstRunType:
@@ -146,7 +143,15 @@ const CGFloat kPromoMaxImpressionCount = 3;
 }
 
 - (BOOL)shouldShowPromoForFirstRunType:(GeminiFirstRunType)firstRunType {
-  return self.shouldShowPromo && (firstRunType != GeminiFirstRunType::kLive);
+  if (firstRunType == GeminiFirstRunType::kLive) {
+    return NO;
+  }
+
+  BOOL promoImpressionsExhausted =
+      _prefService->GetInteger(prefs::kIOSBWGPromoImpressionCount) >=
+      kPromoMaxImpressionCount;
+
+  return ShouldForceBWGPromo() || !promoImpressionsExhausted;
 }
 
 - (BOOL)shouldShowBrandingHeaderForFirstRunType:
@@ -179,13 +184,6 @@ const CGFloat kPromoMaxImpressionCount = 3;
 #pragma mark - Private
 
 - (void)logPromoShown {
-  if (IsGeminiNavigationPromoEnabled() &&
-      _entryPoint == gemini::EntryPoint::Promo) {
-    _tracker->NotifyEvent(
-        feature_engagement::events::kIOSFullscreenPromosGroupTrigger);
-    _tracker->NotifyEvent(
-        feature_engagement::events::kIOSGeminiFullscreenPromoTriggered);
-  }
   int impressionCount =
       _prefService->GetInteger(prefs::kIOSBWGPromoImpressionCount) + 1;
   _prefService->SetInteger(prefs::kIOSBWGPromoImpressionCount, impressionCount);
@@ -210,7 +208,8 @@ const CGFloat kPromoMaxImpressionCount = 3;
   BOOL wouldTriggerIPH =
       _tracker->WouldTriggerHelpUI(feature_engagement::kIPHIOSPageActionMenu);
 
-  return _entryPoint != gemini::EntryPoint::AIHub && [self shouldShowPromo] &&
+  return _entryPoint != gemini::EntryPoint::AIHub &&
+         [self shouldShowPromoForFirstRunType:GeminiFirstRunType::kNewUser] &&
          wouldTriggerIPH;
 }
 
@@ -245,13 +244,7 @@ const CGFloat kPromoMaxImpressionCount = 3;
 // Did consent to Gemini.
 - (void)didConsentGemini {
   gemini::UpdateUserConsentPrefs(YES, _prefService);
-  if (IsGeminiNavigationPromoEnabled()) {
-    _tracker->NotifyEvent(feature_engagement::events::kIOSGeminiConsentGiven);
-  }
-  __weak __typeof(self) weakSelf = self;
-  [_delegate dismissGeminiConsentUIWithCompletion:^{
-    [weakSelf handleFRECompletion:YES];
-  }];
+  [self handleFRECompletion:YES];
 }
 
 // Did consent to Live Gemini.
@@ -265,19 +258,13 @@ const CGFloat kPromoMaxImpressionCount = 3;
 
 // Did refuse Gemini consent.
 - (void)didRefuseGeminiConsent {
-  // Retain self to survive synchronous teardown from the delegate.
-  __strong __typeof(self) strongSelf = self;
   gemini::UpdateUserConsentPrefs(NO, _prefService);
-  [_delegate dismissGeminiFlow];
-  [strongSelf handleFRECompletion:NO];
+  [self handleFRECompletion:NO];
 }
 
 // Did close Gemini Promo UI.
 - (void)didCloseGeminiPromo {
-  // Retain self to survive synchronous teardown from the delegate.
-  __strong __typeof(self) strongSelf = self;
-  [_delegate dismissGeminiFlow];
-  [strongSelf handleFRECompletion:NO];
+  [self handleFRECompletion:NO];
 }
 
 // Did refuse Live onboarding.
@@ -291,11 +278,6 @@ const CGFloat kPromoMaxImpressionCount = 3;
 
 // Promo was shown.
 - (void)didShowGeminiPromo {
-  if (_entryPoint != gemini::EntryPoint::Promo) {
-    _tracker->NotifyEvent(
-        feature_engagement::events::kIOSGeminiFlowStartedNonPromo);
-  }
-
   [self logPromoShown];
 }
 
@@ -309,7 +291,11 @@ const CGFloat kPromoMaxImpressionCount = 3;
 
 // Handles tap on a consent link action.
 - (void)didTapConsentLinkWithAction:(NSString*)actionString {
-  RecordFirstRunConsentAction(IOSGeminiFirstRunAction::kLinkClick);
+  if (_firstRunType == GeminiFirstRunType::kLive) {
+    RecordLiveFREConsentLinkClick();
+  } else {
+    RecordFirstRunConsentAction(IOSGeminiFirstRunAction::kLinkClick);
+  }
   if ([actionString isEqualToString:kGeminiFirstFootnoteLinkAction]) {
     [self openNewTabWithURL:GURL(kFirstFootnoteLinkURL)];
   } else if ([actionString isEqualToString:kGeminiSecondFootnoteLinkAction]) {
@@ -342,9 +328,9 @@ const CGFloat kPromoMaxImpressionCount = 3;
   }
 }
 
-// Open a new tab page given a URL.
+// Opens a new tab page given a URL.
 - (void)openNewTabWithURL:(const GURL&)URL {
-  [_delegate dismissGeminiFlow];
+  [_delegate dismissGeminiFlowForLinkClick];
   OpenNewTabCommand* command = [OpenNewTabCommand commandWithURLFromChrome:URL];
   [self.sceneHandler openURLInNewTab:command];
 }

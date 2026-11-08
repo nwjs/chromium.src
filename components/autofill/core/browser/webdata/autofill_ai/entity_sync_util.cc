@@ -37,6 +37,7 @@
 #include "components/sync/protocol/autofill_valuable_specifics.pb.h"
 #include "components/sync/protocol/entity_data.h"
 #include "third_party/icu/source/i18n/unicode/timezone.h"
+#include "url/gurl.h"
 
 namespace autofill {
 
@@ -727,18 +728,19 @@ ChromeValuablesMetadata SerializeChromeValuablesMetadata(
 std::unique_ptr<syncer::EntityData> CreateEntityDataFromEntityInstance(
     const EntityInstance& entity,
     const sync_pb::AutofillValuableSpecifics& base_specifics,
-    std::string_view context_token) {
+    std::string_view legal_message_token) {
   // WARNING: if you are adding support for new `AutofillValuableSpecifics`
   // fields, you need to update the
   // `TrimAutofillValuableSpecificsDataForCaching` function accordingly
   DCHECK_EQ(0u, TrimAutofillValuableSpecificsDataForCaching(
                     CreateSpecificsFromEntityInstance(entity,
                                                       /*base_specifics=*/{},
-                                                      context_token))
+                                                      legal_message_token))
                     .ByteSizeLong());
 
   sync_pb::AutofillValuableSpecifics valuable_specifics =
-      CreateSpecificsFromEntityInstance(entity, base_specifics, context_token);
+      CreateSpecificsFromEntityInstance(entity, base_specifics,
+                                        legal_message_token);
   std::unique_ptr<syncer::EntityData> entity_data =
       std::make_unique<syncer::EntityData>();
   entity_data->name = valuable_specifics.id();
@@ -751,7 +753,7 @@ std::unique_ptr<syncer::EntityData> CreateEntityDataFromEntityInstance(
 sync_pb::AutofillValuableSpecifics CreateSpecificsFromEntityInstance(
     const EntityInstance& entity,
     const sync_pb::AutofillValuableSpecifics& base_specifics,
-    std::string_view context_token) {
+    std::string_view legal_message_token) {
   sync_pb::AutofillValuableSpecifics specifics;
   switch (entity.type().name()) {
     case EntityTypeName::kFlightReservation:
@@ -783,9 +785,19 @@ sync_pb::AutofillValuableSpecifics CreateSpecificsFromEntityInstance(
       break;
   }
 
-  if (!context_token.empty()) {
-    specifics.set_context_token(std::string(context_token));
+  if (!legal_message_token.empty()) {
+    specifics.set_legal_message_token(std::string(legal_message_token));
   }
+
+  if (const auto* wallet_payload =
+          std::get_if<EntityInstance::WalletRecordTypePayload>(
+              &entity.record_type_data());
+      base::FeatureList::IsEnabled(
+          features::kAutofillAiWalletServerProvidedDeepLink) &&
+      wallet_payload && !wallet_payload->management_url.is_empty()) {
+    specifics.set_pass_view_url(wallet_payload->management_url.spec());
+  }
+
   return specifics;
 }
 
@@ -800,14 +812,17 @@ std::optional<EntityInstance> CreateEntityInstanceFromSpecifics(
     if (attributes.empty()) {
       return std::nullopt;
     }
+    GURL management_url = base::FeatureList::IsEnabled(
+                              features::kAutofillAiWalletServerProvidedDeepLink)
+                              ? GURL(specifics.pass_view_url())
+                              : GURL();
     return EntityInstance(
         EntityType(entity_type_name), std::move(attributes),
         EntityInstance::EntityId(specifics.id()),
         /*nickname=*/"", /*date_modified=*/{}, /*use_count=*/{},
         /*use_date=*/{},
-        // TODO(crbug.com/560061580): Add logic to import the management URL
-        // from the synced specifics.
-        EntityInstance::WalletRecordTypePayload{.management_url = ""},
+        EntityInstance::WalletRecordTypePayload{.management_url =
+                                                    std::move(management_url)},
         EntityInstance::AreAttributesReadOnly(!specifics.is_editable()),
         std::move(frecency_overwrite));
   };

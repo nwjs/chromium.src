@@ -53,10 +53,6 @@ void LayoutSVGText::StyleDidChange(
     const ComputedStyle& new_style,
     const StyleChangeContext& style_change_context) {
   NOT_DESTROYED();
-  if (!RuntimeEnabledFeatures::SvgIgnoreOuterTransformsEnabled() &&
-      needs_text_metrics_update_ && diff.HasDifference() && old_style) {
-    diff.SetNeedsFullLayout();
-  }
   LayoutSVGBlock::StyleDidChange(diff, old_style, new_style,
                                  style_change_context);
   SVGResources::UpdatePaints(*this, old_style, new_style);
@@ -113,43 +109,6 @@ void LayoutSVGText::RemoveChild(LayoutObject* child) {
   LayoutSVGBlock::RemoveChild(child);
 }
 
-void LayoutSVGText::InsertedIntoTree() {
-  NOT_DESTROYED();
-  LayoutSVGBlock::InsertedIntoTree();
-  if (RuntimeEnabledFeatures::SvgIgnoreOuterTransformsEnabled()) {
-    return;
-  }
-  bool seen_svg_root = false;
-  for (auto* ancestor = Parent(); ancestor; ancestor = ancestor->Parent()) {
-    auto* root = DynamicTo<LayoutSVGRoot>(ancestor);
-    if (!seen_svg_root && root) {
-      root->AddSvgTextDescendant(*this);
-      seen_svg_root = true;
-    } else if (auto* block = DynamicTo<LayoutBlock>(ancestor)) {
-      block->AddSvgTextDescendant(*this);
-    }
-  }
-}
-
-void LayoutSVGText::WillBeRemovedFromTree() {
-  NOT_DESTROYED();
-  if (RuntimeEnabledFeatures::SvgIgnoreOuterTransformsEnabled()) {
-    LayoutSVGBlock::WillBeRemovedFromTree();
-    return;
-  }
-  bool seen_svg_root = false;
-  for (auto* ancestor = Parent(); ancestor; ancestor = ancestor->Parent()) {
-    auto* root = DynamicTo<LayoutSVGRoot>(ancestor);
-    if (!seen_svg_root && root) {
-      root->RemoveSvgTextDescendant(*this);
-      seen_svg_root = true;
-    } else if (auto* block = DynamicTo<LayoutBlock>(ancestor)) {
-      block->RemoveSvgTextDescendant(*this);
-    }
-  }
-  LayoutSVGBlock::WillBeRemovedFromTree();
-}
-
 void LayoutSVGText::SubtreeStructureChanged(
     LayoutInvalidationReasonForTracing) {
   NOT_DESTROYED();
@@ -171,7 +130,7 @@ void LayoutSVGText::UpdateFont() {
 }
 
 void LayoutSVGText::UpdateTransformAffectsVectorEffect() {
-  if (StyleRef().VectorEffect() == EVectorEffect::kNonScalingStroke) {
+  if (Style().VectorEffect() == EVectorEffect::kNonScalingStroke) {
     SetTransformAffectsVectorEffect(true);
     return;
   }
@@ -179,7 +138,7 @@ void LayoutSVGText::UpdateTransformAffectsVectorEffect() {
   SetTransformAffectsVectorEffect(false);
   for (LayoutObject* descendant = FirstChild(); descendant;
        descendant = descendant->NextInPreOrder(this)) {
-    if (descendant->IsSVGInline() && descendant->StyleRef().VectorEffect() ==
+    if (descendant->IsSVGInline() && descendant->Style().VectorEffect() ==
                                          EVectorEffect::kNonScalingStroke) {
       SetTransformAffectsVectorEffect(true);
       break;
@@ -250,7 +209,7 @@ SVGLayoutResult LayoutSVGText::UpdateSVGLayout(
 
   const gfx::RectF old_boundaries = ObjectBoundingBox();
 
-  const ComputedStyle& style = StyleRef();
+  const ComputedStyle& style = Style();
   ConstraintSpaceBuilder builder(style.GetWritingMode(),
                                  style.GetWritingDirection(),
                                  /* is_new_fc */ true);

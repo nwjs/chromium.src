@@ -25,9 +25,14 @@
 #include "base/synchronization/condition_variable.h"
 #include "base/synchronization/lock.h"
 #include "base/test/gtest_util.h"
+#include "base/test/scoped_feature_list.h"
 #include "base/threading/simple_thread.h"
 #include "build/build_config.h"
 #include "testing/gmock/include/gmock/gmock.h"
+
+#if BUILDFLAG(IS_WIN)
+#include "base/features.h"
+#endif
 
 namespace base {
 
@@ -675,6 +680,22 @@ TEST_F(PersistentMemoryAllocatorTest, MaliciousTest) {
   // Test where loop goes back to the beginning.
   UNSAFE_TODO(header4[3]) = block1;
   CountIterables();  // loop: 1-2-3-4-1
+
+  // Test where a block header has an unaligned or header-only size.
+  uint32_t* header1 =
+      reinterpret_cast<uint32_t*>(UNSAFE_TODO(mem_segment_.data() + block1));
+  const uint32_t original_size1 = *header1;
+  *header1 = 21;  // Not a multiple of kAllocAlignment (8).
+  EXPECT_EQ(nullptr, allocator_->GetAsObject<TestObject1>(block1));
+  EXPECT_EQ(nullptr, allocator_->GetAsArray<char>(
+                         block1, 1, PersistentMemoryAllocator::kSizeAny));
+  EXPECT_EQ(0U, allocator_->GetType(block1));
+
+  *header1 = 16;  // Equal to sizeof(BlockHeader), zero data bytes.
+  EXPECT_EQ(nullptr, allocator_->GetAsArray<char>(
+                         block1, 1, PersistentMemoryAllocator::kSizeAny));
+  EXPECT_EQ(0U, allocator_->GetType(block1));
+  *header1 = original_size1;
 }
 
 //----- LocalPersistentMemoryAllocator -----------------------------------------
@@ -854,6 +875,14 @@ TEST(FilePersistentMemoryAllocatorTest, CreationTest) {
   // verify that it runs without CHECK violations.
   file.Flush(false);
   file.Flush(true);
+
+#if BUILDFLAG(IS_WIN)
+  {
+    test::ScopedFeatureList feature_list;
+    feature_list.InitAndEnableFeature(features::kFlushFileBuffersOnSyncFlush);
+    file.Flush(true);
+  }
+#endif
 }
 
 TEST(FilePersistentMemoryAllocatorTest, ExtendTest) {

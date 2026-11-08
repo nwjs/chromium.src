@@ -372,7 +372,6 @@
 <translation id="2079545284768500474">Ångra</translation>
 <translation id="2086334242442703436">Öppna emojiväljaren</translation>
 <translation id="2089550919269323883">Installationen av <ph name="VM_NAME" /> blockeras av en företagsprincip. Kontakta systemadministratören för support. Felkoden är <ph name="ERROR" />.</translation>
-<translation id="2093792000875799555">Nyheter om Steam för Chromebook</translation>
 <translation id="209965399369889474">Ingen nätverksanslutning</translation>
 <translation id="2107581415810719320">Övrigt-knappen <ph name="BUTTON_NUMBER" /></translation>
 <translation id="2107914222138020205">USB-C-kabeln har inte stöd för Thunderbolt. Enhetens prestanda kan försämras.</translation>
@@ -422,6 +421,7 @@
 <translation id="2293443480080733021">Vad vill du fokusera på? Tryck på Retur för att lägga till en uppgift.</translation>
 <translation id="229397294990920565">Mobildata stängs av …</translation>
 <translation id="2295777434187870477">Mikrofonen är på. Om du ändrar läge stängs indata av.</translation>
+<translation id="2296880470921996802">Urklippshistoriken har inaktiverats av IT-administratören</translation>
 <translation id="2302092602801625023">Det här kontot hanteras av Family Link</translation>
 <translation id="2303600792989757991">Växla fönsteröversikt</translation>
 <translation id="2304702218354340897">Vill du inaktivera ansiktsstyrning?</translation>
@@ -928,7 +928,6 @@ Anslut enheten till en strömkälla.</translation>
 <translation id="3697991387880191195">Tryck på genvägen till skärmbild</translation>
 <translation id="3702809606464356667">Visar fönster från det aktuella skrivbordet, tryck på uppåtpilen för att visa fönster från alla skrivbord</translation>
 <translation id="3705722231355495246">-</translation>
-<translation id="3706423975342040244">Nöje</translation>
 <translation id="370665806235115550">Läser in...</translation>
 <translation id="3707093869106077605"><ph name="UNAVAILABLE_DLC_ONE" /> och <ph name="UNAVAILABLE_DLC_TWO" /> är inte tillgängliga.</translation>
 <translation id="3708186454126126312">Tidigare anslutna enheter</translation>
@@ -975,7 +974,6 @@ Anslut enheten till en strömkälla.</translation>
 <translation id="3824784079442479685">Detta ger kameraåtkomst för <ph name="APP_NAME" /> och alla appar och webbplatser med kamerabehörighet. Du kan behöva uppdatera webbsidan eller starta om appen.</translation>
 <translation id="3826099427150913765">Byt till lösenord</translation>
 <translation id="383058930331066723">Batterisparläget är aktiverat</translation>
-<translation id="3831226344927851293">Stäng guidevyn</translation>
 <translation id="383629559565718788">Visa tangentbordsinställningar</translation>
 <translation id="384082539148746321">Vill du radera mallen?</translation>
 <translation id="3844627820291068572"><ph name="MODIFIER_ONE" /><ph name="MODIFIER_TWO" /> följt av <ph name="KEY_ONE" /> eller <ph name="KEY_TWO" /> eller <ph name="KEY_THREE" /> eller <ph name="KEY_FOUR" /></translation>
@@ -1022,6 +1020,7 @@ Anslut enheten till en strömkälla.</translation>
 <translation id="3977512764614765090">Batterinivån är på <ph name="PERCENTAGE" /> % och batteriet laddas.</translation>
 <translation id="3978162107953847778">Infoga länkar från ställen som webbhistoriken och Google Drive. Du kan även infoga emojis, bildfiler och mycket annat. <ph name="LINK_TO_LEARN_MORE" /></translation>
 <translation id="3982013579989864579">Vill du byta ljudutgång?</translation>
+<translation id="3983903378684256134">Steam på Chromebook</translation>
 <translation id="3984536049089846927">Nästa sida</translation>
 <translation id="3986082989454912832">Svara</translation>
 <translation id="3990002060657467458">I Snabbinställningar hittar ofta använda inställningar som wifi, Bluetooth och volym. Här kan du även ta en skärmbild.</translation>
@@ -1578,10 +1577,8 @@ Inga enheter är anslutna.</translation>
 <translation id="5551974246223970793">Gå till nästa matchning för sökningen när du söker på en sida</translation>
 <translation id="5556459405103347317">Läs in på nytt</translation>
 <translation id="5558091555391176027">Aktivera och inaktivera Närdelning med hög synlighet</translation>
-<translation id="5558314826121965174">Kreativitet</translation>
 <translation id="556042886152191864">Knapp</translation>
 <translation id="5570122939431135380">Öppna en ny flik i ett nytt inkognitofönster</translation>
-<translation id="5572632238877308040">Det viktigaste</translation>
 <translation id="5575528586625653441">Ett problem uppstod med registreringsbegäran.</translation>
 <translation id="557563299383177668">Nästa stycke</translation>
 <translation id="5577082622442191756">Aktivera och inaktivera Bluetooth. <ph name="STATE_TEXT" />.</translation>
@@ -1616,7 +1613,6 @@ Inga enheter är anslutna.</translation>
 <translation id="5667546120811588575">Google Play konfigureras …</translation>
 <translation id="5669267381087807207">Aktiverar</translation>
 <translation id="5671658447180261823">Ta bort förslaget <ph name="SUGGESTION_NAME" /></translation>
-<translation id="5672890847723042801">Verktyg</translation>
 <translation id="5673434351075758678">Från <ph name="FROM_LOCALE" /> till <ph name="TO_LOCALE" /> efter synkronisering av inställningarna.</translation>
 <translation id="5675363643668471212">Hyllobjekt</translation>
 <translation id="5677022547882470786">Dra eller tryck på mellanslag för att välja ett sökområde</translation>
@@ -1641,6 +1637,7 @@ Inga enheter är anslutna.</translation>
 <translation id="5727460725221669831">Om du har glömt lösenordet eller bytt lösenord till Google-kontot nyligen kan du testa att återställa den här användaren.</translation>
 <translation id="5733630091161562207">Välkomstmeddelande</translation>
 <translation id="573413375004481890">Enheten har inte stöd för alla skärmar. Därför är en av skärmarna frånkopplad.</translation>
+<translation id="5739548907438839901"><ph name="SIZE" /> diskutrymme har frigjorts.</translation>
 <translation id="574392208103952083">Medelstark</translation>
 <translation id="5745612484876805746">Nattljus aktiveras automatiskt när solen går ned</translation>
 <translation id="5749214722697335450">Skicka användnings- och diagnostikdata. Hjälp till att göra Android bättre genom att skicka diagnostikdata, enhetsdata och data om appanvändning till Google automatiskt. Denna data används bland annat till att förbättra systemets och apparnas stabilitet. Viss samlad data används även till att förbättra appar från Google och Googles partners, till exempel Android-utvecklare. Om ytterligare webb- och appaktivitet har aktiverats kan denna data sparas i Google-kontot. <ph name="BEGIN_LINK1" />Läs mer om mätvärden<ph name="BEGIN_LINK1_END" />Läs mer<ph name="END_LINK1" /></translation>
@@ -1791,7 +1788,6 @@ Inga enheter är anslutna.</translation>
 <translation id="6127395413317891856">Du är offline. Kontrollera anslutningen och försök igen.</translation>
 <translation id="6129953537138746214">Mellanslag</translation>
 <translation id="6132714462430777655">Vill du hoppa över registrering i skolan?</translation>
-<translation id="6136872094979134163">Det gick inte att hämta nyheter om Steam för Chromebook.</translation>
 <translation id="6137566720514957455">Öppna dialogrutan för borttagning av <ph name="USER_EMAIL_ADDRESS" /></translation>
 <translation id="6141205840878048728">Vad vill du fokusera på?</translation>
 <translation id="6141988275892716286">Bekräfta nedladdning</translation>
@@ -1871,7 +1867,6 @@ Inga enheter är anslutna.</translation>
 <translation id="6348449481487610270"><ph name="MODIFIER_ONE" /><ph name="MODIFIER_TWO" /><ph name="KEY_ONE" /> följt av <ph name="MODIFIER_THREE" /><ph name="KEY_TWO" /> eller <ph name="KEY_THREE" /></translation>
 <translation id="6352082849089527770">Okända nätverk</translation>
 <translation id="6359587239691116345">Få de senaste funktionerna och säkerhetsförbättringarna. Om du inte godkänner uppdateringen kan det hända att enheten slutar fungerar som den ska och det kan uppstå säkerhets- och prestandaproblem.</translation>
-<translation id="6362833380917912748">Lär känna dina inbyggda appar</translation>
 <translation id="6364386432014869981">Den inbyggda styrplattan är aktiverad</translation>
 <translation id="6376931439017688372">Bluetooth är aktiverat</translation>
 <translation id="6378515133128829137">Fäst fönstret till höger</translation>
@@ -2096,7 +2091,6 @@ Nyligen installerad</translation>
 <translation id="7014684956566476813">Ansluten till enheten <ph name="DEVICE_NAME" /></translation>
 <translation id="7015766095477679451">Prova igen klockan <ph name="COME_BACK_TIME" />.</translation>
 <translation id="70168403932084660">Skrivbord 7</translation>
-<translation id="702252130983202758">Dina appar</translation>
 <translation id="7025533177575372252">Anslut <ph name="DEVICE_NAME" /> med mobilen</translation>
 <translation id="7026338066939101231">Minska</translation>
 <translation id="7029307918966275733">Crostini har inte installerats. Installera Crostini för att visa upphovspersoner.</translation>
@@ -2219,6 +2213,7 @@ Nyligen installerad</translation>
 <translation id="7413851974711031813">Stäng genom att trycka på Esc</translation>
 <translation id="7416471219712049036">Spara den aktuella sidan</translation>
 <translation id="742594950370306541">Kameran används.</translation>
+<translation id="7430466159639897874">Du har oanvänt diskutrymme (<ph name="SIZE" />) som har tilldelats den utfasade funktionen Steam på Chromebook.</translation>
 <translation id="743058460480092004">Kameran och mikrofonen används.</translation>
 <translation id="7433708794692032816">Sätt i smartkort för att fortsätta använda din <ph name="DEVICE_TYPE" /></translation>
 <translation id="7440404390546433462">Google Sök</translation>
@@ -2360,6 +2355,7 @@ Stäng av enheten genom att hålla av/på-knappen nedtryckt igen.</translation>
 <translation id="7781335840981796660">Alla användarkonton och all lokal data tas bort.</translation>
 <translation id="7781829728241885113">Igår</translation>
 <translation id="7787212146956232129">Ingångar och utgångar har konfigurerats. Du kan ändra detta i inställningarna</translation>
+<translation id="7790757511772316441">Ledigt diskutrymme</translation>
 <translation id="7792590255364786396">Synliga</translation>
 <translation id="7796735576426975947">En ny avisering har dolts</translation>
 <translation id="7798302898096527229">Avbryt genom att trycka på söktangenten eller Skift.</translation>
@@ -2535,7 +2531,6 @@ Stäng av enheten genom att hålla av/på-knappen nedtryckt igen.</translation>
 <translation id="8277261673056602147">Markera text på skärmen</translation>
 <translation id="8281886186245836920">Hoppa över</translation>
 <translation id="8282784978194352587">Du klarade det!</translation>
-<translation id="8287009018010202411">Produktivitet</translation>
 <translation id="828708037801473432">Av</translation>
 <translation id="8289128870594824098">Diskstorlek</translation>
 <translation id="8297006494302853456">Svag</translation>
@@ -2630,7 +2625,6 @@ Stäng av enheten genom att hålla av/på-knappen nedtryckt igen.</translation>
 <translation id="8598235756057743477">Sortera apparna efter namn eller färg</translation>
 <translation id="8599864823732014237">Vill du hoppa över företagsregistrering?</translation>
 <translation id="8609384513243082612">Öppna ny flik</translation>
-<translation id="861045123704058818">Apparna ordnas tillfälligt efter kategori</translation>
 <translation id="8612338981637220013">Bravo!</translation>
 <translation id="8613164732773110792">Endast gemener, siffror, understreck eller bindestreck</translation>
 <translation id="8614517853887502247">Aviseringar från <ph name="APP_1_TITLE" /> och <ph name="APP_2_TITLE" /> har dolts eftersom skyddet mot smygtittare har aktiverats</translation>
@@ -2822,7 +2816,6 @@ Stäng av enheten genom att hålla av/på-knappen nedtryckt igen.</translation>
 <translation id="9129245940793250979">Bakre knapp</translation>
 <translation id="9133335900048457298">Det går inte att spela in skyddat innehåll</translation>
 <translation id="9139720510312328767">Radera nästa bokstav</translation>
-<translation id="9148058034647219655">Avsluta</translation>
 <translation id="9151906066336345901">end</translation>
 <translation id="9159421884295554245">Sök i urklipp</translation>
 <translation id="9168436347345867845">Gör det senare</translation>

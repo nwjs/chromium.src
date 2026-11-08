@@ -18,6 +18,7 @@
 #include "components/webapps/isolated_web_apps/client.h"
 #include "components/webapps/isolated_web_apps/error/uma_logging.h"
 #include "components/webapps/isolated_web_apps/error/unusable_swbn_file_error.h"
+#include "components/webapps/isolated_web_apps/key_distribution/iwa_runtime_data_provider.h"
 #include "components/webapps/isolated_web_apps/reading/response_reader_registry.h"
 #include "components/webapps/isolated_web_apps/reading/response_reader_registry_factory.h"
 #include "components/webapps/isolated_web_apps/reading/signed_web_bundle_reader.h"
@@ -73,6 +74,15 @@ void OnTrustAndSignaturesOfBundleChecked(
                                std::move(integrity_block_result))));
 }
 
+base::expected<web_package::SignedWebBundleId, std::string>
+FormatWebBundleIdReadError(base::expected<web_package::SignedWebBundleId,
+                                          UnusableSwbnFileError> result) {
+  return result.transform_error([](const UnusableSwbnFileError& error) {
+    return "Failed to read the integrity block of the signed web bundle: " +
+           error.message();
+  });
+}
+
 }  // namespace
 
 void ReadSignedWebBundleIdInsecurely(
@@ -81,14 +91,7 @@ void ReadSignedWebBundleIdInsecurely(
                                            std::string>)> callback) {
   UnsecureSignedWebBundleIdReader::GetWebBundleId(
       path,
-      base::BindOnce([](base::expected<web_package::SignedWebBundleId,
-                                       UnusableSwbnFileError> result) {
-        return result.transform_error([](const UnusableSwbnFileError& error) {
-          return "Failed to read the integrity block of the "
-                 "signed web bundle: " +
-                 error.message();
-        });
-      }).Then(std::move(callback)));
+      base::BindOnce(&FormatWebBundleIdReadError).Then(std::move(callback)));
 }
 
 void ValidateSignedWebBundleSignatures(

@@ -7,8 +7,11 @@
 #include <stddef.h>
 
 #include <algorithm>
+#include <memory>
+#include <utility>
 #include <vector>
 
+#include "base/check_op.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/metrics/histogram_functions.h"
@@ -32,6 +35,8 @@
 #include "chrome/browser/ui/toasts/api/toast_id.h"
 #include "chrome/browser/ui/toasts/toast_controller.h"
 #include "chrome/browser/ui/toasts/toast_features.h"
+#include "chrome/browser/ui/webui/settings/settings_element_ids.h"
+#include "chrome/browser/ui/webui/settings/settings_utils.h"
 #include "chrome/common/channel_info.h"
 #include "chrome/common/url_constants.h"
 #include "components/browsing_data/content/browsing_data_helper.h"
@@ -73,6 +78,21 @@ const char* kCounterPrefs[] = {
     browsing_data::prefs::kDeleteSiteSettings,
 };
 
+void NotifyBrowserViewCustomEvent(tabs::TabInterface* tab,
+                                  ui::CustomElementEventType event_type) {
+  if (!tab) {
+    return;
+  }
+  ui::ElementContext context =
+      BrowserElements::From(tab->GetBrowserWindowInterface())->GetContext();
+  ui::TrackedElement* const browser_element =
+      ui::ElementTracker::GetElementTracker()->GetUniqueElement(
+          kBrowserViewElementId, context);
+  CHECK(browser_element);
+  ui::ElementTracker::GetFrameworkDelegate()->NotifyCustomEvent(browser_element,
+                                                                event_type);
+}
+
 }  // namespace
 
 namespace settings {
@@ -105,6 +125,11 @@ void ClearBrowsingDataHandler::RegisterMessages() {
       "restartClearBrowsingDataCounters",
       base::BindRepeating(&ClearBrowsingDataHandler::HandleRestartCounters,
                           base::Unretained(this)));
+  web_ui()->RegisterMessageCallback(
+      "recordClearBrowsingDataCancelled",
+      base::BindRepeating(
+          &ClearBrowsingDataHandler::HandleClearBrowsingDataCancelled,
+          base::Unretained(this)));
 }
 
 void ClearBrowsingDataHandler::OnJavascriptAllowed() {
@@ -120,6 +145,14 @@ void ClearBrowsingDataHandler::OnJavascriptAllowed() {
   for (const std::string& pref : kCounterPrefs) {
     AddCounter(
         BrowsingDataCounterFactory::GetForProfileAndPref(profile_, pref));
+  }
+
+  // The skills counter is only available if the Skills feature is enabled for
+  // this profile.
+  if (std::unique_ptr<browsing_data::BrowsingDataCounter> skills_counter =
+          BrowsingDataCounterFactory::GetForProfileAndPref(
+              profile_, browsing_data::prefs::kDeleteSkills)) {
+    AddCounter(std::move(skills_counter));
   }
 }
 
@@ -204,6 +237,9 @@ void ClearBrowsingDataHandler::HandleClearBrowsingData(
         // Tab closure is not implemented yet.
         NOTIMPLEMENTED();
         break;
+      case BrowsingDataType::SKILLS:
+        remove_mask |= chrome_browsing_data_remover::DATA_TYPE_SKILLS;
+        break;
     }
 
     // Inform the T&S sentiment service that this datatype was cleared.
@@ -231,6 +267,8 @@ void ClearBrowsingDataHandler::HandleClearBrowsingData(
 
   browsing_data::RecordDeleteBrowsingDataAction(
       browsing_data::DeleteBrowsingDataAction::kClearBrowsingDataDialog);
+  settings_utils::MaybeNotifySettingsElementActivated(
+      web_ui(), settings::kClearBrowsingDataDialogOkButtonElementId);
 
   int period_selected = args_list[2].GetInt();
 
@@ -295,15 +333,9 @@ void ClearBrowsingDataHandler::OnClearingTaskFinished(
     }
   }
 
-  if (tab && data_types.find(BrowsingDataType::HISTORY) != data_types.end()) {
-    ui::ElementContext context =
-        BrowserElements::From(tab->GetBrowserWindowInterface())->GetContext();
-    ui::TrackedElement* const browser_element =
-        ui::ElementTracker::GetElementTracker()->GetUniqueElement(
-            kBrowserViewElementId, context);
-    CHECK(browser_element);
-    ui::ElementTracker::GetFrameworkDelegate()->NotifyCustomEvent(
-        browser_element,
+  if (data_types.find(BrowsingDataType::HISTORY) != data_types.end()) {
+    NotifyBrowserViewCustomEvent(
+        tab,
         browsing_data_important_sites_util::kClearBrowsingDataHistoryEventId);
   }
 
@@ -348,6 +380,15 @@ void ClearBrowsingDataHandler::HandleRestartCounters(
   RestartCounters(static_cast<browsing_data::TimePeriod>(args[0].GetInt()));
 }
 
+void ClearBrowsingDataHandler::HandleClearBrowsingDataCancelled(
+    const base::ListValue& args) {
+  CHECK_EQ(0U, args.size());
+  NotifyBrowserViewCustomEvent(
+      tabs::TabInterface::MaybeGetFromContents(web_ui()->GetWebContents()),
+      browsing_data_important_sites_util::
+          kDismissClearBrowsingDataDialogEventId);
+}
+
 void ClearBrowsingDataHandler::OnStateChanged(syncer::SyncService* sync) {
   UpdateSyncState();
 }
@@ -368,12 +409,6 @@ base::DictValue ClearBrowsingDataHandler::CreateSyncStateEvent() {
   base::DictValue event;
   event.Set("signedIn", identity_manager && identity_manager->HasPrimaryAccount(
                                                 signin::ConsentLevel::kSignin));
-  event.Set("syncingHistory", sync_service_ &&
-                                  sync_service_->IsSyncFeatureActive() &&
-                                  sync_service_->GetActiveDataTypes().Has(
-                                      syncer::HISTORY_DELETE_DIRECTIVES));
-  event.Set("shouldShowCookieException",
-            browsing_data_counter_utils::ShouldShowCookieException(profile_));
 
   event.Set("isNonGoogleDse", false);
   const TemplateURLService* template_url_service =

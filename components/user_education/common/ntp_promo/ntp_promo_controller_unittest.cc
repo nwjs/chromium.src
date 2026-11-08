@@ -416,6 +416,18 @@ TEST_F(NtpPromoControllerTest, SuppessedMultiplePromos) {
   EXPECT_TRUE(ShowsPromo(kPromo3Id));
 }
 
+TEST_F(NtpPromoControllerTest, SuppressedAllPromos) {
+  RegisterPromo(kPromoId, kEligible);
+  RegisterPromo(kPromo2Id, kEligible);
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeatureWithParameters(
+      user_education::features::kEnableNtpBrowserPromos,
+      {{"suppress-list", base::StrCat({kPromoId, ",", kPromo2Id})}});
+  CreateController();
+  EXPECT_FALSE(controller().HasShowablePromo(nullptr));
+  EXPECT_FALSE(ShowsAnyPromo());
+}
+
 TEST_F(NtpPromoControllerTest, ClickedPromoPreventsOtherPromosInSameSession) {
   CreateController();
   RegisterPromo(kPromoId, kEligible);
@@ -450,7 +462,39 @@ TEST_F(NtpPromoControllerTest, DismissedPromoPreventsOtherPromosInSameSession) {
   EXPECT_TRUE(ShowsPromo(kPromo2Id));
 }
 
-TEST_F(NtpPromoControllerTest, MaxShowTermsExhaustionCycle) {
+TEST_F(NtpPromoControllerTest, ImpressionCapsSinglePromo) {
+  RegisterPromo(kPromoId, kEligible);
+
+  auto params = GetNtpPromoControllerParams();
+  params.max_sessions_per_term = 3;
+  params.max_terms = 3;
+  params.cool_off_duration = base::Days(180);
+  CreateController(params);
+
+  for (int term = 0; term < params.max_terms; ++term) {
+    for (int session = 0; session < params.max_sessions_per_term; ++session) {
+      AdvanceSession();
+      EXPECT_TRUE(ShowsPromo(kPromoId));
+    }
+
+    // After finishing its term, the promo should not show in the next session
+    // because it is in its cool-off period.
+    AdvanceSession();
+    EXPECT_FALSE(ShowsAnyPromo());
+
+    // Advance time to satisfy the cool-off period so the next term can begin.
+    task_environment_.AdvanceClock(params.cool_off_duration);
+  }
+
+  // At this point, the promo has used up its term limit.
+  // Verify that advancing sessions and clearing the cool-off duration no longer
+  // allows it to show.
+  AdvanceSession();
+  task_environment_.AdvanceClock(params.cool_off_duration);
+  EXPECT_FALSE(ShowsAnyPromo());
+}
+
+TEST_F(NtpPromoControllerTest, ImpressionCapsMultiPromo) {
   // This test walks through two promos burning through their session and term
   // limits, to ensure that they both eventually become non-showable. Two promos
   // are used to verify the expected ordering between them.
@@ -487,6 +531,66 @@ TEST_F(NtpPromoControllerTest, MaxShowTermsExhaustionCycle) {
   task_environment_.AdvanceClock(params.cool_off_duration);
   EXPECT_FALSE(ShowsAnyPromo());
   EXPECT_FALSE(ShowsAnyPromo());
+}
+
+TEST_F(NtpPromoControllerTest, NoSessionLimitDoesNotBlockPromo) {
+  RegisterPromo(kPromoId, kEligible);
+
+  auto params = GetNtpPromoControllerParams();
+  params.max_sessions_per_term = 0;
+  CreateController(params);
+
+  for (int i = 0; i < 5; ++i) {
+    AdvanceSession();
+    EXPECT_TRUE(ShowsPromo(kPromoId));
+  }
+}
+
+TEST_F(NtpPromoControllerTest, NoTermLimitDoesNotBlockPromo) {
+  RegisterPromo(kPromoId, kEligible);
+
+  auto params = GetNtpPromoControllerParams();
+  params.max_sessions_per_term = 1;
+  params.max_terms = 0;
+  params.cool_off_duration = base::Days(30);
+  CreateController(params);
+
+  // Show promo across multiple terms, verifying it is not blocked by term
+  // limit.
+  for (int term = 0; term < 5; ++term) {
+    AdvanceSession();
+    EXPECT_TRUE(ShowsPromo(kPromoId));
+
+    AdvanceSession();
+    EXPECT_FALSE(ShowsAnyPromo());
+
+    task_environment_.AdvanceClock(params.cool_off_duration);
+  }
+}
+
+TEST_F(NtpPromoControllerTest, FeatureParamsLoadedIntoControllerParams) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeatureWithParameters(
+      user_education::features::kEnableNtpBrowserPromos,
+      {{"session-rotation", "12"},
+       {"max-terms", "13"},
+       {"clicked-duration", "45d"},
+       {"suppress-list", "promo_1,promo_2"}});
+
+  const NtpPromoControllerParams params = GetNtpPromoControllerParams();
+  EXPECT_EQ(params.max_sessions_per_term, 12);
+  EXPECT_EQ(params.max_terms, 13);
+  EXPECT_EQ(params.cool_off_duration, base::Days(45));
+  EXPECT_THAT(params.suppress_list, testing::ElementsAre("promo_1", "promo_2"));
+}
+
+TEST_F(NtpPromoControllerTest, EmptyPromoIdHandled) {
+  CreateController();
+
+  // Invoking callbacks with an empty promo ID should be a no-op and not crash.
+  controller().OnPromoShown("");
+  controller().OnPromoClicked("", nullptr);
+  controller().OnPromoDismissed("");
 }
 
 }  // namespace user_education

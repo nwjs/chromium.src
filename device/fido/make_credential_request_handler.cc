@@ -8,6 +8,7 @@
 #include <map>
 #include <set>
 #include <utility>
+#include <vector>
 
 #include "base/barrier_closure.h"
 #include "base/feature_list.h"
@@ -144,10 +145,6 @@ MakeCredentialStatus IsCandidateAuthenticatorPostTouch(
   std::optional<base::span<const int32_t>> supported_algorithms(
       authenticator->GetAlgorithms());
   if (supported_algorithms) {
-    // Substitution of defaults should have happened by this point.
-    DCHECK(!request.public_key_credential_params.public_key_credential_params()
-                .empty());
-
     bool at_least_one_common_algorithm = false;
     for (const auto& algo :
          request.public_key_credential_params.public_key_credential_params()) {
@@ -167,6 +164,33 @@ MakeCredentialStatus IsCandidateAuthenticatorPostTouch(
   }
 
   return MakeCredentialStatus::kSuccess;
+}
+
+// Restricts the public key algorithms in `request` to those advertised by
+// `authenticator`, preserving the order requested by the RP. Some security
+// keys mishandle unknown algorithm identifiers. The result may be empty, in
+// which case IsCandidateAuthenticatorPostTouch reports kNoCommonAlgorithms.
+void FilterAlgorithmsForAuthenticator(CtapMakeCredentialRequest* request,
+                                      FidoAuthenticator* authenticator) {
+  if (!base::FeatureList::IsEnabled(
+          kWebAuthnFilterAlgorithmsForAuthenticator)) {
+    return;
+  }
+  std::optional<base::span<const int32_t>> supported_algorithms =
+      authenticator->GetAlgorithms();
+  if (!supported_algorithms) {
+    return;
+  }
+  std::vector<PublicKeyCredentialParams::CredentialInfo> filtered;
+  for (const auto& algo :
+       request->public_key_credential_params.public_key_credential_params()) {
+    if (algo.type == CredentialType::kPublicKey &&
+        std::ranges::contains(*supported_algorithms, algo.algorithm)) {
+      filtered.push_back(algo);
+    }
+  }
+  request->public_key_credential_params =
+      PublicKeyCredentialParams(std::move(filtered));
 }
 
 base::flat_set<FidoTransportProtocol> GetTransportsAllowedByRP(
@@ -313,7 +337,7 @@ bool ResponseValid(const FidoAuthenticator& authenticator,
   if (extensions && !ValidateResponseExtensions(request, options, authenticator,
                                                 response, *extensions)) {
     FIDO_LOG(ERROR) << "Invalid extensions block: "
-                    << cbor::DiagnosticWriter::Write(*extensions);
+                    << cbor::WriteDiagnostic(*extensions);
     return false;
   }
 
@@ -366,6 +390,9 @@ MakeCredentialRequestHandler::MakeCredentialRequestHandler(
   DCHECK(!request_.resident_key_required);
   DCHECK(!request_.cred_protect);
   DCHECK(!request_.cred_protect_enforce);
+  // AuthenticatorCommonImpl rejects requests with no algorithms.
+  CHECK(!request_.public_key_credential_params.public_key_credential_params()
+             .empty());
 
   transport_availability_info().request_type = FidoRequestType::kMakeCredential;
   transport_availability_info().resident_key_requirement =
@@ -942,7 +969,9 @@ void MakeCredentialRequestHandler::DispatchRequestWithToken(
 
 void MakeCredentialRequestHandler::SpecializeRequestForAuthenticator(
     CtapMakeCredentialRequest* request,
-    const FidoAuthenticator* authenticator) {
+    FidoAuthenticator* authenticator) {
+  FilterAlgorithmsForAuthenticator(request, authenticator);
+
 #if BUILDFLAG(IS_CHROMEOS)
   if (authenticator->AuthenticatorTransport() ==
           FidoTransportProtocol::kInternal &&

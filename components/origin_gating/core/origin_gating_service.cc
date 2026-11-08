@@ -10,21 +10,22 @@
 #include "base/check.h"
 #include "base/check_op.h"
 #include "base/containers/map_util.h"
-#include "base/memory/ptr_util.h"
+#include "base/types/pass_key.h"
 #include "components/origin_gating/core/checker_id.h"
 #include "components/origin_gating/core/origin_gating_checker.h"
 #include "components/origin_gating/core/origin_gating_configuration.h"
 
 namespace origin_gating {
 
-OriginGatingService::OriginGatingService() = default;
+OriginGatingService::OriginGatingService(base::PassKey<OriginGatingService>) {}
 
 OriginGatingService::OriginGatingService(
     base::PassKey<OriginGatingServiceFactory>) {}
 
 // static
 std::unique_ptr<OriginGatingService> OriginGatingService::CreateForTesting() {
-  return base::WrapUnique(new OriginGatingService());
+  return std::make_unique<OriginGatingService>(
+      base::PassKey<OriginGatingService>());
 }
 
 OriginGatingService::~OriginGatingService() = default;
@@ -35,8 +36,9 @@ OriginGatingService::CreateAndRegisterChecker(
     OriginGatingConfiguration config) {
   CHECK(!is_shutdown_);
   CheckerId id = id_generator_.GenerateNextId();
-  checkers_.emplace(
-      id, std::make_unique<OriginGatingChecker>(delegate, std::move(config)));
+  checkers_.emplace(id, std::make_unique<OriginGatingChecker>(
+                            base::PassKey<OriginGatingService>(), delegate,
+                            std::move(config)));
   return std::make_unique<OriginGatingRegistration>(
       base::PassKey<OriginGatingService>(), *this, id);
 }

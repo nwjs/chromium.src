@@ -15,12 +15,19 @@ For speed, checks should short-circuit based on affected file extensions
 # pylint: disable=g-import-not-at-top
 
 import dataclasses
+import re
 from typing import Callable
 from typing import Optional
 from typing import Sequence
 from typing import Tuple
 
 PRESUBMIT_VERSION = '2.0.0'
+
+# Path regex for vendored third-party code (e.g. Rust crates in
+# //third_party/rust/<crate_store>/vendor/) that should be bypassed for
+# Chromium-specific presubmit checks.
+_VENDORED_CRATES_PATH_RE = r'^third_party/rust/[^/]+/vendor(?:/|$)'
+_COMPILED_VENDORED_CRATES_PATH_RE = re.compile(_VENDORED_CRATES_PATH_RE)
 
 _EXCLUDED_PATHS = (
     # Generated file
@@ -39,6 +46,8 @@ _EXCLUDED_PATHS = (
     r'^third_party/breakpad/.*',
     # sqlite is an imported third party dependency.
     r'^third_party/sqlite/.*',
+    # Vendored third-party Rust crates managed by gnrt.
+    _VENDORED_CRATES_PATH_RE,
     r'^v8/.*',
     r'.*MakeFile$',
     r'.+_autogen\.h$',
@@ -54,6 +63,7 @@ _EXCLUDED_PATHS = (
     # Third-party dependency frozen at a fixed version.
     r'chrome/test/data/webui/chromeos/chai_v4.js$',
 )
+
 
 _EXCLUDED_SET_NO_PARENT_PATHS = (
     # It's for historical reasons that blink isn't a top level directory, where
@@ -759,14 +769,7 @@ _BANNED_CPP_FUNCTIONS: Sequence[BanRule] = (
             'the related functions in base/i18n/number_formatting.h.',
         ),
         True,
-        [
-            # TODO(crbug.com/335672557): Please do not add to this list. Existing
-            # uses should removed.
-            'third_party/blink/renderer/core/css/parser/css_proto_converter.cc',
-            'third_party/blink/renderer/core/editing/ime/edit_context.cc',
-            'third_party/blink/renderer/platform/graphics/bitmap_image_test.cc',
-            _THIRD_PARTY_EXCEPT_BLINK
-        ],
+        [_THIRD_PARTY_EXCEPT_BLINK],  # Don't warn in third_party folders.
     ),
     BanRule(
         r'/#include <(cctype|ctype\.h|cwctype|wctype.h)>',
@@ -2623,6 +2626,7 @@ _ANDROID_SPECIFIC_PYDEPS_FILES = [
 _GENERIC_PYDEPS_FILES = [
     'android_webview/tools/pinlist/generate_pinlist.pydeps',
     'android_webview/tools/run_cts.pydeps',
+    'base/android/java_flag_generator/java_flag_generator.pydeps',
     'base/i18n/win/embedded_i18n/create_string_rc.pydeps',
     'build/android/apk_operations.pydeps',
     'build/android/devil_chromium.pydeps',
@@ -2677,8 +2681,6 @@ _GENERIC_PYDEPS_FILES = [
     'build/android/gyp/write_build_config.pydeps',
     'build/android/gyp/write_native_libraries_java.pydeps',
     'build/android/gyp/zip.pydeps',
-    'build/android/incremental_install/generate_android_manifest.pydeps',
-    'build/android/incremental_install/write_installer_json.pydeps',
     'build/android/pylib/results/presentation/test_results_presentation.pydeps',
     'build/android/resource_sizes.pydeps',
     'build/android/test_runner.pydeps',
@@ -2701,6 +2703,7 @@ _GENERIC_PYDEPS_FILES = [
     'components/cronet/tools/jar_src.pydeps',
     'components/language/content/browser/ulp_language_code_locator/ulp_serialized_to_static_c.pydeps',
     'components/module_installer/android/module_desc_java.pydeps',
+    'components/module_installer/android/module_interface_processor.pydeps',
     'components/policy/tools/template_writers/template_formatter.pydeps',
     'components/zucchini/fuzzers/generate_fuzzer_data.pydeps',
     'content/public/android/generate_child_service.pydeps',
@@ -2938,22 +2941,54 @@ def CheckCommonCommands(input_api, output_api):
     return input_api.RunTests(commands)
 
 
-def _GetIDLParseCommand(input_api, output_api, filename, display_path=None):
-    display_path = display_path or filename
+def _GetIDLParseCommand(input_api, output_api, file_map):
+    file_list = list(file_map.keys())
     idl_schema = input_api.os_path.join(input_api.PresubmitLocalPath(),
                                         'tools', 'json_schema_compiler',
                                         'idl_schema.py')
-    cmd = [input_api.python3_executable, idl_schema, filename]
+    cmd = [input_api.python3_executable, idl_schema, '--check'] + file_list
 
     def parse_output(returncode, stdout, stderr):
-        if returncode != 0:
-            return [
-                output_api.PresubmitError('%s could not be parsed: %s' %
-                                          (display_path, stderr))
-            ]
-        return None
+        if returncode == 0:
+            return None
 
-    return input_api.Command(name='idl_schema: %s' % display_path,
+        errors = []
+        last_disp = None
+        for line in stderr.strip().splitlines():
+            line_str = line.strip()
+            if not line_str:
+                continue
+            if ': ' in line_str:
+                filepath, err = line_str.split(': ', 1)
+                base_path = filepath.split('(', 1)[0]
+                disp = file_map.get(base_path)
+                if not disp:
+                    disp = file_map.get(input_api.os_path.normpath(base_path))
+                if disp:
+                    if '(' in filepath:
+                        disp = f'{disp}({filepath.split("(", 1)[1]}'
+                    last_disp = disp
+                    errors.append(
+                        output_api.PresubmitError(
+                            f'{disp} could not be parsed: {err}'))
+                    continue
+            if last_disp:
+                errors.append(
+                    output_api.PresubmitError(f'{last_disp}: {line_str}'))
+            else:
+                errors.append(
+                    output_api.PresubmitError(
+                        f'idl_schema (unknown file): {line_str}'))
+
+        if not errors:
+            errors.append(
+                output_api.PresubmitError(
+                    f'idl_schema failed with exit code {returncode}. '
+                    f'stdout: {stdout}, stderr: {stderr}'))
+        return errors
+
+    files = ', '.join(file_map.values())
+    return input_api.Command(name=f'idl_schema: {files}',
                              cmd=cmd,
                              kwargs={},
                              output_parser=parse_output)
@@ -2973,14 +3008,15 @@ def CheckIDLParseErrors(input_api, output_api):
         path = affected_file.UnixLocalPath()
         return _MatchesFile(input_api, idl_included_patterns, path)
 
-    results = []
-    for affected_file in input_api.AffectedFiles(file_filter=FilterFile,
-                                                 include_deletes=False):
-        results.append(
-            _GetIDLParseCommand(input_api, output_api,
-                                affected_file.AbsoluteLocalPath(),
-                                affected_file.LocalPath()))
-    return input_api.RunTests(results)
+    affected_files = input_api.AffectedFiles(file_filter=FilterFile,
+                                             include_deletes=False)
+    if not affected_files:
+        return []
+
+    file_map = {f.AbsoluteLocalPath(): f.LocalPath() for f in affected_files}
+    return input_api.RunTests([
+        _GetIDLParseCommand(input_api, output_api, file_map)
+    ])
 
 
 def CheckJavaStyle(input_api, output_api):
@@ -3035,7 +3071,10 @@ def CheckPydepsNeedsUpdating(input_api, output_api):
 
 def CheckPatchFormatted(input_api, output_api):
     """Checks that the patch is formatted properly."""
-    return input_api.canned_checks.CheckPatchFormatted(input_api, output_api)
+    return input_api.canned_checks.CheckPatchFormatted(
+        input_api,
+        output_api,
+        file_filter=lambda f: not _IsVendoredCratesFile(f))
 
 
 def CheckStableMojomChanges(input_api, output_api):
@@ -4004,9 +4043,20 @@ def _CheckForVersionControlConflictsInFile(input_api, f):
 
 
 def CheckForVersionControlConflicts(input_api, output_api):
-    """Usually this is not intentional and will cause a compile failure."""
+    """Usually this is not intentional and will cause a compile failure.
+
+    Vendored third-party code (//third_party/rust/<crate_store>/vendor/) is
+    bypassed because these files are pristine upstream extracts managed and
+    checksum-verified by `gnrt vendor`. Running ChangedContents() across
+    thousands of vendored files in large crate rolls adds significant
+    overhead (125-430ms) without benefit, as manual edits and git conflict
+    resolution occur in first-party patches, Cargo.toml, or gnrt configs,
+    not raw vendored files.
+    """
     errors = []
-    for f in input_api.AffectedFiles():
+    for f in input_api.AffectedFiles(
+            include_deletes=False,
+            file_filter=lambda f: not _IsVendoredCratesFile(f)):
         errors.extend(_CheckForVersionControlConflictsInFile(input_api, f))
 
     results = []
@@ -4021,7 +4071,8 @@ def CheckForVersionControlConflicts(input_api, output_api):
 def CheckGoogleSupportAnswerUrlOnUpload(input_api, output_api):
     pattern = input_api.re.compile(r'support\.google\.com\/chrome.*/answer')
     errors = []
-    for f in input_api.AffectedFiles():
+    for f in input_api.AffectedFiles(
+            file_filter=lambda f: not _IsVendoredCratesFile(f)):
         for line_num, line in f.ChangedContents():
             if pattern.search(line):
                 errors.append('    %s:%d %s' % (f.LocalPath(), line_num, line))
@@ -6506,6 +6557,12 @@ _NON_INCLUSIVE_TERMS = (
         True), )
 
 
+def _IsVendoredCratesFile(affected_file):
+    path = affected_file.LocalPath().replace('\\', '/')
+    return (path.startswith('third_party/rust/') and
+            bool(_COMPILED_VENDORED_CRATES_PATH_RE.match(path)))
+
+
 def CheckCommon(input_api, output_api):
     """Checks common to both upload and commit.
 
@@ -6534,6 +6591,7 @@ def CheckCommon(input_api, output_api):
     results.extend(
         input_api.canned_checks.CheckNoNewMetadataInOwners(
             input_api, output_api))
+
     results.extend(
         input_api.canned_checks.CheckInclusiveLanguage(
             input_api,
@@ -6541,7 +6599,9 @@ def CheckCommon(input_api, output_api):
             excluded_directories_relative_path=[
                 'infra', 'inclusive_language_presubmit_exempt_dirs.txt'
             ],
-            non_inclusive_terms=_NON_INCLUSIVE_TERMS))
+            non_inclusive_terms=_NON_INCLUSIVE_TERMS,
+            source_file_filter=lambda f: not _IsVendoredCratesFile(f)))
+
     results.extend(
         input_api.canned_checks.CheckNewDEPSHooksHasRequiredReviewers(
             input_api, output_api))
@@ -7878,17 +7938,17 @@ def CheckAssertAshOnlyCode(input_api, output_api):
 
 
 
-def CheckAdvancedMemorySafetyChecksUsage(input_api, output_api):
-    """Checks that ADVANCED_MEMORY_SAFETY_CHECKS() macro is neither added nor
+def CheckSanitizedObjectUsage(input_api, output_api):
+    """Checks that SANITIZED_OBJECT() macro is neither added nor
     removed as it is managed by the memory safety team internally.
     Do not add / remove it manually."""
     if not _HasCPlusPlusFiles(input_api):
         return []
     paths = set([])
-    # The regex below matches "ADVANCED_MEMORY_SAFETY_CHECKS(" following a word
+    # The regex below matches "SANITIZED_OBJECT(" following a word
     # boundary, but not in a C++ comment.
     macro_matcher = input_api.re.compile(
-        r'^((?!//).)*\bADVANCED_MEMORY_SAFETY_CHECKS\(',
+        r'^((?!//).)*\bSANITIZED_OBJECT\(',
         input_api.re.MULTILINE)
     for f in input_api.AffectedFiles():
         if not _IsCPlusPlusFile(input_api, f.LocalPath()):
@@ -7899,7 +7959,7 @@ def CheckAdvancedMemorySafetyChecksUsage(input_api, output_api):
         return []
     return [
         output_api.PresubmitPromptWarning(
-            'ADVANCED_MEMORY_SAFETY_CHECKS() macro is managed by '
+            'SANITIZED_OBJECT() macro is managed by '
             'the memory safety team (chrome-memory-safety@). '
             'Please contact us to add/delete the uses of the macro.', paths)
     ]
@@ -8067,6 +8127,7 @@ def _CheckAndroidNullAwayAnnotatedClasses(input_api, output_api):
             files_to_skip=(_EXCLUDED_PATHS + _TEST_CODE_EXCLUDED_PATHS +
                            input_api.DEFAULT_FILES_TO_SKIP + (
                                r'.*Test.*\.java',
+                               r'.*package-info\.java$',
                                r'^build/.*',
                                r'^chromecast/.*',
                                r'^components/cronet/.*',
@@ -8309,9 +8370,7 @@ def CheckInlineConstexprDefinitionsInHeaders(input_api, output_api):
 def CheckTodoBugReferences(input_api, output_api):
     """Checks that bugs in TODOs use updated issue tracker IDs."""
 
-    files_to_skip = [
-        'PRESUBMIT_test.py', r'^third_party/rust/chromium_crates_io/vendor/.*'
-    ]
+    files_to_skip = ['PRESUBMIT_test.py', _VENDORED_CRATES_PATH_RE]
 
     def _FilterFile(affected_file):
         return input_api.FilterSourceFile(affected_file,
@@ -8384,6 +8443,7 @@ def CheckBaseFeatureMacro(input_api, output_api):
         return []
     pattern = input_api.re.compile(
         r'\bBASE_(?:RUNTIME_MUTABLE_)?FEATURE\s*\(\s*([^,]+)\s*,\s*([^,)]+)')
+    errors = []
     warnings = []
 
     for f in input_api.AffectedFiles():
@@ -8421,11 +8481,22 @@ def CheckBaseFeatureMacro(input_api, output_api):
             param2 = match.group(2).strip()
 
             if param2.startswith('"') and param2.endswith('"'):
-                warnings.append(
-                    '    %s:%d: Use of the 3-argument BASE_FEATURE and '
-                    'BASE_RUNTIME_MUTABLE_FEATURE macros with a '
-                    'string literal is discouraged. Use the 2-argument '
-                    'version instead.' % (f.LocalPath(), start_line))
+                if param1 == 'k' + param2[1:-1]:
+                    errors.append(
+                        '    %s:%d: Use of the 3-argument BASE_FEATURE and '
+                        'BASE_RUNTIME_MUTABLE_FEATURE macros where the C++ '
+                        'identifier matches the string literal is not allowed. '
+                        'Use the 2-argument version instead.' %
+                        (f.LocalPath(), start_line))
+                else:
+                    warnings.append(
+                        '    %s:%d: Use of the 3-argument BASE_FEATURE and '
+                        'BASE_RUNTIME_MUTABLE_FEATURE macros with a '
+                        'string literal is discouraged. Prefer using an '
+                        'identical spelling for the feature constant and the '
+                        'string literal identifying it, and using the '
+                        '2-argument version instead.' %
+                        (f.LocalPath(), start_line))
 
             if not input_api.re.match(r'^k[A-Z]', param1):
                 warnings.append(
@@ -8433,13 +8504,15 @@ def CheckBaseFeatureMacro(input_api, output_api):
                     'followed by an uppercase letter.' %
                     (f.LocalPath(), start_line, param1))
 
-    if not warnings:
-        return []
-
-    return [
-        output_api.PresubmitPromptWarning('BASE_FEATURE() macro naming:',
-                                          warnings)
-    ]
+    results = []
+    if errors:
+        results.append(
+            output_api.PresubmitError('BASE_FEATURE() macro naming:', errors))
+    if warnings:
+        results.append(
+            output_api.PresubmitPromptWarning('BASE_FEATURE() macro naming:',
+                                              warnings))
+    return results
 
 
 def CheckBaseFeatureParamMacro(input_api, output_api):
@@ -8465,7 +8538,7 @@ def CheckBaseFeatureParamMacro(input_api, output_api):
     # The 4th arg is a string literal followed by a comma (discouraged form).
     param_5_args_re = input_api.re.compile(
         r'\bBASE_FEATURE_PARAM\(' + arg + r',\s*(\w+)\s*,' + arg + r','
-        r'\s*' + quote_str + r'\s*,(?:[^;"]|' + quote_str + r')*?\);',
+        r'\s*(' + quote_str + r')\s*,(?:[^;"]|' + quote_str + r')*?\);',
         input_api.re.MULTILINE | input_api.re.DOTALL)
 
     # 4-arg BASE_FEATURE_PARAM(type, kVar, &feature, default);
@@ -8479,7 +8552,7 @@ def CheckBaseFeatureParamMacro(input_api, output_api):
     # &opts); The 4th arg is a string literal (discouraged form).
     enum_param_6_args_re = input_api.re.compile(
         r'\bBASE_FEATURE_ENUM_PARAM\(' + arg + r',\s*(\w+)\s*,' + arg + r','
-        r'\s*' + quote_str + r'\s*,' + arg + r',(?:[^;"]|' + quote_str +
+        r'\s*(' + quote_str + r')\s*,' + arg + r',(?:[^;"]|' + quote_str +
         r')*?\);', input_api.re.MULTILINE | input_api.re.DOTALL)
 
     # 5-arg BASE_FEATURE_ENUM_PARAM(type, kVar, &feature, default, &opts);
@@ -8489,10 +8562,16 @@ def CheckBaseFeatureParamMacro(input_api, output_api):
         r'\s*(?!' + quote_str + r'\s*,)' + arg + r',(?:[^;"]|' + quote_str +
         r')*?\);', input_api.re.MULTILINE | input_api.re.DOTALL)
 
+    errors = []
     warnings = []
 
-    def _check_matches(f, contents, lines, changed_line_numbers, regex,
-                       discouraged_msg):
+    def _check_matches(f,
+                       contents,
+                       lines,
+                       changed_line_numbers,
+                       regex,
+                       error_msg=None,
+                       discouraged_msg=None):
         for match in regex.finditer(contents):
             start_line = contents.count('\n', 0, match.start()) + 1
             end_line = contents.count('\n', 0, match.end()) + 1
@@ -8507,8 +8586,14 @@ def CheckBaseFeatureParamMacro(input_api, output_api):
             identifier = match.group(1).strip()
 
             if discouraged_msg:
-                warnings.append('    %s:%d: %s' %
-                                (f.LocalPath(), start_line, discouraged_msg))
+                param_name = match.group(2).strip()
+                if identifier == 'k' + param_name[1:-1]:
+                    errors.append('    %s:%d: %s' %
+                                  (f.LocalPath(), start_line, error_msg))
+                else:
+                    warnings.append(
+                        '    %s:%d: %s' %
+                        (f.LocalPath(), start_line, discouraged_msg))
 
             if not input_api.re.match(r'^k[A-Z]', identifier):
                 warnings.append(
@@ -8535,26 +8620,40 @@ def CheckBaseFeatureParamMacro(input_api, output_api):
 
         _check_matches(
             f, contents, lines, changed_line_numbers, param_5_args_re,
-            'The 5-argument BASE_FEATURE_PARAM macro with a string literal '
-            'name is discouraged. Use the 4-argument version instead.')
+            'The 5-argument BASE_FEATURE_PARAM macro where the C++ '
+            'identifier matches the string literal is not allowed. '
+            'Use the 4-argument version instead.',
+            'The 5-argument BASE_FEATURE_PARAM macro with a string '
+            'literal name is discouraged. Prefer using an identical '
+            'spelling for the param constant and the string literal '
+            'identifying it, and using the 4-argument version instead.')
         _check_matches(f, contents, lines, changed_line_numbers,
-                       param_4_args_re, None)
+                       param_4_args_re)
         _check_matches(
             f, contents, lines, changed_line_numbers, enum_param_6_args_re,
-            'The 6-argument BASE_FEATURE_ENUM_PARAM macro with a string '
-            'literal name is discouraged. Use the 5-argument version '
+            'The 6-argument BASE_FEATURE_ENUM_PARAM macro where the '
+            'C++ identifier matches the string literal is not '
+            'allowed. Use the 5-argument version instead.',
+            'The 6-argument BASE_FEATURE_ENUM_PARAM macro with a '
+            'string literal name is discouraged. Prefer using an '
+            'identical spelling for the param constant and the string '
+            'literal identifying it, and using the 5-argument version '
             'instead.')
         _check_matches(f, contents, lines, changed_line_numbers,
-                       enum_param_5_args_re, None)
+                       enum_param_5_args_re)
 
-    if not warnings:
-        return []
-
-    return [
-        output_api.PresubmitPromptWarning(
-            'BASE_FEATURE_PARAM()/BASE_FEATURE_ENUM_PARAM() macro naming:',
-            warnings)
-    ]
+    results = []
+    if errors:
+        results.append(
+            output_api.PresubmitError(
+                'BASE_FEATURE_PARAM()/BASE_FEATURE_ENUM_PARAM() macro naming:',
+                errors))
+    if warnings:
+        results.append(
+            output_api.PresubmitPromptWarning(
+                'BASE_FEATURE_PARAM()/BASE_FEATURE_ENUM_PARAM() macro naming:',
+                warnings))
+    return results
 
 
 def CheckTestFileNamesOnUpload(input_api, output_api):
@@ -8588,203 +8687,4 @@ def CheckTestFileNamesOnUpload(input_api, output_api):
             'File names should be singular (_unittest.cc or _browsertest.cc), '
             'not plural (_unittests.cc or _browsertests.cc).',
             items=bad_files)
-    ]
-
-
-def CheckSettingsChanges(input_api, output_api):
-    """Checks that Settings UI changes are reflected in the Search Index.
-
-    This check ensures that whenever a developer modifies a Settings Fragment
-    (e.g., dynamic summaries, visibility toggles, or Bundle arguments), they
-    also update the corresponding SearchIndexProvider logic.
-
-    It performs three levels of checks:
-      1. Identification: Uses heuristics (inheritance, methods) to find settings.
-      2. Structure: Ensures a SEARCH_INDEX_DATA_PROVIDER exists and is registered.
-      3. Parity: Scans changed UI code for triggers and verifies mirroring logic
-         exists in the indexing block (stripping comments to avoid false hits).
-    """
-    if not _HasJavaFiles(input_api):
-        return []
-    cc_list = ['jinsukkim@chromium.org', 'adelm@google.com']
-
-    registry_filename = 'SearchIndexProviderRegistry.java'
-
-    # Filter for Java files, excluding the registry file itself and test files.
-    is_java_file = lambda f: (
-        f.LocalPath().endswith('.java')
-        and not f.LocalPath().endswith(registry_filename)
-        and not f.LocalPath().endswith(('Test.java', 'TestCase.java'))
-        and not input_api.re.search(r'[\\/](?:javatests|junit|test)[\\/]',
-                                    f.LocalPath()))
-    java_files = input_api.AffectedFiles(include_deletes=False,
-                                         file_filter=is_java_file)
-
-    if not java_files:
-        return []
-
-    # java_inheritance_re identifies Settings screens by their class declaration.
-    # It looks for classes extending standard bases (PreferenceFragmentCompat)
-    # or those following the Chromium naming convention (*Settings*Fragment*).
-    # Examples:
-    #   - class MySettings extends ChromeBaseSettingsFragment
-    #   - class PreloadPagesSettingsFragment extends PreloadPagesSettingsFragmentBase
-    #   - class CookieSettings extends BaseSiteSettingsFragment
-    java_inheritance_re = input_api.re.compile(
-        r'class\s+(\w+)\s+extends\s+'
-        r'(?:\w*Settings(?:Base)?Fragment|PreferenceFragmentCompat|SettingsFragment)'
-    )
-    class_name_re = input_api.re.compile(r'class\s+(\w+)')
-    provider_field_re = input_api.re.compile(
-        r'public\s+static\s+final\s+.*IndexProvider\s+SEARCH_INDEX_DATA_PROVIDER'
-    )
-
-    # If a line in ChangedContents() matches a trigger, the provider block must
-    # contain at least one of the satisfying keywords (excluding comments).
-    triggers = [
-        (input_api.re.compile(r'\.setSummary\('),
-         ['updateEntrySummaryForKey', '.setSummary', 'addEntryForKey'],
-         'A dynamic summary was set in the UI. Ensure updateDynamicPreferences mirrors '
-         'this using updateEntrySummaryForKey(), addEntryForKey(), or Entry.Builder.setSummary().'
-         ),
-        (input_api.re.compile(r'\.(?:setVisible|removePreference)\('),
-         ['removeEntry', 'removeEntryForKey', 'addEntry', 'addEntryForKey'],
-         'Preference visibility toggled. Ensure updateDynamicPreferences uses removeEntryForKey()/addEntryForKey().'
-         ),
-        (input_api.re.compile(r'\.addPreference\('),
-         ['addEntry', 'addEntryForKey', 'updateEntry', 'updateEntryForKey'],
-         'Preference added via Java. Ensure it is indexed in updateDynamicPreferences.'
-         ),
-        (input_api.re.compile(
-            r'(?:getArguments\(\)|bundle|extras|savedInstanceState)\.put\w*\('
-        ), ['getExtras'],
-         'Bundle extras (arguments) are modified. Ensure getExtras() provides these '
-         'so search results open the fragment correctly.'),
-        (input_api.re.compile(
-            r'(?:getArguments\(\)\.(?:get\w*|containsKey|is)|(?:bundle|extras|savedInstanceState)\.(?:get\w*|containsKey))'
-        ), ['getExtras'],
-         'The Fragment reads mandatory arguments from its Bundle. Ensure getExtras() '
-         'overrides this in the provider to pass these arguments when launched from search.'
-         )
-    ]
-
-    problems = []
-    relevant_files_found = False
-    registry_content = ''
-    registry_repo_path = (
-        'chrome/android/java/src/org/chromium/chrome/browser/settings/search/'
-        'SearchIndexProviderRegistry.java')
-    repo_root = input_api.change.RepositoryRoot()
-    registry_full_path = input_api.os_path.join(repo_root,
-                                                *registry_repo_path.split('/'))
-
-    registry_files = [
-        f for f in input_api.AffectedFiles(include_deletes=False)
-        if f.LocalPath().endswith(registry_filename)
-    ]
-    registry_file_in_cl = registry_files[0] if registry_files else None
-
-    if registry_file_in_cl:
-        # Read the staged content (what you just wrote in the cl you are uploading).
-        registry_content = input_api.ReadFile(registry_file_in_cl)
-    else:
-        # Fallback to using the absolute path.
-        try:
-            with open(registry_full_path, 'r') as f:
-                registry_content = f.read()
-        except IOError:
-            # If the registry cannot be read (e.g., file has been moved), we default
-            # to an empty string. It is better to skip the registration check than
-            # to block the entire presubmit.
-            pass
-
-    for f in java_files:
-        content = input_api.ReadFile(f)
-
-        inheritance_match = java_inheritance_re.search(content)
-        has_provider_field = bool(provider_field_re.search(content))
-        # Determine if the file is a Settings screen. We use three different checks
-        # to cover the different possible scenarios:
-        #   1. Inheritance: Does it extend a known Settings/Preference base class?
-        #   2. Field existence: Does it already define a SEARCH_INDEX_DATA_PROVIDER?
-        #   3. Signature methods: Does it override onCreatePreferences or
-        #      getPreferenceResource (the standard entry points for settings UIs)?
-        if not (inheritance_match or has_provider_field
-                or 'onCreatePreferences' in content):
-            continue
-
-        if 'abstract class' in content:
-            continue
-
-        relevant_files_found = True
-        # Extract class name for registry check
-        name_match = inheritance_match or class_name_re.search(content)
-        class_name = name_match.group(1) if name_match else None
-
-        if not has_provider_field:
-            problems.append(
-                f'{f.LocalPath()}:0\n'
-                f'    \tIssue:  Missing SEARCH_INDEX_DATA_PROVIDER field.\n'
-                f'    \tAction: Add "public static final SearchIndexProvider SEARCH_INDEX_DATA_PROVIDER" to the class.'
-            )
-
-        if registry_content and class_name:
-            registry_pattern = input_api.re.compile(
-                r'\b' + class_name + r'\s*\.\s*SEARCH_INDEX_DATA_PROVIDER')
-            if not registry_pattern.search(registry_content):
-                problems.append(
-                    f'{f.LocalPath()}:0\n'
-                    f'    \tIssue:  Fragment not found in SearchIndexProviderRegistry.java.\n'
-                    f'    \tAction: Register "{class_name}.SEARCH_INDEX_DATA_PROVIDER" in the registry file.'
-                )
-
-        provider_body_match = input_api.re.search(
-            r'SEARCH_INDEX_DATA_PROVIDER\s*=\s*new [^{]+{(.*?)};', content,
-            input_api.re.DOTALL)
-        provider_body = provider_body_match[1] if provider_body_match else ""
-
-        # Strip both single-line (//) and multi-line (/* */) comments from the
-        # provider body. This ensures that keywords found only in comments
-        # (e.g., "// TODO: implement getExtras") do not falsely satisfy the
-        # parity check.
-        #   - //.* matches everything after // on a single line.
-        #   - /\*.*?\*/ matches block comments across lines.
-        # We use two passes because we strip multi-line comments first (which
-        # require DOTALL to span lines) and then strip single-line comments
-        # (which cannot use DOTALL as it will match newlines).
-        clean_body = input_api.re.sub(r'/\*.*?\*/',
-                                      '',
-                                      provider_body,
-                                      flags=input_api.re.DOTALL)
-        clean_body = input_api.re.sub(r'//.*', '', clean_body)
-
-        for line_num, line in f.ChangedContents():
-            if line.strip().startswith(('//', '*', '/*')):
-                continue
-
-            for trigger_re, expected_api, msg in triggers:
-                if trigger_re.search(line):
-                    # If UI call found, ensure the provider body contains a mirroring API call.
-                    if not any(s in clean_body for s in expected_api):
-                        problems.append(f'{f.LocalPath()}:{line_num}\n'
-                                        f'    \tUI Code: {line.strip()}\n'
-                                        f'    \tIndexer: {msg}')
-
-    if relevant_files_found:
-        for cc in cc_list:
-            output_api.AppendCC(cc)
-
-    if not problems:
-        return []
-
-    return [
-        output_api.PresubmitPromptWarning(
-            'Potential Settings Search Indexing Issues:\n'
-            '  To ensure settings are searchable and prevent crashes, concrete\n'
-            '  fragments must define a SEARCH_INDEX_DATA_PROVIDER and be registered\n'
-            '  in SearchIndexProviderRegistry.java. UI changes (summaries, \n'
-            '  visibility, and arguments) must be mirrored in the indexer.\n\n'
-            '  Search Indexing API Reference:\n'
-            '  //components/browser_ui/settings/android/java/src/org/chromium/components/browser_ui/settings/search/SearchIndexProvider.java\n\n'
-            '  Detailed issues found in your changes:\n', problems)
     ]

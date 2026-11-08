@@ -8,22 +8,31 @@ import type {PinnedToolbarActionElement} from './pinned_toolbar_action.js';
 
 export function getHtml(this: PinnedToolbarActionElement) {
   return html`<!--_html_template_start_-->
-  <cr-icon-button id="button" class="iph-visual-target"
-      iron-icon="${this.getIronIcon_() ?? nothing}"
-      style="${this.getIconStyle_() ?? nothing}"
+<cr-icon-button id="button" class="iph-visual-target"
+    iron-icon="${this.getIronIcon_() ?? nothing}"
+    style="${this.getIconStyle_() ?? nothing}"
+    ?disabled="${!this.state.enabled}"
+    ?is-menu-open="${this.state.highlighted || this.trackedHighlighted}"
+    ?is-activated="${this.state.activated}" title="${this.getTooltip_()}"
+    aria-label="${this.state.accessibilityText || this.state.tooltip}"
+    aria-pressed="${this.state.highlighted || this.trackedHighlighted}"
+    draggable="${this.isDraggable()}" @dragstart="${this.onDragstart}"
+    @dragend="${this.onDragend}" @keydown="${this.onKeydown}"
+    @click="${this.onActionClick_}"
+    @pointerdown="${this.highlightTracker.onPointerdown}"
+    @contextmenu="${this.onContextmenu_}">
+</cr-icon-button>
+${this.getProgressRingStatus_() ? html`
+  <svg class="progress-ring" aria-hidden="true"
+      status="${this.getProgressRingStatus_()}"
       ?disabled="${!this.state.enabled}"
-      ?is-menu-open="${this.state.highlighted || this.trackedHighlighted}"
-      ?is-activated="${this.state.activated}"
-      title="${this.getTooltip_()}"
-      aria-label="${this.state.accessibilityText || this.state.tooltip}"
-      draggable="${this.isDraggable()}"
-      @dragstart="${this.onDragstart}"
-      @dragend="${this.onDragend}"
-      @keydown="${this.onKeydown}"
-      @click="${this.onActionClick_}"
-      @pointerdown="${this.onPointerdown_}"
-      @contextmenu="${this.onContextmenu_}">
-  </cr-icon-button>
+      ?is-activated="${this.state.activated}">
+    <circle class="track" pathLength="100"></circle>
+    <circle class="fill" pathLength="100"
+        style="${this.getProgressRingFillStyle_() ?? nothing}">
+    </circle>
+  </svg>
+` : nothing}
 <div class="status-indicator" ?hidden="${!this.state.activated}"></div>
 <!--_html_template_end_-->`;
 }

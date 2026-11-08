@@ -8,6 +8,7 @@ import xml.dom.minidom
 
 import setup_modules  # pylint: disable=unused-import
 
+
 import chromium_src.tools.metrics.actions.actions_model as actions_model
 
 PRETTY_XML = """

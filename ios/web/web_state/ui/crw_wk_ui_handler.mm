@@ -16,7 +16,7 @@
 #import "ios/web/public/ui/context_menu_params.h"
 #import "ios/web/public/web_client.h"
 #import "ios/web/util/wk_security_origin_util.h"
-#import "ios/web/web_state/ui/crw_media_capture_permission_request.h"
+#import "ios/web/web_state/ui/crw_permission_request.h"
 #import "ios/web/web_state/ui/crw_wk_ui_handler_delegate.h"
 #import "ios/web/web_state/user_interaction_state.h"
 #import "ios/web/web_state/web_state_impl.h"
@@ -56,7 +56,7 @@ void RecordHistogramForPermissionRequestForWKMediaCaptureType(
 
 }  // namespace
 
-@interface CRWWKUIHandler () <CRWMediaCapturePermissionPresenter> {
+@interface CRWWKUIHandler () <CRWPermissionPresenter> {
   // Check that public API is called from the correct sequence.
   SEQUENCE_CHECKER(_sequenceChecker);
 }
@@ -83,6 +83,8 @@ void RecordHistogramForPermissionRequestForWKMediaCaptureType(
 
 // Overriden to return NO for
 // -webView:runOpenPanelWithParameters:initiatedByFrame:completionHandler:
+// -webView:requestGeolocationPermissionForOrigin:
+// initiatedByFrame:decisionHandler:
 // if there is no delegate or `delegate->CanRunOpenPanel()` returns false.
 - (BOOL)respondsToSelector:(SEL)selector {
   SEL runOpenPanelWithParametersSelector = @selector
@@ -97,6 +99,22 @@ void RecordHistogramForPermissionRequestForWKMediaCaptureType(
                       "18.4+ so it should not be used in former versions.";
     }
   }
+
+  SEL requestGeolocationPermissionSelector =
+      @selector(webView:requestGeolocationPermissionForOrigin:initiatedByFrame:
+                decisionHandler:);
+  if (selector == requestGeolocationPermissionSelector) {
+    if (@available(iOS 27.0, *)) {
+      return base::FeatureList::IsEnabled(
+          web::features::kNewGeolocationPermissionDelegate);
+    } else {
+      NOTREACHED()
+          << "@selector(-webView:requestGeolocationPermissionForOrigin:"
+             "initiatedByFrame:decisionHandler:) only exists on "
+             "27.0+ so it should not be used in former versions.";
+    }
+  }
+
   return [super respondsToSelector:selector];
 }
 
@@ -122,11 +140,10 @@ void RecordHistogramForPermissionRequestForWKMediaCaptureType(
                                (void (^)(WKPermissionDecision decision))
                                    decisionHandler {
   RecordHistogramForPermissionRequestForWKMediaCaptureType(type);
-  CRWMediaCapturePermissionRequest* request =
-      [[CRWMediaCapturePermissionRequest alloc]
-          initWithDecisionHandler:decisionHandler
-                     onTaskRunner:self.mainTaskRunner];
-  request.presenter = self;
+  CRWPermissionRequest* request =
+      [[CRWPermissionRequest alloc] initWithPresenter:self
+                                      decisionHandler:decisionHandler
+                                         onTaskRunner:self.mainTaskRunner];
   GURL securityOrigin = web::GURLOriginWithWKSecurityOrigin(origin);
   if (web::GetWebClient()->EnableFullscreenAPI()) {
     if (@available(iOS 16, *)) {
@@ -140,6 +157,26 @@ void RecordHistogramForPermissionRequestForWKMediaCaptureType(
     }
   }
   [request displayPromptForMediaCaptureType:type origin:securityOrigin];
+}
+
+- (void)webView:(WKWebView*)webView
+    requestGeolocationPermissionForOrigin:(WKSecurityOrigin*)origin
+                         initiatedByFrame:(WKFrameInfo*)frame
+                          decisionHandler:
+                              (void (^)(WKPermissionDecision decision))
+                                  decisionHandler API_AVAILABLE(ios(27.0)) {
+  if (!base::FeatureList::IsEnabled(
+          web::features::kNewGeolocationPermissionDelegate)) {
+    decisionHandler(WKPermissionDecisionPrompt);
+    return;
+  }
+
+  CRWPermissionRequest* request =
+      [[CRWPermissionRequest alloc] initWithPresenter:self
+                                      decisionHandler:decisionHandler
+                                         onTaskRunner:self.mainTaskRunner];
+  GURL securityOrigin = web::GURLOriginWithWKSecurityOrigin(origin);
+  [request displayPromptForGeolocationOrigin:securityOrigin];
 }
 
 - (WKWebView*)webView:(WKWebView*)webView
@@ -323,7 +360,7 @@ void RecordHistogramForPermissionRequestForWKMediaCaptureType(
                                     base::BindOnce(completionHandler));
 }
 
-#pragma mark - CRWMediaCapturePermissionPresenter
+#pragma mark - CRWPermissionPresenter
 
 - (web::WebStateImpl*)presentingWebState {
   DCHECK_CALLED_ON_VALID_SEQUENCE(_sequenceChecker);
@@ -354,6 +391,15 @@ void RecordHistogramForPermissionRequestForWKMediaCaptureType(
     // browser initiated navigation. There is no value in showing dialogs
     // requested by page, which this WebState is about to leave. But presenting
     // the dialog can lead to phishing and other abusive behaviors.
+    return NO;
+  }
+
+  if (!isMainFrame &&
+      url::Origin::Create(self.webStateImpl->GetVisibleURL()) !=
+          url::Origin::Create(self.webStateImpl->GetLastCommittedURL())) {
+    // Do not show a dialog if the visible URL does not match the last
+    // committed URL. This could happen when a browser-initiated navigation is
+    // pending and a subframe requests a dialog.
     return NO;
   }
 

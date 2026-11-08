@@ -16,7 +16,6 @@ static_library("printing") {
 
   public_deps = [
     "//base",
-    "//chrome/browser:browser_public_dependencies",
     "//chrome/browser/ash/printing",
     "//chrome/browser/ui/webui/settings",
     "//chromeos/ash/components/dbus/printscanmgr",
@@ -35,9 +34,6 @@ static_library("printing") {
     "//chrome/browser/ui/ash/system_web_apps",
     "//chrome/browser/ui/select_file_policy",
     "//chrome/browser/ui/webui/ash/settings/search",
-    "//chrome/common",
-    "//chrome/common:chrome_features",
-    "//chrome/common:constants",
     "//chromeos/ash/components/browser_delegate",
     "//components/device_event_log",
     "//content/public/browser",
@@ -65,7 +61,6 @@ source_set("unit_tests") {
     "//base/test:test_support",
     "//chrome/browser",
     "//chrome/browser/ash/printing:test_support",
-    "//chrome/browser/ui",
     "//chrome/browser/ui/select_file_policy",
     "//chrome/common:chrome_features",
     "//chrome/test:test_support",

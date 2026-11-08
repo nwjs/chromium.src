@@ -7,9 +7,9 @@ import '/strings.m.js';
 import {loadTimeData} from '//resources/js/load_time_data.js';
 import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
 import type {PropertyValues} from '//resources/lit/v3_0/lit.rollup.js';
-
 import type {BigBuffer} from '//resources/mojo/mojo/public/mojom/base/big_buffer.mojom-webui.js';
-import type {PageContentNode} from './ai_overlay_dialog.mojom-webui.js';
+
+import type {PageContentNode, WebMcpToolDefinition} from './ai_overlay_dialog.mojom-webui.js';
 import {PageCallbackRouter, PageHandlerFactory, PageHandlerRemote} from './ai_overlay_dialog.mojom-webui.js';
 import {getCss} from './app.css.js';
 import {getHtml} from './app.html.js';
@@ -17,10 +17,16 @@ import type {AudioCapturer} from './audio_capturer.js';
 import {BlobAudioCapturer, MicrophoneAudioCapturer} from './audio_capturer.js';
 import {AudioPlayer} from './audio_player.js';
 import {CaptionBlockManager, formatCaptions} from './caption_block_manager.js';
-import {LocalSpeechRecognition} from './local_speech_recognition.js';
 // <if expr="_google_chrome">
 import {Conversation, DEFAULT_TTC_BUNDLE_URL, State} from './internal/conversation.js';
 import type {ApiConfig, ConversationConfig, Persona} from './internal/conversation.js';
+// </if>
+import {LocalSpeechRecognition} from './local_speech_recognition.js';
+import {errorLog, log} from './logging.js';
+import type {PageContext} from './page_context_manager.js';
+import {AiOverlayToolsRemote} from './tools.mojom-webui.js';
+
+// <if expr="_google_chrome">
 export type ConversationMessage =|{
   type: 'inputTranscription',
   text: string,
@@ -58,7 +64,9 @@ class Conversation {
   onTurnComplete(): void {}
   interrupt(): void {}
   recordOnDeviceSpeechTranscript(..._args: any[]): void {}
-  start(): Promise<void> { return Promise.resolve(); }
+  start(): Promise<void> {
+    return Promise.resolve();
+  }
   stop(): void {}
 }
 type ApiConfig = any;
@@ -73,9 +81,6 @@ type Persona = any;
 const DEFAULT_TTC_BUNDLE_URL = '';
 // </if>
 /* eslint-enable @typescript-eslint/no-explicit-any */
-import {errorLog, log} from './logging.js';
-import type {PageContext} from './page_context_manager.js';
-import {AiOverlayToolsRemote} from './tools.mojom-webui.js';
 
 const FILE = 'App';
 
@@ -261,10 +266,12 @@ export class AppElement extends CrLitElement {
             {url, title, content: null, hasHadContent: false});
     const updateContextId =
         this.pageCallbackRouter.updateCurrentPageContext.addListener(
-            (title: string, rootNode: PageContentNode|null) => {
+            (title: string, rootNode: PageContentNode|null,
+             webmcpTools: WebMcpToolDefinition[]) => {
               if (this.initialPageContext) {
                 this.initialPageContext.title = title;
                 this.initialPageContext.content = rootNode ?? null;
+                this.initialPageContext.webmcpTools = webmcpTools ?? [];
                 this.initialPageContext.hasHadContent ||= Boolean(rootNode);
               }
             });
@@ -772,10 +779,9 @@ export class AppElement extends CrLitElement {
     this.initializationState = InitializationState.CONNECTING;
 
     try {
-      const ttcBundleUrl =
-          (loadTimeData.valueExists('ttcBundleUrl') ?
-               loadTimeData.getString('ttcBundleUrl') :
-               '') ||
+      const ttcBundleUrl = (loadTimeData.valueExists('ttcBundleUrl') ?
+                                loadTimeData.getString('ttcBundleUrl') :
+                                '') ||
           DEFAULT_TTC_BUNDLE_URL;
       const bundle = await this.initializeResourceBundle(ttcBundleUrl);
 

@@ -230,7 +230,7 @@ void ShowFilePickerOnUIThread(
 
   if (!web_contents ||
       (base::FeatureList::IsEnabled(features::kFileSystemAccessCheckHidden) &&
-       web_contents->GetVisibility() == Visibility::HIDDEN) ||
+       web_contents->GetVisibility() != Visibility::VISIBLE) ||
       !outermost_rfh || !outermost_rfh->IsActive()) {
     std::move(callback).Run(file_system_access_error::FromStatus(
                                 FileSystemAccessStatus::kOperationAborted),
@@ -408,7 +408,7 @@ void CreateAndTruncateFile(
 }
 
 bool IsValidTransferToken(FileSystemAccessTransferTokenImpl* token,
-                          const url::Origin& expected_origin,
+                          const blink::StorageKey& expected_storage_key,
                           HandleType expected_handle_type) {
   if (!token) {
     return false;
@@ -418,7 +418,15 @@ bool IsValidTransferToken(FileSystemAccessTransferTokenImpl* token,
     return false;
   }
 
-  if (token->origin() != expected_origin) {
+  if (token->origin() != expected_storage_key.origin()) {
+    return false;
+  }
+
+  // kFileSystemTypeTemporary is the sandboxed OPFS backend. OPFS handles are
+  // partitioned by StorageKey, so the redeeming context's StorageKey must match
+  // the token's, not just its origin.
+  if (token->url().type() == storage::kFileSystemTypeTemporary &&
+      token->url().storage_key() != expected_storage_key) {
     return false;
   }
 
@@ -565,6 +573,28 @@ FileSystemAccessManagerImpl::FileSystemAccessManagerImpl(
 
 FileSystemAccessManagerImpl::~FileSystemAccessManagerImpl() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+
+  // Invalidate weak pointers and destroy file and directory handle receivers
+  // first so that pending lock callbacks are cancelled before releasing locks
+  // held by writers or access handle hosts.
+  weak_factory_.InvalidateWeakPtrs();
+  file_receivers_.Clear();
+  directory_receivers_.Clear();
+
+  // Move each writer and access handle host out of its `flat_set` and erase the
+  // entry before running its destructor, so releasing locks cannot re-entrantly
+  // mutate a set while it is being destroyed.
+  while (!writer_receivers_.empty()) {
+    auto iter = writer_receivers_.begin();
+    auto writer_receiver = std::move(*iter);
+    writer_receivers_.erase(iter);
+  }
+
+  while (!access_handle_host_receivers_.empty()) {
+    auto iter = access_handle_host_receivers_.begin();
+    auto access_handle_host_receiver = std::move(*iter);
+    access_handle_host_receivers_.erase(iter);
+  }
 }
 
 void FileSystemAccessManagerImpl::BindReceiver(
@@ -1045,9 +1075,7 @@ void FileSystemAccessManagerImpl::ResolveDataTransferTokenWithFileType(
   CHECK(url.type() == storage::FileSystemType::kFileSystemTypeLocal ||
             url.type() == storage::FileSystemType::kFileSystemTypeExternal,
         base::NotFatalUntil::M159);
-  // TODO(crbug.com/40061211): Add a prompt specific to D&D. For now, run
-  // the same security checks and show the same prompt for D&D as for the file
-  // picker.
+  // Run the same sensitive directory checks as for the file picker.
   permission_context_->ConfirmSensitiveEntryAccess(
       binding_context.storage_key.origin(), path_info, file_type,
       AccessTrigger::kDragAndDrop, binding_context.frame_id,
@@ -1242,7 +1270,9 @@ std::string SerializeURLImpl(const storage::FileSystemURL& url,
     if (root_permission_path != url_path) {
       bool relative_path_result =
           root_permission_path.AppendRelativePath(url_path, &relative_path);
-      CHECK(relative_path_result, base::NotFatalUntil::M159);
+      // TODO(crbug.com/571653748): CHECK-exclusion: Convert to a CHECK once we
+      // are confident it won't be triggered.
+      DCHECK(relative_path_result);
     }
 
     file_data->set_relative_path(SerializePath(relative_path));
@@ -1538,8 +1568,19 @@ void FileSystemAccessManagerImpl::TakeLock(
     FileSystemAccessLockManager::LockType lock_type,
     FileSystemAccessLockManager::TakeLockCallback callback) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  lock_manager_->TakeLock(binding_context.frame_id, url, lock_type,
-                          std::move(callback));
+  lock_manager_->TakeLock(
+      binding_context.frame_id, url, lock_type,
+      base::BindOnce(
+          [](base::WeakPtr<FileSystemAccessManagerImpl> manager,
+             FileSystemAccessLockManager::TakeLockCallback callback,
+             scoped_refptr<FileSystemAccessLockManager::LockHandle> lock) {
+            if (!manager) {
+              std::move(callback).Run(nullptr);
+              return;
+            }
+            std::move(callback).Run(std::move(lock));
+          },
+          weak_factory_.GetWeakPtr(), std::move(callback)));
 }
 bool FileSystemAccessManagerImpl::IsContentious(
     const storage::FileSystemURL& url,
@@ -1702,8 +1743,7 @@ void FileSystemAccessManagerImpl::DidResolveTransferTokenForFileHandle(
     FileSystemAccessTransferTokenImpl* resolved_token) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
-  if (!IsValidTransferToken(resolved_token,
-                            binding_context.storage_key.origin(),
+  if (!IsValidTransferToken(resolved_token, binding_context.storage_key,
                             HandleType::kFile)) {
     // Fail silently. In practice, the FileSystemAccessManager should not
     // receive any invalid tokens. Before redeeming a token, the render process
@@ -1728,8 +1768,7 @@ void FileSystemAccessManagerImpl::DidResolveTransferTokenForDirectoryHandle(
     FileSystemAccessTransferTokenImpl* resolved_token) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
-  if (!IsValidTransferToken(resolved_token,
-                            binding_context.storage_key.origin(),
+  if (!IsValidTransferToken(resolved_token, binding_context.storage_key,
                             HandleType::kDirectory)) {
     // Fail silently. See comment above in
     // DidResolveTransferTokenForFileHandle() for details.
@@ -2141,9 +2180,19 @@ void FileSystemAccessManagerImpl::CreateTransferTokenImpl(
 void FileSystemAccessManagerImpl::RemoveFileWriter(
     FileSystemAccessFileWriterImpl* writer) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  CHECK(writer, base::NotFatalUntil::M159);
 
-  size_t count_removed = writer_receivers_.erase(writer);
-  CHECK_EQ(1u, count_removed, base::NotFatalUntil::M159);
+  // Move `writer` out of `writer_receivers_` and erase the entry before
+  // destroying it, since destroying a `FileSystemAccessFileWriterImpl`
+  // releases its locks and can synchronously trigger lock promotion callbacks.
+  auto iter = writer_receivers_.find(writer);
+  if (iter == writer_receivers_.end()) {
+    NOTREACHED(base::NotFatalUntil::M159);
+    return;
+  }
+
+  auto writer_receiver = std::move(*iter);
+  writer_receivers_.erase(iter);
 }
 
 void FileSystemAccessManagerImpl::RemoveAccessHandleHost(

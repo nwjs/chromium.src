@@ -39,9 +39,11 @@
 #import "components/segmentation_platform/embedder/home_modules/tips_manager/constants.h"
 #import "components/segmentation_platform/embedder/home_modules/tips_manager/signal_constants.h"
 #import "components/segmentation_platform/public/constants.h"
+#import "components/segmentation_platform/public/features.h"
 #import "components/segmentation_platform/public/segmentation_platform_service.h"
 #import "components/send_tab_to_self/features.h"
 #import "components/send_tab_to_self/pref_names.h"
+#import "google_apis/gaia/gaia_id.h"
 #import "ios/chrome/browser/app_store_bundle/model/app_store_bundle_service.h"
 #import "ios/chrome/browser/content_suggestions/app_bundle_promo/coordinator/app_bundle_promo_mediator.h"
 #import "ios/chrome/browser/content_suggestions/app_bundle_promo/coordinator/app_bundle_promo_mediator_delegate.h"
@@ -84,11 +86,14 @@
 #import "ios/chrome/browser/content_suggestions/tips/coordinator/tips_magic_stack_mediator_delegate.h"
 #import "ios/chrome/browser/content_suggestions/tips/ui/tips_module_config.h"
 #import "ios/chrome/browser/default_browser/model/utils.h"
+#import "ios/chrome/browser/home_customization/model/home_background_customization_service.h"
 #import "ios/chrome/browser/lens/ui_bundled/lens_availability.h"
 #import "ios/chrome/browser/lens/ui_bundled/lens_entrypoint.h"
 #import "ios/chrome/browser/level_up/model/level_up_service.h"
 #import "ios/chrome/browser/ntp/ui_bundled/home_start_data_source.h"
 #import "ios/chrome/browser/ntp_tiles/model/tab_resumption/tab_resumption_prefs.h"
+#import "ios/chrome/browser/push_notification/model/push_notification_client_id.h"
+#import "ios/chrome/browser/push_notification/model/push_notification_settings_util.h"
 #import "ios/chrome/browser/safety_check/model/ios_chrome_safety_check_manager_constants.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
@@ -161,21 +166,25 @@ using segmentation_platform::home_modules::SavePasswordsEphemeralModule;
   PrefChangeRegistrar _prefChangeRegistrar;
   // Bridge to listen to Pref changes.
   std::unique_ptr<PrefObserverBridge> _prefObserverBridge;
+  raw_ptr<HomeBackgroundCustomizationService> _backgroundCustomizationService;
 }
 
 - (instancetype)
-    initWithSegmentationService:
-        (segmentation_platform::SegmentationPlatformService*)segmentationService
-                shoppingService:(commerce::ShoppingService*)shoppingService
-                    authService:(AuthenticationService*)authenticationService
-                    prefService:(PrefService*)prefService
-                     localState:(PrefService*)localState
-                moduleMediators:(NSArray*)moduleMediators
-                    tipsManager:(TipsManagerIOS*)tipsManager
-             templateURLService:(TemplateURLService*)templateURLService
-          appStoreBundleService:(AppStoreBundleService*)appStoreBundleService
-                  bookmarkModel:(bookmarks::BookmarkModel*)bookmarkModel
-                 levelUpService:(LevelUpService*)levelUpService {
+       initWithSegmentationService:
+           (segmentation_platform::SegmentationPlatformService*)
+               segmentationService
+                   shoppingService:(commerce::ShoppingService*)shoppingService
+                       authService:(AuthenticationService*)authenticationService
+                       prefService:(PrefService*)prefService
+                        localState:(PrefService*)localState
+                   moduleMediators:(NSArray*)moduleMediators
+                       tipsManager:(TipsManagerIOS*)tipsManager
+                templateURLService:(TemplateURLService*)templateURLService
+             appStoreBundleService:(AppStoreBundleService*)appStoreBundleService
+                     bookmarkModel:(bookmarks::BookmarkModel*)bookmarkModel
+                    levelUpService:(LevelUpService*)levelUpService
+    backgroundCustomizationService:
+        (HomeBackgroundCustomizationService*)backgroundCustomizationService {
   self = [super init];
   if (self) {
     _segmentationService = segmentationService;
@@ -189,6 +198,7 @@ using segmentation_platform::home_modules::SavePasswordsEphemeralModule;
     _bookmarkModel = bookmarkModel;
     _tipsManager = tipsManager;
     _levelUpService = levelUpService;
+    _backgroundCustomizationService = backgroundCustomizationService;
 
     for (id mediator in moduleMediators) {
       if ([mediator isKindOfClass:[MostVisitedTilesMediator class]]) {
@@ -260,6 +270,8 @@ using segmentation_platform::home_modules::SavePasswordsEphemeralModule;
   _appBundlePromoMediator = nil;
   _prefChangeRegistrar.Reset();
   _prefObserverBridge.reset();
+  _backgroundCustomizationService = nullptr;
+  _levelUpHandler = nil;
 }
 
 #pragma mark - Public
@@ -566,7 +578,8 @@ using segmentation_platform::home_modules::SavePasswordsEphemeralModule;
                ->GetString(send_tab_to_self::prefs::
                                kIOSSendTabToSelfLastReceivedTabURLPref)
                .empty()));
-
+  bool magicStackV2Enabled = base::FeatureList::IsEnabled(
+      segmentation_platform::features::kMagicStackTipsV2Ios);
   if (_tipsManager) {
     // Profile signals
     inputContext->metadata_args.emplace(
@@ -631,6 +644,15 @@ using segmentation_platform::home_modules::SavePasswordsEphemeralModule;
             !_tipsManager->WasSignalFired(
                 segmentation_platform::tips_manager::signals::
                     kAddressBarPositionChoiceScreenDisplayed)));
+    if (magicStackV2Enabled) {
+      inputContext->metadata_args.emplace(
+          segmentation_platform::kTipsOptInPromptNotReceivedRecently,
+          segmentation_platform::processing::ProcessedValue::FromFloat(
+              !_tipsManager->WasSignalFiredWithin(
+                  segmentation_platform::tips_manager::signals::
+                      kTipsNotificationOptInPromptReceived,
+                  base::Days(60))));
+    }
 
     // Miscellaneous signals
     BOOL isPhone = ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_PHONE;
@@ -655,6 +677,47 @@ using segmentation_platform::home_modules::SavePasswordsEphemeralModule;
         segmentation_platform::kIsDefaultBrowserChromeIos,
         segmentation_platform::processing::ProcessedValue::FromFloat(
             IsChromeLikelyDefaultBrowser()));
+
+    if (magicStackV2Enabled) {
+      inputContext->metadata_args.emplace(
+          segmentation_platform::kNTPBackgroundNotSelectedRecently,
+          segmentation_platform::processing::ProcessedValue::FromFloat(
+              !_tipsManager->WasSignalFiredWithin(
+                  segmentation_platform::tips_manager::signals::
+                      kNTPBackgroundSelected,
+                  base::Days(90))));
+      inputContext->metadata_args.emplace(
+          segmentation_platform::kNeverCustomizeNTP,
+          segmentation_platform::processing::ProcessedValue::FromFloat(
+              !_tipsManager->WasSignalFired(
+                  segmentation_platform::tips_manager::signals::
+                      kNTPCustomized)));
+    }
+  }
+
+  if (magicStackV2Enabled) {
+    // TipsNotification is an app-wide client, not tied to any account. An empty
+    // `GaiaId` is passed.
+    bool notOptedIntoTipsNotifications =
+        !push_notification_settings::
+            GetMobileNotificationPermissionStatusForClient(
+                PushNotificationClientId::kTips, GaiaId());
+    inputContext->metadata_args.emplace(
+        segmentation_platform::kNotOptInTipsNotifications,
+        segmentation_platform::processing::ProcessedValue::FromFloat(
+            notOptedIntoTipsNotifications));
+
+    if (_backgroundCustomizationService) {
+      const bool hasNoNTPBackground =
+          !_backgroundCustomizationService->GetCurrentCustomBackground()
+               .has_value() &&
+          !_backgroundCustomizationService->GetCurrentColorTheme().has_value();
+
+      inputContext->metadata_args.emplace(
+          segmentation_platform::kLacksNTPBackground,
+          segmentation_platform::processing::ProcessedValue::FromFloat(
+              hasNoNTPBackground));
+    }
   }
 
   __weak MagicStackRankingModel* weakSelf = self;
@@ -703,6 +766,13 @@ using segmentation_platform::home_modules::SavePasswordsEphemeralModule;
       TipIdentifier tipIdentifier = TipIdentifierForOutputLabel(label);
 
       if (tipIdentifier != TipIdentifier::kUnknown) {
+        if (tipIdentifier == TipIdentifier::kNTPTheme &&
+            segmentation_platform::features::
+                IsMagicStackTipsV2IosActionableEnabled()) {
+          // TODO(crbug.com/566960072): Configure the actionable NTP Theme tip
+          // module when the actionable variation is enabled.
+          break;
+        }
         BOOL shouldShowTipsWithProductImage =
             tipIdentifier == TipIdentifier::kLensShop &&
             _tipsMediator.config.productImageData.length > 0;
@@ -1195,6 +1265,7 @@ using segmentation_platform::home_modules::SavePasswordsEphemeralModule;
   int total = [self totalTasksForCategory:*category];
   config.progressTotal = total;
   config.progressCompleted = total - remaining;
+  config.commandHandler = self.levelUpHandler;
   return config;
 }
 

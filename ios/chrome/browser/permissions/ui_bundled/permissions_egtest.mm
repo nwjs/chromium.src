@@ -20,7 +20,6 @@
 #import "ios/chrome/browser/overlays/model/public/web_content_area/alert_constants.h"
 #import "ios/chrome/browser/permissions/ui_bundled/permissions_app_interface.h"
 #import "ios/chrome/browser/permissions/ui_bundled/permissions_constants.h"
-#import "ios/chrome/browser/reader_mode/model/features.h"
 #import "ios/chrome/browser/signin/model/fake_system_identity.h"
 #import "ios/chrome/grit/ios_strings.h"
 #import "ios/chrome/test/earl_grey/chrome_actions.h"
@@ -172,13 +171,24 @@ void TapDoneButtonOnInfobarModal() {
       grey_ancestor(dialogMatcher), grey_accessibilityLabel(alertText), nil);
   [[EarlGrey selectElementWithMatcher:textMatcher]
       assertWithMatcher:grey_sufficientlyVisible()];
-  NSString* buttonText = l10n_util::GetNSString(
-      allow ? IDS_IOS_PERMISSIONS_ALERT_DIALOG_BUTTON_TEXT_GRANT
-            : IDS_IOS_PERMISSIONS_ALERT_DIALOG_BUTTON_TEXT_DENY);
+  id<GREYMatcher> buttonLabelMatcher =
+      allow
+          ? grey_anyOf(
+                grey_accessibilityLabel(l10n_util::GetNSString(
+                    IDS_IOS_PERMISSIONS_ALERT_DIALOG_BUTTON_TEXT_GRANT)),
+                grey_accessibilityLabel(l10n_util::GetNSString(
+                    IDS_IOS_PERMISSIONS_ALERT_DIALOG_BUTTON_TEXT_ALLOW_THIS_TIME)),
+                nil)
+          : grey_anyOf(
+                grey_accessibilityLabel(l10n_util::GetNSString(
+                    IDS_IOS_PERMISSIONS_ALERT_DIALOG_BUTTON_TEXT_DENY)),
+                grey_accessibilityLabel(l10n_util::GetNSString(
+                    IDS_IOS_PERMISSIONS_ALERT_DIALOG_BUTTON_TEXT_NEVER_ALLOW)),
+                nil);
 
-  id<GREYMatcher> buttonMatcher = grey_allOf(
-      grey_ancestor(dialogMatcher), grey_accessibilityLabel(buttonText),
-      grey_accessibilityTrait(UIAccessibilityTraitStaticText), nil);
+  id<GREYMatcher> buttonMatcher =
+      grey_allOf(grey_ancestor(dialogMatcher), buttonLabelMatcher,
+                 grey_accessibilityTrait(UIAccessibilityTraitStaticText), nil);
 
   [[[EarlGrey selectElementWithMatcher:buttonMatcher]
       assertWithMatcher:grey_sufficientlyVisible()] performAction:grey_tap()];

@@ -67,11 +67,6 @@ WebUIToolbarWebView* GetWebUIToolbarWebView(BrowserWindowInterface* browser);
 void LeftClickExtensionButton(content::WebContents* web_contents,
                               const std::string& id);
 
-// Simulates a full pointerdown + pointerup + click sequence on the WebUI
-// toolbar extension button with the given `id`.
-void LeftClickPointerSequenceExtensionButton(content::WebContents* web_contents,
-                                             const std::string& id);
-
 // Simulates a right-click (context menu) on the WebUI toolbar extension button
 // with the given `id`.
 void RightClickExtensionButton(content::WebContents* web_contents,
@@ -137,6 +132,23 @@ extern const char kFindDeepJS[];
 [[nodiscard]] ::testing::AssertionResult FinishWebUIAnimations(
     content::WebContents* web_contents,
     std::string_view custom_wait_js = "");
+
+// Makes the browser and the WebUI toolbar of `browser` agree on everything
+// that has happened so far. Returns a failure if there is no bound WebUI
+// toolbar.
+//
+// The toolbar talks to the browser over its own Mojo pipes (ToolbarUIObserver
+// for browser->WebUI state pushes, ToolbarUIService for WebUI->browser
+// actions), which are not ordered against the frame IPC that test waiters
+// usually key off (focus-change notifications, key events, ...). A test that
+// resumes on such a signal and then relies on state carried by the toolbar
+// pipes must call this first.
+//
+// This sends any pending coalesced state push, round-trips the observer pipe
+// (the WebUI has applied every push and sent its reactions), then round-trips
+// the service pipe (the browser has handled those reactions).
+[[nodiscard]] ::testing::AssertionResult FlushWebUIToolbarPipes(
+    BrowserWindowInterface* browser);
 
 // Dispatches an event to a WebUI toolbar button.
 // `selector`: The CSS selector for the button element.
@@ -210,8 +222,8 @@ struct AvatarLayoutAttributes {
 
 class AvatarToolbarButtonTestAccessor {
  public:
-  using ButtonVariant =
-      std::variant<AvatarToolbarButton*, WebUIAvatarToolbarButton*>;
+  using ButtonVariant = std::variant<raw_ptr<AvatarToolbarButton>,
+                                     raw_ptr<WebUIAvatarToolbarButton>>;
 
   explicit AvatarToolbarButtonTestAccessor(BrowserWindowInterface* browser);
   ~AvatarToolbarButtonTestAccessor();

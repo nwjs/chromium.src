@@ -26,6 +26,7 @@ import org.mockito.invocation.InvocationOnMock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.mockito.stubbing.Answer;
+import org.robolectric.Robolectric;
 
 import org.chromium.base.UnownedUserDataHost;
 import org.chromium.base.test.BaseRobolectricTestRunner;
@@ -100,7 +101,7 @@ public final class TranslateMessageTest {
 
     @Test
     public void testCreateWithNullMessageDispatcher() {
-        Activity activity = Mockito.mock(Activity.class);
+        Activity activity = Robolectric.buildActivity(Activity.class).get();
         WindowAndroid windowAndroid = Mockito.mock(WindowAndroid.class);
 
         doReturn(new WeakReference<Activity>(activity)).when(windowAndroid).getActivity();

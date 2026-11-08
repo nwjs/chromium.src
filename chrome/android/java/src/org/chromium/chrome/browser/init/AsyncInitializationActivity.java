@@ -21,6 +21,7 @@ import android.view.WindowManager;
 import androidx.annotation.CallSuper;
 import androidx.annotation.VisibleForTesting;
 
+import org.chromium.base.AconfigFlaggedApiDelegate;
 import org.chromium.base.Log;
 import org.chromium.base.ResettersForTesting;
 import org.chromium.base.SysUtils;
@@ -121,7 +122,6 @@ public abstract class AsyncInitializationActivity extends ChromeBaseAppCompatAct
     private boolean mFirstDrawComplete;
 
     private @Nullable Runnable mOnInflationCompleteCallback;
-    private boolean mInitialLayoutInflationComplete;
 
     // See enableHardwareAcceleration()
     private boolean mSetWindowHWA;
@@ -648,13 +648,23 @@ public abstract class AsyncInitializationActivity extends ChromeBaseAppCompatAct
 
     @EnsuresNonNullIf("mWindowAndroid")
     private boolean isSelfOcclusionTrackingEnabled() {
-        return mWindowAndroid != null
-                && mWindowAndroid.isOcclusionTrackingAllowed()
-                && UiAndroidFeatureList.sAndroidWindowOcclusion.isEnabled()
-                && "self_occlusion"
-                        .equals(
-                                UiAndroidFeatureList.sAndroidWindowOcclusionTrackingMode
-                                        .getValue());
+        if (mWindowAndroid == null
+                || !mWindowAndroid.isOcclusionTrackingAllowed()
+                || !UiAndroidFeatureList.sAndroidWindowOcclusion.isEnabled()) {
+            return false;
+        }
+
+        String mode = UiAndroidFeatureList.sAndroidWindowOcclusionTrackingMode.getValue();
+        if ("self_occlusion".equals(mode)) {
+            return true;
+        }
+
+        if ("auto".equals(mode)) {
+            AconfigFlaggedApiDelegate delegate = AconfigFlaggedApiDelegate.getInstance();
+            return delegate == null || !delegate.isStrictOcclusionAvailable();
+        }
+
+        return false;
     }
 
     @CallSuper
@@ -973,12 +983,6 @@ public abstract class AsyncInitializationActivity extends ChromeBaseAppCompatAct
         if (mOnInflationCompleteCallback == null) return;
         mOnInflationCompleteCallback.run();
         mOnInflationCompleteCallback = null;
-        mInitialLayoutInflationComplete = true;
-    }
-
-    /** Returns whether initial inflation is complete. */
-    public boolean isInitialLayoutInflationComplete() {
-        return mInitialLayoutInflationComplete;
     }
 
     /**

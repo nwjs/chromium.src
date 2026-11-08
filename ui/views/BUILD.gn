@@ -276,6 +276,7 @@ component("views") {
     "input_protection/input_protection_policy.h",
     "input_protection/input_protection_specification.h",
     "input_protection/occluded_widget_input_protector.h",
+    "input_protection/view_bounds_and_visibility_input_protection_policy.h",
     "input_protection/widget_stationarity_monitor.h",
     "input_protection/window_activation_input_protection_policy.h",
     "interaction/element_highlighter_views.h",
@@ -524,6 +525,7 @@ component("views") {
     "input_protection/input_protection_event_handler.cc",
     "input_protection/input_protection_specification.cc",
     "input_protection/occluded_widget_input_protector.cc",
+    "input_protection/view_bounds_and_visibility_input_protection_policy.cc",
     "input_protection/widget_stationarity_monitor.cc",
     "input_protection/window_activation_input_protection_policy.cc",
     "interaction/element_highlighter_views.cc",
@@ -943,10 +945,12 @@ component("views") {
         "widget/desktop_aura/desktop_window_tree_host.cc",
       ]
       if (is_win) {
-        public += [ "widget/desktop_aura/desktop_window_tree_host_win.h" ]
+        public += [
+          "widget/desktop_aura/desktop_drag_drop_client_win.h",
+          "widget/desktop_aura/desktop_window_tree_host_win.h",
+        ]
         sources += [
           "widget/desktop_aura/desktop_drag_drop_client_win.cc",
-          "widget/desktop_aura/desktop_drag_drop_client_win.h",
           "widget/desktop_aura/desktop_drop_target_win.cc",
           "widget/desktop_aura/desktop_native_cursor_manager_win.cc",
           "widget/desktop_aura/desktop_native_cursor_manager_win.h",
@@ -1369,6 +1373,7 @@ test("views_unittests") {
     "input_protection/default_input_protection_policy_unittest.cc",
     "input_protection/input_protection_event_handler_unittest.cc",
     "input_protection/occluded_widget_input_protector_unittest.cc",
+    "input_protection/view_bounds_and_visibility_input_protection_policy_unittest.cc",
     "input_protection/widget_stationarity_monitor_unittest.cc",
     "input_protection/window_activation_input_protection_policy_unittest.cc",
     "layout/animating_layout_manager_unittest.cc",
@@ -1511,6 +1516,7 @@ test("views_unittests") {
     ]
     deps += [
       "//ui/base/ime/linux",
+      "//ui/linux:display_server_utils_unittests",
       "//ui/linux:test_support",
     ]
     if (use_dbus) {

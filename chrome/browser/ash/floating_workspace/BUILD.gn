@@ -14,8 +14,6 @@ static_library("floating_workspace") {
     "floating_workspace_service_factory.h",
   ]
 
-  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
-
   deps = [
     ":utils",
     "//ash",
@@ -27,7 +25,6 @@ static_library("floating_workspace") {
     "//chrome/browser/ash/app_restore",
     "//chrome/browser/ash/floating_sso",
     "//chrome/browser/ash/login/session",
-    "//chrome/browser/ash/profiles",
     "//chrome/browser/profiles:profile",
     "//chrome/browser/sessions",
     "//chrome/browser/sync",

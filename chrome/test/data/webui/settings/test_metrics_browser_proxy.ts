@@ -20,6 +20,7 @@ export class TestMetricsBrowserProxy extends TestBrowserProxy implements
       'recordPrivacyGuideSettingsStatesHistogram',
       'recordPrivacyGuideStepsEligibleAndReachedHistogram',
       'recordDeleteBrowsingDataAction',
+      'recordClearBrowsingDataCancelled',
       'recordSafetyHubAbusiveNotificationPermissionRevocationInteractionsHistogram',
       'recordSafetyHubCardStateClicked',
       'recordSafetyHubDashboardAnyWarning',
@@ -41,6 +42,8 @@ export class TestMetricsBrowserProxy extends TestBrowserProxy implements
       'recordAiPageSuggestionsInteractions',
       'recordSettingsSearchExitReason',
       'recordSettingsSearchResultDwellTime',
+      'recordSettingsNavCategoryClicked',
+      'recordSettingsSearchQueryEntered',
       'recordAutofillSettingsReferrer',
       'recordYourSavedInfoCategoryClick',
       'recordYourSavedInfoDataChipClick',
@@ -56,6 +59,14 @@ export class TestMetricsBrowserProxy extends TestBrowserProxy implements
 
   recordSettingsSearchResultDwellTime(time: number) {
     this.methodCalled('recordSettingsSearchResultDwellTime', time);
+  }
+
+  recordSettingsNavCategoryClicked() {
+    this.methodCalled('recordSettingsNavCategoryClicked');
+  }
+
+  recordSettingsSearchQueryEntered() {
+    this.methodCalled('recordSettingsSearchQueryEntered');
   }
 
   recordAction(action: string) {
@@ -108,6 +119,10 @@ export class TestMetricsBrowserProxy extends TestBrowserProxy implements
     this.methodCalled('recordDeleteBrowsingDataAction', action);
   }
 
+  recordClearBrowsingDataCancelled() {
+    this.methodCalled('recordClearBrowsingDataCancelled');
+  }
+
   recordSafetyHubAbusiveNotificationPermissionRevocationInteractionsHistogram(
       interaction: SafetyCheckUnusedSitePermissionsModuleInteractions) {
     this.methodCalled(
@@ -130,7 +145,7 @@ export class TestMetricsBrowserProxy extends TestBrowserProxy implements
   }
 
   recordSafetyHubEntryPointShown(page: SafetyHubEntryPoint) {
-    this.methodCalled('recordSafetyHubModuleWarningImpression', page);
+    this.methodCalled('recordSafetyHubEntryPointShown', page);
   }
 
   recordSafetyHubImpression(surface: SafetyHubSurfaces) {

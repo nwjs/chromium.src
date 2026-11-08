@@ -9,6 +9,7 @@
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
+#include "base/test/mock_callback.h"
 #include "chrome/browser/ui/autofill/autofill_dialog_view.h"
 #include "chrome/browser/ui/autofill/mock_autofill_dialog_view.h"
 #include "chrome/test/base/chrome_render_view_host_test_harness.h"
@@ -175,6 +176,110 @@ TEST_F(AutofillDialogControllerImplTest, Dismiss_DeletesView) {
   EXPECT_TRUE(controller_->HasDialogViewForTest());
 
   controller_->DismissForTest();
+  EXPECT_FALSE(controller_->HasDialogViewForTest());
+}
+
+// Test that OnPositiveButtonClicked runs the callback with
+// Result::kAccepted.
+TEST_F(AutofillDialogControllerImplTest,
+       OnPositiveButtonClicked_RunsCallbackWithAccepted) {
+  base::MockCallback<AutofillDialogController::DialogResultCallback> callback;
+  EXPECT_CALL(callback, Run(AutofillDialogController::Result::kAccepted));
+
+  controller_->Show(u"Title", u"Description",
+                    /*positive_button_text=*/u"Button",
+                    /*negative_button_text=*/std::u16string(), callback.Get());
+  controller_->OnPositiveButtonClicked();
+}
+
+// Test that OnNegativeButtonClicked runs the callback with
+// Result::kDeclined.
+TEST_F(AutofillDialogControllerImplTest,
+       OnNegativeButtonClicked_RunsCallbackWithDeclined) {
+  base::MockCallback<AutofillDialogController::DialogResultCallback> callback;
+  EXPECT_CALL(callback, Run(AutofillDialogController::Result::kDeclined));
+
+  controller_->Show(u"Title", u"Description",
+                    /*positive_button_text=*/u"Button",
+                    /*negative_button_text=*/u"Cancel", callback.Get());
+  controller_->OnNegativeButtonClicked();
+}
+
+// Test that OnDismissed runs the callback with Result::kUnknown if the
+// callback was not invoked before.
+TEST_F(AutofillDialogControllerImplTest,
+       OnDismissed_RunsCallbackWithUnknown_WhenNotPreviouslyInvoked) {
+  base::MockCallback<AutofillDialogController::DialogResultCallback> callback;
+  EXPECT_CALL(callback, Run(AutofillDialogController::Result::kUnknown));
+
+  controller_->Show(u"Title", u"Description",
+                    /*positive_button_text=*/u"Button",
+                    /*negative_button_text=*/std::u16string(), callback.Get());
+  controller_->OnDismissed();
+}
+
+// Test that OnDismissed does not invoke the callback again if
+// OnPositiveButtonClicked was already invoked.
+TEST_F(AutofillDialogControllerImplTest,
+       OnDismissed_DoesNotRunCallback_WhenPositiveButtonClickedPreviously) {
+  base::MockCallback<AutofillDialogController::DialogResultCallback> callback;
+  EXPECT_CALL(callback, Run(AutofillDialogController::Result::kAccepted));
+
+  controller_->Show(u"Title", u"Description",
+                    /*positive_button_text=*/u"Button",
+                    /*negative_button_text=*/std::u16string(), callback.Get());
+  controller_->OnPositiveButtonClicked();
+  controller_->OnDismissed();
+}
+
+// Test that OnDismissed does not invoke the callback again if
+// OnNegativeButtonClicked was already invoked.
+TEST_F(AutofillDialogControllerImplTest,
+       OnDismissed_DoesNotRunCallback_WhenNegativeButtonClickedPreviously) {
+  base::MockCallback<AutofillDialogController::DialogResultCallback> callback;
+  EXPECT_CALL(callback, Run(AutofillDialogController::Result::kDeclined));
+
+  controller_->Show(u"Title", u"Description",
+                    /*positive_button_text=*/u"Button",
+                    /*negative_button_text=*/u"Cancel", callback.Get());
+  controller_->OnNegativeButtonClicked();
+  controller_->OnDismissed();
+}
+
+// Test that `dismiss_timer_` is stopped when the dialog is dismissed from the
+// Java side and a subsequent loading dialog behaves correctly.
+TEST_F(AutofillDialogControllerImplTest, OnDismissed_StopsDismissTimer) {
+  EXPECT_CALL(*mock_view_ptr_, ShowLoadingDialog());
+  controller_->ShowLoadingDialog(u"Title1", base::Seconds(2));
+
+  // Dismiss before min_time elapsed. This starts `dismiss_timer_`.
+  EXPECT_CALL(*mock_view_ptr_, Dismiss()).Times(0);
+  controller_->Dismiss();
+  EXPECT_TRUE(controller_->IsDismissTimerRunningForTest());
+
+  // Simulate dismissing the dialog from the Java side.
+  controller_->OnDismissed();
+  EXPECT_FALSE(controller_->IsDismissTimerRunningForTest());
+  EXPECT_FALSE(controller_->HasDialogViewForTest());
+
+  // Pre-populate mock_view_ for the second dialog so we can set expectations.
+  mock_view_ = std::make_unique<NiceMock<MockAutofillDialogView>>();
+  mock_view_ptr_ = mock_view_.get();
+
+  EXPECT_CALL(*mock_view_ptr_, ShowLoadingDialog());
+  controller_->ShowLoadingDialog(u"Title2", base::Seconds(2));
+  EXPECT_TRUE(controller_->HasDialogViewForTest());
+
+  // Fast-forward by the first dialog's min_time (2s).
+  // If the timer was not stopped in OnDismissed, it would fire and dismiss
+  // the second dialog prematurely without any call to `Dismiss`.
+  EXPECT_CALL(*mock_view_ptr_, Dismiss()).Times(0);
+  task_environment()->FastForwardBy(base::Seconds(2));
+  ASSERT_TRUE(controller_->HasDialogViewForTest());
+
+  // The second dialog can now be dismissed properly.
+  EXPECT_CALL(*mock_view_ptr_, Dismiss());
+  controller_->Dismiss();
   EXPECT_FALSE(controller_->HasDialogViewForTest());
 }
 

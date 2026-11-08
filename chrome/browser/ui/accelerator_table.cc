@@ -16,12 +16,8 @@
 #include "build/branding_buildflags.h"
 #include "build/build_config.h"
 #include "chrome/app/chrome_command_ids.h"
-#include "chrome/browser/ui/tabs/features.h"
-#include "chrome/browser/ui/ui_features.h"
-#include "components/lens/buildflags.h"
-#include "components/lens/lens_features.h"
+#include "chrome/browser/ui/actions/command_id_to_action_id.h"
 #include "printing/buildflags/buildflags.h"
-#include "services/screen_ai/buildflags/buildflags.h"
 #include "ui/base/accelerators/accelerator.h"
 #include "ui/base/ui_base_features.h"
 #include "ui/events/event_constants.h"
@@ -30,9 +26,6 @@
 #if BUILDFLAG(IS_MAC)
 #include "chrome/browser/global_keyboard_shortcuts_mac.h"
 #endif
-
-// Android chrome shortcuts are implemented in KeyboardShortcuts.java.
-static_assert(!BUILDFLAG(IS_ANDROID));
 
 namespace {
 
@@ -76,6 +69,7 @@ const AcceleratorMapping kAcceleratorMap[] = {
     {ui::VKEY_G, ui::EF_SHIFT_DOWN | ui::EF_PLATFORM_ACCELERATOR,
      IDC_FIND_PREVIOUS},
     {ui::VKEY_L, ui::EF_PLATFORM_ACCELERATOR, IDC_FOCUS_LOCATION},
+    {ui::VKEY_T, ui::EF_PLATFORM_ACCELERATOR, IDC_NEW_TAB},
     {ui::VKEY_O, ui::EF_PLATFORM_ACCELERATOR, IDC_OPEN_FILE},
     {ui::VKEY_P, ui::EF_PLATFORM_ACCELERATOR, IDC_PRINT},
     {ui::VKEY_R, ui::EF_PLATFORM_ACCELERATOR, IDC_RELOAD},
@@ -227,7 +221,6 @@ const AcceleratorMapping kAcceleratorMap[] = {
 #endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
     {ui::VKEY_N, ui::EF_SHIFT_DOWN | ui::EF_PLATFORM_ACCELERATOR,
      IDC_NEW_INCOGNITO_WINDOW},
-    {ui::VKEY_T, ui::EF_PLATFORM_ACCELERATOR, IDC_NEW_TAB},
     {ui::VKEY_N, ui::EF_PLATFORM_ACCELERATOR, IDC_NEW_WINDOW},
     {ui::VKEY_T, ui::EF_SHIFT_DOWN | ui::EF_PLATFORM_ACCELERATOR,
      IDC_RESTORE_TAB},
@@ -365,6 +358,10 @@ std::vector<AcceleratorMapping> GetAcceleratorList() {
                          std::begin(kTabGroupAcceleratorMap),
                          std::end(kTabGroupAcceleratorMap));
 #endif  // !BUILDFLAG(IS_MAC) && !BUILDFLAG(IS_CHROMEOS)
+
+    for (AcceleratorMapping& mapping : *accelerators) {
+      mapping.action_id = chrome::GetActionIdForCommandId(mapping.command_id);
+    }
   }
 
   return *accelerators;

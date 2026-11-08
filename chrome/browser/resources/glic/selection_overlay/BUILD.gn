@@ -8,14 +8,18 @@ build_webui("build") {
   grd_prefix = "glic_untrusted"
 
   static_files = [
+    "explain.svg",
     "selection_overlay.html",
     "spark.svg",
   ]
 
   ts_files = [
     "browser_proxy.ts",
+    "explain_fulfillment.ts",
     "glic_selection_overlay.ts",
     "glic_selection_overlay.html.ts",
+    "inline_fulfillment_host.ts",
+    "markdown.ts",
     "selection_overlay_app.ts",
     "selection_overlay_app.html.ts",
     "selection_overlay_base_handler_impl.ts",
@@ -31,6 +35,7 @@ build_webui("build") {
     "//chrome/browser/selection/mojom:mojo_bindings_ts__generator",
   ]
   mojo_files = [
+    "$root_gen_dir/chrome/browser/glic/selection/explain_fulfillment.mojom-webui.ts",
     "$root_gen_dir/chrome/browser/glic/selection/selection_overlay.mojom-webui.ts",
     "$root_gen_dir/chrome/browser/selection/mojom/action.mojom-webui.ts",
   ]

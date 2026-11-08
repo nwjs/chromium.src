@@ -17,9 +17,9 @@
 #include "base/task/thread_pool/thread_pool_instance.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
-#include "chrome/browser/policy/policy_test_utils.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
+#include "chrome/common/webui_url_constants.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/content_settings/core/browser/host_content_settings_map.h"
@@ -31,8 +31,8 @@
 #include "components/language/core/browser/pref_names.h"
 #include "components/language/core/common/language_experiments.h"
 #include "components/metrics/content/subprocess_metrics_provider.h"
-#include "components/policy/policy_constants.h"
 #include "components/prefs/pref_service.h"
+#include "content/public/browser/web_contents.h"
 #include "content/public/common/content_features.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
@@ -81,7 +81,7 @@ static constexpr char kThirdPartyOriginUrl[] = "https://my-site.com:44444";
 
 }  // namespace
 
-class ReduceAcceptLanguageBrowserTest : public policy::PolicyTest {
+class ReduceAcceptLanguageBrowserTest : public InProcessBrowserTest {
  public:
   ReduceAcceptLanguageBrowserTest() = default;
 
@@ -402,130 +402,6 @@ IN_PROC_BROWSER_TEST_F(DisableFeatureReduceAcceptLanguageBrowserTest,
   NavigateAndVerifyAcceptLanguageOfLastRequest(SameOriginIframeUrl(),
                                                std::nullopt);
   EXPECT_EQ(LastRequestUrl().GetPath(), "/subframe_simple.html");
-}
-
-// Browser tests that using Enterprise policy to control ReduceAcceptLanguage
-// feature.
-class ReduceAcceptLanguageEnterprisePolicyBrowserTest
-    : public ReduceAcceptLanguageBrowserTest,
-      public ::testing::WithParamInterface<policy::PolicyTest::BooleanPolicy> {
- public:
-  static std::string DescribeParams(
-      const ::testing::TestParamInfo<ParamType>& info) {
-    switch (info.param) {
-      case policy::PolicyTest::BooleanPolicy::kNotConfigured:
-        return "NotConfigured";
-      case policy::PolicyTest::BooleanPolicy::kTrue:
-        return "True";
-      case policy::PolicyTest::BooleanPolicy::kFalse:
-        return "False";
-    }
-  }
-
-  void SetUpInProcessBrowserTestFixture() override {
-    policy::PolicyTest::SetUpInProcessBrowserTestFixture();
-
-    if (GetParam() == policy::PolicyTest::BooleanPolicy::kNotConfigured) {
-      return;
-    }
-
-    policy::PolicyMap policies;
-    SetPolicy(
-        &policies, policy::key::kReduceAcceptLanguageEnabled,
-        base::Value(GetParam() == policy::PolicyTest::BooleanPolicy::kTrue));
-    UpdateProviderPolicy(policies);
-  }
-
-  void EnabledFeatures() override {
-    scoped_feature_list_.InitWithFeatures(
-        {network::features::kReduceAcceptLanguage}, {});
-  }
-};
-
-INSTANTIATE_TEST_SUITE_P(
-    All,
-    ReduceAcceptLanguageEnterprisePolicyBrowserTest,
-    ::testing::Values(policy::PolicyTest::BooleanPolicy::kNotConfigured,
-                      policy::PolicyTest::BooleanPolicy::kFalse,
-                      policy::PolicyTest::BooleanPolicy::kTrue),
-    &ReduceAcceptLanguageEnterprisePolicyBrowserTest::DescribeParams);
-
-IN_PROC_BROWSER_TEST_P(ReduceAcceptLanguageEnterprisePolicyBrowserTest,
-                       PolicyIsFollowed) {
-  SetTestOptions({.content_language_in_parent = "en",
-                  .avail_language_in_parent = "en, en-US",
-                  .vary_in_parent = "accept-language"},
-                 {SameOriginRequestUrl()});
-  SetPrefsAcceptLanguage({"zh", "en-US"});
-
-  // Both true and the default (no parameter) should be enabled.
-  const bool expect_feature_disabled =
-      GetParam() == policy::PolicyTest::BooleanPolicy::kFalse;
-  if (expect_feature_disabled) {
-    // Expect no Accept-Language header added because browser_tests can only
-    // check headers in navigation layer, browser_tests can't see headers added
-    // by network stack.
-    NavigateAndVerifyAcceptLanguageOfLastRequest(SameOriginRequestUrl(),
-                                                 std::nullopt);
-    VerifyNavigatorLanguages({"zh", "en-US"});
-  } else {
-    NavigateAndVerifyAcceptLanguageOfLastRequest(SameOriginRequestUrl(),
-                                                 "en-US,en;q=0.9");
-    VerifyNavigatorLanguages({"zh"});
-  }
-}
-
-IN_PROC_BROWSER_TEST_P(ReduceAcceptLanguageEnterprisePolicyBrowserTest,
-                       PolicyIsFollowedIframe) {
-  SetTestOptions({.content_language_in_parent = "es",
-                  .avail_language_in_parent = "es, en-US",
-                  .vary_in_parent = "accept-language",
-                  .content_language_in_child = "es",
-                  .avail_language_in_child = "es, en-US",
-                  .vary_in_child = "accept-language"},
-                 {SameOriginIframeUrl(), SimpleRequestUrl()});
-
-  SetPrefsAcceptLanguage({"zh", "en-US"});
-
-  // Both true and the default (no parameter) should be enabled.
-  const bool expect_feature_disabled =
-      GetParam() == policy::PolicyTest::BooleanPolicy::kFalse;
-  if (expect_feature_disabled) {
-    NavigateAndVerifyAcceptLanguageOfLastRequest(SameOriginIframeUrl(),
-                                                 std::nullopt);
-    VerifyNavigatorLanguages({"zh", "en-US"});
-  } else {
-    NavigateAndVerifyAcceptLanguageOfLastRequest(SameOriginIframeUrl(),
-                                                 "en-US,en;q=0.9");
-    VerifyNavigatorLanguages({"zh"});
-  }
-  EXPECT_EQ(LastRequestUrl().GetPath(), "/subframe_simple.html");
-}
-
-IN_PROC_BROWSER_TEST_P(ReduceAcceptLanguageEnterprisePolicyBrowserTest,
-                       PolicyIsFollowedImgSubresource) {
-  SetTestOptions({.content_language_in_parent = "es",
-                  .avail_language_in_parent = "es, en-US",
-                  .vary_in_parent = "accept-language",
-                  .content_language_in_child = "es",
-                  .avail_language_in_child = "es, en-US",
-                  .vary_in_child = "accept-language"},
-                 {SameOriginImgUrl(), SimpleImgUrl()});
-
-  SetPrefsAcceptLanguage({"zh", "en-US"});
-
-  // Both true and the default (no parameter) should be enabled.
-  const bool expect_feature_disabled =
-      GetParam() == policy::PolicyTest::BooleanPolicy::kFalse;
-  if (expect_feature_disabled) {
-    NavigateAndVerifyAcceptLanguageOfLastRequest(SimpleImgUrl(), std::nullopt);
-    VerifyNavigatorLanguages({"zh", "en-US"});
-  } else {
-    NavigateAndVerifyAcceptLanguageOfLastRequest(SimpleImgUrl(),
-                                                 "en-US,en;q=0.9");
-    VerifyNavigatorLanguages({"zh"});
-  }
-  EXPECT_EQ(LastRequestUrl().GetPath(), "/subresource_simple.jpg");
 }
 
 // Tests same origin requests with the ReduceAcceptLanguage feature enabled.
@@ -1778,6 +1654,22 @@ class ReduceAcceptLanguageCountBrowserTest
                                  network::features::kReduceAcceptLanguageHTTP});
     }
   }
+
+  // Samples recorded for kLargeLanguages: 1 during initial profile setup,
+  // twice more when SetPrefsAcceptLanguage() syncs the preference to the
+  // renderer and network services, and 1 per WebUI omnibox popup or WebUI
+  // toolbar WebContents.
+  // The number of popups depends on platform defaults and AIM eligibility.
+  size_t ExpectedAcceptLanguageCountSamples() const {
+    return 3 + std::ranges::count_if(
+                   content::GetAllWebContents(),
+                   [](content::WebContents* contents) {
+                     const std::string_view host =
+                         contents->GetVisibleURL().host();
+                     return host == chrome::kChromeUIOmniboxPopupHost ||
+                            host == chrome::kChromeUIWebUIToolbarHost;
+                   });
+  }
 };
 
 INSTANTIATE_TEST_SUITE_P(FeatureFlag,
@@ -1785,7 +1677,8 @@ INSTANTIATE_TEST_SUITE_P(FeatureFlag,
                          testing::Values(true, false));
 
 // TODO(crbug.com/542347163): Re-enable test.
-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_MAC) || \
+    BUILDFLAG(IS_WIN)
 #define MAYBE_RegularRequest DISABLED_RegularRequest
 #else
 #define MAYBE_RegularRequest RegularRequest
@@ -1814,17 +1707,14 @@ IN_PROC_BROWSER_TEST_P(ReduceAcceptLanguageCountBrowserTest,
   }
 
   metrics::SubprocessMetricsProvider::MergeHistogramDeltasForTesting();
-  // Expect 5 samples recorded for kLargeLanguages when SetPrefsAcceptLanguage
-  // is called (1 during initial profile setup, twice more when
-  // SetPrefsAcceptLanguage is called to sync the preference to the renderer and
-  // network services, 1 for WebUI Omnibox WebContents, and 1 for Omnibox Aim
-  // Popup Webcontents).
   histograms.ExpectBucketCount("LanguageUsage.AcceptLanguage.Count2",
-                               kLargeLanguagesCount, 5);
+                               kLargeLanguagesCount,
+                               ExpectedAcceptLanguageCountSamples());
 }
 
 // TODO(crbug.com/542347163): Re-enable test.
-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_MAC) || \
+    BUILDFLAG(IS_WIN)
 #define MAYBE_Iframe DISABLED_Iframe
 #else
 #define MAYBE_Iframe Iframe
@@ -1857,11 +1747,7 @@ IN_PROC_BROWSER_TEST_P(ReduceAcceptLanguageCountBrowserTest, MAYBE_Iframe) {
   EXPECT_EQ(LastRequestUrl().GetPath(), "/subframe_simple.html");
 
   metrics::SubprocessMetricsProvider::MergeHistogramDeltasForTesting();
-  // Expect 5 samples recorded for kLargeLanguages when SetPrefsAcceptLanguage
-  // is called (1 during initial profile setup, twice more when
-  // SetPrefsAcceptLanguage is called to sync the preference to the renderer and
-  // network services, 1 for WebUI Omnibox WebContents, and 1 for Omnibox Aim
-  // Popup Webcontents).
   histograms.ExpectBucketCount("LanguageUsage.AcceptLanguage.Count2",
-                               kLargeLanguagesCount, 5);
+                               kLargeLanguagesCount,
+                               ExpectedAcceptLanguageCountSamples());
 }

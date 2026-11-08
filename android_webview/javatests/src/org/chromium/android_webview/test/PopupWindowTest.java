@@ -344,6 +344,7 @@ public class PopupWindowTest extends AwParameterizedTest {
     @Test
     @SmallTest
     @Feature({"AndroidWebView"})
+    @DisabledTest(message = "https://crbug.com/572892241")
     public void testPopupWindowTextHandle() throws Throwable {
         final String popupPath = "/popup.html";
         final String parentPageHtml =
@@ -660,7 +661,9 @@ public class PopupWindowTest extends AwParameterizedTest {
         CriteriaHelper.pollUiThread(
                 () -> {
                     Criteria.checkThat(controller.isSelectActionBarShowing(), Matchers.is(show));
-                });
+                },
+                AwActivityTestRule.WAIT_TIMEOUT_MS,
+                AwActivityTestRule.CHECK_INTERVAL);
     }
 
     private void hideSelectActionMode(final SelectionPopupController controller) {

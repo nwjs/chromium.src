@@ -49,8 +49,8 @@
 #import "ios/chrome/browser/cobrowse/model/aim_cobrowse_java_script_feature.h"
 #import "ios/chrome/browser/cobrowse/model/cobrowse_util.h"
 #import "ios/chrome/browser/content_settings/model/host_content_settings_map_factory.h"
-#import "ios/chrome/browser/enterprise/connectors/device_trust/features.h"
 #import "ios/chrome/browser/enterprise/connectors/device_trust/model/device_trust_java_script_feature.h"
+#import "ios/chrome/browser/enterprise/connectors/device_trust/model/device_trust_util.h"
 #import "ios/chrome/browser/enterprise/connectors/ios_enterprise_interstitial.h"
 #import "ios/chrome/browser/enterprise/connectors/reporting/ios_reporting_event_router_factory.h"
 #import "ios/chrome/browser/flags/chrome_switches.h"
@@ -73,7 +73,6 @@
 #import "ios/chrome/browser/permissions/model/geolocation_api_usage_java_script_feature.h"
 #import "ios/chrome/browser/permissions/model/media_api_usage_java_script_feature.h"
 #import "ios/chrome/browser/prerender/model/prerender_tab_helper.h"
-#import "ios/chrome/browser/reader_mode/model/features.h"
 #import "ios/chrome/browser/reader_mode/model/reader_mode_java_script_feature.h"
 #import "ios/chrome/browser/reader_mode/model/reader_mode_scroll_anchor_java_script_feature.h"
 #import "ios/chrome/browser/safe_browsing/model/client_side_detection/client_side_detection_java_script_feature.h"
@@ -517,11 +516,7 @@ std::vector<web::JavaScriptFeature*> ChromeWebClient::GetJavaScriptFeatures(
     features.push_back(AimCobrowseJavaScriptFeature::GetInstance());
   }
 
-  // TODO(crbug.com/517112324): Avoid registering this JavaScriptFeature if the
-  // user is not an enterprise user with a configured Device Trust policy
-  // allowlist.
-  if (base::FeatureList::IsEnabled(
-          enterprise_connectors::features::kEnableIOSDeviceTrustConnector)) {
+  if (ShouldRegisterDeviceTrust(profile)) {
     features.push_back(DeviceTrustJavaScriptFeature::GetInstance());
   }
 
@@ -607,7 +602,7 @@ web::UserAgentType ChromeWebClient::GetDefaultUserAgent(
   ProfileIOS* profile =
       ProfileIOS::FromBrowserState(web_state->GetBrowserState());
   HostContentSettingsMap* settings_map =
-      ios::HostContentSettingsMapFactory::GetForProfile(profile);
+      ios::HostContentSettingsMapFactory::GetForProfile(profile).get();
 
   bool use_desktop_agent = ShouldLoadUrlInDesktopMode(url, settings_map);
   return use_desktop_agent ? web::UserAgentType::DESKTOP
@@ -619,7 +614,7 @@ void ChromeWebClient::LogDefaultUserAgent(web::WebState* web_state,
   ProfileIOS* profile =
       ProfileIOS::FromBrowserState(web_state->GetBrowserState());
   HostContentSettingsMap* settings_map =
-      ios::HostContentSettingsMapFactory::GetForProfile(profile);
+      ios::HostContentSettingsMapFactory::GetForProfile(profile).get();
   bool use_desktop_agent = ShouldLoadUrlInDesktopMode(url, settings_map);
   base::UmaHistogramBoolean("IOS.PageLoad.DefaultModeMobile",
                             !use_desktop_agent);

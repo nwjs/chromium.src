@@ -8,6 +8,8 @@
 
 #import "base/apple/foundation_util.h"
 #import "base/strings/sys_string_conversions.h"
+#import "base/test/metrics/histogram_tester.h"
+#import "components/autofill/core/browser/integrators/autofill_ai/metrics/autofill_ai_metrics.h"
 #import "ios/chrome/browser/autofill/autofill_ai/public/autofill_ai_constants.h"
 #import "ios/chrome/browser/autofill/autofill_ai/public/autofill_ai_ui_util.h"
 #import "ios/chrome/browser/autofill/model/message/autofill_legal_message_line.h"
@@ -24,6 +26,7 @@
 #import "ios/chrome/browser/shared/ui/table_view/cells/table_view_link_header_footer_item.h"
 #import "ios/chrome/browser/shared/ui/table_view/legacy_chrome_table_view_controller_test.h"
 #import "ios/chrome/grit/ios_strings.h"
+#import "ios/chrome/test/scoped_key_window.h"
 #import "testing/gtest/include/gtest/gtest.h"
 #import "testing/gtest_mac.h"
 #import "third_party/ocmock/OCMock/OCMock.h"
@@ -241,9 +244,9 @@ TEST_F(AutofillAIEntityEditTableViewControllerTest,
       base::apple::ObjCCastStrict<AutofillAIEntityEditTableViewController>(
           controller());
 
-  NSString* test_email = @"test@gmail.com";
+  NSString* testEmail = @"test@gmail.com";
   [view_controller setIsServerWalletItem:YES];
-  [view_controller setUserEmail:test_email];
+  [view_controller setUserEmail:testEmail];
   [view_controller loadModel];
 
   TableViewLinkHeaderFooterItem* footer =
@@ -438,8 +441,12 @@ TEST_F(AutofillAIEntityEditTableViewControllerTest,
   line.linkRanges = @[ [NSValue valueWithRange:NSMakeRange(32, 12)] ];
   line.linkURLs = {GURL("https://policies.google.com/terms")};
 
+  base::HistogramTester histogram_tester;
   [view_controller setLegalMessages:@[ line ]];
   [view_controller loadModel];
+  histogram_tester.ExpectUniqueSample(
+      "Autofill.Ai.WalletNotice.Settings.Funnel",
+      autofill::AutofillAiWalletNoticeFunnelEvents::kLegalMessageShown, 1);
 
   TableViewLinkHeaderFooterItem* footerItem =
       base::apple::ObjCCastStrict<TableViewLinkHeaderFooterItem>(
@@ -460,15 +467,43 @@ TEST_F(AutofillAIEntityEditTableViewControllerTest,
               footerView.accessibilityIdentifier);
 }
 
-// Tests that setting legal messages after the view is already loaded does not
-// mutate or reload the footer for the active session.
+// Tests that setting the Wallet footer inputs after the view is loaded, but
+// before it is on screen, updates the footer without requiring `loadModel` or
+// `setEditItems:`. This mirrors the mediator, which loads the view before
+// setting these inputs.
 TEST_F(AutofillAIEntityEditTableViewControllerTest,
-       TestSetLegalMessagesAfterViewLoadedDoesNotMutateFooter) {
+       TestSetWalletInputsAfterViewLoadedUpdatesFooter) {
   AutofillAIEntityEditTableViewController* view_controller =
       base::apple::ObjCCastStrict<AutofillAIEntityEditTableViewController>(
           controller());
 
   [view_controller loadViewIfNeeded];
+  ASSERT_FALSE(view_controller.view.window);
+
+  NSString* testEmail = @"test@gmail.com";
+  [view_controller setIsServerWalletItem:YES];
+  [view_controller setUserEmail:testEmail];
+
+  TableViewLinkHeaderFooterItem* footerItem =
+      base::apple::ObjCCastStrict<TableViewLinkHeaderFooterItem>(
+          [view_controller.tableViewModel footerForSectionIndex:1]);
+  EXPECT_NSEQ(autofill::GetSaveEntityToWalletFooterText(testEmail),
+              footerItem.text);
+  ASSERT_EQ(1U, footerItem.urls.count);
+  EXPECT_EQ(autofill::GetManageYourInfoURL(), footerItem.urls[0].gurl);
+}
+
+// Tests that setting legal messages after the view is loaded, but before it is
+// on screen, updates the footer without requiring `loadModel` or
+// `setEditItems:`.
+TEST_F(AutofillAIEntityEditTableViewControllerTest,
+       TestSetLegalMessagesAfterViewLoadedUpdatesFooter) {
+  AutofillAIEntityEditTableViewController* view_controller =
+      base::apple::ObjCCastStrict<AutofillAIEntityEditTableViewController>(
+          controller());
+
+  [view_controller loadViewIfNeeded];
+  ASSERT_FALSE(view_controller.view.window);
 
   AutofillLegalMessageLine* line = [[AutofillLegalMessageLine alloc] init];
   line.messageText = @"Privacy Policy";
@@ -480,27 +515,98 @@ TEST_F(AutofillAIEntityEditTableViewControllerTest,
   TableViewLinkHeaderFooterItem* footerItem =
       base::apple::ObjCCastStrict<TableViewLinkHeaderFooterItem>(
           [view_controller.tableViewModel footerForSectionIndex:1]);
-  EXPECT_NSEQ(l10n_util::GetNSString(IDS_IOS_AUTOFILL_AI_SAVED_LOCALLY_FOOTER),
-              footerItem.text);
-  ASSERT_EQ(0U, footerItem.urls.count);
+  NSString* expectedText =
+      [NSString stringWithFormat:@"%@\n\nBEGIN_LINKPrivacy PolicyEND_LINK",
+                                 l10n_util::GetNSString(
+                                     IDS_IOS_AUTOFILL_AI_SAVED_LOCALLY_FOOTER)];
+  EXPECT_NSEQ(expectedText, footerItem.text);
+  ASSERT_EQ(1U, footerItem.urls.count);
+  EXPECT_EQ(GURL("https://policies.google.com/privacy"),
+            footerItem.urls[0].gurl);
 
   UIView* footerView = [view_controller tableView:view_controller.tableView
                            viewForFooterInSection:1];
   ASSERT_TRUE([footerView isKindOfClass:[TableViewLinkHeaderFooterView class]]);
-  EXPECT_EQ(nil, footerView.accessibilityIdentifier);
+  EXPECT_NSEQ(kAutofillAISaveEntityLegalDisclosureId,
+              footerView.accessibilityIdentifier);
 }
 
-// Tests that tapping a link in the footer notifies the delegate.
+// Tests that setting legal messages while the view is on screen does not
+// mutate the footer, so disclosures never appear mid-session.
+TEST_F(AutofillAIEntityEditTableViewControllerTest,
+       TestSetLegalMessagesWhileVisibleDoesNotMutateFooter) {
+  AutofillAIEntityEditTableViewController* view_controller =
+      base::apple::ObjCCastStrict<AutofillAIEntityEditTableViewController>(
+          controller());
+
+  ScopedKeyWindow scopedWindow;
+  [scopedWindow.Get() addSubview:view_controller.view];
+  ASSERT_TRUE(view_controller.view.window);
+
+  AutofillLegalMessageLine* line = [[AutofillLegalMessageLine alloc] init];
+  line.messageText = @"Privacy Policy";
+  line.linkRanges = @[ [NSValue valueWithRange:NSMakeRange(0, 14)] ];
+  line.linkURLs = {GURL("https://policies.google.com/privacy")};
+
+  base::HistogramTester histogram_tester;
+  [view_controller setLegalMessages:@[ line ]];
+  histogram_tester.ExpectTotalCount("Autofill.Ai.WalletNotice.Settings.Funnel",
+                                    0);
+
+  TableViewLinkHeaderFooterItem* footerItem =
+      base::apple::ObjCCastStrict<TableViewLinkHeaderFooterItem>(
+          [view_controller.tableViewModel footerForSectionIndex:1]);
+  EXPECT_NSEQ(l10n_util::GetNSString(IDS_IOS_AUTOFILL_AI_SAVED_LOCALLY_FOOTER),
+              footerItem.text);
+  EXPECT_EQ(0U, footerItem.urls.count);
+
+  [view_controller.view removeFromSuperview];
+}
+
+// Tests that tapping a link in the footer notifies the delegate and logs
+// `kLinkClicked` only when the tapped URL belongs to the legal message.
 TEST_F(AutofillAIEntityEditTableViewControllerTest, TestDidTapLinkWithURL) {
   AutofillAIEntityEditTableViewController* view_controller =
       base::apple::ObjCCastStrict<AutofillAIEntityEditTableViewController>(
           controller());
 
-  CrURL* testURL =
-      [[CrURL alloc] initWithGURL:GURL("https://policies.google.com/terms")];
-  OCMExpect([mock_delegate_ didTapLinkWithURL:testURL]);
+  [view_controller setIsServerWalletItem:YES];
+  [view_controller setUserEmail:@"test@gmail.com"];
 
-  [view_controller view:nil didTapLinkURL:testURL];
+  AutofillLegalMessageLine* line = [[AutofillLegalMessageLine alloc] init];
+  line.messageText = @"By continuing, you agree to the Google Terms.";
+  line.linkRanges = @[ [NSValue valueWithRange:NSMakeRange(32, 12)] ];
+  line.linkURLs = {GURL("https://policies.google.com/terms")};
+  [view_controller setLegalMessages:@[ line ]];
+  [view_controller loadModel];
+
+  TableViewLinkHeaderFooterItem* footerItem =
+      base::apple::ObjCCastStrict<TableViewLinkHeaderFooterItem>(
+          [view_controller.tableViewModel footerForSectionIndex:1]);
+  ASSERT_EQ(2U, footerItem.urls.count);
+
+  // `TableViewLinkHeaderFooterView` allocates a new `CrURL` instance when a
+  // link is tapped, so pass distinct `CrURL` instances here to test value
+  // comparison rather than pointer equality.
+  CrURL* manageYourInfoURL =
+      [[CrURL alloc] initWithGURL:footerItem.urls[0].gurl];
+  CrURL* legalTermsURL = [[CrURL alloc] initWithGURL:footerItem.urls[1].gurl];
+
+  base::HistogramTester histogram_tester;
+
+  // Tapping the storage notice "manage your info" URL should not log
+  // `kLinkClicked`.
+  OCMExpect([mock_delegate_ didTapLinkWithURL:manageYourInfoURL]);
+  [view_controller view:nil didTapLinkURL:manageYourInfoURL];
+  histogram_tester.ExpectTotalCount("Autofill.Ai.WalletNotice.Settings.Funnel",
+                                    0);
+
+  // Tapping the legal message URL should log `kLinkClicked`.
+  OCMExpect([mock_delegate_ didTapLinkWithURL:legalTermsURL]);
+  [view_controller view:nil didTapLinkURL:legalTermsURL];
+  histogram_tester.ExpectUniqueSample(
+      "Autofill.Ai.WalletNotice.Settings.Funnel",
+      autofill::AutofillAiWalletNoticeFunnelEvents::kLinkClicked, 1);
 
   [mock_delegate_ verify];
 }

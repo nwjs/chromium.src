@@ -49,6 +49,7 @@ struct NativeWebKeyboardEvent;
 namespace glic {
 
 class GlicInstanceMetrics;
+class MicPermissionUi;
 class PanelVisibilityDependentHotkeyManager;
 class PanelFocusDependentHotkeyManager;
 
@@ -116,6 +117,11 @@ class GlicSidePanelUi
   void RunFileChooser(content::RenderFrameHost* render_frame_host,
                       scoped_refptr<content::FileSelectListener> listener,
                       const blink::mojom::FileChooserParams& params) override;
+  bool HandleWindowCreation(
+      content::RenderFrameHost* opener,
+      const GURL& target_url,
+      WindowOpenDisposition disposition,
+      const blink::mojom::WindowFeatures& features) override;
 
   // BrowserCollectionObserver
   void OnBrowserActivated(BrowserWindowInterface* browser) override;
@@ -138,6 +144,10 @@ class GlicSidePanelUi
     return panel_visibility_dependent_hotkey_manager_.get();
   }
 
+  void SetMicPermissionUiForTesting(MicPermissionUi* mic_permission_ui) {
+    mic_permission_ui_for_testing_ = mic_permission_ui;
+  }
+
  private:
   FRIEND_TEST_ALL_PREFIXES(GlicSidePanelUiAndroidTest,
                            MicPermissionDialogDenied);
@@ -145,8 +155,17 @@ class GlicSidePanelUi
                            MicPermissionDialogAcceptedWithDeadWebContents);
   FRIEND_TEST_ALL_PREFIXES(GlicSidePanelUiAndroidTest,
                            MicPermissionDialogAcceptedAndSystemGranted);
+  FRIEND_TEST_ALL_PREFIXES(
+      GlicSidePanelUiAndroidTest,
+      MicPermissionDialogAcceptedWhenMicSettingDisabledSkipsOsPrompt);
+  FRIEND_TEST_ALL_PREFIXES(
+      GlicSidePanelUiAndroidTest,
+      MicPermissionDialogAcceptedAndSystemGrantedUpdatesMicPref);
   FRIEND_TEST_ALL_PREFIXES(GlicSidePanelUiAndroidTest,
                            MicPermissionDialogAcceptedButSystemDenied);
+  FRIEND_TEST_ALL_PREFIXES(
+      GlicSidePanelUiAndroidTest,
+      MicPermissionDialogAcceptedButSystemDeniedDoesNotUpdateMicPref);
   FRIEND_TEST_ALL_PREFIXES(
       GlicSidePanelUiAndroidTest,
       WindowDeactivatedDuringPermissionRequestIsSuppressed);
@@ -157,26 +176,45 @@ class GlicSidePanelUi
       SuppressedDeactivationDeliveredAfterSystemPromptCompletes);
   FRIEND_TEST_ALL_PREFIXES(GlicSidePanelUiAndroidTest,
                            NoDeactivationWhenWindowRegainsFocusAfterPrompt);
+  FRIEND_TEST_ALL_PREFIXES(GlicSidePanelUiAndroidTest,
+                           MicOsPermissionResultRejectsWhenWebContentsGone);
 
   GlicSidePanelCoordinator* GetGlicSidePanelCoordinator() const;
 
-  // Called with the user's answer to Chrome's microphone pre-prompt. Continues
-  // to the OS permission flow when `allowed`, otherwise fails the request.
+  // Called with the user's answer to Chrome's microphone pre-prompt. Requests
+  // the Android RECORD_AUDIO permission when `allowed`, otherwise fails the
+  // request.
   void OnMicPermissionDialogResult(
       base::WeakPtr<content::WebContents> web_contents,
       const content::MediaStreamRequest& request,
       content::MediaResponseCallback callback,
       bool allowed);
 
-  // Forwards `request` to MediaCaptureDevicesDispatcher, which triggers the OS
-  // permission prompt if needed.
+  // Called with the result of the Android RECORD_AUDIO permission request.
+  // Continues the request when `granted`, otherwise shows the "microphone
+  // disabled" snackbar and fails the request.
+  void OnMicOsPermissionResult(base::WeakPtr<content::WebContents> web_contents,
+                               const content::MediaStreamRequest& request,
+                               content::MediaResponseCallback callback,
+                               bool granted);
+
+  // Returns the GlicKeyedService's microphone permission UI, or null if there
+  // is no service.
+  MicPermissionUi* GetMicPermissionUi();
+
+  // Returns true when GlicVoice is disabled or the Glic microphone setting is
+  // on.
+  bool IsMicSettingEnabled() const;
+
+  // Forwards `request` to MediaCaptureDevicesDispatcher. For the mic, the OS
+  // permission is requested beforehand (see OnMicPermissionDialogResult()).
   void RequestSystemMediaAccessPermission(
       content::WebContents* web_contents,
       const content::MediaStreamRequest& request,
       content::MediaResponseCallback callback);
 
-  // Handles the outcome of the OS permission flow, showing a snackbar if
-  // microphone access ended up denied.
+  // Handles the outcome of the OS permission flow, updating the Glic microphone
+  // pref if granted or showing a snackbar if microphone access ended up denied.
   void OnMediaAccessPermissionResult(
       base::WeakPtr<content::WebContents> web_contents,
       blink::mojom::MediaStreamType audio_type,
@@ -205,6 +243,7 @@ class GlicSidePanelUi
   std::unique_ptr<PanelFocusDependentHotkeyManager>
       panel_focus_dependent_hotkey_manager_;
   raw_ptr<Profile> profile_;
+  raw_ptr<MicPermissionUi> mic_permission_ui_for_testing_ = nullptr;
 
   // True while a microphone/camera permission prompt is in front of the
   // window. Deactivation notifications are suppressed during this time so the

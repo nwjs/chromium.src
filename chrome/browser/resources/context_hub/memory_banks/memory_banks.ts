@@ -17,18 +17,18 @@ import type {CrSearchFieldElement} from '//resources/cr_elements/cr_search_field
 import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
 import type {PropertyValues} from '//resources/lit/v3_0/lit.rollup.js';
 
-import {browserProxyFactory, EntryType} from '../context_hub.mojom-webui.js';
-import type {MemoryBankEntry} from '../context_hub.mojom-webui.js';
+import {browserProxyFactory} from '../context_hub.mojom-webui.js';
+import type {MemoryBankEntry, MemoryBankEntryAnnotations} from '../context_hub.mojom-webui.js';
 
 import {getCss} from './memory_banks.css.js';
 import {getHtml} from './memory_banks.html.js';
-import type {EntryAnnotationsUpdatedDetail} from './memory_banks_edit_dialog.js';
 import {computeSuggestions, matchesMemoryBankEntry, parseSearchQuery} from './memory_banks_search.js';
 import type {SearchSuggestion} from './memory_banks_search.js';
+import {convertMojoTimeToDate, formatEntriesAsMarkdown} from './memory_banks_utils.js';
 
 function downloadFile(
     filename: string, content: string,
-    mimeType: string = 'text/plain;charset=utf-8') {
+    mimeType: string = 'text/markdown;charset=utf-8') {
   if (!content) {
     return;
   }
@@ -74,6 +74,8 @@ export class MemoryBanksElement extends CrLitElement {
       availableCollections_: {type: Array, state: true},
       availableTags_: {type: Array, state: true},
       filteredEntries_: {type: Array, state: true},
+      viewMode_: {type: String, state: true},
+      currentPage_: {type: Number, state: true},
       geminiResponse_: {type: String, state: true},
       isAskingGemini_: {type: Boolean, state: true},
       showGeminiPanel_: {type: Boolean, state: true},
@@ -96,6 +98,9 @@ export class MemoryBanksElement extends CrLitElement {
   protected accessor availableCollections_: string[] = [];
   protected accessor availableTags_: string[] = [];
   protected accessor filteredEntries_: MemoryBankEntry[] = [];
+  protected accessor viewMode_: 'card'|'table' = 'table';
+  protected accessor currentPage_: number = 0;
+  protected pageSize_: number = 10;
   protected accessor geminiResponse_: string = '';
   protected accessor isAskingGemini_: boolean = false;
   protected accessor showGeminiPanel_: boolean = false;
@@ -103,9 +108,36 @@ export class MemoryBanksElement extends CrLitElement {
   protected accessor searchSuggestions_: SearchSuggestion[] = [];
   protected accessor highlightedSuggestionIndex_: number = -1;
   private activeMenuEntry_: MemoryBankEntry|null = null;
+  private listenerIds_: number[] = [];
 
   override connectedCallback() {
     super.connectedCallback();
+    const callbackRouter = browserProxyFactory.getInstance().callbackRouter;
+    this.listenerIds_.push(
+        callbackRouter.onMemoryBankEntryAdded.addListener(
+            (entry: MemoryBankEntry) => {
+              this.entries = [
+                entry,
+                ...this.entries.filter(existing => existing.id !== entry.id),
+              ];
+            }),
+        callbackRouter.onMemoryBankEntryUpdated.addListener(
+            (id: bigint, annotations: MemoryBankEntryAnnotations) => {
+              this.entries = this.entries.map(
+                  existing => existing.id === id ? {
+                    ...existing,
+                    collection: annotations.collection,
+                    note: annotations.note,
+                    tags: annotations.tags ?? [],
+                  } :
+                                                   existing);
+            }),
+        callbackRouter.onMemoryBankEntriesDeleted.addListener(
+            (ids: bigint[]) => {
+              const deletedIds = new Set(ids);
+              this.entries =
+                  this.entries.filter(entry => !deletedIds.has(entry.id));
+            }));
     this.fetchEntries();
     document.addEventListener('pointerdown', this.onDocumentPointerDown_);
   }
@@ -113,6 +145,10 @@ export class MemoryBanksElement extends CrLitElement {
   override disconnectedCallback() {
     super.disconnectedCallback();
     document.removeEventListener('pointerdown', this.onDocumentPointerDown_);
+    this.listenerIds_.forEach(
+        id => browserProxyFactory.getInstance().callbackRouter.removeListener(
+            id));
+    this.listenerIds_ = [];
   }
 
   override willUpdate(changedProperties: PropertyValues<this>) {
@@ -141,6 +177,11 @@ export class MemoryBanksElement extends CrLitElement {
       if (nextSelectedIds.size !== this.selectedIds.size) {
         this.selectedIds = nextSelectedIds;
       }
+      // The filtered set can shrink out from under the table, e.g. when the
+      // last entry on the final page is deleted.
+      const lastPage = Math.max(
+          0, Math.ceil(this.filteredEntries_.length / this.pageSize_) - 1);
+      this.currentPage_ = Math.min(this.currentPage_, lastPage);
     }
   }
 
@@ -242,6 +283,7 @@ export class MemoryBanksElement extends CrLitElement {
     const checkbox = e.currentTarget as HTMLElement & {checked: boolean};
     checkbox.checked = true;
     this.selectedCollections_ = new Set();
+    this.currentPage_ = 0;
   }
 
   protected onCollectionCheckboxChange_(e: Event) {
@@ -254,6 +296,7 @@ export class MemoryBanksElement extends CrLitElement {
       updated.delete(collection);
     }
     this.selectedCollections_ = updated;
+    this.currentPage_ = 0;
   }
 
   protected getSelectedTagCount_(): number {
@@ -276,6 +319,7 @@ export class MemoryBanksElement extends CrLitElement {
     const checkbox = e.currentTarget as HTMLElement & {checked: boolean};
     checkbox.checked = true;
     this.selectedTags_ = new Set();
+    this.currentPage_ = 0;
   }
 
   protected onTagCheckboxChange_(e: Event) {
@@ -288,6 +332,7 @@ export class MemoryBanksElement extends CrLitElement {
       updated.delete(tag);
     }
     this.selectedTags_ = updated;
+    this.currentPage_ = 0;
   }
 
   protected onFilterDropdownKeydown_(e: KeyboardEvent) {
@@ -296,6 +341,72 @@ export class MemoryBanksElement extends CrLitElement {
       e.stopPropagation();
       this.activeFilterMenu_ = null;
     }
+  }
+
+  protected onViewModeChange_(mode: 'card'|'table') {
+    this.viewMode_ = mode;
+  }
+
+  protected onTableViewClick_() {
+    this.onViewModeChange_('table');
+  }
+
+  protected onCardViewClick_() {
+    this.onViewModeChange_('card');
+  }
+
+  protected getPaginatedEntries_(): MemoryBankEntry[] {
+    const start = this.currentPage_ * this.pageSize_;
+    return this.filteredEntries_.slice(start, start + this.pageSize_);
+  }
+
+  protected getPaginationInfo_(): string {
+    const total = this.filteredEntries_.length;
+    if (total === 0) {
+      return 'Showing 0 of 0 saved items';
+    }
+    const pageCount = this.getPaginatedEntries_().length;
+    const start = this.currentPage_ * this.pageSize_;
+    return `Showing ${start + 1}–${start + pageCount} of ${total} saved items`;
+  }
+
+  protected isLastPage_(): boolean {
+    return (this.currentPage_ + 1) * this.pageSize_ >=
+        this.filteredEntries_.length;
+  }
+
+  protected onPreviousPageClick_() {
+    if (this.currentPage_ > 0) {
+      this.currentPage_--;
+    }
+  }
+
+  protected onNextPageClick_() {
+    if (!this.isLastPage_()) {
+      this.currentPage_++;
+    }
+  }
+
+  protected formatDisplayUrl_(url: string): string {
+    try {
+      const parsed = new URL(url);
+      const domainAndPath = parsed.host + parsed.pathname + parsed.search;
+      return domainAndPath.replace(/\/$/, '');
+    } catch {
+      return url.replace(/^https?:\/\//, '').replace(/\/$/, '');
+    }
+  }
+
+  protected formatDate_(mojoTime?: {internalValue: bigint}|null): string {
+    const date = convertMojoTimeToDate(mojoTime);
+    if (!date) {
+      return '';
+    }
+    return date.toLocaleDateString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
   }
 
   private onDocumentPointerDown_ = (e: PointerEvent) => {
@@ -310,11 +421,15 @@ export class MemoryBanksElement extends CrLitElement {
     }
   };
 
-  protected onMoreActionsClick_(entry: MemoryBankEntry, e: MouseEvent) {
+  protected onMoreActionsClick_(e: MouseEvent) {
     e.preventDefault();
     e.stopPropagation();
-    this.activeMenuEntry_ = entry;
     const target = e.currentTarget as HTMLElement;
+    const index = Number(target.dataset['index']);
+    const entryIndex = this.viewMode_ === 'table' ?
+        this.currentPage_ * this.pageSize_ + index :
+        index;
+    this.activeMenuEntry_ = this.filteredEntries_[entryIndex] ?? null;
     this.$.actionMenu.showAt(target);
   }
 
@@ -335,25 +450,6 @@ export class MemoryBanksElement extends CrLitElement {
 
   protected onEditDialogClose_() {
     this.editingEntry_ = null;
-  }
-
-  protected onEntryAnnotationsUpdated_(
-      e: CustomEvent<EntryAnnotationsUpdatedDetail>) {
-    const {id, collection, note, tags} = e.detail;
-    this.entries = this.entries.map(
-        entry => entry.id === id ? {...entry, collection, note, tags} : entry);
-    this.editingEntry_ = null;
-  }
-
-  convertMojoTimeToDate(mojoTime: {internalValue: bigint}): Date {
-    // Mojo Time represents microseconds since the Windows epoch (January 1,
-    // 1601). JavaScript Date expects milliseconds since the Unix epoch (January
-    // 1, 1970).
-
-    // 11,644,473,600,000,000n is the Windows-to-Unix epoch delta in
-    // microseconds.
-    const unixEpochUs = mojoTime.internalValue - 11644473600000000n;
-    return new Date(Number(unixEpochUs / 1000n));
   }
 
   isSelected(id: bigint): boolean {
@@ -435,6 +531,7 @@ export class MemoryBanksElement extends CrLitElement {
   protected onSearchChanged_(e: CustomEvent<string>) {
     this.searchQuery = e.detail;
     this.selectedIds = new Set();
+    this.currentPage_ = 0;
     this.updateSuggestions_(this.searchQuery);
   }
 
@@ -501,10 +598,11 @@ export class MemoryBanksElement extends CrLitElement {
     this.searchQuery = newQuery;
     this.searchField_?.setValue(newQuery, /*noEvent=*/ true);
     this.selectedIds = new Set();
+    this.currentPage_ = 0;
   }
 
   protected async onCopyClick_() {
-    const textToCopy = this.getSelectedEntriesAsText_();
+    const textToCopy = this.getSelectedEntriesAsMarkdown_();
     try {
       await navigator.clipboard.writeText(textToCopy);
     } catch (err) {
@@ -513,13 +611,12 @@ export class MemoryBanksElement extends CrLitElement {
   }
 
   protected onDownloadSelectedEntriesClick_() {
-    downloadFile('memory_banks_entries.txt', this.getSelectedEntriesAsText_());
+    downloadFile(
+        'memory_banks_entries.md', this.getSelectedEntriesAsMarkdown_());
   }
 
   protected onDownloadGeminiResponseClick_() {
-    downloadFile(
-        'gemini_response.md', this.geminiResponse_,
-        'text/markdown;charset=utf-8');
+    downloadFile('gemini_response.md', this.geminiResponse_);
   }
 
   protected async onDeleteClick_() {
@@ -534,7 +631,6 @@ export class MemoryBanksElement extends CrLitElement {
       updated.delete(id);
     }
     this.selectedIds = updated;
-    await this.fetchEntries();
   }
 
   protected onAskGeminiClick_() {
@@ -572,35 +668,10 @@ export class MemoryBanksElement extends CrLitElement {
     }
   }
 
-  private getSelectedEntriesAsText_(): string {
-    return this.entries.filter(entry => this.selectedIds.has(entry.id))
-        .map(entry => {
-          const dateStr =
-              this.convertMojoTimeToDate(entry.timestamp).toLocaleString();
-          const typeStr = entry.type === EntryType.kTextSelection ?
-              'Saved Text' :
-              'Saved Tab';
-          const lines = [
-            `[${typeStr}]`,
-            `Title: ${entry.tabTitle}`,
-            `URL: ${entry.url}`,
-          ];
-          if (entry.collection) {
-            lines.push(`Collection: ${entry.collection}`);
-          }
-          if (entry.tags && entry.tags.length > 0) {
-            lines.push(`Tags: ${entry.tags.join(', ')}`);
-          }
-          if (entry.note) {
-            lines.push(`Note: "${entry.note}"`);
-          }
-          if (entry.selectedText) {
-            lines.push(`Content: "${entry.selectedText}"`);
-          }
-          lines.push(`Saved Date: ${dateStr}`);
-          return lines.join('\n');
-        })
-        .join('\n\n---\n\n');
+  private getSelectedEntriesAsMarkdown_(): string {
+    const selected =
+        this.entries.filter(entry => this.selectedIds.has(entry.id));
+    return formatEntriesAsMarkdown(selected);
   }
 }
 

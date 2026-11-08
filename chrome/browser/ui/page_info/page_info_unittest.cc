@@ -18,6 +18,7 @@
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/metrics/histogram_tester.h"
+#include "base/test/metrics/user_action_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "build/build_config.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
@@ -32,9 +33,12 @@
 #include "chrome/browser/ui/page_info/chrome_page_info_ui_delegate.h"
 #include "chrome/browser/usb/usb_chooser_context.h"
 #include "chrome/browser/usb/usb_chooser_context_factory.h"
+#include "chrome/common/chrome_features.h"
+#include "chrome/common/pref_names.h"
 #include "chrome/test/base/chrome_render_view_host_test_harness.h"
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/testing_profile.h"
+#include "components/content_settings/core/browser/content_settings_uma_util.h"
 #include "components/content_settings/core/browser/host_content_settings_map.h"
 #include "components/content_settings/core/browser/permission_settings_info.h"
 #include "components/content_settings/core/browser/permission_settings_registry.h"
@@ -53,6 +57,7 @@
 #include "components/permissions/permission_request_manager.h"
 #include "components/permissions/test/mock_permission_prompt_factory.h"
 #include "components/permissions/test/mock_permission_request.h"
+#include "components/prefs/pref_service.h"
 #include "components/privacy_sandbox/privacy_sandbox_features.h"
 #include "components/privacy_sandbox/privacy_sandbox_prefs.h"
 #include "components/safe_browsing/buildflags.h"
@@ -61,10 +66,13 @@
 #include "components/strings/grit/components_strings.h"
 #include "components/subresource_filter/content/browser/subresource_filter_content_settings_manager.h"
 #include "components/subresource_filter/content/browser/subresource_filter_profile_context.h"
+#include "components/tabs/public/mock_tab_interface.h"
+#include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/ssl_host_state_delegate.h"
 #include "content/public/browser/ssl_status.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/test/web_contents_tester.h"
+#include "media/base/media_switches.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "net/base/features.h"
 #include "net/base/net_errors.h"
@@ -82,11 +90,6 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "url/origin.h"
-
-#include "chrome/common/chrome_features.h"
-#include "chrome/common/pref_names.h"
-#include "components/prefs/pref_service.h"
-#include "media/base/media_switches.h"
 
 #if BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/android/android_theme_resources.h"
@@ -277,6 +280,21 @@ class PageInfoTest : public ChromeRenderViewHostTestHarness {
       page_info_->InitializeUiState(mock_ui(), run_loop.QuitClosure());
       run_loop.Run();
     }
+    return page_info_.get();
+  }
+
+  // Creates `page_info_` for the given `surface`. Must be called at most once
+  // per test, before any call to `page_info()`.
+  PageInfo* CreatePageInfoWithSurface(PageInfo::Surface surface) {
+    CHECK(!page_info_);
+    auto delegate = std::make_unique<ChromePageInfoDelegate>(web_contents());
+    delegate->SetSecurityStateForTests(security_level_,
+                                       visible_security_state_);
+    page_info_ = std::make_unique<PageInfo>(std::move(delegate), web_contents(),
+                                            url(), surface);
+    base::RunLoop run_loop;
+    page_info_->InitializeUiState(mock_ui(), run_loop.QuitClosure());
+    run_loop.Run();
     return page_info_.get();
   }
 
@@ -793,7 +811,10 @@ TEST_F(PageInfoTest, AutoPictureInPicturePermissionShownOnChange) {
   std::set<ContentSettingsType> expected_visible_permissions;
 
   // Create the tab helper.
-  AutoPictureInPictureTabHelper::CreateForWebContents(web_contents());
+  tabs::MockTabInterface mock_tab;
+  tabs::TabLookupFromWebContents::CreateForWebContents(web_contents(),
+                                                       &mock_tab);
+  AutoPictureInPictureTabHelper tab_helper_instance(mock_tab, web_contents());
 
   // Initially, the permission should not be shown.
   page_info()->PresentSitePermissionsForTesting();
@@ -1561,10 +1582,10 @@ TEST_F(PageInfoTest, ShowInfobarWhenMediaChanged) {
   EXPECT_EQ(1u, infobar_manager()->infobars().size());
 
   histograms.ExpectUniqueSample(
-      "Permissions.PageInfo.Changed.VideoCapture.ReloadInfobarShown",
+      "Permissions.PageInfo.OnChanged.VideoCapture.ReloadInfobarShown",
       permissions::PermissionChangeAction::REALLOWED, 1);
   histograms.ExpectUniqueSample(
-      "Permissions.PageInfo.Changed.AudioCapture.ReloadInfobarShown",
+      "Permissions.PageInfo.OnChanged.AudioCapture.ReloadInfobarShown",
       permissions::PermissionChangeAction::REALLOWED, 1);
 }
 
@@ -1599,10 +1620,10 @@ TEST_F(PageInfoTest, SuppressInfobarWhenMediaChangedToBlock) {
   EXPECT_EQ(0u, infobar_manager()->infobars().size());
 
   histograms.ExpectUniqueSample(
-      "Permissions.PageInfo.Changed.VideoCapture.ReloadInfobarNotShown",
+      "Permissions.PageInfo.OnChanged.VideoCapture.ReloadInfobarNotShown",
       permissions::PermissionChangeAction::REALLOWED, 1);
   histograms.ExpectUniqueSample(
-      "Permissions.PageInfo.Changed.AudioCapture.ReloadInfobarNotShown",
+      "Permissions.PageInfo.OnChanged.AudioCapture.ReloadInfobarNotShown",
       permissions::PermissionChangeAction::REALLOWED, 1);
 }
 
@@ -1637,11 +1658,11 @@ TEST_F(PageInfoTest, SuppressInfobarWhenMediaChangedToAllow) {
   EXPECT_EQ(0u, infobar_manager()->infobars().size());
 
   histograms.ExpectUniqueSample(
-      "Permissions.PageInfo.Changed.VideoCapture.ReloadInfobarNotShown",
+      "Permissions.PageInfo.OnChanged.VideoCapture.ReloadInfobarNotShown",
       permissions::PermissionChangeAction::REALLOWED, 1);
 
   histograms.ExpectUniqueSample(
-      "Permissions.PageInfo.Changed.AudioCapture.ReloadInfobarNotShown",
+      "Permissions.PageInfo.OnChanged.AudioCapture.ReloadInfobarNotShown",
       permissions::PermissionChangeAction::REALLOWED, 1);
 }
 
@@ -1678,11 +1699,11 @@ TEST_F(PageInfoTest, SuppressInfobarWhenMediaChangedToDefault) {
   EXPECT_EQ(0u, infobar_manager()->infobars().size());
 
   histograms.ExpectUniqueSample(
-      "Permissions.PageInfo.Changed.VideoCapture.ReloadInfobarNotShown",
+      "Permissions.PageInfo.OnChanged.VideoCapture.ReloadInfobarNotShown",
       permissions::PermissionChangeAction::RESET_FROM_DENIED, 1);
 
   histograms.ExpectUniqueSample(
-      "Permissions.PageInfo.Changed.AudioCapture.ReloadInfobarNotShown",
+      "Permissions.PageInfo.OnChanged.AudioCapture.ReloadInfobarNotShown",
       permissions::PermissionChangeAction::RESET_FROM_DENIED, 1);
 }
 
@@ -1718,7 +1739,7 @@ TEST_F(PageInfoTest, ShowInfobarWhenGeolocationChangedToAllow) {
   page_info()->OnUIClosing(nullptr);
   EXPECT_EQ(1u, infobar_manager()->infobars().size());
   histograms.ExpectUniqueSample(
-      "Permissions.PageInfo.Changed.Geolocation.ReloadInfobarShown",
+      "Permissions.PageInfo.OnChanged.Geolocation.ReloadInfobarShown",
       permissions::PermissionChangeAction::REALLOWED, 0);
 }
 
@@ -1747,7 +1768,7 @@ TEST_F(PageInfoTest, NotSuppressedInfobarWhenGeolocationChangedToBlock) {
   page_info()->OnUIClosing(nullptr);
   EXPECT_EQ(1u, infobar_manager()->infobars().size());
   histograms.ExpectUniqueSample(
-      "Permissions.PageInfo.Changed.Geolocation.ReloadInfobarShown",
+      "Permissions.PageInfo.OnChanged.Geolocation.ReloadInfobarShown",
       permissions::PermissionChangeAction::REVOKED, 0);
 }
 
@@ -1769,7 +1790,7 @@ TEST_F(PageInfoTest, ShowInfobarWhenGeolocationChangedToDefault) {
   page_info()->OnUIClosing(nullptr);
   EXPECT_EQ(1u, infobar_manager()->infobars().size());
   histograms.ExpectUniqueSample(
-      "Permissions.PageInfo.Changed.Geolocation.ReloadInfobarShown",
+      "Permissions.PageInfo.OnChanged.Geolocation.ReloadInfobarShown",
       permissions::PermissionChangeAction::RESET_FROM_ALLOWED, 0);
 }
 
@@ -1814,13 +1835,13 @@ TEST_F(PageInfoTest, ShowInfobarWhenGeolocationAndMediaChangedToBlock) {
   EXPECT_EQ(1u, infobar_manager()->infobars().size());
 
   histograms.ExpectUniqueSample(
-      "Permissions.PageInfo.Changed.Geolocation.ReloadInfobarShown",
+      "Permissions.PageInfo.OnChanged.Geolocation.ReloadInfobarShown",
       permissions::PermissionChangeAction::REVOKED, 0);
   histograms.ExpectUniqueSample(
-      "Permissions.PageInfo.Changed.VideoCapture.ReloadInfobarNotShown",
+      "Permissions.PageInfo.OnChanged.VideoCapture.ReloadInfobarNotShown",
       permissions::PermissionChangeAction::REALLOWED, 1);
   histograms.ExpectUniqueSample(
-      "Permissions.PageInfo.Changed.AudioCapture.ReloadInfobarNotShown",
+      "Permissions.PageInfo.OnChanged.AudioCapture.ReloadInfobarNotShown",
       permissions::PermissionChangeAction::REALLOWED, 1);
 }
 
@@ -2337,7 +2358,11 @@ TEST_F(PageInfoTest, AutoPictureInPicturePermissionInfoIncognito) {
   base::test::ScopedFeatureList feature_list;
   feature_list.InitAndEnableFeature(media::kAutoPictureInPictureAndroid);
 
-  AutoPictureInPictureTabHelper::CreateForWebContents(incognito_web_contents());
+  tabs::MockTabInterface mock_tab;
+  tabs::TabLookupFromWebContents::CreateForWebContents(incognito_web_contents(),
+                                                       &mock_tab);
+  AutoPictureInPictureTabHelper tab_helper_instance(mock_tab,
+                                                    incognito_web_contents());
   auto* tab_helper =
       AutoPictureInPictureTabHelper::FromWebContents(incognito_web_contents());
   std::vector<media_session::mojom::MediaSessionAction> actions;
@@ -2359,7 +2384,10 @@ TEST_F(PageInfoTest, AutoPictureInPicturePermissionInfoRegular) {
   base::test::ScopedFeatureList feature_list;
   feature_list.InitAndEnableFeature(media::kAutoPictureInPictureAndroid);
 
-  AutoPictureInPictureTabHelper::CreateForWebContents(web_contents());
+  tabs::MockTabInterface mock_tab;
+  tabs::TabLookupFromWebContents::CreateForWebContents(web_contents(),
+                                                       &mock_tab);
+  AutoPictureInPictureTabHelper tab_helper_instance(mock_tab, web_contents());
   auto* tab_helper =
       AutoPictureInPictureTabHelper::FromWebContents(web_contents());
   std::vector<media_session::mojom::MediaSessionAction> actions;
@@ -3005,3 +3033,134 @@ TEST_F(PageInfoTest, PermanentNotificationSubscribeShowPermission) {
 }
 #endif  // BUILDFLAG(IS_ANDROID)
 
+TEST_F(PageInfoTest, DefaultSurfaceHistograms) {
+  base::HistogramTester histograms;
+  SetURL("https://example.test");
+  NavigateAndCommit(url());
+  ResetMockUI();
+  EXPECT_CALL(*mock_ui(), SetPermissionInfoStub()).Times(testing::AnyNumber());
+  EXPECT_CALL(*mock_ui(), SetIdentityInfo(_)).Times(testing::AnyNumber());
+  ExpectInitialSetCookieInfoCall(mock_ui());
+
+  page_info()->OnSitePermissionChanged(ContentSettingsType::POPUPS,
+                                       CONTENT_SETTING_ALLOW, std::nullopt,
+                                       /*is_one_time=*/false);
+
+  int popups_histogram_value =
+      content_settings_uma_util::ContentSettingTypeToHistogramValue(
+          ContentSettingsType::POPUPS);
+
+  histograms.ExpectBucketCount("WebsiteSettings.Action",
+                               page_info::PAGE_INFO_OPENED, 1);
+  histograms.ExpectBucketCount("WebsiteSettings.Action.Default",
+                               page_info::PAGE_INFO_OPENED, 1);
+  histograms.ExpectTotalCount("WebsiteSettings.Action.ContextualTasks", 0);
+
+  histograms.ExpectBucketCount("WebsiteSettings.OriginInfo.PermissionChanged",
+                               popups_histogram_value, 1);
+  histograms.ExpectBucketCount(
+      "WebsiteSettings.OriginInfo.PermissionChanged.Default",
+      popups_histogram_value, 1);
+  histograms.ExpectTotalCount(
+      "WebsiteSettings.OriginInfo.PermissionChanged.ContextualTasks", 0);
+  histograms.ExpectBucketCount(
+      "WebsiteSettings.OriginInfo.PermissionChanged.Allowed",
+      popups_histogram_value, 1);
+  histograms.ExpectBucketCount(
+      "WebsiteSettings.OriginInfo.PermissionChanged.Allowed.Default",
+      popups_histogram_value, 1);
+}
+
+TEST_F(PageInfoTest, ContextualTasksSurfaceActionHistogram) {
+  base::HistogramTester histograms;
+  SetURL("https://example.test");
+  NavigateAndCommit(url());
+  ResetMockUI();
+  SetDefaultUIExpectations(mock_ui());
+
+  PageInfo* contextual_page_info =
+      CreatePageInfoWithSurface(PageInfo::Surface::kContextualTasks);
+
+  histograms.ExpectBucketCount("WebsiteSettings.Action",
+                               page_info::PAGE_INFO_OPENED, 1);
+  histograms.ExpectBucketCount("WebsiteSettings.Action.ContextualTasks",
+                               page_info::PAGE_INFO_OPENED, 1);
+  histograms.ExpectTotalCount("WebsiteSettings.Action.Default", 0);
+
+  contextual_page_info->RecordPageInfoAction(
+      page_info::PAGE_INFO_COOKIES_PAGE_OPENED);
+  histograms.ExpectBucketCount("WebsiteSettings.Action",
+                               page_info::PAGE_INFO_COOKIES_PAGE_OPENED, 1);
+  histograms.ExpectBucketCount("WebsiteSettings.Action.ContextualTasks",
+                               page_info::PAGE_INFO_COOKIES_PAGE_OPENED, 1);
+}
+
+TEST_F(PageInfoTest, ExtensionsMenuAction) {
+  base::HistogramTester histograms;
+  base::UserActionTester user_actions;
+  SetURL("https://example.test");
+  NavigateAndCommit(url());
+  ResetMockUI();
+  SetDefaultUIExpectations(mock_ui());
+
+  page_info()->RecordPageInfoAction(
+      page_info::PAGE_INFO_EXTENSIONS_MENU_OPENED);
+  histograms.ExpectBucketCount("WebsiteSettings.Action",
+                               page_info::PAGE_INFO_EXTENSIONS_MENU_OPENED, 1);
+  EXPECT_EQ(1, user_actions.GetActionCount("PageInfo.ExtensionsMenu.Opened"));
+}
+
+TEST_F(PageInfoTest, ContextualTasksSurfacePermissionChangeHistogram) {
+  base::HistogramTester histograms;
+  SetURL("https://example.test");
+  NavigateAndCommit(url());
+  ResetMockUI();
+  EXPECT_CALL(*mock_ui(), SetPermissionInfoStub()).Times(testing::AnyNumber());
+  EXPECT_CALL(*mock_ui(), SetIdentityInfo(_)).Times(testing::AnyNumber());
+  ExpectInitialSetCookieInfoCall(mock_ui());
+
+  PageInfo* contextual_page_info =
+      CreatePageInfoWithSurface(PageInfo::Surface::kContextualTasks);
+
+  contextual_page_info->OnSitePermissionChanged(
+      ContentSettingsType::POPUPS, CONTENT_SETTING_ALLOW, std::nullopt,
+      /*is_one_time=*/false);
+
+  int popups_histogram_value =
+      content_settings_uma_util::ContentSettingTypeToHistogramValue(
+          ContentSettingsType::POPUPS);
+
+  // Even with a non-default surface, the unsliced base histogram is still
+  // recorded so that existing dashboards keep counting all PageInfo traffic
+  // (and do not show a drop when a new surface is introduced). The
+  // `.ContextualTasks` variant is recorded in addition, to allow slicing.
+  histograms.ExpectBucketCount("WebsiteSettings.OriginInfo.PermissionChanged",
+                               popups_histogram_value, 1);
+  histograms.ExpectBucketCount(
+      "WebsiteSettings.OriginInfo.PermissionChanged.ContextualTasks",
+      popups_histogram_value, 1);
+  histograms.ExpectTotalCount(
+      "WebsiteSettings.OriginInfo.PermissionChanged.Default", 0);
+  histograms.ExpectBucketCount(
+      "WebsiteSettings.OriginInfo.PermissionChanged.Allowed",
+      popups_histogram_value, 1);
+  histograms.ExpectBucketCount(
+      "WebsiteSettings.OriginInfo.PermissionChanged.Allowed.ContextualTasks",
+      popups_histogram_value, 1);
+
+  contextual_page_info->OnSitePermissionChanged(
+      ContentSettingsType::POPUPS, CONTENT_SETTING_BLOCK, std::nullopt,
+      /*is_one_time=*/false);
+
+  histograms.ExpectBucketCount("WebsiteSettings.OriginInfo.PermissionChanged",
+                               popups_histogram_value, 2);
+  histograms.ExpectBucketCount(
+      "WebsiteSettings.OriginInfo.PermissionChanged.ContextualTasks",
+      popups_histogram_value, 2);
+  histograms.ExpectBucketCount(
+      "WebsiteSettings.OriginInfo.PermissionChanged.Blocked",
+      popups_histogram_value, 1);
+  histograms.ExpectBucketCount(
+      "WebsiteSettings.OriginInfo.PermissionChanged.Blocked.ContextualTasks",
+      popups_histogram_value, 1);
+}

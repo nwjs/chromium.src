@@ -9,6 +9,7 @@
 #import <Foundation/Foundation.h>
 
 #import "base/ios/block_types.h"
+#import "base/time/time.h"
 #import "ios/chrome/app/background_mode_buildflags.h"
 
 // Default total units of progress for a continued processing task.
@@ -17,6 +18,15 @@ inline constexpr int64_t kDefaultTotalUnitsOfProgress = 1000;
 // Default expected number of discrete steps during the linear progress phase of
 // the stepped incremental progress.
 inline constexpr int64_t kDefaultExpectedStepCount = 18;
+
+// How the scheduler handles a continued processing request it cannot start
+// immediately. Mapped to the BackgroundTasks SDK by the app agent.
+enum class BackgroundContinuedProcessingSubmissionStrategy {
+  // The system queues the request until it can run.
+  kQueue,
+  // Submission fails if the task cannot start now.
+  kFail,
+};
 
 // Configuration object containing the parameters required to request a
 // background continued processing task.
@@ -42,13 +52,16 @@ inline constexpr int64_t kDefaultExpectedStepCount = 18;
 // `kDefaultExpectedStepCount`.
 @property(nonatomic) int64_t expectedStepCount;
 
-#if BUILDFLAG(IOS_BACKGROUND_CONTINUED_PROCESSING_ENABLED)
-// (Optional) The submission strategy for the scheduler to abide by. Defaults to
-// `BGContinuedProcessingTaskRequestSubmissionStrategyQueue`.
-@property(nonatomic)
-    BGContinuedProcessingTaskRequestSubmissionStrategy strategy API_AVAILABLE(
-        ios(26.0));
+// (Optional) Interval at which progress advances by one unit so the task isn't
+// considered stalled. Defaults to zero, which disables the heartbeat.
+@property(nonatomic) base::TimeDelta progressHeartbeatInterval;
 
+// (Optional) How the scheduler handles a request it cannot start immediately.
+// Defaults to `kQueue`.
+@property(nonatomic)
+    BackgroundContinuedProcessingSubmissionStrategy submissionStrategy;
+
+#if BUILDFLAG(IOS_BACKGROUND_CONTINUED_PROCESSING_ENABLED)
 // (Optional) Special system resources required for the task. Defaults to
 // `BGContinuedProcessingTaskRequestResourcesDefault`.
 @property(nonatomic)

@@ -21,10 +21,48 @@ namespace glic {
 
 namespace {
 
-constexpr char kInvokeResultHistogramName[] = "Glic.InvokeResult";
+constexpr char kInvokeResultHistogramName[] = "Glic.InvokeResult2";
 constexpr char kInvokeSourceHistogramName[] = "Glic.Invoke.InvocationSource";
 constexpr char kInvokeDurationHistogramName[] = "Glic.Invoke.Duration";
 constexpr char kInvokeTimeoutStageHistogramName[] = "Glic.Invoke.TimeoutStage";
+
+#if BUILDFLAG(STRUCTURED_METRICS_ENABLED)
+// Translates the browser-side enum into the structured metrics enum generated
+// from structured.xml. Written as an exhaustive switch with no default so that
+// adding an EmbedderType without adding the matching structured.xml variant is
+// a compile error rather than a silently mislabelled metric.
+metrics::structured::events::v2::glic::GlicEmbedderType
+ToStructuredEmbedderType(EmbedderType embedder_type) {
+  using StructuredEmbedderType =
+      metrics::structured::events::v2::glic::GlicEmbedderType;
+  switch (embedder_type) {
+    case EmbedderType::kSidePanel:
+      return StructuredEmbedderType::SIDE_PANEL;
+    case EmbedderType::kFloaty:
+      return StructuredEmbedderType::FLOATY;
+    case EmbedderType::kTab:
+      return StructuredEmbedderType::TAB;
+    case EmbedderType::kUnknown:
+      return StructuredEmbedderType::UNKNOWN;
+  }
+}
+
+// As above, for ClientLoadState.
+metrics::structured::events::v2::glic::GlicClientLoadState
+ToStructuredClientLoadState(ClientLoadState state) {
+  using StructuredClientLoadState =
+      metrics::structured::events::v2::glic::GlicClientLoadState;
+  switch (state) {
+    case ClientLoadState::kLoading:
+      return StructuredClientLoadState::LOADING;
+    case ClientLoadState::kReady:
+      return StructuredClientLoadState::READY;
+    case ClientLoadState::kError:
+      // Not ERROR: that is a macro on Windows (see base/logging.h).
+      return StructuredClientLoadState::LOAD_ERROR;
+  }
+}
+#endif
 
 }  // namespace
 
@@ -35,7 +73,11 @@ glic::GlicCuiOutcome MapInvokeErrorToCuiOutcome(GlicInvokeError error) {
     case GlicInvokeError::kCancelled:
       return glic::GlicCuiOutcome::kUnknownCancel;
     case GlicInvokeError::kTabClosed:
-    case GlicInvokeError::kInstanceDestroyed:
+    case GlicInvokeError::kInstanceDestroyedBlankInstanceClosed:
+    case GlicInvokeError::kInstanceDestroyedUnbound:
+    case GlicInvokeError::kInstanceDestroyedArchived:
+    case GlicInvokeError::kInstanceDestroyedSignedOut:
+    case GlicInvokeError::kInstanceDestroyedShutdown:
       return glic::GlicCuiOutcome::kAbandoned;
     default:
       return glic::GlicCuiOutcome::kFailed;
@@ -49,15 +91,18 @@ GlicInvokeMetrics::GlicInvokeMetrics(mojom::InvocationSource source)
   base::UmaHistogramEnumeration(kInvokeSourceHistogramName, source_);
 }
 
-void GlicInvokeMetrics::RecordStarted(mojom::FeatureMode feature_mode,
-                                      int embedder_type) const {
+void GlicInvokeMetrics::RecordStarted() const {
 #if BUILDFLAG(STRUCTURED_METRICS_ENABLED)
-  metrics::structured::StructuredMetricsClient::Record(
-      metrics::structured::events::v2::glic::InvokeStarted()
-          .SetInvocationId(invocation_id_)
-          .SetInvocationSource(static_cast<int>(source_))
-          .SetFeatureMode(static_cast<int>(feature_mode))
-          .SetEmbedderType(embedder_type));
+  metrics::structured::events::v2::glic::InvokeStarted event;
+  event.SetInvocationId(invocation_id_)
+      .SetInvocationSource(static_cast<int>(source_));
+  if (feature_mode_.has_value()) {
+    event.SetFeatureMode(static_cast<int>(*feature_mode_));
+  }
+  if (embedder_type_.has_value()) {
+    event.SetEmbedderType(ToStructuredEmbedderType(*embedder_type_));
+  }
+  metrics::structured::StructuredMetricsClient::Record(std::move(event));
 #endif
 }
 
@@ -90,23 +135,27 @@ void GlicInvokeMetrics::RecordSuccess(
                          GetInvocationSourceString(source_)),
       duration);
 
-#if BUILDFLAG(STRUCTURED_METRICS_ENABLED)
-  metrics::structured::StructuredMetricsClient::Record(
-      metrics::structured::events::v2::glic::InvokeTerminated()
-          .SetInvocationId(invocation_id_)
-          .SetOutcome(static_cast<
-                      metrics::structured::events::v2::glic::GlicCuiOutcome>(
-              static_cast<int>(glic::GlicCuiOutcome::kSuccess)))
-          .SetStoppedTaskType(final_task_type.has_value()
-                                  ? static_cast<int>(final_task_type.value())
-                                  : 0)
-          .SetTimeSinceStart(duration.InMilliseconds()));
-#endif
+  RecordTerminated(/*error=*/std::nullopt, final_task_type, duration,
+                   /*in_progress_invocation_id=*/std::nullopt);
 }
 
 void GlicInvokeMetrics::RecordError(
     GlicInvokeError result,
     std::optional<GlicTaskType> stopped_task) const {
+  RecordErrorInternal(result, stopped_task,
+                      /*in_progress_invocation_id=*/std::nullopt);
+}
+
+void GlicInvokeMetrics::RecordInvokeInProgressError(
+    uint64_t in_progress_invocation_id) const {
+  RecordErrorInternal(GlicInvokeError::kInvokeInProgress,
+                      /*stopped_task=*/std::nullopt, in_progress_invocation_id);
+}
+
+void GlicInvokeMetrics::RecordErrorInternal(
+    GlicInvokeError result,
+    std::optional<GlicTaskType> stopped_task,
+    std::optional<uint64_t> in_progress_invocation_id) const {
   base::UmaHistogramEnumeration(kInvokeResultHistogramName, result);
   base::UmaHistogramEnumeration(
       base::StringPrintf("%s.%s", kInvokeResultHistogramName,
@@ -123,18 +172,44 @@ void GlicInvokeMetrics::RecordError(
     RecordTimeoutStage(stopped_task);
   }
 
+  RecordTerminated(result, stopped_task, duration, in_progress_invocation_id);
+}
+
+void GlicInvokeMetrics::RecordTerminated(
+    std::optional<GlicInvokeError> error,
+    std::optional<GlicTaskType> task_type,
+    base::TimeDelta duration,
+    std::optional<uint64_t> in_progress_invocation_id) const {
 #if BUILDFLAG(STRUCTURED_METRICS_ENABLED)
-  metrics::structured::StructuredMetricsClient::Record(
-      metrics::structured::events::v2::glic::InvokeTerminated()
-          .SetInvocationId(invocation_id_)
-          .SetOutcome(static_cast<
-                      metrics::structured::events::v2::glic::GlicCuiOutcome>(
-              static_cast<int>(MapInvokeErrorToCuiOutcome(result))))
-          .SetInvokeError(static_cast<int>(result))
-          .SetStoppedTaskType(stopped_task.has_value()
-                                  ? static_cast<int>(stopped_task.value())
-                                  : 0)
-          .SetTimeSinceStart(duration.InMilliseconds()));
+  const glic::GlicCuiOutcome outcome = error
+                                           ? MapInvokeErrorToCuiOutcome(*error)
+                                           : glic::GlicCuiOutcome::kSuccess;
+  metrics::structured::events::v2::glic::InvokeTerminated event;
+  event.SetInvocationId(invocation_id_)
+      .SetInvocationSource(static_cast<int>(source_))
+      .SetOutcome(
+          static_cast<metrics::structured::events::v2::glic::GlicCuiOutcome>(
+              static_cast<int>(outcome)))
+      .SetStoppedTaskType(
+          task_type.has_value() ? static_cast<int>(task_type.value()) : 0)
+      .SetTimeSinceStart(duration.InMilliseconds());
+  if (error.has_value()) {
+    event.SetInvokeError(static_cast<int>(*error));
+  }
+  if (feature_mode_.has_value()) {
+    event.SetFeatureMode(static_cast<int>(*feature_mode_));
+  }
+  if (embedder_type_.has_value()) {
+    event.SetEmbedderType(ToStructuredEmbedderType(*embedder_type_));
+  }
+  if (in_progress_invocation_id.has_value()) {
+    event.SetInProgressInvocationId(*in_progress_invocation_id);
+  }
+  if (client_load_state_at_start_.has_value()) {
+    event.SetClientLoadStateAtStart(
+        ToStructuredClientLoadState(*client_load_state_at_start_));
+  }
+  metrics::structured::StructuredMetricsClient::Record(std::move(event));
 #endif
 }
 

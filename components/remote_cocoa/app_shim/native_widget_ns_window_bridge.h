@@ -163,21 +163,22 @@ class REMOTE_COCOA_APP_SHIM_EXPORT NativeWidgetNSWindowBridge
   // being reordered in (or out of) the screen list.
   void OnVisibilityChanged();
 
-  // Called when -[NSWindow isOnActiveSpace] may have changed.
+  // Called when -[NSWindow isOnActiveSpace] or the window's on-screen
+  // visibility may have changed.
   //
-  // This value can change in two main scenarios,
+  // This value can change in two main scenarios:
   //   1. The user switches the active space.
   //      - Detected using NSWorkspaceActiveSpaceDidChangeNotification.
   //   2. The user moves the window to a different space (e.g., via Mission
-  //   Control).
+  //      Control, or gestures into view).
   //      - Detected using -windowDidChangeOcclusionState:.
   //
-  // Relying solely on windowDidChangeOcclusionState: is insufficient. It
-  // appears that during space switch this notification is sent before
-  // isOnActiveSpace is updated.
-  //
-  // Note that although `onActiveSpace` is a property, it cannot be KVO
-  // observed, thus this callback.
+  // During an interactive space swipe, the incoming space is immediately
+  // considered un-occluded (`NSWindowOcclusionStateVisible` is set), and
+  // -windowDidChangeOcclusionState: is sent before -[NSWindow isOnActiveSpace]
+  // is updated. Combining onActiveSpace with NSWindowOcclusionStateVisible
+  // allows detecting window visibility as soon as it enters the display during
+  // gestures.
   void OnSpaceActivationMayHaveChanged();
 
   // Called by the NSWindowDelegate when the system colors change.
@@ -209,7 +210,7 @@ class REMOTE_COCOA_APP_SHIM_EXPORT NativeWidgetNSWindowBridge
   // parent will close children before the parent closes, and children will be
   // raised above their parent when window z-order changes.
   NativeWidgetNSWindowBridge* parent() { return parent_; }
-  const std::vector<NativeWidgetNSWindowBridge*>& child_windows() {
+  const std::vector<raw_ptr<NativeWidgetNSWindowBridge>>& child_windows() {
     return child_windows_;
   }
 
@@ -387,10 +388,13 @@ class REMOTE_COCOA_APP_SHIM_EXPORT NativeWidgetNSWindowBridge
   // frame.
   void OnLiveResizeToFrame(NSRect new_window_frame);
 
-  // Update `host_` and its compositor with a new NSWindow frame size. This
+  // Update `host_` and its compositor with a new NSWindow frame size.
   // can be done in response to the -[NSWindow frame] attribute changing, or
-  // in anticipation of a live-resize step.
-  void SendWindowFrameChangeToHost(NSRect new_window_frame);
+  // in anticipation of a live-resize, in which case
+  // `live_resize_.pending_window_frame` may be set to `pending_window_frame`.
+  // Returns true if `content_dip_size_` changed.
+  bool SendWindowFrameChangeToHost(
+      std::optional<NSRect> pending_window_frame = std::nullopt);
 
  private:
   friend class views::test::BridgedNativeWidgetTestApi;
@@ -477,7 +481,7 @@ class REMOTE_COCOA_APP_SHIM_EXPORT NativeWidgetNSWindowBridge
 
   raw_ptr<NativeWidgetNSWindowBridge> parent_ =
       nullptr;  // Weak. If non-null, owns this.
-  std::vector<NativeWidgetNSWindowBridge*> child_windows_;
+  std::vector<raw_ptr<NativeWidgetNSWindowBridge>> child_windows_;
 
   // The size of the content area of the window most recently sent to |host_|
   // (and its compositor).
@@ -555,14 +559,6 @@ class REMOTE_COCOA_APP_SHIM_EXPORT NativeWidgetNSWindowBridge
   // flashing a blank window. The value to restore it to when the compositor
   // frame is received is stored here.
   std::optional<float> pending_alpha_value_;
-
-  // If true, window alpha will be set to 0.0 when shown after being hidden
-  // until a fresh compositor frame arrives.
-  bool prevent_stale_content_after_hide_ = false;
-
-  // Set to true initially and on hide if `prevent_stale_content_after_hide_` is
-  // enabled, and cleared once a fresh compositor frame is received.
-  bool should_reset_alpha_on_show_ = true;
 
   // This tracks whether current window can go back or go forward.
   bool can_go_back_ = false;

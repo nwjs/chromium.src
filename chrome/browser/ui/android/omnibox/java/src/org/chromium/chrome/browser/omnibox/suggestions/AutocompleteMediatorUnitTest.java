@@ -33,7 +33,6 @@ import android.os.Handler;
 import android.view.ContextThemeWrapper;
 import android.view.KeyEvent;
 import android.view.View;
-import android.view.Window;
 
 import androidx.annotation.Nullable;
 
@@ -47,7 +46,9 @@ import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.mockito.quality.Strictness;
+import org.robolectric.Robolectric;
 import org.robolectric.annotation.Config;
+import org.robolectric.shadows.ShadowBuild;
 import org.robolectric.shadows.ShadowLooper;
 import org.robolectric.shadows.ShadowPausedSystemClock;
 
@@ -168,9 +169,6 @@ public class AutocompleteMediatorUnitTest {
     @Mock private NavigationHandle mNavigationHandle;
     @Mock private ActivityLifecycleDispatcher mActivityLifecycleDispatcher;
     @Mock private WindowAndroid mWindowAndroid;
-    @Mock private Activity mActivity;
-    @Mock private Window mWindow;
-    @Mock private View mDecorView;
     @Mock private OmniboxSuggestionsDropdownEmbedder mEmbedder;
     @Mock private InsetObserver mInsetObserver;
     @Mock private OmniboxSuggestionsVisualStateObserver mVisualStateObserver;
@@ -199,6 +197,7 @@ public class AutocompleteMediatorUnitTest {
     @Captor private ArgumentCaptor<AutocompleteInput> mAutocompleteInputCaptor;
     @Captor private ArgumentCaptor<PropertyModel> mDialogCaptor;
 
+    private Activity mActivity;
     private PropertyModel mListModel;
     private OmniboxResourceProvider mResourceProvider;
     private AutocompleteMediator mMediator;
@@ -245,11 +244,12 @@ public class AutocompleteMediatorUnitTest {
                         .with(SuggestionListProperties.SUGGESTION_MODELS, mSuggestionModels)
                         .build();
 
+        var controller = Robolectric.buildActivity(Activity.class).setup();
+        controller.windowFocusChanged(true);
+        RobolectricUtil.runAllBackgroundAndUiIncludingDelayed();
+        mActivity = controller.get();
         lenient().doReturn(mInsetObserver).when(mWindowAndroid).getInsetObserver();
         lenient().doReturn(new WeakReference<>(mActivity)).when(mWindowAndroid).getActivity();
-        lenient().doReturn(true).when(mActivity).hasWindowFocus();
-        lenient().doReturn(mWindow).when(mWindowAndroid).getWindow();
-        lenient().doReturn(mDecorView).when(mWindow).getDecorView();
         lenient()
                 .doReturn(mToolbarPositionSupplier)
                 .when(mLocationBarDataProvider)
@@ -270,28 +270,7 @@ public class AutocompleteMediatorUnitTest {
                 .getSideUiStateProviderSupplier();
         lenient().doReturn(mSideUiStateProvider).when(mUiOverrides).getSideUiStateProvider();
 
-        mMediator =
-                new AutocompleteMediator(
-                        mContext,
-                        mResourceProvider,
-                        mAutocompleteDelegate,
-                        mTextStateProvider,
-                        mListModel,
-                        new Handler(),
-                        () -> mModalDialogManager,
-                        null,
-                        null,
-                        mLocationBarDataProvider,
-                        tabGroupId -> {},
-                        url -> false,
-                        mOmniboxActionDelegate,
-                        mActivityLifecycleDispatcher,
-                        mEmbedder,
-                        mWindowAndroid,
-                        mDeferredImeCallback,
-                        mFuseboxCoordinator,
-                        mUiOverrides,
-                        mUrlTextWrappingSupplier);
+        mMediator = createMediator();
         mMediator
                 .getDropdownItemViewInfoListBuilderForTest()
                 .registerSuggestionProcessor(mMockProcessor);
@@ -320,6 +299,30 @@ public class AutocompleteMediatorUnitTest {
 
         mMediator.setOmniboxSuggestionsVisualStateObserver(mVisualStateObserver);
         mMediator.onTopResumedActivityChanged(/* isTopResumedActivity= */ true);
+    }
+
+    private AutocompleteMediator createMediator() {
+        return new AutocompleteMediator(
+                mContext,
+                mResourceProvider,
+                mAutocompleteDelegate,
+                mTextStateProvider,
+                mListModel,
+                new Handler(),
+                () -> mModalDialogManager,
+                null,
+                null,
+                mLocationBarDataProvider,
+                tabGroupId -> {},
+                url -> false,
+                mOmniboxActionDelegate,
+                mActivityLifecycleDispatcher,
+                mEmbedder,
+                mWindowAndroid,
+                mDeferredImeCallback,
+                mFuseboxCoordinator,
+                mUiOverrides,
+                mUrlTextWrappingSupplier);
     }
 
     /**
@@ -590,15 +593,15 @@ public class AutocompleteMediatorUnitTest {
         // With fully concealed elements, scroll should trigger keyboard hide.
         clearInvocations(mAutocompleteDelegate);
         mMediator.onSuggestionDropdownScroll();
-        verify(mAutocompleteDelegate).setKeyboardVisibility(eq(false), anyBoolean());
-        verify(mAutocompleteDelegate, never()).setKeyboardVisibility(eq(true), anyBoolean());
+        verify(mAutocompleteDelegate).setKeyboardVisibility(false);
+        verify(mAutocompleteDelegate, never()).setKeyboardVisibility(true);
 
         // Pretend that the user scrolled back to top with an overscroll.
         // This should bring back the soft keyboard.
         clearInvocations(mAutocompleteDelegate);
         mMediator.onSuggestionDropdownOverscrolledToTop();
-        verify(mAutocompleteDelegate).setKeyboardVisibility(eq(true), anyBoolean());
-        verify(mAutocompleteDelegate, never()).setKeyboardVisibility(eq(false), anyBoolean());
+        verify(mAutocompleteDelegate).setKeyboardVisibility(true);
+        verify(mAutocompleteDelegate, never()).setKeyboardVisibility(false);
     }
 
     @Test
@@ -1054,6 +1057,30 @@ public class AutocompleteMediatorUnitTest {
         mMediator.onSuggestionsReceived(mAutocompleteResult, /* isFinal= */ true);
         assertTrue(session.getAutocompleteInput().hasPreviewText());
         assertFalse(mSuggestionModels.isEmpty());
+
+        clearInvocations(mMockProcessor, mAutocompleteDelegate);
+        mUrlTextWrappingSupplier.set(true);
+        assertFalse(mSuggestionModels.isEmpty());
+        verify(mMockProcessor, atLeastOnce()).createModel();
+        verify(mAutocompleteDelegate, never()).onSuggestionsChanged(any(), anyBoolean());
+    }
+
+    @Test
+    public void urlTextWrappingChanged_afterFocusingSuggestion_keepsSuggestionsOnDesktop() {
+        OmniboxCapabilities.setHasDesktopExperienceForTesting(/* hasDesktopExperience= */ true);
+        FuseboxSessionState session = createSession(AutocompleteRequestType.SEARCH, SAMPLE_QUERY);
+        mMediator.beginInput(session);
+        AutocompleteMatch match = createSearchSuggestMatch();
+        AutocompleteResult autocompleteResult = createAutocompleteResult(match);
+
+        mMediator.onSuggestionsReceived(autocompleteResult, /* isFinal= */ true);
+        assertFalse(session.getAutocompleteInput().hasPreviewText());
+        assertFalse(mSuggestionModels.isEmpty());
+
+        mMediator.allowPendingItemSelection();
+        mMediator.setOmniboxEditingText("long suggestion text that wraps");
+        assertEquals(
+                "long suggestion text that wraps", session.getAutocompleteInput().getPreviewText());
 
         clearInvocations(mMockProcessor, mAutocompleteDelegate);
         mUrlTextWrappingSupplier.set(true);
@@ -2049,6 +2076,7 @@ public class AutocompleteMediatorUnitTest {
     }
 
     @Test
+    @EnableFeatures(OmniboxFeatureList.SERVE_JAVA_CACHED_ZERO_SUGGEST)
     public void onTextChanged_cachedZpsEligibleOnSelectPageClasses() {
         Set<@PageClassification Integer> eligibleClasses =
                 Set.of(
@@ -2075,6 +2103,7 @@ public class AutocompleteMediatorUnitTest {
     }
 
     @Test
+    @EnableFeatures(OmniboxFeatureList.SERVE_JAVA_CACHED_ZERO_SUGGEST)
     public void onTextChanged_cachedZpsNotInvokedInTypedContext() {
         var session = createSession(PAGE_URL, PAGE_TITLE, 0);
         mMediator.beginInput(session);
@@ -2095,6 +2124,7 @@ public class AutocompleteMediatorUnitTest {
     }
 
     @Test
+    @EnableFeatures(OmniboxFeatureList.SERVE_JAVA_CACHED_ZERO_SUGGEST)
     public void onTextChanged_cacheZpsFromEligiblePageClasses() {
         Set<@PageClassification Integer> eligibleClasses =
                 Set.of(
@@ -2121,6 +2151,7 @@ public class AutocompleteMediatorUnitTest {
     }
 
     @Test
+    @EnableFeatures(OmniboxFeatureList.SERVE_JAVA_CACHED_ZERO_SUGGEST)
     public void onTextChanged_dontCacheTypedSuggestions() {
         for (@PageClassification int pageClass = PageClassification.MIN_VALUE;
                 pageClass <= PageClassification.MAX_VALUE;
@@ -2134,6 +2165,7 @@ public class AutocompleteMediatorUnitTest {
     }
 
     @Test
+    @EnableFeatures(OmniboxFeatureList.SERVE_JAVA_CACHED_ZERO_SUGGEST)
     public void onTextChanged_dontCacheCachedSuggestions() {
         for (@PageClassification int pageClass = PageClassification.MIN_VALUE;
                 pageClass <= PageClassification.MAX_VALUE;
@@ -2144,6 +2176,22 @@ public class AutocompleteMediatorUnitTest {
             mMediator.onInputChanged();
             verify(mMockCachedZeroSuggestionsManager, never()).saveToCache(anyInt(), any());
             clearInvocations(mMockCachedZeroSuggestionsManager);
+        }
+    }
+
+    @Test
+    @DisableFeatures(OmniboxFeatureList.SERVE_JAVA_CACHED_ZERO_SUGGEST)
+    public void cachedZeroSuggest_notInvokedWhenFeatureDisabled() {
+        for (@PageClassification int pageClass = PageClassification.MIN_VALUE;
+                pageClass <= PageClassification.MAX_VALUE;
+                pageClass++) {
+            var session = createSession(PAGE_URL, PAGE_TITLE, pageClass);
+            mMediator.beginInput(session);
+            mMediator.serveCachedZeroSuggest(session.getAutocompleteInput());
+            mMediator.onSuggestionsReceived(mAutocompleteResult, true);
+
+            verify(mMockCachedZeroSuggestionsManager, never()).readFromCache(anyInt());
+            verify(mMockCachedZeroSuggestionsManager, never()).saveToCache(anyInt(), any());
         }
     }
 
@@ -2608,6 +2656,7 @@ public class AutocompleteMediatorUnitTest {
         verify(mAutocompleteDelegate).setOmniboxEditingText("");
 
         verify(mAutocompleteController, never()).start(any(), any(), anyInt(), anyBoolean());
+        verify(mAutocompleteController).stop(AutocompleteStopReason.INTERACTION);
 
         // Exit preview
         clearInvocations(mAutocompleteController);
@@ -2673,8 +2722,10 @@ public class AutocompleteMediatorUnitTest {
         mMediator.allowPendingItemSelection();
         mMediator.setOmniboxEditingText("suggestion text");
 
-        // Verify the source of truth (AutocompleteInput) is NOT updated.
+        // Verify the source of truth (AutocompleteInput) userText is NOT updated, while previewText
+        // is updated.
         assertEquals("user text", session.getAutocompleteInput().getUserText());
+        assertEquals("suggestion text", session.getAutocompleteInput().getPreviewText());
         // Verify UI is updated with the suggestion text.
         verify(mAutocompleteDelegate).setOmniboxEditingText("suggestion text");
     }
@@ -2690,8 +2741,9 @@ public class AutocompleteMediatorUnitTest {
         mMediator.allowPendingItemSelection();
         mMediator.setOmniboxEditingText("keyword query");
 
-        // Verify user text is NOT updated.
+        // Verify user text is NOT updated, while previewText is updated with stripped text.
         assertEquals("u", session.getAutocompleteInput().getUserText());
+        assertEquals("query", session.getAutocompleteInput().getPreviewText());
         // Verify SiteSearchData is NOT cleared.
         assertNotNull(session.getAutocompleteInput().getSiteSearchData());
         // Verify UI is updated with stripped text.
@@ -2738,7 +2790,7 @@ public class AutocompleteMediatorUnitTest {
         animator.start();
         ShadowLooper.runUiThreadTasksIncludingDelayedTasks();
 
-        verify(mAutocompleteDelegate, never()).setKeyboardVisibility(eq(true), anyBoolean());
+        verify(mAutocompleteDelegate, never()).setKeyboardVisibility(true);
     }
 
     @Test
@@ -2753,7 +2805,27 @@ public class AutocompleteMediatorUnitTest {
         animator.start();
         ShadowLooper.runUiThreadTasksIncludingDelayedTasks();
 
-        verify(mAutocompleteDelegate).setKeyboardVisibility(eq(true), anyBoolean());
+        verify(mAutocompleteDelegate).setKeyboardVisibility(true);
+    }
+
+    @Test
+    public void testUnsyncedAnimation_showsKeyboardInStandbyStateWithCompactFuseboxOnWideWindow() {
+        doReturn(true).when(mEmbedder).isWideWindow();
+        mFuseboxStateSupplier.set(FuseboxState.COMPACT);
+        FuseboxSessionState session = createSession(AutocompleteRequestType.SEARCH);
+        mMediator.beginInput(session);
+        assertTrue(mMediator.shouldAnimateFuseboxPopover());
+
+        session.getAutocompleteInput()
+                .setAutocompleteState(AutocompleteInput.AutocompleteState.STANDBY);
+        assertFalse(mMediator.shouldAnimateFuseboxPopover());
+
+        clearInvocations(mAutocompleteDelegate);
+        OmniboxAnimator animator = mMediator.setupSuggestionsListShowAnimation();
+        animator.start();
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks();
+
+        verify(mAutocompleteDelegate).setKeyboardVisibility(true);
     }
 
     @Test
@@ -3179,6 +3251,39 @@ public class AutocompleteMediatorUnitTest {
 
         // Verify that observers are NOT installed because activity is not focused.
         verify(mAutocompleteController, never()).addOnSuggestionsReceivedListener(any());
+    }
+
+    @Test
+    public void onTopResumedActivityChanged_ignoredOnXiaomiDevices() {
+        ShadowBuild.setManufacturer("Xiaomi");
+        mListModel.set(SuggestionListProperties.ACTIVITY_WINDOW_FOCUSED, true);
+
+        var session = createEmptySession();
+        mMediator.beginInput(session);
+        verify(mAutocompleteController).addOnSuggestionsReceivedListener(mMediator);
+
+        clearInvocations(mAutocompleteController);
+        mMediator.onTopResumedActivityChanged(/* isTopResumedActivity= */ false);
+
+        verify(mAutocompleteController, never()).stop(anyInt());
+        verify(mAutocompleteController, never()).removeOnSuggestionsReceivedListener(any());
+        assertTrue(mListModel.get(SuggestionListProperties.ACTIVITY_WINDOW_FOCUSED));
+    }
+
+    @Test
+    public void installAutocompleteObservers_xiaomiDeviceInstallsWhenWindowUnfocusedAtCreation() {
+        ShadowBuild.setManufacturer("Xiaomi");
+        var controller = Robolectric.buildActivity(Activity.class).setup();
+        controller.windowFocusChanged(false);
+        RobolectricUtil.runAllBackgroundAndUiIncludingDelayed();
+        doReturn(new WeakReference<>(controller.get())).when(mWindowAndroid).getActivity();
+
+        AutocompleteMediator mediator = createMediator();
+        var session = createEmptySession();
+        mediator.beginInput(session);
+
+        verify(mAutocompleteController).addOnSuggestionsReceivedListener(mediator);
+        mediator.destroy();
     }
 
     @Test

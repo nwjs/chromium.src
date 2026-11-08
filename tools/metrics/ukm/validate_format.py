@@ -9,6 +9,7 @@ from xml.dom import minidom
 
 import setup_modules  # pylint: disable=unused-import
 
+
 import chromium_src.tools.metrics.common.path_util as path_util
 from chromium_src.tools.metrics.ukm.xml_validations import UkmXmlValidation
 

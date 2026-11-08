@@ -13,13 +13,21 @@
 #include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
 #include "base/uuid.h"
+#include "chrome/browser/ui/browser_window/public/browser_collection_observer.h"
+#include "chrome/browser/ui/browser_window/public/profile_browser_collection.h"
+#include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
 #include "chrome/browser/ui/webui/organizer_panel/tab_groups.mojom.h"
 #include "components/saved_tab_groups/public/tab_group_sync_service.h"
 #include "components/saved_tab_groups/public/types.h"
+#include "components/tab_groups/tab_group_id.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "mojo/public/cpp/bindings/receiver.h"
 #include "mojo/public/cpp/bindings/remote.h"
+
+class BrowserWindowInterface;
+class Profile;
+class TabGroup;
 
 namespace content {
 class WebContents;
@@ -39,7 +47,9 @@ class MenuRunner;
 
 class TabGroupsOrganizerPageHandler
     : public organizer_panel::mojom::TabGroupsOrganizerPageHandler,
-      public tab_groups::TabGroupSyncService::Observer {
+      public tab_groups::TabGroupSyncService::Observer,
+      public BrowserCollectionObserver,
+      public TabStripModelObserver {
  public:
   TabGroupsOrganizerPageHandler(
       mojo::PendingReceiver<
@@ -57,6 +67,7 @@ class TabGroupsOrganizerPageHandler
   void ShowContextMenu(const std::string& group_id,
                        const gfx::Rect& anchor_rect,
                        ShowContextMenuCallback callback) override;
+  void CreateNewTabGroup() override;
 
   bool IsContextMenuRunningForTesting() const;
 
@@ -72,18 +83,32 @@ class TabGroupsOrganizerPageHandler
       const std::optional<tab_groups::LocalTabGroupID>& local_id) override;
   void OnWillBeDestroyed() override;
 
+  // BrowserCollectionObserver:
+  void OnBrowserCreated(BrowserWindowInterface* browser) override;
+  void OnBrowserClosed(BrowserWindowInterface* browser) override;
+
+  // TabStripModelObserver:
+  void OnTabGroupAdded(const tab_groups::TabGroupId& group_id) override;
+  void OnTabGroupChanged(const TabGroupChange& change) override;
+
  private:
   void OnContextMenuClosed();
   int GetAndIncrementLatestCommandId();
+  const TabGroup* GetUnsavedTabGroup(
+      const tab_groups::TabGroupId& group_id) const;
+  bool IsGroupInSyncService(const tab_groups::TabGroupId& group_id) const;
 
   mojo::Receiver<organizer_panel::mojom::TabGroupsOrganizerPageHandler>
       receiver_;
   mojo::Remote<organizer_panel::mojom::TabGroupsOrganizerPage> page_;
   raw_ptr<content::WebContents> web_contents_;
+  raw_ptr<Profile> profile_;
   raw_ptr<tab_groups::TabGroupSyncService> tab_group_sync_service_;
   base::ScopedObservation<tab_groups::TabGroupSyncService,
                           tab_groups::TabGroupSyncService::Observer>
       tab_group_sync_service_observation_{this};
+  base::ScopedObservation<ProfileBrowserCollection, BrowserCollectionObserver>
+      browser_collection_observation_{this};
   int latest_command_id_ = 0;
   ShowContextMenuCallback on_menu_closed_callback_;
   std::unique_ptr<tab_groups::STGTabsMenuModel> menu_model_;

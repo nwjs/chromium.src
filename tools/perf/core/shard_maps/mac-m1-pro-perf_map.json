@@ -12,6 +12,7 @@
             "speedometer3.crossbench": {
                 "crossbench_name": "speedometer_3",
                 "arguments": [
+                    "--network=live",
                     "--enable-field-trials=benchmarking"
                 ]
             },
@@ -19,7 +20,8 @@
                 "crossbench_name": "browser-startup",
                 "arguments": [
                     "--enable-features=InitialWebUI:high_stream_priority/true,WebUIReloadButton:WebUIReloadButtonDeferBrowserViewShow/true/WebUIReloadButtonKeepVisibleUntilPaint/true/WebUIReloadButtonPrewarmWebUI/true,SkipIPCChannelPausingForNonGuests,WebUIInProcessResourceLoadingV2,InitialWebUISyncNavStartToCommit,InitialWebUIWithoutExtensions,WebUIBundledCodeCache,SendGPUChannelEarly",
-                    "--enable-field-trials=benchmarking"
+                    "--enable-field-trials=benchmarking",
+                    "--repeat=10"
                 ]
             },
             "jetstream2.crossbench": {
@@ -40,6 +42,7 @@
             "speedometer3.crossbench": {
                 "crossbench_name": "speedometer_3",
                 "arguments": [
+                    "--network=live",
                     "--enable-field-trials=benchmarking"
                 ]
             },
@@ -68,6 +71,7 @@
             "speedometer3.crossbench": {
                 "crossbench_name": "speedometer_3",
                 "arguments": [
+                    "--network=live",
                     "--enable-field-trials=benchmarking"
                 ]
             },
@@ -95,6 +99,7 @@
             "speedometer3.crossbench": {
                 "crossbench_name": "speedometer_3",
                 "arguments": [
+                    "--network=live",
                     "--enable-field-trials=benchmarking"
                 ]
             }

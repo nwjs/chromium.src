@@ -24,7 +24,6 @@
 #import "components/send_tab_to_self/receiving_ui_handler.h"
 #import "components/send_tab_to_self/send_tab_to_self_model.h"
 #import "components/send_tab_to_self/send_tab_to_self_model_observer.h"
-#import "components/send_tab_to_self/target_device_info.h"
 #import "ios/chrome/browser/shared/model/browser/browser_observer.h"
 #import "ios/chrome/browser/shared/model/browser/browser_user_data.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list_observer.h"
@@ -32,6 +31,7 @@
 #import "ios/web/public/web_state_observer.h"
 
 class GURL;
+@protocol NSObject;
 @protocol SnackbarCommands;
 class UrlLoadingNotifierBrowserAgent;
 struct SendTabToSelfTextFragment;
@@ -165,6 +165,10 @@ class SendTabToSelfBrowserAgent
                       const send_tab_to_self::SendTabToSelfEntry* entry,
                       size_t opened_tab_count);
 
+  // Registers NSNotificationCenter observers to track app background and
+  // foreground transitions for `foreground_session_start_`.
+  void RegisterAppLifecycleObservers();
+
   // Stop observing the WebState and WebStateList and reset associated
   // variables.
   void CleanUpObserversAndVariables();
@@ -178,6 +182,17 @@ class SendTabToSelfBrowserAgent
 
   // The WebState that is being observed for activation, if any.
   raw_ptr<web::WebState> pending_web_state_ = nullptr;
+
+  // NSNotificationCenter observer tokens for app background and foreground
+  // transitions.
+  __strong id<NSObject> application_backgrounding_observer_ = nil;
+  __strong id<NSObject> application_foregrounding_observer_ = nil;
+
+  // Timestamp of when the app most recently entered the foreground, or null
+  // while the app is in the background. Used to distinguish entries shared
+  // while Chrome was backgrounded from entries shared during the current
+  // foreground session when recording AutoOpenOutcome metrics.
+  base::Time foreground_session_start_;
 
   base::ScopedObservation<Browser, BrowserObserver> browser_observation_{this};
 

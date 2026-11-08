@@ -29,7 +29,9 @@ virtual/global-privacy-control-force/wpt_internal/*
 # Blocklisted tests fail unexpectedly on headless shell for at least one
 # platform, so continue running them on content shell.
 external/wpt/background-fetch/abort.https.window.html
+external/wpt/background-fetch/cors.https.window.html
 external/wpt/background-fetch/fetch-uploads.https.window.html
+external/wpt/background-fetch/match-request-body.https.window.html
 external/wpt/background-fetch/match.https.window.html
 external/wpt/background-fetch/update-ui.https.window.html
 external/wpt/client-hints/viewport-size/viewport-size-window-different-dimensions.https.html
@@ -52,49 +54,17 @@ external/wpt/css/css-fonts/matching/font-unicode-PUA.html
 external/wpt/css/css-fonts/system-ui-mixed.html
 external/wpt/css/css-layout-api/fallback-intrinsic-sizes/constructor-error.https.html
 external/wpt/css/css-layout-api/fallback-layout/constructor-error.https.html
-external/wpt/css/css-multicol/multicol-fill-auto-block-children-002.xht
-external/wpt/css/cssom/getComputedStyle-insets-relpos-inline.html
-external/wpt/css/cssom-view/getBoundingClientRect-shy.html
 external/wpt/css/cssom-view/range-bounding-client-rect-with-display-contents.html
-external/wpt/css/cssom-view/scrollLeft-of-scroller-with-wider-scrollbar.html
-external/wpt/css/cssom-view/scrollIntoView-stuck.tentative.html
-external/wpt/css/cssom-view/scrollTop-display-change.html
 external/wpt/css/css-overflow/line-clamp/block-ellipsis-bidi-002.html
 external/wpt/css/css-pseudo/active-selection-014.html
 external/wpt/css/css-pseudo/first-letter-001.html
 external/wpt/css/css-pseudo/highlight-cascade/highlight-cascade-008.html
 external/wpt/css/css-pseudo/highlight-cascade/highlight-currentcolor-painting-properties-001.html
 external/wpt/css/css-pseudo/highlight-cascade/highlight-currentcolor-painting-properties-002.html
-external/wpt/css/css-ruby/block-ruby-003.html
-external/wpt/css/css-ruby/ruby-inlinize-recursive-simple.html
-external/wpt/css/css-ruby/ruby-text-combine-upright-001a.html
-external/wpt/css/css-ruby/ruby-text-combine-upright-001b.html
 external/wpt/css/css-scroll-anchoring/fullscreen-crash.html
 # Known to be very flaky: https://crbug.com/375047154
 external/wpt/css/css-scrollbars/*
-external/wpt/css/css-scroll-snap/snap-events/scrollsnapchanging/scrollsnapchanging-on-*
-external/wpt/css/css-scroll-snap/snap-after-relayout/multiple-aligned-targets/common-to-both-axes-supercedes-first-in-tree-order.html
-external/wpt/css/css-scroll-snap/snap-after-relayout/multiple-aligned-targets/prefer-common-to-both-axes.html
-external/wpt/css/css-scroll-snap/snap-after-relayout/multiple-aligned-targets/prefer-first-in-tree-order.html
-external/wpt/css/css-scroll-snap/snap-after-relayout/multiple-aligned-targets/prefer-focused-nested-containers.html
-external/wpt/css/css-scroll-snap/snap-fling-in-large-area.html
-external/wpt/css/css-shadow/css-scoping-shadow-host-rule.html
-external/wpt/css/css-shadow/css-scoping-shadow-root-hides-children.html
-external/wpt/css/css-shadow/css-scoping-shadow-slotted-nested.html
-external/wpt/css/css-shadow/css-scoping-shadow-slotted-rule.html
-external/wpt/css/css-shadow/css-scoping-shadow-with-rules.html
-external/wpt/css/css-shadow/css-scoping-shadow-with-rules-no-style-leak.html
-external/wpt/css/css-shadow/part/interaction-with-nested-pseudo-class.html
-external/wpt/css/css-shadow/shadow-host-with-before-after.html
-external/wpt/css/css-tables/tentative/baseline-table.html
-external/wpt/css/css-tables/tentative/baseline-td.html
-external/wpt/css/css-tables/tentative/colgroup-col.html
-external/wpt/css/css-tables/tentative/table-quirks.html
 external/wpt/css/css-text/boundary-shaping/boundary-shaping-010.html
-external/wpt/css/css-text-decor/invalidation/text-decoration-thickness.html
-external/wpt/css/css-text-decor/text-decoration-propagation-display-contents.html
-external/wpt/css/css-text-decor/text-decoration-subelements-002.html
-external/wpt/css/css-text-decor/text-shadow/standards-decor-noblur-2.html
 external/wpt/css/css-text/hyphens/hyphenate-limit-chars-001.html
 external/wpt/css/css-text/hyphens/hyphens-auto-003.html
 external/wpt/css/css-text/hyphens/hyphens-auto-004.html
@@ -105,14 +75,6 @@ external/wpt/css/css-text/hyphens/hyphens-auto-inline-010.html
 external/wpt/css/css-text/hyphens/hyphens-auto-last-word-001.html
 external/wpt/css/css-text/hyphens/hyphens-character.html
 external/wpt/css/css-text/hyphens/hyphens-punctuation-001.html
-external/wpt/css/css-text/i18n/ja/css-text-line-break-ja-in-loose.html
-external/wpt/css/css-text/i18n/ja/css-text-line-break-ja-pr-normal.html
-external/wpt/css/css-text/i18n/ja/css-text-line-break-ja-pr-strict.html
-external/wpt/css/css-text/i18n/other-lang/css-text-line-break-de-in-loose.html
-external/wpt/css/css-text/i18n/unknown-lang/css-text-line-break-in-loose.html
-external/wpt/css/css-text/i18n/zh/css-text-line-break-zh-in-loose.html
-external/wpt/css/css-text/i18n/zh/css-text-line-break-zh-pr-normal.html
-external/wpt/css/css-text/i18n/zh/css-text-line-break-zh-pr-strict.html
 external/wpt/css/css-text/line-breaking/line-breaking-atomic-022.html
 external/wpt/css/css-text/tab-size/tab-size.html
 external/wpt/css/css-text/text-autospace/text-autospace-first-line-001.html
@@ -129,18 +91,6 @@ external/wpt/css/css-text/white-space/white-space-collapse-002.html
 external/wpt/css/css-text/white-space/white-space-intrinsic-size-021.html
 external/wpt/css/css-text/white-space/white-space-pre-wrap-justify-004.html
 external/wpt/css/css-text/white-space/white-space-vs-joiners-002.html
-external/wpt/css/css-transforms/2d-rotate-001.html
-external/wpt/css/css-transforms/backface-visibility-001.html
-external/wpt/css/css-transforms/backface-visibility-hidden-animated-002.html
-external/wpt/css/css-transforms/css-skew-002.html
-external/wpt/css/css-transforms/transform-generated-001.html
-external/wpt/css/css-transforms/preserve3d-and-filter-with-perspective.html
-external/wpt/css/css-transforms/transform-display-002.html
-external/wpt/css/css-transforms/transform-display-004.html
-external/wpt/css/css-transforms/transform-percent-001.html
-external/wpt/css/css-transforms/ttwf-css-3d-polygon-cycle.html
-external/wpt/css/css-transforms/ttwf-transform-skewx-001.html
-external/wpt/css/css-transforms/ttwf-transform-skewy-001.html
 external/wpt/css/css-transitions/transition-behavior.html
 external/wpt/css/css-ui/compute-kind-widget-no-fallback-props-001.html
 external/wpt/css/css-ui/outline-020.html
@@ -148,16 +98,8 @@ external/wpt/css/css-values/viewport-units-scrollbars*
 external/wpt/css/css-variables/variable-presentation-attribute.html
 external/wpt/css/css-will-change/will-change-fixedpos-cb-*
 external/wpt/css/css-will-change/will-change-transform-zero-size-child-overflow-visible.html
-external/wpt/css/css-writing-modes/forms/text-input-vertical-overflow-no-scroll.html
-external/wpt/css/css-writing-modes/forms/select-multiple-keyboard-selection.optional.html
-external/wpt/css/css-writing-modes/margin-collapse-vrl-030.xht
-external/wpt/css/css-writing-modes/mongolian-orientation-002.html
-external/wpt/css/css-writing-modes/relpos-inline-overflowing-block-vrl.html
-external/wpt/css/css-writing-modes/sizing-orthog-htb-*
-external/wpt/css/css-writing-modes/wm-propagation-*
 external/wpt/css/filter-effects/drop-shadow-currentcolor-dynamic-003.html
 external/wpt/css/mediaqueries/test_media_queries.html
-external/wpt/css/motion/offset-path-*
 external/wpt/css/selectors/focus-visible-024.html
 external/wpt/css/selectors/focus-visible-025.html
 external/wpt/css/selectors/user-invalid-form-submission-invalidation.html
@@ -295,7 +237,6 @@ external/wpt/html/semantics/forms/form-submission-0/multipart-formdata.window.ht
 external/wpt/html/semantics/forms/form-submission-target/form-target-blank-useractivation-multi-globals.html
 external/wpt/html/semantics/forms/form-submission-target/rel-input-target.html
 external/wpt/html/semantics/forms/the-input-element/focus-dynamic-type-change.html
-external/wpt/html/semantics/forms/the-input-element/focus-dynamic-type-change-on-blur.html
 external/wpt/html/semantics/forms/the-input-element/range-intrinsic-size.html
 external/wpt/html/semantics/forms/the-option-element/dynamic-content-change-rendering.html
 external/wpt/html/semantics/links/links-created-by-a-and-area-elements/target_blank_useractivation*
@@ -573,9 +514,6 @@ external/wpt/html/semantics/popovers/popover-focus-2.html
 # there is some kind of headless focus problem.
 external/wpt/html/semantics/interestfor/interestfor-invoker-descendants.tentative.html
 
-virtual/backface-visibility-interop/external/wpt/css/css-transforms/backface-visibility-001.html
-virtual/backface-visibility-interop/external/wpt/css/css-transforms/backface-visibility-hidden-animated-002.html
-virtual/backface-visibility-interop/external/wpt/css/css-transforms/ttwf-css-3d-polygon-cycle.html
 virtual/composite-clip-path-animation/external/wpt/css/css-masking/clip-path/animations/clip-path-animation*
 virtual/composite-clip-path-animation/external/wpt/css/css-masking/clip-path/animations/clip-path-transition*
 virtual/dark-color-scheme/external/wpt/css/css-color/system-color-consistency.html
@@ -654,16 +592,18 @@ virtual/threaded/external/wpt/css/css-backgrounds/border-bottom-left-radius-010.
 virtual/threaded/external/wpt/css/css-backgrounds/table-cell-background-local-003.html
 virtual/threaded/external/wpt/css/css-view-transitions/*
 virtual/threaded-composited-iframes/external/wpt/is-input-pending/tentative/*
-virtual/threaded-prefer-compositing/external/wpt/css/cssom-view/getBoundingClientRect-shy.html
 virtual/threaded-prefer-compositing/external/wpt/css/cssom-view/range-bounding-client-rect-with-display-contents.html
-virtual/threaded-prefer-compositing/external/wpt/css/cssom-view/scrollIntoView-stuck.tentative.html
-virtual/threaded-prefer-compositing/external/wpt/css/cssom-view/scrollLeft-of-scroller-with-wider-scrollbar.html
 virtual/threaded-prefer-compositing/external/wpt/css/cssom-view/scrollTop-display-change.html
 virtual/threaded-prefer-compositing/external/wpt/css/cssom-view/smooth-scroll-nonstop.html
 virtual/threaded-preload-scanner/external/wpt/html/semantics/scripting-1/the-script-element/module/dynamic-import/delay-load-event.html
 virtual/threaded-preload-scanner/external/wpt/html/semantics/scripting-1/the-script-element/module/dynamic-import/microtasks/basic.any.html
 virtual/threaded-preload-scanner/external/wpt/html/semantics/scripting-1/the-script-element/moving-between-documents/after-prepare-*
 virtual/threaded-preload-scanner/external/wpt/html/semantics/scripting-1/the-script-element/moving-between-documents/ordering/*
+# Mirrors the non-virtual permissions-policy/bluetooth-* entries above: the
+# Web Bluetooth test API (navigator.bluetooth.test) is only available in
+# content shell.
+virtual/unified-autoplay/external/wpt/permissions-policy/bluetooth-*
+virtual/unified-autoplay/external/wpt/permissions-policy/reporting/bluetooth-*
 virtual/view-transition-mpa-serialization/*
 virtual/view-transition-mpa-serialization/wpt_internal/*
 # https://github.com/web-platform-tests/wpt/issues/48825
@@ -684,6 +624,7 @@ external/wpt/svg/styling/svg-filter-render-web-plugin.tentative.https.html
 virtual/direct-sockets/external/wpt/direct-sockets/disabled-by-permissions-policy.https.sub.html
 virtual/direct-sockets/external/wpt/direct-sockets/tcp_socket.https.html
 virtual/direct-sockets/external/wpt/direct-sockets/udp_socket.https.html
+virtual/direct-sockets/external/wpt/direct-sockets/udp_socket_multicast.https.html
 virtual/isolated-context/wpt_internal/*
 virtual/isolated-context-stable/wpt_internal/*
 external/wpt/subapps/*

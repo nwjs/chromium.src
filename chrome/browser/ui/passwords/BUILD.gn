@@ -47,6 +47,7 @@ source_set("passwords") {
       "//components/password_manager/core/common",
       "//components/zoom",
       "//skia",
+      "//ui/base/unowned_user_data",
       "//ui/views",
       "//url",
     ]
@@ -110,6 +111,7 @@ source_set("impl") {
     "//ui/base",
     "//ui/gfx",
     "//ui/gfx/geometry",
+    "//ui/lottie",
     "//url",
   ]
 
@@ -167,14 +169,13 @@ source_set("impl") {
       "//components/constrained_window",
       "//components/desktop_to_mobile_promos",
       "//components/password_manager/core/browser/features:password_features",
+      "//components/tabs:public",
     ]
   }
 
   if (is_win || is_mac || is_linux || is_chromeos) {
     sources += [ "password_cross_domain_confirmation_popup_controller_impl.cc" ]
   }
-
-  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
 }
 
 source_set("test_support") {
@@ -321,6 +322,7 @@ source_set("unit_tests") {
       "//components/prefs",
       "//components/signin/public/identity_manager",
       "//components/strings:components_strings",
+      "//components/tabs:public",
       "//components/tabs:test_support",
       "//components/ukm:test_support",
       "//components/variations:test_support",
@@ -363,7 +365,6 @@ if (!is_android) {
       "//chrome/browser/password_manager:test_support_ui",
       "//chrome/browser/profiles:profile",
       "//chrome/browser/ssl:cert_verifier_test_support",
-      "//chrome/browser/ui",
       "//chrome/browser/ui:browser_window_header",
       "//chrome/browser/ui:ui_features",
       "//chrome/browser/ui/browser_window",

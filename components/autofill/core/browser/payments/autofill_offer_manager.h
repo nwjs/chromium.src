@@ -8,12 +8,11 @@
 #include <stdint.h>
 
 #include <map>
-#include <set>
 #include <string>
 
+#include "base/containers/flat_set.h"
 #include "base/gtest_prod_util.h"
 #include "base/memory/raw_ref.h"
-#include "base/scoped_observation.h"
 #include "components/autofill/core/browser/data_manager/payments/payments_data_manager.h"
 #include "components/autofill/core/browser/payments/offer_notification_handler.h"
 #include "components/keyed_service/core/keyed_service.h"
@@ -26,10 +25,11 @@ class AutofillOfferData;
 class OfferNotificationHandler;
 class PaymentsDataManager;
 
-// Manages all Autofill related offers. One per browser context. Owned and
+// Determines which of the offers stored in the `PaymentsDataManager` apply to
+// a page, drives the offer notification UI for them, and tracks which offer
+// notifications have already been shown. One per browser context. Owned and
 // created by the AutofillOfferManagerFactory.
-class AutofillOfferManager : public KeyedService,
-                             public PaymentsDataManager::Observer {
+class AutofillOfferManager : public KeyedService {
  public:
   // Mapping from credit card guid id to offer data.
   using CardLinkedOffersMap = std::map<std::string, const AutofillOfferData*>;
@@ -39,46 +39,45 @@ class AutofillOfferManager : public KeyedService,
   AutofillOfferManager(const AutofillOfferManager&) = delete;
   AutofillOfferManager& operator=(const AutofillOfferManager&) = delete;
 
-  // PaymentsDataManager::Observer:
-  void OnPaymentsDataChanged() override;
+  // Updates the offer notification UI for the page that `client` currently has
+  // committed.
+  void UpdateOfferNotificationVisibility(AutofillClient& client);
 
-  // Invoked when the navigation happens.
-  void OnDidNavigateFrame(AutofillClient& client);
-
-  // Returns true only if the domain of `last_committed_primary_main_frame_url`
-  // has an offer.
+  // Returns true only if there is an active promo code offer for the domain of
+  // `last_committed_primary_main_frame_url`.
   bool IsUrlEligible(const GURL& last_committed_primary_main_frame_url);
 
-  // Returns the offer that contains the domain of
-  // `last_committed_primary_main_frame_url`.
+  // Returns the most recently issued active promo code offer for the domain of
+  // `last_committed_primary_main_frame_url`, or nullptr if there is none.
   const AutofillOfferData* GetOfferForUrl(
       const GURL& last_committed_primary_main_frame_url) const;
+
+  // Returns whether the notification for the offer with `offer_id` has been
+  // shown in this browser context before.
+  bool HasShownNotification(const std::string& offer_id) const;
+
+  // Records that the notification for the offer with `offer_id` was shown.
+  void MarkNotificationShown(const std::string& offer_id);
+
+  void ClearShownNotificationIdsForTesting();
 
  private:
   FRIEND_TEST_ALL_PREFIXES(
       AutofillOfferManagerTest,
       CreateCardLinkedOffersMap_ReturnsOnlyCardLinkedOffers);
   FRIEND_TEST_ALL_PREFIXES(AutofillOfferManagerTest, IsUrlEligible);
-  friend class OfferNotificationBubbleViewsInteractiveUiTest;
   friend class OfferNotificationControllerAndroidBrowserTest;
 
-  // Queries `payments_data_manager_` to reset the elements of
-  // `eligible_merchant_domains_`.
-  void UpdateEligibleMerchantDomains();
-
   const raw_ref<PaymentsDataManager> payments_data_manager_;
-
-  // This set includes all the eligible domains where offers are applicable.
-  // This is used as a local cache and will be updated whenever the data in the
-  // database changes.
-  std::set<GURL> eligible_merchant_domains_;
-
-  base::ScopedObservation<PaymentsDataManager, PaymentsDataManager::Observer>
-      payments_data_manager_observation{this};
 
   // The handler for offer notification UI. It is a sub-level component of
   // AutofillOfferManager to decide whether to show the offer notification.
   OfferNotificationHandler notification_handler_{this};
+
+  // The ids of the offers whose notification has been shown in this browser
+  // context. The notification is only shown automatically once per offer,
+  // across all tabs.
+  base::flat_set<std::string> shown_notification_ids_;
 };
 
 }  // namespace autofill

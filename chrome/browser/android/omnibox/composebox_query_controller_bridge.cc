@@ -4,6 +4,7 @@
 
 #include "chrome/browser/android/omnibox/composebox_query_controller_bridge.h"
 
+#include <algorithm>
 #include <memory>
 #include <utility>
 
@@ -31,12 +32,14 @@
 #include "chrome/browser/contextual_tasks/contextual_tasks_utils.h"
 #include "chrome/browser/page_content_annotations/page_content_extraction_service_factory.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
+#include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/ui/contextual_search/tab_contextualization_controller.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/common/channel_info.h"
 #include "components/contextual_search/contextual_search_service.h"
 #include "components/contextual_search/contextual_search_types.h"
 #include "components/contextual_search/internal/composebox_query_controller.h"
+#include "components/contextual_tasks/public/account_utils.h"
 #include "components/contextual_tasks/public/features.h"
 #include "components/contextual_tasks/public/query_contextualizer.h"
 #include "components/lens/contextual_input.h"
@@ -45,10 +48,12 @@
 #include "components/lens/lens_url_utils.h"
 #include "components/omnibox/browser/aim_eligibility_service.h"
 #include "components/omnibox/browser/omnibox_field_trial.h"
+#include "components/omnibox/common/omnibox_features.h"
 #include "components/page_content_annotations/content/page_content_extraction_service.h"
 #include "components/page_content_annotations/core/page_content_annotations_features.h"
 #include "components/sessions/content/session_tab_helper.h"
 #include "components/sessions/core/session_id.h"
+#include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/web_contents.h"
 #include "mojo/public/cpp/base/big_buffer.h"
@@ -375,7 +380,7 @@ void ComposeboxQueryControllerBridge::OnSearchUrlCreated(
               search_service->GetSession(session_handle_->session_id(),
                                          session_handle_->invocation_source());
       if (handle_copy) {
-        handle_copy->set_submitted_context_tokens(
+        handle_copy->SetSubmittedContextTokens(
             session_handle_->GetSubmittedContextTokens());
         handle_copy->CheckSearchContentSharingSettings(profile_->GetPrefs());
 
@@ -459,14 +464,14 @@ bool ComposeboxQueryControllerBridge::IsPdfUploadEligible() {
 void ComposeboxQueryControllerBridge::SetActiveTool(
     omnibox::ToolMode tool_mode) {
   if (input_state_model_) {
-    input_state_model_->setActiveTool(tool_mode);
+    input_state_model_->SetActiveTool(tool_mode);
   }
 }
 
 void ComposeboxQueryControllerBridge::SetActiveModel(
     omnibox::ModelMode model_mode) {
   if (input_state_model_) {
-    input_state_model_->setActiveModel(model_mode);
+    input_state_model_->SetActiveModel(model_mode);
   }
 }
 
@@ -686,17 +691,30 @@ void ComposeboxQueryControllerBridge::InitializeInputStateModel() {
                          ? contextual_tasks::ContextualTasksUiServiceFactory::
                                GetForBrowserContext(profile_)
                          : nullptr;
-  bool is_signed_in =
-      ui_service && ui_service->IsSignedInToBrowserWithValidCredentials();
-  bool browser_identity_matches_aim_identity =
-      is_signed_in && ui_service->IsUrlForPrimaryAccount(GURL());
+  bool is_signed_in = false;
+  bool browser_identity_matches_aim_identity = false;
+  if (ui_service) {
+    is_signed_in = ui_service->IsSignedInToBrowserWithValidCredentials();
+    browser_identity_matches_aim_identity =
+        is_signed_in && ui_service->IsUrlForPrimaryAccount(GURL());
+  } else if (profile_ && omnibox::kComposeboxDriveIdentityFallback.Get()) {
+    // ContextualTasksUiService is null when the Contextual Tasks UI is
+    // disabled. Fall back to IdentityManager.
+    signin::IdentityManager* identity_manager =
+        IdentityManagerFactory::GetForProfile(profile_);
+    is_signed_in = contextual_tasks::IsSignedInToBrowserWithValidCredentials(
+        identity_manager);
+    browser_identity_matches_aim_identity =
+        is_signed_in &&
+        contextual_tasks::IsUrlForPrimaryAccount(identity_manager, GURL());
+  }
   const omnibox::SearchboxConfig* config_ptr =
       aim_service->GetSearchboxConfig();
   input_state_model_ = std::make_unique<contextual_search::InputStateModel>(
       *session_handle_, config_ptr ? *config_ptr : omnibox::SearchboxConfig(),
       GURL(), profile_ ? profile_->IsOffTheRecord() : false, is_signed_in,
       browser_identity_matches_aim_identity);
-  input_state_subscription_ = input_state_model_->subscribe(
+  input_state_subscription_ = input_state_model_->Subscribe(
       base::BindRepeating(&ComposeboxQueryControllerBridge::OnInputStateChanged,
                           weak_ptr_factory_.GetWeakPtr()));
   input_state_model_->Initialize();
@@ -719,6 +737,35 @@ std::vector<int32_t> ComposeboxQueryControllerBridge::GetSelectedTabIds()
 static bool JNI_ComposeboxQueryControllerBridge_IsFuseboxEligibleForProfile(
     Profile* profile) {
   return IsFuseboxEligibleForProfileInternal(profile);
+}
+
+static bool JNI_ComposeboxQueryControllerBridge_IsToolAllowedForProfile(
+    Profile* profile,
+    omnibox::ToolMode tool_mode) {
+  if (!profile) {
+    return false;
+  }
+
+  // Mirror the checks in JNI_ComposeboxQueryControllerBridge_Init(): if a
+  // controller can't be created, no tools are available.
+  AimEligibilityService* aim_service =
+      AimEligibilityServiceFactory::GetForProfile(profile);
+  if (!aim_service || !aim_service->IsAimEligible()) {
+    return false;
+  }
+  if (!contextual_search::ContextualSearchService::IsContextSharingEnabled(
+          profile->GetPrefs())) {
+    return false;
+  }
+
+  const omnibox::SearchboxConfig* config = aim_service->GetSearchboxConfig();
+  if (!config) {
+    return false;
+  }
+  return std::ranges::contains(
+      contextual_search::InputStateModel::GetAllowedTools(
+          *config, profile->IsOffTheRecord()),
+      tool_mode);
 }
 
 DEFINE_JNI(ComposeboxQueryControllerBridge)

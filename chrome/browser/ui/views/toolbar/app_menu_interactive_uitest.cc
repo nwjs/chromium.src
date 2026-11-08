@@ -5,6 +5,7 @@
 #include <string>
 
 #include "base/test/bind.h"
+#include "base/test/scoped_feature_list.h"
 #include "build/buildflag.h"
 #include "chrome/browser/bookmarks/bookmark_model_factory.h"
 #include "chrome/browser/lifetime/application_lifetime_desktop.h"
@@ -12,6 +13,7 @@
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/toolbar/bookmark_sub_menu_model.h"
+#include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/toolbar/browser_app_menu_button.h"
 #include "chrome/test/base/ui_test_utils.h"
@@ -34,14 +36,18 @@
 
 // TODO(crbug.com/498258602): Drag and drop tests are flaky on MacOS and
 // ChromeOS.
-// TODO(crbug.com/388531778): DND tests fail on Windows.
-#if BUILDFLAG(IS_LINUX)
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_WIN)
 
 namespace {
 
-class AppMenuDragAndDropInteractiveTest : public InteractiveBrowserTest {
+class AppMenuDragAndDropInteractiveTest
+    : public InteractiveBrowserTest,
+      public testing::WithParamInterface<bool> {
  public:
-  AppMenuDragAndDropInteractiveTest() = default;
+  AppMenuDragAndDropInteractiveTest() {
+    scoped_feature_list_.InitWithFeatureState(features::kAppMenuGlowUp,
+                                              GetParam());
+  }
   ~AppMenuDragAndDropInteractiveTest() override = default;
 
   void SetUpOnMainThread() override {
@@ -51,11 +57,22 @@ class AppMenuDragAndDropInteractiveTest : public InteractiveBrowserTest {
   }
 
   auto TopCenter() {
-    return base::BindOnce([](ui::TrackedElement* el) {
+    return base::BindLambdaForTesting([this](ui::TrackedElement* el) {
       auto* const view =
           views::test::InteractiveViewsTestApi::AsView<views::View>(el);
       return view->GetBoundsInScreen().top_center() + gfx::Vector2d(0, 5);
     });
+  }
+
+  // On Linux, dropping a bookmark closes the app menu, so re-open the
+  // bookmarks submenu. On other platforms the menu stays open.
+  auto EnsureBookmarksMenuOpenAfterDrop() {
+#if BUILDFLAG(IS_LINUX)
+    return Steps(PressButton(kToolbarAppMenuButtonElementId),
+                 SelectMenuItem(AppMenuModel::kBookmarksMenuItem));
+#else
+    return Steps();
+#endif
   }
 
   static views::MenuItemView* FindMenuItemWithTitle(views::View* root,
@@ -104,9 +121,12 @@ class AppMenuDragAndDropInteractiveTest : public InteractiveBrowserTest {
       return false;
     });
   }
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
 };
 
-IN_PROC_BROWSER_TEST_F(AppMenuDragAndDropInteractiveTest,
+IN_PROC_BROWSER_TEST_P(AppMenuDragAndDropInteractiveTest,
                        BookmarksDragAndDrop) {
   if (views::test::InteractionTestUtilSimulatorViews::IsWayland()) {
     GTEST_SKIP() << "System DnD simulation is not supported on Wayland.";
@@ -132,14 +152,13 @@ IN_PROC_BROWSER_TEST_F(AppMenuDragAndDropInteractiveTest,
       DragMouseTo(kANodeMenuId, CenterPoint(), /*release=*/false)
           .SetMustRemainVisible(false),
       MoveMouseTo(kANodeMenuId, TopCenter()), ReleaseMouse(),
-      PressButton(kToolbarAppMenuButtonElementId),
-      SelectMenuItem(AppMenuModel::kBookmarksMenuItem),
+      EnsureBookmarksMenuOpenAfterDrop(),
       NameMenuItemWithTitle(kBNodeMenuId, u"b"),
       NameMenuItemWithTitle(kANodeMenuId, u"a"),
       CheckMenuItemBefore(kANodeMenuId, u"b"));
 }
 
-IN_PROC_BROWSER_TEST_F(AppMenuDragAndDropInteractiveTest,
+IN_PROC_BROWSER_TEST_P(AppMenuDragAndDropInteractiveTest,
                        BookmarksDragAndDropToNestedFolder) {
   if (views::test::InteractionTestUtilSimulatorViews::IsWayland()) {
     GTEST_SKIP() << "System DnD simulation is not supported on Wayland.";
@@ -163,15 +182,14 @@ IN_PROC_BROWSER_TEST_F(AppMenuDragAndDropInteractiveTest,
       CheckViewProperty(kBNodeMenuId, &views::MenuItemView::title, u"b"),
       MoveMouseTo(kANodeMenuId),
       DragMouseTo(kBNodeMenuId, CenterPoint()).SetMustRemainVisible(false),
-      PressButton(kToolbarAppMenuButtonElementId),
-      SelectMenuItem(AppMenuModel::kBookmarksMenuItem),
+      EnsureBookmarksMenuOpenAfterDrop(),
       NameMenuItemWithTitle(kBNodeMenuId, u"b"),
       CheckViewProperty(kBNodeMenuId, &views::MenuItemView::title, u"b"),
       SelectMenuItem(kBNodeMenuId), NameMenuItemWithTitle("a_in_b", u"a"),
       CheckViewProperty("a_in_b", &views::MenuItemView::title, u"a"));
 }
 
-IN_PROC_BROWSER_TEST_F(AppMenuDragAndDropInteractiveTest,
+IN_PROC_BROWSER_TEST_P(AppMenuDragAndDropInteractiveTest,
                        BookmarksDragAndDropFromNestedFolder) {
   if (views::test::InteractionTestUtilSimulatorViews::IsWayland()) {
     GTEST_SKIP() << "System DnD simulation is not supported on Wayland.";
@@ -197,8 +215,7 @@ IN_PROC_BROWSER_TEST_F(AppMenuDragAndDropInteractiveTest,
       DragMouseTo(kANodeMenuId, CenterPoint(), /*release=*/false)
           .SetMustRemainVisible(false),
       MoveMouseTo(kANodeMenuId, TopCenter()), ReleaseMouse(),
-      PressButton(kToolbarAppMenuButtonElementId),
-      SelectMenuItem(AppMenuModel::kBookmarksMenuItem),
+      EnsureBookmarksMenuOpenAfterDrop(),
       NameMenuItemWithTitle(kBNodeMenuId, u"b"),
       CheckViewProperty(kBNodeMenuId, &views::MenuItemView::title, u"b"),
       NameMenuItemWithTitle(kANodeMenuId, u"a"),
@@ -206,9 +223,13 @@ IN_PROC_BROWSER_TEST_F(AppMenuDragAndDropInteractiveTest,
       CheckMenuItemBefore(kANodeMenuId, u"b"));
 }
 
+INSTANTIATE_TEST_SUITE_P(All,
+                         AppMenuDragAndDropInteractiveTest,
+                         testing::Bool());
+
 }  // namespace
 
-#endif  // BUILDFLAG(IS_LINUX)
+#endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_WIN)
 
 using AppMenuInteractiveTest = InteractiveBrowserTest;
 

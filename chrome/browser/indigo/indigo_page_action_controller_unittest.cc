@@ -41,7 +41,7 @@
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service_factory.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/signin/identity_test_environment_profile_adaptor.h"
-#include "chrome/browser/signin/signin_ui_delegate.h"
+#include "chrome/browser/signin/mock_signin_ui_delegate.h"
 #include "chrome/browser/signin/signin_ui_util.h"
 #include "chrome/browser/skills/skills_service_factory.h"
 #include "chrome/browser/ui/actions/chrome_action_id.h"
@@ -84,6 +84,7 @@ namespace indigo {
 namespace {
 
 using ::optimization_guide::OptimizationGuideDecision;
+using signin_ui_util::MockSigninUiDelegate;
 using ::testing::_;
 
 class FakeGlicSidePanelCoordinator : public glic::GlicSidePanelCoordinator {
@@ -164,32 +165,6 @@ class FakeDocumentMetadata : public blink::mojom::DocumentMetadata {
   std::vector<std::string> last_blocked_keywords_;
   base::OnceClosure quit_closure_;
 };
-
-#if BUILDFLAG(ENABLE_DICE_SUPPORT)
-class MockSigninUiDelegate : public signin_ui_util::SigninUiDelegate {
- public:
-  MOCK_METHOD(void,
-              ShowSigninUI,
-              (Profile*,
-               bool,
-               signin_metrics::AccessPoint,
-               signin_metrics::PromoAction,
-               const std::string&),
-              (override));
-  MOCK_METHOD(void,
-              ShowReauthUI,
-              (Profile*,
-               const std::string&,
-               bool,
-               signin_metrics::AccessPoint,
-               signin_metrics::PromoAction),
-              (override));
-  MOCK_METHOD(void,
-              ShowCrossDeviceSigninQrBubble,
-              (BrowserWindowInterface*, GURL, base::OnceClosure),
-              (override));
-};
-#endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
 
 #if BUILDFLAG(IS_CHROMEOS)
 constexpr bool kSignOutSupportedOnPlatform = false;
@@ -813,8 +788,9 @@ TEST_F(IndigoPageActionControllerTest, OnboardingSuccessTriggersContinuation) {
           }));
 
   IndigoPageActionController::TestApi(controller_.get())
-      .CheckEligibilityForOnboarding(base::TimeTicks::Now(),
-                                     /*skip_glic_invoke=*/false, eligibility);
+      .CheckEligibilityForOnboarding(
+          base::TimeTicks::Now(),
+          IndigoTransformationTriggerSource::kPageAction, eligibility);
 
   ASSERT_TRUE(!captured_callback.is_null());
   EXPECT_EQ(user_action_tester.GetActionCount("Indigo.Onboarding.Trigger"), 1);
@@ -826,6 +802,83 @@ TEST_F(IndigoPageActionControllerTest, OnboardingSuccessTriggersContinuation) {
   EXPECT_TRUE(profile_->GetPrefs()->GetBoolean(prefs::kIndigoHasOnboarded));
   EXPECT_TRUE(fetcher_called.Wait());
   EXPECT_EQ(user_action_tester.GetActionCount("Indigo.Onboarding.Complete"), 1);
+}
+
+TEST_F(IndigoPageActionControllerTest,
+       OnboardingSuccessWithToastRetryDoesNotOpenGlic) {
+  CreateController();
+
+  base::test::ScopedFeatureList local_feature_list;
+  local_feature_list.InitAndEnableFeatureWithParameters(
+      features::kIndigoOpenGlic, {{"indigo_glic_prompt", "test prompt"}});
+
+  // Set up an active page so IndigoAgentHost can be invoked upon continuation.
+  GURL url("https://example.com");
+  ExpectOptimizationGuideDecision(url, OptimizationGuideDecision::kTrue);
+  auto navigation = content::NavigationSimulator::CreateBrowserInitiated(
+      url, tab_interface_->GetContents());
+  navigation->Commit();
+
+  // Glic should NOT be invoked for non-page-action triggers.
+  EXPECT_CALL(*mock_glic_keyed_service_, InvokeWithAutoSubmit(_, _)).Times(0);
+
+  // Explicitly set the initial state for onboarding preference.
+  profile_->GetPrefs()->SetBoolean(prefs::kIndigoHasOnboarded, false);
+
+  base::UserActionTester user_action_tester;
+  base::HistogramTester histogram_tester;
+
+  OnboardingResult result;
+  result.acknowledge_chrome_disclaimer = true;
+
+  base::test::TestFuture<void> fetcher_called;
+  IndigoServiceFactory::GetForProfile(profile_.get())
+      ->SetRemoteEligibilityFetcherForTesting(base::BindLambdaForTesting(
+          [&](IndigoService::RemoteEligibilityCallback callback) {
+            fetcher_called.SetValue();
+            std::move(callback).Run(RemoteEligibility{
+                .is_service_supported_for_account = true,
+                .has_user_image = true,
+            });
+          }));
+
+  // Initial state: eligible but needs onboarding. This should show the dialog.
+  CombinedEligibility eligibility;
+  eligibility.local_eligibility = LocalEligibility::kEligible;
+  eligibility.remote_eligibility = RemoteEligibility{
+      .is_service_supported_for_account = true, .has_user_image = false};
+  eligibility.has_onboarded_pref = false;
+
+  base::OnceCallback<void(const OnboardingResult&)> captured_callback;
+  IndigoPageActionController::TestApi(controller_.get())
+      .SetOnboardingDialogFactory(base::BindLambdaForTesting(
+          [&](tabs::TabInterface& tab, const GURL& url,
+              base::OnceCallback<void(const OnboardingResult&)> callback)
+              -> std::unique_ptr<IndigoOnboardingDialog> {
+            captured_callback = std::move(callback);
+            return nullptr;
+          }));
+
+  IndigoPageActionController::TestApi(controller_.get())
+      .CheckEligibilityForOnboarding(
+          base::TimeTicks::Now(),
+          IndigoTransformationTriggerSource::kErrorToastRetry, eligibility);
+
+  ASSERT_TRUE(!captured_callback.is_null());
+  EXPECT_EQ(user_action_tester.GetActionCount("Indigo.Onboarding.Trigger"), 1);
+
+  // Now simulate the dialog closing with success.
+  std::move(captured_callback).Run(result);
+
+  // Closing with success should set the pref and trigger a re-fetch for
+  // continuation.
+  EXPECT_TRUE(profile_->GetPrefs()->GetBoolean(prefs::kIndigoHasOnboarded));
+  EXPECT_TRUE(fetcher_called.Wait());
+  EXPECT_EQ(user_action_tester.GetActionCount("Indigo.Onboarding.Complete"), 1);
+
+  histogram_tester.ExpectUniqueSample(
+      "Indigo.Transformation.TriggerSource",
+      IndigoTransformationTriggerSource::kErrorToastRetry, 1);
 }
 
 TEST_F(IndigoPageActionControllerTest, OnboardingCancelledDoesNotTrigger) {
@@ -849,7 +902,8 @@ TEST_F(IndigoPageActionControllerTest, OnboardingCancelledDoesNotTrigger) {
 
   IndigoPageActionController::TestApi(controller_.get())
       .CheckOnboardingResult(OnboardingDisposition::kDefault,
-                             /*skip_glic_invoke=*/false, result);
+                             IndigoTransformationTriggerSource::kPageAction,
+                             result);
 
   EXPECT_FALSE(fetcher_called.IsReady());
   EXPECT_FALSE(profile_->GetPrefs()->GetBoolean(prefs::kIndigoHasOnboarded));
@@ -2417,5 +2471,104 @@ TEST_F(IndigoPageActionControllerTest,
   }
 }
 
+TEST_F(IndigoPageActionControllerTest, IsPageEligible) {
+  CreateController();
+  EXPECT_FALSE(controller_->IsPageEligible());
+
+  GURL url1("https://example.com/eligible");
+  ExpectOptimizationGuideDecision(url1, OptimizationGuideDecision::kTrue);
+  auto navigation1 = content::NavigationSimulator::CreateBrowserInitiated(
+      url1, tab_interface_->GetContents());
+  navigation1->Commit();
+  EXPECT_TRUE(controller_->IsPageEligible());
+
+  GURL url2("https://example.com/ineligible");
+  ExpectOptimizationGuideDecision(url2, OptimizationGuideDecision::kFalse);
+  auto navigation2 = content::NavigationSimulator::CreateBrowserInitiated(
+      url2, tab_interface_->GetContents());
+  navigation2->Commit();
+  EXPECT_FALSE(controller_->IsPageEligible());
+}
+
+TEST_F(IndigoPageActionControllerTest,
+       OnContextMenuShownDeduplicatedPerPageLoad) {
+  CreateController();
+
+  GURL url1("https://example.com/page1");
+  ExpectOptimizationGuideDecision(url1, OptimizationGuideDecision::kTrue);
+  auto navigation1 = content::NavigationSimulator::CreateBrowserInitiated(
+      url1, tab_interface_->GetContents());
+  navigation1->Commit();
+
+  base::HistogramTester histogram_tester;
+  base::UserActionTester user_action_tester;
+
+  // First context menu shown on page1 records the impression.
+  controller_->OnContextMenuShown();
+  histogram_tester.ExpectUniqueSample(
+      kShownEntryPointHistogram, IndigoPageActionEntryPoint::kContextMenu, 1);
+  EXPECT_EQ(user_action_tester.GetActionCount(kContextMenuShowAction), 1);
+
+  // Subsequent context menu opens on the same page load do not record again.
+  controller_->OnContextMenuShown();
+  controller_->OnContextMenuShown();
+  histogram_tester.ExpectUniqueSample(
+      kShownEntryPointHistogram, IndigoPageActionEntryPoint::kContextMenu, 1);
+  EXPECT_EQ(user_action_tester.GetActionCount(kContextMenuShowAction), 1);
+
+  // Fragment-only navigation on the same document does not reset deduplication.
+  GURL url1_fragment("https://example.com/page1#section");
+  auto fragment_nav = content::NavigationSimulator::CreateRendererInitiated(
+      url1_fragment, tab_interface_->GetContents()->GetPrimaryMainFrame());
+  fragment_nav->CommitSameDocument();
+  controller_->OnContextMenuShown();
+  histogram_tester.ExpectUniqueSample(
+      kShownEntryPointHistogram, IndigoPageActionEntryPoint::kContextMenu, 1);
+  EXPECT_EQ(user_action_tester.GetActionCount(kContextMenuShowAction), 1);
+
+  // Navigating to a new page resets the deduplication flag.
+  GURL url2("https://example.com/page2");
+  ExpectOptimizationGuideDecision(url2, OptimizationGuideDecision::kTrue);
+  auto navigation2 = content::NavigationSimulator::CreateBrowserInitiated(
+      url2, tab_interface_->GetContents());
+  navigation2->Commit();
+
+  controller_->OnContextMenuShown();
+  histogram_tester.ExpectUniqueSample(
+      kShownEntryPointHistogram, IndigoPageActionEntryPoint::kContextMenu, 2);
+  EXPECT_EQ(user_action_tester.GetActionCount(kContextMenuShowAction), 2);
+}
+
+TEST_F(IndigoPageActionControllerTest,
+       InvokeActionContextMenuDoesNotOpenGlicAndRecordsMetrics) {
+  CreateController();
+  SetupEligibleAndOnboarded();
+
+  base::test::ScopedFeatureList local_feature_list;
+  local_feature_list.InitAndEnableFeatureWithParameters(
+      features::kIndigoOpenGlic, {{"indigo_glic_prompt", "test prompt"}});
+
+  GURL url("https://example.com");
+  ExpectOptimizationGuideDecision(url, OptimizationGuideDecision::kTrue);
+  auto navigation = content::NavigationSimulator::CreateBrowserInitiated(
+      url, tab_interface_->GetContents());
+  navigation->Commit();
+
+  // Glic should NOT be invoked when triggered from the context menu.
+  EXPECT_CALL(*mock_glic_keyed_service_, InvokeWithAutoSubmit(_, _)).Times(0);
+  EXPECT_CALL(*page_action_controller_, ShowAnchoredMessage(_, _)).Times(0);
+
+  base::UserActionTester user_action_tester;
+  base::HistogramTester histogram_tester;
+  controller_->InvokeAction(EntryPoint::kContextMenu);
+
+  EXPECT_EQ(user_action_tester.GetActionCount(kContextMenuClickAction), 1);
+  histogram_tester.ExpectUniqueSample(
+      kClickedEntryPointHistogram, IndigoPageActionEntryPoint::kContextMenu, 1);
+  EXPECT_EQ(user_action_tester.GetActionCount(kTransformationTriggerAction), 1);
+  histogram_tester.ExpectUniqueSample(
+      kTransformationTriggerSourceHistogram,
+      IndigoTransformationTriggerSource::kContextMenu, 1);
+}
 }  // namespace
 }  // namespace indigo

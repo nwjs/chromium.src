@@ -22,8 +22,13 @@
 
 #include "third_party/blink/renderer/core/events/ui_event.h"
 
+#include "base/check.h"
+#include "third_party/blink/renderer/core/dom/node.h"
 #include "third_party/blink/renderer/core/event_interface_names.h"
+#include "third_party/blink/renderer/core/execution_context/execution_context.h"
 #include "third_party/blink/renderer/core/input/input_device_capabilities.h"
+#include "third_party/blink/renderer/platform/runtime_enabled_features.h"
+#include "third_party/blink/renderer/platform/weborigin/security_origin.h"
 
 namespace blink {
 
@@ -99,6 +104,23 @@ void UIEvent::Trace(Visitor* visitor) const {
   visitor->Trace(view_);
   visitor->Trace(source_capabilities_);
   Event::Trace(visitor);
+}
+
+void UIEvent::CheckCrossOriginRelatedTarget(const Node& target,
+                                            EventTarget* related_target) {
+  if (!RuntimeEnabledFeatures::ClearCrossOriginRelatedTargetEnabled() ||
+      !related_target) {
+    return;
+  }
+  const ExecutionContext* target_context = target.GetExecutionContext();
+  const ExecutionContext* related_context =
+      related_target->GetExecutionContext();
+  CHECK_EQ(!target_context, !related_context);
+  if (target_context != related_context) {
+    const SecurityOrigin* target_origin = target_context->GetSecurityOrigin();
+    const SecurityOrigin* related_origin = related_context->GetSecurityOrigin();
+    CHECK(target_origin->CanAccess(related_origin));
+  }
 }
 
 }  // namespace blink

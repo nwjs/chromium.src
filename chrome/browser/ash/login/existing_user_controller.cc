@@ -1588,7 +1588,9 @@ void ExistingUserController::SetPublicSessionKeyboardLayoutAndLogin(
       break;
     }
   }
-  CHECK(!keyboard_layout.empty(), base::NotFatalUntil::M160);
+  // TODO(crbug.com/572624918): CHECK-exclusion: Convert to a CHECK once we
+  // are confident it won't be triggered.
+  DCHECK(!keyboard_layout.empty());
   SYSLOG(INFO) << "MGS: Setting keyboard layout '" << keyboard_layout << "'";
   new_user_context.SetPublicSessionInputMethod(keyboard_layout);
 
@@ -1787,7 +1789,8 @@ void ExistingUserController::DoLogin(const UserContext& user_context,
       guest_mode_url_ = GURL(specifics.guest_mode_url);
       if (specifics.guest_mode_url_append_locale) {
         guest_mode_url_ = google_util::AppendGoogleLocaleParam(
-            guest_mode_url_, application_locale_storage_->Get());
+            guest_mode_url_,
+            std::string(application_locale_storage_->GetTag().tag_string()));
       }
     }
     LoginAsGuest();

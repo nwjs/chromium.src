@@ -31,8 +31,6 @@ source_set("initializer") {
     sources += [ "headless_mode_platform_mac.mm" ]
   }
 
-  configs += [ "//build/config/compiler:wexit_time_destructors" ]
-
   public_deps = [ ":headless" ]
 
   deps = [
@@ -61,8 +59,6 @@ source_set("metrics") {
     "headless_mode_metrics.h",
   ]
 
-  configs += [ "//build/config/compiler:wexit_time_destructors" ]
-
   deps = [
     ":headless",
     "//base",
@@ -78,12 +74,9 @@ if (!is_android) {
       "headless_command_processor.h",
     ]
 
-    configs += [ "//build/config/compiler:wexit_time_destructors" ]
-
     deps = [
       ":headless",
       "//base",
-      "//chrome/common:non_code_constants",
       "//components/headless/command_handler",
       "//components/keep_alive_registry",
       "//content/public/browser",
@@ -95,8 +88,6 @@ if (!is_android) {
       "chrome_browser_main_extra_parts_headless.cc",
       "chrome_browser_main_extra_parts_headless.h",
     ]
-
-    configs += [ "//build/config/compiler:wexit_time_destructors" ]
 
     deps = [
       ":headless",
@@ -161,7 +152,6 @@ if (!is_android) {
     if (is_linux || is_win || is_mac) {
       deps += [
         "//chrome/browser/profiles",
-        "//chrome/browser/ui",
         "//chrome/browser/ui/browser_window",
         "//chrome/browser/ui/views/frame:toolbar_button_provider",
         "//components/devtools/simple_devtools_protocol_client",

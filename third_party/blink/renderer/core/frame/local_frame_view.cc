@@ -224,13 +224,25 @@ namespace {
 std::optional<cc::PaintRecord> GetCanvasSnapshot(DOMNodeId id) {
   if (auto* nested_canvas =
           DynamicTo<HTMLCanvasElement>(DOMNodeIds::NodeForId(id))) {
-    if (!nested_canvas->OriginClean() || !nested_canvas->GetLayoutObject()) {
+    if (!nested_canvas->OriginClean()) {
       return cc::PaintRecord();
     }
-    if (scoped_refptr<StaticBitmapImage> snapshot =
-            nested_canvas->Snapshot(kFrontBuffer)) {
+    LayoutReplaced* nested_layout_obj =
+        To<LayoutReplaced>(nested_canvas->GetLayoutObject());
+    if (!nested_layout_obj) {
+      return cc::PaintRecord();
+    }
+    scoped_refptr<StaticBitmapImage> snapshot =
+        nested_canvas->Snapshot(kBackBuffer);
+    if (snapshot) {
+      // GraphicsContext cannot handle gpu resource serialization.
+      snapshot = snapshot->MakeUnaccelerated();
+    }
+    if (snapshot) {
+      DCHECK(!snapshot->IsTextureBacked());
       PaintRecordBuilder builder;
-      gfx::RectF dest_rect(gfx::SizeF(nested_canvas->Size()));
+      gfx::RectF dest_rect(
+          gfx::SizeF(nested_layout_obj->PhysicalContentBoxRect().size));
       gfx::RectF src_rect(gfx::SizeF(nested_canvas->Size()));
       {
         DrawingRecorder recorder(
@@ -405,6 +417,7 @@ void LocalFrameView::Trace(Visitor* visitor) const {
   visitor->Trace(mobile_friendliness_checker_);
   visitor->Trace(tap_friendliness_checker_);
   visitor->Trace(lifecycle_observers_);
+  visitor->Trace(queued_one_shot_observers_);
   visitor->Trace(canvas_elements_needing_onpaint_);
   visitor->Trace(fullscreen_video_elements_);
   visitor->Trace(pending_transform_updates_);
@@ -524,6 +537,9 @@ void LocalFrameView::Dispose() {
     update_plugins_timer_.Stop();
   part_update_set_.clear();
 
+  // The frame may be detached before a pending intersection update fires.
+  delayed_intersection_timer_.Stop();
+
   // These are LayoutObjects whose layout has been deferred to a subsequent
   // lifecycle update. Not gonna happen.
   layout_subtree_root_list_.Clear();
@@ -563,8 +579,8 @@ void LocalFrameView::Dispose() {
 
   // Make a copy before notifying in case observers unregister themselves.
   auto lifecycle_observers = lifecycle_observers_;
-  for (LifecycleNotificationObserver* observer : lifecycle_observers) {
-    observer->WillDisposeView();
+  for (const auto& observer : lifecycle_observers) {
+    observer.key->WillDisposeView();
   }
   lifecycle_observers_.clear();
 
@@ -1084,15 +1100,45 @@ void LocalFrameView::RunPostLifecycleSteps() {
       frame_view.UpdateCompositingScaleFactor();
     });
 
-    ForAllNonThrottledLocalFrameViews([](LocalFrameView& frame_view) {
-      auto lifecycle_observers = frame_view.lifecycle_observers_;
-      for (auto& observer : lifecycle_observers) {
-        observer->DidFinishPostLifecycleSteps(frame_view);
-      }
-    });
+    NotifyPostLifecycleObservers();
   }
 
   RunCanvasOnpaintSteps();
+}
+
+void LocalFrameView::NotifyPostLifecycleObservers() {
+  // FrameView already includes ancestor throttling in this view's state.
+  const bool is_throttled = ShouldThrottleRendering();
+  auto should_notify = [is_throttled](
+                           PostLifecycleNotificationBehavior behavior) {
+    return !is_throttled ||
+           behavior == PostLifecycleNotificationBehavior::kFireWhenThrottled;
+  };
+
+  // Capture both lists before callbacks run so new requests for this frame
+  // wait until the next update. A one-shot callback can also requeue itself.
+  auto lifecycle_observers = lifecycle_observers_;
+  auto one_shot_observers = queued_one_shot_observers_;
+  // Consume requests that will run, but leave suppressed requests registered
+  // so callbacks can still cancel them.
+  for (const auto& observer : one_shot_observers) {
+    if (should_notify(observer.value)) {
+      queued_one_shot_observers_.erase(observer.key);
+    }
+  }
+  for (const auto& observer : lifecycle_observers) {
+    if (should_notify(observer.value)) {
+      observer.key->DidFinishPostLifecycleSteps(*this);
+    }
+  }
+  for (const auto& observer : one_shot_observers) {
+    if (should_notify(observer.value)) {
+      observer.key->DidFinishPostLifecycleSteps(*this);
+    }
+  }
+  ForAllChildLocalFrameViews([](LocalFrameView& child_view) {
+    child_view.NotifyPostLifecycleObservers();
+  });
 }
 
 void LocalFrameView::RunCanvasOnpaintSteps() {
@@ -1261,15 +1307,10 @@ bool LocalFrameView::RecordNaturalDimensions() {
 
 void LocalFrameView::RequestSameDocumentNavigationPresentationTime(
     base::OnceCallback<void(const viz::FrameTimingDetails&)> callback) {
-  if (RuntimeEnabledFeatures::RecordSameDocumentPresentationTimeOnceEnabled(
-          GetFrame().DomWindow())) {
-    GetFrame()
-        .LocalFrameRoot()
-        .View()
-        ->same_document_presentation_time_callback_ = std::move(callback);
-  } else if (auto* frame_widget = GetFrame().GetWidgetForLocalRoot()) {
-    frame_widget->NotifyPresentationTime(std::move(callback));
-  }
+  GetFrame()
+      .LocalFrameRoot()
+      .View()
+      ->same_document_presentation_time_callback_ = std::move(callback);
 }
 
 bool LocalFrameView::HasRunningAnchorTransformAnimation() const {
@@ -1301,7 +1342,7 @@ std::optional<NaturalSizingInfo> LocalFrameView::GetNaturalDimensions() const {
   const LayoutView* layout_view = GetLayoutView();
   DCHECK(layout_view);
   const gfx::SizeF unscaled_natural_size = AdjustForAbsoluteZoom::AdjustSize(
-      gfx::SizeF{*natural_size_}, layout_view->StyleRef());
+      gfx::SizeF{*natural_size_}, layout_view->Style());
   return NaturalSizingInfo::MakeSize(unscaled_natural_size);
 }
 
@@ -1877,23 +1918,22 @@ bool LocalFrameView::UpdatePlugins() {
   EmbeddedContentSet objects;
   objects.swap(part_update_set_);
 
-  for (const auto& embedded_object : objects) {
-    LayoutEmbeddedContent& object = *embedded_object;
-
-#if DCHECK_IS_ON()
-    if (object.is_destroyed_)
+  for (const WeakMember<LayoutEmbeddedContent>& embedded_object : objects) {
+    LayoutEmbeddedContent* object = LayoutObject::GetWeak(embedded_object);
+    if (!object) {
       continue;
-#endif
+    }
 
-    auto* element = To<HTMLPlugInElement>(object.GetNode());
+    auto* element = To<HTMLPlugInElement>(object->GetNode());
 
     // The object may have already been destroyed (thus node cleared).
     if (!element)
       continue;
 
     // No need to update if it's already crashed or known to be missing.
-    if (object.ShowsUnavailablePluginIndicator())
+    if (object->ShowsUnavailablePluginIndicator()) {
       continue;
+    }
 
     if (element->NeedsPluginUpdate() && element->GetLayoutObject())
       element->UpdatePlugin();
@@ -1902,7 +1942,7 @@ bool LocalFrameView::UpdatePlugins() {
 
     // Prevent plugins from causing infinite updates of themselves.
     // FIXME: Do we really need to prevent this?
-    part_update_set_.erase(&object);
+    part_update_set_.erase(object);
   }
 
   return part_update_set_.empty();
@@ -2084,7 +2124,7 @@ Color LocalFrameView::DocumentBackgroundColor() {
 
   Color doc_bg =
       background_source->ResolveColor(GetCSSPropertyBackgroundColor());
-  if (background_source->StyleRef().ColorSchemeForced()) {
+  if (background_source->Style().ColorSchemeForced()) {
     // TODO(https://crbug.com/1351544): The DarkModeFilter operate on SkColor4f,
     // and DocumentBackgroundColor should return an SkColor4f.
     doc_bg = Color::FromSkColor4f(EnsureDarkModeFilter().InvertColorIfNeeded(
@@ -2426,8 +2466,9 @@ bool LocalFrameView::UpdateLifecyclePhases(
 
       ForAllNonThrottledLocalFrameViews([](LocalFrameView& frame_view) {
         auto lifecycle_observers = frame_view.lifecycle_observers_;
-        for (auto& observer : lifecycle_observers)
-          observer->WillStartLifecycleUpdate(frame_view);
+        for (auto& observer : lifecycle_observers) {
+          observer.key->WillStartLifecycleUpdate(frame_view);
+        }
       });
     }
 
@@ -2456,8 +2497,9 @@ bool LocalFrameView::UpdateLifecyclePhases(
 
     ForAllNonThrottledLocalFrameViews([](LocalFrameView& frame_view) {
       auto lifecycle_observers = frame_view.lifecycle_observers_;
-      for (auto& observer : lifecycle_observers)
-        observer->DidFinishLifecycleUpdate(frame_view);
+      for (auto& observer : lifecycle_observers) {
+        observer.key->DidFinishLifecycleUpdate(frame_view);
+      }
     });
     if (frame_->GetWidgetForLocalRoot()) {
       frame_->GetWidgetForLocalRoot()->UpdateCursorAnchorInfo(
@@ -2923,7 +2965,7 @@ bool LocalFrameView::RunStyleAndLayoutLifecyclePhases(
   ForAllNonThrottledLocalFrameViews([](LocalFrameView& frame_view) {
     auto lifecycle_observers = frame_view.lifecycle_observers_;
     for (auto& observer : lifecycle_observers) {
-      observer->DidFinishLayout();
+      observer.key->DidFinishLayout();
     }
   });
 
@@ -4720,7 +4762,7 @@ bool LocalFrameView::CollectDraggableRegions(
   if (!layout_object.MayContainDraggableRegion()) {
     return false;
   }
-  bool has_region = layout_object.StyleRef().DraggableRegionMode() !=
+  bool has_region = layout_object.Style().DraggableRegionMode() !=
                     EDraggableRegionMode::kNone;
   if (has_region) {
     layout_object.AddDraggableRegions(regions);
@@ -5328,13 +5370,25 @@ bool LocalFrameView::LifecycleUpdatePending() const {
 }
 
 void LocalFrameView::RegisterForLifecycleNotifications(
-    LifecycleNotificationObserver* observer) {
-  lifecycle_observers_.insert(observer);
+    LifecycleNotificationObserver* observer,
+    PostLifecycleNotificationBehavior behavior) {
+  lifecycle_observers_.Set(observer, behavior);
 }
 
 void LocalFrameView::UnregisterFromLifecycleNotifications(
     LifecycleNotificationObserver* observer) {
   lifecycle_observers_.erase(observer);
+}
+
+void LocalFrameView::RequestOneShotPostLifecycleNotification(
+    LifecycleNotificationObserver* observer,
+    PostLifecycleNotificationBehavior behavior) {
+  queued_one_shot_observers_.Set(observer, behavior);
+}
+
+void LocalFrameView::CancelOneShotPostLifecycleNotification(
+    LifecycleNotificationObserver* observer) {
+  queued_one_shot_observers_.erase(observer);
 }
 
 void LocalFrameView::EnqueueStartOfLifecycleTask(base::OnceClosure closure) {
@@ -5356,8 +5410,8 @@ bool LocalFrameView::HasDominantVideoElement() const {
   return !fullscreen_video_elements_.empty();
 }
 
-void LocalFrameView::DidPaintCanvasChild(HTMLCanvasElement& canvas,
-                                         Element& child) {
+void LocalFrameView::DidPaintCanvasDrawable(HTMLCanvasElement& canvas,
+                                            Element& drawable) {
   DCHECK(RuntimeEnabledFeatures::CanvasDrawElementEnabled(
       GetFrame().GetDocument()->GetExecutionContext()));
   if (IsUpdatingLifecycle()) {
@@ -5366,7 +5420,7 @@ void LocalFrameView::DidPaintCanvasChild(HTMLCanvasElement& canvas,
       add_result.stored_value->value =
           MakeGarbageCollected<GCedHeapLinkedHashSet<Member<Element>>>();
     }
-    add_result.stored_value->value->insert(&child);
+    add_result.stored_value->value->insert(&drawable);
   }
 }
 

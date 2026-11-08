@@ -822,9 +822,10 @@ InspectorNetworkAgent::URLPatternMatcher::Create(const String& pattern,
 void InspectorNetworkAgent::Init(CoreProbeSink* instrumenting_agents,
                                  protocol::UberDispatcher* dispatcher,
                                  InspectorSessionState* session_state,
-                                 V8SessionHolder v8_session) {
+                                 V8SessionHolder v8_session,
+                                 ClientIsTrusted client_is_trusted) {
   InspectorBaseAgent::Init(instrumenting_agents, dispatcher, session_state,
-                           v8_session);
+                           v8_session, client_is_trusted);
   extra_request_headers_.clear();
   const auto* reattach_state = session_state->ReattachState();
   if (reattach_state && reattach_state->browser_originating_session_state) {
@@ -1335,7 +1336,7 @@ void InspectorNetworkAgent::DidBlockRequest(
   // worked out fine, we mark the request as successful, as to not confuse devs.
   if (reason == ResourceRequestBlockedReason::kConversionRequest) {
     GetFrontend()->loadingFinished(
-        request_id, base::TimeTicks::Now().since_origin().InSecondsF(), 0);
+        request_id, base::TimeTicks::Now().since_origin().InSecondsF(), 0, 0);
     return;
   }
 
@@ -1772,6 +1773,7 @@ void InspectorNetworkAgent::DidFinishLoading(
     DocumentLoader* loader,
     base::TimeTicks monotonic_finish_time,
     int64_t encoded_data_length,
+    uint64_t encoded_body_length,
     int64_t decoded_body_length) {
   String request_id = RequestId(loader, identifier);
   streaming_request_ids_.erase(request_id);
@@ -1801,10 +1803,10 @@ void InspectorNetworkAgent::DidFinishLoading(
   if (monotonic_finish_time.is_null())
     monotonic_finish_time = base::TimeTicks::Now();
 
-  // TODO(npm): Use base::TimeTicks in Network.h.
+  // TODO: Use base::TimeTicks in Network.h.
   GetFrontend()->loadingFinished(
       request_id, monotonic_finish_time.since_origin().InSecondsF(),
-      encoded_data_length);
+      encoded_data_length, encoded_body_length);
 }
 
 void InspectorNetworkAgent::DidReceiveCorsRedirectResponse(
@@ -1815,7 +1817,8 @@ void InspectorNetworkAgent::DidReceiveCorsRedirectResponse(
   // Update the response and finish loading
   DidReceiveResourceResponse(identifier, loader, response, resource);
   DidFinishLoading(identifier, loader, base::TimeTicks(),
-                   URLLoaderClient::kUnknownEncodedDataLength, 0);
+                   URLLoaderClient::kUnknownEncodedDataLength,
+                   response.EncodedBodyLength(), 0);
 }
 
 void InspectorNetworkAgent::DidFailLoading(
@@ -1834,7 +1837,7 @@ void InspectorNetworkAgent::DidFailLoading(
   if (error.IsTrustTokenCacheHit()) {
     GetFrontend()->requestServedFromCache(request_id);
     GetFrontend()->loadingFinished(
-        request_id, base::TimeTicks::Now().since_origin().InSecondsF(), 0);
+        request_id, base::TimeTicks::Now().since_origin().InSecondsF(), 0, 0);
     return;
   }
 

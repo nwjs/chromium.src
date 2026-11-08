@@ -10,6 +10,7 @@
 #include "base/one_shot_event.h"
 #include "base/run_loop.h"
 #include "base/task/single_thread_task_runner.h"
+#include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/values.h"
 #include "build/build_config.h"
@@ -32,6 +33,10 @@
 #include "extensions/common/extension_builder.h"
 #include "extensions/common/mojom/manifest.mojom.h"
 #include "testing/gtest/include/gtest/gtest.h"
+
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
+#include "chrome/browser/extensions/policy_dse_ntp_override_metrics_reporter.h"
+#endif
 
 namespace extensions {
 
@@ -193,6 +198,7 @@ TEST_F(LowTrustPolicyInstallBlockManagerTest,
 // malformed records (expired TTLs, missing fields, invalid enum values, and
 // non-dictionary structures) while retaining valid entries.
 TEST_F(LowTrustPolicyInstallBlockManagerTest, CleanupStaleRecords) {
+  base::HistogramTester histograms;
   base::Time now = base::Time::Now();
   PopulateTestEntries(now);
 
@@ -201,6 +207,11 @@ TEST_F(LowTrustPolicyInstallBlockManagerTest, CleanupStaleRecords) {
   EXPECT_EQ(manager()->CleanupStaleRecords(), 0u);
 
   EXPECT_TRUE(manager()->IsBlocked(kFreshId));
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
+  histograms.ExpectUniqueSample(
+      "Extensions.LowTrustPolicyBlock.Action",
+      LowTrustPolicyBlockAction::kCacheClearedOnTtlExpiration, 5);
+#endif
 }
 
 class LowTrustPolicyInstallBlockManagerServiceTest
@@ -243,12 +254,20 @@ class LowTrustPolicyInstallBlockManagerServiceTest
     ASSERT_TRUE(block_manager()->IsBlocked(kRemovedId));
   }
 
+  policy::PolicyMap GetCurrentChromePolicies() {
+    return policy_provider()
+        ->policies()
+        .Get(policy::PolicyNamespace(policy::POLICY_DOMAIN_CHROME,
+                                     std::string()))
+        .Clone();
+  }
+
   void SetForceInstallPolicy(const ExtensionId& extension_id,
                              const std::string& update_url) {
     policy_provider()->SetDefaultReturns(
         /*is_initialization_complete_return=*/true,
         /*is_first_policy_load_complete_return=*/true);
-    policy::PolicyMap policies;
+    policy::PolicyMap policies = GetCurrentChromePolicies();
     base::ListValue forcelist;
     forcelist.Append(extension_id + ";" + update_url);
     policies.Set(policy::key::kExtensionInstallForcelist,
@@ -258,6 +277,42 @@ class LowTrustPolicyInstallBlockManagerServiceTest
                  /*external_data_fetcher=*/nullptr);
     policy_provider()->UpdateChromePolicy(policies);
   }
+
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
+  void SetAllowDseNtpOverridesPolicy(bool enabled) {
+    policy_provider()->SetDefaultReturns(
+        /*is_initialization_complete_return=*/true,
+        /*is_first_policy_load_complete_return=*/true);
+    policy::PolicyMap policies = GetCurrentChromePolicies();
+    policies.Set(
+        policy::key::kExtensionForceInstallWithSearchOrNewTabOverridesEnabled,
+        policy::POLICY_LEVEL_MANDATORY, policy::POLICY_SCOPE_USER,
+        policy::POLICY_SOURCE_PLATFORM, base::Value(enabled),
+        /*external_data_fetcher=*/nullptr);
+    policy_provider()->UpdateChromePolicy(policies);
+  }
+
+  // Configures and installs a force-installed extension that overrides the New
+  // Tab Page. The extension is marked with `Extension::FROM_WEBSTORE` so that
+  // it is not force-disabled as an unverified off-store extension in low-trust
+  // environments.
+  scoped_refptr<const Extension> InstallForceInstalledNtpOverrideExtension() {
+    auto extension =
+        ExtensionBuilder("Policy NTP Override")
+            .SetLocation(mojom::ManifestLocation::kExternalPolicyDownload)
+            .AddFlags(Extension::FROM_WEBSTORE)
+            .AddJSON(R"(
+              "chrome_url_overrides": {
+                "newtab": "custom_newtab.html"
+              }
+            )")
+            .Build();
+    SetForceInstallPolicy(extension->id(), kUpdateUrl);
+    registrar()->OnExtensionInstalled(extension.get(), syncer::StringOrdinal(),
+                                      kInstallFlagInstallImmediately);
+    return extension;
+  }
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
 };
 
 // Verifies that when an enterprise policy is updated at runtime to remove a
@@ -266,6 +321,7 @@ class LowTrustPolicyInstallBlockManagerServiceTest
 // cache while retaining extensions that remain configured in policy.
 TEST_F(LowTrustPolicyInstallBlockManagerServiceTest,
        LowTrustPolicyRemovalCleanup) {
+  base::HistogramTester histograms;
   SeedBlockedCacheEntries();
 
   // Configure force-install policy for kRetainedId only (simulating removal of
@@ -276,6 +332,11 @@ TEST_F(LowTrustPolicyInstallBlockManagerServiceTest,
 
   EXPECT_TRUE(block_manager()->IsBlocked(kRetainedId));
   EXPECT_FALSE(block_manager()->IsBlocked(kRemovedId));
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
+  histograms.ExpectUniqueSample(
+      "Extensions.LowTrustPolicyBlock.Action",
+      LowTrustPolicyBlockAction::kCacheClearedOnPolicyRemoval, 1);
+#endif
 }
 
 // Verifies that when the browser starts up with persisted entries in the
@@ -343,6 +404,7 @@ TEST_F(LowTrustPolicyInstallBlockManagerServiceTest,
        LowTrustTransitionUninstall) {
   base::test::ScopedFeatureList feature_list;
   feature_list.InitAndEnableFeature(kBlockPolicyDseNtpOverridesInLowTrust);
+  base::HistogramTester histograms;
 
   // 1. In a managed environment, policy installations of settings-override
   // extensions are trusted and permitted to install and run normally.
@@ -350,19 +412,7 @@ TEST_F(LowTrustPolicyInstallBlockManagerServiceTest,
       policy::ManagementServiceFactory::GetForProfile(profile()),
       policy::EnterpriseManagementAuthority::CLOUD);
 
-  auto extension =
-      ExtensionBuilder("Policy NTP Override")
-          .SetLocation(mojom::ManifestLocation::kExternalPolicyDownload)
-          .AddJSON(R"(
-            "chrome_url_overrides": {
-              "newtab": "custom_newtab.html"
-            }
-          )")
-          .Build();
-
-  SetForceInstallPolicy(extension->id(), kUpdateUrl);
-  registrar()->OnExtensionInstalled(extension.get(), syncer::StringOrdinal(),
-                                    kInstallFlagInstallImmediately);
+  auto extension = InstallForceInstalledNtpOverrideExtension();
 
   // Policy extensions are enabled upon install in a trusted environment.
   ASSERT_TRUE(registry()->enabled_extensions().Contains(extension->id()));
@@ -380,6 +430,45 @@ TEST_F(LowTrustPolicyInstallBlockManagerServiceTest,
   // When management trust is lost, active policy-installed settings-override
   // extensions must be uninstalled to restore user control, and their IDs must
   // be cached in the low-trust blocked manager to prevent subsequent installs.
+  EXPECT_FALSE(registry()->GetInstalledExtension(extension->id()));
+  EXPECT_TRUE(block_manager()->IsBlocked(extension->id()));
+  histograms.ExpectUniqueSample(
+      "Extensions.LowTrustPolicyBlock.Action",
+      LowTrustPolicyBlockAction::kUninstalledOnTrustLoss, 1);
+}
+
+// Tests that when a policy-installed extension overriding the New Tab Page is
+// allowed in a low-trust environment via the
+// ExtensionForceInstallWithSearchOrNewTabOverridesEnabled enterprise policy,
+// disabling the policy at runtime triggers uninstallation of the extension and
+// records it in the low-trust blocked manager.
+TEST_F(LowTrustPolicyInstallBlockManagerServiceTest,
+       LowTrustDseNtpOverridesPolicyDisabledUninstall) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(kBlockPolicyDseNtpOverridesInLowTrust);
+
+  policy::ScopedManagementServiceOverrideForTesting platform_management(
+      policy::ManagementServiceFactory::GetForPlatform(),
+      policy::EnterpriseManagementAuthority::NONE);
+  policy::ScopedManagementServiceOverrideForTesting profile_management(
+      policy::ManagementServiceFactory::GetForProfile(profile()),
+      policy::EnterpriseManagementAuthority::NONE);
+
+  // 1. Enable the policy in a low-trust environment so that policy-installed
+  // settings-override extensions are permitted to install and remain enabled.
+  SetAllowDseNtpOverridesPolicy(true);
+
+  auto extension = InstallForceInstalledNtpOverrideExtension();
+
+  ASSERT_TRUE(registry()->enabled_extensions().Contains(extension->id()));
+  EXPECT_FALSE(block_manager()->IsBlocked(extension->id()));
+
+  // 2. Disable the policy at runtime. The preference change observer in
+  // ExtensionManagement refreshes global settings and notifies
+  // LowTrustPolicyInstallBlockManager, which uninstalls the extension and marks
+  // it blocked.
+  SetAllowDseNtpOverridesPolicy(false);
+
   EXPECT_FALSE(registry()->GetInstalledExtension(extension->id()));
   EXPECT_TRUE(block_manager()->IsBlocked(extension->id()));
 }

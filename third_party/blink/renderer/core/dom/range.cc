@@ -42,6 +42,7 @@
 #include "third_party/blink/renderer/core/editing/frame_selection.h"
 #include "third_party/blink/renderer/core/editing/iterators/text_iterator.h"
 #include "third_party/blink/renderer/core/editing/position_units.h"
+#include "third_party/blink/renderer/core/editing/selection_adjuster.h"
 #include "third_party/blink/renderer/core/editing/selection_template.h"
 #include "third_party/blink/renderer/core/editing/serializers/serialization.h"
 #include "third_party/blink/renderer/core/editing/set_selection_options.h"
@@ -1010,7 +1011,8 @@ DocumentFragment* Range::createContextualFragment(
   String compliant_markup = TrustedTypesCheckForFragment(
       markup, resolved_options, owner_document_->GetExecutionContext(),
       trusted_types_names::kRange,
-      trusted_types_names::kCreateContextualFragment, exception_state);
+      trusted_types_names::kCreateContextualFragment,
+      !owner_document_->IsHTMLDocument(), exception_state);
 
   if (exception_state.HadException()) {
     return nullptr;
@@ -1655,6 +1657,9 @@ void Range::expand(const String& unit, ExceptionState& exception_state) {
   owner_document_->UpdateStyleAndLayout(DocumentUpdateReason::kJavaScript);
   VisiblePosition start = CreateVisiblePosition(StartPosition());
   VisiblePosition end = CreateVisiblePosition(EndPosition());
+  if (start.IsNull() || end.IsNull()) {
+    return;
+  }
   if (unit == "word") {
     start = CreateVisiblePosition(StartOfWordPosition(start.DeepEquivalent()));
     end = CreateVisiblePosition(EndOfWordPosition(end.DeepEquivalent()));
@@ -1671,11 +1676,25 @@ void Range::expand(const String& unit, ExceptionState& exception_state) {
   } else {
     return;
   }
-  setStart(start.DeepEquivalent().ComputeContainerNode(),
-           start.DeepEquivalent().ComputeOffsetInContainerNode(),
-           exception_state);
-  setEnd(end.DeepEquivalent().ComputeContainerNode(),
-         end.DeepEquivalent().ComputeOffsetInContainerNode(), exception_state);
+  if (start.IsNull() || end.IsNull()) {
+    return;
+  }
+  const Position result_start =
+      SelectionAdjuster::AdjustSelectionToAvoidCrossingShadowBoundaries(
+          SelectionInDomTree::Builder()
+              .SetBaseAndExtent(StartPosition(), start.DeepEquivalent())
+              .Build())
+          .Focus();
+  const Position result_end =
+      SelectionAdjuster::AdjustSelectionToAvoidCrossingShadowBoundaries(
+          SelectionInDomTree::Builder()
+              .SetBaseAndExtent(EndPosition(), end.DeepEquivalent())
+              .Build())
+          .Focus();
+  setStart(result_start.ComputeContainerNode(),
+           result_start.ComputeOffsetInContainerNode(), exception_state);
+  setEnd(result_end.ComputeContainerNode(),
+         result_end.ComputeOffsetInContainerNode(), exception_state);
 }
 
 DOMRectList* Range::getClientRects() const {

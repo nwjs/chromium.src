@@ -28,6 +28,7 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
+import org.robolectric.Robolectric;
 
 import org.chromium.base.ActivityState;
 import org.chromium.base.ApplicationStatus;
@@ -45,7 +46,6 @@ import org.chromium.url.JUnitTestGURLs;
 @RunWith(BaseRobolectricTestRunner.class)
 public class NtpFeedSurfaceLifecycleManagerTest {
     @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
-    @Mock private Activity mActivity;
     @Mock private Tab mTab;
     @Mock private PrefService mPrefService;
     @Mock private FeedSurfaceCoordinator mCoordinator;
@@ -53,6 +53,7 @@ public class NtpFeedSurfaceLifecycleManagerTest {
     @Mock private NavigationController mNavigationController;
     @Mock private NavigationEntry mNavigationEntry;
 
+    private Activity mActivity;
     private NtpFeedSurfaceLifecycleManager mNtpStreamLifecycleManager;
 
     @Before
@@ -62,6 +63,7 @@ public class NtpFeedSurfaceLifecycleManagerTest {
         doNothing().when(mPrefService).setBoolean(anyString(), anyBoolean());
         NtpFeedSurfaceLifecycleManager.setPrefServiceForTesting(mPrefService);
 
+        mActivity = Robolectric.buildActivity(Activity.class).get();
         ApplicationStatus.onStateChangeForTesting(mActivity, ActivityState.CREATED);
         mNtpStreamLifecycleManager =
                 new NtpFeedSurfaceLifecycleManager(mActivity, mTab, mCoordinator);

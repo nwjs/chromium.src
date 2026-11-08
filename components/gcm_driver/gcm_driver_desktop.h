@@ -18,7 +18,7 @@
 #include "base/observer_list.h"
 #include "base/time/time.h"
 #include "base/tuple.h"
-#include "components/gcm_driver/crypto/gcm_decryption_result.h"
+#include "components/fcm/engine/chrome_build_info.h"
 #include "components/gcm_driver/gcm_client.h"
 #include "components/gcm_driver/gcm_connection_observer.h"
 #include "components/gcm_driver/gcm_driver.h"
@@ -37,6 +37,10 @@ class NetworkConnectionTracker;
 class SharedURLLoaderFactory;
 }
 
+namespace fcm {
+enum class FcmDecryptionResult;
+}  // namespace fcm
+
 namespace os_crypt_async {
 class Encryptor;
 class OSCryptAsync;
@@ -44,10 +48,8 @@ class OSCryptAsync;
 
 namespace gcm {
 
-class GCMAccountMapper;
 class GCMAppHandler;
 class GCMClientFactory;
-enum class GCMDecryptionResult;
 class GCMDelayedTaskController;
 
 // GCMDriver implementation for desktop and Chrome OS, using GCMClient.
@@ -56,7 +58,7 @@ class GCMDriverDesktop : public GCMDriver,
  public:
   GCMDriverDesktop(
       std::unique_ptr<GCMClientFactory> gcm_client_factory,
-      const GCMClient::ChromeBuildInfo& chrome_build_info,
+      const fcm::ChromeBuildInfo& chrome_build_info,
       PrefService* prefs,
       const base::FilePath& store_path,
       base::RepeatingCallback<void(
@@ -112,7 +114,7 @@ class GCMDriverDesktop : public GCMDriver,
                 const std::string& receiver_id,
                 const OutgoingMessage& message) override;
   void RecordDecryptionFailure(const std::string& app_id,
-                               GCMDecryptionResult result) override;
+                               fcm::FcmDecryptionResult result) override;
 
   // InstanceIDHandler implementation:
   void GetToken(const std::string& app_id,
@@ -217,9 +219,6 @@ class GCMDriverDesktop : public GCMDriver,
   // List of observers to notify when connection state changes.
   base::ObserverList<GCMConnectionObserver, false>::Unchecked
       connection_observer_list_;
-
-  // Account mapper. Only works when user is signed in.
-  std::unique_ptr<GCMAccountMapper> account_mapper_;
 
   // Time of last token fetching.
   base::Time last_token_fetch_time_;

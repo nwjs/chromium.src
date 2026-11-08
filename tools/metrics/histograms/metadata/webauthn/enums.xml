@@ -48,9 +48,11 @@ chromium-metrics-reviews@google.com.
 <enum name="CmtgDeviceKeysResult">
   <int value="0" label="Success"/>
   <int value="1" label="Network error"/>
+  <int value="2" label="Parse error"/>
+  <int value="3" label="Access token error"/>
 </enum>
 
-<!-- LINT.ThenChange(//components/webauthn/core/browser/cryptauth_cmtg_device_key_provider.cc:CmtgDeviceKeysResult) -->
+<!-- LINT.ThenChange(//components/webauthn/core/browser/cryptauth_cmtg_device_key_provider.h:CmtgDeviceKeysResult) -->
 
 <!-- LINT.IfChange(CombinedSelectorAction) -->
 
@@ -570,6 +572,34 @@ chromium-metrics-reviews@google.com.
 
 <!-- LINT.ThenChange(//chrome/browser/webauthn/webauthn_metrics_util.h:WebAuthenticationGPMRecoveryEvent) -->
 
+<!-- LINT.IfChange(WebAuthenticationHybridPasskeyEngagement) -->
+
+<enum name="WebAuthenticationHybridPasskeyEngagement">
+  <int value="0" label="Scan detected"/>
+  <int value="1" label="No scan detected"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/browser/webauthn/chrome_authenticator_request_delegate.h:HybridPasskeyEngagement) -->
+
+<!-- LINT.IfChange(WebAuthenticationHybridPasskeyOutcome) -->
+
+<enum name="WebAuthenticationHybridPasskeyOutcome">
+  <int value="0" label="Success"/>
+  <int value="1" label="Cancelled on desktop after BLE advert received"/>
+  <int value="2" label="Cancelled on desktop after phone connected to tunnel"/>
+  <int value="3" label="Cancelled on desktop while waiting for phone"/>
+  <int value="4" label="Failed after BLE advert received"/>
+  <int value="5" label="Failed after phone connected to tunnel"/>
+  <int value="6" label="Failed while waiting for phone"/>
+  <int value="7" label="Cancelled or no passkeys on phone"/>
+  <int value="8" label="Hybrid transport error"/>
+  <int value="9" label="Timed out"/>
+  <int value="10"
+      label="Another authenticator (not the phone) succeeded or failed"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/browser/webauthn/chrome_authenticator_request_delegate.h:HybridPasskeyOutcome) -->
+
 <!-- LINT.IfChange(WebAuthenticationImmediateMediationRejectionReason) -->
 
 <enum name="WebAuthenticationImmediateMediationRejectionReason">
@@ -781,6 +811,17 @@ chromium-metrics-reviews@google.com.
 </enum>
 
 <!-- LINT.ThenChange(//third_party/blink/renderer/modules/credentialmanagement/authentication_credentials_container.cc:WebAuthenticationResidentKeyRequirement) -->
+
+<!-- LINT.IfChange(WebAuthenticationUnexportableKeyProviderType) -->
+
+<enum name="WebAuthenticationUnexportableKeyProviderType">
+  <int value="0" label="None"/>
+  <int value="1" label="Hardware"/>
+  <int value="2" label="Microsoft Software Key Storage Provider"/>
+  <int value="3" label="Software Fallback"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/browser/webauthn/unexportable_key_utils.h:WebAuthenticationUnexportableKeyProviderType) -->
 
 <!-- LINT.IfChange(WindowsForegroundedHelloDialog) -->
 

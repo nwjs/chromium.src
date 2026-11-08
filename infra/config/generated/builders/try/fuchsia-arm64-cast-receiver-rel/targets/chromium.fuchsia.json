@@ -6,6 +6,9 @@
     ],
     "gtest_tests": [
       {
+        "args": [
+          "--device-spec=arm64-emu-large"
+        ],
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -28,6 +31,9 @@
         "test_id_prefix": "ninja://third_party/abseil-cpp:absl_hardening_tests/"
       },
       {
+        "args": [
+          "--device-spec=arm64-emu-large"
+        ],
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -50,6 +56,9 @@
         "test_id_prefix": "ninja://ui/accessibility:accessibility_unittests/"
       },
       {
+        "args": [
+          "--device-spec=arm64-emu-large"
+        ],
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -72,6 +81,9 @@
         "test_id_prefix": "ninja://ui/aura:aura_unittests/"
       },
       {
+        "args": [
+          "--device-spec=arm64-emu-large"
+        ],
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -94,6 +106,9 @@
         "test_id_prefix": "ninja://base:base_unittests/"
       },
       {
+        "args": [
+          "--device-spec=arm64-emu-large"
+        ],
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -116,6 +131,9 @@
         "test_id_prefix": "ninja://third_party/blink/common:blink_common_unittests/"
       },
       {
+        "args": [
+          "--device-spec=arm64-emu-large"
+        ],
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -138,6 +156,9 @@
         "test_id_prefix": "ninja://third_party/blink/renderer/platform:blink_fuzzer_unittests/"
       },
       {
+        "args": [
+          "--device-spec=arm64-emu-large"
+        ],
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -161,7 +182,9 @@
       },
       {
         "args": [
-          "--git-revision=${got_revision}"
+          "--git-revision=${got_revision}",
+          "--bypass-skia-gold-functionality",
+          "--device-spec=arm64-emu-large"
         ],
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -190,6 +213,9 @@
         "test_id_prefix": "ninja://third_party/blink/renderer/platform:blink_platform_unittests/"
       },
       {
+        "args": [
+          "--device-spec=arm64-emu-large"
+        ],
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -212,6 +238,9 @@
         "test_id_prefix": "ninja://third_party/blink/renderer/controller:blink_unittests/"
       },
       {
+        "args": [
+          "--device-spec=arm64-emu-large"
+        ],
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -234,6 +263,9 @@
         "test_id_prefix": "ninja://third_party/boringssl:boringssl_crypto_tests/"
       },
       {
+        "args": [
+          "--device-spec=arm64-emu-large"
+        ],
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -256,6 +288,9 @@
         "test_id_prefix": "ninja://third_party/boringssl:boringssl_ssl_tests/"
       },
       {
+        "args": [
+          "--device-spec=arm64-emu-large"
+        ],
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -278,6 +313,9 @@
         "test_id_prefix": "ninja://media/capture:capture_unittests/"
       },
       {
+        "args": [
+          "--device-spec=arm64-emu-large"
+        ],
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -300,6 +338,9 @@
         "test_id_prefix": "ninja://fuchsia_web/runners:cast_runner_browsertests/"
       },
       {
+        "args": [
+          "--device-spec=arm64-emu-large"
+        ],
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -322,6 +363,9 @@
         "test_id_prefix": "ninja://fuchsia_web/runners:cast_runner_integration_tests/"
       },
       {
+        "args": [
+          "--device-spec=arm64-emu-large"
+        ],
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -344,6 +388,9 @@
         "test_id_prefix": "ninja://fuchsia_web/runners:cast_runner_unittests/"
       },
       {
+        "args": [
+          "--device-spec=arm64-emu-large"
+        ],
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -366,6 +413,9 @@
         "test_id_prefix": "ninja://media/cast:cast_unittests/"
       },
       {
+        "args": [
+          "--device-spec=arm64-emu-large"
+        ],
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -391,7 +441,8 @@
         "args": [
           "--test-arg=--disable-gpu",
           "--test-arg=--headless",
-          "--test-arg=--ozone-platform=headless"
+          "--test-arg=--ozone-platform=headless",
+          "--device-spec=arm64-emu-large"
         ],
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -415,6 +466,9 @@
         "test_id_prefix": "ninja://components:components_browsertests/"
       },
       {
+        "args": [
+          "--device-spec=arm64-emu-large"
+        ],
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -438,6 +492,9 @@
         "test_id_prefix": "ninja://components:components_unittests/"
       },
       {
+        "args": [
+          "--device-spec=arm64-emu-large"
+        ],
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -463,7 +520,8 @@
         "args": [
           "--test-arg=--disable-gpu",
           "--test-arg=--headless",
-          "--test-arg=--ozone-platform=headless"
+          "--test-arg=--ozone-platform=headless",
+          "--device-spec=arm64-emu-large"
         ],
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -488,6 +546,9 @@
         "test_id_prefix": "ninja://content/test:content_browsertests/"
       },
       {
+        "args": [
+          "--device-spec=arm64-emu-large"
+        ],
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -510,6 +571,9 @@
         "test_id_prefix": "ninja://content/test:content_unittests/"
       },
       {
+        "args": [
+          "--device-spec=arm64-emu-large"
+        ],
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -532,6 +596,9 @@
         "test_id_prefix": "ninja://crypto:crypto_unittests/"
       },
       {
+        "args": [
+          "--device-spec=arm64-emu-large"
+        ],
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -554,6 +621,9 @@
         "test_id_prefix": "ninja://ui/display:display_unittests/"
       },
       {
+        "args": [
+          "--device-spec=arm64-emu-large"
+        ],
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -576,6 +646,9 @@
         "test_id_prefix": "ninja://ui/events:events_unittests/"
       },
       {
+        "args": [
+          "--device-spec=arm64-emu-large"
+        ],
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -598,6 +671,9 @@
         "test_id_prefix": "ninja://components/services/filesystem:filesystem_service_unittests/"
       },
       {
+        "args": [
+          "--device-spec=arm64-emu-large"
+        ],
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -620,6 +696,9 @@
         "test_id_prefix": "ninja://google_apis/gcm:gcm_unit_tests/"
       },
       {
+        "args": [
+          "--device-spec=arm64-emu-large"
+        ],
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -642,6 +721,9 @@
         "test_id_prefix": "ninja://ui/gfx:gfx_unittests/"
       },
       {
+        "args": [
+          "--device-spec=arm64-emu-large"
+        ],
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -664,6 +746,9 @@
         "test_id_prefix": "ninja://gin:gin_unittests/"
       },
       {
+        "args": [
+          "--device-spec=arm64-emu-large"
+        ],
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -686,6 +771,9 @@
         "test_id_prefix": "ninja://google_apis:google_apis_unittests/"
       },
       {
+        "args": [
+          "--device-spec=arm64-emu-large"
+        ],
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -708,6 +796,9 @@
         "test_id_prefix": "ninja://gpu:gpu_unittests/"
       },
       {
+        "args": [
+          "--device-spec=arm64-emu-large"
+        ],
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -730,6 +821,9 @@
         "test_id_prefix": "ninja://components/gwp_asan:gwp_asan_unittests/"
       },
       {
+        "args": [
+          "--device-spec=arm64-emu-large"
+        ],
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -752,6 +846,9 @@
         "test_id_prefix": "ninja://headless:headless_browsertests/"
       },
       {
+        "args": [
+          "--device-spec=arm64-emu-large"
+        ],
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -774,6 +871,9 @@
         "test_id_prefix": "ninja://headless:headless_unittests/"
       },
       {
+        "args": [
+          "--device-spec=arm64-emu-large"
+        ],
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -796,6 +896,9 @@
         "test_id_prefix": "ninja://ipc:ipc_tests/"
       },
       {
+        "args": [
+          "--device-spec=arm64-emu-large"
+        ],
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -820,7 +923,8 @@
       {
         "args": [
           "--test-launcher-filter-file=../../testing/buildbot/filters/layer_list_mode.cc_unittests.filter",
-          "--enable-features=UseLayerListsByDefault"
+          "--enable-features=UseLayerListsByDefault",
+          "--device-spec=arm64-emu-large"
         ],
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -840,6 +944,9 @@
         "test_id_prefix": "ninja://cc:cc_unittests/"
       },
       {
+        "args": [
+          "--device-spec=arm64-emu-large"
+        ],
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -862,6 +969,9 @@
         "test_id_prefix": "ninja://third_party/libjingle_xmpp:libjingle_xmpp_unittests/"
       },
       {
+        "args": [
+          "--device-spec=arm64-emu-large"
+        ],
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -884,6 +994,9 @@
         "test_id_prefix": "ninja://third_party/liburlpattern:liburlpattern_unittests/"
       },
       {
+        "args": [
+          "--device-spec=arm64-emu-large"
+        ],
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -906,6 +1019,9 @@
         "test_id_prefix": "ninja://media:media_unittests/"
       },
       {
+        "args": [
+          "--device-spec=arm64-emu-large"
+        ],
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -928,6 +1044,9 @@
         "test_id_prefix": "ninja://ui/message_center:message_center_unittests/"
       },
       {
+        "args": [
+          "--device-spec=arm64-emu-large"
+        ],
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -950,6 +1069,9 @@
         "test_id_prefix": "ninja://media/midi:midi_unittests/"
       },
       {
+        "args": [
+          "--device-spec=arm64-emu-large"
+        ],
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -972,6 +1094,9 @@
         "test_id_prefix": "ninja://mojo:mojo_unittests/"
       },
       {
+        "args": [
+          "--device-spec=arm64-emu-large"
+        ],
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -995,7 +1120,8 @@
       },
       {
         "args": [
-          "--test-launcher-filter-file=../../testing/buildbot/filters/fuchsia.net_unittests.filter"
+          "--test-launcher-filter-file=../../testing/buildbot/filters/fuchsia.net_unittests.filter",
+          "--device-spec=arm64-emu-large"
         ],
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -1020,7 +1146,8 @@
       },
       {
         "args": [
-          "--test-arg=--ozone-platform=headless"
+          "--test-arg=--ozone-platform=headless",
+          "--device-spec=arm64-emu-large"
         ],
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -1044,6 +1171,9 @@
         "test_id_prefix": "ninja://ui/ozone/gl:ozone_gl_unittests/"
       },
       {
+        "args": [
+          "--device-spec=arm64-emu-large"
+        ],
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -1066,6 +1196,9 @@
         "test_id_prefix": "ninja://ui/ozone:ozone_unittests/"
       },
       {
+        "args": [
+          "--device-spec=arm64-emu-large"
+        ],
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -1089,7 +1222,8 @@
       },
       {
         "args": [
-          "--test-launcher-filter-file=../../testing/buildbot/filters/fuchsia.services_unittests.filter"
+          "--test-launcher-filter-file=../../testing/buildbot/filters/fuchsia.services_unittests.filter",
+          "--device-spec=arm64-emu-large"
         ],
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -1113,6 +1247,9 @@
         "test_id_prefix": "ninja://services:services_unittests/"
       },
       {
+        "args": [
+          "--device-spec=arm64-emu-large"
+        ],
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -1135,6 +1272,9 @@
         "test_id_prefix": "ninja://ui/shell_dialogs:shell_dialogs_unittests/"
       },
       {
+        "args": [
+          "--device-spec=arm64-emu-large"
+        ],
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -1157,6 +1297,9 @@
         "test_id_prefix": "ninja://skia:skia_unittests/"
       },
       {
+        "args": [
+          "--device-spec=arm64-emu-large"
+        ],
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -1179,6 +1322,9 @@
         "test_id_prefix": "ninja://ui/snapshot:snapshot_unittests/"
       },
       {
+        "args": [
+          "--device-spec=arm64-emu-large"
+        ],
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -1201,6 +1347,9 @@
         "test_id_prefix": "ninja://sql:sql_unittests/"
       },
       {
+        "args": [
+          "--device-spec=arm64-emu-large"
+        ],
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -1226,7 +1375,9 @@
         "args": [
           "--enable-features=TreesInViz",
           "--test-launcher-filter-file=../../testing/buildbot/filters/trees_in_viz.blink_platform_unittests.filter",
-          "--git-revision=${got_revision}"
+          "--git-revision=${got_revision}",
+          "--bypass-skia-gold-functionality",
+          "--device-spec=arm64-emu-large"
         ],
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -1253,7 +1404,8 @@
       {
         "args": [
           "--enable-features=TreesInViz",
-          "--test-launcher-filter-file=../../testing/buildbot/filters/trees_in_viz.cc_unittests.filter"
+          "--test-launcher-filter-file=../../testing/buildbot/filters/trees_in_viz.cc_unittests.filter",
+          "--device-spec=arm64-emu-large"
         ],
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -1274,7 +1426,8 @@
       },
       {
         "args": [
-          "--test-launcher-filter-file=../../testing/buildbot/filters/fuchsia.ui_base_unittests.filter"
+          "--test-launcher-filter-file=../../testing/buildbot/filters/fuchsia.ui_base_unittests.filter",
+          "--device-spec=arm64-emu-large"
         ],
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -1298,6 +1451,9 @@
         "test_id_prefix": "ninja://ui/base:ui_base_unittests/"
       },
       {
+        "args": [
+          "--device-spec=arm64-emu-large"
+        ],
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -1320,6 +1476,9 @@
         "test_id_prefix": "ninja://ui/touch_selection:ui_touch_selection_unittests/"
       },
       {
+        "args": [
+          "--device-spec=arm64-emu-large"
+        ],
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -1342,6 +1501,9 @@
         "test_id_prefix": "ninja://ui/tests:ui_unittests/"
       },
       {
+        "args": [
+          "--device-spec=arm64-emu-large"
+        ],
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -1365,7 +1527,8 @@
       },
       {
         "args": [
-          "--test-launcher-filter-file=../../testing/buildbot/filters/fuchsia.views_examples_unittests.filter"
+          "--test-launcher-filter-file=../../testing/buildbot/filters/fuchsia.views_examples_unittests.filter",
+          "--device-spec=arm64-emu-large"
         ],
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -1390,7 +1553,8 @@
       },
       {
         "args": [
-          "--test-launcher-filter-file=../../testing/buildbot/filters/fuchsia.views_unittests.filter"
+          "--test-launcher-filter-file=../../testing/buildbot/filters/fuchsia.views_unittests.filter",
+          "--device-spec=arm64-emu-large"
         ],
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -1415,7 +1579,8 @@
       },
       {
         "args": [
-          "--test-launcher-filter-file=../../testing/buildbot/filters/fuchsia.viz_unittests.filter"
+          "--test-launcher-filter-file=../../testing/buildbot/filters/fuchsia.viz_unittests.filter",
+          "--device-spec=arm64-emu-large"
         ],
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -1439,6 +1604,9 @@
         "test_id_prefix": "ninja://components/viz:viz_unittests/"
       },
       {
+        "args": [
+          "--device-spec=arm64-emu-large"
+        ],
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -1461,6 +1629,9 @@
         "test_id_prefix": "ninja://fuchsia_web/webengine:web_engine_browsertests/"
       },
       {
+        "args": [
+          "--device-spec=arm64-emu-large"
+        ],
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -1483,6 +1654,9 @@
         "test_id_prefix": "ninja://fuchsia_web/webengine:web_engine_integration_tests/"
       },
       {
+        "args": [
+          "--device-spec=arm64-emu-large"
+        ],
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -1505,6 +1679,9 @@
         "test_id_prefix": "ninja://fuchsia_web/webengine:web_engine_unittests/"
       },
       {
+        "args": [
+          "--device-spec=arm64-emu-large"
+        ],
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -1527,6 +1704,9 @@
         "test_id_prefix": "ninja://ui/wm:wm_unittests/"
       },
       {
+        "args": [
+          "--device-spec=arm64-emu-large"
+        ],
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -1549,6 +1729,9 @@
         "test_id_prefix": "ninja://third_party/blink/renderer/platform/wtf:wtf_unittests/"
       },
       {
+        "args": [
+          "--device-spec=arm64-emu-large"
+        ],
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -1573,6 +1756,9 @@
     ],
     "isolated_scripts": [
       {
+        "args": [
+          "--device-spec=arm64-emu-large"
+        ],
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
@@ -1597,7 +1783,8 @@
       },
       {
         "args": [
-          "--platform=fuchsia"
+          "--platform=fuchsia",
+          "--device-spec=arm64-emu-large"
         ],
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"

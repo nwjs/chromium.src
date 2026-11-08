@@ -179,11 +179,6 @@ void ChromeBrowserFieldTrials::RegisterFeatureOverrides(
   // factors.
   feature_overrides.EnableFeature(
       sandbox::policy::features::kAndroidGpuSandbox);
-  // Bypass the WebAudio output buffer, to reduce audio latency.
-  // TODO(crbug.com/436988695): Remove when the long term solution is
-  // implemented.
-  feature_overrides.EnableFeature(
-      blink::features::kWebAudioBypassOutputBuffering);
   // TODO(crbug.com/437004266): Remove when the feature is stable.
   feature_overrides.EnableFeature(
       features::kAlwaysUseAudioManagerOutputFramesPerBuffer);
@@ -245,7 +240,8 @@ void ChromeBrowserFieldTrials::RegisterFeatureOverrides(
   feature_overrides.EnableFeature(::features::kSkipVulkanBlocklist);
   feature_overrides.EnableFeature(::features::kDefaultANGLEVulkan);
   feature_overrides.EnableFeature(::features::kVulkanFromANGLE);
-  feature_overrides.EnableFeature(::features::kDefaultPassthroughCommandDecoder);
+  feature_overrides.EnableFeature(
+      ::features::kDefaultPassthroughCommandDecoder);
 
   // Enable site-per-process by default for desktop platforms.
   // TODO(crbug.com/453856709): Remove when we determine how to ensure
@@ -302,10 +298,6 @@ void ChromeBrowserFieldTrials::RegisterFeatureOverrides(
   // Enable timeout for TextClassifier calls.
   // TODO(crbug.com/504722790): Remove when experiment is complete.
   feature_overrides.EnableFeature(features::kTextClassifierTimeout);
-
-  // Enable graceful tab shutdown.
-  // TODO(crbug.com/532514154): Remove when experiment is complete.
-  feature_overrides.EnableFeature(chrome::android::kTabAndroidGracefulShutdown);
 
   // Enable desktop fling curve.
   feature_overrides.EnableFeature(features::kDesktopFlingCurveOnAndroid);
@@ -370,6 +362,10 @@ void ChromeBrowserFieldTrials::RegisterFeatureOverrides(
   feature_overrides.EnableFeature(chrome::android::kInlinePdfV2Incognito);
   feature_overrides.EnableFeature(chrome::android::kPdfReuseFragment);
   feature_overrides.EnableFeature(chrome::android::kPdfLauncherActivity);
+
+  // Enables reporting the user agent platform as Android on desktop Android.
+  // TODO(crbug.com/555541268): Remove when rollout is complete.
+  feature_overrides.EnableFeature(blink::features::kAndroidDesktopUAPlatform);
 
   // Enables spoofing the user agent platform as ChromeOS on desktop Android.
   // TODO(crbug.com/556358275): Enablement on tablets is tracked by this bug.

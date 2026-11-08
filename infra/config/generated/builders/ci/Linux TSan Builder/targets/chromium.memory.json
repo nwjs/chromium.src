@@ -157,6 +157,7 @@
       {
         "args": [
           "--git-revision=${got_revision}",
+          "--bypass-skia-gold-functionality",
           "--test-launcher-print-test-stdio=always"
         ],
         "merge": {
@@ -1454,7 +1455,7 @@
             "os": "Ubuntu-22.04"
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
-          "shards": 11
+          "shards": 10
         },
         "test": "unit_tests",
         "test_id_prefix": "ninja://chrome/test:unit_tests/"

@@ -29,7 +29,6 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
-import org.mockito.Spy;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.robolectric.Robolectric;
@@ -55,13 +54,13 @@ public class HubPaneHostViewUnitTest {
 
     @Mock private Callback<ViewGroup> mSnackbarContainerCallback;
     @Mock private HubColorMixer mColorMixer;
+    @Mock private View.OnClickListener mOnClickListener;
 
     private final ActivityController<TestActivity> mActivityController =
             Robolectric.buildActivity(TestActivity.class).setup();
     private final Activity mActivity = mActivityController.get();
 
-    @Spy
-    private HubPaneHostView mPaneHost =
+    private final HubPaneHostView mPaneHost =
             (HubPaneHostView)
                     LayoutInflater.from(mActivity)
                             .inflate(R.layout.hub_pane_host_layout, null, false);
@@ -82,6 +81,8 @@ public class HubPaneHostViewUnitTest {
                 View.MeasureSpec.makeMeasureSpec(1000, View.MeasureSpec.EXACTLY),
                 View.MeasureSpec.makeMeasureSpec(1000, View.MeasureSpec.EXACTLY));
         mPaneHost.layout(0, 0, 1000, 1000);
+
+        mPaneHost.setOnClickListener(mOnClickListener);
 
         mPropertyModel =
                 new PropertyModel.Builder(HubPaneHostProperties.ALL_KEYS)
@@ -195,7 +196,7 @@ public class HubPaneHostViewUnitTest {
                         viewHeight / 2f,
                         0));
 
-        verify(mPaneHost).performClick();
+        verify(mOnClickListener).onClick(mPaneHost);
     }
 
     @Test
@@ -222,7 +223,7 @@ public class HubPaneHostViewUnitTest {
                         viewHeight / 2f,
                         0));
 
-        verify(mPaneHost, never()).performClick();
+        verify(mOnClickListener, never()).onClick(any());
     }
 
     /** Order of children does not matter. */

@@ -23,6 +23,7 @@
 <translation id="1185134272377778587">Chromium-ի մասին</translation>
 <translation id="1186645291482254714">Ստացեք գների հետագծման ծանուցումներ ձեր հեռախոսի Chromium դիտարկիչում</translation>
 <translation id="1203500561924088507">Շնորհակալություն տեղադրելու համար։ Նախքան <ph name="BUNDLE_NAME" />-ն օգտագործելը դուք պետք է վերագործարկեք ձեր դիտարկիչը։</translation>
+<translation id="1222365723190436821"><ph name="IMPORTANT_UPDATE" />ը առկախ է։ Ձեր դիտարկումն անվտանգ պահելու համար Chromium-ը կթարմացվի հաջորդ անգամ, երբ դուք <ph name="IDLE_DURATION" /> ակտիվ չլինեք։</translation>
 <translation id="1232234696885483911">Երբ բացեք «Որոնում պատկերով» գործառույթը, էջի վերնագիրը, URL-ը և բովանդակությունը՝ ներառյալ PDF-ները, ավտոմատ կուղարկվեն սերվերին։ <ph name="LEARN_MORE" /></translation>
 <translation id="123265588161106468">Հաշիվ մուտք գործած ժամանակ Chromium-ում դուք կարող եք օգտագործել ձեր գաղտնաբառերն ու մյուս կարգավորումները ձեր Google հաշվից։ Այս կարգավորումը փոխելու համար անցեք «Ձեր հաշիվը Chromium-ում» բաժին։</translation>
 <translation id="1244381985120794049">Ցույց տալ «Gemini-ը Chromium-ում» հավելվածը Mac-ի ընտրացանկի գոտում</translation>
@@ -230,6 +231,7 @@
 <translation id="3286538390144397061">Վերագործարկել հիմա</translation>
 <translation id="328888136576916638">Google API-ի բանալիները չկան: Chromium-ի որոշ գործառույթներ կանջատվեն:</translation>
 <translation id="3296368748942286671">Շարունակել հետնաշերտի հավելվածների աշխատանքը, երբ Chromium-ը փակված է</translation>
+<translation id="3300632735252839402">Chromium-ը կթարմացվի, երբ դուք տեղում չլինեք</translation>
 <translation id="3313189106987092621">Նախքան ոչ ապահով միացման միջոցով որևէ կայք բեռնելը Chromium-ը ձեզ կնախազգուշացնի</translation>
 <translation id="3316771292331273802">Դուք դուրս կգրվեք կայքերի մեծամասնությունից, երբ փակեք Chromium-ի բոլոր պատուհանները, սակայն կմնաք ձեր Google հաշվում, եթե մուտք եք գործել Chromium։ Որպեսզի թույլ տաք կայքերին հիշել ձեզ, <ph name="SETTINGS_LINK" />։</translation>
 <translation id="3352986031709923790">որոնման տարածքի վերևի աջ անկյուն՝ <ph name="RIGHT" />% աջից, <ph name="TOP" />% վերևից</translation>
@@ -238,6 +240,7 @@
 <translation id="3387527074123400161">ChromiumOS</translation>
 <translation id="3406848076815591792">Անցնե՞լ Chromium-ի ընթացիկ պրոֆիլ</translation>
 <translation id="3412460710772753638">Այս սարքի Գաղտնաբառերի կառավարիչում</translation>
+<translation id="3425452599984451640">Chromium-ն անհրաժեշտ է թարմացնել</translation>
 <translation id="3427159664004296878">Մուտք գործեք Chromium՝ ձեր էջանիշները և այլ տվյալներ <ph name="DEVICE" />ից օգտագործելու համար</translation>
 <translation id="3438772217992559640">Որոնել այս ներդիրը պատկերով որոնման միջոցով</translation>
 <translation id="3455907671758333080">Ընդլայնեք բարելավված Ապահով դիտարկման հնարավորությունները Chromium-ի հետ ձեր հեռախոսում</translation>
@@ -380,6 +383,7 @@
 <translation id="5074496654342756568">Օգտագործեք Google-ի ձեր սիրելի ծառայությունները Chromium-ի միջոցով ձեր <ph name="DEVICE_TYPE" /> սարքում</translation>
 <translation id="5123973130450702873">Chromium-ին անհրաժեշտ է թույլտվություն՝ ձեր ձեռքերի շարժումները հետագծելու համար</translation>
 <translation id="5141988424377517949">Դուք վաղուց չեք այցելել կայք։ Chromium-ը հեռացրել է «<ph name="PERMISSION_1" />», «<ph name="PERMISSION_2" />» և «<ph name="PERMISSION_3" />» թույլտվությունները։</translation>
+<translation id="5171868502429358653">Մուտք Chromium</translation>
 <translation id="5174969993834422967">Դուք սովորաբար արգելափակում եք ծանուցումները։ Հասցեագոտու աջ անկյունում սեղմեք ծանուցման պատկերակը, որպեսզի թույլ տաք կայքին ծանուցել ձեզ։</translation>
 <translation id="5174983315706567306">Սկավառակում բավարար տարածք չկա։</translation>
 <translation id="5187123684706427865">Chromium հաշիվը պահանջում է վերաիսկորոշում</translation>
@@ -389,6 +393,7 @@
 <translation id="5249261924633168472">Բացել հղումը Chromium-ի ինկո&amp;գնիտո պատուհանում</translation>
 <translation id="5276305953263010518">Ներբեռնեք Chromium հավելվածը՝ գաղտնաբառերը ցանկացած պահի պահելու համար</translation>
 <translation id="5277894862589591112">Փոփոխությունները կիրառելու համար վերագործարկեք Chromium-ը</translation>
+<translation id="5278909220224474621">Այս ներդիրը մեկ այլ սարք ուղարկելու համար երկու սարքերում մուտք գործեք Chromium</translation>
 <translation id="5286907366254680517">Ճանաչվել է</translation>
 <translation id="5289287148052354622">Ներբեռնել Chromium հավելվածը</translation>
 <translation id="5294316920224716406">Երբ ինկոգնիտո ռեժիմում դիտարկելիս լինեք, նախքան ոչ ապահով միացման միջոցով կայք բեռնելը Chromium-ը ձեզ կնախազգուշացնի</translation>
@@ -758,6 +763,7 @@ Chromium-ին չհաջողվեց վերականգնել ձեր կարգավոր�
 <translation id="8648201657708811153">Google Chrome for Testing-ը չի կարող դառնալ ձեր կանխադրված դիտարկիչը։</translation>
 <translation id="8676101123715131330">Որոնեք Chromium-ի միջոցով ցանկացած վայրից</translation>
 <translation id="8697124171261953979">Այն նաև վերահսկում է Chromium-ի մեկնարկի կամ Omnibox-ից որոնում կատարելու ժամանակ ցուցադրվող էջը:</translation>
+<translation id="8702213505203810093">Այս ներդիրը մեկ այլ սարք ուղարկելու համար մուտք գործեք Chromium այդ սարքում</translation>
 <translation id="8704119203788522458">Սա ձեր Chromium-ն է</translation>
 <translation id="8712637175834984815">Պատրաստ է</translation>
 <translation id="8719993436687031146">Մուտք գործե՞լ Chromium</translation>

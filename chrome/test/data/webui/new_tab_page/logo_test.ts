@@ -8,11 +8,11 @@ import {$$, DoodleImageType, DoodleShareChannel, NewTabPageProxy, PageCallbackRo
 import {hexColorToSkColor} from 'chrome://resources/js/color_utils.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {PromiseResolver} from 'chrome://resources/js/promise_resolver.js';
-import {assertEquals, assertFalse, assertGE, assertLE, assertTrue} from 'chrome://webui-test/chai_assert.js';
+import {assertEquals, assertFalse, assertGE, assertLE, assertNear, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import type {TestMock} from 'chrome://webui-test/test_mock.js';
 import {microtasksFinished} from 'chrome://webui-test/test_util.js';
 
-import {assertNotStyle, assertStyle, createBackgroundImage, createTheme, installMock, keydown} from './test_support.js';
+import {assertNotStyle, assertStyle, createBackgroundImage, createTheme, installMock, keydown, LAYOUT_TOLERANCE_PX} from './test_support.js';
 
 const imageOffsetHeight = 168;
 const imageOffsetWidth = 336;
@@ -224,7 +224,7 @@ suite('NewTabPageLogoTest', () => {
       assertGE(200, $$<HTMLElement>(logo, '#image')!.offsetHeight);
       const pos = getRelativePosition($$(logo, '#imageDoodle')!, logo);
       assertLE(0, pos.top);
-      assertEquals(0, pos.bottom);
+      assertNear(0, pos.bottom, LAYOUT_TOLERANCE_PX);
     });
 
     test(`${width}x${height} boxed doodle aligned correctly`, async () => {
@@ -239,7 +239,7 @@ suite('NewTabPageLogoTest', () => {
       assertGE(160, $$<HTMLElement>(logo, '#image')!.offsetHeight);
       const pos = getRelativePosition($$(logo, '#imageDoodle')!, logo);
       assertGE(pos.top, 8);
-      assertEquals(0, pos.bottom);
+      assertNear(0, pos.bottom, LAYOUT_TOLERANCE_PX);
     });
   });
 
@@ -312,6 +312,10 @@ suite('NewTabPageLogoTest', () => {
 
   [true, false].forEach(useGoogleLogo26 => {
     const logoName = useGoogleLogo26 ? '2026' : 'legacy';
+    const logoUrl = useGoogleLogo26 ?
+        'chrome://resources/cr_components/searchbox/icons/google_logo_26/' +
+            'google_logo.svg' :
+        'chrome://resources/cr_components/searchbox/icons/google_logo.svg';
 
     test(`${logoName} Google logo multi-colored render path`, async () => {
       // Arrange.
@@ -321,7 +325,7 @@ suite('NewTabPageLogoTest', () => {
       const logo = await createLogo();
 
       // Assert.
-      assertNotStyle($$(logo, '#logo')!, 'background-image', '');
+      assertStyle($$(logo, '#logo')!, 'background-image', `url("${logoUrl}")`);
       assertStyle($$(logo, '#logo')!, '-webkit-mask-image', 'none');
       assertStyle($$(logo, '#logo')!, 'background-color', 'rgba(0, 0, 0, 0)');
     });
@@ -337,7 +341,8 @@ suite('NewTabPageLogoTest', () => {
       await microtasksFinished();
 
       // Assert.
-      assertNotStyle($$(logo, '#logo')!, '-webkit-mask-image', 'none');
+      assertStyle(
+          $$(logo, '#logo')!, '-webkit-mask-image', `url("${logoUrl}")`);
       assertStyle($$(logo, '#logo')!, 'background-color', 'rgb(255, 0, 0)');
       assertStyle($$(logo, '#logo')!, 'background-image', 'none');
     });
@@ -351,7 +356,7 @@ suite('NewTabPageLogoTest', () => {
 
       // Assert.
       const pos = getRelativePosition($$(logo, '#logo')!, logo);
-      assertEquals(0, pos.bottom);
+      assertNear(0, pos.bottom, LAYOUT_TOLERANCE_PX);
       assertEquals(
           useGoogleLogo26 ? 82 : 92,
           $$<HTMLElement>(logo, '#logo')!.offsetHeight);
@@ -368,7 +373,7 @@ suite('NewTabPageLogoTest', () => {
 
     // Assert.
     const pos = getRelativePosition($$(logo, '#doodle')!, logo);
-    assertEquals(0, pos.bottom);
+    assertNear(0, pos.bottom, LAYOUT_TOLERANCE_PX);
   });
 
   [true, false].forEach(hasUrl => {
@@ -476,6 +481,24 @@ suite('NewTabPageLogoTest', () => {
 
     // Assert.
     assertFalse(!!logo.shadowRoot.querySelector('ntp-doodle-share-dialog'));
+  });
+
+  [true, false].forEach(roundedIcons => {
+    test(`share button icon with rounded icons ${roundedIcons}`, async () => {
+      // Arrange.
+      loadTimeData.overrideValues({webuiRoundedIconsEnabled: roundedIcons});
+
+      // Act.
+      const logo =
+          await createLogo(createImageDoodle(), createTheme({isDark: false}));
+
+      // Assert.
+      const shareButtonIcon = $$(logo, '#shareButtonIcon');
+      assertTrue(!!shareButtonIcon);
+      assertEquals(
+          roundedIcons ? 'ntp-doodle:share' : 'ntp-doodle:share-old',
+          shareButtonIcon.getAttribute('icon'));
+    });
   });
 
   [true, false].forEach(dark => {

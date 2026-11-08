@@ -198,7 +198,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Download.BandwidthOverallBytesPerSecond2" units="bytes/second"
-    expires_after="2027-01-24">
+    expires_after="2027-03-28">
   <owner>qinmin@chromium.org</owner>
   <summary>
     Overall bandwidth seen for a completed download. This includes all file
@@ -415,6 +415,28 @@ chromium-metrics-reviews@google.com.
     detect if some users have an egregious number of downloads, and evaluate
     whether cleanup methods added later (e.g. clean up older than 90 days) work.
   </summary>
+</histogram>
+
+<histogram name="Download.History.DownloadCount.PostRemoval{Window}"
+    units="downloads" expires_after="2027-09-24">
+  <owner>fdoray@chromium.org</owner>
+  <owner>qinmin@chromium.org</owner>
+  <owner>chrome-downloads@google.com</owner>
+  <summary>
+    Records the number of downloads loaded from download history for a profile
+    (in DownloadHistory::LoadHistoryDownloads), {Window}. Unlike
+    Download.History.DownloadCount, this excludes rows that are removed instead
+    of being loaded (e.g. overwritten downloads removed by
+    kDeleteOverwrittenDownloads). Used to evaluate the impact of limiting the
+    number and age of downloads kept in history.
+  </summary>
+  <token key="Window">
+    <variant name="" summary="in total"/>
+    <variant name=".Last30Days"
+        summary="restricted to downloads started in the last 30 days"/>
+    <variant name=".Last90Days"
+        summary="restricted to downloads started in the last 90 days"/>
+  </token>
 </histogram>
 
 <histogram name="Download.History.LoadedInSession" enum="BooleanLoaded"
@@ -722,41 +744,6 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="Download.Later.ScheduledDownloadSize" units="Mb"
-    expires_after="2022-05-01">
-  <owner>shaktisahu@chromium.org</owner>
-  <owner>clank-downloads@google.com</owner>
-  <summary>
-    The size of downloads when the user tries to download at a scheduled time.
-    Recorded when the positive button in download later dialog is clicked.
-  </summary>
-</histogram>
-
-<histogram name="Download.Later.UI.DialogChoice{DownloadDialogSource}"
-    enum="DownloadLaterDialogChoice" expires_after="2022-10-09">
-  <owner>shaktisahu@chromium.org</owner>
-  <owner>clank-downloads@google.com</owner>
-  <summary>
-    The user selection in the download later dialog. Recorded when the user
-    starts a download, or clicking the change button on download infobar and
-    download home UI. {DownloadDialogSource}
-  </summary>
-  <token key="DownloadDialogSource">
-    <variant name=".DownloadHome" summary="Download home."/>
-    <variant name=".Infobar" summary="Download infobar."/>
-    <variant name=".Main" summary="Main download later dialog."/>
-  </token>
-</histogram>
-
-<histogram name="Download.Later.UI.Events" enum="DownloadLaterUiEvent"
-    expires_after="2022-10-16">
-  <owner>shaktisahu@chromium.org</owner>
-  <owner>clank-downloads@google.com</owner>
-  <summary>
-    Records events for download later feature in download Android UI.
-  </summary>
-</histogram>
-
 <histogram name="Download.MediaMetadata.Event" enum="MediaMetadataEvent"
     expires_after="never">
 <!-- expires-never: Download media parser stability metrics. -->
@@ -819,7 +806,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Download.OpenDownloads.OpenWithExternalAppsSource"
-    enum="OpenDownloadWithExternalAppsSource" expires_after="2026-12-01">
+    enum="OpenDownloadWithExternalAppsSource" expires_after="2027-04-04">
   <owner>shuyng@google.com</owner>
   <owner>clank-downloads@google.com</owner>
   <summary>

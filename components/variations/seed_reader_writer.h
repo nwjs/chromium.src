@@ -32,10 +32,10 @@ class EntropyProviders;
 // Trial and group names for the seed file experiment.
 const char kSeedFileTrial[] = "SeedFileTrial";
 const char kDefaultGroup[] = "Default";
-const char kControlGroup[] = "Control_V13";
+const char kControlGroup[] = "Control_V14";
 // TODO(crbug.com/530049020): Launch on Android and iOS
 #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
-const char kSeedFilesGroup[] = "SeedFiles_V13";
+const char kSeedFilesGroup[] = "SeedFiles_V14";
 #else
 const char kSeedFilesGroup[] = "SeedFilesLaunched";
 #endif
@@ -195,6 +195,7 @@ class COMPONENT_EXPORT(VARIATIONS) SeedReaderWriter
   void SetTimerForTesting(base::OneShotTimer* timer_override);
 
   // Updates the server-provided seed date that is used for study date checks.
+  // Keeps the stored seed date when `seed_date` is null.
   void SetSeedDate(base::Time seed_date);
 
   // Updates the time of the last fetch of the seed.
@@ -222,6 +223,9 @@ class COMPONENT_EXPORT(VARIATIONS) SeedReaderWriter
   // the load, the seed data, and the signature. The seed data and signature
   // should only be used if the result is `LoadSeedResult::kSuccess`.
   void ReadSeedData(ReadSeedDataCallback done_callback);
+
+  // Commits any pending write to disk immediately.
+  void CommitPendingWrite();
 
   // Stores the seed without applying any extra processing or validation. This
   // is used to store invalid data for testing.

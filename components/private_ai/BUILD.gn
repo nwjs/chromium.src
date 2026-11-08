@@ -11,6 +11,7 @@ proto_library("proto") {
   sources = [
     "proto/google_rpc_code.proto",
     "proto/private_ai.proto",
+    "proto/private_tls_service.proto",
   ]
 
   deps = [ "//components/optimization_guide/proto:optimization_guide_proto" ]
@@ -21,6 +22,7 @@ proto_extras("proto_extras") {
   sources = [
     "proto/google_rpc_code.proto",
     "proto/private_ai.proto",
+    "proto/private_tls_service.proto",
   ]
 
   deps = [ ":proto" ]
@@ -39,6 +41,8 @@ source_set("features") {
 
 source_set("private_ai") {
   sources = [
+    "certificate_util.cc",
+    "certificate_util.h",
     "client.cc",
     "client.h",
     "client_impl.cc",
@@ -85,7 +89,6 @@ source_set("private_ai") {
   ]
   deps = [
     ":proto",
-    ":proto_extras",
     "//base",
     "//components/keyed_service/core",
     "//components/private_ai/attestation",
@@ -104,7 +107,6 @@ source_set("private_ai") {
     "//services/network/public/mojom",
     "//third_party/boringssl",
     "//third_party/oak:oak_proto",
-    "//third_party/oak:oak_proto_extras",
     "//url",
   ]
 }
@@ -146,6 +148,7 @@ source_set("testing") {
 source_set("unit_tests") {
   testonly = true
   sources = [
+    "certificate_util_unittest.cc",
     "client_impl_integration_test.cc",
     "client_impl_unittest.cc",
     "connection_basic_unittest.cc",

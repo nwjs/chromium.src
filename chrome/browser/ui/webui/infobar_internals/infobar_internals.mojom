@@ -31,6 +31,9 @@ enum InfoBarType {
   // DevTools infobar.
   kDevTools,
 
+  // DevTools remote debugging infobar.
+  kDevToolsRemoteDebugging,
+
   // DevTools process sharing infobar.
   kDevToolsSharedProcess,
 
@@ -40,6 +43,9 @@ enum InfoBarType {
 
   // Extension DevTools infobar.
   kExtensionDevTools,
+
+  // File access disabled infobar.
+  kFileAccessDisabled,
 
   // Google API keys infobar.
   kGoogleApiKeys,
@@ -56,6 +62,9 @@ enum InfoBarType {
   [EnableIf=is_win_and_chrome_branded]
   kInstallerDownloader,
 
+  // JS optimizations infobar.
+  kJsOptimizations,
+
   // Keystone promotion infobar. Can only be triggered on Mac.
   [EnableIf=is_mac]
   kKeystone,
@@ -69,6 +78,9 @@ enum InfoBarType {
   // Obsolete system infobar.
   kObsoleteSystem,
 
+  // OSCrypt async availability infobar.
+  kOSCryptAsyncAvailability,
+
   // Page Info infobar.
   kPageInfo,
 
@@ -76,9 +88,17 @@ enum InfoBarType {
   [EnableIf=is_win|is_mac]
   kPdf,
 
+  // Pin to taskbar infobar. Can only be triggered on Windows or Mac.
+  [EnableIf=is_win|is_mac]
+  kPinToTaskbar,
+
   // Session restore infobar. Can only be triggered on Win, Mac and Linux.
   [EnableIf=is_win|is_mac|is_linux]
   kSessionRestore,
+
+  // Sign-in QR code infobar.
+  [EnableIf=enable_dice_support]
+  kSigninQRCode,
 
   // Startup launch infobar. Can only be triggered on Windows.
   [EnableIf=is_win]
@@ -87,6 +107,9 @@ enum InfoBarType {
   // Theme installed infobar.
   [EnableIf=enable_extensions]
   kThemeInstalled,
+
+  // Web app blocked migration infobar.
+  kWebAppBlockedMigration,
 
   // Web authentication flow infobar.
   [EnableIf=enable_extensions]

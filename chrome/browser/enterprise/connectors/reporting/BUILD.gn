@@ -22,16 +22,10 @@ source_set("reporting") {
 
   if (enterprise_cloud_content_analysis && enable_extensions_core) {
     sources += [
+      "event_initiator_utils.h",
       "extension_install_event_router.h",
       "extension_telemetry_event_router.h",
       "extension_telemetry_event_router_factory.h",
-    ]
-  }
-
-  if (enterprise_telomere_reporting) {
-    sources += [
-      "telomere_event_router.h",
-      "telomere_reporting_context.h",
     ]
   }
 
@@ -41,6 +35,7 @@ source_set("reporting") {
     "//components/enterprise/common/proto:upload_request_response",
     "//components/enterprise/connectors/core",
     "//components/keyed_service/content",
+    "//components/safe_browsing/core/common/proto:csd_proto",
     "//content/public/browser",
   ]
 
@@ -49,7 +44,6 @@ source_set("reporting") {
     "//components/device_signals/core/browser",
     "//components/enterprise",
     "//components/policy/core/common",
-    "//components/safe_browsing/core/common/proto:csd_proto",
     "//third_party/crashpad/crashpad/client",
   ]
 
@@ -77,29 +71,23 @@ source_set("impl") {
 
   if (enterprise_cloud_content_analysis && enable_extensions_core) {
     sources += [
+      "event_initiator_utils.cc",
       "extension_install_event_router.cc",
       "extension_telemetry_event_router.cc",
       "extension_telemetry_event_router_factory.cc",
     ]
   }
 
-  if (enterprise_telomere_reporting) {
-    sources += [
-      "telomere_event_router.cc",
-      "telomere_reporting_context.cc",
-    ]
-  }
-
-  configs += [ "//build/config/compiler:wexit_time_destructors" ]
-
   public_deps = [ ":reporting" ]
 
   deps = [
+    "//base",
     "//chrome/browser:browser_process",
     "//chrome/browser/enterprise",
     "//chrome/browser/profiles:profile_util",
     "//chrome/browser/safe_browsing",
     "//chrome/browser/signin",
+    "//chrome/common:channel_info",
     "//components/crash/core/app",
     "//components/device_signals/core/browser",
     "//components/device_signals/core/common",
@@ -108,6 +96,7 @@ source_set("impl") {
     "//components/enterprise/common/proto:chrome_reporting_entity",
     "//components/safe_browsing/content/browser/web_ui",
     "//components/safe_browsing/core/common:features",
+    "//components/safe_browsing/core/common/proto:csd_proto",
   ]
 
   if (is_chromeos) {
@@ -126,10 +115,6 @@ source_set("impl") {
       deps += [ "//chrome/browser/extensions" ]
     }
   }
-
-  # This target has circular dependencies with //chrome/browser:browser
-  # until more of //chrome/browser is modularized.
-  deps += [ "//chrome/browser:browser_public_dependencies" ]
 }
 
 source_set("unit_tests") {
@@ -143,6 +128,7 @@ source_set("unit_tests") {
 
   if (enterprise_cloud_content_analysis && enable_extensions_core) {
     sources += [
+      "event_initiator_utils_unittest.cc",
       "extension_install_event_router_unittest.cc",
       "extension_telemetry_event_router_unittest.cc",
     ]
@@ -163,8 +149,13 @@ source_set("unit_tests") {
     "//components/enterprise/common/proto:connectors_proto",
     "//components/enterprise/connectors/core:test_support",
     "//components/safe_browsing/content/browser/web_ui",
+    "//components/safe_browsing/core/common/proto:csd_proto",
     "//testing/gtest",
   ]
+
+  if (enterprise_cloud_content_analysis && enable_extensions_core) {
+    deps += [ "//extensions:test_support" ]
+  }
 }
 
 if (!is_android) {

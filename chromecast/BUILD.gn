@@ -155,17 +155,6 @@ cast_test_group("cast_tests") {
 
   if (is_linux) {
     tests += [ "//chromecast/media/cma/backend:cast_audio_backend_unittests" ]
-    cast_audio_backend_unittests_filter = {
-      test_name = "cast_audio_backend_unittests"
-
-      # --test-launcher-jobs=1 => so mixer service receiver can bind.
-      args = [
-        "--test-launcher-jobs=1",
-        "--mixer-service-endpoint=/tmp/cast_audio_backend_unittest-mixer",
-        "--mixer-service-port=12855",
-      ]
-    }
-    filters += [ cast_audio_backend_unittests_filter ]
   }
 
   if (is_android) {
@@ -700,6 +689,7 @@ if (is_android) {
       "//chromecast/android:libcast_browser_android",
       "//chromecast/browser/android:cast_shell_java",
       "//chromecast/browser/android:cast_shell_manifest",
+      "//components/background_task_scheduler:background_task_scheduler_java",
       "//components/crash/core/app:chrome_crashpad_handler_named_as_so",
       "//third_party/jni_zero:jni_zero_java",
     ]
@@ -731,5 +721,7 @@ if (is_android) {
       "*/third_party/androidx/*",
       "*/third_party/java_src/*",
     ]
+
+    proguard_excluded_patterns = [ "*/chromium_apk.flags" ]
   }
 }

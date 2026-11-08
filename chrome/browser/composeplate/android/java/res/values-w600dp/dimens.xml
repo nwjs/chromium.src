@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!--
+Copyright 2026 The Chromium Authors
+Use of this source code is governed by a BSD-style license that can be
+found in the LICENSE file.
+-->
+
+<resources>
+    <dimen name="composeplate_view_lateral_margin">32dp</dimen>
+    <dimen name="composeplate_view_optional_button_margin">12dp</dimen>
+    <dimen name="composeplate_view_optional_button_padding">40dp</dimen>
+</resources>

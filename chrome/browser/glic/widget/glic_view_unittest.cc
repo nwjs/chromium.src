@@ -26,6 +26,8 @@
 #include "third_party/blink/public/mojom/choosers/file_chooser.mojom.h"
 #include "third_party/blink/public/mojom/mediastream/media_stream.mojom.h"
 #include "third_party/blink/public/mojom/page/draggable_region.mojom.h"
+#include "third_party/blink/public/mojom/window_features/window_features.mojom.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/views/widget/widget.h"
 #include "url/gurl.h"
 #include "url/origin.h"
@@ -64,11 +66,17 @@ TEST_F(GlicViewTest, CanDragEnter) {
       base::FilePath(FILE_PATH_LITERAL("test.txt")));
   EXPECT_TRUE(glic_view->CanDragEnter(nullptr, drop_data, ops));
 
-  // DropData with URL should be accepted.
+  // DropData with file_contents (e.g., web image drag) should be accepted.
   drop_data.filenames.clear();
+  drop_data.file_contents = {1, 2, 3, 4};
+  EXPECT_TRUE(glic_view->CanDragEnter(nullptr, drop_data, ops));
+
+  // DropData with URL alone (e.g., hyperlink without image bytes) should be
+  // rejected.
+  drop_data.file_contents.clear();
   drop_data.url_infos.emplace_back(GURL("https://example.com"),
                                    std::u16string());
-  EXPECT_TRUE(glic_view->CanDragEnter(nullptr, drop_data, ops));
+  EXPECT_FALSE(glic_view->CanDragEnter(nullptr, drop_data, ops));
 
   // DropData with text should be rejected.
   drop_data.url_infos.clear();
@@ -79,11 +87,23 @@ TEST_F(GlicViewTest, CanDragEnter) {
   drop_data.text.reset();
   drop_data.html = u"<b>test html</b>";
   EXPECT_FALSE(glic_view->CanDragEnter(nullptr, drop_data, ops));
+}
 
-  // DropData with image file_contents should be accepted.
-  drop_data.html.reset();
-  drop_data.file_contents = {0x89, 'P', 'N', 'G'};
-  EXPECT_TRUE(glic_view->CanDragEnter(nullptr, drop_data, ops));
+TEST_F(GlicViewTest, CanDragEnter_WebDragDisabled) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeatures(
+      /*enabled_features=*/{features::kGlicDragAndDropFileUpload},
+      /*disabled_features=*/{features::kGlicWebDragAndDropFileUpload});
+
+  auto glic_view =
+      std::make_unique<GlicView>(profile(), gfx::Size(800, 600), nullptr);
+
+  content::DropData drop_data;
+  drop_data.file_contents = {1, 2, 3, 4};
+  blink::DragOperationsMask ops = blink::kDragOperationCopy;
+
+  // Should be rejected because kGlicWebDragAndDropFileUpload is disabled.
+  EXPECT_FALSE(glic_view->CanDragEnter(nullptr, drop_data, ops));
 }
 
 TEST_F(GlicViewTest, CanDragEnter_Disabled) {
@@ -429,6 +449,48 @@ TEST_F(GlicViewNoWebviewTest, DraggableRegionsChanged_ForwardsFromPwc) {
 
   EXPECT_TRUE(glic_view()->IsPointWithinDraggableRegion(gfx::Point(10, 10)));
   EXPECT_FALSE(glic_view()->IsPointWithinDraggableRegion(gfx::Point(10, 100)));
+}
+
+class TestGlicViewForWindowCreation : public GlicView {
+ public:
+  using GlicView::GlicView;
+
+  bool HandleWindowCreation(
+      content::RenderFrameHost* opener,
+      const GURL& target_url,
+      WindowOpenDisposition disposition,
+      const blink::mojom::WindowFeatures& features) override {
+    last_opener_ = opener;
+    last_url_ = target_url;
+    last_disposition_ = disposition;
+    window_creation_called_ = true;
+    return true;
+  }
+
+  raw_ptr<content::RenderFrameHost> last_opener_ = nullptr;
+  GURL last_url_;
+  WindowOpenDisposition last_disposition_ = WindowOpenDisposition::UNKNOWN;
+  bool window_creation_called_ = false;
+};
+
+TEST_F(GlicViewNoWebviewTest, HandleWindowCreation_ForwardsFromPwc) {
+  auto test_view = std::make_unique<TestGlicViewForWindowCreation>(
+      profile(), gfx::Size(800, 600), nullptr);
+
+  test_view->SetWebContents(pwc()->web_contents());
+  ASSERT_EQ(pwc()->embedder_delegate(), test_view.get());
+
+  content::RenderFrameHost* rfh = pwc()->web_contents()->GetPrimaryMainFrame();
+  GURL target_url("https://example.com");
+  blink::mojom::WindowFeatures features;
+
+  EXPECT_TRUE(pwc()->HandleWindowCreation(
+      rfh, target_url, WindowOpenDisposition::NEW_FOREGROUND_TAB, features));
+  EXPECT_TRUE(test_view->window_creation_called_);
+  EXPECT_EQ(test_view->last_opener_, rfh);
+  EXPECT_EQ(test_view->last_url_, target_url);
+  EXPECT_EQ(test_view->last_disposition_,
+            WindowOpenDisposition::NEW_FOREGROUND_TAB);
 }
 
 TEST_F(GlicViewNoWebviewTest, SetWebContents_InformsSize) {

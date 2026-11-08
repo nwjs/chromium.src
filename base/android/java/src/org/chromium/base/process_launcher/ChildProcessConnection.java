@@ -31,7 +31,6 @@ import org.chromium.base.TraceEvent;
 import org.chromium.base.library_loader.IRelroLibInfo;
 import org.chromium.base.memory.SelfFreezeCallback;
 import org.chromium.base.metrics.RecordHistogram;
-import org.chromium.build.BuildConfig;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 
@@ -180,11 +179,6 @@ public class ChildProcessConnection {
         ChildProcessMismatchException(String msg) {
             super(msg);
         }
-    }
-
-    /** Run time check if variable number of connections is supported. */
-    public static boolean supportVariableConnections() {
-        return BindService.supportVariableConnections();
     }
 
     /** The string passed to bindToCaller to identify this class loader. */
@@ -362,13 +356,9 @@ public class ChildProcessConnection {
         mIndependentFallback = independentFallback;
         mIsSandboxedForHistograms = isSandboxedForHistograms;
 
-        // Incremental install does not work with isolatedProcess, and externalService requires
-        // isolatedProcess, so both need to be turned off for incremental install.
         int defaultBindFlags =
                 Context.BIND_AUTO_CREATE
-                        | ((bindAsExternalService && !BuildConfig.IS_INCREMENTAL_INSTALL)
-                                ? Context.BIND_EXTERNAL_SERVICE
-                                : 0);
+                        | (bindAsExternalService ? Context.BIND_EXTERNAL_SERVICE : 0);
 
         if (connectionFactory == null) {
             connectionFactory =

@@ -8,6 +8,7 @@
 #include <cstdio>
 #include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "base/base64.h"
@@ -103,13 +104,6 @@ mojom::ProfileEnablementPtr BuildProfileEnablement(
   result->allowed_by_locale_filter = enablement.allowed_by_locale_filter;
   result->live_allowed = enablement.live_allowed;
   result->share_image_allowed = enablement.share_image_allowed;
-  if (enablement.gemini_enterprise_settings) {
-    result->gemini_enterprise_settings =
-        glic::mojom::GeminiEnterpriseSettingsInfo::New(
-            enablement.gemini_enterprise_settings->project_id,
-            enablement.gemini_enterprise_settings->app_id,
-            enablement.gemini_enterprise_settings->location);
-  }
   auto* service = GlicKeyedService::Get(profile);
   result->actuation_is_consented =
       (service && service->enabling().GetUserEnabledActuationOnWeb());
@@ -280,6 +274,14 @@ std::string InvocationSourceToString(glic::mojom::InvocationSource source) {
       return "kHistoryPageChatLinkout";
     case glic::mojom::InvocationSource::kContextHubTopics:
       return "kContextHubTopics";
+    case glic::mojom::InvocationSource::kContextHubAutoTodos:
+      return "kContextHubAutoTodos";
+    case glic::mojom::InvocationSource::kWebContentsContextMenuLink:
+      return "kWebContentsContextMenuLink";
+    case glic::mojom::InvocationSource::kWebContentsContextMenuPage:
+      return "kWebContentsContextMenuPage";
+    case glic::mojom::InvocationSource::kWebContentsContextMenuTextSelection:
+      return "kWebContentsContextMenuTextSelection";
   }
   LOG(ERROR) << "Unexpected value for InvocationSource: "
              << static_cast<int>(source);
@@ -359,6 +361,11 @@ void LogGlicInvokeOptions(const GlicInvokeOptions& options,
             if (payload->is_universal_cart()) {
               ss << "UniversalCartPayload { serialized_metadata size: "
                  << payload->get_universal_cart()->serialized_metadata.size()
+                 << " }";
+            } else if (payload->is_experimental_triggering()) {
+              ss << "ExperimentalTriggeringPayload { payment_metadata size: "
+                 << payload->get_experimental_triggering()
+                        ->payment_metadata.size()
                  << " }";
             } else {
               ss << "Unknown Payload";
@@ -549,6 +556,13 @@ void GlicInternalsPageHandler::GetInternalsDataPayload(
 
   payload->experimental_triggering_enabled =
       base::FeatureList::IsEnabled(features::kGlicExperimentalTriggering);
+
+  if (g_browser_process->local_state()) {
+    payload->hotkey_global_scope_migrated_v2 =
+        g_browser_process->local_state()->GetInteger(
+            prefs::kGlicDefaultHotkeyScope) !=
+        std::to_underlying(prefs::DefaultHotkeyScope::kNotMigrated);
+  }
 
   payload->config = std::move(config);
 
@@ -987,12 +1001,35 @@ void GlicInternalsPageHandler::RevokeExperimentalTriggeringConsent() {
 void GlicInternalsPageHandler::RevokeGlicConsent() {
   if (auto* service = GetGlicService()) {
     service->enabling().SetCompletedFre(glic::prefs::FreStatus::kNotStarted);
+    if (PrefService* local_state = g_browser_process->local_state()) {
+      local_state->ClearPref(prefs::kGlicLauncherEnabled);
+      local_state->ClearPref(prefs::kGlicLauncherHotkey);
+      local_state->ClearPref(prefs::kGlicHotkeyGlobalScopeEnabled);
+      local_state->SetInteger(
+          prefs::kGlicDefaultHotkeyScope,
+          std::to_underlying(prefs::DefaultHotkeyScope::kNotMigrated));
+    }
   }
 }
 
 void GlicInternalsPageHandler::RevokeActuationConsent() {
   if (auto* service = GetGlicService()) {
     service->enabling().SetUserEnabledActuationOnWeb(false);
+  }
+}
+
+void GlicInternalsPageHandler::SetHotkeyGlobalScopeMigratedV2(bool migrated) {
+  if (PrefService* local_state = g_browser_process->local_state()) {
+    if (migrated) {
+      local_state->SetInteger(
+          prefs::kGlicDefaultHotkeyScope,
+          std::to_underlying(prefs::DefaultHotkeyScope::kGlobal));
+    } else {
+      local_state->SetInteger(
+          prefs::kGlicDefaultHotkeyScope,
+          std::to_underlying(prefs::DefaultHotkeyScope::kNotMigrated));
+      local_state->ClearPref(prefs::kGlicHotkeyGlobalScopeEnabled);
+    }
   }
 }
 

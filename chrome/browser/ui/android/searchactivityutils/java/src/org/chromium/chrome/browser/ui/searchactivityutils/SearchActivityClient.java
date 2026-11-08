@@ -7,10 +7,12 @@ package org.chromium.chrome.browser.ui.searchactivityutils;
 import android.app.Activity;
 import android.content.Intent;
 
+import org.chromium.build.annotations.Contract;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.ui.searchactivityutils.SearchActivityExtras.ResolutionType;
 import org.chromium.chrome.browser.ui.searchactivityutils.SearchActivityExtras.SearchType;
+import org.chromium.components.omnibox.AutocompleteRequestType;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.url.GURL;
 
@@ -71,6 +73,15 @@ public interface SearchActivityClient {
          */
         IntentBuilder setResolutionType(@ResolutionType int resolutionType);
 
+        /**
+         * Sets the request type for the intent. The default value is
+         * AutocompleteRequestType.SEARCH.
+         *
+         * @param requestType The type of request to start the search session with.
+         * @return The IntentBuilder instance for method chaining.
+         */
+        IntentBuilder setRequestType(@AutocompleteRequestType int requestType);
+
         /** Returns the intent capturing all the relevant details. */
         Intent build();
     }
@@ -96,7 +107,8 @@ public interface SearchActivityClient {
      * @param intent the intent data received in {@link Activity#onActivityResult}
      * @return true if the response captures legitimate Omnibox result.
      */
-    boolean isOmniboxResult(int requestCode, Intent intent);
+    @Contract("_, null -> false")
+    boolean isOmniboxResult(int requestCode, @Nullable Intent intent);
 
     /**
      * Process the {@link Activity#onActivityResult} payload for Omnibox navigation result.

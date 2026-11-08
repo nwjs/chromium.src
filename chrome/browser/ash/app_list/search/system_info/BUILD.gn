@@ -18,10 +18,7 @@ static_library("system_info") {
     "system_info_card_provider.h",
   ]
 
-  public_deps = [
-    "//chrome/browser:browser_public_dependencies",
-    "//chrome/browser/ui/webui/ash/settings/calculator",
-  ]
+  public_deps = [ "//chrome/browser/ui/webui/ash/settings/calculator" ]
 
   deps = [
     "//ash/app_list/vector_icons",
@@ -73,7 +70,6 @@ source_set("unit_tests") {
     "//chrome/browser/ash/app_list/search/common",
     "//chrome/browser/ash/app_list/search/test:test_support",
     "//chrome/browser/profiles:profile",
-    "//chrome/browser/ui",
     "//chrome/browser/ui/webui/ash/settings/pages/storage",
     "//chrome/common:channel_info",
     "//chrome/test:test_support",

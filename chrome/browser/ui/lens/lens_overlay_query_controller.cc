@@ -248,6 +248,7 @@ LenOverlayEntryPointFromInvocationSource(
     case lens::LensOverlayInvocationSource::kCobrowseToolbarButton:
     case lens::LensOverlayInvocationSource::kCobrowsePinnedToolbarButton:
     case lens::LensOverlayInvocationSource::kOmniboxPopupButton:
+    case lens::LensOverlayInvocationSource::kContextualCue:
       // TODO(crbug.com/469463485): This should be contextual tasks specific,
       // not unknown.
       return lens::LensOverlayClientLogs::UNKNOWN_ENTRY_POINT;
@@ -383,8 +384,7 @@ void LensOverlayQueryController::StartQueryFlow(
   if (lens::features::
           IsLensOverlayNonBlockingPrivacyNoticeForImageSearchEnabled() &&
       invocation_source_ ==
-          lens::LensOverlayInvocationSource::kContentAreaContextMenuImage &&
-      !lens::DidUserGrantLensOverlayNeededPermissions(profile_)) {
+          lens::LensOverlayInvocationSource::kContentAreaContextMenuImage) {
     initial_query_restricted_ = true;
   }
 
@@ -1284,11 +1284,9 @@ void LensOverlayQueryController::PrepareAndFetchPageContentRequest() {
     return;
   }
 
-  // If the initial query was restricted in the non-blocking image context menu
-  // flow, block the page content request. Subsequent queries will be allowed
-  // since the privacy notice will have been shown.
-  if (initial_query_restricted_ && !initial_page_content_blocked_) {
-    initial_page_content_blocked_ = true;
+  // If the query was restricted in the image context menu flow, block the page
+  // content request.
+  if (initial_query_restricted_) {
     return;
   }
 
@@ -1655,22 +1653,6 @@ void LensOverlayQueryController::SendInteraction(
   // image request / response handlers.
   pending_interaction_callback_.Reset();
 
-  // If in the non-blocking image context menu flow, the full screenshot and
-  // page content were blocked during the initial request, but they are allowed
-  // for subsequent requests since the privacy notice has been shown. Send them
-  // now before handling the interaction.
-  if (initial_query_restricted_ && selection_type != lens::INJECTED_IMAGE &&
-      !deferred_screenshot_and_page_context_sent_) {
-    pending_interaction_callback_ = base::BindOnce(
-        &LensOverlayQueryController::SendInteraction,
-        weak_ptr_factory_.GetWeakPtr(), query_start_time, std::move(region),
-        query_text, object_id, selection_type, additional_search_query_params,
-        region_bytes, media_type);
-    PrepareAndFetchFullImageRequest();
-    PrepareAndFetchPageContentRequest();
-    deferred_screenshot_and_page_context_sent_ = true;
-    return;
-  }
 
   // If the cluster info is missing add the interaction to the pending callback
   // to be sent once the cluster info is available.
@@ -1735,11 +1717,27 @@ void LensOverlayQueryController::SendInteraction(
   // Async Flow 1: Downscale the image region for the interaction request.
   // Do the image encoding asynchronously to prevent the main thread from
   // blocking on the encoding.
+  // In the non-blocking privacy notice flow for image context menu searches,
+  // the initial query is restricted to uploading the injected image rather than
+  // the full viewport screenshot. In this flow, the region coordinates are
+  // normalized relative to the cropped image bitmap. Use the cropped image as
+  // base_image so that the computed zoom factor remains 1.0 rather than scaling
+  // relative to the full viewport. Otherwise, when region coordinates are
+  // normalized relative to the full viewport screenshot, original_screenshot_
+  // must be used as base_image.
+  const bool is_region_normalized_to_injected_image =
+      selection_type == lens::INJECTED_IMAGE && initial_query_restricted_;
+  const SkBitmap& base_image =
+      is_region_normalized_to_injected_image
+          ? (region_bytes.has_value()
+                 ? *region_bytes
+                 : (!initial_image_.drawsNothing() ? initial_image_
+                                                   : original_screenshot_))
+          : original_screenshot_;
   encoding_task_tracker_->PostTaskAndReplyWithResult(
       encoding_task_runner_.get(), FROM_HERE,
-      base::BindOnce(&lens::DownscaleAndEncodeBitmapRegionIfNeeded,
-                     original_screenshot_, region.Clone(), region_bytes,
-                     ref_counted_logs),
+      base::BindOnce(&lens::DownscaleAndEncodeBitmapRegionIfNeeded, base_image,
+                     region.Clone(), region_bytes, ref_counted_logs),
       base::BindOnce(
           &LensOverlayQueryController::
               CreateInteractionRequestAndTryPerformInteractionRequest,

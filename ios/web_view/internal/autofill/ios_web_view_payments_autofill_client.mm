@@ -13,6 +13,7 @@
 #import "base/notimplemented.h"
 #import "components/autofill/core/browser/data_manager/payments/payments_data_manager.h"
 #import "components/autofill/core/browser/data_model/payments/bnpl_issuer.h"
+#import "components/autofill/core/browser/payments/autofill_error_dialog_context.h"
 #import "components/autofill/core/browser/payments/bnpl_util.h"
 #import "components/autofill/core/browser/payments/card_unmask_challenge_option.h"
 #import "components/autofill/core/browser/payments/credit_card_cvc_authenticator.h"
@@ -33,7 +34,6 @@
 #import "ios/web_view/internal/autofill/web_view_autofill_client_ios.h"
 #import "ios/web_view/internal/web_view_browser_state.h"
 #import "services/network/public/cpp/weak_wrapper_shared_url_loader_factory.h"
-#import "url/gurl.h"
 
 namespace autofill::payments {
 
@@ -226,7 +226,9 @@ IOSWebViewPaymentsAutofillClient::GetMultipleRequestPaymentsNetworkInterface() {
 }
 
 void IOSWebViewPaymentsAutofillClient::ShowAutofillErrorDialog(
-    AutofillErrorDialogContext context) {}
+    AutofillErrorDialogContext context) {
+  [bridge_ showAutofillErrorDialogWithContext:context];
+}
 
 PaymentsWindowManager*
 IOSWebViewPaymentsAutofillClient::GetPaymentsWindowManager() {
@@ -308,7 +310,7 @@ IOSWebViewPaymentsAutofillClient::GetRiskBasedAuthenticator() {
 }
 
 bool IOSWebViewPaymentsAutofillClient::IsMandatoryReauthEnabled() {
-  return true;
+  return [bridge_ shouldRequireMandatoryReauth];
 }
 
 void IOSWebViewPaymentsAutofillClient::ShowMandatoryReauthOptInPrompt(
@@ -339,14 +341,6 @@ IOSWebViewPaymentsAutofillClient::GetMerchantPromoCodeManager() {
   return nullptr;
 }
 
-void IOSWebViewPaymentsAutofillClient::OpenPromoCodeOfferDetailsURL(
-    const GURL& url) {
-  web_state_->OpenURL(web::WebState::OpenURLParams(
-      url, web::Referrer(), WindowOpenDisposition::NEW_FOREGROUND_TAB,
-      ui::PageTransition::PAGE_TRANSITION_AUTO_TOPLEVEL,
-      /*is_renderer_initiated=*/false));
-}
-
 AutofillOfferManager*
 IOSWebViewPaymentsAutofillClient::GetAutofillOfferManager() {
   return nullptr;
@@ -357,6 +351,13 @@ void IOSWebViewPaymentsAutofillClient::UpdateOfferNotification(
     const OfferNotificationOptions& options) {}
 
 void IOSWebViewPaymentsAutofillClient::DismissOfferNotification() {}
+
+bool IOSWebViewPaymentsAutofillClient::IsTabVisibleForOfferNotification()
+    const {
+  // Offer notifications are not supported on iOS.
+  NOTIMPLEMENTED();
+  return false;
+}
 
 bool IOSWebViewPaymentsAutofillClient::ShowTouchToFillCreditCard(
     base::WeakPtr<TouchToFillPaymentMethodDelegate> delegate,

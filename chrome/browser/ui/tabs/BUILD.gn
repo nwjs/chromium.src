@@ -5,9 +5,13 @@
 assert(is_win || is_mac || is_linux || is_chromeos || is_android)
 
 import("//chrome/common/features.gni")
+import("//components/captive_portal/core/features.gni")
+import("//components/compose/features.gni")
+import("//components/offline_pages/buildflags/features.gni")
 import("//components/signin/features.gni")
 import("//content/public/common/features.gni")
 import("//extensions/buildflags/buildflags.gni")
+import("//printing/buildflags/buildflags.gni")
 import("//rlz/buildflags/buildflags.gni")
 
 # This is the public interface for tabs in a desktop browser. Most features in
@@ -23,6 +27,8 @@ source_set("tabs_public") {
   public_deps = [
     "//base",
     "//chrome/common:buildflags",
+    "//components/compose:buildflags",
+    "//components/offline_pages/buildflags",
     "//components/safe_browsing:buildflags",
     "//components/signin/public/base:signin_buildflags",
     "//components/tab_groups",
@@ -187,10 +193,6 @@ if (!is_android) {
       "//components/commerce/core:feature_list",
       "//components/feed:feature_list",
     ]
-
-    # TODO(crbug.com/40031409): Fix code that adds exit-time destructors and
-    # enable the diagnostic by removing this line.
-    configs += [ "//build/config/compiler:no_exit_time_destructors" ]
   }
 
   source_set("tab_group") {
@@ -263,7 +265,9 @@ if (!is_android) {
       "existing_window_sub_menu_model.h",
       "recent_tabs_builder.h",
       "recent_tabs_sub_menu_model.h",
+      "remote_tabs_menu_util.h",
       "split_tab_menu_model.h",
+      "split_tab_mute_menu_model.h",
       "split_tab_swap_menu_model.h",
       "split_view_layout_menu_model.h",
       "tab_model.h",
@@ -301,6 +305,7 @@ if (!is_android) {
       "existing_tab_group_sub_menu_model.cc",
       "existing_window_sub_menu_model.cc",
       "split_tab_menu_model.cc",
+      "split_tab_mute_menu_model.cc",
       "split_tab_swap_menu_model.cc",
       "split_view_layout_menu_model.cc",
       "tab_model.cc",
@@ -419,10 +424,6 @@ if (!is_android) {
       "//components/web_modal",
       "//components/webapps/common",
     ]
-
-    # TODO(crbug.com/40031409): Fix code that adds exit-time destructors and
-    # enable the diagnostic by removing this line.
-    configs += [ "//build/config/compiler:no_exit_time_destructors" ]
   }
 
   source_set("tabs") {
@@ -508,6 +509,7 @@ if (!is_android) {
       "pinned_tab_service_factory.cc",
       "recent_tabs_builder.cc",
       "recent_tabs_sub_menu_model.cc",
+      "remote_tabs_menu_util.cc",
       "split_tab_highlight_controller.cc",
       "split_tab_metrics.cc",
       "split_tab_util.cc",
@@ -538,33 +540,53 @@ if (!is_android) {
       ":utils",
       "//chrome/app:command_ids",
       "//chrome/app/vector_icons",
+      "//chrome/browser:browser_process",
+      "//chrome/browser:chained_back_navigation_tracker",
       "//chrome/browser/actor",
       "//chrome/browser/actor/ui",
       "//chrome/browser/banners",
       "//chrome/browser/bookmarks",
+      "//chrome/browser/breadcrumbs",
       "//chrome/browser/collaboration/messaging",
       "//chrome/browser/commerce",
       "//chrome/browser/commerce/in_stock_notification",
       "//chrome/browser/complex_tasks",
       "//chrome/browser/content_settings",
       "//chrome/browser/content_settings:content_settings_factory",
+      "//chrome/browser/contextual_search:contextual_cueing",
       "//chrome/browser/contextual_tasks",
+      "//chrome/browser/enterprise",
       "//chrome/browser/external_protocol",
+      "//chrome/browser/facilitated_payments",
       "//chrome/browser/favicon",
+      "//chrome/browser/file_system_access",
       "//chrome/browser/glic",
       "//chrome/browser/glic/browser_ui",
       "//chrome/browser/glic/suggestions",
+      "//chrome/browser/history",
+      "//chrome/browser/history_clusters",
       "//chrome/browser/history_embeddings",
       "//chrome/browser/image_fetcher",
       "//chrome/browser/indigo",
       "//chrome/browser/lifetime",
+      "//chrome/browser/login_detection",
+      "//chrome/browser/lookalikes",
+      "//chrome/browser/media",
       "//chrome/browser/media/webrtc",
       "//chrome/browser/metrics",
       "//chrome/browser/navigation_predictor",
       "//chrome/browser/net",
       "//chrome/browser/optimization_guide",
+      "//chrome/browser/page_content_annotations",
+      "//chrome/browser/page_content_annotations:extraction_service",
+      "//chrome/browser/page_content_annotations:fetcher",
       "//chrome/browser/page_info",
+      "//chrome/browser/page_load_metrics",
+      "//chrome/browser/password_manager",
       "//chrome/browser/payments",
+      "//chrome/browser/permissions",
+      "//chrome/browser/picture_in_picture",
+      "//chrome/browser/predictors",
       "//chrome/browser/preloading/bookmarkbar_preload",
       "//chrome/browser/preloading/new_tab_page_preload",
       "//chrome/browser/preloading/prefetch:zero_suggest_prefetch",
@@ -581,6 +603,8 @@ if (!is_android) {
       "//chrome/browser/skills:ui",
       "//chrome/browser/ssl",
       "//chrome/browser/storage_access_api",
+      "//chrome/browser/subresource_filter",
+      "//chrome/browser/supervised_user",
       "//chrome/browser/sync",
       "//chrome/browser/sync:factories",
       "//chrome/browser/sync_tab_context",
@@ -588,6 +612,8 @@ if (!is_android) {
       "//chrome/browser/tab_group_sync:factories",
       "//chrome/browser/task_manager",
       "//chrome/browser/themes",
+      "//chrome/browser/translate",
+      "//chrome/browser/trusted_vault",
       "//chrome/browser/ui:accelerator_table",
       "//chrome/browser/ui:browser_actions",
       "//chrome/browser/ui:browser_commands",
@@ -596,26 +622,36 @@ if (!is_android) {
       "//chrome/browser/ui:focus_tab_after_navigation_helper",
       "//chrome/browser/ui:intent_picker_tab_helper",
       "//chrome/browser/ui:layout_constants",
+      "//chrome/browser/ui:recently_audible_helper",
       "//chrome/browser/ui:sad_tab",
+      "//chrome/browser/ui:tab_dialogs",
       "//chrome/browser/ui:tab_ui_helper",
       "//chrome/browser/ui:ui_features",
       "//chrome/browser/ui:uma_browsing_activity_observer",
       "//chrome/browser/ui/actions:actions_util",
       "//chrome/browser/ui/autofill",
       "//chrome/browser/ui/blocked_content",
+      "//chrome/browser/ui/bookmarks",
       "//chrome/browser/ui/browser_window",
       "//chrome/browser/ui/commerce",
       "//chrome/browser/ui/context_highlight",
       "//chrome/browser/ui/contextual_search",
+      "//chrome/browser/ui/find_bar",
       "//chrome/browser/ui/interaction",
+      "//chrome/browser/ui/javascript_dialogs",
       "//chrome/browser/ui/lens",
+      "//chrome/browser/ui/passwords",
       "//chrome/browser/ui/performance_controls",
+      "//chrome/browser/ui/prefs",
       "//chrome/browser/ui/read_anything",
       "//chrome/browser/ui/safety_hub",
+      "//chrome/browser/ui/search",
       "//chrome/browser/ui/search_engine_choice",
+      "//chrome/browser/ui/search_engines",
       "//chrome/browser/ui/side_panel",
       "//chrome/browser/ui/side_panel:side_panel_views_dependent",
       "//chrome/browser/ui/sync",
+      "//chrome/browser/ui/tab_contents",
       "//chrome/browser/ui/tabs/alert:tab_alert",
       "//chrome/browser/ui/tabs/back_to_opener",
       "//chrome/browser/ui/tabs/back_to_opener:impl",
@@ -649,35 +685,61 @@ if (!is_android) {
       "//chrome/browser/vr",
       "//chrome/browser/web_applications",
       "//chrome/browser/web_applications/isolated_web_apps:isolated_web_apps_no_pwa_core_deps",
+      "//chrome/common",
+      "//components/blocked_content",
+      "//components/breadcrumbs/core",
+      "//components/breadcrumbs/core:status",
+      "//components/captive_portal/core:buildflags",
+      "//components/client_hints/browser",
+      "//components/commerce/content/browser",
+      "//components/compose:buildflags",
+      "//components/content_settings/browser",
       "//components/content_settings/core/browser",
       "//components/contextual_tasks/public",
       "//components/download/content/factory",
       "//components/download/content/public",
       "//components/enterprise",
+      "//components/facilitated_payments/core/features",
       "//components/favicon/content",
       "//components/favicon/core",
+      "//components/history/content/browser",
+      "//components/history/core/browser",
       "//components/history/core/common",
       "//components/image_fetcher/core",
+      "//components/javascript_dialogs",
       "//components/lens",
       "//components/metrics:content",
+      "//components/metrics_services_manager",
       "//components/multistep_filter/core:features",
       "//components/optimization_guide/content/browser:page_context_eligibility",
+      "//components/optimization_guide/core:features",
+      "//components/page_content_annotations/content",
+      "//components/page_content_annotations/core",
       "//components/passage_embeddings/core",
       "//components/payments/core",
       "//components/performance_manager",
       "//components/permissions",
       "//components/pref_registry",
       "//components/privacy_sandbox:features",
+      "//components/record_replay/core/common",
       "//components/safe_browsing:buildflags",
+      "//components/safe_browsing/content/browser",
       "//components/safe_browsing/core/common:features",
+      "//components/search",
       "//components/security_interstitials/content:security_interstitial_page",
       "//components/sessions",
+      "//components/sessions:session_id",
+      "//components/site_engagement/content",
       "//components/skills:features",
       "//components/sync_sessions",
       "//components/tab_groups",
       "//components/tabs:impl",
+      "//components/ukm/content",
       "//components/wallet/core/common:features",
+      "//components/web_modal",
+      "//components/webapps/browser",
       "//net",
+      "//printing/buildflags",
       "//ui/base/unowned_user_data",
       "//ui/webui",
     ]
@@ -718,10 +780,12 @@ if (!is_android) {
     if (is_chromeos) {
       deps += [
         "//chrome/browser/apps/app_service",
+        "//chrome/browser/ash/boot_times_recorder",
         "//chrome/browser/ash/child_accounts/time_limits",
         "//chrome/browser/ash/growth",
         "//chrome/browser/ash/mahi/web_contents",
         "//chrome/browser/chromeos/gemini_app",
+        "//chrome/browser/chromeos/policy/dlp",
         "//chrome/browser/ui/ash/google_one",
         "//chrome/browser/ui/views/web_apps:protocol_handler_picker_coordinator",
         "//chromeos/ash/experiences/isolated_web_app",
@@ -743,8 +807,41 @@ if (!is_android) {
       ]
     }
 
+    if (enable_captive_portal_detection) {
+      deps += [
+        "//chrome/browser/captive_portal",
+        "//components/captive_portal/content",
+      ]
+    }
+
+    if (enable_compose) {
+      deps += [
+        "//chrome/browser/compose",
+        "//components/autofill/content/browser",
+      ]
+    }
+
     if (enable_extensions_core) {
-      deps += [ "//chrome/browser/extensions" ]
+      deps += [
+        "//chrome/browser/extensions",
+        "//chrome/browser/extensions/api/web_navigation",
+        "//extensions/browser",
+        "//extensions/common:mojom",
+      ]
+    }
+
+    if (enable_offline_pages) {
+      deps += [ "//chrome/browser/offline_pages" ]
+    }
+
+    if (safe_browsing_mode != 0) {
+      deps += [
+        "//components/safe_browsing/content/browser:client_side_detection",
+        "//components/safe_browsing/content/browser:safe_browsing_blocking_page",
+      ]
+    }
+    if (enable_printing) {
+      deps += [ "//chrome/browser/printing" ]
     }
   }
 
@@ -859,8 +956,8 @@ if (!is_android) {
       "//chrome/browser/profiles:profile",
       "//chrome/browser/profiles/keep_alive",
       "//chrome/browser/sync",
-      "//chrome/browser/ui",
       "//chrome/browser/ui:browser_commands",
+      "//chrome/browser/ui:browser_tabstrip",
       "//chrome/browser/ui:browser_window_header",
       "//chrome/browser/ui:tab_ui_helper",
       "//chrome/browser/ui:ui_features",
@@ -870,6 +967,7 @@ if (!is_android) {
       "//chrome/browser/ui/tabs/saved_tab_groups:test_support",
       "//chrome/browser/ui/thumbnails",
       "//chrome/browser/ui/views/frame:browser_view_header",
+      "//chrome/browser/ui/views/send_tab_to_self",
       "//chrome/browser/web_applications",
       "//chrome/browser/web_applications:prevent_close_test_support",
       "//chrome/browser/web_applications:web_applications_test_support",
@@ -880,6 +978,7 @@ if (!is_android) {
       "//components/commerce/core:feature_list",
       "//components/commerce/core:shopping_service",
       "//components/commerce/core:shopping_service_test_support",
+      "//components/javascript_dialogs",
       "//components/policy:generated",
       "//components/policy:policy_code_generate",
       "//components/policy/core/browser",
@@ -934,10 +1033,7 @@ if (!is_android) {
     sources = [
       "inactive_window_mouse_event_controller_unittest.cc",
       "split_view_iph_controller_unittest.cc",
-      "tab_collection_storage_unittest.cc",
-      "tab_collection_unittest.cc",
       "tab_group_deletion_dialog_controller_unittest.cc",
-      "tab_iterator_unittest.cc",
       "tab_menu_model_unittest.cc",
       "tab_metrics_provider_unittest.cc",
       "tab_model_unittest.cc",

@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "base/task/single_thread_task_runner.h"
+#include "base/test/bind.h"
 #include "base/test/run_until.h"
 #include "base/test/scoped_feature_list.h"
 #include "build/build_config.h"
@@ -141,13 +142,12 @@ class OmniboxEverywhereBrowserTest : public InteractiveBrowserTest {
   // of `view`, converting view-local coordinates to absolute screen
   // coordinates.
   auto MoveMouseInView(ElementSpecifier view, gfx::Point offset) {
-    return MoveMouseTo(view, base::BindOnce(
-                                 [](gfx::Point pt, ui::TrackedElement* el) {
-                                   views::View* v = AsView<views::View>(el);
-                                   return views::View::ConvertPointToScreen(v,
-                                                                            pt);
-                                 },
-                                 offset));
+    return MoveMouseTo(
+        view,
+        base::BindLambdaForTesting([this, offset](ui::TrackedElement* el) {
+          views::View* v = AsView<views::View>(el);
+          return views::View::ConvertPointToScreen(v, offset);
+        }));
   }
 
   // Checks whether the Omnibox Everywhere widget exists and matches the
@@ -536,8 +536,7 @@ IN_PROC_BROWSER_TEST_F(OmniboxEverywherePersistentBrowserTest,
       WaitForWidgetActiveState(false));
 }
 
-// TODO(crbug.com/40249472): Support modal dragging on Windows with Kombucha.
-#if BUILDFLAG(IS_LINUX)
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_WIN)
 #define MAYBE_DragToMoveWindowInDraggableRegion \
   DragToMoveWindowInDraggableRegion
 #else
@@ -624,9 +623,9 @@ IN_PROC_BROWSER_TEST_F(OmniboxEverywhereEphemeralBrowserTest,
   gfx::Point dragged_origin;
   DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kOmniboxWebContentsId);
 
-#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
-  // TODO(crbug.com/40249472): Modal drag loops in tests aren't supported on
-  // MacOS and Windows. Manually set widget bounds to test position retention
+#if BUILDFLAG(IS_MAC)
+  // On Mac, dragging triggers a native window move loop, which is not
+  // supported in tests. Manually set widget bounds to test position retention
   // across re-invocations.
   auto reposition_step = Steps(Do([&]() {
     views::Widget* widget = controller->ui_manager()->widget();
@@ -638,7 +637,7 @@ IN_PROC_BROWSER_TEST_F(OmniboxEverywhereEphemeralBrowserTest,
 #else
   const char kContentsView[] = "OmniboxContentsView";
   auto reposition_step = Steps(
-      NameOmniboxContentsView(kContentsView),
+      WaitForDraggableRegions(), NameOmniboxContentsView(kContentsView),
       DragMouseInView(kContentsView, gfx::Point(10, 5), gfx::Point(110, 5)),
       Do([&]() {
         dragged_origin = controller->ui_manager()
@@ -1224,15 +1223,18 @@ IN_PROC_BROWSER_TEST_F(OmniboxEverywhereBrowserTest,
   DEFINE_LOCAL_CUSTOM_ELEMENT_EVENT_TYPE(kAvatarUpdatedEvent);
 
   // 2. Compute the initial placeholder avatar data URL.
-  gfx::Image initial_icon =
-      profiles::GetSizedAvatarIcon(entry->GetAvatarIcon(), 48, 48);
+  gfx::Image initial_icon = profiles::GetSizedAvatarIcon(
+      entry->GetAvatarIcon(OmniboxEverywhereUI::kProfileAvatarSizePx),
+      OmniboxEverywhereUI::kProfileAvatarSizePx,
+      OmniboxEverywhereUI::kProfileAvatarSizePx);
   const std::string initial_avatar_data_url =
       webui::GetBitmapDataUrl(initial_icon.AsBitmap());
 
-  // 3. Create a unique 48x48 GAIA avatar image (solid red) that will be
+  // 3. Create a unique GAIA avatar image (solid red) that will be
   // delivered when disk loading finishes.
   SkBitmap gaia_bitmap;
-  gaia_bitmap.allocN32Pixels(48, 48);
+  gaia_bitmap.allocN32Pixels(OmniboxEverywhereUI::kProfileAvatarSizePx,
+                             OmniboxEverywhereUI::kProfileAvatarSizePx);
   gaia_bitmap.eraseColor(SK_ColorRED);
   gfx::Image gaia_image = gfx::Image::CreateFrom1xBitmap(gaia_bitmap);
   const std::string expected_gaia_avatar_data_url =

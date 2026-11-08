@@ -32,6 +32,7 @@ import org.chromium.base.test.util.CallbackHelper;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.CriteriaHelper;
 import org.chromium.base.test.util.Feature;
+import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.MinAndroidSdkLevel;
 import org.chromium.base.test.util.TestFileUtil;
@@ -416,7 +417,7 @@ public class PrintingControllerTest {
     @Test
     @SmallTest
     @Feature({"Printing"})
-    public void testGetFileDescriptorAfterFinish() throws Exception {
+    public void testFileDescriptorIsDetachedOnWrite() throws Exception {
         WebPageStation page = mActivityTestRule.startOnUrl(URL);
         final PrintingControllerImpl controller = createControllerOnUiThread();
 
@@ -425,22 +426,31 @@ public class PrintingControllerTest {
         try (TemporaryFileHandler handler = new TemporaryFileHandler()) {
             ThreadUtils.runOnUiThreadBlocking(
                     () -> {
-                        Assert.assertNull(controller.getParcelFileDescriptor());
+                        ParcelFileDescriptor pfd = handler.getFileDescriptor();
+                        Assert.assertTrue(pfd.getFd() >= 0);
                         controller.onStart();
 
-                        // Simulate onWrite to set the file descriptor
+                        // onLayout() must run first: it is what supplies the DPI and
+                        // media size that onWrite() forwards to native.
+                        controller.onLayout(
+                                null,
+                                createPlaceholderPrintAttributes(),
+                                new CancellationSignal(),
+                                new LayoutResultCallbackWrapperMock(),
+                                null);
+
+                        // Simulate onWrite: destination FD is detached and passed directly to JNI.
                         controller.onWrite(
                                 new PageRange[] {PageRange.ALL_PAGES},
-                                handler.getFileDescriptor(),
+                                pfd,
                                 new CancellationSignal(),
                                 new WriteResultCallbackWrapperMock());
 
-                        // Check that it is now a valid FD (non-null ParcelFileDescriptor)
-                        Assert.assertNotNull(controller.getParcelFileDescriptor());
+                        // Verify that the file descriptor has been detached by onWrite:
+                        // ParcelFileDescriptor#getFd() throws once ownership was given away.
+                        Assert.assertThrows(IllegalStateException.class, pfd::getFd);
 
                         controller.onFinish();
-                        // Verify it goes back to invalid after finish
-                        Assert.assertNull(controller.getParcelFileDescriptor());
                     });
         }
     }
@@ -488,6 +498,7 @@ public class PrintingControllerTest {
     @Test
     @SmallTest
     @Feature({"Printing"})
+    @DisableFeatures(ChromeFeatureList.ANDROID_DESKTOP_WEB_UI_HISTORY)
     public void testDisallowPrintOnNativePage() {
         mActivityTestRule.startOnBlankPage();
         mActivityTestRule.loadUrl(UrlConstants.HISTORY_URL);

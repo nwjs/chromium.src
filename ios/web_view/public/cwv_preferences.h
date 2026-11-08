@@ -48,8 +48,8 @@ CWV_EXPORT
 @property(nonatomic, assign, getter=isPasswordLeakCheckEnabled)
     BOOL passwordLeakCheckEnabled;
 
-// Controls whether or not WebViewPasswordManagerClient is hardened against
-// WebState destruction.
+// Deprecated: WebViewPasswordManagerClient is now permanently hardened against
+// WebState destruction. Setting this has no effect and it always returns YES.
 @property(nonatomic, assign, getter=isPasswordManagerSafeLifecycleEnabled)
     BOOL passwordManagerSafeLifecycleEnabled;
 
@@ -72,8 +72,8 @@ CWV_EXPORT
 @property(nonatomic, assign, getter=isAutofillVCNUsageEnabled)
     BOOL autofillVCNUsageEnabled;
 
-// Controls whether or not CWVAutofillController is hardened against WebState
-// destruction.
+// Deprecated: CWVAutofillController is now permanently hardened against
+// WebState destruction. Setting this has no effect and it always returns YES.
 @property(nonatomic, assign, getter=isAutofillSafeLifecycleEnabled)
     BOOL autofillSafeLifecycleEnabled;
 

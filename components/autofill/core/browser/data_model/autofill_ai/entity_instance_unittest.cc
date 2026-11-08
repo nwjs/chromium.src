@@ -23,9 +23,15 @@
 #include "components/personal_context/proto/features/at_memory.pb.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "url/gurl.h"
 
 namespace autofill {
 namespace {
+
+using ::testing::ElementsAre;
+using ::testing::IsEmpty;
+using ::testing::Property;
+using ::testing::SizeIs;
 
 using enum AttributeTypeName;
 
@@ -167,13 +173,12 @@ TEST_F(AutofillEntityInstanceTest, CopyWithNewRecordTypeSetsWalletPayload) {
       std::get_if<EntityInstance::WalletRecordTypePayload>(
           &converted_wallet_entity.record_type_data());
   ASSERT_NE(converted_payload, nullptr);
-  EXPECT_EQ(converted_payload->management_url, "");
+  EXPECT_EQ(converted_payload->management_url, GURL());
 }
 
 TEST_F(AutofillEntityInstanceTest,
        CopyWithNewRecordTypeSameTypeCopiesThePayload) {
-  constexpr char kWalletUrl[] =
-      "https://wallet.google.com/synthetic_pass?id=fake123";
+  const GURL kWalletUrl("https://wallet.google.com/synthetic_pass?id=fake123");
   EntityInstance wallet_entity = test::GetPassportEntityInstance(
       {.record_type = EntityInstance::WalletRecordTypePayload{.management_url =
                                                                   kWalletUrl}});
@@ -191,8 +196,8 @@ TEST_F(AutofillEntityInstanceTest, Attributes) {
   const char16_t kName[] = u"Pippi";
   EntityInstance pp =
       test::GetPassportEntityInstance({.name = kName, .number = nullptr});
-  EXPECT_EQ(pp.attributes().size(), 4u);
-  EXPECT_EQ(pp.type().attributes().size(), 5u);
+  EXPECT_THAT(pp.attributes(), SizeIs(4u));
+  EXPECT_THAT(pp.type().attributes(), SizeIs(5u));
   EXPECT_FALSE(pp.attribute(AttributeType(kPassportNumber)));
   {
     base::optional_ref<const AttributeInstance> a =
@@ -430,7 +435,7 @@ TEST_F(
   EntityInstance::EntityMergeability result =
       test::GetPassportEntityInstance().GetEntityMergeability(
           test::GetPassportEntityInstance());
-  EXPECT_TRUE(result.mergeable_attributes.empty());
+  EXPECT_THAT(result.mergeable_attributes, IsEmpty());
   EXPECT_TRUE(result.is_subset);
 }
 
@@ -441,7 +446,7 @@ TEST_F(
       test::GetPassportEntityInstance().GetEntityMergeability(
           test::GetPassportEntityInstance({.expiry_date = nullptr}));
 
-  EXPECT_TRUE(result.mergeable_attributes.empty());
+  EXPECT_THAT(result.mergeable_attributes, IsEmpty());
   EXPECT_TRUE(result.is_subset);
 }
 TEST_F(
@@ -451,7 +456,7 @@ TEST_F(
       test::GetPassportEntityInstance().GetEntityMergeability(
           test::GetPassportEntityInstance({.expiry_date = nullptr}));
 
-  EXPECT_TRUE(result.mergeable_attributes.empty());
+  EXPECT_THAT(result.mergeable_attributes, IsEmpty());
   EXPECT_TRUE(result.is_subset);
 }
 
@@ -464,9 +469,9 @@ TEST_F(
   EntityInstance::EntityMergeability result =
       old_entity.GetEntityMergeability(new_entity);
 
-  ASSERT_EQ(result.mergeable_attributes.size(), 1u);
-  EXPECT_EQ(result.mergeable_attributes[0].type().name(),
-            kPassportExpirationDate);
+  ASSERT_THAT(result.mergeable_attributes,
+              ElementsAre(Property(&AttributeInstance::type,
+                                   AttributeType(kPassportExpirationDate))));
 
   const AttributeInstance& old_attribute = result.mergeable_attributes[0];
   base::optional_ref<const AttributeInstance> new_attribute =
@@ -487,8 +492,9 @@ TEST_F(
   EntityInstance::EntityMergeability result =
       test::GetPassportEntityInstance().GetEntityMergeability(new_entity);
 
-  ASSERT_EQ(result.mergeable_attributes.size(), 1u);
-  EXPECT_EQ(result.mergeable_attributes[0].type().name(), kPassportCountry);
+  ASSERT_THAT(result.mergeable_attributes,
+              ElementsAre(Property(&AttributeInstance::type,
+                                   AttributeType(kPassportCountry))));
 
   const AttributeInstance& old_attribute = result.mergeable_attributes[0];
   base::optional_ref<const AttributeInstance> new_attribute =
@@ -507,7 +513,7 @@ TEST_F(
       test::GetPassportEntityInstance({.number = u"456"});
   EntityInstance::EntityMergeability result =
       old_entity.GetEntityMergeability(new_entity);
-  EXPECT_TRUE(result.mergeable_attributes.empty());
+  EXPECT_THAT(result.mergeable_attributes, IsEmpty());
   EXPECT_FALSE(result.is_subset);
 }
 
@@ -519,7 +525,7 @@ TEST_F(
           .GetEntityMergeability(
               test::GetPassportEntityInstance({.number = u"1234    5"}));
 
-  EXPECT_TRUE(result.mergeable_attributes.empty());
+  EXPECT_THAT(result.mergeable_attributes, IsEmpty());
   EXPECT_TRUE(result.is_subset);
 }
 
@@ -557,7 +563,7 @@ TEST_F(AutofillEntityInstanceTest, GetEntityMergeability_EntitiesAreDisjoint) {
           .GetEntityMergeability(
               test::GetVehicleEntityInstance({.plate = u"6789"}));
 
-  EXPECT_TRUE(result.mergeable_attributes.empty());
+  EXPECT_THAT(result.mergeable_attributes, IsEmpty());
   EXPECT_FALSE(result.is_subset);
 }
 
@@ -1005,6 +1011,83 @@ INSTANTIATE_FEATURE_OVERRIDE_TEST_SUITE(
     AutofillEntityInstanceWalletPrivatePassesTest);
 INSTANTIATE_FEATURE_OVERRIDE_TEST_SUITE(
     AutofillEntityInstanceAmbientAutofillTest);
+
+struct GetManagementUrlWithFallbackTestCase {
+  std::string_view description;
+  EntityTypeName entity_type;
+  std::string_view stored_url;
+  std::string_view expected_url;
+};
+
+class GetManagementUrlWithFallbackTest
+    : public ::testing::TestWithParam<GetManagementUrlWithFallbackTestCase> {
+ public:
+  GetManagementUrlWithFallbackTest() {
+    feature_list_.InitWithFeatures(
+        /*enabled_features=*/{features::kAutofillAiWalletPrivatePassesDeepLink,
+                              features::
+                                  kAutofillAiWalletServerProvidedDeepLink},
+        /*disabled_features=*/{});
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+TEST_P(GetManagementUrlWithFallbackTest, ResolvesExpectedUrl) {
+  const GetManagementUrlWithFallbackTestCase& test_case = GetParam();
+  const EntityInstance::WalletRecordTypePayload payload{
+      .management_url = GURL(test_case.stored_url)};
+  EXPECT_EQ(payload.GetManagementUrlWithFallback(
+                EntityType(test_case.entity_type),
+                EntityInstance::EntityId("123-456:789")),
+            GURL(test_case.expected_url))
+      << test_case.description;
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    AutofillEntityInstanceTest,
+    GetManagementUrlWithFallbackTest,
+    ::testing::Values(
+        GetManagementUrlWithFallbackTestCase{
+            .description = "Public pass with valid server management URL",
+            .entity_type = EntityTypeName::kVehicle,
+            .stored_url = "https://wallet.google.com/wallet/passes/vehicle_123",
+            .expected_url =
+                "https://wallet.google.com/wallet/passes/vehicle_123"},
+        GetManagementUrlWithFallbackTestCase{
+            .description = "Public pass with empty management URL falls back "
+                           "to passes page",
+            .entity_type = EntityTypeName::kVehicle,
+            .stored_url = "",
+            .expected_url = "https://wallet.google.com/wallet/passes"},
+        GetManagementUrlWithFallbackTestCase{
+            .description = "Shopping entity with valid server management URL",
+            .entity_type = EntityTypeName::kOrder,
+            .stored_url =
+                "https://wallet.google.com/wallet/transactions/order_123",
+            .expected_url =
+                "https://wallet.google.com/wallet/transactions/order_123"},
+        GetManagementUrlWithFallbackTestCase{
+            .description = "Shopping entity with empty management URL falls "
+                           "back to transactions page",
+            .entity_type = EntityTypeName::kOrder,
+            .stored_url = "",
+            .expected_url = "https://wallet.google.com/wallet/transactions"},
+        GetManagementUrlWithFallbackTestCase{
+            .description = "Private pass with valid server management URL",
+            .entity_type = EntityTypeName::kPassport,
+            .stored_url = "https://wallet.google.com/server_private_pass",
+            .expected_url = "https://wallet.google.com/server_private_pass"},
+        GetManagementUrlWithFallbackTestCase{
+            .description = "Private pass with empty management URL falls back "
+                           "to client-constructed deep link",
+            .entity_type = EntityTypeName::kPassport,
+            .stored_url = "",
+            .expected_url =
+                "https://wallet.google.com/wallet?p=walletpass&"
+                "ppid=123-456%3A789&utm_source=chrome&utm_medium=settings&"
+                "utm_campaign=enhanced_autofill"}));
 
 }  // namespace
 }  // namespace autofill

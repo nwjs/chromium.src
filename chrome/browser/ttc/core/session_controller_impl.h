@@ -5,17 +5,21 @@
 #ifndef CHROME_BROWSER_TTC_CORE_SESSION_CONTROLLER_IMPL_H_
 #define CHROME_BROWSER_TTC_CORE_SESSION_CONTROLLER_IMPL_H_
 
-#include <string>
+#include <memory>
 
 #include "base/check_deref.h"
 #include "base/memory/raw_ref.h"
+#include "base/memory/weak_ptr.h"
+#include "base/scoped_observation.h"
 #include "chrome/browser/ttc/app/public/conversation.h"
+#include "chrome/browser/ttc/core/actor_task_holder.h"
 #include "chrome/browser/ttc/core/session_controller.h"
+#include "chrome/browser/ttc/core/session_journal.h"
 #include "chrome/browser/ttc/core/session_view_delegate.h"
 #include "chrome/browser/ttc/core/tool_controller.h"
 #include "chrome/browser/ttc/core/ttc_page_context_monitor.h"
-
-class BrowserWindowInterface;
+#include "chrome/browser/ttc/core/voice_focused_contents_tracker.h"
+#include "components/actor/core/task_id.h"
 
 namespace content {
 class WebContents;
@@ -27,7 +31,8 @@ class SessionView;
 class TtcKeyedService;
 
 class SessionControllerImpl : public SessionController,
-                              public SessionViewDelegate {
+                              public SessionViewDelegate,
+                              public VoiceFocusedContentsTracker::Observer {
  public:
   explicit SessionControllerImpl(TtcKeyedService& service);
   ~SessionControllerImpl() override;
@@ -36,10 +41,12 @@ class SessionControllerImpl : public SessionController,
 
   // SessionController and SessionViewDelegate implementation:
   Profile* GetProfile() override;
+  void EndSessionAsync() override;
 
   // SessionController implementation:
   void OnSessionInitialized() override;
-  void GetPageContext(FetchCompleteCallback callback) override;
+  void OnError(ErrorCode error) override;
+  SessionJournal& GetJournal() override;
   SessionLifecycle GetSessionLifecycle() const override;
   void SetSessionLifecycle(SessionLifecycle lifecycle) override;
   void ProcessToolCall(const ToolRequest& tool_request,
@@ -48,37 +55,46 @@ class SessionControllerImpl : public SessionController,
   void UserAudioLevelUpdate(float audio_level) override;
 
   // SessionViewDelegate implementation:
-  void EndSessionAsync() override;
+  BrowserWindowInterface* GetBrowserWindowInterface() override;
 
-  // TODO(bokan): Android doesn't yet have a session_view so calling
-  // this will crash there.
+  // VoiceFocusedContentsTracker::Observer implementation:
+  void OnVoiceFocusedContentsChanged(
+      content::WebContents* web_contents) override;
+
+  // The contents of the tab this session acts on, or null. Same tab the page
+  // context is read from.
+  content::WebContents* GetVoiceFocusedWebContents();
+
+  actor::TaskId GetActorTaskId() const;
+
   SessionView& session_view() { return CHECK_DEREF(session_view_.get()); }
   Conversation& conversation() { return CHECK_DEREF(conversation_.get()); }
 
  private:
-  // Returns the last active browser window for this session's profile. May be
-  // null if there is no suitable window.
-  BrowserWindowInterface* GetBrowserWindowInterface();
-
-  // Returns the WebContents that the session is currently focused on and
-  // observing.
-  content::WebContents* GetObservedWebContents();
-
-  // Invoked by `page_context_monitor_` when the monitored page changes.
-  void OnPageContextChanged();
+  void OnPageContextFetched(const PageContextResult& result);
 
   // Safe because TtcKeyedService owns this object and outlives it. Gets
   // assigned on construction.
   const raw_ref<TtcKeyedService> service_;
 
-  // Never null
+  // Neither is ever null.
   std::unique_ptr<Conversation> conversation_;
   std::unique_ptr<SessionView> session_view_;
 
+  // Never null.
+  std::unique_ptr<VoiceFocusedContentsTracker> voice_focused_contents_tracker_;
+  base::ScopedObservation<VoiceFocusedContentsTracker,
+                          VoiceFocusedContentsTracker::Observer>
+      voice_focused_contents_tracker_observation_{this};
+
   std::unique_ptr<TtcPageContextMonitor> page_context_monitor_;
+  ActorTaskHolder actor_task_holder_;
+  SessionJournal journal_;
   ToolController tool_controller_;
 
   SessionLifecycle session_lifecycle_ = SessionLifecycle::kInitializing;
+
+  base::WeakPtrFactory<SessionControllerImpl> weak_ptr_factory_{this};
 };
 
 }  // namespace ttc

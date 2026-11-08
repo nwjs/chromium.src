@@ -26,7 +26,6 @@
 #import "ios/chrome/browser/intelligence/actor/tools/utils/actor_tool_utils.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
-#import "ios/chrome/browser/shared/public/features/system_flags.h"
 #import "ios/chrome/browser/tabs/model/inactive_tabs/features.h"
 
 BASE_FEATURE(kEnhancedCalendar, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -303,42 +302,12 @@ base::TimeDelta GetPersistedContextEffectiveTTL(PrefService* prefs) {
   return std::min(persist_ttl, inactive_tabs_ttl);
 }
 
-BASE_FEATURE(kGeminiNavigationPromo, base::FEATURE_DISABLED_BY_DEFAULT);
-
-bool IsGeminiNavigationPromoEnabled() {
-  if (!IsPageActionMenuEnabled() ||
-      !base::FeatureList::IsEnabled(
-          feature_engagement::kIPHiOSGeminiFullscreenPromoFeature)) {
-    return false;
-  }
-
-  return base::FeatureList::IsEnabled(kGeminiNavigationPromo);
-}
-
-BASE_FEATURE(kZeroStateSuggestions, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kZeroStateSuggestions, base::FEATURE_ENABLED_BY_DEFAULT);
 
 bool IsZeroStateSuggestionsEnabled() {
   if (!IsPageActionMenuEnabled()) {
     return false;
   }
-
-  variations::VariationsService* variations_service =
-      GetApplicationContext()->GetVariationsService();
-  bool is_launched_country =
-      variations_service &&
-      base::EqualsCaseInsensitiveASCII(
-          variations_service->GetStoredPermanentCountry(), "us");
-
-  ApplicationLocaleStorage* locale_storage =
-      GetApplicationContext()->GetApplicationLocaleStorage();
-  bool is_launched_locale =
-      locale_storage && base::EqualsCaseInsensitiveASCII(
-                            locale_storage->GetTag().tag_string(), "en-us");
-
-  if (is_launched_country && is_launched_locale) {
-    return true;
-  }
-
   return base::FeatureList::IsEnabled(kZeroStateSuggestions);
 }
 
@@ -687,6 +656,16 @@ BASE_FEATURE_PARAM(bool,
                    kGeminiActorBackgroundingParam,
                    true);
 
+const char kGeminiActorBackgroundWebStateKeepAliveHeartbeatIntervalParam[] =
+    "background_web_state_keep_alive_heartbeat_interval";
+
+BASE_FEATURE_PARAM(
+    base::TimeDelta,
+    kGeminiActorBackgroundWebStateKeepAliveHeartbeatInterval,
+    &kGeminiActor,
+    kGeminiActorBackgroundWebStateKeepAliveHeartbeatIntervalParam,
+    base::Milliseconds(400));
+
 bool IsGeminiActorEnabled() {
   if (!IsPageActionMenuEnabled() || !IsActorEnabled() ||
       !IsGeminiClientMigrationEnabled()) {
@@ -700,6 +679,10 @@ bool IsGeminiActorBackgroundingEnabled() {
     return false;
   }
   return kGeminiActorBackgrounding.Get();
+}
+
+base::TimeDelta GetGeminiActorBackgroundWebStateKeepAliveHeartbeatInterval() {
+  return kGeminiActorBackgroundWebStateKeepAliveHeartbeatInterval.Get();
 }
 
 BASE_FEATURE(kGeminiUnaryMigration, base::FEATURE_ENABLED_BY_DEFAULT);
@@ -776,14 +759,6 @@ bool IsAppSwitcherAISummarizationEnabled() {
     return false;
   }
   return base::FeatureList::IsEnabled(kAppSwitcherAISummarization);
-}
-
-bool IsAppSwitcherAISummarizationTestingExternalURLEnabled() {
-  if (!IsAppSwitcherAISummarizationEnabled()) {
-    return false;
-  }
-  return experimental_flags::
-      IsAppSwitcherAISummarizationTestingExternalURLEnabled();
 }
 
 #pragma mark - Debugging Features

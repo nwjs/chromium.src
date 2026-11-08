@@ -33,8 +33,8 @@
 #include "base/task/task_traits.h"
 #include "base/task/thread_pool.h"
 #include "base/time/time.h"
-#include "ui/base/cursor/cursor_factory.h"
 #include "ui/base/x/x11_util.h"
+#include "ui/gfx/skia_span_util.h"
 #include "ui/gfx/x/atom_cache.h"
 #include "ui/gfx/x/connection.h"
 #include "ui/gfx/x/xproto.h"
@@ -154,7 +154,9 @@ base::FilePath CanonicalizePath(base::FilePath path) {
 }
 
 bool IsValidCursorThemeName(const std::string& theme) {
-  return ui::IsValidCursorThemeName(theme);
+  base::FilePath theme_path(theme);
+  return !theme.empty() && theme != "." && !theme_path.IsAbsolute() &&
+         !theme_path.ReferencesParent() && theme_path.BaseName() == theme_path;
 }
 
 scoped_refptr<base::RefCountedMemory> ReadCursorFromThemeImpl(
@@ -363,9 +365,6 @@ scoped_refptr<X11Cursor> XCursorLoader::CreateCursor(
       {32, pixmap, connection_->default_root(), width, height});
   connection_->CreateGC({gc, pixmap});
 
-  size_t size = bitmap.computeByteSize();
-  std::vector<uint8_t> vec(size);
-  UNSAFE_TODO(memcpy(vec.data(), bitmap.getPixels(), size));
   auto* connection = x11::Connection::Get();
   x11::PutImageRequest put_image_request{
       .format = x11::ImageFormat::ZPixmap,
@@ -374,7 +373,8 @@ scoped_refptr<X11Cursor> XCursorLoader::CreateCursor(
       .width = width,
       .height = height,
       .depth = 32,
-      .data = base::MakeRefCounted<base::RefCountedBytes>(std::move(vec)),
+      .data = base::MakeRefCounted<base::RefCountedBytes>(
+          gfx::SkPixmapToSpan(bitmap.pixmap())),
   };
   connection->PutImage(put_image_request);
 
@@ -697,14 +697,7 @@ std::vector<XCursorLoader::Image> ParseCursorFile(
     }
     SkBitmap bitmap;
     bitmap.allocN32Pixels(image.width, image.height);
-    base::span<uint8_t> pixels =
-        // SAFETY: SkBitmap promises that getPixels() returns a pointer to
-        // at least as many bytes as computeByteSize().
-        //
-        // TODO(crbug.com/40284755): SkBitmap should provide a span-based
-        // API.
-        UNSAFE_TODO(base::span(static_cast<uint8_t*>(bitmap.getPixels()),
-                               bitmap.computeByteSize()));
+    base::span<uint8_t> pixels = gfx::SkPixmapToWritableSpan(bitmap.pixmap());
     if (!chunk_reader.ReadCopy(pixels)) {
       return {};
     }

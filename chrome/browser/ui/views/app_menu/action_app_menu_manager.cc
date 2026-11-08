@@ -25,6 +25,7 @@
 #include "chrome/browser/media/router/media_router_feature.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
+#include "chrome/browser/profiles/profiles_state.h"
 #include "chrome/browser/search/background/ntp_custom_background_service_factory.h"
 #include "chrome/browser/sharing_hub/sharing_hub_features.h"
 #include "chrome/browser/ttc/core/ttc_keyed_service.h"
@@ -41,7 +42,6 @@
 #if BUILDFLAG(IS_CHROMEOS)
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_entry.h"
-#include "content/public/browser/web_contents.h"
 #include "ui/display/screen.h"
 #endif
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
@@ -50,6 +50,7 @@
 #include "chrome/browser/feedback/show_feedback_page.h"
 #include "chrome/browser/ui/webui/whats_new/whats_new_util.h"
 #endif
+#include "chrome/browser/contextual_tasks/contextual_tasks_utils.h"
 #include "chrome/browser/send_tab_to_self/send_tab_to_self_util.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/lens/lens_overlay_entry_point_controller.h"
@@ -71,6 +72,9 @@
 #include "chrome/browser/ui/views/app_menu/send_tab_to_self_dynamic_menu.h"
 #include "chrome/browser/ui/views/app_menu/tab_group_dynamic_menu.h"
 #include "chrome/browser/ui/views/bookmarks/saved_tab_groups/saved_tab_group_everything_menu.h"
+#include "chrome/browser/ui/views/toolbar/toolbar_button_menu_highlighter.h"
+#include "chrome/browser/ui/web_applications/app_browser_controller.h"
+#include "chrome/browser/ui/web_applications/web_app_menu_model.h"
 #include "chrome/browser/ui/web_applications/web_app_ui_utils.h"
 #include "chrome/browser/ui/webui/side_panel/customize_chrome/customize_chrome_page_handler.h"
 #include "chrome/browser/user_education/user_education_service.h"
@@ -82,20 +86,24 @@
 #include "components/bookmarks/browser/bookmark_model.h"
 #include "components/bookmarks/common/bookmark_bar_visibility_state.h"
 #include "components/bookmarks/common/bookmark_pref_names.h"
+#include "components/contextual_tasks/public/features.h"
 #include "components/lens/lens_features.h"
 #include "components/prefs/pref_service.h"
 #include "components/search/ntp_features.h"
 #include "components/send_tab_to_self/entry_point_display_reason.h"
 #include "components/send_tab_to_self/features.h"
 #include "components/signin/public/base/signin_pref_names.h"
+#include "components/skills/features.h"
 #include "components/user_education/common/tutorial/tutorial_description.h"
 #include "components/user_education/common/tutorial/tutorial_registry.h"
 #include "components/user_education/common/tutorial/tutorial_service.h"
 #include "components/vector_icons/vector_icons.h"
+#include "content/public/browser/web_contents.h"
 #include "extensions/buildflags/buildflags.h"
 #if BUILDFLAG(ENABLE_EXTENSIONS)
 #include "chrome/browser/extensions/extension_ui_util.h"
 #endif
+#include "chrome/browser/ui/browser_element_identifiers.h"
 #include "ui/actions/action_id.h"
 #include "ui/actions/actions.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -149,6 +157,17 @@ std::u16string GetProfileName(Profile* profile) {
 }
 #endif
 
+bool ShouldAllowOpenInChrome(BrowserWindowInterface* browser) {
+  // Isolated Web Apps shouldn't be opened in Chrome.
+  const bool is_isolated_web_app =
+      web_app::AppBrowserController::IsIsolatedWebApp(browser);
+  // Web Apps with enabled prevent close shouldn't be opened in Chrome.
+  auto* const app_controller = web_app::AppBrowserController::From(browser);
+  const bool prevent_close_enabled =
+      app_controller && app_controller->IsPreventCloseEnabled();
+  return !is_isolated_web_app && !prevent_close_enabled;
+}
+
 // Builder helper to simplify declaring the action item structure for the app
 // menu.
 class AppMenuBuilder {
@@ -157,20 +176,24 @@ class AppMenuBuilder {
 
   AppMenuBuilder(actions::ActionItem* parent,
                  BrowserWindowInterface* browser_window_interface,
+                 ui::ElementIdentifier highlighted_menu_identifier,
                  std::optional<ui::ColorId> bg_color = std::nullopt,
                  DisplayType default_display_type = DisplayType::kRow)
       : AppMenuBuilder(static_cast<actions::BaseAction*>(parent),
                        browser_window_interface,
+                       highlighted_menu_identifier,
                        bg_color,
                        default_display_type) {}
   AppMenuBuilder(actions::BaseAction* parent,
                  BrowserWindowInterface* browser_window_interface,
+                 ui::ElementIdentifier highlighted_menu_identifier,
                  std::optional<ui::ColorId> bg_color = std::nullopt,
                  DisplayType default_display_type = DisplayType::kRow)
       : parent_(parent),
         browser_window_interface_(browser_window_interface),
         scope_(BrowserActions::From(browser_window_interface_)
                    ->root_action_item()),
+        highlighted_menu_identifier_(highlighted_menu_identifier),
         bg_color_(bg_color),
         default_display_type_(default_display_type) {}
   AppMenuBuilder(const AppMenuBuilder&) = delete;
@@ -201,9 +224,11 @@ class AppMenuBuilder {
   }
 
   // Adds a header item to the current parent without modifying the parent.
-  AppMenuBuilder& AddHeader(int string_id) {
+  AppMenuBuilder& AddHeader(
+      int string_id,
+      ui::ElementIdentifier element_id = ui::ElementIdentifier()) {
     auto header_item = AppMenuActionItem::CreateHeader(
-        l10n_util::GetStringUTF16(string_id), bg_color_);
+        l10n_util::GetStringUTF16(string_id), bg_color_, element_id);
     if (parent_) {
       parent_->AddChild(std::move(header_item));
     }
@@ -240,11 +265,12 @@ class AppMenuBuilder {
       return *this;
     }
     auto* item_ptr = parent_->AddChild(std::move(item));
-    AppMenuBuilder sub_builder(item_ptr, browser_window_interface_);
+    AppMenuBuilder sub_builder(item_ptr, browser_window_interface_,
+                               highlighted_menu_identifier_);
     build_submenu(sub_builder);
-    // If any item inside the submenu is alerted as part of a running tutorial,
-    // also alert this parent submenu row so the user knows which submenu to
-    // open, and propagate the alerted state up to any outer submenu.
+    // If any item inside the submenu is alerted as part of a running tutorial
+    // or IPH promo, also alert this parent submenu row so the user knows which
+    // submenu to open, and propagate the alerted state up to any outer submenu.
     if (sub_builder.has_alerted_child_) {
       item_ptr->SetProperty(AppMenuActionItem::kIsAlertedKey, true);
     }
@@ -274,6 +300,7 @@ class AppMenuBuilder {
     auto* item_ptr = parent_->AddChild(std::move(item));
     if (build_section.has_value()) {
       AppMenuBuilder section_builder(item_ptr, browser_window_interface_,
+                                     highlighted_menu_identifier_,
                                      section_bg_color);
       (*build_section)(section_builder);
     }
@@ -301,7 +328,8 @@ class AppMenuBuilder {
     }
     bool sub_alerted = false;
     if (build_submenu.has_value()) {
-      AppMenuBuilder sub_builder(item.get(), browser_window_interface_);
+      AppMenuBuilder sub_builder(item.get(), browser_window_interface_,
+                                 highlighted_menu_identifier_);
       (*build_submenu)(sub_builder);
       sub_alerted = sub_builder.has_alerted_child_;
     }
@@ -330,12 +358,16 @@ class AppMenuBuilder {
   }
 
  private:
-  // Returns true if `element_id` is targeted by any step (or conditional branch
-  // step) of a currently running tutorial for this profile, so the menu item
-  // can be highlighted with a pulsing alert indicator.
+  // Returns true if `element_id` is targeted by an active IPH promo anchored to
+  // the app menu button or by any step (or conditional branch step) of a
+  // currently running tutorial for this profile, so the menu item can be
+  // highlighted with a pulsing alert indicator.
   bool IsElementIdAlerted(ui::ElementIdentifier element_id) const {
     if (!element_id) {
       return false;
+    }
+    if (element_id == highlighted_menu_identifier_) {
+      return true;
     }
     auto* const user_ed_service =
         UserEducationServiceFactory::GetForBrowserContext(
@@ -372,23 +404,26 @@ class AppMenuBuilder {
   raw_ptr<actions::BaseAction> parent_;
   raw_ptr<BrowserWindowInterface> browser_window_interface_;
   raw_ptr<actions::ActionItem> scope_;
+  ui::ElementIdentifier highlighted_menu_identifier_;
   std::optional<ui::ColorId> bg_color_;
   DisplayType default_display_type_ = DisplayType::kRow;
   // Tracks whether any action or nested submenu added by this builder is
   // alerted, so parent submenu rows can also be highlighted when a child item
-  // inside the submenu is targeted by a tutorial.
+  // inside the submenu is targeted by a tutorial or IPH promo.
   bool has_alerted_child_ = false;
 };
 
 }  // namespace
 
 ActionAppMenuManager::ActionAppMenuManager(
-    BrowserWindowInterface* browser_window_interface)
+    BrowserWindowInterface* browser_window_interface,
+    AppMenuDragAndDropDelegate::Host* drag_and_drop_host)
     : browser_window_interface_(browser_window_interface),
       recent_tabs_menu_(
           std::make_unique<RecentTabsDynamicMenu>(browser_window_interface)),
       bookmarks_menu_(
-          std::make_unique<BookmarksDynamicMenu>(browser_window_interface)),
+          std::make_unique<BookmarksDynamicMenu>(browser_window_interface,
+                                                 drag_and_drop_host)),
       tab_groups_menu_(
           std::make_unique<TabGroupDynamicMenu>(browser_window_interface)),
       send_tab_to_self_menu_(
@@ -396,7 +431,11 @@ ActionAppMenuManager::ActionAppMenuManager(
       profile_menu_(
           std::make_unique<ProfileDynamicMenu>(browser_window_interface)) {}
 
-ActionAppMenuManager::~ActionAppMenuManager() = default;
+ActionAppMenuManager::~ActionAppMenuManager() {
+  if (actions::ActionItem* root = GetAppMenuRoot()) {
+    root->ResetActionList();
+  }
+}
 
 actions::ActionItem* ActionAppMenuManager::GetAppMenuRoot() const {
   return actions::ActionManager::Get().FindAction(
@@ -410,6 +449,38 @@ void ActionAppMenuManager::CreateMenuHierarchy() {
     return;
   }
 
+  app_menu_timer_ = base::ElapsedTimer();
+  is_showing_safety_hub_notification_ = false;
+
+  if (auto highlight_info = ToolbarButtonMenuHighlighter::MaybeHighlight(
+          browser_window_interface_, kToolbarAppMenuButtonElementId)) {
+    highlighted_menu_identifier_ = highlight_info->highlighted_menu_identifier;
+    promo_handle_ = std::move(highlight_info->promo_handle);
+  }
+
+  if (web_app::AppBrowserController::IsWebApp(browser_window_interface_)) {
+    AddWebAppActions(root);
+  } else {
+    AddBrowserActions(root);
+  }
+}
+
+void ActionAppMenuManager::OnMenuClosed() {
+  promo_handle_.Release();
+  highlighted_menu_identifier_ = ui::ElementIdentifier();
+  if (is_showing_safety_hub_notification_) {
+    safety_hub_util::MaybeNotifyMenuNotificationSeen(
+        browser_window_interface_->GetProfile(), app_menu_timer_.Elapsed());
+    is_showing_safety_hub_notification_ = false;
+  }
+  GetAppMenuRoot()->ResetActionList();
+}
+
+void ActionAppMenuManager::SetTimerForTesting(base::ElapsedTimer timer) {
+  app_menu_timer_ = std::move(timer);
+}
+
+void ActionAppMenuManager::AddBrowserActions(actions::ActionItem* root) {
   AddNotificationActions(root);
   AddSearchBarAction(root);
   AddBlockHeaderActions(root);
@@ -418,20 +489,10 @@ void ActionAppMenuManager::CreateMenuHierarchy() {
   AddFooterActions(root);
 }
 
-void ActionAppMenuManager::OnMenuClosed() {
-  if (safety_hub_notification_timer_.has_value()) {
-    safety_hub_util::MaybeNotifyMenuNotificationSeen(
-        browser_window_interface_->GetProfile(),
-        safety_hub_notification_timer_->Elapsed());
-    safety_hub_notification_timer_.reset();
-  }
-  GetAppMenuRoot()->ResetActionList();
-}
-
 void ActionAppMenuManager::AddNotificationActions(actions::ActionItem* root) {
   actions::ActionItem* scope =
       BrowserActions::From(browser_window_interface_)->root_action_item();
-  AppMenuBuilder(root, browser_window_interface_,
+  AppMenuBuilder(root, browser_window_interface_, highlighted_menu_identifier_,
                  ui::kColorAppMenuUpgradeRowBackground)
       .AddSection(DisplayType::kSection, [this,
                                           scope](AppMenuBuilder& section) {
@@ -454,6 +515,7 @@ void ActionAppMenuManager::AddNotificationActions(actions::ActionItem* root) {
                 section.AddDivider(ui::MenuSeparatorType::SPACING_SEPARATOR);
               }
               params.display_type = DisplayType::kNotification;
+              params.item_height = AppMenuActionItem::ItemHeight::kMedium;
               section.AddAction(id, std::move(params));
               has_notification = true;
               return true;
@@ -486,7 +548,7 @@ void ActionAppMenuManager::AddNotificationActions(actions::ActionItem* root) {
                                               notification->module)})) {
                 safety_hub_util::LogMenuNotificationImpression(
                     notification->module);
-                safety_hub_notification_timer_.emplace();
+                is_showing_safety_hub_notification_ = true;
                 return;
               }
             }
@@ -507,21 +569,22 @@ void ActionAppMenuManager::AddNotificationActions(actions::ActionItem* root) {
 
 void ActionAppMenuManager::AddSearchBarAction(actions::ActionItem* root) {
   if (base::FeatureList::IsEnabled(features::kChroMenuSearch)) {
-    AppMenuBuilder(root, browser_window_interface_)
+    AppMenuBuilder(root, browser_window_interface_,
+                   highlighted_menu_identifier_)
         .AddSection(DisplayType::kSearch);
   }
 }
 
 void ActionAppMenuManager::AddBlockHeaderActions(actions::ActionItem* root) {
-  AppMenuBuilder(root, browser_window_interface_)
+  AppMenuBuilder(root, browser_window_interface_, highlighted_menu_identifier_)
       .AddSection(DisplayType::kBlock, [this](AppMenuBuilder& section) {
         Profile* profile = browser_window_interface_->GetProfile();
         std::optional<std::u16string> new_tab_text_override;
         if (profile->IsEnterpriseIsolatedModeProfile()) {
-          new_tab_text_override = BrowserActions::GetCleanTitleAndTooltipText(
+          new_tab_text_override = BrowserActions::GetMnemonicTitleText(
               l10n_util::GetStringUTF16(IDS_NEW_ISOLATED_TAB));
         } else if (profile->IsIncognitoProfile()) {
-          new_tab_text_override = BrowserActions::GetCleanTitleAndTooltipText(
+          new_tab_text_override = BrowserActions::GetMnemonicTitleText(
               l10n_util::GetStringUTF16(IDS_NEW_INCOGNITO_TAB));
         }
         section
@@ -541,7 +604,13 @@ void ActionAppMenuManager::AddBlockHeaderActions(actions::ActionItem* root) {
             section.AddAction(
                 kActionNewIsolatedWindow,
                 {.display_type = DisplayType::kBlock,
-                 .text_override = l10n_util::GetStringUTF16(IDS_ISOLATED)});
+                 .text_override =
+                     profile->IsEnterpriseIsolatedModeProfile()
+                         ? std::make_optional(
+                               BrowserActions::GetMnemonicTitleText(
+                                   l10n_util::GetStringUTF16(
+                                       IDS_NEW_ISOLATED_WINDOW)))
+                         : std::nullopt});
           } else {
             section.AddAction(
                 kActionNewIncognitoWindow,
@@ -549,7 +618,7 @@ void ActionAppMenuManager::AddBlockHeaderActions(actions::ActionItem* root) {
                  .text_override =
                      profile->IsIncognitoProfile()
                          ? std::make_optional(
-                               BrowserActions::GetCleanTitleAndTooltipText(
+                               BrowserActions::GetMnemonicTitleText(
                                    l10n_util::GetStringUTF16(
                                        IDS_NEW_INCOGNITO_WINDOW)))
                          : std::nullopt,
@@ -560,7 +629,7 @@ void ActionAppMenuManager::AddBlockHeaderActions(actions::ActionItem* root) {
 }
 
 void ActionAppMenuManager::AddYourChromeActions(actions::ActionItem* root) {
-  AppMenuBuilder(root, browser_window_interface_,
+  AppMenuBuilder(root, browser_window_interface_, highlighted_menu_identifier_,
                  kColorAppMenuYourChromeBackground)
       .AddSection(DisplayType::kSection, [this](AppMenuBuilder& section) {
         section.AddHeader(IDS_APP_MENU_YOUR_CHROME_HEADER);
@@ -590,11 +659,14 @@ void ActionAppMenuManager::AddYourChromeActions(actions::ActionItem* root) {
                   .AddDynamicSection([this](actions::BaseAction* parent) {
                     profile_menu_->BuildOtherProfiles(parent);
                   })
-                  .AddAction(kActionAddNewProfile)
-                  .AddAction(
-                      kActionOpenGuestProfile,
-                      {.element_id = AppMenuModel::kProfileOpenGuestItem})
-                  .AddAction(kActionManageChromeProfiles);
+                  .AddAction(kActionAddNewProfile);
+              if (!g_browser_process || !g_browser_process->profile_manager() ||
+                  profiles::IsGuestModeEnabled(*profile)) {
+                sub.AddAction(
+                    kActionOpenGuestProfile,
+                    {.element_id = AppMenuModel::kProfileOpenGuestItem});
+              }
+              sub.AddAction(kActionManageChromeProfiles);
             },
             {.text_override = profile_name.empty()
                                   ? std::nullopt
@@ -731,6 +803,26 @@ void ActionAppMenuManager::AddYourChromeActions(actions::ActionItem* root) {
               {.element_id = AppMenuModel::kTabGroupsMenuItem});
         }
 
+        section.AddSubmenu(
+            kActionSkillsAndExtensionsSubmenu,
+            [](AppMenuBuilder& sub) {
+              sub.AddAction(
+                     kActionExtensionsSubmenuManageExtensions,
+                     {.element_id =
+                          ExtensionsMenuModel::kManageExtensionsMenuItem})
+                  .AddAction(
+                      kActionManageSkills,
+                      {.element_id =
+                           SkillsAndExtensionsMenuModel::kManageSkillsMenuItem})
+                  .AddDivider()
+                  .AddAction(
+                      kActionExtensionsSubmenuVisitChromeWebStore,
+                      {.element_id =
+                           ExtensionsMenuModel::kVisitChromeWebStoreMenuItem});
+            },
+            {.new_badge_feature = &features::kSkillsAndExtensionsAppMenu,
+             .element_id = AppMenuModel::kSkillsAndExtensionsMenuItem});
+
 #if BUILDFLAG(ENABLE_EXTENSIONS)
         if (ArePromotionsEnabled() &&
             base::FeatureList::IsEnabled(
@@ -764,7 +856,7 @@ void ActionAppMenuManager::AddYourChromeActions(actions::ActionItem* root) {
 
 void ActionAppMenuManager::AddToolsAndActionsActions(
     actions::ActionItem* root) {
-  AppMenuBuilder(root, browser_window_interface_,
+  AppMenuBuilder(root, browser_window_interface_, highlighted_menu_identifier_,
                  kColorAppMenuToolsAndActionsBackground)
       .AddSection(DisplayType::kSection, [this](AppMenuBuilder& section) {
         section.AddHeader(IDS_APP_MENU_TOOLS_AND_ACTIONS_HEADER)
@@ -797,9 +889,31 @@ void ActionAppMenuManager::AddToolsAndActionsActions(
         if (auto* controller = lens::LensOverlayEntryPointController::From(
                 browser_window_interface_);
             controller && controller->IsEnabled()) {
-          section.AddAction(kActionShowLensOverlayFromAppMenu,
-                            {.new_badge_feature = &lens::features::kLensOverlay,
-                             .element_id = AppMenuModel::kShowLensOverlay});
+          const bool show_ask_google =
+              contextual_tasks::ShouldShowAskGoogleContextMenu(profile);
+          const bool use_submenu =
+              contextual_tasks::ShouldUseContextualTasksContextMenuSubmenu(
+                  profile);
+          auto add_items = [show_ask_google](AppMenuBuilder& target) {
+            if (show_ask_google) {
+              target.AddAction(
+                  kActionAskGoogleAboutThisPageFromAppMenu,
+                  {.new_badge_feature =
+                       &contextual_tasks::kContextualTasksUpdatedEntryPoints,
+                   .element_id = AppMenuModel::kAskGoogleAboutThisPageItem});
+            }
+            target.AddAction(
+                kActionShowLensOverlayFromAppMenu,
+                {.new_badge_feature = &lens::features::kLensOverlay,
+                 .element_id = AppMenuModel::kShowLensOverlay});
+          };
+          if (use_submenu) {
+            section.AddSubmenu(
+                kActionContextualTasksSubmenu, add_items,
+                {.element_id = AppMenuModel::kContextualTasksSubmenuItem});
+          } else {
+            add_items(section);
+          }
         }
 
         section.AddAction(kActionShowTranslate);
@@ -822,7 +936,8 @@ void ActionAppMenuManager::AddToolsAndActionsActions(
             [this](AppMenuBuilder& sub) {
               Profile* profile = browser_window_interface_->GetProfile();
               if (media_router::MediaRouterEnabled(profile)) {
-                sub.AddHeader(IDS_SAVE_AND_SHARE_MENU_CAST)
+                sub.AddHeader(IDS_SAVE_AND_SHARE_MENU_CAST,
+                              AppMenuModel::kCastTitleItem)
                     .AddAction(kActionRouteMedia)
                     .AddDivider();
               }
@@ -862,24 +977,7 @@ void ActionAppMenuManager::AddToolsAndActionsActions(
                 if (!sharing_hub::SharingIsDisabledByPolicy(profile)) {
                   sub.AddAction(kActionCopyUrl);
 
-                  content::WebContents* web_contents =
-                      browser_window_interface_->GetTabStripModel()
-                          ? browser_window_interface_->GetTabStripModel()
-                                ->GetActiveWebContents()
-                          : nullptr;
-                  std::optional<send_tab_to_self::EntryPointDisplayReason>
-                      reason =
-                          web_contents
-                              ? send_tab_to_self::GetEntryPointDisplayReason(
-                                    web_contents)
-                              : std::nullopt;
-
-                  if (web_contents &&
-                      base::FeatureList::IsEnabled(
-                          send_tab_to_self::
-                              kSendTabToSelfEnhancedDesktopUIv2) &&
-                      reason == send_tab_to_self::EntryPointDisplayReason::
-                                    kOfferFeature) {
+                  if (send_tab_to_self_menu_->ShouldShowSubmenu()) {
                     sub.AddDynamicSubmenu(
                         kActionSendTabToSelf,
                         base::BindRepeating(
@@ -1019,7 +1117,7 @@ void ActionAppMenuManager::AddToolsAndActionsActions(
 }
 
 void ActionAppMenuManager::AddFooterActions(actions::ActionItem* root) {
-  AppMenuBuilder(root, browser_window_interface_)
+  AppMenuBuilder(root, browser_window_interface_, highlighted_menu_identifier_)
       .AddSection(DisplayType::kFooter, [browser_window_interface =
                                              browser_window_interface_.get()](
                                             AppMenuBuilder& section) {
@@ -1072,7 +1170,89 @@ void ActionAppMenuManager::AddFooterActions(actions::ActionItem* root) {
                .text_override = GetManagedUiMenuItemLabel(profile),
                .icon_override =
                    ui::ImageModel::FromVectorIcon(GetManagedUiIcon(profile))});
+          section.AddAction(kActionChromeEnterpriseReleaseNotes,
+                            {.display_type = DisplayType::kRow});
         }
 #endif  // !BUILDFLAG(IS_CHROMEOS)
       });
+}
+
+void ActionAppMenuManager::AddWebAppActions(actions::ActionItem* root) {
+  auto* const app_browser_controller =
+      web_app::AppBrowserController::From(browser_window_interface_);
+  CHECK(app_browser_controller);
+
+  AppMenuBuilder builder(root, browser_window_interface_,
+                         highlighted_menu_identifier_);
+
+  content::WebContents* web_contents =
+      browser_window_interface_->GetTabStripModel()
+          ? browser_window_interface_->GetTabStripModel()
+                ->GetActiveWebContents()
+          : nullptr;
+  const bool is_isolated_web_app =
+      web_app::AppBrowserController::IsIsolatedWebApp(
+          browser_window_interface_);
+
+  std::optional<std::u16string> app_info_minor_text;
+  if (web_contents) {
+    app_info_minor_text = is_isolated_web_app
+                              ? app_browser_controller->GetAppShortName()
+                              : web_app::AppBrowserController::FormatUrlOrigin(
+                                    web_contents->GetVisibleURL());
+  }
+
+  builder.AddSection(
+      DisplayType::kSection, [&app_info_minor_text](AppMenuBuilder& section) {
+        section
+            .AddAction(kActionWebAppMenuAppInfo,
+                       {.item_height = AppMenuActionItem::ItemHeight::kLarge,
+                        .minor_text = std::move(app_info_minor_text),
+                        .element_id = WebAppMenuModel::kAppInfoMenuItem})
+            .AddDivider(ui::MenuSeparatorType::SPACING_SEPARATOR);
+      });
+
+  AppMenuBuilder(root, browser_window_interface_, highlighted_menu_identifier_,
+                 kColorAppMenuToolsAndActionsBackground)
+      .AddSection(DisplayType::kSection, [this](AppMenuBuilder& section) {
+        section.AddAction(kActionCopyUrl);
+
+        if (ShouldAllowOpenInChrome(browser_window_interface_)) {
+          section.AddAction(kActionOpenInChrome);
+        }
+
+        section.AddDivider(ui::MenuSeparatorType::SPACING_SEPARATOR)
+            .AddSubmenu(
+                kActionZoomSubmenu,
+                [](AppMenuBuilder& sub) {
+                  sub.AddAction(kActionZoomMinus)
+                      .AddAction(kActionZoomNormal)
+                      .AddAction(kActionZoomPlus)
+                      .AddAction(kActionFullscreen);
+                },
+                {.display_type = DisplayType::kCustom,
+                 .item_height = AppMenuActionItem::ItemHeight::kExpanded})
+            .AddDivider(ui::MenuSeparatorType::SPACING_SEPARATOR)
+            .AddAction(kActionPrint)
+            .AddSubmenu(kActionFindAndEditSubmenu, [](AppMenuBuilder& sub) {
+              sub.AddAction(kActionFind)
+                  .AddDivider()
+                  .AddAction(actions::kActionCut)
+                  .AddAction(actions::kActionCopy)
+                  .AddAction(actions::kActionPaste);
+            });
+
+        if (media_router::MediaRouterEnabled(
+                browser_window_interface_->GetProfile())) {
+          section.AddAction(kActionRouteMedia);
+        }
+      });
+
+#if !BUILDFLAG(IS_CHROMEOS)
+  if (app_browser_controller->IsInstalled()) {
+    builder.AddSection(DisplayType::kFooter, [](AppMenuBuilder& section) {
+      section.AddAction(kActionUninstallWebApp);
+    });
+  }
+#endif  // !BUILDFLAG(IS_CHROMEOS)
 }

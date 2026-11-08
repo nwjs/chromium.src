@@ -20,6 +20,8 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/glic/actor/glic_actor_policy_checker.h"
 #include "chrome/browser/glic/common/local_hotkey_manager.h"
+#include "chrome/browser/glic/glic_enums.h"
+#include "chrome/browser/glic/glic_metrics.h"
 #include "chrome/browser/glic/glic_pref_names.h"
 #include "chrome/browser/glic/public/glic_enabling.h"
 #include "chrome/browser/glic/public/glic_keyed_service.h"
@@ -91,6 +93,10 @@ void GlicHandler::RegisterMessages() {
   web_ui()->RegisterMessageCallback(
       "setGlicFocusToggleShortcut",
       base::BindRepeating(&GlicHandler::HandleSetGlicFocusToggleShortcut,
+                          base::Unretained(this)));
+  web_ui()->RegisterMessageCallback(
+      "onHotkeyScopeSettingsChange",
+      base::BindRepeating(&GlicHandler::HandleOnHotkeyScopeSettingsChange,
                           base::Unretained(this)));
   web_ui()->RegisterMessageCallback(
       "setShortcutSuspensionState",
@@ -236,8 +242,19 @@ void GlicHandler::HandleSetGlicShortcut(const base::ListValue& args) {
   CHECK_EQ(2U, args.size());
   const base::Value& callback_id = args[0];
   const std::string accelerator_string = args[1].GetString();
-  g_browser_process->local_state()->SetString(glic::prefs::kGlicLauncherHotkey,
-                                              accelerator_string);
+  PrefService* local_state = g_browser_process->local_state();
+  const bool had_hotkey =
+      !local_state->GetString(glic::prefs::kGlicLauncherHotkey).empty();
+  local_state->SetString(glic::prefs::kGlicLauncherHotkey, accelerator_string);
+
+  if (had_hotkey && accelerator_string.empty()) {
+    auto default_scope = static_cast<glic::prefs::DefaultHotkeyScope>(
+        local_state->GetInteger(glic::prefs::kGlicDefaultHotkeyScope));
+    glic::RecordHotkeyCleared(
+        default_scope,
+        local_state->GetBoolean(glic::prefs::kGlicHotkeyGlobalScopeEnabled),
+        local_state->GetBoolean(glic::prefs::kGlicLauncherEnabled));
+  }
 
   UserEducationService::MaybeNotifyNewBadgeFeatureUsed(
       web_ui()->GetWebContents()->GetBrowserContext(),
@@ -270,6 +287,31 @@ void GlicHandler::HandleSetGlicFocusToggleShortcut(
 
   AllowJavascript();
   ResolveJavascriptCallback(callback_id, base::Value());
+}
+
+void GlicHandler::HandleOnHotkeyScopeSettingsChange(
+    const base::ListValue& args) {
+  CHECK_EQ(1U, args.size());
+  const bool is_global = args[0].GetBool();
+
+  int default_scope_int = g_browser_process->local_state()->GetInteger(
+      glic::prefs::kGlicDefaultHotkeyScope);
+  auto default_scope =
+      static_cast<glic::prefs::DefaultHotkeyScope>(default_scope_int);
+
+  if (default_scope == glic::prefs::DefaultHotkeyScope::kGlobal) {
+    glic::RecordHotkeyScopeChange(
+        is_global ? glic::GlicHotkeyScopeChange::kDefaultGlobalToGlobal
+                  : glic::GlicHotkeyScopeChange::kDefaultGlobalToLocal);
+  } else if (default_scope == glic::prefs::DefaultHotkeyScope::kLocal) {
+    glic::RecordHotkeyScopeChange(
+        is_global ? glic::GlicHotkeyScopeChange::kDefaultLocalToGlobal
+                  : glic::GlicHotkeyScopeChange::kDefaultLocalToLocal);
+  } else {
+    // This should never be recorded to unless users change internal
+    // preferences.
+    glic::RecordHotkeyScopeChange(glic::GlicHotkeyScopeChange::kNotMigrated);
+  }
 }
 
 void GlicHandler::HandleSetShortcutSuspensionState(
@@ -350,9 +392,13 @@ void GlicHandler::OnExperimentalTriggeringPrefChanged() {
   }
 }
 
-void GlicHandler::OnWebActuationCapabilityChanged(bool can_act_on_web) {
-  FireWebUIListener("glic-web-actuation-capability-changed",
-                    base::Value(can_act_on_web));
+void GlicHandler::OnWebActuationCapabilityChanged(bool /*can_act_on_web*/) {
+  // Recompute enterprise state so a subscription lapse does not show an
+  // enterprise policy indicator.
+  FireWebUIListener(
+      "glic-web-actuation-disabled-for-enterprise-changed",
+      base::Value(GlicHandler::IsWebActuationDisabledForEnterprise(
+          Profile::FromWebUI(web_ui()))));
 }
 
 void GlicHandler::HandleGetWebActuationToggleVisibility(
@@ -436,6 +482,20 @@ bool GlicHandler::ShouldShowWebActuationToggle(Profile* profile) {
       glic::GlicKeyedServiceFactory::GetGlicKeyedService(profile);
   return glic_service &&
          glic_service->enabling().ShouldShowWebActuationToggle();
+}
+
+bool GlicHandler::IsWebActuationDisabledForEnterprise(Profile* profile) {
+  if (!base::FeatureList::IsEnabled(features::kGlicActor)) {
+    return false;
+  }
+  auto* glic_service =
+      glic::GlicKeyedServiceFactory::GetGlicKeyedService(profile);
+  if (!glic_service || !glic_service->HasActorPolicyChecker()) {
+    return false;
+  }
+  return !glic_service->actor_policy_checker().CanActOnWeb() &&
+         glic_service->actor_policy_checker().CannotActOnWebReason() ==
+             glic::GlicActorPolicyChecker::CannotActReason::kDisabledByPolicy;
 }
 
 bool GlicHandler::ShouldShowExperimentalTriggeringToggle(Profile* profile) {

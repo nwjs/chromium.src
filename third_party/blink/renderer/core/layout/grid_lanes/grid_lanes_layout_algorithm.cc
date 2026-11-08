@@ -480,7 +480,20 @@ LayoutUnit AlignContentOffset(
       break;
   }
 
-  switch (content_alignment.GetUsedPosition()) {
+  // Under `fill-reverse`, placement starts from the end of the container, so
+  // `flow-start` behavior is equal to `end`, and `flow-end` behavior is equal
+  // to `start`. We only check for `fill-reverse` because we are only working
+  // with stacking axis content alignment here.
+  ContentPosition used_position = content_alignment.GetUsedPosition();
+  if (is_fill_reverse) {
+    if (used_position == ContentPosition::kFlowStart) {
+      used_position = ContentPosition::kEnd;
+    } else if (used_position == ContentPosition::kFlowEnd) {
+      used_position = ContentPosition::kStart;
+    }
+  }
+
+  switch (used_position) {
     case ContentPosition::kLeft:
     case ContentPosition::kStart:
     case ContentPosition::kFlowStart:
@@ -850,7 +863,14 @@ void GridLanesLayoutAlgorithm::PlaceGridLanesItems(
   ApplyStackingAxisAlignment(running_positions, effective_stacking_axis_size,
                              stacking_axis_gap, out_grid_lanes);
 
-  if (is_fragmentation_collection && is_for_columns && is_fill_reverse) {
+  // Gap-decoration data requires processing items in stacking order to ensure
+  // proper decoration assignment, and column fragmentation requires processing
+  // items in the correct order in the block (stacking) axis. If the stacking
+  // order is reversed with 'fill-reverse', reverse the stored item order in
+  // `out_grid_lanes`, as well.
+  if (is_fill_reverse && (out_gap_geometry_state ||
+                          (is_fragmentation_collection && is_for_columns))) {
+    CHECK(out_grid_lanes);
     ReverseGridLanesItemOrder(*out_grid_lanes);
   }
 }
@@ -865,7 +885,17 @@ void GridLanesLayoutAlgorithm::PlaceGridLanesItemsForFragmentation(
   const bool is_columns = grid_axis_direction == kForColumns;
   const LayoutUnit fragmentainer_space = FragmentainerSpaceLeftForChildren();
 
-  GridLanesItemIterator item_iterator(grid_lanes, GetBreakToken(), is_columns);
+  // Densely packed items are stored as children of the item below their
+  // opening. They normally precede that parent in stacking order, so use
+  // postorder. Fill-reverse column storage is recursively reversed before this
+  // point, so preorder preserves its reversed block order. Row fill-reverse
+  // affects the inline axis and does not reverse fragmentation order.
+  GridLanesItemIterator item_iterator(
+      grid_lanes, GetBreakToken(),
+      is_columns && Style().IsReverseGridLanesFillDirection()
+          ? GridLanesItemIterator::kPreorder
+          : GridLanesItemIterator::kPostorder,
+      is_columns);
   Vector<bool> has_inflow_child_break_inside_lane(grid_lanes.size(), false);
 
   // TODO(almaher): Properly handle break rules for columns and rows.
@@ -894,7 +924,6 @@ void GridLanesLayoutAlgorithm::PlaceGridLanesItemsForFragmentation(
   for (auto entry = item_iterator.NextItem();
        GridLanesItemData* grid_lanes_item = entry.grid_lanes_item;
        entry = item_iterator.NextItem()) {
-    const wtf_size_t grid_lanes_item_idx = entry.grid_lanes_item_idx;
     const wtf_size_t grid_lane_idx = entry.grid_lane_idx;
 
     CHECK_LT(grid_lane_idx, grid_lanes.size());
@@ -910,20 +939,6 @@ void GridLanesLayoutAlgorithm::PlaceGridLanesItemsForFragmentation(
     const GridSpan& lane_span = item.Span(grid_axis_direction);
 
     const bool is_first_item_in_lane = grid_lane_idx != previous_grid_lane_idx;
-
-    // The iterator skips non-start spanner wrappers, so the last item it
-    // returns may appear before the physical end of `item_data`.
-    //
-    // TODO(almaher): Account for `items_densely_packed_above` when fragmented
-    // dense packed items are returned by the iterator.
-    bool is_last_item_in_lane = true;
-    for (wtf_size_t item_idx = grid_lanes_item_idx + 1;
-         item_idx < lane_data->item_data.size(); ++item_idx) {
-      if (lane_data->item_data[item_idx]->is_item_start) {
-        is_last_item_in_lane = false;
-        break;
-      }
-    }
 
     // A child break in a parallel flow doesn't affect whether we should
     // break here or not. But if the break happened in the same flow, we'll now
@@ -942,6 +957,10 @@ void GridLanesLayoutAlgorithm::PlaceGridLanesItemsForFragmentation(
         // A lane this item spans has content that resumes in a later
         // fragmentainer, so this item has to wait for it. Everything after this
         // item in the lanes it spans has to wait, too.
+        //
+        // TODO(almaher): Persist a break-before for the deferred item so the
+        // next fragment resumes at it instead of rediscovering earlier items
+        // in its start lane.
         MarkBreakInsideInSpannedLanes(lane_span,
                                       has_inflow_child_break_inside_lane);
         continue;
@@ -1050,8 +1069,12 @@ void GridLanesLayoutAlgorithm::PlaceGridLanesItemsForFragmentation(
         physical_fragment.GetBreakToken()->IsAtBlockEnd();
     LayoutUnit item_block_end = offset.block_offset + fragment.BlockSize();
     if (is_at_block_end) {
-      // TODO(almaher): Persist and include the item's block-end margin once it
-      // reaches the end of its content.
+      // Only add the block-end margin if the item has reached the end of its
+      // content. Then re-set it to avoid adding it more than once.
+      item_block_end +=
+          grid_lanes_item->grid_lanes_placement_data->margin_block_end;
+      grid_lanes_item->grid_lanes_placement_data->margin_block_end =
+          LayoutUnit();
     } else if (is_columns) {
       // A spanner occupies every lane it spans, so its break defers the rest of
       // the content in all of them.
@@ -1083,7 +1106,7 @@ void GridLanesLayoutAlgorithm::PlaceGridLanesItemsForFragmentation(
     // also need to check if the next item to be processed is in the same lane,
     // as well, to tell it if is the last item in the lane in the current
     // fragmentainer.
-    if (is_last_item_in_lane ||
+    if (entry.is_last_item_in_lane ||
         (!is_columns && !item_iterator.HasNextItemInLane(grid_lane_idx))) {
       if (!has_inflow_child_break_inside_lane[grid_lane_idx]) {
         lane_data->has_unfinished_items = false;
@@ -1163,17 +1186,17 @@ void GridLanesLayoutAlgorithm::ApplyStackingAxisAlignment(
       running_positions.GetAlignmentCandidateIterator();
   while (auto candidate = alignment_candidate_iterator.Next()) {
     GridItemData& item = *candidate->item;
-    DCHECK_NE(candidate->item_index, kNotFound);
+    DCHECK(!candidate->item_index_path.empty());
 
     GridLanesItemPlacementData* grid_lanes_placement_data =
-        FindGridLanesItemPlacementData(item, candidate->item_index,
-                                       grid_axis_direction, grid_lanes);
+        FindGridLanesItemPlacementData(item, grid_axis_direction,
+                                       candidate->item_index_path, grid_lanes);
     // With a lane graph, use the stored builder index. Otherwise, the candidate
     // index already identifies the builder child.
     const wtf_size_t builder_child_index =
         grid_lanes_placement_data
             ? grid_lanes_placement_data->builder_child_index
-            : candidate->item_index;
+            : candidate->item_index_path.front();
 
     const auto& item_style = item.node.Style();
     const StyleSelfAlignmentData normal_value(ItemPosition::kNormal,
@@ -1358,10 +1381,6 @@ void GridLanesLayoutAlgorithm::RunGridLanesPlacementPhase(
   const bool builds_graph = out_grid_lanes && is_for_layout &&
                             placement_phase == PlacementPhase::kFinalPlacement;
 
-  // Stable per-item order used as the tie breaker when two `CrossGap`s have the
-  // same offset in the stacking axis.
-  wtf_size_t next_placement_sequence = 0;
-
   const auto& container_space = GetConstraintSpace();
   const auto& style = Style();
   const auto border_scrollbar_padding = BorderScrollbarPadding();
@@ -1531,7 +1550,7 @@ void GridLanesLayoutAlgorithm::RunGridLanesPlacementPhase(
 
     // Without a lane graph this indexes the child that will be added to the
     // container builder. With a lane graph (gap decorations or fragmentation
-    // collection) the item's index in its start lane is determined later, after
+    // collection), the item's path in its start lane is determined later, after
     // dense placement has selected an opening.
     wtf_size_t item_index =
         out_grid_lanes ? kNotFound : container_builder_.Children().size();
@@ -1543,7 +1562,7 @@ void GridLanesLayoutAlgorithm::RunGridLanesPlacementPhase(
     // be added to the item's size in the stacking axis.
     const bool is_dense_packing = style.IsGridLanesPackDense();
     bool item_moved_to_earlier_opening = false;
-    Vector<wtf_size_t> item_indices_below_opening;
+    Vector<ItemIndexPath> parent_item_index_path_per_lane;
     if (is_dense_packing) {
       std::optional<LayoutUnit> updated_item_start_offset =
           running_positions.GetEligibleTrackOpeningAndUpdateGridLanesItemSpan(
@@ -1553,7 +1572,7 @@ void GridLanesLayoutAlgorithm::RunGridLanesPlacementPhase(
               /*auto_placement_stacking_axis_offset=*/
               start_offset_in_stacking_axis, track_collection, grid_lanes_item,
               item_index, child_layout_subtree, out_grid_lanes,
-              out_grid_lanes ? &item_indices_below_opening : nullptr);
+              out_grid_lanes ? &parent_item_index_path_per_lane : nullptr);
 
       // If we have a valid offset for the item in the stacking axis, it means
       // we found an earlier track opening for the item.
@@ -1670,15 +1689,6 @@ void GridLanesLayoutAlgorithm::RunGridLanesPlacementPhase(
     // size of the item, the size of the opening in the stacking axis, and the
     // margin.
     if (!item_moved_to_earlier_opening) {
-      // With a lane graph, a normally placed item will be appended directly to
-      // its start lane at the lane's current size.
-      if (out_grid_lanes) {
-        const wtf_size_t start_lane =
-            grid_lanes_item.StartLine(grid_axis_direction);
-        const GridLaneData* lane_data = out_grid_lanes->at(start_lane);
-        item_index = lane_data ? lane_data->item_data.size() : 0;
-      }
-
       auto new_running_position =
           start_offset_in_stacking_axis + fragment_stacking_axis_contribution;
 
@@ -1764,14 +1774,13 @@ void GridLanesLayoutAlgorithm::RunGridLanesPlacementPhase(
             MakeGarbageCollected<GridLanesItemPlacementData>(
                 GridItemPlacementData(
                     placement_offset,
-                    result->HasDescendantThatDependsOnPercentageBlockSize()));
+                    result->HasDescendantThatDependsOnPercentageBlockSize()),
+                margins.block_end);
 
         // Store the item start in forward order. The gap accumulator applies
         // fill-reverse and content alignment later.
         grid_lanes_placement_data->forward_stacking_start =
             start_offset_in_stacking_axis;
-        grid_lanes_placement_data->placement_sequence =
-            next_placement_sequence++;
 
         // Save the child index before `AddResult` appends it. Self-alignment
         // uses this index to update the child.
@@ -1780,8 +1789,8 @@ void GridLanesLayoutAlgorithm::RunGridLanesPlacementPhase(
               container_builder_.Children().size();
         }
         AddItemToGridLanesData(grid_lanes_item, grid_lanes_placement_data,
-                               item_indices_below_opening, grid_axis_direction,
-                               *out_grid_lanes);
+                               parent_item_index_path_per_lane,
+                               grid_axis_direction, *out_grid_lanes);
       }
 
       if (!is_fragmentation_collection) {

@@ -29,6 +29,7 @@
 #include "components/offline_pages/core/offline_store_utils.h"
 #include "components/offline_pages/core/page_criteria.h"
 #include "components/offline_pages/core/request_header/offline_page_header.h"
+#include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/back_forward_cache.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/navigation_controller.h"
@@ -39,6 +40,8 @@
 #include "ui/base/page_transition_types.h"
 
 namespace offline_pages {
+
+DEFINE_USER_DATA(OfflinePageTabHelper);
 
 using blink::mojom::MHTMLLoadResult;
 
@@ -100,14 +103,30 @@ bool OfflinePageTabHelper::LoadedOfflinePageInfo::IsValid() const {
   return offline_page != nullptr;
 }
 
-OfflinePageTabHelper::OfflinePageTabHelper(content::WebContents* web_contents)
+OfflinePageTabHelper::OfflinePageTabHelper(tabs::TabInterface& tab,
+                                           content::WebContents* web_contents)
     : content::WebContentsObserver(web_contents),
-      content::WebContentsUserData<OfflinePageTabHelper>(*web_contents),
-      mhtml_page_notifier_receivers_(web_contents, this) {
-  DCHECK(content::BrowserThread::CurrentlyOn(content::BrowserThread::UI));
+      mhtml_page_notifier_receivers_(web_contents, this),
+      scoped_unowned_user_data_(tab.GetUnownedUserDataHost(), *this) {
+  CHECK(content::BrowserThread::CurrentlyOn(content::BrowserThread::UI),
+        base::NotFatalUntil::M161);
 }
 
 OfflinePageTabHelper::~OfflinePageTabHelper() = default;
+
+// static
+OfflinePageTabHelper* OfflinePageTabHelper::From(tabs::TabInterface* tab) {
+  return tab ? Get(tab->GetUnownedUserDataHost()) : nullptr;
+}
+
+// static
+OfflinePageTabHelper* OfflinePageTabHelper::FromWebContents(
+    content::WebContents* web_contents) {
+  if (!web_contents) {
+    return nullptr;
+  }
+  return From(tabs::TabInterface::MaybeGetFromContents(web_contents));
+}
 
 void OfflinePageTabHelper::NotifyMhtmlPageLoadAttempted(
     MHTMLLoadResult load_result,
@@ -134,15 +153,17 @@ void OfflinePageTabHelper::NotifyMhtmlPageLoadAttempted(
                     OfflinePageTrustedState::UNTRUSTED;
 
   // We shouldn't have a trusted page without valid offline info and namespace.
-  DCHECK(!(!provisional_offline_info_.IsValid() && is_trusted));
+  CHECK(!(!provisional_offline_info_.IsValid() && is_trusted),
+        base::NotFatalUntil::M161);
 
   // If file is untrusted or we are missing the namespace, MHTML load result is
   // reported on the "untrusted" histogram.
   if (is_trusted) {
     // Ensure we have a non-empy namespace.
-    DCHECK(
-        provisional_offline_info_.offline_page &&
-        !provisional_offline_info_.offline_page->client_id.name_space.empty());
+    CHECK(provisional_offline_info_.offline_page &&
+              !provisional_offline_info_.offline_page->client_id.name_space
+                   .empty(),
+          base::NotFatalUntil::M161);
 
     // If we're here, we have valid offline info, so since the page is trusted,
     // we should not use the renderer's information.
@@ -235,6 +256,8 @@ void OfflinePageTabHelper::FinalizeOfflineInfo(
   } else if (navigated_url.SchemeIsHTTPOrHTTPS()) {
     // For http/https URL, commit the provisional offline info if any.
     if (provisional_offline_info_.IsValid()) {
+      // TODO(crbug.com/576010224): CHECK-exclusion: Convert to a CHECK once we
+      // are confident it won't be triggered.
       DCHECK(EqualsIgnoringFragment(
           navigated_url, provisional_offline_info_.offline_page->url));
       offline_info_ = std::move(provisional_offline_info_);
@@ -425,7 +448,5 @@ void OfflinePageTabHelper::DoDownloadPageLater(
     OfflinePageUtils::ShowDownloadingToast();
   }
 }
-
-WEB_CONTENTS_USER_DATA_KEY_IMPL(OfflinePageTabHelper);
 
 }  // namespace offline_pages

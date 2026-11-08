@@ -5,8 +5,10 @@
 #ifndef CHROME_SERVICES_READALOUD_READ_ALOUD_PLAYBACK_CONTROLLER_H_
 #define CHROME_SERVICES_READALOUD_READ_ALOUD_PLAYBACK_CONTROLLER_H_
 
+#include <optional>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include "base/memory/weak_ptr.h"
@@ -19,6 +21,8 @@
 #include "chrome/services/readaloud/decoder/opus_decoder_helper.h"
 #include "chrome/services/readaloud/decoder/read_aloud_decoder_sequencer.h"
 #include "chrome/services/readaloud/prefetch/prefetch_manager.h"
+#include "chrome/services/readaloud/timeline/playback_timeline.h"
+#include "chrome/services/readaloud/timeline/timeline_position.h"
 #include "media/mojo/mojom/audio_data_pipe.mojom.h"
 #include "media/mojo/mojom/audio_output_stream.mojom.h"
 #include "mojo/public/cpp/base/big_buffer.h"
@@ -76,6 +80,8 @@ class ReadAloudPlaybackController
   void SetPlaybackMode(read_aloud::mojom::PlaybackMode mode) override;
   void SetTextContent(
       std::vector<read_aloud::mojom::TextSegmentPtr> segments) override;
+  void SetOverviewContent(mojo_base::BigBuffer response_bytes,
+                          SetOverviewContentCallback callback) override;
   void Play() override;
   void Pause() override;
   void SeekToWord(uint32_t segment_index, uint32_t character_offset) override;
@@ -90,16 +96,19 @@ class ReadAloudPlaybackController
   void OnControllerDisconnected();
   void OnClientDisconnected();
 
-  // Resets active session state, clears segments, and resets playback rate.
+  // Resets active session state, clears timeline, and resets playback rate.
   void ResetSession();
+
+  // Cancels in-flight network requests, flushes decoded PCM buffers and
+  // AudioRenderer, and repositions the decoder sequencer to `target` while
+  // preserving cached Opus segments in PrefetchManager.
+  void ExecuteSeek(const TimelinePosition& target);
 
   // Invoked by `prefetch_manager_` when an in-flight synthesis request is
   // dispatched.
   void OnPrefetchSynthesisRequest(uint32_t chunk_index,
-                                  std::u16string_view text);
-
-  // Invoked by `prefetch_manager_` when text content is chunked.
-  void OnTextChunked(const std::vector<std::u16string>& chunks);
+                                  std::u16string_view text,
+                                  read_aloud::mojom::Speaker speaker);
 
   // Callback for Mojo RequestSpeechSynthesis responses from the client.
   void OnSpeechSynthesisResponse(uint64_t sequence_id,
@@ -107,10 +116,20 @@ class ReadAloudPlaybackController
                                  mojo_base::BigBuffer response_bytes,
                                  bool success);
 
-  // Maximum duration a Play request will remain deferred before timing out.
-  static constexpr base::TimeDelta kPlayOnReadyTimeout = base::Seconds(10);
+  // Invoked by `audio_renderer` when a word becomes audible.
+  void OnWordBoundaryReached(uint32_t start_character_offset,
+                             uint32_t end_character_offset,
+                             base::TimeDelta audio_timestamp);
 
-  // Triggered if play_on_ready_ remains true beyond kPlayOnReadyTimeout.
+  // Maximum duration a Play request will remain deferred before timing out.
+  static constexpr base::TimeDelta kClassicPlayOnReadyTimeout =
+      base::Seconds(10);
+  // TODO(b/565040027): Consolidate to kClassicPlayOnReadyTimeout once the
+  // browser handles deferred play during overview generation.
+  static constexpr base::TimeDelta kOverviewPlayOnReadyTimeout =
+      kOverviewGenerationTimeout;
+
+  // Triggered if play_on_ready_ remains true beyond the mode-specific timeout.
   void OnPlayOnReadyTimeout();
 
   // Evaluates whether all prerequisites for audio playback are satisfied.
@@ -122,10 +141,38 @@ class ReadAloudPlaybackController
   // pipeline, clears play_on_ready_, and returns true.
   bool PlayIfReady();
 
-  // If a Play request is pending (play_on_ready_) and all prerequisites are satisfied
-  // (IsReadyToPlay()), fulfills the pending Play intent and starts playback.
-  // Returns true if playback was started.
+  // If a Play request is pending (play_on_ready_) and all prerequisites are
+  // satisfied (IsReadyToPlay()), fulfills the pending Play intent and starts
+  // playback. Returns true if playback was started.
   bool MaybePlayOnReady();
+
+  // Single funnel for every playback state transition. Caches `state` and
+  // notifies the client only when the state actually changes, so that the
+  // browser never receives redundant OnPlaybackStateChanged() IPCs.
+  void SetPlaybackState(read_aloud::mojom::PlaybackState state);
+
+  // Invoked by `decoder_sequencer_` at the end of each replenish cycle while
+  // playback is pumping, reporting how the decoded audio queue is doing.
+  void OnPumpStatusChanged(ReadAloudDecoderSequencer::PumpStatus status);
+
+  // Halts playback: cancels any pending play-on-ready, pauses the audio output
+  // stream, stops the decoder pump and reports `state`.
+  void HaltPlayback(read_aloud::mojom::PlaybackState state);
+
+  // Starts or stops progress reporting when entering or exiting active playback
+  // states (kPlaying or kBuffering), and reports final progress upon exit.
+  void MaybeToggleProgressReporting(
+      std::optional<read_aloud::mojom::PlaybackState> previous_state);
+
+  // Returns true for the states in which audio is meant to advance (kPlaying
+  // and kBuffering).
+  static bool IsActivePlaybackState(
+      std::optional<read_aloud::mojom::PlaybackState> state);
+
+  // Sends OnPlaybackProgressChanged() with the current position and the
+  // estimated total duration, both in 1.0x content time. Skipped if both
+  // values are unchanged since the last report.
+  void ReportProgress();
 
   mojo::Receiver<read_aloud::mojom::ReadAloudPlaybackControllerFactory>
       receiver_;
@@ -133,8 +180,10 @@ class ReadAloudPlaybackController
       controller_receiver_{this};
   mojo::Remote<read_aloud::mojom::ReadAloudPlaybackControllerClient> client_;
 
-  // Active text segments currently loaded for playback in this session.
-  std::vector<read_aloud::mojom::TextSegmentPtr> segments_;
+  // Canonical sentence timeline and duration/word-timing resolver.
+  // Declared before `prefetch_manager_` so `timeline_` outlives
+  // `prefetch_manager_`'s `raw_ptr<const PlaybackTimeline>`.
+  PlaybackTimeline timeline_;
   // Current playback mode (Classic full text vs AI Overview summary dialogue).
   read_aloud::mojom::PlaybackMode playback_mode_ =
       read_aloud::mojom::PlaybackMode::kClassic;
@@ -142,13 +191,34 @@ class ReadAloudPlaybackController
   // kMaxPlaybackRate).
   float playback_rate_ = 1.0f;
 
+  // Last state sent to the client, used to suppress duplicate notifications.
+  // Empty until the first transition of a session, so that the very first
+  // state is always delivered even if it matches the implicit initial state.
+  std::optional<read_aloud::mojom::PlaybackState> playback_state_;
+
   // True if a Play request was received while requirements were unfulfilled.
   bool play_on_ready_ = false;
   // Timer tracking maximum wait duration for pending play_on_ready_ state.
   base::OneShotTimer play_on_ready_timer_;
 
-  // Manages document-bound speech synthesis caching and sentence timeline.
-  PrefetchManager prefetch_manager_;
+  // Interval between progress reports while playback is active.
+  static constexpr base::TimeDelta kProgressReportInterval =
+      base::Milliseconds(250);
+  // Periodically calls ReportProgress() while playback is active.
+  base::RepeatingTimer progress_timer_;
+  // 1.0x content time at which the renderer's media time restarted at zero:
+  // the target of the last seek, or zero after new text or a flush. The
+  // renderer only counts the audio played since its last Flush(), so this is
+  // added to its media time to get the overall elapsed audio playback time
+  // along the timeline (reported to the UI progress bar).
+  base::TimeDelta seek_base_;
+  // Last (elapsed, duration) sent by ReportProgress(), used to suppress
+  // duplicate reports. Empty until the first report of a session.
+  std::optional<std::pair<base::TimeDelta, base::TimeDelta>>
+      last_reported_progress_;
+
+  // Manages document-bound speech synthesis caching and prefetch scheduling.
+  PrefetchManager prefetch_manager_{&timeline_};
 
   // Asynchronous Opus decoder helper for background demuxing and decoding.
   OpusDecoderHelper decoder_helper_;

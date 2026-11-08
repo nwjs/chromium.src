@@ -25,6 +25,8 @@ enum class TableViewAccountDetailImage {
   kError,
   // The account is managed.
   kManaged,
+  // The AI tier ring is displayed around the avatar.
+  kAITierRing,
 };
 
 // Item for account avatar, used everywhere an account cell is shown.
@@ -33,8 +35,10 @@ enum class TableViewAccountDetailImage {
 // Those properties should be set before the cell is displayed because
 // updates to these will not be reflected after it is shown.
 @property(nonatomic, strong) UIImage* image;
-@property(nonatomic, copy) NSString* text;
-@property(nonatomic, copy) NSString* detailText;
+// May be nil.
+@property(nonatomic, copy) NSString* name;
+// Must not be nil.
+@property(nonatomic, copy) NSString* email;
 
 // The detail image to be shown for the account.
 @property(nonatomic, assign) TableViewAccountDetailImage detailImage;

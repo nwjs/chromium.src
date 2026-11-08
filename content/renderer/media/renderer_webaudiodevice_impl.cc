@@ -400,7 +400,7 @@ void RendererWebAudioDeviceImpl::Pause() {
                sink_descriptor_.SinkId().Utf8());
   SendLogMessage(base::StringPrintf("%s", __func__));
   if (sink_) {
-    sink_->Pause();
+    sink_->Pause(media::AudioRendererSink::PauseReason::kPlaybackPaused);
   }
   if (silent_sink_suspender_) {
     silent_sink_suspender_->OnPaused();
@@ -541,12 +541,15 @@ RendererWebAudioDeviceImpl::MaybeCreateSinkAndGetStatus() {
     CreateAudioRendererSink();
   }
 
-  media::OutputDeviceInfo device_info = GetSinkOutputDeviceInfo();
-  media::OutputDeviceStatus status = device_info.device_status();
+  media::OutputDeviceStatus status = GetSinkOutputDeviceInfo().device_status();
 
-  if (!is_sink_initialized_) {
-    HandleDeviceStatus(std::move(device_info));
-  } else if (status != media::OutputDeviceStatus::OUTPUT_DEVICE_STATUS_OK) {
+  if (status == media::OutputDeviceStatus::OUTPUT_DEVICE_STATUS_OK) {
+    if (!is_sink_initialized_) {
+      // AudioDestination caches FramesPerBuffer() at construction. We must
+      // not recompute the params via HandleDeviceStatus(), so we just init.
+      InitializeSink();
+    }
+  } else {
     Stop();
   }
 

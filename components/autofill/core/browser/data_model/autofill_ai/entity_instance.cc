@@ -24,7 +24,9 @@
 #include "base/feature_list.h"
 #include "base/notimplemented.h"
 #include "base/notreached.h"
+#include "base/strings/escape.h"
 #include "base/strings/string_number_conversions.h"
+#include "base/strings/stringprintf.h"
 #include "base/strings/utf_ostream_operators.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/time/time.h"
@@ -39,15 +41,32 @@
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_type_names.h"
 #include "components/autofill/core/browser/field_type_util.h"
 #include "components/autofill/core/browser/field_types.h"
+#include "components/autofill/core/browser/integrators/autofill_ai/autofill_ai_wallet_util.h"
 #include "components/autofill/core/browser/proto/server.pb.h"
 #include "components/autofill/core/common/autofill_features.h"
 #include "components/autofill/core/common/dense_set.h"
 #include "components/personal_context/proto/features/at_memory.pb.h"
 #include "third_party/abseil-cpp/absl/functional/overload.h"
+#include "url/gurl.h"
 
 namespace autofill {
 
 namespace {
+
+// The URL to the overview of all passes stored in Google Wallet.
+constexpr char kWalletPassesPageURL[] =
+    "https://wallet.google.com/wallet/passes";
+
+// The URL to the management page of a specific private pass stored in Google
+// Wallet. The pass is identified by its pass ID, which needs to be URL encoded
+// into the placeholder in this URL.
+constexpr char kWalletPrivatePassPageURL[] =
+    "https://wallet.google.com/"
+    "wallet?p=walletpass&ppid=%s&utm_source=chrome&utm_medium=settings&utm_"
+    "campaign=enhanced_autofill";
+
+constexpr char kWalletTransactionsPageURL[] =
+    "https://wallet.google.com/wallet/transactions";
 
 // Returns the normalized value of the `attribute`. If `suffix_length` is
 // provided, only the suffix of that length is returned.
@@ -220,8 +239,7 @@ std::u16string AttributeInstance::GetInfo(
                        if (compatible_format_string &&
                            compatible_format_string->type ==
                                FormatString_Type_ICU_DATE) {
-                         return date.GetIcuDate(compatible_format_string->value,
-                                                app_locale);
+                         return date.GetIcuDate(app_locale);
                        }
                        return date.GetDate(compatible_format_string
                                                ? compatible_format_string->value
@@ -477,7 +495,8 @@ std::ostream& operator<<(
   std::visit(absl::Overload{
                  [&os](const EntityInstance::PersonalContextRecordTypePayload::
                            GmailSourceMetadata& gmail) {
-                   os << ", title: \"" << gmail.title << "\"";
+                   os << ", title: \"" << gmail.title << "\", timestamp: \""
+                      << gmail.timestamp << "\"";
                  },
                  [&os](const EntityInstance::PersonalContextRecordTypePayload::
                            PhotosSourceMetadata& photos) {
@@ -509,7 +528,7 @@ std::ostream& operator<<(std::ostream& os, const EntityInstance& e) {
             }
           },
           [&os](const EntityInstance::WalletRecordTypePayload& p) {
-            if (!p.management_url.empty()) {
+            if (!p.management_url.is_empty()) {
               os << "- management url: \"" << p.management_url << '"'
                  << std::endl;
             }
@@ -789,7 +808,7 @@ EntityInstance EntityInstance::CopyWithNewRecordType(
       // the management URL is empty because it needs to be provisioned
       // by the Google Wallet servers.
       new_entity.record_type_data_ =
-          WalletRecordTypePayload{.management_url = ""};
+          WalletRecordTypePayload{.management_url = GURL()};
       break;
     case RecordType::kPersonalContext:
       // TODO(crbug.com/542083924): Converting to a pContext entity is currently
@@ -811,6 +830,46 @@ EntityInstance::RecordType EntityInstance::record_type() const {
                                      return RecordType::kPersonalContext;
                                    }},
                     record_type_data_);
+}
+
+GURL EntityInstance::WalletRecordTypePayload::GetManagementUrlWithFallback(
+    EntityType type,
+    const EntityId& guid) const {
+  if (base::FeatureList::IsEnabled(
+          features::kAutofillAiWalletServerProvidedDeepLink) &&
+      // `management_url` is supposed to be either valid or empty.
+      // We revalidate it here to protect the code against, e.g.,
+      // reading corrupted data from the local entity database.
+      IsValidWalletManagementUrl(management_url)) {
+    return management_url;
+  }
+  switch (type.name()) {
+    case EntityTypeName::kVehicle:
+    case EntityTypeName::kFlightReservation:
+      return GURL(kWalletPassesPageURL);
+    case EntityTypeName::kOrder:
+    case EntityTypeName::kShipment:
+      return GURL(kWalletTransactionsPageURL);
+    case EntityTypeName::kPassport:
+    case EntityTypeName::kDriversLicense:
+    case EntityTypeName::kNationalIdCard:
+    case EntityTypeName::kKnownTravelerNumber:
+    case EntityTypeName::kRedressNumber:
+      // Only deep link for private passes if the corresponding feature is
+      // enabled.
+      if (!base::FeatureList::IsEnabled(
+              features::kAutofillAiWalletPrivatePassesDeepLink)) {
+        return GURL(kWalletPassesPageURL);
+      }
+      // TODO(crbug.com/560061580): Remove guid from the parameters of
+      // `GetManagementUrlWithFallback` once
+      // kAutofillAiServerProvidedDeeplink is fully launched and supersedes
+      // kAutofillAiWalletPrivatePassesDeepLink.
+      return GURL(base::StringPrintf(
+          kWalletPrivatePassPageURL,
+          base::EscapeQueryParamValue(guid.value(), /*use_plus=*/false)));
+  }
+  NOTREACHED();
 }
 
 EntityInstance EntityInstance::CopyWithUpdatedAttribute(
@@ -848,6 +907,5 @@ bool EntityInstance::FrecencyOrder::operator()(
   return std::tuple(get_ranking_score(lhs), lhs.use_date()) >
          std::tuple(get_ranking_score(rhs), rhs.use_date());
 }
-
 
 }  // namespace autofill

@@ -15,7 +15,6 @@ static_library("kerberos") {
   public_deps = [
     "//ash/webui/common:chrome_os_webui_config",
     "//base",
-    "//chrome/browser:browser_public_dependencies",
     "//chrome/browser/ui/webui/ash/system_web_dialog",
     "//content/public/common",
     "//ui/web_dialogs",
@@ -57,7 +56,6 @@ source_set("browser_tests") {
     "//chrome/browser:browser_process",
     "//chrome/browser/ash/login/test:test_support",
     "//chrome/browser/ash/system_web_apps",
-    "//chrome/browser/ui",
     "//chrome/browser/ui/ash/system_web_apps",
     "//chrome/test:test_support",
     "//content/test:test_support",

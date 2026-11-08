@@ -76,6 +76,7 @@ class ChromeConfigurator : public update_client::Configurator {
   std::string GetChannel() const override;
   std::string GetLang() const override;
   std::string GetOSLongName() const override;
+  std::string GetDeviceFormFactor() const override;
   base::flat_map<std::string, std::string> ExtraRequestParams() const override;
   std::string GetDownloadPreference() const override;
   scoped_refptr<update_client::NetworkFetcherFactory> GetNetworkFetcherFactory()
@@ -195,6 +196,11 @@ std::string ChromeConfigurator::GetOSLongName() const {
   return configurator_impl_.GetOSLongName();
 }
 
+std::string ChromeConfigurator::GetDeviceFormFactor() const {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  return configurator_impl_.GetDeviceFormFactor();
+}
+
 base::flat_map<std::string, std::string>
 ChromeConfigurator::ExtraRequestParams() const {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
@@ -241,7 +247,7 @@ ChromeConfigurator::GetCrxDownloaderFactory() {
 scoped_refptr<update_client::UnzipperFactory>
 ChromeConfigurator::GetUnzipperFactory() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M161);
   if (!unzip_factory_) {
     unzip_factory_ = base::MakeRefCounted<update_client::UnzipChromiumFactory>(
         base::BindRepeating(&unzip::LaunchUnzipper));
@@ -252,7 +258,7 @@ ChromeConfigurator::GetUnzipperFactory() {
 scoped_refptr<update_client::PatcherFactory>
 ChromeConfigurator::GetPatcherFactory() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M161);
   if (!patch_factory_) {
     patch_factory_ = base::MakeRefCounted<update_client::PatchChromiumFactory>(
         base::BindRepeating(&patch::LaunchFilePatcher));

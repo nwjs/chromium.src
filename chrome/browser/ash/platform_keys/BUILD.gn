@@ -13,8 +13,6 @@ static_library("platform_keys") {
     "platform_keys_service_nss.cc",
   ]
 
-  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
-
   deps = [
     "//ash/constants",
     "//base",
@@ -43,8 +41,6 @@ static_library("keystore_service") {
     "keystore_service_factory.cc",
     "keystore_service_factory.h",
   ]
-
-  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
 
   deps = [
     ":platform_keys",
@@ -77,6 +73,8 @@ static_library("test_support") {
     "platform_keys_service_test_util.cc",
     "platform_keys_service_test_util.h",
   ]
+
+  configs += [ "//build/config/linux/nss" ]
 
   deps = [
     ":platform_keys",
@@ -128,8 +126,8 @@ source_set("browser_tests") {
     "//base",
     "//chrome/browser/policy:test_support",
     "//chrome/browser/profiles:profile",
-    "//chrome/browser/ui",
     "//chrome/test:test_support",
+    "//chrome/test/base:scoped_test_system_nss_key_slot_mixin",
     "//chromeos/ash/components/chaps_util:test_support",
     "//chromeos/ash/components/kcer:chaps_proto",
     "//chromeos/ash/components/platform_keys",
@@ -142,5 +140,6 @@ source_set("browser_tests") {
 
     # Gather browser tests from subdirectories.
     "//chrome/browser/ash/platform_keys/key_permissions:browser_tests",
+    "//chrome/browser/net",
   ]
 }

@@ -47,7 +47,6 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "third_party/omnibox_proto/chrome_searchbox_stats.pb.h"
-#include "third_party/omnibox_proto/rich_answer_template.pb.h"
 
 using ::testing::ElementsAre;
 using ::testing::Pair;
@@ -1187,13 +1186,11 @@ TEST_F(AutocompleteControllerTest, MlRanking_PiecewiseMappedSearchBlending) {
       }));
 
   scoped_ml_config.GetMLConfig().enable_ml_scoring_for_searches = true;
-  // Calculator and Answer suggestions should not be ML scored at this time,
-  // since the ML model doesn't assign accurate scores to such suggestions
-  // (due to the fact that they have a low click-through rate).
+  // Calculator suggestions should not be ML scored at this time, since the ML
+  // model doesn't assign accurate scores to such suggestions (due to the fact
+  // that they have a low click-through rate).
   EXPECT_THAT(
       controller_.SimulateCleanAutocompletePass({
-          // Final score: 1100 (!= 1300)
-          CreateAnswerMlScoredMatch("answer 1100 0.75", false, 1100, 0.75),
           // Final score: 1000 (!= 1500)
           CreateMlScoredMatch("calculator 1000 0.95",
                               omnibox::AutocompleteMatchType::kCalculator,
@@ -1203,7 +1200,6 @@ TEST_F(AutocompleteControllerTest, MlRanking_PiecewiseMappedSearchBlending) {
       }),
       testing::ElementsAreArray({
           "history 500 0.914",
-          "answer 1100 0.75",
           "calculator 1000 0.95",
       }));
   scoped_ml_config.GetMLConfig().enable_ml_scoring_for_searches = false;
@@ -3696,6 +3692,42 @@ TEST_F(AutocompleteControllerTest,
   controller_.UpdateKeywordDescriptions(&controller_.internal_result_);
   EXPECT_EQ(
       l10n_util::GetStringUTF16(IDS_CONTEXTUAL_SEARCH_OPEN_LENS_ACTION_LABEL),
+      controller_.internal_result_.match_at(0)->description);
+}
+
+TEST_F(AutocompleteControllerTest,
+       UpdateKeywordDescriptions_ContextualSearchSidePanelDescription) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeatureWithParameters(
+      omnibox::kWebUIOmniboxAskGAboutThisPage,
+      {{"Omnibox_AskGSuggestionSidePanelDescription", "true"}});
+  TemplateURLData turl_data;
+  turl_data.SetShortName(u"Google");
+  turl_data.SetKeyword(u"google.com");
+  turl_data.SetURL("https://google.com/search?q={searchTerms}");
+  controller_.template_url_service_->Add(
+      std::make_unique<TemplateURL>(turl_data));
+
+  AutocompleteMatch match(nullptr, 1100, false,
+                          omnibox::AutocompleteMatchType::kSearchSuggest);
+  match.keyword = u"google.com";
+  match.subtypes = {omnibox::SuggestSubtype::SUBTYPE_CONTEXTUAL_SEARCH};
+  SetAutocompleteMatches({match});
+
+  // The AskG action falls back to the Lens overlay.
+  EXPECT_CALL(*provider_client(), ShouldOpenCoBrowsePanel())
+      .WillRepeatedly(testing::Return(false));
+  controller_.UpdateKeywordDescriptions(&controller_.internal_result_);
+  EXPECT_EQ(
+      l10n_util::GetStringUTF16(IDS_CONTEXTUAL_SEARCH_OPEN_LENS_ACTION_LABEL),
+      controller_.internal_result_.match_at(0)->description);
+
+  // The AskG action opens the cobrowse side panel.
+  EXPECT_CALL(*provider_client(), ShouldOpenCoBrowsePanel())
+      .WillRepeatedly(testing::Return(true));
+  controller_.UpdateKeywordDescriptions(&controller_.internal_result_);
+  EXPECT_EQ(
+      l10n_util::GetStringUTF16(IDS_CONTEXTUAL_SEARCH_OPENS_IN_SIDE_PANEL),
       controller_.internal_result_.match_at(0)->description);
 }
 

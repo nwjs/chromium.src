@@ -18,26 +18,27 @@ namespace vector_math {
 namespace scalar {
 
 ALWAYS_INLINE static void Conv(base::span<const float> source,
-                               const float* filter_p,
+                               base::span<const float> filter,
                                base::span<float> dest,
-                               size_t frames_to_process,
-                               size_t filter_size,
-                               const AudioFloatArray* /*prepared_filter*/) {
-  const float* source_p = source.data();
-  float* dest_p = dest.data();
+                               base::span<const float> /*prepared_filter*/) {
   // Only contiguous convolution is implemented. Correlation (positive
   // |filter_stride|) and support for non-contiguous vectors are not
   // implemented.
+  const size_t frames_to_process = dest.size();
+  const size_t filter_size = filter.size();
+  // CHECK allows the compiler to elide bounds checks (docs/unsafe_buffers.md).
+  CHECK_GT(filter_size, 0u);
+  CHECK_GE(source.size(), frames_to_process + filter_size - 1u);
 
   size_t i = 0;
 
 // FIXME: The macro can be further optimized to avoid pipeline stalls. One
 // possibility is to maintain 4 separate sums and change the macro to
 // CONVOLVE_FOUR_SAMPLES.
-#define CONVOLVE_ONE_SAMPLE                                \
-  do {                                                     \
-    sum += UNSAFE_TODO(source_p[i + j] * *(filter_p - j)); \
-    j++;                                                   \
+#define CONVOLVE_ONE_SAMPLE                              \
+  do {                                                   \
+    sum += source[i + j] * filter[filter_size - 1u - j]; \
+    j++;                                                 \
   } while (0)
 
   while (i < frames_to_process) {
@@ -300,7 +301,7 @@ ALWAYS_INLINE static void Conv(base::span<const float> source,
         CONVOLVE_ONE_SAMPLE;
       }
     }
-    UNSAFE_TODO(dest_p[i++] = sum);
+    dest[i++] = sum;
   }
 #undef CONVOLVE_ONE_SAMPLE
 }
@@ -395,23 +396,26 @@ ALWAYS_INLINE static float Vsvesq(base::span<const float> source) {
   return sum;
 }
 
-ALWAYS_INLINE static void Zvmul(const float* real1p,
-                                const float* imag1p,
-                                const float* real2p,
-                                const float* imag2p,
-                                float* real_dest_p,
-                                float* imag_dest_p,
-                                size_t frames_to_process) {
-  for (size_t i = 0u; i < frames_to_process; ++i) {
+ALWAYS_INLINE static void Zvmul(base::span<const float> real1,
+                                base::span<const float> imag1,
+                                base::span<const float> real2,
+                                base::span<const float> imag2,
+                                base::span<float> real_dest,
+                                base::span<float> imag_dest) {
+  // CHECK allows the compiler to elide bounds checks (docs/unsafe_buffers.md).
+  CHECK_EQ(real1.size(), real_dest.size());
+  CHECK_EQ(imag1.size(), real_dest.size());
+  CHECK_EQ(real2.size(), real_dest.size());
+  CHECK_EQ(imag2.size(), real_dest.size());
+  CHECK_EQ(imag_dest.size(), real_dest.size());
+  for (size_t i = 0; i < real_dest.size(); ++i) {
     // Read and compute result before storing them, in case the
     // destination is the same as one of the sources.
-    float real_result =
-        UNSAFE_TODO(real1p[i] * real2p[i] - imag1p[i] * imag2p[i]);
-    float imag_result =
-        UNSAFE_TODO(real1p[i] * imag2p[i] + imag1p[i] * real2p[i]);
+    float real_result = real1[i] * real2[i] - imag1[i] * imag2[i];
+    float imag_result = real1[i] * imag2[i] + imag1[i] * real2[i];
 
-    UNSAFE_TODO(real_dest_p[i] = real_result);
-    UNSAFE_TODO(imag_dest_p[i] = imag_result);
+    real_dest[i] = real_result;
+    imag_dest[i] = imag_result;
   }
 }
 

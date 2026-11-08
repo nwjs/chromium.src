@@ -24,6 +24,7 @@
 #include "base/containers/adapters.h"
 #include "base/containers/checked_iterators.h"
 #include "base/debug/alias.h"
+#include "base/memory/raw_ref.h"
 #include "base/memory/raw_span.h"
 #include "base/numerics/byte_conversions.h"
 #include "base/strings/cstring_view.h"
@@ -32,6 +33,7 @@
 #include "base/test/gtest_util.h"
 #include "partition_alloc/buildflags.h"
 #include "partition_alloc/partition_alloc.h"
+#include "partition_alloc/partition_root.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/abseil-cpp/absl/hash/hash_testing.h"
@@ -3415,33 +3417,75 @@ TEST(SpanTest, Example_UnsafeBuffersPatterns) {
   }
 }
 
+// Deleter for memory allocated by `CheckedSpanTest`.
+struct PartitionAllocationDeleter {
+  PartitionAllocationDeleter() = delete;
+  explicit PartitionAllocationDeleter(
+      partition_alloc::PartitionAllocator& allocator)
+      : allocator_(allocator) {}
+  ~PartitionAllocationDeleter() = default;
+
+  void operator()(char* chars) { allocator_->root()->Free(chars); }
+
+  raw_ref<partition_alloc::PartitionAllocator> allocator_;
+};
+
+// Rather than rely on PartitionAlloc-Everywhere, this fixture
+// explicitly makes a PartitionAlloc instance available to more directly
+// exercise Checked Span.
+class CheckedSpanTest : public ::testing::Test {
+ protected:
+  CheckedSpanTest() {
+    partition_alloc::PartitionOptions opts;
+#if PA_BUILDFLAG(CHECKED_SPAN_HAS_METADATA_SUPPORT)
+    // This is needed to smuggle the requested size, which is placed in
+    // PartitionAlloc's `InSlotMetadata`. `InSlotMetadata` is only
+    // available when BRP is enabled.
+    //
+    // Note that this setup in the test fixture guarantees that as long
+    // as we have build support, we don't need to gate anything in this
+    // test suite on internal method `Partitionroot::brp_enabled()`.
+    opts.backup_ref_ptr = partition_alloc::PartitionOptions::kEnabled;
+#endif  // PA_BUILDFLAG(CHECKED_SPAN_HAS_METADATA_SUPPORT)
+    allocator_.init(opts);
+  }
+
+  // Checked Span protection is conferred specifically by
+  // PartitionAlloc. Spans to stack memory etc. are unprotected.
+  std::unique_ptr<char, PartitionAllocationDeleter> AllocFromPartitionAlloc(
+      size_t size) {
+    return std::unique_ptr<char, PartitionAllocationDeleter>(
+        static_cast<char*>(allocator_.root()->Alloc(size)),
+        PartitionAllocationDeleter(allocator_));
+  }
+
+  partition_alloc::PartitionAllocator allocator_;
+};
+
 #if PA_BUILDFLAG(CHECKED_SPAN)
 
-#if PA_BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC)
-
-TEST(SpanTest, CheckedSpanCrashes) {
-  // Storage is wrapped in `std::unique_ptr` to force heap allocation,
-  // as it would otherwise not be owned by PartitionAlloc.
-  auto storage = std::make_unique<std::array<char, 31u>>();
-  char* thirtyone_chars = storage->data();
+TEST_F(CheckedSpanTest, OobSpanWillCrash) {
+  std::unique_ptr<char, PartitionAllocationDeleter> thirtyone_chars =
+      AllocFromPartitionAlloc(31u);
 
   const size_t usable_bytes =
-      partition_alloc::PartitionRoot::GetExternalUsableSize(thirtyone_chars);
+      partition_alloc::PartitionRoot::GetExternalUsableSize(
+          thirtyone_chars.get());
 
   // Were this the same size, that would mean that the end of the
   // allocation already touches the end of the slot, and this test case
   // becomes bogus.
-  CHECK_GT(usable_bytes, 31u);
+  ASSERT_GT(usable_bytes, 31u);
 
   // SAFETY: This is not safe. PartitionAlloc should force a crash.
   EXPECT_DEATH_IF_SUPPORTED(
-      UNSAFE_BUFFERS(base::span<char>(thirtyone_chars, usable_bytes + 1)), "");
+      UNSAFE_BUFFERS(base::span<char>(thirtyone_chars.get(), usable_bytes + 1)),
+      "");
 }
 
-TEST(SpanTest, CheckedSpanDisallowsWraparound) {
-  // Storage is wrapped in `std::unique_ptr` to force heap allocation,
-  // as it would otherwise not be owned by PartitionAlloc.
-  auto storage = std::make_unique<std::array<char, 31u>>();
+TEST_F(CheckedSpanTest, WraparoundSpanWillCrash) {
+  std::unique_ptr<char, PartitionAllocationDeleter> thirtyone_chars =
+      AllocFromPartitionAlloc(31u);
 
   // If pointer wraparound occurs, a span minted with this size can read
   // anything.
@@ -3460,76 +3504,130 @@ TEST(SpanTest, CheckedSpanDisallowsWraparound) {
   // If such a span could be minted, its end would be one byte behind
   // its start.
   static_assert(uintptr_t{1u} + kBadSize == uintptr_t{0u});
+  // SAFETY: `thirtyone_chars` points to a 31-byte allocation.
   const char* thirty_chars =
-      base::span<const char>(*storage).subspan<1u>().data();
+      UNSAFE_BUFFERS(base::span<const char>(thirtyone_chars.get(), 31u))
+          .subspan<1u>()
+          .data();
 
   // SAFETY: This is not safe. We want this to crash.
   EXPECT_DEATH_IF_SUPPORTED(
       UNSAFE_BUFFERS(base::span<const char>(thirty_chars, kBadSize)), "");
 }
 
-#endif  // PA_BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC)
+TEST_F(CheckedSpanTest, SlackSpace) {
+  // 64-bit PartitionAlloc implementation detail: using 33 bytes forces
+  // us into slot size 48 (the next lowest being 32). We stay in this
+  // bucket regardless of extras (usu. 4 bytes, but 8 when Dangling
+  // Pointer Detector is enabled), and are guaranteed enough headroom
+  // for the Checked Span smuggled size (4 bytes) to fit at the end of
+  // the usable space.
+  //
+  //  +--- requested size
+  //  |   +--- `InSlotMetadata`
+  //  |   |   +--- (enlarged `InSlotMetadata` if DPD is enabled)
+  //  |   |   |   +--- Checked Span smuggled size
+  //  |   |   |   |
+  // 33 + 4 + 4 + 4 < 48
+  std::unique_ptr<char, PartitionAllocationDeleter> thirtythree_chars =
+      AllocFromPartitionAlloc(33u);
 
-TEST(SpanTest, CheckedSpanAllowsSlack) {
-  // Storage is wrapped in `std::unique_ptr` to force heap allocation,
-  // as it would otherwise not be owned by PartitionAlloc.
-  auto storage = std::make_unique<std::array<char, 31u>>();
-  char* thirtyone_chars = storage->data();
-
-#if PA_BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC)
-  // When PA-E is enabled, this test case can directly query how many
-  // bytes of slack space are available before overrunning the slot
-  // boundary.
-  const size_t usable_bytes =
-      partition_alloc::PartitionRoot::GetExternalUsableSize(thirtyone_chars);
+  size_t usable_bytes = partition_alloc::PartitionRoot::GetExternalUsableSize(
+      thirtythree_chars.get());
 
   // Were this the same size, that would mean that the end of the
   // allocation already touches the end of the slot, and this test case
   // becomes bogus.
-  CHECK_GT(usable_bytes, 31u);
-#else
-  // When PA-E is disabled, there's nothing to check. Spans can be made
-  // arbitrarily big without triggering any crashing. Pick some random
-  // value and perfunctorily demonstrate that nothing will trigger a
-  // crash.
-  constexpr size_t usable_bytes = 62u;
-#endif  // PA_BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC)
+  ASSERT_GT(usable_bytes, 33u);
+
+#if PA_BUILDFLAG(CHECKED_SPAN_HAS_METADATA_SUPPORT)
+  // When "requested size smuggling" is enabled, PartitionAlloc
+  // (with exceptions) bounds-checks down to the exact requested size.
+  // This provides a stricter upper bound that Checked Span can enforce.
+  //
+  // "Requested size smuggling" is tied to BackupRefPtr enablement.
+  // Properly speaking, we should be gating this on
+  // `allocator_.root()->brp_enabled()`, but the method is internal and
+  // can't be uttered here. Luckily, the test fixture is written s.t.
+  // Checked Span metadata build support means that this instance of
+  // PartitionAlloc has BRP enabled.
+  usable_bytes = 33u;
+  // SAFETY: This is not safe. PartitionAlloc knows that the
+  // allocation is 33 bytes and will force a crash if a span is made
+  // any larger than that.
+  EXPECT_DEATH_IF_SUPPORTED(
+      UNSAFE_BUFFERS(base::span<char>(thirtythree_chars.get(), 34u)), "");
+#endif  // PA_BUILDFLAG(CHECKED_SPAN_HAS_METADATA_SUPPORT)
 
   for (size_t extent = 0u; extent <= usable_bytes; ++extent) {
-    // SAFETY: This is safe insofar as PartitionAlloc (when present via
-    // PA-E) guarantees that an extent of `usable_bytes` will not crash.
-    UNSAFE_BUFFERS(base::span<char>(thirtyone_chars, extent));
+    // SAFETY: This is safe insofar as PartitionAlloc guarantees that an
+    // extent of `usable_bytes` will not crash.
+    UNSAFE_BUFFERS(base::span<char>(thirtythree_chars.get(), extent));
   }
+}
+
+TEST_F(CheckedSpanTest, SubspansBoundsChecking) {
+  std::unique_ptr<char, PartitionAllocationDeleter> thirtythree_chars =
+      AllocFromPartitionAlloc(33u);
+  const size_t usable_bytes =
+      partition_alloc::PartitionRoot::GetExternalUsableSize(
+          thirtythree_chars.get());
+
+  // Inexact bounds checking; we allocated 33 bytes, but PartitionAlloc
+  // knows (and can tell us) about the headroom that exists beyond.
+  ASSERT_GT(usable_bytes, 33u);
+
+#if PA_BUILDFLAG(CHECKED_SPAN_HAS_METADATA_SUPPORT)
+  // When tightened bounds checking is enabled through metadata support,
+  // Callers are forbidden from constructing spans larger than what
+  // was originally allocated, even if headroom is available. (The
+  // Chrome C++ Runtime Safety team contends that this is incorrect
+  // behavior.)
+
+  // SAFETY: Not safe; this crashes.
+  EXPECT_DEATH_IF_SUPPORTED(
+      UNSAFE_BUFFERS(base::span<char>(thirtythree_chars.get() + 1u, 33u)), "");
+
+  // SAFETY: This span is within the bounds guaranteed by PartitionAlloc.
+  UNSAFE_BUFFERS(base::span<char>(thirtythree_chars.get() + 1u, 32u));
+  // SAFETY: This span is within the bounds guaranteed by PartitionAlloc.
+  UNSAFE_BUFFERS(base::span<char>(thirtythree_chars.get() + 2u, 31u));
+
+#else
+
+  // Without tightened bounds checking, the only constraint imposed by
+  // Checked Span that the span must not cross a slot (allocation)
+  // boundary in PartitionAlloc --- hence, the ceiling is informed
+  // by `usable_bytes`, not the exact `33u` originally requested.
+
+  // SAFETY: Not safe; this crashes.
+  EXPECT_DEATH_IF_SUPPORTED(UNSAFE_BUFFERS(base::span<char>(
+                                thirtythree_chars.get() + 1u, usable_bytes)),
+                            "");
+
+  // SAFETY: This span is within the bounds guaranteed by PartitionAlloc.
+  UNSAFE_BUFFERS(
+      base::span<char>(thirtythree_chars.get() + 1u, usable_bytes - 1u));
+  // SAFETY: This span is within the bounds guaranteed by PartitionAlloc.
+  UNSAFE_BUFFERS(
+      base::span<char>(thirtythree_chars.get() + 2u, usable_bytes - 2u));
+#endif  // PA_BUILDFLAG(CHECKED_SPAN_HAS_METADATA_SUPPORT)
 }
 
 #endif  // PA_BUILDFLAG(CHECKED_SPAN)
 
-TEST(SpanTest, UncheckedSpanNeverCrashes) {
-  // Storage is wrapped in `std::unique_ptr` to force heap allocation,
-  // as it would otherwise not be owned by PartitionAlloc.
-  auto storage = std::make_unique<std::array<char, 31u>>();
-  char* thirtyone_chars = storage->data();
+TEST_F(CheckedSpanTest, UncheckedSpanNeverCrashes) {
+  std::unique_ptr<char, PartitionAllocationDeleter> thirtyone_chars =
+      AllocFromPartitionAlloc(31u);
 
   // Arbitrarily pick a bogus length and show that the span can be made
   // this long without triggering a crash.
   constexpr size_t bogus_extent_bytes = 62u;
-#if PA_BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC)
-  // When PA-E is enabled, this test case can directly query how many
-  // bytes of slack space are available before overrunning the slot
-  // boundary.
-  const size_t usable_bytes =
-      partition_alloc::PartitionRoot::GetExternalUsableSize(thirtyone_chars);
-
-  // Were this the same size, that would mean that the end of the
-  // allocation already touches the end of the slot, and this test case
-  // becomes bogus.
-  CHECK_GT(bogus_extent_bytes, usable_bytes);
-#endif  // PA_BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC)
 
   for (size_t extent = 0u; extent <= bogus_extent_bytes; ++extent) {
     // SAFETY: This is not safe, but the contents are never accessed.
     // The test passes if this does not `CHECK()`.
-    UNSAFE_BUFFERS(base::span(base::unchecked, thirtyone_chars, extent));
+    UNSAFE_BUFFERS(base::span(base::unchecked, thirtyone_chars.get(), extent));
   }
 }
 

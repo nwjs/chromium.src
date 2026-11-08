@@ -385,7 +385,6 @@ public class ChromeTabbedActivityTest {
                         TAB_GROUP_TITLE,
                         /* mhtmlTabTitle= */ null,
                         /* tabGroupCollapsed= */ true,
-                        /* isGroupShared= */ false,
                         /* isIncognito= */ false);
         IntentHandler.setTabGroupMetadata(intent, metadata);
         IntentUtils.setForceIsTrustedIntentForTesting(true);
@@ -1079,7 +1078,6 @@ public class ChromeTabbedActivityTest {
                 TAB_GROUP_TITLE,
                 /* mhtmlTabTitle= */ null,
                 /* tabGroupCollapsed= */ true,
-                /* isGroupShared= */ false,
                 /* isIncognito= */ false);
     }
 
@@ -1566,6 +1564,8 @@ public class ChromeTabbedActivityTest {
                 .restoreActiveWindowBackgroundTabs(
                         ArgumentMatchers.eq(activity.getTabModelSelector()),
                         ArgumentMatchers.any(),
-                        ArgumentMatchers.any());
+                        ArgumentMatchers.any(),
+                        ArgumentMatchers.anyLong(),
+                        ArgumentMatchers.eq(false));
     }
 }

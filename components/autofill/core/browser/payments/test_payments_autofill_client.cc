@@ -192,6 +192,7 @@ void TestPaymentsAutofillClient::ShowAutofillProgressDialog(
     base::OnceClosure cancel_callback) {
   autofill_progress_dialog_shown_ = true;
   autofill_progress_dialog_type_ = autofill_progress_dialog_type;
+  autofill_progress_dialog_cancel_callback_ = std::move(cancel_callback);
 }
 
 void TestPaymentsAutofillClient::CloseAutofillProgressDialog(
@@ -359,9 +360,6 @@ TestPaymentsAutofillClient::GetMerchantPromoCodeManager() {
   return mock_merchant_promo_code_manager_.get();
 }
 
-void TestPaymentsAutofillClient::OpenPromoCodeOfferDetailsURL(const GURL& url) {
-}
-
 AutofillOfferManager* TestPaymentsAutofillClient::GetAutofillOfferManager() {
   return autofill_offer_manager_.get();
 }
@@ -371,6 +369,10 @@ void TestPaymentsAutofillClient::UpdateOfferNotification(
     const OfferNotificationOptions& options) {}
 
 void TestPaymentsAutofillClient::DismissOfferNotification() {}
+
+bool TestPaymentsAutofillClient::IsTabVisibleForOfferNotification() const {
+  return is_tab_visible_for_offer_notification_;
+}
 
 bool TestPaymentsAutofillClient::ShowTouchToFillCreditCard(
     base::WeakPtr<TouchToFillPaymentMethodDelegate> delegate,

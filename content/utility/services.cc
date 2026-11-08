@@ -16,6 +16,7 @@
 #include "components/services/storage/public/mojom/storage_service.mojom.h"
 #include "components/services/storage/storage_service_impl.h"
 #include "content/child/child_process.h"
+#include "content/public/common/content_features.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/utility/content_utility_client.h"
 #include "content/public/utility/utility_thread.h"
@@ -31,7 +32,6 @@
 #include "mojo/public/cpp/bindings/interface_endpoint_client.h"
 #include "mojo/public/cpp/bindings/self_owned_receiver.h"
 #include "mojo/public/cpp/bindings/service_factory.h"
-#include "services/accessibility/buildflags.h"
 #include "services/audio/service_factory.h"
 #include "services/data_decoder/data_decoder_service.h"
 #include "services/network/network_service.h"
@@ -69,8 +69,6 @@
 #if BUILDFLAG(IS_WIN)
 #include "base/win/scoped_com_initializer.h"
 #include "sandbox/win/src/sandbox.h"
-#include "services/webnn/public/mojom/webnn_compiler_service.mojom.h"
-#include "services/webnn/webnn_compiler_service_impl.h"
 extern sandbox::TargetServices* g_utility_target_services;
 #endif  // BUILDFLAG(IS_WIN)
 
@@ -92,6 +90,11 @@ extern sandbox::TargetServices* g_utility_target_services;
 #include "media/mojo/services/media_foundation_service_broker.h"  // nogncheck
 #endif  // BUILDFLAG(IS_WIN)
 
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE)
+#include "services/webnn/public/mojom/webnn_compiler_service.mojom.h"  // nogncheck
+#include "services/webnn/webnn_compiler_service_impl.h"
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE)
+
 #if BUILDFLAG(IS_ANDROID)
 #include "media/mojo/mojom/mediadrm_support.mojom.h"       // nogncheck
 #include "media/mojo/services/mediadrm_support_service.h"  // nogncheck
@@ -109,12 +112,6 @@ extern sandbox::TargetServices* g_utility_target_services;
 #include "content/common/features.h"
 #include "media/mojo/services/mojo_video_encode_accelerator_provider_factory.h"
 #endif
-
-#if BUILDFLAG(ENABLE_ACCESSIBILITY_SERVICE)
-#include "services/accessibility/browser_accessibility_service.h"  // nogncheck
-#include "services/accessibility/public/mojom/accessibility_service.mojom.h"  // nogncheck
-#include "ui/accessibility/accessibility_features.h"
-#endif  // BUILDFLAG(ENABLE_ACCESSIBILITY_SERVICE)
 
 #if BUILDFLAG(ENABLE_GPU_CHANNEL_MEDIA_CAPTURE)
 #include "media/capture/capture_switches.h"
@@ -285,13 +282,6 @@ auto RunDataDecoder(
       std::move(receiver));
 }
 
-#if BUILDFLAG(ENABLE_ACCESSIBILITY_SERVICE)
-auto RunAccessibilityService(
-    mojo::PendingReceiver<ax::mojom::AccessibilityService> receiver) {
-  return std::make_unique<ax::BrowserAccessibilityService>(std::move(receiver));
-}
-#endif  // BUILDFLAG(ENABLE_ACCESSIBILITY_SERVICE)
-
 #if BUILDFLAG(IS_WIN)
 auto RunMediaFoundationServiceBroker(
     mojo::PendingReceiver<media::mojom::MediaFoundationServiceBroker>
@@ -299,12 +289,14 @@ auto RunMediaFoundationServiceBroker(
   return std::make_unique<media::MediaFoundationServiceBroker>(
       std::move(receiver), base::BindOnce(&EnsureSandboxedWin));
 }
+#endif  // BUILDFLAG(IS_WIN)
 
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE)
 auto RunWebNNCompilerService(
     mojo::PendingReceiver<webnn::mojom::WebNNCompilerService> receiver) {
   return std::make_unique<webnn::WebNNCompilerServiceImpl>(std::move(receiver));
 }
-#endif  // BUILDFLAG(IS_WIN)
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE)
 
 #if BUILDFLAG(IS_ANDROID)
 auto RunMediaDrmSupportService(
@@ -417,7 +409,9 @@ void RegisterMainThreadServices(mojo::ServiceFactory& services) {
   services.Add(RunAudio);
 
   services.Add(RunDataDecoder);
-  services.Add(RunResourceBroker);
+  if (base::FeatureList::IsEnabled(features::kResourceBroker)) {
+    services.Add(RunResourceBroker);
+  }
   services.Add(RunStorageService);
   services.Add(RunTracing);
   services.Add(RunVideoCapture);
@@ -427,6 +421,10 @@ void RegisterMainThreadServices(mojo::ServiceFactory& services) {
 #endif
 
   services.Add(RunOnDeviceModel);
+
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE)
+  services.Add(RunWebNNCompilerService);
+#endif
 
 #if BUILDFLAG(IS_WIN) || (BUILDFLAG(GOOGLE_CHROME_BRANDING) && \
                           (BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_LINUX)))
@@ -442,7 +440,6 @@ void RegisterMainThreadServices(mojo::ServiceFactory& services) {
 
 #if BUILDFLAG(IS_WIN)
   services.Add(RunMediaFoundationServiceBroker);
-  services.Add(RunWebNNCompilerService);
 #endif  // BUILDFLAG(IS_WIN)
 
 #if BUILDFLAG(IS_ANDROID)
@@ -463,10 +460,6 @@ void RegisterMainThreadServices(mojo::ServiceFactory& services) {
 #if BUILDFLAG(USE_LINUX_VIDEO_ACCELERATION)
   services.Add(RunVideoEncodeAcceleratorProviderFactory);
 #endif  // BUILDFLAG(USE_LINUX_VIDEO_ACCELERATION)
-#if BUILDFLAG(ENABLE_ACCESSIBILITY_SERVICE)
-  if (::features::IsAccessibilityServiceEnabled())
-    services.Add(RunAccessibilityService);
-#endif  // BUILDFLAG(ENABLE_ACCESSIBILITY_SERVICE)
 
   // Add new main-thread services above this line.
   GetContentClient()->utility()->RegisterMainThreadServices(services);

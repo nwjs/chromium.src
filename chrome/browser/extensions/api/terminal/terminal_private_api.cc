@@ -5,6 +5,7 @@
 #include "chrome/browser/extensions/api/terminal/terminal_private_api.h"
 
 #include <algorithm>
+#include <array>
 #include <cstdlib>
 #include <memory>
 #include <string>
@@ -26,7 +27,6 @@
 #include "base/json/json_writer.h"
 #include "base/lazy_instance.h"
 #include "base/memory/scoped_refptr.h"
-#include "base/no_destructor.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/system/sys_info.h"
@@ -110,13 +110,13 @@ const char kSwitchContainerFeatures[] = "container_features";
 const char kCwdTerminalIdPrefix[] = "terminal_id:";
 
 // Prefs that we read and observe.
-static const base::NoDestructor<std::vector<std::string>> kPrefsReadAllowList{{
+constexpr auto kPrefsReadAllowList = std::to_array<std::string_view>({
     ash::prefs::kAccessibilitySpokenFeedbackEnabled,
     crostini::prefs::kCrostiniEnabled,
     guest_os::prefs::kGuestOsTerminalSettings,
     crostini::prefs::kTerminalSshAllowedByPolicy,
     guest_os::prefs::kGuestOsContainers,
-}};
+});
 
 void CloseTerminal(const std::string& terminal_id,
                    base::OnceCallback<void(bool)> callback) {
@@ -273,7 +273,7 @@ TerminalPrivateAPI::TerminalPrivateAPI(content::BrowserContext* context)
       pref_change_registrar_(std::make_unique<PrefChangeRegistrar>()) {
   Profile* profile = Profile::FromBrowserContext(context);
   pref_change_registrar_->Init(profile->GetPrefs());
-  for (const auto& pref : *kPrefsReadAllowList) {
+  for (const auto& pref : kPrefsReadAllowList) {
     pref_change_registrar_->Add(pref,
                                 base::BindRepeating(&PrefChanged, profile));
   }
@@ -493,7 +493,7 @@ void TerminalPrivateOpenTerminalProcessFunction::OnGetVshSession(
 void TerminalPrivateOpenTerminalProcessFunction::OpenProcess(
     const std::string& user_id_hash,
     base::CommandLine cmdline) {
-  DCHECK(!cmdline.argv().empty());
+  CHECK(!cmdline.argv().empty(), base::NotFatalUntil::M161);
 
   content::WebContents* caller_contents = GetSenderWebContents();
   if (!caller_contents) {
@@ -813,7 +813,7 @@ ExtensionFunction::ResponseAction TerminalPrivateGetPrefsFunction::Run() {
 
   for (const auto& path : params->paths) {
     // Ignore non-allowed paths.
-    if (!std::ranges::contains(*kPrefsReadAllowList, path)) {
+    if (!std::ranges::contains(kPrefsReadAllowList, path)) {
       LOG(WARNING) << "Ignoring non-allowed GetPrefs path=" << path;
       continue;
     }

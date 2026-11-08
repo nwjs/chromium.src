@@ -5,12 +5,12 @@
 package org.chromium.chrome.browser.composeplate;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 import android.content.Context;
 import android.content.res.ColorStateList;
@@ -24,8 +24,10 @@ import android.view.View;
 import android.view.View.OnClickListener;
 import android.view.ViewGroup;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import androidx.annotation.DrawableRes;
 import androidx.annotation.StyleRes;
 import androidx.test.core.app.ApplicationProvider;
 
@@ -36,6 +38,7 @@ import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
+import org.robolectric.Shadows;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Features.EnableFeatures;
@@ -48,10 +51,9 @@ import org.chromium.url.JUnitTestGURLs;
 /** Unit tests for {@link ComposeplateViewBinder}. */
 @RunWith(BaseRobolectricTestRunner.class)
 public class ComposeplateViewBinderUnitTest {
+    private static final String OPTIONAL_BUTTON_LABEL = "Create image";
+
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
-    @Mock private ComposeplateView mViewMock;
-    @Mock private ImageView mIncognitoButtonView;
-    @Mock private View mComposeplateButtonView;
     @Mock private OnClickListener mOnClickListener;
 
     private Context mContext;
@@ -71,50 +73,38 @@ public class ComposeplateViewBinderUnitTest {
         mView.setLayoutParams(new ViewGroup.MarginLayoutParams(120, 120));
 
         mPropertyModel = new PropertyModel.Builder(ComposeplateProperties.ALL_KEYS).build();
-        PropertyModelChangeProcessor.create(
-                mPropertyModel, mViewMock, ComposeplateViewBinder::bind);
+        PropertyModelChangeProcessor.create(mPropertyModel, mView, ComposeplateViewBinder::bind);
     }
 
     @Test
     public void testSetVisibility() {
         mPropertyModel.set(ComposeplateProperties.IS_VISIBLE, true);
-        verify(mViewMock).setVisibility(eq(View.VISIBLE));
+        assertEquals(View.VISIBLE, mView.getVisibility());
 
         mPropertyModel.set(ComposeplateProperties.IS_VISIBLE, false);
-        verify(mViewMock).setVisibility(eq(View.GONE));
+        assertEquals(View.GONE, mView.getVisibility());
     }
 
     @Test
     public void testSetIncognitoButtonClickListener() {
-        when(mViewMock.findViewById(eq(R.id.incognito_button))).thenReturn(mIncognitoButtonView);
+        View incognitoButton = mView.findViewById(R.id.incognito_button);
         mPropertyModel.set(ComposeplateProperties.INCOGNITO_CLICK_LISTENER, mOnClickListener);
-        verify(mIncognitoButtonView).setOnClickListener(eq(mOnClickListener));
+        incognitoButton.performClick();
+        verify(mOnClickListener).onClick(eq(incognitoButton));
     }
 
     @Test
     public void testSetComposeplateButtonClickListener() {
-        when(mViewMock.findViewById(eq(R.id.composeplate_button)))
-                .thenReturn(mComposeplateButtonView);
+        View composeplateButton = mView.findViewById(R.id.composeplate_button);
         mPropertyModel.set(
                 ComposeplateProperties.COMPOSEPLATE_BUTTON_CLICK_LISTENER, mOnClickListener);
-        verify(mComposeplateButtonView).setOnClickListener(eq(mOnClickListener));
-    }
-
-    @Test
-    public void testApplyWhiteBackground_withMockView() {
-        mPropertyModel.set(ComposeplateProperties.APPLY_WHITE_BACKGROUND, true);
-        verify(mViewMock).applyWhiteBackground(eq(true));
-
-        mPropertyModel.set(ComposeplateProperties.APPLY_WHITE_BACKGROUND, false);
-        verify(mViewMock).applyWhiteBackground(eq(false));
+        composeplateButton.performClick();
+        verify(mOnClickListener).onClick(eq(composeplateButton));
     }
 
     @Test
     @EnableFeatures({ChromeFeatureList.NTP_AURORA + ":change_button_color/false"})
     public void testApplyWhiteBackground() {
-        // Bind PropertyModel with mView.
-        PropertyModelChangeProcessor.create(mPropertyModel, mView, ComposeplateViewBinder::bind);
-
         Drawable defaultBackground =
                 mContext.getDrawable(R.drawable.home_surface_search_box_background);
 
@@ -131,17 +121,7 @@ public class ComposeplateViewBinderUnitTest {
     }
 
     @Test
-    public void testSetColorStateList_withMockView() {
-        ColorStateList colorStateList = mock(ColorStateList.class);
-        mPropertyModel.set(ComposeplateProperties.COLOR_STATE_LIST, colorStateList);
-        verify(mViewMock).setColorStateList(eq(colorStateList));
-    }
-
-    @Test
     public void testSetColorStateList() {
-        // Bind PropertyModel with mView.
-        PropertyModelChangeProcessor.create(mPropertyModel, mView, ComposeplateViewBinder::bind);
-
         ColorStateList colorStateList = mContext.getColorStateList(R.color.default_red);
         mPropertyModel.set(ComposeplateProperties.COLOR_STATE_LIST, colorStateList);
 
@@ -154,23 +134,26 @@ public class ComposeplateViewBinderUnitTest {
 
     @Test
     public void testSetTextStyle() {
-        @StyleRes int textStyleResId = R.style.TextAppearance_MediumStyle;
-        mPropertyModel.set(ComposeplateProperties.TEXT_STYLE_RES_ID, textStyleResId);
-        verify(mViewMock).setTextStyle(eq(textStyleResId));
-    }
+        @StyleRes int textStyleResId = R.style.TextAppearance_ComposeplateTextMediumDark;
+        TextView expectedTextView = new TextView(mContext);
+        expectedTextView.setTextAppearance(textStyleResId);
+        int expectedColor = expectedTextView.getCurrentTextColor();
+        TextView composeplateButtonText = mView.findViewById(R.id.composeplate_button_text);
+        TextView incognitoButtonText = mView.findViewById(R.id.incognito_button_text);
+        // Preset a different text appearance so that applying the style is observable.
+        composeplateButtonText.setTextAppearance(R.style.TextAppearance_TextMedium_Accent1);
+        incognitoButtonText.setTextAppearance(R.style.TextAppearance_TextMedium_Accent1);
+        assertNotEquals(expectedColor, composeplateButtonText.getCurrentTextColor());
+        assertNotEquals(expectedColor, incognitoButtonText.getCurrentTextColor());
 
-    @Test
-    public void testSetAiModeButtonUiConfig_withMockView() {
-        AiModeButtonUiConfig aiModeButtonUiConfig = createAiModeButtonUiConfig();
-        mPropertyModel.set(ComposeplateProperties.AI_MODE_BUTTON_UI_CONFIG, aiModeButtonUiConfig);
-        verify(mViewMock).setAiModeButtonUiConfig(eq(aiModeButtonUiConfig));
+        mPropertyModel.set(ComposeplateProperties.TEXT_STYLE_RES_ID, textStyleResId);
+
+        assertEquals(expectedColor, composeplateButtonText.getCurrentTextColor());
+        assertEquals(expectedColor, incognitoButtonText.getCurrentTextColor());
     }
 
     @Test
     public void testSetAiModeButtonUiConfig() {
-        // Bind PropertyModel with mView.
-        PropertyModelChangeProcessor.create(mPropertyModel, mView, ComposeplateViewBinder::bind);
-
         AiModeButtonUiConfig aiModeButtonUiConfig = createAiModeButtonUiConfig();
         mPropertyModel.set(ComposeplateProperties.AI_MODE_BUTTON_UI_CONFIG, aiModeButtonUiConfig);
 
@@ -180,15 +163,6 @@ public class ComposeplateViewBinderUnitTest {
         View composeplateButton = mView.findViewById(R.id.composeplate_button);
         assertEquals(aiModeButtonUiConfig.tooltip, composeplateButton.getTooltipText());
         assertEquals(aiModeButtonUiConfig.a11yLabel, composeplateButton.getContentDescription());
-    }
-
-    @Test
-    public void testSetAiModeButtonIcon_withMockView() {
-        ComposeplateProperties.AiModeButtonIcon icon =
-                new ComposeplateProperties.AiModeButtonIcon(
-                        new ColorDrawable(Color.RED), /* shouldTint= */ true);
-        mPropertyModel.set(ComposeplateProperties.AI_MODE_BUTTON_ICON, icon);
-        verify(mViewMock).setAiModeButtonIcon(eq(icon));
     }
 
     @Test
@@ -207,7 +181,6 @@ public class ComposeplateViewBinderUnitTest {
      */
     @Test
     public void testSetAiModeButtonIcon_RestoresLayoutTint() {
-        PropertyModelChangeProcessor.create(mPropertyModel, mView, ComposeplateViewBinder::bind);
         ImageView iconView = mView.findViewById(R.id.composeplate_button_icon);
         ColorStateList layoutTint = iconView.getImageTintList();
 
@@ -218,9 +191,99 @@ public class ComposeplateViewBinderUnitTest {
         assertEquals(layoutTint, iconView.getImageTintList());
     }
 
+    @Test
+    public void testSetOptionalButtonClickListener() {
+        View optionalButton = mView.findViewById(R.id.optional_button);
+
+        mPropertyModel.set(ComposeplateProperties.OPTIONAL_BUTTON_CLICK_LISTENER, mOnClickListener);
+        optionalButton.performClick();
+        verify(mOnClickListener).onClick(eq(optionalButton));
+
+        mPropertyModel.set(ComposeplateProperties.OPTIONAL_BUTTON_CLICK_LISTENER, null);
+        assertFalse(optionalButton.hasOnClickListeners());
+    }
+
+    @Test
+    public void testSetOptionalButtonText() {
+        View optionalButton = mView.findViewById(R.id.optional_button);
+        TextView optionalButtonText = mView.findViewById(R.id.optional_button_text);
+
+        mPropertyModel.set(ComposeplateProperties.OPTIONAL_BUTTON_TEXT, OPTIONAL_BUTTON_LABEL);
+        assertEquals(OPTIONAL_BUTTON_LABEL, optionalButtonText.getText().toString());
+        assertEquals(OPTIONAL_BUTTON_LABEL, optionalButton.getContentDescription());
+
+        mPropertyModel.set(ComposeplateProperties.OPTIONAL_BUTTON_TEXT, null);
+        assertEquals("", optionalButtonText.getText().toString());
+        assertNull(optionalButton.getContentDescription());
+    }
+
+    @Test
+    public void testSetOptionalButtonVisibility_phone() {
+        testSetOptionalButtonVisibilityImpl(/* isLff= */ false);
+    }
+
+    @Test
+    public void testSetOptionalButtonVisibility_lff() {
+        testSetOptionalButtonVisibilityImpl(/* isLff= */ true);
+    }
+
+    @Test
+    public void testSetIncognitoButtonTextVisibility() {
+        View incognitoButtonText = mView.findViewById(R.id.incognito_button_text);
+
+        mPropertyModel.set(ComposeplateProperties.IS_INCOGNITO_BUTTON_TEXT_VISIBLE, false);
+        assertEquals(View.GONE, incognitoButtonText.getVisibility());
+
+        mPropertyModel.set(ComposeplateProperties.IS_INCOGNITO_BUTTON_TEXT_VISIBLE, true);
+        assertEquals(View.VISIBLE, incognitoButtonText.getVisibility());
+    }
+
+    @Test
+    public void testSetOptionalButtonIcon() {
+        ImageView iconView = mView.findViewById(R.id.optional_button_icon);
+
+        @DrawableRes int iconResId = R.drawable.composeplate_button_foreground;
+        mPropertyModel.set(ComposeplateProperties.OPTIONAL_BUTTON_ICON_RES_ID, iconResId);
+        assertEquals(iconResId, Shadows.shadowOf(iconView.getDrawable()).getCreatedFromResId());
+    }
+
+    @Test
+    public void testSetButtonLateralPadding() {
+        View composeplateButton = mView.findViewById(R.id.composeplate_button);
+        View optionalButton = mView.findViewById(R.id.optional_button);
+        View incognitoButton = mView.findViewById(R.id.incognito_button);
+        int composeplatePaddingStart = composeplateButton.getPaddingStart();
+        int composeplatePaddingEnd = composeplateButton.getPaddingEnd();
+
+        int padding = 17;
+        mPropertyModel.set(ComposeplateProperties.OPTIONAL_BUTTON_LATERAL_PADDING, padding);
+
+        assertEquals(padding, optionalButton.getPaddingStart());
+        assertEquals(padding, optionalButton.getPaddingEnd());
+        assertEquals(padding, incognitoButton.getPaddingStart());
+        assertEquals(padding, incognitoButton.getPaddingEnd());
+        // The composeplate button's padding isn't changed.
+        assertEquals(composeplatePaddingStart, composeplateButton.getPaddingStart());
+        assertEquals(composeplatePaddingEnd, composeplateButton.getPaddingEnd());
+    }
+
+    @Test
+    public void testSetButtonMarginEnd() {
+        View composeplateButton = mView.findViewById(R.id.composeplate_button);
+        View optionalButton = mView.findViewById(R.id.optional_button);
+        View incognitoButton = mView.findViewById(R.id.incognito_button);
+        int incognitoMarginEnd = getMarginEnd(incognitoButton);
+
+        int marginEnd = 23;
+        mPropertyModel.set(ComposeplateProperties.OPTIONAL_BUTTON_MARGIN_END, marginEnd);
+
+        assertEquals(marginEnd, getMarginEnd(composeplateButton));
+        assertEquals(marginEnd, getMarginEnd(optionalButton));
+        // The incognito button's margin isn't changed.
+        assertEquals(incognitoMarginEnd, getMarginEnd(incognitoButton));
+    }
+
     private void testSetAiModeButtonIconImpl(boolean shouldTint) {
-        // Bind PropertyModel with mView.
-        PropertyModelChangeProcessor.create(mPropertyModel, mView, ComposeplateViewBinder::bind);
         ImageView iconView = mView.findViewById(R.id.composeplate_button_icon);
         ColorStateList colorStateList = mContext.getColorStateList(R.color.default_red);
         mPropertyModel.set(ComposeplateProperties.COLOR_STATE_LIST, colorStateList);
@@ -243,6 +306,44 @@ public class ComposeplateViewBinderUnitTest {
                 ComposeplateProperties.AI_MODE_BUTTON_ICON,
                 new ComposeplateProperties.AiModeButtonIcon(drawable, shouldTint));
         return drawable;
+    }
+
+    private void testSetOptionalButtonVisibilityImpl(boolean isLff) {
+        mPropertyModel =
+                new PropertyModel.Builder(ComposeplateProperties.ALL_KEYS)
+                        .with(ComposeplateProperties.IS_LFF, isLff)
+                        .build();
+        PropertyModelChangeProcessor.create(mPropertyModel, mView, ComposeplateViewBinder::bind);
+        View optionalButton = mView.findViewById(R.id.optional_button);
+        View optionalButtonText = mView.findViewById(R.id.optional_button_text);
+        View incognitoButton = mView.findViewById(R.id.incognito_button);
+        View composeplateButton = mView.findViewById(R.id.composeplate_button);
+
+        // On phones, the optional and incognito buttons wrap their content. On LFF, all buttons
+        // show their text and share the width equally.
+        mPropertyModel.set(ComposeplateProperties.IS_OPTIONAL_BUTTON_VISIBLE, true);
+        assertEquals(View.VISIBLE, optionalButton.getVisibility());
+        assertEquals(isLff ? View.VISIBLE : View.GONE, optionalButtonText.getVisibility());
+        verifyButtonWidth(composeplateButton, /* isWeighted= */ true);
+        verifyButtonWidth(optionalButton, /* isWeighted= */ isLff);
+        verifyButtonWidth(incognitoButton, /* isWeighted= */ isLff);
+
+        // Hiding the optional button restores the default layout.
+        mPropertyModel.set(ComposeplateProperties.IS_OPTIONAL_BUTTON_VISIBLE, false);
+        assertEquals(View.GONE, optionalButton.getVisibility());
+        verifyButtonWidth(composeplateButton, /* isWeighted= */ true);
+        verifyButtonWidth(incognitoButton, /* isWeighted= */ true);
+    }
+
+    private void verifyButtonWidth(View button, boolean isWeighted) {
+        LinearLayout.LayoutParams layoutParams =
+                (LinearLayout.LayoutParams) button.getLayoutParams();
+        assertEquals(isWeighted ? 0 : ViewGroup.LayoutParams.WRAP_CONTENT, layoutParams.width);
+        assertEquals(isWeighted ? 1f : 0f, layoutParams.weight, /* delta= */ 0f);
+    }
+
+    private static int getMarginEnd(View view) {
+        return ((ViewGroup.MarginLayoutParams) view.getLayoutParams()).getMarginEnd();
     }
 
     private static AiModeButtonUiConfig createAiModeButtonUiConfig() {

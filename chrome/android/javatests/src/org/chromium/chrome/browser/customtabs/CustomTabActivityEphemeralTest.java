@@ -77,9 +77,7 @@ import org.chromium.chrome.browser.ui.appmenu.AppMenuHandler;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuTestSupport;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.OverrideContextWrapperTestRule;
-import org.chromium.chrome.test.util.ChromeTabUtils;
 import org.chromium.components.browser_ui.styles.ChromeColors;
-import org.chromium.components.page_info.PageInfoController;
 import org.chromium.components.user_prefs.UserPrefs;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.browser.test.util.DOMUtils;
@@ -164,7 +162,7 @@ public class CustomTabActivityEphemeralTest {
     }
 
     private CustomTabActivity launchCustomTabActivity(Intent intent) {
-        mCustomTabActivityTestRule.startCustomTabActivityWithIntent(intent);
+        mCustomTabActivityTestRule.startCustomTabActivityWithIntentNotWaitingForFirstFrame(intent);
         return mCustomTabActivityTestRule.getActivity();
     }
 
@@ -368,27 +366,8 @@ public class CustomTabActivityEphemeralTest {
                             .setBoolean(Pref.INCOGNITO_REAUTHENTICATION_FOR_ANDROID, false);
                 });
 
+        IncognitoReauthSettingUtils.setIsDeviceScreenLockEnabledForTesting(false);
         IncognitoReauthManager.setIsIncognitoReauthFeatureAvailableForTesting(false);
-    }
-
-    @Test
-    @MediumTest
-    @EnableFeatures(ChromeFeatureList.SEARCH_IN_CCT)
-    public void testNonInteractiveOmnibox() {
-        CustomTabActivity activity = launchEphemeralCustomTabActivity();
-        var tab = activity.getActivityTab();
-        ChromeTabUtils.waitForTabPageLoaded(tab, mTestPage);
-
-        var titleBar = activity.findViewById(R.id.title_url_container);
-        assertNull(
-                "Page info hasn't been shown, so PageInfoController should be null.",
-                PageInfoController.getLastPageInfoController());
-        // For a non-interactive omnibox, clicking the title bar should show Page Info instead of
-        // activating the omnibox.
-        ThreadUtils.runOnUiThreadBlocking(() -> titleBar.performClick());
-        assertNotNull(
-                "Page info should have been shown.",
-                PageInfoController.getLastPageInfoController());
     }
 
     @Test

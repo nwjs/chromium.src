@@ -21,6 +21,7 @@
 <translation id="1185134272377778587">Tietoja Chromiumista</translation>
 <translation id="1186645291482254714">Saat puhelimeen hintaseurantailmoituksia Chromiumin avulla</translation>
 <translation id="1203500561924088507">Kiitos asennuksesta. Selain pitää käynnistää uudelleen ennen kuin <ph name="BUNDLE_NAME" /> otetaan käyttöön.</translation>
+<translation id="1222365723190436821"><ph name="IMPORTANT_UPDATE" /> odottaa. Chromium päivittyy, kun olet ollut epäaktiivinen <ph name="IDLE_DURATION" />. Näin selaaminen pysyy turvallisena.</translation>
 <translation id="1232234696885483911">Kun avaat kuvahaun, sivun otsikko, URL-osoite ja sisältö (mukaan lukien PDF-tiedostot) lähetetään automaattisesti palvelimelle. <ph name="LEARN_MORE" /></translation>
 <translation id="123265588161106468">Kun olet kirjautunut sisään, voit käyttää esimerkiksi Google-tilin salasanoja Chromiumissa. Jos haluat muuttaa tätä, siirry kohtaan "Tilisi Chromiumissa".</translation>
 <translation id="1244381985120794049">Näytä Gemini in Chromium Macin valikkopalkissa</translation>
@@ -228,6 +229,7 @@
 <translation id="3286538390144397061">Käynnistä uudelleen</translation>
 <translation id="328888136576916638">Googlen sovellusliittymän avaimet puuttuvat. Jotkin Chromiumin toiminnoista poistetaan käytöstä.</translation>
 <translation id="3296368748942286671">Jätä taustasovellukset käyntiin, kun Chromium suljetaan</translation>
+<translation id="3300632735252839402">Chromium päivittyy, kun olet poissa</translation>
 <translation id="3313189106987092621">Chromium varoittaa sinua ennen kuin lataat sivustoja suojaamattomalla yhteydellä</translation>
 <translation id="3316771292331273802">Sinut kirjataan ulos useimmilta sivustoilta, kun suljet kaikki Chromium-ikkunat. Tämä ei kuitenkaan koske Google-tiliäsi, jos olet kirjautuneena Chromiumiin. <ph name="SETTINGS_LINK" />, jotta sivustot muistavat sinut.</translation>
 <translation id="3352986031709923790">hakualueen oikea yläkulma: oikea <ph name="RIGHT" /> %, ylä <ph name="TOP" /> %</translation>
@@ -236,6 +238,7 @@
 <translation id="3387527074123400161">Chromium-käyttöjärjestelmä</translation>
 <translation id="3406848076815591792">Vaihdetaanko nykyiseen Chromium-profiiliin?</translation>
 <translation id="3412460710772753638">Googlen Salasanojen ylläpidossa tällä laitteella</translation>
+<translation id="3425452599984451640">Chromium pyytää päivittämään</translation>
 <translation id="3427159664004296878">Kirjaudu Chromiumiin, niin voit käyttää esimerkiksi kirjanmerkkejä tältä laitteelta: <ph name="DEVICE" /></translation>
 <translation id="3438772217992559640">Hae tältä välilehdeltä kuvahaulla</translation>
 <translation id="3455907671758333080">Laajenna parannettua selaussuojaa Chromiumin avulla puhelimella</translation>
@@ -378,6 +381,7 @@
 <translation id="5074496654342756568">Käytä kaikkia Googlen suosikkeja Chromiumin kautta laitteellasi (<ph name="DEVICE_TYPE" />)</translation>
 <translation id="5123973130450702873">Chromium tarvitsee luvan käsien liikkeen seuraamiseen</translation>
 <translation id="5141988424377517949">Sivustot, joilla et ole käynyt viime aikoina. Chromium poisti nämä luvat: <ph name="PERMISSION_1" />, <ph name="PERMISSION_2" /> ja <ph name="PERMISSION_3" />.</translation>
+<translation id="5171868502429358653">Kirjaudu Chromiumiin</translation>
 <translation id="5174969993834422967">Estät yleensä ilmoitukset. Voit antaa tälle sivustolle luvan lähettää ilmoituksia klikkaamalla ilmoituskuvaketta osoitepalkin oikeassa reunassa.</translation>
 <translation id="5174983315706567306">Levytila ei riitä.</translation>
 <translation id="5187123684706427865">Chromium-tili edellyttää uudelleentodennusta</translation>
@@ -387,6 +391,7 @@
 <translation id="5249261924633168472">Avaa linkki Chromiumin Inco&amp;gnito-ikkunassa</translation>
 <translation id="5276305953263010518">Lataa Chromium-sovellus, niin voit tallentaa salasanoja missä tahansa</translation>
 <translation id="5277894862589591112">Ota muutokset käyttöön käynnistämällä Chromium uudelleen</translation>
+<translation id="5278909220224474621">Jos haluat lähettää välilehden toiselle laitteelle, kirjaudu Chromiumiin molemmilla laitteilla</translation>
 <translation id="5286907366254680517">Tunnistettu</translation>
 <translation id="5289287148052354622">Lataa Chromium-sovellus</translation>
 <translation id="5294316920224716406">Kun selaat incognito-tilassa, Chromium varoittaa sinua ennen kuin sivusto ladataan suojaamattomalla yhteydellä</translation>
@@ -756,6 +761,7 @@ Chromium ei voi palauttaa asetuksiasi.</translation>
 <translation id="8648201657708811153">Google Chrome for Testingistä ei voi tehdä oletusselainta.</translation>
 <translation id="8676101123715131330">Hae Chromiumilla mistä tahansa</translation>
 <translation id="8697124171261953979">Määrittää myös Chromiumin ja omnibox-hakujen aloitussivun.</translation>
+<translation id="8702213505203810093">Jos haluat lähettää välilehden toiselle laitteelle, kirjaudu sillä Chromiumiin</translation>
 <translation id="8704119203788522458">Tämä on oma Chromiumisi</translation>
 <translation id="8712637175834984815">Ymmärretty</translation>
 <translation id="8719993436687031146">Haluatko kirjautua Chromiumiin?</translation>

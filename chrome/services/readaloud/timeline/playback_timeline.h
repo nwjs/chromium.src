@@ -32,8 +32,10 @@ class PlaybackTimeline {
   PlaybackTimeline& operator=(const PlaybackTimeline&) = delete;
   ~PlaybackTimeline();
 
-  // Initializes the timeline by concatenating input segments into a unified
-  // document buffer and splitting into canonical atomic sentence chunks.
+  // Initializes the timeline by storing input segments in a unified backing
+  // buffer and splitting each segment into canonical atomic sentence chunks
+  // while preserving per-segment speaker tags and document-wide code unit
+  // offsets.
   void SetTextContent(
       const std::vector<read_aloud::mojom::TextSegmentPtr>& segments,
       std::optional<base::i18n::LanguageTag> locale_tag = std::nullopt);
@@ -46,6 +48,9 @@ class PlaybackTimeline {
 
   // Resolves a 0-based chunk index (from highlighter.js) and character offset
   // within that chunk into a complete TimelinePosition in O(1) time.
+  // `time.start_time` is the 1.0x time at `character_offset`: the start time of
+  // the first word kept after `character_offset` when word timings are present,
+  // or the character-estimated offset from the chunk start otherwise.
   // Returns std::nullopt if `segment_index` is out of bounds or
   // `character_offset` exceeds the chunk length.
   // TODO(b/565884306): Unify 'sentence'/'segment' naming to 'chunk' in a
@@ -71,11 +76,22 @@ class PlaybackTimeline {
                               base::TimeDelta actual_duration,
                               std::vector<WordTiming> word_timings = {});
 
+  // Returns the estimated 1.0x duration of the whole document: the
+  // per-character estimate (`kEstimatedDurationPerChar`) of every chunk, plus
+  // the deviations recorded by UpdateSentenceDuration() so far. It converges
+  // to the actual duration as chunks are synthesized. Returns zero if the
+  // timeline is empty.
+  base::TimeDelta GetTotalDuration() const;
+
  private:
   base::TimeDelta GetChunkDuration(size_t chunk_index) const;
   uint32_t ResolveCharOffsetInChunk(size_t chunk_index,
                                     base::TimeDelta offset_in_chunk,
                                     base::TimeDelta chunk_duration) const;
+  base::TimeDelta ResolveTimeInChunkForCharOffset(
+      size_t chunk_index,
+      uint32_t char_offset_in_chunk,
+      base::TimeDelta chunk_duration) const;
 
   bool is_initialized_ = false;
   std::u16string document_text_;

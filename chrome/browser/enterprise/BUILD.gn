@@ -13,11 +13,17 @@ source_set("enterprise") {
     "browser_management/browser_management_status_provider.h",
     "browser_management/management_service_factory.h",
     "chrome_browser_main_extra_parts_enterprise.h",
+    "client_certificates/browser_context_delegate.h",
+    "client_certificates/cert_utils.h",
+    "client_certificates/certificate_provisioning_service_factory.h",
+    "client_certificates/certificate_store_factory.h",
+    "client_certificates/profile_context_delegate.h",
     "connectors/analysis/analysis_service_settings.h",
     "connectors/connectors_manager.h",
     "connectors/connectors_service.h",
     "connectors/device_trust/device_trust_connector_service_factory.h",
     "connectors/device_trust/device_trust_service_factory.h",
+    "connectors/device_trust/navigation_throttle.h",
     "connectors/device_trust/signals/signals_service_factory.h",
     "connectors/interstitials/delayed_interstitial_reporter.h",
     "connectors/interstitials/enterprise_block_controller_client.h",
@@ -149,7 +155,6 @@ source_set("enterprise") {
       "//ui/views",
     ]
     public += [
-      "connectors/device_trust/navigation_throttle.h",
       "connectors/device_trust/signals/decorators/common/context_signals_decorator.h",
       "data_protection/data_protection_ui_controller.h",
       "reporting/browser_report_generator_desktop.h",
@@ -163,9 +168,13 @@ source_set("enterprise") {
   }
 
   if (is_chromeos) {
-    public_deps += [ "//components/enterprise/device_trust/core/signals" ]
+    public_deps += [
+      "//chromeos/ash/components/kcer",
+      "//components/enterprise/device_trust/core/signals",
+    ]
 
     public += [
+      "client_certificates/ash/kcer_certificate_store.h",
       "connectors/analysis/file_transfer_analysis_delegate.h",
       "connectors/analysis/source_destination_matcher_ash.h",
       "connectors/device_trust/ash/ash_attestation_policy_observer.h",
@@ -218,6 +227,7 @@ source_set("enterprise") {
   if (is_mac) {
     public += [
       "platform_auth/extensible_enterprise_sso_entra.h",
+      "platform_auth/extensible_enterprise_sso_metadata.h",
       "platform_auth/extensible_enterprise_sso_policy_handler.h",
       "platform_auth/extensible_enterprise_sso_prefs_handler.h",
       "platform_auth/extensible_enterprise_sso_provider_mac.h",
@@ -253,21 +263,8 @@ source_set("enterprise") {
     }
   }
 
-  if (enterprise_client_certificates) {
-    public += [
-      "client_certificates/browser_context_delegate.h",
-      "client_certificates/cert_utils.h",
-      "client_certificates/certificate_provisioning_service_factory.h",
-      "client_certificates/certificate_store_factory.h",
-      "client_certificates/profile_context_delegate.h",
-    ]
-
-    if (is_chromeos) {
-      public += [ "client_certificates/ash/kcer_certificate_store.h" ]
-      public_deps += [ "//chromeos/ash/components/kcer" ]
-    }
-  }
-
+  # TODO(b/571082119): Add `is_android` to `enterprise_cloud_content_analysis`
+  # build flag.
   if (enterprise_cloud_content_analysis || is_android ||
       safe_browsing_mode == 1) {
     public += [
@@ -331,16 +328,23 @@ source_set("enterprise") {
     public += [ "signals/device_info_fetcher_linux.h" ]
   }
 
-  if (enterprise_cloud_content_analysis) {
+  if (enterprise_cloud_content_analysis || is_android) {
     public += [
       "connectors/analysis/content_analysis_delegate.h",
+      "connectors/analysis/content_analysis_dialog_controller_base.h",
+      "connectors/analysis/files_request_handler.h",
+    ]
+  }
+
+  if (enterprise_cloud_content_analysis) {
+    public += [
       "connectors/analysis/content_analysis_dialog_controller.h",
       "connectors/analysis/content_analysis_dialog_delegate.h",
       "connectors/analysis/content_analysis_downloads_delegate.h",
       "connectors/analysis/content_analysis_views.h",
       "connectors/analysis/copy_warning_delegate_tracker.h",
-      "connectors/analysis/files_request_handler.h",
       "connectors/analysis/network_request_content_analysis_info.h",
+      "connectors/analysis/network_request_proxying_url_loader_factory.h",
       "connectors/analysis/page_print_analysis_request.h",
       "connectors/analysis/page_print_request_handler.h",
     ]
@@ -414,11 +418,17 @@ source_set("impl") {
     "browser_management/browser_management_status_provider.cc",
     "browser_management/management_service_factory.cc",
     "chrome_browser_main_extra_parts_enterprise.cc",
+    "client_certificates/browser_context_delegate.cc",
+    "client_certificates/cert_utils.cc",
+    "client_certificates/certificate_provisioning_service_factory.cc",
+    "client_certificates/certificate_store_factory.cc",
+    "client_certificates/profile_context_delegate.cc",
     "connectors/analysis/analysis_service_settings.cc",
     "connectors/connectors_manager.cc",
     "connectors/connectors_service.cc",
     "connectors/device_trust/device_trust_connector_service_factory.cc",
     "connectors/device_trust/device_trust_service_factory.cc",
+    "connectors/device_trust/navigation_throttle.cc",
     "connectors/interstitials/delayed_interstitial_reporter.cc",
     "connectors/interstitials/enterprise_block_controller_client.cc",
     "connectors/interstitials/enterprise_block_page.cc",
@@ -460,10 +470,7 @@ source_set("impl") {
     "util/managed_browser_utils.cc",
   ]
 
-  public_deps = [
-    ":enterprise",
-    "//chrome/browser:browser_public_dependencies",
-  ]
+  public_deps = [ ":enterprise" ]
 
   deps = [
     ":browser_launch_reporting",
@@ -476,6 +483,8 @@ source_set("impl") {
     "//chrome/browser/devtools",
     "//chrome/browser/enterprise/browser_management:management_identity",
     "//chrome/browser/enterprise/browser_management:management_identity_impl",
+    "//chrome/browser/enterprise/connectors/device_trust:features",
+    "//chrome/browser/enterprise/connectors/device_trust/key_management/core/network",
     "//chrome/browser/enterprise/connectors/reporting",
     "//chrome/browser/enterprise/connectors/reporting:impl",
     "//chrome/browser/enterprise/core",
@@ -507,6 +516,10 @@ source_set("impl") {
     "//components/dom_distiller/core",
     "//components/enterprise",
     "//components/enterprise/browser/identifiers",
+    "//components/enterprise/client_certificates/core",
+    "//components/enterprise/client_certificates/core:cloud_management_delegate",
+    "//components/enterprise/client_certificates/core:dm_server_client",
+    "//components/enterprise/client_certificates/core:management_delegate",
     "//components/enterprise/common:files_scan_data",
     "//components/enterprise/common/proto:connectors_proto",
     "//components/enterprise/common/proto:extensions_workflow_events_proto",
@@ -563,7 +576,6 @@ source_set("impl") {
     ]
   } else {
     sources += [
-      "connectors/device_trust/navigation_throttle.cc",
       "connectors/device_trust/signals/decorators/common/context_signals_decorator.cc",
       "connectors/device_trust/signals/signals_service_factory.cc",
       "data_protection/data_protection_ui_controller.cc",
@@ -576,7 +588,6 @@ source_set("impl") {
       "signals/device_info_fetcher.cc",
     ]
     deps += [
-      "//chrome/browser/enterprise/connectors/device_trust:features",
       "//chrome/browser/enterprise/connectors/device_trust/key_management/core/persistence",
       "//chrome/browser/enterprise/connectors/device_trust/signals/decorators/common",
       "//chrome/browser/lifetime",
@@ -602,6 +613,7 @@ source_set("impl") {
 
   if (is_chromeos) {
     sources += [
+      "client_certificates/ash/kcer_certificate_store.cc",
       "connectors/analysis/file_transfer_analysis_delegate.cc",
       "connectors/analysis/source_destination_matcher_ash.cc",
       "connectors/device_trust/ash/ash_attestation_policy_observer.cc",
@@ -613,10 +625,12 @@ source_set("impl") {
       "signals/system_signals_service_host_factory.cc",
     ]
     deps += [
+      "//ash/constants",
       "//chrome/browser/ash/app_list/arc",
       "//chrome/browser/ash/arc:arc_util",
       "//chrome/browser/ash/file_manager",
       "//chrome/browser/ash/guest_os/public",
+      "//chrome/browser/ash/kcer",
       "//chrome/browser/ash/policy/core",
       "//chrome/browser/ash/profiles",
       "//chrome/browser/ash/settings",
@@ -624,11 +638,14 @@ source_set("impl") {
       "//chrome/services/system_signals/public/cpp/browser",
       "//chromeos/ash/components/browser_context_helper",
       "//chromeos/ash/components/install_attributes",
+      "//chromeos/ash/components/kcer",
       "//chromeos/ash/components/network",
       "//chromeos/ash/components/system",
       "//chromeos/components/mgs",
       "//chromeos/dbus/constants",
       "//components/device_signals/core/browser/ash",
+      "//components/user_manager",
+      "//net",
       "//ui/strings:ui_strings__strings_grit",
     ]
   } else {
@@ -667,6 +684,7 @@ source_set("impl") {
   if (is_mac) {
     sources += [
       "platform_auth/extensible_enterprise_sso_entra.mm",
+      "platform_auth/extensible_enterprise_sso_metadata.mm",
       "platform_auth/extensible_enterprise_sso_policy_handler.cc",
       "platform_auth/extensible_enterprise_sso_prefs_handler.cc",
       "platform_auth/extensible_enterprise_sso_provider_mac.mm",
@@ -709,34 +727,6 @@ source_set("impl") {
     }
   }
 
-  if (enterprise_client_certificates) {
-    sources += [
-      "client_certificates/browser_context_delegate.cc",
-      "client_certificates/cert_utils.cc",
-      "client_certificates/certificate_provisioning_service_factory.cc",
-      "client_certificates/certificate_store_factory.cc",
-      "client_certificates/profile_context_delegate.cc",
-    ]
-    deps += [
-      "//chrome/browser/enterprise/connectors/device_trust/key_management/core/network",
-      "//components/enterprise/client_certificates/core",
-      "//components/enterprise/client_certificates/core:cloud_management_delegate",
-      "//components/enterprise/client_certificates/core:dm_server_client",
-      "//components/enterprise/client_certificates/core:management_delegate",
-    ]
-
-    if (is_chromeos) {
-      sources += [ "client_certificates/ash/kcer_certificate_store.cc" ]
-      deps += [
-        "//chrome/browser/ash/kcer",
-        "//chrome/browser/ash/profiles",
-        "//chromeos/ash/components/kcer",
-        "//components/user_manager",
-        "//net",
-      ]
-    }
-  }
-
   if (enterprise_cloud_content_analysis || is_android ||
       safe_browsing_mode == 1) {
     sources += [
@@ -746,20 +736,26 @@ source_set("impl") {
     deps += [ "//components/enterprise/common/proto:chrome_reporting_entity" ]
   }
 
-  if (enterprise_cloud_content_analysis) {
+  if (enterprise_cloud_content_analysis || is_android) {
     sources += [
       "connectors/analysis/content_analysis_delegate.cc",
+      "connectors/analysis/files_request_handler.cc",
+    ]
+    deps += [ "//components/enterprise/connectors/core:cloud_content_scanning" ]
+  }
+
+  if (enterprise_cloud_content_analysis) {
+    sources += [
       "connectors/analysis/content_analysis_dialog_controller.cc",
       "connectors/analysis/content_analysis_dialog_delegate.cc",
       "connectors/analysis/content_analysis_downloads_delegate.cc",
       "connectors/analysis/content_analysis_views.cc",
       "connectors/analysis/copy_warning_delegate_tracker.cc",
-      "connectors/analysis/files_request_handler.cc",
       "connectors/analysis/network_request_content_analysis_info.cc",
+      "connectors/analysis/network_request_proxying_url_loader_factory.cc",
       "connectors/analysis/page_print_analysis_request.cc",
       "connectors/analysis/page_print_request_handler.cc",
     ]
-    deps += [ "//components/enterprise/connectors/core:cloud_content_scanning" ]
   }
 
   if (enterprise_local_content_analysis) {
@@ -827,6 +823,7 @@ source_set("impl") {
       "//chrome/browser/enterprise/connectors/device_trust/key_management/browser",
       "//chrome/browser/enterprise/connectors/device_trust/key_management/core",
       "//chrome/browser/ui:browser_command_controller",
+      "//chrome/browser/ui:browser_tabstrip",
       "//chrome/browser/ui:browser_window_header",
       "//chrome/browser/ui:singleton_tabs",
       "//chrome/browser/ui/browser_window:create_browser_window",

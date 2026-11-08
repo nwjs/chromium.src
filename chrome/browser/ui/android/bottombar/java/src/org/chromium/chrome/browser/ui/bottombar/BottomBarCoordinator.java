@@ -14,7 +14,6 @@ import androidx.annotation.ColorInt;
 import org.chromium.base.lifetime.Destroyable;
 import org.chromium.base.supplier.NonNullObservableSupplier;
 import org.chromium.base.supplier.NullableObservableSupplier;
-import org.chromium.base.supplier.OneshotSupplier;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.chrome.browser.layouts.LayoutStateProvider;
 import org.chromium.chrome.browser.profiles.Profile;
@@ -28,7 +27,6 @@ import org.chromium.chrome.browser.ui.actions.glic.GlicActionButtonBinder;
 import org.chromium.chrome.browser.ui.actions.tabswitcher.TabSwitcherActionButtonBinder;
 import org.chromium.chrome.browser.ui.bottombar.BottomBarButtonManager.ActionConfig;
 import org.chromium.chrome.browser.ui.bottombar.BottomBarHostManager.Host;
-import org.chromium.components.embedder_support.util.UrlUtilities;
 import org.chromium.ui.modaldialog.ModalDialogManager;
 import org.chromium.ui.modelutil.PropertyKey;
 import org.chromium.ui.modelutil.PropertyModel;
@@ -56,7 +54,6 @@ public class BottomBarCoordinator implements BottomBar, Destroyable {
      * @param homepageEnabledSupplier Supplier of whether the homepage is enabled.
      * @param visibilityDelegate Delegate to handle compositor-level visibility changes.
      * @param profileSupplier Supplier of the current profile.
-     * @param countrySupplier Supplier of the latest variations country code.
      * @param omniboxFocusStateSupplier Supplier of the omnibox focus state.
      * @param modalDialogManagerSupplier Supplier of the {@link ModalDialogManager}.
      */
@@ -68,7 +65,6 @@ public class BottomBarCoordinator implements BottomBar, Destroyable {
             NonNullObservableSupplier<Boolean> homepageEnabledSupplier,
             BottomBarMediator.VisibilityDelegate visibilityDelegate,
             NullableObservableSupplier<Profile> profileSupplier,
-            OneshotSupplier<String> countrySupplier,
             NonNullObservableSupplier<Boolean> omniboxFocusStateSupplier,
             NonNullObservableSupplier<ModalDialogManager> modalDialogManagerSupplier,
             LayoutStateProvider layoutStateProvider) {
@@ -84,8 +80,7 @@ public class BottomBarCoordinator implements BottomBar, Destroyable {
             mView.setLayoutParams(params);
         }
 
-        boolean shouldIncludeHomeButton = BottomBarConfigUtils.shouldIncludeHomeButtonIfEnabled();
-        List<ActionConfig> configs = createActionConfigs(mView, shouldIncludeHomeButton);
+        List<ActionConfig> configs = createActionConfigs(mView);
 
         mModel = new PropertyModel.Builder(BottomBarProperties.ALL_KEYS).build();
 
@@ -93,8 +88,7 @@ public class BottomBarCoordinator implements BottomBar, Destroyable {
                 new BottomBarButtonManager(configs, actionRegistry, mModel, ActionId.NEW_TAB);
 
         mPromoDialogCoordinator =
-                new BottomBarPromoDialogCoordinator(
-                        context, modalDialogManagerSupplier, countrySupplier);
+                new BottomBarPromoDialogCoordinator(context, modalDialogManagerSupplier);
 
         mMediator =
                 new BottomBarMediator(
@@ -102,12 +96,9 @@ public class BottomBarCoordinator implements BottomBar, Destroyable {
                         mModel,
                         mButtonManager,
                         themeColorProvider,
-                        tabSupplier,
                         homepageEnabledSupplier,
                         visibilityDelegate,
-                        shouldIncludeHomeButton,
                         profileSupplier,
-                        countrySupplier,
                         omniboxFocusStateSupplier,
                         mPromoDialogCoordinator,
                         actionRegistry,
@@ -118,23 +109,19 @@ public class BottomBarCoordinator implements BottomBar, Destroyable {
         mMcp = PropertyModelChangeProcessor.create(mModel, mView, BottomBarViewBinder::bind);
     }
 
-    private List<ActionConfig> createActionConfigs(
-            BottomBarView view, boolean shouldIncludeHomeButton) {
+    private List<ActionConfig> createActionConfigs(BottomBarView view) {
         List<ActionConfig> configs = new ArrayList<>();
 
-        if (shouldIncludeHomeButton) {
-            BottomBarButtonContainer homeContainer =
-                    view.getContainerForAction(ActionId.HOME_BUTTON);
-            assert homeContainer != null : "Home button container not found";
-            homeContainer.inflateStub();
-            configs.add(
-                    new ActionConfig(
-                            ActionId.HOME_BUTTON,
-                            homeContainer,
-                            HomeActionButtonBinder::bind,
-                            BottomBarProperties.IS_HOME_BUTTON_VISIBLE,
-                            /* initiallyVisible= */ true));
-        }
+        BottomBarButtonContainer homeContainer = view.getContainerForAction(ActionId.HOME_BUTTON);
+        assert homeContainer != null : "Home button container not found";
+        homeContainer.inflateStub();
+        configs.add(
+                new ActionConfig(
+                        ActionId.HOME_BUTTON,
+                        homeContainer,
+                        HomeActionButtonBinder::bind,
+                        BottomBarProperties.IS_HOME_BUTTON_VISIBLE,
+                        /* initiallyVisible= */ true));
 
         BottomBarButtonContainer extraContainer = view.getContainerForAction(ActionId.GLIC);
         assert extraContainer != null : "Extra button container not found";
@@ -143,13 +130,6 @@ public class BottomBarCoordinator implements BottomBar, Destroyable {
                         ActionId.GLIC,
                         extraContainer,
                         GlicActionButtonBinder::bind,
-                        BottomBarProperties.IS_EXTRA_BUTTON_VISIBLE,
-                        /* initiallyVisible= */ false));
-        configs.add(
-                new ActionConfig(
-                        ActionId.AI_MODE,
-                        extraContainer,
-                        ActionButtonBinder::bind,
                         BottomBarProperties.IS_EXTRA_BUTTON_VISIBLE,
                         /* initiallyVisible= */ false));
 
@@ -216,10 +196,7 @@ public class BottomBarCoordinator implements BottomBar, Destroyable {
             return false;
         }
         Tab tab = mTabSupplier.get();
-        if (tab == null || tab.isIncognito()) {
-            return false;
-        }
-        if (UrlUtilities.isNtpUrl(tab.getUrl()) && BottomBarConfigUtils.shouldDisableOnNtp()) {
+        if (tab == null || tab.isOffTheRecord()) {
             return false;
         }
         return mPromoDialogCoordinator.maybeShowPromoDialog(profile);
@@ -236,9 +213,9 @@ public class BottomBarCoordinator implements BottomBar, Destroyable {
 
     @Override
     public void destroy() {
+        mButtonManager.destroy();
         mMediator.destroy();
         mMcp.destroy();
-        mButtonManager.destroy();
         mPromoDialogCoordinator.destroy();
     }
 }

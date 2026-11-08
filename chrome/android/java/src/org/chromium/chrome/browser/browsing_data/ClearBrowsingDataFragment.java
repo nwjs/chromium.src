@@ -55,6 +55,7 @@ import org.chromium.chrome.browser.multiwindow.MultiWindowUtils;
 import org.chromium.chrome.browser.password_manager.ManagePasswordsReferrer;
 import org.chromium.chrome.browser.password_manager.PasswordManagerLauncher;
 import org.chromium.chrome.browser.preferences.Pref;
+import org.chromium.chrome.browser.privacy.settings.PrivacySettings;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactory;
 import org.chromium.chrome.browser.searchwidget.SearchActivity;
@@ -360,7 +361,11 @@ public class ClearBrowsingDataFragment extends ChromeBaseSettingsFragment
      */
     public static Bundle createFragmentArgs(String referrer) {
         Bundle bundle = new Bundle();
-        bundle.putString(ClearBrowsingDataFragment.CLEAR_BROWSING_DATA_REFERRER, referrer);
+        // Only a SearchActivity referrer changes the page (see getDialogOptions). Any other would
+        // just put an activity class name in the page's settings Url.
+        if (TextUtils.equals(referrer, SearchActivity.class.getName())) {
+            bundle.putString(ClearBrowsingDataFragment.CLEAR_BROWSING_DATA_REFERRER, referrer);
+        }
         return bundle;
     }
 
@@ -533,8 +538,13 @@ public class ClearBrowsingDataFragment extends ChromeBaseSettingsFragment
             dismissProgressDialog();
         } else {
             dismissProgressDialog();
+            // Name the page to return to rather than relying on the tab's navigation history.
+            // Under Url navigation this page occupies a navigation entry, and deleting browsing
+            // history can delete the entries before it, e.g. the Privacy page the user came from,
+            // leaving nothing to go back to. In SettingsActivity, which pops the fragment back
+            // stack, the parent is ignored.
             SettingsNavigationFactory.createSettingsNavigation(requireActivity())
-                    .finishCurrentSettings(this);
+                    .finishCurrentSettings(this, PrivacySettings.class, /* parentArgs= */ null);
         }
     }
 

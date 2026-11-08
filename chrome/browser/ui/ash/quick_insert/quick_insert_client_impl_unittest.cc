@@ -14,9 +14,11 @@
 #include "base/functional/bind.h"
 #include "base/test/bind.h"
 #include "base/test/mock_callback.h"
+#include "base/test/run_until.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/test_future.h"
 #include "base/threading/thread_restrictions.h"
+#include "chrome/browser/ash/browser_delegate/keyed_service_provider/bookmark_model_provider_impl.h"
 #include "chrome/browser/ash/browser_delegate/keyed_service_provider/history_service_provider_impl.h"
 #include "chrome/browser/ash/browser_delegate/keyed_service_provider/template_url_service_provider_impl.h"
 #include "chrome/browser/ash/drive/drive_integration_service.h"
@@ -130,9 +132,8 @@ std::unique_ptr<KeyedService> BuildTestDriveIntegrationService(
       fake_drivefs_helper->CreateFakeDriveFsListenerFactory());
 
   // Wait until the DriveIntegrationService is initialized.
-  while (!service->IsMounted() || !service->GetDriveFsInterface()) {
-    base::RunLoop().RunUntilIdle();
-  }
+  EXPECT_TRUE(base::test::RunUntil(
+      [&] { return service->IsMounted() && service->GetDriveFsInterface(); }));
   return service;
 }
 
@@ -223,6 +224,7 @@ class QuickInsertClientImplTest : public BrowserWithTestWindowTest {
   }
 
  private:
+  ash::BookmarkModelProviderImpl bookmark_model_provider_;
   ash::HistoryServiceProviderImpl history_service_provider_;
   ash::TemplateURLServiceProviderImpl template_url_service_provider_;
   scoped_refptr<network::SharedURLLoaderFactory>

@@ -117,6 +117,7 @@
 #import "ios/chrome/browser/infobars/model/infobar_manager_impl.h"
 #import "ios/chrome/browser/intelligence/features/features.h"
 #import "ios/chrome/browser/intents/model/intents_donation_helper.h"
+#import "ios/chrome/browser/lens/ui_bundled/lens_coordinator.h"
 #import "ios/chrome/browser/lens_overlay/coordinator/lens_overlay_coordinator.h"
 #import "ios/chrome/browser/lens_overlay/coordinator/lens_view_finder_coordinator.h"
 #import "ios/chrome/browser/lens_overlay/model/lens_overlay_tab_helper.h"
@@ -149,7 +150,6 @@
 #import "ios/chrome/browser/qr_scanner/coordinator/qr_scanner_legacy_coordinator.h"
 #import "ios/chrome/browser/reader_mode/coordinator/reader_mode_blur_overlay_coordinator.h"
 #import "ios/chrome/browser/reader_mode/coordinator/reader_mode_coordinator.h"
-#import "ios/chrome/browser/reader_mode/model/features.h"
 #import "ios/chrome/browser/reader_mode/model/reader_mode_browser_agent.h"
 #import "ios/chrome/browser/reader_mode/model/reader_mode_browser_agent_delegate.h"
 #import "ios/chrome/browser/reader_mode/model/reader_mode_tab_helper.h"
@@ -464,6 +464,7 @@ constexpr CGFloat kSnackbarFloatingBottomMargin = 10.0;
   KeyCommandsProvider* _keyCommandsProvider;
   BubblePresenterCoordinator* _bubblePresenterCoordinator;
   ToolbarAccessoryPresenter* _toolbarAccessoryPresenter;
+  LensCoordinator* _lensCoordinator;
   LensViewFinderCoordinator* _lensViewFinderCoordinator;
   LensOverlayCoordinator* _lensOverlayCoordinator;
   MainToolbarCoordinator* _toolbarCoordinator;
@@ -513,9 +514,6 @@ constexpr CGFloat kSnackbarFloatingBottomMargin = 10.0;
 
   // The coordinator for the notifications opt-in screen.
   NotificationsOptInCoordinator* _notificationsOptInCoordinator;
-
-  // The coordinator showing the multimodal composebox menu.
-  ComposeboxMenuCoordinator* _composeboxMenuCoordinator;
 
 }
 
@@ -800,8 +798,7 @@ constexpr CGFloat kSnackbarFloatingBottomMargin = 10.0;
 
 - (void)signinCoordinatorCompletionWithCoordinator:
     (SigninCoordinator*)coordinator {
-  CHECK(!coordinator || _signinCoordinator == coordinator,
-        base::NotFatalUntil::M151);
+  CHECK(!coordinator || _signinCoordinator == coordinator);
   [self stopSigninCoordinator];
 }
 
@@ -1087,8 +1084,12 @@ constexpr CGFloat kSnackbarFloatingBottomMargin = 10.0;
       componentFactory:[[NewTabPageComponentFactory alloc] init]];
   _NTPCoordinator.toolbarDelegate = _toolbarCoordinator;
 
-  _lensViewFinderCoordinator =
-      [[LensViewFinderCoordinator alloc] initWithBrowser:browser];
+  if (IsLVFUnifiedExperienceEnabled(profile->GetPrefs())) {
+    _lensViewFinderCoordinator =
+        [[LensViewFinderCoordinator alloc] initWithBrowser:browser];
+  } else {
+    _lensCoordinator = [[LensCoordinator alloc] initWithBrowser:browser];
+  }
 
   _safeAreaProvider = [[SafeAreaProvider alloc] initWithBrowser:browser];
 
@@ -1155,8 +1156,14 @@ constexpr CGFloat kSnackbarFloatingBottomMargin = 10.0;
   // The Lens coordinator needs to be started before the primary toolbar
   // coordinator so that the LensCommands dispatcher is correctly registered in
   // time.
-  _lensViewFinderCoordinator.baseViewController = viewController;
-  [_lensViewFinderCoordinator start];
+  if (IsLVFUnifiedExperienceEnabled(self.profile->GetPrefs())) {
+    _lensViewFinderCoordinator.baseViewController = viewController;
+    [_lensViewFinderCoordinator start];
+  } else {
+    _lensCoordinator.baseViewController = viewController;
+    _lensCoordinator.delegate = viewController;
+    [_lensCoordinator start];
+  }
 
   _toolbarCoordinator.baseViewController = viewController;
   if (!IsChromeNextIaEnabled()) {
@@ -1219,8 +1226,13 @@ constexpr CGFloat kSnackbarFloatingBottomMargin = 10.0;
   [_lensOverlayCoordinator stop];
   _lensOverlayCoordinator = nil;
 
-  [_lensViewFinderCoordinator stop];
-  _lensViewFinderCoordinator = nil;
+  if (IsLVFUnifiedExperienceEnabled(self.profile->GetPrefs())) {
+    [_lensViewFinderCoordinator stop];
+    _lensViewFinderCoordinator = nil;
+  } else {
+    [_lensCoordinator stop];
+    _lensCoordinator = nil;
+  }
 
   // This can be removed if the browser agent guarenteed to be detroyed before
   // profile keyed objects.
@@ -1814,10 +1826,6 @@ constexpr CGFloat kSnackbarFloatingBottomMargin = 10.0;
       dismissVirtualCardEnrollmentBottomSheet];
 }
 
-- (void)resetAutofillSuggestionsLoadingStates {
-  [self.formInputAccessoryCoordinator resetLoadingStates];
-}
-
 - (void)showOmniboxPositionChoice {
   if (!_omniboxPositionChoiceCoordinator) {
     _omniboxPositionChoiceCoordinator =
@@ -1953,34 +1961,16 @@ constexpr CGFloat kSnackbarFloatingBottomMargin = 10.0;
                                  DoNothingContinuationProvider()];
   __weak __typeof(self) weakSelf = self;
   _signinCoordinator.signinCompletion =
-      ^(SigninCoordinator* coordinator, SigninCoordinatorResult result,
-        id<SystemIdentity> identity) {
+      ^(SigninCoordinator* coordinator,
+        SigninCoordinatorResultOrIdentity result) {
         [weakSelf signinCoordinatorCompletionWithCoordinator:coordinator];
       };
   [_signinCoordinator start];
 }
 
-- (void)showMultimodalActionsMenu {
-  if (IsComposeboxPlusButtonBottomSheet()) {
-    [_composeboxMenuCoordinator stop];
-    _composeboxMenuCoordinator = [[ComposeboxMenuCoordinator alloc]
-        initWithBaseViewController:self.viewController
-                           browser:self.browser
-                        entrypoint:ComposeboxEntrypoint::kNTPPlusButton];
-    [_composeboxMenuCoordinator start];
-  } else {
-    [self showComposeboxFromEntrypoint:ComposeboxEntrypoint::kNTPPlusButton
-                             withQuery:nil];
-  }
-}
-
 - (void)dismissMultimodalActionsMenu {
-  if (_composeboxMenuCoordinator) {
-    [_composeboxMenuCoordinator stop];
-    _composeboxMenuCoordinator = nil;
-  } else {
-    [_composeboxCoordinator hideComposeboxMenu];
-  }
+  [_composeboxCoordinator hideComposeboxMenu];
+  [_omniboxCommandsHandler dismissOmniboxMultimodalActionsMenu];
 }
 
 - (void)showComposebox {
@@ -2540,8 +2530,8 @@ constexpr CGFloat kSnackbarFloatingBottomMargin = 10.0;
 
   __weak __typeof(self) weakSelf = self;
   _signinCoordinator.signinCompletion =
-      ^(SigninCoordinator* coordinator, SigninCoordinatorResult result,
-        id<SystemIdentity> identity) {
+      ^(SigninCoordinator* coordinator,
+        SigninCoordinatorResultOrIdentity result) {
         [weakSelf signinCoordinatorCompletionWithCoordinator:coordinator];
 
         if (completion) {
@@ -2663,8 +2653,8 @@ constexpr CGFloat kSnackbarFloatingBottomMargin = 10.0;
                                           DoNothingContinuationProvider()];
   __weak __typeof(self) weakSelf = self;
   _signinCoordinator.signinCompletion =
-      ^(SigninCoordinator* coordinator, SigninCoordinatorResult result,
-        id<SystemIdentity> identity) {
+      ^(SigninCoordinator* coordinator,
+        SigninCoordinatorResultOrIdentity result) {
         [weakSelf signinCoordinatorCompletionWithCoordinator:coordinator];
       };
   [_signinCoordinator start];

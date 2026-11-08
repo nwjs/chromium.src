@@ -72,6 +72,7 @@
 #include "components/search_engines/search_terms_data.h"
 #include "components/search_engines/template_url.h"
 #include "components/search_engines/template_url_service.h"
+#include "components/unified_consent/pref_names.h"
 #include "components/variations/scoped_variations_ids_provider.h"
 #include "components/variations/variations_associated_data.h"
 #include "content/public/test/browser_task_environment.h"
@@ -122,34 +123,6 @@ class TestSearchProvider : public SearchProvider {
  private:
   void RecordDeletionResult(bool success) override { is_success_ = success; }
   bool is_success_ = false;
-};
-
-class TestAutocompleteProviderClient : public ChromeAutocompleteProviderClient {
- public:
-  TestAutocompleteProviderClient(Profile* profile,
-                                 network::TestURLLoaderFactory* loader_factory)
-      : ChromeAutocompleteProviderClient(profile),
-        shared_factory_(
-            base::MakeRefCounted<network::WeakWrapperSharedURLLoaderFactory>(
-                loader_factory)) {}
-  ~TestAutocompleteProviderClient() override = default;
-
-  bool IsUrlDataCollectionActive() const override {
-    return is_url_data_collection_active_;
-  }
-
-  void set_is_url_data_collection_active(bool is_url_data_collection_active) {
-    is_url_data_collection_active_ = is_url_data_collection_active;
-  }
-
-  scoped_refptr<network::SharedURLLoaderFactory> GetURLLoaderFactory()
-      override {
-    return shared_factory_;
-  }
-
- private:
-  bool is_url_data_collection_active_ = true;
-  scoped_refptr<network::SharedURLLoaderFactory> shared_factory_;
 };
 
 std::unique_ptr<KeyedService> BuildRemoteSuggestionsServiceWithURLLoader(
@@ -365,7 +338,7 @@ class BaseSearchProviderTest : public testing::Test,
 
   network::TestURLLoaderFactory test_url_loader_factory_;
   std::unique_ptr<TestingProfile> profile_;
-  std::unique_ptr<TestAutocompleteProviderClient> client_;
+  std::unique_ptr<ChromeAutocompleteProviderClient> client_;
   scoped_refptr<TestSearchProvider> provider_;
 
   // See description above class for details of these fields.
@@ -398,7 +371,7 @@ void BaseSearchProviderTest::CustomizableSetUp(
   default_t_url_ = turl_model->Add(std::make_unique<TemplateURL>(data));
   turl_model->SetUserSelectedDefaultSearchProvider(default_t_url_);
   TemplateURLID default_provider_id = default_t_url_->id();
-  ASSERT_NE(0, default_provider_id);
+  ASSERT_NE(kInvalidTemplateURLID, default_provider_id);
 
   // Add url1, with search term term1_.
   term1_url_ = AddSearchToHistory(default_t_url_, std::u16string(term1_), 1);
@@ -410,7 +383,7 @@ void BaseSearchProviderTest::CustomizableSetUp(
   data.suggestions_url = "http://suggest_keyword/{searchTerms}";
   data.is_active = TemplateURLData::ActiveStatus::kTrue;
   keyword_t_url_ = turl_model->Add(std::make_unique<TemplateURL>(data));
-  ASSERT_NE(0, keyword_t_url_->id());
+  ASSERT_NE(kInvalidTemplateURLID, keyword_t_url_->id());
 
   // Add a page and search term for keyword_t_url_.
   keyword_url_ =
@@ -421,8 +394,9 @@ void BaseSearchProviderTest::CustomizableSetUp(
   // requests to ensure the InMemoryDatabase is the state we expect it.
   profile_->BlockUntilHistoryProcessesPendingRequests();
 
-  client_ = std::make_unique<TestAutocompleteProviderClient>(
-      profile_.get(), &test_url_loader_factory_);
+  profile_->GetPrefs()->SetBoolean(
+      unified_consent::prefs::kUrlKeyedAnonymizedDataCollectionEnabled, true);
+  client_ = std::make_unique<ChromeAutocompleteProviderClient>(profile_.get());
   provider_ = new TestSearchProvider(client_.get(), this);
   OmniboxFieldTrial::kDefaultMinimumTimeBetweenSuggestQueriesMs = 0;
 }
@@ -1175,8 +1149,7 @@ TEST_F(SearchProviderTest, KeywordOrderingAndDescriptions) {
   profile_->BlockUntilHistoryProcessesPendingRequests();
 
   AutocompleteController controller(
-      std::make_unique<TestAutocompleteProviderClient>(
-          profile_.get(), &test_url_loader_factory_),
+      std::make_unique<ChromeAutocompleteProviderClient>(profile_.get()),
       AutocompleteControllerConfig{.provider_types = static_cast<int>(
                                        AutocompleteProvider::Type::kSearch)});
   AutocompleteInput input(u"k t", metrics::OmniboxEventProto::OTHER,
@@ -3806,7 +3779,8 @@ TEST_F(SearchProviderTest, CanSendRequestWithURL) {
   TemplateURL google_template_url(google_template_url_data);
 
   // Enable personalized URL data collection.
-  client_->set_is_url_data_collection_active(true);
+  profile_->GetPrefs()->SetBoolean(
+      unified_consent::prefs::kUrlKeyedAnonymizedDataCollectionEnabled, true);
 
   // Personalized URL data collection is active. Test that we can send the page
   // URL if all of the following hold:
@@ -3839,7 +3813,8 @@ TEST_F(SearchProviderTest, CanSendRequestWithURL) {
   EXPECT_TRUE(test_srp(&google_template_url, client_.get()));
 
   // Disable personalized URL data collection.
-  client_->set_is_url_data_collection_active(false);
+  profile_->GetPrefs()->SetBoolean(
+      unified_consent::prefs::kUrlKeyedAnonymizedDataCollectionEnabled, false);
 
   // Does not require personalized URL data collection to be enabled.
   EXPECT_TRUE(test_lens(&google_template_url, client_.get()));
@@ -3849,7 +3824,8 @@ TEST_F(SearchProviderTest, CanSendRequestWithURL) {
   EXPECT_TRUE(test_srp(&google_template_url, client_.get()));
 
   // Re-enable personalized URL data collection.
-  client_->set_is_url_data_collection_active(true);
+  profile_->GetPrefs()->SetBoolean(
+      unified_consent::prefs::kUrlKeyedAnonymizedDataCollectionEnabled, true);
 
   // Ensure the state is properly reset.
   EXPECT_TRUE(test_lens(&google_template_url, client_.get()));
@@ -3922,7 +3898,8 @@ TEST_F(SearchProviderTest, CanSendRequestWithURL) {
   TemplateURL alternate_url_template_url(alternate_url_template_url_data);
 
   // Disable personalized URL data collection.
-  client_->set_is_url_data_collection_active(false);
+  profile_->GetPrefs()->SetBoolean(
+      unified_consent::prefs::kUrlKeyedAnonymizedDataCollectionEnabled, false);
 
   // Ensure non-Google alternate URLs do not qualify for the SRP exemption
   // when URL data collection is disabled.
@@ -4188,7 +4165,7 @@ class SearchProviderRequestTest : public SearchProviderTest {
     TemplateURL* template_url = turl_model->Add(
         std::make_unique<TemplateURL>(google_template_url_data));
     turl_model->SetUserSelectedDefaultSearchProvider(template_url);
-    ASSERT_NE(0, template_url->id());
+    ASSERT_NE(kInvalidTemplateURLID, template_url->id());
   }
 };
 
@@ -4334,10 +4311,10 @@ class SearchProviderOTRTest : public SearchProviderTest {
     TemplateURL* template_url = turl_model->Add(
         std::make_unique<TemplateURL>(google_template_url_data));
     turl_model->SetUserSelectedDefaultSearchProvider(template_url);
-    ASSERT_NE(0, template_url->id());
+    ASSERT_NE(kInvalidTemplateURLID, template_url->id());
 
-    otr_client_ = std::make_unique<TestAutocompleteProviderClient>(
-        otr_profile(), &test_url_loader_factory_);
+    otr_client_ =
+        std::make_unique<ChromeAutocompleteProviderClient>(otr_profile());
     provider_ = new TestSearchProvider(otr_client_.get(), this);
     zero_suggest_provider_ = new ZeroSuggestProvider(otr_client_.get(), this);
   }
@@ -4354,7 +4331,7 @@ class SearchProviderOTRTest : public SearchProviderTest {
     return profile_->GetPrimaryOTRProfile(/*create_if_needed=*/false);
   }
 
-  std::unique_ptr<TestAutocompleteProviderClient> otr_client_;
+  std::unique_ptr<ChromeAutocompleteProviderClient> otr_client_;
   scoped_refptr<ZeroSuggestProvider> zero_suggest_provider_;
 };
 

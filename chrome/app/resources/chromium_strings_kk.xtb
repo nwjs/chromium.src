@@ -23,6 +23,7 @@
 <translation id="1185134272377778587">Chromium туралы ақпарат</translation>
 <translation id="1186645291482254714">Телефондағы Chromium арқылы бағаны бақылау туралы хабарландырулар алыңыз</translation>
 <translation id="1203500561924088507">Орнатқаныңыз үшін рақмет. <ph name="BUNDLE_NAME" /> пайдаланбас бұрын браузерді жауып, қайта ашуыңыз керек.</translation>
+<translation id="1222365723190436821"><ph name="IMPORTANT_UPDATE" /> өңделіп жатыр. Браузерді қауіпсіз пайдалану үшін Chromium келесі жолы <ph name="IDLE_DURATION" /> бойы әрекетсіз болғаныңызда жаңартылады.</translation>
 <translation id="1232234696885483911">"Сурет іздеу" функциясын ашқан кезде, бет атауы, URL мекенжайы және контенті, соның ішінде PDF файлдары серверге автоматты түрде жіберіледі. <ph name="LEARN_MORE" /></translation>
 <translation id="123265588161106468">Аккаунтқа кірсеңіз, Chromium-нен Google аккаунтыңыздағы құпия сөздер мен т.б. ақпаратты пайдалана аласыз. Мұны өзгерту үшін "Chromium-дегі аккаунтыңыз" бөліміне өтіңіз.</translation>
 <translation id="1244381985120794049">Chromium-дегі Gemini-ды Mac мәзір жолағында көрсету</translation>
@@ -229,6 +230,7 @@
 <translation id="3286538390144397061">Қазір қайта іске қосу</translation>
 <translation id="328888136576916638">Google API пернелері жоқ. Кейбір Chromium функциялары өшіріледі.</translation>
 <translation id="3296368748942286671">Chromium жабылғанда, фондық қолданбаларды пайдалануды жалғастыру</translation>
+<translation id="3300632735252839402">Chromium сіз жоқ кезде жаңартылады.</translation>
 <translation id="3313189106987092621">Chromium кез келген сайтты қауіпті байланыс арқылы жүктеу алдында сізге ескертеді.</translation>
 <translation id="3316771292331273802">Chromium-де аккаунтқа кірген болсаңыз, барлық Chromium терезесін жапқан кезде, Google аккаунтын қоспағанда, сайттардың көпшілігінен шығарыласыз. Сайттар сізді есте сақтасын десеңіз, <ph name="SETTINGS_LINK" />.</translation>
 <translation id="3352986031709923790">іздеу аймағының жоғарғы оң жақ бұрышы: оң жақ <ph name="RIGHT" />%, жоғарғы жақ <ph name="TOP" />%</translation>
@@ -237,6 +239,7 @@
 <translation id="3387527074123400161">ChromiumOS</translation>
 <translation id="3406848076815591792">Бұрыннан бар Chromium профиліне ауыстырылсын ба?</translation>
 <translation id="3412460710772753638">Осы құрылғыдағы Құпия сөз менеджерінде</translation>
+<translation id="3425452599984451640">Chromium жаңартқысы келеді</translation>
 <translation id="3427159664004296878"><ph name="DEVICE" /> құрылғысынан бетбелгілер мен басқа ақпаратты алу үшін Chromium-ге кіріңіз.</translation>
 <translation id="3438772217992559640">Бұл қойындыны сурет іздеу функциясымен іздеу</translation>
 <translation id="3455907671758333080">Телефоныңыздағы Chromium браузерімен күшейтілген Safe Browsing мүмкіндіктерін кеңейтіңіз</translation>
@@ -379,6 +382,7 @@
 <translation id="5074496654342756568"><ph name="DEVICE_TYPE" /> құрылғысындағы Chromium-мен Google-дың барлық таңдаулы қызметін пайдаланыңыз.</translation>
 <translation id="5123973130450702873">Chromium қолыңызды бақылауға рұқсат сұрайды.</translation>
 <translation id="5141988424377517949">Жақында кірмедіңіз. Chromium <ph name="PERMISSION_1" />, <ph name="PERMISSION_2" />, <ph name="PERMISSION_3" /> рұқсаттарын өшірді.</translation>
+<translation id="5171868502429358653">Chromium-ге кіріңіз</translation>
 <translation id="5174969993834422967">Әдетте хабарландыруларға тыйым саласыз. Бұл сайт сізге хабарландыру жіберсін десеңіз, локация жолағының оң жақ бұрышындағы хабарландыру белгішесін басыңыз.</translation>
 <translation id="5174983315706567306">Диск жады жеткіліксіз.</translation>
 <translation id="5187123684706427865">Chromium аккаунтын қайта аутентификациялау қажет.</translation>
@@ -388,6 +392,7 @@
 <translation id="5249261924633168472">Сілтемені Chromium инкогнито терезесінде ашу</translation>
 <translation id="5276305953263010518">Құпия сөздерді кез келген жерде сақтау үшін Chromium қолданбасын жүктеп алыңыз</translation>
 <translation id="5277894862589591112">Өзгерістер енуі үшін, Chromium браузерін қайта қосыңыз</translation>
+<translation id="5278909220224474621">Бұл қойындыны басқа құрылғыға жіберу үшін екі құрылғыда да Chromium-ге кіріңіз.</translation>
 <translation id="5286907366254680517">Анықталды</translation>
 <translation id="5289287148052354622">Chromium қолданбасын жүктеп алу</translation>
 <translation id="5294316920224716406">Инкогнито режимін пайдаланған кезде, Chromium сайтты қауіпті байланыс арқылы жүктеу алдында сізге ескертеді.</translation>
@@ -757,6 +762,7 @@ Chromium параметрлеріңізді қалпына келтіре алм
 <translation id="8648201657708811153">Google Chrome for Testing браузерін әдепкі браузер қылу мүмкін емес.</translation>
 <translation id="8676101123715131330">Chromium-мен кез келген жерден іздеңіз</translation>
 <translation id="8697124171261953979">Сонымен қатар ол Chromium іске қосқаныңызда немесе Omnibox ішінен іздегеніңізде қайсы бет көрсетілетінін бақылайды.</translation>
+<translation id="8702213505203810093">Бұл қойындыны басқа құрылғыға жіберу үшін сол жерде Chromium-ге кіріңіз.</translation>
 <translation id="8704119203788522458">Сізге арналған Chromium.</translation>
 <translation id="8712637175834984815">Түсінікті</translation>
 <translation id="8719993436687031146">Chromium-ге кіру қажет пе?</translation>

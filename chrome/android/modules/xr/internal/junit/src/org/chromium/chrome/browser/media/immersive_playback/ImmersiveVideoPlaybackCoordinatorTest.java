@@ -23,6 +23,7 @@ import static org.mockito.Mockito.when;
 import static org.chromium.build.NullUtil.assumeNonNull;
 
 import android.app.Activity;
+import android.content.Context;
 import android.util.SizeF;
 import android.view.View;
 import android.view.ViewGroup;
@@ -67,6 +68,7 @@ import org.chromium.ui.xr.scenecore.XrQuaternion;
 import org.chromium.ui.xr.scenecore.XrResizableComponent;
 import org.chromium.ui.xr.scenecore.XrSceneCoreSessionManager;
 import org.chromium.ui.xr.scenecore.XrSpace;
+import org.chromium.ui.xr.scenecore.XrSurfaceEntityHolder;
 import org.chromium.ui.xr.scenecore.XrSurfaceEntityShape;
 import org.chromium.ui.xr.scenecore.XrSurfaceEntityStereoMode;
 import org.chromium.ui.xr.scenecore.XrSurfaceEntityView;
@@ -80,6 +82,21 @@ import java.util.function.Consumer;
 @RunWith(BaseRobolectricTestRunner.class)
 @SuppressWarnings("unchecked")
 public class ImmersiveVideoPlaybackCoordinatorTest {
+    /** {@link XrSurfaceEntityView} is abstract; this provides the holder to production code. */
+    private static class TestSurfaceEntityView extends XrSurfaceEntityView {
+        private final XrSurfaceEntityHolder mHolder;
+
+        TestSurfaceEntityView(Context context, XrSurfaceEntityHolder holder) {
+            super(context);
+            mHolder = holder;
+        }
+
+        @Override
+        public XrSurfaceEntityHolder getHolder() {
+            return mHolder;
+        }
+    }
+
     static {
         XrModuleProviderImpl.initialize();
     }
@@ -96,7 +113,6 @@ public class ImmersiveVideoPlaybackCoordinatorTest {
     @Mock private XrSceneCoreSessionManager mXrSceneCoreSessionManager;
     @Mock private CompositorView mCompositorView;
     @Mock private XrMovableComponent mControlPanelMovableComponent;
-    @Mock private XrSurfaceEntityView mSurfaceEntityView;
     @Mock private XrResizableComponent mResizableComponent;
     @Mock private XrMovableComponent mSurfaceMovableComponent;
     @Mock private XrCurvedSurfaceEntityHolder mSurfaceEntityHolder;
@@ -133,8 +149,8 @@ public class ImmersiveVideoPlaybackCoordinatorTest {
         when(mXrSceneCoreSessionManager.startHeadPoseTracking()).thenReturn(true);
         when(mXrSceneCoreSessionManager.createPanelEntity(any(), any()))
                 .thenReturn(mControlPanelHolder);
-        when(mCompositorView.getView()).thenReturn(mSurfaceEntityView);
-        when(mSurfaceEntityView.getHolder()).thenReturn(mSurfaceEntityHolder);
+        when(mCompositorView.getView())
+                .thenReturn(new TestSurfaceEntityView(mActivity, mSurfaceEntityHolder));
 
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
@@ -664,13 +680,12 @@ public class ImmersiveVideoPlaybackCoordinatorTest {
         assertEquals(ANCHOR_POSE.getTranslation(), playerPoseCaptor.getValue().getTranslation());
     }
 
-    /** Tests that reshowing control panel in curved mode fetches head pose to update anchor. */
+    /** Tests that reshowing control panel in sphere mode fetches head pose to update anchor. */
     @Test
     @UiThreadTest
-    public void testShowControlPanel_UpdatesAnchorPoseInNonQuadMode() {
-        // Switch to Hemisphere mode
-        mCoordinator.onFormatSelected(
-                ImmersiveStereoMode.MONO, ImmersiveProjectionType.HEMISPHERE);
+    public void testShowControlPanel_UpdatesAnchorPoseInSphereMode() {
+        // Switch to Sphere mode
+        mCoordinator.onFormatSelected(ImmersiveStereoMode.MONO, ImmersiveProjectionType.SPHERE);
         ShadowLooper.idleMainLooper();
 
         // Dismiss the control panel first
@@ -688,6 +703,33 @@ public class ImmersiveVideoPlaybackCoordinatorTest {
 
         verify(mXrSceneCoreSessionManager).getHeadPoseInActivitySpace();
         verify(mControlPanelHolder).setEntityPose(any(XrPose.class), eq(XrSpace.PARENT));
+    }
+
+    /**
+     * Tests that reshowing control panel in hemisphere mode does not re-fetch head pose to update
+     * anchor, preserving the hemisphere's current yaw.
+     */
+    @Test
+    @UiThreadTest
+    public void testShowControlPanel_DoesNotUpdateAnchorPoseInHemisphereMode() {
+        // Switch to Hemisphere mode
+        mCoordinator.onFormatSelected(ImmersiveStereoMode.MONO, ImmersiveProjectionType.HEMISPHERE);
+        ShadowLooper.idleMainLooper();
+
+        // Dismiss the control panel first
+        mCoordinator.onPlayerPanelClicked();
+        ShadowLooper.idleMainLooper();
+
+        clearInvocations(mXrSceneCoreSessionManager);
+        clearInvocations(mControlPanelHolder);
+
+        // Re-show control panel by clicking player panel
+        mCoordinator.onPlayerPanelClicked();
+        ShadowLooper.idleMainLooper();
+
+        verify(mXrSceneCoreSessionManager, never()).getHeadPoseInActivitySpace();
+        verify(mControlPanelHolder).setEntityEnabled(true);
+        verify(mControlPanelHolder, never()).setEntityPose(any(XrPose.class), eq(XrSpace.PARENT));
     }
 
     /** Test subclass that allows injecting mocked dependencies by overriding protected methods. */

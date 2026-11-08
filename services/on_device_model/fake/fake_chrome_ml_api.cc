@@ -41,6 +41,8 @@ std::string PieceToString(const ml::InputPiece& piece) {
                 return "ToolCall: ";
               case ml::Token::kToolResponse:
                 return "ToolResponse: ";
+              case ml::Token::kThought:
+                return "Thought: ";
             }
           },
           [](const SkBitmap& bitmap) -> std::string {
@@ -195,9 +197,21 @@ struct FakeCancelInstance {
 ChromeMLModel SessionCreateModel(const ChromeMLModelDescriptor* descriptor,
                                  uintptr_t context,
                                  ChromeMLScheduleFn schedule) {
+  std::string model_data;
+  if (descriptor->model_data) {
+    if (descriptor->model_data->weights_file != base::kInvalidPlatformFile) {
+      model_data = ReadFile(descriptor->model_data->weights_file);
+    } else if (descriptor->model_data->model_path &&
+               descriptor->model_data->model_path[0] != '\0') {
+      base::ReadFileToString(
+          base::FilePath::FromUTF8Unsafe(descriptor->model_data->model_path),
+          &model_data);
+    }
+  }
   return reinterpret_cast<ChromeMLModel>(new FakeModelInstance{
       .backend_type = descriptor->backend_type,
       .performance_hint = descriptor->performance_hint,
+      .model_data = std::move(model_data),
   });
 }
 
@@ -269,13 +283,7 @@ bool SessionAppend(ChromeMLSession session,
     std::visit(
         absl::Overload{
             [&](ml::Token token) {
-              if (token == ml::Token::kSystem) {
-                in_system_prompt = true;
-              } else if (token == ml::Token::kUser ||
-                         token == ml::Token::kModel ||
-                         token == ml::Token::kEnd) {
-                in_system_prompt = false;
-              }
+              in_system_prompt = token == ml::Token::kSystem;
             },
             [&](const SkBitmap&) { CHECK(instance->enable_image_input); },
             [&](const ml::AudioBuffer&) {
@@ -362,6 +370,16 @@ bool SessionGenerate(ChromeMLSession session,
     OutputChunk("SpeculativeDecodingAllowed");
   }
 
+  if (options->enable_thinking) {
+    std::string thought_str =
+        "Thinking (budget=" +
+        base::NumberToString(options->thinking_token_budget) + ")";
+    ChromeMLExecutionOutput thought_output = {};
+    thought_output.status = ChromeMLExecutionStatus::kInProgress;
+    thought_output.thought = thought_str.c_str();
+    (*options->output_fn)(&thought_output);
+  }
+
   if (!instance->context.empty()) {
     for (const std::string& context : instance->context) {
       OutputChunk(context);
@@ -413,6 +431,8 @@ bool SessionExecuteModel(ChromeMLSession session,
       .max_output_tokens = options->max_output_tokens,
       .constraint = options->constraint,
       .output_fn = options->execution_output_fn,
+      .enable_thinking = options->enable_thinking,
+      .thinking_token_budget = options->thinking_token_budget,
   };
   return SessionGenerate(session, &gen_opts, cancel);
 }
@@ -531,6 +551,7 @@ void DestroyGpuDelegate(TfLiteDelegate* delegate) {}
 
 struct FakeASRStream {
   ChromeMLASRStreamOutputFn output_fn;
+  std::string polisher_data;
 };
 
 ChromeMLASRStream ASRCreateStream(ChromeMLSession session,
@@ -542,6 +563,11 @@ ChromeMLASRStream ASRCreateStream(ChromeMLSession session,
   if (options->output_fn) {
     stream->output_fn = *options->output_fn;
   }
+  if (options->polisher_model != 0) {
+    auto* polisher_instance =
+        reinterpret_cast<FakeModelInstance*>(options->polisher_model);
+    stream->polisher_data = polisher_instance->model_data;
+  }
   return reinterpret_cast<ChromeMLASRStream>(stream);
 }
 
@@ -549,9 +575,13 @@ void ASRAddAudioChunk(ChromeMLASRStream stream, ml::AudioBuffer* audio_buffer) {
   auto* fake_stream = reinterpret_cast<FakeASRStream*>(stream);
   CHECK(fake_stream);
   if (fake_stream->output_fn) {
+    std::string transcript_str(kFakeAsrTranscript);
+    if (!fake_stream->polisher_data.empty()) {
+      transcript_str += " (Polisher: " + fake_stream->polisher_data + ")";
+    }
     ChromeMLASRStreamOutput output;
     ChromeMLASRStreamOutputTranscript transcript{
-        .transcript = kFakeAsrTranscript,
+        .transcript = transcript_str.c_str(),
         .is_final = true,
         .from_timestamp_micros = kFakeAsrStartTimeMicros,
         .to_timestamp_micros = kFakeAsrEndTimeMicros,

@@ -8,6 +8,8 @@
 
 #include "base/check_op.h"
 #include "base/functional/bind.h"
+#include "base/metrics/histogram_functions.h"
+#include "base/strings/strcat.h"
 #include "base/values.h"
 #include "net/base/address_family.h"
 #include "net/base/net_error_details.h"
@@ -29,6 +31,7 @@ bool QuicSessionPool::EndpointConnector::is_stale() const {
 
 QuicSessionPool::EndpointConnector::~EndpointConnector() {
   if (attempt_in_flight_) {
+    RecordAttemptTime("Canceled");
     attempt_->Cancel();
   }
 }
@@ -37,6 +40,7 @@ std::optional<int> QuicSessionPool::EndpointConnector::TryAdvance() {
   if (attempt_) {
     return ERR_IO_PENDING;
   }
+  CHECK(!attempt_in_flight_);
 
   // Another job may have created a usable session while the previous
   // attempt ran. Pool to it instead of attempting again.
@@ -55,7 +59,7 @@ std::optional<int> QuicSessionPool::EndpointConnector::TryAdvance() {
     attempt_start_time_ = base::TimeTicks::Now();
     ++attempts_started_;
     attempt_id_ =
-        job_->OnAttemptStarted(*this, *candidate, attempt_start_time_);
+        job_->WillStartAttempt(*this, *candidate, attempt_start_time_);
     // Passing a null `crypto_client_config_handle` is safe because the owning
     // job holds a handle for as long as this attempt can be alive.
     attempt_ = std::make_unique<QuicSessionAttempt>(
@@ -71,9 +75,14 @@ std::optional<int> QuicSessionPool::EndpointConnector::TryAdvance() {
 
     int rv = attempt_->Start(base::BindOnce(
         &EndpointConnector::OnAttemptComplete, weak_factory_.GetWeakPtr()));
-    attempt_in_flight_ = (rv == ERR_IO_PENDING);
-    if (rv == OK || rv == ERR_IO_PENDING) {
-      return rv;
+    if (rv == ERR_IO_PENDING) {
+      attempt_in_flight_ = true;
+      job_->OnAttemptInFlight(*this);
+      return ERR_IO_PENDING;
+    }
+    if (rv == OK) {
+      RecordAttemptTime("Success");
+      return OK;
     }
     // The attempt failed while starting. Continue with the next candidate.
     RecordAttemptFailure(rv);
@@ -102,6 +111,15 @@ void QuicSessionPool::EndpointConnector::PopulateNetErrorDetails(
   attempt_->PopulateNetErrorDetails(details);
 }
 
+void QuicSessionPool::EndpointConnector::OnSuperseded() {
+  if (!attempt_in_flight_) {
+    return;
+  }
+  RecordAttemptTime("Superseded");
+  attempt_in_flight_ = false;
+  attempt_->Cancel();
+}
+
 QuicSessionPool* QuicSessionPool::EndpointConnector::GetQuicSessionPool() {
   return job_->pool();
 }
@@ -122,9 +140,32 @@ void QuicSessionPool::EndpointConnector::OnQuicSessionCreationComplete(int rv) {
   job_->OnSessionCreationDecided(rv, *this);
 }
 
+void QuicSessionPool::EndpointConnector::RecordAttemptTime(
+    std::string_view result) const {
+  CHECK(attempt_);
+  CHECK(attempt_id_.has_value());
+
+  std::string_view order;
+  if (*attempt_id_ == 1) {
+    order = "First";
+  } else if (*attempt_id_ == 2) {
+    order = "Second";
+  } else {
+    order = "ThirdOrLater";
+  }
+
+  std::string_view family = is_attempting_ipv6() ? "IPv6" : "IPv4";
+
+  base::UmaHistogramMediumTimes(
+      base::StrCat({"Net.QuicSession.AsyncDnsJob.AttemptTime.", result, ".",
+                    order, ".", family}),
+      base::TimeTicks::Now() - attempt_start_time_);
+}
+
 void QuicSessionPool::EndpointConnector::RecordAttemptFailure(int rv) {
   CHECK(attempt_);
   CHECK(attempt_id_.has_value());
+  RecordAttemptTime("Failure");
   last_attempt_error_ = rv;
   NetErrorDetails details;
   attempt_->PopulateNetErrorDetails(&details);
@@ -157,6 +198,8 @@ void QuicSessionPool::EndpointConnector::OnAttemptComplete(int rv) {
       // the job can fail or keep waiting for more DNS results.
       rv = result.value_or(*last_attempt_error_);
     }
+  } else {
+    RecordAttemptTime("Success");
   }
   job_->OnConnectorComplete(rv, *this);
 }

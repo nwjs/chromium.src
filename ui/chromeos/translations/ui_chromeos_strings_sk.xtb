@@ -114,7 +114,7 @@
 <translation id="1832073788765803750">Katakana polovičnej šírky</translation>
 <translation id="1834290891154666894">Neplatný vstup zhody alternatívneho názvu subjektu</translation>
 <translation id="1838709767668011582">Web Google</translation>
-<translation id="1853795129690976061">Tento priečinok je zdieľaný systémom Linux</translation>
+<translation id="1853795129690976061">Tento priečinok sa zdieľa s Linuxom</translation>
 <translation id="1864756863218646478">Súbor sa nepodarilo nájsť.</translation>
 <translation id="1877377730633446520">Vyžaduje to približne <ph name="REQUIRED_SPACE" />. Momentálne máte k dispozícii <ph name="FREE_SPACE" />.</translation>
 <translation id="18790189037341066">Nórska klávesnica</translation>
@@ -522,7 +522,6 @@
 <translation id="5081517858322016911">Počet odstraňovaných súborov: <ph name="TOTAL_FILE_SIZE" /></translation>
 <translation id="508423945471810158">Presúvajú sa položky (<ph name="NUMBER_OF_ITEMS" />) do priečinka <ph name="FOLDER_NAME" /></translation>
 <translation id="509429900233858213">Vyskytla sa chyba.</translation>
-<translation id="5102922915594634436">Spravovať synchronizované priečinky</translation>
 <translation id="5109254780565519649">Vyskytla sa chyba. Niektoré položky sa možno nepodarilo obnoviť.</translation>
 <translation id="5110329002213341433">Anglická (Kanada) klávesnica</translation>
 <translation id="5119780910075847424">Synchronizácia je pozastavená</translation>

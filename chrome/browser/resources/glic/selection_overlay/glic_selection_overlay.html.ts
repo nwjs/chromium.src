@@ -4,9 +4,9 @@
 
 import {html} from '//resources/lit/v3_0/lit.rollup.js';
 
-import type {SelectionOverlayElementElement} from './glic_selection_overlay.js';
+import type {GlicSelectionOverlayElement} from './glic_selection_overlay.js';
 
-export function getHtml(this: SelectionOverlayElementElement) {
+export function getHtml(this: GlicSelectionOverlayElement) {
   // clang-format off
   return html`<!--_html_template_start_-->
     <div id="selectionOverlay" @pointerenter="${this.onPointerenter}"
@@ -32,6 +32,10 @@ export function getHtml(this: SelectionOverlayElementElement) {
             .selectionOverlayRect="${this.selectionOverlayRect}"
             .regionSelectedGlowEnabled="${this.enableRegionSelectedGlow}"
             .activeRegionId="${this.activeRegionId}"
+            .hideHandles="${this.hideHandles}"
+            .hideCloseButton="${
+                this.enableSelectionOverlayPrompt &&
+                !this.enableSelectionOverlayPromptBox}"
             @activate-region="${this.onActivateRegion}"
             background-gradient-hidden>
         </post-selection-renderer>
@@ -73,18 +77,39 @@ export function getHtml(this: SelectionOverlayElementElement) {
           </div>
         ` : ''}
 
-        <div class="action-chips-row" @pointerdown="${this.onPromptPointerdown}">
+        <div class="action-chips-row"
+            @pointerdown="${this.onPromptPointerdown}">
           ${this.suggestedActions.map((action, index) => html`
             <button class="action-chip"
                 data-index="${index}"
                 @click="${this.onSuggestedActionClick}">
-              <span class="chip-icon">
-                ${this.getActionIcon(action.title)}
-              </span>
+              ${this.getActionIcon(action.icon) ? html`
+                <span class="chip-icon">
+                  <img src="${this.getActionIcon(action.icon)}"
+                      width="16" height="16">
+                </span>
+              ` : ''}
               <span class="chip-label">${action.title}</span>
             </button>
           `)}
+          ${!this.enableSelectionOverlayPromptBox ? html`
+            <button id="closeRegionButton"
+                class="close-region-button"
+                title="$i18n{close}"
+                aria-label="$i18n{close}"
+                @click="${this.onCloseRegionClick}">
+              <svg width="16" height="16" viewBox="0 0 24 24"
+                  fill="currentColor">
+                <path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5
+                    17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+              </svg>
+            </button>
+          ` : ''}
         </div>
+
+        <glic-inline-fulfillment-host id="inlineFulfillmentHost"
+            @pointerdown="${this.onPromptPointerdown}">
+        </glic-inline-fulfillment-host>
       </div>
     ` : ''}
     <!--_html_template_end_-->`;

@@ -50,7 +50,7 @@ group("resources") {
     public_deps += [
       ":component_extension_resources",
       "contextual_tasks/extension:resources",
-      "omnibox/aim_eligibility_extension:resources",
+      "omnibox_internals/aim_eligibility_extension:resources",
     ]
   }
 
@@ -96,7 +96,6 @@ group("resources") {
       "side_panel/history_clusters:resources",
       "side_panel/read_anything:resources",
       "side_panel/reading_list:resources",
-      "side_panel/tabs_from_other_devices:resources",
       "signin:resources",
       "support_tool:resources",
       "tab_group_home:resources",
@@ -109,7 +108,6 @@ group("resources") {
       "webui_toolbar:resources",
       "webui_toolbar_shared:resources",
       "whats_new:resources",
-      "//components/browser_apis/tab_strip/resources",
     ]
     if (is_chrome_branded) {
       public_deps += [
@@ -217,6 +215,14 @@ group("resources") {
     public_deps += [ "history:resources" ]
   }
 
+  if (enable_webui_tabstrip_ntb) {
+    public_deps += [ "tabstrip_ntb:resources" ]
+  }
+
+  if (!is_android || enable_webui_tabstrip_ntb) {
+    public_deps += [ "//components/browser_apis/tab_strip/resources" ]
+  }
+
   if (enable_compose) {
     public_deps += [ "compose:resources" ]
   }
@@ -237,7 +243,6 @@ if (enable_webui_generate_code_cache) {
       "side_panel/customize_chrome:code_cache_resources",
       "side_panel/reading_list:code_cache_resources",
       "side_panel/shared:code_cache_resources",
-      "side_panel/tabs_from_other_devices:code_cache_resources",
       "webui_toolbar:code_cache_resources",
     ]
   }
@@ -429,7 +434,7 @@ group("dev_ui_resources") {
     "location_internals:resources",
     "media:resources",
     "net_internals:resources",
-    "omnibox:resources",
+    "omnibox_internals:resources",
     "predictors:resources",
     "segmentation_internals:resources",
     "subresource_filter:resources",
@@ -522,7 +527,7 @@ repack("dev_ui_paks") {
     "$root_gen_dir/chrome/location_internals_resources.pak",
     "$root_gen_dir/chrome/media_resources.pak",
     "$root_gen_dir/chrome/net_internals_resources.pak",
-    "$root_gen_dir/chrome/omnibox_resources.pak",
+    "$root_gen_dir/chrome/omnibox_internals_resources.pak",
     "$root_gen_dir/chrome/predictors_resources.pak",
     "$root_gen_dir/chrome/segmentation_internals_resources.pak",
     "$root_gen_dir/chrome/subresource_filter_internals_resources.pak",

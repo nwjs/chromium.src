@@ -237,9 +237,6 @@ class GPU_COMMAND_BUFFER_CLIENT_EXPORT ClientSharedImage
   // The type of the underlying GpuMemoryBuffer backing this ClientSI.
   gfx::GpuMemoryBufferType GetGpuMemoryBufferType() const;
 
-  // Whether the underlying buffer supports zero-copy import into WebGPU.
-  bool SupportsZeroCopyWebGPUImport() const;
-
   // Returns a clone of the GpuMemoryBufferHandle associated with this ClientSI.
   // Valid to call only if this instance was created with a non-null
   // GpuMemoryBuffer.
@@ -315,6 +312,19 @@ class GPU_COMMAND_BUFFER_CLIENT_EXPORT ClientSharedImage
   bool IsSyncTokenSignaled(ContextSupport* context_support,
                            const SyncToken& resource_sync_token);
 
+  // Waits on the SyncToken(s) for this SharedImage and then calls gl->Finish().
+  // When the UseAutomaticSyncTokenManagement feature is enabled, this function
+  // waits on all tracked SyncTokens for this SharedImage, ignoring
+  // `sync_token`. When the feature is disabled, it waits on `sync_token` if
+  // valid.
+  void WaitSyncTokenAndFinish(gles2::GLES2Interface* gl,
+                              const SyncToken& sync_token);
+
+  static void WaitSyncTokenAndFinish(
+      std::vector<scoped_refptr<ClientSharedImage>> shared_images,
+      std::vector<SyncToken> sync_tokens,
+      gles2::GLES2Interface* gl);
+
   // When the UseAutomaticSyncTokenManagement feature is enabled, this function
   // returns all tracked SyncTokens for this SharedImage. When the feature is
   // disabled, this function returns a 1-element vector containing the input
@@ -344,6 +354,16 @@ class GPU_COMMAND_BUFFER_CLIENT_EXPORT ClientSharedImage
   // GpuFence. This version is used in ArImageTransport.
   gpu::SyncToken BackingWasExternallyUpdated(
       std::unique_ptr<gfx::GpuFence> fence);
+
+  // Updates the GpuMemoryBuffer associated with this SharedImage after
+  // waiting on the appropriate SyncToken(s). When the
+  // UseAutomaticSyncTokenManagement feature is enabled, this function waits on
+  // all tracked SyncTokens for this SharedImage, ignoring `sync_token`. When
+  // the feature is disabled, it waits on `sync_token` if valid. The `callback`
+  // is run denoting if the copy was successful and the GpuMemoryBuffer is ready
+  // to be mapped by the client.
+  void CopyToGpuMemoryBufferAsync(const SyncToken& sync_token,
+                                  base::OnceCallback<void(bool)> callback);
 
   // Creates a ClientSharedImage that is not associated with any
   // SharedImageInterface for testing.
@@ -511,6 +531,10 @@ class GPU_COMMAND_BUFFER_CLIENT_EXPORT ClientSharedImage
   std::vector<SyncToken> CollectSyncTokens();
 
   void WaitSyncTokenInternal(InterfaceBase* ib, const SyncToken& sync_token);
+  static void WaitSyncTokensInternal(
+      std::vector<scoped_refptr<ClientSharedImage>> shared_images,
+      std::vector<SyncToken> sync_tokens,
+      InterfaceBase* ib);
 
   // Helper function for `StoreSyncTokenInternal` and
   // `StoreSyncTokenVectorInternal`; Must be called while holding `lock_`.

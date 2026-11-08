@@ -1,3 +1,40 @@
+/// Every ObjectGroup registered by this profile. Also used by `isTargetObject`
+/// to decide which variables the Mojo generators operate on.
+private let mojoObjectGroups: [ObjectGroup] = [
+{%- for remote in interface_remotes %}
+    .{{remote|format_unique_name|to_camel(True)}}Remote,
+    .{{remote|format_unique_name|to_camel(True)}}RemoteWrapper,
+{%- if remote|uses_non_associated_endpoints %}
+    .{{remote|format_unique_name|to_camel(True)}}PendingReceiver,
+{%- endif %}
+{%- if remote|uses_associated_endpoints %}
+    .{{remote|format_unique_name|to_camel(True)}}PendingAssociatedReceiver,
+{%- endif %}
+{%- endfor %}
+{%- for receiver in interface_receivers %}
+    .{{receiver|format_unique_name|to_camel(True)}}CallbackRouter,
+    .{{receiver|format_unique_name|to_camel(True)}}CallbackRouterReceiverHelper,
+{%- if receiver|uses_non_associated_endpoints %}
+    .{{receiver|format_unique_name|to_camel(True)}}PendingRemote,
+    .{{receiver|format_unique_name|to_camel(True)}}PendingReceiver,
+{%- endif %}
+{%- if receiver|uses_associated_endpoints %}
+    .{{receiver|format_unique_name|to_camel(True)}}PendingAssociatedRemote,
+    .{{receiver|format_unique_name|to_camel(True)}}PendingAssociatedReceiver,
+{%- endif %}
+    .{{receiver|format_unique_name|to_camel(True)}}RemoteWrapper,
+    {%- for method in receiver.methods %}
+    .{{(method|callback_receiver_name)|to_camel(True)}},
+    {%- endfor %}
+{%- endfor %}
+{%- for struct in structs + response_structs %}
+    .{{struct|format_unique_name|to_camel(True)}},
+{%- endfor %}
+{%- for union in unions %}
+    .{{union|format_unique_name|to_camel(True)}},
+{%- endfor %}
+] + commonMojoObjectGroups
+
 private let mojoBuiltins: [String: ILType] = [
     /// Profiles declare this method, a wrapper method around `getRemote` that follows
     /// the Singleton pattern, in `codePrefix`. This method ensures: (1) `getRemote`
@@ -10,6 +47,12 @@ private let mojoBuiltins: [String: ILType] = [
 {%- endfor %}
 {%- for struct in structs %}
     "{{struct|fully_qualified_name}}": .{{struct|format_il_type}}Constructor,
+{%- endfor %}
+{%- for union in unions %}
+    {%- for field in union.fields %}
+    "{{union|fully_qualified_name}}.{{field.name}}": .{{union|format_il_type}}
+        {{- field.name|to_camel}}Constructor,
+    {%- endfor %}
 {%- endfor %}
 ]
 
@@ -75,35 +118,12 @@ let mojo{{primary.name}}Profile = Profile(
         "ExplorationMutator", "ProbingMutator", "PropertyAccessorMutator"
     ],
     additionalBuiltins: mojoBuiltins.merging(commonMojoBuiltins) { (existing, _) in existing },
-    additionalObjectGroups: [
-{%- for remote in interface_remotes %}
-        .{{remote|format_unique_name|to_camel(True)}}Remote,
-        .{{remote|format_unique_name|to_camel(True)}}RemoteWrapper,
-        .{{remote|format_unique_name|to_camel(True)}}PendingReceiver,
-{%- endfor %}
-{%- for receiver in interface_receivers %}
-        .{{receiver|format_unique_name|to_camel(True)}}CallbackRouter,
-        .{{receiver|format_unique_name|to_camel(True)}}CallbackRouterReceiverHelper,
-        .{{receiver|format_unique_name|to_camel(True)}}Remote,
-        .{{receiver|format_unique_name|to_camel(True)}}RemoteWrapper,
-        .{{receiver|format_unique_name|to_camel(True)}}PendingReceiver,
-        {%- for method in receiver.methods %}
-        .{{(method|callback_receiver_name)|to_camel(True)}},
-        {%- endfor %}
-{%- endfor %}
-{%- for struct in structs + response_structs %}
-        .{{struct|format_unique_name|to_camel(True)}},
-{%- endfor %}
-    ] + commonMojoObjectGroups,
+    additionalObjectGroups: mojoObjectGroups,
     additionalEnumerations: [
 {%- for enum in enums %}
         .{{enum|format_il_type}},
 {%- endfor %}
     ] + commonMojoEnumerations,
-    additionalOptionsBags: [
-{%- for union in unions %}
-        .{{union|format_unique_name|to_camel(True)}},
-{%- endfor %}
-    ] + commonMojoOptionsBags,
+    additionalOptionsBags: [] + commonMojoOptionsBags,
     optionalPostProcessor: nil
 )

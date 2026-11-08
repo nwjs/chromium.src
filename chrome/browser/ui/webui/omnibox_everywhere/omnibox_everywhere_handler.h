@@ -44,10 +44,11 @@ class OmniboxEverywhereHandler : public ContextualSearchboxHandler,
   ~OmniboxEverywhereHandler() override;
 
   // searchbox::mojom::PageHandler:
-  void ActivateKeyword(uint8_t line,
-                       const GURL& url,
-                       base::TimeTicks match_selection_timestamp,
-                       bool is_mouse_event) override;
+  void ActivateKeyword(
+      uint8_t line,
+      const GURL& url,
+      base::TimeTicks match_selection_timestamp,
+      searchbox::mojom::KeywordActivationMethod activation_method) override;
   void OnThumbnailRemoved() override {}
   void SubmitQuery(const std::string& query_text,
                    uint8_t mouse_button,
@@ -77,6 +78,9 @@ class OmniboxEverywhereHandler : public ContextualSearchboxHandler,
   void OpenProfilePicker() override;
 
   // ContextualSearchboxHandler:
+  void AddFileContextToPage(
+      const base::UnguessableToken& token,
+      searchbox::mojom::SelectedFileInfoPtr file_info) override;
   void OpenUrl(GURL url,
                const WindowOpenDisposition disposition,
                base::OnceCallback<void(content::NavigationHandle&)>

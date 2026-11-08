@@ -8,17 +8,21 @@ import static org.mockito.Mockito.lenient;
 
 import static org.chromium.chrome.browser.history.HistoryTestUtils.checkAdapterContents;
 
+import android.app.Activity;
+import android.view.LayoutInflater;
+
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
-import org.mockito.Mockito;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
+import org.robolectric.Robolectric;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ui.signin.signin_promo.SigninPromoCoordinator;
 import org.chromium.components.browser_ui.widget.MoreProgressButton;
 import org.chromium.components.browser_ui.widget.MoreProgressButton.State;
@@ -37,14 +41,19 @@ public class HistoryAdapterAccessibilityTest {
     @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
     private StubbedHistoryProvider mHistoryProvider;
     private HistoryAdapter mAdapter;
+    private MoreProgressButton mButton;
 
-    @Mock private MoreProgressButton mMockButton;
     @Mock private HistoryContentManager mContentManager;
     @Mock private SigninPromoCoordinator mHistorySyncPromoCoordinator;
 
     @Before
     public void setUp() {
         lenient().doReturn(new HistoryUmaRecorder()).when(mContentManager).getUmaRecorder();
+        Activity activity = Robolectric.buildActivity(Activity.class).setup().get();
+        activity.setTheme(R.style.Theme_BrowserUI_DayNight);
+        mButton =
+                (MoreProgressButton)
+                        LayoutInflater.from(activity).inflate(R.layout.more_progress_button, null);
         mHistoryProvider = new StubbedHistoryProvider();
         mHistoryProvider.setPaging(PAGING);
 
@@ -53,11 +62,9 @@ public class HistoryAdapterAccessibilityTest {
                         mContentManager,
                         mHistoryProvider,
                         mHistorySyncPromoCoordinator,
-                        /* shouldClusterByDomain= */ false,
-                        /* snackbarManager= */ null,
-                        /* profile= */ null);
+                        /* shouldClusterByDomain= */ false);
         mAdapter.generateHeaderItemsForTest();
-        mAdapter.generateFooterItemsForTest(mMockButton);
+        mAdapter.generateFooterItemsForTest(mButton);
         mAdapter.setScrollToLoadDisabledForTest(true);
     }
 
@@ -100,7 +107,7 @@ public class HistoryAdapterAccessibilityTest {
         checkAdapterContents(mAdapter, true, true, null, null, item1, item2, null);
 
         // Footer should be set as button after initial load.
-        Mockito.verify(mMockButton, Mockito.times(1)).setState(State.BUTTON);
+        Assert.assertEquals(State.BUTTON, mButton.getStateForTest());
     }
 
     @Test

@@ -16,7 +16,6 @@ source_set("history_clusters") {
   if (!is_android) {
     sources += [ "history_clusters_handler.cc" ]
     public += [ "history_clusters_handler.h" ]
-    public_deps += [ "//chrome/browser:browser_public_dependencies" ]
     deps += [
       "//base",
       "//chrome/app:command_ids",
@@ -32,6 +31,7 @@ source_set("history_clusters") {
       "//components/history/core/common",
       "//components/history_clusters/core",
       "//components/page_image_service",
+      "//components/sync_device_info",
       "//mojo/public/cpp/bindings",
       "//ui/webui/resources/cr_components/history_clusters:mojo_bindings",
     ]
@@ -50,7 +50,6 @@ if (!is_android) {
       "//chrome/browser/history_clusters",
       "//chrome/browser/prefs",
       "//chrome/browser/profiles:profile",
-      "//chrome/browser/ui",
       "//chrome/browser/ui/webui/history",
       "//chrome/test:test_support",
       "//components/history_clusters/core",

@@ -9,7 +9,6 @@
 #include "base/memory/weak_ptr.h"
 #include "base/types/pass_key.h"
 #include "chrome/browser/actor/site_policy.h"
-#include "chrome/common/actor_webui.mojom-forward.h"
 #include "components/actor/core/aggregated_journal.h"
 #include "components/actor/core/task_id.h"
 #include "content/public/browser/navigation_throttle.h"
@@ -17,6 +16,10 @@
 
 namespace content {
 class NavigationThrottleRegistry;
+}
+
+namespace tabs {
+class TabInterface;
 }
 
 class Profile;
@@ -46,8 +49,13 @@ class ActorNavigationThrottle : public content::NavigationThrottle {
     // actor control to show a confirmation UI. If `MaybeDeferNavigation`
     // returns `true` then the navigation to url will be deferred until
     // `callback` is invoked.
-    virtual bool MaybeDeferNavigation(const GURL& url,
+    virtual bool MaybeDeferNavigation(tabs::TabInterface* tab,
+                                      const GURL& url,
                                       NavigationConfirmedCallback callback) = 0;
+
+    // Closes the confirmation pending on `tab`, if any. Called when a
+    // navigation that needs no confirmation replaces the deferred one.
+    virtual void CancelNavigationConfirmation(tabs::TabInterface* tab) {}
   };
 
   static ActorNavigationThrottle CreateForTesting(

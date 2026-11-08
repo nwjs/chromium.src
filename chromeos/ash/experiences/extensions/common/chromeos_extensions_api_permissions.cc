@@ -20,12 +20,21 @@ using extensions::mojom::APIPermissionID;
 // add the corresponding permission message rule to
 // ChromePermissionMessageProvider::GetPermissionMessages as well.
 constexpr APIPermissionInfo::InitInfo kPermissionsToRegister[] = {
+    {APIPermissionID::kAccessibilityPrivate, "accessibilityPrivate",
+     APIPermissionInfo::kFlagCannotBeOptional},
+    {APIPermissionID::kCertificateProvider, "certificateProvider",
+     APIPermissionInfo::kFlagDoesNotRequireManagedSessionFullLoginWarning},
     {APIPermissionID::kFileManagerPrivate, "fileManagerPrivate",
+     APIPermissionInfo::kFlagCannotBeOptional},
+    {APIPermissionID::kImageLoaderPrivate, "imageLoaderPrivate",
      APIPermissionInfo::kFlagCannotBeOptional},
     {APIPermissionID::kInputMethodPrivate, "inputMethodPrivate",
      APIPermissionInfo::kFlagCannotBeOptional},
+    {APIPermissionID::kLoginScreenUi, "loginScreenUi"},
     {APIPermissionID::kSpeechRecognitionPrivate, "speechRecognitionPrivate",
      APIPermissionInfo::kFlagDoesNotRequireManagedSessionFullLoginWarning},
+    {APIPermissionID::kUsersPrivate, "usersPrivate",
+     APIPermissionInfo::kFlagCannotBeOptional},
 
     // Platform-app permissions.
     {APIPermissionID::kFileSystemProvider, "fileSystemProvider",

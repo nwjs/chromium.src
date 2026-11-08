@@ -11,6 +11,7 @@
 #include "base/functional/callback.h"
 #include "base/notreached.h"
 #include "base/strings/string_number_conversions.h"
+#include "chrome/browser/actor/actor_surface.h"
 #include "chrome/browser/actor/actor_task.h"
 #include "chrome/browser/actor/tools/attempt_form_filling_tool_metrics.h"
 #include "chrome/browser/actor/tools/attempt_form_filling_tool_request.h"
@@ -28,6 +29,7 @@
 #include "components/autofill/core/browser/actor/actor_form_filling_service.h"
 #include "components/autofill/core/browser/integrators/actor/actor_form_filling_types.h"
 #include "components/autofill/core/common/unique_ids.h"
+#include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/web_contents.h"
 
@@ -73,12 +75,14 @@ mojom::ActionResultPtr FromServiceError(ActorFormFillingError error) {
 AttemptFormFillingTool::AttemptFormFillingTool(
     TaskId task_id,
     ToolDelegate& tool_delegate,
-    tabs::TabInterface& tab,
+    ActorSurface& actor_surface,
     std::vector<AttemptFormFillingToolRequest::FormFillingRequest> requests,
+    std::string credit_card_opaque_token,
     bool enqueued_click)
     : Tool(task_id, tool_delegate),
-      tab_handle_(tab.GetHandle()),
+      actor_surface_handle_(actor_surface.GetHandle()),
       tool_fill_requests_(std::move(requests)),
+      credit_card_opaque_token_(std::move(credit_card_opaque_token)),
       enqueued_click_(enqueued_click) {}
 
 AttemptFormFillingTool::~AttemptFormFillingTool() = default;
@@ -96,12 +100,14 @@ void AttemptFormFillingTool::Invoke(ToolCallback callback) {
 
       tool_delegate().EnqueueFollowupAction(
           std::make_unique<AttemptFormFillingToolRequest>(
-              tab_handle_, std::move(tool_fill_requests_),
+              actor_surface_handle_.GetTabHandle(),
+              std::move(tool_fill_requests_),
+              std::move(credit_card_opaque_token_),
               /*enqueued_click=*/true));
 
       tool_delegate().EnqueueFollowupAction(std::make_unique<ClickToolRequest>(
-          tab_handle_, std::move(target), mojom::ClickType::kLeft,
-          mojom::ClickCount::kSingle));
+          actor_surface_handle_.GetTabHandle(), std::move(target),
+          mojom::ClickType::kLeft, mojom::ClickCount::kSingle));
 
       std::move(callback).Run(MakeOkResult());
       return;
@@ -111,9 +117,22 @@ void AttemptFormFillingTool::Invoke(ToolCallback callback) {
   form_fill_metrics::RecordOnInvokeMetrics();
 
   if (AutofillClient* client = GetAutofillClient()) {
-    journal().Log(
-        JournalURL(), task_id(), "AttemptFormFillingTool::Invoke",
-        JournalDetailsBuilder().Add("requests", tool_fill_requests_).Build());
+    JournalDetailsBuilder details;
+    details.Add("requests", tool_fill_requests_);
+    details.Add("has_credit_card_opaque_token",
+                !credit_card_opaque_token_.empty());
+    journal().Log(JournalURL(), task_id(), "AttemptFormFillingTool::Invoke",
+                  std::move(details).Build());
+
+    if (!credit_card_opaque_token_.empty()) {
+      tool_delegate()
+          .GetActorFormFillingService()
+          .RetrieveSuggestionForCreditCardOpaqueToken(
+              *client, service_fill_requests_, credit_card_opaque_token_,
+              base::BindOnce(&AttemptFormFillingTool::OnSuggestionsRetrieved,
+                             weak_factory_.GetWeakPtr(), std::move(callback)));
+      return;
+    }
 
     tool_delegate().GetActorFormFillingService().GetSuggestions(
         *client, service_fill_requests_,
@@ -123,12 +142,27 @@ void AttemptFormFillingTool::Invoke(ToolCallback callback) {
 }
 
 void AttemptFormFillingTool::Validate(ToolCallback callback) {
+  if (!credit_card_opaque_token_.empty()) {
+    const bool has_non_credit_card = std::ranges::any_of(
+        tool_fill_requests_,
+        [](const AttemptFormFillingToolRequest::FormFillingRequest& req) {
+          return req.requested_data !=
+                 AttemptFormFillingToolRequest::RequestedData::kCreditCard;
+        });
+    if (has_non_credit_card) {
+      std::move(callback).Run(
+          MakeResult(mojom::ActionResultCode::kArgumentsInvalid,
+                     /*requires_page_stabilization=*/false,
+                     "Credit card opaque token cannot be combined with address "
+                     "requests."));
+      return;
+    }
+  }
   std::move(callback).Run(MakeOkResult());
 }
 
 mojom::ActionResultPtr AttemptFormFillingTool::TimeOfUseValidation(
     const optimization_guide::proto::AnnotatedPageContent* last_observation) {
-  tabs::TabInterface* tab = GetTargetTab().Get();
   // TimeOfUseValidation() is only invoked once, so `service_fill_requests_`
   // will be empty since AttemptFormFillingTool construction.
   CHECK(service_fill_requests_.empty());
@@ -142,8 +176,8 @@ mojom::ActionResultPtr AttemptFormFillingTool::TimeOfUseValidation(
   for (const auto& request : tool_fill_requests_) {
     std::vector<FieldGlobalId> field_ids;
     for (const auto& trigger_field : request.trigger_fields) {
-      FieldGlobalId current_field_id =
-          GetFieldIdFromPageTarget(last_observation, tab, trigger_field);
+      FieldGlobalId current_field_id = GetFieldIdFromPageTarget(
+          last_observation, actor_surface_handle_, trigger_field);
       if (!current_field_id) {
         return MakeResult(mojom::ActionResultCode::kFormFillingFieldNotFound,
                           /*requires_page_stabilization=*/false,
@@ -174,7 +208,8 @@ std::string AttemptFormFillingTool::DebugString() const {
   for (const auto& form_filling_request : tool_fill_requests_) {
     out << static_cast<int>(form_filling_request.requested_data) << ", ";
   }
-  out << "])";
+  out << "], has_token="
+      << (!credit_card_opaque_token_.empty() ? "true" : "false") << ")";
   return out.str();
 }
 
@@ -186,19 +221,20 @@ std::unique_ptr<ObservationDelayController>
 AttemptFormFillingTool::GetObservationDelayer(
     ObservationDelayController::PageStabilityConfig page_stability_config) {
   content::RenderFrameHost* rfh =
-      tab_handle_.Get()->GetContents()->GetPrimaryMainFrame();
+      actor_surface_handle_.Get()->GetWebContents()->GetPrimaryMainFrame();
   return std::make_unique<ObservationDelayController>(
       *rfh, task_id(), journal(), std::move(page_stability_config));
 }
 
-tabs::TabHandle AttemptFormFillingTool::GetTargetTab() const {
-  return tab_handle_;
+ActorSurfaceHandle AttemptFormFillingTool::GetTargetActorSurface() const {
+  return actor_surface_handle_;
 }
 
 void AttemptFormFillingTool::UpdateTaskBeforeInvoke(
     ActorTask& task,
     ToolCallback callback) const {
-  task.AddTab(tab_handle_, /*stop_task_on_detach=*/true, std::move(callback));
+  task.AddActorSurface(actor_surface_handle_, /*stop_task_on_detach=*/true,
+                       std::move(callback));
 }
 
 void AttemptFormFillingTool::OnSuggestionsRetrieved(
@@ -224,9 +260,10 @@ void AttemptFormFillingTool::OnSuggestionsRetrieved(
   }
 
   if (base::CommandLine::ForCurrentProcess()->HasSwitch(
-          switches::kAttemptFormFillingToolSkipsUI)) {
-    SimulateRequestToShowAutofillSuggestions(std::move(invoke_callback),
-                                             suggestions_result.value());
+          switches::kAttemptFormFillingToolSkipsUI) ||
+      !credit_card_opaque_token_.empty()) {
+    DirectlyFillSuggestions(std::move(invoke_callback),
+                            suggestions_result.value());
     return;
   }
 
@@ -236,11 +273,10 @@ void AttemptFormFillingTool::OnSuggestionsRetrieved(
                      weak_factory_.GetWeakPtr(), std::move(invoke_callback)));
 }
 
-void AttemptFormFillingTool::SimulateRequestToShowAutofillSuggestions(
+void AttemptFormFillingTool::DirectlyFillSuggestions(
     ToolCallback invoke_callback,
-    std::vector<ActorFormFillingRequest> requests) {
-  tabs::TabInterface* tab = GetTargetTab().Get();
-  if (!tab) {
+    const std::vector<ActorFormFillingRequest>& requests) {
+  if (!actor_surface_handle_.Get()) {
     std::move(invoke_callback)
         .Run(MakeResult(mojom::ActionResultCode::kTabWentAway));
     return;
@@ -258,8 +294,9 @@ void AttemptFormFillingTool::SimulateRequestToShowAutofillSuggestions(
 
   // Follow the Chat UI behavior of filling each form section one at a time.
   for (size_t i = 0; i < requests.size(); ++i) {
-    // `GetSuggestions` aborts with `kNoSuggestions` if any form section has no
-    // suggestions. Therefore, every request is guaranteed to have suggestions.
+    // `GetSuggestions` and `RetrieveSuggestionForCreditCardOpaqueToken` abort
+    // with `kNoSuggestions` if any form section has no suggestions. Therefore,
+    // every request is guaranteed to have suggestions.
     CHECK_GT(requests[i].suggestions.size(), 0u);
     tool_delegate().GetActorFormFillingService().FillForm(
         *client, static_cast<int>(i),
@@ -402,11 +439,12 @@ bool AttemptFormFillingTool::OnFormConfirmed(
 }
 
 AutofillClient* AttemptFormFillingTool::GetAutofillClient() {
-  tabs::TabInterface* tab = GetTargetTab().Get();
-  if (!tab || !tab->GetContents()) {
+  ActorSurface* actor_surface = actor_surface_handle_.Get();
+  if (!actor_surface) {
     return nullptr;
   }
-  return ContentAutofillClient::FromWebContents(tab->GetContents());
+  return ContentAutofillClient::FromWebContents(
+      actor_surface->GetWebContents());
 }
 
 }  // namespace actor

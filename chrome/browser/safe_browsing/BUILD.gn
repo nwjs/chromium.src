@@ -21,10 +21,7 @@ static_library("safe_browsing") {
     "url_checker_delegate_impl.cc",
   ]
 
-  configs += [ "//build/config/compiler:wexit_time_destructors" ]
-
   public_deps = [
-    "//chrome/browser:browser_public_dependencies",
     "//chrome/browser/metrics",
     "//chrome/browser/notifications",
   ]
@@ -405,6 +402,7 @@ static_library("safe_browsing") {
       "//components/site_engagement/content",
       "//components/site_engagement/core/mojom:mojo_bindings",
       "//components/sync_user_events",
+      "//components/tabs:public",
       "//components/unified_consent",
       "//components/url_matcher",
       "//components/variations/service",
@@ -656,6 +654,7 @@ static_library("safe_browsing") {
       deps += [
         "//chrome/android:chrome_jni_headers",
         "//chrome/app/vector_icons",
+        "//chrome/browser/android:resource_mapper",
         "//chrome/browser/safe_browsing/android",
         "//chrome/browser/ui/android/hats",
         "//chrome/browser/ui/android/tab_model",
@@ -681,8 +680,6 @@ source_set("verdict_cache_manager_factory") {
     "verdict_cache_manager_factory.cc",
     "verdict_cache_manager_factory.h",
   ]
-
-  configs += [ "//build/config/compiler:wexit_time_destructors" ]
 
   deps = [
     "//chrome/browser:browser_process",
@@ -711,8 +708,6 @@ static_library("advanced_protection") {
     "application_advanced_protection_status_detector.cc",
     "application_advanced_protection_status_detector.h",
   ]
-
-  configs += [ "//build/config/compiler:wexit_time_destructors" ]
 
   deps = [
     "//chrome/browser:browser_process",
@@ -747,8 +742,6 @@ source_set("metrics_collector") {
     "safe_browsing_metrics_collector_factory.cc",
     "safe_browsing_metrics_collector_factory.h",
   ]
-
-  configs += [ "//build/config/compiler:wexit_time_destructors" ]
 
   deps = [
     "//chrome/browser:browser_process",
@@ -788,6 +781,7 @@ source_set("unit_tests") {
     ":safe_browsing",
     ":test_support",
     "//chrome/browser/content_settings:content_settings_factory",
+    "//chrome/browser/net",
     "//chrome/browser/safe_browsing:advanced_protection",
     "//chrome/browser/site_protection:utils",
     "//chrome/test:test_support",
@@ -1259,18 +1253,37 @@ if (safe_browsing_mode != 0) {
     testonly = true
     defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
 
-    sources = [ "client_side_detection_service_browsertest.cc" ]
+    sources = [
+      "client_side_detection_service_browsertest.cc",
+      "safe_browsing_blocking_page_platform_test.cc",
+    ]
 
     deps = [
+      ":blocking_page_platform_test_support",
+      ":metrics_collector",
       ":safe_browsing",
+      ":verdict_cache_manager_factory",
+      "//base",
+      "//base/test:test_support",
       "//chrome/test:test_support",
       "//chrome/test/base:chrome_test_utils",
+      "//components/enterprise/connectors/core",
       "//components/metrics:content",
+      "//components/policy:generated",
+      "//components/prefs",
       "//components/safe_browsing/content/browser:client_side_detection",
       "//components/safe_browsing/content/browser:client_side_detection_service",
       "//components/safe_browsing/content/common:interfaces",
       "//components/safe_browsing/core/browser:client_side_detection_service_base",
+      "//components/safe_browsing/core/browser:verdict_cache_manager",
+      "//components/safe_browsing/core/common",
+      "//components/safe_browsing/core/common:features",
       "//components/safe_browsing/core/common/proto:client_model_proto",
+      "//components/security_interstitials/content:security_interstitial_page",
+      "//components/security_interstitials/core",
+      "//components/unified_consent",
+      "//content/test:test_support",
+      "//net:test_support",
       "//testing/gtest",
     ]
   }
@@ -1282,7 +1295,7 @@ source_set("browser_tests") {
   defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
 
   sources = []
-  deps = []
+  deps = [ "//chrome/browser/net" ]
 
   if (!is_android) {
     deps += [
@@ -1372,6 +1385,7 @@ source_set("browser_tests") {
       "sb_embedded_test_server_browsertest.cc",
       "tailored_security/chrome_tailored_security_service_browsertest.cc",
       "url_lookup_service_browsertest.cc",
+      "v5_local_database_browsertest.cc",
     ]
     deps += [
       ":blocking_page_platform_test_support",
@@ -1394,6 +1408,7 @@ source_set("browser_tests") {
       "//chrome/browser/ssl:cert_verifier_test_support",
       "//chrome/browser/sync:factories",
       "//chrome/browser/sync/test/integration:sync_integration_test_support",
+      "//chrome/browser/ui:browser_tabstrip",
       "//chrome/browser/ui:chrome_pages",
       "//chrome/browser/ui/browser_window",
       "//chrome/browser/ui/exclusive_access:test_support",
@@ -1422,7 +1437,10 @@ source_set("browser_tests") {
       "//components/safe_browsing/core/browser:suspicious_site_warning_allowlist",
       "//components/safe_browsing/core/browser:verdict_cache_manager",
       "//components/safe_browsing/core/browser/db:sb_database",
+      "//components/safe_browsing/core/browser/db:sb_local_database_manager",
+      "//components/safe_browsing/core/browser/db:sb_update_protocol_manager",
       "//components/safe_browsing/core/browser/db:v4_get_hash_protocol_manager",
+      "//components/safe_browsing/core/browser/db:v4_store_proto",
       "//components/safe_browsing/core/browser/db:v5_search_hashes_cache",
       "//components/safe_browsing/core/browser/hashprefix_realtime:hash_realtime_service",
       "//components/safe_browsing/core/browser/realtime:url_lookup_service",
@@ -1461,6 +1479,7 @@ if (safe_browsing_mode != 0 && is_android) {
       "//chrome/browser/ui/android/tab_model",
       "//chrome/browser/ui/hats",
       "//chrome/test/base:android_browser_test",
+      "//chrome/test/base:android_ui_test_utils",
       "//chrome/test/base:chrome_test_utils",
       "//components/prefs",
       "//components/safe_browsing/core/common:safe_browsing_prefs",

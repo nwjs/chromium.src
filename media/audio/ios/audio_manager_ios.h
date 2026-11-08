@@ -65,10 +65,10 @@ class MEDIA_EXPORT AudioManagerIOS : public AudioManagerApple {
   std::string GetDefaultOutputDeviceID() override;
 
   // Used to track destruction of input and output streams.
-  bool MaybeChangeBufferSize(AudioDeviceID device_id,
-                             AudioUnit audio_unit,
-                             AudioUnitElement element,
-                             size_t desired_buffer_size) override;
+  OSStatus MaybeChangeBufferSize(AudioDeviceID device_id,
+                                 AudioUnit audio_unit,
+                                 AudioUnitElement element,
+                                 size_t desired_buffer_size) override;
 
   // Implementation of AudioManagerApple
   // Handle device capability ambient noise reduction. Currently, iOS is not
@@ -81,11 +81,12 @@ class MEDIA_EXPORT AudioManagerIOS : public AudioManagerApple {
   // have volume control.
   double GetMaxInputVolume(AudioDeviceID device_id) override;
 
-  // Sets the microphone analog volume, with range [0.0, 1.0] inclusive.
+  // Returns the microphone analog volume, with range [0.0, 1.0] inclusive.
   double GetInputVolume(AudioDeviceID device_id) override;
 
-  // Returns the microphone analog volume, with range [0.0, 1.0] inclusive.
-  void SetInputVolume(AudioDeviceID device_id, double volume) override;
+  // Sets the microphone analog volume, with range [0.0, 1.0] inclusive.
+  // Returns noErr if successful or the OSStatus error code.
+  OSStatus SetInputVolume(AudioDeviceID device_id, double volume) override;
 
   // Returns the current muting state for the microphone.
   bool IsInputMuted(AudioDeviceID device_id) override;

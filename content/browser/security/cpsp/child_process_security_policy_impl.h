@@ -28,7 +28,6 @@
 #include "content/browser/origin_agent_cluster_isolation_state.h"
 #include "content/common/content_export.h"
 #include "content/public/browser/child_process_security_policy.h"
-#include "content/public/common/bindings_policy.h"
 #include "content/public/common/child_process_id.h"
 #include "storage/common/file_system/file_system_types.h"
 #include "third_party/abseil-cpp/absl/container/flat_hash_map.h"
@@ -233,7 +232,8 @@ class CONTENT_EXPORT ChildProcessSecurityPolicyImpl
                              const std::string& filesystem_id) override;
   bool CanDeleteFromFileSystem(int child_id,
                                const std::string& filesystem_id) override;
-  bool HasWebUIBindings(int child_id) override;
+  bool HasWebUIBindings(ChildProcessId child_id) override;
+  bool HasWebUIBindings_Cpp(ChildProcessId child_id);
   void GrantSendMidiMessage(int child_id) override;
   void GrantSendMidiMessage_Cpp(int child_id);
   void GrantSendMidiSysExMessage(int child_id) override;
@@ -557,8 +557,11 @@ class CONTENT_EXPORT ChildProcessSecurityPolicyImpl
   void RevokeAllPermissionsForFile(ChildProcessId child_id,
                                    const base::FilePath& file);
 
-  // Grant the child process the ability to use Web UI Bindings.
-  void GrantWebUIBindings(int child_id, BindingsPolicySet bindings);
+  // Grant the child process the ability to use WebUI Bindings. Individual types
+  // of WebUI bindings are not tracked at this level. Callers are responsible
+  // for ensuring the child process is locked to a WebUI-permitted site.
+  void GrantWebUIBindings(ChildProcessId child_id);
+  void GrantWebUIBindings_Cpp(ChildProcessId child_id);
 
   // Some APIs for Android WebView and <webview> tags allow bypassing some
   // security checks, such as which URLs are allowed to commit. This method
@@ -619,6 +622,9 @@ class CONTENT_EXPORT ChildProcessSecurityPolicyImpl
   void LockProcess(const IsolationContext& isolation_context,
                    ChildProcessId child_id,
                    const ProcessLock& process_lock);
+  void LockProcess_Cpp(const IsolationContext& isolation_context,
+                       ChildProcessId child_id,
+                       const ProcessLock& process_lock);
 
   // Marks the process identified by |child_id| as "used", meaning that it has
   // committed a page or has been given to a SiteInstance that already has a
@@ -627,6 +633,7 @@ class CONTENT_EXPORT ChildProcessSecurityPolicyImpl
   // will reject attempts to lock it to a site, since it is no longer suitable
   // to host a URL that requires a dedicated process.
   void SetProcessIsUsed(ChildProcessId child_id);
+  void SetProcessIsUsed_Cpp(ChildProcessId child_id);
 
   // Testing helper method that generates a lock_url from |url| and then
   // calls LockProcess() with that lock URL.
@@ -637,6 +644,7 @@ class CONTENT_EXPORT ChildProcessSecurityPolicyImpl
   // Retrieves the current ProcessLock of process |child_id|.  Returns an empty
   // lock if the process does not exist or if it is not locked.
   ProcessLock GetProcessLock(ChildProcessId child_id);
+  ProcessLock GetProcessLock_Cpp(ChildProcessId child_id);
 
   // TODO(crbug.com/379869738) Remove this method when usages are ported.
   ProcessLock GetProcessLock(int child_id);

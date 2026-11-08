@@ -46,7 +46,6 @@ static_library("input_method") {
   public_deps = [
     "//ash/public/cpp",
     "//base",
-    "//chrome/browser:browser_public_dependencies",
     "//chrome/browser/ash/input_method",
     "//chromeos/ash/services/ime/public/cpp:structs",
     "//ui/accessibility:ax_base",
@@ -135,7 +134,6 @@ source_set("browser_tests") {
   deps = [
     ":input_method",
     "//base",
-    "//chrome/browser/ui",
     "//chrome/browser/ui/views/frame:browser_view_header",
     "//chrome/test:test_support",
     "//content/public/common",

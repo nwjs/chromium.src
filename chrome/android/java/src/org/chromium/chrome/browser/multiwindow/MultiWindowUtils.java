@@ -503,7 +503,7 @@ public class MultiWindowUtils implements ActivityStateListener {
      * @param startActivityOptions The {@link Bundle} that will be used to start the activity.
      */
     public static void relaunchChromeTabbedActivity2(
-            Context context, int windowId, Bundle startActivityOptions) {
+            Context context, int windowId, @Nullable Bundle startActivityOptions) {
         Intent intent =
                 createNewWindowIntent(
                         context,
@@ -1364,8 +1364,8 @@ public class MultiWindowUtils implements ActivityStateListener {
     /* package */ static boolean shouldOpenInAdjacentWindow(
             Activity activity, boolean isTargetIncognito) {
         boolean isSourceIncognito = false;
-        if (activity instanceof ChromeTabbedActivity) {
-            isSourceIncognito = ((ChromeTabbedActivity) activity).isIncognitoWindow();
+        if (activity instanceof ChromeTabbedActivity cta) {
+            isSourceIncognito = cta.isIncognitoWindow();
         }
         if (isSourceIncognito != isTargetIncognito
                 && IncognitoUtils.isIncognitoAsWindowFullScreenEnabled()) {
@@ -1395,8 +1395,8 @@ public class MultiWindowUtils implements ActivityStateListener {
     /* package */ static boolean shouldOpenInAdjacentWindowUpdated(
             Activity activity, boolean isTargetIncognito) {
         boolean isSourceIncognito = false;
-        if (activity instanceof ChromeTabbedActivity) {
-            isSourceIncognito = ((ChromeTabbedActivity) activity).isIncognitoWindow();
+        if (activity instanceof ChromeTabbedActivity cta) {
+            isSourceIncognito = cta.isIncognitoWindow();
         }
         if (isSourceIncognito != isTargetIncognito
                 && IncognitoUtils.isIncognitoAsWindowFullScreenEnabled()) {
@@ -1608,7 +1608,7 @@ public class MultiWindowUtils implements ActivityStateListener {
                 }
             }
         }
-        ChromeMultiInstancePersistentStore.writeTabCountForRelaunchSync(windowId, totalCount);
+        ChromeMultiInstancePersistentStore.writeTabCountForRelaunch(windowId, totalCount);
     }
 
     /**
@@ -1746,6 +1746,25 @@ public class MultiWindowUtils implements ActivityStateListener {
     }
 
     /**
+     * Returns whether the On startup settings UI feature is enabled.
+     *
+     * @return {@code true} if the feature is enabled; {@code false} otherwise.
+     */
+    public static boolean isOnStartupSettingsUiEnabled() {
+        return ChromeFeatureList.sOnStartupSettingsUi.isEnabled() && DeviceInfo.isDesktop();
+    }
+
+    /**
+     * Returns whether syncing or locally enforcing the session restore-on-startup user preference
+     * is applicable.
+     *
+     * @return {@code true} if applicable; {@code false} otherwise.
+     */
+    public static boolean isRestoreOnStartupPrefApplicable() {
+        return isRestoreOnStartupPrefSyncEnabled() || isOnStartupSettingsUiEnabled();
+    }
+
+    /**
      * Returns whether session restore after crash is enabled.
      *
      * @return {@code true} if the feature is enabled; {@code false} otherwise.
@@ -1781,11 +1800,6 @@ public class MultiWindowUtils implements ActivityStateListener {
 
     /* package */ static boolean hasNoNormalTabs(int windowId) {
         return ChromeMultiInstancePersistentStore.readNormalTabCount(windowId) == 0;
-    }
-
-    /* package */ static boolean isTaskAlive(int windowId, Map<Integer, AppTask> appTasksById) {
-        int taskId = ChromeMultiInstancePersistentStore.readTaskId(windowId);
-        return appTasksById.containsKey(taskId);
     }
 
     /* package */ static Map<Integer, AppTask> getAppTasksById(Context context) {

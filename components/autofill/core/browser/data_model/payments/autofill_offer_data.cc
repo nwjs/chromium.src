@@ -10,6 +10,7 @@
 #include <string>
 #include <vector>
 
+#include "components/affiliations/core/browser/affiliation_utils.h"
 #include "components/autofill/core/common/autofill_clock.h"
 #include "url/gurl.h"
 
@@ -63,10 +64,12 @@ AutofillOfferData::AutofillOfferData(std::string offer_id,
                                      GURL offer_details_url,
                                      DisplayStrings display_strings,
                                      std::string promo_code,
-                                     std::string offer_reward_amount)
+                                     std::string offer_reward_amount,
+                                     base::Time issue_time)
     : offer_type_(OfferType::WALLET_DIRECT_OFFER),
       offer_id_(std::move(offer_id)),
       expiry_(expiry),
+      issue_time_(issue_time),
       offer_details_url_(std::move(offer_details_url)),
       merchant_origins_(std::move(merchant_origins)),
       display_strings_(std::move(display_strings)),
@@ -104,6 +107,13 @@ int AutofillOfferData::Compare(
     return -1;
   }
   if (expiry_ > other_offer_data.expiry_) {
+    return 1;
+  }
+
+  if (issue_time_ < other_offer_data.issue_time_) {
+    return -1;
+  }
+  if (issue_time_ > other_offer_data.issue_time_) {
     return 1;
   }
 
@@ -167,8 +177,15 @@ int AutofillOfferData::Compare(
 }
 
 bool AutofillOfferData::IsActiveAndEligibleForOrigin(const GURL& origin) const {
-  return expiry_ > AutofillClock::Now() &&
-         std::ranges::count(merchant_origins_, origin) > 0;
+  return expiry_ > AutofillClock::Now() && IsEligibleForOrigin(origin);
+}
+
+bool AutofillOfferData::IsEligibleForOrigin(const GURL& origin) const {
+  return std::ranges::any_of(
+      merchant_origins_, [&origin](const GURL& merchant_origin) {
+        return affiliations::IsExtendedPublicSuffixDomainMatch(merchant_origin,
+                                                               origin, {});
+      });
 }
 
 AutofillOfferData::AutofillOfferData(

@@ -8,16 +8,19 @@
 
 #include <utility>
 
+#include "base/feature_list.h"
 #include "base/files/file_util.h"
 #include "base/functional/bind.h"
 #include "base/location.h"
 #include "base/logging.h"
 #include "base/memory/ptr_util.h"
 #include "base/metrics/histogram_functions.h"
+#include "base/numerics/safe_conversions.h"
 #include "base/sequence_checker.h"
 #include "base/task/sequenced_task_runner.h"
 #include "components/policy/core/common/cloud/cloud_policy_constants.h"
 #include "components/policy/core/common/cloud/cloud_policy_util.h"
+#include "components/policy/core/common/features.h"
 #include "components/policy/core/common/policy_logger.h"
 #include "components/policy/proto/cloud_policy.pb.h"
 #include "components/policy/proto/device_management_backend.pb.h"
@@ -55,7 +58,16 @@ const base::FilePath::CharType kExtensionInstallKeyCacheFile[] =
     FILE_PATH_LITERAL("User Extension Install Signing Key");
 // Maximum policy and key size that will be loaded, in bytes.
 const size_t kPolicySizeLimit = 1024 * 1024;
+constexpr size_t kPolicySizeLimit2MB = 2 * 1024 * 1024;
 const size_t kKeySizeLimit = 16 * 1024;
+
+size_t GetPolicySizeLimit() {
+  if (base::FeatureList::GetInstance() &&
+      base::FeatureList::IsEnabled(features::kUserPolicyCacheSizeLimit2MB)) {
+    return kPolicySizeLimit2MB;
+  }
+  return kPolicySizeLimit;
+}
 
 bool WriteStringToFile(const base::FilePath path, const std::string& data) {
   if (!base::CreateDirectory(path.DirName())) {
@@ -121,6 +133,34 @@ void StorePolicyToDiskOnBackgroundThread(
 
 }  // namespace
 
+PolicyLoadResult::PolicyLoadResult() = default;
+
+PolicyLoadResult::PolicyLoadResult(const PolicyLoadResult& other)
+    : status(other.status),
+      policy(other.policy),
+      key(other.key),
+      doing_key_rotation(other.doing_key_rotation),
+      fallback(other.fallback
+                   ? std::make_unique<PolicyLoadResult>(*other.fallback)
+                   : nullptr) {}
+
+PolicyLoadResult& PolicyLoadResult::operator=(const PolicyLoadResult& other) {
+  if (this != &other) {
+    status = other.status;
+    policy = other.policy;
+    key = other.key;
+    doing_key_rotation = other.doing_key_rotation;
+    fallback = other.fallback
+                   ? std::make_unique<PolicyLoadResult>(*other.fallback)
+                   : nullptr;
+  }
+  return *this;
+}
+
+PolicyLoadResult::PolicyLoadResult(PolicyLoadResult&&) = default;
+PolicyLoadResult& PolicyLoadResult::operator=(PolicyLoadResult&&) = default;
+PolicyLoadResult::~PolicyLoadResult() = default;
+
 DesktopCloudPolicyStore::DesktopCloudPolicyStore(
     const base::FilePath& policy_path,
     const base::FilePath& key_path,
@@ -149,10 +189,10 @@ void DesktopCloudPolicyStore::LoadImmediately() {
   // Cancel any pending Load/Store/Validate operations.
   weak_factory_.InvalidateWeakPtrs();
   // Load the policy from disk...
-  PolicyLoadResult result =
-      LoadAndFilterPolicyFromDisk(policy_path_, key_path_, policy_load_filter_);
+  PolicyLoadResult result = LoadAndFilterPolicyFromDisk(
+      policy_path_, key_path_, policy_load_filter_, policy_scope());
   // ...and install it, reporting success/failure to any observers.
-  PolicyLoaded(false, result);
+  PolicyLoaded(false, std::move(result));
 }
 
 void DesktopCloudPolicyStore::Clear() {
@@ -183,7 +223,8 @@ void DesktopCloudPolicyStore::Load() {
   background_task_runner()->PostTaskAndReplyWithResult(
       FROM_HERE,
       base::BindOnce(&DesktopCloudPolicyStore::LoadAndFilterPolicyFromDisk,
-                     policy_path_, key_path_, policy_load_filter_),
+                     policy_path_, key_path_, policy_load_filter_,
+                     policy_scope()),
       base::BindOnce(&DesktopCloudPolicyStore::PolicyLoaded,
                      weak_factory_.GetWeakPtr(), true));
 }
@@ -192,9 +233,10 @@ void DesktopCloudPolicyStore::Load() {
 PolicyLoadResult DesktopCloudPolicyStore::LoadAndFilterPolicyFromDisk(
     const base::FilePath& policy_path,
     const base::FilePath& key_path,
-    const PolicyLoadFilter& policy_load_filter) {
-  policy::PolicyLoadResult result =
-      DesktopCloudPolicyStore::LoadPolicyFromDisk(policy_path, key_path);
+    const PolicyLoadFilter& policy_load_filter,
+    PolicyScope policy_scope) {
+  policy::PolicyLoadResult result = DesktopCloudPolicyStore::LoadPolicyFromDisk(
+      policy_path, key_path, policy_scope);
   return policy_load_filter ? policy_load_filter.Run(std::move(result))
                             : result;
 }
@@ -202,7 +244,8 @@ PolicyLoadResult DesktopCloudPolicyStore::LoadAndFilterPolicyFromDisk(
 // static
 PolicyLoadResult DesktopCloudPolicyStore::LoadPolicyFromDisk(
     const base::FilePath& policy_path,
-    const base::FilePath& key_path) {
+    const base::FilePath& key_path,
+    std::optional<PolicyScope> policy_scope) {
   policy::PolicyLoadResult result;
   // If the backing file does not exist, just return. We don't verify the key
   // path here, because the key is optional (the validation code will fail if
@@ -211,10 +254,22 @@ PolicyLoadResult DesktopCloudPolicyStore::LoadPolicyFromDisk(
     result.status = policy::LOAD_RESULT_NO_POLICY_FILE;
     return result;
   }
+
+  if (policy_scope.has_value()) {
+    std::optional<int64_t> file_size = base::GetFileSize(policy_path);
+    if (file_size.has_value()) {
+      base::UmaHistogramCounts10000(
+          policy_scope.value() == POLICY_SCOPE_MACHINE
+              ? "Enterprise.CloudPolicy.LocalCacheSize.Machine"
+              : "Enterprise.CloudPolicy.LocalCacheSize.User",
+          base::saturated_cast<int>(file_size.value() / 1024));
+    }
+  }
+
   std::string data;
 
   if (!base::ReadFileToStringWithMaxSize(policy_path, &data,
-                                         kPolicySizeLimit) ||
+                                         GetPolicySizeLimit()) ||
       !result.policy.ParseFromString(data)) {
     LOG_POLICY(WARNING, POLICY_FETCHING)
         << "Failed to read or parse policy data from " << policy_path.value();
@@ -279,7 +334,8 @@ void DesktopCloudPolicyStore::PolicyLoaded(bool validate_in_background,
                    &DesktopCloudPolicyStore::InstallLoadedPolicyAfterValidation,
                    weak_factory_.GetWeakPtr(), doing_key_rotation,
                    result.key.has_signing_key() ? result.key.signing_key()
-                                                : std::string()));
+                                                : std::string(),
+                   std::move(result.fallback), validate_in_background));
       break;
     }
     default:
@@ -351,12 +407,21 @@ void DesktopCloudPolicyStore::ValidateKeyAndSignature(
 void DesktopCloudPolicyStore::InstallLoadedPolicyAfterValidation(
     bool doing_key_rotation,
     const std::string& signing_key,
+    std::unique_ptr<PolicyLoadResult> fallback,
+    bool fallback_validate_in_background,
     CloudPolicyValidatorBase* validator) {
   validation_result_ = validator->GetValidationResult();
   if (!validator->success()) {
     VLOG_POLICY(1, POLICY_PROCESSING)
         << PolicyTypeLogPrefix(policy_type(), std::string())
         << "Validation failed: status=" << validator->status();
+    if (fallback) {
+      VLOG_POLICY(1, POLICY_PROCESSING)
+          << PolicyTypeLogPrefix(policy_type(), std::string())
+          << "Attempting to load fallback policy cache";
+      PolicyLoaded(fallback_validate_in_background, std::move(*fallback));
+      return;
+    }
     status_ = STATUS_VALIDATION_ERROR;
     NotifyStoreError();
     return;

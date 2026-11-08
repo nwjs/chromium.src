@@ -302,7 +302,36 @@ public class CronetLoggerImpl extends CronetLogger {
                     trafficInfo.getTimeToSendFirstByteMicros(),
                     trafficInfo.getTimeToReceiveHeaderLastByteMicros(),
                     OptionalBoolean.fromBoolean(trafficInfo.isProxied()).getValue(),
-                    OptionalBoolean.fromBoolean(trafficInfo.isAdaptiveNetworkStream()).getValue());
+                    OptionalBoolean.fromBoolean(trafficInfo.isAdaptiveNetworkStream()).getValue(),
+                    bytesToKbRoundedUp(trafficInfo.getRequestBodySizeInBytes()),
+                    bytesToKbRoundedUp(trafficInfo.getResponseBodySizeInBytes()),
+                    trafficInfo.getUploadGoodputBytesPerSec(),
+                    trafficInfo.getDownloadGoodputBytesPerSec(),
+                    convertToProtoCacheState(trafficInfo.getCacheState()));
+        }
+    }
+
+    /**
+     * Converts a body size in bytes to kilobytes (1 KB = 1000 bytes), rounded up, because
+     * CronetStatsLog expects body sizes in KB. Rounding up ensures that a non-empty body is never
+     * reported as 0 KB, so that 0 unambiguously means nothing was transferred. A value of -1
+     * (unknown) is passed through unchanged.
+     */
+    @VisibleForTesting
+    static long bytesToKbRoundedUp(long bytes) {
+        if (bytes < 0) return -1;
+        return (bytes + 999) / 1000;
+    }
+
+    private static int convertToProtoCacheState(CronetTrafficInfo.CacheState cacheState) {
+        switch (cacheState) {
+            case NOT_CACHED:
+                return CronetStatsLog.CRONET_TRAFFIC_REPORTED__IS_CACHED__IS_CACHED_NOT_CACHED;
+            case CACHE_HIT:
+                return CronetStatsLog.CRONET_TRAFFIC_REPORTED__IS_CACHED__IS_CACHED_CACHE_HIT;
+            case UNSPECIFIED:
+            default:
+                return CronetStatsLog.CRONET_TRAFFIC_REPORTED__IS_CACHED__IS_CACHED_UNKNOWN;
         }
     }
 

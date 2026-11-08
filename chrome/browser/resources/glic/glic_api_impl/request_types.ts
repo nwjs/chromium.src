@@ -2,39 +2,33 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import type {                             //
-             AdditionalContext,           //
-             AdditionalContextPart,       //
-             AnnotatedPageData,           //
-             ClientErrorDialogType,       //
-             ConversationInfo,            //
-             CounterAbuseVerdict,         //
-             ErrorReasonTypes,            //
-             ErrorWithReason,             //
-             FocusedTabDataHasFocus,      //
-             FocusedTabDataHasNoFocus,    //
-             InvokeOptions,               //
-             MetricUserInputReactionType, //
-             MicrophoneStatus,            //
-             OnResponseStoppedDetails,    //
-             OpenPinnedTabPickerOptions,  //
-             PageMetadata,                //
-             PdfDocumentData,             //
-             PinTabsOptions,              //
-             PromptType,                  //
-             ResumeActorTaskResult,       //
-             TabContextOptions,           //
-             TabContextResult,            //
-             TabData,                     //
-             UnpinTabsOptions,            //
-             UserProfileInfo,             //
-             WebClientMode,               //
-             ZeroStateSuggestions,        //
+import type {                            //
+             AdditionalContext,          //
+             AdditionalContextPart,      //
+             AnnotatedPageData,          //
+             ConversationInfo,           //
+             CounterAbuseVerdict,        //
+             ErrorReasonTypes,           //
+             ErrorWithReason,            //
+             FocusedTabDataHasFocus,     //
+             FocusedTabDataHasNoFocus,   //
+             InvokeOptions,              //
+             OpenPinnedTabPickerOptions, //
+             PageMetadata,               //
+             PdfDocumentData,            //
+             PinTabsOptions,             //
+             ResumeActorTaskResult,      //
+             TabContextOptions,          //
+             TabContextResult,           //
+             TabData,                    //
+             UnpinTabsOptions,           //
+             UserProfileInfo,            //
+             ZeroStateSuggestions,       //
 } from '../glic_api/glic_api.js';
 
 import type {InterfaceDef, InterfaceDefMethods} from './transport/messaging.js';
 import {defInterface, defMessage} from './transport/messaging.js';
-import type {ErrorCodec, PendingRemote, TransferableException} from './transport/post_message_transport.js';
+import type {ErrorCodec, TransferableException} from './transport/post_message_transport.js';
 
 /*
 This file defines messages sent over postMessage in-between the Glic WebUI
@@ -131,71 +125,6 @@ export const WebClientHostDef = defInterface({
       histogram: {id: 76},
     },
     {
-      name: 'resizeWindow',
-      request: defMessage<{
-        size: {
-          width: number,
-          height: number,
-        },
-        options?: {
-          durationMs?: number,
-        },
-      }>(),
-      histogram: {id: 17},
-    },
-    {
-      name: 'enableDragResize',
-      request: defMessage<{
-        enabled: boolean,
-      }>(),
-      histogram: {id: 18},
-    },
-    {
-      name: 'setMinimumWidgetSize',
-      request: defMessage<{
-        size: {
-          width: number,
-          height: number,
-        },
-      }>(),
-      histogram: {id: 20},
-    },
-    {
-      name: 'setMicrophonePermissionState',
-      request: defMessage<{
-        enabled: boolean,
-      }>(),
-      histogram: {id: 21},
-    },
-    {
-      name: 'setLocationPermissionState',
-      request: defMessage<{
-        enabled: boolean,
-      }>(),
-      histogram: {id: 22},
-    },
-    {
-      name: 'setTabContextPermissionState',
-      request: defMessage<{
-        enabled: boolean,
-      }>(),
-      histogram: {id: 23},
-    },
-    {
-      name: 'setClosedCaptioningSetting',
-      request: defMessage<{
-        enabled: boolean,
-      }>(),
-      histogram: {id: 56},
-    },
-    {
-      name: 'setActuationOnWebSetting',
-      request: defMessage<{
-        enabled: boolean,
-      }>(),
-      histogram: {id: 69},
-    },
-    {
       name: 'getUserProfileInfo',
       response: defMessage<{
         profileInfo?: UserProfileInfoPrivate,
@@ -208,94 +137,6 @@ export const WebClientHostDef = defInterface({
         success: boolean,
       }>(),
       histogram: {id: 26},
-    },
-    {
-      name: 'setAudioDucking',
-      request: defMessage<{
-        enabled: boolean,
-      }>(),
-      histogram: {id: 29},
-    },
-    {
-      name: 'onUserInputSubmitted',
-      request: defMessage<{
-        mode: number,
-        promptType?: PromptType,
-      }>(),
-      histogram: {id: 38},
-    },
-    {
-      name: 'onReaction',
-      request: defMessage<{
-        reactionType: MetricUserInputReactionType,
-      }>(),
-      histogram: {id: 66},
-    },
-    {
-      name: 'onOptinImpression',
-      histogram: {id: 99},
-    },
-    {
-      name: 'onContextUploadStarted',
-      histogram: {id: 68},
-    },
-    {
-      name: 'onContextUploadCompleted',
-      histogram: {id: 67},
-    },
-    {
-      name: 'onResponseStarted',
-      histogram: {id: 40},
-    },
-    {
-      name: 'onResponseStopped',
-      request: defMessage<{details?: OnResponseStoppedDetails}>(),
-      histogram: {id: 41},
-    },
-    {
-      name: 'onSessionTerminated',
-      histogram: {id: 42},
-    },
-    {
-      name: 'onTurnCompleted',
-      request: defMessage<{
-        model: number,
-        duration: number,
-      }>(),
-      histogram: {id: 43},
-    },
-    {
-      name: 'onResponseRated',
-      request: defMessage<{
-        positive: boolean,
-      }>(),
-      histogram: {id: 39},
-    },
-    {
-      name: 'onClosedCaptionsShown',
-      histogram: {id: 59},
-    },
-    {
-      name: 'onActionSubmitted',
-      request: defMessage<{
-        isRetry?: boolean,
-      }>(),
-      histogram: {id: 93},
-    },
-    {
-      name: 'setSyntheticExperimentState',
-      request: defMessage<{
-        trialName: string,
-        groupName: string,
-      }>(),
-      histogram: {id: 46},
-    },
-    {
-      name: 'getOsMicrophonePermissionStatus',
-      response: defMessage<{
-        enabled: boolean,
-      }>(),
-      histogram: {id: 48},
     },
     {
       name: 'pinTabs',
@@ -365,46 +206,6 @@ export const WebClientHostDef = defInterface({
       histogram: {id: 63},
     },
     {
-      name: 'onModeChange',
-      request: defMessage<{
-        newMode: WebClientMode,
-      }>(),
-      histogram: {id: 70},
-    },
-    {
-      name: 'setOnboardingCompleted',
-      histogram: {id: 80},
-    },
-    {
-      name: 'subscribeToTabData',
-      request: defMessage<{
-        tabId: string,
-        remote: PendingRemote<WebClientTabDataObserver>,
-      }>(),
-      histogram: {id: 81},
-    },
-    {
-      name: 'onMicrophoneStatusChange',
-      request: defMessage<{
-        status: MicrophoneStatus,
-      }>(),
-      histogram: {id: 90},
-    },
-    {
-      name: 'recordHistogram',
-      request: defMessage<{
-        name: string,
-        sparseValue: number,
-        // Add other histogram types as needed.
-      }>(),
-    },
-    {
-      name: 'setErrorDialogState',
-      request: defMessage<{
-        shownDialogType?: ClientErrorDialogType,
-      }>(),
-    },
-    {
       name: 'reportClientTransientError',
       request: defMessage<{
         abslStatus: number,
@@ -432,21 +233,7 @@ export const WebClientDef = defInterface({
 
 export type WebClient = typeof WebClientDef;
 
-export const WebClientTabDataObserverDef = defInterface({
-  name: 'WebClientTabDataObserver',
-  methods: [
-    {
-      name: 'tabDataChanged',
-      request: defMessage<{
-        tabData: TabDataPrivate,
-      }>(),
-    },
-  ],
-});
-export type WebClientTabDataObserver = typeof WebClientTabDataObserverDef;
-
-export type WebClientRequestTypes = InterfaceDefMethods<WebClient>&
-    InterfaceDefMethods<WebClientTabDataObserver>;
+export type WebClientRequestTypes = InterfaceDefMethods<WebClient>;
 
 export type HostRequestTypes = InterfaceDefMethods<WebClientHost>;
 
@@ -478,19 +265,19 @@ export const RECORDED_REQUEST_IDS = {
   // Do not reuse deleted request ID: 14,
   // Do not reuse deleted request ID: 15,
   // Do not reuse deleted request ID: 16,
-  ResizeWindow: 17,
-  EnableDragResize: 18,
+  // Do not reuse deleted request ID: 17,
+  // Do not reuse deleted request ID: 18,
   // Do not reuse deleted request ID: 19,
-  SetMinimumWidgetSize: 20,
-  SetMicrophonePermissionState: 21,
-  SetLocationPermissionState: 22,
-  SetTabContextPermissionState: 23,
+  // Do not reuse deleted request ID: 20,
+  // Do not reuse deleted request ID: 21,
+  // Do not reuse deleted request ID: 22,
+  // Do not reuse deleted request ID: 23,
   // Do not reuse deleted request ID: 24,
   GetUserProfileInfo: 25,
   RefreshSignInCookies: 26,
   // Do not reuse deleted request ID: 27,
   // Do not reuse deleted request ID: 28,
-  SetAudioDucking: 29,
+  // Do not reuse deleted request ID: 29,
   // Do not reuse deleted request ID: 30,
   // Do not reuse deleted request ID: 31,
   // Do not reuse deleted request ID: 32,
@@ -499,17 +286,17 @@ export const RECORDED_REQUEST_IDS = {
   // Do not reuse deleted request ID: 35,
   // Do not reuse deleted request ID: 36,
   // Do not reuse deleted request ID: 37,
-  OnUserInputSubmitted: 38,
-  OnResponseRated: 39,
-  OnResponseStarted: 40,
-  OnResponseStopped: 41,
-  OnSessionTerminated: 42,
-  OnTurnCompleted: 43,
+  // Do not reuse deleted request ID: 38,
+  // Do not reuse deleted request ID: 39,
+  // Do not reuse deleted request ID: 40,
+  // Do not reuse deleted request ID: 41,
+  // Do not reuse deleted request ID: 42,
+  // Do not reuse deleted request ID: 43,
   // Do not reuse deleted request ID: 44,
   // Do not reuse deleted request ID: 45,
-  SetSyntheticExperimentState: 46,
+  // Do not reuse deleted request ID: 46,
   // Do not reuse deleted request ID: 47,
-  GetOsMicrophonePermissionStatus: 48,
+  // Do not reuse deleted request ID: 48,
   PinTabs: 49,
   UnpinTabs: 50,
   UnpinAllTabs: 51,
@@ -517,21 +304,21 @@ export const RECORDED_REQUEST_IDS = {
   // Do not reuse deleted request ID: 53,
   GetZeroStateSuggestionsForFocusedTab: 54,
   // Do not reuse deleted request ID: 55,
-  SetClosedCaptioningSetting: 56,
+  // Do not reuse deleted request ID: 56,
   // Do not reuse deleted request ID: 57,
   MaybeRefreshUserStatus: 58,
-  OnClosedCaptionsShown: 59,
+  // Do not reuse deleted request ID: 59,
   // Do not reuse deleted request ID: 60,
   // Do not reuse deleted request ID: 61,
   // Do not reuse deleted request ID: 62,
   SubscribeToPageMetadata: 63,
   SwitchConversation: 64,
   RegisterConversation: 65,
-  OnReaction: 66,
-  OnContextUploadCompleted: 67,
-  OnContextUploadStarted: 68,
-  SetActuationOnWebSetting: 69,
-  OnModeChange: 70,
+  // Do not reuse deleted request ID: 66,
+  // Do not reuse deleted request ID: 67,
+  // Do not reuse deleted request ID: 68,
+  // Do not reuse deleted request ID: 69,
+  // Do not reuse deleted request ID: 70,
   // Do not reuse deleted request ID: 71,
   // Do not reuse deleted request ID: 72,
   // Do not reuse deleted request ID: 73,
@@ -540,8 +327,8 @@ export const RECORDED_REQUEST_IDS = {
   ActivateTab: 76,
   // Do not reuse deleted request ID: 77,
   // Do not reuse deleted request ID: 78,
-  SetOnboardingCompleted: 80,
-  SubscribeToTabData: 81,
+  // Do not reuse deleted request ID: 80,
+  // Do not reuse deleted request ID: 81,
   // Do not reuse deleted request ID: 82,
   // Do not reuse deleted request ID: 83,
   // Do not reuse deleted request ID: 84,
@@ -550,22 +337,24 @@ export const RECORDED_REQUEST_IDS = {
   // Do not reuse deleted request ID: 87,
   // Do not reuse deleted request ID: 88,
   // Do not reuse deleted request ID: 89,
-  OnMicrophoneStatusChange: 90,
+  // Do not reuse deleted request ID: 90,
   // Do not reuse deleted request ID: 91,
   DeleteCapturedRegion: 92,
-  OnActionSubmitted: 93,
+  // Do not reuse deleted request ID: 93,
   // Do not reuse deleted request ID: 94,
   // Do not reuse deleted request ID: 95,
   // Do not reuse deleted request ID: 96,
   // Do not reuse deleted request ID: 97,
   // Do not reuse deleted request ID: 98,
-  OnOptinImpression: 99,
+  // Do not reuse deleted request ID: 99,
   ProcessCounterAbuseVerdict: 100,
   GetImageBytesFromTab: 101,
   // Do not reuse deleted request ID: 102,
   // Do not reuse deleted request ID: 103,
   OpenPinnedTabPicker: 104,
   // Do not reuse deleted request ID: 105,
+  // Do not reuse deleted request ID: 106,
+  // Do not reuse deleted request ID: 107,
 } as const satisfies InterfaceHistogramIds<WebClientHost>;
 export const MAX_REQUEST_ID = Math.max(...Object.values(RECORDED_REQUEST_IDS));
 

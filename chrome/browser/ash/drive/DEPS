@@ -15,7 +15,6 @@ include_rules = [
   # individually. Other dependencies within //chrome are listed on a per-
   # directory basis. See //tools/chromeos/gen_deps.sh for details.
   "+chrome/browser/ash/file_manager",
-  "+chrome/browser/ash/login/users",
   "+chrome/browser/ash/profiles",
   "+chrome/browser/chromeos/drivefs",
   "+chrome/browser/net",
@@ -40,5 +39,9 @@ specific_include_rules = {
   "drive_integration_service_browser_test_base\\.cc": [
     "+chrome/browser/browser_process.h",
     "+chrome/browser/signin/identity_manager_factory.h",
+  ],
+
+  "file_system_util_unittest\\.cc": [
+    "+chrome/browser/ash/login/test/chrome_user_session_test_environment_delegate.h",
   ],
 }

@@ -29,16 +29,17 @@ class AutofillDialogControllerImpl : public AutofillDialogController {
       delete;
 
   // AutofillDialogController:
-  void Show(const std::u16string& title,
-            const std::u16string& description,
-            const std::u16string& positive_button_text,
-            const std::u16string& negative_button_text,
-            base::OnceClosure on_positive_button_clicked_callback) override;
+  void Show(std::u16string title,
+            std::u16string description,
+            std::u16string positive_button_text,
+            std::u16string negative_button_text,
+            DialogResultCallback dialog_result_callback) override;
   void ShowLoadingDialog(const std::u16string& title,
                          base::TimeDelta min_time) override;
   void Dismiss() override;
 
   void OnPositiveButtonClicked() override;
+  void OnNegativeButtonClicked() override;
   void OnDismissed() override;
   std::u16string GetTitleText() const override;
   std::u16string GetDescriptionText() const override;
@@ -46,7 +47,7 @@ class AutofillDialogControllerImpl : public AutofillDialogController {
   std::u16string GetPositiveButtonText() const override;
   content::WebContents& GetWebContents() const override;
 
-  // Method for tests to inject a mock or test view.
+  // Methods for testing.
   using FactoryCallback =
       base::RepeatingCallback<std::unique_ptr<AutofillDialogView>()>;
   void SetViewFactoryForTest(FactoryCallback view_factory_for_test) {
@@ -54,6 +55,9 @@ class AutofillDialogControllerImpl : public AutofillDialogController {
   }
   bool HasDialogViewForTest() const { return autofill_dialog_view_ != nullptr; }
   void DismissForTest() { Dismiss(); }
+  bool IsDismissTimerRunningForTest() const {
+    return dismiss_timer_.IsRunning();
+  }
 
  private:
   raw_ref<content::WebContents> web_contents_;
@@ -69,8 +73,8 @@ class AutofillDialogControllerImpl : public AutofillDialogController {
   base::ElapsedTimer dialog_show_time_;
   base::TimeDelta min_show_time_;
 
-  // Callback to run after the dialog positive button is clicked.
-  base::OnceClosure on_positive_button_clicked_callback_;
+  // Callback to run after the dialog is closed with a result.
+  DialogResultCallback dialog_result_callback_;
 
   FactoryCallback view_factory_for_test_;
 };

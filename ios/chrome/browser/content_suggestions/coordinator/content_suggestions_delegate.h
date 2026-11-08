@@ -21,11 +21,20 @@ class GURL;
 // Opens the Home Customization menu at the Magic Stack page.
 - (void)openMagicStackCustomizationMenu;
 
-// Opens the Home Customization menu at the Main page.
-- (void)openMainCustomizationMenu;
+// Opens the Home Customization menu at the Main page, optionally presenting an
+// IPH bubble on the customization button when dismissed if
+// `withIconBubbleOnDismiss` is YES, and scrolling to the bottom of the sheet if
+// `scrollToBottom` is YES.
+- (void)openMainCustomizationMenuWithIconBubbleOnDismiss:
+            (BOOL)withIconBubbleOnDismiss
+                                          scrollToBottom:(BOOL)scrollToBottom;
 
 // Opens the Safari Data import instructions.
 - (void)openSafariDataImport;
+
+// Opens the photo picker for selecting a custom NTP background from the
+// device's photo library.
+- (void)openNTPBackgroundPhotoPicker;
 
 @end
 

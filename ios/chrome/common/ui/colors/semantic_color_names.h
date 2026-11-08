@@ -13,6 +13,14 @@
 
 extern NSString* const kAimInputItemTopBackgroundColor;
 extern NSString* const kAimComposeboxButtonBackgroundColor;
+// Background color of the AIM Composebox input plate. Matches
+// `kPrimaryBackgroundColor` in light mode and `kTertiaryBackgroundColor` in
+// dark mode.
+extern NSString* const kAimComposeboxInputPlateBackgroundColor;
+// Placeholder text color of the AIM Composebox input plate. Matches
+// `kTextSecondaryColor` in light mode and `kTextfieldPlaceholderColor` in dark
+// mode.
+extern NSString* const kAimComposeboxInputPlatePlaceholderColor;
 extern NSString* const kAppBarColor;
 extern NSString* const kAppBarIncognitoColor;
 extern NSString* const kBackgroundColor;
@@ -36,8 +44,8 @@ extern NSString* const kMDCSecondaryInkColor;
 extern NSString* const kPlaceholderImageTintColor;
 // New Tab Page background color.
 extern NSString* const kNewTabPageBackgroundColor;
-// Surface container low background color.
-extern NSString* const kSurfaceContainerLowColor;
+// Module background color on the New Tab Page.
+extern NSString* const kNTPModuleBackgroundColor;
 // Color used for quick action buttons on the NTP.
 extern NSString* const kNTPQuickActionChipColor;
 // Background color for NTP Redesign.

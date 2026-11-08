@@ -7,16 +7,12 @@ import {html} from '//resources/lit/v3_0/lit.rollup.js';
 import type {ComboboxGroup, ComboboxItem, CustomizeChromeComboboxElement} from './customize_chrome_combobox.js';
 
 export function getHtml(this: CustomizeChromeComboboxElement) {
-  // clang-format off
   return html`<!--_html_template_start_-->
-<button id="input" class="md-select"
-    role="combobox" tabindex="0"
-    aria-controls="dropdown"
-    aria-expanded="${this.expanded_}"
+<button id="input" class="md-select" role="combobox" tabindex="0"
+    aria-controls="dropdown" aria-expanded="${this.expanded_}"
     aria-haspopup="listbox"
     aria-activedescendant="${this.getAriaActiveDescendant_()}"
-    @click="${this.onInputClick_}"
-    @focusout="${this.onInputFocusout_}">
+    @click="${this.onInputClick_}" @focusout="${this.onInputFocusout_}">
   <div>${this.getInputLabel_()}</div>
 </button>
 <div id="dropdownContainer">
@@ -31,12 +27,11 @@ export function getHtml(this: CustomizeChromeComboboxElement) {
     ${this.items.map((item, index) => html`
       ${this.isGroup_(item) ? html`
         <div class="group" role="group">
-          <label role="button" class="group-item"
-              data-index="${index}" @click="${this.onGroupClick_}"
+          <label role="button" class="group-item" data-index="${index}"
+              @click="${this.onGroupClick_}"
               aria-expanded="${this.getGroupAriaExpanded_(index)}">
             ${item.label}
-            <cr-icon icon="${this.getGroupIcon_(index)}"
-                aria-hidden="true">
+            <cr-icon icon="${this.getGroupIcon_(index)}" aria-hidden="true">
             </cr-icon>
           </label>
           ${this.isGroupExpanded_(index) ? html`
@@ -47,7 +42,7 @@ export function getHtml(this: CustomizeChromeComboboxElement) {
                 <span title="${subitem.label}">${subitem.label}</span>
               </div>
             `)}
-          `: ''}
+          ` : ''}
         </div>
       ` : ''}
       ${!this.isGroup_(item) ? html`
@@ -59,14 +54,14 @@ export function getHtml(this: CustomizeChromeComboboxElement) {
               <img is="cr-auto-img"
                   .autoSrc="${(item as ComboboxItem).imagePath}">
             </customize-chrome-check-mark-wrapper>
-          `: ''}
+          ` : ''}
           <cr-icon icon="cr:check"
-              ?hidden="${!!(item as ComboboxItem).imagePath}"></cr-icon>
+              ?hidden="${!!(item as ComboboxItem).imagePath}">
+          </cr-icon>
           <span>${item.label}</span>
         </div>
-      `: ''}
+      ` : ''}
     `)}
   </div>
 </div><!--_html_template_end_-->`;
-  // clang-format on
 }

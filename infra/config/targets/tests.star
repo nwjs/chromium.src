@@ -1545,6 +1545,10 @@ targets.tests.isolated_script_test(
 )
 
 targets.tests.isolated_script_test(
+    name = "ios_chrome_all_eg2tests_module",
+)
+
+targets.tests.isolated_script_test(
     name = "ios_chrome_bookmarks_eg2tests_module",
 )
 
@@ -1554,6 +1558,10 @@ targets.tests.isolated_script_test(
 
 targets.tests.isolated_script_test(
     name = "ios_chrome_settings_eg2tests_module",
+)
+
+targets.tests.isolated_script_test(
+    name = "ios_chrome_perf_benchmarks_eg2tests_module",
 )
 
 targets.tests.isolated_script_test(
@@ -2211,6 +2219,16 @@ targets.tests.gtest_test(
 
 targets.tests.gtest_test(
     name = "sbox_validation_tests",
+)
+
+targets.tests.gtest_test(
+    name = "screen_capture_kit_mac_tests",
+    binary = "content_browsertests",
+    args = [
+        "--use-gpu-in-tests",
+        "--gtest_filter=*ScreenCaptureKitRealCaptureTest.*",
+        "--test-launcher-jobs=1",
+    ],
 )
 
 targets.tests.gpu_telemetry_test(

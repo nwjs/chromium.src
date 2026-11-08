@@ -41,7 +41,7 @@ namespace chrome {
 namespace android {
 
 RlzPingHandler::RlzPingHandler(Profile* profile) {
-  DCHECK(profile);
+  CHECK(profile, base::NotFatalUntil::M161);
   url_loader_factory_ = profile->GetDefaultStoragePartition()
                             ->GetURLLoaderFactoryForBrowserProcess();
 }
@@ -64,6 +64,8 @@ void RlzPingHandler::Ping(const std::string& brand,
 
   callback_ = std::move(callback);
 
+  // TODO(crbug.com/574664421): CHECK-exclusion: Convert to a CHECK once we are
+  // confident it won't be triggered.
   DCHECK_EQ(brand.length(), 4u);
   DCHECK_EQ(language.length(), 2u);
   DCHECK_EQ(id.length(), 50u);

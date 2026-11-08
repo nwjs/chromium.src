@@ -19,6 +19,7 @@
 #include "android_webview/browser/aw_preconnector.h"
 #include "android_webview/browser/aw_ssl_host_state_delegate.h"
 #include "android_webview/browser/file_system_access/aw_file_system_access_permission_context.h"
+#include "android_webview/browser/http_headers/aw_header_interceptor_store.h"
 #include "android_webview/browser/http_headers/aw_origin_matched_header.h"
 #include "android_webview/browser/network_service/aw_proxy_config_monitor.h"
 #include "android_webview/browser/prefetch/aw_prefetch_manager.h"
@@ -47,7 +48,7 @@ namespace content {
 class ClientHintsControllerDelegate;
 class SSLHostStateDelegate;
 class WebContents;
-}
+}  // namespace content
 
 namespace download {
 class InProgressDownloadManager;
@@ -58,7 +59,7 @@ namespace visitedlink {
 // PartitionedVisitedLinkWriter
 class VisitedLinkWriter;
 class PartitionedVisitedLinkWriter;
-}
+}  // namespace visitedlink
 
 namespace android_webview {
 
@@ -92,8 +93,7 @@ class AwBrowserContext : public content::BrowserContext,
 
   // Convenience method to returns the AwBrowserContext corresponding to the
   // given WebContents.
-  static AwBrowserContext* FromWebContents(
-      content::WebContents* web_contents);
+  static AwBrowserContext* FromWebContents(content::WebContents* web_contents);
 
   base::FilePath GetHttpCachePath();
   base::FilePath GetPrefStorePath();
@@ -258,8 +258,12 @@ class AwBrowserContext : public content::BrowserContext,
   const std::vector<scoped_refptr<AwOriginMatchedHeader>>&
   GetOriginMatchedHeaders();
 
-  // Adds a QUIC hints for the given origins.
-  void AddQuicHints(JNIEnv* env, const std::vector<GURL>& origins);
+  // Adds QUIC hints for the given origins, wildcard suffixes, or enables QUIC
+  // by default.
+  void AddQuicHints(JNIEnv* env,
+                    const std::vector<GURL>& origins,
+                    const std::vector<std::string>& wildcard_suffixes,
+                    bool try_quic_by_default);
 
   AwHttpCacheManager* GetHttpCacheManager() {
     return http_cache_manager_.get();

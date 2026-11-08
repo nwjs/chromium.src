@@ -49,11 +49,28 @@ GeminiContainerUIState GeminiContainerUIState::Minimized(BOOL has_grabber) {
 // static
 GeminiContainerUIState GeminiContainerUIState::Actuating() {
   return {
-      .detent = AssistantContainerDetent::kMinimized,
+      .detent = AssistantContainerDetent::kMedium,
       .hasGrabber = YES,
       .zeroStateVisible = NO,
       .actuating = YES,
   };
+}
+
+std::optional<ActuationWorklogDisplayMode>
+GeminiContainerUIState::WorklogDisplayMode() const {
+  if (!actuating) {
+    return std::nullopt;
+  }
+  // The minimized detent only shows the header, the medium detent shows the
+  // compact worklog and the large detent shows the full timeline.
+  switch (detent) {
+    case AssistantContainerDetent::kMinimized:
+      return ActuationWorklogDisplayModeMinimized;
+    case AssistantContainerDetent::kMedium:
+      return ActuationWorklogDisplayModeCompact;
+    case AssistantContainerDetent::kLarge:
+      return ActuationWorklogDisplayModeExpanded;
+  }
 }
 
 #pragma mark - GeminiContainerUIStateManager
@@ -86,14 +103,20 @@ GeminiContainerUIState GeminiContainerUIState::Actuating() {
   return self;
 }
 
-- (void)setupInitialUIState {
+- (void)setupInitialUIStateWithConversation:(BOOL)hasConversation {
   // Default values for mode and processing status. Actual values driven by SDK.
   // TODO(crbug.com/546065071): Pass the default mode with init UI
   // config/startup config.
   _viewMode = GeminiViewMode::kFloaty;
-  _processingStatus = GeminiClientMode::kDormant;
-
-  [self resetToZeroStateWithDetent:AssistantContainerDetent::kMedium];
+  if (hasConversation) {
+    _processingStatus = GeminiClientMode::kPreviousConversationLoading;
+    if (IsIOSGeminiBottomSheetMigrationEnabled()) {
+      [self updateProcessingStatusForFloatyMode];
+    }
+  } else {
+    _processingStatus = GeminiClientMode::kDormant;
+    [self resetToZeroStateWithDetent:AssistantContainerDetent::kMedium];
+  }
 }
 
 - (void)handleActuationStateChanged:(BOOL)actuating {
@@ -204,6 +227,17 @@ GeminiContainerUIState GeminiContainerUIState::Actuating() {
 
   _thinkingStartTime = base::TimeTicks();
   [self updateUIState:GeminiContainerUIState::ExpandedResponse()];
+}
+
+- (void)didFinishLoadingConversationWithID:(NSString*)conversationID
+                                     error:(NSError*)error {
+  if (!IsIOSGeminiBottomSheetMigrationEnabled()) {
+    return;
+  }
+
+  if (error) {
+    [self resetToZeroStateWithDetent:_currentUIState.detent];
+  }
 }
 
 - (void)updateDetent:(AssistantContainerDetent)detent {

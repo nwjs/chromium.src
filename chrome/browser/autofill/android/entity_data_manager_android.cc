@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <optional>
 #include <ranges>
+#include <variant>
 
 #include "base/android/callback_android.h"
 #include "base/android/jni_android.h"
@@ -54,7 +55,6 @@
 #include "components/personal_context/core/personal_context_prefs.h"
 #include "components/personal_context/core/personal_context_types.h"
 #include "components/personal_context/core/url_constants.h"
-#include "components/wallet/core/browser/network/wallet_http_client.h"
 #include "components/wallet/core/common/wallet_features.h"
 #include "third_party/jni_zero/jni_zero.h"
 
@@ -100,10 +100,9 @@ EntityDataManagerAndroid::~EntityDataManagerAndroid() = default;
 
 bool EntityDataManagerAndroid::IsPersonalContextPreferenceVisible(JNIEnv* env) {
   return autofill::ShouldShowPersonalContextAutofillSetting(
-      google_groups_manager_,
-      prefs_, &entity_data_manager(), identity_manager_, sync_service_,
-      IsWalletPublicPassStorageEnabledHelper(), is_off_the_record_,
-      entity_data_manager_->GetVariationCountryCode(),
+      google_groups_manager_, prefs_, &entity_data_manager(), identity_manager_,
+      sync_service_, IsWalletPublicPassStorageEnabledHelper(),
+      is_off_the_record_, entity_data_manager_->GetVariationCountryCode(),
       personal_context_eligibility_service_, subscription_eligibility_service_);
 }
 
@@ -249,7 +248,7 @@ void EntityDataManagerAndroid::AddOrUpdateEntityInstance(
     const jni_zero::JavaRef<jobject>& jEntity,
     int32_t description_string_id,
     int32_t accept_button_string_id,
-    std::optional<std::string> context_token,
+    const jni_zero::JavaRef<jbyteArray>& j_legal_message_token,
     base::OnceClosure on_local_save_fallback) {
   EntityInstanceAndroid entity_android =
       EntityInstanceAndroid::FromJavaEntityInstance(env, jEntity);
@@ -264,23 +263,43 @@ void EntityDataManagerAndroid::AddOrUpdateEntityInstance(
       entity_android.ToEntityInstance(entity_data_manager_->GetEntityInstance(
           EntityInstance::EntityId(entity_android.metadata.guid)));
 
+  std::optional<std::string> legal_message_token;
+  if (j_legal_message_token) {
+    base::android::JavaByteArrayToString(env, j_legal_message_token,
+                                         &legal_message_token.emplace());
+  }
+
   AddOrUpdateEntityInstance(std::move(entity_instance), targeted_record_type,
                             description_string_id, accept_button_string_id,
-                            std::move(context_token),
+                            std::move(legal_message_token),
                             std::move(on_local_save_fallback));
 }
 
-void EntityDataManagerAndroid::GetDetailsForUpsertPass(
-    int entity_type,
-    WalletPassAccessManager::GetDetailsForUpsertPassCallback callback) {
+void EntityDataManagerAndroid::PreloadDetailsForUpsertPass(JNIEnv* env,
+                                                           int entity_type) {
   std::optional<EntityTypeName> type_name = ToSafeEntityTypeName(entity_type);
   if (!type_name || !wallet_pass_access_manager_) {
-    std::move(callback).Run(base::unexpected(
-        wallet::WalletHttpClient::WalletRequestError::kGenericError));
     return;
   }
-  wallet_pass_access_manager_->GetDetailsForUpsertPass(EntityType(*type_name),
-                                                       std::move(callback));
+  wallet_pass_access_manager_->PreloadDetailsForUpsertPass(
+      EntityType(*type_name));
+}
+
+std::optional<WalletPassAccessManager::GetDetailsForUpsertPassResponse>
+EntityDataManagerAndroid::ExtractPreloadedDetailsForUpsertPass(
+    JNIEnv* env,
+    int entity_type) {
+  std::optional<EntityTypeName> type_name = ToSafeEntityTypeName(entity_type);
+  if (!type_name || !wallet_pass_access_manager_) {
+    return std::nullopt;
+  }
+  std::optional<WalletPassAccessManager::GetDetailsForUpsertPassResponse>
+      response =
+          wallet_pass_access_manager_->ExtractPreloadedDetailsForUpsertPass(
+              EntityType(*type_name));
+  return response.has_value() && IsValidUpsertPassDetailsResponse(*response)
+             ? response
+             : std::nullopt;
 }
 
 void EntityDataManagerAndroid::AddOrUpdateEntityInstance(
@@ -288,7 +307,7 @@ void EntityDataManagerAndroid::AddOrUpdateEntityInstance(
     EntityInstance::RecordType targeted_record_type,
     int description_string_id,
     int accept_button_string_id,
-    std::optional<std::string> context_token,
+    std::optional<std::string> legal_message_token,
     base::OnceClosure on_local_save_fallback) {
   const bool is_new_entity =
       !entity_data_manager().GetEntityInstance(entity_instance.guid());
@@ -331,11 +350,11 @@ void EntityDataManagerAndroid::AddOrUpdateEntityInstance(
         std::move(on_local_save_fallback).Run();
       }
       entity_data_manager().AddOrUpdateEntityInstance(
-          std::move(entity_instance), std::move(context_token));
+          std::move(entity_instance), std::move(legal_message_token));
     }
   } else {
-    entity_data_manager().AddOrUpdateEntityInstance(std::move(entity_instance),
-                                                    std::move(context_token));
+    entity_data_manager().AddOrUpdateEntityInstance(
+        std::move(entity_instance), std::move(legal_message_token));
   }
 }
 
@@ -367,6 +386,9 @@ EntityDataManagerAndroid::GetEntitiesWithLabels(JNIEnv* env) {
          std::views::zip(entities_of_type, labels)) {
       const bool stored_in_wallet =
           entity->record_type() == EntityInstance::RecordType::kServerWallet;
+      CHECK(!stored_in_wallet ||
+            std::holds_alternative<EntityInstance::WalletRecordTypePayload>(
+                entity->record_type_data()));
       entities_with_labels.emplace_back(
           entity->guid().value(),
           EntityTypeAndroid(
@@ -377,8 +399,14 @@ EntityDataManagerAndroid::GetEntitiesWithLabels(JNIEnv* env) {
                   EntityInstance::WalletPassType::kPrivate),
           entity->type().GetNameForI18n(),
           base::JoinString(label, kLabelSeparator), stored_in_wallet,
-          stored_in_wallet ? std::make_optional(GetWalletManagementURL(*entity))
-                           : std::nullopt);
+          stored_in_wallet
+              ? std::make_optional(
+                    std::get<EntityInstance::WalletRecordTypePayload>(
+                        entity->record_type_data())
+                        .GetManagementUrlWithFallback(entity->type(),
+                                                      entity->guid())
+                        .spec())
+              : std::nullopt);
     }
   }
   return entities_with_labels;

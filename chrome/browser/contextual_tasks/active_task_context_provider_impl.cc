@@ -4,6 +4,7 @@
 
 #include "chrome/browser/contextual_tasks/active_task_context_provider_impl.h"
 
+#include <algorithm>
 #include <map>
 
 #include "base/feature_list.h"
@@ -11,6 +12,8 @@
 #include "chrome/browser/contextual_search/contextual_search_web_contents_helper.h"
 #include "chrome/browser/contextual_tasks/active_task_context_provider.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_panel_controller.h"
+#include "chrome/browser/contextual_tasks/contextual_tasks_ui_service.h"
+#include "chrome/browser/contextual_tasks/contextual_tasks_ui_service_factory.h"
 #include "chrome/browser/tab_list/tab_list_interface.h"
 #include "chrome/browser/tab_list/tab_list_interface_observer.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
@@ -88,6 +91,28 @@ std::set<tabs::TabHandle> GetTabsFromContext(
       context_session_ids_url_map.try_emplace(
           *file_info.tab_session_id, *file_info.tab_url,
           base::UTF8ToUTF16(file_info.tab_title.value_or("")));
+    }
+  }
+
+  if (session_handle && IsContextualTasksSidePanelRearchitectureEnabled()) {
+    const auto uploaded_tokens = session_handle->GetUploadedContextTokens();
+    for (const auto& attached_tab :
+         session_handle->GetTabContextState().attached) {
+      if (!attached_tab.tab_id.has_value()) {
+        continue;
+      }
+      const bool is_active =
+          attached_tab.submitted ||
+          std::ranges::contains(uploaded_tokens, attached_tab.context_token);
+      if (!is_active) {
+        continue;
+      }
+      SessionID id = SessionID::FromSerializedValue(*attached_tab.tab_id);
+      if (id.is_valid()) {
+        context_session_ids_url_map.try_emplace(
+            id, std::make_pair(attached_tab.url,
+                               base::UTF8ToUTF16(attached_tab.title)));
+      }
     }
   }
 
@@ -236,6 +261,15 @@ void ActiveTaskContextProviderImpl::PrimaryPageChanged(content::Page& page) {
                       url.host() == chrome::kChromeUIContextualTasksHost) ||
                      (url.scheme() == content::kChromeUIScheme &&
                       url.host() == chrome::kChromeUINewTabPageHost);
+  // Post-rearchitecture, full-tab AI Mode loads the AI Mode URL directly
+  // instead of chrome://contextual-tasks. If `is_aim_page` were false, the
+  // `!is_aim_page` block below would disassociate the tab's task and clear its
+  // session on every navigation.
+  if (IsContextualTasksRearchitectureEnabled()) {
+    auto* ui_service = ContextualTasksUiServiceFactory::GetForBrowserContext(
+        web_contents()->GetBrowserContext());
+    is_aim_page |= ui_service && ui_service->IsAiUrl(url);
+  }
 
   if (!is_aim_page) {
     if (base::FeatureList::IsEnabled(omnibox::kContextManagementInComposebox)) {
@@ -254,6 +288,9 @@ void ActiveTaskContextProviderImpl::PrimaryPageChanged(content::Page& page) {
       local_tab_underlines_.erase(navigating_tab_handle);
     }
 
+    // TODO(crbug.com/573687602): Move tab task/session resetting on navigation
+    // out of `ActiveTaskContextProviderImpl` into a per-tab navigation
+    // observer.
     auto* helper =
         ContextualSearchWebContentsHelper::FromWebContents(web_contents());
     if (helper && helper->task_id() && helper->session_handle()) {

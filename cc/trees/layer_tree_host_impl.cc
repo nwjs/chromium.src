@@ -625,14 +625,6 @@ LayerTreeHostImpl::LayerTreeHostImpl(
         GetTaskRunner(), this, settings_.enable_image_animation_resync);
   }
 
-  CHECK(!(settings.scrollbar_flash_once_after_scroll_update &&
-          settings.scrollbar_flash_after_any_scroll_update))
-      << "Only one of "
-      << "scrollbar_flash_once_after_scroll_update "
-      << "or "
-      << "scrollbar_flash_after_any_scroll_update "
-      << "can be enabled";
-
   if (settings.trees_in_viz_in_viz_process) {
     compositor_frame_reporting_controller_ =
         std::make_unique<StubCompositorFrameReportingController>();
@@ -646,6 +638,8 @@ LayerTreeHostImpl::LayerTreeHostImpl(
         std::make_unique<CompositorFrameReportingController>(
             /*should_report_histograms=*/!settings
                 .single_thread_proxy_scheduler,
+            /*report_event_latency_to_custom_recorder=*/
+            settings.is_layer_tree_for_ui,
             /*should_report_scroll_timing=*/
             settings.enable_scroll_performance_timing,
             /*layer_tree_host_id=*/id,
@@ -690,7 +684,8 @@ LayerTreeHostImpl::LayerTreeHostImpl(
 
   TRACE_EVENT_INSTANT(TRACE_DISABLED_BY_DEFAULT("cc.debug"),
                       "LayerTreeHostImpl:created",
-                      perfetto::Flow::ProcessScoped(id_, "LayerTreeHostImpl"));
+                      perfetto::Flow::ProcessScoped(id_, "LayerTreeHostImpl"),
+                      "layerTreeId", id_);
 
   browser_controls_offset_manager_ = BrowserControlsOffsetManager::Create(
       this, settings.top_controls_show_threshold,
@@ -702,15 +697,12 @@ LayerTreeHostImpl::LayerTreeHostImpl(
   compositor_frame_reporting_controller_->SetFrameSequenceTrackerCollection(
       &frame_trackers_);
 
-  const bool is_ui = settings.is_layer_tree_for_ui;
-  if (is_ui) {
-    compositor_frame_reporting_controller_->set_event_latency_tracker(this);
-
 #if BUILDFLAG(IS_CHROMEOS)
+  if (settings.is_layer_tree_for_ui) {
     frame_trackers_.UpdateSmoothThreadHistory(
         FrameInfo::SmoothEffectDrivingThread::kMain, /*modifier-*/ 1);
-#endif  // BUILDFLAG(IS_CHROMEOS)
   }
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
   frame_trackers_.set_custom_tracker_results_added_callback(base::BindRepeating(
       &LayerTreeHostImpl::NotifyCompositorMetricsTrackerResults,
@@ -726,7 +718,8 @@ LayerTreeHostImpl::~LayerTreeHostImpl() {
   TRACE_EVENT0("cc", "LayerTreeHostImpl::~LayerTreeHostImpl()");
   TRACE_EVENT_INSTANT(
       TRACE_DISABLED_BY_DEFAULT("cc.debug"), "LayerTreeHostImpl:deleted",
-      perfetto::TerminatingFlow::ProcessScoped(id_, "LayerTreeHostImpl"));
+      perfetto::TerminatingFlow::ProcessScoped(id_, "LayerTreeHostImpl"),
+      "layerTreeId", id_);
 
   // The frame sink is released before shutdown, which takes down
   // all the resource and raster structures.
@@ -757,13 +750,6 @@ LayerTreeHostImpl::~LayerTreeHostImpl() {
   mutator_host_->ClearMutators();
   mutator_host_->SetMutatorHostDelegate(nullptr);
 
-  // The `compositor_frame_reporting_controller_`
-  // was given a `this` pointer for the event_latency_tracker and thus needs
-  // to be nulled to prevent it dangling. Members will be destroyed in reverse
-  // order of their declaration, so since event latency tracker is destroyed
-  // first, we need to clar the pointer that
-  // `compositor_frame_reporting_controller_` holds.
-  compositor_frame_reporting_controller_->set_event_latency_tracker(nullptr);
   // CFRC needs to unregister the frame trackers from the frame_sorter
   // observer set before being cleaned up.
   compositor_frame_reporting_controller_->ClearFrameSequenceTrackerCollection();
@@ -1319,9 +1305,11 @@ DrawResult LayerTreeHostImpl::CalculateRenderPasses(FrameData* frame,
   // Avoid additional layer tree walk if there are not tracked elements
   TrackedElementStatus tracked_element_status = TrackedElementStatus::kNone;
 
-  for (EffectTreeLayerListIterator it(active_tree());
-       it.state() != EffectTreeLayerListIterator::State::kEnd; ++it) {
-    RenderSurfaceImpl* target_render_surface = it.target_render_surface();
+  LayerTreeImpl& tree = *active_tree();
+  for (EffectTreeLayerListIterator it(tree);
+       it.state() != EffectTreeLayerListIterator::State::kEnd;
+       it.Advance(tree)) {
+    RenderSurfaceImpl* target_render_surface = it.TargetRenderSurface(tree);
 
     viz::CompositorRenderPass* target_render_pass =
         FindRenderPassById(frame, target_render_surface->render_pass_id());
@@ -1331,7 +1319,7 @@ DrawResult LayerTreeHostImpl::CalculateRenderPasses(FrameData* frame,
         target_render_surface->has_view_transition_capture_contributions()) {
       view_transition_capture_render_pass = FindRenderPassById(
           frame,
-          it.target_render_surface()->view_transition_capture_render_pass_id());
+          target_render_surface->view_transition_capture_render_pass_id());
     }
 
     AppendQuadsData append_quads_data;
@@ -1356,7 +1344,7 @@ DrawResult LayerTreeHostImpl::CalculateRenderPasses(FrameData* frame,
     } else if (it.state() ==
                EffectTreeLayerListIterator::State::kContributingSurface) {
       if (output_frame_data) {
-        RenderSurfaceImpl* render_surface = it.current_render_surface();
+        RenderSurfaceImpl* render_surface = it.CurrentRenderSurface(tree);
         if (render_surface->contributes_to_drawn_surface()) {
           // An unbounded surface is submitted in a separate
           // CompositorFrame, so we do not append its RenderPassDrawQuad
@@ -1374,7 +1362,7 @@ DrawResult LayerTreeHostImpl::CalculateRenderPasses(FrameData* frame,
         }
       }
     } else if (it.state() == EffectTreeLayerListIterator::State::kLayer) {
-      LayerImpl* layer = it.current_layer();
+      LayerImpl* layer = it.CurrentLayer(tree);
 
       if (layer->tracked_element_rects() &&
           !layer->tracked_element_rects()->empty()) {
@@ -2372,14 +2360,6 @@ void LayerTreeHostImpl::OnSurfaceEvicted(
   delegate_->OnCanDrawStateChanged(CanDraw());
 }
 
-void LayerTreeHostImpl::ReportEventLatency(
-    const viz::BeginFrameArgs& args,
-    std::vector<EventLatencyTracker::LatencyData> latencies) {
-  if (auto* recorder = CustomMetricRecorder::Get()) {
-    recorder->ReportEventLatency(args, std::move(latencies));
-  }
-}
-
 void LayerTreeHostImpl::ReportScrollJankStats(uint32_t total_frames,
                                               uint32_t janky_frames) {
   CHECK_LE(janky_frames, total_frames);
@@ -3175,6 +3155,26 @@ viz::CompositorFrame LayerTreeHostImpl::GenerateCompositorFrame(
         {viz::ContentFrameIntervalType::kScrollBarFadeOutAnimation,
          base::Hertz(20)});
     frame->damage_reasons.Remove(DamageReason::kScrollbarFadeOutAnimation);
+  }
+
+  // TODO(crbug.com/555345506): Support TreesInViz. There, the frame used for
+  // refresh rate selection is generated by the Viz-process instance. It
+  // attributes client effect updates to kUntracked, and only has
+  // kCompositorAnimation from animations it ticks itself (TreeAnimationsInViz).
+  // Until TreesInViz is supported, it skips this block, so those frames keep
+  // kCompositorAnimation and stay ineligible for refresh rate throttling.
+  if (frame->damage_reasons.Has(DamageReason::kCompositorAnimation) &&
+      !settings_.trees_in_viz_in_viz_process) {
+    // MinimumTickInterval() is zero if any ticking animation is continuous or
+    // the stepped cadences can't be harmonized, and Max() if none is ticking.
+    // In either case, keep kCompositorAnimation so the frame isn't throttled.
+    const base::TimeDelta interval = mutator_host_->MinimumTickInterval();
+    if (interval.is_positive() && !interval.is_max()) {
+      metadata.frame_interval_inputs.content_interval_info.push_back(
+          {viz::ContentFrameIntervalType::kSteppedCompositorAnimation,
+           interval});
+      frame->damage_reasons.Remove(DamageReason::kCompositorAnimation);
+    }
   }
 
   // Propagate optioal timestamps for TreesInViz stages
@@ -6057,29 +6057,13 @@ void LayerTreeHostImpl::ResetHasInputForFrameInterval() {
 bool LayerTreeHostImpl::MaybeFlashAllScrollbars(ElementId tracking_element_id,
                                                 bool did_scroll) {
   bool has_tracking_element_id_flashed = false;
-  if (settings_.scrollbar_flash_after_any_scroll_update) {
-    FlashAllScrollbars(did_scroll);
-    // Always assume that the given |element_id| was flashed (along with the
-    // other scrollbars) since we are flashing all scrollbars.
-    has_tracking_element_id_flashed = true;
-  } else if (settings_.scrollbar_flash_once_after_scroll_update) {
+  if (settings_.scrollbar_flash_once_after_scroll_update) {
     // This call will flash all the scrollbars including the given |element_id|
     // if it has not flashed them before.
     has_tracking_element_id_flashed =
         MaybeFlashAllScrollbarsOnce(tracking_element_id, did_scroll);
   }
   return has_tracking_element_id_flashed;
-}
-
-void LayerTreeHostImpl::FlashAllScrollbars(bool did_scroll) {
-  CHECK(settings().scrollbar_flash_after_any_scroll_update);
-  for (auto& pair : scrollbar_animation_controllers_) {
-    if (did_scroll) {
-      pair.second->DidScrollUpdate();
-    } else {
-      pair.second->WillUpdateScroll();
-    }
-  }
 }
 
 void LayerTreeHostImpl::EraseFlashedScrollbars() {

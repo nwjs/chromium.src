@@ -39,7 +39,6 @@
 #import "ios/chrome/browser/popup_menu/public/popup_menu_metrics_handler.h"
 #import "ios/chrome/browser/presenters/ui_bundled/contained_presenter_delegate.h"
 #import "ios/chrome/browser/promos_manager/model/promos_manager_factory.h"
-#import "ios/chrome/browser/reader_mode/model/features.h"
 #import "ios/chrome/browser/reading_list/model/reading_list_browser_agent.h"
 #import "ios/chrome/browser/reading_list/model/reading_list_model_factory.h"
 #import "ios/chrome/browser/search_engines/model/template_url_service_factory.h"
@@ -90,6 +89,7 @@
 #import "ios/chrome/browser/signin/model/authentication_service.h"
 #import "ios/chrome/browser/signin/model/authentication_service_factory.h"
 #import "ios/chrome/browser/signin/model/identity_manager_factory.h"
+#import "ios/chrome/browser/subscription_eligibility/model/subscription_eligibility_service_factory.h"
 #import "ios/chrome/browser/supervised_user/model/supervised_user_service_factory.h"
 #import "ios/chrome/browser/sync/model/sync_service_factory.h"
 #import "ios/chrome/browser/url_loading/model/url_loading_browser_agent.h"
@@ -336,6 +336,7 @@ NSString* const kPreferredContentSizeKey = @"preferredContentSize";
   mediator.pictureInPictureHandler = HandlerForProtocol(
       mainBrowser->GetCommandDispatcher(), PictureInPictureCommands);
   mediator.webStateList = browser->GetWebStateList();
+  mediator.sceneState = sceneState;
   mediator.navigationAgent = WebNavigationBrowserAgent::FromBrowser(browser);
   mediator.baseViewController = self.baseViewController;
   mediator.bookmarkModel = ios::BookmarkModelFactory::GetForProfile(profile);
@@ -373,6 +374,8 @@ NSString* const kPreferredContentSizeKey = @"preferredContentSize";
       IdentityManagerFactory::GetForProfile(profile->GetOriginalProfile());
   mediator.identityAvatarProvider =
       GetApplicationContext()->GetIdentityAvatarProvider();
+  mediator.subscriptionEligibilityService =
+      SubscriptionEligibilityServiceFactory::GetForProfile(profile);
   mediator.tabBasedIPHBrowserAgent =
       TabBasedIPHBrowserAgent::FromBrowser(browser);
   mediator.hasSettingsBlueDot =

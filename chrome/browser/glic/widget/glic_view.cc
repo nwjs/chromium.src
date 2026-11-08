@@ -7,6 +7,7 @@
 #include "base/command_line.h"
 #include "base/metrics/user_metrics.h"
 #include "chrome/browser/file_select_helper.h"
+#include "chrome/browser/glic/host/guest_util.h"
 #include "chrome/browser/glic/public/features.h"
 #include "chrome/browser/glic/public/glic_keyed_service.h"
 #include "chrome/browser/glic/public/glic_keyed_service_factory.h"
@@ -94,13 +95,15 @@ bool GlicView::CanDragEnter(content::WebContents* source,
   if (!base::FeatureList::IsEnabled(features::kGlicDragAndDropFileUpload)) {
     return false;
   }
-  // Check for local files, URLs, or image contents.
+  // Check for local files or in-memory web image/file contents.
+  // TODO(crbug.com/567183211): Temporarily reject non-file web drags (such as
+  // text and links) until extended drag-and-drop payload types are supported.
   bool has_files = !data.filenames.empty() || !data.file_system_files.empty();
-  bool has_web_data = !data.url_infos.empty() || !data.file_contents.empty();
+  bool has_file_contents = !data.file_contents.empty();
 
   return has_files ||
-         (has_web_data && base::FeatureList::IsEnabled(
-                              features::kGlicWebDragAndDropFileUpload));
+         (has_file_contents && base::FeatureList::IsEnabled(
+                                   features::kGlicWebDragAndDropFileUpload));
 }
 
 void GlicView::ContentsZoomChange(bool zoom_in) {
@@ -166,6 +169,15 @@ void GlicView::DraggableRegionsChanged(
   // glic web app,
   const bool is_webview_contents = web_contents() != contents;
   SetDraggableRegion(sk_region, /*for_webview=*/is_webview_contents);
+}
+
+bool GlicView::HandleWindowCreation(
+    content::RenderFrameHost* opener,
+    const GURL& target_url,
+    WindowOpenDisposition disposition,
+    const blink::mojom::WindowFeatures& features) {
+  return MaybeHandleGlicWindowCreation(opener, target_url, disposition,
+                                       features);
 }
 
 bool GlicView::IsPointWithinDraggableRegion(const gfx::Point& point) {

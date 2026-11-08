@@ -28,9 +28,12 @@
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/frame/settings.h"
 #include "third_party/blink/renderer/core/geometry/dom_rect.h"
+#include "third_party/blink/renderer/core/html/html_head_element.h"
 #include "third_party/blink/renderer/core/html/media/html_media_element.h"
 #include "third_party/blink/renderer/core/html/media/html_video_element.h"
 #include "third_party/blink/renderer/core/html/shadow/shadow_element_names.h"
+#include "third_party/blink/renderer/core/html/track/text_track.h"
+#include "third_party/blink/renderer/core/html/track/vtt/vtt_cue.h"
 #include "third_party/blink/renderer/core/html_names.h"
 #include "third_party/blink/renderer/core/input/event_handler.h"
 #include "third_party/blink/renderer/core/layout/layout_object.h"
@@ -1616,6 +1619,55 @@ TEST_F(MediaControlsImplTest, DoubleTouchChangesTimeWhenZoomed) {
   EXPECT_EQ(30, MediaControls().MediaElement().currentTime());
 }
 
+TEST_F(MediaControlsImplTest, TimelineDoesNotSeekWhenNotSeekable) {
+  double duration = 60;
+  LoadMediaWithDuration(duration);
+  EnsureSizing();
+  MediaControls().MediaElement().setCurrentTime(30);
+  test::RunPendingTasks();
+  ASSERT_EQ(30, MediaControls().MediaElement().currentTime());
+
+  // Non-seekable finite streaming media returns [0.0, 0.0].
+  WebMediaPlayer()->seekable_ = WebTimeRanges(0.0, 0.0);
+
+  MediaControlTimelineElement* timeline = TimelineElement();
+  timeline->setValueAsNumber(15, ASSERT_NO_EXCEPTION);
+  timeline->DispatchInputEvent();
+  EXPECT_EQ(30, MediaControls().MediaElement().currentTime());
+
+  timeline->setValueAsNumber(0, ASSERT_NO_EXCEPTION);
+  timeline->DispatchInputEvent();
+  EXPECT_EQ(30, MediaControls().MediaElement().currentTime());
+}
+
+TEST_F(MediaControlsImplTest, DoubleTouchDoesNotChangeTimeWhenNotSeekable) {
+  double duration = 60;
+  LoadMediaWithDuration(duration);
+  EnsureSizing();
+  MediaControls().MediaElement().setCurrentTime(5);
+  test::RunPendingTasks();
+  ASSERT_EQ(5, MediaControls().MediaElement().currentTime());
+
+  // Non-seekable finite streaming media returns [0.0, 0.0].
+  WebMediaPlayer()->seekable_ = WebTimeRanges(0.0, 0.0);
+
+  DOMRect* videoRect = MediaControls().MediaElement().GetBoundingClientRect();
+  ASSERT_LT(0, videoRect->width());
+  gfx::PointF leftOfCenter(videoRect->left() + (videoRect->width() / 2) - 5,
+                           videoRect->top() + 5);
+  gfx::PointF rightOfCenter(videoRect->left() + (videoRect->width() / 2) + 5,
+                            videoRect->top() + 5);
+
+  // Double-tapping left at t=5s clamps to 0.0, which must still be ignored.
+  GestureDoubleTapAt(leftOfCenter);
+  test::RunPendingTasks();
+  EXPECT_EQ(5, MediaControls().MediaElement().currentTime());
+
+  GestureDoubleTapAt(rightOfCenter);
+  test::RunPendingTasks();
+  EXPECT_EQ(5, MediaControls().MediaElement().currentTime());
+}
+
 TEST_F(MediaControlsImplTest, HideControlsDefersStyleCalculationOnPlaying) {
   MediaControls().MediaElement().SetBooleanAttribute(html_names::kControlsAttr,
                                                      false);
@@ -1856,6 +1908,177 @@ TEST_F(MediaControlsImplTest, InterstitialFontFamilyIsGeneric) {
 
   EXPECT_TRUE(found_interstitial_message);
   EXPECT_TRUE(found_toast_message);
+}
+
+TEST_F(MediaControlsImplTest, TextTrackElementsAreReadOnly) {
+  GetDocument().head()->SetInnerHTMLWithoutTrustedTypes(R"HTML(
+    <style>
+      video::-webkit-media-text-track-container,
+      video::-webkit-media-text-track-region,
+      video::-webkit-media-text-track-region-container,
+      video::-webkit-media-text-track-display {
+        -webkit-user-modify: read-write;
+      }
+    </style>
+  )HTML");
+
+  auto& video = To<HTMLVideoElement>(*QuerySelector("video"));
+  LoadMediaWithDuration(10.0);
+  SetReady();
+  video.setCurrentTime(0.5);
+
+  TextTrack* track = video.addTextTrack(
+      V8TextTrackKind(V8TextTrackKind::Enum::kSubtitles), AtomicString("sub"),
+      AtomicString("en"), ASSERT_NO_EXCEPTION);
+  track->SetModeEnum(TextTrackMode::kShowing);
+
+  auto* cue = VTTCue::Create(GetDocument(), 0.0, 2.0, "cue text");
+  track->addCue(cue);
+  UpdateAllLifecyclePhasesForTest();
+
+  ShadowRoot* shadow_root = video.UserAgentShadowRoot();
+  ASSERT_TRUE(shadow_root);
+
+  Element* container = GetElementByShadowPseudoId(
+      *shadow_root, "-webkit-media-text-track-container");
+  ASSERT_TRUE(container);
+  auto* region = MakeGarbageCollected<HTMLDivElement>(GetDocument());
+  region->SetShadowPseudoId(AtomicString("-webkit-media-text-track-region"));
+  auto* region_container = MakeGarbageCollected<HTMLDivElement>(GetDocument());
+  region_container->SetShadowPseudoId(
+      AtomicString("-webkit-media-text-track-region-container"));
+  region->AppendChild(region_container);
+  container->AppendChild(region);
+  UpdateAllLifecyclePhasesForTest();
+
+  for (const char* pseudo_id :
+       {"-webkit-media-text-track-container", "-webkit-media-text-track-region",
+        "-webkit-media-text-track-region-container",
+        "-webkit-media-text-track-display"}) {
+    Element* element = GetElementByShadowPseudoId(*shadow_root, pseudo_id);
+    ASSERT_TRUE(element) << pseudo_id;
+    ASSERT_TRUE(element->GetComputedStyle()) << pseudo_id;
+    EXPECT_EQ(element->GetComputedStyle()->UsedUserModify(),
+              EUserModify::kReadOnly)
+        << pseudo_id;
+    EXPECT_FALSE(element->IsFocusable()) << pseudo_id;
+  }
+}
+
+TEST_F(MediaControlsImplTest, MediaControlElementsAreReadOnly) {
+  GetDocument().head()->SetInnerHTMLWithoutTrustedTypes(R"HTML(
+    <style>
+      audio::-webkit-media-controls,
+      video::-webkit-media-controls,
+      audio::-webkit-media-controls-enclosure,
+      video::-webkit-media-controls-enclosure,
+      audio::-webkit-media-controls-panel,
+      video::-webkit-media-controls-panel,
+      audio::-webkit-media-controls-overlay-enclosure,
+      video::-webkit-media-controls-overlay-enclosure,
+      video::-webkit-media-controls-overlay-play-button,
+      audio::-webkit-media-controls-play-button,
+      video::-webkit-media-controls-play-button,
+      audio::-webkit-media-controls-mute-button,
+      video::-webkit-media-controls-mute-button,
+      audio::-webkit-media-controls-fullscreen-button,
+      video::-webkit-media-controls-fullscreen-button,
+      audio::-webkit-media-controls-toggle-closed-captions-button,
+      video::-webkit-media-controls-toggle-closed-captions-button,
+      audio::-webkit-media-controls-timeline,
+      video::-webkit-media-controls-timeline,
+      audio::-webkit-media-controls-volume-control-container,
+      video::-webkit-media-controls-volume-control-container,
+      audio::-webkit-media-controls-volume-control-hover-background,
+      video::-webkit-media-controls-volume-control-hover-background,
+      audio::-webkit-media-controls-volume-slider,
+      video::-webkit-media-controls-volume-slider,
+      audio::-webkit-media-controls-current-time-display,
+      video::-webkit-media-controls-current-time-display,
+      audio::-webkit-media-controls-time-remaining-display,
+      video::-webkit-media-controls-time-remaining-display,
+      audio::-webkit-media-text-track-container,
+      audio::-internal-media-controls-overlay-cast-button,
+      video::-internal-media-controls-overlay-cast-button {
+        -webkit-user-modify: read-write;
+      }
+    </style>
+  )HTML");
+
+  GetDocument().body()->AppendChild(
+      GetDocument().CreateRawElement(html_names::kAudioTag));
+  auto& audio = To<HTMLMediaElement>(*QuerySelector("audio"));
+  audio.SetBooleanAttribute(html_names::kControlsAttr, true);
+  audio.UpdateTextTrackDisplay();
+
+  LoadMediaWithDuration(10.0);
+  SetReady();
+  UpdateAllLifecyclePhasesForTest();
+
+  ShadowRoot* video_shadow_root =
+      MediaControls().MediaElement().UserAgentShadowRoot();
+  ASSERT_TRUE(video_shadow_root);
+
+  for (const char* pseudo_id :
+       {"-webkit-media-controls", "-webkit-media-controls-enclosure",
+        "-webkit-media-controls-panel",
+        "-webkit-media-controls-overlay-enclosure",
+        "-webkit-media-controls-volume-control-container",
+        "-webkit-media-controls-volume-control-hover-background",
+        "-webkit-media-controls-current-time-display",
+        "-webkit-media-controls-time-remaining-display"}) {
+    Element* element =
+        GetElementByShadowPseudoId(*video_shadow_root, pseudo_id);
+    ASSERT_TRUE(element) << pseudo_id;
+    const ComputedStyle* style = element->EnsureComputedStyle();
+    ASSERT_TRUE(style) << pseudo_id;
+    EXPECT_EQ(style->UsedUserModify(), EUserModify::kReadOnly) << pseudo_id;
+    EXPECT_FALSE(element->IsFocusable()) << pseudo_id;
+  }
+
+  for (const char* pseudo_id :
+       {"-webkit-media-controls-overlay-play-button",
+        "-webkit-media-controls-play-button",
+        "-webkit-media-controls-mute-button",
+        "-webkit-media-controls-fullscreen-button",
+        "-webkit-media-controls-toggle-closed-captions-button",
+        "-webkit-media-controls-timeline",
+        "-webkit-media-controls-volume-slider",
+        "-internal-media-controls-overlay-cast-button"}) {
+    Element* element =
+        GetElementByShadowPseudoId(*video_shadow_root, pseudo_id);
+    ASSERT_TRUE(element) << pseudo_id;
+    const ComputedStyle* style = element->EnsureComputedStyle();
+    ASSERT_TRUE(style) << pseudo_id;
+    EXPECT_EQ(style->UsedUserModify(), EUserModify::kReadOnly) << pseudo_id;
+  }
+
+  ShadowRoot* audio_shadow_root = audio.UserAgentShadowRoot();
+  ASSERT_TRUE(audio_shadow_root);
+
+  for (const char* pseudo_id :
+       {"-webkit-media-controls", "-webkit-media-controls-enclosure",
+        "-webkit-media-controls-panel",
+        "-webkit-media-controls-overlay-enclosure",
+        "-webkit-media-controls-play-button",
+        "-webkit-media-controls-mute-button",
+        "-webkit-media-controls-fullscreen-button",
+        "-webkit-media-controls-toggle-closed-captions-button",
+        "-webkit-media-controls-timeline",
+        "-webkit-media-controls-volume-control-container",
+        "-webkit-media-controls-volume-control-hover-background",
+        "-webkit-media-controls-volume-slider",
+        "-webkit-media-controls-current-time-display",
+        "-webkit-media-controls-time-remaining-display",
+        "-webkit-media-text-track-container",
+        "-internal-media-controls-overlay-cast-button"}) {
+    Element* element =
+        GetElementByShadowPseudoId(*audio_shadow_root, pseudo_id);
+    ASSERT_TRUE(element) << pseudo_id;
+    const ComputedStyle* style = element->EnsureComputedStyle();
+    ASSERT_TRUE(style) << pseudo_id;
+    EXPECT_EQ(style->UsedUserModify(), EUserModify::kReadOnly) << pseudo_id;
+  }
 }
 
 }  // namespace blink

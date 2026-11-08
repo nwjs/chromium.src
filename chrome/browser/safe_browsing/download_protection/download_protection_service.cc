@@ -514,9 +514,6 @@ void DownloadProtectionService::ReportSensitiveFileBypassEnterpriseEvent(
     const google::protobuf::RepeatedPtrField<ReferrerChainEntry>&
         referrer_chain,
     const google::protobuf::RepeatedPtrField<std::string>& frame_urls) {
-  if (!IsDeepScanningEnabled()) {
-    return;
-  }
   auto* reporting_event_router =
       enterprise_connectors::ReportingEventRouterFactory::GetForBrowserContext(
           profile);
@@ -529,7 +526,7 @@ void DownloadProtectionService::ReportSensitiveFileBypassEnterpriseEvent(
       item->GetURL(), item->GetTabUrl(), /*source=*/"",
       /*destination=*/"", metadata.filename, metadata.sha256,
       metadata.mime_type,
-      enterprise_connectors::kFileDownloadDataTransferEventTrigger,
+      enterprise_connectors::DataTransferEventTrigger::FILE_DOWNLOAD,
       metadata.scan_response.request_token(),
       /*content_transfer_method=*/"", /*source_email=*/"",
       info.GetContentAreaAccountEmail(),
@@ -544,9 +541,6 @@ void DownloadProtectionService::ReportDangerousDownloadOpenedEnterpriseEvent(
     const google::protobuf::RepeatedPtrField<ReferrerChainEntry>&
         referrer_chain,
     const google::protobuf::RepeatedPtrField<std::string>& frame_urls) {
-  if (!IsDeepScanningEnabled()) {
-    return;
-  }
   enterprise_connectors::ReportingEventRouter* reporting_event_router =
       enterprise_connectors::ReportingEventRouterFactory::GetForBrowserContext(
           profile);
@@ -557,7 +551,7 @@ void DownloadProtectionService::ReportDangerousDownloadOpenedEnterpriseEvent(
   reporting_event_router->OnDangerousDownloadEvent(
       item->GetURL(), item->GetTabUrl(), metadata.filename, metadata.sha256,
       item->GetDangerType(), metadata.mime_type,
-      enterprise_connectors::kFileDownloadDataTransferEventTrigger,
+      enterprise_connectors::DataTransferEventTrigger::FILE_DOWNLOAD,
       metadata.scan_response.request_token(), metadata.size, referrer_chain,
       frame_urls, enterprise_connectors::EventResult::BYPASSED);
 }
@@ -568,9 +562,6 @@ void DownloadProtectionService::ReportDangerousDownloadOpenedEnterpriseEvent(
     const google::protobuf::RepeatedPtrField<ReferrerChainEntry>&
         referrer_chain,
     const google::protobuf::RepeatedPtrField<std::string>& frame_urls) {
-  if (!IsDeepScanningEnabled()) {
-    return;
-  }
   enterprise_connectors::ReportingEventRouter* reporting_event_router =
       enterprise_connectors::ReportingEventRouterFactory::GetForBrowserContext(
           profile);
@@ -583,7 +574,7 @@ void DownloadProtectionService::ReportDangerousDownloadOpenedEnterpriseEvent(
       item->GetTargetFilePath().AsUTF8Unsafe(),
       base::HexEncode(item->GetHash()), item->GetDangerType(),
       item->GetMimeType(),
-      enterprise_connectors::kFileDownloadDataTransferEventTrigger,
+      enterprise_connectors::DataTransferEventTrigger::FILE_DOWNLOAD,
       /*scan_id*/ "", item->GetTotalBytes(), referrer_chain, frame_urls,
       enterprise_connectors::EventResult::BYPASSED);
 }

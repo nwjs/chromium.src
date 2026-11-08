@@ -43,6 +43,9 @@ unit tests (`chrome_public_unit_test_apk`), follow these key rules:
    (such as `CurrencyFormatter` in `PriceUtils.formatPrice`) that cannot be
    mocked, place it in `chrome_public_unit_test_apk` (`unit_device_javatests`)
    instead of `chrome_junit_tests`.
+4. **Do not mock `android.view.View`, or `Activity` (or subclasses)**. Use
+   `//agents/skills/android-do-not-mock/SKILL.md` for examples of how to write
+   tests without mocking them.
 
 ______________________________________________________________________
 
@@ -62,7 +65,10 @@ ______________________________________________________________________
 3. **Clean Up Annotations:** Remove `@Batch(...)` and `@UiThreadTest`.
 4. **Simplify Threading & Mocks:** Replace complex calls like
    `ThreadUtils.runOnUiThreadBlocking(() -> Mockito.mock(...))` with direct
-   Mockito initialization: `Mockito.mock(...)`.
+   initialization, and replace `@Mock` `View`/`ViewGroup`/`TextView` fields with
+   real Robolectric views
+   (`new View(ApplicationProvider.getApplicationContext())`) or narrow
+   interfaces.
 5. **Update `BUILD.gn`:** Move the test source out of the `javatests` target
    into a `robolectric_library("junit")` target:
    ```gn

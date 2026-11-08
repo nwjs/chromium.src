@@ -22,6 +22,7 @@
 #include "chrome/test/base/chrome_render_view_host_test_harness.h"
 #include "chrome/test/base/testing_profile.h"
 #include "content/public/browser/navigation_controller.h"
+#include "content/public/browser/visibility.h"
 #include "content/public/test/browser_task_environment.h"
 #include "content/public/test/browser_test_utils.h"
 #include "content/public/test/web_contents_tester.h"
@@ -72,7 +73,7 @@ class WebUIContentsPreloadManagerTest : public ChromeRenderViewHostTestHarness {
   }
   void TearDown() override {
     test_memory_consumer_registry_.NotifyUpdateMemoryLimit(
-        base::MemoryConsumer::kDefaultMemoryLimit);
+        base::MemoryLimit::Default());
     preload_candidate_selector_ = nullptr;
     // The mock object does not expect itself to leak outside of the test.
     // Clearing it from the preload manager to destroy it.
@@ -125,7 +126,8 @@ TEST_F(WebUIContentsPreloadManagerTest, PreloadedContentsIsNotNullAfterWarmup) {
 TEST_F(WebUIContentsPreloadManagerTest, NoPreloadUnderHeavyMemoryPressure) {
   // Don't preload if the memory pressure is moderate or higher.
   preload_manager();
-  test_memory_consumer_registry_.NotifyUpdateMemoryLimit(50);
+  test_memory_consumer_registry_.NotifyUpdateMemoryLimit(
+      base::MemoryLimit::FromPercent(50));
   std::unique_ptr<content::BrowserContext> browser_context =
       std::make_unique<TestingProfile>();
   test_api().MaybePreloadForBrowserContext(browser_context.get());
@@ -291,6 +293,30 @@ TEST_F(WebUIContentsPreloadManagerTest, IsReadyToShow) {
   // `is_ready_to_show` should be true after ShowUI() call.
   result = preload_manager()->Request(preloaded_url, browser_context.get());
   EXPECT_TRUE(result.is_ready_to_show);
+}
+
+// The preloaded contents loads visible, then hides once it's ready to show so
+// that it doesn't keep the shared top-chrome renderer at foreground priority.
+TEST_F(WebUIContentsPreloadManagerTest, HidesPreloadedContentsWhenReadyToShow) {
+  base::test::ScopedFeatureList feature_list{
+      features::kPreloadTopChromeWebUIHideWhenReady};
+  std::unique_ptr<content::BrowserContext> browser_context =
+      std::make_unique<TestingProfile>();
+  test_api().MaybePreloadForBrowserContext(browser_context.get());
+  FastForwardToTriggerPreload();
+  content::WebContents* preloaded_web_contents =
+      preload_manager()->preloaded_web_contents();
+  ASSERT_NE(preloaded_web_contents, nullptr);
+  EXPECT_EQ(preloaded_web_contents->GetVisibility(),
+            content::Visibility::VISIBLE);
+
+  auto* webui_controller = static_cast<TopChromeWebUIController*>(
+      preloaded_web_contents->GetWebUI()->GetController());
+  ASSERT_NE(webui_controller, nullptr);
+  webui_controller->embedder()->ShowUI();
+
+  EXPECT_EQ(preloaded_web_contents->GetVisibility(),
+            content::Visibility::HIDDEN);
 }
 
 // Regression test for crbug.com/329954901.

@@ -38,8 +38,6 @@ static_library("net") {
     "xdr_manager.h",
   ]
 
-  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
-
   deps = [
     "//ash/public/cpp",
     "//base",
@@ -128,6 +126,7 @@ source_set("unit_tests") {
     "//chrome/browser/ash/net/rollback_network_config:unit_tests",
     "//chrome/browser/ash/policy/core:test_support",
     "//chrome/browser/ash/settings:test_support",
+    "//chrome/browser/net",
     "//chrome/browser/prefs",
     "//chrome/test:test_support",
     "//chrome/test/base:testing_browser_process",

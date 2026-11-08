@@ -14,39 +14,21 @@ if (is_android) {
 
 assert(is_win || is_mac || is_linux || is_chromeos || is_android)
 
-if (is_android) {
-  java_cpp_enum("autofill_ai_ui_java_enums") {
-    sources = [ "autofill_ai/entity_attribute_update_details.h" ]
-  }
-}
-
 source_set("bubble_controller_base") {
   public = [ "bubble_controller_base.h" ]
   public_deps = [ "//base" ]
 }
 
+# TODO(crbug.com/353332589): Remove these forwarding targets after updating
+# callers.
 source_set("autofill_ai_ui_utils") {
-  sources = [
-    "autofill_ai/autofill_ai_import_string_utils.h",
-    "autofill_ai/entity_attribute_update_details.h",
-  ]
-  public_deps = [
-    "//components/autofill/core/browser",
-    "//ui/base",
-  ]
+  public_deps =
+      [ "//chrome/browser/ui/autofill/autofill_ai:autofill_ai_ui_utils" ]
 }
 
 source_set("autofill_ai_ui_utils_impl") {
-  sources = [
-    "autofill_ai/autofill_ai_import_string_utils.cc",
-    "autofill_ai/entity_attribute_update_details.cc",
-  ]
-  public_deps = [
-    ":autofill_ai_ui_utils",
-    "//components/autofill/core/browser",
-    "//components/strings:components_strings_grit",
-    "//ui/base",
-  ]
+  public_deps =
+      [ "//chrome/browser/ui/autofill/autofill_ai:autofill_ai_ui_utils_impl" ]
 }
 
 source_set("autofill") {
@@ -56,6 +38,7 @@ source_set("autofill") {
     "autofill_bubble_handler.h",
     "autofill_client_provider.h",
     "autofill_client_provider_factory.h",
+    "autofill_context_menu_utils.h",
     "autofill_popup_controller.h",
     "autofill_popup_hide_helper.h",
     "autofill_popup_view.h",
@@ -113,6 +96,7 @@ source_set("autofill") {
       "autofill_snackbar_controller_impl.h",
       "autofill_snackbar_type.h",
       "autofill_snackbar_view.h",
+      "autofill_tapjacking_protector_impl.h",
     ]
     public_deps += [
       "//components/autofill/android:autofill_core_browser_java_enums",
@@ -126,8 +110,6 @@ source_set("autofill") {
       "address_bubbles_controller.h",
       "address_bubbles_icon_controller.h",
       "address_editor_controller.h",
-      "autofill_ai/autofill_ai_import_data_controller.h",
-      "autofill_ai/autofill_ai_import_data_controller_impl.h",
       "autofill_context_menu_manager.h",
       "autofill_field_promo_controller.h",
       "autofill_field_promo_controller_impl.h",
@@ -141,10 +123,12 @@ source_set("autofill") {
       "edit_address_profile_dialog_controller.h",
       "edit_address_profile_dialog_controller_impl.h",
       "edit_address_profile_view.h",
+      "one_time_tokens/gmail_otp_opt_in_bubble_controller.h",
       "save_address_bubble_controller.h",
       "update_address_bubble_controller.h",
     ]
     public_deps += [
+      "//chrome/browser/ui/autofill/autofill_ai",
       "//components/autofill/core/browser",
       "//components/password_manager/core/browser",
       "//components/password_manager/core/browser:password_form",
@@ -152,6 +136,7 @@ source_set("autofill") {
       "//components/user_education/common",
       "//third_party/abseil-cpp:absl",
       "//ui/base/interaction",
+      "//ui/base/unowned_user_data",
       "//ui/menus",
       "//ui/views",
     ]
@@ -173,6 +158,7 @@ source_set("impl") {
     "autofill_bubble_handler.cc",
     "autofill_client_provider.cc",
     "autofill_client_provider_factory.cc",
+    "autofill_context_menu_utils.cc",
     "autofill_popup_hide_helper.cc",
     "autofill_suggestion_controller.cc",
     "autofill_suggestion_controller_utils.cc",
@@ -184,8 +170,6 @@ source_set("impl") {
     "popup_controller_common.cc",
     "risk_util.cc",
   ]
-
-  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
 
   deps = [
     ":autofill",
@@ -266,6 +250,7 @@ source_set("impl") {
       "autofill_message_controller_impl.cc",
       "autofill_message_model.cc",
       "autofill_snackbar_controller_impl.cc",
+      "autofill_tapjacking_protector_impl.cc",
     ]
     deps += [
       "//chrome/browser/autofill/android:jni_headers",
@@ -283,7 +268,6 @@ source_set("impl") {
       "address_bubbles_controller.cc",
       "address_bubbles_icon_controller.cc",
       "address_editor_controller.cc",
-      "autofill_ai/autofill_ai_import_data_controller_impl.cc",
       "autofill_context_menu_manager.cc",
       "autofill_field_promo_controller_impl.cc",
       "autofill_popup_controller_impl.cc",
@@ -291,6 +275,7 @@ source_set("impl") {
       "bubble_manager_impl.cc",
       "delete_address_profile_dialog_controller_impl.cc",
       "edit_address_profile_dialog_controller_impl.cc",
+      "one_time_tokens/gmail_otp_opt_in_bubble_controller.cc",
       "save_address_bubble_controller.cc",
       "update_address_bubble_controller.cc",
     ]
@@ -305,6 +290,7 @@ source_set("impl") {
       "//chrome/browser/ui:browser_commands",
       "//chrome/browser/ui:chrome_pages",
       "//chrome/browser/ui:singleton_tabs",
+      "//chrome/browser/ui/autofill/autofill_ai:impl",
       "//chrome/browser/ui/autofill/email_verifier",
       "//chrome/browser/ui/autofill/email_verifier:impl",
       "//chrome/browser/ui/browser_window",
@@ -314,8 +300,11 @@ source_set("impl") {
       "//chrome/browser/ui/toasts/api:toasts",
       "//chrome/browser/ui/user_education",
       "//chrome/browser/ui/views/autofill/autofill_ai",
+      "//chrome/browser/ui/views/autofill/one_time_tokens",
       "//chrome/browser/ui/views/autofill/popup:popup_view_views",
       "//chrome/browser/ui/views/autofill/popup/email_verifier",
+      "//chrome/browser/ui/views/frame:toolbar_button_provider",
+      "//chrome/browser/ui/views/location_bar",
       "//chrome/browser/ui/webauthn",
       "//chrome/browser/ui/webui/signin:login_ui_service",
       "//components/autofill/core/browser",
@@ -345,7 +334,6 @@ source_set("impl") {
 source_set("unit_tests") {
   testonly = true
   sources = [
-    "autofill_ai/autofill_ai_import_string_utils_unittest.cc",
     "autofill_ai/entity_attribute_update_details_unittest.cc",
     "autofill_client_provider_unittest.cc",
     "autofill_suggestion_controller_unittest.cc",
@@ -425,6 +413,7 @@ source_set("unit_tests") {
       "autofill_message_controller_impl_unittest.cc",
       "autofill_message_model_unittest.cc",
       "autofill_snackbar_controller_impl_unittest.cc",
+      "autofill_tapjacking_protector_impl_unittest.cc",
     ]
     deps += [
       "//chrome/browser/autofill/android:jni_test_headers",
@@ -440,6 +429,7 @@ source_set("unit_tests") {
       "autofill_popup_controller_impl_unittest.cc",
       "bubble_manager_impl_unittest.cc",
       "edit_address_profile_dialog_controller_impl_unittest.cc",
+      "one_time_tokens/gmail_otp_opt_in_bubble_controller_unittest.cc",
       "save_address_bubble_controller_unittest.cc",
       "update_address_bubble_controller_unittest.cc",
     ]
@@ -450,6 +440,7 @@ source_set("unit_tests") {
       "//chrome/browser/ui/user_education",
       "//chrome/test/user_education:impl",
       "//components/tabs:test_support",
+      "//ui/base/unowned_user_data",
     ]
   }
 
@@ -501,6 +492,7 @@ source_set("test_support") {
       sources += [ "autofill_popup_controller_impl_mac_test_api.h" ]
     }
     public_deps += [
+      "//chrome/browser/ui/autofill/autofill_ai",
       "//chrome/browser/ui/autofill/email_verifier",
       "//ui/gfx:test_support",
     ]
@@ -524,12 +516,12 @@ if (!is_android && !is_chromeos_device) {
       "//chrome/browser/profiles:profile",
       "//chrome/browser/sync",
       "//chrome/browser/sync:factories",
-      "//chrome/browser/ui",
       "//chrome/browser/ui:browser_window_header",
       "//chrome/browser/ui:ui_features",
       "//chrome/browser/ui/browser_web_contents_delegate",
       "//chrome/browser/ui/browser_window",
       "//chrome/browser/ui/user_education",
+      "//chrome/browser/ui/webui/feedback",
       "//chrome/common:constants",
       "//chrome/test:test_support",
       "//chrome/test:test_support_ui",
@@ -646,8 +638,9 @@ if (!is_android) {
       "//chrome/browser/signin",
       "//chrome/browser/signin:signin_browser_test_base",
       "//chrome/browser/sync",
-      "//chrome/browser/ui",
       "//chrome/browser/ui:chrome_pages",
+      "//chrome/browser/ui/autofill/autofill_ai",
+      "//chrome/browser/ui/autofill/autofill_ai:impl",
       "//chrome/browser/ui/autofill/email_verifier",
       "//chrome/browser/ui/browser_window",
       "//chrome/browser/ui/hats:test_support",

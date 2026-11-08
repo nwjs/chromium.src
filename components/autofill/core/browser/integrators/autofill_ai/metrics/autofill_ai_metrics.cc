@@ -39,6 +39,19 @@ void LogOptInFunnelEvent(AutofillAiOptInFunnelEvents event) {
   base::UmaHistogramEnumeration("Autofill.Ai.OptIn.Funnel", event);
 }
 
+void LogWalletNoticeFunnelEvent(AutofillAiWalletNoticeFunnelEvents event,
+                                bool in_settings) {
+  base::UmaHistogramEnumeration(in_settings
+                                    ? "Autofill.Ai.WalletNotice.Settings.Funnel"
+                                    : "Autofill.Ai.WalletNotice.Save.Funnel",
+                                event);
+}
+
+void LogUpsertDetailsCacheStatus(AutofillAiUpsertDetailsCacheStatus status) {
+  base::UmaHistogramEnumeration("Autofill.Ai.WalletNotice.Settings.CacheStatus",
+                                status);
+}
+
 void LogLocalEntitiesDeduplicationMetrics(
     const base::flat_map<EntityType, size_t>&
         local_entities_considered_for_deduplication_per_type,

@@ -141,6 +141,8 @@ const CGFloat kCloseButtonPadding = 16.0f;
   UIButton* _closeButton;
   // Top constraints for the table view.
   NSLayoutConstraint* _constraintTableToCloseButton;
+  // The additional vertical insets for the content of the popup.
+  UIEdgeInsets _additionalVerticalContentInset;
 }
 
 @synthesize omniboxGuide = _omniboxGuide;
@@ -175,17 +177,8 @@ const CGFloat kCloseButtonPadding = 16.0f;
 // Sets the additional vertical content inset for the suggestion list.
 - (void)setAdditionalVerticalContentInset:
     (UIEdgeInsets)additionalVerticalContentInset {
-  CGFloat bottomInset = additionalVerticalContentInset.bottom;
-  if (ShouldApplyOmniboxPopoutLayout(self)) {
-    bottomInset += kBottomPadding;
-  }
-  self.tableView.contentInset = UIEdgeInsetsMake(
-      kOmniboxPopupTopPadding + additionalVerticalContentInset.top, 0,
-      bottomInset, 0);
-  [self.tableView
-      setContentOffset:CGPointMake(0, -self.tableView.contentInset.top)
-              animated:YES];
-  self.shouldUpdateVisibleSuggestionCount = YES;
+  _additionalVerticalContentInset = additionalVerticalContentInset;
+  [self updateTableViewForCurrentSizeClass];
 }
 
 - (void)toggleOmniboxDebuggerView {
@@ -690,6 +683,22 @@ const CGFloat kCloseButtonPadding = 16.0f;
 - (BOOL)tableView:(UITableView*)tableView
     shouldHighlightRowAtIndexPath:(NSIndexPath*)indexPath {
   return YES;
+}
+
+- (void)tableView:(UITableView*)tableView
+    didHighlightRowAtIndexPath:(NSIndexPath*)indexPath {
+  if (!IsOmniboxPrerenderOnTouchDownEnabled()) {
+    return;
+  }
+  NSUInteger row = indexPath.row;
+  NSUInteger section = indexPath.section;
+  if (section >= self.currentResult.count ||
+      row >= self.currentResult[section].suggestions.count) {
+    return;
+  }
+  NSInteger absoluteRow = [self absoluteRowIndexForIndexPath:indexPath];
+  [self.mutator prerenderSuggestion:[self suggestionAtIndexPath:indexPath]
+                              inRow:absoluteRow];
 }
 
 - (void)tableView:(UITableView*)tableView
@@ -1310,20 +1319,19 @@ const CGFloat kCloseButtonPadding = 16.0f;
 
 // Updates table view insets and margins based on the current size class.
 - (void)updateTableViewForCurrentSizeClass {
+  CGFloat bottomInset = _additionalVerticalContentInset.bottom;
   if (ShouldApplyOmniboxPopoutLayout(self)) {
+    bottomInset += kBottomPadding;
     self.tableView.tableFooterView =
         [[UIView alloc] initWithFrame:CGRectMake(0, 0, 0, FLT_MIN)];
-    [self.tableView setDirectionalLayoutMargins:NSDirectionalEdgeInsetsMake(
-                                                    kOmniboxPopupTopPadding, 0,
-                                                    kBottomPadding, 0)];
-    self.tableView.contentInset =
-        UIEdgeInsetsMake(kOmniboxPopupTopPadding, 0, kBottomPadding, 0);
-  } else {
-    [self.tableView setDirectionalLayoutMargins:NSDirectionalEdgeInsetsMake(
-                                                    0, 0, kBottomPadding, 0)];
-    self.tableView.contentInset =
-        UIEdgeInsetsMake(kOmniboxPopupTopPadding, 0, 0, 0);
   }
+  self.tableView.contentInset = UIEdgeInsetsMake(
+      kOmniboxPopupTopPadding + _additionalVerticalContentInset.top, 0,
+      bottomInset, 0);
+  [self.tableView
+      setContentOffset:CGPointMake(0, -self.tableView.contentInset.top)
+              animated:YES];
+  self.shouldUpdateVisibleSuggestionCount = YES;
 }
 
 // Update the view controller's background color and notifies `delegate` when a

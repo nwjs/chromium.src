@@ -30,6 +30,7 @@
 <translation id="1194807384646768652">‏Chrome نے اس ڈاؤن لوڈ کو مسدود کر دیا کیونکہ فائل کی یہ قسم عام طور پر ڈاؤن لوڈ نہیں ہوتی ہے اور یہ خطرناک ہو سکتی ہے</translation>
 <translation id="1197860368385086056">‏اگلی بار جب آپ اپنے <ph name="DEVICE_TYPE" /> پر Chrome کھولیں گے تو آپ کو قیمت کی ٹریکنگ کے الرٹس کو فعال کرنے کے لیے ایک پرامپٹ نظر آئے گا۔</translation>
 <translation id="1203500561924088507">انسٹال کرنے کا شکریہ۔ آپ کو <ph name="BUNDLE_NAME" /> استعمال کرنے سے پہلے اپنا براؤزر لازمی طور سے ری اسٹارٹ کرنا چاہیے۔</translation>
+<translation id="122321322139970942">‏ایک <ph name="IMPORTANT_UPDATE" /> زیر التواء ہے۔ اپنی براؤزنگ کو محفوظ رکھنے کے لیے، اگلی بار جب آپ <ph name="IDLE_DURATION" /> کے لیے غیر فعال ہوں گے تو Chrome اپ ڈیٹ ہو جائے گا۔</translation>
 <translation id="1226003169284463347">‏اپنے تمام آلات پر اپنے بُک مارکس اور مزید حاصل کرنے کے لیے، Chrome میں سائن ان کریں</translation>
 <translation id="1278833599417554002">‏Chrome&amp; کو اپ ڈیٹ کرنے کیلئے بند کر کے دوبارہ چلائیں</translation>
 <translation id="1289911795790071537">‏‫Chrome کے ساتھ تلاش کھولیں</translation>
@@ -202,6 +203,7 @@
 <translation id="2857540653560290388">‏Chrome شروع ہو رہا ہے…</translation>
 <translation id="286025080868315611">‏Chrome کے کچھ ڈاؤن لوڈز کو مسدود کرنے کی وجہ جانیں</translation>
 <translation id="2861074815332034794">‏Chrome اپ ڈیٹ کیا جا رہا ہے (<ph name="PROGRESS_PERCENT" />)</translation>
+<translation id="2869959624320573933">‏Chrome میں سائن ان کریں</translation>
 <translation id="2875053229394024379">‏جب آپ اپنے Google اکاؤنٹ سے Chrome میں سائن ان کرتے ہیں تو آپ Gemini کے ساتھ اپنی Chrome پروفائل استعمال کر سکتے ہیں۔ <ph name="BEGIN_LINK" />‫Chrome میں سائن ان کرنے کا طریقہ جانیں<ph name="END_LINK" /></translation>
 <translation id="2876628302275096482">‏اس بارے میں مزید جانیں کہ <ph name="BEGIN_LINK" />Chrome آپ کے ڈیٹا کو کس طرح نجی رکھتا ہے<ph name="END_LINK" /></translation>
 <translation id="2885378588091291677">ٹاسک مینیجر</translation>
@@ -302,6 +304,7 @@
 <translation id="3795971588916395511">Google ChromeOS</translation>
 <translation id="3809772425479558446">‏Google Chrome کے لیے Windows 10 یا اس کے بعد کا ورژن درکار ہے۔</translation>
 <translation id="3810973564298564668">نظم کریں</translation>
+<translation id="383455301564000773">‏‫Windows 11 میں اپ گریڈ کر رہے ہیں؟ ‫Chrome کو OneDrive میں ڈاؤن لوڈ کریں تاکہ آپ پہلے دن سے ہی تیار ہوں۔</translation>
 <translation id="383928141529488001">‏‫Google Chrome کو بلوٹوتھ آلات دریافت کرنے کے لیے بلوٹوتھ تک رسائی درکار ہے۔ <ph name="IDS_SERIAL_DEVICE_CHOOSER_AUTHORIZE_BLUETOOTH_LINK" /></translation>
 <translation id="3846683726093018685">‫**خلاصہ کریں:** 30 الفاظ سے کم والی ایک واحد سطر میں، اسکرین شاٹ میں موجود مواد کے بنیادی موضوع اور مقصد کی وضاحت کریں۔
 
@@ -328,7 +331,6 @@
 <translation id="4050175100176540509">اہم سیکیورٹی اصلاحات اور نئی خصوصیات تازہ ترین ورژن میں دستیاب ہیں۔</translation>
 <translation id="4053720452172726777">‏Google Chrome کو حسب ضرورت بنائیں اور کنٹرول کریں</translation>
 <translation id="408393047846373801">‏اپنے تمام آلات پر اپنے پاس ورڈز وغیرہ حاصل کرنے کے لیے، Chrome میں سائن ان کریں۔ آپ کے سائن ان کرنے کے بعد یہ پاس ورڈ آپ کے Google اکاؤنٹ میں محفوظ ہو جائے گا۔</translation>
-<translation id="409936259433005390">‏کیا آپ جلد ہی Windows 11 میں اپ گریڈ کر رہے ہیں؟ ‫Chrome انسٹالر کو OneDrive میں ڈاؤن لوڈ کریں تاکہ آپ پہلے دن سے ہی تیار ہوں۔</translation>
 <translation id="4102173024714616627">‏ایکسٹینشنز ایڈ آنز ہیں جو آپ کو Chrome کو حسب ضرورت بنانے دیتے ہیں۔ منظم رہنے سے لے کر روزمرہ کے کاموں کو آسان بنانے تک، ایکسٹینشنز آپ کو Chrome کو اپنا بنانے میں مدد کرتی ہیں۔</translation>
 <translation id="4110895483821904099">‏اپنی نئی Chrome پروفائل سیٹ اپ کریں</translation>
 <translation id="4111566860456076004">‏Chrome اس بات کی تصدیق نہیں کر سکتا کہ یہ ایکسٹینشن کہاں سے آتی ہے اور یہ غیر محفوظ ہو سکتی ہے۔ اسے Chrome سے ہٹا دیں تاکہ یہ ذاتی معلومات سمیت آپ کی ملاحظہ کردہ سائٹس پر آپ کا ڈیٹا مزید دیکھ اور تبدیل نہ کر سکے۔</translation>
@@ -500,12 +502,12 @@ Google Chrome آپ کی ترتیبات کو بازیافت کرنے سے قاص�
 <translation id="5899008323405946573">‏اپنے فون پر Chrome ایپ کے ساتھ Google کے بہترین AI ٹولز کا استعمال کریں</translation>
 <translation id="5903106910045431592"><ph name="PAGE_TITLE" /> - نیٹ ورک سائن ان</translation>
 <translation id="5924017743176219022">انٹرنیٹ سے منسلک کیا جا رہا ہے…</translation>
-<translation id="5925596746603389877">‏‫Chrome انسٹالر ڈاؤن لوڈ کریں</translation>
 <translation id="5940385492829620908">‏آپ کا ویب، بُک مارکس اور دیگر Chrome مواد یہاں رہتے ہیں۔</translation>
 <translation id="5941711191222866238">چھوٹا کریں</translation>
 <translation id="5941830788786076944">‏Google Chrome کو ڈیفالٹ براؤزر بنائیں</translation>
 <translation id="5947104538377036631">‏‫Chrome شارٹ کٹ</translation>
 <translation id="5960071705175224773">آپ کی ترتیبات کو ایک نامعلوم ایپ نے تبدیل کر دیا</translation>
+<translation id="5960404530854194706">‏آپ کے دور ہونے پر Chrome اپ ڈیٹ ہو جائے گا</translation>
 <translation id="5980111191913430208">‏نامعلوم ذرائع کی ایکسٹینشنز، ایپس اور تھیمز آپ کے آلے کو نقصان پہنچا سکتی ہیں۔ ‫Chrome انہیں صرف <ph name="IDS_EXTENSION_WEB_STORE_TITLE" /> سے انسٹال کرنے کا مشورہ دیتا ہے</translation>
 <translation id="6003112304606738118">ڈاؤن لوڈ ہو رہی ہے… <ph name="HOURS" /> گھنٹہ(گھنٹے) باقی ہے</translation>
 <translation id="6008161919456049856">‏آپ کے پاس ورڈز، ادائیگی کے طریقے اور پتے جو آپ نے اپنے Google اکاؤنٹ میں محفوظ کیے ہیں اس آلہ سے ہٹا دیے جائیں گے۔ انہیں Chrome میں دوبارہ استعمال کرنے کے لیے، دوبارہ سائن ان کریں۔</translation>
@@ -562,6 +564,7 @@ Google Chrome آپ کی ترتیبات کو بازیافت کرنے سے قاص�
 <translation id="6360449101159168105">‏جب یہ ٹیب غیر فعال تھا تو Chrome کو تیز رکھنے کے لیے میموری خالی کر دی گئی تھی۔ آپ اس سائٹ کو ہمیشہ غیر فعال ہونے سے خارج کرنے کا انتخاب کر سکتے ہیں۔</translation>
 <translation id="6362984640667950211">‏‫<ph name="EXISTING_USER" /> پہلے سے ہی سائن ان ہے۔ اپنی براؤزنگ کو الگ رکھنے کے لیے، اپنی پروفائل میں Chrome میں بطور <ph name="USER_EMAIL_ADDRESS" /> سائن ان کریں۔ آپ کو اپنے تمام آلات پر اپنی پڑھنے کی فہرست اور مزید چیزیں بھی مل جائیں گی۔</translation>
 <translation id="6388799252195623474">اس کے ساتھ میری مدد کریں</translation>
+<translation id="6401458660421980302">‏اس ٹیب کو کسی اور آلے میں بھیجنے کے لیے وہاں Chrome میں سائن ان کریں</translation>
 <translation id="6412673304250309937">‏Chrome میں اسٹور کردہ غیر محفوظ سائٹس کی فہرست کے URLs چیک کرتا ہے۔ اگر کوئی سائٹ آپ کا پاس ورڈ چرانے کی کوشش کرتی ہے یا جب آپ نقصان دہ فائل ڈاؤن لوڈ کرتے ہیں تو Chrome محفوظ براؤزنگ پر صفحہ کے مواد کے بائٹس سمیت URLs بھیجتا ہے۔</translation>
 <translation id="6417690341895039567">{COUNT,plural, =1{‏1 منٹ تک Chrome کا استعمال نہ ہونے پر آپ کی تنظیم خودکار طور پر Chrome کو بند کر دیتی ہے۔ براؤزنگ ڈیٹا کو حذف کر دیا جاتا ہے۔ اس میں سرگزشت، آٹو فل اور ڈاؤن لوڈز شامل ہو سکتے ہیں۔}other{‏# منٹ تک Chrome کا استعمال نہ ہونے پر آپ کی تنظیم خودکار طور پر اسے بند کر دیتی ہے۔ براؤزنگ ڈیٹا کو حذف کر دیا جاتا ہے۔ اس میں سرگزشت، آٹو فل اور ڈاؤن لوڈز شامل ہو سکتے ہیں۔}}</translation>
 <translation id="6418662306461808273">‏موجودہ Chrome پروفائل پر سوئچ کریں؟</translation>
@@ -588,8 +591,10 @@ Google Chrome آپ کی ترتیبات کو بازیافت کرنے سے قاص�
 <translation id="6556755379298048869">کی بورڈ شارٹ کٹ کے ساتھ تلاش کریں۔</translation>
 <translation id="6585124893636629274">‏‫Chrome میں Gemini کو بند کریں</translation>
 <translation id="659498884637196217">‏اس آلے پر Google پاس ورڈ مینیجر میں</translation>
+<translation id="660312897435669152">‏‫Chrome اپ ڈیٹ کرنا چاہتا ہے</translation>
 <translation id="6612152958212564387">‏آپ Google کو استعمال کے اعداد و شمار اور کریش رپورٹس نہیں بھیج رہے ہیں۔ <ph name="BEGIN_LINK" />نظم کریں<ph name="END_LINK" /></translation>
 <translation id="6613949864921837107">‏‫Chrome کو اپنے ڈیفالٹ براؤزر کے طور پر سیٹ کر کے اپنے پاس ورڈز، بُک مارکس اور سرگزشت کو آلات پر مکمل طور پر مطابقت پذیر رکھیں۔</translation>
+<translation id="6621391692573306628">‏اس ٹیب کو کسی اور آلے میں بھیجنے کے لیے دونوں آلات پر Chrome میں سائن ان کریں</translation>
 <translation id="6631524303639368205">‏جہاں آپ نے چھوڑا تھا وہیں سے جاری رکھیں: Chrome نے آپ کے آخری سیشن سے آپ کے ٹیبز کو بحال کیا۔ آپ اسے درج ذیل میں آف کر سکتے ہیں</translation>
 <translation id="6632012506031284914">‏‫Chrome کے ساتھ تلاش کرنے کے لیے۔</translation>
 <translation id="6632473616050862500">‏ChromeOS Flex کو اضافی <ph name="BEGIN_LINK_CROS_OSS" />اوپن سورس سافٹ ویئر<ph name="END_LINK_CROS_OSS" /> کے ذریعے ممکن بنایا گیا ہے۔</translation>
@@ -777,6 +782,7 @@ Google Chrome آپ کی ترتیبات کو بازیافت کرنے سے قاص�
 <translation id="8260086374035800939">‏اگر Chrome میں Gemini کھلا ہے تو نئے ٹیبز بناتے وقت سائیڈ پینل کھلا رہتا ہے</translation>
 <translation id="8267953129876836456">‏Chrome کو آپ کے جائزے کے لیے کچھ حفاظتی تجاویز ملی ہیں</translation>
 <translation id="8286862437124483331">‏Google Chrome پاس ورڈز دکھانے کی کوشش کر رہا ہے۔ اس کی اجازت دینے کیلئے اپنا Windows پاس ورڈ ٹائپ کریں۔</translation>
+<translation id="8291415872436043161">‏Chrome ڈاؤن لوڈ کریں</translation>
 <translation id="829923460755755423">‏Google پاس ورڈ مینیجر میں ایک شارٹ کٹ شامل کریں</translation>
 <translation id="8313851650939857356">اسٹارٹ کی اپ خرابی: <ph name="STARTUP_ERROR" />۔</translation>
 <translation id="8321888067342493336">بطور تصویر کے محفوظ کریں</translation>

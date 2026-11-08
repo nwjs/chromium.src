@@ -98,7 +98,8 @@ class CORE_EXPORT InspectorNetworkAgent final
   void Init(CoreProbeSink*,
             protocol::UberDispatcher*,
             InspectorSessionState*,
-            V8SessionHolder) override;
+            V8SessionHolder,
+            ClientIsTrusted) override;
 
   void Restore() override;
 
@@ -149,6 +150,7 @@ class CORE_EXPORT InspectorNetworkAgent final
                         DocumentLoader*,
                         base::TimeTicks monotonic_finish_time,
                         int64_t encoded_data_length,
+                        uint64_t encoded_body_length,
                         int64_t decoded_body_length);
   void DidReceiveCorsRedirectResponse(uint64_t identifier,
                                       DocumentLoader*,

@@ -267,6 +267,11 @@ void SetRuntimeFeaturesFromChromiumFeatures() {
           {"CompressionDictionaryTransport",
            network::features::kCompressionDictionaryTransport},
           {"CookieStoreAPIMaxAge", blink::features::kCookieStoreAPIMaxAge},
+          // Overriding kWebMCP (e.g. --enable-features=WebMCP) controls both
+          // imperative and declarative WebMCP. An explicit kDeclarativeWebMCP
+          // override still takes precedence, since it is applied afterwards by
+          // UpdateStatusFromBaseFeatures().
+          {"DeclarativeWebMCP", blink::features::kWebMCP, kSetOnlyIfOverridden},
           {"DocumentPolicyIncludeJSCallStacksInCrashReports",
            blink::features::kDocumentPolicyIncludeJSCallStacksInCrashReports,
            kSetOnlyIfOverridden},
@@ -446,6 +451,15 @@ void SetCustomizedRuntimeFeaturesFromCombinedArgs(
       // This feature is not ready for non-desktop devices. See
       // crbug.com/522529331.
       base::android::device_info::is_desktop());
+  if (base::android::device_info::is_desktop() &&
+      !base::FeatureList::GetStateIfOverridden(
+           blink::features::kWebAudioBypassOutputBuffering)
+           .has_value()) {
+    // TODO(crbug.com/436988695): Remove when the long term solution is
+    // implemented.
+    WebRuntimeFeatures::EnableFeatureFromString("WebAudioBypassOutputBuffering",
+                                                true);
+  }
 #endif
 
   // TODO(rodneyding): This is a rare case for a stable feature
@@ -469,16 +483,12 @@ void SetCustomizedRuntimeFeaturesFromCombinedArgs(
 // Ensures that the various ways of enabling/disabling features do not produce
 // an invalid configuration.
 void ResolveInvalidConfigurations() {
-  // Fenced frames cannot be enabled without the support of the
-  // browser process.
-  if ((base::FeatureList::IsEnabled(features::kPrivacySandboxAdsAPIsOverride) ||
-       base::FeatureList::IsEnabled(
-           features::kPrivacySandboxAdsAPIsM1Override)) &&
-      !base::FeatureList::IsEnabled(blink::features::kFencedFrames)) {
-    LOG_IF(WARNING, WebRuntimeFeatures::IsFencedFramesEnabled())
-        << "Fenced frames cannot be enabled in this configuration. Use --"
-        << switches::kEnableFeatures << "="
-        << blink::features::kFencedFrames.name << " instead.";
+  // Fenced frames cannot be enabled without the support of the browser
+  // process, which is gated on blink::features::kFencedFrames. The Blink
+  // runtime feature is stable (and also enabled via the Privacy Sandbox Ads
+  // APIs overrides), so force it off whenever the base::Feature is disabled,
+  // e.g. by the FencedFramesDeprecation field trial.
+  if (!base::FeatureList::IsEnabled(blink::features::kFencedFrames)) {
     WebRuntimeFeatures::EnableFencedFrames(false);
   }
 

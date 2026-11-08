@@ -11,6 +11,7 @@ source_set("coordinator") {
   ]
   deps = [
     "//components/content_settings/core/browser",
+    "//components/content_settings/core/common",
     "//components/prefs",
     "//components/search",
     "//components/search_engines",
@@ -48,7 +49,6 @@ source_set("coordinator") {
     "//ios/chrome/browser/price_insights/model",
     "//ios/chrome/browser/reader_mode/coordinator:options",
     "//ios/chrome/browser/reader_mode/model",
-    "//ios/chrome/browser/reader_mode/model:features",
     "//ios/chrome/browser/reader_mode/ui:options",
     "//ios/chrome/browser/search_engines/model:template_url_service_factory",
     "//ios/chrome/browser/shared/coordinator/chrome_coordinator",
@@ -100,6 +100,7 @@ source_set("unit_tests") {
     "//ios/chrome/browser/intelligence/features",
     "//ios/chrome/browser/intelligence/page_action_menu/ui",
     "//ios/chrome/browser/optimization_guide/model",
+    "//ios/chrome/browser/permissions/model:tab_helper",
     "//ios/chrome/browser/reader_mode/model",
     "//ios/chrome/browser/search_engines/model",
     "//ios/chrome/browser/search_engines/model:template_url_service_factory",

@@ -7,14 +7,13 @@
 
 #import <memory>
 
-#import "base/no_destructor.h"
-#import "ios/chrome/browser/shared/model/profile/profile_keyed_service_factory_ios.h"
+#import "components/device_reauth/device_authenticator_common.h"
+#import "ios/chrome/browser/shared/model/profile/typed_profile_keyed_service_factory_ios.h"
 
-class DeviceAuthenticatorProxy;
 class IOSDeviceAuthenticator;
-class ProfileIOS;
 
 namespace device_reauth {
+class DeviceAuthAvailabilityChecker;
 class DeviceAuthParams;
 }
 
@@ -22,23 +21,25 @@ class DeviceAuthParams;
 
 // Singleton that owns all DeviceAuthenticatorProxy and associates them with
 // profiles.
-class DeviceAuthenticatorProxyFactory : public ProfileKeyedServiceFactoryIOS {
+class DeviceAuthenticatorProxyFactory
+    : public TypedProfileKeyedServiceFactoryIOS<DeviceAuthenticatorProxyFactory,
+                                                DeviceAuthenticatorProxy> {
  public:
-  static DeviceAuthenticatorProxy* GetForProfile(ProfileIOS* profile);
-  static DeviceAuthenticatorProxyFactory* GetInstance();
+  DeviceAuthenticatorProxyFactory(PassKey key);
 
  private:
-  friend class base::NoDestructor<DeviceAuthenticatorProxyFactory>;
-
-  DeviceAuthenticatorProxyFactory();
-  ~DeviceAuthenticatorProxyFactory() override;
-
   // ProfileKeyedServiceFactoryIOS implementation.
   std::unique_ptr<KeyedService> BuildServiceInstanceFor(
       ProfileIOS* profile) const override;
 };
 
-// Creates an IOSDeviceAuthenticator. It is built on top of a
+// Creates an `IOSDeviceAuthAvailabilityChecker`. `reauth_module` is the
+// component that provides the device reauth functionalities.
+std::unique_ptr<device_reauth::DeviceAuthAvailabilityChecker>
+CreateIOSDeviceAuthAvailabilityChecker(
+    id<ReauthenticationProtocol> reauth_module);
+
+// Creates an `IOSDeviceAuthenticator`. It is built on top of a
 // DeviceAuthenticatorProxy. `reauth_module` is the component that provides the
 // device reauth functionalities. `profile` is the ProfileIOS the
 // underlying DeviceAuthenticatorProxy is attached to. `params` contains configs

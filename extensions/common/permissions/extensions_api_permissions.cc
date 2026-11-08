@@ -53,6 +53,7 @@ constexpr APIPermissionInfo::InitInfo permissions_to_register[] = {
     {APIPermissionID::kClipboardWrite, "clipboardWrite",
      APIPermissionInfo::kFlagSupportsContentCapabilities |
          APIPermissionInfo::kFlagDoesNotRequireManagedSessionFullLoginWarning},
+    {APIPermissionID::kCookie, "cookies"},
     {APIPermissionID::kCrashReportPrivate, "crashReportPrivate"},
     {APIPermissionID::kDeclarativeNetRequest,
      declarative_net_request::kDeclarativeNetRequestPermission,
@@ -104,7 +105,6 @@ constexpr APIPermissionInfo::InitInfo permissions_to_register[] = {
      "lockWindowFullscreenPrivate", APIPermissionInfo::kFlagCannotBeOptional},
     {APIPermissionID::kLogin, "login"},
     {APIPermissionID::kLoginScreenStorage, "loginScreenStorage"},
-    {APIPermissionID::kLoginScreenUi, "loginScreenUi"},
     {APIPermissionID::kLoginState, "loginState",
      APIPermissionInfo::kFlagDoesNotRequireManagedSessionFullLoginWarning},
     {APIPermissionID::kMediaPerceptionPrivate, "mediaPerceptionPrivate"},

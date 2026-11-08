@@ -5,6 +5,7 @@
 #include "chrome/browser/ui/fuzzy_search/fuzzy_finder.h"
 
 #include <algorithm>
+#include <functional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -47,6 +48,10 @@ constexpr int kConsecutiveBonus = 6;
 // Penalty subtracted when a character does not match (substitution / typo).
 constexpr int kTypoPenalty = -12;
 
+// Substitutions (typos) are only allowed for queries longer than this many
+// characters. Shorter queries must match exactly or via transpositions.
+constexpr size_t kMaxQueryLengthWithoutSubstitution = 3;
+
 // Penalty subtracted when two adjacent characters are transposed (e.g. "teh"
 // -> "the").
 constexpr int kSwapPenalty = -6;
@@ -67,44 +72,32 @@ constexpr double kScoreBias = 0.25;
 // dropped to filter out weak or low-confidence matches.
 constexpr double kMinScore = 0.60;
 
-// Represents the character alignment decision made at each position when
-// matching a query against a candidate string. Used when backtracking from the
-// best match end position to extract exact matching character spans for UI
-// bolding.
-enum class MatchStep : uint8_t {
-  kNone = 0,
-  // Candidate character was skipped (gap between query characters).
-  kSkipCandidate,
-  // Exact character match (e.g. query 'a' == candidate 'a'). Highlighted in UI.
-  kExactMatch,
-  // Adjacent characters were transposed (e.g. "teh" vs "the"). Highlighted in
-  // UI.
-  kTransposition,
-  // Character substitution / typo (e.g. 'g' -> 'f'). Valid alignment for fuzzy
-  // scoring, but NOT an exact match so it is omitted from UI highlighting.
-  kSubstitution,
-};
-
-// Returns true if the query meets the standard minimum search length.
-bool HasMinQueryLength(std::u16string_view query) {
-  return query.length() >= kMinQueryLength;
+// Returns true if index `i` of `text` is the start of the string or immediately
+// follows a whitespace delimiter.
+bool IsWordBoundary(std::u16string_view text, size_t i) {
+  return i == 0 || base::IsUnicodeWhitespace(text[i - 1]);
 }
 
 }  // namespace
 
-FuzzyFinder::FuzzyFinder(std::vector<FuzzySearchItem*> searchable_items)
+FuzzyFinder::FuzzyFinder(std::vector<raw_ptr<FuzzySearchItem>> searchable_items)
     : searchable_items_(std::move(searchable_items)) {}
 
 FuzzyFinder::~FuzzyFinder() = default;
 
-std::vector<FuzzySearchResult> FuzzyFinder::Find(const std::u16string& query,
+bool FuzzyFinder::HasMinQueryLength(std::u16string_view trimmed_query) {
+  CHECK(trimmed_query == base::TrimWhitespace(trimmed_query, base::TRIM_ALL));
+  return trimmed_query.length() >= kMinQueryLength;
+}
+
+std::vector<FuzzySearchResult> FuzzyFinder::Find(std::u16string_view query,
                                                  size_t max_results) {
   if (searchable_items_.empty() || max_results == 0) {
     return {};
   }
 
   // Trim leading and trailing whitespace from the query.
-  std::u16string_view trimmed_query =
+  const std::u16string_view trimmed_query =
       base::TrimWhitespace(query, base::TRIM_ALL);
 
   // Reject queries shorter than the minimum threshold to avoid broad/low-signal
@@ -138,9 +131,8 @@ std::vector<FuzzySearchResult> FuzzyFinder::Find(const std::u16string& query,
   return results;
 }
 
-std::vector<FuzzySearchResult> FuzzyFinder::FuzzyFind(
-    const std::u16string& query,
-    size_t max_results) {
+std::vector<FuzzySearchResult> FuzzyFinder::FuzzyFind(std::u16string_view query,
+                                                      size_t max_results) {
   if (searchable_items_.empty() || max_results == 0) {
     return {};
   }
@@ -162,7 +154,7 @@ std::vector<FuzzySearchResult> FuzzyFinder::FuzzyFind(
   for (FuzzySearchItem* item : searchable_items_) {
     CHECK(item);
     std::vector<gfx::Range> match_ranges;
-    const double score = ScoreItem(item, normalized_query, &match_ranges);
+    const double score = ScoreItem(item, normalized_query, match_ranges);
     if (score >= kMinScore) {
       results.push_back(
           FuzzySearchResult{item, score, std::move(match_ranges)});
@@ -171,10 +163,8 @@ std::vector<FuzzySearchResult> FuzzyFinder::FuzzyFind(
 
   // Stable sort in descending order by score (preserving insertion order on
   // ties).
-  std::stable_sort(results.begin(), results.end(),
-                   [](const FuzzySearchResult& a, const FuzzySearchResult& b) {
-                     return a.score > b.score;
-                   });
+  std::ranges::stable_sort(results, std::ranges::greater(),
+                           &FuzzySearchResult::score);
 
   if (results.size() > max_results) {
     results.resize(max_results);
@@ -185,71 +175,51 @@ std::vector<FuzzySearchResult> FuzzyFinder::FuzzyFind(
 
 double FuzzyFinder::ScoreItem(const FuzzySearchItem* item,
                               std::u16string_view norm_query,
-                              std::vector<gfx::Range>* match_ranges) {
+                              std::vector<gfx::Range>& match_ranges) {
   CHECK(item);
 
   // TODO(crbug.com/549169077): Support full diacritic/accent folding or
   // transliteration (e.g. via ICU) so accented words at initial positions
   // align identically to non-accented queries.
 
-  // 1. Title match
-  const std::u16string norm_title = base::i18n::ToLower(item->GetTitle());
-  std::vector<gfx::Range> title_ranges;
-  const double title_raw_score =
-      MatchCandidate(norm_query, norm_title, &title_ranges);
-  const double title_score = title_raw_score * kTitleWeight;
-  double best_score = title_score;
-  bool best_is_title = (title_raw_score > 0.0);
+  // 1. Title match. MatchCandidate() leaves `match_ranges` empty if the title
+  // does not match.
+  double best_score =
+      MatchCandidate(norm_query, base::i18n::ToLower(item->GetTitle()),
+                     &match_ranges) *
+      kTitleWeight;
 
-  // 2. Secondary text match
-  const std::u16string& secondary_text = item->GetSecondaryText();
-  if (!secondary_text.empty()) {
-    const std::u16string norm_secondary = base::i18n::ToLower(secondary_text);
-    const double secondary_score =
-        MatchCandidate(norm_query, norm_secondary, nullptr) *
-        kSecondaryTextWeight;
-    if (secondary_score > best_score) {
-      best_score = secondary_score;
-      best_is_title = false;
+  // 2. Secondary text and synonym matches. Match ranges are only reported for
+  // the title, so they are cleared if any other field scores higher.
+  auto score_field = [&](const std::u16string& text, double weight) {
+    const double score =
+        MatchCandidate(norm_query, base::i18n::ToLower(text)) * weight;
+    if (score > best_score) {
+      best_score = score;
+      match_ranges.clear();
     }
-  }
-
-  // 3. Synonyms match
+  };
+  score_field(item->GetSecondaryText(), kSecondaryTextWeight);
   for (const std::u16string& synonym : item->GetSynonyms()) {
-    const std::u16string norm_syn = base::i18n::ToLower(synonym);
-    const double syn_score =
-        MatchCandidate(norm_query, norm_syn, nullptr) * kSynonymWeight;
-    if (syn_score > best_score) {
-      best_score = syn_score;
-      best_is_title = false;
-    }
-  }
-
-  if (match_ranges) {
-    if (best_is_title) {
-      *match_ranges = std::move(title_ranges);
-    } else {
-      match_ranges->clear();
-    }
+    score_field(synonym, kSynonymWeight);
   }
 
   return best_score;
 }
 
-// Evaluates a candidate string against a query with typo, transposition, and
-// boundary tolerance. Returns a normalized confidence score in [0.0, 1.0].
+// Matrix Representation Example:
+// Query "tab" (M=3) vs. Candidate "tabs" (N=4). Rows are query characters (j)
+// and columns are candidate characters (i). Cells with i < j are never
+// evaluated ("-").
 //
 // clang-format off
-// Matrix Representation Example:
-// Query "tab" (M=3) vs. Candidate "tabs" (N=4):
-//
-//   Query       't' (i=0)     'a' (i=1)     'b' (i=2)     's' (i=3)
+//   Candidate   't' (i=0)     'a' (i=1)     'b' (i=2)     's' (i=3)
 //             +-------------+-------------+-------------+-------------+
 //   't' (j=0) | 32 (match)  | 26 (gap -6) | 24 (gap -2) | 22 (gap -2) |
 //             +-------------+-------------+-------------+-------------+
-//   'a' (j=1) |  0 (no diag)| 54 (match)  | 48 (gap -6) | 46 (gap -2) |
+//   'a' (j=1) |      -      | 54 (match)  | 48 (gap -6) | 46 (gap -2) |
 //             +-------------+-------------+-------------+-------------+
-//   'b' (j=2) |  0 (no diag)|  0 (no diag)| 76 (match)  | 70 (gap -6) |
+//   'b' (j=2) |      -      |      -      | 76 (match)  | 70 (gap -6) |
 //             +-------------+-------------+-------------+-------------+
 // clang-format on
 //
@@ -281,87 +251,25 @@ double FuzzyFinder::MatchCandidate(std::u16string_view query,
   const size_t m = query.length();
   const size_t n = candidate.length();
 
-  // Guard against empty strings or queries that exceed the candidate length.
-  // Because the inner alignment loop for row j starts at candidate index i = j,
-  // when m > n the final row (m - 1) is never evaluated (i = j >= n is
-  // false), meaning m > n can never produce a match. Early exiting here
-  // avoids unnecessary heap matrix allocations.
+  // Row j starts at candidate index i = j, so a query longer than the candidate
+  // can never be fully aligned.
   //
   // TODO(crbug.com/549169077): Support queries longer than candidate strings.
-  if (m == 0 || n == 0 || m > n) {
+  if (m == 0 || m > n) {
     return 0.0;
   }
 
-  // Precompute word boundaries across the candidate string ahead of time.
-  // A character at index `i` is a boundary if it is the start of the string or
-  // immediately follows a whitespace delimiter. Precomputing this in O(N)
-  // enables O(1) lookups in the inner alignment loop instead of repeatedly
-  // scanning preceding characters.
-  word_boundaries_.assign(n, false);
-  word_boundaries_[0] = true;
-  for (size_t i = 1; i < n; ++i) {
-    word_boundaries_[i] = base::IsUnicodeWhitespace(candidate[i - 1]);
-  }
+  // Flattened 2D matrix of size M * N, where `alignment_matrix_[j * n + i]`
+  // holds the alignment of query prefix 0..j with candidate prefix 0..i.
+  alignment_matrix_.assign(m * n, AlignmentCell());
 
-  // Flattened 2D matrices of size M * N:
-  // - `score_matrix_[j * n + i]`: Optimal score aligning query prefix 0..j with
-  //   candidate prefix 0..i.
-  // - `consecutive_matrix_[j * n + i]`: Length of the contiguous matching run
-  //   ending at (j, i).
-  // - `match_steps_[j * n + i]`: Alignment step taken to reach (j, i), used for
-  //   backtracking match ranges.
-  score_matrix_.assign(m * n, 0);
-  consecutive_matrix_.assign(m * n, 0);
-  match_steps_.assign(m * n, static_cast<uint8_t>(MatchStep::kNone));
-
-  // --- Row 0: Align the first query character (j = 0) ---
-  // The first character represents the base case where a new match begins.
-  // Matching at a word boundary receives an initial boundary bonus.
-  // Substitutions on the first character are disallowed; non-matching
-  // characters remain gaps.
-  bool in_gap = false;
-  for (size_t i = 0; i < n; ++i) {
-    const int penalty = in_gap ? kGapExtensionPenalty : kGapStartPenalty;
-    const int left_score = (i > 0) ? score_matrix_[i - 1] - penalty : 0;
-
-    if (query[0] == candidate[i]) {
-      const int match_score =
-          kMatchScore + (word_boundaries_[i] ? kInitialBoundaryBonus : 0);
-      if (left_score > match_score) {
-        score_matrix_[i] = left_score;
-        consecutive_matrix_[i] = 0;
-        match_steps_[i] = static_cast<uint8_t>(MatchStep::kSkipCandidate);
-        in_gap = true;
-      } else {
-        score_matrix_[i] = match_score;
-        consecutive_matrix_[i] = 1;
-        match_steps_[i] = static_cast<uint8_t>(MatchStep::kExactMatch);
-        in_gap = false;
-      }
-    } else {
-      if (left_score > 0) {
-        score_matrix_[i] = left_score;
-        consecutive_matrix_[i] = 0;
-        match_steps_[i] = static_cast<uint8_t>(MatchStep::kSkipCandidate);
-        in_gap = true;
-      } else {
-        score_matrix_[i] = 0;
-        consecutive_matrix_[i] = 0;
-        match_steps_[i] = static_cast<uint8_t>(MatchStep::kNone);
-        in_gap = false;
-      }
-    }
-  }
-
-  // --- Rows 1 to M - 1: Align remaining query characters ---
-  for (size_t j = 1; j < m; ++j) {
-    in_gap = false;
+  for (size_t j = 0; j < m; ++j) {
+    bool in_gap = false;
     for (size_t i = j; i < n; ++i) {
       const size_t idx = i + (j * n);
-      const size_t diag_idx = (i - 1) + ((j - 1) * n);
 
       // 1. Horizontal step (skip candidate character / gap propagation).
-      int left_score = (i > 0) ? score_matrix_[idx - 1] : 0;
+      int left_score = (i > 0) ? alignment_matrix_[idx - 1].score : 0;
       left_score -= in_gap ? kGapExtensionPenalty : kGapStartPenalty;
 
       int diagonal_score = 0;
@@ -371,21 +279,30 @@ double FuzzyFinder::MatchCandidate(std::u16string_view query,
       const bool is_exact_match = (query[j] == candidate[i]);
       // Check for adjacent character transposition (e.g. user typed "teh" for
       // "the").
-      const bool is_swap_match =
-          (j > 0 && i > 0 && query[j] == candidate[i - 1] &&
-           query[j - 1] == candidate[i]);
+      const bool is_swap_match = (j > 0 && query[j] == candidate[i - 1] &&
+                                  query[j - 1] == candidate[i]);
 
       // 2. Diagonal match steps:
-      // Only allow diagonal steps if the previous query prefix had a
-      // valid alignment (score > 0) to ensure full query coverage.
-      if (is_exact_match) {
-        if (score_matrix_[diag_idx] > 0) {
-          diagonal_score = score_matrix_[diag_idx] + kMatchScore;
-          if (word_boundaries_[i]) {
+      // For j > 0, only allow diagonal steps if the previous query prefix had
+      // a valid alignment (score > 0) to ensure full query coverage.
+      if (is_exact_match && j == 0) {
+        // The first query character is the base case where a new match
+        // begins. Matching at a word boundary receives an initial boundary
+        // bonus.
+        diagonal_score =
+            kMatchScore +
+            (IsWordBoundary(candidate, i) ? kInitialBoundaryBonus : 0);
+        consecutive = 1;
+        diag_step = MatchStep::kExactMatch;
+      } else if (is_exact_match) {
+        const AlignmentCell& diag = alignment_matrix_[idx - n - 1];
+        if (diag.score > 0) {
+          diagonal_score = diag.score + kMatchScore;
+          if (IsWordBoundary(candidate, i)) {
             diagonal_score += kBoundaryBonus;
             consecutive = 1;
           } else {
-            consecutive = consecutive_matrix_[diag_idx] + 1;
+            consecutive = diag.consecutive + 1;
             if (consecutive > 1) {
               diagonal_score += kConsecutiveBonus;
             }
@@ -397,57 +314,51 @@ double FuzzyFinder::MatchCandidate(std::u16string_view query,
           diagonal_score = (kMatchScore * 2) + kSwapPenalty;
           consecutive = 2;
           diag_step = MatchStep::kTransposition;
-        } else if (j > 1 && i > 1) {
+        } else {
           const size_t trans_diag_idx = (i - 2) + ((j - 2) * n);
-          if (score_matrix_[trans_diag_idx] > 0) {
-            diagonal_score = score_matrix_[trans_diag_idx] + (kMatchScore * 2) +
-                             kSwapPenalty;
+          if (alignment_matrix_[trans_diag_idx].score > 0) {
+            diagonal_score = alignment_matrix_[trans_diag_idx].score +
+                             (kMatchScore * 2) + kSwapPenalty;
             consecutive = 2;
             diag_step = MatchStep::kTransposition;
           }
         }
-      } else if (m > 3) {
+      } else if (j > 0 && m > kMaxQueryLengthWithoutSubstitution) {
         // Mismatch / substitution typo: disallowed entirely for short queries
-        // (m <= 3) and disallowed on the first character (j == 0).
-        if (score_matrix_[diag_idx] > 0) {
-          diagonal_score = score_matrix_[diag_idx] + kTypoPenalty;
+        // and disallowed on the first character (j == 0).
+        const AlignmentCell& diag = alignment_matrix_[idx - n - 1];
+        if (diag.score > 0) {
+          diagonal_score = diag.score + kTypoPenalty;
           consecutive = 0;
-          if (diagonal_score > 0) {
-            diag_step = MatchStep::kSubstitution;
-          }
+          diag_step = MatchStep::kSubstitution;
         }
       }
 
       in_gap = (left_score > diagonal_score);
       if (in_gap && left_score > 0) {
-        score_matrix_[idx] = left_score;
-        consecutive_matrix_[idx] = 0;
-        match_steps_[idx] = static_cast<uint8_t>(MatchStep::kSkipCandidate);
+        alignment_matrix_[idx] = {left_score, 0, MatchStep::kSkipCandidate};
       } else if (!in_gap && diagonal_score > 0) {
-        score_matrix_[idx] = diagonal_score;
-        consecutive_matrix_[idx] = consecutive;
-        match_steps_[idx] = static_cast<uint8_t>(diag_step);
+        alignment_matrix_[idx] = {diagonal_score, consecutive, diag_step};
       } else {
-        score_matrix_[idx] = 0;
-        consecutive_matrix_[idx] = 0;
-        match_steps_[idx] = static_cast<uint8_t>(MatchStep::kNone);
+        alignment_matrix_[idx] = AlignmentCell();
         in_gap = false;
       }
     }
   }
 
   // --- Final Score Extraction ---
-  // The query matching process must account for all M characters of the query.
-  // Row (M - 1) holds the scores where the full query has been matched. The
-  // match can finish at any character in the candidate string, so we find the
-  // maximum score across all columns in the final row.
+  // Row M - 1 holds alignments of the full query. The match may end at any
+  // candidate position, so take the best score in that row, breaking ties in
+  // favor of the longer consecutive run.
+  const size_t last_row = (m - 1) * n;
   int max_score = 0;
   size_t best_i = 0;
   for (size_t i = 0; i < n; ++i) {
-    const int s = score_matrix_[i + ((m - 1) * n)];
-    if (s > max_score || (s == max_score && s > 0 &&
-                          consecutive_matrix_[i + ((m - 1) * n)] >
-                              consecutive_matrix_[best_i + ((m - 1) * n)])) {
+    const int s = alignment_matrix_[last_row + i].score;
+    if (s > max_score ||
+        (s == max_score && s > 0 &&
+         alignment_matrix_[last_row + i].consecutive >
+             alignment_matrix_[last_row + best_i].consecutive)) {
       max_score = s;
       best_i = i;
     }
@@ -458,68 +369,60 @@ double FuzzyFinder::MatchCandidate(std::u16string_view query,
   }
 
   // --- Backtracking for Match Spans ---
+  // Matched candidate indices are visited in strictly decreasing order, so
+  // adjacent indices are merged into ranges as they are found and the ranges
+  // are reversed into ascending order at the end.
   if (match_ranges) {
-    std::vector<size_t> matched_indices;
+    auto add_matched_index = [match_ranges](size_t index) {
+      if (!match_ranges->empty() && match_ranges->back().start() == index + 1) {
+        match_ranges->back().set_start(index);
+      } else {
+        match_ranges->emplace_back(index, index + 1);
+      }
+    };
+
     int curr_j = static_cast<int>(m) - 1;
     int curr_i = static_cast<int>(best_i);
 
-    while (curr_j >= 0 && curr_i >= 0) {
+    bool done = false;
+    while (!done && curr_j >= 0 && curr_i >= 0) {
       const size_t idx =
           static_cast<size_t>(curr_i) + static_cast<size_t>(curr_j) * n;
-      const auto step = static_cast<MatchStep>(match_steps_[idx]);
-
-      if (step == MatchStep::kExactMatch) {
-        matched_indices.push_back(static_cast<size_t>(curr_i));
-        --curr_j;
-        --curr_i;
-      } else if (step == MatchStep::kTransposition) {
-        matched_indices.push_back(static_cast<size_t>(curr_i));
-        matched_indices.push_back(static_cast<size_t>(curr_i - 1));
-        curr_j -= 2;
-        curr_i -= 2;
-      } else if (step == MatchStep::kSubstitution) {
-        // Character at candidate index `curr_i` substituted query character
-        // `curr_j`; not an exact character match, so omit from match_ranges.
-        --curr_j;
-        --curr_i;
-      } else if (step == MatchStep::kSkipCandidate) {
-        --curr_i;
-      } else {
-        break;
+      switch (alignment_matrix_[idx].step) {
+        case MatchStep::kExactMatch:
+          add_matched_index(static_cast<size_t>(curr_i));
+          --curr_j;
+          --curr_i;
+          break;
+        case MatchStep::kTransposition:
+          add_matched_index(static_cast<size_t>(curr_i));
+          add_matched_index(static_cast<size_t>(curr_i - 1));
+          curr_j -= 2;
+          curr_i -= 2;
+          break;
+        case MatchStep::kSubstitution:
+          // Character at candidate index `curr_i` substituted query character
+          // `curr_j`; not an exact character match, so omit from match_ranges.
+          --curr_j;
+          --curr_i;
+          break;
+        case MatchStep::kSkipCandidate:
+          --curr_i;
+          break;
+        case MatchStep::kNone:
+          // Not expected when backtracking from a positive score.
+          done = true;
+          break;
       }
     }
 
-    if (!matched_indices.empty()) {
-      std::sort(matched_indices.begin(), matched_indices.end());
-      matched_indices.erase(
-          std::unique(matched_indices.begin(), matched_indices.end()),
-          matched_indices.end());
-
-      size_t range_start = matched_indices[0];
-      size_t range_end = range_start + 1;
-
-      for (size_t k = 1; k < matched_indices.size(); ++k) {
-        if (matched_indices[k] == range_end) {
-          ++range_end;
-        } else {
-          match_ranges->emplace_back(range_start, range_end);
-          range_start = matched_indices[k];
-          range_end = range_start + 1;
-        }
-      }
-      match_ranges->emplace_back(range_start, range_end);
-    }
+    std::ranges::reverse(*match_ranges);
   }
 
   // --- Score Normalization ---
-  // `max_possible` represents the theoretical maximum score for a query of
-  // length M matching ideal word boundaries across multi-word items.
-  // Normalizing to [0.0, 1.0] makes confidence scores scale-invariant across
-  // different query lengths.
-  // The baseline bias (kScoreBias) ensures that any candidate that
-  // successfully aligns the full query (via exact matches, adjacent
-  // transpositions, or substitutions) maps to [0.25, 1.0], keeping it
-  // distinctly above non-matches (0.0).
+  // `max_possible` is the score of a query whose every character matches at a
+  // word boundary. Normalizing by it keeps scores comparable across query
+  // lengths, and kScoreBias lifts any full alignment above non-matches.
   const double max_possible =
       kInitialBoundaryBonus + kMatchScore +
       (kBoundaryBonus + kMatchScore) * static_cast<double>(m - 1);

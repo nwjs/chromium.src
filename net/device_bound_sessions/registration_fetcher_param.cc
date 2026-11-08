@@ -27,36 +27,6 @@ constexpr char kProviderUrlParamKey[] = "provider_url";
 constexpr char kProviderSessionIdParamKey[] = "provider_session_id";
 constexpr char kAikRequiredParamKey[] = "aik_required";
 
-constexpr char kES256[] = "ES256";
-constexpr char kRS256[] = "RS256";
-
-std::optional<crypto::sign::SignatureKind> AlgoFromString(
-    const std::string_view& algo) {
-  if (algo == kES256) {
-    return crypto::sign::ECDSA_SHA256;
-  }
-
-  if (algo == kRS256) {
-    return crypto::sign::RSA_PKCS1_SHA256;
-  }
-
-  return std::nullopt;
-}
-
-std::vector<crypto::sign::SignatureKind> ParseSupportedAlgorithms(
-    const std::vector<net::structured_headers::ParameterizedItem>& member) {
-  std::vector<crypto::sign::SignatureKind> supported_algos;
-  for (const auto& algo_token : member) {
-    if (const std::string* token = algo_token.item.GetIfToken()) {
-      std::optional<crypto::sign::SignatureKind> algo = AlgoFromString(*token);
-      if (algo) {
-        supported_algos.push_back(*algo);
-      }
-    }
-  }
-  return supported_algos;
-}
-
 GURL ResolveRegistrationEndpoint(const GURL& request_url,
                                  const std::string& path) {
   std::string unescaped_path = base::UnescapeURLComponent(

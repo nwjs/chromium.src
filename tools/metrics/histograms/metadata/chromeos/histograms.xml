@@ -1124,7 +1124,7 @@ and mapped to the variant by `StatisticNameToMachineStatisticVariant()` -->
 
 <histogram
     name="ChromeOS.CertProvisioning.Event{CertProvisioningProtocolVersion}.{CertProvisioningScope}"
-    enum="CertProvisioningEvent" expires_after="2027-02-01">
+    enum="CertProvisioningEvent" expires_after="2027-04-04">
   <owner>miersh@google.com</owner>
   <owner>gschwarz@google.com</owner>
   <summary>
@@ -1139,7 +1139,7 @@ and mapped to the variant by `StatisticNameToMachineStatisticVariant()` -->
 
 <histogram
     name="ChromeOS.CertProvisioning.Result{CertProvisioningProtocolVersion}.{CertProvisioningScope}"
-    enum="CertProvisioningWorkerState" expires_after="2027-02-01">
+    enum="CertProvisioningWorkerState" expires_after="2027-04-04">
   <owner>miersh@google.com</owner>
   <owner>gschwarz@google.com</owner>
   <summary>
@@ -1546,7 +1546,7 @@ and mapped to the variant by `StatisticNameToMachineStatisticVariant()` -->
 </histogram>
 
 <histogram name="ChromeOS.FirmwareUpdateUi.InstallFailedWithStatus"
-    enum="FirmwareUpdateFwupdStatus" expires_after="2027-01-28">
+    enum="FirmwareUpdateFwupdStatus" expires_after="2027-04-04">
   <owner>longbowei@google.com</owner>
   <owner>jimmyxgong@chromium.org</owner>
   <owner>cros-device-enablement@google.com</owner>
@@ -1590,7 +1590,7 @@ and mapped to the variant by `StatisticNameToMachineStatisticVariant()` -->
 </histogram>
 
 <histogram name="ChromeOS.FirmwareUpdateUi.{Method}Result"
-    enum="FirmwareUpdateMethodResult" expires_after="2027-01-28">
+    enum="FirmwareUpdateMethodResult" expires_after="2027-04-04">
   <owner>jimmyxgong@chromium.org</owner>
   <owner>cros-device-enablement@google.com</owner>
   <summary>
@@ -1609,7 +1609,7 @@ and mapped to the variant by `StatisticNameToMachineStatisticVariant()` -->
 </histogram>
 
 <histogram name="ChromeOS.FirmwareUpdateUi.{Source}.DeviceCount"
-    units="devices" expires_after="2027-01-28">
+    units="devices" expires_after="2027-04-04">
   <owner>jimmyxgong@chromium.org</owner>
   <owner>cros-device-enablement@google.com</owner>
   <summary>
@@ -2934,9 +2934,8 @@ and mapped to the variant by `StatisticNameToMachineStatisticVariant()` -->
 
 <histogram name="ChromeOS.PrintManagement.PrinterSettingsLaunchSource"
     enum="PrintManagementLaunchSourceType" expires_after="2024-01-23">
-  <owner>ashleydp@google.com</owner>
-  <owner>gavinwill@google.com</owner>
-  <owner>cros-device-enablement@chromium.org</owner>
+  <owner>bmgordon@chromium.org</owner>
+  <owner>project-bolton@google.com</owner>
   <summary>
     Tracks the source element that triggers navigation to Printer settings from
     Print Management SWA. It attempts to capture the state of Print Management
@@ -3135,7 +3134,7 @@ and mapped to the variant by `StatisticNameToMachineStatisticVariant()` -->
 </histogram>
 
 <histogram name="ChromeOS.SAML.{LoginOrUnlock}.SamlRedirectUsage"
-    enum="SamlRedirectEvent" expires_after="2027-01-25">
+    enum="SamlRedirectEvent" expires_after="2027-03-28">
   <owner>andreydav@google.com</owner>
   <owner>cros-3pidp@google.com</owner>
   <summary>
@@ -3239,7 +3238,7 @@ and mapped to the variant by `StatisticNameToMachineStatisticVariant()` -->
 </histogram>
 
 <histogram name="ChromeOS.Secagentd.AuthFactor.{EventType}"
-    enum="SecagentdAuthFactor" expires_after="2027-02-07">
+    enum="SecagentdAuthFactor" expires_after="2027-06-30">
   <owner>rborzello@google.com</owner>
   <owner>cros-enterprise-security@google.com</owner>
   <summary>
@@ -3255,7 +3254,7 @@ and mapped to the variant by `StatisticNameToMachineStatisticVariant()` -->
 </histogram>
 
 <histogram name="ChromeOS.Secagentd.Bootmode.Cros" enum="SecagentdBootmodeCros"
-    expires_after="2027-02-07">
+    expires_after="2027-06-30">
   <owner>rborzello@google.com</owner>
   <owner>cros-enterprise-security@google.com</owner>
   <summary>
@@ -3267,7 +3266,7 @@ and mapped to the variant by `StatisticNameToMachineStatisticVariant()` -->
 </histogram>
 
 <histogram name="ChromeOS.Secagentd.Bootmode.Uefi" enum="SecagentdBootmodeUefi"
-    expires_after="2027-02-07">
+    expires_after="2027-06-30">
   <owner>rborzello@google.com</owner>
   <owner>cros-enterprise-security@google.com</owner>
   <summary>
@@ -3279,7 +3278,7 @@ and mapped to the variant by `StatisticNameToMachineStatisticVariant()` -->
 </histogram>
 
 <histogram name="ChromeOS.Secagentd.Bpf.{Bpf}.AttachResult"
-    enum="SecagentdBpfAttachResult" expires_after="2027-02-07">
+    enum="SecagentdBpfAttachResult" expires_after="2027-06-30">
   <owner>rborzello@google.com</owner>
   <owner>cros-enterprise-security@google.com</owner>
   <summary>
@@ -3295,7 +3294,7 @@ and mapped to the variant by `StatisticNameToMachineStatisticVariant()` -->
 </histogram>
 
 <histogram name="ChromeOS.Secagentd.Cache" enum="SecagentdCache"
-    expires_after="2027-01-31">
+    expires_after="2027-06-30">
   <owner>rborzello@google.com</owner>
   <owner>cros-enterprise-security@google.com</owner>
   <summary>
@@ -3307,7 +3306,7 @@ and mapped to the variant by `StatisticNameToMachineStatisticVariant()` -->
 </histogram>
 
 <histogram name="ChromeOS.Secagentd.CacheFullness" units="%"
-    expires_after="2027-02-07">
+    expires_after="2027-06-30">
   <owner>rborzello@google.com</owner>
   <owner>cros-enterprise-security@google.com</owner>
   <summary>
@@ -3317,7 +3316,7 @@ and mapped to the variant by `StatisticNameToMachineStatisticVariant()` -->
 </histogram>
 
 <histogram name="ChromeOS.Secagentd.CommandLineLength" units="bytes"
-    expires_after="2026-09-30">
+    expires_after="2027-06-30">
   <owner>rborzello@google.com</owner>
   <owner>cros-enterprise-security@google.com</owner>
   <summary>
@@ -3327,7 +3326,7 @@ and mapped to the variant by `StatisticNameToMachineStatisticVariant()` -->
 </histogram>
 
 <histogram name="ChromeOS.Secagentd.Policy" enum="SecagentdPolicy"
-    expires_after="2027-02-07">
+    expires_after="2027-06-30">
   <owner>rborzello@google.com</owner>
   <owner>cros-enterprise-security@google.com</owner>
   <summary>
@@ -3343,7 +3342,7 @@ and mapped to the variant by `StatisticNameToMachineStatisticVariant()` -->
 </histogram>
 
 <histogram name="ChromeOS.Secagentd.Process.{EventType}Event"
-    enum="SecagentdProcessEvent" expires_after="2027-02-07">
+    enum="SecagentdProcessEvent" expires_after="2027-06-30">
   <owner>rborzello@google.com</owner>
   <owner>cros-enterprise-security@google.com</owner>
   <summary>
@@ -3358,7 +3357,7 @@ and mapped to the variant by `StatisticNameToMachineStatisticVariant()` -->
 </histogram>
 
 <histogram name="ChromeOS.Secagentd.Redaction" units="position"
-    expires_after="2027-02-07">
+    expires_after="2027-06-30">
   <owner>rborzello@google.com</owner>
   <owner>cros-enterprise-security@google.com</owner>
   <summary>
@@ -3370,7 +3369,7 @@ and mapped to the variant by `StatisticNameToMachineStatisticVariant()` -->
 </histogram>
 
 <histogram name="ChromeOS.Secagentd.SendMessageResult"
-    enum="SecagentdSendMessageResult" expires_after="2027-02-07">
+    enum="SecagentdSendMessageResult" expires_after="2027-06-30">
   <owner>rborzello@google.com</owner>
   <owner>cros-enterprise-security@google.com</owner>
   <summary>
@@ -3381,7 +3380,7 @@ and mapped to the variant by `StatisticNameToMachineStatisticVariant()` -->
 </histogram>
 
 <histogram name="ChromeOS.Secagentd.SHA256ComputeTime" units="100ms"
-    expires_after="2026-09-30">
+    expires_after="2027-06-30">
   <owner>jasonling@google.com</owner>
   <owner>cros-enterprise-security@google.com</owner>
   <summary>
@@ -3392,7 +3391,7 @@ and mapped to the variant by `StatisticNameToMachineStatisticVariant()` -->
 </histogram>
 
 <histogram name="ChromeOS.Secagentd.SHA256InputSize" units="MiB"
-    expires_after="2026-09-30">
+    expires_after="2027-06-30">
   <owner>jasonling@google.com</owner>
   <owner>cros-enterprise-security@google.com</owner>
   <summary>
@@ -3403,7 +3402,7 @@ and mapped to the variant by `StatisticNameToMachineStatisticVariant()` -->
 </histogram>
 
 <histogram name="ChromeOS.Secagentd.Tpm" enum="SecagentdTpm"
-    expires_after="2027-02-07">
+    expires_after="2027-06-30">
   <owner>rborzello@google.com</owner>
   <owner>cros-enterprise-security@google.com</owner>
   <summary>

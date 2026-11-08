@@ -13,6 +13,7 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
@@ -22,7 +23,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import static org.chromium.chrome.browser.tabmodel.TabGroupUtils.areAnyTabsPartOfSharedGroup;
-import static org.chromium.chrome.browser.tabmodel.TabGroupUtils.isTabGroupShared;
 
 import android.text.TextUtils;
 
@@ -36,6 +36,7 @@ import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 
 import org.chromium.base.Token;
+import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
@@ -52,7 +53,6 @@ import org.chromium.url.JUnitTestGURLs;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
@@ -116,12 +116,38 @@ public class TabGroupUtilsUnitTest {
     public void testGetSelectedTabInGroupForTab() {
         List<Tab> tabs = new ArrayList<>(Arrays.asList(mTab1, mTab2));
         createTabGroup(tabs, TAB_GROUP_ID1);
-        doReturn(mTab1).when(mTabModel).getRepresentativeTabAt(POSITION1);
-        doReturn(POSITION1).when(mTabModel).representativeIndexOf(mTab1);
-        doReturn(POSITION1).when(mTabModel).representativeIndexOf(mTab2);
 
         assertThat(TabGroupUtils.getSelectedTabInGroupForTab(mTabModel, mTab1), equalTo(mTab1));
         assertThat(TabGroupUtils.getSelectedTabInGroupForTab(mTabModel, mTab2), equalTo(mTab1));
+        assertThat(TabGroupUtils.getSelectedTabInGroupForTab(mTabModel, mTab3), equalTo(mTab3));
+    }
+
+    @Test
+    public void testGetSelectedOrFirstTabInGroup() {
+        createTabGroup(List.of(mTab1, mTab2), TAB_GROUP_ID1);
+        when(mTabModel.getTabsInGroup(TAB_GROUP_ID2)).thenReturn(List.of());
+
+        assertNull(TabGroupUtils.getSelectedOrFirstTabInGroup(mTabModel, /* tabGroupId= */ null));
+        assertNull(TabGroupUtils.getSelectedOrFirstTabInGroup(mTabModel, TAB_GROUP_ID2));
+
+        // When current tab supplier is unset, fallback to first tab.
+        assertThat(
+                TabGroupUtils.getSelectedOrFirstTabInGroup(mTabModel, TAB_GROUP_ID1),
+                equalTo(mTab1));
+
+        // When current tab is in the group, return it.
+        when(mTabModel.getCurrentTabSupplier())
+                .thenReturn(ObservableSuppliers.createNullable(mTab2));
+        assertThat(
+                TabGroupUtils.getSelectedOrFirstTabInGroup(mTabModel, TAB_GROUP_ID1),
+                equalTo(mTab2));
+
+        // When current tab is not in the group, fallback to first tab.
+        when(mTabModel.getCurrentTabSupplier())
+                .thenReturn(ObservableSuppliers.createNullable(mTab3));
+        assertThat(
+                TabGroupUtils.getSelectedOrFirstTabInGroup(mTabModel, TAB_GROUP_ID1),
+                equalTo(mTab1));
     }
 
     @Test
@@ -154,12 +180,22 @@ public class TabGroupUtilsUnitTest {
 
     @Test
     public void testOpenUrlInGroup() {
-        when(mTabModel.getRelatedTabList(eq(TAB1_ID))).thenReturn(Arrays.asList(mTab1));
+        when(mTabModel.getTabsInGroup(TAB_GROUP_ID1)).thenReturn(List.of(mTab1));
         when(mTabModel.getTabCreator()).thenReturn(mTabCreator);
 
         @TabLaunchType int launchType = TabLaunchType.FROM_TAB_GROUP_UI;
         String url = JUnitTestGURLs.URL_1.getSpec();
-        TabGroupUtils.openUrlInGroup(mTabModel, url, TAB1_ID, launchType);
+
+        // Null group should do nothing.
+        TabGroupUtils.openUrlInGroup(mTabModel, url, /* tabGroupId= */ null, launchType);
+        verify(mTabCreator, never()).createNewTab(any(), anyInt(), any());
+
+        // Empty group should do nothing.
+        when(mTabModel.getTabsInGroup(TAB_GROUP_ID2)).thenReturn(List.of());
+        TabGroupUtils.openUrlInGroup(mTabModel, url, TAB_GROUP_ID2, launchType);
+        verify(mTabCreator, never()).createNewTab(any(), anyInt(), any());
+
+        TabGroupUtils.openUrlInGroup(mTabModel, url, TAB_GROUP_ID1, launchType);
         ArgumentMatcher<LoadUrlParams> matcher = params -> TextUtils.equals(params.getUrl(), url);
         verify(mTabCreator).createNewTab(argThat(matcher), eq(launchType), eq(mTab1));
     }
@@ -199,28 +235,6 @@ public class TabGroupUtilsUnitTest {
                 .thenReturn(mSavedTabGroup1);
 
         assertFalse(areAnyTabsPartOfSharedGroup(mTabModel, List.of(mTab1, mTab2), TAB_GROUP_ID1));
-    }
-
-    @Test
-    public void testIsTabGroupShared_IsShared() {
-        mSavedTabGroup1.collaborationId = "collaborationId";
-        when(mTab1.getTabGroupId()).thenReturn(TAB_GROUP_ID1);
-        when(mTabModel.getProfile()).thenReturn(mProfile);
-        when(mTabGroupSyncService.getGroup(new LocalTabGroupId(TAB_GROUP_ID1)))
-                .thenReturn(mSavedTabGroup1);
-
-        assertTrue(isTabGroupShared(mTabModel, TAB_GROUP_ID1));
-    }
-
-    @Test
-    public void testIsTabGroupShared_IsNotShared() {
-        mSavedTabGroup1.collaborationId = null;
-        when(mTab1.getTabGroupId()).thenReturn(TAB_GROUP_ID1);
-        when(mTabModel.getProfile()).thenReturn(mProfile);
-        when(mTabGroupSyncService.getGroup(new LocalTabGroupId(TAB_GROUP_ID1)))
-                .thenReturn(mSavedTabGroup1);
-
-        assertFalse(isTabGroupShared(mTabModel, TAB_GROUP_ID1));
     }
 
     @Test
@@ -274,7 +288,6 @@ public class TabGroupUtilsUnitTest {
                         TAB_GROUP_TITLE,
                         /* mhtmlTabTitle= */ null,
                         /* tabGroupCollapsed= */ true,
-                        /* isGroupShared= */ false,
                         /* isIncognito= */ false);
         when(mTab1.getTabGroupId()).thenReturn(TAB_GROUP_ID1);
         TabGroupUtils.regroupTabs(mTabModel, tabs, tabGroupMetadata, shouldApplyCollapse);
@@ -299,7 +312,7 @@ public class TabGroupUtilsUnitTest {
     @Test
     public void testHasTabGroups_hasGroupsInCurrentModel() {
         when(mTabModel.getTabGroupCount()).thenReturn(1);
-        assertTrue(TabGroupUtils.hasTabGroups(mTabModel));
+        assertTrue(TabGroupUtils.hasTabGroups(mTabModel, /* selectorsForAllWindows= */ null));
         assertTrue(TabGroupUtils.hasTabGroups(mTabModel, List.of(mTabModelSelector)));
     }
 
@@ -317,7 +330,7 @@ public class TabGroupUtilsUnitTest {
 
         assertTrue(
                 TabGroupUtils.hasTabGroups(mTabModel, List.of(mTabModelSelector, otherSelector)));
-        assertFalse(TabGroupUtils.hasTabGroups(mTabModel, (Collection<TabModelSelector>) null));
+        assertFalse(TabGroupUtils.hasTabGroups(mTabModel, /* selectorsForAllWindows= */ null));
     }
 
     @Test
@@ -333,7 +346,6 @@ public class TabGroupUtilsUnitTest {
                         TAB_GROUP_TITLE,
                         /* mhtmlTabTitle= */ null,
                         /* tabGroupCollapsed= */ false,
-                        /* isGroupShared= */ false,
                         /* isIncognito= */ false);
         when(mTab1.getTabGroupId()).thenReturn(TAB_GROUP_ID1);
         when(mTab2.getTabGroupId()).thenReturn(TAB_GROUP_ID1);
@@ -343,5 +355,15 @@ public class TabGroupUtilsUnitTest {
         verify(mTabModel, never()).createTabGroupForTabGroupSync(any(), any());
         verify(mTabModel).setTabGroupColor(eq(TAB_GROUP_ID1), eq(0));
         verify(mTabModel).setTabGroupTitle(eq(TAB_GROUP_ID1), eq(TAB_GROUP_TITLE));
+    }
+
+    @Test
+    public void testGetGroupedTabs() {
+        when(mTab1.getTabGroupId()).thenReturn(TAB_GROUP_ID1);
+        when(mTab2.getTabGroupId()).thenReturn(null);
+        when(mTab3.getTabGroupId()).thenReturn(TAB_GROUP_ID2);
+
+        List<Tab> groupedTabs = TabGroupUtils.getGroupedTabs(List.of(mTab1, mTab2, mTab3));
+        assertEquals(List.of(mTab1, mTab3), groupedTabs);
     }
 }

@@ -2,15 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "base/test/run_until.h"
-#include "base/threading/thread_restrictions.h"
 #include "build/build_config.h"
-#include "chrome/browser/browser_process.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/test/base/in_process_browser_test.h"
-#include "chrome/test/base/testing_profile.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
@@ -30,18 +26,25 @@ class WebViewInteractiveUiTest : public InProcessBrowserTest {
   }
 };
 
-// TODO(crbug.com/517764196): Fails on Windows.
+// TODO(crbug.com/562393492): Fails on Mac.
+#if BUILDFLAG(IS_MAC)
+#define MAYBE_MouseMoveEventDelivered DISABLED_MouseMoveEventDelivered
+#else
+#define MAYBE_MouseMoveEventDelivered MouseMoveEventDelivered
+#endif
 IN_PROC_BROWSER_TEST_F(WebViewInteractiveUiTest,
-                       DISABLED_MouseMoveEventDelivered) {
+                       MAYBE_MouseMoveEventDelivered) {
+  Profile* profile = ProfileManager::GetLastUsedProfile();
+  ASSERT_TRUE(profile);
+
   // Create a widget with a WebView.
-  TestingProfile testing_profile;
   auto widget = std::make_unique<Widget>();
   Widget::InitParams params(Widget::InitParams::CLIENT_OWNS_WIDGET);
   params.bounds = gfx::Rect(0, 0, 400, 300);
   widget->Init(std::move(params));
 
-  auto* web_view = widget->SetClientContentsView(
-      std::make_unique<WebView>(&testing_profile));
+  auto* web_view =
+      widget->SetClientContentsView(std::make_unique<WebView>(profile));
 
   // Load a simple page with a mousemove listener.
   GURL url(
@@ -78,23 +81,35 @@ IN_PROC_BROWSER_TEST_F(WebViewInteractiveUiTest,
       point.x(), point.y(), run_loop.QuitClosure(), widget->GetNativeWindow());
   run_loop.Run();
 
-  // Verify listener was triggered.
-  EXPECT_TRUE(base::test::RunUntil([&]() {
-    auto result = content::EvalJs(web_contents, "window.mouseMoveReceived");
-    return result.is_ok() && result.is_bool() && result.ExtractBool();
-  }));
-
-  int mouse_x = content::EvalJs(web_contents, "window.mouseX").ExtractInt();
-  int mouse_y = content::EvalJs(web_contents, "window.mouseY").ExtractInt();
-
   // The point we sent was the center of the WebView.
   // We calculate the expected coordinates using the local bounds of the
   // WebView.
   int expected_x = web_view->GetLocalBounds().width() / 2;
   int expected_y = web_view->GetLocalBounds().height() / 2;
 
-  EXPECT_NEAR(expected_x, mouse_x, 2);
-  EXPECT_NEAR(expected_y, mouse_y, 2);
+  // Verify listener was triggered at the expected coordinates (ignoring any
+  // initial mousemove event at the cursor's starting position when the window
+  // was shown).
+  EXPECT_EQ(true, content::EvalJs(web_contents, content::JsReplace(
+                                                    R"(
+    new Promise((resolve) => {
+      const isAtExpectedPoint = (x, y) =>
+          Math.abs(x - $1) <= 2 && Math.abs(y - $2) <= 2;
+      if (window.mouseMoveReceived &&
+          isAtExpectedPoint(window.mouseX, window.mouseY)) {
+        resolve(true);
+        return;
+      }
+      document.addEventListener('mousemove', (e) => {
+        if (isAtExpectedPoint(e.clientX, e.clientY)) {
+          resolve(true);
+        }
+      });
+    })
+  )",
+                                                    expected_x, expected_y)));
+
+  widget->CloseNow();
 }
 
 }  // namespace views

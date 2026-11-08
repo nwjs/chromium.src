@@ -16,10 +16,12 @@
 #include "base/barrier_closure.h"
 #include "base/compiler_specific.h"
 #include "base/containers/flat_map.h"
+#include "base/feature_list.h"
 #include "base/files/file_path.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/memory/ptr_util.h"
+#include "base/memory/raw_ptr.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/numerics/checked_math.h"
 #include "base/strings/string_split.h"
@@ -43,6 +45,7 @@
 #include "content/browser/cache_storage/cache_storage_scheduler.h"
 #include "content/browser/cache_storage/cache_storage_trace_utils.h"
 #include "content/common/background_fetch/background_fetch_types.h"
+#include "content/common/features.h"
 #include "crypto/hmac.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/receiver.h"
@@ -289,6 +292,12 @@ bool VaryMatches(const blink::FetchAPIRequestHeadersMap& request,
 // Checks a batch operation list for duplicate entries. Returns any duplicate
 // URL strings that were found. If the return value is empty, then there were no
 // duplicates.
+//
+// The URLs are reported in normalized (fragment-stripped) form, since that is
+// what the duplicates collided on.  It is also deterministic: std::sort()
+// below is not stable, so among operations sharing a URL the relative order
+// is unspecified, and reporting the raw URL of one member of a duplicate pair
+// could name either fragment.
 std::vector<std::string> FindDuplicateOperations(
     const std::vector<blink::mojom::BatchOperationPtr>& operations) {
   using blink::mojom::BatchOperation;
@@ -299,22 +308,32 @@ std::vector<std::string> FindDuplicateOperations(
     return duplicate_url_list;
   }
 
+  // An operation paired with the URL used to compare it against the others.
+  struct SortedOperation {
+    raw_ptr<const BatchOperation> op;
+    std::string normalized_url;
+  };
+
   // Create a temporary sorted vector of the operations to support quickly
   // finding potentially duplicate entries.  Multiple entries may have the
   // same URL, but differ by VARY header, so a sorted list is easier to
   // work with than a map.
   //
+  // Per the spec the URL comparison ignores fragments, so the URL is
+  // normalized once here instead of at each comparison below.
+  //
   // Note, this will use 512 bytes of stack space on 64-bit devices.  The
   // static size attempts to accommodate most typical Cache.addAll() uses in
-  // service worker install events while not blowing up the stack too much.
-  absl::InlinedVector<BatchOperation*, 64> sorted;
+  // service worker install events while not blowing up the stack too much;
+  // larger precache manifests spill to the heap.
+  absl::InlinedVector<SortedOperation, 16> sorted;
   sorted.reserve(operations.size());
   for (const auto& op : operations) {
-    sorted.push_back(op.get());
+    sorted.push_back({op.get(), NormalizeCacheUrl(op->request->url).spec()});
   }
   std::sort(sorted.begin(), sorted.end(),
-            [](BatchOperation* left, BatchOperation* right) {
-              return left->request->url < right->request->url;
+            [](const SortedOperation& left, const SortedOperation& right) {
+              return left.normalized_url < right.normalized_url;
             });
 
   // Check each entry in the sorted vector for any duplicates.  Since the
@@ -323,7 +342,7 @@ std::vector<std::string> FindDuplicateOperations(
   // If the entire list has entries with the same URL and different VARY
   // headers then this devolves into O(n^2).
   for (size_t i = 0; i < sorted.size(); ++i) {
-    const BatchOperation* outer_op = sorted[i];
+    const BatchOperation* outer_op = sorted[i].op;
 
     // Note, the spec checks CacheQueryOptions like ignoreSearch, etc, but
     // currently there is no way for script to trigger a batch operation with
@@ -336,15 +355,15 @@ std::vector<std::string> FindDuplicateOperations(
     // If this entry already matches a duplicate we found, then just skip
     // ahead to find any remaining duplicates.
     if (!duplicate_url_list.empty() &&
-        outer_op->request->url.spec() == duplicate_url_list.back()) {
+        sorted[i].normalized_url == duplicate_url_list.back()) {
       continue;
     }
 
     for (size_t j = i + 1; j < sorted.size(); ++j) {
-      const BatchOperation* inner_op = sorted[j];
+      const BatchOperation* inner_op = sorted[j].op;
       // Since the list is sorted we can stop looking at neighbors after
       // the first different URL.
-      if (outer_op->request->url != inner_op->request->url) {
+      if (sorted[i].normalized_url != sorted[j].normalized_url) {
         break;
       }
 
@@ -358,7 +377,7 @@ std::vector<std::string> FindDuplicateOperations(
           VaryMatches(outer_op->request->headers, inner_op->request->headers,
                       outer_op->response->response_type,
                       outer_op->response->headers)) {
-        duplicate_url_list.push_back(inner_op->request->url.spec());
+        duplicate_url_list.push_back(sorted[j].normalized_url);
         break;
       }
     }
@@ -486,10 +505,24 @@ blink::mojom::FetchAPIResponsePtr CreateResponse(
     padding = storage::ComputeRandomResponsePadding();
   }
 
+  network::mojom::FetchResponseType response_type =
+      ProtoResponseTypeToFetchResponseType(metadata.response().response_type());
+
+  // The stored `request_include_credentials` bit is supplied by the renderer
+  // via cache.put(), so it cannot be trusted for opaque responses, whose
+  // original credential mode is not otherwise observable. When the feature is
+  // enabled we treat them as credentialed, which disables the
+  // COEP:credentialless CORP exemption. This is the only place the stored bit
+  // is consumed, so sanitizing here covers every entry, including ones written
+  // before the feature was enabled.
+  bool stored_include_credentials =
+      !metadata.response().has_request_include_credentials() ||
+      metadata.response().request_include_credentials();
   bool request_include_credentials =
-      metadata.response().has_request_include_credentials()
-          ? metadata.response().request_include_credentials()
-          : true;
+      stored_include_credentials ||
+      (response_type == network::mojom::FetchResponseType::kOpaque &&
+       base::FeatureList::IsEnabled(
+           features::kCacheStorageOpaqueResponseCredentialedForCorp));
 
   // Default to true for existing cache entries stored before this field was
   // introduced. Downstream loaders will still check Timing-Allow-Origin headers
@@ -498,23 +531,29 @@ blink::mojom::FetchAPIResponsePtr CreateResponse(
                                  ? metadata.response().timing_allow_passed()
                                  : true;
 
-  // While we block most partial responses from being stored, we can have
-  // partial responses for bgfetch or opaque responses.
-  bool has_range_requested = headers.contains(net::HttpRequestHeaders::kRange);
+  // The stored `has_range_requested` bit is supplied by the renderer via
+  // `cache.put()`, and entries written before the proto field was added do not
+  // have it set. Treat opaque 206 and 416 responses as range-requested so
+  // they cannot be replayed to non-range requests.
+  bool has_range_requested =
+      metadata.response().has_range_requested() ||
+      (response_type == network::mojom::FetchResponseType::kOpaque &&
+       (metadata.response().status_code() == net::HTTP_PARTIAL_CONTENT ||
+        metadata.response().status_code() ==
+            net::HTTP_REQUESTED_RANGE_NOT_SATISFIABLE));
 
   return blink::mojom::FetchAPIResponse::New(
       url_list, metadata.response().status_code(),
-      metadata.response().status_text(),
-      ProtoResponseTypeToFetchResponseType(metadata.response().response_type()),
-      padding, network::mojom::FetchResponseSource::kCacheStorage, headers,
-      mime_type, request_method, /*blob=*/nullptr,
+      metadata.response().status_text(), response_type, padding,
+      network::mojom::FetchResponseSource::kCacheStorage, headers, mime_type,
+      request_method, /*blob=*/nullptr,
       blink::mojom::ServiceWorkerResponseError::kUnknown, response_time,
       base::UTF16ToUTF8(cache_name),
       /*cache_storage_side_data_writer=*/mojo::NullRemote(),
       std::vector<std::string>(
           metadata.response().cors_exposed_header_names().begin(),
           metadata.response().cors_exposed_header_names().end()),
-      /*side_data_blob=*/nullptr, /*side_data_blob_for_cache_put=*/nullptr,
+      /*side_data_blob=*/nullptr, /*side_data_for_cache_put=*/std::nullopt,
       network::mojom::ParsedHeaders::New(),
       // Default proto value of 0 maps to HttpConnectionInfo::kUNKNOWN.
       static_cast<net::HttpConnectionInfo>(
@@ -661,14 +700,13 @@ std::unique_ptr<CacheStorageCache> CacheStorageCache::CreateMemoryCache(
     storage::mojom::CacheStorageOwner owner,
     const std::u16string& cache_name,
     CacheStorage* cache_storage,
-    scoped_refptr<base::SequencedTaskRunner> scheduler_task_runner,
     scoped_refptr<storage::QuotaManagerProxy> quota_manager_proxy,
     scoped_refptr<BlobStorageContextWrapper> blob_storage_context) {
-  CacheStorageCache* cache = new CacheStorageCache(
-      bucket_locator, owner, cache_name, base::FilePath(), cache_storage,
-      std::move(scheduler_task_runner), std::move(quota_manager_proxy),
-      std::move(blob_storage_context), /*cache_size=*/0,
-      /*cache_padding=*/0);
+  CacheStorageCache* cache =
+      new CacheStorageCache(bucket_locator, owner, cache_name, base::FilePath(),
+                            cache_storage, std::move(quota_manager_proxy),
+                            std::move(blob_storage_context), /*cache_size=*/0,
+                            /*cache_padding=*/0);
   cache->SetObserver(cache_storage);
   cache->InitBackend();
   return base::WrapUnique(cache);
@@ -681,15 +719,14 @@ std::unique_ptr<CacheStorageCache> CacheStorageCache::CreatePersistentCache(
     const std::u16string& cache_name,
     CacheStorage* cache_storage,
     const base::FilePath& path,
-    scoped_refptr<base::SequencedTaskRunner> scheduler_task_runner,
     scoped_refptr<storage::QuotaManagerProxy> quota_manager_proxy,
     scoped_refptr<BlobStorageContextWrapper> blob_storage_context,
     int64_t cache_size,
     int64_t cache_padding) {
   CacheStorageCache* cache = new CacheStorageCache(
       bucket_locator, owner, cache_name, path, cache_storage,
-      std::move(scheduler_task_runner), std::move(quota_manager_proxy),
-      std::move(blob_storage_context), cache_size, cache_padding);
+      std::move(quota_manager_proxy), std::move(blob_storage_context),
+      cache_size, cache_padding);
   cache->SetObserver(cache_storage);
   cache->InitBackend();
   return base::WrapUnique(cache);
@@ -780,7 +817,7 @@ void CacheStorageCache::Match(blink::mojom::FetchAPIRequestPtr request,
                               CacheStorageSchedulerPriority priority,
                               int64_t trace_id,
                               ResponseCallback callback) {
-  if (backend_state_ == BACKEND_CLOSED) {
+  if (IsClosingOrClosed()) {
     std::move(callback).Run(
         MakeErrorStorage(ErrorStorageType::kMatchBackendClosed), nullptr);
     return;
@@ -801,7 +838,7 @@ void CacheStorageCache::MatchAll(
     blink::mojom::CacheQueryOptionsPtr match_options,
     int64_t trace_id,
     ResponsesCallback callback) {
-  if (backend_state_ == BACKEND_CLOSED) {
+  if (IsClosingOrClosed()) {
     std::move(callback).Run(
         MakeErrorStorage(ErrorStorageType::kMatchAllBackendClosed),
         std::vector<blink::mojom::FetchAPIResponsePtr>());
@@ -827,7 +864,7 @@ void CacheStorageCache::WriteSideData(CacheStorageCacheHandle cache_handle,
                                       mojo_base::BigBuffer data) {
   InvalidateSideDataWriters(url);
 
-  if (backend_state_ == BACKEND_CLOSED) {
+  if (IsClosingOrClosed()) {
     return;
   }
 
@@ -837,7 +874,7 @@ void CacheStorageCache::WriteSideData(CacheStorageCacheHandle cache_handle,
   // GetBucketSpaceRemaining is called before entering a scheduled operation
   // since it can call Size, another scheduled operation.
   quota_manager_proxy_->GetBucketSpaceRemaining(
-      bucket_locator_, scheduler_task_runner_,
+      bucket_locator_, base::SequencedTaskRunner::GetCurrentDefault(),
       base::BindOnce(
           &CacheStorageCache::WriteSideDataDidGetBucketSpaceRemaining,
           weak_ptr_factory_.GetWeakPtr(), std::move(cache_handle),
@@ -854,14 +891,10 @@ void CacheStorageCache::BatchOperation(
   // and success paths.
   std::optional<std::string> message;
 
-  if (backend_state_ == BACKEND_CLOSED) {
-    scheduler_task_runner_->PostTask(
-        FROM_HERE,
-        base::BindOnce(
-            std::move(callback),
-            CacheStorageVerboseError::New(
-                MakeErrorStorage(ErrorStorageType::kBatchBackendClosed),
-                std::move(message))));
+  if (IsClosingOrClosed()) {
+    std::move(callback).Run(CacheStorageVerboseError::New(
+        MakeErrorStorage(ErrorStorageType::kBatchBackendClosed),
+        std::move(message)));
     return;
   }
 
@@ -884,12 +917,8 @@ void CacheStorageCache::BatchOperation(
     message.emplace(
         base::StringPrintf("duplicate requests (%s)", url_list_string.c_str()));
 
-    scheduler_task_runner_->PostTask(
-        FROM_HERE,
-        base::BindOnce(std::move(callback),
-                       CacheStorageVerboseError::New(
-                           CacheStorageError::kErrorDuplicateOperation,
-                           std::move(message))));
+    std::move(callback).Run(CacheStorageVerboseError::New(
+        CacheStorageError::kErrorDuplicateOperation, std::move(message)));
     return;
   }
 
@@ -900,29 +929,31 @@ void CacheStorageCache::BatchOperation(
   for (const auto& operation : operations) {
     if (operation->operation_type == blink::mojom::OperationType::kPut) {
       safe_space_required += CalculateRequiredSafeSpaceForPut(operation);
-      safe_side_data_size +=
-          (operation->response->side_data_blob_for_cache_put
-               ? operation->response->side_data_blob_for_cache_put->size
-               : 0);
+      std::optional<mojo_base::BigBuffer>& side_data =
+          operation->response->side_data_for_cache_put;
+      if (side_data) {
+        if (side_data->size() == 0) {
+          // Empty side data is invalid (should have been nullopt).
+          safe_side_data_size = base::CheckedNumeric<uint64_t>(-1);
+        } else {
+          side_data->MakePrivateBytes();
+          safe_side_data_size += side_data->size();
+        }
+      }
     }
   }
   if (!safe_space_required.IsValid() || !safe_side_data_size.IsValid()) {
-    scheduler_task_runner_->PostTask(FROM_HERE,
-                                     std::move(bad_message_callback));
-    scheduler_task_runner_->PostTask(
-        FROM_HERE,
-        base::BindOnce(
-            std::move(callback),
-            CacheStorageVerboseError::New(
-                MakeErrorStorage(ErrorStorageType::kBatchInvalidSpace),
-                std::move(message))));
+    std::move(bad_message_callback).Run();
+    std::move(callback).Run(CacheStorageVerboseError::New(
+        MakeErrorStorage(ErrorStorageType::kBatchInvalidSpace),
+        std::move(message)));
     return;
   }
   uint64_t space_required = safe_space_required.ValueOrDie();
   uint64_t side_data_size = safe_side_data_size.ValueOrDie();
   if (space_required || side_data_size) {
     quota_manager_proxy_->GetBucketSpaceRemaining(
-        bucket_locator_, scheduler_task_runner_,
+        bucket_locator_, base::SequencedTaskRunner::GetCurrentDefault(),
         base::BindOnce(&CacheStorageCache::BatchDidGetBucketSpaceRemaining,
                        weak_ptr_factory_.GetWeakPtr(), std::move(operations),
                        trace_id, std::move(callback),
@@ -951,30 +982,29 @@ void CacheStorageCache::BatchDidGetBucketSpaceRemaining(
               perfetto::Flow::Global(trace_id), "operations",
               CacheStorageTracedValue(operations));
 
+  if (IsClosingOrClosed()) {
+    std::move(callback).Run(CacheStorageVerboseError::New(
+        MakeErrorStorage(ErrorStorageType::kBatchBackendClosed),
+        std::move(message)));
+    return;
+  }
+
   base::CheckedNumeric<uint64_t> safe_space_required = space_required;
   base::CheckedNumeric<uint64_t> safe_space_required_with_side_data;
   safe_space_required_with_side_data = safe_space_required + side_data_size;
   if (!safe_space_required.IsValid() ||
       !safe_space_required_with_side_data.IsValid()) {
-    scheduler_task_runner_->PostTask(FROM_HERE,
-                                     std::move(bad_message_callback));
-    scheduler_task_runner_->PostTask(
-        FROM_HERE,
-        base::BindOnce(
-            std::move(callback),
-            CacheStorageVerboseError::New(
-                MakeErrorStorage(
-                    ErrorStorageType::kBatchDidGetUsageAndQuotaInvalidSpace),
-                std::move(message))));
+    std::move(bad_message_callback).Run();
+    std::move(callback).Run(CacheStorageVerboseError::New(
+        MakeErrorStorage(
+            ErrorStorageType::kBatchDidGetUsageAndQuotaInvalidSpace),
+        std::move(message)));
     return;
   }
   if (!space_remaining.has_value() ||
       safe_space_required.ValueOrDie() > space_remaining.value()) {
-    scheduler_task_runner_->PostTask(
-        FROM_HERE, base::BindOnce(std::move(callback),
-                                  CacheStorageVerboseError::New(
-                                      CacheStorageError::kErrorQuotaExceeded,
-                                      std::move(message))));
+    std::move(callback).Run(CacheStorageVerboseError::New(
+        CacheStorageError::kErrorQuotaExceeded, std::move(message)));
     return;
   }
   bool skip_side_data = safe_space_required_with_side_data.ValueOrDie() >
@@ -995,7 +1025,7 @@ void CacheStorageCache::BatchDidGetBucketSpaceRemaining(
     switch (operation->operation_type) {
       case blink::mojom::OperationType::kPut:
         if (skip_side_data) {
-          operation->response->side_data_blob_for_cache_put = nullptr;
+          operation->response->side_data_for_cache_put.reset();
           Put(std::move(operation), trace_id, completion_callback);
         } else {
           Put(std::move(operation), trace_id, completion_callback);
@@ -1041,7 +1071,7 @@ void CacheStorageCache::Keys(blink::mojom::FetchAPIRequestPtr request,
                              blink::mojom::CacheQueryOptionsPtr options,
                              int64_t trace_id,
                              RequestsCallback callback) {
-  if (backend_state_ == BACKEND_CLOSED) {
+  if (IsClosingOrClosed()) {
     std::move(callback).Run(
         MakeErrorStorage(ErrorStorageType::kKeysBackendClosed), nullptr);
     return;
@@ -1058,8 +1088,10 @@ void CacheStorageCache::Keys(blink::mojom::FetchAPIRequestPtr request,
 }
 
 void CacheStorageCache::Close(base::OnceClosure callback) {
+  DCHECK(!close_requested_);
   DCHECK_NE(BACKEND_CLOSED, backend_state_)
       << "Was CacheStorageCache::Close() called twice?";
+  close_requested_ = true;
 
   auto id = scheduler_->CreateId();
   scheduler_->ScheduleOperation(
@@ -1071,10 +1103,10 @@ void CacheStorageCache::Close(base::OnceClosure callback) {
 }
 
 void CacheStorageCache::Size(SizeCallback callback) {
-  if (backend_state_ == BACKEND_CLOSED) {
+  if (IsClosingOrClosed()) {
     // TODO(jkarlin): Delete caches that can't be initialized.
-    scheduler_task_runner_->PostTask(FROM_HERE,
-                                     base::BindOnce(std::move(callback), 0));
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE, base::BindOnce(std::move(callback), 0));
     return;
   }
 
@@ -1088,11 +1120,13 @@ void CacheStorageCache::Size(SizeCallback callback) {
 }
 
 void CacheStorageCache::GetSizeThenClose(SizeCallback callback) {
-  if (backend_state_ == BACKEND_CLOSED) {
-    scheduler_task_runner_->PostTask(FROM_HERE,
-                                     base::BindOnce(std::move(callback), 0));
+  if (IsClosingOrClosed()) {
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE, base::BindOnce(std::move(callback), 0));
     return;
   }
+
+  close_requested_ = true;
 
   auto id = scheduler_->CreateId();
   scheduler_->ScheduleOperation(
@@ -1141,7 +1175,6 @@ CacheStorageCache::CacheStorageCache(
     const std::u16string& cache_name,
     const base::FilePath& path,
     CacheStorage* cache_storage,
-    scoped_refptr<base::SequencedTaskRunner> scheduler_task_runner,
     scoped_refptr<storage::QuotaManagerProxy> quota_manager_proxy,
     scoped_refptr<BlobStorageContextWrapper> blob_storage_context,
     int64_t cache_size,
@@ -1151,10 +1184,9 @@ CacheStorageCache::CacheStorageCache(
       cache_name_(cache_name),
       path_(path),
       cache_storage_(cache_storage),
-      scheduler_task_runner_(std::move(scheduler_task_runner)),
       quota_manager_proxy_(std::move(quota_manager_proxy)),
-      scheduler_(new CacheStorageScheduler(CacheStorageSchedulerClient::kCache,
-                                           scheduler_task_runner_)),
+      scheduler_(std::make_unique<CacheStorageScheduler>(
+          CacheStorageSchedulerClient::kCache)),
       cache_size_(cache_size),
       cache_padding_(cache_padding),
       max_query_size_bytes_(kMaxQueryCacheResultBytes),
@@ -1289,7 +1321,7 @@ void CacheStorageCache::QueryCacheOpenNextEntry(
     return;
   }
 
-  scheduler_task_runner_->PostTask(
+  base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
       FROM_HERE,
       base::BindOnce(std::move(split_callback.second), std::move(result)));
 }
@@ -1653,6 +1685,10 @@ void CacheStorageCache::WriteSideDataDidGetBucketSpaceRemaining(
               "CacheStorageCache::WriteSideDataDidGetBucketSpaceRemaining",
               perfetto::Flow::Global(trace_id));
 
+  if (IsClosingOrClosed()) {
+    return;
+  }
+
   if (!space_remaining.has_value() ||
       !base::IsValueInRangeForNumericType<int64_t>(data.size()) ||
       space_remaining.value() < static_cast<int64_t>(data.size())) {
@@ -1866,6 +1902,15 @@ void CacheStorageCache::Put(blink::mojom::FetchAPIRequestPtr request,
                             blink::mojom::FetchAPIResponsePtr response,
                             int64_t trace_id,
                             ErrorCallback callback) {
+  if (IsClosingOrClosed()) {
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE,
+        base::BindOnce(
+            std::move(callback),
+            MakeErrorStorage(ErrorStorageType::kPutImplBackendClosed)));
+    return;
+  }
+
   auto put_context = cache_entry_handler_->CreatePutContext(
       std::move(request), std::move(response), trace_id);
   auto id = scheduler_->CreateId();
@@ -2040,15 +2085,25 @@ void CacheStorageCache::PutDidCreateEntry(
 
   int64_t side_data_padding = 0;
   if (ShouldPadResourceSize(*put_context->response) &&
-      put_context->side_data_blob) {
+      (put_context->side_data_blob || put_context->side_data_buffer)) {
+    const uint64_t side_data_size = put_context->side_data_blob
+                                        ? put_context->side_data_blob_size
+                                        : put_context->side_data_buffer->size();
     side_data_padding = CalculateSideDataPadding(
-        bucket_locator_, response_metadata, put_context->side_data_blob_size);
+        bucket_locator_, response_metadata, side_data_size);
   }
   response_metadata->set_side_data_padding(side_data_padding);
+  // Stored verbatim: this value is renderer-supplied via cache.put() and is
+  // not trusted. It is sanitized on read in CreateResponse(), which is the
+  // only consumer, so that disabling
+  // kCacheStorageOpaqueResponseCredentialedForCorp fully restores the previous
+  // behaviour for already-stored entries.
   response_metadata->set_request_include_credentials(
       put_context->response->request_include_credentials);
   response_metadata->set_timing_allow_passed(
       put_context->response->timing_allow_passed);
+  response_metadata->set_has_range_requested(
+      put_context->response->has_range_requested);
 
   // Get a temporary copy of the entry pointer before passing it in base::Bind.
   disk_cache::Entry* temp_entry_ptr = put_context->cache_entry.get();
@@ -2094,6 +2149,8 @@ void CacheStorageCache::PutWriteBlobToCache(
               perfetto::Flow::Global(put_context->trace_id));
 
   mojo::PendingRemote<blink::mojom::Blob> blob;
+  mojo::PendingRemote<blink::mojom::Blob> side_data_blob;
+  std::optional<mojo_base::BigBuffer> side_data_buffer;
   int64_t blob_size = 0;
 
   switch (disk_cache_body_index) {
@@ -2104,9 +2161,15 @@ void CacheStorageCache::PutWriteBlobToCache(
       break;
     }
     case INDEX_SIDE_DATA: {
-      blob = std::move(put_context->side_data_blob);
-      put_context->side_data_blob.reset();
-      blob_size = put_context->side_data_blob_size;
+      if (put_context->side_data_blob) {
+        CHECK(!put_context->side_data_buffer);
+        side_data_blob = std::move(put_context->side_data_blob);
+        blob_size = put_context->side_data_blob_size;
+        put_context->side_data_blob.reset();
+      } else {
+        side_data_buffer = std::move(put_context->side_data_buffer);
+        put_context->side_data_buffer.reset();
+      }
       break;
     }
     case INDEX_HEADERS:
@@ -2118,7 +2181,7 @@ void CacheStorageCache::PutWriteBlobToCache(
   // If there isn't blob data for this index, then we may need to clear any
   // pre-existing data.  This can happen under rare circumstances if a stale
   // file is present and accepted by OpenOrCreateEntry().
-  if (!blob) {
+  if (!blob && !side_data_blob && !side_data_buffer) {
     disk_cache::Entry* temp_entry_ptr = entry.get();
 
     auto clear_callback =
@@ -2147,6 +2210,31 @@ void CacheStorageCache::PutWriteBlobToCache(
     return;
   }
 
+  if (side_data_buffer) {
+    base::ByteSize buffer_size(side_data_buffer->size());
+    scoped_refptr<storage::BigIOBuffer> side_data_io_buffer =
+        base::MakeRefCounted<storage::BigIOBuffer>(
+            std::move(*side_data_buffer));
+    disk_cache::Entry* temp_entry_ptr = entry.get();
+    auto split_callback = base::SplitOnceCallback(
+        base::BindOnce(&CacheStorageCache::PutDidWriteSideDataToCache,
+                       weak_ptr_factory_.GetWeakPtr(), std::move(put_context),
+                       disk_cache_body_index, std::move(entry), buffer_size));
+    int rv = temp_entry_ptr->WriteData(
+        disk_cache_body_index, /*offset=*/0, side_data_io_buffer.get(),
+        base::checked_cast<int>(buffer_size.InBytes()),
+        std::move(split_callback.first),
+        /*truncate=*/true);
+    if (rv != net::ERR_IO_PENDING) {
+      std::move(split_callback.second).Run(rv);
+    }
+    return;
+  }
+
+  if (side_data_blob) {
+    blob = std::move(side_data_blob);
+  }
+
   // We have real data, so stream it into the entry.  This will overwrite
   // any existing data.
   auto blob_to_cache = std::make_unique<CacheStorageBlobToDiskCache>(
@@ -2160,6 +2248,19 @@ void CacheStorageCache::PutWriteBlobToCache(
       base::BindOnce(&CacheStorageCache::PutDidWriteBlobToCache,
                      weak_ptr_factory_.GetWeakPtr(), std::move(put_context),
                      blob_to_cache_key, disk_cache_body_index));
+}
+
+void CacheStorageCache::PutDidWriteSideDataToCache(
+    std::unique_ptr<PutContext> put_context,
+    int disk_cache_body_index,
+    ScopedWritableEntry entry,
+    base::ByteSize expected_bytes,
+    int rv) {
+  PutWriteBlobToCacheComplete(
+      std::move(put_context), disk_cache_body_index, std::move(entry),
+      rv >= 0 && (base::ByteSize(static_cast<uint32_t>(rv)) == expected_bytes)
+          ? net::OK
+          : net::ERR_FAILED);
 }
 
 void CacheStorageCache::PutDidWriteBlobToCache(
@@ -2210,6 +2311,7 @@ void CacheStorageCache::PutComplete(std::unique_ptr<PutContext> put_context,
     CHECK(put_context->cache_entry, base::NotFatalUntil::M158);
     CHECK(!put_context->blob, base::NotFatalUntil::M158);
     CHECK(!put_context->side_data_blob, base::NotFatalUntil::M158);
+    CHECK(!put_context->side_data_buffer, base::NotFatalUntil::M158);
 
     // Tell the WritableScopedEntry not to doom the entry since it was a
     // successful operation.
@@ -2300,7 +2402,8 @@ void CacheStorageCache::UpdateCacheSizeGotSize(
 
   quota_manager_proxy_->NotifyBucketModified(
       CacheStorageQuotaClient::GetClientTypeFromOwner(owner_), bucket_locator_,
-      size_delta, base::Time::Now(), scheduler_task_runner_,
+      size_delta, base::Time::Now(),
+      base::SequencedTaskRunner::GetCurrentDefault(),
       base::BindOnce(&CacheStorageCache::UpdateCacheSizeNotifiedStorageModified,
                      weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
 }
@@ -2322,7 +2425,7 @@ void CacheStorageCache::GetAllMatchedEntries(
     blink::mojom::CacheQueryOptionsPtr options,
     int64_t trace_id,
     CacheEntriesCallback callback) {
-  if (backend_state_ == BACKEND_CLOSED) {
+  if (IsClosingOrClosed()) {
     std::move(callback).Run(
         MakeErrorStorage(ErrorStorageType::kKeysBackendClosed), {});
     return;
@@ -2550,15 +2653,8 @@ void CacheStorageCache::SizeImpl(SizeCallback callback) {
   CHECK_NE(BACKEND_UNINITIALIZED, backend_state_, base::NotFatalUntil::M158);
 
   // TODO(cmumford): Can CacheStorage::kSizeUnknown be returned instead of zero?
-  if (backend_state_ != BACKEND_OPEN) {
-    scheduler_task_runner_->PostTask(FROM_HERE,
-                                     base::BindOnce(std::move(callback), 0));
-    return;
-  }
-
-  int64_t size = backend_state_ == BACKEND_OPEN ? PaddedCacheSize() : 0;
-  scheduler_task_runner_->PostTask(FROM_HERE,
-                                   base::BindOnce(std::move(callback), size));
+  std::move(callback).Run(backend_state_ == BACKEND_OPEN ? PaddedCacheSize()
+                                                         : 0);
 }
 
 void CacheStorageCache::GetSizeThenCloseDidGetSize(SizeCallback callback,
@@ -2751,6 +2847,7 @@ CacheStorageCache::CalculateRequiredSafeSpaceForResponse(
     const blink::mojom::FetchAPIResponsePtr& response) {
   base::CheckedNumeric<uint64_t> safe_space_required = 0;
   safe_space_required += (response->blob ? response->blob->size : 0);
+  safe_space_required += base::CheckedNumeric<uint64_t>(response->padding);
   safe_space_required += response->status_text.size();
 
   for (const auto& header : response->headers) {

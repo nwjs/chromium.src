@@ -361,7 +361,7 @@ TEST_F(SubmittedContextDecoratorTest,
 
   // Clear `submitted_context_tokens_` for `deselected_token` by keeping only
   // `active_token` in `submitted_context_tokens_`, and mark tab 20 deselected.
-  session_handle->set_submitted_context_tokens({active_token});
+  session_handle->SetSubmittedContextTokens({active_token});
   session_handle->set_deselected_tabs_urls(
       {{SessionID::FromSerializedValue(20),
         {GURL("https://example.com/deselected"), "Deselected Tab"}}});
@@ -369,10 +369,9 @@ TEST_F(SubmittedContextDecoratorTest,
   // Add an unsubmitted delayed tab to `tab_context_.attached` (must be
   // skipped).
   base::UnguessableToken delayed_token = session_handle->CreateContextToken();
-  session_handle->AddDelayedTabContext(
+  session_handle->AttachTabPendingUpload(
       delayed_token, 30, GURL("https://example.com/delayed"), "Delayed Tab");
-  ASSERT_EQ(2u, session_handle->persisted_tabs().size());
-  ASSERT_EQ(1u, session_handle->GetTabContextState().attached.size());
+  ASSERT_EQ(3u, session_handle->GetTabContextState().attached.size());
 
   ContextDecorationParams params;
   params.contextual_search_session_handle = session_handle->AsWeakPtr();

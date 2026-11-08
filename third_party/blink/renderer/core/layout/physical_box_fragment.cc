@@ -87,7 +87,7 @@ bool ShouldUsePositionForPointInBlockFlowDirection(
       !IsFlexibleBoxWithSingleChildElement(layout_object)) {
     return false;
   }
-  if (layout_object.StyleRef().SpecifiesColumns()) {
+  if (layout_object.Style().SpecifiesColumns()) {
     // Columns are laid out in inline direction.
     return false;
   }
@@ -214,8 +214,8 @@ const PhysicalBoxFragment* PhysicalBoxFragment::Create(
         scrollbar, padding, physical_size, writing_direction);
 
     if (FragmentItemsBuilder* items_builder = builder->ItemsBuilder()) {
-      calculator.AddItems(builder->GetLayoutObject(),
-                          items_builder->Items(physical_size));
+      items_builder->ConvertToPhysical(physical_size);
+      calculator.AddItems(builder->GetLayoutObject(), items_builder->Items());
     }
 
     for (auto& child : builder->children_) {
@@ -554,7 +554,7 @@ PhysicalOffset PhysicalBoxFragment::OffsetFromOwnerLayoutBox() const {
   // When LTR, compute the offset from the first fragment. The first fragment is
   // at the left top of the |LayoutBox| regardless of the writing mode.
   const auto* containing_block = owner_box->ContainingBlock();
-  const ComputedStyle& containing_block_style = containing_block->StyleRef();
+  const ComputedStyle& containing_block_style = containing_block->Style();
   if (IsLtr(containing_block_style.Direction())) {
     DCHECK_EQ(IsFirstForNode(), this == owner_box->GetPhysicalFragment(0));
     if (IsFirstForNode())
@@ -1820,7 +1820,7 @@ void PhysicalBoxFragment::CheckSameForSimplifiedLayout(
   DCHECK_EQ(type_, other.type_);
   DCHECK_EQ(sub_type_, other.sub_type_);
   DCHECK_EQ(style_variant_, other.style_variant_);
-  DCHECK_EQ(is_hidden_for_paint_, other.is_hidden_for_paint_);
+  DCHECK_EQ(is_hidden_due_to_layout_, other.is_hidden_due_to_layout_);
   DCHECK_EQ(is_opaque_, other.is_opaque_);
   DCHECK_EQ(is_block_in_inline_, other.is_block_in_inline_);
   DCHECK_EQ(is_math_fraction_, other.is_math_fraction_);

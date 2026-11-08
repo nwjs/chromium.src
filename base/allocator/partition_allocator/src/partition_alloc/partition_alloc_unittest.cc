@@ -346,7 +346,7 @@ GetPartitionAllocWithSizedFreeTestParams() {
   auto params = GetPartitionAllocTestParams();
   auto free_with_size_func = [](PartitionRoot* root, void* ptr, size_t size,
                                 size_t) {
-    root->Free<FreeFlags::kWithSizeHint>(ptr, {.size = size});
+    root->Free(ptr, FreeSizeHint{size});
   };
   params.emplace_back(PartitionAllocTestParam{BucketDistribution::kNeutral,
                                               false, free_with_size_func});
@@ -360,8 +360,7 @@ GetPartitionAllocWithFreeWithSizeAndAlignmentTestParams() {
   auto params = GetPartitionAllocTestParams();
   auto free_with_size_and_alignment_func = [](PartitionRoot* root, void* ptr,
                                               size_t size, size_t alignment) {
-    root->Free<FreeFlags::kWithSizeHint | FreeFlags::kWithAlignmentHint>(
-        ptr, {.size = size, .alignment = alignment});
+    root->Free(ptr, FreeSizeHint{size}, FreeAlignmentHint{alignment});
   };
   params.emplace_back(PartitionAllocTestParam{
       BucketDistribution::kNeutral, false, free_with_size_and_alignment_func});
@@ -2142,7 +2141,8 @@ TEST_P(PartitionAllocTest, Realloc) {
                     ->InSlotMetadataPointerFromObjectForTesting(ptr2)
                     ->IsSmuggledSizeAvailable());
     EXPECT_EQ(internal::GetSmuggledSize(
-                  ptr2, allocator.root()->GetSlotUsableSize(slot_span)),
+                  UntaggedSlotStart::Unchecked(UntagPtr(ptr2)),
+                  allocator.root()->GetSlotUsableSize(slot_span)),
               size + 1);
   }
 #endif  // PA_BUILDFLAG(CHECKED_SPAN_HAS_METADATA_SUPPORT)
@@ -4386,8 +4386,7 @@ TEST_P(PartitionAllocTest, IntendedLeak) {
       SlotSpan::FromSlotStart(SlotStart::Unchecked(ptr).Untag(), root.get());
 
   constexpr const uint64_t kTypeId = 0xDEADBEAFu;
-  root->Free<FreeFlags::kIntendedLeak | FreeFlags::kWithTypeIdHint>(
-      ptr, {.type_id = kTypeId});
+  root->Free<FreeFlags::kIntendedLeak>(ptr, FreeTypeIdHint{kTypeId});
 
   // Leaked objects will be never found in the freelist of the `slot_span`.
   EXPECT_NE(SlotStart::Unchecked(ptr).Untag().value(),
@@ -4725,14 +4724,14 @@ TEST_P(PartitionAllocTest, OverrideHooks) {
 
   PartitionAllocHooks::SetOverrideHooks(
       [](void** out, AllocFlags flags, size_t size, const char* type_name,
-         std::optional<size_t> alignment) -> bool {
+         std::optional<size_t> alignment, bool use_brp) -> bool {
         if (size == kOverriddenSize && type_name == kOverriddenType) {
           *out = overridden_allocation;
           return true;
         }
         return false;
       },
-      [](void* address) -> bool {
+      [](void* address, FreeFlags flags) -> bool {
         if (address == overridden_allocation) {
           free_called = true;
           return true;
@@ -6240,6 +6239,29 @@ TEST_P(PartitionAllocTest, CheckReservationType) {
         //  || PA_BUILDFLAG(IS_DEBUG))
 }
 
+TEST_P(PartitionAllocTest, IsAlwaysDirectMapped) {
+  static_assert(!IsAlwaysDirectMapped(BucketIndexLookup::kMaxBucketSize));
+  static_assert(IsAlwaysDirectMapped(BucketIndexLookup::kMaxBucketSize + 1));
+
+  for (size_t size : {BucketIndexLookup::kMaxBucketSize + 1,
+                      2 * BucketIndexLookup::kMaxBucketSize}) {
+    SCOPED_TRACE(size);
+    ASSERT_TRUE(IsAlwaysDirectMapped(size));
+
+    void* ptr = allocator.root()->Alloc(size, type_name);
+    ASSERT_TRUE(ptr);
+    EXPECT_TRUE(
+        IsManagedByDirectMapForTesting(UntagPtr(ptr), allocator.root()));
+    allocator.root()->Free(ptr);
+
+    ptr = allocator.root()->AlignedAlloc(64, size);
+    ASSERT_TRUE(ptr);
+    EXPECT_TRUE(
+        IsManagedByDirectMapForTesting(UntagPtr(ptr), allocator.root()));
+    allocator.root()->Free(ptr);
+  }
+}
+
 // Test for crash http://crbug.com/1169003.
 TEST_P(PartitionAllocTest, CrossPartitionRootRealloc) {
   // Size is large enough to satisfy it from a single-slot slot span
@@ -7073,6 +7095,7 @@ TEST_P(PartitionAllocTest, SwitchBucketDistributionAfterAlloc) {
   root->Free(ptr);
 }
 
+#if PA_BUILDFLAG(ENABLE_AUTO_PARTITIONING)
 TEST_P(PartitionAllocTest, MultipleThreadCachePerThread) {
   // Use thread cache indices which are not used by default partitions.
   constexpr size_t index1 = kNumPartitions;
@@ -7103,6 +7126,7 @@ TEST_P(PartitionAllocTest, MultipleThreadCachePerThread) {
                                     bucket_index, pos2));
   EXPECT_EQ(pos2, 0u);
 }
+#endif  // PA_BUILDFLAG(ENABLE_AUTO_PARTITIONING)
 
 // Documentation tests demonstrating the behavior of `IsExtentOutOfBounds()`.
 // This test passes if it doesn't crash.

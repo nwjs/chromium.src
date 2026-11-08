@@ -2,18 +2,15 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "base/feature_list.h"
 #include "base/strings/stringprintf.h"
 #include "build/build_config.h"
 #include "chrome/browser/extensions/extension_apitest.h"
 #include "chrome/browser/profiles/profile.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/content_client.h"
-#include "content/public/common/content_features.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
 #include "extensions/browser/background_script_executor.h"
-#include "extensions/browser/script_executor.h"
 #include "extensions/buildflags/buildflags.h"
 #include "extensions/test/test_extension_dir.h"
 #include "net/dns/mock_host_resolver.h"
@@ -216,5 +213,56 @@ IN_PROC_BROWSER_TEST_F(ClipboardApiTest, HostedAppNoPermission) {
   EXPECT_FALSE(ExecuteCommandInIframeInSelectedTab("paste")) << message_;
 }
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS)
+
+IN_PROC_BROWSER_TEST_F(ClipboardApiTest, ServiceWorker) {
+  ASSERT_TRUE(StartEmbeddedTestServer());
+  // Use a test clipboard so the write can be verified, and so the test does not
+  // depend on or disturb the machine's real clipboard.
+  content::BrowserTestClipboardScope clipboard;
+  ASSERT_TRUE(RunExtensionTest("clipboard/service_worker")) << message_;
+
+  // The write must actually reach the clipboard: a regression that turns it
+  // into a silently successful no-op would otherwise pass.
+  std::string text;
+  clipboard.GetText(&text);
+  EXPECT_EQ("Hello from Service Worker!", text);
+}
+
+IN_PROC_BROWSER_TEST_F(ClipboardApiTest, ServiceWorkerNoPermission) {
+  ASSERT_TRUE(StartEmbeddedTestServer());
+  static constexpr char kManifest[] =
+      R"({
+         "name": "Clipboard Service Worker No Permission",
+         "manifest_version": 3,
+         "version": "1",
+         "background": {"service_worker": "background.js"},
+         "permissions": []
+       })";
+  static constexpr char kScript[] =
+      R"(
+        chrome.test.runTests([
+          async function testClipboardWriteFailsWithoutPermission() {
+            chrome.test.assertTrue(!!navigator.clipboard,
+                                   'navigator.clipboard should be defined');
+            await chrome.test.assertPromiseRejects(
+                navigator.clipboard.writeText('Should fail'),
+                /NotAllowedError/);
+            chrome.test.succeed();
+          },
+          // Reads are refused in every worker, with or without the permission,
+          // so this asserts the worker rejection rather than a permission one.
+          async function testClipboardReadFailsInWorker() {
+            await chrome.test.assertPromiseRejects(
+                navigator.clipboard.readText(),
+                /NotAllowedError.*Read not supported in Worker/);
+            chrome.test.succeed();
+          }
+        ]);
+      )";
+  TestExtensionDir test_dir;
+  test_dir.WriteManifest(kManifest);
+  test_dir.WriteFile(FILE_PATH_LITERAL("background.js"), kScript);
+  ASSERT_TRUE(RunExtensionTest(test_dir.UnpackedPath(), {}, {})) << message_;
+}
 
 }  // namespace extensions

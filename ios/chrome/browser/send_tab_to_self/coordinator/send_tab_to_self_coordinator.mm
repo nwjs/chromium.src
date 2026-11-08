@@ -30,7 +30,6 @@
 #import "components/send_tab_to_self/page_context.h"
 #import "components/send_tab_to_self/send_tab_to_self_model.h"
 #import "components/send_tab_to_self/send_tab_to_self_sync_service.h"
-#import "components/send_tab_to_self/target_device_info.h"
 #import "components/send_tab_to_self/target_device_list_waiter.h"
 #import "components/signin/public/base/signin_metrics.h"
 #import "components/strings/grit/components_strings.h"
@@ -458,9 +457,9 @@ void OpenManageDevicesTab(CommandDispatcher* dispatcher) {
 - (void)showSigninPromo {
   __weak __typeof(self) weakSelf = self;
   SigninCoordinatorCompletionCallback completion = ^(
-      SigninCoordinator* coordinator, SigninCoordinatorResult result,
-      id<SystemIdentity> completionIdentity) {
-    BOOL succeeded = result == SigninCoordinatorResultSuccess;
+      SigninCoordinator* coordinator,
+      SigninCoordinatorResultOrIdentity result) {
+    BOOL succeeded = result.has_value();
     [weakSelf onSigninCompleteWithCoordinator:coordinator succeeded:succeeded];
   };
   ChangeProfileContinuationProvider provider = base::BindRepeating(

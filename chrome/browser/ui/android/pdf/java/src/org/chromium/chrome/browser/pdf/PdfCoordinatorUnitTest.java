@@ -38,6 +38,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.ParcelFileDescriptor;
 import android.util.SparseArray;
+import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -3308,6 +3309,144 @@ public class PdfCoordinatorUnitTest {
     @Test
     @EnableFeatures(ChromeFeatureList.INLINE_PDF_V2)
     @Config(shadows = {ShadowEditablePdfViewerFragment.class})
+    public void testFindInPage_DocumentNotLoaded_ReturnsFalse() {
+        createPdfCoordinator();
+        mPdfCoordinator.mChromePdfViewerFragment.mIsLoadDocumentSuccess = false;
+
+        assertFalse(mPdfCoordinator.findInPage());
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.INLINE_PDF_V2)
+    @Config(shadows = {ShadowEditablePdfViewerFragment.class})
+    public void testFindInPage_NotInEditMode_ActivatesTextSearch() {
+        createPdfCoordinator();
+        mPdfCoordinator.mChromePdfViewerFragment.mIsLoadDocumentSuccess = true;
+        ShadowEditablePdfViewerFragment shadowFragment =
+                Shadow.extract(mPdfCoordinator.mChromePdfViewerFragment);
+
+        HistogramWatcher histogramExpectation =
+                HistogramWatcher.newSingleRecordWatcher("Android.Pdf.FindInPageCounts", 0);
+
+        assertTrue(mPdfCoordinator.findInPage());
+        assertTrue(shadowFragment.isTextSearchActive());
+        histogramExpectation.assertExpected();
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.INLINE_PDF_V2)
+    @Config(shadows = {ShadowEditablePdfViewerFragment.class})
+    public void testFindInPage_InEditModeNoUnsavedChanges_ExitsEditModeAndActivatesTextSearch() {
+        createPdfCoordinator();
+        mPdfCoordinator.mChromePdfViewerFragment.mIsLoadDocumentSuccess = true;
+        mPdfCoordinator.onEditModeChanged(true);
+
+        mActivity
+                .getSupportFragmentManager()
+                .beginTransaction()
+                .add(mPdfCoordinator.mChromePdfViewerFragment, "test_pdf_tag")
+                .commitNow();
+
+        ShadowEditablePdfViewerFragment shadowFragment =
+                Shadow.extract(mPdfCoordinator.mChromePdfViewerFragment);
+        shadowFragment.setHasUnsavedChanges(false);
+
+        assertTrue(mPdfCoordinator.findInPage());
+        assertFalse(shadowFragment.isEditModeEnabled());
+        assertTrue(shadowFragment.isTextSearchActive());
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.INLINE_PDF_V2)
+    @Config(shadows = {ShadowEditablePdfViewerFragment.class})
+    public void testFindInPage_InEditModeWithUnsavedChanges_ShowsToastAndDoesNotActivateTextSearch() {
+        createPdfCoordinator();
+        mPdfCoordinator.mChromePdfViewerFragment.mIsLoadDocumentSuccess = true;
+        mPdfCoordinator.onEditModeChanged(true);
+
+        mActivity
+                .getSupportFragmentManager()
+                .beginTransaction()
+                .add(mPdfCoordinator.mChromePdfViewerFragment, "test_pdf_tag")
+                .commitNow();
+
+        ShadowEditablePdfViewerFragment shadowFragment =
+                Shadow.extract(mPdfCoordinator.mChromePdfViewerFragment);
+        shadowFragment.setHasUnsavedChanges(true);
+        ShadowToast.reset();
+
+        assertFalse(mPdfCoordinator.findInPage());
+        assertFalse(shadowFragment.isTextSearchActive());
+        assertEquals(
+                mActivity.getString(R.string.pdf_find_in_page_disabled_unsaved_changes),
+                ShadowToast.getTextOfLatestToast());
+    }
+
+    @Test
+    public void testHandleFindInPageKey_CtrlFPressed_TriggersFindInPage() {
+        PdfActionsDelegate mockDelegate = Mockito.mock(PdfActionsDelegate.class);
+        TestChromePdfViewerFragment fragment = new TestChromePdfViewerFragment(mockDelegate);
+
+        KeyEvent ctrlFDown =
+                new KeyEvent(
+                        /* downTime= */ 0,
+                        /* eventTime= */ 0,
+                        KeyEvent.ACTION_DOWN,
+                        KeyEvent.KEYCODE_F,
+                        /* repeat= */ 0,
+                        KeyEvent.META_CTRL_ON);
+        assertTrue(fragment.handleFindInPageKey(null, KeyEvent.KEYCODE_F, ctrlFDown));
+        verify(mockDelegate).findInPage();
+
+        KeyEvent ctrlFUp =
+                new KeyEvent(
+                        /* downTime= */ 0,
+                        /* eventTime= */ 0,
+                        KeyEvent.ACTION_UP,
+                        KeyEvent.KEYCODE_F,
+                        /* repeat= */ 0,
+                        KeyEvent.META_CTRL_ON);
+        assertTrue(fragment.handleFindInPageKey(null, KeyEvent.KEYCODE_F, ctrlFUp));
+        verify(mockDelegate, times(1)).findInPage();
+    }
+
+    @Test
+    public void testHandleFindInPageKey_OtherKeysOrModifiers_Ignored() {
+        PdfActionsDelegate mockDelegate = Mockito.mock(PdfActionsDelegate.class);
+        TestChromePdfViewerFragment fragment = new TestChromePdfViewerFragment(mockDelegate);
+
+        // Ctrl + Shift + F
+        KeyEvent ctrlShiftF =
+                new KeyEvent(
+                        0,
+                        0,
+                        KeyEvent.ACTION_DOWN,
+                        KeyEvent.KEYCODE_F,
+                        0,
+                        KeyEvent.META_CTRL_ON | KeyEvent.META_SHIFT_ON);
+        assertFalse(fragment.handleFindInPageKey(null, KeyEvent.KEYCODE_F, ctrlShiftF));
+
+        // Just F without Ctrl
+        KeyEvent justF = new KeyEvent(0, 0, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_F, 0, 0);
+        assertFalse(fragment.handleFindInPageKey(null, KeyEvent.KEYCODE_F, justF));
+
+        // Ctrl + G
+        KeyEvent ctrlG =
+                new KeyEvent(
+                        0,
+                        0,
+                        KeyEvent.ACTION_DOWN,
+                        KeyEvent.KEYCODE_G,
+                        0,
+                        KeyEvent.META_CTRL_ON);
+        assertFalse(fragment.handleFindInPageKey(null, KeyEvent.KEYCODE_G, ctrlG));
+
+        verify(mockDelegate, never()).findInPage();
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.INLINE_PDF_V2)
+    @Config(shadows = {ShadowEditablePdfViewerFragment.class})
     public void testOnApplyEditsSuccess_CallsDelegateOnPdfEditsSaved() throws Exception {
         PdfActionsDelegate mockDelegate = Mockito.mock(PdfActionsDelegate.class);
         TestChromePdfViewerFragment fragment = new TestChromePdfViewerFragment(mockDelegate);
@@ -3503,13 +3642,12 @@ public class PdfCoordinatorUnitTest {
 
     @Test
     public void testCalculateCurrentPage() {
-        PdfView mockPdfView = org.mockito.Mockito.mock(PdfView.class);
-        when(mockPdfView.getHeight()).thenReturn(1000); // 50% threshold is y = 500
+        PdfView pdfView = new PdfView(mActivity);
+        pdfView.layout(0, 0, 500, 1000); // 50% threshold is y = 500
 
         // Case 1: pageLocations is null - fallback to firstVisiblePage
         assertEquals(
-                0,
-                PdfCoordinator.ChromePdfViewerFragment.calculateCurrentPage(mockPdfView, 0, null));
+                0, PdfCoordinator.ChromePdfViewerFragment.calculateCurrentPage(pdfView, 0, null));
 
         // Case 2: Page 1 top (rect.top = 600) is below 50% viewport height (threshold 500)
         SparseArray<RectF> pageLocations = new SparseArray<>();
@@ -3518,7 +3656,7 @@ public class PdfCoordinatorUnitTest {
         assertEquals(
                 0,
                 PdfCoordinator.ChromePdfViewerFragment.calculateCurrentPage(
-                        mockPdfView, 0, pageLocations));
+                        pdfView, 0, pageLocations));
 
         // Case 3: Page 1 top (rect.top = 450) crosses 50% viewport height (threshold 500)
         pageLocations.put(0, new RectF(0, -350, 800, 450));
@@ -3526,7 +3664,7 @@ public class PdfCoordinatorUnitTest {
         assertEquals(
                 1,
                 PdfCoordinator.ChromePdfViewerFragment.calculateCurrentPage(
-                        mockPdfView, 0, pageLocations));
+                        pdfView, 0, pageLocations));
 
         // Case 4: Multiple pages visible, page 2 crosses threshold, page 3 is below threshold
         SparseArray<RectF> multiPageLocations = new SparseArray<>();
@@ -3536,7 +3674,7 @@ public class PdfCoordinatorUnitTest {
         assertEquals(
                 2,
                 PdfCoordinator.ChromePdfViewerFragment.calculateCurrentPage(
-                        mockPdfView, 1, multiPageLocations));
+                        pdfView, 1, multiPageLocations));
 
         // Case 5: Two pages per row, pages 0 and 1 visible at the top (top = 0)
         SparseArray<RectF> twoPageLocations = new SparseArray<>();
@@ -3545,7 +3683,7 @@ public class PdfCoordinatorUnitTest {
         assertEquals(
                 0,
                 PdfCoordinator.ChromePdfViewerFragment.calculateCurrentPage(
-                        mockPdfView, 0, twoPageLocations));
+                        pdfView, 0, twoPageLocations));
 
         // Case 6: Two pages per row, pages 2 and 3 (pages 3 and 4) visible and crossing threshold
         SparseArray<RectF> twoPageRow1Locations = new SparseArray<>();
@@ -3558,7 +3696,7 @@ public class PdfCoordinatorUnitTest {
         assertEquals(
                 2,
                 PdfCoordinator.ChromePdfViewerFragment.calculateCurrentPage(
-                        mockPdfView, 0, twoPageRow1Locations));
+                        pdfView, 0, twoPageRow1Locations));
 
         // Case 7: Two pages per row, row 1 has not crossed threshold
         SparseArray<RectF> twoPageRow0Locations = new SparseArray<>();
@@ -3569,7 +3707,7 @@ public class PdfCoordinatorUnitTest {
         assertEquals(
                 0,
                 PdfCoordinator.ChromePdfViewerFragment.calculateCurrentPage(
-                        mockPdfView, 0, twoPageRow0Locations));
+                        pdfView, 0, twoPageRow0Locations));
     }
 
     @Test
@@ -3887,6 +4025,17 @@ public class PdfCoordinatorUnitTest {
     public static class ShadowPdfViewerFragment {
         @RealObject private PdfViewerFragment mRealFragment;
         private Uri mDocumentUri;
+        private boolean mIsTextSearchActive;
+
+        @Implementation
+        public void setTextSearchActive(boolean active) {
+            mIsTextSearchActive = active;
+        }
+
+        @Implementation
+        public boolean isTextSearchActive() {
+            return mIsTextSearchActive;
+        }
 
         @Implementation
         public void setDocumentUri(Uri uri) {

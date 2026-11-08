@@ -14,8 +14,8 @@
 
 #include "base/files/file_path.h"
 #include "base/functional/callback_forward.h"
-#include "base/memory/advanced_memory_safety_checks.h"
 #include "base/memory/raw_ptr.h"
+#include "base/memory/sanitized_object.h"
 #include "base/memory/weak_ptr.h"
 #include "base/observer_list.h"
 #include "base/threading/thread_checker.h"
@@ -46,7 +46,7 @@ class COMPONENTS_DOWNLOAD_EXPORT DownloadItemImpl
     : public DownloadItem,
       public DownloadDestinationObserver {
   // TODO(crbug.com/422045023): Remove this macro once the bug gets fixed.
-  ADVANCED_MEMORY_SAFETY_CHECKS();
+  SANITIZED_OBJECT();
 
  public:
   // Information about the initial request that triggers the download. Most of
@@ -68,6 +68,7 @@ class COMPONENTS_DOWNLOAD_EXPORT DownloadItemImpl
                 const std::string& remote_address,
                 base::Time start_time,
                 ::network::mojom::CredentialsMode credentials_mode,
+                ::network::mojom::RequestMode fetch_request_mode,
                 const std::optional<net::IsolationInfo>& isolation_info,
                 int64_t range_request_from,
                 int64_t range_request_to);
@@ -121,6 +122,10 @@ class COMPONENTS_DOWNLOAD_EXPORT DownloadItemImpl
     // The credentials mode of the request.
     ::network::mojom::CredentialsMode credentials_mode =
         ::network::mojom::CredentialsMode::kInclude;
+
+    // The fetch request mode of the request.
+    ::network::mojom::RequestMode fetch_request_mode =
+        ::network::mojom::RequestMode::kNavigate;
 
     // Isolation info for the request.
     std::optional<net::IsolationInfo> isolation_info;
@@ -297,6 +302,8 @@ class COMPONENTS_DOWNLOAD_EXPORT DownloadItemImpl
   const GURL& GetTabUrl() const override;
   const GURL& GetTabReferrerUrl() const override;
   const std::optional<url::Origin>& GetRequestInitiator() const override;
+  void SetRequestInitiator(
+      const std::optional<url::Origin>& request_initiator) override;
   std::string GetSuggestedFilename() const override;
   const scoped_refptr<const net::HttpResponseHeaders>& GetResponseHeaders()
       const override;
@@ -354,7 +361,10 @@ class COMPONENTS_DOWNLOAD_EXPORT DownloadItemImpl
   bool IsParallelDownload() const override;
   DownloadCreationType GetDownloadCreationType() const override;
   ::network::mojom::CredentialsMode GetCredentialsMode() const override;
+  ::network::mojom::RequestMode GetFetchRequestMode() const override;
   const std::optional<net::IsolationInfo>& GetIsolationInfo() const override;
+  void SetIsolationInfo(
+      const std::optional<net::IsolationInfo>& isolation_info) override;
   void OnContentCheckCompleted(DownloadDangerType danger_type,
                                DownloadInterruptReason reason) override;
   void OnAsyncScanningCompleted(DownloadDangerType danger_type) override;

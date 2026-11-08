@@ -30,6 +30,7 @@
 #include "chrome/common/media/media_resource_provider.h"
 #include "chrome/common/net/net_resource_provider.h"
 #include "chrome/common/renderer_configuration.mojom.h"
+#include "chrome/common/request_header_integrity/buildflags.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/renderer/chrome_content_renderer_client.h"
 #include "chrome/renderer/process_state.h"
@@ -51,6 +52,10 @@
 #include "third_party/blink/public/web/web_frame.h"
 #include "third_party/blink/public/web/web_security_policy.h"
 #include "third_party/blink/public/web/web_view.h"
+
+#if BUILDFLAG(ENABLE_REQUEST_HEADER_INTEGRITY) && !BUILDFLAG(IS_ANDROID)
+#include "chrome/common/request_header_integrity/platform_runtime_headers.h"  // nogncheck
+#endif
 
 #if BUILDFLAG(IS_CHROMEOS)
 #include "chrome/renderer/ash_merge_session_loader_throttle.h"
@@ -212,11 +217,14 @@ void ChromeRenderThreadObserver::SetInitialConfiguration(
 
 void ChromeRenderThreadObserver::SetConfiguration(
     chrome::mojom::DynamicParamsPtr params) {
+#if BUILDFLAG(ENABLE_REQUEST_HEADER_INTEGRITY) && !BUILDFLAG(IS_ANDROID)
+  request_header_integrity::PlatformRuntimeHeaders::GetInstance().Set(
+      params->request_integrity_headers);
+#endif
   base::AutoLock lock(dynamic_params_lock_);
   dynamic_params_ = std::move(params);
 }
 
-#if !BUILDFLAG(IS_ANDROID)
 void ChromeRenderThreadObserver::SetConfigurationOnProcessLockUpdate(
     chrome::mojom::StaticParamsPtr params) {
   // Ensure static renderer configuration parameters are set once.
@@ -224,7 +232,6 @@ void ChromeRenderThreadObserver::SetConfigurationOnProcessLockUpdate(
   static_renderer_params_set_ = true;
   process_state::SetIsInstantProcess(params->is_instant_process);
 }
-#endif  // !BUILDFLAG(IS_ANDROID)
 
 void ChromeRenderThreadObserver::OnRendererConfigurationAssociatedRequest(
     mojo::PendingAssociatedReceiver<chrome::mojom::RendererConfiguration>

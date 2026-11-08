@@ -24,10 +24,8 @@ import org.chromium.base.ThreadUtils;
 import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.Feature;
-import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.chrome.R;
-import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.settings.SettingsTestRule;
 import org.chromium.chrome.browser.sync.FakeSyncServiceImpl;
@@ -39,6 +37,7 @@ import org.chromium.chrome.test.transit.ChromeTransitTestRules;
 import org.chromium.chrome.test.transit.page.WebPageStation;
 import org.chromium.chrome.test.util.ChromeRenderTestRule;
 import org.chromium.chrome.test.util.browser.signin.SigninTestRule;
+import org.chromium.components.signin.test.util.TestAccounts;
 import org.chromium.google_apis.gaia.GoogleServiceAuthError;
 import org.chromium.google_apis.gaia.GoogleServiceAuthErrorState;
 import org.chromium.ui.test.util.ViewUtils;
@@ -46,7 +45,6 @@ import org.chromium.ui.test.util.ViewUtils;
 /** Test suite for IdentityErrorCardPreference */
 @RunWith(ChromeJUnit4ClassRunner.class)
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
-@DisableFeatures(ChromeFeatureList.SETTINGS_MULTI_COLUMN)
 @Batch(Batch.PER_CLASS)
 public class IdentityErrorCardPreferenceTest {
     public final SettingsTestRule<ManageSyncSettings> mSettingsTestRule =
@@ -101,7 +99,7 @@ public class IdentityErrorCardPreferenceTest {
     public void testIdentityErrorCardForAuthError() throws Exception {
         mFakeSyncServiceImpl.setAuthError(
                 new GoogleServiceAuthError(GoogleServiceAuthErrorState.INVALID_GAIA_CREDENTIALS));
-        mSigninTestRule.addTestAccountThenSignin();
+        mSigninTestRule.addAccountThenSignin(TestAccounts.ACCOUNT1);
 
         try (HistogramWatcher watchIdentityErrorCardShownHistogram =
                 HistogramWatcher.newSingleRecordWatcher(
@@ -117,7 +115,7 @@ public class IdentityErrorCardPreferenceTest {
     @Feature("RenderTest")
     public void testIdentityErrorCardForClientOutOfDate() throws Exception {
         mFakeSyncServiceImpl.setRequiresClientUpgrade(true);
-        mSigninTestRule.addTestAccountThenSignin();
+        mSigninTestRule.addAccountThenSignin(TestAccounts.ACCOUNT1);
 
         try (HistogramWatcher watchIdentityErrorCardShownHistogram =
                 HistogramWatcher.newSingleRecordWatcher(
@@ -135,7 +133,7 @@ public class IdentityErrorCardPreferenceTest {
     public void testIdentityErrorCardForPassphraseRequired() throws Exception {
         mFakeSyncServiceImpl.setEngineInitialized(true);
         mFakeSyncServiceImpl.setPassphraseRequiredForPreferredDataTypes(true);
-        mSigninTestRule.addTestAccountThenSignin();
+        mSigninTestRule.addAccountThenSignin(TestAccounts.ACCOUNT1);
 
         try (HistogramWatcher watchIdentityErrorCardShownHistogram =
                 HistogramWatcher.newSingleRecordWatcher(
@@ -154,7 +152,7 @@ public class IdentityErrorCardPreferenceTest {
         mFakeSyncServiceImpl.setEngineInitialized(true);
         mFakeSyncServiceImpl.setTrustedVaultKeyRequiredForPreferredDataTypes(true);
         mFakeSyncServiceImpl.setEncryptEverythingEnabled(true);
-        mSigninTestRule.addTestAccountThenSignin();
+        mSigninTestRule.addAccountThenSignin(TestAccounts.ACCOUNT1);
 
         mSettingsTestRule.startSettingsActivity();
         try (HistogramWatcher watchIdentityErrorCardShownHistogram =
@@ -174,7 +172,7 @@ public class IdentityErrorCardPreferenceTest {
         mFakeSyncServiceImpl.setEngineInitialized(true);
         mFakeSyncServiceImpl.setTrustedVaultKeyRequiredForPreferredDataTypes(true);
         mFakeSyncServiceImpl.setEncryptEverythingEnabled(false);
-        mSigninTestRule.addTestAccountThenSignin();
+        mSigninTestRule.addAccountThenSignin(TestAccounts.ACCOUNT1);
 
         mSettingsTestRule.startSettingsActivity();
         try (HistogramWatcher watchIdentityErrorCardShownHistogram =
@@ -196,7 +194,7 @@ public class IdentityErrorCardPreferenceTest {
         mFakeSyncServiceImpl.setEngineInitialized(true);
         mFakeSyncServiceImpl.setTrustedVaultRecoverabilityDegraded(true);
         mFakeSyncServiceImpl.setEncryptEverythingEnabled(true);
-        mSigninTestRule.addTestAccountThenSignin();
+        mSigninTestRule.addAccountThenSignin(TestAccounts.ACCOUNT1);
 
         mSettingsTestRule.startSettingsActivity();
         try (HistogramWatcher watchIdentityErrorCardShownHistogram =
@@ -218,7 +216,7 @@ public class IdentityErrorCardPreferenceTest {
         mFakeSyncServiceImpl.setEngineInitialized(true);
         mFakeSyncServiceImpl.setTrustedVaultRecoverabilityDegraded(true);
         mFakeSyncServiceImpl.setEncryptEverythingEnabled(false);
-        mSigninTestRule.addTestAccountThenSignin();
+        mSigninTestRule.addAccountThenSignin(TestAccounts.ACCOUNT1);
 
         try (HistogramWatcher watchIdentityErrorCardShownHistogram =
                 HistogramWatcher.newSingleRecordWatcher(
@@ -237,7 +235,7 @@ public class IdentityErrorCardPreferenceTest {
     public void testIdentityErrorCardForUpmBackendOutdated() throws Exception {
         mFakeSyncServiceImpl.setRequiresUpmBackendUpgrade(true);
 
-        mSigninTestRule.addTestAccountThenSignin();
+        mSigninTestRule.addAccountThenSignin(TestAccounts.ACCOUNT1);
 
         try (HistogramWatcher watchIdentityErrorCardShownHistogram =
                 HistogramWatcher.newSingleRecordWatcher(
@@ -254,7 +252,7 @@ public class IdentityErrorCardPreferenceTest {
     @Feature("RenderTest")
     public void testIdentityErrorCardForBookmarksLimitExceeded() throws Exception {
         mFakeSyncServiceImpl.setBookmarksLimitExceeded(true);
-        mSigninTestRule.addTestAccountThenSignin();
+        mSigninTestRule.addAccountThenSignin(TestAccounts.ACCOUNT1);
 
         try (HistogramWatcher watchIdentityErrorCardShownHistogram =
                 HistogramWatcher.newSingleRecordWatcher(

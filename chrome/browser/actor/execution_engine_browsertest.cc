@@ -24,32 +24,26 @@
 #include "chrome/browser/actor/actor_task.h"
 #include "chrome/browser/actor/actor_test_util.h"
 #include "chrome/browser/actor/site_policy.h"
-#include "chrome/browser/actor/tools/click_tool_request.h"
 #include "chrome/browser/actor/tools/fake_tool_request.h"
-#include "chrome/browser/actor/tools/tab_management_tool_request.h"
 #include "chrome/browser/actor/tools/tool_callbacks.h"
 #include "chrome/browser/actor/tools/wait_tool.h"
+#include "chrome/browser/actor/ui/actor_task_unload_handler.h"
 #include "chrome/browser/actor/ui/event_dispatcher.h"
 #include "chrome/browser/chrome_content_browser_client.h"
 #include "chrome/browser/download/download_test_file_activity_observer.h"
 #include "chrome/browser/glic/public/glic_keyed_service.h"
-#include "chrome/browser/glic/test_support/non_interactive_glic_test.h"
 #include "chrome/browser/lookalikes/lookalike_test_helper.h"
 #include "chrome/browser/optimization_guide/browser_test_util.h"
 #include "chrome/browser/optimization_guide/mock_optimization_guide_keyed_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/actions/chrome_action_id.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
-#include "chrome/browser/ui/navigator/browser_navigator.h"
 #include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/browser/ui/omnibox/omnibox_next_features.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
-#include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/file_system_access/file_system_access_test_utils.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/toolbar_button_provider.h"
-#include "chrome/browser/ui/views/location_bar/icon_label_bubble_view.h"
-#include "chrome/browser/ui/views/page_action/page_action_view_interface.h"
 #include "chrome/browser/ui/views/page_action/test_support/page_action_test_accessor.h"
 #include "chrome/common/actor.mojom.h"
 #include "chrome/common/actor/action_result.h"
@@ -63,7 +57,6 @@
 #include "components/actor/public/mojom/actor_types.mojom.h"
 #include "components/javascript_dialogs/app_modal_dialog_controller.h"
 #include "components/javascript_dialogs/app_modal_dialog_queue.h"
-#include "components/keyed_service/content/browser_context_dependency_manager.h"
 #include "components/optimization_guide/content/browser/page_content_proto_provider.h"
 #include "components/optimization_guide/core/filters/optimization_hints_component_update_listener.h"
 #include "components/optimization_guide/proto/features/actions_data.pb.h"
@@ -88,7 +81,6 @@
 #include "net/test/embedded_test_server/embedded_test_server.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "third_party/blink/public/common/input/web_mouse_event.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/base/page_transition_types.h"
@@ -958,6 +950,23 @@ class ExecutionEngineSkipBeforeUnloadBrowserTest
     }
   }
 
+  void SetUpOnMainThread() override {
+    ExecutionEngineBrowserTest::SetUpOnMainThread();
+    // This test navigates via the Omnibox transition to exercise beforeunload
+    // handling. The leave site confirmation would intercept that navigation
+    // first, so it is suppressed here. This is process global state, so the
+    // previous value is restored at teardown.
+    previous_suppress_confirm_dialog_ =
+        ActorTaskTabCloseConfirmDialog::ShouldSuppressForTesting();
+    ActorTaskTabCloseConfirmDialog::SetSuppressForTesting(true);
+  }
+
+  void TearDownOnMainThread() override {
+    ActorTaskTabCloseConfirmDialog::SetSuppressForTesting(
+        previous_suppress_confirm_dialog_);
+    ExecutionEngineBrowserTest::TearDownOnMainThread();
+  }
+
   bool IsActorActive() const { return std::get<0>(GetParam()); }
   bool IsSkipFeatureEnabled() const { return std::get<1>(GetParam()); }
 
@@ -980,6 +989,7 @@ class ExecutionEngineSkipBeforeUnloadBrowserTest
 
  private:
   base::test::ScopedFeatureList scoped_feature_list_;
+  bool previous_suppress_confirm_dialog_ = false;
 };
 
 // This test is to ensure that the beforeunload dialog is skipped when the

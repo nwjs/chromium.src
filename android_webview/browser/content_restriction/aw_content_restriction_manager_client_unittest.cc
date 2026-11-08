@@ -193,6 +193,62 @@ TEST_F(AwContentRestrictionManagerClientTest, RequestClassificationTimeout) {
 }
 
 TEST_F(AwContentRestrictionManagerClientTest,
+       RecordsLatencyHistogramOnClassificationSuccess) {
+  base::HistogramTester histogram_tester;
+  bool callback_run = false;
+  bool callback_result = false;
+  RequestContentClassification(&callback_run, &callback_result);
+  ASSERT_FALSE(callback_run);
+
+  const base::TimeDelta kExpectedLatency = base::Milliseconds(100);
+  task_environment_.FastForwardBy(kExpectedLatency);
+  mock_delegate_->TriggerClassificationResult(true);
+  ASSERT_TRUE(callback_run);
+  EXPECT_TRUE(callback_result);
+  histogram_tester.ExpectTotalCount(
+      "Android.WebView.ContentRestriction.ClassificationRequestLatencyMs", 1);
+  histogram_tester.ExpectTimeBucketCount(
+      "Android.WebView.ContentRestriction.ClassificationRequestLatencyMs",
+      kExpectedLatency, 1);
+}
+
+TEST_F(AwContentRestrictionManagerClientTest,
+       RecordsTimeoutHistogramOnClassificationSuccess) {
+  base::HistogramTester histogram_tester;
+  bool callback_run = false;
+  bool callback_result = false;
+  RequestContentClassification(&callback_run, &callback_result);
+  ASSERT_FALSE(callback_run);
+
+  mock_delegate_->TriggerClassificationResult(true);
+  ASSERT_TRUE(callback_run);
+  EXPECT_TRUE(callback_result);
+  histogram_tester.ExpectUniqueSample(
+      "Android.WebView.ContentRestriction.Timeout", false, 1);
+  histogram_tester.ExpectTotalCount(
+      "Android.WebView.ContentRestriction.FailureFallbackReason", 0);
+}
+
+TEST_F(AwContentRestrictionManagerClientTest,
+       RecordsTimeoutAndFallbackHistogramsOnTimeout) {
+  base::HistogramTester histogram_tester;
+  bool callback_run = false;
+  bool callback_result = false;
+  RequestContentClassification(&callback_run, &callback_result);
+  ASSERT_FALSE(callback_run);
+
+  task_environment_.FastForwardBy(kTestContentClassificationTimeout +
+                                  base::Seconds(1));
+  ASSERT_TRUE(callback_run);
+  EXPECT_TRUE(callback_result);
+  histogram_tester.ExpectUniqueSample(
+      "Android.WebView.ContentRestriction.Timeout", true, 1);
+  histogram_tester.ExpectUniqueSample(
+      "Android.WebView.ContentRestriction.FailureFallbackReason",
+      ContentRestrictionFailureFallbackReason::kTimeout, 1);
+}
+
+TEST_F(AwContentRestrictionManagerClientTest,
        SubsequentClassificationRequests) {
   bool callback1_run = false;
   bool callback1_result = false;

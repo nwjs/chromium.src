@@ -34,8 +34,8 @@
 #include "chrome/browser/glic/public/glic_invoke_options.h"
 #include "chrome/browser/glic/public/glic_keyed_service.h"
 #include "chrome/browser/glic/public/glic_keyed_service_factory.h"
-#include "chrome/browser/glic/public/service/glic_activity_manager.h"
 #include "chrome/browser/glic/public/service/glic_instance_coordinator.h"
+#include "chrome/browser/glic/public/service/legacy_glic_activity_manager.h"
 #include "chrome/browser/media/router/media_router_feature.h"
 #include "chrome/browser/performance_manager/public/user_tuning/user_tuning_utils.h"
 #include "chrome/browser/profiles/profile.h"
@@ -316,14 +316,11 @@ ToolbarView::~ToolbarView() {
   }
 }
 
-// Forwards the early teardown request to both the embedded and detached WebUI
-// toolbar web views to stop renderer script execution before IPC disconnection.
+// Forwards the early teardown request to the WebUI toolbar web view to stop
+// renderer script execution before IPC disconnection.
 void ToolbarView::DestroyWebUIToolbarWebContents() {
   if (toolbar_webview_) {
     toolbar_webview_->DestroyWebContents();
-  }
-  if (detached_toolbar_webview_) {
-    detached_toolbar_webview_->DestroyWebContents();
   }
 }
 
@@ -438,20 +435,13 @@ void ToolbarView::Init() {
         base::BindRepeating(callback, browser_, IDC_FORWARD), browser_));
   }
 
-  if (base::FeatureList::IsEnabled(
-          features::kWebUIToolbarProcessOverheadExperiment)) {
-    detached_toolbar_webview_ = std::make_unique<WebUIToolbarWebView>(
-        browser_, chrome::BrowserCommandController::From(browser_),
-        /*location_bar=*/nullptr);
-  } else if (features::IsWebUIToolbarEnabled()) {
+  if (features::IsWebUIToolbarEnabled()) {
     toolbar_webview_ = AddChildView(std::make_unique<WebUIToolbarWebView>(
         browser_, chrome::BrowserCommandController::From(browser_),
         std::move(webui_location_bar)));
   }
 
-  if (!features::IsWebUIReloadButtonEnabled() ||
-      base::FeatureList::IsEnabled(
-          features::kWebUIToolbarProcessOverheadExperiment)) {
+  if (!features::IsWebUIReloadButtonEnabled()) {
     reload_ = AddChildView(std::make_unique<ReloadButton>(
         browser_->GetProfile(),
         chrome::BrowserCommandController::From(browser_),
@@ -712,6 +702,12 @@ void ToolbarView::Init() {
     glic_split_button_controller_->SetVerticalTabsDelegate(this);
   }
 
+  // Notify the WebUI toolbar view last, once every toolbar component it
+  // depends on (e.g. the location bar) has finished initializing.
+  if (toolbar_webview_) {
+    toolbar_webview_->ToolbarInitialized();
+  }
+
   initialized_ = true;
 }
 
@@ -784,7 +780,7 @@ ToolbarView::CreateGlicActorTaskIcon() {
 
 void ToolbarView::OnGlicActorTaskIconClicked() {
   Profile* const profile = browser_view_->GetProfile();
-  auto* activity_manager = glic::GlicActivityManager::Get(profile);
+  auto* activity_manager = glic::LegacyGlicActivityManager::Get(profile);
   if (!activity_manager) {
     return;
   }
@@ -1001,7 +997,7 @@ void ToolbarView::ShowActorTaskListBubble() {
   }
   if (!actor_task_list_bubble_) {
     Profile* profile = browser_->GetProfile();
-    auto* manager = glic::GlicActivityManager::Get(profile);
+    auto* manager = glic::LegacyGlicActivityManager::Get(profile);
     auto* controller = ActorTaskListBubbleController::From(browser_);
     if (manager && controller) {
       actor_task_list_bubble_ = std::make_unique<ActorTaskListBubble>(

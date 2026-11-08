@@ -7,6 +7,7 @@
 #import "base/functional/callback.h"
 #import "base/run_loop.h"
 #import "base/test/metrics/histogram_tester.h"
+#import "base/test/scoped_feature_list.h"
 #import "base/test/task_environment.h"
 #import "base/time/time.h"
 #import "components/omnibox/browser/autocomplete_classifier.h"
@@ -21,12 +22,15 @@
 #import "components/omnibox/browser/search_provider.h"
 #import "components/open_from_clipboard/fake_clipboard_recent_content.h"
 #import "components/prefs/testing_pref_service.h"
+#import "components/search_engines/template_url_service.h"
 #import "ios/chrome/browser/omnibox/model/fake_omnibox_client.h"
 #import "ios/chrome/browser/omnibox/model/omnibox_autocomplete_controller+Testing.h"
 #import "ios/chrome/browser/omnibox/model/omnibox_autocomplete_controller_delegate.h"
 #import "ios/chrome/browser/omnibox/model/omnibox_client_ios.h"
 #import "ios/chrome/browser/omnibox/model/omnibox_metrics_recorder.h"
 #import "ios/chrome/browser/omnibox/model/omnibox_text_model.h"
+#import "ios/chrome/browser/omnibox/public/omnibox_ui_features.h"
+#import "ios/chrome/browser/search_engines/model/template_url_service_factory.h"
 #import "ios/chrome/browser/shared/model/prefs/browser_prefs.h"
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
 #import "ios/chrome/browser/shared/model/profile/test/test_profile_ios.h"
@@ -101,24 +105,56 @@ class MockFakeOmniboxClient : public FakeOmniboxClient {
                const AutocompleteMatch&,
                const AutocompleteMatch&),
               (override));
+  MOCK_METHOD(void,
+              StartPrerender,
+              (const GURL&, ui::PageTransition),
+              (override));
+  MOCK_METHOD(void, CancelPrerender, (), (override));
 };
 
 }  // namespace
 
 @interface TestOmniboxAutocompleteController : OmniboxAutocompleteController
-@property(nonatomic, assign) NSUInteger lastOpenedSelectionLineIndex;
+@property(nonatomic, readonly) const AutocompleteMatch& lastOpenedMatch;
 @property(nonatomic, assign) base::RepeatingClosure openSelectionClosure;
+- (void)resetLastOpenedMatch;
 @end
 
-@implementation TestOmniboxAutocompleteController
+@implementation TestOmniboxAutocompleteController {
+  AutocompleteMatch _lastOpenedMatch;
+}
 
-- (void)openSelection:(OmniboxPopupSelection)selection
-            timestamp:(base::TimeTicks)timestamp
-          disposition:(WindowOpenDisposition)disposition {
-  _lastOpenedSelectionLineIndex = selection.line;
+- (void)disconnect {
+  _lastOpenedMatch = AutocompleteMatch();
+  [super disconnect];
+}
+
+- (const AutocompleteMatch&)lastOpenedMatch {
+  return _lastOpenedMatch;
+}
+
+- (void)resetLastOpenedMatch {
+  _lastOpenedMatch = AutocompleteMatch();
+}
+
+- (void)openMatch:(AutocompleteMatch)match
+             popupSelection:(OmniboxPopupSelection)selection
+      windowOpenDisposition:(WindowOpenDisposition)disposition
+            alternateNavURL:(const GURL&)alternateNavURL
+                 pastedText:(const std::u16string&)pastedText
+    matchSelectionTimestamp:(base::TimeTicks)matchSelectionTimestamp {
+  _lastOpenedMatch = match;
   if (_openSelectionClosure) {
     _openSelectionClosure.Run();
     _openSelectionClosure.Reset();
+  }
+  if (match.provider) {
+    [super openMatch:match
+                 popupSelection:selection
+          windowOpenDisposition:disposition
+                alternateNavURL:alternateNavURL
+                     pastedText:pastedText
+        matchSelectionTimestamp:matchSelectionTimestamp];
   }
 }
 @end
@@ -126,7 +162,11 @@ class MockFakeOmniboxClient : public FakeOmniboxClient {
 class OmniboxAutocompleteControllerTest : public PlatformTest {
  public:
   OmniboxAutocompleteControllerTest() {
-    profile_ = TestProfileIOS::Builder().Build();
+    TestProfileIOS::Builder builder;
+    builder.AddTestingFactory(
+        ios::TemplateURLServiceFactory::GetInstance(),
+        ios::TemplateURLServiceFactory::GetDefaultFactory());
+    profile_ = std::move(builder).Build();
 
     auto clipboard = std::make_unique<FakeClipboardRecentContent>();
     clipboard_ = clipboard.get();
@@ -136,7 +176,9 @@ class OmniboxAutocompleteControllerTest : public PlatformTest {
     RegisterLocalStatePrefs(local_state_->registry());
     TestingApplicationContext::GetGlobal()->SetLocalState(local_state_.get());
 
-    omnibox_client_ = std::make_unique<MockFakeOmniboxClient>(profile_.get());
+    omnibox_client_ =
+        std::make_unique<testing::NiceMock<MockFakeOmniboxClient>>(
+            profile_.get());
 
     autocomplete_controller_ = std::make_unique<MockAutocompleteController>();
 
@@ -163,15 +205,17 @@ class OmniboxAutocompleteControllerTest : public PlatformTest {
 
   ~OmniboxAutocompleteControllerTest() override {
     [controller_ disconnect];
+    controller_ = nil;
     clipboard_ = nullptr;
     autocomplete_controller_ = nullptr;
     omnibox_text_model_ = nullptr;
     omnibox_client_ = nullptr;
     controller_delegate_ = nil;
-    TestingApplicationContext::GetGlobal()->SetLocalState(nullptr);
-    local_state_.reset();
     [omnibox_metrics_recorder_ disconnect];
     omnibox_metrics_recorder_ = nil;
+    profile_.reset();
+    TestingApplicationContext::GetGlobal()->SetLocalState(nullptr);
+    local_state_.reset();
   }
 
   ACMatches SampleMatches() const {
@@ -181,10 +225,9 @@ class OmniboxAutocompleteControllerTest : public PlatformTest {
                 /*destination_url=*/"http://this-site-matches.com")};
   }
 
-  /// Returns the match opened by OmniboxEditModel::OpenSelection.
+  /// Returns the last match opened by `OmniboxAutocompleteController`.
   const AutocompleteMatch& LastOpenedMatch() {
-    return autocomplete_controller_->result().match_at(
-        controller_.lastOpenedSelectionLineIndex);
+    return controller_.lastOpenedMatch;
   }
 
   /// Simulates opening `url_text` from the text controller.
@@ -332,8 +375,13 @@ TEST_F(OmniboxAutocompleteControllerTest, OmniboxPositionUpdates) {
 
 // Tests opening a match that doesn't exist in autocomplete controller.
 TEST_F(OmniboxAutocompleteControllerTest, OpenCreatedMatch) {
-  autocomplete_controller_->SetAutocompleteMatches(SampleMatches());
+  ACMatches sample_matches = SampleMatches();
+  autocomplete_controller_->SetAutocompleteMatches(sample_matches);
   AutocompleteMatch match = CreateSearchMatch(u"some match");
+  match.destination_url = GURL("http://some-match.com");
+
+  EXPECT_CALL(*autocomplete_controller_, GroupSuggestionsBySearchVsURL(_, _))
+      .Times(0);
 
   // Open match that doesn't come from the autocomplete controller. Row is
   // higher than autocomplete_controller_->result().size().
@@ -341,20 +389,21 @@ TEST_F(OmniboxAutocompleteControllerTest, OpenCreatedMatch) {
                                inRow:10
                               openIn:WindowOpenDisposition::CURRENT_TAB];
 
-  // Expect the match to be opened.
+  // Expect the match to be opened without mutating autocomplete results.
   EXPECT_THAT(LastOpenedMatch(), IsSameAsMatch(match));
+  EXPECT_EQ(autocomplete_controller_->result().size(), sample_matches.size());
 
-  // Reset the last opened selection.
-  controller_.lastOpenedSelectionLineIndex =
-      OmniboxPopupSelection(UINT_MAX).line;
+  // Reset the last opened match.
+  [controller_ resetLastOpenedMatch];
 
   // Open match that doesn't come from the autocomplete controller. Row is
   // smaller than autocomplete_controller_->result().size().
   [controller_ selectMatchForOpening:match
                                inRow:1
                               openIn:WindowOpenDisposition::CURRENT_TAB];
-  // Expect the match to be opened.
+  // Expect the match to be opened without mutating autocomplete results.
   EXPECT_THAT(LastOpenedMatch(), IsSameAsMatch(match));
+  EXPECT_EQ(autocomplete_controller_->result().size(), sample_matches.size());
 }
 
 // Tests opening a clipboard URL match.
@@ -504,4 +553,118 @@ TEST_F(OmniboxAutocompleteControllerTest, IPv4AddressPartsCount) {
       histogram_tester.GetAllSamples(kIPv4AddressPartsCountHistogramName),
       testing::ElementsAre(base::Bucket(2, 1), base::Bucket(3, 1),
                            base::Bucket(4, 1)));
+}
+
+// Tests that prerendering is started on touch down when the feature flag is
+// enabled and the match is a search suggestion pointing to the default search
+// engine.
+TEST_F(OmniboxAutocompleteControllerTest, PrerenderOnTouchDown) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(kOmniboxPrerenderOnTouchDown);
+
+  TemplateURLService* template_url_service =
+      ios::TemplateURLServiceFactory::GetForProfile(profile_.get());
+  GURL search_url =
+      template_url_service->GenerateSearchURLForDefaultSearchProvider(
+          u"touchdown");
+
+  AutocompleteMatch match(autocomplete_controller_->search_provider(), 0, false,
+                          omnibox::AutocompleteMatchType::kSearchSuggest);
+  match.destination_url = search_url;
+  autocomplete_controller_->SetAutocompleteMatches({match});
+
+  EXPECT_CALL(*omnibox_client_, StartPrerender(match.destination_url, _))
+      .Times(1);
+  [controller_ prerenderMatchForOpening:match inRow:0];
+
+  EXPECT_CALL(*omnibox_client_, CancelPrerender()).Times(1);
+  [controller_ onScroll];
+}
+
+// Tests that prerendering on touch down does not run when the feature flag is
+// disabled.
+TEST_F(OmniboxAutocompleteControllerTest, PrerenderOnTouchDownDisabled) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndDisableFeature(kOmniboxPrerenderOnTouchDown);
+
+  TemplateURLService* template_url_service =
+      ios::TemplateURLServiceFactory::GetForProfile(profile_.get());
+  GURL search_url =
+      template_url_service->GenerateSearchURLForDefaultSearchProvider(
+          u"touchdown");
+
+  AutocompleteMatch match(autocomplete_controller_->search_provider(), 0, false,
+                          omnibox::AutocompleteMatchType::kSearchSuggest);
+  match.destination_url = search_url;
+  autocomplete_controller_->SetAutocompleteMatches({match});
+
+  EXPECT_CALL(*omnibox_client_, StartPrerender(testing::_, testing::_))
+      .Times(0);
+  [controller_ prerenderMatchForOpening:match inRow:0];
+}
+
+// Tests that a search suggestion not pointing to the default search engine is
+// rejected from touch down prerendering.
+TEST_F(OmniboxAutocompleteControllerTest,
+       PrerenderOnTouchDownNonDefaultSearchEngineRejected) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(kOmniboxPrerenderOnTouchDown);
+
+  AutocompleteMatch match(autocomplete_controller_->search_provider(), 0, false,
+                          omnibox::AutocompleteMatchType::kSearchSuggest);
+  match.destination_url = GURL("https://example.com/touchdown");
+  autocomplete_controller_->SetAutocompleteMatches({match});
+
+  EXPECT_CALL(*omnibox_client_, StartPrerender(testing::_, testing::_))
+      .Times(0);
+  [controller_ prerenderMatchForOpening:match inRow:0];
+}
+
+// Tests that a history URL match is rejected from touch down prerendering.
+TEST_F(OmniboxAutocompleteControllerTest,
+       PrerenderOnTouchDownHistoryURLRejected) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(kOmniboxPrerenderOnTouchDown);
+
+  AutocompleteMatch match(autocomplete_controller_->search_provider(), 0, false,
+                          omnibox::AutocompleteMatchType::kHistoryUrl);
+  match.destination_url = GURL("https://example.com/touchdown");
+  autocomplete_controller_->SetAutocompleteMatches({match});
+
+  EXPECT_CALL(*omnibox_client_, StartPrerender(testing::_, testing::_))
+      .Times(0);
+  [controller_ prerenderMatchForOpening:match inRow:0];
+}
+
+// Tests that a clipboard search match is rejected from touch down prerendering.
+TEST_F(OmniboxAutocompleteControllerTest,
+       PrerenderOnTouchDownClipboardSearchRejected) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(kOmniboxPrerenderOnTouchDown);
+
+  AutocompleteMatch match(autocomplete_controller_->search_provider(), 0, false,
+                          omnibox::AutocompleteMatchType::kClipboardText);
+  match.destination_url = GURL("https://example.com/touchdown");
+  autocomplete_controller_->SetAutocompleteMatches({match});
+
+  EXPECT_CALL(*omnibox_client_, StartPrerender(testing::_, testing::_))
+      .Times(0);
+  [controller_ prerenderMatchForOpening:match inRow:0];
+}
+
+// Tests that a search on other engine match is rejected from touch down
+// prerendering.
+TEST_F(OmniboxAutocompleteControllerTest,
+       PrerenderOnTouchDownSearchOtherEngineRejected) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(kOmniboxPrerenderOnTouchDown);
+
+  AutocompleteMatch match(autocomplete_controller_->search_provider(), 0, false,
+                          omnibox::AutocompleteMatchType::kSearchOtherEngine);
+  match.destination_url = GURL("https://example.com/touchdown");
+  autocomplete_controller_->SetAutocompleteMatches({match});
+
+  EXPECT_CALL(*omnibox_client_, StartPrerender(testing::_, testing::_))
+      .Times(0);
+  [controller_ prerenderMatchForOpening:match inRow:0];
 }

@@ -6,21 +6,13 @@ package org.chromium.chrome.browser.automotive;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
-import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.spy;
-
-import android.app.Activity;
-import android.content.res.Configuration;
-import android.content.res.Resources;
 
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
 
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.Mock;
-import org.mockito.junit.MockitoJUnit;
-import org.mockito.junit.MockitoRule;
+import org.robolectric.annotation.Config;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.chrome.test.OverrideContextWrapperTestRule;
@@ -31,8 +23,6 @@ import org.chromium.ui.base.TestActivity;
 @RunWith(BaseRobolectricTestRunner.class)
 public class AutomotiveUtilsUnitTest {
 
-    @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
-
     @Rule
     public OverrideContextWrapperTestRule mAutomotiveContextWrapperTestRule =
             new OverrideContextWrapperTestRule();
@@ -40,10 +30,6 @@ public class AutomotiveUtilsUnitTest {
     @Rule
     public ActivityScenarioRule<TestActivity> mActivityScenarioRule =
             new ActivityScenarioRule<>(TestActivity.class);
-
-    @Mock private Resources mResources;
-
-    @Mock private Configuration mConfiguration;
 
     @Test
     public void testGetHorizontalAutomotiveToolbarHeightDp() {
@@ -53,13 +39,9 @@ public class AutomotiveUtilsUnitTest {
                 .getScenario()
                 .onActivity(
                         activity -> {
-                            Activity spyActivity = spy(activity);
-                            doReturn(mResources).when(spyActivity).getResources();
-                            doReturn(mConfiguration).when(mResources).getConfiguration();
-                            mConfiguration.orientation = Configuration.ORIENTATION_PORTRAIT;
                             int horizontalAutomotiveToolbarHeightDp =
                                     AutomotiveUtils.getHorizontalAutomotiveToolbarHeightDp(
-                                            spyActivity);
+                                            activity);
                             assertTrue(
                                     "Horizontal automotive toolbar height should be greater than"
                                             + " 0.",
@@ -71,13 +53,9 @@ public class AutomotiveUtilsUnitTest {
                 .getScenario()
                 .onActivity(
                         activity -> {
-                            Activity spyActivity = spy(activity);
-                            doReturn(mResources).when(spyActivity).getResources();
-                            doReturn(mConfiguration).when(mResources).getConfiguration();
-                            mConfiguration.orientation = Configuration.ORIENTATION_PORTRAIT;
                             int horizontalAutomotiveToolbarHeightDp =
                                     AutomotiveUtils.getHorizontalAutomotiveToolbarHeightDp(
-                                            spyActivity);
+                                            activity);
                             assertEquals(
                                     "Automotive toolbar should not exist on non automotive"
                                             + " devices.",
@@ -87,19 +65,15 @@ public class AutomotiveUtilsUnitTest {
     }
 
     @Test
+    @Config(qualifiers = "land")
     public void testGetVerticalAutomotiveToolbarWidthDp() {
         mAutomotiveContextWrapperTestRule.setIsAutomotive(true);
         mActivityScenarioRule
                 .getScenario()
                 .onActivity(
                         activity -> {
-                            Activity spyActivity = spy(activity);
-                            doReturn(mResources).when(spyActivity).getResources();
-                            doReturn(mConfiguration).when(mResources).getConfiguration();
-                            mConfiguration.orientation = Configuration.ORIENTATION_LANDSCAPE;
                             int verticalAutomotiveToolbarWidthDp =
-                                    AutomotiveUtils.getVerticalAutomotiveToolbarWidthDp(
-                                            spyActivity);
+                                    AutomotiveUtils.getVerticalAutomotiveToolbarWidthDp(activity);
                             assertTrue(
                                     "Vertical automotive toolbar width should be greater than 0.",
                                     verticalAutomotiveToolbarWidthDp > 0);
@@ -110,13 +84,8 @@ public class AutomotiveUtilsUnitTest {
                 .getScenario()
                 .onActivity(
                         activity -> {
-                            Activity spyActivity = spy(activity);
-                            doReturn(mResources).when(spyActivity).getResources();
-                            doReturn(mConfiguration).when(mResources).getConfiguration();
-                            mConfiguration.orientation = Configuration.ORIENTATION_LANDSCAPE;
                             int verticalAutomotiveToolbarWidthDp =
-                                    AutomotiveUtils.getVerticalAutomotiveToolbarWidthDp(
-                                            spyActivity);
+                                    AutomotiveUtils.getVerticalAutomotiveToolbarWidthDp(activity);
                             assertEquals(
                                     "Automotive toolbar should not exist on non automotive"
                                             + " devices.",

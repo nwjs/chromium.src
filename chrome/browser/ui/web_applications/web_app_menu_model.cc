@@ -30,7 +30,6 @@
 #include "components/vector_icons/vector_icons.h"
 #include "components/webapps/browser/installable/installable_metrics.h"
 #include "content/public/common/content_features.h"
-#include "third_party/blink/public/common/features.h"
 #include "ui/base/accelerators/menu_label_accelerator_util.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/models/image_model.h"
@@ -68,6 +67,8 @@ void AddItemWithStringIdAndVectorIcon(ui::SimpleMenuModel* model,
 }
 
 }  // namespace
+
+DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(WebAppMenuModel, kAppInfoMenuItem);
 
 constexpr int WebAppMenuModel::kUninstallAppCommandId;
 constexpr int WebAppMenuModel::kExtensionsMenuCommandId;
@@ -152,6 +153,7 @@ void WebAppMenuModel::Build() {
       this, IDC_WEB_APP_MENU_APP_INFO, IDS_APP_CONTEXT_MENU_SHOW_INFO,
       LocationBarModel::From(browser())->GetVectorIcon());
   size_t app_info_index = GetItemCount() - 1;
+  SetElementIdentifierAt(app_info_index, kAppInfoMenuItem);
 
   CHECK(browser());
   content::WebContents* web_contents =

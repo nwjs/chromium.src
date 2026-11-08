@@ -13,15 +13,20 @@
 #include <vector>
 
 #include "ash/webui/camera_app_ui/url_constants.h"
+#include "base/base_paths.h"
 #include "base/command_line.h"
 #include "base/files/file_path.h"
 #include "base/files/scoped_file.h"
+#include "base/files/scoped_temp_dir.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
+#include "base/json/values_util.h"
 #include "base/memory/raw_ptr.h"
 #include "base/metrics/field_trial.h"
 #include "base/metrics/field_trial_params.h"
+#include "base/path_service.h"
 #include "base/run_loop.h"
+#include "base/scoped_environment_variable_override.h"
 #include "base/strings/strcat.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/gmock_callback_support.h"
@@ -30,6 +35,7 @@
 #include "base/test/mock_callback.h"
 #include "base/test/scoped_command_line.h"
 #include "base/test/scoped_feature_list.h"
+#include "base/test/scoped_path_override.h"
 #include "base/test/test_future.h"
 #include "base/time/time.h"
 #include "base/values.h"
@@ -41,7 +47,6 @@
 #include "chrome/browser/devtools/features.h"
 #include "chrome/browser/enterprise/net/enterprise_proxy_error_service_factory.h"
 #include "chrome/browser/enterprise/net/enterprise_proxy_service_factory.h"
-#include "components/enterprise/browser/reporting/prefs.h"
 #include "chrome/browser/global_features.h"
 #include "chrome/browser/media/prefs/capture_device_ranking.h"
 #include "chrome/browser/search/search.h"
@@ -52,6 +57,8 @@
 #include "chrome/browser/webauthn/webauthn_pref_names.h"
 #include "chrome/common/buildflags.h"
 #include "chrome/common/chrome_features.h"
+#include "chrome/common/chrome_paths.h"
+#include "chrome/common/chrome_paths_internal.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/webui_url_constants.h"
@@ -64,6 +71,7 @@
 #include "components/content_settings/core/browser/cookie_settings.h"
 #include "components/content_settings/core/browser/host_content_settings_map.h"
 #include "components/content_settings/core/common/pref_names.h"
+#include "components/enterprise/browser/reporting/prefs.h"
 #include "components/enterprise/net/core/enterprise_proxy_error_data.h"
 #include "components/enterprise/net/core/enterprise_proxy_error_service.h"
 #include "components/enterprise/net/core/enterprise_proxy_service.h"
@@ -77,6 +85,7 @@
 #include "components/guest_view/buildflags/buildflags.h"
 #include "components/network_session_configurator/common/network_switches.h"
 #include "components/policy/core/common/policy_pref_names.h"
+#include "components/prefs/pref_service.h"
 #include "components/prefs/testing_pref_service.h"
 #include "components/privacy_sandbox/privacy_sandbox_features.h"
 #include "components/search/ntp_features.h"
@@ -140,10 +149,7 @@
 #include "url/origin.h"
 
 #if !BUILDFLAG(IS_ANDROID)
-#include "base/base_paths.h"
 #include "base/files/file_util.h"
-#include "base/path_service.h"
-#include "base/test/scoped_path_override.h"
 #include "base/version.h"
 #include "chrome/browser/child_module/child_module_manager.h"
 #include "chrome/browser/child_module/features.h"
@@ -156,9 +162,9 @@
 #include "chrome/browser/web_applications/web_app_utils.h"
 #include "chrome/common/child_module/child_module_helper.h"
 #include "chrome/common/chrome_constants.h"
-#include "chrome/common/chrome_paths.h"
-#include "chrome/common/pref_names.h"
 #include "components/password_manager/core/common/password_manager_features.h"
+#include "components/tabs/public/mock_tab_interface.h"
+#include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/child_process_host.h"
 #include "media/base/picture_in_picture_events_info.h"
 #include "third_party/blink/public/mojom/installedapp/related_application.mojom.h"
@@ -244,6 +250,7 @@ using ::testing::_;
 using ::testing::IsFalse;
 using ::testing::IsTrue;
 using ::testing::NotNull;
+using ::testing::Optional;
 
 #if BUILDFLAG(ENABLE_PDF)
 using ::testing::NiceMock;
@@ -759,7 +766,10 @@ TEST_F(ChromeContentBrowserClientTestWithWebContents,
        GetAutoPipInfo_AutoPipReason) {
   ChromeContentBrowserClient client;
 
-  AutoPictureInPictureTabHelper::CreateForWebContents(web_contents());
+  tabs::MockTabInterface mock_tab;
+  tabs::TabLookupFromWebContents::CreateForWebContents(web_contents(),
+                                                       &mock_tab);
+  AutoPictureInPictureTabHelper tab_helper_instance(mock_tab, web_contents());
   auto* tab_helper =
       AutoPictureInPictureTabHelper::FromWebContents(web_contents());
   ASSERT_NE(nullptr, tab_helper);
@@ -1189,6 +1199,49 @@ TEST_F(ChromeContentSettingsRedirectTest, RedirectDebugURL) {
   EXPECT_EQ(debug_url, dest_url);
 }
 
+// chrome://omnibox is the former name of chrome://omnibox-internals.
+TEST_F(ChromeContentSettingsRedirectTest, RedirectLegacyOmniboxURL) {
+  TestChromeContentBrowserClient test_content_browser_client;
+  TestingBrowserProcess::GetGlobal()->local_state()->SetBoolean(
+      chrome_urls::kInternalOnlyUisEnabled, true);
+
+  GURL dest_url("chrome://omnibox/");
+  test_content_browser_client.HandleWebUI(&dest_url, &profile_);
+  EXPECT_EQ(GURL(chrome::kChromeUIOmniboxInternalsURL), dest_url);
+
+  // The path, query, and fragment are kept.
+  const GURL expected_url("chrome://omnibox-internals/ml?signals=1,2#ref");
+  dest_url = GURL("chrome://omnibox/ml?signals=1,2#ref");
+  test_content_browser_client.HandleWebUI(&dest_url, &profile_);
+  EXPECT_EQ(expected_url, dest_url);
+
+  // The new URL is the one displayed.
+  EXPECT_TRUE(
+      test_content_browser_client.HandleWebUIReverse(&dest_url, &profile_));
+  EXPECT_EQ(expected_url, dest_url);
+
+  // Other omnibox WebUI hosts are not rewritten.
+  const GURL omnibox_popup_url("chrome://omnibox-popup.top-chrome/");
+  dest_url = omnibox_popup_url;
+  test_content_browser_client.HandleWebUI(&dest_url, &profile_);
+  EXPECT_EQ(omnibox_popup_url, dest_url);
+}
+
+TEST_F(ChromeContentSettingsRedirectTest,
+       RedirectLegacyOmniboxURLWithInternalDebugPagesDisabled) {
+  TestChromeContentBrowserClient test_content_browser_client;
+  TestingBrowserProcess::GetGlobal()->local_state()->SetBoolean(
+      chrome_urls::kInternalOnlyUisEnabled, false);
+
+  // The internal debug pages disabled page refers to the new URL.
+  GURL dest_url("chrome://omnibox/");
+  test_content_browser_client.HandleWebUI(&dest_url, &profile_);
+  EXPECT_EQ(chrome::kChromeUIInternalDebugPagesDisabledHost,
+            dest_url.GetHost());
+  EXPECT_EQ(std::string("host=") + chrome::kChromeUIOmniboxInternalsURL,
+            dest_url.GetQuery());
+}
+
 #if BUILDFLAG(IS_CHROMEOS)
 TEST_F(ChromeContentSettingsRedirectTest, RedirectSettingsURL) {
   TestChromeContentBrowserClient test_content_browser_client;
@@ -1226,7 +1279,10 @@ TEST_F(ChromeContentSettingsRedirectTest, RedirectExploreURL) {
 
 TEST_F(ChromeContentSettingsRedirectTest, RedirectGuestExploreURL) {
   content::ScopedWebUIConfigRegistration registration(
-      std::make_unique<ash::HelpAppUntrustedUIConfig>());
+      std::make_unique<ash::HelpAppUntrustedUIConfig>(
+          TestingBrowserProcess::GetGlobal()
+              ->GetFeatures()
+              ->application_locale_storage()));
 
   TestChromeContentBrowserClient test_content_browser_client;
   const GURL help_url(ash::kChromeUIHelpAppUntrustedURL);
@@ -1770,8 +1826,7 @@ namespace override_geo_api_keys {
 
 }  // namespace override_geo_api_keys
 
-// Test that when `kCrosSeparateGeoApiKey` feature is enabled,
-// Chrome-on-ChromeOS switches to using a separate (ChromeOS-specific) API Key
+// Test that Chrome-on-ChromeOS uses a separate (ChromeOS-specific) API Key
 // for the location requests.
 TEST_F(ChromeContentBrowserClientTest, UseCorrectGeoAPIKey) {
   auto default_key_values =
@@ -1781,19 +1836,7 @@ TEST_F(ChromeContentBrowserClientTest, UseCorrectGeoAPIKey) {
   auto scoped_override =
       google_apis::SetScopedApiKeyCacheForTesting(&api_key_cache);
 
-  // Check the legacy behavior that Chrome-on-ChromeOS uses shared API key for
-  // geolocation requests.
   ChromeContentBrowserClient client;
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndDisableFeature(
-      ash::features::kCrosSeparateGeoApiKey);
-  EXPECT_EQ(client.GetGeolocationApiKey(), google_apis::GetAPIKey());
-
-  // Check that when the `kCrosSeparateGeoApiKey` feature is enabled,
-  // Chrome-on-ChromeOS uses ChromeOS-specific API key for geolocation.
-  scoped_feature_list.Reset();
-  scoped_feature_list.InitAndEnableFeature(
-      ash::features::kCrosSeparateGeoApiKey);
   EXPECT_EQ(client.GetGeolocationApiKey(),
             google_apis::GetCrosChromeGeoAPIKey());
 }
@@ -3063,6 +3106,9 @@ class ChromeContentBrowserClientDynamicPatchTest : public testing::Test {
   // `version` synchronously as the latest available version, and returns the
   // expected renderer binary path.
   base::FilePath StagePatch(const base::Version& version) {
+    const child_module::ChildModuleManager::Module expected = {
+        .version = version,
+        .renderer_binary_path = child_module::GetRendererBinaryPath(version)};
     auto* features = TestingBrowserProcess::GetGlobal()->GetFeatures();
     features->PostMainMessageLoopRun();
     WritePatchFiles(version);
@@ -3071,9 +3117,9 @@ class ChromeContentBrowserClientDynamicPatchTest : public testing::Test {
     EXPECT_NE(manager, nullptr);
     if (manager) {
       manager->WaitForInitialScanForTesting();
-      EXPECT_EQ(manager->GetLatestVersion(), version);
+      EXPECT_EQ(manager->GetLatestModule(), expected);
     }
-    return child_module::GetRendererBinaryPath(version);
+    return expected.renderer_binary_path;
   }
 
   // TODO(crbug.com/558598893): Enable GetChildProcessPath tests on macOS once
@@ -3181,6 +3227,17 @@ TEST_F(ChromeContentBrowserClientDynamicPatchTest,
   client.AppendExtraCommandLineSwitches(&cmd, /*child_process_id=*/1);
   EXPECT_FALSE(cmd.HasSwitch(switches::kChildModuleVersion));
 }
+
+TEST_F(ChromeContentBrowserClientDynamicPatchTest, GetChildModule) {
+  ChromeContentBrowserClient client;
+  EXPECT_EQ(client.GetChildModule(), std::nullopt);
+
+  const base::Version version("9999.0.0.1");
+  base::FilePath patched_binary = StagePatch(version);
+  EXPECT_THAT(client.GetChildModule(),
+              Optional(content::ContentBrowserClient::ChildModule{
+                  .version = version, .path = patched_binary}));
+}
 #endif  // BUILDFLAG(IS_WIN)
 
 TEST_F(ChromeContentBrowserClientDynamicPatchTest,
@@ -3212,4 +3269,232 @@ TEST_F(ChromeContentBrowserClientDynamicPatchTest,
   EXPECT_FALSE(cmd.HasSwitch(switches::kChildModuleVersion));
 #endif
 }
+
+TEST_F(ChromeContentBrowserClientDynamicPatchTest, DynamicallyToggledByPolicy) {
+  ChromeContentBrowserClient client;
+  base::FilePath patched_binary = StagePatch(base::Version("9999.0.0.1"));
+  PrefService* local_state = TestingBrowserProcess::GetGlobal()->local_state();
+
+  local_state->SetBoolean(prefs::kDynamicPatchingEnabled, false);
+#if BUILDFLAG(IS_LINUX)
+  EXPECT_EQ(
+      client.GetChildProcessPath(content::ChildProcessHost::CHILD_RENDERER),
+      GetUnpatchedRendererPath());
+#elif BUILDFLAG(IS_WIN)
+  base::CommandLine disabled_cmd(base::CommandLine::NO_PROGRAM);
+  disabled_cmd.AppendSwitchASCII(switches::kProcessType,
+                                 switches::kRendererProcess);
+  client.AppendExtraCommandLineSwitches(&disabled_cmd, /*child_process_id=*/1);
+  EXPECT_FALSE(disabled_cmd.HasSwitch(switches::kChildModuleVersion));
+#endif
+
+  local_state->SetBoolean(prefs::kDynamicPatchingEnabled, true);
+#if BUILDFLAG(IS_LINUX)
+  EXPECT_EQ(
+      client.GetChildProcessPath(content::ChildProcessHost::CHILD_RENDERER),
+      patched_binary);
+#elif BUILDFLAG(IS_WIN)
+  base::CommandLine enabled_cmd(base::CommandLine::NO_PROGRAM);
+  enabled_cmd.AppendSwitchASCII(switches::kProcessType,
+                                switches::kRendererProcess);
+  client.AppendExtraCommandLineSwitches(&enabled_cmd, /*child_process_id=*/1);
+  EXPECT_EQ(enabled_cmd.GetSwitchValueASCII(switches::kChildModuleVersion),
+            "9999.0.0.1");
+#endif
+}
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX)
+
+class ChromeContentBrowserClientDiskCacheDirTest
+    : public ChromeContentBrowserClientTest {
+ protected:
+  void SetUp() override {
+    ChromeContentBrowserClientTest::SetUp();
+
+    ASSERT_TRUE(dedicated_temp_dir_.CreateUniqueTempDir());
+    home_override_ = std::make_unique<base::ScopedPathOverride>(base::DIR_HOME);
+    ASSERT_TRUE(base::PathService::Get(base::DIR_HOME, &home_dir_));
+
+    const base::FilePath config_dir = home_dir_.AppendASCII(".config");
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
+    xdg_config_override_ =
+        std::make_unique<base::ScopedEnvironmentVariableOverride>(
+            "XDG_CONFIG_HOME", config_dir.value());
+#elif BUILDFLAG(IS_MAC)
+    app_data_override_ = std::make_unique<base::ScopedPathOverride>(
+        base::DIR_APP_DATA, config_dir, /*is_absolute=*/true, /*create=*/true);
+#endif
+    user_data_dir_ = config_dir.AppendASCII("google-chrome");
+    user_data_override_ = std::make_unique<base::ScopedPathOverride>(
+        chrome::DIR_USER_DATA, user_data_dir_, /*is_absolute=*/true,
+        /*create=*/true);
+
+#if BUILDFLAG(IS_POSIX)
+    cache_override_ = std::make_unique<base::ScopedPathOverride>(
+        base::DIR_CACHE, home_dir_.AppendASCII(".cache").AppendASCII("sub"),
+        /*is_absolute=*/true, /*create=*/true);
+#endif
+
+    chrome::GetUserCacheDirectory(user_data_dir_, &cache_dir_);
+    ASSERT_NE(cache_dir_, base::FilePath());
+
+    testing_local_state()->RemoveManagedPref(prefs::kDiskCacheDir);
+    testing_local_state()->ClearPref(prefs::kDiskCacheDir);
+
+    default_dirs_ =
+        GetNetworkContextsParentDirsForManagedPref(base::FilePath());
+    ChromeContentBrowserClient client;
+    default_code_cache_path_ =
+        client.GetGeneratedCodeCacheSettings(&profile_).path();
+  }
+
+  void TearDown() override {
+    testing_local_state()->RemoveManagedPref(prefs::kDiskCacheDir);
+    testing_local_state()->ClearPref(prefs::kDiskCacheDir);
+    ChromeContentBrowserClientTest::TearDown();
+  }
+
+  TestingPrefServiceSimple* testing_local_state() {
+    return TestingBrowserProcess::GetGlobal()->GetTestingLocalState();
+  }
+
+  // Configures `prefs::kDiskCacheDir` as a managed preference (or removes it
+  // when `pref_cache_dir` is empty), initializes a `ChromeContentBrowserClient`
+  // on the UI thread, and returns its `GetNetworkContextsParentDirectory()`.
+  std::vector<base::FilePath> GetNetworkContextsParentDirsForManagedPref(
+      const base::FilePath& pref_cache_dir) {
+    testing_local_state()->ClearPref(prefs::kDiskCacheDir);
+    if (pref_cache_dir.empty()) {
+      testing_local_state()->RemoveManagedPref(prefs::kDiskCacheDir);
+    } else {
+      testing_local_state()->SetManagedPref(
+          prefs::kDiskCacheDir, base::FilePathToValue(pref_cache_dir));
+    }
+    ChromeContentBrowserClient client;
+    client.InitOnUIThread();
+    return client.GetNetworkContextsParentDirectory();
+  }
+
+  // Initializes a `ChromeContentBrowserClient` on the UI thread and returns its
+  // `GetNetworkContextsParentDirectory()` using the current `local_state`.
+  std::vector<base::FilePath> GetNetworkContextsParentDirs() {
+    ChromeContentBrowserClient client;
+    client.InitOnUIThread();
+    return client.GetNetworkContextsParentDirectory();
+  }
+
+  base::ScopedTempDir dedicated_temp_dir_;
+  std::unique_ptr<base::ScopedPathOverride> home_override_;
+  base::FilePath home_dir_;
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
+  std::unique_ptr<base::ScopedEnvironmentVariableOverride> xdg_config_override_;
+#elif BUILDFLAG(IS_MAC)
+  std::unique_ptr<base::ScopedPathOverride> app_data_override_;
+#endif
+  base::FilePath user_data_dir_;
+  std::unique_ptr<base::ScopedPathOverride> user_data_override_;
+#if BUILDFLAG(IS_POSIX)
+  std::unique_ptr<base::ScopedPathOverride> cache_override_;
+#endif
+  base::FilePath cache_dir_;
+  std::vector<base::FilePath> default_dirs_;
+  base::FilePath default_code_cache_path_;
+};
+
+TEST_F(ChromeContentBrowserClientDiskCacheDirTest,
+       GetNetworkContextsParentDirectoryRejectsRelativePath) {
+  const base::FilePath relative_dir(FILE_PATH_LITERAL("relative/cache"));
+  EXPECT_EQ(GetNetworkContextsParentDirsForManagedPref(relative_dir),
+            default_dirs_);
+}
+
+TEST_F(ChromeContentBrowserClientDiskCacheDirTest,
+       GetNetworkContextsParentDirectoryRejectsParentReferencingPath) {
+  const base::FilePath parent_ref_dir =
+      home_dir_.AppendASCII("cache")
+          .Append(base::FilePath::kParentDirectory)
+          .Append(base::FilePath::kParentDirectory);
+  EXPECT_EQ(GetNetworkContextsParentDirsForManagedPref(parent_ref_dir),
+            default_dirs_);
+}
+
+TEST_F(ChromeContentBrowserClientDiskCacheDirTest,
+       GetNetworkContextsParentDirectorySkipsUserDataDirAndSubdir) {
+  EXPECT_EQ(GetNetworkContextsParentDirsForManagedPref(user_data_dir_),
+            default_dirs_);
+  EXPECT_EQ(GetNetworkContextsParentDirsForManagedPref(
+                user_data_dir_.AppendASCII("SubCache")),
+            default_dirs_);
+}
+
+TEST_F(ChromeContentBrowserClientDiskCacheDirTest,
+       GetNetworkContextsParentDirectorySkipsDefaultCacheDirAndSubdir) {
+  EXPECT_EQ(GetNetworkContextsParentDirsForManagedPref(cache_dir_),
+            default_dirs_);
+  EXPECT_EQ(GetNetworkContextsParentDirsForManagedPref(
+                cache_dir_.AppendASCII("SubCache")),
+            default_dirs_);
+}
+
+TEST_F(ChromeContentBrowserClientDiskCacheDirTest,
+       GetNetworkContextsParentDirectoryAcceptsManagedDedicatedDir) {
+  using ::testing::Contains;
+  const base::FilePath dedicated_cache_dir =
+      home_dir_.AppendASCII("my_chrome_cache");
+  EXPECT_THAT(GetNetworkContextsParentDirsForManagedPref(
+                  dedicated_cache_dir.AsEndingWithSeparator()),
+              Contains(dedicated_cache_dir));
+  EXPECT_THAT(
+      GetNetworkContextsParentDirsForManagedPref(dedicated_temp_dir_.GetPath()),
+      Contains(dedicated_temp_dir_.GetPath()));
+}
+
+TEST_F(ChromeContentBrowserClientDiskCacheDirTest,
+       GetNetworkContextsParentDirectoryRejectsUserControlledPref) {
+  const base::FilePath dedicated_cache_dir =
+      home_dir_.AppendASCII("my_chrome_cache");
+  testing_local_state()->SetFilePath(prefs::kDiskCacheDir, dedicated_cache_dir);
+  EXPECT_EQ(GetNetworkContextsParentDirs(), default_dirs_);
+}
+
+TEST_F(ChromeContentBrowserClientDiskCacheDirTest,
+       GetGeneratedCodeCacheSettingsAcceptsManagedDedicatedDir) {
+  const base::FilePath custom_cache_dir =
+      home_dir_.AppendASCII("custom_code_cache");
+  testing_local_state()->SetManagedPref(
+      prefs::kDiskCacheDir, base::FilePathToValue(custom_cache_dir));
+  ChromeContentBrowserClient client;
+  EXPECT_EQ(client.GetGeneratedCodeCacheSettings(&profile_).path(),
+            custom_cache_dir.Append(default_code_cache_path_.BaseName()));
+}
+
+TEST_F(ChromeContentBrowserClientDiskCacheDirTest,
+       GetGeneratedCodeCacheSettingsRejectsRelativePath) {
+  testing_local_state()->SetManagedPref(
+      prefs::kDiskCacheDir,
+      base::FilePathToValue(base::FilePath(FILE_PATH_LITERAL("relative/dir"))));
+  ChromeContentBrowserClient client;
+  EXPECT_EQ(client.GetGeneratedCodeCacheSettings(&profile_).path(),
+            default_code_cache_path_);
+}
+
+TEST_F(ChromeContentBrowserClientDiskCacheDirTest,
+       GetGeneratedCodeCacheSettingsRejectsParentReferencingPath) {
+  const base::FilePath custom_cache_dir =
+      home_dir_.AppendASCII("custom_code_cache");
+  testing_local_state()->SetManagedPref(
+      prefs::kDiskCacheDir, base::FilePathToValue(custom_cache_dir.Append(
+                                base::FilePath::kParentDirectory)));
+  ChromeContentBrowserClient client;
+  EXPECT_EQ(client.GetGeneratedCodeCacheSettings(&profile_).path(),
+            default_code_cache_path_);
+}
+
+TEST_F(ChromeContentBrowserClientDiskCacheDirTest,
+       GetGeneratedCodeCacheSettingsRejectsUserControlledPref) {
+  const base::FilePath custom_cache_dir =
+      home_dir_.AppendASCII("custom_code_cache");
+  testing_local_state()->SetFilePath(prefs::kDiskCacheDir, custom_cache_dir);
+  ChromeContentBrowserClient client;
+  EXPECT_EQ(client.GetGeneratedCodeCacheSettings(&profile_).path(),
+            default_code_cache_path_);
+}

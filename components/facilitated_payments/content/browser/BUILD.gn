@@ -17,6 +17,8 @@ static_library("browser") {
     "//base",
     "//components/facilitated_payments/core/browser",
     "//components/facilitated_payments/core/mojom:facilitated_payments_agent_mojom",
+    "//components/wallet/content/browser",
+    "//components/wallet/core/browser",
     "//content/public/browser",
     "//mojo/public/cpp/bindings",
     "//third_party/blink/public/common",
@@ -28,6 +30,10 @@ static_library("browser") {
     "//components/security_state/content",
     "//components/security_state/core",
   ]
+
+  if (!is_android) {
+    sources += [ "facilitated_payments_api_client_factory_desktop.cc" ]
+  }
 }
 
 source_set("unit_tests") {
@@ -40,7 +46,11 @@ source_set("unit_tests") {
   deps = [
     ":browser",
     "//components/facilitated_payments/core/browser:test_support",
+    "//components/facilitated_payments/core/features",
     "//components/optimization_guide/core:test_support",
+    "//components/wallet/content/browser",
+    "//components/wallet/content/common/mojom",
+    "//components/wallet/core/browser",
     "//content/test:test_support",
     "//testing/gtest",
   ]

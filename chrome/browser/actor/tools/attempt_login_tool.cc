@@ -10,6 +10,7 @@
 #include "base/functional/callback_helpers.h"
 #include "base/notimplemented.h"
 #include "base/strings/utf_string_conversions.h"
+#include "chrome/browser/actor/actor_surface.h"
 #include "chrome/browser/actor/actor_task.h"
 #include "chrome/browser/actor/tools/attempt_login_tool_request.h"
 #include "chrome/browser/actor/tools/click_tool_request.h"
@@ -23,6 +24,7 @@
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service_factory.h"
 #include "chrome/browser/password_manager/actor_login/chrome_actor_login_delegate_client.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/common/actor.mojom-shared.h"
 #include "chrome/common/actor.mojom.h"
 #include "chrome/common/actor/action_result.h"
@@ -48,8 +50,14 @@
 // Android.
 #if !BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/password_manager/password_change/features.h"
-#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #endif
+
+#if BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/tab_list/tab_list_interface.h"
+#include "chrome/browser/ui/android/tab_model/tab_model.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
+#include "ui/base/base_window.h"
+#endif  // BUILDFLAG(IS_ANDROID)
 
 namespace actor {
 
@@ -57,8 +65,9 @@ using actor_login::ChromeActorLoginDelegateClient;
 
 namespace {
 
-content::RenderFrameHost& GetPrimaryMainFrameOfTab(tabs::TabHandle tab_handle) {
-  return *tab_handle.Get()->GetContents()->GetPrimaryMainFrame();
+content::RenderFrameHost& GetPrimaryMainFrameOfActorSurface(
+    ActorSurfaceHandle actor_surface_handle) {
+  return *actor_surface_handle.Get()->GetWebContents()->GetPrimaryMainFrame();
 }
 
 std::string MaybeTargetDebugString(const std::optional<PageTarget>& target) {
@@ -128,12 +137,12 @@ bool IsSuccessfulPasswordCredentialFilling(
 AttemptLoginTool::AttemptLoginTool(
     TaskId task_id,
     ToolDelegate& tool_delegate,
-    tabs::TabInterface& tab,
+    ActorSurface& actor_surface,
     std::optional<PageTarget> password_button,
     std::optional<PageTarget> sign_in_with_google_button,
     bool requires_opening_web_contents)
     : Tool(task_id, tool_delegate),
-      tab_handle_(tab.GetHandle()),
+      actor_surface_handle_(actor_surface.GetHandle()),
       password_button_(password_button),
       sign_in_with_google_button_(sign_in_with_google_button),
       requires_opening_web_contents_(requires_opening_web_contents),
@@ -155,15 +164,15 @@ void AttemptLoginTool::Validate(ToolCallback callback) {
 }
 
 void AttemptLoginTool::Invoke(ToolCallback callback) {
-  tabs::TabInterface* tab = tab_handle_.Get();
-  if (!tab) {
+  ActorSurface* actor_surface = actor_surface_handle_.Get();
+  if (!actor_surface) {
     PostResponseTask(std::move(callback),
                      MakeResult(mojom::ActionResultCode::kTabWentAway));
     return;
   }
 
   content::RenderFrameHost* main_rfh =
-      tab->GetContents()->GetPrimaryMainFrame();
+      actor_surface->GetWebContents()->GetPrimaryMainFrame();
   main_rfh_token_ = main_rfh->GetGlobalFrameToken();
 
   invoke_callback_ = std::move(callback);
@@ -189,12 +198,12 @@ void AttemptLoginTool::Invoke(ToolCallback callback) {
 
     GetActorLoginService().AttemptLogin(
         ChromeActorLoginDelegateClient::GetOrCreateForWebContents(
-            tab->GetContents()),
+            actor_surface->GetWebContents()),
         user_selected_credential_and_permission->credential,
         should_store_permission, quality_logger_,
         attempt_login_tool_start_time_,
         GetFrameFillingStartedCallback(
-            tab, user_selected_credential_and_permission->credential),
+            user_selected_credential_and_permission->credential),
         base::BindOnce(&AttemptLoginTool::OnAttemptLogin,
                        weak_ptr_factory_.GetWeakPtr(),
                        user_selected_credential_and_permission->credential,
@@ -221,7 +230,7 @@ void AttemptLoginTool::Invoke(ToolCallback callback) {
 
   GetActorLoginService().GetCredentials(
       ChromeActorLoginDelegateClient::GetOrCreateForWebContents(
-          tab->GetContents()),
+          actor_surface->GetWebContents()),
       sign_in_with_google_button_.has_value(), quality_logger_,
       base::BindOnce(&AttemptLoginTool::OnGetCredentials,
                      weak_ptr_factory_.GetWeakPtr()));
@@ -275,8 +284,7 @@ void AttemptLoginTool::OnGetCredentials(
     }
   }
 
-  tabs::TabInterface* tab = tab_handle_.Get();
-  if (!tab) {
+  if (!actor_surface_handle_.Get()) {
     PostResponseTask(std::move(invoke_callback_),
                      MakeResult(mojom::ActionResultCode::kTabWentAway));
     return;
@@ -439,15 +447,16 @@ void AttemptLoginTool::SetUserSelectedCredential(
 void AttemptLoginTool::OnCredentialCachingDone(
     actor_login::Credential selected_credential,
     webui::mojom::UserGrantedPermissionDuration permission_duration) {
-  tabs::TabInterface* tab = tab_handle_.Get();
-  if (!tab) {
+  ActorSurface* actor_surface = actor_surface_handle_.Get();
+  if (!actor_surface) {
     PostResponseTask(std::move(invoke_callback_),
                      MakeResult(mojom::ActionResultCode::kTabWentAway));
     return;
   }
 
-  if (main_rfh_token_ !=
-      tab->GetContents()->GetPrimaryMainFrame()->GetGlobalFrameToken()) {
+  if (main_rfh_token_ != actor_surface->GetWebContents()
+                             ->GetPrimaryMainFrame()
+                             ->GetGlobalFrameToken()) {
     // Don't proceed with the login attempt, if the page changed while we were
     // waiting for credential selection.
     PostResponseTask(
@@ -462,10 +471,10 @@ void AttemptLoginTool::OnCredentialCachingDone(
 
   GetActorLoginService().AttemptLogin(
       ChromeActorLoginDelegateClient::GetOrCreateForWebContents(
-          tab->GetContents()),
+          actor_surface->GetWebContents()),
       selected_credential, should_store_permission, quality_logger_,
       attempt_login_tool_start_time_,
-      GetFrameFillingStartedCallback(tab, selected_credential),
+      GetFrameFillingStartedCallback(selected_credential),
       base::BindOnce(&AttemptLoginTool::OnAttemptLogin,
                      weak_ptr_factory_.GetWeakPtr(), selected_credential,
                      should_store_permission),
@@ -490,7 +499,7 @@ void AttemptLoginTool::OnAttemptLogin(
 
   if (login_status.value() ==
       actor_login::LoginStatusResult::kErrorDeviceReauthRequired) {
-    if (!tab_handle_.Get()) {
+    if (!actor_surface_handle_.Get()) {
       PostResponseTask(std::move(invoke_callback_),
                        MakeResult(mojom::ActionResultCode::kTabWentAway));
       return;
@@ -509,9 +518,15 @@ void AttemptLoginTool::OnAttemptLogin(
       selected_credential.federation_detail->idp_origin ==
           GaiaUrls::GetInstance()->gaia_origin() &&
       sign_in_with_google_button_.has_value()) {
+    if (!actor_surface_handle_.Get()) {
+      PostResponseTask(std::move(invoke_callback_),
+                       MakeResult(mojom::ActionResultCode::kTabWentAway));
+      return;
+    }
     tool_delegate().EnqueueFollowupAction(std::make_unique<ClickToolRequest>(
-        tab_handle_, *sign_in_with_google_button_, mojom::ClickType::kLeft,
-        mojom::ClickCount::kSingle, requires_opening_web_contents_,
+        actor_surface_handle_.GetTabHandle(), *sign_in_with_google_button_,
+        mojom::ClickType::kLeft, mojom::ClickCount::kSingle,
+        requires_opening_web_contents_,
         AttemptLoginToolRequest::GetLoginObservationPageStabilityConfig()));
     mojom::ActionResultPtr result =
         MakeOkResult(/*requires_page_stabilization=*/false);
@@ -526,9 +541,15 @@ void AttemptLoginTool::OnAttemptLogin(
       IsSuccessfulPasswordCredentialFilling(login_status.value()) &&
       password_button_.has_value()) {
     CHECK_EQ(selected_credential.type, actor_login::CredentialType::kPassword);
+    if (!actor_surface_handle_.Get()) {
+      PostResponseTask(std::move(invoke_callback_),
+                       MakeResult(mojom::ActionResultCode::kTabWentAway));
+      return;
+    }
     tool_delegate().EnqueueFollowupAction(std::make_unique<ClickToolRequest>(
-        tab_handle_, *password_button_, mojom::ClickType::kLeft,
-        mojom::ClickCount::kSingle, requires_opening_web_contents_,
+        actor_surface_handle_.GetTabHandle(), *password_button_,
+        mojom::ClickType::kLeft, mojom::ClickCount::kSingle,
+        requires_opening_web_contents_,
         AttemptLoginToolRequest::GetLoginObservationPageStabilityConfig()));
     mojom::ActionResultPtr result =
         MakeOkResult(/*requires_page_stabilization=*/false);
@@ -564,13 +585,24 @@ void AttemptLoginTool::HandleTabActivatedChange(tabs::TabInterface* tab) {
   MaybeRetryCredentialNeedingFocus();
 }
 
+#if BUILDFLAG(IS_ANDROID)
+void AttemptLoginTool::OnBrowserActivated(BrowserWindowInterface* browser) {
+  tabs::TabInterface* tab = actor_surface_handle_.GetTabHandle().Get();
+  if (tab && tab->GetBrowserWindowInterface() == browser) {
+    MaybeRetryCredentialNeedingFocus();
+  }
+}
+#else
 void AttemptLoginTool::HandleWindowActivatedChange(
     BrowserWindowInterface* browser_window) {
   MaybeRetryCredentialNeedingFocus();
 }
+#endif  // BUILDFLAG(IS_ANDROID)
 
 void AttemptLoginTool::ObserveTabToAwaitFocus() {
-  tabs::TabInterface* tab = tab_handle_.Get();
+  // TODO(b/567721071): This needs tab-specific activation and browser window
+  // APIs, so it observes the tab currently backing the surface.
+  tabs::TabInterface* tab = actor_surface_handle_.GetTabHandle().Get();
   CHECK(tab);
 
   will_detach_subscription_ = tab->RegisterWillDetach(base::BindRepeating(
@@ -579,7 +611,12 @@ void AttemptLoginTool::ObserveTabToAwaitFocus() {
       &AttemptLoginTool::HandleTabActivatedChange, base::Unretained(this)));
 // TODO(crbug.com/482430429): Reconsider the use of BrowserWindowInterface on
 // Android.
-#if !BUILDFLAG(IS_ANDROID)
+#if BUILDFLAG(IS_ANDROID)
+  if (base::FeatureList::IsEnabled(
+          password_manager::features::kBiometricTouchToFill)) {
+    browser_observation_.Observe(GlobalBrowserCollection::GetInstance());
+  }
+#else
   BrowserWindowInterface* browser_window = tab->GetBrowserWindowInterface();
   // TODO(mcnee): Should we update the window subscription if the tab is moved?
   // The tab would probably be focused first which would cause us to stop
@@ -588,13 +625,17 @@ void AttemptLoginTool::ObserveTabToAwaitFocus() {
       browser_window->RegisterDidBecomeActive(
           base::BindRepeating(&AttemptLoginTool::HandleWindowActivatedChange,
                               base::Unretained(this)));
-#endif
+#endif  // BUILDFLAG(IS_ANDROID)
 }
 
 void AttemptLoginTool::StopObservingTab() {
   will_detach_subscription_ = {};
   tab_did_activate_subscription_ = {};
+#if BUILDFLAG(IS_ANDROID)
+  browser_observation_.Reset();
+#else
   window_did_become_active_subscription_ = {};
+#endif  // BUILDFLAG(IS_ANDROID)
 }
 
 void AttemptLoginTool::MaybeRetryCredentialNeedingFocus() {
@@ -602,7 +643,9 @@ void AttemptLoginTool::MaybeRetryCredentialNeedingFocus() {
     return;
   }
 
-  tabs::TabInterface* tab = tab_handle_.Get();
+  // TODO(b/567721071): Handle surfaces demoted to headless while awaiting
+  // focus.
+  tabs::TabInterface* tab = actor_surface_handle_.GetTabHandle().Get();
   CHECK(tab);
 
   // Note that this is more specific than the conditions checked in
@@ -615,12 +658,37 @@ void AttemptLoginTool::MaybeRetryCredentialNeedingFocus() {
 
   // TODO(crbug.com/482430429): Reconsider the use of BrowserWindowInterface on
   // Android.
-#if !BUILDFLAG(IS_ANDROID)
+#if BUILDFLAG(IS_ANDROID)
+  if (base::FeatureList::IsEnabled(
+          password_manager::features::kBiometricTouchToFill)) {
+    // On Android, a single Activity window can host multiple TabModels (e.g.
+    // standard and incognito). Therefore, verifying window->IsActive() is not
+    // sufficient; we also need to ensure the TabModel containing our tab is the
+    // currently active model, and that our tab is the selected active tab
+    // within it.
+    BrowserWindowInterface* browser_window = tab->GetBrowserWindowInterface();
+    ::ui::BaseWindow* window =
+        browser_window ? browser_window->GetWindow() : nullptr;
+    if (!window || !window->IsActive()) {
+      return;
+    }
+    TabListInterface* tab_list =
+        browser_window ? TabListInterface::From(browser_window) : nullptr;
+    if (!tab_list || tab_list->GetActiveTab() != tab) {
+      return;
+    }
+    // On Android, TabListInterface is always implemented by TabModel.
+    TabModel* tab_model = static_cast<TabModel*>(tab_list);
+    if (!tab_model->IsActiveModel()) {
+      return;
+    }
+  }
+#else
   BrowserWindowInterface* browser_window = tab->GetBrowserWindowInterface();
   if (!browser_window->IsActive()) {
     return;
   }
-#endif
+#endif  // BUILDFLAG(IS_ANDROID)
 
   StopObservingTab();
   tool_delegate().UninterruptFromTool();
@@ -631,8 +699,7 @@ void AttemptLoginTool::MaybeRetryCredentialNeedingFocus() {
       credential_awaiting_task_focus_->first,
       credential_awaiting_task_focus_->second, quality_logger_,
       attempt_login_tool_start_time_,
-      GetFrameFillingStartedCallback(tab,
-                                     credential_awaiting_task_focus_->first),
+      GetFrameFillingStartedCallback(credential_awaiting_task_focus_->first),
       base::BindOnce(&AttemptLoginTool::OnAttemptLogin,
                      weak_ptr_factory_.GetWeakPtr(),
                      credential_awaiting_task_focus_->first,
@@ -652,17 +719,18 @@ std::unique_ptr<ObservationDelayController>
 AttemptLoginTool::GetObservationDelayer(
     ObservationDelayController::PageStabilityConfig page_stability_config) {
   return std::make_unique<ObservationDelayController>(
-      GetPrimaryMainFrameOfTab(tab_handle_), task_id(), journal(),
-      page_stability_config);
+      GetPrimaryMainFrameOfActorSurface(actor_surface_handle_), task_id(),
+      journal(), page_stability_config);
 }
 
 void AttemptLoginTool::UpdateTaskBeforeInvoke(ActorTask& task,
                                               ToolCallback callback) const {
-  task.AddTab(tab_handle_, /*stop_task_on_detach=*/true, std::move(callback));
+  task.AddActorSurface(actor_surface_handle_, /*stop_task_on_detach=*/true,
+                       std::move(callback));
 }
 
-tabs::TabHandle AttemptLoginTool::GetTargetTab() const {
-  return tab_handle_;
+ActorSurfaceHandle AttemptLoginTool::GetTargetActorSurface() const {
+  return actor_surface_handle_;
 }
 
 actor_login::ActorLoginService& AttemptLoginTool::GetActorLoginService() {
@@ -671,12 +739,13 @@ actor_login::ActorLoginService& AttemptLoginTool::GetActorLoginService() {
 
 actor_login::FrameFillingStartedCallback
 AttemptLoginTool::GetFrameFillingStartedCallback(
-    tabs::TabInterface* tab,
     const actor_login::Credential& credential) {
+  // TODO(b/567721071): Pass `actor_surface_handle_` once
+  // ActorOneTimeTokenFillingService accepts surface handles.
   return base::BindOnce(
       &autofill::ActorOneTimeTokenFillingService::OnPasswordFillingStarted,
       tool_delegate().GetActorOneTimeTokenFillingService().GetWeakPtr(),
-      tab->GetHandle(), credential.request_origin,
+      actor_surface_handle_.GetTabHandle(), credential.request_origin,
       credential.has_persistent_permission);
 }
 

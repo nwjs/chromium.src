@@ -54,10 +54,20 @@ import org.chromium.components.tab_groups.TabGroupColorPickerUtils;
 import org.chromium.ui.interpolators.Interpolators;
 import org.chromium.url.GURL;
 
+import java.util.Collections;
 import java.util.List;
 
 @NullMarked
 public class StripDragShadowView extends FrameLayout {
+    // Constants
+    @VisibleForTesting
+    protected static final int WIDTH_DP = (int) StripLayoutUtils.MAX_TAB_WIDTH_DP;
+
+    @VisibleForTesting
+    protected static final int HEIGHT_DP = (int) StripLayoutUtils.MAX_TAB_WIDTH_DP;
+
+    private static final int WIDTH_ON_XR_DP = 528;
+    private static final long ANIM_EXPAND_MS = 200L;
     private static final FloatProperty<StripDragShadowView> PROGRESS =
             new FloatProperty<>("progress") {
                 @Override
@@ -71,15 +81,7 @@ public class StripDragShadowView extends FrameLayout {
                 }
             };
 
-    // Constants
-    @VisibleForTesting
-    protected static final int WIDTH_DP = (int) StripLayoutUtils.MAX_TAB_WIDTH_DP;
-
-    @VisibleForTesting
-    protected static final int HEIGHT_DP = (int) StripLayoutUtils.MAX_TAB_WIDTH_DP;
-
-    private static final int WIDTH_ON_XR_DP = 528;
-    private static final long ANIM_EXPAND_MS = 200L;
+    private final int mSourceHeightPx;
 
     // Children Views
     private View mCardView;
@@ -89,7 +91,6 @@ public class StripDragShadowView extends FrameLayout {
 
     // Internal State
     private int mSourceWidthPx;
-    private final int mSourceHeightPx;
     private int mWidthPx;
     private int mHeightPx;
     private float mProgress;
@@ -221,11 +222,7 @@ public class StripDragShadowView extends FrameLayout {
         prepareForDrag(
                 mSingleThumbnailCardProvider,
                 tab,
-                MultiThumbnailMetadata.createMetadataWithoutUrls(
-                        tab.getId(),
-                        /* isInTabGroup= */ false,
-                        isIncognito,
-                        /* tabGroupColor= */ null),
+                MultiThumbnailMetadata.createMetadataForSingleTab(tab.getId()),
                 sourceWidthPx,
                 /* isMultiTabDrag= */ false);
     }
@@ -283,7 +280,7 @@ public class StripDragShadowView extends FrameLayout {
         TabModel tabModel = mTabModelSelector.getModel(isIncognito);
         if (tabModel == null) return;
 
-        // Background color
+        // Background color.
         Token tabGroupId = tab.getTabGroupId();
         assert tabGroupId != null : "The tab group ID should be non-null";
         @TabGroupColorId int colorId = tabModel.getTabGroupColorWithFallback(tabGroupId);
@@ -293,11 +290,8 @@ public class StripDragShadowView extends FrameLayout {
                 TabGroupColorPickerUtils.getTabGroupColorPickerItemColor(
                         context, colorId, isIncognito);
         mCardView.setBackgroundTintList(ColorStateList.valueOf(groupColor));
-        mMultiThumbnailCardProvider.setMiniThumbnailPlaceholderColor(
-                TabUiThemeUtil.getMiniThumbnailPlaceholderColorForGroup(
-                        context, isIncognito, groupColor));
 
-        // Group title text
+        // Group title text.
         String defaultGroupTitle =
                 TabGroupTitleUtils.getDisplayableTitle(context, tabModel, tabGroupId);
         mTitleView.setText(
@@ -306,7 +300,7 @@ public class StripDragShadowView extends FrameLayout {
                 TabGroupColorPickerUtils.getTabGroupColorPickerItemTextColor(
                         context, colorId, isIncognito));
 
-        // Clear the tab favicon if needed
+        // Clear the tab favicon if needed.
         mFaviconView.setImageBitmap(null);
         // Set the thumbnail to visible.
         mThumbnailView.setVisibility(View.VISIBLE);
@@ -314,8 +308,11 @@ public class StripDragShadowView extends FrameLayout {
         prepareForDrag(
                 mMultiThumbnailCardProvider,
                 tab,
-                MultiThumbnailMetadata.createMetadataWithoutUrls(
-                        tab.getId(), /* isInTabGroup= */ true, isIncognito, colorId),
+                MultiThumbnailMetadata.createMetadataForTabGroup(
+                        tabGroupId,
+                        isIncognito,
+                        colorId,
+                        /* actingTabIds= */ Collections.emptyList()),
                 sourceWidthPx,
                 /* isMultiTabDrag= */ false);
     }

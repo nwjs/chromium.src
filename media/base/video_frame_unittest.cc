@@ -506,7 +506,7 @@ TEST(VideoFrame, WrapSharedMemory) {
   ASSERT_TRUE(mapped_region.IsValid());
   gfx::Size coded_size(256, 256);
   gfx::Rect visible_rect(coded_size);
-  CreateTestY16Frame(coded_size, visible_rect, mapped_region.mapping.memory());
+  CreateTestY16Frame(coded_size, visible_rect, mapped_region.mapping.data());
   auto timestamp = base::Milliseconds(1);
   auto frame = VideoFrame::WrapExternalData(
       PIXEL_FORMAT_Y16, coded_size, visible_rect, visible_rect.size(),
@@ -1032,17 +1032,14 @@ TEST(VideoFrameMetadata, MergeMetadata) {
 
 TEST(VideoFrameMetadata, ClearTextureMetadata) {
   VideoFrameMetadata reference_md = GetFullVideoFrameMetadata();
-  reference_md.is_webgpu_compatible = true;
   reference_md.read_lock_fences_enabled = true;
 
   VideoFrameMetadata copy_md;
   copy_md.MergeMetadataFrom(reference_md);
 
   copy_md.ClearTextureFrameMetadata();
-  EXPECT_FALSE(copy_md.is_webgpu_compatible);
   EXPECT_FALSE(copy_md.read_lock_fences_enabled);
 
-  reference_md.is_webgpu_compatible = false;
   reference_md.read_lock_fences_enabled = false;
   VerifyVideoFrameMetadataEquality(copy_md, reference_md);
 }

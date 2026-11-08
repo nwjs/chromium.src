@@ -49,12 +49,18 @@ public class BottomBarContainerCoordinator
     private final Callback<Boolean> mRequestLayerUpdateCallback;
     private final BottomBarCoordinator mBottomBarCoordinator;
     private final Handler mHandler;
-    private final Runnable mModelTokenChangeRunnable = this::onModelTokenChange;
+    private final Runnable mModelTokenChangeRunnable =
+            () -> {
+                mPendingVisibilityUpdate = false;
+                onModelTokenChange();
+            };
     private final ComponentCallbacks mComponentCallbacks =
             new ComponentCallbacks() {
                 @Override
                 public void onConfigurationChanged(Configuration newConfig) {
-                    if (newConfig.orientation == mCurrentOrientation) {
+                    if (newConfig.orientation == mCurrentOrientation
+                            && newConfig.screenWidthDp == mCurrentScreenWidthDp
+                            && newConfig.screenHeightDp == mCurrentScreenHeightDp) {
                         return;
                     }
 
@@ -62,6 +68,8 @@ public class BottomBarContainerCoordinator
                         mHandler.removeCallbacks(mModelTokenChangeRunnable);
                     }
                     mCurrentOrientation = newConfig.orientation;
+                    mCurrentScreenWidthDp = newConfig.screenWidthDp;
+                    mCurrentScreenHeightDp = newConfig.screenHeightDp;
                     mPendingVisibilityUpdate = true;
                     mHandler.post(mModelTokenChangeRunnable);
                 }
@@ -77,6 +85,8 @@ public class BottomBarContainerCoordinator
     // Tracking if there is a pending visibility update to avoid scanning the whole queue.
     private boolean mPendingVisibilityUpdate;
     private int mCurrentOrientation;
+    private int mCurrentScreenWidthDp;
+    private int mCurrentScreenHeightDp;
 
     /**
      * @param bottomBarContainer The {@link FrameLayout} for the bottom bar.
@@ -86,7 +96,6 @@ public class BottomBarContainerCoordinator
      * @param themeColorProvider Theme color provider for the bottom bar.
      * @param homepageEnabledSupplier Supplier of whether the homepage is enabled.
      * @param profileSupplier Supplier of the current profile.
-     * @param countrySupplier Supplier of the latest variations country code.
      * @param omniboxFocusStateSupplier Supplier of the omnibox focus state.
      * @param modalDialogManagerSupplier Supplier of the {@link ModalDialogManager}.
      * @param appMenuCoordinatorSupplier Supplier of the {@link AppMenuCoordinator}.
@@ -99,7 +108,6 @@ public class BottomBarContainerCoordinator
             ThemeColorProvider themeColorProvider,
             NonNullObservableSupplier<Boolean> homepageEnabledSupplier,
             NullableObservableSupplier<Profile> profileSupplier,
-            OneshotSupplier<String> countrySupplier,
             NonNullObservableSupplier<Boolean> omniboxFocusStateSupplier,
             NonNullObservableSupplier<ModalDialogManager> modalDialogManagerSupplier,
             OneshotSupplier<AppMenuCoordinator> appMenuCoordinatorSupplier,
@@ -107,7 +115,10 @@ public class BottomBarContainerCoordinator
         mBottomBarContainer = bottomBarContainer;
         Context context = bottomBarContainer.getContext();
         mContext = context;
-        mCurrentOrientation = context.getResources().getConfiguration().orientation;
+        Configuration configuration = context.getResources().getConfiguration();
+        mCurrentOrientation = configuration.orientation;
+        mCurrentScreenWidthDp = configuration.screenWidthDp;
+        mCurrentScreenHeightDp = configuration.screenHeightDp;
         mContext.registerComponentCallbacks(mComponentCallbacks);
         mHandler = new Handler(Looper.getMainLooper());
         mRequestLayerUpdateCallback = requestLayerUpdateCallback;
@@ -121,7 +132,6 @@ public class BottomBarContainerCoordinator
                         homepageEnabledSupplier,
                         this,
                         profileSupplier,
-                        countrySupplier,
                         omniboxFocusStateSupplier,
                         modalDialogManagerSupplier,
                         layoutStateProvider);
@@ -148,10 +158,8 @@ public class BottomBarContainerCoordinator
         if (mAppMenuUpdateBadgeController != null) {
             mAppMenuUpdateBadgeController.destroy();
         }
-        if (mPendingVisibilityUpdate) {
-            mHandler.removeCallbacks(mModelTokenChangeRunnable);
-            mPendingVisibilityUpdate = false;
-        }
+        mHandler.removeCallbacks(mModelTokenChangeRunnable);
+        mPendingVisibilityUpdate = false;
         mContext.unregisterComponentCallbacks(mComponentCallbacks);
         mBottomBarCoordinator.destroy();
     }
@@ -167,7 +175,6 @@ public class BottomBarContainerCoordinator
         if (mOnModelTokenChange != null) {
             mOnModelTokenChange.onResult(new Object());
         }
-        mPendingVisibilityUpdate = false;
     }
 
     @Override

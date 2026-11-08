@@ -59,6 +59,7 @@
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
 #import "ios/chrome/browser/shared/public/commands/help_commands.h"
 #import "ios/chrome/browser/shared/public/commands/lens_commands.h"
+#import "ios/chrome/browser/shared/public/commands/level_up_commands.h"
 #import "ios/chrome/browser/shared/public/commands/omnibox_commands.h"
 #import "ios/chrome/browser/shared/public/commands/popup_menu_commands.h"
 #import "ios/chrome/browser/shared/public/commands/scene_commands.h"
@@ -307,6 +308,8 @@ class NewTabPageCoordinatorTest : public PlatformTest {
     lens_handler_mock_ = OCMProtocolMock(@protocol(LensCommands));
     browser_coordinator_handler_mock_ =
         OCMProtocolMock(@protocol(BrowserCoordinatorCommands));
+    OCMStub([browser_coordinator_handler_mock_ dismissMultimodalActionsMenu]);
+
     popup_menu_commands_handler_mock_ =
         OCMProtocolMock(@protocol(PopupMenuCommands));
     [browser_.get()->GetCommandDispatcher()
@@ -333,6 +336,9 @@ class NewTabPageCoordinatorTest : public PlatformTest {
     [browser_.get()->GetCommandDispatcher()
         startDispatchingToTarget:popup_menu_commands_handler_mock_
                      forProtocol:@protocol(PopupMenuCommands)];
+    [browser_.get()->GetCommandDispatcher()
+        startDispatchingToTarget:OCMProtocolMock(@protocol(LevelUpCommands))
+                     forProtocol:@protocol(LevelUpCommands)];
   }
 
   // Dynamically calls a selector on an object.
@@ -796,7 +802,6 @@ TEST_F(NewTabPageCoordinatorTest, NTPShortcutsMetricLogging) {
   OCMStub([lens_handler_mock_ openLensInputSelection:[OCMArg any]]);
   OCMStub([browser_coordinator_handler_mock_ startVoiceSearch]);
   OCMStub([application_handler_mock_ openURLInNewTab:[OCMArg any]]);
-  OCMStub([browser_coordinator_handler_mock_ showMultimodalActionsMenu]);
 
   id<NewTabPageShortcutsHandler> shortcutsHandler =
       static_cast<id<NewTabPageShortcutsHandler>>(coordinator_);

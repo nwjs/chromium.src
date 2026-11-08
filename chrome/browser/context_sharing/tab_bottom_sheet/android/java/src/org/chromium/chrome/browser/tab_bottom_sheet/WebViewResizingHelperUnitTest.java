@@ -67,10 +67,10 @@ public class WebViewResizingHelperUnitTest {
     @Mock private InsetObserver mMockInsetObserver;
     @Mock private Window mMockWindow;
     @Mock private CoBrowseComponentProvider mMockComponentProvider;
-    @Mock private View mMockDecorView;
     @Captor private ArgumentCaptor<WindowInsetsAnimationListener> mAnimationListenerCaptor;
 
     private Context mContext;
+    private View mMockDecorView;
     private View mView;
     private View mContainerView;
     private WebViewResizingHelper mHelper;
@@ -88,10 +88,11 @@ public class WebViewResizingHelperUnitTest {
                 .when(mMockThinWebView)
                 .runOnNextFrame(any());
 
+        mMockDecorView = new View(mContext);
+        mMockDecorView.layout(0, 0, 0, 1000);
         when(mMockWindowAndroid.getWindow()).thenReturn(mMockWindow);
         when(mMockWindowAndroid.getInsetObserver()).thenReturn(mMockInsetObserver);
         when(mMockWindow.getDecorView()).thenReturn(mMockDecorView);
-        when(mMockDecorView.getHeight()).thenReturn(1000);
         when(mMockComponentProvider.createResizingPlaceholderCoordinator(any(), anyInt(), anyInt()))
                 .thenAnswer(
                         inv ->
@@ -414,8 +415,7 @@ public class WebViewResizingHelperUnitTest {
         mHelper.setThinWebView(mMockThinWebView, mMockWebContents);
         FrameLayout container = (FrameLayout) mHelper.getResizingContainer();
 
-        when(mMockDecorView.getWidth()).thenReturn(1080);
-        when(mMockDecorView.getHeight()).thenReturn(1920);
+        mMockDecorView.layout(0, 0, 1080, 1920);
 
         container.measure(
                 View.MeasureSpec.makeMeasureSpec(100, View.MeasureSpec.EXACTLY),
@@ -442,7 +442,7 @@ public class WebViewResizingHelperUnitTest {
 
         when(mMockWebContents.getWidth()).thenReturn(50);
         when(mMockWebContents.getHeight()).thenReturn(50);
-        when(mMockDecorView.getHeight()).thenReturn(1000);
+        mMockDecorView.layout(0, 0, 0, 1000);
 
         container.measure(
                 View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.EXACTLY),
@@ -472,7 +472,7 @@ public class WebViewResizingHelperUnitTest {
 
         when(mMockWebContents.getWidth()).thenReturn(50);
         when(mMockWebContents.getHeight()).thenReturn(50);
-        when(mMockDecorView.getHeight()).thenReturn(1000);
+        mMockDecorView.layout(0, 0, 0, 1000);
 
         container.measure(
                 View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.EXACTLY),

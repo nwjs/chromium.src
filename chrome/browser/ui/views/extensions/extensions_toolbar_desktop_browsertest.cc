@@ -11,6 +11,7 @@
 #include "base/json/json_reader.h"
 #include "base/strings/stringprintf.h"
 #include "base/test/metrics/user_action_tester.h"
+#include "build/build_config.h"
 #include "chrome/browser/extensions/chrome_test_extension_loader.h"
 #include "chrome/browser/extensions/extension_action_runner.h"
 #include "chrome/browser/extensions/extension_service.h"
@@ -25,6 +26,7 @@
 #include "chrome/browser/ui/views/extensions/extensions_toolbar_button.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/permissions/chip/permission_chip_constants.h"
+#include "chrome/common/chrome_features.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/policy/core/browser/browser_policy_connector.h"
 #include "components/policy/core/common/mock_configuration_policy_provider.h"
@@ -65,13 +67,17 @@ class ExtensionsToolbarDesktopBrowserTest
       const std::vector<base::test::FeatureRef>& enabled_features,
       const std::vector<base::test::FeatureRef>& disabled_features)
       : ExtensionsToolbarBrowserTest(
-            [enabled_features] {
+            [&enabled_features] {
               std::vector<base::test::FeatureRef> actual = enabled_features;
               actual.push_back(
                   extensions_features::kExtensionsMenuAccessControl);
               return actual;
             }(),
-            disabled_features) {}
+            [&disabled_features] {
+              std::vector<base::test::FeatureRef> actual = disabled_features;
+              actual.push_back(features::kWebUIExtensionsContainer);
+              return actual;
+            }()) {}
   ~ExtensionsToolbarDesktopBrowserTest() override = default;
   ExtensionsToolbarDesktopBrowserTest(
       const ExtensionsToolbarDesktopBrowserTest&) = delete;
@@ -322,7 +328,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionsToolbarDesktopBrowserTest,
       [&extension_id](BrowserWindowInterface* browser) {
         return BrowserView::GetBrowserViewForBrowser(browser)
             ->toolbar()
-            ->extensions_container()
+            ->extensions_container_for_testing()
             ->IsActionVisibleOnToolbar(extension_id);
       };
 
@@ -881,8 +887,17 @@ IN_PROC_BROWSER_TEST_F(ExtensionsToolbarDesktopBrowserTest,
 }
 
 // Tests that requests are reset on cross-origin navigations.
-IN_PROC_BROWSER_TEST_F(ExtensionsToolbarDesktopBrowserTest,
-                       RequestAccessButtonVisibility_NavigationBetweenPages) {
+// TODO(crbug.com/549105384): Flaky on Mac.
+#if BUILDFLAG(IS_MAC)
+#define MAYBE_RequestAccessButtonVisibility_NavigationBetweenPages \
+  DISABLED_RequestAccessButtonVisibility_NavigationBetweenPages
+#else
+#define MAYBE_RequestAccessButtonVisibility_NavigationBetweenPages \
+  RequestAccessButtonVisibility_NavigationBetweenPages
+#endif
+IN_PROC_BROWSER_TEST_F(
+    ExtensionsToolbarDesktopBrowserTest,
+    MAYBE_RequestAccessButtonVisibility_NavigationBetweenPages) {
   auto extension =
       InstallExtensionWithHostPermissions("Extension", {"<all_urls>"});
   WithholdHostPermissions(extension.get());
@@ -1316,8 +1331,10 @@ class ExtensionsToolbarDesktopAccessControlDisabledBrowserTest
  public:
   ExtensionsToolbarDesktopAccessControlDisabledBrowserTest()
       : ExtensionsToolbarBrowserTest(
-            {},
-            {extensions_features::kExtensionsMenuAccessControl}) {}
+            /*enabled_features=*/{},
+            /*disabled_features=*/{
+                extensions_features::kExtensionsMenuAccessControl,
+                features::kWebUIExtensionsContainer}) {}
   ExtensionsToolbarDesktopAccessControlDisabledBrowserTest(
       const ExtensionsToolbarDesktopAccessControlDisabledBrowserTest&) = delete;
   ExtensionsToolbarDesktopAccessControlDisabledBrowserTest& operator=(

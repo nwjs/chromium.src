@@ -22,8 +22,6 @@ static_library("network") {
     "tether_notification_presenter.h",
   ]
 
-  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
-
   deps = [
     "//ash",
     "//ash/strings",
@@ -43,6 +41,7 @@ static_library("network") {
     "//chrome/browser/ui/webui/ash/cellular_setup",
     "//chrome/browser/ui/webui/ash/floating_workspace",
     "//chromeos/ash/components/browser_context_helper",
+    "//chromeos/ash/components/browser_delegate",
     "//chromeos/ash/components/carrier_lock",
     "//chromeos/ash/components/dbus/hermes",
     "//chromeos/ash/components/dbus/shill",
@@ -96,6 +95,7 @@ source_set("unit_tests") {
     "//chrome/browser/ui/webui/ash/floating_workspace",
     "//chrome/common",
     "//chrome/test:test_support",
+    "//chrome/test/base:browser_with_test_window_test",
     "//chrome/test/base:testing_browser_process",
     "//chromeos/ash/components/carrier_lock",
     "//chromeos/ash/components/dbus/hermes",
@@ -136,14 +136,19 @@ source_set("browser_tests") {
     ":network",
     "//base/test:test_support",
     "//chrome/browser",
+    "//chrome/browser/ash/login/test:test_support",
     "//chrome/browser/chromeos/network",
-    "//chrome/browser/ui",
     "//chrome/browser/ui/browser_window",
     "//chrome/test:test_support_ui",
     "//chromeos/ash/components/network",
     "//chromeos/ash/components/network:test_support",
     "//chromeos/constants",
+    "//content/public/browser",
     "//content/test:test_support",
+    "//net:test_support",
     "//testing/gtest",
+    "//ui/views",
+    "//ui/views/controls/webview",
+    "//url",
   ]
 }

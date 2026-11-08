@@ -200,12 +200,35 @@ void RecordTrustedVaultRecoverKeysOutcome(
       status);
 }
 
-void RecordTrustedVaultFileReadStatus(SecurityDomainId security_domain_id,
-                                      TrustedVaultFileReadStatusForUMA status) {
+void RecordTrustedVaultFileReadStatusForSecurityDomain(
+    SecurityDomainId security_domain_id,
+    TrustedVaultFileReadStatusForUMA status) {
   base::UmaHistogramEnumeration(
       "TrustedVault.FileReadStatus." +
           GetSecurityDomainNameForUma(security_domain_id),
       status);
+}
+
+void RecordTrustedVaultFileReadStatus(TrustedVaultFileReadStatusForUMA status) {
+  base::UmaHistogramEnumeration("TrustedVault.FileReadStatus", status);
+}
+
+void RecordTrustedVaultFileWriteSuccessForSecurityDomain(
+    SecurityDomainId security_domain_id,
+    bool success) {
+  base::UmaHistogramBoolean("TrustedVault.FileWriteSuccess." +
+                                GetSecurityDomainNameForUma(security_domain_id),
+                            success);
+}
+
+void RecordTrustedVaultFileWriteSuccess(bool success) {
+  base::UmaHistogramBoolean("TrustedVault.FileWriteSuccess", success);
+}
+
+void RecordTrustedVaultLocalDomainsMigrationStatus(
+    TrustedVaultLocalDomainsMigrationStatusForUMA status) {
+  base::UmaHistogramEnumeration("TrustedVault.LocalDomainsMigrationStatus",
+                                status);
 }
 
 void RecordTrustedVaultSetEncryptionKeysForSecurityDomain(

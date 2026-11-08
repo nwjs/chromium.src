@@ -113,27 +113,20 @@ class GpuProcessIntegrationTest(gpu_integration_test.GpuIntegrationTest):
       ('GpuProcess_webgl', 'gpu/functional_webgl.html'),
       ('GpuProcess_video', 'gpu/functional_video.html'),
       ('GpuProcess_gpu_info_complete', 'gpu/functional_3d_css.html'),
-      ('GpuProcess_driver_bug_workarounds_in_gpu_process', 'chrome:gpu'),
-      ('GpuProcess_readback_webgl_gpu_process', 'chrome:gpu'),
-      ('GpuProcess_feature_status_under_swiftshader', 'chrome:gpu'),
-      ('GpuProcess_one_extra_workaround', 'chrome:gpu'),
+      (
+        'GpuProcess_driver_bug_workarounds_in_gpu_process',
+        'chrome:gpu?skip-dawn-info',
+      ),
+      ('GpuProcess_readback_webgl_gpu_process', 'chrome:gpu?skip-dawn-info'),
+      (
+        'GpuProcess_feature_status_under_swiftshader',
+        'chrome:gpu?skip-dawn-info',
+      ),
+      ('GpuProcess_one_extra_workaround', 'chrome:gpu?skip-dawn-info'),
       ('GpuProcess_disable_gpu', 'gpu/functional_webgl.html'),
       ('GpuProcess_disable_gpu_and_swiftshader', 'gpu/functional_webgl.html'),
       ('GpuProcess_disable_swiftshader', 'gpu/functional_webgl.html'),
-      ('GpuProcess_disabling_workarounds_works', 'chrome:gpu'),
-      (
-        'GpuProcess_mac_webgl_backgrounded_high_performance',
-        'gpu/functional_blank.html',
-      ),
-      (
-        'GpuProcess_mac_webgl_high_performance',
-        'gpu/functional_webgl_high_performance.html',
-      ),
-      ('GpuProcess_mac_webgl_low_power', 'gpu/functional_webgl_low_power.html'),
-      (
-        'GpuProcess_mac_webgl_terminated_high_performance',
-        'gpu/functional_blank.html',
-      ),
+      ('GpuProcess_disabling_workarounds_works', 'chrome:gpu?skip-dawn-info'),
       ('GpuProcess_swiftshader_for_webgl', 'gpu/functional_webgl.html'),
       (
         'GpuProcess_no_swiftshader_for_webgl_without_flags',
@@ -323,7 +316,7 @@ class GpuProcessIntegrationTest(gpu_integration_test.GpuIntegrationTest):
       self.fail('Target machine must have a GPU')
     if not system_info.gpu.aux_attributes:
       self.fail('Browser must support GPU aux attributes')
-    if not 'gl_renderer' in system_info.gpu.aux_attributes:
+    if 'gl_renderer' not in system_info.gpu.aux_attributes:
       self.fail('Browser must have gl_renderer in aux attribs')
     if (
       not host_information.IsMac()
@@ -523,11 +516,9 @@ class GpuProcessIntegrationTest(gpu_integration_test.GpuIntegrationTest):
       logging.info('Skipping test because not running on Android')
       return
 
-    # pylint: disable=protected-access
     sdk_version = (
       self.browser.platform._platform_backend.device.build_version_sdk
     )
-    # pylint: enable=protected-access
     if sdk_version < version_codes.PIE:
       logging.info('Skipping test because not running on Android P+')
       return
@@ -803,131 +794,6 @@ class GpuProcessIntegrationTest(gpu_integration_test.GpuIntegrationTest):
       ]
     )
     self._NavigateAndWait(test_path)
-
-  def _GpuProcess_mac_webgl_low_power(self, test_path: str) -> None:
-    # Ensures that low-power WebGL content stays on the low-power GPU.
-    if not self.IsDualGPUMacLaptop():
-      logging.info('Skipping test because not running on dual-GPU Mac laptop')
-      return
-    # Start with a clean browser instance to ensure the GPU process is in a
-    # clean state.
-    self.RestartBrowserWithArgs([])
-    # Wait a few seconds for the system to dispatch any GPU switched
-    # notifications.
-    time.sleep(3)
-    self._NavigateAndWait(test_path)
-    # Sleep for several seconds to ensure that any GPU switch is detected.
-    time.sleep(6)
-    if not self._IsIntelGPUActive():
-      self.fail(
-        'Low-power WebGL context incorrectly activated the high-performance GPU'
-      )
-
-  def _GpuProcess_mac_webgl_high_performance(self, test_path: str) -> None:
-    # Ensures that high-performance WebGL content activates the high-performance
-    # GPU.
-    if not self.IsDualGPUMacLaptop():
-      logging.info('Skipping test because not running on dual-GPU Mac laptop')
-      return
-    # Start with a clean browser instance to ensure the GPU process is in a
-    # clean state.
-    self.RestartBrowserWithArgs([])
-    # Wait a few seconds for the system to dispatch any GPU switched
-    # notifications.
-    time.sleep(3)
-    self._NavigateAndWait(test_path)
-    # Sleep for several seconds to ensure that any GPU switch is detected.
-    time.sleep(6)
-    if self._IsIntelGPUActive():
-      self.fail(
-        'High-performance WebGL context did not activate the '
-        'high-performance GPU'
-      )
-
-  def _GpuProcess_mac_webgl_backgrounded_high_performance(
-    self, test_path: str
-  ) -> None:
-    # Ensures that high-performance WebGL content in a background tab releases
-    # the hold on the discrete GPU after 10 seconds.
-    if not self.IsDualGPUMacLaptop():
-      logging.info('Skipping test because not running on dual-GPU Mac laptop')
-      return
-    # Start with a clean browser instance to ensure the GPU process is in a
-    # clean state.
-    self.RestartBrowserWithArgs([])
-    # Wait a few seconds for the system to dispatch any GPU switched
-    # notifications.
-    time.sleep(3)
-    self._NavigateAndWait(test_path)
-    blank_tab = self.tab
-    # Create a new tab and navigate it to the high-power WebGL test.
-    webgl_tab = self.browser.tabs.New()
-    webgl_tab.Activate()
-    webgl_url = self.UrlOfStaticFilePath(
-      'gpu/functional_webgl_high_performance.html'
-    )
-    webgl_tab.action_runner.Navigate(
-      webgl_url, script_to_evaluate_on_commit=test_harness_script
-    )
-    self._WaitForTestCompletion(webgl_tab)
-    # Verify that the high-performance GPU is active.
-    if self._IsIntelGPUActive():
-      self.fail(
-        'High-performance WebGL context did not activate the '
-        'high-performance GPU'
-      )
-    # Now activate the original tab.
-    blank_tab.Activate()
-    # Sleep for >10 seconds in order to wait for the hold on the
-    # high-performance GPU to be released.
-    time.sleep(15)
-    if not self._IsIntelGPUActive():
-      self.fail(
-        'Backgrounded high-performance WebGL context did not release the '
-        'hold on the high-performance GPU'
-      )
-
-  def _GpuProcess_mac_webgl_terminated_high_performance(
-    self, test_path: str
-  ) -> None:
-    # Ensures that high-performance WebGL content in a background tab releases
-    # the hold on the discrete GPU after 10 seconds.
-    if not self.IsDualGPUMacLaptop():
-      logging.info('Skipping test because not running on dual-GPU Mac laptop')
-      return
-    # Start with a clean browser instance to ensure the GPU process is in a
-    # clean state.
-    self.RestartBrowserWithArgs([])
-    # Wait a few seconds for the system to dispatch any GPU switched
-    # notifications.
-    time.sleep(3)
-    self._NavigateAndWait(test_path)
-    # Create a new tab and navigate it to the high-power WebGL test.
-    webgl_tab = self.browser.tabs.New()
-    webgl_tab.Activate()
-    webgl_url = self.UrlOfStaticFilePath(
-      'gpu/functional_webgl_high_performance.html'
-    )
-    webgl_tab.action_runner.Navigate(
-      webgl_url, script_to_evaluate_on_commit=test_harness_script
-    )
-    self._WaitForTestCompletion(webgl_tab)
-    # Verify that the high-performance GPU is active.
-    if self._IsIntelGPUActive():
-      self.fail(
-        'High-performance WebGL context did not activate the '
-        'high-performance GPU'
-      )
-    # Close the high-performance WebGL tab.
-    webgl_tab.Close()
-    # Sleep for >10 seconds in order to wait for the hold on the
-    # high-performance GPU to be released.
-    time.sleep(15)
-    if not self._IsIntelGPUActive():
-      self.fail(
-        'Backgrounded high-performance WebGL context did not release the '
-        'hold on the high-performance GPU'
-      )
 
   def _GpuProcess_webgpu_iframe_removed(self, test_path: str) -> None:
     self.RestartBrowserIfNecessaryWithArgs([])

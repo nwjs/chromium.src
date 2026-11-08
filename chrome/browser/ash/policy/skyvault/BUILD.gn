@@ -41,14 +41,13 @@ static_library("skyvault") {
     "waitable_scoped_temp_dir.h",
   ]
 
-  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
-
   deps = [
     "//ash/constants",
     "//ash/public/cpp",
     "//ash/resources/vector_icons",
     "//ash/strings",
     "//base",
+    "//chrome/app:generated_resources",
     "//chrome/browser:browser_process",
     "//chrome/browser/ash/drive",
     "//chrome/browser/ash/file_manager",
@@ -110,6 +109,7 @@ source_set("unit_tests") {
     "//chrome/browser/ash/policy/skyvault/test:test_support",
     "//chrome/browser/profiles:profile",
     "//chrome/test:test_support",
+    "//chrome/test/base:browser_with_test_window_test",
     "//chrome/test/base:testing_browser_process",
     "//chromeos/ash/components/browser_context_helper",
     "//chromeos/ash/components/dbus/userdataauth",
@@ -158,7 +158,6 @@ source_set("browser_tests") {
     "//chrome/browser/chromeos/extensions/login_screen/login/cleanup",
     "//chrome/browser/policy:test_support",
     "//chrome/browser/profiles:profile",
-    "//chrome/browser/ui",
     "//chrome/browser/ui/webui/ash/cloud_upload",
     "//chrome/browser/ui/webui/ash/skyvault",
     "//chrome/common",

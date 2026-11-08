@@ -46,7 +46,8 @@ struct StoppedTaskInfo {
   glic::mojom::FeatureMode feature_mode;
 };
 
-class ActorUiStateManager : public ActorUiStateManagerInterface {
+class ActorUiStateManager : public ActorUiStateManagerInterface,
+                            public ActorNavigationThrottle::Delegate {
  public:
   // Register for this callback to be notified whenever the actor task state
   // changes. This callback may be debounced by a delay.
@@ -74,6 +75,14 @@ class ActorUiStateManager : public ActorUiStateManagerInterface {
 #if !BUILDFLAG(IS_ANDROID)
   void LazyInitTabTracker() override;
 #endif
+  base::WeakPtr<ActorNavigationThrottle::Delegate> GetNavigationDelegate()
+      override;
+
+  // ActorNavigationThrottle::Delegate:
+  bool MaybeDeferNavigation(tabs::TabInterface* tab,
+                            const GURL& url,
+                            NavigationConfirmedCallback callback) override;
+  void CancelNavigationConfirmation(tabs::TabInterface* tab) override;
 
 #if !BUILDFLAG(SKIP_ANDROID_UNMIGRATED_ACTOR_FILES)
   // Shows toast that notifies user the Actor is working in the background.

@@ -130,7 +130,8 @@ class CORE_EXPORT HTMLFormControlElement : public HTMLElement,
   bool IsPreviewed() const {
     return autofill_state_ == WebAutofillState::kPreviewed;
   }
-  void SetAutofillState(WebAutofillState = WebAutofillState::kAutofilled);
+  virtual void SetAutofillState(
+      WebAutofillState = WebAutofillState::kAutofilled);
   // Returns true if this element can be autofilled by the embedder's Autofill
   // agent.
   bool IsAutofillable() const;
@@ -157,6 +158,10 @@ class CORE_EXPORT HTMLFormControlElement : public HTMLElement,
   int32_t GetAxId() const;
 
   bool MatchesValidityPseudoClasses() const override;
+
+  // An open picker popup keeps its owner's :hover state until it closes.
+  void SetFreezeHoverForOpenPopup(bool popup_open);
+  void SetHovered(bool hovered) override;
 
   String GetWebMCPParameterName() const;
 
@@ -195,6 +200,7 @@ class CORE_EXPORT HTMLFormControlElement : public HTMLElement,
   enum WebAutofillState autofill_state_;
 
   bool blocks_form_submission_ : 1;
+  bool freeze_hover_for_open_popup_ : 1;
 };
 
 template <>

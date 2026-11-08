@@ -50,7 +50,6 @@ source_set("speech") {
       "cros_speech_recognition_service.h",
       "cros_speech_recognition_service_factory.h",
       "network_speech_recognizer.h",
-      "speech_recognition_constants.h",
       "speech_recognition_recognizer_client_impl.h",
       "speech_recognizer.h",
       "speech_recognizer_delegate.h",
@@ -59,6 +58,7 @@ source_set("speech") {
     ]
 
     public_deps += [
+      "//ash/public/cpp",
       "//chrome/browser/ash/accessibility",
       "//chromeos/ash/experiences/extensions/common/api",
       "//chromeos/services/tts/public/mojom",
@@ -89,8 +89,6 @@ source_set("speech") {
 }
 
 source_set("impl") {
-  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
-
   sources = [
     "chrome_speech_recognition_manager_delegate.cc",
     "on_device_speech_recognition_impl.cc",
@@ -104,10 +102,12 @@ source_set("impl") {
     "//chrome/browser/component_updater",
     "//chrome/browser/optimization_guide",
     "//chrome/browser/profiles:profile_manager",
+    "//chrome/common:constants",
     "//chrome/services/speech/buildflags",
     "//components/language/core/browser",
     "//components/user_prefs",
     "//content/public/browser",
+    "//extensions/buildflags",
     "//media/mojo/mojom:speech_recognition",
     "//media/mojo/mojom:web_speech_recognition",
     "//mojo/public/cpp/bindings",
@@ -147,7 +147,6 @@ source_set("impl") {
       "cros_speech_recognition_service.cc",
       "cros_speech_recognition_service_factory.cc",
       "network_speech_recognizer.cc",
-      "speech_recognition_constants.cc",
       "speech_recognition_recognizer_client_impl.cc",
       "speech_recognizer.cc",
       "tts_chromeos.cc",
@@ -176,6 +175,7 @@ source_set("impl") {
 
     deps += [
       "//chrome/browser/extensions",
+      "//chrome/common/extensions",
       "//extensions/browser",
       "//extensions/common",
     ]
@@ -232,6 +232,8 @@ if (!is_android) {
         "//content/test:test_support",
       ]
       deps += [
+        "//ash/constants",
+        "//chromeos/ash/experiences/extensions/browser/speech:speech_recognition_constants",
         "//components/soda",
         "//components/soda:constants",
       ]
@@ -304,7 +306,6 @@ if (!is_android) {
       ":test_support",
       "//base",
       "//chrome/browser/profiles:profile",
-      "//chrome/browser/ui",
       "//chrome/browser/ui:browser_commands",
       "//chrome/browser/ui/browser_window",
       "//chrome/test:test_support",
@@ -329,6 +330,8 @@ if (!is_android) {
         sources += [ "on_device_speech_recognition_impl_browsertest.cc" ]
         deps += [
           "//chrome/browser/browsing_data:constants",
+          "//chrome/browser/optimization_guide",
+          "//components/keyed_service/content",
           "//components/live_caption:utils",
           "//components/soda",
         ]
@@ -367,7 +370,6 @@ if (!is_android) {
         "speech_recognition_recognizer_client_impl_browsertest.cc",
       ]
       deps += [
-        "//chrome/browser/ui",
         "//components/soda:constants",
         "//components/soda:utils",
       ]

@@ -512,8 +512,6 @@ public class FirstRunActivity extends FirstRunActivityBase
                 "MobileFre.FromLaunch.TriggerLayoutInflation",
                 SystemClock.elapsedRealtime() - mIntentCreationElapsedRealtimeMs);
 
-        setFinishOnTouchOutside(true);
-
         setContentView(createContentView());
 
         // SigninFirstRunFragment doesn't use getProperties() and can be shown right away, without
@@ -572,7 +570,8 @@ public class FirstRunActivity extends FirstRunActivityBase
         assert FeatureList.isNativeInitialized()
                 : "Expected feature list to be initialized during FRE.";
         SharedPreferencesManager prefManager = ChromeSharedPreferences.getInstance();
-        prefManager.writeBoolean(ChromePreferenceKeys.CROSS_DEVICE_IMPORTED_BOTTOM_OMNIBOX, false);
+        prefManager.writeBoolean(
+                ChromePreferenceKeys.CROSS_DEVICE_IMPORTED_NON_NTP_SETTINGS, false);
         prefManager.writeBoolean(ChromePreferenceKeys.CROSS_DEVICE_IMPORTED_ALL_SETTINGS, false);
     }
 
@@ -755,6 +754,9 @@ public class FirstRunActivity extends FirstRunActivityBase
         // This is important because the first run, when completed, will re-launch the original
         // intent. The re-launched intent will still need to know to avoid the FRE.
         FirstRunStatus.setFirstRunSkippedByPolicy(true);
+        // The ToS were accepted as part of this flow, so subsequent full FREs (e.g. launched from
+        // the launcher, where the policy skip above doesn't apply) should skip the welcome page.
+        FirstRunStatus.setSkipWelcomePage(true);
 
         launchPendingIntentAndFinish();
     }
@@ -801,7 +803,6 @@ public class FirstRunActivity extends FirstRunActivityBase
                 "MobileFre.FromLaunch.TosAccepted",
                 SystemClock.elapsedRealtime() - mIntentCreationElapsedRealtimeMs);
         FirstRunUtils.acceptTermsOfService(allowMetricsAndCrashUploading);
-        FirstRunStatus.setSkipWelcomePage(true);
         flushPersistentData();
 
         if (sObserver != null) sObserver.onAcceptTermsOfService(this);
@@ -837,12 +838,24 @@ public class FirstRunActivity extends FirstRunActivityBase
         return LocalizationUtils.isLayoutRtl();
     }
 
+    /** Returns whether {@code position} is a valid index pointing to the welcome page. */
+    private boolean isWelcomePage(int position) {
+        return position >= 0
+                && position < mPages.size()
+                && mPages.get(position).getFragmentClass() == SigninFirstRunFragment.class;
+    }
+
     /** Returns whether the set attempt will lead to transition to an existing Fragment. */
     private boolean setCurrentItemForPager(int position, boolean smoothScroll) {
         // Debounce page changes while animation is in flight.
         if (mAnimator != null) return false;
 
         if (sObserver != null) sObserver.onJumpToPage(this, position);
+
+        // The welcome page can only be skipped on subsequent launches once the user has moved past
+        // it. Going back to it means it should be shown again. This is done before the completion
+        // check below so that it's also set when there are no pages after the welcome page.
+        FirstRunStatus.setSkipWelcomePage(!isWelcomePage(position));
 
         if (position >= mPagerAdapter.getItemCount()) {
             completeFirstRunExperience();
@@ -985,6 +998,12 @@ public class FirstRunActivity extends FirstRunActivityBase
     public void showInfoPage(@StringRes int url) {
         CustomTabActivity.showInfoPage(
                 this, LocalizationUtils.substituteLocalePlaceholder(getString(url)));
+    }
+
+    @Override
+    public void showInfoPage(String url) {
+        assert url.startsWith("https://");
+        CustomTabActivity.showInfoPage(this, url);
     }
 
     @Override

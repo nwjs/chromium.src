@@ -50,6 +50,11 @@ class MockAILanguageModel : public mojom::blink::AILanguageModel {
     call_count_++;
     if (reset_client_on_call_) {
       pending_responder.reset();
+    } else {
+      mojo::Remote<mojom::blink::ModelStreamingResponder> responder(
+          std::move(pending_responder));
+      responder->OnStreaming("Hello response");
+      responder->OnCompletion(nullptr);
     }
   }
   void Append(Vector<mojom::blink::AILanguageModelPromptPtr> prompt,
@@ -254,6 +259,39 @@ TEST_F(LanguageModelTest, VerifyMojoConversion) {
   }
 }
 
+TEST_F(LanguageModelTest, TextPrefixWithoutMultimodalInput) {
+  ScopedAIPromptAPIMultimodalInputForTest scoped_multimodal(false);
+  V8TestingScope scope;
+  LanguageModel* language_model =
+      CreateLanguageModel(scope.GetExecutionContext());
+  auto* message = MakeGarbageCollected<LanguageModelMessage>();
+  message->setRole(
+      V8LanguageModelMessageRole(V8LanguageModelMessageRole::Enum::kAssistant));
+  message->setContent(
+      MakeGarbageCollected<V8UnionLanguageModelMessageContentSequenceOrString>(
+          "hello, "));
+  message->setPrefix(true);
+  HeapVector<Member<LanguageModelMessage>> messages;
+  messages.push_back(message);
+  auto* input = MakeGarbageCollected<V8LanguageModelPrompt>(messages);
+
+  DummyExceptionStateForTesting exception_state;
+  auto promise = language_model->prompt(scope.GetScriptState(), input,
+                                        LanguageModelPromptOptions::Create(),
+                                        exception_state);
+  ASSERT_FALSE(exception_state.HadException());
+  ScriptPromiseTester tester(scope.GetScriptState(), promise);
+  tester.WaitUntilSettled();
+
+  EXPECT_EQ(mock_remote_->call_count_, 1);
+  ASSERT_EQ(mock_remote_->last_prompts_.size(), 1u);
+  const auto& prompt = mock_remote_->last_prompts_[0];
+  EXPECT_EQ(prompt->role, mojom::blink::AILanguageModelPromptRole::kAssistant);
+  EXPECT_TRUE(prompt->is_prefix);
+  ASSERT_EQ(prompt->content.size(), 1u);
+  EXPECT_EQ(prompt->content[0]->get_text(), "hello, ");
+}
+
 TEST_F(LanguageModelTest, MojoDisconnectPrompt) {
   V8TestingScope scope;
   LanguageModel* language_model =
@@ -410,6 +448,51 @@ TEST_F(LanguageModelTest, PromptStreamingWithTaintedImage) {
   auto read_promise = reader->read(script_state, ASSERT_NO_EXCEPTION);
   EXPECT_EQ(GetRejectedExceptionCode(script_state, read_promise),
             DOMExceptionCode::kSecurityError);
+}
+
+TEST_F(LanguageModelTest, PromptResolvesToStringWhenOutputTypesIsTextOnly) {
+  V8TestingScope scope;
+  auto info = mojom::blink::AILanguageModelInstanceInfo::New();
+  info->output_types = Vector<mojom::blink::AILanguageModelPromptType>{
+      mojom::blink::AILanguageModelPromptType::kText};
+  LanguageModel* language_model =
+      CreateLanguageModel(scope.GetExecutionContext(), std::move(info));
+
+  ScriptState* script_state = scope.GetScriptState();
+  DummyExceptionStateForTesting exception_state;
+  auto promise = language_model->prompt(
+      script_state, CreateStringPrompt("Hello"),
+      LanguageModelPromptOptions::Create(), exception_state);
+
+  ScriptPromiseTester tester(script_state, promise);
+  tester.WaitUntilSettled();
+  EXPECT_TRUE(tester.IsFulfilled());
+  EXPECT_TRUE(tester.Value().V8Value()->IsString());
+}
+
+TEST_F(LanguageModelTest,
+       PromptResolvesToSequenceWhenOutputTypesIncludesToolCall) {
+  V8TestingScope scope;
+  ScopedAIPromptAPIToolUseForTest scoped_tool_use(true);
+  auto info = mojom::blink::AILanguageModelInstanceInfo::New();
+  info->output_types = Vector<mojom::blink::AILanguageModelPromptType>{
+      mojom::blink::AILanguageModelPromptType::kText,
+      mojom::blink::AILanguageModelPromptType::kToolCall};
+  LanguageModel* language_model =
+      CreateLanguageModel(scope.GetExecutionContext(), std::move(info));
+
+  ScriptState* script_state = scope.GetScriptState();
+  DummyExceptionStateForTesting exception_state;
+  auto promise = language_model->prompt(
+      script_state, CreateStringPrompt("Hello"),
+      LanguageModelPromptOptions::Create(), exception_state);
+
+  ScriptPromiseTester tester(script_state, promise);
+  tester.WaitUntilSettled();
+  EXPECT_TRUE(tester.IsFulfilled());
+  EXPECT_TRUE(tester.Value().V8Value()->IsArray());
+  auto array = tester.Value().V8Value().As<v8::Array>();
+  EXPECT_EQ(array->Length(), 1u);
 }
 
 }  // namespace blink

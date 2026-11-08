@@ -566,12 +566,13 @@ class CC_EXPORT Layer : public base::RefCounted<Layer>,
   }
 #endif
 
-  // Set or get the ElementId used to identify this layer as the direct child
-  // of a canvas with content=drawable, which can be used for DrawElementImage.
-  void SetCanvasChildId(ElementId id);
-  ElementId canvas_child_id() const {
+  // Set or get the ElementId used to identify this layer as a drawable
+  // descendant of a canvas with content=drawable, which can be used for
+  // DrawElementImage.
+  void SetCanvasDrawableId(ElementId id);
+  ElementId canvas_drawable_id() const {
     if (const auto& rare_inputs = inputs_.Read(*this).rare_inputs) {
-      return rare_inputs->canvas_child_id;
+      return rare_inputs->canvas_drawable_id;
     }
     return ElementId();
   }
@@ -783,6 +784,11 @@ class CC_EXPORT Layer : public base::RefCounted<Layer>,
   // (unless it is being scaled). Layers may override this to return true, by
   // default layers are not snapped.
   virtual bool IsSnappedToPixelGridInTarget() const;
+
+  // Disconnects any external client held by a subclass. When called while
+  // attached to a LayerTreeHost during `in_will_commit()`, subclasses must only
+  // clear their main-thread client pointer without modifying commit state.
+  virtual void ClearClient() {}
 
   // Internal method that is called when a Layer is attached to a LayerTreeHost.
   // This would happen when
@@ -1060,7 +1066,7 @@ class CC_EXPORT Layer : public base::RefCounted<Layer>,
     // Rare because only used on Android XR platform
     std::vector<ElementId> xr_hit_test_order;
 #endif
-    ElementId canvas_child_id;
+    ElementId canvas_drawable_id;
     PaintFlags::FilterQuality filter_quality = PaintFlags::FilterQuality::kLow;
     PaintFlags::DynamicRangeLimitMixture dynamic_range_limit{
         PaintFlags::DynamicRangeLimit::kHigh};

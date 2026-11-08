@@ -58,10 +58,7 @@ if (!is_android) {
       "system_log_source_data_collector_adaptor.cc",
     ]
 
-    public_deps = [
-      ":support_tool",
-      "//chrome/browser:browser_public_dependencies",
-    ]
+    public_deps = [ ":support_tool" ]
 
     deps = [
       "//base",
@@ -147,7 +144,6 @@ if (!is_android) {
       "//base",
       "//chrome/browser/policy:policy_util",
       "//chrome/browser/profiles:profile",
-      "//chrome/browser/ui",
       "//chrome/test:test_support",
       "//chrome/test:test_support_ui",
       "//content/test:test_support",

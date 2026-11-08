@@ -24,6 +24,7 @@ import android.os.Build;
 import android.os.SystemClock;
 import android.view.MotionEvent;
 import android.view.ViewGroup;
+import android.widget.FrameLayout;
 
 import androidx.annotation.RequiresApi;
 
@@ -50,19 +51,19 @@ public class DirectWritingTriggerTest {
     @Mock private WebContents mWebContents;
     @Mock private DirectWritingServiceBinder mDwServiceBinder;
     @Mock private StylusWritingImeCallback mStylusWritingImeCallback;
-    @Mock private ViewGroup mContainerView;
     @Mock private DirectWritingServiceCallback mDwServiceCallback;
 
     private Context mContext;
+    private ViewGroup mContainerView;
     private DirectWritingTrigger mDwTrigger;
 
     @Before
     public void setUp() {
         mDwTrigger = spy(new DirectWritingTrigger());
         mDwTrigger.setServiceBinderForTest(mDwServiceBinder);
-        doReturn(mContainerView).when(mStylusWritingImeCallback).getContainerView();
         mContext = RuntimeEnvironment.application;
-        doReturn(mContext).when(mContainerView).getContext();
+        mContainerView = new FrameLayout(mContext);
+        doReturn(mContainerView).when(mStylusWritingImeCallback).getContainerView();
 
         // DirectWritingTrigger class comes into action only when Setting is enabled.
         DirectWritingSettingsHelper.setIsEnabledForTesting(true);

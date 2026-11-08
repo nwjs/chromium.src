@@ -252,6 +252,41 @@ TEST_F(SendTabToSelfIphControllerTest, PromoShownOnModelReady) {
   controller.OnModelReady();
 }
 
+TEST_F(SendTabToSelfIphControllerTest,
+       PromoDeferredWhileDeviceInfoNotYetLoaded) {
+  EXPECT_CALL(*user_education(),
+              MaybeShowStartupFeaturePromo(
+                  user_education::test::MatchFeaturePromoParams(
+                      feature_engagement::kIPHSendTabToSelfTutorialFeature)))
+      .Times(0);
+
+  // Simulate startup where an eligible tab is active, but DeviceInfo has not
+  // finished loading from disk yet so the model is not ready and
+  // GetEntryPointDisplayReason returns std::nullopt.
+  FakeSendTabToSelfModel* fake_model =
+      static_cast<StubSendTabToSelfSyncService*>(
+          SendTabToSelfSyncServiceFactory::GetForProfile(profile()))
+          ->GetFakeSendTabToSelfModel();
+  SetEntryPointDisplayReason(std::nullopt);
+  tabs::TabInterface* tab = AddTab(kEligibleUrl);
+
+  SendTabToSelfIphController controller(browser_window_interface());
+
+  // Navigating while still waiting for DeviceInfo should not mark the promo as
+  // attempted or tear down observers.
+  controller.OnTabChangedAt(tab, TabChangeType::kAll);
+
+  EXPECT_CALL(*user_education(),
+              MaybeShowStartupFeaturePromo(
+                  user_education::test::MatchFeaturePromoParams(
+                      feature_engagement::kIPHSendTabToSelfTutorialFeature)));
+
+  // Once DeviceInfo finishes loading from disk, the model becomes ready and
+  // notifies observers via OnModelReady(), triggering the startup promo.
+  SetEntryPointDisplayReason(EntryPointDisplayReason::kOfferFeature);
+  fake_model->SetIsReady(true);
+}
+
 TEST_F(SendTabToSelfIphControllerTest, PromoNotShownWhenEnhancedUIDisabled) {
   scoped_feature_list_.Reset();
   scoped_feature_list_.InitAndDisableFeature(
@@ -398,6 +433,61 @@ TEST_F(SendTabToSelfIphControllerTest, DestructorSafelyUnregistersObserver) {
   AddTab(kEligibleUrl);
   tab_strip_model()->ActivateTabAt(0);
   tab_strip_model()->CloseAllTabs();
+}
+
+TEST_F(SendTabToSelfIphControllerTest, PromoTabInitiallyNotSet) {
+  // Keep the promo from showing; only the recorded promo tab matters here.
+  SetEntryPointDisplayReason(std::nullopt);
+  tabs::TabInterface* tab = AddTab(kEligibleUrl);
+  SendTabToSelfIphController controller(browser_window_interface());
+  EXPECT_FALSE(controller.IsPromoTab(tab->GetHandle()));
+  EXPECT_FALSE(controller.IsPromoTab(tabs::TabHandle::Null()));
+}
+
+TEST_F(SendTabToSelfIphControllerTest, SetPromoTabUpdatesRecordedTab) {
+  // Keep the promo from showing; only the recorded promo tab matters here.
+  SetEntryPointDisplayReason(std::nullopt);
+  tabs::TabInterface* tab_a = AddTab(kEligibleUrl);
+  tabs::TabInterface* tab_b = AddTab(kEligibleUrl);
+  SendTabToSelfIphController controller(browser_window_interface());
+
+  controller.SetPromoTab(tab_a->GetHandle());
+  EXPECT_TRUE(controller.IsPromoTab(tab_a->GetHandle()));
+  EXPECT_FALSE(controller.IsPromoTab(tab_b->GetHandle()));
+}
+
+TEST_F(SendTabToSelfIphControllerTest, PromoTabStaysRecordedAfterTabClosed) {
+  // Keep the promo from showing; only the recorded promo tab matters here.
+  SetEntryPointDisplayReason(std::nullopt);
+  tabs::TabInterface* tab_a = AddTab(kEligibleUrl);
+  tabs::TabInterface* tab_b = AddTab(kEligibleUrl);
+  const tabs::TabHandle handle_a = tab_a->GetHandle();
+  SendTabToSelfIphController controller(browser_window_interface());
+
+  controller.SetPromoTab(handle_a);
+  ASSERT_TRUE(controller.IsPromoTab(handle_a));
+
+  // Closing tab A invalidates its handle, but it stays recorded and no other
+  // tab becomes the promo tab.
+  tab_strip_model()->CloseWebContentsAt(tab_strip_model()->GetIndexOfTab(tab_a),
+                                        TabCloseTypes::CLOSE_USER_GESTURE);
+  EXPECT_EQ(handle_a.Get(), nullptr);
+  EXPECT_TRUE(controller.IsPromoTab(handle_a));
+  EXPECT_FALSE(controller.IsPromoTab(tab_b->GetHandle()));
+}
+
+TEST_F(SendTabToSelfIphControllerTest, IsTabEligible) {
+  // Keep the promo from showing; only eligibility matters here.
+  SetEntryPointDisplayReason(std::nullopt);
+  tabs::TabInterface* tab = AddTab(kEligibleUrl);
+  EXPECT_FALSE(SendTabToSelfIphController::IsTabEligible(nullptr));
+  EXPECT_FALSE(SendTabToSelfIphController::IsTabEligible(tab));
+
+  SetEntryPointDisplayReason(EntryPointDisplayReason::kOfferReauth);
+  EXPECT_FALSE(SendTabToSelfIphController::IsTabEligible(tab));
+
+  SetEntryPointDisplayReason(EntryPointDisplayReason::kOfferFeature);
+  EXPECT_TRUE(SendTabToSelfIphController::IsTabEligible(tab));
 }
 
 }  // namespace

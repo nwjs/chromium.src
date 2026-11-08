@@ -8,6 +8,7 @@
 #import "base/strings/sys_string_conversions.h"
 #import "base/test/ios/wait_util.h"
 #import "base/time/time.h"
+#import "components/actor/core/task_source_info.h"
 #import "components/autofill/core/browser/foundations/autofill_manager.h"
 #import "components/autofill/core/common/unique_ids.h"
 #import "components/autofill/ios/browser/autofill_driver_ios.h"
@@ -18,6 +19,8 @@
 #import "ios/chrome/browser/intelligence/actor/model/actor_service_factory.h"
 #import "ios/chrome/browser/intelligence/actor/model/actor_tab_helper.h"
 #import "ios/chrome/browser/intelligence/actor/public/actor_control_state.h"
+#import "ios/chrome/browser/intelligence/actor/public/actor_task_intervention_delegate.h"
+#import "ios/chrome/browser/intelligence/actor/test/fake_actor_task_intervention_delegate.h"
 #import "ios/chrome/browser/intelligence/actor/tools/model/actor_tool_request.h"
 #import "ios/chrome/browser/intelligence/actor/tools/model/page_stability_java_script_feature.h"
 #import "ios/chrome/browser/intelligence/actor/tools/public/actor_tool_types.h"
@@ -39,6 +42,20 @@ namespace {
 constexpr base::TimeDelta kApcFetchingTimeout = base::Seconds(10);
 
 constexpr autofill::FormRendererId kSimulatedFormRendererId(12345);
+
+// Returns the intervention delegate for tests. Retained statically because
+// both `ActorTask` and `ActorTaskFormFillingHandler` hold a weak reference
+// to the delegate.
+id<ActorTaskInterventionDelegate> GetTestInterventionDelegate() {
+  static FakeActorTaskInterventionDelegate* delegate = []() {
+    FakeActorTaskInterventionDelegate* d =
+        [[FakeActorTaskInterventionDelegate alloc] init];
+    d.autoConfirmInterventions = YES;
+    d.autoSelectFirstSuggestion = YES;
+    return d;
+  }();
+  return delegate;
+}
 
 // Returns the active WebState's main frame AutofillDriverIOS, or nullptr if
 // unavailable.
@@ -95,8 +112,12 @@ autofill::AutofillDriverIOS* GetMainFrameAutofillDriver() {
     return;
   }
 
-  actor::ActorTaskId task_id =
-      service->CreateTask("EG Test Task", /*allow_incognito_web_states=*/false);
+  actor::ActorTaskId task_id = service->CreateTask(
+      "EG Test Task",
+      actor::TaskSourceInfo(actor::TaskSourceInfo::Client::kTest,
+                            /*id=*/std::nullopt),
+      /*allow_incognito_web_states=*/false);
+  service->SetTaskInterventionDelegate(task_id, GetTestInterventionDelegate());
 
   std::vector<optimization_guide::proto::Action> actions = {action};
 
@@ -142,7 +163,11 @@ autofill::AutofillDriverIOS* GetMainFrameAutofillDriver() {
   }
 
   actor::ActorTaskId task_id = service->CreateTask(
-      "EG Test Tasks", /*allow_incognito_web_states=*/false);
+      "EG Test Tasks",
+      actor::TaskSourceInfo(actor::TaskSourceInfo::Client::kTest,
+                            /*id=*/std::nullopt),
+      /*allow_incognito_web_states=*/false);
+  service->SetTaskInterventionDelegate(task_id, GetTestInterventionDelegate());
 
   std::vector<optimization_guide::proto::Action> actions;
   actions.reserve(actions_proto.actions_size());

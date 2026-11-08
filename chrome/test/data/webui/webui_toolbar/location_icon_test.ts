@@ -4,7 +4,8 @@
 
 import 'chrome://webui-toolbar.top-chrome/app.js';
 
-import {assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
+import {isMac} from 'chrome://resources/js/platform.js';
+import {assertDeepEquals, assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import {TestBrowserProxy} from 'chrome://webui-test/test_browser_proxy.js';
 import {hasStyle, microtasksFinished} from 'chrome://webui-test/test_util.js';
 import {BrowserProxyImpl, IconTable, IconType, LhsChipIdentifier, PointerProxyImpl, SecurityChipRole} from 'chrome://webui-toolbar.top-chrome/app.js';
@@ -203,6 +204,10 @@ suite('LocationIconTest', function() {
 
     container.click();
     assertEquals(0, toolbarUiHandler.getCallCount('onLhsChipClicked'));
+
+    container.dispatchEvent(
+        new PointerEvent('auxclick', {button: 2, pointerType: 'mouse'}));
+    assertEquals(0, toolbarUiHandler.getCallCount('onLhsChipClicked'));
   });
 
   test('Click events', async function() {
@@ -228,45 +233,153 @@ suite('LocationIconTest', function() {
     // Simulate normal click pointerdown
     container.dispatchEvent(new PointerEvent('pointerdown', {button: 0}));
     assertEquals(1, toolbarUiHandler.getCallCount('onLhsChipMousePressed'));
-    assertEquals(
-        LhsChipIdentifier.kLocationIcon,
-        toolbarUiHandler.getArgs('onLhsChipMousePressed')[0][0]);
-    assertFalse(toolbarUiHandler.getArgs('onLhsChipMousePressed')[0][1]);
+    assertDeepEquals(
+        {identifier: LhsChipIdentifier.kLocationIcon, isMiddleClick: false},
+        toolbarUiHandler.getArgs('onLhsChipMousePressed').at(-1));
     container.dispatchEvent(new PointerEvent('pointerup'));
 
     // Simulate right click pointerdown
     container.dispatchEvent(new PointerEvent('pointerdown', {button: 2}));
     assertEquals(2, toolbarUiHandler.getCallCount('onLhsChipMousePressed'));
-    assertFalse(toolbarUiHandler.getArgs('onLhsChipMousePressed')[1][1]);
+    assertDeepEquals(
+        {identifier: LhsChipIdentifier.kLocationIcon, isMiddleClick: false},
+        toolbarUiHandler.getArgs('onLhsChipMousePressed').at(-1));
     container.dispatchEvent(new PointerEvent('pointerup'));
 
     // Simulate middle click pointerdown with e.buttons = 4
     container.dispatchEvent(
         new PointerEvent('pointerdown', {button: 1, buttons: 4}));
     assertEquals(3, toolbarUiHandler.getCallCount('onLhsChipMousePressed'));
-    assertEquals(
-        LhsChipIdentifier.kLocationIcon,
-        toolbarUiHandler.getArgs('onLhsChipMousePressed')[2][0]);
-    assertTrue(toolbarUiHandler.getArgs('onLhsChipMousePressed')[2][1]);
+    assertDeepEquals(
+        {identifier: LhsChipIdentifier.kLocationIcon, isMiddleClick: true},
+        toolbarUiHandler.getArgs('onLhsChipMousePressed').at(-1));
     container.dispatchEvent(new PointerEvent('pointerup'));
 
     container.click();
     assertEquals(1, toolbarUiHandler.getCallCount('onLhsChipClicked'));
-    assertEquals(
-        LhsChipIdentifier.kLocationIcon,
-        toolbarUiHandler.getArgs('onLhsChipClicked')[0][0]);
-    assertFalse(toolbarUiHandler.getArgs('onLhsChipClicked')[0][1]);
-    assertEquals(0, toolbarUiHandler.getArgs('onLhsChipClicked')[0][2]);
+    assertDeepEquals(
+        {
+          identifier: LhsChipIdentifier.kLocationIcon,
+          isMouseInteraction: false,
+          stateToken: 0,
+        },
+        toolbarUiHandler.getArgs('onLhsChipClicked').at(-1));
 
     // Simulate mouse interaction
     const clickEvent = new PointerEvent('click', {pointerType: 'mouse'});
     container.dispatchEvent(clickEvent);
     assertEquals(2, toolbarUiHandler.getCallCount('onLhsChipClicked'));
+    assertDeepEquals(
+        {
+          identifier: LhsChipIdentifier.kLocationIcon,
+          isMouseInteraction: true,
+          stateToken: 0,
+        },
+        toolbarUiHandler.getArgs('onLhsChipClicked').at(-1));
+
+    // Middle click shouldn't trigger click action
+    container.dispatchEvent(
+        new PointerEvent('auxclick', {button: 1, pointerType: 'mouse'}));
+    assertEquals(2, toolbarUiHandler.getCallCount('onLhsChipClicked'));
+
+    // Right click should trigger click action for Page Info parity
+    container.dispatchEvent(
+        new PointerEvent('auxclick', {button: 2, pointerType: 'mouse'}));
+    assertEquals(3, toolbarUiHandler.getCallCount('onLhsChipClicked'));
+    assertDeepEquals(
+        {
+          identifier: LhsChipIdentifier.kLocationIcon,
+          isMouseInteraction: true,
+          stateToken: 0,
+        },
+        toolbarUiHandler.getArgs('onLhsChipClicked').at(-1));
+
+    // Contextmenu events from touch long-press or the keyboard context-menu
+    // key (Shift+F10) should just be prevented without opening Page Info.
+    for (const pointerType of ['touch', '']) {
+      const contextMenuEvent =
+          new PointerEvent('contextmenu', {pointerType, cancelable: true});
+      container.dispatchEvent(contextMenuEvent);
+      assertTrue(contextMenuEvent.defaultPrevented);
+      assertEquals(3, toolbarUiHandler.getCallCount('onLhsChipClicked'));
+    }
+  });
+
+  test('Right click after drag', async function() {
+    locationIcon.state = {
+      icon: {handleId: 0n},
+      securityLevel: 0,
+      text: '',
+      tooltip: '',
+      isClickable: true,
+      isTextDangerous: false,
+      isVisible: true,
+      isContextMenuVisible: false,
+      accessibilityState: {
+        role: SecurityChipRole.kButton,
+        label: '',
+        description: '',
+      },
+    };
+    await microtasksFinished();
+
+    const container = locationIcon.$.button;
+
+    // Left press and drag past the threshold, which hands off to a native drag
+    // session. No click event follows.
+    container.dispatchEvent(new PointerEvent(
+        'pointerdown', {pointerId: 1, button: 0, clientX: 0, clientY: 0}));
+    container.dispatchEvent(new PointerEvent(
+        'pointermove', {pointerId: 1, clientX: 20, clientY: 0}));
+    assertEquals(1, toolbarUiHandler.getCallCount('onLhsChipDrag'));
+    container.dispatchEvent(
+        new PointerEvent('lostpointercapture', {pointerId: 1}));
+
+    // A subsequent right click should still open Page Info.
+    container.dispatchEvent(new PointerEvent(
+        'pointerdown', {pointerId: 1, button: 2, pointerType: 'mouse'}));
+    container.dispatchEvent(
+        new PointerEvent('auxclick', {button: 2, pointerType: 'mouse'}));
+    assertEquals(1, toolbarUiHandler.getCallCount('onLhsChipClicked'));
+  });
+
+  test('Ctrl+click', async function() {
+    locationIcon.state = {
+      icon: {handleId: 0n},
+      securityLevel: 0,
+      text: '',
+      tooltip: '',
+      isClickable: true,
+      isTextDangerous: false,
+      isVisible: true,
+      isContextMenuVisible: false,
+      accessibilityState: {
+        role: SecurityChipRole.kButton,
+        label: '',
+        description: '',
+      },
+    };
+    await microtasksFinished();
+
+    const container = locationIcon.$.button;
+    const ctrlMouse = {
+      pointerId: 1,
+      button: 0,
+      ctrlKey: true,
+      pointerType: 'mouse',
+    };
+
+    // On Mac, Blink dispatches neither 'click' nor 'auxclick' for Ctrl+click,
+    // but native views treats it as a right click, so Page Info opens on
+    // release. On other platforms, the regular 'click' event handles it.
+    container.dispatchEvent(new PointerEvent('pointerdown', ctrlMouse));
+    container.dispatchEvent(new PointerEvent('pointerup', ctrlMouse));
     assertEquals(
-        LhsChipIdentifier.kLocationIcon,
-        toolbarUiHandler.getArgs('onLhsChipClicked')[1][0]);
-    assertTrue(toolbarUiHandler.getArgs('onLhsChipClicked')[1][1]);
-    assertEquals(0, toolbarUiHandler.getArgs('onLhsChipClicked')[1][2]);
+        isMac ? 1 : 0, toolbarUiHandler.getCallCount('onLhsChipClicked'));
+    if (isMac) {
+      assertTrue(
+          toolbarUiHandler.getArgs('onLhsChipClicked')[0].isMouseInteraction);
+    }
   });
 
   test('Multi-touch scenario', async function() {

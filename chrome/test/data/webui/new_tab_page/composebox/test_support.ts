@@ -10,6 +10,7 @@ import type {ComposeboxFile} from 'chrome://resources/cr_components/composebox/c
 export type ComposeboxUnionElement = ComposeboxElement|NtpComposeboxElement;
 import {PageHandlerRemote} from 'chrome://resources/cr_components/composebox/composebox.mojom-webui.js';
 import {ContextUploadStatus, InputType} from 'chrome://resources/cr_components/composebox/composebox_query.mojom-webui.js';
+import type {ComposeboxFileCarouselElement} from 'chrome://resources/cr_components/composebox/file_carousel.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {PageCallbackRouter as SearchboxPageCallbackRouter, PageHandlerRemote as SearchboxPageHandlerRemote} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 import type {PageRemote as SearchboxPageRemote} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
@@ -109,8 +110,13 @@ setupComposeboxTest<T extends ComposeboxUnionElement = ComposeboxElement>():
         SearchboxPageHandlerRemote,
         mock => ComposeboxProxyImpl.getInstance().searchboxHandler = mock);
     searchboxHandler.setPromiseResolveFor('getRecentTabs', {tabs: []});
+    // TODO(crbug.com/570702014): Smart Tab Sharing is desktop-only.
+    // <if expr="not is_android">
     searchboxHandler.setPromiseResolveFor(
         'getSmartTabSharingActive', {active: false});
+    searchboxHandler.setPromiseResolveFor(
+        'resetSmartTabSharing', {active: false});
+    // </if>
     searchboxHandler.setPromiseResolveFor('getInputState', {
       state: new MockInputState({
         toolConfigs: [],
@@ -153,6 +159,17 @@ createComposeboxElement<T extends ComposeboxUnionElement = ComposeboxElement>(
 export async function waitForAddFileCallCount(
     searchboxHandler: TestMock<SearchboxPageHandlerRemote>,
     expectedCount: number): Promise<void> {
+  // <if expr="is_android">
+  // On the Android emulator an image upload can block on a sync IPC to the
+  // browser UI thread for seconds, so don't bound the wait with a deadline.
+  // The C++ test timeout still catches real hangs.
+  while (searchboxHandler.getCallCount(ADD_FILE_CONTEXT_FN) < expectedCount) {
+    await new Promise<void>(resolve => setTimeout(resolve, 50));
+  }
+  assertEquals(
+      expectedCount, searchboxHandler.getCallCount(ADD_FILE_CONTEXT_FN));
+  // </if>
+  // <if expr="not is_android">
   const startTime = Date.now();
   return new Promise((resolve, reject) => {
     const checkCount = () => {
@@ -171,13 +188,16 @@ export async function waitForAddFileCallCount(
     };
     checkCount();
   });
+  // </if>
 }
 
 export function getInputForFileType(
     composeboxElement: ComposeboxElement, fileType: string): HTMLInputElement {
   return fileType === 'application/pdf' ?
-      composeboxElement.$.fileInputs.$.fileInput :
-      composeboxElement.$.fileInputs.$.imageInput;
+      composeboxElement.$.fileInputs.shadowRoot.querySelector<HTMLInputElement>(
+          '#fileInput')! :
+      composeboxElement.$.fileInputs.shadowRoot.querySelector<HTMLInputElement>(
+          '#imageInput')!;
 }
 
 export function getMockFileChangeEventForType(
@@ -189,7 +209,8 @@ export function getMockFileChangeEventForType(
   const mockFileChange = new Event('change', {bubbles: true});
   Object.defineProperty(mockFileChange, 'target', {
     writable: false,
-    value: composeboxElement.$.fileInputs.$.imageInput,
+    value: composeboxElement.$.fileInputs.shadowRoot
+               .querySelector<HTMLInputElement>('#imageInput')!,
   });
   return mockFileChange;
 }
@@ -232,7 +253,9 @@ export async function uploadFileAndVerify(
 export async function verifyFileUpload(
     testProxy: ComposeboxTestElement, file: File) {
   // Assert one file.
-  const files = testProxy.element.$.carousel.files;
+  const files =
+      testProxy.element.shadowRoot
+          .querySelector<ComposeboxFileCarouselElement>('#carousel')!.files;
   assertEquals(files.length, 1);
 
   assertEquals(files[0]!.type, file.type);
@@ -270,7 +293,9 @@ export async function addTab(
 
   await testProxy.searchboxHandler.whenCalled(ADD_TAB_CONTEXT_FN);
   await microtasksFinished();
-  const files = testProxy.element.$.carousel.files;
+  const files =
+      testProxy.element.shadowRoot
+          .querySelector<ComposeboxFileCarouselElement>('#carousel')!.files;
   assertEquals(files.length, 1);
   assertEquals(files[0]!.type, 'tab');
   assertEquals(files[0]!.name, sampleTabTitle);

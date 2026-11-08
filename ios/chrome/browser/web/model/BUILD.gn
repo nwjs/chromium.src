@@ -91,6 +91,7 @@ source_set("delegate") {
     "//base",
     "//components/content_settings/core/browser",
     "//components/enterprise/client_certificates/core",
+    "//components/prefs",
     "//ios/chrome/browser/app_launcher/model",
     "//ios/chrome/browser/content_settings/model",
     "//ios/chrome/browser/context_menu/ui_bundled:coordinator",
@@ -98,6 +99,7 @@ source_set("delegate") {
     "//ios/chrome/browser/enterprise/client_certificates",
     "//ios/chrome/browser/enterprise/data_controls/model",
     "//ios/chrome/browser/enterprise/proxy/model",
+    "//ios/chrome/browser/geolocation/model",
     "//ios/chrome/browser/intelligence/bwg/utils:constants",
     "//ios/chrome/browser/intelligence/features",
     "//ios/chrome/browser/overlays/model",
@@ -106,6 +108,7 @@ source_set("delegate") {
     "//ios/chrome/browser/policy/model",
     "//ios/chrome/browser/shared/model/application_context",
     "//ios/chrome/browser/shared/model/browser",
+    "//ios/chrome/browser/shared/model/prefs:pref_names",
     "//ios/chrome/browser/shared/model/profile",
     "//ios/chrome/browser/shared/model/web_state_list",
     "//ios/chrome/browser/shared/public/commands",
@@ -188,6 +191,7 @@ source_set("unit_tests") {
     "//ios/chrome/browser/app_launcher/model",
     "//ios/chrome/browser/content_settings/model",
     "//ios/chrome/browser/enterprise/data_controls/model",
+    "//ios/chrome/browser/geolocation/model",
     "//ios/chrome/browser/lens/model",
     "//ios/chrome/browser/ntp/model",
     "//ios/chrome/browser/overlays/model",
@@ -210,6 +214,7 @@ source_set("unit_tests") {
     "//ios/chrome/test:test_support",
     "//ios/net",
     "//ios/net:test_support",
+    "//ios/testing:block_swizzler",
     "//ios/web",
     "//ios/web/public/security",
     "//ios/web/public/test",
@@ -296,7 +301,6 @@ source_set("web_internal") {
     "//ios/chrome/browser/content_settings/model",
     "//ios/chrome/browser/crash_report/model",
     "//ios/chrome/browser/enterprise/connectors:interstitials",
-    "//ios/chrome/browser/enterprise/connectors/device_trust:features",
     "//ios/chrome/browser/enterprise/connectors/device_trust/model",
     "//ios/chrome/browser/enterprise/connectors/reporting",
     "//ios/chrome/browser/first_run/model",
@@ -323,7 +327,6 @@ source_set("web_internal") {
     "//ios/chrome/browser/profile/model:keyed_service_factories",
     "//ios/chrome/browser/promos_manager/model",
     "//ios/chrome/browser/reader_mode/model",
-    "//ios/chrome/browser/reader_mode/model:features",
     "//ios/chrome/browser/reading_list/model",
     "//ios/chrome/browser/safe_browsing/model",
     "//ios/chrome/browser/safe_browsing/model/client_side_detection",
@@ -473,6 +476,8 @@ source_set("eg_test_support+eg2") {
     "lookalike_url_app_interface_stub.mm",
     "progress_indicator_app_interface.h",
     "progress_indicator_app_interface_stub.mm",
+    "suppress_input_views_app_interface.h",
+    "suppress_input_views_app_interface_stub.mm",
   ]
 
   deps = [
@@ -490,6 +495,8 @@ source_set("eg_app_support+eg2") {
     "lookalike_url_app_interface.mm",
     "progress_indicator_app_interface.h",
     "progress_indicator_app_interface.mm",
+    "suppress_input_views_app_interface.h",
+    "suppress_input_views_app_interface.mm",
   ]
 
   deps = [
@@ -526,6 +533,7 @@ source_set("eg2_tests") {
     "restore_egtest.mm",
     "ssl_egtest.mm",
     "stop_loading_egtest.mm",
+    "suppress_input_views_egtest.mm",
     "tab_order_egtest.mm",
     "visible_url_egtest.mm",
     "web_drag_drop_egtest.mm",

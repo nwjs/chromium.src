@@ -59,6 +59,8 @@ bool FaviconHelper::GetLocalFaviconImageForURL(
     int32_t j_desired_size_in_pixel,
     bool fallback_to_host,
     const JavaRef<jobject>& j_favicon_image_callback) {
+  // TODO(crbug.com/575577375): CHECK-exclusion: Convert to a CHECK once we are
+  // confident it won't be triggered.
   DCHECK(profile);
   if (!profile) {
     return false;
@@ -67,7 +69,7 @@ bool FaviconHelper::GetLocalFaviconImageForURL(
   favicon::FaviconService* favicon_service =
       FaviconServiceFactory::GetForProfile(profile,
                                            ServiceAccessType::EXPLICIT_ACCESS);
-  DCHECK(favicon_service);
+  CHECK(favicon_service, base::NotFatalUntil::M161);
   if (!favicon_service) {
     return false;
   }
@@ -91,7 +93,7 @@ void FaviconHelper::GetLocalFaviconImageForURLInternal(
     int desired_size_in_pixel,
     bool fallback_to_host,
     favicon_base::FaviconRawBitmapCallback callback_runner) {
-  DCHECK(favicon_service);
+  CHECK(favicon_service, base::NotFatalUntil::M161);
   if (!favicon_service) {
     return;
   }

@@ -7,11 +7,13 @@ import("//media/media_options.gni")
 source_set("readaloud") {
   public = [
     "audio_renderer/read_aloud_audio_renderer.h",
+    "audio_renderer/word_boundary_queue.h",
     "audio_segment_queue.h",
     "chunking/text_chunker.h",
     "decoded_audio_segment.h",
     "decoder/opus_decoder_helper.h",
     "decoder/read_aloud_decoder_sequencer.h",
+    "overview_response_parser.h",
     "prefetch/prefetch_manager.h",
     "prefetch/prefetch_mode_scheduler.h",
     "read_aloud_playback_controller.h",
@@ -22,11 +24,13 @@ source_set("readaloud") {
   ]
   sources = [
     "audio_renderer/read_aloud_audio_renderer.cc",
+    "audio_renderer/word_boundary_queue.cc",
     "audio_segment_queue.cc",
     "chunking/text_chunker.cc",
     "decoded_audio_segment.cc",
     "decoder/opus_decoder_helper.cc",
     "decoder/read_aloud_decoder_sequencer.cc",
+    "overview_response_parser.cc",
     "prefetch/prefetch_manager.cc",
     "prefetch/prefetch_mode_scheduler.cc",
     "read_aloud_playback_controller.cc",
@@ -61,12 +65,14 @@ source_set("unit_tests") {
 
   sources = [
     "audio_renderer/read_aloud_audio_renderer_unittest.cc",
+    "audio_renderer/word_boundary_queue_unittest.cc",
     "audio_segment_queue_unittest.cc",
     "chunking/text_chunker_unittest.cc",
     "decoded_audio_segment_unittest.cc",
     "decoder/opus_decoder_helper_unittest.cc",
     "decoder/read_aloud_decoder_sequencer_unittest.cc",
     "mock_read_aloud_playback_controller_unittest.cc",
+    "overview_response_parser_unittest.cc",
     "prefetch/prefetch_manager_unittest.cc",
     "prefetch/prefetch_mode_scheduler_unittest.cc",
     "read_aloud_playback_controller_unittest.cc",
@@ -85,6 +91,7 @@ source_set("unit_tests") {
     "//components/optimization_guide/proto:optimization_guide_proto",
     "//media",
     "//media:test_support",
+    "//media/mojo/mojom",
     "//mojo/public/cpp/bindings",
     "//mojo/public/cpp/test_support:test_utils",
     "//mojo/public/mojom/base",
@@ -107,7 +114,10 @@ source_set("mock_playback_controller") {
     "mock_read_aloud_playback_controller.h",
   ]
 
-  deps = [ "//media:media_buildflags" ]
+  deps = [
+    ":readaloud",
+    "//media:media_buildflags",
+  ]
 
   public_deps = [
     "//base",

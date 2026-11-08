@@ -4,17 +4,25 @@
 
 #include <map>
 #include <memory>
+#include <optional>
 #include <string>
+#include <string_view>
 
 #include "base/memory/raw_ptr.h"
+#include "base/strings/string_number_conversions.h"
 #include "base/test/bind.h"
+#include "base/test/run_until.h"
 #include "base/test/task_environment.h"
 #include "base/test/test_future.h"
+#include "build/build_config.h"
+#include "components/signin/public/base/consent_level.h"
 #include "components/signin/public/identity_manager/identity_test_environment.h"
+#include "components/sync/protocol/webauthn_credential_specifics.pb.h"
 #include "components/version_info/channel.h"
 #include "components/webauthn/core/browser/device_authorization/device_authorization_client.h"
 #include "components/webauthn/core/browser/device_authorization/device_authorization_service_impl.h"
 #include "components/webauthn/core/browser/device_authorization/device_authorization_switches.h"
+#include "components/webauthn/core/browser/test_passkey_model.h"
 #include "google_apis/gaia/gaia_id.h"
 #include "net/http/http_status_code.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
@@ -31,10 +39,16 @@ using ::base::test::TestFuture;
 using ::testing::SizeIs;
 
 constexpr char kTestEmail[] = "test@example.com";
+#if !BUILDFLAG(IS_CHROMEOS)
+constexpr char kOtherEmail[] = "other@example.com";
+#endif  // !BUILDFLAG(IS_CHROMEOS)
 constexpr char kKeyBytes[] = "fake_device_auth_key";
 constexpr int32_t kKeyProtoVersion = 1;
+constexpr int32_t kNewerKeyProtoVersion = 2;
 constexpr char kFakeWebFallbackUrl[] = "https://example.com/reauth";
 constexpr char kCustomRapt[] = "custom_rapt_token";
+constexpr char kRpId[] = "example.com";
+constexpr char kEncryptedPasskeyData[] = "encrypted_passkey_data";
 
 sync_pb::GetDeviceAuthorizationKeyResponse CreateSuccessResponse() {
   sync_pb::GetDeviceAuthorizationKeyResponse response;
@@ -111,23 +125,30 @@ class DeviceAuthorizationServiceImplTest : public testing::Test {
                 &test_url_loader_factory_)) {}
 
   void SetUp() override {
+    identity_test_env_.SetAutomaticIssueOfAccessTokens(true);
     auto client = std::make_unique<TestDeviceAuthorizationClient>();
     client_ = client.get();
     service_ = std::make_unique<DeviceAuthorizationServiceImpl>(
-        identity_test_env_.identity_manager(), shared_url_loader_factory_,
-        std::move(client), version_info::Channel::UNKNOWN);
+        identity_test_env_.identity_manager(), &passkey_model_,
+        shared_url_loader_factory_, std::move(client),
+        version_info::Channel::UNKNOWN);
   }
 
   void TearDown() override {
+    if (service_) {
+      DestroyService();
+    }
+  }
+
+  void DestroyService() {
     client_ = nullptr;
     service_->Shutdown();
     service_.reset();
   }
 
-  GaiaId SignInPrimaryAccount() {
+  GaiaId SignInPrimaryAccount(std::string_view email = kTestEmail) {
     identity_test_env_.MakePrimaryAccountAvailable(
-        kTestEmail, signin::ConsentLevel::kSignin);
-    identity_test_env_.SetAutomaticIssueOfAccessTokens(true);
+        email, signin::ConsentLevel::kSignin);
     return identity_test_env_.identity_manager()
         ->GetPrimaryAccountInfo(signin::ConsentLevel::kSignin)
         .gaia;
@@ -140,10 +161,35 @@ class DeviceAuthorizationServiceImplTest : public testing::Test {
                                          response.SerializeAsString(), status);
   }
 
+  bool HasCachedKeys(const GaiaId& gaia_id) {
+    TestFuture<std::optional<CachedDeviceAuthorizationKeys>> future;
+    client_->GetCachedKeys(gaia_id, future.GetCallback());
+    return future.Get().has_value();
+  }
+
+  void StoreCachedKeys(const GaiaId& gaia_id,
+                       const CachedDeviceAuthorizationKeys& keys) {
+    TestFuture<bool> future;
+    client_->StoreKeys(gaia_id, keys, future.GetCallback());
+    ASSERT_TRUE(future.Get());
+  }
+
+  // Adds a passkey encrypted with the device authorization key `key_version`.
+  void AddPasskeyEncryptedWithKeyVersion(int32_t key_version) {
+    sync_pb::WebauthnCredentialSpecifics passkey;
+    passkey.set_sync_id(base::NumberToString(key_version));
+    passkey.set_credential_id(base::NumberToString(key_version));
+    passkey.set_rp_id(kRpId);
+    passkey.set_security_domain_encrypted(kEncryptedPasskeyData);
+    passkey.set_device_authorization_key_version(key_version);
+    passkey_model_.AddNewPasskeyForTesting(std::move(passkey));
+  }
+
   base::test::TaskEnvironment task_environment_;
   signin::IdentityTestEnvironment identity_test_env_;
   network::TestURLLoaderFactory test_url_loader_factory_;
   scoped_refptr<network::SharedURLLoaderFactory> shared_url_loader_factory_;
+  TestPasskeyModel passkey_model_;
   raw_ptr<TestDeviceAuthorizationClient> client_ = nullptr;
   std::unique_ptr<DeviceAuthorizationServiceImpl> service_;
 };
@@ -417,6 +463,131 @@ TEST_F(DeviceAuthorizationServiceImplTest,
   EXPECT_EQ(result.status(), DeviceAuthFetchResult::Status::kError);
 }
 
+// Test that a response with an empty key list returns Status::kError, is not
+// cached, and that the next request fetches from the server again.
+TEST_F(DeviceAuthorizationServiceImplTest,
+       TestGetOrFetchKeysEmptyKeysReturnsErrorAndIsNotCached) {
+  const GaiaId gaia_id = SignInPrimaryAccount();
+  sync_pb::GetDeviceAuthorizationKeyResponse empty_keys_response;
+  empty_keys_response.mutable_device_authorization_keys();
+  SetResponseForEndpoint(empty_keys_response);
+
+  TestFuture<DeviceAuthFetchResult> future;
+  service_->GetOrFetchKeys(future.GetCallback());
+
+  EXPECT_EQ(future.Get().status(), DeviceAuthFetchResult::Status::kError);
+  EXPECT_FALSE(HasCachedKeys(gaia_id));
+
+  SetResponseForEndpoint(CreateSuccessResponse());
+  TestFuture<DeviceAuthFetchResult> retry_future;
+  service_->GetOrFetchKeys(retry_future.GetCallback());
+
+  EXPECT_EQ(retry_future.Get().status(),
+            DeviceAuthFetchResult::Status::kSuccess);
+  EXPECT_EQ(test_url_loader_factory_.total_requests(), 2u);
+  EXPECT_TRUE(HasCachedKeys(gaia_id));
+}
+
+// Test that cached keys with an empty key list are not returned, and keys are
+// fetched from the server instead.
+TEST_F(DeviceAuthorizationServiceImplTest, TestEmptyCachedKeysAreFetchedAgain) {
+  const GaiaId gaia_id = SignInPrimaryAccount();
+  CachedDeviceAuthorizationKeys empty_cached_keys;
+  empty_cached_keys.set_cache_version(1);
+  StoreCachedKeys(gaia_id, empty_cached_keys);
+  SetResponseForEndpoint(CreateSuccessResponse());
+
+  TestFuture<DeviceAuthFetchResult> future;
+  service_->GetOrFetchKeys(future.GetCallback());
+
+  const DeviceAuthFetchResult& result = future.Get();
+  EXPECT_EQ(result.status(), DeviceAuthFetchResult::Status::kSuccess);
+  ASSERT_TRUE(result.keys());
+  EXPECT_EQ(result.keys()->keys(0).key(), kKeyBytes);
+  EXPECT_EQ(test_url_loader_factory_.total_requests(), 1u);
+}
+
+// Test that cached keys covering all key versions used by stored passkeys are
+// returned without a network request.
+TEST_F(DeviceAuthorizationServiceImplTest,
+       TestCachedKeysCoveringRequiredVersionsAreReturned) {
+  const GaiaId gaia_id = SignInPrimaryAccount();
+  StoreCachedKeys(gaia_id, CreateCachedKeys(/*cache_version=*/1, kKeyBytes));
+  AddPasskeyEncryptedWithKeyVersion(kKeyProtoVersion);
+
+  TestFuture<DeviceAuthFetchResult> future;
+  service_->GetOrFetchKeys(future.GetCallback());
+
+  EXPECT_EQ(future.Get().status(), DeviceAuthFetchResult::Status::kSuccess);
+  EXPECT_EQ(test_url_loader_factory_.total_requests(), 0u);
+}
+
+// Test that a passkey without a device authorization key version does not
+// prevent cached keys from being returned.
+TEST_F(DeviceAuthorizationServiceImplTest,
+       TestPasskeyWithoutKeyVersionDoesNotInvalidateCachedKeys) {
+  static constexpr char kPasskeyId[] = "passkey_without_key_version";
+  const GaiaId gaia_id = SignInPrimaryAccount();
+  StoreCachedKeys(gaia_id, CreateCachedKeys(/*cache_version=*/1, kKeyBytes));
+  sync_pb::WebauthnCredentialSpecifics passkey;
+  passkey.set_sync_id(kPasskeyId);
+  passkey.set_credential_id(kPasskeyId);
+  passkey.set_rp_id(kRpId);
+  passkey.set_security_domain_encrypted(kEncryptedPasskeyData);
+  passkey_model_.AddNewPasskeyForTesting(std::move(passkey));
+
+  TestFuture<DeviceAuthFetchResult> future;
+  service_->GetOrFetchKeys(future.GetCallback());
+
+  EXPECT_EQ(future.Get().status(), DeviceAuthFetchResult::Status::kSuccess);
+  EXPECT_EQ(test_url_loader_factory_.total_requests(), 0u);
+}
+
+// Test that cached keys missing a key version used by a stored passkey are not
+// returned, and that the fetched keys are cached instead.
+TEST_F(DeviceAuthorizationServiceImplTest,
+       TestCachedKeysMissingRequiredVersionAreFetchedAgain) {
+  const GaiaId gaia_id = SignInPrimaryAccount();
+  StoreCachedKeys(gaia_id, CreateCachedKeys(/*cache_version=*/1, kKeyBytes));
+  AddPasskeyEncryptedWithKeyVersion(kNewerKeyProtoVersion);
+
+  sync_pb::GetDeviceAuthorizationKeyResponse response = CreateSuccessResponse();
+  DeviceAuthorizationKey* newer_key =
+      response.mutable_device_authorization_keys()->add_keys();
+  newer_key->set_version(kNewerKeyProtoVersion);
+  newer_key->set_key(kKeyBytes);
+  SetResponseForEndpoint(response);
+
+  TestFuture<DeviceAuthFetchResult> future;
+  service_->GetOrFetchKeys(future.GetCallback());
+
+  const DeviceAuthFetchResult& result = future.Get();
+  EXPECT_EQ(result.status(), DeviceAuthFetchResult::Status::kSuccess);
+  ASSERT_TRUE(result.keys());
+  EXPECT_THAT(result.keys()->keys(), SizeIs(2));
+  EXPECT_EQ(test_url_loader_factory_.total_requests(), 1u);
+
+  TestFuture<std::optional<CachedDeviceAuthorizationKeys>> stored_future;
+  client_->GetCachedKeys(gaia_id, stored_future.GetCallback());
+  ASSERT_TRUE(stored_future.Get().has_value());
+  EXPECT_THAT(stored_future.Get()->keys().keys(), SizeIs(2));
+}
+
+// Test that fetched keys missing a key version used by a stored passkey are
+// still returned and cached, since they are all keys the server has.
+TEST_F(DeviceAuthorizationServiceImplTest,
+       TestFetchedKeysMissingRequiredVersionAreReturned) {
+  const GaiaId gaia_id = SignInPrimaryAccount();
+  AddPasskeyEncryptedWithKeyVersion(kNewerKeyProtoVersion);
+  SetResponseForEndpoint(CreateSuccessResponse());
+
+  TestFuture<DeviceAuthFetchResult> future;
+  service_->GetOrFetchKeys(future.GetCallback());
+
+  EXPECT_EQ(future.Get().status(), DeviceAuthFetchResult::Status::kSuccess);
+  EXPECT_TRUE(HasCachedKeys(gaia_id));
+}
+
 // Test that shutting down the service during an in-flight fetch invokes pending
 // callbacks with Status::kError.
 TEST_F(DeviceAuthorizationServiceImplTest,
@@ -427,11 +598,121 @@ TEST_F(DeviceAuthorizationServiceImplTest,
   service_->GetOrFetchKeys(future.GetCallback());
   EXPECT_FALSE(future.IsReady());
 
-  client_ = nullptr;
-  service_->Shutdown();
+  DestroyService();
   ASSERT_TRUE(future.IsReady());
   const DeviceAuthFetchResult& result = future.Get();
   EXPECT_EQ(result.status(), DeviceAuthFetchResult::Status::kError);
 }
+
+// The primary account cannot be changed or cleared on ChromeOS.
+#if !BUILDFLAG(IS_CHROMEOS)
+
+// Test that changing the primary account while a fetch is in flight fails the
+// pending request, cancels the network request and stores nothing.
+TEST_F(DeviceAuthorizationServiceImplTest,
+       TestPrimaryAccountChangeCancelsPendingFetch) {
+  const GaiaId gaia_id = SignInPrimaryAccount();
+  TestFuture<DeviceAuthFetchResult> future;
+  service_->GetOrFetchKeys(future.GetCallback());
+  ASSERT_TRUE(base::test::RunUntil([&] {
+    return test_url_loader_factory_.pending_requests()->size() == 1;
+  }));
+
+  const GaiaId other_gaia_id = SignInPrimaryAccount(kOtherEmail);
+
+  ASSERT_TRUE(future.IsReady());
+  EXPECT_EQ(future.Get().status(), DeviceAuthFetchResult::Status::kError);
+  EXPECT_EQ(test_url_loader_factory_.NumPending(), 0);
+  EXPECT_FALSE(HasCachedKeys(gaia_id));
+  EXPECT_FALSE(HasCachedKeys(other_gaia_id));
+}
+
+// Test that a fetch for the new primary account succeeds after a fetch for the
+// previous one was cancelled.
+TEST_F(DeviceAuthorizationServiceImplTest,
+       TestFetchForNewPrimaryAccountAfterAccountChange) {
+  const GaiaId gaia_id = SignInPrimaryAccount();
+  TestFuture<DeviceAuthFetchResult> future;
+  service_->GetOrFetchKeys(future.GetCallback());
+  ASSERT_TRUE(base::test::RunUntil([&] {
+    return test_url_loader_factory_.pending_requests()->size() == 1;
+  }));
+
+  const GaiaId other_gaia_id = SignInPrimaryAccount(kOtherEmail);
+  ASSERT_TRUE(future.IsReady());
+  EXPECT_EQ(future.Get().status(), DeviceAuthFetchResult::Status::kError);
+
+  SetResponseForEndpoint(CreateSuccessResponse());
+  TestFuture<DeviceAuthFetchResult> other_future;
+  service_->GetOrFetchKeys(other_future.GetCallback());
+
+  EXPECT_EQ(other_future.Get().status(),
+            DeviceAuthFetchResult::Status::kSuccess);
+  EXPECT_FALSE(HasCachedKeys(gaia_id));
+  EXPECT_TRUE(HasCachedKeys(other_gaia_id));
+}
+
+// Test that signing out while a fetch is in flight fails the pending request.
+TEST_F(DeviceAuthorizationServiceImplTest, TestSignOutCancelsPendingFetch) {
+  const GaiaId gaia_id = SignInPrimaryAccount();
+  TestFuture<DeviceAuthFetchResult> future;
+  service_->GetOrFetchKeys(future.GetCallback());
+  ASSERT_TRUE(base::test::RunUntil([&] {
+    return test_url_loader_factory_.pending_requests()->size() == 1;
+  }));
+
+  identity_test_env_.ClearPrimaryAccount();
+
+  ASSERT_TRUE(future.IsReady());
+  EXPECT_EQ(future.Get().status(), DeviceAuthFetchResult::Status::kError);
+  EXPECT_EQ(test_url_loader_factory_.NumPending(), 0);
+  EXPECT_FALSE(HasCachedKeys(gaia_id));
+}
+
+// Test that changing the primary account while an access token is being
+// fetched for the previous one does not send a request with either account's
+// token.
+TEST_F(DeviceAuthorizationServiceImplTest,
+       TestPrimaryAccountChangeCancelsPendingAccessTokenRequest) {
+  identity_test_env_.SetAutomaticIssueOfAccessTokens(false);
+  const GaiaId gaia_id = SignInPrimaryAccount();
+  SetResponseForEndpoint(CreateSuccessResponse());
+  TestFuture<DeviceAuthFetchResult> future;
+  service_->GetOrFetchKeys(future.GetCallback());
+  ASSERT_TRUE(base::test::RunUntil(
+      [&] { return identity_test_env_.IsAccessTokenRequestPending(); }));
+
+  const GaiaId other_gaia_id = SignInPrimaryAccount(kOtherEmail);
+
+  ASSERT_TRUE(future.IsReady());
+  EXPECT_EQ(future.Get().status(), DeviceAuthFetchResult::Status::kError);
+  EXPECT_FALSE(identity_test_env_.IsAccessTokenRequestPending());
+  EXPECT_EQ(test_url_loader_factory_.NumPending(), 0);
+  EXPECT_EQ(test_url_loader_factory_.total_requests(), 0u);
+  EXPECT_FALSE(HasCachedKeys(gaia_id));
+  EXPECT_FALSE(HasCachedKeys(other_gaia_id));
+}
+
+// Test that signing out while an access token is being fetched fails the
+// pending request. On sign-out, the access token request fails before the
+// service is notified of the primary account change.
+TEST_F(DeviceAuthorizationServiceImplTest,
+       TestSignOutWhileAccessTokenPendingFailsFetch) {
+  identity_test_env_.SetAutomaticIssueOfAccessTokens(false);
+  const GaiaId gaia_id = SignInPrimaryAccount();
+  TestFuture<DeviceAuthFetchResult> future;
+  service_->GetOrFetchKeys(future.GetCallback());
+  ASSERT_TRUE(base::test::RunUntil(
+      [&] { return identity_test_env_.IsAccessTokenRequestPending(); }));
+
+  identity_test_env_.ClearPrimaryAccount();
+
+  ASSERT_TRUE(future.IsReady());
+  EXPECT_EQ(future.Get().status(), DeviceAuthFetchResult::Status::kError);
+  EXPECT_EQ(test_url_loader_factory_.total_requests(), 0u);
+  EXPECT_FALSE(HasCachedKeys(gaia_id));
+}
+
+#endif  // !BUILDFLAG(IS_CHROMEOS)
 
 }  // namespace webauthn

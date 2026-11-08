@@ -89,9 +89,7 @@ BASE_FEATURE(kPreserveDiscardableImageMapQuality,
 
 BASE_FEATURE(kCCSlimming, base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kWebViewMemoryMultiplier,
-             "WebViewMemoryMultiplier",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kWebViewMemoryMultiplier, base::FEATURE_DISABLED_BY_DEFAULT);
 
 const base::FeatureParam<int> kWebViewMemoryMultiplierParam{
     &kWebViewMemoryMultiplier, "MemoryMultiplier", 20};
@@ -144,8 +142,6 @@ const base::FeatureParam<std::string> kNewContentForCheckerboardedScrollsParam(
 
 BASE_FEATURE(kPreventDuplicateImageDecodes, base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kResolveLargeImageDecodes, base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kInitImageDecodeLastUseTime, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kThrottleRepeatedNoDamageFrames,
@@ -192,7 +188,7 @@ BASE_FEATURE(kThrottleMainFrameTo60HzDesktopAndroid,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kDesktopAndroidUnifiedCompositorLimits,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 
 BASE_FEATURE(kHighFramerateRequestFromClient,
@@ -207,11 +203,6 @@ bool IsEligibleForThrottleMainFrameTo60Hz() {
   return s_is_eligible_for_throttle_main_frame_to_60hz.load(
       std::memory_order_relaxed);
 }
-
-BASE_FEATURE(kViewTransitionCaptureAndDisplay,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-
 
 BASE_FEATURE(kUseLayerListsByDefault, base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -329,6 +320,16 @@ bool SendEarlyFinalBeginMainFrameIsEnabled() {
 
 BASE_FEATURE(kVizHitTestRoundedCorners, base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kViewTransitionsNewRoundingChange,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kBrowserControlsExtraHideGestures,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kDeferMainFrameBeforeCommitWithPendingTree,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Kill switch for https://crbug.com/569098933.
+BASE_FEATURE(kOmitTransparentSolidQuadsForNoopBlendModes,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 }  // namespace features

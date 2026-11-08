@@ -29,6 +29,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/extensions/extension_constants.h"
 #include "components/crx_file/id_util.h"
+#include "components/policy/core/common/policy_logger.h"
 #include "content/public/browser/browser_thread.h"
 #include "extensions/browser/crx_installer.h"
 #include "extensions/browser/extension_prefs.h"
@@ -47,6 +48,10 @@
 #include "extensions/common/manifest.h"
 #include "extensions/common/verifier_formats.h"
 #include "url/gurl.h"
+
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
+#include "chrome/browser/extensions/policy_dse_ntp_override_metrics_reporter.h"
+#endif
 
 #if BUILDFLAG(IS_CHROMEOS)
 #include "chrome/browser/ash/extensions/install_limiter.h"
@@ -133,7 +138,7 @@ void ExternalProviderManager::CheckForExternalUpdates() {
 }
 
 void ExternalProviderManager::OnAllExternalProvidersReady() {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M161);
 
   Profile* profile = Profile::FromBrowserContext(context_.get());
 #if BUILDFLAG(IS_CHROMEOS)
@@ -190,7 +195,7 @@ void ExternalProviderManager::CheckExternalUninstall(const std::string& id) {
 
   // Check if the providers know about this extension.
   for (const auto& provider : external_extension_providers_) {
-    DCHECK(provider->IsReady());
+    CHECK(provider->IsReady(), base::NotFatalUntil::M161);
     if (provider->HasExtensionWithLocation(id, extension->location())) {
       // Yup, known extension, don't uninstall.
       return;
@@ -233,7 +238,7 @@ ExternalProviderManager::DisableExternalUpdatesForTesting() {
 
 bool ExternalProviderManager::OnExternalExtensionFileFound(
     const ExternalInstallInfoFile& info) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M161);
   CHECK(crx_file::id_util::IdIsValid(info.extension_id));
   if (extension_prefs_->IsExternalExtensionUninstalled(info.extension_id)) {
     return false;
@@ -329,7 +334,7 @@ bool ExternalProviderManager::OnExternalExtensionFileFound(
 bool ExternalProviderManager::OnExternalExtensionUpdateUrlFound(
     const ExternalInstallInfoUpdateUrl& info,
     bool force_update) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M161);
   CHECK(crx_file::id_util::IdIsValid(info.extension_id));
 
   if (Manifest::IsExternalLocation(info.download_location)) {
@@ -449,7 +454,7 @@ bool ExternalProviderManager::OnExternalExtensionUpdateUrlFound(
 
 void ExternalProviderManager::OnExternalProviderReady(
     const ExternalProviderInterface* provider) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M161);
   CHECK(provider->IsReady());
 
   // An external provider has finished loading.  We only take action
@@ -475,10 +480,10 @@ void ExternalProviderManager::OnExternalProviderUpdateComplete(
 #if DCHECK_IS_ON()
   for (const std::string& id : removed_extensions) {
     for (const auto& extension : update_url_extensions) {
-      DCHECK_NE(id, extension.extension_id);
+      CHECK_NE(id, extension.extension_id, base::NotFatalUntil::M161);
     }
     for (const auto& extension : file_extensions) {
-      DCHECK_NE(id, extension.extension_id);
+      CHECK_NE(id, extension.extension_id, base::NotFatalUntil::M161);
     }
   }
 #endif
@@ -565,6 +570,14 @@ bool ExternalProviderManager::CheckForAndMaybeBlockPolicyTakeover(
       BlockedExtensionInfo{.override_type = override_type,
                            .update_url = info.update_url.spec(),
                            .timestamp = base::Time::Now()});
+  LOG_POLICY(WARNING, POLICY_PROCESSING)
+      << "[BlockLowTrustExtension] Blocked policy takeover of user-installed "
+         "extension "
+      << info.extension_id
+      << ": Extension is not allowed to override DSE/NTP settings in "
+         "low-trust environments.";
+  PolicyDseNtpOverrideMetricsReporter::LogBlockAction(
+      LowTrustPolicyBlockAction::kBlockedPolicyTakeoverOfUserInstall);
 
   return true;
 }

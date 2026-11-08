@@ -10,8 +10,6 @@
 //     third_party/blink/public/mojom/locks/lock_manager.mojom
 //
 
-private let mojoPrefix = "blink.mojom."
-
 ///
 /// Interfaces
 ///
@@ -26,9 +24,10 @@ extension ILType {
         ])
     fileprivate static let jsBlinkMojomLockManagerRemoteWrapper: ILType = .object(
         ofGroup: "blink.mojom.LockManagerRemoteWrapper",
-        withMethods: ["close", "isBound", "associateAndPassReceiver"])
-    fileprivate static let jsBlinkMojomLockManagerPendingReceiver: ILType = .object(
-        ofGroup: "blink.mojom.LockManagerPendingReceiver")
+        withMethods: [
+          "close",
+          "isBound",
+        ])
 
     // LockHandle
     fileprivate static let jsBlinkMojomLockHandleRemote: ILType = .object(
@@ -38,9 +37,13 @@ extension ILType {
         ])
     fileprivate static let jsBlinkMojomLockHandleRemoteWrapper: ILType = .object(
         ofGroup: "blink.mojom.LockHandleRemoteWrapper",
-        withMethods: ["close", "isBound", "associateAndPassReceiver"])
-    fileprivate static let jsBlinkMojomLockHandlePendingReceiver: ILType = .object(
-        ofGroup: "blink.mojom.LockHandlePendingReceiver")
+        withMethods: [
+          "close",
+          "isBound",
+          "associateAndPassReceiver",
+        ])
+    fileprivate static let jsBlinkMojomLockHandlePendingAssociatedReceiver: ILType = .object(
+        ofGroup: "blink.mojom.LockHandlePendingAssociatedReceiver")
 
     // LockRequest
     fileprivate static let jsBlinkMojomLockRequestCallbackRouter: ILType = .object(
@@ -52,15 +55,22 @@ extension ILType {
         ])
     fileprivate static let jsBlinkMojomLockRequestCallbackRouterReceiverHelper: ILType = .object(
         ofGroup: "blink.mojom.LockRequestCallbackRouterReceiverHelper",
-        withMethods: ["associateAndPassRemote", "closeBindings"])
-    fileprivate static let jsBlinkMojomLockRequestRemote: ILType = .object(
-        ofGroup: "blink.mojom.LockRequestRemote",
+        withMethods: [
+          "closeBindings",
+          "associateAndPassRemote",
+        ])
+    fileprivate static let jsBlinkMojomLockRequestPendingAssociatedRemote: ILType = .object(
+        ofGroup: "blink.mojom.LockRequestPendingAssociatedRemote",
         withProperties: ["$"])
     fileprivate static let jsBlinkMojomLockRequestRemoteWrapper: ILType = .object(
         ofGroup: "blink.mojom.LockRequestRemoteWrapper",
-        withMethods: ["close", "isBound", "associateAndPassReceiver"])
-    fileprivate static let jsBlinkMojomLockRequestPendingReceiver: ILType = .object(
-        ofGroup: "blink.mojom.LockRequestPendingReceiver")
+        withMethods: [
+          "close",
+          "isBound",
+          "associateAndPassReceiver",
+        ])
+    fileprivate static let jsBlinkMojomLockRequestPendingAssociatedReceiver: ILType = .object(
+        ofGroup: "blink.mojom.LockRequestPendingAssociatedReceiver")
     fileprivate static let jsBlinkMojomLockRequestGrantedCallbackReceiver: ILType = .object(
         ofGroup: "BlinkMojomLockRequestGrantedCallbackReceiver",
         withMethods: ["addListener"])
@@ -80,7 +90,7 @@ extension ObjectGroup {
                 .plain(.string),
                 .plain(.jsBlinkMojomLockMode),
                 .plain(.jsBlinkMojomLockManager_WaitMode),
-                .plain(.jsBlinkMojomLockRequestRemote),
+                .plain(.jsBlinkMojomLockRequestPendingAssociatedRemote),
             ] => .undefined,
             "queryState": [
             ] => .jsPromise(resolvingTo: .jsBlinkMojomLockManager_QueryState_ResponseParams),
@@ -94,16 +104,7 @@ extension ObjectGroup {
         methods: [
             "close": [] => .undefined,
             "isBound": [] => .boolean,
-            "associateAndPassReceiver": [] => .jsBlinkMojomLockManagerPendingReceiver,
-        ]
-    )
-
-    fileprivate static let blinkMojomLockManagerPendingReceiver = ObjectGroup(
-        name: "blink.mojom.LockManagerPendingReceiver",
-        instanceType: .jsBlinkMojomLockManagerPendingReceiver,
-        properties: [:],
-        methods: [:]
-    )
+        ])
 
     // LockHandle
     fileprivate static let blinkMojomLockHandleRemote = ObjectGroup(
@@ -120,13 +121,11 @@ extension ObjectGroup {
         methods: [
             "close": [] => .undefined,
             "isBound": [] => .boolean,
-            "associateAndPassReceiver": [] => .jsBlinkMojomLockHandlePendingReceiver,
-        ]
-    )
-
-    fileprivate static let blinkMojomLockHandlePendingReceiver = ObjectGroup(
-        name: "blink.mojom.LockHandlePendingReceiver",
-        instanceType: .jsBlinkMojomLockHandlePendingReceiver,
+            "associateAndPassReceiver": [] => .jsBlinkMojomLockHandlePendingAssociatedReceiver,
+        ])
+    fileprivate static let blinkMojomLockHandlePendingAssociatedReceiver = ObjectGroup(
+        name: "blink.mojom.LockHandlePendingAssociatedReceiver",
+        instanceType: .jsBlinkMojomLockHandlePendingAssociatedReceiver,
         properties: [:],
         methods: [:]
     )
@@ -148,10 +147,9 @@ extension ObjectGroup {
         instanceType: .jsBlinkMojomLockRequestCallbackRouterReceiverHelper,
         properties: [:],
         methods: [
-            "associateAndPassRemote": [] => .jsBlinkMojomLockRequestRemote,
             "closeBindings": [] => .undefined,
-        ]
-    )
+            "associateAndPassRemote": [] => .jsBlinkMojomLockRequestPendingAssociatedRemote,
+        ])
 
     fileprivate static let blinkMojomLockRequestGrantedCallbackReceiver = ObjectGroup(
         name: "BlinkMojomLockRequestGrantedCallbackReceiver",
@@ -180,9 +178,9 @@ extension ObjectGroup {
             ] => .integer,
         ])
 
-    fileprivate static let blinkMojomLockRequestRemote = ObjectGroup(
-        name: "blink.mojom.LockRequestRemote",
-        instanceType: .jsBlinkMojomLockRequestRemote,
+    fileprivate static let blinkMojomLockRequestPendingAssociatedRemote = ObjectGroup(
+        name: "blink.mojom.LockRequestPendingAssociatedRemote",
+        instanceType: .jsBlinkMojomLockRequestPendingAssociatedRemote,
         properties: ["$": .jsBlinkMojomLockRequestRemoteWrapper],
         methods: [:]
     )
@@ -194,13 +192,12 @@ extension ObjectGroup {
         methods: [
             "close": [] => .undefined,
             "isBound": [] => .boolean,
-            "associateAndPassReceiver": [] => .jsBlinkMojomLockRequestPendingReceiver,
-        ]
-    )
+            "associateAndPassReceiver": [] => .jsBlinkMojomLockRequestPendingAssociatedReceiver,
+        ])
 
-    fileprivate static let blinkMojomLockRequestPendingReceiver = ObjectGroup(
-        name: "blink.mojom.LockRequestPendingReceiver",
-        instanceType: .jsBlinkMojomLockRequestPendingReceiver,
+    fileprivate static let blinkMojomLockRequestPendingAssociatedReceiver = ObjectGroup(
+        name: "blink.mojom.LockRequestPendingAssociatedReceiver",
+        instanceType: .jsBlinkMojomLockRequestPendingAssociatedReceiver,
         properties: [:],
         methods: [:]
     )
@@ -245,8 +242,8 @@ extension ObjectGroup {
         name: "blink.mojom.LockManager_QueryState_ResponseParams",
         instanceType: .jsBlinkMojomLockManager_QueryState_ResponseParams,
         properties: [
-            "requested": .jsBlinkMojomLockInfoArray,
-            "held": .jsBlinkMojomLockInfoArray,
+            "requested": .jsBlinkMojomLockInfoMojoArray,
+            "held": .jsBlinkMojomLockInfoMojoArray,
         ],
         methods: [:]
     )
@@ -256,23 +253,29 @@ extension ObjectGroup {
 /// Arrays
 ///
 extension ILType {
-    fileprivate static let jsBlinkMojomLockInfoArray: ILType =
+    fileprivate static let jsBlinkMojomLockInfoMojoArray: ILType =
         .createJsArrayType(ofElementType: .jsBlinkMojomLockInfo)
 }
 
 /// As Fuzzilli runs, the OperationMutator and VariadicInputReducer will modify
 /// the `CreateArray` operation to increase or decrease the element count. This
 /// allows arrays to be arbitrarily long.
-private let MojoBlinkMojomLockInfoArrayGenerator = CodeGenerator(
-    "MojoBlinkMojomLockInfoArrayGenerator",
-    inputs: .required(.jsBlinkMojomLockInfo),
-    produces: [.jsBlinkMojomLockInfoArray]
-) { b, elem in
+///
+/// `findOrGenerateType` is preferred over specifying `inputs` because
+/// Fuzzilli only uses CodeGenerators to produce types in `inputs`, while
+/// `findOrGenerateType` uses a variety of sources (e.g. `builtins`, other
+/// method properties and methods). An input is specified (i.e. `.one`)
+/// to prevent the CodeGenerator from being scheduled first when there are
+/// no visible variables, as `findOrGenerateType` causes a crash if there
+/// are no visibile variables.
+private let MojoBlinkMojomLockInfoMojoArrayGenerator = CodeGenerator(
+    "MojoBlinkMojomLockInfoMojoArrayGenerator",
+    inputs: .one,
+    produces: [.jsBlinkMojomLockInfoMojoArray]
+) { b, _ in
+    let elem = b.findOrGenerateType(.jsBlinkMojomLockInfo)
     var elements: [Variable] = [elem]
-    b.createArray(
-        with: elements,
-        elementGroupName:
-            ObjectGroup.blinkMojomLockInfo.name)
+    b.createArray(with: elements)
 }
 
 ///
@@ -290,10 +293,12 @@ extension ILType {
 ///
 /// Generators
 ///
-// TODO(crbug.com/500386713) Consider using mojoBuiltins or another list instead of regex
+/// Names of every ObjectGroup registered by this profile.
+private let mojoTargetGroups = Set(mojoObjectGroups.map { $0.name })
+
 private func isTargetObject(type: ILType) -> Bool {
     guard type.Is(.object()), let group = type.group else { return false }
-    return group.starts(with: mojoPrefix)
+    return mojoTargetGroups.contains(group)
 }
 
 /// Mojo variant of the builtin `MethodCallGenerator` that operates only on
@@ -318,7 +323,7 @@ private let MojoMethodCallGenerator = CodeGenerator("MojoMethodCallGenerator") {
     let methodName = b.type(of: obj).randomMethod()!
     let signatures = b.methodSignatures(of: methodName, on: obj)
     let signature = chooseUniform(from: signatures)
-    let arguments = b.findOrGenerateArguments(forSignature: signature)
+    let arguments = b.findOrGenerateArguments(forSignature: signature, maxNumberOfVariablesToGenerate: 1000)
     b.callMethod(methodName, on: obj, withArgs: arguments, guard: false)
 }
 
@@ -366,6 +371,25 @@ private let MojoBlinkMojomLockRequestRouterListenerGenerator = CodeGenerator(
     b.callMethod("addListener", on: listenerHost, withArgs: [callback])
 }
 
+/// Every ObjectGroup registered by this profile. Also used by `isTargetObject`
+/// to decide which variables the Mojo generators operate on.
+private let mojoObjectGroups: [ObjectGroup] = [
+    .blinkMojomLockManagerRemote,
+    .blinkMojomLockManagerRemoteWrapper,
+    .blinkMojomLockHandleRemote,
+    .blinkMojomLockHandleRemoteWrapper,
+    .blinkMojomLockHandlePendingAssociatedReceiver,
+    .blinkMojomLockRequestCallbackRouter,
+    .blinkMojomLockRequestCallbackRouterReceiverHelper,
+    .blinkMojomLockRequestPendingAssociatedRemote,
+    .blinkMojomLockRequestPendingAssociatedReceiver,
+    .blinkMojomLockRequestRemoteWrapper,
+    .blinkMojomLockRequestGrantedCallbackReceiver,
+    .blinkMojomLockRequestFailedCallbackReceiver,
+    .blinkMojomLockInfo,
+    .blinkMojomLockManagerQueryStateResponseParams,
+] + commonMojoObjectGroups
+
 private let mojoBuiltins: [String: ILType] = [
     /// Profiles declare this method, a wrapper method around `getRemote` that follows
     /// the Singleton pattern, in `codePrefix`. This method ensures: (1) `getRemote`
@@ -394,7 +418,7 @@ let mojoLockManagerProfile = Profile(
     processEnv: [
         "ASAN_OPTIONS": "detect_odr_violation=0:abort_on_error=1", "DISPLAY": ":20",
     ],
-    maxExecsBeforeRespawn: 1000,
+    maxExecsBeforeRespawn: 50,
     timeout: Timeout.interval(11000, 11000),
     codePrefix: """
         let globalRemote = null;
@@ -422,7 +446,7 @@ let mojoLockManagerProfile = Profile(
         (MojoMethodCallGenerator, 10000),
         (MojoPropertyRetrievalGenerator, 10000),
         (MojoBlinkMojomLockRequestRouterListenerGenerator, 5000),
-        (MojoBlinkMojomLockInfoArrayGenerator, 1),
+        (MojoBlinkMojomLockInfoMojoArrayGenerator, 1),
     ] + commonMojoCodeGenerators,
     additionalProgramTemplates: WeightedList([]),
     disabledCodeGenerators: mojoDisabledGenerators,
@@ -430,23 +454,7 @@ let mojoLockManagerProfile = Profile(
         "ExplorationMutator", "ProbingMutator", "PropertyAccessorMutator"
     ],
     additionalBuiltins: mojoBuiltins.merging(commonMojoBuiltins) { (existing, _) in existing },
-    additionalObjectGroups: [
-        .blinkMojomLockManagerRemote,
-        .blinkMojomLockManagerRemoteWrapper,
-        .blinkMojomLockManagerPendingReceiver,
-        .blinkMojomLockHandleRemote,
-        .blinkMojomLockHandleRemoteWrapper,
-        .blinkMojomLockHandlePendingReceiver,
-        .blinkMojomLockRequestCallbackRouter,
-        .blinkMojomLockRequestCallbackRouterReceiverHelper,
-        .blinkMojomLockRequestRemote,
-        .blinkMojomLockRequestRemoteWrapper,
-        .blinkMojomLockRequestPendingReceiver,
-        .blinkMojomLockRequestGrantedCallbackReceiver,
-        .blinkMojomLockRequestFailedCallbackReceiver,
-        .blinkMojomLockInfo,
-        .blinkMojomLockManagerQueryStateResponseParams,
-    ] + commonMojoObjectGroups,
+    additionalObjectGroups: mojoObjectGroups,
     additionalEnumerations: [
         .jsBlinkMojomLockMode,
         .jsBlinkMojomLockManager_WaitMode,

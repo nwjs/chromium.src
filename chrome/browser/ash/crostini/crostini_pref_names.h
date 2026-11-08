@@ -17,7 +17,9 @@ enum class CrostiniArcAdbSideloadingUserAllowanceMode {
 
 namespace prefs {
 
-extern const char kCrostiniEnabled[];
+// A boolean preference representing whether a user has opted in to use
+// Crostini (Called "Linux Apps" in UI).
+inline constexpr char kCrostiniEnabled[] = "crostini.enabled";
 extern const char kCrostiniSharedUsbDevices[];
 extern const char kCrostiniMicAllowed[];
 
@@ -37,7 +39,10 @@ extern const char kCrostiniAnsiblePlaybookFilePath[];
 extern const char kCrostiniDefaultContainerConfigured[];
 extern const char kCrostiniArcAdbSideloadingUserPref[];
 extern const char kCrostiniPortForwardingAllowedByPolicy[];
-extern const char kTerminalSshAllowedByPolicy[];
+// A boolean preference representing a user level enterprise policy to allow
+// SSH in Terminal System App.
+inline constexpr char kTerminalSshAllowedByPolicy[] =
+    "crostini.terminal_ssh_allowed_by_policy";
 
 extern const char kReportCrostiniUsageEnabled[];
 extern const char kCrostiniLastLaunchTerminaComponentVersion[];

@@ -3,7 +3,7 @@
 // found in the LICENSE file.
 
 // Scheduler-loop Quarantine is a quarantine pool behind PartitionAlloc with
-// Advanced Checks and `ADVANCED_MEMORY_SAFETY_CHECKS()`.
+// Advanced Checks and `SANITIZED_OBJECT()`.
 // Both requests to prevent `free()`d allocation getting released to free-list,
 // by passing `FreeFlags::kSchedulerLoopQuarantine` at time of `free()`.
 // This will keep these allocations in Scheduler-Loop Quarantine for while.
@@ -104,8 +104,6 @@ struct SchedulerLoopQuarantineConfig {
   char branch_name[32] = "";
 };
 
-struct BucketSizeDetails;
-
 enum class QuarantineTarget {
   kMiracleObjects = 0,
   kSanitizedObjects,
@@ -176,8 +174,7 @@ class SchedulerLoopQuarantineBranch {
   // Determines this list contains an object.
   bool IsQuarantinedForTesting(void* object) PA_LOCKS_EXCLUDED(lock_);
 
-  bool IsQuarantineTarget(
-      const internal::BucketSizeDetails& size_details) const;
+  bool IsQuarantineTarget(internal::BucketSizeDetails size_details) const;
 
   size_t GetCapacityInBytes() {
     return branch_capacity_in_bytes_.load(std::memory_order_relaxed);
@@ -188,7 +185,7 @@ class SchedulerLoopQuarantineBranch {
 
   void Quarantine(SlotStart slot_start,
                   SlotSpanMetadata* slot_span,
-                  const internal::BucketSizeDetails& size_details)
+                  internal::BucketSizeDetails size_details)
       PA_LOCKS_EXCLUDED(lock_);
 
   // TODO(crbug.com/329027914): Make these private once migration to

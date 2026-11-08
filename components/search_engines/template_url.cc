@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <memory>
+#include <ranges>
 #include <string>
 #include <string_view>
 #include <tuple>
@@ -15,7 +16,6 @@
 #include "base/base64url.h"
 #include "base/check_op.h"
 #include "base/command_line.h"
-#include "base/containers/adapters.h"
 #include "base/debug/dump_without_crashing.h"
 #include "base/feature_list.h"
 #include "base/format_macros.h"
@@ -44,9 +44,9 @@
 #include "components/search_engines/search_engines_switches.h"
 #include "components/search_engines/search_terms_data.h"
 #include "components/search_engines/template_url_data.h"
-#include "components/search_engines/template_url_service.h"
 #include "components/search_engines/template_url_data_util.h"
 #include "components/search_engines/template_url_prepopulate_data.h"
+#include "components/search_engines/template_url_service.h"
 #include "components/search_engines/template_url_starter_pack_data.h"
 #include "components/strings/grit/components_strings.h"
 #include "components/sync/base/features.h"
@@ -298,6 +298,40 @@ std::string TruncateEncodedQuery(std::string_view encoded_query,
   }
 
   return truncated;
+}
+
+bool IsCryptographicOrLocalhost(const GURL& url) {
+  return url.is_valid() &&
+         (url.SchemeIsCryptographic() || net::IsLocalhost(url));
+}
+
+// Computes the result for TemplateURL::IsTrustedGoogleEngine().
+bool ComputeIsTrustedGoogleEngine(const TemplateURL& template_url,
+                                  const SearchTermsData& search_terms_data) {
+  if (template_url.GetEngineType(search_terms_data) != SEARCH_ENGINE_GOOGLE) {
+    return false;
+  }
+
+  // Prepopulated engines are built into Chromium and cannot be hijacked or
+  // spoofed by OpenSearch auto-discovery.
+  if (template_url.prepopulate_id() != 0) {
+    return true;
+  }
+
+  if (!IsCryptographicOrLocalhost(
+          template_url.GenerateSearchURL(search_terms_data))) {
+    return false;
+  }
+
+  if (template_url.suggestions_url().empty()) {
+    return true;
+  }
+
+  const GURL suggest_url =
+      template_url.GenerateSuggestionURL(search_terms_data);
+  return IsCryptographicOrLocalhost(suggest_url) &&
+         search_engine_utils::GetEngineType(suggest_url) ==
+             SEARCH_ENGINE_GOOGLE;
 }
 
 }  // namespace
@@ -1186,7 +1220,7 @@ std::string TemplateURLRef::HandleReplacements(
 
   // replacements_ is ordered in ascending order, as such we need to iterate
   // from the back.
-  for (const Replacement& replacement : base::Reversed(replacements_)) {
+  for (const Replacement& replacement : std::views::reverse(replacements_)) {
     switch (replacement.type) {
       case ENCODING:
         HandleReplacement(std::string(), input_encoding, replacement, &url);
@@ -2145,6 +2179,15 @@ SearchEngineType TemplateURL::GetEngineType(
   return engine_type_;
 }
 
+bool TemplateURL::IsTrustedGoogleEngine(
+    const SearchTermsData& search_terms_data) const {
+  if (!is_trusted_google_engine_.has_value()) {
+    is_trusted_google_engine_ =
+        ComputeIsTrustedGoogleEngine(*this, search_terms_data);
+  }
+  return *is_trusted_google_engine_;
+}
+
 BuiltinEngineType TemplateURL::GetBuiltinEngineType() const {
   if (data().prepopulate_id != 0) {
     return KEYWORD_MODE_PREPOPULATED_ENGINE;
@@ -2394,6 +2437,7 @@ void TemplateURL::SetURL(const std::string& url) {
   active_data().SetURL(url);
 
   engine_type_ = SEARCH_ENGINE_UNKNOWN;
+  is_trusted_google_engine_.reset();
   url_ref().InvalidateCachedValues();
 }
 
@@ -2423,6 +2467,8 @@ void TemplateURL::ResetKeywordIfNecessary(
 }
 
 void TemplateURL::InvalidateCachedValues() const {
+  engine_type_ = SEARCH_ENGINE_UNKNOWN;
+  is_trusted_google_engine_.reset();
   for (const TemplateURLRef& ref : url_refs_) {
     ref.InvalidateCachedValues();
   }

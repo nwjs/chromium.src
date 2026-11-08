@@ -16,7 +16,6 @@
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
 #include "base/location.h"
-#include "base/task/sequenced_task_runner.h"
 #include "base/time/time.h"
 #include "base/types/expected.h"
 #include "components/optimization_guide/core/access_token_helper.h"
@@ -32,7 +31,6 @@
 #include "net/base/url_util.h"
 #include "net/http/http_status_code.h"
 #include "net/traffic_annotation/network_traffic_annotation.h"
-#include "services/network/public/mojom/network_context.mojom.h"
 #include "url/gurl.h"
 
 namespace optimization_guide {
@@ -119,9 +117,6 @@ RemoteModelExecutionSessionImpl::RemoteModelExecutionSessionImpl(
       client_(std::move(client)) {
   CHECK(callback_);
   CHECK(client_);
-  // TODO(crbug.com/553134125): Refactor out `set_delegate` call as it is only
-  // needed for tests.
-  client_->set_delegate(this);
   if (options_.prewarm_connection) {
     StartConnection();
   }
@@ -386,8 +381,13 @@ void RemoteModelExecutionSessionImpl::HandleDisconnection(
   pending_requests_.clear();
   access_token_.clear();
   connection_state_ = ConnectionState::kDisconnected;
+  base::WeakPtr<RemoteModelExecutionSessionImpl> weak_ptr =
+      weak_ptr_factory_.GetWeakPtr();
   if (error) {
     DispatchError(*error);
+    if (!weak_ptr || connection_state_ != ConnectionState::kDisconnected) {
+      return;
+    }
   }
   NotifyObservers();
 }
@@ -411,8 +411,7 @@ void RemoteModelExecutionSessionImpl::OnIdleTimeout() {
 void RemoteModelExecutionSessionImpl::DispatchResponse(
     OptimizationGuideModelStreamingResult result) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
-      FROM_HERE, base::BindOnce(callback_, std::move(result)));
+  callback_.Run(std::move(result));
 }
 
 void RemoteModelExecutionSessionImpl::DispatchError(

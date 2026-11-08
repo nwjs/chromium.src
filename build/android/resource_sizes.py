@@ -48,10 +48,10 @@ with host_paths.SysPath(host_paths.BUILD_UTIL_PATH):
     from lib.results import result_types
 
 with host_paths.SysPath(host_paths.TRACING_PATH):
-    from tracing.value import convert_chart_json  # pylint: disable=import-error
+    from tracing.value import convert_chart_json
 
 with host_paths.SysPath(_ANDROID_UTILS_PATH, 0):
-    from util import build_utils  # pylint: disable=import-error
+    from util import build_utils
 
 _BASE_CHART = {
     'format_version': '0.1',
@@ -399,14 +399,12 @@ def _AnalyzeInternal(
     orig_filename = apks_path or apk_path
     is_webview = 'WebView' in orig_filename or 'Webview' in orig_filename
     is_monochrome = 'Monochrome' in orig_filename
-    is_library = 'Library' in orig_filename
-    is_trichrome = 'TrichromeChrome' in orig_filename
+    is_chrome = 'Chrome' in orig_filename
     # WebView is always a shared APK since other apps load it.
-    # Library is always shared since it's used by chrome and webview
     # Chrome is always shared since renderers can't access dex otherwise
     # (see DexFixer).
     is_shared_apk = sdk_version >= 24 and (
-        is_monochrome or is_webview or is_library or is_trichrome
+        is_monochrome or is_webview or is_chrome
     )
     # Dex decompression overhead varies by Android version.
     if sdk_version < 21:
@@ -717,7 +715,7 @@ def _ConfigOutDir(out_dir):
             # Triggers auto-detection when CWD == output directory.
             constants.CheckOutputDirectory()
             out_dir = constants.GetOutDirectory()
-        except Exception:  # pylint: disable=broad-except
+        except Exception:
             pass
     return out_dir
 
@@ -775,7 +773,7 @@ def _AnalyzeApkOrApks(report_func, apk_path):
                     inner_report_func = report_func
                     inner_dex_stats_collector = dex_stats_collector
                     if on_demand:
-                        inner_report_func = lambda *_: None
+                        inner_report_func = lambda *_: None  # noqa: E731
                         inner_dex_stats_collector = (
                             method_count.DexStatsCollector()
                         )
@@ -829,13 +827,12 @@ def _AnalyzeApkOrApks(report_func, apk_path):
 def _ResourceSizes(args):
     chartjson = _BASE_CHART.copy() if args.output_format else None
     reporter = _ChartJsonReporter(chartjson)
-    # Create DexStatsCollector here to track unique methods across trichrome APKs.
+    # Create DexStatsCollector here to track unique methods across APKs.
     dex_stats_collector = method_count.DexStatsCollector()
 
     specs = [
-        ('Chrome_', args.trichrome_chrome),
-        ('WebView_', args.trichrome_webview),
-        ('Library_', args.trichrome_library),
+        ('Chrome_', args.chrome),
+        ('WebView_', args.webview),
     ]
     for prefix, path in specs:
         if path:
@@ -951,19 +948,12 @@ def main():
     argparser.add_argument(
         'input', help='Path to .apk or .apks file to measure.'
     )
-    trichrome_group = argparser.add_argument_group(
-        'Trichrome inputs',
+    multi_apk_group = argparser.add_argument_group(
+        'Multi-APK inputs',
         description='When specified, |input| is used only as Test suite name.',
     )
-    trichrome_group.add_argument(
-        '--trichrome-chrome', help='Path to Trichrome Chrome .apks'
-    )
-    trichrome_group.add_argument(
-        '--trichrome-webview', help='Path to Trichrome WebView .apk(s)'
-    )
-    trichrome_group.add_argument(
-        '--trichrome-library', help='Path to Trichrome Library .apk'
-    )
+    multi_apk_group.add_argument('--chrome', help='Path to Chrome .apks')
+    multi_apk_group.add_argument('--webview', help='Path to WebView .apk(s)')
     args = argparser.parse_args()
 
     args.out_dir = _ConfigOutDir(args.out_dir)

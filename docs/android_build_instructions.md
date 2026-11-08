@@ -149,7 +149,6 @@ following arguments:
 target_os = "android"
 target_cpu = "arm64"  # See "Figuring out target_cpu" below
 use_remoteexec = true  # Enables distributed builds. See "Faster Builds".
-is_component_build = false  # Unless you do a lot of native code edits. See "Faster Builds".
 ```
 
 * You only have to run this once for each new build directory, Siso will
@@ -158,7 +157,6 @@ is_component_build = false  # Unless you do a lot of native code edits. See "Fas
   it should be a subdirectory of `out`.
 * For other build arguments, including release settings, see [GN build
   configuration](https://www.chromium.org/developers/gn-build-configuration).
-  The default will be a debug component build.
 * For more info on GN, run `gn help` on the command line or read the
   [quick start guide](https://gn.googlesource.com/gn/+/main/docs/quick_start.md).
 
@@ -214,7 +212,6 @@ feature to package optimized versions for different OS versions.
 2. `trichrome_chrome_bundle` (`TrichromeChrome.aab`)
    * `minSdkVersion=29` (Android 10).
    * Native code shared with WebView through a "Static Shared Library APK": `trichrome_library_apk`
-   * Corresponding WebView target: `trichrome_webview_bundle`
 
 *** note
 **Notes:**
@@ -387,12 +384,6 @@ Args that affect build speed:
      * Stack traces will still show, but be missing frames for inlined functions and source lines.
    * Mostly impacts link time. Lower settings ==> faster links.
    * To disable symbols only in Blink / V8: `blink_symbol_level = 0`, `v8_symbol_level = 0`
- * `is_component_build = false` *(default=`is_debug`)*
-   * See: [docs/component_build.md](/docs/component_build.md)
-   * The size of native code for a component build is ~2x that of a
-     non-component build, but link times increase for non-component builds.
-   * When mostly iterating on Java code, use `is_component_build=false` for
-     faster .apk installs.
  * `is_java_debug = true` *(default=`is_debug`)*
    * What it does: Disables R8 (whole-program Java optimizer)
  * `treat_warnings_as_errors = false` *(default=`true`)*
@@ -401,8 +392,6 @@ Args that affect build speed:
  * `android_static_analysis = "build_server"` *(default=`"on"`)*
    * Offloads static analysis steps to the build server. Explained below.
    * Set this to `"off"` if you want to turn off static analysis altogether.
- * `incremental_install = true` *(default=`false`)*
-   * Makes build and install quite a bit faster. Explained in a later section.
  * `enable_chrome_android_internal = false` *(Googlers only)*
    * Disables non-public code, which exists even when building public targets.
    * Use this is you do not need to test internal-only things.
@@ -447,23 +436,6 @@ on a shared cluster of workers.
 
 To use Remote Execution, follow the corresponding
 [Linux build instructions](linux/build_instructions.md#use-remote-execution).
-
-### Incremental Install
-[Incremental Install](/build/android/incremental_install/README.md) uses
-reflection and sideloading to speed up the edit & deploy cycle (normally < 10
-seconds). The initial launch of the apk will be a lot slower on older Android
-versions (pre-N) where the OS needs to pre-optimize the side-loaded files, but
-then be only marginally slower after the first launch.
-
-To enable Incremental Install, add the gn args:
-
-```gn
-incremental_install = true
-```
-
-Some APKs (e.g. WebView) do not work with `incremental install = true` and are
-always built as normal APKs. This behavior is controlled via
-`never_incremental = true`.
 
 ## Installing and Running Chromium on an Emulator
 

@@ -10,6 +10,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 import android.app.Activity;
+import android.graphics.drawable.ColorDrawable;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
@@ -30,6 +31,7 @@ import org.chromium.base.ThreadUtils;
 import org.chromium.base.test.util.ApplicationTestUtils;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.CriteriaHelper;
+import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.DoNotBatch;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.Features.DisableFeatures;
@@ -54,6 +56,7 @@ import org.chromium.chrome.test.transit.ntp.IncognitoNewTabPageStation;
 import org.chromium.chrome.test.transit.ntp.RegularNewTabPageStation;
 import org.chromium.chrome.test.transit.page.WebPageStation;
 import org.chromium.chrome.test.util.ChromeTabUtils;
+import org.chromium.components.browser_ui.styles.ChromeColors;
 import org.chromium.components.browser_ui.widget.RecyclerViewTestUtils;
 import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.test.util.RenderTestRule;
@@ -71,8 +74,6 @@ import java.util.concurrent.atomic.AtomicReference;
     ChromeFeatureList.ENABLE_ANDROID_SIDE_PANEL_LOGS
 })
 @Restriction(DeviceFormFactor.TABLET_OR_DESKTOP)
-// TODO(b/555414915): Update Android tests with WebUI NTP enabled on AL.
-@DisableFeatures(ChromeFeatureList.USE_WEB_UI_NTP_ANDROID)
 @NullMarked
 public class SidePanelContainerCoordinatorIntegrationTest {
     private static final String RESPONSIVE_WEB_PAGE_URL =
@@ -599,6 +600,7 @@ public class SidePanelContainerCoordinatorIntegrationTest {
     @MediumTest
     @DisableFeatures(ChromeFeatureList.DISABLE_GRID_TAB_SWITCHER)
     @EnableFeatures(ChromeFeatureList.ENABLE_ANDROID_SIDE_PANEL_DEV_FEATURE + ":scope/window")
+    @DisabledTest(message = "crbug.com/567233434")
     public void closeAllTabsInGridTabSwitcher_undo_restoresWindowScopedSidePanel() {
         // Arrange: Open a second tab.
         var newTabPageStation = mResponsivePageStation.openNewTabFast();
@@ -711,7 +713,11 @@ public class SidePanelContainerCoordinatorIntegrationTest {
 
         // Act & Assert.
         showPanel(incognitoTab);
-        waitForContainerViewOpen(coordinator);
+        ViewGroup containerView = waitForContainerViewOpen(coordinator);
+        assertEquals(
+                ChromeColors.getDefaultBgColor(
+                        mFreshCtaTransitTestRule.getActivity(), /* isIncognito= */ true),
+                ((ColorDrawable) containerView.getBackground()).getColor());
         closePanel(incognitoTab);
         waitForContainerViewClose(coordinator);
     }
@@ -730,7 +736,11 @@ public class SidePanelContainerCoordinatorIntegrationTest {
 
         // Act & Assert.
         showPanel(regularTab);
-        waitForContainerViewOpen(coordinator);
+        ViewGroup containerView = waitForContainerViewOpen(coordinator);
+        assertEquals(
+                ChromeColors.getDefaultBgColor(
+                        mFreshCtaTransitTestRule.getActivity(), /* isIncognito= */ false),
+                ((ColorDrawable) containerView.getBackground()).getColor());
         closePanel(regularTab);
         waitForContainerViewClose(coordinator);
     }

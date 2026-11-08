@@ -76,7 +76,6 @@ source_set("impl") {
     "//services/network/public/cpp",
     "//ui/strings:ui_strings",
   ]
-  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
 }
 
 source_set("test_support") {
@@ -135,9 +134,9 @@ source_set("browser_tests") {
     "//chrome/app:generated_resources",
     "//chrome/browser/translate",
     "//chrome/browser/translate:test_support",
-    "//chrome/browser/ui",
     "//chrome/browser/ui:browser_commands",
     "//chrome/browser/ui:browser_element_identifiers",
+    "//chrome/browser/ui:browser_tabstrip",
     "//chrome/browser/ui/browser_window",
     "//chrome/browser/ui/tabs:tab_strip",
     "//chrome/browser/ui/test:test_support",
@@ -171,7 +170,6 @@ source_set("interactive_ui_tests") {
     "//chrome/browser/profiles:profile",
     "//chrome/browser/translate",
     "//chrome/browser/translate:test_support",
-    "//chrome/browser/ui",
     "//chrome/browser/ui:browser_actions",
     "//chrome/browser/ui:browser_commands",
     "//chrome/browser/ui:ui_features",

@@ -16,7 +16,6 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import android.view.ViewGroup;
 import android.widget.FrameLayout;
 
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
@@ -105,7 +104,6 @@ public class TabSwitcherMessageManagerUnitTest {
     @Mock private MessageUpdateObserver mMessageUpdateObserver;
     @Mock private BrowserControlsStateProvider mBrowserControlsStateProvider;
     @Mock private TabContentManager mTabContentManager;
-    @Mock private ViewGroup mRootView;
     @Mock private TabCreator mRegularTabCreator;
     @Mock private BackPressManager mBackPressManager;
     @Mock private OnTabSelectingListener mOnTabSelectingListener;
@@ -173,7 +171,7 @@ public class TabSwitcherMessageManagerUnitTest {
                         mModalDialogManager,
                         mBrowserControlsStateProvider,
                         mTabContentManager,
-                        mRootView,
+                        new FrameLayout(activity),
                         mRegularTabCreator,
                         mBackPressManager,
                         /* desktopWindowStateManager= */ null,

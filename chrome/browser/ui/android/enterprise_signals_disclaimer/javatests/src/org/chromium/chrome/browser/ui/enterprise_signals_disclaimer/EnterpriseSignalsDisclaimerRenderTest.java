@@ -35,6 +35,8 @@ import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.Restriction;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
+import org.chromium.chrome.browser.ui.enterprise_signals_disclaimer.EnterpriseSignalsDisclaimerCoordinator.PresentationMode;
+import org.chromium.chrome.browser.ui.signin.DialogWhenLargeContentLayout;
 import org.chromium.chrome.test.ChromeJUnit4RunnerDelegate;
 import org.chromium.chrome.test.util.ChromeRenderTestRule;
 import org.chromium.chrome.test.util.browser.signin.AccountManagerTestRule;
@@ -42,6 +44,7 @@ import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetControllerFactory;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetTestSupport;
 import org.chromium.components.browser_ui.modaldialog.AppModalPresenter;
+import org.chromium.components.browser_ui.styles.SemanticColorUtils;
 import org.chromium.components.browser_ui.widget.scrim.ScrimManager;
 import org.chromium.components.browser_ui.widget.scrim.ScrimManager.ScrimClient;
 import org.chromium.components.signin.base.AccountInfo;
@@ -82,6 +85,7 @@ public class EnterpriseSignalsDisclaimerRenderTest {
                     .build();
 
     private @Nullable EnterpriseSignalsDisclaimerCoordinator mCoordinator;
+    private @Nullable EnterpriseSignalsDisclaimerHost mHost;
     private @Nullable WindowAndroid mWindowAndroid;
     private @Nullable ViewGroup mContainer;
     private final AccountInfo mAccountInfo;
@@ -124,6 +128,10 @@ public class EnterpriseSignalsDisclaimerRenderTest {
     public void tearDown() {
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
+                    if (mHost != null) {
+                        mHost.destroy();
+                        mHost = null;
+                    }
                     if (mCoordinator != null) {
                         mCoordinator.destroy();
                         mCoordinator = null;
@@ -172,18 +180,15 @@ public class EnterpriseSignalsDisclaimerRenderTest {
                             mContainer.removeAllViews();
                             BottomSheetController controller =
                                     createBottomSheetController(activity, mContainer);
-                            mCoordinator =
-                                    new EnterpriseSignalsDisclaimerCoordinator(
-                                            activity,
+                            EnterpriseSignalsDisclaimerCoordinator coordinator =
+                                    createCoordinator(activity, PresentationMode.BOTTOM_SHEET);
+                            mHost =
+                                    new BottomSheetDisclaimerHost(
                                             controller,
-                                            activity.getModalDialogManager(),
-                                            mAccountManagerTestRule.getIdentityManager(),
-                                            mAccountInfo,
-                                            (url) -> {},
-                                            () -> {},
-                                            new MetricsHelper(),
+                                            coordinator.getView(),
+                                            coordinator::getVerticalScrollOffset,
                                             (dismissalCause) -> {});
-                            mCoordinator.show(MetricsHelper.ShownOn.STARTUP);
+                            mHost.show();
                             return controller;
                         });
         BottomSheetTestSupport.waitForOpen(bottomSheetController);
@@ -207,18 +212,14 @@ public class EnterpriseSignalsDisclaimerRenderTest {
                     mContainer.setLayoutDirection(
                             mUseRtlLayout ? View.LAYOUT_DIRECTION_RTL : View.LAYOUT_DIRECTION_LTR);
                     mContainer.removeAllViews();
-                    mCoordinator =
-                            new EnterpriseSignalsDisclaimerCoordinator(
-                                    activity,
-                                    createBottomSheetController(activity, mContainer),
+                    EnterpriseSignalsDisclaimerCoordinator coordinator =
+                            createCoordinator(activity, PresentationMode.MODAL_DIALOG);
+                    mHost =
+                            new ModalDialogDisclaimerHost(
                                     activity.getModalDialogManager(),
-                                    mAccountManagerTestRule.getIdentityManager(),
-                                    mAccountInfo,
-                                    (url) -> {},
-                                    () -> {},
-                                    new MetricsHelper(),
+                                    coordinator.getView(),
                                     (dismissalCause) -> {});
-                    mCoordinator.show(MetricsHelper.ShownOn.STARTUP);
+                    mHost.show();
                 });
         CriteriaHelper.pollUiThread(() -> activity.getModalDialogManager().isShowing());
         View dialogDecorView =
@@ -234,5 +235,68 @@ public class EnterpriseSignalsDisclaimerRenderTest {
         waitForStableView(dialogDecorView);
         ChromeRenderTestRule.sanitize(dialogDecorView);
         mRenderTestRule.render(dialogDecorView, "modal_dialog");
+    }
+
+    @Test
+    @MediumTest
+    @Feature({"RenderTest"})
+    @Restriction({DeviceFormFactor.PHONE})
+    public void testFreOnPhone() throws IOException {
+        renderFre("fre_phone");
+    }
+
+    @Test
+    @MediumTest
+    @Feature({"RenderTest"})
+    @Restriction({DeviceFormFactor.TABLET_OR_DESKTOP})
+    public void testFreOnLargeFormFactor() throws IOException {
+        renderFre("fre_large_form_factor");
+    }
+
+    private void renderFre(String goldenId) throws IOException {
+        BlankUiTestActivity activity = mActivityTestRule.getActivity();
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    mContainer = activity.findViewById(android.R.id.content);
+                    mContainer.setLayoutDirection(
+                            mUseRtlLayout ? View.LAYOUT_DIRECTION_RTL : View.LAYOUT_DIRECTION_LTR);
+                    mContainer.removeAllViews();
+                    EnterpriseSignalsDisclaimerCoordinator coordinator =
+                            createCoordinator(activity, PresentationMode.FIRST_RUN_EXPERIENCE);
+                    // Mirror FirstRunActivity, which wraps the FRE pages in a DialogWhenLarge
+                    // layout. On large form factors this renders the content as a centered card.
+                    mContainer.addView(
+                            DialogWhenLargeContentLayout.wrapInDialogWhenLargeLayout(
+                                    coordinator.getView(),
+                                    SemanticColorUtils.getColorSurfaceContainerLow(activity)));
+                });
+        waitForVisibleView(withId(R.id.disclaimer_footer));
+        waitForStableView(mContainer);
+        ChromeRenderTestRule.sanitize(mContainer);
+        mRenderTestRule.render(mContainer, goldenId);
+    }
+
+    private EnterpriseSignalsDisclaimerCoordinator createCoordinator(
+            Activity activity, @PresentationMode int presentationMode) {
+        mCoordinator =
+                new EnterpriseSignalsDisclaimerCoordinator(
+                        activity,
+                        mAccountManagerTestRule.getIdentityManager(),
+                        mAccountInfo,
+                        presentationMode,
+                        new EnterpriseSignalsDisclaimerCoordinator.Delegate() {
+                            @Override
+                            public void showInfoPage(String url) {}
+
+                            @Override
+                            public void onAccept() {}
+
+                            @Override
+                            public void onDecline() {}
+
+                            @Override
+                            public void onShown() {}
+                        });
+        return mCoordinator;
     }
 }

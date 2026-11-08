@@ -13,6 +13,8 @@
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/observer_list.h"
+#include "base/time/time.h"
+#include "base/timer/timer.h"
 #include "chrome/browser/ui/read_anything/read_anything_contents_wrapper.h"
 #include "chrome/browser/ui/read_anything/read_anything_enums.h"
 #include "chrome/browser/ui/read_anything/read_anything_hats_survey_controller.h"
@@ -29,6 +31,7 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "content/public/browser/web_contents_user_data.h"
+#include "pdf/buildflags.h"
 #include "ui/base/unowned_user_data/scoped_unowned_user_data.h"
 
 namespace content {
@@ -41,6 +44,16 @@ struct NativeWebKeyboardEvent;
 }  // namespace input
 
 class ReadAnythingController;
+
+#if BUILDFLAG(ENABLE_PDF)
+class GURL;
+
+// Returns `pdf_url` with the `view` open-PDF parameter in its fragment set to
+// "FitH" (fit to width). Any existing `view` parameters are replaced by a
+// single one at the end; all other fragment parameters are preserved. Exposed
+// for testing.
+GURL GetPdfUrlWithFitToWidth(const GURL& pdf_url);
+#endif  // BUILDFLAG(ENABLE_PDF)
 
 // A helper class to observe a specific WebContents, so the ReadAnything
 // Controller can observe multiple WebContents. Event callbacks are configured
@@ -183,8 +196,26 @@ class ReadAnythingController : public tabs::ContentsObservingTabFeature {
 
   void OnDistillationStateChanged(DistillationState new_state);
 
+  void OnAiPlaybackStateChanged(bool enabled);
+
+  static constexpr base::TimeDelta kAiPlaybackIphDefaultDelay =
+      base::Seconds(30);
+
+  // Called when the Reading Mode WebUI reports the result of a distillation
+  // attempt. Coordinates any follow-up work that depends on how Reading Mode
+  // was opened (e.g. triggering a pending PDF translation, or logging omnibox
+  // entry point metrics).
+  void OnDistillationStatus(read_anything::mojom::DistillationStatus status,
+                            int word_count);
+
+  static constexpr int kMaxWordsDistilled = 25000;
+  static constexpr int kWordsDistilledBuckets = 100;
+
   // For testing only. Pauses distillation-related reactions from occurring.
   static void SetFreezeDistillationOnCreationForTesting(bool locked);
+
+  // For testing only. Overrides the delay before showing the AI Playback IPH.
+  static void SetAiPlaybackIphDelayForTesting(base::TimeDelta delay);
 
   // Lazily creates and returns the WebUIContentsWrapper for the
   // Reading Mode WebUI. Transfers ownership of the WebUIContentsWrapper to the
@@ -231,6 +262,8 @@ class ReadAnythingController : public tabs::ContentsObservingTabFeature {
   // ensures that find-in-page (Cmd-F) targets the IRM overlay when it's open,
   // rather than the occluded main WebContents.
   void MaybeUpdateFindBarController();
+
+  void MaybeShowAiPlaybackIph();
 
   std::unique_ptr<WebContentsObserverInstance> ra_web_ui_observer_;
   std::unique_ptr<ReadAnythingOmniboxController> omnibox_controller_;
@@ -315,6 +348,18 @@ class ReadAnythingController : public tabs::ContentsObservingTabFeature {
 
   DistillationState distillation_state_ = DistillationState::kUndefined;
 
+  // Timer for showing the AI Playback IPH promo after the user has used
+  // Reading Mode for at least 30 seconds.
+  base::OneShotTimer ai_playback_iph_timer_;
+
+  // The trigger used the last time Reading Mode was shown. Intentionally not
+  // reset when Reading Mode is hidden, so that a distillation result arriving
+  // after the UI is closed is still attributed to the right entry point.
+  // OnDistillationStatus() resets it to kUnknown after logging the omnibox
+  // distillation metrics, so they are only recorded once per omnibox open.
+  ReadAnythingOpenTrigger last_open_trigger_ =
+      ReadAnythingOpenTrigger::kUnknown;
+
   // The handle returned by web_contents_->IncrementCapturerCount. This is
   // used to release the capture when the ReadAnythingController is destroyed.
   // Note: Do not access this directly. Use CaptureMainContentsAsVisible() and
@@ -323,6 +368,7 @@ class ReadAnythingController : public tabs::ContentsObservingTabFeature {
   base::ScopedClosureRunner main_contents_capturer_handle_;
 
   static bool freeze_distillation_for_testing_;
+  static base::TimeDelta ai_playback_iph_delay_;
 
   base::WeakPtrFactory<ReadAnythingController> weak_factory_{this};
 };

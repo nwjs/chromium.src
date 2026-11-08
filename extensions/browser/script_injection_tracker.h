@@ -29,6 +29,7 @@ class Extension;
 class ExtensionActionRunner;
 class ExtensionWebContentsObserver;
 class UserScriptLoader;
+class PermissionsManager;
 class PermissionsUpdater;
 class RequestContentScript;
 class ScriptExecutor;
@@ -135,9 +136,9 @@ class ScriptInjectionTracker {
                               content::RenderFrameHost* frame,
                               const Extension& extension);
 
-  // Called before a programmatic injection that was previously deferred
-  // (because host access was withheld) is permitted to run as a result of the
-  // user granting the extension access to the page.
+  // Called before a programmatic or declarative injection that was previously
+  // deferred (because host access was withheld) is permitted to run as a result
+  // of the user granting the extension access to the page.
   static void WillExecuteCode(base::PassKey<ExtensionActionRunner> pass_key,
                               mojom::InjectionType script_type,
                               content::RenderFrameHost* frame,
@@ -157,9 +158,17 @@ class ScriptInjectionTracker {
       content::RenderProcessHost& process);
 
   // Called right after the given renderer `process` is notified about
-  // permission updates.
+  // permission updates, including policy host restriction updates.
   static void DidUpdatePermissionsInRenderer(
       base::PassKey<PermissionsUpdater> pass_key,
+      const Extension& extension,
+      content::RenderProcessHost& process);
+
+  // Called right after the given renderer `process` is notified about user
+  // host restriction updates (e.g. the user unrestricting a site), once the
+  // browser-side restrictions have been updated.
+  static void DidUpdatePermissionsInRenderer(
+      base::PassKey<PermissionsManager> pass_key,
       const Extension& extension,
       content::RenderProcessHost& process);
 

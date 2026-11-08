@@ -183,12 +183,12 @@ class TestPaymentsAutofillClient : public PaymentsAutofillClient {
   MockIbanManager* GetIbanManager() override;
   MockIbanAccessManager* GetIbanAccessManager() override;
   MockMerchantPromoCodeManager* GetMerchantPromoCodeManager() override;
-  void OpenPromoCodeOfferDetailsURL(const GURL& url) override;
   AutofillOfferManager* GetAutofillOfferManager() override;
   void UpdateOfferNotification(
       const AutofillOfferData& offer,
       const OfferNotificationOptions& options) override;
   void DismissOfferNotification() override;
+  bool IsTabVisibleForOfferNotification() const override;
   bool ShowTouchToFillCreditCard(
       base::WeakPtr<TouchToFillPaymentMethodDelegate> delegate,
       base::span<const Suggestion> suggestions) override;
@@ -307,6 +307,13 @@ class TestPaymentsAutofillClient : public PaymentsAutofillClient {
     return autofill_progress_dialog_shown_;
   }
 
+  // Simulates the user cancelling the autofill progress dialog by running the
+  // `cancel_callback` that was passed to ShowAutofillProgressDialog().
+  void CancelAutofillProgressDialog() {
+    CHECK(autofill_progress_dialog_cancel_callback_);
+    std::move(autofill_progress_dialog_cancel_callback_).Run();
+  }
+
   void set_payments_network_interface(
       std::unique_ptr<PaymentsNetworkInterface> payments_network_interface) {
     payments_network_interface_ = std::move(payments_network_interface);
@@ -390,6 +397,10 @@ class TestPaymentsAutofillClient : public PaymentsAutofillClient {
     autofill_offer_manager_ = std::move(autofill_offer_manager);
   }
 
+  void set_is_tab_visible_for_offer_notification(bool visible) {
+    is_tab_visible_for_offer_notification_ = visible;
+  }
+
   void set_merchant_promo_code_manager(
       std::unique_ptr<MockMerchantPromoCodeManager>
           mock_merchant_promo_code_manager) {
@@ -424,6 +435,8 @@ class TestPaymentsAutofillClient : public PaymentsAutofillClient {
       multiple_request_payments_network_interface_;
 
   bool autofill_progress_dialog_shown_ = false;
+
+  base::OnceClosure autofill_progress_dialog_cancel_callback_;
 
   bool autofill_error_dialog_shown_ = false;
 
@@ -502,6 +515,7 @@ class TestPaymentsAutofillClient : public PaymentsAutofillClient {
   std::unique_ptr<MockMerchantPromoCodeManager>
       mock_merchant_promo_code_manager_;
   std::unique_ptr<AutofillOfferManager> autofill_offer_manager_;
+  bool is_tab_visible_for_offer_notification_ = true;
   std::unique_ptr<MockMandatoryReauthManager>
       mock_payments_mandatory_reauth_manager_;
 

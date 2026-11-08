@@ -10,11 +10,13 @@ import android.graphics.drawable.Drawable;
 import android.view.View;
 import android.view.ViewGroup;
 
+import androidx.annotation.DrawableRes;
 import androidx.annotation.StyleRes;
 
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.ntp.NewTabPageUtils;
+import org.chromium.chrome.browser.ntp.NewTabPageUtils.ActionChips;
 import org.chromium.chrome.browser.util.BrowserUiUtils.ModuleTypeOnStartAndNtp;
 import org.chromium.components.search_engines.AiModeButtonUiConfig;
 import org.chromium.ui.modelutil.PropertyModel;
@@ -25,21 +27,36 @@ import org.chromium.ui.modelutil.PropertyModelChangeProcessor;
 public class ComposeplateCoordinator {
     private final PropertyModel mModel;
     private final ComposeplateView mView;
+    private final boolean mIsLff;
+
+    /**
+     * The {@link ActionChips} type of the optional button, used to record its impression metrics.
+     * Null until the optional button's click listener is set.
+     */
+    private @Nullable @ActionChips Integer mOptionalButtonType;
 
     /**
      * Constructs a new ComposeplateCoordinator.
      *
      * @param parentView The parent {@link ViewGroup} for the composeplate.
+     * @param isLff Whether the device is a large form factor.
      */
-    public ComposeplateCoordinator(ViewGroup parentView) {
-        mModel = new PropertyModel(ComposeplateProperties.ALL_KEYS);
+    public ComposeplateCoordinator(ViewGroup parentView, boolean isLff) {
+        mIsLff = isLff;
+        mModel =
+                new PropertyModel.Builder(ComposeplateProperties.ALL_KEYS)
+                        .with(ComposeplateProperties.IS_LFF, isLff)
+                        .build();
         mView = parentView.findViewById(R.id.composeplate_view);
         PropertyModelChangeProcessor.create(mModel, mView, ComposeplateViewBinder::bind);
         maybeRevertToLegacyLayout();
     }
 
     private void maybeRevertToLegacyLayout() {
-        if (NewTabPageUtils.isNtpAuroraButtonColorEnabled()) {
+        // Early return for isBesideMvtModuleEnabled to avoid modifying the AI Mode section beside
+        // the MVT.
+        if (NewTabPageUtils.isNtpAuroraButtonColorEnabled()
+                || NewTabPageUtils.isBesideMvtModuleEnabled()) {
             return;
         }
 
@@ -73,6 +90,22 @@ public class ComposeplateCoordinator {
         }
 
         mModel.set(ComposeplateProperties.IS_VISIBLE, visible);
+    }
+
+    /**
+     * Records an impression for each visible button on the composeplate: the AI Mode button, the
+     * incognito button and, if shown, the optional button. Nothing is recorded if the composeplate
+     * isn't visible. Should only be called when the New Tab Page is shown to the user.
+     */
+    public void recordButtonsImpression() {
+        if (!mModel.get(ComposeplateProperties.IS_VISIBLE)) return;
+
+        ComposeplateMetricsUtils.recordComposeplateButtonImpression(ActionChips.DEFAULT);
+        ComposeplateMetricsUtils.recordComposeplateButtonImpression(ActionChips.INCOGNITO);
+        if (mOptionalButtonType != null
+                && mModel.get(ComposeplateProperties.IS_OPTIONAL_BUTTON_VISIBLE)) {
+            ComposeplateMetricsUtils.recordComposeplateButtonImpression(mOptionalButtonType);
+        }
     }
 
     /**
@@ -158,6 +191,105 @@ public class ComposeplateCoordinator {
     public void destroy() {
         mModel.set(ComposeplateProperties.INCOGNITO_CLICK_LISTENER, null);
         mModel.set(ComposeplateProperties.COMPOSEPLATE_BUTTON_CLICK_LISTENER, null);
+        mModel.set(ComposeplateProperties.OPTIONAL_BUTTON_CLICK_LISTENER, null);
+    }
+
+    /**
+     * Sets the visibility of the optional button.
+     *
+     * @param visible Whether the optional button should be visible.
+     */
+    public void setOptionalButtonVisibility(boolean visible) {
+        mModel.set(ComposeplateProperties.IS_OPTIONAL_BUTTON_VISIBLE, visible);
+        // On mobiles, the incognito button is icon-only when the optional button is visible.
+        mModel.set(ComposeplateProperties.IS_INCOGNITO_BUTTON_TEXT_VISIBLE, !visible || mIsLff);
+        updateButtonSpacing(visible);
+    }
+
+    /**
+     * Called when the display style changes, e.g. on screen rotation. Re-applies the button
+     * spacing, since the dimensions may differ between configurations.
+     */
+    public void onDisplayStyleChanged() {
+        boolean isOptionalButtonVisible =
+                mModel.get(ComposeplateProperties.IS_OPTIONAL_BUTTON_VISIBLE);
+        if (!isOptionalButtonVisible) return;
+
+        updateButtonSpacing(isOptionalButtonVisible);
+    }
+
+    /**
+     * Updates the lateral paddings and end margins of the buttons based on whether the optional
+     * button is visible.
+     *
+     * @param isOptionalButtonVisible Whether the optional button is visible.
+     */
+    private void updateButtonSpacing(boolean isOptionalButtonVisible) {
+        // Always read the dimensions from the current resources instead of caching them, since
+        // the activity isn't recreated on configuration changes and wide windows (w600dp) have
+        // different values. This ensures fresh values are applied after the screen rotates or
+        // the window is resized, e.g., when entering or leaving split-screen mode.
+        Resources res = mView.getResources();
+        int defaultSpacing = res.getDimensionPixelSize(R.dimen.composeplate_view_button_margin);
+        int optionalButtonPadding = defaultSpacing;
+        int optionalButtonMarginEnd = defaultSpacing;
+        if (isOptionalButtonVisible) {
+            optionalButtonPadding =
+                    res.getDimensionPixelSize(R.dimen.composeplate_view_optional_button_padding);
+            optionalButtonMarginEnd =
+                    res.getDimensionPixelSize(R.dimen.composeplate_view_optional_button_margin);
+        }
+
+        mModel.set(ComposeplateProperties.OPTIONAL_BUTTON_LATERAL_PADDING, optionalButtonPadding);
+        mModel.set(ComposeplateProperties.OPTIONAL_BUTTON_MARGIN_END, optionalButtonMarginEnd);
+    }
+
+    /**
+     * Sets the icon of the optional button.
+     *
+     * @param iconResId The resource id of the icon drawable to show on the optional button.
+     */
+    public void setOptionalButtonIcon(@DrawableRes int iconResId) {
+        mModel.set(ComposeplateProperties.OPTIONAL_BUTTON_ICON_RES_ID, iconResId);
+    }
+
+    /**
+     * Sets the click listener for the optional button.
+     *
+     * @param optionalButtonClickListener The click listener for the optional button.
+     * @param actionChipsType The {@link ActionChips} type shown on the optional button, used to
+     *     record the click metric. Must be {@link ActionChips#CREATE_IMAGE} or {@link
+     *     ActionChips#GALLERY}.
+     */
+    public void setOptionalButtonClickListener(
+            View.OnClickListener optionalButtonClickListener, @ActionChips int actionChipsType) {
+        mOptionalButtonType = actionChipsType;
+        mModel.set(
+                ComposeplateProperties.OPTIONAL_BUTTON_CLICK_LISTENER,
+                createEnhancedClickListener(
+                        optionalButtonClickListener, getModuleTypeForActionChips(actionChipsType)));
+    }
+
+    private static @ModuleTypeOnStartAndNtp int getModuleTypeForActionChips(
+            @ActionChips int actionChipsType) {
+        return switch (actionChipsType) {
+            case ActionChips.CREATE_IMAGE ->
+                    ModuleTypeOnStartAndNtp.COMPOSEPLATE_VIEW_CREATE_IMAGE_BUTTON;
+            case ActionChips.GALLERY -> ModuleTypeOnStartAndNtp.COMPOSEPLATE_VIEW_GALLERY_BUTTON;
+            default ->
+                    throw new IllegalArgumentException(
+                            "Unsupported action chips type: " + actionChipsType);
+        };
+    }
+
+    /**
+     * Sets the text of the optional button. It is shown on large form factors, and is always used
+     * as the content description of the button.
+     *
+     * @param text The text of the optional button.
+     */
+    public void setOptionalButtonText(@Nullable String text) {
+        mModel.set(ComposeplateProperties.OPTIONAL_BUTTON_TEXT, text);
     }
 
     public void applyWhiteBackground(boolean apply) {

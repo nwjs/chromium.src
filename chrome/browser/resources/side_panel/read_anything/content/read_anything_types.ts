@@ -37,6 +37,14 @@ export interface ContentPosition {
   source: ContentPositionSource;
 }
 
+// A selection whose endpoints are identified by AXNodeIDs and offsets.
+export interface SelectionWithIds {
+  anchorNodeId?: number;
+  anchorOffset: number;
+  focusNodeId?: number;
+  focusOffset: number;
+}
+
 export enum LineFocusType {
   NONE = 0,
   LINE = 1,
@@ -184,29 +192,6 @@ export enum SettingsOption {
   VOICE_HIGHLIGHT = 'voice-highlight',
   VOICE_SELECTION = 'voice-selection',
 }
-
-// The user settings stored in preferences and restored on re-opening Reading
-// mode. Used to set the initial values for the toolbar buttons and menus.
-export interface SettingsPrefs {
-  letterSpacing: number;
-  lineSpacing: number;
-  theme: number;
-  speechRate: number;
-  font: string;
-  highlightGranularity: number;
-  linksEnabled: boolean;
-  imagesEnabled: boolean;
-}
-export const DEFAULT_SETTINGS: SettingsPrefs = {
-  letterSpacing: 0,
-  lineSpacing: 0,
-  theme: 0,
-  speechRate: 0,
-  font: '',
-  highlightGranularity: 0,
-  linksEnabled: false,
-  imagesEnabled: false,
-};
 
 export interface ShowAtConfigPrefs {
   anchorAlignmentX?: AnchorAlignment;

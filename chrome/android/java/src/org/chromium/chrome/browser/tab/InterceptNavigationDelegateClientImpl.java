@@ -136,11 +136,10 @@ public class InterceptNavigationDelegateClientImpl implements InterceptNavigatio
             } else {
                 chromeActivity
                         .getTabModelSelector()
-                        .tryCloseTab(
+                        .closeTab(
                                 TabClosureParams.closeTab(mTab)
                                         .allowUndo(/* allowUndo= */ false)
-                                        .build(),
-                                /* allowDialog= */ false);
+                                        .build());
             }
         }
     }

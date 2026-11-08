@@ -161,7 +161,6 @@ class CORE_EXPORT ExecutionContext : public Supplementable<ExecutionContext>,
   virtual bool IsPaintWorkletGlobalScope() const { return false; }
   virtual bool IsThreadedWorkletGlobalScope() const { return false; }
   virtual bool IsShadowRealmGlobalScope() const { return false; }
-  virtual bool IsSharedStorageWorkletGlobalScope() const { return false; }
   virtual bool IsJSExecutionForbidden() const { return false; }
 
   // Notifies the execution context that new web socket activity (such as
@@ -541,6 +540,7 @@ class CORE_EXPORT ExecutionContext : public Supplementable<ExecutionContext>,
   unsigned circular_sequential_id_;
 
   bool in_dispatch_error_event_;
+  bool is_draining_pending_exceptions_ = false;
   HeapVector<Member<ErrorEvent> > pending_exceptions_;
 
   mojom::FrameLifecycleState lifecycle_state_;

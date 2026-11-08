@@ -13,10 +13,6 @@
 #include "ui/base/interaction/element_identifier.h"
 #include "ui/menus/simple_menu_model.h"
 
-namespace send_tab_to_self {
-class SendTabToSelfContextMenuDelegate;
-}
-
 #if BUILDFLAG(ENABLE_EXTENSIONS)
 namespace extensions {
 class ContextMenuMatcher;
@@ -82,8 +78,7 @@ class TabMenuModel : public ui::SimpleMenuModel {
  private:
   void Build(int index);
   void BuildForWebApp(int index);
-  void BuildSendTabToSelfSubmenu(int index, const std::vector<int>& indices);
-  void BuildLegacySendTabToSelfItem();
+  void BuildSendTabToSelfItem(int index, const std::vector<int>& indices);
   void AppendGlicItems(int index,
                        int num_tabs,
                        const std::vector<int>& indices);
@@ -103,10 +98,9 @@ class TabMenuModel : public ui::SimpleMenuModel {
   std::unique_ptr<ui::SimpleMenuModel> swap_with_split_submenu_;
   std::unique_ptr<ui::SimpleMenuModel> split_layout_submenu_;
   std::unique_ptr<ui::SimpleMenuModel> arrange_split_view_submenu_;
+  std::unique_ptr<ui::SimpleMenuModel> split_mute_submenu_;
   std::unique_ptr<ui::SimpleMenuModel> glic_tab_sub_menu_model_;
   std::unique_ptr<ui::SimpleMenuModel> send_tab_to_self_submenu_;
-  std::unique_ptr<send_tab_to_self::SendTabToSelfContextMenuDelegate>
-      send_tab_to_self_submenu_delegate_;
 
   // `tab_strip_` needs to outlive this class.
   raw_ptr<TabStripModel> tab_strip_;

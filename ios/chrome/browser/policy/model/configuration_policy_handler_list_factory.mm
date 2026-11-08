@@ -18,6 +18,7 @@
 #import "components/content_settings/core/common/pref_names.h"
 #import "components/contextual_search/pref_names.h"
 #import "components/contextual_search/search_content_sharing_policy_handler.h"
+#import "components/enterprise/browser/controller/chrome_browser_cloud_management_controller.h"
 #import "components/enterprise/browser/data_region/data_region_policy_handler.h"
 #import "components/enterprise/browser/reporting/cloud_profile_reporting_policy_handler.h"
 #import "components/enterprise/browser/reporting/cloud_reporting_frequency_policy_handler.h"
@@ -219,7 +220,8 @@ std::unique_ptr<policy::ConfigurationPolicyHandlerList> BuildPolicyHandlerList(
       std::make_unique<policy::ConfigurationPolicyHandlerList>(
           base::BindRepeating(&PopulatePolicyHandlerParameters),
           base::BindRepeating(&policy::GetChromePolicyDetails),
-          are_future_policies_allowed_by_default);
+          are_future_policies_allowed_by_default,
+          policy::ChromeBrowserCloudManagementController::IsEnabled());
 
   for (const PolicyToPreferenceMapEntry& entry : kSimplePolicyMap) {
     handlers->AddHandler(std::make_unique<SimplePolicyHandler>(
@@ -269,7 +271,26 @@ std::unique_ptr<policy::ConfigurationPolicyHandlerList> BuildPolicyHandlerList(
       std::make_unique<policy::SimpleSchemaValidatingPolicyHandler>(
           policy::key::kAutofillSettings,
           autofill::prefs::kAutofillTypesBlocked, chrome_schema,
-          policy::SchemaOnErrorStrategy::SCHEMA_ALLOW_UNKNOWN,
+          policy::SchemaOnErrorStrategy::
+              SCHEMA_ALLOW_UNKNOWN_AND_INVALID_LIST_ENTRY,
+          policy::SimpleSchemaValidatingPolicyHandler::RECOMMENDED_PROHIBITED,
+          policy::SimpleSchemaValidatingPolicyHandler::MANDATORY_ALLOWED));
+
+  handlers->AddHandler(std::make_unique<policy::CloudUserOnlyPolicyChecker>(
+      std::make_unique<policy::SimpleSchemaValidatingPolicyHandler>(
+          policy::key::kManagedClientCertificateForUserConfig,
+          client_certificates::prefs::
+              kManagedClientCertificateForUserConfigPrefs,
+          chrome_schema, policy::SchemaOnErrorStrategy::SCHEMA_ALLOW_UNKNOWN,
+          policy::SimpleSchemaValidatingPolicyHandler::RECOMMENDED_PROHIBITED,
+          policy::SimpleSchemaValidatingPolicyHandler::MANDATORY_ALLOWED)));
+
+  handlers->AddHandler(
+      std::make_unique<policy::SimpleSchemaValidatingPolicyHandler>(
+          policy::key::kManagedClientCertificateForBrowserConfig,
+          client_certificates::prefs::
+              kManagedClientCertificateForBrowserConfigPrefs,
+          chrome_schema, policy::SchemaOnErrorStrategy::SCHEMA_ALLOW_UNKNOWN,
           policy::SimpleSchemaValidatingPolicyHandler::RECOMMENDED_PROHIBITED,
           policy::SimpleSchemaValidatingPolicyHandler::MANDATORY_ALLOWED));
 

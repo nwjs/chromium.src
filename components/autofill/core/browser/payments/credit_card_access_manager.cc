@@ -18,12 +18,14 @@
 #include "base/check.h"
 #include "base/check_deref.h"
 #include "base/check_op.h"
+#include "base/command_line.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_forward.h"
 #include "base/functional/callback_helpers.h"
 #include "base/location.h"
 #include "base/notreached.h"
+#include "base/strings/utf_string_conversions.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/time/time.h"
 #include "base/values.h"
@@ -47,6 +49,7 @@
 #include "components/autofill/core/browser/payments/credit_card_risk_based_authenticator.h"
 #include "components/autofill/core/browser/payments/full_card_request.h"
 #include "components/autofill/core/browser/payments/mandatory_reauth_manager.h"
+#include "components/autofill/core/browser/payments/multiple_request_payments_network_interface.h"
 #include "components/autofill/core/browser/payments/payments_autofill_client.h"
 #include "components/autofill/core/browser/payments/payments_network_interface.h"
 #include "components/autofill/core/browser/payments/payments_request_details.h"
@@ -80,13 +83,27 @@ using Result =
 using ServerCardUnmaskFlowType = autofill_metrics::ServerCardUnmaskFlowType;
 using ServerCardUnmaskResult = autofill_metrics::ServerCardUnmaskResult;
 
-// Timeout to wait for unmask details from Google Payments.
-constexpr auto kUnmaskDetailsResponseTimeout = base::Seconds(3);
 // Time to wait between multiple calls to GetUnmaskDetails().
 constexpr auto kDelayForGetUnmaskDetails = base::Minutes(3);
 
 // Suffix for server IDs in the cache indicating that a card is a virtual card.
 constexpr char kVirtualCardIdentifier[] = "_vcn";
+
+// Command line switch that, when set, makes RetrieveCreditCardForOpaqueToken
+// return a mock card without communicating with a server.
+constexpr char kUseMockOpaqueTokenCardSwitch[] = "use-mock-opaque-token-card";
+
+// Returns whether card-on-device verification is enforced for server card
+// unmasking. Always false on iOS, which never issues the GetUnmaskDetails()
+// preflight call that the enforcement depends on.
+bool IsCardOnDeviceVerificationEnforced() {
+#if BUILDFLAG(IS_IOS)
+  return false;
+#else
+  return base::FeatureList::IsEnabled(
+      features::kAutofillEnableCardOnDeviceVerificationEnforcement);
+#endif
+}
 
 bool IsEligibleForCardInfoRetrievalAuthentication(
     const CreditCard& card,
@@ -108,6 +125,33 @@ bool IsEligibleForCardInfoRetrievalAuthentication(
   }
 
   return true;
+}
+
+// Creates the card returned by RetrieveCreditCardForOpaqueToken().
+CreditCard CreateCardFromGetDataForAgentResponse(
+    const payments::GetDataForAgentResponseDetails& response_details) {
+  // FetchCreditCard() can fill a `CreditCard::RecordType::kLocalCard` without
+  // an unmasking flow.
+  CreditCard card;
+  card.set_record_type(CreditCard::RecordType::kLocalCard);
+  card.SetNumber(base::UTF8ToUTF16(response_details.card_number));
+  card.SetExpirationMonth(response_details.expiration_month);
+  card.SetExpirationYear(response_details.expiration_year);
+  card.set_cvc(base::UTF8ToUTF16(response_details.cvc));
+  return card;
+}
+
+void OnDidGetDataForAgent(
+    CreditCardAccessManager::OnCreditCardRetrievedForOpaqueTokenCallback
+        callback,
+    PaymentsRpcResult result,
+    const payments::GetDataForAgentResponseDetails& response_details) {
+  if (result != PaymentsRpcResult::kSuccess) {
+    std::move(callback).Run(std::nullopt);
+    return;
+  }
+  std::move(callback).Run(
+      CreateCardFromGetDataForAgentResponse(response_details));
 }
 
 }  // namespace
@@ -338,7 +382,11 @@ void CreditCardAccessManager::OnDidGetUnmaskDetails(
 
 void CreditCardAccessManager::FetchCreditCard(
     const CreditCard* card,
+    bool require_user_confirmation,
     OnCreditCardFetchedCallback on_credit_card_fetched) {
+  // TODO(crbug.com/561395976): Run additional authentication if
+  // `require_user_confirmation` and no authentication is triggered for the
+  // user.
   auto* form_data_importer = autofill_client().GetFormDataImporter();
   CHECK(form_data_importer);
   form_data_importer->GetPaymentsFormDataImporter()
@@ -420,6 +468,44 @@ void CreditCardAccessManager::FetchCreditCard(
       // card should flow through the cache and not reach here.
       NOTREACHED();
   }
+}
+
+void CreditCardAccessManager::RetrieveCreditCardForOpaqueToken(
+    const std::string& credit_card_opaque_token,
+    OnCreditCardRetrievedForOpaqueTokenCallback callback) {
+  if (base::CommandLine::ForCurrentProcess()->HasSwitch(
+          kUseMockOpaqueTokenCardSwitch)) {
+    CreditCard dummy_card;
+    dummy_card.set_record_type(CreditCard::RecordType::kLocalCard);
+    dummy_card.SetRawInfo(CREDIT_CARD_NAME_FULL, u"Elisa Beckett");
+    dummy_card.SetRawInfo(CREDIT_CARD_NUMBER, u"4111111111111111");
+    dummy_card.SetRawInfo(CREDIT_CARD_EXP_MONTH, u"12");
+    dummy_card.SetRawInfo(CREDIT_CARD_EXP_4_DIGIT_YEAR, u"2028");
+    dummy_card.SetNickname(u"Elisa's Card");
+    dummy_card.set_cvc(u"123");
+
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE, base::BindOnce(std::move(callback), std::move(dummy_card)));
+    return;
+  }
+
+  payments::MultipleRequestPaymentsNetworkInterface* network_interface =
+      payments_autofill_client().GetMultipleRequestPaymentsNetworkInterface();
+  if (credit_card_opaque_token.empty() || !network_interface) {
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE, base::BindOnce(std::move(callback), std::nullopt));
+    return;
+  }
+
+  payments::GetDataForAgentRequestDetails request_details;
+  request_details.opaque_token = credit_card_opaque_token;
+  request_details.app_locale = payments_data_manager().app_locale();
+  // The token is single use, so a failed request is not retried. The response
+  // handler does not depend on `this`, so that `callback` is run even if
+  // `this` is destroyed while the request is in flight.
+  network_interface->GetDataForAgent(
+      request_details,
+      base::BindOnce(&OnDidGetDataForAgent, std::move(callback)));
 }
 
 bool CreditCardAccessManager::IsMaskedServerCardRiskBasedAuthAvailable() const {
@@ -1198,6 +1284,38 @@ std::string CreditCardAccessManager::GetKeyForUnmaskedCardsCache(
   return key;
 }
 
+bool CreditCardAccessManager::ShouldWaitForPreflightCallResponse(
+    bool get_unmask_details_returned,
+    bool risk_based_auth_available) {
+  // The response is already available, so there is nothing to wait for.
+  if (get_unmask_details_returned) {
+    return false;
+  }
+
+  if (!risk_based_auth_available) {
+    // The unmask details are only needed by the FIDO flow.
+    return IsUserOptedInToFidoAuth();
+  }
+
+  // The risk-based authentication only blocks on the unmask details once
+  // card-on-device verification is enforced; before that it starts
+  // authenticating immediately and does not need to wait.
+  if (!IsCardOnDeviceVerificationEnforced()) {
+    return false;
+  }
+
+  // Card-on-device verification requires the unmask details before any
+  // authentication starts, but a response can only arrive if
+  // GetUnmaskDetailsIfUserIsVerifiable() issued a call, or is about to once the
+  // CreditCardFidoAuthenticator::IsUserVerifiable() call that precedes it
+  // resolves. Otherwise waiting could only ever end in a timeout.
+  const bool is_user_verifiable_call_in_progress =
+      !is_user_verifiable_.has_value() &&
+      is_user_verifiable_called_timestamp_.has_value();
+  return unmask_details_request_in_progress_ ||
+         is_user_verifiable_call_in_progress;
+}
+
 void CreditCardAccessManager::FetchMaskedServerCard() {
   is_authentication_in_progress_ = true;
 
@@ -1206,46 +1324,63 @@ void CreditCardAccessManager::FetchMaskedServerCard() {
   const bool risk_based_auth_available =
       IsMaskedServerCardRiskBasedAuthAvailable();
 
-  if (risk_based_auth_available) {
-    // Preflight call response time metrics should only be logged if the user is
-    // verifiable.
+  const bool should_wait_for_preflight = ShouldWaitForPreflightCallResponse(
+      get_unmask_details_returned, risk_based_auth_available);
+
+  // These metrics describe the state of the preflight call at the time the card
+  // was chosen, so they are logged before the wait rather than after it.
+  // Preflight call metrics should only be logged if the user is verifiable.
 #if !BUILDFLAG(IS_IOS)
-    if (is_user_verifiable_.value_or(false)) {
+  if (is_user_verifiable_.value_or(false)) {
+    const autofill_metrics::PreflightCallEvent preflight_call_event =
+        get_unmask_details_returned
+            ? autofill_metrics::PreflightCallEvent::
+                  kPreflightCallReturnedBeforeCardChosen
+            : autofill_metrics::PreflightCallEvent::
+                  kCardChosenBeforePreflightCallReturned;
+    const bool is_user_opted_in =
+        GetOrCreateFidoAuthenticator()->IsUserOptedIn();
+
+    if (risk_based_auth_available) {
       autofill_metrics::LogPreflightCallResponseReceivedOnCardSelection(
-          get_unmask_details_returned
-              ? autofill_metrics::PreflightCallEvent::
-                    kPreflightCallReturnedBeforeCardChosen
-              : autofill_metrics::PreflightCallEvent::
-                    kCardChosenBeforePreflightCallReturned,
-          GetOrCreateFidoAuthenticator()->IsUserOptedIn(),
+          preflight_call_event, is_user_opted_in,
           CreditCard::RecordType::kMaskedServerCard);
     }
+
+    // `UserPerceivedLatencyOnCardSelection` records whether the user had to
+    // wait for the preflight call response after choosing a card. It has to be
+    // logged whenever the flow can block on that response, so that it stays
+    // paired with the `.Duration` histogram (and `.TimedOutCvcFallback` for
+    // legacy flows) that OnStopWaitingForUnmaskDetails() emits. The risk-based
+    // flow only blocks once card-on-device verification is enforced; before
+    // that it starts authenticating immediately.
+    if (!risk_based_auth_available || IsCardOnDeviceVerificationEnforced()) {
+      autofill_metrics::LogUserPerceivedLatencyOnCardSelection(
+          preflight_call_event, is_user_opted_in);
+    }
+  }
 #endif
 
+  if (risk_based_auth_available) {
+    // The progress dialog covers both the wait for the preflight call response
+    // and the risk-based authentication that follows it.
+    waiting_for_preflight_call_response_ = should_wait_for_preflight;
     payments_autofill_client().ShowAutofillProgressDialog(
         card_->card_info_retrieval_enrollment_state() ==
                 CreditCard::CardInfoRetrievalEnrollmentState::kRetrievalEnrolled
             ? AutofillProgressUiType::kCardInfoRetrievalEnrolledUnmaskProgressUi
             : AutofillProgressUiType::kServerCardUnmaskProgressUi,
-        /*cancel_callback=*/base::BindOnce(
-            &CreditCardRiskBasedAuthenticator::OnUnmaskCancelled,
-            payments_autofill_client()
-                .GetRiskBasedAuthenticator()
-                ->AsWeakPtr()));
+        /*cancel_callback=*/
+        should_wait_for_preflight
+            ? base::BindOnce(
+                  &CreditCardAccessManager::OnMaskedServerCardUnmaskCancelled,
+                  GetWeakPtr())
+            : base::BindOnce(
+                  &CreditCardRiskBasedAuthenticator::OnUnmaskCancelled,
+                  payments_autofill_client()
+                      .GetRiskBasedAuthenticator()
+                      ->AsWeakPtr()));
   } else {
-    // Latency metrics should only be logged if the user is verifiable.
-#if !BUILDFLAG(IS_IOS)
-    if (is_user_verifiable_.value_or(false)) {
-      autofill_metrics::LogUserPerceivedLatencyOnCardSelection(
-          get_unmask_details_returned
-              ? autofill_metrics::PreflightCallEvent::
-                    kPreflightCallReturnedBeforeCardChosen
-              : autofill_metrics::PreflightCallEvent::
-                    kCardChosenBeforePreflightCallReturned,
-          GetOrCreateFidoAuthenticator()->IsUserOptedIn());
-    }
-#endif
-
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
     // On desktop, show the verify pending dialog for opted-in user, unless it
     // is already known that selected card requires CVC.
@@ -1255,12 +1390,6 @@ void CreditCardAccessManager::FetchMaskedServerCard() {
     }
 #endif
   }
-
-  // The unmask details are only needed by the FIDO flow, which is not reached
-  // when the risk-based authentication is available.
-  const bool should_wait_for_preflight = !get_unmask_details_returned &&
-                                         !risk_based_auth_available &&
-                                         IsUserOptedInToFidoAuth();
 
   if (should_wait_for_preflight) {
     card_selected_without_unmask_details_timestamp_ = base::TimeTicks::Now();
@@ -1280,6 +1409,8 @@ void CreditCardAccessManager::FetchMaskedServerCard() {
 
 void CreditCardAccessManager::AuthenticateForMaskedServerCard(
     bool get_unmask_details_returned) {
+  waiting_for_preflight_call_response_ = false;
+
   if (IsMaskedServerCardRiskBasedAuthAvailable()) {
     // Risk-based authentication is handled in CreditCardRiskBasedAuthenticator.
     // Further delegation will be handled in
@@ -1522,13 +1653,43 @@ void CreditCardAccessManager::OnStopWaitingForUnmaskDetails(
     autofill_metrics::LogUserPerceivedLatencyOnCardSelectionDuration(
         base::TimeTicks::Now() -
         card_selected_without_unmask_details_timestamp_.value());
-    autofill_metrics::LogUserPerceivedLatencyOnCardSelectionTimedOut(
-        /*did_time_out=*/!get_unmask_details_returned);
+    // TODO(crbug.com/553156099): Add logging for risk-based flow when user
+    // perceives latency to start the risk based authentication.
+    if (!IsMaskedServerCardRiskBasedAuthAvailable()) {
+      autofill_metrics::LogUserPerceivedLatencyOnCardSelectionTimedOut(
+          /*did_time_out=*/!get_unmask_details_returned);
+    }
     card_selected_without_unmask_details_timestamp_ = std::nullopt;
   }
 
   // Start the authentication after the wait ends.
   AuthenticateForMaskedServerCard(get_unmask_details_returned);
+}
+
+void CreditCardAccessManager::OnMaskedServerCardUnmaskCancelled() {
+  if (!waiting_for_preflight_call_response_) {
+    // The risk-based authenticator has already taken over the flow, so let it
+    // handle the cancellation. It notifies `this` back through
+    // OnRiskBasedAuthenticationResponseReceived(), which will log metrics and
+    // reset state.
+    payments_autofill_client().GetRiskBasedAuthenticator()->OnUnmaskCancelled();
+    return;
+  }
+
+  // The user cancelled while waiting for the preflight call response, before
+  // the risk-based authenticator was involved, so tear the flow down here.
+  // `Reset()` invalidates weak pointers and resets
+  // `ready_to_start_authentication_`, so the pending
+  // OnStopWaitingForUnmaskDetails() callback will not run.
+  waiting_for_preflight_call_response_ = false;
+  autofill_metrics::LogServerCardUnmaskResult(
+      ServerCardUnmaskResult::kFlowCancelled, card_->record_type(),
+      ServerCardUnmaskFlowType::kRiskBased);
+  if (card_->IsEnrolledInCardInfoRetrieval()) {
+    autofill_metrics::LogCardInfoRetrievalEnrolledUnmaskResult(
+        CardInfoRetrievalEnrolledUnmaskResult::kFlowCancelled);
+  }
+  Reset();
 }
 
 void CreditCardAccessManager::OnUserAcceptedAuthenticationSelectionDialog(
@@ -1629,6 +1790,7 @@ void CreditCardAccessManager::Reset() {
   ready_to_start_authentication_.Reset();
   can_fetch_unmask_details_ = true;
   unmask_details_request_in_progress_ = false;
+  waiting_for_preflight_call_response_ = false;
 
   // If the success callback was never called, then there must have been an
   // error.
@@ -1710,6 +1872,11 @@ void CreditCardAccessManager::StartDeviceAuthenticationForFilling(
         authentication_method,
         autofill_metrics::MandatoryReauthAuthenticationFlowEvent::kFlowSkipped);
     OnCreditCardFetched(*card, /*card_was_fetched_from_cache=*/false);
+    // `is_authentication_in_progress_` was set above and would otherwise stay
+    // true, causing `FetchCreditCard()` to early-return on every subsequent
+    // fetch. Mirrors the reset in `OnDeviceAuthenticationResponseForFilling()`.
+    // `card` must not be used after this point, as it may point to `card_`.
+    Reset();
     return;
   }
 

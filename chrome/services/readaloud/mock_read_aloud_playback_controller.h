@@ -65,6 +65,11 @@ class MockReadAloudPlaybackController
               SetTextContent,
               (std::vector<read_aloud::mojom::TextSegmentPtr> segments),
               (override));
+  MOCK_METHOD(void,
+              SetOverviewContent,
+              (mojo_base::BigBuffer response_bytes,
+               SetOverviewContentCallback callback),
+              (override));
   MOCK_METHOD(void, Play, (), (override));
   MOCK_METHOD(void, Pause, (), (override));
   MOCK_METHOD(void,
@@ -79,6 +84,8 @@ class MockReadAloudPlaybackController
   // Default fake implementation methods invoked by ON_CALL:
   void DefaultSetTextContent(
       std::vector<read_aloud::mojom::TextSegmentPtr> segments);
+  void DefaultSetOverviewContent(mojo_base::BigBuffer response_bytes,
+                                 SetOverviewContentCallback callback);
   void DefaultPlay();
   void DefaultPause();
   void DefaultSeekToWord(uint32_t segment_index, uint32_t character_offset);

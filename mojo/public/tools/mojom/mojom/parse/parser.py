@@ -4,10 +4,6 @@
 """Generates a syntax tree from a Mojo IDL file."""
 
 # Breaking parser stanzas is unhelpful so allow longer lines.
-# pylint: disable=line-too-long
-
-import os.path
-import sys
 
 from mojom import fileutil
 from mojom.error import Error
@@ -15,8 +11,8 @@ from mojom.parse import ast
 from mojom.parse.lexer import Lexer
 
 fileutil.AddLocalRepoThirdPartyDirToModulePath()
-from ply import lex
-from ply import yacc
+from ply import lex  # noqa: E402
+from ply import yacc  # noqa: E402
 
 _MAX_ORDINAL_VALUE = 0xFFFFFFFF
 _MAX_ARRAY_SIZE = 0xFFFFFFFF
@@ -36,7 +32,6 @@ class ParseError(Error):
 
 
 # We have methods which look like they could be functions:
-# pylint: disable=R0201
 class Parser:
   def __init__(self, lexer, source, filename):
     self.tokens = lexer.tokens
@@ -466,7 +461,7 @@ class Parser:
 
   def p_associative_array(self, p):
     """associative_array : MAP LANGLE identifier COMMA typename RANGLE
-                         | HASH_MAP LANGLE identifier COMMA typename RANGLE"""
+    | HASH_MAP LANGLE identifier COMMA typename RANGLE"""
     map_cls = ast.HashMap if p.slice[1].type == 'HASH_MAP' else ast.Map
     p[0] = map_cls(p[3], p[5])
     self._set_lexstate(p, 1, 6)
@@ -605,6 +600,20 @@ class Parser:
     return self.source.split('\n')[lineno - 1]
 
 
+_cached_lex_yacc = None
+
+
+def _GetCachedParser():
+  global _cached_lex_yacc
+  if _cached_lex_yacc is None:
+    lexer = Lexer('')
+    lex_obj = lex.lex(object=lexer)
+    parser = Parser(lexer, '', '')
+    yacc_parser = yacc.yacc(module=parser, debug=0, write_tables=0)
+    _cached_lex_yacc = (lexer, lex_obj, parser, yacc_parser)
+  return _cached_lex_yacc
+
+
 def Parse(source, filename, with_comments=False):
   """Parse source file to AST.
 
@@ -617,13 +626,17 @@ def Parse(source, filename, with_comments=False):
   Returns:
     The AST as a mojom.parse.ast.Mojom object.
   """
-  lexer = Lexer(filename)
-  parser = Parser(lexer, source, filename)
+  lexer, lex_obj, parser, yacc_parser = _GetCachedParser()
+  lexer.filename = filename
+  lexer.line_comments = []
+  lexer.suffix_comments = []
+  lex_obj.lineno = 1
+  lex_obj.begin('INITIAL')
+  lex_obj.lexstatestack = []
+  parser.source = source
+  parser.filename = filename
 
-  lex.lex(object=lexer)
-  yacc.yacc(module=parser, debug=0, write_tables=0)
-
-  tree = yacc.parse(source)
+  tree = yacc_parser.parse(source, lexer=lex_obj)
   if with_comments:
     _AssignComments(tree, lexer.line_comments, lexer.suffix_comments)
   return tree

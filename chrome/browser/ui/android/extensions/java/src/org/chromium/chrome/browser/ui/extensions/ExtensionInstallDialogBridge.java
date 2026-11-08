@@ -14,6 +14,7 @@ import android.text.Editable;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.LinearLayout;
+import android.widget.RadioButton;
 import android.widget.RatingBar;
 import android.widget.TextView;
 
@@ -24,7 +25,10 @@ import com.google.android.material.textfield.TextInputLayout;
 
 import org.jni_zero.CalledByNative;
 import org.jni_zero.JNINamespace;
+import org.jni_zero.JniPtr;
 import org.jni_zero.JniType;
+import org.jni_zero.JniTypeToken;
+import org.jni_zero.JniUniquePtr;
 import org.jni_zero.NativeMethods;
 
 import org.chromium.build.annotations.NullMarked;
@@ -42,20 +46,24 @@ import org.chromium.ui.widget.TextViewWithLeading;
 @JNINamespace("extensions")
 @NullMarked
 public class ExtensionInstallDialogBridge implements ModalDialogProperties.Controller {
-    private long mNativeExtensionInstallDialogView;
+    @JniType("::extensions::ExtensionInstallDialogViewAndroid")
+    interface NativeExtensionInstallDialogViewAndroid extends JniTypeToken {}
+
+    private @Nullable JniUniquePtr<NativeExtensionInstallDialogViewAndroid> mNative;
     private final ModalDialogManager mModalDialogManager;
     private final Context mContext;
     private final PropertyModel.Builder mPropertyModelBuilder;
     private @Nullable PropertyModel mDialogModel;
     private @Nullable View mContentView;
     private @Nullable TextInputEditText mJustificationInputText;
+    private @Nullable RadioButton mOnClickRadioButton;
 
     @VisibleForTesting
     public ExtensionInstallDialogBridge(
-            long nativeExtensionInstallDialogView,
+            JniUniquePtr<NativeExtensionInstallDialogViewAndroid> nativeExtensionInstallDialogView,
             Context context,
             ModalDialogManager modalDialogManager) {
-        this.mNativeExtensionInstallDialogView = nativeExtensionInstallDialogView;
+        this.mNative = nativeExtensionInstallDialogView;
         this.mModalDialogManager = modalDialogManager;
         this.mContext = context;
         this.mPropertyModelBuilder =
@@ -75,7 +83,8 @@ public class ExtensionInstallDialogBridge implements ModalDialogProperties.Contr
      */
     @CalledByNative
     private static @Nullable ExtensionInstallDialogBridge create(
-            long nativeExtensionInstallDialogView, WindowAndroid windowAndroid) {
+            JniUniquePtr<NativeExtensionInstallDialogViewAndroid> nativeExtensionInstallDialogView,
+            @JniType("ui::WindowAndroid*") WindowAndroid windowAndroid) {
         Context context = windowAndroid.getActivity().get();
         ModalDialogManager modalDialogManager = windowAndroid.getModalDialogManager();
         if (context == null || modalDialogManager == null) {
@@ -127,6 +136,7 @@ public class ExtensionInstallDialogBridge implements ModalDialogProperties.Contr
     public void withPermissions(
             @JniType("std::u16string") final String permissionsHeading,
             @JniType("std::vector<std::u16string>") final String[] permissionsText,
+            @JniType("std::vector<std::u16string>") final String[] permissionsVisibleDetails,
             @JniType("std::vector<std::u16string>") final String[] permissionsDetails,
             @JniType("std::u16string") final String permissionsShowDetails,
             @JniType("std::u16string") final String permissionsHideDetails) {
@@ -155,6 +165,16 @@ public class ExtensionInstallDialogBridge implements ModalDialogProperties.Contr
             // Add the permission's main text.
             TextViewWithLeading mainText = permissionRow.findViewById(R.id.permission_item_text);
             mainText.setText(permissionsText[i]);
+
+            // Add visible details, if existent.
+            TextViewWithLeading visibleDetails =
+                    permissionRow.findViewById(R.id.permission_item_visible_details);
+            if (permissionsVisibleDetails[i].isEmpty()) {
+                visibleDetails.setVisibility(View.GONE);
+            } else {
+                visibleDetails.setText(permissionsVisibleDetails[i]);
+                visibleDetails.setVisibility(View.VISIBLE);
+            }
 
             // Add toggle to open the permission's details, if existent.
             TextViewWithLeading toggle = permissionRow.findViewById(R.id.permission_item_toggle);
@@ -228,6 +248,38 @@ public class ExtensionInstallDialogBridge implements ModalDialogProperties.Contr
                 });
     }
 
+    /**
+     * Populates the site access options section of the dialog.
+     *
+     * @param siteAccessHeading The heading text for the site access section.
+     * @param onClickText The label text for the "on click" option.
+     * @param alwaysAllSitesText The label text for the "always on all sites" option.
+     */
+    @CalledByNative
+    public void withSiteAccessOptions(
+            @JniType("std::u16string") final String siteAccessHeading,
+            @JniType("std::u16string") final String onClickText,
+            @JniType("std::u16string") final String alwaysAllSitesText) {
+        View contentView = getContentView();
+        LinearLayout scrollViewContainer = contentView.findViewById(R.id.scroll_view_container);
+
+        LinearLayout siteAccessContainer =
+                scrollViewContainer.findViewById(R.id.site_access_container);
+        siteAccessContainer.setVisibility(View.VISIBLE);
+
+        TextView siteAccessHeadingView = siteAccessContainer.findViewById(R.id.site_access_heading);
+        siteAccessHeadingView.setText(siteAccessHeading);
+
+        mOnClickRadioButton = siteAccessContainer.findViewById(R.id.site_access_on_click);
+        mOnClickRadioButton.setText(onClickText);
+        mOnClickRadioButton.setChecked(true);
+
+        RadioButton alwaysAllSitesRadioButton =
+                siteAccessContainer.findViewById(R.id.site_access_always_all_sites);
+        alwaysAllSitesRadioButton.setText(alwaysAllSitesText);
+        alwaysAllSitesRadioButton.setChecked(false);
+    }
+
     @CalledByNative
     public void withWebstoreData(
             @JniType("std::u16string") final String storeLinkText,
@@ -261,9 +313,8 @@ public class ExtensionInstallDialogBridge implements ModalDialogProperties.Contr
             storeLink.setVisibility(View.VISIBLE);
             storeLink.setOnClickListener(
                     v -> {
-                        if (mNativeExtensionInstallDialogView == 0) return;
-                        ExtensionInstallDialogBridgeJni.get()
-                                .onStoreLinkClicked(mNativeExtensionInstallDialogView, storeUrl);
+                        if (mNative == null) return;
+                        ExtensionInstallDialogBridgeJni.get().onStoreLinkClicked(mNative, storeUrl);
                     });
         }
     }
@@ -287,7 +338,7 @@ public class ExtensionInstallDialogBridge implements ModalDialogProperties.Contr
 
     @Override
     public void onDismiss(PropertyModel model, int dismissalCause) {
-        if (mNativeExtensionInstallDialogView == 0) return;
+        if (mNative == null) return;
         switch (dismissalCause) {
             case DialogDismissalCause.POSITIVE_BUTTON_CLICKED:
                 String justificationText = "";
@@ -297,19 +348,20 @@ public class ExtensionInstallDialogBridge implements ModalDialogProperties.Contr
                         justificationText = text.toString().trim();
                     }
                 }
+                boolean withWithheldPermissions =
+                        mOnClickRadioButton != null && mOnClickRadioButton.isChecked();
                 ExtensionInstallDialogBridgeJni.get()
-                        .onDialogAccepted(mNativeExtensionInstallDialogView, justificationText);
+                        .onDialogAccepted(mNative, justificationText, withWithheldPermissions);
                 break;
             case DialogDismissalCause.NEGATIVE_BUTTON_CLICKED:
-                ExtensionInstallDialogBridgeJni.get()
-                        .onDialogCanceled(mNativeExtensionInstallDialogView);
+                ExtensionInstallDialogBridgeJni.get().onDialogCanceled(mNative);
                 break;
             default:
-                ExtensionInstallDialogBridgeJni.get()
-                        .onDialogDismissed(mNativeExtensionInstallDialogView);
+                ExtensionInstallDialogBridgeJni.get().onDialogDismissed(mNative);
                 break;
         }
-        ExtensionInstallDialogBridgeJni.get().destroy(mNativeExtensionInstallDialogView);
+        mNative.destroy();
+        mNative = null;
     }
 
     /** Enables or disables the positive button in the dialog. */
@@ -330,11 +382,6 @@ public class ExtensionInstallDialogBridge implements ModalDialogProperties.Contr
         return mContentView;
     }
 
-    @CalledByNative
-    public void clearNativePtr() {
-        mNativeExtensionInstallDialogView = 0;
-    }
-
     public void setContentViewForTesting(View view) {
         mContentView = view;
     }
@@ -342,14 +389,16 @@ public class ExtensionInstallDialogBridge implements ModalDialogProperties.Contr
     @NativeMethods
     interface Natives {
         void onDialogAccepted(
-                long nativeExtensionInstallDialogViewAndroid, String justificationText);
+                JniPtr<NativeExtensionInstallDialogViewAndroid> self,
+                @JniType("std::string") String justificationText,
+                boolean withWithheldPermissions);
 
-        void onDialogCanceled(long nativeExtensionInstallDialogViewAndroid);
+        void onDialogCanceled(JniPtr<NativeExtensionInstallDialogViewAndroid> self);
 
-        void onDialogDismissed(long nativeExtensionInstallDialogViewAndroid);
+        void onDialogDismissed(JniPtr<NativeExtensionInstallDialogViewAndroid> self);
 
-        void destroy(long nativeExtensionInstallDialogViewAndroid);
-
-        void onStoreLinkClicked(long nativeExtensionInstallDialogViewAndroid, String storeUrl);
+        void onStoreLinkClicked(
+                JniPtr<NativeExtensionInstallDialogViewAndroid> self,
+                @JniType("std::string") String storeUrl);
     }
 }

@@ -11,7 +11,6 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -35,7 +34,6 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
-import org.mockito.Mockito;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.robolectric.annotation.Config;
@@ -218,12 +216,10 @@ public class TabUtilsUnitTest {
                 .getScenario()
                 .onActivity(
                         activity -> {
-                            Activity spyActivity = spy(activity);
                             int verticalAutomotiveToolbarWidthDp =
-                                    AutomotiveUtils.getVerticalAutomotiveToolbarWidthDp(
-                                            spyActivity);
+                                    AutomotiveUtils.getVerticalAutomotiveToolbarWidthDp(activity);
                             callAndVerifyGetTabThumbnailAspectRatio(
-                                    spyActivity, 0, verticalAutomotiveToolbarWidthDp);
+                                    activity, 0, verticalAutomotiveToolbarWidthDp);
                         });
     }
 
@@ -233,7 +229,8 @@ public class TabUtilsUnitTest {
         int mockImageSize = 100;
         int mockTargetSize = 50;
 
-        TabThumbnailView thumbnailView = Mockito.mock(TabThumbnailView.class);
+        TabThumbnailView thumbnailView =
+                new TabThumbnailView(ContextUtils.getApplicationContext(), null);
         Bitmap bitmap = Bitmap.createBitmap(mockImageSize, mockImageSize, Bitmap.Config.ARGB_8888);
         bitmap.setDensity(DisplayMetrics.DENSITY_DEFAULT);
         TabUtils.setDrawableAndUpdateImageMatrix(
@@ -255,8 +252,8 @@ public class TabUtilsUnitTest {
         int mockImageSize = 100;
         int mockTargetSize = 50;
 
-        TabThumbnailView thumbnailView = Mockito.mock(TabThumbnailView.class);
-        doReturn(ContextUtils.getApplicationContext()).when(thumbnailView).getContext();
+        TabThumbnailView thumbnailView =
+                new TabThumbnailView(ContextUtils.getApplicationContext(), null);
 
         Bitmap bitmap = Bitmap.createBitmap(mockImageSize, mockImageSize, Bitmap.Config.ARGB_8888);
         bitmap.setDensity(DisplayMetrics.DENSITY_DEFAULT);
@@ -274,7 +271,7 @@ public class TabUtilsUnitTest {
     }
 
     private void callAndVerifyGetTabThumbnailAspectRatio(
-            Activity spyActivity,
+            Activity activity,
             int horizontalAutomotiveToolbarHeightDp,
             int verticalAutomotiveToolbarWidthDp) {
         doReturn(0).when(mBrowserControlsStateProvider).getTopControlsHeight();
@@ -288,7 +285,7 @@ public class TabUtilsUnitTest {
                 "Thumbnail aspect ratio is not as expected.",
                 expectedAspectRatio,
                 TabCardThemeUtil.getTabThumbnailAspectRatio(
-                        spyActivity, mBrowserControlsStateProvider),
+                        activity, mBrowserControlsStateProvider),
                 0.01);
     }
 }

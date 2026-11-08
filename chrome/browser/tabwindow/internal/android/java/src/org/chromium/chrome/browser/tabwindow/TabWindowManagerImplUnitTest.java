@@ -89,7 +89,6 @@ import java.util.Set;
 @RunWith(BaseRobolectricTestRunner.class)
 public class TabWindowManagerImplUnitTest {
     private static final Token GROUP_ID = new Token(12, 34);
-    private static final int TAB_ID = 2;
 
     @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
 
@@ -1012,8 +1011,8 @@ public class TabWindowManagerImplUnitTest {
                 HistogramWatcher.newSingleRecordWatcher(
                         "Tabs.TabStateCleanupAbortedByArchive", false);
         doReturn(tab1).when(mArchivedTabModelSelector).getTabById(tab1.getId());
-        selector0.tryCloseTab(
-                TabClosureParams.closeTab(tab1).allowUndo(false).build(), /* allowDialog= */ false);
+        selector0.closeTab(
+                TabClosureParams.closeTab(tab1).allowUndo(/* allowUndo= */ false).build());
         assertFalse(mSubject.canTabStateBeDeleted(tab1.getId()));
         histogramWatcher.assertExpected();
 
@@ -1077,8 +1076,8 @@ public class TabWindowManagerImplUnitTest {
                 HistogramWatcher.newSingleRecordWatcher(
                         "Tabs.TabThumbnailCleanupAbortedByArchive", false);
         doReturn(tab1).when(mArchivedTabModelSelector).getTabById(tab1.getId());
-        selector0.tryCloseTab(
-                TabClosureParams.closeTab(tab1).allowUndo(false).build(), /* allowDialog= */ false);
+        selector0.closeTab(
+                TabClosureParams.closeTab(tab1).allowUndo(/* allowUndo= */ false).build());
         assertFalse(mSubject.canTabThumbnailBeDeleted(tab1.getId()));
         histogramWatcher.assertExpected();
 
@@ -1187,8 +1186,7 @@ public class TabWindowManagerImplUnitTest {
                 .thenReturn(new Pair<>(mTabModelSelector, mDestroyable));
         when(mTabModelSelector.isTabStateInitialized()).thenReturn(true);
         when(mTabModelSelector.getModel(anyBoolean())).thenReturn(mTabModel);
-        when(mTabModel.getGroupLastShownTabId(GROUP_ID)).thenReturn(TAB_ID);
-        when(mTabModel.tabGroupExists(GROUP_ID)).thenReturn(true);
+        when(mTabModel.containsTabGroup(GROUP_ID)).thenReturn(true);
         when(mTabGroupSyncService.getAllGroupIds()).thenReturn(new String[] {});
         TabWindowManager tabWindowManager = createTabWindowManager(mTabModelSelectorFactory);
 
@@ -1230,7 +1228,7 @@ public class TabWindowManagerImplUnitTest {
                 .thenReturn(new Pair<>(mTabModelSelector, mDestroyable));
         when(mTabModelSelector.isTabStateInitialized()).thenReturn(true);
         when(mTabModelSelector.getModels()).thenReturn(List.of(mTabModel));
-        when(mTabModel.tabGroupExists(GROUP_ID)).thenReturn(true);
+        when(mTabModel.containsTabGroup(GROUP_ID)).thenReturn(true);
         TabWindowManager tabWindowManager = createTabWindowManager(mTabModelSelectorFactory);
         tabWindowManager.requestSelectorWithoutActivity(1, mProfile);
         assertEquals(1, tabWindowManager.findWindowIdForTabGroup(GROUP_ID));
@@ -1244,8 +1242,8 @@ public class TabWindowManagerImplUnitTest {
                 .thenReturn(new Pair<>(mTabModelSelector, mDestroyable));
         when(mTabModelSelector.isTabStateInitialized()).thenReturn(true);
         when(mTabModelSelector.getModels()).thenReturn(List.of(mTabModel, mIncognitoTabModel));
-        when(mTabModel.tabGroupExists(GROUP_ID)).thenReturn(false);
-        when(mIncognitoTabModel.tabGroupExists(GROUP_ID)).thenReturn(true);
+        when(mTabModel.containsTabGroup(GROUP_ID)).thenReturn(false);
+        when(mIncognitoTabModel.containsTabGroup(GROUP_ID)).thenReturn(true);
 
         TabWindowManager tabWindowManager = createTabWindowManager(mTabModelSelectorFactory);
         tabWindowManager.requestSelectorWithoutActivity(1, mProfile);
@@ -1260,8 +1258,8 @@ public class TabWindowManagerImplUnitTest {
                 .thenReturn(new Pair<>(mTabModelSelector, mDestroyable));
         when(mTabModelSelector.isTabStateInitialized()).thenReturn(true);
         when(mTabModelSelector.getModels()).thenReturn(List.of(mTabModel, mIncognitoTabModel));
-        when(mTabModel.tabGroupExists(GROUP_ID)).thenReturn(false);
-        when(mIncognitoTabModel.tabGroupExists(GROUP_ID)).thenReturn(true);
+        when(mTabModel.containsTabGroup(GROUP_ID)).thenReturn(false);
+        when(mIncognitoTabModel.containsTabGroup(GROUP_ID)).thenReturn(true);
 
         TabWindowManager tabWindowManager = createTabWindowManager(mTabModelSelectorFactory);
         tabWindowManager.requestSelectorWithoutActivity(1, mProfile);
@@ -1279,7 +1277,7 @@ public class TabWindowManagerImplUnitTest {
                 .thenReturn(new Pair<>(mTabModelSelector, mDestroyable));
         when(mTabModelSelector.isTabStateInitialized()).thenReturn(true);
         when(mTabModelSelector.getModels()).thenReturn(List.of(mTabModel));
-        when(mTabModel.tabGroupExists(GROUP_ID)).thenReturn(false);
+        when(mTabModel.containsTabGroup(GROUP_ID)).thenReturn(false);
 
         when(mClosingTab.getTabGroupId()).thenReturn(GROUP_ID);
         when(mComprehensiveModel.iterator()).thenAnswer(inv -> List.of(mClosingTab).iterator());

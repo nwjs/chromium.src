@@ -18,8 +18,10 @@
 #include "chrome/browser/signin/identity_test_environment_profile_adaptor.h"
 #include "chrome/browser/sync/sync_service_factory.h"
 #include "chrome/common/chrome_switches.h"
+#include "chrome/common/pref_names.h"
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/testing_profile.h"
+#include "components/prefs/scoped_user_pref_update.h"
 #include "components/signin/public/base/signin_switches.h"
 #include "components/signin/public/identity_manager/identity_test_environment.h"
 #include "components/sync/test/test_sync_service.h"
@@ -38,6 +40,13 @@
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "url/origin.h"
+
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+#include "content/public/browser/child_process_security_policy.h"
+#include "content/public/browser/render_process_host.h"
+#include "extensions/browser/extension_registry.h"
+#include "extensions/common/extension_builder.h"
+#endif
 
 using testing::_;
 
@@ -63,6 +72,22 @@ class DevToolsUIBindingsLoadNetworkResourceTest : public testing::Test {
                                DevToolsUIBindings::DispatchCallback callback) {
     bindings_->LoadNetworkResource(std::move(callback), url, headers,
                                    stream_id);
+  }
+
+  base::Value DispatchMessage(const std::string& method,
+                              base::ListValue params = {}) {
+    base::RunLoop run_loop;
+    base::Value result;
+    EXPECT_TRUE(bindings_->embedder_message_dispatcher_->Dispatch(
+        base::BindLambdaForTesting([&](const base::Value* value) {
+          if (value) {
+            result = value->Clone();
+          }
+          run_loop.Quit();
+        }),
+        method, params));
+    run_loop.Run();
+    return result;
   }
 
  protected:
@@ -117,11 +142,177 @@ TEST_F(DevToolsUIBindingsLoadNetworkResourceTest,
       web_contents(),
       GURL("devtools://devtools/remote/serve_file/inspector.html"));
 
-  // Should return early without enabling device updates.
-  static_cast<DevToolsEmbedderMessageDispatcher::Delegate*>(bindings())
-      ->SetDevicesUpdatesEnabled(true);
+  // Should be blocked by dispatcher without enabling device updates.
+  DispatchMessage("setDevicesUpdatesEnabled", base::ListValue().Append(true));
 
   EXPECT_FALSE(GetDevicesUpdatesEnabled());
+}
+
+TEST_F(DevToolsUIBindingsLoadNetworkResourceTest,
+       RemoteFrontendCannotReadPreferences) {
+  {
+    ScopedDictPrefUpdate update(profile_->GetPrefs(),
+                                prefs::kDevToolsPreferences);
+    update->Set("script-snippets", "secret");
+  }
+
+  content::NavigationSimulator::NavigateAndCommitFromBrowser(
+      web_contents(),
+      GURL("devtools://devtools/remote/serve_rev/@12345/inspector.html"));
+
+  base::Value prefs_result = DispatchMessage("getPreferences");
+  ASSERT_TRUE(prefs_result.is_dict());
+  EXPECT_TRUE(prefs_result.GetDict().empty());
+
+  base::Value pref_result = DispatchMessage(
+      "getPreference", base::ListValue().Append("script-snippets"));
+  EXPECT_TRUE(pref_result.is_none());
+}
+
+TEST_F(DevToolsUIBindingsLoadNetworkResourceTest,
+       RemoteFrontendCannotWritePreferences) {
+  {
+    ScopedDictPrefUpdate update(profile_->GetPrefs(),
+                                prefs::kDevToolsPreferences);
+    update->Set("script-snippets", "secret");
+  }
+
+  content::NavigationSimulator::NavigateAndCommitFromBrowser(
+      web_contents(),
+      GURL("devtools://devtools/remote/serve_rev/@12345/inspector.html"));
+
+  DispatchMessage(
+      "setPreference",
+      base::ListValue().Append("script-snippets").Append("overwritten"));
+  DispatchMessage("setPreference",
+                  base::ListValue().Append("new-pref").Append("value"));
+  DispatchMessage("removePreference",
+                  base::ListValue().Append("script-snippets"));
+  DispatchMessage("clearPreferences");
+
+  const base::DictValue& dict =
+      profile_->GetPrefs()->GetDict(prefs::kDevToolsPreferences);
+  EXPECT_EQ(dict.size(), 1u);
+  ASSERT_NE(dict.FindString("script-snippets"), nullptr);
+  EXPECT_EQ(*dict.FindString("script-snippets"), "secret");
+}
+
+TEST_F(DevToolsUIBindingsLoadNetworkResourceTest,
+       RemoteFrontendCannotEnableSync) {
+  content::NavigationSimulator::NavigateAndCommitFromBrowser(
+      web_contents(),
+      GURL("devtools://devtools/remote/serve_rev/@12345/inspector.html"));
+
+  DispatchMessage("setPreference",
+                  base::ListValue().Append("sync-preferences").Append("true"));
+  EXPECT_FALSE(
+      profile_->GetPrefs()->GetBoolean(prefs::kDevToolsSyncPreferences));
+
+  DispatchMessage("registerPreference",
+                  base::ListValue()
+                      .Append("synced-pref")
+                      .Append(base::DictValue().Set("synced", true)));
+  DispatchMessage("setPreference",
+                  base::ListValue().Append("synced-pref").Append("value"));
+
+  EXPECT_TRUE(profile_->GetPrefs()
+                  ->GetDict(prefs::kDevToolsSyncedPreferencesSyncEnabled)
+                  .empty());
+  EXPECT_TRUE(profile_->GetPrefs()
+                  ->GetDict(prefs::kDevToolsSyncedPreferencesSyncDisabled)
+                  .empty());
+  EXPECT_TRUE(
+      profile_->GetPrefs()->GetDict(prefs::kDevToolsPreferences).empty());
+}
+
+TEST_F(DevToolsUIBindingsLoadNetworkResourceTest,
+       RemoteFrontendGetSyncInformationIsRedacted) {
+  signin::IdentityTestEnvironment identity_test_env;
+  SyncServiceFactory::GetInstance()->SetTestingFactory(
+      profile_.get(), base::BindRepeating([](content::BrowserContext*) {
+        return static_cast<std::unique_ptr<KeyedService>>(
+            std::make_unique<syncer::TestSyncService>());
+      }));
+  auto* sync_service = static_cast<syncer::TestSyncService*>(
+      SyncServiceFactory::GetForProfile(profile_.get()));
+  AccountInfo account_info = identity_test_env.MakePrimaryAccountAvailable(
+      "sync@devtools.dev", signin::ConsentLevel::kSignin);
+  sync_service->SetSignedIn(signin::ConsentLevel::kSignin,
+                            account_info.GetCoreAccountInfo());
+
+  content::NavigationSimulator::NavigateAndCommitFromBrowser(
+      web_contents(),
+      GURL("devtools://devtools/remote/serve_rev/@12345/inspector.html"));
+
+  base::Value result_val = DispatchMessage("getSyncInformation");
+  ASSERT_TRUE(result_val.is_dict());
+  const base::DictValue& result = result_val.GetDict();
+
+  EXPECT_EQ(result.FindBool("isSyncActive"), false);
+  EXPECT_EQ(result.Find("accountEmail"), nullptr);
+}
+
+TEST_F(DevToolsUIBindingsLoadNetworkResourceTest,
+       LocalFrontendPreferencesStillWork) {
+  {
+    ScopedDictPrefUpdate update(profile_->GetPrefs(),
+                                prefs::kDevToolsPreferences);
+    update->Set("script-snippets", "secret");
+  }
+
+  content::NavigationSimulator::NavigateAndCommitFromBrowser(
+      web_contents(), GURL("devtools://devtools/bundled/inspector.html"));
+
+  base::Value prefs_val = DispatchMessage("getPreferences");
+  ASSERT_TRUE(prefs_val.is_dict());
+  const base::DictValue& prefs_result = prefs_val.GetDict();
+
+  ASSERT_NE(prefs_result.FindString("script-snippets"), nullptr);
+  EXPECT_EQ(*prefs_result.FindString("script-snippets"), "secret");
+
+  DispatchMessage(
+      "setPreference",
+      base::ListValue().Append("new-pref").Append("persisted-value"));
+  const base::DictValue& dict =
+      profile_->GetPrefs()->GetDict(prefs::kDevToolsPreferences);
+  ASSERT_NE(dict.FindString("new-pref"), nullptr);
+  EXPECT_EQ(*dict.FindString("new-pref"), "persisted-value");
+}
+
+TEST_F(DevToolsUIBindingsLoadNetworkResourceTest,
+       LocalToRemoteNavigationRevokesAccess) {
+  {
+    ScopedDictPrefUpdate update(profile_->GetPrefs(),
+                                prefs::kDevToolsPreferences);
+    update->Set("script-snippets", "secret");
+  }
+
+  content::NavigationSimulator::NavigateAndCommitFromBrowser(
+      web_contents(), GURL("devtools://devtools/bundled/inspector.html"));
+
+  {
+    base::Value prefs_val = DispatchMessage("getPreferences");
+    ASSERT_TRUE(prefs_val.is_dict());
+    const base::DictValue& prefs_result = prefs_val.GetDict();
+    ASSERT_NE(prefs_result.FindString("script-snippets"), nullptr);
+    EXPECT_EQ(*prefs_result.FindString("script-snippets"), "secret");
+  }
+
+  content::NavigationSimulator::NavigateAndCommitFromBrowser(
+      web_contents(),
+      GURL("devtools://devtools/remote/serve_rev/@12345/inspector.html"));
+
+  {
+    base::Value prefs_result = DispatchMessage("getPreferences");
+    ASSERT_TRUE(prefs_result.is_dict());
+    EXPECT_TRUE(prefs_result.GetDict().empty());
+  }
+
+  {
+    base::Value pref_result = DispatchMessage(
+        "getPreference", base::ListValue().Append("script-snippets"));
+    EXPECT_TRUE(pref_result.is_none());
+  }
 }
 
 TEST_F(DevToolsUIBindingsLoadNetworkResourceTest,
@@ -180,19 +371,37 @@ TEST_F(DevToolsUIBindingsLoadNetworkResourceTest,
 
 TEST_F(DevToolsUIBindingsLoadNetworkResourceTest,
        ClearExtensionsAPIOnNavigatingAway) {
-  bindings()->RegisterExtensionsAPIForTesting("http://example.test", "script");
-  EXPECT_EQ(bindings()->GetExtensionsAPIForTesting().size(), 1u);
-
-  // Navigate to a valid DevTools URL first.
+  // Navigate to a valid local DevTools URL first.
   GURL devtools_url("devtools://devtools/bundled/devtools_app.html");
   content::NavigationSimulator::NavigateAndCommitFromBrowser(web_contents(),
                                                              devtools_url);
+  bindings()->RegisterExtensionsAPIForTesting("http://example.test", "script");
   EXPECT_EQ(bindings()->GetExtensionsAPIForTesting().size(), 1u);
 
   // Navigate away to a non-DevTools URL.
   GURL print_url("https://example.test");
   content::NavigationSimulator::NavigateAndCommitFromBrowser(web_contents(),
                                                              print_url);
+  EXPECT_TRUE(bindings()->GetExtensionsAPIForTesting().empty());
+}
+
+TEST_F(DevToolsUIBindingsLoadNetworkResourceTest,
+       RestrictsExtensionsAPIForRemoteFrontend) {
+  GURL local_url("devtools://devtools/bundled/devtools_app.html");
+  content::NavigationSimulator::NavigateAndCommitFromBrowser(web_contents(),
+                                                             local_url);
+  bindings()->RegisterExtensionsAPIForTesting("chrome-extension://abc", "x");
+  EXPECT_EQ(bindings()->GetExtensionsAPIForTesting().size(), 1u);
+
+  // Navigating from a local frontend to a remote frontend clears registered
+  // extension APIs, and subsequent registrations on the remote frontend are
+  // ignored.
+  GURL remote_url("devtools://devtools/remote/serve_rev/@12345/inspector.html");
+  content::NavigationSimulator::NavigateAndCommitFromBrowser(web_contents(),
+                                                             remote_url);
+  EXPECT_TRUE(bindings()->GetExtensionsAPIForTesting().empty());
+
+  bindings()->RegisterExtensionsAPIForTesting("chrome-extension://abc", "x");
   EXPECT_TRUE(bindings()->GetExtensionsAPIForTesting().empty());
 }
 
@@ -470,6 +679,9 @@ TEST_F(DevToolsUIBindingsNavigationTest,
 TEST_F(DevToolsUIBindingsNavigationTest,
        OpenerWithValidDevToolsBindingsAccepted) {
   content::WebContents* opener_contents = CreateWebContents();
+  content::WebContentsTester::For(opener_contents)
+      ->NavigateAndCommit(
+          GURL("devtools://devtools/bundled/devtools_app.html"));
   auto opener_bindings = std::make_unique<DevToolsUIBindings>(opener_contents);
   content::MockNavigationHandle opener_handle(
       GURL("devtools://devtools/bundled/devtools_app.html"),
@@ -495,6 +707,130 @@ TEST_F(DevToolsUIBindingsNavigationTest,
   bindings->ReadyToCommitNavigationForTesting(&handle);
 
   EXPECT_TRUE(bindings->has_frontend_host_for_testing());
+}
+
+TEST_F(DevToolsUIBindingsNavigationTest,
+       RemoteOpenerWithDevToolsBindingsRejected) {
+  content::WebContents* opener_contents = CreateWebContents();
+  const GURL kRemoteUrl(
+      "devtools://devtools/remote/serve_rev/@12345/inspector.html");
+  content::WebContentsTester::For(opener_contents)
+      ->NavigateAndCommit(kRemoteUrl);
+  auto opener_bindings = std::make_unique<DevToolsUIBindings>(opener_contents);
+  content::MockNavigationHandle opener_handle(
+      kRemoteUrl, opener_contents->GetPrimaryMainFrame());
+  opener_handle.set_is_in_primary_main_frame(true);
+  opener_handle.set_is_renderer_initiated(false);
+  opener_bindings->ReadyToCommitNavigationForTesting(&opener_handle);
+  ASSERT_TRUE(opener_bindings->has_frontend_host_for_testing());
+
+  content::WebContents* web_contents = CreateWebContents();
+  content::WebContentsTester::For(web_contents)->SetOpener(opener_contents);
+  content::WebContentsTester::For(web_contents)
+      ->SetOriginalOpener(opener_contents);
+
+  auto bindings = std::make_unique<DevToolsUIBindings>(web_contents);
+
+  content::MockNavigationHandle handle(GURL("devtools://devtools/blank"),
+                                       web_contents->GetPrimaryMainFrame());
+  handle.set_is_in_primary_main_frame(true);
+  handle.set_is_renderer_initiated(true);
+
+  bindings->ReadyToCommitNavigationForTesting(&handle);
+
+  EXPECT_FALSE(bindings->has_frontend_host_for_testing());
+}
+
+TEST_F(DevToolsUIBindingsNavigationTest,
+       RemoteOriginalOpenerRejectedEvenIfOpenerSevered) {
+  content::WebContents* original_opener_contents = CreateWebContents();
+  const GURL kRemoteUrl(
+      "devtools://devtools/remote/serve_rev/@12345/inspector.html");
+  content::WebContentsTester::For(original_opener_contents)
+      ->NavigateAndCommit(kRemoteUrl);
+  auto opener_bindings =
+      std::make_unique<DevToolsUIBindings>(original_opener_contents);
+  content::MockNavigationHandle opener_handle(
+      kRemoteUrl, original_opener_contents->GetPrimaryMainFrame());
+  opener_handle.set_is_in_primary_main_frame(true);
+  opener_handle.set_is_renderer_initiated(false);
+  opener_bindings->ReadyToCommitNavigationForTesting(&opener_handle);
+  ASSERT_TRUE(opener_bindings->has_frontend_host_for_testing());
+
+  content::WebContents* web_contents = CreateWebContents();
+  content::WebContentsTester::For(web_contents)
+      ->SetOriginalOpener(original_opener_contents);
+  EXPECT_EQ(nullptr, web_contents->GetOpener());
+  EXPECT_TRUE(web_contents->HasLiveOriginalOpenerChain());
+
+  auto bindings = std::make_unique<DevToolsUIBindings>(web_contents);
+
+  content::MockNavigationHandle handle(GURL("devtools://devtools/blank"),
+                                       web_contents->GetPrimaryMainFrame());
+  handle.set_is_in_primary_main_frame(true);
+  handle.set_is_renderer_initiated(true);
+
+  bindings->ReadyToCommitNavigationForTesting(&handle);
+
+  EXPECT_FALSE(bindings->has_frontend_host_for_testing());
+}
+
+TEST_F(DevToolsUIBindingsNavigationTest,
+       RendererInitiatedNavigationWithoutOpenerRejected) {
+  content::WebContents* web_contents = CreateWebContents();
+  EXPECT_FALSE(web_contents->HasLiveOriginalOpenerChain());
+
+  auto bindings = std::make_unique<DevToolsUIBindings>(web_contents);
+
+  content::MockNavigationHandle handle(GURL("devtools://devtools/blank"),
+                                       web_contents->GetPrimaryMainFrame());
+  handle.set_is_in_primary_main_frame(true);
+  handle.set_is_renderer_initiated(true);
+
+  bindings->ReadyToCommitNavigationForTesting(&handle);
+
+  EXPECT_FALSE(bindings->has_frontend_host_for_testing());
+}
+
+TEST_F(DevToolsUIBindingsNavigationTest,
+       RemoteFrontendRendererNavigationDoesNotBecomeLocal) {
+  content::WebContents* opener_contents = CreateWebContents();
+  const GURL kRemoteUrl(
+      "devtools://devtools/remote/serve_rev/@12345/inspector.html");
+  content::WebContentsTester::For(opener_contents)
+      ->NavigateAndCommit(kRemoteUrl);
+  auto opener_bindings = std::make_unique<DevToolsUIBindings>(opener_contents);
+  content::MockNavigationHandle opener_handle(
+      kRemoteUrl, opener_contents->GetPrimaryMainFrame());
+  opener_handle.set_is_in_primary_main_frame(true);
+  opener_handle.set_is_renderer_initiated(false);
+  opener_bindings->ReadyToCommitNavigationForTesting(&opener_handle);
+  ASSERT_TRUE(opener_bindings->has_frontend_host_for_testing());
+
+  // Renderer-initiated navigation of the remote opener to a local URL
+  // (devtools://devtools/blank) must not upgrade the opener to local.
+  const GURL kBlankUrl("devtools://devtools/blank");
+  content::MockNavigationHandle self_nav_handle(
+      kBlankUrl, opener_contents->GetPrimaryMainFrame());
+  self_nav_handle.set_is_in_primary_main_frame(true);
+  self_nav_handle.set_is_renderer_initiated(true);
+  opener_bindings->ReadyToCommitNavigationForTesting(&self_nav_handle);
+  content::WebContentsTester::For(opener_contents)
+      ->NavigateAndCommit(kBlankUrl);
+
+  content::WebContents* popup_contents = CreateWebContents();
+  content::WebContentsTester::For(popup_contents)->SetOpener(opener_contents);
+  content::WebContentsTester::For(popup_contents)
+      ->SetOriginalOpener(opener_contents);
+
+  auto popup_bindings = std::make_unique<DevToolsUIBindings>(popup_contents);
+  content::MockNavigationHandle popup_handle(
+      kBlankUrl, popup_contents->GetPrimaryMainFrame());
+  popup_handle.set_is_in_primary_main_frame(true);
+  popup_handle.set_is_renderer_initiated(true);
+  popup_bindings->ReadyToCommitNavigationForTesting(&popup_handle);
+
+  EXPECT_FALSE(popup_bindings->has_frontend_host_for_testing());
 }
 
 class DevToolsUIBindingsSyncInfoTest : public testing::Test {
@@ -1257,3 +1593,88 @@ TEST_F(DevToolsUIBindingsHostConfigTest, SetChromeFlag) {
   ASSERT_TRUE(final_protocol_monitor);
   EXPECT_FALSE(final_protocol_monitor->FindBool("enabled").value_or(true));
 }
+
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+class DevToolsUIBindingsExtensionsTest : public testing::Test {
+ public:
+  void SetUp() override {
+    profile_ = std::make_unique<TestingProfile>();
+    web_contents_ = web_contents_factory_.CreateWebContents(profile_.get());
+    bindings_ = std::make_unique<testing::NiceMock<TestDevToolsUIBindings>>(
+        web_contents_);
+    EXPECT_CALL(*bindings_, CallClientMethodImpl(_, _, _, _, _, _))
+        .Times(testing::AnyNumber());
+
+    scoped_refptr<const extensions::Extension> extension =
+        extensions::ExtensionBuilder("Test DevTools Extension")
+            .SetManifestKey("devtools_page", "devtools.html")
+            .Build();
+    ASSERT_TRUE(extension);
+    extension_ = extension;
+    extensions::ExtensionRegistry::Get(profile_.get())->AddEnabled(extension);
+  }
+
+ protected:
+  content::BrowserTaskEnvironment task_environment_;
+  std::unique_ptr<TestingProfile> profile_;
+  content::TestWebContentsFactory web_contents_factory_;
+  raw_ptr<content::WebContents> web_contents_;
+  std::unique_ptr<testing::NiceMock<TestDevToolsUIBindings>> bindings_;
+  scoped_refptr<const extensions::Extension> extension_;
+};
+
+TEST_F(DevToolsUIBindingsExtensionsTest, DoesNotAddExtensionsToRemoteFrontend) {
+  EXPECT_CALL(*bindings_, CallClientMethodImpl(
+                              "DevToolsAPI", "setOriginsForbiddenForExtensions",
+                              _, _, _, _))
+      .Times(0);
+  EXPECT_CALL(*bindings_,
+              CallClientMethodImpl("DevToolsAPI", "addExtensions", _, _, _, _))
+      .Times(0);
+
+  GURL remote_url("devtools://devtools/remote/serve_rev/@12345/inspector.html");
+  content::NavigationSimulator::NavigateAndCommitFromBrowser(web_contents_,
+                                                             remote_url);
+
+  static_cast<DevToolsEmbedderMessageDispatcher::Delegate*>(bindings_.get())
+      ->LoadCompleted();
+
+  EXPECT_FALSE(
+      content::ChildProcessSecurityPolicy::GetInstance()->CanRequestURL(
+          web_contents_->GetPrimaryMainFrame()->GetProcess()->GetDeprecatedID(),
+          extension_->url()));
+}
+
+TEST_F(DevToolsUIBindingsExtensionsTest, AddsExtensionsToLocalFrontend) {
+  EXPECT_CALL(*bindings_, CallClientMethodImpl(
+                              "DevToolsAPI", "setOriginsForbiddenForExtensions",
+                              _, _, _, _))
+      .Times(1);
+  base::Value captured_extensions;
+  EXPECT_CALL(*bindings_,
+              CallClientMethodImpl("DevToolsAPI", "addExtensions", _, _, _, _))
+      .WillOnce([&](const std::string& object_name,
+                    const std::string& method_name, base::Value arg1,
+                    base::Value arg2, base::Value arg3,
+                    base::OnceCallback<void(base::Value)> completion_callback) {
+        captured_extensions = std::move(arg1);
+      });
+
+  GURL local_url("devtools://devtools/bundled/devtools_app.html");
+  content::NavigationSimulator::NavigateAndCommitFromBrowser(web_contents_,
+                                                             local_url);
+
+  static_cast<DevToolsEmbedderMessageDispatcher::Delegate*>(bindings_.get())
+      ->LoadCompleted();
+
+  ASSERT_TRUE(captured_extensions.is_list());
+  ASSERT_EQ(captured_extensions.GetList().size(), 1u);
+  const base::DictValue* ext_info =
+      captured_extensions.GetList()[0].GetIfDict();
+  ASSERT_TRUE(ext_info);
+  EXPECT_EQ(*ext_info->FindString("name"), "Test DevTools Extension");
+  EXPECT_TRUE(content::ChildProcessSecurityPolicy::GetInstance()->CanRequestURL(
+      web_contents_->GetPrimaryMainFrame()->GetProcess()->GetDeprecatedID(),
+      extension_->url()));
+}
+#endif  // BUILDFLAG(ENABLE_EXTENSIONS_CORE)

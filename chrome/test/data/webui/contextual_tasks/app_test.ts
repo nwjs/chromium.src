@@ -75,6 +75,8 @@ suite('ContextualTasksAppTest', function() {
     // <if expr="not is_android or enable_webui_contextual_tasks_composebox">
     const mockComposeboxPageHandler =
         TestMock.fromClass(ComposeboxPageHandlerRemote);
+    mockComposeboxPageHandler.setResultFor(
+        'canShowNextboxAnimation', Promise.resolve({canShow: true}));
     const mockSearchboxPageHandler =
         TestMock.fromClass(SearchboxPageHandlerRemote);
     mockSearchboxPageHandler.setResultFor(
@@ -514,6 +516,40 @@ suite('ContextualTasksAppTest', function() {
     assertEquals('some-source', finalUrl.searchParams.get('source'));
     assertEquals('some-aep', finalUrl.searchParams.get('aep'));
   });
+
+  test(
+      'new thread click when threadFrame src is empty does not throw',
+      async () => {
+        const taskId = '123';
+        window.history.replaceState({}, '', `?chrome_task_id=${taskId}`);
+
+        const {appElement, proxy} = await createContextualTasksAppElement(
+            /*url=*/ `${fixtureUrl}?source=pending-source&aep=pending-aep`,
+            /*setupProxy=*/
+            (p) => {
+              p.handler.setIsShownInTab(false);
+              p.handler.setIsPendingErrorPage({value: taskId}, true);
+            },
+            /*waitForInitialLoadStart=*/ false);
+        appElement.removeThreadFrameListenersForTesting();
+
+        const toolbar = appElement.shadowRoot.querySelector('top-toolbar');
+        assertTrue(!!toolbar, 'Toolbar should be visible');
+
+        // Because isPendingErrorPage is true, maybeLoadPendingUrl_() has not
+        // populated threadFrame.src yet, so it is empty. Also clear pendingUrl_
+        // to simulate clicking new thread before initial URL resolution.
+        appElement.setPendingUrlForTesting('');
+        assertEquals('', appElement.getThreadUrlForTesting());
+
+        const newThreadUrl = `${fixtureUrl}?new_thread=1`;
+        proxy.handler.setThreadUrl(newThreadUrl);
+
+        toolbar.fire('new-thread-click');
+        await microtasksFinished();
+
+        assertEquals(newThreadUrl, appElement.getThreadUrlForTesting());
+      });
 
   test('logs back button metric in full tab', async () => {
     const threadUuid = 'ab12';
@@ -1042,6 +1078,7 @@ suite('ContextualTasksAppTest', function() {
         await topLevelNavigationPromise;
 
         assertTrue(appElement.getHasFinishedTopLevelNavigationForTesting());
+        assertFalse((appElement as any).isInitialFrameLoad_);
       });
 
   test('sets isFrameLoading to false when load aborts', async () => {
@@ -1320,10 +1357,12 @@ suite('ContextualTasksAppTest', function() {
         await microtasksFinished();
 
         assertFalse(appElement.$.composebox.hidden);
+        assertStyle(appElement.$.composebox, 'visibility', 'visible');
 
         const wrapper =
             appElement.shadowRoot.querySelector('#composeboxHeaderWrapper')!;
         assertFalse(wrapper.hasAttribute('hidden'));
+        assertStyle(wrapper, 'visibility', 'visible');
       });
 
   test('side panel navigation to zero state plays animations', async () => {

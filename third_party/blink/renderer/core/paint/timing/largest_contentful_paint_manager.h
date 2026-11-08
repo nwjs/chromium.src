@@ -45,13 +45,13 @@ class CORE_EXPORT LargestContentfulPaintManager
   void Trace(Visitor* visitor) const override;
 
   // PaintTimingClient:
+  Type GetType() const override;
   void OnElementFirstContentfulPaint(ImageRecord*) override;
-  void OnElementLastContentfulPaint(ImageRecord*) override;
-  void OnElementLastContentfulPaint(TextRecord*,
-                                    bool was_previously_reported) override;
+  OptionalPaintTimingCallback OnPaintFinished(
+      const HeapVector<Member<ImageRecord>>&,
+      const HeapVector<Member<TextRecord>>&) override;
   void OnFramePresented(const HeapVector<Member<ImageRecord>>&,
                         const HeapVector<Member<TextRecord>>&,
-                        const HeapVector<Member<ElementTimingInfo>>&,
                         const DOMPaintTimingInfo&) override;
   void OnImageRemoved(const LayoutObject&, const MediaTiming*) override;
   // Shuts down the manager and stops recording LCP. The last value pushed to

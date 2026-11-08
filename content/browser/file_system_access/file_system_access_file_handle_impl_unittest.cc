@@ -17,6 +17,7 @@
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
+#include "base/functional/callback_helpers.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/run_loop.h"
 #include "base/strings/strcat.h"
@@ -37,6 +38,7 @@
 #include "content/browser/file_system_access/features.h"
 #include "content/browser/file_system_access/fixed_file_system_access_permission_grant.h"
 #include "content/browser/file_system_access/mock_file_system_access_permission_grant.h"
+#include "content/browser/renderer_host/render_frame_host_impl.h"
 #include "content/public/browser/file_system_access_permission_context.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/test/browser_task_environment.h"
@@ -45,11 +47,13 @@
 #include "content/test/test_web_contents.h"
 #include "file_system_access_directory_handle_impl.h"
 #include "mock_file_system_access_permission_context.h"
+#include "mojo/public/cpp/bindings/remote.h"
 #include "net/base/io_buffer.h"
 #include "net/base/mime_util.h"
 #include "net/base/net_errors.h"
 #include "net/base/test_completion_callback.h"
 #include "storage/browser/blob/blob_storage_context.h"
+#include "storage/browser/file_system/external_mount_points.h"
 #include "storage/browser/file_system/file_stream_reader.h"
 #include "storage/browser/file_system/file_system_operation_runner.h"
 #include "storage/browser/quota/quota_manager_proxy.h"
@@ -747,6 +751,63 @@ TEST_F(FileSystemAccessFileHandleImplCreateFileWriterTest,
               FileWriterCreationIs(FileSystemAccessStatus::kSecurityError));
 }
 
+// Verifies that sensitive entry access checks on an external mount whose
+// cracked `url.path()` differs from `url.virtual_path()` pass
+// `url.virtual_path()` in `PathInfo`.
+TEST_F(FileSystemAccessFileHandleImplCreateFileWriterTest,
+       SensitiveEntryAccessExternalMountUsesVirtualPath) {
+  manager_->SetPermissionContextForTesting(&permission_context_);
+
+  storage::ExternalMountPoints* mount_points =
+      storage::ExternalMountPoints::GetSystemInstance();
+  constexpr char kMountName[] = "ext_test_mount";
+  mount_points->RevokeFileSystem(kMountName);
+  ASSERT_TRUE(mount_points->RegisterFileSystem(
+      kMountName, storage::kFileSystemTypeTest,
+      storage::FileSystemMountOption(), base::FilePath()));
+  base::ScopedClosureRunner revoke_mount(base::BindOnce(
+      base::IgnoreResult(&storage::ExternalMountPoints::RevokeFileSystem),
+      base::Unretained(mount_points), kMountName));
+
+  base::FilePath virtual_file_path =
+      mount_points->CreateVirtualRootPath(kMountName).AppendASCII("test.txt");
+  storage::FileSystemURL ext_url = manager_->CreateFileSystemURLFromPath(
+      PathInfo(PathType::kExternal, virtual_file_path));
+  ASSERT_NE(ext_url.virtual_path(), ext_url.path());
+  ASSERT_EQ(base::File::FILE_OK, storage::AsyncFileTestHelper::CreateFile(
+                                     file_system_context_.get(), ext_url));
+
+  auto handle = std::make_unique<FileSystemAccessFileHandleImpl>(
+      manager_.get(),
+      FileSystemAccessManagerImpl::BindingContext(
+          test_src_storage_key_, test_src_url_,
+          web_contents_->GetPrimaryMainFrame()->GetGlobalId()),
+      ext_url, "test.txt",
+      FileSystemAccessManagerImpl::SharedHandleState(allow_grant_,
+                                                     allow_grant_));
+
+  EXPECT_CALL(
+      permission_context_,
+      ConfirmSensitiveEntryAccess_(
+          test_src_storage_key_.origin(),
+          PathInfo(PathType::kExternal, virtual_file_path, "test.txt"),
+          FileSystemAccessPermissionContext::HandleType::kFile,
+          FileSystemAccessPermissionContext::AccessTrigger::kProgrammaticWrite,
+          web_contents_->GetPrimaryMainFrame()->GetGlobalId(), testing::_))
+      .WillOnce(base::test::RunOnceCallback<5>(
+          FileSystemAccessPermissionContext::SensitiveEntryResult::kAllowed));
+
+  base::test::TestFuture<
+      blink::mojom::FileSystemAccessErrorPtr,
+      mojo::PendingRemote<blink::mojom::FileSystemAccessFileWriter>>
+      future;
+  handle->CreateFileWriter(
+      /*keep_existing_data=*/false, /*auto_close=*/false,
+      blink::mojom::FileSystemAccessWritableFileStreamLockMode::kExclusive,
+      future.GetCallback());
+  EXPECT_THAT(future.Take(), FileWriterCreationIs(FileSystemAccessStatus::kOk));
+}
+
 // Verifies that creating a file writer skips the sensitive entry access check
 // when the feature is disabled.
 TEST_F(FileSystemAccessFileHandleImplCreateFileWriterTest,
@@ -903,6 +964,188 @@ TEST_F(FileSystemAccessAccessHandleIncognitoTest, OpenAccessHandle) {
   EXPECT_TRUE(file->is_incognito_file_delegate());
   EXPECT_TRUE(file->get_incognito_file_delegate().is_valid());
   EXPECT_TRUE(access_handle_remote.is_valid());
+}
+
+TEST_F(FileSystemAccessAccessHandleIncognitoTest,
+       ManagerDestructionWithPendingOpenAccessHandle) {
+  auto* bfcache_rfh =
+      static_cast<RenderFrameHostImpl*>(web_contents_->GetPrimaryMainFrame());
+  const FileSystemAccessManagerImpl::BindingContext bfcache_context(
+      test_src_storage_key_, test_src_url_, bfcache_rfh->GetGlobalId());
+  const FileSystemAccessManagerImpl::SharedHandleState shared_handle_state(
+      allow_grant_, allow_grant_);
+
+  constexpr size_t kNumFiles = 4;
+  std::vector<FileSystemURL> file_urls;
+  std::vector<mojo::Remote<blink::mojom::FileSystemAccessFileHandle>>
+      bfcache_file_handles;
+  std::vector<
+      mojo::PendingRemote<blink::mojom::FileSystemAccessAccessHandleHost>>
+      held_access_handles;
+
+  auto [initial_result, initial_file, initial_access_handle_remote] =
+      OpenAccessHandle(
+          blink::mojom::FileSystemAccessAccessHandleLockMode::kReadwrite);
+  ASSERT_EQ(initial_result->status, FileSystemAccessStatus::kOk);
+  ASSERT_TRUE(initial_access_handle_remote.is_valid());
+  held_access_handles.push_back(std::move(initial_access_handle_remote));
+
+  for (size_t i = 0; i < kNumFiles; ++i) {
+    auto safe_name = base::SafeBaseName::Create(
+        base::FilePath::FromUTF8Unsafe(base::StringPrintf("file_%zu", i)));
+    ASSERT_TRUE(safe_name.has_value());
+    FileSystemURL url = test_file_url_.CreateSibling(*safe_name);
+    ASSERT_EQ(base::File::FILE_OK, storage::AsyncFileTestHelper::CreateFile(
+                                       file_system_context_.get(), url));
+    file_urls.push_back(url);
+
+    mojo::Remote<blink::mojom::FileSystemAccessFileHandle> file_handle(
+        manager_->CreateFileHandle(bfcache_context, url,
+                                   base::StringPrintf("file_%zu", i),
+                                   shared_handle_state));
+    base::test::TestFuture<
+        blink::mojom::FileSystemAccessErrorPtr,
+        blink::mojom::FileSystemAccessAccessHandleFilePtr,
+        mojo::PendingRemote<blink::mojom::FileSystemAccessAccessHandleHost>>
+        open_future;
+    file_handle->OpenAccessHandle(
+        blink::mojom::FileSystemAccessAccessHandleLockMode::kReadwrite,
+        open_future.GetCallback());
+    auto [result, file, access_handle_remote] = open_future.Take();
+    ASSERT_EQ(result->status, FileSystemAccessStatus::kOk);
+    ASSERT_TRUE(access_handle_remote.is_valid());
+    bfcache_file_handles.push_back(std::move(file_handle));
+    held_access_handles.push_back(std::move(access_handle_remote));
+  }
+
+  bfcache_rfh->SetLifecycleState(
+      RenderFrameHostImpl::LifecycleStateImpl::kInBackForwardCache);
+  EXPECT_FALSE(bfcache_rfh->is_evicted_from_back_forward_cache());
+
+  WebContents* active_web_contents =
+      web_contents_factory_.CreateWebContents(&browser_context_);
+  static_cast<TestWebContents*>(active_web_contents)
+      ->NavigateAndCommit(test_src_url_);
+  const FileSystemAccessManagerImpl::BindingContext active_context(
+      test_src_storage_key_, test_src_url_,
+      active_web_contents->GetPrimaryMainFrame()->GetGlobalId());
+
+  std::vector<mojo::Remote<blink::mojom::FileSystemAccessFileHandle>>
+      active_file_handles;
+  std::vector<std::unique_ptr<base::test::TestFuture<
+      blink::mojom::FileSystemAccessErrorPtr,
+      blink::mojom::FileSystemAccessAccessHandleFilePtr,
+      mojo::PendingRemote<blink::mojom::FileSystemAccessAccessHandleHost>>>>
+      pending_futures;
+
+  for (size_t i = 0; i < kNumFiles; ++i) {
+    mojo::Remote<blink::mojom::FileSystemAccessFileHandle> file_handle(
+        manager_->CreateFileHandle(active_context, file_urls[i],
+                                   base::StringPrintf("file_%zu", i),
+                                   shared_handle_state));
+    auto pending_future = std::make_unique<base::test::TestFuture<
+        blink::mojom::FileSystemAccessErrorPtr,
+        blink::mojom::FileSystemAccessAccessHandleFilePtr,
+        mojo::PendingRemote<blink::mojom::FileSystemAccessAccessHandleHost>>>();
+    file_handle->OpenAccessHandle(
+        blink::mojom::FileSystemAccessAccessHandleLockMode::kReadwrite,
+        pending_future->GetCallback());
+    file_handle.FlushForTesting();
+    EXPECT_FALSE(pending_future->IsReady());
+    active_file_handles.push_back(std::move(file_handle));
+    pending_futures.push_back(std::move(pending_future));
+  }
+
+  // Also queue a pending OpenAccessHandle request on a standalone handle
+  // owned outside `manager_->file_receivers_`.
+  auto standalone_handle = std::make_unique<FileSystemAccessFileHandleImpl>(
+      manager_.get(), active_context, test_file_url_, "test",
+      shared_handle_state);
+  base::test::TestFuture<
+      blink::mojom::FileSystemAccessErrorPtr,
+      blink::mojom::FileSystemAccessAccessHandleFilePtr,
+      mojo::PendingRemote<blink::mojom::FileSystemAccessAccessHandleHost>>
+      standalone_future;
+  standalone_handle->OpenAccessHandle(
+      blink::mojom::FileSystemAccessAccessHandleLockMode::kReadwrite,
+      standalone_future.GetCallback());
+  EXPECT_TRUE(bfcache_rfh->is_evicted_from_back_forward_cache());
+  ASSERT_FALSE(standalone_future.IsReady());
+
+  // Destroying the manager while access handles are held by a BFCache frame
+  // and contending OpenAccessHandle requests are pending must not re-entrantly
+  // mutate `access_handle_host_receivers_` during its destruction.
+  handle_.reset();
+  manager_.reset();
+
+  ASSERT_TRUE(standalone_future.IsReady());
+  EXPECT_EQ(std::get<0>(standalone_future.Take())->status,
+            FileSystemAccessStatus::kNoModificationAllowedError);
+  standalone_handle.reset();
+}
+
+TEST_F(FileSystemAccessAccessHandleIncognitoTest,
+       ManagerDestructionWithPendingOpenAccessHandleAndFileWriter) {
+  auto* bfcache_rfh =
+      static_cast<RenderFrameHostImpl*>(web_contents_->GetPrimaryMainFrame());
+  const FileSystemAccessManagerImpl::SharedHandleState shared_handle_state(
+      allow_grant_, allow_grant_);
+
+  // Open and close an access handle first so `access_handle_host_receivers_`
+  // retains non-zero capacity while empty when the manager is later destroyed.
+  {
+    auto [warmup_result, warmup_file, warmup_access_handle_remote] =
+        OpenAccessHandle(
+            blink::mojom::FileSystemAccessAccessHandleLockMode::kReadwrite);
+    ASSERT_EQ(warmup_result->status, FileSystemAccessStatus::kOk);
+    ASSERT_TRUE(warmup_access_handle_remote.is_valid());
+    mojo::Remote<blink::mojom::FileSystemAccessAccessHandleHost> warmup_remote(
+        std::move(warmup_access_handle_remote));
+    base::test::TestFuture<void> close_future;
+    warmup_remote->Close(close_future.GetCallback());
+    EXPECT_TRUE(close_future.Wait());
+  }
+
+  base::test::TestFuture<
+      blink::mojom::FileSystemAccessErrorPtr,
+      mojo::PendingRemote<blink::mojom::FileSystemAccessFileWriter>>
+      writer_future;
+  handle_->CreateFileWriter(
+      /*keep_existing_data=*/false, /*auto_close=*/false,
+      blink::mojom::FileSystemAccessWritableFileStreamLockMode::kExclusive,
+      writer_future.GetCallback());
+  auto [writer_result, writer_remote] = writer_future.Take();
+  ASSERT_EQ(writer_result->status, FileSystemAccessStatus::kOk);
+  ASSERT_TRUE(writer_remote.is_valid());
+
+  bfcache_rfh->SetLifecycleState(
+      RenderFrameHostImpl::LifecycleStateImpl::kInBackForwardCache);
+
+  WebContents* active_web_contents =
+      web_contents_factory_.CreateWebContents(&browser_context_);
+  static_cast<TestWebContents*>(active_web_contents)
+      ->NavigateAndCommit(test_src_url_);
+  const FileSystemAccessManagerImpl::BindingContext active_context(
+      test_src_storage_key_, test_src_url_,
+      active_web_contents->GetPrimaryMainFrame()->GetGlobalId());
+
+  mojo::Remote<blink::mojom::FileSystemAccessFileHandle> active_file_handle(
+      manager_->CreateFileHandle(active_context, test_file_url_, "test",
+                                 shared_handle_state));
+  base::test::TestFuture<
+      blink::mojom::FileSystemAccessErrorPtr,
+      blink::mojom::FileSystemAccessAccessHandleFilePtr,
+      mojo::PendingRemote<blink::mojom::FileSystemAccessAccessHandleHost>>
+      pending_future;
+  active_file_handle->OpenAccessHandle(
+      blink::mojom::FileSystemAccessAccessHandleLockMode::kReadwrite,
+      pending_future.GetCallback());
+  active_file_handle.FlushForTesting();
+  EXPECT_FALSE(pending_future.IsReady());
+  EXPECT_TRUE(bfcache_rfh->is_evicted_from_back_forward_cache());
+
+  handle_.reset();
+  manager_.reset();
 }
 
 TEST_F(FileSystemAccessAccessHandleTest, OpenAccessHandleLockModes_Readwrite) {
@@ -2607,6 +2850,145 @@ TEST_F(FileSystemAccessFileHandleImplAsBlobTest,
   EXPECT_FALSE(future.IsReady());
 }
 
+// Verifies that `AsBlob()` fails with a security error and a null blob when the
+// path is blocked by the sensitive entry access check, even if read permission
+// was already granted.
+TEST_F(FileSystemAccessFileHandleImplAsBlobTest, SensitiveEntryAccessBlocked) {
+  manager_->SetPermissionContextForTesting(&permission_context_);
+  EXPECT_CALL(
+      permission_context_,
+      ConfirmSensitiveEntryAccess_(
+          test_src_storage_key_.origin(),
+          PathInfo(PathType::kLocal, test_file_url_.path(), "test"),
+          FileSystemAccessPermissionContext::HandleType::kFile,
+          FileSystemAccessPermissionContext::AccessTrigger::kProgrammaticRead,
+          web_contents_->GetPrimaryMainFrame()->GetGlobalId(), testing::_))
+      .WillOnce(base::test::RunOnceCallback<5>(
+          FileSystemAccessPermissionContext::SensitiveEntryResult::kAbort));
+
+  auto [status, blob] = GetBlob();
+  EXPECT_EQ(status, FileSystemAccessStatus::kSecurityError);
+  EXPECT_TRUE(blob.is_null());
+}
+
+// Verifies that `AsBlob()` succeeds when the sensitive entry access check
+// allows access to the path.
+TEST_F(FileSystemAccessFileHandleImplAsBlobTest, SensitiveEntryAccessAllowed) {
+  manager_->SetPermissionContextForTesting(&permission_context_);
+  EXPECT_CALL(
+      permission_context_,
+      ConfirmSensitiveEntryAccess_(
+          test_src_storage_key_.origin(),
+          PathInfo(PathType::kLocal, test_file_url_.path(), "test"),
+          FileSystemAccessPermissionContext::HandleType::kFile,
+          FileSystemAccessPermissionContext::AccessTrigger::kProgrammaticRead,
+          web_contents_->GetPrimaryMainFrame()->GetGlobalId(), testing::_))
+      .WillOnce(base::test::RunOnceCallback<5>(
+          FileSystemAccessPermissionContext::SensitiveEntryResult::kAllowed));
+
+  auto [status, blob] = GetBlob();
+  EXPECT_EQ(status, FileSystemAccessStatus::kOk);
+  EXPECT_FALSE(blob.is_null());
+}
+
+// Verifies that `AsBlob()` on an external file system path fails with a
+// security error when blocked by the sensitive entry access check.
+TEST_F(FileSystemAccessFileHandleImplAsBlobTest,
+       SensitiveEntryAccessBlockedExternalPath) {
+  test_file_url_ = file_system_context_->CreateCrackedFileSystemURL(
+      test_src_storage_key_, storage::kFileSystemTypeTest,
+      base::FilePath::FromUTF8Unsafe("test"));
+  ASSERT_EQ(base::File::FILE_OK,
+            storage::AsyncFileTestHelper::CreateFile(file_system_context_.get(),
+                                                     test_file_url_));
+  SetDisplayName("test");
+
+  manager_->SetPermissionContextForTesting(&permission_context_);
+  EXPECT_CALL(
+      permission_context_,
+      ConfirmSensitiveEntryAccess_(
+          test_src_storage_key_.origin(),
+          PathInfo(PathType::kExternal, test_file_url_.path(), "test"),
+          FileSystemAccessPermissionContext::HandleType::kFile,
+          FileSystemAccessPermissionContext::AccessTrigger::kProgrammaticRead,
+          web_contents_->GetPrimaryMainFrame()->GetGlobalId(), testing::_))
+      .WillOnce(base::test::RunOnceCallback<5>(
+          FileSystemAccessPermissionContext::SensitiveEntryResult::kAbort));
+
+  auto [status, blob] = GetBlob();
+  EXPECT_EQ(status, FileSystemAccessStatus::kSecurityError);
+  EXPECT_TRUE(blob.is_null());
+}
+
+// Verifies that `AsBlob()` skips the sensitive entry access check when the
+// feature is disabled.
+TEST_F(FileSystemAccessFileHandleImplAsBlobTest,
+       SensitiveEntryAccessFeatureDisabled) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndDisableFeature(
+      features::kFileSystemAccessDirectoryIterationBlocklistCheck);
+
+  manager_->SetPermissionContextForTesting(&permission_context_);
+  EXPECT_CALL(permission_context_, ConfirmSensitiveEntryAccess_).Times(0);
+
+  auto [status, blob] = GetBlob();
+  EXPECT_EQ(status, FileSystemAccessStatus::kOk);
+  EXPECT_FALSE(blob.is_null());
+}
+
+// Verifies that if the permission context drops the
+// `ConfirmSensitiveEntryAccess()` callback without running it (e.g. when the
+// permission context KeyedService is destroyed during profile shutdown before
+// `FileSystemAccessManagerImpl`), `AsBlob()` still invokes its callback with a
+// security error rather than dropping the Mojo response callback while the
+// handle binding is still open.
+TEST_F(FileSystemAccessFileHandleImplAsBlobTest,
+       SensitiveEntryAccessCallbackDropped) {
+  manager_->SetPermissionContextForTesting(&permission_context_);
+  EXPECT_CALL(
+      permission_context_,
+      ConfirmSensitiveEntryAccess_(
+          test_src_storage_key_.origin(),
+          PathInfo(PathType::kLocal, test_file_url_.path(), "test"),
+          FileSystemAccessPermissionContext::HandleType::kFile,
+          FileSystemAccessPermissionContext::AccessTrigger::kProgrammaticRead,
+          web_contents_->GetPrimaryMainFrame()->GetGlobalId(), testing::_))
+      .WillOnce(
+          [](const url::Origin&, const PathInfo&,
+             FileSystemAccessPermissionContext::HandleType,
+             FileSystemAccessPermissionContext::AccessTrigger,
+             GlobalRenderFrameHostId,
+             base::OnceCallback<void(
+                 FileSystemAccessPermissionContext::SensitiveEntryResult)>&
+                 callback) {
+            // Simulate the permission context dropping the pending callback on
+            // shutdown without running it.
+            callback.Reset();
+          });
+
+  auto [status, blob] = GetBlob();
+  EXPECT_EQ(status, FileSystemAccessStatus::kSecurityError);
+  EXPECT_TRUE(blob.is_null());
+}
+
+// Verifies that `AsBlob()` on a local file system handle with a non-absolute
+// path (e.g. a synthetic relative path passed via `LaunchQueue`) fails with a
+// security error without invoking `ConfirmSensitiveEntryAccess()`.
+TEST_F(FileSystemAccessFileHandleImplAsBlobTest,
+       SensitiveEntryAccessRelativeLocalPathBlocked) {
+  test_file_url_ = file_system_context_->CreateCrackedFileSystemURL(
+      test_src_storage_key_, storage::kFileSystemTypeLocal,
+      base::FilePath::FromUTF8Unsafe("relative_test_path"));
+  SetDisplayName("relative_test_path");
+
+  manager_->SetPermissionContextForTesting(&permission_context_);
+  EXPECT_CALL(permission_context_, ConfirmSensitiveEntryAccess_).Times(0);
+
+  auto [status, blob] = GetBlob();
+  EXPECT_EQ(status, FileSystemAccessStatus::kSecurityError);
+  EXPECT_TRUE(blob.is_null());
+}
+
 class FileSystemAccessSandboxedFileHandleImplAsBlobTest
     : public FileSystemAccessFileHandleImplAsBlobTest {
  public:
@@ -2659,6 +3041,18 @@ TEST_F(FileSystemAccessSandboxedFileHandleImplAsBlobTest, WellKnownMimeType) {
   EXPECT_THAT(GetBlob(), IsOkBlobWithContentType("image/png"));
   SetDisplayName("file.txt");
   EXPECT_THAT(GetBlob(), IsOkBlobWithContentType("text/plain"));
+}
+
+// Verifies that `AsBlob()` skips the sensitive entry access check for sandboxed
+// file systems (OPFS).
+TEST_F(FileSystemAccessSandboxedFileHandleImplAsBlobTest,
+       SensitiveEntryAccessSkipped) {
+  manager_->SetPermissionContextForTesting(&permission_context_);
+  EXPECT_CALL(permission_context_, ConfirmSensitiveEntryAccess_).Times(0);
+
+  auto [status, blob] = GetBlob();
+  EXPECT_EQ(status, FileSystemAccessStatus::kOk);
+  EXPECT_FALSE(blob.is_null());
 }
 
 }  // namespace content

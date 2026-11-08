@@ -10,6 +10,7 @@ assert(enable_webui_history)
 source_set("history") {
   sources = [
     "browsing_history_handler.cc",
+    "foreign_session_handler.cc",
     "history_identity_state_watcher.cc",
     "history_login_handler.cc",
     "history_ui.cc",
@@ -24,7 +25,6 @@ source_set("history") {
     "navigation_handler.h",
   ]
 
-  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
   deps = [
     "//base",
     "//chrome/app:generated_resources",
@@ -92,16 +92,14 @@ source_set("history") {
   if (is_android) {
     sources += [ "history_ui_platform_handlers_android.cc" ]
     deps += [
+      "//chrome/browser/flags:flags_android",
       "//chrome/browser/settings:jni_headers",
       "//ui/android",
     ]
   }
 
   if (!is_android) {
-    sources += [
-      "foreign_session_handler.cc",
-      "history_ui_platform_handlers_desktop.cc",
-    ]
+    sources += [ "history_ui_platform_handlers_desktop.cc" ]
     public += [ "foreign_session_handler.h" ]
     deps += [
       "//chrome/browser/glic",
@@ -111,13 +109,11 @@ source_set("history") {
       "//chrome/browser/ui/hats",
       "//chrome/browser/ui/profiles",
       "//chrome/browser/ui/signin",
-      "//chrome/browser/ui/views/side_panel",
       "//chrome/browser/ui/webui:managed_ui_handler",
       "//chrome/browser/ui/webui/cr_components/history_embeddings",
       "//chrome/browser/ui/webui/history_clusters",
       "//chrome/browser/ui/webui/ntp",
       "//chrome/browser/ui/webui/page_not_available_for_guest",
-      "//chrome/browser/ui/webui/side_panel/tabs_from_other_devices",
       "//chrome/browser/ui/webui/signin:signin_utils",
       "//chrome/browser/ui/webui/top_chrome",
       "//chrome/browser/ui/webui/user_education",
@@ -141,6 +137,7 @@ source_set("unit_tests") {
     "//content/public/browser",
     "//content/test:test_support",
     "//mojo/public/cpp/bindings",
+    "//mojo/public/cpp/test_support:test_utils",
     "//testing/gmock",
     "//testing/gtest",
     "//ui/webui/resources/cr_components/history:mojo_bindings",
@@ -153,29 +150,27 @@ source_set("unit_tests") {
       "foreign_session_handler_unittest.cc",
       "history_identity_state_watcher_unittest.cc",
     ]
+    if (enable_dice_support) {
+      sources += [ "history_cross_device_signin_promo_handler_unittest.cc" ]
+    }
     deps += [
       "//chrome/browser/bookmarks",
       "//chrome/browser/critical_actions",
       "//chrome/browser/signin",
       "//chrome/browser/sync",
-      "//chrome/browser/ui:test_support",
-      "//chrome/browser/ui:ui_features",
       "//chrome/browser/ui/hats",
       "//chrome/browser/ui/hats:test_support",
-      "//chrome/browser/ui/tabs:test_support",
-      "//chrome/browser/ui/views/side_panel",
       "//chrome/common",
       "//chrome/test/base:chrome_render_view_host_test_harness",
       "//components/critical_actions/core/browser",
       "//components/history/core/browser",
       "//components/prefs",
       "//components/sessions",
+      "//components/signin/public/base",
       "//components/signin/public/identity_manager",
       "//components/signin/public/identity_manager:test_support",
       "//components/sync:test_support",
       "//components/sync/base",
-      "//components/sync_device_info",
-      "//components/sync_device_info:test_support",
       "//components/sync_sessions",
       "//net",
       "//ui/base",

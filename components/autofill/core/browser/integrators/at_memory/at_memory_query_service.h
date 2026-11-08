@@ -10,17 +10,17 @@
 #include <string_view>
 #include <vector>
 
-#include "base/containers/flat_set.h"
 #include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "components/autofill/core/browser/integrators/at_memory/at_memory_eligibility_metrics_tracker.h"
 #include "components/autofill/core/browser/integrators/at_memory/memory_search_result.h"
 #include "components/keyed_service/core/keyed_service.h"
-#include "components/personal_context/core/context_memory_error.h"
 #include "components/personal_context/core/personal_context_types.h"
 #include "components/personal_context/proto/features/at_memory.pb.h"
 #include "url/gurl.h"
+
+class PrefService;
 
 namespace personal_context {
 class PersonalContextEligibilityService;
@@ -41,26 +41,6 @@ class LogRouter;
 // profile.
 class AtMemoryQueryService : public KeyedService {
  public:
-  // LINT.IfChange(SpiiRetrievalFailureReason)
-  // Reasons for unmasking or authentication failure when retrieving PII.
-  //
-  // These values are persisted to logs. Entries should not be renumbered and
-  // numeric values should never be reused.
-  enum class SpiiRetrievalFailureReason {
-    // There is no network connection.
-    kNoConnection = 0,
-    // Biometric/screen-lock authentication failed or was cancelled.
-    kReauthFailed = 1,
-    // Another authentication request is already in progress.
-    kReauthInProgress = 2,
-    // The request to the `PersonalContextService` failed.
-    kFetchFailed = 3,
-    // The server response could not be parsed.
-    kParseFailed = 4,
-    kMaxValue = kParseFailed
-  };
-  // LINT.ThenChange(//tools/metrics/histograms/metadata/autofill/enums.xml:AutofillAtMemorySpiiRetrievalFailureReason)
-
   AtMemoryQueryService(
       std::unique_ptr<AutofillDataProvider> data_provider,
       personal_context::PersonalContextService* personal_context_service,

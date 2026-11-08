@@ -18,6 +18,7 @@
 
 #include <math.h>
 
+#include <algorithm>
 #include <iterator>
 #include <limits>
 #include <map>
@@ -37,6 +38,7 @@
 #include "base/strings/string_view_util.h"
 #include "base/time/time.h"
 #include "base/timer/elapsed_timer.h"
+#include "build/build_config.h"
 #include "components/cbor/cbor_buildflags.h"
 #include "components/cbor/constants.h"
 #include "components/cbor/experiment_metrics.h"
@@ -117,6 +119,23 @@ const char kOutOfRangeIntegerValue[] =
 const char kMapKeyDuplicate[] = "Duplicate map keys are not allowed.";
 const char kUnknownError[] = "An unknown error occured.";
 
+// Every duration recorded for a parse uses this bucket layout, so that their
+// distributions line up.
+constexpr base::TimeDelta kDurationMin = base::Microseconds(1);
+constexpr base::TimeDelta kDurationMax = base::Milliseconds(100);
+constexpr size_t kDurationBuckets = 50;
+
+// Returns whether `base::ThreadTicks` is precise enough to split a parse's
+// wall time into on- and off-CPU time. On Windows on Arm, it comes from
+// GetThreadTimes(), which only advances once per scheduler tick (~15.6 ms).
+bool CanSplitCpuTime() {
+#if BUILDFLAG(IS_WIN) && defined(ARCH_CPU_ARM64)
+  return false;
+#else
+  return base::ThreadTicks::IsSupported();
+#endif
+}
+
 class [[nodiscard]] ScopedMetricsReporter {
  public:
   ScopedMetricsReporter(size_t payload_size,
@@ -128,21 +147,47 @@ class [[nodiscard]] ScopedMetricsReporter {
   ScopedMetricsReporter& operator=(const ScopedMetricsReporter&) = delete;
 
   ~ScopedMetricsReporter() {
+    // Stop the measurements in the reverse order of starting them, and before
+    // recording anything, so that none of them includes the histogram code.
     const base::TimeDelta elapsed = timer_.Elapsed();
+    const base::ThreadTicks thread_end = thread_start_.is_null()
+                                             ? base::ThreadTicks()
+                                             : base::ThreadTicks::Now();
 
     UMA_HISTOGRAM_ENUMERATION("CBOR.Read.Result", *error_code_);
     UMA_HISTOGRAM_COUNTS_10M("CBOR.Read.Size",
                              base::saturated_cast<int>(payload_size_));
     if (base::TimeTicks::IsHighResolution()) {
       UMA_HISTOGRAM_CUSTOM_MICROSECONDS_TIMES("CBOR.Read.Duration", elapsed,
-                                              base::Microseconds(1),
-                                              base::Milliseconds(100), 50);
+                                              kDurationMin, kDurationMax,
+                                              kDurationBuckets);
+      // On Windows, `base::ThreadTicks::Now()` is null until the TSC frequency
+      // has been measured.
+      if (!thread_start_.is_null() && !thread_end.is_null()) {
+        // The thread clock starts before and stops after the wall clock, and
+        // both count whole microseconds, so the thread time can come out
+        // slightly longer. Capping it keeps the two parts adding up to
+        // `elapsed`.
+        const base::TimeDelta on_cpu =
+            std::min(thread_end - thread_start_, elapsed);
+        UMA_HISTOGRAM_CUSTOM_MICROSECONDS_TIMES("CBOR.Read.OnCpuDuration",
+                                                on_cpu, kDurationMin,
+                                                kDurationMax, kDurationBuckets);
+        UMA_HISTOGRAM_CUSTOM_MICROSECONDS_TIMES("CBOR.Read.OffCpuDuration",
+                                                elapsed - on_cpu, kDurationMin,
+                                                kDurationMax, kDurationBuckets);
+      }
     }
   }
 
  private:
   const size_t payload_size_;
   const base::raw_ref<const Reader::DecoderError> error_code_;
+
+  // Initialized in declaration order, so that reading the thread clock does
+  // not count towards the wall-clock duration of the parse.
+  const base::ThreadTicks thread_start_ =
+      CanSplitCpuTime() ? base::ThreadTicks::Now() : base::ThreadTicks();
   const base::ElapsedTimer timer_;
 };
 
@@ -180,8 +225,7 @@ Value Reader::ConvertRustMapKeyToCpp(const cbor::rust::MapKey& rust_key) {
     case cbor::rust::MapKeyKind::Tag::InvalidUtf8:
       // Unreachable when parsing (`allow_invalid_utf8` does not apply to map
       // keys); exists so `Writer` can encode test-only `INVALID_UTF8` keys.
-      return Value(rust_key.as_invalid_utf8()->to_span(),
-                   Value::Type::INVALID_UTF8);
+      return Value(Value::invalid_utf8, rust_key.as_invalid_utf8()->to_span());
   }
   NOTREACHED();
 }
@@ -194,16 +238,15 @@ Value Reader::ConvertRustValueToCpp(const cbor::rust::Value& rust_val) {
     case cbor::rust::ValueKind::Tag::Boolean:
       return Value(*rust_val.as_bool());
     case cbor::rust::ValueKind::Tag::Null:
-      return Value(Value::Null());
+      return Value(Value::null);
     case cbor::rust::ValueKind::Tag::Undefined:
-      return Value(Value::Undefined());
+      return Value(Value::undefined);
     case cbor::rust::ValueKind::Tag::Bytestring:
       return Value(rust_val.as_bytestring()->to_span());
     case cbor::rust::ValueKind::Tag::String:
       return Value(rust_val.as_string()->to_string_view());
     case cbor::rust::ValueKind::Tag::InvalidUtf8:
-      return Value(rust_val.as_invalid_utf8()->to_span(),
-                   Value::Type::INVALID_UTF8);
+      return Value(Value::invalid_utf8, rust_val.as_invalid_utf8()->to_span());
     case cbor::rust::ValueKind::Tag::Array: {
       return Value(base::ToVector(rust_val.as_array()->to_span(),
                                   ConvertRustValueToCpp));
@@ -442,9 +485,9 @@ std::optional<Value> Reader::DecodeToSimpleValue(const DataItemHeader& header) {
     case Value::SimpleValue::TRUE_VALUE:
       return Value(true);
     case Value::SimpleValue::NULL_VALUE:
-      return Value(Value::Null());
+      return Value(Value::null);
     case Value::SimpleValue::UNDEFINED:
-      return Value(Value::Undefined());
+      return Value(Value::undefined);
   }
 
   error_code_ = DecoderError::UNSUPPORTED_SIMPLE_VALUE;
@@ -466,7 +509,7 @@ std::optional<Value> Reader::ReadStringContent(
   }
 
   if (config.allow_invalid_utf8) {
-    return Value(*bytes, Value::Type::INVALID_UTF8);
+    return Value(Value::invalid_utf8, *bytes);
   }
 
   error_code_ = DecoderError::INVALID_UTF8;

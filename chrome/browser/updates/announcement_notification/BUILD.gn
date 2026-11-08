@@ -20,8 +20,6 @@ source_set("announcement_notification") {
     "//url",
   ]
 
-  configs += [ "//build/config/compiler:wexit_time_destructors" ]
-
   if (is_android) {
     sources += [ "announcement_notification_delegate_android.h" ]
   } else {
@@ -33,15 +31,11 @@ source_set("announcement_notification") {
 }
 
 source_set("impl") {
-  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
-
   sources = [
     "announcement_notification_service.cc",
     "announcement_notification_service_factory.cc",
     "empty_announcement_notification_service.cc",
   ]
-
-  configs += [ "//build/config/compiler:wexit_time_destructors" ]
 
   # TODO(xingliu): Move code depends on //chrome/browser out of this module.
   deps = [
@@ -86,6 +80,7 @@ source_set("unit_tests") {
     ":announcement_notification",
     "//build:chromeos_buildflags",
     "//chrome/test:test_support",
+    "//chrome/test/base:testing_browser_process",
     "//components/sync_preferences",
     "//skia",
     "//testing/gmock",

@@ -41,6 +41,7 @@
 #include "components/offline_pages/core/offline_page_types.h"
 #include "components/offline_pages/core/page_criteria.h"
 #include "components/offline_pages/core/request_header/offline_page_header.h"
+#include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/web_contents.h"
 #include "net/base/filename_util.h"
 #include "third_party/jni_zero/default_conversions.h"
@@ -275,7 +276,11 @@ std::string OfflinePageBridge::GetEncodedOriginApp(
     return "";
   }
   JNIEnv* env = base::android::AttachCurrentThread();
-  return Java_OfflinePageBridge_getEncodedOriginApp(env, tab->GetJavaObject());
+  ScopedJavaLocalRef<jobject> j_tab = tab->GetJavaObject();
+  if (!j_tab) {
+    return "";
+  }
+  return Java_OfflinePageBridge_getEncodedOriginApp(env, j_tab);
 }
 
 OfflinePageBridge::OfflinePageBridge(JNIEnv* env,
@@ -298,13 +303,13 @@ OfflinePageBridge::~OfflinePageBridge() {
 }
 
 void OfflinePageBridge::OfflinePageModelLoaded(OfflinePageModel* model) {
-  DCHECK_EQ(offline_page_model_, model);
+  CHECK_EQ(offline_page_model_, model, base::NotFatalUntil::M161);
   NotifyIfDoneLoading();
 }
 
 void OfflinePageBridge::OfflinePageAdded(OfflinePageModel* model,
                                          const OfflinePageItem& added_page) {
-  DCHECK_EQ(offline_page_model_, model);
+  CHECK_EQ(offline_page_model_, model, base::NotFatalUntil::M161);
   JNIEnv* env = base::android::AttachCurrentThread();
 
   Java_OfflinePageBridge_offlinePageAdded(
@@ -321,8 +326,8 @@ void OfflinePageBridge::OfflinePageDeleted(const OfflinePageItem& item) {
 void OfflinePageBridge::GetAllPages(JNIEnv* env,
                                     const JavaRef<jobject>& j_result_obj,
                                     const JavaRef<jobject>& j_callback_obj) {
-  DCHECK(j_result_obj);
-  DCHECK(j_callback_obj);
+  CHECK(j_result_obj, base::NotFatalUntil::M161);
+  CHECK(j_callback_obj, base::NotFatalUntil::M161);
 
   offline_page_model_->GetAllPages(
       base::BindOnce(&MultipleOfflinePageItemCallback,
@@ -341,7 +346,7 @@ void OfflinePageBridge::GetPageByOfflineId(
 
 std::vector<ClientId> getClientIds(const std::vector<std::string>& name_spaces,
                                    const std::vector<std::string>& ids) {
-  DCHECK_EQ(name_spaces.size(), ids.size());
+  CHECK_EQ(name_spaces.size(), ids.size(), base::NotFatalUntil::M161);
   std::vector<ClientId> client_ids;
 
   for (size_t i = 0; i < name_spaces.size(); i++) {
@@ -432,7 +437,7 @@ void OfflinePageBridge::SelectPageForOnlineUrl(
     const GURL& online_url,
     int tab_id,
     const JavaRef<jobject>& j_callback_obj) {
-  DCHECK(j_callback_obj);
+  CHECK(j_callback_obj, base::NotFatalUntil::M161);
 
   OfflinePageUtils::SelectPagesForURL(
       key_, online_url, tab_id,
@@ -445,8 +450,8 @@ void OfflinePageBridge::SavePage(const JavaRef<jobject>& j_callback_obj,
                                  const std::string& namespace_str,
                                  const std::string& client_id,
                                  const std::string& origin) {
-  DCHECK(j_callback_obj);
-  DCHECK(web_contents);
+  CHECK(j_callback_obj, base::NotFatalUntil::M161);
+  CHECK(web_contents, base::NotFatalUntil::M161);
 
   OfflinePageModel::SavePageParams save_page_params;
   std::unique_ptr<OfflinePageArchiver> archiver;
@@ -474,7 +479,7 @@ void OfflinePageBridge::PublishInternalPageByOfflineId(
     const base::android::JavaRef<jobject>& j_published_callback) {
   OfflinePageModel* offline_page_model =
       OfflinePageModelFactory::GetForKey(key_);
-  DCHECK(offline_page_model);
+  CHECK(offline_page_model, base::NotFatalUntil::M161);
 
   offline_page_model->GetPageByOfflineId(
       j_offline_id,
@@ -489,7 +494,7 @@ void OfflinePageBridge::PublishInternalPageByGuid(
     const base::android::JavaRef<jobject>& j_published_callback) {
   OfflinePageModel* offline_page_model =
       OfflinePageModelFactory::GetForKey(key_);
-  DCHECK(offline_page_model);
+  CHECK(offline_page_model, base::NotFatalUntil::M161);
   PageCriteria criteria;
   criteria.guid = guid;
   criteria.maximum_matches = 1;
@@ -504,7 +509,7 @@ void OfflinePageBridge::PublishInternalArchiveOfFirstItem(
     const ScopedJavaGlobalRef<jobject>& j_callback_obj,
     const std::vector<OfflinePageItem>& offline_pages) {
   // Should only ever be called with 0 or 1 page.
-  DCHECK_GE(1UL, offline_pages.size());
+  CHECK_GE(1UL, offline_pages.size(), base::NotFatalUntil::M161);
   if (offline_pages.empty()) {
     PublishInternalArchive(j_callback_obj, nullptr);
     return;
@@ -522,7 +527,7 @@ void OfflinePageBridge::PublishInternalArchive(
   }
   OfflinePageModel* offline_page_model =
       OfflinePageModelFactory::GetForKey(key_);
-  DCHECK(offline_page_model);
+  CHECK(offline_page_model, base::NotFatalUntil::M161);
 
   // If it has already been published, bail out.
   if (!offline_page_model->IsArchiveInInternalDir(offline_page->file_path)) {
@@ -577,11 +582,13 @@ bool OfflinePageBridge::IsShowingDownloadButtonInErrorPage(
 }
 
 void OfflinePageBridge::WillCloseTab(content::WebContents* web_contents) {
-  DCHECK(web_contents);
+  CHECK(web_contents, base::NotFatalUntil::M161);
   if (!web_contents)
     return;
 
-  RecentTabHelper* tab_helper = RecentTabHelper::FromWebContents(web_contents);
+  tabs::TabInterface* tab =
+      tabs::TabInterface::MaybeGetFromContents(web_contents);
+  RecentTabHelper* tab_helper = tab ? RecentTabHelper::From(tab) : nullptr;
   if (tab_helper)
     tab_helper->WillCloseTab();
 }
@@ -647,7 +654,7 @@ void OfflinePageBridge::GetLoadUrlParamsForOpeningMhtmlFileOrContent(
   if (url.SchemeIsFile()) {
     net::FileURLToFilePath(url, &file_path);
   } else {
-    DCHECK(url.SchemeIs("content"));
+    CHECK(url.SchemeIs("content"), base::NotFatalUntil::M161);
     // Content URI can be embeded in the file path and FileStream knows how to
     // read it.
     file_path = base::FilePath(url.spec());

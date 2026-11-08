@@ -9,19 +9,23 @@
 #include <string>
 #include <string_view>
 
-#include "base/android/scoped_java_ref.h"
 #include "base/containers/span.h"
 #include "base/functional/callback.h"
-#include "chrome/browser/facilitated_payments/ui/android/facilitated_payments_controller.h"
-#include "components/facilitated_payments/android/device_delegate_android.h"
+#include "base/memory/raw_ref.h"
+#include "build/build_config.h"
 #include "components/facilitated_payments/content/browser/content_facilitated_payments_driver_factory.h"
 #include "components/facilitated_payments/core/browser/facilitated_payments_app_info_list.h"
 #include "components/facilitated_payments/core/browser/facilitated_payments_client.h"
 #include "components/facilitated_payments/core/browser/network_api/facilitated_payments_network_interface.h"
+#include "components/facilitated_payments/core/utils/facilitated_payments_ui_utils.h"
+#include "ui/base/unowned_user_data/scoped_unowned_user_data.h"
+
+#if BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/facilitated_payments/ui/android/facilitated_payments_controller.h"
+#include "components/facilitated_payments/android/device_delegate_android.h"
 #include "components/facilitated_payments/core/browser/payment_link_manager.h"
 #include "components/facilitated_payments/core/browser/pix_account_linking_manager.h"
-#include "components/facilitated_payments/core/utils/facilitated_payments_ui_utils.h"
-#include "content/public/browser/web_contents_user_data.h"
+#endif  // BUILDFLAG(IS_ANDROID)
 
 namespace url {
 class Origin;
@@ -45,22 +49,33 @@ namespace strike_database {
 class StrikeDatabase;
 }  // namespace strike_database
 
-// Chrome implementation of `FacilitatedPaymentsClient`. `WebContents` owns 1
+namespace tabs {
+class TabInterface;
+}  // namespace tabs
+
+// Chrome implementation of `FacilitatedPaymentsClient`. `TabFeatures` owns 1
 // instance of this class. Creates and owns
 // `ContentFacilitatedPaymentsDriverFactory`.
 class ChromeFacilitatedPaymentsClient
-    : public payments::facilitated::FacilitatedPaymentsClient,
-      public content::WebContentsUserData<ChromeFacilitatedPaymentsClient> {
+    : public payments::facilitated::FacilitatedPaymentsClient {
  public:
+  DECLARE_USER_DATA(ChromeFacilitatedPaymentsClient);
+
+  // Note: `web_contents` is passed explicitly because `tab.GetContents()` still
+  // returns the old contents during `TabFeatures::WillDiscardContents`.
   ChromeFacilitatedPaymentsClient(
+      tabs::TabInterface& tab,
       content::WebContents* web_contents,
       optimization_guide::OptimizationGuideDecider* optimization_guide_decider,
-      base::RepeatingCallback<bool(content::WebContents*)> is_cct_callback = {});
+      base::RepeatingCallback<bool(content::WebContents*)> is_cct_callback =
+          {});
   ChromeFacilitatedPaymentsClient(const ChromeFacilitatedPaymentsClient&) =
       delete;
   ChromeFacilitatedPaymentsClient& operator=(
       const ChromeFacilitatedPaymentsClient&) = delete;
   ~ChromeFacilitatedPaymentsClient() override;
+
+  static ChromeFacilitatedPaymentsClient* From(tabs::TabInterface* tab);
 
   // RiskDataLoader:
   void LoadRiskData(base::OnceCallback<void(const std::string&)>
@@ -70,11 +85,13 @@ class ChromeFacilitatedPaymentsClient
   GetFacilitatedPaymentsDriverForFrame(
       content::RenderFrameHost* render_frame_host);
 
+#if BUILDFLAG(IS_ANDROID)
   virtual void SetFacilitatedPaymentsControllerForTesting(
       std::unique_ptr<FacilitatedPaymentsController> controller);
+#endif  // BUILDFLAG(IS_ANDROID)
 
  private:
-  friend class content::WebContentsUserData<ChromeFacilitatedPaymentsClient>;
+  content::WebContents& GetWebContents() const { return *web_contents_; }
 
   // FacilitatedPaymentsClient:
   const url::Origin& GetLastCommittedOrigin() const final;
@@ -92,6 +109,8 @@ class ChromeFacilitatedPaymentsClient
       final;
   payments::facilitated::DeviceDelegate* GetDeviceDelegate() final;
   bool IsWebContentsVisibleOrOccluded() final;
+  strike_database::StrikeDatabase* GetStrikeDatabase() final;
+#if BUILDFLAG(IS_ANDROID)
   void ShowPixPaymentPrompt(
       base::span<const autofill::BankAccount> bank_account_suggestions,
       base::OnceCallback<void(int64_t)> on_payment_account_selected) final;
@@ -107,7 +126,6 @@ class ChromeFacilitatedPaymentsClient
   void SetUiEventListener(
       base::RepeatingCallback<void(payments::facilitated::UiEvent)>
           ui_event_listener) final;
-  strike_database::StrikeDatabase* GetStrikeDatabase() final;
   void InitPixAccountLinkingFlow(
       const url::Origin& pix_payment_page_origin) final;
   void ShowPixAccountLinkingPrompt(
@@ -123,20 +141,24 @@ class ChromeFacilitatedPaymentsClient
   void ShowAccountLinkingFailureNotification(
       payments::facilitated::FacilitatedPaymentsType fop_type) final;
   bool HasScreenlockOrBiometricSetup() final;
+#endif  // BUILDFLAG(IS_ANDROID)
 
   // Register any allowlists with the OptimizationGuide framework, so that
   // individual features can later request to check whether the current main
   // frame URL is eligible for that feature.
   void RegisterAllowlists();
 
-  payments::facilitated::ContentFacilitatedPaymentsDriverFactory
-      driver_factory_;
+  const raw_ref<content::WebContents> web_contents_;
 
   std::unique_ptr<payments::facilitated::FacilitatedPaymentsNetworkInterface>
       facilitated_payments_network_interface_;
 
+#if BUILDFLAG(IS_ANDROID)
   std::unique_ptr<FacilitatedPaymentsController>
       facilitated_payments_controller_;
+
+  payments::facilitated::DeviceDelegateAndroid device_delegate_;
+#endif  // BUILDFLAG(IS_ANDROID)
 
   // The optimization guide decider to help determine whether the current main
   // frame URL is eligible for facilitated payments.
@@ -145,9 +167,15 @@ class ChromeFacilitatedPaymentsClient
 
   base::RepeatingCallback<bool(content::WebContents*)> is_cct_callback_;
 
-  payments::facilitated::DeviceDelegateAndroid device_delegate_;
+  // Declared after `facilitated_payments_controller_` and other client
+  // dependencies so that drivers (and their owned `PixManager` and
+  // `PaymentLinkManager` instances, which call `client_->DismissPrompt()` in
+  // their destructors) are destroyed before `facilitated_payments_controller_`.
+  payments::facilitated::ContentFacilitatedPaymentsDriverFactory
+      driver_factory_;
 
-  WEB_CONTENTS_USER_DATA_KEY_DECL();
+  ui::ScopedUnownedUserData<ChromeFacilitatedPaymentsClient>
+      scoped_unowned_user_data_;
 };
 
 #endif  // CHROME_BROWSER_FACILITATED_PAYMENTS_UI_CHROME_FACILITATED_PAYMENTS_CLIENT_H_

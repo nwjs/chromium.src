@@ -6,6 +6,7 @@
 
 #include <memory>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "base/command_line.h"
@@ -14,7 +15,6 @@
 #include "base/functional/callback_helpers.h"
 #include "base/location.h"
 #include "base/memory/raw_ptr.h"
-#include "base/memory/raw_ref.h"
 #include "base/run_loop.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
@@ -32,10 +32,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/task_manager/mock_web_contents_task_manager.h"
 #include "chrome/browser/ui/browser_commands.h"
-#include "chrome/browser/ui/browser_manager_service.h"
-#include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
-#include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/webui/print_preview/print_preview_ui.h"
@@ -43,7 +40,6 @@
 #include "chrome/common/url_constants.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/grit/generated_resources.h"
-#include "chrome/test/base/dialog_test_browser_window.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "content/public/browser/navigation_controller.h"
@@ -67,6 +63,7 @@
 #include "ui/base/page_transition_types.h"
 #include "ui/base/ui_base_switches.h"
 #include "ui/base/window_open_disposition.h"
+#include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/geometry/size.h"
 #include "ui/web_dialogs/web_dialog_delegate.h"
 #include "url/gurl.h"
@@ -95,13 +92,15 @@ std::u16string GetExpectedPrefix() {
 std::vector<raw_ptr<task_manager::WebContentsTag, VectorExperimental>>
 GetTrackedTags() {
   std::vector<raw_ptr<task_manager::WebContentsTag, VectorExperimental>> tags;
-  // Filter WebUI Omnibox out from the tracked tags so that the tests don't
-  // fail when WebUI Omnibox is in the background.
+  // Filter WebUI Omnibox and WebUI Toolbar out from the tracked tags so that
+  // the tests don't fail when they are in the background.
   std::ranges::copy_if(
       task_manager::WebContentsTagsManager::GetInstance()->tracked_tags(),
       std::back_inserter(tags), [](const auto& tag) {
-        return tag->web_contents()->GetVisibleURL().host() !=
-               chrome::kChromeUIOmniboxPopupHost;
+        const std::string_view host =
+            tag->web_contents()->GetVisibleURL().host();
+        return host != chrome::kChromeUIOmniboxPopupHost &&
+               host != chrome::kChromeUIWebUIToolbarHost;
       });
   return tags;
 }
@@ -113,13 +112,9 @@ class TestWebContentsDelegate : public content::WebContentsDelegate {};
 
 class PrintPreviewDialogControllerBrowserTest : public printing::PrintPreviewBrowserTest {
  public:
-  PrintPreviewDialogControllerBrowserTest() {
-    // TODO(crbug.com/467180032): Remove once
-    // `kPdfAccessibilityHeuristicEnhancements` is enabled by default and
-    // `PrintPreviewPdfAccessibility` is updated.
-    feature_list_.InitAndDisableFeature(
-        features::kPdfAccessibilityHeuristicEnhancements);
-  }
+  PrintPreviewDialogControllerBrowserTest()
+      : PrintPreviewDialogControllerBrowserTest(
+            /*enable_pdf_heuristic_enhancements=*/false) {}
   ~PrintPreviewDialogControllerBrowserTest() override = default;
 
   WebContents* initiator() { return initiator_; }
@@ -192,20 +187,6 @@ class PrintPreviewDialogControllerBrowserTest : public printing::PrintPreviewBro
 
     test_web_contents_.clear();
 
-    for (BrowserWindowInterface* browser : browsers_) {
-      browser->GetTabStripModel()->CloseAllTabs();
-    }
-
-    std::vector<BrowserWindowInterface*> local_browsers;
-    for (BrowserWindowInterface* browser : browsers_) {
-      local_browsers.push_back(browser);
-    }
-    browsers_.clear();
-
-    for (BrowserWindowInterface* browser : local_browsers) {
-      BrowserManagerService::SynchronouslyDestroyBrowser(browser);
-    }
-
     printing::PrintPreviewBrowserTest::TearDownOnMainThread();
   }
 
@@ -219,24 +200,32 @@ class PrintPreviewDialogControllerBrowserTest : public printing::PrintPreviewBro
   }
 
  protected:
-  BrowserWindowInterface* CreateBrowser(std::unique_ptr<BrowserWindow> window) {
-    BrowserWindowCreateParams params(browser()->GetProfile(),
-                                     /*from_user_gesture=*/true);
-    params.window = window.release();
-    BrowserWindowInterface* browser = CreateBrowserWindow(std::move(params));
-    browsers_.push_back(browser);
-    return browser;
+  // TODO(crbug.com/467180032): Remove once
+  // `kPdfAccessibilityHeuristicEnhancements` is enabled by default.
+  explicit PrintPreviewDialogControllerBrowserTest(
+      bool enable_pdf_heuristic_enhancements) {
+    feature_list_.InitWithFeatureState(
+        features::kPdfAccessibilityHeuristicEnhancements,
+        enable_pdf_heuristic_enhancements);
   }
 
-  void ReleaseTrackedWebContents(WebContents* web_contents) {
-    for (auto it = test_web_contents_.begin(); it != test_web_contents_.end();
-         ++it) {
-      if (it->get() == web_contents) {
-        it->release();
-        test_web_contents_.erase(it);
-        break;
-      }
-    }
+  void RunPrintPreviewPdfAccessibilityTest(
+      std::string_view expected_node_name) {
+    SetUpPrintingScenario();
+
+    content::ScopedAccessibilityModeOverride mode_override(ui::kAXModeComplete);
+    // Put a DIV after the text we're going to search for. The last node in the
+    // tree will not have a newline appended, but all the others will. Avoid
+    // making assumptions about whether it's the last node or not. There may be
+    // nodes for headers and footers following the document contents.
+    ASSERT_TRUE(ui_test_utils::NavigateToURL(
+        browser(), GURL("data:text/html,HelloWorld<div>next</div>")));
+    PrintPreview();
+    WebContents* preview_dialog = GetPrintPreviewDialog();
+    WaitForAccessibilityTreeToContainNodeWithName(preview_dialog,
+                                                  expected_node_name);
+
+    PrintPreviewDone();
   }
 
  private:
@@ -252,7 +241,6 @@ class PrintPreviewDialogControllerBrowserTest : public printing::PrintPreviewBro
   raw_ptr<WebContents, AcrossTasksDanglingUntriaged> initiator_ = nullptr;
 
   std::vector<std::unique_ptr<WebContents>> test_web_contents_;
-  std::vector<raw_ptr<BrowserWindowInterface>> browsers_;
 };
 
 // Test to verify that when a initiator navigates, we can create a new preview
@@ -458,21 +446,23 @@ IN_PROC_BROWSER_TEST_F(PrintPreviewDialogControllerBrowserTest,
 
 IN_PROC_BROWSER_TEST_F(PrintPreviewDialogControllerBrowserTest,
                        PrintPreviewPdfAccessibility) {
-  SetUpPrintingScenario();
+  RunPrintPreviewPdfAccessibilityTest("HelloWorld\r\n");
+}
 
-  content::ScopedAccessibilityModeOverride mode_override(ui::kAXModeComplete);
-  // Put a DIV after the text we're going to search for. The last node in the
-  // tree will not have a newline appended, but all the others will. Avoid
-  // making assumptions about whether it's the last node or not. There may be
-  // nodes for headers and footers following the document contents.
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(
-      browser(), GURL("data:text/html,HelloWorld<div>next</div>")));
-  PrintPreview();
-  WebContents* preview_dialog = GetPrintPreviewDialog();
-  WaitForAccessibilityTreeToContainNodeWithName(preview_dialog,
-                                                "HelloWorld\r\n");
+class PrintPreviewDialogControllerHeuristicEnhancementsBrowserTest
+    : public PrintPreviewDialogControllerBrowserTest {
+ public:
+  PrintPreviewDialogControllerHeuristicEnhancementsBrowserTest()
+      : PrintPreviewDialogControllerBrowserTest(
+            /*enable_pdf_heuristic_enhancements=*/true) {}
+};
 
-  PrintPreviewDone();
+IN_PROC_BROWSER_TEST_F(
+    PrintPreviewDialogControllerHeuristicEnhancementsBrowserTest,
+    PrintPreviewPdfAccessibility) {
+  // The heuristics put both lines in one static text node and replace trailing
+  // line breaks with spaces.
+  RunPrintPreviewPdfAccessibilityTest("HelloWorld next ");
 }
 
 IN_PROC_BROWSER_TEST_F(PrintPreviewDialogControllerBrowserTest, IsPrintPreviewURL) {
@@ -842,47 +832,16 @@ IN_PROC_BROWSER_TEST_F(PrintPreviewDialogControllerBrowserTest,
 class PrintPreviewDialogControllerDialogDelegateTest
     : public PrintPreviewDialogControllerBrowserTest {
  public:
-  class DialogTestBrowserWindowWithMaxDialogSize
-      : public DialogTestBrowserWindow {
-   public:
-    explicit DialogTestBrowserWindowWithMaxDialogSize(
-        PrintPreviewDialogControllerDialogDelegateTest& owner)
-        : owner_(owner) {}
-    ~DialogTestBrowserWindowWithMaxDialogSize() override = default;
-
-    // DialogTestBrowserWindow:
-    gfx::Size GetMaximumDialogSize() override { return owner_->size(); }
-    gfx::NativeView GetHostView() const override { return gfx::NativeView(); }
-
-   private:
-    const raw_ref<PrintPreviewDialogControllerDialogDelegateTest> owner_;
-  };
-
   PrintPreviewDialogControllerDialogDelegateTest() = default;
   ~PrintPreviewDialogControllerDialogDelegateTest() override = default;
 
   std::unique_ptr<ui::WebDialogDelegate> CreateDelegateWithSize(
       const gfx::Size& size) {
-    size_ = size;
-    auto window =
-        std::make_unique<DialogTestBrowserWindowWithMaxDialogSize>(*this);
-    BrowserWindowInterface* browser = CreateBrowser(std::move(window));
-
     WebContents* initiator_ptr = CreateTestTab();
-    // Add to mock browser's tab strip so standard APIs don't assert
-    browser->GetTabStripModel()->AppendWebContents(
-        std::unique_ptr<WebContents>(initiator_ptr), true);
-    // Release ownership from test_web_contents_ as the tab strip now owns it!
-    ReleaseTrackedWebContents(initiator_ptr);
-
+    initiator_ptr->Resize(gfx::Rect(size));
     return printing::PrintPreviewDialogController::
         CreatePrintPreviewDialogDelegateForTesting(initiator_ptr);
   }
-
-  const gfx::Size& size() const { return size_; }
-
- private:
-  gfx::Size size_;
 };
 
 IN_PROC_BROWSER_TEST_F(PrintPreviewDialogControllerDialogDelegateTest,

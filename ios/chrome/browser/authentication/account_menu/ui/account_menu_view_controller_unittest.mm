@@ -12,9 +12,11 @@
 #import "components/sync/test/test_sync_service.h"
 #import "components/test/ios/test_utils.h"
 #import "google_apis/gaia/gaia_id.h"
+#import "ios/chrome/browser/authentication/account_menu/public/account_menu_constants.h"
 #import "ios/chrome/browser/authentication/account_menu/ui/account_menu_data_source.h"
 #import "ios/chrome/browser/authentication/account_menu/ui/account_menu_mutator.h"
 #import "ios/chrome/browser/authentication/ui_bundled/cells/central_account_view.h"
+#import "ios/chrome/browser/authentication/ui_bundled/cells/signin_promo_view_constants.h"
 #import "ios/chrome/browser/policy/model/management_state.h"
 #import "ios/chrome/browser/settings/model/sync/utils/account_error_ui_info.h"
 #import "ios/chrome/browser/settings/ui_bundled/settings_table_view_controller_constants.h"
@@ -30,12 +32,14 @@
 #import "ios/chrome/browser/signin/model/avatar/avatar_provider.h"
 #import "ios/chrome/browser/signin/model/chrome_account_manager_service.h"
 #import "ios/chrome/browser/signin/model/chrome_account_manager_service_factory.h"
+#import "ios/chrome/browser/signin/model/constants.h"
 #import "ios/chrome/browser/signin/model/fake_system_identity.h"
 #import "ios/chrome/browser/signin/model/fake_system_identity_manager.h"
 #import "ios/chrome/browser/sync/model/sync_service_factory.h"
 #import "ios/chrome/browser/sync/model/test_sync_service_utils.h"
 #import "ios/chrome/grit/ios_branded_strings.h"
 #import "ios/chrome/grit/ios_strings.h"
+#import "ios/chrome/test/app/uikit_test_util.h"
 #import "ios/chrome/test/ios_chrome_scoped_testing_local_state.h"
 #import "ios/web/public/test/web_task_environment.h"
 #import "testing/gtest_mac.h"
@@ -53,6 +57,35 @@ const FakeSystemIdentity* kSecondaryIdentity2 =
     [FakeSystemIdentity fakeIdentity3];
 UIImage* kPrimaryAccountAvatar = [[UIImage alloc] init];
 
+// Returns the avatar image displayed in `account_view`.
+UIImage* GetAvatarImage(CentralAccountView* account_view) {
+  UIImageView* avatar_image_view = chrome_test_util::FindViewById<UIImageView>(
+      account_view, kIdentityAvatarImageAccessibilityIdentifier);
+  return avatar_image_view.image;
+}
+
+// Returns the title text displayed in `account_view`.
+NSString* GetTitle(CentralAccountView* account_view) {
+  UILabel* title_label = chrome_test_util::FindViewById<UILabel>(
+      account_view, kCentralAccountViewTitleAccessibilityIdentifier);
+  return title_label.text;
+}
+
+// Returns the subtitle text displayed in `account_view`.
+NSString* GetSubtitle(CentralAccountView* account_view) {
+  UILabel* subtitle_label = chrome_test_util::FindViewById<UILabel>(
+      account_view, kCentralAccountViewSubtitleAccessibilityIdentifier);
+  return subtitle_label.text;
+}
+
+// Returns whether `account_view` displays a management description.
+bool IsManaged(CentralAccountView* account_view) {
+  UILabel* management_label = chrome_test_util::FindViewById<UILabel>(
+      account_view,
+      kCentralAccountViewManagementDescriptionAccessibilityIdentifier);
+  return management_label.text != nil;
+}
+
 }  // namespace
 
 // An account menu data source with a primary and a secondary identities.
@@ -64,9 +97,7 @@ UIImage* kPrimaryAccountAvatar = [[UIImage alloc] init];
 @property(nonatomic, strong, readwrite) NSString* primaryAccountEmail;
 @property(nonatomic, strong, readwrite) NSString* primaryAccountUserFullName;
 @property(nonatomic, strong, readwrite) UIImage* primaryAccountAvatar;
-@property(nonatomic, assign, readwrite) BOOL primaryAccountAvatarNeedsRing;
-@property(nonatomic, strong, readwrite) NSString* primaryAccountAITierFullName;
-@property(nonatomic, strong, readwrite) NSString* primaryAccountAITierName;
+@property(nonatomic, assign, readwrite) NSInteger primaryAccountAITier;
 @end
 
 @implementation FakeAccountMenuDataSource {
@@ -74,10 +105,8 @@ UIImage* kPrimaryAccountAvatar = [[UIImage alloc] init];
 }
 @synthesize primaryAccountEmail = _primaryAccountEmail;
 @synthesize primaryAccountAvatar = _primaryAccountAvatar;
-@synthesize primaryAccountAvatarNeedsRing = _primaryAccountAvatarNeedsRing;
-@synthesize primaryAccountAITierFullName = _primaryAccountAITierFullName;
+@synthesize primaryAccountAITier = _primaryAccountAITier;
 @synthesize primaryAccountUserFullName = _primaryAccountUserFullName;
-@synthesize primaryAccountAITierName = _primaryAccountAITierName;
 @synthesize managementDescription = _managementDescription;
 
 - (instancetype)init {
@@ -87,9 +116,7 @@ UIImage* kPrimaryAccountAvatar = [[UIImage alloc] init];
     _secondaryAccountsGaiaIDs = {kSecondaryIdentity.gaiaId};
     _primaryAccountEmail = kPrimaryIdentity.userEmail;
     _primaryAccountAvatar = kPrimaryAccountAvatar;
-    _primaryAccountAvatarNeedsRing = NO;
-    _primaryAccountAITierFullName = nil;
-    _primaryAccountAITierName = nil;
+    _primaryAccountAITier = 0;
     _primaryAccountUserFullName = kPrimaryIdentity.userFullName;
     _managementDescription = @"managementDescription";
   }
@@ -212,7 +239,10 @@ class AccountMenuViewControllerTest : public PlatformTest {
   void VerifyMock() { EXPECT_OCMOCK_VERIFY((id)mutator_); }
 
   // The UITableView* of the account menu view controller.
-  UITableView* TableView() { return view_controller_.view.subviews[0]; }
+  UITableView* TableView() {
+    return chrome_test_util::FindViewById<UITableView>(view_controller_.view,
+                                                       kAccountMenuTableViewId);
+  }
 
   //  Returns the cell at `path`.
   UITableViewCell* GetCell(NSIndexPath* path) {
@@ -285,10 +315,10 @@ TEST_F(AccountMenuViewControllerTest, TestDefaultSetting) {
   EXPECT_TRUE([table_header_view_ isKindOfClass:[CentralAccountView class]]);
   CentralAccountView* table_header_view =
       static_cast<CentralAccountView*>(table_header_view_);
-  EXPECT_EQ(table_header_view.avatarImage, kPrimaryAccountAvatar);
-  EXPECT_EQ(table_header_view.title, kPrimaryIdentity.userFullName);
-  EXPECT_EQ(table_header_view.subtitle, kPrimaryIdentity.userEmail);
-  EXPECT_EQ(table_header_view.managed, true);
+  EXPECT_EQ(GetAvatarImage(table_header_view), kPrimaryAccountAvatar);
+  EXPECT_EQ(GetTitle(table_header_view), kPrimaryIdentity.userFullName);
+  EXPECT_EQ(GetSubtitle(table_header_view), kPrimaryIdentity.userEmail);
+  EXPECT_EQ(IsManaged(table_header_view), true);
 }
 
 // Test the account menu without ellipsis.
@@ -455,13 +485,14 @@ TEST_F(AccountMenuViewControllerTest, TestMissingGivenName) {
   viewController.mutator = mutator_;
   [viewController view];
 
-  UITableView* tableView = viewController.view.subviews[0];
+  UITableView* tableView = chrome_test_util::FindViewById<UITableView>(
+      viewController.view, kAccountMenuTableViewId);
   UIView* header = tableView.tableHeaderView;
   EXPECT_TRUE([header isKindOfClass:[CentralAccountView class]]);
   CentralAccountView* centralAccountView =
       static_cast<CentralAccountView*>(header);
-  EXPECT_NSEQ(centralAccountView.title, identity.userFullName);
-  EXPECT_NSEQ(centralAccountView.subtitle, identity.userEmail);
+  EXPECT_NSEQ(GetTitle(centralAccountView), identity.userFullName);
+  EXPECT_NSEQ(GetSubtitle(centralAccountView), identity.userEmail);
 }
 
 // Test the account menu with an identity with missing names.
@@ -479,13 +510,14 @@ TEST_F(AccountMenuViewControllerTest, TestMissingNames) {
   viewController.mutator = mutator_;
   [viewController view];
 
-  UITableView* tableView = viewController.view.subviews[0];
+  UITableView* tableView = chrome_test_util::FindViewById<UITableView>(
+      viewController.view, kAccountMenuTableViewId);
   UIView* header = tableView.tableHeaderView;
   EXPECT_TRUE([header isKindOfClass:[CentralAccountView class]]);
   CentralAccountView* centralAccountView =
       static_cast<CentralAccountView*>(header);
-  EXPECT_NSEQ(centralAccountView.title, identity.userEmail);
-  EXPECT_NSEQ(centralAccountView.subtitle, nil);
+  EXPECT_NSEQ(GetTitle(centralAccountView), identity.userEmail);
+  EXPECT_NSEQ(GetSubtitle(centralAccountView), nil);
 }
 
 // Tests that calling `-[AccountMenuViewController updateErrorSection:nil]`

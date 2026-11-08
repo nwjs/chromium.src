@@ -13,8 +13,10 @@ source_set("bookmark_bar_view_observer") {
 
 source_set("bookmarks") {
   public = [
+    "app_menu_bookmark_delegate.h",
     "bookmark_account_storage_move_dialog.h",
     "bookmark_account_storage_move_dialog_delegate.h",
+    "bookmark_bar_menu_delegate.h",
     "bookmark_bar_view.h",
     "bookmark_bubble_view.h",
     "bookmark_button.h",
@@ -64,8 +66,10 @@ source_set("bookmarks") {
 
 source_set("impl") {
   sources = [
+    "app_menu_bookmark_delegate.cc",
     "bookmark_account_storage_move_dialog.cc",
     "bookmark_account_storage_move_dialog_delegate.cc",
+    "bookmark_bar_menu_delegate.cc",
     "bookmark_bar_view.cc",
     "bookmark_bubble_view.cc",
     "bookmark_button.cc",
@@ -87,6 +91,7 @@ source_set("impl") {
     ":bookmarks",
     "//chrome/app:command_ids",
     "//chrome/app/vector_icons",
+    "//chrome/browser:browser_features",
     "//chrome/browser/bookmarks",
     "//chrome/browser/commerce",
     "//chrome/browser/favicon",
@@ -150,8 +155,6 @@ source_set("impl") {
     "//services/network:network_service",
     "//skia",
   ]
-
-  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
 }
 
 source_set("test_support") {
@@ -220,7 +223,7 @@ source_set("browser_tests") {
     "//chrome/browser/favicon",
     "//chrome/browser/preloading/bookmarkbar_preload",
     "//chrome/browser/tab_group_sync:factories",
-    "//chrome/browser/ui",
+    "//chrome/browser/ui:browser_tabstrip",
     "//chrome/browser/ui:browser_window_header",
     "//chrome/browser/ui:tab_ui_helper",
     "//chrome/browser/ui/commerce:test_support",
@@ -269,10 +272,12 @@ if (!is_chromeos_device) {
       "//chrome/browser/favicon",
       "//chrome/browser/gcm",
       "//chrome/browser/tab_group_sync:factories",
-      "//chrome/browser/ui",
-      "//chrome/browser/ui:ui_controller_factory",
+      "//chrome/browser/ui:browser_tabstrip",
       "//chrome/browser/ui/actions",
+      "//chrome/browser/ui/bookmarks/controllers:impl",
+      "//chrome/browser/ui/browser_window/test:test_support",
       "//chrome/browser/ui/tabs:tab_menu",
+      "//chrome/browser/ui/tabs:test_support",
       "//chrome/browser/ui/views/commerce",
       "//chrome/browser/ui/views/data_sharing",
       "//chrome/browser/ui/views/frame:browser_view_header",
@@ -283,6 +288,7 @@ if (!is_chromeos_device) {
       "//components/commerce/core:shopping_service_test_support",
       "//components/favicon/content",
       "//ui/base:ozone_buildflags",
+      "//ui/base:test_support",
       "//ui/base/clipboard:clipboard_test_support",
       "//ui/events:test_support",
     ]

@@ -4,13 +4,21 @@
 
 #include "components/facilitated_payments/content/browser/content_facilitated_payments_driver_factory.h"
 
+#include <algorithm>
+#include <utility>
+
 #include "base/check_deref.h"
 #include "base/feature_list.h"
+#include "base/functional/bind.h"
+#include "base/numerics/safe_conversions.h"
+#include "build/build_config.h"
 #include "components/facilitated_payments/content/browser/security_checker.h"
 #include "components/facilitated_payments/core/browser/facilitated_payments_client.h"
 #include "components/facilitated_payments/core/features/features.h"
 #include "components/facilitated_payments/core/metrics/facilitated_payments_metrics.h"
 #include "components/optimization_guide/core/hints/optimization_guide_decider.h"
+#include "components/wallet/content/browser/walletable_pass_barcode_detector_impl.h"
+#include "components/wallet/content/common/mojom/image_extractor.mojom.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/render_frame_host.h"
 #include "mojo/public/cpp/bindings/associated_remote.h"
@@ -18,16 +26,33 @@
 
 namespace payments::facilitated {
 
+namespace {
+
+// Returns whether `signals` meets the rule to start extracting images.
+bool ShouldExtractImagesForQrCode(const mojom::HeuristicSignals& signals) {
+  // Pages with a facilitated payment link are handled by the payment link
+  // flow, so offering a QR code payment as well would duplicate the prompt.
+  if (signals.has_facilitated_payment_link) {
+    return false;
+  }
+  // A square image alone is not enough (logos, avatars or icons), so a keyword
+  // is also required to suggest that the page is about paying.
+  return signals.has_square_candidate &&
+         (signals.url_keyword_match || signals.text_keyword_match);
+}
+
+}  // namespace
+
 ContentFacilitatedPaymentsDriverFactory::
     ContentFacilitatedPaymentsDriverFactory(content::WebContents* web_contents,
                                             FacilitatedPaymentsClient* client)
     : content::WebContentsObserver(web_contents),
+      barcode_detector_(
+          std::make_unique<wallet::WalletablePassBarcodeDetectorImpl>()),
       client_(CHECK_DEREF(client)) {}
 
 ContentFacilitatedPaymentsDriverFactory::
-    ~ContentFacilitatedPaymentsDriverFactory() {
-  DCHECK(driver_map_.empty());
-}
+    ~ContentFacilitatedPaymentsDriverFactory() = default;
 
 ContentFacilitatedPaymentsDriver&
 ContentFacilitatedPaymentsDriverFactory::GetOrCreateForFrame(
@@ -46,11 +71,102 @@ ContentFacilitatedPaymentsDriverFactory::GetOrCreateForFrame(
   return *iter->second;
 }
 
+void ContentFacilitatedPaymentsDriverFactory::OnHeuristicSignalsReported(
+    content::RenderFrameHost* render_frame_host,
+    const mojom::HeuristicSignals& signals) {
+  // A report can arrive after the page has been navigated away from, so it
+  // must not trigger extraction on a frame that is no longer shown.
+  if (!render_frame_host->IsActive() ||
+      !render_frame_host->IsInPrimaryMainFrame()) {
+    return;
+  }
+  if (has_detected_qr_code_ || is_evaluating_qr_code_) {
+    return;
+  }
+  if (!ShouldExtractImagesForQrCode(signals)) {
+    return;
+  }
+
+  is_evaluating_qr_code_ = true;
+  // Uses the same Finch limits as the renderer's square image signal, so that
+  // only the images that made the page qualify are decoded.
+  barcode_detector_->Detect(
+      web_contents(),
+      wallet::mojom::ImageExtractionOptions::New(
+          base::saturated_cast<uint32_t>(kQrCodeDetectionMinImageSize.Get()),
+          kQrCodeDetectionMaxAspectRatio.Get(), /*include_canvas=*/true),
+      base::BindOnce(
+          &ContentFacilitatedPaymentsDriverFactory::OnBarcodesDetected,
+          weak_ptr_factory_.GetWeakPtr(),
+          render_frame_host->GetWeakDocumentPtr()));
+}
+
+void ContentFacilitatedPaymentsDriverFactory::OnBarcodesDetected(
+    content::WeakDocumentPtr document,
+    std::vector<wallet::WalletBarcode> barcodes) {
+  is_evaluating_qr_code_ = false;
+
+  // Drops the result if the scanned page is no longer the active page, since
+  // decoding is asynchronous.
+  content::RenderFrameHost* render_frame_host =
+      document.AsRenderFrameHostIfValid();
+  if (!render_frame_host || !render_frame_host->IsActive() ||
+      !render_frame_host->IsInPrimaryMainFrame()) {
+    return;
+  }
+
+  // The detector decodes every barcode format, so only QR codes count.
+  if (std::ranges::none_of(barcodes, [](const wallet::WalletBarcode& barcode) {
+        return barcode.format == wallet::WalletBarcodeFormat::QR_CODE;
+      })) {
+    return;
+  }
+
+  has_detected_qr_code_ = true;
+  // Turns off the renderer's heuristic scans, since this page already has a
+  // QR code and no further signals are needed.
+  const mojo::AssociatedRemote<mojom::FacilitatedPaymentsAgent>& agent =
+      GetOrCreateForFrame(render_frame_host).GetFacilitatedPaymentsAgent();
+  if (agent.is_bound()) {
+    agent->SetQrCodeDetectionEnabled(false);
+  }
+  // TODO(crbug.com/556832672): Validate the decoded QR codes and forward them
+  // to the frame's driver.
+}
+
 void ContentFacilitatedPaymentsDriverFactory::RenderFrameDeleted(
     content::RenderFrameHost* render_frame_host) {
   driver_map_.erase(render_frame_host);
 }
 
+void ContentFacilitatedPaymentsDriverFactory::DidFinishNavigation(
+    content::NavigationHandle* navigation_handle) {
+  if (!navigation_handle->HasCommitted() ||
+      navigation_handle->IsSameDocument() ||
+      !navigation_handle->IsInPrimaryMainFrame() ||
+      !navigation_handle->IsInOutermostMainFrame()) {
+    return;
+  }
+  is_evaluating_qr_code_ = false;
+  has_detected_qr_code_ = false;
+
+  auto& driver = GetOrCreateForFrame(navigation_handle->GetRenderFrameHost());
+#if BUILDFLAG(IS_ANDROID)
+  driver.DidNavigateToOrAwayFromPage();
+#endif  // BUILDFLAG(IS_ANDROID)
+
+  // The agent starts every document dormant, so the decision is pushed on each
+  // commit rather than only when detection is eligible.
+  const mojo::AssociatedRemote<mojom::FacilitatedPaymentsAgent>& agent =
+      driver.GetFacilitatedPaymentsAgent();
+  if (!agent.is_bound()) {
+    return;
+  }
+  agent->SetQrCodeDetectionEnabled(
+      IsEligibleForQrCodeDetection(navigation_handle->GetURL()));
+}
+
+#if BUILDFLAG(IS_ANDROID)
 void ContentFacilitatedPaymentsDriverFactory::RenderFrameHostStateChanged(
     content::RenderFrameHost* render_frame_host,
     content::RenderFrameHost::LifecycleState old_state,
@@ -71,52 +187,6 @@ void ContentFacilitatedPaymentsDriverFactory::RenderFrameHostStateChanged(
       iter != driver_map_.end()) {
     iter->second->DidNavigateToOrAwayFromPage();
   }
-}
-
-void ContentFacilitatedPaymentsDriverFactory::DidFinishNavigation(
-    content::NavigationHandle* navigation_handle) {
-  if (!navigation_handle->HasCommitted() ||
-      navigation_handle->IsSameDocument() ||
-      !navigation_handle->IsInPrimaryMainFrame() ||
-      !navigation_handle->IsInOutermostMainFrame()) {
-    return;
-  }
-  auto& driver = GetOrCreateForFrame(navigation_handle->GetRenderFrameHost());
-  driver.DidNavigateToOrAwayFromPage();
-
-  // The agent starts every document dormant, so the decision is pushed on each
-  // commit rather than only when detection is eligible.
-  const mojo::AssociatedRemote<mojom::FacilitatedPaymentsAgent>& agent =
-      driver.GetFacilitatedPaymentsAgent();
-  if (!agent.is_bound()) {
-    return;
-  }
-  agent->SetQrCodeDetectionEnabled(
-      IsEligibleForQrCodeDetection(navigation_handle->GetURL()));
-}
-
-bool ContentFacilitatedPaymentsDriverFactory::IsEligibleForQrCodeDetection(
-    const GURL& url) const {
-  if (!base::FeatureList::IsEnabled(kEnableDesktopQrCodeDetection)) {
-    return false;
-  }
-
-  optimization_guide::OptimizationGuideDecider* decider =
-      client_->GetOptimizationGuideDecider();
-  if (!decider) {
-    return false;
-  }
-
-  // The Optimization Guide list answers "can this site be optimized?", so
-  // `kTrue` means `url` is allowed. `kUnknown` is returned when the
-  // optimization type has not been registered yet, and is treated as a
-  // rejection.
-  return decider->CanApplyOptimization(
-             url,
-             optimization_guide::proto::
-                 PAYMENT_QR_CODE_MERCHANT_URL_REGEX_ALLOWLIST,
-             /*optimization_metadata=*/nullptr) ==
-         optimization_guide::OptimizationGuideDecision::kTrue;
 }
 
 void ContentFacilitatedPaymentsDriverFactory::OnTextCopiedToClipboard(
@@ -166,12 +236,30 @@ void ContentFacilitatedPaymentsDriverFactory::OnTextCopiedToClipboard(
       render_frame_host->GetPageUkmSourceId(),
       /*is_same_origin=*/is_same_origin);
 }
+#endif  // BUILDFLAG(IS_ANDROID)
 
-void ContentFacilitatedPaymentsDriverFactory::OnHeuristicScoreReported(
-    content::RenderFrameHost* render_frame_host,
-    double score) {
-  // TODO(crbug.com/556832672): Check OptimizationGuide merchant allowlist and
-  // evaluate heuristic score against thresholds to trigger image extraction.
+bool ContentFacilitatedPaymentsDriverFactory::IsEligibleForQrCodeDetection(
+    const GURL& url) const {
+  if (!base::FeatureList::IsEnabled(kEnableDesktopQrCodeDetection)) {
+    return false;
+  }
+
+  optimization_guide::OptimizationGuideDecider* decider =
+      client_->GetOptimizationGuideDecider();
+  if (!decider) {
+    return false;
+  }
+
+  // The Optimization Guide list answers "can this site be optimized?", so
+  // `kTrue` means `url` is allowed. `kUnknown` is returned when the
+  // optimization type has not been registered yet, and is treated as a
+  // rejection.
+  return decider->CanApplyOptimization(
+             url,
+             optimization_guide::proto::
+                 PAYMENT_QR_CODE_MERCHANT_URL_REGEX_ALLOWLIST,
+             /*optimization_metadata=*/nullptr) ==
+         optimization_guide::OptimizationGuideDecision::kTrue;
 }
 
 }  // namespace payments::facilitated

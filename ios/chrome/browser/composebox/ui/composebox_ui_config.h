@@ -51,6 +51,12 @@
 // The title of the model section.
 @property(nonatomic, readonly, copy) NSString* modelSectionHeader;
 
+// The title of the more options section.
+@property(nonatomic, readonly, copy) NSString* moreOptionsSectionHeader;
+
+// The title of the attachments section.
+@property(nonatomic, readonly, copy) NSString* attachmentsSectionHeader;
+
 // Creates a new instance with local fallback strings and icons.
 + (instancetype)localFallbackUIConfig;
 
@@ -67,6 +73,9 @@
 
 // Returns the menu label for the given tool.
 - (NSString*)menuLabelForTool:(ComposeboxMode)tool;
+
+// Returns the menu subtitle for the given tool.
+- (NSString*)menuSubtitleForTool:(ComposeboxMode)tool;
 
 // Returns the chip label for the given tool.
 - (NSString*)chipLabelForTool:(ComposeboxMode)tool;

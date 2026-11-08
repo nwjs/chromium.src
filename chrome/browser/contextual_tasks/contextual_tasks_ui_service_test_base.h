@@ -105,7 +105,8 @@ class MockUiServiceForUrlIntercept : public ContextualTasksUiService {
               OnNavigationToAiPageIntercepted,
               (const GURL& url,
                base::WeakPtr<tabs::TabInterface> tab,
-               bool is_to_new_tab),
+               bool is_to_new_tab,
+               ui::PageTransition transition),
               (override));
   MOCK_METHOD(void,
               OnThreadLinkClicked,
@@ -143,7 +144,8 @@ class MockUiServiceForUrlIntercept : public ContextualTasksUiService {
                BrowserWindowInterface* browser),
               (override));
 
-  bool IsWebContentsInSidePanel(content::WebContents* web_contents) override {
+  bool IsWebContentsInSidePanel(
+      content::WebContents* web_contents) const override {
     if (is_web_contents_in_side_panel_override_.has_value()) {
       return *is_web_contents_in_side_panel_override_;
     }

@@ -329,7 +329,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="BackForwardCache.CCNS.CookieChangeInfo.{CountType}"
-    units="count" expires_after="2026-10-25">
+    units="count" expires_after="2027-02-28">
   <owner>leimy@chromium.org</owner>
   <owner>bfcache-dev@chromium.org</owner>
   <summary>
@@ -687,7 +687,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="BackForwardCache.Pruning.NumberOfBackForwardCacheEntries"
-    units="count" expires_after="2026-11-15">
+    units="count" expires_after="2027-02-28">
   <owner>leimy@chromium.org</owner>
   <owner>bfcache-dev@chromium.org</owner>
   <summary>
@@ -699,7 +699,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="BackForwardCache.Pruning.NumberOfTabsWithBackForwardCache"
-    units="count" expires_after="2026-11-15">
+    units="count" expires_after="2027-02-28">
   <owner>leimy@chromium.org</owner>
   <owner>bfcache-dev@chromium.org</owner>
   <summary>
@@ -1122,7 +1122,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Navigation.DuplicateNavigationsIgnoredCountPerNavigation"
-    units="count" expires_after="2027-01-24">
+    units="count" expires_after="2027-03-28">
   <owner>annasato@chromium.org</owner>
   <owner>chrome-navigation@google.com</owner>
   <summary>
@@ -1144,8 +1144,8 @@ chromium-metrics-reviews@google.com.
   <token key="NavigationMode" variants="NavigationMode"/>
 </histogram>
 
-<histogram name="Navigation.Earlyhints.EarlyHintsToResponseStartTime"
-    units="ms" expires_after="2026-10-14">
+<histogram name="Navigation.EarlyHints.EarlyHintsToResponseStartTime"
+    units="ms" expires_after="2027-10-14">
   <owner>bashi@chromium.org</owner>
   <owner>chrome-loading@google.com</owner>
   <summary>
@@ -1155,8 +1155,8 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="Navigation.Earlyhints.WillStartRequestToEarlyHintsTime"
-    units="ms" expires_after="2026-10-14">
+<histogram name="Navigation.EarlyHints.WillStartRequestToEarlyHintsTime"
+    units="ms" expires_after="2027-10-14">
   <owner>bashi@chromium.org</owner>
   <owner>chrome-loading@google.com</owner>
   <summary>
@@ -1240,7 +1240,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Navigation.Experimental.FastFetch.EligibilityCheckDuration"
-    units="microseconds" expires_after="2026-10-01">
+    units="microseconds" expires_after="2027-03-28">
   <owner>bashi@chromium.org</owner>
   <owner>chrome-loading@google.com</owner>
   <summary>
@@ -1252,7 +1252,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Navigation.Experimental.FastFetch.EligibilityReason"
-    enum="FastFetchEligibilityReason" expires_after="2026-10-01">
+    enum="FastFetchEligibilityReason" expires_after="2027-03-28">
   <owner>bashi@chromium.org</owner>
   <owner>chrome-loading@google.com</owner>
   <summary>
@@ -1263,7 +1263,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Navigation.Experimental.FastFetch.FailedNetError"
-    enum="NetErrorCodes" expires_after="2026-10-01">
+    enum="NetErrorCodes" expires_after="2027-03-28">
   <owner>bashi@chromium.org</owner>
   <owner>chrome-loading@google.com</owner>
   <summary>
@@ -1273,7 +1273,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Navigation.Experimental.FastFetch.NavigationOutcome"
-    enum="FastFetchNavigationOutcome" expires_after="2026-10-01">
+    enum="FastFetchNavigationOutcome" expires_after="2027-03-28">
   <owner>bashi@chromium.org</owner>
   <owner>chrome-loading@google.com</owner>
   <summary>
@@ -1284,7 +1284,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Navigation.Experimental.FastFetch.OpportunityTime.FetchStart"
-    units="ms" expires_after="2027-01-24">
+    units="ms" expires_after="2027-03-28">
   <owner>bashi@chromium.org</owner>
   <owner>chrome-loading@google.com</owner>
   <summary>
@@ -1294,7 +1294,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Navigation.Experimental.FastFetch.OpportunityTime.LoaderStart"
-    units="ms" expires_after="2027-01-24">
+    units="ms" expires_after="2027-03-28">
   <owner>bashi@chromium.org</owner>
   <owner>chrome-loading@google.com</owner>
   <summary>
@@ -1304,7 +1304,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Navigation.Experimental.FastFetch.SkipThrottles"
-    enum="Boolean" expires_after="2026-10-01">
+    enum="Boolean" expires_after="2027-03-28">
   <owner>bashi@chromium.org</owner>
   <owner>chrome-loading@google.com</owner>
   <summary>
@@ -1502,17 +1502,6 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="Navigation.HostnameHasDeviationCharacters" units="count"
-    expires_after="2024-06-30">
-  <owner>meacer@chromium.org</owner>
-  <owner>chrome-trusty-transport@google.com</owner>
-  <summary>
-    Counts the number of typed and pasted main frame navigations to hostnames
-    that contain characters that are treated differently between IDNA 2003 and
-    IDNA 2008, aka deviation characters. Ignores reload navigations.
-  </summary>
-</histogram>
-
 <histogram
     name="Navigation.InitialDocument.NonEmptyCompositorFrameTreatedAsAccess"
     enum="Boolean" expires_after="2027-06-30">
@@ -1565,6 +1554,12 @@ chromium-metrics-reviews@google.com.
     Records the initiator type of a SRP navigation. Recorded for a standard SRP
     navigation when it commits. For a prerendered SRP navigation, it is recorded
     when the page is activated.
+
+    Note: The SRP judgement was changed to `google_util::IsGoogleSearchUrl()` in
+    2026-09, so that this histogram is comparable with
+    PreloadServingMetrics.*.SRP. It was
+    `page_load_metrics::IsGoogleSearchResultUrl()` before, which uses slightly
+    different criteria. The data is not comparable across the boundary.
   </summary>
 </histogram>
 
@@ -1806,7 +1801,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Navigation.MainFrameProfileTypeDifferentPage2"
-    enum="BrowserProfileType" expires_after="2027-01-24">
+    enum="BrowserProfileType" expires_after="2027-03-28">
   <owner>dullweber@chromium.org</owner>
   <owner>chrome-privacy-core@google.com</owner>
   <summary>
@@ -2119,31 +2114,6 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="Navigation.Prefetch.CompressedBodySize" units="KB"
-    expires_after="2025-04-27">
-  <owner>ricea@chromium.org</owner>
-  <owner>chikamune@chromium.org</owner>
-  <summary>
-    Records the size of the response body for prefetch responses that had a
-    non-trivial Content-Encoding. This is logged once per successfully completed
-    compressed response in PrefetchManager::OnPrefetchFinished(). A response is
-    considered compressed when the decoded body length is larger than the
-    encoded body length. Compare to Navigation.Prefetch.UncompressedBodySize.
-  </summary>
-</histogram>
-
-<histogram name="Navigation.Prefetch.IsHttps" enum="Boolean"
-    expires_after="2025-04-27">
-  <owner>ricea@chromium.org</owner>
-  <owner>chikamune@chromium.org</owner>
-  <summary>
-    Records whether or not a prefetch requested a URL with an https scheme.
-    Recorded once for each prefetch performed by PrefetchManager. This is based
-    on what the PrefetchManager requested and doesn't take into account
-    subsequent internal or external redirects to https.
-  </summary>
-</histogram>
-
 <histogram
     name="Navigation.Prefetch.IsPrefetchingSRPUrl.{PreloadingEmbedderType}"
     enum="Boolean" expires_after="2026-09-27">
@@ -2160,44 +2130,6 @@ chromium-metrics-reviews@google.com.
   <token key="PreloadingEmbedderType">
     <variant name="Embedder_BookmarkBar" summary="BookmarkBar"/>
   </token>
-</histogram>
-
-<histogram name="Navigation.Prefetch.PrefetchJobQueueingTime" units="ms"
-    expires_after="2023-03-19">
-  <owner>blundell@chromium.org</owner>
-  <owner>ryansturm@chromium.org</owner>
-  <owner>sophiechang@chromium.org</owner>
-  <summary>
-    Measures the amount of time that a requested prefetch job spends queueing
-    before being executed (e.g., due to a max # of prefetches being in flight).
-    Recorded for each prefetch job.
-  </summary>
-</histogram>
-
-<histogram name="Navigation.Prefetch.PrefetchJobQueueLength" units="count"
-    expires_after="2023-03-19">
-  <owner>blundell@chromium.org</owner>
-  <owner>ryansturm@chromium.org</owner>
-  <owner>sophiechang@chromium.org</owner>
-  <summary>
-    Measures the length of the queue of prefetch jobs at the beginning of
-    PrefetchManager processing this queue to execute jobs. Recorded each time
-    that PrefetchManager processes the queue of pending jobs.
-  </summary>
-</histogram>
-
-<histogram name="Navigation.Prefetch.UncompressedBodySize" units="KB"
-    expires_after="2025-04-27">
-  <owner>ricea@chromium.org</owner>
-  <owner>chikamune@chromium.org</owner>
-  <summary>
-    Records the size of the response body for prefetch responses that did not
-    use HTTP Content-Encoding compression. This is logged once per successfully
-    completed uncompressed response in PrefetchManager::OnPrefetchFinished(). A
-    response is considered compressed when the decoded body length is larger
-    than the encoded body length. Compare to
-    Navigation.Prefetch.CompressedBodySize.
-  </summary>
 </histogram>
 
 <histogram
@@ -3310,18 +3242,6 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="Navigation.URLLoader.InMainPath" enum="Boolean"
-    expires_after="2025-09-25">
-  <owner>yyanagisawa@chromium.org</owner>
-  <owner>chrome-loading@google.com</owner>
-  <summary>
-    Records NavigationURLLoader is executed as the main path or not.
-
-    This is recorded on each main resource load on navigation. Multiple events
-    will be recorded for redirect cases.
-  </summary>
-</histogram>
-
 <histogram
     name="Navigation.URLLoader.OnAcceptCHFrameReceived.CriticalHintsMissingStatus"
     enum="CriticalHintsMissingStatus" expires_after="2027-02-14">
@@ -3627,7 +3547,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Navigation.{TracedMethod}" units="ms"
-    expires_after="2027-01-31">
+    expires_after="2027-04-04">
   <owner>rakina@chromium.org</owner>
   <owner>chrome-security-architecture@google.com</owner>
   <summary>
@@ -3746,6 +3666,17 @@ chromium-metrics-reviews@google.com.
   <summary>
     Tracks events when the currently navigated domain name in an incognito tab
     is a lookalike to one of the top 10K domains or a domain that the user
+    interacted with, resulting in a navigation suggestion interstitial.
+  </summary>
+</histogram>
+
+<histogram name="NavigationSuggestion.Event2.Isolated"
+    enum="NavigationSuggestionEvent" expires_after="2027-03-30">
+  <owner>szpotekagata@google.com</owner>
+  <owner>cec-growth@chromium.org</owner>
+  <summary>
+    Tracks events when the currently navigated domain name in an isolated tab is
+    a lookalike to one of the top 10K domains or a domain that the user
     interacted with, resulting in a navigation suggestion interstitial.
   </summary>
 </histogram>

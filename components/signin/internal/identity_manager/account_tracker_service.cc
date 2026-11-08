@@ -915,6 +915,9 @@ CoreAccountId AccountTrackerService::SeedAccountInfo(AccountInfo info) {
   }
 
   if (!already_exists && info.GetAvatarImage().has_value()) {
+    // TODO(crbug.com/569918566): SetAccountImage(..) is calling
+    // MaybeNotifyAccountUpdated() again for the same account. These
+    // notification should be deduplicated.
     SetAccountImage(
         account_info.GetAccountId(),
         std::string(
@@ -935,8 +938,7 @@ void AccountTrackerService::SeedAccountsInfo(
   if (primary_account_id) {
     // The primary account must be present in the account list.
     CHECK(std::ranges::contains(accounts, *primary_account_id,
-                                &AccountInfo::GetAccountId),
-          base::NotFatalUntil::M148);
+                                &AccountInfo::GetAccountId));
   }
 
   if (should_remove_stale_accounts) {

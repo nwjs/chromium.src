@@ -4,7 +4,6 @@
 
 import("//build/config/features.gni")
 import("//chrome/common/features.gni")
-import("//components/enterprise/buildflags/buildflags.gni")
 import("//components/offline_pages/buildflags/features.gni")
 import("//crypto/features.gni")
 import("//extensions/buildflags/buildflags.gni")
@@ -34,6 +33,7 @@ source_set("net") {
     "chrome_report_sender.h",
     "convert_explicitly_allowed_network_ports_pref.h",
     "default_dns_over_https_config_source.h",
+    "disk_cache_dir_util.h",
     "dns_over_https_config_source.h",
     "dns_probe_runner.h",
     "dns_probe_service.h",
@@ -82,6 +82,7 @@ source_set("net") {
     "//components/policy/core/browser",
     "//components/prefs",
     "//components/tabs:impl",
+    "//components/tabs:public",
     "//content/public/browser",
     "//extensions/buildflags",
     "//mojo/public/cpp/bindings",
@@ -90,6 +91,8 @@ source_set("net") {
     "//services/network/public/cpp",
     "//services/network/public/mojom",
     "//services/proxy_resolver/public/mojom",
+    "//services/proxy_resolver/public/mojom:system_proxy_resolver",
+    "//ui/base/unowned_user_data",
     "//url",
   ]
 
@@ -110,6 +113,11 @@ source_set("net") {
 
   if (is_mac) {
     public += [ "chrome_mojo_proxy_resolver_mac.h" ]
+  }
+
+  if (is_linux && use_dbus) {
+    public += [ "chrome_mojo_proxy_resolver_linux.h" ]
+    public_deps += [ "//components/dbus" ]
   }
 
   if (use_nss_certs) {
@@ -136,6 +144,7 @@ source_set("impl") {
     "chrome_report_sender.cc",
     "convert_explicitly_allowed_network_ports_pref.cc",
     "default_dns_over_https_config_source.cc",
+    "disk_cache_dir_util.cc",
     "dns_probe_runner.cc",
     "dns_probe_service_factory.cc",
     "explicitly_allowed_network_ports_policy_handler.cc",
@@ -160,14 +169,12 @@ source_set("impl") {
     sources += [ "device_bound_session_prewarmer.cc" ]
   }
 
-  public_deps = [
-    ":net",
-    "//chrome/browser:browser_public_dependencies",
-  ]
+  public_deps = [ ":net" ]
 
   deps = [
     ":key_pinning_proto",
     "//base:build_time",
+    "//build/config/linux/dbus:buildflags",
     "//chrome/browser:browser_features",
     "//chrome/browser:browser_process",
     "//chrome/browser:browser_process_platform_part",
@@ -176,7 +183,7 @@ source_set("impl") {
     "//chrome/browser/component_updater",
     "//chrome/browser/content_settings:content_settings_factory",
     "//chrome/browser/domain_reliability",
-    "//chrome/browser/glic/public:cors_exempt_headers",
+    "//chrome/browser/glic/public:request_headers",
     "//chrome/browser/policy:path_parser",
     "//chrome/browser/prefs:util",
     "//chrome/browser/preloading/prefetch/no_state_prefetch",
@@ -185,6 +192,7 @@ source_set("impl") {
     "//chrome/browser/task_manager",
     "//chrome/browser/webid",
     "//chrome/common:version_header",
+    "//chrome/common/request_header_integrity:buildflags",
     "//components/certificate_transparency",
     "//components/content_settings/core/common",
     "//components/contextual_tasks/public:feature_list",
@@ -194,10 +202,13 @@ source_set("impl") {
     "//components/embedder_support",
     "//components/embedder_support:user_agent",
     "//components/enterprise",
+    "//components/enterprise/client_certificates/core",
     "//components/enterprise/connectors/core",
     "//components/enterprise/encryption/cache",
     "//components/language/core/browser",
     "//components/link_header_util",
+    "//chrome/common",
+    "//chrome/common:channel_info",
     "//components/metrics",
     "//components/net_log",
     "//components/no_state_prefetch/browser",
@@ -278,6 +289,11 @@ source_set("impl") {
     sources += [ "chrome_mojo_proxy_resolver_mac.cc" ]
   }
 
+  if (is_linux && use_dbus) {
+    sources += [ "chrome_mojo_proxy_resolver_linux.cc" ]
+    deps += [ "//dbus" ]
+  }
+
   if (chrome_root_store_cert_management_ui) {
     sources += [ "server_certificate_database_service_factory.cc" ]
   }
@@ -288,10 +304,6 @@ source_set("impl") {
 
   if (enable_offline_pages) {
     deps += [ "//chrome/browser/offline_pages" ]
-  }
-
-  if (enterprise_client_certificates) {
-    deps += [ "//components/enterprise/client_certificates/core" ]
   }
 
   if (use_nss_certs) {
@@ -411,6 +423,7 @@ source_set("unit_tests") {
     "chrome_network_delegate_unittest.cc",
     "chrome_report_sender_unittest.cc",
     "convert_explicitly_allowed_network_ports_pref_unittest.cc",
+    "disk_cache_dir_util_unittest.cc",
     "dns_probe_runner_unittest.cc",
     "dns_probe_service_factory_unittest.cc",
     "explicitly_allowed_network_ports_policy_handler_unittest.cc",
@@ -438,6 +451,7 @@ source_set("unit_tests") {
     "//chrome/test/base:chrome_render_view_host_test_harness",
     "//chrome/test/base:testing_browser_process",
     "//components/prefs:test_support",
+    "//components/tabs:test_support",
     "//content/test:test_support",
     "//net:test_support",
     "//services/network:test_support",
@@ -449,6 +463,15 @@ source_set("unit_tests") {
     if (!is_chromeos) {
       sources += [ "disk_cache_dir_policy_handler_unittest.cc" ]
     }
+  }
+  if (is_linux && use_dbus) {
+    sources += [ "chrome_mojo_proxy_resolver_linux_unittest.cc" ]
+    deps += [
+      "//components/dbus",
+      "//dbus",
+      "//dbus:test_support",
+      "//services/proxy_resolver/public/mojom",
+    ]
   }
   if (is_chromeos) {
     sources += [
@@ -554,6 +577,7 @@ if (!is_android) {
       deps += [
         "//chrome/browser/ash/login:test_support",
         "//chrome/browser/ash/net",
+        "//chrome/test/base:scoped_test_system_nss_key_slot_mixin",
         "//chromeos/ash/components/browser_context_helper",
         "//chromeos/dbus/regmon",
       ]
@@ -575,6 +599,9 @@ if (!is_android) {
     # TODO(crbug.com/40031409): Fix code that adds exit-time destructors and
     # enable the diagnostic by removing this line.
     configs += [ "//build/config/compiler:no_exit_time_destructors" ]
+    if (is_chromeos) {
+      deps += [ "//chrome/browser/ui/ash/login" ]
+    }
   }
 
   source_set("interactive_ui_tests") {

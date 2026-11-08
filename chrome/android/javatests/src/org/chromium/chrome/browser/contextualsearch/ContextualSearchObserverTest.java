@@ -146,6 +146,8 @@ public class ContextualSearchObserverTest extends ContextualSearchInstrumentatio
     @Test
     @SmallTest
     @Feature({"ContextualSearch"})
+    // TODO(crbug.com/572829701): Re-enable once flake is fixed.
+    @DisabledTest(message = "https://crbug.com/572829701")
     public void testNotifyObserversOnClearSelectionAfterLongpress() throws Exception {
         TestContextualSearchObserver observer = new TestContextualSearchObserver();
         ThreadUtils.runOnUiThreadBlocking(() -> mManager.addObserver(observer));
@@ -171,6 +173,8 @@ public class ContextualSearchObserverTest extends ContextualSearchInstrumentatio
     @Test
     @SmallTest
     @Feature({"ContextualSearch"})
+    // TODO(crbug.com/571163328): Re-enable this test.
+    @DisabledTest(message = "https://crbug.com/571163328")
     public void testNotifyObserversOnExpandSelection() throws Exception {
         mPolicy.overrideDecidedStateForTesting(true);
         TestContextualSearchObserver observer = new TestContextualSearchObserver();

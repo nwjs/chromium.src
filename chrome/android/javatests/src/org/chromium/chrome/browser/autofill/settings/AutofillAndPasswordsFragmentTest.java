@@ -11,7 +11,6 @@ import static androidx.test.espresso.assertion.ViewAssertions.doesNotExist;
 import static androidx.test.espresso.assertion.ViewAssertions.matches;
 import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
 import static androidx.test.espresso.matcher.ViewMatchers.isEnabled;
-import static androidx.test.espresso.matcher.ViewMatchers.isRoot;
 import static androidx.test.espresso.matcher.ViewMatchers.withEffectiveVisibility;
 import static androidx.test.espresso.matcher.ViewMatchers.withId;
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
@@ -27,21 +26,20 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import static org.chromium.base.test.transit.ViewFinder.waitForNoView;
 import static org.chromium.chrome.browser.settings.SettingsSearchTestUtils.assertPreferenceScreenMatchesIndex;
-import static org.chromium.ui.test.util.ViewUtils.VIEW_NULL;
-import static org.chromium.ui.test.util.ViewUtils.withEventualExpectedViewState;
 
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 
+import androidx.recyclerview.widget.RecyclerView;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.espresso.matcher.ViewMatchers.Visibility;
 import androidx.test.filters.MediumTest;
 import androidx.test.filters.SmallTest;
 
-import org.junit.After;
 import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Rule;
@@ -56,6 +54,7 @@ import org.chromium.base.ContextUtils;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CommandLineFlags;
+import org.chromium.base.test.util.DisableIf;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
@@ -96,19 +95,16 @@ import org.chromium.components.browser_ui.settings.SettingsNavigation;
 import org.chromium.components.browser_ui.settings.search.SettingsIndexData;
 import org.chromium.components.policy.test.annotations.Policies;
 import org.chromium.components.signin.metrics.SigninAccessPoint;
-import org.chromium.components.signin.test.util.FakeAccountManagerFacade;
 import org.chromium.components.signin.test.util.TestAccounts;
+import org.chromium.ui.base.DeviceFormFactor;
 
 /** Tests for {@link AutofillAndPasswordsFragment}. */
 @RunWith(ChromeJUnit4ClassRunner.class)
 @Batch(Batch.PER_CLASS)
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
 public class AutofillAndPasswordsFragmentTest {
-    private static final FakeAccountManagerFacade sFakeAccountManagerFacade =
-            new FakeAccountManagerFacade();
-
     @Rule(order = 0)
-    public SigninTestRule mSigninTestRule = new SigninTestRule(sFakeAccountManagerFacade);
+    public SigninTestRule mSigninTestRule = SigninTestRule.createWithCleanups();
 
     @Rule(order = 1)
     public SettingsTestRule<AutofillAndPasswordsFragment> mSettingsTestRule =
@@ -189,11 +185,6 @@ public class AutofillAndPasswordsFragmentTest {
                                         .AUTOFILL_AND_PASSWORDS));
     }
 
-    @After
-    public void tearDown() {
-        ThreadUtils.runOnUiThreadBlocking(sFakeAccountManagerFacade::removeAllAccounts);
-    }
-
     @Test
     @SmallTest
     public void testHelpMenuTriggersAutofillHelp() {
@@ -219,6 +210,7 @@ public class AutofillAndPasswordsFragmentTest {
         signInPromoDeclined(false);
 
         mSettingsTestRule.startSettingsActivity(createFragmentArgs());
+        disableItemAnimation();
 
         onView(withId(R.id.signin_promo_view_container)).check(matches(isDisplayed()));
         onView(withId(R.id.signin_promo_title))
@@ -257,6 +249,7 @@ public class AutofillAndPasswordsFragmentTest {
         signInPromoDeclined(false);
 
         mSettingsTestRule.startSettingsActivity(createFragmentArgs());
+        disableItemAnimation();
 
         onView(withId(R.id.signin_promo_view_container)).check(matches(isDisplayed()));
         onView(withId(R.id.signin_promo_title))
@@ -278,6 +271,7 @@ public class AutofillAndPasswordsFragmentTest {
         signInPromoDeclined(false);
 
         mSettingsTestRule.startSettingsActivity(createFragmentArgs());
+        disableItemAnimation();
 
         onView(withId(R.id.signin_promo_view_container)).check(matches(isDisplayed()));
         onView(withId(R.id.signin_promo_dismiss_button)).perform(click());
@@ -286,10 +280,7 @@ public class AutofillAndPasswordsFragmentTest {
         // applies visibility changes on a posted runnable and RecyclerView only detaches the
         // row on a subsequent layout pass. Neither is covered by Espresso's idle detection, so
         // poll for the removal instead of sampling the hierarchy once.
-        onView(isRoot())
-                .check(
-                        withEventualExpectedViewState(
-                                withId(R.id.signin_promo_view_container), VIEW_NULL));
+        waitForNoView(withId(R.id.signin_promo_view_container));
         assertTrue(
                 ChromeSharedPreferences.getInstance()
                         .readBoolean(
@@ -304,6 +295,7 @@ public class AutofillAndPasswordsFragmentTest {
         signInPromoDeclined(false);
 
         mSettingsTestRule.startSettingsActivity(createFragmentArgs());
+        disableItemAnimation();
 
         onView(withId(R.id.signin_promo_view_container)).check(matches(isDisplayed()));
         onView(withId(R.id.signin_promo_primary_button)).perform(click());
@@ -521,6 +513,7 @@ public class AutofillAndPasswordsFragmentTest {
         ChromeFeatureList.YOUR_SAVED_INFO_SETTINGS_PAGE_ANDROID,
         ChromeFeatureList.AUTOFILL_AI_WITH_DATA_SCHEMA
     })
+    @DisableIf.Device(DeviceFormFactor.AUTOMOTIVE) // crbug.com/571973537
     public void testClickAutofillSettingsLaunchesAutofillOptions() {
         mSettingsTestRule.startSettingsActivity();
 
@@ -749,5 +742,17 @@ public class AutofillAndPasswordsFragmentTest {
         onView(withText(titleRes)).perform(scrollTo(), click());
 
         verify(mSettingsNavigation).startSettings(any(), eq(expectedFragment), any(), eq(true));
+    }
+
+    /** Disable animation to reduce flakiness. */
+    private void disableItemAnimation() {
+        AutofillAndPasswordsFragment fragment = mSettingsTestRule.getFragment();
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    RecyclerView listView = fragment.getListView();
+                    if (listView != null) {
+                        listView.setItemAnimator(null);
+                    }
+                });
     }
 }

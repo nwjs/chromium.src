@@ -114,8 +114,8 @@ public class ReadAloudNativeBridgeUnitTest {
         mBridge.stop();
         verify(mNativeBridgeNatives).stop(eq(NATIVE_PTR));
 
-        mBridge.seekToWordIndex(42);
-        verify(mNativeBridgeNatives).seekToWordIndex(eq(NATIVE_PTR), eq(42));
+        mBridge.seekToWord(2, 15);
+        verify(mNativeBridgeNatives).seekToWord(eq(NATIVE_PTR), eq(2), eq(15));
 
         mBridge.seek(5000L);
         verify(mNativeBridgeNatives).seek(eq(NATIVE_PTR), eq(5000L));
@@ -129,8 +129,14 @@ public class ReadAloudNativeBridgeUnitTest {
         mBridge.setVoice("voice_1");
         verify(mNativeBridgeNatives).setVoice(eq(NATIVE_PTR), eq("voice_1"));
 
+        mBridge.setLanguageCode("es");
+        verify(mNativeBridgeNatives).setLanguageCode(eq(NATIVE_PTR), eq("es"));
+
         mBridge.previewVoice("voice_1");
         verify(mNativeBridgeNatives).previewVoice(eq(NATIVE_PTR), eq("voice_1"));
+
+        mBridge.pauseVoicePreview();
+        verify(mNativeBridgeNatives).pauseVoicePreview(eq(NATIVE_PTR));
 
         mBridge.stopVoicePreview();
         verify(mNativeBridgeNatives).stopVoicePreview(eq(NATIVE_PTR));
@@ -155,12 +161,14 @@ public class ReadAloudNativeBridgeUnitTest {
         mBridge.play(mWebContents);
         mBridge.pause();
         mBridge.stop();
-        mBridge.seekToWordIndex(42);
+        mBridge.seekToWord(2, 15);
         mBridge.seek(5000L);
         mBridge.seekRelative(200L);
         mBridge.setPlaybackRate(1.5f);
         mBridge.setVoice("voice_1");
+        mBridge.setLanguageCode("es");
         mBridge.previewVoice("voice_1");
+        mBridge.pauseVoicePreview();
         mBridge.stopVoicePreview();
         mBridge.setPlaybackMode(1);
         mBridge.setHighlightingEnabled(true);
@@ -170,12 +178,14 @@ public class ReadAloudNativeBridgeUnitTest {
         verify(mNativeBridgeNatives, never()).play(anyLong(), any());
         verify(mNativeBridgeNatives, never()).pause(anyLong());
         verify(mNativeBridgeNatives, never()).stop(anyLong());
-        verify(mNativeBridgeNatives, never()).seekToWordIndex(anyLong(), anyInt());
+        verify(mNativeBridgeNatives, never()).seekToWord(anyLong(), anyInt(), anyInt());
         verify(mNativeBridgeNatives, never()).seek(anyLong(), anyLong());
         verify(mNativeBridgeNatives, never()).seekRelative(anyLong(), anyLong());
         verify(mNativeBridgeNatives, never()).setPlaybackRate(anyLong(), anyFloat());
         verify(mNativeBridgeNatives, never()).setVoice(anyLong(), anyString());
+        verify(mNativeBridgeNatives, never()).setLanguageCode(anyLong(), anyString());
         verify(mNativeBridgeNatives, never()).previewVoice(anyLong(), anyString());
+        verify(mNativeBridgeNatives, never()).pauseVoicePreview(anyLong());
         verify(mNativeBridgeNatives, never()).stopVoicePreview(anyLong());
         verify(mNativeBridgeNatives, never()).setPlaybackMode(anyLong(), anyInt());
         verify(mNativeBridgeNatives, never()).setHighlightingEnabled(anyLong(), anyBoolean());

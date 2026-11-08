@@ -346,7 +346,7 @@ class ContextualTasksComposeboxHandlerTest
         *session_handle_, config, GURL(), /*is_off_the_record=*/false,
         /*is_signed_in=*/false,
         /*browser_identity_matches_aim_identity=*/false);
-    model->setActiveModel(omnibox::ModelMode::MODEL_MODE_GEMINI_PRO);
+    model->SetActiveModel(omnibox::ModelMode::MODEL_MODE_GEMINI_PRO);
     return model;
   }
 
@@ -4239,6 +4239,7 @@ IN_PROC_BROWSER_TEST_F(
   SetUpHandler();
   ASSERT_NE(handler_, nullptr);
   ASSERT_NE(session_handle_, nullptr);
+
   tabs::TabInterface* active_tab =
       TabListInterface::From(browser())->GetActiveTab();
   ASSERT_NE(active_tab, nullptr);
@@ -4257,11 +4258,11 @@ IN_PROC_BROWSER_TEST_F(
   const auto submitted_token = *token_opt;
   ASSERT_THAT(handler_->GetSelectedTabIds(), testing::Contains(active_tab_id));
 
-  session_handle_->set_submitted_context_tokens({submitted_token});
+  session_handle_->SetSubmittedContextTokens({submitted_token});
 
   const SessionID tab_session_id =
       sessions::SessionTabHelper::IdForTab(active_tab->GetContents());
-  session_handle_->set_persisted_tabs(
+  session_handle_->SetPersistedTabs(
       {{tab_session_id, {submitted_token, lens::LensOverlayRequestId()}}});
   session_handle_->set_deselected_tabs_urls(
       {{tab_session_id, {GURL("https://example.com"), "Example"}}});
@@ -4274,7 +4275,7 @@ IN_PROC_BROWSER_TEST_F(
   handler_->OnTaskChanged();
 
   EXPECT_TRUE(session_handle_->GetSubmittedContextTokens().empty());
-  EXPECT_TRUE(session_handle_->persisted_tabs().empty());
+  EXPECT_TRUE(session_handle_->GetPersistedTabs().empty());
   EXPECT_TRUE(session_handle_->deselected_tabs_urls().empty());
   EXPECT_TRUE(session_handle_->GetTabContextState().restored.empty());
   EXPECT_TRUE(handler_->GetSelectedTabIds().empty());

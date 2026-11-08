@@ -54,6 +54,7 @@
 #import "ios/chrome/common/ui/util/constraints_ui_util.h"
 #import "ios/chrome/common/ui/util/ui_util.h"
 #import "ios/chrome/grit/ios_strings.h"
+#import "ui/base/device_form_factor.h"
 #import "ui/base/l10n/l10n_util.h"
 
 namespace {
@@ -79,6 +80,10 @@ constexpr CGFloat kButtonMinScale = 0.37;
 // Duration of standard toolbar transition animations (fade, scale).
 constexpr CGFloat kAnimationDuration = 0.2;
 
+// Duration of the toolbar slide-in animation.
+const base::TimeDelta kToolbarSlideInAnimationDuration =
+    base::Milliseconds(500);
+
 // Margin between the location bar and the tab group indicator view.
 constexpr CGFloat kLocationBarToTabGroupMargin = 6;
 
@@ -94,6 +99,7 @@ constexpr CGFloat kGlassStackViewMarginPortrait = 10;
 // The margin between the stack views and the location bar.
 // Regular-Regular (iPad) size class margin.
 constexpr CGFloat kLocationBarStackViewMarginRegularRegular = 40;
+constexpr CGFloat kLegacyLocationBarStackViewMarginRegularRegular = 15;
 // iPhone portrait margin.
 constexpr CGFloat kLocationBarStackViewMarginPortrait = 9;
 constexpr CGFloat kGlassLocationBarStackViewMarginPortrait = 8;
@@ -198,7 +204,8 @@ CGFloat ButtonAlphaForProgress(CGFloat progress) {
   UIMenu* _forwardButtonMenu;
   ToolbarButton* _reloadButton;
   ToolbarButton* _stopButton;
-  ToolbarButton* _shareButton;
+  ToolbarButton* _leadingShareButton;
+  ToolbarButton* _trailingShareButton;
   ToolbarButton* _assistantButton;
   UIMenu* _assistantButtonMenu;
   ToolbarTabGridBadgeButton* _tabGridButton;
@@ -327,6 +334,9 @@ CGFloat ButtonAlphaForProgress(CGFloat progress) {
 
   // Whether the visible page is loading.
   BOOL _isLoading;
+
+  // Whether the share button in this toolbar is enabled.
+  BOOL _shareEnabled;
 
   // Used to record the latest fullscreen progress.
   CGFloat _fullscreenProgress;
@@ -575,8 +585,8 @@ CGFloat ButtonAlphaForProgress(CGFloat progress) {
                    withAction:@selector(sizeClassDidChange)];
 
   [self registerForTraitChanges:
-            @[ UITraitUserInterfaceStyle.class, NewTabPageTrait.class ]
-                     withAction:@selector(userInterfaceStyleDidChange)];
+            @[ NewTabPageTrait.class, NewTabPageImageBackgroundTrait.class ]
+                     withAction:@selector(updateBackgroundColors)];
 }
 
 - (void)viewSafeAreaInsetsDidChange {
@@ -659,7 +669,10 @@ CGFloat ButtonAlphaForProgress(CGFloat progress) {
     return;
   }
 
-  if (IsNextOldDesignEnabled()) {
+  if (IsFiveButtonAppBarLayoutEnabled()) {
+    _forwardButton.enabled = canGoForward;
+    return;
+  } else if (IsNextOldDesignEnabled()) {
     _forwardButton.enabled = canGoForward;
     if (IsRegularXRegularSizeClass(self)) {
       _forwardButton.hidden = NO;
@@ -698,10 +711,14 @@ CGFloat ButtonAlphaForProgress(CGFloat progress) {
 }
 
 - (void)setShareEnabled:(BOOL)enabled {
-  if (enabled == _shareButton.isEnabled) {
+  if (enabled == _shareEnabled) {
     return;
   }
-  _shareButton.enabled = enabled;
+  _shareEnabled = enabled;
+  if (IsFiveButtonAppBarLayoutEnabled()) {
+    _leadingShareButton.enabled = enabled;
+  }
+  _trailingShareButton.enabled = enabled;
 }
 
 - (void)setHasOmnibox:(BOOL)hasOmnibox {
@@ -895,6 +912,32 @@ CGFloat ButtonAlphaForProgress(CGFloat progress) {
       completion:^(BOOL finished) {
         [weakSelf showBannerPromoCompletionBlock];
       }];
+}
+
+- (void)triggerToolbarSlideInAnimation {
+  // Toolbar slide-in animations are disabled on iPads.
+  if (ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_TABLET) {
+    return;
+  }
+
+  UIView* view = self.view;
+  CGFloat toolbarHeight = view.frame.size.height;
+  view.transform = CGAffineTransformMakeTranslation(
+      0, _topPosition ? -toolbarHeight : toolbarHeight);
+  auto animations = ^{
+    [UIView addKeyframeWithRelativeStartTime:0
+                            relativeDuration:1
+                                  animations:^{
+                                    view.transform = CGAffineTransformIdentity;
+                                  }];
+  };
+
+  [UIView
+      animateKeyframesWithDuration:kToolbarSlideInAnimationDuration.InSecondsF()
+                             delay:0
+                           options:UIViewAnimationCurveEaseInOut
+                        animations:animations
+                        completion:nil];
 }
 
 - (void)hideBannerPromo {
@@ -1381,6 +1424,10 @@ CGFloat ButtonAlphaForProgress(CGFloat progress) {
     return colorPalette ? colorPalette.omniboxColor
                         : [UIColor colorNamed:kSolidWhiteColor];
   }
+  if (IsNextOldDesignEnabled() && !IsGlassToolbarEnabled()) {
+    return _incognito ? [UIColor colorNamed:kStaticGrey900Color]
+                      : [UIColor colorNamed:kTextfieldBackgroundColor];
+  }
   return ToolbarElementBackgroundColor(_incognito);
 }
 
@@ -1404,10 +1451,13 @@ CGFloat ButtonAlphaForProgress(CGFloat progress) {
       // In light mode, matches the default light blue NTP background
       // color to prevent the white pinned omnibox from blending into a white
       // toolbar. In dark mode, matches standard `kBackgroundColor`.
-      if (self.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark) {
-        return [UIColor colorNamed:kBackgroundColor];
-      }
-      return [UIColor colorNamed:kNTPBackgroundColor];
+      return [UIColor colorWithDynamicProvider:^UIColor*(
+                          UITraitCollection* traitCollection) {
+        if (traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark) {
+          return [UIColor colorNamed:kBackgroundColor];
+        }
+        return [UIColor colorNamed:kNTPBackgroundColor];
+      }];
     }
   }
   return [UIColor colorNamed:kBackgroundColor];
@@ -1759,10 +1809,19 @@ CGFloat ButtonAlphaForProgress(CGFloat progress) {
   [_stopButton addTarget:self
                   action:@selector(stopButtonTapped)
         forControlEvents:UIControlEventTouchUpInside];
-  _shareButton = [self.buttonFactory makeShareButton];
-  [_shareButton addTarget:self
-                   action:@selector(shareButtonTapped:)
-         forControlEvents:UIControlEventTouchUpInside];
+  if (IsFiveButtonAppBarLayoutEnabled()) {
+    _leadingShareButton = [self.buttonFactory makeShareButton];
+    _leadingShareButton.visibilityMask = ToolbarButtonVisibility::kCompactWidth;
+    _leadingShareButton.enabled = _shareEnabled;
+    [_leadingShareButton addTarget:self
+                            action:@selector(shareButtonTapped:)
+                  forControlEvents:UIControlEventTouchUpInside];
+  }
+  _trailingShareButton = [self.buttonFactory makeShareButton];
+  _trailingShareButton.enabled = _shareEnabled;
+  [_trailingShareButton addTarget:self
+                           action:@selector(shareButtonTapped:)
+                 forControlEvents:UIControlEventTouchUpInside];
   _assistantButton = [self.buttonFactory makeAssistantButton];
   [_assistantButton addTarget:self
                        action:@selector(assistantButtonTapped)
@@ -1933,7 +1992,12 @@ CGFloat ButtonAlphaForProgress(CGFloat progress) {
 
 // Sets up the hierarchy of the buttons.
 - (void)setUpHierarchy {
-  if (IsNextOldDesignEnabled()) {
+  if (IsFiveButtonAppBarLayoutEnabled()) {
+    _leadingStackView = [self makeStackViewWithButtons:@[
+      _backButton, _forwardButton, _reloadButton, _stopButton,
+      _leadingShareButton
+    ]];
+  } else if (IsNextOldDesignEnabled()) {
     _leadingStackView = [self makeStackViewWithButtons:@[
       _backButton,
       _forwardButton,
@@ -1948,18 +2012,24 @@ CGFloat ButtonAlphaForProgress(CGFloat progress) {
     ]];
   }
   _trailingStackView = [self makeStackViewWithButtons:@[
-    _shareButton, _assistantButton, _tabGridButton, _toolsMenuButton
+    _assistantButton, _trailingShareButton, _tabGridButton, _toolsMenuButton
   ]];
 
-  if (IsNextOldDesignEnabled()) {
+  if (IsFiveButtonAppBarLayoutEnabled()) {
     _allButtons = @[
-      _backButton, _forwardButton, _reloadButton, _stopButton, _shareButton,
-      _assistantButton, _tabGridButton, _toolsMenuButton
+      _backButton, _forwardButton, _reloadButton, _stopButton,
+      _leadingShareButton, _trailingShareButton, _assistantButton,
+      _tabGridButton, _toolsMenuButton
+    ];
+  } else if (IsNextOldDesignEnabled()) {
+    _allButtons = @[
+      _backButton, _forwardButton, _reloadButton, _stopButton,
+      _trailingShareButton, _assistantButton, _tabGridButton, _toolsMenuButton
     ];
   } else {
     _allButtons = @[
-      _navigationButtonsContainer, _reloadButton, _stopButton, _shareButton,
-      _assistantButton, _tabGridButton, _toolsMenuButton
+      _navigationButtonsContainer, _reloadButton, _stopButton,
+      _trailingShareButton, _assistantButton, _tabGridButton, _toolsMenuButton
     ];
   }
 
@@ -2079,9 +2149,11 @@ CGFloat ButtonAlphaForProgress(CGFloat progress) {
       constraintEqualToAnchor:self.view.widthAnchor];
   widthConstraint.priority = UILayoutPriorityRequired - 1;
 
-  [_locationBarContainer.widthAnchor
-      constraintLessThanOrEqualToConstant:kLocationBarMaxWidth]
-      .active = YES;
+  if (!IsNextOldDesignEnabled()) {
+    [_locationBarContainer.widthAnchor
+        constraintLessThanOrEqualToConstant:kLocationBarMaxWidth]
+        .active = YES;
+  }
 
   if (IsNextOldDesignEnabled()) {
     _leadingStackLeadingConstraint = [_leadingStackView.leadingAnchor
@@ -2110,7 +2182,9 @@ CGFloat ButtonAlphaForProgress(CGFloat progress) {
                        constant:-locationBarMargin],
   ];
 
-  CGFloat regularMargin = kLocationBarStackViewMarginRegularRegular;
+  CGFloat regularMargin = IsNextOldDesignEnabled()
+                              ? kLegacyLocationBarStackViewMarginRegularRegular
+                              : kLocationBarStackViewMarginRegularRegular;
   _regularRegularConstraints = @[
     [_locationBarContainer.leadingAnchor
         constraintGreaterThanOrEqualToAnchor:_leadingStackView.trailingAnchor
@@ -2146,7 +2220,7 @@ CGFloat ButtonAlphaForProgress(CGFloat progress) {
                                     constant:
                                         kLocationBarStackViewMarginLandscape],
     [_locationBarContainer.centerXAnchor
-        constraintEqualToAnchor:self.view.centerXAnchor],
+        constraintEqualToAnchor:self.view.safeAreaLayoutGuide.centerXAnchor],
 
     widthConstraint,
   ];
@@ -2163,7 +2237,15 @@ CGFloat ButtonAlphaForProgress(CGFloat progress) {
   [NSLayoutConstraint deactivateConstraints:_landscapeOrientationConstraints];
   [NSLayoutConstraint deactivateConstraints:_regularRegularConstraints];
 
-  if (IsNextOldDesignEnabled()) {
+  if (IsFiveButtonAppBarLayoutEnabled()) {
+    if (IsRegularXRegularSizeClass(self)) {
+      [NSLayoutConstraint activateConstraints:_regularRegularConstraints];
+    } else if (IsIPhoneLandscape(self)) {
+      [NSLayoutConstraint activateConstraints:_landscapeOrientationConstraints];
+    } else {
+      [NSLayoutConstraint activateConstraints:_portraitOrientationConstraints];
+    }
+  } else if (IsNextOldDesignEnabled()) {
     if (IsRegularXRegularSizeClass(self)) {
       _forwardButton.hidden = NO;
       [NSLayoutConstraint activateConstraints:_regularRegularConstraints];
@@ -2438,11 +2520,6 @@ CGFloat ButtonAlphaForProgress(CGFloat progress) {
   }
 }
 
-// Handles user interface style trait collection changes.
-- (void)userInterfaceStyleDidChange {
-  [self updateBackgroundColors];
-}
-
 // Safely updates a layout guide by either referencing `view` or unreferencing
 // it if `hide` is YES and the guide is currently owned by `view`.
 - (void)updateGuide:(GuideName*)guide withView:(UIView*)view hide:(BOOL)hide {
@@ -2465,16 +2542,37 @@ CGFloat ButtonAlphaForProgress(CGFloat progress) {
   BOOL hideToolbar = [self shouldHideToolbar];
 
   [self updateGuide:kToolsMenuGuide withView:_toolsMenuButton hide:hideToolbar];
-  [self updateGuide:kBackButtonGuide withView:_backButton hide:hideToolbar];
+
+  [self updateGuide:kBackButtonGuide
+           withView:_backButton
+               hide:hideToolbar || _backButton.isHidden];
   [self updateGuide:kForwardButtonGuide
            withView:_forwardButton
-               hide:hideToolbar];
-  // The toolbar share button is only visible in compact height; in regular
-  // height, the location bar steady view owns `kShareButtonGuide`.
-  BOOL hideShare =
-      hideToolbar || (IsChromeNextIaEnabled() &&
-                      (!IsCompactHeight(self) || _shareButton.forceHidden));
-  [self updateGuide:kShareButtonGuide withView:_shareButton hide:hideShare];
+               hide:hideToolbar || _forwardButton.isHidden];
+
+  if (IsFiveButtonAppBarLayoutEnabled()) {
+    // The leading share button in the toolbar is visible in a window with
+    // compact width and regular height).
+    BOOL isLeadingShareVisibleInLayout =
+        !IsCompactHeight(self) && IsCompactWidth(self);
+    BOOL hideLeadingShare = hideToolbar || !isLeadingShareVisibleInLayout ||
+                            _leadingShareButton.forceHidden;
+    [self updateGuide:kShareButtonGuide
+             withView:_leadingShareButton
+                 hide:hideLeadingShare];
+  }
+
+  // The toolbar share button is only visible in compact height (or in
+  // Regular-Regular when NextOldDesign is enabled); otherwise, the location bar
+  // steady view owns `kShareButtonGuide`.
+  BOOL isTrailingShareVisibleInLayout =
+      IsCompactHeight(self) ||
+      (IsNextOldDesignEnabled() && IsRegularXRegularSizeClass(self));
+  BOOL hideShare = hideToolbar || !isTrailingShareVisibleInLayout ||
+                   _trailingShareButton.forceHidden;
+  [self updateGuide:kShareButtonGuide
+           withView:_trailingShareButton
+               hide:hideShare];
 
   // The assistant button is hidden in non Regular-Regular size classes, but the
   // toolbar button's visibility handler may run after this, so
@@ -2494,18 +2592,13 @@ CGFloat ButtonAlphaForProgress(CGFloat progress) {
   if (!_hasOmnibox || !self.view.window) {
     return;
   }
-  if (IsChromeNextIaEnabled()) {
-    BOOL hideTabSwitcher =
-        [self shouldHideToolbar] ||
-        self.layoutState.appBarPosition != AppBarPosition::kNone ||
-        !IsRegularXRegularSizeClass(self) || _tabGridButton.forceHidden;
-    [self updateGuide:kTabSwitcherGuide
-             withView:_tabGridButton
-                 hide:hideTabSwitcher];
-  } else if (self.layoutState.appBarPosition == AppBarPosition::kNone) {
-    [self.layoutGuideCenter referenceView:_tabGridButton
-                                underName:kTabSwitcherGuide];
-  }
+  BOOL hideTabSwitcher =
+      [self shouldHideToolbar] ||
+      self.layoutState.appBarPosition != AppBarPosition::kNone ||
+      !IsRegularXRegularSizeClass(self) || _tabGridButton.forceHidden;
+  [self updateGuide:kTabSwitcherGuide
+           withView:_tabGridButton
+               hide:hideTabSwitcher];
 }
 
 @end

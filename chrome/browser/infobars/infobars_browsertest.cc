@@ -28,13 +28,13 @@
 #include "chrome/browser/infobars/browser_infobar_manager.h"
 #include "chrome/browser/infobars/infobar_features.h"
 #include "chrome/browser/infobars/test_support/infobar_observer.h"
-#include "chrome/browser/omnibox/chrome_omnibox_navigation_observer_base.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/themes/theme_service.h"
 #include "chrome/browser/themes/theme_service_factory.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/collected_cookies_infobar_delegate.h"
 #include "chrome/browser/ui/extensions/installation_error_infobar_delegate.h"
+#include "chrome/browser/ui/omnibox/chrome_omnibox_navigation_observer.h"
 #include "chrome/browser/ui/page_info/page_info_infobar_delegate.h"
 #include "chrome/browser/ui/select_file_policy/chrome_select_file_policy.h"
 #include "chrome/browser/ui/startup/automation_infobar_delegate.h"
@@ -48,6 +48,7 @@
 #include "chrome/browser/ui/test/test_infobar.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/infobars/infobar_container_view.h"
+#include "chrome/browser/ui/views/js_optimization/js_optimizations_infobar_delegate.h"
 #include "chrome/browser/ui/views/site_data/page_specific_site_data_dialog_controller.h"
 #include "extensions/buildflags/buildflags.h"
 #include "ui/base/window_open_disposition.h"
@@ -178,6 +179,7 @@ class InfoBarUiTest : public TestInfoBar,
           infobars::kCentralizedInfoBarFramework,
           {{"MigratedAlternateNav", "true"},
            {"MigratedCollectedCookies", "true"},
+           {"MigratedFileAccessDisabled", "true"},
            {"MigratedPageInfo", "true"},
            {"MigratedGoogleApiKeys", "true"},
            {"MigratedKeystonePromotion", "true"},
@@ -185,7 +187,8 @@ class InfoBarUiTest : public TestInfoBar,
            {"MigratedThemeInstalled", "true"},
            {"MigratedExtensionDevTools", "true"},
            {"MigratedAutomation", "true"},
-           {"MigratedBadFlags", "true"}});
+           {"MigratedBadFlags", "true"},
+           {"MigratedJsOptimizations", "true"}});
     } else {
       feature_list_.InitAndDisableFeature(
           infobars::kCentralizedInfoBarFramework);
@@ -233,6 +236,7 @@ void InfoBarUiTest::ShowUi(const std::string& name) {
           {"file_access_disabled", IBD::FILE_ACCESS_DISABLED_INFOBAR_DELEGATE},
           {"keystone_promotion", IBD::KEYSTONE_PROMOTION_INFOBAR_DELEGATE_MAC},
           {"collected_cookies", IBD::COLLECTED_COOKIES_INFOBAR_DELEGATE},
+          {"js_optimizations", IBD::JS_OPTIMIZATIONS_INFOBAR_DELEGATE},
           {"installation_error", IBD::INSTALLATION_ERROR_INFOBAR_DELEGATE},
           {"bad_flags", IBD::BAD_FLAGS_INFOBAR_DELEGATE},
           {"default_browser", IBD::DEFAULT_BROWSER_INFOBAR_DELEGATE},
@@ -263,7 +267,7 @@ void InfoBarUiTest::ShowUi(const std::string& name) {
     case IBD::ALTERNATE_NAV_INFOBAR_DELEGATE: {
       AutocompleteMatch match;
       match.destination_url = GURL("http://intranetsite/");
-      ChromeOmniboxNavigationObserverBase::ShowAlternativeNavInfoBar(
+      ChromeOmniboxNavigationObserver::ShowAlternativeNavInfoBar(
           GetWebContents(), std::u16string(), match,
           GURL("http://example.test/"));
       break;
@@ -348,6 +352,20 @@ void InfoBarUiTest::ShowUi(const std::string& name) {
             GetWebContents());
       } else {
         CollectedCookiesInfoBarDelegate::Create(GetInfoBarManager());
+      }
+      break;
+
+    case IBD::JS_OPTIMIZATIONS_INFOBAR_DELEGATE:
+      if (infobars::IsInfoBarMigrated(
+              infobars::InfoBarDelegate::JS_OPTIMIZATIONS_INFOBAR_DELEGATE)) {
+        auto* browser_infobar_manager =
+            infobars::BrowserInfoBarManager::From(g_browser_process);
+        CHECK(browser_infobar_manager);
+        browser_infobar_manager->Show(
+            GetTab(),
+            infobars::InfoBarDelegate::JS_OPTIMIZATIONS_INFOBAR_DELEGATE);
+      } else {
+        JsOptimizationsInfoBarDelegate::Create(GetInfoBarManager());
       }
       break;
 
@@ -557,6 +575,10 @@ IN_PROC_BROWSER_TEST_P(InfoBarUiTest, InvokeUi_keystone_promotion) {
 #endif
 
 IN_PROC_BROWSER_TEST_P(InfoBarUiTest, InvokeUi_collected_cookies) {
+  ShowAndVerifyUi();
+}
+
+IN_PROC_BROWSER_TEST_P(InfoBarUiTest, InvokeUi_js_optimizations) {
   ShowAndVerifyUi();
 }
 

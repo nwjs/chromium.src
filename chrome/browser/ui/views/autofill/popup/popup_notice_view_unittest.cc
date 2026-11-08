@@ -60,6 +60,7 @@ constexpr char16_t kTestLink[] = u"Test Link";
 constexpr char16_t kTestAcceptButton[] = u"Test Accept Button";
 constexpr char16_t kTestAcceptButtonA11yLabel[] =
     u"Test Accept Button A11y Label";
+constexpr char16_t kTestA11yInstructions[] = u"Test A11y Instructions";
 constexpr char kTestHistogram[] = "Test.NoticeInteractions";
 
 class PopupNoticeViewTest : public ChromeViewsTestBase {
@@ -78,17 +79,31 @@ class PopupNoticeViewTest : public ChromeViewsTestBase {
   }
 
   void ShowView() {
-    view_ = widget_->SetContentsView(std::make_unique<PopupNoticeView>(
+    ShowView(std::make_unique<PopupNoticeView>(
         mock_a11y_selection_delegate_, mock_announce_callback_.Get(),
         controller().GetWeakPtr(), kNoticePosition, kTestTitle, kTestContext,
         kTestLink, kTestAcceptButton, kTestAcceptButtonA11yLabel,
-        mock_on_link_clicked_.Get(), kTestHistogram));
+        kTestA11yInstructions, mock_on_link_clicked_.Get(), kTestHistogram));
+  }
+
+  void ShowView(std::unique_ptr<PopupNoticeView> notice_view) {
+    view_ = widget_->SetContentsView(std::move(notice_view));
 
     // Assign manual bounds so the widget has a physical size.
     // In test env, this is required to position child views
     // so the EventGenerator can accurately click them.
     widget_->SetBounds(gfx::Rect(0, 0, 500, 500));
     widget_->Show();
+  }
+
+  // Clicks the link in the description of the shown notice view.
+  void ClickLink() {
+    widget_->LayoutRootViewIfNecessary();
+    views::Link* link =
+        test_api(view()).description()->GetFirstLinkForTesting();
+    ASSERT_TRUE(link);
+    generator_->MoveMouseTo(link->GetBoundsInScreen().CenterPoint());
+    generator_->ClickLeftButton();
   }
 
   void TearDown() override {
@@ -238,7 +253,8 @@ class PopupNoticeViewTest : public ChromeViewsTestBase {
 };
 
 // Tests that the notice view is initialized with correct description, link,
-// and accept button texts, and that the kShown metric is recorded.
+// and accept button texts, that the kShown metric is recorded, and that the
+// accessible name includes navigation instructions.
 TEST_F(PopupNoticeViewTest, InitialStateAndHistogramShown) {
   base::HistogramTester histogram_tester;
   ShowView();
@@ -248,6 +264,11 @@ TEST_F(PopupNoticeViewTest, InitialStateAndHistogramShown) {
   EXPECT_TRUE(VerifyDescription(kTestTitle, kTestContext, kTestLink));
   EXPECT_TRUE(VerifyLink(kTestLink));
   EXPECT_TRUE(VerifyAcceptButton(kTestAcceptButton));
+
+  ui::AXNodeData node_data;
+  view().GetViewAccessibility().GetAccessibleNodeData(&node_data);
+  EXPECT_EQ(node_data.GetString16Attribute(ax::mojom::StringAttribute::kName),
+            u"Test Title Test Context Test Link. Test A11y Instructions");
 }
 
 // Tests that clicking the accept button marks the notice as acknowledged in
@@ -581,8 +602,10 @@ TEST_F(PopupNoticeViewTest, CreatePersonalContextNoticeViewAmbientAutofill) {
 
   ui::AXNodeData node_data;
   view->GetViewAccessibility().GetAccessibleNodeData(&node_data);
-  EXPECT_FALSE(node_data.GetString16Attribute(ax::mojom::StringAttribute::kName)
-                   .empty());
+  EXPECT_NE(node_data.GetString16Attribute(ax::mojom::StringAttribute::kName)
+                .find(l10n_util::GetStringUTF16(
+                    IDS_AUTOFILL_POPUP_NOTICE_A11Y_INSTRUCTIONS)),
+            std::u16string::npos);
 }
 
 // Tests that Personal Context Notice view is created with proper histograms
@@ -610,6 +633,13 @@ TEST_F(PopupNoticeViewTest,
       test_api(*view).description()->GetText().find(l10n_util::GetStringUTF16(
           IDS_AUTOFILL_POPUP_PERSONAL_CONTEXT_NOTICE_SUBTITLE_WITH_LOGGING)),
       std::u16string::npos);
+
+  ui::AXNodeData node_data;
+  view->GetViewAccessibility().GetAccessibleNodeData(&node_data);
+  EXPECT_NE(node_data.GetString16Attribute(ax::mojom::StringAttribute::kName)
+                .find(l10n_util::GetStringUTF16(
+                    IDS_AUTOFILL_POPUP_NOTICE_A11Y_INSTRUCTIONS)),
+            std::u16string::npos);
 }
 
 // Tests that Personal Context Notice view is created with proper texts for
@@ -634,6 +664,75 @@ TEST_F(PopupNoticeViewTest,
       test_api(*view).description()->GetText().find(l10n_util::GetStringUTF16(
           IDS_AUTOFILL_POPUP_PERSONAL_CONTEXT_NOTICE_SUBTITLE)),
       std::u16string::npos);
+
+  ui::AXNodeData node_data;
+  view->GetViewAccessibility().GetAccessibleNodeData(&node_data);
+  EXPECT_NE(node_data.GetString16Attribute(ax::mojom::StringAttribute::kName)
+                .find(l10n_util::GetStringUTF16(
+                    IDS_AUTOFILL_POPUP_NOTICE_A11Y_INSTRUCTIONS)),
+            std::u16string::npos);
+}
+
+// Tests that clicking the link in the Personal Context notice view for Ambient
+// Autofill logs the link click and acknowledgement and removes the suggestion.
+TEST_F(PopupNoticeViewTest,
+       ClickLinkInPersonalContextNoticeViewAmbientAutofillAcknowledgesNotice) {
+  // Prevents opening the settings page, which requires a browser window.
+  ON_CALL(controller(), GetWebContents()).WillByDefault(Return(nullptr));
+  controller().set_suggestions(
+      {Suggestion(SuggestionType::kPersonalContextNotice)});
+  base::HistogramTester histogram_tester;
+  ShowView(CreatePersonalContextNoticeView(
+      mock_a11y_selection_delegate(), mock_announce_callback().Get(),
+      controller().GetWeakPtr(), kNoticePosition));
+
+  EXPECT_CALL(controller(), RemoveSuggestion(kNoticePosition))
+      .WillOnce(Return(true));
+  ClickLink();
+
+  histogram_tester.ExpectBucketCount(
+      "PersonalContext.AmbientAutofill.NoticeInteractions",
+      AutofillMetrics::PopupNoticeInteractions::kShown, 1);
+  histogram_tester.ExpectBucketCount(
+      "PersonalContext.AmbientAutofill.NoticeInteractions",
+      AutofillMetrics::PopupNoticeInteractions::kLinkButtonClicked, 1);
+  histogram_tester.ExpectBucketCount(
+      "PersonalContext.AmbientAutofill.NoticeInteractions",
+      AutofillMetrics::PopupNoticeInteractions::kAcknowledged, 1);
+  histogram_tester.ExpectTotalCount(
+      "PersonalContext.AmbientAutofill.NoticeInteractions", 3);
+}
+
+// Tests that clicking the link in the Personal Context notice view for AtMemory
+// logs the link click and acknowledgement and removes the suggestion.
+TEST_F(PopupNoticeViewTest,
+       ClickLinkInPersonalContextNoticeViewAtMemoryAcknowledgesNotice) {
+  // Prevents opening the settings page, which requires a browser window.
+  ON_CALL(controller(), GetWebContents()).WillByDefault(Return(nullptr));
+  ON_CALL(controller(), GetMainFillingProduct())
+      .WillByDefault(Return(FillingProduct::kAtMemory));
+  controller().set_suggestions(
+      {Suggestion(SuggestionType::kPersonalContextNotice)});
+  base::HistogramTester histogram_tester;
+  ShowView(CreatePersonalContextNoticeView(
+      mock_a11y_selection_delegate(), mock_announce_callback().Get(),
+      controller().GetWeakPtr(), kNoticePosition));
+
+  EXPECT_CALL(controller(), RemoveSuggestion(kNoticePosition))
+      .WillOnce(Return(true));
+  ClickLink();
+
+  histogram_tester.ExpectBucketCount(
+      "PersonalContext.AtMemory.NoticeInteractions",
+      AutofillMetrics::PopupNoticeInteractions::kShown, 1);
+  histogram_tester.ExpectBucketCount(
+      "PersonalContext.AtMemory.NoticeInteractions",
+      AutofillMetrics::PopupNoticeInteractions::kLinkButtonClicked, 1);
+  histogram_tester.ExpectBucketCount(
+      "PersonalContext.AtMemory.NoticeInteractions",
+      AutofillMetrics::PopupNoticeInteractions::kAcknowledged, 1);
+  histogram_tester.ExpectTotalCount(
+      "PersonalContext.AtMemory.NoticeInteractions", 3);
 }
 
 // Tests that Autofill AI Private Inference Notice view is created with valid
@@ -652,8 +751,10 @@ TEST_F(PopupNoticeViewTest, CreateAutofillAiPrivateInferenceNoticeViewCreated) {
 
   ui::AXNodeData node_data;
   view->GetViewAccessibility().GetAccessibleNodeData(&node_data);
-  EXPECT_FALSE(node_data.GetString16Attribute(ax::mojom::StringAttribute::kName)
-                   .empty());
+  EXPECT_NE(node_data.GetString16Attribute(ax::mojom::StringAttribute::kName)
+                .find(l10n_util::GetStringUTF16(
+                    IDS_AUTOFILL_POPUP_NOTICE_A11Y_INSTRUCTIONS)),
+            std::u16string::npos);
 }
 
 // Tests that clicking the link in the Autofill AI Private Inference Notice view

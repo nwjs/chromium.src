@@ -630,6 +630,21 @@ historical analysis. -->
 
 <!-- LINT.ThenChange(//services/network/public/mojom/device_bound_sessions.mojom:DeviceBoundSessionDeletionReason) -->
 
+<!-- LINT.IfChange(DeviceBoundSessionPrewarmTrigger) -->
+
+<enum name="DeviceBoundSessionPrewarmTrigger">
+  <int value="0" label="Pre-warmer started"/>
+  <int value="1" label="Scheduled refresh"/>
+  <int value="2" label="Retry after transient error"/>
+  <int value="3" label="Reconnected after unreachable pre-warm"/>
+  <int value="4" label="Reconnected during unreachable pre-warm"/>
+  <int value="5" label="Session created"/>
+  <int value="6" label="Network service disconnected"/>
+  <int value="7" label="Retry after network service unavailable"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/browser/net/device_bound_session_prewarmer.h:PrewarmTrigger) -->
+
 <!-- LINT.IfChange(DeviceBoundSessionProactiveRefreshAttempt) -->
 
 <enum name="DeviceBoundSessionProactiveRefreshAttempt">
@@ -892,6 +907,11 @@ historical analysis. -->
   <int value="9" label="SpdyProxy Reject (Deprecated)"/>
 </enum>
 
+<enum name="HttpAuthSchemeAllowedTarget">
+  <int value="0" label="AUTH_PROXY"/>
+  <int value="1" label="AUTH_SERVER"/>
+</enum>
+
 <enum name="HttpAuthTarget">
   <int value="0" label="Basic Proxy"/>
   <int value="1" label="Basic Secure Proxy"/>
@@ -1108,6 +1128,19 @@ historical analysis. -->
   <int value="5" label="CryptoConnectFailedAsync"/>
 </enum>
 
+<!-- LINT.IfChange(LinuxProxyResolutionStatus) -->
+
+<enum name="LinuxProxyResolutionStatus">
+  <int value="0" label="Ok"/>
+  <int value="1" label="PortalUnavailable"/>
+  <int value="2" label="DBusError"/>
+  <int value="3" label="EmptyProxyList"/>
+  <int value="4" label="InvalidResponse"/>
+  <int value="5" label="Aborted"/>
+</enum>
+
+<!-- LINT.ThenChange(//net/proxy_resolution/linux/linux_proxy_resolution_status.h:LinuxProxyResolutionStatus) -->
+
 <!-- LINT.IfChange(LogicalInvalidationStoreLoadResult) -->
 
 <enum name="LogicalInvalidationStoreLoadResult">
@@ -1196,6 +1229,17 @@ historical analysis. -->
   <int value="2" label="Normalized Names"/>
   <int value="3" label="Chain contained only one certificate"/>
 </enum>
+
+<!-- LINT.IfChange(NetCertificateSerialNumberType) -->
+
+<enum name="NetCertificateSerialNumberType">
+  <int value="0" label="Positive"/>
+  <int value="1" label="Zero"/>
+  <int value="2" label="Negative"/>
+  <int value="3" label="Invalid"/>
+</enum>
+
+<!-- LINT.ThenChange(//net/cert/x509_util.h:SerialNumberType) -->
 
 <!-- LINT.IfChange(NetCertVerifier1QwacResult) -->
 
@@ -3164,6 +3208,9 @@ Called by update_net_trust_anchors.py.-->
   <int value="7" label="New network connected post path degrading (probing)"/>
   <int value="8" label="On server preferred address available (probing)"/>
   <int value="9" label="Multi-port path"/>
+  <int value="10"
+      label="Wait for new network post network disconnected (direct)"/>
+  <int value="11" label="Wait for new network post write error (direct)"/>
 </enum>
 
 <!-- LINT.ThenChange(//net/quic/quic_migration_attempt_context.h:QuicMigrationAttemptCause) -->
@@ -3175,7 +3222,8 @@ Called by update_net_trust_anchors.py.-->
   <int value="1" label="Probe timeout"/>
   <int value="2" label="No unused Connection ID"/>
   <int value="3" label="Stateless reset received"/>
-  <int value="4" label="Probe failed"/>
+  <int value="4" label="Unknown probe failure"/>
+  <int value="5" label="Probing socket write error"/>
 </enum>
 
 <!-- LINT.ThenChange(//net/quic/quic_migration_attempt_context.h:QuicMigrationAttemptFailureReason) -->
@@ -3359,6 +3407,18 @@ Called by update_net_trust_anchors.py.-->
 </enum>
 
 <!-- LINT.ThenChange(//net/quic/quic_session_pool_async_dns_job.h:QuicSessionPoolAsyncDnsJobSuccessSource) -->
+
+<!-- LINT.IfChange(QuicSocketConfigStep) -->
+
+<enum name="QuicSocketConfigStep">
+  <int value="0" label="Connect"/>
+  <int value="1" label="Set receive buffer size"/>
+  <int value="2" label="Set do not fragment"/>
+  <int value="3" label="Set receive ECN"/>
+  <int value="4" label="Set send buffer size"/>
+</enum>
+
+<!-- LINT.ThenChange(//net/quic/quic_socket_config_step.h:QuicSocketConfigStep) -->
 
 <enum name="QuicTransportErrorCodes">
   <int value="0" label="NO_ERROR"/>

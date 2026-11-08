@@ -1398,6 +1398,14 @@ targets.binaries.generated_script(
 )
 
 targets.binaries.generated_script(
+    name = "ios_chrome_all_eg2tests_module",
+    label = "//ios/chrome/test/earl_grey2:ios_chrome_all_eg2tests_module",
+    # All references have been moved to starlark
+    skip_usage_check = True,
+    module_scheme = "xctest",
+)
+
+targets.binaries.generated_script(
     name = "ios_chrome_bookmarks_eg2tests_module",
     label = "//ios/chrome/test/earl_grey2:ios_chrome_bookmarks_eg2tests_module",
     # All references have been moved to starlark
@@ -1426,6 +1434,12 @@ targets.binaries.generated_script(
     label = "//ios/chrome/test/earl_grey2:ios_chrome_signin_eg2tests_module",
     # All references have been moved to starlark
     skip_usage_check = True,
+    module_scheme = "xctest",
+)
+
+targets.binaries.generated_script(
+    name = "ios_chrome_perf_benchmarks_eg2tests_module",
+    label = "//ios/chrome/test/earl_grey2:ios_chrome_perf_benchmarks_eg2tests_module",
     module_scheme = "xctest",
 )
 
@@ -1856,8 +1870,6 @@ targets.binaries.generated_script(
 targets.binaries.console_test_launcher(
     name = "openscreen_unittests",
     label = "//chrome/browser/media/router:openscreen_unittests",
-    # All references have been moved to starlark
-    skip_usage_check = True,
     module_scheme = "gtest",
 )
 
@@ -1909,7 +1921,7 @@ targets.binaries.generated_script(
 
 targets.binaries.script(
     name = "partition_alloc_perftests",
-    label = "//base/allocator/partition_allocator/src/partition_alloc:partition_alloc_perftests",
+    label = "//base:partition_alloc_perftests",
     script = "//testing/scripts/run_performance_tests.py",
     skip_usage_check = True,
     args = [

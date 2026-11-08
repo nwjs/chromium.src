@@ -6,6 +6,7 @@ import {html} from '//resources/lit/v3_0/lit.rollup.js';
 
 import type {MemoryBanksElement} from './memory_banks.js';
 import {getHtml as getMemoryBankEntryHtml} from './memory_banks_entry.html.js';
+import {getHtml as getMemoryBanksTableHtml} from './memory_banks_table.html.js';
 
 export function getHtml(this: MemoryBanksElement) {
   return html`
@@ -193,12 +194,14 @@ export function getHtml(this: MemoryBanksElement) {
                                       this.onToggleAllCollectionsChange_}">
                                 All Collections
                               </cr-checkbox>
-                              ${this.availableCollections_.map(c => html`
+                              ${
+                                      this.availableCollections_.map(
+                                          c => html`
                                 <cr-checkbox
                                     data-collection="${c}"
                                     ?checked="${this.isCollectionSelected_(c)}"
                                     @change="${
-                                        this.onCollectionCheckboxChange_}">
+                                              this.onCollectionCheckboxChange_}">
                                   ${c || 'No collection'}
                                 </cr-checkbox>
                               `)}
@@ -265,6 +268,26 @@ export function getHtml(this: MemoryBanksElement) {
                           ''}
                     </div>
                   </div>
+
+                  <div class="view-toggle-container" role="radiogroup"
+                      aria-label="View mode">
+                    <button class="view-toggle-btn ${
+                      this.viewMode_ === 'table' ? 'active' : ''}"
+                        role="radio"
+                        aria-checked="${this.viewMode_ === 'table'}"
+                        @click="${this.onTableViewClick_}">
+                      <cr-icon icon="context-hub:table-view"></cr-icon>
+                      <span>Table View</span>
+                    </button>
+                    <button class="view-toggle-btn ${
+                      this.viewMode_ === 'card' ? 'active' : ''}"
+                        role="radio"
+                        aria-checked="${this.viewMode_ === 'card'}"
+                        @click="${this.onCardViewClick_}">
+                      <cr-icon icon="context-hub:grid-view"></cr-icon>
+                      <span>Card View</span>
+                    </button>
+                  </div>
                 </div>
               `}
 
@@ -276,11 +299,17 @@ export function getHtml(this: MemoryBanksElement) {
                                          'No memories in this view.'}</p>
               ` :
                   html`
-                <div class="grid">
-                  ${
-                      this.filteredEntries_.map(
-                          entry => getMemoryBankEntryHtml.call(this, entry))}
-                </div>
+                ${
+                      this.viewMode_ === 'table' ?
+                          html`${getMemoryBanksTableHtml.call(this)}` :
+                          html`
+                  <div class="grid">
+                    ${
+                              this.filteredEntries_.map(
+                                  (entry, index) => getMemoryBankEntryHtml.call(
+                                      this, entry, index))}
+                  </div>
+                `}
               `}
             `}
         </section>
@@ -292,8 +321,7 @@ export function getHtml(this: MemoryBanksElement) {
           .entry="${this.editingEntry_}"
           .availableCollections="${this.availableCollections_.filter(Boolean)}"
           .availableTags="${this.availableTags_.filter(Boolean)}"
-          @close="${this.onEditDialogClose_}"
-          @entry-annotations-updated="${this.onEntryAnnotationsUpdated_}">
+          @close="${this.onEditDialogClose_}">
       </memory-banks-edit-dialog>
     ` :
                            ''}

@@ -6,15 +6,16 @@
 #define COMPONENTS_PRIVATE_AI_CONNECTION_PROXY_H_
 
 #include <memory>
-#include <optional>
 #include <vector>
 
 #include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/time/time.h"
+#include "base/types/expected.h"
 #include "components/private_ai/connection.h"
 #include "components/private_ai/phosphor/data_types.h"
+#include "components/private_ai/phosphor/token_manager.h"
 #include "components/private_ai/private_ai_network_driver.h"
 #include "components/private_ai/proto/private_ai.pb.h"
 #include "mojo/public/cpp/bindings/remote.h"
@@ -25,10 +26,6 @@
 namespace private_ai {
 
 class PrivateAiLogger;
-
-namespace phosphor {
-class TokenManager;
-}
 
 namespace internal {
 // Exposed for testing.
@@ -46,9 +43,11 @@ network::mojom::CustomProxyConfigPtr CreateCustomProxyConfig(
 // the inner connection using the provided `InnerConnectionFactory`.
 class ConnectionProxy : public Connection {
  public:
-  // Factory for creating the inner connection given a NetworkContextGetter.
+  // Factory for creating the inner connection given a NetworkContextGetter
+  // and whether Chrome's profile has a proxy configured.
   using InnerConnectionFactory = base::OnceCallback<std::unique_ptr<Connection>(
-      network::NetworkContextGetter)>;
+      network::NetworkContextGetter,
+      std::optional<bool> has_chrome_proxy)>;
 
   ConnectionProxy(const GURL& proxy_url,
                   PrivateAiLogger* logger,
@@ -84,7 +83,8 @@ class ConnectionProxy : public Connection {
   };
 
   void FetchToken();
-  void OnProxyToken(std::optional<phosphor::BlindSignedAuthToken> auth_token);
+  void OnProxyToken(base::expected<phosphor::BlindSignedAuthToken,
+                                   phosphor::TokenManager::Error> auth_token);
   void CallOnDisconnect(StatusCode status_code);
 
   const GURL proxy_url_;

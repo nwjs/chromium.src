@@ -8,7 +8,7 @@
 
 #include "base/check_deref.h"
 #include "base/functional/bind.h"
-#include "base/functional/callback_helpers.h"
+#include "components/autofill/core/browser/data_manager/payments/payments_data_manager.h"
 #include "components/autofill/core/browser/form_structure.h"
 #include "components/autofill/core/browser/foundations/autofill_client.h"
 #include "components/autofill/core/browser/foundations/autofill_manager.h"
@@ -19,6 +19,8 @@
 #include "components/autofill/core/common/autofill_payments_features.h"
 #include "components/autofill/core/common/autofill_prefs.h"
 #include "components/prefs/pref_service.h"
+#include "components/signin/public/identity_manager/account_info.h"
+#include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/strike_database/strike_database.h"
 
 namespace autofill::payments {
@@ -43,23 +45,23 @@ void PaymentsChurnedUsersManager::OnFieldTypesDetermined(
     AutofillManager::Observer::FieldTypeSource source,
     bool small_forms_were_parsed) {
   if (client_->IsOffTheRecord()) {
-    autofill_metrics::LogPaymentsChurnedUsersBubbleShowResult(
-        autofill_metrics::PaymentsChurnedUsersBubbleShowResult::kOffTheRecord);
+    autofill_metrics::LogPaymentsChurnedUsersUiShowResult(
+        autofill_metrics::PaymentsChurnedUsersUiShowResult::kOffTheRecord);
     return;
   }
 
   const FormStructure* form_structure = manager.FindCachedFormById(form);
   if (!form_structure) {
-    autofill_metrics::LogPaymentsChurnedUsersBubbleShowResult(
-        autofill_metrics::PaymentsChurnedUsersBubbleShowResult::kNoCachedForm);
+    autofill_metrics::LogPaymentsChurnedUsersUiShowResult(
+        autofill_metrics::PaymentsChurnedUsersUiShowResult::kNoCachedForm);
     return;
   }
 
   if (strike_database_ && strike_database_->ShouldBlockFeature() &&
       !base::FeatureList::IsEnabled(
           features::kAutofillIgnorePaymentsChurnedUsersStrikesForTesting)) {
-    autofill_metrics::LogPaymentsChurnedUsersBubbleShowResult(
-        autofill_metrics::PaymentsChurnedUsersBubbleShowResult::
+    autofill_metrics::LogPaymentsChurnedUsersUiShowResult(
+        autofill_metrics::PaymentsChurnedUsersUiShowResult::
             kStrikeDatabaseBlocked);
     return;
   }
@@ -72,8 +74,8 @@ void PaymentsChurnedUsersManager::OnFieldTypesDetermined(
       });
 
   if (!is_visible_credit_card_form) {
-    autofill_metrics::LogPaymentsChurnedUsersBubbleShowResult(
-        autofill_metrics::PaymentsChurnedUsersBubbleShowResult::
+    autofill_metrics::LogPaymentsChurnedUsersUiShowResult(
+        autofill_metrics::PaymentsChurnedUsersUiShowResult::
             kNoVisibleCreditCardForm);
     return;
   }
@@ -87,39 +89,41 @@ void PaymentsChurnedUsersManager::OnFieldTypesDetermined(
       prefs->FindPreference(prefs::kAutofillCreditCardEnabled);
   if (pref) {
     // If autofill is already turned on, there is no need to display the churned
-    // users bubble.
+    // users UI.
     if (pref->GetValue()->GetBool()) {
-      autofill_metrics::LogPaymentsChurnedUsersBubbleShowResult(
-          autofill_metrics::PaymentsChurnedUsersBubbleShowResult::
+      autofill_metrics::LogPaymentsChurnedUsersUiShowResult(
+          autofill_metrics::PaymentsChurnedUsersUiShowResult::
               kPrefAlreadyTurnedOn);
       return;
     }
 
     // If autofill was not turned off by the user, there is no need to display
-    // the churned users bubble.
+    // the churned users UI.
     if (!pref->IsUserControlled()) {
-      autofill_metrics::LogPaymentsChurnedUsersBubbleShowResult(
-          autofill_metrics::PaymentsChurnedUsersBubbleShowResult::
+      autofill_metrics::LogPaymentsChurnedUsersUiShowResult(
+          autofill_metrics::PaymentsChurnedUsersUiShowResult::
               kPrefNotUserControlled);
       return;
     }
 
     if (base::FeatureList::IsEnabled(
             features::kAutofillEnableResurrectingPaymentsUsers)) {
+      AccountInfo account_info = GetAccountInfo();
+      if (account_info.IsEmpty()) {
+        autofill_metrics::LogPaymentsChurnedUsersUiShowResult(
+            autofill_metrics::PaymentsChurnedUsersUiShowResult::
+                kNoAccountInfoPresent);
+        return;
+      }
+
       if (payments::PaymentsAutofillClient* payments_client =
               client_->GetPaymentsAutofillClient()) {
         if (PaymentsChurnedUsersUiDelegate* ui_delegate =
                 payments_client->GetPaymentsChurnedUsersUiDelegate()) {
           ui_delegate->ShowPaymentsChurnedUsersUI(
+              std::move(account_info),
               base::BindOnce(&PaymentsChurnedUsersManager::OnUiClosed,
-                             weak_factory_.GetWeakPtr(),
-                             PaymentsUiClosedReason::kAccepted),
-              base::BindOnce(&PaymentsChurnedUsersManager::OnUiClosed,
-                             weak_factory_.GetWeakPtr(),
-                             PaymentsUiClosedReason::kCancelled),
-              base::BindOnce(&PaymentsChurnedUsersManager::OnUiClosed,
-                             weak_factory_.GetWeakPtr(),
-                             PaymentsUiClosedReason::kUnknown));
+                             weak_factory_.GetWeakPtr()));
         }
       }
     }
@@ -132,19 +136,41 @@ void PaymentsChurnedUsersManager::OnUiClosed(
     if (PrefService* prefs = client_->GetPrefs()) {
       prefs->SetBoolean(prefs::kAutofillCreditCardEnabled, true);
     }
-
-    if (strike_database_) {
-      strike_database_->AddStrikes(strike_database_->GetMaxStrikesLimit());
-    }
-  } else if (closed_reason == PaymentsUiClosedReason::kCancelled) {
-    if (strike_database_) {
-      strike_database_->AddStrikes(strike_database_->GetMaxStrikesLimit());
-    }
-  } else {
-    if (strike_database_) {
-      strike_database_->AddStrike();
-    }
   }
+  if (!strike_database_) {
+    return;
+  }
+  switch (closed_reason) {
+    case PaymentsUiClosedReason::kAccepted:
+    case PaymentsUiClosedReason::kCancelled:
+      strike_database_->AddStrikes(strike_database_->GetMaxStrikesLimit());
+      break;
+    case PaymentsUiClosedReason::kNotInteracted:
+    case PaymentsUiClosedReason::kClosed:
+    case PaymentsUiClosedReason::kLostFocus:
+      strike_database_->AddStrike();
+      break;
+    case PaymentsUiClosedReason::kUnknown:
+      // kUnknown results in 0 strikes.
+      break;
+  }
+}
+
+AccountInfo PaymentsChurnedUsersManager::GetAccountInfo() const {
+  signin::IdentityManager* identity_manager = client_->GetIdentityManager();
+  if (!identity_manager) {
+    return AccountInfo();
+  }
+
+  payments::PaymentsAutofillClient* payments_client =
+      client_->GetPaymentsAutofillClient();
+  if (!payments_client) {
+    return AccountInfo();
+  }
+
+  return identity_manager->FindExtendedAccountInfo(
+      payments_client->GetPaymentsDataManager()
+          .GetAccountInfoForPaymentsServer());
 }
 
 }  // namespace autofill::payments

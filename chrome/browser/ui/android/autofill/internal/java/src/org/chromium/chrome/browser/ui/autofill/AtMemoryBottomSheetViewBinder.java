@@ -84,6 +84,9 @@ class AtMemoryBottomSheetViewBinder {
             view.setTitle(model.get(IllustrationCardItemProperties.TITLE));
         } else if (propertyKey == IllustrationCardItemProperties.SUBTITLE) {
             view.setSubtitle(model.get(IllustrationCardItemProperties.SUBTITLE));
+        } else if (propertyKey == IllustrationCardItemProperties.ROTATING_PLACEHOLDERS) {
+            view.setRotatingPlaceholders(
+                    model.get(IllustrationCardItemProperties.ROTATING_PLACEHOLDERS));
         } else {
             // Unhandled property.
             assert false : "Unhandled property: " + propertyKey;
@@ -163,6 +166,9 @@ class AtMemoryBottomSheetViewBinder {
             view.applyDeactivatedStyle(model.get(SuggestionItemProperties.APPLY_DEACTIVATED_STYLE));
         } else if (propertyKey == SuggestionItemProperties.IS_LOADING) {
             view.setIsLoading(model.get(SuggestionItemProperties.IS_LOADING));
+        } else if (propertyKey == SuggestionItemProperties.FLYOUT_CONTENT_DESCRIPTION) {
+            view.setFlyoutContentDescription(
+                    model.get(SuggestionItemProperties.FLYOUT_CONTENT_DESCRIPTION));
         } else {
             assert false : "Unhandled property: " + propertyKey;
         }

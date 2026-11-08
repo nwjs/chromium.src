@@ -29,9 +29,11 @@
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/single_thread_task_runner.h"
+#include "base/task/thread_pool.h"
 #include "base/test/bind.h"
 #include "base/test/gmock_expected_support.h"
 #include "base/test/metrics/histogram_tester.h"
+#include "base/test/run_until.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/test_future.h"
 #include "base/time/time.h"
@@ -67,6 +69,7 @@
 #include "storage/browser/blob/blob_storage_context.h"
 #include "storage/browser/quota/quota_client_type.h"
 #include "storage/browser/quota/quota_manager_proxy.h"
+#include "storage/browser/test/blob_test_utils.h"
 #include "storage/browser/test/fake_blob.h"
 #include "storage/browser/test/mock_quota_manager_proxy.h"
 #include "storage/browser/test/mock_special_storage_policy.h"
@@ -164,9 +167,7 @@ class DelayedBlob : public storage::FakeBlob {
 class CallbackScheduler : public CacheStorageScheduler {
  public:
   explicit CallbackScheduler(base::OnceClosure callback)
-      : CacheStorageScheduler(
-            CacheStorageSchedulerClient::kCache,
-            base::SingleThreadTaskRunner::GetCurrentDefault()),
+      : CacheStorageScheduler(CacheStorageSchedulerClient::kCache),
         callback_(std::move(callback)) {}
 
  protected:
@@ -405,16 +406,14 @@ class CacheStorageManagerTest : public testing::Test {
         bucket_locator2_,
         GetOrCreateBucket(storage_key2_, storage::kDefaultBucketName));
 
-    cache_manager_ = CacheStorageManager::Create(
+    cache_manager_ = std::make_unique<CacheStorageManager>(
         temp_dir_path, base::SingleThreadTaskRunner::GetCurrentDefault(),
-        base::SingleThreadTaskRunner::GetCurrentDefault(), quota_manager_proxy_,
-        blob_storage_context_, nullptr);
+        quota_manager_proxy_, blob_storage_context_, nullptr);
   }
 
   void RecreateStorageManager() {
     DCHECK(cache_manager_);
-    auto* legacy_manager =
-        static_cast<CacheStorageManager*>(cache_manager_.get());
+    CacheStorageManager* legacy_manager = cache_manager_.get();
     cache_manager_ = CacheStorageManager::CreateForTesting(legacy_manager);
   }
 
@@ -653,7 +652,8 @@ class CacheStorageManagerTest : public testing::Test {
     blob->uuid = blob_uuid;
     blob->size = request->url.spec().size();
     auto& str = request->url.spec();
-    blob_storage_context_->context()->RegisterFromMemory(
+    storage::RegisterBlobWithContents(
+        *blob_storage_context_->context(),
         blob->blob.InitWithNewPipeAndPassReceiver(), blob_uuid,
         base::as_byte_span(str));
 
@@ -688,7 +688,7 @@ class CacheStorageManagerTest : public testing::Test {
         /*cache_storage_side_data_writer=*/mojo::NullRemote(),
         /*cors_exposed_header_names=*/std::vector<std::string>(),
         /*side_data_blob=*/nullptr,
-        /*side_data_blob_for_cache_put=*/nullptr,
+        /*side_data_for_cache_put=*/std::nullopt,
         network::mojom::ParsedHeaders::New(), net::HttpConnectionInfo::kUNKNOWN,
         /*alpn_negotiated_protocol=*/"unknown",
         /*was_fetched_via_spdy=*/false, /*has_range_requested=*/false,
@@ -868,7 +868,7 @@ class CacheStorageManagerTest : public testing::Test {
   scoped_refptr<storage::MockSpecialStoragePolicy> quota_policy_;
   scoped_refptr<storage::MockQuotaManager> mock_quota_manager_;
   scoped_refptr<MockCacheStorageQuotaManagerProxy> quota_manager_proxy_;
-  scoped_refptr<CacheStorageManager> cache_manager_;
+  std::unique_ptr<CacheStorageManager> cache_manager_;
 
   CacheStorageCacheHandle callback_cache_handle_;
   int callback_bool_ = false;
@@ -1700,6 +1700,49 @@ TEST_F(CacheStorageManagerTest, CacheSizePaddedAfterReopen) {
   EXPECT_EQ(0, quota_manager_proxy_->notify_bucket_modified_count());
 
   EXPECT_EQ(cache_size_before_close, Size(bucket_locator1_));
+}
+
+// Check that an index entry missing `cache_dir` is treated as invalid so
+// `CacheStorage` starts fresh rather than migrating a legacy directory name.
+TEST_F(CacheStorageManagerTest, IndexMissingCacheDirStartsFresh) {
+  const std::u16string kCacheName = u"foo";
+  const GURL kFooURL = storage_key1_.origin().GetURL().Resolve("foo");
+
+  ASSERT_TRUE(Open(bucket_locator1_, kCacheName));
+  ASSERT_TRUE(CachePut(callback_cache_handle_.value(), kFooURL));
+  const base::FilePath cache_path =
+      CacheStorageCache::From(callback_cache_handle_)->path();
+  const base::FilePath storage_dir = cache_path.DirName();
+  const base::FilePath index_path =
+      storage_dir.AppendASCII(CacheStorage::kIndexFileName);
+  ASSERT_TRUE(FlushCacheStorageIndex(bucket_locator1_));
+  DestroyStorageManager();
+  disk_cache::FlushCacheThreadForTesting();
+
+  // Move the cache directory to the legacy SHA-1 hex path for "foo" and clear
+  // `cache_dir` from the index entry.
+  const base::FilePath legacy_cache_path =
+      storage_dir.AppendASCII("0beec7b5ea3f0fdbc95d0dd47f3c5bc275da8a33");
+  ASSERT_TRUE(base::Move(cache_path, legacy_cache_path));
+
+  std::string serialized_index;
+  proto::CacheStorageIndex index;
+  ASSERT_TRUE(base::ReadFileToString(index_path, &serialized_index));
+  ASSERT_TRUE(index.ParseFromString(serialized_index));
+  ASSERT_EQ(1, index.cache_size());
+  ASSERT_TRUE(index.cache(0).has_cache_dir());
+  index.mutable_cache(0)->clear_cache_dir();
+  ASSERT_TRUE(index.SerializeToString(&serialized_index));
+  ASSERT_TRUE(base::WriteFile(index_path, serialized_index));
+
+  // Reopen the manager and verify `CacheStorage` starts fresh and cleans up the
+  // unreferenced legacy directory.
+  CreateStorageManager();
+  EXPECT_EQ(0u, Keys(bucket_locator1_));
+  EXPECT_FALSE(Has(bucket_locator1_, kCacheName));
+  disk_cache::FlushCacheThreadForTesting();
+  EXPECT_TRUE(base::test::RunUntil(
+      [&]() { return !base::PathExists(legacy_cache_path); }));
 }
 
 TEST_F(CacheStorageManagerTest, QuotaCorrectAfterReopen) {
@@ -2784,7 +2827,8 @@ class CacheStorageQuotaClientTest : public CacheStorageManagerTest {
   void SetUp() override {
     CacheStorageManagerTest::SetUp();
     quota_client_ = std::make_unique<CacheStorageQuotaClient>(
-        cache_manager_, storage::mojom::CacheStorageOwner::kCacheAPI);
+        cache_manager_->GetWeakPtr(),
+        storage::mojom::CacheStorageOwner::kCacheAPI);
   }
 
   void QuotaUsageCallback(base::RunLoop* run_loop, int64_t usage) {
@@ -2919,7 +2963,8 @@ TEST_F(CacheStorageQuotaClientDiskOnlyTest, QuotaDeleteUnloadedKeyData) {
   // Create a new CacheStorageManager that hasn't yet loaded the origin.
   RecreateStorageManager();
   quota_client_ = std::make_unique<CacheStorageQuotaClient>(
-      cache_manager_, storage::mojom::CacheStorageOwner::kCacheAPI);
+      cache_manager_->GetWeakPtr(),
+      storage::mojom::CacheStorageOwner::kCacheAPI);
 
   EXPECT_TRUE(QuotaDeleteBucketData(bucket_locator1_));
   EXPECT_EQ(0, QuotaGetBucketUsage(bucket_locator1_));

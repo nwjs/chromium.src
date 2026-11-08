@@ -513,6 +513,31 @@ TEST_F(GeminiBrowserAgentTest, TestObserverNotification) {
   gemini_browser_agent_->RemoveObserver(&observer);
 }
 
+// Test that observers are notified when the Gemini container invocation state
+// changes.
+TEST_F(GeminiBrowserAgentTest, TestContainerInvokedObserverNotification) {
+  TestGeminiObserver observer;
+  gemini_browser_agent_->AddObserver(&observer);
+
+  EXPECT_FALSE(gemini_browser_agent_->is_floaty_invoked());
+
+  gemini_browser_agent_->SetContainerInvoked(true);
+  EXPECT_TRUE(gemini_browser_agent_->is_floaty_invoked());
+  EXPECT_TRUE(observer.is_invoked_);
+  EXPECT_EQ(1, observer.call_count_);
+
+  // Setting to the same value does not notify again.
+  gemini_browser_agent_->SetContainerInvoked(true);
+  EXPECT_EQ(1, observer.call_count_);
+
+  gemini_browser_agent_->SetContainerInvoked(false);
+  EXPECT_FALSE(gemini_browser_agent_->is_floaty_invoked());
+  EXPECT_FALSE(observer.is_invoked_);
+  EXPECT_EQ(2, observer.call_count_);
+
+  gemini_browser_agent_->RemoveObserver(&observer);
+}
+
 // Tests the presentation of the BWG overlay and state of tab helper side
 // effects.
 TEST_F(GeminiBrowserAgentTest, TestGeminiBrowserAgentStartGeminiFlow) {
@@ -543,20 +568,17 @@ TEST_F(GeminiBrowserAgentTest, TestGeminiBrowserAgentStartGeminiFlow) {
   // Ensure the WebState is visible so PageContextWrapper attempts a snapshot.
   web_state_->WasShown();
 
-  base::HistogramTester histogram_tester;
-
   gemini_browser_agent_->StartGeminiFlow(
-      base_view_controller, [[GeminiStartupState alloc]
-                                initWithEntryPoint:gemini::EntryPoint::Promo]);
+      base_view_controller,
+      [[GeminiStartupState alloc]
+          initWithEntryPoint:gemini::EntryPoint::OverflowMenu]);
 
   // Wait for the snapshot method to be called.
   ASSERT_TRUE(
       base::test::RunUntil([snapshot_called]() { return *snapshot_called; }));
 
-  histogram_tester.ExpectUniqueSample(
-      kGeminiInvocationPageTypeHistogram,
-      IOSGeminiInvocationPageType::kExtractableWebPage, 1);
-  EXPECT_EQ(gemini_browser_agent_->GetEntryPoint(), gemini::EntryPoint::Promo);
+  EXPECT_EQ(gemini_browser_agent_->GetEntryPoint(),
+            gemini::EntryPoint::OverflowMenu);
 }
 
 // Tests that switching active web states handles observations correctly.
@@ -809,9 +831,12 @@ TEST_F(GeminiBrowserAgentTest, TestDismissGeminiFromOtherWindows) {
   browser_list->RemoveBrowser(second_browser.get());
 }
 
-// Tests that the floaty is dismissed when the primary account changes.
-TEST_F(GeminiBrowserAgentTest, TestDismissedOnPrimaryAccountChanged) {
-  SetIsFloatyInvoked(true);
+// Tests that the conversation ID pref is cleared when the primary account
+// changes.
+TEST_F(GeminiBrowserAgentTest,
+       TestConversationIdClearedOnPrimaryAccountChanged) {
+  profile_->GetPrefs()->SetString(prefs::kGeminiConversationId, "test_id");
+  EXPECT_FALSE(IsConversationIdPrefCleared());
 
   signin::PrimaryAccountChangeEvent::State previous_state;
   CoreAccountInfo account_info;
@@ -826,49 +851,19 @@ TEST_F(GeminiBrowserAgentTest, TestDismissedOnPrimaryAccountChanged) {
 
   gemini_browser_agent_->OnPrimaryAccountChanged(event);
 
-  EXPECT_FALSE(IsFloatyInvoked());
   EXPECT_TRUE(IsConversationIdPrefCleared());
 }
 
-// Tests that the floaty is dismissed even if it is temporarily hidden.
+// Tests that the floaty is dismissed even if it is temporarily hidden when
+// `ForceDismissFloaty` is called.
 TEST_F(GeminiBrowserAgentTest, TestForceDismissedWhenTemporarilyHidden) {
   SetIsFloatyInvoked(true);
   SetIsFloatyTemporarilyHidden(true);
 
-  signin::PrimaryAccountChangeEvent::State previous_state;
-  CoreAccountInfo account_info;
-  account_info.account_id = CoreAccountId::FromGaiaId(GaiaId("gaia_id"));
-  account_info.gaia = GaiaId("gaia_id");
-  account_info.email = "test@test.com";
-  signin::PrimaryAccountChangeEvent::State current_state(
-      account_info, signin::ConsentLevel::kSignin);
-
-  signin::PrimaryAccountChangeEvent event(
-      previous_state, current_state, signin_metrics::AccessPoint::kSettings);
-
-  gemini_browser_agent_->OnPrimaryAccountChanged(event);
+  gemini_browser_agent_->ForceDismissFloaty();
 
   EXPECT_FALSE(IsFloatyInvoked());
   EXPECT_FALSE(IsFloatyTemporarilyHidden());
-  EXPECT_TRUE(IsConversationIdPrefCleared());
-}
-
-// Tests that calling `OnWillEnterIncognito` when bottom sheet migration is
-// enabled does not crash when the floaty is not invoked (crbug.com/541166486).
-TEST_F(GeminiBrowserAgentTest,
-       TestOnWillEnterIncognitoWithBottomSheetMigration) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitWithFeatures(
-      {kAssistantContainer, kIOSGeminiBottomSheetMigration}, {});
-
-  // Create GeminiBrowserAgent after setting the flags.
-  std::unique_ptr<TestBrowser> scoped_browser =
-      std::make_unique<TestBrowser>(profile_);
-  GeminiBrowserAgent::CreateForBrowser(scoped_browser.get());
-  GeminiBrowserAgent* agent =
-      GeminiBrowserAgent::FromBrowser(scoped_browser.get());
-
-  agent->OnWillEnterIncognito();
 }
 
 // Tests that when the floaty is expanded/focused while temporarily hidden,
@@ -996,35 +991,6 @@ TEST_F(GeminiBrowserAgentTest, TestOnGeminiAvailabilityChanged) {
   gemini_browser_agent_->RemoveObserver(&observer);
 }
 
-// Tests that kNoWebState is recorded when StartGeminiFlow is invoked with no
-// active WebState.
-TEST_F(GeminiBrowserAgentTest, TestStartGeminiFlowNoActiveWebState) {
-  UIViewController* base_view_controller = [[UIViewController alloc] init];
-
-  // Initialize browser agent on a browser with no active WebStates.
-  std::unique_ptr<TestBrowser> empty_browser =
-      std::make_unique<TestBrowser>(profile_);
-  id mock_gemini_handler = OCMProtocolMock(@protocol(GeminiCommands));
-  [empty_browser->GetCommandDispatcher()
-      startDispatchingToTarget:mock_gemini_handler
-                   forProtocol:@protocol(GeminiCommands)];
-  if (IsFullscreenRefactoringEnabled()) {
-    FullscreenBrowserAgent::CreateForBrowser(empty_browser.get());
-  }
-  GeminiBrowserAgent::CreateForBrowser(empty_browser.get());
-  GeminiBrowserAgent* empty_agent =
-      GeminiBrowserAgent::FromBrowser(empty_browser.get());
-
-  base::HistogramTester histogram_tester;
-  empty_agent->StartGeminiFlow(
-      base_view_controller, [[GeminiStartupState alloc]
-                                initWithEntryPoint:gemini::EntryPoint::Promo]);
-
-  histogram_tester.ExpectUniqueSample(kGeminiInvocationPageTypeHistogram,
-                                      IOSGeminiInvocationPageType::kNoWebState,
-                                      1);
-}
-
 // Tests that OnLiveButtonTapped triggers the feature engagement event.
 TEST_F(GeminiBrowserAgentTest, TestOnLiveButtonTappedTriggersEvent) {
   EXPECT_CALL(
@@ -1056,8 +1022,8 @@ TEST_F(GeminiBrowserAgentTest, TestGeminiLiveIPHAndNewBadgeFET) {
 
   // Start Gemini, which should trigger the IPHs.
   UIViewController* base_view_controller = [[UIViewController alloc] init];
-  GeminiStartupState* startup_state =
-      [[GeminiStartupState alloc] initWithEntryPoint:gemini::EntryPoint::Promo];
+  GeminiStartupState* startup_state = [[GeminiStartupState alloc]
+      initWithEntryPoint:gemini::EntryPoint::OverflowMenu];
   gemini_browser_agent_->StartGeminiFlow(base_view_controller, startup_state);
 
   // Setup mock tracker expectations for dismissal
@@ -2342,8 +2308,9 @@ TEST_F(GeminiBrowserAgentTest,
 
   // A flow that does not auto-submit presents immediately.
   gemini_browser_agent_->StartGeminiFlow(
-      base_view_controller, [[GeminiStartupState alloc]
-                                initWithEntryPoint:gemini::EntryPoint::Promo]);
+      base_view_controller,
+      [[GeminiStartupState alloc]
+          initWithEntryPoint:gemini::EntryPoint::OverflowMenu]);
   EXPECT_TRUE(IsFloatyInvoked());
   EXPECT_FALSE(HasPendingPresentation());
   GeminiConfiguration* config =
@@ -2576,7 +2543,7 @@ TEST_F(GeminiBrowserAgentTest,
   gemini_browser_agent_->StartGeminiFlow(
       [[UIViewController alloc] init],
       [[GeminiStartupState alloc]
-          initWithEntryPoint:gemini::EntryPoint::Promo]);
+          initWithEntryPoint:gemini::EntryPoint::OverflowMenu]);
   EXPECT_TRUE(IsFloatyInvoked());
 
   id mediator = OCMPartialMock(GetGeminiContainerMediator());

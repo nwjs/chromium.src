@@ -24,7 +24,6 @@ static_library("account_manager") {
 
   public_deps = [
     "//base",
-    "//chrome/browser:browser_public_dependencies",
     "//chrome/browser/profiles:profile",
     "//chromeos/ash/components/account_manager",
     "//components/account_manager_core",
@@ -48,6 +47,7 @@ static_library("account_manager") {
     "//chromeos/ash/experiences/settings_ui",
     "//chromeos/components/kiosk",
     "//chromeos/components/mgs",
+    "//components/session_manager/core",
     "//components/user_manager",
     "//content/public/browser",
   ]
@@ -72,7 +72,6 @@ source_set("unit_tests") {
     "//base",
     "//base/test:test_support",
     "//chrome/browser/ash/child_accounts",
-    "//chrome/browser/ui",
     "//chrome/browser/ui/webui/ash/edu_coexistence",
     "//chrome/test:test_support",
     "//chrome/test/base:testing_browser_process",

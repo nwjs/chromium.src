@@ -92,11 +92,11 @@ OneTimePermissionsPageTracker::OneTimePermissionsPageTracker(
     OneTimePermissionsTracker& tracker)
     : PageUserData(page), tracker_(tracker), origin_(std::move(origin)) {
   active_page_tracker_ = tracker_->NewActivePage(origin_);
+  // Pages created hidden do not acquire a foreground condition. Note that
+  // acquiring and immediately releasing one would restart any partially
+  // elapsed expiration countdown for this origin (see crbug.com/563176035).
   if (content::WebContents::FromRenderFrameHost(&page.GetMainDocument())
-          ->GetVisibility() == content::Visibility::HIDDEN) {
-    // Make sure we track this page being in background.
-    tracker_->NewForegroundPage(origin_);
-  } else {
+          ->GetVisibility() != content::Visibility::HIDDEN) {
     foreground_page_tracker_ = tracker_->NewForegroundPage(origin_);
   }
 }
@@ -139,7 +139,11 @@ bool OneTimePermissionsTrackerHelper::ShouldIgnoreOriginForTesting(
   return ShouldIgnoreOrigin(origin);
 }
 
-OneTimePermissionsTrackerHelper::~OneTimePermissionsTrackerHelper() = default;
+OneTimePermissionsTrackerHelper::~OneTimePermissionsTrackerHelper() {
+  MediaCaptureDevicesDispatcher::GetInstance()
+      ->GetMediaStreamCaptureIndicator()
+      ->RemoveObserver(this);
+}
 
 void OneTimePermissionsTrackerHelper::WebContentsDestroyed() {
   MediaCaptureDevicesDispatcher::GetInstance()
@@ -202,12 +206,14 @@ void OneTimePermissionsTrackerHelper::OnIsCapturingAudioChanged(
 
 OneTimePermissionsTrackerHelper::OneTimePermissionsTrackerHelper(
     content::WebContents* web_contents)
-    : content::WebContentsObserver(web_contents),
-      content::WebContentsUserData<OneTimePermissionsTrackerHelper>(
-          *web_contents) {
+    : content::WebContentsObserver(web_contents) {
   MediaCaptureDevicesDispatcher::GetInstance()
       ->GetMediaStreamCaptureIndicator()
       ->AddObserver(this);
+  // The current primary page became primary before this helper was attached,
+  // so PrimaryPageChanged() was never observed for it. This matters e.g. for
+  // the initial empty document of a renderer-created popup, which inherits
+  // its opener's origin and may never commit a navigation.
+  OneTimePermissionsPageTracker::MaybeCreateForPage(
+      web_contents->GetPrimaryPage());
 }
-
-WEB_CONTENTS_USER_DATA_KEY_IMPL(OneTimePermissionsTrackerHelper);

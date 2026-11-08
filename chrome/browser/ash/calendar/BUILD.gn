@@ -14,8 +14,6 @@ static_library("calendar") {
     "calendar_keyed_service_factory.h",
   ]
 
-  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
-
   deps = [
     "//ash",
     "//base",
@@ -62,6 +60,7 @@ source_set("unit_tests") {
     "//chrome/browser/prefs",
     "//chrome/browser/web_applications",
     "//chrome/test:test_support",
+    "//chrome/test/base:browser_with_test_window_test",
     "//chrome/test/base:testing_browser_process",
     "//chromeos/ash/components/policy/policy_blocklist_service",
     "//components/account_id",

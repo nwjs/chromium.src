@@ -7,6 +7,8 @@
 #import "ios/chrome/browser/account_settings/model/ios_account_setting_service_factory.h"
 #import "ios/chrome/browser/affiliations/model/ios_chrome_affiliation_service_factory.h"
 #import "ios/chrome/browser/ai_prototyping/ttc/model/ttc_keyed_service_factory.h"
+#import "ios/chrome/browser/aim/model/ai_mode_button_service_ios_factory.h"
+#import "ios/chrome/browser/aim/model/ios_chrome_ai_mode_button_service_factory.h"
 #import "ios/chrome/browser/aim/model/ios_chrome_aim_eligibility_service_factory.h"
 #import "ios/chrome/browser/app_store_bundle/model/app_store_bundle_service_factory.h"
 #import "ios/chrome/browser/autocomplete/model/autocomplete_classifier_factory.h"
@@ -326,6 +328,7 @@ void EnsureProfileKeyedServiceFactoriesBuilt() {
   AboutThisSiteServiceFactory::GetInstance();
   AcceptLanguagesServiceFactory::GetInstance();
   AccountPreviewDataServiceFactory::GetInstance();
+  AIModeButtonServiceIOSFactory::GetInstance();
   AppStoreBundleServiceFactory::GetInstance();
   AuthenticationServiceFactory::GetInstance();
   BackendPromoServiceFactory::GetInstance();
@@ -390,6 +393,7 @@ void EnsureProfileKeyedServiceFactoriesBuilt() {
   IOSChromeAccountPasswordStoreFactory::GetInstance();
   IOSChromeAffiliationServiceFactory::GetInstance();
   IOSChromeAimEligibilityServiceFactory::GetInstance();
+  IOSChromeAiModeButtonServiceFactory::GetInstance();
   IOSChromeBulkLeakCheckServiceFactory::GetInstance();
   IOSChromeFaviconLoaderFactory::GetInstance();
   IOSChromeGCMProfileServiceFactory::GetInstance();
@@ -454,6 +458,10 @@ void EnsureProfileKeyedServiceFactoriesBuilt() {
   SafeBrowsingMetricsCollectorFactory::GetInstance();
   SamplePanelModelFactory::GetInstance();
   SendTabToSelfSyncServiceFactory::GetInstance();
+  SessionProtoDBFactory<commerce_subscription_db::
+                            CommerceSubscriptionContentProto>::GetInstance();
+  SessionProtoDBFactory<
+      parcel_tracking_db::ParcelTrackingContent>::GetInstance();
   SessionRestorationServiceFactory::GetInstance();
   SessionSyncServiceFactory::GetInstance();
   ShareKitServiceFactory::GetInstance();
@@ -495,8 +503,6 @@ void EnsureProfileKeyedServiceFactoriesBuilt() {
 #endif
 
   // Call other "Ensure...FactoriesBuilt" functions as necessary.
-  EnsureSessionProtoDBFactoriesBuilt();
-
   if (web::features::IsCobaltEnabled()) {
     ios::provider::EnsureCobaltProfileKeyedServiceFactoriesBuilt();
   }

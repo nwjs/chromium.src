@@ -250,11 +250,6 @@ struct PerformanceInterventionControlState {
   // Whether the button should be shown.
   // Corresponds to `OverflowableButtonState.shouldBeShown`.
   bool should_be_shown;
-  // Boolean that keeps track if the intervention button icon should be shown
-  // in the active color. The intervention button should show the active color
-  // when it becomes visible and stay in the active color until the user clicks
-  // on the button.
-  bool is_active;
 };
 
 // State of media button that shows up in toolbar when a tab is playing media.
@@ -266,6 +261,19 @@ struct MediaControlState {
   bool should_be_shown = false;
   // Whether the context menu is currently showing.
   bool is_context_menu_visible = false;
+
+  // When true, the button is exempt from overflow logic, which normally hides
+  // the button and adds it to the overflow menu when there's insufficient space
+  // for it to fit.
+  //
+  // If `should_be_shown` is false, should not be set.
+  //
+  // Set while the browser is attempting to show the media dialog, and while
+  // that dialog is open, since the dialog is anchored to the button and so
+  // needs it to remain visible.
+  //
+  // Corresponds to `OverflowableButtonState.preventOverflow`.
+  bool? prevent_overflow;
 };
 
 // State of the battery saver button that shows up in toolbar when battery saver
@@ -275,9 +283,9 @@ struct BatterySaverControlState {
   // Corresponds to `OverflowableButtonState.shouldBeShown`.
   bool should_be_shown;
 
-  // Indicates whether the button should be subject to overflow logic, which
-  // hides the button and adds it to the overflow menu when there's insufficient
-  // space for it to fit.
+  // When true, the button is exempt from overflow logic, which normally hides
+  // the button and adds it to the overflow menu when there's insufficient space
+  // for it to fit.
   //
   // If `should_be_shown` is false, should not be set.
   //
@@ -486,7 +494,6 @@ enum PageActionId {
   kActionFederation,
   kActionGlicContextualCueing,
   kActionAnchoredContextualCue,
-  kActionWebAuthnAmbientSignin,
   kActionAutofillPayment,
   kActionShowPaymentsChurnedUsersBubble,
   kActionFakePageActionForDebug,
@@ -703,6 +710,33 @@ enum PinnedToolbarAction {
  kDivider, // A divider; not a clickable action.
 };
 
+// The status of the progress ring drawn around a pinned toolbar action
+// button's icon. Currently only the downloads button draws a progress ring.
+// Mirrors ActionItemProgressRingStatus in
+// //chrome/browser/ui/views/toolbar/download_button.h
+// (kIdle is omitted because idle is represented by a null
+// DownloadProgressRingState).
+enum DownloadProgressRingStatus {
+  // A static, solid ring is drawn. Used while the button is dormant, so that
+  // the ring doesn't have to be animated in browser windows the user isn't
+  // looking at.
+  kDormant,
+  // An indeterminate, continuously spinning ring is drawn.
+  kScanning,
+  // A determinate ring, filled according to `progress_percentage`, is drawn.
+  kDownloading,
+};
+
+// Describes the progress ring drawn around a pinned toolbar action button's
+// icon.
+struct DownloadProgressRingState {
+  DownloadProgressRingStatus status;
+
+  // How much of the ring to fill, in percent within [0, 100]. Only meaningful
+  // when `status` is kDownloading.
+  uint8? progress_percentage;
+};
+
 // The state of a pinned toolbar action button that should be displayed.
 struct PinnedToolbarActionState {
   // The action to invoke upon click of this button.
@@ -728,6 +762,10 @@ struct PinnedToolbarActionState {
 
   // The icon to display.
   IconHandle icon;
+
+  // The progress ring to draw around the icon, if any. Null if this action
+  // never draws a progress ring.
+  DownloadProgressRingState? progress_ring;
 };
 
 struct LocationBarState {
@@ -868,10 +906,10 @@ struct LhsChipsState {
   // Multiple indicators can be active (e.g., Camera + Mic).
   array<ContentSettingImageState> activity_indicators;
 
-  PermissionDashboardState? permission_dashboard;
+  PermissionDashboardState permission_dashboard;
 };
 
-struct NavigationControlsState {
+struct ToolbarState {
   ReloadControlState reload_control_state;
   SplitTabsControlState split_tabs_control_state;
   BackForwardControlState back_forward_control_state;

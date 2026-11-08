@@ -15,8 +15,8 @@
 #include "base/run_loop.h"
 #include "base/strings/stringprintf.h"
 #include "base/test/bind.h"
-#include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
+#include "base/test/test_future.h"
 #include "chrome/browser/predictors/loading_test_util.h"
 #include "chrome/browser/predictors/predictors_features.h"
 #include "chrome/browser/predictors/predictors_switches.h"
@@ -33,6 +33,7 @@
 #include "net/base/network_isolation_key.h"
 #include "net/test/embedded_test_server/controllable_http_response.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
+#include "net/test/embedded_test_server/expectation_handler.h"
 #include "services/network/public/cpp/permissions_policy/permissions_policy.h"
 #include "services/network/public/mojom/fetch_api.mojom.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -267,39 +268,6 @@ TEST_P(PrefetchManagerTest, OneMainFrameUrlMultiplePrefetch) {
     responses[i]->Done();
   }
   fake_delegate_->WaitForPrefetchFinished(main_frame_url);
-}
-
-// Tests that metrics related to queueing of prefetch jobs are recorded.
-TEST_P(PrefetchManagerTest, QueueingMetricsRecorded) {
-  base::HistogramTester histogram_tester;
-  net::test_server::EmbeddedTestServer test_server;
-  std::vector<PrefetchRequest> requests;
-  size_t num_prefetches = kMaxInflightPrefetches;
-
-  GURL main_frame_url("https://abc.invalid");
-
-  // Start the server.
-  auto test_server_handle = test_server.StartAndReturnHandle();
-  ASSERT_TRUE(test_server_handle);
-
-  // Set up prefetches one more than the inflight limit.
-  // The request URLs can only be constructed after the server is started.
-  for (size_t i = 0; i < num_prefetches + 1; i++) {
-    std::string path = base::StringPrintf("/script%" PRIuS ".js", i);
-    GURL url = test_server.GetURL(path);
-    requests.push_back(CreateScriptRequest(url));
-  }
-
-  // Start the prefetching.
-  prefetch_manager_->Start(main_frame_url, std::move(requests));
-
-  // The number of queued jobs should have been recorded.
-  histogram_tester.ExpectUniqueSample(
-      "Navigation.Prefetch.PrefetchJobQueueLength", num_prefetches + 1, 1);
-  // Each job that was actually executed should have had its queueing time
-  // recorded.
-  histogram_tester.ExpectTotalCount(
-      "Navigation.Prefetch.PrefetchJobQueueingTime", num_prefetches);
 }
 
 // Tests prefetching multiple URLs for multiple main frames.
@@ -628,8 +596,9 @@ TEST_P(PrefetchManagerTest, Throttles) {
       content::SetBrowserClientForTesting(&content_browser_client);
 
   net::test_server::EmbeddedTestServer test_server;
-  net::test_server::ControllableHttpResponse response(&test_server,
-                                                      "/prefetch");
+  net::test_server::ExpectationHandler handler(&test_server);
+  base::test::TestFuture<net::test_server::HttpRequest> request_future;
+  handler.OnRequest("/prefetch").RespondWith().SetValue(request_future);
 
   // Start the server.
   auto test_server_handle = test_server.StartAndReturnHandle();
@@ -641,10 +610,9 @@ TEST_P(PrefetchManagerTest, Throttles) {
 
   prefetch_manager_->Start(main_frame_url, {request});
 
-  response.WaitForRequest();
-  const net::test_server::HttpRequest* actual_request = response.http_request();
-  auto iter = actual_request->headers.find("x-injected");
-  ASSERT_TRUE(iter != actual_request->headers.end());
+  const net::test_server::HttpRequest& actual_request = request_future.Get();
+  auto iter = actual_request.headers.find("x-injected");
+  ASSERT_TRUE(iter != actual_request.headers.end());
   EXPECT_EQ(iter->second, "injected value");
 
   content::SetBrowserClientForTesting(old_content_browser_client);

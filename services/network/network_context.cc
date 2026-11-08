@@ -2856,6 +2856,11 @@ void NetworkContext::OnHttpAuthDynamicParamsChanged(
   url_matcher::util::AddAllowFiltersWithLimit(
       url_matcher_.get(), http_auth_dynamic_network_service_params
                               ->patterns_allowed_to_use_all_schemes);
+  proxy_url_matcher_ = std::make_unique<url_matcher::URLMatcher>();
+  url_matcher::util::AddAllowFiltersWithLimit(
+      proxy_url_matcher_.get(),
+      http_auth_dynamic_network_service_params
+          ->patterns_allowed_to_use_all_schemes_for_proxies);
   http_auth_merged_preferences_.set_http_auth_scheme_filter(
       base::BindRepeating(&NetworkContext::IsAllowedToUseAllHttpAuthSchemes,
                           base::Unretained(this)));
@@ -2981,12 +2986,12 @@ URLRequestContextOwner NetworkContext::MakeURLRequestContext(
         std::move(params_->proxy_resolver_factory));
   }
 
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
   if (params_->system_proxy_resolver) {
     builder.SetMojoSystemProxyResolver(
         std::move(params_->system_proxy_resolver));
   }
-#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 
 #if BUILDFLAG(IS_CHROMEOS)
   if (params_->dhcp_wpad_url_client) {
@@ -3348,11 +3353,13 @@ URLRequestContextOwner NetworkContext::MakeURLRequestContext(
   // TransportSecurityState.  Since no requests have been made yet, safe to do
   // this even after the call to Build().
 
+#if BUILDFLAG(CHROME_KEY_PINNING_SUPPORTED)
   if (network_service_->pins_list_updated()) {
     result.url_request_context->transport_security_state()->UpdatePinList(
         network_service_->pinsets(), network_service_->host_pins(),
         network_service_->pins_list_update_time());
   }
+#endif  // BUILDFLAG(CHROME_KEY_PINNING_SUPPORTED)
 
 #if BUILDFLAG(IS_CT_SUPPORTED)
   if (params_->enforce_chrome_ct_policy) {
@@ -3607,8 +3614,13 @@ void NetworkContext::FinishConstructingTrustTokenStore(
 }
 
 bool NetworkContext::IsAllowedToUseAllHttpAuthSchemes(
-    const url::SchemeHostPort& scheme_host_port) {
-  DCHECK(url_matcher_);
+    const url::SchemeHostPort& scheme_host_port,
+    net::HttpAuth::Target target) {
+  if (target == net::HttpAuth::AUTH_PROXY) {
+    CHECK(proxy_url_matcher_);
+    return !proxy_url_matcher_->MatchURL(scheme_host_port.GetURL()).empty();
+  }
+  CHECK(url_matcher_);
   return !url_matcher_->MatchURL(scheme_host_port.GetURL()).empty();
 }
 

@@ -11,7 +11,7 @@
 #include "components/metrics/metrics_reporting_default_state.h"
 
 // Must come after all headers that specialize FromJniType() / ToJniType().
-#include "chrome/android/base_module_jni/UmaUtils_jni.h"
+#include "chrome/browser/android/metrics/base_jni_headers/UmaUtils_jni.h"
 
 using jni_zero::JavaRef;
 
@@ -42,7 +42,7 @@ static bool JNI_UmaUtils_IsClientInSampleForCrashes(JNIEnv* env) {
 
 static void JNI_UmaUtils_RecordMetricsReportingDefaultOptIn(JNIEnv* env,
                                                             bool opt_in) {
-  DCHECK(g_browser_process);
+  CHECK(g_browser_process, base::NotFatalUntil::M161);
   PrefService* local_state = g_browser_process->local_state();
 
   // Users can easily accept ToS multiple times by using the back button, only

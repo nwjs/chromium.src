@@ -189,6 +189,7 @@ class FakeConnectorUploadRequestFactory : public ConnectorUploadRequestFactory {
       scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
       const GURL& base_url,
       const std::string& metadata,
+      enterprise_connectors::ScanRequestUploadResult get_data_result,
       scoped_refptr<network::ResourceRequestBody> request_body,
       const std::string& histogram_suffix,
       const net::NetworkTrafficAnnotationTag& traffic_annotation,
@@ -299,10 +300,6 @@ class CloudBinaryUploadServiceTest : public ::testing::Test {
 
   void ValidateRequestIdMapsCleanedUp(BinaryUploadRequest::Id request_id) {
     EXPECT_FALSE(service_->active_requests_.contains(request_id));
-    EXPECT_FALSE(service_->active_timers_.contains(request_id));
-    EXPECT_FALSE(service_->active_tokens_.contains(request_id));
-    EXPECT_FALSE(service_->start_times_.contains(request_id));
-    EXPECT_FALSE(service_->received_connector_results_.contains(request_id));
   }
 
   void ValidateAuthorizationTimerIdle() {
@@ -1489,7 +1486,20 @@ TEST_F(CloudBinaryUploadServiceTest, CancelUploadFeatureDisabled) {
             enterprise_connectors::ScanRequestUploadResult::kUnknown);
 }
 
+// Tests the cancellation timing metric when upload cancellation is disabled,
+// i.e. when the upload keeps running until its response arrives. With
+// `kEnableCancelUploadOnContentAnalysis` enabled the upload is finished within
+// the `MaybeCancelRequests()` call itself, so the measured duration is 0ms and
+// `RecordDeepScanMetrics()` drops it by design. The enabled behavior is covered
+// by `CancelUploadFeatureEnabled`.
+//
+// TODO(crbug.com/567912137): the metric is therefore no longer needed, to be
+// removed alongside with the test.
 TEST_F(CloudBinaryUploadServiceTest, TrackUserCancellation) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndDisableFeature(
+      enterprise_connectors::kEnableCancelUploadOnContentAnalysis);
+
   base::HistogramTester histogram_tester;
   enterprise_connectors::ScanRequestUploadResult scanning_result =
       enterprise_connectors::ScanRequestUploadResult::kUnknown;

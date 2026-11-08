@@ -10,6 +10,7 @@
 NS_ASSUME_NONNULL_BEGIN
 
 @class CWVAutofillController;
+@class CWVAutofillErrorDialogContext;
 @class CWVAutofillForm;
 @class CWVAutofillFormSuggestion;
 @class CWVAutofillProfile;
@@ -293,6 +294,34 @@ typedef void (^ProceduralBlock)(void);
 - (void)autofillController:(CWVAutofillController*)autofillController
     enrollCreditCardWithVCNEnrollmentManager:
         (CWVVCNEnrollmentManager*)enrollmentManager;
+
+// Called to determine whether the user must re-authenticate (e.g. with Face ID,
+// Touch ID or the device passcode) before a payment method is filled.
+// Called synchronously on the main thread, possibly multiple times per fill.
+// If this method is not implemented, mandatory re-auth is disabled.
+- (BOOL)autofillControllerShouldRequireMandatoryReauth:
+    (CWVAutofillController*)autofillController;
+
+// Called when the user must authenticate before a payment method is filled.
+// Only called if `-autofillControllerShouldRequireMandatoryReauth:` returned
+// YES and the device supports biometric or passcode authentication.
+// `reason` is a localized explanation to show in the authentication prompt.
+// `completionHandler` must be called exactly once with whether authentication
+// succeeded. It may be called on any thread. If it is never called, the fill
+// will not complete and further payments autofill requests on the page will be
+// ignored.
+// If this method is not implemented, the fill proceeds without
+// authentication, as it does on devices without biometrics or a passcode.
+- (void)autofillController:(CWVAutofillController*)autofillController
+    authenticateUserWithReason:(NSString*)reason
+             completionHandler:(void (^)(BOOL success))completionHandler;
+
+// Called when an error should be shown to the user during a payments autofill
+// flow, e.g. when a card could not be retrieved from the server. Called on the
+// main thread, after any progress dialog has been asked to close.
+// If this method is not implemented, no error is shown.
+- (void)autofillController:(CWVAutofillController*)autofillController
+    showErrorDialogWithContext:(CWVAutofillErrorDialogContext*)context;
 
 @end
 

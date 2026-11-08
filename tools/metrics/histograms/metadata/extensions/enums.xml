@@ -142,6 +142,15 @@ chromium-metrics-reviews@google.com.
   <int value="16" label="kRateExtension"/>
 </enum>
 
+<!-- LINT.IfChange(ExtensionContextMenuRateExtensionOutcome) -->
+
+<enum name="ExtensionContextMenuRateExtensionOutcome">
+  <int value="0" label="Not clicked"/>
+  <int value="1" label="Clicked"/>
+</enum>
+
+<!-- LINT.ThenChange(/chrome/browser/extensions/extension_context_menu_model.h:ExtensionContextMenuRateExtensionOutcome) -->
+
 <enum name="ExtensionDisableReason">
   <int value="0" label="UNKNOWN"/>
   <int value="1" label="USER_ACTION"/>
@@ -809,6 +818,9 @@ Called by update_extension_histograms.py.-->
   <int value="578" label="DICTATION_PRIVATE_ON_BROWSER_LOG_EVENT"/>
   <int value="579" label="RUNTIME_ON_ENABLED"/>
   <int value="580" label="ENTERPRISE_WEBRTC_ON_CAPTURE_STOPPED"/>
+  <int value="581" label="ENTERPRISE_WEBRTC_ON_PEER_CONNECTION_ADDED"/>
+  <int value="582" label="ENTERPRISE_WEBRTC_ON_PEER_CONNECTION_REMOVED"/>
+  <int value="583" label="RUNTIME_ON_EXTENSION_LOADED"/>
 </enum>
 
 <!-- LINT.ThenChange(//extensions/browser/extension_event_histogram_value.h:HistogramValue) -->
@@ -1900,7 +1912,7 @@ Called by update_extension_histograms.py.-->
   <int value="1036"
       label="DELETED_PASSWORDSPRIVATE_CANPASSWORDACCOUNTBEMANAGED"/>
   <int value="1037" label="PASSWORDSPRIVATE_REMOVECREDENTIAL"/>
-  <int value="1038" label="PASSWORDSPRIVATE_REMOVEPASSWORDEXCEPTION"/>
+  <int value="1038" label="DELETED_PASSWORDSPRIVATE_REMOVEPASSWORDEXCEPTION"/>
   <int value="1039" label="PASSWORDSPRIVATE_REQUESTPLAINTEXTPASSWORD"/>
   <int value="1040" label="DELETED_LAUNCHERPAGE_HIDE"/>
   <int value="1041" label="PLATFORMKEYS_VERIFYTLSSERVERCERTIFICATE"/>
@@ -2066,9 +2078,9 @@ Called by update_extension_histograms.py.-->
   <int value="1192" label="DELETED_METRICSPRIVATE_RECORDSPARSEHASHABLE"/>
   <int value="1193" label="NETWORKINGPRIVATE_SELECTCELLULARMOBILENETWORK"/>
   <int value="1194" label="PASSWORDSPRIVATE_IMPORTPASSWORDS"/>
-  <int value="1195" label="PASSWORDSPRIVATE_EXPORTPASSWORDS"/>
+  <int value="1195" label="DELETED_PASSWORDSPRIVATE_EXPORTPASSWORDS"/>
   <int value="1196"
-      label="PASSWORDSPRIVATE_UNDOREMOVESAVEDPASSWORDOREXCEPTION"/>
+      label="DELETED_PASSWORDSPRIVATE_UNDOREMOVESAVEDPASSWORDOREXCEPTION"/>
   <int value="1197"
       label="ACCESSIBILITY_PRIVATE_SETNATIVECHROMEVOXARCSUPPORTFORCURRENTAPP"/>
   <int value="1198"
@@ -2088,7 +2100,8 @@ Called by update_extension_histograms.py.-->
   <int value="1210" label="DELETED_CRYPTOTOKENPRIVATE_CANAPPIDGETATTESTATION"/>
   <int value="1211" label="SYSTEM_DISPLAY_SETMIRRORMODE"/>
   <int value="1212" label="TTSENGINE_UPDATEVOICES"/>
-  <int value="1213" label="PASSWORDSPRIVATE_REQUESTEXPORTPROGRESSSTATUS"/>
+  <int value="1213"
+      label="DELETED_PASSWORDSPRIVATE_REQUESTEXPORTPROGRESSSTATUS"/>
   <int value="1214" label="DELETED_WALLPAPERPRIVATE_GETCOLLECTIONSINFO"/>
   <int value="1215" label="DELETED_WALLPAPERPRIVATE_GETIMAGESINFO"/>
   <int value="1216" label="ACCESSIBILITY_PRIVATE_SENDSYNTHETICKEYEVENT"/>
@@ -2344,7 +2357,7 @@ Called by update_extension_histograms.py.-->
   <int value="1455" label="PASSWORDSPRIVATE_REMOVEINSECURECREDENTIAL"/>
   <int value="1456" label="TERMINALPRIVATE_GETA11YSTATUS"/>
   <int value="1457" label="AUTOTESTPRIVATE_GETSHELFUIINFOFORSTATE"/>
-  <int value="1458" label="PASSWORDSPRIVATE_STARTPASSWORDCHECK"/>
+  <int value="1458" label="DELETED_PASSWORDSPRIVATE_STARTPASSWORDCHECK"/>
   <int value="1459" label="DELETED_PASSWORDSPRIVATE_STOPPASSWORDCHECK"/>
   <int value="1460" label="PASSWORDSPRIVATE_GETPASSWORDCHECKSTATUS"/>
   <int value="1461" label="TERMINALPRIVATE_OPENVMSHELLPROCESS"/>
@@ -2366,7 +2379,7 @@ Called by update_extension_histograms.py.-->
   <int value="1477" label="DELETED_PASSWORDSPRIVATE_REMOVEPASSWORDEXCEPTIONS"/>
   <int value="1478" label="AUTOTESTPRIVATE_WAITFORAMBIENTPHOTOANIMATION"/>
   <int value="1479" label="INPUT_IME_SETASSISTIVEWINDOWPROPERTIES"/>
-  <int value="1480" label="PASSWORDSPRIVATE_MOVEPASSWORDSTOACCOUNT"/>
+  <int value="1480" label="DELETED_PASSWORDSPRIVATE_MOVEPASSWORDSTOACCOUNT"/>
   <int value="1481" label="AUTOTESTPRIVATE_DISABLESWITCHACCESSDIALOG"/>
   <int value="1482" label="ENTERPRISE_NETWORKINGATTRIBUTES_GETNETWORKDETAILS"/>
   <int value="1483" label="DELETED_INPUTMETHODPRIVATE_SETAUTOCORRECTRANGE"/>
@@ -2671,7 +2684,7 @@ Called by update_extension_histograms.py.-->
   <int value="1763" label="FILEMANAGERPRIVATE_PROGRESSPAUSEDTASKS"/>
   <int value="1764" label="BOOKMARKMANAGERPRIVATE_IMPORT"/>
   <int value="1765" label="BOOKMARKMANAGERPRIVATE_EXPORT"/>
-  <int value="1766" label="PASSWORDSPRIVATE_SHOWEXPORTEDFILEINSHELL"/>
+  <int value="1766" label="DELETED_PASSWORDSPRIVATE_SHOWEXPORTEDFILEINSHELL"/>
   <int value="1767" label="FILEMANAGERPRIVATE_TOGGLEBULKPINNING"/>
   <int value="1768" label="SMARTCARDPROVIDERPRIVATE_REPORTCONNECTRESULT"/>
   <int value="1769"
@@ -2681,7 +2694,7 @@ Called by update_extension_histograms.py.-->
   <int value="1772" label="DELETED_ACCESSIBILITY_PRIVATE_ISLACROSPRIMARY"/>
   <int value="1773" label="POWER_REPORTACTIVITY"/>
   <int value="1774" label="PASSWORDSPRIVATE_CONTINUEIMPORT"/>
-  <int value="1775" label="PASSWORDSPRIVATE_RESETIMPORTER"/>
+  <int value="1775" label="DELETED_PASSWORDSPRIVATE_RESETIMPORTER"/>
   <int value="1776" label="SMARTCARDPROVIDERPRIVATE_REPORTPLAINRESULT"/>
   <int value="1777" label="RUNTIME_GETCONTEXTS"/>
   <int value="1778" label="OS_EVENTS_ISEVENTSUPPORTED"/>
@@ -2803,8 +2816,10 @@ Called by update_extension_histograms.py.-->
   <int value="1885" label="WEBSTOREPRIVATE_GETFULLCHROMEVERSION"/>
   <int value="1886"
       label="ODFSCONFIGPRIVATE_ISFILESYSTEMPROVIDERCONTENTCACHEENABLED"/>
-  <int value="1887" label="PASSWORDSPRIVATE_DISCONNECTCLOUDAUTHENTICATOR"/>
-  <int value="1888" label="PASSWORDSPRIVATE_ISCONNECTEDTOCLOUDAUTHENTICATOR"/>
+  <int value="1887"
+      label="DELETED_PASSWORDSPRIVATE_DISCONNECTCLOUDAUTHENTICATOR"/>
+  <int value="1888"
+      label="DELETED_PASSWORDSPRIVATE_ISCONNECTEDTOCLOUDAUTHENTICATOR"/>
   <int value="1889" label="WEBSTOREPRIVATE_GETMV2DEPRECATIONSTATUS"/>
   <int value="1890" label="PERMISSIONS_ADDHOSTACCESSREQUEST"/>
   <int value="1891" label="PERMISSIONS_REMOVEHOSTACCESSREQUEST"/>
@@ -2924,6 +2939,7 @@ Called by update_extension_histograms.py.-->
   <int value="1989" label="ENTERPRISE_WEBRTC_GETSNAPSHOT"/>
   <int value="1990" label="AUTOFILLPRIVATE_GETDETAILSFORUPSERTPASS"/>
   <int value="1991" label="AUTOFILLPRIVATE_PRELOADDETAILSFORUPSERTPASS"/>
+  <int value="1992" label="EXPERIMENTALAIDATA_GETAPCSNAPSHOT"/>
 </enum>
 
 <!-- LINT.ThenChange(//extensions/browser/extension_function_histogram_value.h:HistogramValue) -->
@@ -3319,6 +3335,7 @@ Called by update_extension_permission.py.-->
   <int value="272" label="kBluetoothPeripheral"/>
   <int value="273" label="kPublicSuffix"/>
   <int value="274" label="kEnterpriseWebrtc"/>
+  <int value="275" label="kMimeTypesHandlerPdf"/>
 </enum>
 
 <enum name="ExtensionPinReason">
@@ -3550,6 +3567,19 @@ Called by update_extension_permission.py.-->
   <int value="6" label="Load failed - Ruleset file size limit exceeded"/>
 </enum>
 
+<!-- LINT.IfChange(LowTrustPolicyBlockAction) -->
+
+<enum name="LowTrustPolicyBlockAction">
+  <int value="0" label="BlockedOnInstall"/>
+  <int value="1" label="SkippedDownload"/>
+  <int value="2" label="BlockedPolicyTakeoverOfUserInstall"/>
+  <int value="3" label="UninstalledOnTrustLoss"/>
+  <int value="4" label="CacheClearedOnPolicyRemoval"/>
+  <int value="5" label="CacheClearedOnTtlExpiration"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/browser/extensions/policy_dse_ntp_override_metrics_reporter.h:LowTrustPolicyBlockAction) -->
+
 <enum name="ManifestInvalidAppStatusError">
   <int value="0" label="Unknown"/>
   <int value="1" label="Error unknown application"/>
@@ -3645,6 +3675,18 @@ Called by update_extension_permission.py.-->
       label="Channel not opened (opener port using different message
              serialization format)"/>
 </enum>
+
+<!-- LINT.IfChange(PolicyExtensionStatus) -->
+
+<enum name="PolicyExtensionStatus">
+  <int value="0" label="Disabled"/>
+  <int value="1" label="Enabled"/>
+  <int value="2" label="Blocked"/>
+  <int value="3" label="UserInstalledEnabled"/>
+  <int value="4" label="UserInstalledDisabled"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/browser/extensions/policy_dse_ntp_override_metrics_reporter.h:PolicyExtensionStatus) -->
 
 <enum name="ReadDynamicRulesJSONStatus">
   <int value="0" label="kSuccess"/>

@@ -33,6 +33,10 @@ viz::FrameSinkId RenderWidgetHostViewInput::GetRootFrameSinkId() {
   return viz::FrameSinkId();
 }
 
+RenderWidgetHostViewInput* RenderWidgetHostViewInput::GetPinchZoomTarget() {
+  return GetRootView();
+}
+
 bool RenderWidgetHostViewInput::ScreenRectIsUnstableFor(
     const blink::WebInputEvent& event) {
   return false;
@@ -184,6 +188,13 @@ void RenderWidgetHostViewInput::GestureEventAck(
     const blink::WebGestureEvent& event,
     blink::mojom::InputEventResultSource ack_source,
     blink::mojom::InputEventResultState ack_result) {}
+
+void RenderWidgetHostViewInput::ProcessTouchpadZoomEventAck(
+    const blink::WebGestureEvent& event,
+    blink::mojom::InputEventResultState ack_result) {
+  RenderWidgetHostViewInput::ForwardTouchpadZoomEventIfNecessary(event,
+                                                                 ack_result);
+}
 
 void RenderWidgetHostViewInput::ChildDidAckGestureEvent(
     const blink::WebGestureEvent& event,

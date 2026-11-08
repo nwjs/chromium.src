@@ -8,7 +8,6 @@ import androidx.annotation.IntDef;
 
 import org.chromium.base.Token;
 import org.chromium.build.annotations.NullMarked;
-import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.components.tab_groups.TabGroupColorId;
 
@@ -48,16 +47,16 @@ public interface TabGroupObserver {
      *
      * @param tabGroupId The tab group id of the group being moved.
      */
+    // TODO(crbug.com/517544602): tabGroupId is unused across call sites. Evaluate updating/removing
+    // this method.
     default void willMoveTabGroup(Token tabGroupId) {}
 
     /**
      * This method is called before a tab within a group is moved out of the group.
      *
      * @param movedTab The tab which will be moved.
-     * @param tabGroupId The tabGroupId the tab will have after the move, may be null if not in a
-     *     group.
      */
-    default void willMoveTabOutOfGroup(Tab movedTab, @Nullable Token destinationTabGroupId) {}
+    default void willMoveTabOutOfGroup(Tab movedTab) {}
 
     /**
      * This method is called after a tab is moved to a group.
@@ -76,7 +75,7 @@ public interface TabGroupObserver {
      * @param tabModelOldIndex The old index of the first tab in the group in the {@link TabModel}.
      * @param tabModelNewIndex The new index of the first tab in the group in the {@link TabModel}.
      */
-    default void didMoveTabGroup(Token tabGroupId, int tabModelOldIndex, int tabModelNewIndex) {}
+    default void onTabGroupMoved(Token tabGroupId, int tabModelOldIndex, int tabModelNewIndex) {}
 
     /**
      * This method is called after a tab within a group is moved.
@@ -107,9 +106,9 @@ public interface TabGroupObserver {
      * This method is called after a new tab group is created, either through drag and drop, the tab
      * selection editor, or by longpressing a link on a tab and using the context menu.
      *
-     * @param destinationTab The destination tab of the group after merge.
+     * @param tabGroupId The tab group ID of the newly created group.
      */
-    default void didCreateNewGroup(Tab destinationTab) {}
+    default void onTabGroupCreated(Token tabGroupId) {}
 
     /**
      * This method is called after a new title is set on a tab group.
@@ -138,12 +137,20 @@ public interface TabGroupObserver {
             Token tabGroupId, boolean isCollapsed, boolean animate) {}
 
     /**
+     * This method is called after a tab group's visual data (title, color, or collapsed state) is
+     * changed.
+     *
+     * @param tabGroupId The tab group ID.
+     */
+    default void onTabGroupVisualsChanged(Token tabGroupId) {}
+
+    /**
      * Called when a tab group is about to be removed from the tab model (e.g. as a result of
      * closure, ungrouping, or merging), prior to {@link #didRemoveTabGroup}.
      *
      * @param tabGroupId The tab group id being removed.
      */
-    default void willRemoveTabGroup(Token tabGroupId) {}
+    default void onTabGroupRemoving(Token tabGroupId) {}
 
     /**
      * Called when a tab group is removed from the tab model. This could be the result of merging

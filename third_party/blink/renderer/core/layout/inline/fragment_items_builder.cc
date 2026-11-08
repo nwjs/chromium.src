@@ -154,9 +154,9 @@ void FragmentItemsBuilder::AddLine(const PhysicalLineBoxFragment& line_fragment,
 
     // If the line is hidden (e.g. because of line-clamp), annotations on that
     // line should be hidden as well.
-    if (line_fragment.IsHiddenForPaint()) {
+    if (line_fragment.IsHiddenDueToLayout()) {
       for (auto& item : *annotation_line.line_items) {
-        item.is_hidden_for_paint = true;
+        item.is_hidden_due_to_layout = true;
       }
     }
 
@@ -364,12 +364,6 @@ FragmentItemsBuilder::AddPreviousItems(const PhysicalBoxFragment& container,
                                   true};
   }
   return AddPreviousItemsResult();
-}
-
-const FragmentItemsBuilder::ItemWithOffsetList& FragmentItemsBuilder::Items(
-    const PhysicalSize& outer_size) {
-  ConvertToPhysical(outer_size);
-  return items_;
 }
 
 // Convert internal logical offsets to physical. Items are kept with logical

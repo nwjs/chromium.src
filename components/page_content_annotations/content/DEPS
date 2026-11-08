@@ -22,6 +22,7 @@ include_rules = [
     "+components/pdf/browser",
     "+components/pdf/common",
     "+components/services/paint_preview_compositor",
+    "+components/tabs/public",
     "+components/viz/common/frame_sinks",
     "+components/viz/common/surfaces",
     "+content/public/browser",
@@ -39,12 +40,14 @@ include_rules = [
     "+third_party/blink/public/mojom/content_extraction",
     "+third_party/blink/public/mojom/opengraph",
     "+third_party/skia",
+    "+ui/base/unowned_user_data",
     "+ui/gfx",
 ]
 
 specific_include_rules = {
   "annotate_page_content_request_unittest.cc": [
     "+components/ukm/test_ukm_recorder.h",
+    "+ui/base/page_transition_types.h",
   ],
   "mock_page_content_services\\.(cc|h)": [
     "+testing/gmock",

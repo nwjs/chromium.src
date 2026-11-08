@@ -155,6 +155,8 @@ public class Snackbar {
     public static final int UMA_GLIC_MIC_DISABLED = 96;
     public static final int UMA_AUTOFILL_AI_SUPPRESSION_UNDO = 97;
     public static final int UMA_ACTOR_EXTERNAL_TRIGGER = 98;
+    public static final int UMA_IN_APP_UPDATE_DISCOVERY = 99;
+    public static final int UMA_IN_APP_UPDATE_RESTART = 100;
     // LINT.ThenChange(//tools/metrics/histograms/metadata/ui/enums.xml:SnackbarIdentifier)
 
     private final @Nullable SnackbarController mController;
@@ -171,6 +173,7 @@ public class Snackbar {
     private final int mType;
     private int mIdentifier = UMA_UNKNOWN;
     private @Theme int mTheme = Theme.BASIC;
+    private boolean mAnimateIn = true;
 
     @IntDef({Theme.BASIC, Theme.GOOGLE})
     @Retention(RetentionPolicy.SOURCE)
@@ -309,6 +312,12 @@ public class Snackbar {
         return this;
     }
 
+    /** Sets whether the snackbar should animate in when shown. */
+    public Snackbar setAnimateIn(boolean animateIn) {
+        mAnimateIn = animateIn;
+        return this;
+    }
+
     /**
      * @return The {@link SnackbarController} that controls this snackbar.
      */
@@ -391,6 +400,14 @@ public class Snackbar {
     @VisibleForTesting(otherwise = VisibleForTesting.PACKAGE_PRIVATE)
     public boolean isHighPriority() {
         return mIsHighPriority;
+    }
+
+    /**
+     * @return Whether the snackbar should animate in when shown.
+     */
+    @VisibleForTesting(otherwise = VisibleForTesting.PACKAGE_PRIVATE)
+    public boolean shouldAnimateIn() {
+        return mAnimateIn;
     }
 
     public int getIdentifierForTesting() {

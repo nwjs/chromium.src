@@ -1624,7 +1624,7 @@ TEST_P(PaintLayerTest, PaintLayerTransformUpdatedOnStyleTransformAnimation) {
       To<LayoutBoxModelObject>(target_object)->Layer();
   EXPECT_EQ(nullptr, target_paint_layer->Transform());
 
-  const ComputedStyle& old_style = target_object->StyleRef();
+  const ComputedStyle& old_style = target_object->Style();
   ComputedStyleBuilder new_style_builder(old_style);
   new_style_builder.SetHasCurrentTransformAnimation(true);
   target_object->SetStyle(*new_style_builder.TakeStyle());
@@ -2631,11 +2631,10 @@ TEST_P(PaintLayerTest, HitTestScrollMarkerPseudoElement) {
 
 TEST_P(PaintLayerTest, PaintLayerCanvasTransformUpdated) {
   ScopedCanvasDrawElementForTest forced_canvas_draw_element_feature(true);
-  ScopedElementCanvasTransformForTest forced_canvas_transform_feature(true);
 
   SetBodyInnerHTML(R"HTML(
     <canvas id='canvas' width='200' height='200' content=drawable>
-      <div id='target' style='width: 100px; height: 100px;'></div>
+      <div id='target' drawable style='width: 100px; height: 100px;'></div>
     </canvas>
   )HTML");
 

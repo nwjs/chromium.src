@@ -4,6 +4,9 @@
 
 #include "chrome/browser/ui/views/toolbar/webui_toolbar_extensions_container_wrapper.h"
 
+#include <optional>
+#include <utility>
+
 #include "base/functional/bind.h"
 #include "base/no_destructor.h"
 #include "base/strings/utf_string_conversions.h"
@@ -193,33 +196,60 @@ void WebUIToolbarExtensionsContainerWrapper::OnActionRemoved(
 }
 
 void WebUIToolbarExtensionsContainerWrapper::OnActionPoppedOut(
-    base::OnceClosure callback) {
+    base::OnceClosure callback,
+    bool is_iph) {
   if (!extensions_container_) {
     std::move(callback).Run();
     return;
   }
 
+  // The container cancels any pending pop out request before starting another,
+  // so there should be at most one at a time.
+  CHECK(is_iph || !pending_pop_out_callback_);
+
   // Be as conservative as possible and wait for any animations that might be in
   // progress to complete before running `callback`, that way none of the
   // button locations might shift after `callback` is run (and potentially
   // upset any pop-up anchoring that ExtensionActionDelegateDesktop::ShowPopup()
-  // or any other caller might want to display).
+  // or any other caller might want to display). Also wait for the
+  // pinned-by-default IPH anchor, if any, to be registered.
   for (const auto& action : delegate_->GetState().extensions_state) {
+    std::optional<ui::ElementIdentifier> missing_element_id;
     if (!extensions_container_->GetExtensionAnchor(action->id)) {
+      missing_element_id =
+          WebUIToolbarExtensionsContainer::GetElementId(action->id);
+    } else if (action->is_pinned_by_default_iph_anchor &&
+               !extensions_container_->GetExtensionElement(
+                   kExtensionsPinnedByDefaultElementId, action->id)) {
+      missing_element_id = kExtensionsPinnedByDefaultElementId;
+    }
+    if (missing_element_id) {
       auto subscription =
           ui::ElementTracker::GetElementTracker()->AddElementShownCallback(
-              WebUIToolbarExtensionsContainer::GetElementId(action->id),
+              *missing_element_id,
               BrowserElements::From(delegate_->GetBrowser())->GetContext(),
               base::BindRepeating(
                   &WebUIToolbarExtensionsContainerWrapper::OnElementShown,
                   base::Unretained(this)));
-      pending_anchor_requests_.emplace_back(std::move(callback),
-                                            std::move(subscription));
+      if (is_iph) {
+        pending_anchor_requests_.emplace_back(std::move(callback),
+                                              std::move(subscription));
+      } else {
+        pending_pop_out_callback_ = std::move(callback);
+        pending_pop_out_subscription_ = std::move(subscription);
+      }
       return;
     }
   }
 
   std::move(callback).Run();
+}
+
+void WebUIToolbarExtensionsContainerWrapper::OnPopOutCancelled() {
+  pending_pop_out_subscription_ = {};
+  if (pending_pop_out_callback_) {
+    std::exchange(pending_pop_out_callback_, base::OnceClosure()).Run();
+  }
 }
 
 void WebUIToolbarExtensionsContainerWrapper::OnElementShown(
@@ -230,9 +260,18 @@ void WebUIToolbarExtensionsContainerWrapper::OnElementShown(
   }
   pending_anchor_requests_.clear();
 
+  // Re-dispatch the pending pop out request, if any, before running anything
+  // else, as other callbacks may re-entrantly cancel it or start a new one.
+  pending_pop_out_subscription_ = {};
+  if (pending_pop_out_callback_) {
+    OnActionPoppedOut(
+        std::exchange(pending_pop_out_callback_, base::OnceClosure()),
+        /*is_iph=*/false);
+  }
+
   for (auto& callback : callbacks_to_run) {
     if (callback) {
-      OnActionPoppedOut(std::move(callback));
+      OnActionPoppedOut(std::move(callback), /*is_iph=*/true);
     }
   }
 }
@@ -259,25 +298,12 @@ void WebUIToolbarExtensionsContainerWrapper::SendExtensionsState() {
 }
 
 void WebUIToolbarExtensionsContainerWrapper::ExecuteUserAction(
-    const std::string& extension_id,
-    bool is_pointer_interaction) {
-  if (extensions_container_) {
-    if (extension_id == kExtensionsButtonId) {
-      extensions_container_->ToggleExtensionsMenu(is_pointer_interaction);
-    } else {
-      extensions_container_->ExecuteUserAction(extension_id,
-                                               is_pointer_interaction);
-    }
-  }
-}
-
-void WebUIToolbarExtensionsContainerWrapper::OnPointerDown(
     const std::string& extension_id) {
   if (extensions_container_) {
     if (extension_id == kExtensionsButtonId) {
-      extensions_container_->OnPointerDown("");
+      extensions_container_->ToggleExtensionsMenu();
     } else {
-      extensions_container_->OnPointerDown(extension_id);
+      extensions_container_->ExecuteUserAction(extension_id);
     }
   }
 }

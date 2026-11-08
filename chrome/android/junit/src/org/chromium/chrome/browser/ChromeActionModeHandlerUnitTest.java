@@ -30,6 +30,7 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
+import org.robolectric.Robolectric;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.Shadows;
 import org.robolectric.fakes.RoboMenu;
@@ -75,8 +76,9 @@ public class ChromeActionModeHandlerUnitTest {
     @Mock private WindowAndroid mWindowAndroid;
     @Mock private WebContents mWebContents;
     @Mock private WeakReference<Activity> mWeakActivityRef;
-    @Mock private Activity mActivity;
     @Mock private DataProtectionBridge.Natives mDataProtectionBridgeJniMock;
+
+    private Activity mActivity;
 
     private class TestChromeActionModeCallback
             extends ChromeActionModeHandler.ChromeActionModeCallback {
@@ -102,6 +104,7 @@ public class ChromeActionModeHandlerUnitTest {
     @Before
     @SuppressWarnings("DirectInvocationOnMock")
     public void setUp() {
+        mActivity = Robolectric.buildActivity(Activity.class).get();
         DataProtectionBridge.setInstanceForTesting(mDataProtectionBridgeJniMock);
         Mockito.when(mDataProtectionBridgeJniMock.isSearchWithAllowed(any())).thenReturn(true);
 
@@ -289,7 +292,7 @@ public class ChromeActionModeHandlerUnitTest {
         final int topControlsHeight = 150;
         final int height = 80;
         final int viewHeight = 2000;
-        View mockView = createMockView(viewHeight);
+        View view = createView(viewHeight);
         Mockito.when(mControlsState.getTopControlsHeight()).thenReturn(topControlsHeight);
 
         // Set up for the case where top controls are hidden.
@@ -300,14 +303,14 @@ public class ChromeActionModeHandlerUnitTest {
         // action mode, the content rect is left untouched.
         int top = topControlsHeight * 3;
         Rect outRect = new Rect(20, top, 500, top + height);
-        mActionModeCallback.onGetContentRect(mActionMode, mockView, outRect);
+        mActionModeCallback.onGetContentRect(mActionMode, view, outRect);
         Assert.assertEquals(top, outRect.top);
         Assert.assertEquals(height, outRect.height());
 
         // Top controls are hidden, so content rect is left untouched.
         top = topControlsHeight;
         outRect = new Rect(20, top, 500, top + height);
-        mActionModeCallback.onGetContentRect(mActionMode, mockView, outRect);
+        mActionModeCallback.onGetContentRect(mActionMode, view, outRect);
         Assert.assertEquals(top, outRect.top);
         Assert.assertEquals(height, outRect.height());
 
@@ -318,7 +321,7 @@ public class ChromeActionModeHandlerUnitTest {
         // We have enough space for action mode to fit in. The content rect is left untouched.
         top = topControlsHeight * 3;
         outRect = new Rect(20, top, 500, top + height);
-        mActionModeCallback.onGetContentRect(mActionMode, mockView, outRect);
+        mActionModeCallback.onGetContentRect(mActionMode, view, outRect);
         Assert.assertEquals(top, outRect.top);
         Assert.assertEquals(height, outRect.height());
 
@@ -326,7 +329,7 @@ public class ChromeActionModeHandlerUnitTest {
         // sets top to 0 so the framework places the action mode below the text.
         top = topControlsHeight;
         outRect = new Rect(20, top, 500, top + height);
-        mActionModeCallback.onGetContentRect(mActionMode, mockView, outRect);
+        mActionModeCallback.onGetContentRect(mActionMode, view, outRect);
         Assert.assertEquals(0, outRect.top);
         Assert.assertEquals(top + height, outRect.bottom);
     }
@@ -339,13 +342,13 @@ public class ChromeActionModeHandlerUnitTest {
         Mockito.when(mControlsState.getTopControlHiddenRatio()).thenReturn(0.f);
         Mockito.when(mControlsState.getTopControlOffset()).thenReturn(0);
 
-        View mockView = createMockView(viewHeight);
+        View view = createView(viewHeight);
 
         // Large selection extending beyond the viewport.
         int top = topControlsHeight;
         int bottom = 10000;
         Rect outRect = new Rect(20, top, 500, bottom);
-        mActionModeCallback.onGetContentRect(mActionMode, mockView, outRect);
+        mActionModeCallback.onGetContentRect(mActionMode, view, outRect);
         Assert.assertEquals(0, outRect.top);
         Assert.assertEquals(topControlsHeight, outRect.bottom);
     }
@@ -358,13 +361,13 @@ public class ChromeActionModeHandlerUnitTest {
         Mockito.when(mControlsState.getTopControlHiddenRatio()).thenReturn(0.f);
         Mockito.when(mControlsState.getTopControlOffset()).thenReturn(0);
 
-        View mockView = createMockView(viewHeight);
+        View view = createView(viewHeight);
 
         // Selection is partially scrolled under top controls.
         int top = -50;
         int bottom = 100;
         Rect outRect = new Rect(20, top, 500, bottom);
-        mActionModeCallback.onGetContentRect(mActionMode, mockView, outRect);
+        mActionModeCallback.onGetContentRect(mActionMode, view, outRect);
         Assert.assertEquals(0, outRect.top);
         Assert.assertEquals(topControlsHeight, outRect.bottom);
     }
@@ -381,13 +384,13 @@ public class ChromeActionModeHandlerUnitTest {
         Mockito.when(mControlsState.getBottomControlHiddenRatio()).thenReturn(0.f);
         Mockito.when(mControlsState.getBottomControlOffset()).thenReturn(0);
 
-        View mockView = createMockView(viewHeight);
+        View view = createView(viewHeight);
 
         // Selection near bottom where placing below would overlap bottom controls.
         int top = 1800;
         int bottom = 1950;
         Rect outRect = new Rect(20, top, 500, bottom);
-        mActionModeCallback.onGetContentRect(mActionMode, mockView, outRect);
+        mActionModeCallback.onGetContentRect(mActionMode, view, outRect);
         Assert.assertEquals(top, outRect.top);
         Assert.assertEquals(viewHeight - bottomControlsHeight, outRect.bottom);
     }
@@ -404,14 +407,14 @@ public class ChromeActionModeHandlerUnitTest {
         Mockito.when(mControlsState.getBottomControlHiddenRatio()).thenReturn(0.f);
         Mockito.when(mControlsState.getBottomControlOffset()).thenReturn(0);
 
-        View mockView = createMockView(viewHeight);
+        View view = createView(viewHeight);
 
         // Selection near the top of the viewport when top controls are hidden.
         // Content rect must NOT be collapsed or have top forced to 0.
         int top = 50;
         int bottom = 120;
         Rect outRect = new Rect(20, top, 500, bottom);
-        mActionModeCallback.onGetContentRect(mActionMode, mockView, outRect);
+        mActionModeCallback.onGetContentRect(mActionMode, view, outRect);
         Assert.assertEquals(top, outRect.top);
         Assert.assertEquals(bottom, outRect.bottom);
     }
@@ -428,7 +431,7 @@ public class ChromeActionModeHandlerUnitTest {
         Mockito.when(mControlsState.getBottomControlHiddenRatio()).thenReturn(0.f);
         Mockito.when(mControlsState.getBottomControlOffset()).thenReturn(0);
 
-        View mockView = createMockView(viewHeight);
+        View view = createView(viewHeight);
 
         // Large selection spanning towards the bottom controls when top controls are hidden.
         // Top must NOT be collapsed to 0; bottom should be clamped to avoid extending into bottom
@@ -436,7 +439,7 @@ public class ChromeActionModeHandlerUnitTest {
         int top = 50;
         int bottom = 1950;
         Rect outRect = new Rect(20, top, 500, bottom);
-        mActionModeCallback.onGetContentRect(mActionMode, mockView, outRect);
+        mActionModeCallback.onGetContentRect(mActionMode, view, outRect);
         Assert.assertEquals(top, outRect.top);
         Assert.assertEquals(viewHeight - bottomControlsHeight, outRect.bottom);
     }
@@ -450,29 +453,28 @@ public class ChromeActionModeHandlerUnitTest {
         Mockito.when(mControlsState.getTopControlHiddenRatio()).thenReturn(0.5f);
         Mockito.when(mControlsState.getTopControlOffset()).thenReturn(-75);
 
-        View mockView = createMockView(viewHeight);
+        View view = createView(viewHeight);
 
         // Selection has plenty of room below the partially scrolled top controls (75px).
         int top = 300;
         int height = 50;
         Rect outRect = new Rect(20, top, 500, top + height);
-        mActionModeCallback.onGetContentRect(mActionMode, mockView, outRect);
+        mActionModeCallback.onGetContentRect(mActionMode, view, outRect);
         Assert.assertEquals(top, outRect.top);
         Assert.assertEquals(top + height, outRect.bottom);
 
         // Selection too close to the partially scrolled top controls (75px).
         top = 80;
         outRect = new Rect(20, top, 500, top + height);
-        mActionModeCallback.onGetContentRect(mActionMode, mockView, outRect);
+        mActionModeCallback.onGetContentRect(mActionMode, view, outRect);
         Assert.assertEquals(0, outRect.top);
         Assert.assertEquals(top + height, outRect.bottom);
     }
 
-    private View createMockView(int height) {
-        View mockView = Mockito.mock(View.class);
-        Mockito.when(mockView.getHeight()).thenReturn(height);
-        Mockito.when(mockView.getContext()).thenReturn(ContextUtils.getApplicationContext());
-        return mockView;
+    private View createView(int height) {
+        View view = new View(ContextUtils.getApplicationContext());
+        view.layout(0, 0, 0, height);
+        return view;
     }
 
     private ResolveInfo createResolveInfo(String packageName) {

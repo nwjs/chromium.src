@@ -107,8 +107,9 @@ class CORE_EXPORT LayoutInputNode {
   bool IsGrid() const { return IsBlock() && box_->IsLayoutGrid(); }
   bool IsGridLanes() const { return IsBlock() && box_->IsLayoutGridLanes(); }
   bool IsListItem() const { return IsBlock() && box_->IsLayoutListItem(); }
-  // Returns the list marker if |this.IsListItem()| with an outside list marker.
-  // Otherwise |nullptr|.
+  // Returns the list marker if |this.IsListItem()| with an outside list marker
+  // and its child layout is not blocked by a display lock. Otherwise
+  // |nullptr|.
   BlockNode ListMarkerBlockNodeIfListItem() const;
   bool IsListMarker() const {
     return IsBlock() && box_->IsLayoutOutsideListMarker();
@@ -238,7 +239,7 @@ class CORE_EXPORT LayoutInputNode {
   // Returns the LayoutObject which is associated with this node.
   LayoutBox* GetLayoutBox() const { return box_.Get(); }
 
-  const ComputedStyle& Style() const { return box_->StyleRef(); }
+  const ComputedStyle& Style() const { return box_->Style(); }
   const ComputedStyle& FirstLineStyle() const;
 
   bool ShouldApplySizeContainment() const {

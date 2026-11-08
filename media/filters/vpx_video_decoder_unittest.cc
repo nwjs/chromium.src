@@ -13,7 +13,6 @@
 #include "base/functional/callback_helpers.h"
 #include "base/numerics/byte_conversions.h"
 #include "base/run_loop.h"
-#include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
 #include "build/build_config.h"
 #include "media/base/agtm.h"
@@ -25,7 +24,6 @@
 #include "media/media_buildflags.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "third_party/skia/include/core/SkData.h"
-#include "ui/gfx/switches.h"
 
 #if BUILDFLAG(ENABLE_FFMPEG)
 #include "media/ffmpeg/ffmpeg_common.h"
@@ -237,6 +235,22 @@ TEST_F(VpxVideoDecoderTest, DecodeFrame_OOM) {
       ->force_allocation_error_for_testing();
   EXPECT_FALSE(DecodeSingleFrame(i_frame_buffer_).is_ok());
   EXPECT_TRUE(output_frames_.empty());
+}
+
+TEST_F(VpxVideoDecoderTest, DecodeFrame_CorruptedVp8DeltaFrame) {
+  InitializeWithConfig(TestVideoConfig::Normal(VideoCodec::kVP8));
+  EXPECT_TRUE(Decode(ReadTestDataFile("vp8-I-frame-320x240")).is_ok());
+  ASSERT_EQ(1U, output_frames_.size());
+
+  // Truncate the delta frame so libvpx decodes it with error but still
+  // returns VPX_CODEC_OK.
+  scoped_refptr<DecoderBuffer> p_frame =
+      ReadTestDataFile("vp8-P-frame-320x240");
+  auto truncated =
+      DecoderBuffer::CopyFrom(base::span(*p_frame).first(p_frame->size() / 2));
+  EXPECT_EQ(Decode(truncated).code(),
+            DecoderStatus::Codes::kMalformedBitstream);
+  EXPECT_EQ(1U, output_frames_.size());
 }
 
 // Decode |i_frame_buffer_| and then a frame with a larger width and verify
@@ -495,7 +509,6 @@ TEST_F(VpxVideoDecoderTest, MemoryPoolAllowsMultipleDisplay) {
 
 #if BUILDFLAG(ENABLE_FFMPEG)
 TEST_F(VpxVideoDecoderTest, AgtmMetadata) {
-  base::test::ScopedFeatureList scoped_feature_list(features::kHdrAgtm);
   Initialize();
 
   scoped_refptr<DecoderBuffer> data = ReadTestDataFile("vp9-agtm.webm");

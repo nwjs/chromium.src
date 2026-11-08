@@ -53,6 +53,7 @@ class UrlLoaderNetworkServiceObserver
       int32_t request_id,
       const GURL& url,
       bool first_auth_attempt,
+      bool do_not_prompt_for_login,
       const net::AuthChallengeInfo& auth_info,
       const scoped_refptr<net::HttpResponseHeaders>& head_headers,
       mojo::PendingRemote<network::mojom::AuthChallengeResponder>
@@ -65,6 +66,8 @@ class UrlLoaderNetworkServiceObserver
       OnPlatformLocalNetworkPermissionRequiredCallback callback) override;
   void OnClearSiteData(
       const GURL& url,
+      const std::optional<net::SchemefulSite>& top_level_site,
+      const std::optional<base::UnguessableToken>& nonce,
       const std::string& header_value,
       int load_flags,
       const std::optional<net::CookiePartitionKey>& cookie_partition_key,

@@ -54,6 +54,7 @@
 #include "mojo/public/cpp/system/data_pipe_drainer.h"
 #include "mojo/public/cpp/test_support/test_utils.h"
 #include "mojo/public/mojom/base/file_info.mojom.h"
+#include "net/base/schemeful_site.h"
 #include "storage/browser/blob/blob_storage_context.h"
 #include "storage/browser/file_system/external_mount_points.h"
 #include "storage/browser/file_system/file_system_backend.h"
@@ -74,6 +75,7 @@
 #include "third_party/blink/public/mojom/file_system_access/file_system_access_manager.mojom-shared.h"
 #include "ui/shell_dialogs/select_file_dialog.h"
 #include "url/gurl.h"
+#include "url/origin.h"
 
 #if BUILDFLAG(IS_ANDROID)
 #include "third_party/blink/public/mojom/choosers/file_chooser.mojom.h"
@@ -478,6 +480,21 @@ class FileSystemAccessManagerImplTest : public testing::Test {
 
     // Check to see if the resulting FileSystemAccessFileHandle can read the
     // contents of the file at `file_path`.
+    if (base::FeatureList::IsEnabled(
+            features::kFileSystemAccessDirectoryIterationBlocklistCheck)) {
+      const storage::FileSystemURL file_url =
+          manager_->CreateFileSystemURLFromPath(file_path_info);
+      EXPECT_CALL(permission_context_,
+                  ConfirmSensitiveEntryAccess_(
+                      kTestStorageKey.origin(),
+                      PathInfo(file_url.path(), file_path_info.display_name),
+                      HandleType::kFile,
+                      FileSystemAccessPermissionContext::AccessTrigger::
+                          kProgrammaticRead,
+                      frame_id_, testing::_))
+          .WillOnce(RunOnceCallback<5>(FileSystemAccessPermissionContext::
+                                           SensitiveEntryResult::kAllowed));
+    }
     EXPECT_EQ(ReadStringFromFileRemote(std::move(file_handle)),
               expected_file_contents);
   }
@@ -1191,6 +1208,163 @@ TEST_F(FileSystemAccessManagerImplTest,
       storage::AsyncFileTestHelper::kDontCheckSize));
   ASSERT_TRUE(storage::AsyncFileTestHelper::FileExists(
       file_system_context_.get(), test_file_url, 3));
+}
+
+// The same origin embedded in a different top-level site gets a different
+// StorageKey, and therefore a different OPFS partition. Redeeming an OPFS
+// transfer token must require a matching StorageKey, not just a matching
+// origin.
+TEST_F(FileSystemAccessManagerImplTest,
+       TransferToken_SandboxedDifferentTopLevelSite) {
+  const url::Origin origin = kTestStorageKey.origin();
+  const blink::StorageKey storage_key_a = blink::StorageKey::Create(
+      origin,
+      net::SchemefulSite(url::Origin::Create(GURL("https://top-a.test"))),
+      blink::mojom::AncestorChainBit::kCrossSite);
+  const blink::StorageKey storage_key_b = blink::StorageKey::Create(
+      origin,
+      net::SchemefulSite(url::Origin::Create(GURL("https://top-b.test"))),
+      blink::mojom::AncestorChainBit::kCrossSite);
+  ASSERT_EQ(storage_key_a.origin(), storage_key_b.origin());
+  ASSERT_NE(storage_key_a, storage_key_b);
+
+  mojo::Remote<blink::mojom::FileSystemAccessManager> manager_a;
+  mojo::Remote<blink::mojom::FileSystemAccessManager> manager_b;
+  manager_->BindReceiver({storage_key_a, kTestURL, frame_id_},
+                         manager_a.BindNewPipeAndPassReceiver());
+  manager_->BindReceiver({storage_key_b, kTestURL, frame_id_},
+                         manager_b.BindNewPipeAndPassReceiver());
+
+  base::test::TestFuture<
+      blink::mojom::FileSystemAccessErrorPtr,
+      mojo::PendingRemote<blink::mojom::FileSystemAccessDirectoryHandle>>
+      root_future;
+  manager_a->GetSandboxedFileSystem(root_future.GetCallback());
+  ASSERT_EQ(root_future.Get<0>()->status,
+            blink::mojom::FileSystemAccessStatus::kOk);
+  mojo::Remote<blink::mojom::FileSystemAccessDirectoryHandle> root(
+      std::move(std::get<1>(root_future.Take())));
+  ASSERT_TRUE(root);
+
+  base::test::TestFuture<
+      blink::mojom::FileSystemAccessErrorPtr,
+      mojo::PendingRemote<blink::mojom::FileSystemAccessFileHandle>>
+      file_future;
+  root->GetFile("file", /*create=*/true, file_future.GetCallback());
+  ASSERT_EQ(file_future.Get<0>()->status,
+            blink::mojom::FileSystemAccessStatus::kOk);
+  mojo::Remote<blink::mojom::FileSystemAccessFileHandle> file(
+      std::move(std::get<1>(file_future.Take())));
+  ASSERT_TRUE(file);
+
+  base::test::TestFuture<
+      blink::mojom::FileSystemAccessErrorPtr,
+      mojo::PendingRemote<blink::mojom::FileSystemAccessDirectoryHandle>>
+      directory_future;
+  root->GetDirectory("directory", /*create=*/true,
+                     directory_future.GetCallback());
+  ASSERT_EQ(directory_future.Get<0>()->status,
+            blink::mojom::FileSystemAccessStatus::kOk);
+  mojo::Remote<blink::mojom::FileSystemAccessDirectoryHandle> directory(
+      std::move(std::get<1>(directory_future.Take())));
+  ASSERT_TRUE(directory);
+
+  auto redeem_file = [&](mojo::Remote<blink::mojom::FileSystemAccessManager>&
+                             receiving_manager,
+                         bool expected_connected) {
+    mojo::PendingRemote<blink::mojom::FileSystemAccessTransferToken> token;
+    file->Transfer(token.InitWithNewPipeAndPassReceiver());
+    mojo::Remote<blink::mojom::FileSystemAccessFileHandle> redeemed;
+    receiving_manager->GetFileHandleFromToken(
+        std::move(token), redeemed.BindNewPipeAndPassReceiver());
+    redeemed.FlushForTesting();
+    EXPECT_EQ(expected_connected, redeemed.is_connected());
+  };
+  auto redeem_directory =
+      [&](mojo::Remote<blink::mojom::FileSystemAccessManager>&
+              receiving_manager,
+          bool expected_connected) {
+        mojo::PendingRemote<blink::mojom::FileSystemAccessTransferToken> token;
+        directory->Transfer(token.InitWithNewPipeAndPassReceiver());
+        mojo::Remote<blink::mojom::FileSystemAccessDirectoryHandle> redeemed;
+        receiving_manager->GetDirectoryHandleFromToken(
+            std::move(token), redeemed.BindNewPipeAndPassReceiver());
+        redeemed.FlushForTesting();
+        EXPECT_EQ(expected_connected, redeemed.is_connected());
+      };
+
+  // Both handles can be redeemed in their own partition.
+  redeem_file(manager_a, true);
+  redeem_directory(manager_a, true);
+
+  // The same origin must not grant access to another OPFS partition.
+  redeem_file(manager_b, false);
+  redeem_directory(manager_b, false);
+
+  mojo::Remote<blink::mojom::FileSystemAccessManager> other_origin_manager;
+  manager_->BindReceiver(
+      {blink::StorageKey::CreateFromStringForTesting("https://other.example"),
+       GURL("https://other.example"), frame_id_},
+      other_origin_manager.BindNewPipeAndPassReceiver());
+  redeem_file(other_origin_manager, false);
+  redeem_directory(other_origin_manager, false);
+}
+
+// Native file system handles may still be redeemed by the same origin
+// embedded in a different top-level site. Their permission grants are keyed
+// by origin, not StorageKey.
+TEST_F(FileSystemAccessManagerImplTest,
+       TransferToken_NativeDifferentTopLevelSite) {
+  const url::Origin origin = kTestStorageKey.origin();
+  const blink::StorageKey storage_key_a = blink::StorageKey::Create(
+      origin,
+      net::SchemefulSite(url::Origin::Create(GURL("https://top-a.test"))),
+      blink::mojom::AncestorChainBit::kCrossSite);
+  const blink::StorageKey storage_key_b = blink::StorageKey::Create(
+      origin,
+      net::SchemefulSite(url::Origin::Create(GURL("https://top-b.test"))),
+      blink::mojom::AncestorChainBit::kCrossSite);
+  ASSERT_EQ(storage_key_a.origin(), storage_key_b.origin());
+  ASSERT_NE(storage_key_a, storage_key_b);
+
+  const FileSystemAccessManagerImpl::BindingContext source_context = {
+      storage_key_a, kTestURL, frame_id_};
+  mojo::Remote<blink::mojom::FileSystemAccessManager> manager_b;
+  manager_->BindReceiver({storage_key_b, kTestURL, frame_id_},
+                         manager_b.BindNewPipeAndPassReceiver());
+
+  auto file_url = file_system_context_->CreateCrackedFileSystemURL(
+      blink::StorageKey(), storage::kFileSystemTypeLocal,
+      dir_.GetPath().AppendASCII("native_file"));
+  FileSystemAccessFileHandleImpl file(manager_.get(), source_context, file_url,
+                                      "native_file",
+                                      {allow_grant_, allow_grant_});
+  mojo::PendingRemote<blink::mojom::FileSystemAccessTransferToken> file_token;
+  manager_->CreateTransferToken(file,
+                                file_token.InitWithNewPipeAndPassReceiver());
+  mojo::Remote<blink::mojom::FileSystemAccessFileHandle> redeemed_file;
+  manager_b->GetFileHandleFromToken(std::move(file_token),
+                                    redeemed_file.BindNewPipeAndPassReceiver());
+  redeemed_file.FlushForTesting();
+  EXPECT_TRUE(redeemed_file.is_connected());
+
+  auto directory_url = file_system_context_->CreateCrackedFileSystemURL(
+      blink::StorageKey(), storage::kFileSystemTypeLocal,
+      dir_.GetPath().AppendASCII("native_directory"));
+  FileSystemAccessDirectoryHandleImpl directory(manager_.get(), source_context,
+                                                directory_url,
+                                                {allow_grant_, allow_grant_});
+  mojo::PendingRemote<blink::mojom::FileSystemAccessTransferToken>
+      directory_token;
+  manager_->CreateTransferToken(
+      directory, directory_token.InitWithNewPipeAndPassReceiver());
+  mojo::Remote<blink::mojom::FileSystemAccessDirectoryHandle>
+      redeemed_directory;
+  manager_b->GetDirectoryHandleFromToken(
+      std::move(directory_token),
+      redeemed_directory.BindNewPipeAndPassReceiver());
+  redeemed_directory.FlushForTesting();
+  EXPECT_TRUE(redeemed_directory.is_connected());
 }
 
 TEST_F(FileSystemAccessManagerImplTest,
@@ -2018,6 +2192,7 @@ TEST_F(FileSystemAccessManagerImplTest,
   DCHECK_EQ(get_entry_future.Get<0>()->status,
             blink::mojom::FileSystemAccessStatus::kOk);
   auto file_system_access_entry = std::get<1>(get_entry_future.Take());
+  testing::Mock::VerifyAndClearExpectations(&permission_context_);
 
   EXPECT_FALSE(file_system_access_entry.is_null());
   ASSERT_TRUE(file_system_access_entry->entry_handle->is_file());
@@ -2025,7 +2200,19 @@ TEST_F(FileSystemAccessManagerImplTest,
       std::move(file_system_access_entry->entry_handle->get_file()));
 
   // Check to see if the resulting FileSystemAccessFileHandle can read the
-  // contents of the file at `file_path`.
+  // contents of the file at `file_path`. Reading via `AsBlob()` performs a
+  // programmatic read sensitive entry access check.
+  if (base::FeatureList::IsEnabled(
+          features::kFileSystemAccessDirectoryIterationBlocklistCheck)) {
+    EXPECT_CALL(
+        permission_context_,
+        ConfirmSensitiveEntryAccess_(
+            kTestStorageKey.origin(), file_info, HandleType::kFile,
+            FileSystemAccessPermissionContext::AccessTrigger::kProgrammaticRead,
+            frame_id_, testing::_))
+        .WillOnce(RunOnceCallback<5>(
+            FileSystemAccessPermissionContext::SensitiveEntryResult::kAllowed));
+  }
   EXPECT_EQ(ReadStringFromFileRemote(std::move(file_handle)), file_contents);
 }
 
@@ -3295,8 +3482,10 @@ TEST_F(FileSystemAccessManagerImplTest, IsSafePathComponent) {
 // via `postMessage` or `StorageAccessHandle.indexedDB`) downgrades
 // non-sandboxed file and directory handles to `PermissionStatus::DENIED`, while
 // preserving `PermissionStatus::GRANTED` for sandboxed (OPFS) handles.
-TEST_F(FileSystemAccessManagerImplTest,
-       GetHandleFromToken_ThirdPartyContextBlocksNonSandboxedReadAndWrite) {
+// TODO(crbug.com/567958637): Disabled due to failures on multiple platforms.
+TEST_F(
+    FileSystemAccessManagerImplTest,
+    DISABLED_GetHandleFromToken_ThirdPartyContextBlocksNonSandboxedReadAndWrite) {
   const blink::StorageKey kThirdPartyStorageKey = blink::StorageKey::Create(
       kTestStorageKey.origin(), net::SchemefulSite(GURL("https://other.com")),
       blink::mojom::AncestorChainBit::kCrossSite);

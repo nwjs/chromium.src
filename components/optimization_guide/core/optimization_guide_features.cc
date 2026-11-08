@@ -68,14 +68,16 @@ BASE_FEATURE(kPageTextExtraction,
              "OptimizationGuidePageContentExtraction",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Enables the validation of optimization guide metadata.
-BASE_FEATURE(kOptimizationGuideMetadataValidation,
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 BASE_FEATURE(kPreventLongRunningPredictionModels,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kOverrideNumThreadsForModelExecution,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Enables building the TFLite model execution task (memory mapping, FlatBuffer
+// verification, interpreter initialization) on the background loading thread
+// instead of the execution thread.
+BASE_FEATURE(kBuildTFLiteModelExecutionTaskOnLoadingThread,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Killswitch for fetching on search results from a remote Optimization Guide
@@ -366,12 +368,6 @@ base::TimeDelta ModelExecutionWatchdogDefaultTimeout() {
       ));
 }
 
-bool ShouldMetadataValidationFetchHostKeyed() {
-  DCHECK(base::FeatureList::IsEnabled(kOptimizationGuideMetadataValidation));
-  return GetFieldTrialParamByFeatureAsBool(kOptimizationGuideMetadataValidation,
-                                           "is_host_keyed", true);
-}
-
 bool ShouldDeferStartupActiveTabsHintsFetch() {
   return GetFieldTrialParamByFeatureAsBool(
       kOptimizationHints, "defer_startup_active_tabs_hints_fetch",
@@ -447,7 +443,6 @@ bool IsOnDeviceExecutionEnabled() {
 }
 
 BASE_FEATURE(kOnDeviceModelCachesDiskSpaceCheck,
-             "OnDeviceModelCachesDiskSpaceCheck",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 bool IsFreeDiskSpaceTooLowForOnDeviceModelCachesBuild(

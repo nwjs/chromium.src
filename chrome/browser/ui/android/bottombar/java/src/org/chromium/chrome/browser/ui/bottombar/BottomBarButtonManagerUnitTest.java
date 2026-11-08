@@ -13,7 +13,11 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
+import android.content.Context;
+import android.util.AttributeSet;
 import android.view.View;
+
+import androidx.test.core.app.ApplicationProvider;
 
 import org.junit.After;
 import org.junit.Before;
@@ -23,6 +27,7 @@ import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
+import org.robolectric.Robolectric;
 
 import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.SettableNullableObservableSupplier;
@@ -44,7 +49,6 @@ import java.util.List;
 public class BottomBarButtonManagerUnitTest {
     private static final int HOME = ActionId.HOME_BUTTON;
     private static final int GLIC = ActionId.GLIC;
-    private static final int AI_MODE = ActionId.AI_MODE;
     private static final int NEW_TAB = ActionId.NEW_TAB;
     private static final int TAB_SWITCHER = ActionId.TAB_SWITCHER;
     private static final int APP_MENU = ActionId.APP_MENU;
@@ -53,16 +57,15 @@ public class BottomBarButtonManagerUnitTest {
 
     @Mock private PropertyModelChangeProcessor.ViewBinder<PropertyModel, View, PropertyKey> mBinder;
     @Mock private BottomBarButtonManager.Listener mListener;
-    @Mock private BottomBarButtonContainer mContainerHome;
-    @Mock private BottomBarButtonContainer mContainerExtra;
-    @Mock private BottomBarButtonContainer mContainerNewTab;
-    @Mock private BottomBarButtonContainer mContainerTabSwitcher;
-    @Mock private BottomBarButtonContainer mContainerAppMenu;
     @Mock private ActionRegistry mActionRegistry;
 
+    private BottomBarButtonContainer mContainerHome;
+    private BottomBarButtonContainer mContainerExtra;
+    private BottomBarButtonContainer mContainerNewTab;
+    private BottomBarButtonContainer mContainerTabSwitcher;
+    private BottomBarButtonContainer mContainerAppMenu;
     private SettableNullableObservableSupplier<PropertyModel> mSupplierHome;
     private SettableNullableObservableSupplier<PropertyModel> mSupplierGlic;
-    private SettableNullableObservableSupplier<PropertyModel> mSupplierAiMode;
     private SettableNullableObservableSupplier<PropertyModel> mSupplierNewTab;
     private SettableNullableObservableSupplier<PropertyModel> mSupplierTabSwitcher;
     private SettableNullableObservableSupplier<PropertyModel> mSupplierAppMenu;
@@ -71,18 +74,24 @@ public class BottomBarButtonManagerUnitTest {
 
     @Before
     public void setUp() {
+        Context context = ApplicationProvider.getApplicationContext();
+        AttributeSet attrs = Robolectric.buildAttributeSet().build();
+        mContainerHome = new BottomBarButtonContainer(context, attrs);
+        mContainerExtra = new BottomBarButtonContainer(context, attrs);
+        mContainerNewTab = new BottomBarButtonContainer(context, attrs);
+        mContainerTabSwitcher = new BottomBarButtonContainer(context, attrs);
+        mContainerAppMenu = new BottomBarButtonContainer(context, attrs);
+
         mBottomBarModel = new PropertyModel(BottomBarProperties.ALL_KEYS);
 
         mSupplierHome = ObservableSuppliers.createNullable();
         mSupplierGlic = ObservableSuppliers.createNullable();
-        mSupplierAiMode = ObservableSuppliers.createNullable();
         mSupplierNewTab = ObservableSuppliers.createNullable();
         mSupplierTabSwitcher = ObservableSuppliers.createNullable();
         mSupplierAppMenu = ObservableSuppliers.createNullable();
 
         when(mActionRegistry.get(HOME)).thenReturn(mSupplierHome);
         when(mActionRegistry.get(GLIC)).thenReturn(mSupplierGlic);
-        when(mActionRegistry.get(AI_MODE)).thenReturn(mSupplierAiMode);
         when(mActionRegistry.get(NEW_TAB)).thenReturn(mSupplierNewTab);
         when(mActionRegistry.get(TAB_SWITCHER)).thenReturn(mSupplierTabSwitcher);
         when(mActionRegistry.get(APP_MENU)).thenReturn(mSupplierAppMenu);
@@ -323,7 +332,7 @@ public class BottomBarButtonManagerUnitTest {
                         /* initiallyVisible= */ false));
         configs.add(
                 new BottomBarButtonManager.ActionConfig(
-                        AI_MODE,
+                        HOME,
                         mContainerExtra,
                         mBinder,
                         BottomBarProperties.IS_EXTRA_BUTTON_VISIBLE,
@@ -340,9 +349,9 @@ public class BottomBarButtonManagerUnitTest {
         mManager.setListener(mListener);
 
         PropertyModel glicModel = new PropertyModel();
-        PropertyModel aiModeModel = new PropertyModel();
+        PropertyModel homeModel = new PropertyModel();
         mSupplierGlic.set(glicModel);
-        mSupplierAiMode.set(aiModeModel);
+        mSupplierHome.set(homeModel);
 
         // Neither is visible initially.
         assertFalse(mBottomBarModel.get(BottomBarProperties.IS_EXTRA_BUTTON_VISIBLE));
@@ -352,14 +361,14 @@ public class BottomBarButtonManagerUnitTest {
         assertTrue(mBottomBarModel.get(BottomBarProperties.IS_EXTRA_BUTTON_VISIBLE));
         assertEquals(GLIC, mBottomBarModel.get(BottomBarProperties.EXTRA_BUTTON_ACTION_ID));
 
-        // Switch to AI_MODE.
+        // Switch to HOME.
         mManager.setButtonVisibility(GLIC, false);
-        mManager.setButtonVisibility(AI_MODE, true);
+        mManager.setButtonVisibility(HOME, true);
         assertTrue(mBottomBarModel.get(BottomBarProperties.IS_EXTRA_BUTTON_VISIBLE));
-        assertEquals(AI_MODE, mBottomBarModel.get(BottomBarProperties.EXTRA_BUTTON_ACTION_ID));
+        assertEquals(HOME, mBottomBarModel.get(BottomBarProperties.EXTRA_BUTTON_ACTION_ID));
 
         // Switch back to GLIC.
-        mManager.setButtonVisibility(AI_MODE, false);
+        mManager.setButtonVisibility(HOME, false);
         mManager.setButtonVisibility(GLIC, true);
         assertTrue(mBottomBarModel.get(BottomBarProperties.IS_EXTRA_BUTTON_VISIBLE));
         assertEquals(GLIC, mBottomBarModel.get(BottomBarProperties.EXTRA_BUTTON_ACTION_ID));
@@ -372,11 +381,11 @@ public class BottomBarButtonManagerUnitTest {
 
     @Test
     public void testSharedContainer_RegistrationOrderIndependence() {
-        // Register AI_MODE before GLIC in configs list.
+        // Register HOME before GLIC in configs list.
         List<BottomBarButtonManager.ActionConfig> configs = new ArrayList<>();
         configs.add(
                 new BottomBarButtonManager.ActionConfig(
-                        AI_MODE,
+                        HOME,
                         mContainerExtra,
                         mBinder,
                         BottomBarProperties.IS_EXTRA_BUTTON_VISIBLE,
@@ -402,10 +411,10 @@ public class BottomBarButtonManagerUnitTest {
         mManager.setListener(mListener);
 
         PropertyModel modelGlic = new PropertyModel();
-        PropertyModel modelAiMode = new PropertyModel();
+        PropertyModel modelHome = new PropertyModel();
         PropertyModel modelNewTab = new PropertyModel();
         mSupplierGlic.set(modelGlic);
-        mSupplierAiMode.set(modelAiMode);
+        mSupplierHome.set(modelHome);
         mSupplierNewTab.set(modelNewTab);
 
         // When GLIC is set visible, it correctly sets EXTRA_BUTTON_ACTION_ID even when registered
@@ -414,11 +423,11 @@ public class BottomBarButtonManagerUnitTest {
         assertTrue(mBottomBarModel.get(BottomBarProperties.IS_EXTRA_BUTTON_VISIBLE));
         assertEquals(GLIC, mBottomBarModel.get(BottomBarProperties.EXTRA_BUTTON_ACTION_ID));
 
-        // When switching to AI_MODE.
+        // When switching to HOME.
         mManager.setButtonVisibility(GLIC, /* visible= */ false);
-        mManager.setButtonVisibility(AI_MODE, /* visible= */ true);
+        mManager.setButtonVisibility(HOME, /* visible= */ true);
         assertTrue(mBottomBarModel.get(BottomBarProperties.IS_EXTRA_BUTTON_VISIBLE));
-        assertEquals(AI_MODE, mBottomBarModel.get(BottomBarProperties.EXTRA_BUTTON_ACTION_ID));
+        assertEquals(HOME, mBottomBarModel.get(BottomBarProperties.EXTRA_BUTTON_ACTION_ID));
     }
 
     private BottomBarButtonManager initManager(int centerActionId, int... actions) {
@@ -449,7 +458,6 @@ public class BottomBarButtonManagerUnitTest {
             case HOME:
                 return mContainerHome;
             case GLIC:
-            case AI_MODE:
                 return mContainerExtra;
             case NEW_TAB:
                 return mContainerNewTab;
@@ -467,7 +475,6 @@ public class BottomBarButtonManagerUnitTest {
             case HOME:
                 return BottomBarProperties.IS_HOME_BUTTON_VISIBLE;
             case GLIC:
-            case AI_MODE:
                 return BottomBarProperties.IS_EXTRA_BUTTON_VISIBLE;
             case NEW_TAB:
                 return BottomBarProperties.IS_NEW_TAB_BUTTON_VISIBLE;

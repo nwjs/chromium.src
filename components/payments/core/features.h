@@ -81,13 +81,9 @@ extern const base::FeatureParam<CredentialDiscoveryMode>
 // user-profile database).
 BASE_DECLARE_FEATURE(kSecurePaymentConfirmationStoreCredentialsInOS);
 
-// Used to control the usage of the renderer URL loader in the payment request.
-BASE_DECLARE_FEATURE(kPaymentRequestUseRendererUrlLoader);
-
 // Used to control whether Payment Request/Handler dialogs are rejected if the
 // browser window is too small to contain them.
 BASE_DECLARE_FEATURE(kPaymentRequestRejectTooSmallWindows);
-
 
 // Used to control whether Payment Handler dialog includes an initiator during
 // the URL load.
@@ -101,9 +97,6 @@ BASE_DECLARE_FEATURE(kPaymentHandlerHtmlHeadThemeColor);
 // before resolving a success payment response.
 BASE_DECLARE_FEATURE(kPaymentRequestMandatoryPaymentAppUi);
 
-// Used to control whether camera access is allowed in Payment Handler windows.
-BASE_DECLARE_FEATURE(kPaymentHandlerCameraAccess);
-
 // Used to control whether camera access with interactive permission prompt
 // and indicator is allowed in Payment Handler windows.
 BASE_DECLARE_FEATURE(kPaymentHandlerCameraAccessUx);
@@ -113,6 +106,9 @@ BASE_DECLARE_FEATURE(kSPCLocaleValidation);
 
 // Used to control whether 3D-Secure telemetry is collected.
 BASE_DECLARE_FEATURE(kThreeDSecureTelemetry);
+
+// Used to control whether 3D-Secure telemetry is collected on iOS.
+BASE_DECLARE_FEATURE(kThreeDSecureTelemetryForIos);
 
 // Used to control whether modal dialogs triggered from a web-based payment
 // handler are parented to the Payment Request dialog widget native view

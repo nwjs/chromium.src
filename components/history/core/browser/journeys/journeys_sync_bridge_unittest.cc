@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "base/observer_list.h"
+#include "base/test/metrics/histogram_tester.h"
 #include "base/test/protobuf_matchers.h"
 #include "base/test/task_environment.h"
 #include "components/history/core/browser/history_backend_observer.h"
@@ -57,8 +58,17 @@ constexpr char kTestEmoji[] = "test emoji";
 constexpr char kTestOverview[] = "test overview";
 constexpr char kTestShortOverview[] = "test short overview";
 constexpr int64_t kTestVisitTimestamp = 200;
+constexpr int64_t kOtherVisitTimestamp = 300;
 constexpr char kTestQueryTitle[] = "continuation title";
 constexpr char kTestQueryPrompt[] = "continuation prompt";
+constexpr char kTestCollectionTitle[] = "collection title";
+
+constexpr char kAddOrUpdateSuccessHistogram[] =
+    "History.SyncedJourneys.DatabaseOperationSuccess.AddOrUpdateJourneys";
+constexpr char kDeleteSuccessHistogram[] =
+    "History.SyncedJourneys.DatabaseOperationSuccess.DeleteJourneys";
+constexpr char kDeleteAllSuccessHistogram[] =
+    "History.SyncedJourneys.DatabaseOperationSuccess.DeleteAllJourneys";
 
 JourneySpecifics CreateTestJourneySpecifics(
     const std::string& journey_id = kTestJourneyId,
@@ -72,9 +82,15 @@ JourneySpecifics CreateTestJourneySpecifics(
   specifics.set_short_overview(kTestShortOverview);
   specifics.add_history_entries()->set_visit_timestamp_windows_epoch_micros(
       kTestVisitTimestamp);
-  auto* query = specifics.add_continuation_queries();
+  JourneySpecifics::ContinuationQuery* query =
+      specifics.add_continuation_queries();
   query->set_title(kTestQueryTitle);
   query->set_prompt(kTestQueryPrompt);
+  JourneySpecifics::Collection* collection = specifics.add_collections();
+  collection->set_title(kTestCollectionTitle);
+  collection->add_items()
+      ->mutable_history_entry()
+      ->set_visit_timestamp_windows_epoch_micros(kTestVisitTimestamp);
   return specifics;
 }
 
@@ -91,7 +107,12 @@ JourneyRow CreateTestJourneyRow(const std::string& journey_id = kTestJourneyId,
         {JourneyHistoryEntry(base::Time::FromDeltaSinceWindowsEpoch(
             base::Microseconds(kTestVisitTimestamp)))},
         /*continuation_queries=*/
-        {JourneyContinuationQuery(kTestQueryTitle, kTestQueryPrompt)});
+        {JourneyContinuationQuery(kTestQueryTitle, kTestQueryPrompt)},
+        /*collections=*/
+        {JourneyHistoryEntryCollection(
+            kTestCollectionTitle,
+            {JourneyHistoryEntry(base::Time::FromDeltaSinceWindowsEpoch(
+                base::Microseconds(kTestVisitTimestamp)))})});
   }
   return JourneyRow(journey_id, title, creation_time, /*emoji=*/kTestEmoji);
 }
@@ -310,6 +331,7 @@ TEST_F(JourneysSyncBridgeTest, ApplyIncrementalSyncChangesAdd) {
   add_changes.push_back(syncer::EntityChange::CreateAdd(
       "guid_2", CreateTestJourneyEntityData("guid_2", "Title 2")));
 
+  base::HistogramTester histogram_tester;
   EXPECT_EQ(bridge.ApplyIncrementalSyncChanges(
                 bridge.CreateMetadataChangeList(), std::move(add_changes)),
             std::nullopt);
@@ -319,6 +341,59 @@ TEST_F(JourneysSyncBridgeTest, ApplyIncrementalSyncChangesAdd) {
             CreateTestJourneyRow("guid_1", "Title 1"));
   EXPECT_EQ(fake_backend_.journeys().at("guid_2"),
             CreateTestJourneyRow("guid_2", "Title 2"));
+  histogram_tester.ExpectUniqueSample(kAddOrUpdateSuccessHistogram, true, 1);
+  histogram_tester.ExpectTotalCount(kDeleteSuccessHistogram, 0);
+}
+
+// Collections and their items keep their order in both directions, even when
+// items are not sorted by timestamp, and empty collections are kept.
+TEST_F(JourneysSyncBridgeTest, ConvertsCollectionsInOrderInBothDirections) {
+  JourneysSyncBridge bridge = CreateBridge();
+
+  JourneySpecifics specifics = CreateTestJourneySpecifics();
+  specifics.clear_collections();
+  specifics.add_history_entries()->set_visit_timestamp_windows_epoch_micros(
+      kOtherVisitTimestamp);
+  JourneySpecifics::Collection* first = specifics.add_collections();
+  first->set_title("First");
+  first->add_items()
+      ->mutable_history_entry()
+      ->set_visit_timestamp_windows_epoch_micros(kOtherVisitTimestamp);
+  first->add_items()
+      ->mutable_history_entry()
+      ->set_visit_timestamp_windows_epoch_micros(kTestVisitTimestamp);
+  specifics.add_collections()->set_title("Empty");
+
+  EntityData entity_data;
+  *entity_data.specifics.mutable_journey() = specifics;
+  entity_data.name = kTestJourneyId;
+  syncer::EntityChangeList add_changes;
+  add_changes.push_back(
+      syncer::EntityChange::CreateAdd(kTestJourneyId, std::move(entity_data)));
+  EXPECT_EQ(bridge.ApplyIncrementalSyncChanges(
+                bridge.CreateMetadataChangeList(), std::move(add_changes)),
+            std::nullopt);
+
+  ASSERT_EQ(fake_backend_.journeys().size(), 1u);
+  EXPECT_THAT(
+      fake_backend_.journeys().at(kTestJourneyId).collections,
+      ElementsAre(
+          JourneyHistoryEntryCollection(
+              "First",
+              {JourneyHistoryEntry(base::Time::FromDeltaSinceWindowsEpoch(
+                   base::Microseconds(kOtherVisitTimestamp))),
+               JourneyHistoryEntry(base::Time::FromDeltaSinceWindowsEpoch(
+                   base::Microseconds(kTestVisitTimestamp)))}),
+          JourneyHistoryEntryCollection("Empty", {})));
+
+  std::unique_ptr<syncer::DataBatch> batch = bridge.GetAllDataForDebugging();
+  ASSERT_TRUE(batch);
+  ASSERT_TRUE(batch->HasNext());
+  auto [key, batch_entity_data] = batch->Next();
+  EXPECT_EQ(key, kTestJourneyId);
+  ASSERT_TRUE(batch_entity_data);
+  EXPECT_THAT(batch_entity_data->specifics.journey(), EqualsProto(specifics));
+  EXPECT_FALSE(batch->HasNext());
 }
 
 TEST_F(JourneysSyncBridgeTest, ApplyIncrementalSyncChangesUpdate) {
@@ -361,6 +436,7 @@ TEST_F(JourneysSyncBridgeTest, ApplyIncrementalSyncChangesDelete) {
   delete_changes.push_back(syncer::EntityChange::CreateDelete(
       "guid_1", CreateTestJourneyEntityData("guid_1")));
 
+  base::HistogramTester histogram_tester;
   EXPECT_EQ(bridge.ApplyIncrementalSyncChanges(
                 bridge.CreateMetadataChangeList(), std::move(delete_changes)),
             std::nullopt);
@@ -368,6 +444,8 @@ TEST_F(JourneysSyncBridgeTest, ApplyIncrementalSyncChangesDelete) {
   EXPECT_EQ(fake_backend_.journeys().size(), 1u);
   EXPECT_FALSE(fake_backend_.journeys().contains("guid_1"));
   EXPECT_TRUE(fake_backend_.journeys().contains("guid_2"));
+  histogram_tester.ExpectUniqueSample(kDeleteSuccessHistogram, true, 1);
+  histogram_tester.ExpectTotalCount(kAddOrUpdateSuccessHistogram, 0);
 }
 
 TEST_F(JourneysSyncBridgeTest,
@@ -385,6 +463,7 @@ TEST_F(JourneysSyncBridgeTest,
   changes.push_back(syncer::EntityChange::CreateAdd(
       "guid_1", CreateTestJourneyEntityData("guid_1", "Re-added Title")));
 
+  base::HistogramTester histogram_tester;
   EXPECT_EQ(bridge.ApplyIncrementalSyncChanges(
                 bridge.CreateMetadataChangeList(), std::move(changes)),
             std::nullopt);
@@ -395,6 +474,8 @@ TEST_F(JourneysSyncBridgeTest,
   ASSERT_TRUE(fake_backend_.journeys().contains("guid_1"));
   EXPECT_EQ(fake_backend_.journeys().at("guid_1"),
             CreateTestJourneyRow("guid_1", "Re-added Title"));
+  histogram_tester.ExpectUniqueSample(kDeleteSuccessHistogram, true, 1);
+  histogram_tester.ExpectUniqueSample(kAddOrUpdateSuccessHistogram, true, 1);
 }
 
 TEST_F(JourneysSyncBridgeTest, MergeFullSyncDataAppliesRemoteData) {
@@ -422,24 +503,34 @@ TEST_F(JourneysSyncBridgeTest, MergeFullSyncDataBackendError) {
   changes.push_back(syncer::EntityChange::CreateAdd(
       "new_guid", CreateTestJourneyEntityData("new_guid", "New Title")));
 
+  base::HistogramTester histogram_tester;
   EXPECT_THAT(
       bridge.MergeFullSyncData(bridge.CreateMetadataChangeList(),
                                std::move(changes)),
       HasModelErrorType(syncer::ModelError::Type::kJourneysDatabaseError));
+
+  histogram_tester.ExpectUniqueSample(kAddOrUpdateSuccessHistogram, false, 1);
 }
 
 TEST_F(JourneysSyncBridgeTest, ApplyIncrementalSyncChangesBackendError) {
   JourneysSyncBridge bridge = CreateBridge();
   fake_backend_.set_fail_operations(true);
 
-  syncer::EntityChangeList add_changes;
-  add_changes.push_back(syncer::EntityChange::CreateAdd(
-      "guid_1", CreateTestJourneyEntityData("guid_1", "Title 1")));
+  syncer::EntityChangeList changes;
+  changes.push_back(syncer::EntityChange::CreateDelete(
+      "guid_1", CreateTestJourneyEntityData("guid_1")));
+  changes.push_back(syncer::EntityChange::CreateAdd(
+      "guid_2", CreateTestJourneyEntityData("guid_2", "Title 2")));
 
+  base::HistogramTester histogram_tester;
   EXPECT_THAT(
       bridge.ApplyIncrementalSyncChanges(bridge.CreateMetadataChangeList(),
-                                         std::move(add_changes)),
+                                         std::move(changes)),
       HasModelErrorType(syncer::ModelError::Type::kJourneysDatabaseError));
+
+  // The failed deletion aborts the batch before additions are attempted.
+  histogram_tester.ExpectUniqueSample(kDeleteSuccessHistogram, false, 1);
+  histogram_tester.ExpectTotalCount(kAddOrUpdateSuccessHistogram, 0);
 }
 
 TEST_F(JourneysSyncBridgeTest,
@@ -502,6 +593,7 @@ TEST_F(JourneysSyncBridgeTest,
   EXPECT_TRUE(db_.sync_metadata_db()->UpdateDataTypeState(syncer::JOURNEY,
                                                           data_type_state));
 
+  base::HistogramTester histogram_tester;
   bridge.ApplyDisableSyncChanges(bridge.CreateMetadataChangeList());
 
   syncer::MetadataBatch metadata_batch;
@@ -509,6 +601,33 @@ TEST_F(JourneysSyncBridgeTest,
   EXPECT_EQ(metadata_batch.GetAllMetadata().size(), 0u);
   EXPECT_THAT(metadata_batch.GetDataTypeState(), EqualsProto(DataTypeState()));
   EXPECT_EQ(fake_backend_.journeys().size(), 0u);
+  histogram_tester.ExpectUniqueSample(kDeleteAllSuccessHistogram, true, 1);
+}
+
+TEST_F(JourneysSyncBridgeTest, ApplyDisableSyncChangesBackendError) {
+  JourneysSyncBridge bridge = CreateBridge();
+
+  EntityMetadata metadata;
+  metadata.set_client_tag_hash("test_hash");
+  EXPECT_TRUE(
+      db_.UpdateEntityMetadata(syncer::JOURNEY, kTestJourneyId, metadata));
+
+  DataTypeState data_type_state;
+  data_type_state.set_initial_sync_state(
+      sync_pb::DataTypeState_InitialSyncState_INITIAL_SYNC_DONE);
+  EXPECT_TRUE(db_.sync_metadata_db()->UpdateDataTypeState(syncer::JOURNEY,
+                                                          data_type_state));
+
+  fake_backend_.set_fail_operations(true);
+  base::HistogramTester histogram_tester;
+  bridge.ApplyDisableSyncChanges(bridge.CreateMetadataChangeList());
+
+  // Sync metadata is cleared even if deleting the journeys fails.
+  syncer::MetadataBatch metadata_batch;
+  EXPECT_TRUE(db_.GetAllSyncMetadata(&metadata_batch));
+  EXPECT_EQ(metadata_batch.GetAllMetadata().size(), 0u);
+  EXPECT_THAT(metadata_batch.GetDataTypeState(), EqualsProto(DataTypeState()));
+  histogram_tester.ExpectUniqueSample(kDeleteAllSuccessHistogram, false, 1);
 }
 
 TEST_F(JourneysSyncBridgeTest, LoadMetadataReportsErrorOnCorruptedData) {

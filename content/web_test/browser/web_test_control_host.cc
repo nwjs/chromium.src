@@ -21,6 +21,7 @@
 #include "base/base64.h"
 #include "base/command_line.h"
 #include "base/compiler_specific.h"
+#include "base/containers/to_vector.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/functional/bind.h"
@@ -45,13 +46,13 @@
 #include "components/subresource_filter/core/common/test_ruleset_creator.h"
 #include "components/subresource_filter/core/common/test_ruleset_utils.h"
 #include "components/viz/common/frame_sinks/copy_output_result.h"
-#include "content/browser/in_memory_federated_permission_context.h"
 #include "content/browser/renderer_host/frame_tree.h"
 #include "content/browser/renderer_host/frame_tree_node.h"
 #include "content/browser/renderer_host/navigation_request.h"
 #include "content/browser/screen_orientation/screen_orientation_provider.h"
 #include "content/browser/security/cpsp/child_process_security_policy_impl.h"
 #include "content/browser/web_contents/web_contents_impl.h"
+#include "content/browser/webid/in_memory_federated_permission_context.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/child_process_termination_info.h"
 #include "content/public/browser/client_hints_controller_delegate.h"
@@ -112,7 +113,6 @@
 #include "third_party/blink/public/common/unique_name/unique_name_helper.h"
 #include "ui/base/ui_base_switches.h"
 #include "ui/gfx/codec/png_codec.h"
-#include "ui/shell_dialogs/select_file_dialog.h"
 #include "url/gurl.h"
 #include "url/url_constants.h"
 
@@ -750,7 +750,7 @@ void WebTestControlHost::ResetBrowserAfterWebTest() {
 
   ShellBrowserContext* browser_context =
       ShellContentBrowserClient::Get()->browser_context();
-  static_cast<InMemoryFederatedPermissionContext*>(
+  static_cast<webid::InMemoryFederatedPermissionContext*>(
       browser_context->GetFederatedIdentityPermissionContext())
       ->ResetForTesting();
 
@@ -781,7 +781,8 @@ void WebTestControlHost::ResetBrowserAfterWebTest() {
         network::mojom::CookieDeletionFilter::New(), base::DoNothing());
   }
 
-  ui::SelectFileDialog::SetFactory(nullptr);
+  select_file_dialog_automation_receivers_.Clear();
+  fake_file_dialog_factory_.reset();
   {
     base::ScopedAllowBlockingForTesting allow_blocking;
     if (writable_directory_for_tests_.IsValid()) {
@@ -848,7 +849,7 @@ void WebTestControlHost::InitiateCaptureDump(
   renderer_dump_result_ = std::move(renderer_dump_result);
 
   if (capture_navigation_history) {
-    for (auto* window : Shell::windows()) {
+    for (Shell* window : Shell::windows()) {
       WebContents* web_contents = window->web_contents();
       // Only dump the main test window, and windows that it opened. This avoids
       // devtools windows specifically.
@@ -1224,6 +1225,23 @@ void WebTestControlHost::HandleNewRenderFrameHost(RenderFrameHost* frame) {
   RenderProcessHost* process_host = frame->GetProcess();
   RenderViewHost* view_host = frame->GetRenderViewHost();
 
+  // Is this a previously unknown renderer process_host (for this test)?
+  const bool new_process_host =
+      !render_process_host_observations_.IsObservingSource(process_host);
+
+  // A renderer process that is seen for the first time during this test may
+  // still be a process that was reused from a previous test, e.g. a process
+  // that hosted an out-of-process iframe and was kept alive to be reused for
+  // same-site navigations. Only the process hosting the main window's main
+  // frame receives ResetRendererAfterWebTest() between tests, so any other
+  // reused process still carries the TestRunner state of the previous test
+  // (such as |did_notify_done_|), which could end the new test prematurely.
+  // Reset that state now, before configuring the renderer for this test below.
+  // The main frame's process is reset again here, which is harmless.
+  if (new_process_host) {
+    GetWebTestRenderFrameRemote(frame)->ResetTestRunnerForNewWebTest();
+  }
+
   // If this the first time this renderer contains parts of the main test
   // window, we need to make sure that it gets configured correctly (including
   // letting it know that it's part of the main test window).
@@ -1265,7 +1283,7 @@ void WebTestControlHost::HandleNewRenderFrameHost(RenderFrameHost* frame) {
   }
 
   // Is this a previously unknown renderer process_host?
-  if (!render_process_host_observations_.IsObservingSource(process_host)) {
+  if (new_process_host) {
     render_process_host_observations_.AddObservation(process_host);
     all_observed_render_process_hosts_.insert(process_host);
 
@@ -1603,12 +1621,9 @@ void WebTestControlHost::GetWritableDirectory(
   std::move(reply).Run(writable_directory_for_tests_.GetPath());
 }
 
-
 void WebTestControlHost::SetFilePathForMockFileDialog(
     const base::FilePath& path) {
-  ui::SelectFileDialog::SetFactory(
-      std::make_unique<FakeSelectFileDialogFactory>(
-          std::vector<base::FilePath>{path}));
+  fake_file_dialog_factory_.emplace(std::vector<base::FilePath>{path});
 }
 
 void WebTestControlHost::CreateSubresourceFilterRulesetFile(
@@ -1706,25 +1721,26 @@ void WebTestControlHost::WebTestRuntimeFlagsChanged(
   web_test_runtime_flags_.tracked_dictionary().ApplyUntrackedChanges(
       accumulated_web_test_runtime_flags_changes_);
 
-  base::flat_map<int, mojom::WebTestRenderFrame*> process_to_frame_map;
-
-  // Propagate the changes to all the renderer processes, we only
-  // need to send it once per process so we build a list of the first
-  // frame we find per process.
-  for (auto& item : web_test_render_frame_map_) {
-    // TODO(crbug.com/379869738) Remove GetUnsafeValue.
-    if (item.first.child_id.GetUnsafeValue() == render_process_id) {
-      continue;
-    }
-    // TODO(crbug.com/379869738) Remove GetUnsafeValue.
-    process_to_frame_map.emplace(item.first.child_id.GetUnsafeValue(),
-                                 item.second.get());
-  }
-
-  // Then we send the new flags to those frames.
-  for (auto [id, frame] : process_to_frame_map) {
-    frame->ReplicateWebTestRuntimeFlagsChanges(
-        changed_web_test_runtime_flags.Clone());
+  // Propagate the changes to all the other renderer processes. With
+  // RenderDocument, a process can have multiple frames where the previous
+  // frame is already swapped out in the renderer while a speculative frame is
+  // about to commit, so send the new flags to every live frame (including
+  // speculative ones) across all windows.
+  for (Shell* window : Shell::windows()) {
+    static_cast<WebContentsImpl*>(window->web_contents())
+        ->ForEachRenderFrameHostImplIncludingSpeculative(
+            [&](RenderFrameHostImpl* render_frame_host) {
+              if (!render_frame_host->IsRenderFrameLive()) {
+                return;
+              }
+              if (render_frame_host->GetProcess()->GetDeprecatedID() ==
+                  render_process_id) {
+                return;
+              }
+              GetWebTestRenderFrameRemote(render_frame_host)
+                  ->ReplicateWebTestRuntimeFlagsChanges(
+                      changed_web_test_runtime_flags.Clone());
+            });
   }
 }
 
@@ -1957,7 +1973,7 @@ void WebTestControlHost::PrepareRendererForNextWebTest() {
           /*context=*/"", "disabled"));
 
   // Flush all the back/forward cache to avoid side effects in the next test.
-  for (auto* shell : Shell::windows()) {
+  for (Shell* shell : Shell::windows()) {
     shell->web_contents()->GetController().GetBackForwardCache().Flush();
   }
 
@@ -2080,10 +2096,11 @@ void WebTestControlHost::OnLeakDetectionDone(
 
 void WebTestControlHost::CloseTestOpenedWindows() {
   DevToolsAgentHost::DetachAllClients();
-  std::vector<Shell*> open_windows(Shell::windows());
-  for (auto* shell : open_windows) {
-    if (shell != main_window_)
+  std::vector<Shell*> open_windows(std::from_range, Shell::windows());
+  for (Shell* shell : open_windows) {
+    if (shell != main_window_) {
       shell->Close();
+    }
   }
   secondary_window_ = nullptr;
   base::RunLoop().RunUntilIdle();
@@ -2162,6 +2179,25 @@ void WebTestControlHost::BindWebTestControlHostForRenderer(
 void WebTestControlHost::BindNonAssociatedWebTestControlHost(
     mojo::PendingReceiver<mojom::NonAssociatedWebTestControlHost> receiver) {
   non_associated_receiver_bindings_.Add(this, std::move(receiver));
+}
+
+void WebTestControlHost::BindSelectFileDialogAutomation(
+    mojo::PendingReceiver<blink::test::mojom::SelectFileDialogAutomation>
+        receiver) {
+  select_file_dialog_automation_receivers_.Add(this, std::move(receiver));
+}
+
+void WebTestControlHost::SetSelectFileDialogResult(
+    const std::optional<std::vector<base::FilePath>>& paths,
+    SetSelectFileDialogResultCallback callback) {
+  if (paths.has_value() && paths->empty()) {
+    select_file_dialog_automation_receivers_.ReportBadMessage(
+        "paths must not be empty");
+    std::move(callback).Run();
+    return;
+  }
+  fake_file_dialog_factory_.emplace(paths);
+  std::move(callback).Run();
 }
 
 mojo::AssociatedRemote<mojom::WebTestRenderFrame>&

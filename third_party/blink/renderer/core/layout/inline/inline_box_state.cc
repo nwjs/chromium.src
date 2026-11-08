@@ -4,7 +4,8 @@
 
 #include "third_party/blink/renderer/core/layout/inline/inline_box_state.h"
 
-#include "base/containers/adapters.h"
+#include <ranges>
+
 #include "third_party/blink/renderer/core/layout/box_fragment_builder.h"
 #include "third_party/blink/renderer/core/layout/geometry/logical_offset.h"
 #include "third_party/blink/renderer/core/layout/geometry/logical_size.h"
@@ -309,7 +310,8 @@ InlineBoxState* InlineLayoutStateStack::OnBeginPlaceItems(
         DCHECK_NE(&box, stack_.data());
         TextFitBlockScale text_block_scale{line_info.TextFitScale(), nullptr};
         AddBoxFragmentPlaceholder(&box, text_block_scale, line_box,
-                                  baseline_type);
+                                  baseline_type,
+                                  /*has_non_empty_inline_box_start=*/false);
       }
       // For `kLineClampDisplacedEllipsis`, we reset all text metrics. The root
       // inline box does need a strut, but `box.text_metrics` could be empty in
@@ -382,8 +384,10 @@ InlineBoxState* InlineLayoutStateStack::OnOpenTag(
       OnOpenTag(space, item, item_result, baseline_type, *line_box);
   box->text_fit_scale = text_scale.TotalScale(*box->font);
   box->needs_box_fragment = item.ShouldCreateBoxFragment();
-  if (box->needs_box_fragment)
-    AddBoxFragmentPlaceholder(box, text_scale, line_box, baseline_type);
+  if (box->needs_box_fragment) {
+    AddBoxFragmentPlaceholder(box, text_scale, line_box, baseline_type,
+                              !item.IsEmptyItem());
+  }
   return box;
 }
 
@@ -503,7 +507,8 @@ void InlineLayoutStateStack::AddBoxFragmentPlaceholder(
     InlineBoxState* box,
     const TextFitBlockScale& text_scale,
     LogicalLineItems* line_box,
-    FontBaseline baseline_type) {
+    FontBaseline baseline_type,
+    bool has_non_empty_inline_box_start) {
   DCHECK(box != stack_.data() &&
          box->item->Type() != InlineItem::kAtomicInline);
   box->has_box_placeholder = true;
@@ -554,8 +559,10 @@ void InlineLayoutStateStack::AddBoxFragmentPlaceholder(
     block_size = metrics.LineHeight() + box->borders.BlockSum() +
                  box->padding.BlockSum();
   }
-  line_box->AddChild(block_offset, block_size);
-  DCHECK((*line_box)[line_box->size() - 1].IsPlaceholder());
+  LogicalLineItem placeholder(block_offset, block_size);
+  placeholder.has_non_empty_inline_box_start = has_non_empty_inline_box_start;
+  CHECK(placeholder.IsPlaceholder());
+  line_box->AddChild(std::move(placeholder));
 }
 
 // Add a |BoxData|, for each close-tag that needs a box fragment.
@@ -808,7 +815,7 @@ void InlineLayoutStateStack::UpdateFragmentedBoxDataEdges(
               DCHECK_NE(a.fragment_start, b.fragment_start);
               return a.fragment_start < b.fragment_start;
             });
-  for (BoxData& fragmented_box : base::Reversed(*fragmented_boxes)) {
+  for (BoxData& fragmented_box : std::views::reverse(*fragmented_boxes)) {
     // Insert the fragmented box to right after the box it was fragmented from.
     // The order in the |box_data_list_| is critical when propagating child
     // fragment data such as OOF to ancestors.

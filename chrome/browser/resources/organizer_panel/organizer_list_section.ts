@@ -2,34 +2,29 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import '//resources/cr_elements/cr_icon/cr_icon.js';
-import '//resources/cr_elements/cr_url_list_item/cr_url_list_item.js';
+import '//resources/cr_elements/cr_collapse/cr_collapse.js';
+import './organizer_list_section_header.js';
 import './organizer_list_section_item.js';
 
-import type {CrUrlListItemElement} from '//resources/cr_elements/cr_url_list_item/cr_url_list_item.js';
 import {assert} from '//resources/js/assert.js';
-import {loadTimeData} from '//resources/js/load_time_data.js';
-import type {PropertyValues} from '//resources/lit/v3_0/lit.rollup.js';
+import type {PropertyValues, TemplateResult} from '//resources/lit/v3_0/lit.rollup.js';
 import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
 
 import {getCss} from './organizer_list_section.css.js';
 import {getHtml} from './organizer_list_section.html.js';
 import type {OrganizerListSectionClient, OrganizerListSectionDelegate} from './organizer_list_section_delegate.js';
+import type {OrganizerListSectionHeaderElement} from './organizer_list_section_header.js';
 import type {HighlightableOrganizerListSectionItem, OrganizerListSectionItem, OrganizerListSectionItemElement} from './organizer_list_section_item.js';
-import type {BrowserProxy} from './organizer_panel.mojom-webui.js';
+import type {BrowserProxy, SectionState} from './organizer_panel.mojom-webui.js';
 import {browserProxyFactory} from './organizer_panel.mojom-webui.js';
 import type {SearchOptions} from './search_utils.js';
 import {search} from './search_utils.js';
 
-/**
- * This is the number of items in a section that are rendered before the "Show
- * more" option.
- */
 export const INITIAL_ITEM_COUNT = 3;
 
 export interface OrganizerListSectionElement {
   $: {
-    header: HTMLElement,
+    header: OrganizerListSectionHeaderElement,
   };
 }
 
@@ -51,24 +46,27 @@ export class OrganizerListSectionElement extends CrLitElement implements
     return {
       delegate: {type: Object},
       items: {type: Array},
-      expanded_: {
-        type: Boolean,
-        reflect: true,
-      },
-      shouldRenderRemainingItems_: {type: Boolean},
+      expanded_: {type: Boolean},
+      noAnimation_: {type: Boolean},
+      showAll_: {type: Boolean},
       searchQuery: {type: String},
       filteredItems_: {type: Array},
       filteredSearchQuery_: {type: String},
+      hidden: {
+        type: Boolean,
+        reflect: true,
+        notify: true,
+      },
     };
   }
 
   private browserProxy_: BrowserProxy = browserProxyFactory.getInstance();
+  private sectionStateChangedListenerId_: number|null = null;
   accessor delegate: OrganizerListSectionDelegate<unknown>|null = null;
   accessor items: Array<OrganizerListSectionItem<unknown>> = [];
-  protected accessor expanded_: boolean = false;
-  // True while overflow items should be populated in the DOM (from when
-  // expansion starts until the collapse transition finishes).
-  private accessor shouldRenderRemainingItems_: boolean = false;
+  protected accessor expanded_: boolean = true;
+  protected accessor noAnimation_: boolean = false;
+  protected accessor showAll_: boolean = false;
   accessor searchQuery: string = '';
   protected accessor filteredItems_:
       Array<HighlightableOrganizerListSectionItem<unknown>> = [];
@@ -76,6 +74,7 @@ export class OrganizerListSectionElement extends CrLitElement implements
   // ensures that we don't show the full list of elements until after the search
   // has been applied and the list of items has been filtered.
   protected accessor filteredSearchQuery_: string = '';
+  override accessor hidden: boolean = false;
 
   private searchOptions_:
       SearchOptions<HighlightableOrganizerListSectionItem<unknown>> = {
@@ -105,17 +104,27 @@ export class OrganizerListSectionElement extends CrLitElement implements
   private onVisibilityChange_: () => void = () => {
     if (document.visibilityState === 'visible') {
       this.updateItems_();
+      this.updateSectionState_();
     }
   };
 
   override connectedCallback() {
     super.connectedCallback();
     document.addEventListener('visibilitychange', this.onVisibilityChange_);
+    this.sectionStateChangedListenerId_ =
+        this.browserProxy_.callbackRouter.onSectionsStateChanged.addListener(
+            (sectionsState: Record<string, SectionState>) => {
+              this.onSectionsStateChanged_(sectionsState);
+            });
   }
 
   override disconnectedCallback() {
     super.disconnectedCallback();
     document.removeEventListener('visibilitychange', this.onVisibilityChange_);
+    assert(this.sectionStateChangedListenerId_ !== null);
+    this.browserProxy_.callbackRouter.removeListener(
+        this.sectionStateChangedListenerId_);
+    this.sectionStateChangedListenerId_ = null;
   }
 
   override willUpdate(changedProperties: PropertyValues<this>) {
@@ -124,38 +133,15 @@ export class OrganizerListSectionElement extends CrLitElement implements
     if (changedProperties.has('delegate')) {
       this.delegate?.init(this);
       this.updateItems_();
+      this.updateSectionState_();
     }
 
-    if (changedProperties.has('items') ||
-        changedProperties.has('searchQuery')) {
+    if (changedProperties.has('searchQuery') ||
+        (changedProperties.has('items') && !this.isSearching_())) {
       this.updateFilteredItems_();
     }
 
-    if (this.expanded_) {
-      this.shouldRenderRemainingItems_ = true;
-    }
-  }
-
-  override updated(changedProperties: PropertyValues<this>) {
-    super.updated(changedProperties);
-    this.updateExpandButtonAriaExpanded_();
-  }
-
-  /**
-   * `<cr-url-list-item>` has no `aria-expanded` property, so set the attribute
-   * directly on the focusable element it exposes. Awaiting the button's own
-   * first update is required: this runs before a newly created child element
-   * has rendered its shadow DOM, so its focusable element does not exist yet.
-   */
-  private async updateExpandButtonAriaExpanded_() {
-    const expandButton =
-        this.shadowRoot.querySelector<CrUrlListItemElement>('#expandButton');
-    if (!expandButton) {
-      return;
-    }
-    await expandButton.updateComplete;
-    expandButton.getFocusableElement().setAttribute(
-        'aria-expanded', this.expanded_ ? 'true' : 'false');
+    this.hidden = this.hasNoSearchResults_();
   }
 
   onItemsChanged(items: Array<OrganizerListSectionItem<unknown>>) {
@@ -168,6 +154,32 @@ export class OrganizerListSectionElement extends CrLitElement implements
       return;
     }
     this.items = await this.delegate.getItems();
+  }
+
+  private async updateSectionState_() {
+    if (!this.delegate) {
+      return;
+    }
+    const delegate = this.delegate;
+    const {state} =
+        await this.browserProxy_.handler.getSectionState(delegate.getId());
+    if (this.delegate !== delegate) {
+      return;
+    }
+    // Disable the transition when the expanded state is loaded from prefs.
+    this.noAnimation_ = true;
+    this.expanded_ = state.expanded;
+    this.showAll_ = state.showAll;
+    await this.updateComplete;
+    this.noAnimation_ = false;
+  }
+
+  private onSectionsStateChanged_(sectionsState: Record<string, SectionState>) {
+    assert(this.delegate);
+    const state = sectionsState[this.delegate.getId()];
+    assert(state);
+    this.expanded_ = state.expanded;
+    this.showAll_ = state.showAll;
   }
 
   private async updateFilteredItems_() {
@@ -186,52 +198,60 @@ export class OrganizerListSectionElement extends CrLitElement implements
     }
   }
 
-  private isSearching_(): boolean {
+  expand() {
+    if (this.expanded_) {
+      return;
+    }
+    this.expanded_ = true;
+    assert(this.delegate);
+    this.browserProxy_.handler.setSectionExpanded(this.delegate.getId(), true);
+  }
+
+  protected hasContextMenu_(): boolean {
+    return !!this.delegate?.onItemContextMenuClicked;
+  }
+
+  protected isSearching_(): boolean {
     return this.filteredSearchQuery_.length > 0;
   }
 
-  protected getInitialItems_():
-      Array<HighlightableOrganizerListSectionItem<unknown>> {
-    if (this.isSearching_()) {
-      return this.getFilteredItems_();
-    }
-    return this.getFilteredItems_().slice(0, INITIAL_ITEM_COUNT);
+  protected isExpanded_(): boolean {
+    return this.expanded_ || this.isSearching_();
   }
 
-  protected getRemainingItems_():
-      Array<HighlightableOrganizerListSectionItem<unknown>> {
-    if (!this.shouldRenderRemainingItems_ || this.isSearching_()) {
-      return [];
-    }
-    return this.getFilteredItems_().slice(INITIAL_ITEM_COUNT);
-  }
-
-  protected hasMoreItems_(): boolean {
-    return !this.isSearching_() &&
-        this.getFilteredItems_().length > INITIAL_ITEM_COUNT;
-  }
-
-  protected hasNoSearchResults_(): boolean {
+  private hasNoSearchResults_(): boolean {
     return this.isSearching_() && this.getFilteredItems_().length === 0;
   }
 
-  protected getExpandButtonLabel_(): string {
-    return loadTimeData.getString(this.expanded_ ? 'showLess' : 'showMore');
-  }
-
-  protected getExpandButtonIcon_(): string {
-    return this.expanded_ ? 'cr:keyboard-arrow-up' : 'cr:keyboard-arrow-down';
-  }
-
-  protected onExpandButtonClick_() {
-    this.expanded_ = !this.expanded_;
-  }
-
-  protected onCollapseTransitionend_(e: TransitionEvent) {
-    if (e.target === e.currentTarget && e.propertyName === 'height' &&
-        !this.expanded_) {
-      this.shouldRenderRemainingItems_ = false;
+  protected onExpandedChanged_(e: CustomEvent<{value: boolean}>) {
+    if (this.isSearching_() || this.expanded_ === e.detail.value) {
+      return;
     }
+    this.expanded_ = e.detail.value;
+    assert(this.delegate);
+    this.browserProxy_.handler.setSectionExpanded(
+        this.delegate.getId(), this.expanded_);
+  }
+
+  protected hasZeroState_(): boolean {
+    return !this.isSearching_() &&
+        (this.getFilteredItems_().length === 0 ||
+         !!this.delegate?.shouldAlwaysShowZeroState?.()) &&
+        !!this.getZeroState_();
+  }
+
+  protected getZeroState_(): TemplateResult|undefined {
+    return this.delegate?.getZeroState?.();
+  }
+
+  protected onShowAllChanged_(e: CustomEvent<{value: boolean}>) {
+    if (this.showAll_ === e.detail.value) {
+      return;
+    }
+    this.showAll_ = e.detail.value;
+    assert(this.delegate);
+    this.browserProxy_.handler.setSectionShowAll(
+        this.delegate.getId(), this.showAll_);
   }
 
   protected onItemClick_(e: Event) {
@@ -268,7 +288,10 @@ export class OrganizerListSectionElement extends CrLitElement implements
 
   protected getFilteredItems_():
       Array<HighlightableOrganizerListSectionItem<unknown>> {
-    return this.filteredItems_;
+    if (this.showAll_ || this.isSearching_()) {
+      return this.filteredItems_;
+    }
+    return this.filteredItems_.slice(0, INITIAL_ITEM_COUNT);
   }
 }
 

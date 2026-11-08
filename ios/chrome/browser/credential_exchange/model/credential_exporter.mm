@@ -84,7 +84,8 @@
 
   for (const password_manager::CredentialUIEntry& credential : passwords) {
     NSString* username = base::SysUTF16ToNSString(credential.username) ?: @"";
-    NSString* password = base::SysUTF16ToNSString(credential.password) ?: @"";
+    NSString* password =
+        base::SysUTF16ToNSString(credential.password.secure_value()) ?: @"";
     NSString* note = base::SysUTF16ToNSString(credential.note) ?: @"";
     NSURL* URL =
         net::NSURLWithGURL(credential.GetURL()) ?: [NSURL URLWithString:@""];
@@ -181,8 +182,10 @@
                  (const webauthn::SharedKeyList&)trustedVaultKeys {
   sync_pb::WebauthnCredentialSpecifics_Encrypted decrypted;
   for (const webauthn::SharedKey& trustedVaultKey : trustedVaultKeys) {
+    // TODO(crbug.com/405036154): Pass the device authorization key.
     if (webauthn::passkey_model_utils::DecryptWebauthnCredentialSpecificsData(
-            trustedVaultKey, passkey, &decrypted)) {
+            trustedVaultKey, /*device_authorization_key=*/{}, passkey,
+            &decrypted)) {
       return decrypted;
     }
   }

@@ -9,7 +9,6 @@ import '//resources/cr_elements/cr_icon_button/cr_icon_button.js';
 import '//resources/cr_elements/cr_lazy_render/cr_lazy_render_lit.js';
 import '//resources/cr_elements/icons.html.js';
 import './favicon_group.js';
-import './reopen_tabs.js';
 import './sources_menu.js';
 import './overflow_menu.js';
 // <if expr="not is_android">
@@ -33,8 +32,6 @@ import {CrLitElement} from 'chrome://resources/lit/v3_0/lit.rollup.js';
 import type {PropertyValues} from 'chrome://resources/lit/v3_0/lit.rollup.js';
 
 import type {ContextInfo} from './contextual_tasks_toolbar.mojom-webui.js';
-import type {BrowserProxy} from './contextual_tasks_browser_proxy.js';
-import {BrowserProxyImpl} from './contextual_tasks_browser_proxy.js';
 import {ToolbarBrowserProxyImpl} from './contextual_tasks_toolbar_browser_proxy.js';
 import type {OverflowMenuElement} from './overflow_menu.js';
 import type {SourcesMenuElement} from './sources_menu.js';
@@ -91,7 +88,6 @@ export class TopToolbarElement extends TopToolbarElementBase {
       },
       title: {type: String},
       hideOverflowMenuButton_: {type: Boolean},
-      showReopenTabs_: {type: Boolean},
       isExpandButtonEnabled: {type: Boolean},
       isPinButtonEnabled: {type: Boolean},
       isPinned: {type: Boolean},
@@ -115,6 +111,7 @@ export class TopToolbarElement extends TopToolbarElementBase {
       webuiRoundedIconsEnabled_: {type: Boolean},
       permissionDashboardState: {type: Object},
       permissionChipDelegate_: {type: Object},
+      profileAvatarUrl: {type: String},
     };
   }
 
@@ -126,18 +123,19 @@ export class TopToolbarElement extends TopToolbarElementBase {
   accessor isCobrowseEligible: boolean =
       loadTimeData.getBoolean('isCobrowseEligible');
   accessor permissionDashboardState: PermissionDashboardState|null = null;
+  accessor profileAvatarUrl: string =
+      loadTimeData.valueExists('profileAvatarUrl') ?
+      loadTimeData.getString('profileAvatarUrl') :
+      '';
   protected accessor isSidePanelRearchitectureEnabled_: boolean =
       loadTimeData.getBoolean('contextualTasksSidePanelRearchitectureEnabled');
   accessor isUserSignedIn: boolean = true;
   accessor enableOpenInNewTabButton: boolean = false;
-  accessor showReopenTabs_: boolean = false;
   accessor onboardingTooltipShowing: boolean = false;
   protected accessor permissionChipDelegate_: PermissionChipDelegate|null =
       null;
-  private browserProxy_: BrowserProxy = BrowserProxyImpl.getInstance();
   private toolbarBrowserProxy_: ToolbarBrowserProxyImpl =
       ToolbarBrowserProxyImpl.getInstance();
-  private listenerIds_: number[] = [];
   private toolbarListenerIds_: number[] = [];
   // <if expr="not is_android">
   private sidePanelToolbarListenerIds_: number[] = [];
@@ -166,15 +164,6 @@ export class TopToolbarElement extends TopToolbarElementBase {
 
   override connectedCallback() {
     super.connectedCallback();
-    const callbackRouter = this.browserProxy_.callbackRouter;
-    this.listenerIds_ = [
-      callbackRouter.setShowReopenTabs.addListener(show => {
-        this.showReopenTabs_ = show;
-      }),
-      callbackRouter.setExpandButtonEnabled.addListener((enabled: boolean) => {
-        this.isExpandButtonEnabled = enabled;
-      }),
-    ];
     this.toolbarListenerIds_ = [
       this.toolbarBrowserProxy_.callbackRouter.onSidePanelPinStateChanged
           .addListener((isPinned: boolean) => {
@@ -183,6 +172,14 @@ export class TopToolbarElement extends TopToolbarElementBase {
       this.toolbarBrowserProxy_.callbackRouter.onContextUpdated.addListener(
           (contextInfos: ContextInfo[]) => {
             this.contextInfos = contextInfos;
+          }),
+      this.toolbarBrowserProxy_.callbackRouter.setExpandButtonEnabled
+          .addListener((enabled: boolean) => {
+            this.isExpandButtonEnabled = enabled;
+          }),
+      this.toolbarBrowserProxy_.callbackRouter.setProfileAvatarUrl.addListener(
+          (avatarUrl: string) => {
+            this.profileAvatarUrl = avatarUrl;
           }),
     ];
     window.addEventListener('blur', this.boundOnWindowBlur_);
@@ -238,9 +235,6 @@ export class TopToolbarElement extends TopToolbarElementBase {
 
   override disconnectedCallback() {
     super.disconnectedCallback();
-    this.listenerIds_.forEach(
-        id => this.browserProxy_.callbackRouter.removeListener(id));
-    this.listenerIds_ = [];
     this.toolbarListenerIds_.forEach(
         id => this.toolbarBrowserProxy_.callbackRouter.removeListener(id));
     this.toolbarListenerIds_ = [];
@@ -275,9 +269,9 @@ export class TopToolbarElement extends TopToolbarElementBase {
         '#overflowMenuButton');
     // Register help bubble only if 'G' logo is being shown.
     if ((this as unknown as HTMLElement)
-            .shadowRoot?.querySelector('.top-toolbar-logo')) {
+            .shadowRoot?.querySelector('.top-toolbar-logo-button')) {
       this.registerHelpBubble(
-          'kContextualTasksSuperGButtonElementId', '.top-toolbar-logo');
+          'kContextualTasksSuperGButtonElementId', '.top-toolbar-logo-button');
     }
   }
   // </if>
@@ -292,7 +286,7 @@ export class TopToolbarElement extends TopToolbarElementBase {
       // <if expr="not is_android">
       if (this.isAiPage) {
         if (!this.onboardingTooltipShowing) {
-          this.browserProxy_.handler.maybeTriggerPinningPromo();
+          this.toolbarBrowserProxy_.handler.maybeTriggerPinningPromo();
         }
       }
       // </if>
@@ -317,7 +311,7 @@ export class TopToolbarElement extends TopToolbarElementBase {
 
   protected onCloseButtonClick_() {
     recordAction('ContextualTasks.WebUI.UserAction.CloseSidePanel');
-    this.browserProxy_.handler.closeSidePanel();
+    this.toolbarBrowserProxy_.handler.closeSidePanel();
   }
 
   protected onNewThreadClick_() {
@@ -348,19 +342,12 @@ export class TopToolbarElement extends TopToolbarElementBase {
     this.toolbarBrowserProxy_.handler.moveTaskUiToNewTab();
   }
 
-  protected onReopenTabsReopenClick_() {
-    this.browserProxy_.handler.reopenTabs();
-  }
-
-  protected onReopenTabsDismissClick_() {
-    this.showReopenTabs_ = false;
-  }
 
   protected onLogoPointerdown_() {
     if (!this.isSidePanelRearchitectureEnabled_) {
       return;
     }
-    this.browserProxy_.handler.onLogoPointerDown();
+    this.toolbarBrowserProxy_.handler.onLogoPointerDown();
   }
 
   protected onLogoClick_(e: Event) {
@@ -370,7 +357,7 @@ export class TopToolbarElement extends TopToolbarElementBase {
     // Keyboard synthetic clicks generate PointerEvents with an empty
     // pointerType in WebUI, whereas natural pointer clicks have a valid
     // pointerType (e.g., 'mouse', 'touch', 'pen').
-    this.browserProxy_.handler.showPageInfoBubble(
+    this.toolbarBrowserProxy_.handler.showPageInfoBubble(
         e instanceof PointerEvent && e.pointerType !== '');
   }
 }

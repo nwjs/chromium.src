@@ -34,6 +34,7 @@
 #include "third_party/blink/renderer/core/dom/element_traversal.h"
 #include "third_party/blink/renderer/core/dom/events/event.h"
 #include "third_party/blink/renderer/core/dom/events/event_dispatch_forbidden_scope.h"
+#include "third_party/blink/renderer/core/dom/flat_tree_traversal.h"
 #include "third_party/blink/renderer/core/dom/popover_data.h"
 #include "third_party/blink/renderer/core/event_type_names.h"
 #include "third_party/blink/renderer/core/events/command_event.h"
@@ -54,6 +55,7 @@
 #include "third_party/blink/renderer/core/layout/layout_object.h"
 #include "third_party/blink/renderer/core/page/chrome_client.h"
 #include "third_party/blink/renderer/core/page/page.h"
+#include "third_party/blink/renderer/core/script_tools/model_context.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
 #include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
 #include "third_party/blink/renderer/platform/loader/fetch/resource_fetcher.h"
@@ -69,11 +71,36 @@ HTMLFormControlElement::HTMLFormControlElement(const QualifiedName& tag_name,
                                                Document& document)
     : HTMLElement(tag_name, document),
       autofill_state_(WebAutofillState::kNotFilled),
-      blocks_form_submission_(false) {
+      blocks_form_submission_(false),
+      freeze_hover_for_open_popup_(false) {
   SetHasCustomStyleCallbacks();
 }
 
 HTMLFormControlElement::~HTMLFormControlElement() = default;
+
+void HTMLFormControlElement::SetHovered(bool hovered) {
+  if (!hovered && freeze_hover_for_open_popup_) {
+    return;
+  }
+  HTMLElement::SetHovered(hovered);
+}
+
+void HTMLFormControlElement::SetFreezeHoverForOpenPopup(bool popup_open) {
+  if (popup_open == freeze_hover_for_open_popup_) {
+    return;
+  }
+  freeze_hover_for_open_popup_ = popup_open;
+  if (popup_open) {
+    return;
+  }
+  Element* hover_element = GetDocument().HoverElement();
+  bool in_hover_chain =
+      hover_element &&
+      FlatTreeTraversal::IsInclusiveDescendantOf(*hover_element, *this);
+  if (IsHovered() && !in_hover_chain) {
+    SetHovered(false);
+  }
+}
 
 void HTMLFormControlElement::Trace(Visitor* visitor) const {
   ListedElement::Trace(visitor);
@@ -142,7 +169,7 @@ void HTMLFormControlElement::DetachLayoutTree(bool performing_reattach) {
 
 void HTMLFormControlElement::AttributeChanged(
     const AttributeModificationParams& params) {
-  if (RuntimeEnabledFeatures::WebMCPEnabled(GetExecutionContext())) {
+  if (ModelContext::IsDeclarativeWebMCPEnabled(GetExecutionContext())) {
     if (HTMLFormElement* form = Form()) {
       form->ScheduleWebMCPSchemaUpdateIfActive();
     }
@@ -376,7 +403,7 @@ bool HTMLFormControlElement::MatchesValidityPseudoClasses() const {
 }
 
 String HTMLFormControlElement::GetWebMCPParameterName() const {
-  CHECK(RuntimeEnabledFeatures::WebMCPEnabled(GetExecutionContext()));
+  CHECK(ModelContext::IsDeclarativeWebMCPEnabled(GetExecutionContext()));
   String name = String(GetName()).StripWhiteSpace();
   // Eventually add more logic here to use the label, tool-param-name, etc.
   return name;

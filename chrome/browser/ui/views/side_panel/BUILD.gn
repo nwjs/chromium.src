@@ -49,14 +49,9 @@ source_set("side_panel") {
     "side_panel_toolbar_pinning_controller.h",
     "side_panel_web_ui_view.cc",
     "side_panel_web_ui_view.h",
-    "tabs_from_other_devices/tabs_from_other_devices_side_panel_coordinator.cc",
-    "tabs_from_other_devices/tabs_from_other_devices_side_panel_coordinator.h",
-    "tabs_from_other_devices/tabs_from_other_devices_side_panel_metrics.cc",
-    "tabs_from_other_devices/tabs_from_other_devices_side_panel_metrics.h",
   ]
   public_deps = [
     "//base",
-    "//chrome/browser:browser_public_dependencies",
     "//chrome/browser:primitives",
     "//chrome/browser/history_clusters",
     "//chrome/browser/optimization_guide",
@@ -137,7 +132,6 @@ source_set("side_panel") {
     "//chrome/browser/ui/webui/side_panel/comments",
     "//chrome/browser/ui/webui/side_panel/history",
     "//chrome/browser/ui/webui/side_panel/history_clusters",
-    "//chrome/browser/ui/webui/side_panel/tabs_from_other_devices",
     "//chrome/browser/ui/webui/top_chrome",
     "//chrome/browser/ui/webui_browser:headers",
     "//chrome/common",
@@ -192,4 +186,57 @@ source_set("side_panel") {
   }
 
   allow_circular_includes_from = [ "//chrome/browser/glic" ]
+}
+
+source_set("browser_tests") {
+  testonly = true
+  defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
+  sources = [
+    "extensions/extension_side_panel_browsertest.cc",
+    "history_clusters/history_clusters_side_panel_coordinator_browsertest.cc",
+    "side_panel_coordinator_browsertest.cc",
+    "side_panel_web_ui_view_browsertest.cc",
+  ]
+  deps = [
+    ":side_panel",
+    "//chrome/browser/metrics/critical_user_journeys",
+    "//chrome/browser/ui:browser_actions",
+    "//chrome/browser/ui:browser_tabstrip",
+    "//chrome/browser/ui:browser_window_header",
+    "//chrome/browser/ui/animation",
+    "//chrome/browser/ui/extensions:test_support",
+    "//chrome/browser/ui/side_panel:side_panel_views_dependent",
+    "//chrome/browser/ui/views/animations",
+    "//chrome/browser/ui/views/extensions:extensions_toolbar_button",
+    "//chrome/browser/ui/views/extensions:extensions_toolbar_desktop",
+    "//chrome/browser/ui/views/frame:browser_view_header",
+    "//chrome/browser/ui/views/frame:browser_view_layout",
+    "//chrome/test:test_support",
+    "//chrome/test:test_support_ui",
+    "//components/contextual_tasks/public:feature_list",
+    "//testing/gtest",
+  ]
+}
+
+source_set("interactive_ui_tests") {
+  testonly = true
+  defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
+  sources = [
+    "comments/comments_side_panel_coordinator_interactive_uitest.cc",
+    "extensions/extension_side_panel_interactive_uitest.cc",
+    "side_panel_interactive_uitest.cc",
+  ]
+  deps = [
+    ":side_panel",
+    "//chrome/browser/data_sharing",
+    "//chrome/browser/tab_group_sync:factories",
+    "//chrome/browser/ui:browser_actions",
+    "//chrome/browser/ui/read_anything:prefs",
+    "//chrome/browser/ui/side_panel:side_panel_views_dependent",
+    "//chrome/browser/ui/views/frame:browser_view_header",
+    "//chrome/test:test_support",
+    "//chrome/test:test_support_ui",
+    "//chrome/test/user_education",
+    "//testing/gtest",
+  ]
 }

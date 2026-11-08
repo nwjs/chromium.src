@@ -6,8 +6,6 @@
 
 #import <UIKit/UIKit.h>
 
-#import "base/test/scoped_feature_list.h"
-#import "ios/chrome/browser/shared/public/features/features.h"
 #import "testing/gtest_mac.h"
 #import "testing/platform_test.h"
 
@@ -56,12 +54,9 @@ bool ConstraintsReferenceImageView(NSSet<NSLayoutConstraint*>* constraints) {
 // Test fixture for `LocationBarSteadyView`.
 class LocationBarSteadyViewTest : public PlatformTest {
  protected:
-  LocationBarSteadyViewTest() {
-    scoped_feature_list_.InitAndEnableFeature(kChromeNextIa);
-    view_ = [[LocationBarSteadyView alloc] initWithTextOnly:NO];
-  }
+  LocationBarSteadyViewTest()
+      : view_([[LocationBarSteadyView alloc] initWithTextOnly:NO]) {}
 
-  base::test::ScopedFeatureList scoped_feature_list_;
   LocationBarSteadyView* view_;
 };
 

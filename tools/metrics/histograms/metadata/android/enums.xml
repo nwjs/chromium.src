@@ -79,18 +79,6 @@ chromium-metrics-reviews@google.com.
 
 <!-- LINT.ThenChange(//components/input/android/android_input_callback.cc:AInputEventType)-->
 
-<enum name="Android.MemoryPressureNotification">
-  <int value="0" label="Unknown onTrimMemory() level"/>
-  <int value="1" label="TRIM_MEMORY_COMPLETE"/>
-  <int value="2" label="TRIM_MEMORY_MODERATE"/>
-  <int value="3" label="TRIM_MEMORY_BACKGROUND"/>
-  <int value="4" label="TRIM_MEMORY_UI_HIDDEN"/>
-  <int value="5" label="TRIM_MEMORY_RUNNING_CRITICAL"/>
-  <int value="6" label="TRIM_MEMORY_RUNNING_LOW"/>
-  <int value="7" label="TRIM_MEMORY_RUNNING_MODERATE"/>
-  <int value="8" label="onLowMemory()"/>
-</enum>
-
 <!-- LINT.IfChange(AndroidBookmarkAllTabsResult) -->
 
 <enum name="AndroidBookmarkAllTabsResult">
@@ -101,37 +89,15 @@ chromium-metrics-reviews@google.com.
 
 <!-- LINT.ThenChange(//chrome/android/java/src/org/chromium/chrome/browser/bookmarks/BookmarkAllTabsHandler.java:BookmarkAllTabsResult) -->
 
-<!-- LINT.IfChange(AndroidBottomBarAimIneligibilityReason) -->
-
-<enum name="AndroidBottomBarAimIneligibilityReason">
-  <int value="0" label="FeatureFlagDisabled"/>
-  <int value="1" label="CountryGeofenced"/>
-  <int value="2" label="CountryInGlicSoonList"/>
-  <int value="3" label="PreemptedByGlic"/>
-  <int value="4" label="DefaultSearchEngineNotGoogle"/>
-</enum>
-
-<!-- LINT.ThenChange(//chrome/browser/ui/android/bottombar/java/src/org/chromium/chrome/browser/ui/bottombar/BottomBarMetrics.java:AimIneligibilityReason) -->
-
-<!-- LINT.IfChange(AndroidBottomBarAimLaunchResult) -->
-
-<enum name="AndroidBottomBarAimLaunchResult">
-  <int value="0" label="Success"/>
-  <int value="1" label="TabNull"/>
-  <int value="2" label="MissingOrInvalidUrl"/>
-</enum>
-
-<!-- LINT.ThenChange(//chrome/browser/ui/android/bottombar/java/src/org/chromium/chrome/browser/ui/bottombar/BottomBarMetrics.java:AimLaunchResult) -->
-
 <!-- LINT.IfChange(AndroidBottomBarCandidateAction) -->
 
 <enum name="AndroidBottomBarCandidateAction">
   <int value="0" label="None"/>
   <int value="1" label="Glic"/>
-  <int value="2" label="Aim"/>
+  <int value="2" label="(Obsolete) Aim"/>
 </enum>
 
-<!-- LINT.ThenChange(//chrome/browser/ui/android/bottombar/java/src/org/chromium/chrome/browser/ui/bottombar/BottomBarMetrics.java:CandidateAction) -->
+<!-- LINT.ThenChange(//chrome/browser/ui/android/bottombar/java/src/org/chromium/chrome/browser/ui/bottombar/BottomBarMetrics.java:AndroidBottomBarCandidateAction) -->
 
 <!-- LINT.IfChange(AndroidBottomBarGlicButtonState) -->
 
@@ -158,11 +124,11 @@ chromium-metrics-reviews@google.com.
 
 <enum name="AndroidBottomBarGlicIneligibilityReason">
   <int value="0" label="ProfileIneligible"/>
-  <int value="1" label="CountryGeofenced"/>
+  <int value="1" label="(Obsolete) CountryGeofenced"/>
   <int value="2" label="UserDisabledInSettings"/>
 </enum>
 
-<!-- LINT.ThenChange(//chrome/browser/ui/android/bottombar/java/src/org/chromium/chrome/browser/ui/bottombar/BottomBarMetrics.java:GlicIneligibilityReason) -->
+<!-- LINT.ThenChange(//chrome/browser/ui/android/bottombar/java/src/org/chromium/chrome/browser/ui/bottombar/BottomBarMetrics.java:AndroidBottomBarGlicIneligibilityReason) -->
 
 <!-- LINT.IfChange(AndroidBottomBarIphEvent) -->
 
@@ -494,6 +460,26 @@ chromium-metrics-reviews@google.com.
 
 <!-- LINT.ThenChange(//chrome/android/features/tab_ui/java/src/org/chromium/chrome/browser/tasks/tab_management/vertical_tabs/VerticalTabListItemTouchHelperCallback.java:AndroidVerticalTabsDragDropResult) -->
 
+<!-- LINT.IfChange(AndroidVerticalTabsDropRegion) -->
+
+<enum name="AndroidVerticalTabsDropRegion">
+  <int value="0" label="Main tab list"/>
+  <int value="1" label="Pinned tab grid"/>
+  <int value="2" label="Outside both lists"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/android/features/tab_ui/java/src/org/chromium/chrome/browser/tasks/tab_management/vertical_tabs/VerticalTabListCoordinator.java:AndroidVerticalTabsDropRegion) -->
+
+<!-- LINT.IfChange(AndroidVerticalTabsExpandOnHoverToggleEntryPoint) -->
+
+<enum name="AndroidVerticalTabsExpandOnHoverToggleEntryPoint">
+  <int value="0" label="Settings"/>
+  <int value="1" label="Tab Strip Context Menu"/>
+  <int value="2" label="Collapse Button Context Menu"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/browser/ui/vertical_tabs/android/java/src/org/chromium/chrome/browser/ui/vertical_tabs/VerticalTabUtils.java:AndroidVerticalTabsExpandOnHoverToggleEntryPoint)-->
+
 <!-- LINT.IfChange(AndroidVerticalTabsLayoutToggleSourceAndDirection) -->
 
 <enum name="AndroidVerticalTabsLayoutToggleSourceAndDirection">
@@ -654,6 +640,20 @@ chromium-metrics-reviews@google.com.
   <int value="1" label="Malformed protobuf"/>
   <int value="2" label="IOException"/>
 </enum>
+
+<!-- LINT.IfChange(AwPrewarmDictionaryEvent) -->
+
+<enum name="AndroidWebViewPreconnectPrewarmDictionaryEvent">
+  <int value="0" label="Prewarmed"/>
+  <int value="1" label="Refreshed"/>
+  <int value="2" label="Evicted"/>
+  <int value="3" label="Expired"/>
+  <int value="4" label="Closed on Session Closed"/>
+  <int value="5" label="Closed on Connection Failed"/>
+  <int value="6" label="Disconnected"/>
+</enum>
+
+<!-- LINT.ThenChange(//android_webview/browser/aw_preconnector.h:AwPrewarmDictionaryEvent) -->
 
 <enum name="AndroidWebViewRenderProcessGoneResult3">
   <int value="0" label="Java Exception thrown inside onRenderProcessGone()"/>
@@ -964,6 +964,28 @@ chromium-metrics-reviews@google.com.
   <int value="209" label="WebViewCompat.createSharedArrayBuffer"/>
   <int value="210" label="WebMessagePayload.getAsSharedArrayBuffer"/>
   <int value="211" label="WebViewProviderFactory.createWebSurface"/>
+  <int value="212" label="NavigationRedirectParameters.getResponseHeaders"/>
+  <int value="213" label="NavigationRedirectParameters.getStatusCode"/>
+  <int value="214" label="NavigationState.getUrl"/>
+  <int value="215" label="NavigationState.wasInitiatedByPage"/>
+  <int value="216" label="NavigationState.isSameDocument"/>
+  <int value="217" label="NavigationState.isReload"/>
+  <int value="218" label="NavigationState.isHistory"/>
+  <int value="219" label="NavigationState.isRestore"/>
+  <int value="220" label="NavigationState.isBack"/>
+  <int value="221" label="NavigationState.isForward"/>
+  <int value="222" label="NavigationState.didCommit"/>
+  <int value="223" label="NavigationState.didCommitErrorPage"/>
+  <int value="224" label="NavigationState.getStatusCode"/>
+  <int value="225" label="NavigationState.getNavigationStartUptimeMillis"/>
+  <int value="226" label="NavigationState.getPageState"/>
+  <int value="227" label="NavigationState.getWebResourceError"/>
+  <int value="228" label="NavigationState.getResponseHeaders"/>
+  <int value="229" label="NavigationState.getNavigation"/>
+  <int value="230" label="PageState.getUrl"/>
+  <int value="231" label="PageState.getPage"/>
+  <int value="232" label="Navigation.snapshotState"/>
+  <int value="233" label="Page.snapshotState"/>
 <!-- LINT.ThenChange(/android_webview/support_library/java/src/org/chromium/support_lib_glue/SupportLibWebViewChromiumFactory.java:ApiCall) -->
 
 </enum>
@@ -1188,6 +1210,38 @@ chromium-metrics-reviews@google.com.
       label="Icons, Addresses, Names, Emails, and Telephone numbers"/>
 </enum>
 
+<!-- LINT.IfChange(ContentRestrictionFailureFallbackReason) -->
+
+<enum name="ContentRestrictionFailureFallbackReason">
+  <int value="0" label="Timeout"/>
+  <int value="1" label="Invalid URL"/>
+  <int value="2" label="Missing AconfigFlaggedApi delegate"/>
+  <int value="3" label="Classification error"/>
+</enum>
+
+<!-- LINT.ThenChange(//android_webview/browser/content_restriction/aw_content_restriction_manager_client.h:ContentRestrictionFailureFallbackReason) -->
+
+<!-- LINT.IfChange(ContentRestrictionRequestBypassedThrottleReason) -->
+
+<enum name="ContentRestrictionRequestBypassedThrottleReason">
+  <int value="0" label="Same page navigation"/>
+  <int value="1" label="Request intercepted (via shouldOverrideUrlLoading)"/>
+  <int value="2" label="Request interception (via shouldInterceptRequest)"/>
+</enum>
+
+<!-- LINT.ThenChange(//android_webview/browser/content_restriction/aw_content_restriction_manager_client.h:ContentRestrictionRequestBypassedThrottleReason) -->
+
+<!-- LINT.IfChange(ContentRestrictionRequestPayloadType) -->
+
+<enum name="ContentRestrictionRequestPayloadType">
+  <int value="0" label="Fixed size bytes"/>
+  <int value="1" label="File"/>
+  <int value="2" label="Data stream"/>
+  <int value="3" label="Chunked data stream"/>
+</enum>
+
+<!-- LINT.ThenChange(//android_webview/browser/content_restriction/aw_content_restriction_url_loader_throttle.h:ContentRestrictionRequestPayloadType) -->
+
 <enum name="CpuAbiBitnessSupport">
   <int value="0" label="Neither"/>
   <int value="1" label="32-bit only"/>
@@ -1317,6 +1371,8 @@ chromium-metrics-reviews@google.com.
 
 <!-- LINT.ThenChange(//components/viz/service/input/android_state_transfer_handler.cc:DroppedSequenceEventAndDownTimeDelta) -->
 
+<!-- LINT.IfChange(EdgeToEdgeConfigurationSwitchOutcome) -->
+
 <enum name="EdgeToEdgeConfigurationSwitchOutcome">
   <summary>
     When edge to edge changed into unsupported configuration, what's the outcome
@@ -1328,6 +1384,8 @@ chromium-metrics-reviews@google.com.
   <int value="4" label="NO_PADDING_NO_NEW_INSETS"/>
   <int value="5" label="ERROR_NO_PADDING_WITH_NEW_INSETS"/>
 </enum>
+
+<!-- LINT.ThenChange(//chrome/browser/ui/android/edge_to_edge/java/src/org/chromium/chrome/browser/ui/edge_to_edge/EdgeToEdgeUtils.java:ConfigurationSwitchOutcome) -->
 
 <!-- LINT.IfChange(FixupResult) -->
 
@@ -1434,6 +1492,33 @@ chromium-metrics-reviews@google.com.
 </enum>
 
 <!-- LINT.ThenChange(//chrome/browser/hub/internal/android/java/src/org/chromium/chrome/browser/hub/HubToolbarMediator.java:HubSearchEntrypoint) -->
+
+<!-- LINT.IfChange(InAppUpdateDownloadResult) -->
+
+<enum name="InAppUpdateDownloadResult">
+  <int value="0" label="Flow Started (Dialog Shown)"/>
+  <int value="1" label="Succeeded (Downloaded)"/>
+  <int value="2" label="Start Failed"/>
+  <int value="3" label="Play Core Failed"/>
+  <int value="4" label="Download Failed"/>
+  <int value="5" label="Prompt Canceled"/>
+  <int value="6" label="Download Canceled"/>
+  <int value="7" label="Send Intent Failed"/>
+  <int value="8" label="Start Exception"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/browser/omaha/android/java/src/org/chromium/chrome/browser/omaha/inline/InAppUpdateController.java:InAppUpdateDownloadResult) -->
+
+<!-- LINT.IfChange(InAppUpdateSnackbarEvent) -->
+
+<enum name="InAppUpdateSnackbarEvent">
+  <int value="0" label="Impression"/>
+  <int value="1" label="Action Tapped"/>
+  <int value="2" label="Dismissed No Action"/>
+  <int value="3" label="Dismissed By Lifecycle"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/browser/omaha/android/java/src/org/chromium/chrome/browser/omaha/inline/InAppUpdateSnackbarEvent.java:InAppUpdateSnackbarEvent) -->
 
 <enum name="IncognitoReauthPromoActionType">
   <int value="0" label="Promo accepted"/>
@@ -1752,6 +1837,7 @@ chromium-metrics-reviews@google.com.
   <int value="19" label="NTP AI Mode button."/>
   <int value="20" label="NTP plus button."/>
   <int value="21" label="Keyboard navigation focus."/>
+  <int value="22" label="NTP gallery chip clicked."/>
 </enum>
 
 <!-- LINT.ThenChange(//components/omnibox/browser/android/java/src/org/chromium/components/omnibox/OmniboxFocusReason.java:OmniboxFocusReason) -->
@@ -1789,21 +1875,6 @@ chromium-metrics-reviews@google.com.
   <int value="1" label="Phenotype config"/>
   <int value="2" label="GService flag"/>
   <int value="3" label="Preload APK"/>
-</enum>
-
-<enum name="PartnerCustomizationUsage">
-  <int value="0" label="Homepage"/>
-  <int value="1" label="Bookmarks"/>
-  <int value="2" label="Incognito"/>
-</enum>
-
-<enum name="PartnerTaskCompletion">
-  <int value="0" label="None valid"/>
-  <int value="1" label="Completed in time for tab creation"/>
-  <int value="2" label="Completed too late for tab creation"/>
-  <int value="3" label="Cancelled - timeout"/>
-  <int value="4" label="Exception thrown"/>
-  <int value="5" label="Task skipped"/>
 </enum>
 
 <!-- LINT.IfChange(persistent_state_id_verification) -->
@@ -1891,12 +1962,6 @@ chromium-metrics-reviews@google.com.
   <int value="1" label="Promo was dismissed via scrim touch"/>
   <int value="2" label="Promo was dismissed via backpress"/>
   <int value="3" label="Promo was dismissed via swipe down"/>
-</enum>
-
-<enum name="RootViewFocusState">
-  <int value="0" label="Root View is NULL"/>
-  <int value="1" label="Root View was Focused"/>
-  <int value="2" label="Root View was Not Focused (calls Focus())"/>
 </enum>
 
 <enum name="ScreenshotContentProviderEvent">
@@ -2002,7 +2067,7 @@ chromium-metrics-reviews@google.com.
   <int value="0" label="Unknown / External"/>
   <int value="1" label="Search Widget"/>
   <int value="2" label="Shortcuts Widget"/>
-  <int value="3" label="Custom Tab"/>
+  <int value="3" label="(Obsolete) Custom Tab"/>
   <int value="4" label="Hub"/>
   <int value="5" label="Launcher"/>
   <int value="6" label="WebSearch / External"/>
@@ -2133,6 +2198,19 @@ chromium-metrics-reviews@google.com.
   <int value="8" label="Other"/>
 </enum>
 
+<!-- LINT.IfChange(StartupPolicy) -->
+
+<enum name="StartupPolicy">
+  <int value="0" label="Not configured"/>
+  <int value="1" label="Restore last session"/>
+  <int value="2" label="Open New Tab page"/>
+  <int value="3" label="Open specific pages"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/android/java/src/org/chromium/chrome/browser/multiwindow/TabbedStartupWindowPolicyDelegate.java:StartupPolicy) -->
+
+<!-- LINT.IfChange(SupportedConfigurationStrangeInsetsState) -->
+
 <enum name="SupportedConfigurationStrangeInsetsState">
   <summary>
     The state of insets that don't seem to align with a configuration that
@@ -2143,10 +2221,16 @@ chromium-metrics-reviews@google.com.
   <int value="2" label="ERROR_TAPPABLE_ELEMENT_GESTURE_NAV"/>
 </enum>
 
+<!-- LINT.ThenChange(//chrome/browser/ui/android/edge_to_edge/java/src/org/chromium/chrome/browser/ui/edge_to_edge/EdgeToEdgeUtils.java:SupportedConfigurationStrangeInsetsState) -->
+
+<!-- LINT.IfChange(SupportedConfigurationSwitch) -->
+
 <enum name="SupportedConfigurationSwitch">
   <int value="0" label="FromSupportedToUnsupported"/>
   <int value="1" label="FromUnsupportedToSupported"/>
 </enum>
+
+<!-- LINT.ThenChange(//chrome/browser/ui/android/edge_to_edge/java/src/org/chromium/chrome/browser/ui/edge_to_edge/EdgeToEdgeUtils.java:SupportedConfigurationSwitch) -->
 
 <enum name="SurveyDownloadResponseCodes2">
   <summary>
@@ -2874,6 +2958,7 @@ chromium-metrics-reviews@google.com.
   <int value="37" label="WebChromeClient.getDefaultVideoPoster"/>
   <int value="38" label="WebViewClient.onRenderProcessGone"/>
   <int value="39" label="WebViewClient.onScaleChanged"/>
+  <int value="40" label="WebChromeClient.onReceivedThemeColor"/>
 </enum>
 
 <!-- LINT.IfChange(WebViewChromiumStartupMode) -->
@@ -2964,6 +3049,31 @@ chromium-metrics-reviews@google.com.
   <int value="3" label="TEXT_AUTOSIZING"/>
 </enum>
 
+<!-- LINT.IfChange(WebViewLockOutcome) -->
+
+<enum name="WebViewLockOutcome">
+  <int value="0" label="Failed to lock; couldn't probe lock holder"/>
+  <int value="1" label="Failed to lock; couldn't read lock holder status"/>
+  <int value="2" label="Failed to lock; lock holder didn't exist"/>
+  <int value="3" label="Failed to lock; lock holder was inaccessible"/>
+  <int value="4"
+      label="Failed to lock; lock holder's main thread is uninterruptible"/>
+  <int value="5" label="Failed to lock; lock holder's main thread is a zombie"/>
+  <int value="6" label="Failed to lock; lock holder is alive"/>
+  <int value="7" label="Acquired lock successfully"/>
+  <int value="8" label="Current process already held lock"/>
+  <int value="9" label="Failed to create lock file"/>
+  <int value="10" label="Exception in tryLock"/>
+  <int value="11" label="Failed to lock; couldn't read lock holder pid/name"/>
+  <int value="12" label="Failed to lock; lock holder is our pid"/>
+  <int value="13"
+      label="Correctly failed to lock: holder has a different name"/>
+  <int value="14"
+      label="Continued despite failing to lock; lock holder was likely stuck"/>
+</enum>
+
+<!-- LINT.ThenChange(//android_webview/java/src/org/chromium/android_webview/AwDataDirLock.java:WebViewLockOutcome)-->
+
 <enum name="WebViewMixedContentMode">
   <int value="0" label="Always allow"/>
   <int value="1" label="Never allow"/>
@@ -2974,7 +3084,7 @@ chromium-metrics-reviews@google.com.
 
 <enum name="WebViewRendererKeepAliveEvent">
   <int value="0" label="Reused"/>
-  <int value="1" label="Timed out"/>
+  <int value="1" label="(Obsolete) Timed out. Removed in M157."/>
   <int value="2" label="Pending reuse"/>
 </enum>
 

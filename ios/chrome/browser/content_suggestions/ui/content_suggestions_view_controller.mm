@@ -4,6 +4,8 @@
 
 #import "ios/chrome/browser/content_suggestions/ui/content_suggestions_view_controller.h"
 
+#import "base/functional/bind.h"
+#import "base/task/sequenced_task_runner.h"
 #import "components/ntp_tiles/constants.h"
 #import "components/ntp_tiles/features.h"
 #import "ios/chrome/browser/content_suggestions/model/content_suggestions_metrics_recorder.h"
@@ -167,6 +169,13 @@ constexpr CGFloat kStackViewSpacing = 12.0;
   collectionView.maxVisibleItems =
       MostVisitedMaximumVisibleItemsOnScreen(/*aim_available=*/_isAIMAllowed);
   _mostVisitedCollectionView = collectionView;
+  __weak __typeof(self) weakSelf = self;
+  collectionView.onContentSizeChanged = ^(CGSize) {
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE, base::BindOnce(^{
+          [weakSelf.audience contentSuggestionsWasUpdated];
+        }));
+  };
 
   _mostVisitedView =
       [self createContainerForContentSuggestionsModule:collectionView];
@@ -197,10 +206,6 @@ constexpr CGFloat kStackViewSpacing = 12.0;
     }
   }
   [_contentSuggestionsModuleStackView addArrangedSubview:_mostVisitedView];
-
-  // Force layout to make sure the subviews correctly calculates its frame size.
-  [self.view setNeedsLayout];
-  [self.view layoutIfNeeded];
 }
 
 // Creates a horizontal stack view for content suggestions modules.

@@ -106,7 +106,7 @@ void OnGetClientCapabilitiesComplete(
   if (!RuntimeEnabledFeatures::WebAuthenticationAmbientEnabled(
           resolver->GetExecutionContext())) {
     for (wtf_size_t i = 0; i < results.size(); ++i) {
-      if (results[i].first == "ambientGet") {
+      if (results[i].first == "conditionalPassiveGet") {
         results.EraseAt(i);
         break;
       }
@@ -251,7 +251,8 @@ v8::Local<v8::Object> PublicKeyCredential::toJSON(
           [&](AuthenticatorAttestationResponseJSON* attestation_response) {
             auto* registration_response = RegistrationResponseJSON::Create();
             registration_response->setId(id());
-            registration_response->setRawId(WebAuthnBase64UrlEncode(rawId()));
+            registration_response->setRawId(
+                WebAuthnBase64UrlEncode(rawId()->ByteSpan()));
             registration_response->setResponse(attestation_response);
             if (!authenticator_attachment_.IsNull()) {
               registration_response->setAuthenticatorAttachment(
@@ -267,7 +268,8 @@ v8::Local<v8::Object> PublicKeyCredential::toJSON(
             auto* authentication_response =
                 AuthenticationResponseJSON::Create();
             authentication_response->setId(id());
-            authentication_response->setRawId(WebAuthnBase64UrlEncode(rawId()));
+            authentication_response->setRawId(
+                WebAuthnBase64UrlEncode(rawId()->ByteSpan()));
             authentication_response->setResponse(assertion_response);
             if (!authenticator_attachment_.IsNull()) {
               authentication_response->setAuthenticatorAttachment(

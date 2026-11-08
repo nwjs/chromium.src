@@ -40,6 +40,7 @@
 #import "ios/chrome/browser/shared/public/commands/show_signin_command.h"
 #import "ios/chrome/browser/shared/public/commands/snackbar_commands.h"
 #import "ios/chrome/browser/shared/ui/table_view/table_view_utils.h"
+#import "ios/chrome/browser/signin/model/account_preview_data_service_factory.h"
 #import "ios/chrome/browser/signin/model/authentication_service.h"
 #import "ios/chrome/browser/signin/model/authentication_service_factory.h"
 #import "ios/chrome/browser/signin/model/chrome_account_manager_service.h"
@@ -143,6 +144,8 @@ enum class YourSavedInfoDataCategory {
                         authService:authService
                     identityManager:identityManager
                         prefService:originalProfile->GetPrefs()
+          accountPreviewDataService:AccountPreviewDataServiceFactory::
+                                        GetForProfile(originalProfile)
                         syncService:syncService];
   _signinPromoMediator.consumer = _viewController;
   _signinPromoMediator.delegate = self;
@@ -255,6 +258,9 @@ enum class YourSavedInfoDataCategory {
       initWithBaseNavigationController:self.baseNavigationController
                                browser:self.browser];
   _autofillCreditCardCoordinator.delegate = self;
+  _autofillCreditCardCoordinator.shouldShowLevelUpPaymentMethodsWalkthroughIPH =
+      self.shouldShowLevelUpPaymentMethodsWalkthroughIPH;
+  self.shouldShowLevelUpPaymentMethodsWalkthroughIPH = NO;
   [_autofillCreditCardCoordinator start];
 }
 
@@ -391,7 +397,7 @@ enum class YourSavedInfoDataCategory {
 }
 
 - (void)passwordsCoordinatorDidRemove:(PasswordsCoordinator*)coordinator {
-  CHECK_EQ(_passwordsCoordinator, coordinator, base::NotFatalUntil::M151);
+  CHECK_EQ(_passwordsCoordinator, coordinator);
   _passwordsCoordinator.delegate = nil;
   [_passwordsCoordinator stop];
   _passwordsCoordinator = nil;
@@ -445,9 +451,11 @@ enum class YourSavedInfoDataCategory {
   [self stopSigninCoordinator];
   __weak __typeof(self) weakSelf = self;
   [command addSigninCompletion:^(SigninCoordinator* coordinator,
-                                 SigninCoordinatorResult result,
-                                 id<SystemIdentity> identity) {
-    [weakSelf signinDidCompleteWithCoordinator:coordinator result:result];
+                                 SigninCoordinatorResultOrIdentity result) {
+    SigninCoordinatorResult signinResult =
+        signin::SigninCoordinatorResultFromSigninCoordinatorResultOrIdentity(
+            result);
+    [weakSelf signinDidCompleteWithCoordinator:coordinator result:signinResult];
   }];
   _signinCoordinator = [SigninCoordinator
       signinCoordinatorWithCommand:command

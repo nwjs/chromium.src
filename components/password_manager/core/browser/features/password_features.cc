@@ -39,16 +39,21 @@ BASE_FEATURE(kActorLoginPermissionsUi, base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kActorLoginQualityLogs, base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // !BUILDFLAG(IS_IOS)
 
+#if BUILDFLAG(IS_ANDROID)
+BASE_FEATURE(kAndroidSelectPasswordContextMenu,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+#endif  // BUILDFLAG(IS_ANDROID)
+
 BASE_FEATURE(kApplyClientsideModelPredictionsForPasswordTypes,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kAutoApproveSharedPasswordUpdatesFromSameSender,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)  // Desktop
-BASE_FEATURE(kAutofillPasswordUserPerceptionSurvey,
+BASE_FEATURE(kAutofillPersonalizationAndTrustPasswordSurvey,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)  // Desktop
 BASE_FEATURE(kAwaitPageStabilityForPasswordChange,
              base::FEATURE_DISABLED_BY_DEFAULT);
 const base::FeatureParam<base::TimeDelta> kAwaitPageStabilityTimeout = {
@@ -84,7 +89,8 @@ BASE_FEATURE(kClearUndecryptablePasswordsOnSync,
 );
 
 #if !BUILDFLAG(IS_IOS) && !BUILDFLAG(IS_ANDROID)  // Desktop
-BASE_FEATURE(kCredentialManagementUnifiedUi, base::FEATURE_DISABLED_BY_DEFAULT);
+// Enabled by default in M157. Remove in or after M163.
+BASE_FEATURE(kCredentialManagementUnifiedUi, base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // !BUILDFLAG(IS_IOS) && !BUILDFLAG(IS_ANDROID)
 
 
@@ -92,7 +98,6 @@ BASE_FEATURE(kDisablePasswordChangeFromNewPasswordFields,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)  // Desktop
-BASE_FEATURE(kEnablePasswordManagerMojoApi, base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kEnablePasswordManagerMojoApiPhase2,
              base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kPasskeyUnlockPromo, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -152,6 +157,9 @@ BASE_FEATURE(kPasswordCompromiseWarningInDetailsCard,
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 
+// Enables the actor PasswordChangeTool.
+BASE_FEATURE(kChangePasswordTool, base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Temporarily disabled as mitigation for crbug.com/485895402.
 BASE_FEATURE(kPasswordDateLastFilled, base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -181,6 +189,9 @@ BASE_FEATURE(kPasswordSaveInContextErrorResolution,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kPreventAPCOnFederatedLogin, base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kPreventNonHttpSuggestionsInHttpManualFallbackFlows,
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kPreventPasswordManagerOnFederatedLogin,
              base::FEATURE_DISABLED_BY_DEFAULT);

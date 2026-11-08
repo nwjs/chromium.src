@@ -354,6 +354,8 @@ const Metric kAllocatorDumpNamesForMetrics[] = {
     {"gpu/transfer_cache", "ServiceTransferCache.AvgImageSize",
      MetricSize::kCustom, "average_size", EmitTo::kSizeInUmaOnly, nullptr,
      ImageSizeMetricRange},
+    {"gpu/viz_buffer_queue", "VizBufferQueue", MetricSize::kLarge, kSize,
+     EmitTo::kSizeInUmaOnly, nullptr},
     // For the Vulkan Memory Allocator, "allocated_size" is the amount of GPU
     // memory used by the allocator except lazily allocated memory; "used_size"
     // is the amount allocated by clients except lazily used memory.
@@ -919,7 +921,7 @@ void EmitProcessUma(HistogramProcessType process_type,
   if (std::string_view(item.uma_name) == "CommandBuffer") {
     uma_name =
         EXPERIMENTAL_UMA_PREFIX "Gpu" VERSION_SUFFIX_NORMAL "CommandBuffer";
-    DCHECK(item.metric_size == MetricSize::kLarge);
+    CHECK(item.metric_size == MetricSize::kLarge, base::NotFatalUntil::M161);
   } else {
     uma_name = base::StrCat(
         {EXPERIMENTAL_UMA_PREFIX, HistogramProcessTypeToString(process_type),

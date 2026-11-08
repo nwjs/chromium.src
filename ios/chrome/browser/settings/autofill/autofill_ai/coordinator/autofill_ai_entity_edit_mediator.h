@@ -50,6 +50,9 @@ enum class AutofillAIEntityEditMode;
 // The fetched country list.
 @property(nonatomic, strong, readonly) NSArray<CountryItem*>* allCountries;
 
+// Initializes the mediator for `entityInstance` in `mode`. In the create flow,
+// the preloaded single-use Wallet disclosure details are taken from
+// `walletPassManager` when the entity requires a disclosure notice.
 - (instancetype)
     initWithEntityInstance:(autofill::EntityInstance)entityInstance
                       mode:(AutofillAIEntityEditMode)mode
@@ -68,6 +71,9 @@ enum class AutofillAIEntityEditMode;
 
 // Returns the URL to manage the Server Wallet item.
 - (GURL)walletManagementURL;
+
+// Disconnects the mediator and logs metrics if the flow ended without saving.
+- (void)disconnect;
 
 @property(nonatomic, weak) id<AutofillAIEntityEditMediatorDelegate> delegate;
 

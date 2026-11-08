@@ -10,14 +10,36 @@ namespace history::journeys {
 
 JourneyVisit::JourneyVisit() = default;
 
-JourneyVisit::JourneyVisit(GURL url, std::u16string title)
-    : url(std::move(url)), title(std::move(title)) {}
+JourneyVisit::JourneyVisit(GURL url,
+                           std::u16string title,
+                           base::Time visit_time,
+                           bool is_foreign)
+    : url(std::move(url)),
+      title(std::move(title)),
+      visit_time(visit_time),
+      is_foreign(is_foreign) {}
 
 JourneyVisit::~JourneyVisit() = default;
 JourneyVisit::JourneyVisit(const JourneyVisit&) = default;
 JourneyVisit& JourneyVisit::operator=(const JourneyVisit&) = default;
 JourneyVisit::JourneyVisit(JourneyVisit&&) noexcept = default;
 JourneyVisit& JourneyVisit::operator=(JourneyVisit&&) noexcept = default;
+
+JourneyVisitCollection::JourneyVisitCollection() = default;
+
+JourneyVisitCollection::JourneyVisitCollection(std::string title,
+                                               std::vector<JourneyVisit> visits)
+    : title(std::move(title)), visits(std::move(visits)) {}
+
+JourneyVisitCollection::~JourneyVisitCollection() = default;
+JourneyVisitCollection::JourneyVisitCollection(const JourneyVisitCollection&) =
+    default;
+JourneyVisitCollection& JourneyVisitCollection::operator=(
+    const JourneyVisitCollection&) = default;
+JourneyVisitCollection::JourneyVisitCollection(
+    JourneyVisitCollection&&) noexcept = default;
+JourneyVisitCollection& JourneyVisitCollection::operator=(
+    JourneyVisitCollection&&) noexcept = default;
 
 Journey::Journey() = default;
 
@@ -28,7 +50,8 @@ Journey::Journey(std::string journey_id,
                  std::optional<std::string> overview,
                  std::optional<std::string> short_overview,
                  std::vector<JourneyVisit> visits,
-                 std::vector<JourneyContinuationQuery> continuation_queries)
+                 std::vector<JourneyContinuationQuery> continuation_queries,
+                 std::vector<JourneyVisitCollection> collections)
     : journey_id(std::move(journey_id)),
       title(std::move(title)),
       creation_time(creation_time),
@@ -36,7 +59,8 @@ Journey::Journey(std::string journey_id,
       overview(std::move(overview)),
       short_overview(std::move(short_overview)),
       visits(std::move(visits)),
-      continuation_queries(std::move(continuation_queries)) {}
+      continuation_queries(std::move(continuation_queries)),
+      collections(std::move(collections)) {}
 
 Journey::~Journey() = default;
 Journey::Journey(const Journey&) = default;

@@ -33,7 +33,6 @@
 #include "third_party/icu/source/common/unicode/unistr.h"
 #include "third_party/icu/source/common/unicode/utypes.h"
 #include "third_party/icu/source/i18n/unicode/dtfmtsym.h"
-#include "third_party/icu/source/i18n/unicode/dtptngen.h"
 
 namespace autofill::data_util {
 
@@ -378,10 +377,10 @@ bool ParseExpirationDate(std::u16string_view text,
   std::u16string year_local;
 
   // Check for a separator.
-  std::u16string found_separator;
-  const std::vector<std::u16string> kSeparators{u"-", u"/", u"|"};
-  for (const std::u16string& separator : kSeparators) {
-    if (text.find(separator) != std::u16string::npos) {
+  std::u16string_view found_separator;
+  constexpr std::u16string_view kSeparators[] = {u"-", u"/", u"|"};
+  for (std::u16string_view separator : kSeparators) {
+    if (text.find(separator) != std::u16string_view::npos) {
       found_separator = separator;
       break;
     }
@@ -444,26 +443,6 @@ std::u16string FindPossiblePhoneCountryCode(std::u16string_view text) {
   }
 
   return std::u16string();
-}
-
-std::optional<std::u16string> LocalizePattern(std::u16string_view pattern,
-                                              std::string_view locale) {
-  UErrorCode status = U_ZERO_ERROR;
-  icu::Locale icu_locale(std::string(locale).c_str());
-  if (icu_locale.isBogus()) {
-    return std::nullopt;
-  }
-  std::unique_ptr<icu::DateTimePatternGenerator> generator(
-      icu::DateTimePatternGenerator::createInstance(icu_locale, status));
-  if (U_FAILURE(status)) {
-    return std::nullopt;
-  }
-  icu::UnicodeString generated_pattern =
-      generator->getBestPattern(pattern, status);
-  if (U_FAILURE(status)) {
-    return std::nullopt;
-  }
-  return base::i18n::UnicodeStringToString16(generated_pattern);
 }
 
 }  // namespace autofill::data_util

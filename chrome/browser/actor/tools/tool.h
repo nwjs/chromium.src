@@ -11,6 +11,7 @@
 #include "base/functional/callback_forward.h"
 #include "base/memory/raw_ref.h"
 #include "build/build_config.h"
+#include "chrome/browser/actor/actor_surface_handle.h"
 #include "chrome/browser/actor/tools/observation_delay_controller.h"
 #include "chrome/browser/actor/tools/tool_callbacks.h"
 #include "chrome/browser/actor/tools/tool_delegate.h"
@@ -108,8 +109,11 @@ class Tool {
                                      mojom::ActionResultPtr result,
                                      ToolCallback callback) const;
 
-  // Returns the tab handle for the tab that this tool targets, if any.
-  virtual tabs::TabHandle GetTargetTab() const = 0;
+  // Returns the handle of the surface that this tool targets, or a null handle
+  // if the tool doesn't target a surface. Tools should store the handle of the
+  // surface they were created for, so the handle stays non-null (and Get()
+  // returns null) once the surface goes away.
+  virtual ActorSurfaceHandle GetTargetActorSurface() const = 0;
 
  protected:
   TaskId task_id() const { return task_id_; }

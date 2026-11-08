@@ -12,6 +12,7 @@ static_library("search") {
 
   deps = [
     "//base",
+    "//build:android_buildflags",
     "//components/search_engines",
   ]
 }
@@ -28,6 +29,8 @@ source_set("unit_tests") {
     ":search",
     "//base",
     "//base/test:test_support",
+    "//build:android_buildflags",
+    "//components/search_engines",
     "//testing/gmock",
     "//testing/gtest",
   ]

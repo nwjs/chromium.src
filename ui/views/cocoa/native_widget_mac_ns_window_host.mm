@@ -488,8 +488,6 @@ void NativeWidgetMacNSWindowHost::InitWindow(
     window_params->is_translucent =
         params.opacity == Widget::InitParams::WindowOpacity::kTranslucent;
     window_params->is_tooltip = is_tooltip;
-    window_params->prevent_stale_content_after_hide =
-        params.prevent_stale_content_after_hide;
 
     // macOS likes to put shadows on most things. However, frameless windows
     // (with styleMask = NSWindowStyleMaskBorderless) default to no shadow. So
@@ -1144,25 +1142,46 @@ void NativeWidgetMacNSWindowHost::UpdateCompositorVisibility() {
   if (!compositor_) {
     return;
   }
-  const bool visible = is_visible_ || video_capture_count_ > 0;
+  const bool notify_window = base::FeatureList::IsEnabled(
+      views::features::kNotifyCompositorOfWindowVisibilityOnMacOs);
+  const bool notify_space = base::FeatureList::IsEnabled(
+      views::features::kNotifyCompositorOfSpaceVisibilityOnMacOs);
+
+  // Space changes only toggle `Compositor::SetVisible()` (when `notify_space`
+  // is enabled) rather than hiding the root layer or calling
+  // `compositor_->Suspend()`. `SetVisible(false)` already stops frame
+  // production in cc and tells Viz to release backbuffers, without acquiring
+  // an indefinite `ui::CompositorLock` or altering behavior when
+  // `notify_space` is disabled.
+  const bool layer_visible = is_visible_ || video_capture_count_ > 0;
   const bool was_layer_visible = layer()->visible();
-  layer()->SetVisible(visible);
-  if (visible) {
-    if (base::FeatureList::IsEnabled(
-            views::features::kNotifyCompositorOfWindowVisibilityOnMacOs)) {
-      compositor_->compositor()->SetVisible(true);
+  const bool was_compositor_visible = compositor_->compositor()->IsVisible();
+  layer()->SetVisible(layer_visible);
+
+  const bool is_headless = display::Screen::Get()->IsHeadless();
+  if (!is_headless && (notify_window || notify_space)) {
+    // Note: AppKit sets `-[NSWindow isOnActiveSpace]` to NO when a window is
+    // hidden (`orderOut:`) or minimized (`miniaturize:`), so `notify_space`
+    // also hides the compositor on window hide/minimize even if `notify_window`
+    // is false.
+    const bool window_visible = !notify_window || is_visible_;
+    const bool space_visible = !notify_space || is_on_active_space_;
+    const bool should_be_visible =
+        (window_visible && space_visible) || video_capture_count_ > 0;
+    if (should_be_visible != was_compositor_visible) {
+      compositor_->compositor()->SetVisible(should_be_visible);
     }
+  }
+
+  if (layer_visible) {
     compositor_->Unsuspend();
-    if (!was_layer_visible) {
+    if (compositor_->compositor()->IsVisible() &&
+        (!was_layer_visible || !was_compositor_visible)) {
       layer()->SchedulePaint(layer()->bounds());
     }
   } else {
-    if (!display::Screen::Get()->IsHeadless()) {
+    if (!is_headless) {
       compositor_->Suspend();
-    }
-    if (base::FeatureList::IsEnabled(
-            views::features::kNotifyCompositorOfWindowVisibilityOnMacOs)) {
-      compositor_->compositor()->SetVisible(false);
     }
   }
 }
@@ -1194,12 +1213,15 @@ void NativeWidgetMacNSWindowHost::OnVisibilityChanged(bool window_visible) {
 
 void NativeWidgetMacNSWindowHost::OnSpaceActivationChanged(
     bool is_on_active_space) {
+  TRACE_EVENT("ui", __PRETTY_FUNCTION__);
   if (is_on_active_space_ == is_on_active_space) {
     return;
   }
   const bool was_visible_on_screen = IsVisibleOnScreen();
   is_on_active_space_ = is_on_active_space;
   const bool is_visible_on_screen = IsVisibleOnScreen();
+
+  UpdateCompositorVisibility();
 
   if (Widget* widget = GetWidget()) {
     if (was_visible_on_screen != is_visible_on_screen) {
@@ -1345,6 +1367,16 @@ void NativeWidgetMacNSWindowHost::OnIsFirstResponderChanged(
   }
 
   if (is_first_responder) {
+    // If the window isn't key, this first responder change wasn't initiated by
+    // the user (clicks make the window key first), e.g. it came from
+    // FocusManager::ClearNativeFocus() during a tab switch. Restoring focus now
+    // would activate the window (see FocusManager::SetFocusedViewWithReason()),
+    // so defer it until the window becomes key, which restores focus anyway.
+    if (!IsWindowKey() &&
+        base::FeatureList::IsEnabled(
+            views::features::kMacActivateWidgetOnFocusRequest)) {
+      return;
+    }
     focus_manager->RestoreFocusedView();
   } else {
     // Do not call ClearNativeFocus because that will re-make the

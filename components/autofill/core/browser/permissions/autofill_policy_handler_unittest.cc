@@ -6,6 +6,7 @@
 
 #include <memory>
 
+#include "base/test/values_test_util.h"
 #include "base/values.h"
 #include "components/autofill/core/common/autofill_prefs.h"
 #include "components/policy/core/browser/configuration_policy_handler.h"
@@ -16,9 +17,13 @@
 #include "components/policy/core/common/schema.h"
 #include "components/policy/policy_constants.h"
 #include "components/prefs/pref_value_map.h"
+#include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace autofill {
+namespace {
+
+using ::testing::ElementsAre;
 
 // Test cases for the Autofill policy setting.
 class AutofillPolicyHandlerTest : public testing::Test {};
@@ -163,6 +168,44 @@ TEST_F(AutofillPolicyHandlerTest, CheckPolicySettings_AllPoliciesCorrectType) {
   EXPECT_TRUE(errors.empty());
 }
 
+TEST_F(AutofillPolicyHandlerTest,
+       CheckPolicySettings_InvalidListEntriesAllowedWithWarning) {
+  policy::PolicyMap policy;
+  policy.Set(
+      policy::key::kAutofillSettings, policy::POLICY_LEVEL_MANDATORY,
+      policy::POLICY_SCOPE_USER, policy::POLICY_SOURCE_CLOUD,
+      base::Value(
+          base::ListValue()
+              .Append(base::DictValue()
+                          .Set("url_pattern", "invalid-url-pattern-123")
+                          .Set("blocked_types",
+                               base::ListValue().Append("payments")))
+              .Append(base::DictValue()
+                          .Set("url_pattern", "https://[*.]thenorthface.com")
+                          .Set("blocked_types",
+                               base::ListValue()
+                                   .Append("contact_info")
+                                   .Append("unknown_future_category")))
+              .Append(base::DictValue().Set(
+                  "blocked_types", base::ListValue().Append("travel")))),
+      nullptr);
+
+  AutofillSettingsPolicyHandler handler(
+      policy::Schema::Wrap(policy::GetChromeSchemaData()));
+  policy::PolicyErrorMap errors;
+
+  EXPECT_TRUE(handler.CheckPolicySettings(policy, &errors));
+  EXPECT_TRUE(errors.HasError(policy::key::kAutofillSettings));
+  EXPECT_FALSE(errors.HasFatalError(policy::key::kAutofillSettings));
+
+  PrefValueMap prefs;
+  handler.ApplyPolicySettings(policy, &prefs);
+  const base::Value* value = nullptr;
+  EXPECT_TRUE(prefs.GetValue(prefs::kAutofillTypesBlocked, &value));
+  ASSERT_TRUE(value && value->is_list());
+  EXPECT_EQ(value->GetList().size(), 3u);
+}
+
 TEST_F(AutofillPolicyHandlerTest, MigrationHandler_AddressDisabled) {
   policy::PolicyMap policy;
   policy.Set(policy::key::kAutofillAddressEnabled,
@@ -181,12 +224,10 @@ TEST_F(AutofillPolicyHandlerTest, MigrationHandler_AddressDisabled) {
   value = nullptr;
   EXPECT_TRUE(prefs.GetValue(prefs::kAutofillTypesBlocked, &value));
   ASSERT_TRUE(value && value->is_list());
-  ASSERT_EQ(1u, value->GetList().size());
-  const auto& rule = value->GetList()[0].GetDict();
-  EXPECT_EQ("*", *rule.FindString("url_pattern"));
-  const auto* blocked_types = rule.FindList("blocked_types");
-  ASSERT_TRUE(blocked_types && blocked_types->size() == 1u);
-  EXPECT_EQ("contact_info", (*blocked_types)[0].GetString());
+  EXPECT_THAT(value->GetList(), ElementsAre(base::test::IsJson(R"({
+            "blocked_types": ["contact_info"],
+            "url_pattern": "*"
+          })")));
 }
 
 TEST_F(AutofillPolicyHandlerTest, MigrationHandler_CreditCardDisabled) {
@@ -207,12 +248,10 @@ TEST_F(AutofillPolicyHandlerTest, MigrationHandler_CreditCardDisabled) {
   value = nullptr;
   EXPECT_TRUE(prefs.GetValue(prefs::kAutofillTypesBlocked, &value));
   ASSERT_TRUE(value && value->is_list());
-  ASSERT_EQ(1u, value->GetList().size());
-  const auto& rule = value->GetList()[0].GetDict();
-  EXPECT_EQ("*", *rule.FindString("url_pattern"));
-  const auto* blocked_types = rule.FindList("blocked_types");
-  ASSERT_TRUE(blocked_types && blocked_types->size() == 1u);
-  EXPECT_EQ("payments", (*blocked_types)[0].GetString());
+  EXPECT_THAT(value->GetList(), ElementsAre(base::test::IsJson(R"({
+            "blocked_types": ["payments"],
+            "url_pattern": "*"
+          })")));
 }
 
 TEST_F(AutofillPolicyHandlerTest, MigrationHandler_BothDisabled) {
@@ -231,12 +270,10 @@ TEST_F(AutofillPolicyHandlerTest, MigrationHandler_BothDisabled) {
   const base::Value* value = nullptr;
   EXPECT_TRUE(prefs.GetValue(prefs::kAutofillTypesBlocked, &value));
   ASSERT_TRUE(value && value->is_list());
-  ASSERT_EQ(1u, value->GetList().size());
-  const auto* blocked_types =
-      value->GetList()[0].GetDict().FindList("blocked_types");
-  ASSERT_TRUE(blocked_types && blocked_types->size() == 2u);
-  EXPECT_EQ("contact_info", (*blocked_types)[0].GetString());
-  EXPECT_EQ("payments", (*blocked_types)[1].GetString());
+  EXPECT_THAT(value->GetList(), ElementsAre(base::test::IsJson(R"({
+            "blocked_types": ["contact_info", "payments"],
+            "url_pattern": "*"
+          })")));
 }
 
 TEST_F(AutofillPolicyHandlerTest,
@@ -265,15 +302,15 @@ TEST_F(AutofillPolicyHandlerTest,
   const base::Value* value = nullptr;
   EXPECT_TRUE(prefs.GetValue(prefs::kAutofillTypesBlocked, &value));
   ASSERT_TRUE(value && value->is_list());
-  ASSERT_EQ(2u, value->GetList().size());
-
-  const auto& rule1 = value->GetList()[0].GetDict();
-  EXPECT_EQ("https://example.com", *rule1.FindString("url_pattern"));
-  EXPECT_EQ("travel", (*rule1.FindList("blocked_types"))[0].GetString());
-
-  const auto& rule2 = value->GetList()[1].GetDict();
-  EXPECT_EQ("*", *rule2.FindString("url_pattern"));
-  EXPECT_EQ("contact_info", (*rule2.FindList("blocked_types"))[0].GetString());
+  EXPECT_THAT(value->GetList(), ElementsAre(base::test::IsJson(R"({
+            "blocked_types": ["travel"],
+            "url_pattern": "https://example.com"
+          })"),
+                                            base::test::IsJson(R"({
+            "blocked_types": ["contact_info"],
+            "url_pattern": "*"
+          })")));
 }
 
+}  // namespace
 }  // namespace autofill

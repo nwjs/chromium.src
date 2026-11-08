@@ -185,6 +185,7 @@ found in the LICENSE file.
 
     <!-- Dimens for Vertical Tabs (Desktop / Default) -->
     <dimen name="vertical_tabs_rail_horizontal_margin">12dp</dimen>
+    <dimen name="vertical_tabs_hover_overlay_corner_radius">12dp</dimen>
     <dimen name="vertical_tabs_scrollbar_margin_end">-9dp</dimen>
     <dimen name="vertical_tabs_scrollbar_padding_end">9dp</dimen>
     <dimen name="vertical_tabs_scrollbar_width">3dp</dimen>
@@ -254,6 +255,9 @@ found in the LICENSE file.
     <dimen name="vertical_tabs_header_padding_vertical">0dp</dimen>
     <dimen name="vertical_tabs_header_button_size">32dp</dimen>
     <dimen name="vertical_tabs_header_button_padding">4dp</dimen>
+
+    <!-- Dimens for Vertical Tabs expand-on-hover menu item. -->
+    <dimen name="vertical_tabs_expand_on_hover_menu_end_icon_margin">16dp</dimen>
 
     <!-- Dimens for Vertical Tabs hover cards. -->
     <dimen name="vertical_tab_hover_card_margin_to_rail">4dp</dimen>

@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "base/compiler_specific.h"
+#include "base/containers/flat_set.h"
 #include "base/functional/callback_forward.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/scoped_refptr.h"
@@ -18,6 +19,7 @@
 #include "components/signin/public/base/signin_buildflags.h"
 #include "components/signin/public/base/signin_client.h"
 #include "components/signin/public/base/wait_for_network_callback_helper.h"
+#include "google_apis/gaia/gaia_id.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "services/network/public/cpp/weak_wrapper_shared_url_loader_factory.h"
 #include "services/network/public/mojom/cookie_manager.mojom.h"
@@ -96,6 +98,10 @@ class TestSigninClient : public SigninClient {
   CreateBoundSessionOAuthMultiloginDelegate() const override;
 
   network::mojom::NetworkContext* GetNetworkContext() override;
+  void set_network_context(
+      std::unique_ptr<network::mojom::NetworkContext> network_context) {
+    network_context_ = std::move(network_context);
+  }
 
   // Returns |test_url_loader_factory_| if it is specified. Otherwise, lazily
   // creates a default factory and returns it.
@@ -110,6 +116,11 @@ class TestSigninClient : public SigninClient {
 
   void set_are_signin_cookies_deleted_on_exit(bool value) {
     are_signin_cookies_deleted_on_exit_ = value;
+  }
+
+  void set_accounts_signed_in_on_other_profiles(
+      base::flat_set<GaiaId> gaia_ids) {
+    accounts_signed_in_on_other_profiles_ = std::move(gaia_ids);
   }
 
   // When |value| is true, network calls posted through DelayNetworkCall() are
@@ -135,6 +146,7 @@ class TestSigninClient : public SigninClient {
       signin::PrimaryAccountChangeEvent event_details) override;
   signin::OAuthConsumer GetOAuthConsumerFromId(
       signin::OAuthConsumerId oauth_consumer_id) const override;
+  bool IsAccountSignedInOnOtherProfile(const GaiaId& gaia_id) const override;
 
  private:
   std::unique_ptr<TestWaitForNetworkCallbackHelper>
@@ -152,6 +164,7 @@ class TestSigninClient : public SigninClient {
       bound_session_oauth_multilogin_delegate_factory_;
   bool are_signin_cookies_allowed_;
   bool are_signin_cookies_deleted_on_exit_ = false;
+  base::flat_set<GaiaId> accounts_signed_in_on_other_profiles_;
 
   std::unique_ptr<signin::OAuthConsumerRegistry> oauth_consumer_registry_;
 };

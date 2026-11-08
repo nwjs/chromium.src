@@ -30,6 +30,7 @@ interface AxTreeAnchorMetadata {
 // differences in types of content on the original page and on the distilled
 // page in metrics.
 interface OriginalPageMetrics {
+  hasMathML: boolean;
   maybeHasKeyPoints: boolean;
 }
 
@@ -152,6 +153,13 @@ declare namespace chrome {
     // Indicates if this page is a PDF.
     let isPdf: boolean;
 
+    // Whether the EnableTranslatePdf feature is enabled.
+    let isTranslatePdfEnabled: boolean;
+
+    // Whether the active tab's contents are currently translated. Only kept up
+    // to date when isTranslatePdfEnabled is true.
+    let isContentTranslated: boolean;
+
     // Fonts supported by the user's current language.
     let supportedFonts: string[];
 
@@ -256,6 +264,12 @@ declare namespace chrome {
     // Returns true if the element has overline text styling.
     function isOverline(nodeId: number): boolean;
 
+    // Returns true if the text node should be rendered as a superscript.
+    function isSuperscript(nodeId: number): boolean;
+
+    // Returns true if the text node should be rendered as a subscript.
+    function isSubscript(nodeId: number): boolean;
+
     // Returns true if the element is a leaf node.
     function isLeafNode(nodeId: number): boolean;
 
@@ -281,6 +295,9 @@ declare namespace chrome {
     // Called when the audio for speech actually starts or stops.
     function onIsAudioCurrentlyPlayingChanged(isAudioCurrentlyPlaying: boolean):
         void;
+
+    // Called when AI playback is toggled via the webui toolbar.
+    function onAiPlaybackStateChanged(enabled: boolean): void;
 
     // Called when the Read Anything panel is scrolled.
     function onScroll(onSelection: boolean): void;
@@ -436,6 +453,10 @@ declare namespace chrome {
 
     // Ping that the selection has been updated.
     function updateSelection(): void;
+
+    // Called when the translation state of the page changes. The new state can
+    // be read from isContentTranslated.
+    function onTranslationStateChanged(): void;
 
     // Read Aloud state should be updated if the lock screen state changes.
     function onLockScreen(): void;

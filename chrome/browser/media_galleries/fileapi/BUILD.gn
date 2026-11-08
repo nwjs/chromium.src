@@ -40,7 +40,6 @@ source_set("impl") {
     "supported_image_type_validator.cc",
     "supported_image_type_validator.h",
   ]
-  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
   deps = [
     ":fileapi",
     "//base",
@@ -48,18 +47,25 @@ source_set("impl") {
     "//chrome/browser/image_decoder",
     "//chrome/browser/media_galleries",
     "//components/media_gallery_util",
+    "//components/prefs",
     "//content/public/browser",
+    "//extensions/browser",
+    "//extensions/common:common_constants",
     "//storage/browser",
   ]
 }
 
 source_set("unit_tests") {
   testonly = true
-  sources = [ "native_media_file_util_unittest.cc" ]
+  sources = [
+    "media_file_system_backend_unittest.cc",
+    "native_media_file_util_unittest.cc",
+  ]
   deps = [
     ":fileapi",
     ":impl",
     "//base/test:test_support",
+    "//chrome/browser/media_galleries",
     "//chrome/test:test_support",
     "//storage/browser:test_support",
     "//testing/gtest",

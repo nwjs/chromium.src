@@ -57,15 +57,20 @@ if (use_bundled_fontconfig) {
       "src/fc-fontations/names.rs",
       "src/fc-fontations/pattern_bindings/fc_wrapper.rs",
       "src/fc-fontations/pattern_bindings/mod.rs",
+      "src/fc-fontations/postscript.rs",
+      "src/fc-fontations/style_consts.rs",
+      "src/fc-fontations/type1.rs",
+      "src/fc-fontations/zapf.rs",
     ]
     deps = [
       ":fcint_h_bindgen",
       ":fontconfig_h_bindgen",
       "//third_party/rust/font_types/v0_12:lib",
       "//third_party/rust/libc/v0_2:lib",
-      "//third_party/rust/read_fonts/v0_43:lib",
-      "//third_party/rust/skrifa/v0_46:lib",
+      "//third_party/rust/read_fonts/v0_45:lib",
+      "//third_party/rust/skrifa/v0_48:lib",
     ]
+    rustflags = [ "--cfg=have_woff2" ]
   }
 
   config("fontconfig_config") {
@@ -88,9 +93,11 @@ if (use_bundled_fontconfig) {
     ]
   }
 
-  component("fontconfig") {
+  source_set("fontconfig_sources") {
     sources = [
       "include/fontconfig/fontconfig.h",
+      "src/fc-fontations/fc_woff2.cpp",
+      "src/fc-fontations/fc_woff2.h",
       "src/src/fcarch.h",
       "src/src/fcatomic.c",
       "src/src/fccache.c",
@@ -127,11 +134,13 @@ if (use_bundled_fontconfig) {
     include_dirs = [
       "include",
       "include/src",
+      "src/fc-fontations",
     ]
 
     defines = [
       "HAVE_CONFIG_H",
       "ENABLE_FONTATIONS",
+      "HAVE_LIBWOFF2DEC",
     ]
 
     # Fontconfig symbols should not be exported from chrome, nacl_helper, or
@@ -144,8 +153,8 @@ if (use_bundled_fontconfig) {
     }
 
     deps = [
-      ":fontconfig_fontations_ffi",
       "//third_party/libxml",
+      "//third_party/woff2:woff2_dec",
       "//third_party/zlib",
     ]
 
@@ -167,6 +176,15 @@ if (use_bundled_fontconfig) {
     if (!is_win) {
       libs = [ "uuid" ]
     }
+  }
+
+  component("fontconfig") {
+    # Prevent private deps (such as :fontconfig_fontations_ffi and its
+    # rust_bindgen generator actions) from propagating order-only .harddeps to
+    # all downstream C++ targets that depend on //third_party/fontconfig.
+    check_includes_strict = true
+    public_deps = [ ":fontconfig_sources" ]
+    deps = [ ":fontconfig_fontations_ffi" ]
   }
 } else {
   config("fontconfig_config") {

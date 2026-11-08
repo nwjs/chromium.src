@@ -27,11 +27,13 @@ import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
+import org.robolectric.Robolectric;
 
 import org.chromium.base.UserDataHost;
 import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Feature;
+import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.app.ChromeActivity;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabHidingType;
@@ -52,13 +54,13 @@ public class OfflinePageTabObserverTest {
     private static final int TAB_ID = 77;
     private static final GURL TAB_URL = JUnitTestGURLs.EXAMPLE_URL;
     @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
-    @Mock private ChromeActivity mActivity;
     @Mock private TabModelSelector mTabModelSelector;
     @Mock private SnackbarManager mSnackbarManager;
     @Mock private SnackbarController mSnackbarController;
     @Mock private Tab mTab;
     @Mock private OfflinePageUtils.Internal mOfflinePageUtils;
     @Mock private WindowAndroid mWindowAndroid;
+    private ChromeActivity mActivity;
     private WeakReference<Activity> mActivityRef;
 
     private OfflinePageTabObserver createObserver() {
@@ -79,6 +81,7 @@ public class OfflinePageTabObserverTest {
     @Before
     public void setUp() {
 
+        mActivity = Robolectric.buildActivity(ChromeTabbedActivity.class).get();
         mActivityRef = new WeakReference<>(mActivity);
 
         // Setting up a mock tab. These are the values common to most tests, but individual

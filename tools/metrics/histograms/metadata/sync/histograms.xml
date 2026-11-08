@@ -157,11 +157,6 @@ chromium-metrics-reviews@google.com.
   <variant name=".Migration" summary="run the migration"/>
 </variants>
 
-<variants name="TabsFromOtherDevicesVersion">
-  <variant name="List" summary="list version"/>
-  <variant name="Screenshot" summary="screenshot version"/>
-</variants>
-
 <variants name="TrustedVaultTimeSinceMigrationSuffix">
   <variant name=""
       summary="Includes data for users that went through migration any time
@@ -222,7 +217,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Sync.AccountMenu.UserActionableError"
-    enum="UserActionableError" expires_after="2027-01-24">
+    enum="UserActionableError" expires_after="2027-03-28">
   <owner>rgod@google.com</owner>
   <owner>ylahodiuk@google.com</owner>
   <summary>
@@ -531,7 +526,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Sync.BookmarksCountAtLimitExceeded.{Type}" units="bookmarks"
-    expires_after="2027-02-02">
+    expires_after="2027-04-04">
   <owner>mtatarski@google.com</owner>
   <owner>src/components/sync/OWNERS</owner>
   <summary>
@@ -716,7 +711,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Sync.ConfigureDataTypeManagerReason"
-    enum="SyncConfigureDataTypeManagerReason" expires_after="2027-01-31">
+    enum="SyncConfigureDataTypeManagerReason" expires_after="2027-04-04">
   <owner>treib@chromium.org</owner>
   <owner>src/components/sync/OWNERS</owner>
   <summary>
@@ -804,8 +799,8 @@ chromium-metrics-reviews@google.com.
     name="Sync.Crypto.CustomPassphraseKeyDerivationMethodOnSuccessfulDecryption"
     enum="SyncCustomPassphraseKeyDerivationMethodState"
     expires_after="2027-02-07">
-  <owner>mmoskvitin@google.com</owner>
   <owner>treib@chromium.org</owner>
+  <owner>src/components/sync/OWNERS</owner>
   <summary>
     Key derivation method used for sync custom passphrase on successful
     decryption of pending keys, i.e. when a passphrase is requested and the user
@@ -818,8 +813,8 @@ chromium-metrics-reviews@google.com.
 <histogram name="Sync.Crypto.CustomPassphraseKeyDerivationMethodStateOnStartup"
     enum="SyncCustomPassphraseKeyDerivationMethodState"
     expires_after="2027-01-03">
-  <owner>mmoskvitin@google.com</owner>
   <owner>treib@chromium.org</owner>
+  <owner>src/components/sync/OWNERS</owner>
   <summary>
     State of the derivation method used for sync custom passphrase on startup.
     Reported only when the passphrase type is CUSTOM_PASSPHRASE.
@@ -828,8 +823,8 @@ chromium-metrics-reviews@google.com.
 
 <histogram name="Sync.Crypto.NigoriKeyDerivationDuration.{Method}" units="ms"
     expires_after="2027-04-28">
-  <owner>mmoskvitin@google.com</owner>
   <owner>treib@chromium.org</owner>
+  <owner>src/components/sync/OWNERS</owner>
   <summary>
     Time taken to derive keys in Nigori using a given key derivation method.
     This histogram is always recorded with one of the key derivation method
@@ -852,8 +847,8 @@ chromium-metrics-reviews@google.com.
 
 <histogram name="Sync.CryptographerReady" enum="SyncCryptographerReadyState"
     expires_after="2027-08-30">
-  <owner>mmoskvitin@google.com</owner>
   <owner>mastiz@chromium.org</owner>
+  <owner>src/components/sync/OWNERS</owner>
   <summary>
     Breakdown of sync users whose cryptographer is fully ready for encryption
     and decryption (initialized and no pending keys).
@@ -862,8 +857,8 @@ chromium-metrics-reviews@google.com.
 
 <histogram name="Sync.CustomOSSync" enum="SyncDataTypes"
     expires_after="2027-08-02">
-  <owner>mmoskvitin@google.com</owner>
   <owner>treib@chromium.org</owner>
+  <owner>src/components/sync/OWNERS</owner>
   <summary>
     For users who have *not* selected the &quot;Sync Everything&quot; option,
     this records all the OS data types they have selected to sync. Samples are
@@ -955,7 +950,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Sync.DataTypeCount{SyncDataType}" units="entries"
-    expires_after="2027-01-31">
+    expires_after="2027-04-04">
   <owner>rushans@google.com</owner>
   <owner>mastiz@chromium.org</owner>
   <summary>
@@ -977,7 +972,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Sync.DataTypeEntityChange{SyncDataType}"
-    enum="SyncEntityChange" expires_after="2027-01-31">
+    enum="SyncEntityChange" expires_after="2027-04-04">
   <owner>treib@chromium.org</owner>
   <owner>rushans@google.com</owner>
   <summary>
@@ -1038,22 +1033,10 @@ chromium-metrics-reviews@google.com.
   <token key="SyncDataType" variants="SyncDataType"/>
 </histogram>
 
-<histogram name="Sync.DataTypeMetadataConsistency{SyncDataType}"
-    enum="SyncMetadataConsistency" expires_after="2027-08-02">
-  <owner>rushans@google.com</owner>
-  <owner>src/components/sync/OWNERS</owner>
-  <summary>
-    Recorded when ClientTagBasedDataTypeProcessor checks stored metadata
-    consistency upon processor startup or activation. Tracks whether metadata is
-    consistent or what mismatch/error occurred for {SyncDataType}.
-  </summary>
-  <token key="SyncDataType" variants="SyncDataType"/>
-</histogram>
-
 <histogram name="Sync.DataTypeNumUnsyncedEntities{Event}{SyncDataType}"
     units="entities" expires_after="2027-03-07">
-  <owner>mmoskvitin@google.com</owner>
   <owner>treib@chromium.org</owner>
+  <owner>src/components/sync/OWNERS</owner>
   <summary>
     Counts the number of unsynced entities for each data type, including
     tombstones. Recorded {Event}.
@@ -1653,7 +1636,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Sync.IdentityErrorMessage{SyncErrorReason}"
-    enum="SyncErrorUiAction" expires_after="2027-01-31">
+    enum="SyncErrorUiAction" expires_after="2027-04-04">
   <owner>ankushkush@google.com</owner>
   <owner>src/components/sync/OWNERS</owner>
   <summary>
@@ -1750,8 +1733,8 @@ chromium-metrics-reviews@google.com.
     expires_after="never">
 <!-- expires-never: For monitoring FCM based invalidations. -->
 
-  <owner>mmoskvitin@google.com</owner>
   <owner>treib@chromium.org</owner>
+  <owner>src/components/sync/OWNERS</owner>
   <summary>
     Histogram tracks the number of invalidations received per sync data type.
   </summary>
@@ -1847,8 +1830,8 @@ chromium-metrics-reviews@google.com.
 
 <histogram name="Sync.KeystoreDecryptionFailed"
     enum="SyncKeystoreDecryptionFailure" expires_after="2027-09-13">
-  <owner>mmoskvitin@google.com</owner>
   <owner>mastiz@chromium.org</owner>
+  <owner>src/components/sync/OWNERS</owner>
   <summary>The reason for a failure decrypting the keystore Nigori.</summary>
 </histogram>
 
@@ -1862,7 +1845,7 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="Sync.Local.FileSizeKB" units="KB" expires_after="2027-01-24">
+<histogram name="Sync.Local.FileSizeKB" units="KB" expires_after="2027-03-28">
   <owner>igorruvinov@chromium.org</owner>
   <owner>pastarmovj@chromium.org</owner>
   <summary>
@@ -1968,7 +1951,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Sync.NonReflectionUpdateFreshnessPossiblySkewed2{SyncDataType}"
-    units="ms" expires_after="2027-01-31">
+    units="ms" expires_after="2027-04-04">
   <owner>mastiz@chromium.org</owner>
   <owner>treib@chromium.org</owner>
   <summary>
@@ -2052,7 +2035,7 @@ chromium-metrics-reviews@google.com.
 <histogram name="Sync.PassphraseTypeUponNotMyBirthdayOrEncryptionObsolete"
     enum="SyncPassphraseType" expires_after="2027-02-14">
   <owner>mastiz@chromium.org</owner>
-  <owner>mmoskvitin@google.com</owner>
+  <owner>src/components/sync/OWNERS</owner>
   <summary>
     The active sync passphrase type when the client receives a NOT_MY_BIRTHDAY
     or ENCRYPTION_OBSOLETE event from the server.
@@ -2237,8 +2220,8 @@ chromium-metrics-reviews@google.com.
 
 <histogram name="Sync.RecordedUserEventType" enum="SyncUserEventType"
     expires_after="2027-05-17">
-  <owner>mmoskvitin@google.com</owner>
   <owner>treib@chromium.org</owner>
+  <owner>src/components/sync/OWNERS</owner>
   <summary>
     For every user event that is recorded, this histogram records the type of
     event (i.e. which of the &quot;oneof event&quot; entries in the
@@ -2247,7 +2230,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Sync.ResetEngineReason" enum="SyncResetEngineReason"
-    expires_after="2026-11-15">
+    expires_after="2027-11-15">
   <owner>rushans@google.com</owner>
   <owner>treib@chromium.org</owner>
   <summary>
@@ -2315,7 +2298,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Sync.SearchEngine.FaviconOnlyUpdate" enum="Boolean"
-    expires_after="2027-01-24">
+    expires_after="2027-03-28">
   <owner>ankushkush@google.com</owner>
   <owner>mahmadi@chromium.org</owner>
   <summary>
@@ -2587,9 +2570,9 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Sync.SyncEverythingOS" enum="Boolean"
-    expires_after="2027-01-24">
-  <owner>mmoskvitin@google.com</owner>
+    expires_after="2027-03-28">
   <owner>treib@chromium.org</owner>
+  <owner>src/components/sync/OWNERS</owner>
   <summary>
     Analogous to Sync.SyncEverything2 for Chrome OS sync settings. Reflects
     whether the &quot;Sync Everything&quot; option was selected by the user for
@@ -2633,7 +2616,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Sync.SyncToSigninMigration.ExtensionsMigrationStep"
-    enum="SyncToSigninMigrationExtensionsStep" expires_after="2027-01-28">
+    enum="SyncToSigninMigrationExtensionsStep" expires_after="2027-04-04">
   <owner>ankushkush@google.com</owner>
   <owner>src/components/sync/OWNERS</owner>
   <summary>
@@ -2672,6 +2655,21 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="Sync.SyncToSigninMigration.ReadingListPrefMigrationState"
+    enum="SyncToSigninMigrationReadingListPrefMigrationState"
+    expires_after="2027-04-05">
+  <owner>mmrashad@google.com</owner>
+  <owner>src/components/sync/OWNERS</owner>
+  <summary>
+    Records the state of the Reading List pref migration for signed-in,
+    non-syncing users. Recorded on every profile startup on desktop,
+    independently of whether the fix-up feature
+    (EnableReadingListForMigratedUsers) is enabled. The fix-up enables Reading
+    List for users who were migrated from syncing to signed-in before the
+    migration carried over the Reading List toggle, see crbug.com/568406887.
+  </summary>
+</histogram>
+
 <histogram name="Sync.SyncToSigninMigration.StatsTableCleanupStep"
     enum="SyncToSigninMigrationStatsTableCleanupStep"
     expires_after="2027-01-28">
@@ -2689,7 +2687,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Sync.SyncToSigninMigration.ThemeMigrationStep"
-    enum="SyncToSigninMigrationThemeStep" expires_after="2027-01-28">
+    enum="SyncToSigninMigrationThemeStep" expires_after="2027-04-04">
   <owner>ankushkush@google.com</owner>
   <owner>src/components/sync/OWNERS</owner>
   <summary>
@@ -2788,7 +2786,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Sync.SyncToSigninMigrationOutcome.ExtensionsDeduplicatedCount"
-    units="extensions" expires_after="2027-01-28">
+    units="extensions" expires_after="2027-04-04">
   <owner>ankushkush@google.com</owner>
   <owner>src/components/sync/OWNERS</owner>
   <summary>
@@ -2814,7 +2812,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Sync.SyncToSigninMigrationOutcome.ThemeDeduplication"
-    enum="SyncToSigninMigrationThemeOutcome" expires_after="2027-01-28">
+    enum="SyncToSigninMigrationThemeOutcome" expires_after="2027-04-04">
   <owner>ankushkush@google.com</owner>
   <owner>src/components/sync/OWNERS</owner>
   <summary>
@@ -2837,104 +2835,6 @@ chromium-metrics-reviews@google.com.
     &quot;Migrate&quot; bucket of &quot;Sync.SyncToSigninMigrationDecision&quot;
     to verify that all migrations that were started also finished.
   </summary>
-</histogram>
-
-<histogram
-    name="Sync.TabsFromOtherDevicesSidePanel.{Version}.DeviceCountOnOpen"
-    units="devices" expires_after="2027-05-07">
-  <owner>treib@chromium.org</owner>
-  <owner>src/components/sync/OWNERS</owner>
-  <summary>
-    Records the number of synced devices shown when the TabsFromOtherDevices
-    side panel ({Version}) is opened. Recorded once when the side panel is
-    opened and data is loaded.
-  </summary>
-  <token key="Version" variants="TabsFromOtherDevicesVersion"/>
-</histogram>
-
-<histogram name="Sync.TabsFromOtherDevicesSidePanel.{Version}.Events"
-    enum="TabsFromOtherDevicesSidePanelEvent" expires_after="2027-05-07">
-  <owner>treib@chromium.org</owner>
-  <owner>src/components/sync/OWNERS</owner>
-  <summary>
-    Records events for the TabsFromOtherDevices side panel ({Version}). Recorded
-    when the side panel is created, opened, closed, or a tab is opened from it.
-  </summary>
-  <token key="Version" variants="TabsFromOtherDevicesVersion"/>
-</histogram>
-
-<histogram
-    name="Sync.TabsFromOtherDevicesSidePanel.{Version}.OpenedTabDeviceIndex"
-    units="index" expires_after="2027-05-07">
-  <owner>treib@chromium.org</owner>
-  <owner>src/components/sync/OWNERS</owner>
-  <summary>
-    Records the 0-based index of the device from which a tab is opened in the
-    TabsFromOtherDevices side panel ({Version}). Recorded when a tab is opened.
-  </summary>
-  <token key="Version" variants="TabsFromOtherDevicesVersion"/>
-</histogram>
-
-<histogram
-    name="Sync.TabsFromOtherDevicesSidePanel.{Version}.OpenedTabRecencyIndex"
-    units="index" expires_after="2027-05-07">
-  <owner>treib@chromium.org</owner>
-  <owner>src/components/sync/OWNERS</owner>
-  <summary>
-    Records the index (by recency, i.e., visual order in the side panel) of the
-    tab that was opened within its session/device in the TabsFromOtherDevices
-    side panel ({Version}). Recorded when a tab is opened.
-  </summary>
-  <token key="Version" variants="TabsFromOtherDevicesVersion"/>
-</histogram>
-
-<histogram
-    name="Sync.TabsFromOtherDevicesSidePanel.{Version}.TabCountOnOpen.ActiveDevice"
-    units="tabs" expires_after="2027-05-07">
-  <owner>treib@chromium.org</owner>
-  <owner>src/components/sync/OWNERS</owner>
-  <summary>
-    Records the number of tabs on the initially active/selected device shown
-    when the TabsFromOtherDevices side panel ({Version}) is opened. Recorded
-    once when the side panel is opened and data is loaded.
-  </summary>
-  <token key="Version" variants="TabsFromOtherDevicesVersion"/>
-</histogram>
-
-<histogram
-    name="Sync.TabsFromOtherDevicesSidePanel.{Version}.TabCountOnOpen.Total"
-    units="tabs" expires_after="2027-05-07">
-  <owner>treib@chromium.org</owner>
-  <owner>src/components/sync/OWNERS</owner>
-  <summary>
-    Records the total number of synced tabs across all devices shown when the
-    TabsFromOtherDevices side panel ({Version}) is opened. Recorded once when
-    the side panel is opened and data is loaded.
-  </summary>
-  <token key="Version" variants="TabsFromOtherDevicesVersion"/>
-</histogram>
-
-<histogram name="Sync.TabsFromOtherDevicesSidePanel.{Version}.TimeSpentOpen"
-    units="ms" expires_after="2027-05-07">
-  <owner>treib@chromium.org</owner>
-  <owner>src/components/sync/OWNERS</owner>
-  <summary>
-    Records the total time spent with the TabsFromOtherDevices side panel
-    ({Version}) open. Recorded when the side panel is closed or hidden.
-  </summary>
-  <token key="Version" variants="TabsFromOtherDevicesVersion"/>
-</histogram>
-
-<histogram name="Sync.TabsFromOtherDevicesSidePanel.{Version}.TimeToFirstTab"
-    units="ms" expires_after="2027-05-07">
-  <owner>treib@chromium.org</owner>
-  <owner>src/components/sync/OWNERS</owner>
-  <summary>
-    Records the time between opening the TabsFromOtherDevices side panel
-    ({Version}) and opening the first tab from it. Recorded when the first tab
-    is opened.
-  </summary>
-  <token key="Version" variants="TabsFromOtherDevicesVersion"/>
 </histogram>
 
 <histogram name="Sync.ThrottledAllDataTypes" enum="Boolean"
@@ -2979,8 +2879,8 @@ chromium-metrics-reviews@google.com.
 
 <histogram name="Sync.TrustedVaultAddKeysAttemptIsSuccessful" enum="Boolean"
     expires_after="2027-03-15">
-  <owner>mmoskvitin@google.com</owner>
   <owner>mastiz@chromium.org</owner>
+  <owner>src/components/sync/OWNERS</owner>
   <summary>
     Records whether attempt of adding trusted vault keys was successful (i.e.
     whether pending keys state resolved).
@@ -3000,8 +2900,8 @@ chromium-metrics-reviews@google.com.
 
 <histogram name="Sync.TrustedVaultErrorShownOnFirstTimeSync2" enum="Boolean"
     expires_after="2027-03-21">
-  <owner>mmoskvitin@google.com</owner>
   <owner>mastiz@chromium.org</owner>
+  <owner>src/components/sync/OWNERS</owner>
   <summary>
     Records whether user action was required to fetch trusted vault keys upon
     first sync (i.e. after signin). Recorded only if trusted vault passphrase
@@ -3016,8 +2916,8 @@ chromium-metrics-reviews@google.com.
 <histogram
     name="Sync.TrustedVaultErrorShownOnStartup{TrustedVaultTimeSinceMigrationSuffix}"
     enum="Boolean" expires_after="2027-02-07">
-  <owner>mmoskvitin@google.com</owner>
   <owner>mastiz@chromium.org</owner>
+  <owner>src/components/sync/OWNERS</owner>
   <summary>
     Records whether user action was required to fetch trusted vault keys upon
     startup. Recorded only if trusted vault passphrase type is used and at least
@@ -3035,8 +2935,8 @@ chromium-metrics-reviews@google.com.
 
 <histogram name="Sync.TrustedVaultFetchedKeysCount" units="keys"
     expires_after="2027-03-15">
-  <owner>mmoskvitin@google.com</owner>
   <owner>mastiz@chromium.org</owner>
+  <owner>src/components/sync/OWNERS</owner>
   <summary>
     Records number of trusted vault keys fetched upon fetching completion.
   </summary>
@@ -3044,8 +2944,8 @@ chromium-metrics-reviews@google.com.
 
 <histogram name="Sync.TrustedVaultJavascriptAddRecoveryMethodIsIncognito"
     enum="BooleanIncognito" expires_after="2027-04-13">
-  <owner>mmoskvitin@google.com</owner>
   <owner>mastiz@chromium.org</owner>
+  <owner>src/components/sync/OWNERS</owner>
   <summary>
     Records whether invocations to the Javascript API
     chrome.addTrustedSyncEncryptionRecoveryMethod(), when received via Mojo in
@@ -3055,8 +2955,8 @@ chromium-metrics-reviews@google.com.
 
 <histogram name="Sync.TrustedVaultJavascriptAddRecoveryMethodSucceeded"
     enum="BooleanSuccess" expires_after="2027-04-13">
-  <owner>mmoskvitin@google.com</owner>
   <owner>mastiz@chromium.org</owner>
+  <owner>src/components/sync/OWNERS</owner>
   <summary>
     Records whether invocations to the Javascript API
     chrome.addTrustedSyncEncryptionRecoveryMethod() completed successfully.
@@ -3066,8 +2966,8 @@ chromium-metrics-reviews@google.com.
 
 <histogram name="Sync.TrustedVaultJavascriptAddRecoveryMethodUserKnown"
     enum="BooleanKnown" expires_after="2027-04-13">
-  <owner>mmoskvitin@google.com</owner>
   <owner>mastiz@chromium.org</owner>
+  <owner>src/components/sync/OWNERS</owner>
   <summary>
     Records whether invocations to the Javascript API
     chrome.addTrustedSyncEncryptionRecoveryMethod() specify a user ID that is
@@ -3077,8 +2977,8 @@ chromium-metrics-reviews@google.com.
 
 <histogram name="Sync.TrustedVaultJavascriptAddRecoveryMethodValidArgs"
     enum="BooleanValid" expires_after="2027-04-13">
-  <owner>mmoskvitin@google.com</owner>
   <owner>mastiz@chromium.org</owner>
+  <owner>src/components/sync/OWNERS</owner>
   <summary>
     Records invocations to the Javascript API
     chrome.addTrustedSyncEncryptionRecoveryMethod() and whether the passed
@@ -3089,8 +2989,8 @@ chromium-metrics-reviews@google.com.
 
 <histogram name="Sync.TrustedVaultJavascriptSetEncryptionKeysIsIncognito"
     enum="BooleanIncognito" expires_after="2027-02-28">
-  <owner>mmoskvitin@google.com</owner>
   <owner>mastiz@chromium.org</owner>
+  <owner>src/components/sync/OWNERS</owner>
   <summary>
     Records whether invocations to the Javascript API
     chrome.setSyncEncryptionKeys(), when received via Mojo in the browser
@@ -3100,8 +3000,8 @@ chromium-metrics-reviews@google.com.
 
 <histogram name="Sync.TrustedVaultJavascriptSetEncryptionKeysValidArgs"
     enum="BooleanValid" expires_after="2027-04-13">
-  <owner>mmoskvitin@google.com</owner>
   <owner>mastiz@chromium.org</owner>
+  <owner>src/components/sync/OWNERS</owner>
   <summary>
     Records invocations to the Javascript API chrome.setSyncEncryptionKeys() and
     whether the passed arguments could be successfully parsed (which doesn't
@@ -3111,8 +3011,8 @@ chromium-metrics-reviews@google.com.
 
 <histogram name="Sync.TrustedVaultKeyRetrievalTrigger"
     enum="TrustedVaultUserActionTrigger" expires_after="2027-02-07">
-  <owner>mmoskvitin@google.com</owner>
   <owner>mastiz@chromium.org</owner>
+  <owner>src/components/sync/OWNERS</owner>
   <summary>
     Recorded when user clicks/taps on trusted vault error button for the
     keys-missing error state. Buckets represents the UI elements which contain
@@ -3122,8 +3022,8 @@ chromium-metrics-reviews@google.com.
 
 <histogram name="Sync.TrustedVaultRecoverabilityDegradedFixTrigger"
     enum="TrustedVaultUserActionTrigger" expires_after="2027-07-15">
-  <owner>mmoskvitin@google.com</owner>
   <owner>mastiz@chromium.org</owner>
+  <owner>src/components/sync/OWNERS</owner>
   <summary>
     Recorded when user clicks/taps on trusted vault error button for the
     recoverability-degraded error state. Buckets represents the UI elements
@@ -3134,8 +3034,8 @@ chromium-metrics-reviews@google.com.
 <histogram
     name="Sync.TrustedVaultRecoverabilityDegradedOnStartup{TrustedVaultTimeSinceMigrationSuffix}"
     enum="Boolean" expires_after="2027-02-07">
-  <owner>mmoskvitin@google.com</owner>
   <owner>mastiz@chromium.org</owner>
+  <owner>src/components/sync/OWNERS</owner>
   <summary>
     Records whether user action was required to improve the recoverability of
     trusted vault keys. Recorded only if trusted vault passphrase type is used,

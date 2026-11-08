@@ -86,12 +86,17 @@ enum class FuseboxAttachmentButtonType;
 /// Informs the delegate that a user did tap on the plus button.
 - (void)composeboxViewControllerDidTapPlusButton:
             (ComposeboxInputPlateViewController*)composeboxViewController
-                                withUIInputState:(ComposeboxUIInputState*)state;
+                                withUIInputState:(ComposeboxUIInputState*)state
+                                          button:(UIButton*)button;
 
 /// Informs the delegate that a user did tap on the lens button.
 - (void)composeboxViewController:
             (ComposeboxInputPlateViewController*)composeboxViewController
                 didTapSendButton:(UIButton*)button;
+
+// Returns the menu to be shown in by the plus button.
+- (UIMenu*)composeboxViewControllerPlusButtonMenu:
+    (ComposeboxInputPlateViewController*)composeboxViewController;
 
 /// Informs the delegate that a file attachment did fail due to exceeding the
 /// attachment limit.

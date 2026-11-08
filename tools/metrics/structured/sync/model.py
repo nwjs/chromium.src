@@ -15,6 +15,7 @@ import re
 
 import setup_modules  # pylint: disable=unused-import
 
+
 import chromium_src.tools.metrics.structured.sync.model_util as util
 
 

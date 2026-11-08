@@ -64,8 +64,9 @@ public final class ProductionSupportedFlagList {
      * updating the "LoginCustomFlags" field in tools/metrics/histograms/enums.xml.
      */
     public static final Flag[] sFlagList = {
-        Flag.baseFeature("useicu4xnormalizer", "Auto-generated flag for useicu4xnormalizer."),
-        Flag.baseFeature("AwMetricsLogTrimming", "Auto-generated flag for AwMetricsLogTrimming."),
+        Flag.baseFeature(
+                "webviewprewarmdictionaryonpreconnect",
+                "Auto-generated flag for webviewprewarmdictionaryonpreconnect."),
         Flag.commandLine(
                 AwSwitches.HIGHLIGHT_ALL_WEBVIEWS,
                 "Highlight the contents (including web contents) of all WebViews with a yellow "
@@ -227,6 +228,9 @@ public final class ProductionSupportedFlagList {
         Flag.baseFeature(
                 BlinkFeatures.WEBVIEW_ACCELERATE_SMALL_CANVASES,
                 "Accelerate all canvases in webview."),
+        Flag.baseFeature(
+                BlinkFeatures.RUSTY_ICO_FEATURE,
+                "When enabled, uses Rust `image` crate to decode ICO images."),
         Flag.baseFeature("RustyJpegFeature", "Enables Rust-based JPEG image decoding."),
         Flag.baseFeature(
                 AwFeatures.WEBVIEW_BOOST_RENDERER_PRIORITY_ON_NAVIGATION,
@@ -394,13 +398,6 @@ public final class ProductionSupportedFlagList {
                 AwFeatures.WEBVIEW_REDUCE_UA_ANDROID_VERSION_DEVICE_MODEL,
                 "Enables reduce webview user-agent android version and device model."),
         Flag.baseFeature(
-                AwFeatures.WEBVIEW_RENDERER_KEEP_ALIVE,
-                "Keeps the renderer process alive after the last WebView is destroyed to "
-                        + "allow for reuse."),
-        Flag.baseFeature(
-                AwFeatures.WEBVIEW_PREFETCH_ON_RENDERER_REUSE,
-                "Prefetches the native WebView code to memory when renderer is reused."),
-        Flag.baseFeature(
                 BlinkFeatures.REDUCE_USER_AGENT_MINOR_VERSION,
                 "Enables reduce webview user-agent minor version."),
         Flag.baseFeature(
@@ -444,7 +441,6 @@ public final class ProductionSupportedFlagList {
                 BlinkFeatures.THREADED_BODY_LOADER,
                 "If enabled, reads and decodes navigation body data off the main thread."),
         Flag.baseFeature(BlinkFeatures.EXPAND_COMPOSITED_CULL_RECT),
-        Flag.baseFeature(BlinkFeatures.MERGE_FIXED_LAYERS),
         Flag.baseFeature(BlinkFeatures.MERGE_STICKY_LAYERS),
         Flag.baseFeature(CcFeatures.NEW_CONTENT_FOR_CHECKERBOARDED_SCROLLS),
         Flag.baseFeature(CcFeatures.PRESERVE_DISCARDABLE_IMAGE_MAP_QUALITY),
@@ -546,11 +542,7 @@ public final class ProductionSupportedFlagList {
         Flag.baseFeature(
                 NetFeatures.CACHE_CERT_VERIFICATION,
                 "Enables caching of certificate verification results"),
-        Flag.baseFeature("MojoIpcz"),
         Flag.baseFeature("MojoFixGeometricBufferGrowth"),
-        Flag.baseFeature(
-                "MojoDirectSharedMemoryAllocation",
-                "Enables direct shared memory allocation in Mojo without brokering."),
         Flag.baseFeature(
                 "FixDataPipeTrapBug",
                 "Used to disable a specific bug fix for a long-standing bug that may"
@@ -859,6 +851,8 @@ public final class ProductionSupportedFlagList {
         Flag.baseFeature(NetFeatures.NET_TASK_SCHEDULER),
         Flag.baseFeature(NetFeatures.NET_TASK_SCHEDULER2),
         Flag.baseFeature(NetFeatures.NET_TASK_SCHEDULER_HOST_RESOLVER),
+        Flag.baseFeature(
+                NetworkServiceFeatures.BIND_URL_LOADER_FACTORY_TO_HIGH_PRIORITY_TASK_RUNNER),
         Flag.baseFeature("BrowserThreadPoolAdjustment"),
         Flag.baseFeature(
                 "LevelDBProtoAsyncWrite",
@@ -1220,10 +1214,6 @@ public final class ProductionSupportedFlagList {
                 "When enabled, misspelling suggestion span will be blocked from showing in"
                         + " composition mode."),
         Flag.baseFeature(
-                ContentFeatures.ACCESSIBILITY_ATOMIC_LIVE_REGIONS,
-                "When enabled, supports atomic announcements, meaning that when aria-atomic=true,"
-                    + " the entire live region will be announced not just the node that changed."),
-        Flag.baseFeature(
                 "LevelDBCacheSize",
                 "Reduces the size of the LevelDB cache to reduce memory usage at no expected speed"
                         + " cost"),
@@ -1285,13 +1275,13 @@ public final class ProductionSupportedFlagList {
                 "Enables the Rust based XML parser in situations where the XML document is"
                         + " guaranteed to not trigger XSLT processing."),
         Flag.baseFeature(
+                AwFeatures.WEBVIEW_NONEMBEDDED_LOW_ENTROPY_SOURCE_KILL_SWITCH,
+                "Kill switch for using the low entropy source provided by the "
+                        + "nonembedded WebView service."),
+        Flag.baseFeature(
                 AwFeatures.WEBVIEW_TEST_NONEMBEDDED_LOW_ENTROPY_SOURCE,
                 "No-op experiment to verify WebView uses low entropy source provided by the"
                         + " nonembedded WebView services work."),
-        Flag.baseFeature(
-                PaymentFeatureList.PAYMENT_REQUEST_USE_RENDERER_URL_LOADER,
-                "When enabled, the PaymentRequest will use the URL loader from the renderer instead"
-                        + " of the browser process."),
         Flag.baseFeature(
                 ContentFeatures.PREVIEW_HANDWRITING_GESTURE,
                 "When enabled, it allows users to see a preview of their handwriting gestures"),
@@ -1343,6 +1333,11 @@ public final class ProductionSupportedFlagList {
                 BaseFeatures.SHUTDOWN_PRE_NATIVE_THREAD_POOL_AFTER_STARTUP,
                 "When enabled, after start up the thread pool in PostTask.java"
                         + " will be shutdown so it doesn't consume resources when not needed."),
+        Flag.baseFeature(
+                "AsyncThreadPoolInit",
+                "When enabled, thread pool initialization creates various thread groups'"
+                        + " initial threads asynchronously on the service thread instead of"
+                        + " synchronously on UI thread."),
         Flag.baseFeature(
                 AwFeatures.WEBVIEW_PERSIST_HTTP_SERVER_PROPERTIES,
                 "When enabled, WebView will save Alt-Svc information across sessions."),
@@ -1523,6 +1518,9 @@ public final class ProductionSupportedFlagList {
                 "Boosts the thread types of IO threads in the video capture and network utility"
                         + " processes on the WebRTC media path."),
         Flag.baseFeature(
+                "RequiresLoadIgnoreLimitsForDomWindowsOnly",
+                "When Enabled, Sync-XHR in workers cannot bypass load limits."),
+        Flag.baseFeature(
                 BlinkFeatures.LAZY_PARSE_INLINE_STYLE_SHEETS,
                 "Defers declaration block parsing in inline stylesheets until rules match or"
                         + " are queried."),
@@ -1530,6 +1528,29 @@ public final class ProductionSupportedFlagList {
                 AwFeatures.WEBVIEW_IGNORE_DEFAULT_VIDEO_POSTER,
                 "Use Chromium's usual video poster logic instead of"
                         + " WebChromeClient.getDefaultVideoPoster()"),
+        Flag.baseFeature(
+                GpuFeatures.VULKAN_IMAGINATION_MSAA,
+                "Enables Ganesh/Vulkan MSAA support on Imagination (PowerVR) GPUs."),
+        Flag.baseFeature(
+                MediaFeatures.AUDIO_RENDERER_MIXER_IMMEDIATE_PAUSE,
+                "Immediately pauses the underlying audio output stream on explicit media"
+                        + " player pauses instead of waiting for the 10-second mixer pause delay."),
+        Flag.baseFeature(
+                PaymentFeatureList.PAYMENT_REQUEST_ENFORCE_LNA_WITH_CLIENT_SECURITY_STATE,
+                "When enabled, the PaymentRequest will enforce LNA with ClientSecurityState."),
+        Flag.baseFeature(
+                BlinkFeatures.RESAMPLING_SCROLL_EVENTS,
+                "Enables resampling GestureScrollUpdate events at VSync time."),
+        Flag.baseFeature(
+                BlinkFeatures.SCROLL_PREDICTOR_REFINED_HAS_PREDICTION,
+                "Refines ScrollPredictor::HasPrediction() to check prediction availability before"
+                        + " generating synthetic scroll updates."),
+        Flag.baseFeature(
+                AwFeatures.WEBVIEW_RELAX_DATA_DIR_LOCKING,
+                "Allow WebView initialization to continue in the case where an old instance of"
+                        + " the same app process is stuck holding the lock."),
+        Flag.baseFeature("useicu4xnormalizer", "Auto-generated flag for useicu4xnormalizer."),
+        Flag.baseFeature("AwMetricsLogTrimming", "Auto-generated flag for AwMetricsLogTrimming."),
         // Add new commandline switches and features above. The final entry should have a
         // trailing comma for cleaner diffs.
     };

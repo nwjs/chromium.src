@@ -33,7 +33,9 @@ source_set("supervised_user") {
     "//components/supervised_user/core/browser",
     "//components/supervised_user/core/browser:device_parental_controls",
     "//components/supervised_user/core/common",
+    "//components/tabs:public",
     "//content/public/browser",
+    "//ui/base/unowned_user_data",
     "//url",
   ]
 
@@ -45,7 +47,6 @@ source_set("supervised_user") {
     ]
     public_deps += [
       "//components/security_interstitials/content:security_interstitial_page",
-      "//components/tabs:public",
     ]
   }
 
@@ -128,10 +129,7 @@ source_set("impl") {
     "supervised_user_url_filtering_service_factory.cc",
   ]
 
-  public_deps = [
-    ":supervised_user",
-    "//chrome/browser:browser_public_dependencies",
-  ]
+  public_deps = [ ":supervised_user" ]
 
   deps = [
     "//chrome/browser:browser_process",
@@ -147,6 +145,7 @@ source_set("impl") {
     "//chrome/browser/ui/browser_window",
     "//components/history/content/browser",
     "//components/infobars/content",
+    "//components/input",
     "//components/keyed_service/core",
     "//components/prefs",
     "//components/signin/public/identity_manager",
@@ -348,7 +347,6 @@ if (!is_android) {
       "//chrome/browser/profiles:profile",
       "//chrome/browser/signin",
       "//chrome/browser/ssl",
-      "//chrome/browser/ui",
       "//chrome/browser/ui:browser_commands",
       "//chrome/browser/ui:tab_ui_helper",
       "//chrome/browser/ui:test_support",
@@ -429,7 +427,6 @@ if (!is_android) {
 
     deps = [
       "//chrome/browser/prefs",
-      "//chrome/browser/ui",
       "//chrome/test:test_support",
       "//chrome/test/supervised_user:live_tests",
       "//chrome/test/supervised_user:test_support",
@@ -771,6 +768,7 @@ if (is_android) {
         "//components/safe_search_api:test_support",
         "//components/supervised_user/core/browser:test_support",
         "//components/supervised_user/core/browser/android",
+        "//components/tabs:public",
         "//components/url_matcher",
         "//content/test:test_support",
         "//net:test_support",

@@ -12,6 +12,7 @@
 
 #include "base/time/time.h"
 #include "base/values.h"
+#include "build/branding_buildflags.h"
 #include "build/build_config.h"
 #include "chrome/installer/util/initial_preferences.h"
 #include "extensions/buildflags/buildflags.h"
@@ -74,11 +75,17 @@ struct MasterPrefs {
   bool confirm_to_quit;
 #endif
 #if BUILDFLAG(IS_LINUX)
-  // NW.js: do not require the first-run EULA/terms-of-service dialog on Linux.
-  // Upstream flipped this default to true (crrev 1292cde56e9b8), which blocks
-  // startup of freshly-launched nw apps waiting on a modal EULA dialog.
+// NW.js: do not require the first-run EULA/terms-of-service dialog on Linux.
+// Upstream flipped this default to true for all builds (crrev 1292cde56e9b8),
+// which blocked startup of freshly-launched nw apps waiting on a modal EULA
+// dialog; upstream now defaults it to true only for GOOGLE_CHROME_BRANDING
+// builds, and nw.js (Chromium-branded) always gets false.
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
+  bool eula_required = true;
+#else
   bool eula_required = false;
-#endif
+#endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
+#endif  // BUILDFLAG(IS_LINUX)
 };
 
 void RegisterProfilePrefs(

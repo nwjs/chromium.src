@@ -31,8 +31,23 @@
 
 #if !BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/contextual_tasks/contextual_tasks_location_bar.h"
-#include "chrome/browser/contextual_tasks/contextual_tasks_permission_chip.h"
-#include "chrome/browser/contextual_tasks/contextual_tasks_permission_dashboard.h"
+#include "chrome/browser/ui/browser_element_identifiers.h"
+#include "chrome/browser/ui/interaction/browser_elements.h"
+#include "chrome/browser/ui/views/bubble_anchor_util_views.h"
+#include "chrome/browser/ui/views/frame/browser_view.h"
+#include "chrome/browser/ui/views/permissions/chip/chip_controller.h"
+#include "chrome/browser/ui/views/permissions/chip/permission_chip_view.h"
+#include "chrome/browser/ui/views/permissions/chip/webui_permission_chip.h"
+#include "chrome/browser/ui/views/permissions/chip/webui_permission_dashboard.h"
+#include "chrome/browser/ui/views/permissions/permission_prompt_bubble_base_view.h"
+#include "chrome/test/permissions/permission_request_manager_test_api.h"
+#include "components/content_settings/browser/page_specific_content_settings.h"
+#include "components/permissions/permission_request_manager.h"
+#include "components/permissions/test/permission_request_observer.h"
+#include "ui/base/interaction/element_identifier.h"
+#include "ui/base/interaction/element_test_util.h"
+#include "ui/webui/tracked_element/tracked_element_handler.h"
+#include "ui/webui/tracked_element/tracked_element_handler_document_singleton.h"
 #endif
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
@@ -128,8 +143,6 @@ class MockContextualTasksPage : public contextual_tasks::mojom::Page {
               (override));
   MOCK_METHOD(void, LockInput, (), (override));
   MOCK_METHOD(void, UnlockInput, (), (override));
-  MOCK_METHOD(void, SetShowReopenTabs, (bool show), (override));
-  MOCK_METHOD(void, SetExpandButtonEnabled, (bool enabled), (override));
   MOCK_METHOD(void, TurnOnSmartTabSharing, (), (override));
   MOCK_METHOD(void, ShowSmartTabSharingTryItIph, (), (override));
   MOCK_METHOD(void, ShowSmartTabSharingDefaultOnIph, (), (override));
@@ -856,6 +869,8 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksNoMockBrowserTest,
 #if !BUILDFLAG(IS_ANDROID)
 namespace {
 
+DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kTestChipElementId);
+
 class TestContextualTasksToolbarUIObserver
     : public contextual_tasks_toolbar::mojom::ContextualTasksToolbarUIObserver {
  public:
@@ -945,9 +960,7 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksNoMockBrowserTest,
   ASSERT_TRUE(location_bar);
   auto* dashboard = location_bar->permission_dashboard();
   ASSERT_TRUE(dashboard);
-  auto* request_chip =
-      static_cast<contextual_tasks::ContextualTasksPermissionChip*>(
-          dashboard->GetRequestChip());
+  auto* request_chip = dashboard->request_chip();
   ASSERT_TRUE(request_chip);
 
   // Mutate the dashboard and chip multiple times synchronously. All synchronous
@@ -988,6 +1001,200 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksNoMockBrowserTest,
   EXPECT_EQ(observer.push_count(), 2);
   EXPECT_EQ(observer.last_state()->request_chip->message,
             u"Updated microphone message");
+}
+
+// The permission chips live in the side panel's toolbar WebUI, not in the
+// browser window's views hierarchy, so the location bar must report the
+// toolbar document's element context for chip anchors to be found.
+IN_PROC_BROWSER_TEST_F(ContextualTasksNoMockBrowserTest,
+                       LocationBarElementContextIsToolbarDocumentContext) {
+  auto* service =
+      contextual_tasks::ContextualTasksUiServiceFactory::GetForBrowserContext(
+          browser()->GetProfile());
+  auto* tab = TabListInterface::From(browser())->GetActiveTab();
+  service->InitSidePanelWithGhostLoader(browser(), tab, nullptr);
+
+  auto* panel_controller =
+      contextual_tasks::ContextualTasksPanelController::From(browser());
+  ASSERT_TRUE(panel_controller);
+  EXPECT_TRUE(base::test::RunUntil(
+      [&]() { return panel_controller->IsPanelOpenForContextualTask(); }));
+
+  auto* coordinator =
+      contextual_tasks::ContextualTasksSidePanelCoordinator::Get(
+          browser()->GetUnownedUserDataHost());
+  ASSERT_TRUE(coordinator);
+  auto* permission_controller = coordinator->permission_controller();
+  ASSERT_TRUE(permission_controller);
+  auto* location_bar = permission_controller->GetLocationBarForTesting();
+  ASSERT_TRUE(location_bar);
+
+  content::WebContents* toolbar_contents =
+      location_bar->GetToolbarWebContents();
+  ASSERT_TRUE(toolbar_contents);
+  EXPECT_TRUE(content::WaitForLoadStop(toolbar_contents));
+
+  base::WeakPtr<ui::TrackedElementHandler> handler =
+      ui::TrackedElementHandlerDocumentSingleton::GetOrCreate(
+          toolbar_contents->GetPrimaryMainFrame());
+  ASSERT_TRUE(handler);
+
+  const ui::ElementContext context = location_bar->GetElementContext();
+  EXPECT_TRUE(context);
+  EXPECT_EQ(context, handler->context());
+  const ui::ElementContext browser_context =
+      BrowserElements::From(browser())->GetContext();
+  EXPECT_NE(context, browser_context);
+
+  // Chips wait for their anchor in the toolbar document's context, not the
+  // browser window's. A test-only element ID is used so the real toolbar
+  // WebUI can't have registered it already.
+  WebUIPermissionChip chip(location_bar, kTestChipElementId);
+  base::test::TestFuture<void> anchor_future;
+  chip.WaitForAnchor(anchor_future.GetCallback());
+  EXPECT_FALSE(anchor_future.IsReady());
+
+  ui::test::TestElement browser_context_element(kTestChipElementId,
+                                                browser_context);
+  browser_context_element.Show();
+  EXPECT_FALSE(anchor_future.IsReady());
+
+  ui::test::TestElement toolbar_element(kTestChipElementId, context);
+  toolbar_element.Show();
+  EXPECT_TRUE(anchor_future.IsReady());
+  EXPECT_EQ(chip.GetAnchor().GetIfElement(), &toolbar_element);
+}
+
+IN_PROC_BROWSER_TEST_F(ContextualTasksNoMockBrowserTest,
+                       PermissionPromptAnchorsAndRoutesToSidePanelLocationBar) {
+  auto* service =
+      contextual_tasks::ContextualTasksUiServiceFactory::GetForBrowserContext(
+          browser()->GetProfile());
+  auto* tab = TabListInterface::From(browser())->GetActiveTab();
+  service->InitSidePanelWithGhostLoader(browser(), tab, nullptr);
+
+  auto* panel_controller =
+      contextual_tasks::ContextualTasksPanelController::From(browser());
+  ASSERT_TRUE(panel_controller);
+  EXPECT_TRUE(base::test::RunUntil(
+      [&]() { return panel_controller->IsPanelOpenForContextualTask(); }));
+
+  auto* coordinator =
+      contextual_tasks::ContextualTasksSidePanelCoordinator::Get(
+          browser()->GetUnownedUserDataHost());
+  ASSERT_TRUE(coordinator);
+  content::WebContents* panel_contents = coordinator->GetActiveWebContents();
+  ASSERT_TRUE(panel_contents);
+  EXPECT_TRUE(content::WaitForLoadStop(panel_contents));
+  EXPECT_TRUE(content_settings::PageSpecificContentSettings::GetForFrame(
+      panel_contents->GetPrimaryMainFrame()));
+
+  auto* permission_controller = coordinator->permission_controller();
+  ASSERT_TRUE(permission_controller);
+  auto* location_bar = permission_controller->GetLocationBarForTesting();
+  ASSERT_TRUE(location_bar);
+
+  content::WebContents* toolbar_contents =
+      location_bar->GetToolbarWebContents();
+  ASSERT_TRUE(toolbar_contents);
+  EXPECT_TRUE(content::WaitForLoadStop(toolbar_contents));
+
+  const ui::ElementContext context = location_bar->GetElementContext();
+  ASSERT_TRUE(context);
+
+  const gfx::NativeView browser_native_view =
+      BrowserView::GetBrowserViewForBrowser(browser())
+          ->GetWidget()
+          ->GetNativeView();
+
+  std::optional<ui::test::TestElement> fallback_toolbar_element;
+  if (!location_bar->GetAnchorOrNull()) {
+    fallback_toolbar_element.emplace(kContextualTasksWebUIToolbarElementId,
+                                     context);
+    fallback_toolbar_element->SetNativeView(browser_native_view);
+    fallback_toolbar_element->Show();
+  }
+  ui::TrackedElement* expected_toolbar_anchor = location_bar->GetAnchorOrNull();
+  ASSERT_TRUE(expected_toolbar_anchor);
+
+  // When no request chip is visible, permission prompt bubbles for the side
+  // panel WebContents anchor to the side panel toolbar element rather than the
+  // main browser window's omnibox.
+  bubble_anchor_util::AnchorConfiguration toolbar_anchor_config =
+      bubble_anchor_util::GetPermissionPromptBubbleAnchorConfiguration(
+          panel_contents);
+  EXPECT_EQ(toolbar_anchor_config.anchor.GetIfElement(),
+            expected_toolbar_anchor);
+  EXPECT_EQ(toolbar_anchor_config.highlighted_element, std::nullopt);
+  EXPECT_EQ(toolbar_anchor_config.bubble_arrow, views::BubbleBorder::TOP_LEFT);
+
+  // Trigger a permission request on the side panel WebContents.
+  std::optional<ui::test::TestElement> fallback_chip_element;
+  if (!ui::ElementTracker::GetElementTracker()->GetFirstMatchingElement(
+          PermissionChipView::kPermissionRequestChipElementId, context)) {
+    fallback_chip_element.emplace(
+        PermissionChipView::kPermissionRequestChipElementId, context);
+    fallback_chip_element->SetNativeView(browser_native_view);
+    fallback_chip_element->Show();
+  }
+  ui::TrackedElement* expected_chip_anchor =
+      ui::ElementTracker::GetElementTracker()->GetFirstMatchingElement(
+          PermissionChipView::kPermissionRequestChipElementId, context);
+  ASSERT_TRUE(expected_chip_anchor);
+
+  auto* prm =
+      permissions::PermissionRequestManager::FromWebContents(panel_contents);
+  ASSERT_TRUE(prm);
+  test::PermissionRequestManagerTestApi test_api(prm);
+  permissions::PermissionRequestObserver observer(panel_contents);
+  test_api.AddSimpleRequest(panel_contents->GetPrimaryMainFrame(),
+                            permissions::RequestType::kGeolocation);
+  observer.Wait();
+
+  ChipController* side_panel_chip_controller =
+      location_bar->GetChipController();
+  ASSERT_TRUE(side_panel_chip_controller);
+  EXPECT_TRUE(side_panel_chip_controller->IsPermissionPromptChipVisible());
+
+  ChipController* main_omnibox_chip_controller =
+      BrowserView::GetBrowserViewForBrowser(browser())
+          ->GetLocationBar()
+          ->GetChipController();
+  EXPECT_FALSE(main_omnibox_chip_controller->IsPermissionPromptChipVisible());
+
+  // `GetChipAnchor()` and `GetPermissionPromptBubbleAnchorConfiguration()`
+  // should return the side panel's request chip anchor.
+  std::optional<bubble_anchor_util::AnchorConfiguration> chip_anchor =
+      location_bar->GetChipAnchor();
+  ASSERT_TRUE(chip_anchor.has_value());
+  EXPECT_EQ(chip_anchor->anchor.GetIfElement(), expected_chip_anchor);
+  EXPECT_EQ(chip_anchor->highlighted_element, std::nullopt);
+  EXPECT_EQ(chip_anchor->bubble_arrow, views::BubbleBorder::TOP_LEFT);
+
+  bubble_anchor_util::AnchorConfiguration prompt_anchor_config =
+      bubble_anchor_util::GetPermissionPromptBubbleAnchorConfiguration(
+          panel_contents);
+  EXPECT_EQ(prompt_anchor_config.anchor.GetIfElement(), expected_chip_anchor);
+  EXPECT_EQ(prompt_anchor_config.highlighted_element, std::nullopt);
+
+  // Finish the expand animation so the prompt bubble opens, then click Accept
+  // and verify it routes through the side panel's ChipController.
+  side_panel_chip_controller->chip()->EndAnimationForTesting();
+  ASSERT_TRUE(base::test::RunUntil([side_panel_chip_controller] {
+    return !side_panel_chip_controller->is_waiting_for_anchor_for_testing() &&
+           side_panel_chip_controller->IsBubbleShowing();
+  }));
+
+  auto* bubble_view = static_cast<PermissionPromptBubbleBaseView*>(
+      side_panel_chip_controller->get_prompt_bubble_view_for_testing());
+  ASSERT_TRUE(bubble_view);
+  bubble_view->RunButtonCallback(static_cast<int>(
+      PermissionPromptBubbleBaseView::PermissionDialogButton::kAccept));
+
+  EXPECT_TRUE(base::test::RunUntil([side_panel_chip_controller, prm] {
+    return !side_panel_chip_controller->IsBubbleShowing() &&
+           !prm->IsRequestInProgress();
+  }));
 }
 #endif  // !BUILDFLAG(IS_ANDROID)
 

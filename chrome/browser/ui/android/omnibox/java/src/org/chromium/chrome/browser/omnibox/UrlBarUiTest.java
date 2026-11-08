@@ -12,11 +12,22 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
+
+import static org.chromium.ui.test.util.MockitoHelper.clearInvocations;
 
 import android.app.Activity;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
+import android.graphics.Typeface;
 import android.os.SystemClock;
 import android.text.TextUtils;
 import android.view.InputDevice;
@@ -39,10 +50,16 @@ import org.hamcrest.Matchers;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.Mock;
+import org.mockito.junit.MockitoJUnit;
+import org.mockito.junit.MockitoRule;
+import org.mockito.quality.Strictness;
 
 import org.chromium.base.Callback;
+import org.chromium.base.ResettersForTesting;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.test.BaseActivityTestRule;
 import org.chromium.base.test.util.Batch;
@@ -74,6 +91,13 @@ public class UrlBarUiTest {
     private static Activity sActivity;
     private static FrameLayout sContentView;
 
+    @Rule
+    public final MockitoRule mMockitoRule = MockitoJUnit.rule().strictness(Strictness.STRICT_STUBS);
+
+    @Mock private UrlBar.UrlBarDelegate mUrlBarDelegate;
+    @Mock private View.OnKeyListener mViewOnKeyListener;
+    @Mock private Callback<Boolean> mTextWrappingCallback;
+
     private UrlBar mUrlBar;
 
     @BeforeClass
@@ -93,6 +117,15 @@ public class UrlBarUiTest {
                                             .getDimensionPixelSize(
                                                     R.dimen.control_container_height)));
                     sActivity.setContentView(sContentView);
+                    // Detach all child views and release static Activity/View references when the
+                    // suite finishes so the destroyed BlankUiTestActivity and its view hierarchy
+                    // are not retained in the test process across suites.
+                    ResettersForTesting.register(
+                            () -> {
+                                sContentView.removeAllViews();
+                                sContentView = null;
+                                sActivity = null;
+                            });
                 });
     }
 
@@ -107,7 +140,20 @@ public class UrlBarUiTest {
                             (LayoutParams) mUrlBar.getLayoutParams();
                     layoutParams.width = LayoutParams.MATCH_PARENT;
                     mUrlBar.setLayoutParams(layoutParams);
+                    mUrlBar.setDelegate(mUrlBarDelegate);
                     mUrlBar.onCreateInputConnection(new EditorInfo());
+                    // Clear UrlBar focus, destroy its GestureDetector/listeners, and detach it from
+                    // the window after each test (executed on the UI thread by
+                    // BaseJUnit4ClassRunner even if the test fails). Otherwise InputMethodManager
+                    // and active GestureDetector handlers keep the Activity in STOPPED state and
+                    // cause sActivityTestRule's finishActivity() to time out during class teardown.
+                    ResettersForTesting.register(
+                            () -> {
+                                mUrlBar.clearFocus();
+                                mUrlBar.destroy();
+                                mUrlBar = null;
+                                sContentView.removeAllViews();
+                            });
                 });
     }
 
@@ -208,6 +254,20 @@ public class UrlBarUiTest {
                 TextUtils.substring(prefixHint, 0, prefixHint.length() - 2),
                 UrlBar.ScrollType.SCROLL_TO_TLD,
                 domain.length());
+        assertNull(getVisibleTextPrefixHint());
+    }
+
+    @Test
+    @SmallTest
+    @Feature("Omnibox")
+    public void testVisibleTextPrefixHint_DifferentTld_NoVisibleHintCalculation() {
+        final String domain1 = "www.a.com";
+        final String domain2 = "www.b.com";
+        final String path = "/" + TextUtils.join("", Collections.nCopies(500, "a"));
+        updateUrlBarText(domain1 + path, UrlBar.ScrollType.SCROLL_TO_TLD, domain1.length());
+        assertNull(getVisibleTextPrefixHint());
+
+        updateUrlBarText(domain2 + path, UrlBar.ScrollType.SCROLL_TO_TLD, domain2.length());
         assertNull(getVisibleTextPrefixHint());
     }
 
@@ -653,6 +713,45 @@ public class UrlBarUiTest {
                         return clip.getItemAt(0).getText().toString();
                     }
                     return "";
+                });
+    }
+
+    private void flushUrlBarPostQueue() {
+        CallbackHelper helper = new CallbackHelper();
+        ThreadUtils.runOnUiThreadBlocking(() -> mUrlBar.post(helper::notifyCalled));
+        try {
+            helper.waitForOnly();
+        } catch (TimeoutException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private void setUpWrappedMultilineInput(boolean wrap) {
+        requestFocus();
+        waitForUrlBarLayout();
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    mUrlBar.setHint(null);
+                    mUrlBar.setTypeface(Typeface.MONOSPACE);
+                    mUrlBar.setAllowMultilineInput(true);
+                    mUrlBar.setInputIsMultilineEligible(true);
+                    mUrlBar.setKeyDownListener(mViewOnKeyListener);
+                    float singleWordWidth = mUrlBar.getPaint().measureText("aaa ");
+                    float twoWordsWidth = mUrlBar.getPaint().measureText("aaa bbb");
+                    int targetContentWidth =
+                            (int) Math.ceil((singleWordWidth + twoWordsWidth) / 2f);
+                    LayoutParams layoutParams = (LayoutParams) mUrlBar.getLayoutParams();
+                    layoutParams.width =
+                            mUrlBar.getTotalPaddingLeft()
+                                    + mUrlBar.getTotalPaddingRight()
+                                    + targetContentWidth;
+                    mUrlBar.setLayoutParams(layoutParams);
+                    mUrlBar.setText(wrap ? "aaa bbb ccc" : "aaa");
+                });
+        waitForUrlBarLayout();
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    assertEquals(wrap ? 3 : 1, mUrlBar.getLayout().getLineCount());
                 });
     }
 
@@ -1136,5 +1235,309 @@ public class UrlBarUiTest {
 
         waitForContextMenuShown();
         dismissContextMenu();
+    }
+
+    @Test
+    @SmallTest
+    @Feature("Omnibox")
+    public void dpadDown_walksWrappedLinesWhenNotConsumedByKeyListener() {
+        setUpWrappedMultilineInput(/* wrap= */ true);
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    mUrlBar.setSelection(0);
+                    var event = new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_DPAD_DOWN);
+
+                    // Line 0 -> Line 1 (offered to listener, then walks wrapped lines).
+                    assertTrue(mUrlBar.onKeyDown(KeyEvent.KEYCODE_DPAD_DOWN, event));
+                    assertEquals(4, mUrlBar.getSelectionStart());
+
+                    // Line 1 -> Line 2.
+                    assertTrue(mUrlBar.onKeyDown(KeyEvent.KEYCODE_DPAD_DOWN, event));
+                    assertEquals(8, mUrlBar.getSelectionStart());
+
+                    // Line 2 -> end of text.
+                    assertTrue(mUrlBar.onKeyDown(KeyEvent.KEYCODE_DPAD_DOWN, event));
+                    assertEquals(11, mUrlBar.getSelectionStart());
+
+                    // Already at end of text -> not consumed.
+                    assertFalse(mUrlBar.onKeyDown(KeyEvent.KEYCODE_DPAD_DOWN, event));
+                    verify(mViewOnKeyListener, times(4))
+                            .onKey(mUrlBar, KeyEvent.KEYCODE_DPAD_DOWN, event);
+                });
+    }
+
+    @Test
+    @SmallTest
+    @Feature("Omnibox")
+    public void dpadDown_consumedByKeyListenerDoesNotWalkWrappedLines() {
+        setUpWrappedMultilineInput(/* wrap= */ true);
+        doReturn(true).when(mViewOnKeyListener).onKey(any(), anyInt(), any());
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    mUrlBar.setSelection(0);
+                    var event = new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_DPAD_DOWN);
+
+                    assertTrue(mUrlBar.onKeyDown(KeyEvent.KEYCODE_DPAD_DOWN, event));
+                    assertEquals(0, mUrlBar.getSelectionStart());
+                    verify(mViewOnKeyListener).onKey(mUrlBar, KeyEvent.KEYCODE_DPAD_DOWN, event);
+                });
+    }
+
+    @Test
+    @SmallTest
+    @Feature("Omnibox")
+    public void dpadUp_walksWrappedLinesWhenNotConsumedByKeyListener() {
+        setUpWrappedMultilineInput(/* wrap= */ true);
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    mUrlBar.setSelection(11);
+                    var event = new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_DPAD_UP);
+
+                    // Line 2 -> Line 1 (offered to listener, then walks wrapped lines).
+                    assertTrue(mUrlBar.onKeyDown(KeyEvent.KEYCODE_DPAD_UP, event));
+                    assertEquals(7, mUrlBar.getSelectionStart());
+
+                    // Line 1 -> Line 0.
+                    assertTrue(mUrlBar.onKeyDown(KeyEvent.KEYCODE_DPAD_UP, event));
+                    assertEquals(3, mUrlBar.getSelectionStart());
+
+                    // Line 0 -> start of text.
+                    assertTrue(mUrlBar.onKeyDown(KeyEvent.KEYCODE_DPAD_UP, event));
+                    assertEquals(0, mUrlBar.getSelectionStart());
+
+                    // Already at start of text -> not consumed.
+                    assertFalse(mUrlBar.onKeyDown(KeyEvent.KEYCODE_DPAD_UP, event));
+                    verify(mViewOnKeyListener, times(4))
+                            .onKey(mUrlBar, KeyEvent.KEYCODE_DPAD_UP, event);
+                });
+    }
+
+    @Test
+    @SmallTest
+    @Feature("Omnibox")
+    public void dpadUp_consumedByKeyListenerDoesNotWalkWrappedLines() {
+        setUpWrappedMultilineInput(/* wrap= */ true);
+        doReturn(true).when(mViewOnKeyListener).onKey(any(), anyInt(), any());
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    mUrlBar.setSelection(11);
+                    var event = new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_DPAD_UP);
+
+                    assertTrue(mUrlBar.onKeyDown(KeyEvent.KEYCODE_DPAD_UP, event));
+                    assertEquals(11, mUrlBar.getSelectionStart());
+                    verify(mViewOnKeyListener).onKey(mUrlBar, KeyEvent.KEYCODE_DPAD_UP, event);
+                });
+    }
+
+    @Test
+    @SmallTest
+    @Feature("Omnibox")
+    public void dpadDown_singleLineTextIsPassedToKeyListener() {
+        setUpWrappedMultilineInput(/* wrap= */ false);
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    mUrlBar.setSelection(0);
+                    var event = new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_DPAD_DOWN);
+
+                    mUrlBar.onKeyDown(KeyEvent.KEYCODE_DPAD_DOWN, event);
+                    verify(mViewOnKeyListener).onKey(mUrlBar, KeyEvent.KEYCODE_DPAD_DOWN, event);
+                });
+    }
+
+    @Test
+    @SmallTest
+    @Feature("Omnibox")
+    public void dpadDown_withNonShiftModifiersIsPassedToKeyListener() {
+        setUpWrappedMultilineInput(/* wrap= */ true);
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    mUrlBar.setSelection(0);
+                    var event =
+                            new KeyEvent(
+                                    /* downTime= */ 0,
+                                    /* eventTime= */ 0,
+                                    KeyEvent.ACTION_DOWN,
+                                    KeyEvent.KEYCODE_DPAD_DOWN,
+                                    /* repeat= */ 0,
+                                    KeyEvent.META_ALT_ON);
+
+                    mUrlBar.onKeyDown(KeyEvent.KEYCODE_DPAD_DOWN, event);
+                    verify(mViewOnKeyListener).onKey(mUrlBar, KeyEvent.KEYCODE_DPAD_DOWN, event);
+                });
+    }
+
+    @Test
+    @SmallTest
+    @Feature("Omnibox")
+    public void dpadDown_withShiftSelectsText() {
+        setUpWrappedMultilineInput(/* wrap= */ true);
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    mUrlBar.setSelection(2);
+                    mUrlBar.onKeyDown(
+                            KeyEvent.KEYCODE_SHIFT_LEFT,
+                            new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_SHIFT_LEFT));
+                    var event =
+                            new KeyEvent(
+                                    /* downTime= */ 0,
+                                    /* eventTime= */ 0,
+                                    KeyEvent.ACTION_DOWN,
+                                    KeyEvent.KEYCODE_DPAD_DOWN,
+                                    /* repeat= */ 0,
+                                    KeyEvent.META_SHIFT_ON);
+
+                    // Line 0 -> Line 1 (extends selection).
+                    assertTrue(mUrlBar.onKeyDown(KeyEvent.KEYCODE_DPAD_DOWN, event));
+                    assertEquals(2, mUrlBar.getSelectionStart());
+                    assertEquals(6, mUrlBar.getSelectionEnd());
+
+                    // Line 1 -> Line 2 (extends selection).
+                    assertTrue(mUrlBar.onKeyDown(KeyEvent.KEYCODE_DPAD_DOWN, event));
+                    assertEquals(2, mUrlBar.getSelectionStart());
+                    assertEquals(10, mUrlBar.getSelectionEnd());
+
+                    // Line 2 -> end of text (extends selection).
+                    assertTrue(mUrlBar.onKeyDown(KeyEvent.KEYCODE_DPAD_DOWN, event));
+                    assertEquals(2, mUrlBar.getSelectionStart());
+                    assertEquals(11, mUrlBar.getSelectionEnd());
+
+                    // Already at end of text -> consumed without reaching key listener.
+                    assertTrue(mUrlBar.onKeyDown(KeyEvent.KEYCODE_DPAD_DOWN, event));
+                    verifyNoMoreInteractions(mViewOnKeyListener);
+                });
+    }
+
+    @Test
+    @SmallTest
+    @Feature("Omnibox")
+    public void dpadUp_withShiftSelectsText() {
+        setUpWrappedMultilineInput(/* wrap= */ true);
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    mUrlBar.setSelection(9);
+                    mUrlBar.onKeyDown(
+                            KeyEvent.KEYCODE_SHIFT_LEFT,
+                            new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_SHIFT_LEFT));
+                    var event =
+                            new KeyEvent(
+                                    /* downTime= */ 0,
+                                    /* eventTime= */ 0,
+                                    KeyEvent.ACTION_DOWN,
+                                    KeyEvent.KEYCODE_DPAD_UP,
+                                    /* repeat= */ 0,
+                                    KeyEvent.META_SHIFT_ON);
+
+                    // Line 2 -> Line 1 (extends selection backwards).
+                    assertTrue(mUrlBar.onKeyDown(KeyEvent.KEYCODE_DPAD_UP, event));
+                    assertEquals(9, mUrlBar.getSelectionStart());
+                    assertEquals(5, mUrlBar.getSelectionEnd());
+
+                    // Line 1 -> Line 0 (extends selection backwards).
+                    assertTrue(mUrlBar.onKeyDown(KeyEvent.KEYCODE_DPAD_UP, event));
+                    assertEquals(9, mUrlBar.getSelectionStart());
+                    assertEquals(1, mUrlBar.getSelectionEnd());
+
+                    // Line 0 -> start of text (extends selection backwards).
+                    assertTrue(mUrlBar.onKeyDown(KeyEvent.KEYCODE_DPAD_UP, event));
+                    assertEquals(9, mUrlBar.getSelectionStart());
+                    assertEquals(0, mUrlBar.getSelectionEnd());
+
+                    // Already at start of text -> consumed without reaching key listener.
+                    assertTrue(mUrlBar.onKeyDown(KeyEvent.KEYCODE_DPAD_UP, event));
+                    verifyNoMoreInteractions(mViewOnKeyListener);
+                });
+    }
+
+    @Test
+    @SmallTest
+    @Feature("Omnibox")
+    public void numpadKeys_translatedToDpad() {
+        setUpWrappedMultilineInput(/* wrap= */ true);
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    mUrlBar.setSelection(0);
+                    var downEvent = new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_NUMPAD_2);
+                    assertTrue(mUrlBar.onKeyDown(KeyEvent.KEYCODE_NUMPAD_2, downEvent));
+                    verify(mViewOnKeyListener).onKey(mUrlBar, KeyEvent.KEYCODE_NUMPAD_2, downEvent);
+                    assertEquals(4, mUrlBar.getSelectionStart());
+
+                    var upEvent = new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_NUMPAD_8);
+                    assertTrue(mUrlBar.onKeyDown(KeyEvent.KEYCODE_NUMPAD_8, upEvent));
+                    verify(mViewOnKeyListener).onKey(mUrlBar, KeyEvent.KEYCODE_NUMPAD_8, upEvent);
+                    assertEquals(0, mUrlBar.getSelectionStart());
+                });
+    }
+
+    @Test
+    @SmallTest
+    @Feature("Omnibox")
+    public void testTextWrappingCallback() {
+        setUpWrappedMultilineInput(/* wrap= */ true);
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    mUrlBar.setText("aaa");
+                    mUrlBar.setUrlTextWrappingChangeListener(mTextWrappingCallback);
+                });
+        waitForUrlBarLayout();
+        flushUrlBarPostQueue();
+        verify(mTextWrappingCallback, never()).onResult(anyBoolean());
+
+        // 1. Transition from 1 line to 3 lines -> callback(true).
+        ThreadUtils.runOnUiThreadBlocking(() -> mUrlBar.setText("aaa bbb ccc"));
+        waitForUrlBarLayout();
+        flushUrlBarPostQueue();
+        verify(mTextWrappingCallback).onResult(true);
+        clearInvocations(mTextWrappingCallback);
+
+        // 2. Remain at >1 line -> no duplicate callback.
+        ThreadUtils.runOnUiThreadBlocking(() -> mUrlBar.setText("aaa bbb ddd"));
+        waitForUrlBarLayout();
+        flushUrlBarPostQueue();
+        verify(mTextWrappingCallback, never()).onResult(anyBoolean());
+
+        // 3. Transition back to 1 line -> callback(false).
+        ThreadUtils.runOnUiThreadBlocking(() -> mUrlBar.setText("aaa"));
+        waitForUrlBarLayout();
+        flushUrlBarPostQueue();
+        verify(mTextWrappingCallback).onResult(false);
+    }
+
+    @Test
+    @SmallTest
+    @Feature("Omnibox")
+    public void testTextWrappingCallback_deduplicatesRapidTextChanges() {
+        setUpWrappedMultilineInput(/* wrap= */ true);
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    mUrlBar.setText("aaa");
+                    mUrlBar.setUrlTextWrappingChangeListener(mTextWrappingCallback);
+                });
+        waitForUrlBarLayout();
+        flushUrlBarPostQueue();
+        clearInvocations(mTextWrappingCallback);
+
+        // Three rapid text changes within the same UI-thread task before the posted runnable
+        // executes should produce a single notification.
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    mUrlBar.setText("aaa bbb ccc");
+                    mUrlBar.setText("aaa bbb ddd");
+                    mUrlBar.setText("aaa bbb eee");
+                });
+        waitForUrlBarLayout();
+        flushUrlBarPostQueue();
+        verify(mTextWrappingCallback).onResult(true);
+        clearInvocations(mTextWrappingCallback);
+
+        // Unwrapping and re-wrapping before the posted runnable executes should produce no
+        // notification when returning to the current wrapped state.
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    mUrlBar.setText("aaa");
+                    mUrlBar.setText("aaa bbb ccc");
+                });
+        waitForUrlBarLayout();
+        flushUrlBarPostQueue();
+        verify(mTextWrappingCallback, never()).onResult(anyBoolean());
     }
 }

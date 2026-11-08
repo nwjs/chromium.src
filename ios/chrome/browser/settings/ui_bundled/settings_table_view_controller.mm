@@ -40,8 +40,11 @@
 #import "components/signin/public/identity_manager/identity_manager.h"
 #import "components/signin/public/identity_manager/objc/identity_manager_observer_bridge.h"
 #import "components/strings/grit/components_strings.h"
+#import "components/subscription_eligibility/objc/subscription_eligibility_observer_bridge.h"
+#import "components/subscription_eligibility/subscription_eligibility_service.h"
 #import "components/sync/service/sync_service.h"
 #import "components/sync/service/sync_user_settings.h"
+#import "components/universal_optout/features.h"
 #import "ios/chrome/browser/authentication/ui_bundled/authentication_constants.h"
 #import "ios/chrome/browser/authentication/ui_bundled/cells/table_view_account_item.h"
 #import "ios/chrome/browser/authentication/ui_bundled/change_profile/change_profile_settings_continuation.h"
@@ -141,6 +144,7 @@
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/public/features/system_flags.h"
 #import "ios/chrome/browser/shared/ui/buildflags.h"
+#import "ios/chrome/browser/shared/ui/image/g_with_point_size.h"
 #import "ios/chrome/browser/shared/ui/symbols/symbols.h"
 #import "ios/chrome/browser/shared/ui/table_view/cells/table_view_detail_icon_item.h"
 #import "ios/chrome/browser/shared/ui/table_view/cells/table_view_image_item.h"
@@ -158,12 +162,16 @@
 #import "ios/chrome/browser/signin/model/chrome_account_manager_service_factory.h"
 #import "ios/chrome/browser/signin/model/identity_manager_factory.h"
 #import "ios/chrome/browser/signin/model/system_identity.h"
+#import "ios/chrome/browser/subscription_eligibility/model/subscription_eligibility_service_factory.h"
 #import "ios/chrome/browser/sync/model/enterprise_utils.h"
 #import "ios/chrome/browser/sync/model/sync_observer_bridge.h"
 #import "ios/chrome/browser/sync/model/sync_service_factory.h"
 #import "ios/chrome/browser/upgrade/model/upgrade_utils.h"
 #import "ios/chrome/browser/voice/model/speech_input_locale_config.h"
 #import "ios/chrome/browser/voice/model/voice_search_prefs.h"
+#import "ios/chrome/browser/web_extension/model/extension_service.h"
+#import "ios/chrome/browser/web_extension/model/extension_service_factory.h"
+#import "ios/chrome/browser/web_extension/model/extension_service_observer_bridge.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
 #import "ios/chrome/common/ui/table_view/table_view_cells_constants.h"
 #import "ios/chrome/grit/ios_branded_strings.h"
@@ -187,7 +195,7 @@ NSString* const kDevViewSourceKey = @"DevViewSource";
 // Returns the branded version of the Google Services symbol.
 UIImage* GetBrandedGoogleServicesSymbol() {
 #if BUILDFLAG(IOS_USE_BRANDED_ASSETS)
-  return SettingsRootMulticolorSymbol(SymbolGoogleIcon);
+  return GWithPointSize(SuperGSize::k18pt);
 #else
   return SettingsRootSymbol(SymbolGearshape2);
 #endif
@@ -266,6 +274,7 @@ enum class IOSDefaultBrowserSettingsPassivePromoAction {
     DiscoverFeedVisibilityObserver,
     DownloadsSettingsCoordinatorDelegate,
     EnhancedSafeBrowsingInlinePromoDelegate,
+    ExtensionServiceObserving,
     GeminiSettingsCoordinatorDelegate,
     GoogleServicesSettingsCoordinatorDelegate,
     IdentityManagerObserving,
@@ -281,6 +290,7 @@ enum class IOSDefaultBrowserSettingsPassivePromoAction {
     SafetyCheckCoordinatorDelegate,
     SearchEngineObserving,
     SiteSettingsCoordinatorDelegate,
+    SubscriptionEligibilityServiceObserving,
     SyncObserverModelBridge,
     TabsSettingsCoordinatorDelegate> {
   // The browser where the settings are being displayed.
@@ -313,6 +323,13 @@ enum class IOSDefaultBrowserSettingsPassivePromoAction {
   raw_ptr<AuthenticationService> _authService;
   std::unique_ptr<AuthenticationServiceObserverBridge>
       _authServiceObserverBridge;
+  raw_ptr<subscription_eligibility::SubscriptionEligibilityService>
+      _subscriptionEligibilityService;
+  std::unique_ptr<
+      subscription_eligibility::SubscriptionEligibilityObserverBridge>
+      _subscriptionEligibilityObserverBridge;
+  std::unique_ptr<ExtensionServiceObserverBridge>
+      _extensionServiceObserverBridge;
 
   // Gemini settings coordinator.
   GeminiSettingsCoordinator* _geminiSettingsCoordinator;
@@ -380,6 +397,7 @@ enum class IOSDefaultBrowserSettingsPassivePromoAction {
   TableViewDetailIconItem* _autoFillCreditCardDetailItem;
   TableViewDetailIconItem* _autofillAndPasswordsDetailItem;
   TableViewDetailIconItem* _notificationsItem;
+  TableViewDetailIconItem* _privacyDetailItem;
   TableViewDetailIconItem* _defaultBrowserCellItem;
   TableViewDetailIconItem* _BWGDetailItem;
 
@@ -431,8 +449,8 @@ enum class IOSDefaultBrowserSettingsPassivePromoAction {
 
 - (instancetype)initWithBrowser:(Browser*)browser
        hasDefaultBrowserBlueDot:(BOOL)hasDefaultBrowserBlueDot {
-  CHECK(browser, base::NotFatalUntil::M151);
-  CHECK_EQ(browser->type(), Browser::Type::kRegular, base::NotFatalUntil::M151);
+  CHECK(browser);
+  CHECK_EQ(browser->type(), Browser::Type::kRegular);
 
   self = [super initWithStyle:ChromeTableViewStyle()];
   if (self) {
@@ -448,7 +466,7 @@ enum class IOSDefaultBrowserSettingsPassivePromoAction {
         ChromeAccountManagerServiceFactory::GetForProfile(_profile);
     // It is expected that `identityManager` should never be nil except in
     // tests. In that case, the tests should be fixed.
-    CHECK(identityManager, base::NotFatalUntil::M151);
+    CHECK(identityManager);
     _identityObserverBridge.reset(
         new signin::IdentityManagerObserverBridge(identityManager, self));
     syncer::SyncService* syncService =
@@ -483,6 +501,22 @@ enum class IOSDefaultBrowserSettingsPassivePromoAction {
     _authServiceObserverBridge =
         std::make_unique<AuthenticationServiceObserverBridge>(_authService,
                                                               self);
+    _subscriptionEligibilityService =
+        SubscriptionEligibilityServiceFactory::GetForProfile(_profile);
+    CHECK(_subscriptionEligibilityService, base::NotFatalUntil::M156);
+    _subscriptionEligibilityObserverBridge = std::make_unique<
+        subscription_eligibility::SubscriptionEligibilityObserverBridge>(
+        _subscriptionEligibilityService, self);
+    if (base::FeatureList::IsEnabled(
+            universal_optout::features::kUniversalOptOutSettings)) {
+      ExtensionService* extensionService =
+          ExtensionServiceFactory::GetForProfile(_profile);
+      if (extensionService) {
+        _extensionServiceObserverBridge =
+            std::make_unique<ExtensionServiceObserverBridge>(extensionService,
+                                                             self);
+      }
+    }
     _bottomOmniboxEnabled = [[PrefBackedBoolean alloc]
         initWithPrefService:localState
                    prefName:omnibox::kIsOmniboxInBottomPosition];
@@ -521,7 +555,7 @@ enum class IOSDefaultBrowserSettingsPassivePromoAction {
 }
 
 - (void)dealloc {
-  CHECK(_settingsAreDismissed, base::NotFatalUntil::M151)
+  CHECK(_settingsAreDismissed)
       << "-settingsWillBeDismissed must be called before -dealloc";
 }
 
@@ -567,6 +601,7 @@ enum class IOSDefaultBrowserSettingsPassivePromoAction {
   }
 
   [self updateNotificationsDetailText];
+  [self updatePrivacyDetailItem];
 }
 
 - (void)viewDidAppear:(BOOL)animated {
@@ -1126,15 +1161,17 @@ enum class IOSDefaultBrowserSettingsPassivePromoAction {
 }
 
 - (TableViewItem*)privacyDetailItem {
-  NSString* title = nil;
-  title = l10n_util::GetNSString(IDS_IOS_SETTINGS_PRIVACY_TITLE);
+  NSString* title = l10n_util::GetNSString(IDS_IOS_SETTINGS_PRIVACY_TITLE);
 
-  return [self detailItemWithType:SettingsItemTypePrivacy
+  _privacyDetailItem =
+      [self detailItemWithType:SettingsItemTypePrivacy
                              text:title
                        detailText:nil
                            symbol:SettingsRootSymbol(SymbolPrivacy)
             symbolBackgroundColor:[UIColor colorNamed:kBlue500Color]
           accessibilityIdentifier:kSettingsPrivacyCellId];
+  [self updatePrivacyDetailItem];
+  return _privacyDetailItem;
 }
 
 - (TableViewSwitchItem*)feedSettingsItem {
@@ -1407,7 +1444,7 @@ enum class IOSDefaultBrowserSettingsPassivePromoAction {
   infoButton.statusText = status;
   if (image) {
     infoButton.iconImage = image;
-    CHECK(imageBackground, base::NotFatalUntil::M151);
+    CHECK(imageBackground);
     infoButton.iconBackgroundColor = imageBackground;
     infoButton.iconTintColor = UIColor.whiteColor;
   }
@@ -2106,20 +2143,20 @@ enum class IOSDefaultBrowserSettingsPassivePromoAction {
   identityAccountItem.image =
       GetApplicationContext()->GetIdentityAvatarProvider()->GetIdentityAvatar(
           _identity, IdentityAvatarSize::TableViewIcon);
-  NSString* name = _identity.userFullName;
-  NSString* email = _identity.userEmail;
-  if (name) {
-    identityAccountItem.text = name;
-    identityAccountItem.detailText = email;
-  } else {
-    identityAccountItem.text = email;
-  }
+  identityAccountItem.name = _identity.userFullName;
+  identityAccountItem.email = _identity.userEmail;
 
   syncer::SyncService* syncService =
       SyncServiceFactory::GetForProfile(_profile);
-  CHECK(syncService, base::NotFatalUntil::M151);
+  CHECK(syncService);
   if (GetAccountErrorUIInfo(syncService) != nil) {
     identityAccountItem.detailImage = TableViewAccountDetailImage::kError;
+  } else if (_subscriptionEligibilityService &&
+             _subscriptionEligibilityService->GetAiSubscriptionTier() > 0 &&
+             IsAiSubscriptionAvatarRingFollowupIOSEnabled()) {
+    identityAccountItem.detailImage = TableViewAccountDetailImage::kAITierRing;
+  } else {
+    identityAccountItem.detailImage = TableViewAccountDetailImage::kNone;
   }
 }
 
@@ -2252,7 +2289,7 @@ enum class IOSDefaultBrowserSettingsPassivePromoAction {
                       alignment:BubbleAlignmentBottomOrTrailing
                      bubbleType:BubbleViewTypeRichWithNext
                 pageControlPage:BubblePageControlPageThird
-          totalPageControlPages:4
+          totalPageControlPages:5
           customNextButtonTitle:l10n_util::GetNSString(IDS_IOS_IPH_BUBBLE_NEXT)
               dismissalCallback:dismissalCallback];
   presenter.dismissalTimerDisabled = YES;
@@ -2408,6 +2445,35 @@ enum class IOSDefaultBrowserSettingsPassivePromoAction {
   if (badgeType != _BWGDetailItem.badgeType) {
     _BWGDetailItem.badgeType = badgeType;
     [self reconfigureCellsForItems:@[ _BWGDetailItem ]];
+  }
+}
+
+// Updates the privacy detail item badge if the extension service has a load
+// error and silent mode is not enabled.
+- (void)updatePrivacyDetailItem {
+  if (!_privacyDetailItem || !_profile) {
+    return;
+  }
+  if (!base::FeatureList::IsEnabled(
+          universal_optout::features::kUniversalOptOutSettings)) {
+    return;
+  }
+  ExtensionService* extensionService =
+      ExtensionServiceFactory::GetForProfile(_profile);
+  const bool hasError =
+      extensionService && extensionService->HasLoadError() &&
+      !universal_optout::features::IsUniversalOptOutExtensionSilentEnabled();
+  BadgeType badgeType = hasError ? BadgeType::kWarning : BadgeType::kNone;
+  if (badgeType != _privacyDetailItem.badgeType) {
+    _privacyDetailItem.badgeType = badgeType;
+    if (badgeType == BadgeType::kWarning) {
+      _privacyDetailItem.badgeLayout = BadgeLayout::kTrailing;
+    } else {
+      _privacyDetailItem.badgeLayout = BadgeLayout::kInline;
+    }
+    if ([self.tableViewModel hasItem:_privacyDetailItem]) {
+      [self reconfigureCellsForItems:@[ _privacyDetailItem ]];
+    }
   }
 }
 
@@ -2744,16 +2810,15 @@ enum class IOSDefaultBrowserSettingsPassivePromoAction {
                                             fullscreenPromo:NO
                                        continuationProvider:provider];
   _signinAndHistorySyncCoordinator.signinCompletion =
-      ^(SigninCoordinator* coordinator, SigninCoordinatorResult result,
-        id<SystemIdentity> identity) {
+      ^(SigninCoordinator* coordinator,
+        SigninCoordinatorResultOrIdentity result) {
         [weakSelf didFinishSigninWithCoordinator:coordinator];
       };
   [_signinAndHistorySyncCoordinator start];
 }
 
 - (void)didFinishSigninWithCoordinator:(SigninCoordinator*)coordinator {
-  CHECK_EQ(_signinAndHistorySyncCoordinator, coordinator,
-           base::NotFatalUntil::M151);
+  CHECK_EQ(_signinAndHistorySyncCoordinator, coordinator);
   [self stopSigninCoordinator];
   if (_settingsAreDismissed) {
     return;
@@ -2886,6 +2951,9 @@ enum class IOSDefaultBrowserSettingsPassivePromoAction {
   _identityObserverBridge.reset();
   _authServiceObserverBridge.reset();
   _authService = nil;
+  _subscriptionEligibilityObserverBridge.reset();
+  _subscriptionEligibilityService = nullptr;
+  _extensionServiceObserverBridge.reset();
 
   // Remove PrefObserverDelegates.
   _notificationsObserver.delegate = nil;
@@ -3093,7 +3161,7 @@ enum class IOSDefaultBrowserSettingsPassivePromoAction {
 
 - (void)geminiSettingsCoordinatorViewControllerWasRemoved:
     (GeminiSettingsCoordinator*)coordinator {
-  CHECK_EQ(_geminiSettingsCoordinator, coordinator, base::NotFatalUntil::M151);
+  CHECK_EQ(_geminiSettingsCoordinator, coordinator);
   [_geminiSettingsCoordinator stop];
   _geminiSettingsCoordinator = nil;
 }
@@ -3102,7 +3170,7 @@ enum class IOSDefaultBrowserSettingsPassivePromoAction {
 
 - (void)contentSettingsCoordinatorViewControllerWasRemoved:
     (ContentSettingsCoordinator*)coordinator {
-  CHECK_EQ(_contentSettingsCoordinator, coordinator, base::NotFatalUntil::M151);
+  CHECK_EQ(_contentSettingsCoordinator, coordinator);
   [_contentSettingsCoordinator stop];
   _contentSettingsCoordinator = nil;
 }
@@ -3111,8 +3179,7 @@ enum class IOSDefaultBrowserSettingsPassivePromoAction {
 
 - (void)googleServicesSettingsCoordinatorDidRemove:
     (GoogleServicesSettingsCoordinator*)coordinator {
-  CHECK_EQ(_googleServicesSettingsCoordinator, coordinator,
-           base::NotFatalUntil::M151);
+  CHECK_EQ(_googleServicesSettingsCoordinator, coordinator);
   [_googleServicesSettingsCoordinator stop];
   _googleServicesSettingsCoordinator.delegate = nil;
   _googleServicesSettingsCoordinator = nil;
@@ -3131,7 +3198,7 @@ enum class IOSDefaultBrowserSettingsPassivePromoAction {
 #pragma mark - SafetyCheckCoordinatorDelegate
 
 - (void)safetyCheckCoordinatorDidRemove:(SafetyCheckCoordinator*)coordinator {
-  CHECK_EQ(_safetyCheckCoordinator, coordinator, base::NotFatalUntil::M151);
+  CHECK_EQ(_safetyCheckCoordinator, coordinator);
   [_safetyCheckCoordinator stop];
   _safetyCheckCoordinator.delegate = nil;
   _safetyCheckCoordinator = nil;
@@ -3141,8 +3208,7 @@ enum class IOSDefaultBrowserSettingsPassivePromoAction {
 
 - (void)autofillAndPasswordsCoordinatorDidRemove:
     (AutofillAndPasswordsCoordinator*)coordinator {
-  CHECK_EQ(_autofillAndPasswordsCoordinator, coordinator,
-           base::NotFatalUntil::M151);
+  CHECK_EQ(_autofillAndPasswordsCoordinator, coordinator);
   [_autofillAndPasswordsCoordinator stop];
   _autofillAndPasswordsCoordinator.delegate = nil;
   _autofillAndPasswordsCoordinator = nil;
@@ -3162,7 +3228,7 @@ enum class IOSDefaultBrowserSettingsPassivePromoAction {
 #pragma mark - PasswordsCoordinatorDelegate
 
 - (void)passwordsCoordinatorDidRemove:(PasswordsCoordinator*)coordinator {
-  CHECK_EQ(_passwordsCoordinator, coordinator, base::NotFatalUntil::M151);
+  CHECK_EQ(_passwordsCoordinator, coordinator);
   [_passwordsCoordinator stop];
   _passwordsCoordinator.delegate = nil;
   _passwordsCoordinator = nil;
@@ -3193,7 +3259,7 @@ enum class IOSDefaultBrowserSettingsPassivePromoAction {
 
 - (void)notificationsCoordinatorDidRemove:
     (NotificationsCoordinator*)coordinator {
-  CHECK_EQ(_notificationsCoordinator, coordinator, base::NotFatalUntil::M151);
+  CHECK_EQ(_notificationsCoordinator, coordinator);
   [_notificationsCoordinator stop];
   _notificationsCoordinator = nil;
 }
@@ -3202,7 +3268,7 @@ enum class IOSDefaultBrowserSettingsPassivePromoAction {
 
 - (void)privacyCoordinatorViewControllerWasRemoved:
     (PrivacyCoordinator*)coordinator {
-  CHECK_EQ(_privacyCoordinator, coordinator, base::NotFatalUntil::M151);
+  CHECK_EQ(_privacyCoordinator, coordinator);
   [_privacyCoordinator stop];
   _privacyCoordinator = nil;
 }
@@ -3254,15 +3320,14 @@ enum class IOSDefaultBrowserSettingsPassivePromoAction {
 
 - (void)manageSyncSettingsCoordinatorWasRemoved:
     (ManageSyncSettingsCoordinator*)coordinator {
-  CHECK_EQ(_manageSyncSettingsCoordinator, coordinator,
-           base::NotFatalUntil::M151);
+  CHECK_EQ(_manageSyncSettingsCoordinator, coordinator);
   [self stopManageSyncSettingsCoordinator];
 }
 
 #pragma mark - TabsSettingsCoordinatorDelegate
 
 - (void)tabsSettingsCoordinatorDidRemove:(TabsSettingsCoordinator*)coordinator {
-  CHECK_EQ(coordinator, _tabsCoordinator, base::NotFatalUntil::M151);
+  CHECK_EQ(coordinator, _tabsCoordinator);
   [self stopTabsCoordinator];
 }
 
@@ -3331,6 +3396,19 @@ enum class IOSDefaultBrowserSettingsPassivePromoAction {
 - (void)onServiceStatusChanged {
   [self updateSigninSection];
   [self.tableView reloadData];
+}
+
+#pragma mark - ExtensionServiceObserving
+
+- (void)extensionService:(ExtensionService*)service
+    didChangeExtensionLoadError:(bool)hasLoadError {
+  [self updatePrivacyDetailItem];
+}
+
+#pragma mark - SubscriptionEligibilityServiceObserving
+
+- (void)aiSubscriptionTierDidUpdate:(int32_t)newSubscriptionTier {
+  [self reloadAccountCell];
 }
 
 @end

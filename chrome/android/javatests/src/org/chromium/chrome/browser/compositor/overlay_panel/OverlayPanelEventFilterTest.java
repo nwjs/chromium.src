@@ -10,6 +10,7 @@ import android.os.Build;
 import android.view.MotionEvent;
 import android.view.ViewConfiguration;
 import android.view.ViewGroup;
+import android.widget.FrameLayout;
 
 import androidx.test.annotation.UiThreadTest;
 import androidx.test.core.app.ApplicationProvider;
@@ -71,12 +72,12 @@ public class OverlayPanelEventFilterTest {
 
     @Mock private LayoutManagerImpl mLayoutManager;
     @Mock private BrowserControlsStateProvider mBrowserControlsStateProvider;
-    @Mock private ViewGroup mCompositorViewHolder;
     @Mock private Tab mTab;
     @Mock private OverlayPanelContentDelegate mOverlayPanelContentDelegate;
     @Mock private OverlayPanelContentProgressObserver mOverlayPanelContentProgressObserver;
     @Mock private InsetObserver mInsetObserver;
 
+    private ViewGroup mCompositorViewHolder;
     private float mTouchSlopDp;
     private float mDpToPx;
 
@@ -278,6 +279,7 @@ public class OverlayPanelEventFilterTest {
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     mActivity = activityTestRule.getActivity();
+                    mCompositorViewHolder = new FrameLayout(mActivity);
                     mWindowAndroid =
                             new ActivityWindowAndroid(
                                     mActivity,

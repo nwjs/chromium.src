@@ -33,7 +33,7 @@ static_library("reporting") {
     "user_event_reporter_helper.h",
   ]
 
-  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
+  public_deps = [ "//dbus" ]
 
   deps = [
     "//ash/constants",
@@ -48,6 +48,7 @@ static_library("reporting") {
     "//chrome/browser/ash/login/session",
     "//chrome/browser/ash/policy/core",
     "//chrome/browser/ash/settings",
+    "//chrome/browser/policy",
     "//chrome/browser/policy/messaging_layer/proto:app_install_events_proto",
     "//chrome/browser/policy/messaging_layer/proto:crd_event_proto",
     "//chrome/browser/profiles:profile",
@@ -74,6 +75,7 @@ static_library("reporting") {
     "//components/reporting/proto:record_constants",
     "//components/reporting/proto:record_proto",
     "//components/reporting/util:status",
+    "//components/session_manager/core",
     "//components/user_manager",
     "//content/public/browser",
     "//extensions/common",

@@ -55,6 +55,11 @@ COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kAccountRetrievalWaitsForRestoration);
 #endif
 
+#if BUILDFLAG(IS_ANDROID)
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE(kAddSessionFallbackToPrimaryAccount);
+#endif  // BUILDFLAG(IS_ANDROID)
+
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kAvoidAutoTriggerListAccountsOnStale);
 
@@ -294,6 +299,15 @@ COMPONENT_EXPORT(SIGNIN_SWITCHES)
 extern const base::FeatureParam<bool> kAccountPreviewDataPersistAccounts;
 
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE(kEnableAccountPreviewDataFetchOptimizations);
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE_PARAM(bool, kAccountPreviewDataReducedTypes);
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE_PARAM(bool, kAccountPreviewDataPreconnect);
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE_PARAM(bool, kAccountPreviewDataMediumPriority);
+
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kEnableAccountPreviewEntityPreviews);
 
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
@@ -349,6 +363,12 @@ BASE_DECLARE_FEATURE_PARAM(
 // `kEnableAccountPreviewPreferredAccount` is not enabled.
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kEnableAccountPreviewPreferredAccountFollowup);
+
+// Controls whether storing and exposing the preferred account for switching is
+// enabled. This flag has no effect if `kEnableAccountPreviewData` is not
+// enabled.
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE(kEnableAccountPreviewSwitchingAccount);
 
 #if BUILDFLAG(IS_ANDROID)
 // Enables the use of 1P app account information on Android in preferred account
@@ -646,13 +666,6 @@ BASE_DECLARE_FEATURE_PARAM(int, kFullscreenSignInPromoUseDateInterval);
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kGaiaAccountIdEnforcement);
 
-#if !BUILDFLAG(IS_IOS)
-// When enabled, GLIC will check a new CanUseGeminiInChrome account capability
-// to determine profile eligibility, instead of CanUseModelExecutionFeatures.
-COMPONENT_EXPORT(SIGNIN_SWITCHES)
-BASE_DECLARE_FEATURE(kGlicEligibilitySeparateAccountCapability);
-#endif
-
 // Feature to handle mdm errors on Enterprise and EDU accounts
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kHandleMdmErrorsForDasherAccounts);
@@ -781,6 +794,14 @@ BASE_DECLARE_FEATURE(kProfileDiscOnAllPages);
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kProfilesReordering);
 
+#if BUILDFLAG(ENABLE_DICE_SUPPORT)
+// Re-authentication (mainly in the sign-in pending state) opens Gaia's
+// `/AccountChooser` with `ptc=1` instead of `/AddSession`, skipping the email
+// page.
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE(kReauthSkipIdentifierPage);
+#endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
+
 #if !BUILDFLAG(IS_ANDROID)
 // Kill switch for Device Management Service OAuth scope.
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
@@ -823,19 +844,6 @@ COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kSigninLevelUpButton);
 #endif  // BUILDFLAG(IS_ANDROID)
 
-// Feature to control the experiment for max count of showing contextual sign-in
-// promos and UNO bubble reprompt.
-COMPONENT_EXPORT(SIGNIN_SWITCHES)
-BASE_DECLARE_FEATURE(kSigninPromoLimitsExperiment);
-// Param that controls the threshold of the contextual sign in promo shown
-// limit for the experiment.
-COMPONENT_EXPORT(SIGNIN_SWITCHES)
-extern const base::FeatureParam<int> kContextualSigninPromoShownThreshold;
-// Param that controls the threshold of the contextual sign in promos dismissed
-// limit for the experiment.
-COMPONENT_EXPORT(SIGNIN_SWITCHES)
-extern const base::FeatureParam<int> kContextualSigninPromoDismissedThreshold;
-
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 // Uses the Material Next theme for the signin promo.
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
@@ -870,6 +878,11 @@ BASE_DECLARE_FEATURE(kSignOutOfChrome);
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kSkipCheckForAccountManagementOnSignin);
 #endif  // BUILDFLAG(IS_ANDROID)
+
+// When enabled, /ListAccounts is not sent if there are no cookies for the Gaia
+// origin, as the response would contain no accounts.
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE(kSkipListAccountsWithoutGaiaCookies);
 
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kSkipRefreshTokenCheckInIdentityManager);
@@ -932,6 +945,12 @@ BASE_DECLARE_FEATURE(kUndoChromeOsUseConsentLevelSignin);
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kUnifyWaitForCookies);
 #endif  // BUILDFLAG(ENABLE_DESKTOP_ANDROID_EXTENSIONS)
+
+#if BUILDFLAG(IS_IOS)
+// Feature flag to use the AccountInfoFetcherIos.
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE(kUseAccountInfoFetcherIos);
+#endif
 
 #if BUILDFLAG(IS_ANDROID)
 // Additional gate for user policy registration and download based on user

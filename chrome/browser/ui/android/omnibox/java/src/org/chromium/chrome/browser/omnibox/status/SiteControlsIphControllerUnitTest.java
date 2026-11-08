@@ -4,8 +4,6 @@
 
 package org.chromium.chrome.browser.omnibox.status;
 
-import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
@@ -22,6 +20,7 @@ import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.mockito.quality.Strictness;
 
+import org.chromium.base.ContextUtils;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuHandler;
@@ -36,15 +35,22 @@ public class SiteControlsIphControllerUnitTest {
     public final MockitoRule mMockitoRule = MockitoJUnit.rule().strictness(Strictness.STRICT_STUBS);
 
     @Mock private UserEducationHelper mUserEducationHelper;
-    @Mock private View mAnchorView;
     @Mock private AppMenuHandler mAppMenuHandler;
     @Captor private ArgumentCaptor<IphCommand> mIphCommandCaptor;
 
+    private boolean mIsAnchorViewShown = true;
+    private View mAnchorView;
     private SiteControlsIphController mController;
 
     @Before
     public void setUp() {
-        lenient().doReturn(true).when(mAnchorView).isShown();
+        mAnchorView =
+                new View(ContextUtils.getApplicationContext()) {
+                    @Override
+                    public boolean isShown() {
+                        return mIsAnchorViewShown;
+                    }
+                };
         mController =
                 new SiteControlsIphController(mUserEducationHelper, mAnchorView, mAppMenuHandler);
     }
@@ -74,7 +80,7 @@ public class SiteControlsIphControllerUnitTest {
 
     @Test
     public void testShowIph_anchorViewNotShown() {
-        doReturn(false).when(mAnchorView).isShown();
+        mIsAnchorViewShown = false;
         mController.showIph();
 
         verifyNoInteractions(mUserEducationHelper);

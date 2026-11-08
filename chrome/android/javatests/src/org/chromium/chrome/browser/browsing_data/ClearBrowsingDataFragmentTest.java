@@ -10,10 +10,12 @@ import static androidx.test.espresso.assertion.ViewAssertions.doesNotExist;
 import static androidx.test.espresso.assertion.ViewAssertions.matches;
 import static androidx.test.espresso.matcher.RootMatchers.isDialog;
 import static androidx.test.espresso.matcher.ViewMatchers.hasDescendant;
+import static androidx.test.espresso.matcher.ViewMatchers.isDescendantOfA;
 import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
 import static androidx.test.espresso.matcher.ViewMatchers.withId;
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
 
+import static org.hamcrest.Matchers.allOf;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
@@ -71,12 +73,12 @@ import org.mockito.stubbing.Answer;
 
 import org.chromium.base.DeviceInfo;
 import org.chromium.base.ThreadUtils;
+import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CallbackHelper;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.Criteria;
 import org.chromium.base.test.util.CriteriaHelper;
 import org.chromium.base.test.util.DisabledTest;
-import org.chromium.base.test.util.DoNotBatch;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
@@ -99,6 +101,7 @@ import org.chromium.chrome.browser.password_manager.FakePasswordCheckupClientHel
 import org.chromium.chrome.browser.password_manager.FakePasswordManagerBackendSupportHelper;
 import org.chromium.chrome.browser.password_manager.PasswordCheckupClientHelperFactory;
 import org.chromium.chrome.browser.password_manager.PasswordManagerBackendSupportHelper;
+import org.chromium.chrome.browser.privacy.settings.PrivacySettings;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.profiles.ProfileManager;
 import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactory;
@@ -106,6 +109,7 @@ import org.chromium.chrome.browser.searchwidget.SearchActivity;
 import org.chromium.chrome.browser.settings.SettingsActivity;
 import org.chromium.chrome.browser.settings.SettingsActivityInterface;
 import org.chromium.chrome.browser.settings.SettingsInTab;
+import org.chromium.chrome.browser.settings.SettingsNavigationFactory;
 import org.chromium.chrome.browser.settings.SettingsTestRule;
 import org.chromium.chrome.browser.signin.services.IdentityServicesProvider;
 import org.chromium.chrome.browser.sync.FakeSyncServiceImpl;
@@ -116,6 +120,7 @@ import org.chromium.chrome.test.transit.ChromeTransitTestRules;
 import org.chromium.chrome.test.transit.FreshCtaTransitTestRule;
 import org.chromium.chrome.test.util.browser.signin.SigninTestRule;
 import org.chromium.components.browser_ui.settings.SettingsCustomTabLauncher;
+import org.chromium.components.browser_ui.settings.SettingsNavigation;
 import org.chromium.components.browser_ui.settings.SpinnerPreference;
 import org.chromium.components.browser_ui.settings.search.SettingsIndexData;
 import org.chromium.components.browsing_data.DeleteBrowsingDataAction;
@@ -133,18 +138,19 @@ import java.util.Set;
 /** Tests for ClearBrowsingDataFragment interaction with underlying data model. */
 @RunWith(ChromeJUnit4ClassRunner.class)
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
-@DoNotBatch(reason = "Manages sign-in state, which is global.")
-@DisableFeatures(ChromeFeatureList.SETTINGS_MULTI_COLUMN)
+@Batch(Batch.PER_CLASS)
+@DisableFeatures({ChromeFeatureList.SETTINGS_IN_TAB, ChromeFeatureList.SETTINGS_IN_TAB_DESKTOP})
 public class ClearBrowsingDataFragmentTest {
-    @Rule
+    @Rule(order = 0)
+    public final SigninTestRule mSigninTestRule = SigninTestRule.createWithCleanups();
+
+    @Rule(order = 1)
     public FreshCtaTransitTestRule mActivityTestRule =
             ChromeTransitTestRules.freshChromeTabbedActivityRule();
 
-    @Rule
+    @Rule(order = 2)
     public SettingsTestRule<ClearBrowsingDataFragment> mSettingsActivityTestRule =
             new SettingsTestRule<>(ClearBrowsingDataFragment.class);
-
-    @Rule public final SigninTestRule mSigninTestRule = new SigninTestRule();
 
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
 
@@ -159,6 +165,8 @@ public class ClearBrowsingDataFragmentTest {
     @Mock private TemplateUrlService mTemplateUrlServiceMock;
 
     @Mock private TemplateUrl mTemplateUrlMock;
+
+    @Mock private SettingsNavigation mSettingsNavigationMock;
 
     private UserActionTester mUserActionTester;
 
@@ -192,7 +200,6 @@ public class ClearBrowsingDataFragmentTest {
         mActivityTestRule.startOnBlankPage();
         mUserActionTester = new UserActionTester();
 
-
         // There can be some left-over notification channels from other tests.
         // TODO(crbug.com/41452182): Find a general solution to avoid leaking channels between
         // tests.
@@ -205,7 +212,9 @@ public class ClearBrowsingDataFragmentTest {
 
     @After
     public void tearDown() {
-        mUserActionTester.tearDown();
+        if (mUserActionTester != null) {
+            mUserActionTester.tearDown();
+        }
     }
 
     /** Waits for the progress dialog to disappear from the given CBD preference. */
@@ -248,9 +257,12 @@ public class ClearBrowsingDataFragmentTest {
         mSigninTestRule.addAccountThenSignin(TestAccounts.ACCOUNT1);
         final ClearBrowsingDataFragment preferences =
                 (ClearBrowsingDataFragment) startPreferences().getMainFragment();
-        ViewUtils.waitForVisibleView(withId(R.id.menu_id_targeted_help));
+        if (!SettingsInTab.shouldOpenSettingsInTab()) {
+            ViewUtils.waitForVisibleView(withId(R.id.menu_id_targeted_help));
+        }
 
-        onView(withId(R.id.recycler_view)).perform(RecyclerViewActions.scrollToLastPosition());
+        onView(allOf(withId(R.id.recycler_view), isDescendantOfA(withId(R.id.preferences_detail))))
+                .perform(RecyclerViewActions.scrollToLastPosition());
         onView(withText(preferences.buildSignOutOfChromeText().toString()))
                 .perform(clickOnSignOutLink());
 
@@ -280,9 +292,12 @@ public class ClearBrowsingDataFragmentTest {
         mSigninTestRule.addAccountThenSignin(TestAccounts.ACCOUNT1);
         final ClearBrowsingDataFragment preferences =
                 (ClearBrowsingDataFragment) startPreferences().getMainFragment();
-        ViewUtils.waitForVisibleView(withId(R.id.menu_id_targeted_help));
+        if (!SettingsInTab.shouldOpenSettingsInTab()) {
+            ViewUtils.waitForVisibleView(withId(R.id.menu_id_targeted_help));
+        }
 
-        onView(withId(R.id.recycler_view)).perform(RecyclerViewActions.scrollToLastPosition());
+        onView(allOf(withId(R.id.recycler_view), isDescendantOfA(withId(R.id.preferences_detail))))
+                .perform(RecyclerViewActions.scrollToLastPosition());
         onView(withText(preferences.buildSignOutOfChromeText().toString()))
                 .perform(clickOnSignOutLink());
 
@@ -409,6 +424,28 @@ public class ClearBrowsingDataFragmentTest {
     }
 
     /**
+     * Tests that the page names Privacy as the page to return to once the deletion completes, so
+     * that it does not depend on navigation history the deletion itself may have removed.
+     */
+    @Test
+    @MediumTest
+    public void testDeletionFinishesToPrivacySettings() throws Exception {
+        setDataTypesToClear(DialogOption.CLEAR_CACHE);
+
+        final ClearBrowsingDataFragment preferences =
+                (ClearBrowsingDataFragment) startPreferences().getMainFragment();
+        SettingsNavigationFactory.setInstanceForTesting(mSettingsNavigationMock);
+
+        ThreadUtils.runOnUiThreadBlocking(() -> clickClearButton(preferences));
+
+        waitForProgressToComplete(preferences);
+        mCallbackHelper.waitForOnly();
+
+        verify(mSettingsNavigationMock)
+                .finishCurrentSettings(preferences, PrivacySettings.class, /* parentArgs= */ null);
+    }
+
+    /**
      * Tests that changing the time interval for a deletion does not change the option prefs of
      * Clear Browsing Data if the deletion doesn't go through.
      */
@@ -474,8 +511,11 @@ public class ClearBrowsingDataFragmentTest {
     @MediumTest
     public void testTitleShown() {
         startPreferences();
-        ViewUtils.waitForVisibleView(withId(R.id.menu_id_targeted_help));
-        onView(withText(R.string.clear_browsing_data_title)).check(matches(isDisplayed()));
+        if (!SettingsInTab.shouldOpenSettingsInTab()) {
+            ViewUtils.waitForVisibleView(withId(R.id.menu_id_targeted_help));
+        }
+        ViewUtils.waitForVisibleView(
+                allOf(withText(R.string.clear_browsing_data_title), isDisplayed()));
     }
 
     @Test
@@ -1169,12 +1209,12 @@ public class ClearBrowsingDataFragmentTest {
     }
 
     private void clickOnPrefWithTitle(String title) {
-        onView(withId(R.id.recycler_view))
+        onView(allOf(withId(R.id.recycler_view), isDescendantOfA(withId(R.id.preferences_detail))))
                 .perform(RecyclerViewActions.actionOnItem(hasDescendant(withText(title)), click()));
     }
 
     private void verifyPrefWithTextVisible(String text) {
-        onView(withId(R.id.recycler_view))
+        onView(allOf(withId(R.id.recycler_view), isDescendantOfA(withId(R.id.preferences_detail))))
                 .perform(RecyclerViewActions.scrollTo(hasDescendant(withText(text))));
         onView(withText(text)).check(matches(isDisplayed()));
     }

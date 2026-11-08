@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 //
-// Next MinVersion: 9
+// Next MinVersion: 10
 
 module on_device_model.mojom;
 
@@ -57,6 +57,10 @@ struct ResponseChunk {
   // Optional safety information computed against the full response so far, up
   // to and including `text`.
   SafetyInfo? safety_info;
+
+  // Optional thought/reasoning text for this chunk of the response.
+  [MinVersion=9]
+  string? thought;
 };
 
 // Information pertaining to a complete response that was streamed by a
@@ -118,6 +122,18 @@ struct LoadAdaptationParams {
   AdaptationAssets assets;
 };
 
+// Params to describe a post-processor model to load (currently the ASR
+// polisher model).
+[Stable]
+struct LoadPostProcessorParams {
+  // Opened model weights and cache files for the post-processor model (e.g.
+  // CPU .litertlm for the ASR polisher model).
+  // TODO(b/313919363): This should also be a ReadOnlyFile.
+  mojo_base.mojom.File? weights;
+  mojo_base.mojom.File? cache;
+  uint32 max_tokens = 0;
+};
+
 // A set of capabilities that a model can have.
 [Stable]
 struct Capabilities {
@@ -168,6 +184,8 @@ enum Token {
   [MinVersion=1] kToolCall,
   // Prefix for tool response (results from tool execution).
   [MinVersion=1] kToolResponse,
+  // Prefix for model thought / reasoning text.
+  [MinVersion=2] kThought,
 };
 
 // Holds the possible input types to the model. Note that if any of these input
@@ -271,6 +289,15 @@ struct GenerateOptions {
   // cancelled, no tokens will be added to the session context.
   [MinVersion=3]
   bool add_output_tokens_to_context = false;
+
+  // Whether thinking mode is enabled for this generation call.
+  [MinVersion=9]
+  bool enable_thinking = false;
+
+  // The maximum number of thinking tokens allowed before forcing transition to
+  // the final response.
+  [MinVersion=9]
+  uint32 thinking_token_budget = 0;
 };
 
 // Priorities which determine how requests to a session are scheduled.
@@ -355,6 +382,14 @@ interface OnDeviceModel {
   // adaptation on top of the base model.
   LoadAdaptation@3(
       LoadAdaptationParams params, pending_receiver<OnDeviceModel> model)
+      => (LoadModelResult result);
+
+  // Loads a secondary post-processor model (e.g., ASR polisher) associated
+  // with this base model and binds a new OnDeviceModel receiver representing
+  // the combined pipeline.
+  [MinVersion=9]
+  LoadPostProcessor@4(
+      LoadPostProcessorParams params, pending_receiver<OnDeviceModel> model)
       => (LoadModelResult result);
 };
 

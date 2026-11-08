@@ -20,7 +20,6 @@
   --cr-searchbox-icon-left-position: 12px;
   --cr-searchbox-icon-size-in-searchbox: 20px;
   --cr-searchbox-icon-top-position: 0;
-  --cr-searchbox-min-width: var(--ntp-search-box-width);
   --cr-searchbox-results-search-icon-size: 20px;
   --ntp-theme-text-shadow: none;
   --ntp-one-google-bar-height: 56px;
@@ -35,8 +34,6 @@
   --ntp-protected-icon-background-color: transparent;
   --ntp-protected-icon-background-color-hovered: rgba(255, 255, 255, 0.1);
   --ntp-scrim-opacity_: 1;
-  --threads-rail-width: 76px;
-  --threads-rail-focus-outline-color: var(--color-new-tab-page-focus-ring);
 
 <if expr="is_android">
   /* Use Google Sans Text for the NTP realbox on Android. The @font-face
@@ -66,30 +63,27 @@
   --ntp-scrim-opacity_: 0.5;
 }
 
-/**
- * Maintain a larger width if the secondary side can be shown and was at any
- * point available to be shown.
- */
-:host([realbox-can-show-secondary-side][realbox-had-secondary-side]),
-:host([realbox-can-show-secondary-side]) {
-  --ntp-search-box-width: 746px;
-}
-
-@media (min-width: 560px) {
-  :host {
+@container rhsWrapper (min-width: 560px) {
+  #rhsContent {
     --ntp-search-box-width: 449px;
   }
 }
 
-@media (min-width: 672px) {
-  :host {
+@container rhsWrapper (min-width: 672px) {
+  #rhsContent {
     --ntp-search-box-width: 561px;
   }
 }
 
+@container rhsWrapper (min-width: 900px) {
+  #rhsContent {
+    --ntp-search-box-width: 746px;
+  }
+}
+
 /*A module width of 768px with 18px gaps on each side. */
-@media (min-width: 804px) {
-  :host {
+@container rhsWrapper (min-width: 804px) {
+  #rhsContent {
     --ntp-module-layout-width: 768px;
     --ntp-module-width: 768px;
   }
@@ -162,30 +156,13 @@ cr-most-visited {
 }
 
 #content {
-  align-items: center;
   display: flex;
-  flex-direction: column;
-  height: calc(100vh - var(--ntp-one-google-bar-height));
-  min-width: fit-content; /* Prevents OneGoogleBar cutoff at 500% zoom. */
-  padding-top: var(--ntp-one-google-bar-height);
-  position: relative;
-  z-index: 1;
+  flex-direction: row;
+  height: 100vh;
 }
 
-/*
- * Below 900px, the threads rail will shift the main content aside.
- * This happens in conjunction with the realbox width change as well,
- * when the total width reaches 824px + 76px (realbox + rail).
- */
-@media (max-width: 900px) {
-  #content[ntp-threads-rail-open] {
-    margin-inline-start: var(--threads-rail-width);
-    width: calc(100% - var(--threads-rail-width));
-  }
-}
-
-:host([show-composebox_]) #content,
-:host([show-voice-search-scrim_]) #content {
+:host([show-composebox_]) #rhsContent,
+:host([show-voice-search-scrim_]) #rhsContent {
   z-index: unset;
 }
 
@@ -242,8 +219,10 @@ ntp-searchbox[shown] {
   border-radius: 8px;
   bottom: 16px;
   color: var(--color-new-tab-page-attribution-foreground);
+  /* 100cqw = width of the rhsWrapper (query container). */
+  inset-inline-start: calc(100% - 100cqw + 16px);
   line-height: 20px;
-  max-width: 50vw;
+  max-width: 50cqw;
   padding: 8px;
   position: fixed;
   z-index: -1;
@@ -253,14 +232,6 @@ ntp-searchbox[shown] {
 
 #backgroundImageAttribution:hover {
   background-color: var(--ntp-protected-icon-background-color-hovered);
-}
-
-:host-context([dir='ltr']) #backgroundImageAttribution {
-  left: 16px;
-}
-
-:host-context([dir='rtl']) #backgroundImageAttribution {
-  right: 16px;
 }
 
 #backgroundImageAttribution1Container {
@@ -561,4 +532,35 @@ ntp-lens-upload-dialog {
   #linkIcon {
     -webkit-mask-image: url(icons/link.svg);
   }
+}
+
+#lhsWrapper {
+  flex-shrink: 0;
+}
+
+/* The query container for the @container rules above. This can't be
+ * #rhsContent itself: a size container ignores its content when sizing,
+ * which would break the min-width: fit-content on #rhsContent. */
+#rhsWrapper {
+  container: rhsWrapper / inline-size;
+  flex-grow: 1;
+  /* #rhsContent scrolls vertically. This scrolls horizontally when
+   * #rhsContent is wider, e.g. at 500% zoom. */
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+#rhsContent {
+  /* safe: children wider than this column are start-aligned instead of
+   * centered, so they can't spill over #lhsWrapper. */
+  align-items: safe center;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-width: fit-content; /* Prevents OneGoogleBar cutoff at 500% zoom. */
+  overflow: auto;
+  padding-top: var(--ntp-one-google-bar-height);
+  position: relative;
+  z-index: 1;
 }

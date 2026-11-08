@@ -58,6 +58,7 @@ class MEDIA_EXPORT AudioManagerMac : public AudioManagerApple {
   std::string GetAssociatedOutputDeviceID(
       const std::string& input_device_id) override;
   const std::string_view GetName() override;
+  bool UsesQueuedOutputStream(const AudioParameters& params) const override;
 
   // Implementation of AudioManagerBase.
   AudioOutputStream* MakeLinearOutputStream(
@@ -87,11 +88,11 @@ class MEDIA_EXPORT AudioManagerMac : public AudioManagerApple {
   // lower than the current device buffer size. The buffer size can also be
   // modified under other conditions. See comments in the corresponding cc-file
   // for more details.
-  // Returns false if an error occurred.
-  bool MaybeChangeBufferSize(AudioDeviceID device_id,
-                             AudioUnit audio_unit,
-                             AudioUnitElement element,
-                             size_t desired_buffer_size) override;
+  // Returns noErr if successful or the OSStatus error code.
+  OSStatus MaybeChangeBufferSize(AudioDeviceID device_id,
+                                 AudioUnit audio_unit,
+                                 AudioUnitElement element,
+                                 size_t desired_buffer_size) override;
   base::TimeDelta GetDeferStreamStartTimeout() const override;
   void StopAmplitudePeakTrace() override;
 
@@ -102,7 +103,8 @@ class MEDIA_EXPORT AudioManagerMac : public AudioManagerApple {
   double GetMaxInputVolume(AudioDeviceID device_id) override;
 
   // Sets the microphone analog volume, with range [0.0, 1.0] inclusive.
-  void SetInputVolume(AudioDeviceID device_id, double volume) override;
+  // Returns noErr if successful or the OSStatus error code.
+  OSStatus SetInputVolume(AudioDeviceID device_id, double volume) override;
 
   // Returns the microphone analog volume, with range [0.0, 1.0] inclusive.
   double GetInputVolume(AudioDeviceID device_id) override;

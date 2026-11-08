@@ -16,7 +16,7 @@
 #include "base/memory/raw_ref.h"
 #include "chrome/browser/ttc/app/audio_controller.h"
 #include "chrome/browser/ttc/app/public/conversation.h"
-#include "chrome/browser/ttc/app/ttc_backend.h"
+#include "components/ttc/app/ttc_backend.h"
 #include "url/gurl.h"
 
 namespace media {
@@ -55,12 +55,12 @@ class ConversationImpl : public Conversation, public TtcBackend::Observer {
       const GURL& url,
       const std::string& title,
       const optimization_guide::proto::AnnotatedPageContent& apc) override;
-  void OnPageContextChanged() override;
+  void OnPageContextInvalidated() override;
 
   // TtcBackend::Observer implementation:
-  void OnApplicationInitialized() override;
-  void OnApplicationClosed() override;
-  void OnApplicationError(ErrorCode error) override;
+  void OnBackendInitialized() override;
+  void OnBackendClosed() override;
+  void OnBackendError(ErrorCode error) override;
   void OnTranscriptions(const std::string& input_transcription,
                         const std::string& output_transcription) override;
   void OnAudioOutput(base::span<const int16_t> audio_data,
@@ -70,6 +70,7 @@ class ConversationImpl : public Conversation, public TtcBackend::Observer {
                                 bool interrupted) override;
   void OnToolCall(const ToolRequest& tool_request,
                   ToolResponseCallback response_callback) override;
+  void OnJournalEvent(const ServerJournalEvent& journal_event) override;
 
   AudioController* audio_controller() { return audio_controller_.get(); }
   TtcBackend* backend() { return backend_.get(); }
@@ -89,6 +90,7 @@ class ConversationImpl : public Conversation, public TtcBackend::Observer {
   base::CallbackListSubscription audio_capture_subscription_;
   base::CallbackListSubscription audio_energy_subscription_;
   base::CallbackListSubscription playback_completion_subscription_;
+  base::CallbackListSubscription audio_capture_error_subscription_;
 };
 
 }  // namespace ttc

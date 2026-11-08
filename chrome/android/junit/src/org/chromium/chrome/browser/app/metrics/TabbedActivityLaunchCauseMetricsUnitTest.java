@@ -13,14 +13,9 @@ import android.speech.RecognizerResultsIntent;
 
 import org.junit.Assert;
 import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.Mock;
-import org.mockito.Mockito;
-import org.mockito.junit.MockitoJUnit;
-import org.mockito.junit.MockitoRule;
-import org.mockito.quality.Strictness;
+import org.robolectric.Robolectric;
 
 import org.chromium.base.ActivityState;
 import org.chromium.base.ApplicationStatus;
@@ -36,12 +31,11 @@ import org.chromium.components.webapps.ShortcutSource;
 /** Unit tests for TabbedActivityLaunchCauseMetrics. */
 @RunWith(BaseRobolectricTestRunner.class)
 public final class TabbedActivityLaunchCauseMetricsUnitTest {
-    @Mock private Activity mActivity;
-
-    @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule().strictness(Strictness.STRICT_STUBS);
+    private Activity mActivity;
 
     @Before
     public void setUp() {
+        mActivity = Robolectric.buildActivity(Activity.class).get();
         LaunchCauseMetrics.resetForTests();
         ApplicationStatus.onStateChangeForTesting(mActivity, ActivityState.CREATED);
     }
@@ -57,7 +51,7 @@ public final class TabbedActivityLaunchCauseMetricsUnitTest {
                 histogramCountForValue(LaunchCauseMetrics.LaunchCause.OPEN_IN_BROWSER_FROM_MENU);
         Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse("about:blank"));
         intent.putExtra(IntentHandler.EXTRA_FROM_OPEN_IN_BROWSER, true);
-        Mockito.when(mActivity.getIntent()).thenReturn(intent);
+        mActivity.setIntent(intent);
 
         TabbedActivityLaunchCauseMetrics metrics = new TabbedActivityLaunchCauseMetrics(mActivity);
 
@@ -114,7 +108,7 @@ public final class TabbedActivityLaunchCauseMetricsUnitTest {
                 histogramCountForValue(
                         LaunchCauseMetrics.LaunchCause.EXTERNAL_SEARCH_ACTION_INTENT);
         Intent intent = new Intent(RecognizerResultsIntent.ACTION_VOICE_SEARCH_RESULTS);
-        Mockito.when(mActivity.getIntent()).thenReturn(intent);
+        mActivity.setIntent(intent);
 
         TabbedActivityLaunchCauseMetrics metrics = new TabbedActivityLaunchCauseMetrics(mActivity);
 
@@ -145,7 +139,7 @@ public final class TabbedActivityLaunchCauseMetricsUnitTest {
         Intent intent =
                 IntentHandler.createTrustedBringTabToFrontIntent(
                         1, IntentHandler.BringToFrontSource.NOTIFICATION);
-        Mockito.when(mActivity.getIntent()).thenReturn(intent);
+        mActivity.setIntent(intent);
 
         TabbedActivityLaunchCauseMetrics metrics = new TabbedActivityLaunchCauseMetrics(mActivity);
 
@@ -177,7 +171,7 @@ public final class TabbedActivityLaunchCauseMetricsUnitTest {
         Intent intent =
                 IntentHandler.createTrustedBringTabToFrontIntent(
                         1, IntentHandler.BringToFrontSource.SEARCH_ACTIVITY);
-        Mockito.when(mActivity.getIntent()).thenReturn(intent);
+        mActivity.setIntent(intent);
 
         TabbedActivityLaunchCauseMetrics metrics = new TabbedActivityLaunchCauseMetrics(mActivity);
 
@@ -195,7 +189,7 @@ public final class TabbedActivityLaunchCauseMetricsUnitTest {
         Intent intent =
                 IntentHandler.createTrustedBringTabToFrontIntent(
                         1, IntentHandler.BringToFrontSource.ACTIVATE_TAB);
-        Mockito.when(mActivity.getIntent()).thenReturn(intent);
+        mActivity.setIntent(intent);
 
         TabbedActivityLaunchCauseMetrics metrics = new TabbedActivityLaunchCauseMetrics(mActivity);
 
@@ -211,7 +205,7 @@ public final class TabbedActivityLaunchCauseMetricsUnitTest {
     public void testExternalViewIntent() throws Throwable {
         int count = histogramCountForValue(LaunchCauseMetrics.LaunchCause.EXTERNAL_VIEW_INTENT);
         Intent intent = new Intent(Intent.ACTION_VIEW);
-        Mockito.when(mActivity.getIntent()).thenReturn(intent);
+        mActivity.setIntent(intent);
 
         TabbedActivityLaunchCauseMetrics metrics = new TabbedActivityLaunchCauseMetrics(mActivity);
 
@@ -230,7 +224,7 @@ public final class TabbedActivityLaunchCauseMetricsUnitTest {
         intent.putExtra(
                 Browser.EXTRA_APPLICATION_ID,
                 ContextUtils.getApplicationContext().getPackageName());
-        Mockito.when(mActivity.getIntent()).thenReturn(intent);
+        mActivity.setIntent(intent);
 
         TabbedActivityLaunchCauseMetrics metrics = new TabbedActivityLaunchCauseMetrics(mActivity);
 
@@ -251,7 +245,7 @@ public final class TabbedActivityLaunchCauseMetricsUnitTest {
                 Browser.EXTRA_APPLICATION_ID,
                 ContextUtils.getApplicationContext().getPackageName());
         IntentUtils.addTrustedIntentExtras(intent);
-        Mockito.when(mActivity.getIntent()).thenReturn(intent);
+        mActivity.setIntent(intent);
 
         TabbedActivityLaunchCauseMetrics metrics = new TabbedActivityLaunchCauseMetrics(mActivity);
 
@@ -269,7 +263,7 @@ public final class TabbedActivityLaunchCauseMetricsUnitTest {
         Intent intent =
                 ShortcutHelper.createShortcutIntent(
                         "about:blank", "id", ShortcutSource.ADD_TO_HOMESCREEN_SHORTCUT);
-        Mockito.when(mActivity.getIntent()).thenReturn(intent);
+        mActivity.setIntent(intent);
 
         TabbedActivityLaunchCauseMetrics metrics = new TabbedActivityLaunchCauseMetrics(mActivity);
 
@@ -285,7 +279,7 @@ public final class TabbedActivityLaunchCauseMetricsUnitTest {
     public void testShareIntent() throws Throwable {
         int count = histogramCountForValue(LaunchCauseMetrics.LaunchCause.SHARE_INTENT);
         Intent intent = new Intent(Intent.ACTION_SEND, Uri.parse("https://example.com"));
-        Mockito.when(mActivity.getIntent()).thenReturn(intent);
+        mActivity.setIntent(intent);
 
         TabbedActivityLaunchCauseMetrics metrics = new TabbedActivityLaunchCauseMetrics(mActivity);
 
@@ -302,7 +296,7 @@ public final class TabbedActivityLaunchCauseMetricsUnitTest {
         int count = histogramCountForValue(LaunchCauseMetrics.LaunchCause.NFC);
         Intent intent =
                 new Intent(NfcAdapter.ACTION_NDEF_DISCOVERED, Uri.parse("https://example.com"));
-        Mockito.when(mActivity.getIntent()).thenReturn(intent);
+        mActivity.setIntent(intent);
 
         TabbedActivityLaunchCauseMetrics metrics = new TabbedActivityLaunchCauseMetrics(mActivity);
 

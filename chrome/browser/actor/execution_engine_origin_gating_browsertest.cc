@@ -5,7 +5,6 @@
 #include "base/strings/strcat.h"
 #include "base/task/current_thread.h"
 #include "base/test/bind.h"
-#include "base/test/gmock_callback_support.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/run_until.h"
 #include "base/test/scoped_feature_list.h"
@@ -20,21 +19,18 @@
 #include "chrome/browser/actor/tools/wait_tool.h"
 #include "chrome/browser/actor/ui/event_dispatcher.h"
 #include "chrome/browser/glic/host/glic.mojom.h"
-#include "chrome/browser/glic/host/glic_features.mojom.h"
-#include "chrome/browser/glic/test_support/interactive_test_util.h"
+#include "chrome/browser/glic/public/features.h"
 #include "chrome/browser/glic/test_support/non_interactive_glic_test.h"
 #include "chrome/browser/optimization_guide/browser_test_util.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/common/chrome_features.h"
 #include "components/actor/core/actor_features.h"
 #include "components/actor/core/actor_switches.h"
-#include "components/actor/core/aggregated_journal.h"
 #include "components/actor/core/safety_list_manager.h"
 #include "components/actor/public/mojom/actor_types.mojom.h"
 #include "components/optimization_guide/core/filters/hints_component_util.h"
 #include "components/optimization_guide/core/filters/optimization_hints_component_update_listener.h"
 #include "components/optimization_guide/proto/features/common_quality_data.pb.h"
-#include "components/optimization_guide/proto/hints.pb.h"
 #include "components/ukm/test_ukm_recorder.h"
 #include "content/public/test/back_forward_cache_util.h"
 #include "content/public/test/browser_test.h"
@@ -47,6 +43,10 @@
 #include "services/metrics/public/cpp/ukm_builders.h"
 #include "url/origin.h"
 #include "url/url_util.h"
+
+#if !BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/actor/ui/actor_task_unload_handler.h"
+#endif
 
 namespace actor {
 
@@ -146,7 +146,11 @@ constexpr std::string_view kSameSiteInitiatorHistogram =
 
 optimization_guide::proto::LocationRule* AddAllowlistedSiteToActorConfig(
     std::string_view domain,
-    optimization_guide::proto::AgentContainerConfig& config_proto) {
+    optimization_guide::proto::AgentContainerConfig& config_proto,
+    base::span<
+        const optimization_guide::proto::RuleMetadata::ActuationCapability>
+        capabilities = {
+            optimization_guide::proto::RuleMetadata::CAPABILITY_ALL}) {
   optimization_guide::proto::LocationRule* rule =
       config_proto.add_location_rules();
   optimization_guide::proto::Site* site =
@@ -154,8 +158,9 @@ optimization_guide::proto::LocationRule* AddAllowlistedSiteToActorConfig(
   site->set_protocol(optimization_guide::proto::Protocol::PROTOCOL_HTTPS);
   site->set_domain(domain);
   optimization_guide::proto::RuleMetadata* metadata = rule->mutable_metadata();
-  metadata->add_capabilities(
-      optimization_guide::proto::RuleMetadata::CAPABILITY_ALL);
+  for (auto capability : capabilities) {
+    metadata->add_capabilities(capability);
+  }
   metadata->add_accessible_resources(
       optimization_guide::proto::RuleMetadata::RESOURCE_SESSION);
   return rule;
@@ -178,8 +183,8 @@ class ExecutionEngineOriginGatingBrowserTestBase
       const std::vector<base::test::FeatureRef>& additional_disabled_features) {
     std::vector<base::test::FeatureRefAndParams> enabled_features = {
         {features::kGlic, {}},
-        {features::kGlicActor,
-         {{features::kGlicActorPolicyControlExemption.name, "true"}}},
+        {features::kGlicActor, {}},
+        {features::kGlicActorPolicyControlExemption, {}},
         {kGlicCrossOriginNavigationGating,
          {
              {"confirm_navigation_to_new_origins", "true"},
@@ -895,8 +900,8 @@ class ExecutionEngineOriginGatingUserPromptingBrowserTest
         /*enabled_features=*/
         {
             {features::kGlic, {}},
-            {features::kGlicActor,
-             {{features::kGlicActorPolicyControlExemption.name, "true"}}},
+            {features::kGlicActor, {}},
+            {features::kGlicActorPolicyControlExemption, {}},
             {kGlicCrossOriginNavigationGating,
              {{
                  {"confirm_navigation_to_new_origins", "true"},
@@ -907,8 +912,32 @@ class ExecutionEngineOriginGatingUserPromptingBrowserTest
         /*disabled_features=*/{features::kGlicWarming});
   }
 
+  void SetUpOnMainThread() override {
+    ExecutionEngineOriginGatingBrowserTest::SetUpOnMainThread();
+#if !BUILDFLAG(IS_ANDROID)
+    // These tests navigate via browser initiated navigations while an Actor
+    // task is active as test scaffolding to verify origin gating prompts.
+    // Suppress the leave site dialog so that test scaffolding navigations are
+    // not intercepted, and restore previous state at teardown.
+    previous_suppress_confirm_dialog_ =
+        ActorTaskTabCloseConfirmDialog::ShouldSuppressForTesting();
+    ActorTaskTabCloseConfirmDialog::SetSuppressForTesting(true);
+#endif
+  }
+
+  void TearDownOnMainThread() override {
+#if !BUILDFLAG(IS_ANDROID)
+    ActorTaskTabCloseConfirmDialog::SetSuppressForTesting(
+        previous_suppress_confirm_dialog_);
+#endif
+    ExecutionEngineOriginGatingBrowserTest::TearDownOnMainThread();
+  }
+
  private:
   base::test::ScopedFeatureList scoped_feature_list_;
+#if !BUILDFLAG(IS_ANDROID)
+  bool previous_suppress_confirm_dialog_ = false;
+#endif
 };
 
 // When kGlicPromptUserForNavigationToNewOrigins is enabled, we should not
@@ -1284,7 +1313,7 @@ IN_PROC_BROWSER_TEST_F(ExecutionEngineOriginGatingBrowserTest,
   const GURL second_url =
       embedded_https_test_server().GetURL("foo.com", "/actor/blank.html");
 
-  ParseSafetyListsForTesting(SafetyListManager::GetInstance(), R"json(
+  SetSafetyListsForTesting(SafetyListManager::GetInstance(), R"json(
     {
       "navigation_allowed": [
         { "from": "*", "to": "[*.]example.com" },
@@ -1327,7 +1356,7 @@ IN_PROC_BROWSER_TEST_F(ExecutionEngineOriginGatingBrowserTest,
   const GURL start_url =
       embedded_https_test_server().GetURL("example.com", "/actor/link.html");
 
-  ParseSafetyListsForTesting(SafetyListManager::GetInstance(), R"json(
+  SetSafetyListsForTesting(SafetyListManager::GetInstance(), R"json(
      {
        "navigation_allowed": [
          { "from": "[*.]example.com", "to": "[*.]example.com" }
@@ -1360,7 +1389,7 @@ IN_PROC_BROWSER_TEST_F(ExecutionEngineOriginGatingBrowserTest,
   const GURL start_url =
       embedded_https_test_server().GetURL("example.com", "/actor/link.html");
 
-  ParseSafetyListsForTesting(SafetyListManager::GetInstance(), R"json(
+  SetSafetyListsForTesting(SafetyListManager::GetInstance(), R"json(
      {
        "navigation_blocked": [
          { "from": "[*.]example.com", "to": "[*.]example.com" }
@@ -1383,7 +1412,7 @@ IN_PROC_BROWSER_TEST_F(ExecutionEngineOriginGatingBrowserTest,
   const GURL start_url =
       embedded_https_test_server().GetURL("example.com", "/empty.html");
 
-  ParseSafetyListsForTesting(SafetyListManager::GetInstance(), R"json(
+  SetSafetyListsForTesting(SafetyListManager::GetInstance(), R"json(
     {
       "navigation_blocked": [
         { "from": "[*.]example.com", "to": "[*.]example.com" }
@@ -1420,7 +1449,7 @@ IN_PROC_BROWSER_TEST_F(ExecutionEngineOriginGatingBrowserTest,
   const GURL blocked_url =
       embedded_https_test_server().GetURL("foo.com", "/actor/blank.html");
 
-  ParseSafetyListsForTesting(SafetyListManager::GetInstance(), R"json(
+  SetSafetyListsForTesting(SafetyListManager::GetInstance(), R"json(
     {
       "navigation_allowed": [
         { "from": "[*.]example.com", "to": "[*.]foo.com" }
@@ -1454,7 +1483,7 @@ IN_PROC_BROWSER_TEST_F(ExecutionEngineOriginGatingBrowserTest,
   const GURL blocked_url =
       embedded_https_test_server().GetURL("foo.com", "/actor/blank.html");
 
-  ParseSafetyListsForTesting(SafetyListManager::GetInstance(), R"json(
+  SetSafetyListsForTesting(SafetyListManager::GetInstance(), R"json(
     {
       "navigation_blocked": [
         { "from": "[*.]example.com", "to": "[*.]foo.com" }
@@ -1496,7 +1525,7 @@ IN_PROC_BROWSER_TEST_F(ExecutionEngineOriginGatingBrowserTest,
   const GURL allowed_url =
       embedded_https_test_server().GetURL("foo.com", "/actor/blank.html");
 
-  ParseSafetyListsForTesting(SafetyListManager::GetInstance(), R"json(
+  SetSafetyListsForTesting(SafetyListManager::GetInstance(), R"json(
     {
       "navigation_allowed": [
         { "from": "[*.]example.com", "to": "[*.]foo.com" }
@@ -1537,7 +1566,7 @@ IN_PROC_BROWSER_TEST_F(ExecutionEngineOriginGatingBrowserTest,
   const GURL blocked_url =
       embedded_https_test_server().GetURL("foo.com", "/actor/blank.html");
 
-  ParseSafetyListsForTesting(SafetyListManager::GetInstance(), R"json(
+  SetSafetyListsForTesting(SafetyListManager::GetInstance(), R"json(
     {
       "navigation_blocked": [
         { "from": "[*.]example.com", "to": "[*.]foo.com" }
@@ -1572,7 +1601,7 @@ IN_PROC_BROWSER_TEST_F(ExecutionEngineOriginGatingBrowserTest,
 
 IN_PROC_BROWSER_TEST_F(ExecutionEngineOriginGatingBrowserTest,
                        NavigationBlockedByStaticList_CrossOriginIframe) {
-  ParseSafetyListsForTesting(SafetyListManager::GetInstance(), R"json(
+  SetSafetyListsForTesting(SafetyListManager::GetInstance(), R"json(
     {
       "navigation_blocked": [
         { "from": "*", "to": "blocked.example.com" }
@@ -1626,7 +1655,7 @@ IN_PROC_BROWSER_TEST_F(ExecutionEngineOriginGatingBrowserTest,
   const GURL blocked_url =
       embedded_https_test_server().GetURL("example.com", "/actor/blank.html");
 
-  ParseSafetyListsForTesting(SafetyListManager::GetInstance(), R"json(
+  SetSafetyListsForTesting(SafetyListManager::GetInstance(), R"json(
     {
       "navigation_blocked": [
         { "from": "*", "to": "[*.]example.com" }
@@ -1660,7 +1689,7 @@ IN_PROC_BROWSER_TEST_F(ExecutionEngineOriginGatingBrowserTest,
   const GURL sandboxed_url = embedded_https_test_server().GetURL(
       "foo.com", "/actor/sandbox_main_frame_csp.html");
 
-  ParseSafetyListsForTesting(SafetyListManager::GetInstance(), R"json(
+  SetSafetyListsForTesting(SafetyListManager::GetInstance(), R"json(
     {
       "navigation_blocked": [
         { "from": "[*.]example.com", "to": "[*.]foo.com" }
@@ -1698,7 +1727,7 @@ IN_PROC_BROWSER_TEST_F(ExecutionEngineOriginGatingBrowserTest,
   const GURL start_url = embedded_https_test_server().GetURL(
       "bad.example.com", "/actor/link.html");
 
-  ParseSafetyListsForTesting(SafetyListManager::GetInstance(), R"json(
+  SetSafetyListsForTesting(SafetyListManager::GetInstance(), R"json(
      {
        "navigation_blocked": [
          { "from": "*", "to": "[*.]bad.example.com" }
@@ -1726,7 +1755,7 @@ IN_PROC_BROWSER_TEST_F(ExecutionEngineOriginGatingBrowserTest,
   const GURL allowed_url =
       embedded_https_test_server().GetURL("bar.com", "/actor/blank.html");
 
-  ParseSafetyListsForTesting(SafetyListManager::GetInstance(), R"json(
+  SetSafetyListsForTesting(SafetyListManager::GetInstance(), R"json(
      {
        "navigation_blocked": [
          { "from": "*", "to": "[*.]bad.example.com" }
@@ -1832,6 +1861,37 @@ IN_PROC_BROWSER_TEST_F(ExecutionEngineOriginGatingBrowserTest,
   ExpectErrorResult(result, mojom::ActionResultCode::kUrlBlocked);
 }
 
+IN_PROC_BROWSER_TEST_F(ExecutionEngineOriginGatingBrowserTest,
+                       TaskPolicyConfig_PageActionToolGating) {
+  optimization_guide::proto::AgentContainerConfig config_proto;
+  AddAllowlistedSiteToActorConfig(
+      "example.com", config_proto,
+      {optimization_guide::proto::RuleMetadata::CAPABILITY_CLICK});
+
+  const GURL page_url =
+      embedded_https_test_server().GetURL("example.com", "/actor/blank.html");
+  ASSERT_TRUE(content::NavigateToURL(web_contents(), page_url));
+  OpenGlicAndCreateTask();
+
+  PerformActionsFuture click_result;
+  actor_keyed_service().PerformActions(
+      actor_task().id(),
+      ToRequestList(MakeClickRequest(*active_tab(), gfx::Point(1, 1))),
+      ActorTaskMetadata::WithAgentContainerConfigForTesting(config_proto),
+      click_result.GetCallback());
+  ExpectOkResult(click_result);
+
+  PerformActionsFuture scroll_result;
+  actor_keyed_service().PerformActions(
+      actor_task().id(),
+      ToRequestList(MakeScrollRequest(*main_frame(),
+                                      /*content_node_id=*/std::nullopt,
+                                      /*scroll_offset_x=*/0,
+                                      /*scroll_offset_y=*/50)),
+      ActorTaskMetadata(), scroll_result.GetCallback());
+  ExpectErrorResult(scroll_result, mojom::ActionResultCode::kUrlBlocked);
+}
+
 // If the actor container config would allow a navigation but some other
 // predicate would disallow it, it should be disallowed.
 IN_PROC_BROWSER_TEST_F(
@@ -1846,7 +1906,7 @@ IN_PROC_BROWSER_TEST_F(
                     url::EncodeUriComponent(destination_url.spec())}));
 
   // Block the destination URL in SafetyListManager.
-  ParseSafetyListsForTesting(SafetyListManager::GetInstance(), R"json(
+  SetSafetyListsForTesting(SafetyListManager::GetInstance(), R"json(
     {
       "navigation_blocked": [
         { "from": "*", "to": "bar.com" }
@@ -1888,7 +1948,7 @@ IN_PROC_BROWSER_TEST_F(
       embedded_https_test_server().GetURL("example.com", "/actor/blank.html");
 
   // Block the page URL in SafetyListManager.
-  ParseSafetyListsForTesting(SafetyListManager::GetInstance(), R"json(
+  SetSafetyListsForTesting(SafetyListManager::GetInstance(), R"json(
     {
       "navigation_blocked": [
         { "from": "*", "to": "example.com" }
@@ -2409,8 +2469,8 @@ class ExecutionEngineBlocklistDisabledBrowserTest
         /*enabled_features=*/
         {
             {features::kGlic, {}},
-            {features::kGlicActor,
-             {{features::kGlicActorPolicyControlExemption.name, "true"}}},
+            {features::kGlicActor, {}},
+            {features::kGlicActorPolicyControlExemption, {}},
             {kGlicCrossOriginNavigationGating,
              {
                  {"confirm_navigation_to_new_origins", "false"},
@@ -2432,7 +2492,7 @@ IN_PROC_BROWSER_TEST_F(ExecutionEngineBlocklistDisabledBrowserTest,
   const GURL blocked_url =
       embedded_https_test_server().GetURL("foo.com", "/actor/blank.html");
 
-  ParseSafetyListsForTesting(SafetyListManager::GetInstance(), R"json(
+  SetSafetyListsForTesting(SafetyListManager::GetInstance(), R"json(
     {
       "navigation_blocked": [
         { "from": "*", "to": "[*.]foo.com" }
@@ -2458,7 +2518,7 @@ IN_PROC_BROWSER_TEST_F(ExecutionEngineBlocklistDisabledBrowserTest,
   const GURL blocked_url =
       embedded_https_test_server().GetURL("foo.com", "/actor/blank.html");
 
-  ParseSafetyListsForTesting(SafetyListManager::GetInstance(), R"json(
+  SetSafetyListsForTesting(SafetyListManager::GetInstance(), R"json(
     {
       "navigation_blocked": [
         { "from": "*", "to": "[*.]foo.com" }
@@ -2486,8 +2546,8 @@ class ExecutionEngineOriginGatingDarkLaunchBrowserTest
         /*enabled_features=*/
         {
             {features::kGlic, {}},
-            {features::kGlicActor,
-             {{features::kGlicActorPolicyControlExemption.name, "true"}}},
+            {features::kGlicActor, {}},
+            {features::kGlicActorPolicyControlExemption, {}},
             {kGlicCrossOriginNavigationGating,
              {
                  {"confirm_navigation_to_new_origins",
@@ -2589,8 +2649,8 @@ class ExecutionEngineOriginGatingSlowResponseBrowserTest
     scoped_feature_list_.InitWithFeaturesAndParameters(
         /*enabled_features=*/
         {
-            {features::kGlicActor,
-             {{features::kGlicActorPolicyControlExemption.name, "true"}}},
+            {features::kGlicActor, {}},
+            {features::kGlicActorPolicyControlExemption, {}},
             {kActorPageStability, {{kActorPageStabilityTimeout.name, "300ms"}}},
             {kActorObservationDelay,
              {{kActorObservationDelayTimeout.name, "1s"}}},
@@ -2674,7 +2734,7 @@ class OutOfTurnNavigationTestBase
  public:
   void SetUpOnMainThread() override {
     ExecutionEngineOriginGatingBrowserTestBase::SetUpOnMainThread();
-    ParseSafetyListsForTesting(SafetyListManager::GetInstance(), R"json(
+    SetSafetyListsForTesting(SafetyListManager::GetInstance(), R"json(
       {
         "navigation_blocked": [
           { "from": "*", "to": "bar.com" }

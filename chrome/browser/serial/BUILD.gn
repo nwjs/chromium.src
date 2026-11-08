@@ -51,7 +51,6 @@ source_set("impl") {
     "//chrome/browser:browser_process",
     "//chrome/browser/content_settings:content_settings_factory",
     "//chrome/browser/profiles:profile",
-    "//chrome/browser/ui",
     "//chrome/browser/ui/dialogs",
     "//chrome/browser/ui/serial",
     "//chrome/common:constants",
@@ -91,8 +90,6 @@ source_set("impl") {
       "//chrome/browser/ui/android/device_dialog",
     ]
   }
-
-  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
 }
 
 source_set("unit_tests") {
@@ -138,7 +135,6 @@ if (is_linux || is_mac || is_win) {
       ":serial",
       "//base",
       "//base/test:test_support",
-      "//chrome/browser/ui",
       "//chrome/browser/ui/serial",
       "//chrome/browser/ui/tabs:tab_strip",
       "//chrome/test:test_support_ui",
@@ -161,7 +157,7 @@ if (!is_android) {
       "//base",
       "//base/test:test_support",
       "//build:chromeos_buildflags",
-      "//chrome/browser/ui",
+      "//chrome/browser/ui/dialogs:browser_dialogs",
       "//chrome/browser/ui/tabs:tab_strip",
       "//chrome/test:test_support",
       "//chrome/test:test_support_ui",

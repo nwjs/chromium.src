@@ -58,7 +58,7 @@ class SidePanelCoordinatorAndroid : public SidePanelUIBase {
   void OnPanelContainerUpdated(int old_width, int new_width);
   void OnPanelContentReplaced();
   void OnActiveChanged(bool active);
-  void OnWillAutoClose();
+  void OnWillAutoClose(bool is_showable);
   void OnWillAutoRestore();
 
   // Implements `SidePanelUI`:
@@ -93,7 +93,7 @@ class SidePanelCoordinatorAndroid : public SidePanelUIBase {
   void OnTabReparented(TabAndroid* tab);
 
   // Called when the active tab changes.
-  void OnTabSelected(TabAndroid* old_tab, TabAndroid* new_tab);
+  void OnTabSelected(TabAndroid* new_tab);
 
   // Called right before a tab is destroyed. This can't be undone.
   void OnTabWillBeDestroyed(TabAndroid* tab);
@@ -125,6 +125,11 @@ class SidePanelCoordinatorAndroid : public SidePanelUIBase {
   // `SidePanelContainerCoordinator#simulateAutoRestoreConditionForTesting`
   // for documentation.
   void SimulateAutoRestoreConditionForTesting();
+
+  // See the Java
+  // `SidePanelContainerCoordinatorImpl#simulateTopControlsHeightChangeForTesting`
+  // for documentation.
+  void SimulateTopControlsHeightChangeForTesting();
 
   SidePanelState GetStateForTesting();
   int GetContainerWidthForTesting();
@@ -162,6 +167,16 @@ class SidePanelCoordinatorAndroid : public SidePanelUIBase {
 
   UniqueKey GetCurrentKeyNonNull() const;
   SidePanelEntry* GetEntryForCurrentKeyNonNull() const;
+
+  // The key for a `SidePanelEntry` that can be shown.
+  struct ShowableKey {
+    UniqueKey key;
+
+    // Set if `key` comes from `deferred_entry_tracker_`.
+    std::optional<SidePanelDeferredEntryTracker::DeferredReason>
+        deferred_reason;
+  };
+  std::optional<ShowableKey> GetKeyToShow(TabAndroid* tab) const;
 
   jni_zero::ScopedJavaLocalRef<jobject> java_coordinator() const;
 
@@ -206,11 +221,12 @@ class SidePanelCoordinatorAndroid : public SidePanelUIBase {
   // Immediately completes any pending content replacement on the Java side.
   void CompletePendingContentReplacement();
 
-  // Immediately completes any pending content replacement on the Java side if
-  // the pending replaced entry belongs to `tab`.
-  void CompletePendingContentReplacementForTab(TabAndroid* tab);
-
-  bool CanShowEntryForKey(const UniqueKey& key) const;
+  // Calls `CompletePendingUiChanges()` if pending UI changes involve an entry
+  // that belongs to `tab`, i.e. if:
+  // - The current entry belongs to `tab` and the side panel is opening/closing
+  //   with an animation, or
+  // - The pending replaced entry belongs to `tab`.
+  void CompletePendingUiChangesForTab(TabAndroid* tab);
 
   // The current state of the Side Panel.
   //
@@ -257,9 +273,6 @@ class SidePanelCoordinatorAndroid : public SidePanelUIBase {
   // A weak reference to the Java `SidePanelCoordinatorAndroid`, which is
   // the sole owner of the C++ `SidePanelCoordinatorAndroid`.
   jni_zero::ScopedJavaGlobalWeakRef java_coordinator_;
-
-  // Whether there is insufficient space to show the side panel.
-  bool has_insufficient_space_ = false;
 
   SidePanelDeferredEntryTracker deferred_entry_tracker_{browser()};
 

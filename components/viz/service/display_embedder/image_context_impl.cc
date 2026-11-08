@@ -124,11 +124,8 @@ namespace viz {
 
 ImageContextImpl::ImageContextImpl(const TransferableResource& resource,
                                    bool maybe_concurrent_reads,
-                                   bool raw_draw_if_possible,
                                    uint32_t client_id)
-    : ImageContext(resource),
-      maybe_concurrent_reads_(maybe_concurrent_reads),
-      raw_draw_if_possible_(raw_draw_if_possible) {}
+    : ImageContext(resource), maybe_concurrent_reads_(maybe_concurrent_reads) {}
 
 ImageContextImpl::ImageContextImpl(const gpu::Mailbox& mailbox,
                                    const gfx::Size& size,
@@ -138,6 +135,9 @@ ImageContextImpl::ImageContextImpl(const gpu::Mailbox& mailbox,
       is_for_render_pass_(true) {}
 
 ImageContextImpl::~ImageContextImpl() {
+  // Destroy the SkImage before `representation_` as it's a view of the
+  // representation.
+  clear_image();
   DeleteFallbackTextures();
 }
 
@@ -331,40 +331,10 @@ void ImageContextImpl::BeginAccessIfNecessary(
     gpu::SharedImageRepresentationFactory* representation_factory,
     std::vector<GrBackendSemaphore>* begin_semaphores,
     std::vector<GrBackendSemaphore>* end_semaphores) {
-  if (representation_raster_scoped_access_)
-    return;
-
   if (!BeginAccessIfNecessaryInternal(context_state, representation_factory,
                                       begin_semaphores, end_semaphores)) {
     CreateFallbackImage(context_state);
   }
-}
-
-bool ImageContextImpl::BeginRasterAccess(
-    gpu::SharedImageRepresentationFactory* representation_factory) {
-  if (paint_op_buffer()) {
-    DCHECK(raster_representation_);
-    DCHECK(representation_raster_scoped_access_);
-    return true;
-  }
-
-  auto raster = raw_draw_if_possible_
-                    ? representation_factory->ProduceRaster(mailbox())
-                    : nullptr;
-  if (!raster)
-    return false;
-
-  auto scoped_access = raster->BeginScopedReadAccess();
-  if (!scoped_access)
-    return false;
-
-  set_paint_op_buffer(scoped_access->paint_op_buffer());
-  set_clear_color(scoped_access->clear_color());
-
-  raster_representation_ = std::move(raster);
-  representation_raster_scoped_access_ = std::move(scoped_access);
-
-  return true;
 }
 
 bool ImageContextImpl::BeginAccessIfNecessaryInternal(
@@ -428,8 +398,6 @@ bool ImageContextImpl::BeginAccessIfNecessaryInternal(
   representation_scoped_read_access_ =
       representation_->BeginScopedReadAccess(begin_semaphores, end_semaphores);
   if (!representation_scoped_read_access_) {
-    clear_image();
-    representation_ = nullptr;
     DLOG(ERROR) << "Failed to fulfill the promise texture - SharedImage "
                    "begin read access failed..";
     return false;
@@ -503,11 +471,6 @@ bool ImageContextImpl::ValidateYCbCrInfo(
 }
 
 void ImageContextImpl::EndAccessIfNecessary() {
-  if (paint_op_buffer()) {
-    DCHECK(!representation_scoped_read_access_);
-    return;
-  }
-
   if (!representation_scoped_read_access_)
     return;
 

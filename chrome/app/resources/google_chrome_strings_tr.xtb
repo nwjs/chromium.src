@@ -28,6 +28,7 @@
 <translation id="1194807384646768652">Dosya türü çok indirilmediği ve tehlikeli olabileceği için Chrome bu indirme işlemini engelledi</translation>
 <translation id="1197860368385086056"><ph name="DEVICE_TYPE" /> cihazınızda Chrome'u bir sonraki açışınızda fiyat takibi uyarılarını etkinleştirmeniz için bir istem görürsünüz.</translation>
 <translation id="1203500561924088507">Yüklediğiniz için teşekkürler. <ph name="BUNDLE_NAME" /> uygulamasını kullanmadan önce tarayıcınızı yeniden başlatmanız gerekir.</translation>
+<translation id="122321322139970942"><ph name="IMPORTANT_UPDATE" /> beklemede. Güvenli bir şekilde göz atmaya devam edebilmeniz için Chrome, <ph name="IDLE_DURATION" /> boyunca işlem yapmadığınızda güncellenecek.</translation>
 <translation id="1226003169284463347">Yer işaretlerinizi ve diğer öğelerinizi tüm cihazlarınızda kullanmak için Chrome'da oturum açın</translation>
 <translation id="1278833599417554002">&amp;Chrome'u güncellemek için yeniden başlat</translation>
 <translation id="1289911795790071537">Chrome ile aramayı aç</translation>
@@ -198,6 +199,7 @@ Bu sayfa beklendiği gibi çalışmıyorsa optimizasyona izin vermeyi deneyin.</
 <translation id="2857540653560290388">Chrome başlatılıyor...</translation>
 <translation id="286025080868315611">Chrome'un bazı indirme işlemlerini neden engellediğini öğrenin</translation>
 <translation id="2861074815332034794">Chrome güncelleniyor (<ph name="PROGRESS_PERCENT" />)</translation>
+<translation id="2869959624320573933">Chrome'da Oturum Açın</translation>
 <translation id="2875053229394024379">Chrome'da Google Hesabınızla oturum açtığınızda Chrome profilinizi Gemini ile kullanabilirsiniz. <ph name="BEGIN_LINK" />Chrome'da nasıl oturum açacağınızı öğrenin<ph name="END_LINK" />.</translation>
 <translation id="2876628302275096482"><ph name="BEGIN_LINK" />Chrome'un verilerinizi nasıl gizli tuttuğu<ph name="END_LINK" /> hakkında daha fazla bilgi edinin</translation>
 <translation id="2885378588091291677">Görev Yöneticisi</translation>
@@ -298,6 +300,7 @@ Bu sayfa beklendiği gibi çalışmıyorsa optimizasyona izin vermeyi deneyin.</
 <translation id="3795971588916395511">Google ChromeOS</translation>
 <translation id="3809772425479558446">Google Chrome, Windows 10 veya daha sonraki bir sürümü gerektirir.</translation>
 <translation id="3810973564298564668">Yönet</translation>
+<translation id="383455301564000773">Windows 11'e mi geçiyorsunuz? Chrome'u OneDrive'a indirerek ilk günden hazır olun.</translation>
 <translation id="383928141529488001">Google Chrome'un Bluetooth cihazları keşfedebilmesi için Bluetooth'a erişmesi gerekiyor. <ph name="IDS_SERIAL_DEVICE_CHOOSER_AUTHORIZE_BLUETOOTH_LINK" /></translation>
 <translation id="3846683726093018685">**Özetle:** Ekran görüntüsündeki içeriğin temel konusunu ve amacını 30 kelimeden kısa olacak şekilde tek bir cümleyle açıkla.
 
@@ -324,7 +327,6 @@ Bu sayfa beklendiği gibi çalışmıyorsa optimizasyona izin vermeyi deneyin.</
 <translation id="4050175100176540509">Son sürümde güvenlikle ilgili önemli iyileştirmeler ve yeni özellikler mevcuttur.</translation>
 <translation id="4053720452172726777">Google Chrome'u özelleştirin ve kontrol edin</translation>
 <translation id="408393047846373801">Şifrelerinizi ve diğer öğelerinizi tüm cihazlarınızda kullanmak için Chrome'da oturum açın. Bu şifre, oturum açtıktan sonra Google Hesabınıza kaydedilir.</translation>
-<translation id="409936259433005390">Yakında Windows 11'e mi geçeceksiniz? Chrome yükleyicisini OneDrive'a indirerek ilk günden hazır olun.</translation>
 <translation id="4102173024714616627">Uzantılar, Chrome'u özelleştirmenize olanak tanıyan eklentilerdir. Düzenli kalmanıza ve günlük işleri basitleştirmenize yardımcı olan uzantılarla Chrome'u istediğiniz gibi kişiselleştirebilirsiniz.</translation>
 <translation id="4110895483821904099">Yeni Chrome profilinizi oluşturun</translation>
 <translation id="4111566860456076004">Chrome, bu uzantının kaynağını doğrulayamadığı için uzantı güvenli olmayabilir. Kişisel bilgileriniz de dahil olmak üzere ziyaret ettiğiniz sitelerdeki verilerinizi artık görememesi ve değiştirememesi için bu uzantıyı Chrome'dan kaldırın.</translation>
@@ -494,12 +496,12 @@ Bazı özellikler kullanılamayabilir. Lütfen farklı bir profil dizini belirti
 <translation id="5899008323405946573">Telefonunuzdaki Chrome uygulamasıyla Google'ın en iyi yapay zeka araçlarını kullanın</translation>
 <translation id="5903106910045431592"><ph name="PAGE_TITLE" /> - Ağda Oturum Açın</translation>
 <translation id="5924017743176219022">İnternete bağlanılıyor...</translation>
-<translation id="5925596746603389877">Chrome yükleyiciyi indir</translation>
 <translation id="5940385492829620908">Web, yer işaretleri ve diğer Chrome öğeleriniz burada bulunur.</translation>
 <translation id="5941711191222866238">Küçült</translation>
 <translation id="5941830788786076944">Google Chrome varsayılan tarayıcı olsun</translation>
 <translation id="5947104538377036631">Chrome Kısayolu</translation>
 <translation id="5960071705175224773">Ayarlarınız bilinmeyen bir uygulama tarafından değiştirildi</translation>
+<translation id="5960404530854194706">Chrome, siz bilgisayar başında olmadığınızda güncellenecek</translation>
 <translation id="5980111191913430208">Bilinmeyen kaynaklardan gelen uzantılar, uygulamalar ve temalar cihazınıza zarar verebilir. Chrome bunların yalnızca <ph name="IDS_EXTENSION_WEB_STORE_TITLE" /> kaynağından yüklenmesini önerir.</translation>
 <translation id="6003112304606738118">İndiriliyor... <ph name="HOURS" /> saat kaldı</translation>
 <translation id="6008161919456049856">Google Hesabınızda kaydettiğiniz şifreler, ödeme yöntemleri ve adresler bu cihazdan kaldırılır. Bu bilgileri Chrome'da tekrar kullanmak için yeniden oturum açın.</translation>
@@ -556,6 +558,7 @@ Bazı özellikler kullanılamayabilir. Lütfen farklı bir profil dizini belirti
 <translation id="6360449101159168105">Bu sekme etkin değilken Chrome'un hızlı çalışmaya devam etmesi için bellekte yer açıldı. Bu siteyi, etkin olmayan sitelerden her zaman hariç tutabilirsiniz.</translation>
 <translation id="6362984640667950211"><ph name="EXISTING_USER" /> zaten oturum açmış durumda. Göz atma işlemlerinizi ayrı tutmak için Chrome'da kendi profilinizde <ph name="USER_EMAIL_ADDRESS" /> olarak oturum açın. Ayrıca, tüm cihazlarınızdaki okuma listenize ve diğer öğelere de erişebilirsiniz.</translation>
 <translation id="6388799252195623474">bana bu konuda yardım et</translation>
+<translation id="6401458660421980302">Bu sekmeyi başka bir cihaza göndermek için ilgili cihazda Chrome'da oturum açın.</translation>
 <translation id="6412673304250309937">URL'leri, Chrome'da kayıtlı güvenli olmayan siteler listesine göre kontrol eder. Chrome, bir sitenin şifrenizi çalmaya çalışması veya zararlı bir dosya indirmeniz halinde de Güvenli Tarama'ya sayfa içeriğinden parçalarla birlikte URL'ler gönderebilir.</translation>
 <translation id="6417690341895039567">{COUNT,plural, =1{Kuruluşunuz, 1 dakika kullanılmadığında Chrome'u otomatik olarak kapatır. Tarama verileri silinir. Bu veriler geçmiş, otomatik doldurma ve indirilenleri içerebilir.}other{Kuruluşunuz, # dakika kullanılmadığında Chrome'u otomatik olarak kapatır. Tarama verileri silinir. Bu veriler geçmiş, otomatik doldurma ve indirilenleri içerebilir.}}</translation>
 <translation id="6418662306461808273">Mevcut Chrome profiline geçilsin mi?</translation>
@@ -582,8 +585,10 @@ Bazı özellikler kullanılamayabilir. Lütfen farklı bir profil dizini belirti
 <translation id="6556755379298048869">Klavye kısayoluyla arama yapın.</translation>
 <translation id="6585124893636629274">Chrome'da Gemini'ı kapat</translation>
 <translation id="659498884637196217">Bu cihazdaki Google Şifre Yöneticisi'nde</translation>
+<translation id="660312897435669152">Chrome güncelleme yapmak istiyor</translation>
 <translation id="6612152958212564387">Kullanım istatistiklerini ve kilitlenme raporlarını Google'a göndermiyorsunuz. <ph name="BEGIN_LINK" />Yönetin<ph name="END_LINK" /></translation>
 <translation id="6613949864921837107">Chrome'u varsayılan tarayıcınız olarak ayarlayarak şifrelerinizi, yer işaretlerinizi ve geçmişinizi cihazlar arasında sorunsuz şekilde senkronize edin.</translation>
+<translation id="6621391692573306628">Bu sekmeyi başka bir cihaza göndermek için her iki cihazda da Chrome'da oturum açın.</translation>
 <translation id="6631524303639368205">Kaldığınız yerden devam edin: Chrome, son oturumunuzdaki sekmeleri geri yükledi. Bu özelliği şu bölümde devre dışı bırakabilirsiniz:</translation>
 <translation id="6632012506031284914">Chrome ile arayın.</translation>
 <translation id="6632473616050862500">ChromeOS Flex, ek <ph name="BEGIN_LINK_CROS_OSS" />açık kaynak yazılımlardan<ph name="END_LINK_CROS_OSS" /> yararlanılarak geliştirilmiştir.</translation>
@@ -771,6 +776,7 @@ Bazı özellikler kullanılamayabilir. Lütfen farklı bir profil dizini belirti
 <translation id="8260086374035800939">Chrome'da Gemini açıksa yeni sekme oluştururken yan panel açık kalır.</translation>
 <translation id="8267953129876836456">Chrome, incelemeniz gereken bazı güvenlik önerileri tespit etti</translation>
 <translation id="8286862437124483331">Google Chrome şifreleri göstermeye çalışıyor. Buna izin vermek için Windows şifrenizi yazın.</translation>
+<translation id="8291415872436043161">Chrome'u indir</translation>
 <translation id="829923460755755423">Google Şifre Yöneticisi için kısayol ekleyin</translation>
 <translation id="8313851650939857356">Başlatma hatası: <ph name="STARTUP_ERROR" /></translation>
 <translation id="8321888067342493336">Resim olarak kaydet</translation>

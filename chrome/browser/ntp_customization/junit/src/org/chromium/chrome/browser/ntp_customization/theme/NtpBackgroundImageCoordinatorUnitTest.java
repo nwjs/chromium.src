@@ -56,13 +56,12 @@ public class NtpBackgroundImageCoordinatorUnitTest {
 
     private static final @ColorInt int COLOR = Color.BLACK;
 
-    @Mock private ViewGroup mRootView;
     @Mock private UiConfig mUiConfig;
     @Mock private Bitmap mBitmap;
     @Captor ArgumentCaptor<DisplayStyleObserver> mDisplayStyleObserverArgumentCaptor;
-    @Captor ArgumentCaptor<FrameLayout> mBackgroundImageLayoutCaptor;
 
     private Activity mActivity;
+    private ViewGroup mRootView;
     private NtpBackgroundImageCoordinator mCoordinator;
     private PropertyModel mPropertyModel;
     private Matrix mPortraitMatrix;
@@ -72,6 +71,7 @@ public class NtpBackgroundImageCoordinatorUnitTest {
     @Before
     public void setUp() {
         mActivity = Robolectric.buildActivity(Activity.class).create().get();
+        mRootView = new FrameLayout(mActivity);
 
         mBitmap = Bitmap.createBitmap(100, 100, Bitmap.Config.ARGB_8888);
         mPortraitMatrix = new Matrix();
@@ -101,9 +101,9 @@ public class NtpBackgroundImageCoordinatorUnitTest {
     public void testConstructor() {
         verify(mUiConfig, never()).addObserver(any(DisplayStyleObserver.class));
         assertEquals(COLOR, mPropertyModel.get(NtpBackgroundImageProperties.BACKGROUND_COLOR));
-        verify(mRootView).addView(mBackgroundImageLayoutCaptor.capture());
+        assertEquals(1, mRootView.getChildCount());
 
-        View backgroundImageLayout = mBackgroundImageLayoutCaptor.getValue();
+        View backgroundImageLayout = mRootView.getChildAt(0);
         View gradientView = backgroundImageLayout.findViewById(R.id.gradient_view);
         assertEquals(View.GONE, gradientView.getVisibility());
     }

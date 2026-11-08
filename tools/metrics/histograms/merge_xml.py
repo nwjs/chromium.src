@@ -13,6 +13,7 @@ import xml.etree.ElementTree as ET
 
 import setup_modules  # pylint: disable=unused-import
 
+
 import chromium_src.tools.metrics.common.xml_utils as xml_utils
 import chromium_src.tools.metrics.histograms.expand_owners as expand_owners
 import chromium_src.tools.metrics.histograms.histogram_configuration_model as histogram_configuration_model

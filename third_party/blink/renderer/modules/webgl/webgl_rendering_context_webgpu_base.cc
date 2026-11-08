@@ -2400,15 +2400,6 @@ void WebGLRenderingContextWebGPUBase::texImage2D(
   NOTIMPLEMENTED();
 }
 
-void WebGLRenderingContextWebGPUBase::texElementImage2D(
-    GLenum target,
-    GLenum internalformat,
-    const V8UnionElementOrElementImage* element,
-    const WebGLCopyElementImageConfig* config,
-    ExceptionState& exception_state) {
-  NOTIMPLEMENTED();
-}
-
 void WebGLRenderingContextWebGPUBase::texElementSubImage2D(
     GLenum target,
     GLint level,
@@ -3987,6 +3978,7 @@ void WebGLRenderingContextWebGPUBase::Trace(Visitor* visitor) const {
 
   WebGLContextObjectSupport::Trace(visitor);
   CanvasRenderingContext::Trace(visitor);
+  WebGPUSwapBufferProvider::Client::Trace(visitor);
 }
 
 void WebGLRenderingContextWebGPUBase::OnDebugMessage(GLenum source,

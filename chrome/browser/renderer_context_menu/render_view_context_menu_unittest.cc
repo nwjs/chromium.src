@@ -88,7 +88,6 @@
 #include "components/search_engines/template_url_service.h"
 #include "components/send_tab_to_self/features.h"
 #include "components/send_tab_to_self/stub_send_tab_to_self_sync_service.h"
-#include "components/send_tab_to_self/target_device_info.h"
 #include "components/sync/test/test_sync_service.h"
 #include "components/tabs/public/mock_tab_interface.h"
 #include "components/tabs/public/tab_interface.h"
@@ -2604,6 +2603,7 @@ TEST_F(RenderViewContextMenuMenuSimplificationTest, LinkAndSelectionLayout) {
   EXPECT_FALSE(menu.IsItemPresent(IDC_CONTENT_CONTEXT_OPEN_IN_READING_MODE));
 }
 
+#if !BUILDFLAG(IS_CHROMEOS)
 TEST_F(RenderViewContextMenuMenuSimplificationTest,
        TranslateSelectionOnlyOnce_NonEditable) {
   auto reset_ignore_missing_key = SetUpTranslateClient();
@@ -2620,8 +2620,14 @@ TEST_F(RenderViewContextMenuMenuSimplificationTest,
   // Verify that the partial translate item is present.
   EXPECT_TRUE(menu->IsItemPresent(IDC_CONTENT_CONTEXT_PARTIAL_TRANSLATE));
 
-  // Verify that it is present exactly once.
+  // Verify that it is present exactly once and uses the V2 partial translate
+  // string ("Translate selection").
   EXPECT_EQ(1, CountOccurrences(*menu, IDC_CONTENT_CONTEXT_PARTIAL_TRANSLATE));
+  std::optional<size_t> index = menu->menu_model().GetIndexOfCommandId(
+      IDC_CONTENT_CONTEXT_PARTIAL_TRANSLATE);
+  ASSERT_TRUE(index.has_value());
+  EXPECT_EQ(l10n_util::GetStringUTF16(IDS_CONTENT_CONTEXT_PARTIAL_TRANSLATE_V2),
+            menu->menu_model().GetLabelAt(index.value()));
 }
 
 TEST_F(RenderViewContextMenuMenuSimplificationTest,
@@ -2640,8 +2646,113 @@ TEST_F(RenderViewContextMenuMenuSimplificationTest,
   // Verify that the partial translate item is present.
   EXPECT_TRUE(menu->IsItemPresent(IDC_CONTENT_CONTEXT_PARTIAL_TRANSLATE));
 
-  // Verify that it is present exactly once.
+  // Verify that it is present exactly once and uses the V2 partial translate
+  // string ("Translate selection").
   EXPECT_EQ(1, CountOccurrences(*menu, IDC_CONTENT_CONTEXT_PARTIAL_TRANSLATE));
+  std::optional<size_t> index = menu->menu_model().GetIndexOfCommandId(
+      IDC_CONTENT_CONTEXT_PARTIAL_TRANSLATE);
+  ASSERT_TRUE(index.has_value());
+  EXPECT_EQ(l10n_util::GetStringUTF16(IDS_CONTENT_CONTEXT_PARTIAL_TRANSLATE_V2),
+            menu->menu_model().GetLabelAt(index.value()));
+}
+
+TEST_F(RenderViewContextMenuMenuSimplificationTest,
+       PartialTranslateHiddenWhenDefaultSearchProviderNotGoogle) {
+  auto reset_ignore_missing_key = SetUpTranslateClient();
+  SetUserSelectedDefaultSearchProvider("https://www.bing.com", false);
+
+  content::ContextMenuParams params;
+  params.selection_text = u"hello world";
+  params.is_editable = false;
+
+  auto menu = std::make_unique<TestRenderViewContextMenu>(
+      *web_contents()->GetPrimaryMainFrame(), params);
+  menu->SetBrowser(GetBrowser());
+  menu->Init();
+
+  EXPECT_FALSE(menu->IsItemPresent(IDC_CONTENT_CONTEXT_PARTIAL_TRANSLATE));
+}
+
+TEST_F(RenderViewContextMenuMenuSimplificationTest,
+       PartialTranslateHiddenWhenCanTranslateFalse) {
+  auto reset_ignore_missing_key = SetUpTranslateClient();
+  // Navigating to about:blank disables translation because the URL is not
+  // translatable.
+  NavigateAndCommit(GURL("about:blank"));
+
+  content::ContextMenuParams params;
+  params.selection_text = u"hello world";
+  params.is_editable = false;
+
+  auto menu = std::make_unique<TestRenderViewContextMenu>(
+      *web_contents()->GetPrimaryMainFrame(), params);
+  menu->SetBrowser(GetBrowser());
+  menu->Init();
+
+  EXPECT_FALSE(menu->IsItemPresent(IDC_CONTENT_CONTEXT_PARTIAL_TRANSLATE));
+}
+#else
+TEST_F(RenderViewContextMenuMenuSimplificationTest,
+       PartialTranslateNotPresentOnChromeOS) {
+  auto reset_ignore_missing_key = SetUpTranslateClient();
+
+  content::ContextMenuParams params;
+  params.selection_text = u"hello world";
+  params.is_editable = false;
+
+  auto menu = std::make_unique<TestRenderViewContextMenu>(
+      *web_contents()->GetPrimaryMainFrame(), params);
+  menu->SetBrowser(GetBrowser());
+  menu->Init();
+
+  EXPECT_FALSE(menu->IsItemPresent(IDC_CONTENT_CONTEXT_PARTIAL_TRANSLATE));
+}
+#endif  // !BUILDFLAG(IS_CHROMEOS)
+
+TEST_F(
+    RenderViewContextMenuMenuSimplificationTest,
+    ReadAnythingOnlyOnceWhenMenuSimplificationAndShuffleExperimentPlaceAtBottom) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeaturesAndParameters(
+      {{features::kReadAnythingMenuShuffleExperiment,
+        {{"read_anything_menu_shuffle_group_name",
+          "MenuShufflePlaceAtBottom"}}}},
+      {});
+
+  content::ContextMenuParams params = CreateParams(MenuItem::PAGE);
+  auto menu = std::make_unique<TestRenderViewContextMenu>(
+      *web_contents()->GetPrimaryMainFrame(), params);
+  menu->SetBrowser(GetBrowser());
+  menu->Init();
+
+  EXPECT_TRUE(menu->IsItemPresent(IDC_CONTENT_CONTEXT_OPEN_IN_READING_MODE));
+  EXPECT_EQ(1,
+            CountOccurrences(*menu, IDC_CONTENT_CONTEXT_OPEN_IN_READING_MODE));
+}
+
+TEST_F(
+    RenderViewContextMenuPrefsTest,
+    ReadAnythingNotDuplicatedInEditableWithSelectionWhenMenuSimplificationDisabled) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndDisableFeature(features::kMenuSimplification);
+
+  content::ContextMenuParams params;
+  params.selection_text = u"editable selection";
+  params.is_editable = true;
+
+  auto menu = std::make_unique<TestRenderViewContextMenu>(
+      *web_contents()->GetPrimaryMainFrame(), params);
+  menu->SetBrowser(GetBrowser());
+  menu->Init();
+
+  int count = 0;
+  for (size_t i = 0; i < menu->menu_model().GetItemCount(); ++i) {
+    if (menu->menu_model().GetCommandIdAt(i) ==
+        IDC_CONTENT_CONTEXT_OPEN_IN_READING_MODE) {
+      count++;
+    }
+  }
+  EXPECT_LE(count, 1);
 }
 
 using send_tab_to_self::EntryPointDisplayReason;
@@ -2711,6 +2822,66 @@ TEST_F(RenderViewContextMenuSendTabToSelfPageTest,
   EXPECT_EQ(l10n_util::GetStringUTF16(IDS_CONTEXT_MENU_SEND_TAB_TO_SELF),
             menu->menu_model().GetLabelAt(index.value()));
 }
+
+class RenderViewContextMenuSendTabToSelfPageSigninPromosTest
+    : public RenderViewContextMenuSendTabToSelfPageTest {
+ public:
+  RenderViewContextMenuSendTabToSelfPageSigninPromosTest() {
+    feature_list_.InitWithFeatures(
+        {send_tab_to_self::kSendTabToSelfEnhancedDesktopUI,
+         send_tab_to_self::kSendTabToSelfSubmenuSigninPromos,
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+         send_tab_to_self::kSendTabToSelfNoTargetDeviceQrCode
+#endif
+        },
+        {});
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+// Tests that Send Tab to Self is displayed as a submenu for `kOfferSignIn` when
+// `kSendTabToSelfSubmenuSigninPromos` is enabled.
+TEST_F(RenderViewContextMenuSendTabToSelfPageSigninPromosTest,
+       SubmenuPresentWhenOfferSignIn) {
+  std::unique_ptr<TestRenderViewContextMenu> menu =
+      CreatePageMenu(EntryPointDisplayReason::kOfferSignIn);
+  std::optional<size_t> index =
+      menu->menu_model().GetIndexOfCommandId(IDC_SEND_TAB_TO_SELF);
+  ASSERT_TRUE(index.has_value());
+  EXPECT_EQ(ui::MenuModel::TYPE_SUBMENU,
+            menu->menu_model().GetTypeAt(index.value()));
+}
+
+// Tests that Send Tab to Self is displayed as a submenu for `kOfferReauth` when
+// `kSendTabToSelfSubmenuSigninPromos` is enabled.
+TEST_F(RenderViewContextMenuSendTabToSelfPageSigninPromosTest,
+       SubmenuPresentWhenOfferReauth) {
+  std::unique_ptr<TestRenderViewContextMenu> menu =
+      CreatePageMenu(EntryPointDisplayReason::kOfferReauth);
+  std::optional<size_t> index =
+      menu->menu_model().GetIndexOfCommandId(IDC_SEND_TAB_TO_SELF);
+  ASSERT_TRUE(index.has_value());
+  EXPECT_EQ(ui::MenuModel::TYPE_SUBMENU,
+            menu->menu_model().GetTypeAt(index.value()));
+}
+
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+// Tests that Send Tab to Self is displayed as a submenu for
+// `kInformNoTargetDevice` when both `kSendTabToSelfSubmenuSigninPromos` and
+// `kSendTabToSelfNoTargetDeviceQrCode` are enabled.
+TEST_F(RenderViewContextMenuSendTabToSelfPageSigninPromosTest,
+       SubmenuPresentWhenInformNoTargetDevice) {
+  std::unique_ptr<TestRenderViewContextMenu> menu =
+      CreatePageMenu(EntryPointDisplayReason::kInformNoTargetDevice);
+  std::optional<size_t> index =
+      menu->menu_model().GetIndexOfCommandId(IDC_SEND_TAB_TO_SELF);
+  ASSERT_TRUE(index.has_value());
+  EXPECT_EQ(ui::MenuModel::TYPE_SUBMENU,
+            menu->menu_model().GetTypeAt(index.value()));
+}
+#endif
 
 // Tests that Send Tab to Self is displayed as a submenu when
 // `kSendTabToSelfEnhancedDesktopUI` is enabled and target devices are
@@ -2970,6 +3141,88 @@ TEST_F(RenderViewContextMenuSendTabToSelfLinkTest,
   EXPECT_EQ(ui::MenuModel::TYPE_COMMAND,
             menu.menu_model().GetTypeAt(index.value()));
 }
+
+class RenderViewContextMenuSendTabToSelfLinkSigninPromosTest
+    : public RenderViewContextMenuSendTabToSelfLinkTest {
+ public:
+  RenderViewContextMenuSendTabToSelfLinkSigninPromosTest() {
+    feature_list_.InitWithFeatures(
+        {send_tab_to_self::kSendTabToSelfEnhancedDesktopUI,
+         send_tab_to_self::kSendTabToSelfEnhancedDesktopUIv2,
+         send_tab_to_self::kSendTabToSelfSubmenuSigninPromos,
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+         send_tab_to_self::kSendTabToSelfNoTargetDeviceQrCode
+#endif
+        },
+        {});
+  }
+
+  std::unique_ptr<TestRenderViewContextMenu> CreateLinkMenu(
+      EntryPointDisplayReason display_reason) {
+    auto* sync_service = static_cast<StubSendTabToSelfSyncService*>(
+        SendTabToSelfSyncServiceFactory::GetForProfile(profile()));
+    sync_service->SetEntryPointDisplayReason(display_reason);
+
+    content::ContextMenuParams params = CreateParams(MenuItem::LINK);
+    params.unfiltered_link_url = params.link_url =
+        GURL("https://example.com/link");
+
+    auto menu = std::make_unique<TestRenderViewContextMenu>(
+        *web_contents()->GetPrimaryMainFrame(), params);
+    menu->SetBrowser(GetBrowser());
+    menu->set_protocol_handler_registry(protocol_handler_registry());
+    menu->Init();
+    return menu;
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+// Tests that when right-clicking a hyperlink for `kOfferSignIn`, the Send Tab
+// to Self item is appended as a submenu when
+// `kSendTabToSelfSubmenuSigninPromos` is enabled.
+TEST_F(RenderViewContextMenuSendTabToSelfLinkSigninPromosTest,
+       SubmenuPresentForLinkWhenOfferSignIn) {
+  std::unique_ptr<TestRenderViewContextMenu> menu =
+      CreateLinkMenu(EntryPointDisplayReason::kOfferSignIn);
+  std::optional<size_t> index =
+      menu->menu_model().GetIndexOfCommandId(IDC_SEND_TAB_TO_SELF);
+  ASSERT_TRUE(index.has_value());
+  EXPECT_EQ(ui::MenuModel::TYPE_SUBMENU,
+            menu->menu_model().GetTypeAt(index.value()));
+}
+
+// Tests that when right-clicking a hyperlink for `kOfferReauth`, the Send Tab
+// to Self item is appended as a submenu when
+// `kSendTabToSelfSubmenuSigninPromos` is enabled.
+TEST_F(RenderViewContextMenuSendTabToSelfLinkSigninPromosTest,
+       SubmenuPresentForLinkWhenOfferReauth) {
+  std::unique_ptr<TestRenderViewContextMenu> menu =
+      CreateLinkMenu(EntryPointDisplayReason::kOfferReauth);
+  std::optional<size_t> index =
+      menu->menu_model().GetIndexOfCommandId(IDC_SEND_TAB_TO_SELF);
+  ASSERT_TRUE(index.has_value());
+  EXPECT_EQ(ui::MenuModel::TYPE_SUBMENU,
+            menu->menu_model().GetTypeAt(index.value()));
+}
+
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+// Tests that when right-clicking a hyperlink for `kInformNoTargetDevice`, the
+// Send Tab to Self item is appended as a submenu when both
+// `kSendTabToSelfSubmenuSigninPromos` and `kSendTabToSelfNoTargetDeviceQrCode`
+// are enabled.
+TEST_F(RenderViewContextMenuSendTabToSelfLinkSigninPromosTest,
+       SubmenuPresentForLinkWhenInformNoTargetDevice) {
+  std::unique_ptr<TestRenderViewContextMenu> menu =
+      CreateLinkMenu(EntryPointDisplayReason::kInformNoTargetDevice);
+  std::optional<size_t> index =
+      menu->menu_model().GetIndexOfCommandId(IDC_SEND_TAB_TO_SELF);
+  ASSERT_TRUE(index.has_value());
+  EXPECT_EQ(ui::MenuModel::TYPE_SUBMENU,
+            menu->menu_model().GetTypeAt(index.value()));
+}
+#endif
 
 // Tests that right-clicking a hyperlink does NOT append the Send Tab to Self
 // item at all when enhanced desktop UI v2 is disabled (even if v1 is enabled).

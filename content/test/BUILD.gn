@@ -22,6 +22,7 @@ import("//mojo/public/tools/bindings/mojom.gni")
 import("//net/features.gni")
 import("//printing/buildflags/buildflags.gni")
 import("//services/device/public/cpp/compute_pressure/buildflags.gni")
+import("//services/network/public/cpp/features.gni")
 import("//services/screen_ai/buildflags/features.gni")
 import("//testing/test.gni")
 import("//third_party/blink/public/public_features.gni")
@@ -759,6 +760,8 @@ static_library("test_support") {
       "../public/test/system_media_controls_bridge_test_utils.cc",
       "../public/test/system_media_controls_bridge_test_utils.h",
       "../public/test/text_input_test_utils_mac.mm",
+      "run_inside_nsapplication_run_mac.h",
+      "run_inside_nsapplication_run_mac.mm",
     ]
     deps += [
       "//ui/base/mojom",
@@ -1423,6 +1426,21 @@ static_library("content_test_entry") {
   sources = [ "content_test_launcher_exe.cc" ]
 }
 
+if (is_linux) {
+  shared_library("fake_speech_dispatcher") {
+    testonly = true
+    sources = [
+      "../browser/speech/test/fake_speech_dispatcher.cc",
+      "../browser/speech/test/fake_speech_dispatcher.h",
+    ]
+
+    if (is_cfi) {
+      # Model a system library outside the CFI-instrumented browser executable.
+      configs -= [ "//build/config/sanitizers:default_sanitizer_flags" ]
+    }
+  }
+}
+
 test("content_browsertests") {
   use_xvfb = use_xvfb_in_this_config
 
@@ -1697,6 +1715,7 @@ test("content_browsertests") {
     "../browser/renderer_host/unassigned_site_instance_browsertest.cc",
     "../browser/renderer_host/unbounded_element_browsertest.cc",
     "../browser/renderer_host/view_transition_browsertest.cc",
+    "../browser/resource_broker/resource_broker_browsertest.cc",
     "../browser/resource_loading_browsertest.cc",
     "../browser/screen_details/screen_details_browsertest.cc",
     "../browser/screen_orientation/screen_orientation_browsertest.cc",
@@ -1836,7 +1855,11 @@ test("content_browsertests") {
   ]
 
   if (is_linux) {
-    sources += [ "../browser/network/address_map_linux_browsertest.cc" ]
+    sources += [
+      "../browser/network/address_map_linux_browsertest.cc",
+      "../browser/speech/test/fake_speech_dispatcher.h",
+      "../browser/speech/tts_linux_browsertest.cc",
+    ]
   }
 
   if (is_android) {
@@ -1943,6 +1966,7 @@ test("content_browsertests") {
     "//content/public/gpu",
     "//content/public/renderer",
     "//content/renderer:for_content_tests",
+    "//content/services/resource_broker/public/mojom",
     "//content/shell:content_browsertests_mojom",
     "//content/shell:content_shell_lib",
     "//content/shell:pak",
@@ -1959,6 +1983,7 @@ test("content_browsertests") {
     "//ipc",
     "//media:media_buildflags",
     "//media:test_support",
+    "//media/capture:test_support",
     "//media/midi",
     "//media/webrtc",
     "//mojo/core/embedder",
@@ -2009,6 +2034,7 @@ test("content_browsertests") {
     "//third_party/blink/public:blink",
     "//third_party/inspector_protocol:crdtp",
     "//third_party/leveldatabase",
+    "//third_party/perfetto:libperfetto",
     "//third_party/re2",
     "//third_party/zlib",
     "//third_party/zlib/google:compression_utils",
@@ -2052,6 +2078,9 @@ test("content_browsertests") {
     "//mojo/public/js:bindings_lite",
     "//url/mojom:url_mojom_scheme_host_port_js_data_deps",
   ]
+  if (is_linux) {
+    data_deps += [ ":fake_speech_dispatcher" ]
+  }
 
   data = [
     "data/",
@@ -2354,6 +2383,7 @@ test("content_browsertests") {
       "../browser/accessibility/hit_testing_mac_browsertest.mm",
       "../browser/gpu/browser_child_process_backgrounded_bridge_browsertest.mm",
       "../browser/keyboard_lock_browsertest_mac.mm",
+      "../browser/media/capture/screen_capture_kit_device_mac_browsertest.mm",
       "../browser/pointer_lock_browsertest_mac.mm",
       "../browser/renderer_host/render_frame_host_impl_mac_browsertest.mm",
       "../browser/renderer_host/render_widget_host_view_mac_browsertest.mm",
@@ -2718,8 +2748,9 @@ test("content_unittests") {
     "../browser/media/system_media_controls/system_media_controls_notifier_unittest.cc",
     "../browser/media/webaudio/audio_context_manager_impl_unittest.cc",
     "../browser/memory/swap_metrics_driver_impl_unittest.cc",
-    "../browser/memory_coordinator/browser_memory_coordinator_unittest.cc",
+    "../browser/memory_coordinator/browser_memory_coordinator_impl_unittest.cc",
     "../browser/memory_coordinator/child_memory_consumer_registry_host_unittest.cc",
+    "../browser/memory_coordinator/zero_limit_policy_unittest.cc",
     "../browser/metrics/histogram_shared_memory_config_unittest.cc",
     "../browser/metrics/histograms_monitor_unittest.cc",
     "../browser/mojo_binder_policy_applier_unittest.cc",
@@ -2872,6 +2903,7 @@ test("content_unittests") {
     "../browser/renderer_host/transient_allow_popup_unittest.cc",
     "../browser/renderer_host/visible_time_request_trigger_unittest.cc",
     "../browser/resource_broker/resource_broker_features_unittest.cc",
+    "../browser/resource_broker/resource_broker_host_unittest.cc",
     "../browser/sandboxed_opaque_origin_creator_unittest.cc",
     "../browser/scheduler/browser_io_thread_delegate_unittest.cc",
     "../browser/scheduler/browser_task_executor_unittest.cc",
@@ -2932,6 +2964,7 @@ test("content_unittests") {
     "../browser/storage_partition_impl_map_unittest.cc",
     "../browser/storage_partition_impl_unittest.cc",
     "../browser/tracing/traces_internals/traces_internals_handler_unittest.cc",
+    "../browser/tracing/tracing_controller_impl_data_endpoint_unittest.cc",
     "../browser/url_loader_factory_params_helper_unittest.cc",
     "../browser/usb/web_usb_service_impl_unittest.cc",
     "../browser/wake_lock/wake_lock_service_impl_unittest.cc",
@@ -2974,9 +3007,9 @@ test("content_unittests") {
     "../browser/webid/metrics_unittest.cc",
     "../browser/webid/navigation_interceptor_unittest.cc",
     "../browser/webid/network_request_manager_unittest.cc",
-    "../browser/webid/request_multiple_frames_unittest.cc",
+    "../browser/webid/request_handler_multiple_frames_unittest.cc",
+    "../browser/webid/request_handler_unittest.cc",
     "../browser/webid/request_registry_unittest.cc",
-    "../browser/webid/request_unittest.cc",
     "../browser/webid/test/delegated_idp_network_request_manager.cc",
     "../browser/webid/test/delegated_idp_network_request_manager.h",
     "../browser/webid/test/federated_request_token_callback_helper.cc",
@@ -3062,6 +3095,7 @@ test("content_unittests") {
     "../common/webid/identity_url_loader_throttle_unittest.cc",
     "../public/browser/clipboard_types_unittest.cc",
     "../public/browser/content_browser_client_unittest.cc",
+    "../public/browser/cookie_access_details_unittest.cc",
     "../public/test/browser_task_environment_unittest.cc",
     "../public/test/no_renderer_crashes_assertion_unittest.cc",
     "../public/test/permission_type_unittest.cc",
@@ -3150,6 +3184,7 @@ test("content_unittests") {
       "../browser/android/nfc_host_unittest.cc",
       "../browser/display_cutout/display_cutout_host_impl_unittest.cc",
       "../browser/display_cutout/safe_area_insets_host_impl_unittest.cc",
+      "../browser/media/android/browser_gpu_video_accelerator_factories_unittest.cc",
       "../browser/navigation_transitions/blur_transition_animation_manager_unittest.cc",
       "../browser/navigation_transitions/physics_model_unittest.cc",
       "../browser/renderer_host/input/input_transfer_handler_android_unittest.cc",
@@ -3215,7 +3250,8 @@ test("content_unittests") {
   }
 
   if (is_linux && enable_vr) {
-    sources += [ "../services/isolated_xr_device/xr_sandbox_hook_linux_unittest.cc" ]
+    sources +=
+        [ "../services/isolated_xr_device/xr_sandbox_hook_linux_unittest.cc" ]
   }
 
   if (is_android || is_linux || is_chromeos || is_mac || is_win || is_fuchsia) {
@@ -3323,6 +3359,7 @@ test("content_unittests") {
     "//content/public/renderer",
     "//content/renderer:for_content_tests",
     "//content/services/devtools_media_encoding_service:tests",
+    "//content/services/resource_broker:tests",
     "//content/test:test_support",
     "//crypto",
     "//device/bluetooth",
@@ -3435,6 +3472,16 @@ test("content_unittests") {
     sources +=
         [ "../browser/smart_card/emulation/smart_card_emulation_unittest.cc" ]
     deps += [ "//content/browser/smart_card/emulation" ]
+  }
+
+  if (enable_mdns) {
+    sources += [ "../browser/renderer_host/no_op_mdns_responder_unittest.cc" ]
+  }
+
+  if (is_p2p_enabled) {
+    sources +=
+        [ "../browser/renderer_host/p2p/no_op_p2p_socket_manager_unittest.cc" ]
+    deps += [ "//services/network/public/cpp:cpp_p2p" ]
   }
 
   if (enable_nocompile_tests) {
@@ -3641,6 +3688,7 @@ test("content_unittests") {
       "//components/download/internal/common:internal_java",
       "//content/browser:fontations_name_table_ffi",
       "//content/public/android:content_java",
+      "//content/public/android:content_jni_headers",
       "//content/public/android:content_main_dex_jni",
       "//content/public/android:jar_jni",
       "//gin:v8_snapshot_assets",

@@ -120,6 +120,7 @@ class UsbDeviceHandleImpl : public UsbDeviceHandle {
                                             bool success,
                                             ResultCallback callback);
   void ResetDeviceBlocking(ResultCallback callback);
+  void ResetDeviceComplete(ResultCallback callback, bool success);
   void ClearHaltBlocking(uint8_t endpoint_address, ResultCallback callback);
 
   // Refresh endpoint_map_ after ClaimInterface, ReleaseInterface and
@@ -163,7 +164,7 @@ class UsbDeviceHandleImpl : public UsbDeviceHandle {
   ClaimedInterfaceMap claimed_interfaces_;
 
   // This set holds weak pointers to pending transfers.
-  std::set<Transfer*> transfers_;
+  std::set<raw_ptr<Transfer>> transfers_;
 
   // A map from endpoints to EndpointMapValue
   typedef std::map<int, EndpointMapValue> EndpointMap;

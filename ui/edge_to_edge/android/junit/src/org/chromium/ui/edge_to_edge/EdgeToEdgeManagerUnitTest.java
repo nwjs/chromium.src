@@ -11,14 +11,10 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.atLeastOnce;
-import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import android.app.Activity;
-import android.view.View;
-import android.view.Window;
-import android.view.WindowInsetsController;
 
 import org.junit.Before;
 import org.junit.Rule;
@@ -27,6 +23,7 @@ import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
+import org.robolectric.Robolectric;
 import org.robolectric.annotation.Config;
 
 import org.chromium.base.supplier.OneshotSupplierImpl;
@@ -37,21 +34,16 @@ import org.chromium.base.test.BaseRobolectricTestRunner;
 public class EdgeToEdgeManagerUnitTest {
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
 
-    @Mock Activity mActivity;
-    @Mock Window mWindow;
-    @Mock View mDecorView;
-    @Mock WindowInsetsController mWindowInsetsController;
     @Mock EdgeToEdgeStateProvider mEdgeToEdgeStateProvider;
     @Mock SystemBarColorHelper mSystemBarColorHelper;
 
+    private Activity mActivity;
     private EdgeToEdgeManager mEdgeToEdgeManager;
     private OneshotSupplierImpl<SystemBarColorHelper> mSystemBarColorHelperSupplier;
 
     @Before
     public void setup() {
-        doReturn(mWindow).when(mActivity).getWindow();
-        doReturn(mDecorView).when(mWindow).getDecorView();
-        doReturn(mWindowInsetsController).when(mDecorView).getWindowInsetsController();
+        mActivity = Robolectric.buildActivity(Activity.class).setup().get();
 
         mSystemBarColorHelperSupplier = new OneshotSupplierImpl<>();
         mSystemBarColorHelperSupplier.set(mSystemBarColorHelper);

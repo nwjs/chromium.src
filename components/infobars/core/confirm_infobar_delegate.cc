@@ -6,7 +6,8 @@
 
 #include <optional>
 
-#include "base/no_destructor.h"
+#include "base/containers/span.h"
+#include "base/notreached.h"
 #include "build/build_config.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/models/image_model.h"
@@ -42,10 +43,9 @@ std::u16string ConfirmInfoBarDelegate::GetMessageTextTemplate() const {
   return std::u16string();
 }
 
-const std::vector<MessageSubstitution>&
+base::span<const MessageSubstitution>
 ConfirmInfoBarDelegate::GetMessageSubstitutions() const {
-  static const base::NoDestructor<std::vector<MessageSubstitution>> empty_subs;
-  return *empty_subs;
+  return {};
 }
 
 MessageSubstitution::MessageSubstitution(
@@ -75,9 +75,16 @@ int ConfirmInfoBarDelegate::GetButtons() const {
 
 std::u16string ConfirmInfoBarDelegate::GetButtonLabel(
     InfoBarButton button) const {
-  DCHECK(button == BUTTON_OK || button == BUTTON_CANCEL);
-  return l10n_util::GetStringUTF16((button == BUTTON_OK) ? IDS_APP_OK
-                                                         : IDS_APP_CANCEL);
+  switch (button) {
+    case BUTTON_OK:
+      return l10n_util::GetStringUTF16(IDS_APP_OK);
+    case BUTTON_CANCEL:
+      return l10n_util::GetStringUTF16(IDS_APP_CANCEL);
+    case BUTTON_EXTRA:
+      return std::u16string();
+    case BUTTON_NONE:
+      NOTREACHED();
+  }
 }
 
 ui::ImageModel ConfirmInfoBarDelegate::GetButtonImage(
@@ -97,6 +104,11 @@ std::u16string ConfirmInfoBarDelegate::GetButtonTooltip(
 std::optional<ui::ButtonStyle> ConfirmInfoBarDelegate::GetButtonStyle(
     InfoBarButton button) const {
   return std::nullopt;
+}
+
+bool ConfirmInfoBarDelegate::ShouldUseTextColorForButtonIcon(
+    InfoBarButton button) const {
+  return true;
 }
 
 bool ConfirmInfoBarDelegate::ShouldShowLinkBeforeButton() const {
@@ -125,6 +137,10 @@ bool ConfirmInfoBarDelegate::Accept() {
 }
 
 bool ConfirmInfoBarDelegate::Cancel() {
+  return true;
+}
+
+bool ConfirmInfoBarDelegate::ExtraButtonPressed() {
   return true;
 }
 

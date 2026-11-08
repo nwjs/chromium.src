@@ -20,6 +20,7 @@ import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
+import org.robolectric.Robolectric;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.components.module_installer.engine.EngineFactory;
@@ -49,14 +50,14 @@ public class ModuleEngineTest {
     @Test
     public void whenInitActivity_verifyActivityInitialized() {
         // Arrange.
-        Activity activityMock = mock(Activity.class);
+        Activity activity = Robolectric.buildActivity(Activity.class).get();
         InOrder inOrder = inOrder(mInstallEngineMock);
 
         // Act.
-        mModuleEngine.initActivity(activityMock);
+        mModuleEngine.initActivity(activity);
 
         // Assert.
-        inOrder.verify(mInstallEngineMock).initActivity(activityMock);
+        inOrder.verify(mInstallEngineMock).initActivity(activity);
         inOrder.verifyNoMoreInteractions();
     }
 

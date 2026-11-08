@@ -10,12 +10,9 @@ import os
 from pathlib import Path
 import re
 import shutil
-import socket
-import struct
 import subprocess
 import sys
 import tempfile
-import threading
 import time
 import zipfile
 
@@ -24,7 +21,7 @@ STARVIEW_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # Setup import path for common testing utils
 sys.path.append(os.path.abspath(os.path.join(STARVIEW_DIR, '..', 'test')))
-import common
+import common  # noqa: E402
 
 AVBTOOL = os.path.join(STARVIEW_DIR, 'avbtool.py')
 CVD_AVB_TESTKEY = os.path.join(STARVIEW_DIR, 'cvd_avb_testkey_rsa4096.pem')
@@ -42,9 +39,9 @@ if (
 
 
 sys.path.append(STARVIEW_DIR)
-import partition_creator
-import simg2img
-from hvc_mock import start_hvc_mock_responder
+import partition_creator  # noqa: E402
+import simg2img  # noqa: E402
+from hvc_mock import start_hvc_mock_responder  # noqa: E402
 
 
 IS_HEADLESS_BY_DEFAULT = not (
@@ -122,12 +119,14 @@ def boot_cuttlefish(args, cuttlefish_zip, bootloader, temp_dir):
         f.truncate(f.seek(0, os.SEEK_END) + 8 * 1024 * 1024 * 1024)
 
     userdata_img = os.path.join(temp_dir, 'userdata.img')
-    assert os.path.exists(userdata_img), f"userdata.img not found in {temp_dir}"
-    simg2img.unsparse_in_place(userdata_img)
-    # Ensure sufficient capacity on /data for installing large APKs (such as
-    # Chrome) and writing runtime dex caches.
-    with open(userdata_img, 'r+b') as f:
-        f.truncate(f.seek(0, os.SEEK_END) + 16 * 1024 * 1024 * 1024)
+    # Generate a fresh, blank userdata partition with 16GB capacity for
+    # installing large test APKs (such as components_unittests) and writing
+    # runtime dex caches. Because userdata is flagged with formattable in
+    # Android's fstab, Android fs_mgr will format the partition to fill the full
+    # disk size on first boot. Overwriting the prebuilt userdata.img avoids
+    # inheriting a fixed-size ext4 filesystem that truncate cannot expand without
+    # resize2fs.
+    partition_creator.create_zero_image(userdata_img, 16384)
 
     partition_creator.create_zero_image(
         os.path.join(temp_dir, 'metadata.img'), 16
@@ -275,6 +274,139 @@ def _wait_adb_shell(adb_path, adb_port, cmd, pattern):
         time.sleep(10)
         subprocess.run([adb_path, 'connect', target])
     return False
+
+
+def _configure_display(adb_path, adb_port):
+    """Configures guest Android display size and density."""
+    target = f'127.0.0.1:{adb_port}'
+    logging.info(f"Configuring display size to {_DISPLAY_SIZE}...")
+    res = subprocess.run(
+        [
+            adb_path,
+            '-s',
+            target,
+            'shell',
+            'wm',
+            'size',
+            _DISPLAY_SIZE,
+        ],
+        capture_output=True,
+        text=True,
+    )
+    if res.stdout.strip():
+        logging.info(f"wm size output: {res.stdout.strip()}")
+    if res.stderr.strip():
+        logging.warning(f"wm size stderr: {res.stderr.strip()}")
+
+    logging.info(f"Configuring display density to {_DISPLAY_DENSITY}...")
+    res = subprocess.run(
+        [
+            adb_path,
+            '-s',
+            target,
+            'shell',
+            'wm',
+            'density',
+            str(_DISPLAY_DENSITY),
+        ],
+        capture_output=True,
+        text=True,
+    )
+    if res.stdout.strip():
+        logging.info(f"wm density output: {res.stdout.strip()}")
+    if res.stderr.strip():
+        logging.warning(f"wm density stderr: {res.stderr.strip()}")
+
+
+def _bind_mount_test_data_root(adb_path, adb_port):
+    """Configures an ext4-backed bind mount for /sdcard/chromium_tests_root.
+
+    On Starnix Cuttlefish emulators, file-backed mmap() fails with ENODEV on
+    files located under /sdcard because /sdcard is backed by Android's FUSE
+    mount (/storage/emulated/0). Bind-mounting an ext4 directory from
+    /data/local/tmp over /sdcard/chromium_tests_root allows mmap() to succeed
+    for test data dependencies (e.g., icudtl.dat).
+    """
+    target = f'127.0.0.1:{adb_port}'
+    logging.info("Configuring mmap-capable test data root on Starnix...")
+    logging.info("Waiting for /sdcard to be mounted...")
+    if not _wait_adb_shell(
+        adb_path,
+        adb_port,
+        ['test -d /sdcard && echo ready'],
+        'ready',
+    ):
+        logging.error("Timed out waiting for /sdcard to be mounted.")
+        return False
+
+    subprocess.run(
+        [
+            adb_path,
+            '-s',
+            target,
+            'shell',
+            'mkdir',
+            '-p',
+            '/data/local/tmp/chromium_tests_root',
+        ],
+        capture_output=True,
+        text=True,
+    )
+    subprocess.run(
+        [
+            adb_path,
+            '-s',
+            target,
+            'shell',
+            'chmod',
+            '777',
+            '/data/local/tmp/chromium_tests_root',
+        ],
+        capture_output=True,
+        text=True,
+    )
+    res_mkdir = subprocess.run(
+        [
+            adb_path,
+            '-s',
+            target,
+            'shell',
+            'mkdir',
+            '-p',
+            '/sdcard/chromium_tests_root',
+        ],
+        capture_output=True,
+        text=True,
+    )
+    if res_mkdir.returncode != 0 or res_mkdir.stderr.strip():
+        logging.warning(
+            f"mkdir /sdcard/chromium_tests_root failed: "
+            f"{res_mkdir.stdout.strip()} {res_mkdir.stderr.strip()}"
+        )
+    res = subprocess.run(
+        [
+            adb_path,
+            '-s',
+            target,
+            'shell',
+            'mount',
+            '--bind',
+            '/data/local/tmp/chromium_tests_root',
+            '/sdcard/chromium_tests_root',
+        ],
+        capture_output=True,
+        text=True,
+    )
+    if res.returncode != 0 or res.stderr.strip():
+        logging.warning(
+            f"mount --bind output: {res.stdout.strip()} {res.stderr.strip()}"
+        )
+    else:
+        logging.info(
+            "Successfully bind-mounted /data/local/tmp/chromium_tests_root "
+            "over /sdcard/chromium_tests_root"
+        )
+    return True
 
 
 def main():
@@ -435,45 +567,10 @@ def main():
                 logging.error("Timed out waiting for package manager.")
                 return 1
 
-            logging.info(f"Configuring display size to {_DISPLAY_SIZE}...")
-            res = subprocess.run(
-                [
-                    args.adb_path,
-                    '-s',
-                    target,
-                    'shell',
-                    'wm',
-                    'size',
-                    _DISPLAY_SIZE,
-                ],
-                capture_output=True,
-                text=True,
-            )
-            if res.stdout.strip():
-                logging.info(f"wm size output: {res.stdout.strip()}")
-            if res.stderr.strip():
-                logging.warning(f"wm size stderr: {res.stderr.strip()}")
+            _configure_display(args.adb_path, args.adb_port)
 
-            logging.info(
-                f"Configuring display density to {_DISPLAY_DENSITY}..."
-            )
-            res = subprocess.run(
-                [
-                    args.adb_path,
-                    '-s',
-                    target,
-                    'shell',
-                    'wm',
-                    'density',
-                    str(_DISPLAY_DENSITY),
-                ],
-                capture_output=True,
-                text=True,
-            )
-            if res.stdout.strip():
-                logging.info(f"wm density output: {res.stdout.strip()}")
-            if res.stderr.strip():
-                logging.warning(f"wm density stderr: {res.stderr.strip()}")
+            if not _bind_mount_test_data_root(args.adb_path, args.adb_port):
+                return 1
 
             logging.info("Successfully connected to guest ADB!")
 

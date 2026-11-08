@@ -6,7 +6,6 @@
 
 #import "base/files/scoped_temp_dir.h"
 #import "base/ios/block_types.h"
-#import "base/ios/ios_util.h"
 #import "base/memory/raw_ptr.h"
 #import "base/strings/string_number_conversions.h"
 #import "base/strings/sys_string_conversions.h"
@@ -42,6 +41,8 @@
 #import "components/signin/public/identity_manager/account_capabilities_test_mutator.h"
 #import "components/signin/public/identity_manager/identity_manager.h"
 #import "components/signin/public/identity_manager/identity_test_utils.h"
+#import "components/subscription_eligibility/subscription_eligibility_prefs.h"
+#import "components/subscription_eligibility/subscription_eligibility_service.h"
 #import "components/supervised_user/test_support/supervised_user_signin_test_utils.h"
 #import "components/sync/service/sync_service.h"
 #import "components/sync/service/sync_user_settings.h"
@@ -74,11 +75,11 @@
 #import "ios/chrome/browser/popup_menu/overflow_menu/ui/ui_swift.h"
 #import "ios/chrome/browser/popup_menu/public/popup_menu_constants.h"
 #import "ios/chrome/browser/promos_manager/model/mock_promos_manager.h"
-#import "ios/chrome/browser/reader_mode/model/features.h"
 #import "ios/chrome/browser/reader_mode/model/reader_mode_tab_helper.h"
 #import "ios/chrome/browser/reading_list/model/reading_list_model_factory.h"
 #import "ios/chrome/browser/reading_list/model/reading_list_test_utils.h"
 #import "ios/chrome/browser/search_engines/model/template_url_service_factory.h"
+#import "ios/chrome/browser/shared/coordinator/scene/scene_state.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/browser/test/test_browser.h"
 #import "ios/chrome/browser/shared/model/prefs/browser_prefs.h"
@@ -103,6 +104,7 @@
 #import "ios/chrome/browser/signin/model/system_identity.h"
 #import "ios/chrome/browser/signin/model/system_identity_manager.h"
 #import "ios/chrome/browser/snapshots/model/snapshot_source_tab_helper.h"
+#import "ios/chrome/browser/subscription_eligibility/model/subscription_eligibility_service_factory.h"
 #import "ios/chrome/browser/supervised_user/model/supervised_user_service_factory.h"
 #import "ios/chrome/browser/sync/model/sync_service_factory.h"
 #import "ios/chrome/browser/sync/model/test_sync_service_utils.h"
@@ -219,6 +221,7 @@ class OverflowMenuMediatorTest : public PlatformTest {
         {language::LanguageDetectionJavaScriptFeature::GetInstance()});
 
     // Set up the TestBrowser.
+    scene_state_ = [[SceneState alloc] init];
     browser_ = std::make_unique<TestBrowser>(profile_);
 
     // Set up the WebStateList.
@@ -283,6 +286,7 @@ class OverflowMenuMediatorTest : public PlatformTest {
     reading_list_model_.reset();
     bookmark_model_ = nullptr;
     browser_.reset();
+    scene_state_ = nil;
     profile_ = nullptr;
 
     CleanupNSUserDefaults();
@@ -299,6 +303,7 @@ class OverflowMenuMediatorTest : public PlatformTest {
     mediator_ = [[OverflowMenuMediator alloc] init];
     mediator_.incognito = incognito;
     mediator_.menuOrderer = orderer_;
+    mediator_.sceneState = scene_state_;
     mediator_.baseViewController = baseViewController_;
     mediator_.localStatePrefs = localStatePrefs_.get();
     mediator_.profilePrefs = profilePrefs_.get();
@@ -481,6 +486,25 @@ class OverflowMenuMediatorTest : public PlatformTest {
     return found_destination;
   }
 
+  // Returns the mediator’s action with the given `accessibility_identifier`, or
+  // `nil` if none is found. Expects at most one matching action across all
+  // action groups.
+  OverflowMenuAction* GetAction(NSString* accessibility_identifier) {
+    OverflowMenuAction* found_action = nil;
+    for (OverflowMenuActionGroup* group in mediator_.model.actionGroups) {
+      for (OverflowMenuAction* action in group.actions) {
+        if ([action.accessibilityIdentifier
+                isEqualToString:accessibility_identifier]) {
+          EXPECT_EQ(nil, found_action)
+              << "there shouldn't be more than one action with the \""
+              << accessibility_identifier << "\" accessibility identifier";
+          found_action = action;
+        }
+      }
+    }
+    return found_action;
+  }
+
   signin::IdentityManager* identity_manager() {
     return IdentityManagerFactory::GetForProfile(profile_);
   }
@@ -514,6 +538,7 @@ class OverflowMenuMediatorTest : public PlatformTest {
   IOSChromeScopedTestingLocalState scoped_testing_local_state_;
   TestProfileManagerIOS profile_manager_;
   raw_ptr<TestProfileIOS> profile_ = nullptr;
+  SceneState* scene_state_ = nil;
   std::unique_ptr<Browser> browser_;
   raw_ptr<OverlayPresenter> overlay_presenter_ = nullptr;
 
@@ -531,6 +556,7 @@ class OverflowMenuMediatorTest : public PlatformTest {
   translate::LanguageDetectionModel language_detection_model_;
   TestingPrefServiceSimple pref_service_;
   feature_engagement::test::MockTracker tracker_;
+  syncer::MockSyncService sync_service_;
 };
 
 // Tests that the feature engagement tracker get notified when the mediator is
@@ -578,7 +604,7 @@ TEST_F(OverflowMenuMediatorTest, TestMenuItemsCount) {
   if (showReloadStopAction) {
     number_of_tab_actions++;
   }
-  if (base::ios::IsMultipleScenesSupported()) {
+  if (scene_state_.multipleScenesAvailable) {
     // New Window option is added in this case.
     number_of_tab_actions++;
   }
@@ -599,6 +625,23 @@ TEST_F(OverflowMenuMediatorTest, TestMenuItemsCount) {
     // Feedback/help actions.
     @(number_of_help_items),
   ]);
+}
+
+// Tests that the New Window action is shown only when multiple scenes are
+// available, and updates dynamically when availability changes.
+TEST_F(OverflowMenuMediatorTest, TestNewWindowActionAvailability) {
+  CreateMediator(/*incognito=*/NO);
+  SetUpActiveWebState();
+  mediator_.webStateList = browser_->GetWebStateList();
+  mediator_.model = model_;
+
+  EXPECT_FALSE(HasItem(kToolsMenuNewWindowId, /*enabled=*/YES));
+
+  scene_state_.multipleScenesAvailable = YES;
+  EXPECT_TRUE(HasItem(kToolsMenuNewWindowId, /*enabled=*/YES));
+
+  scene_state_.multipleScenesAvailable = NO;
+  EXPECT_FALSE(HasItem(kToolsMenuNewWindowId, /*enabled=*/YES));
 }
 
 // Tests that the Report an Issue item is hidden when the capability is false.
@@ -1147,11 +1190,10 @@ TEST_F(OverflowMenuMediatorTest, TestOpenWhatsNewDoesntCrashWithNoTracker) {
 TEST_F(OverflowMenuMediatorTest, TestEligibleIdentityErrorWhenSyncOff) {
   CreateMediator(/*incognito=*/NO);
 
-  syncer::MockSyncService syncService;
   // Inject eligible identity error in Sync Service.
-  ON_CALL(syncService, GetUserActionableError())
+  ON_CALL(sync_service_, GetUserActionableError())
       .WillByDefault(Return(kEligibleIdentityErrorWhenSyncOff));
-  mediator_.syncService = &syncService;
+  mediator_.syncService = &sync_service_;
   mediator_.model = model_;
 
   // Verify that the Settings destination is put at
@@ -1170,10 +1212,9 @@ TEST_F(OverflowMenuMediatorTest, TestEligibleIdentityErrorWhenSyncOff) {
 TEST_F(OverflowMenuMediatorTest, TestNoEligibleIdentityErrorWhenSyncOff) {
   CreateMediator(/*incognito=*/NO);
 
-  syncer::MockSyncService syncService;
-  ON_CALL(syncService, GetUserActionableError())
+  ON_CALL(sync_service_, GetUserActionableError())
       .WillByDefault(Return(kIneligibleIdentityErrorWhenSyncOff));
-  mediator_.syncService = &syncService;
+  mediator_.syncService = &sync_service_;
   mediator_.model = model_;
 
   // Verify that the Settings destination it still there and does not have the
@@ -1198,12 +1239,11 @@ TEST_F(OverflowMenuMediatorTest, HasSettingsLevelUpDestination) {
 TEST_F(OverflowMenuMediatorTest, TestSyncError) {
   CreateMediator(/*incognito=*/NO);
 
-  syncer::MockSyncService syncService;
   // Inject Sync error in Sync Service.
-  ON_CALL(syncService, GetUserActionableError())
+  ON_CALL(sync_service_, GetUserActionableError())
       .WillByDefault(
           Return(syncer::SyncService::UserActionableError::kNeedsPassphrase));
-  mediator_.syncService = &syncService;
+  mediator_.syncService = &sync_service_;
   mediator_.model = model_;
 
   // Verify that the Settings destination is put at the front of the
@@ -1222,12 +1262,11 @@ TEST_F(OverflowMenuMediatorTest,
        TestTrustedVaultKeyMissingForPreferredDataTypes) {
   CreateMediator(/*incognito=*/NO);
 
-  syncer::MockSyncService syncService;
   // Mock IsTrustedVaultKeyRequiredForPreferredDataTypes to return true.
-  ON_CALL(*(syncService.GetMockUserSettings()),
+  ON_CALL(*(sync_service_.GetMockUserSettings()),
           IsTrustedVaultKeyRequiredForPreferredDataTypes())
       .WillByDefault(Return(true));
-  mediator_.syncService = &syncService;
+  mediator_.syncService = &sync_service_;
   mediator_.model = model_;
 
   // Verify that the Passwords destination has the red dot badge to indicate the
@@ -1245,12 +1284,11 @@ TEST_F(OverflowMenuMediatorTest,
        TestNoErrorBadgeWhenTrustedVaultKeyIsNotMissingForPreferredDataTypes) {
   CreateMediator(/*incognito=*/NO);
 
-  syncer::MockSyncService syncService;
   // Mock IsTrustedVaultKeyRequiredForPreferredDataTypes to return false.
-  ON_CALL(*(syncService.GetMockUserSettings()),
+  ON_CALL(*(sync_service_.GetMockUserSettings()),
           IsTrustedVaultKeyRequiredForPreferredDataTypes())
       .WillByDefault(Return(false));
-  mediator_.syncService = &syncService;
+  mediator_.syncService = &sync_service_;
   mediator_.model = model_;
 
   // Verify that the Passwords destination does not have the error badge.
@@ -1265,10 +1303,9 @@ TEST_F(OverflowMenuMediatorTest,
 TEST_F(OverflowMenuMediatorTest, TestNoIdentityError) {
   CreateMediator(/*incognito=*/NO);
 
-  syncer::MockSyncService syncService;
-  ON_CALL(syncService, GetUserActionableError())
+  ON_CALL(sync_service_, GetUserActionableError())
       .WillByDefault(Return(syncer::SyncService::UserActionableError::kNone));
-  mediator_.syncService = &syncService;
+  mediator_.syncService = &sync_service_;
   mediator_.model = model_;
 
   // Verify that the Settings destination it still there and does not have the
@@ -1295,11 +1332,10 @@ TEST_F(OverflowMenuMediatorTest, TestIdentityErrorWithWhatsNewPromo) {
   mediator_.webContentAreaOverlayPresenter = OverlayPresenter::FromBrowser(
       browser_.get(), OverlayModality::kWebContentArea);
 
-  syncer::MockSyncService syncService;
-  ON_CALL(syncService, GetUserActionableError())
+  ON_CALL(sync_service_, GetUserActionableError())
       .WillByDefault(
           Return(syncer::SyncService::UserActionableError::kNeedsPassphrase));
-  mediator_.syncService = &syncService;
+  mediator_.syncService = &sync_service_;
 
   mediator_.model = model_;
 
@@ -1321,10 +1357,9 @@ TEST_F(OverflowMenuMediatorTest, TestIdentityErrorWithWhatsNewPromo) {
 TEST_F(OverflowMenuMediatorTest, TestSettingsBlueDotBadge) {
   CreateMediator(/*incognito=*/NO);
 
-  syncer::MockSyncService syncService;
-  ON_CALL(syncService, GetUserActionableError())
+  ON_CALL(sync_service_, GetUserActionableError())
       .WillByDefault(Return(syncer::SyncService::UserActionableError::kNone));
-  mediator_.syncService = &syncService;
+  mediator_.syncService = &sync_service_;
   mediator_.hasSettingsBlueDot = YES;
   mediator_.model = model_;
 
@@ -1347,11 +1382,10 @@ TEST_F(OverflowMenuMediatorTest,
                         feature_engagement::kIPHWhatsNewUpdatedFeature)))
       .WillByDefault(testing::Return(true));
   mediator_.engagementTracker = &tracker_;
-  syncer::MockSyncService syncService;
-  ON_CALL(syncService, GetUserActionableError())
+  ON_CALL(sync_service_, GetUserActionableError())
       .WillByDefault(
           Return(syncer::SyncService::UserActionableError::kNeedsPassphrase));
-  mediator_.syncService = &syncService;
+  mediator_.syncService = &sync_service_;
   mediator_.model = model_;
 
   // Verify the destinations to be promoted are put in the right rank and have
@@ -1719,4 +1753,56 @@ TEST_F(OverflowMenuMediatorTest,
 
   [mockPopupMenuHandler verify];
   [mockGeminiHandler verify];
+}
+
+// Test that the identity action displays the AI tier ring when the user is
+// signed in, eligible for AI subscription, and has no account error, and
+// updates when the tier or sync error state changes.
+TEST_F(OverflowMenuMediatorTest,
+       TestIdentityActionShowsAITierRingWhenEligibleAndNoError) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeatures(
+      /*enabled_features=*/{kIdentityAwareness,
+                            kAiSubscriptionAvatarRingFollowupIOS},
+      /*disabled_features=*/{});
+
+  profile_->GetPrefs()->SetInteger(
+      subscription_eligibility::prefs::kAiSubscriptionTier, 1);
+  SignInPrimaryAccountWithSupervisionStatus(/*is_supervised=*/false);
+
+  syncer::TestSyncService* sync_service = static_cast<syncer::TestSyncService*>(
+      SyncServiceFactory::GetForProfile(profile_));
+  sync_service->SetSignedIn(signin::ConsentLevel::kSignin);
+
+  CreateMediator(/*incognito=*/NO);
+  mediator_.syncService = sync_service;
+  mediator_.authenticationService =
+      AuthenticationServiceFactory::GetForProfile(profile_);
+  mediator_.subscriptionEligibilityService =
+      SubscriptionEligibilityServiceFactory::GetForProfile(profile_);
+  mediator_.model = model_;
+
+  OverflowMenuAction* identity_action = GetAction(kToolsMenuIdentityId);
+  ASSERT_NE(nil, identity_action);
+  EXPECT_TRUE(identity_action.showsAITierRing);
+
+  // Updating the AI subscription tier to 0 should remove the ring.
+  profile_->GetPrefs()->SetInteger(
+      subscription_eligibility::prefs::kAiSubscriptionTier, 0);
+  EXPECT_FALSE(identity_action.showsAITierRing);
+
+  // Updating the AI subscription tier back to 1 should restore the ring.
+  profile_->GetPrefs()->SetInteger(
+      subscription_eligibility::prefs::kAiSubscriptionTier, 1);
+  EXPECT_TRUE(identity_action.showsAITierRing);
+
+  // Introducing a sync error should remove the ring.
+  sync_service->SetPersistentAuthError();
+  sync_service->FireStateChanged();
+  EXPECT_FALSE(identity_action.showsAITierRing);
+
+  // Resolving the sync error should restore the ring.
+  sync_service->ClearAuthError();
+  sync_service->FireStateChanged();
+  EXPECT_TRUE(identity_action.showsAITierRing);
 }

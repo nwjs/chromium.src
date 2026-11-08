@@ -7,8 +7,14 @@
 #include <memory>
 #include <vector>
 
+#include "base/functional/callback_helpers.h"
+#include "base/test/scoped_feature_list.h"
 #include "base/test/test_future.h"
 #include "build/build_config.h"
+#if BUILDFLAG(IS_ANDROID)
+#include "base/android/device_info.h"
+#include "chrome/browser/flags/android/chrome_feature_list.h"
+#endif  // BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/ui/webui/history/browsing_history_handler.h"
 #include "chrome/browser/ui/webui/theme_source.h"
 #include "chrome/common/url_constants.h"
@@ -21,6 +27,7 @@
 #include "mojo/public/cpp/bindings/receiver.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "ui/base/mojom/window_open_disposition.mojom.h"
 #include "ui/webui/resources/cr_components/history/foreign_sessions.mojom.h"
 #include "ui/webui/resources/cr_components/history/history.mojom.h"
 #include "ui/webui/resources/cr_components/history/history_cross_device_signin_promo.mojom.h"
@@ -43,6 +50,9 @@ class HistoryUITest : public testing::Test {
   }
 
   void TearDown() override {
+#if BUILDFLAG(IS_ANDROID)
+    base::android::device_info::reset_is_desktop_for_testing();
+#endif  // BUILDFLAG(IS_ANDROID)
     web_ui_.set_web_contents(nullptr);
     web_contents_.reset();
   }
@@ -83,7 +93,7 @@ class FakeForeignSessionPage : public history::mojom::ForeignSessionPage {
   mojo::Receiver<history::mojom::ForeignSessionPage> receiver_{this};
 };
 
-TEST_F(HistoryUITest, AndroidForeignSessionHandlerReturnsEmpty) {
+TEST_F(HistoryUITest, ForeignSessionHandlerLifecycleAndOperations) {
   auto history_ui = std::make_unique<HistoryUI>(web_ui());
   mojo::Remote<history::mojom::ForeignSessionPageHandlerFactory> factory_remote;
   history_ui->BindInterface(factory_remote.BindNewPipeAndPassReceiver());
@@ -96,6 +106,14 @@ TEST_F(HistoryUITest, AndroidForeignSessionHandlerReturnsEmpty) {
   base::test::TestFuture<std::vector<history::mojom::ForeignSessionPtr>> future;
   handler_remote->GetForeignSessions(future.GetCallback());
   EXPECT_TRUE(future.Get().empty());
+
+  handler_remote->OpenForeignSessionAllTabs("test_session");
+  handler_remote->OpenForeignSessionTab("test_session", 1,
+                                        ui::mojom::ClickModifiers::New());
+  handler_remote->SetForeignSessionCollapsed("test_session", true);
+  handler_remote->DeleteForeignSession("test_session");
+  handler_remote.FlushForTesting();
+  EXPECT_TRUE(handler_remote.is_connected());
 }
 
 TEST_F(HistoryUITest, AndroidSigninPromoCardReturnsFalse) {
@@ -137,6 +155,36 @@ TEST_F(HistoryUITest, OpenClearBrowsingDataWithNullNativeWindowDoesNotCrash) {
   history_ui->GetBrowsingHistoryHandlerForTesting()
       ->OpenClearBrowsingDataDialog();
 }
-#endif
+
+TEST_F(HistoryUITest, WebUIConfigEnabledOnlyWhenFeatureEnabled) {
+  HistoryUIConfig config;
+  {
+    base::android::device_info::set_is_desktop_for_testing(false);
+    base::ScopedClosureRunner reset_desktop(base::BindOnce(
+        &base::android::device_info::reset_is_desktop_for_testing));
+    base::test::ScopedFeatureList feature_list;
+    feature_list.InitAndEnableFeature(
+        chrome::android::kAndroidDesktopWebUiHistory);
+    EXPECT_FALSE(config.IsWebUIEnabled(profile()));
+
+    base::android::device_info::set_is_desktop_for_testing(true);
+    EXPECT_TRUE(config.IsWebUIEnabled(profile()));
+  }
+  {
+    base::test::ScopedFeatureList feature_list;
+    feature_list.InitAndDisableFeature(
+        chrome::android::kAndroidDesktopWebUiHistory);
+    base::android::device_info::set_is_desktop_for_testing(true);
+    base::ScopedClosureRunner reset_desktop(base::BindOnce(
+        &base::android::device_info::reset_is_desktop_for_testing));
+    EXPECT_FALSE(config.IsWebUIEnabled(profile()));
+  }
+}
+#else
+TEST_F(HistoryUITest, WebUIConfigEnabledByDefaultOnDesktop) {
+  HistoryUIConfig config;
+  EXPECT_TRUE(config.IsWebUIEnabled(profile()));
+}
+#endif  // BUILDFLAG(IS_ANDROID)
 
 }  // namespace

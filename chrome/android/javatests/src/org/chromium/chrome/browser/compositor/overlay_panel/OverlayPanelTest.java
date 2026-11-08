@@ -13,6 +13,7 @@ import static org.mockito.Mockito.verify;
 import android.app.Activity;
 import android.content.Context;
 import android.view.ViewGroup;
+import android.widget.FrameLayout;
 
 import androidx.test.annotation.UiThreadTest;
 import androidx.test.filters.SmallTest;
@@ -72,13 +73,13 @@ public class OverlayPanelTest {
 
     @Mock private LayoutManagerImpl mLayoutManager;
     @Mock private BrowserControlsStateProvider mBrowserControlsStateProvider;
-    @Mock private ViewGroup mCompositorViewHolder;
     @Mock private Tab mTab;
     @Mock private InsetObserver mInsetObserver;
     @Mock private DesktopWindowStateManager mDesktopWindowStateManager;
     @Mock private BottomControlsStacker mBottomControlsStacker;
     @Mock private OverlayPanelContent mMockContent;
 
+    private ViewGroup mCompositorViewHolder;
     Activity mActivity;
     ActivityWindowAndroid mWindowAndroid;
     TestOverlayPanel mPanel;
@@ -171,6 +172,7 @@ public class OverlayPanelTest {
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     mActivity = activityTestRule.getActivity();
+                    mCompositorViewHolder = new FrameLayout(mActivity);
                     mWindowAndroid =
                             new ActivityWindowAndroid(
                                     mActivity,

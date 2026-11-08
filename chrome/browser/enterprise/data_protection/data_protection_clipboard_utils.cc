@@ -211,8 +211,8 @@ void PasteIfAllowedByContentAnalysis(
     const ui::ClipboardMetadata& metadata,
     content::ClipboardPasteData clipboard_paste_data,
     content::ContentBrowserClient::IsClipboardPasteAllowedCallback callback) {
-  DCHECK(web_contents);
-  DCHECK(destination.web_contents());
+  CHECK(web_contents, base::NotFatalUntil::M161);
+  CHECK(destination.web_contents(), base::NotFatalUntil::M161);
 
   // Always allow if the source of the last clipboard commit was this host.
   destination.web_contents()->GetPrimaryMainFrame()->IsClipboardOwner(
@@ -326,13 +326,26 @@ void OnCopyDeepScanComplete(
   std::move(callback).Run(format_type, std::move(clipboard_paste_data),
                           std::nullopt);
 }
+
+// Returns whether copies from `url` are scanned, filling `data` if so.
+bool IsCopyContentAnalysisEnabled(
+    Profile* profile,
+    const GURL& url,
+    enterprise_connectors::ContentAnalysisDelegate::Data* data) {
+  return base::FeatureList::IsEnabled(
+             enterprise_connectors::kContentAnalysisClipboardCopy) &&
+         enterprise_connectors::ContentAnalysisDelegate::IsEnabled(
+             profile, url, data,
+             enterprise_connectors::AnalysisConnector::DATA_COPIED);
+}
+
 void CopyIfAllowedByContentAnalysis(
     content::WebContents* web_contents,
     const content::ClipboardEndpoint& source,
     const ui::ClipboardMetadata& metadata,
     const content::ClipboardPasteData& data,
     content::ContentBrowserClient::IsClipboardCopyAllowedCallback callback) {
-  DCHECK(web_contents);
+  CHECK(web_contents, base::NotFatalUntil::M161);
   Profile* profile = Profile::FromBrowserContext(source.browser_context());
   if (!profile) {
     std::move(callback).Run(metadata.format_type, data, std::nullopt);
@@ -340,9 +353,8 @@ void CopyIfAllowedByContentAnalysis(
   }
 
   enterprise_connectors::ContentAnalysisDelegate::Data delegate_data;
-  if (!enterprise_connectors::ContentAnalysisDelegate::IsEnabled(
-          profile, GetUrlFromEndpoint(source), &delegate_data,
-          enterprise_connectors::AnalysisConnector::DATA_COPIED)) {
+  if (!IsCopyContentAnalysisEnabled(profile, GetUrlFromEndpoint(source),
+                                    &delegate_data)) {
     std::move(callback).Run(metadata.format_type, data, std::nullopt);
     return;
   }
@@ -650,7 +662,7 @@ void PasteIfAllowedByDataControls(
     const ui::ClipboardMetadata& metadata,
     content::ClipboardPasteData clipboard_paste_data,
     content::ContentBrowserClient::IsClipboardPasteAllowedCallback callback) {
-  DCHECK(destination.web_contents());
+  CHECK(destination.web_contents(), base::NotFatalUntil::M161);
 
   auto verdict = GetPasteVerdict(source, destination, metadata);
   auto* factory = GetDialogFactory();
@@ -765,9 +777,7 @@ void IsCopyToOSClipboardRestricted(
   // Content analysis needs a tab: ContentAnalysisDelegate is created from a
   // WebContents and has no tab-free entry point, so a service worker copy is
   // not scanned.
-  if (base::FeatureList::IsEnabled(
-          enterprise_connectors::kContentAnalysisClipboardCopy) &&
-      source.web_contents()) {
+  if (source.web_contents()) {
     CopyIfAllowedByContentAnalysis(source.web_contents(), source, metadata,
                                    data, std::move(callback));
   } else {
@@ -995,7 +1005,7 @@ void PasteIfAllowedByPolicy(
   if (ui::DataTransferPolicyController::HasInstance()) {
     std::variant<size_t, std::vector<base::FilePath>> pasted_content;
     if (clipboard_paste_data.file_paths.empty()) {
-      DCHECK(metadata.size.has_value());
+      CHECK(metadata.size.has_value(), base::NotFatalUntil::M161);
       pasted_content = *metadata.size;
     } else {
       pasted_content = clipboard_paste_data.file_paths;
@@ -1080,8 +1090,9 @@ void IsClipboardCopyAllowedByPolicy(
     return;
   }
 
-  DCHECK(source.web_contents() || source.is_service_worker());
-  DCHECK(source.browser_context());
+  CHECK(source.web_contents() || source.is_service_worker(),
+        base::NotFatalUntil::M161);
+  CHECK(source.browser_context(), base::NotFatalUntil::M161);
 
 #if !BUILDFLAG(IS_ANDROID)
   // IsUrlAllowedToCopy checks a deprecated CopyPreventionSettings that isn't
@@ -1145,8 +1156,9 @@ void IsClipboardShareAllowedByPolicy(
     return;
   }
 
-  DCHECK(source.web_contents() || source.is_service_worker());
-  DCHECK(source.browser_context());
+  CHECK(source.web_contents() || source.is_service_worker(),
+        base::NotFatalUntil::M161);
+  CHECK(source.browser_context(), base::NotFatalUntil::M161);
 
   IsCopyRestrictedByDialog(
       source, metadata, data, std::move(callback),
@@ -1164,8 +1176,9 @@ void IsClipboardGenericCopyActionAllowedByPolicy(
     return;
   }
 
-  DCHECK(source.web_contents() || source.is_service_worker());
-  DCHECK(source.browser_context());
+  CHECK(source.web_contents() || source.is_service_worker(),
+        base::NotFatalUntil::M161);
+  CHECK(source.browser_context(), base::NotFatalUntil::M161);
 
   IsCopyRestrictedByDialog(
       source, metadata, data, std::move(callback),
@@ -1466,6 +1479,18 @@ bool IsClipboardCopyAllowedByPolicyForUI(content::WebContents* web_contents) {
     return false;
   }
 
+#if BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
+  // A copy that waits for a content analysis verdict isn't made until then, and
+  // the scan shows a toast if the copy is blocked, warned, or an allowed image.
+  enterprise_connectors::ContentAnalysisDelegate::Data data;
+  if (IsCopyContentAnalysisEnabled(
+          Profile::FromBrowserContext(source->browser_context()), url, &data) &&
+      data.settings.block_until_verdict ==
+          enterprise_connectors::BlockUntilVerdict::kBlock) {
+    return false;
+  }
+#endif  // BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
+
   return true;
 }
 
@@ -1671,7 +1696,7 @@ GURL GetUrlFromRenderFrameHost(content::RenderFrameHost* rfh) {
 std::optional<GURL> MaybeOverrideSourceURLForClipboardAccess(
     content::RenderFrameHost* render_frame_host,
     const GURL& original_url) {
-  DCHECK(render_frame_host);
+  CHECK(render_frame_host, base::NotFatalUntil::M161);
 #if BUILDFLAG(ENABLE_PRINT_PREVIEW)
   if (printing::PrintPreviewDialogController::IsPrintPreviewURL(original_url)) {
     return GetUrlFromRenderFrameHost(

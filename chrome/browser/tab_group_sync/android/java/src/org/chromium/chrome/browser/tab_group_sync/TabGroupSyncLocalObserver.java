@@ -279,7 +279,7 @@ public final class TabGroupSyncLocalObserver {
             }
 
             @Override
-            public void willMoveTabOutOfGroup(Tab movedTab, @Nullable Token destinationTabGroupId) {
+            public void willMoveTabOutOfGroup(Tab movedTab) {
                 if (!mIsObserving) return;
                 LogUtils.log(TAG, "willMoveTabOutOfGroup, tab id = " + movedTab.getId());
 
@@ -290,11 +290,10 @@ public final class TabGroupSyncLocalObserver {
             }
 
             @Override
-            public void didCreateNewGroup(Tab destinationTab) {
+            public void onTabGroupCreated(Token tabGroupId) {
                 if (!mIsObserving) return;
-                LogUtils.log(TAG, "didCreateNewGroup");
-                LocalTabGroupId localTabGroupId =
-                        assertNonNull(TabGroupSyncUtils.getLocalTabGroupId(destinationTab));
+                LogUtils.log(TAG, "onTabGroupCreated");
+                LocalTabGroupId localTabGroupId = new LocalTabGroupId(tabGroupId);
                 if (groupExistsInSync(localTabGroupId)) return;
 
                 mRemoteTabGroupMutationHelper.createRemoteTabGroup(localTabGroupId);
@@ -331,7 +330,7 @@ public final class TabGroupSyncLocalObserver {
     private void updateVisualData(Token tabGroupId) {
         // During group creation from sync, we set the title and color before the group is actually
         // created.
-        if (!mTabModel.tabGroupExists(tabGroupId)) return;
+        if (!mTabModel.containsTabGroup(tabGroupId)) return;
         mRemoteTabGroupMutationHelper.updateVisualData(new LocalTabGroupId(tabGroupId));
     }
 

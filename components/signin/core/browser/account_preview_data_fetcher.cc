@@ -23,6 +23,7 @@
 #include "components/sync/base/data_type.h"
 #include "components/sync/base/time.h"
 #include "google_apis/gaia/gaia_constants.h"
+#include "net/base/request_priority.h"
 #include "net/base/url_util.h"
 #include "net/http/http_request_headers.h"
 #include "net/http/http_status_code.h"
@@ -48,6 +49,12 @@ constexpr char kFetchDurationSuccessHistogram[] =
     "Signin.AccountPreviewData.FetchDuration.Success";
 constexpr char kFetchDurationFailureHistogram[] =
     "Signin.AccountPreviewData.FetchDuration.Failure";
+constexpr char kFetchDurationNetworkSuccessHistogram[] =
+    "Signin.AccountPreviewData.FetchDuration.NetworkSuccess";
+constexpr char kFetchDurationNetworkFailureHistogram[] =
+    "Signin.AccountPreviewData.FetchDuration.NetworkFailure";
+constexpr char kFetchDurationTokenSuccessHistogram[] =
+    "Signin.AccountPreviewData.FetchDuration.TokenSuccess";
 constexpr char kFetchDurationTokenFailureHistogram[] =
     "Signin.AccountPreviewData.FetchDuration.TokenFailure";
 
@@ -190,6 +197,22 @@ bool ParsePreviewsResponse(
     device.form_factor =
         static_cast<sync_pb::SyncEnums_DeviceFormFactor>(form_factor_int);
 
+    if (const auto* invalidation_fields =
+            device_info_preview->FindDict("invalidationFieldsPreview")) {
+      if (const auto* interested_ids =
+              invalidation_fields->FindList("interestedDataTypeIds")) {
+        for (const auto& id_val : *interested_ids) {
+          if (std::optional<int> id = id_val.GetIfInt()) {
+            syncer::DataType type =
+                syncer::GetDataTypeFromSpecificsFieldNumber(*id);
+            if (syncer::IsRealDataType(type)) {
+              device.interested_data_types.Put(type);
+            }
+          }
+        }
+      }
+    }
+
     data.devices.push_back(std::move(device));
   }
   return true;
@@ -206,14 +229,66 @@ std::string_view GetBaseUrl(version_info::Channel channel) {
 
 }  // namespace
 
-// The list of data types to fetch statistics for. This list explicitly requests
-// only the data types currently used by metrics.
+base::span<const syncer::DataType> GetRequestedDataTypes() {
+  if (base::FeatureList::IsEnabled(
+          switches::kEnableAccountPreviewDataFetchOptimizations) &&
+      switches::kAccountPreviewDataReducedTypes.Get()) {
+    return kRequestedDataTypes;
+  }
+  return kLegacyRequestedDataTypes;
+}
+
+// static
+net::NetworkTrafficAnnotationTag
+AccountPreviewDataFetcher::GetTrafficAnnotation() {
+  return net::DefineNetworkTrafficAnnotation("chrome_sync_preview_fetcher", R"(
+        semantics {
+          sender: "Chrome Sync Preview Fetcher"
+          description:
+            "Fetches preview data (statistics and entities previews) for "
+            "signed-in Google accounts to personalize sign-in promotions."
+          trigger:
+            "Triggered once every 24 hours for each signed-in account, or on "
+            "startup."
+          data:
+            "OAuth2 access token for the account."
+          destination: GOOGLE_OWNED_SERVICE
+          internal {
+            contacts {
+              email: "chrome-signin-team@google.com"
+            }
+          }
+          user_data {
+            type: ACCESS_TOKEN
+          }
+          last_reviewed: "2026-05-22"
+        }
+        policy {
+          cookies_allowed: NO
+          setting:
+            "The fetch is only performed for accounts that have valid cookies."
+          chrome_policy {
+            BrowserSignin {
+              policy_options {mode: MANDATORY}
+              BrowserSignin: 0
+            }
+          }
+        })");
+}
+
+// static
+GURL AccountPreviewDataFetcher::GetBaseUrlForChannel(
+    version_info::Channel channel) {
+  return GURL(GetBaseUrl(channel));
+}
+
+// The list of data types to fetch statistics for.
 // static
 GURL AccountPreviewDataFetcher::GetStatsUrlForChannel(
     version_info::Channel channel) {
   GURL url(
       base::StrCat({GetBaseUrl(channel), "/dataTypes/-/dataTypesStatistics"}));
-  for (syncer::DataType data_type : signin::kRequestedDataTypes) {
+  for (syncer::DataType data_type : GetRequestedDataTypes()) {
     url = net::AppendQueryParameter(
         url, "dataTypes",
         base::NumberToString(
@@ -277,8 +352,8 @@ void AccountPreviewDataFetcher::OnAccessTokenReceived(
     GoogleServiceAuthError error,
     AccessTokenInfo token_info) {
   token_fetcher_.reset();
+  CHECK(fetch_timer_.has_value());
   if (error.state() != GoogleServiceAuthError::NONE) {
-    CHECK(fetch_timer_.has_value());
     base::UmaHistogramMediumTimes(kFetchDurationTokenFailureHistogram,
                                   fetch_timer_->Elapsed());
     fetched_data_ = std::nullopt;
@@ -286,6 +361,8 @@ void AccountPreviewDataFetcher::OnAccessTokenReceived(
     return;
   }
 
+  base::UmaHistogramMediumTimes(kFetchDurationTokenSuccessHistogram,
+                                fetch_timer_->Elapsed());
   StartNetworkRequests(token_info.token);
 }
 
@@ -296,6 +373,7 @@ void AccountPreviewDataFetcher::SetOnFetchCompletedForTesting(
 
 void AccountPreviewDataFetcher::StartNetworkRequests(
     const std::string& access_token) {
+  network_fetch_timer_ = base::ElapsedTimer();
   const bool fetch_previews = base::FeatureList::IsEnabled(
       switches::kEnableAccountPreviewEntityPreviews);
 
@@ -304,46 +382,31 @@ void AccountPreviewDataFetcher::StartNetworkRequests(
       base::BindOnce(&AccountPreviewDataFetcher::OnFetchCompleted,
                      weak_ptr_factory_.GetWeakPtr()));
 
-  net::NetworkTrafficAnnotationTag traffic_annotation =
-      net::DefineNetworkTrafficAnnotation("chrome_sync_preview_fetcher", R"(
-        semantics {
-          sender: "Chrome Sync Preview Fetcher"
-          description:
-            "Fetches preview data (statistics and entities previews) for "
-            "signed-in Google accounts to personalize sign-in promotions."
-          trigger:
-            "Triggered once every 24 hours for each signed-in account, or on "
-            "startup."
-          data:
-            "OAuth2 access token for the account."
-          destination: GOOGLE_OWNED_SERVICE
-          internal {
-            contacts {
-              email: "chrome-signin-team@google.com"
-            }
-          }
-          user_data {
-            type: ACCESS_TOKEN
-          }
-          last_reviewed: "2026-05-22"
-        }
-        policy {
-          cookies_allowed: NO
-          setting:
-            "The fetch is only performed for accounts that have valid cookies."
-          chrome_policy {
-            BrowserSignin {
-              policy_options {mode: MANDATORY}
-              BrowserSignin: 0
-            }
-          }
-        })");
+  const net::NetworkTrafficAnnotationTag traffic_annotation =
+      GetTrafficAnnotation();
+
+  // `SimpleURLLoader` defaults to `net::IDLE`, which can starve behind
+  // background traffic. Use `net::MEDIUM` across all fetches (still below
+  // `net::HIGHEST` used for critical page loads) so sign-in/FRE surfaces
+  // waiting on preview data—as well as startup/periodic refreshes—receive
+  // timely responses without delaying promos or causing the displayed preferred
+  // account to change shortly after startup.
+  const bool use_medium_priority =
+      base::FeatureList::IsEnabled(
+          switches::kEnableAccountPreviewDataFetchOptimizations) &&
+      switches::kAccountPreviewDataMediumPriority.Get();
 
   // 1. Stats Request
+  // Note: `kCredentialsMode` and the default browser-process `IsolationInfo`
+  // (no custom `trusted_params`) must match `MaybePreconnectSockets()` so that
+  // requests reuse the preconnected socket pool partition.
   auto stats_request = std::make_unique<network::ResourceRequest>();
   stats_request->url = GetStatsUrlForChannel(channel_);
   stats_request->method = "GET";
-  stats_request->credentials_mode = network::mojom::CredentialsMode::kOmit;
+  stats_request->credentials_mode = kCredentialsMode;
+  if (use_medium_priority) {
+    stats_request->priority = net::MEDIUM;
+  }
   stats_request->headers.SetHeader(net::HttpRequestHeaders::kAuthorization,
                                    base::StrCat({"Bearer ", access_token}));
 
@@ -360,7 +423,10 @@ void AccountPreviewDataFetcher::StartNetworkRequests(
     auto previews_request = std::make_unique<network::ResourceRequest>();
     previews_request->url = GetPreviewsUrlForChannel(channel_);
     previews_request->method = "GET";
-    previews_request->credentials_mode = network::mojom::CredentialsMode::kOmit;
+    previews_request->credentials_mode = kCredentialsMode;
+    if (use_medium_priority) {
+      previews_request->priority = net::MEDIUM;
+    }
     previews_request->headers.SetHeader(
         net::HttpRequestHeaders::kAuthorization,
         base::StrCat({"Bearer ", access_token}));
@@ -421,8 +487,9 @@ void AccountPreviewDataFetcher::OnPreviewsFetchCompleted(
 }
 
 void AccountPreviewDataFetcher::OnFetchCompleted(std::vector<bool> results) {
+  const size_t success_count = std::ranges::count(results, true);
   // If all requests failed, clear the fetched data.
-  if (std::ranges::none_of(results, [](bool success) { return success; })) {
+  if (success_count == 0) {
     fetched_data_ = std::nullopt;
   }
 
@@ -430,8 +497,18 @@ void AccountPreviewDataFetcher::OnFetchCompleted(std::vector<bool> results) {
                                 fetched_data_.has_value()
                                     ? FetchState::kCompletedWithResults
                                     : FetchState::kCompletedWithoutResults);
+  if (success_count > 0 && success_count < results.size()) {
+    base::UmaHistogramEnumeration(kFetchStateHistogram,
+                                  FetchState::kCompletedWithPartialResults);
+  }
 
   base::UmaHistogramBoolean(kFetchHit429Histogram, hit_429_error_);
+
+  CHECK(network_fetch_timer_.has_value());
+  base::UmaHistogramMediumTimes(fetched_data_.has_value()
+                                    ? kFetchDurationNetworkSuccessHistogram
+                                    : kFetchDurationNetworkFailureHistogram,
+                                network_fetch_timer_->Elapsed());
 
   CHECK(fetch_timer_.has_value());
   base::UmaHistogramMediumTimes(fetched_data_.has_value()

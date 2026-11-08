@@ -9,6 +9,7 @@
 
 #include <utility>
 
+#include "base/check_deref.h"
 #include "base/check_op.h"
 #include "base/dcheck_is_on.h"
 #include "base/memory/stack_allocated.h"
@@ -107,9 +108,9 @@ class CORE_EXPORT InlineCursorPosition {
   // True if the current position is a box for "float"
   bool IsFloating() const { return item_->IsFloating(); }
 
-  // True if the current position is hidden for paint. It is error to call at
-  // end.
-  bool IsHiddenForPaint() const { return item_->IsHiddenForPaint(); }
+  // True if the current position won't be painted due to layout reasons. It is
+  // an error to call at the end.
+  bool IsHiddenDueToLayout() const { return item_->IsHiddenDueToLayout(); }
 
   // |ComputedStyle| and related functions.
   StyleVariant GetStyleVariant() const { return item_->GetStyleVariant(); }
@@ -271,10 +272,7 @@ class CORE_EXPORT InlineCursor {
   // creates a cursor without the root.
   bool HasRoot() const { return fragment_items_; }
 
-  const FragmentItems& Items() const {
-    DCHECK(fragment_items_);
-    return *fragment_items_;
-  }
+  const FragmentItems& Items() const { return CHECK_DEREF(fragment_items_); }
 
   // Returns the |PhysicalBoxFragment| that owns |Items|.
   const PhysicalBoxFragment& ContainerFragment() const {

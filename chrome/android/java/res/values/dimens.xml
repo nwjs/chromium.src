@@ -322,11 +322,6 @@ found in the LICENSE file.
     <!-- Minimum height of the title bar to fit the tab title text. -->
     <dimen name="custom_tabs_popup_title_bar_text_height">24sp</dimen>
 
-    <!-- Search in CCT specific dimensions for presenting interactable Omnibox -->
-    <dimen name="custom_tabs_location_bar_active_height">40dp</dimen>
-    <dimen name="custom_tabs_url_bar_active_height">48dp</dimen>
-    <dimen name="custom_tabs_url_bar_bg_horizontal_padding">4dp</dimen>
-
     <!-- Account chooser dialog dimensions -->
     <dimen name="account_chooser_dialog_margin">24dp</dimen>
     <dimen name="account_chooser_dialog_item_margin">24dp</dimen>
@@ -527,18 +522,6 @@ found in the LICENSE file.
 
     <!-- Tab Strip Reorder dimensions -->
     <dimen name="tab_strip_dragged_tab_shadow_thickness">8dp</dimen>
-
-    <!-- Tips Notifications dimensions -->
-    <dimen name="tips_notifications_bottom_sheet_button_padding">4dp</dimen>
-    <dimen name="tips_notifications_bottom_sheet_horizontal_margin">24dp</dimen>
-    <dimen name="tips_notifications_bottom_sheet_step_content_margin_start">16dp</dimen>
-    <dimen name="tips_notifications_bottom_sheet_step_number_width">25dp</dimen>
-    <dimen name="tips_notifications_bottom_sheet_title_padding">24dp</dimen>
-    <dimen name="tips_notifications_bottom_sheet_vertical_margin">20dp</dimen>
-
-    <!-- View list background dimensions -->
-    <dimen name="view_list_item_large_radius">24dp</dimen>
-    <dimen name="view_list_item_small_radius">3dp</dimen>
 
     <!-- Auto PiP permission dialog dimensions -->
     <dimen name="auto_pip_permission_dialog_width">320dp</dimen>

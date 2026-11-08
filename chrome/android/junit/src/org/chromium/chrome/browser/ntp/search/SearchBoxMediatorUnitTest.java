@@ -53,6 +53,7 @@ import org.chromium.chrome.browser.composeplate.ComposeplateUtilsJni;
 import org.chromium.chrome.browser.feed.FeedSurfaceScrollDelegate;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.lens.LensController;
+import org.chromium.chrome.browser.lens.LensEntryPoint;
 import org.chromium.chrome.browser.lens.LensIntentParams;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.chrome.browser.ntp.NewTabPageManager;
@@ -62,9 +63,11 @@ import org.chromium.chrome.browser.omnibox.fusebox.ComposeboxQueryControllerBrid
 import org.chromium.chrome.browser.omnibox.status.StatusProperties.StatusIconResource;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactory;
+import org.chromium.chrome.browser.util.BrowserUiUtils;
 import org.chromium.components.omnibox.AutocompleteRequestType;
 import org.chromium.components.omnibox.OmniboxCapabilities;
 import org.chromium.components.omnibox.OmniboxFeatureList;
+import org.chromium.components.omnibox.OmniboxFocusReason;
 import org.chromium.components.search_engines.TemplateUrlService;
 import org.chromium.components.search_engines.TemplateUrlService.TemplateUrlServiceObserver;
 import org.chromium.content_public.browser.LoadUrlParams;
@@ -331,6 +334,7 @@ public class SearchBoxMediatorUnitTest {
         assertEquals(
                 colorStateList,
                 mPropertyModel.get(SearchBoxProperties.VOICE_SEARCH_COLOR_STATE_LIST));
+        assertEquals(colorStateList, mPropertyModel.get(SearchBoxProperties.PLUS_BUTTON_TINT));
         assertEquals(colorStateList, mPropertyModel.get(SearchBoxProperties.DSE_ICON_TINT));
         verifyApplyBackground(mSearchBoxView);
 
@@ -345,6 +349,7 @@ public class SearchBoxMediatorUnitTest {
         assertEquals(
                 colorStateList,
                 mPropertyModel.get(SearchBoxProperties.VOICE_SEARCH_COLOR_STATE_LIST));
+        assertEquals(colorStateList, mPropertyModel.get(SearchBoxProperties.PLUS_BUTTON_TINT));
         assertEquals(colorStateList, mPropertyModel.get(SearchBoxProperties.DSE_ICON_TINT));
         verifyResetBackground(mSearchBoxView, defaultBackground);
     }
@@ -577,7 +582,11 @@ public class SearchBoxMediatorUnitTest {
         assertNotNull(listener);
         listener.onClick(mView);
         verify(mNewTabPageManager)
-                .focusSearchBox(false, AutocompleteRequestType.SEARCH, false, null);
+                .focusSearchBox(
+                        false,
+                        AutocompleteRequestType.SEARCH,
+                        OmniboxFocusReason.FAKE_BOX_TAP,
+                        null);
     }
 
     @Test
@@ -587,7 +596,11 @@ public class SearchBoxMediatorUnitTest {
         assertNotNull(listener);
         listener.onClick(mView);
         verify(mNewTabPageManager)
-                .focusSearchBox(true, AutocompleteRequestType.SEARCH, false, null);
+                .focusSearchBox(
+                        true,
+                        AutocompleteRequestType.SEARCH,
+                        OmniboxFocusReason.FAKE_BOX_TAP,
+                        null);
     }
 
     @Test
@@ -597,7 +610,11 @@ public class SearchBoxMediatorUnitTest {
         assertNotNull(listener);
         listener.onClick(mView);
         verify(mNewTabPageManager)
-                .focusSearchBox(false, AutocompleteRequestType.SEARCH, true, null);
+                .focusSearchBox(
+                        false,
+                        AutocompleteRequestType.SEARCH,
+                        OmniboxFocusReason.FAKE_BOX_PLUS_BUTTON_TAP,
+                        null);
     }
 
     @Test
@@ -725,5 +742,19 @@ public class SearchBoxMediatorUnitTest {
         assertEquals(
                 R.style.TextAppearance_FakeSearchBoxTextMedium,
                 SearchBoxMediator.getFakeSearchBoxTextStyle(/* apply= */ false));
+    }
+
+    @Test
+    public void testIsLensEnabled_suppressedWhenAndroidAutoProjected() {
+        when(mLensController.isLensEnabled(any())).thenReturn(true);
+        BrowserUiUtils.setIsAndroidAutoProjectedForTesting(false);
+        assertTrue(
+                mMediator.isLensEnabled(
+                        LensEntryPoint.NEW_TAB_PAGE, /* isIncognito= */ false, /* isLff= */ false));
+
+        BrowserUiUtils.setIsAndroidAutoProjectedForTesting(true);
+        assertFalse(
+                mMediator.isLensEnabled(
+                        LensEntryPoint.NEW_TAB_PAGE, /* isIncognito= */ false, /* isLff= */ false));
     }
 }

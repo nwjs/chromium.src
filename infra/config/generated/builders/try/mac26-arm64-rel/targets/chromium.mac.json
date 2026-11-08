@@ -43,7 +43,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -66,7 +66,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -89,7 +89,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -113,7 +113,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -136,7 +136,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -159,7 +159,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -182,7 +182,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -193,7 +193,8 @@
       },
       {
         "args": [
-          "--git-revision=${got_revision}"
+          "--git-revision=${got_revision}",
+          "--bypass-skia-gold-functionality"
         ],
         "isolate_profile_data": true,
         "merge": {
@@ -213,7 +214,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -223,6 +224,7 @@
         "test_id_prefix": "ninja://third_party/blink/renderer/platform:blink_platform_unittests/"
       },
       {
+        "enable_rts_filtering": true,
         "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -236,7 +238,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -260,7 +262,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -283,7 +285,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -332,7 +334,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -355,7 +357,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -378,7 +380,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -401,7 +403,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -424,7 +426,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -447,7 +449,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -457,6 +459,7 @@
         "test_id_prefix": "ninja://components:components_browsertests/"
       },
       {
+        "enable_rts_filtering": true,
         "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -470,7 +473,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -501,6 +504,7 @@
         "test_id_prefix": "ninja://content/test:content_browsertests/"
       },
       {
+        "enable_rts_filtering": true,
         "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -514,7 +518,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -537,7 +541,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -560,7 +564,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -583,7 +587,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -606,7 +610,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -630,7 +634,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -653,7 +657,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -676,7 +680,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -699,7 +703,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -722,7 +726,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -745,7 +749,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -768,7 +772,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -791,7 +795,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -814,7 +818,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -837,7 +841,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -860,7 +864,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -883,7 +887,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -906,7 +910,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -948,7 +952,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -971,7 +975,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -995,7 +999,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -1018,7 +1022,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -1041,7 +1045,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -1064,7 +1068,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -1087,7 +1091,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -1110,7 +1114,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -1133,7 +1137,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -1156,7 +1160,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -1179,7 +1183,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -1202,7 +1206,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -1225,7 +1229,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -1248,7 +1252,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -1271,7 +1275,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -1294,7 +1298,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -1317,7 +1321,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -1340,7 +1344,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -1350,7 +1354,6 @@
         "test_id_prefix": "ninja://remoting:remoting_unittests/"
       },
       {
-        "experiment_percentage": 100,
         "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -1364,7 +1367,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -1387,7 +1390,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -1410,7 +1413,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -1433,7 +1436,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -1456,7 +1459,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -1479,7 +1482,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -1502,7 +1505,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -1525,7 +1528,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -1568,7 +1571,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -1591,7 +1594,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -1614,7 +1617,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -1637,7 +1640,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -1661,7 +1664,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -1684,7 +1687,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -1707,7 +1710,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -1730,7 +1733,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -1753,7 +1756,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -1776,7 +1779,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -1799,7 +1802,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -1827,7 +1830,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -1924,7 +1927,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -1995,7 +1998,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -2046,7 +2049,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -2073,7 +2076,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -2099,7 +2102,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -2158,7 +2161,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -2184,7 +2187,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -2211,7 +2214,7 @@
           },
           "idempotent": false,
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -2242,7 +2245,7 @@
           },
           "idempotent": false,
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -2274,7 +2277,7 @@
           },
           "idempotent": false,
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },
@@ -2304,7 +2307,7 @@
             "os": "Mac-26"
           },
           "optional_dimensions": {
-            "30": {
+            "180": {
               "cpu": "Apple_(Virtual)"
             }
           },

@@ -20,8 +20,9 @@
 #include "base/time/time.h"
 #include "base/timer/timer.h"
 #include "base/trace_event/trace_event.h"
+#include "components/fcm/crypto/fcm_decryption_result.h"
+#include "components/fcm/engine/chrome_build_info.h"
 #include "components/fcm/engine/system_encryptor.h"
-#include "components/gcm_driver/gcm_account_mapper.h"
 #include "components/gcm_driver/gcm_app_handler.h"
 #include "components/gcm_driver/gcm_client_factory.h"
 #include "components/gcm_driver/gcm_delayed_task_controller.h"
@@ -76,7 +77,7 @@ class GCMDriverDesktop::IOWorker : public GCMClient::Delegate {
   // Called on IO thread.
   void Initialize(
       std::unique_ptr<GCMClientFactory> gcm_client_factory,
-      const GCMClient::ChromeBuildInfo& chrome_build_info,
+      const fcm::ChromeBuildInfo& chrome_build_info,
       const base::FilePath& store_path,
       base::RepeatingCallback<void(
           mojo::PendingReceiver<network::mojom::ProxyResolvingSocketFactory>)>
@@ -124,7 +125,7 @@ class GCMDriverDesktop::IOWorker : public GCMClient::Delegate {
                    const std::string& scope);
 
   void RecordDecryptionFailure(const std::string& app_id,
-                               GCMDecryptionResult result);
+                               fcm::FcmDecryptionResult result);
 
   // For testing purpose. Can be called from UI thread. Use with care.
   GCMClient* gcm_client_for_testing() const { return gcm_client_.get(); }
@@ -152,7 +153,7 @@ GCMDriverDesktop::IOWorker::~IOWorker() {
 
 void GCMDriverDesktop::IOWorker::Initialize(
     std::unique_ptr<GCMClientFactory> gcm_client_factory,
-    const GCMClient::ChromeBuildInfo& chrome_build_info,
+    const fcm::ChromeBuildInfo& chrome_build_info,
     const base::FilePath& store_path,
     base::RepeatingCallback<void(
         mojo::PendingReceiver<network::mojom::ProxyResolvingSocketFactory>)>
@@ -514,14 +515,14 @@ void GCMDriverDesktop::IOWorker::RemoveHeartbeatInterval(
 
 void GCMDriverDesktop::IOWorker::RecordDecryptionFailure(
     const std::string& app_id,
-    GCMDecryptionResult result) {
+    fcm::FcmDecryptionResult result) {
   DCHECK(io_thread_->RunsTasksInCurrentSequence());
   gcm_client_->RecordDecryptionFailure(app_id, result);
 }
 
 GCMDriverDesktop::GCMDriverDesktop(
     std::unique_ptr<GCMClientFactory> gcm_client_factory,
-    const GCMClient::ChromeBuildInfo& chrome_build_info,
+    const fcm::ChromeBuildInfo& chrome_build_info,
     PrefService* prefs,
     const base::FilePath& store_path,
     base::RepeatingCallback<void(
@@ -536,7 +537,6 @@ GCMDriverDesktop::GCMDriverDesktop(
     : GCMDriver(store_path, blocking_task_runner),
       gcm_started_(false),
       connected_(false),
-      account_mapper_(new GCMAccountMapper(this)),
       // Setting to max, to make sure it does not prompt for token reporting
       // Before reading a reasonable value from the DB, which might be never,
       // in which case the fetching will be triggered.
@@ -640,9 +640,8 @@ void GCMDriverDesktop::RemoveAppHandler(const std::string& app_id) {
   DCHECK(ui_thread_->RunsTasksInCurrentSequence());
   GCMDriver::RemoveAppHandler(app_id);
 
-  // Stops the GCM service when no app intends to consume it. Stop function will
-  // remove the last app handler - account mapper.
-  if (app_handlers().size() == 1) {
+  // Stops the GCM service when no app intends to consume it.
+  if (app_handlers().empty()) {
     DVLOG(1) << "Removed last app handler, calling GCMDriverDesktop::Stop now.";
     Stop();
   }
@@ -663,9 +662,6 @@ void GCMDriverDesktop::Stop() {
   // No need to stop GCM service if not started yet.
   if (!gcm_started_)
     return;
-
-  account_mapper_->ShutdownHandler();
-  GCMDriver::RemoveAppHandler(kGCMAccountMapperAppId);
 
   RemoveCachedData();
 
@@ -749,8 +745,9 @@ void GCMDriverDesktop::DoSend(const std::string& app_id,
                                 receiver_id, message));
 }
 
-void GCMDriverDesktop::RecordDecryptionFailure(const std::string& app_id,
-                                               GCMDecryptionResult result) {
+void GCMDriverDesktop::RecordDecryptionFailure(
+    const std::string& app_id,
+    fcm::FcmDecryptionResult result) {
   DCHECK(ui_thread_->RunsTasksInCurrentSequence());
   io_thread_->PostTask(
       FROM_HERE,
@@ -1179,8 +1176,6 @@ void GCMDriverDesktop::SetAccountTokens(
     const std::vector<GCMClient::AccountTokenInfo>& account_tokens) {
   DCHECK(ui_thread_->RunsTasksInCurrentSequence());
 
-  account_mapper_->SetAccountTokens(account_tokens);
-
   io_thread_->PostTask(
       FROM_HERE,
       base::BindOnce(&GCMDriverDesktop::IOWorker::SetAccountTokens,
@@ -1285,11 +1280,6 @@ void GCMDriverDesktop::GCMClientReady(
   gcm_started_ = true;
 
   last_token_fetch_time_ = last_token_fetch_time;
-
-  GCMDriver::AddAppHandler(kGCMAccountMapperAppId, account_mapper_.get());
-  account_mapper_->Initialize(
-      account_mappings, base::BindRepeating(&GCMDriverDesktop::MessageReceived,
-                                            weak_ptr_factory_.GetWeakPtr()));
 
   delayed_task_controller_->SetReady();
 }

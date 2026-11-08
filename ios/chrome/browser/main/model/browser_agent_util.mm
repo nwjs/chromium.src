@@ -32,11 +32,11 @@
 #import "ios/chrome/browser/intelligence/features/features.h"
 #import "ios/chrome/browser/intelligence/persist_tab_context/model/persist_tab_context_browser_agent.h"
 #import "ios/chrome/browser/intents/model/user_activity_browser_agent.h"
+#import "ios/chrome/browser/lens/model/lens_browser_agent.h"
 #import "ios/chrome/browser/metrics/model/tab_usage_recorder_browser_agent.h"
 #import "ios/chrome/browser/omnibox/model/omnibox_focus/omnibox_focus_browser_agent.h"
 #import "ios/chrome/browser/policy/model/policy_watcher_browser_agent.h"
 #import "ios/chrome/browser/prerender/model/prerender_browser_agent.h"
-#import "ios/chrome/browser/reader_mode/model/features.h"
 #import "ios/chrome/browser/reader_mode/model/reader_mode_browser_agent.h"
 #import "ios/chrome/browser/reading_list/model/reading_list_browser_agent.h"
 #import "ios/chrome/browser/send_tab_to_self/model/send_tab_to_self_browser_agent.h"
@@ -49,6 +49,7 @@
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/signin/model/authentication_service.h"
 #import "ios/chrome/browser/signin/model/authentication_service_factory.h"
+#import "ios/chrome/browser/signin/model/signin_disabled_browser_agent.h"
 #import "ios/chrome/browser/snapshots/model/snapshot_browser_agent.h"
 #import "ios/chrome/browser/start_surface/ui_bundled/start_surface_recent_tab_browser_agent.h"
 #import "ios/chrome/browser/sync/model/sync_error_browser_agent.h"
@@ -146,6 +147,8 @@ void AttachBrowserAgentsForActiveBrowser(Browser* browser) {
     ReaderModeBrowserAgent::CreateForBrowser(browser);
   }
 
+  // LensBrowserAgent must be created before WebNavigationBrowserAgent.
+  LensBrowserAgent::CreateForBrowser(browser);
   WebNavigationBrowserAgent::CreateForBrowser(browser);
 
   if (!browser_is_off_record) {
@@ -247,6 +250,7 @@ void AttachBrowserAgentsForActiveBrowser(Browser* browser) {
     PrerenderBrowserAgent::CreateForBrowser(
         browser,
         AuthenticationServiceFactory::GetForProfile(browser->GetProfile()));
+    SigninDisabledBrowserAgent::CreateForBrowser(browser);
   }
 
   if (IsCleanupPersistedTabContextsEnabled() && !browser_is_off_record &&

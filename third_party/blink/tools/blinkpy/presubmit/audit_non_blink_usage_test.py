@@ -15,18 +15,19 @@ class TestAuditNonBlinkUsageTest(unittest.TestCase):
 
     def test_valid_compiled_config(self):
         # We need to test this protected data.
-        # pylint: disable=W0212
         for entry in audit._COMPILED_CONFIG:
             for path in entry['paths']:
                 self.assertIsInstance(path, str)
             if 'allowed' in entry:
                 self.assertIsInstance(entry['allowed'], self._REGEXP_CLASS)
             if 'inclass_allowed' in entry:
-                self.assertIsInstance(entry['inclass_allowed'],
-                                      self._REGEXP_CLASS)
+                self.assertIsInstance(
+                    entry['inclass_allowed'], self._REGEXP_CLASS
+                )
             if 'inclass_disallowed' in entry:
-                self.assertIsInstance(entry['inclass_disallowed'],
-                                      self._REGEXP_CLASS)
+                self.assertIsInstance(
+                    entry['inclass_disallowed'], self._REGEXP_CLASS
+                )
             for match, advice, warning in entry.get('advice', []):
                 self.assertIsInstance(match, self._REGEXP_CLASS)
                 self.assertIsInstance(advice, str)
@@ -39,108 +40,128 @@ class TestAuditNonBlinkUsageTest(unittest.TestCase):
             {
                 'type': 'url::mojom::Origin',
                 'allowed': False,
-                'path': 'third_party/blink/renderer/'
+                'path': 'third_party/blink/renderer/',
             },
             {
                 'type': 'media::mojom::InterfaceFactory',
                 'allowed': False,
-                'path': 'third_party/blink/renderer/'
+                'path': 'third_party/blink/renderer/',
             },
             {
                 'type': 'url::mojom::blink::Origin',
                 'allowed': True,
-                'path': 'third_party/blink/renderer/'
+                'path': 'third_party/blink/renderer/',
             },
             {
                 'type': 'media::mojom::blink::InterfaceFactory',
                 'allowed': True,
-                'path': 'third_party/blink/renderer/'
+                'path': 'third_party/blink/renderer/',
             },
             {
                 'type': 'network::mojom::URLLoaderFactory',
                 'allowed': True,
-                'path': 'third_party/blink/renderer/'
+                'path': 'third_party/blink/renderer/',
             },
             {
                 'type': 'base::SingleThreadTaskRunner::GetCurrentDefault',
                 'allowed': False,
-                'path': 'third_party/blink/renderer/'
+                'path': 'third_party/blink/renderer/',
             },
             {
                 'type': 'base::SingleThreadTaskRunner::CurrentDefaultHandle',
                 'allowed': False,
-                'path': 'third_party/blink/renderer/'
+                'path': 'third_party/blink/renderer/',
             },
             {
                 'type': 'base::SingleThreadTaskRunner',
                 'allowed': True,
-                'path': 'third_party/blink/renderer/'
+                'path': 'third_party/blink/renderer/',
             },
             {
                 'type': 'base::SingleThreadTaskRunner::OtherAPI',
                 'allowed': True,
-                'path': 'third_party/blink/renderer/'
+                'path': 'third_party/blink/renderer/',
             },
             {
                 'type': 'base::SingleThreadTaskRunner::GetCurrentDefault',
                 'allowed': True,
-                'path': 'third_party/blink/renderer/modules/mediarecorder/'
+                'path': 'third_party/blink/renderer/modules/mediarecorder/',
             },
             {
                 'type': 'base::SingleThreadTaskRunner::CurrentDefaultHandle',
                 'allowed': True,
-                'path': 'third_party/blink/renderer/modules/mediarecorder/'
+                'path': 'third_party/blink/renderer/modules/mediarecorder/',
             },
             {
                 'type': 'isolate->GetContinuationPreservedEmbedderData',
                 'allowed': False,
-                'path': 'third_party/blink/renderer/'
+                'path': 'third_party/blink/renderer/',
             },
             {
                 'type': 'isolate->GetContinuationPreservedEmbedderData',
                 'allowed': True,
-                'path': 'third_party/blink/renderer/core/scheduler/'
+                'path': 'third_party/blink/renderer/core/scheduler/',
             },
             {
                 'type': 'WTF::BindOnce',
                 'allowed': False,
-                'path': 'third_party/blink/renderer/'
+                'path': 'third_party/blink/renderer/',
             },
             {
                 'type': 'WTF::Vector',
                 'allowed': True,
-                'path': 'third_party/blink/renderer/platform/wtf/'
+                'path': 'third_party/blink/renderer/platform/wtf/',
             },
             {
                 'type': 'liburlpattern::Part',
                 'allowed': True,
-                'path': 'third_party/blink/renderer/modules/manifest/'
+                'path': 'third_party/blink/renderer/modules/manifest/',
             },
             {
                 'type': 'liburlpattern::Part',
                 'allowed': True,
-                'path': 'third_party/blink/public/common/safe_url_pattern.h'
+                'path': 'third_party/blink/public/common/safe_url_pattern.h',
             },
             {
                 'type': 'liburlpattern::Part',
                 'allowed': True,
-                'path': 'third_party/blink/common/safe_url_pattern.cc'
+                'path': 'third_party/blink/common/safe_url_pattern.cc',
+            },
+            {
+                'type': 'v8::Local',
+                'allowed': True,
+                'path': 'third_party/blink/public/platform/web_url.h',
+            },
+            {
+                'type': 'v8::Local',
+                'allowed': True,
+                'path': 'third_party/blink/public/web/web_node.h',
+            },
+            {
+                'type': 'v8::Local',
+                'allowed': False,
+                'path': 'third_party/blink/public/common/safe_url_pattern.h',
             },
         ]
         for item in check_list:
             # Make sure that the identifier we're testing is parsed
             # fully.
             self.assertTrue(
-                audit._IDENTIFIER_IN_CLASS_RE.fullmatch(item['type']) is
-                not None or audit._IDENTIFIER_WITH_NAMESPACE_RE.fullmatch(
-                    item['type']) is not None)
+                audit._IDENTIFIER_IN_CLASS_RE.fullmatch(item['type'])
+                is not None
+                or audit._IDENTIFIER_WITH_NAMESPACE_RE.fullmatch(item['type'])
+                is not None
+            )
             # Use the mechanism in the presubmit source code to find
             # which rules to match.
             entries = audit._find_matching_entries(item['path'])
-            in_class = audit._IDENTIFIER_WITH_NAMESPACE_RE.fullmatch(
-                item['type']) is None
+            in_class = (
+                audit._IDENTIFIER_WITH_NAMESPACE_RE.fullmatch(item['type'])
+                is None
+            )
             allowed = audit._check_entries_for_identifier(
-                entries, item['type'], in_class)
+                entries, item['type'], in_class
+            )
             self.assertEqual(allowed, item['allowed'])
 
 

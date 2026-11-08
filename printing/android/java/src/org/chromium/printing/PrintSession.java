@@ -28,7 +28,6 @@ import org.chromium.printing.PrintDocumentAdapterWrapper.PdfGenerator;
 import org.chromium.printing.PrintDocumentAdapterWrapper.WriteResultCallbackWrapper;
 import org.chromium.ui.base.WindowAndroid;
 
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -58,9 +57,6 @@ class PrintSession implements PdfGenerator {
     private int mRenderProcessId = -1;
     private int mRenderFrameId = -1;
 
-    /** The file descriptor into which the PDF will be written. Provided by the framework. */
-    private @Nullable ParcelFileDescriptor mFileDescriptor;
-
     /** Dots per inch, as provided by the framework. */
     private int mDpi;
 
@@ -80,6 +76,7 @@ class PrintSession implements PdfGenerator {
 
     private @Nullable Runnable mPendingPrintCallback;
 
+    private boolean mIsPdf;
     private boolean mPrintInitiated;
     private boolean mIsBusy;
     private boolean mDestroyed;
@@ -153,7 +150,6 @@ class PrintSession implements PdfGenerator {
         mRenderFrameId = -1;
         mIsBusy = false;
 
-        closeFileDescriptor();
         // The framework contract is that every onWrite() is answered exactly once. Tearing the
         // session down from the Chromium side (Activity destroyed, window detached) can happen
         // while a write is outstanding, and leaving the callback unanswered wedges the print
@@ -185,24 +181,12 @@ class PrintSession implements PdfGenerator {
         return mPrintingState == PRINTING_STATE_FINISHED;
     }
 
-    int getDpi() {
-        return mDpi;
-    }
-
-    @Nullable ParcelFileDescriptor getFileDescriptor() {
-        return mFileDescriptor;
-    }
-
     int getPageHeight() {
         return mMediaSize == null ? 0 : mMediaSize.getHeightMils();
     }
 
     int getPageWidth() {
         return mMediaSize == null ? 0 : mMediaSize.getWidthMils();
-    }
-
-    int @Nullable [] getPageNumbers() {
-        return mPages == null ? null : mPages.clone();
     }
 
     @VisibleForTesting
@@ -215,12 +199,14 @@ class PrintSession implements PdfGenerator {
     }
 
     private void initiatePrintIfNeeded() {
-        if (!mPrintInitiated
-                && mPrintable != null
-                && mPrintable.canPrint()
-                && mPrintable.getPdfInputStream() == null) {
-            mPrintInitiated = mPrintable.initiatePrint(mRenderProcessId, mRenderFrameId);
-        }
+        if (mIsPdf || mPrintInitiated || mPrintable == null || !mPrintable.canPrint()) return;
+
+        // Latch whether the printable is a PDF document so onWrite() uses the same path even if
+        // the underlying tab navigates while the print dialog is open. PDF documents are streamed
+        // straight to the framework in onWrite(), so the renderer never enters printing mode.
+        mIsPdf = mPrintable.isPdf();
+        if (mIsPdf) return;
+        mPrintInitiated = mPrintable.initiatePrint(mRenderProcessId, mRenderFrameId);
     }
 
     @Override
@@ -297,34 +283,53 @@ class PrintSession implements PdfGenerator {
         mOnWriteCallback = callback;
 
         assert mPrintingState == PRINTING_STATE_READY;
-        assert mFileDescriptor == null;
-        try {
-            mFileDescriptor = destination.dup();
-        } catch (IOException e) {
-            mOnWriteCallback.onWriteFailed("ParcelFileDescriptor.dup() failed: " + e.toString());
-            resetCallbacks();
+        mPages = convertPageRangesToIntegerArray(ranges);
+        if (mIsPdf) {
+            InputStream pdfInputStream =
+                    (mPrintable != null) ? mPrintable.getPdfInputStream() : null;
+            if (pdfInputStream != null) {
+                onWriteForPdfPage(destination, pdfInputStream, cancellationSignal);
+            } else {
+                try {
+                    destination.close();
+                } catch (IOException e) {
+                    /* ignore */
+                }
+                mOnWriteCallback.onWriteFailed(mErrorMessage);
+                resetCallbacks();
+            }
             return;
-        } finally {
+        }
+
+        if (mPrintable == null) {
             try {
                 destination.close();
             } catch (IOException e) {
                 /* ignore */
             }
+            mOnWriteCallback.onWriteFailed(mErrorMessage);
+            resetCallbacks();
+            return;
         }
-        mPages = convertPageRangesToIntegerArray(ranges);
-        InputStream pdfInputStream = (mPrintable != null) ? mPrintable.getPdfInputStream() : null;
-
-        if (pdfInputStream == null) {
-            if (mPrintable != null && mPrintable.print(mRenderProcessId, mRenderFrameId)) {
-                mPrintingState = PRINTING_STATE_STARTED_FROM_ONWRITE;
-            } else {
-                closeFileDescriptor();
-                mOnWriteCallback.onWriteFailed(mErrorMessage);
-                resetCallbacks();
-            }
+        int fd = destination.detachFd();
+        if (fd < 0) {
+            mOnWriteCallback.onWriteFailed(mErrorMessage);
+            resetCallbacks();
+            return;
+        }
+        // print() owns `fd` from here on, including when it throws.
+        if (mPrintable.print(
+                mRenderProcessId,
+                mRenderFrameId,
+                fd,
+                mDpi,
+                getPageWidth(),
+                getPageHeight(),
+                mPages)) {
+            mPrintingState = PRINTING_STATE_STARTED_FROM_ONWRITE;
         } else {
-            // The print job is already a pdf. Copy to destination from the provided InputStream.
-            onWriteForPdfPage(pdfInputStream, cancellationSignal);
+            mOnWriteCallback.onWriteFailed(mErrorMessage);
+            resetCallbacks();
         }
     }
 
@@ -349,7 +354,6 @@ class PrintSession implements PdfGenerator {
         if (mPrintingState != PRINTING_STATE_STARTED_FROM_ONWRITE) return;
 
         mPrintingState = PRINTING_STATE_READY;
-        closeFileDescriptor();
         if (pageCount > 0) {
             PageRange[] pageRanges = convertIntegerArrayToPageRanges(mPages, pageCount);
             assumeNonNull(mOnWriteCallback).onWriteFinished(pageRanges);
@@ -361,24 +365,18 @@ class PrintSession implements PdfGenerator {
     }
 
     private void onWriteForPdfPage(
-            final InputStream inputStream, final CancellationSignal cancellationSignal) {
+            final ParcelFileDescriptor pfd,
+            final InputStream inputStream,
+            final CancellationSignal cancellationSignal) {
         mPrintingState = PRINTING_STATE_STARTED_FROM_ONWRITE;
-        final ParcelFileDescriptor pfd = mFileDescriptor;
-        if (pfd == null) {
-            assumeNonNull(mOnWriteCallback).onWriteFailed(mErrorMessage);
-            resetCallbacks();
-            return;
-        }
 
         PostTask.postTask(
                 TaskTraits.USER_BLOCKING_MAY_BLOCK,
                 () -> {
-                    OutputStream outputStream = null;
                     boolean success = false;
                     boolean canceled = false;
-                    try {
-                        outputStream = new FileOutputStream(pfd.getFileDescriptor());
-
+                    try (OutputStream outputStream =
+                            new ParcelFileDescriptor.AutoCloseOutputStream(pfd)) {
                         int count;
                         byte[] data = new byte[BUFFER_SIZE];
                         while ((count = inputStream.read(data)) != -1
@@ -395,11 +393,8 @@ class PrintSession implements PdfGenerator {
                             if (inputStream != null) {
                                 inputStream.close();
                             }
-                            if (outputStream != null) {
-                                outputStream.close();
-                            }
                         } catch (IOException e) {
-                            Log.w(TAG, "Failed to close input or output stream.");
+                            Log.w(TAG, "Failed to close input stream.");
                         }
                     }
 
@@ -409,34 +404,22 @@ class PrintSession implements PdfGenerator {
                             () -> {
                                 if (mDestroyed) return;
                                 if (mPrintingState != PRINTING_STATE_STARTED_FROM_ONWRITE) return;
-                                closeFileDescriptor();
+                                mPrintingState = PRINTING_STATE_READY;
                                 if (finalCanceled) {
                                     assumeNonNull(mOnWriteCallback).onWriteCancelled();
                                 } else if (finalSuccess) {
-                                    mPrintingState = PRINTING_STATE_READY;
                                     assumeNonNull(mOnWriteCallback)
                                             .onWriteFinished(new PageRange[] {PageRange.ALL_PAGES});
                                 } else {
                                     assumeNonNull(mOnWriteCallback).onWriteFailed(mErrorMessage);
-                                    resetCallbacks();
                                 }
+                                resetCallbacks();
                             });
                 });
     }
 
     private void resetCallbacks() {
         mOnWriteCallback = null;
-    }
-
-    private void closeFileDescriptor() {
-        if (mFileDescriptor == null) return;
-        try {
-            mFileDescriptor.close();
-        } catch (IOException ioe) {
-            /* ignore */
-        } finally {
-            mFileDescriptor = null;
-        }
     }
 
     private static PageRange[] convertIntegerArrayToPageRanges(

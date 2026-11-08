@@ -51,7 +51,7 @@
 #include "third_party/blink/renderer/core/streams/writable_stream_transferring_optimizer.h"
 #include "third_party/blink/renderer/core/typed_arrays/array_buffer/array_buffer_contents.h"
 #include "third_party/blink/renderer/platform/bindings/v8_external_memory_accounter.h"
-#include "third_party/blink/renderer/platform/graphics/canvas_child_paint_record.h"
+#include "third_party/blink/renderer/platform/graphics/canvas_drawable_paint_record.h"
 #include "third_party/blink/renderer/platform/wtf/allocator/allocator.h"
 #include "third_party/blink/renderer/platform/wtf/allocator/partitions.h"
 #include "third_party/blink/renderer/platform/wtf/hash_map.h"
@@ -108,7 +108,7 @@ class CORE_EXPORT SerializedScriptValue
   using SharedImmutableArrayBufferContentsArray =
       Vector<ArrayBufferContents, 1>;
   using ImageBitmapContentsArray = Vector<scoped_refptr<StaticBitmapImage>, 1>;
-  using ElementImageContentsArray = Vector<CanvasChildPaintRecord, 1>;
+  using ElementImageContentsArray = Vector<CanvasDrawablePaintRecord, 1>;
   using TransferredWasmModulesArray = Vector<v8::CompiledWasmModule>;
   using MessagePortChannelArray = Vector<MessagePortChannel>;
   using StreamArray = Vector<Stream>;
@@ -228,6 +228,8 @@ class CORE_EXPORT SerializedScriptValue
     // Slow mode is intended to mitigate possible timing attacks on v8 string
     // table.
     bool slow_mode = false;
+    // When non-null, used to record UMA.
+    String histogram_variant;
   };
   v8::Local<v8::Value> Deserialize(v8::Isolate* isolate) {
     return Deserialize(isolate, DeserializeOptions());

@@ -44,6 +44,7 @@ class WindowManagementTool : public Tool {
   void Invoke(ToolCallback callback) override;
   std::string DebugString() const override;
   std::string JournalEvent() const override;
+  ActorSurfaceHandle GetTargetActorSurface() const override;
   std::unique_ptr<ObservationDelayController> GetObservationDelayer(
       ObservationDelayController::PageStabilityConfig page_stability_config)
       override;
@@ -52,7 +53,6 @@ class WindowManagementTool : public Tool {
   void UpdateTaskAfterInvoke(ActorTask& task,
                              mojom::ActionResultPtr result,
                              ToolCallback callback) const override;
-  tabs::TabHandle GetTargetTab() const override;
 
  private:
   BrowserWindowInterface* GetTargetBrowser() const;

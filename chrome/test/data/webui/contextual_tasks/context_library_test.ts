@@ -4,10 +4,13 @@
 
 import 'chrome://contextual-tasks/contextual_tasks_extension/context_library.js';
 
+import {ExtensionBrowserProxyImpl} from 'chrome://contextual-tasks/contextual_tasks_browser_proxy.js';
 import type {ContextLibraryElement} from 'chrome://contextual-tasks/contextual_tasks_extension/context_library.js';
 import type {TabInfo} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
-import {assertEquals, assertTrue} from 'chrome://webui-test/chai_assert.js';
+import {assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import {eventToPromise, microtasksFinished} from 'chrome://webui-test/test_util.js';
+
+import {TestExtensionBrowserProxy} from './test_contextual_tasks_browser_proxy.js';
 
 function createTab(tabId: number, url: string): TabInfo {
   return {
@@ -23,6 +26,7 @@ function createTab(tabId: number, url: string): TabInfo {
 
 suite('ContextLibraryTest', () => {
   let app: ContextLibraryElement;
+  let browserProxy: TestExtensionBrowserProxy;
 
   // Resolves the next time the element asks the embedder to re-measure it.
   let nextRequestResize: Promise<void>;
@@ -36,6 +40,9 @@ suite('ContextLibraryTest', () => {
 
   setup(async () => {
     document.body.innerHTML = window.trustedTypes!.emptyHTML;
+
+    browserProxy = new TestExtensionBrowserProxy();
+    ExtensionBrowserProxyImpl.setInstance(browserProxy);
 
     iframeRequestResize();
     window.requestResize = () => {
@@ -148,5 +155,104 @@ suite('ContextLibraryTest', () => {
     const items =
         app.$.faviconGroup.shadowRoot.querySelectorAll('.favicon-item');
     assertEquals(2, items.length);
+  });
+
+  test(
+      'Updates tabs and submittedTabIds when onTabContextUpdated is dispatched',
+      async () => {
+        const tabs = [
+          createTab(10, 'https://www.google.com'),
+          createTab(20, 'https://www.youtube.com'),
+        ];
+        browserProxy.callbackRouterRemote.onTabContextUpdated(tabs, [20]);
+        await browserProxy.callbackRouterRemote.$.flushForTesting();
+        await microtasksFinished();
+
+        assertEquals(2, app.tabs.length);
+        assertEquals(10, app.tabs[0]!.tabId);
+        assertEquals(20, app.tabs[1]!.tabId);
+        assertTrue(app.submittedTabIds.has(20));
+        assertFalse(app.submittedTabIds.has(10));
+        assertTrue(app.$.faviconGroup.submittedTabIds.has(20));
+
+        const items =
+            app.$.faviconGroup.shadowRoot.querySelectorAll('.favicon-item');
+        assertEquals(2, items.length);
+      });
+
+  test('Stops updating after element is disconnected', async () => {
+    app.remove();
+
+    browserProxy.callbackRouterRemote.onTabContextUpdated(
+        [createTab(10, 'https://www.google.com')], [10]);
+    await browserProxy.callbackRouterRemote.$.flushForTesting();
+    await microtasksFinished();
+
+    assertEquals(0, app.tabs.length);
+    assertEquals(0, app.submittedTabIds.size);
+  });
+
+  test(
+      'Caches default ExtensionBrowserProxyImpl on window across bundles',
+      () => {
+        app.remove();
+        delete window.__extensionBrowserProxyInstance;
+
+        const mojoGlobal = Mojo as {bindInterface: typeof Mojo.bindInterface};
+        const originalBindInterface = mojoGlobal.bindInterface;
+        mojoGlobal.bindInterface = () => {};
+        try {
+          const secondApp = document.createElement('context-library');
+          document.body.appendChild(secondApp);
+          secondApp.remove();
+
+          assertTrue(!!window.__extensionBrowserProxyInstance);
+          assertEquals(
+              window.__extensionBrowserProxyInstance,
+              ExtensionBrowserProxyImpl.getInstance());
+        } finally {
+          mojoGlobal.bindInterface = originalBindInterface;
+        }
+      });
+
+  test('Dark mode reflects attribute and updates border color', async () => {
+    app.tabs = [createTab(1, 'https://www.google.com')];
+    await microtasksFinished();
+
+    const item = app.$.faviconGroup.shadowRoot.querySelector<HTMLElement>(
+        '.favicon-item');
+    assertTrue(!!item);
+
+    assertFalse(app.darkMode);
+    assertFalse(app.hasAttribute('dark-mode'));
+    assertEquals('rgb(240, 242, 245)', getComputedStyle(item).borderColor);
+
+    app.darkMode = true;
+    await microtasksFinished();
+    assertTrue(app.hasAttribute('dark-mode'));
+    assertEquals('rgb(78, 80, 89)', getComputedStyle(item).borderColor);
+
+    app.darkMode = false;
+    await microtasksFinished();
+    assertFalse(app.hasAttribute('dark-mode'));
+  });
+
+  test('Initializes darkMode from cs=1 URL query param', async () => {
+    const originalUrl = window.location.href;
+    let darkApp;
+    try {
+      window.history.replaceState({}, '', '?cs=1');
+      darkApp = document.createElement('context-library');
+      document.body.appendChild(darkApp);
+      await microtasksFinished();
+
+      assertTrue(darkApp.darkMode);
+      assertTrue(darkApp.hasAttribute('dark-mode'));
+    } finally {
+      if (darkApp && darkApp.parentNode) {
+        darkApp.remove();
+      }
+      window.history.replaceState({}, '', originalUrl);
+    }
   });
 });

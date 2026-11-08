@@ -285,7 +285,7 @@ public class NewTabPage
         public void focusSearchBox(
                 boolean beginVoiceSearch,
                 @AutocompleteRequestType int requestType,
-                boolean showFuseboxPopup,
+                @OmniboxFocusReason int focusReason,
                 @Nullable String pastedText) {
             if (mIsDestroyed) return;
             FeedReliabilityLogger feedReliabilityLogger =
@@ -303,20 +303,14 @@ public class NewTabPage
                     feedReliabilityLogger.onOmniboxFocused();
                 }
 
-                @OmniboxFocusReason
-                int focusReason =
-                        pastedText == null
-                                ? OmniboxFocusReason.FAKE_BOX_TAP
-                                : OmniboxFocusReason.FAKE_BOX_LONG_PRESS;
                 @AutocompleteState int autocompleteState = AutocompleteState.ENABLED;
-                if (requestType == AutocompleteRequestType.AI_MODE) {
-                    focusReason = OmniboxFocusReason.NTP_AI_MODE;
-                } else if (showFuseboxPopup) {
-                    focusReason = OmniboxFocusReason.FAKE_BOX_PLUS_BUTTON_TAP;
+                if (focusReason == OmniboxFocusReason.FAKE_BOX_PLUS_BUTTON_TAP) {
                     autocompleteState =
                             OmniboxFeatures.sFocusFuseboxFromNtpPlusButton.getValue()
                                     ? AutocompleteState.ENABLED
                                     : AutocompleteState.STANDBY_NO_FOCUS;
+                } else if (focusReason == OmniboxFocusReason.NTP_GALLERY_CHIP_CLICKED) {
+                    autocompleteState = AutocompleteState.STANDBY_NO_FOCUS;
                 }
 
                 mOmniboxStub.beginInput(
@@ -1077,6 +1071,7 @@ public class NewTabPage
         SuggestionsMetrics.recordSurfaceVisible();
         GlicHelper.maybeShowGlicTaskInProgressSnackbar(
                 this, mTab.getProfile(), mActivity, GlicHelper.Caller.NEW_TAB_PAGE);
+        mNewTabPageCoordinator.recordNtpShown();
     }
 
     /** Records UMA for the NTP being hidden and the time spent on it. */
@@ -1188,7 +1183,7 @@ public class NewTabPage
     }
 
     @Override
-    public boolean supportsEdgeToEdge() {
+    public boolean supportsEdgeToEdgeOnBottom() {
         return true;
     }
 

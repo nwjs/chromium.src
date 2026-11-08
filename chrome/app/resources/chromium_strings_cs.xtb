@@ -23,6 +23,7 @@ Některé funkce možná nebudou k dispozici a změny nastavení se neuloží.</
 <translation id="1185134272377778587">O prohlížeči Chromium</translation>
 <translation id="1186645291482254714">Nechte si s prohlížečem Chromium na telefon posílat upozornění na ceny</translation>
 <translation id="1203500561924088507">Děkujeme za instalaci aplikace <ph name="BUNDLE_NAME" />. Před jejím použitím je potřeba restartovat prohlížeč.</translation>
+<translation id="1222365723190436821">Čeká se na <ph name="IMPORTANT_UPDATE" />. Aby bylo vaše prohlížení bezpečné, Chromium se aktualizuje, až budete <ph name="IDLE_DURATION" /> neaktivní.</translation>
 <translation id="1232234696885483911">Když otevřete Vyhledávání obrázků, název stránky, adresa URL a obsah, včetně souborů PDF, se automaticky odešlou na server. <ph name="LEARN_MORE" /></translation>
 <translation id="123265588161106468">Když jste přihlášeni, můžete v prohlížeči Chromium používat hesla a další položky ze svého účtu Google. Pokud to chcete změnit, přejděte do sekce Váš účet v prohlížeči Chromium.</translation>
 <translation id="1244381985120794049">Zobrazovat Gemini v Chromiu na liště s nabídkou na Macu</translation>
@@ -229,6 +230,7 @@ Některé funkce možná nebudou k dispozici a změny nastavení se neuloží.</
 <translation id="3286538390144397061">Restartovat</translation>
 <translation id="328888136576916638">Chybí klíče rozhraní Google API. Některé funkce Chromium nebudou k dispozici.</translation>
 <translation id="3296368748942286671">Po ukončení prohlížeče Chromium nechat aplikace na pozadí spuštěné</translation>
+<translation id="3300632735252839402">Chromium se aktualizuje, až budete pryč</translation>
 <translation id="3313189106987092621">Před načtením jakéhokoli webu pomocí nezabezpečeného připojení vás Chromium upozorní</translation>
 <translation id="3316771292331273802">Po zavření všech oken prohlížeče Chromium budete odhlášeni z většiny webů (s výjimkou účtu Google, pokud jste do prohlížeče Chromium přihlášeni). Pokud webům chcete umožnit pamatovat si vás, <ph name="SETTINGS_LINK" />.</translation>
 <translation id="3352986031709923790">pravý horní roh oblasti hledání: vpravo <ph name="RIGHT" /> %, nahoře <ph name="TOP" /> %</translation>
@@ -237,6 +239,7 @@ Některé funkce možná nebudou k dispozici a změny nastavení se neuloží.</
 <translation id="3387527074123400161">ChromiumOS</translation>
 <translation id="3406848076815591792">Přepnout na stávající profil Chromium?</translation>
 <translation id="3412460710772753638">Ve Správci hesel na tomto zařízení</translation>
+<translation id="3425452599984451640">Chromium se chce aktualizovat</translation>
 <translation id="3427159664004296878">Pokud chcete mít k dispozici své záložky a další položky ze zařízení <ph name="DEVICE" />, přihlaste se do prohlížeče Chromium</translation>
 <translation id="3438772217992559640">Vyhledat tuto kartu pomocí Vyhledávání obrázků</translation>
 <translation id="3455907671758333080">Využívejte Vylepšené Bezpečné prohlížení v Chromiu na telefonu</translation>
@@ -379,6 +382,7 @@ Některé funkce možná nebudou k dispozici a změny nastavení se neuloží.</
 <translation id="5074496654342756568">S Chromiem můžete mít na zařízení <ph name="DEVICE_TYPE" /> všechny vychytávky od Googlu</translation>
 <translation id="5123973130450702873">Chromium potřebuje oprávnění ke sledování vašich rukou</translation>
 <translation id="5141988424377517949">V poslední době jste nenavštívili. Prohlížeč Chromium odebral tato oprávnění: <ph name="PERMISSION_1" />, <ph name="PERMISSION_2" /> a <ph name="PERMISSION_3" />.</translation>
+<translation id="5171868502429358653">Přihlásit se do prohlížeče Chromium</translation>
 <translation id="5174969993834422967">Obvykle oznámení blokujete. Pokud tomuto webu chcete zobrazování oznámení povolit, klikněte na ikonu oznámení v pravém rohu adresního řádku.</translation>
 <translation id="5174983315706567306">Na disku není dost místa.</translation>
 <translation id="5187123684706427865">Účet v prohlížeči Chromium vyžaduje opětovné ověření</translation>
@@ -388,6 +392,7 @@ Některé funkce možná nebudou k dispozici a změny nastavení se neuloží.</
 <translation id="5249261924633168472">Otevřít odkaz v &amp;anonymním okně prohlížeče Chromium</translation>
 <translation id="5276305953263010518">Stáhněte si aplikaci Chromium a ukládejte si hesla i na cestách</translation>
 <translation id="5277894862589591112">Chcete-li změny použít, restartujte Chromium</translation>
+<translation id="5278909220224474621">Pokud tuto kartu chcete odeslat do jiného zařízení, na obou zařízeních se přihlaste do prohlížeče Chromium</translation>
 <translation id="5286907366254680517">Rozpoznáno</translation>
 <translation id="5289287148052354622">Stáhnout aplikaci Chromium</translation>
 <translation id="5294316920224716406">Při procházení v anonymním režimu vás Chromium před načtením webu pomocí nezabezpečeného připojení upozorní</translation>
@@ -757,6 +762,7 @@ Chromium nemůže vaše nastavení obnovit.</translation>
 <translation id="8648201657708811153">Google Chrome for Testing nelze nastavit jako výchozí prohlížeč.</translation>
 <translation id="8676101123715131330">Vyhledávejte pomocí prohlížeče Chromium odkudkoli</translation>
 <translation id="8697124171261953979">Také řídí, která stránka se zobrazí po spuštění prohlížeče Chromium nebo při vyhledávání v omniboxu.</translation>
+<translation id="8702213505203810093">Pokud tuto kartu chcete odeslat do jiného zařízení, přihlaste se na něm do prohlížeče Chromium</translation>
 <translation id="8704119203788522458">Toto je váš prohlížeč Chromium</translation>
 <translation id="8712637175834984815">Hotovo</translation>
 <translation id="8719993436687031146">Přihlásit se do prohlížeče Chromium?</translation>

@@ -95,6 +95,31 @@ export class CdpTargetManager {
     this.#logger = logger;
 
     this.#setEventListeners(browserCdpClient);
+    // Forward browser-level CDP events to BiDi.
+    this.#setCdpEventListeners(browserCdpClient);
+  }
+
+  /**
+   * Forward CDP events to BiDi at the browser level (global events) for
+   * sessions not associated with a BrowsingContext (e.g. the browser session
+   * and custom CDP sessions).
+   */
+  #setCdpEventListeners(cdpClient: CdpClient) {
+    cdpClient.on('*', (event, params) => {
+      // Skip non-CDP EventEmitter events.
+      if (typeof event !== 'string') {
+        return;
+      }
+      this.#eventManager.registerGlobalEvent({
+        type: 'event',
+        method: `goog:cdp.${event}`,
+        params: {
+          event,
+          params,
+          session: cdpClient.sessionId,
+        },
+      });
+    });
   }
 
   /**
@@ -165,8 +190,19 @@ export class CdpTargetManager {
 
     const detach = async () => {
       // Detaches and resumes the target suppressing errors.
-      await targetCdpClient
-        .sendCommand('Runtime.runIfWaitingForDebugger')
+      await Promise.allSettled([
+        targetCdpClient.sendCommand('Runtime.runIfWaitingForDebugger'),
+        // `tab` targets are left paused to be resumed by their child target
+        // (`CdpTarget.#unblock`). When a `tab`'s child is detached instead
+        // (e.g. a non-DevTools `other` target), resume the parent `tab` too.
+        ...(parentSessionCdpClient === this.#browserCdpClient
+          ? []
+          : [
+              parentSessionCdpClient.sendCommand(
+                'Runtime.runIfWaitingForDebugger',
+              ),
+            ]),
+      ])
         .then(() =>
           parentSessionCdpClient.sendCommand('Target.detachFromTarget', params),
         )
@@ -192,7 +228,8 @@ export class CdpTargetManager {
     // receive additional auto-attached sessions, that is very likely
     // coming from custom CDP sessions.
     if (this.#targetKeysToBeIgnoredByAutoAttach.has(targetKey)) {
-      // Return to leave the session untouched.
+      // Forward CDP events from custom sessions before leaving them untouched.
+      this.#setCdpEventListeners(targetCdpClient);
       return;
     }
     this.#targetKeysToBeIgnoredByAutoAttach.add(targetKey);
@@ -221,7 +258,18 @@ export class CdpTargetManager {
         return;
       }
       case 'page':
-      case 'iframe': {
+      case 'iframe':
+      case 'other': {
+        // DevTools windows are exposed in CDP with type `other` and a `devtools://` URL.
+        // Ignore all other `other` targets.
+        if (
+          targetInfo.type === 'other' &&
+          !targetInfo.url.startsWith('devtools://')
+        ) {
+          void detach();
+          return;
+        }
+
         const cdpTarget = this.#createCdpTarget(
           targetCdpClient,
           parentSessionCdpClient,
@@ -310,8 +358,7 @@ export class CdpTargetManager {
       }
     }
 
-    // DevTools or some other not supported by BiDi target. Just release
-    // debugger and ignore them.
+    // Target not supported by BiDi. Just release debugger and ignore it.
     void detach();
   }
 
@@ -343,10 +390,14 @@ export class CdpTargetManager {
     userContext: Browser.UserContext,
   ) {
     this.#setEventListeners(targetCdpClient);
-    this.#preloadScriptStorage.onCdpTargetCreated(
-      targetInfo.targetId,
-      userContext,
-    );
+    const isFrameTarget = CdpTarget.isFrameTarget(targetInfo.type);
+    if (isFrameTarget) {
+      // Preload scripts only apply to window realms.
+      this.#preloadScriptStorage.onCdpTargetCreated(
+        targetInfo.targetId,
+        userContext,
+      );
+    }
 
     const target = CdpTarget.create(
       targetInfo.targetId,
@@ -362,12 +413,15 @@ export class CdpTargetManager {
       userContext,
       // Pass the cached default User Agent to the new target.
       this.#defaultUserAgent,
+      targetInfo.type,
       this.#logger,
     );
 
     this.#networkStorage.onCdpTargetCreated(target);
-    this.#bluetoothProcessor.onCdpTargetCreated(target);
-    this.#speculationProcessor.onCdpTargetCreated(target);
+    if (isFrameTarget) {
+      this.#bluetoothProcessor.onCdpTargetCreated(target);
+      this.#speculationProcessor.onCdpTargetCreated(target);
+    }
 
     return target;
   }
@@ -434,11 +488,10 @@ export class CdpTargetManager {
     // This is primarily used for service and shared workers. CDP tends to not
     // signal they closed gracefully and instead says they crashed to signal
     // they are closed.
-    const realms = this.#realmStorage.findRealms({
+    // Delete (rather than just dispose) the realms so a subsequent
+    // `Target.detachedFromTarget` event does not dispose them a second time.
+    this.#realmStorage.deleteRealms({
       cdpSessionId: cdpClient.sessionId,
     });
-    for (const realm of realms) {
-      realm.dispose();
-    }
   }
 }

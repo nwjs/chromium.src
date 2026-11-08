@@ -32,10 +32,10 @@
 #include <algorithm>
 #include <memory>
 #include <optional>
+#include <ranges>
 #include <utility>
 
 #include "base/auto_reset.h"
-#include "base/containers/adapters.h"
 #include "base/dcheck_is_on.h"
 #include "base/debug/dump_without_crashing.h"
 #include "base/i18n/time_formatting.h"
@@ -2012,6 +2012,9 @@ void Document::SetContent(const String& content,
   parser_->Append(content);
   close();
 
+  if (sanitizer) {
+    sanitizer->DidParseDocument(this);
+  }
   sanitizer_ = nullptr;
 }
 
@@ -2636,7 +2639,7 @@ static void AssertLayoutTreeUpdated(
     if (auto* element = DynamicTo<Element>(node)) {
       if (element->ChildStyleRecalcBlockedByDisplayLock() ||
           (allow_dirty_container_subtrees && element->GetLayoutObject() &&
-           element->GetLayoutObject()->StyleRef().CanMatchSizeContainerQueries(
+           element->GetLayoutObject()->Style().CanMatchSizeContainerQueries(
                *element))) {
         node = FlatTreeTraversal::NextSkippingChildren(*node);
         continue;
@@ -3440,6 +3443,7 @@ void Document::Shutdown() {
     GetPage()->GetChromeClient().AttachRootLayer(nullptr, GetFrame());
 
   MutationObserver::CleanSlotChangeList(*this);
+  MutationObserver::CleanFocusResetList(*this);
 
   hover_element_ = nullptr;
   active_element_ = nullptr;
@@ -3702,30 +3706,25 @@ DocumentParser* Document::CreateParser() {
         *html_document, parser_sync_policy_, registry, sanitizer_.Get());
   }
 
-  data_->using_rust_xml_parser_ = false;
+  data_->xml_parser_start_time_ = base::TimeTicks::Now();
 
-  // Use the Rust XML parser for situations non-XSLT situations: XMLHttpRequest,
+  // Use the Rust XML parser when XMLParsingRust is enabled, or when
+  // XMLRustForNonXslt is enabled for non-XSLT situations: XMLHttpRequest,
   // JS DOMParser API, where no dom_window_ is available, or for SVG images.
-  if (!GetFrame() || IsSVGDocument()) {
-    // Measure this for now only in non-frame = non-XSLT situations, so that
-    // when we compare the UMA metrics of Rust vs. non-Rust for
-    // XMLRustForNonXsltEnabled(), we're looking at roughly the same type and
-    // length of documents on average.
-    data_->xml_parser_start_time_ = base::TimeTicks::Now();
+  data_->using_rust_xml_parser_ =
+      RuntimeEnabledFeatures::XMLParsingRustEnabled() ||
+      (RuntimeEnabledFeatures::XMLRustForNonXsltEnabled() &&
+       (!GetFrame() || IsSVGDocument()));
 
-    if (RuntimeEnabledFeatures::XMLRustForNonXsltEnabled()) {
-      data_->using_rust_xml_parser_ = true;
-      return MakeGarbageCollected<XMLDocumentParserRs>(*this, View());
-    }
-  }
-
-  // FIXME: this should probably pass the frame instead
-  if (RuntimeEnabledFeatures::XMLParsingRustEnabled()) {
-    data_->using_rust_xml_parser_ = true;
+  if (data_->using_rust_xml_parser_) {
     return MakeGarbageCollected<XMLDocumentParserRs>(*this, View());
-  } else {
-    return MakeGarbageCollected<XMLDocumentParser>(*this, View());
   }
+
+  return MakeGarbageCollected<XMLDocumentParser>(*this, View());
+}
+
+bool Document::UsingRustXmlParserForTesting() const {
+  return data_->using_rust_xml_parser_;
 }
 
 bool Document::IsFrameSet() const {
@@ -5828,11 +5827,24 @@ void Document::RemoveFocusedElementOfSubtree(Node& node,
       // up with the new node's position in the DOM.
       SetShouldUpdateSelectionAfterLayout(true);
     } else {
+      // https://html.spec.whatwg.org/C/#node-remove-focus-fixup
+      // "If the has focus steps given node's node document return true, then
+      // set document's has pending focus reset to true." This has to be
+      // computed before clearing the focused element.
+      const bool set_pending_focus_reset =
+          RuntimeEnabledFeatures::FocusResetEventEnabled() && hasFocus();
       BlurEventBehavior blur_event_behavior =
           RuntimeEnabledFeatures::OmitBlurEventOnElementRemovalEnabled()
               ? BlurEventBehavior::kDropWhenRemoving
               : BlurEventBehavior::kFire;
       ClearFocusedElement(blur_event_behavior);
+      // SetFocusedElement() clears the flag, so set it afterwards. If a
+      // (legacy) blur handler moved focus elsewhere, the focused area is no
+      // longer the viewport, which is equivalent to the spec's "focus update
+      // steps" having cleared the flag.
+      if (set_pending_focus_reset && !focused_element_) {
+        SetHasPendingFocusReset();
+      }
     }
   }
 }
@@ -5921,6 +5933,12 @@ bool Document::SetFocusedElement(Element* new_focused_element,
     if (NodeChildRemovalTracker::IsBeingRemoved(*new_focused_element))
       return true;
   }
+
+  // https://html.spec.whatwg.org/C/#focus-update-steps
+  // "For each entry of old chain and new chain, if entry is a Document object,
+  // then set entry's has pending focus reset to false." Focus is being moved
+  // explicitly, so there is no need to report an earlier focus reset.
+  ClearHasPendingFocusReset();
 
   if (focused_element_ == new_focused_element) {
     // Even though `focused_element_` hasn't changed, `focus_options_` may have,
@@ -6139,6 +6157,35 @@ void Document::ClearFocusedElement(BlurEventBehavior blur_event_behavior) {
                      mojom::blink::FocusType::kNone, nullptr);
   params.blur_event_behavior = blur_event_behavior;
   SetFocusedElement(nullptr, params);
+}
+
+void Document::SetHasPendingFocusReset() {
+  DCHECK(RuntimeEnabledFeatures::FocusResetEventEnabled());
+  has_pending_focus_reset_ = true;
+  // Like slotchange, focusreset is fired from the mutation observer microtask,
+  // so it's dispatched before the next rendering update and doesn't depend on
+  // the document being rendered.
+  MutationObserver::EnqueueFocusReset(*this);
+}
+
+void Document::FireFocusResetEventIfNeeded() {
+  DCHECK(RuntimeEnabledFeatures::FocusResetEventEnabled());
+  if (!std::exchange(has_pending_focus_reset_, false) || !IsActive()) {
+    return;
+  }
+  // https://github.com/whatwg/html/pull/13050
+  // Fire focusreset only if the focused area of the document is still its
+  // viewport. The focused area is the viewport if there's no focused element
+  // and focus isn't inside a nested frame (in which case the focused area
+  // would be the frame owner element).
+  if (focused_element_) {
+    return;
+  }
+  if (GetFrame() && GetPage() &&
+      GetPage()->GetFocusController().FocusedFrameOwnerElement(*GetFrame())) {
+    return;
+  }
+  DispatchEvent(*Event::Create(event_type_names::kFocusreset));
 }
 
 void Document::UpdateFocusgroupLastFocused(Element& focused_element) {
@@ -8043,7 +8090,7 @@ void Document::FinishedParsing() {
   SetParsingState(kInDOMContentLoaded);
   DocumentParserTiming::From(*this).MarkParserStop();
 
-  if (RuntimeEnabledFeatures::WebMCPEnabled(GetExecutionContext())) {
+  if (ModelContext::IsDeclarativeWebMCPEnabled(GetExecutionContext())) {
     if (auto* model_context = ModelContextSupplement::GetIfExists(*this)) {
       model_context->DidFinishParsing();
     }
@@ -8783,7 +8830,7 @@ std::optional<Document::TopLayerReason> Document::IsScheduledForTopLayerRemoval(
 }
 
 HTMLDialogElement* Document::ActiveModalDialog() const {
-  for (const auto& element : base::Reversed(top_layer_elements_)) {
+  for (const auto& element : std::views::reverse(top_layer_elements_)) {
     if (auto* dialog = DynamicTo<HTMLDialogElement>(*element)) {
       if (dialog->IsModal()) {
         // Modal dialogs transitioning out after being closed are not considered
@@ -10285,9 +10332,6 @@ Document* Document::parseHTMLInternal(ExecutionContext* context,
   doc->setAllowDeclarativeShadowRoots(true);
   doc->SetContent(html, sanitizer);
   doc->SetMimeType(keywords::kTextHtml);
-  if (sanitizer) {
-    sanitizer->DidParseDocument(doc);
-  }
   return doc;
 }
 
@@ -10304,11 +10348,8 @@ Document* Document::parseHTMLUnsafe(ExecutionContext* context,
     return nullptr;
   }
 
-  auto* streaming_sanitizer =
-      RuntimeEnabledFeatures::StreamingSanitizerEnabled()
-          ? SanitizerAPI::CreateStreamingSanitizer(
-                Sanitizer::Mode::kUnsafe, fragment_options, exception_state)
-          : nullptr;
+  auto* streaming_sanitizer = SanitizerAPI::CreateStreamingSanitizer(
+      Sanitizer::Mode::kUnsafe, fragment_options, exception_state);
 
   if (exception_state.HadException()) {
     return nullptr;
@@ -10316,15 +10357,6 @@ Document* Document::parseHTMLUnsafe(ExecutionContext* context,
 
   Document* doc = parseHTMLInternal(context, compliant_html,
                                     streaming_sanitizer, exception_state);
-  if (exception_state.HadException()) {
-    return nullptr;
-  }
-  if (!streaming_sanitizer) {
-    SanitizerAPI::SanitizeInternal(Sanitizer::Mode::kUnsafe,
-                                   /*context_element*/ doc,
-                                   /*root_element*/ doc, fragment_options,
-                                   exception_state);
-  }
   if (exception_state.HadException()) {
     return nullptr;
   }
@@ -10346,24 +10378,14 @@ Document* Document::parseHTMLUnsafe(ExecutionContext* context,
     return nullptr;
   }
 
-  auto* streaming_sanitizer =
-      RuntimeEnabledFeatures::StreamingSanitizerEnabled()
-          ? SanitizerAPI::CreateStreamingSanitizer(
-                Sanitizer::Mode::kUnsafe, fragment_options, exception_state)
-          : nullptr;
+  auto* streaming_sanitizer = SanitizerAPI::CreateStreamingSanitizer(
+      Sanitizer::Mode::kUnsafe, fragment_options, exception_state);
 
   if (exception_state.HadException()) {
     return nullptr;
   }
   Document* doc = parseHTMLInternal(context, compliant_html,
                                     streaming_sanitizer, exception_state);
-  if (!RuntimeEnabledFeatures::StreamingSanitizerEnabled()) {
-    CHECK(!streaming_sanitizer);
-    SanitizerAPI::SanitizeInternal(Sanitizer::Mode::kUnsafe,
-                                   /*context_element*/ doc,
-                                   /*root_element*/ doc, fragment_options,
-                                   exception_state);
-  }
   if (exception_state.HadException()) {
     return nullptr;
   }
@@ -10377,20 +10399,16 @@ Document* Document::parseHTMLUnsafe(ExecutionContext* context,
                                     ExceptionState& exception_state) {
   CHECK(RuntimeEnabledFeatures::TrustedTypesCreateParserOptionsEnabled());
   UseCounter::Count(context, WebFeature::kHTMLUnsafeMethods);
-  String compliant_html = TrustedTypesCheckForHTML(
-      html, context, trusted_types_names::kDocument,
+  FragmentParserOptions fragment_options(options);
+  String compliant_html = TrustedTypesCheckForFragment(
+      html, fragment_options, context, trusted_types_names::kDocument,
       trusted_types_names::kParseHTMLUnsafe, exception_state);
   if (exception_state.HadException()) {
     return nullptr;
   }
 
-  FragmentParserOptions fragment_options(options);
-
-  auto* streaming_sanitizer =
-      RuntimeEnabledFeatures::StreamingSanitizerEnabled()
-          ? SanitizerAPI::CreateStreamingSanitizer(
-                Sanitizer::Mode::kUnsafe, fragment_options, exception_state)
-          : nullptr;
+  auto* streaming_sanitizer = SanitizerAPI::CreateStreamingSanitizer(
+      Sanitizer::Mode::kUnsafe, fragment_options, exception_state);
 
   if (exception_state.HadException()) {
     return nullptr;
@@ -10398,15 +10416,6 @@ Document* Document::parseHTMLUnsafe(ExecutionContext* context,
 
   Document* doc = parseHTMLInternal(context, compliant_html,
                                     streaming_sanitizer, exception_state);
-  if (exception_state.HadException()) {
-    return nullptr;
-  }
-  if (!streaming_sanitizer) {
-    SanitizerAPI::SanitizeInternal(Sanitizer::Mode::kUnsafe,
-                                   /*context_element*/ doc,
-                                   /*root_element*/ doc, fragment_options,
-                                   exception_state);
-  }
   if (exception_state.HadException()) {
     return nullptr;
   }
@@ -10419,20 +10428,13 @@ Document* Document::parseHTML(ExecutionContext* context,
                               SetHTMLOptions* options,
                               ExceptionState& exception_state) {
   CHECK(RuntimeEnabledFeatures::SanitizerAPIEnabled());
-  auto* streaming_sanitizer =
-      RuntimeEnabledFeatures::StreamingSanitizerEnabled()
-          ? SanitizerAPI::CreateStreamingSanitizer(
-                Sanitizer::Mode::kSafe, FragmentParserOptions(options),
-                exception_state)
-          : nullptr;
+  auto* streaming_sanitizer = SanitizerAPI::CreateStreamingSanitizer(
+      Sanitizer::Mode::kSafe, FragmentParserOptions(options), exception_state);
+  if (exception_state.HadException()) {
+    return nullptr;
+  }
   Document* doc =
       parseHTMLInternal(context, html, streaming_sanitizer, exception_state);
-  if (!streaming_sanitizer) {
-    SanitizerAPI::SanitizeInternal(
-        Sanitizer::Mode::kSafe,
-        /*context_element*/ doc, /*root_element*/ doc,
-        FragmentParserOptions(options), exception_state);
-  }
   if (exception_state.HadException()) {
     return nullptr;
   }

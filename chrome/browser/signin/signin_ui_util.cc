@@ -153,11 +153,14 @@ SigninUiDelegate* GetSigninUiDelegate() {
 }  // namespace
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
-void ShowCrossDeviceSigninQrBubble(BrowserWindowInterface* browser,
-                                   GURL qr_code_url,
-                                   base::OnceClosure closing_callback) {
+void ShowCrossDeviceSigninQrBubble(
+    BrowserWindowInterface* browser,
+    GURL qr_code_url,
+    base::OnceClosure closing_callback,
+    CrossDeviceSigninPromoEntryPoint entry_point) {
   GetSigninUiDelegate()->ShowCrossDeviceSigninQrBubble(
-      browser, std::move(qr_code_url), std::move(closing_callback));
+      browser, std::move(qr_code_url), std::move(closing_callback),
+      entry_point);
 }
 #endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
 
@@ -367,8 +370,7 @@ void EnableSyncFromMultiAccountPromo(Profile* profile,
   // Aborting the sync confirmation for a secondary account reverts the original
   // primary account as primary, and keeps the secondary account.
   bool is_sync_promo =
-      access_point ==
-          signin_metrics::AccessPoint::kAvatarBubbleSignInWithSyncPromo ||
+      access_point == signin_metrics::AccessPoint::kProfileMenuPrimaryButton ||
       access_point == signin_metrics::AccessPoint::kSettings ||
       access_point == signin_metrics::AccessPoint::kSettingsYourSavedInfo;
   TurnSyncOnHelper::SigninAbortedMode signin_aborted_mode =

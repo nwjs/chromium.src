@@ -62,6 +62,10 @@
 #include "extensions/common/manifest.h"
 #include "ui/base/l10n/l10n_util.h"
 
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
+#include "chrome/browser/extensions/policy_dse_ntp_override_metrics_reporter.h"
+#endif
+
 #if BUILDFLAG(ENABLE_EXTENSIONS)
 #include "chrome/browser/web_applications/preinstalled_app_install_features.h"
 #endif
@@ -156,12 +160,12 @@ ExternalProviderImpl::ExternalProviderImpl(
       loader_(loader),
       profile_(profile),
       creation_flags_(creation_flags) {
-  DCHECK(profile_);
+  CHECK(profile_, base::NotFatalUntil::M161);
   loader_->Init(this);
 }
 
 ExternalProviderImpl::~ExternalProviderImpl() {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M161);
   loader_->OwnerShutdown();
 }
 
@@ -171,7 +175,7 @@ void ExternalProviderImpl::VisitRegisteredExtension() {
 }
 
 void ExternalProviderImpl::SetPrefs(base::DictValue prefs) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M161);
 
   // Check if the service is still alive. It is possible that it went
   // away while |loader_| was working on the FILE thread.
@@ -193,7 +197,7 @@ void ExternalProviderImpl::SetPrefs(base::DictValue prefs) {
 }
 
 void ExternalProviderImpl::TriggerOnExternalExtensionFound() {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M161);
 
   // Check if the service is still alive. It is possible that it went
   // away while |loader_| was working on the FILE thread. The prefs can be
@@ -221,7 +225,7 @@ void ExternalProviderImpl::NotifyServiceOnExternalExtensionsFound() {
 }
 
 void ExternalProviderImpl::UpdatePrefs(base::DictValue prefs) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M161);
   CHECK(allow_updates_);
 
   // Check if the service is still alive. It is possible that it went
@@ -280,6 +284,10 @@ void ExternalProviderImpl::RetrieveExtensionsFromPrefs(
 
     if (is_download_policy_provider &&
         extension_management->IsExtensionBlockedByLowTrust(extension_id)) {
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
+      PolicyDseNtpOverrideMetricsReporter::LogBlockAction(
+          LowTrustPolicyBlockAction::kSkippedDownload);
+#endif
       LOG_POLICY(INFO, POLICY_PROCESSING)
           << "[BlockLowTrustExtension] Skipped update download for policy "
              "extension "
@@ -588,7 +596,7 @@ bool ExternalProviderImpl::IsReady() const {
 
 bool ExternalProviderImpl::HasExtension(
     const std::string& id) const {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M161);
   CHECK(prefs_);
   CHECK(ready_);
   return prefs_->contains(id);
@@ -597,7 +605,7 @@ bool ExternalProviderImpl::HasExtension(
 bool ExternalProviderImpl::HasExtensionWithLocation(
     const std::string& id,
     mojom::ManifestLocation location) const {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M161);
   CHECK(prefs_);
   CHECK(ready_);
   const base::DictValue* dict = prefs_->FindDict(id);
@@ -621,7 +629,7 @@ bool ExternalProviderImpl::GetExtensionDetails(
     const std::string& id,
     ManifestLocation* location,
     std::unique_ptr<base::Version>* version) const {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M161);
   CHECK(prefs_);
   CHECK(ready_);
   const base::DictValue* dict = prefs_->FindDict(id);
@@ -732,7 +740,7 @@ void ExternalProviderImpl::CreateExternalProviders(
 
   policy::BrowserPolicyConnectorAsh* const connector =
       g_browser_process->platform_part()->browser_policy_connector_ash();
-  DCHECK(connector);
+  CHECK(connector, base::NotFatalUntil::M161);
   bool is_chrome_os_public_session = false;
   const user_manager::User* user =
       ash::ProfileHelper::Get()->GetUserByProfile(profile);

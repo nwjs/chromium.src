@@ -13,8 +13,6 @@ namespace dictation {
 
 BASE_FEATURE(kDictation, base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kDictationRefocusBeforeCommit, base::FEATURE_ENABLED_BY_DEFAULT);
-
 const base::FeatureParam<bool> kDictationEvalMode{&kDictation, "eval_mode",
                                                   false};
 
@@ -34,9 +32,12 @@ const base::FeatureParam<bool> kSessionEndsOnStreamEnd{
     &kDictation, "session_ends_on_stream_end", true};
 
 const base::FeatureParam<base::TimeDelta> kAutoSessionEndDelay{
-    &kDictation, "auto_session_end_delay", base::Milliseconds(750)};
+    &kDictation, "auto_session_end_delay", base::Milliseconds(300)};
 
 const base::FeatureParam<std::string> kDictationConnectorTag{
     &kDictation, "connector_tag", ""};
+
+const base::FeatureParam<std::string> kPopulateEditContextHosts{
+    &kDictation, "populate_edit_context_hosts", "docs.google.com"};
 
 }  // namespace dictation

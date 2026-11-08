@@ -42,7 +42,8 @@
 #include "components/keep_alive_registry/keep_alive_registry.h"
 #include "components/keep_alive_registry/keep_alive_types.h"
 #include "components/keep_alive_registry/scoped_keep_alive.h"
-#include "components/ntp_tiles/pref_names.h"
+#include "components/ntp_tiles/custom_links_manager.h"
+#include "components/ntp_tiles/most_visited_sites.h"
 #include "components/omnibox/browser/aim_eligibility_service.h"
 #include "components/omnibox/browser/autocomplete_classifier.h"
 #include "components/omnibox/browser/autocomplete_match.h"
@@ -191,6 +192,19 @@ SkRegion ComputeDraggableRegion(
   non_draggable_region.setRects(non_draggable_rects);
   draggable_region.op(non_draggable_region, SkRegion::kDifference_Op);
   return draggable_region;
+}
+
+gfx::Rect AdjustBoundsToWorkArea(gfx::Rect bounds,
+                                 const gfx::Point& display_reference_point) {
+  if (const display::Screen* const screen = display::Screen::Get()) {
+    const display::Display display =
+        screen->GetDisplayNearestPoint(display_reference_point);
+    const gfx::Rect work_area = display.work_area();
+    if (!work_area.IsEmpty()) {
+      bounds.AdjustToFit(work_area);
+    }
+  }
+  return bounds;
 }
 
 class OmniboxEverywhereContentsWrapper
@@ -342,18 +356,13 @@ void OmniboxEverywhereUIManager::ShowForProfile(Profile* profile,
           base::BindRepeating(
               &OmniboxEverywhereUIManager::OnMostVisitedPrefChanged,
               base::Unretained(this)));
-      profile_pref_change_registrar_.Add(
-          ntp_tiles::prefs::kCustomLinksList,
+      ntp_tiles::MostVisitedSites::AddCustomLinksObserver(
+          profile_pref_change_registrar_, ntp_tiles::CustomLinksScope::kDesktop,
           base::BindRepeating(
               &OmniboxEverywhereUIManager::OnMostVisitedPrefChanged,
               base::Unretained(this)));
-      profile_pref_change_registrar_.Add(
-          ntp_tiles::prefs::kCustomLinksInitialized,
-          base::BindRepeating(
-              &OmniboxEverywhereUIManager::OnMostVisitedPrefChanged,
-              base::Unretained(this)));
-      profile_pref_change_registrar_.Add(
-          ntp_tiles::prefs::kEnterpriseShortcutsPolicyList,
+      ntp_tiles::MostVisitedSites::AddEnterpriseShortcutsObserver(
+          profile_pref_change_registrar_,
           base::BindRepeating(
               &OmniboxEverywhereUIManager::OnMostVisitedPrefChanged,
               base::Unretained(this)));
@@ -602,6 +611,11 @@ void OmniboxEverywhereUIManager::ActivateAndFocus() {
   is_demoted_ = false;
   if (widget_->IsMinimized()) {
     widget_->Restore();
+    if (pending_auto_resize_size_.has_value()) {
+      const gfx::Size size = *pending_auto_resize_size_;
+      pending_auto_resize_size_.reset();
+      ResizeDueToAutoResize(web_contents(), size);
+    }
   }
 #if BUILDFLAG(IS_MAC)
   widget_->SetCanAppearInExistingFullscreenSpaces(true);
@@ -818,6 +832,7 @@ void OmniboxEverywhereUIManager::CleanUpWidget() {
   is_screenshare_disclosure_open_ = false;
   is_permission_prompt_open_ = false;
   is_dragging_ = false;
+  is_adjusting_bounds_ = false;
   pending_auto_resize_size_.reset();
   draggable_region_.reset();
   region_select_overlay_.reset();
@@ -906,6 +921,11 @@ void OmniboxEverywhereUIManager::OnWidgetShowStateChanged(
     return;
   }
   if (!widget_->IsMinimized()) {
+    if (pending_auto_resize_size_.has_value()) {
+      const gfx::Size size = *pending_auto_resize_size_;
+      pending_auto_resize_size_.reset();
+      ResizeDueToAutoResize(web_contents(), size);
+    }
     if (std::exchange(is_demoted_, false)) {
       MaybeShowLensPromo();
     }
@@ -1008,6 +1028,26 @@ void OmniboxEverywhereUIManager::OnWidgetClosed(
   CleanUpWidget();
 }
 
+void OmniboxEverywhereUIManager::AdjustWidgetBoundsToWorkArea() {
+  if (is_closing_ || is_adjusting_bounds_ || !widget_ || is_dragging_ ||
+      widget_->IsMinimized()) {
+    return;
+  }
+  const gfx::Rect current_bounds = widget_->GetWindowBoundsInScreen();
+  const gfx::Rect adjusted_bounds =
+      AdjustBoundsToWorkArea(current_bounds, current_bounds.CenterPoint());
+  if (adjusted_bounds != current_bounds) {
+    base::AutoReset<bool> adjusting_reset(&is_adjusting_bounds_, true);
+    widget_->SetBounds(adjusted_bounds);
+  }
+}
+
+void OmniboxEverywhereUIManager::OnWidgetBoundsChanged(
+    views::Widget* widget,
+    const gfx::Rect& new_bounds) {
+  AdjustWidgetBoundsToWorkArea();
+}
+
 void OmniboxEverywhereUIManager::OnWidgetUserDragStarted(
     views::Widget* widget) {
   is_dragging_ = true;
@@ -1016,23 +1056,11 @@ void OmniboxEverywhereUIManager::OnWidgetUserDragStarted(
 void OmniboxEverywhereUIManager::OnWidgetUserDragEnded(views::Widget* widget) {
   is_dragging_ = false;
   if (pending_auto_resize_size_.has_value()) {
-    gfx::Size size = *pending_auto_resize_size_;
+    const gfx::Size size = *pending_auto_resize_size_;
     pending_auto_resize_size_.reset();
     ResizeDueToAutoResize(web_contents(), size);
   }
-  display::Screen* screen = display::Screen::Get();
-  if (widget && screen) {
-    gfx::Rect bounds = widget->GetWindowBoundsInScreen();
-    display::Display display =
-        screen->GetDisplayNearestPoint(bounds.CenterPoint());
-    gfx::Rect work_area = display.work_area();
-    if (!work_area.IsEmpty()) {
-      bounds.AdjustToFit(work_area);
-      if (bounds != widget->GetWindowBoundsInScreen()) {
-        widget->SetBounds(bounds);
-      }
-    }
-  }
+  AdjustWidgetBoundsToWorkArea();
 }
 
 void OmniboxEverywhereUIManager::CloseUI() {
@@ -1053,7 +1081,7 @@ void OmniboxEverywhereUIManager::ResizeDueToAutoResize(
   if (!widget_) {
     return;
   }
-  if (is_dragging_ || is_screenshare_picker_open_) {
+  if (is_dragging_ || is_screenshare_picker_open_ || widget_->IsMinimized()) {
     pending_auto_resize_size_ = new_size;
     return;
   }
@@ -1063,20 +1091,24 @@ void OmniboxEverywhereUIManager::ResizeDueToAutoResize(
        new_size.width() > GetPopupFixedWidth())
           ? GetPopupExpandedFixedWidth()
           : GetPopupFixedWidth();
-  gfx::Size target_size(target_width,
-                        std::max(new_size.height(), kAutoResizeMinHeight));
+  const gfx::Size target_size(
+      target_width, std::max(new_size.height(), kAutoResizeMinHeight));
   if (widget_->GetSize() != target_size) {
+    const gfx::Rect current_bounds = widget_->GetWindowBoundsInScreen();
+    gfx::Rect bounds = current_bounds;
     if (omnibox::kOmniboxEverywhereDynamicSizingParam.Get()) {
       // Shift `x` by half the width delta so the popup expands and collapses
       // symmetrically from its horizontal center rather than growing only to
       // the right.
-      gfx::Rect bounds = widget_->GetWindowBoundsInScreen();
       bounds.set_x(bounds.x() - (target_size.width() - bounds.width()) / 2);
-      bounds.set_size(target_size);
-      widget_->SetBounds(bounds);
-      return;
     }
-    widget_->SetSize(target_size);
+    bounds.set_size(target_size);
+    const gfx::Rect adjusted_bounds =
+        AdjustBoundsToWorkArea(bounds, current_bounds.CenterPoint());
+    if (adjusted_bounds != current_bounds) {
+      base::AutoReset<bool> adjusting_reset(&is_adjusting_bounds_, true);
+      widget_->SetBounds(adjusted_bounds);
+    }
   }
 }
 

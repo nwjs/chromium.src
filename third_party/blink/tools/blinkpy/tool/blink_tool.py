@@ -37,7 +37,6 @@ import optparse
 import sys
 from concurrent.futures import ThreadPoolExecutor
 
-# pylint: disable=cyclic-import; `rebaseline_cl -> rebaseline` false positive
 from blinkpy.common.host import Host
 from blinkpy.tool.commands.analyze_baselines import AnalyzeBaselines
 from blinkpy.tool.commands.command import HelpPrintingOptionParser
@@ -64,7 +63,8 @@ class BlinkTool(Host):
             action='store_true',
             dest='verbose',
             default=False,
-            help='enable all logging'),
+            help='enable all logging',
+        ),
     ]
 
     def __init__(self, path):
@@ -85,7 +85,7 @@ class BlinkTool(Host):
         self.commands.append(self.help_command)
 
     def __reduce__(self):
-        return (self.__class__, (self._path, ))
+        return (self.__class__, (self._path,))
 
     def main(self, argv=None):
         argv = argv or sys.argv
@@ -96,8 +96,7 @@ class BlinkTool(Host):
 
         command = self.command_by_name(command_name) or self.help_command
         if not command:
-            option_parser.error('%s is not a recognized command' %
-                                command_name)
+            option_parser.error('%s is not a recognized command' % command_name)
 
         command.set_option_parser(option_parser)
         (options, args) = command.parse_args(args)
@@ -120,15 +119,14 @@ class BlinkTool(Host):
             return (None, args[:])
 
         command = args[command_index]
-        return (command, args[:command_index] + args[command_index + 1:])
+        return (command, args[:command_index] + args[command_index + 1 :])
 
     def _create_option_parser(self):
         usage = 'Usage: %prog [options] COMMAND [ARGS]'
         name = optparse.OptionParser().get_prog_name()
         return HelpPrintingOptionParser(
-            epilog_method=self.help_command.help_epilog,
-            prog=name,
-            usage=usage)
+            epilog_method=self.help_command.help_epilog, prog=name, usage=usage
+        )
 
     def _add_global_options(self, option_parser):
         global_options = self.global_options or []

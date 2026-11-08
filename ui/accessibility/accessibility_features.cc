@@ -35,12 +35,6 @@ bool IsAccessibilityExposeSummaryAsHeadingEnabled() {
       ::features::kAccessibilityExposeSummaryAsHeading);
 }
 
-BASE_FEATURE(kAccessibilityBlockFlowIterator, base::FEATURE_ENABLED_BY_DEFAULT);
-bool IsAccessibilityBlockFlowIteratorEnabled() {
-  return base::FeatureList::IsEnabled(
-      ::features::kAccessibilityBlockFlowIterator);
-}
-
 BASE_FEATURE(kAccessibilityPruneRedundantInlineConnectivity,
              base::FEATURE_DISABLED_BY_DEFAULT);
 bool IsAccessibilityPruneRedundantInlineConnectivityEnabled() {
@@ -277,6 +271,11 @@ bool IsAccessibilityGoogleTtsAutomaticReconnectEnabled() {
       ::features::kAccessibilityGoogleTtsAutomaticReconnect);
 }
 
+BASE_FEATURE(kAccessibilityHoverText, base::FEATURE_DISABLED_BY_DEFAULT);
+bool IsAccessibilityHoverTextEnabled() {
+  return base::FeatureList::IsEnabled(::features::kAccessibilityHoverText);
+}
+
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
 #if BUILDFLAG(IS_ANDROID)
@@ -444,6 +443,11 @@ BASE_FEATURE(kReadAnythingDistillerRefactor, base::FEATURE_DISABLED_BY_DEFAULT);
 bool IsReadAnythingDistillerRefactorEnabled() {
   return base::FeatureList::IsEnabled(
       ::features::kReadAnythingDistillerRefactor);
+}
+
+BASE_FEATURE(kImmersiveReadAnythingPrint, base::FEATURE_DISABLED_BY_DEFAULT);
+bool IsImmersiveReadAnythingPrintEnabled() {
+  return base::FeatureList::IsEnabled(::features::kImmersiveReadAnythingPrint);
 }
 
 // This feature is only used in tests and must not be enabled by default.

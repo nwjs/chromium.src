@@ -159,12 +159,6 @@ BASE_DECLARE_FEATURE(kCleanupPersistedTabContexts);
 // Returns true if persisted tab contexts cleanup is enabled.
 bool IsCleanupPersistedTabContextsEnabled();
 
-// Feature flag for the automatic Gemini promo shown on navigation.
-BASE_DECLARE_FEATURE(kGeminiNavigationPromo);
-
-// Returns true if the Gemini navigation promo is enabled.
-bool IsGeminiNavigationPromoEnabled();
-
 // Feature flag to enable zero-state suggestions.
 BASE_DECLARE_FEATURE(kZeroStateSuggestions);
 
@@ -317,6 +311,18 @@ extern const char kGeminiActorBackgroundingParam[];
 // Returns true if backgrounding for Gemini Actor is enabled.
 bool IsGeminiActorBackgroundingEnabled();
 
+// Parameter for the interval between JS heartbeat pings that keep controlled
+// WebState WebContent processes alive in the background. The default, 400ms,
+// was found to be the sweet spot for keeping renderer processes alive and
+// accepting IPC messages (otherwise they drop their keep-alive assertions after
+// about 1 second of inactivity).
+extern const char
+    kGeminiActorBackgroundWebStateKeepAliveHeartbeatIntervalParam[];
+
+// Returns the interval between JS heartbeat pings that keep controlled WebState
+// WebContent processes alive in the background.
+base::TimeDelta GetGeminiActorBackgroundWebStateKeepAliveHeartbeatInterval();
+
 // Enables the GeminiUnaryMigration feature.
 BASE_DECLARE_FEATURE(kGeminiUnaryMigration);
 
@@ -372,11 +378,6 @@ BASE_DECLARE_FEATURE(kAppSwitcherAISummarization);
 
 // Returns true if App Switcher AI summarization is enabled.
 bool IsAppSwitcherAISummarizationEnabled();
-
-// Returns true if App Switcher AI summarization external URL testing is
-// enabled. Requires both `kAppSwitcherAISummarization` feature and the
-// experimental test flag to be enabled.
-bool IsAppSwitcherAISummarizationTestingExternalURLEnabled();
 
 #pragma mark - Debugging Features
 

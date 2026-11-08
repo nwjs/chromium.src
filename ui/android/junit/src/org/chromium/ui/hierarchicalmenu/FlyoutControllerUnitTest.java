@@ -24,11 +24,14 @@ import static org.chromium.ui.hierarchicalmenu.HierarchicalMenuTestUtils.MENU_IT
 import static org.chromium.ui.hierarchicalmenu.HierarchicalMenuTestUtils.SUBMENU_PROVIDER;
 import static org.chromium.ui.hierarchicalmenu.HierarchicalMenuTestUtils.TITLE;
 
+import android.app.Activity;
 import android.content.Context;
-import android.os.Handler;
 import android.os.Looper;
 import android.view.View;
 import android.view.View.OnClickListener;
+import android.view.accessibility.AccessibilityEvent;
+import android.view.accessibility.AccessibilityManager;
+import android.widget.ArrayAdapter;
 import android.widget.ListView;
 
 import org.junit.Assert;
@@ -40,6 +43,8 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
+import org.robolectric.Robolectric;
+import org.robolectric.shadows.ShadowAccessibilityManager;
 import org.robolectric.shadows.ShadowLooper;
 
 import org.chromium.base.ContextUtils;
@@ -49,6 +54,7 @@ import org.chromium.ui.hierarchicalmenu.HierarchicalMenuController.SubmenuHeader
 import org.chromium.ui.modelutil.MVCListAdapter.ListItem;
 import org.chromium.ui.modelutil.PropertyModel;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /** Unit tests for {@link FlyoutController}. */
@@ -65,9 +71,9 @@ public class FlyoutControllerUnitTest {
     @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
 
     @Mock private OnClickListener mItemClickListener;
-    @Mock private ListView mListView;
     @Mock private FlyoutHandler<Object> mFlyoutHandler;
 
+    private ListView mListView;
     private FlyoutController<Object> mFlyoutController;
     private View.OnScrollChangeListener mMainPopupScrollListener;
 
@@ -83,6 +89,15 @@ public class FlyoutControllerUnitTest {
     @Before
     public void setUp() {
         mContext = ContextUtils.getApplicationContext();
+        // Attach the list to a window so that it has a Handler and can send a11y events.
+        Activity activity = Robolectric.buildActivity(Activity.class).setup().get();
+        mListView = new ListView(activity);
+        List<String> items = new ArrayList<>();
+        for (int i = 0; i < 50; i++) items.add("Item " + i);
+        mListView.setAdapter(
+                new ArrayAdapter<>(activity, android.R.layout.simple_list_item_1, items));
+        activity.setContentView(mListView);
+        ShadowLooper.idleMainLooper();
 
         HierarchicalMenuKeyProvider keyProvider = HierarchicalMenuTestUtils.createKeyProvider();
         SubmenuHeaderFactory headerFactory =
@@ -157,9 +172,6 @@ public class FlyoutControllerUnitTest {
                                 .with(MENU_ITEM_ID, TEST_MENU_ITEM_ID)
                                 .with(IS_HIGHLIGHTED, false)
                                 .build());
-
-        when(mListView.getContext()).thenReturn(mContext);
-        when(mListView.getHandler()).thenReturn(new Handler(Looper.getMainLooper()));
     }
 
     @Test
@@ -255,10 +267,10 @@ public class FlyoutControllerUnitTest {
         View.OnScrollChangeListener level1Listener = listenerCaptor.getAllValues().get(0);
 
         // Simulate scroll on level 1 popup.
-        when(mListView.getFirstVisiblePosition()).thenReturn(0);
+        Assert.assertEquals(0, mListView.getFirstVisiblePosition());
         level1Listener.onScrollChange(mListView, 0, 0, 0, 0);
 
-        when(mListView.getFirstVisiblePosition()).thenReturn(1);
+        scrollListViewTo(1);
         level1Listener.onScrollChange(mListView, 0, 0, 0, 0);
 
         // Level 2 popup should be removed, level 1 and 0 should remain.
@@ -278,10 +290,10 @@ public class FlyoutControllerUnitTest {
         // Simulate scroll on main menu (level 0).
         Assert.assertNotNull(mMainPopupScrollListener);
 
-        when(mListView.getFirstVisiblePosition()).thenReturn(0);
+        Assert.assertEquals(0, mListView.getFirstVisiblePosition());
         mMainPopupScrollListener.onScrollChange(mListView, 0, 0, 0, 0);
 
-        when(mListView.getFirstVisiblePosition()).thenReturn(1);
+        scrollListViewTo(1);
         mMainPopupScrollListener.onScrollChange(mListView, 0, 0, 0, 0);
 
         // All flyouts (level 1 and 2) should be removed. Only main menu (level 0) remains.
@@ -302,15 +314,20 @@ public class FlyoutControllerUnitTest {
                                 .with(TITLE, "Empty")
                                 .with(ENABLED, false)
                                 .build());
+        ListItem dividerItem = new ListItem(0, new PropertyModel());
         ListItem emptySubmenu =
                 new ListItem(
                         MENU_ITEM_WITH_SUBMENU,
                         new PropertyModel.Builder(ALL_SUBMENU_ITEM_KEYS)
                                 .with(TITLE, "Empty Submenu")
                                 .with(ENABLED, true)
-                                .with(SUBMENU_PROVIDER, () -> List.of(disabledItem))
+                                .with(SUBMENU_PROVIDER, () -> List.of(disabledItem, dividerItem))
                                 .with(IS_HIGHLIGHTED, false)
                                 .build());
+
+        ShadowAccessibilityManager shadowA11yManager =
+                shadowOf(mListView.getContext().getSystemService(AccessibilityManager.class));
+        shadowA11yManager.setEnabled(true);
 
         triggerHoverEnter(emptySubmenu, 0, List.of(emptySubmenu));
         waitForUiDelay();
@@ -318,7 +335,13 @@ public class FlyoutControllerUnitTest {
         Assert.assertEquals("There should be 2 popups.", 2, mFlyoutController.getNumberOfPopups());
         verify(mFlyoutHandler).setWindowFocus(flyoutPopup, false);
         verify(mFlyoutHandler, never()).setWindowFocus(mainPopup, false);
-        verify(mListView).announceForAccessibility("Empty");
+        List<String> announcements = new ArrayList<>();
+        for (AccessibilityEvent event : shadowA11yManager.getSentAccessibilityEvents()) {
+            if (event.getEventType() == AccessibilityEvent.TYPE_ANNOUNCEMENT) {
+                announcements.add(event.getText().toString());
+            }
+        }
+        Assert.assertEquals(List.of("[Empty]"), announcements);
     }
 
     @Test
@@ -337,6 +360,12 @@ public class FlyoutControllerUnitTest {
 
     private void triggerHoverEnter(ListItem item, int level, List<ListItem> path) {
         mFlyoutController.onItemHovered(item, mListView, level, path, () -> {});
+    }
+
+    private void scrollListViewTo(int position) {
+        mListView.setSelection(position);
+        ShadowLooper.idleMainLooper();
+        Assert.assertEquals(position, mListView.getFirstVisiblePosition());
     }
 
     private static void waitForUiDelay() {

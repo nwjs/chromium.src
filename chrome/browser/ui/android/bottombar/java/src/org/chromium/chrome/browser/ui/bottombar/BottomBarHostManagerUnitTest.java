@@ -4,12 +4,14 @@
 
 package org.chromium.chrome.browser.ui.bottombar;
 
+import static org.junit.Assert.assertNull;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.FrameLayout;
 
 import org.junit.Before;
 import org.junit.Rule;
@@ -20,6 +22,7 @@ import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 
 import org.chromium.base.Callback;
+import org.chromium.base.ContextUtils;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.chrome.browser.ui.bottombar.BottomBarHostManager.Host;
 
@@ -29,11 +32,11 @@ public class BottomBarHostManagerUnitTest {
     @Rule public final MockitoRule mockitoRule = MockitoJUnit.rule();
 
     @Mock private BottomBar mBottomBar;
-    @Mock private View mView;
-    @Mock private ViewGroup mParentView;
     @Mock private Callback<View> mCallback;
     @Mock private Callback<View> mDefaultAttachCallback;
 
+    private final View mView = new View(ContextUtils.getApplicationContext());
+    private final ViewGroup mParentView = new FrameLayout(ContextUtils.getApplicationContext());
     private BottomBarHostManager mHostManager;
 
     @Before
@@ -75,12 +78,12 @@ public class BottomBarHostManagerUnitTest {
     public void testTakeOwnership_WithParent() {
         mHostManager.registerBottomBar(mBottomBar, mDefaultAttachCallback);
 
-        when(mView.getParent()).thenReturn(mParentView);
+        mParentView.addView(mView);
 
         mHostManager.takeOwnership(Host.HUB, mCallback);
 
         verify(mCallback).onResult(mView);
-        verify(mParentView).removeView(mView);
+        assertNull(mView.getParent());
         verify(mBottomBar).setParent(Host.HUB);
     }
 

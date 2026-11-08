@@ -33,7 +33,6 @@
 
 #if !BUILDFLAG(SKIP_ANDROID_UNMIGRATED_ACTOR_FILES)
 #include "chrome/browser/actor/ui/actor_ui_state_manager_prefs.h"
-#include "chrome/browser/actor/ui/actor_ui_tab_controller.h"
 #include "chrome/browser/actor/ui/actor_ui_tab_controller_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"  // nogncheck
@@ -511,6 +510,34 @@ void ActorUiStateManager::LazyInitTabTracker() {
   }
 }
 #endif
+
+base::WeakPtr<ActorNavigationThrottle::Delegate>
+ActorUiStateManager::GetNavigationDelegate() {
+  return weak_factory_.GetWeakPtr();
+}
+
+bool ActorUiStateManager::MaybeDeferNavigation(
+    tabs::TabInterface* tab,
+    const GURL& url,
+    NavigationConfirmedCallback callback) {
+  if (!tab || !actor_service_->IsActiveOnTab(*tab)) {
+    return false;
+  }
+  if (auto* tab_controller = ActorUiTabControllerInterface::From(tab)) {
+    return tab_controller->MaybeDeferNavigation(tab, url, std::move(callback));
+  }
+  return false;
+}
+
+void ActorUiStateManager::CancelNavigationConfirmation(
+    tabs::TabInterface* tab) {
+  if (!tab) {
+    return;
+  }
+  if (auto* tab_controller = ActorUiTabControllerInterface::From(tab)) {
+    tab_controller->CancelNavigationConfirmation(tab);
+  }
+}
 
 void ActorUiStateManager::SetTabPendingActuation(tabs::TabHandle tab_handle) {
   tabs::TabInterface* tab = tab_handle.Get();

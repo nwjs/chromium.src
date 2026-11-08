@@ -5,12 +5,14 @@
 #include "components/origin_gating/core/origin_gating_configuration.h"
 
 #include <algorithm>
-#include <initializer_list>
 #include <utility>
 #include <variant>
+#include <vector>
 
 #include "base/check.h"
-#include "components/origin_gating/core/types.h"
+#include "components/origin_gating/core/decision_attribution.h"
+#include "components/origin_gating/core/decision_source.h"
+#include "components/origin_gating/core/gateable_event.h"
 
 namespace origin_gating {
 
@@ -43,12 +45,18 @@ bool UsesAtMostOneCustomPredicateDomain(
       });
 }
 
-bool UsesCache(base::span<const PredicateConfiguration> predicates) {
-  return std::ranges::any_of(predicates, [](const PredicateConfiguration& pc) {
-    const DecisionSource* source = std::get_if<DecisionSource>(&pc.predicate());
-    return source && (*source == DecisionSource::kCacheWithUserConfirmation ||
-                      *source == DecisionSource::kCacheWithoutUserConfirmation);
-  });
+std::optional<OriginGatingConfiguration::CacheScope> ComputeEffectiveCacheScope(
+    base::span<const PredicateConfiguration> predicates,
+    OriginGatingConfiguration::CacheScope cache_scope) {
+  const bool uses_cache =
+      std::ranges::any_of(predicates, [](const PredicateConfiguration& pc) {
+        const DecisionSource* source =
+            std::get_if<DecisionSource>(&pc.predicate());
+        return source &&
+               (*source == DecisionSource::kCacheWithUserConfirmation ||
+                *source == DecisionSource::kCacheWithoutUserConfirmation);
+      });
+  return uses_cache ? std::make_optional(cache_scope) : std::nullopt;
 }
 
 }  // namespace
@@ -87,11 +95,10 @@ PredicateConfiguration& PredicateConfiguration::operator=(
     const PredicateConfiguration&) = default;
 
 OriginGatingConfiguration::OriginGatingConfiguration(
-    std::initializer_list<PredicateConfiguration> predicates,
-    bool use_site_keyed_cache)
-    : predicates_(predicates),
-      use_site_keyed_cache_(use_site_keyed_cache),
-      uses_cache_(UsesCache(predicates_)) {
+    std::vector<PredicateConfiguration> predicates,
+    CacheScope cache_scope)
+    : predicates_(std::move(predicates)),
+      cache_scope_(ComputeEffectiveCacheScope(predicates_, cache_scope)) {
   for (const PredicateConfiguration& pc : predicates_) {
     const DecisionSource* source = std::get_if<DecisionSource>(&pc.predicate());
     if (!source) {

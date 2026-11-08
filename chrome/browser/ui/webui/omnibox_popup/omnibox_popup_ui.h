@@ -61,6 +61,11 @@ class OmniboxPopupUI : public TopChromeWebUIController,
   OmniboxPopupUI& operator=(const OmniboxPopupUI&) = delete;
   ~OmniboxPopupUI() override;
 
+  // content::WebUIController:
+  void PopulateLocalResourceLoaderConfig(
+      blink::mojom::LocalResourceLoaderConfig* config,
+      const url::Origin& requesting_origin) override;
+
   // Instantiates the implementor of the searchbox::mojom::PageHandlerFactory
   // mojo interface passing the pending receiver that will be internally bound.
   void BindInterface(content::RenderFrameHost* host,
@@ -126,6 +131,10 @@ class OmniboxPopupUI : public TopChromeWebUIController,
   GetOrCreateContextualSessionHandle();
 
   void ClearContextualSessionHandle();
+
+  bool HasContextualSessionHandleForTesting() const {
+    return !!shared_session_handle_;
+  }
 
   void SetPresenterDelegate(OmniboxPopupPresenterBase* delegate);
 

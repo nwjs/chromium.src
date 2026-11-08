@@ -13,8 +13,8 @@ if (enable_swift_cxx_interop) {
     swift_cxx_import("cxx_imports") {
       # TODO(crbug.com/451945291): Use a shim layer instead of the direct
       # dependency to C++ files.
-      sources = [ "//ios/chrome/browser/menu/ui_bundled/menu_histograms.h" ]
-      public_deps = [ "//ios/chrome/browser/menu/ui_bundled:menu_action_type" ]
+      sources = [ "//ios/chrome/browser/menu/public/menu_histograms.h" ]
+      public_deps = [ "//ios/chrome/browser/menu/public" ]
     }
 
     swift_source_set("swift_coordinator") {
@@ -88,6 +88,7 @@ source_set("coordinator") {
     "//base",
     "//components/browser_sync",
     "//components/history/core/browser",
+    "//components/sync_device_info",
     "//ios/chrome/browser/favicon/model",
     "//ios/chrome/browser/history/model",
     "//ios/chrome/browser/history/ui_bundled/public",
@@ -102,6 +103,7 @@ source_set("coordinator") {
     "//ios/chrome/browser/shared/ui/table_view",
     "//ios/chrome/browser/sharing/ui_bundled",
     "//ios/chrome/browser/sync/model",
+    "//ios/chrome/browser/sync/model:device_info_sync_service_factory",
     "//ios/chrome/common/ui/favicon:favicon_constants",
   ]
   frameworks = [
@@ -247,7 +249,7 @@ source_set("eg2_tests") {
     "//components/url_formatter",
     "//ios/chrome/app/strings",
     "//ios/chrome/browser/authentication/test:eg_test_support+eg2",
-    "//ios/chrome/browser/menu/ui_bundled:menu_action_type",
+    "//ios/chrome/browser/menu/public",
     "//ios/chrome/browser/metrics/model:eg_test_support+eg2",
     "//ios/chrome/browser/popup_menu/public",
     "//ios/chrome/browser/shared/public/features",

@@ -40,7 +40,6 @@
 #include "media/base/supported_types.h"
 #include "media/base/timestamp_constants.h"
 #include "media/base/video_codecs.h"
-#include "media/base/webvtt_util.h"
 #include "media/ffmpeg/ffmpeg_common.h"
 #include "media/filters/ffmpeg_aac_bitstream_converter.h"
 #include "media/filters/ffmpeg_bitstream_converter.h"
@@ -656,10 +655,6 @@ void FFmpegDemuxerStream::FlushBuffers(bool preserve_packet_position) {
   last_packet_timestamp_ = kNoTimestamp;
   last_packet_duration_ = kNoTimestamp;
   aborted_ = false;
-
-  // The demuxer's timed metadata is deliberately not reset. Seeking does not
-  // re-demux the metadata samples that were skipped over, so the only metadata
-  // available after seeking backwards is what was cached before.
 }
 
 void FFmpegDemuxerStream::Abort() {
@@ -1143,9 +1138,8 @@ void FFmpegDemuxer::SeekInternal(base::TimeDelta time,
   const int64_t seek_timestamp =
       ConvertToTimeBase(demux_stream->stream_time_base(), seek_time);
 
-  // TODO(https://crbug.com/480162031): Seeking to `seek_timestamp` in
-  // `seeking_stream` may skip over the corresponding metadata samples. Collect
-  // these samples and cache them before seeking.
+  // The MP4 demuxer seeks each stream individually, so metadata samples needed
+  // after the seek will be demuxed again.
   blocking_task_runner_->PostTaskAndReplyWithResult(
       FROM_HERE,
       base::BindOnce(&AVSeekFrame, glue_->format_context(),
@@ -1775,6 +1769,12 @@ void FFmpegDemuxer::OnSeekFrameDone(int result) {
   for (const auto& stream : streams_) {
     if (stream)
       stream->FlushBuffers(false);
+  }
+
+  // Needed metadata will be demuxed again (see SeekInternal()). Track-change
+  // seeks (which keep other streams' buffers) don't reset.
+  for (auto& it : metadata_tracks_) {
+    it.second.track->Reset();
   }
 
   // Resume reading until capacity.

@@ -37,7 +37,6 @@
 #include "third_party/omnibox_proto/chrome_searchbox_stats.pb.h"
 #include "third_party/omnibox_proto/groups.pb.h"
 #include "third_party/omnibox_proto/navigational_intent.pb.h"
-#include "third_party/omnibox_proto/rich_answer_template.pb.h"
 #include "third_party/omnibox_proto/suggest_template_info.pb.h"
 #include "third_party/omnibox_proto/types.pb.h"
 #include "third_party/perfetto/include/perfetto/tracing/traced_value_forward.h"
@@ -367,8 +366,6 @@ struct AutocompleteMatch {
   void UpdateClipboardContent(JNIEnv* env);
   // Update the Java object with new destination URL.
   void UpdateJavaNavigationDetails();
-  // Update the Java object with new Answer-in-Suggest.
-  void UpdateJavaAnswer();
   // Update the Java object description.
   void UpdateJavaDescription();
 #endif
@@ -676,8 +673,8 @@ struct AutocompleteMatch {
 
   // Returns the value recorded for |property| in the |additional_info|
   // dictionary. Returns the empty string if no such value exists. This is for
-  // debugging in chrome://omnibox only. It should only be called by
-  // `OmniboxPageHandler` and tests. For match info that's used for
+  // debugging in chrome://omnibox-internals only. It should only be called by
+  // `OmniboxInternalsPageHandler` and tests. For match info that's used for
   // non-debugging, use class fields. Unfortunately, There are existing
   // non-debug callsites; those should be cleaned up, not added to.
   std::string GetAdditionalInfoForDebugging(const std::string& property) const;
@@ -972,8 +969,6 @@ struct AutocompleteMatch {
   // before displaying.
   bool swap_contents_and_description = false;
 
-  std::optional<omnibox::RichAnswerTemplate> answer_template;
-
   std::optional<omnibox::SuggestTemplateInfo> suggest_template;
 
 
@@ -1079,7 +1074,8 @@ struct AutocompleteMatch {
   std::unique_ptr<TemplateURLRef::PostContent> post_content;
 
   // Information dictionary into which each provider can optionally record a
-  // property and associated value and which is presented in chrome://omnibox.
+  // property and associated value and which is presented in
+  // chrome://omnibox-internals.
   AdditionalInfo additional_info;
 
   // A vector of matches culled during de-duplication process, sorted from

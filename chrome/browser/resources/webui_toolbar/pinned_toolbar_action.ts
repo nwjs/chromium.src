@@ -10,21 +10,22 @@ import '//resources/cr_elements/cr_icon_button/cr_icon_button.js';
 
 import type {CrIconButtonElement} from '//resources/cr_elements/cr_icon_button/cr_icon_button.js';
 import {assertNotReachedCase} from '//resources/js/assert.js';
+import {TrackedElementManager} from '//resources/js/tracked_element/tracked_element_manager.js';
 import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
 import type {PropertyValues} from '//resources/lit/v3_0/lit.rollup.js';
 import {IconTable} from '/shared/icon_table.js';
+import {getContextMenuPosition, getContextMenuSourceType} from '/shared/toolbar_button.js';
 import type {OverflowMenuItem} from '/shared/toolbar_ui_api.mojom-webui.js';
-import {PinnedToolbarAction} from '/shared/toolbar_ui_api_data_model.mojom-webui.js';
+import {DownloadProgressRingStatus, PinnedToolbarAction} from '/shared/toolbar_ui_api_data_model.mojom-webui.js';
 import type {PinnedToolbarActionState} from '/shared/toolbar_ui_api_data_model.mojom-webui.js';
 
 import {BrowserProxyImpl} from './browser_proxy.js';
 import type {BrowserProxy} from './browser_proxy.js';
 import {ContextMenuType} from './browser_proxy.js';
 import {OverflowableToolbarActionMixin} from './overflowable_toolbar_action_mixin.js';
+import {getCss} from './pinned_toolbar_action.css.js';
 import {getHtml} from './pinned_toolbar_action.html.js';
 import {ToolbarActionMixin} from './toolbar_action_mixin.js';
-import {getCss} from './toolbar_button.css.js';
-import {getContextMenuPosition, getContextMenuSourceType, shouldSkipNextClick} from './toolbar_button.js';
 
 const initialState: PinnedToolbarActionState = {
   action: PinnedToolbarAction.kUnspecified,
@@ -35,6 +36,7 @@ const initialState: PinnedToolbarActionState = {
   accessibilityText: '',
   elementId: null,
   icon: {handleId: 0n},
+  progressRing: null,
 };
 
 const PinnedToolbarActionElementBase = OverflowableToolbarActionMixin(
@@ -77,14 +79,15 @@ export class PinnedToolbarActionElement extends PinnedToolbarActionElementBase {
   accessor poppedOut: boolean = false;
 
   private iconTable_: IconTable = IconTable.getInstance();
-  private skipNextClick_: boolean = false;
 
   override willUpdate(changedProperties: PropertyValues<this>) {
     super.willUpdate(changedProperties);
 
-    if (changedProperties.has('poppedOut')) {
-      // Popped-out actions may not be hidden due to overflow.
-      this.preventOverflow = this.poppedOut;
+    if (changedProperties.has('state') ||
+        changedProperties.has('trackedHighlighted')) {
+      // Highlighted actions, which for pinned toolbar actions, generally means
+      // ones with an open side panel, may not be hidden due to overflow.
+      this.preventOverflow = this.state.highlighted || this.trackedHighlighted;
     }
   }
 
@@ -114,23 +117,48 @@ export class PinnedToolbarActionElement extends PinnedToolbarActionElementBase {
     return style.length > 0 ? style : undefined;
   }
 
-  protected onPointerdown_(e: PointerEvent) {
-    this.skipNextClick_ =
-        // `trackedHighlighted` should accurately reflect if this element has an
-        // anchored bubble. Popped out actions can be highlighted via
-        // `state.highlighted` which does not indicate they are anchoring a
-        // bubble.
-        shouldSkipNextClick(
-            e, this.trackedHighlighted, this.lastUnhighlightedTime);
+  protected onActionClick_(e: PointerEvent) {
+    if (!this.highlightTracker.shouldSkipClick(e)) {
+      TrackedElementManager.getInstance().notifyElementActivated(this);
+      this.browserProxy_.toolbarUIHandler.invokePinnedToolbarAction(
+          this.state.action);
+    }
   }
 
-  protected onActionClick_(e: PointerEvent) {
-    if (this.skipNextClick_ && e.pointerType !== '') {
-      this.skipNextClick_ = false;
-      return;
+  /**
+   * Returns the value of the progress ring's `status` attribute, or undefined
+   * if no ring should be drawn.
+   */
+  protected getProgressRingStatus_(): string|undefined {
+    switch (this.state.progressRing?.status) {
+      case DownloadProgressRingStatus.kDormant:
+        return 'dormant';
+      case DownloadProgressRingStatus.kScanning:
+        return 'scanning';
+      case DownloadProgressRingStatus.kDownloading:
+        return 'downloading';
+      default:
+        return undefined;
     }
-    this.browserProxy_.toolbarUIHandler.invokePinnedToolbarAction(
-        this.state.action);
+  }
+
+  /**
+   * Returns the portion of the ring to fill in. The ring's circles declare
+   * `pathLength="100"`, so the dash lengths are in percent. Only applies to
+   * determinate (downloading) rings; the scanning and dormant dash patterns
+   * are set in CSS.
+   */
+  protected getProgressRingFillStyle_(): string|undefined {
+    const progressRing = this.state.progressRing;
+    if (!progressRing ||
+        progressRing.status !== DownloadProgressRingStatus.kDownloading ||
+        progressRing.progressPercentage === null ||
+        progressRing.progressPercentage === undefined) {
+      return undefined;
+    }
+    const percentage =
+        Math.max(0, Math.min(100, progressRing.progressPercentage));
+    return `stroke-dasharray: ${percentage} 100;`;
   }
 
   private getContextMenuType_(): ContextMenuType {

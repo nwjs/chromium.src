@@ -7,6 +7,7 @@ assert(!is_android)
 source_set("child_module") {
   public = [
     "child_module_manager.h",
+    "child_module_paths.h",
     "features.h",
   ]
 
@@ -15,25 +16,42 @@ source_set("child_module") {
     "child_module_watcher.cc",
     "child_module_watcher.h",
     "features.cc",
+    "version_set.h",
   ]
 
   public_deps = [
     "//base",
     "//chrome/common/child_module",
   ]
+
+  deps = [
+    "//chrome/common:constants",
+    "//components/prefs",
+  ]
+
+  if (is_win) {
+    sources += [ "child_module_paths_win.cc" ]
+  } else {
+    sources += [ "child_module_paths_stub.cc" ]
+  }
 }
 
 source_set("unit_tests") {
   testonly = true
 
-  sources = [ "child_module_manager_unittest.cc" ]
+  sources = [
+    "child_module_manager_unittest.cc",
+    "child_module_paths_unittest.cc",
+  ]
 
   deps = [
     ":child_module",
     "//base",
     "//base/test:test_support",
+    "//chrome/browser:browser_process",
     "//chrome/common:constants",
     "//chrome/common/child_module",
+    "//components/prefs:test_support",
     "//testing/gmock",
     "//testing/gtest",
   ]

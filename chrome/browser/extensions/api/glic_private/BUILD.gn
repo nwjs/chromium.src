@@ -14,8 +14,6 @@ source_set("glic_private") {
     "glic_private_api.h",
   ]
 
-  configs += [ "//build/config/compiler:wexit_time_destructors" ]
-
   deps = [
     "//base",
     "//chrome/browser/contextual_tasks",
@@ -26,7 +24,6 @@ source_set("glic_private") {
     "//chrome/browser/profiles:profile",
     "//chrome/browser/signin",
     "//chrome/browser/tab_list",
-    "//chrome/browser/ui",
     "//chrome/browser/ui/navigator",
     "//chrome/common/extensions/api",
     "//components/contextual_tasks/public",

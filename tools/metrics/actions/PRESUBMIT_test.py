@@ -10,6 +10,7 @@ import tempfile
 
 import setup_modules  # pylint: disable=unused-import
 
+
 import chromium_src.tools.metrics.actions.PRESUBMIT as PRESUBMIT
 
 _CONFLICTING_NAME_1 = (

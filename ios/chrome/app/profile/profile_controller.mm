@@ -10,6 +10,7 @@
 
 #import "base/callback_list.h"
 #import "base/critical_closure.h"
+#import "base/feature_list.h"
 #import "base/files/file_path.h"
 #import "base/files/file_util.h"
 #import "base/functional/bind.h"
@@ -34,10 +35,12 @@
 #import "components/language/core/browser/pref_names.h"
 #import "components/prefs/pref_service.h"
 #import "components/translate/core/browser/translate_metrics_logger_impl.h"
+#import "components/webauthn/core/browser/device_authorization/device_authorization_features.h"
 #import "ios/chrome/app/application_delegate/app_state.h"
 #import "ios/chrome/app/application_delegate/metrics_mediator.h"
 #import "ios/chrome/app/deferred_initialization_runner.h"
 #import "ios/chrome/app/deferred_initialization_task_names.h"
+#import "ios/chrome/app/profile/actor_profile_agent.h"
 #import "ios/chrome/app/profile/application_storage_metrics.h"
 #import "ios/chrome/app/profile/certificate_policy_profile_agent.h"
 #import "ios/chrome/app/profile/features.h"
@@ -65,6 +68,7 @@
 #import "ios/chrome/browser/external_files/model/external_file_remover_factory.h"
 #import "ios/chrome/browser/feature_engagement/model/tracker_factory.h"
 #import "ios/chrome/browser/first_run/public/features.h"
+#import "ios/chrome/browser/intelligence/features/features.h"
 #import "ios/chrome/browser/level_up/model/level_up_promo_profile_agent.h"
 #import "ios/chrome/browser/mailto_handler/model/mailto_handler_service_factory.h"
 #import "ios/chrome/browser/ntp/model/home_background_customization_promo_profile_agent.h"
@@ -95,6 +99,7 @@
 #import "ios/chrome/browser/web_extension/model/extension_service.h"
 #import "ios/chrome/browser/web_extension/model/extension_service_factory.h"
 #import "ios/chrome/browser/web_state_list/model/web_usage_enabler/web_usage_enabler_browser_agent.h"
+#import "ios/chrome/browser/webauthn/model/device_authorization_profile_agent.h"
 #import "ios/chrome/browser/welcome_back/model/features.h"
 #import "ios/components/cookie_util/cookie_util.h"
 #import "ios/public/provider/chrome/browser/raccoon/raccoon_api.h"
@@ -626,6 +631,15 @@ void RemoveSessionsFromSessionsToDiscard(const SessionIds& session_ids,
 
   if (IsLevelUpEnabled()) {
     [_state addAgent:[[LevelUpPromoProfileAgent alloc] init]];
+  }
+
+  if (base::FeatureList::IsEnabled(
+          webauthn::features::kFetchDeviceAuthorizationKeys)) {
+    [_state addAgent:[[DeviceAuthorizationProfileAgent alloc] init]];
+  }
+
+  if (IsGeminiActorBackgroundingEnabled()) {
+    [_state addAgent:[[ActorProfileAgent alloc] init]];
   }
 }
 

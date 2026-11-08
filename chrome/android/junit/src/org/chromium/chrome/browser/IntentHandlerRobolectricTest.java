@@ -802,7 +802,7 @@ public class IntentHandlerRobolectricTest {
     @Test
     @Feature({"Android-AppBase"})
     public void testDetermineExternalIntentSource() {
-        Activity activity = Mockito.mock(Activity.class);
+        Activity activity = Robolectric.buildActivity(Activity.class).setup().get();
         Intent intent = new Intent(Intent.ACTION_VIEW);
         intent.putExtra(
                 IntentHandler.EXTRA_ACTIVITY_REFERRER,
@@ -946,7 +946,6 @@ public class IntentHandlerRobolectricTest {
                         /* tabGroupTitle= */ "Title",
                         /* mhtmlTabTitle= */ null,
                         /* tabGroupCollapsed= */ false,
-                        /* isGroupShared= */ false,
                         isIncognito);
         IntentHandler.setTabGroupMetadata(intent, metadata);
         if (isTrusted) {

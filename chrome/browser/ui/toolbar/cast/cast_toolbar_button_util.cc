@@ -6,6 +6,8 @@
 
 #include "base/metrics/user_metrics.h"
 #include "build/branding_buildflags.h"
+#include "build/build_config.h"
+#include "chrome/browser/feedback/show_feedback_page.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/actions/chrome_action_id.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
@@ -16,7 +18,12 @@
 #include "components/prefs/pref_service.h"
 #include "components/strings/grit/components_strings.h"
 #include "ui/actions/actions.h"
+#include "ui/base/base_window.h"
 #include "ui/base/l10n/l10n_util.h"
+
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+#include "chrome/browser/feedback/feedback_disabled_dialog.h"
+#endif
 
 namespace {
 constexpr char kAboutPageUrl[] =
@@ -90,18 +97,34 @@ void CastToolbarButtonUtil::AddCastChildActions(
               media_router::prefs::kMediaRouterMediaRemotingEnabled))
           .Build());
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
-  cast_action->AddChild(
-      actions::ActionItem::Builder(
-          base::BindRepeating(
-              [](BrowserWindowInterface* browser, actions::ActionItem* item,
-                 actions::ActionInvocationContext context) {
-                ShowSingletonTab(browser,
-                                 GURL(chrome::kChromeUICastFeedbackURL));
-              },
-              base::Unretained(bwi)))
-          .SetActionId(kActionMediaToolbarContextReportCastIssue)
-          .SetText(l10n_util::GetStringUTF16(
-              IDS_MEDIA_TOOLBAR_CONTEXT_REPORT_CAST_ISSUE))
-          .Build());
+  if (chrome::CanShowFeedback(bwi->GetProfile())) {
+    cast_action->AddChild(
+        actions::ActionItem::Builder(
+            base::BindRepeating(
+                [](BrowserWindowInterface* browser, actions::ActionItem* item,
+                   actions::ActionInvocationContext context) {
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+                  // Cast uses its own feedback page (chrome://cast-feedback)
+                  // instead of the standard feedback dialog. However, when
+                  // feedback submission is disabled, chrome://cast-feedback is
+                  // not available; display the FeedbackDisabledDialog instead.
+                  if (!chrome::CanSubmitFeedback(browser->GetProfile())) {
+                    chrome::ShowFeedbackDisabledDialog(
+                        browser->GetWindow()
+                            ? browser->GetWindow()->GetNativeWindow()
+                            : gfx::NativeWindow(),
+                        browser->GetProfile());
+                    return;
+                  }
 #endif
+                  ShowSingletonTab(browser,
+                                   GURL(chrome::kChromeUICastFeedbackURL));
+                },
+                base::Unretained(bwi)))
+            .SetActionId(kActionMediaToolbarContextReportCastIssue)
+            .SetText(l10n_util::GetStringUTF16(
+                IDS_MEDIA_TOOLBAR_CONTEXT_REPORT_CAST_ISSUE))
+            .Build());
+  }
+#endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
 }

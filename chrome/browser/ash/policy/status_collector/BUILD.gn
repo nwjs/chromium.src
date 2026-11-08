@@ -28,8 +28,6 @@ static_library("status_collector") {
     "tpm_status_combiner.h",
   ]
 
-  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
-
   deps = [
     "//ash/constants",
     "//base",
@@ -54,6 +52,7 @@ static_library("status_collector") {
     "//chrome/common:chrome_features",
     "//chrome/common:constants",
     "//chromeos/ash/components/audio",
+    "//chromeos/ash/components/browser_context_helper",
     "//chromeos/ash/components/channel",
     "//chromeos/ash/components/dbus/attestation",
     "//chromeos/ash/components/dbus/attestation:attestation_proto",

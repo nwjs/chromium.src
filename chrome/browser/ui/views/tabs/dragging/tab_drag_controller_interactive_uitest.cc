@@ -978,13 +978,14 @@ IN_PROC_BROWSER_TEST_F(TabDragControllerTest,
       tab_strip->GetDragContext()->GetDragController();
   ASSERT_NE(controller, nullptr);
 
-  ASSERT_EQ(controller->Drag(tab_1_center + gfx::Vector2d(20, 0)),
-            TabDragController::Liveness::kAlive);
-
   class TargetWindowFinder : public WindowFinder {
    public:
     explicit TargetWindowFinder(gfx::NativeWindow target_window)
         : target_window_(target_window) {}
+
+    void set_target_window(gfx::NativeWindow target_window) {
+      target_window_ = target_window;
+    }
 
     gfx::NativeWindow GetLocalProcessWindowAtPoint(
         const gfx::Point& screen_point,
@@ -996,8 +997,15 @@ IN_PROC_BROWSER_TEST_F(TabDragControllerTest,
    private:
     gfx::NativeWindow target_window_;
   };
-  SetWindowFinderForTabStrip(tab_strip, std::make_unique<TargetWindowFinder>(
-                                            target_widget->GetNativeWindow()));
+  auto window_finder =
+      std::make_unique<TargetWindowFinder>(source_widget->GetNativeWindow());
+  TargetWindowFinder* window_finder_ptr = window_finder.get();
+  SetWindowFinderForTabStrip(tab_strip, std::move(window_finder));
+
+  ASSERT_EQ(controller->Drag(tab_1_center + gfx::Vector2d(20, 0)),
+            TabDragController::Liveness::kAlive);
+
+  window_finder_ptr->set_target_window(target_widget->GetNativeWindow());
 
   bool ended_during_activate = false;
   auto end_drag_on_activate = [&]() {
@@ -2735,7 +2743,7 @@ class ActiveTabTracker : public TabStripModelObserver {
       const TabStripModelChange& change,
       const TabStripSelectionChange& selection) override {
     if (selection.active_tab_changed() && selection.new_contents) {
-      active_contents_.push_back(selection.new_contents);
+      active_contents_.push_back(selection.new_contents.get());
     }
   }
 
@@ -2745,7 +2753,7 @@ class ActiveTabTracker : public TabStripModelObserver {
   }
 
  private:
-  std::vector<content::WebContents*> active_contents_;
+  std::vector<raw_ptr<content::WebContents>> active_contents_;
   raw_ptr<TabStripModel> model_;
 };
 
@@ -4229,9 +4237,16 @@ IN_PROC_BROWSER_TEST_P(DetachToBrowserTabDragControllerTest,
   ASSERT_TRUE(WaitForAttach(tab_strip2, 4));
 
   // Drag to the trailing end of the tabstrip to ensure we're in a
-  // predictable spot within the strip.
+  // predictable spot within the strip. Target the trailing edge of `tab_strip2`
+  // directly rather than `tab_at(1)` or `tab_at(3)` because those slots may be
+  // occupied by the dragged split tabs (which are narrower than regular tabs
+  // and skipped by `SnapToIdealBounds()`).
   StopAnimating(tab_strip2);
-  ASSERT_TRUE(DragInputToCenter(tab_strip2->tab_at(3)));
+  BrowserView::GetBrowserViewForBrowser(browser2)
+      ->GetWidget()
+      ->LayoutRootViewIfNecessary();
+  ASSERT_TRUE(DragInputToCenter(
+      tab_strip2, gfx::Vector2d(tab_strip2->width() / 2 - 10, 0)));
   // Release mouse or touch, stopping the drag session.
   ASSERT_TRUE(ReleaseInput());
 
@@ -5293,6 +5308,11 @@ IN_PROC_BROWSER_TEST_P(DetachToBrowserTabDragControllerTest,
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return TabDragController::GetSourceContext() == nullptr; }));
   ASSERT_TRUE(TabDragController::IsActive());
+
+  // Drag to the trailing end of the tabstrip to ensure we're in a
+  // predictable spot within the strip.
+  StopAnimating(tab_strip2);
+  ASSERT_TRUE(DragInputToCenter(tab_strip2->tab_at(1)));
 
   // Target the window holding capture, not whichever browser is focused.
   ASSERT_TRUE(ui_test_utils::SendKeyPressToWindowSync(
@@ -7350,8 +7370,6 @@ INSTANTIATE_TEST_SUITE_P(
         /*input_source=*/::testing::Values("mouse")));
 #endif
 
-// TODO(crbug.com/409577362) : Fix test flakiness
-#if !BUILDFLAG(IS_CHROMEOS)
 class SideBySideTabDragControllerTest
     : public TabDragControllerInteractiveTestMixin<TabDragControllerTest> {
  public:
@@ -7403,7 +7421,6 @@ IN_PROC_BROWSER_TEST_F(SideBySideTabDragControllerTest, DragBetweenSplitTab) {
   EXPECT_TRUE(IsTabInSplit(2));
 }
 
-// Flaky. https://crbug.com/40748225
 IN_PROC_BROWSER_TEST_F(SideBySideTabDragControllerTest,
                        DragBetweenMultipleSplitTabs) {
   TabStrip* const tab_strip = GetTabStripForBrowser(browser());
@@ -7695,7 +7712,6 @@ INSTANTIATE_TEST_SUITE_P(
         /*kTearOffWebAppTabOpensWebAppWindow=*/::testing::Values(false),
         /*input_source=*/::testing::Values("mouse")));
 #endif  // BUILDFLAG(IS_MAC)
-#endif  // !BUILDFLAG(IS_CHROMEOS)
 
 #if BUILDFLAG(IS_CHROMEOS)
 

@@ -37,16 +37,15 @@
     [RaisesException=Setter, CEReactions] attribute unsigned long height;
 
     [RuntimeEnabled=CanvasDrawElement, CEReactions, Reflect, ReflectOnly=("fallback", "drawable"), ReflectMissing="fallback", ReflectInvalid="fallback"] attribute DOMString content;
-    // TODO(crbug.com/561849343): Remove support for layoutsubtree.
-    [RuntimeEnabled=CanvasDrawElement] attribute boolean layoutSubtree;
     [RuntimeEnabled=CanvasDrawElement] attribute EventHandler onpaint;
     [RuntimeEnabled=CanvasDrawElement] attribute EventHandler onelementgeometryupdate;
     [RuntimeEnabled=CanvasDrawElement] void requestPaint();
-    [RuntimeEnabled=CanvasDrawElement, RaisesException] DOMMatrix getElementTransform((Element or ElementImage) element, DOMMatrix draw_transform);
+    // The default size of the element in canvas grid coordinates.
+    [RuntimeEnabled=CanvasDrawElement, RaisesException] ElementImageDefaultSize getElementImageDefaultSize((Element or ElementImage) element);
     // Returns the current transform applied to the Element mapping its
     // border box, before CSS transfor to the canvas coordinate space. Applies before standard
     // CSS transforms.
-    [RuntimeEnabled=ElementCanvasTransform, RaisesException, NewObject] DOMMatrix getElementTransform(Element element);
+    [RuntimeEnabled=CanvasDrawElement, RaisesException, NewObject] DOMMatrix getElementTransform(Element element);
     [RuntimeEnabled=CanvasDrawElement, RaisesException] ElementImage captureElementImage(Element element);
     [RuntimeEnabled=CanvasDrawElement, RaisesException] void updateElementGeometry((Element or ElementImage) element, optional UpdateElementGeometryOptions options = {});
     [RuntimeEnabled=CanvasDrawElement] void clearElementGeometry((Element or ElementImage) element);

@@ -677,7 +677,7 @@ void RenderWidgetHostViewAura::Focus() {
 }
 
 bool RenderWidgetHostViewAura::HasFocus() {
-  return window_->HasFocus();
+  return has_focus_for_testing_.value_or(window_->HasFocus());
 }
 
 bool RenderWidgetHostViewAura::IsSurfaceAvailableForCopy() {
@@ -1206,9 +1206,10 @@ void RenderWidgetHostViewAura::ClearKeyboardTriggeredTooltip() {
   }
 }
 
-void RenderWidgetHostViewAura::CopyFromSurface(
+void RenderWidgetHostViewAura::CopyFromSurfaceImpl(
     const gfx::Rect& src_subrect,
     const gfx::Size& dst_size,
+    bool is_copy_request_secure,
     base::TimeDelta timeout,
     base::OnceCallback<void(const content::CopyFromSurfaceResult&)> callback) {
   base::WeakPtr<RenderWidgetHostImpl> popup_host;
@@ -1220,8 +1221,8 @@ void RenderWidgetHostViewAura::CopyFromSurface(
   }
   RenderWidgetHostViewBase::CopyMainAndPopupFromSurface(
       host()->GetWeakPtr(), delegated_frame_host_->GetWeakPtr(), popup_host,
-      popup_frame_host, src_subrect, dst_size, device_scale_factor_, timeout,
-      std::move(callback));
+      popup_frame_host, src_subrect, dst_size, device_scale_factor_,
+      is_copy_request_secure, timeout, std::move(callback));
 }
 
 ui::FilteredGestureProvider*
@@ -2698,6 +2699,14 @@ void RenderWidgetHostViewAura::FocusedNodeChanged(
 #if BUILDFLAG(IS_WIN)
 bool RenderWidgetHostViewAura::ShouldInitiateStylusWriting() {
   return StylusHandwritingControllerWin::IsHandwritingAPIAvailable();
+}
+
+std::optional<gfx::Vector2dF>
+RenderWidgetHostViewAura::GetStylusHandwritingPixelsPerInch() {
+  if (!last_stylus_handwriting_properties_) {
+    return std::nullopt;
+  }
+  return last_stylus_handwriting_properties_->pixels_per_inch;
 }
 
 void RenderWidgetHostViewAura::OnStartStylusWriting() {

@@ -227,9 +227,7 @@ AudioRendererImpl::AudioRendererImpl(
       tick_clock_(base::DefaultTickClock::GetInstance()),
       last_audio_memory_usage_(0),
       last_decoded_sample_rate_(0),
-      last_decoded_channel_layout_(CHANNEL_LAYOUT_NONE),
       is_encrypted_(false),
-      last_decoded_channels_(0),
       volume_(1.0f),  // Default unmuted.
       playback_rate_(0.0),
       state_(kUninitialized),
@@ -339,10 +337,18 @@ void AudioRendererImpl::StopTicking() {
     return;
   }
 
-  StopRendering_Locked();
+  // When `rendered_end_of_stream_` is true, playback has finished rather than
+  // temporarily halting for data. Otherwise, because `playback_rate_` is
+  // non-zero here, the media element is still logically playing and only
+  // temporarily halting rendering waiting for data (e.g. during a seek flush or
+  // buffer underflow).
+  StopRendering_Locked(rendered_end_of_stream_
+                           ? AudioRendererSink::PauseReason::kPlaybackPaused
+                           : AudioRendererSink::PauseReason::kWaitingForData);
 }
 
-void AudioRendererImpl::StopRendering_Locked() {
+void AudioRendererImpl::StopRendering_Locked(
+    AudioRendererSink::PauseReason pause_reason) {
   DCHECK(task_runner_->RunsTasksInCurrentSequence());
   DCHECK(state_ == kPlaying || state_ == kReinitializingSink);
   DCHECK(sink_playing_);
@@ -355,9 +361,9 @@ void AudioRendererImpl::StopRendering_Locked() {
 
   base::AutoUnlock auto_unlock(lock_);
   if (volume_ || render_muted_audio_) {
-    sink_->Pause();
+    sink_->Pause(pause_reason);
   } else {
-    null_sink_->Pause();
+    null_sink_->Pause(pause_reason);
   }
 
   stop_rendering_time_ = last_render_time_;
@@ -751,12 +757,10 @@ void AudioRendererImpl::OnDeviceInfoReceived(
                                   AudioParameters::AUDIO_PREFETCH);
   }
 
-  last_decoded_channel_layout_ =
-      stream->audio_decoder_config().channel_layout();
+  last_decoded_channel_layout_config_ =
+      stream->audio_decoder_config().channel_layout_config();
 
   is_encrypted_ = stream->audio_decoder_config().is_encrypted();
-
-  last_decoded_channels_ = stream->audio_decoder_config().channels();
 
   {
     // Set the |audio_clock_| under lock in case this is a reinitialize and some
@@ -1047,10 +1051,10 @@ void AudioRendererImpl::DecodedAudioReady(
     }
     ChangeState_Locked(kReinitializingSink);
 
-    last_decoded_channel_layout_ = buffer->channel_layout();
-    last_decoded_channels_ = buffer->channel_count();
-    audio_parameters_.SetChannelLayoutConfig(last_decoded_channel_layout_,
-                                             last_decoded_channels_);
+    last_decoded_channel_layout_config_ =
+        ChannelLayoutConfig(buffer->channel_layout(), buffer->channel_count());
+    audio_parameters_.set_channel_layout_config(
+        last_decoded_channel_layout_config_);
 
     last_decoded_sample_rate_ = buffer->sample_rate();
     audio_parameters_.set_sample_rate(last_decoded_sample_rate_);
@@ -1106,7 +1110,8 @@ void AudioRendererImpl::DecodedAudioReady(
       }
       last_decoded_sample_rate_ = buffer->sample_rate();
 
-      if (last_decoded_channel_layout_ != buffer->channel_layout()) {
+      if (last_decoded_channel_layout_config_.channel_layout() !=
+          buffer->channel_layout()) {
         if (buffer->channel_layout() == CHANNEL_LAYOUT_DISCRETE) {
           MEDIA_LOG(ERROR, media_log_)
               << "Unsupported midstream configuration change! Discrete channel"
@@ -1114,8 +1119,8 @@ void AudioRendererImpl::DecodedAudioReady(
           HandleAbortedReadOrDecodeError(PIPELINE_ERROR_DECODE);
           return;
         } else {
-          last_decoded_channel_layout_ = buffer->channel_layout();
-          last_decoded_channels_ = buffer->channel_count();
+          last_decoded_channel_layout_config_ = ChannelLayoutConfig(
+              buffer->channel_layout(), buffer->channel_count());
           ConfigureChannelMask();
         }
       }
@@ -1339,7 +1344,7 @@ void AudioRendererImpl::SetPlaybackRate(double playback_rate) {
   }
 
   if (current_playback_rate != 0 && playback_rate == 0) {
-    StopRendering_Locked();
+    StopRendering_Locked(AudioRendererSink::PauseReason::kPlaybackPaused);
     return;
   }
 }
@@ -1653,12 +1658,15 @@ void AudioRendererImpl::SetBufferingState_Locked(
 void AudioRendererImpl::ConfigureChannelMask() {
   DCHECK(algorithm_);
   DCHECK(audio_parameters_.IsValid());
-  DCHECK_NE(last_decoded_channel_layout_, CHANNEL_LAYOUT_NONE);
-  DCHECK_NE(last_decoded_channel_layout_, CHANNEL_LAYOUT_UNSUPPORTED);
+  DCHECK_NE(last_decoded_channel_layout_config_.channel_layout(),
+            CHANNEL_LAYOUT_NONE);
+  DCHECK_NE(last_decoded_channel_layout_config_.channel_layout(),
+            CHANNEL_LAYOUT_UNSUPPORTED);
 
   // If we're actually downmixing the signal, no mask is necessary, but ensure
   // we clear any existing mask if present.
-  if (last_decoded_channels_ >= audio_parameters_.channels()) {
+  if (last_decoded_channel_layout_config_.channels() >=
+      audio_parameters_.channels()) {
     algorithm_->SetChannelMask(
         std::vector<bool>(audio_parameters_.channels(), true));
     return;
@@ -1666,9 +1674,8 @@ void AudioRendererImpl::ConfigureChannelMask() {
 
   // Determine the matrix used to upmix the channels.
   std::vector<std::vector<float>> matrix;
-  ChannelMixingMatrix(
-      ChannelLayoutConfig(last_decoded_channel_layout_, last_decoded_channels_),
-      audio_parameters_.channel_layout_config())
+  ChannelMixingMatrix(last_decoded_channel_layout_config_,
+                      audio_parameters_.channel_layout_config())
       .CreateTransformationMatrix(&matrix);
 
   // All channels with a zero mix are muted and can be ignored.
@@ -1708,13 +1715,14 @@ void AudioRendererImpl::TranscribeAudio(
 
 void AudioRendererImpl::MaybeStartRealSink() {
   // Suspend null audio sink (does nothing if unused).
-  null_sink_->Pause();
+  null_sink_->Pause(AudioRendererSink::PauseReason::kPlaybackPaused);
 
   // Complete startup for the real sink if needed.
   if (real_sink_needs_start_) {
     sink_->Start();
     if (!sink_playing_) {
-      sink_->Pause();  // Sinks play on start.
+      // Sinks play on start.
+      sink_->Pause(AudioRendererSink::PauseReason::kPlaybackPaused);
     }
     real_sink_needs_start_ = false;
   }
@@ -1727,7 +1735,7 @@ void AudioRendererImpl::MaybeStartRealSink() {
 
 void AudioRendererImpl::SuspendRealSink() {
   // Suspend the real sink (does nothing if unused).
-  sink_->Pause();
+  sink_->Pause(AudioRendererSink::PauseReason::kPlaybackPaused);
 
   // Start fake sink playback if needed.
   if (sink_playing_) {

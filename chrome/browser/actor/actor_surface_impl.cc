@@ -5,25 +5,31 @@
 #include "chrome/browser/actor/actor_surface_impl.h"
 
 #include "base/check.h"
+#include "chrome/browser/actor/actor_tab_data.h"
 #include "content/public/browser/web_contents.h"
 
 namespace actor {
 
-ActorSurfaceImpl::ActorSurfaceImpl(ActorSurfaceId id, tabs::TabHandle tab)
-    : id_(id), tab_(tab) {
+ActorSurfaceImpl::ActorSurfaceImpl(ActorSurfaceHandle handle,
+                                   tabs::TabHandle tab)
+    : handle_(handle), tab_(tab) {
   CHECK(tab.Get());
+  ActorSurfaceHandle::Register(handle_, this);
 }
 
-ActorSurfaceImpl::ActorSurfaceImpl(ActorSurfaceId id,
+ActorSurfaceImpl::ActorSurfaceImpl(ActorSurfaceHandle handle,
                                    content::WebContents* headless_contents)
-    : id_(id), headless_contents_(headless_contents) {
+    : handle_(handle), headless_contents_(headless_contents) {
   CHECK(headless_contents_);
+  ActorSurfaceHandle::Register(handle_, this);
 }
 
-ActorSurfaceImpl::~ActorSurfaceImpl() = default;
+ActorSurfaceImpl::~ActorSurfaceImpl() {
+  ActorSurfaceHandle::Unregister(handle_);
+}
 
-ActorSurfaceId ActorSurfaceImpl::Id() const {
-  return id_;
+ActorSurfaceHandle ActorSurfaceImpl::GetHandle() const {
+  return handle_;
 }
 
 bool ActorSurfaceImpl::IsTab() const {
@@ -43,6 +49,16 @@ content::WebContents* ActorSurfaceImpl::GetWebContents() const {
 
 std::optional<tabs::TabHandle> ActorSurfaceImpl::GetTabHandle() const {
   return tab_;
+}
+
+ActorTabData* ActorSurfaceImpl::GetActorTabData() const {
+  if (IsTab()) {
+    tabs::TabInterface* tab = tab_->Get();
+    CHECK(tab);
+    return ActorTabData::From(tab);
+  }
+  // TODO(b/567721071): Implement ActorTabData for headless surfaces.
+  return nullptr;
 }
 
 void ActorSurfaceImpl::SetTab(tabs::TabHandle tab) {

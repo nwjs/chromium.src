@@ -193,8 +193,9 @@ bool AddFirewallRulesCallback(const base::FilePath& chrome_path,
 
   // Adding the firewall rule is expected to fail for user-level installs on
   // Vista+. Try anyway in case the installer is running elevated.
-  if (!manager->AddFirewallRules())
+  if (!manager->AddFirewallRules()) {
     LOG(ERROR) << "Failed creating a firewall rules. Continuing with install.";
+  }
 
   // Don't abort installation if the firewall rule couldn't be added.
   return true;
@@ -442,12 +443,17 @@ void AddEnterpriseEnrollmentWorkItems(const InstallerState& installer_state,
                                       const base::FilePath& setup_path,
                                       const base::Version& new_version,
                                       WorkItemList* install_list) {
-  if (!installer_state.system_install())
+  if (!installer_state.system_install()) {
     return;
+  }
 
   // Register a command to allow Chrome to request Google Update to run
   // setup.exe --store-dmtoken=<token>, which will store the specified token
   // in the registry.
+  //
+  // SECURITY NOTE: Allowing a non-elevated user (e.g. Chrome) to invoke
+  // this elevated AppCommand to write a DMToken to HKLM is by design and not a
+  // privilege escalation.
   base::CommandLine cmd_line(installer_state.GetInstallerDirectory(new_version)
                                  .Append(setup_path.BaseName()));
   cmd_line.AppendSwitchASCII(switches::kStoreDMToken, "%1");
@@ -462,11 +468,6 @@ void AddEnterpriseEnrollmentWorkItems(const InstallerState& installer_state,
   // member of base/win/OWNERS if in doubt.
   AppCommand cmd(kCmdStoreDMToken,
                  cmd_line.GetCommandLineStringWithUnsafeInsertSequences());
-
-  // TODO(rogerta): For now setting this command as web accessible is required
-  // by Google Update.  Could revisit this should Google Update change the
-  // way permissions are handled for commands.
-  cmd.set_is_web_accessible(true);
   cmd.AddCreateAppCommandWorkItems(installer_state.root_key(), install_list);
 }
 
@@ -478,8 +479,9 @@ void AddEnterpriseUnenrollmentWorkItems(const InstallerState& installer_state,
                                         const base::FilePath& setup_path,
                                         const base::Version& new_version,
                                         WorkItemList* install_list) {
-  if (!installer_state.system_install())
+  if (!installer_state.system_install()) {
     return;
+  }
 
   // Register a command to allow Chrome to request Google Update to run
   // setup.exe --delete-dmtoken, which will delete any existing DMToken from the
@@ -491,11 +493,6 @@ void AddEnterpriseUnenrollmentWorkItems(const InstallerState& installer_state,
   cmd_line.AppendSwitch(switches::kVerboseLogging);
   InstallUtil::AppendModeAndChannelSwitches(&cmd_line);
   AppCommand cmd(kCmdDeleteDMToken, cmd_line.GetCommandLineString());
-
-  // TODO(rogerta): For now setting this command as web accessible is required
-  // by Google Update.  Could revisit this should Google Update change the
-  // way permissions are handled for commands.
-  cmd.set_is_web_accessible(true);
   cmd.AddCreateAppCommandWorkItems(installer_state.root_key(), install_list);
 }
 
@@ -506,8 +503,9 @@ void AddEnterpriseDeviceTrustWorkItems(const InstallerState& installer_state,
                                        const base::FilePath& setup_path,
                                        const base::Version& new_version,
                                        WorkItemList* install_list) {
-  if (!installer_state.system_install())
+  if (!installer_state.system_install()) {
     return;
+  }
 
   // Register a command to allow Chrome to request Google Update to run
   // setup.exe --rotate-dtkey=<dm-token>, which will rotate the key and store
@@ -528,11 +526,6 @@ void AddEnterpriseDeviceTrustWorkItems(const InstallerState& installer_state,
   // member of base/win/OWNERS if in doubt.
   AppCommand cmd(kCmdRotateDeviceTrustKey,
                  cmd_line.GetCommandLineStringWithUnsafeInsertSequences());
-
-  // TODO(rogerta): For now setting this command as web accessible is required
-  // by Google Update.  Could revisit this should Google Update change the
-  // way permissions are handled for commands.
-  cmd.set_is_web_accessible(true);
   cmd.AddCreateAppCommandWorkItems(installer_state.root_key(), install_list);
 }
 
@@ -585,7 +578,48 @@ void AddInstallComponentWorkItems(const InstallerState& installer_state,
 
   AppCommand cmd(kCmdInstallComponent,
                  cmd_line.GetCommandLineStringWithUnsafeInsertSequences());
-  cmd.set_is_web_accessible(true);
+  cmd.AddCreateAppCommandWorkItems(installer_state.root_key(), install_list);
+}
+
+// Adds work items to add the "install-component-for-user" command to Chrome's
+// version key. This method is a no-op if this is anything other than
+// system-level Chrome. The command is used to securely verify and copy a
+// component that is specific to a user and User Data directory (e.g., a dynamic
+// patch) to the system Chrome installation directory.
+//
+// The registered command line template is:
+//   "...\setup.exe" --install-component=%1 --user-sid=%CALLER_SID% --udd=%2
+//       --system-level --verbose-logging
+//
+// "%1" is the path to the component and "%2" is the canonicalized User Data
+// directory; both are quoted by the AppCommandRunner as described above. The
+// updater replaces "%CALLER_SID%" with the SID of the user that invoked the
+// command, which satisfies the requirement that --user-sid be derived from the
+// authenticated token of the user on whose behalf the component is installed.
+//
+// This is a separate command because the updater fails to run a command that
+// has a placeholder for which no substitution is provided. Adding "%2" to
+// "install-component" would therefore break callers that provide only "%1"
+// (including browsers of older versions that are still running after an
+// update). For the same reason, the parameters of this command must not change
+// incompatibly once it has shipped.
+void AddInstallComponentForUserWorkItems(const InstallerState& installer_state,
+                                         const base::FilePath& setup_path,
+                                         WorkItemList* install_list) {
+  if (!installer_state.system_install()) {
+    return;
+  }
+
+  base::CommandLine cmd_line(setup_path);
+  cmd_line.AppendSwitchASCII(switches::kInstallComponent, "%1");
+  cmd_line.AppendSwitchASCII(switches::kUserSid, "%CALLER_SID%");
+  cmd_line.AppendSwitchASCII(switches::kUdd, "%2");
+  cmd_line.AppendSwitch(switches::kSystemLevel);
+  cmd_line.AppendSwitch(switches::kVerboseLogging);
+  InstallUtil::AppendModeAndChannelSwitches(&cmd_line);
+
+  AppCommand cmd(kCmdInstallComponentForUser,
+                 cmd_line.GetCommandLineStringWithUnsafeInsertSequences());
   cmd.AddCreateAppCommandWorkItems(installer_state.root_key(), install_list);
 }
 #endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
@@ -701,8 +735,9 @@ void AddUpdateBrandCodeWorkItem(const InstallerState& installer_state,
                                 WorkItemList* install_list) {
   // Only update specific brand codes needed for enterprise.
   std::wstring brand;
-  if (!GoogleUpdateSettings::GetBrand(&brand))
+  if (!GoogleUpdateSettings::GetBrand(&brand)) {
     return;
+  }
 
   // Only update if this machine is a managed device, including domain join.
   // Also map in the reverse direction to fix an issue introduced in M136 by
@@ -867,10 +902,12 @@ bool AppendPostInstallTasks(const InstallParams& install_params,
     // Form the mode-specific rename command and register it.
     base::CommandLine product_rename_cmd(installer_path);
     product_rename_cmd.AppendSwitch(switches::kRenameChromeExe);
-    if (installer_state.system_install())
+    if (installer_state.system_install()) {
       product_rename_cmd.AppendSwitch(switches::kSystemLevel);
-    if (installer_state.verbose_logging())
+    }
+    if (installer_state.verbose_logging()) {
       product_rename_cmd.AppendSwitch(switches::kVerboseLogging);
+    }
     InstallUtil::AppendModeAndChannelSwitches(&product_rename_cmd);
     AppCommand(installer::kCmdRenameChromeExe,
                product_rename_cmd.GetCommandLineString())
@@ -1121,16 +1158,18 @@ void AddOldWerHelperRegistrationCleanupItems(HKEY root,
                                              WorkItemList* list) {
   std::wstring value_prefix(target_path.value());
   DCHECK(!value_prefix.empty());
-  if (value_prefix.back() != L'\\')
+  if (value_prefix.back() != L'\\') {
     value_prefix.push_back(L'\\');
+  }
   const std::wstring value_postfix(std::wstring(L"\\") + kWerDll);
   const std::wstring wer_registry_path = GetWerHelperRegistryPath();
   for (base::win::RegistryValueIterator value_iter(
            root, wer_registry_path.c_str(), WorkItem::kWow64Default);
        value_iter.Valid(); ++value_iter) {
     const std::wstring value_name(value_iter.Name());
-    if (value_name.size() <= value_prefix.size() + value_postfix.size())
+    if (value_name.size() <= value_prefix.size() + value_postfix.size()) {
       continue;
+    }
 
     if (base::StartsWith(value_name, value_prefix,
                          base::CompareCase::INSENSITIVE_ASCII) &&
@@ -1193,11 +1232,25 @@ void AddActiveSetupWorkItems(const InstallerState& installer_state,
   const HKEY root = HKEY_LOCAL_MACHINE;
   const std::wstring active_setup_path(install_static::GetActiveSetupPath());
 
-  VLOG(1) << "Adding registration items for Active Setup.";
-  list->AddCreateRegKeyWorkItem(root, active_setup_path,
-                                WorkItem::kWow64Default);
-  list->AddSetRegValueWorkItem(root, active_setup_path, WorkItem::kWow64Default,
-                               L"", InstallUtil::GetDisplayName(), true);
+  // Creating the top-level registry key for Active Setup sometimes fails due to
+  // permissions issues. Since Active Setup integration isn't essential for a
+  // functioning browser:
+  // 1. Make key creation best-effort so its failure does not abort
+  //    installation.
+  // 2. Only run the remaining Active Setup configuration if key creation
+  //    actually succeeded (checked via ConditionWorkItemSucceeded /
+  //    Succeeded()).
+  // 3. Mark the dependent Active Setup items best-effort as well.
+  WorkItem* create_key_item = list->AddCreateRegKeyWorkItem(
+      root, active_setup_path, WorkItem::kWow64Default);
+  create_key_item->set_best_effort(true);
+
+  auto active_setup_items = base::WrapUnique(WorkItem::CreateWorkItemList());
+  active_setup_items->set_log_message("ActiveSetupWorkItemList");
+  active_setup_items->set_best_effort(true);
+  active_setup_items->AddSetRegValueWorkItem(
+      root, active_setup_path, WorkItem::kWow64Default, L"",
+      InstallUtil::GetDisplayName(), true);
 
   base::FilePath active_setup_exe(
       installer_state.GetInstallerDirectory(new_version)
@@ -1207,20 +1260,30 @@ void AddActiveSetupWorkItems(const InstallerState& installer_state,
   cmd.AppendSwitch(installer::switches::kVerboseLogging);
   cmd.AppendSwitch(installer::switches::kSystemLevel);
   InstallUtil::AppendModeAndChannelSwitches(&cmd);
-  list->AddSetRegValueWorkItem(root, active_setup_path, WorkItem::kWow64Default,
-                               L"StubPath", cmd.GetCommandLineString(), true);
+  active_setup_items->AddSetRegValueWorkItem(
+      root, active_setup_path, WorkItem::kWow64Default, L"StubPath",
+      cmd.GetCommandLineString(), true);
 
   // TODO(grt): http://crbug.com/41337274 Write a reference to a localized
   // resource.
-  list->AddSetRegValueWorkItem(root, active_setup_path, WorkItem::kWow64Default,
-                               L"Localized Name", InstallUtil::GetDisplayName(),
-                               true);
+  active_setup_items->AddSetRegValueWorkItem(
+      root, active_setup_path, WorkItem::kWow64Default, L"Localized Name",
+      InstallUtil::GetDisplayName(), true);
 
-  list->AddSetRegValueWorkItem(root, active_setup_path, WorkItem::kWow64Default,
-                               L"IsInstalled", static_cast<DWORD>(1U), true);
+  active_setup_items->AddSetRegValueWorkItem(
+      root, active_setup_path, WorkItem::kWow64Default, L"IsInstalled",
+      static_cast<DWORD>(1U), true);
 
-  list->AddWorkItem(new UpdateActiveSetupVersionWorkItem(
+  active_setup_items->AddWorkItem(new UpdateActiveSetupVersionWorkItem(
       active_setup_path, UpdateActiveSetupVersionWorkItem::UPDATE));
+
+  std::unique_ptr<WorkItem> conditional_item(
+      WorkItem::CreateConditionalWorkItem(
+          std::make_unique<ConditionWorkItemSucceeded>(*create_key_item),
+          /*if_item=*/std::move(active_setup_items),
+          /*else_item=*/nullptr));
+  conditional_item->set_log_message("ActiveSetupKeyCreated");
+  list->AddWorkItem(conditional_item.release());
 }
 
 void AppendUninstallCommandLineFlags(const InstallerState& installer_state,
@@ -1230,12 +1293,15 @@ void AppendUninstallCommandLineFlags(const InstallerState& installer_state,
   uninstall_cmd->AppendSwitch(installer::switches::kUninstall);
 
   InstallUtil::AppendModeAndChannelSwitches(uninstall_cmd);
-  if (installer_state.is_msi())
+  if (installer_state.is_msi()) {
     uninstall_cmd->AppendSwitch(installer::switches::kMsi);
-  if (installer_state.system_install())
+  }
+  if (installer_state.system_install()) {
     uninstall_cmd->AppendSwitch(installer::switches::kSystemLevel);
-  if (installer_state.verbose_logging())
+  }
+  if (installer_state.verbose_logging()) {
     uninstall_cmd->AppendSwitch(installer::switches::kVerboseLogging);
+  }
 }
 
 void AddOsUpgradeWorkItems(const InstallerState& installer_state,
@@ -1256,8 +1322,9 @@ void AddOsUpgradeWorkItems(const InstallerState& installer_state,
     // Add the main option to indicate OS upgrade flow.
     cmd_line.AppendSwitch(installer::switches::kOnOsUpgrade);
     InstallUtil::AppendModeAndChannelSwitches(&cmd_line);
-    if (installer_state.system_install())
+    if (installer_state.system_install()) {
       cmd_line.AppendSwitch(installer::switches::kSystemLevel);
+    }
     // Log everything for now.
     cmd_line.AppendSwitch(installer::switches::kVerboseLogging);
     // This will make the updater append
@@ -1359,6 +1426,7 @@ void AddFinalizeUpdateWorkItems(const InstallationState& original_state,
 
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
   AddInstallComponentWorkItems(installer_state, setup_path, list);
+  AddInstallComponentForUserWorkItems(installer_state, setup_path, list);
 #endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
 }
 

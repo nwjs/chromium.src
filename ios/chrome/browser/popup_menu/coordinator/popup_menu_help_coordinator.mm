@@ -61,7 +61,7 @@ const NSInteger kLevelUpPasswordCheckupWalkthroughTotalPages = 3;
 const NSInteger kLevelUpQuickDeleteWalkthroughTotalPages = 2;
 
 // Total number of pages in the Level Up Payment Methods walkthrough sequence.
-const NSInteger kLevelUpPaymentMethodsWalkthroughTotalPages = 4;
+const NSInteger kLevelUpPaymentMethodsWalkthroughTotalPages = 5;
 
 // The active IPH session type inside the popup menu.
 enum class PopupMenuIPHSessionType {
@@ -1059,6 +1059,13 @@ enum class PopupMenuIPHSessionType {
 // screen.
 - (BOOL)isToolsMenuAtBottom {
   if (IsChromeNextIaEnabled()) {
+    // In split toolbar mode, on the NTP, the tools menu is at the top of the
+    // NTP, not in the toolbar.
+    if (IsSplitToolbarMode(self.baseViewController) &&
+        IsVisibleURLNewTabPage(
+            self.browser->GetWebStateList()->GetActiveWebState())) {
+      return NO;
+    }
     return IsCurrentLayoutBottomOmnibox(self.browser);
   }
   return IsSplitToolbarMode(self.baseViewController);

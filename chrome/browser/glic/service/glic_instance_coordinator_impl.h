@@ -22,6 +22,7 @@
 #include "build/build_config.h"
 #include "chrome/browser/glic/common/glic_tab_observer.h"
 #include "chrome/browser/glic/common/instance_independent_hotkey_manager.h"
+#include "chrome/browser/glic/glic_enums.h"
 #include "chrome/browser/glic/glic_tab_restore_data.h"
 #include "chrome/browser/glic/host/glic.mojom.h"
 #include "chrome/browser/glic/host/glic_web_client_access.h"
@@ -133,6 +134,9 @@ class GlicInstanceCoordinatorImpl
   GlicInstanceCoordinator::ActivateTabResult ActivateTabWithConversation(
       const std::string& conversation_id) override;
   // GlicInstanceCoordinator implementation
+  GlicInstance* GetInstanceForConversationId(
+      const std::string& conversation_id) const override;
+  GlicInstance* GetInstanceForTaskId(int task_id) const override;
   GlicInstance* GetInstanceForTab(const tabs::TabInterface* tab) const override;
   GlicInstance* GetInstanceForTabGroup(
       tab_groups::TabGroupId group_id) const override;
@@ -221,12 +225,14 @@ class GlicInstanceCoordinatorImpl
   GlicInstanceImpl* GetInstanceImplForTabGroup(
       tab_groups::TabGroupId group_id) const;
 
-  void RemoveInstance(InstanceId id) override;
+  void RemoveInstance(InstanceId id, InstanceRemovalReason reason) override;
 
  private:
-  void RemoveAllInstances();
+  void RemoveAllInstances(InstanceRemovalReason reason);
   void TransferTabGroupBinding(GlicInstanceImpl& source_instance,
                                GlicInstanceImpl& target_instance);
+  // `bypass_in_progress_check` skips checking for a conflicting in-progress
+  // client invoke.
   base::WeakPtr<GlicInstanceImpl> InvokeInternal(
       std::optional<InvokeWithAutoSubmitPasskey> auto_submit_passkey,
       GlicInvokeOptions options,
@@ -326,6 +332,12 @@ class GlicInstanceCoordinatorImpl
   std::unique_ptr<GlicInvokeHandler> RemoveInvokeHandler(
       GlicInstance* instance,
       GlicInvokeHandler* handler);
+
+  // Removes all of `instance`'s handlers from `invoke_handlers_` and returns
+  // ownership of them. Cancelling a handler re-enters
+  // OnInvokeHandlerComplete(), so take them before cancelling.
+  std::vector<std::unique_ptr<GlicInvokeHandler>> TakeInvokeHandlers(
+      GlicInstance* instance);
 
   GlicInstanceImpl* GetOrRestoreInstanceImpl(
       const GlicRestoredState::InstanceInfo& instance_info);

@@ -11,6 +11,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/time/time.h"
+#include "chrome/browser/enterprise/connectors/analysis/content_analysis_dialog_controller_base.h"
 #include "chrome/browser/enterprise/connectors/analysis/content_analysis_dialog_delegate.h"
 #include "chrome/browser/enterprise/connectors/common.h"
 #include "chrome/browser/safe_browsing/cloud_content_scanning/deep_scanning_utils.h"
@@ -30,9 +31,11 @@ class WebContents;
 namespace enterprise_connectors {
 
 // Dialog shown for Deep Scanning to offer the possibility of cancelling the
-// upload to the user.
+// upload to the user. This is the Views implementation of
+// ContentAnalysisDialogControllerBase.
 class ContentAnalysisDialogController
-    : public content::WebContentsObserver,
+    : public ContentAnalysisDialogControllerBase,
+      public content::WebContentsObserver,
       public download::DownloadItem::Observer {
  public:
   // TestObserver should be implemented by tests that need to track when certain
@@ -85,6 +88,14 @@ class ContentAnalysisDialogController
   static base::TimeDelta GetSuccessDialogTimeout();
   static base::TimeDelta ShowDialogDelay();
 
+  // Shows a specialized version of the dialog strictly for collecting a bypass
+  // justification after a user clicks "Copy anyway" on a warning toast.
+  // Ownership of the delegate is transferred to the dialog, the return value is
+  // used for testing.
+  static ContentAnalysisDialogController* ShowForCopyJustification(
+      content::WebContents* web_contents,
+      std::unique_ptr<ContentAnalysisDelegateBase> delegate);
+
   ContentAnalysisDialogController(
       std::unique_ptr<ContentAnalysisDelegateBase> delegate,
       bool is_cloud,
@@ -99,13 +110,14 @@ class ContentAnalysisDialogController
   void WebContentsDestroyed() override;
   void PrimaryPageChanged(content::Page& page) override;
 
+  // ContentAnalysisDialogControllerBase:
   // Updates the dialog with the result, and simply delete it from memory if
   // nothing should be shown.
-  void ShowResult(FinalContentAnalysisResult result);
+  void ShowResult(FinalContentAnalysisResult result) override;
 
   // Cancels the dialog an schedules it for deletion if visible, otherwise
   // simply deletes it soon.
-  void CancelDialogAndDelete();
+  void CancelDialogAndDelete() override;
 
   void CloseDialog(views::Widget::ClosedReason reason);
 
@@ -134,10 +146,6 @@ class ContentAnalysisDialogController
 
   void AcceptButtonClicked();
   void CancelButtonClicked();
-
-  // This callback used by DialogDelegate::SetCancelCallback and is used to
-  // ensure the auto-closing success dialog handles focus correctly.
-  void SuccessCallback();
 
   // download::DownloadItem::Observer:
   void OnDownloadUpdated(download::DownloadItem* download) override;

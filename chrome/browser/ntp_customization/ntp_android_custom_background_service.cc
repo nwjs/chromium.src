@@ -283,7 +283,9 @@ bool NtpAndroidCustomBackgroundService::IsNextThemeCollectionImage(
 void NtpAndroidCustomBackgroundService::UpdateThemeCollectionPrefsWithColor(
     const GURL& image_url,
     const std::string& collection_id,
-    const std::string& attribution,
+    const std::string& attribution_line_1,
+    const std::string& attribution_line_2,
+    const GURL& attribution_action_url,
     SkColor color,
     bool is_daily_refresh) {
   if (!image_url.is_valid()) {
@@ -312,13 +314,9 @@ void NtpAndroidCustomBackgroundService::UpdateThemeCollectionPrefsWithColor(
     // timestamp might need to be an actual time point instead of INT_MAX, and
     // the real resume token should be plumbed through so that daily refresh
     // continues from the right position.
-    // TODO(crbug.com/488439751): Plumb the two attribution lines separately
-    // from Java. `attribution` is a single string that already joins them, so
-    // the second line is lost here and platforms that render the two lines
-    // separately show them squashed into one.
     base::DictValue new_background_info = GetBackgroundInfoAsDict(
-        image_url, attribution, /*attribution_line_2=*/std::string(),
-        /*action_url=*/GURL(), collection_id, /*resume_token=*/std::nullopt,
+        image_url, attribution_line_1, attribution_line_2,
+        attribution_action_url, collection_id, /*resume_token=*/std::nullopt,
         is_daily_refresh ? GetNextRefreshTimestamp().value_or(INT_MAX) : 0);
     new_background_info.Set(kNtpCustomBackgroundMainColor,
                             static_cast<int>(color));

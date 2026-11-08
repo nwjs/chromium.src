@@ -274,26 +274,68 @@ TEST_F(DecorationTest, CrossFade) {
   EXPECT_FALSE(decoration().fading_layer_for_testing());
 }
 
-TEST_F(DecorationTest, NulloptDetailsResetsDecorationLayer) {
+// The fading layer keeps framing the content with its own margins if the
+// content changes during a cross-fade.
+TEST_F(DecorationTest, FadingLayerTracksContentBounds) {
+  decoration().SetContentBounds(gfx::Rect(0, 0, 100, 100));
+
+  set_details(MakeDetails(20));
+  source().TriggerChanged(base::Milliseconds(100));
+  ASSERT_TRUE(decoration().fading_layer_for_testing());
+
+  decoration().SetContentBounds(gfx::Rect(10, 10, 50, 50));
+
+  EXPECT_EQ(gfx::Rect(-10, -10, 90, 90), decoration().layer()->bounds());
+  EXPECT_EQ(gfx::Rect(0, 0, 90, 90),
+            decoration().decoration_layer_for_testing()->bounds());
+  EXPECT_EQ(gfx::Rect(10, 10, 70, 70),
+            decoration().fading_layer_for_testing()->bounds());
+}
+
+// The fading layer collapses if the content becomes empty during a cross-fade.
+TEST_F(DecorationTest, FadingLayerCollapsesForEmptyContent) {
+  decoration().SetContentBounds(gfx::Rect(0, 0, 100, 100));
+
+  source().TriggerChanged(base::Milliseconds(100));
+  ASSERT_TRUE(decoration().fading_layer_for_testing());
+
+  decoration().SetContentBounds(gfx::Rect());
+
+  EXPECT_TRUE(decoration().layer()->bounds().IsEmpty());
+  EXPECT_TRUE(decoration().fading_layer_for_testing()->bounds().IsEmpty());
+}
+
+// Without details there is nothing to draw: the decoration layer is hidden but
+// keeps its nine-patch configuration, so details that come back are not
+// re-uploaded.
+TEST_F(DecorationTest, NulloptDetailsHidesDecorationLayer) {
   const gfx::Rect content_bounds(0, 0, 100, 100);
   decoration().SetContentBounds(content_bounds);
+  const gfx::Rect aperture =
+      decoration().decoration_layer_for_testing()->aperture();
 
   // Layer bounds initially outset by margins (-10 -> +10 outwards).
   gfx::Rect expected_layer_bounds = content_bounds;
   expected_layer_bounds.Inset(gfx::Insets(-10));
   EXPECT_EQ(expected_layer_bounds, decoration().layer()->bounds());
+  EXPECT_TRUE(decoration().decoration_layer_for_testing()->visible());
 
-  // Source returns nullopt -> decoration layer image and bounds are reset.
+  // Source returns nullopt -> decoration layer is hidden and the bounds
+  // collapse onto the content.
   set_details(std::nullopt);
   source().TriggerChanged();
+  EXPECT_FALSE(decoration().decoration_layer_for_testing()->visible());
   EXPECT_EQ(content_bounds, decoration().layer()->bounds());
   EXPECT_EQ(gfx::Rect(content_bounds.size()),
             decoration().decoration_layer_for_testing()->bounds());
+  EXPECT_EQ(aperture, decoration().decoration_layer_for_testing()->aperture());
 
-  // Source returns details again -> decoration layer is reconfigured.
+  // Source returns the same details again -> decoration layer is shown as is.
   set_details(MakeDetails(10));
   source().TriggerChanged();
+  EXPECT_TRUE(decoration().decoration_layer_for_testing()->visible());
   EXPECT_EQ(expected_layer_bounds, decoration().layer()->bounds());
+  EXPECT_EQ(aperture, decoration().decoration_layer_for_testing()->aperture());
 }
 
 TEST_F(DecorationTest, NulloptDetailsWithFadingLayer) {
@@ -306,9 +348,12 @@ TEST_F(DecorationTest, NulloptDetailsWithFadingLayer) {
   set_details(std::nullopt);
   source().TriggerChanged();
 
-  // Layer bounds should encompass the fading layer bounds.
+  // Layer bounds should encompass the fading layer bounds. Only the new
+  // decoration layer is hidden; the old one keeps fading out.
   EXPECT_FALSE(decoration().layer()->bounds().IsEmpty());
-  EXPECT_TRUE(decoration().fading_layer_for_testing());
+  EXPECT_FALSE(decoration().decoration_layer_for_testing()->visible());
+  ASSERT_TRUE(decoration().fading_layer_for_testing());
+  EXPECT_TRUE(decoration().fading_layer_for_testing()->visible());
 
   decoration().OnImplicitAnimationsCompleted();
   EXPECT_FALSE(decoration().fading_layer_for_testing());

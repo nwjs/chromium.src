@@ -27,7 +27,6 @@ source_set("downloads") {
     "downloads_list_tracker.h",
     "downloads_ui.h",
   ]
-  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
   deps = [
     ":mojo_bindings",
     "//base",
@@ -116,7 +115,6 @@ source_set("interactive_ui_tests") {
     "//chrome/browser/download",
     "//chrome/browser/download:test_support",
     "//chrome/browser/profiles:profile",
-    "//chrome/browser/ui",
     "//chrome/common",
     "//chrome/test:test_support",
     "//components/download/public/common:public",

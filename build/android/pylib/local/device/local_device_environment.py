@@ -92,7 +92,6 @@ def handle_shard_failures_with(on_failure):
 
 # TODO(crbug.com/40799394): After Telemetry is supported by python3 we can
 # re-add super without arguments in this script.
-# pylint: disable=super-with-arguments
 class LocalDeviceEnvironment(environment.Environment):
     def __init__(self, args, output_manager, _error_func):
         super(LocalDeviceEnvironment, self).__init__(output_manager)
@@ -165,6 +164,20 @@ class LocalDeviceEnvironment(environment.Environment):
         assert self._devices is None
         self._preferred_abis = abis
 
+    @staticmethod
+    def _LogDeviceTime(device):
+        device_epoch = device.RunShellCommand(
+            ['date', '+%s'], single_line=True, check_return=True
+        )
+        device_time = (
+            datetime.datetime.fromtimestamp(int(device_epoch))
+            .astimezone()
+            .strftime('%Y-%m-%dT%H:%M:%S%z')
+        )
+        logging.info(
+            'Device %s current system time: %s', str(device), device_time
+        )
+
     def _InitDevices(self):
         device_arg = []
         if self._device_serials:
@@ -187,6 +200,7 @@ class LocalDeviceEnvironment(environment.Environment):
         @handle_shard_failures_with(on_failure=self.DenylistDevice)
         def prepare_device(d):
             d.WaitUntilFullyBooted()
+            self._LogDeviceTime(d)
 
             force_main_user = self._force_main_user
             if force_main_user is None:

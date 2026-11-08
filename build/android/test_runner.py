@@ -27,9 +27,8 @@ import unittest
 # Import _strptime before threaded code. datetime.datetime.strptime is
 # threadsafe except for the initial import of the _strptime module.
 # See http://crbug.com/724524 and https://bugs.python.org/issue7980.
-import _strptime  # pylint: disable=unused-import
+import _strptime  # noqa: F401
 
-# pylint: disable=ungrouped-imports
 from pylib.constants import host_paths
 
 if host_paths.DEVIL_PATH not in sys.path:
@@ -609,11 +608,6 @@ def AddGTestOptions(parser):
         help='Executable name of the test suite to run.',
     )
     parser.add_argument(
-        '--test-apk-incremental-install-json',
-        type=os.path.realpath,
-        help='Path to install json for the test apk.',
-    )
-    parser.add_argument(
         '--test-launcher-batch-limit',
         dest='test_launcher_batch_limit',
         type=int,
@@ -925,17 +919,6 @@ def AddInstrumentationTestOptions(parser):
         'com.android.package:www.example.com',
     )
 
-    # These arguments are suppressed from the help text because they should
-    # only ever be specified by an intermediate script.
-    parser.add_argument(
-        '--apk-under-test-incremental-install-json', help=argparse.SUPPRESS
-    )
-    parser.add_argument(
-        '--test-apk-incremental-install-json',
-        type=os.path.realpath,
-        help=argparse.SUPPRESS,
-    )
-
 
 def AddSkiaGoldTestOptions(parser):
     """Adds Skia Gold test options to |parser|."""
@@ -1105,11 +1088,11 @@ def AddJUnitTestOptions(parser):
         '--json-config', help='Runs only tests listed in this config.'
     )
     parser.add_argument(
-        '--shards',
+        '-j',
+        '--jobs',
         type=int,
-        help='Number of shards to run junit tests in parallel on. Only 1 shard '
-        'is supported when test-filter is specified. Values less than 1 will '
-        'use auto select.',
+        help='Number of concurrent worker processes to run JUnit tests. '
+        'Values less than 1 will use auto select.',
     )
     parser.add_argument(
         '--shard-filter', help='Comma separated list of shard indices to run.'
@@ -1504,7 +1487,7 @@ def UploadTestScriptRecords(result_sink_client, exc_recorder, mm_recorder):
             exc_recorder.clear()
             mm_recorder.clear()
             break
-        except Exception as e:  # pylint: disable=W0703
+        except Exception as e:
             logging.error("Got error %s when uploading test script records.", e)
             # Upload can fail due to record size being too big.
             # In this case, let's try to reduce the size.
@@ -1544,7 +1527,6 @@ def RunTestsInPlatformMode(args, result_sink_client=None):
             'Received SIGTERM. Shutting down.',
         ]
         for live_thread in threading.enumerate():
-            # pylint: disable=protected-access
             thread_stack = ''.join(
                 traceback.format_stack(sys._current_frames()[live_thread.ident])
             )
@@ -1891,7 +1873,7 @@ def _LogRerunStatement(failed_tests, wrapper_arg_str):
     try:
         constants.CheckOutputDirectory()
     # constants.CheckOutputDirectory throws bare exceptions.
-    except:  # pylint: disable=bare-except
+    except:  # noqa: E722
         logging.exception(
             'Output directory not found. Unable to generate failing '
             'test filter file.'
@@ -2077,7 +2059,7 @@ def main():
         if e.is_infra_error:
             return constants.INFRA_EXIT_CODE
         return constants.ERROR_EXIT_CODE
-    except Exception:  # pylint: disable=W0703
+    except Exception:
         logging.exception('Unrecognized error occurred.')
         return constants.ERROR_EXIT_CODE
 
@@ -2093,6 +2075,6 @@ if __name__ == '__main__':
         # to avoid the hang.
         sys.stdout.flush()
         sys.stderr.flush()
-        os._exit(exit_code)  # pylint: disable=protected-access
+        os._exit(exit_code)
     else:
         sys.exit(exit_code)

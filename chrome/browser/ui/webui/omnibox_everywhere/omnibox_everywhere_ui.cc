@@ -255,8 +255,9 @@ OmniboxEverywhereUI::OmniboxEverywhereUI(content::WebUI* web_ui)
             ->GetProfileAttributesStorage()
             .GetProfileAttributesWithPath(profile_->GetPath());
     if (entry) {
-      gfx::Image icon =
-          profiles::GetSizedAvatarIcon(entry->GetAvatarIcon(), 48, 48);
+      gfx::Image icon = profiles::GetSizedAvatarIcon(
+          entry->GetAvatarIcon(kProfileAvatarSizePx), kProfileAvatarSizePx,
+          kProfileAvatarSizePx);
       profile_avatar_url = webui::GetBitmapDataUrl(icon.AsBitmap());
 
       std::u16string gaia_name = entry->GetGAIANameToDisplay();
@@ -304,6 +305,7 @@ OmniboxEverywhereUI::OmniboxEverywhereUI(content::WebUI* web_ui)
       {"screenshotWindowLabel", IDS_OMNIBOX_EVERYWHERE_WINDOW},
       {"searchBoxHintAskOrType", IDS_NTP_SEARCH_BOX_PLACEHOLDER_ASK_OR_TYPE},
       {"shareScreenshotLabel", IDS_OMNIBOX_EVERYWHERE_SHARE_SCREENSHOT},
+      {"switchProfileLabel", IDS_OMNIBOX_EVERYWHERE_SWITCH_PROFILE},
   };
   source->AddLocalizedStrings(kStrings);
 
@@ -517,6 +519,11 @@ void OmniboxEverywhereUI::CreatePageHandler(
         pending.token, pending.status, pending.error_type);
   }
   pending_upload_statuses_.clear();
+
+  for (const auto& token : pending_screenshot_tokens_) {
+    composebox_handler_->AddScreenshotContextToken(token);
+  }
+  pending_screenshot_tokens_.clear();
 }
 
 void OmniboxEverywhereUI::BindInterface(
@@ -709,6 +716,7 @@ void OmniboxEverywhereUI::SetIsComposebox(bool is_composebox) {
 void OmniboxEverywhereUI::ClearContextualSessionHandle() {
   shared_session_handle_.reset();
   pending_upload_statuses_.clear();
+  pending_screenshot_tokens_.clear();
   is_composebox_mode_ = false;
   screenshot_origin_was_searchbox_ = false;
 
@@ -725,6 +733,7 @@ void OmniboxEverywhereUI::ClearContextualSessionHandle() {
   if (composebox_handler_) {
     composebox_handler_->selected_tabs.clear();
     composebox_handler_->ResetInputStateModel();
+    composebox_handler_->ClearScreenshotContextTokens();
   }
 }
 
@@ -1044,6 +1053,15 @@ void OmniboxEverywhereUI::AddFileContext(
     initial_state->file_token = token;
     initial_state->file_info = std::move(file_info);
     OpenComposebox(std::move(initial_state));
+  }
+}
+
+void OmniboxEverywhereUI::AddScreenshotContextToken(
+    const base::UnguessableToken& token) {
+  if (is_composebox_mode_ && composebox_handler_) {
+    composebox_handler_->AddScreenshotContextToken(token);
+  } else {
+    pending_screenshot_tokens_.push_back(token);
   }
 }
 

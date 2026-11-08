@@ -21,6 +21,9 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import android.content.res.ColorStateList;
+import android.graphics.Color;
+import android.graphics.Rect;
 import android.view.View;
 import android.view.ViewGroup.MarginLayoutParams;
 import android.view.ViewStub;
@@ -42,6 +45,7 @@ import org.robolectric.android.controller.ActivityController;
 
 import org.chromium.base.Callback;
 import org.chromium.base.DeviceInfo;
+import org.chromium.base.ResettersForTesting;
 import org.chromium.base.UnownedUserDataHost;
 import org.chromium.base.UserDataHost;
 import org.chromium.base.supplier.LazyOneshotSupplier;
@@ -100,6 +104,7 @@ import org.chromium.chrome.browser.ntp.IncognitoNewTabPage;
 import org.chromium.chrome.browser.ntp.NewTabPage;
 import org.chromium.chrome.browser.omnibox.ChromeAutocompleteSchemeClassifier;
 import org.chromium.chrome.browser.omnibox.ChromeAutocompleteSchemeClassifierJni;
+import org.chromium.chrome.browser.omnibox.LocationBarDataProvider;
 import org.chromium.chrome.browser.omnibox.NewTabPageDelegate;
 import org.chromium.chrome.browser.omnibox.OmniboxChipManager;
 import org.chromium.chrome.browser.omnibox.fusebox.ComposeboxQueryControllerBridge;
@@ -143,6 +148,8 @@ import org.chromium.chrome.browser.toolbar.optional_button.ButtonDataImpl;
 import org.chromium.chrome.browser.toolbar.optional_button.ButtonDataProvider;
 import org.chromium.chrome.browser.toolbar.optional_button.ButtonDataProvider.ButtonDataObserver;
 import org.chromium.chrome.browser.toolbar.settings.AddressBarPreference;
+import org.chromium.chrome.browser.toolbar.top.ResourceFactory;
+import org.chromium.chrome.browser.toolbar.top.ResourceFactoryJni;
 import org.chromium.chrome.browser.toolbar.top.ToolbarActionModeCallback;
 import org.chromium.chrome.browser.toolbar.top.ToolbarControlContainer;
 import org.chromium.chrome.browser.toolbar.top.TopToolbarCoordinator;
@@ -163,6 +170,7 @@ import org.chromium.chrome.browser.ui.system.StatusBarColorController;
 import org.chromium.chrome.test.util.browser.signin.AccountManagerTestRule;
 import org.chromium.components.browser_ui.accessibility.PageZoomManager;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
+import org.chromium.components.browser_ui.desktop_windowing.AppHeaderState;
 import org.chromium.components.browser_ui.desktop_windowing.DesktopWindowStateManager;
 import org.chromium.components.browser_ui.device_lock.DeviceLockActivityLauncher;
 import org.chromium.components.browser_ui.styles.IncognitoColors;
@@ -173,6 +181,7 @@ import org.chromium.components.favicon.LargeIconBridgeJni;
 import org.chromium.components.feature_engagement.EventConstants;
 import org.chromium.components.feature_engagement.Tracker;
 import org.chromium.components.omnibox.AutocompleteInput;
+import org.chromium.components.omnibox.OmniboxFeatureList;
 import org.chromium.components.omnibox.OmniboxFocusReason;
 import org.chromium.components.prefs.PrefService;
 import org.chromium.components.search_engines.TemplateUrlService;
@@ -234,6 +243,8 @@ public class ToolbarManagerUnitTest {
     @Mock private Runnable mOpenGridTabSwitcherHandler;
     @Mock private Tracker mTracker;
     @Mock private TopToolbarSceneLayer.Natives mTopToolbarSceneLayerNatives;
+    @Mock private ResourceFactory.Natives mResourceFactoryJni;
+    @Mock private LocationBarDataProvider.Observer mLocationBarDataProviderObserver;
     @Mock private SceneLayer.Natives mSceneLayerNatives;
     @Mock private TabModel mTabModel;
     @Mock private Tab mTab;
@@ -241,7 +252,6 @@ public class ToolbarManagerUnitTest {
     @Mock private Profile mProfile;
     @Mock private BrowserControlsSizer mControlsSizer;
     @Mock private FullscreenManager mFullscreenManager;
-    @Mock private CompositorViewHolder mCompositorViewHolder;
     @Mock private Callback<Boolean> mUrlFocusChangedCallback;
     @Mock private ToolbarThemeColorProvider mToolbarThemeColorProvider;
     @Mock private ToolbarThemeColorProvider mAdjustedToolbarThemeColorProvider;
@@ -301,6 +311,7 @@ public class ToolbarManagerUnitTest {
 
     private List<ButtonDataProvider> mButtonDataProviders;
     private ActivityController<TestActivity> mActivityController;
+    private CompositorViewHolder mCompositorViewHolder;
     private ToolbarControlContainer mControlContainer;
     private ToolbarManager mToolbarManager;
     private TopToolbarSceneLayer mTopToolbarSceneLayerInstance;
@@ -367,9 +378,6 @@ public class ToolbarManagerUnitTest {
                 new BrowserStateBrowserControlsVisibilityDelegate(
                         ObservableSuppliers.createNonNull(false));
         when(mControlsSizer.getBrowserVisibilityDelegate()).thenReturn(browserVisibilityDelegate);
-        NonNullObservableSupplier<Boolean> compositorInMotionSupplier =
-                ObservableSuppliers.createNonNull(false);
-        when(mCompositorViewHolder.getInMotionSupplier()).thenReturn(compositorInMotionSupplier);
         when(mDisplayAndroid.getDisplayHeight()).thenReturn(1000);
         when(mWindowAndroid.getDisplay()).thenReturn(mDisplayAndroid);
 
@@ -434,6 +442,7 @@ public class ToolbarManagerUnitTest {
         mActivityController = Robolectric.buildActivity(TestActivity.class).setup();
         AppCompatActivity activity = mActivityController.get();
         activity.setContentView(R.layout.main);
+        mCompositorViewHolder = new CompositorViewHolder(activity, /* attrs= */ null);
         ViewStub controlStub = activity.findViewById(R.id.control_container_stub);
         controlStub.setLayoutResource(R.layout.control_container);
         mControlContainer = (ToolbarControlContainer) controlStub.inflate();
@@ -544,7 +553,6 @@ public class ToolbarManagerUnitTest {
                         mOmniboxChipManager,
                         mBottomBarHostManager,
                         mActionRegistry,
-                        /* countrySupplier= */ null,
                         /* toggleGlicCallback= */ (preventClose, invocationSource) -> {},
                         /* suppressTabStripAtStart= */ false,
                         mHubManagerSupplier);
@@ -698,9 +706,7 @@ public class ToolbarManagerUnitTest {
     }
 
     @Test
-    @EnableFeatures(
-            ChromeFeatureList.ANDROID_BOTTOM_BAR
-                    + ":ntp_scroll_off_enabled/true/disable_on_ntp/false")
+    @EnableFeatures(ChromeFeatureList.ANDROID_BOTTOM_BAR + ":ntp_scroll_off_enabled/true")
     public void testBottomBarConstraintsSupplier_ntpScrollOffEnabled() {
         var supplier = mToolbarManager.getBottomBarConstraintsSupplierForTesting();
         Tab ntpTab = mockTab(/* isNtp= */ true);
@@ -717,9 +723,7 @@ public class ToolbarManagerUnitTest {
     }
 
     @Test
-    @EnableFeatures(
-            ChromeFeatureList.ANDROID_BOTTOM_BAR
-                    + ":ntp_scroll_off_enabled/false/disable_on_ntp/false")
+    @EnableFeatures(ChromeFeatureList.ANDROID_BOTTOM_BAR + ":ntp_scroll_off_enabled/false")
     public void testBottomBarConstraintsSupplier_ntpScrollOffDisabledButForcedBoth() {
         var supplier = mToolbarManager.getBottomBarConstraintsSupplierForTesting();
         Tab ntpTab = mockTab(/* isNtp= */ true);
@@ -735,28 +739,7 @@ public class ToolbarManagerUnitTest {
     }
 
     @Test
-    @EnableFeatures(
-            ChromeFeatureList.ANDROID_BOTTOM_BAR
-                    + ":ntp_scroll_off_enabled/true/disable_on_ntp/true")
-    public void testBottomBarConstraintsSupplier_disableOnNtpEnabled() {
-        var supplier = mToolbarManager.getBottomBarConstraintsSupplierForTesting();
-        Tab ntpTab = mockTab(/* isNtp= */ true);
-        BrowserControlsVisibilityDelegate visibilityDelegate =
-                new BrowserControlsVisibilityDelegate(BrowserControlsState.SHOWN);
-        setMockConstraintsHelper(ntpTab, visibilityDelegate);
-
-        mActivityTabProvider.setForTesting(ntpTab);
-        RobolectricUtil.runAllBackgroundAndUi();
-
-        // If bottom bar is disabled on NTP, we should not force BOTH constraints (should return
-        // SHOWN).
-        assertEquals(BrowserControlsState.SHOWN, supplier.get().intValue());
-    }
-
-    @Test
-    @EnableFeatures(
-            ChromeFeatureList.ANDROID_BOTTOM_BAR
-                    + ":ntp_scroll_off_enabled/true/disable_on_ntp/false")
+    @EnableFeatures(ChromeFeatureList.ANDROID_BOTTOM_BAR + ":ntp_scroll_off_enabled/true")
     public void testBottomBarConstraintsSupplier_normalPage() {
         var supplier = mToolbarManager.getBottomBarConstraintsSupplierForTesting();
         Tab normalTab = mockTab(/* isNtp= */ false);
@@ -788,9 +771,7 @@ public class ToolbarManagerUnitTest {
     }
 
     @Test
-    @EnableFeatures(
-            ChromeFeatureList.ANDROID_BOTTOM_BAR
-                    + ":ntp_scroll_off_enabled/true/disable_on_ntp/false")
+    @EnableFeatures(ChromeFeatureList.ANDROID_BOTTOM_BAR + ":ntp_scroll_off_enabled/true")
     public void testBottomBarConstraintsSupplier_incognitoNtpForcedBoth() {
         var supplier = mToolbarManager.getBottomBarConstraintsSupplierForTesting();
         Tab ntpTab = mockTab(/* isNtp= */ true, /* isIncognito= */ true);
@@ -906,8 +887,6 @@ public class ToolbarManagerUnitTest {
     @EnableFeatures(ChromeFeatureList.ANDROID_BOTTOM_BAR)
     @DisableFeatures(SigninFeatures.SIGNIN_LEVEL_UP_BUTTON)
     public void testToolbarOptionalButtonHidden_whenBottomBarEnabled_andNotIdentityDisk() {
-        ChromeFeatureList.sAndroidBottomBarDisableOnNtp.setForTesting(false);
-
         Tab ntpTab = mockTab(/* isNtp= */ true);
         mActivityTabProvider.setForTesting(ntpTab);
 
@@ -963,39 +942,6 @@ public class ToolbarManagerUnitTest {
                 toolbar.findViewById(R.id.toolbar_buttons)
                         .findViewById(R.id.optional_toolbar_button_container);
         assertTrue(toolbarButton == null || toolbarButton.getVisibility() == View.GONE);
-    }
-
-    @Test
-    @EnableFeatures(ChromeFeatureList.ANDROID_BOTTOM_BAR)
-    @DisableFeatures(SigninFeatures.SIGNIN_LEVEL_UP_BUTTON)
-    public void testNtpOptionalButtonVisible_whenBottomBarEnabled_andDisableOnNtp() {
-        ChromeFeatureList.sAndroidBottomBarDisableOnNtp.setForTesting(true);
-
-        Tab ntpTab = mockTab(/* isNtp= */ true);
-        mActivityTabProvider.setForTesting(ntpTab);
-
-        ButtonDataImpl shareButtonData =
-                new ButtonDataImpl(
-                        /* canShow= */ true,
-                        /* isEnabled= */ true,
-                        new ButtonSpec.Builder(
-                                        /* drawable= */ null,
-                                        /* contentDescription= */ "Share",
-                                        /* supportsTinting= */ false)
-                                .setButtonVariant(AdaptiveToolbarButtonVariant.SHARE)
-                                .build());
-        when(mAdaptiveButtonProvider.get(ntpTab)).thenReturn(shareButtonData);
-
-        mAdaptiveButtonObserverCaptor.getValue().buttonDataChanged(true);
-        RobolectricUtil.runAllBackgroundAndUi();
-
-        AppCompatActivity activity = mActivityController.get();
-        View toolbar = activity.findViewById(R.id.toolbar);
-        View toolbarButton =
-                toolbar.findViewById(R.id.toolbar_buttons)
-                        .findViewById(R.id.optional_toolbar_button_container);
-        assertNotNull(toolbarButton);
-        assertEquals(View.VISIBLE, toolbarButton.getVisibility());
     }
 
     @Test
@@ -1171,22 +1117,33 @@ public class ToolbarManagerUnitTest {
         assertTrue(delegate.isIncognitoNewTabPageCurrentlyVisible());
     }
 
-    @Test
-    public void testSetToolbarTabletMarginsForAutoHiddenVerticalTab() throws Exception {
-        ToolbarControlContainer controlContainer = mock(ToolbarControlContainer.class);
+    private MarginLayoutParams setUpTabletLayoutForAutoHiddenVerticalTab(int initialRightMargin) {
         View tabletLayout = new View(mActivityController.get());
-        MarginLayoutParams params = new MarginLayoutParams(100, 100);
-        params.rightMargin = 20;
+        tabletLayout.setId(R.id.toolbar_tablet_layout);
+        mControlContainer.addView(tabletLayout, /* width= */ 100, /* height= */ 100);
+        MarginLayoutParams params = (MarginLayoutParams) tabletLayout.getLayoutParams();
+        params.rightMargin = initialRightMargin;
         params.topMargin = 0;
         params.leftMargin = 0;
         tabletLayout.setLayoutParams(params);
 
-        when(controlContainer.findViewById(R.id.toolbar_tablet_layout)).thenReturn(tabletLayout);
-        when(controlContainer.getContext()).thenReturn(mActivityController.get());
+        mControlContainer.setIsVerticalTabsActiveSupplier(ObservableSuppliers.createNonNull(true));
+        when(mDesktopWindowStateManager.getAppHeaderState())
+                .thenReturn(
+                        new AppHeaderState(
+                                new Rect(0, 0, 100, 100),
+                                new Rect(10, 0, 80, 100),
+                                /* isInDesktopWindow= */ true));
+        return params;
+    }
 
-        Field controlContainerField = ToolbarManager.class.getDeclaredField("mControlContainer");
-        controlContainerField.setAccessible(true);
-        controlContainerField.set(mToolbarManager, controlContainer);
+    @Test
+    public void testSetToolbarTabletMarginsForAutoHiddenVerticalTab() {
+        MarginLayoutParams params =
+                setUpTabletLayoutForAutoHiddenVerticalTab(/* initialRightMargin= */ 20);
+        View toolbarContainer = mControlContainer.findViewById(R.id.toolbar_container);
+        MarginLayoutParams containerParams =
+                (MarginLayoutParams) toolbarContainer.getLayoutParams();
 
         SettableNonNullObservableSupplier<Boolean> isAutoHiddenSupplier =
                 ObservableSuppliers.createNonNull(false);
@@ -1200,35 +1157,30 @@ public class ToolbarManagerUnitTest {
 
         // When Vertical Tabs is hidden due to narrow window width
         isAutoHiddenSupplier.set(true);
-        verify(controlContainer).setToolbarContainerTopMarginForAutoHiddenVerticalTab(true);
+        assertEquals(tabStripHeight, containerParams.topMargin);
         assertEquals(0, params.rightMargin);
         assertEquals(0, params.leftMargin);
 
         // When Vertical Tabs gets shown again or turned off
         isAutoHiddenSupplier.set(false);
-        verify(controlContainer).setToolbarContainerTopMarginForAutoHiddenVerticalTab(false);
+        assertEquals(0, containerParams.topMargin);
         assertEquals(20, params.rightMargin);
         assertEquals(0, params.leftMargin);
     }
 
     @Test
-    public void testSetToolbarTabletMarginsForAutoHiddenVerticalTab_UpdateRightMarginWhileHidden()
-            throws Exception {
-        ToolbarControlContainer controlContainer = mock(ToolbarControlContainer.class);
-        View tabletLayout = new View(mActivityController.get());
-        MarginLayoutParams params = new MarginLayoutParams(100, 100);
+    public void testSetToolbarTabletMarginsForAutoHiddenVerticalTab_UpdateRightMarginWhileHidden() {
         // Simulate returning from fullscreen where right margin was 0.
-        params.rightMargin = 0;
-        params.topMargin = 0;
-        params.leftMargin = 0;
-        tabletLayout.setLayoutParams(params);
-
-        when(controlContainer.findViewById(R.id.toolbar_tablet_layout)).thenReturn(tabletLayout);
-        when(controlContainer.getContext()).thenReturn(mActivityController.get());
-
-        Field controlContainerField = ToolbarManager.class.getDeclaredField("mControlContainer");
-        controlContainerField.setAccessible(true);
-        controlContainerField.set(mToolbarManager, controlContainer);
+        MarginLayoutParams params =
+                setUpTabletLayoutForAutoHiddenVerticalTab(/* initialRightMargin= */ 0);
+        View toolbarContainer = mControlContainer.findViewById(R.id.toolbar_container);
+        MarginLayoutParams containerParams =
+                (MarginLayoutParams) toolbarContainer.getLayoutParams();
+        int tabStripHeight =
+                mActivityController
+                        .get()
+                        .getResources()
+                        .getDimensionPixelSize(R.dimen.tab_strip_height);
 
         SettableNonNullObservableSupplier<Boolean> isAutoHiddenSupplier =
                 ObservableSuppliers.createNonNull(false);
@@ -1236,7 +1188,7 @@ public class ToolbarManagerUnitTest {
 
         // Vertical Tabs is auto-hidden in narrow window.
         isAutoHiddenSupplier.set(true);
-        verify(controlContainer).setToolbarContainerTopMarginForAutoHiddenVerticalTab(true);
+        assertEquals(tabStripHeight, containerParams.topMargin);
         assertEquals(0, params.rightMargin);
 
         // Insets update notifies a new right margin while Vertical Tabs is auto-hidden.
@@ -1246,7 +1198,7 @@ public class ToolbarManagerUnitTest {
 
         // When Vertical Tabs gets shown again on window widening, the updated margin is restored.
         isAutoHiddenSupplier.set(false);
-        verify(controlContainer).setToolbarContainerTopMarginForAutoHiddenVerticalTab(false);
+        assertEquals(0, containerParams.topMargin);
         assertEquals(20, params.rightMargin);
     }
 
@@ -1543,5 +1495,67 @@ public class ToolbarManagerUnitTest {
         supplier.set(findToolbarManager);
         RobolectricUtil.runAllBackgroundAndUi();
         verify(findToolbarManager, never()).addObserver(any());
+    }
+
+    private ActivityTabProvider.ActivityTabTabObserver setUpForTabLoadStopped(Tab activeTab) {
+        // onLoadStopped() calls mToolbar.onPageLoadStopped(), which triggers bitmap texture
+        // capture (ViewResourceAdapter). Stub the JNI and theme color providers required during
+        // the view drawing and native container resource creation.
+        ResourceFactoryJni.setInstanceForTesting(mResourceFactoryJni);
+        ResettersForTesting.register(() -> ResourceFactoryJni.setInstanceForTesting(null));
+        when(mToolbarThemeColorProvider.getTint()).thenReturn(ColorStateList.valueOf(Color.BLACK));
+        when(mAdjustedToolbarThemeColorProvider.getTint())
+                .thenReturn(ColorStateList.valueOf(Color.BLACK));
+
+        mActivityTabProvider.setForTesting(activeTab);
+        RobolectricUtil.runAllBackgroundAndUi();
+        mToolbarManager
+                .getLocationBarModelForTesting()
+                .addObserver(mLocationBarDataProviderObserver);
+        ActivityTabProvider.ActivityTabTabObserver tabObserver =
+                mToolbarManager.getActivityTabTabObserverForTesting();
+        assertNotNull(tabObserver);
+        return tabObserver;
+    }
+
+    @Test
+    @EnableFeatures(OmniboxFeatureList.ZERO_SUGGEST_PREFETCH_ON_PAGE_LOAD_AND_TAB_SWITCH)
+    public void testOnLoadStopped_zeroSuggestPrefetch_featureEnabled() {
+        Tab tab = mockTab(/* isNtp= */ true);
+        ActivityTabProvider.ActivityTabTabObserver tabObserver = setUpForTabLoadStopped(tab);
+
+        tabObserver.onLoadStopped(tab, /* toDifferentDocument= */ true);
+        verify(mLocationBarDataProviderObserver).hintZeroSuggestRefresh();
+    }
+
+    @Test
+    @DisableFeatures(OmniboxFeatureList.ZERO_SUGGEST_PREFETCH_ON_PAGE_LOAD_AND_TAB_SWITCH)
+    public void testOnLoadStopped_zeroSuggestPrefetch_featureDisabled() {
+        Tab tab = mockTab(/* isNtp= */ true);
+        ActivityTabProvider.ActivityTabTabObserver tabObserver = setUpForTabLoadStopped(tab);
+
+        tabObserver.onLoadStopped(tab, /* toDifferentDocument= */ true);
+        verify(mLocationBarDataProviderObserver, never()).hintZeroSuggestRefresh();
+    }
+
+    @Test
+    @EnableFeatures(OmniboxFeatureList.ZERO_SUGGEST_PREFETCH_ON_PAGE_LOAD_AND_TAB_SWITCH)
+    public void testOnLoadStopped_zeroSuggestPrefetch_notDifferentDocument() {
+        Tab tab = mockTab(/* isNtp= */ true);
+        ActivityTabProvider.ActivityTabTabObserver tabObserver = setUpForTabLoadStopped(tab);
+
+        tabObserver.onLoadStopped(tab, /* toDifferentDocument= */ false);
+        verify(mLocationBarDataProviderObserver, never()).hintZeroSuggestRefresh();
+    }
+
+    @Test
+    @EnableFeatures(OmniboxFeatureList.ZERO_SUGGEST_PREFETCH_ON_PAGE_LOAD_AND_TAB_SWITCH)
+    public void testOnLoadStopped_zeroSuggestPrefetch_notActiveTab() {
+        Tab activeTab = mockTab(/* isNtp= */ true);
+        Tab backgroundTab = mockTab(/* isNtp= */ true);
+        ActivityTabProvider.ActivityTabTabObserver tabObserver = setUpForTabLoadStopped(activeTab);
+
+        tabObserver.onLoadStopped(backgroundTab, /* toDifferentDocument= */ true);
+        verify(mLocationBarDataProviderObserver, never()).hintZeroSuggestRefresh();
     }
 }

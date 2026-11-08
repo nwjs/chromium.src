@@ -423,7 +423,9 @@ source_set("ios_web_web_state_unittests") {
   ]
 
   sources = [
+    "web_state/crw_input_view_suppressor_unittest.mm",
     "web_state/crw_web_view_data_controls_unittest.mm",
+    "web_state/crw_web_view_unittest.mm",
     "web_state/data_controls_protocol_smoke_unittest.mm",
     "web_state/policy_decision_state_tracker_unittest.mm",
     "web_state/web_state_context_menu_bridge_unittest.mm",
@@ -463,6 +465,7 @@ source_set("ios_web_web_state_ui_unittests") {
     "//ios/web/public/js_messaging",
     "//ios/web/public/session",
     "//ios/web/public/test",
+    "//ios/web/public/test:test_fixture",
     "//ios/web/public/test/fakes",
     "//ios/web/security",
     "//ios/web/test:mojo_bindings",
@@ -483,6 +486,7 @@ source_set("ios_web_web_state_ui_unittests") {
 
   sources = [
     "web_state/ui/crw_html_element_fetch_request_unittest.mm",
+    "web_state/ui/crw_permission_request_unittest.mm",
     "web_state/ui/crw_viewport_insets_animator_unittest.mm",
     "web_state/ui/crw_web_controller_unittest.mm",
     "web_state/ui/crw_web_view_content_view_unittest.mm",

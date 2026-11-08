@@ -5,20 +5,45 @@
 #import "ios/web/web_state/crw_web_view.h"
 
 #import "base/feature_list.h"
-#import "base/metrics/histogram_functions.h"
 #import "ios/components/enterprise/data_controls/clipboard_enums.h"
 #import "ios/components/enterprise/data_controls/metrics_utils.h"
 #import "ios/web/common/crw_edit_menu_builder.h"
 #import "ios/web/common/crw_input_view_provider.h"
 #import "ios/web/common/features.h"
 #import "ios/web/web_state/crw_data_controls_delegate.h"
+#import "ios/web/web_state/crw_input_view_suppressor.h"
 
 using data_controls::ClipboardAction;
 using data_controls::ClipboardSource;
 using data_controls::RecordClipboardOutcomeMetrics;
 using data_controls::RecordClipboardSourceMetrics;
 
-@implementation CRWWebView
+@implementation CRWWebView {
+  // Helper that manages input view suppression for this web view.
+  CRWInputViewSuppressor* _inputViewSuppressor;
+}
+
+#pragma mark - Public Properties
+
+- (BOOL)shouldSuppressInputViews {
+  return _inputViewSuppressor != nil;
+}
+
+- (void)setShouldSuppressInputViews:(BOOL)shouldSuppressInputViews {
+  if (self.shouldSuppressInputViews == shouldSuppressInputViews) {
+    return;
+  }
+  if (shouldSuppressInputViews) {
+    _inputViewSuppressor = [[CRWInputViewSuppressor alloc] initWithView:self];
+    // Reload input views after `_inputViewSuppressor` is assigned so
+    // synchronous `inputView` queries during `reloadInputViews` see it.
+    [_inputViewSuppressor reloadInputViews];
+  } else {
+    CRWInputViewSuppressor* suppressor = _inputViewSuppressor;
+    _inputViewSuppressor = nil;
+    [suppressor disconnect];
+  }
+}
 
 #pragma mark - UIResponder
 
@@ -38,6 +63,9 @@ using data_controls::RecordClipboardSourceMetrics;
 }
 
 - (UIView*)inputView {
+  if (_inputViewSuppressor) {
+    return [_inputViewSuppressor inputView];
+  }
   id<CRWResponderInputView> responderInputView =
       self.inputViewProvider.responderInputView;
   if ([responderInputView respondsToSelector:@selector(inputView)]) {
@@ -50,6 +78,9 @@ using data_controls::RecordClipboardSourceMetrics;
 }
 
 - (UIInputViewController*)inputViewController {
+  if (_inputViewSuppressor) {
+    return [_inputViewSuppressor inputViewController];
+  }
   id<CRWResponderInputView> responderInputView =
       self.inputViewProvider.responderInputView;
   if ([responderInputView respondsToSelector:@selector(inputViewController)]) {
@@ -63,6 +94,9 @@ using data_controls::RecordClipboardSourceMetrics;
 }
 
 - (UIView*)inputAccessoryView {
+  if (_inputViewSuppressor) {
+    return [_inputViewSuppressor inputAccessoryView];
+  }
   id<CRWResponderInputView> responderInputView =
       self.inputViewProvider.responderInputView;
   if ([responderInputView respondsToSelector:@selector(inputAccessoryView)]) {
@@ -75,6 +109,9 @@ using data_controls::RecordClipboardSourceMetrics;
 }
 
 - (UIInputViewController*)inputAccessoryViewController {
+  if (_inputViewSuppressor) {
+    return [_inputViewSuppressor inputAccessoryViewController];
+  }
   id<CRWResponderInputView> responderInputView =
       self.inputViewProvider.responderInputView;
   if ([responderInputView

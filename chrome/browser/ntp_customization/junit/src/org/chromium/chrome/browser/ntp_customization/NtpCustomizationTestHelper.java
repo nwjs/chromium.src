@@ -10,6 +10,7 @@ import static org.mockito.Mockito.when;
 import android.view.View;
 import android.view.Window;
 
+import org.chromium.base.ContextUtils;
 import org.chromium.base.UnownedUserDataHost;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.ui.base.WindowAndroid;
@@ -29,7 +30,7 @@ public class NtpCustomizationTestHelper {
         when(windowAndroid.getUnownedUserDataHost()).thenReturn(windowUserDataHost);
 
         Window window = mock(Window.class);
-        View decorView = mock(View.class);
+        View decorView = new View(ContextUtils.getApplicationContext());
         when(window.getDecorView()).thenReturn(decorView);
 
         EdgeToEdgeStateProvider edgeToEdgeStateProvider = new EdgeToEdgeStateProvider(window);

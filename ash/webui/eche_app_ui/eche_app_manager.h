@@ -8,6 +8,8 @@
 #include <stdint.h>
 
 #include <memory>
+#include <optional>
+#include <string>
 
 #include "ash/public/cpp/ash_web_view.h"
 #include "ash/webui/eche_app_ui/accessibility_provider.h"
@@ -17,13 +19,19 @@
 #include "ash/webui/eche_app_ui/eche_recent_app_click_handler.h"
 #include "ash/webui/eche_app_ui/launch_app_helper.h"
 #include "ash/webui/eche_app_ui/mojom/eche_app.mojom.h"
+#include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
+#include "base/memory/raw_ref.h"
 #include "chromeos/ash/services/secure_channel/public/cpp/client/presence_monitor_client_impl.h"
 #include "chromeos/services/network_config/public/mojom/cros_network_config.mojom.h"
 #include "components/keyed_service/core/keyed_service.h"
 #include "mojo/public/cpp/bindings/remote.h"
 
 class PrefService;
+
+namespace user_manager {
+class User;
+}  // namespace user_manager
 
 namespace ash {
 
@@ -47,6 +55,7 @@ class SecureChannelClient;
 namespace eche_app {
 
 class AppsLaunchInfoProvider;
+class EcheAppNotificationController;
 class EcheConnector;
 class EcheMessageReceiver;
 class EcheAlertGenerator;
@@ -68,8 +77,9 @@ class EcheKeyboardLayoutHandler;
 // KeyedService instances.
 class EcheAppManager : public KeyedService {
  public:
+  // `user` must be non-null and must outlive this instance.
   EcheAppManager(PrefService* pref_service,
-                 std::unique_ptr<SystemInfo> system_info,
+                 const user_manager::User* user,
                  phonehub::PhoneHubManager*,
                  device_sync::DeviceSyncClient*,
                  multidevice_setup::MultiDeviceSetupClient*,
@@ -78,12 +88,21 @@ class EcheAppManager : public KeyedService {
                      presence_monitor_client,
                  std::unique_ptr<AccessibilityProviderProxy>,
                  LaunchAppHelper::LaunchEcheAppFunction,
-                 LaunchAppHelper::LaunchNotificationFunction,
-                 LaunchAppHelper::CloseNotificationFunction);
+                 base::RepeatingClosure relaunch_callback);
   ~EcheAppManager() override;
 
   EcheAppManager(const EcheAppManager&) = delete;
   EcheAppManager& operator=(const EcheAppManager&) = delete;
+
+  static std::unique_ptr<SystemInfo> GetSystemInfo(
+      const user_manager::User* user);
+
+  void ShowNotification(
+      const std::optional<std::u16string>& title,
+      const std::optional<std::u16string>& message,
+      std::unique_ptr<LaunchAppHelper::NotificationInfo> info);
+  void CloseNotification(const std::string& notification_id);
+  void CloseConnectionOrLaunchErrorNotifications();
 
   void BindSignalingMessageExchangerInterface(
       mojo::PendingReceiver<mojom::SignalingMessageExchanger> receiver);
@@ -129,6 +148,8 @@ class EcheAppManager : public KeyedService {
   void Shutdown() override;
 
  private:
+  const raw_ref<const user_manager::User> user_;
+  base::RepeatingClosure relaunch_callback_;
   raw_ptr<phonehub::PhoneHubManager> phone_hub_manager_;
   std::unique_ptr<secure_channel::ConnectionManager> connection_manager_;
   std::unique_ptr<EcheConnectionStatusHandler> eche_connection_status_handler_;
@@ -156,6 +177,7 @@ class EcheAppManager : public KeyedService {
   std::unique_ptr<EcheStreamOrientationObserver>
       eche_stream_orientation_observer_;
   std::unique_ptr<EcheKeyboardLayoutHandler> eche_keyboard_layout_handler_;
+  std::unique_ptr<EcheAppNotificationController> notification_controller_;
 };
 
 }  // namespace eche_app

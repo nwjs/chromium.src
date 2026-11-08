@@ -5,6 +5,8 @@
 #include "third_party/blink/renderer/core/paint/image_painter.h"
 
 #include "third_party/blink/renderer/core/animation/css/css_image_animations.h"
+#include "third_party/blink/renderer/core/css/properties/longhands.h"
+#include "third_party/blink/renderer/core/display_lock/display_lock_utilities.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/element.h"
 #include "third_party/blink/renderer/core/editing/frame_selection.h"
@@ -26,6 +28,7 @@
 #include "third_party/blink/renderer/core/paint/timing/paint_timing_detector.h"
 #include "third_party/blink/renderer/platform/geometry/path.h"
 #include "third_party/blink/renderer/platform/geometry/path_builder.h"
+#include "third_party/blink/renderer/platform/graphics/color.h"
 #include "third_party/blink/renderer/platform/graphics/graphics_context.h"
 #include "third_party/blink/renderer/platform/graphics/image_node_animation_info.h"
 #include "third_party/blink/renderer/platform/graphics/paint/display_item_cache_skipper.h"
@@ -76,6 +79,13 @@ void ImagePainter::PaintAreaElementFocusRing(const PaintInfo& paint_info) {
   if (area_element->ImageElement() != layout_image_.GetNode())
     return;
 
+  // Don't paint or force style computation for <area> elements inside
+  // a display-locked subtree.
+  if (DisplayLockUtilities::IsDisplayLockedPreventingPaint(
+          area_element, /*inclusive_check=*/true)) {
+    return;
+  }
+
   // We use EnsureComputedStyle() instead of GetComputedStyle() here because
   // <area> is used and its style applied even if it has display:none. The style
   // may still be null if the area_element is outside the flat tree.
@@ -108,8 +118,15 @@ void ImagePainter::PaintAreaElementFocusRing(const PaintInfo& paint_info) {
   PhysicalRect focus_rect = layout_image_.PhysicalContentBoxRect();
   focus_rect.Move(paint_offset);
   paint_info.context.Clip(ToPixelSnappedRect(focus_rect));
+  const auto& outline_color_property = GetCSSPropertyOutlineColor();
+  const Color outline_color =
+      paint_info.IsReadBackAllowedRendering()
+          ? outline_color_property.ColorIncludingFallback(
+                /*visited_link=*/false, *area_element_style,
+                /*is_current_color=*/nullptr)
+          : area_element_style->VisitedDependentColor(outline_color_property);
   OutlinePainter::PaintFocusRingPath(paint_info.context, path,
-                                     *area_element_style);
+                                     *area_element_style, outline_color);
   paint_info.context.Restore();
 }
 
@@ -122,7 +139,7 @@ void ImagePainter::PaintReplaced(const PaintInfo& paint_info,
     if (content_rect.IsEmpty()) {
       return;
     }
-    if (paint_info.IsPrivacyPreserving() &&
+    if (paint_info.IsReadBackAllowedRendering() &&
         !layout_image_.ImageResource()->IsCorsSameOrigin()) {
       return;
     }
@@ -189,7 +206,7 @@ void ImagePainter::PaintReplaced(const PaintInfo& paint_info,
     gfx::RectF outline_rect(ToPixelSnappedRect(content_rect));
     outline_rect.Inset(0.5f);
     context.StrokeRect(outline_rect,
-                       PaintAutoDarkMode(layout_image_.StyleRef(),
+                       PaintAutoDarkMode(layout_image_.Style(),
                                          DarkModeFilter::ElementRole::kBorder));
     return;
   }
@@ -248,8 +265,8 @@ void ImagePainter::PaintIntoRect(GraphicsContext& context,
       gfx::RectF(dest_rect));
 
   ScopedImageRenderingSettings image_rendering_settings_scope(
-      context, layout_image_.StyleRef().GetInterpolationQuality(),
-      layout_image_.StyleRef().GetDynamicRangeLimit());
+      context, layout_image_.Style().GetInterpolationQuality(),
+      layout_image_.Style().GetDynamicRangeLimit());
 
   Node* node = layout_image_.GetNode();
   auto* image_element = DynamicTo<HTMLImageElement>(node);
@@ -259,7 +276,7 @@ void ImagePainter::PaintIntoRect(GraphicsContext& context,
           : Image::kUnspecifiedDecode;
 
   auto image_auto_dark_mode = ImageClassifierHelper::GetImageAutoDarkMode(
-      *layout_image_.GetFrame(), layout_image_.StyleRef(),
+      *layout_image_.GetFrame(), layout_image_.Style(),
       gfx::RectF(pixel_snapped_dest_rect), src_rect);
 
   // At this point we have all the necessary information to report paint
@@ -268,7 +285,7 @@ void ImagePainter::PaintIntoRect(GraphicsContext& context,
   ImageResourceContent* image_content = image_resource.CachedImage();
   ImageNodeAnimationInfo image_animation =
       CSSImageAnimations::CreateImageNodeAnimationInfo(
-          node, image_content, layout_image_.StyleRef().ImageAnimation());
+          node, image_content, layout_image_.Style().ImageAnimation());
   context.DrawImage(
       *image, decode_mode, image_auto_dark_mode,
       ComputeReportPaintTiming(layout_image_, *image, image_content, context,

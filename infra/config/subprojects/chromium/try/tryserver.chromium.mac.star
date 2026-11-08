@@ -204,6 +204,7 @@ try_.orchestrator_builder(
     coverage_test_types = ["overall", "unit"],
     cq_settings = try_.cq_settings(
         on_default_cq = True,
+        reuse_max_commit_distance = 800 if settings.is_main else None,
     ),
     experiments = {
         # go/nplus1shardsproposal
@@ -273,6 +274,7 @@ try_.orchestrator_builder(
     coverage_test_types = ["overall", "unit"],
     cq_settings = try_.cq_settings(
         on_default_cq = True,
+        reuse_max_commit_distance = 800 if settings.is_main else None,
     ),
     experiments = {
         # go/nplus1shardsproposal
@@ -292,7 +294,6 @@ try_.orchestrator_builder(
 try_.compilator_builder(
     name = "mac-gpu-rel-compilator",
     branch_selector = branches.selector.MAC_BRANCHES,
-    description_html = "compilator for mac-gpu-rel.",
     cpu = cpu.ARM64,
     contact_team_email = "chrome-gpu-infra@google.com",
     main_list_view = "try",
@@ -300,9 +301,6 @@ try_.compilator_builder(
 
 try_.builder(
     name = "mac-libfuzzer-asan-rel",
-    # TODO(crbug.com/41492669): Can delete this description when it's
-    # automatically generated.
-    description_html = "Trybot of {}.".format(linkify_builder("ci", "Libfuzzer Upload Mac ASan")),
     executable = "recipe:chromium/fuzz",
     mirrors = ["ci/Libfuzzer Upload Mac ASan"],
     gn_args = gn_args.config(
@@ -373,7 +371,6 @@ try_.builder(
 try_.builder(
     name = "mac14-arm64-rel",
     branch_selector = branches.selector.MAC_BRANCHES,
-    description_html = "Compiles and runs MacOS 14 tests on ARM machines",
     mirrors = [
         "ci/mac-arm64-rel",
         "ci/mac14-arm64-rel-tests",
@@ -398,7 +395,6 @@ try_.builder(
 try_.builder(
     name = "mac15-arm64-rel",
     branch_selector = branches.selector.MAC_BRANCHES,
-    description_html = "Compiles and runs MacOS 15 tests on ARM machines",
     mirrors = [
         "ci/mac-arm64-rel",
         "ci/mac15-arm64-rel-tests",
@@ -471,7 +467,6 @@ try_.builder(
 try_.builder(
     name = "mac14-tests",
     branch_selector = branches.selector.MAC_BRANCHES,
-    description_html = "Runs default MacOS 14 tests on try.",
     mirrors = [
         "ci/Mac Builder",
         "ci/mac14-tests",
@@ -490,7 +485,6 @@ try_.builder(
 try_.builder(
     name = "mac15-x64-rel-tests",
     branch_selector = branches.selector.MAC_BRANCHES,
-    description_html = "Runs default MacOS 15 tests on try.",
     mirrors = [
         "ci/Mac Builder",
         "ci/mac15-x64-rel-tests",
@@ -509,7 +503,6 @@ try_.builder(
 try_.builder(
     name = "mac26-x64-rel-tests",
     branch_selector = branches.selector.MAC_BRANCHES,
-    description_html = "Runs default MacOS 26 tests on try.",
     mirrors = [
         "ci/Mac Builder",
         "ci/mac26-x64-rel-tests",
@@ -527,7 +520,6 @@ try_.builder(
 
 try_.builder(
     name = "mac-no-initial-webui-rel",
-    description_html = "Mirror of Mac No Initial WebUI CI builder",
     mirrors = [
         "ci/mac-arm64-rel",
         "ci/mac-no-initial-webui-rel",
@@ -658,6 +650,7 @@ try_.builder(
 
 try_.builder(
     name = "mac_upload_clang",
+    description_html = "Builds and uploads Clang toolchain packages for Mac x64.",
     executable = "recipe:chromium_toolchain/package_clang",
     builderless = False,
     # Mac 15 is the last mac version widely supported on x64.
@@ -667,6 +660,7 @@ try_.builder(
 
 try_.builder(
     name = "mac_upload_clang_arm",
+    description_html = "Builds and uploads Clang toolchain packages for Mac ARM64.",
     executable = "recipe:chromium_toolchain/package_clang",
     builderless = False,
     cpu = cpu.ARM64,
@@ -675,6 +669,7 @@ try_.builder(
 
 try_.builder(
     name = "mac_upload_rust",
+    description_html = "Builds and uploads Rust toolchain packages for Mac x64.",
     executable = "recipe:chromium_toolchain/package_rust",
     builderless = False,
     # Mac 15 is the last mac version widely supported on x64.
@@ -684,6 +679,7 @@ try_.builder(
 
 try_.builder(
     name = "mac_upload_rust_arm",
+    description_html = "Builds and uploads Rust toolchain packages for Mac ARM64.",
     executable = "recipe:chromium_toolchain/package_rust",
     builderless = False,
     cpu = cpu.ARM64,
@@ -704,8 +700,8 @@ try_.builder(
         "ci/mac-treesinviz-disabled-rel",
     ],
     gn_args = "ci/mac-treesinviz-disabled-rel",
-    # TODO(crbug.com/543006750): Revert to MAC_DEFAULT after arm migration.
-    os = os.MAC_15,
+    os = os.MAC_DEFAULT,
+    cpu = cpu.ARM64,
     contact_team_email = "chrome-gpu-team@google.com",
 )
 
@@ -789,6 +785,7 @@ try_.orchestrator_builder(
     coverage_test_types = ["overall", "unit"],
     cq_settings = try_.cq_settings(
         on_default_cq = True,
+        reuse_max_commit_distance = 800 if settings.is_main else None,
     ),
     experiments = {
         # go/nplus1shardsproposal
@@ -1020,7 +1017,6 @@ shared_gpu.try_.mac_optional_builder(
 
 try_.builder(
     name = "mac-separate-renderer-rel",
-    description_html = "Runs separate renderer tests on Mac, mirroring mac-separate-renderer-fyi-rel.",
     mirrors = [
         "ci/mac-separate-renderer-fyi-rel",
     ],
@@ -1031,8 +1027,9 @@ try_.builder(
             "dcheck_always_on",
         ],
     ),
-    # TODO(crbug.com/543006750): Revert to MAC_DEFAULT after arm migration.
-    os = os.MAC_15,
+    cores = None,
+    os = os.MAC_DEFAULT,
+    cpu = cpu.ARM64,
     contact_team_email = "toyoshim@chromium.org",
     cq_settings = try_.cq_settings(
         includable_only = True,

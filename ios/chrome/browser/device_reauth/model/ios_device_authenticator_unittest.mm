@@ -9,8 +9,8 @@
 #import "base/test/ios/wait_util.h"
 #import "base/test/mock_callback.h"
 #import "base/test/task_environment.h"
-#import "base/test/test.pb.h"
-#import "ios/chrome/common/ui/reauthentication/mock_reauthentication_module.h"
+#import "base/test/test_future.h"
+#import "ios/chrome/common/ui/reauthentication/fake_reauthentication_module.h"
 #import "testing/gtest/include/gtest/gtest.h"
 #import "testing/platform_test.h"
 
@@ -18,39 +18,37 @@
 class IOSDeviceAuthenticatorTest : public PlatformTest {
  public:
   IOSDeviceAuthenticatorTest()
-      : mock_reauth_module_([[MockReauthenticationModule alloc] init]) {
+      : fake_reauth_module_([[FakeReauthenticationModule alloc] init]) {
     authenticator_ = std::make_unique<IOSDeviceAuthenticator>(
-        mock_reauth_module_, &proxy_,
+        fake_reauth_module_, &proxy_,
         device_reauth::DeviceAuthParams(
             base::Seconds(60), device_reauth::DeviceAuthSource::kAutofill));
-    mock_reauth_module_.shouldSkipReAuth = YES;
-    mock_reauth_module_.canAttemptWithBiometrics = YES;
-    mock_reauth_module_.canAttempt = YES;
+    fake_reauth_module_.shouldSkipReAuth = YES;
+    fake_reauth_module_.canAttemptWithBiometrics = YES;
+    fake_reauth_module_.canAttempt = YES;
   }
 
   void SimulateReauthSucceeded() {
-    mock_reauth_module_.expectedResult = ReauthenticationResult::kSuccess;
+    fake_reauth_module_.expectedResult = ReauthenticationResult::kSuccess;
   }
   void SimulateReauthFailed() {
-    mock_reauth_module_.expectedResult = ReauthenticationResult::kFailure;
+    fake_reauth_module_.expectedResult = ReauthenticationResult::kFailure;
   }
   void SimulateReauthBypassed() {
-    mock_reauth_module_.expectedResult = ReauthenticationResult::kSkipped;
+    fake_reauth_module_.expectedResult = ReauthenticationResult::kSkipped;
   }
 
-  device_reauth::DeviceAuthenticator* authenticator() {
-    return authenticator_.get();
-  }
+  IOSDeviceAuthenticator* authenticator() { return authenticator_.get(); }
   base::MockCallback<base::OnceCallback<void(bool)>>& result_callback() {
     return result_callback_;
   }
 
  protected:
-  MockReauthenticationModule* mock_reauth_module_;
+  FakeReauthenticationModule* fake_reauth_module_;
 
  private:
   DeviceAuthenticatorProxy proxy_;
-  std::unique_ptr<device_reauth::DeviceAuthenticator> authenticator_;
+  std::unique_ptr<IOSDeviceAuthenticator> authenticator_;
   base::MockCallback<base::OnceCallback<void(bool)>> result_callback_;
 };
 
@@ -131,13 +129,16 @@ class IOSDeviceAuthenticatorAvailabilityTest
       public ::testing::WithParamInterface<std::tuple<bool, bool>> {
  public:
   IOSDeviceAuthenticatorAvailabilityTest() {
-    mock_reauth_module_.canAttemptWithBiometrics = BiometricAvailable();
-    mock_reauth_module_.canAttempt =
+    fake_reauth_module_.canAttemptWithBiometrics = BiometricAvailable();
+    fake_reauth_module_.canAttempt =
         BiometricAvailable() || ScreenLockAvailable();
   }
 
   bool BiometricAvailable() { return std::get<0>(GetParam()); }
   bool ScreenLockAvailable() { return std::get<1>(GetParam()); }
+
+ private:
+  base::test::TaskEnvironment task_environment_;
 };
 
 // Tests that auth availability is correctly returned.
@@ -146,6 +147,14 @@ TEST_P(IOSDeviceAuthenticatorAvailabilityTest, ReauthAvailability) {
             BiometricAvailable());
   EXPECT_EQ(authenticator()->CanAuthenticateWithBiometricOrScreenLock(),
             BiometricAvailable() || ScreenLockAvailable());
+}
+
+// Tests that async auth availability is correctly returned.
+TEST_P(IOSDeviceAuthenticatorAvailabilityTest, ReauthAvailabilityAsync) {
+  base::test::TestFuture<bool> future;
+  authenticator()->CanAuthenticateWithBiometricOrScreenLock(
+      future.GetCallback());
+  EXPECT_EQ(future.Get(), BiometricAvailable() || ScreenLockAvailable());
 }
 
 INSTANTIATE_TEST_SUITE_P(,

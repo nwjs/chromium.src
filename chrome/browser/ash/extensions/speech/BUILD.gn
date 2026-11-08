@@ -17,14 +17,13 @@ static_library("speech") {
     "speech_recognition_private_recognizer.h",
   ]
 
-  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
-
   deps = [
     "//ash/public/cpp",
     "//base",
     "//chrome/browser/profiles",
     "//chrome/browser/profiles:profile",
     "//chrome/browser/speech",
+    "//chromeos/ash/experiences/extensions/browser/speech:speech_recognition_constants",
     "//chromeos/ash/experiences/extensions/common/api",
     "//components/keyed_service/core",
     "//components/language/core/browser",
@@ -58,6 +57,7 @@ source_set("browser_tests") {
     "//chrome/browser/speech",
     "//chrome/browser/speech:test_support",
     "//chrome/test:test_support",
+    "//chromeos/ash/experiences/extensions/browser/speech:speech_recognition_constants",
     "//content/test:test_support",
     "//extensions:test_support",
   ]

@@ -7,6 +7,7 @@ import unittest
 
 import setup_modules  # pylint: disable=unused-import
 
+
 import chromium_src.tools.metrics.common.etree_util as etree_util
 import chromium_src.tools.metrics.histograms.histogram_configuration_model as histogram_configuration_model
 

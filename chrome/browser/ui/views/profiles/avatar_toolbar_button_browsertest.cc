@@ -38,8 +38,8 @@
 #include "chrome/browser/profiles/profiles_state.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/signin/identity_test_environment_profile_adaptor.h"
+#include "chrome/browser/signin/mock_signin_ui_delegate.h"
 #include "chrome/browser/signin/signin_promo_util.h"
-#include "chrome/browser/signin/signin_ui_delegate.h"
 #include "chrome/browser/signin/signin_ui_util.h"
 #include "chrome/browser/sync/sync_service_factory.h"
 #include "chrome/browser/themes/theme_service.h"
@@ -53,6 +53,7 @@
 #include "chrome/browser/ui/profiles/profile_colors_util.h"
 #include "chrome/browser/ui/profiles/profile_view_utils.h"
 #include "chrome/browser/ui/signin/dice_migration_service.h"
+#include "chrome/browser/ui/toolbar/avatar_toolbar_iph_controller.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/profiles/avatar_toolbar_button_state_manager.h"
@@ -133,6 +134,7 @@
 #endif
 
 namespace {
+using signin_ui_util::MockSigninUiDelegate;
 using ::testing::StrictMock;
 using ::testing::ValuesIn;
 using ::testing::WithParamInterface;
@@ -239,46 +241,6 @@ class ProfileLoader {
 
   raw_ptr<Profile> profile_ = nullptr;
   base::RunLoop profile_loading_run_loop_;
-};
-
-class MockSigninUiDelegate : public signin_ui_util::SigninUiDelegate {
- public:
-  MOCK_METHOD(void,
-              ShowTurnSyncOnUI,
-              (Profile*,
-               signin_metrics::AccessPoint,
-               signin_metrics::PromoAction,
-               const CoreAccountId&,
-               TurnSyncOnHelper::SigninAbortedMode,
-               bool,
-               bool),
-              (override));
-  MOCK_METHOD(void,
-              ShowSigninUI,
-              (Profile*,
-               bool,
-               signin_metrics::AccessPoint,
-               signin_metrics::PromoAction,
-               const std::string&),
-              (override));
-  MOCK_METHOD(void,
-              ShowReauthUI,
-              (Profile*,
-               const std::string&,
-               bool,
-               signin_metrics::AccessPoint,
-               signin_metrics::PromoAction),
-              (override));
-  MOCK_METHOD(void,
-              ShowHistorySyncOptinUI,
-              (Profile*, const CoreAccountId&, signin_metrics::AccessPoint),
-              (override));
-#if BUILDFLAG(ENABLE_DICE_SUPPORT)
-  MOCK_METHOD(void,
-              ShowCrossDeviceSigninQrBubble,
-              (BrowserWindowInterface*, GURL, base::OnceClosure),
-              (override));
-#endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
 };
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
@@ -3795,12 +3757,9 @@ IN_PROC_BROWSER_TEST_F(AvatarToolbarButtonSignInBenefitsIphBrowserTest,
   // Sign in a user after the sync-to-signin migration.
   Signin(/*email=*/u"test@gmail.com", /*name=*/u"Account");
 
-  AvatarToolbarButtonInterface* avatar_toolbar_button =
-      GetAvatarToolbarButtonInterface(browser());
-  ASSERT_NE(avatar_toolbar_button, nullptr);
-
+  ASSERT_NE(GetAvatarToolbarButtonInterface(browser()), nullptr);
   // Attempt to show the IPH.
-  avatar_toolbar_button->MaybeShowSignInBenefitsIPH();
+  AvatarToolbarIphController::From(browser())->MaybeShowSignInBenefitsIPH();
   EXPECT_FALSE(WillShowPromo());
 }
 
@@ -3821,12 +3780,9 @@ IN_PROC_BROWSER_TEST_F(AvatarToolbarButtonSignInBenefitsIphBrowserTest,
 // migrated from DICe.
 IN_PROC_BROWSER_TEST_F(AvatarToolbarButtonSignInBenefitsIphBrowserTest,
                        NotShownForUsersMigratedFromDice) {
-  AvatarToolbarButtonInterface* avatar_toolbar_button =
-      GetAvatarToolbarButtonInterface(browser());
-  ASSERT_NE(avatar_toolbar_button, nullptr);
-
+  ASSERT_NE(GetAvatarToolbarButtonInterface(browser()), nullptr);
   // Attempt to show the IPH.
-  avatar_toolbar_button->MaybeShowSignInBenefitsIPH();
+  AvatarToolbarIphController::From(browser())->MaybeShowSignInBenefitsIPH();
   EXPECT_FALSE(WillShowPromo());
 }
 
@@ -3939,8 +3895,8 @@ class AvatarToolbarButtonSignInBenefitsNewSigninIphParameterizedTest
 
     feature_list_.InitWithFeatures(enabled, disabled);
     delay_override_.emplace(
-        AvatarToolbarButtonInterface::
-            SetScopedIPHMinDelayAfterCreationForTesting(base::TimeDelta()));
+        AvatarToolbarIphController::SetScopedIPHMinDelayAfterCreationForTesting(
+            base::TimeDelta()));
   }
 
   bool ShouldShowLegacyIphInPre() const { return GetParam(); }

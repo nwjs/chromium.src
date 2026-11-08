@@ -36,7 +36,6 @@ consoles.list_view(
 
 try_.builder(
     name = "linux-crossbench",
-    description_html = "Run Crossbench Smoke tests on Linux.",
     mirrors = ["ci/linux-crossbench"],
     gn_args = gn_args.config(
         configs = [

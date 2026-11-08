@@ -582,7 +582,8 @@ void IntentPickerTabHelper::OnWebAppWillBeUninstalled(
   std::optional<webapps::AppId> local_app_id =
       registrar_->FindBestAppWithUrlInScope(
           web_contents()->GetLastCommittedURL(),
-          web_app::WebAppFilter::InstalledInChrome());
+          web_app::WebAppFilter::InstalledInChrome(),
+          {.include_isolated_web_app_scope_extensions = true});
   if (app_id == local_app_id) {
     ShowOrHideIcon(web_contents(), /*should_show_icon=*/false);
   }
@@ -594,11 +595,9 @@ void IntentPickerTabHelper::OnWebAppInstallManagerDestroyed() {
 
 void IntentPickerTabHelper::UpdatePageAction(tabs::TabInterface* tab_interface,
                                              bool show_icon) {
-  if (auto* const tab_features = tab_interface->GetTabFeatures()) {
-    if (auto* controller =
-            tab_features->intent_picker_view_page_action_controller()) {
-      controller->UpdatePageActionVisibility(show_icon, app_icon(),
-                                             ShouldShowExpandedChip());
-    }
+  if (auto* controller =
+          IntentPickerViewPageActionController::From(tab_interface)) {
+    controller->UpdatePageActionVisibility(show_icon, app_icon(),
+                                           ShouldShowExpandedChip());
   }
 }

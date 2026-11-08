@@ -70,12 +70,13 @@ enum class ResourceType : uint8_t;
 class CORE_EXPORT InspectorPageAgent final
     : public InspectorBaseAgent<protocol::Page::Metainfo> {
  public:
-  class Client {
+  class Client : public GarbageCollectedMixin {
    public:
     virtual ~Client() = default;
     virtual void PageLayoutInvalidated(bool resized) {}
     virtual void WaitForDebugger() {}
     virtual bool IsPausedForNewWindow() { return false; }
+    virtual void UpdateInputVisualizationState() {}
   };
 
   enum ResourceType {
@@ -153,6 +154,9 @@ class CORE_EXPORT InspectorPageAgent final
       const String& frame_id,
       std::unique_ptr<protocol::Network::AdAncestry>* out_ad_script_ancestry)
       override;
+  protocol::Response getSpellCheckCustomDictionary(
+      const String& frame_id,
+      std::unique_ptr<protocol::Array<String>>* words) override;
   void searchInResource(const String& frame_id,
                         const String& url,
                         const String& query,
@@ -162,6 +166,10 @@ class CORE_EXPORT InspectorPageAgent final
   protocol::Response setDocumentContent(const String& frame_id,
                                         const String& html) override;
   protocol::Response setBypassCSP(bool enabled) override;
+  protocol::Response setInputVisualization(std::optional<bool> clicks) override;
+  bool IsInputVisualizationClicksEnabled() const {
+    return input_visualization_clicks_enabled_.Get();
+  }
 
   protocol::Response getPermissionsPolicyState(
       const String& frame_id,
@@ -327,7 +335,7 @@ class CORE_EXPORT InspectorPageAgent final
   HeapHashMap<WeakMember<LocalFrame>, Vector<IsolatedWorldRequest>>
       pending_isolated_worlds_;
   HashMap<String, AdTracker::AdScriptAncestry> frame_ad_script_ancestry_;
-  raw_ptr<Client, UnprotectedInRelease | DanglingUntriaged> client_;
+  Member<Client> client_;
   Member<InspectorResourceContentLoader> inspector_resource_content_loader_;
   int resource_content_loader_client_id_;
   InspectorAgentState::Boolean suppress_file_chooser_;
@@ -336,6 +344,7 @@ class CORE_EXPORT InspectorPageAgent final
   InspectorAgentState::Boolean enable_file_chooser_opened_event_;
   InspectorAgentState::Boolean lifecycle_events_enabled_;
   InspectorAgentState::Boolean bypass_csp_enabled_;
+  InspectorAgentState::Boolean input_visualization_clicks_enabled_;
   InspectorAgentState::Integer standard_font_size_;
   InspectorAgentState::Integer fixed_font_size_;
   InspectorAgentState::Bytes script_font_families_cbor_;

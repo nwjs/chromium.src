@@ -171,9 +171,7 @@ class PasswordGenerationInteractiveTest
   }
 
   void NavigateToAndAcceptSuggestedPassword() {
-    // Cancel button is the first focusable element, hence two down button
-    // presses to reach the accept button.
-    SendKeyToPopup(ui::VKEY_DOWN);
+    // Down arrow from the unentered state selects the accept button first.
     SendKeyToPopup(ui::VKEY_DOWN);
     SendKeyToPopup(ui::VKEY_RETURN);
   }
@@ -228,10 +226,8 @@ class PasswordGenerationAutofillPopupInteractiveTest
       autofill_client_injector_;
 };
 
-// TODO(https://crbug.com/501668599): Re-enable this test after flakiness is
-// resolved.
 IN_PROC_BROWSER_TEST_F(PasswordGenerationInteractiveTest,
-                       DISABLED_PopupShownAndPasswordSelected) {
+                       PopupShownAndPasswordSelected) {
   FocusPasswordField();
   WaitForGenerationPopupShowing();
   base::HistogramTester histogram_tester;
@@ -259,10 +255,8 @@ IN_PROC_BROWSER_TEST_F(PasswordGenerationInteractiveTest,
       1);
 }
 
-// TODO(http://crbug.com/382272011): Re-enable this test after flakiness is
-// resolved.
 IN_PROC_BROWSER_TEST_F(PasswordGenerationInteractiveTest,
-                       DISABLED_PopupShownAutomaticallyAndPasswordErased) {
+                       PopupShownAutomaticallyAndPasswordErased) {
   FocusPasswordField();
   WaitForGenerationPopupShowing();
   NavigateToAndAcceptSuggestedPassword();
@@ -288,10 +282,8 @@ IN_PROC_BROWSER_TEST_F(PasswordGenerationInteractiveTest,
       1);
 }
 
-// TODO(https://crbug.com/501668599): Re-enable this test after flakiness is
-// resolved.
 IN_PROC_BROWSER_TEST_F(PasswordGenerationInteractiveTest,
-                       DISABLED_PopupShownManuallyAndPasswordErased) {
+                       PopupShownManuallyAndPasswordErased) {
   NavigateToFile("/password/password_form.html");
   FocusPasswordField();
   EXPECT_FALSE(GenerationPopupShowing());
@@ -301,7 +293,9 @@ IN_PROC_BROWSER_TEST_F(PasswordGenerationInteractiveTest,
       autofill::ContentAutofillClient::FromWebContents(WebContents()));
   WaitForStatus(TestGenerationPopupObserver::GenerationPopup::kShown);
   EXPECT_TRUE(GenerationPopupShowing());
-  NavigateToAndAcceptSuggestedPassword();
+  // When manually triggered, Accept button is selected on show; accept
+  // directly.
+  SendKeyToPopup(ui::VKEY_RETURN);
 
   // Wait until the password is filled.
   WaitForNonEmptyFieldValue("password_field");
@@ -375,6 +369,8 @@ IN_PROC_BROWSER_TEST_F(
   password_manager_util::UserTriggeredManualGenerationFromContextMenu(
       ChromePasswordManagerClient::FromWebContents(WebContents()),
       autofill::ContentAutofillClient::FromWebContents(WebContents()));
+  // When manually triggered, the Accept button is pre-selected on show.
+  // A single Down arrow press moves selection to the Cancel button.
   SendKeyToPopup(ui::VKEY_DOWN);
   SendKeyToPopup(ui::VKEY_RETURN);
   WaitForStatus(TestGenerationPopupObserver::GenerationPopup::kHidden);
@@ -385,10 +381,8 @@ IN_PROC_BROWSER_TEST_F(
   autofill_client().WaitForAutofillPopup();
 }
 
-// TODO(https://crbug.com/501668599): Re-enable this test after flakiness is
-// resolved.
 IN_PROC_BROWSER_TEST_F(PasswordGenerationInteractiveTest,
-                       DISABLED_PopupShownAndDismissed) {
+                       PopupShownAndDismissed) {
   FocusPasswordField();
   WaitForGenerationPopupShowing();
 
@@ -409,10 +403,8 @@ IN_PROC_BROWSER_TEST_F(PasswordGenerationInteractiveTest,
   EXPECT_FALSE(GenerationPopupShowing());
 }
 
-// TODO(https://crbug.com/501668599): Re-enable this test after flakiness is
-// resolved.
 IN_PROC_BROWSER_TEST_F(PasswordGenerationInteractiveTest,
-                       DISABLED_PopupShownAndDismissedByScrolling) {
+                       PopupShownAndDismissedByScrolling) {
   FocusPasswordField();
   WaitForGenerationPopupShowing();
 
@@ -526,14 +518,15 @@ IN_PROC_BROWSER_TEST_F(PasswordGenerationInteractiveTest,
   EXPECT_FALSE(GenerationPopupShowing());
 }
 
-// TODO(https://crbug.com/501668599): Re-enable this test after flakiness is
-// resolved.
 IN_PROC_BROWSER_TEST_F(PasswordGenerationInteractiveTest,
-                       DISABLED_GenerationPopupNotShownAfterUserRejected) {
+                       GenerationPopupNotShownAfterUserRejected) {
   FocusPasswordField();
   WaitForGenerationPopupShowing();
 
   // Reject generation by navigating to "Cancel" button.
+  // When automatically triggered, 1st Down arrow enters and selects Accept,
+  // 2nd Down arrow moves selection to Cancel.
+  SendKeyToPopup(ui::VKEY_DOWN);
   SendKeyToPopup(ui::VKEY_DOWN);
   SendKeyToPopup(ui::VKEY_RETURN);
 

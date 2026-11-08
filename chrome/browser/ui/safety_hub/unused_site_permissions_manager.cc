@@ -170,6 +170,11 @@ UnusedSitePermissionsManager::UpdateOnBackgroundThread(
       if (!setting.primary_pattern.MatchesSingleOrigin()) {
         continue;
       }
+      // Skip file:// permissions.
+      if (setting.primary_pattern.GetSchemeType() ==
+          ContentSettingsPattern::SCHEME_FILE) {
+        continue;
+      }
       // Skip permissions that are explicitly excluded from autorevocation by
       // user.
       if (setting.metadata.autorevocation_bypassed_by_user()) {
@@ -186,7 +191,7 @@ UnusedSitePermissionsManager::UpdateOnBackgroundThread(
           recently_unused[origin.Serialize()].push_back(
               {type, std::move(setting)});
         }
-        // TODO(crbug.com/40267370): Clean-up after the backfill is done.
+        // TODO(crbug.com/496258594): Clean-up after the backfill is done.
       } else {
         // Track untimestamped permissions if the backfill was not completed
         // yet.
@@ -274,7 +279,7 @@ void UnusedSitePermissionsManager::RevokeUnusedPermissions(
     std::unique_ptr<SafetyHubResult> result) {
   auto* interim_result = static_cast<RevokedPermissionsResult*>(result.get());
 
-  // TODO(crbug.com/40267370): Clean-up after the backfill is done.
+  // TODO(crbug.com/496258594): Clean-up after the backfill is done.
   MaybePerformLastVisitedBackfill(interim_result);
 
   // Set this to true to prevent
@@ -300,54 +305,55 @@ void UnusedSitePermissionsManager::RevokeUnusedPermissions(
         unused_site_permissions.front().source.secondary_pattern;
 
     base::flat_map<ContentSettingsType, base::Value> revoked_permissions;
-    std::erase_if(unused_site_permissions, [&](const ContentSettingEntry&
-                                                   entry) {
-      // Check if the current permission can be auto revoked.
-      auto* info =
-          content_settings::PermissionSettingsRegistry::GetInstance()->Get(
-              entry.type);
-      if (!info) {
-        return false;
-      }
-      std::optional<PermissionSetting> setting =
-          info->delegate().FromValue(entry.source.setting_value);
-      if (!setting.has_value() ||
-          !content_settings::CanBeAutoRevokedAsUnusedPermission(
-              /*type=*/entry.type, /*setting=*/setting.value())) {
-        return false;
-      }
+    std::erase_if(
+        unused_site_permissions, [&](const ContentSettingEntry& entry) {
+          // Check if the current permission can be auto revoked.
+          auto* info =
+              content_settings::PermissionSettingsRegistry::GetInstance()->Get(
+                  entry.type);
+          if (!info) {
+            return false;
+          }
+          std::optional<PermissionSetting> setting =
+              info->delegate().FromValue(entry.source.setting_value);
+          if (!setting.has_value() ||
+              !content_settings::CanBeAutoRevokedAsUnusedPermission(
+                  /*type=*/entry.type, /*setting=*/setting.value())) {
+            return false;
+          }
 
-      CHECK_EQ(entry.source.primary_pattern, primary_pattern);
-      CHECK(entry.source.secondary_pattern ==
-                ContentSettingsPattern::Wildcard() ||
-            entry.source.secondary_pattern == entry.source.primary_pattern);
+          CHECK_EQ(entry.source.primary_pattern, primary_pattern);
+          CHECK(entry.source.secondary_pattern ==
+                    ContentSettingsPattern::Wildcard() ||
+                entry.source.secondary_pattern == entry.source.primary_pattern);
 
-      // Reset the permission to default if the site is visited before
-      // threshold. Also, the secondary pattern should be wildcard.
-      CHECK_NE(entry.source.metadata.last_visited(), base::Time());
-      CHECK(entry.type != ContentSettingsType::NOTIFICATIONS);
-      if (entry.source.metadata.last_visited() < threshold &&
-          entry.source.secondary_pattern ==
-              ContentSettingsPattern::Wildcard()) {
-        permissions::PermissionUmaUtil::ScopedRevocationReporter reporter(
-            browser_context_.get(), entry.source.primary_pattern,
-            entry.source.secondary_pattern, entry.type,
-            permissions::PermissionSourceUI::SAFETY_HUB_AUTO_REVOCATION);
-        // Record the number of permissions auto-revoked per permission type.
-        content_settings_uma_util::RecordContentSettingsHistogram(
-            "Settings.SafetyHub.UnusedSitePermissionsModule.AutoRevoked2",
-            entry.type);
-        revoked_permissions.insert(
-            std::make_pair(entry.type, entry.source.setting_value.Clone()));
-        CHECK(IsPermissionSetting(entry.type));
-        hcsm()->SetPermissionSettingCustomScope(entry.source.primary_pattern,
-                                                entry.source.secondary_pattern,
-                                                entry.type, std::nullopt);
-        return true;
-      } else {
-        return false;
-      }
-    });
+          // Reset the permission to default if the site is visited before
+          // threshold. Also, the secondary pattern should be wildcard.
+          CHECK_NE(entry.source.metadata.last_visited(), base::Time());
+          CHECK(entry.type != ContentSettingsType::NOTIFICATIONS);
+          if (entry.source.metadata.last_visited() < threshold &&
+              entry.source.secondary_pattern ==
+                  ContentSettingsPattern::Wildcard()) {
+            permissions::PermissionUmaUtil::ScopedRevocationReporter reporter(
+                browser_context_.get(), entry.source.primary_pattern,
+                entry.source.secondary_pattern, entry.type,
+                permissions::PermissionSourceUI::SAFETY_HUB_AUTO_REVOCATION);
+            // Record the number of permissions auto-revoked per permission
+            // type.
+            content_settings_uma_util::RecordContentSettingsHistogram(
+                "Settings.SafetyHub.UnusedSitePermissionsModule.AutoRevoked2",
+                entry.type);
+            revoked_permissions.insert(
+                std::make_pair(entry.type, entry.source.setting_value.Clone()));
+            CHECK(IsPermissionSetting(entry.type));
+            hcsm()->SetPermissionSettingCustomScope(
+                entry.source.primary_pattern, entry.source.secondary_pattern,
+                entry.type, std::nullopt);
+            return true;
+          } else {
+            return false;
+          }
+        });
 
     // Store revoked permissions on HCSM.
     StorePermissionInUnusedSitePermissionSetting(std::move(revoked_permissions),
@@ -385,10 +391,13 @@ void UnusedSitePermissionsManager::OnPageVisited(const url::Origin& origin) {
     return;
   }
 
+  GURL origin_url = origin.GetURL();
+  CHECK(origin_url.is_valid());
+
   // See which permissions of the origin actually match the URL and update them.
   auto& site_permissions = origin_entry->second;
   for (auto it = site_permissions.begin(); it != site_permissions.end();) {
-    if (it->source.primary_pattern.Matches(origin.GetURL())) {
+    if (it->source.primary_pattern.Matches(origin_url)) {
       // This should only be updated for settings that are already tracked.
       if (it->source.metadata.last_visited() != base::Time()) {
         hcsm()->UpdateLastVisitedTime(it->source.primary_pattern,
@@ -455,9 +464,11 @@ UnusedSitePermissionsManager::ExtractRevokedPermissions(
 
 void UnusedSitePermissionsManager::RegrantPermissionsForOrigin(
     const url::Origin& origin) {
+  GURL origin_url = origin.GetURL();
+  CHECK(origin_url.is_valid());
   content_settings::SettingInfo info;
   base::Value stored_value(hcsm()->GetWebsiteSetting(
-      origin.GetURL(), origin.GetURL(),
+      origin_url, origin_url,
       ContentSettingsType::REVOKED_UNUSED_SITE_PERMISSIONS, &info));
 
   base::flat_map<ContentSettingsType, base::Value> revoked_permissions =
@@ -501,8 +512,7 @@ void UnusedSitePermissionsManager::RegrantPermissionsForOrigin(
   IgnoreOriginForAutoRevocation(origin);
 
   // Remove origin from revoked permissions list.
-  DeletePatternFromRevokedUnusedSitePermissionList(info.primary_pattern,
-                                                   info.secondary_pattern);
+  OnPermissionChanged(info.primary_pattern, info.secondary_pattern);
 
   // Record the days elapsed from auto-revocation to regrant.
   base::Time revoked_time =
@@ -542,13 +552,53 @@ void UnusedSitePermissionsManager::UndoRegrantPermissionsForOrigin(
       permissions_data.primary_pattern, ContentSettingsPattern::Wildcard());
 }
 
-void UnusedSitePermissionsManager::
-    DeletePatternFromRevokedUnusedSitePermissionList(
-        const ContentSettingsPattern& primary_pattern,
-        const ContentSettingsPattern& secondary_pattern) {
+void UnusedSitePermissionsManager::OnPermissionChanged(
+    const ContentSettingsPattern& primary_pattern,
+    const ContentSettingsPattern& secondary_pattern) {
   hcsm()->SetWebsiteSettingCustomScope(
       primary_pattern, secondary_pattern,
       ContentSettingsType::REVOKED_UNUSED_SITE_PERMISSIONS, {});
+}
+
+std::vector<PermissionsData>
+UnusedSitePermissionsManager::GetRevokedPermissions() {
+  ContentSettingsForOneType settings = hcsm()->GetSettingsForOneType(
+      ContentSettingsType::REVOKED_UNUSED_SITE_PERMISSIONS);
+  std::vector<PermissionsData> result;
+  for (auto& revoked_permissions : settings) {
+    PermissionsData permissions_data;
+    permissions_data.primary_pattern = revoked_permissions.primary_pattern;
+    permissions_data.permissions =
+        ExtractRevokedPermissions(std::move(revoked_permissions.setting_value));
+    permissions_data.constraints = content_settings::ContentSettingConstraints(
+        revoked_permissions.metadata.expiration() -
+        revoked_permissions.metadata.lifetime());
+    permissions_data.constraints.set_lifetime(
+        revoked_permissions.metadata.lifetime());
+    permissions_data.revocation_type =
+        PermissionsRevocationType::kUnusedPermissions;
+    result.push_back(std::move(permissions_data));
+  }
+  return result;
+}
+
+void UnusedSitePermissionsManager::ClearRevokedPermissionsList() {
+  for (const auto& revoked_permissions : hcsm()->GetSettingsForOneType(
+           ContentSettingsType::REVOKED_UNUSED_SITE_PERMISSIONS)) {
+    OnPermissionChanged(revoked_permissions.primary_pattern,
+                        revoked_permissions.secondary_pattern);
+  }
+}
+
+void UnusedSitePermissionsManager::RestoreDeletedRevokedPermission(
+    const PermissionsData& permissions_data) {
+  base::flat_map<ContentSettingsType, base::Value> cloned_permissions;
+  for (const auto& [type, value] : permissions_data.permissions) {
+    cloned_permissions[type] = value.Clone();
+  }
+  StorePermissionInUnusedSitePermissionSetting(
+      std::move(cloned_permissions), permissions_data.constraints.Clone(),
+      permissions_data.primary_pattern, ContentSettingsPattern::Wildcard());
 }
 
 namespace {
@@ -645,6 +695,8 @@ UnusedSitePermissionsManager::GetUntimestampedPermissionsForTesting() {
 
 void UnusedSitePermissionsManager::IgnoreOriginForAutoRevocation(
     const url::Origin& origin) {
+  GURL origin_url = origin.GetURL();
+  CHECK(origin_url.is_valid());
   auto* registry = content_settings::PermissionSettingsRegistry::GetInstance();
 
   for (const content_settings::PermissionSettingsInfo* info : *registry) {
@@ -652,7 +704,7 @@ void UnusedSitePermissionsManager::IgnoreOriginForAutoRevocation(
 
     for (const auto& setting : hcsm()->GetSettingsForOneType(type)) {
       if (setting.primary_pattern.MatchesSingleOrigin() &&
-          setting.primary_pattern.Matches(origin.GetURL())) {
+          setting.primary_pattern.Matches(origin_url)) {
         hcsm()->SetAutorevocationBypassedByUser(
             setting.primary_pattern, setting.secondary_pattern, type);
         break;

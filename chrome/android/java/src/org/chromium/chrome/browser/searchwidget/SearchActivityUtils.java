@@ -21,6 +21,7 @@ import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.IntentHandler;
 import org.chromium.chrome.browser.document.ChromeLauncherActivity;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.multiwindow.MultiWindowUtils;
 import org.chromium.chrome.browser.omnibox.suggestions.OmniboxLoadUrlParams;
 import org.chromium.chrome.browser.tab.TabLaunchType;
@@ -32,6 +33,7 @@ import org.chromium.chrome.browser.ui.searchactivityutils.SearchActivityExtras;
 import org.chromium.chrome.browser.ui.searchactivityutils.SearchActivityExtras.IntentOrigin;
 import org.chromium.chrome.browser.ui.searchactivityutils.SearchActivityExtras.ResolutionType;
 import org.chromium.chrome.browser.ui.searchactivityutils.SearchActivityExtras.SearchType;
+import org.chromium.components.omnibox.AutocompleteRequestType;
 import org.chromium.components.url_formatter.UrlFormatter;
 import org.chromium.url.GURL;
 
@@ -141,6 +143,31 @@ public class SearchActivityUtils {
         }
 
         return SearchType.TEXT;
+    }
+
+    /**
+     * Returns the request type the Omnibox should begin in. Honored only when the intent is trusted
+     * and One Step AIM Access is enabled; otherwise SEARCH.
+     */
+    /* package */ static @AutocompleteRequestType int getIntentRequestType(Intent intent) {
+        if (ChromeFeatureList.sOneStepAimAccess.isEnabled()
+                && IntentUtils.isTrustedIntentFromSelf(intent)) {
+            return IntentUtils.safeGetIntExtra(
+                    intent,
+                    SearchActivityExtras.EXTRA_REQUEST_TYPE,
+                    AutocompleteRequestType.SEARCH);
+        }
+
+        return AutocompleteRequestType.SEARCH;
+    }
+
+    /** Builds the {@link SearchActivitySession} describing the search requested by the intent. */
+    /* package */ static SearchActivitySession getIntentSession(Intent intent) {
+        return new SearchActivitySession(
+                getIntentOrigin(intent),
+                getIntentSearchType(intent),
+                getIntentRequestType(intent),
+                getIntentQuery(intent));
     }
 
     /**

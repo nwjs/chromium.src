@@ -109,7 +109,7 @@ void AudioRendererMixerInput::Stop() {
 void AudioRendererMixerInput::StopInternal() {
   // Stop() may be called at any time, if Pause() hasn't been called we need to
   // remove our mixer input before shutdown.
-  Pause();
+  Pause(PauseReason::kPlaybackPaused);
 
   if (mixer_) {
     mixer_->RemoveErrorCallback(this);
@@ -132,12 +132,12 @@ void AudioRendererMixerInput::Play() {
   playing_ = true;
 }
 
-void AudioRendererMixerInput::Pause() {
+void AudioRendererMixerInput::Pause(PauseReason reason) {
   if (!playing_ || !mixer_) {
     return;
   }
 
-  mixer_->RemoveMixerInput(params_, this);
+  mixer_->RemoveMixerInput(params_, this, reason);
   playing_ = false;
 }
 

@@ -10,10 +10,9 @@ static_library("network") {
     "network_portal_signin_window.h",
   ]
 
-  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
-
   deps = [
     "//base",
+    "//chrome/browser/profiles:profile_manager",
     "//chrome/browser/ui/browser_window",
     "//chrome/browser/ui/dialogs:browser_dialogs",
     "//chrome/browser/ui/navigator",
@@ -37,12 +36,13 @@ source_set("browser_tests") {
 
   deps = [
     ":network",
+    "//base/test:test_support",
     "//chrome/browser/ash/login/test:test_support",
     "//chrome/browser/profiles:profile",
-    "//chrome/browser/ui",
     "//chrome/browser/ui/browser_window",
     "//chrome/browser/ui/navigator",
     "//chrome/test:test_support_ui",
+    "//components/blocked_content",
     "//components/captive_portal/content",
     "//content/test:test_support",
     "//testing/gtest",

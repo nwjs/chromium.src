@@ -23,7 +23,6 @@
 #include "components/optimization_guide/core/model_execution/test/feature_config_builder.h"
 #include "components/optimization_guide/core/model_execution/test/mock_on_device_capability.h"
 #include "components/optimization_guide/core/optimization_guide_proto_util.h"
-#include "components/optimization_guide/core/optimization_guide_switches.h"
 #include "components/optimization_guide/core/optimization_guide_util.h"
 #include "components/optimization_guide/proto/features/proofreader_api.pb.h"
 #include "components/optimization_guide/proto/string_value.pb.h"
@@ -480,72 +479,6 @@ TEST_F(AIProofreaderTest, Priority) {
 
   web_contents()->WasShown();
   EXPECT_THAT(Proofread(*proofreader_remote, kInputString), ElementsAre("hi"));
-}
-
-TEST_F(AIProofreaderTest, TextSafetyInput) {
-  SetSolutionConfig([&]() {
-    auto solution_config = CreateSolution();
-    solution_config.mutable_feature()->set_can_skip_text_safety(false);
-    return solution_config;
-  }());
-
-  fake_broker_->settings().set_execute_result({"hi"});
-  auto proofreader_remote = GetAIProofreaderRemote();
-  EXPECT_THAT(Proofread(*proofreader_remote, kInputString), ElementsAre("hi"));
-
-  AITestUtils::TestStreamingResponder responder;
-  proofreader_remote->Proofread("unsafe", responder.BindRemote());
-  EXPECT_FALSE(responder.WaitForCompletion());
-  EXPECT_EQ(responder.error_status(),
-            blink::mojom::ModelStreamingResponseStatus::kErrorFiltered);
-}
-
-TEST_F(AIProofreaderTest, TextSafetyOutput) {
-  SetSolutionConfig([&]() {
-    auto solution_config = CreateSolution();
-    solution_config.mutable_feature()->set_can_skip_text_safety(false);
-    solution_config.mutable_safety()
-        ->mutable_partial_output_checks()
-        ->set_minimum_tokens(1000);
-    return solution_config;
-  }());
-
-  // Fake text safety checker looks for the string "unsafe".
-  fake_broker_->settings().set_execute_result(
-      {"a", "b", "c", "d", "e", "f", "g", "unsafe", "h"});
-  auto proofreader_remote = GetAIProofreaderRemote();
-  AITestUtils::TestStreamingResponder responder;
-  proofreader_remote->Proofread(kInputString, responder.BindRemote());
-  EXPECT_FALSE(responder.WaitForCompletion());
-  EXPECT_EQ(responder.error_status(),
-            blink::mojom::ModelStreamingResponseStatus::kErrorFiltered);
-  EXPECT_TRUE(responder.responses().empty());
-}
-
-TEST_F(AIProofreaderTest, TextSafetyOutputPartial) {
-  SetSolutionConfig([&]() {
-    auto solution_config = CreateSolution();
-    solution_config.mutable_feature()->set_can_skip_text_safety(false);
-    solution_config.mutable_safety()
-        ->mutable_partial_output_checks()
-        ->set_minimum_tokens(3);
-    solution_config.mutable_safety()
-        ->mutable_partial_output_checks()
-        ->set_token_interval(2);
-    return solution_config;
-  }());
-
-  // Fake text safety checker looks for the string "unsafe".
-  fake_broker_->settings().set_execute_result(
-      {"a", "b", "c", "d", "e", "f", "g", "unsafe", "h"});
-  auto proofreader_remote = GetAIProofreaderRemote();
-  AITestUtils::TestStreamingResponder responder;
-  proofreader_remote->Proofread(kInputString, responder.BindRemote());
-  EXPECT_FALSE(responder.WaitForCompletion());
-  EXPECT_EQ(responder.error_status(),
-            blink::mojom::ModelStreamingResponseStatus::kErrorFiltered);
-  // Partial checks should still allow some output to stream.
-  EXPECT_THAT(responder.responses(), ElementsAre("abc", "de", "fg"));
 }
 
 TEST_F(AIProofreaderTest, ServiceCrash) {

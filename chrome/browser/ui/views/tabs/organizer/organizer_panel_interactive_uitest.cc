@@ -14,8 +14,8 @@
 #include "chrome/browser/ui/browser_actions.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
-#include "chrome/browser/ui/tabs/features.h"
 #include "chrome/browser/ui/tabs/organizer/organizer_panel_controller.h"
+#include "chrome/browser/ui/tabs/organizer/organizer_panel_utils.h"
 #include "chrome/browser/ui/tabs/vertical_tab_strip_state.h"
 #include "chrome/browser/ui/tabs/vertical_tab_strip_state_controller.h"
 #include "chrome/browser/ui/views/animations/common_animation_values.h"
@@ -27,7 +27,6 @@
 #include "chrome/browser/ui/views/interaction/browser_elements_views.h"
 #include "chrome/browser/ui/views/tabs/organizer/layout_constants.h"
 #include "chrome/browser/ui/views/tabs/organizer/organizer_panel_host.h"
-#include "chrome/browser/ui/views/tabs/organizer/organizer_panel_utils.h"
 #include "chrome/browser/ui/views/tabs/organizer/organizer_panel_view.h"
 #include "chrome/browser/ui/views/tabs/organizer/organizer_tray_view.h"
 #include "chrome/browser/ui/views/test/vertical_tabs_interactive_test_mixin.h"
@@ -116,9 +115,7 @@ std::vector<base::CallbackListSubscription> SubscribeToAnimations(
 class OrganizerPanelUiTest : public InteractiveBrowserTest {
  public:
   OrganizerPanelUiTest() {
-    scoped_feature_list_.InitWithFeatures(
-        {organizer_panel::kOrganizerPanel, tabs::kVerticalTabsExpandOnHover},
-        {});
+    scoped_feature_list_.InitAndEnableFeature(organizer_panel::kOrganizerPanel);
   }
 
   void SetUpOnMainThread() override {
@@ -149,6 +146,7 @@ class OrganizerPanelUiTest : public InteractiveBrowserTest {
                     tabs::VerticalTabStripStateController::From(browser());
                 controller->SetVerticalTabsEnabled(vertical_tabs_enabled);
                 controller->SetExpandOnHoverEnabled(expand_on_hover_enabled);
+                animation_subscriptions_ = SubscribeToAnimations(browser());
                 RunScheduledLayouts();
               }),
               WaitForShow(vertical_tabs_enabled
@@ -160,7 +158,8 @@ class OrganizerPanelUiTest : public InteractiveBrowserTest {
 
   auto CollapseTabStrip() {
     auto steps = Steps(PressButton(kVerticalTabStripCollapseButtonElementId),
-                       WaitForEvent(kBrowserViewElementId, kCollapseComplete));
+                       WaitForEvent(kBrowserViewElementId, kCollapseComplete),
+                       Do([this]() { RunScheduledLayouts(); }));
     AddDescriptionPrefix(steps, "CollapseTabStrip()");
     return steps;
   }
@@ -177,15 +176,9 @@ class OrganizerPanelUiTest : public InteractiveBrowserTest {
                     return is_eoh;
                   },
                   true)
-                  .SetDescription("Check and lock expand-on-hover."));
+                  .SetDescription("Check and lock expand-on-hover."),
+              Do([this]() { RunScheduledLayouts(); }));
     AddDescriptionPrefix(steps, "WaitForExpandOnHover()");
-    return steps;
-  }
-
-  auto ExpandOnHover() {
-    auto steps =
-        Steps(MoveMouseTo(kTabStripRegionElementId), WaitForExpandOnHover());
-    AddDescriptionPrefix(steps, "ExpandOnHover()");
     return steps;
   }
 
@@ -238,7 +231,7 @@ class OrganizerPanelUiTest : public InteractiveBrowserTest {
                            OrganizerPanelLocation::kOrganizerTray;
                   },
                   Then(PressButton(kOrganizerPanelCloseButtonElementId)),
-                  Else(PressButton(kTabSearchButtonElementId))),
+                  Else(PressButton(kVerticalTabStripTabStripButtonElementId))),
               WaitForPanelClose());
     AddDescriptionPrefix(steps, "CloseOrganizerPanel()");
     return steps;
@@ -316,6 +309,9 @@ class OrganizerPanelUiTest : public InteractiveBrowserTest {
 
  private:
   base::test::ScopedFeatureList scoped_feature_list_;
+  gfx::AnimationTestApi::RenderModeResetter rich_animation_lock_ =
+      gfx::AnimationTestApi::SetRichAnimationRenderMode(
+          gfx::Animation::RichAnimationRenderMode::FORCE_ENABLED);
   std::vector<base::CallbackListSubscription> animation_subscriptions_;
   std::unique_ptr<ExpandOnHoverLock> expand_on_hover_lock_;
 };
@@ -323,13 +319,13 @@ class OrganizerPanelUiTest : public InteractiveBrowserTest {
 // Horizontal tab strip state with tray.
 
 IN_PROC_BROWSER_TEST_F(OrganizerPanelUiTest, OpenClosePanelHorizontalTabs) {
-  RunTestSequence(SetVerticalTabsEnabled(false), CheckControllerState(false),
-                  OpenOrganizerPanel(), CheckControllerState(true),
-                  ExpectPanelLocation(OrganizerPanelLocation::kOrganizerTray),
-                  CheckPanelVisuals(organizer_panel::kOrganizerPanelMinWidth,
-                                    /*should_have_rounded_corners=*/true),
-                  WaitForPanelLoad(), CloseOrganizerPanel(),
-                  CheckControllerState(false));
+  RunTestSequence(
+      SetVerticalTabsEnabled(false), CheckControllerState(false),
+      OpenOrganizerPanel(), CheckControllerState(true),
+      ExpectPanelLocation(OrganizerPanelLocation::kOrganizerTray),
+      CheckPanelVisuals(organizer_panel::kOrganizerPanelDefaultWidth,
+                        /*should_have_rounded_corners=*/true),
+      WaitForPanelLoad(), CloseOrganizerPanel(), CheckControllerState(false));
 }
 
 IN_PROC_BROWSER_TEST_F(OrganizerPanelUiTest,
@@ -356,7 +352,7 @@ IN_PROC_BROWSER_TEST_F(OrganizerPanelUiTest, TrayCloseOnClickOutside) {
 
 IN_PROC_BROWSER_TEST_F(OrganizerPanelUiTest, TrayGrabsFocusOnOpen) {
   RunTestSequence(SetVerticalTabsEnabled(false), OpenOrganizerPanel(),
-                  CheckViewProperty(OrganizerTrayView::kTrayElementId,
+                  CheckViewProperty(OrganizerPanelView::kWebViewElementId,
                                     &views::View::HasFocus, true));
 }
 
@@ -497,7 +493,10 @@ IN_PROC_BROWSER_TEST_F(OrganizerPanelUiTest,
                        AppearsInTabStripWhenVerticalTabsExpandOnHover) {
   RunTestSequence(
       SetVerticalTabsEnabled(true, /*expand_on_hover_enabled=*/true),
-      CollapseTabStrip(), ExpandOnHover(), OpenOrganizerPanel(),
+      MoveMouseTo(kOmniboxElementId), CollapseTabStrip(),
+      InParallel(RunSubsequence(MoveMouseTo(kTabStripElementId)),
+                 RunSubsequence(WaitForExpandOnHover())),
+      OpenOrganizerPanel(),
       ExpectPanelLocation(OrganizerPanelLocation::kVerticalTabStrip),
       CheckPanelVisuals(tabs::kVerticalTabStripDefaultUncollapsedWidth, false));
 }
@@ -588,7 +587,7 @@ class OrganizerPanelPixelTest : public OrganizerPanelUiTest {
   // consistency. Remember to add any tests which use this to the file
   // `pixel_tests.filter`.
   auto ScreenshotPanel() {
-    constexpr std::string kBaselineCL = "8451947";
+    constexpr std::string kBaselineCL = "8477611";
     auto steps = Steps(
         WaitForPanelLoad(),
         SetOnIncompatibleAction(OnIncompatibleAction::kSkipTest,
@@ -642,4 +641,10 @@ IN_PROC_BROWSER_TEST_F(OrganizerPanelPixelTest, VerticalTabsWithTray) {
   RunTestSequence(SetVerticalTabsEnabled(true),
                   ResizeVerticalTabsRegionToWidth(kVerticalTabsRegionWidth),
                   OpenOrganizerPanel(), ScreenshotPanel());
+}
+
+IN_PROC_BROWSER_TEST_F(OrganizerPanelPixelTest, VerticalTabsCollapsedWithTray) {
+  RunTestSequence(
+      SetVerticalTabsEnabled(true, /*expand_on_hover_enabled=*/false),
+      OpenOrganizerPanel(), ScreenshotPanel());
 }

@@ -1029,8 +1029,19 @@ public class SelectFileDialog implements WindowAndroid.IntentCallback, PhotoPick
 
     public static boolean isContentUriUnderAppDir(Uri uri, Context context) {
         assert !ThreadUtils.runningOnUiThread();
-        try (ParcelFileDescriptor pfd = context.getContentResolver().openFileDescriptor(uri, "r")) {
-            assumeNonNull(pfd);
+        // Re-parse the URI string since native opens the string form via Uri.parse().
+        Uri normalized = uri.normalizeScheme();
+        Uri parsed = Uri.parse(normalized.toString());
+        if (uri.isOpaque()
+                || parsed.isOpaque()
+                || TextUtils.isEmpty(parsed.getAuthority())
+                || !TextUtils.equals(normalized.getAuthority(), parsed.getAuthority())
+                || ContentUriUtils.isUriFromThisApp(parsed, context)) {
+            return true;
+        }
+        try (ParcelFileDescriptor pfd =
+                context.getContentResolver().openFileDescriptor(parsed, "r")) {
+            if (pfd == null) return false;
             int fd = pfd.getFd();
             // Use the file descriptor to find out the read file path thru symbolic link.
             Path fdPath = Paths.get("/proc/self/fd/" + fd);
@@ -1342,8 +1353,10 @@ public class SelectFileDialog implements WindowAndroid.IntentCallback, PhotoPick
 
         @Override
         public Boolean doInBackground() {
-            // Don't allow invalid file path or files under app dir to be uploaded.
-            return !isPathUnderAppDir(mFilePath, mContext)
+            // Don't allow invalid, non-absolute, or app-dir file paths to be uploaded.
+            return !TextUtils.isEmpty(mFilePath)
+                    && mFilePath.startsWith("/")
+                    && !isPathUnderAppDir(mFilePath, mContext)
                     && !FileUtils.getAbsoluteFilePath(mFilePath).isEmpty();
         }
 
@@ -1385,10 +1398,17 @@ public class SelectFileDialog implements WindowAndroid.IntentCallback, PhotoPick
                     // device was observed to return a file:// URI instead, so convert if necessary.
                     // See https://crbug.com/752834 for context.
                     if (ContentResolver.SCHEME_FILE.equals(mUris[i].getScheme())) {
-                        if (isPathUnderAppDir(mUris[i].getSchemeSpecificPart(), mContext)) {
+                        // Only hierarchical file:///path URIs are acceptable here. An opaque
+                        // file: URI such as "file:content://authority/path" has no path, and its
+                        // scheme-specific part is a bare content URI that native would open
+                        // through ContentResolver, bypassing the content URI checks below.
+                        String path = mUris[i].getPath();
+                        if (path == null
+                                || !path.startsWith("/")
+                                || isPathUnderAppDir(path, mContext)) {
                             return null;
                         }
-                        mFilePaths[i] = mUris[i].getSchemeSpecificPart();
+                        mFilePaths[i] = path;
                     } else if (ContentResolver.SCHEME_CONTENT.equals(mUris[i].getScheme())) {
                         if (isContentUriUnderAppDir(mUris[i], mContext)) {
                             return null;

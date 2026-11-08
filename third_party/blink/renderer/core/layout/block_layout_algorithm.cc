@@ -863,6 +863,14 @@ inline const LayoutResult* BlockLayoutAlgorithm::Layout(
 
   line_clamp_data_.Setup(node_, container_builder_);
 
+  // When we're line-clamping by height, the ancestor chain uses our expected
+  // BFC offset to decide when to clamp. If that ends up being wrong, we'll need
+  // to relayout.
+  if (!constraint_space.IsNewFormattingContext() &&
+      line_clamp_data_.ancestor_chain) {
+    abort_when_bfc_block_offset_updated_ = true;
+  }
+
   LayoutUnit content_edge = BorderScrollbarPadding().block_start;
 
   PreviousInflowPosition previous_inflow_position = {
@@ -2519,12 +2527,20 @@ LayoutResult::EStatus BlockLayoutAlgorithm::FinishInflow(
       child_bfc_block_offset = PositionSelfCollapsingChildWithParentBfc(
           child, child_space, *child_data, *layout_result);
 
-      // We may need to relayout this child if it had any (adjoining) objects
-      // which were positioned in the incorrect place.
-      if (layout_result->GetPhysicalFragment()
-              .HasAdjoiningObjectDescendants() &&
-          *child_bfc_block_offset != child_space.ExpectedBfcBlockOffset()) {
-        self_collapsing_child_needs_relayout = true;
+      if (*child_bfc_block_offset != child_space.ExpectedBfcBlockOffset()) {
+        // We need to relayout this child if it had any (adjoining) objects
+        // which were positioned in the incorrect place. Also need relayout if
+        // we're inside block fragmentation, in case there are OOFs that may
+        // fragment differently now.
+        //
+        // TODO(crbug.com/40267498): Should eventually be possible to only do
+        // this if there actually are any OOFs inside.
+        const PhysicalFragment& fragment = layout_result->GetPhysicalFragment();
+        if (fragment.HasAdjoiningObjectDescendants() ||
+            (GetConstraintSpace().HasBlockFragmentation() &&
+             RuntimeEnabledFeatures::FragmentedOofInCbEnabled())) {
+          self_collapsing_child_needs_relayout = true;
+        }
       }
     }
   } else if (!child_had_clearance && !is_self_collapsing) {
@@ -3501,8 +3517,8 @@ ConstraintSpace BlockLayoutAlgorithm::CreateConstraintSpaceForChild(
     }
   }
 
-  if (line_clamp_data_.ShouldHideForPaint()) [[unlikely]] {
-    builder.SetIsHiddenForPaint(true);
+  if (line_clamp_data_.IsHidden()) [[unlikely]] {
+    builder.SetIsHiddenDueToLayout(true);
   }
 
   builder.SetAvailableSize(child_available_size);
@@ -3623,13 +3639,6 @@ ConstraintSpace BlockLayoutAlgorithm::CreateConstraintSpaceForChild(
           container_builder_.GetAdjoiningObjectTypes());
     }
     builder.SetLineClampData(line_clamp_data_.data);
-    if (container_builder_.BfcBlockOffset() &&
-        line_clamp_data_.ancestor_chain &&
-        !line_clamp_data_.ancestor_chain->HasBfcOffset()) {
-      line_clamp_data_.ancestor_chain =
-          line_clamp_data_.ancestor_chain->WithResolvedBfcOffset(
-              *container_builder_.BfcBlockOffset());
-    }
     builder.SetLineClampAncestorChain(line_clamp_data_.ancestor_chain);
     builder.SetShouldTextBoxTrimInsideWhenLineClamp(
         line_clamp_data_.data.IsLineClampContext() &&
@@ -4258,7 +4267,7 @@ void BlockLineClampData::Setup(const BlockNode& node,
       LayoutUnit end_margin =
           ComputeMarginsForSelf(constraint_space, style).block_end;
       ancestor_chain = MakeGarbageCollected<LineClampAncestorChain>(
-          container_builder.BfcBlockOffset(),
+          constraint_space.ExpectedBfcBlockOffset(),
           container_builder.BorderPadding().block_end, end_margin,
           block_min_max_sizes, constraint_space.GetLineClampAncestorChain());
     }
@@ -4312,11 +4321,6 @@ bool BlockLineClampData::UpdateAfterLayout(
                    -container_builder.Padding().block_end);
     }
 
-    DCHECK(ancestor_chain);
-    if (!ancestor_chain->HasBfcOffset()) {
-      ancestor_chain = ancestor_chain->WithResolvedBfcOffset(
-          *container_builder.BfcBlockOffset());
-    }
     LayoutUnit bfc_offset = ancestor_chain->FinalLineClampBlockSize(
         previous_inflow_position.logical_block_offset +
             padding_annotation_overflow,

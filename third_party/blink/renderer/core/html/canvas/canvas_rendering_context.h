@@ -249,7 +249,6 @@ class CORE_EXPORT CanvasRenderingContext
   // of a presentable frame.
   virtual void FinalizeFrame(FlushReason) {}
   void FinalizeFrame() { return FinalizeFrame(FlushReason::kOther); }
-  virtual void DidFlush() {}
 
   // Thread::TaskObserver implementation
   void DidProcessTask(const base::PendingTask&) override;
@@ -266,10 +265,6 @@ class CORE_EXPORT CanvasRenderingContext
   virtual void LangAttributeChanged() {}
   virtual String GetIdFromControl(const Element* element) { return String(); }
   virtual int LayerCount() const { return 0; }
-  virtual scoped_refptr<const cc::AnimatedImageFrameIndexMap>
-  GetAnimatedImageFrameIndexMap(uint32_t id) const {
-    return nullptr;
-  }
   virtual void DisableAccelerationForCanvas2D() { NOTREACHED(); }
 
   virtual const std::optional<cc::PaintRecord>& GetLastRecording() {
@@ -333,6 +328,10 @@ class CORE_EXPORT CanvasRenderingContext
   template <typename T>
   static void AdjustRectForCanvas(T& x, T& y, T& width, T& height);
 
+  // Returns false if any rect parameter is NaN or infiinite; otherwise true.
+  template <typename T>
+  static bool ValidateRectForCanvas(T x, T y, T width, T height);
+
   void Trace(Visitor*) const override;
   virtual void Stop() = 0;
 
@@ -355,7 +354,8 @@ class CORE_EXPORT CanvasRenderingContext
                                   const String& func_name,
                                   ExceptionState& exception_state);
 
-  std::optional<CanvasChildPaintRecord> GetChildPaintRecord(Element* element);
+  std::optional<CanvasDrawablePaintRecord> GetDrawablePaintRecord(
+      Element* element);
 
   std::optional<cc::PaintRecord> empty_recording_;
 
@@ -392,6 +392,15 @@ void CanvasRenderingContext::AdjustRectForCanvas(T& x,
     height = -height;
     y -= height;
   }
+}
+
+template <typename T>
+bool CanvasRenderingContext::ValidateRectForCanvas(T x,
+                                                   T y,
+                                                   T width,
+                                                   T height) {
+  return (std::isfinite(x) && std::isfinite(y) && std::isfinite(width) &&
+          std::isfinite(height) && (width || height));
 }
 
 }  // namespace blink

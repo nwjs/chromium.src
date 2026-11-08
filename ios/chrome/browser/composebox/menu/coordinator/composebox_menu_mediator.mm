@@ -243,6 +243,7 @@
       CHECK(IsComposeboxDriveOptionEnabled());
       [self.delegate composeboxMenuMediatorDidRequestDriveFileSelection:self];
       break;
+    case ComposeboxMenuItemType::kMoreOptionsSubmenu:
     case ComposeboxMenuItemType::kUnknown:
       break;
   }

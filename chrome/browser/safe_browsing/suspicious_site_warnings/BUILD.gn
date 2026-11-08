@@ -13,8 +13,6 @@ source_set("suspicious_site_warnings") {
     "suspicious_site_ui.h",
   ]
 
-  configs += [ "//build/config/compiler:wexit_time_destructors" ]
-
   public_deps = [
     "//base",
     "//components/safe_browsing/content/browser",
@@ -54,7 +52,6 @@ source_set("browser_tests") {
     "//chrome/browser/safe_browsing",
     "//chrome/browser/safe_browsing:test_support",
     "//chrome/browser/ssl",
-    "//chrome/browser/ui",
     "//chrome/browser/ui/views/page_info",
     "//chrome/test:test_support",
     "//components/prefs",

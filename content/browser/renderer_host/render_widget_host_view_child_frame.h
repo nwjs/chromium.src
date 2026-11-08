@@ -26,6 +26,7 @@
 #include "components/viz/common/surfaces/surface_info.h"
 #include "components/viz/host/host_frame_sink_client.h"
 #include "content/browser/compositor/image_transport_factory.h"
+#include "content/browser/renderer_host/input/mouse_wheel_phase_handler.h"
 #include "content/browser/renderer_host/render_widget_host_view_base.h"
 #include "content/common/content_export.h"
 #include "content/public/browser/touch_selection_controller_client_manager.h"
@@ -36,6 +37,7 @@
 #include "third_party/blink/public/mojom/frame/viewport_intersection_state.mojom-forward.h"
 #include "third_party/blink/public/mojom/input/input_event_result.mojom-shared.h"
 #include "ui/gfx/geometry/rect.h"
+#include "ui/gfx/geometry/vector2d_f.h"
 #include "ui/gfx/native_ui_types.h"
 
 #if BUILDFLAG(IS_MAC)
@@ -89,12 +91,6 @@ class CONTENT_EXPORT RenderWidgetHostViewChildFrame
   void Focus() override;
   bool HasFocus() override;
   bool IsSurfaceAvailableForCopy() override;
-  void CopyFromSurface(
-      const gfx::Rect& src_rect,
-      const gfx::Size& output_size,
-      base::TimeDelta timeout,
-      base::OnceCallback<void(const content::CopyFromSurfaceResult&)> callback)
-      override;
   void Hide() override;
   bool IsShowing() override;
   void WasOccluded() override;
@@ -110,6 +106,13 @@ class CONTENT_EXPORT RenderWidgetHostViewChildFrame
   ui::Compositor* GetCompositor() override;
 
   // RenderWidgetHostViewBase implementation.
+  void CopyFromSurfaceImpl(
+      const gfx::Rect& src_rect,
+      const gfx::Size& output_size,
+      bool is_copy_request_secure,
+      base::TimeDelta timeout,
+      base::OnceCallback<void(const content::CopyFromSurfaceResult&)> callback)
+      override;
 #if BUILDFLAG(IS_ANDROID)
   bool IsTouchSequencePotentiallyActiveOnViz() override;
   void RequestInputBackForDragAndDrop(
@@ -124,8 +127,10 @@ class CONTENT_EXPORT RenderWidgetHostViewChildFrame
                              uint32_t janky_frames) override;
 #endif
   RenderWidgetHostViewBase* GetRootView() override;
+  input::RenderWidgetHostViewInput* GetPinchZoomTarget() override;
 #if BUILDFLAG(IS_WIN)
   bool ShouldInitiateStylusWriting() override;
+  std::optional<gfx::Vector2dF> GetStylusHandwritingPixelsPerInch() override;
   void OnStartStylusWriting() override;
   void OnEditElementFocusedForStylusWriting(
       blink::mojom::StylusWritingFocusResultPtr focus_result) override;
@@ -158,6 +163,7 @@ class CONTENT_EXPORT RenderWidgetHostViewChildFrame
   gfx::Rect GetBoundsInScreen() override;
   gfx::Rect GetBoundsInScreenWithoutTransform() override;
   void DidStopFlinging() override;
+  MouseWheelPhaseHandler* GetMouseWheelPhaseHandler() override;
   blink::mojom::PointerLockResult LockPointer(
       bool request_unadjusted_movement) override;
   blink::mojom::PointerLockResult ChangePointerLock(
@@ -412,6 +418,8 @@ class CONTENT_EXPORT RenderWidgetHostViewChildFrame
   std::optional<DisplayFeature> display_feature_;
 
   bool disconnected_ = false;
+
+  MouseWheelPhaseHandler mouse_wheel_phase_handler_;
 
   base::WeakPtrFactory<RenderWidgetHostViewChildFrame> weak_factory_{this};
 };

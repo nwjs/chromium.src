@@ -146,10 +146,6 @@ def GetGpuDeviceId(gpu_info: tgi.GPUInfo | None, index: int) -> int | str:
   return 0
 
 
-def IsIntel(vendor_id: int) -> bool:
-  return vendor_id == constants.GpuVendor.INTEL
-
-
 # Intel GPU architectures
 def IsIntelGen9(gpu_device_id: int) -> bool:
   return gpu_device_id & INTEL_DEVICE_ID_MASK in INTEL_GEN_9
@@ -345,7 +341,6 @@ def MatchDriverTag(tag: str) -> re.Match[str] | None:
 # No good way to reduce the number of local variables, particularly since each
 # argument is also considered a local. Also no good way to reduce the number of
 # branches without harming readability.
-# pylint: disable=too-many-locals,too-many-branches
 def EvaluateVersionComparison(
   version: str,
   operation: str,
@@ -416,12 +411,10 @@ def EvaluateVersionComparison(
   return operation in ('eq', 'ge', 'le')
 
 
-# pylint: enable=too-many-locals,too-many-branches
 
 
 # No good way to reduce the number of return statements to the required level
 # without harming readability.
-# pylint: disable=too-many-return-statements,too-many-branches
 def IsDriverTagDuplicated(driver_tag1: str, driver_tag2: str) -> bool:
   if driver_tag1 == driver_tag2:
     return True
@@ -473,7 +466,6 @@ def IsDriverTagDuplicated(driver_tag1: str, driver_tag2: str) -> bool:
   return False
 
 
-# pylint: enable=too-many-return-statements,too-many-branches
 
 
 def GetExpectationFileDriverTagsForOs(target_os: str) -> frozenset[str]:

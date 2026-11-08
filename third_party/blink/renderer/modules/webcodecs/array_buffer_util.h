@@ -13,35 +13,13 @@
 #include "third_party/blink/renderer/bindings/core/v8/v8_union_arraybufferallowshared_arraybufferviewallowshared.h"
 #include "third_party/blink/renderer/core/typed_arrays/array_buffer/array_buffer_contents.h"
 #include "third_party/blink/renderer/core/typed_arrays/dom_array_buffer.h"
+#include "third_party/blink/renderer/core/typed_arrays/dom_array_buffer_util.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
 
 namespace blink {
 
 using AllowSharedBufferSource =
     V8UnionArrayBufferAllowSharedOrArrayBufferViewAllowShared;
-
-// Helper function for turning various DOMArray-like things into a pointer+size.
-template <typename T>
-base::span<T> AsSpan(const AllowSharedBufferSource* buffer_union) {
-  switch (buffer_union->GetContentType()) {
-    case AllowSharedBufferSource::ContentType::kArrayBufferAllowShared: {
-      auto* buffer = buffer_union->GetAsArrayBufferAllowShared();
-      return (buffer && !buffer->IsDetached())
-                 ? UNSAFE_TODO(base::span<T>(
-                       reinterpret_cast<T*>(buffer->DataMaybeShared()),
-                       buffer->ByteLength()))
-                 : base::span<T>();
-    }
-    case AllowSharedBufferSource::ContentType::kArrayBufferViewAllowShared: {
-      auto* buffer = buffer_union->GetAsArrayBufferViewAllowShared().Get();
-      return (buffer && !buffer->IsDetached())
-                 ? UNSAFE_TODO(base::span<T>(
-                       reinterpret_cast<T*>(buffer->BaseAddressMaybeShared()),
-                       buffer->byteLength()))
-                 : base::span<T>();
-    }
-  }
-}
 
 // Ensures that the underlying memory for `buffer_union` remains valid
 // (owned by a returned instance of ArrayBufferContents)

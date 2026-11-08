@@ -16,8 +16,6 @@ static_library("cert_store") {
     "cert_store_service_factory.h",
   ]
 
-  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
-
   deps = [
     "//base",
     "//chrome/browser/ash/certificate_provider",
@@ -84,8 +82,8 @@ source_set("browser_tests") {
     "//chrome/browser/ash/platform_keys/key_permissions",
     "//chrome/browser/ash/policy/affiliation:test_support",
     "//chrome/browser/chromeos/platform_keys",
+    "//chrome/browser/net",
     "//chrome/browser/profiles:profile",
-    "//chrome/browser/ui",
     "//chrome/common",
     "//chrome/test:test_support",
     "//chromeos/ash/components/browser_context_helper",

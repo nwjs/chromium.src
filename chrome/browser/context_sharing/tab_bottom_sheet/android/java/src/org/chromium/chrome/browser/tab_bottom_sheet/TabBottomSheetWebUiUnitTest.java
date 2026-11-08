@@ -13,23 +13,26 @@ import static org.mockito.ArgumentCaptor.captor;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.robolectric.Shadows.shadowOf;
 
 import android.app.Activity;
 import android.content.Context;
+import android.content.Intent;
 import android.graphics.Color;
+import android.graphics.Rect;
 import android.view.ContextThemeWrapper;
 import android.view.DragAndDropPermissions;
 import android.view.DragEvent;
 import android.view.LayoutInflater;
 import android.view.View;
-import android.view.ViewTreeObserver;
+import android.view.ViewGroup;
 import android.view.Window;
+import android.widget.FrameLayout;
 
 import androidx.test.core.app.ApplicationProvider;
 
@@ -43,6 +46,7 @@ import org.mockito.Mockito;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.robolectric.Robolectric;
+import org.robolectric.android.controller.ActivityController;
 import org.robolectric.shadows.ShadowLooper;
 
 import org.chromium.base.ActivityState;
@@ -76,9 +80,14 @@ import org.chromium.ui.base.EventForwarder;
 import org.chromium.ui.base.ViewAndroidDelegate;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.base.WindowAndroid.ActivityStateObserver;
+import org.chromium.ui.display.DisplayAndroid;
 import org.chromium.url.GURL;
 
 import java.lang.ref.WeakReference;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.function.BiConsumer;
 
 /** Unit tests for {@link TabBottomSheetWebUi}. */
@@ -88,32 +97,41 @@ public class TabBottomSheetWebUiUnitTest {
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
 
     @Mock private WindowAndroid mWindowAndroid;
+    @Mock private DisplayAndroid mDisplayAndroid;
     @Mock private WebContents mWebContents;
     @Mock private ThinWebView mThinWebView;
-    @Mock private View mView;
     @Mock private ContextMenuPopulatorFactory mContextMenuPopulatorFactory;
     @Mock private SelectionDropdownMenuDelegate mSelectionDropdownMenuDelegate;
-    @Mock private ContentView mMockContentView;
     @Mock private Window mMockWindow;
-    @Mock private View mMockDecorView;
     @Mock private EventForwarder mEventForwarder;
-    @Mock private Activity mMockActivity;
     @Mock private CoBrowseComponentProvider mMockComponentProvider;
     @Mock private ResizingPlaceholderCoordinator mMockPlaceholderCoordinator;
 
+    private ActivityController<Activity> mActivityController;
+    private Activity mActivity;
+    private ContentView mContentView;
     private TabBottomSheetWebUi mWebUi;
 
     @Before
     public void setUp() {
+        mActivityController = Robolectric.buildActivity(Activity.class).setup();
+        mActivity = mActivityController.get();
+        // A null WebContents keeps ContentView from calling into native-backed WebContents
+        // helpers (e.g. ViewEventSink) on focus / attach changes.
+        mContentView = ContentView.createContentView(mActivity, /* webContents= */ null);
+
         ThinWebViewFactory.setInstanceForTesting(mThinWebView);
-        when(mThinWebView.getView()).thenReturn(mView);
+        when(mThinWebView.getView()).thenReturn(new View(mActivity));
 
-        WeakReference<Activity> weakActivity = new WeakReference<>(mMockActivity);
+        WeakReference<Activity> weakActivity = new WeakReference<>(mActivity);
         when(mWindowAndroid.getActivity()).thenReturn(weakActivity);
+        Mockito.lenient().when(mWindowAndroid.getDisplay()).thenReturn(mDisplayAndroid);
+        Mockito.lenient().when(mDisplayAndroid.getDipScale()).thenReturn(1.0f);
 
+        View decorView = new View(mActivity);
+        decorView.layout(0, 0, /* right= */ 0, /* bottom= */ 1000);
         when(mWindowAndroid.getWindow()).thenReturn(mMockWindow);
-        when(mMockWindow.getDecorView()).thenReturn(mMockDecorView);
-        when(mMockDecorView.getHeight()).thenReturn(1000);
+        when(mMockWindow.getDecorView()).thenReturn(decorView);
 
         Mockito.lenient().doReturn(mEventForwarder).when(mWebContents).getEventForwarder();
         mWebUi = createWebUi(TabBottomSheetClientType.GLIC);
@@ -143,7 +161,7 @@ public class TabBottomSheetWebUiUnitTest {
                 CoBrowseContainerType.BOTTOM_SHEET,
                 /* ephemeralTabOpener= */ null,
                 /* readLaterOpener= */ null,
-                mMockContentView);
+                mContentView);
     }
 
     @Test
@@ -233,37 +251,29 @@ public class TabBottomSheetWebUiUnitTest {
 
     @Test
     public void testFocusHandling() {
-        ViewTreeObserver mockViewTreeObserver = mock(ViewTreeObserver.class);
-        when(mMockContentView.getViewTreeObserver()).thenReturn(mockViewTreeObserver);
-
         mWebUi.setWebContents(mWebContents, true);
+        // Attaching registers the window focus listener.
+        attachToActivityWithFocusableSibling(mContentView);
+        assertTrue(mContentView.requestFocus());
 
-        ArgumentCaptor<View.OnAttachStateChangeListener> attachListenerCaptor =
-                ArgumentCaptor.forClass(View.OnAttachStateChangeListener.class);
-        verify(mMockContentView).addOnAttachStateChangeListener(attachListenerCaptor.capture());
-        View.OnAttachStateChangeListener attachListener = attachListenerCaptor.getValue();
-        assertNotNull(attachListener);
-
-        attachListener.onViewAttachedToWindow(mMockContentView);
-
-        ArgumentCaptor<ViewTreeObserver.OnWindowFocusChangeListener> focusListenerCaptor =
-                ArgumentCaptor.forClass(ViewTreeObserver.OnWindowFocusChangeListener.class);
-        verify(mockViewTreeObserver).addOnWindowFocusChangeListener(focusListenerCaptor.capture());
-        ViewTreeObserver.OnWindowFocusChangeListener focusListener = focusListenerCaptor.getValue();
-        assertNotNull(focusListener);
-
-        focusListener.onWindowFocusChanged(false);
+        mActivityController.windowFocusChanged(false);
         ShadowLooper.idleMainLooper();
-        verify(mMockContentView).clearFocus();
+        assertFalse(mContentView.isFocused());
 
-        Mockito.reset(mMockContentView);
-        when(mMockContentView.getViewTreeObserver()).thenReturn(mockViewTreeObserver);
+        assertTrue(mContentView.requestFocus());
+        mActivityController.windowFocusChanged(true);
+        ShadowLooper.idleMainLooper();
+        assertTrue(mContentView.isFocused());
 
-        focusListener.onWindowFocusChanged(true);
-        verify(mMockContentView, times(0)).clearFocus();
-
-        attachListener.onViewDetachedFromWindow(mMockContentView);
-        verify(mockViewTreeObserver).removeOnWindowFocusChangeListener(focusListener);
+        // Detaching unregisters the listener: once moved to another window, losing focus in the
+        // original window no longer clears the ContentView's focus.
+        ((ViewGroup) mContentView.getParent()).removeView(mContentView);
+        Activity otherActivity = Robolectric.buildActivity(Activity.class).setup().get();
+        otherActivity.setContentView(mContentView);
+        assertTrue(mContentView.requestFocus());
+        mActivityController.windowFocusChanged(false);
+        ShadowLooper.idleMainLooper();
+        assertTrue(mContentView.isFocused());
     }
 
     @Test
@@ -285,9 +295,12 @@ public class TabBottomSheetWebUiUnitTest {
 
         mWebUi.setWebContents(nonNullWebContents, true);
 
-        Activity mockActivity = mock(Activity.class);
-        when(mockActivity.isDestroyed()).thenReturn(true);
-        WeakReference<Activity> weakActivity = new WeakReference<>(mockActivity);
+        ActivityController<Activity> destroyedController =
+                Robolectric.buildActivity(Activity.class).setup();
+        Activity destroyedActivity = destroyedController.get();
+        destroyedController.destroy();
+        assertTrue(destroyedActivity.isDestroyed());
+        WeakReference<Activity> weakActivity = new WeakReference<>(destroyedActivity);
         when(mWindowAndroid.getActivity()).thenReturn(weakActivity);
 
         // Reset verification state of mThinWebView
@@ -479,26 +492,26 @@ public class TabBottomSheetWebUiUnitTest {
 
     @Test
     public void testSetWebContents_clearsActivityFocus() {
-        Activity mockActivity = mMockActivity;
-        assertNotNull(mockActivity);
-        View focusedView = mock();
-        when(mockActivity.getCurrentFocus()).thenReturn(focusedView);
+        View focusedView = createFocusableView(mActivity);
+        attachToActivityWithFocusableSibling(focusedView);
+        assertTrue(focusedView.requestFocus());
+        shadowOf(mActivity).setCurrentFocus(focusedView);
 
         mWebUi.setWebContents(mWebContents, true);
 
-        verify(focusedView, times(1)).clearFocus();
+        assertFalse(focusedView.isFocused());
     }
 
     @Test
     public void testSetWebContents_noFocus_doesNotClearActivityFocus() {
-        Activity mockActivity = mMockActivity;
-        assertNotNull(mockActivity);
-        View focusedView = mock();
-        when(mockActivity.getCurrentFocus()).thenReturn(focusedView);
+        View focusedView = createFocusableView(mActivity);
+        attachToActivityWithFocusableSibling(focusedView);
+        assertTrue(focusedView.requestFocus());
+        shadowOf(mActivity).setCurrentFocus(focusedView);
 
         mWebUi.setWebContents(mWebContents, false);
 
-        verify(focusedView, times(0)).clearFocus();
+        assertTrue(focusedView.isFocused());
     }
 
     @Test
@@ -547,7 +560,7 @@ public class TabBottomSheetWebUiUnitTest {
                         CoBrowseContainerType.SIDE_PANEL,
                         /* ephemeralTabOpener= */ null,
                         /* readLaterOpener= */ null,
-                        mMockContentView);
+                        mContentView);
         sidePanelWebUi.setWebContents(mWebContents, true);
 
         ArgumentCaptor<ContextMenuItemDelegate> captor =
@@ -594,7 +607,7 @@ public class TabBottomSheetWebUiUnitTest {
                         CoBrowseContainerType.SIDE_PANEL,
                         /* ephemeralTabOpener= */ null,
                         /* readLaterOpener= */ null,
-                        mMockContentView);
+                        mContentView);
         sidePanelWebUi.setWebContents(mWebContents, true);
 
         ArgumentCaptor<ContextMenuItemDelegate> delegateCaptor =
@@ -606,11 +619,10 @@ public class TabBottomSheetWebUiUnitTest {
 
         // Test New Tab
         delegate.onOpenInNewTab(url, null, false, null);
-        ArgumentCaptor<android.content.Intent> intentCaptor =
-                ArgumentCaptor.forClass(android.content.Intent.class);
-        verify(mMockActivity).startActivity(intentCaptor.capture());
-        assertEquals(android.content.Intent.ACTION_VIEW, intentCaptor.getValue().getAction());
-        assertEquals(url.getSpec(), intentCaptor.getValue().getData().toString());
+        Intent newTabIntent = shadowOf(mActivity).getNextStartedActivity();
+        assertNotNull(newTabIntent);
+        assertEquals(Intent.ACTION_VIEW, newTabIntent.getAction());
+        assertEquals(url.getSpec(), newTabIntent.getData().toString());
 
         // Test New Tab in Group
         TabModelSelector mockSelector = mock(TabModelSelector.class);
@@ -627,16 +639,15 @@ public class TabBottomSheetWebUiUnitTest {
                         eq(mockTab),
                         eq(false));
         TabModelSelectorSupplier.setInstanceForTesting(null);
-
-        Mockito.reset(mMockActivity);
+        assertNull(shadowOf(mActivity).getNextStartedActivity());
 
         // Test Incognito Tab
         delegate.onOpenInNewIncognitoTab(url);
-        verify(mMockActivity).startActivity(intentCaptor.capture());
+        Intent incognitoIntent = shadowOf(mActivity).getNextStartedActivity();
+        assertNotNull(incognitoIntent);
         assertTrue(
-                intentCaptor
-                        .getValue()
-                        .getBooleanExtra(BrowserIntentUtils.EXTRA_OPEN_NEW_INCOGNITO_TAB, false));
+                incognitoIntent.getBooleanExtra(
+                        BrowserIntentUtils.EXTRA_OPEN_NEW_INCOGNITO_TAB, false));
 
         MultiInstanceOrchestrator mockOrchestrator = mock(MultiInstanceOrchestrator.class);
         MultiInstanceOrchestratorFactory.setInstanceForTesting(mockOrchestrator);
@@ -645,23 +656,21 @@ public class TabBottomSheetWebUiUnitTest {
         delegate.openInOtherWindow(url, null, false, true, null);
         verify(mockOrchestrator)
                 .openUrlInOtherWindow(
-                        eq(mMockActivity), any(), eq(Tab.INVALID_TAB_ID), eq(true), eq(false));
+                        eq(mActivity), any(), eq(Tab.INVALID_TAB_ID), eq(true), eq(false));
 
         // Test Incognito Window
         delegate.openInIncognitoWindow(url);
         verify(mockOrchestrator)
                 .openUrlInOtherWindow(
-                        eq(mMockActivity), any(), eq(Tab.INVALID_TAB_ID), eq(false), eq(true));
+                        eq(mActivity), any(), eq(Tab.INVALID_TAB_ID), eq(false), eq(true));
 
         MultiInstanceOrchestratorFactory.setInstanceForTesting(null);
     }
 
     @Test
     public void testSelectionDropdownWrapper_ignoresFocusClearWhenShowing() {
-        ViewTreeObserver mockViewTreeObserver = mock(ViewTreeObserver.class);
-        when(mMockContentView.getViewTreeObserver()).thenReturn(mockViewTreeObserver);
-
         mWebUi.setWebContents(mWebContents, true);
+        attachToActivityWithFocusableSibling(mContentView);
 
         // Capture the wrapped delegate.
         ArgumentCaptor<ThinWebViewAttachParams> attachParamsCaptor =
@@ -671,17 +680,7 @@ public class TabBottomSheetWebUiUnitTest {
                 attachParamsCaptor.getValue().selectionDropdownMenuDelegate;
         assertNotNull(wrappedDelegate);
 
-        // Capture the OnWindowFocusChangeListener.
-        ArgumentCaptor<View.OnAttachStateChangeListener> attachListenerCaptor =
-                ArgumentCaptor.forClass(View.OnAttachStateChangeListener.class);
-        verify(mMockContentView).addOnAttachStateChangeListener(attachListenerCaptor.capture());
-        View.OnAttachStateChangeListener attachListener = attachListenerCaptor.getValue();
-        attachListener.onViewAttachedToWindow(mMockContentView);
-
-        ArgumentCaptor<ViewTreeObserver.OnWindowFocusChangeListener> focusListenerCaptor =
-                ArgumentCaptor.forClass(ViewTreeObserver.OnWindowFocusChangeListener.class);
-        verify(mockViewTreeObserver).addOnWindowFocusChangeListener(focusListenerCaptor.capture());
-        ViewTreeObserver.OnWindowFocusChangeListener focusListener = focusListenerCaptor.getValue();
+        assertTrue(mContentView.requestFocus());
 
         // 1. Show the dropdown menu.
         Runnable dismissCallback = mock(Runnable.class);
@@ -692,24 +691,21 @@ public class TabBottomSheetWebUiUnitTest {
                 .show(any(), any(), any(), any(), any(), eq(0), eq(0));
 
         // 2. Trigger window focus loss. Since the dropdown is showing, it should NOT clear focus.
-        Mockito.reset(mMockContentView);
-        focusListener.onWindowFocusChanged(false);
+        mActivityController.windowFocusChanged(false);
         ShadowLooper.idleMainLooper();
-        verify(mMockContentView, times(0)).clearFocus();
+        assertTrue(mContentView.isFocused());
 
         // 3. Dismiss the dropdown menu when window does NOT have focus. It should clear focus.
-        when(mMockContentView.hasWindowFocus()).thenReturn(false);
+        assertFalse(mContentView.hasWindowFocus());
         wrappedDelegate.dismiss();
         verify(mSelectionDropdownMenuDelegate).dismiss();
-        verify(mMockContentView, times(1)).clearFocus();
+        assertFalse(mContentView.isFocused());
     }
 
     @Test
     public void testSelectionDropdownWrapper_callbackResetsIgnoreClearFocus() {
-        ViewTreeObserver mockViewTreeObserver = mock(ViewTreeObserver.class);
-        when(mMockContentView.getViewTreeObserver()).thenReturn(mockViewTreeObserver);
-
         mWebUi.setWebContents(mWebContents, true);
+        attachToActivityWithFocusableSibling(mContentView);
 
         // Capture the wrapped delegate.
         ArgumentCaptor<ThinWebViewAttachParams> attachParamsCaptor =
@@ -718,17 +714,7 @@ public class TabBottomSheetWebUiUnitTest {
         SelectionDropdownMenuDelegate wrappedDelegate =
                 attachParamsCaptor.getValue().selectionDropdownMenuDelegate;
 
-        // Capture the OnWindowFocusChangeListener.
-        ArgumentCaptor<View.OnAttachStateChangeListener> attachListenerCaptor =
-                ArgumentCaptor.forClass(View.OnAttachStateChangeListener.class);
-        verify(mMockContentView).addOnAttachStateChangeListener(attachListenerCaptor.capture());
-        View.OnAttachStateChangeListener attachListener = attachListenerCaptor.getValue();
-        attachListener.onViewAttachedToWindow(mMockContentView);
-
-        ArgumentCaptor<ViewTreeObserver.OnWindowFocusChangeListener> focusListenerCaptor =
-                ArgumentCaptor.forClass(ViewTreeObserver.OnWindowFocusChangeListener.class);
-        verify(mockViewTreeObserver).addOnWindowFocusChangeListener(focusListenerCaptor.capture());
-        ViewTreeObserver.OnWindowFocusChangeListener focusListener = focusListenerCaptor.getValue();
+        assertTrue(mContentView.requestFocus());
 
         // 1. Show the dropdown menu.
         Runnable dismissCallback = mock(Runnable.class);
@@ -745,10 +731,9 @@ public class TabBottomSheetWebUiUnitTest {
         verify(dismissCallback).run();
 
         // 3. Trigger window focus loss. Since the callback has run, it should clear focus.
-        Mockito.reset(mMockContentView);
-        focusListener.onWindowFocusChanged(false);
+        mActivityController.windowFocusChanged(false);
         ShadowLooper.idleMainLooper();
-        verify(mMockContentView, times(1)).clearFocus();
+        assertFalse(mContentView.isFocused());
     }
 
     @Test
@@ -780,7 +765,7 @@ public class TabBottomSheetWebUiUnitTest {
                         CoBrowseContainerType.SIDE_PANEL,
                         mockOpener,
                         /* readLaterOpener= */ null,
-                        mMockContentView);
+                        mContentView);
         webUi.setWebContents(mWebContents, true);
 
         ArgumentCaptor<ContextMenuItemDelegate> captor =
@@ -827,7 +812,7 @@ public class TabBottomSheetWebUiUnitTest {
                         CoBrowseContainerType.SIDE_PANEL,
                         /* ephemeralTabOpener= */ null,
                         /* readLaterOpener= */ mockOpener,
-                        mMockContentView);
+                        mContentView);
         webUi.setWebContents(mWebContents, true);
 
         ArgumentCaptor<ContextMenuItemDelegate> captor =
@@ -870,7 +855,7 @@ public class TabBottomSheetWebUiUnitTest {
                         CoBrowseContainerType.BOTTOM_SHEET,
                         /* ephemeralTabOpener= */ null,
                         /* readLaterOpener= */ null,
-                        mMockContentView);
+                        mContentView);
         webUi.setWebContents(mWebContents, true);
 
         assertTrue(webUi.isDisableActionModeSelectionMenuCalled());
@@ -901,7 +886,7 @@ public class TabBottomSheetWebUiUnitTest {
                         CoBrowseContainerType.BOTTOM_SHEET,
                         /* ephemeralTabOpener= */ null,
                         /* readLaterOpener= */ null,
-                        mMockContentView);
+                        mContentView);
         webUi.setWebContents(mWebContents, true);
 
         assertFalse(webUi.isDisableActionModeSelectionMenuCalled());
@@ -910,7 +895,8 @@ public class TabBottomSheetWebUiUnitTest {
     @Test
     public void
             testTabBottomSheetWebUiContainer_dispatchDragEvent_requestsAndReleasesPermissions() {
-        Activity activity = Mockito.spy(Robolectric.buildActivity(Activity.class).setup().get());
+        DragAndDropActivity activity =
+                Robolectric.buildActivity(DragAndDropActivity.class).setup().get();
         TabBottomSheetWebUiContainer container = new TabBottomSheetWebUiContainer(activity, null);
 
         DragAndDropPermissions mockPermissions1 = mock(DragAndDropPermissions.class);
@@ -920,23 +906,23 @@ public class TabBottomSheetWebUiUnitTest {
 
         DragEvent dropEvent1 = mock(DragEvent.class);
         when(dropEvent1.getAction()).thenReturn(DragEvent.ACTION_DROP);
-        doReturn(mockPermissions1).when(activity).requestDragAndDropPermissions(dropEvent1);
+        activity.mPermissionsForEvent.put(dropEvent1, mockPermissions1);
 
         DragEvent dropEvent2 = mock(DragEvent.class);
         when(dropEvent2.getAction()).thenReturn(DragEvent.ACTION_DROP);
-        doReturn(mockPermissions2).when(activity).requestDragAndDropPermissions(dropEvent2);
+        activity.mPermissionsForEvent.put(dropEvent2, mockPermissions2);
 
         container.dispatchDragEvent(dragStartedEvent);
-        verify(activity, times(0)).requestDragAndDropPermissions(any());
+        assertEquals(List.of(), activity.mRequestedEvents);
 
         container.dispatchDragEvent(dropEvent1);
-        verify(activity, times(1)).requestDragAndDropPermissions(dropEvent1);
+        assertEquals(List.of(dropEvent1), activity.mRequestedEvents);
         verify(mockPermissions1, times(0)).release();
 
         // Consecutive drop releases previous permissions.
         container.dispatchDragEvent(dropEvent2);
         verify(mockPermissions1, times(1)).release();
-        verify(activity, times(1)).requestDragAndDropPermissions(dropEvent2);
+        assertEquals(List.of(dropEvent1, dropEvent2), activity.mRequestedEvents);
         verify(mockPermissions2, times(0)).release();
 
         // A new drag session starting releases previous drag permissions.
@@ -946,16 +932,17 @@ public class TabBottomSheetWebUiUnitTest {
 
     @Test
     public void testTabBottomSheetWebUiContainer_onDetachedFromWindow_releasesPermissions() {
-        Activity activity = Mockito.spy(Robolectric.buildActivity(Activity.class).setup().get());
+        DragAndDropActivity activity =
+                Robolectric.buildActivity(DragAndDropActivity.class).setup().get();
         TabBottomSheetWebUiContainer container = new TabBottomSheetWebUiContainer(activity, null);
 
         DragAndDropPermissions mockPermissions = mock(DragAndDropPermissions.class);
         DragEvent dropEvent = mock(DragEvent.class);
         when(dropEvent.getAction()).thenReturn(DragEvent.ACTION_DROP);
-        doReturn(mockPermissions).when(activity).requestDragAndDropPermissions(dropEvent);
+        activity.mPermissionsForEvent.put(dropEvent, mockPermissions);
 
         container.dispatchDragEvent(dropEvent);
-        verify(activity, times(1)).requestDragAndDropPermissions(dropEvent);
+        assertEquals(List.of(dropEvent), activity.mRequestedEvents);
         verify(mockPermissions, times(0)).release();
 
         container.onDetachedFromWindow();
@@ -992,8 +979,105 @@ public class TabBottomSheetWebUiUnitTest {
         assertEquals(selectorSupplier, TabModelSelectorSupplier.from(thinWindow));
     }
 
+    @Test
+    @EnableFeatures({
+        ChromeFeatureList.TAB_BOTTOM_SHEET,
+        ChromeFeatureList.TAB_BOTTOM_SHEET_EDGE_TO_EDGE
+    })
+    public void testSetWebContents_UpdatesSafeAreaInsetsWhenEdgeToEdgeEnabled() {
+        when(mDisplayAndroid.getDipScale()).thenReturn(2.0f);
+
+        int topMarginPx =
+                mActivity
+                        .getResources()
+                        .getDimensionPixelSize(
+                                org.chromium.chrome.browser.context_sharing.R.dimen
+                                        .tab_bottom_sheet_web_ui_top_margin);
+        int expectedTopDip = (int) Math.ceil(topMarginPx / 2.0f);
+
+        mWebUi.setWebContents(mWebContents, false);
+
+        verify(mWebContents).setDisplayCutoutSafeArea(eq(new Rect(0, expectedTopDip, 0, 0)));
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.TAB_BOTTOM_SHEET)
+    @DisableFeatures(ChromeFeatureList.TAB_BOTTOM_SHEET_EDGE_TO_EDGE)
+    public void testSetWebContents_DoesNotUpdateSafeAreaInsetsWhenEdgeToEdgeDisabled() {
+        mWebUi.setWebContents(mWebContents, false);
+
+        verify(mWebContents, never()).setDisplayCutoutSafeArea(any());
+    }
+
+    @Test
+    @EnableFeatures({
+        ChromeFeatureList.TAB_BOTTOM_SHEET,
+        ChromeFeatureList.TAB_BOTTOM_SHEET_EDGE_TO_EDGE
+    })
+    public void testSetWebContents_SidePanel_DoesNotUpdateSafeAreaInsets() {
+        Context context =
+                new ContextThemeWrapper(
+                        ApplicationProvider.getApplicationContext(),
+                        R.style.Theme_BrowserUI_DayNight);
+        View containerView =
+                LayoutInflater.from(context)
+                        .inflate(
+                                org.chromium.chrome.browser.context_sharing.R.layout
+                                        .tab_bottom_sheet,
+                                null);
+        TabBottomSheetWebUi sidePanelWebUi =
+                new TestTabBottomSheetWebUi(
+                        context,
+                        containerView,
+                        mWindowAndroid,
+                        mContextMenuPopulatorFactory,
+                        mSelectionDropdownMenuDelegate,
+                        Color.WHITE,
+                        Color.LTGRAY,
+                        TabBottomSheetClientType.UNKNOWN,
+                        CoBrowseContainerType.SIDE_PANEL,
+                        /* ephemeralTabOpener= */ null,
+                        /* readLaterOpener= */ null,
+                        mContentView);
+
+        sidePanelWebUi.setWebContents(mWebContents, false);
+
+        verify(mWebContents, never()).setDisplayCutoutSafeArea(any());
+    }
+
+    /**
+     * Attaches {@code view} to {@link #mActivity}'s window, after a focusable sibling. When {@code
+     * view} clears its focus, the framework may re-assign focus to the first focusable view in the
+     * window; the sibling ensures that this isn't {@code view} itself.
+     */
+    private void attachToActivityWithFocusableSibling(View view) {
+        FrameLayout root = new FrameLayout(mActivity);
+        root.addView(createFocusableView(mActivity));
+        root.addView(view);
+        mActivity.setContentView(root);
+    }
+
+    private static View createFocusableView(Context context) {
+        View view = new View(context);
+        view.setFocusable(true);
+        view.setFocusableInTouchMode(true);
+        return view;
+    }
+
+    /** Robolectric does not shadow requestDragAndDropPermissions(), so canned values are used. */
+    private static class DragAndDropActivity extends Activity {
+        final Map<DragEvent, DragAndDropPermissions> mPermissionsForEvent = new HashMap<>();
+        final List<DragEvent> mRequestedEvents = new ArrayList<>();
+
+        @Override
+        public DragAndDropPermissions requestDragAndDropPermissions(DragEvent event) {
+            mRequestedEvents.add(event);
+            return mPermissionsForEvent.get(event);
+        }
+    }
+
     private static class TestTabBottomSheetWebUi extends TabBottomSheetWebUi {
-        private final ContentView mMockContentView;
+        private final ContentView mContentView;
         private boolean mDisableActionModeSelectionMenuCalled;
 
         TestTabBottomSheetWebUi(
@@ -1008,7 +1092,7 @@ public class TabBottomSheetWebUiUnitTest {
                 @CoBrowseContainerType int containerType,
                 @Nullable BiConsumer<GURL, String> ephemeralTabOpener,
                 @Nullable BiConsumer<GURL, String> readLaterOpener,
-                ContentView mockContentView) {
+                ContentView contentView) {
             super(
                     context,
                     containerView,
@@ -1022,12 +1106,12 @@ public class TabBottomSheetWebUiUnitTest {
                     ephemeralTabOpener,
                     readLaterOpener,
                     mock(CoBrowseComponentProvider.class));
-            mMockContentView = mockContentView;
+            mContentView = contentView;
         }
 
         @Override
         ContentView createContentView(Context context, WebContents webContents) {
-            return mMockContentView;
+            return mContentView;
         }
 
         @Override

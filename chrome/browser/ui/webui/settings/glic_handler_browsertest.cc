@@ -6,15 +6,20 @@
 
 #include <memory>
 #include <tuple>
+#include <utility>
 
 #include "base/test/gmock_callback_support.h"
+#include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/values.h"
 #include "build/build_config.h"
 #include "build/buildflag.h"
 #include "chrome/browser/background/glic/glic_launcher_configuration.h"
 #include "chrome/browser/browser_process.h"
+#include "chrome/browser/enterprise/browser_management/management_service_factory.h"
 #include "chrome/browser/extensions/api/settings_private/prefs_util.h"
+#include "chrome/browser/glic/actor/glic_actor_policy_checker.h"
+#include "chrome/browser/glic/glic_enums.h"
 #include "chrome/browser/glic/glic_pref_names.h"
 #include "chrome/browser/glic/public/features.h"
 #include "chrome/browser/glic/public/glic_enabling.h"
@@ -26,8 +31,8 @@
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/test/base/in_process_browser_test.h"
-#include "chrome/test/base/test_browser_window.h"
 #include "components/password_manager/core/browser/actor_login/actor_login_permissions_manager.h"
+#include "components/policy/core/common/management/scoped_management_service_override_for_testing.h"
 #include "components/prefs/pref_service.h"
 #include "components/subscription_eligibility/subscription_eligibility_prefs.h"
 #include "content/public/test/browser_test.h"
@@ -101,9 +106,9 @@ class GlicHandlerConsentBrowserTest : public GlicHandlerBrowserTest {
  public:
   GlicHandlerConsentBrowserTest() {
     feature_list_.InitWithFeaturesAndParameters(
-        {{features::kGlicWebActuationSetting, {}},
-         {features::kGlicActor,
-          {{"glic_actor_policy_control_exemption", "true"}}}},
+        {{features::kGlicActor, {}},
+         {features::kGlicActorPolicyControlExemption, {}},
+         {features::kGlicWebActuationSetting, {}}},
         /*disabled_features=*/{features::kGlicWebActuationSettingsToggle});
   }
 
@@ -115,9 +120,9 @@ class GlicHandlerSubscriptionTierBrowserTest : public GlicHandlerBrowserTest {
  public:
   GlicHandlerSubscriptionTierBrowserTest() {
     feature_list_.InitWithFeaturesAndParameters(
-        {{features::kGlicWebActuationSetting, {}},
-         {features::kGlicActor,
-          {{"glic_actor_policy_control_exemption", "true"}}}},
+        {{features::kGlicActor, {}},
+         {features::kGlicActorPolicyControlExemption, {}},
+         {features::kGlicWebActuationSetting, {}}},
         /*disabled_features=*/{});
   }
 
@@ -176,6 +181,148 @@ IN_PROC_BROWSER_TEST_F(GlicHandlerBrowserTest, UpdateGlicShortcut) {
   saved_hotkey = glic::GlicLauncherConfiguration::GetToggleHotkey();
   EXPECT_EQ(valid_shortcut.key_code(), saved_hotkey.key_code());
   EXPECT_EQ(valid_shortcut.modifiers(), saved_hotkey.modifiers());
+}
+
+IN_PROC_BROWSER_TEST_F(GlicHandlerBrowserTest, OnHotkeyScopeSettingsChange) {
+  base::HistogramTester histogram_tester;
+
+  // Test when default is global:
+  g_browser_process->local_state()->SetInteger(
+      glic::prefs::kGlicDefaultHotkeyScope,
+      std::to_underlying(glic::prefs::DefaultHotkeyScope::kGlobal));
+
+  glic_handler()->HandleOnHotkeyScopeSettingsChange(
+      base::ListValue().Append(false));
+  histogram_tester.ExpectUniqueSample(
+      "Glic.Preferences.HotkeyScopeChange",
+      glic::GlicHotkeyScopeChange::kDefaultGlobalToLocal, 1);
+
+  glic_handler()->HandleOnHotkeyScopeSettingsChange(
+      base::ListValue().Append(true));
+  histogram_tester.ExpectBucketCount(
+      "Glic.Preferences.HotkeyScopeChange",
+      glic::GlicHotkeyScopeChange::kDefaultGlobalToGlobal, 1);
+
+  // Test when default is local:
+  g_browser_process->local_state()->SetInteger(
+      glic::prefs::kGlicDefaultHotkeyScope,
+      std::to_underlying(glic::prefs::DefaultHotkeyScope::kLocal));
+
+  glic_handler()->HandleOnHotkeyScopeSettingsChange(
+      base::ListValue().Append(true));
+  histogram_tester.ExpectBucketCount(
+      "Glic.Preferences.HotkeyScopeChange",
+      glic::GlicHotkeyScopeChange::kDefaultLocalToGlobal, 1);
+
+  glic_handler()->HandleOnHotkeyScopeSettingsChange(
+      base::ListValue().Append(false));
+  histogram_tester.ExpectBucketCount(
+      "Glic.Preferences.HotkeyScopeChange",
+      glic::GlicHotkeyScopeChange::kDefaultLocalToLocal, 1);
+
+  // Test when default is not migrated:
+  g_browser_process->local_state()->SetInteger(
+      glic::prefs::kGlicDefaultHotkeyScope,
+      std::to_underlying(glic::prefs::DefaultHotkeyScope::kNotMigrated));
+
+  glic_handler()->HandleOnHotkeyScopeSettingsChange(
+      base::ListValue().Append(true));
+  histogram_tester.ExpectBucketCount("Glic.Preferences.HotkeyScopeChange",
+                                     glic::GlicHotkeyScopeChange::kNotMigrated,
+                                     1);
+
+  glic_handler()->HandleOnHotkeyScopeSettingsChange(
+      base::ListValue().Append(false));
+  histogram_tester.ExpectBucketCount("Glic.Preferences.HotkeyScopeChange",
+                                     glic::GlicHotkeyScopeChange::kNotMigrated,
+                                     2);
+}
+
+IN_PROC_BROWSER_TEST_F(GlicHandlerBrowserTest, OnHotkeyCleared) {
+  base::HistogramTester histogram_tester;
+
+  // Default Global, Global Scope Enabled:
+  g_browser_process->local_state()->SetInteger(
+      glic::prefs::kGlicDefaultHotkeyScope,
+      std::to_underlying(glic::prefs::DefaultHotkeyScope::kGlobal));
+  g_browser_process->local_state()->SetBoolean(
+      glic::prefs::kGlicHotkeyGlobalScopeEnabled, true);
+
+  // Setting a non-empty shortcut should not record HotkeyCleared:
+  glic_handler()->HandleSetGlicShortcut(
+      base::ListValue().Append("callback_id").Append("Ctrl+A"));
+  histogram_tester.ExpectTotalCount("Glic.Preferences.HotkeyCleared", 0);
+
+  glic_handler()->HandleSetGlicShortcut(
+      base::ListValue().Append("callback_id").Append(""));
+  histogram_tester.ExpectUniqueSample(
+      "Glic.Preferences.HotkeyCleared",
+      glic::GlicHotkeyCleared::kDefaultGlobalWithGlobalScope, 1);
+
+  // Clearing when already empty should not record an extra sample:
+  glic_handler()->HandleSetGlicShortcut(
+      base::ListValue().Append("callback_id").Append(""));
+  histogram_tester.ExpectTotalCount("Glic.Preferences.HotkeyCleared", 1);
+
+  // Default Global, Local Scope Enabled:
+  glic_handler()->HandleSetGlicShortcut(
+      base::ListValue().Append("callback_id").Append("Ctrl+A"));
+  g_browser_process->local_state()->SetBoolean(
+      glic::prefs::kGlicHotkeyGlobalScopeEnabled, false);
+  glic_handler()->HandleSetGlicShortcut(
+      base::ListValue().Append("callback_id").Append(""));
+  histogram_tester.ExpectBucketCount(
+      "Glic.Preferences.HotkeyCleared",
+      glic::GlicHotkeyCleared::kDefaultGlobalWithLocalScope, 1);
+
+  // Default Local, Global Scope Enabled:
+  glic_handler()->HandleSetGlicShortcut(
+      base::ListValue().Append("callback_id").Append("Ctrl+A"));
+  g_browser_process->local_state()->SetInteger(
+      glic::prefs::kGlicDefaultHotkeyScope,
+      std::to_underlying(glic::prefs::DefaultHotkeyScope::kLocal));
+  g_browser_process->local_state()->SetBoolean(
+      glic::prefs::kGlicHotkeyGlobalScopeEnabled, true);
+  glic_handler()->HandleSetGlicShortcut(
+      base::ListValue().Append("callback_id").Append(""));
+  histogram_tester.ExpectBucketCount(
+      "Glic.Preferences.HotkeyCleared",
+      glic::GlicHotkeyCleared::kDefaultLocalWithGlobalScope, 1);
+
+  // Default Local, Local Scope Enabled:
+  glic_handler()->HandleSetGlicShortcut(
+      base::ListValue().Append("callback_id").Append("Ctrl+A"));
+  g_browser_process->local_state()->SetBoolean(
+      glic::prefs::kGlicHotkeyGlobalScopeEnabled, false);
+  glic_handler()->HandleSetGlicShortcut(
+      base::ListValue().Append("callback_id").Append(""));
+  histogram_tester.ExpectBucketCount(
+      "Glic.Preferences.HotkeyCleared",
+      glic::GlicHotkeyCleared::kDefaultLocalWithLocalScope, 1);
+
+  // Not migrated (kGlicHotkeyLocalScope disabled), launcher disabled should not
+  // record:
+  glic_handler()->HandleSetGlicShortcut(
+      base::ListValue().Append("callback_id").Append("Ctrl+A"));
+  g_browser_process->local_state()->SetInteger(
+      glic::prefs::kGlicDefaultHotkeyScope,
+      std::to_underlying(glic::prefs::DefaultHotkeyScope::kNotMigrated));
+  g_browser_process->local_state()->SetBoolean(
+      glic::prefs::kGlicLauncherEnabled, false);
+  glic_handler()->HandleSetGlicShortcut(
+      base::ListValue().Append("callback_id").Append(""));
+  histogram_tester.ExpectTotalCount("Glic.Preferences.HotkeyCleared", 4);
+
+  // Not migrated (kGlicHotkeyLocalScope disabled), launcher enabled:
+  glic_handler()->HandleSetGlicShortcut(
+      base::ListValue().Append("callback_id").Append("Ctrl+A"));
+  g_browser_process->local_state()->SetBoolean(
+      glic::prefs::kGlicLauncherEnabled, true);
+  glic_handler()->HandleSetGlicShortcut(
+      base::ListValue().Append("callback_id").Append(""));
+  histogram_tester.ExpectBucketCount(
+      "Glic.Preferences.HotkeyCleared",
+      glic::GlicHotkeyCleared::kDefaultGlobalWithGlobalScope, 2);
 }
 
 IN_PROC_BROWSER_TEST_F(GlicHandlerBrowserTest, GetActorLoginPermissions) {
@@ -466,6 +613,58 @@ IN_PROC_BROWSER_TEST_F(
       .SetExperimentalTriggeringEnabled(true);
   EXPECT_TRUE(GlicHandler::ShouldShowExperimentalTriggeringToggle(
       browser()->GetProfile()));
+}
+
+// Tests enterprise policy detection for web actuation.
+class GlicHandlerEnterpriseDisabledBrowserTest : public GlicHandlerBrowserTest {
+ public:
+  GlicHandlerEnterpriseDisabledBrowserTest() {
+    feature_list_.InitWithFeaturesAndParameters(
+        {{features::kGlicWebActuationSetting, {}},
+         {features::kGlicActor,
+          {{features::kGlicActorEligibleTiers.name, "1"}}}},
+        /*disabled_features=*/{});
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+// Missing subscription tier must not be treated as an enterprise policy block.
+IN_PROC_BROWSER_TEST_F(GlicHandlerEnterpriseDisabledBrowserTest,
+                       IsWebActuationDisabledForEnterprise_TierIneligible) {
+  Profile* profile = browser()->GetProfile();
+  profile->GetPrefs()->SetInteger(
+      subscription_eligibility::prefs::kAiSubscriptionTier, 0);
+
+  auto* glic_service = glic::GlicKeyedService::Get(profile);
+  ASSERT_TRUE(glic_service->HasActorPolicyChecker());
+  ASSERT_FALSE(glic_service->actor_policy_checker().CanActOnWeb());
+  ASSERT_NE(glic_service->actor_policy_checker().CannotActOnWebReason(),
+            glic::GlicActorPolicyChecker::CannotActReason::kDisabledByPolicy);
+
+  EXPECT_FALSE(GlicHandler::IsWebActuationDisabledForEnterprise(profile));
+}
+
+IN_PROC_BROWSER_TEST_F(GlicHandlerEnterpriseDisabledBrowserTest,
+                       IsWebActuationDisabledForEnterprise_DisabledByPolicy) {
+  Profile* profile = browser()->GetProfile();
+  policy::ScopedManagementServiceOverrideForTesting browser_management(
+      policy::ManagementServiceFactory::GetForProfile(profile),
+      policy::EnterpriseManagementAuthority::CLOUD_DOMAIN);
+
+  // Writing the policy pref triggers the policy checker to recompute.
+  profile->GetPrefs()->SetInteger(
+      glic::prefs::kGlicActuationOnWeb,
+      std::to_underlying(
+          glic::prefs::GlicActuationOnWebPolicyState::kDisabled));
+
+  auto* glic_service = glic::GlicKeyedService::Get(profile);
+  ASSERT_TRUE(glic_service->HasActorPolicyChecker());
+  ASSERT_EQ(glic_service->actor_policy_checker().CannotActOnWebReason(),
+            glic::GlicActorPolicyChecker::CannotActReason::kDisabledByPolicy);
+
+  EXPECT_TRUE(GlicHandler::IsWebActuationDisabledForEnterprise(profile));
 }
 
 }  // namespace settings

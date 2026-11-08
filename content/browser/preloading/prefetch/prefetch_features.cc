@@ -17,8 +17,6 @@ BASE_FEATURE(kPrefetchTesting, base::FEATURE_DISABLED_BY_DEFAULT);
 const base::FeatureParam<int> kPrefetchReusableBodySizeLimit{
     &kPrefetchTesting, "kPrefetchReusableBodySizeLimit", 4194304};
 
-BASE_FEATURE(kPrefetchUseContentRefactor, base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kPrefetchNIKScope, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kPrefetchClientHints, base::FEATURE_ENABLED_BY_DEFAULT);
@@ -68,6 +66,15 @@ const base::FeatureParam<size_t>
         "kPrefetchSchedulerTestingActiveSetSizeLimitForBurst", 1};
 
 BASE_FEATURE(kPrefetchCanaryCheckerParams, base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kPrefetchSchedulerBurstQueryParam,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+const base::FeatureParam<std::string> kPrefetchSchedulerBurstQueryParamKey{
+    &kPrefetchSchedulerBurstQueryParam, "key", ""};
+const base::FeatureParam<std::string> kPrefetchSchedulerBurstQueryParamValue{
+    &kPrefetchSchedulerBurstQueryParam, "value", ""};
+const base::FeatureParam<size_t> kPrefetchSchedulerBurstQueryParamExtraLimit{
+    &kPrefetchSchedulerBurstQueryParam, "extra_limit", 1u};
 
 #if BUILDFLAG(IS_ANDROID)
 BASE_FEATURE(kPrefetchMultipleActiveSetSizeLimitForBase,
@@ -136,36 +143,8 @@ BASE_FEATURE(kPrefetchAsyncPrefetchHandleCallback,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kPrefetchMatchResolverUnblockAsync,
-             "PrefetchMatchResolverUnblockAsync",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kPrefetchRevampAcceptHeader, base::FEATURE_ENABLED_BY_DEFAULT);
-
-BASE_FEATURE(kPrefetchAheadOfActualNavigation,
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-constexpr base::FeatureParam<
-    PrefetchAheadOfActualNavigationForceWaitNVSHeaderPolicy>::Option
-    kPrefetchAheadOfActualNavigationForceWaitNVSHeaderPolicyOptions[] = {
-        {PrefetchAheadOfActualNavigationForceWaitNVSHeaderPolicy::kNotUse,
-         "NotUse"},
-        {PrefetchAheadOfActualNavigationForceWaitNVSHeaderPolicy::kUseIfNoHint,
-         "UseIfNoHint"},
-        {PrefetchAheadOfActualNavigationForceWaitNVSHeaderPolicy::kAlwaysUse,
-         "AlwaysUse"},
-};
-
-const base::FeatureParam<
-    PrefetchAheadOfActualNavigationForceWaitNVSHeaderPolicy>
-    kPrefetchAheadOfActualNavigationForceWaitNVSHeaderPolicy{
-        &kPrefetchAheadOfActualNavigation,
-        "force_wait_no_vary_search_header_policy",
-        PrefetchAheadOfActualNavigationForceWaitNVSHeaderPolicy::kUseIfNoHint,
-        &kPrefetchAheadOfActualNavigationForceWaitNVSHeaderPolicyOptions};
-
-const base::FeatureParam<bool>
-    kPrefetchAheadOfActualNavigationUseBlockUntilHeadTimeout{
-        &kPrefetchAheadOfActualNavigation, "use_block_until_head_timeout",
-        false};
 
 }  // namespace features

@@ -35,7 +35,10 @@ import re
 import unittest
 from unittest.mock import patch
 
-from blinkpy.common.system.filesystem import _remove_contents, _sanitize_filename
+from blinkpy.common.system.filesystem import (
+    _remove_contents,
+    _sanitize_filename,
+)
 
 _TEXT_ENCODING = 'utf-8'
 
@@ -49,8 +52,6 @@ def _ensure_binary_contents(file_contents):
 
 
 class MockFileSystem(object):
-    # pylint: disable=unused-argument
-
     sep = '/'
     pardir = '..'
 
@@ -115,8 +116,11 @@ class MockFileSystem(object):
         return home_directory + self.sep + parts[1]
 
     def path_to_module(self, module_name):
-        return ('/mock-checkout/third_party/blink/tools/' +
-                module_name.replace('.', '/') + '.py')
+        return (
+            '/mock-checkout/third_party/blink/tools/'
+            + module_name.replace('.', '/')
+            + '.py'
+        )
 
     def chdir(self, path):
         path = self.normpath(path)
@@ -146,13 +150,15 @@ class MockFileSystem(object):
     def files_under(self, path, dirs_to_skip=None, file_filter=None):
         dirs_to_skip = dirs_to_skip or []
 
-        filter_all = lambda fs, dirpath, basename: True
+        filter_all = lambda fs, dirpath, basename: True  # noqa: E731
 
         file_filter = file_filter or filter_all
         files = []
         if self.isfile(path):
-            if (file_filter(self, self.dirname(path), self.basename(path))
-                    and self.files[path] is not None):
+            if (
+                file_filter(self, self.dirname(path), self.basename(path))
+                and self.files[path] is not None
+            ):
                 files.append(path)
             return files
 
@@ -167,14 +173,15 @@ class MockFileSystem(object):
             if not filename.startswith(path):
                 continue
 
-            suffix = filename[len(path) - 1:]
-            if any(dir_substring in suffix
-                   for dir_substring in dir_substrings):
+            suffix = filename[len(path) - 1 :]
+            if any(dir_substring in suffix for dir_substring in dir_substrings):
                 continue
 
             dirpath, basename = self._split(filename)
-            if (file_filter(self, dirpath, basename)
-                    and self.files[filename] is not None):
+            if (
+                file_filter(self, dirpath, basename)
+                and self.files[filename] is not None
+            ):
                 files.append(filename)
 
         return files
@@ -189,11 +196,12 @@ class MockFileSystem(object):
         glob_string = glob_string.replace('/\\*\\*', '(|/.*)')
         glob_string = glob_string.replace('\\*', '[^\\/]*')
         glob_string = glob_string.replace('\\/', '/')
-        path_filter = lambda path: re.fullmatch(glob_string, path)
+        path_filter = lambda path: re.fullmatch(glob_string, path)  # noqa: E731
 
         # We could use fnmatch.fnmatch, but that might not do the right thing on Windows.
         existing_files = [
-            path for path, contents in self.files.items()
+            path
+            for path, contents in self.files.items()
             if contents is not None
         ]
         yield from filter(path_filter, existing_files)
@@ -209,8 +217,9 @@ class MockFileSystem(object):
         return self.normpath(path) in self.dirs
 
     def _slow_but_correct_join(self, comp, *comps):
-        return re.sub(re.escape(os.path.sep), self.sep,
-                      os.path.join(comp, *comps))
+        return re.sub(
+            re.escape(os.path.sep), self.sep, os.path.join(comp, *comps)
+        )
 
     def join(self, *comps):
         # The real `os.path.join` accepts both strings and bytes:
@@ -256,9 +265,9 @@ class MockFileSystem(object):
         files = []
         for file_path in self.files:
             if self.exists(file_path) and file_path.startswith(top):
-                remaining = file_path[len(top):]
+                remaining = file_path[len(top) :]
                 if sep in remaining:
-                    directory = remaining[:remaining.index(sep)]
+                    directory = remaining[: remaining.index(sep)]
                     if directory not in directories:
                         directories.append(directory)
                 else:
@@ -278,7 +287,7 @@ class MockFileSystem(object):
             return 0
         self._raise_not_found(path)
 
-    def mktemp(self, suffix='', prefix='tmp', dir=None, **_):  # pylint: disable=redefined-builtin
+    def mktemp(self, suffix='', prefix='tmp', dir=None, **_):
         if dir is None:
             dir = self.sep + '__im_tmp'
         curno = self.current_tmpno
@@ -291,7 +300,7 @@ class MockFileSystem(object):
             def __init__(self, fs, **kwargs):
                 self._kwargs = kwargs
                 self._filesystem = fs
-                self._directory_path = fs.mktemp(**kwargs)  # pylint: disable=protected-access
+                self._directory_path = fs.mktemp(**kwargs)
                 fs.maybe_make_directory(self._directory_path)
 
             def __str__(self):
@@ -415,7 +424,7 @@ class MockFileSystem(object):
             common_root = self.dirname(common_root)
             dot_dot += '..' + self.sep
 
-        rel_path = path[len(common_root):]
+        rel_path = path[len(common_root) :]
 
         if not rel_path:
             return '.'
@@ -430,7 +439,7 @@ class MockFileSystem(object):
             # path = "/tmp/foobar", start = "/tmp/foo" -> rel_path = "bar"
             common_root = self.dirname(common_root)
             dot_dot += '..' + self.sep
-            rel_path = path[len(common_root) + 1:]
+            rel_path = path[len(common_root) + 1 :]
 
         return dot_dot + rel_path
 
@@ -447,12 +456,14 @@ class MockFileSystem(object):
             # We need to add a trailing separator to path_to_remove to avoid matching
             # cases like path_to_remove='/foo/b' and file_path='/foo/bar/baz'.
             if file_path == path_to_remove or file_path.startswith(
-                    path_to_remove + self.sep):
+                path_to_remove + self.sep
+            ):
                 self.files[file_path] = None
 
         def should_remove(directory):
             return directory == path_to_remove or directory.startswith(
-                path_to_remove + self.sep)
+                path_to_remove + self.sep
+            )
 
         self.dirs = {d for d in self.dirs if not should_remove(d)}
 
@@ -465,8 +476,9 @@ class MockFileSystem(object):
 
         for source_file in list(self.files):
             if source_file.startswith(source):
-                destination_path = self.join(destination,
-                                             self.relpath(source_file, source))
+                destination_path = self.join(
+                    destination, self.relpath(source_file, source)
+                )
                 self.maybe_make_directory(self.dirname(destination_path))
                 self.files[destination_path] = self.files[source_file]
 
@@ -474,7 +486,7 @@ class MockFileSystem(object):
         idx = path.rfind(self.sep)
         if idx == -1:
             return ('', path)
-        return (path[:idx], path[(idx + 1):])
+        return (path[:idx], path[(idx + 1) :])
 
     def splitext(self, path):
         idx = path.rfind('.')
@@ -511,16 +523,21 @@ class MockFileSystem(object):
             stack.enter_context(patch('os.path.isfile', self.isfile))
             stack.enter_context(patch('os.path.isdir', self.isdir))
             stack.enter_context(patch('os.path.exists', self.exists))
-            stack.enter_context(patch('os.makedirs',
-                                      self.maybe_make_directory))
+            stack.enter_context(patch('os.makedirs', self.maybe_make_directory))
             stack.enter_context(patch('os.replace', self.move))
             stack.enter_context(patch('os.unlink', self.remove))
             stack.enter_context(
-                patch('tempfile.TemporaryFile',
-                      lambda *args, **kwargs: self.open_text_tempfile()[0]))
+                patch(
+                    'tempfile.TemporaryFile',
+                    lambda *args, **kwargs: self.open_text_tempfile()[0],
+                )
+            )
             stack.enter_context(
-                patch('tempfile.NamedTemporaryFile',
-                      lambda *args, **kwargs: self.open_text_tempfile()[0]))
+                patch(
+                    'tempfile.NamedTemporaryFile',
+                    lambda *args, **kwargs: self.open_text_tempfile()[0],
+                )
+            )
             yield
 
 
@@ -531,17 +548,17 @@ class BufferedReader(io.BufferedReader):
 
 
 class TextIOWrapper(io.TextIOWrapper):
-    def __init__(self,
-                 raw,
-                 encoding=_TEXT_ENCODING,
-                 errors='replace',
-                 newline='\n',
-                 **options):
-        super().__init__(raw,
-                         encoding=encoding,
-                         errors=errors,
-                         newline=newline,
-                         **options)
+    def __init__(
+        self,
+        raw,
+        encoding=_TEXT_ENCODING,
+        errors='replace',
+        newline='\n',
+        **options,
+    ):
+        super().__init__(
+            raw, encoding=encoding, errors=errors, newline=newline, **options
+        )
         self.fs = raw.fs
 
 
@@ -570,7 +587,6 @@ class WriteThroughBinaryFile(io.BytesIO):
 
 
 class FileSystemTestCase(unittest.TestCase):
-    # pylint: disable=invalid-name
     # Use assertFilesAdded to be consistent with unittest.
 
     class _AssertFilesAddedContext(object):
@@ -586,8 +602,10 @@ class FileSystemTestCase(unittest.TestCase):
             # Make sure that the expected_files aren't already in the mock
             # file system.
             for filepath in self.expected_files:
-                assert filepath not in self.mock_filesystem.files, "%s was already in mock file system (%r)" % (
-                    filepath, self.mock_filesystem.files)
+                assert filepath not in self.mock_filesystem.files, (
+                    "%s was already in mock file system (%r)"
+                    % (filepath, self.mock_filesystem.files)
+                )
             return self
 
         def __exit__(self, exc_type, exc_value, tb):
@@ -599,7 +617,8 @@ class FileSystemTestCase(unittest.TestCase):
                 self.test_case.assertIn(filepath, self.mock_filesystem.files)
                 self.test_case.assertEqual(
                     self.expected_files[filepath],
-                    self.mock_filesystem.files[filepath])
+                    self.mock_filesystem.files[filepath],
+                )
 
     def assertFilesAdded(self, mock_filesystem, files):
         """Assert that the given files where added to the mock_filesystem.

@@ -10,6 +10,7 @@
 #include "base/system/sys_info.h"
 #include "chrome/browser/autocomplete/aim_eligibility_service_factory.h"
 #include "chrome/browser/command_updater.h"
+#include "chrome/browser/contextual_tasks/contextual_tasks_utils.h"
 #include "chrome/browser/lens/region_search/lens_region_search_controller.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service_factory.h"
@@ -215,6 +216,8 @@ void LensOverlayEntryPointController::UpdateEntryPointsState(
   // Update the 3 dot menu entry point.
   command_updater_->UpdateCommandEnabled(IDC_CONTENT_CONTEXT_LENS_OVERLAY,
                                          visible);
+  command_updater_->UpdateCommandEnabled(IDC_ASK_GOOGLE_ABOUT_THIS_PAGE,
+                                         visible);
 
   // Update the pinnable toolbar entry point. Toolbar entry point is always
   // present, therefore, ignore the visibility check.
@@ -306,7 +309,10 @@ void LensOverlayEntryPointController::InvokeAction(
         lens::LensOverlayDismissalSource::kToolbar);
   } else {
     search_controller->OpenLensOverlay(
-        lens::LensOverlayInvocationSource::kToolbar);
+        lens::LensOverlayInvocationSource::kToolbar,
+        /*should_show_csb=*/!contextual_tasks::
+            AreContextualTasksUpdatedEntryPointsEnabled(
+                active_tab->GetBrowserWindowInterface()->GetProfile()));
   }
 }
 

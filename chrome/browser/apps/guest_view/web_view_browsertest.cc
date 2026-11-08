@@ -4537,7 +4537,8 @@ IN_PROC_BROWSER_TEST_P(WebViewTest, DownloadCookieIsolation_CrossSession) {
         download->GetTotalBytes(), download->GetHash(), download->GetState(),
         download->GetDangerType(), download->GetLastReason(),
         download->GetOpened(), download->GetLastAccessTime(),
-        download->IsTransient(), download->GetReceivedSlices()));
+        download->IsTransient(), download->GetReceivedSlices(),
+        base::FilePath()));
   }
 
   content::DownloadTestObserverTerminal completion_observer(
@@ -5453,6 +5454,40 @@ IN_PROC_BROWSER_TEST_P(WebViewPdfTest, Shim_TestDialogInPdf) {
   SKIP_FOR_MPARCH();  // TODO(crbug.com/40202416): Enable test for MPArch.
 
   TestHelper("testDialogInPdf", "web_view/shim", NO_TEST_SERVER);
+}
+
+// Test that <webview>.executeScript({allFrames: true}) on a guest page
+// embedding a PDF does not execute scripts in the PDF extension frame or the
+// PDF content frame.
+IN_PROC_BROWSER_TEST_P(WebViewPdfTest, ExecuteScriptInEmbeddedPdf) {
+  SKIP_FOR_MPARCH();  // TODO(crbug.com/40202416): Enable test for MPArch.
+  if (!UseOopif()) {
+    GTEST_SKIP();
+  }
+
+  TestHelper("testExecuteScriptInEmbeddedPdf", "web_view/shim",
+             NEEDS_TEST_SERVER);
+
+  content::RenderFrameHost* web_view_rfh =
+      GetGuestViewManager()->WaitForSingleGuestRenderFrameHostCreated();
+  ASSERT_TRUE(web_view_rfh);
+
+  // Make sure the PDF loaded.
+  ASSERT_TRUE(WaitUntilPdfLoaded(content::ChildFrameAt(web_view_rfh, 0)));
+
+  // Execute script to gather path names in all frames of the <webview>.
+  static constexpr char kScript[] = R"(
+    new Promise(resolve => {
+      const webview = document.querySelector('webview');
+      webview.executeScript(
+          {code: 'window.location.pathname;', allFrames: true}, resolve);
+    });
+  )";
+
+  // The PDF extension frame and the PDF content frame should not be included.
+  EXPECT_THAT(content::EvalJs(GetEmbedderWebContents(), kScript).ExtractList(),
+              testing::UnorderedElementsAre("/page_with_embedded_pdf.html",
+                                            "/pdf/test.pdf"));
 }
 
 // TODO(crbug.com/40268279): Stop testing both modes after OOPIF PDF viewer

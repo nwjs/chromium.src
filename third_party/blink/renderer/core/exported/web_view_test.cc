@@ -61,6 +61,7 @@
 #include "third_party/blink/public/common/page/drag_operation.h"
 #include "third_party/blink/public/common/page/page_zoom.h"
 #include "third_party/blink/public/common/tokens/tokens.h"
+#include "third_party/blink/public/common/web_preferences/web_preferences.h"
 #include "third_party/blink/public/common/widget/device_emulation_params.h"
 #include "third_party/blink/public/mojom/frame/tree_scope_type.mojom-blink.h"
 #include "third_party/blink/public/mojom/input/focus_type.mojom-blink.h"
@@ -6348,14 +6349,16 @@ class MojoTestHelper {
   }
 
   ~MojoTestHelper() {
-    web_view_helper_.Reset();  // Remove dependency on locally scoped client.
+    web_view_helper_->Reset();  // Remove dependency on locally scoped client.
   }
 
   WebViewImpl* WebView() const { return web_view_; }
 
  private:
-  WebViewImpl* web_view_;
-  frame_test_helpers::WebViewHelper& web_view_helper_;
+  raw_ptr<WebViewImpl, UnprotectedInRelease | DanglingUntriaged> web_view_;
+  const raw_ref<frame_test_helpers::WebViewHelper,
+                UnprotectedInRelease | DanglingUntriaged>
+      web_view_helper_;
   frame_test_helpers::TestWebFrameClient web_frame_client_;
 };
 
@@ -6458,7 +6461,7 @@ class ShowUnhandledTapTest : public WebViewTest {
     EXPECT_EQ(expected, mock_notifier_.WasUnhandledTap());
   }
 
-  WebViewImpl* web_view_;
+  raw_ptr<WebViewImpl, UnprotectedInRelease | DanglingUntriaged> web_view_;
   MockUnhandledTapNotifierImpl mock_notifier_;
 
  private:
@@ -6801,6 +6804,32 @@ TEST_F(WebViewTest, ForceAndResetViewport) {
   matrix = dev_tools_emulator->ResetViewportForTesting();
   expected_matrix.MakeIdentity();
   EXPECT_EQ(expected_matrix, matrix);
+}
+
+TEST_F(WebViewTest, TouchEmulationSurvivesWebPreferencesRepush) {
+  WebViewImpl* web_view_impl = web_view_helper_.Initialize();
+  Settings& settings = web_view_impl->GetPage()->GetSettings();
+  DevToolsEmulator* emulator = web_view_impl->GetDevToolsEmulator();
+
+  web_pref::WebPreferences prefs;
+  prefs.pointer_events_max_touch_points = 0;
+  WebView::ApplyWebPreferences(prefs, web_view_impl);
+  EXPECT_EQ(0, settings.GetMaxTouchPoints());
+
+  constexpr int kEmulatedMaxTouchPoints = 5;
+  emulator->SetTouchEventEmulationEnabled(true, kEmulatedMaxTouchPoints);
+  EXPECT_EQ(kEmulatedMaxTouchPoints, settings.GetMaxTouchPoints());
+
+  // Android can push new WebPreferences while emulation is active. The
+  // override remains visible, while the latest embedder value is retained for
+  // restoration.
+  constexpr int kUpdatedEmbedderMaxTouchPoints = 2;
+  prefs.pointer_events_max_touch_points = kUpdatedEmbedderMaxTouchPoints;
+  WebView::ApplyWebPreferences(prefs, web_view_impl);
+  EXPECT_EQ(kEmulatedMaxTouchPoints, settings.GetMaxTouchPoints());
+
+  emulator->SetTouchEventEmulationEnabled(false, 0);
+  EXPECT_EQ(kUpdatedEmbedderMaxTouchPoints, settings.GetMaxTouchPoints());
 }
 
 TEST_F(WebViewTest, ViewportOverrideIntegratesDeviceMetricsOffsetAndScale) {
@@ -7360,7 +7389,7 @@ TEST_F(WebViewTest, InputDelayReported) {
       "PageLoad.InteractiveTiming.InputTimestamp3", 170, 1);
 }
 
-// TODO(npm): Improve this test to receive real input sequences and avoid hacks.
+// TODO: Improve this test to receive real input sequences and avoid hacks.
 // Check that first input delay is correctly reported to the document when the
 // first input is a pointer down event, and we receive a pointer up event.
 TEST_F(WebViewTest, PointerDownUpFirstInputDelay) {

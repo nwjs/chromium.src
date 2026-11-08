@@ -433,17 +433,31 @@ AutofillAiPersonalContextAccessManagerImpl::ExtractEntitiesFromResponse(
               ToEntityType(entity.sensitive_pii_presence().type())) {
         entities.push_back({*type, entity});
       }
-    } else if (std::optional<EntityInstance> converted =
-                   ConvertProtoToEntityInstance(entity, /*mask_spii=*/true)) {
-      PersonalContextPrefetchEntityValidationResult validation_result =
-          ValidateAmbientAutofillEntity(*converted, supported_types);
-      LogPersonalContextPrefetchEntityValidationResult(converted->type(),
-                                                       validation_result);
-      if (validation_result ==
-          PersonalContextPrefetchEntityValidationResult::kValid) {
-        entities.push_back({std::move(*converted), entity});
-      }
+      continue;
     }
+
+    std::optional<EntityInstance> converted =
+        ConvertProtoToEntityInstance(entity, /*mask_spii=*/true);
+    if (!converted) {
+      LogPersonalContextPrefetchEntityFunnelOutcome(
+          /*type=*/std::nullopt,
+          PersonalContextPrefetchEntityFunnelOutcome::kParsingFailed);
+      continue;
+    }
+
+    PersonalContextPrefetchEntityValidationResult validation_result =
+        ValidateAmbientAutofillEntity(*converted, supported_types);
+    LogPersonalContextPrefetchEntityValidationResult(converted->type(),
+                                                     validation_result);
+    if (validation_result !=
+        PersonalContextPrefetchEntityValidationResult::kValid) {
+      LogPersonalContextPrefetchEntityFunnelOutcome(
+          converted->type(),
+          PersonalContextPrefetchEntityFunnelOutcome::kInvalid);
+      continue;
+    }
+
+    entities.push_back({std::move(*converted), entity});
   }
   return entities;
 }
@@ -651,18 +665,31 @@ void AutofillAiPersonalContextAccessManagerImpl::ProcessPrefetchedEntities(
 
     EntityInstance& instance = std::get<EntityInstance>(entity.instance);
     if (!requested_types.contains(instance.type())) {
+      LogPersonalContextPrefetchEntityFunnelOutcome(
+          instance.type(),
+          PersonalContextPrefetchEntityFunnelOutcome::kInvalid);
       continue;
     }
 
     prefetched_proto_cache_.emplace(instance.guid(), std::move(entity.proto));
     if (!suppression_manager || !suppression_manager->IsSuppressed(instance)) {
+      const auto& payload =
+          std::get<EntityInstance::PersonalContextRecordTypePayload>(
+              instance.record_type_data());
+      LogPersonalContextPrefetchEntitySourceCount(instance.type(),
+                                                  payload.sources.size());
       entities.push_back(std::move(instance));
     } else {
+      LogPersonalContextPrefetchEntityFunnelOutcome(
+          instance.type(),
+          PersonalContextPrefetchEntityFunnelOutcome::kSuppressed);
       suppressed_count++;
     }
   }
 
   LogEntitySuppressionEntitiesFilteredPerPrefetch(suppressed_count);
+  // The funnel outcome of the remaining `entities` is logged by the
+  // `EntityDataManager` when it deduplicates them.
   NotifyPrefetchStatusObservers(entities);
 }
 
@@ -733,6 +760,10 @@ void AutofillAiPersonalContextAccessManagerImpl::OnEligibilityStateChanged(
   if (!IsPersonalContextEligible(new_state)) {
     WipeCache();
   }
+}
+
+void AutofillAiPersonalContextAccessManagerImpl::OnContextSourceDisabled() {
+  WipeCache();
 }
 
 void AutofillAiPersonalContextAccessManagerImpl::

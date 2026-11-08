@@ -23,20 +23,23 @@ import type {ContentListener, ContentState} from '../content/content_controller.
 import {LineFocusController} from '../content/line_focus_controller.js';
 import type {LineFocusListener} from '../content/line_focus_controller.js';
 import {NodeStore} from '../content/node_store.js';
-import {DEFAULT_SETTINGS, LineFocusType} from '../content/read_anything_types.js';
-import type {LineFocusMovement, LineFocusStyle, SettingsPrefs} from '../content/read_anything_types.js';
+import {LineFocusType} from '../content/read_anything_types.js';
+import type {LineFocusMovement, LineFocusStyle} from '../content/read_anything_types.js';
 import {SelectionController} from '../content/selection_controller.js';
+import {RATE_OPTIONS} from '../menus/rate_menu.js';
 import type {AudioBrowserProxy} from '../read_aloud/audio_browser_proxy.js';
 import {AudioBrowserProxyImpl} from '../read_aloud/audio_browser_proxy.js';
 import type {LanguageToastElement} from '../read_aloud/language_toast.js';
 import type {Segment} from '../read_aloud/read_aloud_types.js';
 import {SpeechController} from '../read_aloud/speech_controller.js';
 import type {SpeechListener} from '../read_aloud/speech_controller.js';
+import {getCurrentSpeechRate} from '../read_aloud/speech_presentation_rules.js';
 import {VoiceLanguageController} from '../read_aloud/voice_language_controller.js';
 import type {VoiceLanguageListener} from '../read_aloud/voice_language_controller.js';
 import {VoiceNotificationManager} from '../read_aloud/voice_notification_manager.js';
 import {getWordCount, isDistilledByReadability} from '../shared/common.js';
 import {isPlayPauseShortcut} from '../shared/keyboard_util.js';
+import {ReadAloudSettingsChange, ReadAnythingSettingsChange} from '../shared/metrics_browser_proxy.js';
 import {ReadAnythingLogger, TimeFrom} from '../shared/read_anything_logger.js';
 
 import {getCss} from './app.css.js';
@@ -82,7 +85,14 @@ export class AppElement extends AppElementBase implements SpeechListener,
       isSpeechActive_: {type: Boolean},
       isAudioCurrentlyPlaying_: {type: Boolean},
       enabledLangs_: {type: Array},
-      settingsPrefs_: {type: Object},
+      theme_: {type: Number},
+      lineSpacing_: {type: Number},
+      letterSpacing_: {type: Number},
+      font_: {type: String},
+      speechRate_: {type: Number},
+      highlightGranularity_: {type: Number},
+      linksEnabled_: {type: Boolean},
+      imagesEnabled_: {type: Boolean},
       selectedVoice_: {type: Object},
       availableVoices_: {type: Array},
       previewVoicePlaying_: {type: Object},
@@ -162,7 +172,17 @@ export class AppElement extends AppElementBase implements SpeechListener,
   // layout. Tracked so rapid consecutive calls to updateContent can cancel
   // pending frames to avoid desynchronizing text node mapping with the AXTree.
   private renderedTextBlocksAnimationFrameHandle_: number|null = null;
-  protected accessor settingsPrefs_: SettingsPrefs = DEFAULT_SETTINGS;
+
+  // Current user settings, mirrored from the browser proxies by
+  // syncSettings_() and passed down to the toolbar.
+  protected accessor theme_: number = 0;
+  protected accessor lineSpacing_: number = 0;
+  protected accessor letterSpacing_: number = 0;
+  protected accessor font_: string = '';
+  protected accessor speechRate_: number = 1;
+  protected accessor highlightGranularity_: number = 0;
+  protected accessor linksEnabled_: boolean = false;
+  protected accessor imagesEnabled_: boolean = false;
 
   protected accessor isSpeechActive_: boolean = false;
   protected accessor isAudioCurrentlyPlaying_: boolean = false;
@@ -223,16 +243,7 @@ export class AppElement extends AppElementBase implements SpeechListener,
     this.nodeStore_.clear();
     this.showLoading();
 
-    this.settingsPrefs_ = {
-      letterSpacing: this.visualBrowserProxy_.getLetterSpacing(),
-      lineSpacing: this.visualBrowserProxy_.getLineSpacing(),
-      theme: this.visualBrowserProxy_.getColorTheme(),
-      speechRate: this.audioBrowserProxy_.getSpeechRate(),
-      font: this.visualBrowserProxy_.getFontName(),
-      highlightGranularity: this.audioBrowserProxy_.getHighlightGranularity(),
-      linksEnabled: this.visualBrowserProxy_.isLinksEnabled(),
-      imagesEnabled: this.visualBrowserProxy_.isImagesEnabled(),
-    };
+    this.syncSettings_();
 
     this.visualBrowserProxy_.sendPinStateRequest();
 
@@ -410,10 +421,10 @@ export class AppElement extends AppElementBase implements SpeechListener,
   }
 
   protected onLinksToggle_() {
-    this.settingsPrefs_ = {
-      ...this.settingsPrefs_,
-      linksEnabled: this.visualBrowserProxy_.isLinksEnabled(),
-    };
+    this.visualBrowserProxy_.onLinksEnabledToggled();
+    this.logger_.logTextSettingsChange(
+        ReadAnythingSettingsChange.LINKS_ENABLED_CHANGE);
+    this.syncSettings_();
     this.updateLinks_();
   }
 
@@ -422,11 +433,24 @@ export class AppElement extends AppElementBase implements SpeechListener,
   }
 
   protected onImagesToggle_() {
-    this.settingsPrefs_ = {
-      ...this.settingsPrefs_,
-      imagesEnabled: this.visualBrowserProxy_.isImagesEnabled(),
-    };
-    this.updateImages_();
+    this.visualBrowserProxy_.onImagesEnabledToggled();
+    this.logger_.logTextSettingsChange(
+        ReadAnythingSettingsChange.IMAGES_ENABLED_CHANGE);
+    this.syncSettings_();
+    // Toggling the images toggle may mean that reading mode is going from
+    // no content to content or from content to no content (e.g. on pages
+    // with no text outside of image captions), so recompute if there's
+    // distillable content each time Images are toggled.
+    if (!this.computeHasContent()) {
+      this.updateContent();
+    } else {
+      this.onImagesVisibilityChanged_();
+    }
+  }
+
+  private onImagesVisibilityChanged_() {
+    this.contentController_.onImagesVisibilityChanged(
+        this.$.container, this.shadowRoot);
   }
 
   private updateImages_() {
@@ -676,27 +700,33 @@ export class AppElement extends AppElementBase implements SpeechListener,
     }
   }
 
-  protected onSpeechRateChange_() {
-    // TODO(crbug.com/564638585): Replace manual settingsPrefs_ updates for each
-    // onChange_ method with automated updates.
-    this.settingsPrefs_ = {
-      ...this.settingsPrefs_,
-      speechRate: this.audioBrowserProxy_.getSpeechRate(),
-    };
+  // Reads every setting back from the browser proxies. Called after any
+  // settings write so the props passed to the toolbar stay current.
+  private syncSettings_() {
+    this.theme_ = this.visualBrowserProxy_.getColorTheme();
+    this.lineSpacing_ = this.visualBrowserProxy_.getLineSpacing();
+    this.letterSpacing_ = this.visualBrowserProxy_.getLetterSpacing();
+    this.font_ = this.visualBrowserProxy_.getFontName();
+    this.speechRate_ = getCurrentSpeechRate();
+    this.highlightGranularity_ =
+        this.audioBrowserProxy_.getHighlightGranularity();
+    this.linksEnabled_ = this.visualBrowserProxy_.isLinksEnabled();
+    this.imagesEnabled_ = this.visualBrowserProxy_.isImagesEnabled();
+  }
+
+  protected onSpeechRateChange_(event: CustomEvent<{data: number}>) {
+    const rate = event.detail.data;
+    this.audioBrowserProxy_.onSpeechRateChange(rate);
+    this.logger_.logSpeechSettingsChange(
+        ReadAloudSettingsChange.VOICE_SPEED_CHANGE);
+    // Voice speed is logged by menu index, not by rate value.
+    this.logger_.logVoiceSpeed(RATE_OPTIONS.indexOf(rate));
+    this.syncSettings_();
     this.speechController_.onSpeechSettingsChange();
   }
 
   private restoreSettingsFromPrefs_() {
-    this.settingsPrefs_ = {
-      letterSpacing: this.visualBrowserProxy_.getLetterSpacing(),
-      lineSpacing: this.visualBrowserProxy_.getLineSpacing(),
-      theme: this.visualBrowserProxy_.getColorTheme(),
-      speechRate: this.audioBrowserProxy_.getSpeechRate(),
-      font: this.visualBrowserProxy_.getFontName(),
-      highlightGranularity: this.audioBrowserProxy_.getHighlightGranularity(),
-      linksEnabled: this.visualBrowserProxy_.isLinksEnabled(),
-      imagesEnabled: this.visualBrowserProxy_.isImagesEnabled(),
-    };
+    this.syncSettings_();
     this.styleUpdater_.setAllTextStyles();
     if (this.visualBrowserProxy_.isLineFocusEnabled()) {
       this.lineFocusController_.restoreFromPrefs(
@@ -706,29 +736,28 @@ export class AppElement extends AppElementBase implements SpeechListener,
     }
   }
 
-  protected onLineSpacingChange_() {
-    this.settingsPrefs_ = {
-      ...this.settingsPrefs_,
-      lineSpacing: this.visualBrowserProxy_.getLineSpacing(),
-    };
+  protected onLineSpacingChange_(event: CustomEvent<{data: number}>) {
+    this.visualBrowserProxy_.onLineSpacingChange(event.detail.data);
+    this.logger_.logTextSettingsChange(
+        ReadAnythingSettingsChange.LINE_HEIGHT_CHANGE);
+    this.syncSettings_();
     this.styleUpdater_.setLineSpacing();
     this.onTextLocationsChange_();
   }
 
-  protected onLetterSpacingChange_() {
-    this.settingsPrefs_ = {
-      ...this.settingsPrefs_,
-      letterSpacing: this.visualBrowserProxy_.getLetterSpacing(),
-    };
+  protected onLetterSpacingChange_(event: CustomEvent<{data: number}>) {
+    this.visualBrowserProxy_.onLetterSpacingChange(event.detail.data);
+    this.logger_.logTextSettingsChange(
+        ReadAnythingSettingsChange.LETTER_SPACING_CHANGE);
+    this.syncSettings_();
     this.styleUpdater_.setLetterSpacing();
     this.onTextLocationsChange_();
   }
 
-  protected onFontChange_() {
-    this.settingsPrefs_ = {
-      ...this.settingsPrefs_,
-      font: this.visualBrowserProxy_.getFontName(),
-    };
+  protected onFontChange_(event: CustomEvent<{data: string}>) {
+    this.visualBrowserProxy_.onFontChange(event.detail.data);
+    this.logger_.logTextSettingsChange(ReadAnythingSettingsChange.FONT_CHANGE);
+    this.syncSettings_();
     this.styleUpdater_.setFont();
     this.onTextLocationsChange_();
   }
@@ -740,28 +769,28 @@ export class AppElement extends AppElementBase implements SpeechListener,
   }
 
   protected onThemeChange_(event: CustomEvent<{data: number}>) {
-    if (this.visualBrowserProxy_.isReadAnythingImprovedUiEnabled() &&
-        event.detail && event.detail.data !== undefined) {
-      this.settingsPrefs_ = {
-        ...this.settingsPrefs_,
-        theme: event.detail.data,
-      };
-    }
+    this.visualBrowserProxy_.onThemeChange(event.detail.data);
+    this.logger_.logTextSettingsChange(ReadAnythingSettingsChange.THEME_CHANGE);
+    this.syncSettings_();
     this.styleUpdater_.setTheme();
   }
 
   protected onPresentationChange_(event: CustomEvent<{data: number}>) {
-    if (event.detail && event.detail.data !== undefined) {
-      this.presentationState_ = event.detail.data;
+    const presentationState = event.detail.data;
+    if (presentationState !== this.presentationState_) {
+      this.visualBrowserProxy_.togglePresentation();
+      this.presentationState_ = presentationState;
     }
   }
 
   protected onHighlightChange_(event: CustomEvent<{data: number}>) {
-    this.settingsPrefs_ = {
-      ...this.settingsPrefs_,
-      highlightGranularity: event.detail.data,
-    };
-    this.speechController_.onHighlightGranularityChange(event.detail.data);
+    const granularity = event.detail.data;
+    this.audioBrowserProxy_.onHighlightGranularityChanged(granularity);
+    this.logger_.logSpeechSettingsChange(
+        ReadAloudSettingsChange.HIGHLIGHT_CHANGE);
+    this.logger_.logHighlightGranularity(granularity);
+    this.syncSettings_();
+    this.speechController_.onHighlightGranularityChange(granularity);
     // Apply highlighting changes to the DOM.
     this.styleUpdater_.setHighlight();
   }

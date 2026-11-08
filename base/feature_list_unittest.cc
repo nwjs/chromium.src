@@ -49,15 +49,6 @@ class RuntimeMutableFeaturesHandlerBase {
 };
 }  // namespace metrics
 
-namespace variations {
-class VariationsService {
- public:
-  static base::PassKey<VariationsService> CreatePassKeyForTesting() {
-    return base::PassKey<VariationsService>();
-  }
-};
-}  // namespace variations
-
 namespace base {
 
 namespace {
@@ -177,6 +168,8 @@ class FeatureListTest : public testing::Test {
   ~FeatureListTest() override = default;
 
   HistogramTester histogram_tester;
+
+  static base::PassKey<FeatureListTest> pass_key() { return {}; }
 
   // Verify that the `kRuntimeMutabilityMask` set in the `Feature` struct is the
   // same as the one used by the `FeatureList` helpers. `Feature` has it's own
@@ -1474,10 +1467,10 @@ TEST_F(FeatureListTest, EnableRuntimeMutability_PostMutationOnly) {
   override_info = std::make_unique<base::RuntimeFieldTrialInfo>(
       "TrialA", "GroupA", base::FieldTrialParams(), nullptr);
   auto update =
-      FeatureList::GetInstance()->PrepareRuntimeMutableFeatureStateUpdate(
-          variations::VariationsService::CreatePassKeyForTesting(),
-          override_info.get(), kRuntimeMutableFeature.name,
-          FeatureList::OVERRIDE_DISABLE_FEATURE);
+      FeatureList::GetInstance()
+          ->PrepareRuntimeMutableFeatureStateUpdateForTesting(
+              pass_key(), override_info.get(), kRuntimeMutableFeature.name,
+              FeatureList::OVERRIDE_DISABLE_FEATURE);
   ASSERT_TRUE(update.has_value());
   update->RunPreMutationCallback();
   update->UpdateState();
@@ -1526,9 +1519,8 @@ TEST_F(FeatureListTest, RuntimeMutability_CommandLineOverridePrecedence) {
   // overridden features.
   override_info = std::make_unique<base::RuntimeFieldTrialInfo>(
       "TrialX", "GroupX", base::FieldTrialParams(), nullptr);
-  auto update = raw_list_ptr->PrepareRuntimeMutableFeatureStateUpdate(
-      variations::VariationsService::CreatePassKeyForTesting(),
-      override_info.get(), kRuntimeMutableFeature.name,
+  auto update = raw_list_ptr->PrepareRuntimeMutableFeatureStateUpdateForTesting(
+      pass_key(), override_info.get(), kRuntimeMutableFeature.name,
       FeatureList::OVERRIDE_DISABLE_FEATURE);
   EXPECT_FALSE(update.has_value());
 
@@ -1577,14 +1569,14 @@ TEST_F(FeatureListTest,
   // By default, it should be enabled (default state).
   EXPECT_TRUE(FeatureList::IsEnabled(kRuntimeMutableFeature));
 
-  // Now update the state to disabled (the only supported scenario for V0)
+  // Now update the state to disabled.
   override_info = std::make_unique<base::RuntimeFieldTrialInfo>(
       "TrialA", "GroupA", base::FieldTrialParams(), nullptr);
   auto update =
-      FeatureList::GetInstance()->PrepareRuntimeMutableFeatureStateUpdate(
-          variations::VariationsService::CreatePassKeyForTesting(),
-          override_info.get(), kRuntimeMutableFeature.name,
-          FeatureList::OVERRIDE_DISABLE_FEATURE);
+      FeatureList::GetInstance()
+          ->PrepareRuntimeMutableFeatureStateUpdateForTesting(
+              pass_key(), override_info.get(), kRuntimeMutableFeature.name,
+              FeatureList::OVERRIDE_DISABLE_FEATURE);
   ASSERT_TRUE(update.has_value());
 
   EXPECT_EQ(0, pre_callback_calls);
@@ -1615,26 +1607,35 @@ TEST_F(FeatureListTest,
   // state!
   EXPECT_FALSE(FeatureList::IsEnabled(kRuntimeMutableFeature));
 
-  // Attempting to re-enable it should have no effect.
+  // Updating the state to re-enable should succeed.
   reenable_override_info = std::make_unique<base::RuntimeFieldTrialInfo>(
       "TrialB", "GroupB", base::FieldTrialParams(), nullptr);
   auto reenable_update =
-      FeatureList::GetInstance()->PrepareRuntimeMutableFeatureStateUpdate(
-          variations::VariationsService::CreatePassKeyForTesting(),
-          reenable_override_info.get(), kRuntimeMutableFeature.name,
-          FeatureList::OVERRIDE_ENABLE_FEATURE);
-  EXPECT_FALSE(reenable_update.has_value());
+      FeatureList::GetInstance()
+          ->PrepareRuntimeMutableFeatureStateUpdateForTesting(
+              pass_key(), reenable_override_info.get(),
+              kRuntimeMutableFeature.name,
+              FeatureList::OVERRIDE_ENABLE_FEATURE);
+  ASSERT_TRUE(reenable_update.has_value());
+  reenable_update->RunPreMutationCallback();
+  reenable_update->UpdateState();
+  reenable_update->RunPostMutationCallback();
 
-  // The initial enabling of runtime mutability is logged as a success.
+  // Both override disabling and re-enabling should be logged as successes.
   histogram_tester.ExpectBucketCount(kRuntimeMutabilityResult,
-                                     RuntimeMutabilityResult::kSuccess, 1);
+                                     RuntimeMutabilityResult::kSuccess, 2);
 
-  EXPECT_EQ(1, pre_callback_calls);  // Callbacks should not be invoked.
-  EXPECT_EQ(1, post_callback_calls);
-  EXPECT_FALSE(FeatureList::IsEnabled(kRuntimeMutableFeature));
+  EXPECT_EQ(2, pre_callback_calls);
+  EXPECT_EQ(2, post_callback_calls);
+  EXPECT_TRUE(FeatureList::IsEnabled(kRuntimeMutableFeature));
 
-  // The update attempting to enable the feature is logged as a failure, because
-  // enabling features is not supported in V0.
+  // Attempting to update with OVERRIDE_USE_DEFAULT is not supported.
+  auto default_update =
+      FeatureList::GetInstance()
+          ->PrepareRuntimeMutableFeatureStateUpdateForTesting(
+              pass_key(), reenable_override_info.get(),
+              kRuntimeMutableFeature.name, FeatureList::OVERRIDE_USE_DEFAULT);
+  EXPECT_FALSE(default_update.has_value());
   histogram_tester.ExpectBucketCount(
       kRuntimeMutabilityResult,
       RuntimeMutabilityResult::kFailure_StateNotSupported, 1);
@@ -1738,6 +1739,7 @@ TEST_F(FeatureListTest, RuntimeMutability_FeatureParamBypassCache) {
   // the FeatureList singleton is torn down, preventing DanglingPtr crash in
   // unittests.
   std::unique_ptr<base::RuntimeFieldTrialInfo> override_info;
+  std::unique_ptr<base::RuntimeFieldTrialInfo> reenable_override_info;
   test::ScopedFeatureList scoped_feature_list;
   int callback_calls = 0;
   RuntimeMutabilityCallbackData callback_data;
@@ -1786,10 +1788,10 @@ TEST_F(FeatureListTest, RuntimeMutability_FeatureParamBypassCache) {
   override_info = std::make_unique<base::RuntimeFieldTrialInfo>(
       kTrialName, kGroupName, base::FieldTrialParams(), nullptr);
   auto update =
-      base::FeatureList::GetInstance()->PrepareRuntimeMutableFeatureStateUpdate(
-          variations::VariationsService::CreatePassKeyForTesting(),
-          override_info.get(), kRuntimeMutableFeature.name,
-          FeatureList::OVERRIDE_DISABLE_FEATURE);
+      base::FeatureList::GetInstance()
+          ->PrepareRuntimeMutableFeatureStateUpdateForTesting(
+              pass_key(), override_info.get(), kRuntimeMutableFeature.name,
+              FeatureList::OVERRIDE_DISABLE_FEATURE);
   ASSERT_TRUE(update.has_value());
   update->RunPreMutationCallback();
   update->UpdateState();
@@ -1801,9 +1803,33 @@ TEST_F(FeatureListTest, RuntimeMutability_FeatureParamBypassCache) {
   EXPECT_EQ(12345, kRuntimeMutableFeatureParam.Get());
   EXPECT_EQ(TestEnum::kFirst, kRuntimeMutableFeatureEnumParam.Get());
 
+  // Re-enable the feature with new runtime param values and verify both int and
+  // enum FeatureParam::Get() reflect the runtime override params.
+  reenable_override_info = std::make_unique<base::RuntimeFieldTrialInfo>(
+      kTrialName, "ReenabledGroup",
+      FieldTrialParams{
+          {kRuntimeMutableFeatureParam.name, "54321"},
+          {kRuntimeMutableFeatureEnumParam.name, "second"},
+      },
+      nullptr);
+  auto reenable_update =
+      base::FeatureList::GetInstance()
+          ->PrepareRuntimeMutableFeatureStateUpdateForTesting(
+              pass_key(), reenable_override_info.get(),
+              kRuntimeMutableFeature.name,
+              FeatureList::OVERRIDE_ENABLE_FEATURE);
+  ASSERT_TRUE(reenable_update.has_value());
+  reenable_update->RunPreMutationCallback();
+  reenable_update->UpdateState();
+  reenable_update->RunPostMutationCallback();
+
+  EXPECT_TRUE(FeatureList::IsEnabled(kRuntimeMutableFeature));
+  EXPECT_EQ(54321, kRuntimeMutableFeatureParam.Get());
+  EXPECT_EQ(TestEnum::kSecond, kRuntimeMutableFeatureEnumParam.Get());
+
   // The runtime mutability interactions should be logged.
   histogram_tester.ExpectUniqueSample(kRuntimeMutabilityResult,
-                                      RuntimeMutabilityResult::kSuccess, 1);
+                                      RuntimeMutabilityResult::kSuccess, 2);
   histogram_tester.ExpectTotalCount(kRuntimeMutabilityErrorFeatureName, 0);
 }
 
@@ -1845,10 +1871,10 @@ TEST_F(FeatureListTest, RuntimeMutability_GetRuntimeMutableFeatureState) {
   override_info = std::make_unique<base::RuntimeFieldTrialInfo>(
       "TrialA", "GroupA", base::FieldTrialParams(), nullptr);
   auto update =
-      FeatureList::GetInstance()->PrepareRuntimeMutableFeatureStateUpdate(
-          variations::VariationsService::CreatePassKeyForTesting(),
-          override_info.get(), kRuntimeMutableFeature.name,
-          FeatureList::OVERRIDE_DISABLE_FEATURE);
+      FeatureList::GetInstance()
+          ->PrepareRuntimeMutableFeatureStateUpdateForTesting(
+              pass_key(), override_info.get(), kRuntimeMutableFeature.name,
+              FeatureList::OVERRIDE_DISABLE_FEATURE);
   ASSERT_TRUE(update.has_value());
   update->RunPreMutationCallback();
   update->UpdateState();
@@ -1860,7 +1886,7 @@ TEST_F(FeatureListTest, RuntimeMutability_GetRuntimeMutableFeatureState) {
   it = states2.find(kRuntimeMutableFeature.name);
   ASSERT_NE(it, states2.end());
   EXPECT_EQ(FeatureList::OVERRIDE_DISABLE_FEATURE, it->second.override_state);
-  EXPECT_EQ("TrialA", it->second.override_info->trial_name);
+  EXPECT_EQ("TrialA", it->second.override_info->trial_name());
 }
 
 TEST_F(FeatureListTest, RuntimeMutability_GetOverrideStateWithoutActivation) {
@@ -1985,21 +2011,21 @@ TEST_F(FeatureListTest,
   override_info1 = std::make_unique<base::RuntimeFieldTrialInfo>(
       "RuntimeStudy1", "RuntimeGroup", base::FieldTrialParams(), nullptr);
   auto update1 =
-      FeatureList::GetInstance()->PrepareRuntimeMutableFeatureStateUpdate(
-          variations::VariationsService::CreatePassKeyForTesting(),
-          override_info1.get(), kRuntimeMutableFeature.name,
-          FeatureList::OVERRIDE_DISABLE_FEATURE);
+      FeatureList::GetInstance()
+          ->PrepareRuntimeMutableFeatureStateUpdateForTesting(
+              pass_key(), override_info1.get(), kRuntimeMutableFeature.name,
+              FeatureList::OVERRIDE_DISABLE_FEATURE);
   ASSERT_TRUE(update1.has_value());
   update1->RunPreMutationCallback();
   update1->UpdateState();
   update1->RunPostMutationCallback();
   override_info2 = std::make_unique<base::RuntimeFieldTrialInfo>(
       "RuntimeStudy2", "RuntimeGroup", base::FieldTrialParams(), nullptr);
-  auto update2 =
-      FeatureList::GetInstance()->PrepareRuntimeMutableFeatureStateUpdate(
-          variations::VariationsService::CreatePassKeyForTesting(),
-          override_info2.get(), kRuntimeMutableFeature3Args.name,
-          FeatureList::OVERRIDE_DISABLE_FEATURE);
+  auto update2 = FeatureList::GetInstance()
+                     ->PrepareRuntimeMutableFeatureStateUpdateForTesting(
+                         pass_key(), override_info2.get(),
+                         kRuntimeMutableFeature3Args.name,
+                         FeatureList::OVERRIDE_DISABLE_FEATURE);
   ASSERT_TRUE(update2.has_value());
   update2->RunPreMutationCallback();
   update2->UpdateState();
@@ -2064,10 +2090,10 @@ TEST_F(FeatureListTest, GetFeaturesAssociatedWithTrial) {
   override_info_b = std::make_unique<base::RuntimeFieldTrialInfo>(
       "TrialB", "GroupB", base::FieldTrialParams(), nullptr);
   auto update_b =
-      FeatureList::GetInstance()->PrepareRuntimeMutableFeatureStateUpdate(
-          variations::VariationsService::CreatePassKeyForTesting(),
-          override_info_b.get(), kRuntimeMutableFeature.name,
-          FeatureList::OVERRIDE_DISABLE_FEATURE);
+      FeatureList::GetInstance()
+          ->PrepareRuntimeMutableFeatureStateUpdateForTesting(
+              pass_key(), override_info_b.get(), kRuntimeMutableFeature.name,
+              FeatureList::OVERRIDE_DISABLE_FEATURE);
   ASSERT_TRUE(update_b.has_value());
   update_b->RunPreMutationCallback();
   update_b->UpdateState();
@@ -2208,10 +2234,10 @@ TEST_F(FeatureListTest, RuntimeMutableFeatureUpdate_MoveSemantics) {
   override_info = std::make_unique<base::RuntimeFieldTrialInfo>(
       "TrialA", "GroupA", base::FieldTrialParams(), nullptr);
   auto update =
-      FeatureList::GetInstance()->PrepareRuntimeMutableFeatureStateUpdate(
-          variations::VariationsService::CreatePassKeyForTesting(),
-          override_info.get(), kRuntimeMutableFeature.name,
-          FeatureList::OVERRIDE_DISABLE_FEATURE);
+      FeatureList::GetInstance()
+          ->PrepareRuntimeMutableFeatureStateUpdateForTesting(
+              pass_key(), override_info.get(), kRuntimeMutableFeature.name,
+              FeatureList::OVERRIDE_DISABLE_FEATURE);
   ASSERT_TRUE(update.has_value());
 
   // Test move construction.
@@ -2222,10 +2248,10 @@ TEST_F(FeatureListTest, RuntimeMutableFeatureUpdate_MoveSemantics) {
   dest_override_info = std::make_unique<base::RuntimeFieldTrialInfo>(
       "TrialB", "GroupB", base::FieldTrialParams(), nullptr);
   auto update_dest =
-      FeatureList::GetInstance()->PrepareRuntimeMutableFeatureStateUpdate(
-          variations::VariationsService::CreatePassKeyForTesting(),
-          dest_override_info.get(), kRuntimeMutableFeature.name,
-          FeatureList::OVERRIDE_DISABLE_FEATURE);
+      FeatureList::GetInstance()
+          ->PrepareRuntimeMutableFeatureStateUpdateForTesting(
+              pass_key(), dest_override_info.get(), kRuntimeMutableFeature.name,
+              FeatureList::OVERRIDE_DISABLE_FEATURE);
   ASSERT_TRUE(update_dest.has_value());
   update_dest->RunPreMutationCallback();
   update_dest->UpdateState();
@@ -2268,10 +2294,10 @@ TEST_F(FeatureListTest,
     override_info = std::make_unique<base::RuntimeFieldTrialInfo>(
         "TrialA", "GroupA", base::FieldTrialParams(), nullptr);
     auto update =
-        FeatureList::GetInstance()->PrepareRuntimeMutableFeatureStateUpdate(
-            variations::VariationsService::CreatePassKeyForTesting(),
-            override_info.get(), kRuntimeMutableFeature.name,
-            FeatureList::OVERRIDE_DISABLE_FEATURE);
+        FeatureList::GetInstance()
+            ->PrepareRuntimeMutableFeatureStateUpdateForTesting(
+                pass_key(), override_info.get(), kRuntimeMutableFeature.name,
+                FeatureList::OVERRIDE_DISABLE_FEATURE);
     ASSERT_TRUE(update.has_value());
   }
 }
@@ -2299,11 +2325,11 @@ TEST_F(FeatureListTest,
       {
         override_info = std::make_unique<base::RuntimeFieldTrialInfo>(
             "TrialA", "GroupA", base::FieldTrialParams(), nullptr);
-        auto update =
-            FeatureList::GetInstance()->PrepareRuntimeMutableFeatureStateUpdate(
-                variations::VariationsService::CreatePassKeyForTesting(),
-                override_info.get(), kRuntimeMutableFeature.name,
-                FeatureList::OVERRIDE_DISABLE_FEATURE);
+        auto update = FeatureList::GetInstance()
+                          ->PrepareRuntimeMutableFeatureStateUpdateForTesting(
+                              pass_key(), override_info.get(),
+                              kRuntimeMutableFeature.name,
+                              FeatureList::OVERRIDE_DISABLE_FEATURE);
         ASSERT_TRUE(update.has_value());
         update->UpdateState();
       },
@@ -2334,11 +2360,11 @@ TEST_F(FeatureListTest,
       {
         override_info = std::make_unique<base::RuntimeFieldTrialInfo>(
             "TrialA", "GroupA", base::FieldTrialParams(), nullptr);
-        auto update =
-            FeatureList::GetInstance()->PrepareRuntimeMutableFeatureStateUpdate(
-                variations::VariationsService::CreatePassKeyForTesting(),
-                override_info.get(), kRuntimeMutableFeature.name,
-                FeatureList::OVERRIDE_DISABLE_FEATURE);
+        auto update = FeatureList::GetInstance()
+                          ->PrepareRuntimeMutableFeatureStateUpdateForTesting(
+                              pass_key(), override_info.get(),
+                              kRuntimeMutableFeature.name,
+                              FeatureList::OVERRIDE_DISABLE_FEATURE);
         ASSERT_TRUE(update.has_value());
         update->RunPreMutationCallback();
         update->RunPostMutationCallback();
@@ -2371,11 +2397,11 @@ TEST_F(FeatureListTest,
       {
         override_info = std::make_unique<base::RuntimeFieldTrialInfo>(
             "TrialA", "GroupA", base::FieldTrialParams(), nullptr);
-        auto update =
-            FeatureList::GetInstance()->PrepareRuntimeMutableFeatureStateUpdate(
-                variations::VariationsService::CreatePassKeyForTesting(),
-                override_info.get(), kRuntimeMutableFeature.name,
-                FeatureList::OVERRIDE_DISABLE_FEATURE);
+        auto update = FeatureList::GetInstance()
+                          ->PrepareRuntimeMutableFeatureStateUpdateForTesting(
+                              pass_key(), override_info.get(),
+                              kRuntimeMutableFeature.name,
+                              FeatureList::OVERRIDE_DISABLE_FEATURE);
         ASSERT_TRUE(update.has_value());
         update->RunPreMutationCallback();
       },

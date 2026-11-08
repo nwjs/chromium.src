@@ -5,10 +5,10 @@
 #include "components/one_time_tokens/core/browser/one_time_token_service_impl.h"
 
 #include <algorithm>
+#include <ranges>
 #include <utility>
 #include <vector>
 
-#include "base/containers/adapters.h"
 #include "base/containers/extend.h"
 #include "base/containers/to_vector.h"
 #include "base/feature_list.h"
@@ -55,7 +55,7 @@ void OneTimeTokenServiceImpl::GetRecentOneTimeTokens(Callback callback) {
   // `on_device_arrival_time` in ascending order. We sort the combined list so
   // that we can deliver the most recent token first.
   std::ranges::sort(recent_tokens, {}, &OneTimeToken::on_device_arrival_time);
-  for (const auto& token : base::Reversed(recent_tokens)) {
+  for (const auto& token : std::views::reverse(recent_tokens)) {
     OneTimeTokenSource source;
     switch (token.type()) {
       case OneTimeTokenType::kSmsOtp:
@@ -173,15 +173,6 @@ void OneTimeTokenServiceImpl::RequestOneTimeToken(
         on_request_finished));
   } else {
     on_request_finished.Run(std::nullopt);
-  }
-}
-
-void OneTimeTokenServiceImpl::FetchUserDataProcessingConsent(
-    FetchUserDataProcessingConsentCallback callback) {
-  if (gmail_.backend) {
-    gmail_.backend->FetchUserDataProcessingConsent(std::move(callback));
-  } else {
-    std::move(callback).Run(std::nullopt);
   }
 }
 

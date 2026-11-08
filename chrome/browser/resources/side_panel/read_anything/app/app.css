@@ -20,7 +20,11 @@
   --immersive-menu-font-weight: 400;
 }
 
-:host > #appFlexParent > #lineFocus {
+/* Scope #lineFocus to the direct child of #appFlexParent so it cannot match
+   any element in distilled page content that happens to have id="lineFocus".
+   Wrapping the parent check in :where() gives it zero specificity so rules
+   like #lineFocus.line-mode below can still override its properties. */
+:where(:host > #appFlexParent) > #lineFocus {
   position: absolute;
   top: var(--line-focus-y);
   left: var(--line-focus-left);
@@ -35,17 +39,17 @@
   z-index: 9997;
 }
 
-:host > #appFlexParent > #lineFocus.line-mode {
+#lineFocus.line-mode {
   --line-focus-left: var(--sp-card-block-padding);
   --line-focus-right: var(--sp-card-block-padding);
 }
 
-:host > #appFlexParent > #lineFocus.window-mode {
+#lineFocus.window-mode {
   --line-focus-left: 0;
   --line-focus-right: 0;
 }
 
-:host > #appFlexParent.immersive.full-page > #lineFocus.line-mode {
+.immersive.full-page #lineFocus.line-mode {
   --line-focus-left: var(--sp-card-block-padding);
   --line-focus-right: var(--immersive-scrollbar-width);
 }
@@ -238,7 +242,7 @@
     color: HighlightText;
   }
 
-  :host > #appFlexParent > #lineFocus.line-mode {
+  #lineFocus.line-mode {
     background-color: Highlight;
   }
 
@@ -253,7 +257,7 @@
    * without this rule, the line focus scrim will not work and therefore might
    * not support the user's color and contrast needs, this is an acceptable
    * use of forced-color-adjust: none */
-  :host > #appFlexParent > #lineFocus.window-mode {
+  #lineFocus.window-mode {
     forced-color-adjust: none;
   }
 
@@ -375,4 +379,53 @@ img.possibly-transparent-img {
   background-color: transparent;
   z-index: 9998;
   display: none;
+}
+
+@media print {
+  #toolbar-container,
+  #lineFocus,
+  #empty-state-container,
+  language-toast,
+  .settings-overlay {
+    display: none;
+  }
+
+  :host {
+    height: auto;
+    overflow: visible;
+    print-color-adjust: exact;
+    background-color: var(--background-color);
+    color: var(--foreground-color);
+  }
+
+  /* Expand the scrollers so that all content prints, not just one page. */
+  #appFlexParent,
+  #containerParent,
+  #containerScroller {
+    display: block !important;
+    height: auto !important;
+    max-height: none;
+    overflow: visible !important;
+  }
+
+  .sp-scroller.fade {
+    mask-image: none;
+  }
+
+  #appFlexParent #container {
+    height: auto;
+    overflow: visible;
+    max-width: 100%;
+    /* Override the line focus padding set by the #appFlexParent #container
+     * rule above. It only exists so the first and last lines can scroll to
+     * the middle of the screen, and would print as blank space. */
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+
+  .current-read-highlight,
+  .previous-read-highlight {
+    background: transparent !important;
+    color: inherit !important;
+  }
 }

@@ -9,11 +9,11 @@
 #include <algorithm>
 #include <array>
 #include <map>
+#include <ranges>
 #include <unordered_set>
 #include <utility>
 #include <vector>
 
-#include "base/containers/adapters.h"
 #include "base/containers/flat_map.h"
 #include "base/containers/stack.h"
 #include "base/debug/crash_logging.h"
@@ -1274,7 +1274,7 @@ void ComputeSurfaceContentRects(
         view_transition_content_rects) {
   // Walk the list backwards, accumulating each surface's content rect into its
   // target's content rect.
-  for (int effect_id : base::Reversed(*render_surface_list)) {
+  for (int effect_id : std::views::reverse(*render_surface_list)) {
     RenderSurfaceImpl* render_surface =
         property_trees->effect_tree_mutable().GetRenderSurface(effect_id);
     if (render_surface->EffectTreeIndex() == kContentsRootPropertyNodeId) {
@@ -1551,7 +1551,7 @@ void FindLayersThatNeedUpdates(LayerTreeHost* layer_tree_host,
 }
 
 void FindLayersThatNeedUpdates(LayerTreeImpl* layer_tree_impl,
-                               std::vector<LayerImpl*>* visible_layer_list) {
+                               LayerImplList* visible_layer_list) {
   const PropertyTrees* property_trees = layer_tree_impl->property_trees();
   const EffectTree& effect_tree = property_trees->effect_tree();
 

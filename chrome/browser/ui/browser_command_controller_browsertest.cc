@@ -63,7 +63,6 @@
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/test/base/in_process_browser_test.h"
-#include "chrome/test/base/test_browser_window.h"
 #include "chrome/test/base/testing_profile_manager.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/autofill/core/common/autofill_features.h"
@@ -93,6 +92,7 @@
 #include "google_apis/gaia/gaia_urls.h"
 #include "net/base/network_change_notifier.h"
 #include "ui/actions/actions.h"
+#include "ui/base/base_window.h"
 #include "ui/base/ui_base_features.h"
 #include "ui/base/window_open_disposition.h"
 #include "ui/events/keycodes/dom/dom_code.h"
@@ -1400,25 +1400,31 @@ IN_PROC_BROWSER_TEST_F(BrowserCommandControllerBrowserTestToolbarPinningOnly,
 
   chrome::BrowserCommandController::From(browser())->TabStateChanged();
 
-  EXPECT_FALSE(actions::ActionManager::GetForTesting()
-                   .FindAction(kActionShowTranslate)
-                   ->GetEnabled());
+  EXPECT_FALSE(
+      actions::ActionManager::GetForTesting()
+          .FindAction(kActionShowTranslate,
+                      BrowserActions::From(browser())->root_action_item())
+          ->GetEnabled());
 }
 
 IN_PROC_BROWSER_TEST_F(BrowserCommandControllerBrowserTestToolbarPinningOnly,
                        ShowTranslateStatusEnglishPage) {
   LoadAndWaitForLanguage("/english_page.html");
-  EXPECT_TRUE(actions::ActionManager::GetForTesting()
-                  .FindAction(kActionShowTranslate)
-                  ->GetEnabled());
+  EXPECT_TRUE(
+      actions::ActionManager::GetForTesting()
+          .FindAction(kActionShowTranslate,
+                      BrowserActions::From(browser())->root_action_item())
+          ->GetEnabled());
 }
 
 IN_PROC_BROWSER_TEST_F(BrowserCommandControllerBrowserTestToolbarPinningOnly,
                        ShowTranslateStatusFrenchPage) {
   LoadAndWaitForLanguage("/french_page.html");
-  EXPECT_TRUE(actions::ActionManager::GetForTesting()
-                  .FindAction(kActionShowTranslate)
-                  ->GetEnabled());
+  EXPECT_TRUE(
+      actions::ActionManager::GetForTesting()
+          .FindAction(kActionShowTranslate,
+                      BrowserActions::From(browser())->root_action_item())
+          ->GetEnabled());
 }
 
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_WIN)
@@ -1933,6 +1939,44 @@ IN_PROC_BROWSER_TEST_F(BrowserCommandControllerBrowserTestIsolatedTest,
                                         IDC_RECENT_TABS_LOGIN_FOR_DEVICE_TABS));
   EXPECT_FALSE(chrome::IsCommandEnabled(isolated_browser,
                                         IDC_RECENT_TABS_SEE_DEVICE_TABS));
+}
+
+// In Isolated mode, New Incognito Window stays visible but disabled in menus
+// (e.g. the macOS File menu and pinned toolbar button), while New Isolated
+// Window is enabled.
+IN_PROC_BROWSER_TEST_F(BrowserCommandControllerBrowserTestIsolatedTest,
+                       OnlyIsolatedWindowCommandEnabled) {
+  EXPECT_FALSE(chrome::IsCommandEnabled(browser(), IDC_NEW_INCOGNITO_WINDOW));
+  EXPECT_TRUE(chrome::IsCommandEnabled(browser(), IDC_NEW_ISOLATED_WINDOW));
+
+  actions::ActionItem* const root =
+      BrowserActions::From(browser())->root_action_item();
+  actions::ActionItem* const incognito_action =
+      actions::ActionManager::Get().FindAction(kActionNewIncognitoWindow, root);
+  actions::ActionItem* const isolated_action =
+      actions::ActionManager::Get().FindAction(kActionNewIsolatedWindow, root);
+  ASSERT_TRUE(incognito_action);
+  ASSERT_TRUE(isolated_action);
+  EXPECT_FALSE(incognito_action->GetEnabled());
+  EXPECT_TRUE(isolated_action->GetEnabled());
+}
+
+// Executing the disabled New Incognito Window command is a no-op (and must not
+// crash).
+IN_PROC_BROWSER_TEST_F(BrowserCommandControllerBrowserTestIsolatedTest,
+                       NewIncognitoWindowCommandIsNoOp) {
+  EXPECT_FALSE(chrome::ExecuteCommand(browser(), IDC_NEW_INCOGNITO_WINDOW));
+}
+
+IN_PROC_BROWSER_TEST_F(BrowserCommandControllerBrowserTestIsolatedTest,
+                       NewIsolatedWindowCommandOpensIsolatedWindow) {
+  ui_test_utils::BrowserCreatedObserver browser_created_observer;
+  EXPECT_TRUE(chrome::ExecuteCommand(browser(), IDC_NEW_ISOLATED_WINDOW));
+  BrowserWindowInterface* const isolated_browser =
+      browser_created_observer.Wait();
+  ASSERT_TRUE(isolated_browser);
+  EXPECT_TRUE(
+      isolated_browser->GetProfile()->IsEnterpriseIsolatedModeProfile());
 }
 
 }  // namespace chrome

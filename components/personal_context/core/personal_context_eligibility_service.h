@@ -34,6 +34,10 @@ class PersonalContextEligibilityService : public KeyedService {
     // encryption eligibility, and subsequently whenever the value returned by
     // IsEligibleForEncryption() changes.
     virtual void OnEncryptionEligibilityChanged(bool is_eligible) {}
+
+    // Called whenever any of the Personal Context sources (Workspace or Photos)
+    // gets disabled.
+    virtual void OnContextSourceDisabled() {}
   };
 
   ~PersonalContextEligibilityService() override = default;
@@ -50,9 +54,8 @@ class PersonalContextEligibilityService : public KeyedService {
 
   // Sync getter for whether the profile is eligible to generate and share
   // Personal Context encryption keys. Requires general Personal Context
-  // eligibility (`GetEligibilityState() == kEligible`), the Google Photos
-  // context account setting (`kAccountSettingContextPhotos`) to be enabled, and
-  // (when `kPersonalContextRequireSettingsToggleForEncryption` is enabled) the
+  // eligibility (`GetEligibilityState() == kEligible`) and (when
+  // `kPersonalContextRequireSettingsToggleForEncryption` is enabled) the
   // Autofill settings toggle (`kPersonalContextInAutofillSettingsToggleStatus`)
   // to be enabled.
   virtual bool IsEligibleForEncryption() const = 0;

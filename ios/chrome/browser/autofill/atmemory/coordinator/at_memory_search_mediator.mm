@@ -19,9 +19,11 @@
 #import "components/autofill/core/browser/integrators/at_memory/memory_data_type.h"
 #import "components/autofill/core/browser/metrics/autofill_metrics.h"
 #import "components/autofill/core/browser/suggestions/suggestion.h"
+#import "components/autofill/core/browser/suggestions/suggestion_hiding_reason.h"
 #import "components/autofill/core/browser/suggestions/suggestion_type.h"
 #import "components/autofill/core/common/unique_ids.h"
 #import "components/personal_context/first_run/personal_context_first_run_service.h"
+#import "components/strings/grit/components_strings.h"
 #import "components/ukm/ios/ukm_url_recorder.h"
 #import "ios/chrome/browser/autofill/atmemory/public/at_memory_commands.h"
 #import "ios/chrome/browser/autofill/atmemory/public/at_memory_fill_commands.h"
@@ -31,6 +33,7 @@
 #import "ios/chrome/browser/autofill/public/autofill_settings_navigator.h"
 #import "ios/web/public/web_state.h"
 #import "services/metrics/public/cpp/ukm_source_id.h"
+#import "ui/base/l10n/l10n_util_mac.h"
 #import "url/origin.h"
 
 namespace {
@@ -38,6 +41,21 @@ namespace {
 // The UMA histogram to log AtMemory notice interactions.
 constexpr std::string_view kNoticeInteractionsHistogram =
     "PersonalContext.AtMemory.NoticeInteractions";
+
+// Follow-up zero-state example subtitles shown in random order after the
+// initial zero-state subtitle.
+NSArray<NSString*>* GetZeroStateExampleSubtitles() {
+  return @[
+    l10n_util::GetNSString(
+        IDS_AUTOFILL_AT_MEMORY_ZERO_STATE_SUBTITLE_ORDER_NUMBER),
+    l10n_util::GetNSString(
+        IDS_AUTOFILL_AT_MEMORY_ZERO_STATE_SUBTITLE_FLIGHT_CONFIRMATION_CODE),
+    l10n_util::GetNSString(
+        IDS_AUTOFILL_AT_MEMORY_ZERO_STATE_SUBTITLE_TRACKING_NUMBER),
+    l10n_util::GetNSString(
+        IDS_AUTOFILL_AT_MEMORY_ZERO_STATE_SUBTITLE_HOTEL_ADDRESS),
+  ];
+}
 
 }  // namespace
 
@@ -91,7 +109,8 @@ constexpr std::string_view kNoticeInteractionsHistogram =
 
     // Force reset any existing popup state from the main autofill popup,
     // so that our new updateCallback is correctly registered.
-    _atMemoryManager->OnPopupHidden();
+    _atMemoryManager->OnPopupHidden(
+        autofill::SuggestionHidingReason::kHiddenByCaller);
 
     ukm::SourceId ukmSourceId =
         webState ? ukm::GetSourceIdForWebStateDocument(webState)
@@ -138,7 +157,10 @@ constexpr std::string_view kNoticeInteractionsHistogram =
         autofill::AutofillMetrics::PopupNoticeInteractions::kDismissed);
   }
   if (_atMemoryManager) {
-    _atMemoryManager->OnPopupHidden();
+    // TODO(crbug.com/569956179): This code path is also reached for suggestion
+    // acceptance. Pass `kAcceptSuggestion` instead in this case.
+    _atMemoryManager->OnPopupHidden(
+        autofill::SuggestionHidingReason::kUserAborted);
   }
   _atMemoryManager = nullptr;
   _autofillManager = nullptr;
@@ -158,6 +180,7 @@ constexpr std::string_view kNoticeInteractionsHistogram =
   }
   _consumer = consumer;
 
+  [_consumer setZeroStateSubtitles:GetZeroStateExampleSubtitles()];
   [_consumer setNoticeVisible:_noticeIsVisible];
 
   if (_noticeIsVisible && !_noticeShownMetricLogged) {
@@ -184,21 +207,14 @@ constexpr std::string_view kNoticeInteractionsHistogram =
 }
 
 - (void)acknowledgePrivacyNotice {
-  CHECK(_firstRunService);
-  _firstRunService->MarkPersonalContextInAtMemoryNoticeAsAcknowledged();
-  _noticeIsVisible = NO;
-  _noticeInteractionLogged = YES;
-  [self.consumer setNoticeVisible:NO];
-  base::UmaHistogramEnumeration(
-      kNoticeInteractionsHistogram,
-      autofill::AutofillMetrics::PopupNoticeInteractions::kAcknowledged);
+  [self acknowledgeNoticeWithInteraction:
+            autofill::AutofillMetrics::PopupNoticeInteractions::kAcknowledged];
 }
 
 - (void)didTapSettingsLink {
-  _noticeInteractionLogged = YES;
-  base::UmaHistogramEnumeration(
-      kNoticeInteractionsHistogram,
-      autofill::AutofillMetrics::PopupNoticeInteractions::kLinkButtonClicked);
+  [self acknowledgeNoticeWithInteraction:autofill::AutofillMetrics::
+                                             PopupNoticeInteractions::
+                                                 kLinkButtonClicked];
   [self.settingsNavigator
       openSettingsForPage:AutofillSettingsPage::kSuggestionsFromGemini];
 }
@@ -233,6 +249,18 @@ constexpr std::string_view kNoticeInteractionsHistogram =
 }
 
 #pragma mark - Private
+
+// Marks the privacy notice as acknowledged so it won't be shown again, hides it
+// in the UI, and logs `interaction`.
+- (void)acknowledgeNoticeWithInteraction:
+    (autofill::AutofillMetrics::PopupNoticeInteractions)interaction {
+  CHECK(_firstRunService);
+  _firstRunService->MarkPersonalContextInAtMemoryNoticeAsAcknowledged();
+  _noticeIsVisible = NO;
+  _noticeInteractionLogged = YES;
+  [self.consumer setNoticeVisible:NO];
+  base::UmaHistogramEnumeration(kNoticeInteractionsHistogram, interaction);
+}
 
 // Handles suggestions returned by the AtMemoryManager.
 - (void)onAtMemorySuggestionsReceived:

@@ -35,6 +35,7 @@ using testing::Eq;
 using testing::Optional;
 
 constexpr char kAccessToken[] = "test access token";
+constexpr char kAppLocale[] = "en-US";
 constexpr base::TimeDelta kLatency = base::Milliseconds(250);
 
 using UpsertPublicPassCallback = base::test::TestFuture<
@@ -57,7 +58,8 @@ class WalletHttpClientImplTest : public testing::Test {
     client_ = std::make_unique<WalletHttpClientImpl>(
         identity_test_env_.identity_manager(),
         base::MakeRefCounted<network::WeakWrapperSharedURLLoaderFactory>(
-            &test_url_loader_factory_));
+            &test_url_loader_factory_),
+        kAppLocale);
   }
 
   void TearDown() override { client_.reset(); }
@@ -120,6 +122,25 @@ TEST_F(WalletHttpClientImplTest, ContentType) {
       pending_request->request.headers.GetHeader(
           net::HttpRequestHeaders::kContentType);
   EXPECT_THAT(content_type, Optional(Eq("application/x-protobuf")));
+}
+
+// Tests that the http client sets the Accept-Language header to `app_locale`.
+TEST_F(WalletHttpClientImplTest, AcceptLanguageHeader) {
+  Pass pass;
+  UpsertPublicPassCallback upsert_pass_callback;
+  client()->UpsertPublicPass(pass, upsert_pass_callback.GetCallback());
+
+  identity_test_env()->WaitForAccessTokenRequestIfNecessaryAndRespondWithToken(
+      kAccessToken, base::Time::Max());
+
+  network::TestURLLoaderFactory::PendingRequest* pending_request =
+      test_url_loader_factory()->GetPendingRequest(0);
+  ASSERT_TRUE(pending_request);
+
+  std::optional<std::string> accept_language =
+      pending_request->request.headers.GetHeader(
+          net::HttpRequestHeaders::kAcceptLanguage);
+  EXPECT_THAT(accept_language, Optional(Eq(kAppLocale)));
 }
 
 // Tests that UpsertPublicPass successfully triggers a network request and
@@ -450,10 +471,10 @@ TEST_F(WalletHttpClientImplTest, GetDetailsForUpsertPass_Success) {
             base::StrCat({"Bearer ", kAccessToken}));
 
   api::GetDetailsForUpsertPassResponse response;
-  response.set_context_token("test_context_token");
   response.set_user_eligibility(
       api::GetDetailsForUpsertPassResponse::USER_ELIGIBILITY_ELIGIBLE);
   auto* legal_message = response.mutable_legal_message();
+  legal_message->set_token("test_legal_message_token");
   auto* line = legal_message->add_line();
   line->set_template_("Legal text {0}");
   auto* param = line->add_template_parameter();
@@ -465,10 +486,10 @@ TEST_F(WalletHttpClientImplTest, GetDetailsForUpsertPass_Success) {
 
   ASSERT_TRUE(callback.Wait());
   EXPECT_TRUE(callback.Get().has_value());
-  EXPECT_EQ(callback.Get()->context_token, "test_context_token");
   EXPECT_EQ(callback.Get()->user_eligibility,
             WalletHttpClient::UserEligibility::kEligible);
   ASSERT_TRUE(callback.Get()->legal_message.has_value());
+  EXPECT_EQ(callback.Get()->legal_message->token(), "test_legal_message_token");
   histogram_tester.ExpectUniqueSample("Wallet.NetworkRequest.OauthError",
                                       GoogleServiceAuthError::NONE, 1);
 }
@@ -525,7 +546,7 @@ TEST_F(WalletHttpClientImplTest, GetDetailsForUpsertPass_ResponseSize) {
       kAccessToken, base::Time::Max());
 
   api::GetDetailsForUpsertPassResponse response;
-  response.set_context_token("test_context_token");
+  response.mutable_legal_message()->set_token("test_legal_message_token");
   std::string response_string = response.SerializeAsString();
   test_url_loader_factory()->SimulateResponseForPendingRequest(
       GetDetailsForUpsertPassUrl().spec(), response_string);

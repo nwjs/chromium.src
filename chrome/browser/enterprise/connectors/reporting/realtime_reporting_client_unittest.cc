@@ -8,6 +8,7 @@
 #include <string>
 #include <utility>
 
+#include "base/barrier_closure.h"
 #include "base/test/bind.h"
 #include "base/test/gmock_move_support.h"
 #include "base/test/metrics/histogram_tester.h"
@@ -19,6 +20,7 @@
 #include "chrome/browser/enterprise/connectors/reporting/realtime_reporting_client_factory.h"
 #include "chrome/browser/enterprise/connectors/test/deep_scanning_test_utils.h"
 #include "chrome/browser/policy/dm_token_utils.h"
+#include "chrome/browser/signin/identity_test_environment_profile_adaptor.h"
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/testing_profile.h"
 #include "chrome/test/base/testing_profile_manager.h"
@@ -26,6 +28,8 @@
 #include "components/enterprise/common/proto/synced_from_google3/chrome_reporting_entity.pb.h"
 #include "components/enterprise/connectors/core/common.h"
 #include "components/enterprise/connectors/core/reporting_service_settings.h"
+#include "components/enterprise/isolated_mode/isolated_mode_features.h"
+#include "components/enterprise/isolated_mode/prefs.h"
 #include "components/policy/core/common/cloud/mock_cloud_policy_client.h"
 #include "components/safe_browsing/content/browser/web_ui/web_ui_content_info_singleton.h"
 #include "components/safe_browsing/core/common/features.h"
@@ -227,13 +231,6 @@ class RealtimeReportingClientUmaTest
 };
 
 TEST_P(RealtimeReportingClientUmaTest, TestUmaEventUploadSucceeds) {
-// Profile reporting is not supported on Ash.
-#if BUILDFLAG(IS_CHROMEOS)
-  if (is_profile_reporting()) {
-    return;
-  }
-#endif
-
   SetUpReportingClient(is_profile_reporting());
 
   ReportingSettings settings;
@@ -274,13 +271,6 @@ TEST_P(RealtimeReportingClientUmaTest, TestUmaEventUploadSucceeds) {
 
 TEST_P(RealtimeReportingClientUmaTest,
        TestUploadCallbackWithDestroyedClientDoesNotCrash) {
-// Profile reporting is not supported on Ash.
-#if BUILDFLAG(IS_CHROMEOS)
-  if (is_profile_reporting()) {
-    return;
-  }
-#endif
-
   SetUpReportingClient(is_profile_reporting());
 
   ReportingSettings settings;
@@ -322,13 +312,6 @@ TEST_P(RealtimeReportingClientUmaTest,
 
 TEST_P(RealtimeReportingClientUmaTest,
        TestUploadCallbackReceivesEnrichedRequest) {
-// Profile reporting is not supported on Ash.
-#if BUILDFLAG(IS_CHROMEOS)
-  if (is_profile_reporting()) {
-    return;
-  }
-#endif
-
   SetUpReportingClient(is_profile_reporting());
 
   ReportingSettings settings;
@@ -375,13 +358,6 @@ TEST_P(RealtimeReportingClientUmaTest,
 }
 
 TEST_P(RealtimeReportingClientUmaTest, TestUmaEventUploadFails) {
-// Profile reporting is not supported on Ash.
-#if BUILDFLAG(IS_CHROMEOS)
-  if (is_profile_reporting()) {
-    return;
-  }
-#endif
-
   SetUpReportingClient(is_profile_reporting());
 
   ReportingSettings settings;
@@ -767,12 +743,6 @@ class RealtimeReportingClientStandaloneTest
 using RealtimeReportingClientSaasTest = RealtimeReportingClientStandaloneTest;
 
 TEST_P(RealtimeReportingClientSaasTest, ReportSaasUsageEvent) {
-#if BUILDFLAG(IS_CHROMEOS)
-  if (is_profile_reporting()) {
-    return;
-  }
-#endif
-
   SetUpStandaloneReportingClient();
 
   ::chrome::cros::reporting::proto::Event event;
@@ -814,6 +784,78 @@ INSTANTIATE_TEST_SUITE_P(
     testing::Combine(testing::Bool(),  // is_profile_reporting
                      testing::Values(policy::DM_STATUS_SUCCESS,
                                      policy::DM_STATUS_REQUEST_FAILED)));
+
+// Verifies that browser-scope Safe Browsing reporting (device DM token) and
+// profile-scope SaaS usage reporting (user DM token) can upload events in
+// parallel without colliding or invalidating each other's CloudPolicyClient.
+TEST_F(RealtimeReportingClientTestBase,
+       ParallelSafeBrowsingAndSaasUsageReporting) {
+  auto browser_client = std::make_unique<policy::MockCloudPolicyClient>();
+  browser_client->SetDMToken("device-dm-token");
+  reporting_client_->SetBrowserCloudPolicyClientForTesting(
+      browser_client.get());
+
+  auto profile_client = std::make_unique<policy::MockCloudPolicyClient>();
+  profile_client->SetDMToken("user-dm-token");
+  reporting_client_->SetProfileCloudPolicyClientForTesting(
+      profile_client.get());
+
+  ReportingSettings settings;
+  settings.per_profile = false;
+  settings.dm_token = "device-dm-token";
+
+  ::chrome::cros::reporting::proto::Event sb_event;
+  sb_event.mutable_interstitial_event();
+
+  ::chrome::cros::reporting::proto::Event saas_event;
+  saas_event.mutable_saas_usage_report_event();
+
+  base::RunLoop run_loop;
+  base::RepeatingClosure quit_barrier =
+      base::BarrierClosure(4, run_loop.QuitClosure());
+
+  EXPECT_CALL(*browser_client, UploadSecurityEvent(_, _, _))
+      .Times(2)
+      .WillRepeatedly(
+          [&quit_barrier](
+              bool include_device_info,
+              ::chrome::cros::reporting::proto::UploadEventsRequest&& request,
+              policy::CloudPolicyClient::ResultCallback callback) {
+            EXPECT_EQ(request.events_size(), 1);
+            EXPECT_TRUE(request.events(0).has_interstitial_event());
+            std::move(callback).Run(
+                policy::CloudPolicyClient::Result(policy::DM_STATUS_SUCCESS));
+            quit_barrier.Run();
+          });
+
+  EXPECT_CALL(*profile_client, UploadSecurityEvent(_, _, _))
+      .Times(2)
+      .WillRepeatedly(
+          [&quit_barrier](
+              bool include_device_info,
+              ::chrome::cros::reporting::proto::UploadEventsRequest&& request,
+              policy::CloudPolicyClient::ResultCallback callback) {
+            EXPECT_EQ(request.events_size(), 1);
+            EXPECT_TRUE(request.events(0).has_saas_usage_report_event());
+            std::move(callback).Run(
+                policy::CloudPolicyClient::Result(policy::DM_STATUS_SUCCESS));
+            quit_barrier.Run();
+          });
+
+  // Interleave Safe Browsing (browser scope, device DM token) and SaaS Usage
+  // (profile scope, user DM token) uploads.
+  reporting_client_->ReportEvent(sb_event, settings);
+  reporting_client_->ReportSaasUsageEvent(saas_event, /*is_per_profile=*/true,
+                                          "user-dm-token", base::DoNothing());
+  reporting_client_->ReportEvent(sb_event, settings);
+  reporting_client_->ReportSaasUsageEvent(saas_event, /*is_per_profile=*/true,
+                                          "user-dm-token", base::DoNothing());
+
+  run_loop.Run();
+
+  reporting_client_->SetBrowserCloudPolicyClientForTesting(nullptr);
+  reporting_client_->SetProfileCloudPolicyClientForTesting(nullptr);
+}
 
 #if !BUILDFLAG(IS_CHROMEOS)
 using RealtimeReportingClientBrowserLaunchTest =
@@ -864,5 +906,36 @@ INSTANTIATE_TEST_SUITE_P(
                      testing::Values(policy::DM_STATUS_SUCCESS,
                                      policy::DM_STATUS_REQUEST_FAILED)));
 #endif  // !BUILDFLAG(IS_CHROMEOS)
+
+TEST_F(RealtimeReportingClientTestBase, GetProfileUserNameInIsolatedMode) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(
+      enterprise_isolated_mode::kEnableEnterpriseIsolatedMode);
+
+  TestingProfile* original_profile = profile_manager_.CreateTestingProfile(
+      "original_profile", IdentityTestEnvironmentProfileAdaptor::
+                              GetIdentityTestEnvironmentFactories());
+  IdentityTestEnvironmentProfileAdaptor adaptor(original_profile);
+  adaptor.identity_test_env()->MakePrimaryAccountAvailable(
+      "profile@example.com", signin::ConsentLevel::kSignin);
+
+  original_profile->GetPrefs()->SetInteger(
+      enterprise_isolated_mode::kEnterpriseIsolatedModeSettings,
+      static_cast<int>(
+          enterprise_isolated_mode::IsolatedModeSetting::kEnabled));
+  TestingProfile* isolated_profile =
+      TestingProfile::Builder().BuildIncognito(original_profile);
+  ASSERT_TRUE(isolated_profile->IsEnterpriseIsolatedModeProfile());
+
+  RealtimeReportingClientFactory::GetInstance()->SetTestingFactory(
+      isolated_profile,
+      base::BindRepeating(
+          &enterprise_connectors::test::BuildRealtimeReportingClient));
+  auto* isolated_reporting_client =
+      RealtimeReportingClientFactory::GetForProfile(isolated_profile);
+  ASSERT_NE(isolated_reporting_client, nullptr);
+  EXPECT_EQ("profile@example.com",
+            isolated_reporting_client->GetProfileUserName());
+}
 
 }  // namespace enterprise_connectors

@@ -11,14 +11,14 @@
   }
 </style>
 
+<settings-prefs id="prefs" prefs="{{prefs}}"></settings-prefs>
 <cr-view-manager id="viewManager" class="cr-centered-card-container"
     show-all$="[[shouldShowAll]]">
 
   <template is="dom-if" if="[[isPrivacyGuideAvailable]]" restamp>
     <settings-section slot="view" id="privacyGuidePromo" page-title=""
         hidden$="[[!showPrivacyGuidePromo_]]">
-      <settings-privacy-guide-promo prefs="{{prefs}}">
-      </settings-privacy-guide-promo>
+      <settings-privacy-guide-promo></settings-privacy-guide-promo>
     </settings-section>
   </template>
 
@@ -42,7 +42,7 @@
 
   <template is="dom-if" if="[[renderPrivacyView_(currentRoute, inSearchMode)]]"
       update-when-false>
-    <settings-privacy-page slot="view" id="privacy" prefs="{{prefs}}"
+    <settings-privacy-page slot="view" id="privacy"
         route-path$="[[routes_.PRIVACY.path]]">
     </settings-privacy-page>
   </template>
@@ -53,29 +53,17 @@
       routes_.COOKIES, currentRoute, inSearchMode)]]"
       update-when-false>
     <settings-cookies-page slot="view" id="cookies"
-        data-parent-view-id="privacy" prefs="{{prefs}}"
+        data-parent-view-id="privacy"
         route-path$="[[routes_.COOKIES.path]]">
     </settings-cookies-page>
   </template>
 
-  <template is="dom-if" if="[[!enableBundledSecuritySettings_]]">
-    <template is="dom-if" if="[[renderView_(
-        routes_.SECURITY, currentRoute, inSearchMode)]]" update-when-false>
-      <settings-security-page slot="view"
-          id="security" data-parent-view-id="privacy" prefs="{{prefs}}"
-          route-path$="[[routes_.SECURITY.path]]">
-      </settings-security-page>
-    </template>
-  </template>
-
-  <template is="dom-if" if="[[enableBundledSecuritySettings_]]">
-    <template is="dom-if" if="[[renderView_(
-        routes_.SECURITY, currentRoute, inSearchMode)]]" update-when-false>
-      <settings-security-page-v2 slot="view"
-          id="security" data-parent-view-id="privacy" prefs="{{prefs}}"
-          route-path$="[[routes_.SECURITY.path]]">
-      </settings-security-page-v2>
-    </template>
+  <template is="dom-if" if="[[renderView_(
+      routes_.SECURITY, currentRoute, inSearchMode)]]" update-when-false>
+    <settings-security-page slot="view"
+        id="security" data-parent-view-id="privacy"
+        route-path$="[[routes_.SECURITY.path]]">
+    </settings-security-page>
   </template>
 
   <template is="dom-if" if="[[enableSecurityKeysSubpage_]]">

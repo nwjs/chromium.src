@@ -67,6 +67,10 @@ CreditCardBenefitBase::BenefitId get_benefit_id(
   return std::visit([](const auto& a) { return a.benefit_id(); }, benefit);
 }
 
+MATCHER_P(HasOfferId, expected_id, "") {
+  return arg->GetOfferId() == expected_id;
+}
+
 class PaymentsAutofillTableTest : public testing::Test {
  public:
   PaymentsAutofillTableTest() = default;
@@ -1402,7 +1406,8 @@ TEST_F(PaymentsAutofillTableTest, SetAndGetOfferData) {
                          "Click the promo code field at checkout to autofill "
                          "it."},
       /*promo_code=*/"5DOLLARSOFF",
-      /*offer_reward_amount=*/"$5");
+      /*offer_reward_amount=*/"$5",
+      /*issue_time=*/base::Time::FromSecondsSinceUnixEpoch(100));
   // An offer redeemable at several merchants.
   autofill_offer_data.emplace_back(
       /*offer_id=*/"2",
@@ -1418,7 +1423,8 @@ TEST_F(PaymentsAutofillTableTest, SetAndGetOfferData) {
                          "Click the promo code field at checkout to autofill "
                          "it."},
       /*promo_code=*/"10PCTOFF",
-      /*offer_reward_amount=*/"10%");
+      /*offer_reward_amount=*/"10%",
+      /*issue_time=*/base::Time::FromSecondsSinceUnixEpoch(200));
 
   table_->SetAutofillOffers(autofill_offer_data);
 
@@ -1435,6 +1441,7 @@ TEST_F(PaymentsAutofillTableTest, SetAndGetOfferData) {
     EXPECT_EQ(expected.GetOfferRewardAmount(), actual.GetOfferRewardAmount());
     EXPECT_EQ(expected.GetPromoCode(), actual.GetPromoCode());
     EXPECT_EQ(expected.GetExpiry(), actual.GetExpiry());
+    EXPECT_EQ(expected.GetIssueTime(), actual.GetIssueTime());
     EXPECT_EQ(expected.GetOfferDetailsUrl().spec(),
               actual.GetOfferDetailsUrl().spec());
     EXPECT_EQ(expected.GetDisplayStrings().value_prop_text,
@@ -1467,7 +1474,8 @@ TEST_F(PaymentsAutofillTableTest, SetAndGetOfferData_OpaqueOfferIds) {
         /*offer_details_url=*/GURL("https://www.offer_example.com/"),
         /*display_strings=*/DisplayStrings{},
         /*promo_code=*/"5DOLLARSOFF",
-        /*offer_reward_amount=*/"$5");
+        /*offer_reward_amount=*/"$5",
+        /*issue_time=*/base::Time());
   }
 
   table_->SetAutofillOffers(autofill_offer_data);
@@ -1489,6 +1497,35 @@ TEST_F(PaymentsAutofillTableTest, SetAndGetOfferData_OpaqueOfferIds) {
   EXPECT_TRUE(table_->RemoveAutofillOffer("0123"));
   EXPECT_FALSE(table_->AutofillOfferExists("0123"));
   EXPECT_TRUE(table_->AutofillOfferExists("offer-abc"));
+}
+
+// Tests that offers are returned with the most recently issued ones first,
+// followed by offers with an unknown issue time, with ties broken by offer id.
+TEST_F(PaymentsAutofillTableTest, GetAutofillOffers_SortedByIssueTime) {
+  const GURL origin("http://www.merchant_domain.com/");
+  const Time now = Time::Now();
+  auto offer = [&](std::string offer_id, Time issue_time) {
+    return test::GetPromoCodeOfferData(origin, /*is_expired=*/false,
+                                       std::move(offer_id), issue_time);
+  };
+  // Written out of order, so that the result is only sorted if the query sorts.
+  table_->SetAutofillOffers({
+      offer("unknown_b", /*issue_time=*/Time()),
+      offer("oldest", now - base::Days(3)),
+      offer("tie_b", now - base::Days(2)),
+      offer("newest", now - base::Days(1)),
+      offer("unknown_a", /*issue_time=*/Time()),
+      offer("tie_a", now - base::Days(2)),
+  });
+
+  std::vector<std::unique_ptr<AutofillOfferData>> offers;
+  ASSERT_TRUE(table_->GetAutofillOffers(&offers));
+  EXPECT_THAT(offers,
+              ElementsAre(HasOfferId("newest"), HasOfferId("tie_a"),
+                          HasOfferId("tie_b"), HasOfferId("oldest"),
+                          HasOfferId("unknown_a"), HasOfferId("unknown_b")));
+  // An unknown issue time is read back as unknown.
+  EXPECT_TRUE(offers.back()->GetIssueTime().is_null());
 }
 
 TEST_F(PaymentsAutofillTableTest, AddOrUpdateAutofillOffer) {

@@ -35,6 +35,7 @@ import org.mockito.junit.MockitoRule;
 import org.robolectric.annotation.Config;
 import org.robolectric.shadows.ShadowBuild;
 
+import org.chromium.base.ContextUtils;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.ui.edge_to_edge.EdgeToEdgePadAdjuster;
 import org.chromium.ui.edge_to_edge.EdgeToEdgeSupplier;
@@ -61,8 +62,8 @@ public class SimpleEdgeToEdgeControllerUnitTest {
     @Mock private Context mContext;
     @Mock private Resources mResources;
     @Mock private DisplayMetrics mDisplayMetrics;
-    @Mock private View mView;
     @Mock private InsetObserver mInsetObserver;
+    private final View mView = new View(ContextUtils.getApplicationContext());
     private SimpleEdgeToEdgeController mSimpleEdgeToEdgeController;
 
     @Before

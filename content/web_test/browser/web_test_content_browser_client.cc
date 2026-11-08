@@ -94,6 +94,7 @@
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_registry.h"
 #include "third_party/blink/public/common/web_preferences/web_preferences.h"
 #include "third_party/blink/public/test/mojom/device_posture/device_posture_provider_automation.test-mojom.h"
+#include "third_party/blink/public/test/mojom/select_file_dialog/select_file_dialog_automation.test-mojom.h"
 #include "ui/base/ui_base_switches.h"
 #include "url/origin.h"
 #include "url/url_constants.h"
@@ -439,6 +440,11 @@ void WebTestContentBrowserClient::OverrideWebPreferences(
   }
 }
 
+bool WebTestContentBrowserClient::
+    ShouldUpdateFontRendererPreferencesFromSystemSettings() const {
+  return false;
+}
+
 void WebTestContentBrowserClient::CreateThrottlesForNavigation(
     NavigationThrottleRegistry& registry) {
   ShellContentBrowserClient::CreateThrottlesForNavigation(registry);
@@ -599,6 +605,9 @@ void WebTestContentBrowserClient::RegisterBrowserInterfaceBindersForFrame(
   map->Add<blink::test::mojom::FederatedAuthRequestAutomation>(
       base::BindRepeating(&WebTestContentBrowserClient::BindFedCmAutomation,
                           base::Unretained(this)));
+  map->Add<blink::test::mojom::SelectFileDialogAutomation>(base::BindRepeating(
+      &WebTestContentBrowserClient::BindSelectFileDialogAutomation,
+      base::Unretained(this)));
   map->Add<blink::test::mojom::WebSensorProviderAutomation>(base::BindRepeating(
       &WebTestContentBrowserClient::BindWebSensorProviderAutomation,
       base::Unretained(this)));
@@ -680,6 +689,16 @@ void WebTestContentBrowserClient::BindFedCmAutomation(
                       std::move(receiver));
 }
 
+void WebTestContentBrowserClient::BindSelectFileDialogAutomation(
+    RenderFrameHost* render_frame_host,
+    mojo::PendingReceiver<blink::test::mojom::SelectFileDialogAutomation>
+        receiver) {
+  if (WebTestControlHost::Get()) {
+    WebTestControlHost::Get()->BindSelectFileDialogAutomation(
+        std::move(receiver));
+  }
+}
+
 void WebTestContentBrowserClient::BindWebSensorProviderAutomation(
     RenderFrameHost* render_frame_host,
     mojo::PendingReceiver<blink::test::mojom::WebSensorProviderAutomation>
@@ -716,6 +735,7 @@ std::unique_ptr<LoginDelegate> WebTestContentBrowserClient::CreateLoginDelegate(
     const GURL& url,
     scoped_refptr<net::HttpResponseHeaders> response_headers,
     bool first_auth_attempt,
+    bool do_not_prompt_for_login,
     GuestPageHolder* guest,
     LoginDelegate::LoginAuthRequiredCallback auth_required_callback) {
   return nullptr;
@@ -773,15 +793,6 @@ void WebTestContentBrowserClient::BindNonAssociatedWebTestControlHost(
         std::move(receiver));
   }
 }
-
-#if BUILDFLAG(IS_WIN)
-bool WebTestContentBrowserClient::PreSpawnChild(
-    sandbox::TargetConfig* config,
-    sandbox::mojom::Sandbox sandbox_type,
-    ChildSpawnFlags flags) {
-  return true;
-}
-#endif  // BUILDFLAG(IS_WIN)
 
 std::string WebTestContentBrowserClient::GetAcceptLangs(
     BrowserContext* context) {

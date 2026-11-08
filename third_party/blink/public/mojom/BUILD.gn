@@ -58,6 +58,7 @@ mojom("mojom_platform") {
   sources = [
     "ad_tagging/ad_evidence.mojom",
     "ai/ai_common.mojom",
+    "ai/ai_decision_model.mojom",
     "ai/ai_language_model.mojom",
     "ai/ai_manager.mojom",
     "ai/ai_proofreader.mojom",
@@ -97,6 +98,7 @@ mojom("mojom_platform") {
     "cookie_store/cookie_store.mojom",
     "cpu_performance.mojom",
     "crash/crash_memory_metrics_reporter.mojom",
+    "cross_origin_storage/cross_origin_storage.mojom",
     "css/preferred_color_scheme.mojom",
     "css/preferred_contrast.mojom",
     "data_transfer/data_transfer.mojom",
@@ -106,6 +108,7 @@ mojom("mojom_platform") {
     "devtools/devtools_agent.mojom",
     "devtools/devtools_frontend.mojom",
     "devtools/inspector_issue.mojom",
+    "dictation/dictation_agent.mojom",
     "disk_allocator.mojom",
     "dom_storage/dom_storage.mojom",
     "dom_storage/session_storage_namespace.mojom",
@@ -278,6 +281,7 @@ mojom("mojom_platform") {
     "webaudio/audio_context_manager.mojom",
     "webid/digital_identity_request.mojom",
     "webid/email_verification_request.mojom",
+    "webid/fedcm_identity_request.mojom",
     "webid/federated_request.mojom",
     "webpreferences/web_preferences.mojom",
     "webrtc/rtc_logging.mojom",
@@ -421,7 +425,6 @@ mojom("mojom_platform") {
   # Chromium without blink doesn't use and must not depend on //media
   if (use_blink) {
     public_deps += [
-      "//media/capture/mojom:video_capture",
       "//media/capture/mojom:video_capture_types",
       "//media/mojo/mojom",
       "//media/mojo/mojom:media_types",

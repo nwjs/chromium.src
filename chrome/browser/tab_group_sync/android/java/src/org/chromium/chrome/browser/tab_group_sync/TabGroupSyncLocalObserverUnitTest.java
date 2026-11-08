@@ -78,8 +78,6 @@ public class TabGroupSyncLocalObserverUnitTest {
     private static final int TAB_ID_1 = 1;
     private static final int TAB_ID_2 = 2;
     private static final int TAB_ID_3 = 3;
-    private static final int ROOT_ID_1 = 1;
-    private static final int ROOT_ID_3 = 3;
     private static final Token TOKEN_1 = new Token(2, 3);
     private static final LocalTabGroupId LOCAL_TAB_GROUP_ID_1 = new LocalTabGroupId(TOKEN_1);
     private static final String SYNC_ID = "sync_id";
@@ -108,10 +106,9 @@ public class TabGroupSyncLocalObserverUnitTest {
 
     private UserActionTester mActionTester;
 
-    private static Tab prepareTab(int tabId, int rootId, @Nullable Token tabGroupId) {
+    private static Tab prepareTab(int tabId, @Nullable Token tabGroupId) {
         Tab tab = mock(Tab.class);
         when(tab.getId()).thenReturn(tabId);
-        when(tab.getRootId()).thenReturn(rootId);
         when(tab.getUrl()).thenReturn(TAB_URL_1);
         when(tab.getTitle()).thenReturn(TAB_TITLE_1);
         when(tab.getTabGroupId()).thenReturn(tabGroupId);
@@ -122,9 +119,9 @@ public class TabGroupSyncLocalObserverUnitTest {
     public void setUp() {
         mActionTester = new UserActionTester();
         mTabGroupSyncService = spy(new TestTabGroupSyncService());
-        mTab1 = prepareTab(TAB_ID_1, ROOT_ID_1, TOKEN_1);
-        mTab2 = prepareTab(TAB_ID_2, ROOT_ID_1, TOKEN_1);
-        mTab3 = prepareTab(TAB_ID_3, ROOT_ID_3, null);
+        mTab1 = prepareTab(TAB_ID_1, TOKEN_1);
+        mTab2 = prepareTab(TAB_ID_2, TOKEN_1);
+        mTab3 = prepareTab(TAB_ID_3, /* tabGroupId= */ null);
 
         mTabModel = spy(new MockTabModel(mProfile, null));
 
@@ -134,8 +131,7 @@ public class TabGroupSyncLocalObserverUnitTest {
 
         when(mTabModel.isTabInTabGroup(mTab1)).thenReturn(true);
         when(mTabModel.isTabInTabGroup(mTab2)).thenReturn(true);
-        when(mTabModel.getGroupLastShownTabId(TOKEN_1)).thenReturn(ROOT_ID_1);
-        when(mTabModel.tabGroupExists(TOKEN_1)).thenReturn(true);
+        when(mTabModel.containsTabGroup(TOKEN_1)).thenReturn(true);
 
         doNothing().when(mTabModel).addObserver(mTabModelObserverCaptor.capture());
         doNothing().when(mTabModel).addTabGroupObserver(mTabGroupObserverCaptor.capture());
@@ -705,18 +701,15 @@ public class TabGroupSyncLocalObserverUnitTest {
                 mTab1, 0, TabLaunchType.FROM_TAB_GROUP_UI, TabCreationState.LIVE_IN_BACKGROUND);
         mTabModel.addTab(
                 mTab2, 1, TabLaunchType.FROM_TAB_GROUP_UI, TabCreationState.LIVE_IN_BACKGROUND);
-        when(mTabModel.getRepresentativeTabAt(0)).thenReturn(mTab1);
 
         // Move tab 2 out of group and verify.
-        mTabGroupObserverCaptor
-                .getValue()
-                .willMoveTabOutOfGroup(mTab2, /* destinationTabGroupId= */ null);
+        mTabGroupObserverCaptor.getValue().willMoveTabOutOfGroup(mTab2);
         verify(mTabGroupSyncService, times(1)).removeTab(eq(LOCAL_TAB_GROUP_ID_1), eq(2));
     }
 
     @Test
-    public void testDidCreateNewGroup() {
-        mTabGroupObserverCaptor.getValue().didCreateNewGroup(mTab1);
+    public void testOnTabGroupCreated() {
+        mTabGroupObserverCaptor.getValue().onTabGroupCreated(TOKEN_1);
         verify(mTabGroupSyncService, times(1)).addGroup(mSavedTabGroupCaptor.capture());
         Assert.assertEquals(LOCAL_TAB_GROUP_ID_1, mSavedTabGroupCaptor.getValue().localId);
     }
@@ -746,7 +739,6 @@ public class TabGroupSyncLocalObserverUnitTest {
 
     @Test
     public void testDidChangeColor() {
-        // Mock that we have a stored color (red) stored with reference to ROOT_ID_1.
         when(mTabModel.getTabGroupColor(TOKEN_1)).thenReturn(TabGroupColorId.RED);
 
         mTabGroupObserverCaptor.getValue().didChangeTabGroupColor(TOKEN_1, TabGroupColorId.RED);
@@ -756,7 +748,7 @@ public class TabGroupSyncLocalObserverUnitTest {
 
     @Test
     public void testDidChangeTitleAndColorForNonExistingGroup() {
-        when(mTabModel.tabGroupExists(TOKEN_1)).thenReturn(false);
+        when(mTabModel.containsTabGroup(TOKEN_1)).thenReturn(false);
         // Handle updates for non-existing groups.
         mTabGroupObserverCaptor.getValue().didChangeTabGroupTitle(TOKEN_1, TITLE_1);
         verify(mTabGroupSyncService, never()).updateVisualData(any(), any(), anyInt());

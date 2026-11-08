@@ -5,9 +5,9 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_MODULES_WEBAUDIO_AUDIO_WORKLET_PROCESSOR_H_
 #define THIRD_PARTY_BLINK_RENDERER_MODULES_WEBAUDIO_AUDIO_WORKLET_PROCESSOR_H_
 
+#include "base/containers/span.h"
 #include "third_party/blink/renderer/modules/modules_export.h"
 #include "third_party/blink/renderer/modules/webaudio/audio_worklet_processor_error_details.h"
-#include "third_party/blink/renderer/platform/audio/audio_array.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
 #include "third_party/blink/renderer/platform/bindings/script_wrappable.h"
 #include "third_party/blink/renderer/platform/bindings/trace_wrapper_v8_reference.h"
@@ -52,14 +52,25 @@ class MODULES_EXPORT AudioWorkletProcessor : public ScriptWrappable {
   MessagePort* port() const;
 
   // `AudioWorkletHandler` invokes this method to process audio.
-  bool Process(
-      const Vector<scoped_refptr<AudioBus>>& inputs,
-      Vector<scoped_refptr<AudioBus>>& outputs,
-      const HashMap<String, std::unique_ptr<AudioFloatArray>>& param_value_map);
+  bool Process(const Vector<scoped_refptr<AudioBus>>& inputs,
+               Vector<scoped_refptr<AudioBus>>& outputs,
+               const HashMap<String, base::span<const float>>& param_value_map);
 
   bool hasErrorOccurred() const;
   const String& Name() const { return name_; }
   const AudioWorkletProcessorErrorDetails& GetErrorDetails() const;
+
+  // Builds error details from the exception captured in `try_catch`. Falls
+  // back to `fallback_message` with no source location when nothing was
+  // caught or V8 provides no message. Must be called on the isolate's thread
+  // while `try_catch` is still live. Never returns null strings so the result
+  // can be copied across threads by AudioWorkletProcessorErrorDetails.
+  static AudioWorkletProcessorErrorDetails ErrorDetailsFromTryCatch(
+      v8::Isolate* isolate,
+      v8::Local<v8::Context> context,
+      const v8::TryCatch& try_catch,
+      AudioWorkletProcessorErrorState error_state,
+      const String& fallback_message);
 
  private:
   void SetErrorDetails(const AudioWorkletProcessorErrorDetails& error_details);

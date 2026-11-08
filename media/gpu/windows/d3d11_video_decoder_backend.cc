@@ -174,13 +174,12 @@ D3D11VideoDecoderBackend::CreateDecoderConfigurator(
     VideoChromaSampling chroma_sampling,
     const gpu::GpuPreferences& gpu_preferences,
     const gpu::GpuDriverBugWorkarounds& gpu_workarounds,
-    bool use_shared_handle,
     MediaLog* media_log) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
   auto decoder_configurator = D3DDecoderConfigurator::Create(
       gpu_preferences, gpu_workarounds, config, bit_depth, chroma_sampling,
-      media_log, use_shared_handle, device_);
+      media_log, device_);
   if (!decoder_configurator) {
     return D3DStatus::Codes::kDecoderUnsupportedProfile;
   }
@@ -196,7 +195,6 @@ D3DStatus::Or<std::unique_ptr<TextureSelector>>
 D3D11VideoDecoderBackend::CreateTextureSelector(
     D3DDecoderConfigurator* decoder_configurator,
     const VideoDecoderConfig& config,
-    const gpu::GpuPreferences& gpu_preferences,
     const gpu::GpuDriverBugWorkarounds& gpu_workarounds,
     bool use_shared_handle,
     MediaLog* media_log) {
@@ -211,8 +209,8 @@ D3D11VideoDecoderBackend::CreateTextureSelector(
   }
 
   auto texture_selector = TextureSelector::Create(
-      gpu_preferences, gpu_workarounds, decoder_configurator->TextureFormat(),
-      &format_checker, video_device_, device_context_, media_log,
+      gpu_workarounds, decoder_configurator->TextureFormat(), &format_checker,
+      video_device_, device_context_, media_log,
       config.color_space_info().ToGfxColorSpace(), use_shared_handle);
   if (!texture_selector) {
     return D3DStatus::Codes::kCreateTextureSelectorFailed;
@@ -351,29 +349,23 @@ D3D11VideoDecoderBackend::CreateAndInitPictureBuffer(
 
   auto picture_buffer = base::MakeRefCounted<D3DPictureBuffer>(
       std::move(decoder_task_runner), std::move(texture), array_slice,
-      std::move(texture_wrapper), picture_index);
+      std::move(texture_wrapper), size, picture_index);
 
   // Keep the decoder idle until GPU-side shared-image initialization finishes.
-  // `add_client_use()` must precede Init(). If Init() fails after the texture
-  // wrapper posted its GPU-thread work, the init-done callback still runs and
-  // calls remove_client_use(); adding the ref later would underflow it.
+  // `add_client_use()` must precede InitD3D11(). If InitD3D11() fails after the
+  // texture wrapper posted its GPU-thread work, the init-done callback still
+  // runs and calls remove_client_use(); adding the ref later would underflow
+  // it.
   picture_buffer->add_client_use();
-  D3DStatus result =
-      picture_buffer->Init(std::move(gpu_task_runner), std::move(get_helper_cb),
-                           video_device_, decoder_configurator->DecoderGuid(),
-                           media_log->Clone(), std::move(init_done_cb));
+  D3DStatus result = picture_buffer->InitD3D11(
+      std::move(gpu_task_runner), std::move(get_helper_cb), video_device_,
+      decoder_configurator->DecoderGuid(), media_log->Clone(),
+      std::move(init_done_cb));
   if (!result.is_ok()) {
     return std::move(result).AddHere();
   }
 
   return picture_buffer;
-}
-
-D3DStatus D3D11VideoDecoderBackend::WaitForDecodeComplete(
-    D3DPictureBuffer* picture_buffer) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  CHECK(picture_buffer);
-  return picture_buffer->WaitForDecodeCompleteGPU(device_context_.Get());
 }
 
 bool D3D11VideoDecoderBackend::ShouldUseDXVADeviceForHEVCRangeExtension(

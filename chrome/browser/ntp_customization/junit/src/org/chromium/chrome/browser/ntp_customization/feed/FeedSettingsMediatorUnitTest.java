@@ -75,19 +75,20 @@ public class FeedSettingsMediatorUnitTest {
     @Mock private Profile mProfile;
     @Mock private PrefChangeRegistrar mPrefChangeRegistrar;
     @Mock private PrefService mPrefService;
-    @Mock View mView;
     @Captor private ArgumentCaptor<View.OnClickListener> mBackPressHandlerCaptor;
 
     private FeedSettingsMediator mFeedSettingsMediator;
     private Context mContext;
     private Activity mActivity;
     private ShadowActivity mShadowActivity;
+    private View mView;
 
     @Before
     public void setUp() {
         mContext = ApplicationProvider.getApplicationContext();
         mActivity = Robolectric.buildActivity(Activity.class).setup().get();
         mShadowActivity = Shadows.shadowOf(mActivity);
+        mView = new View(mActivity);
         FeedServiceBridgeJni.setInstanceForTesting(mFeedServiceBridgeJniMock);
         FeedSettingsMediator.setPrefForTesting(mPrefChangeRegistrar, mPrefService);
         mFeedSettingsMediator =
@@ -214,7 +215,6 @@ public class FeedSettingsMediatorUnitTest {
 
     @Test
     public void testHandleLearnMoreClick() {
-        when(mView.getContext()).thenReturn(mActivity);
         handleLearnMoreClick(mView);
         Intent intent = mShadowActivity.peekNextStartedActivityForResult().intent;
         assertEquals(intent.getData(), Uri.parse("https://support.google.com/chrome/?p=new_tab"));
@@ -260,8 +260,6 @@ public class FeedSettingsMediatorUnitTest {
     private void testCreateListContainerViewDelegateImplForSectionListener(
             ListContainerViewDelegate delegateWithFollowing,
             ListContainerViewDelegate delegateWithoutFollowing) {
-        when(mView.getContext()).thenReturn(mActivity);
-
         // Verifies the click listener is correct for Activity section.
         delegateWithFollowing.getListener(ACTIVITY).onClick(mView);
         Intent intent = mShadowActivity.peekNextStartedActivityForResult().intent;

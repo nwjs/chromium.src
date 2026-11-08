@@ -6,6 +6,7 @@
 #define PARTITION_ALLOC_INTERNAL_PARTITION_ROOT_EXPORTS_H_
 
 #include "partition_alloc/partition_alloc_base/component_export.h"
+#include "partition_alloc/partition_alloc_public_constants.h"
 
 #if DEFINE_PARTITION_ROOT_EXPORT_TEMPLATE
 #define EXPORT_TEMPLATE \
@@ -84,6 +85,8 @@ EXPORT_TEMPLATE void* PartitionRoot::Alloc<
     AllocFlags::kAllowGigaAllocations | AllocFlags::kReturnNull |
     AllocFlags::kZeroFill | AllocFlags::kNoOverrideHooks |
     AllocFlags::kNoMemoryToolOverride>(size_t, const char*);
+EXPORT_TEMPLATE void* PartitionRoot::Alloc<
+    AllocFlags::kNoHooks | AllocFlags::kNoOverrideHooks>(size_t, const char*);
 
 EXPORT_TEMPLATE void*
 PartitionRoot::Realloc<AllocFlags::kNone, FreeFlags::kNone>(void*,
@@ -126,10 +129,15 @@ EXPORT_TEMPLATE void* PartitionRoot::AlignedAlloc<AllocFlags::kReturnNull |
                                                   AllocFlags::kNoHooks>(size_t,
                                                                         size_t);
 EXPORT_TEMPLATE void*
+PartitionRoot::AlignedAlloc<AllocFlags::kReturnNull | AllocFlags::kZeroFill |
+                            AllocFlags::kNoHooks>(size_t, size_t);
+EXPORT_TEMPLATE void*
 PartitionRoot::AlignedAlloc<AllocFlags::kAllowGigaAllocations>(size_t, size_t);
 EXPORT_TEMPLATE void* PartitionRoot::AlignedAlloc<
     AllocFlags::kAllowGigaAllocations | AllocFlags::kReturnNull>(size_t,
                                                                  size_t);
+EXPORT_TEMPLATE void* PartitionRoot::AlignedAlloc<
+    AllocFlags::kNoHooks | AllocFlags::kNoOverrideHooks>(size_t, size_t);
 
 EXPORT_TEMPLATE void PartitionRoot::FreeInline<FreeFlags::kNone>(void*);
 EXPORT_TEMPLATE void
@@ -140,20 +148,17 @@ EXPORT_TEMPLATE void
 PartitionRoot::FreeInline<FreeFlags::kSchedulerLoopQuarantine>(void*);
 EXPORT_TEMPLATE void PartitionRoot::FreeInline<FreeFlags::kNoHooks>(void*);
 EXPORT_TEMPLATE void PartitionRoot::FreeInline<
-    FreeFlags::kSchedulerLoopQuarantineForAdvancedMemorySafetyChecks>(void*);
+    FreeFlags::kSchedulerLoopQuarantineForSanitizedObject>(void*);
 EXPORT_TEMPLATE void PartitionRoot::FreeInline<FreeFlags::kIntendedLeak>(void*);
 EXPORT_TEMPLATE
-void PartitionRoot::FreeInline<FreeFlags::kWithSizeHint>(
+void PartitionRoot::FreeInline<FreeFlags::kNone>(void*, FreeSizeHint);
+EXPORT_TEMPLATE void PartitionRoot::FreeInline<FreeFlags::kNone>(
     void*,
-    FreeHintType<FreeFlags::kWithSizeHint>);
-EXPORT_TEMPLATE void PartitionRoot::FreeInline<FreeFlags::kWithSizeHint |
-                                               FreeFlags::kWithAlignmentHint>(
+    FreeSizeHint,
+    FreeAlignmentHint);
+EXPORT_TEMPLATE void PartitionRoot::FreeInline<FreeFlags::kIntendedLeak>(
     void*,
-    FreeHintType<FreeFlags::kWithSizeHint | FreeFlags::kWithAlignmentHint>);
-EXPORT_TEMPLATE void PartitionRoot::FreeInline<FreeFlags::kIntendedLeak |
-                                               FreeFlags::kWithTypeIdHint>(
-    void*,
-    FreeHintType<FreeFlags::kWithTypeIdHint>);
+    FreeTypeIdHint);
 
 EXPORT_TEMPLATE void PartitionRoot::AlignedFree<FreeFlags::kNone>(void*);
 
@@ -164,26 +169,21 @@ EXPORT_TEMPLATE void PartitionRoot::FreeInUnknownRoot<
     FreeFlags::kNoHooks | FreeFlags::kSchedulerLoopQuarantine>(void*);
 
 EXPORT_TEMPLATE
-void PartitionRoot::FreeInUnknownRoot<FreeFlags::kNoHooks |
-                                      FreeFlags::kWithSizeHint>(
-    void*,
-    FreeHintType<FreeFlags::kWithSizeHint>);
+void PartitionRoot::FreeInUnknownRoot<FreeFlags::kNoHooks>(void*, FreeSizeHint);
 EXPORT_TEMPLATE
 void PartitionRoot::FreeInUnknownRoot<
-    FreeFlags::kNoHooks | FreeFlags::kSchedulerLoopQuarantine |
-    FreeFlags::kWithSizeHint>(void*, FreeHintType<FreeFlags::kWithSizeHint>);
+    FreeFlags::kNoHooks | FreeFlags::kSchedulerLoopQuarantine>(void*,
+                                                               FreeSizeHint);
+EXPORT_TEMPLATE
+void PartitionRoot::FreeInUnknownRoot<FreeFlags::kNoHooks>(void* object,
+                                                           FreeSizeHint,
+                                                           FreeAlignmentHint);
 EXPORT_TEMPLATE
 void PartitionRoot::FreeInUnknownRoot<FreeFlags::kNoHooks |
-                                      FreeFlags::kWithSizeHint |
-                                      FreeFlags::kWithAlignmentHint>(
+                                      FreeFlags::kSchedulerLoopQuarantine>(
     void* object,
-    FreeHintType<FreeFlags::kWithSizeHint | FreeFlags::kWithAlignmentHint>);
-EXPORT_TEMPLATE
-void PartitionRoot::FreeInUnknownRoot<
-    FreeFlags::kNoHooks | FreeFlags::kSchedulerLoopQuarantine |
-    FreeFlags::kWithSizeHint | FreeFlags::kWithAlignmentHint>(
-    void* object,
-    FreeHintType<FreeFlags::kWithSizeHint | FreeFlags::kWithAlignmentHint>);
+    FreeSizeHint,
+    FreeAlignmentHint);
 
 #undef EXPORT_TEMPLATE
 

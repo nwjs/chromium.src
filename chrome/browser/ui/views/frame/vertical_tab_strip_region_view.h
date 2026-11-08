@@ -64,17 +64,6 @@ class VerticalTabStripRegionView final
  public:
   DECLARE_CLASS_CUSTOM_ELEMENT_EVENT_TYPE(kAnimationCompletedEvent);
 
-  // TODO(crbug.com/465833741): Replace constant with derived value based on
-  // caption buttons.
-  static constexpr int kUncollapsedMinWidth = 126;
-  // TODO(crbug.com/465832180): Replace constant based width final max width for
-  // view.
-  static constexpr int kUncollapsedMaxWidth = 400;
-  static constexpr int kCollapsedWidth = 56;
-  // TODO(crbug.com/465833741): Determine snapping behavior.
-  static constexpr int kCollapseSnapWidth =
-      (kUncollapsedMinWidth + kCollapsedWidth) / 2;
-
   explicit VerticalTabStripRegionView(
       tabs::VerticalTabStripStateController* state_controller,
       actions::ActionItem* root_action_item,
@@ -184,25 +173,6 @@ class VerticalTabStripRegionView final
     raw_ptr<VerticalTabStripRegionView> region_view_;
   };
 
-  // To avoid extra motion during expand on hover when the user doesn't need the
-  // expanded state, we reset the expand on hover timer when the user clicks on
-  // a tab to give them time to exit the tab strip before triggering the expand
-  // on hover state. This class listens for those click events to restart the
-  // timer.
-  class ClickEventHandler : public ui::EventHandler {
-   public:
-    explicit ClickEventHandler(VerticalTabStripRegionView* region_view);
-    ClickEventHandler(const ClickEventHandler&) = delete;
-    ClickEventHandler& operator=(const ClickEventHandler&) = delete;
-    ~ClickEventHandler() override = default;
-
-    // ui::EventHandler:
-    void OnMouseEvent(ui::MouseEvent* event) override;
-
-   private:
-    raw_ptr<VerticalTabStripRegionView> region_view_;
-  };
-
   // Used to create and destroy locks for the expand on hover state.
   friend class VerticalTabStripExpandOnHoverLock;
 
@@ -233,7 +203,6 @@ class VerticalTabStripRegionView final
 
   void OnExpandOnHoverEnabledChanged(bool enabled);
   void UpdateExpandOnHoverState(std::optional<bool> hovered = std::nullopt);
-  void RestartExpandOnHoverTimer(const base::TimeDelta& delay);
   void OnMouseVelocityHeuristicInterval();
   void CalculateMouseVelocityForExpandOnHover();
   void ResetExpandOnHoverTimers();
@@ -254,7 +223,6 @@ class VerticalTabStripRegionView final
   // Organizer panel:
   raw_ptr<views::View> organizer_panel_view_ = nullptr;
   double organizer_panel_show_percent_ = 0.0;
-  bool organizer_panel_was_visible_ = false;
 
   raw_ptr<views::View> content_area_view_ = nullptr;
   raw_ptr<VerticalTabStripTopContainer> top_button_container_ = nullptr;
@@ -312,7 +280,6 @@ class VerticalTabStripRegionView final
       hover_card_animation_lock_;
 
   RegionViewFocusListener focus_listener_{this};
-  ClickEventHandler click_handler_{this};
   std::unique_ptr<VerticalTabStripFocusSwipeController> focus_swipe_controller_;
 
   // Allows the swipe controller to inspect tab dragging state and rotate

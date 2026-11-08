@@ -11,7 +11,6 @@ import androidx.test.core.app.ApplicationProvider;
 import org.junit.runner.Description;
 import org.junit.runners.model.Statement;
 
-import org.chromium.base.Callback;
 import org.chromium.base.ThreadUtils;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.app.tabmodel.AsyncTabParamsManagerSingleton;
@@ -83,11 +82,6 @@ public class TabModelSelectorObserverTestRule extends SigninTestRule {
                     public void requestToShowTab(Tab tab, int type) {}
 
                     @Override
-                    public boolean isTabModelRestored() {
-                        return true;
-                    }
-
-                    @Override
                     public Tab openNewTab(
                             LoadUrlParams loadUrlParams,
                             @TabLaunchType int type,
@@ -125,7 +119,7 @@ public class TabModelSelectorObserverTestRule extends SigninTestRule {
                     public void requestToShowTab(Tab tab, @TabSelectionType int type) {}
 
                     @Override
-                    public boolean isTabModelRestored() {
+                    public boolean isTabStateInitialized() {
                         return true;
                     }
 
@@ -248,9 +242,6 @@ public class TabModelSelectorObserverTestRule extends SigninTestRule {
             super.removeObserver(observer);
             mObserverSet.remove(observer);
         }
-
-        @Override
-        public void addDelegateModelObserver(Callback<TabModelInternal> callback) {}
 
         @Override
         public void addIncognitoObserver(IncognitoTabModelObserver observer) {}

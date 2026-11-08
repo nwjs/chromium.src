@@ -47,9 +47,7 @@ class HeapDumper;
 
 namespace internal {
 
-extern PA_COMPONENT_EXPORT(PARTITION_ALLOC) PartitionTlsKey g_thread_cache_key;
 
-constexpr inline size_t kMaxThreadCacheIndex = 4;
 constexpr inline size_t kDefaultRootThreadCacheIndex = 0;
 
 #if PA_CONFIG(THREAD_CACHE_FAST_TLS)
@@ -114,7 +112,7 @@ class PA_COMPONENT_EXPORT(PARTITION_ALLOC) ThreadCacheRegistry {
   // Controls the thread cache size, by setting the multiplier to a value above
   // or below |ThreadCache::kDefaultMultiplier|.
   void SetThreadCacheMultiplier(float multiplier);
-  void SetLargestActiveBucketIndex(uint16_t largest_active_bucket_index);
+  void SetActiveBucketCount(uint16_t active_bucket_count);
 
   static internal::Lock& GetLock() { return Instance().lock_; }
   // Purges all thread caches *now*. This is completely thread-unsafe, and
@@ -132,6 +130,8 @@ class PA_COMPONENT_EXPORT(PARTITION_ALLOC) ThreadCacheRegistry {
   static constexpr size_t kMinCachedMemoryForPurgingBytes = 500 * 1024;
 
  private:
+  friend class ThreadCache;
+  friend class PartitionAllocThreadCacheTest;
   friend class tools::ThreadCacheInspector;
   friend class tools::HeapDumper;
 
@@ -141,9 +141,9 @@ class PA_COMPONENT_EXPORT(PARTITION_ALLOC) ThreadCacheRegistry {
   bool periodic_purge_is_initialized_ = false;
   internal::base::TimeDelta periodic_purge_next_interval_;
 
-  uint16_t largest_active_bucket_index_ =
-      BucketIndexLookup::GetIndexForNeutralBuckets(
-          kThreadCacheDefaultSizeThreshold);
+  uint16_t active_bucket_count_ = BucketIndexLookup::GetIndexForNeutralBuckets(
+                                      kThreadCacheDefaultSizeThreshold) +
+                                  1;
 };
 
 constexpr ThreadCacheRegistry::ThreadCacheRegistry() = default;
@@ -223,21 +223,20 @@ class PA_COMPONENT_EXPORT(PARTITION_ALLOC) ThreadCache {
   // interactions.
   static void EnsureThreadSpecificDataInitialized();
 
-  static ThreadCache* Get(size_t index) {
+  PA_ALWAYS_INLINE static ThreadCache* Get(size_t index) {
     PA_DCHECK(index < internal::kMaxThreadCacheIndex);
 #if PA_CONFIG(THREAD_CACHE_FAST_TLS)
     return PA_UNSAFE_TODO(internal::g_thread_caches[index]);
 #else
-    // This region isn't MTE-tagged.
-    auto* ptr = reinterpret_cast<ThreadCache*>(
-        internal::PartitionTlsGet(internal::g_thread_cache_key));
-    // TODO(crbug.com/467243745): Eliminate the `IsValidPtr` check. Improve
-    // `IsValidPtr` to also validate against `nullptr + index` and `kTombstone +
-    // index`.
-    if (!ThreadCache::IsValidPtr(ptr)) [[unlikely]] {
+    auto* tls = internal::GetTls();
+    if (!tls) [[unlikely]] {
       return nullptr;
     }
-    return PA_UNSAFE_TODO(ptr + index);
+    auto* tcache = tls->GetThreadCache(index);
+    if (!IsValid(tcache)) [[unlikely]] {
+      return nullptr;
+    }
+    return tcache;
 #endif
   }
 
@@ -253,31 +252,24 @@ class PA_COMPONENT_EXPORT(PARTITION_ALLOC) ThreadCache {
   // Returns true if the ThreadCache* from ThreadCache::Get() is valid
   // and initialized.
   static bool IsValid(ThreadCache* tcache) {
-#if PA_CONFIG(THREAD_CACHE_FAST_TLS)
-    // `g_thread_caches[index]` has valid pointers only if the ThreadCache
-    // object is initialized.
-    return IsValidPtr(tcache);
-#else
     // Even if the array of ThreadCache is allocated, the ThreadCache object
     // may not be initialized, and thus check `root_` to know if initialized.
     // We use pointer arithmetic to directly inspect the memory for `root_`, as
     // accessing `tcache->root_` is UB before the ThreadCache object's lifetime
     // begins (i.e., between memset(0) and placement new).
-    return tcache && PA_UNSAFE_TODO(*reinterpret_cast<uintptr_t*>(
-                         (reinterpret_cast<uint8_t*>(tcache) +
-                          offsetof(ThreadCache, root_))));
-#endif
+    return IsValidPtr(tcache) && PA_UNSAFE_TODO(*reinterpret_cast<uintptr_t*>(
+                                     (reinterpret_cast<uint8_t*>(tcache) +
+                                      offsetof(ThreadCache, root_))));
   }
 
   static bool IsTombstone() {
 #if PA_CONFIG(THREAD_CACHE_FAST_TLS)
     void* ptr = PA_UNSAFE_TODO(
         internal::g_thread_caches[internal::kThreadCacheTombstoneIndex]);
-#else
-    void* ptr = internal::PartitionTlsGet(internal::g_thread_cache_key);
-#endif
-    // Do not MTE-untag, as it'd mess up the sentinel value.
     return reinterpret_cast<uintptr_t>(ptr) == kTombstone;
+#else
+    return internal::IsTombstoneSlow();
+#endif
   }
 
   // Create a new ThreadCache associated with |root|.
@@ -431,15 +423,14 @@ class PA_COMPONENT_EXPORT(PARTITION_ALLOC) ThreadCache {
   static constexpr uintptr_t kTombstoneMask = ~kTombstone;
 
   static std::array<uint8_t, kBucketCount> global_limits_;
-  // Index of the largest active bucket. Not all processes/platforms will use
-  // all buckets, as using larger buckets increases the memory footprint.
-  //
-  // TODO(lizeb): Investigate making this per-thread rather than static, to
-  // improve locality, and open the door to per-thread settings.
-  static uint16_t largest_active_bucket_index_;
 
+ private:
   // These are at the beginning as they're accessed for each allocation.
   uint32_t cached_memory_ = 0;
+  // Number of active buckets in this thread cache. Not all processes/platforms
+  // will use all buckets, as using larger buckets increases the memory
+  // footprint.
+  uint16_t active_bucket_count_ = 0;
   std::atomic<bool> should_purge_;
 #if PA_BUILDFLAG(HAS_64_BIT_POINTERS)
   const internal::PoolOffsetLookup offset_lookup_;
@@ -478,7 +469,7 @@ PA_ALWAYS_INLINE std::optional<size_t> ThreadCache::MaybePutInCache(
   PA_REENTRANCY_GUARD(is_in_thread_cache_);
   PA_INCREMENT_COUNTER(stats_.cache_fill_count);
 
-  if (bucket_index > largest_active_bucket_index_) [[unlikely]] {
+  if (bucket_index >= active_bucket_count_) [[unlikely]] {
     PA_INCREMENT_COUNTER(stats_.cache_fill_misses);
     return std::nullopt;
   }
@@ -517,7 +508,7 @@ PA_ALWAYS_INLINE std::optional<SlotAddressAndSize> ThreadCache::GetFromCache(
   PA_REENTRANCY_GUARD(is_in_thread_cache_);
   PA_INCREMENT_COUNTER(stats_.alloc_count);
   // Only handle "small" allocations.
-  if (bucket_index > largest_active_bucket_index_) [[unlikely]] {
+  if (bucket_index >= active_bucket_count_) [[unlikely]] {
     PA_INCREMENT_COUNTER(stats_.alloc_miss_too_large);
     PA_INCREMENT_COUNTER(stats_.alloc_misses);
     return std::nullopt;

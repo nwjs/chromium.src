@@ -13,9 +13,12 @@
 #include "base/timer/elapsed_timer.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/views/app_menu/app_menu_action_item.h"
+#include "chrome/browser/ui/views/app_menu/app_menu_drag_and_drop_delegate.h"
+#include "components/user_education/common/feature_promo/feature_promo_handle.h"
 #include "ui/actions/action_id.h"
 #include "ui/actions/actions.h"
 #include "ui/base/class_property.h"
+#include "ui/base/interaction/element_identifier.h"
 #include "ui/base/models/image_model.h"
 #include "ui/base/models/menu_separator_types.h"
 #include "ui/color/color_id.h"
@@ -32,8 +35,8 @@ class ActionAppMenuManager {
  public:
   using DisplayType = AppMenuActionItem::DisplayType;
 
-  explicit ActionAppMenuManager(
-      BrowserWindowInterface* browser_window_interface);
+  ActionAppMenuManager(BrowserWindowInterface* browser_window_interface,
+                       AppMenuDragAndDropDelegate::Host* drag_and_drop_host);
   ActionAppMenuManager(const ActionAppMenuManager&) = delete;
   ActionAppMenuManager& operator=(const ActionAppMenuManager&) = delete;
   ~ActionAppMenuManager();
@@ -47,13 +50,17 @@ class ActionAppMenuManager {
 
   actions::ActionItem* GetAppMenuRoot() const;
 
+  void SetTimerForTesting(base::ElapsedTimer timer);
+
  private:
+  void AddBrowserActions(actions::ActionItem* root);
   void AddNotificationActions(actions::ActionItem* root);
   void AddSearchBarAction(actions::ActionItem* root);
   void AddBlockHeaderActions(actions::ActionItem* root);
   void AddYourChromeActions(actions::ActionItem* root);
   void AddToolsAndActionsActions(actions::ActionItem* root);
   void AddFooterActions(actions::ActionItem* root);
+  void AddWebAppActions(actions::ActionItem* root);
 
   raw_ptr<BrowserWindowInterface> browser_window_interface_;
   std::unique_ptr<RecentTabsDynamicMenu> recent_tabs_menu_;
@@ -61,7 +68,10 @@ class ActionAppMenuManager {
   std::unique_ptr<TabGroupDynamicMenu> tab_groups_menu_;
   std::unique_ptr<SendTabToSelfDynamicMenu> send_tab_to_self_menu_;
   std::unique_ptr<ProfileDynamicMenu> profile_menu_;
-  std::optional<base::ElapsedTimer> safety_hub_notification_timer_;
+  base::ElapsedTimer app_menu_timer_;
+  bool is_showing_safety_hub_notification_ = false;
+  ui::ElementIdentifier highlighted_menu_identifier_;
+  user_education::FeaturePromoHandle promo_handle_;
 };
 
 #endif  // CHROME_BROWSER_UI_VIEWS_APP_MENU_ACTION_APP_MENU_MANAGER_H_

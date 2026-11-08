@@ -8,10 +8,14 @@ storage, sync, and OS integration.
 
 ## Canonical Docs
 
+- [Security Notes](SECURITY.md)
 - [Commands Architecture](commands/README.md)
 - [Lock System](locks/README.md)
 - [Jobs](jobs/README.md)
 - [Desktop Testing Guide](docs/testing.md)
+- [Isolated Web Apps Engine](isolated_web_apps/README.md) ·
+  [IWA Rules](isolated_web_apps/AGENTS.md)
+- [Sub Apps API](sub_apps/README.md)
 
 ## Layering & Decoupling Invariants
 

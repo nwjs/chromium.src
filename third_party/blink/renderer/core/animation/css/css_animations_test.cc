@@ -29,6 +29,7 @@
 #include "third_party/blink/renderer/core/css/cssom/css_numeric_value.h"
 #include "third_party/blink/renderer/core/css/post_style_update_scope.h"
 #include "third_party/blink/renderer/core/css/properties/computed_style_utils.h"
+#include "third_party/blink/renderer/core/css/properties/longhands.h"
 #include "third_party/blink/renderer/core/dom/dom_token_list.h"
 #include "third_party/blink/renderer/core/dom/pseudo_element.h"
 #include "third_party/blink/renderer/core/dom/shadow_root.h"
@@ -329,6 +330,96 @@ TEST_P(CSSAnimationsTest, AnimationFlags_Animations) {
   UpdateAllLifecyclePhasesForTest();
   EXPECT_FALSE(element->ComputedStyleRef().HasCurrentOpacityAnimation());
   EXPECT_TRUE(element->ComputedStyleRef().HasCurrentTransformAnimation());
+}
+
+// A backdrop-filter animation whose value can't change is still a current
+// backdrop-filter animation, but it isn't a dynamic one, so it doesn't get a
+// composited backdrop-filter effect, which would require render surfaces for
+// the element and for its backdrop root.
+TEST_P(CSSAnimationsTest, AnimationFlags_StaticBackdropFilter) {
+  SetBodyInnerHTML(R"HTML(
+    <style>
+      @keyframes from-none { from { backdrop-filter: none; } }
+      @keyframes none-to-none {
+        from { backdrop-filter: none; }
+        to { backdrop-filter: none; }
+      }
+      @keyframes blur-to-blur {
+        from { backdrop-filter: blur(5px); }
+        to { backdrop-filter: blur(5px); }
+      }
+      @keyframes from-blur { from { backdrop-filter: blur(10px); } }
+      #test.from-none { animation: from-none 1s; }
+      #test.none-to-none { animation: none-to-none 1s; }
+      #test.blur-to-blur { animation: blur-to-blur 1s; }
+      #test.from-blur { animation: from-blur 1s; }
+      #test.blur { backdrop-filter: blur(5px); }
+    </style>
+    <div id=test></div>
+  )HTML");
+  Element* element = GetDocument().getElementById(AtomicString("test"));
+  enum class Result { kNoAnimation, kStatic, kDynamic };
+  auto backdrop_filter_animation = [&](const char* classes) {
+    element->setAttribute(html_names::kClassAttr, AtomicString(classes));
+    UpdateAllLifecyclePhasesForTest();
+    const ComputedStyle& style = element->ComputedStyleRef();
+    if (!style.HasCurrentBackdropFilterAnimation()) {
+      EXPECT_FALSE(style.HasCurrentDynamicBackdropFilterAnimation());
+      return Result::kNoAnimation;
+    }
+    return style.HasCurrentDynamicBackdropFilterAnimation() ? Result::kDynamic
+                                                            : Result::kStatic;
+  };
+
+  EXPECT_EQ(Result::kNoAnimation, backdrop_filter_animation(""));
+  // New animations from `none` to the underlying value `none`.
+  EXPECT_EQ(Result::kStatic, backdrop_filter_animation("from-none"));
+  EXPECT_EQ(Result::kStatic, backdrop_filter_animation("none-to-none"));
+  // An animation with the same value throughout, other than `none`.
+  EXPECT_EQ(Result::kStatic, backdrop_filter_animation("blur-to-blur"));
+  // An animation whose value changes.
+  EXPECT_EQ(Result::kDynamic, backdrop_filter_animation("from-blur"));
+  // A running animation from `none`, after the underlying value changes.
+  EXPECT_EQ(Result::kStatic, backdrop_filter_animation("from-none"));
+  EXPECT_EQ(Result::kDynamic, backdrop_filter_animation("from-none blur"));
+  // A property found to be dynamic stays dynamic for the same keyframes, see
+  // KeyframeEffectModelBase::PropertySpecificKeyframeGroup::StaticCheckResult.
+  EXPECT_EQ(Result::kDynamic, backdrop_filter_animation("from-none"));
+
+  {
+    ScopedSkipCompositingStaticBackdropFilterAnimationForTest disabled(false);
+    EXPECT_EQ(Result::kDynamic, backdrop_filter_animation("none-to-none"));
+  }
+}
+
+// Per https://drafts.csswg.org/web-animations-1/#side-effects-section, an
+// element with a current backdrop-filter animation acts as if it had
+// `will-change: backdrop-filter`, which makes it a stacking context regardless
+// of the animated values.
+TEST_P(CSSAnimationsTest, NoneBackdropFilterAnimationIsStackingContext) {
+  SetBodyInnerHTML(R"HTML(
+    <style>
+      @keyframes none-to-none {
+        from { backdrop-filter: none; }
+        to { backdrop-filter: none; }
+      }
+      @keyframes from-none { from { backdrop-filter: none; } }
+      #test.none-to-none { animation: none-to-none 1s; }
+      #test.from-none { animation: from-none 1s; }
+    </style>
+    <div id=test></div>
+  )HTML");
+  Element* element = GetDocument().getElementById(AtomicString("test"));
+  auto is_stacking_context = [&](const char* classes) {
+    element->setAttribute(html_names::kClassAttr, AtomicString(classes));
+    UpdateAllLifecyclePhasesForTest();
+    return element->ComputedStyleRef().IsStackingContextWithoutContainment();
+  };
+
+  EXPECT_FALSE(is_stacking_context(""));
+  EXPECT_TRUE(is_stacking_context("none-to-none"));
+  EXPECT_FALSE(is_stacking_context(""));
+  EXPECT_TRUE(is_stacking_context("from-none"));
 }
 
 namespace {
@@ -3638,6 +3729,36 @@ TEST_P(AnimatedSourcePropertyTest, ImportantRuleWinsOverAnimation) {
   EXPECT_FALSE(SourceFor(target, GetParam()).animated_source.IsValid());
 }
 
+TEST_P(AnimatedSourcePropertyTest, InheritedSourcePropagatesIndependently) {
+  const CSSProperty& property = CSSProperty::Get(GetParam());
+  if (!property.IsIndependent()) {
+    GTEST_SKIP() << "Only applies to independent inherited properties";
+  }
+  SetBodyInnerHTML("<style>#declares { " + property.GetPropertyNameString() +
+                   ": " + Value() +
+                   " }</style>"
+                   "<div id=parent>"
+                   "  <div id=inherits></div>"
+                   "  <div id=declares></div>"
+                   "</div>");
+  Element* parent = GetElementById("parent");
+  Element* inherits = GetElementById("inherits");
+  Element* declares = GetElementById("declares");
+
+  unsigned count = GetStyleEngine().StyleForElementCount();
+  Animation* animation = Animate(parent, GetParam(), Value());
+  EXPECT_EQ(1u, GetStyleEngine().StyleForElementCount() - count);
+  EXPECT_TRUE(
+      SourceFor(inherits, GetParam()).animated_source.IsOwnedBy(*parent));
+  EXPECT_FALSE(SourceFor(declares, GetParam()).animated_source.IsValid());
+
+  count = GetStyleEngine().StyleForElementCount();
+  animation->cancel();
+  UpdateAllLifecyclePhasesForTest();
+  EXPECT_EQ(1u, GetStyleEngine().StyleForElementCount() - count);
+  EXPECT_FALSE(SourceFor(inherits, GetParam()).animated_source.IsValid());
+}
+
 // Transition coverage uses fixed properties: starting a transition requires
 // two distinct computed values, which cannot be derived generically for an
 // arbitrary property. The transition handling under test does not branch per
@@ -4101,6 +4222,39 @@ TEST_P(CSSAnimationsTest, AttrTaintedStyleQueryUrlBlocking) {
   if (control && control->GetComputedStyle()) {
     EXPECT_TRUE(control->GetComputedStyle()->HasBackgroundImage());
   }
+}
+
+TEST_P(CSSAnimationsTest, ColorAnimationUsesIndependentInheritedFastPath) {
+  SetBodyInnerHTML(R"HTML(
+    <style>
+      @keyframes anim {
+        to {
+          color: rgb(200, 200, 200);
+        }
+      }
+      #animator {
+        animation: anim 10s linear paused;
+      }
+    </style>
+    <div id="animator">
+      <div id="child"></div>
+    </div>
+  )HTML");
+  Animation* animation = GetElementById("animator")->getAnimations()[0];
+
+  unsigned count = GetStyleEngine().StyleForElementCount();
+  animation->setCurrentTime(MakeGarbageCollected<V8CSSNumberish>(5000),
+                            ASSERT_NO_EXCEPTION);
+  UpdateAllLifecyclePhasesForTest();
+
+  // Only #animator resolves style; #child takes the fast path.
+  EXPECT_EQ(1u, GetStyleEngine().StyleForElementCount() - count);
+  const ComputedStyle* animator_style =
+      GetElementById("animator")->GetComputedStyle();
+  const ComputedStyle* child_style =
+      GetElementById("child")->GetComputedStyle();
+  EXPECT_EQ(animator_style->VisitedDependentColor(GetCSSPropertyColor()),
+            child_style->VisitedDependentColor(GetCSSPropertyColor()));
 }
 
 }  // namespace blink

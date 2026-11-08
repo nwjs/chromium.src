@@ -10,8 +10,6 @@
 //     basic-union.test-mojom
 //
 
-private let mojoPrefix = "golden."
-
 ///
 /// Interfaces
 ///
@@ -27,9 +25,10 @@ extension ILType {
         ])
     fileprivate static let jsGoldenPrimaryRemoteWrapper: ILType = .object(
         ofGroup: "golden.PrimaryRemoteWrapper",
-        withMethods: ["close", "isBound", "associateAndPassReceiver"])
-    fileprivate static let jsGoldenPrimaryPendingReceiver: ILType = .object(
-        ofGroup: "golden.PrimaryPendingReceiver")
+        withMethods: [
+          "close",
+          "isBound",
+        ])
 }
 
 extension ObjectGroup {
@@ -40,7 +39,7 @@ extension ObjectGroup {
         properties: ["$": .jsGoldenPrimaryRemoteWrapper],
         methods: [
             "useUnion": [
-                .plain(.jsGoldenSimpleUnion),
+                .plain(.jsGoldenSimpleUnionUnion),
             ] => .undefined,
             "getUnion": [
                 .plain(.boolean),
@@ -58,16 +57,7 @@ extension ObjectGroup {
         methods: [
             "close": [] => .undefined,
             "isBound": [] => .boolean,
-            "associateAndPassReceiver": [] => .jsGoldenPrimaryPendingReceiver,
-        ]
-    )
-
-    fileprivate static let goldenPrimaryPendingReceiver = ObjectGroup(
-        name: "golden.PrimaryPendingReceiver",
-        instanceType: .jsGoldenPrimaryPendingReceiver,
-        properties: [:],
-        methods: [:]
-    )
+        ])
 }
 
 ///
@@ -80,7 +70,7 @@ extension ILType {
             "data",
         ])
     fileprivate static let jsGoldenTokenConstructor: ILType = .constructor([
-        .plain(.integer),
+        .plain(.jsUint8),
     ] => .jsGoldenToken)
     fileprivate static let jsGoldenPrimary_GetUnion_ResponseParams: ILType = .object(
         ofGroup: "golden.Primary_GetUnion_ResponseParams",
@@ -99,7 +89,7 @@ extension ObjectGroup {
         name: "golden.Token",
         instanceType: .jsGoldenToken,
         properties: [
-            "data": .integer,
+            "data": .jsUint8,
         ],
         methods: [:]
     )
@@ -107,7 +97,7 @@ extension ObjectGroup {
         name: "golden.Primary_GetUnion_ResponseParams",
         instanceType: .jsGoldenPrimary_GetUnion_ResponseParams,
         properties: [
-            "result": .jsGoldenSimpleUnion,
+            "result": .jsGoldenSimpleUnionUnion,
         ],
         methods: [:]
     )
@@ -115,7 +105,7 @@ extension ObjectGroup {
         name: "golden.Primary_SyncGetUnion_ResponseParams",
         instanceType: .jsGoldenPrimary_SyncGetUnion_ResponseParams,
         properties: [
-            "result": .jsGoldenSimpleUnion,
+            "result": .jsGoldenSimpleUnionUnion,
         ],
         methods: [:]
     )
@@ -125,8 +115,8 @@ extension ObjectGroup {
 /// Arrays
 ///
 extension ILType {
-    fileprivate static let jsInt64ElementArray: ILType =
-        .createJsArrayType(ofElementType: .jsInt64Element)
+    fileprivate static let jsInt64MojoArray: ILType =
+        .createJsArrayType(ofElementType: .bigint)
 }
 
 /// As Fuzzilli runs, the OperationMutator and VariadicInputReducer will modify
@@ -140,46 +130,48 @@ extension ILType {
 /// to prevent the CodeGenerator from being scheduled first when there are
 /// no visible variables, as `findOrGenerateType` causes a crash if there
 /// are no visibile variables.
-private let MojoInt64ArrayGenerator = CodeGenerator(
-    "MojoInt64ArrayGenerator",
+private let MojoInt64MojoArrayGenerator = CodeGenerator(
+    "MojoInt64MojoArrayGenerator",
     inputs: .one,
-    produces: [.jsInt64ElementArray]
+    produces: [.jsInt64MojoArray]
 ) { b, _ in
     let elem = b.findOrGenerateType(.bigint)
     var elements: [Variable] = [elem]
-    b.createArray(
-        with: elements,
-        elementGroupName:
-            ILType.jsInt64Element.group)
+    b.createArray(with: elements)
 }
 
 ///
 /// Unions
 ///
 extension ILType {
-    fileprivate static let jsGoldenSimpleUnion: ILType =
-        OptionsBag.goldenSimpleUnion.group.instanceType
+    fileprivate static let jsGoldenSimpleUnionUnion: ILType = .object(
+        ofGroup: "golden.SimpleUnion")
+    fileprivate static let jsGoldenSimpleUnionUnionArrConstructor: ILType = .constructor(
+        [.plain(.jsInt64MojoArray)] => .jsGoldenSimpleUnionUnion)
+    fileprivate static let jsGoldenSimpleUnionUnionTokenConstructor: ILType = .constructor(
+        [.plain(.jsGoldenToken)] => .jsGoldenSimpleUnionUnion)
+    fileprivate static let jsGoldenSimpleUnionUnionFlagConstructor: ILType = .constructor(
+        [.either(.boolean, .undefined)] => .jsGoldenSimpleUnionUnion)
 }
 
-extension OptionsBag {
-    fileprivate static let goldenSimpleUnion = OptionsBag(
+extension ObjectGroup {
+    fileprivate static let goldenSimpleUnionUnion = ObjectGroup(
         name: "golden.SimpleUnion",
-        properties: [
-            "arr": .jsInt64ElementArray,
-            "token": .jsGoldenToken,
-            "flag": .boolean,
-        ],
-        selectionMode: .exactlyOne,
+        instanceType: .jsGoldenSimpleUnionUnion,
+        properties: [:],
+        methods: [:]
     )
 }
 
 ///
 /// Generators
 ///
-// TODO(crbug.com/500386713) Consider using mojoBuiltins or another list instead of regex
+/// Names of every ObjectGroup registered by this profile.
+private let mojoTargetGroups = Set(mojoObjectGroups.map { $0.name })
+
 private func isTargetObject(type: ILType) -> Bool {
     guard type.Is(.object()), let group = type.group else { return false }
-    return group.starts(with: mojoPrefix)
+    return mojoTargetGroups.contains(group)
 }
 
 /// Mojo variant of the builtin `MethodCallGenerator` that operates only on
@@ -223,6 +215,17 @@ private let MojoPropertyRetrievalGenerator = CodeGenerator(
     b.getProperty(propertyName, of: obj)
 }
 
+/// Every ObjectGroup registered by this profile. Also used by `isTargetObject`
+/// to decide which variables the Mojo generators operate on.
+private let mojoObjectGroups: [ObjectGroup] = [
+    .goldenPrimaryRemote,
+    .goldenPrimaryRemoteWrapper,
+    .goldenToken,
+    .goldenPrimaryGetUnionResponseParams,
+    .goldenPrimarySyncGetUnionResponseParams,
+    .goldenSimpleUnionUnion,
+] + commonMojoObjectGroups
+
 private let mojoBuiltins: [String: ILType] = [
     /// Profiles declare this method, a wrapper method around `getRemote` that follows
     /// the Singleton pattern, in `codePrefix`. This method ensures: (1) `getRemote`
@@ -230,6 +233,9 @@ private let mojoBuiltins: [String: ILType] = [
     /// can be closed at the end of the program.
     "getOrCreatePrimaryRemote": .function([] => .jsGoldenPrimaryRemote),
     "golden.Token": .jsGoldenTokenConstructor,
+    "golden.SimpleUnion.arr": .jsGoldenSimpleUnionUnionArrConstructor,
+    "golden.SimpleUnion.token": .jsGoldenSimpleUnionUnionTokenConstructor,
+    "golden.SimpleUnion.flag": .jsGoldenSimpleUnionUnionFlagConstructor,
 ]
 
 private let keepGenerators = [
@@ -276,7 +282,7 @@ let mojoPrimaryProfile = Profile(
     additionalCodeGenerators: [
         (MojoMethodCallGenerator, 10000),
         (MojoPropertyRetrievalGenerator, 10000),
-        (MojoInt64ArrayGenerator, 1),
+        (MojoInt64MojoArrayGenerator, 1),
     ] + commonMojoCodeGenerators,
     additionalProgramTemplates: WeightedList([]),
     disabledCodeGenerators: mojoDisabledGenerators,
@@ -284,18 +290,9 @@ let mojoPrimaryProfile = Profile(
         "ExplorationMutator", "ProbingMutator", "PropertyAccessorMutator"
     ],
     additionalBuiltins: mojoBuiltins.merging(commonMojoBuiltins) { (existing, _) in existing },
-    additionalObjectGroups: [
-        .goldenPrimaryRemote,
-        .goldenPrimaryRemoteWrapper,
-        .goldenPrimaryPendingReceiver,
-        .goldenToken,
-        .goldenPrimaryGetUnionResponseParams,
-        .goldenPrimarySyncGetUnionResponseParams,
-    ] + commonMojoObjectGroups,
+    additionalObjectGroups: mojoObjectGroups,
     additionalEnumerations: [
     ] + commonMojoEnumerations,
-    additionalOptionsBags: [
-        .goldenSimpleUnion,
-    ] + commonMojoOptionsBags,
+    additionalOptionsBags: [] + commonMojoOptionsBags,
     optionalPostProcessor: nil
 )

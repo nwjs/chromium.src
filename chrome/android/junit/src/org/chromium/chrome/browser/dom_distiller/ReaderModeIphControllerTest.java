@@ -17,6 +17,7 @@ import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 
+import org.chromium.base.ContextUtils;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuHandler;
@@ -30,9 +31,9 @@ public class ReaderModeIphControllerTest {
     @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
 
     @Mock private UserEducationHelper mUserEducationHelper;
-    @Mock private View mAnchorView;
     @Mock private AppMenuHandler mAppMenuHandler;
 
+    private final View mAnchorView = new View(ContextUtils.getApplicationContext());
     private ReaderModeIphController mController;
 
     @Before

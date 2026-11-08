@@ -20,6 +20,8 @@
 
 #include "third_party/blink/renderer/core/svg/svg_path_element.h"
 
+#include <algorithm>
+
 #include "third_party/blink/renderer/bindings/core/v8/v8_svg_path_data_settings.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/frame/web_feature.h"
@@ -27,7 +29,9 @@
 #include "third_party/blink/renderer/core/svg/svg_animated_path.h"
 #include "third_party/blink/renderer/core/svg/svg_mpath_element.h"
 #include "third_party/blink/renderer/core/svg/svg_path.h"
+#include "third_party/blink/renderer/core/svg/svg_path_data.h"
 #include "third_party/blink/renderer/core/svg/svg_path_query.h"
+#include "third_party/blink/renderer/core/svg/svg_path_segments_builder.h"
 #include "third_party/blink/renderer/core/svg/svg_path_utilities.h"
 #include "third_party/blink/renderer/core/svg/svg_point_tear_off.h"
 #include "third_party/blink/renderer/core/svg/svg_zoom_migration.h"
@@ -111,13 +115,8 @@ SVGPointTearOff* SVGPathElement::getPointAtLength(
   }
 
   SVGPathQuery path_query(byte_stream);
-  if (length < 0) {
-    length = 0;
-  } else {
-    float computed_length = path_query.GetTotalLength();
-    if (length > computed_length)
-      length = computed_length;
-  }
+  length = std::clamp(length, 0.0f, path_query.GetTotalLength());
+
   gfx::PointF point = path_query.GetPointAtLength(length);
   return SVGPointTearOff::CreateDetached(point);
 }
@@ -150,6 +149,27 @@ void SVGPathElement::setPathData(
   }
   setAttribute(svg_names::kDAttr, AtomicString(BuildStringFromByteStream(
                                       byte_stream, kNoTransformation)));
+}
+
+SVGPathSegment* SVGPathElement::getPathSegmentAtLength(float distance) {
+  GetDocument().UpdateStyleAndLayoutForNode(this,
+                                            DocumentUpdateReason::kJavaScript);
+  EnsureComputedStyle();
+  const SVGPathByteStream& byte_stream = path_->BaseValue()->ByteStream();
+  if (byte_stream.IsEmpty()) {
+    return nullptr;
+  }
+
+  SVGPathQuery path_query(byte_stream);
+  distance = std::clamp(distance, 0.0f, path_query.GetTotalLength());
+
+  SVGPathSegmentsBuilder builder;
+  PathSegmentData segment_data = path_query.GetSegmentAtLength(distance);
+  builder.EmitSegment(segment_data);
+
+  HeapVector<Member<SVGPathSegment>> result = builder.Finalize();
+  CHECK_GT(result.size(), 0u);
+  return result[0].Get();
 }
 
 void SVGPathElement::DidRecalcStyle(const StyleRecalcChange change) {

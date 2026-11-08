@@ -6,8 +6,6 @@
 
 #include "partition_alloc/slot_start.h"
 
-#if PA_BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC)
-
 #include <atomic>
 
 #include "base/compiler_specific.h"
@@ -292,6 +290,7 @@ AllocatorDispatch allocator_dispatch = {
     nullptr,  // try_free_default_function
     nullptr,  // aligned_malloc_function
     nullptr,  // aligned_malloc_unchecked_function
+    nullptr,  // aligned_calloc_unchecked_function
     // The same reason with realloc_function.
     nullptr,  // aligned_realloc_function
     nullptr,  // aligned_realloc_unchecked_function
@@ -335,10 +334,8 @@ void InstallExtremeLightweightDetectorHooks(
   sampling_state.Init(init_options.sampling_frequency);
   allocator_shim::InsertAllocatorDispatch(&allocator_dispatch);
 
-#if PA_BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC)
   base::trace_event::MallocDumpProvider::SetExtremeLUDGetStatsCallback(
       base::BindRepeating(GetStats));
-#endif  // PA_BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC)
 }
 
 ExtremeLightweightDetectorQuarantineBranch&
@@ -356,5 +353,3 @@ GetEludQuarantineBranchForLargeObjectsForTesting() {
 }
 
 }  // namespace gwp_asan::internal
-
-#endif  // PA_BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC)

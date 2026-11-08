@@ -70,6 +70,7 @@ import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tabmodel.document.ChromeAsyncTabLauncher;
 import org.chromium.chrome.browser.ui.native_page.NativePage;
+import org.chromium.chrome.browser.util.BrowserUiUtils;
 import org.chromium.chrome.browser.util.ChromeAccessibilityUtil;
 import org.chromium.components.background_task_scheduler.TaskIds;
 import org.chromium.components.download.DownloadState;
@@ -631,14 +632,16 @@ public class DownloadUtils {
         }
         String normalizedMimeType = Intent.normalizeMimeType(req.mMimeType);
 
-        // Sharing for media files is disabled on automotive.
+        // Sharing for media files is disabled on automotive, and external app handlers are
+        // disabled on automotive and AAP.
         boolean isAutomotive = DeviceInfo.isAutomotive();
+        boolean isAutomotiveProjected = BrowserUiUtils.isAndroidAutoProjected(req.mContext);
         Intent intent =
                 MediaViewerUtils.getMediaViewerIntent(
                         /* displayUri= */ fileUri,
                         /* contentUri= */ contentUri,
                         normalizedMimeType,
-                        !isAutomotive,
+                        /* allowExternalAppHandlers= */ !isAutomotive && !isAutomotiveProjected,
                         !isAutomotive,
                         req.mContext);
         if (intent != null) {
@@ -722,9 +725,8 @@ public class DownloadUtils {
         }
         boolean isIncognito = OtrProfileId.isOffTheRecord(otrProfileId);
         // TODO(https://crbug.com/327680567): Ensure the pdf page is opened in the intended window.
-        if (!ChromeFeatureList.isEnabled(ChromeFeatureList.OPEN_DOWNLOAD_IN_PREFERRED_APP)
-                && PdfUtils.shouldOpenPdfInline(isIncognito)
-                && newMimeType.equals(MimeTypeUtils.PDF_MIME_TYPE)) {
+        if (PdfUtils.shouldOpenPdfInline(isIncognito)
+                && MimeTypeUtils.PDF_MIME_TYPE.equalsIgnoreCase(newMimeType)) {
             String fileUri = getUriForItem(filePath).toString();
             String encodedPdfUrl = PdfUtils.encodePdfPageUrl(fileUri);
             assertNonNull(encodedPdfUrl);

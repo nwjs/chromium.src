@@ -14,6 +14,9 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import android.provider.Settings;
+import android.transition.TransitionManager;
+import android.view.Gravity;
 import android.view.Menu;
 import android.view.MotionEvent;
 import android.view.View;
@@ -40,9 +43,11 @@ import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.robolectric.Robolectric;
+import org.robolectric.android.controller.ActivityController;
 import org.robolectric.annotation.Config;
 import org.robolectric.shadows.ShadowLooper;
 
+import org.chromium.base.ContextUtils;
 import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.SettableMonotonicObservableSupplier;
 import org.chromium.base.test.BaseRobolectricTestRunner;
@@ -52,22 +57,25 @@ import org.chromium.chrome.R;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.settings.MultiColumnSettings;
+import org.chromium.chrome.browser.settings.SettingsContainmentHelper;
 import org.chromium.components.browser_ui.settings.search.SettingsIndexData;
 import org.chromium.components.browser_ui.widget.displaystyle.UiConfig;
 import org.chromium.ui.accessibility.AccessibilityState;
 import org.chromium.ui.base.LocalizationUtils;
 import org.chromium.ui.modaldialog.ModalDialogManager;
 
-import java.util.HashMap;
+import java.util.concurrent.TimeUnit;
 
 /** Unit tests for {@link SettingsSearchCoordinator}. */
 @RunWith(BaseRobolectricTestRunner.class)
 public class SettingsSearchCoordinatorUnitTest {
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
 
+    private ActivityController<FragmentActivity> mActivityController;
     private FragmentActivity mActivity;
     private Toolbar mToolbar;
     @Mock private MultiColumnSettings mMultiColumnSettings;
+    @Mock private SettingsContainmentHelper mContainmentHelper;
     @Mock private Profile mProfile;
     @Mock private ModalDialogManager mModalDialogManager;
 
@@ -77,7 +85,8 @@ public class SettingsSearchCoordinatorUnitTest {
 
     @Before
     public void setUp() {
-        mActivity = Robolectric.buildActivity(FragmentActivity.class).create().get();
+        mActivityController = Robolectric.buildActivity(FragmentActivity.class).create();
+        mActivity = mActivityController.get();
         mActivity.setTheme(R.style.Theme_Chromium_Settings);
 
         FrameLayout rootView = new FrameLayout(mActivity);
@@ -122,7 +131,7 @@ public class SettingsSearchCoordinatorUnitTest {
                 mToolbar,
                 this::isTwoColumnSettingsVisible,
                 mMultiColumnSettings,
-                new HashMap<>(),
+                mContainmentHelper,
                 mProfile,
                 (index) -> {},
                 modalDialogSupplier,
@@ -143,6 +152,11 @@ public class SettingsSearchCoordinatorUnitTest {
 
     @After
     public void tearDown() {
+        Settings.Global.putFloat(
+                ContextUtils.getApplicationContext().getContentResolver(),
+                Settings.Global.ANIMATOR_DURATION_SCALE,
+                1f);
+        AccessibilityState.setDelegateForTesting(null);
         LocalizationUtils.setRtlForTesting(false);
         SettingsIndexData.reset();
         // Avoid runnable pollution between tests.
@@ -1149,5 +1163,377 @@ public class SettingsSearchCoordinatorUnitTest {
 
         assertEquals(View.VISIBLE, searchBox.getVisibility());
         assertEquals(View.GONE, queryContainer.getVisibility());
+    }
+
+    @Test
+    @DisableFeatures(ChromeFeatureList.SETTINGS_SEARCH_COLLAPSIBLE_SEARCH_BOX)
+    public void testSearchLensButton_whenCollapsibleSearchBoxDisabled_isNotInflated() {
+        setUpMultiColumnSettings();
+        mUseMultiColumn = false;
+        when(mMultiColumnSettings.isLayoutOpen()).thenReturn(false);
+
+        mCoordinator.initializeSearchUi(null);
+        ShadowLooper.idleMainLooper();
+
+        assertNull(mActivity.findViewById(R.id.search_lens_button));
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.SETTINGS_SEARCH_COLLAPSIBLE_SEARCH_BOX)
+    public void testClickSearchLensButton_onlyEntersSearchStateWhenIntendedVisible() {
+        SettingsIndexData.createInstance().resetNeedsIndexing();
+        setUpMultiColumnSettings();
+        mUseMultiColumn = false;
+        when(mMultiColumnSettings.isLayoutOpen()).thenReturn(false);
+
+        mCoordinator.initializeSearchUi(null);
+        ShadowLooper.idleMainLooper();
+
+        View searchBox = mActivity.findViewById(R.id.search_box);
+        View lensButton = mActivity.findViewById(R.id.search_lens_button);
+        View queryContainer = mActivity.findViewById(R.id.search_query_container);
+        assertNotNull(lensButton);
+        assertEquals(View.GONE, lensButton.getVisibility());
+        assertFalse(mCoordinator.isSearchLensButtonVisibleForTesting());
+        assertEquals(
+                Gravity.END | Gravity.CENTER_VERTICAL,
+                ((Toolbar.LayoutParams) lensButton.getLayoutParams()).gravity);
+        assertEquals(
+                mActivity.getString(R.string.search_in_settings_hint), lensButton.getTooltipText());
+
+        // Clicking while intended-hidden is ignored even if performClick() is invoked directly.
+        lensButton.performClick();
+        ShadowLooper.idleMainLooper();
+        assertFalse(mCoordinator.isSearchOpen());
+        assertEquals(View.VISIBLE, searchBox.getVisibility());
+        assertEquals(View.GONE, queryContainer.getVisibility());
+
+        // Showing makes intended visibility true.
+        mCoordinator.setSearchLensButtonVisible(/* visible= */ true);
+        assertTrue(mCoordinator.isSearchLensButtonVisibleForTesting());
+        assertEquals(View.VISIBLE, lensButton.getVisibility());
+
+        mCoordinator.setSearchLensButtonVisible(/* visible= */ false);
+        assertFalse(mCoordinator.isSearchLensButtonVisibleForTesting());
+        assertEquals(View.GONE, lensButton.getVisibility());
+
+        mCoordinator.setSearchLensButtonVisible(/* visible= */ true);
+        assertTrue(mCoordinator.isSearchLensButtonVisibleForTesting());
+        assertEquals(View.VISIBLE, lensButton.getVisibility());
+
+        lensButton.performClick();
+        ShadowLooper.idleMainLooper();
+
+        assertEquals(View.GONE, searchBox.getVisibility());
+        assertEquals(View.VISIBLE, queryContainer.getVisibility());
+        assertTrue(mCoordinator.isSearchOpen());
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.SETTINGS_SEARCH_COLLAPSIBLE_SEARCH_BOX)
+    public void testSetSearchLensButtonVisible_updatesVisibilityAndNoOpsWhenUnchanged() {
+        setUpMultiColumnSettings();
+        mUseMultiColumn = false;
+        when(mMultiColumnSettings.isLayoutOpen()).thenReturn(false);
+
+        mCoordinator.initializeSearchUi(null);
+        ShadowLooper.idleMainLooper();
+
+        View lensButton = mActivity.findViewById(R.id.search_lens_button);
+        assertEquals(View.GONE, lensButton.getVisibility());
+        assertFalse(mCoordinator.isSearchLensButtonVisibleForTesting());
+        assertNull(mCoordinator.getSearchLensButtonFadeTransitionForTesting());
+
+        // Calling with the current visibility state is a no-op and does not inflate the transition.
+        mCoordinator.setSearchLensButtonVisible(/* visible= */ false);
+        assertEquals(View.GONE, lensButton.getVisibility());
+        assertFalse(mCoordinator.isSearchLensButtonVisibleForTesting());
+        assertNull(mCoordinator.getSearchLensButtonFadeTransitionForTesting());
+
+        // Show updates visibility and inflates the transition.
+        mCoordinator.setSearchLensButtonVisible(/* visible= */ true);
+        assertNotNull(mCoordinator.getSearchLensButtonFadeTransitionForTesting());
+        assertTrue(mCoordinator.isSearchLensButtonVisibleForTesting());
+        assertEquals(View.VISIBLE, lensButton.getVisibility());
+
+        // Calling with the current visibility state (true) is a no-op.
+        mCoordinator.setSearchLensButtonVisible(/* visible= */ true);
+        assertTrue(mCoordinator.isSearchLensButtonVisibleForTesting());
+        assertEquals(View.VISIBLE, lensButton.getVisibility());
+
+        // Hide updates visibility back to GONE.
+        mCoordinator.setSearchLensButtonVisible(/* visible= */ false);
+        assertFalse(mCoordinator.isSearchLensButtonVisibleForTesting());
+        assertEquals(View.GONE, lensButton.getVisibility());
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.SETTINGS_SEARCH_COLLAPSIBLE_SEARCH_BOX)
+    public void testSetSearchLensButtonVisible_reverseDuringFadeOut_endsVisible() {
+        SettingsIndexData.createInstance().resetNeedsIndexing();
+        // Attach the activity window so laid-out views have a valid WindowId (required by
+        // android.transition.Transition#pause and #forceToEnd when matching running animators).
+        View decor = mActivity.getWindow().getDecorView();
+        mActivity.getWindowManager().addView(decor, mActivity.getWindow().getAttributes());
+        try {
+            setUpMultiColumnSettings();
+            mUseMultiColumn = false;
+            when(mMultiColumnSettings.isLayoutOpen()).thenReturn(false);
+
+            mCoordinator.initializeSearchUi(null);
+            ShadowLooper.idleMainLooper();
+
+            View rootView = mActivity.findViewById(R.id.settings_activity);
+            int widthSpec = View.MeasureSpec.makeMeasureSpec(1000, View.MeasureSpec.EXACTLY);
+            int heightSpec = View.MeasureSpec.makeMeasureSpec(600, View.MeasureSpec.EXACTLY);
+            rootView.measure(widthSpec, heightSpec);
+            rootView.layout(0, 0, 1000, 600);
+            assertNotNull(mToolbar.getWindowId());
+
+            View lensButton = mActivity.findViewById(R.id.search_lens_button);
+            mCoordinator.setSearchLensButtonVisible(/* visible= */ true);
+            mToolbar.getViewTreeObserver().dispatchOnPreDraw();
+            ShadowLooper.idleMainLooper(1, TimeUnit.SECONDS);
+            rootView.measure(widthSpec, heightSpec);
+            rootView.layout(0, 0, 1000, 600);
+            assertEquals(View.VISIBLE, lensButton.getVisibility());
+            assertTrue(mCoordinator.isSearchLensButtonVisibleForTesting());
+
+            // 1. Start an animated fade-out and dispatch pre-draw so Visibility.onDisappear begins
+            // the fade-out animation (keeping transition-visibility VISIBLE until the fade ends).
+            mCoordinator.setSearchLensButtonVisible(/* visible= */ false);
+            mToolbar.getViewTreeObserver().dispatchOnPreDraw();
+            assertFalse(mCoordinator.isSearchLensButtonVisibleForTesting());
+            assertEquals(View.VISIBLE, lensButton.getVisibility());
+
+            // Clicking during the fade-out window must not enter search because the intended state
+            // is hidden.
+            lensButton.performClick();
+            assertFalse(mCoordinator.isSearchOpen());
+
+            // Reverse with an animated show mid-fade-out -> must end VISIBLE after the fade
+            // duration elapses.
+            mCoordinator.setSearchLensButtonVisible(/* visible= */ true);
+            mToolbar.getViewTreeObserver().dispatchOnPreDraw();
+            ShadowLooper.idleMainLooper(1, TimeUnit.SECONDS);
+            assertTrue(mCoordinator.isSearchLensButtonVisibleForTesting());
+            assertEquals(View.VISIBLE, lensButton.getVisibility());
+
+            // 2. Start another animated fade-out, enable reduced motion, and reverse with
+            // setSearchLensButtonVisible(true) -> endTransitions(mActionBar) forces the fade-out
+            // to end immediately so the button is set to VISIBLE without animation.
+            mCoordinator.setSearchLensButtonVisible(/* visible= */ false);
+            mToolbar.getViewTreeObserver().dispatchOnPreDraw();
+            assertFalse(mCoordinator.isSearchLensButtonVisibleForTesting());
+            assertEquals(View.VISIBLE, lensButton.getVisibility());
+
+            var resolver = ContextUtils.getApplicationContext().getContentResolver();
+            Settings.Global.putFloat(resolver, Settings.Global.ANIMATOR_DURATION_SCALE, 0f);
+            AccessibilityState.setDelegateForTesting(null);
+            assertTrue(AccessibilityState.prefersReducedMotion());
+
+            mCoordinator.setSearchLensButtonVisible(/* visible= */ true);
+            ShadowLooper.idleMainLooper(1, TimeUnit.SECONDS);
+            assertTrue(mCoordinator.isSearchLensButtonVisibleForTesting());
+            assertEquals(View.VISIBLE, lensButton.getVisibility());
+        } finally {
+            TransitionManager.endTransitions(mToolbar);
+            mActivity.getWindowManager().removeViewImmediate(decor);
+        }
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.SETTINGS_SEARCH_COLLAPSIBLE_SEARCH_BOX)
+    public void testSetSearchLensButtonVisible_prefersReducedMotion_skipsTransition() {
+        setUpMultiColumnSettings();
+        mUseMultiColumn = false;
+        when(mMultiColumnSettings.isLayoutOpen()).thenReturn(false);
+
+        mCoordinator.initializeSearchUi(null);
+        ShadowLooper.idleMainLooper();
+
+        View lensButton = mActivity.findViewById(R.id.search_lens_button);
+        var resolver = ContextUtils.getApplicationContext().getContentResolver();
+        Settings.Global.putFloat(resolver, Settings.Global.ANIMATOR_DURATION_SCALE, 0f);
+        AccessibilityState.setDelegateForTesting(null);
+        assertTrue(AccessibilityState.prefersReducedMotion());
+
+        mCoordinator.setSearchLensButtonVisible(/* visible= */ true);
+        assertEquals(View.VISIBLE, lensButton.getVisibility());
+        assertTrue(mCoordinator.isSearchLensButtonVisibleForTesting());
+        assertNull(mCoordinator.getSearchLensButtonFadeTransitionForTesting());
+
+        mCoordinator.setSearchLensButtonVisible(/* visible= */ false);
+        assertEquals(View.GONE, lensButton.getVisibility());
+        assertFalse(mCoordinator.isSearchLensButtonVisibleForTesting());
+        assertNull(mCoordinator.getSearchLensButtonFadeTransitionForTesting());
+
+        // Once reduced motion is turned off, setSearchLensButtonVisible inflates the fade
+        // transition.
+        Settings.Global.putFloat(resolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f);
+        AccessibilityState.setDelegateForTesting(null);
+        assertFalse(AccessibilityState.prefersReducedMotion());
+
+        mCoordinator.setSearchLensButtonVisible(/* visible= */ true);
+        assertNotNull(mCoordinator.getSearchLensButtonFadeTransitionForTesting());
+        assertEquals(View.VISIBLE, lensButton.getVisibility());
+        mCoordinator.setSearchLensButtonVisible(/* visible= */ false);
+        assertEquals(View.GONE, lensButton.getVisibility());
+    }
+
+    /**
+     * Regression test for crbug.com/572594190: exitSearchState() called from onTitleUpdated()
+     * during FragmentLifecycleCallbacks.onFragmentResumed() must not throw
+     * IllegalStateException("FragmentManager is already executing transactions").
+     */
+    @Test
+    public void testOnTitleUpdated_duringFragmentTransaction_doesNotCrash() {
+        SettingsIndexData.createInstance().resetNeedsIndexing();
+        setUpMultiColumnSettings();
+        mUseMultiColumn = false;
+        mActivityController.start().resume();
+
+        FragmentManager fragmentManager = mActivity.getSupportFragmentManager();
+        // Mimic MultiColumnSettings.FragmentTracker calling onTitleUpdated() from
+        // onFragmentResumed() while FragmentManager is executing transactions.
+        fragmentManager.registerFragmentLifecycleCallbacks(
+                new FragmentManager.FragmentLifecycleCallbacks() {
+                    @Override
+                    public void onFragmentResumed(FragmentManager fm, Fragment f) {
+                        mCoordinator.onTitleUpdated();
+                    }
+                },
+                /* recursive= */ false);
+
+        mCoordinator = createCoordinator(/* shownInTab= */ true);
+        mCoordinator.initializeSearchUi(null);
+        ShadowLooper.idleMainLooper();
+
+        // Enter search and display results (un-backstacked RESULT_FRAGMENT replaces EMPTY_FRAGMENT
+        // on back stack entry #0).
+        View searchBox = mActivity.findViewById(R.id.search_box);
+        searchBox.performClick();
+        fragmentManager.executePendingTransactions();
+        ShadowLooper.idleMainLooper();
+
+        var entry =
+                new SettingsIndexData.Entry.Builder(
+                                "sign_out_id", "sign_out_key", "Sign out", "ManageSyncSettings")
+                        .build();
+        var results = new SettingsIndexData.SearchResults();
+        results.addItem(entry, 100);
+        mCoordinator.displayResultsFragment(results);
+        fragmentManager.executePendingTransactions();
+        ShadowLooper.idleMainLooper();
+
+        // Pop the initial search back stack entry so backStackEntryCount becomes 0 while
+        // RESULT_FRAGMENT is still attached, then push and pop a fragment so onFragmentResumed()
+        // fires with backStackEntryCount == 0 while FragmentManager is executing transactions.
+        fragmentManager.popBackStackImmediate();
+        mCoordinator.setFragmentState(SettingsSearchCoordinator.FS_RESULTS);
+        fragmentManager
+                .beginTransaction()
+                .replace(R.id.preferences_detail, new TestDetailFragment())
+                .addToBackStack(SettingsSearchCoordinator.RESULT_BACKSTACK)
+                .setReorderingAllowed(true)
+                .commit();
+        fragmentManager.executePendingTransactions();
+
+        // Popping triggers SearchResultsPreferenceFragment.onFragmentResumed() ->
+        // mCoordinator.onTitleUpdated() -> exitSearchState() while FragmentManager is executing
+        // transactions.
+        fragmentManager.popBackStackImmediate();
+        ShadowLooper.idleMainLooper();
+
+        assertFalse(mCoordinator.isSearchOpen());
+        assertNull(fragmentManager.findFragmentByTag(SettingsSearchCoordinator.RESULT_FRAGMENT));
+    }
+
+    /**
+     * Regression test for crbug.com/572594190: When a result fragment opened from search finishes
+     * itself (e.g. ManageSyncSettings calling finishCurrentSettings() on sign-out) in single-column
+     * mode on a tablet, SettingsSearchCoordinator must return to FS_SEARCH, restore the search
+     * query bar, and cleanly exit search on the next back action.
+     */
+    @Test
+    public void
+            testResultFragmentFinishesItself_inSingleColumnMode_returnsToSearchAndExitsCleanly() {
+        SettingsIndexData.createInstance().resetNeedsIndexing();
+        setUpMultiColumnSettings();
+        mUseMultiColumn = false;
+        mActivityController.start().resume();
+
+        FragmentManager fragmentManager = mActivity.getSupportFragmentManager();
+        fragmentManager.registerFragmentLifecycleCallbacks(
+                new FragmentManager.FragmentLifecycleCallbacks() {
+                    @Override
+                    public void onFragmentResumed(FragmentManager fm, Fragment f) {
+                        mCoordinator.onTitleUpdated();
+                    }
+                },
+                /* recursive= */ false);
+
+        mCoordinator = createCoordinator(/* shownInTab= */ true);
+        mCoordinator.initializeSearchUi(null);
+        ShadowLooper.idleMainLooper();
+
+        // 1. Enter search state and display search results in single-column mode.
+        View searchBox = mActivity.findViewById(R.id.search_box);
+        View queryContainer = mActivity.findViewById(R.id.search_query_container);
+        searchBox.performClick();
+        fragmentManager.executePendingTransactions();
+        ShadowLooper.idleMainLooper();
+
+        var entry =
+                new SettingsIndexData.Entry.Builder(
+                                "sign_out_id",
+                                "sign_out_key",
+                                "Sign out",
+                                TestDetailFragment.class.getName())
+                        .build();
+        var results = new SettingsIndexData.SearchResults();
+        results.addItem(entry, 100);
+        mCoordinator.displayResultsFragment(results);
+        fragmentManager.executePendingTransactions();
+        ShadowLooper.idleMainLooper();
+
+        SearchResultsPreferenceFragment resultsFragment =
+                (SearchResultsPreferenceFragment)
+                        fragmentManager.findFragmentByTag(
+                                SettingsSearchCoordinator.RESULT_FRAGMENT);
+        assertNotNull(resultsFragment);
+
+        // 2. Open the result fragment (simulating tapping "Sign out" in search results).
+        fragmentManager
+                .beginTransaction()
+                .replace(R.id.preferences_detail, new TestDetailFragment())
+                .addToBackStack(SettingsSearchCoordinator.RESULT_BACKSTACK)
+                .setReorderingAllowed(true)
+                .commit();
+        fragmentManager.executePendingTransactions();
+        mCoordinator.setFragmentState(SettingsSearchCoordinator.FS_RESULTS);
+        queryContainer.setVisibility(View.GONE);
+        assertTrue(mCoordinator.shouldShowNavigationIcon());
+
+        // 3. Simulate the result fragment finishing itself (e.g. ManageSyncSettings on sign-out
+        // calling finishCurrentSettings(), which pops the back stack directly).
+        fragmentManager.popBackStack();
+        fragmentManager.executePendingTransactions();
+        ShadowLooper.idleMainLooper();
+
+        // Search UI should return to FS_SEARCH: query container visible and toolbar navigation
+        // back arrow hidden.
+        assertTrue(mCoordinator.isSearchOpen());
+        assertEquals(View.VISIBLE, queryContainer.getVisibility());
+        assertFalse(mCoordinator.shouldShowNavigationIcon());
+
+        // 4. Pressing back now should exit search cleanly and remove RESULT_FRAGMENT.
+        assertTrue(mCoordinator.handleBackAction());
+        fragmentManager.executePendingTransactions();
+        ShadowLooper.idleMainLooper();
+
+        assertFalse(mCoordinator.isSearchOpen());
+        assertEquals(View.GONE, queryContainer.getVisibility());
+        assertNull(fragmentManager.findFragmentByTag(SettingsSearchCoordinator.RESULT_FRAGMENT));
     }
 }

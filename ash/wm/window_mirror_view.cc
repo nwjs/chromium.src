@@ -75,7 +75,7 @@ void DeleteNode(ui::Layer* node) {
 void ExcludeShadowContainer(ui::Layer* root, ui::Layer* shadow_layer) {
   std::vector<ui::Layer*> to_remove;
   for (ui::Layer* child : root->children()) {
-    if (child->name() == "Shadow Parent Container" ||
+    if (child->name() == "Decoration-Shadow:Container" ||
         (shadow_layer && child->bounds() == shadow_layer->bounds() &&
          (child->bounds().x() < 0 || child->bounds().y() < 0))) {
       to_remove.push_back(child);
@@ -226,9 +226,11 @@ void WindowMirrorView::InitLayerOwner() {
   }
 
   if (exclude_shadow_) {
-    ui::Shadow* shadow = ::wm::ShadowController::GetShadowForWindow(source_);
-    ExcludeShadowContainer(layer_owner_->root(),
-                           shadow ? shadow->layer() : nullptr);
+    ui::Decoration* shadow_decoration =
+        ::wm::ShadowController::GetShadowDecorationForWindow(source_);
+    ExcludeShadowContainer(
+        layer_owner_->root(),
+        shadow_decoration ? shadow_decoration->layer() : nullptr);
   }
 
   DeprecatedLayoutImmediately();

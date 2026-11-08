@@ -35,7 +35,6 @@
 #include "base/metrics/field_trial.h"
 #include "base/metrics/field_trial_params.h"
 #include "base/metrics/histogram_functions.h"
-#include "base/metrics/histogram_macros.h"
 #include "base/notreached.h"
 #include "base/observer_list.h"
 #include "base/process/process.h"
@@ -2553,15 +2552,11 @@ void RenderFrameImpl::NotifyResourceResponseReceived(
     network::mojom::URLResponseHeadPtr response_head,
     network::mojom::RequestDestination request_destination,
     bool is_ad_resource) {
-  if (!blink::IsRequestDestinationFrame(request_destination)) {
-    bool notify = ShouldNotifySubresourceResponseStarted(
-        GetWebView()->GetRendererPreferences());
-    UMA_HISTOGRAM_BOOLEAN(
-        "Renderer.ReduceSubresourceResponseIPC.DidNotifyBrowser", notify);
-    if (notify) {
-      GetFrameHost()->SubresourceResponseStarted(final_response_url,
-                                                 response_head->cert_status);
-    }
+  if (!blink::IsRequestDestinationFrame(request_destination) &&
+      ShouldNotifySubresourceResponseStarted(
+          GetWebView()->GetRendererPreferences())) {
+    GetFrameHost()->SubresourceResponseStarted(final_response_url,
+                                               response_head->cert_status);
   }
   DidStartResponse(final_response_url, request_id, std::move(response_head),
                    request_destination, is_ad_resource);
@@ -5198,14 +5193,11 @@ RenderFrameImpl::MakeDidCommitProvisionalLoadParams(
   params->post_id = -1;
   params->embedding_token = embedding_token;
 
-  // Pass the navigation token back to the browser process, or generate a new
-  // one if this navigation is committing without the browser process asking for
-  // it.
-  // TODO(clamy): We should add checks on navigations that commit without having
-  // been asked to commit by the browser process.
-  params->navigation_token = navigation_state->commit_params().navigation_token;
-  if (params->navigation_token.is_empty()) {
-    params->navigation_token = base::UnguessableToken::Create();
+  // Pass the navigation token back to the browser process if this navigation
+  // was asked to commit by the browser process.
+  if (!navigation_state->IsForSynchronousCommit()) {
+    params->navigation_token =
+        navigation_state->commit_params().navigation_token;
   }
 
   // "Standard" commits from Blink create new NavigationEntries. We also treat
@@ -5346,7 +5338,6 @@ RenderFrameImpl::MakeDidCommitProvisionalLoadParams(
     params->history_list_was_cleared = false;
   }
 
-  bool requires_universal_access = false;
   const bool file_scheme_with_universal_access =
       params->origin.scheme() == url::kFileScheme &&
       GetBlinkPreferences().allow_universal_access_from_file_urls;
@@ -5364,14 +5355,7 @@ RenderFrameImpl::MakeDidCommitProvisionalLoadParams(
         SCOPED_CRASH_KEY_STRING256("MakeDCPLParams", "mismatched_origin",
                                    params->origin.GetDebugString());
         NOTREACHED() << " url:" << params->url << " origin:" << params->origin;
-      } else {
-        requires_universal_access = true;
       }
-    }
-    if (file_scheme_with_universal_access) {
-      base::UmaHistogramBoolean(
-          "Android.WebView.UniversalAccess.OriginUrlMismatchInRenderFrame",
-          requires_universal_access);
     }
   }
   params->request_id = document_state->request_id();

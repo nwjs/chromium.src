@@ -4,18 +4,24 @@
 
 #include "third_party/blink/renderer/core/svg/svg_element.h"
 
+#include "third_party/blink/renderer/core/css/css_style_declaration.h"
 #include "third_party/blink/renderer/core/css/css_test_helpers.h"
 #include "third_party/blink/renderer/core/css/properties/longhands.h"
+#include "third_party/blink/renderer/core/css/resolver/style_resolver_stats.h"
+#include "third_party/blink/renderer/core/css/style_engine.h"
 #include "third_party/blink/renderer/core/dom/events/native_event_listener.h"
 #include "third_party/blink/renderer/core/dom/shadow_root.h"
 #include "third_party/blink/renderer/core/event_type_names.h"
+#include "third_party/blink/renderer/core/frame/settings.h"
 #include "third_party/blink/renderer/core/html/html_element.h"
+#include "third_party/blink/renderer/core/script/classic_script.h"
 #include "third_party/blink/renderer/core/svg/svg_element_rare_data.h"
 #include "third_party/blink/renderer/core/svg/svg_length.h"
 #include "third_party/blink/renderer/core/svg/svg_length_context.h"
 #include "third_party/blink/renderer/core/svg/svg_length_functions.h"
 #include "third_party/blink/renderer/core/svg/svg_use_element.h"
 #include "third_party/blink/renderer/core/testing/page_test_base.h"
+#include "third_party/blink/renderer/platform/bindings/exception_state.h"
 #include "third_party/blink/renderer/platform/testing/runtime_enabled_features_test_helpers.h"
 
 namespace blink {
@@ -30,6 +36,313 @@ class SVGTestEventListener : public NativeEventListener {
 }  // namespace
 
 class SVGElementTest : public PageTestBase {};
+
+class SVGIncrementalStyleTest : public PageTestBase,
+                                public testing::WithParamInterface<bool> {
+ public:
+  SVGIncrementalStyleTest() : incremental_style_(GetParam()) {}
+
+ private:
+  ScopedSvgIncrementalStyleForTest incremental_style_;
+};
+
+INSTANTIATE_TEST_SUITE_P(All, SVGIncrementalStyleTest, testing::Bool());
+
+TEST_P(SVGIncrementalStyleTest, IncrementalStyleInternals) {
+  SetBodyInnerHTML(R"HTML(
+    <svg><rect id="rect" x="10" style="opacity: 0.5"/></svg>
+  )HTML");
+  UpdateAllLifecyclePhasesForTest();
+  Element* rect = GetElementById("rect");
+  GetDocument().GetSettings()->SetScriptEnabled(true);
+  StyleEngine& style_engine = GetDocument().GetStyleEngine();
+  style_engine.SetStatsEnabled(true);
+
+  ASSERT_TRUE(rect->GetComputedStyle());
+  EXPECT_EQ(0.5f, rect->GetComputedStyle()->Opacity());
+
+  ClassicScript::CreateUnspecifiedScript(
+      "document.getElementById('rect').style.opacity = '0.75';")
+      ->RunScript(GetDocument().domWindow());
+  EXPECT_EQ(kIndependentStyleChange, rect->GetStyleChangeType());
+  GetDocument().Lifecycle().AdvanceTo(DocumentLifecycle::kInStyleRecalc);
+  style_engine.RecalcStyle();
+  GetDocument().Lifecycle().AdvanceTo(DocumentLifecycle::kStyleClean);
+
+  ASSERT_TRUE(rect->GetComputedStyle());
+  EXPECT_EQ(0.75f, rect->GetComputedStyle()->Opacity());
+  ASSERT_TRUE(style_engine.Stats());
+  EXPECT_EQ(GetParam() ? 1u : 0u,
+            style_engine.Stats()->svg_presentation_attribute_styles_used);
+
+  style_engine.Stats()->svg_presentation_attribute_styles_used = 0;
+  ClassicScript::CreateUnspecifiedScript(
+      "document.getElementById('rect').setAttribute('x', '30');")
+      ->RunScript(GetDocument().domWindow());
+  EXPECT_EQ(GetParam() ? kIndependentStyleChange : kLocalStyleChange,
+            rect->GetStyleChangeType());
+  GetDocument().Lifecycle().AdvanceTo(DocumentLifecycle::kInStyleRecalc);
+  style_engine.RecalcStyle();
+  GetDocument().Lifecycle().AdvanceTo(DocumentLifecycle::kStyleClean);
+
+  ASSERT_TRUE(rect->GetComputedStyle());
+  EXPECT_EQ(Length::Fixed(30), rect->GetComputedStyle()->X());
+  EXPECT_EQ(GetParam() ? 1u : 0u,
+            style_engine.Stats()->svg_presentation_attribute_styles_used);
+}
+
+TEST_P(SVGIncrementalStyleTest, IncrementalStyleWithAdjustedInputs) {
+  SetBodyInnerHTML(R"HTML(
+    <style>
+      #position { position: absolute; }
+      #text, #foreign { display: inline-block; }
+      .appearance { appearance: button; }
+      #unchanged { display: block; }
+      .relative { position: relative; }
+      .relative_zindex { position: relative; z-index: 1; }
+      #sticky { position: sticky; }
+      #static_zindex { z-index: 1; }
+      #outer_relative { position: relative; }
+    </style>
+    <svg><g style="text-decoration: underline">
+      <rect id="position" opacity="0.5" style="opacity: 0.5"/>
+      <text id="text" opacity="0.5" style="opacity: 0.5">Text</text>
+      <foreignObject id="foreign" opacity="0.5" style="opacity: 0.5"/>
+      <rect id="appearance" class="appearance"
+            opacity="0.5" style="opacity: 0.5"/>
+      <rect id="unchanged" opacity="0.5" style="opacity: 0.5"/>
+      <rect id="default" opacity="0.5" style="opacity: 0.5"/>
+      <rect id="relative" class="relative"
+            opacity="0.5" style="opacity: 0.5"/>
+      <rect id="relative_cached" class="relative"
+            opacity="0.5" style="opacity: 0.5"/>
+      <rect id="relative_zindex" class="relative_zindex"
+            opacity="0.5" style="opacity: 0.5"/>
+      <rect id="relative_zindex_cached" class="relative_zindex"
+            opacity="0.5" style="opacity: 0.5"/>
+      <rect id="sticky" opacity="0.5" style="opacity: 0.5"/>
+      <rect id="static_zindex" opacity="0.5" style="opacity: 0.5"/>
+    </g></svg>
+    <svg id="outer" opacity="0.5" style="opacity: 0.5"></svg>
+    <svg id="outer_relative" opacity="0.5" style="opacity: 0.5"></svg>
+  )HTML");
+  UpdateAllLifecyclePhasesForTest();
+  StyleEngine& style_engine = GetDocument().GetStyleEngine();
+  style_engine.SetStatsEnabled(true);
+  ASSERT_TRUE(style_engine.Stats());
+
+  const struct {
+    const char* id;
+    bool incremental;
+  } cases[] = {{"position", true},        {"text", true},
+               {"foreign", true},         {"appearance", false},
+               {"unchanged", true},       {"default", true},
+               {"relative", true},        {"relative_cached", true},
+               {"relative_zindex", true}, {"relative_zindex_cached", true},
+               {"sticky", true},          {"static_zindex", true},
+               {"outer", true},           {"outer_relative", true}};
+  for (const auto& test : cases) {
+    SCOPED_TRACE(test.id);
+    Element* element = GetElementById(test.id);
+    const ComputedStyle* original = element->GetComputedStyle();
+    ASSERT_TRUE(original);
+    EXPECT_FALSE(original->HasIncrementalStyleBlocker());
+    for (float opacity : {0.75f, 0.25f}) {
+      style_engine.Stats()->svg_presentation_attribute_styles_used = 0;
+      element->style()->setProperty(GetDocument().GetExecutionContext(),
+                                    "opacity", String::Number(opacity), "",
+                                    ASSERT_NO_EXCEPTION);
+      EXPECT_EQ(kIndependentStyleChange, element->GetStyleChangeType());
+      GetDocument().Lifecycle().AdvanceTo(DocumentLifecycle::kInStyleRecalc);
+      style_engine.RecalcStyle();
+      GetDocument().Lifecycle().AdvanceTo(DocumentLifecycle::kStyleClean);
+
+      const ComputedStyle* updated = element->GetComputedStyle();
+      ASSERT_TRUE(updated);
+      EXPECT_EQ(opacity, updated->Opacity());
+      EXPECT_EQ(original->Display(), updated->Display());
+      EXPECT_EQ(original->BaseTextDecorationData(),
+                updated->BaseTextDecorationData());
+      ComputedStyleBuilder expected(*original);
+      expected.SetOpacity(opacity);
+      EXPECT_TRUE(*expected.TakeStyle() == *updated);
+      EXPECT_EQ(GetParam() && test.incremental ? 1u : 0u,
+                style_engine.Stats()->svg_presentation_attribute_styles_used);
+    }
+  }
+}
+
+TEST_P(SVGIncrementalStyleTest, IncrementalStyleCombinedMutation) {
+  SetBodyInnerHTML(R"HTML(
+    <svg><rect id="rect" x="10" style="opacity: 0.5"/></svg>
+  )HTML");
+  UpdateAllLifecyclePhasesForTest();
+  Element* rect = GetElementById("rect");
+  GetDocument().GetSettings()->SetScriptEnabled(true);
+  StyleEngine& style_engine = GetDocument().GetStyleEngine();
+  style_engine.SetStatsEnabled(true);
+
+  ASSERT_TRUE(rect->GetComputedStyle());
+  EXPECT_EQ(0.5f, rect->GetComputedStyle()->Opacity());
+  EXPECT_EQ(Length::Fixed(10), rect->GetComputedStyle()->X());
+
+  ClassicScript::CreateUnspecifiedScript(R"JS(
+    const rect = document.getElementById('rect');
+    rect.style.opacity = '0.75';
+    rect.setAttribute('x', '30');
+  )JS")
+      ->RunScript(GetDocument().domWindow());
+  EXPECT_EQ(GetParam() ? kIndependentStyleChange : kLocalStyleChange,
+            rect->GetStyleChangeType());
+  GetDocument().Lifecycle().AdvanceTo(DocumentLifecycle::kInStyleRecalc);
+  style_engine.RecalcStyle();
+  GetDocument().Lifecycle().AdvanceTo(DocumentLifecycle::kStyleClean);
+
+  ASSERT_TRUE(rect->GetComputedStyle());
+  EXPECT_EQ(0.75f, rect->GetComputedStyle()->Opacity());
+  EXPECT_EQ(Length::Fixed(30), rect->GetComputedStyle()->X());
+  ASSERT_TRUE(style_engine.Stats());
+  EXPECT_EQ(GetParam() ? 1u : 0u,
+            style_engine.Stats()->svg_presentation_attribute_styles_used);
+}
+
+TEST_P(SVGIncrementalStyleTest, IncrementalStyleInlineStyleBeatsHint) {
+  SetBodyInnerHTML(R"HTML(
+    <svg><rect id="rect" x="10" style="x: 20px"/></svg>
+  )HTML");
+  UpdateAllLifecyclePhasesForTest();
+  Element* rect = GetElementById("rect");
+  ASSERT_TRUE(rect->GetComputedStyle());
+  ASSERT_EQ(Length::Fixed(20), rect->GetComputedStyle()->X());
+  EXPECT_FALSE(rect->GetComputedStyle()->HasIncrementalStyleBlocker());
+  GetDocument().GetSettings()->SetScriptEnabled(true);
+  StyleEngine& style_engine = GetDocument().GetStyleEngine();
+  style_engine.SetStatsEnabled(true);
+
+  const struct {
+    const char* script;
+    int expected_x;
+  } cases[] = {
+      {"document.getElementById('rect').setAttribute('x', '30');", 20},
+      {R"JS(
+        document.getElementById('rect').style.x = '40px';
+        document.getElementById('rect').setAttribute('x', '50');
+      )JS",
+       40},
+      {R"JS(
+        document.getElementById('rect').setAttribute('x', '60');
+        document.getElementById('rect').style.x = '50px';
+      )JS",
+       50},
+  };
+  for (const auto& test_case : cases) {
+    SCOPED_TRACE(test_case.script);
+    style_engine.Stats()->svg_presentation_attribute_styles_used = 0;
+    ClassicScript::CreateUnspecifiedScript(test_case.script)
+        ->RunScript(GetDocument().domWindow());
+    GetDocument().Lifecycle().AdvanceTo(DocumentLifecycle::kInStyleRecalc);
+    style_engine.RecalcStyle();
+    GetDocument().Lifecycle().AdvanceTo(DocumentLifecycle::kStyleClean);
+
+    ASSERT_TRUE(rect->GetComputedStyle());
+    EXPECT_EQ(Length::Fixed(test_case.expected_x),
+              rect->GetComputedStyle()->X());
+    EXPECT_FALSE(rect->GetComputedStyle()->HasIncrementalStyleBlocker());
+    EXPECT_EQ(GetParam() ? 1u : 0u,
+              style_engine.Stats()->svg_presentation_attribute_styles_used);
+  }
+}
+
+TEST_P(SVGIncrementalStyleTest, IncrementalStyleHintLosingToAuthorRule) {
+  SetBodyInnerHTML(R"HTML(
+    <style>#rect { x: 30px }</style>
+    <svg><rect id="rect" x="10"/></svg>
+  )HTML");
+  UpdateAllLifecyclePhasesForTest();
+  Element* rect = GetElementById("rect");
+  ASSERT_TRUE(rect->GetComputedStyle());
+  ASSERT_EQ(Length::Fixed(30), rect->GetComputedStyle()->X());
+  EXPECT_EQ(GetParam(), rect->GetComputedStyle()->HasIncrementalStyleBlocker());
+  GetDocument().GetSettings()->SetScriptEnabled(true);
+  StyleEngine& style_engine = GetDocument().GetStyleEngine();
+  style_engine.SetStatsEnabled(true);
+
+  ClassicScript::CreateUnspecifiedScript(
+      "document.getElementById('rect').setAttribute('x', '40');")
+      ->RunScript(GetDocument().domWindow());
+  GetDocument().Lifecycle().AdvanceTo(DocumentLifecycle::kInStyleRecalc);
+  style_engine.RecalcStyle();
+  GetDocument().Lifecycle().AdvanceTo(DocumentLifecycle::kStyleClean);
+
+  // The author rule must keep winning; incremental styling must not overwrite
+  // it.
+  ASSERT_TRUE(rect->GetComputedStyle());
+  EXPECT_EQ(Length::Fixed(30), rect->GetComputedStyle()->X());
+  ASSERT_TRUE(style_engine.Stats());
+  EXPECT_EQ(0u, style_engine.Stats()->svg_presentation_attribute_styles_used);
+}
+
+TEST_P(SVGIncrementalStyleTest, IncrementalStyleSkipsUnsupportedHint) {
+  SetBodyInnerHTML(R"HTML(
+    <style>rect { fill: green }</style>
+    <svg><rect id="rect" x="10" fill="red"/></svg>
+  )HTML");
+  UpdateAllLifecyclePhasesForTest();
+  Element* rect = GetElementById("rect");
+  ASSERT_TRUE(rect->GetComputedStyle());
+  EXPECT_FALSE(rect->GetComputedStyle()->HasIncrementalStyleBlocker());
+  EXPECT_EQ(Color(0, 128, 0), rect->GetComputedStyle()->VisitedDependentColor(
+                                  GetCSSPropertyFill()));
+  GetDocument().GetSettings()->SetScriptEnabled(true);
+  StyleEngine& style_engine = GetDocument().GetStyleEngine();
+  style_engine.SetStatsEnabled(true);
+
+  ClassicScript::CreateUnspecifiedScript(
+      "document.getElementById('rect').setAttribute('x', '30');")
+      ->RunScript(GetDocument().domWindow());
+  GetDocument().Lifecycle().AdvanceTo(DocumentLifecycle::kInStyleRecalc);
+  style_engine.RecalcStyle();
+  GetDocument().Lifecycle().AdvanceTo(DocumentLifecycle::kStyleClean);
+
+  ASSERT_TRUE(rect->GetComputedStyle());
+  EXPECT_EQ(Length::Fixed(30), rect->GetComputedStyle()->X());
+  EXPECT_EQ(Color(0, 128, 0), rect->GetComputedStyle()->VisitedDependentColor(
+                                  GetCSSPropertyFill()));
+  EXPECT_EQ(GetParam() ? 1u : 0u,
+            style_engine.Stats()->svg_presentation_attribute_styles_used);
+}
+
+TEST_P(SVGIncrementalStyleTest, IncrementalStyleBlockedByAnimation) {
+  SetBodyInnerHTML(R"HTML(
+    <style>
+      @keyframes fade { from { opacity: 0.25 } to { opacity: 0.25 } }
+      rect { animation: fade 100s linear infinite paused }
+    </style>
+    <svg><rect id="rect" x="10"/></svg>
+  )HTML");
+  UpdateAllLifecyclePhasesForTest();
+  Element* rect = GetElementById("rect");
+  ASSERT_TRUE(rect->GetElementAnimations());
+  ASSERT_TRUE(rect->GetComputedStyle());
+  EXPECT_FALSE(rect->GetComputedStyle()->HasIncrementalStyleBlocker());
+  EXPECT_EQ(Length::Fixed(10), rect->GetComputedStyle()->X());
+  EXPECT_EQ(0.25f, rect->GetComputedStyle()->Opacity());
+  GetDocument().GetSettings()->SetScriptEnabled(true);
+  StyleEngine& style_engine = GetDocument().GetStyleEngine();
+  style_engine.SetStatsEnabled(true);
+
+  ClassicScript::CreateUnspecifiedScript(
+      "document.getElementById('rect').setAttribute('x', '30');")
+      ->RunScript(GetDocument().domWindow());
+  GetDocument().Lifecycle().AdvanceTo(DocumentLifecycle::kInStyleRecalc);
+  style_engine.RecalcStyle();
+  GetDocument().Lifecycle().AdvanceTo(DocumentLifecycle::kStyleClean);
+
+  ASSERT_TRUE(rect->GetComputedStyle());
+  EXPECT_EQ(Length::Fixed(30), rect->GetComputedStyle()->X());
+  EXPECT_EQ(0.25f, rect->GetComputedStyle()->Opacity());
+  EXPECT_EQ(0u, style_engine.Stats()->svg_presentation_attribute_styles_used);
+}
 
 TEST_F(SVGElementTest, BaseComputedStyleForSMILWithContainerQueries) {
   GetDocument().body()->SetInnerHTMLWithoutTrustedTypes(R"HTML(

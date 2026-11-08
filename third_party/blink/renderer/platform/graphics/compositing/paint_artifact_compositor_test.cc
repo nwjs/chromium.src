@@ -6,8 +6,8 @@
 
 #include <array>
 #include <memory>
+#include <ranges>
 
-#include "base/containers/adapters.h"
 #include "base/memory/ptr_util.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/test/scoped_feature_list.h"
@@ -893,7 +893,7 @@ TEST_P(PaintArtifactCompositorTest, DeeplyNestedClips) {
   // Check the clip nodes.
   const cc::ClipNode* clip_node =
       &GetPropertyTrees().clip_tree().Node(drawing_layer->clip_tree_index());
-  for (const auto& paint_clip_node : base::Reversed(clips)) {
+  for (const auto& paint_clip_node : std::views::reverse(clips)) {
     EXPECT_TRUE(clip_node->AppliesLocalClip());
     EXPECT_EQ(paint_clip_node->PaintClipRect().Rect(), clip_node->clip);
     clip_node = &GetPropertyTrees().clip_tree().Node(clip_node->parent_id);
@@ -5117,12 +5117,12 @@ TEST_P(PaintArtifactCompositorTest, EffectChange) {
   // TODO(wangxianzhu): Probably avoid setting this flag on Effect change.
   EXPECT_TRUE(layer->subtree_property_changed());
   // This is set by cc when propagating ancestor change flag to descendants.
-  EXPECT_TRUE(GetEffectNode(layer).effect_changed);
+  EXPECT_TRUE(GetEffectNode(layer).effect_changed());
   // This is set by PropertyTreeManager.
   EXPECT_TRUE(GetPropertyTrees()
                   .effect_tree()
                   .Node(GetEffectNode(layer).parent_id)
-                  .effect_changed);
+                  .effect_changed());
 
   // Change e2 but not e1.
   layer->ClearSubtreePropertyChangedForTesting();
@@ -5144,11 +5144,11 @@ TEST_P(PaintArtifactCompositorTest, EffectChange) {
   ASSERT_EQ(layer, LayerAt(0));
   // TODO(wangxianzhu): Probably avoid setting this flag on Effect change.
   EXPECT_TRUE(layer->subtree_property_changed());
-  EXPECT_TRUE(GetEffectNode(layer).effect_changed);
+  EXPECT_TRUE(GetEffectNode(layer).effect_changed());
   EXPECT_FALSE(GetPropertyTrees()
                    .effect_tree()
                    .Node(GetEffectNode(layer).parent_id)
-                   .effect_changed);
+                   .effect_changed());
 }
 
 TEST_P(PaintArtifactCompositorTest, DirectlySetScrollOffset) {

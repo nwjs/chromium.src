@@ -231,8 +231,8 @@ using signin_metrics::PromoAction;
                              continuationProvider:
                                  DoNothingContinuationProvider()];
   _addAccountSigninCoordinator.signinCompletion =
-      ^(SigninCoordinator* coordinator, SigninCoordinatorResult result,
-        id<SystemIdentity> completionIdentity) {
+      ^(SigninCoordinator* coordinator,
+        SigninCoordinatorResultOrIdentity result) {
         [weakSelf addAccountToDeviceCompletedWithCoordinator:coordinator];
       };
   [_addAccountSigninCoordinator start];
@@ -357,8 +357,7 @@ using signin_metrics::PromoAction;
 
 - (void)addAccountToDeviceCompletedWithCoordinator:
     (SigninCoordinator*)coordinator {
-  CHECK_EQ(_addAccountSigninCoordinator, coordinator,
-           base::NotFatalUntil::M151);
+  CHECK_EQ(_addAccountSigninCoordinator, coordinator);
   [self stopAddAccountCoordinator];
   if (@available(iOS 26, *)) {
     [_viewController allowUserInteraction];

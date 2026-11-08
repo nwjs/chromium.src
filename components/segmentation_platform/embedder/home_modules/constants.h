@@ -42,6 +42,14 @@ inline constexpr char kIsDefaultBrowserChromeIos[] =
     "is_default_browser_chrome_ios";
 inline constexpr char kNumPriceDropsInShoppingList[] =
     "num_price_drops_in_shopping_list";
+inline constexpr char kLacksNTPBackground[] = "lacks_ntp_background";
+inline constexpr char kNTPBackgroundNotSelectedRecently[] =
+    "ntp_background_not_selected_recently";
+inline constexpr char kNotOptInTipsNotifications[] =
+    "not_opt_in_tips_notifications";
+inline constexpr char kTipsOptInPromptNotReceivedRecently[] =
+    "tips_opt_in_prompt_not_received_recently";
+inline constexpr char kNeverCustomizeNTP[] = "never_customize_ntp";
 
 // Input Context keys for emphemeral android modules.
 const char kIsUserSignedIn[] = "is_user_signed_in";
@@ -92,6 +100,11 @@ inline constexpr char kAppBundlePromoEphemeralModule[] =
     "app_bundle_promo_ephemeral_module";
 inline constexpr char kDefaultBrowserPromoEphemeralModule[] =
     "default_browser_promo_ephemeral_module";
+inline constexpr char kNTPThemeEphemeralModule[] = "ntp_theme_ephemeral_module";
+inline constexpr char kTipsNotificationsEphemeralModule[] =
+    "tips_notifications_ephemeral_module";
+inline constexpr char kNTPCustomizationEphemeralModule[] =
+    "ntp_customization_ephemeral_module";
 
 // Variation labels for emphemeral IOS modules.
 // Lens variation labels

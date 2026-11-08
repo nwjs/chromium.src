@@ -26,7 +26,6 @@
 #include "cc/slim/layer.h"
 #include "chrome/browser/android/background_tab_manager.h"
 #include "chrome/browser/android/compositor/tab_content_manager.h"
-#include "chrome/browser/android/media_state_observer.h"
 #include "chrome/browser/android/selection/chrome_selection_dropdown_menu_delegate.h"
 #include "chrome/browser/android/tab_features.h"
 #include "chrome/browser/android/tab_web_contents_delegate_android.h"
@@ -156,7 +155,7 @@ TabAndroid* TabAndroid::GetNativeTab(JNIEnv* env, const JavaRef<jobject>& obj) {
 
 // static
 void TabAndroid::AttachTabHelpers(content::WebContents* web_contents) {
-  DCHECK(web_contents);
+  CHECK(web_contents, base::NotFatalUntil::M161);
   TabHelpers::AttachTabHelpers(web_contents);
 }
 
@@ -263,11 +262,37 @@ int TabAndroid::GetUserAgent() const {
   return Java_TabImpl_getUserAgent(env, GetJavaObject(env));
 }
 
+content::NavigationController::UserAgentOverrideOption
+TabAndroid::CalculateUserAgentOverrideOption(const GURL& url) const {
+  JNIEnv* env = AttachCurrentThread();
+  auto j_obj = GetJavaObject(env);
+  if (!j_obj) {
+    return content::NavigationController::UA_OVERRIDE_INHERIT;
+  }
+  return Java_TabImpl_calculateUserAgentOverrideOption(env, j_obj, url);
+}
+
 bool TabAndroid::IsNativePage() const {
   JNIEnv* env = AttachCurrentThread();
   return Java_TabImpl_isNativePage(env, GetJavaObject(env));
 }
 
+bool TabAndroid::IsPdf() const {
+  JNIEnv* env = AttachCurrentThread();
+  return Java_TabImpl_isPdf(env, GetJavaObject(env));
+}
+
+std::string TabAndroid::GetCanonicalFilepath() const {
+  JNIEnv* env = AttachCurrentThread();
+  return Java_TabImpl_getCanonicalFilepath(env, GetJavaObject(env));
+}
+
+void TabAndroid::SetPdfNativePageForTesting(const std::string& url,
+                                            const std::string& filepath) {
+  JNIEnv* env = AttachCurrentThread();
+  Java_TabImpl_setPdfNativePageForTesting(  // IN-TEST
+      env, GetJavaObject(env), url, filepath);
+}
 
 bool TabAndroid::IsUserInteractable() const {
   JNIEnv* env = AttachCurrentThread();
@@ -394,20 +419,23 @@ void TabAndroid::InitWebContents(
     const JavaRef<jobject>& jweb_contents_delegate,
     const JavaRef<jobject>& jcontext_menu_populator_factory) {
   web_contents_.reset(web_contents);
-  DCHECK(web_contents_.get());
+  CHECK(web_contents_.get(), base::NotFatalUntil::M161);
 
   night_mode::WebContentsThemeClient::CreateForWebContents(web_contents_.get());
 
-  renderer_preferences_util::UpdateFromSystemSettings(
-      web_contents_->GetMutableRendererPrefs(),
-      Profile::FromBrowserContext(web_contents_->GetBrowserContext()));
+  if (!base::FeatureList::IsEnabled(
+          chrome::android::kClankStartupTabOptimizations)) {
+    renderer_preferences_util::UpdateFromSystemSettings(
+        web_contents_->GetMutableRendererPrefs(),
+        Profile::FromBrowserContext(web_contents_->GetBrowserContext()));
+  }
   web_contents_->SetOwnerLocationForDebug(FROM_HERE);
 
   tabs::TabLookupFromWebContents::CreateForWebContents(web_contents_.get(),
                                                        this);
   web_contents_delegate_ =
       std::make_unique<android::TabWebContentsDelegateAndroid>(
-          env, jweb_contents_delegate);
+          env, jweb_contents_delegate, web_contents_.get());
   web_contents_->SetDelegate(web_contents_delegate_.get());
   web_contents_->SetSelectionPopupDelegate(
       std::make_unique<android::ChromeSelectionDropdownMenuDelegate>());
@@ -460,7 +488,6 @@ void TabAndroid::InitWebContents(
   // Shows a warning notification for dangerous flags in about:flags.
   ShowBadFlagsPrompt(web_contents_.get());
 
-  MediaStateObserver::CreateForWebContents(web_contents_.get());
   if (glic::GlicEnabling::IsProfileEligible(profile())) {
     glic_tab_indicator_helper_ =
         std::make_unique<glic::GlicTabIndicatorHelper>(this);
@@ -469,7 +496,13 @@ void TabAndroid::InitWebContents(
   alert_to_show_subscription_ =
       tab_alert_controller_->AddAlertToShowChangedCallback(base::BindRepeating(
           &TabAndroid::OnAlertStateChanged, base::Unretained(this)));
-  OnAlertStateChanged(tab_alert_controller_->GetAlertToShow());
+  std::optional<tabs::TabAlert> initial_alert =
+      tab_alert_controller_->GetAlertToShow();
+  if (initial_alert.has_value() ||
+      !base::FeatureList::IsEnabled(
+          chrome::android::kClankStartupTabOptimizations)) {
+    OnAlertStateChanged(initial_alert);
+  }
 
   for (Observer& observer : observers_) {
     observer.OnInitWebContents(this);
@@ -519,8 +552,9 @@ void TabAndroid::GetMemoryUsageBytes(
 }
 
 void TabAndroid::InitializeAutofillIfNecessary() {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
-  DCHECK(autofill::AutofillProvider::FromWebContents(web_contents_.get()));
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M161);
+  CHECK(autofill::AutofillProvider::FromWebContents(web_contents_.get()),
+        base::NotFatalUntil::M161);
   if (autofill::ContentAutofillClient::FromWebContents(web_contents_.get())) {
     // We need to initialize the keyboard suppressor before creating any
     // AutofillManagers and after the autofill client is available.
@@ -548,7 +582,7 @@ void TabAndroid::UpdateDelegates(
       ->SetPopulatorFactory(jcontext_menu_populator_factory);
   web_contents_delegate_ =
       std::make_unique<android::TabWebContentsDelegateAndroid>(
-          env, jweb_contents_delegate);
+          env, jweb_contents_delegate, web_contents());
   web_contents()->SetDelegate(web_contents_delegate_.get());
 }
 
@@ -682,7 +716,7 @@ std::unique_ptr<content::WebContents> TabAndroid::ReleaseWebContentsInternal(
 std::unique_ptr<content::WebContents> TabAndroid::TakeWebContentsAndDestroyTab(
     TabAndroid* tab,
     base::PassKey<TabModelJniBridge>) {
-  DCHECK(tab);
+  CHECK(tab, base::NotFatalUntil::M161);
   content::WebContents* raw_contents = tab->web_contents();
   JNIEnv* env = base::android::AttachCurrentThread();
   // WARNING: This call synchronously deletes `tab`. Do not access `tab` after
@@ -710,7 +744,7 @@ void TabAndroid::OnPhysicalBackingSizeChanged(
 
 void TabAndroid::SetActiveNavigationEntryTitleForUrl(const std::string& url,
                                                      std::u16string title) {
-  DCHECK(web_contents());
+  CHECK(web_contents(), base::NotFatalUntil::M161);
 
   content::NavigationEntry* entry =
       web_contents()->GetController().GetVisibleEntry();

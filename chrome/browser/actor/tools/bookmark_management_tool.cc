@@ -120,8 +120,8 @@ BookmarkManagementTool::GetObservationDelayer(
   return nullptr;
 }
 
-tabs::TabHandle BookmarkManagementTool::GetTargetTab() const {
-  return tabs::TabHandle::Null();
+ActorSurfaceHandle BookmarkManagementTool::GetTargetActorSurface() const {
+  return ActorSurfaceHandle::Null();
 }
 
 }  // namespace actor

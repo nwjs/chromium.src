@@ -10,6 +10,7 @@
 #include "cc/input/scroll_snap_data.h"
 #include "cc/input/snap_selection_strategy.h"
 #include "third_party/blink/renderer/core/css/style_change_reason.h"
+#include "third_party/blink/renderer/core/css_value_keywords.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/focus_params.h"
 #include "third_party/blink/renderer/core/event_type_names.h"
@@ -29,8 +30,12 @@
 namespace blink {
 
 PseudoId ScrollButtonPseudoElement::PseudoIdFromScrollButtonArgument(
-    const AtomicString& argument,
+    const AtomicString& raw_argument,
     const ComputedStyle& originating_element_style) {
+  // The selector parser keeps the argument as written (e.g. "UP"), but the
+  // direction keywords are ASCII case-insensitive.
+  const AtomicString argument = raw_argument.ToAsciiLower();
+
   DEFINE_STATIC_LOCAL(AtomicString, wildcard, ("*"));
   DEFINE_STATIC_LOCAL(AtomicString, block_start, ("block-start"));
   DEFINE_STATIC_LOCAL(AtomicString, inline_start, ("inline-start"));
@@ -77,6 +82,29 @@ PseudoId ScrollButtonPseudoElement::PseudoIdFromScrollButtonArgument(
   }
   CHECK(mapping.BlockEnd());
   return kPseudoIdScrollButtonBlockEnd;
+}
+
+// static
+AtomicString ScrollButtonPseudoElement::ScrollButtonArgumentFromPseudoId(
+    PseudoId pseudo_id) {
+  switch (pseudo_id) {
+    case kPseudoIdScrollButtonBlockStart:
+      return GetCSSValueNameAs<AtomicString>(CSSValueID::kBlockStart);
+    case kPseudoIdScrollButtonInlineStart:
+      return GetCSSValueNameAs<AtomicString>(CSSValueID::kInlineStart);
+    case kPseudoIdScrollButtonInlineEnd:
+      return GetCSSValueNameAs<AtomicString>(CSSValueID::kInlineEnd);
+    case kPseudoIdScrollButtonBlockEnd:
+      return GetCSSValueNameAs<AtomicString>(CSSValueID::kBlockEnd);
+    default:
+      NOTREACHED();
+  }
+}
+
+std::pair<PseudoId, AtomicString>
+ScrollButtonPseudoElement::GetSelectorPseudoIdAndArgument() const {
+  return {kPseudoIdScrollButton,
+          ScrollButtonArgumentFromPseudoId(GetPseudoId())};
 }
 
 namespace {
@@ -215,7 +243,7 @@ bool ScrollButtonPseudoElement::CalculateEnabledState() const {
   const ScrollOffset current_position = gfx::ToRoundedVector2d(
       scrollable_area->ScrollPosition().OffsetFromOrigin());
   const auto direction = ScrollDirectionForButton(
-      GetPseudoId(), scroller->StyleRef().GetWritingDirection());
+      GetPseudoId(), scroller->Style().GetWritingDirection());
   if (!direction) {
     return enabled_;
   }

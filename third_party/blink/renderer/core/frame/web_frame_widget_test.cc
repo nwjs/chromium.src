@@ -285,6 +285,103 @@ TEST_F(WebFrameWidgetSimTest,
   EXPECT_TRUE(IsFullscreenGranted());
 }
 
+TEST_F(WebFrameWidgetSimTest,
+       PreviousExitUpdateBeforeGrantedReentryCompletesPendingRequest) {
+  SimRequest request("https://example.com/test.html", "text/html");
+  LoadURL("https://example.com/test.html");
+  request.Complete("<!DOCTYPE html><div id='target'></div>");
+  Compositor().BeginFrame();
+
+  Document& document = GetDocument();
+  Element* target = document.getElementById(AtomicString("target"));
+  ASSERT_TRUE(target);
+
+  VisualProperties visual_properties;
+  visual_properties.screen_infos = display::ScreenInfos(display::ScreenInfo());
+  visual_properties.new_size_device_px = gfx::Size(800, 600);
+  visual_properties.visible_viewport_size_device_px = gfx::Size(800, 600);
+
+  // Enter browser-controlled fullscreen without a DOM fullscreen request.
+  visual_properties.is_fullscreen_granted = true;
+  visual_properties.fullscreen_grant_count = 1;
+  WebView().MainFrameWidget()->ApplyVisualProperties(visual_properties);
+  ASSERT_TRUE(IsFullscreenGranted());
+  ASSERT_EQ(nullptr, Fullscreen::FullscreenElementFrom(document));
+
+  LocalFrame::NotifyUserActivation(
+      document.GetFrame(), mojom::blink::UserActivationNotificationType::kTest);
+  Fullscreen::RequestFullscreen(*target);
+
+  // Deliver the previous fullscreen exit before the browser's grant callback
+  // for the new request.
+  visual_properties.is_fullscreen_granted = false;
+  WebView().MainFrameWidget()->ApplyVisualProperties(visual_properties);
+  test::RunPendingTasks();
+
+  // The post-ack update reports the granted re-entry through the incremented
+  // count. The pending request should complete even though the delayed exit
+  // reset the controller state before the grant callback arrived.
+  visual_properties.is_fullscreen_granted = true;
+  visual_properties.fullscreen_grant_count = 2;
+  WebView().MainFrameWidget()->ApplyVisualProperties(visual_properties);
+  EXPECT_EQ(target, Fullscreen::FullscreenElementFrom(document));
+}
+
+TEST_F(WebFrameWidgetSimTest,
+       PreviousExitUpdateBeforeFailedReentryRejectsPendingRequest) {
+  class CountingEventListener final : public NativeEventListener {
+   public:
+    void Invoke(ExecutionContext*, Event*) override { ++count_; }
+    int count() const { return count_; }
+
+   private:
+    int count_ = 0;
+  };
+
+  SimRequest request("https://example.com/test.html", "text/html");
+  LoadURL("https://example.com/test.html");
+  request.Complete("<!DOCTYPE html><div id='target'></div>");
+  Compositor().BeginFrame();
+
+  Document& document = GetDocument();
+  Element* target = document.getElementById(AtomicString("target"));
+  ASSERT_TRUE(target);
+  auto* fullscreen_error_listener =
+      MakeGarbageCollected<CountingEventListener>();
+  document.addEventListener(event_type_names::kFullscreenerror,
+                            fullscreen_error_listener, false);
+
+  VisualProperties visual_properties;
+  visual_properties.screen_infos = display::ScreenInfos(display::ScreenInfo());
+  visual_properties.new_size_device_px = gfx::Size(800, 600);
+  visual_properties.visible_viewport_size_device_px = gfx::Size(800, 600);
+
+  // Enter browser-controlled fullscreen without a DOM fullscreen request.
+  visual_properties.is_fullscreen_granted = true;
+  visual_properties.fullscreen_grant_count = 1;
+  WebView().MainFrameWidget()->ApplyVisualProperties(visual_properties);
+
+  LocalFrame::NotifyUserActivation(
+      document.GetFrame(), mojom::blink::UserActivationNotificationType::kTest);
+  Fullscreen::RequestFullscreen(*target);
+
+  // Deliver the previous fullscreen exit before the browser's grant callback
+  // for the new request.
+  visual_properties.is_fullscreen_granted = false;
+  WebView().MainFrameWidget()->ApplyVisualProperties(visual_properties);
+  test::RunPendingTasks();
+
+  // Report that the granted entry was followed by another exit. The pending
+  // request should be rejected even though the delayed exit reset the
+  // controller state before the grant callback arrived.
+  visual_properties.fullscreen_grant_count = 2;
+  WebView().MainFrameWidget()->ApplyVisualProperties(visual_properties);
+  Compositor().BeginFrame();
+
+  EXPECT_EQ(1, fullscreen_error_listener->count());
+  EXPECT_EQ(nullptr, Fullscreen::FullscreenElementFrom(document));
+}
+
 TEST_F(WebFrameWidgetSimTest, FrameSinkIdHitTestAPI) {
   SimRequest request("https://example.com/test.html", "text/html");
   LoadURL("https://example.com/test.html");
@@ -2747,6 +2844,118 @@ TEST_F(WebFrameWidgetSimTest, TestCursorAnchorInfoWithEditContext) {
   EXPECT_EQ(gfx::Rect(15, 25, 2, 10), actual->insertion_marker.value());
 }
 #endif  // BUILDFLAG(IS_ANDROID)
+
+class WebFrameWidgetEditContextBoundsSimTest : public WebFrameWidgetSimTest {
+ protected:
+  // Loads a page with a focused element whose EditContext is active, and
+  // flushes the initial frame and TextInputStateChanged IPCs.
+  void LoadPageWithActiveEditContext() {
+    SimRequest request("https://example.com/test.html", "text/html");
+    LoadURL("https://example.com/test.html");
+    request.Complete(R"HTML(
+        <!doctype html>
+        <div id="target" style="width:200px;height:200px"></div>
+        <script>
+          target.editContext = new EditContext();
+          target.focus();
+        </script>
+        )HTML");
+    Compositor().BeginFrame();
+    test::RunPendingTasks();
+  }
+
+  // Runs JS outside of any frame, like a setTimeout/debounce callback would.
+  void RunScript(const char* script) {
+    MainFrame().ExecuteScript(WebScriptSource(WebString::FromUtf8(script)));
+  }
+
+  void BeginFrameAndFlushIpcs() {
+    Compositor().BeginFrame();
+    test::RunPendingTasks();
+  }
+
+  frame_test_helpers::TestWebFrameWidgetHost& Host() {
+    return GetWebFrameWidget().WidgetHost();
+  }
+};
+
+// Regression test: EditContext.updateSelectionBounds() and
+// updateControlBounds() called from an async task (which neither mutates the
+// DOM nor dirties layout) must schedule a frame so that the new bounds are sent
+// to the browser via TextInputStateChanged.
+TEST_F(WebFrameWidgetEditContextBoundsSimTest,
+       BoundsUpdateSchedulesFrameAndSendsTextInputState) {
+  LoadPageWithActiveEditContext();
+  ASSERT_FALSE(Compositor().NeedsBeginFrame());
+
+  // Simulate a debounced caret update, as done by e.g. Google Docs.
+  RunScript(
+      "target.editContext.updateSelectionBounds(new DOMRect(15, 25, 2, 10));");
+  ASSERT_TRUE(Compositor().NeedsBeginFrame());
+  BeginFrameAndFlushIpcs();
+  ASSERT_TRUE(Host().LastTextInputState());
+  EXPECT_EQ(gfx::Rect(15, 25, 2, 10),
+            Host().LastTextInputState()->edit_context_selection_bounds);
+
+  // Setting identical bounds is a no-op and should not request a frame.
+  RunScript(
+      "target.editContext.updateSelectionBounds(new DOMRect(15, 25, 2, 10));");
+  EXPECT_FALSE(Compositor().NeedsBeginFrame());
+
+  // Control bounds changes are also propagated.
+  RunScript(
+      "target.editContext.updateControlBounds(new DOMRect(10, 20, 100, 50));");
+  ASSERT_TRUE(Compositor().NeedsBeginFrame());
+  BeginFrameAndFlushIpcs();
+  ASSERT_TRUE(Host().LastTextInputState());
+  EXPECT_EQ(gfx::Rect(10, 20, 100, 50),
+            Host().LastTextInputState()->edit_context_control_bounds);
+  EXPECT_EQ(gfx::Rect(15, 25, 2, 10),
+            Host().LastTextInputState()->edit_context_selection_bounds);
+
+  // Multiple updates before the next frame are coalesced into a single IPC
+  // carrying the latest bounds.
+  const size_t count_before = Host().TextInputStateChangedCount();
+  RunScript(R"JS(
+      target.editContext.updateSelectionBounds(new DOMRect(30, 40, 2, 10));
+      target.editContext.updateSelectionBounds(new DOMRect(50, 60, 2, 10));
+  )JS");
+  ASSERT_TRUE(Compositor().NeedsBeginFrame());
+  BeginFrameAndFlushIpcs();
+  EXPECT_EQ(count_before + 1, Host().TextInputStateChangedCount());
+  EXPECT_EQ(gfx::Rect(50, 60, 2, 10),
+            Host().LastTextInputState()->edit_context_selection_bounds);
+}
+
+// Bounds updates on an EditContext that is not the active one should not
+// request frames.
+TEST_F(WebFrameWidgetEditContextBoundsSimTest,
+       InactiveEditContextDoesNotScheduleFrame) {
+  LoadPageWithActiveEditContext();
+  ASSERT_FALSE(Compositor().NeedsBeginFrame());
+
+  RunScript(R"JS(
+      const inactive = new EditContext();
+      inactive.updateSelectionBounds(new DOMRect(1, 2, 3, 4));
+      inactive.updateControlBounds(new DOMRect(5, 6, 7, 8));
+  )JS");
+  EXPECT_FALSE(Compositor().NeedsBeginFrame());
+}
+
+// With the fix disabled, an async bounds update leaves the browser with stale
+// bounds until some unrelated frame occurs. This documents the original bug.
+TEST_F(WebFrameWidgetEditContextBoundsSimTest, KillSwitchRestoresOldBehavior) {
+  ScopedEditContextBoundsUpdateSchedulesFrameForTest disable_fix(false);
+  LoadPageWithActiveEditContext();
+  ASSERT_FALSE(Compositor().NeedsBeginFrame());
+  const size_t count_before = Host().TextInputStateChangedCount();
+
+  RunScript(
+      "target.editContext.updateSelectionBounds(new DOMRect(15, 25, 2, 10));");
+  EXPECT_FALSE(Compositor().NeedsBeginFrame());
+  test::RunPendingTasks();
+  EXPECT_EQ(count_before, Host().TextInputStateChangedCount());
+}
 
 class EventHandlingWebFrameWidgetSimTest : public SimTest {
  public:

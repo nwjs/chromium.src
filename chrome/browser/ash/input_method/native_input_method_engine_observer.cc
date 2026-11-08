@@ -35,7 +35,6 @@
 #include "chrome/browser/ash/input_method/suggestion_enums.h"
 #include "chrome/browser/ash/lobster/lobster_event_sink.h"
 #include "chrome/browser/ui/ash/input_method/input_method_menu_manager.h"
-#include "chrome/browser/ui/webui/ash/settings/search/search_tag_registry.h"
 #include "chromeos/ash/experiences/settings_ui/settings_app_manager.h"
 #include "chromeos/ash/services/ime/public/cpp/autocorrect.h"
 #include "chromeos/ash/services/ime/public/mojom/input_method.mojom.h"
@@ -45,6 +44,7 @@
 #include "components/session_manager/core/session.h"
 #include "components/session_manager/core/session_manager.h"
 #include "components/user_manager/user_manager.h"
+#include "mojo/public/cpp/bindings/callback_helpers.h"
 #include "ui/base/ime/ash/extension_ime_util.h"
 #include "ui/base/ime/ash/ime_bridge.h"
 #include "ui/base/ime/ash/ime_keyboard.h"
@@ -680,8 +680,7 @@ void UpdateCandidatesWindowSync(ime::mojom::CandidatesWindowPtr window) {
 ime::mojom::InputMethodSettingsPtr WithAutocorrectOverride(
     ime::mojom::InputMethodSettingsPtr base_settings,
     bool autocorrect_enabled) {
-  if (!base::FeatureList::IsEnabled(features::kAutocorrectByDefault) ||
-      !base_settings || !base_settings->is_latin_settings()) {
+  if (!base_settings || !base_settings->is_latin_settings()) {
     return base_settings;
   }
 
@@ -1041,11 +1040,13 @@ void NativeInputMethodEngineObserver::OnKeyEvent(
             Utf16ToCodepoint(character_composer_.composed_character()));
       }
       auto process_key_event_callback =
-          base::BindOnce([](mojom::KeyEventResult result) {
-            return result == mojom::KeyEventResult::kConsumedByIme
-                       ? ui::ime::KeyEventHandledState::kHandledByIME
-                       : ui::ime::KeyEventHandledState::kNotHandled;
-          }).Then(std::move(callback));
+          mojo::WrapCallbackWithDefaultInvokeIfNotRun(
+              base::BindOnce([](mojom::KeyEventResult result) {
+                return result == mojom::KeyEventResult::kConsumedByIme
+                           ? ui::ime::KeyEventHandledState::kHandledByIME
+                           : ui::ime::KeyEventHandledState::kNotHandled;
+              }).Then(std::move(callback)),
+              mojom::KeyEventResult::kNeedsHandlingBySystem);
       input_method_->ProcessKeyEvent(std::move(key_event),
                                      std::move(process_key_event_callback));
     } else {

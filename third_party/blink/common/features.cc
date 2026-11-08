@@ -120,7 +120,7 @@ BASE_FEATURE(kBlockMidiByDefault, base::FEATURE_ENABLED_BY_DEFAULT);
 }
 
 BASE_FEATURE(kClipboardOnExtensionServiceWorker,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kComputePressureRateObfuscationMitigation,
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -421,7 +421,7 @@ BASE_FEATURE_PARAM(bool,
 
 BASE_FEATURE(kDataUrlWorkerOpaqueOrigin, base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kDecodeScriptsInBlink, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kDecodeScriptsInBlink, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // When enabled, HTMLTreeBuilder::Flush() will be throttled in kTextMode
 // to reduce O(n^2) string copies.
@@ -738,6 +738,9 @@ BASE_FEATURE_PARAM(std::string,
                    "filter",
                    "one_euro_filter");
 
+BASE_FEATURE(kFlushGpuChannelOnLayerTreeViewRelease,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 BASE_FEATURE(kFontAccessCheckFrameIsActive, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kBlockPartialResponseWithoutRange,
@@ -750,10 +753,6 @@ BASE_FEATURE(kOffscreenCanvasPropagateVisibility,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kWebGLDiscardBackBuffer, base::FEATURE_DISABLED_BY_DEFAULT);
-
-BASE_FEATURE(kForceSkcmsICCParsing, base::FEATURE_DISABLED_BY_DEFAULT);
-
-BASE_FEATURE(kForceSkExifCppParsing, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Automatically convert light-themed pages to use a Blink-generated dark theme
 BASE_FEATURE(kForceWebContentsDarkMode,
@@ -1708,6 +1707,7 @@ BASE_FEATURE_PARAM(int,
                    5
 #endif
 );
+BASE_FEATURE_PARAM(int, kRandomAnchorSamplingPeriod, &kNavigationPredictor, 0);
 
 // Used to control the collection of new viewport related anchor element
 // metrics. Metrics will not be recorded if either this or kNavigationPredictor
@@ -1822,64 +1822,27 @@ BASE_FEATURE_PARAM(base::TimeDelta,
                    "hover_dwell_time",
                    base::Milliseconds(10));
 BASE_FEATURE(kPreloadingEagerViewportHeuristics,
-#if BUILDFLAG(IS_ANDROID)
-             base::FEATURE_ENABLED_BY_DEFAULT
-#else
-             base::FEATURE_DISABLED_BY_DEFAULT
-#endif
-);
+             base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE_PARAM(bool,
+                   kPreloadingEagerViewportHeuristicsForDevToolsEmulation,
+                   &kPreloadingEagerViewportHeuristics,
+                   true);
 BASE_FEATURE_PARAM(base::TimeDelta,
                    kPreloadingEagerViewportHeuristicsPresentTime,
                    &kPreloadingEagerViewportHeuristics,
                    "viewport_present_time",
                    base::Milliseconds(50));
 
-BASE_FEATURE(kPreloadingHeuristicsMLModel, base::FEATURE_DISABLED_BY_DEFAULT);
-BASE_FEATURE_PARAM(int,
-                   kPreloadingModelTimerStartDelay,
-                   &kPreloadingHeuristicsMLModel,
-                   "timer_start_delay",
-                   0);
-BASE_FEATURE_PARAM(int,
-                   kPreloadingModelTimerInterval,
-                   &kPreloadingHeuristicsMLModel,
-                   "timer_interval",
-                   100);
-// The default max hover time of 10s covers the 98th percentile of hovering
-// cases that are relevant to the model.
-BASE_FEATURE_PARAM(base::TimeDelta,
-                   kPreloadingModelMaxHoverTime,
-                   &kPreloadingHeuristicsMLModel,
-                   "max_hover_time",
-                   base::Seconds(10));
-BASE_FEATURE_PARAM(bool,
-                   kPreloadingModelEnactCandidates,
-                   &kPreloadingHeuristicsMLModel,
-                   "enact_candidates",
-                   false);
-BASE_FEATURE_PARAM(int,
-                   kPreloadingModelPrefetchModerateThreshold,
-                   &kPreloadingHeuristicsMLModel,
-                   "prefetch_moderate_threshold",
-                   50);
-BASE_FEATURE_PARAM(int,
-                   kPreloadingModelPrerenderModerateThreshold,
-                   &kPreloadingHeuristicsMLModel,
-                   "prerender_moderate_threshold",
-                   50);
-
 BASE_FEATURE(kPreloadingModerateViewportHeuristics,
-#if BUILDFLAG(IS_ANDROID)
-             base::FEATURE_ENABLED_BY_DEFAULT
-#else
-             base::FEATURE_DISABLED_BY_DEFAULT
-#endif
-);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE_PARAM(bool,
                    kPreloadingModerateViewportHeuristicsEnactCandidates,
                    &kPreloadingModerateViewportHeuristics,
-                   "enact_candidates",
-                   BUILDFLAG(IS_ANDROID));
+                   true);
+BASE_FEATURE_PARAM(bool,
+                   kPreloadingModerateViewportHeuristicsForDevToolsEmulation,
+                   &kPreloadingModerateViewportHeuristics,
+                   true);
 
 BASE_FEATURE(kPreloadingEligibilityCheckOnRenderer,
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -1935,6 +1898,10 @@ BASE_FEATURE(kLocalCompileHints, base::FEATURE_ENABLED_BY_DEFAULT);
 // cross-origin requests.
 BASE_FEATURE(kReducedReferrerGranularity, base::FEATURE_ENABLED_BY_DEFAULT);
 
+// When disabled, cropTo() is rejected while other tracks share the source, as
+// it was before per-track cropping was supported.
+BASE_FEATURE(kRegionCaptureOfClonedTracks, base::FEATURE_ENABLED_BY_DEFAULT);
+
 // Whether `blink::MemoryCache` and `blink::ResourceFetcher` release their
 // strong references to resources on memory pressure.
 BASE_FEATURE(kReleaseResourceStrongReferencesOnMemoryPressure,
@@ -1957,6 +1924,9 @@ BASE_FEATURE(kReleaseResourceDecodedDataOnMemoryPressure,
 // Flag guard for removing usage of the CommitNavigationParams.redirects
 // array of URLs in the renderer process.
 BASE_FEATURE(kRemoveCommitRedirectUrlsArray, base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kRequiresLoadIgnoreLimitsForDomWindowsOnly,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Allows same-document available-image reuse for no-store images.
 BASE_FEATURE(kReuseNoStoreImageOnSameSrcReassignment,
@@ -2059,7 +2029,6 @@ BASE_FEATURE(kSendCnameAliasesToSubresourceFilterFromRenderer,
 BASE_FEATURE(kSetIntervalWithoutClamp, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kSetSelectionForAccessibilityHandlingInputEvent,
-             "SetSelectionForAccessibilityHandlingInputEvent",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kSharedStorageWorkletSharedBackingThreadImplementation,
@@ -2120,7 +2089,6 @@ BASE_FEATURE(kServiceWorkerRaceNetworkRequestFallbackOnDisconnect,
 // ServiceWorker. For navigation requests, the pre-learned static response
 // header is returned in parallel with dispatching the network request.
 BASE_FEATURE(kServiceWorkerSyntheticResponse,
-             "ServiceWorkerSyntheticResponse",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // (crbug.com/539155958): When enabled, ServiceWorkerDatabase treats missing

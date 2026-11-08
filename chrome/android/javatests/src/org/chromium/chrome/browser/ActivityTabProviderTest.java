@@ -230,11 +230,10 @@ public class ActivityTabProviderTest {
         int callCount = mActivityTabChangedHelper.getCallCount();
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
-                    selector.tryCloseTab(
+                    selector.closeTab(
                             TabClosureParams.closeTab(getModelSelectedTab())
-                                    .allowUndo(false)
-                                    .build(),
-                            /* allowDialog= */ false);
+                                    .allowUndo(/* allowUndo= */ false)
+                                    .build());
                 });
         mActivityTabChangedHelper.waitForCallback(callCount);
 
@@ -299,9 +298,10 @@ public class ActivityTabProviderTest {
                 () -> {
                     mActivity
                             .getTabModelSelector()
-                            .tryCloseTab(
-                                    TabClosureParams.closeTab(startingTab).allowUndo(false).build(),
-                                    /* allowDialog= */ false);
+                            .closeTab(
+                                    TabClosureParams.closeTab(startingTab)
+                                            .allowUndo(/* allowUndo= */ false)
+                                            .build());
                 });
 
         assertEquals("The activity tab should not have changed.", activityTabBefore, mActivityTab);

@@ -79,7 +79,7 @@ void MaybeReportDangerousDownloadWarning(download::DownloadItem* download) {
       download->GetTargetFilePath().AsUTF8Unsafe(),
       base::HexEncode(download->GetHash()), download->GetDangerType(),
       download->GetMimeType(),
-      enterprise_connectors::kFileDownloadDataTransferEventTrigger,
+      enterprise_connectors::DataTransferEventTrigger::FILE_DOWNLOAD,
       /*scan_id=*/"", download->GetTotalBytes(), referrer_chain,
       enterprise_connectors::CollectFrameUrls(
           content::DownloadItemUtils::GetWebContents(download),
@@ -93,9 +93,6 @@ void MaybeReportDangerousDownloadWarning(download::DownloadItem* download) {
 void ReportDangerousDownloadWarningBypassed(
     download::DownloadItem* download,
     download::DownloadDangerType original_danger_type) {
-  if (!IsDeepScanningEnabled()) {
-    return;
-  }
   content::BrowserContext* browser_context =
       content::DownloadItemUtils::GetBrowserContext(download);
 
@@ -125,7 +122,7 @@ void ReportDangerousDownloadWarningBypassed(
       router->OnDangerousDownloadEvent(
           download->GetURL(), download->GetTabUrl(), metadata.filename,
           metadata.sha256, original_danger_type, metadata.mime_type,
-          enterprise_connectors::kFileDownloadDataTransferEventTrigger,
+          enterprise_connectors::DataTransferEventTrigger::FILE_DOWNLOAD,
           metadata.scan_response.request_token(), metadata.size, referrer_chain,
           frame_url_chain, enterprise_connectors::EventResult::BYPASSED);
     }
@@ -135,17 +132,13 @@ void ReportDangerousDownloadWarningBypassed(
         download->GetTargetFilePath().AsUTF8Unsafe(),
         base::HexEncode(download->GetHash()), original_danger_type,
         download->GetMimeType(),
-        enterprise_connectors::kFileDownloadDataTransferEventTrigger,
+        enterprise_connectors::DataTransferEventTrigger::FILE_DOWNLOAD,
         /*scan_id*/ "", download->GetTotalBytes(), referrer_chain,
         frame_url_chain, enterprise_connectors::EventResult::BYPASSED);
   }
 }
 
 void ReportAnalysisConnectorWarningBypassed(download::DownloadItem* download) {
-  if (!IsDeepScanningEnabled()) {
-    return;
-  }
-
   content::BrowserContext* browser_context =
       content::DownloadItemUtils::GetBrowserContext(download);
   Profile* profile = Profile::FromBrowserContext(browser_context);
@@ -166,7 +159,7 @@ void ReportAnalysisConnectorWarningBypassed(download::DownloadItem* download) {
       enterprise_connectors::ReportAnalysisConnectorWarningBypass(
           router, &info, "", "", metadata.filename, metadata.sha256,
           metadata.mime_type,
-          enterprise_connectors::kFileDownloadDataTransferEventTrigger, "",
+          enterprise_connectors::DataTransferEventTrigger::FILE_DOWNLOAD, "",
           metadata.size, metadata.scan_response,
           stored_result->user_justification);
     }
@@ -174,7 +167,7 @@ void ReportAnalysisConnectorWarningBypassed(download::DownloadItem* download) {
     enterprise_connectors::ReportAnalysisConnectorWarningBypass(
         router, &info, "", "", download->GetTargetFilePath().AsUTF8Unsafe(),
         base::HexEncode(download->GetHash()), download->GetMimeType(),
-        enterprise_connectors::kFileDownloadDataTransferEventTrigger, "",
+        enterprise_connectors::DataTransferEventTrigger::FILE_DOWNLOAD, "",
         download->GetTotalBytes(),
         enterprise_connectors::ContentAnalysisResponse(),
         /*user_justification=*/std::nullopt);

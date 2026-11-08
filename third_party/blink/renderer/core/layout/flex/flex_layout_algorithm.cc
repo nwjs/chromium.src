@@ -6,6 +6,7 @@
 
 #include <memory>
 #include <optional>
+#include <ranges>
 
 #include "base/types/optional_util.h"
 #include "third_party/blink/renderer/core/frame/web_feature.h"
@@ -631,7 +632,8 @@ void FlexLayoutAlgorithm::SetReadingFlowNodes(
   // in correct order.
   auto add_flex_items = [&](const FlexLine& line) {
     if (reading_flow == EReadingFlow::kFlexFlow && is_reverse_direction_) {
-      for (const wtf_size_t item_index : base::Reversed(line.item_indices)) {
+      for (const wtf_size_t item_index :
+           std::views::reverse(line.item_indices)) {
         add_item_if_needed(item_index);
       }
     } else {
@@ -641,7 +643,7 @@ void FlexLayoutAlgorithm::SetReadingFlowNodes(
     }
   };
   if (reading_flow == EReadingFlow::kFlexFlow && is_wrap_reverse_) {
-    for (const auto& line : base::Reversed(flex_lines)) {
+    for (const auto& line : std::views::reverse(flex_lines)) {
       add_flex_items(line);
     }
   } else {
@@ -1404,8 +1406,7 @@ const LayoutResult* FlexLayoutAlgorithm::LayoutInternal() {
 #endif
   }
 
-  // // Reading flow is set on the first layout pass, which will cover all
-  // items.
+  // Reading flow is set on the first layout pass, which will cover all items.
   if (!IsBreakInside(GetBreakToken())) {
     SetReadingFlowNodes(flex_lines);
   }

@@ -28,7 +28,9 @@ source_set("ash") {
 
   public_deps = [
     "//base",
+    "//components/account_id",
     "//components/enterprise/device_trust/core/attestation",
+    "//components/user_manager",
   ]
 }
 
@@ -38,6 +40,7 @@ source_set("unit_tests") {
   sources = [
     "ash_attestation_cleanup_manager_unittest.cc",
     "ash_attestation_service_impl_unittest.cc",
+    "browser_attestation_service_chromeos_unittest.cc",
     "flex_attester_unittest.cc",
   ]
 
@@ -49,6 +52,7 @@ source_set("unit_tests") {
     "//chrome/browser/enterprise:impl",
     "//chrome/test:test_support",
     "//chrome/test/base:testing_browser_process",
+    "//chromeos/ash/components/browser_context_helper",
     "//chromeos/ash/components/dbus/attestation",
     "//components/account_id:test_support",
     "//testing/gtest",

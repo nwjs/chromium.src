@@ -136,7 +136,7 @@
 #include "ui/compositor/layer.h"
 #include "ui/compositor/layer_animator.h"
 #include "ui/compositor/test/layer_animation_stopped_waiter.h"
-#include "ui/decoration/shadow.h"
+#include "ui/decoration/decoration.h"
 #include "ui/display/display.h"
 #include "ui/display/display_switches.h"
 #include "ui/display/screen.h"
@@ -1710,10 +1710,11 @@ TEST_P(DesksTest, DragWindowToDesk) {
   wm::ActivateWindow(win1.get());
   EXPECT_EQ(win1.get(), window_util::GetActiveWindow());
 
-  ui::Shadow* shadow = ::wm::ShadowController::GetShadowForWindow(win1.get());
-  ASSERT_TRUE(shadow);
-  ASSERT_TRUE(shadow->layer());
-  EXPECT_TRUE(shadow->layer()->GetTargetVisibility());
+  ui::Decoration* shadow_decoration =
+      ::wm::ShadowController::GetShadowDecorationForWindow(win1.get());
+  ASSERT_TRUE(shadow_decoration);
+  ASSERT_TRUE(shadow_decoration->layer());
+  EXPECT_TRUE(shadow_decoration->layer()->GetTargetVisibility());
 
   auto* overview_controller = OverviewController::Get();
   EnterOverview();
@@ -1722,7 +1723,7 @@ TEST_P(DesksTest, DragWindowToDesk) {
   EXPECT_EQ(2u, overview_grid->GetNumWindows());
 
   // While in overview mode, the window's shadow is hidden.
-  EXPECT_FALSE(shadow->layer()->GetTargetVisibility());
+  EXPECT_FALSE(shadow_decoration->layer()->GetTargetVisibility());
 
   auto* overview_session = overview_controller->overview_session();
   auto* overview_item = overview_session->GetOverviewItemForWindow(win1.get());
@@ -1781,7 +1782,7 @@ TEST_P(DesksTest, DragWindowToDesk) {
 
   // After the window is dropped onto another desk, its shadow should be
   // restored properly.
-  EXPECT_TRUE(shadow->layer()->GetTargetVisibility());
+  EXPECT_TRUE(shadow_decoration->layer()->GetTargetVisibility());
 }
 
 // Tests that theme change during drag to close does not trigger any crashes.
@@ -8932,12 +8933,15 @@ class DeskBarTest : public AshTestBase,
   DeskBarTest()
       : test_close_all_window_close_timeout_(
             DesksTestApi::SetCloseAllWindowCloseTimeout(
-                base::Milliseconds(20))) {
-    set_add_default_shelf_icon(false);
-  }
+                base::Milliseconds(20))) {}
   DeskBarTest(const DeskBarTest&) = delete;
   DeskBarTest& operator=(const DeskBarTest&) = delete;
   ~DeskBarTest() override = default;
+
+  void SetUpInitParams(AshTestHelper::InitParams& init_params) override {
+    AshTestBase::SetUpInitParams(init_params);
+    init_params.add_default_shelf_icon = false;
+  }
 
   void SetUp() override {
     std::tie(use_touch_gestures_, use_16_desks_, bar_type_) = GetParam();
@@ -10574,12 +10578,17 @@ class DeskButtonTest
     : public AshTestBase,
       public ::testing::WithParamInterface<DeskButtonTestParams> {
  public:
-  DeskButtonTest() { set_add_default_shelf_icon(false); }
+  DeskButtonTest() = default;
   DeskButtonTest(const DeskButtonTest&) = delete;
   DeskButtonTest& operator=(const DeskButtonTest&) = delete;
   ~DeskButtonTest() override = default;
 
   // AshTestBase:
+  void SetUpInitParams(AshTestHelper::InitParams& init_params) override {
+    AshTestBase::SetUpInitParams(init_params);
+    init_params.add_default_shelf_icon = false;
+  }
+
   void SetUp() override {
     AshTestBase::SetUp();
     shelf_test_api_ = std::make_unique<ShelfViewTestAPI>(

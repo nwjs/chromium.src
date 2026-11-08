@@ -10,6 +10,7 @@
 #include "base/functional/callback.h"
 #include "chrome/browser/ui/omnibox/omnibox_popup_view.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_popup_view_webui.h"
+#include "chrome/browser/ui/webui/omnibox_popup/mojom/omnibox_popup.mojom-forward.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "ui/gfx/range/range.h"
 
@@ -43,22 +44,26 @@ class OmniboxPopupViewFullWebUI : public OmniboxPopupViewWebUI,
   void UpdatePopupAppearance() override;
   // Syncs the text and selection state from the native location bar to the
   // WebUI omnibox.
-  void SyncNativeStateToWebUI(bool query_zps) override;
+  void SyncNativeStateToWebUI(bool query_zps, bool show_full_url) override;
+  void SyncNativeStateToWebUIPreservingMatches() override;
   // Saves the current omnibox state (e.g. input) to the given tab's
   // user data, so it can be restored when switching back to this tab.
   void SaveStateToTab(content::WebContents* tab) override;
   // Called when the active tab changes.
   void OnTabChanged(content::WebContents* contents) override;
+  void ReshowPopup() override;
   // Called when the native omnibox gains focus. If the popup state changed,
   // synchronizes full input state (`SyncNativeStateToWebUI()`). If the popup
   // was already open, sends a dedicated `SetFocus(true)` Mojo IPC to ensure
   // DOM input focus in the WebUI is restored without resetting input state.
-  void OnFocus(bool query_zps, bool select_all) override;
+  void OnFocus(bool query_zps, bool select_all, bool show_full_url) override;
   void FocusSearchWithDefaultSearchEngineKeywordMode() override;
   // Called when the native omnibox loses focus. Sends a dedicated
   // `SetFocus(false)` Mojo IPC to ensure DOM input focus in the WebUI is
   // cleared.
   void OnBlur() override;
+  bool RequestWebUIContextMenu(const gfx::Point& screen_point,
+                               ui::mojom::MenuSourceType source_type) override;
   // Called when the WebUI page handler establishes its Mojo connection.
   void OnPopupHandlerReady() override;
   bool IsPopupHandlerReady() const override;
@@ -82,6 +87,14 @@ class OmniboxPopupViewFullWebUI : public OmniboxPopupViewWebUI,
  private:
   // Gets the OmniboxPopupHandler associated with this view's WebUI.
   OmniboxPopupHandler* GetPopupHandler();
+
+  // Implements `SyncNativeStateToWebUI()` and
+  // `SyncNativeStateToWebUIPreservingMatches()`. For
+  // `MatchesUpdate::kPreserveMatches`, the input state is sent even if
+  // unchanged, so that WebUI stops any in-flight query.
+  void SyncNativeStateToWebUIImpl(
+      omnibox_popup::mojom::MatchesUpdate matches_update,
+      bool show_full_url);
 
   // Caches the last text string sent to the WebUI to avoid redundant IPCs.
   // Null after a state reset (e.g., tab switch).

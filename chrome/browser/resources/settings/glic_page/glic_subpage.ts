@@ -225,9 +225,10 @@ export class SettingsGlicSubpageElement extends SettingsGlicSubpageElementBase {
         'glic-disallowed-by-admin-changed',
         this.disallowedByAdminChanged_.bind(this));
     this.addWebUiListener(
-        'glic-web-actuation-capability-changed',
-        (canActOnWeb: boolean) =>
-            this.onWebActuationCapabilityChanged_(canActOnWeb));
+        'glic-web-actuation-disabled-for-enterprise-changed',
+        (disabledForEnterprise: boolean) =>
+            this.onWebActuationDisabledForEnterpriseChanged_(
+                disabledForEnterprise));
     this.addWebUiListener(
         'glic-web-actuation-toggle-visibility-changed',
         (visible: boolean) =>
@@ -249,7 +250,7 @@ export class SettingsGlicSubpageElement extends SettingsGlicSubpageElementBase {
 
     this.browserProxy_.getWebActuationToggleVisibility().then(
         (visible: boolean) => {
-            this.onWebActuationToggleVisibilityChanged_(visible);
+          this.onWebActuationToggleVisibilityChanged_(visible);
         });
 
     this.browserProxy_.getWebActuationEnabled().then((enabled: boolean) => {
@@ -343,6 +344,7 @@ export class SettingsGlicSubpageElement extends SettingsGlicSubpageElementBase {
     const isGlobal = (event.target as SettingsToggleButtonElement).checked;
     this.metricsBrowserProxy_.recordAction(
         'Glic.Settings.HotkeyScope.' + (isGlobal ? 'Global' : 'Chrome'));
+    this.browserProxy_.onHotkeyScopeSettingsChange(isGlobal);
   }
 
   protected onGeolocationToggleSettingsBooleanControlChange_(
@@ -471,8 +473,7 @@ export class SettingsGlicSubpageElement extends SettingsGlicSubpageElementBase {
     const target = event.target as SettingsToggleButtonElement;
     const enabled = target.checked;
     this.metricsBrowserProxy_.recordAction(
-        'Glic.Settings.ShakeTrigger' +
-        (enabled ? '.Enabled' : '.Disabled'));
+        'Glic.Settings.ShakeTrigger' + (enabled ? '.Enabled' : '.Disabled'));
   }
 
   private onWebActuationEnabledChanged_(enabled: boolean) {
@@ -713,8 +714,9 @@ export class SettingsGlicSubpageElement extends SettingsGlicSubpageElementBase {
     return loadTimeData.getString('glicWebActuationToggleLearnMoreUrl');
   }
 
-  private onWebActuationCapabilityChanged_(canActOnWeb: boolean) {
-    this.isWebActuationDisabledForEnterprise_ = !canActOnWeb;
+  private onWebActuationDisabledForEnterpriseChanged_(
+      disabledForEnterprise: boolean) {
+    this.isWebActuationDisabledForEnterprise_ = disabledForEnterprise;
     if (this.isWebActuationDisabledForEnterprise_) {
       this.webActuationEnabledExpanded_ = false;
     }

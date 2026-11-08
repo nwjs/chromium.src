@@ -7,7 +7,10 @@
 
 #import <Foundation/Foundation.h>
 
+#import <optional>
+
 #import "ios/chrome/browser/assistant/ui/assistant_container_detent.h"
+#import "ios/chrome/browser/intelligence/actor/ui/actuation_worklog_view_data.h"
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_view_state_delegate.h"
 #import "ios/public/provider/chrome/browser/bwg/gemini_api.h"
 
@@ -27,6 +30,10 @@ struct GeminiContainerUIState {
 
   // Returns an actuating state that takes over the UI until completed.
   static GeminiContainerUIState Actuating();
+
+  // Returns how the actuation worklog should be presented, or `std::nullopt`
+  // when the worklog is hidden (i.e. outside of actuation).
+  std::optional<ActuationWorklogDisplayMode> WorklogDisplayMode() const;
 
   bool operator==(const GeminiContainerUIState& other) const = default;
 
@@ -59,8 +66,9 @@ struct GeminiContainerUIState {
 // Current view mode of the Gemini UI (e.g. floaty or live).
 @property(nonatomic, readonly) ios::provider::GeminiViewMode viewMode;
 
-// Resets and applies the initial container UI state.
-- (void)setupInitialUIState;
+// Resets and applies the initial container UI state. `hasConversation`
+// indicates whether the container is starting with an existing conversation.
+- (void)setupInitialUIStateWithConversation:(BOOL)hasConversation;
 
 // Handles actuation state transitions.
 - (void)handleActuationStateChanged:(BOOL)actuating;
@@ -80,6 +88,10 @@ struct GeminiContainerUIState {
 // Handles response cancellation and notifies the delegate with the expanded
 // state if cancelled via the stop button.
 - (void)handleResponseCancellationWithReason:(GeminiCancelType)reason;
+
+// Handles completion of loading a previous conversation.
+- (void)didFinishLoadingConversationWithID:(NSString*)conversationID
+                                     error:(NSError*)error;
 
 // Updates the detent on the current state (e.g., when the user drags
 // the sheet).

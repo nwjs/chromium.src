@@ -20,7 +20,6 @@ static_library("sync") {
 
   public_deps = [
     "//base",
-    "//chrome/browser:browser_public_dependencies",
     "//chrome/browser/profiles:profile",
     "//components/keyed_service/core",
     "//components/sync/service",
@@ -72,9 +71,9 @@ source_set("unit_tests") {
     "//base",
     "//base/test:test_support",
     "//chrome/browser/ash/login/users:test_support",
-    "//chrome/browser/ui",
     "//chrome/browser/ui/webui/signin:login_ui_service",
     "//chrome/test:test_support",
+    "//chrome/test/base:browser_with_test_window_test",
     "//components/account_id",
     "//components/signin/public/identity_manager",
     "//components/sync:test_support",

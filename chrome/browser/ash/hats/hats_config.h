@@ -71,19 +71,11 @@ extern const HatsConfig kHatsStabilitySurvey;
 extern const HatsConfig kHatsPerformanceSurvey;
 extern const HatsConfig kHatsAudioSurvey;
 extern const HatsConfig kHatsBluetoothAudioSurvey;
-extern const HatsConfig kHatsPersonalizationAvatarSurvey;
-extern const HatsConfig kHatsPersonalizationScreensaverSurvey;
-extern const HatsConfig kHatsPersonalizationWallpaperSurvey;
-extern const HatsConfig kHatsMediaAppPdfSurvey;
 extern const HatsConfig kHatsCameraAppSurvey;
-extern const HatsConfig kHatsPhotosExperienceSurvey;
 extern const HatsConfig kHatsGeneralCameraSurvey;
 extern const HatsConfig kHatsGeneralCameraPrioritizedSurvey;
-extern const HatsConfig kHatsBluetoothRevampSurvey;
 extern const HatsConfig kHatsBatteryLifeSurvey;
 extern const HatsConfig kHatsPeripheralsSurvey;
-extern const HatsConfig kHatsOsSettingsSearchSurvey;
-extern const HatsConfig kHatsOfficeSurvey;
 extern const HatsConfig kHatsSlowAndLaggyDeepDive;
 
 }  // namespace ash

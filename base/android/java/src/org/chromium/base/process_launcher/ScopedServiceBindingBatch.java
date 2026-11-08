@@ -4,13 +4,15 @@
 
 package org.chromium.base.process_launcher;
 
+import android.os.Build;
 import android.os.Handler;
+
+import androidx.annotation.ChecksSdkIntAtLeast;
 
 import com.google.errorprone.annotations.MustBeClosed;
 
 import org.jni_zero.CalledByNative;
 
-import org.chromium.base.BindingRequestQueue;
 import org.chromium.build.annotations.Nullable;
 
 /**
@@ -23,7 +25,7 @@ import org.chromium.build.annotations.Nullable;
  *
  * <p>This also records the duration of the batching scope.
  */
-public interface ScopedServiceBindingBatch extends AutoCloseable {
+public abstract class ScopedServiceBindingBatch implements AutoCloseable {
     /**
      * Returns a ScopedServiceBindingBatch.
      *
@@ -38,7 +40,7 @@ public interface ScopedServiceBindingBatch extends AutoCloseable {
      */
     @CalledByNative
     @MustBeClosed
-    static @Nullable ScopedServiceBindingBatch scoped() {
+    public static @Nullable ScopedServiceBindingBatch scoped() {
         ScopedServiceBindingBatchImpl realBatch = ScopedServiceBindingBatchImpl.scoped();
         if (realBatch != null) {
             return realBatch;
@@ -57,7 +59,7 @@ public interface ScopedServiceBindingBatch extends AutoCloseable {
      *
      * @param launcherHandler The handler to use for posting tasks to the process launcher thread.
      */
-    static boolean tryActivate(Handler launcherHandler) {
+    public static boolean tryActivate(Handler launcherHandler) {
         return ScopedServiceBindingBatchImpl.tryActivate(launcherHandler);
     }
 
@@ -66,7 +68,8 @@ public interface ScopedServiceBindingBatch extends AutoCloseable {
      *
      * <p>This must be called on the process launcher thread.
      */
-    static boolean shouldBatchUpdate() {
+    @ChecksSdkIntAtLeast(api = Build.VERSION_CODES.CINNAMON_BUN)
+    public static boolean shouldBatchUpdate() {
         return ScopedServiceBindingBatchImpl.shouldBatchUpdate();
     }
 
@@ -75,11 +78,11 @@ public interface ScopedServiceBindingBatch extends AutoCloseable {
      *
      * <p>This must be called on the process launcher thread while shouldBatchUpdate() is true.
      */
-    static BindingRequestQueue getBindingRequestQueue() {
+    public static BindingRequestQueue getBindingRequestQueue() {
         return ScopedServiceBindingBatchImpl.getBindingRequestQueue();
     }
 
     @CalledByNative
     @Override
-    void close();
+    public abstract void close();
 }

@@ -29,8 +29,8 @@ source_set("ai_overlay_dialog") {
   ]
   public_deps = [
     ":mojo_bindings",
+    "//chrome/browser/glic",
     "//chrome/browser/optimization_guide",
-    "//chrome/browser/ttc/app",
     "//chrome/browser/ttc/core",
     "//chrome/browser/ui/actions:actions_headers",
     "//chrome/browser/ui/ai_overlay_dialog",
@@ -38,6 +38,7 @@ source_set("ai_overlay_dialog") {
     "//chrome/browser/ui/webui/top_chrome",
     "//components/optimization_guide/proto:optimization_guide_proto",
     "//components/page_content_annotations/content",
+    "//components/ttc/app",
     "//content/public/browser",
     "//services/network/public/mojom",
     "//ui/base",
@@ -57,6 +58,7 @@ source_set("impl") {
   ]
   public_deps = [ ":ai_overlay_dialog" ]
   deps = [
+    "//build:android_buildflags",
     "//chrome/browser:browser_process",
     "//chrome/browser/bookmarks",
     "//chrome/browser/glic",
@@ -65,11 +67,10 @@ source_set("impl") {
     "//chrome/browser/page_content_annotations:screenshot_service",
     "//chrome/browser/profiles:profile",
     "//chrome/browser/search_engines",
+    "//chrome/browser/tab_list",
     "//chrome/browser/translate",
-    "//chrome/browser/ttc/app:impl",
     "//chrome/browser/ttc/core",
     "//chrome/browser/ttc/resources",
-    "//chrome/browser/ui",
     "//chrome/browser/ui:ui_features",
     "//chrome/browser/ui/actions:actions_headers",
     "//chrome/browser/ui/webui:webui_util",
@@ -77,11 +78,13 @@ source_set("impl") {
     "//chrome/common",
     "//components/bookmarks/browser",
     "//components/history/core/browser",
+    "//components/input",
     "//components/optimization_guide/content/browser",
     "//components/optimization_guide/proto:optimization_guide_proto",
     "//components/search_engines",
     "//components/sessions",
     "//components/tabs:public",
+    "//components/ttc/app:impl",
     "//components/vector_icons",
     "//content/public/browser",
     "//ui/base",
@@ -90,6 +93,10 @@ source_set("impl") {
     "//url",
   ]
   if (!is_android) {
+    sources += [
+      "tools/tools_views.cc",
+      "tools/tools_views.h",
+    ]
     deps += [
       # This target includes //chrome/browser/ui:ui's headers, but :ui depends
       # back on this target (it owns the desktop interface-binders parts file
@@ -99,6 +106,21 @@ source_set("impl") {
       "//chrome/browser/ui:browser_commands",
       "//chrome/browser/ui:browser_window_header",
       "//chrome/browser/ui/tabs:tab_strip",
+    ]
+  } else {
+    sources += [
+      "tools/tools_android.cc",
+      "tools/tools_android.h",
+    ]
+    deps += [
+      "//chrome/browser/ui/android/tab_model",
+      "//ui/events",
+    ]
+  }
+  if (is_desktop_android) {
+    deps += [
+      "//chrome/browser/ui/android/ai_overlay_dialog",
+      "//chrome/browser/ui/android/ai_overlay_dialog:jni_headers",
     ]
   }
 }
@@ -128,28 +150,39 @@ source_set("unit_tests") {
   }
 }
 
-if (!is_android) {
-  source_set("browser_tests") {
-    testonly = true
-    defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
-    sources = [
+# Included in browser_tests on desktop and android_browsertests on Desktop
+# Android.
+source_set("browser_tests") {
+  testonly = true
+  defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
+  sources = [ "tools/tools_platform_browsertest.cc" ]
+  deps = [
+    ":ai_overlay_dialog",
+    ":impl",
+    "//base",
+    "//base/test:test_support",
+    "//chrome/browser/tab_list",
+    "//chrome/browser/ui/browser_window",
+    "//chrome/test:test_support",
+    "//chrome/test/base:platform_browser_test",
+    "//components/tabs:public",
+    "//content/public/browser",
+    "//content/test:test_support",
+    "//net:test_support",
+    "//testing/gtest",
+    "//url",
+  ]
+  if (!is_android) {
+    sources += [
       "ai_overlay_notes_browsertest.cc",
       "markdown_builder_browsertest.cc",
       "tools/tools_browsertest.cc",
     ]
-    deps = [
-      ":ai_overlay_dialog",
-      ":impl",
-      "//base",
-      "//base/test:test_support",
+    deps += [
       "//chrome/browser/translate",
-      "//chrome/browser/ui",
-      "//chrome/test:test_support",
       "//components/optimization_guide/content/browser",
       "//components/optimization_guide/proto:optimization_guide_proto",
       "//content/test:browsertest_support",
-      "//testing/gtest",
-      "//url",
     ]
   }
 }

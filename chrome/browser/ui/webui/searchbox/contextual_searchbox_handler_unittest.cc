@@ -11,7 +11,9 @@
 #include <vector>
 
 #include "base/base64.h"
+#include "base/callback_list.h"
 #include "base/compiler_specific.h"
+#include "base/functional/bind.h"
 #include "base/memory/raw_ptr.h"
 #include "base/strings/strcat.h"
 #include "base/test/bind.h"
@@ -1056,7 +1058,7 @@ TEST_F(ContextualSearchboxHandlerTest,
           contextual_search::SearchContentSharingSettingsValue::kEnabled));
 
   // Set the active tool to Deep Search.
-  handler().input_state_model()->setActiveTool(omnibox::TOOL_MODE_DEEP_SEARCH);
+  handler().input_state_model()->SetActiveTool(omnibox::TOOL_MODE_DEEP_SEARCH);
 
   std::string file_name = "test.pdf";
   std::string mime_type = "application/pdf";
@@ -2021,6 +2023,81 @@ TEST_F(SmartTabSharingTest, LogOptOutMidThread) {
       "ContextualSearch.SmartTabSharing.OptOutMidThread", true, 1);
 }
 
+TEST_F(SmartTabSharingTest, ResetSmartTabSharing_DeactivatesSts) {
+  EXPECT_CALL(mock_searchbox_page_, UpdateSmartTabSharingActive(true)).Times(1);
+  handler().SetSmartTabSharingActive(true);
+  mock_searchbox_page_.FlushForTesting();
+  ASSERT_TRUE(handler().IsSmartTabSharingActive());
+  ASSERT_EQ(contextual_session_handle_->smart_tab_sharing_active(), true);
+
+  // The page learns the new value from the reply, not from a push.
+  EXPECT_CALL(mock_searchbox_page_, UpdateSmartTabSharingActive(testing::_))
+      .Times(0);
+  base::test::TestFuture<bool> future;
+  handler().ResetSmartTabSharing(future.GetCallback());
+  mock_searchbox_page_.FlushForTesting();
+
+  EXPECT_FALSE(future.Get());
+  EXPECT_FALSE(handler().IsSmartTabSharingActive());
+  EXPECT_EQ(contextual_session_handle_->smart_tab_sharing_active(),
+            std::nullopt);
+  EXPECT_FALSE(
+      contextual_session_handle_->smart_tab_sharing_toggled_since_last_turn());
+  EXPECT_TRUE(
+      contextual_session_handle_->sts_toggled_removed_contexts().empty());
+  // Clearing the override is not a user toggle.
+  histogram_tester().ExpectBucketCount(
+      "ContextualSearch.SmartTabSharing.MenuOptionClicked",
+      contextual_tasks::SmartTabSharingToggleState::kToggledOff, 0);
+
+  // Subsequent activation pushes to the page again because last-sent was reset.
+  EXPECT_CALL(mock_searchbox_page_, UpdateSmartTabSharingActive(true)).Times(1);
+  handler().SetSmartTabSharingActive(true);
+  mock_searchbox_page_.FlushForTesting();
+}
+
+TEST_F(SmartTabSharingTest, ResetSmartTabSharing_RestoresPrefDefault) {
+  profile()->GetPrefs()->SetBoolean(
+      contextual_tasks::kContextualTasksShareOpenTabsEveryThread, true);
+  ASSERT_TRUE(handler().IsSmartTabSharingActive());
+
+  handler().SetSmartTabSharingActive(false);
+  ASSERT_FALSE(handler().IsSmartTabSharingActive());
+  ASSERT_TRUE(
+      contextual_session_handle_->smart_tab_sharing_toggled_since_last_turn());
+
+  base::test::TestFuture<bool> future;
+  handler().ResetSmartTabSharing(future.GetCallback());
+  EXPECT_TRUE(future.Get());
+  EXPECT_TRUE(handler().IsSmartTabSharingActive());
+  EXPECT_EQ(contextual_session_handle_->smart_tab_sharing_active(),
+            std::nullopt);
+  EXPECT_FALSE(
+      contextual_session_handle_->smart_tab_sharing_toggled_since_last_turn());
+  EXPECT_TRUE(
+      contextual_session_handle_->sts_toggled_removed_contexts().empty());
+}
+
+TEST_F(SmartTabSharingTest, ResetSmartTabSharing_UpdatesInputState) {
+  handler().InitializeInputStateModel();
+  ASSERT_TRUE(handler().input_state_model());
+
+  handler().SetSmartTabSharingActive(true);
+  ASSERT_TRUE(handler().input_state_model()->IsSmartTabSharingActive());
+
+  // Subscribers must be told about the reset so dependent UI can update.
+  int notifications = 0;
+  base::CallbackListSubscription subscription =
+      handler().input_state_model()->Subscribe(base::BindRepeating(
+          [](int* count, const omnibox::InputState&) { ++(*count); },
+          &notifications));
+
+  base::test::TestFuture<bool> future;
+  handler().ResetSmartTabSharing(future.GetCallback());
+  ASSERT_TRUE(future.Wait());
+  EXPECT_FALSE(handler().input_state_model()->IsSmartTabSharingActive());
+  EXPECT_GT(notifications, 0);
+}
 
 TEST_F(ContextualSearchboxHandlerTest, OnInputStateChanged) {
   omnibox::InputState received_state_1;
@@ -3017,6 +3094,46 @@ TEST_F(ContextualSearchboxHandlerTestTabsTest, AddTabContext) {
       contextual_search::ContextualSearchAttachmentButtonType::kCurrentTab, 1);
 }
 
+TEST_F(ContextualSearchboxHandlerTestTabsTest,
+       AddTabContext_EvaluatesInputStateWhileGetPageContextPending) {
+  auto sample_url = GURL("https://www.google.com");
+  tabs::TabInterface* tab = AddTab(sample_url);
+  const int sample_tab_id = tab->GetHandle().raw_value();
+
+  ASSERT_TRUE(handler().input_state_model());
+  EXPECT_THAT(
+      handler().input_state_model()->GetInputState().disabled_tools,
+      testing::Not(testing::Contains(omnibox::ToolMode::TOOL_MODE_CANVAS)));
+
+  lens::TabContextualizationController::GetPageContextCallback
+      pending_page_context_callback;
+  MockTabContextualizationController* tab_contextualization_controller =
+      static_cast<MockTabContextualizationController*>(
+          lens::TabContextualizationController::From(tab));
+  EXPECT_CALL(*tab_contextualization_controller, GetPageContext(testing::_))
+      .WillOnce([&pending_page_context_callback](
+                    lens::TabContextualizationController::GetPageContextCallback
+                        callback) {
+        pending_page_context_callback = std::move(callback);
+      });
+
+  EXPECT_CALL(mock_searchbox_page_, OnInputStateChanged).Times(1);
+  base::test::TestFuture<base::expected<
+      base::UnguessableToken, contextual_search::ContextUploadErrorType>>
+      future;
+  handler().AddTabContext(sample_tab_id, /*delay_upload=*/false,
+                          searchbox::mojom::TabAttachmentSource::kContextMenu,
+                          future.GetCallback());
+  mock_searchbox_page_.FlushForTesting();
+
+  ASSERT_TRUE(future.Get().has_value());
+  EXPECT_TRUE(pending_page_context_callback);
+  // Incompatible tools (e.g. Canvas, which only allows image input in SetUp)
+  // must already be disabled before GetPageContext finishes.
+  EXPECT_THAT(handler().input_state_model()->GetInputState().disabled_tools,
+              testing::Contains(omnibox::ToolMode::TOOL_MODE_CANVAS));
+}
+
 TEST_F(ContextualSearchboxHandlerTestTabsTest, ClearFiles_KeepTabs) {
   base::test::ScopedFeatureList feature_list;
   feature_list.InitAndEnableFeature(omnibox::kContextManagementInComposebox);
@@ -3086,7 +3203,7 @@ TEST_F(ContextualSearchboxHandlerTestTabsTest, ClearFiles_KeepTabs) {
   EXPECT_EQ(handler().GetUploadedContextTokens().size(), 0u);
 
   // Verify tab token remains in submitted tabs:
-  const auto& submitted_tabs = contextual_session_handle_->persisted_tabs();
+  const auto& submitted_tabs = contextual_session_handle_->GetPersistedTabs();
   EXPECT_EQ(submitted_tabs.size(), 1u);
   auto it = submitted_tabs.find(SessionID::FromSerializedValue(sample_tab_id));
   ASSERT_NE(it, submitted_tabs.end());
@@ -3660,7 +3777,7 @@ TEST_F(ContextualSearchboxHandlerTestTabsTest,
   contextual_session_handle_->ClearFiles(/*query_submitted=*/true);
   // Keep only `submitted_token` in `submitted_context_tokens_` and mark
   // `deselected_session_tab_id` deselected in `tab_context_`.
-  contextual_session_handle_->set_submitted_context_tokens({submitted_token});
+  contextual_session_handle_->SetSubmittedContextTokens({submitted_token});
   contextual_session_handle_->set_deselected_tabs_urls(
       {{deselected_session_tab_id,
         {GURL("https://deselected.example.com"), "Deselected"}}});
@@ -4110,6 +4227,8 @@ TEST_F(ContextualSearchboxHandlerTestTabsTest, GetRecentTabs) {
 
   content::WebContentsTester::For(example_tab->GetContents())
       ->SetLastActiveTimeTicks(IncrementTimeTicksAndGet());
+  ON_CALL(*tab_list(), GetActiveTab())
+      .WillByDefault(testing::Return(example_tab));
 
   {
     // Activate an older tab, and ensure it is returned first.
@@ -4119,6 +4238,28 @@ TEST_F(ContextualSearchboxHandlerTestTabsTest, GetRecentTabs) {
     EXPECT_EQ(tabs[0]->tab_id, example_tab->GetHandle().raw_value());
     EXPECT_EQ(tabs[1]->tab_id, gmail_tab->GetHandle().raw_value());
   }
+}
+
+TEST_F(ContextualSearchboxHandlerTestTabsTest,
+       GetRecentTabs_ActiveTabPrioritizedOverNewerBackgroundTab) {
+  auto* active_tab = AddTab(GURL("https://www.example.com"));
+  // Simulate opening a duplicate URL tab in the background (e.g., via
+  // Ctrl+clicking a link), which initializes `LastActiveTimeTicks` on the new
+  // background WebContents to a newer timestamp while `active_tab` remains the
+  // active tab in the tab strip.
+  auto* background_tab = AddTab(GURL("https://www.example.com"));
+  ON_CALL(*tab_list(), GetActiveTab())
+      .WillByDefault(testing::Return(active_tab));
+
+  base::test::TestFuture<std::vector<searchbox::mojom::TabInfoPtr>> future;
+  handler().GetRecentTabs(future.GetCallback());
+  auto tabs = future.Take();
+
+  ASSERT_EQ(tabs.size(), 2u);
+  EXPECT_EQ(tabs[0]->tab_id, active_tab->GetHandle().raw_value());
+  EXPECT_TRUE(tabs[0]->show_in_current_tab_chip);
+  EXPECT_EQ(tabs[1]->tab_id, background_tab->GetHandle().raw_value());
+  EXPECT_FALSE(tabs[1]->show_in_current_tab_chip);
 }
 
 TEST_F(ContextualSearchboxHandlerTestTabsTest,
@@ -4163,12 +4304,7 @@ TEST_F(ContextualSearchboxHandlerTestTabsTest,
 }
 
 TEST_F(ContextualSearchboxHandlerTestTabsTest,
-       GetRecentTabs_SetsIsLoadingWhenSkeletonLoaderEnabled) {
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeatureWithParameters(
-      omnibox::kContextManagementInComposebox,
-      {{omnibox::kContextManagementInComposeboxFaviconSkeletonLoader.name,
-        "true"}});
+       GetRecentTabs_SetsIsLoadingForLoadingTabs) {
   auto* loading_tab = AddTab(GURL("https://www.google.com"));
   auto* loaded_tab = AddTab(GURL("https://www.youtube.com"));
   // A started, uncommitted navigation leaves the tab loading.
@@ -4189,32 +4325,7 @@ TEST_F(ContextualSearchboxHandlerTestTabsTest,
 }
 
 TEST_F(ContextualSearchboxHandlerTestTabsTest,
-       GetRecentTabs_IsLoadingFalseWhenSkeletonLoaderDisabled) {
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeatureWithParameters(
-      omnibox::kContextManagementInComposebox,
-      {{omnibox::kContextManagementInComposeboxFaviconSkeletonLoader.name,
-        "false"}});
-  auto* loading_tab = AddTab(GURL("https://www.google.com"));
-  auto navigation = content::NavigationSimulator::CreateBrowserInitiated(
-      GURL("https://www.google.com/search"), loading_tab->GetContents());
-  navigation->Start();
-
-  base::test::TestFuture<std::vector<searchbox::mojom::TabInfoPtr>> future;
-  handler().GetRecentTabs(future.GetCallback());
-  auto tabs = future.Take();
-
-  ASSERT_EQ(tabs.size(), 1u);
-  EXPECT_FALSE(tabs[0]->is_loading);
-}
-
-TEST_F(ContextualSearchboxHandlerTestTabsTest,
        GetRecentTabs_NotifiesPageWhenLoadingTabStops) {
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeatureWithParameters(
-      omnibox::kContextManagementInComposebox,
-      {{omnibox::kContextManagementInComposeboxFaviconSkeletonLoader.name,
-        "true"}});
   auto* loading_tab = AddTab(GURL("https://www.google.com"));
   // Keep `loading_tab` inactive so the active-tab navigation observer does not
   // also notify the page when the navigation commits.

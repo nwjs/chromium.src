@@ -63,6 +63,14 @@ BASE_DECLARE_FEATURE(kComposeboxRealboxOutsideClick);
 // If enabled, suggest requests for multifile inputs will include the cinpts CGI param.
 BASE_DECLARE_FEATURE(kSuggestRequestSendsMultifileCgiParam);
 
+// If enabled, unselects the active suggestion match when Tab navigation moves
+// focus out of the composebox dropdown.
+BASE_DECLARE_FEATURE(kComposeboxUnselectMatchOnTabExit);
+
+// If enabled, personalizes the composebox placeholder hint text with the user's
+// given name when browser and AIM identities match.
+BASE_DECLARE_FEATURE(kComposeboxPersonalizedHintText);
+
 // Parameter determining the daily limit for the context menu animation.
 extern const base::FeatureParam<int> kContextMenuAnimationDailyLimit;
 
@@ -89,15 +97,16 @@ extern const base::FeatureParam<bool> kContextManagementInComposeboxTooltips;
 // Helper to check if context menu tooltips are enabled in the composebox.
 bool IsContextMenuTooltipsInComposeboxEnabled();
 
-// If enabled, favicon coins for tabs that are still loading show a skeleton
-// loader in the composebox.
+// If enabled, the current/recent tab is shown as a standalone menu item at the
+// top of the composebox context menu, above the "Add tabs" flyout entry on
+// Realbox, Omnibox, and SiC Side Panel.
 extern const base::FeatureParam<bool>
-    kContextManagementInComposeboxFaviconSkeletonLoader;
+    kContextManagementInComposeboxSingleTabMenuItem;
 
-// Helper to check if the favicon skeleton loader is enabled in the composebox,
-// which requires the parent feature kContextManagementInComposebox to be
-// enabled and the param to be true.
-bool IsFaviconSkeletonLoaderInComposeboxEnabled();
+// Helper to check if the single tab menu item is enabled, which requires the
+// parent feature kContextManagementInComposebox to be enabled and the param to
+// be true.
+bool IsSingleTabMenuItemInComposeboxEnabled();
 
 }  // namespace omnibox
 

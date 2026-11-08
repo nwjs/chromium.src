@@ -10,15 +10,12 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.clearInvocations;
-import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
@@ -43,6 +40,7 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
@@ -59,23 +57,24 @@ import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.base.test.util.UserActionTester;
-import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.back_press.BackPressManager;
 import org.chromium.chrome.browser.content.WebContentsFactory;
 import org.chromium.chrome.browser.firstrun.FirstRunStatus;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.browser.lifecycle.TopResumedActivityChangedObserver;
 import org.chromium.chrome.browser.metrics.UmaActivityObserver;
 import org.chromium.chrome.browser.omnibox.LocationBarBackgroundDrawable;
 import org.chromium.chrome.browser.omnibox.LocationBarCoordinator;
+import org.chromium.chrome.browser.omnibox.UrlBar;
 import org.chromium.chrome.browser.omnibox.UrlBarCoordinator;
 import org.chromium.chrome.browser.omnibox.status.StatusCoordinator;
+import org.chromium.chrome.browser.omnibox.suggestions.AutocompleteCoordinator;
 import org.chromium.chrome.browser.omnibox.suggestions.CachedZeroSuggestionsManager;
 import org.chromium.chrome.browser.omnibox.suggestions.OmniboxLoadUrlParams;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.profiles.ProfileManager;
 import org.chromium.chrome.browser.profiles.ProfileProvider;
-import org.chromium.chrome.browser.rlz.RevenueStats;
 import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactory;
 import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactoryJni;
 import org.chromium.chrome.browser.searchwidget.SearchActivity.TerminationReason;
@@ -88,6 +87,8 @@ import org.chromium.chrome.browser.ui.searchactivityutils.SearchActivityExtras.R
 import org.chromium.chrome.browser.ui.searchactivityutils.SearchActivityExtras.SearchType;
 import org.chromium.components.metrics.OmniboxEventProtosIntDef.PageClassification;
 import org.chromium.components.omnibox.AutocompleteInput;
+import org.chromium.components.omnibox.AutocompleteRequestType;
+import org.chromium.components.omnibox.OmniboxFeatureList;
 import org.chromium.components.search_engines.TemplateUrlService;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.ui.base.PageTransition;
@@ -100,13 +101,20 @@ import java.util.Set;
 @RunWith(BaseRobolectricTestRunner.class)
 @EnableFeatures({ChromeFeatureList.UMA_SESSION_CORRECTNESS_FIXES})
 public class SearchActivityUnitTest {
+    private static class TestSearchActivity extends SearchActivity {
+        private boolean mFinishedDeferredInitialization;
+
+        @Override
+        void finishDeferredInitialization() {
+            mFinishedDeferredInitialization = true;
+        }
+    }
+
     private static final String TEST_URL = "https://abc.xyz/";
-    private static final String TEST_REFERRER = "com.package.name";
     private static final OmniboxLoadUrlParams LOAD_URL_PARAMS_SIMPLE =
             new OmniboxLoadUrlParams.Builder(TEST_URL, PageTransition.TYPED).build();
     private static final String HISTOGRAM_SUFFIX_SEARCH_WIDGET = ".SearchWidget";
     private static final String HISTOGRAM_SUFFIX_SHORTCUTS_WIDGET = ".ShortcutsWidget";
-    private static final String HISTOGRAM_SUFFIX_CUSTOM_TAB = ".CustomTab";
     private static final String HISTOGRAM_SUFFIX_LAUNCHER = ".Launcher";
     private static final String HISTOGRAM_SUFFIX_HUB = ".Hub";
 
@@ -118,29 +126,32 @@ public class SearchActivityUnitTest {
     private @Mock WebContents mWebContents;
     private @Mock Tab mTab;
     private @Mock SearchActivity.SearchActivityDelegate mDelegate;
-    private @Mock SearchActivityLocationBarLayout mLocationBar;
+    private @Mock AutocompleteCoordinator mAutocompleteCoordinator;
+    private @Mock TopResumedActivityChangedObserver mTopResumedObserver;
     private @Mock UmaActivityObserver mUmaObserver;
-    private @Mock Callback<@Nullable String> mSetCustomTabSearchClient;
     private @Mock LocationBarBackgroundDrawable mSearchBoxBackground;
     private @Mock LocationBarCoordinator mLocationBarCoordinator;
     private @Mock UrlBarCoordinator mUrlCoordinator;
     private @Mock StatusCoordinator mStatusCoordinator;
     private @Mock BackPressManager mBackPressManager;
+    private @Captor ArgumentCaptor<AutocompleteInput> mAutocompleteInputCaptor;
     private MonotonicObservableSupplier<Profile> mProfileSupplier;
     private OneshotSupplier<ProfileProvider> mProfileProviderSupplier;
 
-    private ActivityController<SearchActivity> mController;
-    private SearchActivity mActivity;
+    private ActivityController<TestSearchActivity> mController;
+    private TestSearchActivity mActivity;
     private ShadowActivity mShadowActivity;
     private SearchBoxDataProvider mDataProvider;
+    private SearchActivityLocationBarLayout mLocationBar;
+    private UrlBar mUrlBar;
     private View mAnchorView;
     private View mControlContainer;
 
     @Before
     public void setUp() {
         FirstRunStatus.setFirstRunFlowComplete(true);
-        mController = Robolectric.buildActivity(SearchActivity.class);
-        mActivity = spy(mController.get());
+        mController = Robolectric.buildActivity(TestSearchActivity.class);
+        mActivity = mController.get();
         mActivity.setTheme(R.style.Theme_BrowserUI_DayNight);
         mShadowActivity = shadowOf(mActivity);
         mDataProvider = mActivity.getSearchBoxDataProviderForTesting();
@@ -157,7 +168,21 @@ public class SearchActivityUnitTest {
         mProfileSupplier = mActivity.getProfileSupplierForTesting();
 
         SearchActivity.setDelegateForTests(mDelegate);
+        mLocationBar = new SearchActivityLocationBarLayout(mActivity, /* attrs= */ null);
+        mLocationBar.initialize(
+                mAutocompleteCoordinator,
+                mUrlCoordinator,
+                mStatusCoordinator,
+                mDataProvider,
+                /* windowAndroid= */ null);
+        mLocationBar.setBackground(mSearchBoxBackground);
+        mLocationBar.setFocusable(true);
+        mLocationBar.setFocusableInTouchMode(true);
+        mUrlBar = mLocationBar.findViewById(R.id.url_bar);
+        mUrlBar.setFocusable(true);
+        mUrlBar.setFocusableInTouchMode(true);
         mActivity.setLocationBarLayoutForTesting(mLocationBar);
+        mActivity.getLifecycleDispatcher().register(mTopResumedObserver);
         mProfileProviderSupplier = mActivity.createProfileProvider();
 
         mAnchorView = new View(mActivity);
@@ -168,12 +193,10 @@ public class SearchActivityUnitTest {
         mActivity.setAnchorViewForTesting(mAnchorView);
 
         mControlContainer = new View(mActivity);
-        doReturn(mControlContainer).when(mActivity).findViewById(R.id.control_container);
         mActivity.setControlContainerForTesting(mControlContainer);
 
         mActivity.setLocationBarCoordinatorForTesting(mLocationBarCoordinator);
 
-        lenient().when(mLocationBar.getBackground()).thenReturn(mSearchBoxBackground);
         lenient()
                 .when(mLocationBarCoordinator.getStatusCoordinator())
                 .thenReturn(mStatusCoordinator);
@@ -182,7 +205,6 @@ public class SearchActivityUnitTest {
         SearchActivityUtils.setDelegateForTesting(mUtils);
         WebContentsFactory.setWebContentsForTesting(mWebContents);
         TabBuilder.setTabForTesting(mTab);
-        RevenueStats.setCustomTabSearchClientHookForTesting(mSetCustomTabSearchClient);
         RobolectricUtil.runAllBackgroundAndUiIncludingDelayed();
     }
 
@@ -223,7 +245,7 @@ public class SearchActivityUnitTest {
     @Test
     public void loadUrl_dispatchResultToCallingActivity() {
         setProfile(mProfile);
-        mActivity.handleNewIntent(buildTestServiceIntent(IntentOrigin.CUSTOM_TAB), false);
+        mActivity.handleNewIntent(buildTestServiceIntent(IntentOrigin.HUB), false);
 
         ArgumentCaptor<OmniboxLoadUrlParams> captor =
                 ArgumentCaptor.forClass(OmniboxLoadUrlParams.class);
@@ -235,7 +257,7 @@ public class SearchActivityUnitTest {
                                 TerminationReason.NAVIGATION)
                         .expectIntRecord(
                                 SearchActivity.HISTOGRAM_SESSION_TERMINATION_REASON
-                                        + HISTOGRAM_SUFFIX_CUSTOM_TAB,
+                                        + HISTOGRAM_SUFFIX_HUB,
                                 TerminationReason.NAVIGATION)
                         .build()) {
             mActivity.loadUrl(LOAD_URL_PARAMS_SIMPLE, false);
@@ -259,7 +281,7 @@ public class SearchActivityUnitTest {
 
     @Test
     public void terminateSession_dispatchResultToCallingActivity() {
-        var intent = buildTestServiceIntent(IntentOrigin.CUSTOM_TAB);
+        var intent = buildTestServiceIntent(IntentOrigin.HUB);
         mActivity.handleNewIntent(intent, false);
         clearInvocations(mUtils);
 
@@ -274,7 +296,7 @@ public class SearchActivityUnitTest {
                                     SearchActivity.HISTOGRAM_SESSION_TERMINATION_REASON, reason)
                             .expectIntRecord(
                                     SearchActivity.HISTOGRAM_SESSION_TERMINATION_REASON
-                                            + HISTOGRAM_SUFFIX_CUSTOM_TAB,
+                                            + HISTOGRAM_SUFFIX_HUB,
                                     reason)
                             .build()) {
                 mActivity.finish(reason, null);
@@ -408,7 +430,7 @@ public class SearchActivityUnitTest {
 
     @Test
     public void exitSearchViaCustomBackArrow_HubSearch() {
-        View view = mock(View.class);
+        View view = new View(mActivity);
 
         ArgumentCaptor<OnClickListener> captor = ArgumentCaptor.forClass(OnClickListener.class);
         var histograms =
@@ -446,6 +468,7 @@ public class SearchActivityUnitTest {
     }
 
     @Test
+    @EnableFeatures(OmniboxFeatureList.SERVE_JAVA_CACHED_ZERO_SUGGEST)
     public void handleNewIntent_forJumpStartOmnibox() {
         // Jump-start Omnibox relies on cached data above anything else.
         // Save some data to confirm it's properly picked.
@@ -499,28 +522,6 @@ public class SearchActivityUnitTest {
     }
 
     @Test
-    public void handleNewIntent_forCustomTabNoProfile() {
-        try (var watcher =
-                HistogramWatcher.newSingleRecordWatcher(
-                        SearchActivity.HISTOGRAM_INTENT_ORIGIN, IntentOrigin.CUSTOM_TAB)) {
-            mActivity.handleNewIntent(buildTestServiceIntent(IntentOrigin.CUSTOM_TAB), false);
-        }
-
-        assertEquals(
-                PageClassification.OTHER_ON_CCT,
-                mDataProvider.getPageClassification(/* prefetch= */ true));
-        assertEquals(
-                PageClassification.OTHER_ON_CCT,
-                mDataProvider.getPageClassification(/* prefetch= */ false));
-        assertFalse(mActivity.getEmbedderUiOverridesForTesting().isLensEntrypointAllowed());
-        assertFalse(mActivity.getEmbedderUiOverridesForTesting().isVoiceEntrypointAllowed());
-
-        // Note that the profile is not available at this point, so we should not attempt to refine
-        // the page class.
-        verifyNoMoreInteractions(mTemplateUrlFactoryJni, mTemplateUrlSvc);
-    }
-
-    @Test
     public void handleNewIntent_passIntentUrlToLocationBarData() {
         mActivity.handleNewIntent(buildTestWidgetIntent(IntentOrigin.SEARCH_WIDGET), false);
         assertEquals(TEST_URL, mDataProvider.getCurrentGurl().getSpec());
@@ -538,22 +539,6 @@ public class SearchActivityUnitTest {
             var actions = tester.getActions();
             assertEquals(1, actions.size());
             assertEquals(SearchActivity.USED_ANY_FROM_SEARCH_WIDGET, actions.get(0));
-
-            tester.tearDown();
-        }
-    }
-
-    @Test
-    public void recordUsage_customTabs() {
-        int[] searchTypes = new int[] {SearchType.TEXT, SearchType.VOICE, SearchType.LENS};
-
-        for (var searchType : searchTypes) {
-            var tester = new UserActionTester();
-
-            SearchActivity.recordUsage(IntentOrigin.CUSTOM_TAB, searchType);
-
-            var actions = tester.getActions();
-            assertEquals(0, actions.size());
 
             tester.tearDown();
         }
@@ -597,7 +582,6 @@ public class SearchActivityUnitTest {
                 Set.of(
                         IntentOrigin.SEARCH_WIDGET,
                         IntentOrigin.QUICK_ACTION_SEARCH_WIDGET,
-                        IntentOrigin.CUSTOM_TAB,
                         IntentOrigin.HUB);
         int[] searchTypes = new int[] {SearchType.TEXT, SearchType.VOICE, SearchType.LENS};
 
@@ -616,121 +600,8 @@ public class SearchActivityUnitTest {
     }
 
     @Test
-    public void refinePageClassWithProfile_noRefinementForSearchWidget() {
-        doReturn(true).when(mTemplateUrlSvc).isSearchResultsPageFromDefaultSearchProvider(any());
-        mActivity.handleNewIntent(buildTestWidgetIntent(IntentOrigin.SEARCH_WIDGET), false);
-
-        assertEquals(
-                PageClassification.ANDROID_SEARCH_WIDGET,
-                mDataProvider.getPageClassification(/* prefetch= */ false));
-        verifyNoMoreInteractions(mTemplateUrlSvc);
-    }
-
-    @Test
-    public void refinePageClassWithProfile_noRefinementForShortcutsWidget() {
-        doReturn(true).when(mTemplateUrlSvc).isSearchResultsPageFromDefaultSearchProvider(any());
-        mActivity.handleNewIntent(
-                buildTestWidgetIntent(IntentOrigin.QUICK_ACTION_SEARCH_WIDGET), false);
-
-        assertEquals(
-                PageClassification.ANDROID_SHORTCUTS_WIDGET,
-                mDataProvider.getPageClassification(/* prefetch= */ false));
-        verifyNoMoreInteractions(mTemplateUrlSvc);
-    }
-
-    @Test
-    public void refinePageClassWithProfile_refinesBasicUrlForSearchResultsPage() {
-        setProfile(mProfile);
-
-        {
-            // Simulate Search Results Page.
-            doReturn(true)
-                    .when(mTemplateUrlSvc)
-                    .isSearchResultsPageFromDefaultSearchProvider(any());
-            mActivity.handleNewIntent(buildTestServiceIntent(IntentOrigin.CUSTOM_TAB), false);
-            assertEquals(
-                    PageClassification.SEARCH_RESULT_PAGE_ON_CCT,
-                    mDataProvider.getPageClassification(/* prefetch= */ false));
-            assertEquals(
-                    PageClassification.SEARCH_RESULT_PAGE_ON_CCT,
-                    mDataProvider.getPageClassification(/* prefetch= */ true));
-        }
-
-        {
-            // Simulate arbitrary page.
-            doReturn(false)
-                    .when(mTemplateUrlSvc)
-                    .isSearchResultsPageFromDefaultSearchProvider(any());
-            mActivity.handleNewIntent(buildTestServiceIntent(IntentOrigin.CUSTOM_TAB), false);
-            assertEquals(
-                    PageClassification.OTHER_ON_CCT,
-                    mDataProvider.getPageClassification(/* prefetch= */ false));
-            assertEquals(
-                    PageClassification.OTHER_ON_CCT,
-                    mDataProvider.getPageClassification(/* prefetch= */ true));
-        }
-    }
-
-    @Test
-    public void refinePageClassWithProfile_ignoresNullUrl() {
-        doReturn(true).when(mTemplateUrlSvc).isSearchResultsPageFromDefaultSearchProvider(any());
-        mActivity.handleNewIntent(
-                newIntentBuilder(IntentOrigin.CUSTOM_TAB, /* url= */ null)
-                        .setResolutionType(ResolutionType.SEND_TO_CALLER)
-                        .build(),
-                false);
-
-        assertEquals(
-                PageClassification.OTHER_ON_CCT,
-                mDataProvider.getPageClassification(/* prefetch= */ false));
-        verifyNoMoreInteractions(mTemplateUrlSvc);
-    }
-
-    @Test
-    public void refinePageClassWithProfile_ignoresEmptyUrl() {
-        doReturn(true).when(mTemplateUrlSvc).isSearchResultsPageFromDefaultSearchProvider(any());
-        mActivity.handleNewIntent(
-                newIntentBuilder(IntentOrigin.CUSTOM_TAB, /* url= */ "")
-                        .setResolutionType(ResolutionType.SEND_TO_CALLER)
-                        .build(),
-                false);
-
-        assertEquals(
-                PageClassification.OTHER_ON_CCT,
-                mDataProvider.getPageClassification(/* prefetch= */ false));
-        verifyNoMoreInteractions(mTemplateUrlSvc);
-    }
-
-    @Test
-    public void refinePageClassWithProfile_ignoresInvalidUrl() {
-        doReturn(true).when(mTemplateUrlSvc).isSearchResultsPageFromDefaultSearchProvider(any());
-        mActivity.handleNewIntent(
-                newIntentBuilder(IntentOrigin.CUSTOM_TAB, /* url= */ "aoeui")
-                        .setResolutionType(ResolutionType.SEND_TO_CALLER)
-                        .build(),
-                false);
-
-        assertEquals(
-                PageClassification.OTHER_ON_CCT,
-                mDataProvider.getPageClassification(/* prefetch= */ false));
-        verifyNoMoreInteractions(mTemplateUrlSvc);
-    }
-
-    @Test
-    public void refinePageClassWithProfile_noTemplateUrl() {
-        doReturn(null).when(mTemplateUrlFactoryJni).getTemplateUrlService(any());
-
-        mActivity.handleNewIntent(buildTestServiceIntent(IntentOrigin.CUSTOM_TAB), false);
-
-        assertEquals(
-                PageClassification.OTHER_ON_CCT,
-                mDataProvider.getPageClassification(/* prefetch= */ false));
-    }
-
-    @Test
     public void finishNativeInitialization_stopActivityWhenSearchEnginePromoCanceled() {
         mActivity.handleNewIntent(new Intent(), false);
-        doNothing().when(mActivity).finishDeferredInitialization();
 
         setProfile(mProfile);
         mActivity.finishNativeInitialization();
@@ -742,14 +613,13 @@ public class SearchActivityUnitTest {
         captor.getValue().onResult(false);
         RobolectricUtil.runAllBackgroundAndUiIncludingDelayed();
 
-        verify(mActivity, never()).finishDeferredInitialization();
+        assertFalse(mActivity.mFinishedDeferredInitialization);
         assertTrue(mActivity.isFinishing());
     }
 
     @Test
     public void finishNativeInitialization_stopActivityWhenSearchEnginePromoFailed() {
         mActivity.handleNewIntent(new Intent(), false);
-        doNothing().when(mActivity).finishDeferredInitialization();
 
         setProfile(mProfile);
         mActivity.finishNativeInitialization();
@@ -761,13 +631,12 @@ public class SearchActivityUnitTest {
         captor.getValue().onResult(null);
         RobolectricUtil.runAllBackgroundAndUiIncludingDelayed();
 
-        verify(mActivity, never()).finishDeferredInitialization();
+        assertFalse(mActivity.mFinishedDeferredInitialization);
         assertTrue(mActivity.isFinishing());
     }
 
     @Test
     public void finishNativeInitialization_resumeActivityAfterSearchEnginePromoCleared() {
-        doNothing().when(mActivity).finishDeferredInitialization();
         mActivity.handleNewIntent(buildTestServiceIntent(IntentOrigin.UNKNOWN), false);
 
         setProfile(mProfile);
@@ -780,7 +649,7 @@ public class SearchActivityUnitTest {
         captor.getValue().onResult(true);
         RobolectricUtil.runAllBackgroundAndUiIncludingDelayed();
 
-        verify(mActivity).finishDeferredInitialization();
+        assertTrue(mActivity.mFinishedDeferredInitialization);
         assertFalse(mActivity.isFinishing());
     }
 
@@ -799,7 +668,6 @@ public class SearchActivityUnitTest {
     @Test
     public void finishNativeInitialization_abortIfActivityTerminated() {
         mActivity.handleNewIntent(new Intent(), false);
-        doNothing().when(mActivity).finishDeferredInitialization();
 
         setProfile(mProfile);
         mActivity.finishNativeInitialization();
@@ -812,7 +680,7 @@ public class SearchActivityUnitTest {
         captor.getValue().onResult(true);
         RobolectricUtil.runAllBackgroundAndUiIncludingDelayed();
 
-        verify(mActivity, never()).finishDeferredInitialization();
+        assertFalse(mActivity.mFinishedDeferredInitialization);
     }
 
     @Test
@@ -875,36 +743,79 @@ public class SearchActivityUnitTest {
 
         var intent = buildTestWidgetIntent(IntentOrigin.SEARCH_WIDGET);
         intent.putExtra(SearchManager.QUERY, "query1");
+        mUrlBar.setHint(null);
         mActivity.onNewIntent(intent);
-        verify(mLocationBar).beginQuery(eq(IntentOrigin.SEARCH_WIDGET), eq(SearchType.TEXT), any());
+        assertEquals("Search or type URL", mUrlBar.getHint());
         verify(mLocationBarCoordinator).setUrlBarFocus(captor.capture());
         assertEquals("query1", captor.getValue().getUserText());
-        clearInvocations(mLocationBar, mLocationBarCoordinator);
+        clearInvocations(mLocationBarCoordinator);
 
         intent = buildTestWidgetIntent(IntentOrigin.QUICK_ACTION_SEARCH_WIDGET);
         intent.putExtra(SearchManager.QUERY, "query2");
+        mUrlBar.setHint(null);
         mActivity.onNewIntent(intent);
-        verify(mLocationBar)
-                .beginQuery(
-                        eq(IntentOrigin.QUICK_ACTION_SEARCH_WIDGET), eq(SearchType.TEXT), any());
+        assertEquals("Search or type URL", mUrlBar.getHint());
         verify(mLocationBarCoordinator).setUrlBarFocus(captor.capture());
         assertEquals("query2", captor.getValue().getUserText());
-        clearInvocations(mLocationBar, mLocationBarCoordinator);
+        clearInvocations(mLocationBarCoordinator);
 
         intent = buildTestWidgetIntent(IntentOrigin.SEARCH_WIDGET);
         intent.putExtra(SearchManager.QUERY, "");
+        mUrlBar.setHint(null);
         mActivity.onNewIntent(intent);
-        verify(mLocationBar).beginQuery(eq(IntentOrigin.SEARCH_WIDGET), eq(SearchType.TEXT), any());
+        assertEquals("Search or type URL", mUrlBar.getHint());
         verify(mLocationBarCoordinator).setUrlBarFocus(captor.capture());
         assertEquals("", captor.getValue().getUserText());
-        clearInvocations(mLocationBar, mLocationBarCoordinator);
+        clearInvocations(mLocationBarCoordinator);
+    }
 
-        intent = buildTestServiceIntent(IntentOrigin.CUSTOM_TAB);
-        intent.removeExtra(SearchManager.QUERY);
-        mActivity.onNewIntent(intent);
-        verify(mLocationBar).beginQuery(eq(IntentOrigin.CUSTOM_TAB), eq(SearchType.TEXT), any());
-        verify(mLocationBarCoordinator).setUrlBarFocus(captor.capture());
-        assertEquals("", captor.getValue().getUserText());
+    @Test
+    @EnableFeatures(ChromeFeatureList.ONE_STEP_AIM_ACCESS)
+    public void handleNewIntent_aiModeRequestType_flagEnabled() {
+        var intent =
+                newIntentBuilder(IntentOrigin.QUICK_ACTION_SEARCH_WIDGET, TEST_URL)
+                        .setRequestType(AutocompleteRequestType.AI_MODE)
+                        .build();
+        mActivity.handleNewIntent(intent, false);
+        verify(mLocationBarCoordinator).setUrlBarFocus(mAutocompleteInputCaptor.capture());
+        assertEquals(
+                AutocompleteRequestType.AI_MODE,
+                mAutocompleteInputCaptor.getValue().getRequestType());
+    }
+
+    @Test
+    @DisableFeatures(ChromeFeatureList.ONE_STEP_AIM_ACCESS)
+    public void handleNewIntent_aiModeRequestType_flagDisabled() {
+        var intent =
+                newIntentBuilder(IntentOrigin.QUICK_ACTION_SEARCH_WIDGET, TEST_URL)
+                        .setRequestType(AutocompleteRequestType.AI_MODE)
+                        .build();
+        mActivity.handleNewIntent(intent, false);
+        verify(mLocationBarCoordinator).setUrlBarFocus(mAutocompleteInputCaptor.capture());
+        assertEquals(
+                AutocompleteRequestType.SEARCH,
+                mAutocompleteInputCaptor.getValue().getRequestType());
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.ONE_STEP_AIM_ACCESS)
+    public void handleNewIntent_requestTypeDoesNotCarryOverToNextSession() {
+        var intent =
+                newIntentBuilder(IntentOrigin.QUICK_ACTION_SEARCH_WIDGET, TEST_URL)
+                        .setRequestType(AutocompleteRequestType.AI_MODE)
+                        .build();
+        mActivity.handleNewIntent(intent, false);
+        verify(mLocationBarCoordinator).setUrlBarFocus(mAutocompleteInputCaptor.capture());
+        assertEquals(
+                AutocompleteRequestType.AI_MODE,
+                mAutocompleteInputCaptor.getValue().getRequestType());
+        clearInvocations(mLocationBarCoordinator);
+
+        mActivity.onNewIntent(buildTestWidgetIntent(IntentOrigin.QUICK_ACTION_SEARCH_WIDGET));
+        verify(mLocationBarCoordinator).setUrlBarFocus(mAutocompleteInputCaptor.capture());
+        assertEquals(
+                AutocompleteRequestType.SEARCH,
+                mAutocompleteInputCaptor.getValue().getRequestType());
     }
 
     @Test
@@ -914,7 +825,7 @@ public class SearchActivityUnitTest {
         mActivity.onResumeWithNative();
 
         verify(mUmaObserver).startUmaSession(eq(null), any());
-        verifyNoMoreInteractions(mUmaObserver, mSetCustomTabSearchClient);
+        verifyNoMoreInteractions(mUmaObserver);
     }
 
     @Test
@@ -924,71 +835,7 @@ public class SearchActivityUnitTest {
         mActivity.onResumeWithNative();
 
         verify(mUmaObserver).startUmaSession(eq(null), any());
-        verifyNoMoreInteractions(mUmaObserver, mSetCustomTabSearchClient);
-    }
-
-    @Test
-    public void onResumeWithNative_fromCustomTabs_withoutPackage() {
-        ChromeFeatureList.sSearchinCctApplyReferrerId.setForTesting(true);
-        mActivity.onNewIntent(buildTestServiceIntent(IntentOrigin.CUSTOM_TAB));
-        mActivity.setUmaActivityObserverForTesting(mUmaObserver);
-
-        try (var watcher =
-                HistogramWatcher.newSingleRecordWatcher(
-                        SearchActivity.HISTOGRAM_INTENT_REFERRER_VALID, false)) {
-            mActivity.onResumeWithNative();
-        }
-
-        verify(mUmaObserver).startUmaSession(eq(null), any());
-        verify(mSetCustomTabSearchClient).onResult(null);
-        verifyNoMoreInteractions(mUmaObserver, mSetCustomTabSearchClient);
-    }
-
-    @Test
-    public void onResumeWithNative_fromCustomTabs_withPackage() {
-        ChromeFeatureList.sSearchinCctApplyReferrerId.setForTesting(true);
-        mActivity.onNewIntent(
-                newIntentBuilder(IntentOrigin.CUSTOM_TAB, TEST_URL)
-                        .setReferrer(TEST_REFERRER)
-                        .setResolutionType(ResolutionType.SEND_TO_CALLER)
-                        .build());
-        mActivity.setUmaActivityObserverForTesting(mUmaObserver);
-
-        try (var watcher =
-                HistogramWatcher.newSingleRecordWatcher(
-                        SearchActivity.HISTOGRAM_INTENT_REFERRER_VALID, true)) {
-            mActivity.onResumeWithNative();
-        }
-
-        verify(mUmaObserver).startUmaSession(eq(null), any());
-        verify(mSetCustomTabSearchClient).onResult("app-cct-" + TEST_REFERRER);
-        verifyNoMoreInteractions(mUmaObserver, mSetCustomTabSearchClient);
-    }
-
-    @Test
-    public void onResumeWithNative_fromCustomTabs_propagationDisabled() {
-        ChromeFeatureList.sSearchinCctApplyReferrerId.setForTesting(false);
-        mActivity.onNewIntent(buildTestServiceIntent(IntentOrigin.CUSTOM_TAB));
-        mActivity.setUmaActivityObserverForTesting(mUmaObserver);
-
-        try (var watcher =
-                HistogramWatcher.newBuilder()
-                        .expectNoRecords(SearchActivity.HISTOGRAM_INTENT_REFERRER_VALID)
-                        .build()) {
-            mActivity.onResumeWithNative();
-        }
-
-        verify(mUmaObserver).startUmaSession(eq(null), any());
-        verify(mSetCustomTabSearchClient, never()).onResult(any());
-        verifyNoMoreInteractions(mUmaObserver, mSetCustomTabSearchClient);
-    }
-
-    @Test
-    public void onPauseWithNative() {
-        mActivity.onPauseWithNative();
-
-        verify(mSetCustomTabSearchClient).onResult(null);
-        verifyNoMoreInteractions(mSetCustomTabSearchClient);
+        verifyNoMoreInteractions(mUmaObserver);
     }
 
     @Test
@@ -1054,10 +901,10 @@ public class SearchActivityUnitTest {
                             .expectIntRecord(SearchActivity.HISTOGRAM_NAVIGATION_TARGET_TYPE, type)
                             .expectIntRecord(
                                     SearchActivity.HISTOGRAM_NAVIGATION_TARGET_TYPE
-                                            + HISTOGRAM_SUFFIX_CUSTOM_TAB,
+                                            + HISTOGRAM_SUFFIX_HUB,
                                     type)
                             .build()) {
-                mActivity.onNewIntent(buildTestServiceIntent(IntentOrigin.CUSTOM_TAB));
+                mActivity.onNewIntent(buildTestServiceIntent(IntentOrigin.HUB));
                 mActivity.recordNavigationTargetType(entry.getKey());
             }
         }
@@ -1065,25 +912,26 @@ public class SearchActivityUnitTest {
 
     @Test
     public void onTopResumedActivityChanged_clearOmniboxFocusIfNotActive() {
-        doNothing().when(mActivity).super_onTopResumedActivityChanged(anyBoolean());
         mActivity.handleNewIntent(buildTestServiceIntent(IntentOrigin.SEARCH_WIDGET), false);
+        mLocationBar.requestOmniboxFocus();
+        assertTrue(mUrlBar.hasFocus());
         mActivity.onTopResumedActivityChanged(false);
-        verify(mLocationBar).clearOmniboxFocus();
-        verify(mActivity).super_onTopResumedActivityChanged(false);
+        assertFalse(mUrlBar.hasFocus());
+        verify(mTopResumedObserver).onTopResumedActivityChanged(false);
     }
 
     @Test
     public void onTopResumedActivityChanged_requestOmniboxFocusIfActive() {
-        doNothing().when(mActivity).super_onTopResumedActivityChanged(anyBoolean());
         mActivity.handleNewIntent(buildTestServiceIntent(IntentOrigin.SEARCH_WIDGET), false);
+        mLocationBar.clearOmniboxFocus();
+        assertFalse(mUrlBar.hasFocus());
         mActivity.onTopResumedActivityChanged(true);
-        verify(mLocationBar).requestOmniboxFocus();
-        verify(mActivity).super_onTopResumedActivityChanged(true);
+        assertTrue(mUrlBar.hasFocus());
+        verify(mTopResumedObserver).onTopResumedActivityChanged(true);
     }
 
     @Test
     public void onTopResumedActivityChanged_finishActivityFocusLostHubSearch() {
-        doNothing().when(mActivity).super_onTopResumedActivityChanged(anyBoolean());
         var histograms =
                 HistogramWatcher.newBuilder()
                         .expectIntRecord(

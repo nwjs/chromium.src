@@ -3,7 +3,6 @@
 // found in the LICENSE file.
 
 #include "base/containers/span.h"
-#include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "build/build_config.h"
 #include "cc/base/features.h"
@@ -819,7 +818,7 @@ TEST_P(CompositingTest, HitTestOpaquenessOnChangeOfUsedPointerEvents) {
   Element* parent = GetElementById("parent");
   Element* target = GetElementById("target");
   const LayoutBox* target_box = target->GetLayoutBox();
-  EXPECT_EQ(EPointerEvents::kAuto, target_box->StyleRef().UsedPointerEvents());
+  EXPECT_EQ(EPointerEvents::kAuto, target_box->Style().UsedPointerEvents());
   ASSERT_FALSE(target_box->Layer()->SelfNeedsRepaint());
   auto* display_item_client = static_cast<const DisplayItemClient*>(target_box);
   ASSERT_TRUE(display_item_client->IsValid());
@@ -832,7 +831,7 @@ TEST_P(CompositingTest, HitTestOpaquenessOnChangeOfUsedPointerEvents) {
   UpdateAllLifecyclePhasesExceptPaint();
   // Change of PointerEvents should not invalidate the painting layer, but not
   // the display item client.
-  EXPECT_EQ(EPointerEvents::kNone, target_box->StyleRef().UsedPointerEvents());
+  EXPECT_EQ(EPointerEvents::kNone, target_box->Style().UsedPointerEvents());
   EXPECT_TRUE(target_box->Layer()->SelfNeedsRepaint());
   EXPECT_TRUE(display_item_client->IsValid());
   UpdateAllLifecyclePhases();
@@ -841,7 +840,7 @@ TEST_P(CompositingTest, HitTestOpaquenessOnChangeOfUsedPointerEvents) {
 
   target->RemoveInlineStyleProperty(CSSPropertyID::kPointerEvents);
   UpdateAllLifecyclePhasesExceptPaint();
-  EXPECT_EQ(EPointerEvents::kAuto, target_box->StyleRef().UsedPointerEvents());
+  EXPECT_EQ(EPointerEvents::kAuto, target_box->Style().UsedPointerEvents());
   EXPECT_TRUE(target_box->Layer()->SelfNeedsRepaint());
   EXPECT_TRUE(display_item_client->IsValid());
   UpdateAllLifecyclePhases();
@@ -850,7 +849,7 @@ TEST_P(CompositingTest, HitTestOpaquenessOnChangeOfUsedPointerEvents) {
 
   parent->setAttribute(html_names::kInertAttr, AtomicString(""));
   UpdateAllLifecyclePhasesExceptPaint();
-  EXPECT_EQ(EPointerEvents::kNone, target_box->StyleRef().UsedPointerEvents());
+  EXPECT_EQ(EPointerEvents::kNone, target_box->Style().UsedPointerEvents());
   // Change of parent inert attribute (affecting target's used pointer events)
   // should invalidate the painting layer but not the display item client.
   EXPECT_TRUE(target_box->Layer()->SelfNeedsRepaint());
@@ -861,7 +860,7 @@ TEST_P(CompositingTest, HitTestOpaquenessOnChangeOfUsedPointerEvents) {
 
   parent->removeAttribute(html_names::kInertAttr);
   UpdateAllLifecyclePhasesExceptPaint();
-  EXPECT_EQ(EPointerEvents::kAuto, target_box->StyleRef().UsedPointerEvents());
+  EXPECT_EQ(EPointerEvents::kAuto, target_box->Style().UsedPointerEvents());
   EXPECT_TRUE(target_box->Layer()->SelfNeedsRepaint());
   EXPECT_TRUE(display_item_client->IsValid());
   UpdateAllLifecyclePhases();
@@ -945,10 +944,6 @@ TEST_P(CompositingTest, AnchorPositionAdjustmentTransformIdReference) {
 }
 
 TEST_P(CompositingTest, MergeFixedLayers) {
-  base::MetricsSubSampler::ScopedAlwaysSampleForTesting always_sample;
-  std::optional<base::HistogramTester> histograms;
-  histograms.emplace();
-
   SetViewSize(gfx::Size(1000, 500));
   InitializeWithHTML(*WebView()->MainFrameImpl()->GetFrame(), R"HTML(
     <style>
@@ -968,12 +963,8 @@ TEST_P(CompositingTest, MergeFixedLayers) {
   EXPECT_EQ(gfx::Size(180, 150), a->bounds());
   EXPECT_EQ(gfx::Transform::MakeTranslation(0, 100),
             GetTransformNode(a)->local);
-  histograms->ExpectUniqueSample("Blink.Compositor.FixedLayerCount", 1, 1);
-  histograms->ExpectUniqueSample("Blink.Compositor.MergedFixedLayerCount", 1,
-                                 1);
 
   // Merge a and b. b affects both offset and size of the merged layer.
-  histograms.emplace();
   GetElementById("b")->SetInlineStyleProperty(CSSPropertyID::kTop, "40px");
   UpdateAllLifecyclePhases();
   a = CcLayerByDOMElementId("a");
@@ -984,12 +975,8 @@ TEST_P(CompositingTest, MergeFixedLayers) {
   EXPECT_EQ(gfx::Size(180, 160), a->bounds());
   EXPECT_EQ(gfx::Transform::MakeTranslation(0, 100),
             GetTransformNode(a)->local);
-  histograms->ExpectUniqueSample("Blink.Compositor.FixedLayerCount", 1, 1);
-  histograms->ExpectUniqueSample("Blink.Compositor.MergedFixedLayerCount", 1,
-                                 1);
 
   // Don't merge a and b because the merged layer would be too sparse.
-  histograms.emplace();
   GetElementById("b")->SetInlineStyleProperty(CSSPropertyID::kLeft, "800px");
   UpdateAllLifecyclePhases();
   a = CcLayerByDOMElementId("a");
@@ -1004,13 +991,9 @@ TEST_P(CompositingTest, MergeFixedLayers) {
   EXPECT_EQ(gfx::Size(100, 100), b->bounds());
   EXPECT_EQ(gfx::Transform::MakeTranslation(800, 40),
             GetTransformNode(b)->local);
-  histograms->ExpectUniqueSample("Blink.Compositor.FixedLayerCount", 2, 1);
-  histograms->ExpectUniqueSample("Blink.Compositor.MergedFixedLayerCount", 0,
-                                 1);
 
   // Don't merge a and b because they have different fixed-position-specific
   // flags (moved_by_outer_viewport_bounds_delta_y in this case).
-  histograms.emplace();
   GetElementById("b")->setAttribute(html_names::kStyleAttr,
                                     AtomicString("bottom: 200px; left: 0"));
   UpdateAllLifecyclePhases();
@@ -1028,12 +1011,8 @@ TEST_P(CompositingTest, MergeFixedLayers) {
   EXPECT_EQ(gfx::Transform::MakeTranslation(0, 200),
             GetTransformNode(b)->local);
   EXPECT_TRUE(GetTransformNode(b)->moved_by_outer_viewport_bounds_delta_y);
-  histograms->ExpectUniqueSample("Blink.Compositor.FixedLayerCount", 2, 1);
-  histograms->ExpectUniqueSample("Blink.Compositor.MergedFixedLayerCount", 0,
-                                 1);
 
   // Merge a and b which are both attached to the bottom of viewport.
-  histograms.emplace();
   GetElementById("a")->setAttribute(html_names::kStyleAttr,
                                     AtomicString("bottom: 250px; left: 0"));
   UpdateAllLifecyclePhases();
@@ -1046,9 +1025,6 @@ TEST_P(CompositingTest, MergeFixedLayers) {
   EXPECT_EQ(gfx::Transform::MakeTranslation(0, 150),
             GetTransformNode(a)->local);
   EXPECT_TRUE(GetTransformNode(a)->moved_by_outer_viewport_bounds_delta_y);
-  histograms->ExpectUniqueSample("Blink.Compositor.FixedLayerCount", 1, 1);
-  histograms->ExpectUniqueSample("Blink.Compositor.MergedFixedLayerCount", 1,
-                                 1);
 }
 
 TEST_P(CompositingTest, DontMergeFixedLayersIfLosingSolidColor) {
@@ -1068,9 +1044,6 @@ TEST_P(CompositingTest, DontMergeFixedLayersIfLosingSolidColor) {
 }
 
 TEST_P(CompositingTest, MergeStickyLayers) {
-  base::MetricsSubSampler::ScopedAlwaysSampleForTesting always_sample;
-  base::HistogramTester histograms;
-
   SetViewSize(gfx::Size(1000, 500));
   InitializeWithHTML(*WebView()->MainFrameImpl()->GetFrame(), R"HTML(
     <style>
@@ -1141,10 +1114,6 @@ TEST_P(CompositingTest, MergeStickyLayers) {
       b3_data->constraints.scroll_container_relative_containing_block_rect);
   EXPECT_TRUE(b3_data->constraints.is_anchored_top);
   EXPECT_EQ(50, b3_data->constraints.top_offset);
-
-  histograms.ExpectUniqueSample("Blink.Compositor.StickyLayerCount", 4, 1);
-  histograms.ExpectUniqueSample("Blink.Compositor.MergedStickyLayerCount", 2,
-                                1);
 }
 
 TEST_P(CompositingTest, MergeStickyLayersWithCullRectVerticalScrollRange) {
@@ -2022,7 +1991,7 @@ TEST_P(CompositingSimTest, FastPathOpacityUpdateFromStyle) {
   auto effect_tree_index = div_cc_layer->effect_tree_index();
   const auto& effect_node =
       GetPropertyTrees()->effect_tree().Node(effect_tree_index);
-  EXPECT_FALSE(effect_node.effect_changed);
+  EXPECT_FALSE(effect_node.effect_changed());
   EXPECT_EQ(paint_artifact_compositor()->NeedsUpdate(),
             PaintArtifactCompositor::UpdateType::kNone);
   EXPECT_NEAR(0.1, effect_node.opacity, 0.001);
@@ -2041,15 +2010,15 @@ TEST_P(CompositingSimTest, FastPathOpacityUpdateFromStyle) {
   UpdateAllLifecyclePhasesExceptPaint();
   EXPECT_NEAR(0.15, div_properties->Effect()->Opacity(), 0.001);
   EXPECT_NEAR(0.15, effect_node.opacity, 0.001);
-  EXPECT_TRUE(effect_node.effect_changed);
+  EXPECT_TRUE(effect_node.effect_changed());
   EXPECT_FALSE(div->GetLayoutObject()->NeedsPaintPropertyUpdate());
   EXPECT_EQ(paint_artifact_compositor()->NeedsUpdate(),
             PaintArtifactCompositor::UpdateType::kNone);
-  EXPECT_TRUE(effect_node.effect_changed);
+  EXPECT_TRUE(effect_node.effect_changed());
 
   // After a frame the |opacity_changed| value should be reset.
   Compositor().BeginFrame();
-  EXPECT_FALSE(effect_node.effect_changed);
+  EXPECT_FALSE(effect_node.effect_changed());
 }
 
 TEST_P(CompositingSimTest,
@@ -2486,9 +2455,9 @@ TEST_P(CompositingSimTest, LayerSubtreeEffectPropertyChanged) {
 
   // Initially, no layer should have |subtree_property_changed| set.
   EXPECT_FALSE(outer_element_layer->subtree_property_changed());
-  EXPECT_FALSE(GetEffectNode(outer_element_layer)->effect_changed);
+  EXPECT_FALSE(GetEffectNode(outer_element_layer)->effect_changed());
   EXPECT_FALSE(inner_element_layer->subtree_property_changed());
-  EXPECT_FALSE(GetEffectNode(inner_element_layer)->effect_changed);
+  EXPECT_FALSE(GetEffectNode(inner_element_layer)->effect_changed());
 
   // Modifying the filter style should set |subtree_property_changed| on
   // both layers.
@@ -2497,16 +2466,16 @@ TEST_P(CompositingSimTest, LayerSubtreeEffectPropertyChanged) {
   UpdateAllLifecyclePhases();
   EXPECT_TRUE(outer_element_layer->subtree_property_changed());
   // Set by blink::PropertyTreeManager.
-  EXPECT_TRUE(GetEffectNode(outer_element_layer)->effect_changed);
+  EXPECT_TRUE(GetEffectNode(outer_element_layer)->effect_changed());
   EXPECT_TRUE(inner_element_layer->subtree_property_changed());
-  EXPECT_FALSE(GetEffectNode(inner_element_layer)->effect_changed);
+  EXPECT_FALSE(GetEffectNode(inner_element_layer)->effect_changed());
 
   // After a frame the |subtree_property_changed| value should be reset.
   Compositor().BeginFrame();
   EXPECT_FALSE(outer_element_layer->subtree_property_changed());
-  EXPECT_FALSE(GetEffectNode(outer_element_layer)->effect_changed);
+  EXPECT_FALSE(GetEffectNode(outer_element_layer)->effect_changed());
   EXPECT_FALSE(inner_element_layer->subtree_property_changed());
-  EXPECT_FALSE(GetEffectNode(inner_element_layer)->effect_changed);
+  EXPECT_FALSE(GetEffectNode(inner_element_layer)->effect_changed());
 }
 
 // This test is similar to |LayerSubtreeTransformPropertyChanged| but for
@@ -4392,13 +4361,13 @@ TEST_P(CompositingSimTest, CanvasDrawElementLayers) {
       div { width: 100px; height: 100px; }
     </style>
     <canvas id="canvas" width="200" height="200" content=drawable>
-      <div id="child_a">
+      <div id="child_a" drawable>
         <div id="grandchild_a">a1</div>
         <div id="grandchild_a_wct" style="will-change: transform;">a2</div>
         <div id="grandchild_a_bdf" style="backdrop-filter: blur(10px);">a3</div>
       </div>
-      <div id="child_b" style="background: blue;"></div>
-      <div id="child_c">c</div>
+      <div id="child_b" drawable style="background: blue;"></div>
+      <div id="child_c" drawable>c</div>
     </canvas>
   )HTML");
   Compositor().BeginFrame();
@@ -4421,16 +4390,16 @@ TEST_P(CompositingSimTest, CanvasDrawElementLayers) {
   EXPECT_GT(GetPictureLayerTotalOpCount(child_b_layer), 0u);
   EXPECT_GT(GetPictureLayerTotalOpCount(child_c_layer), 0u);
 
-  // Ensure canvas_child_id is set correctly.
+  // Ensure canvas_drawable_id is set correctly.
   auto* child_a = GetElementById("child_a");
   auto child_a_id = CompositorElementIdFromDOMNodeId(child_a->GetDomNodeId());
-  EXPECT_EQ(child_a_layer->canvas_child_id(), child_a_id);
+  EXPECT_EQ(child_a_layer->canvas_drawable_id(), child_a_id);
   auto* child_b = GetElementById("child_b");
   auto child_b_id = CompositorElementIdFromDOMNodeId(child_b->GetDomNodeId());
-  EXPECT_EQ(child_b_layer->canvas_child_id(), child_b_id);
+  EXPECT_EQ(child_b_layer->canvas_drawable_id(), child_b_id);
   auto* child_c = GetElementById("child_c");
   auto child_c_id = CompositorElementIdFromDOMNodeId(child_c->GetDomNodeId());
-  EXPECT_EQ(child_c_layer->canvas_child_id(), child_c_id);
+  EXPECT_EQ(child_c_layer->canvas_drawable_id(), child_c_id);
 
   // Move #child_a out of the canvas and ensure the layers update.
   GetDocument().body()->appendChild(child_a);
@@ -4446,7 +4415,7 @@ TEST_P(CompositingSimTest, CanvasDrawElementLayers) {
   child_a_layer = CcLayerByDOMElementId("child_a");
   EXPECT_TRUE(child_a_layer);
   EXPECT_GT(GetPictureLayerTotalOpCount(child_a_layer), 0u);
-  EXPECT_EQ(child_a_layer->canvas_child_id(), child_a_id);
+  EXPECT_EQ(child_a_layer->canvas_drawable_id(), child_a_id);
   EXPECT_FALSE(CcLayerByDOMElementId("grandchild_a_wct"));
   EXPECT_FALSE(CcLayerByDOMElementId("grandchild_a_bdf"));
 
@@ -4502,53 +4471,47 @@ TEST_P(CompositingSimTest, CanvasDrawDescendantsLayers) {
   // Non-drawable elements (even with will-change: transform) should not have
   // layers because their content is merged into the layer for their nearest
   // drawable ancestor.
-
-  // TODO(paint-dev): Uncomment this check when we stop treating immediate
-  // children of canvas as implicitly drawable.
-  // EXPECT_FALSE(CcLayerByDOMElementId("a"));
+  EXPECT_FALSE(CcLayerByDOMElementId("a"));
   EXPECT_FALSE(CcLayerByDOMElementId("aaa"));
   EXPECT_FALSE(CcLayerByDOMElementId("aaba"));
   EXPECT_FALSE(CcLayerByDOMElementId("aac"));
   EXPECT_FALSE(CcLayerByDOMElementId("ab"));
 
-  // Ensure canvas_child_id is set correctly for all layers.
+  // Ensure canvas_drawable_id is set correctly for all layers.
   Element* el = GetElementById("aa");
   auto el_id = CompositorElementIdFromDOMNodeId(el->GetDomNodeId());
-  EXPECT_EQ(aa_layer->canvas_child_id(), el_id);
-  EXPECT_TRUE(paint_artifact_compositor()->GetCanvasChildPaintRecord(
+  EXPECT_EQ(aa_layer->canvas_drawable_id(), el_id);
+  EXPECT_TRUE(paint_artifact_compositor()->GetCanvasDrawablePaintRecord(
       el->GetDomNodeId()));
 
   el = GetElementById("aab");
   el_id = CompositorElementIdFromDOMNodeId(el->GetDomNodeId());
-  EXPECT_EQ(aab_layer->canvas_child_id(), el_id);
-  EXPECT_TRUE(paint_artifact_compositor()->GetCanvasChildPaintRecord(
+  EXPECT_EQ(aab_layer->canvas_drawable_id(), el_id);
+  EXPECT_TRUE(paint_artifact_compositor()->GetCanvasDrawablePaintRecord(
       el->GetDomNodeId()));
 
   el = GetElementById("b");
   el_id = CompositorElementIdFromDOMNodeId(el->GetDomNodeId());
-  EXPECT_EQ(b_layer->canvas_child_id(), el_id);
-  EXPECT_TRUE(paint_artifact_compositor()->GetCanvasChildPaintRecord(
+  EXPECT_EQ(b_layer->canvas_drawable_id(), el_id);
+  EXPECT_TRUE(paint_artifact_compositor()->GetCanvasDrawablePaintRecord(
       el->GetDomNodeId()));
 
   el = GetElementById("ba");
   el_id = CompositorElementIdFromDOMNodeId(el->GetDomNodeId());
-  EXPECT_EQ(ba_layer->canvas_child_id(), el_id);
-  EXPECT_TRUE(paint_artifact_compositor()->GetCanvasChildPaintRecord(
+  EXPECT_EQ(ba_layer->canvas_drawable_id(), el_id);
+  EXPECT_TRUE(paint_artifact_compositor()->GetCanvasDrawablePaintRecord(
       el->GetDomNodeId()));
 
   // Verify non-drawable elements do not have paint records of their own.
-
-  // TODO(paint-dev): Uncomment this check when we stop treating immediate
-  // children of canvas as implicitly drawable.
-  // EXPECT_FALSE(paint_artifact_compositor()->GetCanvasChildPaintRecord(
-  //    GetElementById("a")->GetDomNodeId()));
-  EXPECT_FALSE(paint_artifact_compositor()->GetCanvasChildPaintRecord(
+  EXPECT_FALSE(paint_artifact_compositor()->GetCanvasDrawablePaintRecord(
+      GetElementById("a")->GetDomNodeId()));
+  EXPECT_FALSE(paint_artifact_compositor()->GetCanvasDrawablePaintRecord(
       GetElementById("aaa")->GetDomNodeId()));
-  EXPECT_FALSE(paint_artifact_compositor()->GetCanvasChildPaintRecord(
+  EXPECT_FALSE(paint_artifact_compositor()->GetCanvasDrawablePaintRecord(
       GetElementById("aaba")->GetDomNodeId()));
-  EXPECT_FALSE(paint_artifact_compositor()->GetCanvasChildPaintRecord(
+  EXPECT_FALSE(paint_artifact_compositor()->GetCanvasDrawablePaintRecord(
       GetElementById("aac")->GetDomNodeId()));
-  EXPECT_FALSE(paint_artifact_compositor()->GetCanvasChildPaintRecord(
+  EXPECT_FALSE(paint_artifact_compositor()->GetCanvasDrawablePaintRecord(
       GetElementById("ab")->GetDomNodeId()));
 
   // Remove drawable attribute and re-verify
@@ -4557,7 +4520,7 @@ TEST_P(CompositingSimTest, CanvasDrawDescendantsLayers) {
                       ASSERT_NO_EXCEPTION);
   UpdateAllLifecyclePhases();
   EXPECT_FALSE(CcLayerByDOMElementId("aab"));
-  EXPECT_FALSE(paint_artifact_compositor()->GetCanvasChildPaintRecord(
+  EXPECT_FALSE(paint_artifact_compositor()->GetCanvasDrawablePaintRecord(
       el->GetDomNodeId()));
 }
 
@@ -4575,10 +4538,11 @@ TEST_P(CompositingSimTest, NestedDrawableOverlapPaintRecordLoss) {
   )HTML");
   Compositor().BeginFrame();
 
-  auto parent_record = paint_artifact_compositor()->GetCanvasChildPaintRecord(
-      GetElementById("parent")->GetDomNodeId());
+  auto parent_record =
+      paint_artifact_compositor()->GetCanvasDrawablePaintRecord(
+          GetElementById("parent")->GetDomNodeId());
   ASSERT_TRUE(parent_record);
-  auto child_record = paint_artifact_compositor()->GetCanvasChildPaintRecord(
+  auto child_record = paint_artifact_compositor()->GetCanvasDrawablePaintRecord(
       GetElementById("child")->GetDomNodeId());
   ASSERT_TRUE(child_record);
 
@@ -4614,11 +4578,11 @@ TEST_P(CompositingSimTest, NestedCanvasDrawElementLayers) {
 
   InitializeWithHTML(R"HTML(
     <canvas id="canvas" content=drawable width="200" height="300">
-      <div id="target" style="width: 100px; height: 300px;">
+      <div id="target" drawable style="width: 100px; height: 300px;">
         <div id="sibling_div_a" style="width: 100px; height: 100px; background: #0f0;"></div>
         <canvas id="nested_canvas" content=drawable width="100" height="100">
-          <div id="nested_canvas_target_a" style="width: 50px; height: 50px; background: #00f;"></div>
-          <div id="nested_canvas_target_b" style="width: 50px; height: 50px; background: #0ff;">
+          <div id="nested_canvas_target_a" drawable style="width: 50px; height: 50px; background: #00f;"></div>
+          <div id="nested_canvas_target_b" drawable style="width: 50px; height: 50px; background: #0ff;">
             <div id="nested_canvas_target_b_child" style="width: 10px; height: 10px; background: #000; will-change: transform;"></div>
           </div>
         </canvas>
@@ -4651,23 +4615,23 @@ TEST_P(CompositingSimTest, NestedCanvasDrawElementLayers) {
   EXPECT_GT(GetPictureLayerTotalOpCount(nested_canvas_target_a_layer), 0u);
   EXPECT_GT(GetPictureLayerTotalOpCount(nested_canvas_target_b_layer), 0u);
 
-  // Ensure canvas_child_id is set correctly.
+  // Ensure canvas_drawable_id is set correctly.
   auto* target = GetElementById("target");
   auto target_id = CompositorElementIdFromDOMNodeId(target->GetDomNodeId());
-  EXPECT_EQ(target_layer->canvas_child_id(), target_id);
+  EXPECT_EQ(target_layer->canvas_drawable_id(), target_id);
   auto* nested_canvas_target_a = GetElementById("nested_canvas_target_a");
   auto nested_canvas_target_a_id =
       CompositorElementIdFromDOMNodeId(nested_canvas_target_a->GetDomNodeId());
-  EXPECT_EQ(nested_canvas_target_a_layer->canvas_child_id(),
+  EXPECT_EQ(nested_canvas_target_a_layer->canvas_drawable_id(),
             nested_canvas_target_a_id);
   auto* nested_canvas_target_b = GetElementById("nested_canvas_target_b");
   auto nested_canvas_target_b_id =
       CompositorElementIdFromDOMNodeId(nested_canvas_target_b->GetDomNodeId());
-  EXPECT_EQ(nested_canvas_target_b_layer->canvas_child_id(),
+  EXPECT_EQ(nested_canvas_target_b_layer->canvas_drawable_id(),
             nested_canvas_target_b_id);
 }
 
-TEST_P(CompositingSimTest, CanvasChildPaintRecordWithNestedCanvas) {
+TEST_P(CompositingSimTest, CanvasDrawablePaintRecordWithNestedCanvas) {
   ScopedCanvasDrawElementForTest forced_canvas_draw_element_feature(true);
 
   InitializeWithHTML(R"HTML(
@@ -4677,9 +4641,9 @@ TEST_P(CompositingSimTest, CanvasChildPaintRecordWithNestedCanvas) {
       #nested_child { width: 50px; height: 50px; background: green; }
     </style>
     <canvas id="parent_canvas" width="200" height="200" content=drawable>
-      <div id="parent_child">
+      <div id="parent_child" drawable>
         <canvas id="nested_canvas" width="100" height="100" content=drawable>
-          <div id="nested_child"></div>
+          <div id="nested_child" drawable></div>
         </canvas>
       </div>
     </canvas>
@@ -4694,14 +4658,14 @@ TEST_P(CompositingSimTest, CanvasChildPaintRecordWithNestedCanvas) {
 
   // Direct children of the nested canvas should get a layer.
   EXPECT_TRUE(CcLayerByDOMElementId("nested_child"));
-  EXPECT_TRUE(paint_artifact_compositor()->GetCanvasChildPaintRecord(
+  EXPECT_TRUE(paint_artifact_compositor()->GetCanvasDrawablePaintRecord(
       GetElementById("nested_child")->GetDomNodeId()));
 
   // The parent canvas child's paint record should contain the rendering of the
   // nested canvas (e.g., as a DrawImage, DrawImageRect, or DrawRecord op)
   // replacing the placeholder.
   auto parent_child_record =
-      paint_artifact_compositor()->GetCanvasChildPaintRecord(
+      paint_artifact_compositor()->GetCanvasDrawablePaintRecord(
           GetElementById("parent_child")->GetDomNodeId());
   EXPECT_TRUE(parent_child_record);
   EXPECT_FALSE(parent_child_record->record.empty());
@@ -4724,8 +4688,8 @@ TEST_P(CompositingSimTest, DirectChildNestedCanvasDrawElementLayers) {
   InitializeWithHTML(R"HTML(
     <!DOCTYPE html>
     <canvas id="parent_canvas" width="200" height="200" content=drawable>
-      <canvas id="nested_canvas" width="100" height="100" content=drawable>
-        <div id="nested_child" style="width: 50px; height: 50px; background: green;"></div>
+      <canvas id="nested_canvas" drawable width="100" height="100" content=drawable>
+        <div id="nested_child" drawable style="width: 50px; height: 50px; background: green;"></div>
       </canvas>
     </canvas>
   )HTML");
@@ -4739,13 +4703,13 @@ TEST_P(CompositingSimTest, DirectChildNestedCanvasDrawElementLayers) {
 
   // The nested canvas paint record should be retrievable for parent_canvas.
   auto nested_canvas_record =
-      paint_artifact_compositor()->GetCanvasChildPaintRecord(
+      paint_artifact_compositor()->GetCanvasDrawablePaintRecord(
           GetElementById("nested_canvas")->GetDomNodeId());
   EXPECT_TRUE(nested_canvas_record);
 
   // The nested child paint record should be retrievable for nested_canvas.
   auto nested_child_record =
-      paint_artifact_compositor()->GetCanvasChildPaintRecord(
+      paint_artifact_compositor()->GetCanvasDrawablePaintRecord(
           GetElementById("nested_child")->GetDomNodeId());
   EXPECT_TRUE(nested_child_record);
 }
@@ -4769,7 +4733,7 @@ TEST_P(CompositingSimTest, CanvasDrawElementLayersWithWillChange) {
       }
     </style>
     <canvas id="canvas" width="200" height="200" content=drawable>
-      <div id="target">
+      <div id="target" drawable>
         <div id="willchange"></div>
       </div>
     </canvas>
@@ -4778,12 +4742,12 @@ TEST_P(CompositingSimTest, CanvasDrawElementLayersWithWillChange) {
 
   // Direct children of canvas get a layer.
   EXPECT_TRUE(CcLayerByDOMElementId("target"));
-  EXPECT_TRUE(paint_artifact_compositor()->GetCanvasChildPaintRecord(
+  EXPECT_TRUE(paint_artifact_compositor()->GetCanvasDrawablePaintRecord(
       GetElementById("target")->GetDomNodeId()));
 
   // Composited content under canvas, other than direct children, is disabled.
   EXPECT_FALSE(CcLayerByDOMElementId("willchange"));
-  EXPECT_FALSE(paint_artifact_compositor()->GetCanvasChildPaintRecord(
+  EXPECT_FALSE(paint_artifact_compositor()->GetCanvasDrawablePaintRecord(
       GetElementById("willchange")->GetDomNodeId()));
 }
 
@@ -4811,7 +4775,7 @@ TEST_P(CompositingSimTest, CanvasDrawElementLayersWithScrolling) {
       }
     </style>
     <canvas id="canvas" width="200" height="200" content=drawable>
-      <div id="target">
+      <div id="target" drawable>
         <div id="scroller">
           <div id="scrolled"></div>
         </div>
@@ -4823,16 +4787,16 @@ TEST_P(CompositingSimTest, CanvasDrawElementLayersWithScrolling) {
   // Direct children of canvas get a layer.
   auto* target_layer = CcLayerByDOMElementId("target");
   EXPECT_TRUE(target_layer);
-  EXPECT_TRUE(paint_artifact_compositor()->GetCanvasChildPaintRecord(
+  EXPECT_TRUE(paint_artifact_compositor()->GetCanvasDrawablePaintRecord(
       GetElementById("target")->GetDomNodeId()));
 
   // Composited content under canvas, other than direct children, is disabled.
   EXPECT_FALSE(CcLayerByDOMElementId("scroller"));
   auto* scroller_element = GetElementById("scroller");
-  EXPECT_FALSE(paint_artifact_compositor()->GetCanvasChildPaintRecord(
+  EXPECT_FALSE(paint_artifact_compositor()->GetCanvasDrawablePaintRecord(
       scroller_element->GetDomNodeId()));
   EXPECT_FALSE(CcLayerByDOMElementId("scrolled"));
-  EXPECT_FALSE(paint_artifact_compositor()->GetCanvasChildPaintRecord(
+  EXPECT_FALSE(paint_artifact_compositor()->GetCanvasDrawablePaintRecord(
       GetElementById("scrolled")->GetDomNodeId()));
 
   // The scroller should have a main-thread scroll hit test region in the
@@ -4850,15 +4814,15 @@ TEST_P(CompositingSimTest, CanvasDrawElementLayersWithScrolling) {
   // Direct children of canvas get a layer.
   target_layer = CcLayerByDOMElementId("target");
   EXPECT_TRUE(target_layer);
-  EXPECT_TRUE(paint_artifact_compositor()->GetCanvasChildPaintRecord(
+  EXPECT_TRUE(paint_artifact_compositor()->GetCanvasDrawablePaintRecord(
       GetElementById("target")->GetDomNodeId()));
 
   // Composited content under canvas, other than direct children, is disabled.
   EXPECT_FALSE(CcLayerByDOMElementId("scroller"));
-  EXPECT_FALSE(paint_artifact_compositor()->GetCanvasChildPaintRecord(
+  EXPECT_FALSE(paint_artifact_compositor()->GetCanvasDrawablePaintRecord(
       scroller_element->GetDomNodeId()));
   EXPECT_FALSE(CcLayerByDOMElementId("scrolled"));
-  EXPECT_FALSE(paint_artifact_compositor()->GetCanvasChildPaintRecord(
+  EXPECT_FALSE(paint_artifact_compositor()->GetCanvasDrawablePaintRecord(
       GetElementById("scrolled")->GetDomNodeId()));
 
   // The scroller should have a main-thread scroll hit test region in the
@@ -4881,7 +4845,7 @@ TEST_P(CompositingSimTest, CanvasDrawElementLayersWithCaret) {
       }
     </style>
     <canvas id="canvas" width="200" height="200" content=drawable>
-      <div id="target">
+      <div id="target" drawable>
         <input id="input">
       </div>
     </canvas>
@@ -4927,7 +4891,7 @@ TEST_P(CompositingSimTest, CanvasDrawElementLayersWithAnonymousCaret) {
       }
     </style>
     <canvas id="canvas" width="200" height="200" content=drawable>
-      <div id="target" contenteditable="true">
+      <div id="target" drawable contenteditable="true">
         Text
         <div>Block</div>
       </div>
@@ -4974,7 +4938,7 @@ TEST_P(CompositingSimTest, CanvasDrawElementLayersWithScrollableDrawnElement) {
       }
     </style>
     <canvas id="canvas" width="200" height="200" content=drawable>
-      <div id="scroller">
+      <div id="scroller" drawable>
         <div id="scrolled"></div>
       </div>
     </canvas>
@@ -4984,7 +4948,7 @@ TEST_P(CompositingSimTest, CanvasDrawElementLayersWithScrollableDrawnElement) {
   // Direct children of canvas get a layer.
   auto* scroller_layer = CcLayerByDOMElementId("scroller");
   EXPECT_TRUE(scroller_layer);
-  EXPECT_TRUE(paint_artifact_compositor()->GetCanvasChildPaintRecord(
+  EXPECT_TRUE(paint_artifact_compositor()->GetCanvasDrawablePaintRecord(
       GetElementById("scroller")->GetDomNodeId()));
 
   // Main thread hit test regions should be emitted for scrollable content

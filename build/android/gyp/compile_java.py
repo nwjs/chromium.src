@@ -79,7 +79,7 @@ def CreateJarFile(
         with zipfile.ZipFile(f.name, 'w') as z:
             path_transform = None
             if filter_func:
-                path_transform = lambda p: p if filter_func(p) else None
+                path_transform = lambda p: p if filter_func(p) else None  # noqa: E731
             zip_helpers.zip_directory(
                 z, classes_dir, path_transform=path_transform
             )
@@ -498,7 +498,7 @@ def _RunCompiler(
             start = time.time()
             before_join_callback = None
             if parse_java_files:
-                before_join_callback = lambda: (
+                before_join_callback = lambda: (  # noqa: E731
                     metadata_parser.ParseAndWriteInfoFile(
                         jar_info_path, java_files, kt_files
                     )
@@ -708,10 +708,15 @@ def main(
         '-parameters',
         # Jacoco does not currently support a higher value.
         '--release',
-        # Keep consistent with javac_cmd in //build/android/gyp/turbine.py.
+        # Keep consistent with javac_cmd in //build/android/gyp/turbine.py and
+        # -jvm-target in //build/android/gyp/compile_kt.py.
         # LINT.IfChange
         '25',
-        # LINT.ThenChange(//depot/chromium/components/cronet/gn2bp/templates/Android.extras.bp.template)
+        # LINT.ThenChange(
+        #     //build/android/gyp/compile_kt.py,
+        #     //build/android/gyp/turbine.py,
+        #     //components/cronet/gn2bp/templates/Android.extras.bp.template
+        # )
         # Chromium only allows UTF8 source files.  Being explicit avoids
         # javac pulling a default encoding from the user's environment.
         '-encoding',
@@ -748,7 +753,7 @@ def main(
 
     javac_args.extend(options.javac_arg)
 
-    do_it = lambda changes: _OnStaleMd5(
+    do_it = lambda changes: _OnStaleMd5(  # noqa: E731
         changes,
         options,
         javac_cmd,

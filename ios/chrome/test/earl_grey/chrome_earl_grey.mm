@@ -844,9 +844,6 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration) {
       [NSString stringWithFormat:@"Waiting for main tab count to become %lu",
                                  static_cast<unsigned long>(count)];
 
-  // Allow the UI to become idle, in case any tabs are being opened or closed.
-  GREYWaitForAppToIdle(@"App failed to idle");
-
   GREYCondition* tabCountCheck = [GREYCondition
       conditionWithName:conditionName
                   block:^{
@@ -855,6 +852,9 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration) {
                   }];
   bool tabCountEqual =
       [tabCountCheck waitWithTimeout:kWaitForUIElementTimeout.InSecondsF()];
+
+  // Allow the UI to become idle, in case any tabs are being opened or closed.
+  GREYWaitForAppToIdle(@"App failed to idle");
 
   NSString* errorString = [NSString
       stringWithFormat:
@@ -869,9 +869,6 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration) {
       stringWithFormat:@"Failed waiting for inactive tab count to become %lu",
                        static_cast<unsigned long>(count)];
 
-  // Allow the UI to become idle, in case any tabs are being opened or closed.
-  GREYWaitForAppToIdle(@"App failed to idle");
-
   GREYCondition* tabCountCheck = [GREYCondition
       conditionWithName:errorString
                   block:^{
@@ -880,6 +877,10 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration) {
                   }];
   bool tabCountEqual =
       [tabCountCheck waitWithTimeout:kWaitForUIElementTimeout.InSecondsF()];
+
+  // Allow the UI to become idle, in case any tabs are being opened or closed.
+  GREYWaitForAppToIdle(@"App failed to idle");
+
   EG_TEST_HELPER_ASSERT_TRUE(tabCountEqual, errorString);
 }
 
@@ -887,9 +888,6 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration) {
   NSString* errorString = [NSString
       stringWithFormat:@"Failed waiting for incognito tab count to become %lu",
                        static_cast<unsigned long>(count)];
-
-  // Allow the UI to become idle, in case any tabs are being opened or closed.
-  GREYWaitForAppToIdle(@"App failed to idle");
 
   GREYCondition* tabCountCheck = [GREYCondition
       conditionWithName:errorString
@@ -899,6 +897,10 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration) {
                   }];
   bool tabCountEqual =
       [tabCountCheck waitWithTimeout:kWaitForUIElementTimeout.InSecondsF()];
+
+  // Allow the UI to become idle, in case any tabs are being opened or closed.
+  GREYWaitForAppToIdle(@"App failed to idle");
+
   EG_TEST_HELPER_ASSERT_TRUE(tabCountEqual, errorString);
 }
 
@@ -1398,6 +1400,19 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration) {
   // officially 1 in the app, otherwise we may start a new test while the
   // removed window is still partly registered.
   [self waitForForegroundWindowCount:1];
+
+  // `waitForForegroundWindowCount:1` returns as soon as the closing scene
+  // transitions to the background (`sceneDidEnterBackground:`). Also wait for
+  // the extra scene and session to fully disconnect (`sceneDidDisconnect:`).
+  GREYCondition* windowCountCheck = [GREYCondition
+      conditionWithName:@"Waiting for extra windows to disconnect"
+                  block:^{
+                    return [ChromeEarlGreyAppInterface windowCount] == 1;
+                  }];
+  bool extraWindowsClosed =
+      [windowCountCheck waitWithTimeout:kWaitForUIElementTimeout.InSecondsF()];
+  EG_TEST_HELPER_ASSERT_TRUE(extraWindowsClosed,
+                             @"Failed waiting for extra windows to disconnect");
 }
 
 - (void)waitForForegroundWindowCount:(NSUInteger)count {
@@ -1521,9 +1536,6 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration) {
                        static_cast<unsigned long>(count),
                        static_cast<unsigned long>(actualCount), windowNumber];
 
-  // Allow the UI to become idle, in case any tabs are being opened or closed.
-  GREYWaitForAppToIdle(@"App failed to idle");
-
   GREYCondition* tabCountCheck = [GREYCondition
       conditionWithName:conditionName
                   block:^{
@@ -1533,6 +1545,9 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration) {
                   }];
   bool tabCountEqual =
       [tabCountCheck waitWithTimeout:kWaitForUIElementTimeout.InSecondsF()];
+
+  // Allow the UI to become idle, in case any tabs are being opened or closed.
+  GREYWaitForAppToIdle(@"App failed to idle");
 
   NSString* errorString = [NSString
       stringWithFormat:@"Failed waiting for main tab count to become "
@@ -1553,9 +1568,6 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration) {
                        static_cast<unsigned long>(count),
                        static_cast<unsigned long>(actualCount), windowNumber];
 
-  // Allow the UI to become idle, in case any tabs are being opened or closed.
-  GREYWaitForAppToIdle(@"App failed to idle");
-
   GREYCondition* tabCountCheck = [GREYCondition
       conditionWithName:conditionName
                   block:^{
@@ -1565,6 +1577,9 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration) {
                   }];
   bool tabCountEqual =
       [tabCountCheck waitWithTimeout:kWaitForUIElementTimeout.InSecondsF()];
+
+  // Allow the UI to become idle, in case any tabs are being opened or closed.
+  GREYWaitForAppToIdle(@"App failed to idle");
 
   NSString* errorString =
       [NSString stringWithFormat:
@@ -1768,10 +1783,17 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration) {
   return [ChromeEarlGreyAppInterface isChromeNextEnabled];
 }
 
+- (BOOL)isNextOldDesignEnabled {
+  return [ChromeEarlGreyAppInterface isNextOldDesignEnabled];
+}
+
 - (BOOL)isOverflowMenuNTPRefactorEnabled {
   return [ChromeEarlGreyAppInterface isOverflowMenuNTPRefactorEnabled];
 }
 
+- (BOOL)isAimCobrowseWebSelectionSearchEnabled {
+  return [ChromeEarlGreyAppInterface isAimCobrowseWebSelectionSearchEnabled];
+}
 
 #pragma mark - ContentSettings
 

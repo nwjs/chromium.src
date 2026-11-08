@@ -90,7 +90,7 @@ class ExtensionActionViewModel
   bool IsEnabled(content::WebContents* web_contents) const override;
   bool IsShowingPopup() const override;
   void HidePopup() override;
-  gfx::NativeView GetPopupNativeView() override;
+  gfx::NativeView GetPopupNativeViewForTesting() override;
   ui::MenuModel* GetContextMenu(
       extensions::ExtensionContextMenuModel::ContextMenuSource
           context_menu_source) override;
@@ -110,6 +110,7 @@ class ExtensionActionViewModel
 
   // ExtensionContextMenuModel::PopupDelegate:
   void InspectPopup() override;
+  content::WebContents* GetCurrentWebContents() const override;
 
   // Returns the extension associated with this model.
   const extensions::Extension* GetExtension() const;
@@ -131,9 +132,6 @@ class ExtensionActionViewModel
                            extensions::ExtensionAction* extension_action,
                            extensions::ExtensionRegistry* extension_registry,
                            std::unique_ptr<ExtensionActionDelegate> delegate);
-
-  // Returns the current web contents.
-  content::WebContents* GetCurrentWebContents() const;
 
   // Notifies observers that icon has been updated.
   void NotifyIconObservers();

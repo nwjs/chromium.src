@@ -75,9 +75,6 @@ enum class TabGridOpeningMode {
                              referrer:(password_manager::PasswordCheckReferrer)
                                           referrer;
 
-// Shows the Settings UI if nothing else is displayed.
-- (void)maybeShowSettingsFromViewController;
-
 // TODO(crbug.com/41352590) : Do not pass baseViewController through dispatcher.
 // Shows the Settings UI, presenting from `baseViewController`.
 - (void)showSettingsFromViewController:(UIViewController*)baseViewController;
@@ -173,6 +170,10 @@ enum class TabGridOpeningMode {
 
 // Opens a debug menu for AI prototyping.
 - (void)openAIMenu;
+
+// Displays the Assistant AIM interface. Closes any existing assistant before
+// starting a new one.
+- (void)showAssistantWithNewSession;
 
 // Displays the Assistant AIM interface.
 - (void)showAssistant;

@@ -19,8 +19,8 @@
 #include "partition_alloc/partition_alloc_base/time/time.h"
 #include "partition_alloc/partition_alloc_base/timer/lap_timer.h"
 #include "partition_alloc/partition_alloc_check.h"
-#include "partition_alloc/partition_alloc_constants.h"
 #include "partition_alloc/partition_alloc_for_testing.h"
+#include "partition_alloc/partition_alloc_public_constants.h"
 #include "partition_alloc/partition_root.h"
 #include "partition_alloc/thread_cache.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -119,9 +119,8 @@ class PartitionAllocator : public Allocator {
     // Even though it's easy to invoke the fast path with
     // alloc_.Free<kNoHooks>(), we chose to use the slower path, because it's
     // more common with PA-E.
-    PartitionRoot::FreeInUnknownRoot<partition_alloc::FreeFlags::kNoHooks |
-                                     partition_alloc::FreeFlags::kWithSizeHint>(
-        data, {.size = size});
+    PartitionRoot::FreeInUnknownRoot<partition_alloc::FreeFlags::kNoHooks>(
+        data, FreeSizeHint{size});
   }
 
  private:
@@ -155,9 +154,8 @@ class PartitionAllocatorWithThreadCache : public Allocator {
     // Even though it's easy to invoke the fast path with
     // alloc_.Free<kNoHooks>(), we chose to use the slower path, because it's
     // more common with PA-E.
-    PartitionRoot::FreeInUnknownRoot<partition_alloc::FreeFlags::kNoHooks |
-                                     FreeFlags::kWithSizeHint>(data,
-                                                               {.size = size});
+    PartitionRoot::FreeInUnknownRoot<partition_alloc::FreeFlags::kNoHooks>(
+        data, FreeSizeHint{size});
   }
 
  private:

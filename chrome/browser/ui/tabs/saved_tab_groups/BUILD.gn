@@ -164,7 +164,6 @@ source_set("impl") {
     "//ui/views",
     "//url",
   ]
-  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
 }
 
 source_set("unit_tests") {
@@ -242,9 +241,9 @@ source_set("browser_tests") {
     "//chrome/browser/sync:factories",
     "//chrome/browser/tab_group_sync",
     "//chrome/browser/tab_group_sync:factories",
-    "//chrome/browser/ui",
     "//chrome/browser/ui:browser_actions",
     "//chrome/browser/ui:browser_element_identifiers",
+    "//chrome/browser/ui:browser_tabstrip",
     "//chrome/browser/ui:browser_window_header",
     "//chrome/browser/ui:ui_features",
     "//chrome/browser/ui/browser_window",

@@ -12,7 +12,6 @@
 
 #include "base/dcheck_is_on.h"
 #include "base/files/file_path.h"
-#include "base/memory/ref_counted.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/sequence_checker.h"
 #include "components/services/storage/public/cpp/buckets/bucket_locator.h"
@@ -45,13 +44,11 @@ class CacheStorageManagerTest;
 // sequence.
 // TODO(jkarlin): Remove CacheStorage from memory once they're no
 // longer in active use.
-class CONTENT_EXPORT CacheStorageManager
-    : public base::RefCounted<CacheStorageManager> {
+class CONTENT_EXPORT CacheStorageManager {
  public:
-  static scoped_refptr<CacheStorageManager> Create(
+  CacheStorageManager(
       const base::FilePath& path,
       scoped_refptr<base::SequencedTaskRunner> cache_task_runner,
-      scoped_refptr<base::SequencedTaskRunner> scheduler_task_runner,
       scoped_refptr<storage::QuotaManagerProxy> quota_manager_proxy,
       scoped_refptr<BlobStorageContextWrapper> blob_storage_context,
       base::WeakPtr<CacheStorageDispatcherHost> cache_storage_dispatcher_host);
@@ -59,11 +56,12 @@ class CONTENT_EXPORT CacheStorageManager
   // Create a new manager using the underlying configuration of the given
   // manager, but with its own list of storage objects.  This is only used
   // for testing.
-  static scoped_refptr<CacheStorageManager> CreateForTesting(
+  static std::unique_ptr<CacheStorageManager> CreateForTesting(
       CacheStorageManager* old_manager);
 
   CacheStorageManager(const CacheStorageManager&) = delete;
   CacheStorageManager& operator=(const CacheStorageManager&) = delete;
+  virtual ~CacheStorageManager();
 
   // Map a database identifier (computed from a BucketLocator) to the path.
   static base::FilePath ConstructBucketPath(
@@ -72,6 +70,8 @@ class CONTENT_EXPORT CacheStorageManager
       storage::mojom::CacheStorageOwner owner);
 
   static bool IsValidQuotaStorageKey(const blink::StorageKey& storage_key);
+
+  base::WeakPtr<CacheStorageManager> GetWeakPtr();
 
   // Open the CacheStorage for the given bucket_locator and owner. A reference
   // counting handle is returned which can be stored and used similar to a weak
@@ -117,18 +117,6 @@ class CONTENT_EXPORT CacheStorageManager
                                 const storage::BucketLocator& bucket_locator,
                                 storage::mojom::CacheStorageOwner owner);
 
- protected:
-  friend class base::RefCounted<CacheStorageManager>;
-
-  CacheStorageManager(
-      const base::FilePath& path,
-      scoped_refptr<base::SequencedTaskRunner> cache_task_runner,
-      scoped_refptr<base::SequencedTaskRunner> scheduler_task_runner,
-      scoped_refptr<storage::QuotaManagerProxy> quota_manager_proxy,
-      scoped_refptr<BlobStorageContextWrapper> blob_storage_context,
-      base::WeakPtr<CacheStorageDispatcherHost> cache_storage_dispatcher_host);
-  virtual ~CacheStorageManager();
-
  private:
   friend class cache_storage_manager_unittest::CacheStorageManagerTest;
   friend class CacheStorageContextImpl;
@@ -167,14 +155,6 @@ class CONTENT_EXPORT CacheStorageManager
     return cache_task_runner_;
   }
 
-  scoped_refptr<base::SequencedTaskRunner> scheduler_task_runner() const {
-    return scheduler_task_runner_;
-  }
-
-  void ListStorageKeysOnTaskRunner(
-      storage::mojom::QuotaClient::GetDefaultStorageKeysCallback callback,
-      std::vector<storage::BucketLocator> buckets);
-
   bool IsMemoryBacked() const { return profile_path_.empty(); }
 
 #if DCHECK_IS_ON()
@@ -188,7 +168,6 @@ class CONTENT_EXPORT CacheStorageManager
   // be in-memory only, in which case this is empty.
   const base::FilePath profile_path_;
   const scoped_refptr<base::SequencedTaskRunner> cache_task_runner_;
-  const scoped_refptr<base::SequencedTaskRunner> scheduler_task_runner_;
 
   const scoped_refptr<storage::QuotaManagerProxy> quota_manager_proxy_;
 

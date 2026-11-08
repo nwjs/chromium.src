@@ -42,6 +42,7 @@ source_set("messaging") {
         "native_message_process_host.h",
         "native_messaging_launch_from_native.cc",
         "native_messaging_launch_from_native.h",
+        "native_messaging_logging.h",
         "native_process_launcher.cc",
         "native_process_launcher.h",
       ]
@@ -89,6 +90,7 @@ source_set("messaging") {
     "//components/policy/core/browser",
     "//components/prefs",
     "//components/strings:components_strings",
+    "//components/tabs:public",
     "//url",
   ]
 
@@ -188,7 +190,6 @@ source_set("platform_browser_tests") {
     "//base/test:test_support",
     "//chrome/browser/profiles:profile",
     "//chrome/browser/ssl",
-    "//chrome/browser/ui",
     "//chrome/test:test_support",
     "//components/embedder_support",
     "//components/infobars/content",
@@ -220,10 +221,11 @@ if (!is_android) {
       "//base",
       "//base/test:test_support",
       "//chrome/browser/profiles:profile",
-      "//chrome/browser/ui",
       "//chrome/browser/ui:browser_window_header",
+      "//chrome/browser/ui/browser_window",
       "//chrome/browser/ui/startup",
       "//chrome/test:test_support",
+      "//components/infobars/content",
       "//extensions:test_support",
       "//extensions/browser",
       "//extensions/common",

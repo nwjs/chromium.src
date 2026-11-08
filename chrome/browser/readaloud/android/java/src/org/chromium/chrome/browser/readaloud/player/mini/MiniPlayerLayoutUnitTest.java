@@ -9,7 +9,6 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyInt;
-import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
@@ -17,8 +16,9 @@ import static org.mockito.Mockito.verify;
 
 import android.animation.ObjectAnimator;
 import android.app.Activity;
+import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
 import android.view.View;
-import android.view.ViewGroup;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 
@@ -29,7 +29,6 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
-import org.mockito.Mockito;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.robolectric.Robolectric;
@@ -37,6 +36,9 @@ import org.robolectric.annotation.Config;
 import org.robolectric.shadows.ShadowSystemClock;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.base.test.util.Features.DisableFeatures;
+import org.chromium.base.test.util.Features.EnableFeatures;
+import org.chromium.chrome.browser.readaloud.ReadAloudFeatures;
 import org.chromium.chrome.browser.readaloud.player.InteractionHandler;
 import org.chromium.chrome.browser.readaloud.player.R;
 import org.chromium.chrome.modules.readaloud.PlaybackArgs.PlaybackMode;
@@ -93,6 +95,7 @@ public class MiniPlayerLayoutUnitTest {
     }
 
     @Test
+    @DisableFeatures(ReadAloudFeatures.READ_ALOUD_NATIVE)
     public void testBufferingStrings() {
         mLayout.setRequestedPlaybackMode(PlaybackMode.OVERVIEW);
         mLayout.onPlaybackStateChanged(PlaybackListener.State.BUFFERING);
@@ -105,6 +108,23 @@ public class MiniPlayerLayoutUnitTest {
         mLayout.setRequestedPlaybackMode(PlaybackMode.CLASSIC);
         assertEquals(
                 mLayout.getContext().getString(R.string.readaloud_playback_loading),
+                ((TextView) mLayout.findViewById(R.id.loading_message)).getText());
+    }
+
+    @Test
+    @EnableFeatures(ReadAloudFeatures.READ_ALOUD_NATIVE)
+    public void testBufferingStrings_nativeEnabled() {
+        mLayout.setRequestedPlaybackMode(PlaybackMode.OVERVIEW);
+        mLayout.onPlaybackStateChanged(PlaybackListener.State.BUFFERING);
+
+        assertEquals(View.VISIBLE, mLayout.findViewById(R.id.buffering_layout).getVisibility());
+        assertEquals(
+                mLayout.getContext().getString(R.string.readaloud_mini_player_loading_ai_playback),
+                ((TextView) mLayout.findViewById(R.id.loading_message)).getText());
+
+        mLayout.setRequestedPlaybackMode(PlaybackMode.CLASSIC);
+        assertEquals(
+                mLayout.getContext().getString(R.string.readaloud_playback_loading_page),
                 ((TextView) mLayout.findViewById(R.id.loading_message)).getText());
     }
 
@@ -323,13 +343,13 @@ public class MiniPlayerLayoutUnitTest {
 
     @Test
     public void testOnLayoutGetsHeight() {
-        // Fake the backdrop height so onLayout() doesn't return early.
-        View spyBackdrop = replaceWithSpy(R.id.backdrop);
-        mLayout.onFinishInflate();
-        doReturn(187).when(spyBackdrop).getHeight();
-        assertEquals(187, mLayout.findViewById(R.id.backdrop).getHeight());
+        View backdrop = mLayout.findViewById(R.id.backdrop);
+        backdrop.measure(
+                View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.EXACTLY),
+                View.MeasureSpec.makeMeasureSpec(187, View.MeasureSpec.EXACTLY));
 
         mLayout.onLayout(true, 0, 0, 0, 0);
+        assertEquals(187, backdrop.getHeight());
 
         verify(mMediator).onHeightKnown(eq(187));
     }
@@ -337,23 +357,11 @@ public class MiniPlayerLayoutUnitTest {
     @Test
     @Config(qualifiers = "night")
     public void testDarkModeBackgroundColor() {
-        View spyBackdrop = replaceWithSpy(R.id.backdrop);
+        View backdrop = mLayout.findViewById(R.id.backdrop);
+        backdrop.setBackgroundColor(Color.TRANSPARENT);
         mLayout.onFinishInflate();
         int bg = SemanticColorUtils.getDefaultBgColor(mActivity);
-        verify(spyBackdrop).setBackgroundColor(eq(bg));
+        assertEquals(bg, ((ColorDrawable) backdrop.getBackground()).getColor());
         verify(mMediator).onBackgroundColorUpdated(eq(bg));
-    }
-
-    private View replaceWithSpy(int childId) {
-        View original = mLayout.findViewById(childId);
-        ViewGroup parent = (ViewGroup) original.getParent();
-
-        int index = parent.indexOfChild(original);
-        parent.removeViewAt(index);
-
-        View spy = Mockito.spy(original);
-        parent.addView(spy, index);
-        assertEquals(spy, parent.findViewById(childId));
-        return spy;
     }
 }

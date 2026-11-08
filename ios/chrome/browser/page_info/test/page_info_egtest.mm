@@ -18,7 +18,7 @@
 #import "components/strings/grit/components_strings.h"
 #import "components/url_formatter/elide_url.h"
 #import "ios/chrome/browser/history/ui_bundled/history_ui_constants.h"
-#import "ios/chrome/browser/menu/ui_bundled/menu_action_type.h"
+#import "ios/chrome/browser/menu/public/menu_action_type.h"
 #import "ios/chrome/browser/metrics/model/metrics_app_interface.h"
 #import "ios/chrome/browser/overlays/model/public/web_content_area/alert_constants.h"
 #import "ios/chrome/browser/page_info/constants/page_info_constants.h"
@@ -71,6 +71,18 @@ id<GREYMatcher> CameraPermissionsSwitch(BOOL isOn) {
 id<GREYMatcher> MicrophonePermissionsSwitch(BOOL isOn) {
   return chrome_test_util::TableViewSwitchCell(
       kPageInfoMicrophoneSwitchAccessibilityIdentifier, isOn);
+}
+
+// Matcher for the camera permission dropdown button in Page Info.
+id<GREYMatcher> CameraPermissionsDropdown() {
+  return grey_accessibilityLabel(l10n_util::GetNSString(
+      IDS_IOS_AI_HUB_CAMERA_PERMISSION_DROPDOWN_ACCESSIBILITY_LABEL));
+}
+
+// Matcher for the microphone permission dropdown button in Page Info.
+id<GREYMatcher> MicrophonePermissionsDropdown() {
+  return grey_accessibilityLabel(l10n_util::GetNSString(
+      IDS_IOS_AI_HUB_MICROPHONE_PERMISSION_DROPDOWN_ACCESSIBILITY_LABEL));
 }
 
 // Matcher for the search button.
@@ -198,12 +210,16 @@ void AddEntryToHistoryService(GURL url, base::Time timestamp) {
   };
   GREYAssert(WaitUntilConditionOrTimeout(kWaitForUIElementTimeout, condition),
              @"Permissions dialog was not shown.");
-  NSString* allowButtonText = l10n_util::GetNSString(
-      IDS_IOS_PERMISSIONS_ALERT_DIALOG_BUTTON_TEXT_GRANT);
+  id<GREYMatcher> allowButtonLabelMatcher = grey_anyOf(
+      grey_accessibilityLabel(l10n_util::GetNSString(
+          IDS_IOS_PERMISSIONS_ALERT_DIALOG_BUTTON_TEXT_GRANT)),
+      grey_accessibilityLabel(l10n_util::GetNSString(
+          IDS_IOS_PERMISSIONS_ALERT_DIALOG_BUTTON_TEXT_ALLOW_THIS_TIME)),
+      nil);
 
-  id<GREYMatcher> allowButtonMatcher = allowButtonMatcher = grey_allOf(
-      grey_ancestor(dialogMatcher), grey_accessibilityLabel(allowButtonText),
-      grey_accessibilityTrait(UIAccessibilityTraitStaticText), nil);
+  id<GREYMatcher> allowButtonMatcher =
+      grey_allOf(grey_ancestor(dialogMatcher), allowButtonLabelMatcher,
+                 grey_accessibilityTrait(UIAccessibilityTraitStaticText), nil);
 
   [[[EarlGrey selectElementWithMatcher:allowButtonMatcher]
       assertWithMatcher:grey_sufficientlyVisible()] performAction:grey_tap()];
@@ -228,6 +244,35 @@ void AddEntryToHistoryService(GURL url, base::Time timestamp) {
       @"Microphone state: %@ does not match expected: %@.",
       actualStatesForPermissions[@(web::PermissionMicrophone)],
       expectedStatesForPermissions[@(web::PermissionMicrophone)]);
+}
+
+// Disables `permission` in Page Info via the dropdown menu (when
+// `kDomainLevelSitePermissions` is enabled) or the toggle switch, and returns
+// the expected `web::PermissionState` after disabling.
+- (web::PermissionState)disablePermission:(web::Permission)permission {
+  id<GREYMatcher> dropdownMatcher = (permission == web::PermissionCamera)
+                                        ? CameraPermissionsDropdown()
+                                        : MicrophonePermissionsDropdown();
+  NSError* error = nil;
+  [[EarlGrey selectElementWithMatcher:dropdownMatcher]
+      assertWithMatcher:grey_sufficientlyVisible()
+                  error:&error];
+  if (!error) {
+    [[EarlGrey selectElementWithMatcher:dropdownMatcher]
+        performAction:grey_tap()];
+    [[EarlGrey selectElementWithMatcher:
+                   chrome_test_util::ContextMenuItemWithAccessibilityLabelId(
+                       IDS_IOS_PERMISSIONS_SETTING_NOT_ALLOWED)]
+        performAction:grey_tap()];
+    return web::PermissionStateNotAccessible;
+  }
+
+  id<GREYMatcher> switchMatcher = (permission == web::PermissionCamera)
+                                      ? CameraPermissionsSwitch(YES)
+                                      : MicrophonePermissionsSwitch(YES);
+  [[EarlGrey selectElementWithMatcher:switchMatcher]
+      performAction:chrome_test_util::TurnTableViewSwitchOn(NO)];
+  return web::PermissionStateBlocked;
 }
 
 // Tests that rotating the device will don't dismiss the page info view.
@@ -282,14 +327,14 @@ void AddEntryToHistoryService(GURL url, base::Time timestamp) {
   GREYAssertTrue(self.testServer->Start(), @"Test server failed to start.");
   [ChromeEarlGrey loadURL:self.testServer->GetURL("/")];
   [ChromeEarlGreyUI openPageInfo];
-  // Checks that no permissions are not visible.
+  // Checks that no permissions are visible.
   [[EarlGrey
-      selectElementWithMatcher:grey_anyOf(CameraPermissionsSwitch(YES),
-                                          CameraPermissionsSwitch(NO), nil)]
+      selectElementWithMatcher:
+          grey_accessibilityID(kPageInfoCameraSwitchAccessibilityIdentifier)]
       assertWithMatcher:grey_notVisible()];
-  [[EarlGrey
-      selectElementWithMatcher:grey_anyOf(MicrophonePermissionsSwitch(YES),
-                                          MicrophonePermissionsSwitch(NO), nil)]
+  [[EarlGrey selectElementWithMatcher:
+                 grey_accessibilityID(
+                     kPageInfoMicrophoneSwitchAccessibilityIdentifier)]
       assertWithMatcher:grey_notVisible()];
 }
 
@@ -310,19 +355,19 @@ void AddEntryToHistoryService(GURL url, base::Time timestamp) {
     @(web::PermissionMicrophone) : @(web::PermissionStateAllowed)
   }];
   [[EarlGrey
-      selectElementWithMatcher:grey_anyOf(CameraPermissionsSwitch(YES),
-                                          CameraPermissionsSwitch(NO), nil)]
+      selectElementWithMatcher:
+          grey_accessibilityID(kPageInfoCameraSwitchAccessibilityIdentifier)]
       assertWithMatcher:grey_notVisible()];
   // Check that microphone permission item is visible, and turn it off.
-  [[EarlGrey selectElementWithMatcher:MicrophonePermissionsSwitch(YES)]
-      performAction:chrome_test_util::TurnTableViewSwitchOn(NO)];
+  web::PermissionState expectedState =
+      [self disablePermission:web::PermissionMicrophone];
   [[EarlGrey  // Dismiss view.
       selectElementWithMatcher:grey_accessibilityID(
                                    kPageInfoViewAccessibilityIdentifier)]
       performAction:grey_swipeFastInDirection(kGREYDirectionDown)];
   [self checkStatesForPermissions:@{
     @(web::PermissionCamera) : @(web::PermissionStateNotAccessible),
-    @(web::PermissionMicrophone) : @(web::PermissionStateBlocked)
+    @(web::PermissionMicrophone) : @(expectedState)
   }];
 
   // Check that the correct histograms are logged when a camera permission is
@@ -339,7 +384,7 @@ void AddEntryToHistoryService(GURL url, base::Time timestamp) {
                               "/permissions/camera_and_microphone.html")];
   [self checkAndAllowPermissionAlerts];
 
-  // Check that switchs for both permissions are visible.
+  // Check that controls for both permissions are visible.
   [ChromeEarlGreyUI openPageInfo];
   [self checkStatesForPermissions:@{
     @(web::PermissionCamera) : @(web::PermissionStateAllowed),
@@ -347,16 +392,18 @@ void AddEntryToHistoryService(GURL url, base::Time timestamp) {
   }];
   // Check that both permission item is visible, and turn off camera
   // permission.
-  [[EarlGrey selectElementWithMatcher:MicrophonePermissionsSwitch(YES)]
+  [[EarlGrey
+      selectElementWithMatcher:grey_anyOf(MicrophonePermissionsSwitch(YES),
+                                          MicrophonePermissionsDropdown(), nil)]
       assertWithMatcher:grey_sufficientlyVisible()];
-  [[EarlGrey selectElementWithMatcher:CameraPermissionsSwitch(YES)]
-      performAction:chrome_test_util::TurnTableViewSwitchOn(NO)];
+  web::PermissionState expectedState =
+      [self disablePermission:web::PermissionCamera];
   [[EarlGrey  // Dismiss view.
       selectElementWithMatcher:grey_accessibilityID(
                                    kPageInfoViewAccessibilityIdentifier)]
       performAction:grey_swipeFastInDirection(kGREYDirectionDown)];
   [self checkStatesForPermissions:@{
-    @(web::PermissionCamera) : @(web::PermissionStateBlocked),
+    @(web::PermissionCamera) : @(expectedState),
     @(web::PermissionMicrophone) : @(web::PermissionStateAllowed)
   }];
 
@@ -563,15 +610,7 @@ void AddEntryToHistoryService(GURL url, base::Time timestamp) {
 
   // Go back to Page Info and wait for the Last Visited row to disappear.
   [[EarlGrey
-      selectElementWithMatcher:grey_allOf(
-                                   grey_accessibilityLabel(
-                                       l10n_util::GetNSString(
-                                           IDS_IOS_PAGE_INFO_SITE_INFORMATION)),
-                                   grey_kindOfClassName(
-                                       @"UIAccessibilityBackButtonElement"),
-                                   grey_ancestor(grey_kindOfClass(
-                                       [UINavigationBar class])),
-                                   grey_sufficientlyVisible(), nil)]
+      selectElementWithMatcher:chrome_test_util::SettingsMenuBackButton()]
       performAction:grey_tap()];
   [ChromeEarlGrey waitForNotSufficientlyVisibleElementWithMatcher:
                       grey_text(l10n_util::GetNSString(IDS_PAGE_INFO_HISTORY))];
@@ -667,18 +706,21 @@ void AddEntryToHistoryService(GURL url, base::Time timestamp) {
 // Tests that tapping on a history entry from the Last Visited subpage dismisses
 // Page Info (which presents the Last Visited subpage) and opens the
 // corresponding URL.
-// TODO(crbug.com/567149253): Re-enable. The live www.example.com page no longer
-// contains "Example Domain" in its body.
-- (void)DISABLED_testOpeningURLFromLastVisitedDismissesPageInfo {
+- (void)testOpeningURLFromLastVisitedDismissesPageInfo {
   GREYAssertTrue(self.testServer->Start(), @"Test server failed to start.");
+  const GURL URL1 = self.testServer->GetURL(kURL1);
+  const GURL URL2 = self.testServer->GetURL(kURL2);
 
-  // Create an entry in History which took place one day ago on
-  // `kURLExternalWebsite`.
+  // Create an entry in History which took place one day ago on `URL1`, so that
+  // the Last Visited row is displayed.
   const base::Time oneDayAgo = base::Time::Now() - base::Hours(24);
-  AddEntryToHistoryService(kURLExternalWebsite, oneDayAgo);
+  AddEntryToHistoryService(URL1, oneDayAgo);
 
-  // Visit `URL` and open Page Info.
-  [ChromeEarlGrey loadURL:kURLExternalWebsite];
+  // Visit `URL1` so that its history entries get a title, then visit `URL2` on
+  // the same host, so that the content of `URL1` is not displayed before the
+  // history entry is tapped.
+  [ChromeEarlGrey loadURL:URL1];
+  [ChromeEarlGrey loadURL:URL2];
   [ChromeEarlGreyUI openPageInfo];
 
   // Open Last Visited page.
@@ -686,20 +728,16 @@ void AddEntryToHistoryService(GURL url, base::Time timestamp) {
                                           IDS_PAGE_INFO_HISTORY))]
       performAction:grey_tap()];
 
-  // Tap on the latest history entry from the Last Visited subpage.
-  [[[EarlGrey
-      selectElementWithMatcher:
-          HistoryEntry(
-              base::UTF16ToUTF8(
-                  url_formatter::
-                      FormatUrlForDisplayOmitSchemePathTrivialSubdomainsAndMobilePrefix(
-                          kURLExternalWebsite)),
-              kTitleAndContentOfExternalWebsite)] atIndex:0]
-      performAction:grey_tap()];
+  // Tap on a history entry of `URL1` from the Last Visited subpage. `atIndex:0`
+  // is required because `URL1` has two entries (today and one day ago).
+  [[[EarlGrey selectElementWithMatcher:HistoryEntry(URL1, kTitleOfURL1)]
+      atIndex:0] performAction:grey_tap()];
 
-  // Assert that the corresponding URL was opened.
+  // Assert that Page Info was dismissed and that `URL1` was opened.
   [ChromeEarlGrey
-      waitForWebStateContainingText:kTitleAndContentOfExternalWebsite];
+      waitForUIElementToDisappearWithMatcher:
+          grey_accessibilityID(kPageInfoViewAccessibilityIdentifier)];
+  [ChromeEarlGrey waitForWebStateContainingText:kContentOfURL1];
 
   // Assert that page_info::PAGE_INFO_HISTORY_ENTRY_CLICKED metric was recorded.
   ExpectPageInfoActionHistograms(page_info::PAGE_INFO_HISTORY_ENTRY_CLICKED);
@@ -707,18 +745,21 @@ void AddEntryToHistoryService(GURL url, base::Time timestamp) {
 
 // Tests that tapping on a history entry dismisses both full history and the
 // underlying Page Info (which presents the Last Visited subpage).
-// TODO(crbug.com/567156614): Re-enable. The live www.example.com page no longer
-// contains "Example Domain" in its body.
-- (void)DISABLED_testOpeningURLFromFullHistoryDismissesPageInfo {
+- (void)testOpeningURLFromFullHistoryDismissesPageInfo {
   GREYAssertTrue(self.testServer->Start(), @"Test server failed to start.");
+  const GURL URL1 = self.testServer->GetURL(kURL1);
+  const GURL URL2 = self.testServer->GetURL(kURL2);
 
-  // Create an entry in History which took place one day ago on
-  // `kURLExternalWebsite`.
+  // Create an entry in History which took place one day ago on `URL1`, so that
+  // the Last Visited row is displayed.
   const base::Time oneDayAgo = base::Time::Now() - base::Hours(24);
-  AddEntryToHistoryService(kURLExternalWebsite, oneDayAgo);
+  AddEntryToHistoryService(URL1, oneDayAgo);
 
-  // Visit `URL` and open Page Info.
-  [ChromeEarlGrey loadURL:kURLExternalWebsite];
+  // Visit `URL1` so that its history entries get a title, then visit `URL2` on
+  // the same host, so that the content of `URL1` is not displayed before the
+  // history entry is tapped.
+  [ChromeEarlGrey loadURL:URL1];
+  [ChromeEarlGrey loadURL:URL2];
   [ChromeEarlGreyUI openPageInfo];
 
   // Open Last Visited page.
@@ -732,22 +773,20 @@ void AddEntryToHistoryService(GURL url, base::Time timestamp) {
           grey_accessibilityID(kHistoryToolbarShowFullHistoryButtonIdentifier)]
       performAction:grey_tap()];
 
-  // Check that tapping on the older URL (from full history) dismisses both full
-  // history and Page Info. `atIndex:1` is required because two entries would be
-  // matched (current visit and the visit from one day ago) and we want to
-  // select the last one (i.e. the older history entry).
-  [[[EarlGrey
-      selectElementWithMatcher:
-          HistoryEntry(
-              base::UTF16ToUTF8(
-                  url_formatter::
-                      FormatUrlForDisplayOmitSchemePathTrivialSubdomainsAndMobilePrefix(
-                          kURLExternalWebsite)),
-              kTitleAndContentOfExternalWebsite)] atIndex:1]
-      performAction:grey_tap()];
+  // Tap on a history entry of `URL1` from full history. `atIndex:0` is required
+  // because `URL1` has two entries (today and one day ago).
+  [[[EarlGrey selectElementWithMatcher:HistoryEntry(URL1, kTitleOfURL1)]
+      atIndex:0] performAction:grey_tap()];
 
+  // Assert that both full history and Page Info were dismissed, and that `URL1`
+  // was opened.
   [ChromeEarlGrey
-      waitForWebStateContainingText:kTitleAndContentOfExternalWebsite];
+      waitForUIElementToDisappearWithMatcher:grey_accessibilityID(
+                                                 kHistoryTableViewIdentifier)];
+  [ChromeEarlGrey
+      waitForUIElementToDisappearWithMatcher:
+          grey_accessibilityID(kPageInfoViewAccessibilityIdentifier)];
+  [ChromeEarlGrey waitForWebStateContainingText:kContentOfURL1];
 }
 
 // Tests display and selection of 'Open in New Tab' in a context menu on a

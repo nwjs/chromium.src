@@ -8,7 +8,10 @@
 
 #include "base/command_line.h"
 #include "base/functional/bind.h"
+#include "base/json/values_util.h"
+#include "base/strings/strcat.h"
 #include "base/strings/to_string.h"
+#include "base/test/metrics/histogram_tester.h"
 #include "base/test/mock_callback.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
@@ -34,11 +37,13 @@
 #include "components/autofill/core/browser/data_manager/personal_data_manager.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_profile.h"
 #include "components/autofill/core/browser/test_utils/test_profiles.h"
+#include "components/prefs/scoped_user_pref_update.h"
 #include "components/signin/public/base/consent_level.h"
 #include "components/signin/public/base/signin_metrics.h"
 #include "components/signin/public/base/signin_pref_names.h"
 #include "components/signin/public/base/signin_prefs.h"
 #include "components/signin/public/base/signin_switches.h"
+#include "components/signin/public/identity_manager/accounts_in_cookie_jar_info.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/signin/public/identity_manager/identity_test_environment.h"
 #include "components/signin/public/identity_manager/identity_test_utils.h"
@@ -56,6 +61,7 @@
 #include "device/bluetooth/bluetooth_adapter_factory.h"
 #include "device/bluetooth/test/mock_bluetooth_adapter.h"
 #include "extensions/common/extension_builder.h"
+#include "google_apis/gaia/gaia_auth_util.h"
 #include "google_apis/gaia/gaia_id.h"
 #include "services/network/test/test_url_loader_factory.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -90,6 +96,139 @@ TEST(SigninPromoTest, TestReauthURL) {
                                     "example@domain.com"));
 }
 #endif  // !BUILDFLAG(IS_CHROMEOS)
+
+// Test that `GetChromeReauthURL()` targets `/AccountChooser` and appends
+// `ptc=1` after `Email` when `proceed_to_challenge` is set.
+TEST(SigninPromoTest, TestChromeReauthURLWithProceedToChallenge) {
+  EXPECT_EQ(GURL("https://accounts.google.com/"
+                 "AccountChooser?Email=example%40domain.com&ptc=1"),
+            GetChromeReauthURL(
+                {.email = "example@domain.com", .proceed_to_challenge = true}));
+}
+
+// Test that `ptc` is not appended by default.
+TEST(SigninPromoTest, TestChromeReauthURLWithoutProceedToChallenge) {
+  EXPECT_EQ(GURL("https://accounts.google.com/"
+                 "AccountChooser?Email=example%40domain.com"),
+            GetChromeReauthURL({.email = "example@domain.com"}));
+}
+
+// Test that `ptc` is not appended without an email, since Gaia cannot proceed
+// to a challenge for an unknown account.
+TEST(SigninPromoTest, TestChromeReauthURLWithProceedToChallengeNoEmail) {
+  EXPECT_EQ(GURL("https://accounts.google.com/AccountChooser"),
+            GetChromeReauthURL({.proceed_to_challenge = true}));
+}
+
+namespace {
+
+constexpr char kReauthTestEmail[] = "example@domain.com";
+constexpr char kReauthTestOtherEmail[] = "other@domain.com";
+constexpr char kReauthProceedToChallengeResultHistogram[] =
+    "Signin.Reauth.ProceedToChallengeResult";
+
+gaia::ListedAccount MakeListedAccount(const std::string& email,
+                                      bool valid,
+                                      bool signed_out) {
+  gaia::ListedAccount account;
+  account.email = email;
+  account.gaia_id = GaiaId(email);
+  account.valid = valid;
+  account.signed_out = signed_out;
+  return account;
+}
+
+}  // namespace
+
+// Test that reauth can proceed to challenge when the account is signed out of
+// the web.
+TEST(SigninPromoTest, TestCanReauthProceedToChallengeSignedOutAccount) {
+  base::HistogramTester histogram_tester;
+  EXPECT_TRUE(CanReauthProceedToChallenge(
+      kReauthTestEmail, AccountsInCookieJarInfo(
+                            /*accounts_are_fresh=*/true,
+                            {MakeListedAccount(kReauthTestEmail, /*valid=*/true,
+                                               /*signed_out=*/true)})));
+  histogram_tester.ExpectUniqueSample(
+      kReauthProceedToChallengeResultHistogram,
+      ReauthProceedToChallengeResult::kProceedToChallenge, 1);
+}
+
+// Test that reauth can proceed to challenge when the account is not in the
+// cookie jar.
+TEST(SigninPromoTest, TestCanReauthProceedToChallengeAccountNotInCookies) {
+  base::HistogramTester histogram_tester;
+  EXPECT_TRUE(CanReauthProceedToChallenge(
+      kReauthTestEmail,
+      AccountsInCookieJarInfo(
+          /*accounts_are_fresh=*/true,
+          {MakeListedAccount(kReauthTestOtherEmail, /*valid=*/true,
+                             /*signed_out=*/false)})));
+  EXPECT_TRUE(CanReauthProceedToChallenge(
+      kReauthTestEmail,
+      AccountsInCookieJarInfo(/*accounts_are_fresh=*/true, {})));
+  histogram_tester.ExpectUniqueSample(
+      kReauthProceedToChallengeResultHistogram,
+      ReauthProceedToChallengeResult::kAccountNotInCookies, 2);
+}
+
+// Test that reauth can proceed to challenge when the account session in the
+// cookie jar is invalid.
+TEST(SigninPromoTest, TestCanReauthProceedToChallengeInvalidSession) {
+  base::HistogramTester histogram_tester;
+  EXPECT_TRUE(CanReauthProceedToChallenge(
+      kReauthTestEmail,
+      AccountsInCookieJarInfo(
+          /*accounts_are_fresh=*/true,
+          {MakeListedAccount(kReauthTestEmail, /*valid=*/false,
+                             /*signed_out=*/false)})));
+  histogram_tester.ExpectUniqueSample(
+      kReauthProceedToChallengeResultHistogram,
+      ReauthProceedToChallengeResult::kProceedToChallenge, 1);
+}
+
+// Test that reauth cannot proceed to challenge when Gaia still has a valid
+// session for the account, since `/AccountChooser` would complete without a
+// new sign-in.
+TEST(SigninPromoTest, TestCanReauthProceedToChallengeValidSession) {
+  base::HistogramTester histogram_tester;
+  EXPECT_FALSE(CanReauthProceedToChallenge(
+      kReauthTestEmail, AccountsInCookieJarInfo(
+                            /*accounts_are_fresh=*/true,
+                            {MakeListedAccount(kReauthTestEmail, /*valid=*/true,
+                                               /*signed_out=*/false)})));
+  // Emails are compared after canonicalization.
+  EXPECT_FALSE(CanReauthProceedToChallenge(
+      "Example@Domain.com",
+      AccountsInCookieJarInfo(
+          /*accounts_are_fresh=*/true,
+          {MakeListedAccount(kReauthTestEmail, /*valid=*/true,
+                             /*signed_out=*/false)})));
+  histogram_tester.ExpectUniqueSample(
+      kReauthProceedToChallengeResultHistogram,
+      ReauthProceedToChallengeResult::kAddSessionFallback, 2);
+}
+
+// Test that reauth cannot proceed to challenge when the cookie jar info is
+// stale.
+TEST(SigninPromoTest, TestCanReauthProceedToChallengeStaleCookies) {
+  base::HistogramTester histogram_tester;
+  EXPECT_FALSE(CanReauthProceedToChallenge(
+      kReauthTestEmail,
+      AccountsInCookieJarInfo(/*accounts_are_fresh=*/false, {})));
+  histogram_tester.ExpectUniqueSample(
+      kReauthProceedToChallengeResultHistogram,
+      ReauthProceedToChallengeResult::kAddSessionFallback, 1);
+}
+
+// Test that reauth cannot proceed to challenge without an email.
+TEST(SigninPromoTest, TestCanReauthProceedToChallengeEmptyEmail) {
+  base::HistogramTester histogram_tester;
+  EXPECT_FALSE(CanReauthProceedToChallenge(
+      std::string(), AccountsInCookieJarInfo(/*accounts_are_fresh=*/true, {})));
+  histogram_tester.ExpectTotalCount(kReauthProceedToChallengeResultHistogram,
+                                    0);
+}
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
 // This test can be deleted once kReplaceSyncPromosWithSignInPromos is launched.
@@ -368,9 +507,14 @@ TEST(SigninPromoTest, IsSignInPromo_SendTabToSelf) {
 }
 #endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
 
-// ChromeOS currently does not show any sign in promos.
+// ChromeOS does not show any sign in promos when
+// `kReplaceSyncPromosWithSignInPromos` is disabled.
 #if BUILDFLAG(IS_CHROMEOS)
 TEST(SigninPromoTest, IsSignInPromo) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndDisableFeature(
+      syncer::kReplaceSyncPromosWithSignInPromos);
+
   EXPECT_FALSE(IsSignInPromo(signin_metrics::AccessPoint::kPasswordBubble));
   EXPECT_FALSE(IsSignInPromo(signin_metrics::AccessPoint::kAddressBubble));
   EXPECT_FALSE(IsSignInPromo(signin_metrics::AccessPoint::kBookmarkBubble));
@@ -378,7 +522,21 @@ TEST(SigninPromoTest, IsSignInPromo) {
       IsSignInPromo(signin_metrics::AccessPoint::kExtensionInstallBubble));
   EXPECT_FALSE(IsSignInPromo(signin_metrics::AccessPoint::kSendTabToSelfPromo));
 }
-#endif  // !BUILDFLAG(IS_CHROMEOS)
+
+// With `kReplaceSyncPromosWithSignInPromos` enabled, the extension install
+// bubble access point counts as a sign in promo on ChromeOS.
+TEST(SigninPromoTest, IsSignInPromo_ReplaceSyncPromosWithSignInPromos) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(syncer::kReplaceSyncPromosWithSignInPromos);
+
+  EXPECT_FALSE(IsSignInPromo(signin_metrics::AccessPoint::kPasswordBubble));
+  EXPECT_FALSE(IsSignInPromo(signin_metrics::AccessPoint::kAddressBubble));
+  EXPECT_FALSE(IsSignInPromo(signin_metrics::AccessPoint::kBookmarkBubble));
+  EXPECT_TRUE(
+      IsSignInPromo(signin_metrics::AccessPoint::kExtensionInstallBubble));
+  EXPECT_FALSE(IsSignInPromo(signin_metrics::AccessPoint::kSendTabToSelfPromo));
+}
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
 // Extensions explicit signin is not enabled in ChromeOS.
 #if !BUILDFLAG(IS_CHROMEOS)
@@ -1082,231 +1240,27 @@ TEST_F(ShowSigninPromoTestWithoutPhase2FollowUp,
   EXPECT_TRUE(ShouldShowBookmarkSignInPromo(*profile.get()));
 }
 
-class ShowSigninPromoTestWithFeatureFlagsPromoLimitsExperiment
-    : public ShowSigninPromoTestWithFeatureFlags {
- public:
-  void SetUp() override {
-    ShowSigninPromoTestWithFeatureFlags::SetUp();
-    scoped_feature_list_.InitAndEnableFeature(
-        switches::kSigninPromoLimitsExperiment);
-  }
-
- private:
-  base::test::ScopedFeatureList scoped_feature_list_;
-};
-
-TEST_F(ShowSigninPromoTestWithFeatureFlagsPromoLimitsExperiment,
-       DoNotShowAddressPromoAfterMaxTimesShown) {
-  ASSERT_TRUE(ShouldShowAddressSignInPromo(*profile(), CreateAddress()));
-
-  profile()->GetPrefs()->SetInteger(
-      prefs::kAddressSignInPromoShownCountPerProfileForLimitsExperiment,
-      switches::kContextualSigninPromoShownThreshold.Get());
-
-  EXPECT_FALSE(ShouldShowAddressSignInPromo(*profile(), CreateAddress()));
-  EXPECT_TRUE(ShouldShowPasswordSignInPromo(*profile()));
-}
-
-TEST_F(ShowSigninPromoTestWithFeatureFlagsPromoLimitsExperiment,
-       DoNotShowPasswordPromoAfterMaxTimesShown) {
-  ASSERT_TRUE(ShouldShowPasswordSignInPromo(*profile()));
-
-  profile()->GetPrefs()->SetInteger(
-      prefs::kPasswordSignInPromoShownCountPerProfileForLimitsExperiment,
-      switches::kContextualSigninPromoShownThreshold.Get());
-
-  EXPECT_FALSE(ShouldShowPasswordSignInPromo(*profile()));
-  EXPECT_TRUE(ShouldShowAddressSignInPromo(*profile(), CreateAddress()));
-}
-
-TEST_F(ShowSigninPromoTestWithFeatureFlagsPromoLimitsExperiment,
-       DoNotShowBookmarkPromoAfterMaxTimesShown) {
-  ASSERT_TRUE(ShouldShowBookmarkSignInPromo(*profile()));
-
-  profile()->GetPrefs()->SetInteger(
-      prefs::kBookmarkSignInPromoShownCountPerProfileForLimitsExperiment, 20);
-
-  EXPECT_FALSE(ShouldShowBookmarkSignInPromo(*profile()));
-  EXPECT_TRUE(ShouldShowAddressSignInPromo(*profile(), CreateAddress()));
-}
-
-TEST_F(ShowSigninPromoTestWithFeatureFlagsPromoLimitsExperiment,
-       RecordSignInPromoShownWithoutAccount) {
-  // Add an account without cookies. The per-profile pref will be recorded.
-  AccountInfo account =
-      MakeAccountAvailable(identity_manager(), "test@email.com");
-
-  RecordSignInPromoShown(signin_metrics::AccessPoint::kPasswordBubble,
-                         profile());
-  RecordSignInPromoShown(signin_metrics::AccessPoint::kAddressBubble,
-                         profile());
-  RecordSignInPromoShown(signin_metrics::AccessPoint::kBookmarkBubble,
-                         profile());
-
-  EXPECT_EQ(
-      1,
-      profile()->GetPrefs()->GetInteger(
-          prefs::kPasswordSignInPromoShownCountPerProfileForLimitsExperiment));
-  EXPECT_EQ(
-      1,
-      profile()->GetPrefs()->GetInteger(
-          prefs::kAddressSignInPromoShownCountPerProfileForLimitsExperiment));
-  EXPECT_EQ(
-      1,
-      profile()->GetPrefs()->GetInteger(
-          prefs::kBookmarkSignInPromoShownCountPerProfileForLimitsExperiment));
-  EXPECT_EQ(0, SigninPrefs(*profile()->GetPrefs())
-                   .GetPasswordSigninPromoImpressionCount(account.GetGaiaId()));
-  EXPECT_EQ(0, SigninPrefs(*profile()->GetPrefs())
-                   .GetAddressSigninPromoImpressionCount(account.GetGaiaId()));
-  EXPECT_EQ(0, SigninPrefs(*profile()->GetPrefs())
-                   .GetBookmarkSigninPromoImpressionCount(account.GetGaiaId()));
-
-  EXPECT_TRUE(ShouldShowPasswordSignInPromo(*profile()));
-  EXPECT_TRUE(ShouldShowAddressSignInPromo(*profile(), CreateAddress()));
-  EXPECT_TRUE(ShouldShowBookmarkSignInPromo(*profile()));
-}
-
-TEST_F(ShowSigninPromoTestWithFeatureFlagsPromoLimitsExperiment,
-       RecordSignInPromoShownWithAccount) {
-  // Test setup for adding an account with cookies.
-  network::TestURLLoaderFactory url_loader_factory =
-      network::TestURLLoaderFactory();
-
-  TestingProfile::Builder builder;
-  builder.AddTestingFactories(
-      IdentityTestEnvironmentProfileAdaptor::
-          GetIdentityTestEnvironmentFactoriesWithAppendedFactories(
-              {TestingProfile::TestingFactory{
-                  ChromeSigninClientFactory::GetInstance(),
-                  base::BindRepeating(&BuildChromeSigninClientWithURLLoader,
-                                      &url_loader_factory)}}));
-
-  std::unique_ptr<TestingProfile> profile = builder.Build();
-  auto identity_test_env_adaptor =
-      std::make_unique<IdentityTestEnvironmentProfileAdaptor>(profile.get());
-  auto* identity_test_env = identity_test_env_adaptor->identity_test_env();
-  identity_test_env->SetTestURLLoaderFactory(&url_loader_factory);
-
-  // Add an account with cookies, which will record the per-account prefs.
-  AccountInfo account = identity_test_env->MakeAccountAvailable(
-      identity_test_env->CreateAccountAvailabilityOptionsBuilder()
-          .WithCookie(true)
-          .Build("test@email.com"));
-
-  RecordSignInPromoShown(signin_metrics::AccessPoint::kPasswordBubble,
-                         profile.get());
-  RecordSignInPromoShown(signin_metrics::AccessPoint::kAddressBubble,
-                         profile.get());
-  RecordSignInPromoShown(signin_metrics::AccessPoint::kBookmarkBubble,
-                         profile.get());
-
-  EXPECT_EQ(
-      0,
-      profile.get()->GetPrefs()->GetInteger(
-          prefs::kPasswordSignInPromoShownCountPerProfileForLimitsExperiment));
-  EXPECT_EQ(
-      0,
-      profile.get()->GetPrefs()->GetInteger(
-          prefs::kAddressSignInPromoShownCountPerProfileForLimitsExperiment));
-  EXPECT_EQ(
-      0,
-      profile.get()->GetPrefs()->GetInteger(
-          prefs::kBookmarkSignInPromoShownCountPerProfileForLimitsExperiment));
-  EXPECT_EQ(1, SigninPrefs(*profile.get()->GetPrefs())
-                   .GetPasswordSigninPromoImpressionCount(account.GetGaiaId()));
-  EXPECT_EQ(1, SigninPrefs(*profile.get()->GetPrefs())
-                   .GetAddressSigninPromoImpressionCount(account.GetGaiaId()));
-  EXPECT_EQ(1, SigninPrefs(*profile.get()->GetPrefs())
-                   .GetBookmarkSigninPromoImpressionCount(account.GetGaiaId()));
-}
-
-TEST_F(ShowSigninPromoTestWithFeatureFlagsPromoLimitsExperiment,
-       SkipCheckForNonExperimentNumberOfTimesShownForPasswordPromo) {
-  ASSERT_TRUE(ShouldShowPasswordSignInPromo(*profile()));
-
-  profile()->GetPrefs()->SetInteger(
-      prefs::kPasswordSignInPromoShownCountPerProfile, INT_MAX);
-
-  EXPECT_TRUE(ShouldShowPasswordSignInPromo(*profile()));
-}
-
-TEST_F(ShowSigninPromoTestWithFeatureFlagsPromoLimitsExperiment,
-       SkipCheckForNonExperimentNumberOfTimesShownForAddressPromo) {
-  ASSERT_TRUE(ShouldShowAddressSignInPromo(*profile(), CreateAddress()));
-
-  profile()->GetPrefs()->SetInteger(
-      prefs::kAddressSignInPromoShownCountPerProfile, INT_MAX);
-
-  EXPECT_TRUE(ShouldShowAddressSignInPromo(*profile(), CreateAddress()));
-}
-
-TEST_F(ShowSigninPromoTestWithFeatureFlagsPromoLimitsExperiment,
-       SkipCheckForNonExperimentNumberOfTimesShownForBookmarkPromo) {
-  ASSERT_TRUE(ShouldShowBookmarkSignInPromo(*profile()));
-
-  profile()->GetPrefs()->SetInteger(
-      prefs::kBookmarkSignInPromoShownCountPerProfile, INT_MAX);
-
-  EXPECT_TRUE(ShouldShowBookmarkSignInPromo(*profile()));
-}
-
-TEST_F(ShowSigninPromoTestWithFeatureFlagsPromoLimitsExperiment,
-       DoNotShowPasswordPromoAfterMaxTimesDismissed) {
-  EXPECT_TRUE(ShouldShowPasswordSignInPromo(*profile()));
-
-  profile()->GetPrefs()->SetInteger(
-      prefs::kPasswordSignInPromoDismissCountPerProfileForLimitsExperiment,
-      switches::kContextualSigninPromoDismissedThreshold.Get());
-
-  EXPECT_FALSE(ShouldShowPasswordSignInPromo(*profile()));
-}
-
-TEST_F(ShowSigninPromoTestWithFeatureFlagsPromoLimitsExperiment,
-       DoNotShowAddressPromoAfterMaxTimesDismissed) {
-  EXPECT_TRUE(ShouldShowAddressSignInPromo(*profile(), CreateAddress()));
-
-  profile()->GetPrefs()->SetInteger(
-      prefs::kAddressSignInPromoDismissCountPerProfileForLimitsExperiment,
-      switches::kContextualSigninPromoDismissedThreshold.Get());
-
-  EXPECT_FALSE(ShouldShowAddressSignInPromo(*profile(), CreateAddress()));
-}
-
-TEST_F(ShowSigninPromoTestWithFeatureFlagsPromoLimitsExperiment,
-       DoNotShowBookmarkPromoAfterMaxTimesDismissed) {
-  base::test::ScopedFeatureList scoped_feature_list{syncer::kUnoPhase2FollowUp};
-
-  EXPECT_TRUE(ShouldShowBookmarkSignInPromo(*profile()));
-
-  profile()->GetPrefs()->SetInteger(
-      prefs::kBookmarkSignInPromoDismissCountPerProfileForLimitsExperiment,
-      switches::kContextualSigninPromoDismissedThreshold.Get());
-
-  EXPECT_FALSE(ShouldShowBookmarkSignInPromo(*profile()));
-}
-
-TEST_F(ShowSigninPromoTestWithFeatureFlagsPromoLimitsExperiment,
-       SearchAIModePromoIgnoresOtherExperimentThresholds) {
+TEST_F(ShowSigninPromoTestWithFeatureFlags,
+       SearchAIModePromoIgnoresOtherPromoThresholds) {
   ASSERT_TRUE(ShouldShowSearchAIModeSignInPromo(*profile()));
   ASSERT_TRUE(ShouldShowBookmarkSignInPromo(*profile()));
 
-  // Set the bookmark promo shown limit to max (6 times).
+  // Set the bookmark promo shown limit to max (5 times).
   profile()->GetPrefs()->SetInteger(
-      prefs::kBookmarkSignInPromoShownCountPerProfileForLimitsExperiment, 6);
+      prefs::kBookmarkSignInPromoShownCountPerProfile, 5);
   EXPECT_FALSE(ShouldShowBookmarkSignInPromo(*profile()));
   EXPECT_TRUE(ShouldShowSearchAIModeSignInPromo(*profile()));
 
   // Set the bookmark promo impression and dismissal limit to max (2 times).
   profile()->GetPrefs()->SetInteger(
-      prefs::kBookmarkSignInPromoShownCountPerProfileForLimitsExperiment, 2);
+      prefs::kBookmarkSignInPromoShownCountPerProfile, 2);
   profile()->GetPrefs()->SetInteger(
-      prefs::kBookmarkSignInPromoDismissCountPerProfileForLimitsExperiment, 2);
+      prefs::kAutofillSignInPromoDismissCountPerProfile, 2);
   EXPECT_FALSE(ShouldShowBookmarkSignInPromo(*profile()));
   EXPECT_TRUE(ShouldShowSearchAIModeSignInPromo(*profile()));
 }
 
-TEST_F(ShowSigninPromoTestWithFeatureFlagsPromoLimitsExperiment,
+TEST_F(ShowSigninPromoTestWithFeatureFlags,
        SearchAIModePromoLimitsDoNotAffectOtherPromos) {
   ASSERT_TRUE(ShouldShowSearchAIModeSignInPromo(*profile()));
   ASSERT_TRUE(ShouldShowBookmarkSignInPromo(*profile()));
@@ -1798,6 +1752,91 @@ TEST_P(AvatarButtonPromoManagerPromoTypeParamTest,
       .SetBatchUploadLastUploadRemainingLocalDataCount(account.GetGaiaId(), 1);
 
   EXPECT_FALSE(manager.ShouldShowPromo(GetParam()));
+}
+
+TEST_P(AvatarButtonPromoManagerPromoTypeParamTest,
+       EmptyGaiaFallbackRecordPromoAcceptedAtShownCount) {
+  // Seed distinct non-zero counts per promo type in the profile-scoped
+  // dictionary so that each type's key mapping is verified on the empty-GaiaId
+  // fallback path.
+  {
+    ScopedDictPrefUpdate update(&pref_service(),
+                                "signin.avatar_button_promo_dict");
+    update->Set("AvatarButtonHistorySyncPromoShownCount", 1);
+    update->Set("AvatarButtonBatchUploadPromoShownCount", 2);
+    update->Set("AvatarButtonBatchUploadBookmarkPromoShownCount", 3);
+    update->Set("AvatarButtonBatchUploadWindows10DepreciationPromoShownCount",
+                4);
+    update->Set("AvatarButtonSigninPromoShownCount", 5);
+  }
+
+  base::HistogramTester histogram_tester;
+  RecordAvatarButtonPromoAcceptedAtPromoShownCount(GetParam(), GaiaId(),
+                                                   pref_service());
+
+  std::string_view promo_type_suffix;
+  int expected_count = 0;
+  switch (GetParam()) {
+    case ProfileMenuAvatarButtonPromoInfo::Type::kHistorySyncPromo:
+      promo_type_suffix = "HistorySync";
+      expected_count = 1;
+      break;
+    case ProfileMenuAvatarButtonPromoInfo::Type::kBatchUploadPromo:
+      promo_type_suffix = "BatchUpload";
+      expected_count = 2;
+      break;
+    case ProfileMenuAvatarButtonPromoInfo::Type::kBatchUploadBookmarksPromo:
+      promo_type_suffix = "BatchUploadBookmarks";
+      expected_count = 3;
+      break;
+    case ProfileMenuAvatarButtonPromoInfo::Type::
+        kBatchUploadWindows10DepreciationPromo:
+      promo_type_suffix = "BatchUploadWindows10Depreciation";
+      expected_count = 4;
+      break;
+    case ProfileMenuAvatarButtonPromoInfo::Type::kSigninPromo:
+      promo_type_suffix = "Signin";
+      expected_count = 5;
+      break;
+  }
+  histogram_tester.ExpectUniqueSample(
+      base::StrCat(
+          {"Signin.AvatarPillPromo.AcceptedAtShownCount.", promo_type_suffix}),
+      expected_count, 1);
+}
+
+TEST_F(AvatarButtonPromoManagerTest,
+       SigninPromoEmptyGaiaRecordPromoShownAndUsed) {
+  AvatarButtonPromoManager manager(
+      identity_manager(), /*account_preview_data_service=*/nullptr,
+      batch_upload_service(), &pref_service(), /*max_shown_count=*/10,
+      /*max_used_count=*/5);
+
+  ASSERT_EQ(signin_util::GetSignedInState(identity_manager()),
+            signin_util::SignedInState::kSignedOut);
+
+  const base::Time before_shown = base::Time::Now();
+  manager.RecordPromoShown(
+      ProfileMenuAvatarButtonPromoInfo::Type::kSigninPromo);
+  GaiaId returned_gaia = manager.RecordPromoUsed(
+      ProfileMenuAvatarButtonPromoInfo::Type::kSigninPromo);
+  EXPECT_TRUE(returned_gaia.empty());
+
+  const base::DictValue& profile_promo_dict =
+      pref_service().GetDict("signin.avatar_button_promo_dict");
+  EXPECT_EQ(profile_promo_dict.FindInt("AvatarButtonSigninPromoShownCount"), 1);
+  EXPECT_EQ(profile_promo_dict.FindInt("AvatarButtonSigninPromoUsedCount"), 1);
+  const base::Value* last_shown_value =
+      profile_promo_dict.Find("AvatarButtonSigninPromoLastShownTime");
+  ASSERT_TRUE(last_shown_value);
+  EXPECT_EQ(base::ValueToTime(*last_shown_value), before_shown);
+
+  base::HistogramTester histogram_tester;
+  RecordAvatarButtonPromoAcceptedAtPromoShownCount(
+      ProfileMenuAvatarButtonPromoInfo::Type::kSigninPromo, GaiaId(),
+      pref_service());
+  histogram_tester.ExpectUniqueSample(
+      "Signin.AvatarPillPromo.AcceptedAtShownCount.Signin", 1, 1);
 }
 
 INSTANTIATE_TEST_SUITE_P(

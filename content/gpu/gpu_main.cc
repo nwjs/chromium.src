@@ -83,7 +83,6 @@
 #include "ui/gl/gl_implementation.h"
 #include "ui/gl/gl_surface.h"
 #include "ui/gl/gl_switches.h"
-#include "ui/gl/gpu_switching_manager.h"
 #include "ui/gl/init/gl_factory.h"
 
 #if BUILDFLAG(IS_WIN)
@@ -362,7 +361,9 @@ int GpuMain(MainFunctionParams parameters) {
 
   base::PlatformThread::SetDefaultThreadType(base::ThreadType::kPresentation);
 
-  auto gpu_init = std::make_unique<gpu::GpuInit>();
+  // Picks GpuInitLegacy or GpuInit2 based on features::kGpuInitOptimization.
+  auto gpu_init = gpu::GpuInit::Create();
+
   ContentSandboxHelper sandbox_helper;
 #if BUILDFLAG(IS_WIN)
   sandbox_helper.set_sandbox_info(parameters.sandbox_info);

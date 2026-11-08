@@ -31,6 +31,7 @@ import org.chromium.base.supplier.SettableNonNullObservableSupplier;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.cc.input.BrowserControlsState;
+import org.chromium.chrome.browser.ai_overlay_dialog.AiOverlayDialogBridge;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsOffsetTagsInfo;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider.ControlsPosition;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsUtils;
@@ -41,6 +42,8 @@ import org.chromium.chrome.browser.browser_controls.TopControlsStacker;
 import org.chromium.chrome.browser.browser_controls.TopControlsStacker.TopControlType;
 import org.chromium.chrome.browser.browser_controls.TopControlsStacker.TopControlVisibility;
 import org.chromium.chrome.browser.device.DeviceClassManager;
+import org.chromium.chrome.browser.download.DownloadFeatures;
+import org.chromium.chrome.browser.download.DownloadToolbarButtonState;
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.fullscreen.FullscreenManager;
@@ -58,10 +61,12 @@ import org.chromium.chrome.browser.theme.ToolbarThemeColorProvider;
 import org.chromium.chrome.browser.toolbar.ControlContainer;
 import org.chromium.chrome.browser.toolbar.R;
 import org.chromium.chrome.browser.toolbar.ToolbarDataProvider;
+import org.chromium.chrome.browser.toolbar.ToolbarFeatures;
 import org.chromium.chrome.browser.toolbar.ToolbarProgressBar;
 import org.chromium.chrome.browser.toolbar.ToolbarTabController;
 import org.chromium.chrome.browser.toolbar.adaptive.AdaptiveToolbarButtonVariant;
 import org.chromium.chrome.browser.toolbar.back_button.BackButtonCoordinator;
+import org.chromium.chrome.browser.toolbar.download_button.DownloadButtonCoordinator;
 import org.chromium.chrome.browser.toolbar.extensions.ExtensionsToolbarCoordinator;
 import org.chromium.chrome.browser.toolbar.forward_button.ForwardButtonCoordinator;
 import org.chromium.chrome.browser.toolbar.home_button.HomeButtonCoordinator;
@@ -123,6 +128,7 @@ public class TopToolbarCoordinator implements Toolbar, TopControlLayer {
     private OptionalBrowsingModeButtonController mOptionalButtonController;
 
     private @Nullable SigninButtonCoordinator mSigninButtonCoordinator;
+    private @Nullable DownloadButtonCoordinator mDownloadButtonCoordinator;
 
     private final MenuButtonCoordinator mMenuButtonCoordinator;
     private @Nullable ReloadButtonCoordinator mReloadButtonCoordinator;
@@ -167,6 +173,12 @@ public class TopToolbarCoordinator implements Toolbar, TopControlLayer {
     private IncognitoStateProvider.@Nullable IncognitoStateObserver mIncognitoStateObserver;
 
     /**
+     * The window this coordinator registered its {@link AiOverlayDialogBridge.AudioEnergyListener}
+     * against, or null if the AI overlay is disabled or the mic button is absent.
+     */
+    private @Nullable WindowAndroid mAiOverlayWindowAndroid;
+
+    /**
      * Creates a new {@link TopToolbarCoordinator}.
      *
      * @param controlContainer The {@link ToolbarControlContainer} for the containing activity.
@@ -205,6 +217,9 @@ public class TopToolbarCoordinator implements Toolbar, TopControlLayer {
      * @param topControlsStacker The TopControlsStacker for child objects to check state from.
      * @param browserControlsVisibilityManager BrowserControlsStateProvider instance.
      * @param onSigninTapped Runnable to be called when the signin button is tapped.
+     * @param downloadButtonStateSupplier Supplies the state the download toolbar button should
+     *     display.
+     * @param onDownloadButtonClicked Runnable to be called when the download button is tapped.
      * @param suppressTabStripAtStart if {@code true}, suppress tab strip when Chrome starts.
      */
     public TopToolbarCoordinator(
@@ -254,6 +269,8 @@ public class TopToolbarCoordinator implements Toolbar, TopControlLayer {
             ModalDialogManager modalDialogManager,
             SnackbarManager snackbarManager,
             Runnable onSigninTapped,
+            NonNullObservableSupplier<DownloadToolbarButtonState> downloadButtonStateSupplier,
+            Runnable onDownloadButtonClicked,
             boolean suppressTabStripAtStart) {
         mSuppressTabStripAtStart = suppressTabStripAtStart;
         mToolbarLayout = toolbarLayout;
@@ -290,6 +307,20 @@ public class TopToolbarCoordinator implements Toolbar, TopControlLayer {
                                 incognitoStateProvider);
             }
         }
+        if (DownloadFeatures.isDownloadToolbarButtonEnabled()) {
+            ViewStub downloadButtonStub = mToolbarLayout.findViewById(R.id.download_button_stub);
+            if (downloadButtonStub != null) {
+                mDownloadButtonCoordinator =
+                        new DownloadButtonCoordinator(
+                                mToolbarLayout.getContext(),
+                                downloadButtonStub,
+                                normalThemeColorProvider,
+                                incognitoStateProvider,
+                                onDownloadButtonClicked,
+                                mToolbarLayout::onWidthConsumerVisibilityChanged,
+                                downloadButtonStateSupplier);
+            }
+        }
         mResourceManagerSupplier = resourceManagerSupplier;
         mTabCountSupplier = tabCountSupplier;
         mToolbarColorObserverManager = new ToolbarColorObserverManager();
@@ -299,7 +330,9 @@ public class TopToolbarCoordinator implements Toolbar, TopControlLayer {
         mTrackerSupplier = ObservableSuppliers.createMonotonic();
         mNtpLoadingSupplier = ObservableSuppliers.createNonNull(false);
         mTabStripTransitionDelegateSupplier = tabStripTransitionDelegateSupplier;
-        mToolbarLayout.setOnLongClickListener(onLongClickListener);
+        if (mToolbarLayout instanceof ToolbarPhone) {
+            mToolbarLayout.setOnLongClickListener(onLongClickListener);
+        }
         mLocationBarView = mToolbarLayout.findViewById(R.id.location_bar);
         mIndexOfLocationBarInToolbar = mToolbarLayout.indexOfChild(mLocationBarView);
         mBrowserControls = browserControlsVisibilityManager;
@@ -325,6 +358,21 @@ public class TopToolbarCoordinator implements Toolbar, TopControlLayer {
                             /* isWebApp= */ false);
         }
 
+        if (ToolbarFeatures.isAiOverlayDialogEnabled()) {
+            AiOverlayMicrophoneButtonView micButtonView =
+                    mToolbarLayout.findViewById(R.id.ai_overlay_microphone_button);
+            if (micButtonView != null) {
+                // Scoped to this window: each window has its own overlay and mic button.
+                mAiOverlayWindowAndroid = windowAndroid;
+                AiOverlayDialogBridge.setAudioEnergyListener(windowAndroid, micButtonView);
+                micButtonView.setOnClickListener(
+                        v -> {
+                            Tab currentTab = toolbarDataProvider.getTab();
+                            AiOverlayDialogBridge.toggleOverlay(
+                                    currentTab != null ? currentTab.getWebContents() : null);
+                        });
+            }
+        }
         controlContainer.setPostInitializationDependencies(
                 this,
                 toolbarLayout,
@@ -353,6 +401,7 @@ public class TopToolbarCoordinator implements Toolbar, TopControlLayer {
                 forwardButtonCoordinator,
                 homeButtonCoordinator,
                 mSigninButtonCoordinator,
+                mDownloadButtonCoordinator,
                 normalThemeColorProvider,
                 incognitoStateProvider,
                 incognitoWindowCountSupplier,
@@ -573,6 +622,10 @@ public class TopToolbarCoordinator implements Toolbar, TopControlLayer {
     /** Cleans up any code as necessary. */
     @SuppressWarnings("NullAway")
     public void destroy() {
+        if (ToolbarFeatures.isAiOverlayDialogEnabled() && mAiOverlayWindowAndroid != null) {
+            AiOverlayDialogBridge.setAudioEnergyListener(mAiOverlayWindowAndroid, null);
+            mAiOverlayWindowAndroid = null;
+        }
         if (mOverlayCoordinator != null) {
             mOverlayCoordinator.destroy();
             mOverlayCoordinator = null;
@@ -587,6 +640,11 @@ public class TopToolbarCoordinator implements Toolbar, TopControlLayer {
         if (mSigninButtonCoordinator != null) {
             mSigninButtonCoordinator.destroy();
             mSigninButtonCoordinator = null;
+        }
+
+        if (mDownloadButtonCoordinator != null) {
+            mDownloadButtonCoordinator.destroy();
+            mDownloadButtonCoordinator = null;
         }
 
         if (mReloadButtonCoordinator != null) {
@@ -786,7 +844,7 @@ public class TopToolbarCoordinator implements Toolbar, TopControlLayer {
      * @param drawable The icon for the button.
      * @param description The content description for the button.
      * @param listener The {@link View.OnClickListener} to use for clicks to the button.
-     * @param {@link ButtonType} of the button.
+     * @param type The {@link ButtonType} of the button.
      */
     public void addCustomActionButton(
             Drawable drawable, String description, View.OnClickListener listener, int type) {
@@ -918,6 +976,11 @@ public class TopToolbarCoordinator implements Toolbar, TopControlLayer {
     @Override
     public int getHeight() {
         return mToolbarLayout.getHeight();
+    }
+
+    @Override
+    public int getEdgeToEdgeTopPadding() {
+        return mToolbarLayout.getEdgeToEdgeTopPadding();
     }
 
     /**
@@ -1074,8 +1137,8 @@ public class TopToolbarCoordinator implements Toolbar, TopControlLayer {
     // In compositor, the position of the toolbar depends on the capture. As of Nov 2025, the
     // capture includes everything in control container, including the top margin, which represents
     // the size of the tab strip.
-    // To place the toolbar at its desired position, we have to subtract the diffs of the capture a
-    // nd the toolbar, in order to put the toolbar at the desired yOffset.
+    // To place the toolbar at its desired position, we shift the scene layer up by however much of
+    // the capture sits above the toolbar, so that the toolbar itself lands on the desired yOffset.
     private void updateSceneLayerYOffset(boolean includeMinHeightBoundary) {
         // Edge case: When Chrome launches on NTP, the browser controls might not dispatch
         // a valid yOffset for the toolbar. If the capture size changes (e.g. resize screen), we
@@ -1088,9 +1151,8 @@ public class TopToolbarCoordinator implements Toolbar, TopControlLayer {
         int captureHeight = mControlContainer.getToolbarCaptureHeight();
 
         // The |diff| is the offset we need to move the toolbar scene layer upward to have the
-        // Toolbar show at the correct spot. The current math here is to reduce the capture size
-        // with toolbar height and hairline height.
-        int diff = 0;
+        // Toolbar show at the correct spot.
+        int diff;
 
         int tabStripHeight = getTabStripHeight();
         if (ChromeFeatureList.sAndroidTabstripStartupCaptureBugFix.isEnabled()
@@ -1106,43 +1168,20 @@ public class TopToolbarCoordinator implements Toolbar, TopControlLayer {
             // always positioned right above the toolbar.
             diff = tabStripHeight;
         } else {
-            // When switching omnibox from bottom to top, the toolbar capture size may not have been
-            // updated yet (e.g. captureHeight=1 while toolbarLayoutHeight=137). Using a stale
-            // capture height produces a large negative diff that pushes the cc layer below the
-            // toolbar, creating a "ghost view". Only compute diff when capture height is at least
-            // as large as the toolbar, indicating the capture is up-to-date.
-            int toolbarLayoutHeight = mControlContainer.getToolbarHeight();
-            int hairlineHeight = mControlContainer.getToolbarHairlineHeight();
-            int controlContainerHeightExcludingTabStrip =
-                    mControlContainer.getControlContainerHeightExcludingTabStrip();
-            // The control container can be larger than toolbarLayoutHeight + tabstrip height, e.g.
-            // when the fusebox is visible. The capture does not always include this expanded height
-            // but when it does, we need to account for it to avoid over-translating by the extra
-            // height.
-            int maxControlContainerHeightMeasurement =
-                    Math.max(controlContainerHeightExcludingTabStrip, toolbarLayoutHeight);
-            int minControlContainerHeightMeasurement =
-                    Math.min(controlContainerHeightExcludingTabStrip, toolbarLayoutHeight);
+            // Where the toolbar's content sits inside the captured bitmap, i.e. below anything
+            // drawn above it such as the tab strip or edge-to-edge status bar padding. This is
+            // sampled against the view that is rasterized, at the instant of rasterization, so it
+            // carries no dp -> px rounding error relative to the bitmap and remains correct while
+            // the bitmap is stale. It is 0 before the first capture, when there is no bitmap to
+            // position.
+            diff = mControlContainer.getToolbarTopOffsetInCapture();
             if (ChromeFeatureList.sDebugToolbarPositioning.isEnabled()) {
                 Log.e(
                         TAG,
-                        "[TopControlsPositioning] toolbarLayoutHeight="
-                                + toolbarLayoutHeight
-                                + ", hairlineHeight="
-                                + hairlineHeight
-                                + ", ccHeightExcludingTabStrip="
-                                + controlContainerHeightExcludingTabStrip
-                                + ", maxCCHeight="
-                                + maxControlContainerHeightMeasurement
-                                + ", minCCHeight="
-                                + minControlContainerHeightMeasurement);
-            }
-            if (captureHeight >= maxControlContainerHeightMeasurement + tabStripHeight
-                    && mTabStripTransitionCoordinator != null) {
-                // Capture includes extra height; use the full height.
-                diff = captureHeight - maxControlContainerHeightMeasurement - hairlineHeight;
-            } else if (captureHeight >= minControlContainerHeightMeasurement) {
-                diff = captureHeight - minControlContainerHeightMeasurement - hairlineHeight;
+                        "[TopControlsPositioning] toolbarTopOffsetInCapture="
+                                + diff
+                                + ", captureHeight="
+                                + captureHeight);
             }
         }
 

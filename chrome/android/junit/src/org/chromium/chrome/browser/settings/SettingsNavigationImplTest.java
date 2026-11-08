@@ -16,6 +16,7 @@ import static org.robolectric.Shadows.shadowOf;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
+import android.os.Bundle;
 
 import androidx.fragment.app.Fragment;
 
@@ -37,10 +38,14 @@ import org.chromium.chrome.browser.autofill.settings.NonCardPaymentMethodsManage
 import org.chromium.chrome.browser.document.ChromeLauncherActivity;
 import org.chromium.chrome.browser.download.settings.DownloadSettings;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.browser.toolbar.adaptive.settings.AdaptiveToolbarSettingsFragment;
 import org.chromium.components.browser_ui.settings.EmbeddableSettingsPage;
 import org.chromium.components.browser_ui.settings.SettingsNavigation;
 import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.ui.base.TestActivity;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /** Tests for SettingsNavigationImpl. */
 @RunWith(BaseRobolectricTestRunner.class)
@@ -335,6 +340,45 @@ public class SettingsNavigationImplTest {
         assertNull(SettingsIntentUtil.takeLastIntent());
     }
 
+    /** Regression test for https://crbug.com/571411602. */
+    @Test
+    @EnableFeatures({ChromeFeatureList.SETTINGS_IN_TAB, ChromeFeatureList.SETTINGS_IN_TAB_URL_NAV})
+    @Config(qualifiers = "sw600dp")
+    public void testStartSettings_SettingsInTabUrlNav_toolbar_opensUrlWithoutArgs() {
+        var scenario = Robolectric.buildActivity(TestActivity.class).setup();
+        TestActivity activity = scenario.get();
+
+        mSettingsNavigationImpl.startSettings(
+                activity, AdaptiveToolbarSettingsFragment.class, createToolbarUiStateArgs());
+
+        // The tab opens at the page's own URL rather than at the settings root with the page in a
+        // pending Intent, which the root URL would then replace.
+        Intent started = shadowOf(activity).getNextStartedActivity();
+        assertNotNull(started);
+        assertEquals("chrome://settings/toolbar", started.getDataString());
+        assertNull(SettingsIntentUtil.takeLastIntent());
+    }
+
+    @Test
+    @EnableFeatures({ChromeFeatureList.SETTINGS_IN_TAB})
+    @DisableFeatures({ChromeFeatureList.SETTINGS_IN_TAB_URL_NAV})
+    @Config(qualifiers = "sw600dp")
+    public void testStartSettings_SettingsInTab_toolbar_keepsArgsInIntent() {
+        var scenario = Robolectric.buildActivity(TestActivity.class).setup();
+        TestActivity activity = scenario.get();
+
+        mSettingsNavigationImpl.startSettings(
+                activity, AdaptiveToolbarSettingsFragment.class, createToolbarUiStateArgs());
+
+        // Without URL navigation the page is still opened by Intent, with its arguments.
+        Intent lastIntent = SettingsIntentUtil.takeLastIntent();
+        assertNotNull(lastIntent);
+        Bundle args = lastIntent.getBundleExtra(SettingsIntentUtil.EXTRA_SHOW_FRAGMENT_ARGUMENTS);
+        assertNotNull(args);
+        assertEquals(
+                1, args.getInt(AdaptiveToolbarSettingsFragment.ARG_UI_STATE_PREFERENCE_SELECTION));
+    }
+
     @Test
     @EnableFeatures({ChromeFeatureList.SETTINGS_IN_TAB, ChromeFeatureList.SETTINGS_IN_TAB_URL_NAV})
     @Config(qualifiers = "sw600dp")
@@ -458,5 +502,51 @@ public class SettingsNavigationImplTest {
         Intent started = shadowOf(host).getNextStartedActivity();
         assertNotNull(started);
         assertEquals(SettingsActivity.class.getName(), started.getComponent().getClassName());
+    }
+
+    @Test
+    public void testCreateSettingsIntent_highlightPreferenceKey() {
+        Intent intent =
+                mSettingsNavigationImpl.createSettingsIntent(
+                        mContext,
+                        DownloadSettings.class,
+                        /* fragmentArgs= */ null,
+                        "location_change");
+        Bundle args = intent.getBundleExtra(SettingsIntentUtil.EXTRA_SHOW_FRAGMENT_ARGUMENTS);
+        assertNotNull(args);
+        assertEquals(
+                "location_change", args.getString(SettingsNavigation.EXTRA_HIGHLIGHT_PREFERENCE));
+    }
+
+    @Test
+    @EnableFeatures({ChromeFeatureList.SETTINGS_IN_TAB, ChromeFeatureList.SETTINGS_IN_TAB_URL_NAV})
+    @Config(qualifiers = "sw600dp")
+    public void testStartSettings_SettingsInTabUrlNav_highlightPreferenceKey() {
+        var scenario = Robolectric.buildActivity(TestActivity.class).setup();
+        TestActivity activity = scenario.get();
+
+        mSettingsNavigationImpl.startSettings(
+                activity, DownloadSettings.class, /* fragmentArgs= */ null, "location_change");
+
+        Intent started = shadowOf(activity).getNextStartedActivity();
+        assertNotNull(started);
+        assertEquals(
+                "chrome://settings/downloads?highlight_preference=location_change",
+                started.getDataString());
+    }
+
+    /**
+     * Returns arguments of the types the toolbar shortcut's "Edit shortcut" menu passes. The values
+     * are arbitrary.
+     */
+    private static Bundle createToolbarUiStateArgs() {
+        Bundle args = new Bundle();
+        args.putBoolean(AdaptiveToolbarSettingsFragment.ARG_UI_STATE_CAN_SHOW_UI, true);
+        args.putIntegerArrayList(
+                AdaptiveToolbarSettingsFragment.ARG_UI_STATE_RANKED_TOOLBAR_BUTTON_STATES,
+                new ArrayList<>(List.of(1, 2)));
+        args.putInt(AdaptiveToolbarSettingsFragment.ARG_UI_STATE_PREFERENCE_SELECTION, 1);
+        args.putInt(AdaptiveToolbarSettingsFragment.ARG_UI_STATE_AUTO_BUTTON_CAPTION, 2);
+        return args;
     }
 }

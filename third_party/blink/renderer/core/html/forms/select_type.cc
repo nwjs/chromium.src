@@ -35,6 +35,7 @@
 #include "third_party/blink/renderer/bindings/core/v8/v8_mutation_observer_init.h"
 #include "third_party/blink/renderer/core/accessibility/ax_object_cache.h"
 #include "third_party/blink/renderer/core/css/style_change_reason.h"
+#include "third_party/blink/renderer/core/dom/flat_tree_traversal.h"
 #include "third_party/blink/renderer/core/dom/focus_params.h"
 #include "third_party/blink/renderer/core/dom/mutation_observer.h"
 #include "third_party/blink/renderer/core/dom/mutation_record.h"
@@ -390,9 +391,9 @@ bool MenuListSelectType::DefaultEventHandler(const Event& event) {
     if (key_event->GetModifiers() & ignore_modifiers)
       return false;
 
-    // Customizable-<select> keydown handling is done in
-    // HTMLOptionElement::DefaultEventHandlerInternal().
-    if (select_->IsAppearanceBase()) {
+    // Customizable-<select> and <select multiple size=1> keydown handling is
+    // done in HTMLOptionElement::DefaultEventHandlerInternal().
+    if (select_->IsAppearanceBase() || PickerIsPopover()) {
       return false;
     }
 
@@ -886,6 +887,7 @@ bool MenuListSelectType::PopupIsVisible() const {
 void MenuListSelectType::SetNativePopupIsVisible(bool popup_is_visible) {
   native_popup_is_visible_ = popup_is_visible;
   select_->PseudoStateChanged(CSSSelector::kPseudoOpen);
+  select_->SetFreezeHoverForOpenPopup(popup_is_visible);
   if (auto* layout_object = select_->GetLayoutObject()) {
     // Invalidate paint to ensure that the focus ring is updated.
     layout_object->SetShouldDoFullPaintInvalidation();

@@ -142,6 +142,8 @@ class MetaBuildWrapper:
 
   def ParseArgs(self, argv):
     def AddCommonOptions(subp):
+      # Commands can regenerate GN files without exposing these output flags.
+      subp.set_defaults(write_ide_json=False, json_output=None)
       group = subp.add_mutually_exclusive_group()
       group.add_argument(
         '-m',
@@ -975,7 +977,7 @@ class MetaBuildWrapper:
           errs.append(
             'Unknown args file "%s" referenced from "%s".' % (config, loc)
           )
-      elif not config in self.configs:
+      elif config not in self.configs:
         errs.append('Unknown config "%s" referenced from "%s".' % (config, loc))
 
     # Check that every config and mixin is referenced.
@@ -1061,7 +1063,9 @@ class MetaBuildWrapper:
       vals = self.Lookup()
       # Re-run gn gen in order to ensure the config is consistent with the
       # build dir.
-      self.RunGNGen(vals)
+      ret = self.RunGNGen(vals)
+      if ret != 0:
+        raise MBErr('GN gen failed: %d' % ret, retcode=ret)
       return vals
 
     toolchain_path = self.PathJoin(self.ToAbsPath(build_dir), 'toolchain.ninja')
@@ -1146,7 +1150,7 @@ class MetaBuildWrapper:
       vals = DefaultVals()
       vals['args_file'] = config
     else:
-      if not config in self.configs:
+      if config not in self.configs:
         raise MBErr(
           'Config "%s" not found in %s' % (config, self.args.config_file)
         )
@@ -1262,7 +1266,7 @@ class MetaBuildWrapper:
           or '',
         }
 
-    if not self.args.builder_group in self.builder_groups:
+    if self.args.builder_group not in self.builder_groups:
       raise MBErr(
         (
           'Builder group name "%s" not found in "%s"'
@@ -1271,7 +1275,7 @@ class MetaBuildWrapper:
         retcode=_CONFIG_NOT_FOUND_RETCODE,
       )
 
-    if not self.args.builder in self.builder_groups[self.args.builder_group]:
+    if self.args.builder not in self.builder_groups[self.args.builder_group]:
       raise MBErr(
         (
           'Builder name "%s" not found under groups[%s] in "%s"'
@@ -1415,7 +1419,10 @@ class MetaBuildWrapper:
     self.WriteFile(gn_runtime_deps_path, '\n'.join(runtime_deps) + '\n')
     cmd = self.GNCmd('gen', build_dir)
     cmd.append('--runtime-deps-list-file=%s' % gn_runtime_deps_path)
-    self.Run(cmd)
+    ret, _, _ = self.Run(cmd)
+    if ret != 0:
+      self.Print('GN gen failed: %d' % ret, file=sys.stderr)
+      return ret
 
     return self.GenerateIsolates(vals, isolate_targets, isolate_map, build_dir)
 
@@ -1658,7 +1665,6 @@ class MetaBuildWrapper:
     )
     is_msan = 'is_msan=true' in vals['gn_args']
     is_ios = 'target_os="ios"' in vals['gn_args']
-    # pylint: disable=consider-using-ternary
     is_mac = (
       self.platform == 'darwin' and not is_ios
     ) or 'target_os="mac"' in vals['gn_args']
@@ -1880,7 +1886,6 @@ class MetaBuildWrapper:
     is_cros_device = 'is_chromeos_device=true' in vals['gn_args']
     is_ios = 'target_os="ios"' in vals['gn_args']
     is_linux = 'target_os="linux"' in vals['gn_args']
-    # pylint: disable=consider-using-ternary
     is_mac = (
       self.platform == 'darwin' and not is_ios
     ) or 'target_os="mac"' in vals['gn_args']
@@ -2268,7 +2273,7 @@ class MetaBuildWrapper:
       )
 
     for k in required_keys:
-      if not k in inp:
+      if k not in inp:
         self.WriteFailureAndRaise(
           'input file is missing a "%s" key' % k, output_path
         )
@@ -2341,10 +2346,10 @@ class MetaBuildWrapper:
     env=None,
     capture_output=True,
     input='',
-  ):  # pylint: disable=redefined-builtin
+  ):
+
     # We are returning the exit code, we don't want an exception thrown
     # for non-zero exit code
-    # pylint: disable=subprocess-run-check
     p = subprocess.run(
       cmd,
       shell=False,

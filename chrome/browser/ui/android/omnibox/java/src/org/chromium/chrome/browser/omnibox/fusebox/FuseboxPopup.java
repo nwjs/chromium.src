@@ -5,18 +5,24 @@
 package org.chromium.chrome.browser.omnibox.fusebox;
 
 import android.app.Activity;
+import android.os.Bundle;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewStub;
+import android.view.accessibility.AccessibilityEvent;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
-import android.widget.PopupWindow.OnDismissListener;
 import android.widget.TextView;
 
 import androidx.annotation.DrawableRes;
 import androidx.annotation.IdRes;
+import androidx.annotation.Px;
 import androidx.core.graphics.Insets;
+import androidx.core.view.AccessibilityDelegateCompat;
+import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
+import androidx.core.view.accessibility.AccessibilityNodeInfoCompat;
+import androidx.core.view.accessibility.AccessibilityNodeInfoCompat.AccessibilityActionCompat;
 import androidx.window.layout.WindowMetrics;
 import androidx.window.layout.WindowMetricsCalculator;
 
@@ -28,10 +34,12 @@ import org.chromium.chrome.browser.omnibox.R;
 import org.chromium.chrome.browser.omnibox.fusebox.FuseboxCoordinator.CurrentTabPlacement;
 import org.chromium.chrome.browser.omnibox.fusebox.FuseboxCoordinator.PopupState;
 import org.chromium.components.omnibox.OmniboxCapabilities;
+import org.chromium.ui.accessibility.AccessibilityState;
 import org.chromium.ui.base.LocalizationUtils;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.insets.InsetObserver;
 import org.chromium.ui.insets.InsetObserver.WindowInsetObserver;
+import org.chromium.ui.listmenu.ListMenuUtils;
 import org.chromium.ui.util.CommonOnLayoutChangeListeners;
 import org.chromium.ui.widget.AnchoredPopupWindow;
 import org.chromium.ui.widget.RectProvider;
@@ -61,6 +69,11 @@ class FuseboxPopup {
     /* package */ final View mToolsDivider;
     /* package */ final TextView mToolsHeader;
 
+    /** Container for tools pinned outside the accordion, below the pinned current tab. */
+    /* package */ final ViewGroup mPinnedToolsContainer;
+
+    /* package */ final View mPinnedSectionTopDivider;
+    /* package */ final View mPinnedSectionBottomDivider;
     /* package */ final View mModelsDivider;
     /* package */ final TextView mModelsHeader;
     /* package */ final TextView mAttachmentsHeader;
@@ -68,19 +81,56 @@ class FuseboxPopup {
     /* package */ final TextView mRecentTabsHeader;
     /* package */ final ViewGroup mRecentTabsContainer;
     /* package */ final View mRecentTabsDivider;
-    /* package */ final List<View> mAttachmentButtons;
+
+    /** Attachment buttons laid out as carousel tiles; empty when there is no carousel. */
+    /* package */ final List<View> mCarouselTiles;
+
+    /** Attachment buttons laid out as list rows; disjoint from {@link #mCarouselTiles}. */
+    /* package */ final List<View> mListAttachmentButtons;
+
     /* package */ final Set<View> mDynamicThemedButtons = new HashSet<>();
     /* package */ final List<View> mDividers;
     /* package */ final List<TextView> mHeaders;
+    /* package */ final WindowAndroid mWindowAndroid;
 
     private final Activity mActivity;
     private final DynamicRectProvider mDynamicRectProvider;
     private final @Nullable InsetObserver mInsetObserver;
     private final int mInitialScrollPaddingBottom;
+    private final @Px int mRowVerticalMarginPx;
     private @PopupState int mCurrentState = PopupState.HIDDEN;
     private boolean mIsFirstShow = true;
     private @Nullable Integer mPreviousAccessibilityImportance;
     private @Nullable View mCachedContentView;
+    private boolean mIsAccordionExpanded;
+
+    /** Exposes the accordion's expanded/collapsed state on the "More options" row. */
+    private final AccessibilityDelegateCompat mMoreOptionsAccessibilityDelegate =
+            new AccessibilityDelegateCompat() {
+                @Override
+                public void onInitializeAccessibilityNodeInfo(
+                        View host, AccessibilityNodeInfoCompat info) {
+                    super.onInitializeAccessibilityNodeInfo(host, info);
+                    info.setExpandedState(
+                            mIsAccordionExpanded
+                                    ? AccessibilityNodeInfoCompat.EXPANDED_STATE_FULL
+                                    : AccessibilityNodeInfoCompat.EXPANDED_STATE_COLLAPSED);
+                    info.addAction(
+                            mIsAccordionExpanded
+                                    ? AccessibilityActionCompat.ACTION_COLLAPSE
+                                    : AccessibilityActionCompat.ACTION_EXPAND);
+                }
+
+                @Override
+                public boolean performAccessibilityAction(
+                        View host, int action, @Nullable Bundle args) {
+                    if (action == AccessibilityActionCompat.ACTION_EXPAND.getId()
+                            || action == AccessibilityActionCompat.ACTION_COLLAPSE.getId()) {
+                        return host.performClick();
+                    }
+                    return super.performAccessibilityAction(host, action, args);
+                }
+            };
 
     private final RectProvider.Observer mDynamicRectObserver =
             new RectProvider.Observer() {
@@ -117,6 +167,7 @@ class FuseboxPopup {
             boolean useScrollableCarousel,
             @CurrentTabPlacement int currentTabPlacement) {
         mActivity = activity;
+        mWindowAndroid = windowAndroid;
         mPopupWindow = popupWindow;
         mPopupWindow.setClippingEnabled(false);
         mPopupWindow.addOnDismissListener(this::restoreBackgroundAccessibility);
@@ -142,7 +193,30 @@ class FuseboxPopup {
 
         if (isBottomSheet) {
             mScrollView.setOnSwipeDownListener(this::dismiss);
+            int topPadding =
+                    mActivity
+                            .getResources()
+                            .getDimensionPixelSize(R.dimen.fusebox_bottom_sheet_top_padding);
+            mViewGroup.setPaddingRelative(
+                    mViewGroup.getPaddingStart(),
+                    topPadding,
+                    mViewGroup.getPaddingEnd(),
+                    mViewGroup.getPaddingBottom());
+            contentView.findViewById(R.id.fusebox_drag_handle).setVisibility(View.VISIBLE);
+        } else {
+            // Row highlights span the full width, so keep them inside the rounded corners.
+            ListMenuUtils.clipContentViewOutline(mScrollView, R.attr.popupBgCornerRadius);
         }
+        // TODO(crbug.com/568855804): Clean up after a variation is chosen. Only the carousel +
+        // accordion variation pins the current tab below the attachments, and only it spaces out
+        // its list rows.
+        mRowVerticalMarginPx =
+                currentTabPlacement == CurrentTabPlacement.BELOW_ATTACHMENTS
+                        ? mActivity
+                                .getResources()
+                                .getDimensionPixelSize(
+                                        R.dimen.fusebox_bottom_sheet_item_vertical_margin)
+                        : 0;
 
         ViewStub stub = contentView.findViewById(R.id.fusebox_attachments_stub);
         stub.setLayoutResource(
@@ -161,18 +235,31 @@ class FuseboxPopup {
         mTabButton = contentView.findViewById(R.id.fusebox_pick_tabs_button);
         mCameraButton = contentView.findViewById(R.id.fusebox_camera_button);
         mGalleryButton = contentView.findViewById(R.id.fusebox_pick_picture_button);
-        mFileButton = contentView.findViewById(R.id.fusebox_pick_file_button);
-        mDriveButton = contentView.findViewById(R.id.fusebox_pick_drive_button);
+        // Only the carousel layouts have file/drive copies. The vertical layout relies on the
+        // accordion copies, which directly follow it.
+        boolean fileAndDriveInCarousel =
+                currentTabPlacement == CurrentTabPlacement.WITH_ATTACHMENTS && useCarousel;
+        mFileButton =
+                contentView.findViewById(
+                        fileAndDriveInCarousel
+                                ? R.id.fusebox_pick_file_button
+                                : R.id.fusebox_pick_file_button_accordion);
+        mDriveButton =
+                contentView.findViewById(
+                        fileAndDriveInCarousel
+                                ? R.id.fusebox_pick_drive_button
+                                : R.id.fusebox_pick_drive_button_accordion);
         mMoreOptionsButton = contentView.findViewById(R.id.fusebox_more_options_button);
         mAccordionContainer = contentView.findViewById(R.id.fusebox_accordion_container);
         mToolsDivider = contentView.findViewById(R.id.fusebox_tools_divider);
         mToolsHeader = contentView.findViewById(R.id.fusebox_tools_header);
+        mPinnedToolsContainer = contentView.findViewById(R.id.fusebox_pinned_tools_container);
+        mPinnedSectionTopDivider =
+                contentView.findViewById(R.id.fusebox_pinned_section_top_divider);
+        mPinnedSectionBottomDivider =
+                contentView.findViewById(R.id.fusebox_pinned_section_bottom_divider);
 
-        initializeItem(
-                mAddCurrentTab,
-                isBottomSheet ? R.string.fusebox_add_tab : R.string.fusebox_add_current_tab,
-                0,
-                0);
+        initializeItem(mAddCurrentTab, R.string.fusebox_add_tab, 0, 0);
         initializeItem(
                 mTabButton,
                 R.string.omnibox_navattach_tabs,
@@ -195,7 +282,9 @@ class FuseboxPopup {
                 OmniboxCapabilities.isDesktopPlatform()
                         ? R.string.omnibox_navattach_add_files
                         : R.string.omnibox_navattach_files,
-                R.drawable.ic_attach_file_24dp,
+                isBottomSheet && currentTabPlacement != CurrentTabPlacement.WITH_ATTACHMENTS
+                        ? R.drawable.ic_folder_24dp
+                        : R.drawable.ic_attach_file_24dp,
                 R.string.accessibility_omnibox_add_files);
         initializeItem(
                 mDriveButton,
@@ -210,6 +299,7 @@ class FuseboxPopup {
         ImageView startIcon = mMoreOptionsButton.findViewById(R.id.start_icon);
         startIcon.setVisibility(View.GONE);
         updateMoreOptionsButtonIcon(/* expand= */ false);
+        ViewCompat.setAccessibilityDelegate(mMoreOptionsButton, mMoreOptionsAccessibilityDelegate);
 
         mModelsDivider = contentView.findViewById(R.id.fusebox_models_divider);
         mModelsHeader = contentView.findViewById(R.id.fusebox_models_header);
@@ -219,7 +309,7 @@ class FuseboxPopup {
         mRecentTabsHeader = contentView.findViewById(R.id.fusebox_recent_tabs_header);
         mRecentTabsContainer = contentView.findViewById(R.id.fusebox_recent_tabs_container);
 
-        mAttachmentButtons =
+        List<View> allAttachments =
                 List.of(
                         mAddCurrentTab,
                         mTabButton,
@@ -228,15 +318,55 @@ class FuseboxPopup {
                         mFileButton,
                         mDriveButton);
 
+        // TODO(crbug.com/568855804): Clean up the carousel and attachment list split logic after a
+        // variation is chosen.
+        if (!useCarousel) {
+            mCarouselTiles = List.of();
+            mListAttachmentButtons = allAttachments;
+        } else if (fileAndDriveInCarousel) {
+            // The current tab shares the carousel with file/drive under the same placement.
+            mCarouselTiles = allAttachments;
+            mListAttachmentButtons = List.of();
+        } else {
+            mCarouselTiles = List.of(mTabButton, mGalleryButton, mCameraButton);
+            mListAttachmentButtons = List.of(mAddCurrentTab, mFileButton, mDriveButton);
+        }
+
         mDividers =
                 mCurrentTabTopDivider != null
                         ? List.of(
                                 mCurrentTabTopDivider,
+                                mPinnedSectionTopDivider,
+                                mPinnedSectionBottomDivider,
                                 mRecentTabsDivider,
                                 mToolsDivider,
                                 mModelsDivider)
-                        : List.of(mRecentTabsDivider, mToolsDivider, mModelsDivider);
+                        : List.of(
+                                mPinnedSectionTopDivider,
+                                mPinnedSectionBottomDivider,
+                                mRecentTabsDivider,
+                                mToolsDivider,
+                                mModelsDivider);
         mHeaders = List.of(mRecentTabsHeader, mToolsHeader, mModelsHeader);
+
+        for (View row : mListAttachmentButtons) {
+            applyRowSpacing(row);
+        }
+        applyRowSpacing(mMoreOptionsButton);
+    }
+
+    /**
+     * Applies the vertical margin around a list row. No-op unless the current tab is placed {@link
+     * CurrentTabPlacement#BELOW_ATTACHMENTS}.
+     *
+     * @param row A row inflated from {@code fusebox_list_item}.
+     */
+    void applyRowSpacing(View row) {
+        if (mRowVerticalMarginPx == 0) return;
+        ViewGroup.MarginLayoutParams params = (ViewGroup.MarginLayoutParams) row.getLayoutParams();
+        params.topMargin = mRowVerticalMarginPx;
+        params.bottomMargin = mRowVerticalMarginPx;
+        row.setLayoutParams(params);
     }
 
     void destroy() {
@@ -325,9 +455,20 @@ class FuseboxPopup {
 
     /** Toggles the accordion menu. */
     void setAccordionExpanded(boolean expand) {
+        mIsAccordionExpanded = expand;
         updateMoreOptionsButtonIcon(expand);
         mAccordionContainer.setVisibility(expand ? View.VISIBLE : View.GONE);
         updateLayout();
+        notifyAccordionExpandedStateChanged();
+    }
+
+    /** Lets accessibility services announce the new expanded state of the "More options" row. */
+    private void notifyAccordionExpandedStateChanged() {
+        if (!isShowing() || !AccessibilityState.isAccessibilityManagerEnabled()) return;
+        AccessibilityEvent event =
+                AccessibilityEvent.obtain(AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED);
+        event.setContentChangeTypes(AccessibilityEvent.CONTENT_CHANGE_TYPE_EXPANDED);
+        mMoreOptionsButton.sendAccessibilityEventUnchecked(event);
     }
 
     private void updateMoreOptionsButtonIcon(boolean expand) {
@@ -375,9 +516,10 @@ class FuseboxPopup {
         return mPopupWindow.isShowing();
     }
 
-    /** Add a listener for when the popup is dismissed. */
-    void addOnDismissListener(OnDismissListener listener) {
-        mPopupWindow.addOnDismissListener(listener);
+    /** Returns the current {@link PopupState} of the popup. */
+    @PopupState
+    int getPopupState() {
+        return mCurrentState;
     }
 
     private boolean shouldApplyBottomInsets(WindowInsetsCompat insets) {

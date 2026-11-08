@@ -1020,12 +1020,16 @@ interface CSSPseudoElement
     attribute @@toStringTag
     getter element
     getter parent
+    getter selectorText
     getter type
     method constructor
     method convertPointFromNode
     method convertQuadFromNode
     method convertRectFromNode
+    method focus
     method getBoxQuads
+    method nextFocusable
+    method previousFocusable
     method pseudo
 interface CSSRGB : CSSColorValue
     attribute @@toStringTag
@@ -1253,6 +1257,10 @@ interface CanvasGradient
     setter colorInterpolationMethod
     setter hueInterpolationMethod
     setter premultipliedAlpha
+interface CanvasPaintEvent : Event
+    attribute @@toStringTag
+    getter changedElements
+    method constructor
 interface CanvasPattern
     attribute @@toStringTag
     method constructor
@@ -1906,6 +1914,14 @@ interface DataTransferItemList
     method clear
     method constructor
     method remove
+interface DecisionModel
+    static method availability
+    static method create
+    attribute @@toStringTag
+    getter preference
+    method constructor
+    method decide
+    method destroy
 interface DecompressionStream
     attribute @@toStringTag
     getter readable
@@ -1983,6 +1999,7 @@ interface Document : Node
     attribute @@unscopables
     getter URL
     getter activeElement
+    getter activeFocusable
     getter activeViewTransition
     getter adoptedStyleSheets
     getter alinkColor
@@ -2071,6 +2088,7 @@ interface Document : Node
     getter onended
     getter onerror
     getter onfocus
+    getter onfocusreset
     getter onformdata
     getter onfreeze
     getter onfullscreenchange
@@ -2306,6 +2324,7 @@ interface Document : Node
     setter onended
     setter onerror
     setter onfocus
+    setter onfocusreset
     setter onformdata
     setter onfreeze
     setter onfullscreenchange
@@ -2430,22 +2449,10 @@ interface DocumentType : Node
     getter publicId
     getter systemId
     method after
-    method afterHTML
-    method afterHTMLUnsafe
     method before
-    method beforeHTML
-    method beforeHTMLUnsafe
     method constructor
     method remove
     method replaceWith
-    method replaceWithHTML
-    method replaceWithHTMLUnsafe
-    method streamAfterHTML
-    method streamAfterHTMLUnsafe
-    method streamBeforeHTML
-    method streamBeforeHTMLUnsafe
-    method streamReplaceWithHTML
-    method streamReplaceWithHTMLUnsafe
 interface DragEvent : MouseEvent
     attribute @@toStringTag
     getter dataTransfer
@@ -2627,9 +2634,11 @@ interface Element : Node
     method matchContainer
     method matches
     method moveBefore
+    method nextFocusable
     method prepend
     method prependHTML
     method prependHTMLUnsafe
+    method previousFocusable
     method pseudo
     method querySelector
     method querySelectorAll
@@ -2757,8 +2766,6 @@ interface ElementGeometryUpdateEvent : Event
     method constructor
 interface ElementImage
     attribute @@toStringTag
-    getter height
-    getter width
     method close
     method constructor
 interface ElementInternals
@@ -2999,15 +3006,6 @@ interface FederatedCredential : Credential
     getter protocol
     getter provider
     method constructor
-interface Fence
-    attribute @@toStringTag
-    method constructor
-    method getNestedConfigs
-    method reportEvent
-    method setReportEventDataForAutomaticBeacons
-interface FencedFrameConfig
-    attribute @@toStringTag
-    method constructor
 interface FetchLaterResult
     attribute @@toStringTag
     getter activated
@@ -3099,6 +3097,15 @@ interface FocusEvent : UIEvent
     attribute @@toStringTag
     getter relatedTarget
     method constructor
+interface Focusable
+    attribute @@toStringTag
+    getter pseudoElement
+    getter shadowHost
+    getter target
+    method constructor
+    method focus
+    method nextFocusable
+    method previousFocusable
 interface FontData
     attribute @@toStringTag
     getter family
@@ -3375,7 +3382,6 @@ interface GPUQueue
     attribute @@toStringTag
     getter label
     method constructor
-    method copyElementImageToTexture
     method copyExternalImageToTexture
     method drawElementImageToTexture
     method onSubmittedWorkDone
@@ -3924,7 +3930,6 @@ interface HTMLCanvasElement : HTMLElement
     attribute @@toStringTag
     getter content
     getter height
-    getter layoutSubtree
     getter onelementgeometryupdate
     getter onpaint
     getter width
@@ -3934,6 +3939,7 @@ interface HTMLCanvasElement : HTMLElement
     method configureHighDynamicRange
     method constructor
     method getContext
+    method getElementImageDefaultSize
     method getElementTransform
     method requestPaint
     method toBlob
@@ -3942,7 +3948,6 @@ interface HTMLCanvasElement : HTMLElement
     method updateElementGeometry
     setter content
     setter height
-    setter layoutSubtree
     setter onelementgeometryupdate
     setter onpaint
     setter width
@@ -4332,19 +4337,6 @@ interface HTMLEmbedElement : HTMLElement
     setter name
     setter src
     setter type
-    setter width
-interface HTMLFencedFrameElement : HTMLElement
-    attribute @@toStringTag
-    getter allow
-    getter config
-    getter height
-    getter sandbox
-    getter width
-    method constructor
-    setter allow
-    setter config
-    setter height
-    setter sandbox
     setter width
 interface HTMLFieldSetElement : HTMLElement
     attribute @@toStringTag
@@ -6110,18 +6102,18 @@ interface LanguageModel : EventTarget
 interface LanguageModelToolCall
     attribute @@toStringTag
     getter arguments
-    getter callID
+    getter callId
     getter name
     method constructor
 interface LanguageModelToolError
     attribute @@toStringTag
-    getter callID
+    getter callId
     getter errorMessage
     getter name
     method constructor
 interface LanguageModelToolSuccess
     attribute @@toStringTag
-    getter callID
+    getter callId
     getter name
     getter result
     method constructor
@@ -7341,6 +7333,7 @@ interface OfflineAudioContext : BaseAudioContext
     attribute @@toStringTag
     getter length
     getter oncomplete
+    method close
     method constructor
     method resume
     method startRendering
@@ -7356,7 +7349,7 @@ interface OffscreenCanvas : EventTarget
     method constructor
     method convertToBlob
     method getContext
-    method getElementTransform
+    method getElementImageDefaultSize
     method transferToImageBitmap
     method updateElementGeometry
     setter height
@@ -9632,6 +9625,7 @@ interface SVGPathElement : SVGGeometryElement
     attribute @@toStringTag
     method constructor
     method getPathData
+    method getPathSegmentAtLength
     method setPathData
 interface SVGPatternElement : SVGElement
     attribute @@toStringTag
@@ -10171,6 +10165,7 @@ interface ServiceWorkerRegistration : EventTarget
 interface ShadowRoot : DocumentFragment
     attribute @@toStringTag
     getter activeElement
+    getter activeFocusable
     getter adoptedStyleSheets
     getter clonable
     getter customElementRegistry
@@ -10626,6 +10621,7 @@ interface TextDecoderStream
     getter writable
     method constructor
 interface TextDetector
+    static method create
     attribute @@toStringTag
     method constructor
     method detect
@@ -12087,7 +12083,6 @@ interface WebGL2RenderingContext
     method stencilMaskSeparate
     method stencilOp
     method stencilOpSeparate
-    method texElementImage2D
     method texElementSubImage2D
     method texImage2D
     method texImage3D
@@ -12592,7 +12587,6 @@ interface WebGLRenderingContext
     method stencilMaskSeparate
     method stencilOp
     method stencilOpSeparate
-    method texElementImage2D
     method texElementSubImage2D
     method texImage2D
     method texParameterf
@@ -12779,6 +12773,7 @@ interface WebTransport
     method createBidirectionalStream
     method createSendGroup
     method createUnidirectionalStream
+    method exportKeyingMaterial
     method getStats
     setter anticipatedConcurrentIncomingBidirectionalStreams
     setter anticipatedConcurrentIncomingUnidirectionalStreams
@@ -13837,7 +13832,6 @@ namespace console
     getter documentPictureInPicture
     getter event
     getter external
-    getter fence
     getter frameElement
     getter frames
     getter history

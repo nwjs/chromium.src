@@ -72,7 +72,6 @@ std::optional<AccessPoint> AccessPointFromInt(int value) {
     case AccessPoint::kExtensions:
     case AccessPoint::kBookmarkBubble:
     case AccessPoint::kBookmarkManager:
-    case AccessPoint::kAvatarBubbleSignIn:
     case AccessPoint::kUserManager:
     case AccessPoint::kFullscreenSigninPromo:
     case AccessPoint::kRecentTabs:
@@ -110,7 +109,7 @@ std::optional<AccessPoint> AccessPointFromInt(int value) {
     case AccessPoint::kSettingsSignoutConfirmationPrompt:
     case AccessPoint::kOidcRedirectionInterception:
     case AccessPoint::kWebauthnModalDialog:
-    case AccessPoint::kAvatarBubbleSignInWithSyncPromo:
+    case AccessPoint::kProfileMenuPrimaryButton:
     case AccessPoint::kAccountMenuSwitchAccount:
     case AccessPoint::kProductSpecifications:
     case AccessPoint::kAccountMenuSwitchAccountFailed:
@@ -302,11 +301,6 @@ void LogSyncOptInOffered(AccessPoint access_point) {
 
 void LogHistorySyncOptInOffered(AccessPoint access_point) {
   base::UmaHistogramEnumeration("Signin.HistorySyncOptIn.Offered",
-                                access_point);
-}
-
-void LogSyncSettingsOpened(AccessPoint access_point) {
-  base::UmaHistogramEnumeration("Signin.SyncOptIn.OpenedSyncSettings",
                                 access_point);
 }
 
@@ -532,10 +526,6 @@ void RecordSigninUserActionForAccessPoint(AccessPoint access_point) {
       base::RecordAction(
           base::UserMetricsAction("Signin_Signin_FromBookmarkManager"));
       break;
-    case AccessPoint::kAvatarBubbleSignIn:
-      base::RecordAction(
-          base::UserMetricsAction("Signin_Signin_FromAvatarBubbleSignin"));
-      break;
     case AccessPoint::kUserManager:
       base::RecordAction(
           base::UserMetricsAction("Signin_Signin_FromUserManager"));
@@ -680,9 +670,9 @@ void RecordSigninUserActionForAccessPoint(AccessPoint access_point) {
       base::RecordAction(base::UserMetricsAction(
           "Signin_Signin_FromOidcRedirectionInterception"));
       break;
-    case AccessPoint::kAvatarBubbleSignInWithSyncPromo:
+    case AccessPoint::kProfileMenuPrimaryButton:
       base::RecordAction(base::UserMetricsAction(
-          "Signin_Signin_FromAvatarBubbleSigninWithSyncPromo"));
+          "Signin_Signin_FromProfileMenuPrimaryButton"));
       break;
     case AccessPoint::kAccountMenuSwitchAccount:
       base::RecordAction(
@@ -825,10 +815,6 @@ void RecordSigninImpressionUserActionForAccessPoint(AccessPoint access_point) {
       base::RecordAction(
           base::UserMetricsAction("Signin_Impression_FromBookmarkManager"));
       break;
-    case AccessPoint::kAvatarBubbleSignIn:
-      base::RecordAction(
-          base::UserMetricsAction("Signin_Impression_FromAvatarBubbleSignin"));
-      break;
     case AccessPoint::kFullscreenSigninPromo:
       base::RecordAction(
           base::UserMetricsAction("Signin_Impression_FromSigninPromo"));
@@ -962,7 +948,7 @@ void RecordSigninImpressionUserActionForAccessPoint(AccessPoint access_point) {
     case AccessPoint::kSettingsSignoutConfirmationPrompt:
     case AccessPoint::kOidcRedirectionInterception:
     case AccessPoint::kWebauthnModalDialog:
-    case AccessPoint::kAvatarBubbleSignInWithSyncPromo:
+    case AccessPoint::kProfileMenuPrimaryButton:
     case AccessPoint::kAccountMenuSwitchAccount:
     case AccessPoint::kAccountMenuSwitchAccountFailed:
     case AccessPoint::kCctAccountMismatchNotification:

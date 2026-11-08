@@ -204,13 +204,12 @@ public class TabSwitcherGroupSuggestionService {
                 }
 
                 @Override
-                public void willMoveTabOutOfGroup(
-                        Tab movedTab, @Nullable Token destinationTabGroupId) {
+                public void willMoveTabOutOfGroup(Tab movedTab) {
                     clearSuggestions();
                 }
 
                 @Override
-                public void didCreateNewGroup(Tab destinationTab) {
+                public void onTabGroupCreated(Token tabGroupId) {
                     clearSuggestions();
                 }
 

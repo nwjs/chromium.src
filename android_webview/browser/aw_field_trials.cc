@@ -62,15 +62,16 @@ void AwFieldTrials::RegisterFeatureOverrides(base::FeatureList* feature_list) {
   aw_feature_overrides.DisableFeature(
       ::features::kBlockCrossPartitionBlobUrlFetching);
 
+  // DISABLED_INCOMPATIBLE: The LanguageDetector API depends on Chrome's
+  // Optimization Guide to deliver and manage the language detection model,
+  // which is not available in WebView.
+  aw_feature_overrides.DisableFeature(blink::features::kLanguageDetectionAPI);
+
   // DISABLED_TEMPORARY: crbug.com/445202443. There are some test cases
   // need to be fixed before enabling this feature flag for android.
   aw_feature_overrides.DisableFeature(
       blink::features::kAboutBlankPageRespectsDarkModeOnUserAction);
 
-  // DISABLED_TEMPORARY: crbug.com/444669046. Remove this once WebView
-  // experiment has concluded.
-  aw_feature_overrides.DisableFeature(
-      input::features::kUpdateScrollPredictorInputMapping);
 
   // DISABLED_TEMPORARY: crbug.com/444669046. Disable
   // ScrollPredictorEnhancements refined prediction on WebView by default so it
@@ -395,6 +396,12 @@ void AwFieldTrials::RegisterFeatureOverrides(base::FeatureList* feature_list) {
   // DISABLED_TEMPORARY: b/568735242
   aw_feature_overrides.DisableFeature(
       blink::features::kDisconnectWebSocketOnBFCache);
+
+  // DISABLED_INCOMPATIBLE: WebView has a fundamentally different set of
+  // constraints on its memory footprint so it does not make sense to
+  // unconditionally retain caches in the face of memory pressure signals.
+  aw_feature_overrides.DisableFeature(
+      net::features::kIgnoreQuicCryptoConfigMemoryPressure);
 }
 
 void AwFieldTrials::EnableRuntimeMutableFeatures(

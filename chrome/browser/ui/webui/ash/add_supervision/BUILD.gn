@@ -27,6 +27,7 @@ static_library("add_supervision") {
 
   public_deps = [
     ":mojo_bindings",
+    "//ash/constants",
     "//base",
     "//chrome/browser/ui/webui/ash/system_web_dialog",
     "//components/signin/public/identity_manager",
@@ -43,7 +44,6 @@ static_library("add_supervision") {
   deps = [
     "//chrome/app:generated_resources",
     "//chrome/app:generated_resources_grit",
-    "//chrome/browser:browser_public_dependencies",
     "//chrome/browser:resources",
     "//chrome/browser:resources_grit",
     "//chrome/browser/ash/app_list/arc",
@@ -64,10 +64,12 @@ static_library("add_supervision") {
     "//components/application_locale_storage",
     "//components/constrained_window",
     "//components/google/core/common",
+    "//components/services/app_service",
     "//components/services/app_service/public/cpp:app_types",
     "//components/session_manager/core",
     "//components/signin/public/base",
     "//components/supervised_user/core/browser",
+    "//components/sync/base:features",
     "//components/user_manager",
     "//google_apis",
     "//ui/resources:ui_resources_grd",
@@ -75,18 +77,15 @@ static_library("add_supervision") {
     "//ui/web_dialogs",
     "//ui/webui",
   ]
-
-  # TODO(crbug.com/40031409): Fix code that adds exit-time destructors and
-  # enable the diagnostic by removing this line.
-  configs += [ "//build/config/compiler:no_exit_time_destructors" ]
 }
 
 source_set("unit_tests") {
   testonly = true
   sources = [ "add_supervision_handler_utils_unittest.cc" ]
   deps = [
-    "//chrome/browser/ui",
     "//chrome/browser/ui/webui/ash/add_supervision",
+    "//components/services/app_service",
+    "//components/services/app_service/public/cpp:app_types",
     "//testing/gtest",
   ]
 }
@@ -104,7 +103,7 @@ source_set("browser_tests") {
     "//base/test:test_support",
     "//chrome/browser:browser_process",
     "//chrome/browser:global_features",
-    "//chrome/browser/ui",
+    "//chrome/browser/signin:identity_test_support",
     "//chrome/browser/ui/webui/ash/add_supervision",
     "//chrome/browser/ui/webui/ash/add_supervision:mojo_bindings",
     "//chrome/test:test_support_ui",

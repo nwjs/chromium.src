@@ -22,7 +22,6 @@
 #include "base/functional/callback.h"
 #include "base/memory/weak_ptr.h"
 #include "base/metrics/histogram_functions.h"
-#include "base/not_fatal_until.h"
 #include "base/stl_util.h"
 #include "base/strings/strcat.h"
 #include "base/task/bind_post_task.h"
@@ -258,7 +257,6 @@ void Connection::RemoveTransaction(int64_t id) {
     return;
   }
 
-  base::TimeTicks start = base::TimeTicks::Now();
   bool can_go_inactive = true;
 
   // If this client is still blocking other clients, leave the keep-actives
@@ -269,15 +267,6 @@ void Connection::RemoveTransaction(int64_t id) {
       can_go_inactive = false;
       break;
     }
-  }
-  base::TimeDelta duration = base::TimeTicks::Now() - start;
-  if (duration > base::Milliseconds(2)) {
-    base::UmaHistogramTimes("IndexedDB.RemoveTransactionLongTimes", duration);
-    base::UmaHistogramCounts100000(
-        "IndexedDB.RemoveTransactionRequestQueueSize",
-        bucket_context_->lock_manager().RequestsWaitingForMetrics());
-    base::UmaHistogramCounts100000(
-        "IndexedDB.RemoveTransactionConnectionTxnCount", transactions_.size());
   }
 
   // Safe to make this client inactive.
@@ -848,7 +837,7 @@ bool Connection::IsHoldingLocks(
 void Connection::RecordCreateTransactionHistograms(
     blink::mojom::IDBTransactionMode mode) {
   const bool db_exists = database_.get() != nullptr;
-  CHECK(db_exists, base::NotFatalUntil::M145);
+  CHECK(db_exists);
 
   // Histograms to diagnose memory leak crbug.com/381086791.
   // TODO(crbug.com/381086791): Remove after the leak is fixed.

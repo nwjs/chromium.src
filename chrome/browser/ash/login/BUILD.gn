@@ -88,7 +88,6 @@ static_library("login") {
   public_deps = [
     "//ash/public/cpp",
     "//base",
-    "//chrome/browser:browser_public_dependencies",
     "//chrome/browser/ash/accessibility",
     "//chrome/browser/ash/floating_sso",
     "//chrome/browser/ash/login/oobe_quick_start",
@@ -466,7 +465,6 @@ source_set("browser_tests") {
     "//chrome/browser/metrics/structured:test_support",
     "//chrome/browser/policy:extension_force_install_mixin",
     "//chrome/browser/sync",
-    "//chrome/browser/ui",
     "//chrome/browser/ui:browser_window_header",
     "//chrome/browser/ui:view_ids",
     "//chrome/browser/ui/ash/keyboard",
@@ -479,6 +477,7 @@ source_set("browser_tests") {
     "//chrome/browser/ui/webui/signin:signin_utils",
     "//chrome/test:test_support",
     "//chrome/test:test_support_ui",
+    "//chrome/test/base:scoped_test_system_nss_key_slot_mixin",
     "//chrome/test/base:testing_browser_process",
     "//chromeos:test_support",
     "//chromeos/ash/components/assistant:buildflags",
@@ -558,6 +557,7 @@ source_set("browser_tests") {
     "session:browser_tests",
     "signin:browser_tests",
     "users:browser_tests",
+    "//chrome/browser/net",
   ]
 
   if (enable_rlz) {
@@ -569,6 +569,7 @@ source_set("unit_tests") {
   testonly = true
 
   sources = [
+    "chrome_restart_request_unittest.cc",
     "enterprise_user_session_metrics_unittest.cc",
     "error_screens_histogram_helper_unittest.cc",
     "existing_user_controller_auto_login_unittest.cc",
@@ -612,7 +613,6 @@ source_set("unit_tests") {
     "//chrome/browser/extensions",
     "//chrome/browser/extensions:test_support",
     "//chrome/browser/prefs",
-    "//chrome/browser/ui",
     "//chrome/browser/ui:test_support",
     "//chrome/browser/ui/ash/keyboard:ash_test_support",
     "//chrome/browser/ui/ash/login:test_support",

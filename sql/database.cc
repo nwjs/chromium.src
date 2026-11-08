@@ -84,7 +84,7 @@ namespace sql {
 // When enabled, don't commit or rollback transactions if they have already been
 // rolled back by a statement error (e.g. SQLITE_FULL).
 BASE_FEATURE(kCheckAutoCommitInCommitAndRollback,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 namespace {
 
@@ -671,8 +671,7 @@ void Database::CloseInternal(bool forced) {
     db_ = nullptr;
     auto sqlite_result_code = ToSqliteResultCode(sqlite3_close(raw_db));
 
-    CHECK_NE(sqlite_result_code, SqliteResultCode::kBusy,
-             base::NotFatalUntil::M141)
+    CHECK_NE(sqlite_result_code, SqliteResultCode::kBusy)
         << "sqlite3_close() called while resources (statements, blobs, etc) "
            "are still alive";
     DCHECK_EQ(sqlite_result_code, SqliteResultCode::kOk)

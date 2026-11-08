@@ -119,16 +119,16 @@ enum StyleChangeType : uint32_t {
   // This node needs style recalculation, but the changes are of
   // a very limited set:
   //
-  //  1. They only touch the node's inline style (style="" attribute).
+  //  1. They only touch the node's inline style (style="" attribute) or SVG
+  //     presentation attributes.
   //  2. They don't add or remove any properties.
   //  3. They only touch independent properties.
   //
-  // If all changes are of this type, we can do incremental style
-  // recalculation by reusing the previous style and just applying
-  // any modified inline style, which is cheaper than a full recalc.
-  // See CanApplyInlineStyleIncrementally() and comments on
-  // StyleResolver::ApplyBaseStyle() for more details.
-  kInlineIndependentStyleChange = 1 << kNodeStyleChangeShift,
+  // May reuse the previous style, applying supported SVG presentation
+  // attributes followed by the whole inline style. This preserves cascade
+  // order; invalidation does not track which declarations changed.
+  // See CanApplyStyleIncrementally() in style_resolver.cc for eligibility.
+  kIndependentStyleChange = 1 << kNodeStyleChangeShift,
   // This node needs (full) style recalculation.
   kLocalStyleChange = 2 << kNodeStyleChangeShift,
   // This node and all of its flat-tree descendeants need style recalculation.

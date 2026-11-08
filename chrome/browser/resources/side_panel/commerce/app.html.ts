@@ -7,7 +7,6 @@ import {html} from '//resources/lit/v3_0/lit.rollup.js';
 import type {ShoppingInsightsAppElement} from './app.js';
 
 export function getHtml(this: ShoppingInsightsAppElement) {
-  // clang-format off
   return html`<!--_html_template_start_-->
 <div id="insightsContainer">
   ${this.productInfo && this.priceInsightsInfo ? html`
@@ -41,14 +40,12 @@ export function getHtml(this: ShoppingInsightsAppElement) {
             .locale="${this.priceInsightsInfo.locale}"
             .currency="${this.priceInsightsInfo.currencyCode}">
         </shopping-insights-history-graph>
-        <insights-comment-row class="section-details">
-        </insights-comment-row>
+        <insights-comment-row class="section-details"></insights-comment-row>
       </div>
     ` : ''}
     ${this.isProductTrackable_ ? html`
       <div class="sp-cards-separator"></div>
-      <price-tracking-section class="section sp-card"
-          id="priceTrackingSection"
+      <price-tracking-section class="section sp-card" id="priceTrackingSection"
           .productInfo="${this.productInfo}"
           .priceInsightsInfo="${this.priceInsightsInfo}"
           .isProductTracked="${this.isProductTracked_}">
@@ -57,5 +54,4 @@ export function getHtml(this: ShoppingInsightsAppElement) {
   ` : ''}
 </div>
 <!--_html_template_end_-->`;
-  // clang-format on
 }

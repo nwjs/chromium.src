@@ -372,7 +372,6 @@
 <translation id="2079545284768500474">Rückgängig</translation>
 <translation id="2086334242442703436">Emoji-Auswahl öffnen</translation>
 <translation id="2089550919269323883">Die Installation von <ph name="VM_NAME" /> wird durch eine Unternehmensrichtlinie blockiert. Wende dich an deinen Systemadministrator. Fehlercode: <ph name="ERROR" />.</translation>
-<translation id="2093792000875799555">Neuigkeiten zu Steam for Chromebook</translation>
 <translation id="209965399369889474">Keine Netzwerkverbindung</translation>
 <translation id="2107581415810719320">Andere Taste <ph name="BUTTON_NUMBER" /></translation>
 <translation id="2107914222138020205">Dein USB-C-Kabel bietet keine Unterstützung für Thunderbolt. Dies kann die Geräteleistung beeinträchtigen.</translation>
@@ -422,6 +421,7 @@
 <translation id="2293443480080733021">Worauf möchtest du dich konzentrieren? Drücke die Eingabetaste, um die Aufgabe hinzuzufügen.</translation>
 <translation id="229397294990920565">Mobile Daten werden deaktiviert…</translation>
 <translation id="2295777434187870477">Mikrofon ist an. Du kannst es hier stummschalten.</translation>
+<translation id="2296880470921996802">Der Verlauf der Zwischenablage wurde von deinem IT-Administrator deaktiviert</translation>
 <translation id="2302092602801625023">Dieses Konto wird über Family Link verwaltet</translation>
 <translation id="2303600792989757991">Fensterübersicht umschalten</translation>
 <translation id="2304702218354340897">Möchtest du die Mimik-Steuerung wirklich deaktivieren?</translation>
@@ -928,7 +928,6 @@ Schließe dein Gerät an eine Steckdose an.</translation>
 <translation id="3697991387880191195">Screenshot-Kurzbefehl drücken</translation>
 <translation id="3702809606464356667">Fenster vom aktuellen Desktop werden angezeigt – drücke den Aufwärtspfeil, um die Fenster von allen Desktops anzuzeigen</translation>
 <translation id="3705722231355495246">-</translation>
-<translation id="3706423975342040244">Unterhaltung</translation>
 <translation id="370665806235115550">Wird geladen...</translation>
 <translation id="3707093869106077605"><ph name="UNAVAILABLE_DLC_ONE" /> und <ph name="UNAVAILABLE_DLC_TWO" /> sind nicht verfügbar.</translation>
 <translation id="3708186454126126312">Zuletzt verbundene Geräte</translation>
@@ -975,7 +974,6 @@ Schließe dein Gerät an eine Steckdose an.</translation>
 <translation id="3824784079442479685">Dadurch erhalten „<ph name="APP_NAME" />“ sowie alle Apps und Websites mit Kameraberechtigung Zugriff auf die Kamera. Möglicherweise musst du die Webseite aktualisieren oder die App neu starten.</translation>
 <translation id="3826099427150913765">Zu Passwort wechseln</translation>
 <translation id="383058930331066723">Energiesparmodus ist aktiviert</translation>
-<translation id="3831226344927851293">Anleitung schließen</translation>
 <translation id="383629559565718788">Tastatureinstellungen anzeigen</translation>
 <translation id="384082539148746321">Vorlage löschen?</translation>
 <translation id="3844627820291068572"><ph name="MODIFIER_ONE" /> + <ph name="MODIFIER_TWO" />, dann <ph name="KEY_ONE" /> oder <ph name="KEY_TWO" /> oder <ph name="KEY_THREE" /> oder <ph name="KEY_FOUR" /></translation>
@@ -1022,6 +1020,7 @@ Schließe dein Gerät an eine Steckdose an.</translation>
 <translation id="3977512764614765090">Der Akkustand ist <ph name="PERCENTAGE" /> %. Der Akku wird aufgeladen.</translation>
 <translation id="3978162107953847778">Füge Links ganz einfach hinzu, etwa aus deinem Browserverlauf oder Google Drive. Du kannst auch Emojis, Bilddateien und weitere Elemente einfügen. <ph name="LINK_TO_LEARN_MORE" /></translation>
 <translation id="3982013579989864579">Audioausgabe wechseln?</translation>
+<translation id="3983903378684256134">Steam auf Chromebook</translation>
 <translation id="3984536049089846927">Nächste Seite</translation>
 <translation id="3986082989454912832">Annehmen</translation>
 <translation id="3990002060657467458">Häufig verwendete Einstellungen wie WLAN, Bluetooth und Lautstärke sind in den Schnelleinstellungen verfügbar. Du kannst hier auch Screenshots aufnehmen.</translation>
@@ -1578,10 +1577,8 @@ Keine Geräte verbunden.</translation>
 <translation id="5551974246223970793">Bei der Suche auf einer Seite zur nächsten Übereinstimmung für die Suche gehen</translation>
 <translation id="5556459405103347317">Neu laden</translation>
 <translation id="5558091555391176027">Hohe Sichtbarkeit bei Nearby Share aktivieren/deaktivieren</translation>
-<translation id="5558314826121965174">Kreativität</translation>
 <translation id="556042886152191864">Button</translation>
 <translation id="5570122939431135380">Neuen Tab in neuem Inkognitofenster öffnen</translation>
-<translation id="5572632238877308040">Essentials</translation>
 <translation id="5575528586625653441">Ein Problem mit der Demoregistrierungsanforderung ist aufgetreten.</translation>
 <translation id="557563299383177668">Nächster Absatz</translation>
 <translation id="5577082622442191756">Bluetooth aktivieren/deaktivieren. <ph name="STATE_TEXT" />.</translation>
@@ -1616,7 +1613,6 @@ Keine Geräte verbunden.</translation>
 <translation id="5667546120811588575">Google Play wird eingerichtet...</translation>
 <translation id="5669267381087807207">Wird aktiviert</translation>
 <translation id="5671658447180261823">Vorschlag "<ph name="SUGGESTION_NAME" />" entfernen</translation>
-<translation id="5672890847723042801">Dienstprogramme</translation>
 <translation id="5673434351075758678">Nach der Synchronisierung der Einstellungen von "<ph name="FROM_LOCALE" />" zu "<ph name="TO_LOCALE" />" geändert.</translation>
 <translation id="5675363643668471212">Ablageartikel</translation>
 <translation id="5677022547882470786">Durch Ziehen oder Drücken der Leertaste Bereich zum Suchen auswählen</translation>
@@ -1641,6 +1637,7 @@ Keine Geräte verbunden.</translation>
 <translation id="5727460725221669831">Wenn du dein Passwort vergessen oder das Passwort für dein Google-Konto vor Kurzem geändert hast, versuche, diesen Nutzer wiederherzustellen.</translation>
 <translation id="5733630091161562207">Willkommensbenachrichtigung</translation>
 <translation id="573413375004481890">Dieses Gerät kann nicht alle deine Displays unterstützen. Daher wurde die Verbindung zu einem Display getrennt.</translation>
+<translation id="5739548907438839901"><ph name="SIZE" /> Speicherplatz freigegeben.</translation>
 <translation id="574392208103952083">Mittel</translation>
 <translation id="5745612484876805746">Die Funktion "Nachtlicht" wird bei Sonnenuntergang automatisch aktiviert</translation>
 <translation id="5749214722697335450">Nutzungs- und Diagnosedaten senden. Du kannst uns helfen, Android zu verbessern, indem du zulässt, dass Diagnose- und Gerätedaten sowie App-Nutzungsdaten automatisch an Google gesendet werden. Die Daten helfen unter anderem dabei, die Stabilität des Systems und der Apps zu verbessern. Einige aggregierte Daten sind auch für Apps und Partner von Google hilfreich, beispielsweise für Android-Entwickler. Wenn die Einstellung „Zusätzliche Web- &amp; App-Aktivitäten“ aktiviert ist, werden diese Daten möglicherweise in deinem Google-Konto gespeichert. <ph name="BEGIN_LINK1" />Weitere Informationen zu Messwerten<ph name="BEGIN_LINK1_END" />Weitere Informationen<ph name="END_LINK1" /></translation>
@@ -1791,7 +1788,6 @@ Keine Geräte verbunden.</translation>
 <translation id="6127395413317891856">Du bist offline. Prüfe deine Verbindung und versuche es dann noch einmal.</translation>
 <translation id="6129953537138746214">Leertaste</translation>
 <translation id="6132714462430777655">Registrierung bei einer Bildungseinrichtung überspringen?</translation>
-<translation id="6136872094979134163">Neuigkeiten zu Steam for Chromebook können nicht abgerufen werden.</translation>
 <translation id="6137566720514957455">Dialog „Entfernen“ für <ph name="USER_EMAIL_ADDRESS" /> öffnen</translation>
 <translation id="6141205840878048728">Worauf möchtest du dich konzentrieren?</translation>
 <translation id="6141988275892716286">Download bestätigen</translation>
@@ -1871,7 +1867,6 @@ Keine Geräte verbunden.</translation>
 <translation id="6348449481487610270"><ph name="MODIFIER_ONE" /> + <ph name="MODIFIER_TWO" /> + <ph name="KEY_ONE" />, dann <ph name="MODIFIER_THREE" /> + <ph name="KEY_TWO" /> oder <ph name="KEY_THREE" /></translation>
 <translation id="6352082849089527770">Unbekannte Netzwerke</translation>
 <translation id="6359587239691116345">Hol dir die neuesten Funktionen und Sicherheitsoptimierungen. Wenn du dieses Update ablehnst, funktioniert dein Gerät möglicherweise nicht mehr richtig und es können Sicherheits- und Leistungsprobleme auftreten.</translation>
-<translation id="6362833380917912748">Integrierte Apps kennenlernen</translation>
 <translation id="6364386432014869981">Integriertes Touchpad ist aktiviert</translation>
 <translation id="6376931439017688372">Bluetooth ist aktiviert</translation>
 <translation id="6378515133128829137">Fenster rechts anpinnen</translation>
@@ -2096,7 +2091,6 @@ Neuinstallation</translation>
 <translation id="7014684956566476813">Mit einem Gerät namens „<ph name="DEVICE_NAME" />“ verbunden</translation>
 <translation id="7015766095477679451">Um <ph name="COME_BACK_TIME" /> kannst du weitermachen.</translation>
 <translation id="70168403932084660">Desktop 6</translation>
-<translation id="702252130983202758">Meine Apps</translation>
 <translation id="7025533177575372252"><ph name="DEVICE_NAME" /> mit deinem Smartphone verbinden</translation>
 <translation id="7026338066939101231">Verringern</translation>
 <translation id="7029307918966275733">Crostini ist nicht installiert. Bitte installiere Crostini, um die Credits anzuzeigen.</translation>
@@ -2219,6 +2213,7 @@ Neuinstallation</translation>
 <translation id="7413851974711031813">Drücke zum Schließen die Escape-Taste</translation>
 <translation id="7416471219712049036">Aktuelle Seite speichern</translation>
 <translation id="742594950370306541">Kamera wird verwendet.</translation>
+<translation id="7430466159639897874">Du hast ungenutzten Speicherplatz (<ph name="SIZE" />), der der nicht mehr unterstützten Funktion „Steam auf Chromebook“ zugewiesen ist.</translation>
 <translation id="743058460480092004">Kamera und Mikrofon werden verwendet.</translation>
 <translation id="7433708794692032816">Smartcard einstecken, um <ph name="DEVICE_TYPE" /> weiterhin zu verwenden</translation>
 <translation id="7440404390546433462">Google Suche</translation>
@@ -2360,6 +2355,7 @@ Halte zum Herunterfahren des Geräts die Ein-/Aus-Taste noch einmal gedrückt.</
 <translation id="7781335840981796660">Alle Benutzerkonten und lokalen Daten werden entfernt.</translation>
 <translation id="7781829728241885113">Gestern</translation>
 <translation id="7787212146956232129">Eingabe- und Ausgabegeräte sind festgelegt. Gehe zu den Einstellungen, um Änderungen vorzunehmen.</translation>
+<translation id="7790757511772316441">Speicherplatz freigeben</translation>
 <translation id="7792590255364786396">Sichtbar</translation>
 <translation id="7796735576426975947">Neue Benachrichtigung ausgeblendet</translation>
 <translation id="7798302898096527229">Drücke die Such-Taste oder Umschalttaste, um die Aktivierung aufzuheben.</translation>
@@ -2535,7 +2531,6 @@ Halte zum Herunterfahren des Geräts die Ein-/Aus-Taste noch einmal gedrückt.</
 <translation id="8277261673056602147">Text auf dem Bildschirm markieren</translation>
 <translation id="8281886186245836920">Überspringen</translation>
 <translation id="8282784978194352587">Du hast es geschafft!</translation>
-<translation id="8287009018010202411">Produktivität</translation>
 <translation id="828708037801473432">Aus</translation>
 <translation id="8289128870594824098">Laufwerkgröße</translation>
 <translation id="8297006494302853456">Schwach</translation>
@@ -2630,7 +2625,6 @@ Halte zum Herunterfahren des Geräts die Ein-/Aus-Taste noch einmal gedrückt.</
 <translation id="8598235756057743477">Apps nach Name oder Farbe sortieren</translation>
 <translation id="8599864823732014237">Unternehmensregistrierung überspringen?</translation>
 <translation id="8609384513243082612">Neuen Tab öffnen</translation>
-<translation id="861045123704058818">Apps werden vorübergehend nach Kategorie sortiert</translation>
 <translation id="8612338981637220013">Super!</translation>
 <translation id="8613164732773110792">Nur Kleinbuchstaben, Zahlen, Unterstriche und Bindestriche</translation>
 <translation id="8614517853887502247">Benachrichtigungen von <ph name="APP_1_TITLE" /> und <ph name="APP_2_TITLE" /> wurden ausgeblendet, da der Spionageschutz aktiviert ist</translation>
@@ -2822,7 +2816,6 @@ Halte zum Herunterfahren des Geräts die Ein-/Aus-Taste noch einmal gedrückt.</
 <translation id="9129245940793250979">Hintere Taste</translation>
 <translation id="9133335900048457298">Geschützte Inhalte können nicht aufgezeichnet werden</translation>
 <translation id="9139720510312328767">Nächsten Buchstaben löschen</translation>
-<translation id="9148058034647219655">Beenden</translation>
 <translation id="9151906066336345901">Ende</translation>
 <translation id="9159421884295554245">In Zwischenablage suchen</translation>
 <translation id="9168436347345867845">Später</translation>

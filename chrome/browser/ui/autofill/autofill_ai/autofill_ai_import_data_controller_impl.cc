@@ -35,6 +35,7 @@
 #include "components/autofill/core/browser/integrators/autofill_ai/autofill_ai_import_util.h"
 #include "components/autofill/core/browser/integrators/autofill_ai/autofill_ai_manager.h"
 #include "components/autofill/core/browser/integrators/autofill_ai/autofill_ai_wallet_util.h"
+#include "components/autofill/core/browser/integrators/autofill_ai/metrics/autofill_ai_metrics.h"
 #include "components/autofill/core/common/autofill_features.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/strings/grit/components_strings.h"
@@ -175,6 +176,16 @@ bool AutofillAiImportDataControllerImpl::IsWalletableEntity() const {
          EntityInstance::RecordType::kServerWallet;
 }
 
+bool AutofillAiImportDataControllerImpl::IsBranding2026FeatureEnabled() const {
+  if (!base::FeatureList::IsEnabled(
+          features::kAutofillAiWalletPassBranding2026)) {
+    return false;
+  }
+  const EntityInstance& new_entity = GetSaveUpdateState().new_entity;
+  return GetWalletPassType(new_entity.type(), new_entity.record_type()) ==
+         EntityInstance::WalletPassType::kPrivate;
+}
+
 void AutofillAiImportDataControllerImpl::OnGoToWalletLinkClicked() {
   const EntityInstance& new_entity = GetSaveUpdateState().new_entity;
   EntityInstance::WalletPassType pass_type =
@@ -291,8 +302,7 @@ int AutofillAiImportDataControllerImpl::
                  ? IDR_AUTOFILL_SAVE_PASSPORT_AND_NATIONAL_ID_CARD_WALLET_LOTTIE
                  : IDR_AUTOFILL_SAVE_PASSPORT_AND_NATIONAL_ID_CARD_LOTTIE;
     case EntityTypeName::kVehicle:
-      return use_wallet_branding ? IDR_AUTOFILL_SAVE_VEHICLE_WALLET_LOTTIE
-                                 : IDR_AUTOFILL_SAVE_VEHICLE_LOTTIE;
+      return IDR_AUTOFILL_SAVE_VEHICLE_LOTTIE;
     case EntityTypeName::kFlightReservation:
       NOTREACHED()
           << "Entity is read only and doesn't support saving/updating.";
@@ -328,7 +338,7 @@ int AutofillAiImportDataControllerImpl::GetNoticeStringId() const {
   if (IsWalletableEntity()) {
     if (IsSavePrompt() && base::FeatureList::IsEnabled(
                               features::kAutofillAiWalletPrivatePasses)) {
-      return GetSaveEntityToWalletNoticeStringId();
+      return IDS_AUTOFILL_AI_SAVE_ENTITY_TO_WALLET_DIALOG_SUBTITLE_NEW;
     }
     return IsSavePrompt()
                ? IDS_AUTOFILL_AI_SAVE_ENTITY_TO_WALLET_DIALOG_SUBTITLE
@@ -345,6 +355,7 @@ AutofillAiImportDataControllerImpl::GetLegalMessageLines() const {
 
 void AutofillAiImportDataControllerImpl::OnLegalMessageLinkClicked(
     const GURL& url) {
+  LogWalletNoticeFunnelEvent(AutofillAiWalletNoticeFunnelEvents::kLinkClicked);
   OpenUrlAndReopenBubbleOnReturn(url);
 }
 

@@ -8,6 +8,7 @@
 
 #include "base/no_destructor.h"
 #include "chrome/browser/autofill/autofill_entity_data_manager_factory.h"
+#include "chrome/browser/browser_process.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "components/autofill/core/browser/foundations/autofill_client.h"
@@ -48,7 +49,9 @@ WalletPassAccessManagerFactory::~WalletPassAccessManagerFactory() = default;
 std::unique_ptr<KeyedService>
 WalletPassAccessManagerFactory::BuildServiceInstanceForBrowserContext(
     content::BrowserContext* context) const {
-  if (!base::FeatureList::IsEnabled(features::kAutofillAiWalletPrivatePasses)) {
+  if (!base::FeatureList::IsEnabled(features::kAutofillAiWalletPrivatePasses) &&
+      !base::FeatureList::IsEnabled(
+          features::kAutofillEnableWalletDisclosureNoticePublicPass)) {
     return nullptr;
   }
   Profile* profile = Profile::FromBrowserContext(context);
@@ -63,7 +66,8 @@ WalletPassAccessManagerFactory::BuildServiceInstanceForBrowserContext(
       IdentityManagerFactory::GetForProfile(profile);
   return std::make_unique<WalletPassAccessManagerImpl>(
       std::make_unique<wallet::WalletHttpClientImpl>(
-          identity_manager, profile->GetURLLoaderFactory()),
+          identity_manager, profile->GetURLLoaderFactory(),
+          g_browser_process->GetApplicationLocale()),
       data_manager);
 }
 

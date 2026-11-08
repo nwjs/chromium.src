@@ -18,7 +18,6 @@
 #include "chrome/browser/ttc/app/conversation_impl.h"
 #include "chrome/browser/ttc/app/public/conversation.h"
 #include "chrome/browser/ttc/app/public/make_conversation.h"
-#include "chrome/browser/ttc/app/ttc_mes_client.h"
 #include "chrome/browser/ttc/core/features.h"
 #include "chrome/browser/ttc/core/session_controller_impl.h"
 #include "chrome/browser/ttc/core/ttc_keyed_service.h"
@@ -26,6 +25,7 @@
 #include "chrome/test/base/chrome_test_utils.h"
 #include "components/keyed_service/core/keyed_service.h"
 #include "components/optimization_guide/core/optimization_guide_proto_util.h"
+#include "components/ttc/app/ttc_mes_client.h"
 #include "content/public/browser/browser_context.h"
 #include "media/audio/audio_system_impl.h"
 #include "media/audio/mock_audio_manager.h"
@@ -140,6 +140,7 @@ void AppBrowserTestBase::TearDownOnMainThread() {
   pending_model_execution_session_.reset();
   streaming_callback_.Reset();
 
+  audio_stream_factory_receivers_.clear();
   audio_manager_->Shutdown();
   audio_manager_.reset();
 
@@ -268,11 +269,14 @@ bool AppBrowserTestBase::WaitForServiceState(ServiceState state) {
 
 std::unique_ptr<Conversation> AppBrowserTestBase::MakeConversation(
     SessionController& session_controller) {
-  // Dropping the receiver in the binder means no real capture stream is ever
-  // opened.
+  // Holding on to the receiver without binding it means no real capture stream
+  // is ever opened, while keeping the pipe open so that capture doesn't fail.
   auto audio_controller = std::make_unique<AudioController>(
-      base::BindRepeating(
-          [](mojo::PendingReceiver<media::mojom::AudioStreamFactory>) {}),
+      base::BindLambdaForTesting(
+          [this](mojo::PendingReceiver<media::mojom::AudioStreamFactory>
+                     receiver) {
+            audio_stream_factory_receivers_.push_back(std::move(receiver));
+          }),
       base::BindLambdaForTesting(
           [this]() -> std::unique_ptr<media::AudioSystem> {
             return std::make_unique<media::AudioSystemImpl>(

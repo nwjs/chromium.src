@@ -13,20 +13,6 @@ source_set("debugger") {
     "debugger_api.h",
   ]
 
-  if (is_android) {
-    sources += [
-      "extension_dev_tools_message_delegate.cc",
-      "extension_dev_tools_message_delegate.h",
-    ]
-  } else {
-    sources += [
-      "extension_dev_tools_infobar_delegate.cc",
-      "extension_dev_tools_infobar_delegate.h",
-    ]
-  }
-
-  configs += [ "//build/config/compiler:wexit_time_destructors" ]
-
   public_deps = [
     "//base",
     "//chrome/common/extensions/api",
@@ -37,8 +23,10 @@ source_set("debugger") {
   ]
 
   deps = [
+    "//base:i18n",
     "//chrome/app:generated_resources",
     "//chrome/app:generated_resources_grit",
+    "//chrome/browser:browser_process",
     "//chrome/browser/devtools",
     "//chrome/browser/extensions",
     "//chrome/browser/infobars",
@@ -46,6 +34,7 @@ source_set("debugger") {
     "//chrome/browser/profiles:profile",
     "//chrome/common:constants",
     "//chrome/common:non_code_constants",
+    "//chrome/common/extensions",
     "//components/pdf/common:util",
     "//components/security_interstitials/content:security_interstitial_page",
     "//content/public/common",
@@ -58,4 +47,20 @@ source_set("debugger") {
     "//ui/strings:ui_strings",
     "//url",
   ]
+
+  if (is_android) {
+    sources += [
+      "extension_dev_tools_message_delegate.cc",
+      "extension_dev_tools_message_delegate.h",
+    ]
+    deps += [
+      "//chrome/browser/android:resource_mapper",
+      "//components/messages/android",
+    ]
+  } else {
+    sources += [
+      "extension_dev_tools_infobar_delegate.cc",
+      "extension_dev_tools_infobar_delegate.h",
+    ]
+  }
 }

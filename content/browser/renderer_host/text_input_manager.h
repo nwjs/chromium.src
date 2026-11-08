@@ -77,6 +77,7 @@ class CONTENT_EXPORT TextInputManager {
     SelectionRegion();
     SelectionRegion(const SelectionRegion& other);
     SelectionRegion& operator=(const SelectionRegion& other);
+    bool operator==(const SelectionRegion& other) const;
 
     // The begining of the selection region.
     gfx::SelectionBound anchor;
@@ -175,7 +176,9 @@ class CONTENT_EXPORT TextInputManager {
 
   // Returns the selection bounds information for |view|. If |view| == nullptr,
   // it will return the corresponding information for |active_view_| or nullptr
-  // if there are no active views.
+  // if there are no active views. If |view| has non-empty EditContext selection
+  // bounds, a SelectionRegion constructed from those bounds is returned instead
+  // of the DOM selection.
   const SelectionRegion* GetSelectionRegion(
       RenderWidgetHostViewBase* view = nullptr) const;
 
@@ -307,6 +310,23 @@ class CONTENT_EXPORT TextInputManager {
   const gfx::Range* GetCompositionRangeForTesting() const;
 
  private:
+  struct ViewState {
+    ViewState();
+    ViewState(const ViewState&) = delete;
+    ViewState& operator=(const ViewState&) = delete;
+    ~ViewState();
+
+    ui::mojom::TextInputStatePtr text_input_state =
+        ui::mojom::TextInputState::New();
+    SelectionRegion selection_region;
+    std::optional<SelectionRegion> edit_context_selection_region;
+    CompositionRangeInfo composition_range_info;
+    TextSelection text_selection;
+#if BUILDFLAG(IS_WIN)
+    blink::mojom::ProximateCharacterRangeBoundsPtr proximate_character_bounds;
+#endif  // BUILDFLAG(IS_WIN)
+  };
+
   // This class is used to create maps which hold specific IME state for a
   // view.
   template <class Value>
@@ -321,17 +341,10 @@ class CONTENT_EXPORT TextInputManager {
   // cannot have a |TextInputState.type| of ui::TEXT_INPUT_TYPE_NONE.
   raw_ptr<RenderWidgetHostViewBase> active_view_;
 
-  // The following maps track corresponding IME state for views. For each view,
-  // the values in the map are initialized and cleared in Register and
-  // Unregister methods, respectively.
-  ViewMap<ui::mojom::TextInputStatePtr> text_input_state_map_;
-  ViewMap<SelectionRegion> selection_region_map_;
-  ViewMap<CompositionRangeInfo> composition_range_info_map_;
-  ViewMap<TextSelection> text_selection_map_;
-#if BUILDFLAG(IS_WIN)
-  ViewMap<blink::mojom::ProximateCharacterRangeBoundsPtr>
-      proximate_character_bounds_map_;
-#endif  // BUILDFLAG(IS_WIN)
+  // Tracks IME state for registered views. For each view, the entry in the map
+  // is initialized and cleared in Register and Unregister methods,
+  // respectively.
+  ViewMap<ViewState> view_map_;
 
   // TextInputManager::Observer reentrantly issues further notifications upon
   // `OnUpdateTextInputStateCalled()` (e.g. `SelectionBoundsChange()`).

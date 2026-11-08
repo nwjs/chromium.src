@@ -18,6 +18,7 @@
 #include "base/memory/raw_span.h"
 #include "pdf/accessibility_structs.h"
 #include "services/screen_ai/buildflags/buildflags.h"
+#include "ui/accessibility/ax_enums.mojom-forward.h"
 
 namespace chrome_pdf {
 struct AccessibilityCharInfo;
@@ -77,7 +78,7 @@ struct TextRunContext {
 };
 
 // Tracks the in-progress static text node being accumulated across consecutive
-// text runs with matching style.
+// text runs with matching style and text position.
 struct StaticTextState {
   StaticTextState();
   ~StaticTextState();
@@ -90,6 +91,12 @@ struct StaticTextState {
 
   // The text style of `node` when style tracking is active.
   std::optional<chrome_pdf::AccessibilityTextStyleInfo> style;
+
+  // Whether `node` is superscript or subscript, when style tracking is active.
+  std::optional<ax::mojom::TextPosition> text_position;
+
+  // The language of `node`.
+  std::string language;
 };
 
 // Computed page-specific metrics, styling properties, and classification
@@ -133,6 +140,10 @@ struct HeuristicPageProperties {
   // bottom margin.
   float bottom_non_page_number_margin = 0.0f;
 
+  // X-coordinate thresholds for the left and right side margins.
+  float left_margin = 0.0f;
+  float right_margin = 0.0f;
+
   // The dominant body text color on the page (in ARGB format), if multiple
   // colors exist.
   std::optional<uint32_t> body_text_color;
@@ -164,6 +175,7 @@ class PdfAccessibilityTreeBuilderHeuristic {
   ui::AXNodeData* CreateBlockLevelNode(
       const TextRunContext& run_context,
       const HeuristicPageProperties& page_properties,
+      const chrome_pdf::AccessibilityFormGraphicInfo* graphic,
       HeadingClassifier* out_heading_classifier);
 
   ui::AXNodeData* AddTextRunToNode(size_t text_run_index,
@@ -210,6 +222,11 @@ class PdfAccessibilityTreeBuilderHeuristic {
   uint32_t current_link_index_ = 0;
   uint32_t current_image_index_ = 0;
   uint32_t current_highlight_index_ = 0;
+
+  // The block node currently being built and the static text nodes created
+  // while the block still has a uniform language.
+  raw_ptr<ui::AXNodeData> current_block_node_ = nullptr;
+  std::vector<raw_ptr<ui::AXNodeData>> current_block_static_text_nodes_;
 };
 
 }  // namespace pdf

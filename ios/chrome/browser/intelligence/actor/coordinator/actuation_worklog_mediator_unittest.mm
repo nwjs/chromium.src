@@ -4,10 +4,23 @@
 
 #import "ios/chrome/browser/intelligence/actor/coordinator/actuation_worklog_mediator.h"
 
+#import <memory>
+#import <optional>
+
+#import "base/memory/raw_ptr.h"
+#import "base/test/scoped_feature_list.h"
+#import "components/actor/core/task_source_info.h"
+#import "ios/chrome/browser/intelligence/actor/model/actor_service.h"
+#import "ios/chrome/browser/intelligence/actor/model/actor_service_factory.h"
+#import "ios/chrome/browser/intelligence/actor/public/actor_task_updates_observer.h"
 #import "ios/chrome/browser/intelligence/actor/public/actor_types.h"
 #import "ios/chrome/browser/intelligence/actor/ui/actuation_worklog_consumer.h"
 #import "ios/chrome/browser/intelligence/actor/ui/actuation_worklog_view_data.h"
+#import "ios/chrome/browser/intelligence/actor/util/actor_test_utils.h"
+#import "ios/chrome/browser/intelligence/features/features.h"
+#import "ios/chrome/browser/shared/model/profile/test/test_profile_ios.h"
 #import "ios/chrome/grit/ios_strings.h"
+#import "ios/web/public/test/web_task_environment.h"
 #import "ios/web/public/web_state_id.h"
 #import "testing/gtest/include/gtest/gtest.h"
 #import "testing/gtest_mac.h"
@@ -15,9 +28,16 @@
 #import "ui/base/l10n/l10n_util.h"
 
 namespace {
-constexpr actor::ActorTaskId kTaskId = actor::ActorTaskId(1);
+constexpr char kTaskTitle[] = "Task Title";
+constexpr char kConfirmationMessage[] = "Please confirm";
 using enum actor::ActorTaskState;
 using enum actor::ToolType;
+
+// Returns the provenance attributed to tasks created by these tests.
+actor::TaskSourceInfo TestSource() {
+  return actor::TaskSourceInfo(actor::TaskSourceInfo::Client::kTest,
+                               /*id=*/std::nullopt);
+}
 }  // namespace
 
 @interface FakeActuationWorklogConsumer : NSObject <ActuationWorklogConsumer>
@@ -62,60 +82,138 @@ using enum actor::ToolType;
 
 @end
 
+// Records the state of the task it observes, as reported by the posted task
+// updates.
+@interface FakeTaskStateObserver : NSObject <ActorTaskUpdatesObserver>
+@property(nonatomic, assign) actor::ActorTaskState state;
+@property(nonatomic, assign) BOOL stopped;
+@end
+
+@implementation FakeTaskStateObserver
+
+- (void)didRegisterAsObserverForTaskID:(actor::ActorTaskId)taskID
+                             taskTitle:(NSString*)taskTitle
+                            taskUpdate:(NSString*)taskUpdate
+                          currentState:(actor::ActorTaskState)state
+                             webStates:(NSArray<NSNumber*>*)webStatesIDs {
+  _state = state;
+}
+
+- (void)actorTaskWithID:(actor::ActorTaskId)taskID
+         didChangeState:(actor::ActorTaskState)newState
+              fromState:(actor::ActorTaskState)oldState {
+  _state = newState;
+}
+
+- (void)actorTaskDidStopWithID:(actor::ActorTaskId)taskID
+                    finalState:(actor::ActorTaskState)finalState {
+  _state = finalState;
+  _stopped = YES;
+}
+
+@end
+
 class ActuationWorklogMediatorTest : public PlatformTest {
  protected:
   void SetUp() override {
     PlatformTest::SetUp();
+    scoped_feature_list_.InitAndEnableFeature(kActorTools);
+    actor::ActorServiceFactory::GetInstance();
+    profile_ = TestProfileIOS::Builder().Build();
+    actor_service_ = actor::ActorServiceFactory::GetForProfile(profile_.get());
+    ASSERT_TRUE(actor_service_);
+    task_id_ = actor_service_->CreateTask(kTaskTitle, TestSource(),
+                                          /*allow_incognito_web_states=*/false);
+
     fake_consumer_ = [[FakeActuationWorklogConsumer alloc] init];
-    mediator_ = [[ActuationWorklogMediator alloc] initWithActorService:nullptr];
+    mediator_ =
+        [[ActuationWorklogMediator alloc] initWithActorService:actor_service_];
     mediator_.consumer = fake_consumer_;
-    [mediator_ connect];
   }
 
   void TearDown() override {
     [mediator_ disconnect];
     mediator_ = nil;
     fake_consumer_ = nil;
+    actor_service_ = nullptr;
     PlatformTest::TearDown();
   }
 
-  void RegisterTask(NSString* title = @"Task Title",
-                    NSString* update = nil,
-                    actor::ActorTaskState state = kActing) {
-    [mediator_ didRegisterAsObserverForTaskID:kTaskId
-                                    taskTitle:title
-                                   taskUpdate:update
-                                 currentState:state
-                                    webStates:@[]];
+  // Starts observing `task_id` and waits for the registration posted by the
+  // task.
+  void StartObservingTask(actor::ActorTaskId task_id) {
+    [mediator_ startObservingTaskWithID:task_id];
+    actor::FlushCurrentSequence();
   }
 
   void ChangeState(actor::ActorTaskState new_state,
                    actor::ActorTaskState old_state = kActing) {
-    [mediator_ actorTaskWithID:kTaskId
+    [mediator_ actorTaskWithID:task_id_
                 didChangeState:new_state
                      fromState:old_state];
   }
 
-  void EndActuation(actor::ActorTaskState final_state = kFinished) {
-    [mediator_ actorTaskDidStopWithID:kTaskId finalState:final_state];
-  }
+  void EndActuation() { [mediator_ stopObservingTask]; }
 
   void ExecuteTool(actor::ToolType tool_type, NSString* update = @"") {
-    [mediator_ actorTaskWithID:kTaskId
+    [mediator_ actorTaskWithID:task_id_
                willExecuteTool:tool_type
                     taskUpdate:update
                     onWebState:web::WebStateID::FromSerializedValue(1)];
   }
 
+  // Creates a task and starts observing it, as the Gemini container does
+  // synchronously from the task's start notification.
+  actor::ActorTaskId CreateAndObserveTask() {
+    actor::ActorTaskId task_id = actor_service_->CreateTask(
+        kTaskTitle, TestSource(), /*allow_incognito_web_states=*/false);
+    [mediator_ startObservingTaskWithID:task_id];
+    return task_id;
+  }
+
+  // Returns an observer registered for the updates of `task_id`. Updates,
+  // including the registration itself, are posted.
+  FakeTaskStateObserver* ObserveTaskState(actor::ActorTaskId task_id) {
+    FakeTaskStateObserver* observer = [[FakeTaskStateObserver alloc] init];
+    actor_service_->AddTaskUpdatesObserver(task_id, observer);
+    return observer;
+  }
+
+  // Interrupts `task_id` for user confirmation and returns whether the
+  // interrupt was accepted, i.e. the task now waits on the user. `ActorTask`
+  // stops a task that has no intervention delegate to prompt instead.
+  bool RequestConfirmation(actor::ActorTaskId task_id) {
+    FakeTaskStateObserver* observer = ObserveTaskState(task_id);
+    actor_service_->InterruptTask(
+        task_id, actor::ActorTaskInterruptReason::kWaitingUserConfirmation,
+        kConfirmationMessage);
+    // Delivers the posted state updates and intervention prompt.
+    actor::FlushCurrentSequence();
+    return !observer.stopped && observer.state == kWaitingOnUser;
+  }
+
+  // Creates and observes a task, interrupts it for user confirmation, then
+  // delivers the posted intervention prompt.
+  actor::ActorTaskId CreateTaskAndRequestConfirmation() {
+    actor::ActorTaskId task_id = CreateAndObserveTask();
+    RequestConfirmation(task_id);
+    return task_id;
+  }
+
+  base::test::ScopedFeatureList scoped_feature_list_;
+  web::WebTaskEnvironment task_environment_;
+  std::unique_ptr<TestProfileIOS> profile_;
+  raw_ptr<actor::ActorService> actor_service_ = nullptr;
+  actor::ActorTaskId task_id_;
   FakeActuationWorklogConsumer* fake_consumer_;
   ActuationWorklogMediator* mediator_;
 };
 
 // Tests observer registration forwards the title and emits the initial step.
 TEST_F(ActuationWorklogMediatorTest, TestRegisterObserverEmitsInitialStep) {
-  RegisterTask();
+  StartObservingTask(task_id_);
 
-  EXPECT_NSEQ(fake_consumer_.taskTitle, @"Task Title");
+  EXPECT_NSEQ(fake_consumer_.taskTitle, @(kTaskTitle));
   EXPECT_TRUE(fake_consumer_.actuationActive);
   ASSERT_EQ(fake_consumer_.items.count, 1u);
   EXPECT_GT(fake_consumer_.items[0].title.length, 0u);
@@ -126,7 +224,7 @@ TEST_F(ActuationWorklogMediatorTest, TestRegisterObserverEmitsInitialStep) {
 
 // Tests that tool execution emits a chip and timeline item.
 TEST_F(ActuationWorklogMediatorTest, TestToolExecutionEmitsChipAndItem) {
-  RegisterTask();
+  StartObservingTask(task_id_);
   [fake_consumer_.items removeAllObjects];
 
   // Empty updates are ignored.
@@ -163,7 +261,7 @@ TEST_F(ActuationWorklogMediatorTest, TestToolExecutionEmitsChipAndItem) {
 
 // Tests that consecutive duplicate task updates are deduplicated.
 TEST_F(ActuationWorklogMediatorTest, TestConsecutiveDeduplication) {
-  RegisterTask();
+  StartObservingTask(task_id_);
   [fake_consumer_.items removeAllObjects];
 
   ExecuteTool(kClick, @"Action A");
@@ -181,7 +279,7 @@ TEST_F(ActuationWorklogMediatorTest, TestConsecutiveDeduplication) {
 TEST_F(ActuationWorklogMediatorTest, TestTaskLifecycleTransitionsAndReset) {
   EXPECT_FALSE(fake_consumer_.actuationActive);
 
-  RegisterTask();
+  StartObservingTask(task_id_);
   EXPECT_TRUE(fake_consumer_.actuationActive);
   ASSERT_EQ(fake_consumer_.items.count, 1u);
   ASSERT_NE(fake_consumer_.taskTitle, nil);
@@ -197,7 +295,7 @@ TEST_F(ActuationWorklogMediatorTest, TestTaskLifecycleTransitionsAndReset) {
 
 // Tests that disconnecting the mediator resets the consumer.
 TEST_F(ActuationWorklogMediatorTest, TestDisconnectResetsConsumer) {
-  RegisterTask();
+  StartObservingTask(task_id_);
   ASSERT_EQ(fake_consumer_.items.count, 1u);
   ASSERT_NE(fake_consumer_.taskTitle, nil);
 
@@ -208,9 +306,9 @@ TEST_F(ActuationWorklogMediatorTest, TestDisconnectResetsConsumer) {
 
 // Tests the user intervention flow.
 TEST_F(ActuationWorklogMediatorTest, TestUserInterventionFlow) {
-  RegisterTask();
+  StartObservingTask(task_id_);
   __block BOOL completion_called = NO;
-  [mediator_ actorTask:kTaskId
+  [mediator_ actorTask:task_id_
       requestUserInterventionWithTitle:@"Intervention Title"
                               subtitle:@"Intervention Subtitle"
                             buttonText:@"Continue"
@@ -224,7 +322,8 @@ TEST_F(ActuationWorklogMediatorTest, TestUserInterventionFlow) {
   EXPECT_NSEQ(fake_consumer_.intervention.primaryButtonText, @"Continue");
   EXPECT_FALSE(completion_called);
 
-  [mediator_ didTapInterventionButton];
+  [mediator_
+      didTriggerInterventionAction:ActuationInterventionAction::kPrimary];
   EXPECT_TRUE(completion_called);
   EXPECT_EQ(fake_consumer_.intervention, nil);
 }
@@ -232,9 +331,9 @@ TEST_F(ActuationWorklogMediatorTest, TestUserInterventionFlow) {
 // Tests that cancelling, replacing, or disconnecting an intervention discards
 // the pending completion without invoking it.
 TEST_F(ActuationWorklogMediatorTest, TestUserInterventionCancellation) {
-  RegisterTask();
+  StartObservingTask(task_id_);
   __block BOOL first_completion_called = NO;
-  [mediator_ actorTask:kTaskId
+  [mediator_ actorTask:task_id_
       requestUserInterventionWithTitle:@"First Title"
                               subtitle:@"First Subtitle"
                             buttonText:@"Action 1"
@@ -247,7 +346,7 @@ TEST_F(ActuationWorklogMediatorTest, TestUserInterventionCancellation) {
 
   // A second intervention arrives before user acts on the first.
   __block BOOL second_completion_called = NO;
-  [mediator_ actorTask:kTaskId
+  [mediator_ actorTask:task_id_
       requestUserInterventionWithTitle:@"Second Title"
                               subtitle:@"Second Subtitle"
                             buttonText:@"Action 2"
@@ -266,9 +365,9 @@ TEST_F(ActuationWorklogMediatorTest, TestUserInterventionCancellation) {
   EXPECT_EQ(fake_consumer_.intervention, nil);
 
   // A third intervention followed by disconnect should also discard completion.
-  RegisterTask();
+  StartObservingTask(task_id_);
   __block BOOL third_completion_called = NO;
-  [mediator_ actorTask:kTaskId
+  [mediator_ actorTask:task_id_
       requestUserInterventionWithTitle:@"Third Title"
                               subtitle:@"Third Subtitle"
                             buttonText:@"Action 3"
@@ -279,4 +378,116 @@ TEST_F(ActuationWorklogMediatorTest, TestUserInterventionCancellation) {
   [mediator_ disconnect];
   EXPECT_FALSE(third_completion_called);
   EXPECT_EQ(fake_consumer_.intervention, nil);
+}
+
+// Tests that starting to observe a task delivers its posted registration.
+TEST_F(ActuationWorklogMediatorTest, TestStartObservingDeliversRegistration) {
+  [mediator_ startObservingTaskWithID:task_id_];
+  // The registration is posted, so nothing is shown yet.
+  EXPECT_EQ(fake_consumer_.items.count, 0u);
+
+  actor::FlushCurrentSequence();
+  EXPECT_NSEQ(fake_consumer_.taskTitle, @(kTaskTitle));
+  EXPECT_TRUE(fake_consumer_.actuationActive);
+  EXPECT_EQ(fake_consumer_.items.count, 1u);
+}
+
+// Tests that stopping observation before the posted registration is delivered
+// unregisters the mediator, so the registration never reaches the consumer.
+TEST_F(ActuationWorklogMediatorTest,
+       TestStopObservingBeforeRegistrationUnregistersObserver) {
+  [mediator_ startObservingTaskWithID:task_id_];
+  EndActuation();
+
+  actor::FlushCurrentSequence();
+  EXPECT_EQ(fake_consumer_.taskTitle, nil);
+  EXPECT_FALSE(fake_consumer_.actuationActive);
+  EXPECT_EQ(fake_consumer_.items.count, 0u);
+}
+
+// Tests that a confirmation interrupt is surfaced as an intervention card and
+// that tapping its button resumes the task.
+TEST_F(ActuationWorklogMediatorTest,
+       TestConfirmationInterruptShowsInterventionCard) {
+  CreateTaskAndRequestConfirmation();
+
+  EXPECT_EQ(actor_service_->GetActiveTaskState(), kWaitingOnUser);
+  ASSERT_NE(fake_consumer_.intervention, nil);
+  EXPECT_NSEQ(fake_consumer_.intervention.title, @(kConfirmationMessage));
+
+  [mediator_
+      didTriggerInterventionAction:ActuationInterventionAction::kPrimary];
+  EXPECT_EQ(fake_consumer_.intervention, nil);
+  // The intervention completion is posted back to the task.
+  EXPECT_EQ(actor_service_->GetActiveTaskState(), kWaitingOnUser);
+  actor::FlushCurrentSequence();
+  EXPECT_EQ(actor_service_->GetActiveTaskState(), kReflecting);
+}
+
+// Tests that disconnecting with a pending intervention leaves the task waiting
+// on the user instead of stopping it.
+TEST_F(ActuationWorklogMediatorTest, TestDisconnectKeepsTaskWaitingOnUser) {
+  actor::ActorTaskId task_id = CreateTaskAndRequestConfirmation();
+  ASSERT_NE(fake_consumer_.intervention, nil);
+  FakeTaskStateObserver* observer = ObserveTaskState(task_id);
+
+  [mediator_ disconnect];
+  actor::FlushCurrentSequence();
+
+  EXPECT_FALSE(observer.stopped);
+  EXPECT_EQ(observer.state, kWaitingOnUser);
+}
+
+// Tests that disconnecting releases the intervention delegate, so a later
+// confirmation interrupt is rejected instead of targeting a detached UI.
+TEST_F(ActuationWorklogMediatorTest, TestDisconnectClearsInterventionDelegate) {
+  actor::ActorTaskId task_id = CreateAndObserveTask();
+
+  [mediator_ disconnect];
+  EXPECT_FALSE(RequestConfirmation(task_id));
+  EXPECT_EQ(fake_consumer_.intervention, nil);
+}
+
+// Tests that stopping observation, even before the posted observer
+// registration arrives, detaches the mediator as the task's intervention
+// delegate.
+TEST_F(ActuationWorklogMediatorTest,
+       TestStopObservingTaskClearsInterventionDelegate) {
+  actor::ActorTaskId task_id = CreateAndObserveTask();
+
+  [mediator_ stopObservingTask];
+  EXPECT_FALSE(RequestConfirmation(task_id));
+}
+
+// Tests that observing another task moves the intervention delegate to it.
+TEST_F(ActuationWorklogMediatorTest,
+       TestStartObservingAnotherTaskMovesInterventionDelegate) {
+  actor::ActorTaskId first_task_id = CreateAndObserveTask();
+  actor::ActorTaskId second_task_id = CreateAndObserveTask();
+
+  EXPECT_FALSE(RequestConfirmation(first_task_id));
+  EXPECT_TRUE(RequestConfirmation(second_task_id));
+  EXPECT_NE(fake_consumer_.intervention, nil);
+}
+
+// Tests that selecting from suggestions returns the first suggestion.
+TEST_F(ActuationWorklogMediatorTest, TestSelectFromSuggestions) {
+  StartObservingTask(task_id_);
+
+  ActorFormSuggestion* suggestion1 =
+      static_cast<ActorFormSuggestion*>([[NSObject alloc] init]);
+  ActorFormSuggestion* suggestion2 =
+      static_cast<ActorFormSuggestion*>([[NSObject alloc] init]);
+  __block ActorFormSuggestion* selected = nil;
+  __block BOOL stored = YES;
+  [mediator_ actorTask:task_id_
+      selectFromSuggestions:@[ suggestion1, suggestion2 ]
+          completionHandler:^(ActorFormSuggestion* s, BOOL storePermission) {
+            selected = s;
+            stored = storePermission;
+          }];
+  // TODO(crbug.com/571139088): Update expectation once credential picker is
+  // impelemented.
+  EXPECT_EQ(selected, suggestion1);
+  EXPECT_FALSE(stored);
 }

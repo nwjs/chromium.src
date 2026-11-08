@@ -6,6 +6,8 @@
 
 #import "base/memory/raw_ptr.h"
 #import "base/test/scoped_feature_list.h"
+#import "components/contextual_search/pref_names.h"
+#import "components/prefs/pref_service.h"
 #import "components/search_engines/template_url_data.h"
 #import "components/search_engines/template_url_service.h"
 #import "ios/chrome/browser/aim/model/ios_chrome_aim_eligibility_service_factory.h"
@@ -113,10 +115,11 @@ TEST_F(SearchWithMediatorTest, ExecutesSearchWithCobrowseWhenEligible) {
       initWithTemplateURLService:template_url_service_
            aimEligibilityService:aim_eligibility_service
             cobrowseBrowserAgent:agent
+                     prefService:profile_->GetPrefs()
                        incognito:NO];
   mediator.sceneHandler = mock_scene_handler_;
 
-  OCMExpect([mock_scene_handler_ showAssistant]);
+  OCMExpect([mock_scene_handler_ showAssistantWithNewSession]);
   [[mock_scene_handler_ reject] openURLInNewTab:[OCMArg any]];
 
   [mediator executeSearchForText:@"hello world"
@@ -146,10 +149,11 @@ TEST_F(SearchWithMediatorTest, ExecutesSearchWithStandardNewTabWhenNonGoogle) {
       initWithTemplateURLService:template_url_service_
            aimEligibilityService:aim_eligibility_service
             cobrowseBrowserAgent:agent
+                     prefService:profile_->GetPrefs()
                        incognito:NO];
   mediator.sceneHandler = mock_scene_handler_;
 
-  [[mock_scene_handler_ reject] showAssistant];
+  [[mock_scene_handler_ reject] showAssistantWithNewSession];
   OCMExpect([mock_scene_handler_ openURLInNewTab:[OCMArg any]]);
 
   [mediator executeSearchForText:@"hello world"
@@ -171,10 +175,11 @@ TEST_F(SearchWithMediatorTest, ExecutesSearchWithStandardNewTabWhenIncognito) {
       initWithTemplateURLService:template_url_service_
            aimEligibilityService:aim_eligibility_service
             cobrowseBrowserAgent:agent
+                     prefService:profile_->GetPrefs()
                        incognito:YES];
   mediator.sceneHandler = mock_scene_handler_;
 
-  [[mock_scene_handler_ reject] showAssistant];
+  [[mock_scene_handler_ reject] showAssistantWithNewSession];
   OCMExpect([mock_scene_handler_ openURLInNewTab:[OCMArg any]]);
 
   [mediator executeSearchForText:@"hello world"
@@ -201,10 +206,44 @@ TEST_F(SearchWithMediatorTest,
       initWithTemplateURLService:template_url_service_
            aimEligibilityService:aim_eligibility_service
             cobrowseBrowserAgent:agent
+                     prefService:profile_->GetPrefs()
                        incognito:NO];
   mediator.sceneHandler = mock_scene_handler_;
 
-  [[mock_scene_handler_ reject] showAssistant];
+  [[mock_scene_handler_ reject] showAssistantWithNewSession];
+  OCMExpect([mock_scene_handler_ openURLInNewTab:[OCMArg any]]);
+
+  [mediator executeSearchForText:@"hello world"
+      allowedByDataControlsRulesPolicy:YES];
+
+  EXPECT_OCMOCK_VERIFY(mock_scene_handler_);
+  EXPECT_FALSE(agent->IsSessionActive());
+
+  [mediator shutdown];
+}
+
+// Test that when `kSearchContentSharingSettings` policy is disabled, search
+// with opens a standard new tab instead of triggering Cobrowse.
+TEST_F(SearchWithMediatorTest,
+       ExecutesSearchWithStandardNewTabWhenSearchContentSharingDisabled) {
+  profile_->GetPrefs()->SetInteger(
+      contextual_search::kSearchContentSharingSettings,
+      static_cast<int>(
+          contextual_search::SearchContentSharingSettingsValue::kDisabled));
+
+  CobrowseBrowserAgent* agent =
+      CobrowseBrowserAgent::FromBrowser(browser_.get());
+  AimEligibilityService* aim_eligibility_service =
+      IOSChromeAimEligibilityServiceFactory::GetForProfile(profile_.get());
+  SearchWithMediator* mediator = [[SearchWithMediator alloc]
+      initWithTemplateURLService:template_url_service_
+           aimEligibilityService:aim_eligibility_service
+            cobrowseBrowserAgent:agent
+                     prefService:profile_->GetPrefs()
+                       incognito:NO];
+  mediator.sceneHandler = mock_scene_handler_;
+
+  [[mock_scene_handler_ reject] showAssistantWithNewSession];
   OCMExpect([mock_scene_handler_ openURLInNewTab:[OCMArg any]]);
 
   [mediator executeSearchForText:@"hello world"

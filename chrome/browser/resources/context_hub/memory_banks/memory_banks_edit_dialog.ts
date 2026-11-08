@@ -19,13 +19,6 @@ import type {MemoryBankEntry} from '../context_hub.mojom-webui.js';
 import {getCss} from './memory_banks_edit_dialog.css.js';
 import {getHtml} from './memory_banks_edit_dialog.html.js';
 
-export interface EntryAnnotationsUpdatedDetail {
-  id: bigint;
-  collection: string|null;
-  note: string|null;
-  tags: string[];
-}
-
 export interface MemoryBanksEditDialogElement {
   $: {
     dialog: CrDialogElement,
@@ -125,12 +118,6 @@ export class MemoryBanksEditDialogElement extends CrLitElement {
                           });
 
     if (success) {
-      this.fire('entry-annotations-updated', {
-        id,
-        collection,
-        note,
-        tags,
-      } as EntryAnnotationsUpdatedDetail);
       this.$.dialog.close();
     }
   }
@@ -172,14 +159,14 @@ export class MemoryBanksEditDialogElement extends CrLitElement {
 
   // Tag Section Handlers & Helpers
   protected getFilteredTags_(): string[] {
+    const unselected = this.availableTags.filter(
+        t =>
+            !this.editTags_.some(tag => tag.toLowerCase() === t.toLowerCase()));
     const query = this.newTagInput_.trim().toLowerCase();
     if (!query) {
-      return [];
+      return unselected.sort((a, b) => a.localeCompare(b));
     }
-    const filtered = this.availableTags.filter(
-        t => !this.editTags_.some(
-                 tag => tag.toLowerCase() === t.toLowerCase()) &&
-            t.toLowerCase().includes(query));
+    const filtered = unselected.filter(t => t.toLowerCase().includes(query));
     return filtered.sort((a, b) => {
       const aStarts = a.toLowerCase().startsWith(query);
       const bStarts = b.toLowerCase().startsWith(query);
@@ -231,20 +218,26 @@ export class MemoryBanksEditDialogElement extends CrLitElement {
     this.highlightedTagIndex_ = -1;
   }
 
-  protected onNewTagInputKeydown_(e: KeyboardEvent) {
+  protected async onNewTagInputKeydown_(e: KeyboardEvent) {
     const suggestions = this.getFilteredTags_();
     if (e.key === 'ArrowDown') {
       e.preventDefault();
       if (suggestions.length > 0) {
         this.highlightedTagIndex_ =
             (this.highlightedTagIndex_ + 1) % suggestions.length;
+        await this.updateComplete;
+        this.shadowRoot?.querySelector('.suggestion-item.highlighted')
+            ?.scrollIntoView({block: 'nearest'});
       }
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
       if (suggestions.length > 0) {
-        this.highlightedTagIndex_ =
-            (this.highlightedTagIndex_ - 1 + suggestions.length) %
-            suggestions.length;
+        this.highlightedTagIndex_ = this.highlightedTagIndex_ <= 0 ?
+            suggestions.length - 1 :
+            this.highlightedTagIndex_ - 1;
+        await this.updateComplete;
+        this.shadowRoot?.querySelector('.suggestion-item.highlighted')
+            ?.scrollIntoView({block: 'nearest'});
       }
     } else if (e.key === 'Enter') {
       e.preventDefault();
@@ -296,4 +289,3 @@ declare global {
 
 customElements.define(
     MemoryBanksEditDialogElement.is, MemoryBanksEditDialogElement);
-

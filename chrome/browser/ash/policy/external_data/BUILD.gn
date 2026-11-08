@@ -22,14 +22,13 @@ static_library("external_data") {
     "user_cloud_external_data_manager.h",
   ]
 
-  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
-
   deps = [
     "//ash/constants",
     "//base",
     "//chrome/browser/ash/policy/core",
     "//chrome/browser/ash/policy/handlers",
     "//chrome/browser/ash/profiles",
+    "//chrome/browser/policy",
     "//chrome/browser/profiles:profile",
     "//chromeos/ash/components/policy/device_local_account",
     "//chromeos/ash/components/settings",
@@ -130,7 +129,6 @@ source_set("browser_tests") {
     "//chrome/browser/ash/policy/core:test_support",
     "//chrome/browser/ash/policy/login:test_support",
     "//chrome/browser/profiles:profile",
-    "//chrome/browser/ui",
     "//chrome/common:constants",
     "//chrome/test:test_support_ui",
     "//chromeos/ash/components/policy/device_policy:test_support",

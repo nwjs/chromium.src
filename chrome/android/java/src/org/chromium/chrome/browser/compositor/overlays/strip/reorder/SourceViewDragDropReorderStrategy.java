@@ -650,7 +650,6 @@ class SourceViewDragDropReorderStrategy extends ReorderStrategyBase {
             return mTabStripDragHandler.startGroupDragAction(
                     mContainerView,
                     draggedGroupTitle.getTabGroupId(),
-                    draggedGroupTitle.isGroupShared(),
                     startPoint,
                     draggedGroupTitle.getDrawX(),
                     draggedGroupTitle.getWidth());
@@ -665,7 +664,7 @@ class SourceViewDragDropReorderStrategy extends ReorderStrategyBase {
             // If this is not the case, attempt to restore the group to its original position.
             StripLayoutGroupTitle draggedGroupTitle = (StripLayoutGroupTitle) mViewBeingDragged;
             if (draggedGroupTitle != null
-                    && mModel.tabGroupExists(draggedGroupTitle.getTabGroupId())
+                    && mModel.containsTabGroup(draggedGroupTitle.getTabGroupId())
                     && draggedGroupTitle.isDraggedOffStrip()) {
                 mAnimationHost.finishAnimationsAndPushTabUpdates();
                 for (StripLayoutView view : mViewsBeingDragged) {

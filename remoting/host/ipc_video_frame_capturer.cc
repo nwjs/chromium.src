@@ -5,7 +5,6 @@
 #include "remoting/host/ipc_video_frame_capturer.h"
 
 #include "base/check.h"
-#include "base/notimplemented.h"
 #include "base/time/time.h"
 #include "remoting/host/desktop_session_proxy.h"
 #include "remoting/host/video_memory_utils.h"
@@ -25,8 +24,7 @@ void IpcVideoFrameCapturer::OnCreateVideoCapturerResult(
     mojom::CreateVideoCapturerResultPtr result) {
   if (capturer_control_) {
     // Perform cleanup, just as if the previous endpoint became disconnected.
-    // This replies to any pending frame requests, clears any shared-memory
-    // buffers, and resets the Mojo endpoints.
+    // This clears any shared-memory buffers and resets the Mojo endpoints.
     OnDisconnect();
   }
 
@@ -37,7 +35,7 @@ void IpcVideoFrameCapturer::OnCreateVideoCapturerResult(
       &IpcVideoFrameCapturer::OnDisconnect, base::Unretained(this)));
   if (callback_) {
     // Start() has been called.
-    capturer_control_->Start();
+    StartRemoteCapturer();
   }
 }
 
@@ -50,38 +48,28 @@ void IpcVideoFrameCapturer::Start(Callback* callback) {
   DCHECK(callback);
   callback_ = callback;
   if (capturer_control_) {
-    capturer_control_->Start();
+    StartRemoteCapturer();
   }
 }
 
-bool IpcVideoFrameCapturer::GetSourceList(SourceList* sources) {
-  NOTIMPLEMENTED();
-  return false;
-}
-
-bool IpcVideoFrameCapturer::SelectSource(SourceId id) {
+void IpcVideoFrameCapturer::SelectSource(SourceId id) {
   // This should only be called in single-stream mode. DesktopSessionProxy will
   // request a new capturer be created in the Desktop process. When the new Mojo
   // endpoints are received by OnCreateVideoCapturerResult(), the old endpoints
   // will be disconnected and the Desktop process will delete the old capturer.
   desktop_session_proxy_->RebindSingleVideoCapturer(id, GetWeakPtr());
-  return true;
-}
-
-void IpcVideoFrameCapturer::SetComposeEnabled(bool enabled) {
-  if (capturer_control_) {
-    capturer_control_->SetComposeEnabled(enabled);
-  }
 }
 
 void IpcVideoFrameCapturer::SetMaxFrameRate(uint32_t max_frame_rate) {
-  if (capturer_control_) {
+  max_frame_rate_ = max_frame_rate;
+  if (capturer_control_ && callback_) {
     capturer_control_->SetMaxFrameRate(max_frame_rate);
   }
 }
 
 void IpcVideoFrameCapturer::Pause(bool pause) {
-  if (capturer_control_) {
+  paused_ = pause;
+  if (capturer_control_ && callback_) {
     capturer_control_->Pause(pause);
   }
 }
@@ -153,6 +141,19 @@ void IpcVideoFrameCapturer::OnDisconnect() {
   // commands.
   capturer_control_.reset();
   event_handler_.reset();
+}
+
+void IpcVideoFrameCapturer::StartRemoteCapturer() {
+  DCHECK(capturer_control_);
+  capturer_control_->Start();
+  // The scheduler in the Desktop process only starts capturing once it gets a
+  // non-zero frame rate after Start(), so the settings must be sent after it.
+  if (max_frame_rate_.has_value()) {
+    capturer_control_->SetMaxFrameRate(*max_frame_rate_);
+  }
+  if (paused_.has_value()) {
+    capturer_control_->Pause(*paused_);
+  }
 }
 
 scoped_refptr<IpcSharedBufferCore> IpcVideoFrameCapturer::GetSharedBufferCore(

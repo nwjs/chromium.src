@@ -11,8 +11,7 @@ Sample usage:
   -o /tmp/out \
   -p "iPhone 5s" \
   -v 9.3 \
-  -b 9b46 \
-  -i /path/to/Release-iphoneos/iossim
+  -b 9b46
 
 Installs base_unittests.app in an iPhone 5s simulator running iOS 9.3 under
 Xcode build version 9b46, runs it, and captures all test data in /tmp/out.
@@ -31,7 +30,7 @@ import traceback
 
 import constants
 import iossim_util
-import mac_util
+import mac_util  # noqa: F401
 import shard_util
 import test_runner
 import test_runner_errors
@@ -47,10 +46,10 @@ sys.path.extend(
     os.path.abspath(os.path.join(CHROMIUM_SRC_DIR, 'build/util/')),
   ]
 )
-import measures
-import exception_recorder
+import measures  # noqa: E402
+import exception_recorder  # noqa: E402
 
-from result_sink_util import ResultSinkClient
+from result_sink_util import ResultSinkClient  # noqa: E402
 
 # if the current directory is in scripts, then we need to add plugin
 # path in order to import from that directory
@@ -58,7 +57,7 @@ if os.path.split(os.path.dirname(__file__))[1] != 'plugin':
   sys.path.append(
     os.path.join(os.path.abspath(os.path.dirname(__file__)), 'plugin')
   )
-from plugin_constants import VIDEO_RECORDER_PLUGIN_OPTIONS
+from plugin_constants import VIDEO_RECORDER_PLUGIN_OPTIONS  # noqa: E402
 
 
 def format_exception_step_text(e: Exception) -> str:
@@ -67,6 +66,36 @@ def format_exception_step_text(e: Exception) -> str:
 
 def use_xcodebuild_runner(args):
   return args.xcodebuild_sim_runner or args.xcodebuild_device_runner
+
+
+def write_perf_json_results(
+  out_dir, test_results, benchmark_name, perf_output_path
+):
+  """Writes side-by-side test_results.json and copies perf output."""
+  perf_json_paths = []
+  if os.path.isdir(out_dir):
+    sub_perf_pattern = os.path.join(out_dir, '*', 'perf_results.json')
+    for entry_perf in sorted(glob.glob(sub_perf_pattern)):
+      entry_dir = os.path.dirname(entry_perf)
+      with open(os.path.join(entry_dir, 'test_results.json'), 'w') as f:
+        json.dump(test_results, f)
+      perf_json_paths.append(entry_perf)
+
+  src_perf_json = os.path.join(out_dir, 'perf_results.json')
+  if os.path.exists(src_perf_json):
+    perf_json_paths.insert(0, src_perf_json)
+    if benchmark_name:
+      benchmark_dir = os.path.join(out_dir, benchmark_name)
+      os.makedirs(benchmark_dir, exist_ok=True)
+      with open(os.path.join(benchmark_dir, 'test_results.json'), 'w') as f:
+        json.dump(test_results, f)
+      shutil.copyfile(
+        src_perf_json, os.path.join(benchmark_dir, 'perf_results.json')
+      )
+
+  if perf_output_path and perf_json_paths:
+    if os.path.abspath(perf_json_paths[0]) != os.path.abspath(perf_output_path):
+      shutil.copyfile(perf_json_paths[0], perf_output_path)
 
 
 class Runner:
@@ -151,7 +180,6 @@ class Runner:
         tr = xcodebuild_runner.SimulatorParallelTestRunner(
           self.args.app,
           self.args.host_app,
-          self.args.iossim,
           self.args.version,
           self.args.platform,
           out_dir=self.args.out_dir,
@@ -168,12 +196,12 @@ class Runner:
           output_disabled_tests=self.args.output_disabled_tests,
           use_simulator_cache=self.args.use_simulator_cache,
           skip_enumerate_tests=self.args.skip_enumerate_tests,
+          benchmark_name=self.args.benchmark_name,
         )
       elif self.args.variations_seed_path != 'NO_PATH':
         tr = variations_runner.VariationsSimulatorParallelTestRunner(
           self.args.app,
           self.args.host_app,
-          self.args.iossim,
           self.args.version,
           self.args.platform,
           self.args.out_dir,
@@ -185,11 +213,11 @@ class Runner:
           env_vars=env_vars,
           use_simulator_cache=self.args.use_simulator_cache,
           skip_enumerate_tests=self.args.skip_enumerate_tests,
+          benchmark_name=self.args.benchmark_name,
         )
-      elif self.args.iossim and self.args.platform and self.args.version:
+      elif self.args.platform and self.args.version:
         tr = test_runner.SimulatorTestRunner(
           self.args.app,
-          self.args.iossim,
           self.args.platform,
           self.args.version,
           self.args.out_dir,
@@ -220,6 +248,7 @@ class Runner:
           record_video_option=self.args.record_video,
           output_disabled_tests=self.args.output_disabled_tests,
           skip_enumerate_tests=self.args.skip_enumerate_tests,
+          benchmark_name=self.args.benchmark_name,
         )
       else:
         tr = test_runner.DeviceTestRunner(
@@ -284,11 +313,20 @@ class Runner:
       # work with Chromium recipe because we use the noop_merge merge script,
       # but will require structural changes to support the default gtest
       # merge script (ref: //testing/merge_scripts/standard_gtest_merge.py)
-      output_json_path = self.args.test_launcher_summary_output or os.path.join(
-        self.args.out_dir, 'output.json'
+      output_json_path = (
+        self.args.test_launcher_summary_output
+        or self.args.isolated_script_test_output
+        or os.path.join(self.args.out_dir, 'output.json')
       )
       with open(output_json_path, 'w') as f:
         json.dump(test_results, f)
+
+      write_perf_json_results(
+        self.args.out_dir,
+        test_results,
+        self.args.benchmark_name,
+        self.args.isolated_script_test_perf_output,
+      )
 
       if self.should_delete_xcode_cache and os.path.exists(
         self.args.xcode_path
@@ -372,8 +410,7 @@ class Runner:
     parser.add_argument(
       '-i',
       '--iossim',
-      help='Compiled iossim to run the app on.',
-      metavar='iossim',
+      help=argparse.SUPPRESS,
     )
     parser.add_argument(
       '-j',
@@ -528,6 +565,24 @@ class Runner:
       'collect_task.py and merge scripts.',
     )
     parser.add_argument(
+      '--isolated-script-test-output',
+      default=None,
+      help='Full path to isolated script test output.json file.',
+    )
+    parser.add_argument(
+      '--isolated-script-test-perf-output',
+      default=None,
+      help='Full path to isolated script perf_results.json file.',
+    )
+    parser.add_argument(
+      '--benchmark-name',
+      default=None,
+      help=(
+        'Fallback perf benchmark subdirectory name under out-dir for untagged '
+        'samples; when set, fails the run if no perf_results.json is produced.'
+      ),
+    )
+    parser.add_argument(
       '--record-video',
       choices=[o.name for o in VIDEO_RECORDER_PLUGIN_OPTIONS],
       help=(
@@ -582,16 +637,11 @@ class Runner:
       """
       if not args.xcode_build_version:
         parser.error('must specify --xcode-build-version on bot')
-      if not use_xcodebuild_runner(args) and (
-        args.iossim or args.platform or args.version
-      ):
-        # If any of --iossim, --platform, or --version
-        # are specified then they must all be specified.
-        if not (args.iossim and args.platform and args.version):
-          parser.error(
-            'must specify all or none of '
-            '-i/--iossim, -p/--platform, -v/--version'
-          )
+      if not use_xcodebuild_runner(args) and (args.platform or args.version):
+        # If either --platform or --version is specified, both must be
+        # specified.
+        if not (args.platform and args.version):
+          parser.error('must specify both -p/--platform and -v/--version')
 
       if args.xcodebuild_sim_runner and not (args.platform and args.version):
         parser.error(
@@ -653,7 +703,7 @@ class Runner:
         'Defaulting to Xcode build version %s', args.xcode_build_version
       )
 
-    if not args.xcodebuild_sim_runner and not args.iossim:
+    if args.xcodebuild_device_runner:
       # No need to pick a `--platform` or `--version` for on-device runs.
       return
     if args.version and args.platform:
@@ -680,9 +730,10 @@ class Runner:
       if not args.platform:
         args.platform = device_type['name']
         logging.info('Defaulting to simulating %s', args.platform)
-    except (subprocess.CalledProcessError, KeyError, IndexError):
+    except (subprocess.CalledProcessError, OSError, KeyError, IndexError):
       # Give up if:
-      # * `xcrun simctl` fails because `xcode-select` hasn't run yet.
+      # * `xcrun simctl` fails because `xcrun` is missing (e.g. Linux) or
+      #   `xcode-select` hasn't run yet.
       # * The JSON doesn't have the right shape.
       pass
 

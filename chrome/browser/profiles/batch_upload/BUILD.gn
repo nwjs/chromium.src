@@ -43,7 +43,6 @@ source_set("impl") {
     "//components/sync/service",
     "//ui/base",
   ]
-  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
 }
 
 source_set("test_support") {
@@ -100,7 +99,6 @@ source_set("browser_tests") {
     "//chrome/browser/profiles:profile",
     "//chrome/browser/signin",
     "//chrome/browser/sync",
-    "//chrome/browser/ui",
     "//chrome/browser/ui/browser_window",
     "//chrome/browser/ui/profiles",
     "//chrome/browser/ui/views/frame:browser_view_header",

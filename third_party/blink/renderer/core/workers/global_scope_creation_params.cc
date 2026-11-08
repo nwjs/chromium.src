@@ -28,10 +28,7 @@ GlobalScopeCreationParams::GlobalScopeCreationParams(
     scoped_refptr<WebWorkerFetchContext> web_worker_fetch_context,
     Vector<network::mojom::blink::ContentSecurityPolicyPtr>
         outside_content_security_policies,
-    Vector<network::mojom::blink::ContentSecurityPolicyPtr>
-        response_content_security_policies,
     network::mojom::ReferrerPolicy referrer_policy,
-    DocumentPolicy::DocumentPolicyBundle document_policy,
     const SecurityOrigin* starter_origin,
     bool starter_secure_context,
     HttpsState starter_https_state,
@@ -74,10 +71,7 @@ GlobalScopeCreationParams::GlobalScopeCreationParams(
       web_worker_fetch_context(std::move(web_worker_fetch_context)),
       outside_content_security_policies(
           std::move(outside_content_security_policies)),
-      response_content_security_policies(
-          std::move(response_content_security_policies)),
       referrer_policy(referrer_policy),
-      document_policy(std::move(document_policy)),
       starter_origin(starter_origin ? starter_origin->IsolatedCopy() : nullptr),
       origin_to_use(std::move(origin_to_use)),
       starter_secure_context(starter_secure_context),
@@ -146,9 +140,7 @@ GlobalScopeCreationParams::CreateForWorkerForTesting(
       "fake user agent", UserAgentMetadata(),
       base::MakeRefCounted<EmptyWebWorkerFetchContext>(),
       Vector<network::mojom::blink::ContentSecurityPolicyPtr>(),
-      Vector<network::mojom::blink::ContentSecurityPolicyPtr>(),
-      network::mojom::ReferrerPolicy::kDefault,
-      DocumentPolicy::DocumentPolicyBundle{}, starter_origin,
+      network::mojom::ReferrerPolicy::kDefault, starter_origin,
       /*starter_secure_context=*/false, CalculateHttpsState(starter_origin),
       MakeGarbageCollected<WorkerClients>(),
       /*content_settings_client=*/nullptr,

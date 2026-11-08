@@ -8,8 +8,8 @@ import type {MenuSourceType} from 'chrome://resources/mojo/ui/base/mojom/menu_so
 import type {PointF, RectF} from 'chrome://resources/mojo/ui/gfx/geometry/mojom/geometry.mojom-webui.js';
 import type {Url} from 'chrome://resources/mojo/url/mojom/url.mojom-webui.js';
 import {TestBrowserProxy} from 'chrome://webui-test/test_browser_proxy.js';
-import {INVALID_FOCUS_REQUEST_HANDLE, INVALID_NAVIGATION_CONTROLS_STATE_LISTENER_HANDLE, INVALID_SHOW_SPLIT_TABS_CONTEXT_MENU_HANDLE} from 'chrome://webui-toolbar.top-chrome/app.js';
-import type {AdjustOmniboxTextForCopyResult, BrowserProxy, ContentSettingImageType, ContextMenuType, FocusRequestHandle, FocusRequestListener, InitialState, LhsChipIdentifier, NavigationControlsStateListener, NavigationControlsStateListenerHandle, OmniboxAction, PageActionId, PageActionTrigger, PinnedToolbarAction, ShowSplitTabsContextMenuHandle, ShowSplitTabsContextMenuListener, ToolbarUIServiceInterface} from 'chrome://webui-toolbar.top-chrome/app.js';
+import {INVALID_FOCUS_REQUEST_HANDLE, INVALID_SHOW_SPLIT_TABS_CONTEXT_MENU_HANDLE, INVALID_TOOLBAR_STATE_LISTENER_HANDLE} from 'chrome://webui-toolbar.top-chrome/app.js';
+import type {AdjustOmniboxTextForCopyResult, BrowserProxy, ContentSettingImageType, ContextMenuType, FocusRequestHandle, FocusRequestListener, InitialState, LhsChipIdentifier, OmniboxAction, PageActionId, PageActionTrigger, PinnedToolbarAction, ShowSplitTabsContextMenuHandle, ShowSplitTabsContextMenuListener, ToolbarStateListener, ToolbarStateListenerHandle, ToolbarUIServiceInterface} from 'chrome://webui-toolbar.top-chrome/app.js';
 
 export class TestToolbarUiHandler extends TestBrowserProxy implements
     ToolbarUIServiceInterface {
@@ -24,9 +24,8 @@ export class TestToolbarUiHandler extends TestBrowserProxy implements
       'movePinnedToolbarAction',
       'movePinnedToolbarActionBy',
       'onAppMenuFocusChanged',
-      'onAvatarButtonMousePressed',
+      'onContentSettingImageAnimationEnded',
       'onContentSettingImagePointerDown',
-      'onExtensionActionPointerDown',
       'onGlicButtonClicked',
       'onHomeButtonDropFile',
       'onHomeButtonDropText',
@@ -40,14 +39,12 @@ export class TestToolbarUiHandler extends TestBrowserProxy implements
       'onLhsChipPointerExited',
       'onLocationBarFocusWithinChanged',
       'onMediaButtonClicked',
-      'onMediaButtonMousePressed',
       'onOmniboxAction',
       'onPageActionChipShowingChanged',
       'onPageActionClick',
       'onPageActionPointerDown',
       'onPageInitialized',
       'onPerformanceInterventionButtonClicked',
-      'onPerformanceInterventionButtonMousePressed',
       'onToolbarDropFile',
       'setAvatarButtonFocused',
       'setAvatarButtonHovered',
@@ -133,14 +130,14 @@ export class TestToolbarUiHandler extends TestBrowserProxy implements
   }
 
   onLhsChipMousePressed(identifier: LhsChipIdentifier, isMiddleClick: boolean) {
-    this.methodCalled('onLhsChipMousePressed', [identifier, isMiddleClick]);
+    this.methodCalled('onLhsChipMousePressed', {identifier, isMiddleClick});
   }
 
   onLhsChipClicked(
       identifier: LhsChipIdentifier, isMouseInteraction: boolean,
       stateToken: number = 0) {
     this.methodCalled(
-        'onLhsChipClicked', [identifier, isMouseInteraction, stateToken]);
+        'onLhsChipClicked', {identifier, isMouseInteraction, stateToken});
   }
 
   onLhsChipPointerEntered(identifier: LhsChipIdentifier) {
@@ -179,12 +176,8 @@ export class TestToolbarUiHandler extends TestBrowserProxy implements
     this.methodCalled('onToolbarDropFile', dropPosition);
   }
 
-  onAvatarButtonMousePressed() {
-    this.methodCalled('onAvatarButtonMousePressed');
-  }
-
-  showAvatarMenu(isPointerInteraction: boolean) {
-    this.methodCalled('showAvatarMenu', isPointerInteraction);
+  showAvatarMenu() {
+    this.methodCalled('showAvatarMenu');
     return Promise.resolve({result: {}});
   }
 
@@ -207,34 +200,20 @@ export class TestToolbarUiHandler extends TestBrowserProxy implements
     this.methodCalled('onAppMenuFocusChanged', focused);
   }
 
-  executeExtensionAction(extensionId: string, isPointerInteraction: boolean) {
-    this.methodCalled(
-        'executeExtensionAction', [extensionId, isPointerInteraction]);
-  }
-
-  onExtensionActionPointerDown(extensionId: string) {
-    this.methodCalled('onExtensionActionPointerDown', extensionId);
+  executeExtensionAction(extensionId: string) {
+    this.methodCalled('executeExtensionAction', [extensionId]);
   }
 
   showExtensionContextMenu(extensionId: string, source: MenuSourceType) {
     this.methodCalled('showExtensionContextMenu', [extensionId, source]);
   }
 
-  onPerformanceInterventionButtonClicked(isMouseInteraction: boolean) {
-    this.methodCalled(
-        'onPerformanceInterventionButtonClicked', isMouseInteraction);
+  onPerformanceInterventionButtonClicked() {
+    this.methodCalled('onPerformanceInterventionButtonClicked');
   }
 
-  onPerformanceInterventionButtonMousePressed() {
-    this.methodCalled('onPerformanceInterventionButtonMousePressed');
-  }
-
-  onMediaButtonClicked(isMouseInteraction: boolean) {
-    this.methodCalled('onMediaButtonClicked', isMouseInteraction);
-  }
-
-  onMediaButtonMousePressed() {
-    this.methodCalled('onMediaButtonMousePressed');
+  onMediaButtonClicked() {
+    this.methodCalled('onMediaButtonClicked');
   }
 
   onGlicButtonClicked() {
@@ -264,11 +243,11 @@ export class TestToolbarBrowserProxy extends TestBrowserProxy implements
   constructor() {
     super([
       'addFocusRequestListener',
-      'addNavigationStateListener',
+      'addToolbarStateListener',
       'addShowSplitTabsContextMenuListener',
       'recordInHistogram',
       'removeFocusRequestListener',
-      'removeNavigationStateListener',
+      'removeToolbarStateListener',
       'removeShowSplitTabsContextMenuListener',
     ]);
     this.toolbarUIHandler = new TestToolbarUiHandler();
@@ -278,13 +257,12 @@ export class TestToolbarBrowserProxy extends TestBrowserProxy implements
     this.methodCalled('recordInHistogram', [histogramName, value, maxValue]);
   }
 
-  addNavigationStateListener(_listener: NavigationControlsStateListener):
-      NavigationControlsStateListenerHandle {
-    return INVALID_NAVIGATION_CONTROLS_STATE_LISTENER_HANDLE;
+  addToolbarStateListener(_listener: ToolbarStateListener):
+      ToolbarStateListenerHandle {
+    return INVALID_TOOLBAR_STATE_LISTENER_HANDLE;
   }
 
-  removeNavigationStateListener(
-      _handle: NavigationControlsStateListenerHandle) {}
+  removeToolbarStateListener(_handle: ToolbarStateListenerHandle) {}
 
   addFocusRequestListener(_listener: FocusRequestListener): FocusRequestHandle {
     return INVALID_FOCUS_REQUEST_HANDLE;
@@ -300,6 +278,10 @@ export class TestToolbarBrowserProxy extends TestBrowserProxy implements
 
   removeShowSplitTabsContextMenuListener(
       _handle: ShowSplitTabsContextMenuHandle) {}
+
+  flushToolbarUiHandlerForTesting(): Promise<void> {
+    return Promise.resolve();
+  }
 
   onChipClicked(
       id: LhsChipIdentifier, isPointer: boolean, stateToken: number = 0) {

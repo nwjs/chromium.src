@@ -11,6 +11,7 @@
 #include <string_view>
 #include <vector>
 
+#include "base/containers/span.h"
 #include "base/memory/scoped_refptr.h"
 #include "net/base/completion_once_callback.h"
 #include "net/base/network_anonymization_key.h"
@@ -18,6 +19,7 @@
 #include "net/http/http_request_headers.h"
 #include "net/log/net_log_with_source.h"
 #include "net/quic/web_transport_error.h"
+#include "net/quic/web_transport_send_stream_stats.h"
 #include "net/third_party/quiche/src/quiche/quic/core/crypto/web_transport_fingerprint_proof_verifier.h"
 #include "net/third_party/quiche/src/quiche/quic/core/quic_types.h"
 #include "net/third_party/quiche/src/quiche/quic/core/web_transport_interface.h"
@@ -70,16 +72,6 @@ struct NET_EXPORT WebTransportCloseInfo final {
 
   bool operator==(const WebTransportCloseInfo& other) const;
 };
-
-struct NET_EXPORT WebTransportSendStreamStats final {
-  uint64_t bytes_sent = 0;
-  uint64_t bytes_acknowledged = 0;
-
-  bool operator==(const WebTransportSendStreamStats&) const = default;
-};
-
-NET_EXPORT std::ostream& operator<<(std::ostream& os,
-                                    const WebTransportSendStreamStats& stats);
 
 // Returns the string representation of `state`.
 const char* WebTransportStateString(WebTransportState state);
@@ -185,6 +177,15 @@ class NET_EXPORT WebTransportClient {
       const std::optional<WebTransportCloseInfo>& close_info) = 0;
 
   virtual void CloseIfNonceMatches(base::UnguessableToken nonce) = 0;
+
+  // Exports exactly `result_length` bytes of keying material scoped to this
+  // WebTransport session and the application-provided `label` and `context`.
+  // Returns nullopt if the session cannot export the requested material.
+  // Callers must enforce the protocol's input and output length limits.
+  virtual std::optional<std::vector<uint8_t>> ExportKeyingMaterial(
+      base::span<const uint8_t> label,
+      base::span<const uint8_t> context,
+      size_t result_length) = 0;
 
   // session() can be nullptr in states other than CONNECTED. Do not call
   // session()->GetMaxDatagramSize() directly because malformed peer settings

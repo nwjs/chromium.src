@@ -5,22 +5,28 @@
 #include "third_party/blink/renderer/platform/mediastream/media_stream_audio_track.h"
 
 #include <atomic>
+#include <memory>
 #include <string>
 #include <utility>
 
+#include "base/check.h"
 #include "base/check_op.h"
+#include "base/functional/callback_forward.h"
 #include "base/strings/to_string.h"
 #include "base/synchronization/lock.h"
+#include "base/threading/thread_checker.h"
 #include "base/time/time.h"
 #include "media/base/audio_bus.h"
 #include "media/base/audio_glitch_info.h"
-#include "media/base/audio_timestamp_helper.h"
 #include "third_party/blink/public/platform/modules/mediastream/web_media_stream_audio_sink.h"
 #include "third_party/blink/public/platform/modules/mediastream/web_media_stream_source.h"
 #include "third_party/blink/public/platform/modules/webrtc/webrtc_logging.h"
 #include "third_party/blink/renderer/platform/mediastream/media_stream_audio_source.h"
 #include "third_party/blink/renderer/platform/mediastream/media_stream_component.h"
 #include "third_party/blink/renderer/platform/mediastream/media_stream_source.h"
+#include "third_party/blink/renderer/platform/mediastream/media_stream_track_platform.h"
+#include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
+#include "third_party/blink/renderer/platform/wtf/vector.h"
 
 namespace blink {
 
@@ -138,8 +144,26 @@ void MediaStreamAudioTrack::StopAndNotify(base::OnceClosure callback) {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
   WebRtcLog(kTag, this, "%s()", __func__);
 
-  if (!stop_callback_.is_null())
+  // Running |stop_callback_| (MediaStreamAudioSource::StopAudioDeliveryTo)
+  // stops the source if this was its last track. That synchronously fires
+  // 'ended' on other MediaStreamTrackImpls sharing the source, which runs
+  // script, which can trigger a GC. If nothing else references the
+  // MediaStreamComponentImpl owning |this|, its pre-finalizer deletes |this|
+  // while this frame is still on the stack. In that case
+  // ~MediaStreamAudioTrack() has already run Stop() (ending the sinks and
+  // invalidating weak pointers), so the only thing left to do is run
+  // |callback|, which UserMediaClient's request queue relies on to make
+  // progress. See https://crbug.com/576215540.
+  base::WeakPtr<MediaStreamAudioTrack> weak_this = GetWeakPtr();
+  if (!stop_callback_.is_null()) {
     std::move(stop_callback_).Run();
+  }
+  if (!weak_this) {
+    if (callback) {
+      std::move(callback).Run();
+    }
+    return;
+  }
 
   Vector<WebMediaStreamAudioSink*> sinks_to_end;
   deliverer_.GetConsumerList(&sinks_to_end);
@@ -148,8 +172,9 @@ void MediaStreamAudioTrack::StopAndNotify(base::OnceClosure callback) {
     sink->OnReadyStateChanged(WebMediaStreamSource::kReadyStateEnded);
   }
 
-  if (callback)
+  if (callback) {
     std::move(callback).Run();
+  }
   weak_factory_.InvalidateWeakPtrs();
 }
 

@@ -10,8 +10,6 @@ static_library("mahi_availability") {
     "mahi_availability.h",
   ]
 
-  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
-
   deps = [
     "//ash/constants",
     "//base",
@@ -34,8 +32,6 @@ static_library("mahi") {
     "mahi_manager_impl.cc",
     "mahi_manager_impl.h",
   ]
-
-  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
 
   deps = [
     ":mahi_availability",
@@ -150,7 +146,6 @@ static_library("test_util") {
     "//chrome/browser/ash/system_web_apps/test_support:test_support_ui",
     "//chrome/browser/manta",
     "//chrome/browser/manta:impl",
-    "//chrome/browser/ui",
     "//chrome/browser/ui/views/mahi",
     "//chrome/test:test_support_ui",
     "//chromeos/ash/components/browser_context_helper",

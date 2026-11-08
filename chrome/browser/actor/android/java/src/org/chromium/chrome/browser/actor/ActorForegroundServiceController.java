@@ -86,7 +86,22 @@ public interface ActorForegroundServiceController {
     default void restoreActiveWindowBackgroundTabs(
             TabModelSelector selector,
             WindowAndroid window,
-            TabDelegateFactory tabDelegateFactory) {}
+            TabDelegateFactory tabDelegateFactory) {
+        restoreActiveWindowBackgroundTabs(
+                selector,
+                window,
+                tabDelegateFactory,
+                /* waitDurationMs= */ 0,
+                /* isColdStart= */ false);
+    }
+
+    /** Restores active window background tabs when activity starts or receives intent. */
+    default void restoreActiveWindowBackgroundTabs(
+            TabModelSelector selector,
+            WindowAndroid window,
+            TabDelegateFactory tabDelegateFactory,
+            long waitDurationMs,
+            boolean isColdStart) {}
 
     /** Handles cleanup when a message-triggered task is stopped for a context ID. */
     default void onMessageTriggerTaskStopped(String contextId) {}
@@ -111,6 +126,14 @@ public interface ActorForegroundServiceController {
 
     /** Destroys the background actuation manager and cleans up its resources. */
     default void destroyBackgroundActuationManager() {}
+
+    /**
+     * Starts background actuation for the given profile and triggering message ID.
+     *
+     * @param profile The profile to use.
+     * @param glicTriggerMessageId The unique identifier for the triggering message.
+     */
+    default void startBackgroundActuation(Profile profile, String glicTriggerMessageId) {}
 
     /**
      * Provisions an offscreen tab on demand for the specified task ID.

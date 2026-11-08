@@ -4,10 +4,10 @@
 
 #include "third_party/blink/renderer/core/layout/inline/inline_items_builder.h"
 
+#include <ranges>
 #include <type_traits>
 
 #include "base/compiler_specific.h"
-#include "base/containers/adapters.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/html/html_area_element.h"
 #include "third_party/blink/renderer/core/layout/inline/inline_item_span.h"
@@ -205,7 +205,7 @@ inline bool MoveToEndOfCollapsibleSpaces(const StringView& string,
 // open/close or bidi controls are ignored.
 // Returns nullptr if there were no previous items.
 InlineItem* LastItemToCollapseWith(InlineItems* items) {
-  for (auto& item : base::Reversed(*items)) {
+  for (auto& item : std::views::reverse(*items)) {
     if (item->EndCollapseType() != InlineItem::kOpaqueToCollapsing) {
       return item;
     }
@@ -381,7 +381,7 @@ bool InlineItemsBuilderTemplate<MappingBuilder>::AppendTextReusing(
   // collapsing.
   // TODO(layout-dev): This could likely be optimized further.
   // TODO(layout-dev): Handle cases where the old items are not consecutive.
-  const ComputedStyle& new_style = layout_text->StyleRef();
+  const ComputedStyle& new_style = layout_text->Style();
   const bool collapse_spaces = new_style.ShouldCollapseWhiteSpaces();
   bool preserve_newlines = new_style.ShouldPreserveBreaks();
   if (preserve_newlines && is_text_combine_) [[unlikely]] {
@@ -665,7 +665,7 @@ void InlineItemsBuilderTemplate<MappingBuilder>::AppendText(
   typename MappingBuilder::SourceNodeScope scope(&mapping_builder_,
                                                  &layout_object);
 
-  const ComputedStyle& style = layout_object.StyleRef();
+  const ComputedStyle& style = layout_object.Style();
   bool should_not_preserve_newline;
   if (layout_object.IsSVGInlineText() || is_text_combine_ ||
       ruby_text_nesting_level_ > 0) [[unlikely]] {
@@ -695,7 +695,7 @@ bool InlineItemsBuilderTemplate<MappingBuilder>::AppendTextChunks(
   auto iter = text_chunk_offsets_->find(&layout_text);
   if (iter == text_chunk_offsets_->end())
     return false;
-  const ComputedStyle& style = layout_text.StyleRef();
+  const ComputedStyle& style = layout_text.Style();
   const bool should_collapse_space = style.ShouldCollapseWhiteSpaces();
   unsigned length = transformed.View().length();
   unsigned start = 0;
@@ -1180,7 +1180,7 @@ void InlineItemsBuilderTemplate<MappingBuilder>::AppendForcedBreak(
     typename MappingBuilder::SourceNodeScope scope(&mapping_builder_, nullptr);
     // These bidi controls need to be associated with the |layout_object| so
     // that items from a LayoutObject are consecutive.
-    for (const auto& bidi : base::Reversed(bidi_context_)) {
+    for (const auto& bidi : std::views::reverse(bidi_context_)) {
       AppendOpaque(InlineItem::kBidiControl, bidi.exit, layout_object);
     }
   }
@@ -1237,8 +1237,9 @@ void InlineItemsBuilderTemplate<MappingBuilder>::ExitAndEnterSvgTextChunk(
   typename MappingBuilder::SourceNodeScope scope(&mapping_builder_, nullptr);
   // These bidi controls need to be associated with the |layout_text| so
   // that items from a LayoutObject are consecutive.
-  for (const auto& bidi : base::Reversed(bidi_context_))
+  for (const auto& bidi : std::views::reverse(bidi_context_)) {
     AppendOpaque(InlineItem::kBidiControl, bidi.exit, &layout_text);
+  }
 
   // Then re-add bidi controls to restore the bidi context.
   for (const auto& bidi : bidi_context_)
@@ -1530,7 +1531,7 @@ void InlineItemsBuilderTemplate<MappingBuilder>::EnterInline(
   DCHECK(node);
 
   // https://drafts.csswg.org/css-writing-modes-3/#bidi-control-codes-injection-table
-  const ComputedStyle& style = node->StyleRef();
+  const ComputedStyle& style = node->Style();
   if (style.RtlOrdering() == EOrder::kLogical) {
     switch (style.GetUnicodeBidi()) {
       case UnicodeBidi::kNormal:
@@ -1706,7 +1707,7 @@ void InlineItemsBuilderTemplate<MappingBuilder>::ExitInline(
       // This produces almost-empty ruby-columns if </ruby> follows.
       // The beginning part of this function removes such ruby-columns.
       AppendOpaque(InlineItem::kOpenRubyColumn,
-                   IsLtr(node->Parent()->StyleRef().Direction())
+                   IsLtr(node->Parent()->Style().Direction())
                        ? uchar::kLeftToRightIsolate
                        : uchar::kRightToLeftIsolate,
                    ruby_container);

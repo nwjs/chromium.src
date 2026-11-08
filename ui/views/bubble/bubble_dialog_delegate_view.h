@@ -87,10 +87,6 @@ class WebUIBubbleDialogView;
 FORWARD_DECLARE_TEST(InProcessBrowserTest,
                      RunsScheduledLayoutOnAnchoredBubbles);
 
-namespace ambient_signin {
-class AmbientSigninBubbleView;
-}
-
 namespace arc {
 class ArcSplashScreenDialogView;
 class BaseDialogDelegateView;
@@ -368,17 +364,11 @@ class VIEWS_EXPORT BubbleDialogDelegate : public DialogDelegate {
   // are also changing the anchor rect, or similar.
   void SetArrowWithoutResizing(BubbleBorder::Arrow arrow);
 
-  // Whether the arrow will be automatically adjusted if needed to fit the
-  // bubble on screen. Has no effect if the bubble has no arrow.
-  // TODO(crbug.com/517926842): This should also clamp to work area if
-  // offscreen.
+  // Whether the arrow will be automatically adjusted and the bubble bounds
+  // clamped if needed to fit the bubble within the available screen bounds
+  // (work area).
   bool adjust_if_offscreen() const { return adjust_if_offscreen_; }
   void set_adjust_if_offscreen(bool adjust) { adjust_if_offscreen_ = adjust; }
-
-  // Whether the bubble bounds will be clamped to fit within the available
-  // screen bounds (work area).
-  bool clamp_to_work_area() const { return clamp_to_work_area_; }
-  void set_clamp_to_work_area(bool clamp) { clamp_to_work_area_ = clamp; }
 
   //////////////////////////////////////////////////////////////////////////////
   // Shadows:
@@ -408,6 +398,26 @@ class VIEWS_EXPORT BubbleDialogDelegate : public DialogDelegate {
   void set_shadow(BubbleBorder::Shadow shadow) {
     shadow_config_.shadow_type = shadow;
   }
+
+  //////////////////////////////////////////////////////////////////////////////
+  // Border style:
+  //
+  // Bubbles may optionally customize the insets and stroke of their border.
+
+  struct BorderStyle {
+    // Explicit border insets. A null value yields the default BubbleBorder
+    // insets, which are derived from the shadow and elevation.
+    std::optional<gfx::Insets> insets = std::nullopt;
+    // Whether to draw the border stroke. If null, the stroke is drawn only when
+    // the bubble has a shadow (i.e. GetShadow() is not NO_SHADOW) and no custom
+    // ShadowConfiguration::elevation is set.
+    std::optional<bool> draw_border_stroke = std::nullopt;
+  };
+
+  const BorderStyle& border_style() const { return border_style_; }
+  // Must be called before the bubble's widget is created (i.e. before
+  // CreateBubble()). Calling it afterwards has no effect.
+  void set_border_style(const BorderStyle& style) { border_style_ = style; }
 
   // Call this method to inform BubbleDialogDelegate that the return value of
   // GetAnchorRect() has changed. You only need to do this if you have
@@ -492,6 +502,12 @@ class VIEWS_EXPORT BubbleDialogDelegate : public DialogDelegate {
   // Whether the bubble accepts mouse events or not.
   bool accept_events() const { return accept_events_; }
   void set_accept_events(bool accept_events) { accept_events_ = accept_events; }
+
+  // Whether the bubble accepts drag and drop.
+  bool accept_drag_drop() const { return accept_drag_drop_; }
+  void set_accept_drag_drop(bool accept_drag_drop) {
+    accept_drag_drop_ = accept_drag_drop;
+  }
 
   // Whether focus can traverse from the anchor view into the bubble. Only
   // meaningful if there is an anchor view.
@@ -715,6 +731,7 @@ class VIEWS_EXPORT BubbleDialogDelegate : public DialogDelegate {
 
   BubbleBorder::Arrow arrow_ = BubbleBorder::NONE;
   ShadowConfiguration shadow_config_;
+  BorderStyle border_style_;
   ui::ColorVariant color_ = ui::kColorBubbleBackground;
   raw_ptr<Widget> anchor_widget_ = nullptr;
   ui::SafeElementReference anchor_tracked_element_;
@@ -722,7 +739,6 @@ class VIEWS_EXPORT BubbleDialogDelegate : public DialogDelegate {
   std::unique_ptr<AnchorWidgetObserver> anchor_widget_observer_;
   std::unique_ptr<BubbleWidgetObserver> bubble_widget_observer_;
   bool adjust_if_offscreen_ = true;
-  bool clamp_to_work_area_ = false;
   bool focus_traversable_from_anchor_view_ = true;
   bool use_anchor_window_bounds_ = true;
   std::optional<ui::ElementTracker::Subscription>
@@ -748,6 +764,7 @@ class VIEWS_EXPORT BubbleDialogDelegate : public DialogDelegate {
   mutable std::optional<gfx::Rect> anchor_rect_;
 
   bool accept_events_ = true;
+  bool accept_drag_drop_ = false;
   gfx::NativeView parent_window_ = gfx::NativeView();
 
   // By default, all BubbleDialogDelegates have parent windows.
@@ -903,7 +920,6 @@ class VIEWS_EXPORT BubbleDialogDelegateView : public View,
   friend class ::WebUIBubbleDialogView;
   FRIEND_TEST_ALL_PREFIXES(::InProcessBrowserTest,
                            RunsScheduledLayoutOnAnchoredBubbles);
-  friend class ::ambient_signin::AmbientSigninBubbleView;
   friend class ::arc::ArcSplashScreenDialogView;
   friend class ::arc::BaseDialogDelegateView;
   friend class ::arc::ResizeConfirmationDialogView;

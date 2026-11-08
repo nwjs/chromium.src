@@ -25,15 +25,13 @@ import uuid
 from contextlib import contextmanager
 
 # vpython-provided modules.
-import psutil  # pylint: disable=import-error
+import psutil
 
 # //testing imports.
 import test_env
 
 DEFAULT_XVFB_WHD = '1280x800x24'
 DEFAULT_MUTTER_DISPLAY = '1920x1200'
-
-# pylint: disable=useless-object-inheritance
 
 
 class _ProcessError(Exception):
@@ -71,7 +69,7 @@ def kill(proc, name, timeout_in_seconds=10):
 
 
 @contextmanager
-def dbus_session(env):  # pylint: disable=inconsistent-return-statements
+def dbus_session(env):
   """Starts a DBus session.
 
   Works around a bug in GLib where it performs operations which aren't
@@ -736,7 +734,19 @@ def _run_with_mutter(cmd, env, stdoutfile, cwd, mutter_display):
         env['G_MESSAGES_DEBUG'] = 'libmutter'
         env['MUTTER_DEBUG'] = 'input'
 
-      return test_env.run_executable(cmd, env, stdoutfile, cwd)
+      returncode = test_env.run_executable(cmd, env, stdoutfile, cwd)
+      # Log the exit status explicitly. If mutter crashes before the test
+      # writes its results, wrappers such as result_adapter replace the exit
+      # code with their own, hiding the real cause.
+      if returncode < 0:
+        try:
+          signame = signal.Signals(-returncode).name
+        except ValueError:
+          signame = str(-returncode)
+        print('mutter was killed by signal %s' % signame, file=sys.stderr)
+      elif returncode:
+        print('mutter exited with code %d' % returncode, file=sys.stderr)
+      return returncode
     except _ProcessError as e:
       print('mutter fail: %s\n' % str(e), file=sys.stderr)
       return 1

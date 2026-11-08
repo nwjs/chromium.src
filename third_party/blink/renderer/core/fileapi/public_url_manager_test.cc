@@ -7,6 +7,7 @@
 #include <memory>
 #include <utility>
 
+#include "base/memory/raw_ref.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/test/scoped_feature_list.h"
 #include "mojo/public/cpp/bindings/associated_receiver.h"
@@ -24,6 +25,7 @@
 #include "third_party/blink/renderer/core/html/media/media_source_registry.h"
 #include "third_party/blink/renderer/core/loader/empty_clients.h"
 #include "third_party/blink/renderer/core/testing/dummy_page_holder.h"
+#include "third_party/blink/renderer/platform/blob/blob_url.h"
 #include "third_party/blink/renderer/platform/blob/testing/fake_blob.h"
 #include "third_party/blink/renderer/platform/blob/testing/fake_blob_url_store.h"
 #include "third_party/blink/renderer/platform/testing/task_environment.h"
@@ -41,7 +43,7 @@ class TestMediaSourceAttachment final : public MediaSourceAttachment {
   explicit TestMediaSourceAttachment(MediaSourceRegistry& registry)
       : registry_(registry) {}
 
-  MediaSourceRegistry& Registry() const override { return registry_; }
+  MediaSourceRegistry& Registry() const override { return *registry_; }
   void Unregister() override {}
   MediaSourceTracer* StartAttachingToMediaElement(HTMLMediaElement*,
                                                   bool* success) override {
@@ -66,14 +68,17 @@ class TestMediaSourceAttachment final : public MediaSourceAttachment {
  private:
   ~TestMediaSourceAttachment() override = default;
 
-  MediaSourceRegistry& registry_;
+  const raw_ref<MediaSourceRegistry, UnprotectedInRelease | DanglingUntriaged>
+      registry_;
 };
 
 class FakeMediaSourceRegistry final : public MediaSourceRegistry {
  public:
-  void RegisterUrl(const KURL& url,
+  KURL RegisterUrl(const SecurityOrigin* security_origin,
                    scoped_refptr<MediaSourceAttachment> attachment) override {
+    const KURL url = BlobURL::CreatePublicURL(security_origin);
     registrations.push_back(Registration{url, std::move(attachment)});
+    return url;
   }
 
   void UnregisterUrl(const KURL& url) override {

@@ -14,8 +14,8 @@
 
 #include "base/compiler_specific.h"
 #include "base/gtest_prod_util.h"
-#include "base/memory/advanced_memory_safety_checks.h"
 #include "base/memory/raw_ptr.h"
+#include "base/memory/sanitized_object.h"
 #include "base/memory/weak_ptr.h"
 #include "base/observer_list_types.h"
 #include "base/time/time.h"
@@ -50,7 +50,7 @@ class Image;
 
 class OmniboxEditModel {
   // TODO(crbug.com/392015004): Remove this macro once it gets fixed.
-  ADVANCED_MEMORY_SAFETY_CHECKS();
+  SANITIZED_OBJECT();
 
  public:
   struct State {
@@ -187,6 +187,11 @@ class OmniboxEditModel {
   bool user_input_in_progress() const { return user_input_in_progress_; }
 
   std::u16string user_text() const { return user_text_; }
+
+  // Returns true if the user has an uncommitted draft: non-empty user text, or
+  // keyword mode, even with empty user text. In Full WebUI mode, a draft keeps
+  // the popup open when the omnibox is blurred.
+  bool HasDraft() const;
 
   // Encapsulates all the varied conditions for whether to override the
   // permanent page icon (associated with the currently displayed page),

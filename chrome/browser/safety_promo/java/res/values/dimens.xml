@@ -18,13 +18,30 @@ found in the LICENSE file.
     <dimen name="safety_fre_logo_size">48dp</dimen>
     <dimen name="safety_fre_title_margin_bottom">36dp</dimen>
 
-    <!-- Safety FRE Carousel dimensions -->
-    <dimen name="safety_fre_carousel_icon_margin_top">64dp</dimen>
-    <dimen name="safety_fre_carousel_title_margin_bottom">8dp</dimen>
-    <dimen name="safety_fre_carousel_button_margin_bottom">8dp</dimen>
+    <!-- Safety FRE carousel portrait dimensions -->
+    <dimen name="safety_fre_carousel_portrait_icon_margin_top">64dp</dimen>
+    <dimen name="safety_fre_carousel_portrait_title_margin_bottom">8dp</dimen>
+    <dimen name="safety_fre_carousel_portrait_button_margin_bottom">8dp</dimen>
+    <dimen name="safety_fre_carousel_portrait_indicator_margin_top">16dp</dimen>
 
-    <!-- Safety FRE carousel page indicator dimensions -->
+    <!-- Safety FRE carousel shared dimensions -->
+    <dimen name="safety_fre_carousel_corner_radius">24dp</dimen>
     <dimen name="safety_fre_carousel_page_indicator_dot_size">8dp</dimen>
     <dimen name="safety_fre_carousel_page_indicator_padding">8dp</dimen>
-    <dimen name="safety_fre_carousel_page_indicator_top_margin">16dp</dimen>
+
+    <!-- Safety FRE Carousel landscape dimensions -->
+    <dimen name="safety_fre_carousel_landscape_margin">32dp</dimen>
+    <dimen name="safety_fre_carousel_landscape_margin_bottom">20dp</dimen>
+    <dimen
+        name="safety_fre_carousel_landscape_indicator_margin_top">12dp</dimen>
+    <dimen
+        name="safety_fre_carousel_landscape_content_padding_start">36dp</dimen>
+    <dimen name="safety_fre_carousel_landscape_content_padding_end">24dp</dimen>
+    <dimen name="safety_fre_carousel_landscape_logo_size">32dp</dimen>
+    <dimen name="safety_fre_carousel_landscape_logo_margin_top">24dp</dimen>
+    <dimen name="safety_fre_carousel_landscape_logo_margin_bottom">12dp</dimen>
+    <dimen name="safety_fre_carousel_landscape_title_margin_bottom">8dp</dimen>
+    <dimen
+        name="safety_fre_carousel_landscape_subtitle_margin_bottom">20dp</dimen>
+    <dimen name="safety_fre_carousel_landscape_button_margin_bottom">4dp</dimen>
 </resources>

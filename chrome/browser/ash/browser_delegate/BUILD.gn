@@ -22,15 +22,16 @@ static_library("impl") {
 
   deps = [
     "//ash",
-    "//chrome/browser:browser_public_dependencies",
     "//chrome/browser/ash/boca/on_task",
     "//chrome/browser/ash/profiles",
     "//chrome/browser/devtools",
     "//chrome/browser/lifetime",
     "//chrome/browser/profiles:profile",
+    "//chrome/browser/sessions",
     "//chrome/browser/ui:browser_command_controller",
     "//chrome/browser/ui:browser_commands",
     "//chrome/browser/ui:browser_init_state",
+    "//chrome/browser/ui:browser_tabstrip",
     "//chrome/browser/ui:browser_window_header",
     "//chrome/browser/ui:intent_picker_tab_helper",
     "//chrome/browser/ui/autofill",
@@ -49,7 +50,9 @@ static_library("impl") {
     "//chrome/browser/web_applications",
     "//chrome/common:chrome_features",
     "//chromeos/ash/components/browser_context_helper",
+    "//components/sessions",
     "//components/sessions:session_id",
+    "//third_party/blink/public/mojom:mojom_platform",
     "//ui/aura",
     "//ui/base",
   ]

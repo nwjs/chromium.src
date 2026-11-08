@@ -42,8 +42,10 @@ source_set("offline_pages") {
     "//components/offline_pages/core/background:background_offliner",
     "//components/offline_pages/core/request_header",
     "//components/sessions",
+    "//components/tabs:public",
     "//content/public/browser",
     "//net",
+    "//ui/base/unowned_user_data",
     "//url",
   ]
 }
@@ -69,7 +71,6 @@ source_set("impl") {
 
   public_deps = [ ":offline_pages" ]
   deps = [
-    "//chrome/browser:browser_public_dependencies",
     "//chrome/browser:renderer_preferences_util",
     "//chrome/browser/content_settings",
     "//chrome/browser/content_settings:content_settings_factory",
@@ -81,6 +82,7 @@ source_set("impl") {
     "//components/offline_pages/content/background_loader",
     "//components/offline_pages/core/downloads:offline_pages_ui_adapter",
     "//components/offline_pages/core/request_header",
+    "//components/tabs:public",
     "//services/service_manager/public/cpp",
   ]
 
@@ -177,6 +179,7 @@ source_set("unit_tests") {
     "//components/offline_pages/content/background_loader:test_support",
     "//components/offline_pages/core:test_support",
     "//components/offline_pages/core/background:test_support",
+    "//components/tabs:test_support",
   ]
   if (is_android) {
     sources += [

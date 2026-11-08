@@ -206,23 +206,7 @@ public interface TabModel extends TabList {
      * @param showUngroupDialog Whether to possibly show a dialog to the user when pinning the last
      *     tab in a group.
      */
-    default void pinTab(int tabId, boolean showUngroupDialog) {
-        pinTab(tabId, showUngroupDialog, /* tabModelActionListener= */ null);
-    }
-
-    /**
-     * Pins a tab to the model.
-     *
-     * @param tabId The id of the tab to pin.
-     * @param showUngroupDialog Whether to possibly show a dialog to the user when pinning the last
-     *     tab in a group.
-     * @param tabModelActionListener A listener that is notified in response to the user actions
-     *     taken in the ungroup dialog (if shown).
-     */
-    void pinTab(
-            int tabId,
-            boolean showUngroupDialog,
-            @Nullable TabModelActionListener tabModelActionListener);
+    void pinTab(int tabId, boolean showUngroupDialog);
 
     /**
      * Unpins a tab from the model.
@@ -377,9 +361,6 @@ public interface TabModel extends TabList {
     /** Duplicates the given tab. */
     @Nullable Tab duplicateTab(Tab tab);
 
-    /** Whether the model is currently in the process of closing all of its tabs. */
-    boolean isClosingAllTabs();
-
     // ---------------------------------------------------------------------------------------------
     // Tab group methods.
     // ---------------------------------------------------------------------------------------------
@@ -415,29 +396,45 @@ public interface TabModel extends TabList {
     /**
      * Returns a list of {@link Tab} objects with a tab group being represented by one tab from its
      * tab group.
+     *
+     * @deprecated Do not use representative tabs to model tab groups. Iterate over {@link TabModel}
+     *     directly and group tabs by {@link Tab#getTabGroupId()}, or query {@link
+     *     #getAllTabGroupIds()} and {@link #getTabsInGroup(Token)}.
      */
+    // TODO(crbug.com/517544602): Delete when removing the flag.
+    @Deprecated
     List<Tab> getRepresentativeTabList();
 
-    /** Returns the number of individual tabs plus tab groups in the filter. */
-    int getIndividualTabAndGroupCount();
-
     /**
-     * Returns the current representative tab's index or {@link TabModel.INVALID_TAB_INDEX} if none
-     * is selected.
+     * Returns the number of individual tabs plus tab groups in the filter.
+     *
+     * @deprecated Do not rely on collapsed representative counts in {@link TabModel}. Query {@link
+     *     #getCount()} or {@link #getTabGroupCount()} directly.
      */
-    int getCurrentRepresentativeTabIndex();
-
-    /** Returns the current representative tab or null if none is selected. */
-    @Nullable Tab getCurrentRepresentativeTab();
+    // TODO(crbug.com/517544602): Delete when removing the flag.
+    @Deprecated
+    int getIndividualTabAndGroupCount();
 
     /**
      * Returns the representative tab for an index or null if one does not exist. For an individual
      * tab this is the tab itself. For a tab group this is the most recently selected tab in the
      * group.
+     *
+     * @deprecated Do not index into collapsed representative tab lists. Use {@link #getTabAt(int)}
+     *     for flat tab model indices or {@link #getTabsInGroup(Token)} for tab group members.
      */
+    // TODO(crbug.com/517544602): Delete when removing the flag.
+    @Deprecated
     @Nullable Tab getRepresentativeTabAt(int index);
 
-    /** Returns the index of the individual tab or the tab group it belongs to. */
+    /**
+     * Returns the index of the individual tab or the tab group it belongs to.
+     *
+     * @deprecated Do not use collapsed representative indices. Use {@link #indexOf(Tab)} for model
+     *     indices or {@link #getIndexOfTabInGroup(Tab)} for within-group indices.
+     */
+    // TODO(crbug.com/517544602): Delete when removing the flag.
+    @Deprecated
     int representativeIndexOf(@Nullable Tab tab);
 
     /** Returns the number of tab groups. */
@@ -450,8 +447,7 @@ public interface TabModel extends TabList {
     int getTabCountForGroup(@Nullable Token tabGroupId);
 
     /** Returns whether a tab group exists with {@code tabGroupId}. */
-    // TODO(crbug.com/517544602): Rename to containsTabGroup to match TabListInterface.
-    boolean tabGroupExists(@Nullable Token tabGroupId);
+    boolean containsTabGroup(@Nullable Token tabGroupId);
 
     /**
      * Returns the list of {@link Tab}s that are grouped with the given {@code tabId}.
@@ -471,18 +467,27 @@ public interface TabModel extends TabList {
     /** Returns the position of the given {@link Tab} in its group. */
     int getIndexOfTabInGroup(Tab tab);
 
-    /** Returns the last shown tab id in the tab group with {@code tabGroupId}. */
+    /**
+     * Returns the last shown tab id in the tab group with {@code tabGroupId}.
+     *
+     * @deprecated Do not rely on mutable last-shown representative tab state for tab groups.
+     *     Operate on {@link Token} {@code tabGroupId} and {@link #getTabsInGroup(Token)} directly,
+     *     or use {@link TabGroupUtils#getSelectedOrFirstTabInGroup(TabModel, Token)} or {@link
+     *     TabGroupUtils#getFirstTabIdInGroup(TabModel, Token)}.
+     */
+    // TODO(crbug.com/517544602): Delete once sAndroidTabUiRefactor launches.
+    @Deprecated
     @TabId
     int getGroupLastShownTabId(@Nullable Token tabGroupId);
 
     /**
-     * This method moves the tab group which contains the tab with tab {@code id} to {@code
-     * newIndex} in TabModel.
+     * Moves the tab group with {@code tabGroupId} to the position with {@code newIndex} in
+     * TabModel.
      *
-     * @param id The id of the tab whose related tabs are being moved.
-     * @param newIndex The new index in TabModel that these tabs are being moved to.
+     * @param tabGroupId The {@link Token} ID of the tab group being moved.
+     * @param newIndex The new index in TabModel that the group is being moved to.
      */
-    void moveRelatedTabs(@TabId int id, int newIndex);
+    void moveGroupToIndex(Token tabGroupId, int newIndex);
 
     /**
      * This method checks if an impending group merge action will result in a new group creation.
@@ -505,8 +510,7 @@ public interface TabModel extends TabList {
      * would be locked down using a mechanism like {@code friend class} or some sort of access
      * token. However, for now this disclaimer will suffice.
      *
-     * @param tabs The list of tabs to make a tab group from. The first tab in the list will be the
-     *     root tab. An empty list will no-op.
+     * @param tabs The list of tabs to make a tab group from. An empty list will no-op.
      * @param tabGroupId An externally minted tab group id token.
      */
     void createTabGroupForTabGroupSync(List<Tab> tabs, Token tabGroupId);
@@ -581,18 +585,8 @@ public interface TabModel extends TabList {
     /** Get all tab group IDs that are associated with tab groups. */
     Set<Token> getAllTabGroupIds();
 
-    /**
-     * Returns a valid position to add or move a tab to this model in the context of any related
-     * tabs.
-     *
-     * @param tab The tab to be added/moved.
-     * @param proposedPosition The current or proposed position of the tab in the model.
-     * @return a valid position close to proposedPosition that respects related tab ordering rules.
-     */
-    int getValidPosition(Tab tab, int proposedPosition);
-
-    /** Returns whether the tab model is fully restored. */
-    boolean isTabModelRestored();
+    /** Returns whether the tab state is initialized. */
+    boolean isTabStateInitialized();
 
     /** Returns whether the tab group is being hidden. */
     boolean isTabGroupHiding(@Nullable Token tabGroupId);
@@ -629,7 +623,7 @@ public interface TabModel extends TabList {
     int getTabGroupColor(Token tabGroupId);
 
     /**
-     * This method fetches tab group colors for the related tab group root ID. If the color does not
+     * This method fetches tab group colors for the specified tab group. If the color does not
      * exist, then GREY will be returned. This method is intended to be used by UI surfaces that
      * want to show a color, and they need the color returned to be valid.
      *
@@ -641,9 +635,6 @@ public interface TabModel extends TabList {
 
     /** Stores the given color for the tab group. */
     void setTabGroupColor(Token tabGroupId, @TabGroupColorId int color);
-
-    /** Deletes the color that was recorded for the group. */
-    void deleteTabGroupColor(Token tabGroupId);
 
     /** Returns whether the tab group is expanded or collapsed. */
     boolean getTabGroupCollapsed(Token tabGroupId);

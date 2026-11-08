@@ -19,6 +19,7 @@ import androidx.annotation.StringRes;
 import androidx.annotation.VisibleForTesting;
 
 import org.jni_zero.CalledByNative;
+import org.jni_zero.JniType;
 import org.jni_zero.NativeMethods;
 
 import org.chromium.base.ObserverList;
@@ -291,9 +292,15 @@ public class LocationBarModel implements ToolbarDataProvider, LocationBarDataPro
      */
     @Override
     @CalledByNative
-    public @Nullable WebContents getWebContents() {
+    public @JniType("content::WebContents*") @Nullable WebContents getWebContents() {
         if (!hasTab()) return null;
         return mTab.getWebContents();
+    }
+
+    /** Returns whether the toolbar UI refactor (AndroidBottomBar) is enabled for this context. */
+    @CalledByNative
+    private boolean isToolbarUiRefactorEnabled() {
+        return ToolbarVariationUtils.isToolbarUiRefactorEnabled(mContext);
     }
 
     /**
@@ -1050,10 +1057,13 @@ public class LocationBarModel implements ToolbarDataProvider, LocationBarDataPro
 
         void destroy(long nativeLocationBarModelAndroid);
 
+        @JniType("std::u16string")
         String getFormattedFullURL(long nativeLocationBarModelAndroid);
 
+        @JniType("std::u16string")
         String getURLForDisplay(long nativeLocationBarModelAndroid);
 
+        @JniType("GURL")
         GURL getUrlOfVisibleNavigationEntry(long nativeLocationBarModelAndroid);
 
         @PageClassification

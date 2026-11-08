@@ -15,6 +15,7 @@ import static androidx.test.espresso.matcher.RootMatchers.isDialog;
 import static androidx.test.espresso.matcher.ViewMatchers.hasDescendant;
 import static androidx.test.espresso.matcher.ViewMatchers.hasFocus;
 import static androidx.test.espresso.matcher.ViewMatchers.hasSibling;
+import static androidx.test.espresso.matcher.ViewMatchers.isDescendantOfA;
 import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
 import static androidx.test.espresso.matcher.ViewMatchers.withId;
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
@@ -77,14 +78,15 @@ import org.chromium.base.DeviceInfo;
 import org.chromium.base.ServiceLoaderUtil;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.test.util.ApplicationTestUtils;
+import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.CriteriaHelper;
 import org.chromium.base.test.util.DisableIf;
 import org.chromium.base.test.util.DisabledTest;
-import org.chromium.base.test.util.DoNotBatch;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
+import org.chromium.base.test.util.RequiresRestart;
 import org.chromium.base.test.util.Restriction;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.IntentHandler;
@@ -154,13 +156,13 @@ import java.util.Set;
 /** Tests for ManageSyncSettings. */
 @RunWith(ChromeJUnit4ClassRunner.class)
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
-@DoNotBatch(reason = "TODO(crbug.com/40743432): SyncTestRule doesn't support batching.")
+@Batch(Batch.PER_CLASS)
 // Avoids UserActionableError.NEEDS_UPM_BACKEND_UPGRADE for most tests. Specific tests can still
 // trigger the error by overriding getUserActionableError()
 @Restriction(GmsCoreVersionRestriction.RESTRICTION_TYPE_VERSION_GE_24W15)
-@DisableFeatures(ChromeFeatureList.SETTINGS_MULTI_COLUMN)
+@DisableFeatures({ChromeFeatureList.SETTINGS_IN_TAB, ChromeFeatureList.SETTINGS_IN_TAB_DESKTOP})
 public class ManageSyncSettingsTest {
-    private static final int RENDER_TEST_REVISION = 12;
+    private static final int RENDER_TEST_REVISION = 13;
 
     /** Maps selected types to their Account UI element IDs. */
     private static final Map<Integer, String> ACCOUNT_UI_DATATYPES =
@@ -222,7 +224,7 @@ public class ManageSyncSettingsTest {
     public final ChromeRenderTestRule mRenderTestRule =
             ChromeRenderTestRule.Builder.withPublicCorpus()
                     .setRevision(RENDER_TEST_REVISION)
-                    .setDescription("Ligatures and contextual alternates disabled in UI text")
+                    .setDescription("Add Search AI Mode connected apps entry")
                     .setBugComponent(ChromeRenderTestRule.Component.SERVICES_SYNC)
                     .build();
 
@@ -338,6 +340,10 @@ public class ManageSyncSettingsTest {
 
         scrollToAndVerifyPresence(R.string.sync_encryption);
 
+        scrollToAndVerifyPresence(R.string.account_search_ai_mode_connected_apps_title);
+        onView(withText(R.string.account_search_ai_mode_connected_apps_summary))
+                .check(matches(isDisplayed()));
+
         scrollToAndVerifyPresence(R.string.account_data_dashboard_title);
         onView(withText(R.string.account_data_dashboard_subtitle)).check(matches(isDisplayed()));
 
@@ -380,6 +386,8 @@ public class ManageSyncSettingsTest {
             sdk_equals = 29,
             supported_abis_includes = "x86_64",
             message = "crbug.com/444011887")
+    // Required because policies and sync type toggle states leak across batched test runs.
+    @RequiresRestart
     public void testSignInWithManagedDataTypes() {
         mSyncTestRule.setUpAccountAndSignInForTesting();
         ManageSyncSettings fragment = startManageSyncPreferences();
@@ -427,7 +435,8 @@ public class ManageSyncSettingsTest {
 
         startManageSyncPreferences();
 
-        onView(withId(R.id.recycler_view)).perform(RecyclerViewActions.scrollToLastPosition());
+        onView(allOf(withId(R.id.recycler_view), isDescendantOfA(withId(R.id.preferences_detail))))
+                .perform(RecyclerViewActions.scrollToLastPosition());
         onView(withId(R.id.sign_out_button)).perform(click());
         Assert.assertNull(mSyncTestRule.getSigninTestRule().getPrimaryAccount());
     }
@@ -447,7 +456,8 @@ public class ManageSyncSettingsTest {
 
         startManageSyncPreferences();
 
-        onView(withId(R.id.recycler_view)).perform(RecyclerViewActions.scrollToLastPosition());
+        onView(allOf(withId(R.id.recycler_view), isDescendantOfA(withId(R.id.preferences_detail))))
+                .perform(RecyclerViewActions.scrollToLastPosition());
         onView(withId(R.id.sign_out_button)).perform(click());
         onView(withText(R.string.sign_out)).inRoot(isDialog()).perform(click());
         Assert.assertNull(mSyncTestRule.getSigninTestRule().getPrimaryAccount());
@@ -507,6 +517,9 @@ public class ManageSyncSettingsTest {
     @Test
     @LargeTest
     @Feature({"Sync"})
+    // Required because removing accounts leaves asynchronous state in AccountManager that hangs
+    // batched runs.
+    @RequiresRestart
     public void testRemoveAccountFromDeviceShouldClearSyncPrefs() {
         SigninTestRule signinTestRule = mSyncTestRule.getSigninTestRule();
         signinTestRule.addAccountThenSignin(TestAccounts.ACCOUNT1);
@@ -577,6 +590,7 @@ public class ManageSyncSettingsTest {
     @Test
     @LargeTest
     @Feature({"Sync"})
+    @RequiresRestart
     public void testSyncAddressesWithCustomPasspharaseShowsWarningDialog() {
         mSyncTestRule.getFakeServerHelper().setCustomPassphraseNigori("passphrase");
 
@@ -694,6 +708,11 @@ public class ManageSyncSettingsTest {
         setText(confirmPassphrase, "foo");
         clickButton(okButton);
         Assert.assertFalse(pcdf.isResumed());
+        // Wait for the async passphrase creation to complete on the UI thread before teardown;
+        // otherwise OnPassphraseAccepted races with sign-out and hits a CHECK failure in
+        // SyncUserSettingsImpl::SetEncryptionBootstrapToken.
+        CriteriaHelper.pollUiThread(
+                () -> mSyncTestRule.getSyncService().isUsingExplicitPassphrase());
     }
 
     @Test
@@ -879,7 +898,7 @@ public class ManageSyncSettingsTest {
         mSyncTestRule.setUpAccountAndSignInForTesting();
         final ManageSyncSettings fragment = startManageSyncPreferences();
         Assert.assertEquals(
-                fragment.getActivity().getTitle(),
+                fragment.getPageTitle().get(),
                 fragment.getActivity().getString(R.string.account_settings_title));
     }
 
@@ -890,7 +909,8 @@ public class ManageSyncSettingsTest {
     public void testBottomOfAccountSyncSettingsPage() throws Exception {
         mSyncTestRule.setUpAccountAndSignInForTesting();
         final ManageSyncSettings fragment = startManageSyncPreferences();
-        onView(withId(R.id.recycler_view)).perform(RecyclerViewActions.scrollToLastPosition());
+        onView(allOf(withId(R.id.recycler_view), isDescendantOfA(withId(R.id.preferences_detail))))
+                .perform(RecyclerViewActions.scrollToLastPosition());
         render(fragment, "bottom_of_account_sync_settings_page");
     }
 
@@ -900,7 +920,8 @@ public class ManageSyncSettingsTest {
     public void testSignoutButton() throws Exception {
         mSyncTestRule.setUpAccountAndSignInForTesting();
         final ManageSyncSettings fragment = startManageSyncPreferences();
-        onView(withId(R.id.recycler_view)).perform(RecyclerViewActions.scrollToLastPosition());
+        onView(allOf(withId(R.id.recycler_view), isDescendantOfA(withId(R.id.preferences_detail))))
+                .perform(RecyclerViewActions.scrollToLastPosition());
         ViewUtils.waitForVisibleView(withId(R.id.sign_out_button));
         View view =
                 ThreadUtils.runOnUiThreadBlocking(
@@ -1240,13 +1261,9 @@ public class ManageSyncSettingsTest {
     @Feature({"PersonalizedGoogleServices"})
     public void testClickPersonalizeGoogleServicesNonEEA() {
         mSyncTestRule.setUpAccountAndSignInForTesting();
-        final ManageSyncSettings fragment = startManageSyncPreferences();
-        ThreadUtils.runOnUiThreadBlocking(
-                () -> {
-                    RecyclerView recyclerView = fragment.getView().findViewById(R.id.recycler_view);
-                    recyclerView.scrollToPosition(recyclerView.getAdapter().getItemCount() - 1);
-                });
-        // Click the Google ActivityControls pref
+        startManageSyncPreferences();
+        // Scroll to and click the Google ActivityControls pref.
+        scrollToAndVerifyPresence(R.string.sign_in_personalize_google_services_title);
         onView(withText(R.string.sign_in_personalize_google_services_title)).perform(click());
         verify(mGoogleActivityController).openWebAndAppActivitySettings(any(), any());
     }
@@ -1257,13 +1274,9 @@ public class ManageSyncSettingsTest {
     public void testClickPersonalizeGoogleServicesEEA() {
         when(mRegionalCapabilities.isInEeaCountry()).thenReturn(true);
         mSyncTestRule.setUpAccountAndSignInForTesting();
-        final ManageSyncSettings fragment = startManageSyncPreferences();
-        ThreadUtils.runOnUiThreadBlocking(
-                () -> {
-                    RecyclerView recyclerView = fragment.getView().findViewById(R.id.recycler_view);
-                    recyclerView.scrollToPosition(recyclerView.getAdapter().getItemCount() - 1);
-                });
-        // Click the Personalize Google services
+        startManageSyncPreferences();
+        // Scroll to and click the Personalize Google services pref.
+        scrollToAndVerifyPresence(R.string.sign_in_personalize_google_services_title_eea);
         onView(withText(R.string.sign_in_personalize_google_services_title_eea)).perform(click());
         onView(withText(R.string.personalized_google_services_summary))
                 .check(matches(isDisplayed()));
@@ -1279,7 +1292,11 @@ public class ManageSyncSettingsTest {
         // There are 4 non-selectable preferences in the preference screen: central_account_card,
         // account_section_header, account_section_footer, and account_advanced_header.
         for (int i = 0; i < recyclerView.getAdapter().getItemCount() - 4; ++i) {
-            onView(withId(R.id.recycler_view)).perform(pressKey(KeyEvent.KEYCODE_DPAD_DOWN));
+            onView(
+                            allOf(
+                                    withId(R.id.recycler_view),
+                                    isDescendantOfA(withId(R.id.preferences_detail))))
+                    .perform(pressKey(KeyEvent.KEYCODE_DPAD_DOWN));
         }
         onView(withId(R.id.sign_out_button)).check(matches(hasFocus()));
     }
@@ -1291,7 +1308,8 @@ public class ManageSyncSettingsTest {
         mSyncTestRule.setUpAccountAndSignInForTesting();
         startManageSyncPreferences();
         // Focus on the first element that can receive focus in the settings page.
-        onView(withId(R.id.recycler_view)).perform(pressKey(KeyEvent.KEYCODE_DPAD_DOWN));
+        onView(allOf(withId(R.id.recycler_view), isDescendantOfA(withId(R.id.preferences_detail))))
+                .perform(pressKey(KeyEvent.KEYCODE_DPAD_DOWN));
         onView(withId(R.id.history_and_tabs_toggle)).check(matches(hasFocus()));
     }
 
@@ -1328,7 +1346,8 @@ public class ManageSyncSettingsTest {
         ViewUtils.waitForVisibleView(withId(R.id.signin_settings_card));
 
         // Focus on the first element that can receive focus in the settings page.
-        onView(withId(R.id.recycler_view)).perform(pressKey(KeyEvent.KEYCODE_DPAD_DOWN));
+        onView(allOf(withId(R.id.recycler_view), isDescendantOfA(withId(R.id.preferences_detail))))
+                .perform(pressKey(KeyEvent.KEYCODE_DPAD_DOWN));
         onView(withId(R.id.signin_settings_card_button)).check(matches(hasFocus()));
     }
 
@@ -1347,7 +1366,8 @@ public class ManageSyncSettingsTest {
         ViewUtils.waitForVisibleView(withId(R.id.signin_settings_card));
 
         // Focus on the first element that can receive focus in the settings page.
-        onView(withId(R.id.recycler_view)).perform(pressKey(KeyEvent.KEYCODE_DPAD_DOWN));
+        onView(allOf(withId(R.id.recycler_view), isDescendantOfA(withId(R.id.preferences_detail))))
+                .perform(pressKey(KeyEvent.KEYCODE_DPAD_DOWN));
         onView(withId(R.id.signin_settings_card_button)).check(matches(hasFocus()));
     }
 
@@ -1580,9 +1600,10 @@ public class ManageSyncSettingsTest {
     }
 
     private void scrollToAndVerifyPresence(@StringRes int textId) {
-        onView(withId(R.id.recycler_view))
+        onView(allOf(withId(R.id.recycler_view), isDescendantOfA(withId(R.id.preferences_detail))))
                 .perform(RecyclerViewActions.scrollTo(hasDescendant(withText(textId))));
-        onView(withText(textId)).check(matches(isDisplayed()));
+        onView(allOf(withText(textId), isDescendantOfA(withId(R.id.preferences_detail))))
+                .check(matches(isDisplayed()));
     }
 
     @Test
@@ -1669,30 +1690,40 @@ public class ManageSyncSettingsTest {
         ManageSyncSettings fragment = startManageSyncPreferences();
 
         Intents.init();
-        intending(IntentMatchers.anyIntent())
-                .respondWith(new ActivityResult(Activity.RESULT_OK, null));
+        try {
+            intending(IntentMatchers.anyIntent())
+                    .respondWith(new ActivityResult(Activity.RESULT_OK, null));
 
-        // Scroll to the preference row containing the summary link
-        onView(withId(R.id.recycler_view))
-                .perform(
-                        RecyclerViewActions.scrollTo(
-                                hasDescendant(
-                                        withText(R.string.account_settings_switch_to_incognito))));
+            // Scroll to the preference row containing the summary link
+            onView(
+                            allOf(
+                                    withId(R.id.recycler_view),
+                                    isDescendantOfA(withId(R.id.preferences_detail))))
+                    .perform(
+                            RecyclerViewActions.scrollTo(
+                                    hasDescendant(
+                                            withText(
+                                                    R.string
+                                                            .account_settings_switch_to_incognito))));
 
-        // Click the "Learn more" clickable span in the summary
-        onView(
-                        allOf(
-                                hasSibling(withText(R.string.account_settings_switch_to_incognito)),
-                                withId(android.R.id.summary)))
-                .perform(ViewUtils.clickOnClickableSpan(0));
+            // Click the "Learn more" clickable span in the summary
+            onView(
+                            allOf(
+                                    hasSibling(
+                                            withText(
+                                                    R.string.account_settings_switch_to_incognito)),
+                                    withId(android.R.id.summary)))
+                    .perform(ViewUtils.clickOnClickableSpan(0));
 
-        // Verify that it opens a normal tab with the help link
-        intended(
-                allOf(
-                        IntentMatchers.hasData(ManageSyncSettings.INCOGNITO_HELP_URL),
-                        IntentMatchers.hasExtra(
-                                IntentHandler.EXTRA_OPEN_NEW_INCOGNITO_TAB, false)));
-        Intents.release();
+            // Verify that it opens a normal tab with the help link
+            intended(
+                    allOf(
+                            IntentMatchers.hasData(ManageSyncSettings.INCOGNITO_HELP_URL),
+                            IntentMatchers.hasExtra(
+                                    IntentHandler.EXTRA_OPEN_NEW_INCOGNITO_TAB, false)));
+        } finally {
+            Intents.release();
+        }
     }
 
     @Test
@@ -1758,19 +1789,26 @@ public class ManageSyncSettingsTest {
         startManageSyncPreferences();
 
         Intents.init();
-        intending(IntentMatchers.anyIntent())
-                .respondWith(new ActivityResult(Activity.RESULT_OK, null));
+        try {
+            intending(IntentMatchers.anyIntent())
+                    .respondWith(new ActivityResult(Activity.RESULT_OK, null));
 
-        // Click the preference row
-        onView(withId(R.id.recycler_view))
-                .perform(
-                        RecyclerViewActions.scrollTo(
-                                hasDescendant(
-                                        withText(R.string.account_settings_switch_to_incognito))));
-        onView(withText(R.string.account_settings_switch_to_incognito)).perform(click());
-
-        intended(expectedIntentMatcher);
-        Intents.release();
+            // Click the preference row
+            onView(
+                            allOf(
+                                    withId(R.id.recycler_view),
+                                    isDescendantOfA(withId(R.id.preferences_detail))))
+                    .perform(
+                            RecyclerViewActions.scrollTo(
+                                    hasDescendant(
+                                            withText(
+                                                    R.string
+                                                            .account_settings_switch_to_incognito))));
+            onView(withText(R.string.account_settings_switch_to_incognito)).perform(click());
+            intended(expectedIntentMatcher);
+        } finally {
+            Intents.release();
+        }
     }
 
     /** Returns whether the extensions sync item should be shown. */

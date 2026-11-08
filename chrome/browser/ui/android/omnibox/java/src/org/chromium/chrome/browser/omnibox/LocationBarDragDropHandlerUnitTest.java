@@ -46,6 +46,7 @@ import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.mockito.quality.Strictness;
+import org.robolectric.Robolectric;
 import org.robolectric.Shadows;
 import org.robolectric.shadows.ShadowContentResolver;
 import org.robolectric.shadows.ShadowMimeTypeMap;
@@ -68,6 +69,15 @@ import java.util.List;
 @RunWith(BaseRobolectricTestRunner.class)
 @DisableFeatures(UiAndroidFeatures.CLIPBOARD_CONFUSED_DEPUTY_DEFENSE_FILES)
 public class LocationBarDragDropHandlerUnitTest {
+    private static class TestActivity extends Activity {
+        private DragAndDropPermissions mPermissions;
+
+        @Override
+        public DragAndDropPermissions requestDragAndDropPermissions(DragEvent event) {
+            return mPermissions;
+        }
+    }
+
     @Rule
     public final MockitoRule mMockitoRule = MockitoJUnit.rule().strictness(Strictness.STRICT_STUBS);
 
@@ -79,7 +89,6 @@ public class LocationBarDragDropHandlerUnitTest {
     @Mock private ClipDescription mClipDescription;
     @Mock private ClipData mClipData;
     @Mock private ClipData.Item mClipDataItem;
-    @Mock private Activity mActivity;
     @Mock private DragAndDropPermissions mDragAndDropPermissions;
     @Mock private ContentProvider mContentProvider;
     @Mock private Intent mIntent;
@@ -88,12 +97,15 @@ public class LocationBarDragDropHandlerUnitTest {
     @Captor private ArgumentCaptor<TabObserver> mTabObserverCaptor;
     @Captor private ArgumentCaptor<OmniboxLoadUrlParams> mLoadUrlParamsCaptor;
 
+    private TestActivity mActivity;
     private LocationBarDragDropHandler mHandler;
     private Context mContext;
 
     @Before
     public void setUp() {
         mContext = ApplicationProvider.getApplicationContext();
+        mActivity = Robolectric.buildActivity(TestActivity.class).setup().get();
+        mActivity.mPermissions = mDragAndDropPermissions;
         lenient().when(mDataProvider.getTab()).thenReturn(mTab);
         lenient().when(mTab.getWindowAndroid()).thenReturn(mWindowAndroid);
         mHandler = new LocationBarDragDropHandler(mOmniboxStub, mDataProvider);
@@ -224,8 +236,6 @@ public class LocationBarDragDropHandlerUnitTest {
         setResolvedProviderPackage("com.example.fileprovider", mContext.getPackageName());
 
         when(mWindowAndroid.getActivity()).thenReturn(new WeakReference<>(mActivity));
-        when(mActivity.requestDragAndDropPermissions(mDragEvent))
-                .thenReturn(mDragAndDropPermissions);
 
         assertFalse(mHandler.onDrag(new View(mContext), mDragEvent));
 
@@ -266,8 +276,6 @@ public class LocationBarDragDropHandlerUnitTest {
         setResolvedProviderPackage("com.example.fileprovider", mContext.getPackageName());
 
         when(mWindowAndroid.getActivity()).thenReturn(new WeakReference<>(mActivity));
-        when(mActivity.requestDragAndDropPermissions(mDragEvent))
-                .thenReturn(mDragAndDropPermissions);
 
         assertFalse(mHandler.onDrag(new View(mContext), mDragEvent));
 
@@ -292,8 +300,6 @@ public class LocationBarDragDropHandlerUnitTest {
                 "com.example.fileprovider", mContentProvider);
 
         when(mWindowAndroid.getActivity()).thenReturn(new WeakReference<>(mActivity));
-        when(mActivity.requestDragAndDropPermissions(mDragEvent))
-                .thenReturn(mDragAndDropPermissions);
 
         assertTrue(mHandler.onDrag(new View(mContext), mDragEvent));
 
@@ -318,8 +324,6 @@ public class LocationBarDragDropHandlerUnitTest {
         ShadowContentResolver.registerProviderInternal("com.example.provider", mContentProvider);
 
         when(mWindowAndroid.getActivity()).thenReturn(new WeakReference<>(mActivity));
-        when(mActivity.requestDragAndDropPermissions(mDragEvent))
-                .thenReturn(mDragAndDropPermissions);
 
         View view = new View(mContext);
         assertTrue(mHandler.onDrag(view, mDragEvent));
@@ -352,8 +356,6 @@ public class LocationBarDragDropHandlerUnitTest {
         ShadowContentResolver.registerProviderInternal("com.example.provider", mContentProvider);
 
         when(mWindowAndroid.getActivity()).thenReturn(new WeakReference<>(mActivity));
-        when(mActivity.requestDragAndDropPermissions(mDragEvent))
-                .thenReturn(mDragAndDropPermissions);
 
         View view = new View(mContext);
         assertTrue(mHandler.onDrag(view, mDragEvent));
@@ -381,8 +383,6 @@ public class LocationBarDragDropHandlerUnitTest {
         ShadowContentResolver.registerProviderInternal("com.example.provider", mContentProvider);
 
         when(mWindowAndroid.getActivity()).thenReturn(new WeakReference<>(mActivity));
-        when(mActivity.requestDragAndDropPermissions(mDragEvent))
-                .thenReturn(mDragAndDropPermissions);
 
         View view = new View(mContext);
         assertTrue(mHandler.onDrag(view, mDragEvent));
@@ -711,8 +711,6 @@ public class LocationBarDragDropHandlerUnitTest {
         when(mDragEvent.getClipData()).thenReturn(clipData);
         when(mDragEvent.getClipDescription()).thenReturn(clipData.getDescription());
         when(mWindowAndroid.getActivity()).thenReturn(new WeakReference<>(mActivity));
-        when(mActivity.requestDragAndDropPermissions(mDragEvent))
-                .thenReturn(mDragAndDropPermissions);
 
         assertTrue(mHandler.onDrag(new View(mContext), mDragEvent));
         verify(mTab).addObserver(any());

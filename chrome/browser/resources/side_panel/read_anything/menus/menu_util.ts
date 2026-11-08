@@ -49,8 +49,7 @@ export interface SettingsItem {
 // Represents a single menu item in a dropown menu in the toolbar.
 export interface MenuStateItem<T> {
   data: T;        // The value that is propagated when this item is selected.
-  title: string;  // The visible text for this item.
-  selected?: boolean;  // Whether this item is currently selected.
+  title: string;  // The undecorated name of this item.
   icon?: string;   // An optional icon that is displayed next to the title.
   style?: string;  // An optional string for styling each item.
   // Needed when the aria label should be different from the title
@@ -61,8 +60,10 @@ export interface MenuStateItem<T> {
   // Optional event name override. If omitted, falls back to group.eventName.
   eventName?: string;
   // Set when activating this item opens a dialog instead of taking immediate
-  // action. This is surfaced as aria-haspopup="dialog" so assistive technology
-  // announces that the item opens another surface.
+  // action. grouped-action-menu surfaces this as aria-haspopup="dialog" so
+  // assistive technology announces that the item opens another surface, and
+  // has a localized trailing ellipsis on the visible text only (aria-label and
+  // title are not decorated).
   opensDialog?: boolean;
 }
 
@@ -77,6 +78,8 @@ export interface MenuGroup<T> {
   header: MenuHeader;
   items: Array<MenuStateItem<T>>;
   eventName?: string;
+  // Data of the item that shows the checkmark.
+  selectedValue?: T;
 }
 
 // Defines the contract for any menu that appears in the Toolbar.
@@ -84,26 +87,4 @@ export interface MenuGroup<T> {
 export interface ToolbarMenu {
   open(anchor: HTMLElement, showAtConfig?: ShowAtConfigPrefs): void;
   close(): void;
-}
-
-// TODO(crbug.com/346612365): Consider renaming this method to be more
-// descriptive.
-// Returns the index of the item in menuArray that contains the given data.
-export function getIndexOfSetting(
-    menuArray: Array<MenuStateItem<unknown>>, dataToFind: unknown): number {
-  return menuArray.findIndex((item) => (item.data === dataToFind));
-}
-
-// Returns the index of the item in menuArray that contains the given data. If
-// the given data does not exist in the menuArray anymore, returns the first
-// index.
-export function getIndexOrDefault(
-    menuArray: Array<MenuStateItem<unknown>>, data: unknown): number {
-  const index = getIndexOfSetting(menuArray, data);
-
-  if (index < 0 && menuArray.length > 0) {
-    return 0;
-  }
-
-  return index;
 }

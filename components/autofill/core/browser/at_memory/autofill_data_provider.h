@@ -5,26 +5,28 @@
 #ifndef COMPONENTS_AUTOFILL_CORE_BROWSER_AT_MEMORY_AUTOFILL_DATA_PROVIDER_H_
 #define COMPONENTS_AUTOFILL_CORE_BROWSER_AT_MEMORY_AUTOFILL_DATA_PROVIDER_H_
 
-#include <string_view>
 #include <vector>
 
 #include "base/functional/callback_forward.h"
 #include "base/memory/raw_ptr.h"
-#include "components/autofill/core/browser/data_manager/autofill_ai/entity_data_manager.h"
-#include "components/autofill/core/browser/data_manager/personal_data_manager.h"
 #include "components/autofill/core/browser/field_types.h"
 #include "components/autofill/core/browser/integrators/at_memory/memory_data_type.h"
 #include "components/autofill/core/browser/integrators/at_memory/memory_search_result.h"
 
 namespace autofill {
 
+class EntityDataManager;
+class PersonalDataManager;
+class ValuablesDataManager;
+
 // Provides data from various Autofill backends (e.g. addresses, payments,
-// Autofill AI entities) and serves them in a standardized format suitable for
-// AtMemory search results.
+// Autofill AI entities, loyalty cards) and serves them in a standardized format
+// suitable for AtMemory search results.
 class AutofillDataProvider {
  public:
   AutofillDataProvider(const PersonalDataManager* personal_data_manager,
-                       const EntityDataManager* entity_data_manager);
+                       const EntityDataManager* entity_data_manager,
+                       const ValuablesDataManager* valuables_data_manager);
   AutofillDataProvider(const AutofillDataProvider&) = delete;
   AutofillDataProvider& operator=(const AutofillDataProvider&) = delete;
   virtual ~AutofillDataProvider();
@@ -49,6 +51,7 @@ class AutofillDataProvider {
 
   raw_ptr<const PersonalDataManager> personal_data_manager_;
   raw_ptr<const EntityDataManager> entity_data_manager_;
+  raw_ptr<const ValuablesDataManager> valuables_data_manager_;
 };
 
 }  // namespace autofill

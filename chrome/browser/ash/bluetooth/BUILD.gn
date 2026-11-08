@@ -26,7 +26,6 @@ static_library("bluetooth") {
   public_deps = [
     "//ash",
     "//base",
-    "//chrome/browser:browser_public_dependencies",
     "//chrome/browser/profiles",
     "//chrome/browser/ui/webui/bluetooth_internals:mojo_bindings",
     "//device/bluetooth",
@@ -64,7 +63,6 @@ if (is_chromeos_device) {
       "//ash",
       "//base",
       "//base/test:test_support",
-      "//chrome/browser/ui",
       "//chrome/test:test_support",
       "//chrome/test/base/ash/interactive/bluetooth:test_support",
       "//chrome/test/base/chromeos/crosier:ash_test_support",

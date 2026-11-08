@@ -22,6 +22,8 @@ import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import android.content.Context;
+
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -31,6 +33,7 @@ import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 
+import org.chromium.base.ContextUtils;
 import org.chromium.base.Token;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.chrome.browser.flags.ActivityType;
@@ -105,7 +108,7 @@ public class TabCollectionTabModelImplUnitTest {
                 .thenReturn(TAB_MODEL_JNI_BRIDGE_PTR);
 
         TabCollectionTabModelImplJni.setInstanceForTesting(mTabCollectionTabModelImplJni);
-        when(mTabCollectionTabModelImplJni.init(any(), eq(mProfile)))
+        when(mTabCollectionTabModelImplJni.init(eq(mProfile)))
                 .thenReturn(TAB_COLLECTION_TAB_MODEL_IMPL_PTR);
 
         mTabs = new ArrayList<>();
@@ -173,6 +176,21 @@ public class TabCollectionTabModelImplUnitTest {
                                 }
                             }
                             return result;
+                        });
+
+        when(mTabCollectionTabModelImplJni.getTabCountForGroup(
+                        eq(TAB_COLLECTION_TAB_MODEL_IMPL_PTR), any()))
+                .thenAnswer(
+                        invocation -> {
+                            Token groupId = invocation.getArgument(1);
+                            if (groupId == null) return 0;
+                            int count = 0;
+                            for (Tab t : mTabs) {
+                                if (groupId.equals(t.getTabGroupId())) {
+                                    count++;
+                                }
+                            }
+                            return count;
                         });
 
         when(mTabCollectionTabModelImplJni.moveTabGroupTo(
@@ -251,13 +269,13 @@ public class TabCollectionTabModelImplUnitTest {
     }
 
     @Test
-    public void testIsTabModelRestored() {
-        when(mTabModelDelegate.isTabModelRestored()).thenReturn(false);
-        assertFalse(mTabModel.isTabModelRestored());
+    public void testIsTabStateInitialized() {
+        when(mTabModelDelegate.isTabStateInitialized()).thenReturn(false);
+        assertFalse(mTabModel.isTabStateInitialized());
         assertTrue(mTabModel.isSessionRestoreInProgress());
 
-        when(mTabModelDelegate.isTabModelRestored()).thenReturn(true);
-        assertTrue(mTabModel.isTabModelRestored());
+        when(mTabModelDelegate.isTabStateInitialized()).thenReturn(true);
+        assertTrue(mTabModel.isTabStateInitialized());
         assertFalse(mTabModel.isSessionRestoreInProgress());
     }
 
@@ -312,6 +330,51 @@ public class TabCollectionTabModelImplUnitTest {
                                 /* index= */ 1,
                                 TabLaunchType.FROM_CHROME_UI,
                                 TabCreationState.LIVE_IN_FOREGROUND));
+        verifyBatchedAndReset();
+    }
+
+    @Test
+    public void testAddTab_MigratesRootIdVisualDataAndResetsRootId() {
+        @TabId int rootId = 456;
+        @TabId int tabId = 789;
+        Token tabGroupId = new Token(123L, 456L);
+        String groupTitle = "Restored Group";
+        int groupColor = 1;
+        Context context = ContextUtils.getApplicationContext();
+        String rootIdKey = String.valueOf(rootId);
+
+        context.getSharedPreferences(
+                        TabGroupVisualDataStore.TAB_GROUP_TITLES_FILE_NAME, Context.MODE_PRIVATE)
+                .edit()
+                .putString(rootIdKey, groupTitle)
+                .apply();
+        context.getSharedPreferences(
+                        TabGroupVisualDataStore.TAB_GROUP_COLORS_FILE_NAME, Context.MODE_PRIVATE)
+                .edit()
+                .putInt(rootIdKey, groupColor)
+                .apply();
+
+        MockTab tab = createMockTab(tabId, mProfile);
+        tab.setRootId(rootId);
+        tab.setTabGroupId(tabGroupId);
+        tab.setIsInitialized(true);
+
+        mTabModel.addTab(
+                tab,
+                /* index= */ 0,
+                TabLaunchType.FROM_RESTORE,
+                TabCreationState.FROZEN_FOR_LAZY_LOAD);
+
+        assertEquals(tabId, tab.getRootId());
+        assertEquals(groupTitle, TabGroupVisualDataStore.getTabGroupTitle(tabGroupId));
+        assertEquals(groupColor, TabGroupVisualDataStore.getTabGroupColor(tabGroupId));
+        verify(mTabCollectionTabModelImplJni)
+                .createTabGroup(
+                        TAB_COLLECTION_TAB_MODEL_IMPL_PTR,
+                        tabGroupId,
+                        groupTitle,
+                        groupColor,
+                        /* isCollapsed= */ false);
         verifyBatchedAndReset();
     }
 
@@ -502,7 +565,7 @@ public class TabCollectionTabModelImplUnitTest {
         // Mock a profile that is incognito.
         doReturn(true).when(mOtrProfile).isOffTheRecord();
         doReturn(true).when(mOtrProfile).isIncognitoBranded();
-        when(mTabCollectionTabModelImplJni.init(any(), eq(mOtrProfile)))
+        when(mTabCollectionTabModelImplJni.init(eq(mOtrProfile)))
                 .thenReturn(TAB_COLLECTION_TAB_MODEL_IMPL_PTR);
 
         TabCollectionTabModelImpl incognitoModel =

@@ -7,6 +7,7 @@
 #include <optional>
 
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/blink/renderer/platform/testing/runtime_enabled_features_test_helpers.h"
 
 namespace blink {
 
@@ -50,11 +51,21 @@ struct LocaleTestData {
     // Common lang-script.
     {"en-Latn", USCRIPT_LATIN, "en-Latn"},
     {"ar-Arab", USCRIPT_ARABIC, "ar-Arab"},
+    {"ar-Aran", USCRIPT_ARABIC_NASTALIQ, "ar-Aran"},
 
     // Examples from `fonts.xml`.
     // https://android.googlesource.com/platform/frameworks/base/+/master/data/fonts/fonts.xml
     {"und-Arab", USCRIPT_ARABIC, "und-Arab"},
+    {"und-Aran", USCRIPT_ARABIC_NASTALIQ, "und-Aran"},
     {"und-Thai", USCRIPT_THAI, "und-Thai"},
+
+    // Arabic Nastaliq locales.
+    {"ur", USCRIPT_ARABIC_NASTALIQ, "ur"},
+    {"ur-PK", USCRIPT_ARABIC_NASTALIQ, "ur"},
+    {"ur-IN", USCRIPT_ARABIC_NASTALIQ, "ur"},
+    {"ur-Arab", USCRIPT_ARABIC, "ur-Arab"},
+    {"ks", USCRIPT_ARABIC_NASTALIQ, "ks"},
+    {"ks-Deva", USCRIPT_DEVANAGARI, "ks-Deva"},
 
     // Common lang-region in East Asia.
 #define EXPECT_JAPANESE \
@@ -144,10 +155,15 @@ INSTANTIATE_TEST_SUITE_P(LayoutLocaleTest,
                          testing::ValuesIn(locale_test_data));
 
 TEST_P(LocaleTestDataFixture, Script) {
+  ScopedNastaliqScriptForTest scoped_feature(true);
   const auto& test = GetParam();
   scoped_refptr<LayoutLocale> locale =
       LayoutLocale::CreateForTesting(AtomicString(test.locale));
-  EXPECT_EQ(test.script, locale->GetScript()) << test.locale;
+  EXPECT_EQ(
+      test.script == USCRIPT_ARABIC_NASTALIQ ? USCRIPT_ARABIC : test.script,
+      locale->GetScript())
+      << test.locale;
+  EXPECT_EQ(test.script, locale->GetScriptForFont()) << test.locale;
   EXPECT_EQ(test.script_for_han.has_value(), locale->HasScriptForHan())
       << test.locale;
   if (test.script_for_han) {
@@ -160,13 +176,27 @@ TEST_P(LocaleTestDataFixture, Script) {
     EXPECT_STREQ(test.sk_font_mgr, locale->LocaleForSkFontMgr()) << test.locale;
 }
 
+TEST(LayoutLocaleTest, NastaliqScriptDisabled) {
+  ScopedNastaliqScriptForTest scoped_feature(false);
+  for (const char* locale_str : {"ur", "ur-PK", "ks", "ar-Aran"}) {
+    scoped_refptr<LayoutLocale> locale =
+        LayoutLocale::CreateForTesting(AtomicString(locale_str));
+    EXPECT_EQ(USCRIPT_ARABIC, locale->GetScript()) << locale_str;
+    EXPECT_EQ(USCRIPT_ARABIC, locale->GetScriptForFont()) << locale_str;
+  }
+  scoped_refptr<LayoutLocale> und_aran =
+      LayoutLocale::CreateForTesting(AtomicString("und-Aran"));
+  EXPECT_EQ(USCRIPT_LATIN, und_aran->GetScript());
+  EXPECT_EQ(USCRIPT_LATIN, und_aran->GetScriptForFont());
+}
+
 TEST(LayoutLocaleTest, BreakKeyword) {
-  struct {
+  const struct {
     const char* expected;
     const char* locale;
     LineBreakStrictness strictness;
     bool use_phrase = false;
-  } tests[] = {
+  } kTests[] = {
       {nullptr, nullptr, LineBreakStrictness::kDefault},
       {"", "", LineBreakStrictness::kDefault},
       {"@lb=strict", nullptr, LineBreakStrictness::kStrict},
@@ -182,7 +212,7 @@ TEST(LayoutLocaleTest, BreakKeyword) {
       {"ja@lb=strict;lw=phrase", "ja", LineBreakStrictness::kStrict, true},
       {"ja@lb=loose;lw=phrase", "ja", LineBreakStrictness::kLoose, true},
   };
-  for (const auto& test : tests) {
+  for (const auto& test : kTests) {
     scoped_refptr<LayoutLocale> locale =
         LayoutLocale::CreateForTesting(AtomicString(test.locale));
     EXPECT_EQ(test.expected,
@@ -195,19 +225,19 @@ TEST(LayoutLocaleTest, BreakKeyword) {
 }
 
 TEST(LayoutLocaleTest, GetQuotesData) {
-  auto enQuotes = (QuotesData::Create(0x201c, 0x201d, 0x2018, 0x2019));
-  auto deQuotes = (QuotesData::Create(0x201e, 0x201c, 0x201a, 0x2018));
-  auto frQuotes = (QuotesData::Create(0xab, 0xbb, 0xab, 0xbb));
-  auto frCAQuotes = (QuotesData::Create(0xab, 0xbb, 0x201d, 0x201c));
+  auto en_quotes = QuotesData::Create(0x201c, 0x201d, 0x2018, 0x2019);
+  auto de_quotes = QuotesData::Create(0x201e, 0x201c, 0x201a, 0x2018);
+  auto fr_quotes = QuotesData::Create(0xab, 0xbb, 0xab, 0xbb);
+  auto fr_ca_quotes = QuotesData::Create(0xab, 0xbb, 0x201d, 0x201c);
   struct {
     const char* locale;
     const scoped_refptr<QuotesData> expected;
   } tests[] = {
       {nullptr, nullptr},    // no match
       {"loc-DNE", nullptr},  // no match
-      {"en", enQuotes},         {"fr", frQuotes},
-      {"fr-CA", frCAQuotes},    {"fr-DNE", frQuotes},  // use fr
-      {"DE-LATN-DE", deQuotes},
+      {"en", en_quotes},         {"fr", fr_quotes},
+      {"fr-CA", fr_ca_quotes},   {"fr-DNE", fr_quotes},  // use fr
+      {"DE-LATN-DE", de_quotes},
   };
   for (const auto& test : tests) {
     scoped_refptr<LayoutLocale> locale =

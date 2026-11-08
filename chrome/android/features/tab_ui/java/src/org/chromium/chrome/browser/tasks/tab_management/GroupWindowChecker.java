@@ -105,12 +105,7 @@ public class GroupWindowChecker {
 
             @GroupWindowState int groupWindowState = getState(savedTabGroup);
             if (tabGroupSelectionPredicate.shouldInclude(groupWindowState)) {
-                groupList.add(
-                        GroupWindowInfo.forSyncedGroup(
-                                mContext,
-                                getTabModelForGroup(savedTabGroup),
-                                savedTabGroup,
-                                groupWindowState));
+                groupList.add(fromSavedTabGroup(savedTabGroup));
             }
         }
     }
@@ -143,6 +138,17 @@ public class GroupWindowChecker {
                 }
             }
         }
+    }
+
+    /**
+     * Returns a {@link GroupWindowInfo} for the given {@link SavedTabGroup}.
+     *
+     * @param savedTabGroup The saved tab group to convert.
+     */
+    public GroupWindowInfo fromSavedTabGroup(SavedTabGroup savedTabGroup) {
+        @GroupWindowState int state = getState(savedTabGroup);
+        return GroupWindowInfo.forSyncedGroup(
+                mContext, getTabModelForGroup(savedTabGroup), savedTabGroup, state);
     }
 
     /**
@@ -196,10 +202,8 @@ public class GroupWindowChecker {
      */
     public @GroupWindowState int getState(Token groupId) {
         if (!containsGroup(groupId)) {
-            if (TabGroupUiUtils.isCrossWindowTabGroupOperationsEnabled()) {
-                if (isWindowForGroupNotActive(groupId) || isGroupClosingInAnotherWindow(groupId)) {
-                    return GroupWindowState.HIDDEN;
-                }
+            if (isWindowForGroupNotActive(groupId) || isGroupClosingInAnotherWindow(groupId)) {
+                return GroupWindowState.HIDDEN;
             }
             return GroupWindowState.IN_ANOTHER;
         }
@@ -229,7 +233,7 @@ public class GroupWindowChecker {
             }
             return false;
         }
-        return mCurrentTabModel.tabGroupExists(groupId);
+        return mCurrentTabModel.containsTabGroup(groupId);
     }
 
     private boolean isGroupFullyClosing(Token groupId) {
@@ -280,7 +284,7 @@ public class GroupWindowChecker {
             return false;
         }
         TabModel otherModel = selector.getModel(mCurrentTabModel.isIncognito());
-        return !otherModel.tabGroupExists(groupId);
+        return !otherModel.containsTabGroup(groupId);
     }
 
     private boolean isWindowForGroupNotActive(Token groupId) {

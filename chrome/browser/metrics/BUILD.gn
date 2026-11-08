@@ -266,14 +266,12 @@ source_set("impl") {
     "variations/google_groups_manager_factory.cc",
   ]
 
-  public_deps = [
-    ":metrics",
-    "//chrome/browser:browser_public_dependencies",
-  ]
+  public_deps = [ ":metrics" ]
 
   deps = [
     "//build/config/compiler:compiler_buildflags",
     "//chrome/browser:browser_process_platform_part",
+    "//chrome/browser:buildflags",
     "//chrome/browser:chrome_browser_main",
     "//chrome/browser:flags",
     "//chrome/browser/content_settings:content_settings_factory",
@@ -290,6 +288,7 @@ source_set("impl") {
     "//chrome/browser/performance_manager",
     "//chrome/browser/prefs",
     "//chrome/browser/reading_list",
+    "//chrome/browser/regional_capabilities",
     "//chrome/browser/resource_coordinator",
     "//chrome/browser/resource_coordinator:mojo_bindings",
     "//chrome/browser/resource_coordinator:utils",
@@ -442,6 +441,7 @@ source_set("impl") {
       "//chrome/browser/ui/webui/ash/settings/services/metrics",
       "//chromeos/ash/components/browser_context_helper",
       "//chromeos/ash/components/demo_mode",
+      "//chromeos/ash/components/signin:identity_manager_provider",
       "//chromeos/ash/components/system",
       "//chromeos/ash/services/cros_healthd/public/cpp",
       "//chromeos/ash/services/multidevice_setup/public/cpp",
@@ -753,6 +753,7 @@ source_set("platform_browser_tests") {
     ":test_support",
     "//base",
     "//chrome/browser:chrome_browser_main",
+    "//chrome/browser/net",
     "//chrome/test:test_support",
     "//chrome/test/base:chrome_test_utils",
     "//content/test:test_support",
@@ -764,6 +765,7 @@ source_set("platform_browser_tests") {
     deps += [
       "//chrome/browser/optimization_guide",
       "//chrome/browser/ui/android/tab_model:test_support",
+      "//chrome/test/base:android_ui_test_utils",
     ]
   }
 
@@ -853,6 +855,9 @@ if (!is_android) {
 
     if (is_win) {
       deps += [ "//sandbox/win:common" ]
+    }
+    if (is_chromeos) {
+      deps += [ "//chrome/browser/ui/ash/login" ]
     }
   }
 }

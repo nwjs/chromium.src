@@ -32,10 +32,7 @@ source_set("controlled_frame") {
     "//ui/gfx",
   ]
 
-  configs += [
-    "//build/config:precompiled_headers",
-    "//build/config/compiler:wexit_time_destructors",
-  ]
+  configs += [ "//build/config:precompiled_headers" ]
 
   public_deps = [ "//chrome/browser/controlled_frame/api:api_registration" ]
 }
@@ -59,6 +56,7 @@ source_set("media_access_handler_impl") {
     "//chrome/browser/content_settings:content_settings_factory",
     "//chrome/browser/media/webrtc",
     "//chrome/browser/profiles:profile",
+    "//chrome/common:constants",
     "//extensions/browser",
   ]
 }
@@ -166,6 +164,7 @@ source_set("browser_tests") {
 
   sources = [
     "controlled_frame_apitest.cc",
+    "controlled_frame_client_cert_browsertest.cc",
     "controlled_frame_contextmenus_browsertest.cc",
     "controlled_frame_dialog_browsertest.cc",
     "controlled_frame_disabled_permission_browsertest.cc",
@@ -189,10 +188,10 @@ source_set("browser_tests") {
     "//chrome/browser/extensions:browser_tests",
     "//chrome/browser/extensions:test_support",
     "//chrome/browser/hid",
+    "//chrome/browser/net",
     "//chrome/browser/profiles:profile",
     "//chrome/browser/renderer_context_menu:test_support",
     "//chrome/browser/serial",
-    "//chrome/browser/ui",
     "//chrome/browser/ui/browser_window",
     "//chrome/browser/ui/hid",
     "//chrome/browser/ui/views:file_system_access_test_support",
@@ -214,6 +213,7 @@ source_set("browser_tests") {
     "//components/permissions:test_support",
     "//components/prefs",
     "//components/services/app_service",
+    "//components/web_modal",
     "//content/public/browser",
     "//content/public/common",
     "//content/test:test_support",
@@ -231,6 +231,8 @@ source_set("browser_tests") {
     "//ui/base/clipboard:clipboard_test_support",
     "//ui/gfx",
     "//ui/shell_dialogs",
+    "//ui/views",
+    "//ui/views:test_support",
     "//url",
   ]
 }

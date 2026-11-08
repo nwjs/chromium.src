@@ -25,12 +25,15 @@ source_set("infobar_delegate") {
 
 source_set("tab_helper") {
   sources = [
+    "permissions_metrics.h",
+    "permissions_metrics.mm",
     "permissions_tab_helper.h",
     "permissions_tab_helper.mm",
   ]
   deps = [
     ":infobar_delegate",
     "//components/content_settings/core/browser",
+    "//components/content_settings/core/common",
     "//components/infobars/core",
     "//ios/chrome/browser/content_settings/model",
     "//ios/chrome/browser/infobars/model",

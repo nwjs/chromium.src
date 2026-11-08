@@ -241,7 +241,13 @@ const char kDisableRemoteFonts[]            = "disable-remote-fonts";
 // Disables the RemotePlayback API.
 const char kDisableRemotePlaybackAPI[]      = "disable-remote-playback-api";
 
-// Prevent renderer process backgrounding when set.
+// Prevent renderer process backgrounding when set. Renderer processes keep a
+// foreground priority at the OS level, and renderers are never told that they
+// are backgrounded or hidden.
+//
+// The browser still computes each renderer process's priority as usual (e.g.
+// RenderProcessHost::GetPriority()), so that tests can verify the priority
+// policy without being slowed down by actual backgrounding.
 const char kDisableRendererBackgrounding[]  = "disable-renderer-backgrounding";
 
 // Whether the ResourceScheduler is disabled.  Note this is only useful for C++
@@ -277,9 +283,6 @@ const char kDisableV8IdleTasks[]            = "disable-v8-idle-tasks";
 // This switch has no effect unless --user-data-dir (as defined by the content
 // embedder) is also present.
 const char kDisableWebSecurity[]            = "disable-web-security";
-
-// Disable the video decoder from drawing directly to a texture.
-const char kDisableZeroCopyDxgiVideo[]      = "disable-zero-copy-dxgi-video";
 
 // Specifies if the |DOMAutomationController| needs to be bound in the
 // renderer. This binding happens on per-frame basis and hence can potentially

@@ -7,9 +7,10 @@
 #include <memory>
 #include <vector>
 
-#include "base/files/file_path.h"
 #include "base/test/task_environment.h"
 #include "base/test/test_future.h"
+#include "chrome/browser/actor/actor_surface_handle.h"
+#include "chrome/browser/actor/actor_surface_impl.h"
 #include "chrome/browser/actor/actor_test_util.h"
 #include "chrome/browser/actor/tools/tools_test_util.h"
 #include "chrome/common/actor.mojom.h"
@@ -19,16 +20,13 @@
 #include "components/tabs/public/mock_tab_interface.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "url/gurl.h"
 
 namespace actor {
 namespace {
 
-base::FilePath GetValidFilePath() {
-#if BUILDFLAG(IS_WIN)
-  return base::FilePath(FILE_PATH_LITERAL("C:\\Users\\test\\file.pdf"));
-#else
-  return base::FilePath(FILE_PATH_LITERAL("/home/test/file.pdf"));
-#endif
+FileUploadSource UrlSource() {
+  return FileUploadSource(GURL("https://example.com/file.pdf"));
 }
 
 class FileUploadToolTest : public testing::Test {
@@ -37,22 +35,20 @@ class FileUploadToolTest : public testing::Test {
   ~FileUploadToolTest() override = default;
 
   MockToolDelegate& delegate() { return delegate_; }
-  tabs::MockTabInterface& mock_tab() { return mock_tab_; }
+  ActorSurface& actor_surface() { return actor_surface_; }
 
  protected:
   base::test::SingleThreadTaskEnvironment task_environment_;
   MockToolDelegate delegate_;
   tabs::MockTabInterface mock_tab_;
+  ActorSurfaceImpl actor_surface_{ActorSurfaceHandle::CreateForTesting(),
+                                  mock_tab_.GetHandle()};
 };
 
 TEST_F(FileUploadToolTest, Validate_Succeeds) {
-  FileUploadSource source{
-      .type = FileUploadSource::Type::kLocalPath,
-      .local_path = GetValidFilePath(),
-  };
-  FileUploadTool tool(TaskId(1), delegate(), mock_tab(),
+  FileUploadTool tool(TaskId(1), delegate(), actor_surface(),
                       DomNode{.node_id = 1, .document_identifier = "doc"},
-                      {source});
+                      {UrlSource()});
 
   base::test::TestFuture<mojom::ActionResultPtr> future;
   tool.Validate(future.GetCallback());
@@ -60,26 +56,18 @@ TEST_F(FileUploadToolTest, Validate_Succeeds) {
 }
 
 TEST_F(FileUploadToolTest, TimeOfUseValidation_Succeeds) {
-  FileUploadSource source{
-      .type = FileUploadSource::Type::kLocalPath,
-      .local_path = GetValidFilePath(),
-  };
-  FileUploadTool tool(TaskId(1), delegate(), mock_tab(),
+  FileUploadTool tool(TaskId(1), delegate(), actor_surface(),
                       DomNode{.node_id = 1, .document_identifier = "doc"},
-                      {source});
+                      {UrlSource()});
 
   auto result = tool.TimeOfUseValidation(nullptr);
   EXPECT_EQ(result->code, mojom::ActionResultCode::kOk);
 }
 
 TEST_F(FileUploadToolTest, Invoke_Succeeds) {
-  FileUploadSource source{
-      .type = FileUploadSource::Type::kLocalPath,
-      .local_path = GetValidFilePath(),
-  };
-  FileUploadTool tool(TaskId(1), delegate(), mock_tab(),
+  FileUploadTool tool(TaskId(1), delegate(), actor_surface(),
                       DomNode{.node_id = 1, .document_identifier = "doc"},
-                      {source});
+                      {UrlSource()});
 
   base::test::TestFuture<mojom::ActionResultPtr> future;
   tool.Invoke(future.GetCallback());
@@ -87,13 +75,10 @@ TEST_F(FileUploadToolTest, Invoke_Succeeds) {
 }
 
 TEST_F(FileUploadToolTest, DebugString_NoPiiLeakage) {
-  FileUploadSource source{
-      .type = FileUploadSource::Type::kLocalPath,
-      .local_path = GetValidFilePath(),
-  };
-  FileUploadTool tool(TaskId(1), delegate(), mock_tab(),
-                      DomNode{.node_id = 1, .document_identifier = "doc"},
-                      {source});
+  FileUploadTool tool(
+      TaskId(1), delegate(), actor_surface(),
+      DomNode{.node_id = 1, .document_identifier = "doc"},
+      {FileUploadSource(GURL("https://example.com/secret/file.pdf"))});
 
   EXPECT_EQ(tool.DebugString(), "FileUploadTool(files_count=1)");
 }

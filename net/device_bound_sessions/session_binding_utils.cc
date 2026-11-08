@@ -17,6 +17,7 @@
 #include "base/strings/string_view_util.h"
 #include "base/time/time.h"
 #include "base/types/expected_macros.h"
+#include "base/types/optional_util.h"
 #include "base/values.h"
 #include "crypto/ecdsa_utils.h"
 #include "crypto/keypair.h"
@@ -33,46 +34,6 @@
 namespace net::device_bound_sessions {
 
 namespace {
-
-// Source: JSON Web Signature and Encryption Algorithms
-// https://www.iana.org/assignments/jose/jose.xhtml,
-// RFC 8037 (EdDSA in JOSE), and RFC 9964 (ML-DSA in JOSE).
-std::optional<std::string_view> SignatureAlgorithmToString(
-    crypto::sign::SignatureKind algorithm) {
-  switch (algorithm) {
-    case crypto::sign::RSA_PKCS1_SHA1:
-      return "RS1";
-    case crypto::sign::RSA_PKCS1_SHA256:
-      return "RS256";
-    case crypto::sign::RSA_PKCS1_SHA384:
-      return "RS384";
-    case crypto::sign::RSA_PKCS1_SHA512:
-      return "RS512";
-    case crypto::sign::RSA_PSS_SHA256:
-      return "PS256";
-    case crypto::sign::RSA_PSS_SHA384:
-      return "PS384";
-    case crypto::sign::RSA_PSS_SHA512:
-      return "PS512";
-    case crypto::sign::ECDSA_SHA1:
-      // SHA-1 with ECDSA has no standard JWA representation.
-      return std::nullopt;
-    case crypto::sign::ECDSA_SHA256:
-      return "ES256";
-    case crypto::sign::ECDSA_SHA384:
-      return "ES384";
-    case crypto::sign::ECDSA_SHA512:
-      return "ES512";
-    case crypto::sign::ED25519:
-      return "EdDSA";
-    case crypto::sign::MLDSA_44:
-      return "ML-DSA-44";
-    case crypto::sign::MLDSA_65:
-      return "ML-DSA-65";
-    case crypto::sign::MLDSA_87:
-      return "ML-DSA-87";
-  }
-}
 
 std::string Base64UrlEncode(base::span<const uint8_t> data) {
   std::string output;
@@ -122,7 +83,7 @@ std::optional<std::string> CreateHeaderAndPayload(
     const GURL& destination_url,
     std::optional<base::DictValue> jwk,
     const std::optional<std::string>& authorization) {
-  ASSIGN_OR_RETURN(std::string_view alg, SignatureAlgorithmToString(algorithm));
+  ASSIGN_OR_RETURN(std::string_view alg, ToJoseAlgorithm(algorithm));
   auto header = base::DictValue().Set("alg", alg).Set("typ", "dbsc+jwt");
   if (jwk.has_value()) {
     header.Set("jwk", std::move(*jwk));
@@ -144,9 +105,71 @@ std::optional<std::string> CreateHeaderAndPayload(
   return CombineHeaderAndPayload(header, payload);
 }
 
+// Formats a binding statement into a dictionary as defined in
+// https://github.com/WICG/dbsc-sso#relying-partys-session-initialization.
+base::DictValue CreateBindingStatement(
+    const crypto::AttestationStatement& statement) {
+  return base::DictValue()
+      .Set("stmt", Base64UrlEncode(statement.statement))
+      .Set("sig", Base64UrlEncode(statement.signature))
+      .Set("sub_key", Base64UrlEncode(statement.subject_key));
+}
+
 }  // namespace
 
-base::DictValue CreateBindingStatement(
+// Source: JSON Web Signature and Encryption Algorithms
+// https://www.iana.org/assignments/jose/jose.xhtml,
+// RFC 8037 (EdDSA in JOSE), and RFC 9964 (ML-DSA in JOSE).
+std::optional<std::string_view> ToJoseAlgorithm(
+    crypto::sign::SignatureKind algorithm) {
+  switch (algorithm) {
+    case crypto::sign::ECDSA_SHA256:
+      return "ES256";
+    case crypto::sign::RSA_PKCS1_SHA256:
+      return "RS256";
+    case crypto::sign::RSA_PKCS1_SHA1:
+    case crypto::sign::RSA_PKCS1_SHA384:
+    case crypto::sign::RSA_PKCS1_SHA512:
+    case crypto::sign::RSA_PSS_SHA256:
+    case crypto::sign::RSA_PSS_SHA384:
+    case crypto::sign::RSA_PSS_SHA512:
+    case crypto::sign::ECDSA_SHA1:
+    case crypto::sign::ECDSA_SHA384:
+    case crypto::sign::ECDSA_SHA512:
+    case crypto::sign::ED25519:
+    case crypto::sign::MLDSA_44:
+    case crypto::sign::MLDSA_65:
+    case crypto::sign::MLDSA_87:
+      return std::nullopt;
+  }
+  NOTREACHED();
+}
+
+std::optional<crypto::sign::SignatureKind> FromJoseAlgorithm(
+    std::string_view algorithm) {
+  if (algorithm == "ES256") {
+    return crypto::sign::ECDSA_SHA256;
+  }
+  if (algorithm == "RS256") {
+    return crypto::sign::RSA_PKCS1_SHA256;
+  }
+  return std::nullopt;
+}
+
+std::vector<crypto::sign::SignatureKind> ParseSupportedAlgorithms(
+    base::span<const structured_headers::ParameterizedItem> items) {
+  std::vector<crypto::sign::SignatureKind> supported_algos;
+  for (const structured_headers::ParameterizedItem& item : items) {
+    if (std::optional<crypto::sign::SignatureKind> algo =
+            base::OptionalFromPtr(item.item.GetIfToken())
+                .and_then(FromJoseAlgorithm)) {
+      supported_algos.push_back(*algo);
+    }
+  }
+  return supported_algos;
+}
+
+base::DictValue CreateRegistrationStatement(
     const crypto::AttestationStatement& statement) {
   std::string_view format = [&] {
     switch (statement.format) {
@@ -157,11 +180,13 @@ base::DictValue CreateBindingStatement(
     }
     NOTREACHED();
   }();
-  return base::DictValue()
-      .Set("fmt", format)
-      .Set("stmt", Base64UrlEncode(statement.statement))
-      .Set("sig", Base64UrlEncode(statement.signature))
-      .Set("sub_key", Base64UrlEncode(statement.subject_key));
+  return CreateBindingStatement(statement).Set("fmt", format);
+}
+
+std::optional<std::string> SerializeBindingStatement(
+    const crypto::AttestationStatement& statement) {
+  return base::WriteJson(CreateBindingStatement(statement))
+      .transform([](std::string_view json) { return Base64UrlEncode(json); });
 }
 
 std::optional<std::string> CreateOuterRegistrationHeaderAndPayload(
@@ -170,8 +195,7 @@ std::optional<std::string> CreateOuterRegistrationHeaderAndPayload(
     base::span<const uint8_t> aik_pubkey_spki,
     const GURL& destination_url,
     const crypto::AttestationStatement& attestation_stmt) {
-  ASSIGN_OR_RETURN(std::string_view alg,
-                   SignatureAlgorithmToString(aik_algorithm));
+  ASSIGN_OR_RETURN(std::string_view alg, ToJoseAlgorithm(aik_algorithm));
   base::DictValue jwk = ConvertPkeySpkiToJwk(aik_algorithm, aik_pubkey_spki);
   if (jwk.empty()) {
     DVLOG(1) << "Unexpected error when converting the SPKI to a JWK";
@@ -187,7 +211,7 @@ std::optional<std::string> CreateOuterRegistrationHeaderAndPayload(
   auto payload = base::DictValue()
                      .Set("aud", RemoveQueryAndFragment(destination_url).spec())
                      .Set("jti", inner_jws)
-                     .Set("att", CreateBindingStatement(attestation_stmt));
+                     .Set("att", CreateRegistrationStatement(attestation_stmt));
 
   return CombineHeaderAndPayload(header, payload);
 }

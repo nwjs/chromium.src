@@ -845,6 +845,9 @@ class TabStripModel {
   // index supplied to `ExecuteContextMenuCommand`.
   bool WillContextMenuMuteSites(int index);
 
+  // Sets the sound content setting for each site at the `indices`.
+  void SetSitesMuted(const std::vector<int>& indices, bool mute) const;
+
   // Returns true if 'CommandTogglePinned' will pin. `index` is the index
   // supplied to `ExecuteContextMenuCommand`.
   bool WillContextMenuPin(int index);
@@ -923,7 +926,7 @@ class TabStripModel {
       const content::WebContents* contents) const;
 
  private:
-  FRIEND_TEST_ALL_PREFIXES(TabStripModelTest, GetIndicesClosedByCommand);
+  FRIEND_TEST_ALL_PREFIXES(TabStripModelTest, HasIndicesClosedByCommand);
   // Temporary private API.
   FRIEND_TEST_ALL_PREFIXES(TabStripModelTest, FindGroupIdFor);
 
@@ -1119,11 +1122,9 @@ class TabStripModel {
   // increasing order.
   std::vector<int> GetIndicesForCommand(int index) const;
 
-  // Returns a vector of indices of the tabs that will close when executing the
-  // command `id` for the tab at `index`. The returned indices are sorted in
-  // descending order.
-  std::vector<int> GetIndicesClosedByCommand(int index,
-                                             ContextMenuCommand id) const;
+  // Returns whether any tab would close when executing the command `id`
+  // (CommandCloseTabsToRight or CommandCloseOtherTabs) for the tab at `index`.
+  bool HasIndicesClosedByCommand(int index, ContextMenuCommand id) const;
 
   std::vector<tabs::TabInterface*> GetTabsForCommand(int index) const;
   std::vector<tabs::TabInterface*> GetTabsClosedByCommand(
@@ -1381,9 +1382,6 @@ class TabStripModel {
   void MoveTabsWithNotifications(std::vector<int> tab_indices,
                                  int destination_index,
                                  base::OnceClosure execute_tabs_move_operation);
-
-  // Sets the sound content setting for each site at the `indices`.
-  void SetSitesMuted(const std::vector<int>& indices, bool mute) const;
 
   // Sets the opener of any tabs that reference the tab at `index` to that tab's
   // opener or null if there's a cycle.

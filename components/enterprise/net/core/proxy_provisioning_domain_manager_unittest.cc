@@ -379,14 +379,30 @@ TEST_F(ProxyProvisioningDomainManagerTest,
        ErrorClassificationTransientVsPermanent) {
   auto auth_service = CreateAuthService();
 
-  // Test permanent error case with a 404.
-  {
+  // Test blocked error case with HTTP 404 Not Found and 400 Bad Request.
+  for (net::HttpStatusCode status_code :
+       {net::HTTP_NOT_FOUND, net::HTTP_BAD_REQUEST}) {
     auto manager = CreateManager(CreateTestPolicyConfig(), auth_service.get());
     ASSERT_EQ(1, test_url_loader_factory_.NumPending());
-    test_url_loader_factory_.SimulateResponseForPendingRequest(
-        kTestUrl, "", net::HTTP_NOT_FOUND);
-    EXPECT_EQ(ProvisioningDomainProxyConfig::State::kFailedPermanent,
+    test_url_loader_factory_.SimulateResponseForPendingRequest(kTestUrl, "",
+                                                               status_code);
+    EXPECT_EQ(ProvisioningDomainProxyConfig::State::kFailedBlocked,
               manager->state());
+    ASSERT_TRUE(manager->last_failure().has_value());
+    ASSERT_TRUE(manager->last_failure()->fetch_error.has_value());
+    EXPECT_EQ(ProvisioningDomainFetchResultStatus::kHttpError,
+              manager->last_failure()->fetch_error->status);
+    EXPECT_EQ(net::OK, manager->last_failure()->fetch_error->net_error);
+    EXPECT_EQ(status_code, manager->last_failure()->fetch_error->response_code);
+    base::DictValue dict_info = manager->ToDict();
+    const std::string* reason_str =
+        dict_info.FindStringByDottedPath("last_failure.failure_reason");
+    ASSERT_NE(nullptr, reason_str);
+    EXPECT_EQ("HttpError", *reason_str);
+    EXPECT_EQ(nullptr,
+              dict_info.FindStringByDottedPath("last_failure.net_error"));
+    EXPECT_EQ(status_code,
+              dict_info.FindIntByDottedPath("last_failure.http_response_code"));
   }
 
   // Test transient error case with network disconnection error.
@@ -399,6 +415,19 @@ TEST_F(ProxyProvisioningDomainManagerTest,
         network::mojom::URLResponseHead::New(), "");
     EXPECT_EQ(ProvisioningDomainProxyConfig::State::kFailedTransient,
               manager->state());
+    ASSERT_TRUE(manager->last_failure().has_value());
+    ASSERT_TRUE(manager->last_failure()->fetch_error.has_value());
+    EXPECT_EQ(ProvisioningDomainFetchResultStatus::kHttpError,
+              manager->last_failure()->fetch_error->status);
+    EXPECT_EQ(net::ERR_INTERNET_DISCONNECTED,
+              manager->last_failure()->fetch_error->net_error);
+    EXPECT_FALSE(
+        manager->last_failure()->fetch_error->response_code.has_value());
+    base::DictValue dict_info = manager->ToDict();
+    const std::string* net_error_str =
+        dict_info.FindStringByDottedPath("last_failure.net_error");
+    ASSERT_NE(nullptr, net_error_str);
+    EXPECT_EQ("ERR_INTERNET_DISCONNECTED", *net_error_str);
   }
 
   // Test blocked transient error case with auth token fetch without primary
@@ -412,9 +441,27 @@ TEST_F(ProxyProvisioningDomainManagerTest,
     }));
     EXPECT_EQ(ProvisioningDomainProxyConfig::State::kFailedBlocked,
               manager->state());
+    ASSERT_TRUE(manager->last_failure().has_value());
+    ASSERT_TRUE(manager->last_failure()->fetch_error.has_value());
+    EXPECT_EQ(ProvisioningDomainFetchResultStatus::kTokenFetchError,
+              manager->last_failure()->fetch_error->status);
+    EXPECT_EQ(TokenFetchError::kNoPrimaryAccount,
+              manager->last_failure()->fetch_error->token_fetch_error);
+    EXPECT_EQ(net::OK, manager->last_failure()->fetch_error->net_error);
+    base::DictValue dict_info = manager->ToDict();
+    const std::string* reason_str =
+        dict_info.FindStringByDottedPath("last_failure.failure_reason");
+    ASSERT_NE(nullptr, reason_str);
+    EXPECT_EQ("TokenFetchError", *reason_str);
+    const std::string* token_error_str =
+        dict_info.FindStringByDottedPath("last_failure.token_fetch_error");
+    ASSERT_NE(nullptr, token_error_str);
+    EXPECT_EQ("no_primary_account", *token_error_str);
+    EXPECT_EQ(nullptr,
+              dict_info.FindStringByDottedPath("last_failure.net_error"));
   }
 
-  // Test permanent error case with certificate error.
+  // Test blocked error case with certificate error.
   {
     auto manager = CreateManager(CreateTestPolicyConfig(), auth_service.get());
     ASSERT_EQ(1, test_url_loader_factory_.NumPending());
@@ -422,8 +469,46 @@ TEST_F(ProxyProvisioningDomainManagerTest,
         GURL(kTestUrl),
         network::URLLoaderCompletionStatus(net::ERR_CERT_COMMON_NAME_INVALID),
         network::mojom::URLResponseHead::New(), "");
+    EXPECT_EQ(ProvisioningDomainProxyConfig::State::kFailedBlocked,
+              manager->state());
+    ASSERT_TRUE(manager->last_failure().has_value());
+    ASSERT_TRUE(manager->last_failure()->fetch_error.has_value());
+    EXPECT_EQ(ProvisioningDomainFetchResultStatus::kHttpError,
+              manager->last_failure()->fetch_error->status);
+    EXPECT_EQ(net::ERR_CERT_COMMON_NAME_INVALID,
+              manager->last_failure()->fetch_error->net_error);
+    EXPECT_FALSE(
+        manager->last_failure()->fetch_error->response_code.has_value());
+    base::DictValue dict_info = manager->ToDict();
+    const std::string* net_error_str =
+        dict_info.FindStringByDottedPath("last_failure.net_error");
+    ASSERT_NE(nullptr, net_error_str);
+    EXPECT_EQ("ERR_CERT_COMMON_NAME_INVALID", *net_error_str);
+  }
+
+  // Test permanent error case with invalid URL net error.
+  {
+    auto manager = CreateManager(CreateTestPolicyConfig(), auth_service.get());
+    ASSERT_EQ(1, test_url_loader_factory_.NumPending());
+    test_url_loader_factory_.SimulateResponseForPendingRequest(
+        GURL(kTestUrl),
+        network::URLLoaderCompletionStatus(net::ERR_INVALID_URL),
+        network::mojom::URLResponseHead::New(), "");
     EXPECT_EQ(ProvisioningDomainProxyConfig::State::kFailedPermanent,
               manager->state());
+    ASSERT_TRUE(manager->last_failure().has_value());
+    ASSERT_TRUE(manager->last_failure()->fetch_error.has_value());
+    EXPECT_EQ(ProvisioningDomainFetchResultStatus::kHttpError,
+              manager->last_failure()->fetch_error->status);
+    EXPECT_EQ(net::ERR_INVALID_URL,
+              manager->last_failure()->fetch_error->net_error);
+    EXPECT_FALSE(
+        manager->last_failure()->fetch_error->response_code.has_value());
+    base::DictValue dict_info = manager->ToDict();
+    const std::string* net_error_str =
+        dict_info.FindStringByDottedPath("last_failure.net_error");
+    ASSERT_NE(nullptr, net_error_str);
+    EXPECT_EQ("ERR_INVALID_URL", *net_error_str);
   }
 
   // Test transient error case with HTTP 429 Too Many Requests.
@@ -434,6 +519,12 @@ TEST_F(ProxyProvisioningDomainManagerTest,
         kTestUrl, "", net::HTTP_TOO_MANY_REQUESTS);
     EXPECT_EQ(ProvisioningDomainProxyConfig::State::kFailedTransient,
               manager->state());
+    ASSERT_TRUE(manager->last_failure().has_value());
+    ASSERT_TRUE(manager->last_failure()->fetch_error.has_value());
+    EXPECT_EQ(ProvisioningDomainFetchResultStatus::kHttpError,
+              manager->last_failure()->fetch_error->status);
+    EXPECT_EQ(net::HTTP_TOO_MANY_REQUESTS,
+              manager->last_failure()->fetch_error->response_code);
   }
 
   // Test transient error case with HTTP 503 Service Unavailable (exhausting
@@ -447,6 +538,12 @@ TEST_F(ProxyProvisioningDomainManagerTest,
     }
     EXPECT_EQ(ProvisioningDomainProxyConfig::State::kFailedTransient,
               manager->state());
+    ASSERT_TRUE(manager->last_failure().has_value());
+    ASSERT_TRUE(manager->last_failure()->fetch_error.has_value());
+    EXPECT_EQ(ProvisioningDomainFetchResultStatus::kHttpError,
+              manager->last_failure()->fetch_error->status);
+    EXPECT_EQ(net::HTTP_SERVICE_UNAVAILABLE,
+              manager->last_failure()->fetch_error->response_code);
   }
 
   // Test transient error case with HTTP 408 Request Timeout.
@@ -457,16 +554,28 @@ TEST_F(ProxyProvisioningDomainManagerTest,
         kTestUrl, "", net::HTTP_REQUEST_TIMEOUT);
     EXPECT_EQ(ProvisioningDomainProxyConfig::State::kFailedTransient,
               manager->state());
+    ASSERT_TRUE(manager->last_failure().has_value());
+    ASSERT_TRUE(manager->last_failure()->fetch_error.has_value());
+    EXPECT_EQ(ProvisioningDomainFetchResultStatus::kHttpError,
+              manager->last_failure()->fetch_error->status);
+    EXPECT_EQ(net::HTTP_REQUEST_TIMEOUT,
+              manager->last_failure()->fetch_error->response_code);
   }
 
-  // Test permanent error case with HTTP 403 Forbidden.
-  {
+  // Test transient error cases with HTTP 401 Unauthorized and 403 Forbidden.
+  for (net::HttpStatusCode status_code :
+       {net::HTTP_UNAUTHORIZED, net::HTTP_FORBIDDEN}) {
     auto manager = CreateManager(CreateTestPolicyConfig(), auth_service.get());
     ASSERT_EQ(1, test_url_loader_factory_.NumPending());
-    test_url_loader_factory_.SimulateResponseForPendingRequest(
-        kTestUrl, "", net::HTTP_FORBIDDEN);
-    EXPECT_EQ(ProvisioningDomainProxyConfig::State::kFailedPermanent,
+    test_url_loader_factory_.SimulateResponseForPendingRequest(kTestUrl, "",
+                                                               status_code);
+    EXPECT_EQ(ProvisioningDomainProxyConfig::State::kFailedTransient,
               manager->state());
+    ASSERT_TRUE(manager->last_failure().has_value());
+    ASSERT_TRUE(manager->last_failure()->fetch_error.has_value());
+    EXPECT_EQ(ProvisioningDomainFetchResultStatus::kHttpError,
+              manager->last_failure()->fetch_error->status);
+    EXPECT_EQ(status_code, manager->last_failure()->fetch_error->response_code);
   }
 
   // Test blocked error case with unparsable JSON response.
@@ -477,6 +586,17 @@ TEST_F(ProxyProvisioningDomainManagerTest,
         kTestUrl, "{ not valid json }", net::HTTP_OK);
     EXPECT_EQ(ProvisioningDomainProxyConfig::State::kFailedBlocked,
               manager->state());
+    ASSERT_TRUE(manager->last_failure().has_value());
+    ASSERT_TRUE(manager->last_failure()->fetch_error.has_value());
+    EXPECT_EQ(ProvisioningDomainFetchResultStatus::kParseError,
+              manager->last_failure()->fetch_error->status);
+    EXPECT_FALSE(
+        manager->last_failure()->fetch_error->response_code.has_value());
+    base::DictValue dict_info = manager->ToDict();
+    const std::string* reason_str =
+        dict_info.FindStringByDottedPath("last_failure.failure_reason");
+    ASSERT_NE(nullptr, reason_str);
+    EXPECT_EQ("ParseError", *reason_str);
   }
 }
 
@@ -510,6 +630,7 @@ TEST_F(ProxyProvisioningDomainManagerTest, NullURLLoaderFactoryRecovery) {
   run_loop.Run();
   EXPECT_EQ(ProvisioningDomainProxyConfig::State::kFailedTransient,
             manager->state());
+  EXPECT_FALSE(manager->last_failure().has_value());
 
   // Make factory available and force refresh.
   return_valid_factory = true;
@@ -522,6 +643,7 @@ TEST_F(ProxyProvisioningDomainManagerTest, NullURLLoaderFactoryRecovery) {
       kTestUrl, kTestPvdJson));
 
   EXPECT_EQ(ProvisioningDomainProxyConfig::State::kValid, manager->state());
+  EXPECT_FALSE(manager->last_failure().has_value());
 }
 
 TEST_F(ProxyProvisioningDomainManagerTest, RestoresFromCachedConfigDict) {
@@ -596,6 +718,8 @@ TEST_F(ProxyProvisioningDomainManagerTest, HandlesMalformedPolicyDict) {
   // fetched config from cached_dict.
   EXPECT_EQ(ProvisioningDomainProxyConfig::State::kFailedPermanent,
             manager->state());
+  ASSERT_TRUE(manager->last_failure().has_value());
+  EXPECT_TRUE(manager->last_failure()->invalid_policy);
   EXPECT_FALSE(manager->is_refresh_in_progress());
   EXPECT_EQ(0, test_url_loader_factory_.NumPending());
   EXPECT_EQ(0u, manager->fetched_config().proxy_endpoints.size());
@@ -606,6 +730,10 @@ TEST_F(ProxyProvisioningDomainManagerTest, HandlesMalformedPolicyDict) {
       dict_info.FindStringByDottedPath("fetched_config.state");
   ASSERT_NE(nullptr, state_str);
   EXPECT_EQ("FailedPermanent", *state_str);
+  const std::string* reason_str =
+      dict_info.FindStringByDottedPath("last_failure.failure_reason");
+  ASSERT_NE(nullptr, reason_str);
+  EXPECT_EQ("InvalidPolicy", *reason_str);
 }
 
 TEST_F(ProxyProvisioningDomainManagerTest, HandlesNonDictPolicyValue) {
@@ -625,6 +753,8 @@ TEST_F(ProxyProvisioningDomainManagerTest, HandlesNonDictPolicyValue) {
 
   EXPECT_EQ(ProvisioningDomainProxyConfig::State::kFailedPermanent,
             manager->state());
+  ASSERT_TRUE(manager->last_failure().has_value());
+  EXPECT_TRUE(manager->last_failure()->invalid_policy);
   EXPECT_FALSE(manager->is_refresh_in_progress());
   EXPECT_EQ(0, test_url_loader_factory_.NumPending());
 
@@ -633,6 +763,10 @@ TEST_F(ProxyProvisioningDomainManagerTest, HandlesNonDictPolicyValue) {
       dict_info.FindStringByDottedPath("fetched_config.state");
   ASSERT_NE(nullptr, state_str);
   EXPECT_EQ("FailedPermanent", *state_str);
+  const std::string* reason_str =
+      dict_info.FindStringByDottedPath("last_failure.failure_reason");
+  ASSERT_NE(nullptr, reason_str);
+  EXPECT_EQ("InvalidPolicy", *reason_str);
 }
 
 TEST_F(ProxyProvisioningDomainManagerTest,
@@ -657,6 +791,12 @@ TEST_F(ProxyProvisioningDomainManagerTest,
 
   EXPECT_EQ(ProvisioningDomainProxyConfig::State::kFailedBlocked,
             manager->state());
+  ASSERT_TRUE(manager->last_failure().has_value());
+  ASSERT_TRUE(manager->last_failure()->fetch_error.has_value());
+  EXPECT_EQ(ProvisioningDomainFetchResultStatus::kTokenFetchError,
+            manager->last_failure()->fetch_error->status);
+  EXPECT_EQ(TokenFetchError::kNoPrimaryAccount,
+            manager->last_failure()->fetch_error->token_fetch_error);
 
   // Now make primary account available and force refresh.
   AccountInfo account_info = identity_test_env_.MakePrimaryAccountAvailable(
@@ -680,6 +820,7 @@ TEST_F(ProxyProvisioningDomainManagerTest,
       kTestUrl, kTestPvdJson));
 
   EXPECT_EQ(ProvisioningDomainProxyConfig::State::kValid, manager->state());
+  EXPECT_FALSE(manager->last_failure().has_value());
 }
 
 TEST_F(ProxyProvisioningDomainManagerTest,
@@ -708,6 +849,53 @@ TEST_F(ProxyProvisioningDomainManagerTest,
             manager->state());
   EXPECT_FALSE(manager->is_refresh_in_progress());
   EXPECT_EQ(0, test_url_loader_factory_.NumPending());
+}
+
+TEST_F(ProxyProvisioningDomainManagerTest,
+       ForceRefreshRecoversFromHttp4xxErrors) {
+  auto auth_service = CreateAuthService();
+  MockDomainObserver observer;
+
+  auto manager = CreateManager(CreateTestPolicyConfig(), auth_service.get());
+  manager->AddObserver(&observer);
+
+  // Initial fetch fails with HTTP 404 Not Found -> kFailedBlocked (no timer).
+  ExpectStateTransitionTo(observer, manager.get(),
+                          ProvisioningDomainProxyConfig::State::kFailedBlocked);
+  ASSERT_EQ(1, test_url_loader_factory_.NumPending());
+  test_url_loader_factory_.SimulateResponseForPendingRequest(
+      kTestUrl, "", net::HTTP_NOT_FOUND);
+  EXPECT_EQ(ProvisioningDomainProxyConfig::State::kFailedBlocked,
+            manager->state());
+  EXPECT_FALSE(manager->IsExpirationTimerRunningForTesting());
+
+  // ForceRefresh retries and transitions to kFailedTransient on HTTP 403
+  // Forbidden (which schedules a backoff timer).
+  ExpectStateTransitionTo(
+      observer, manager.get(),
+      ProvisioningDomainProxyConfig::State::kFailedTransient);
+  manager->ForceRefresh();
+  ASSERT_EQ(1, test_url_loader_factory_.NumPending());
+  test_url_loader_factory_.SimulateResponseForPendingRequest(
+      kTestUrl, "", net::HTTP_FORBIDDEN);
+  EXPECT_EQ(ProvisioningDomainProxyConfig::State::kFailedTransient,
+            manager->state());
+  EXPECT_TRUE(manager->IsExpirationTimerRunningForTesting());
+
+  // Another ForceRefresh recovers when the server responds with valid PvD JSON.
+  ExpectStateTransitionTo(observer, manager.get(),
+                          ProvisioningDomainProxyConfig::State::kValid);
+  manager->ForceRefresh();
+  EXPECT_TRUE(manager->is_refresh_in_progress());
+  ASSERT_EQ(1, test_url_loader_factory_.NumPending());
+  EXPECT_TRUE(test_url_loader_factory_.SimulateResponseForPendingRequest(
+      kTestUrl, kTestPvdJson));
+
+  EXPECT_EQ(ProvisioningDomainProxyConfig::State::kValid, manager->state());
+  EXPECT_EQ(2u, manager->fetched_config().proxy_endpoints.size());
+  EXPECT_EQ(3u, manager->fetched_config().routing_rules.size());
+
+  manager->RemoveObserver(&observer);
 }
 
 TEST_F(ProxyProvisioningDomainManagerTest,
@@ -807,6 +995,8 @@ TEST_F(ProxyProvisioningDomainManagerTest,
   // kFailedBlocked.
   task_environment_.FastForwardBy(
       manager->GetCurrentExpirationDelayForTesting());
+  EXPECT_EQ(ProvisioningDomainProxyConfig::State::kFetching, manager->state());
+  EXPECT_TRUE(manager->last_failure().has_value());
   SimulateHttpError(500);
   EXPECT_EQ(ProvisioningDomainProxyConfig::State::kFailedBlocked,
             manager->state());

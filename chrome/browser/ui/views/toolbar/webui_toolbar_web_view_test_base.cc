@@ -4,10 +4,12 @@
 
 #include "chrome/browser/ui/views/toolbar/webui_toolbar_web_view_test_base.h"
 
+#include <string>
+#include <vector>
+
 #include "base/files/file_util.h"
 #include "base/functional/bind.h"
 #include "base/functional/function_ref.h"
-#include "base/run_loop.h"
 #include "base/strings/stringprintf.h"
 #include "base/test/run_until.h"
 #include "build/build_config.h"
@@ -18,6 +20,7 @@
 #include "chrome/browser/themes/theme_service_factory.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/extensions/extensions_container.h"
 #include "chrome/browser/ui/global_media_controls/media_toolbar_button_controller.h"
 #include "chrome/browser/ui/interaction/browser_elements.h"
 #include "chrome/browser/ui/toolbar/toolbar_actions_model.h"
@@ -27,6 +30,7 @@
 #include "chrome/browser/ui/views/toolbar/webui_media_toolbar_button.h"
 #include "chrome/browser/ui/views/toolbar/webui_test_utils.h"
 #include "chrome/browser/ui/views/toolbar/webui_toolbar_web_view.h"
+#include "chrome/browser/ui/webui/webui_toolbar/webui_toolbar_extensions_container.h"
 #include "chrome/browser/ui/webui/webui_toolbar/webui_toolbar_ui.h"
 #include "chrome/common/chrome_features.h"
 #include "components/performance_manager/public/user_tuning/prefs.h"
@@ -141,6 +145,48 @@ bool WebUIToolbarWebViewTestBase::WaitForTrackedElementHidden(
   return WaitForTrackedElements({}, {id}, browser_instance);
 }
 
+content::EvalJsResult WebUIToolbarWebViewTestBase::EvalJsOnPinnedAction(
+    toolbar_ui_api::mojom::PinnedToolbarAction action,
+    const std::string& script_body) {
+  const std::string container_js = GetButtonAppJS("#pinnedToolbarActions");
+  return content::EvalJs(
+      GetWebUIWebContents(),
+      base::StringPrintf(R"(
+            (() => {
+              const container = %s?.shadowRoot;
+              if (!container) {
+                 return false;
+              }
+              const actionEl = Array.from(container.querySelectorAll(
+                                       'pinned-toolbar-action'))
+                              .find(el => el.state && el.state.action === %d);
+              if (!actionEl) {
+                return false;
+              }
+              const btn = actionEl.shadowRoot.querySelector('cr-icon-button');
+              %s
+            })();
+          )",
+                         container_js.c_str(), static_cast<int>(action),
+                         script_body.c_str()));
+}
+
+bool WebUIToolbarWebViewTestBase::IsPinnedActionVisible(
+    toolbar_ui_api::mojom::PinnedToolbarAction action) {
+  return EvalJsOnPinnedAction(action, "return !!btn && btn.checkVisibility();")
+      .ExtractBool();
+}
+
+bool WebUIToolbarWebViewTestBase::WaitForPinnedActionVisible(
+    toolbar_ui_api::mojom::PinnedToolbarAction action) {
+  return base::test::RunUntil([&]() { return IsPinnedActionVisible(action); });
+}
+
+bool WebUIToolbarWebViewTestBase::WaitForPinnedActionHidden(
+    toolbar_ui_api::mojom::PinnedToolbarAction action) {
+  return base::test::RunUntil([&]() { return !IsPinnedActionVisible(action); });
+}
+
 void WebUIToolbarWebViewTestBase::EnableBatterySaverButton(
     content::WebContents* webui_web_contents) {
   if (!webui_web_contents) {
@@ -214,46 +260,10 @@ WebUIToolbarWebViewTestBase::WebUIToolbarWebViewTestBase(
   feature_list_.InitWithFeatures(enabled, disabled);
 }
 
-void WebUIToolbarWebViewTestBase::SimulateDropOnToolbar(
-    content::WebContents* web_contents,
-    const std::string& text) {
-  EXPECT_TRUE(content::ExecJs(web_contents, base::StringPrintf(R"(
-    const toolbarApp = document.querySelector('toolbar-app');
-    const dataTransfer = new DataTransfer();
-    dataTransfer.setData('text/plain', "%s");
-    const dropEvent = new DragEvent('drop', {
-      bubbles: true,
-      cancelable: true,
-      dataTransfer: dataTransfer
-    });
-    toolbarApp.dispatchEvent(dropEvent);
-  )",
-                                                               text.c_str())));
-}
-
-void WebUIToolbarWebViewTestBase::SimulateUriListDropOnToolbar(
-    content::WebContents* web_contents,
-    const std::string& url) {
-  EXPECT_TRUE(content::ExecJs(web_contents, base::StringPrintf(R"(
-    const toolbarApp = document.querySelector('toolbar-app');
-    const dataTransfer = new DataTransfer();
-    dataTransfer.setData('text/uri-list', "%s");
-    const dropEvent = new DragEvent('drop', {
-      bubbles: true,
-      cancelable: true,
-      dataTransfer: dataTransfer
-    });
-    toolbarApp.dispatchEvent(dropEvent);
-  )",
-                                                               url.c_str())));
-}
-
 scoped_refptr<const extensions::Extension>
-WebUIToolbarWebViewTestBase::LoadAndPinExtension(
-    WebUIToolbarWebView* webui_toolbar_view,
-    base::ScopedTempDir& temp_dir,
-    bool has_background_script,
-    bool has_popup) {
+WebUIToolbarWebViewTestBase::LoadAndPinExtension(base::ScopedTempDir& temp_dir,
+                                                 bool has_background_script,
+                                                 bool has_popup) {
   scoped_refptr<const extensions::Extension> extension =
       LoadExtension(temp_dir, has_background_script, has_popup);
   if (!extension) {
@@ -264,10 +274,21 @@ WebUIToolbarWebViewTestBase::LoadAndPinExtension(
   ToolbarActionsModel::Get(browser()->GetProfile())
       ->SetActionVisibility(extension->id(), true);
 
-  base::RunLoop run_loop;
-  webui_toolbar_view->extensions_container_.OnActionPoppedOut(
-      run_loop.QuitClosure());
-  run_loop.Run();
+  // Wait for the extension's button to be shown. The anchor is only registered
+  // once the button's animations complete, so this also waits for it to finish
+  // animating in. Also wait for the extensions menu button, which is added
+  // along with the first extension button. Even when both buttons are
+  // registered at the same time, each tracked element's visibility is sent to
+  // the browser in a separate message, so one may be received before the
+  // other.
+  auto* container = static_cast<WebUIToolbarExtensionsContainer*>(
+      ExtensionsContainer::From(*browser()));
+  if (!base::test::RunUntil([&]() {
+        return container->GetExtensionAnchor(extension->id()) != nullptr &&
+               container->GetExtensionAnchor("") != nullptr;
+      })) {
+    return nullptr;
+  }
 
   return extension;
 }

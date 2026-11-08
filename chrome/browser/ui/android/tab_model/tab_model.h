@@ -14,8 +14,6 @@
 #include "chrome/browser/flags/android/chrome_session_state.h"
 #include "chrome/browser/tab_list/tab_list_interface.h"
 #include "chrome/browser/ui/android/tab_model/android_live_tab_context.h"
-#include "components/omnibox/browser/location_bar_model.h"
-#include "components/omnibox/browser/location_bar_model_delegate.h"
 #include "components/sessions/core/session_id.h"
 #include "components/sync_sessions/synced_window_delegate.h"
 #include "ui/base/unowned_user_data/scoped_unowned_user_data.h"
@@ -211,17 +209,31 @@ class TabModel : public TabListInterface {
   //
   // Multiple lines are not supported by IFTTT.
   // clang-format off
-  // LINT.ThenChange(//tools/metrics/histograms/metadata/new_tab_page/enums.xml:TabLaunchType,//chrome/android/java/src/org/chromium/chrome/browser/tabmodel/ChromeTabCreator.java,//chrome/browser/tabpersistence/android/java/src/org/chromium/chrome/browser/tabpersistence/flatbuffer/tab_state_common.fbs,//chrome/browser/tabpersistence/android/java/src/org/chromium/chrome/browser/tabpersistence/FlatBufferTabStateSerializer.java)
+  // LINT.ThenChange(//tools/metrics/histograms/metadata/new_tab_page/enums.xml:TabLaunchType,//chrome/browser/tab/java/src/org/chromium/chrome/browser/tab/TabLaunchTypeUtils.java,//chrome/browser/tabpersistence/android/java/src/org/chromium/chrome/browser/tabpersistence/flatbuffer/tab_state_common.fbs,//chrome/browser/tabpersistence/android/java/src/org/chromium/chrome/browser/tabpersistence/FlatBufferTabStateSerializer.java)
   // clang-format on
 
   // Various ways tabs can be closed.
   // Values must be numbered from 0 and can't have gaps.
-  // GENERATED_JAVA_ENUM_PACKAGE: org.chromium.chrome.browser.tab
+  // GENERATED_JAVA_ENUM_PACKAGE: org.chromium.chrome.browser.tabmodel
   enum class TabClosingSource {
     // Tab closing from all other sources.
     UNKNOWN,
-    // Tab closing from tablet tab strip.
+    // Tab closing is from tablet tab strip.
     TABLET_TAB_STRIP,
+    // Tab closing is from keyboard shortcut.
+    KEYBOARD_SHORTCUT,
+    // Tab closing is from vertical tab strip.
+    VERTICAL_TAB_STRIP,
+    // Tab closing is from Open in app.
+    OPEN_IN_APP,
+    // Tab closing is from Quick Delete.
+    QUICK_DELETE,
+    // Tab closing is from grid tab switcher.
+    GRID_TAB_SWITCHER,
+    // Tab closing is from bottom tab group strip.
+    BOTTOM_TAB_GROUP_STRIP,
+    // Tab closing is from Clear Browsing Data.
+    CLEAR_BROWSING_DATA,
     // Must be last.
     SIZE
   };
@@ -356,8 +368,6 @@ class TabModel : public TabListInterface {
   // Instructs the TabModel to broadcast a notification that all tabs are now
   // loaded from storage.
   void BroadcastSessionRestoreComplete();
-
-  LocationBarModel* GetLocationBarModel();
 
   // Sets the `SessionID`.
   //

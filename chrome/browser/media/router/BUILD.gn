@@ -22,7 +22,6 @@ source_set("data_decoder_util") {
   ]
   public_deps = [ "//services/data_decoder/public/cpp" ]
   deps = [ "//base" ]
-  configs += [ "//build/config/compiler:wexit_time_destructors" ]
 }
 
 source_set("logger_list") {
@@ -36,7 +35,6 @@ source_set("logger_list") {
     "//components/media_router/browser",
     "//content/public/browser",
   ]
-  configs += [ "//build/config/compiler:wexit_time_destructors" ]
 }
 
 static_library("media_router_feature") {
@@ -60,7 +58,6 @@ static_library("media_router_feature") {
     "//crypto",
     "//media",
   ]
-  configs += [ "//build/config/compiler:wexit_time_destructors" ]
 
   if (is_chromeos) {
     deps += [ "//chromeos/ash/components/browser_context_helper" ]
@@ -75,7 +72,6 @@ static_library("router") {
     "presentation/chrome_local_presentation_manager_factory.h",
   ]
   public_deps = [
-    "//chrome/browser:browser_public_dependencies",
     "//components/media_router/browser",
     "//components/media_router/common",
     "//components/media_router/common/mojom:media_router",
@@ -104,7 +100,6 @@ static_library("router") {
     "//third_party/icu",
     "//url",
   ]
-  configs += [ "//build/config/compiler:wexit_time_destructors" ]
 
   if (!is_android) {
     sources += [
@@ -254,7 +249,6 @@ if (!is_android) {
       "//media/cast:common",
       "//services/metrics/public/cpp:ukm_builders",
     ]
-    public_deps = [ "//chrome/browser:browser_public_dependencies" ]
   }
 }
 
@@ -266,10 +260,10 @@ if (!is_android) {
     ]
     deps = [
       ":router",
+      "//chrome/app:generated_resources",
       "//chrome/browser/media/router:media_router_feature",
       "//chrome/browser/ui/media_router",
     ]
-    public_deps = [ "//chrome/browser:browser_public_dependencies" ]
   }
 }
 

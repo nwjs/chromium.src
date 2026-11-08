@@ -694,6 +694,11 @@ class SameDocumentNavigationObserver : public content::WebContentsObserver {
   // WebContentsObserver:
   void DidFinishNavigation(
       content::NavigationHandle* navigation_handle) override {
+    // Ignore subframe or prerender navigations (such as background DSE
+    // prewarm navigations) so they don't trigger the IsSameDocument() assert.
+    if (!navigation_handle->IsInPrimaryMainFrame()) {
+      return;
+    }
     ASSERT_TRUE(navigation_handle->IsSameDocument());
     run_loop_.Quit();
   }
@@ -3097,9 +3102,18 @@ IN_PROC_BROWSER_TEST_P(
 // This test checks that all mixed content requests from a dedicated worker are
 // blocked regardless of the settings in WebPreferences when
 // block-all-mixed-content CSP is set with allow_running_insecure_content=false.
+// TODO(crbug.com/41417895): Flaky on Linux due to background worker execution
+// races.
+#if BUILDFLAG(IS_LINUX)
+#define MAYBE_MixedContentSettingsWithBlockingCSP_DisallowRunningInsecureContent \
+  DISABLED_MixedContentSettingsWithBlockingCSP_DisallowRunningInsecureContent
+#else
+#define MAYBE_MixedContentSettingsWithBlockingCSP_DisallowRunningInsecureContent \
+  MixedContentSettingsWithBlockingCSP_DisallowRunningInsecureContent
+#endif
 IN_PROC_BROWSER_TEST_P(
     SSLUIWorkerFetchTest,
-    MixedContentSettingsWithBlockingCSP_DisallowRunningInsecureContent) {
+    MAYBE_MixedContentSettingsWithBlockingCSP_DisallowRunningInsecureContent) {
   ChromeContentBrowserClientForMixedContentTest browser_client;
   content::ScopedContentBrowserClientSetting setting(&browser_client);
 

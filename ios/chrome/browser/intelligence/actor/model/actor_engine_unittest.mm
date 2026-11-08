@@ -4,22 +4,31 @@
 
 #import "ios/chrome/browser/intelligence/actor/model/actor_engine.h"
 
+#import "base/functional/callback_helpers.h"
+#import "base/memory/raw_ref.h"
+#import "base/memory/weak_ptr.h"
 #import "base/run_loop.h"
+#import "base/test/bind.h"
 #import "base/test/run_until.h"
 #import "base/test/scoped_feature_list.h"
 #import "base/test/test_future.h"
 #import "components/actor/core/aggregated_journal.h"
 #import "components/actor/core/safety_list_manager.h"
+#import "components/actor/core/task_source_info.h"
 #import "components/actor/public/mojom/actor_types.mojom.h"
 #import "components/optimization_guide/proto/features/actions_data.pb.h"
+#import "components/origin_gating/core/decision_source.h"
+#import "components/origin_gating/core/gateable_event.h"
+#import "components/origin_gating/core/gating_decision.h"
 #import "components/origin_gating/core/origin_gating_checker.h"
 #import "components/origin_gating/core/origin_gating_configuration.h"
 #import "components/origin_gating/core/origin_gating_registration.h"
 #import "components/origin_gating/core/origin_gating_service.h"
-#import "components/origin_gating/core/types.h"
 #import "ios/chrome/browser/intelligence/actor/model/actor_task.h"
 #import "ios/chrome/browser/intelligence/actor/model/actor_web_state_policy_decider.h"
+#import "ios/chrome/browser/intelligence/actor/public/actor_task_intervention_delegate.h"
 #import "ios/chrome/browser/intelligence/actor/public/actor_types.h"
+#import "ios/chrome/browser/intelligence/actor/tools/model/actor_tool.h"
 #import "ios/chrome/browser/intelligence/actor/tools/model/actor_tool_factory.h"
 #import "ios/chrome/browser/intelligence/actor/tools/model/actor_tool_request.h"
 #import "ios/chrome/browser/intelligence/actor/tools/model/tool_controller.h"
@@ -34,14 +43,84 @@
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
 #import "ios/chrome/browser/url_loading/model/url_loading_browser_agent.h"
 #import "ios/chrome/browser/url_loading/model/url_loading_notifier_browser_agent.h"
-#import "ios/web/public/test/fakes/fake_navigation_manager.h"
 #import "ios/web/public/test/fakes/fake_web_state.h"
 #import "ios/web/public/test/web_task_environment.h"
 #import "testing/gtest/include/gtest/gtest.h"
 #import "testing/platform_test.h"
 
+@interface EngineFakeInterventionDelegate
+    : NSObject <ActorTaskInterventionDelegate>
+@end
+
+@implementation EngineFakeInterventionDelegate
+@end
+
 namespace actor {
 namespace {
+// Returns the provenance attributed to tasks created by these tests.
+TaskSourceInfo TestSource() {
+  return TaskSourceInfo(TaskSourceInfo::Client::kTest, /*id=*/std::nullopt);
+}
+
+// State shared between a test and the `ControllableActorTool`s it creates,
+// letting the test complete validation and execution by hand.
+struct ControllableToolHooks {
+  // Completes the pending `Validate()` call when run.
+  ToolExecutionCallback validate_callback;
+  // Completes the pending `Execute()` call when run.
+  ToolExecutionCallback execute_callback;
+  // If set, run synchronously from within `Execute()`.
+  base::OnceClosure on_execute;
+  // Whether the most recently created tool has been destroyed.
+  bool tool_destroyed = false;
+};
+
+// A tool that only completes validation and execution when the test runs the
+// callbacks stored in its `ControllableToolHooks`.
+class ControllableActorTool : public ActorTool {
+ public:
+  explicit ControllableActorTool(ControllableToolHooks& hooks) : hooks_(hooks) {
+    hooks_->tool_destroyed = false;
+  }
+  ~ControllableActorTool() override { hooks_->tool_destroyed = true; }
+
+  void Validate(ToolExecutionCallback callback) override {
+    hooks_->validate_callback = std::move(callback);
+  }
+
+  void Execute(ToolExecutionCallback callback) override {
+    hooks_->execute_callback = std::move(callback);
+    if (hooks_->on_execute) {
+      std::move(hooks_->on_execute).Run();
+    }
+  }
+
+  base::WeakPtr<web::WebState> GetTargetWebState() const override {
+    return nullptr;
+  }
+  ToolType GetToolType() const override { return ToolType::kWait; }
+  std::string DebugString() const override { return "ControllableActorTool"; }
+
+ private:
+  const raw_ref<ControllableToolHooks> hooks_;
+};
+
+// Creates `ControllableActorTool`s bound to `hooks`.
+class ControllableActorToolFactory : public ActorToolFactory {
+ public:
+  ControllableActorToolFactory(ProfileIOS* profile,
+                               ControllableToolHooks& hooks)
+      : ActorToolFactory(profile), hooks_(hooks) {}
+
+  base::expected<std::unique_ptr<ActorTool>, ToolExecutionResult> CreateTool(
+      const ActorToolRequest& request,
+      ToolDelegate* tool_delegate) override {
+    return std::make_unique<ControllableActorTool>(*hooks_);
+  }
+
+ private:
+  const raw_ref<ControllableToolHooks> hooks_;
+};
 
 struct DelegateCall {
   ToolType tool_type;
@@ -65,7 +144,18 @@ class MockActorEngineExecutionUpdatesDelegate
   bool on_will_execute_called_ = false;
 };
 
+enum class TestTool {
+  kClick = 1,
+};
+
 }  // namespace
+}  // namespace actor
+
+template <>
+const origin_gating::ToolDomain
+    origin_gating::ToolDomain::kInstance<actor::TestTool>{};
+
+namespace actor {
 
 // Test fixture for ActorEngine.
 class ActorEngineTest : public PlatformTest {
@@ -76,9 +166,9 @@ class ActorEngineTest : public PlatformTest {
     PlatformTest::SetUp();
     profile_ = TestProfileIOS::Builder().Build();
     journal_ = std::make_unique<AggregatedJournal>();
-    tool_factory_ = std::make_unique<ActorToolFactory>(profile_.get());
+    tool_factory_ = CreateToolFactory();
     task_ = std::make_unique<ActorTask>(
-        ActorTaskId(1), "Test Task",
+        ActorTaskId(1), "Test Task", TestSource(),
         /*allow_incognito_web_states=*/false, journal_.get(),
         tool_factory_.get(), BrowserListFactory::GetForProfile(profile_.get()));
     engine_ = std::make_unique<ActorEngine>(&execution_updates_delegate_,
@@ -92,6 +182,12 @@ class ActorEngineTest : public PlatformTest {
     journal_.reset();
     profile_.reset();
     PlatformTest::TearDown();
+  }
+
+  // Returns the factory used by the task to create tools. Overridden by
+  // fixtures that drive tool validation and execution by hand.
+  virtual std::unique_ptr<ActorToolFactory> CreateToolFactory() {
+    return std::make_unique<ActorToolFactory>(profile_.get());
   }
 
   void SetNextActionIndex(size_t index) { engine_->next_action_index_ = index; }
@@ -114,8 +210,20 @@ class ActorEngineTest : public PlatformTest {
     return engine_->tool_controller_.get();
   }
 
+  // Runs tasks until the current tool is executing. Returns false on timeout.
+  [[nodiscard]] bool WaitForToolInvoking() {
+    return base::test::RunUntil([this]() {
+      return GetToolController()->state() == ToolController::State::kInvoking;
+    });
+  }
+
   void CompleteActions(ActionResult&& result) {
     engine_->CompleteActions(std::move(result));
+  }
+
+  void SetOriginGatingRegistration(
+      std::unique_ptr<origin_gating::OriginGatingRegistration> registration) {
+    engine_->origin_gating_registration_ = std::move(registration);
   }
 
   base::test::ScopedFeatureList scoped_feature_list_;
@@ -136,6 +244,19 @@ TEST_F(ActorEngineTest, ToolDelegateForwardingAndOwnership) {
   EXPECT_EQ(&tool_delegate->GetJournal(), journal_.get());
   EXPECT_EQ(&tool_delegate->GetToolFactory(), tool_factory_.get());
   EXPECT_NE(tool_delegate->GetActorTaskFormFillingHandler(), nullptr);
+}
+
+// Tests that setting an intervention delegate on `ActorTask` initializes the
+// form filling handler on `ActorEngine`.
+TEST_F(ActorEngineTest, SetInterventionDelegateForwarding) {
+  EngineFakeInterventionDelegate* delegate =
+      [[EngineFakeInterventionDelegate alloc] init];
+  task_->SetInterventionDelegate(delegate);
+
+  ToolDelegate* tool_delegate = engine_.get();
+  EXPECT_NE(tool_delegate->GetActorTaskFormFillingHandler(), nullptr);
+
+  task_->SetInterventionDelegate(nil);
 }
 
 // Tests that ToolDelegate InterruptFromTool and UninterruptFromTool change
@@ -289,6 +410,57 @@ TEST_F(ActorEngineTest, ActMultipleSuccess) {
   EXPECT_EQ(results.size(), 2U);
   EXPECT_TRUE(results[0].tool_result.IsOk());
   EXPECT_TRUE(results[1].tool_result.IsOk());
+  EXPECT_EQ(ToolController::State::kReady, GetToolController()->state());
+}
+
+// Tests that a failed tool creation leaves the `ToolController` ready for the
+// next `Act()`.
+TEST_F(ActorEngineTest, ActRecoversAfterToolCreationFailure) {
+  std::vector<std::unique_ptr<ActorToolRequest>> failing_actions;
+  // An action with no case set fails tool creation.
+  failing_actions.push_back(
+      std::make_unique<ActorToolRequest>(optimization_guide::proto::Action()));
+  base::test::TestFuture<std::vector<ActionResult>> failing_future;
+  engine_->Act(std::move(failing_actions), failing_future.GetCallback());
+
+  std::vector<ActionResult> failing_results = failing_future.Take();
+  ASSERT_EQ(1U, failing_results.size());
+  EXPECT_FALSE(failing_results[0].tool_result.IsOk());
+  EXPECT_EQ(ToolController::State::kReady, GetToolController()->state());
+
+  std::vector<std::unique_ptr<ActorToolRequest>> actions;
+  actions.push_back(MakeSuccessfulActorToolRequest());
+  base::test::TestFuture<std::vector<ActionResult>> future;
+  engine_->Act(std::move(actions), future.GetCallback());
+
+  std::vector<ActionResult> results = future.Take();
+  ASSERT_EQ(1U, results.size());
+  EXPECT_TRUE(results[0].tool_result.IsOk());
+  EXPECT_EQ(ToolController::State::kReady, GetToolController()->state());
+}
+
+// Tests that a failed tool validation leaves the `ToolController` ready for the
+// next `Act()`.
+TEST_F(ActorEngineTest, ActRecoversAfterToolValidationFailure) {
+  std::vector<std::unique_ptr<ActorToolRequest>> failing_actions;
+  failing_actions.push_back(MakeFailingActorToolRequest());
+  base::test::TestFuture<std::vector<ActionResult>> failing_future;
+  engine_->Act(std::move(failing_actions), failing_future.GetCallback());
+
+  std::vector<ActionResult> failing_results = failing_future.Take();
+  ASSERT_EQ(1U, failing_results.size());
+  EXPECT_FALSE(failing_results[0].tool_result.IsOk());
+  EXPECT_EQ(ToolController::State::kReady, GetToolController()->state());
+
+  std::vector<std::unique_ptr<ActorToolRequest>> actions;
+  actions.push_back(MakeSuccessfulActorToolRequest());
+  base::test::TestFuture<std::vector<ActionResult>> future;
+  engine_->Act(std::move(actions), future.GetCallback());
+
+  std::vector<ActionResult> results = future.Take();
+  ASSERT_EQ(1U, results.size());
+  EXPECT_TRUE(results[0].tool_result.IsOk());
+  EXPECT_EQ(ToolController::State::kReady, GetToolController()->state());
 }
 
 // Tests the helper method that maps the 1-based `next_action_index_` to the
@@ -399,6 +571,8 @@ TEST_F(ActorEngineTest, ActWithNullTool) {
   EXPECT_FALSE(results[0].tool_result.IsOk());
   EXPECT_EQ(results[0].tool_result.code(),
             mojom::ActionResultCode::kToolUnknown);
+  EXPECT_TRUE(HasJournalEntryWithDetail(*journal_, "ExecutionEngine::Act",
+                                        "Actions[0]", "null tool"));
 }
 
 // Test that FailCurrentTool is a safe no-op when the engine is not in the
@@ -410,38 +584,174 @@ TEST_F(ActorEngineTest, FailCurrentToolWhenNotInToolInvoke) {
   EXPECT_EQ(GetState(), ActorEngine::State::kInit);
 }
 
-// Test that calling FailCurrentTool while a tool is in-flight aborts the tool,
-// transitions the engine to kFailed, and reports the error code.
-TEST_F(ActorEngineTest, FailCurrentToolMidExecution) {
-  // Create a WaitAction with a 10-second duration so it stays in-flight.
-  optimization_guide::proto::Action action;
-  auto* wait = action.mutable_wait();
-  wait->set_wait_time_ms(10000);
+// Test that IsAcceptableNavigationDestination returns Ok when
+// kActorOriginGating is disabled.
+TEST_F(ActorEngineTest, IsAcceptableNavigationDestination_FeatureDisabled) {
+  base::test::TestFuture<ToolExecutionResult> future;
+  engine_->IsAcceptableNavigationDestination(GURL("https://example.com"),
+                                             future.GetCallback());
 
-  std::vector<std::unique_ptr<ActorToolRequest>> actions;
-  actions.push_back(std::make_unique<ActorToolRequest>(action));
+  EXPECT_TRUE(future.Get().IsOk());
+}
+
+// Test fixture for `FailCurrentTool()`, driving a tool whose validation and
+// execution are completed by hand.
+class ActorEngineFailCurrentToolTest : public ActorEngineTest {
+ protected:
+  std::unique_ptr<ActorToolFactory> CreateToolFactory() override {
+    return std::make_unique<ControllableActorToolFactory>(profile_.get(),
+                                                          hooks_);
+  }
+
+  // Starts a single-action sequence. Returns once the tool awaits validation.
+  void StartAction(ActCallback callback) {
+    std::vector<std::unique_ptr<ActorToolRequest>> actions;
+    actions.push_back(MakeSuccessfulActorToolRequest());
+    engine_->Act(std::move(actions), std::move(callback));
+    ASSERT_FALSE(hooks_.validate_callback.is_null());
+  }
+
+  // Starts a single-action sequence and completes validation. Returns once the
+  // tool is executing.
+  void StartActionAndWaitForInvoking(ActCallback callback) {
+    ASSERT_NO_FATAL_FAILURE(StartAction(std::move(callback)));
+    CompleteValidation(ToolExecutionResult::Ok());
+    ASSERT_TRUE(WaitForToolInvoking());
+  }
+
+  void CompleteValidation(ToolExecutionResult result) {
+    std::move(hooks_.validate_callback).Run(std::move(result));
+  }
+
+  void CompleteExecution(ToolExecutionResult result) {
+    std::move(hooks_.execute_callback).Run(std::move(result));
+  }
+
+  ControllableToolHooks hooks_;
+};
+
+// Test that `FailCurrentTool` fails an executing tool without waiting for it to
+// complete.
+TEST_F(ActorEngineFailCurrentToolTest, FailCurrentToolMidExecution) {
+  base::test::TestFuture<std::vector<ActionResult>> future;
+  ASSERT_NO_FATAL_FAILURE(StartActionAndWaitForInvoking(future.GetCallback()));
+
+  engine_->FailCurrentTool(
+      mojom::ActionResultCode::kTriggeredNavigationBlocked);
+
+  EXPECT_FALSE(hooks_.tool_destroyed);
+  EXPECT_EQ(GetToolController()->state(), ToolController::State::kInvoking);
+  EXPECT_FALSE(future.IsReady());
+
+  std::vector<ActionResult> results = future.Take();
+  ASSERT_EQ(results.size(), 1U);
+  EXPECT_EQ(results[0].tool_result.code(),
+            mojom::ActionResultCode::kTriggeredNavigationBlocked);
+  EXPECT_EQ(GetState(), ActorEngine::State::kFailed);
+  EXPECT_TRUE(hooks_.tool_destroyed);
+}
+
+// Test that `FailCurrentTool` can be called from within the tool.
+TEST_F(ActorEngineFailCurrentToolTest, FailCurrentToolFromWithinTool) {
+  hooks_.on_execute = base::BindLambdaForTesting([this]() {
+    engine_->FailCurrentTool(
+        mojom::ActionResultCode::kTriggeredNavigationBlocked);
+    EXPECT_FALSE(hooks_.tool_destroyed);
+  });
 
   base::test::TestFuture<std::vector<ActionResult>> future;
-  engine_->Act(std::move(actions), future.GetCallback());
+  ASSERT_NO_FATAL_FAILURE(StartAction(future.GetCallback()));
+  CompleteValidation(ToolExecutionResult::Ok());
 
-  // Wait until tool validation completes and the tool starts executing.
-  ASSERT_TRUE(base::test::RunUntil([this]() {
-    ToolController* controller = GetToolController();
-    return controller &&
-           controller->state() == ToolController::State::kInvoking;
-  }));
-  ASSERT_EQ(GetState(), ActorEngine::State::kToolInvoke);
+  std::vector<ActionResult> results = future.Take();
+  ASSERT_TRUE(hooks_.on_execute.is_null());
+  ASSERT_EQ(results.size(), 1U);
+  EXPECT_EQ(results[0].tool_result.code(),
+            mojom::ActionResultCode::kTriggeredNavigationBlocked);
+}
 
-  // Preemptively fail the in-flight tool.
+// Test that the failure wins over a tool result reported after it.
+TEST_F(ActorEngineFailCurrentToolTest, FailCurrentToolBeforeToolResult) {
+  base::test::TestFuture<std::vector<ActionResult>> future;
+  ASSERT_NO_FATAL_FAILURE(StartActionAndWaitForInvoking(future.GetCallback()));
+
+  engine_->FailCurrentTool(
+      mojom::ActionResultCode::kTriggeredNavigationBlocked);
+  CompleteExecution(ToolExecutionResult::Ok());
+
+  std::vector<ActionResult> results = future.Take();
+  ASSERT_EQ(results.size(), 1U);
+  EXPECT_EQ(results[0].tool_result.code(),
+            mojom::ActionResultCode::kTriggeredNavigationBlocked);
+}
+
+// Test that a tool result reported before the failure wins.
+TEST_F(ActorEngineFailCurrentToolTest, ToolResultBeforeFailCurrentTool) {
+  base::test::TestFuture<std::vector<ActionResult>> future;
+  ASSERT_NO_FATAL_FAILURE(StartActionAndWaitForInvoking(future.GetCallback()));
+
+  CompleteExecution(ToolExecutionResult::Ok());
   engine_->FailCurrentTool(
       mojom::ActionResultCode::kTriggeredNavigationBlocked);
 
   std::vector<ActionResult> results = future.Take();
   ASSERT_EQ(results.size(), 1U);
-  EXPECT_FALSE(results[0].tool_result.IsOk());
+  EXPECT_TRUE(results[0].tool_result.IsOk());
+  EXPECT_EQ(GetState(), ActorEngine::State::kCompleted);
+}
+
+// Test that a failure reported while the tool is being validated is dropped,
+// since the tool has not acted yet.
+TEST_F(ActorEngineFailCurrentToolTest, FailCurrentToolDuringValidationIgnored) {
+  base::test::TestFuture<std::vector<ActionResult>> future;
+  ASSERT_NO_FATAL_FAILURE(StartAction(future.GetCallback()));
+  ASSERT_EQ(GetState(), ActorEngine::State::kToolInvoke);
+
+  engine_->FailCurrentTool(
+      mojom::ActionResultCode::kTriggeredNavigationBlocked);
+  CompleteValidation(ToolExecutionResult::Ok());
+  ASSERT_TRUE(WaitForToolInvoking());
+  CompleteExecution(ToolExecutionResult::Ok());
+
+  std::vector<ActionResult> results = future.Take();
+  ASSERT_EQ(results.size(), 1U);
+  EXPECT_TRUE(results[0].tool_result.IsOk());
+}
+
+// Test that a failure reported during validation does not replace the tool's
+// own validation error.
+TEST_F(ActorEngineFailCurrentToolTest,
+       FailCurrentToolDuringValidationKeepsValidationError) {
+  base::test::TestFuture<std::vector<ActionResult>> future;
+  ASSERT_NO_FATAL_FAILURE(StartAction(future.GetCallback()));
+
+  engine_->FailCurrentTool(
+      mojom::ActionResultCode::kTriggeredNavigationBlocked);
+  CompleteValidation(
+      ToolExecutionResult(mojom::ActionResultCode::kArgumentsInvalid));
+
+  std::vector<ActionResult> results = future.Take();
+  ASSERT_EQ(results.size(), 1U);
   EXPECT_EQ(results[0].tool_result.code(),
-            mojom::ActionResultCode::kTriggeredNavigationBlocked);
-  EXPECT_EQ(GetState(), ActorEngine::State::kFailed);
+            mojom::ActionResultCode::kArgumentsInvalid);
+}
+
+// Test that a failure posted for a cancelled tool does not leak into the
+// result of the next tool.
+TEST_F(ActorEngineFailCurrentToolTest, FailCurrentToolDoesNotLeakIntoNextTool) {
+  ASSERT_NO_FATAL_FAILURE(StartActionAndWaitForInvoking(base::DoNothing()));
+  engine_->FailCurrentTool(
+      mojom::ActionResultCode::kTriggeredNavigationBlocked);
+  engine_->CancelOngoingAndPendingActions(
+      ActorEngine::EngineResult::kCancelled);
+
+  base::test::TestFuture<std::vector<ActionResult>> future;
+  ASSERT_NO_FATAL_FAILURE(StartActionAndWaitForInvoking(future.GetCallback()));
+  CompleteExecution(ToolExecutionResult::Ok());
+
+  std::vector<ActionResult> results = future.Take();
+  ASSERT_EQ(results.size(), 1U);
+  EXPECT_TRUE(results[0].tool_result.IsOk());
 }
 
 class ActorEngineOriginGatingTest : public ActorEngineTest {
@@ -460,8 +770,8 @@ class ActorEngineOriginGatingTest : public ActorEngineTest {
     checker_ = nullptr;
     // Reset the singleton to prevent safety list rules from leaking into
     // subsequent tests.
-    actor::ParseSafetyListsForTesting(actor::SafetyListManager::GetInstance(),
-                                      "{}");
+    actor::SetSafetyListsForTesting(actor::SafetyListManager::GetInstance(),
+                                    "{}");
     ActorEngineTest::TearDown();
   }
 
@@ -507,8 +817,8 @@ TEST_F(ActorEngineOriginGatingTest, BlocksListedUrl) {
       {"from": "https://safe.com", "to": "https://malicious.com"}
     ]
   })json";
-  actor::ParseSafetyListsForTesting(actor::SafetyListManager::GetInstance(),
-                                    mock_rules_json);
+  actor::SetSafetyListsForTesting(actor::SafetyListManager::GetInstance(),
+                                  mock_rules_json);
 
   base::test::TestFuture<std::unique_ptr<origin_gating::GatingDecisionContext>,
                          origin_gating::GatingDecision>
@@ -549,8 +859,8 @@ TEST_F(ActorEngineOriginGatingTest, AllowsListedUrl) {
       {"from": "https://safe.com", "to": "https://trusted.com"}
     ]
   })";
-  actor::ParseSafetyListsForTesting(actor::SafetyListManager::GetInstance(),
-                                    mock_rules_json);
+  actor::SetSafetyListsForTesting(actor::SafetyListManager::GetInstance(),
+                                  mock_rules_json);
 
   base::test::TestFuture<std::unique_ptr<origin_gating::GatingDecisionContext>,
                          origin_gating::GatingDecision>
@@ -574,8 +884,8 @@ TEST_F(ActorEngineOriginGatingTest, BlocksActionOnBlockedUrl) {
       {"from": "https://malicious.com", "to": "https://malicious.com"}
     ]
   })json";
-  actor::ParseSafetyListsForTesting(actor::SafetyListManager::GetInstance(),
-                                    mock_rules_json);
+  actor::SetSafetyListsForTesting(actor::SafetyListManager::GetInstance(),
+                                  mock_rules_json);
 
   base::test::TestFuture<std::unique_ptr<origin_gating::GatingDecisionContext>,
                          origin_gating::GatingDecision>
@@ -583,7 +893,8 @@ TEST_F(ActorEngineOriginGatingTest, BlocksActionOnBlockedUrl) {
   checker_->ComputeGatingDecision(
       std::make_unique<origin_gating::GatingDecisionContext>(),
       origin_gating::GateableEvent(origin_gating::PageActionEvent{
-          .destination = GURL("https://malicious.com")}),
+          .destination = GURL("https://malicious.com"),
+          .tool = origin_gating::ClientTool(TestTool::kClick)}),
       future.GetCallback());
 
   const origin_gating::GatingDecision& decision = future.Get<1>();
@@ -598,8 +909,8 @@ TEST_F(ActorEngineOriginGatingTest, HandlesEmptySourceUrl) {
       {"from": "https://malicious.com", "to": "https://malicious.com"}
     ]
   })json";
-  actor::ParseSafetyListsForTesting(actor::SafetyListManager::GetInstance(),
-                                    mock_rules_json);
+  actor::SetSafetyListsForTesting(actor::SafetyListManager::GetInstance(),
+                                  mock_rules_json);
 
   base::test::TestFuture<std::unique_ptr<origin_gating::GatingDecisionContext>,
                          origin_gating::GatingDecision>
@@ -615,16 +926,17 @@ TEST_F(ActorEngineOriginGatingTest, HandlesEmptySourceUrl) {
   EXPECT_EQ(decision.attribution, ActorCustomPredicate::kSafetyList);
 }
 
-// Test that a NavigateAction executed through ActorEngine is blocked when
-// disallowed by the OriginGatingChecker safety list.
+// Test that a NavigateAction executed through ActorEngine succeeds at request
+// time (since kNavigationRequest fails open) and is aborted with
+// kTriggeredNavigationBlocked when ShouldAllowResponse blocks the response.
 TEST_F(ActorEngineOriginGatingTest, Act_NavigationBlockedByOriginGating) {
   const std::string mock_rules_json = R"json({
     "navigation_blocked": [
       {"from": "https://safe.com", "to": "https://malicious.com"}
     ]
   })json";
-  actor::ParseSafetyListsForTesting(actor::SafetyListManager::GetInstance(),
-                                    mock_rules_json);
+  actor::SetSafetyListsForTesting(actor::SafetyListManager::GetInstance(),
+                                  mock_rules_json);
 
   BrowserList* browser_list = BrowserListFactory::GetForProfile(profile_.get());
   auto test_browser = std::make_unique<TestBrowser>(profile_.get());
@@ -633,14 +945,21 @@ TEST_F(ActorEngineOriginGatingTest, Act_NavigationBlockedByOriginGating) {
   UrlLoadingBrowserAgent::CreateForBrowser(test_browser.get());
 
   auto fake_web_state = std::make_unique<web::FakeWebState>();
+  web::FakeWebState* web_state_ptr = fake_web_state.get();
   fake_web_state->SetBrowserState(profile_.get());
-  fake_web_state->SetNavigationManager(
-      std::make_unique<web::FakeNavigationManager>());
+  auto navigation_manager =
+      std::make_unique<ResponseSimulatingNavigationManager>(web_state_ptr);
+  ResponseSimulatingNavigationManager* navigation_manager_ptr =
+      navigation_manager.get();
+  fake_web_state->SetNavigationManager(std::move(navigation_manager));
   fake_web_state->SetCurrentURL(GURL("https://safe.com"));
   int tab_id = fake_web_state->GetUniqueIdentifier().identifier();
   test_browser->GetWebStateList()->InsertWebState(
       std::move(fake_web_state),
       WebStateList::InsertionParams::AtIndex(0).Activate());
+
+  // Attach ActorWebStatePolicyDecider to the WebState.
+  task_->AddControlledWebState(web_state_ptr);
 
   optimization_guide::proto::Action action;
   action.mutable_navigate()->set_url("https://malicious.com");
@@ -650,13 +969,16 @@ TEST_F(ActorEngineOriginGatingTest, Act_NavigationBlockedByOriginGating) {
   actions.push_back(std::make_unique<ActorToolRequest>(action));
 
   base::test::TestFuture<std::vector<ActionResult>> future;
-  engine_->Act(std::move(actions), future.GetCallback());
+  task_->Act(std::move(actions), "Navigating", future.GetCallback());
   const std::vector<ActionResult>& results = future.Get();
 
   ASSERT_EQ(1u, results.size());
   EXPECT_FALSE(results[0].tool_result.IsOk());
   EXPECT_EQ(actor::mojom::ActionResultCode::kTriggeredNavigationBlocked,
             results[0].tool_result.code());
+  ASSERT_TRUE(navigation_manager_ptr->last_response_decision().has_value());
+  EXPECT_TRUE(navigation_manager_ptr->last_response_decision()
+                  ->ShouldCancelNavigation());
 }
 
 // Test that a NavigateAction executed through ActorEngine succeeds when
@@ -667,8 +989,8 @@ TEST_F(ActorEngineOriginGatingTest, Act_NavigationAllowedByOriginGating) {
       {"from": "https://safe.com", "to": "https://trusted.com"}
     ]
   })json";
-  actor::ParseSafetyListsForTesting(actor::SafetyListManager::GetInstance(),
-                                    mock_rules_json);
+  actor::SetSafetyListsForTesting(actor::SafetyListManager::GetInstance(),
+                                  mock_rules_json);
 
   BrowserList* browser_list = BrowserListFactory::GetForProfile(profile_.get());
   auto test_browser = std::make_unique<TestBrowser>(profile_.get());
@@ -677,9 +999,11 @@ TEST_F(ActorEngineOriginGatingTest, Act_NavigationAllowedByOriginGating) {
   UrlLoadingBrowserAgent::CreateForBrowser(test_browser.get());
 
   auto fake_web_state = std::make_unique<web::FakeWebState>();
+  web::FakeWebState* web_state_ptr = fake_web_state.get();
   fake_web_state->SetBrowserState(profile_.get());
-  auto fake_navigation_manager = std::make_unique<web::FakeNavigationManager>();
-  web::FakeNavigationManager* fake_navigation_manager_ptr =
+  auto fake_navigation_manager =
+      std::make_unique<ResponseSimulatingNavigationManager>(web_state_ptr);
+  ResponseSimulatingNavigationManager* fake_navigation_manager_ptr =
       fake_navigation_manager.get();
   fake_web_state->SetNavigationManager(std::move(fake_navigation_manager));
   fake_web_state->SetCurrentURL(GURL("https://safe.com"));
@@ -687,6 +1011,9 @@ TEST_F(ActorEngineOriginGatingTest, Act_NavigationAllowedByOriginGating) {
   test_browser->GetWebStateList()->InsertWebState(
       std::move(fake_web_state),
       WebStateList::InsertionParams::AtIndex(0).Activate());
+
+  // Attach ActorWebStatePolicyDecider to the WebState.
+  task_->AddControlledWebState(web_state_ptr);
 
   optimization_guide::proto::Action action;
   action.mutable_navigate()->set_url("https://trusted.com");
@@ -696,7 +1023,7 @@ TEST_F(ActorEngineOriginGatingTest, Act_NavigationAllowedByOriginGating) {
   actions.push_back(std::make_unique<ActorToolRequest>(action));
 
   base::test::TestFuture<std::vector<ActionResult>> future;
-  engine_->Act(std::move(actions), future.GetCallback());
+  task_->Act(std::move(actions), "Navigating", future.GetCallback());
   const std::vector<ActionResult>& results = future.Get();
 
   ASSERT_EQ(1u, results.size());
@@ -704,6 +1031,10 @@ TEST_F(ActorEngineOriginGatingTest, Act_NavigationAllowedByOriginGating) {
   EXPECT_TRUE(fake_navigation_manager_ptr->LoadURLWithParamsWasCalled());
   EXPECT_EQ(GURL("https://trusted.com"),
             fake_navigation_manager_ptr->GetLastLoadURLWithParams()->url);
+  ASSERT_TRUE(
+      fake_navigation_manager_ptr->last_response_decision().has_value());
+  EXPECT_TRUE(fake_navigation_manager_ptr->last_response_decision()
+                  ->ShouldAllowNavigation());
 }
 
 // Test that an implicit navigation (e.g. link click / redirect) on a controlled
@@ -717,8 +1048,8 @@ TEST_F(
       {"from": "https://safe.com", "to": "https://malicious.com"}
     ]
   })json";
-  actor::ParseSafetyListsForTesting(actor::SafetyListManager::GetInstance(),
-                                    mock_rules_json);
+  actor::SetSafetyListsForTesting(actor::SafetyListManager::GetInstance(),
+                                  mock_rules_json);
 
   // Set up browser and WebState.
   BrowserList* browser_list = BrowserListFactory::GetForProfile(profile_.get());
@@ -755,9 +1086,22 @@ TEST_F(
   web_state_ptr->ShouldAllowRequest(request, request_info,
                                     decision_future.GetCallback());
 
-  // Verify that the navigation was cancelled.
-  EXPECT_TRUE(decision_future.Get().ShouldCancelNavigation());
+  // 1. Request phase fails open.
+  EXPECT_TRUE(decision_future.Get().ShouldAllowNavigation());
 
+  // 2. Response phase cancels the navigation.
+  NSURLResponse* response = [[NSURLResponse alloc]
+                initWithURL:[NSURL URLWithString:@"https://malicious.com"]
+                   MIMEType:@"text/html"
+      expectedContentLength:0
+           textEncodingName:nil];
+  const web::WebStatePolicyDecider::ResponseInfo response_info(
+      /*for_main_frame=*/true);
+  base::test::TestFuture<web::WebStatePolicyDecider::PolicyDecision>
+      response_future;
+  web_state_ptr->ShouldAllowResponse(response, response_info,
+                                     response_future.GetCallback());
+  EXPECT_TRUE(response_future.Get().ShouldCancelNavigation());
   // Verify that the task was not stopped; it remains alive so Gemini can handle
   // the block.
   EXPECT_EQ(task_->GetState(), ActorTaskState::kInit);
@@ -772,8 +1116,8 @@ TEST_F(ActorEngineOriginGatingTest,
       {"from": "https://safe.com", "to": "https://trusted.com"}
     ]
   })json";
-  actor::ParseSafetyListsForTesting(actor::SafetyListManager::GetInstance(),
-                                    mock_rules_json);
+  actor::SetSafetyListsForTesting(actor::SafetyListManager::GetInstance(),
+                                  mock_rules_json);
 
   BrowserList* browser_list = BrowserListFactory::GetForProfile(profile_.get());
   auto test_browser = std::make_unique<TestBrowser>(profile_.get());
@@ -790,6 +1134,7 @@ TEST_F(ActorEngineOriginGatingTest,
 
   task_->AddControlledWebState(web_state_ptr);
 
+  // 1. Request phase is allowed.
   NSURLRequest* request = [NSURLRequest
       requestWithURL:[NSURL URLWithString:@"https://trusted.com"]];
   const web::WebStatePolicyDecider::RequestInfo request_info(
@@ -808,8 +1153,56 @@ TEST_F(ActorEngineOriginGatingTest,
   // Verify that the navigation was allowed.
   EXPECT_TRUE(decision_future.Get().ShouldAllowNavigation());
 
+  // 2. Response phase is also allowed.
+  NSURLResponse* response = [[NSURLResponse alloc]
+                initWithURL:[NSURL URLWithString:@"https://trusted.com"]
+                   MIMEType:@"text/html"
+      expectedContentLength:0
+           textEncodingName:nil];
+  const web::WebStatePolicyDecider::ResponseInfo response_info(
+      /*for_main_frame=*/true);
+  base::test::TestFuture<web::WebStatePolicyDecider::PolicyDecision>
+      response_future;
+  web_state_ptr->ShouldAllowResponse(response, response_info,
+                                     response_future.GetCallback());
+  EXPECT_TRUE(response_future.Get().ShouldAllowNavigation());
   // Verify that the task was not stopped.
   EXPECT_EQ(task_->GetState(), ActorTaskState::kInit);
 }
 
+// Test that IsAcceptableNavigationDestination returns Ok when the
+// OriginGatingChecker allows the navigation request.
+TEST_F(ActorEngineOriginGatingTest, IsAcceptableNavigationDestination_Allowed) {
+  base::test::TestFuture<ToolExecutionResult> future;
+  engine_->IsAcceptableNavigationDestination(GURL("https://example.com"),
+                                             future.GetCallback());
+  EXPECT_TRUE(future.Get().IsOk());
+}
+
+// Test that IsAcceptableNavigationDestination returns
+// kTriggeredNavigationBlocked when the OriginGatingChecker blocks the
+// navigation request.
+TEST_F(ActorEngineOriginGatingTest, IsAcceptableNavigationDestination_Blocked) {
+  // Clear `checker_` before replacing `origin_gating_registration_` to avoid a
+  // dangling raw_ptr.
+  checker_ = nullptr;
+
+  FakeOriginGatingCheckerDelegate blocking_delegate(/*is_allowed=*/false);
+  origin_gating::OriginGatingService* gating_service =
+      origin_gating::OriginGatingServiceFactory::GetForProfile(profile_.get());
+  ASSERT_NE(gating_service, nullptr);
+  SetOriginGatingRegistration(gating_service->CreateAndRegisterChecker(
+      blocking_delegate.GetWeakPtr(),
+      origin_gating::OriginGatingConfiguration(
+          /*predicates=*/{},
+          origin_gating::OriginGatingConfiguration::CacheScope::kOrigin)));
+
+  base::test::TestFuture<ToolExecutionResult> future;
+  engine_->IsAcceptableNavigationDestination(GURL("https://malicious.com"),
+                                             future.GetCallback());
+  ToolExecutionResult result = future.Get();
+  ASSERT_FALSE(result.IsOk());
+  EXPECT_EQ(mojom::ActionResultCode::kTriggeredNavigationBlocked,
+            result.code());
+}
 }  // namespace actor

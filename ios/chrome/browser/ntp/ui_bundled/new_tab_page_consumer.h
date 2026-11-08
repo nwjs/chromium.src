@@ -20,6 +20,9 @@
 // Whether the Magic Stack module is visible on the NTP.
 @property(nonatomic, assign) BOOL magicStackVisible;
 
+// Whether the Feed Top Section (promos) is visible on the NTP.
+@property(nonatomic, assign) BOOL feedTopSectionVisible;
+
 // Collection of trait-specific override values for customizing NTP appearance
 @property(nonatomic, readonly) id<UITraitOverrides> traitOverrides;
 
@@ -41,8 +44,13 @@
 // Whether AIM is allowed.
 - (void)setAIMAllowed:(BOOL)allowed;
 
-// Sets the title and icon for the AI Mode button.
-- (void)setAIMTitle:(NSString*)title icon:(UIImage*)icon;
+// Sets whether AIM image generation is allowed.
+- (void)setAIMImageGenerationAllowed:(BOOL)allowed;
+
+// Sets the title, icon, and accessibility label for the AI Mode button.
+- (void)setAIMTitle:(NSString*)title
+                  icon:(UIImage*)icon
+    accessibilityLabel:(NSString*)accessibilityLabel;
 
 // Sets whether the omnibox is in the bottom position.
 - (void)setOmniboxInBottomPosition:(BOOL)isBottomOmnibox;

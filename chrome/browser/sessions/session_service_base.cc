@@ -37,6 +37,7 @@
 #include "chrome/browser/ui/tabs/tab_group_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_selection_state.h"
+#include "chrome/browser/ui/tabs/vertical_tab_strip_state_controller.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/window_feature_controller/window_feature_controller.h"
 #include "chrome/browser/ui/window_metadata/window_metadata_controller.h"
@@ -306,13 +307,15 @@ void SessionServiceBase::TabInserted(WebContents* contents) {
 }
 
 void SessionServiceBase::TabClosing(WebContents* contents) {
-  // Allow the associated sessionStorage to get deleted; it won't be needed
-  // in the session restore.
-  content::SessionStorageNamespaceHandle* session_storage_namespace =
-      contents->GetController().GetDefaultSessionStorageNamespace();
-  session_storage_namespace->SetShouldPersist(false);
   sessions::SessionTabHelper* session_tab_helper =
       sessions::SessionTabHelper::FromWebContents(contents);
+  if (ShouldDeleteSessionStorageOnTabClosing(session_tab_helper->window_id())) {
+    content::SessionStorageNamespaceHandle* session_storage_namespace =
+        contents->GetController().GetDefaultSessionStorageNamespace();
+    // Allow the associated sessionStorage to get deleted; the tab close is
+    // being committed and it won't be needed in session restore.
+    session_storage_namespace->SetShouldPersist(false);
+  }
   TabClosed(session_tab_helper->window_id(), session_tab_helper->session_id());
 }
 
@@ -371,8 +374,7 @@ void SessionServiceBase::SetLastActiveTime(SessionID window_id,
       sessions::CreateLastActiveTimeCommand(tab_id, last_active_time));
 }
 
-void SessionServiceBase::GetLastSession(
-    sessions::GetLastSessionCallback callback) {
+void SessionServiceBase::GetLastSession(LastSessionCallback callback) {
   // OnGotSessionCommands maps the SessionCommands to browser state, then run
   // the callback.
   return command_storage_manager_->GetLastSessionCommands(
@@ -580,7 +582,7 @@ void SessionServiceBase::OnBrowserActivated(BrowserWindowInterface* browser) {
 }
 
 void SessionServiceBase::OnGotSessionCommands(
-    sessions::GetLastSessionCallback callback,
+    LastSessionCallback callback,
     std::vector<std::unique_ptr<sessions::SessionCommand>> commands,
     sessions::CommandStorageReadStatus status) {
   std::vector<std::unique_ptr<sessions::SessionWindow>> valid_windows;
@@ -588,15 +590,16 @@ void SessionServiceBase::OnGotSessionCommands(
   std::string platform_session_id;
   std::set<SessionID> discarded_window_ids;
 
-  sessions::RestoreSessionFromCommands(commands, &valid_windows,
-                                       &active_window_id, &platform_session_id,
-                                       &discarded_window_ids);
+  const sessions::SessionReplayResult replay_result =
+      sessions::RestoreSessionFromCommands(
+          commands, &valid_windows, &active_window_id, &platform_session_id,
+          &discarded_window_ids);
   RemoveUnusedRestoreWindows(&valid_windows);
 
   InitializePlatformSessionIfNeeded(platform_session_id, discarded_window_ids);
 
-  std::move(callback).Run(std::move(valid_windows), active_window_id,
-                          sessions::IsCommandStorageReadError(status));
+  std::move(callback).Run(std::move(valid_windows), active_window_id, status,
+                          replay_result);
 }
 
 void SessionServiceBase::BuildCommandsForTab(
@@ -773,6 +776,20 @@ void SessionServiceBase::BuildCommandsForBrowser(
     }
   }
 
+  if (const auto* const controller =
+          tabs::VerticalTabStripStateController::From(browser)) {
+    command_storage_manager()->AppendRebuildCommand(
+        sessions::CreateAddWindowExtraDataCommand(
+            browser->GetSessionID(),
+            tabs::VerticalTabStripStateController::kCollapsedKey,
+            base::ToString(controller->IsCollapsed())));
+    command_storage_manager()->AppendRebuildCommand(
+        sessions::CreateAddWindowExtraDataCommand(
+            browser->GetSessionID(),
+            tabs::VerticalTabStripStateController::kUncollapsedWidthKey,
+            base::NumberToString(controller->GetUncollapsedWidth())));
+  }
+
   int index = 0;
   for (const tabs::TabInterface* tab_interface : *tab_strip) {
     WebContents* tab = tab_interface->GetContents();
@@ -877,6 +894,11 @@ bool SessionServiceBase::ShouldTrackBrowser(
 
   return ShouldRestoreWindowOfType(
       WindowTypeForBrowserType(browser->GetType()));
+}
+
+bool SessionServiceBase::ShouldDeleteSessionStorageOnTabClosing(
+    SessionID window_id) const {
+  return true;
 }
 
 sessions::CommandStorageManager*

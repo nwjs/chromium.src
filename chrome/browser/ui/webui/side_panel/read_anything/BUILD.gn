@@ -7,23 +7,26 @@ assert(!is_android)
 source_set("read_anything") {
   sources = [
     "chrome_os_extension_wrapper.cc",
+    "read_anything_translate_observer.cc",
     "read_anything_untrusted_page_handler.cc",
     "read_anything_untrusted_ui.cc",
   ]
   public = [
     "chrome_os_extension_wrapper.h",
+    "read_anything_translate_observer.h",
     "read_anything_untrusted_page_handler.h",
     "read_anything_untrusted_ui.h",
   ]
   public_deps = [
-    "//chrome/browser:browser_public_dependencies",
     "//chrome/browser/ui/read_anything",
     "//chrome/browser/ui/toolbar/pinned_toolbar",
     "//chrome/browser/ui/webui/top_chrome",
     "//chrome/common/read_anything:mojo_bindings",
+    "//components/translate/content/browser",
     "//components/translate/core/browser",
     "//content/public/browser",
     "//mojo/public/cpp/bindings",
+    "//ui/webui/resources/cr_components/help_bubble:mojo_bindings",
   ]
   deps = [
     "//chrome/app:command_ids",
@@ -61,6 +64,7 @@ source_set("read_anything") {
     "//pdf:features",
     "//ui/strings",
     "//ui/webui",
+    "//ui/webui/resources",
     "//ui/webui/tracked_element",
   ]
 
@@ -73,6 +77,30 @@ source_set("read_anything") {
   }
 }
 
+source_set("unit_tests") {
+  testonly = true
+  sources = [ "read_anything_translate_observer_unittest.cc" ]
+  deps = [
+    ":read_anything",
+    "//base/test:test_support",
+    "//chrome/browser/translate",
+    "//chrome/test:test_support",
+    "//chrome/test/base:chrome_render_view_host_test_harness",
+    "//components/translate/content/browser",
+    "//components/translate/content/common",
+    "//components/translate/core/browser",
+    "//components/translate/core/common",
+    "//content/public/browser",
+    "//content/test:test_support",
+    "//mojo/public/cpp/bindings",
+    "//net",
+    "//pdf:features",
+    "//testing/gmock",
+    "//testing/gtest",
+    "//url",
+  ]
+}
+
 source_set("browser_tests") {
   testonly = true
   defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
@@ -83,6 +111,7 @@ source_set("browser_tests") {
     "//chrome/browser/speech",
     "//chrome/browser/translate",
     "//chrome/browser/ui/browser_window",
+    "//chrome/browser/ui/read_anything:impl",
     "//chrome/browser/ui/side_panel",
     "//chrome/browser/ui/side_panel:side_panel_views_dependent",
     "//chrome/browser/ui/user_education",
@@ -93,6 +122,9 @@ source_set("browser_tests") {
     "//chrome/test:test_support_ui",
     "//chrome/test/user_education",
     "//components/language_detection/core",
+    "//components/translate/content/browser",
+    "//components/translate/content/common",
+    "//components/translate/core/common",
     "//content/test:browsertest_support",
     "//content/test:test_support",
     "//extensions/browser/mime_handler",

@@ -596,12 +596,43 @@ TEST_F(ResourceTest, CanReuseServiceWorkerResource) {
   {
     ResourceRequest request(url);
     request.SetRequestorOrigin(origin);
-    FetchParameters params = FetchParameters::CreateForTest(std::move(request));
     DOMWrapperWorld* isolated_world = DOMWrapperWorld::EnsureIsolatedWorld(
         /*v8::Isolate=*/nullptr, blink::kIsolatedWorldIdLimit - 1);
-    params.MutableOptions().world_for_csp = isolated_world;
+    FetchParameters params(std::move(request),
+                           ResourceLoaderOptions(isolated_world));
 
     EXPECT_EQ(Resource::MatchStatus::kCrossWorldServiceWorkerResourceMismatch,
+              resource->CanReuse(params));
+  }
+}
+
+TEST_F(ResourceTest, CanReuseSkipServiceWorker) {
+  const KURL url("https://localhost/test.js");
+  scoped_refptr<const SecurityOrigin> origin = SecurityOrigin::Create(url);
+
+  ResourceRequest cache_request(url);
+  cache_request.SetRequestorOrigin(origin);
+  cache_request.SetSkipServiceWorker(false);
+
+  auto* resource = MakeGarbageCollected<MockResource>(cache_request);
+  resource->FinishForTest();
+
+  // Same skip_service_worker should match.
+  {
+    ResourceRequest request(url);
+    request.SetRequestorOrigin(origin);
+    request.SetSkipServiceWorker(false);
+    FetchParameters params = FetchParameters::CreateForTest(std::move(request));
+    EXPECT_EQ(Resource::MatchStatus::kOk, resource->CanReuse(params));
+  }
+
+  // Different skip_service_worker should not match.
+  {
+    ResourceRequest request(url);
+    request.SetRequestorOrigin(origin);
+    request.SetSkipServiceWorker(true);
+    FetchParameters params = FetchParameters::CreateForTest(std::move(request));
+    EXPECT_EQ(Resource::MatchStatus::kSkipServiceWorkerDoesNotMatch,
               resource->CanReuse(params));
   }
 }

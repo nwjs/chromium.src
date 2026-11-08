@@ -23,6 +23,7 @@
 #include "chrome/browser/ui/omnibox/omnibox_popup_view.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/ui_features.h"
+#include "chrome/browser/ui/views/chrome_layout_provider.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/location_bar/location_bar_view.h"
 #include "chrome/browser/ui/views/location_bar/omnibox_popup_file_selector.h"
@@ -150,7 +151,7 @@ gfx::RoundedCornersF OmniboxPopupWebUIBaseContent::GetRoundedCornerRadii()
     const {
   const float corner_radius =
       views::LayoutProvider::Get()->GetCornerRadiusMetric(
-          views::ShapeContextTokens::kOmniboxExpandedRadius);
+          ChromeShapeContextTokens::kOmniboxExpandedRadius);
   return gfx::RoundedCornersF(top_rounded_corners_ ? corner_radius : 0,
                               top_rounded_corners_ ? corner_radius : 0,
                               corner_radius, corner_radius);
@@ -301,13 +302,20 @@ void OmniboxPopupWebUIBaseContent::ShowUI() {
 void OmniboxPopupWebUIBaseContent::ShowCustomContextMenu(
     gfx::Point point,
     std::unique_ptr<ui::MenuModel> menu_model) {
+  // The menu acts on the AI Mode popup, which isn't created for ineligible
+  // profiles.
+  auto* aim_presenter =
+      popup_presenter_->delegate().GetOmniboxPopupAimPresenter();
+  if (!aim_presenter) {
+    return;
+  }
+  // The AI Mode popup's content may not exist yet with
+  // `omnibox::kOmniboxAimPopupDeferCreation`.
+  aim_presenter->EnsureWebUIContentCreated();
   ConvertPointToScreen(this, &point);
   context_menu_ = std::make_unique<OmniboxContextMenu>(
       GetWidget(), popup_presenter_->delegate().GetOmniboxPopupFileSelector(),
-      popup_presenter_->delegate()
-          .GetOmniboxPopupAimPresenter()
-          ->GetWebUIContent()
-          ->GetWrappedWebContents(),
+      aim_presenter->GetWebUIContent()->GetWrappedWebContents(),
       base::BindRepeating(&OmniboxPopupWebUIBaseContent::OnMenuClosed,
                           base::Unretained(this)));
   context_menu_->RunMenuAt(point, ui::mojom::MenuSourceType::kMouse);

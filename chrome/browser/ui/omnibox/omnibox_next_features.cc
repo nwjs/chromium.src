@@ -28,6 +28,7 @@
 #include "components/omnibox/common/omnibox_features.h"
 #include "components/prefs/pref_service.h"
 #include "components/search/search.h"
+#include "ui/accessibility/platform/ax_platform.h"
 #include "ui/base/l10n/l10n_util.h"
 
 #if !BUILDFLAG(IS_ANDROID)
@@ -60,8 +61,28 @@ BASE_FEATURE(kWebUIOmniboxSimplification, ENABLED);
 // will be removed).
 BASE_FEATURE(kWebUIOmniboxFullPopup, DISABLED);
 
+// Safety guard: if enabled, and a screen reader is detected the first time the
+// full WebUI omnibox state is queried (i.e. at startup), the full WebUI omnibox
+// popup is not used for the remainder of the session, even if
+// `kWebUIOmniboxFullPopup` is enabled.
+BASE_FEATURE(kDisableFullWebuiOmniboxForScreenreaderUsers, DISABLED);
+
 bool IsWebUIOmniboxFullPopupEnabled() {
-  return base::FeatureList::IsEnabled(internal::kWebUIOmniboxFullPopup);
+  if (!base::FeatureList::IsEnabled(internal::kWebUIOmniboxFullPopup)) {
+    return false;
+  }
+  if (base::FeatureList::IsEnabled(
+          internal::kDisableFullWebuiOmniboxForScreenreaderUsers)) {
+    // Latched on first use, so that the full WebUI omnibox state stays
+    // consistent for the whole session even if a screen reader is started or
+    // stopped later on.
+    static const bool kScreenReaderActiveAtStartup =
+        ui::AXPlatform::GetInstance().IsScreenReaderActive();
+    if (kScreenReaderActiveAtStartup) {
+      return false;
+    }
+  }
+  return true;
 }
 
 }  // namespace internal
@@ -88,6 +109,20 @@ const base::FeatureParam<bool> kHideClassicContextButton{
 // (`omnibox::internal::kWebUIOmniboxAimPopup`).
 BASE_FEATURE(kAiModeEntryPointAlwaysNavigates, DISABLED);
 BASE_FEATURE(kOmniboxEverywhereFre, ENABLED);
+// Controls the maximum number of impressions for Stage 1 (Intro Modal) of the
+// Omnibox Everywhere First Run Experience.
+const base::FeatureParam<int> kOmniboxEverywhereFreMaxIntroImpressionsParam{
+    &kOmniboxEverywhereFre, "MaxIntroImpressions", 2};
+// Controls the maximum number of impressions for Stage 2 (Shortcut Setup Chin)
+// of the Omnibox Everywhere First Run Experience once a hotkey is configured.
+const base::FeatureParam<int>
+    kOmniboxEverywhereFreMaxShortcutSetupImpressionsParam{
+        &kOmniboxEverywhereFre, "MaxShortcutSetupImpressions", 1};
+// Controls the maximum number of impressions for Stage 3 (Shortcut Reminder
+// Chin) of the Omnibox Everywhere First Run Experience.
+const base::FeatureParam<int>
+    kOmniboxEverywhereFreMaxShortcutReminderImpressionsParam{
+        &kOmniboxEverywhereFre, "MaxShortcutReminderImpressions", 3};
 // If enabled, pressing space when the AI mode button has fake focus will
 // insert a space into the omnibox and restore focus to the omnibox instead of
 // interacting with the button.
@@ -102,6 +137,23 @@ BASE_FEATURE(kWebUIOmniboxAimPopupDisableAnimation, DISABLED);
 BASE_FEATURE(kWebUIOmniboxFullPopupDoubleClick, ENABLED);
 // If enabled, enables OmniboxEverywhere popup triggered by shortcut.
 BASE_FEATURE(kOmniboxEverywhere, DISABLED);
+// If enabled, submitting a query with screenshots attached in Omnibox
+// Everywhere opens the result in a new browser window aligned with the
+// Omnibox Everywhere popup.
+BASE_FEATURE(kOmniboxEverywhereScreenshotNewWindow, ENABLED);
+// Controls the width of the new browser window opened for screenshot queries in
+// Omnibox Everywhere.
+const base::FeatureParam<int> kOmniboxEverywhereScreenshotNewWindowWidthParam{
+    &kOmniboxEverywhereScreenshotNewWindow, "WindowWidth", 800};
+// Controls the height of the new browser window opened for screenshot queries
+// in Omnibox Everywhere.
+const base::FeatureParam<int> kOmniboxEverywhereScreenshotNewWindowHeightParam{
+    &kOmniboxEverywhereScreenshotNewWindow, "WindowHeight", 800};
+// Controls the upward vertical offset of the new browser window relative to
+// the Omnibox Everywhere popup's top edge.
+const base::FeatureParam<int>
+    kOmniboxEverywhereScreenshotNewWindowVerticalOffsetParam{
+        &kOmniboxEverywhereScreenshotNewWindow, "VerticalOffset", 200};
 // Controls multiline searchbox support in OmniboxEverywhere.
 const base::FeatureParam<bool> kOmniboxEverywhereMultilineParam{
     &kOmniboxEverywhere, "Multiline", true};
@@ -113,23 +165,23 @@ const base::FeatureParam<bool>
 // Controls showing the profile picker menu on profile avatar click in
 // OmniboxEverywhere.
 const base::FeatureParam<bool> kOmniboxEverywhereProfilePickerParam{
-    &kOmniboxEverywhere, "ProfilePicker", false};
+    &kOmniboxEverywhere, "ProfilePicker", true};
 // Controls showing most visited tiles in OmniboxEverywhere.
 const base::FeatureParam<bool> kOmniboxEverywhereMostVisitedParam{
     &kOmniboxEverywhere, "MostVisited", true};
 // Controls whether small Loomnibox (480px width) is enabled.
 const base::FeatureParam<bool> kOmniboxEverywhereSmallLoomniboxParam{
-    &kOmniboxEverywhere, "smallLoomnibox", true};
+    &kOmniboxEverywhere, "smallLoomnibox", false};
 // Controls whether dynamic sizing is enabled for OmniboxEverywhere.
 const base::FeatureParam<bool> kOmniboxEverywhereDynamicSizingParam{
-    &kOmniboxEverywhere, "DynamicSizing", false};
+    &kOmniboxEverywhere, "DynamicSizing", true};
 // Controls the expanded content width (680 or 600) when DynamicSizing is
 // enabled.
 const base::FeatureParam<int> kOmniboxEverywhereDynamicSizingWidthParam{
     &kOmniboxEverywhere, "DynamicSizingWidth", 680};
 // Controls whether small (14px) font size is enabled for OmniboxEverywhere.
 const base::FeatureParam<bool> kOmniboxEverywhereSmallFontParam{
-    &kOmniboxEverywhere, "SmallFont", false};
+    &kOmniboxEverywhere, "SmallFont", true};
 
 // Controls showing titles under most visited tiles in OmniboxEverywhere.
 const base::FeatureParam<bool> kOmniboxEverywhereMostVisitedShowTitleParam{
@@ -342,6 +394,16 @@ bool IsAimPopupEnabled(Profile* profile) {
          aim_service->IsFuseboxEligible();
 }
 
+bool ShouldCreateAimPopupPresenter(Profile* profile) {
+  if (!IsAimPopupFeatureEnabled()) {
+    return false;
+  }
+  if (!base::FeatureList::IsEnabled(kOmniboxAimPopupRequireEligibility)) {
+    return true;
+  }
+  return IsAimPopupEnabled(profile);
+}
+
 bool IsOmniboxEverywhereEligible(Profile* profile) {
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
   if (!profile || profile->IsOffTheRecord()) {
@@ -512,6 +574,8 @@ const base::FeatureParam<bool> kWebUIOmniboxFullPopupUseBrowserView{
     &internal::kWebUIOmniboxFullPopup, "Omnibox_UseBrowserView", false};
 const base::FeatureParam<bool> kWebUIOmniboxFullPopupMultiline{
     &internal::kWebUIOmniboxFullPopup, "Omnibox_Multiline", false};
+const base::FeatureParam<bool> kWebUIOmniboxFullPopupDogfoodFeedback{
+    &internal::kWebUIOmniboxFullPopup, "Omnibox_DogfoodFeedback", false};
 const base::FeatureParam<int> kWebUIOmniboxFullPopupSnapshotCacheSize{
     &internal::kWebUIOmniboxFullPopup, "Omnibox_SnapshotCacheSize", 10};
 const base::FeatureParam<bool> kWebUIOmniboxDynamicAnimation{

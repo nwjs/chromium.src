@@ -9,6 +9,7 @@
 #include "base/feature_list.h"
 #include "base/notreached.h"
 #include "build/build_config.h"
+#include "components/autofill/core/browser/data_model/autofill_ai/entity_instance.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_type.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_type_names.h"
 #include "components/autofill/core/browser/integrators/autofill_ai/management_util.h"
@@ -204,6 +205,9 @@ std::u16string GetPromptTitle(EntityTypeName type_name,
                               bool is_server_wallet) {
   const bool is_wallet_branded =
       !is_banner_prompt && is_server_wallet &&
+      GetWalletPassType(EntityType(type_name),
+                        EntityInstance::RecordType::kServerWallet) ==
+          EntityInstance::WalletPassType::kPrivate &&
       base::FeatureList::IsEnabled(features::kAutofillAiWalletPassBranding2026);
 
   TitleResources resources = GetResourcesForType(type_name);
@@ -224,20 +228,6 @@ int GetPrimaryButtonTextId(bool is_save_prompt) {
   return is_save_prompt
              ? IDS_AUTOFILL_PREDICTION_IMPROVEMENTS_SAVE_DIALOG_SAVE_BUTTON
              : IDS_AUTOFILL_PREDICTION_IMPROVEMENTS_UPDATE_DIALOG_UPDATE_BUTTON;
-}
-
-int GetSaveEntityToWalletNoticeStringId() {
-  if (!base::FeatureList::IsEnabled(
-          features::kAutofillAiWalletPassBranding2026)) {
-    return IDS_AUTOFILL_AI_SAVE_ENTITY_TO_WALLET_DIALOG_SUBTITLE_NEW;
-  }
-  return ResolveStringIdsForWalletPass2026Experiment(
-      /*default_branded_id=*/
-      IDS_AUTOFILL_AI_SAVE_ENTITY_TO_WALLET_DIALOG_SUBTITLE_BRANDED,
-      /*variant_1_id=*/
-      IDS_AUTOFILL_AI_SAVE_ENTITY_TO_WALLET_DIALOG_SUBTITLE_NEW,
-      /*variant_2_id=*/
-      IDS_AUTOFILL_AI_SAVE_ENTITY_TO_WALLET_DIALOG_SUBTITLE_NEW);
 }
 
 }  // namespace autofill

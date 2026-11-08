@@ -4,16 +4,21 @@
 
 #include "components/search/search.h"
 
+#include "base/feature_list.h"
+#include "build/android_buildflags.h"
 #include "build/build_config.h"
-#include "components/search_engines/search_engine_type.h"
-#include "components/search_engines/search_terms_data.h"
+#include "components/search/ntp_features.h"
 #include "components/search_engines/template_url.h"
 #include "components/search_engines/template_url_service.h"
 
 namespace search {
 
 bool IsInstantExtendedAPIEnabled() {
-#if BUILDFLAG(IS_IOS) || BUILDFLAG(IS_ANDROID)
+// See exception on b/532190074 for WebUI NTP on Desktop Android.
+#if BUILDFLAG(IS_DESKTOP_ANDROID)
+  return base::FeatureList::IsEnabled(
+      ntp_features::kNtpEnableInstantApiAndroid);
+#elif BUILDFLAG(IS_IOS) || BUILDFLAG(IS_ANDROID)
   return false;
 #else
   return true;
@@ -30,8 +35,7 @@ bool DefaultSearchProviderIsGoogle(
 
 bool TemplateURLIsGoogle(const TemplateURL* template_url,
                          const SearchTermsData& search_terms_data) {
-  return template_url != nullptr &&
-         template_url->GetEngineType(search_terms_data) == SEARCH_ENGINE_GOOGLE;
+  return template_url && template_url->IsTrustedGoogleEngine(search_terms_data);
 }
 
 }  // namespace search

@@ -12,6 +12,7 @@
 #include <string>
 #include <vector>
 
+#include "base/at_exit.h"
 #include "base/command_line.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
@@ -29,6 +30,8 @@
 #include "third_party/tflite/src/tensorflow/lite/model_builder.h"
 
 int main(int argc, char** argv) {
+  // Needed by singletons and histograms, e.g. the ThreadPool startup metrics.
+  base::AtExitManager at_exit_manager;
   base::CommandLine::Init(argc, argv);
   logging::LoggingSettings settings;
   settings.logging_dest = logging::LOG_TO_STDERR;
@@ -83,6 +86,12 @@ int main(int argc, char** argv) {
     return 1;
   }
   int input_sample_rate = input_handler->GetSampleRate();
+  if (input_sample_rate != media::VoiceIsolation::kSampleRate) {
+    std::cerr << "Input file sample rate must be "
+              << media::VoiceIsolation::kSampleRate << " Hz, got "
+              << input_sample_rate << " Hz." << std::endl;
+    return 1;
+  }
 
   // Prepare model and voice isolation.
   auto model =
@@ -91,11 +100,11 @@ int main(int argc, char** argv) {
     std::cerr << "Failed to load model from path: " << model_path << std::endl;
     return 1;
   }
-  const int input_frame_size = input_sample_rate / 100;
 
   media::AudioParameters audio_params(
       media::AudioParameters::Format::AUDIO_PCM_LINEAR,
-      media::ChannelLayoutConfig::Mono(), input_sample_rate, input_frame_size);
+      media::ChannelLayoutConfig::Mono(), media::VoiceIsolation::kSampleRate,
+      media::VoiceIsolation::kFrameSize);
 
   std::unique_ptr<media::VoiceIsolation> voice_isolation =
       media::VoiceIsolation::Create(model.get(), audio_params);
@@ -117,24 +126,28 @@ int main(int argc, char** argv) {
       media::AudioDebugFileWriter::Create(audio_params, std::move(out_file));
 
   // Consume audio in 10ms chunks.
-  CHECK_EQ(input_sample_rate % 100, 0);
   std::unique_ptr<media::AudioBus> audio_bus =
-      media::AudioBus::Create(kNumChannels, input_frame_size);
+      media::AudioBus::Create(kNumChannels, media::VoiceIsolation::kFrameSize);
+
+  // VoiceIsolation::ProcessAudio() CHECKs that its input and output buses are
+  // different.
+  std::unique_ptr<media::AudioBus> output_bus =
+      media::AudioBus::Create(kNumChannels, media::VoiceIsolation::kFrameSize);
 
   for (int r = 0; r < repetitions; ++r) {
-    size_t frames_written = input_frame_size;
+    size_t frames_written = media::VoiceIsolation::kFrameSize;
     while (frames_written == static_cast<size_t>(audio_bus->frames())) {
       if (!input_handler->CopyTo(audio_bus.get(), &frames_written)) {
         std::cerr << "Failed to copy audio data to AudioBus." << std::endl;
         return 1;
       }
-      if (frames_written != static_cast<size_t>(input_frame_size)) {
+      if (frames_written != media::VoiceIsolation::kFrameSize) {
         // Skipping incomplete frames.
         input_handler->Reset();
         break;
       }
-      voice_isolation->ProcessAudio(*audio_bus, *audio_bus);
-      audio_debug_file_writer->Write(*audio_bus);
+      voice_isolation->ProcessAudio(*audio_bus, *output_bus);
+      audio_debug_file_writer->Write(*output_bus);
     }
   }
 

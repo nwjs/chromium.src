@@ -15,6 +15,7 @@
 #include "chrome/browser/actor/tools/tool_request.h"
 #include "chrome/browser/actor/tools/tools_test_util.h"
 #include "chrome/browser/actor/ui/actor_task_unload_handler.h"
+#include "chrome/browser/glic/public/features.h"
 #include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/browser/ui/unload_controller.h"
 #include "chrome/common/actor.mojom.h"
@@ -765,8 +766,8 @@ class ActorToolAgnosticBrowserTestWithCustomDelay
   ActorToolAgnosticBrowserTestWithCustomDelay() {
     // Ensure tool doesn't finish before the tab is closed.
     feature_list_.InitWithFeaturesAndParameters(
-        {{features::kGlicActor,
-          {{features::kGlicActorPolicyControlExemption.name, "true"}}},
+        {{features::kGlicActor, {}},
+         {features::kGlicActorPolicyControlExemption, {}},
          {kActorPageStability, {{kActorPageStabilityMinWait.name, "10000ms"}}}},
         {});
   }
@@ -822,7 +823,7 @@ IN_PROC_BROWSER_TEST_F(ActorToolAgnosticBrowserTestWithCustomDelay,
   // Accept the dialog to allow the tab to close.
   dialog->widget_delegate()->AsDialogDelegate()->AcceptDialog();
 
-  // ActorTask::OnTabWillDetach will return kError before renderer tool
+  // ActorTask::OnActorSurfaceWillDetach will return kError before renderer tool
   // completes. The code is kTaskWentAway because removing a tab causes the task
   // to be stopped.
   ExpectErrorResult(result, mojom::ActionResultCode::kTaskWentAway);

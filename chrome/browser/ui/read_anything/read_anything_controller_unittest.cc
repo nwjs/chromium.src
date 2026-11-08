@@ -13,16 +13,24 @@
 #include "chrome/browser/ui/read_anything/read_anything_enums.h"
 #include "chrome/browser/ui/read_anything/read_anything_immersive_activation_observer.h"
 #include "chrome/browser/ui/read_anything/read_anything_prefs.h"
+#include "chrome/browser/ui/read_anything/read_anything_service_factory.h"
 #include "chrome/browser/ui/side_panel/mock_side_panel_ui.h"
+#include "chrome/browser/ui/side_panel/side_panel_enums.h"
 #include "chrome/browser/ui/side_panel/side_panel_registry.h"
 #include "chrome/common/read_anything/read_anything.mojom.h"
 #include "chrome/test/base/chrome_render_view_host_test_harness.h"
 #include "chrome/test/user_education/mock_browser_user_education_interface.h"
 #include "components/prefs/pref_service.h"
 #include "components/tabs/public/mock_tab_interface.h"
+#include "pdf/buildflags.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
+#if BUILDFLAG(ENABLE_PDF)
+#include "url/gurl.h"
+#endif  // BUILDFLAG(ENABLE_PDF)
+
+using read_anything::mojom::DistillationStatus;
 using read_anything::mojom::ReadAnythingDistillationState;
 using read_anything::mojom::ReadAnythingOpenTrigger;
 using read_anything::mojom::ReadAnythingPresentationState;
@@ -40,6 +48,11 @@ class ReadAnythingControllerUnitTest : public ChromeRenderViewHostTestHarness {
  public:
   void SetUp() override {
     ChromeRenderViewHostTestHarness::SetUp();
+
+    // OnEntryShown() calls into ReadAnythingService, which loads extensions
+    // that aren't available in unit tests. Use a null service instead.
+    ReadAnythingServiceFactory::GetInstance()->SetTestingFactory(
+        profile(), BrowserContextKeyedServiceFactory::TestingFactory());
 
     mock_browser_window_interface_ =
         std::make_unique<testing::NiceMock<MockBrowserWindowInterface>>();
@@ -288,8 +301,11 @@ TEST_F(ReadAnythingControllerUnitTest, ToggleUI_TogglesAndRespectsPreference) {
   EXPECT_EQ(controller_->GetPresentationState(),
             ReadAnythingPresentationState::kInSidePanel);
 
-  // ToggleUI when open in Side Panel -> closes Side Panel.
-  EXPECT_CALL(*mock_side_panel_ui_, Close).Times(1);
+  // ToggleUI when open in Side Panel -> closes Side Panel with animation.
+  EXPECT_CALL(*mock_side_panel_ui_,
+              Close(SidePanelEntryHideReason::kSidePanelClosed,
+                    /*suppress_animations=*/false))
+      .Times(1);
   controller_->ToggleUI(ReadAnythingOpenTrigger::kOmniboxChip);
   EXPECT_EQ(controller_->GetPresentationState(),
             ReadAnythingPresentationState::kInactive);
@@ -311,5 +327,162 @@ TEST_F(ReadAnythingControllerUnitTest, ToggleUI_TogglesAndRespectsPreference) {
   EXPECT_EQ(controller_->GetPresentationState(),
             ReadAnythingPresentationState::kInactive);
 }
+
+TEST_F(ReadAnythingControllerUnitTest,
+       ShowImmersiveUI_FromSidePanel_ClosesSidePanelWithoutAnimation) {
+  controller_->SetPresentationState(
+      ReadAnythingPresentationState::kInSidePanel);
+
+  EXPECT_CALL(*mock_side_panel_ui_,
+              Close(SidePanelEntryHideReason::kSidePanelClosed,
+                    /*suppress_animations=*/true))
+      .Times(1);
+  EXPECT_CALL(mock_immersive_observer_, OnShowImmersive).Times(1);
+  controller_->ShowImmersiveUI(ReadAnythingOpenTrigger::kOmniboxChip);
+  EXPECT_EQ(controller_->GetPresentationState(),
+            ReadAnythingPresentationState::kInImmersiveOverlay);
+}
+
+TEST_F(ReadAnythingControllerUnitTest,
+       OnDistillationStatus_AfterShownWithOmnibox_LogsStatus) {
+  base::HistogramTester histogram_tester;
+  auto status = DistillationStatus::kSuccess;
+  int word_count = 3001;
+  controller_->OnEntryShown(ReadAnythingOpenTrigger::kOmniboxChip);
+
+  controller_->OnDistillationStatus(status, word_count);
+
+  histogram_tester.ExpectUniqueSample(
+      "Accessibility.ReadAnything.DistillationStatusAfterOmnibox", status, 1);
+  histogram_tester.ExpectUniqueSample(
+      "Accessibility.ReadAnything.WordsDistilledAfterOmnibox", word_count, 1);
+}
+
+TEST_F(ReadAnythingControllerUnitTest,
+       OnDistillationStatus_AfterShownWithOtherEntrypoint_DoesNotLogStatus) {
+  base::HistogramTester histogram_tester;
+  auto status = DistillationStatus::kSuccess;
+  int word_count = 3002;
+  controller_->OnEntryShown(ReadAnythingOpenTrigger::kReadAnythingContextMenu);
+
+  controller_->OnDistillationStatus(status, word_count);
+
+  histogram_tester.ExpectTotalCount(
+      "Accessibility.ReadAnything.DistillationStatusAfterOmnibox", 0);
+  histogram_tester.ExpectTotalCount(
+      "Accessibility.ReadAnything.WordsDistilledAfterOmnibox", 0);
+}
+
+TEST_F(ReadAnythingControllerUnitTest,
+       OnDistillationStatus_StillRunning_DoesNotLogUntilFinished) {
+  base::HistogramTester histogram_tester;
+  controller_->OnEntryShown(ReadAnythingOpenTrigger::kOmniboxChip);
+
+  controller_->OnDistillationStatus(DistillationStatus::kStillRunning, 10);
+  histogram_tester.ExpectTotalCount(
+      "Accessibility.ReadAnything.DistillationStatusAfterOmnibox", 0);
+
+  auto status = DistillationStatus::kSuccess;
+  int word_count = 3007;
+  controller_->OnDistillationStatus(status, word_count);
+
+  histogram_tester.ExpectUniqueSample(
+      "Accessibility.ReadAnything.DistillationStatusAfterOmnibox", status, 1);
+  histogram_tester.ExpectUniqueSample(
+      "Accessibility.ReadAnything.WordsDistilledAfterOmnibox", word_count, 1);
+}
+
+TEST_F(ReadAnythingControllerUnitTest,
+       OnDistillationStatus_AfterAlreadyLogged_DoesNotLogStatusAgain) {
+  base::HistogramTester histogram_tester;
+  auto status1 = DistillationStatus::kSuccess;
+  auto status2 = DistillationStatus::kFailure;
+  int word_count1 = 3003;
+  int word_count2 = 3004;
+  controller_->OnEntryShown(ReadAnythingOpenTrigger::kOmniboxChip);
+
+  controller_->OnDistillationStatus(status1, word_count1);
+  controller_->OnDistillationStatus(status2, word_count2);
+
+  histogram_tester.ExpectUniqueSample(
+      "Accessibility.ReadAnything.DistillationStatusAfterOmnibox", status1, 1);
+  histogram_tester.ExpectUniqueSample(
+      "Accessibility.ReadAnything.WordsDistilledAfterOmnibox", word_count1, 1);
+}
+
+TEST_F(ReadAnythingControllerUnitTest,
+       OnDistillationStatus_AfterHidden_StillLogsStatus) {
+  base::HistogramTester histogram_tester;
+  auto status = DistillationStatus::kSuccess;
+  int word_count = 3005;
+  controller_->OnEntryShown(ReadAnythingOpenTrigger::kOmniboxChip);
+
+  controller_->OnEntryHidden();
+  controller_->OnDistillationStatus(status, word_count);
+
+  histogram_tester.ExpectUniqueSample(
+      "Accessibility.ReadAnything.DistillationStatusAfterOmnibox", status, 1);
+  histogram_tester.ExpectUniqueSample(
+      "Accessibility.ReadAnything.WordsDistilledAfterOmnibox", word_count, 1);
+}
+
+TEST_F(
+    ReadAnythingControllerUnitTest,
+    OnDistillationStatus_AfterHiddenAndStatusAlreadyLogged_DoesNotLogStatus) {
+  base::HistogramTester histogram_tester;
+  auto status = DistillationStatus::kSuccess;
+  int word_count = 3006;
+  controller_->OnEntryShown(ReadAnythingOpenTrigger::kOmniboxChip);
+
+  controller_->OnDistillationStatus(status, word_count);
+
+  controller_->OnEntryHidden();
+  controller_->OnDistillationStatus(status, word_count);
+
+  histogram_tester.ExpectUniqueSample(
+      "Accessibility.ReadAnything.DistillationStatusAfterOmnibox", status, 1);
+  histogram_tester.ExpectUniqueSample(
+      "Accessibility.ReadAnything.WordsDistilledAfterOmnibox", word_count, 1);
+}
+
+#if BUILDFLAG(ENABLE_PDF)
+TEST(ReadAnythingControllerPdfUrlTest, GetPdfUrlWithFitToWidth) {
+  // No fragment: appends the view param.
+  EXPECT_EQ(GetPdfUrlWithFitToWidth(GURL("https://example.com/test.pdf")),
+            GURL("https://example.com/test.pdf#view=FitH"));
+
+  // Existing view param is replaced.
+  EXPECT_EQ(
+      GetPdfUrlWithFitToWidth(GURL("https://example.com/test.pdf#view=fit")),
+      GURL("https://example.com/test.pdf#view=FitH"));
+
+  // Bare view key is replaced.
+  EXPECT_EQ(GetPdfUrlWithFitToWidth(GURL("https://example.com/test.pdf#view")),
+            GURL("https://example.com/test.pdf#view=FitH"));
+
+  // Other params are preserved when replacing.
+  EXPECT_EQ(GetPdfUrlWithFitToWidth(
+                GURL("https://example.com/test.pdf#page=2&view=fit")),
+            GURL("https://example.com/test.pdf#page=2&view=FitH"));
+
+  // Other params are preserved when appending.
+  EXPECT_EQ(GetPdfUrlWithFitToWidth(
+                GURL("https://example.com/test.pdf#page=2&zoom=100")),
+            GURL("https://example.com/test.pdf#page=2&zoom=100&view=FitH"));
+
+  // Multiple view params collapse into a single one.
+  EXPECT_EQ(GetPdfUrlWithFitToWidth(GURL(
+                "https://example.com/test.pdf#view=fit&page=2&view=FitV")),
+            GURL("https://example.com/test.pdf#page=2&view=FitH"));
+  EXPECT_EQ(GetPdfUrlWithFitToWidth(
+                GURL("https://example.com/test.pdf#view=FitH&view=FitH")),
+            GURL("https://example.com/test.pdf#view=FitH"));
+
+  // Keys that merely end in "view" are not treated as the view param.
+  EXPECT_EQ(
+      GetPdfUrlWithFitToWidth(GURL("https://example.com/test.pdf#preview=foo")),
+      GURL("https://example.com/test.pdf#preview=foo&view=FitH"));
+}
+#endif  // BUILDFLAG(ENABLE_PDF)
 
 }  // namespace

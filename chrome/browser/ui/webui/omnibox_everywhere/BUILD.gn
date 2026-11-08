@@ -57,7 +57,6 @@ source_set("omnibox_everywhere") {
   public_deps = [
     "debug:mojo_bindings",
     "mojom:mojo_bindings",
-    "//chrome/browser:browser_public_dependencies",
   ]
   deps = [
     "debug",
@@ -67,6 +66,7 @@ source_set("omnibox_everywhere") {
     "//chrome/browser/autocomplete:aim_eligibility_service",
     "//chrome/browser/contextual_search",
     "//chrome/browser/contextual_tasks",
+    "//chrome/browser/enterprise",
     "//chrome/browser/profiles:profile",
     "//chrome/browser/resources/omnibox_everywhere:resources",
     "//chrome/browser/ui:browser_element_identifiers",

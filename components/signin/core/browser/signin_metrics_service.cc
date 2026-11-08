@@ -108,7 +108,7 @@ void MaybeRecordWebSigninToChromeSigninTimes(
     signin_metrics::AccessPoint access_point) {
   std::string_view access_point_string;
   switch (access_point) {
-    case signin_metrics::AccessPoint::kAvatarBubbleSignInWithSyncPromo:
+    case signin_metrics::AccessPoint::kProfileMenuPrimaryButton:
       access_point_string = "ProfileMenu";
       break;
     case signin_metrics::AccessPoint::kPasswordBubble:
@@ -129,7 +129,6 @@ void MaybeRecordWebSigninToChromeSigninTimes(
     case signin_metrics::AccessPoint::kExtensionInstallBubble:
     case signin_metrics::AccessPoint::kExtensions:
     case signin_metrics::AccessPoint::kBookmarkManager:
-    case signin_metrics::AccessPoint::kAvatarBubbleSignIn:
     case signin_metrics::AccessPoint::kUserManager:
     case signin_metrics::AccessPoint::kFullscreenSigninPromo:
     case signin_metrics::AccessPoint::kRecentTabs:
@@ -497,8 +496,7 @@ void SigninMetricsService::MaybeRecordMetricsForPromoShowCountAtSignin(
               ? SigninPrefs(pref_service_.get())
                     .GetAddressSigninPromoImpressionCount(account_info.gaia)
               : pref_service_->GetInteger(
-                    prefs::
-                        kAddressSignInPromoShownCountPerProfileForLimitsExperiment),
+                    prefs::kAddressSignInPromoShownCountPerProfile),
           /*min=*/1, /*exclusive_max=*/10, /*buckets=*/10);
       break;
     case signin_metrics::AccessPoint::kPasswordBubble:
@@ -508,8 +506,7 @@ void SigninMetricsService::MaybeRecordMetricsForPromoShowCountAtSignin(
               ? SigninPrefs(pref_service_.get())
                     .GetPasswordSigninPromoImpressionCount(account_info.gaia)
               : pref_service_->GetInteger(
-                    prefs::
-                        kPasswordSignInPromoShownCountPerProfileForLimitsExperiment),
+                    prefs::kPasswordSignInPromoShownCountPerProfile),
           /*min=*/1, /*exclusive_max=*/10, /*buckets=*/10);
       break;
     case signin_metrics::AccessPoint::kBookmarkBubble:
@@ -519,8 +516,7 @@ void SigninMetricsService::MaybeRecordMetricsForPromoShowCountAtSignin(
               ? SigninPrefs(pref_service_.get())
                     .GetBookmarkSigninPromoImpressionCount(account_info.gaia)
               : pref_service_->GetInteger(
-                    prefs::
-                        kBookmarkSignInPromoShownCountPerProfileForLimitsExperiment),
+                    prefs::kBookmarkSignInPromoShownCountPerProfile),
           /*min=*/1, /*exclusive_max=*/10, /*buckets=*/10);
       break;
     case signin_metrics::AccessPoint::kChromeSigninInterceptBubble: {

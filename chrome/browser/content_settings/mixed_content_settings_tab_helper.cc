@@ -5,6 +5,7 @@
 #include "chrome/browser/content_settings/mixed_content_settings_tab_helper.h"
 
 #include "components/content_settings/common/content_settings_agent.mojom.h"
+#include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/back_forward_cache.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/navigation_handle.h"
@@ -17,9 +18,32 @@ using content::BrowserThread;
 using content::RenderFrameHost;
 using content::WebContents;
 
+DEFINE_USER_DATA(MixedContentSettingsTabHelper);
+
+// static
+MixedContentSettingsTabHelper* MixedContentSettingsTabHelper::From(
+    tabs::TabInterface* tab) {
+  return tab ? Get(tab->GetUnownedUserDataHost()) : nullptr;
+}
+
+// static
+MixedContentSettingsTabHelper* MixedContentSettingsTabHelper::FromWebContents(
+    WebContents* web_contents) {
+  if (!web_contents) {
+    return nullptr;
+  }
+  return From(tabs::TabInterface::MaybeGetFromContents(web_contents));
+}
+
+MixedContentSettingsTabHelper::MixedContentSettingsTabHelper(
+    tabs::TabInterface& tab,
+    WebContents* web_contents)
+    : MixedContentSettingsTabHelper(web_contents) {
+  scoped_unowned_user_data_.emplace(tab.GetUnownedUserDataHost(), *this);
+}
+
 MixedContentSettingsTabHelper::MixedContentSettingsTabHelper(WebContents* tab)
-    : content::WebContentsObserver(tab),
-      content::WebContentsUserData<MixedContentSettingsTabHelper>(*tab) {
+    : content::WebContentsObserver(tab) {
   if (!tab->HasOpener())
     return;
 
@@ -39,7 +63,8 @@ MixedContentSettingsTabHelper::~MixedContentSettingsTabHelper() = default;
 
 void MixedContentSettingsTabHelper::AllowRunningOfInsecureContent(
     RenderFrameHost& render_frame_host) {
-  DCHECK(!render_frame_host.IsNestedWithinFencedFrame());
+  CHECK(!render_frame_host.IsNestedWithinFencedFrame(),
+        base::NotFatalUntil::M161);
   auto* main_frame = render_frame_host.GetOutermostMainFrame();
   auto [it, inserted] = settings_.try_emplace(main_frame->GetSiteInstance());
   if (inserted) {
@@ -54,7 +79,8 @@ void MixedContentSettingsTabHelper::RenderFrameCreated(
     return;
 
   // Fenced Frames should never allow insecure content.
-  DCHECK(!render_frame_host->IsNestedWithinFencedFrame());
+  CHECK(!render_frame_host->IsNestedWithinFencedFrame(),
+        base::NotFatalUntil::M161);
   mojo::AssociatedRemote<content_settings::mojom::ContentSettingsAgent> agent;
   render_frame_host->GetRemoteAssociatedInterfaces()->GetInterface(&agent);
   agent->SetAllowRunningInsecureContent();
@@ -99,7 +125,8 @@ bool MixedContentSettingsTabHelper::IsRunningInsecureContentAllowed(
 
 MixedContentSettingsTabHelper::SiteSettings::SiteSettings(
     RenderFrameHost* main_frame_host) {
-  DCHECK(!main_frame_host->GetParentOrOuterDocument());
+  CHECK(!main_frame_host->GetParentOrOuterDocument(),
+        base::NotFatalUntil::M161);
   if (main_frame_host->IsRenderFrameLive()) {
     // There is already a live RenderFrame using `main_frame_host`'s
     // SiteInstance, so set the RenderFrame count to 1, so that we will decrease
@@ -110,7 +137,7 @@ MixedContentSettingsTabHelper::SiteSettings::SiteSettings(
 
 void MixedContentSettingsTabHelper::SiteSettings::
     AllowRunningOfInsecureContent() {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M161);
   is_running_insecure_content_allowed_ = true;
 }
 
@@ -119,8 +146,6 @@ void MixedContentSettingsTabHelper::SiteSettings::IncrementRenderFrameCount() {
 }
 
 void MixedContentSettingsTabHelper::SiteSettings::DecrementRenderFrameCount() {
-  DCHECK_GT(render_frame_count_, 0);
+  CHECK_GT(render_frame_count_, 0, base::NotFatalUntil::M161);
   render_frame_count_--;
 }
-
-WEB_CONTENTS_USER_DATA_KEY_IMPL(MixedContentSettingsTabHelper);

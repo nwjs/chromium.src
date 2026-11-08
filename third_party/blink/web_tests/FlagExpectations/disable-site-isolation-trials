@@ -61,6 +61,7 @@ http/tests/inspector-protocol/target/message-to-detached-session.js [ Skip ]
 http/tests/inspector-protocol/target/tab-target.js [ Skip ]
 http/tests/inspector-protocol/target/target-filter.js [ Skip ]
 http/tests/inspector-protocol/target/target-info-changed-auto-attach.js [ Skip ]
+http/tests/inspector-protocol/runtime/runtime-evaluate-provisional-frame.js [ Skip ]
 http/tests/inspector-protocol/page/frame-detached-oopif.js [ Skip ]
 http/tests/inspector-protocol/page/addScriptToEvaluateOnNewDocument-reload.js [ Skip ]
 http/tests/inspector-protocol/page/sandbox-iframe-getResourceContent.js [ Skip ]
@@ -82,7 +83,7 @@ crbug.com/540322300 external/wpt/service-workers/service-worker/fetch-request-bo
 crbug.com/471016766 external/wpt/webaudio/the-audio-api/the-mediastreamaudiosourcenode-interface/mediastreamaudiosourcenode-from-context-with-different-rate.https.html [ Pass Timeout ]
 crbug.com/448454550 external/wpt/pointerevents/pointerevent_touch-propagates-when-target-is-video_touch.html [ Pass Timeout ]
 crbug.com/438873384 external/wpt/html/infrastructure/urls/resolving-urls/query-encoding/windows-1251.html?include=loading [ Timeout ]
-crbug.com/435989554 external/wpt/html/cross-origin-opener-policy/iframe-popup-unsafe-none-to-unsafe-none.https.html?1-2 [ Crash ]
+crbug.com/435989554 external/wpt/html/cross-origin-opener-policy/iframe-popup-unsafe-none-to-unsafe-none.https.html?1-2 [ Crash Failure Pass ]
 crbug.com/426107053 virtual/close-watcher/external/wpt/close-watcher/iframes/dialog-same-origin-nn.html [ Timeout ]
 crbug.com/421504441 virtual/close-watcher/external/wpt/close-watcher/iframes/dialog-same-origin-ynyn.html [ Timeout ]
 crbug.com/416794747 external/wpt/html/cross-origin-opener-policy/iframe-popup-same-origin-to-unsafe-none.https.html?3-4 [ Crash Pass ]
@@ -167,7 +168,6 @@ virtual/isolated-context/* [ Skip ]
 virtual/isolated-context-stable/* [ Skip ]
 virtual/subapps/* [ Skip ]
 
-[ Linux ] external/wpt/clear-site-data/clear-cache.https.html [ Failure ]  # Flaky output
 
 # See crbug.com/476646486: Requires site isolation
 wpt_internal/svg/use-count-svg-filter-nested-iframe.sub.https.html [ Skip ]

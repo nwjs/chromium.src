@@ -27,8 +27,8 @@ public class AccessibilityNodeInfoBuilderTest {
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
 
     @Mock private AccessibilityNodeInfoBuilder.BuilderDelegate mDelegate;
-    @Mock private View mView;
 
+    private final View mView = new View(ContextUtils.getApplicationContext());
     private AccessibilityNodeInfoBuilder mBuilder;
 
     @Before

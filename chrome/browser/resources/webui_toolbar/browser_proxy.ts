@@ -9,9 +9,9 @@ import type {BrowserControlsServiceInterface} from '/shared/browser_controls_api
 import {EventDispositionFlag} from '/shared/browser_controls_api_data_model.mojom-webui.js';
 import type {IconUpdate} from '/shared/icon_handle.mojom-webui.js';
 import {ToolbarUIObserverCallbackRouter, ToolbarUIService} from '/shared/toolbar_ui_api.mojom-webui.js';
-import type {ToolbarUIServiceInterface} from '/shared/toolbar_ui_api.mojom-webui.js';
+import type {ToolbarUIServiceInterface, ToolbarUIServiceRemote} from '/shared/toolbar_ui_api.mojom-webui.js';
 import {ContextMenuType} from '/shared/toolbar_ui_api_data_model.mojom-webui.js';
-import type {BackForwardButtonState, FocusRequestTarget, NavigationControlsState, OmniboxViewState, ReloadControlState} from '/shared/toolbar_ui_api_data_model.mojom-webui.js';
+import type {BackForwardButtonState, FocusRequestTarget, OmniboxViewState, ReloadControlState, ToolbarState} from '/shared/toolbar_ui_api_data_model.mojom-webui.js';
 
 export {
   ContextMenuType,
@@ -20,17 +20,17 @@ export {
 export type {
   BackForwardButtonState,
   IconUpdate,
-  NavigationControlsState,
   OmniboxViewState,
   ReloadControlState,
+  ToolbarState,
 };
 
-export type NavigationControlsStateListener =
-    (icons: IconUpdate[], state: NavigationControlsState) => void;
+export type ToolbarStateListener = (icons: IconUpdate[], state: ToolbarState) =>
+    void;
 
-export type NavigationControlsStateListenerHandle = number;
-export const INVALID_NAVIGATION_CONTROLS_STATE_LISTENER_HANDLE:
-    NavigationControlsStateListenerHandle = -1;
+export type ToolbarStateListenerHandle = number;
+export const INVALID_TOOLBAR_STATE_LISTENER_HANDLE: ToolbarStateListenerHandle =
+    -1;
 /*
  * Listener type for invocations to
  *    toolbar_ui_api.mojom.ToolbarUIObserver.OnFocusRequested method.
@@ -74,29 +74,37 @@ export interface BrowserProxy extends PermissionChipDelegate {
   recordInHistogram(histogramName: string, value: number, maxValue: number):
       void;
 
-  addNavigationStateListener(listener: NavigationControlsStateListener):
-      NavigationControlsStateListenerHandle;
+  addToolbarStateListener(listener: ToolbarStateListener):
+      ToolbarStateListenerHandle;
   addFocusRequestListener(listener: FocusRequestListener): FocusRequestHandle;
   addShowSplitTabsContextMenuListener(
       listener: ShowSplitTabsContextMenuListener):
       ShowSplitTabsContextMenuHandle;
 
-  removeNavigationStateListener(handle: NavigationControlsStateListenerHandle):
-      void;
+  removeToolbarStateListener(handle: ToolbarStateListenerHandle): void;
   removeFocusRequestListener(handle: FocusRequestHandle): void;
   removeShowSplitTabsContextMenuListener(
       handle: ShowSplitTabsContextMenuHandle): void;
+
+  /**
+   * Resolves once the browser has dispatched every message sent so far on the
+   * ToolbarUIService pipe (e.g. onOmniboxAction). For tests that need the
+   * browser-side state to reflect what this page has already sent.
+   */
+  flushToolbarUiHandlerForTesting(): Promise<void>;
 }
 
 export class BrowserProxyImpl implements BrowserProxy {
   private callbackRouter: ToolbarUIObserverCallbackRouter;
+  private toolbarUIRemote: ToolbarUIServiceRemote;
   browserControlsHandler: BrowserControlsServiceInterface;
   toolbarUIHandler: ToolbarUIServiceInterface;
 
   private constructor() {
     this.callbackRouter = new ToolbarUIObserverCallbackRouter();
     this.browserControlsHandler = BrowserControlsService.getRemote();
-    this.toolbarUIHandler = ToolbarUIService.getRemote();
+    this.toolbarUIRemote = ToolbarUIService.getRemote();
+    this.toolbarUIHandler = this.toolbarUIRemote;
   }
 
   onChipClicked(id: LhsChipIdentifier, isPointer: boolean, stateToken: number) {
@@ -134,10 +142,9 @@ export class BrowserProxyImpl implements BrowserProxy {
         'metricsHandler:recordInHistogram', [histogramName, value, maxValue]);
   }
 
-  addNavigationStateListener(listener: NavigationControlsStateListener) {
+  addToolbarStateListener(listener: ToolbarStateListener) {
     const handle =
-        this.callbackRouter.onNavigationControlsStateChanged.addListener(
-            listener);
+        this.callbackRouter.onToolbarStateChanged.addListener(listener);
     this.toolbarUIHandler.bind().then(fence => {
       listener(fence.icons, fence.state);
       this.callbackRouter.$.bindHandle(fence.updateStream.handle);
@@ -146,7 +153,7 @@ export class BrowserProxyImpl implements BrowserProxy {
   }
 
   addFocusRequestListener(listener: FocusRequestListener) {
-    // This assumes addNavigationStateListener will happen or has happened to
+    // This assumes addToolbarStateListener will happen or has happened to
     // actually connect the router.
     return this.callbackRouter.onFocusRequested.addListener(listener);
   }
@@ -156,8 +163,8 @@ export class BrowserProxyImpl implements BrowserProxy {
     return this.callbackRouter.showSplitTabsContextMenu.addListener(listener);
   }
 
-  removeNavigationStateListener(handle: NavigationControlsStateListenerHandle) {
-    if (handle !== INVALID_NAVIGATION_CONTROLS_STATE_LISTENER_HANDLE) {
+  removeToolbarStateListener(handle: ToolbarStateListenerHandle) {
+    if (handle !== INVALID_TOOLBAR_STATE_LISTENER_HANDLE) {
       this.callbackRouter.removeListener(handle);
     }
   }
@@ -173,6 +180,10 @@ export class BrowserProxyImpl implements BrowserProxy {
     if (handle !== INVALID_SHOW_SPLIT_TABS_CONTEXT_MENU_HANDLE) {
       this.callbackRouter.removeListener(handle);
     }
+  }
+
+  flushToolbarUiHandlerForTesting(): Promise<void> {
+    return this.toolbarUIRemote.$.flushForTesting();
   }
 
   static getInstance(): BrowserProxy {

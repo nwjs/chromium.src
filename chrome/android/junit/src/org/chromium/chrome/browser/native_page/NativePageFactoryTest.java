@@ -27,6 +27,7 @@ import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
+import org.robolectric.Robolectric;
 import org.robolectric.annotation.Config;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
@@ -56,7 +57,7 @@ public class NativePageFactoryTest {
     @Mock private Tab mTab;
     @Mock private BrowserControlsManager mBrowserControlsManager;
     @Mock private TabModelSelector mTabModelSelector;
-    @Mock private Activity mActivity;
+    private Activity mActivity;
     private NativePageFactory mNativePageFactory;
     private PdfInfo mPdfInfo;
     private static final String PDF_LINK = "https://www.foo.com/testfiles/pdf/sample.pdf";
@@ -157,6 +158,7 @@ public class NativePageFactoryTest {
 
     @Before
     public void setUp() {
+        mActivity = Robolectric.buildActivity(Activity.class).get();
         mNativePageFactory =
                 new NativePageFactory(
                         null, null, null, null, null, null, null, null, null, null, null, null,

@@ -10,12 +10,12 @@ import {loadTimeData} from '//resources/js/load_time_data.js';
 import {html} from '//resources/lit/v3_0/lit.rollup.js';
 
 import type {OrganizerListSectionClient, OrganizerListSectionDelegate} from '../organizer_list_section_delegate.js';
-import type {OrganizerListSectionItem, OrganizerListSectionItemIcon} from '../organizer_list_section_item.js';
+import type {OrganizerListSectionItem, OrganizerListSectionItemDescriptionPart, OrganizerListSectionItemIcon} from '../organizer_list_section_item.js';
 import type {BrowserProxy, ProfileData, Tab, TabGroup, TabsRemovedInfo, TabUpdateInfo} from '../tab_search.mojom-webui.js';
-import {browserProxyFactory, SplitTabLayout} from '../tab_search.mojom-webui.js';
+import {browserProxyFactory} from '../tab_search.mojom-webui.js';
 import {TabAlertState} from '../tabs.mojom-webui.js';
 
-import {compareTimeDescending, getTabDescriptionParts, tokenToString} from './tab_delegate_utils.js';
+import {compareTimeDescending, getSplitViewPrefixIcon, getTabCountText, tokenToString} from './tab_delegate_utils.js';
 
 // Trailing icon shown for tabs that are playing or muting audio.
 const AUDIO_ICON = 'organizer-panel:volume-up';
@@ -90,6 +90,10 @@ export class OpenTabsDelegate implements
             (tabsRemovedInfo: TabsRemovedInfo) => {
               this.onTabsRemoved_(tabsRemovedInfo);
             }));
+  }
+
+  getId(): string {
+    return 'open-tabs';
   }
 
   getHeader(): string {
@@ -177,6 +181,19 @@ export class OpenTabsDelegate implements
     return this.tabGroupsMap_.get(tokenToString(groupId)) ?? null;
   }
 
+  private getTabGroupTitle_(tabGroup: TabGroup): string {
+    if (tabGroup.title) {
+      return tabGroup.title;
+    }
+    const groupIdStr = tokenToString(tabGroup.id);
+    const tabCount =
+        this.tabs_
+            .filter(
+                tab => tab.groupId && tokenToString(tab.groupId) === groupIdStr)
+            .length;
+    return getTabCountText(tabCount);
+  }
+
   private getOpenTabsItems_(): OpenTabsItem[] {
     const items: OpenTabsItem[] = [];
     const splitTabsMap = new Map<string, Tab[]>();
@@ -245,34 +262,35 @@ export class OpenTabsDelegate implements
 
   private toSectionItem_(item: OpenTabsItem):
       OrganizerListSectionItem<OpenTabsItem> {
-    let tabs: Tab[];
+    let title: string[];
     let prefixIcon: OrganizerListSectionItemIcon;
 
     if (isSplitTab(item)) {
-      tabs = item.tabs;
-      prefixIcon = {
-        stackedFavicons: {
-          urls: [item.tabs[0].url, item.tabs[1].url],
-          stackVertically: item.tabs[0].splitLayout === SplitTabLayout.kStacked,
-        },
-      };
+      title = [loadTimeData.getString('splitView')];
+      prefixIcon = getSplitViewPrefixIcon(
+          [item.tabs[0].url, item.tabs[1].url], item.tabs[0].splitLayout);
     } else {
-      tabs = [item.tab];
+      title = [item.tab.title];
       prefixIcon = {url: item.tab.url};
     }
 
-    const title = tabs.map(tab => tab.title);
-
-    const description = getTabDescriptionParts(
-        tabs.map(tab => tab.url), getMostRecentTab(item).lastActiveElapsedText);
+    const description: OrganizerListSectionItemDescriptionPart[] = [];
+    const elapsedText = getMostRecentTab(item).lastActiveElapsedText;
+    if (elapsedText) {
+      description.push({text: elapsedText});
+    }
 
     const tabGroup = this.getTabGroupFromItem_(item);
     if (tabGroup) {
       description.push({
-        text: tabGroup.title,
+        text: this.getTabGroupTitle_(tabGroup),
         prefixElement: html`<tab-group-dot .color="${tabGroup.color}">
             </tab-group-dot>`,
       });
+    }
+
+    if (isSplitTab(item)) {
+      description.push({text: item.tabs[0].title}, {text: item.tabs[1].title});
     }
 
     return {

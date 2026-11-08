@@ -24,6 +24,7 @@ import android.view.ViewGroup;
 import android.view.accessibility.AccessibilityEvent;
 import android.widget.FrameLayout;
 
+import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.MainThread;
 import androidx.annotation.StringRes;
 import androidx.fragment.app.Fragment;
@@ -45,7 +46,10 @@ import org.chromium.chrome.browser.privacy.settings.PrivacyPreferencesManagerImp
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.profiles.ProfileProvider;
 import org.chromium.chrome.browser.signin.services.BadgeConfig;
+import org.chromium.chrome.browser.signin.services.IdentityServicesProvider;
 import org.chromium.chrome.browser.ui.device_lock.DeviceLockCoordinator;
+import org.chromium.chrome.browser.ui.enterprise_signals_disclaimer.EnterpriseSignalsDisclaimerCoordinator;
+import org.chromium.chrome.browser.ui.signin.ConfirmManagedSyncDataDialogCoordinator;
 import org.chromium.chrome.browser.ui.signin.SigninAndHistorySyncCoordinator;
 import org.chromium.chrome.browser.ui.signin.SigninSurveyController;
 import org.chromium.chrome.browser.ui.signin.SigninUtils;
@@ -56,6 +60,7 @@ import org.chromium.chrome.browser.ui.signin.fullscreen_signin.FullscreenSigninV
 import org.chromium.components.browser_ui.device_lock.DeviceLockActivityLauncher;
 import org.chromium.components.policy.EnterpriseInfo;
 import org.chromium.components.signin.AccountManagerFacadeProvider;
+import org.chromium.components.signin.base.CoreAccountInfo;
 import org.chromium.components.signin.metrics.AccountConsistencyPromoAction;
 import org.chromium.components.signin.metrics.SigninAccessPoint;
 import org.chromium.google_apis.gaia.CoreAccountId;
@@ -67,7 +72,8 @@ import org.chromium.ui.modaldialog.ModalDialogManagerHolder;
 public class SigninFirstRunFragment extends Fragment
         implements FirstRunFragment,
                 FullscreenSigninCoordinator.Delegate,
-                DeviceLockCoordinator.Delegate {
+                DeviceLockCoordinator.Delegate,
+                EnterpriseSignalsDisclaimerCoordinator.Delegate {
     private static final int ADD_ACCOUNT_REQUEST_CODE = 1;
 
     private @Nullable FrameLayout mFragmentView;
@@ -76,6 +82,9 @@ public class SigninFirstRunFragment extends Fragment
     private @Nullable SkipTosDialogPolicyListener mSkipTosDialogPolicyListener;
     private FullscreenSigninCoordinator mFullscreenSigninCoordinator;
     private @Nullable DeviceLockCoordinator mDeviceLockCoordinator;
+    private @Nullable EnterpriseSignalsDisclaimerCoordinator mManagementNoticeCoordinator;
+    private ConfirmManagedSyncDataDialogCoordinator.@Nullable Listener mManagementNoticeListener;
+    private @Nullable OnBackPressedCallback mManagementNoticeBackPressCallback;
     private boolean mExitFirstRunCalled;
     private boolean mDelayedExitFirstRunCalledForTesting;
     private boolean mCenteredLayoutInflated;
@@ -132,24 +141,33 @@ public class SigninFirstRunFragment extends Fragment
             mDeviceLockCoordinator.destroy();
             mDeviceLockCoordinator = null;
         }
+        if (mManagementNoticeBackPressCallback != null) {
+            mManagementNoticeBackPressCallback.remove();
+            mManagementNoticeBackPressCallback = null;
+        }
+        if (mManagementNoticeCoordinator != null) {
+            mManagementNoticeCoordinator.destroy();
+            mManagementNoticeCoordinator = null;
+        }
     }
 
     @Override
     public void onConfigurationChanged(Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
-        // Keep device lock page if it's currently displayed.
-        if (mDeviceLockCoordinator != null) {
-            return;
-        }
         assumeNonNull(mFragmentView);
-        // Inflate the view required for the current configuration and set it as the fragment view.
-        mFragmentView.removeAllViews();
+        // Device lock or the management notice screens don't have configuration-specific layouts.
+        // However, the main view does. Because of this on each configuration change the main view
+        // must be reinflated, even if it's not currently displayed.
         mMainView =
                 inflateFragmentView(
                         (LayoutInflater)
                                 getActivity().getSystemService(Context.LAYOUT_INFLATER_SERVICE),
                         getActivity());
-        mFragmentView.addView(mMainView);
+        // Keep the device lock page or management notice if it's currently displayed.
+        if (mDeviceLockCoordinator == null && mManagementNoticeCoordinator == null) {
+            mFragmentView.removeAllViews();
+            mFragmentView.addView(mMainView);
+        }
     }
 
     @Override
@@ -409,6 +427,86 @@ public class SigninFirstRunFragment extends Fragment
         assumeNonNull(mFragmentView);
         mFragmentView.removeAllViews();
         mFragmentView.addView(mMainView);
+    }
+
+    /** Implements {@link FullscreenSigninCoordinator.Delegate}. */
+    @Override
+    public void displayManagementNotice(
+            CoreAccountInfo account, ConfirmManagedSyncDataDialogCoordinator.Listener listener) {
+        if (!isAdded()) return;
+
+        Profile profile =
+                ProfileProvider.getOrCreateProfile(
+                        assertNonNull(getProfileSupplier().get()), false);
+        mManagementNoticeListener = listener;
+        mManagementNoticeCoordinator =
+                new EnterpriseSignalsDisclaimerCoordinator(
+                        requireContext(),
+                        assertNonNull(IdentityServicesProvider.get().getIdentityManager(profile)),
+                        account,
+                        EnterpriseSignalsDisclaimerCoordinator.PresentationMode
+                                .FIRST_RUN_EXPERIENCE,
+                        this);
+        setView(mManagementNoticeCoordinator.getView());
+
+        // Treat back press while the notice is displayed as a decline.
+        mManagementNoticeBackPressCallback =
+                new OnBackPressedCallback(/* enabled= */ true) {
+                    @Override
+                    public void handleOnBackPressed() {
+                        onDecline();
+                    }
+                };
+        requireActivity()
+                .getOnBackPressedDispatcher()
+                .addCallback(this, mManagementNoticeBackPressCallback);
+    }
+
+    /** Implements {@link EnterpriseSignalsDisclaimerCoordinator.Delegate}. */
+    @Override
+    public void showInfoPage(String url) {
+        assumeNonNull(getPageDelegate()).showInfoPage(url);
+    }
+
+    /** Implements {@link EnterpriseSignalsDisclaimerCoordinator.Delegate}. */
+    @Override
+    public void onAccept() {
+        var listener = dismissManagementNotice();
+        if (listener != null) {
+            listener.onConfirm();
+        }
+    }
+
+    /** Implements {@link EnterpriseSignalsDisclaimerCoordinator.Delegate}. */
+    @Override
+    public void onDecline() {
+        var listener = dismissManagementNotice();
+        if (listener != null) {
+            listener.onCancel();
+        }
+    }
+
+    /**
+     * Hides and destroys the management notice.
+     *
+     * @return The listener that should be notified about the user's decision, or null if the notice
+     *     wasn't showing.
+     */
+    private ConfirmManagedSyncDataDialogCoordinator.@Nullable Listener dismissManagementNotice() {
+        var listener = mManagementNoticeListener;
+        mManagementNoticeListener = null;
+        if (mManagementNoticeBackPressCallback != null) {
+            mManagementNoticeBackPressCallback.remove();
+            mManagementNoticeBackPressCallback = null;
+        }
+        if (mManagementNoticeCoordinator != null) {
+            if (mFragmentView != null) {
+                restoreMainView();
+            }
+            mManagementNoticeCoordinator.destroy();
+            mManagementNoticeCoordinator = null;
+        }
+        return listener;
     }
 
     boolean getDelayedExitFirstRunCalledForTesting() {

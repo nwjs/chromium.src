@@ -164,7 +164,7 @@
             "name": "url",
             "type": "array",
             "items": { "$ref": "events.UrlFilter" },
-            "description": "Conditions that the URL being navigated to must satisfy. The 'schemes' and 'ports' fields of UrlFilter are ignored for this event."
+            "description": "Conditions that the URL being navigated to must satisfy."
           }
         ],
         "parameters": [
@@ -198,7 +198,7 @@
             "name": "url",
             "type": "array",
             "items": { "$ref": "events.UrlFilter" },
-            "description": "Conditions that the URL being navigated to must satisfy. The 'schemes' and 'ports' fields of UrlFilter are ignored for this event."
+            "description": "Conditions that the URL being navigated to must satisfy."
           }
         ],
         "parameters": [
@@ -231,7 +231,7 @@
             "name": "url",
             "type": "array",
             "items": { "$ref": "events.UrlFilter" },
-            "description": "Conditions that the URL being navigated to must satisfy. The 'schemes' and 'ports' fields of UrlFilter are ignored for this event."
+            "description": "Conditions that the URL being navigated to must satisfy."
           }
         ],
         "parameters": [
@@ -263,7 +263,7 @@
             "name": "url",
             "type": "array",
             "items": { "$ref": "events.UrlFilter" },
-            "description": "Conditions that the URL being navigated to must satisfy. The 'schemes' and 'ports' fields of UrlFilter are ignored for this event."
+            "description": "Conditions that the URL being navigated to must satisfy."
           }
         ],
         "parameters": [
@@ -294,7 +294,7 @@
             "name": "url",
             "type": "array",
             "items": { "$ref": "events.UrlFilter" },
-            "description": "Conditions that the URL being navigated to must satisfy. The 'schemes' and 'ports' fields of UrlFilter are ignored for this event."
+            "description": "Conditions that the URL being navigated to must satisfy."
           }
         ],
         "parameters": [
@@ -330,7 +330,7 @@
             "name": "url",
             "type": "array",
             "items": { "$ref": "events.UrlFilter" },
-            "description": "Conditions that the URL being navigated to must satisfy. The 'schemes' and 'ports' fields of UrlFilter are ignored for this event."
+            "description": "Conditions that the URL being navigated to must satisfy."
           }
         ],
         "parameters": [
@@ -357,7 +357,7 @@
             "name": "url",
             "type": "array",
             "items": { "$ref": "events.UrlFilter" },
-            "description": "Conditions that the URL being navigated to must satisfy. The 'schemes' and 'ports' fields of UrlFilter are ignored for this event."
+            "description": "Conditions that the URL being navigated to must satisfy."
           }
         ],
         "parameters": [
@@ -406,7 +406,7 @@
             "name": "url",
             "type": "array",
             "items": { "$ref": "events.UrlFilter" },
-            "description": "Conditions that the URL being navigated to must satisfy. The 'schemes' and 'ports' fields of UrlFilter are ignored for this event."
+            "description": "Conditions that the URL being navigated to must satisfy."
           }
         ],
         "parameters": [

@@ -21,6 +21,7 @@ import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.mockito.quality.Strictness;
 
+import org.chromium.base.ContextUtils;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.SettableNullableObservableSupplier;
@@ -69,8 +70,8 @@ public class ScrollCaptureManagerTest {
 
     @Test
     public void testContentChange() {
-        View view = mock(View.class);
-        View anotherView = mock(View.class);
+        View view = new View(ContextUtils.getApplicationContext());
+        View anotherView = new View(ContextUtils.getApplicationContext());
         InOrder inOrder = Mockito.inOrder(mScrollCaptureManagerDelegateMock);
 
         // No view available
@@ -97,7 +98,7 @@ public class ScrollCaptureManagerTest {
 
     @Test
     public void testDestroy() {
-        View view = mock(View.class);
+        View view = new View(ContextUtils.getApplicationContext());
         InOrder inOrder = Mockito.inOrder(mTab, mScrollCaptureManagerDelegateMock);
 
         when(mTab.getView()).thenReturn(view);

@@ -99,8 +99,8 @@ class MODULES_EXPORT MediaStreamVideoTrack : public MediaStreamTrackPlatform {
   // |callback| will be reset on the render thread.
   void AddSink(WebMediaStreamSink* sink,
                const VideoCaptureDeliverFrameCB& callback,
-               MediaStreamVideoSink::IsSecure is_secure,
-               MediaStreamVideoSink::UsesAlpha uses_alpha) override;
+               WebMediaStreamSink::IsSecure is_secure,
+               WebMediaStreamSink::UsesAlpha uses_alpha) override;
   // Sets |sink|'s dropped frame notification callback which will receive calls
   // on the video task runner. |callback| will be reset on the render thread.
   // Note: the method needs to be called after a sink has been added.
@@ -197,6 +197,10 @@ class MODULES_EXPORT MediaStreamVideoTrack : public MediaStreamTrackPlatform {
 
   void SetIsScreencastForTesting(bool is_screencast) {
     is_screencast_ = is_screencast;
+  }
+
+  base::WeakPtr<MediaStreamVideoTrack> GetWeakPtrForTesting() {
+    return weak_factory_.GetWeakPtr();
   }
 
   MediaStreamTrackPlatform::StreamType Type() const override {

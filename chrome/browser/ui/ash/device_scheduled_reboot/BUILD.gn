@@ -12,8 +12,6 @@ static_library("device_scheduled_reboot") {
     "scheduled_reboot_dialog.h",
   ]
 
-  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
-
   deps = [
     "//ash",
     "//ash/public/cpp",
@@ -45,7 +43,6 @@ source_set("unit_tests") {
     "//base",
     "//chrome/browser/ash/login/users:test_support",
     "//chrome/browser/profiles",
-    "//chrome/browser/ui",
     "//chrome/test:test_support",
     "//chrome/test/base:testing_browser_process",
     "//chromeos/ash/components/browser_context_helper",

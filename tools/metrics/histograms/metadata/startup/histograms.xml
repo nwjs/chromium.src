@@ -772,7 +772,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Startup.BrowserMessageLoopFirstIdle{StartupTemperature}"
-    units="ms" expires_after="2027-01-31">
+    units="ms" expires_after="2027-04-04">
   <owner>gab@chromium.org</owner>
   <owner>etienneb@chromium.org</owner>
   <improvement direction="LOWER_IS_BETTER"/>
@@ -864,7 +864,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Startup.BrowserStartupCompleteReason"
-    enum="StartupIsCompleteReason" expires_after="2026-11-16">
+    enum="StartupIsCompleteReason" expires_after="2027-10-06">
   <owner>joenotcharles@google.com</owner>
   <owner>gab@chromium.org</owner>
   <summary>
@@ -989,7 +989,8 @@ chromium-metrics-reviews@google.com.
     background or when the launch is classified as suspicious, because the
     process may have been suspended for an extended duration before the user
     brought it to the foreground, making the resulting measurement not
-    representative of a cold start.
+    representative of a cold start. Starting in M157, samples are also omitted
+    when system suspension is detected during launch.
 
     The total counts in this histogram can be compared with the number of emits
     to the user action MobileWillEnterForeground. The former reports the number
@@ -1021,7 +1022,8 @@ chromium-metrics-reviews@google.com.
     background or when the launch is classified as suspicious, because the
     process may have been suspended for an extended duration before the user
     brought it to the foreground, making the resulting measurement not
-    representative of a cold start.
+    representative of a cold start. Starting in M157, samples are also omitted
+    when system suspension is detected during launch.
 
     The total counts in this histogram can be compared with the number of emits
     to the user action MobileWillEnterForeground. The former reports the number
@@ -1387,14 +1389,16 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Startup.IncognitoForcedStart" enum="IncognitoForcedStart"
-    expires_after="M140">
+    expires_after="2027-09-30">
   <owner>arabm@google.com</owner>
   <owner>dullweber@chromium.org</owner>
   <owner>chrome-incognito@google.com</owner>
   <summary>
-    Records whether Incognito switch was present in commmand line switches and
-    if Incognito mode was enforced or denied. This is recorded during browser
-    startup when commandline is processed.
+    Records whether the --incognito command line switch was present at browser
+    startup and whether Incognito was launched. Incognito launches if the switch
+    is present or the IncognitoModeAvailability policy forces it, unless
+    Incognito is disabled by the policy or by platform parental controls.
+    Recorded once when the startup command line is processed.
   </summary>
 </histogram>
 
@@ -1425,9 +1429,10 @@ chromium-metrics-reviews@google.com.
     not have been pre-warmed by iOS.
 
     Samples are omitted from this metric when the app was launched into the
-    background or when the launch is classified as suspicious (where the process
-    was likely suspended during startup). Note: See Startup.IOSColdStartType to
-    include background and suspicious launches.
+    background or when the launch is classified as suspicious. Note: See
+    Startup.IOSColdStartType to include background and suspicious launches.
+    Starting in M157, samples are also omitted when system suspension is
+    detected during launch.
   </summary>
 </histogram>
 
@@ -1438,8 +1443,8 @@ chromium-metrics-reviews@google.com.
   <summary>
     Records the reason why the Chrome process was started on iOS, e.g.
     pre-warming, foreground, background refresh, background URL session,
-    background silent notification, or suspicious if no launch reason could be
-    reliably determined.
+    background silent notification, foreground with system suspension (added in
+    M157), or suspicious if no launch reason could be reliably determined.
 
     If a launch was pre-warmed and then used to perform a background task, the
     reported launch reason is the background launch reason. However, if a launch
@@ -1456,8 +1461,12 @@ chromium-metrics-reviews@google.com.
 
     Foreground: The process was never suspended during app initialization.
 
-    Suspicious: Process suspension during initialization is likely, but the
-    exact reason cannot be reliably determined.
+    Suspicious: Process suspension during initialization is likely (e.g. launch
+    timed out), but the exact reason cannot be reliably determined.
+
+    Foreground with system suspension (M157+): System suspension was detected
+    during startup. If the app was launched in the background, the background
+    launch reason has priority.
   </summary>
 </histogram>
 
@@ -1555,7 +1564,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Startup.MobileSessionStartAction"
-    enum="MobileSessionStartAction" expires_after="2027-01-31">
+    enum="MobileSessionStartAction" expires_after="2027-04-04">
   <owner>thegreenfrog@chromium.org</owner>
   <owner>olivierrobin@chromium.org</owner>
   <summary>
@@ -1586,19 +1595,9 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="Startup.PreMainMessageLoopRunImplLongTime" units="ms"
-    expires_after="2025-09-14">
-  <owner>rkaplow@chromium.org</owner>
-  <improvement direction="LOWER_IS_BETTER"/>
-  <summary>
-    The amount of time that elapsed during
-    ChromeBrowserMainParts::PreMainMessageLoopRunImpl.
-  </summary>
-</histogram>
-
 <histogram
     name="Startup.Renderer.LoadTime.ApplicationStartToRendererStartRunLoop"
-    units="ms" expires_after="2027-01-31">
+    units="ms" expires_after="2027-04-04">
   <owner>spvm@chromium.org</owner>
   <owner>etienneb@chromium.org</owner>
   <improvement direction="LOWER_IS_BETTER"/>
@@ -1632,7 +1631,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Startup.Renderer.LoadTime.ProcessCreationToRendererStartRunLoop"
-    units="ms" expires_after="2027-01-31">
+    units="ms" expires_after="2027-04-04">
   <owner>spvm@chromium.org</owner>
   <owner>etienneb@chromium.org</owner>
   <improvement direction="LOWER_IS_BETTER"/>
@@ -1713,7 +1712,8 @@ chromium-metrics-reviews@google.com.
     Samples are omitted from this metric when the app was launched into the
     background or when the launch is classified as suspicious, because the
     process may have been suspended for an extended duration during the measured
-    interval.
+    interval. Starting in M157, samples are also omitted when system suspension
+    is detected during startup.
   </summary>
 </histogram>
 
@@ -1722,9 +1722,14 @@ chromium-metrics-reviews@google.com.
     units="ms" expires_after="2027-09-23">
   <owner>olivierrobin@chromium.org</owner>
   <owner>michaeldo@chromium.org</owner>
+  <owner>junov@chromium.org</owner>
   <summary>
     [IOS] The duration between the call to main and the first navigation start
     {StartupWebExtensionState}.
+
+    Samples are omitted from this metric when the app was launched into the
+    background or during first run, or if a system suspension was detected
+    during startup.
   </summary>
   <token key="StartupWebExtensionState" variants="StartupWebExtensionState"/>
 </histogram>
@@ -1734,9 +1739,14 @@ chromium-metrics-reviews@google.com.
     units="ms" expires_after="2027-09-23">
   <owner>olivierrobin@chromium.org</owner>
   <owner>michaeldo@chromium.org</owner>
+  <owner>junov@chromium.org</owner>
   <summary>
     [IOS] The duration between the call to main and the first page loaded
     {StartupWebExtensionState}.
+
+    Samples are omitted from this metric when the app was launched into the
+    background or during first run, or if a system suspension was detected
+    during startup.
   </summary>
   <token key="StartupWebExtensionState" variants="StartupWebExtensionState"/>
 </histogram>
@@ -1753,12 +1763,13 @@ chromium-metrics-reviews@google.com.
     Samples are omitted from this metric when the app was launched into the
     background or when the launch is classified as suspicious, because the
     process may have been suspended for an extended duration during the measured
-    interval.
+    interval. Starting in M157, samples are also omitted when system suspension
+    is detected during startup.
   </summary>
 </histogram>
 
 <histogram name="Startup.{Process}.LoadTime.PreReadFile" units="ms"
-    expires_after="2027-01-31">
+    expires_after="2027-04-04">
   <owner>spvm@chromium.org</owner>
   <owner>fdoray@chromium.org</owner>
   <owner>etienneb@chromium.org</owner>

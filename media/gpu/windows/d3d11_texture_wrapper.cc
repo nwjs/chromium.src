@@ -36,11 +36,13 @@ DefaultTexture2DWrapper::DefaultTexture2DWrapper(
     const gfx::Size& size,
     const gfx::ColorSpace& output_color_space,
     viz::SharedImageFormat output_si_format,
-    ComD3D11Device device)
+    ComD3D11Device device,
+    gpu::GpuDriverBugWorkarounds workarounds)
     : size_(size),
       output_color_space_(output_color_space),
       output_si_format_(output_si_format),
-      video_device_(std::move(device)) {}
+      video_device_(std::move(device)),
+      workarounds_(std::move(workarounds)) {}
 
 DefaultTexture2DWrapper::~DefaultTexture2DWrapper() = default;
 
@@ -63,10 +65,16 @@ D3DStatus DefaultTexture2DWrapper::BeginSharedImageAccess() {
 }
 
 D3DStatus DefaultTexture2DWrapper::ProcessTexture(
-    scoped_refptr<gpu::ClientSharedImage>& shared_image_dest) {
+    scoped_refptr<gpu::ClientSharedImage>& shared_image_dest,
+    scoped_refptr<gfx::D3DSharedFence> decode_fence) {
   // If we've received an error, then return it to our caller.  This is probably
   // from some previous operation.
   // TODO(liberato): Return the error.
+  if (decode_fence) {
+    CHECK(shared_image_access_);
+    shared_image_access_->SetEndAccessFence(std::move(decode_fence));
+  }
+
   if (shared_image_access_) {
     TRACE_EVENT0("gpu", "D3D11TextureWrapper::EndScopedWriteAccess");
     shared_image_access_.reset();
@@ -110,7 +118,7 @@ D3DStatus DefaultTexture2DWrapper::Init(
       std::move(gpu_task_runner), std::move(on_error_cb),
       std::move(get_helper_cb), size_, output_color_space_, output_si_format_,
       video_device_, texture, array_slice, std::move(picture_buffer),
-      std::move(gpu_resource_init_cb));
+      std::move(gpu_resource_init_cb), workarounds_);
   return D3DStatus::Codes::kOk;
 }
 
@@ -142,7 +150,8 @@ DefaultTexture2DWrapper::GpuResources::GpuResources(
     ComD3D11Texture2D texture,
     size_t array_slice,
     scoped_refptr<media::D3DPictureBuffer> picture_buffer,
-    GPUResourceInitCB gpu_resource_init_cb) {
+    GPUResourceInitCB gpu_resource_init_cb,
+    const gpu::GpuDriverBugWorkarounds& workarounds) {
   CHECK(texture);
 
   helper_ = get_helper_cb.Run();
@@ -181,8 +190,11 @@ DefaultTexture2DWrapper::GpuResources::GpuResources(
     hr = texture.As(&dxgi_resource);
     CHECK_EQ(hr, S_OK);
 
-    // WebGPU will potentially read directly from this texture.
-    usage |= gpu::SHARED_IMAGE_USAGE_WEBGPU_READ;
+    if (!(workarounds.disable_sharing_nv12_from_d3d11_to_d3d12 &&
+          output_si_format == viz::MultiPlaneFormat::kNV12)) {
+      // WebGPU will potentially read directly from this texture.
+      usage |= gpu::SHARED_IMAGE_USAGE_WEBGPU_READ;
+    }
 
     HANDLE shared_handle = nullptr;
     hr = dxgi_resource->CreateSharedHandle(

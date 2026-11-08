@@ -12,15 +12,18 @@ Create a simple JSON file with the policies you want to test (e.g.,
 Here is a minimal example, where you log into Chromium as alice@acme.com and
 want both machine-level and user-level policies.
 
-```
+```json
 {
   "policy_user": "alice@acme.com",
   "machine": {
     "AllowDinosaurEasterEgg": true,
+    "ExtensionInstallForcelist": [
+      "cjpalhdlnbpafiamejdnhcphjbkeiagm;https://clients2.google.com/service/update2/crx"
+    ]
   },
   "user": {
-    "HomepageLocation": "http://example.com/",
-  },
+    "HomepageLocation": "http://example.com/"
+  }
 }
 ```
 
@@ -51,13 +54,21 @@ Optionally arguments:
 ### Step 3: Launch Chrome
 
 When launching Chromium or Chrome, tell it to use your local server. For
-Chromium builds, add `--enable-chrome-browser-cloud-management`:
+Chromium builds, use `--use-fake-dmserver` to configure the default DMServer URL
+and automatically enable cloud management:
+
+```bash
+./out/Default/chrome --use-fake-dmserver
+```
+
+Alternatively, or for Google Chrome builds where `--use-fake-dmserver` is not
+available, specify the parameters manually:
 
 ```bash
 # Replace the URL with the host and port from the previous step
 ./out/Default/chrome \
   --enable-chrome-browser-cloud-management \
-  --device-management-url=http://127.0.0.1:6112/device_management"
+  --device-management-url=http://127.0.0.1:6112/device_management
 ```
 
 ## 2. How to Set Valid Policies (`policies.json`)

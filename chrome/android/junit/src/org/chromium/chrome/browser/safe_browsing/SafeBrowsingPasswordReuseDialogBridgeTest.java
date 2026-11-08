@@ -17,9 +17,9 @@ import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
+import org.robolectric.Robolectric;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
-import org.chromium.chrome.browser.app.ChromeActivity;
 import org.chromium.chrome.browser.password_manager.PasswordManagerDialogContents;
 import org.chromium.chrome.browser.password_manager.PasswordManagerDialogCoordinator;
 import org.chromium.ui.base.WindowAndroid;
@@ -36,16 +36,15 @@ public class SafeBrowsingPasswordReuseDialogBridgeTest {
 
     @Mock private WindowAndroid mWindowAndroid;
     @Mock private PasswordManagerDialogCoordinator mDialogCoordinator;
-    @Mock private ChromeActivity mActivity;
-    private WeakReference<Activity> mActivityRef;
+    private Activity mActivity;
     private SafeBrowsingPasswordReuseDialogBridge mDialog;
 
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
 
     @Before
     public void setUp() {
-        mActivityRef = new WeakReference<>(mActivity);
-        when(mWindowAndroid.getActivity()).thenReturn(mActivityRef);
+        mActivity = Robolectric.buildActivity(Activity.class).setup().get();
+        when(mWindowAndroid.getActivity()).thenReturn(new WeakReference<>(mActivity));
         mDialog =
                 SafeBrowsingPasswordReuseDialogBridge.createForTests(
                         mWindowAndroid,

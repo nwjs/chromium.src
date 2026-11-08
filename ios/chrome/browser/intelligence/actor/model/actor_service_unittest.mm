@@ -4,14 +4,15 @@
 
 #import "ios/chrome/browser/intelligence/actor/model/actor_service.h"
 
-#import <BackgroundTasks/BackgroundTasks.h>
 #import <UIKit/UIKit.h>
 
 #import <set>
+#import <utility>
 
 #import "base/functional/bind.h"
 #import "base/functional/callback_helpers.h"
-#import "base/ios/block_types.h"
+#import "base/run_loop.h"
+#import "base/strings/stringprintf.h"
 #import "base/test/gtest_util.h"
 #import "base/test/run_until.h"
 #import "base/test/scoped_feature_list.h"
@@ -19,24 +20,22 @@
 #import "base/test/test_future.h"
 #import "base/test/values_test_util.h"
 #import "base/types/expected.h"
+#import "components/actor/core/task_source_info.h"
 #import "components/actor/public/mojom/actor_types.mojom.h"
 #import "components/optimization_guide/proto/features/actions_data.pb.h"
-#import "ios/chrome/app/application_delegate/app_state.h"
-#import "ios/chrome/app/background_task/background_continued_processing_app_agent.h"
-#import "ios/chrome/app/background_task/background_continued_processing_task_configuration.h"
-#import "ios/chrome/app/background_task/background_continued_processing_task_context.h"
 #import "ios/chrome/app/background_task/features.h"
-#import "ios/chrome/app/profile/profile_state.h"
 #import "ios/chrome/browser/intelligence/actor/model/actor_service_factory.h"
 #import "ios/chrome/browser/intelligence/actor/model/actor_task.h"
+#import "ios/chrome/browser/intelligence/actor/model/actor_task_background_worker.h"
 #import "ios/chrome/browser/intelligence/actor/public/actor_task_intervention_delegate.h"
+#import "ios/chrome/browser/intelligence/actor/public/actor_task_lifecycle_observer.h"
 #import "ios/chrome/browser/intelligence/actor/public/actor_task_updates_observer.h"
+#import "ios/chrome/browser/intelligence/actor/test/fake_actor_task_intervention_delegate.h"
 #import "ios/chrome/browser/intelligence/actor/tools/model/actor_tool_factory.h"
 #import "ios/chrome/browser/intelligence/actor/tools/model/actor_tool_request.h"
 #import "ios/chrome/browser/intelligence/actor/util/actor_test_utils.h"
 #import "ios/chrome/browser/intelligence/features/features.h"
 #import "ios/chrome/browser/intelligence/proto_wrappers/page_context_extractor_java_script_feature.h"
-#import "ios/chrome/browser/shared/coordinator/scene/scene_state.h"
 #import "ios/chrome/browser/shared/model/browser/browser_list.h"
 #import "ios/chrome/browser/shared/model/browser/browser_list_factory.h"
 #import "ios/chrome/browser/shared/model/browser/test/test_browser.h"
@@ -55,8 +54,6 @@
 #import "testing/gtest/include/gtest/gtest.h"
 #import "testing/gtest_mac.h"
 #import "testing/platform_test.h"
-#import "third_party/ocmock/OCMock/OCMock.h"
-#import "third_party/ocmock/gtest_support.h"
 
 // TODO(crbug.com/556276928): Centralize fake observer across unit tests.
 @interface FakeActorServiceTaskUpdatesObserver
@@ -91,31 +88,30 @@
 
 @end
 
-@interface FakeActorServiceInterventionDelegate
-    : NSObject <ActorTaskInterventionDelegate>
-@property(nonatomic, assign) BOOL requestConfirmationCalled;
-@property(nonatomic, copy) NSString* confirmationTitle;
-@property(nonatomic, copy) NSString* confirmationSubtitle;
-@property(nonatomic, copy) NSString* confirmationButtonText;
-@property(nonatomic, copy) void (^confirmationCompletionHandler)(void);
-@property(nonatomic, copy) void (^onRequestIntervention)(void);
+@interface FakeActorTaskLifecycleObserver
+    : NSObject <ActorTaskLifecycleObserver>
+@property(nonatomic, assign) NSInteger startedCount;
+@property(nonatomic, assign) NSInteger stoppedCount;
+@property(nonatomic, assign) actor::ActorTaskId lastTaskID;
+@property(nonatomic, assign) actor::TaskSourceInfo::Client lastSourceType;
 @end
 
-@implementation FakeActorServiceInterventionDelegate
+@implementation FakeActorTaskLifecycleObserver
 
-- (void)actorTask:(actor::ActorTaskId)taskID
-    requestUserInterventionWithTitle:(NSString*)title
-                            subtitle:(NSString*)subtitle
-                          buttonText:(NSString*)buttonText
-                   completionHandler:(void (^)(void))completionHandler {
-  _requestConfirmationCalled = YES;
-  _confirmationTitle = [title copy];
-  _confirmationSubtitle = [subtitle copy];
-  _confirmationButtonText = [buttonText copy];
-  _confirmationCompletionHandler = [completionHandler copy];
-  if (_onRequestIntervention) {
-    _onRequestIntervention();
-  }
+- (void)actorServiceDidStartTaskWithID:(actor::ActorTaskId)taskID
+                            sourceInfo:
+                                (const actor::TaskSourceInfo&)sourceInfo {
+  _startedCount++;
+  _lastTaskID = taskID;
+  _lastSourceType = sourceInfo.type;
+}
+
+- (void)actorServiceDidStopTaskWithID:(actor::ActorTaskId)taskID
+                           sourceInfo:(const actor::TaskSourceInfo&)sourceInfo
+                           finalState:(actor::ActorTaskState)finalState {
+  _stoppedCount++;
+  _lastTaskID = taskID;
+  _lastSourceType = sourceInfo.type;
 }
 
 @end
@@ -124,10 +120,9 @@ namespace actor {
 
 namespace {
 
-// Returns a no-op block for `expirationHandler` in tests.
-ProceduralBlock NoopExpirationHandler() {
-  return ^{
-  };
+// Returns the provenance attributed to tasks created by these tests.
+TaskSourceInfo TestSource() {
+  return TaskSourceInfo(TaskSourceInfo::Client::kTest, /*id=*/std::nullopt);
 }
 
 class ObservingFakeWebState : public web::FakeWebState {
@@ -157,6 +152,7 @@ class MockActorTask : public ActorTask {
                 bool* stop_called)
       : ActorTask(task_id,
                   title,
+                  TestSource(),
                   allow_incognito_web_states,
                   journal,
                   tool_factory,
@@ -189,8 +185,8 @@ class ActorServiceTest : public PlatformTest {
 
   void SetUp() override {
     PlatformTest::SetUp();
-    // Backgrounding is disabled by default so that general tests do not
-    // exercise it. `ActorServiceBackgroundingTest` re-enables it.
+    // Backgrounding is disabled so that these tests do not exercise it; the
+    // worker and profile agent tests cover it.
     scoped_feature_list_.InitWithFeatures(
         {kPageActionMenu, kActorTools, kGeminiClientMigration, kGeminiActor},
         {kEnableBackgroundContinuedProcessing});
@@ -202,9 +198,11 @@ class ActorServiceTest : public PlatformTest {
   }
 
  protected:
+  // Creates a non-incognito task attributed to `TestSource()`.
   ActorTaskId CreateTask(ActorService* service,
                          const std::string& title = "Test Task") {
-    return service->CreateTask(title, /*allow_incognito_web_states=*/false);
+    return service->CreateTask(title, TestSource(),
+                               /*allow_incognito_web_states=*/false);
   }
 
   PerformActionsResult PerformActions(
@@ -437,6 +435,52 @@ TEST_F(ActorServiceTest, AddControlledWebState) {
   browser_list->RemoveBrowser(test_browser.get());
 }
 
+// Test that `PerformActions` issued while a previous request is executing is
+// rejected with `kExecutionEngineExistingAction` without adding its target
+// WebState to the task.
+TEST_F(ActorServiceTest, PerformActionsWhileActingDoesNotAddWebStates) {
+  ActorService* service = ActorServiceFactory::GetForProfile(profile_.get());
+  ASSERT_NE(nullptr, service);
+
+  ActorTaskId task_id = CreateTask(service);
+
+  BrowserList* browser_list = BrowserListFactory::GetForProfile(profile_.get());
+  auto test_browser = std::make_unique<TestBrowser>(profile_.get());
+  browser_list->AddBrowser(test_browser.get());
+
+  auto fake_web_state = std::make_unique<web::FakeWebState>();
+  web::WebStateID web_state_id = fake_web_state->GetUniqueIdentifier();
+  test_browser->GetWebStateList()->InsertWebState(std::move(fake_web_state));
+
+  // Untargeted, so the first request stays in flight until its tool completes.
+  base::test::TestFuture<PerformActionsResult> first_future;
+  service->PerformActions(task_id, {MakeSuccessfulActorAction()}, "First",
+                          first_future.GetCallback());
+  ASSERT_FALSE(first_future.IsReady());
+
+  base::test::TestFuture<PerformActionsResult> second_future;
+  service->PerformActions(task_id, {MakeSuccessfulActorAction(web_state_id)},
+                          "Second", second_future.GetCallback());
+  EXPECT_FALSE(second_future.IsReady());
+  EXPECT_EQ(nullptr, service->GetWebStateForID(web_state_id, task_id));
+
+  const PerformActionsResult& second_result = second_future.Get();
+  ASSERT_EQ(1u, second_result.action_results.size());
+  EXPECT_EQ(mojom::ActionResultCode::kExecutionEngineExistingAction,
+            second_result.action_results[0].tool_result.code());
+  EXPECT_EQ(nullptr, service->GetWebStateForID(web_state_id, task_id));
+  EXPECT_TRUE(HasJournalEntryWithDetail(
+      *GetJournal(service), "ActorService::PerformActions", "error",
+      base::StringPrintf(
+          "Act rejected with mojom::ActionResultCode[%d]",
+          std::to_underlying(
+              mojom::ActionResultCode::kExecutionEngineExistingAction))));
+
+  ASSERT_TRUE(first_future.Wait());
+
+  browser_list->RemoveBrowser(test_browser.get());
+}
+
 // Tests that GetWebStateForID does not find a tab in an incognito browser if
 // the task does not allow incognito.
 TEST_F(ActorServiceTest, GetWebStateForID_Incognito_NotAllowed) {
@@ -470,7 +514,10 @@ TEST_F(ActorServiceTest, CreateTask_Incognito_Crashes) {
   ActorService* service = ActorServiceFactory::GetForProfile(profile_.get());
   ASSERT_NE(nullptr, service);
 
-  EXPECT_DEATH_IF_SUPPORTED(service->CreateTask("Test Task", true), "");
+  EXPECT_DEATH_IF_SUPPORTED(
+      service->CreateTask("Test Task", TestSource(),
+                          /*allow_incognito_web_states=*/true),
+      "");
 }
 
 // Tests that GetWebStateForID returns nullptr when the task is not found.
@@ -527,6 +574,31 @@ TEST_F(ActorServiceTest, PerformActions_NoLoading_InstantCompletion) {
   EXPECT_TRUE(result.action_results[0].tool_result.IsOk());
 
   browser_list->RemoveBrowser(test_browser.get());
+}
+
+// Tests that PerformActions logs the actions proto to AggregatedJournal.
+TEST_F(ActorServiceTest, PerformActions_LogsActionsToJournal) {
+  ActorService* service = ActorServiceFactory::GetForProfile(profile_.get());
+  ASSERT_NE(nullptr, service);
+
+  ActorTaskId invalid_task_id = ActorTaskId(999);
+
+  optimization_guide::proto::Action action;
+  action.mutable_wait()->set_wait_time_ms(0);
+  std::vector<optimization_guide::proto::Action> actions = {action};
+
+  base::test::TestFuture<PerformActionsResult> future;
+  service->PerformActions(invalid_task_id, actions, "Update",
+                          future.GetCallback());
+  PerformActionsResult result = future.Take();
+  ASSERT_EQ(1u, result.action_results.size());
+  EXPECT_EQ(mojom::ActionResultCode::kTaskWentAway,
+            result.action_results[0].tool_result.code());
+
+  EXPECT_TRUE(HasJournalEntry(*GetJournal(service), "PerformActions"));
+  EXPECT_TRUE(HasJournalEntryWithDetail(
+      *GetJournal(service), "PerformActions", "proto_type",
+      "chrome_intelligence_proto_features.Actions"));
 }
 
 // Tests that PerformActions is deferred when the WebState is loading, and only
@@ -659,13 +731,19 @@ TEST_F(ActorServiceTest, TaskUpdatesObserverLifecycle) {
   service->AddTaskUpdatesObserver(observer);
 
   ActorTaskId task_id = CreateTask(service);
+  ASSERT_TRUE(
+      base::test::RunUntil([&]() { return observer.registeredCount == 1; }));
   EXPECT_EQ(1, observer.registeredCount);
   EXPECT_NSEQ(@"Test Task", observer.taskTitle);
 
   PerformActions(service, task_id);
+  ASSERT_TRUE(
+      base::test::RunUntil([&]() { return observer.stateChangeCount > 0; }));
   EXPECT_GT(observer.stateChangeCount, 0);
 
   service->StopTask(task_id, ActorTaskStoppedReason::kStoppedByUser);
+  ASSERT_TRUE(
+      base::test::RunUntil([&]() { return observer.stoppedCount == 1; }));
   EXPECT_EQ(1, observer.stoppedCount);
 
   service->RemoveTaskUpdatesObserver(observer);
@@ -682,13 +760,19 @@ TEST_F(ActorServiceTest, LateAddedTaskUpdatesObserverAttachesToActiveTasks) {
   FakeActorServiceTaskUpdatesObserver* observer =
       [[FakeActorServiceTaskUpdatesObserver alloc] init];
   service->AddTaskUpdatesObserver(observer);
+  ASSERT_TRUE(
+      base::test::RunUntil([&]() { return observer.registeredCount == 1; }));
   EXPECT_EQ(1, observer.registeredCount);
   EXPECT_NSEQ(@"Active Task", observer.taskTitle);
 
   PerformActions(service, task_id);
+  ASSERT_TRUE(
+      base::test::RunUntil([&]() { return observer.stateChangeCount > 0; }));
   EXPECT_GT(observer.stateChangeCount, 0);
 
   service->StopTask(task_id, ActorTaskStoppedReason::kStoppedByUser);
+  ASSERT_TRUE(
+      base::test::RunUntil([&]() { return observer.stoppedCount == 1; }));
   EXPECT_EQ(1, observer.stoppedCount);
 
   service->RemoveTaskUpdatesObserver(observer);
@@ -709,6 +793,9 @@ TEST_F(ActorServiceTest, MultipleTaskUpdatesObserversBroadcastAndRemoval) {
 
   // Both observers should receive the registration callback on task creation.
   ActorTaskId task_id = CreateTask(service, "Shared Task");
+  ASSERT_TRUE(base::test::RunUntil([&]() {
+    return observer1.registeredCount == 1 && observer2.registeredCount == 1;
+  }));
   EXPECT_EQ(1, observer1.registeredCount);
   EXPECT_NSEQ(@"Shared Task", observer1.taskTitle);
   EXPECT_EQ(1, observer2.registeredCount);
@@ -716,17 +803,23 @@ TEST_F(ActorServiceTest, MultipleTaskUpdatesObserversBroadcastAndRemoval) {
 
   // Performing actions transitions task state and broadcasts to all observers.
   PerformActions(service, task_id);
+  ASSERT_TRUE(
+      base::test::RunUntil([&]() { return observer1.stateChangeCount > 0; }));
   EXPECT_GT(observer1.stateChangeCount, 0);
   EXPECT_EQ(observer1.stateChangeCount, observer2.stateChangeCount);
 
   // Stopping the task should only notify the remaining active observer.
   service->RemoveTaskUpdatesObserver(observer1);
   service->StopTask(task_id, ActorTaskStoppedReason::kStoppedByUser);
+  ASSERT_TRUE(
+      base::test::RunUntil([&]() { return observer2.stoppedCount == 1; }));
   EXPECT_EQ(0, observer1.stoppedCount);
   EXPECT_EQ(1, observer2.stoppedCount);
 
   // Creating a new task should only notify observer2.
   CreateTask(service, "Next Task");
+  ASSERT_TRUE(
+      base::test::RunUntil([&]() { return observer2.registeredCount == 2; }));
   EXPECT_EQ(1, observer1.registeredCount);
   EXPECT_EQ(2, observer2.registeredCount);
 
@@ -744,190 +837,188 @@ TEST_F(ActorServiceTest, DuplicateTaskUpdatesObserverIgnored) {
   service->AddTaskUpdatesObserver(observer);
 
   CreateTask(service);
+  ASSERT_TRUE(
+      base::test::RunUntil([&]() { return observer.registeredCount == 1; }));
   EXPECT_EQ(1, observer.registeredCount);
 
   service->RemoveTaskUpdatesObserver(observer);
 }
 
-// Fixture for tests exercising the backgrounding code paths. Re-enables the
-// `kEnableBackgroundContinuedProcessing` killswitch that `ActorServiceTest`
-// disables. Note that `IsGeminiActorBackgroundingEnabled()` can still be false
-// when backgrounding is unavailable in the current configuration (i.e. the
-// `ios_enable_background_continued_processing` GN arg is false, or the OS is
-// older than iOS 26).
-class ActorServiceBackgroundingTest : public ActorServiceTest {
- protected:
-  void SetUp() override {
-    ActorServiceTest::SetUp();
-    backgrounding_feature_list_.InitAndEnableFeature(
-        kEnableBackgroundContinuedProcessing);
-  }
-
-  base::test::ScopedFeatureList backgrounding_feature_list_;
-};
-
-// Test that `CreateTask` succeeds and falls back gracefully when backgrounding
-// is enabled but no active scene browser exists.
-TEST_F(ActorServiceBackgroundingTest,
-       CreateTask_BackgroundingEnabledNoActiveScene) {
-  if (!IsGeminiActorBackgroundingEnabled()) {
-    GTEST_SKIP() << "Backgrounding is unavailable in this configuration.";
-  }
-
+// Test that a task-scoped observer only receives updates for its task and
+// stops receiving them once removed.
+TEST_F(ActorServiceTest, TaskScopedUpdatesObserver) {
   ActorService* service = ActorServiceFactory::GetForProfile(profile_.get());
   ASSERT_NE(nullptr, service);
 
-  ActorTaskId task_id = CreateTask(service, "Background Task");
-  EXPECT_TRUE(HasTask(service, task_id));
-  EXPECT_EQ(service->GetActiveTaskState(), ActorTaskState::kInit);
+  ActorTaskId observed_task_id = CreateTask(service, "Observed Task");
+  ActorTaskId other_task_id = CreateTask(service, "Other Task");
 
-  ActorTask* task = GetTask(service, task_id);
-  ASSERT_NE(nullptr, task);
+  FakeActorServiceTaskUpdatesObserver* observer =
+      [[FakeActorServiceTaskUpdatesObserver alloc] init];
+  EXPECT_TRUE(service->AddTaskUpdatesObserver(observed_task_id, observer));
+  ASSERT_TRUE(
+      base::test::RunUntil([&]() { return observer.registeredCount == 1; }));
+  EXPECT_NSEQ(@"Observed Task", observer.taskTitle);
+
+  // Neither other tasks nor newly created tasks notify the observer.
+  service->StopTask(other_task_id, ActorTaskStoppedReason::kStoppedByUser);
+  CreateTask(service, "New Task");
+  FlushCurrentSequence();
+  EXPECT_EQ(1, observer.registeredCount);
+  EXPECT_EQ(0, observer.stoppedCount);
+
+  service->RemoveTaskUpdatesObserver(observed_task_id, observer);
+  service->StopTask(observed_task_id, ActorTaskStoppedReason::kStoppedByUser);
+  FlushCurrentSequence();
+  EXPECT_EQ(0, observer.stoppedCount);
 }
 
-// Fixture that attaches a foreground-active scene whose app state vends a
-// mocked `BackgroundContinuedProcessingAppAgent`. This satisfies every
-// precondition of `ActorService::RegisterBackgroundTask()` other than the
-// feature check, so negative tests fail if the feature guard is bypassed.
-class ActorServiceBackgroundingWithAppAgentTest
-    : public ActorServiceBackgroundingTest {
- protected:
-  void SetUp() override {
-    ActorServiceBackgroundingTest::SetUp();
-
-    mock_app_state_ = OCMClassMock([AppState class]);
-    mock_profile_state_ = OCMClassMock([ProfileState class]);
-    mock_scene_state_ = OCMClassMock([SceneState class]);
-    OCMStub([mock_scene_state_ profileState]).andReturn(mock_profile_state_);
-    OCMStub([mock_profile_state_ appState]).andReturn(mock_app_state_);
-    OCMStub([mock_scene_state_ activationLevel])
-        .andReturn(SceneActivationLevelForegroundActive);
-
-    test_browser_ =
-        std::make_unique<TestBrowser>(profile_.get(), mock_scene_state_);
-    BrowserListFactory::GetForProfile(profile_.get())
-        ->AddBrowser(test_browser_.get());
-
-    mock_agent_ = OCMClassMock([BackgroundContinuedProcessingAppAgent class]);
-    OCMStub([mock_agent_ agentFromApp:mock_app_state_]).andReturn(mock_agent_);
-  }
-
-  void TearDown() override {
-    BrowserListFactory::GetForProfile(profile_.get())
-        ->RemoveBrowser(test_browser_.get());
-    test_browser_.reset();
-    [mock_agent_ stopMocking];
-    [mock_scene_state_ stopMocking];
-    [mock_profile_state_ stopMocking];
-    [mock_app_state_ stopMocking];
-    ActorServiceBackgroundingTest::TearDown();
-  }
-
-  // Creates a task and verifies that it was created without requesting a
-  // background task from the app agent.
-  void CreateTaskAndExpectNoBackgroundTaskRequested() {
-    OCMReject([mock_agent_ requestTaskWithIdentifier:[OCMArg any]
-                                       configuration:[OCMArg any]]);
-
-    ActorService* service = ActorServiceFactory::GetForProfile(profile_.get());
-    ASSERT_NE(nullptr, service);
-
-    ActorTaskId task_id = CreateTask(service, "Foreground Only Task");
-    EXPECT_TRUE(HasTask(service, task_id));
-    EXPECT_OCMOCK_VERIFY(mock_agent_);
-  }
-
-  id mock_app_state_;
-  id mock_profile_state_;
-  id mock_scene_state_;
-  id mock_agent_;
-  std::unique_ptr<TestBrowser> test_browser_;
-};
-
-// Test that `CreateTask` registers a background task with the OS agent when
-// backgrounding is enabled and an active scene with an app agent exists.
-TEST_F(ActorServiceBackgroundingWithAppAgentTest,
-       CreateTask_BackgroundingEnabledWithActiveSceneAndAgent) {
-  if (!IsGeminiActorBackgroundingEnabled()) {
-    GTEST_SKIP() << "Backgrounding is unavailable in this configuration.";
-  }
-
-  id mock_scheduler = OCMClassMock([BGTaskScheduler class]);
-  OCMStub([mock_scheduler sharedScheduler]).andReturn(mock_scheduler);
-
-  __block BackgroundContinuedProcessingTaskConfiguration* captured_config = nil;
-  BackgroundContinuedProcessingTaskConfiguration* dummy_config =
-      [[BackgroundContinuedProcessingTaskConfiguration alloc]
-              initWithTitle:@"Dummy"
-                   subtitle:@""
-          expirationHandler:NoopExpirationHandler()];
-  BackgroundContinuedProcessingTaskContext* mock_context =
-      [[BackgroundContinuedProcessingTaskContext alloc]
-          initWithTaskIdentifier:@"org.chromium.test.task"
-                   configuration:dummy_config
-                   finishHandler:nil];
-
-  OCMStub([mock_agent_
-              requestTaskWithIdentifier:[OCMArg any]
-                          configuration:[OCMArg checkWithBlock:^BOOL(id val) {
-                            captured_config = val;
-                            return YES;
-                          }]])
-      .andReturn(mock_context);
-
+// Test that adding a task-scoped observer fails for an unknown task or a nil
+// observer.
+TEST_F(ActorServiceTest, AddTaskScopedUpdatesObserverFailures) {
   ActorService* service = ActorServiceFactory::GetForProfile(profile_.get());
   ASSERT_NE(nullptr, service);
 
-  ActorTaskId task_id = CreateTask(service, "Registered Task");
-  EXPECT_TRUE(HasTask(service, task_id));
+  ActorTaskId task_id = CreateTask(service);
+  service->StopTask(task_id, ActorTaskStoppedReason::kStoppedByUser);
 
-  ActorTask* task = GetTask(service, task_id);
-  ASSERT_NE(nullptr, task);
+  FakeActorServiceTaskUpdatesObserver* observer =
+      [[FakeActorServiceTaskUpdatesObserver alloc] init];
+  EXPECT_FALSE(service->AddTaskUpdatesObserver(task_id, observer));
+  EXPECT_EQ(0, observer.registeredCount);
 
-  ASSERT_NE(nil, captured_config);
-  EXPECT_NSEQ(@"Registered Task", captured_config.title);
-  EXPECT_EQ(kDefaultTotalUnitsOfProgress, captured_config.totalUnits);
-
-  // Invoking the expiration handler should shut down the task.
-  captured_config.expirationHandler();
-  EXPECT_FALSE(HasTask(service, task_id));
-
-  [mock_scheduler stopMocking];
+  ActorTaskId active_task_id = CreateTask(service);
+  EXPECT_FALSE(service->AddTaskUpdatesObserver(active_task_id, nil));
 }
 
-// Test that `CreateTask` does not attempt to register a background task when
-// `kGeminiActorBackgroundingParam` is set to `"false"`.
-TEST_F(ActorServiceBackgroundingWithAppAgentTest,
-       CreateTask_BackgroundingNotRegisteredWhenFeatureParamDisabled) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndEnableFeatureWithParameters(
-      kGeminiActor, {{kGeminiActorBackgroundingParam, "false"}});
+// Test that a task lifecycle observer is notified, with the task source, when a
+// task is started and stopped.
+TEST_F(ActorServiceTest, TaskLifecycleObserverNotifiedOnStartAndStop) {
+  ActorService* service = ActorServiceFactory::GetForProfile(profile_.get());
+  ASSERT_NE(nullptr, service);
 
-  CreateTaskAndExpectNoBackgroundTaskRequested();
+  FakeActorTaskLifecycleObserver* observer =
+      [[FakeActorTaskLifecycleObserver alloc] init];
+  service->AddTaskLifecycleObserver(observer);
+
+  ActorTaskId task_id = CreateTask(service);
+  EXPECT_EQ(1, observer.startedCount);
+  EXPECT_EQ(task_id, observer.lastTaskID);
+  EXPECT_EQ(TaskSourceInfo::Client::kTest, observer.lastSourceType);
+
+  service->StopTask(task_id, ActorTaskStoppedReason::kStoppedByUser);
+  EXPECT_EQ(1, observer.stoppedCount);
+  EXPECT_EQ(task_id, observer.lastTaskID);
+
+  service->RemoveTaskLifecycleObserver(observer);
 }
 
-// Test that `CreateTask` does not attempt to register a background task when
-// the `kEnableBackgroundContinuedProcessing` killswitch is disabled.
-TEST_F(ActorServiceBackgroundingWithAppAgentTest,
-       CreateTask_BackgroundingNotRegisteredWhenKillswitchDisabled) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndDisableFeature(
-      kEnableBackgroundContinuedProcessing);
+// Test that adding a task lifecycle observer when a task is already active does
+// not replay its start, but still notifies when that task stops.
+TEST_F(ActorServiceTest, LateAddedTaskLifecycleObserverNotReplayed) {
+  ActorService* service = ActorServiceFactory::GetForProfile(profile_.get());
+  ASSERT_NE(nullptr, service);
 
-  CreateTaskAndExpectNoBackgroundTaskRequested();
+  ActorTaskId task_id = CreateTask(service, "Active Task");
+
+  FakeActorTaskLifecycleObserver* observer =
+      [[FakeActorTaskLifecycleObserver alloc] init];
+  service->AddTaskLifecycleObserver(observer);
+  EXPECT_EQ(0, observer.startedCount);
+
+  service->StopTask(task_id, ActorTaskStoppedReason::kStoppedByUser);
+  EXPECT_EQ(1, observer.stoppedCount);
+  EXPECT_EQ(task_id, observer.lastTaskID);
+
+  service->RemoveTaskLifecycleObserver(observer);
 }
 
-// Test that `CreateTask` does not attempt to register a background task when
-// backgrounding is unavailable in the current configuration (i.e. the
-// `ios_enable_background_continued_processing` GN arg is false, or the OS is
-// older than iOS 26), even though all runtime features are enabled.
-TEST_F(ActorServiceBackgroundingWithAppAgentTest,
-       CreateTask_BackgroundingNotRegisteredWhenUnavailable) {
-  if (IsGeminiActorBackgroundingEnabled()) {
-    GTEST_SKIP() << "Backgrounding is available in this configuration.";
-  }
+// Test broadcasting to multiple task lifecycle observers and selective removal.
+TEST_F(ActorServiceTest, MultipleTaskLifecycleObserversBroadcastAndRemoval) {
+  ActorService* service = ActorServiceFactory::GetForProfile(profile_.get());
+  ASSERT_NE(nullptr, service);
 
-  CreateTaskAndExpectNoBackgroundTaskRequested();
+  FakeActorTaskLifecycleObserver* observer1 =
+      [[FakeActorTaskLifecycleObserver alloc] init];
+  FakeActorTaskLifecycleObserver* observer2 =
+      [[FakeActorTaskLifecycleObserver alloc] init];
+  service->AddTaskLifecycleObserver(observer1);
+  service->AddTaskLifecycleObserver(observer2);
+
+  ActorTaskId task_id = CreateTask(service, "Shared Task");
+  EXPECT_EQ(1, observer1.startedCount);
+  EXPECT_EQ(1, observer2.startedCount);
+
+  // Stopping the task should only notify the remaining observer.
+  service->RemoveTaskLifecycleObserver(observer1);
+  service->StopTask(task_id, ActorTaskStoppedReason::kStoppedByUser);
+  EXPECT_EQ(0, observer1.stoppedCount);
+  EXPECT_EQ(1, observer2.stoppedCount);
+
+  // Creating a new task should only notify the remaining observer.
+  CreateTask(service, "Next Task");
+  EXPECT_EQ(1, observer1.startedCount);
+  EXPECT_EQ(2, observer2.startedCount);
+
+  service->RemoveTaskLifecycleObserver(observer2);
+}
+
+// Test that adding a duplicate task lifecycle observer is ignored.
+TEST_F(ActorServiceTest, DuplicateTaskLifecycleObserverIgnored) {
+  ActorService* service = ActorServiceFactory::GetForProfile(profile_.get());
+  ASSERT_NE(nullptr, service);
+
+  FakeActorTaskLifecycleObserver* observer =
+      [[FakeActorTaskLifecycleObserver alloc] init];
+  service->AddTaskLifecycleObserver(observer);
+  service->AddTaskLifecycleObserver(observer);
+
+  CreateTask(service);
+  EXPECT_EQ(1, observer.startedCount);
+
+  service->RemoveTaskLifecycleObserver(observer);
+}
+
+// Test that `GetWeakTaskBackgroundWorkers()` returns one weak pointer per
+// active task, in task ID order, that the list shrinks when a task is stopped,
+// and that a stopped task's weak pointer is invalidated.
+TEST_F(ActorServiceTest, GetWeakTaskBackgroundWorkers) {
+  ActorService* service = ActorServiceFactory::GetForProfile(profile_.get());
+  ASSERT_NE(nullptr, service);
+  EXPECT_TRUE(service->GetWeakTaskBackgroundWorkers().empty());
+
+  ActorTaskId first_id = CreateTask(service);
+  ActorTaskId second_id = CreateTask(service);
+
+  std::vector<base::WeakPtr<ActorTaskBackgroundWorker>> workers =
+      service->GetWeakTaskBackgroundWorkers();
+  ASSERT_EQ(2u, workers.size());
+  ASSERT_TRUE(workers[0]);
+  ASSERT_TRUE(workers[1]);
+  EXPECT_EQ(first_id, workers[0]->task_id());
+  EXPECT_EQ(second_id, workers[1]->task_id());
+  EXPECT_EQ(GetTask(service, first_id)->background_worker(), workers[0].get());
+  base::WeakPtr<ActorTaskBackgroundWorker> first_worker = workers[0];
+
+  service->StopTask(first_id, ActorTaskStoppedReason::kStoppedByUser);
+
+  EXPECT_FALSE(first_worker);
+  workers = service->GetWeakTaskBackgroundWorkers();
+  ASSERT_EQ(1u, workers.size());
+  ASSERT_TRUE(workers[0]);
+  EXPECT_EQ(second_id, workers[0]->task_id());
+}
+
+// Test that `GetForProfileIfExists()` returns null until the service is
+// created, and the same instance afterwards.
+TEST_F(ActorServiceTest, GetForProfileIfExistsDoesNotCreateService) {
+  EXPECT_EQ(nullptr,
+            ActorServiceFactory::GetForProfileIfExists(profile_.get()));
+
+  ActorService* service = ActorServiceFactory::GetForProfile(profile_.get());
+  ASSERT_NE(nullptr, service);
+  EXPECT_EQ(service,
+            ActorServiceFactory::GetForProfileIfExists(profile_.get()));
 }
 
 // Test that SetTaskInterventionDelegate sets the intervention delegate on an
@@ -937,12 +1028,11 @@ TEST_F(ActorServiceTest, SetTaskInterventionDelegateAndInterruptTask) {
   ActorService* service = ActorServiceFactory::GetForProfile(profile_.get());
   ASSERT_NE(nullptr, service);
 
-  ActorTaskId task_id =
-      service->CreateTask("Test Task", /*allow_incognito_web_states=*/false);
+  ActorTaskId task_id = CreateTask(service);
   ASSERT_TRUE(HasTask(service, task_id));
 
-  FakeActorServiceInterventionDelegate* delegate =
-      [[FakeActorServiceInterventionDelegate alloc] init];
+  FakeActorTaskInterventionDelegate* delegate =
+      [[FakeActorTaskInterventionDelegate alloc] init];
   service->SetTaskInterventionDelegate(task_id, delegate);
 
   // Transition task to kReflecting by executing an empty action sequence.
@@ -956,16 +1046,21 @@ TEST_F(ActorServiceTest, SetTaskInterventionDelegateAndInterruptTask) {
   service->InterruptTask(task_id,
                          ActorTaskInterruptReason::kWaitingUserConfirmation,
                          "Please confirm");
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return delegate.requestConfirmationCalled; }));
 
   EXPECT_EQ(task->GetState(), ActorTaskState::kWaitingOnUser);
   EXPECT_TRUE(delegate.requestConfirmationCalled);
   EXPECT_NSEQ(@"Please confirm", delegate.confirmationTitle);
   EXPECT_NSEQ(@"Continue", delegate.confirmationButtonText);
-  ASSERT_TRUE(delegate.confirmationCompletionHandler != nil);
+  ASSERT_TRUE(delegate.hasPendingUserIntervention);
 
-  // Resolving the confirmation resumes the task to kReflecting.
-  delegate.confirmationCompletionHandler();
-  EXPECT_EQ(task->GetState(), ActorTaskState::kReflecting);
+  // Resolving the confirmation resumes the task to kReflecting once the posted
+  // completion runs.
+  [delegate runUserInterventionCompletion];
+  EXPECT_EQ(task->GetState(), ActorTaskState::kWaitingOnUser);
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return task->GetState() == ActorTaskState::kReflecting; }));
 }
 
 // Test that a task can be interrupted for user confirmation before it performs
@@ -975,12 +1070,11 @@ TEST_F(ActorServiceTest, InterruptTaskBeforeFirstAct) {
   ActorService* service = ActorServiceFactory::GetForProfile(profile_.get());
   ASSERT_NE(nullptr, service);
 
-  ActorTaskId task_id =
-      service->CreateTask("Test Task", /*allow_incognito_web_states=*/false);
+  ActorTaskId task_id = CreateTask(service);
   ASSERT_TRUE(HasTask(service, task_id));
 
-  FakeActorServiceInterventionDelegate* delegate =
-      [[FakeActorServiceInterventionDelegate alloc] init];
+  FakeActorTaskInterventionDelegate* delegate =
+      [[FakeActorTaskInterventionDelegate alloc] init];
   service->SetTaskInterventionDelegate(task_id, delegate);
 
   ActorTask* task = GetTask(service, task_id);
@@ -991,17 +1085,20 @@ TEST_F(ActorServiceTest, InterruptTaskBeforeFirstAct) {
   service->InterruptTask(task_id,
                          ActorTaskInterruptReason::kWaitingUserConfirmation,
                          "Please confirm before starting");
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return delegate.requestConfirmationCalled; }));
 
   EXPECT_EQ(task->GetState(), ActorTaskState::kWaitingOnUser);
   EXPECT_TRUE(delegate.requestConfirmationCalled);
   EXPECT_NSEQ(@"Please confirm before starting", delegate.confirmationTitle);
   EXPECT_NSEQ(@"Continue", delegate.confirmationButtonText);
-  ASSERT_TRUE(delegate.confirmationCompletionHandler != nil);
+  ASSERT_TRUE(delegate.hasPendingUserIntervention);
 
-  // Resolving the confirmation resumes the task to kReflecting, from which it
-  // can perform its first actions.
-  delegate.confirmationCompletionHandler();
-  EXPECT_EQ(task->GetState(), ActorTaskState::kReflecting);
+  // Resolving the confirmation resumes the task to kReflecting once the posted
+  // completion runs, from which it can perform its first actions.
+  [delegate runUserInterventionCompletion];
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return task->GetState() == ActorTaskState::kReflecting; }));
 
   PerformActions(service, task_id);
   EXPECT_EQ(task->GetState(), ActorTaskState::kReflecting);
@@ -1014,26 +1111,31 @@ TEST_F(ActorServiceTest, InterventionAndInterruptSafelyHandleUnknownTaskId) {
   ASSERT_NE(nullptr, service);
 
   ActorTaskId unknown_task_id = ActorTaskId(9999);
-  FakeActorServiceInterventionDelegate* delegate =
-      [[FakeActorServiceInterventionDelegate alloc] init];
+  FakeActorTaskInterventionDelegate* delegate =
+      [[FakeActorTaskInterventionDelegate alloc] init];
 
   service->SetTaskInterventionDelegate(unknown_task_id, delegate);
   service->InterruptTask(unknown_task_id,
                          ActorTaskInterruptReason::kWaitingUserConfirmation,
                          "Unknown");
+  FlushCurrentSequence();
 
   EXPECT_FALSE(delegate.requestConfirmationCalled);
 }
 
-// Test that InterruptTask removes the task from active_tasks_ when the
-// interrupt fails and transitions the task to a terminal state.
+// Test that InterruptTask removes the task from active_tasks_ and notifies
+// lifecycle observers when the interrupt fails and transitions the task to a
+// terminal state.
 TEST_F(ActorServiceTest, InterruptTaskRemovesStoppedTaskOnFailure) {
   ActorService* service = ActorServiceFactory::GetForProfile(profile_.get());
   ASSERT_NE(nullptr, service);
 
-  ActorTaskId task_id =
-      service->CreateTask("Test Task", /*allow_incognito_web_states=*/false);
+  ActorTaskId task_id = CreateTask(service);
   ASSERT_TRUE(HasTask(service, task_id));
+
+  FakeActorTaskLifecycleObserver* observer =
+      [[FakeActorTaskLifecycleObserver alloc] init];
+  service->AddTaskLifecycleObserver(observer);
 
   // Interrupting for confirmation without setting an intervention delegate
   // stops the task and removes it from `active_tasks_`.
@@ -1042,22 +1144,24 @@ TEST_F(ActorServiceTest, InterruptTaskRemovesStoppedTaskOnFailure) {
                          "Please confirm");
 
   EXPECT_FALSE(HasTask(service, task_id));
+  EXPECT_EQ(1, observer.stoppedCount);
+  EXPECT_EQ(task_id, observer.lastTaskID);
+
+  service->RemoveTaskLifecycleObserver(observer);
 }
 
-// Test that synchronously calling StopTask from within the intervention
-// delegate callback during InterruptTask does not cause iterator invalidation
-// or Use-After-Free.
+// Test that calling StopTask from within the intervention delegate callback
+// does not cause iterator invalidation or Use-After-Free.
 TEST_F(ActorServiceTest, InterruptTaskHandlesReentrantStopTask) {
   ActorService* service = ActorServiceFactory::GetForProfile(profile_.get());
   ASSERT_NE(nullptr, service);
 
-  ActorTaskId task_id =
-      service->CreateTask("Test Task", /*allow_incognito_web_states=*/false);
+  ActorTaskId task_id = CreateTask(service);
   ASSERT_TRUE(HasTask(service, task_id));
 
-  FakeActorServiceInterventionDelegate* delegate =
-      [[FakeActorServiceInterventionDelegate alloc] init];
-  delegate.onRequestIntervention = ^{
+  FakeActorTaskInterventionDelegate* delegate =
+      [[FakeActorTaskInterventionDelegate alloc] init];
+  delegate.onUserInterventionRequested = ^{
     service->StopTask(task_id, ActorTaskStoppedReason::kStoppedByUser);
   };
   service->SetTaskInterventionDelegate(task_id, delegate);
@@ -1065,6 +1169,9 @@ TEST_F(ActorServiceTest, InterruptTaskHandlesReentrantStopTask) {
   service->InterruptTask(task_id,
                          ActorTaskInterruptReason::kWaitingUserConfirmation,
                          "Please confirm");
+  EXPECT_FALSE(delegate.requestConfirmationCalled);
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return delegate.requestConfirmationCalled; }));
 
   EXPECT_TRUE(delegate.requestConfirmationCalled);
   EXPECT_FALSE(HasTask(service, task_id));

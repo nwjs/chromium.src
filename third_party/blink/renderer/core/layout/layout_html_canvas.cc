@@ -55,7 +55,7 @@ void LayoutHTMLCanvas::CanvasSizeChanged() {
   NOT_DESTROYED();
   gfx::Size canvas_size = To<HTMLCanvasElement>(GetNode())->Size();
   PhysicalSize zoomed_size = PhysicalSize(canvas_size);
-  zoomed_size.Scale(StyleRef().EffectiveZoom());
+  zoomed_size.Scale(Style().EffectiveZoom());
 
   if (zoomed_size == natural_size_) {
     return;
@@ -86,11 +86,13 @@ bool LayoutHTMLCanvas::DrawsBackgroundOntoContentLayer() const {
   CanvasRenderingContext* context = canvas->RenderingContext();
   if (!context || !context->IsComposited() || !context->CcLayer())
     return false;
-  if (StyleRef().HasBoxDecorations() || StyleRef().HasBackgroundImage())
+  if (Style().HasBoxDecorations() || Style().HasBackgroundImage()) {
     return false;
+  }
   // If there is no background, there is nothing to support.
-  if (!StyleRef().HasBackground())
+  if (!Style().HasBackground()) {
     return true;
+  }
   // Simple background that is contained within the contents rect.
   return ReplacedContentRect().Contains(
       PhysicalBackgroundRect(kBackgroundPaintedExtent));
@@ -136,12 +138,28 @@ void LayoutHTMLCanvas::Trace(Visitor* visitor) const {
 bool LayoutHTMLCanvas::IsChildAllowed(LayoutObject* child,
                                       const ComputedStyle& style) const {
   NOT_DESTROYED();
-  if (!IsA<Element>(GetNode()) || child->IsText()) {
+  const auto* canvas = To<HTMLCanvasElement>(GetNode());
+  if (!canvas->IsContentDrawable()) {
     return false;
   }
 
-  const auto* canvas = To<HTMLCanvasElement>(GetNode());
-  return canvas->IsContentDrawable();
+  // <canvas> supports laying out children as in-flow block level boxes, all
+  // sized by the <canvas> box. The StyleAdjuster will blockify and force static
+  // positioning on children as necessary.
+  //
+  // Text boxes, their anonymous inline wrappers, or elements which cannot be
+  // blockified are rejected below.
+  //
+  // TODO(crbug.com/564820084): Support pseudo-element children (e.g.,
+  // `::before`/`::after` on the canvas or on `display: contents` children) so
+  // their generated content is exposed in the accessibility tree.
+  auto* child_element = DynamicTo<Element>(child->GetNode());
+  if (!child->IsBox() || !child_element || child_element->IsPseudoElement()) {
+    return false;
+  }
+
+  CHECK(!style.IsDisplayInlineType());
+  return true;
 }
 
 }  // namespace blink

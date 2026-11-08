@@ -9,7 +9,7 @@ import signal
 import sys
 
 import collections
-import json
+import json  # noqa: F401
 import logging
 import os
 import psutil
@@ -17,7 +17,7 @@ import shutil
 import subprocess
 import threading
 import time
-from typing import List, Optional
+from typing import List, Optional  # noqa: F401
 
 import constants
 import exception_utils
@@ -25,7 +25,7 @@ import file_util
 import gtest_utils
 import mac_util
 import iossim_util
-import shard_util
+import shard_util  # noqa: F401
 import test_apps
 from test_result_util import ResultCollection, TestResult, TestStatus
 import test_runner_errors
@@ -38,7 +38,7 @@ CHROMIUM_SRC_DIR = os.path.abspath(os.path.join(THIS_DIR, '../../../..'))
 sys.path.append(
   os.path.abspath(os.path.join(CHROMIUM_SRC_DIR, 'build/util/lib/proto'))
 )
-import measures
+import measures  # noqa: E402
 
 LOGGER = logging.getLogger(__name__)
 DERIVED_DATA = os.path.expanduser('~/Library/Developer/Xcode/DerivedData')
@@ -110,11 +110,11 @@ class PlugInsNotFoundError(TestRunnerError):
 
 
 class SimulatorNotFoundError(TestRunnerError):
-  """The given simulator binary was not found."""
+  """The given simulator was not found."""
 
-  def __init__(self, iossim_path):
+  def __init__(self, message):
     super(SimulatorNotFoundError, self).__init__(
-      f'Simulator does not exist: {iossim_path}'
+      f'Simulator does not exist: {message}'
     )
 
 
@@ -677,7 +677,7 @@ class TestRunner(object):
       )
     elif isinstance(self, DeviceTestRunner):
       # Pull the file from device first before parsing.
-      if parser.compiled_tests_file_path != None:
+      if parser.compiled_tests_file_path != None:  # noqa: E711
         LOGGER.info('Pulling test location file from iOS device Documents...')
         file_name = os.path.split(parser.compiled_tests_file_path)[1]
         pull_cmd = [
@@ -853,20 +853,15 @@ class TestRunner(object):
 
 
 class SimulatorTestRunner(TestRunner):
-  """Class for running tests on iossim."""
+  """Class for running tests on iOS simulator."""
 
-  def __init__(
-    self, app_path, iossim_path, platform, version, out_dir, **kwargs
-  ):
+  def __init__(self, app_path, platform, version, out_dir, **kwargs):
     """Initializes a new instance of this class.
 
     Args:
       app_path: Path to the compiled .app or .ipa to run.
-      iossim_path: Path to the compiled iossim binary to use.
-      platform: Name of the platform to simulate. Supported values can be found
-        by running "iossim -l". e.g. "iPhone 5s", "iPad Retina".
-      version: Version of iOS the platform should be running. Supported values
-        can be found by running "iossim -l". e.g. "9.3", "8.2", "7.1".
+      platform: Name of the platform to simulate. e.g. "iPhone 15", "iPad Air".
+      version: Version of iOS the platform should be running. e.g. "17.0".
       out_dir: Directory to emit test data into.
       (Following are potential args in **kwargs)
       env_vars: List of environment variables to pass to the test itself.
@@ -889,16 +884,18 @@ class SimulatorTestRunner(TestRunner):
     """
     super(SimulatorTestRunner, self).__init__(app_path, out_dir, **kwargs)
 
-    iossim_path = os.path.abspath(iossim_path)
-    if not os.path.exists(iossim_path):
-      raise SimulatorNotFoundError(iossim_path)
-
     self.homedir = ''
-    self.iossim_path = iossim_path
     self.platform = platform
     self.start_time = None
     self.version = version
     self.clones = kwargs.get('clones') or 1
+    if self.platform and 'duo' in self.platform.lower() and self.clones > 1:
+      LOGGER.info(
+        'Forcing clones=1 for %s because parallel simulator clones interfere '
+        'with vendor HID posture and orientation events.',
+        self.platform,
+      )
+      self.clones = 1
     self.use_simulator_cache = kwargs.get('use_simulator_cache') or False
     self.udid = iossim_util.get_simulator(
       self.platform, self.version, self.out_dir, self.use_simulator_cache
@@ -958,15 +955,17 @@ class SimulatorTestRunner(TestRunner):
     # we can compare and fetch crash reports from this run later on.
     self.start_time = time.strftime('%Y-%m-%d-%H%M%S', time.localtime())
 
-  def extract_test_data(self):
+  def extract_test_data(self, bundle_id: str | None = None):
     """Extracts data emitted by the test."""
     if hasattr(self, 'use_clang_coverage') and self.use_clang_coverage:
       file_util.move_raw_coverage_data(self.udid, self.out_dir)
 
+    target_bundle_id = bundle_id or self.cfbundleid
+    homedir = self.homedir or self.get_home_directory()
     # Find the Documents directory of the test app. The app directory names
     # don't correspond with any known information, so we have to examine them
     # all until we find one with a matching CFBundleIdentifier.
-    apps_dir = os.path.join(self.homedir, 'Containers', 'Data', 'Application')
+    apps_dir = os.path.join(homedir, 'Containers', 'Data', 'Application')
     if os.path.exists(apps_dir):
       for appid_dir in os.listdir(apps_dir):
         docs_dir = os.path.join(apps_dir, appid_dir, 'Documents')
@@ -988,8 +987,12 @@ class SimulatorTestRunner(TestRunner):
             .decode('utf-8')
             .rstrip()
           )
-          if cfbundleid == self.cfbundleid:
-            shutil.copytree(docs_dir, os.path.join(self.out_dir, 'Documents'))
+          if cfbundleid == target_bundle_id:
+            shutil.copytree(
+              docs_dir,
+              os.path.join(self.out_dir, 'Documents'),
+              dirs_exist_ok=True,
+            )
             return
 
   def retrieve_crash_reports(self):
@@ -1192,14 +1195,15 @@ class DeviceTestRunner(TestRunner):
     self.wipe_derived_data()
     self.install_app()
 
-  def extract_test_data(self):
+  def extract_test_data(self, bundle_id: str | None = None):
     """Extracts data emitted by the test."""
+    target_bundle_id = bundle_id or self.cfbundleid
     cmd = [
       'idevicefs',
       '--udid',
       self.udid,
       'pull',
-      f'@{self.cfbundleid}/Documents',
+      f'@{target_bundle_id}/Documents',
       os.path.join(self.out_dir, 'Documents'),
     ]
     try:

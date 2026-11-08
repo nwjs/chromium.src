@@ -32,6 +32,7 @@ chromium-metrics-reviews@google.com.
   <variant name="AutofillSuggestionDialogOnFormPresented"/>
   <variant name="AutofillSuggestionDialogOnFormPreviewChanged"/>
   <variant name="CancelActions"/>
+  <variant name="ClearClientStorage"/>
   <variant name="ClosePanel"/>
   <variant name="ClosePanelAndShutdown"/>
   <variant name="CreateActorTab"/>
@@ -94,6 +95,7 @@ chromium-metrics-reviews@google.com.
   <variant name="ScrollTo"/>
   <variant name="SetActuationOnWebSetting"/>
   <variant name="SetAudioDucking"/>
+  <variant name="SetClientStorageItem"/>
   <variant name="SetClosedCaptioningSetting"/>
   <variant name="SetContextAccessIndicator"/>
   <variant name="SetLocationPermissionState"/>
@@ -152,6 +154,16 @@ chromium-metrics-reviews@google.com.
   <variant name="Tab" summary="a tab embedder"/>
 </variants>
 
+<!-- LINT.IfChange(GeicAuthTabPurpose) -->
+
+<variants name="GeicAuthTabPurpose">
+  <variant name="ConnectorOAuth" summary="3P connector OAuth consent"/>
+  <variant name="SignIn" summary="GEiC sign-in"/>
+  <variant name="Unknown" summary="an unknown or unsupported purpose"/>
+</variants>
+
+<!-- LINT.ThenChange(//chrome/browser/glic/gemini_enterprise/gemini_enterprise.mojom:AuthTabPurpose, //chrome/browser/glic/gemini_enterprise/glic_gemini_enterprise_manager.cc:GeicAuthTabPurposeSuffix) -->
+
 <!-- LINT.IfChange(GlicInvocationSource) -->
 
 <variants name="GlicInvocationSource">
@@ -162,6 +174,7 @@ chromium-metrics-reviews@google.com.
   <variant name="AutoOpenedByContextualCue"/>
   <variant name="AutoOpenedForPdf"/>
   <variant name="CaptureRegionHotkey"/>
+  <variant name="ContextHubAutoTodos"/>
   <variant name="ContextHubTopics"/>
   <variant name="ConversationSwitch"/>
   <variant name="DaisyChainOnFollowLink"/>
@@ -196,6 +209,9 @@ chromium-metrics-reviews@google.com.
   <variant name="UniversalCart"/>
   <variant name="Unsupported"/>
   <variant name="WebContentsContextMenu"/>
+  <variant name="WebContentsContextMenuLink"/>
+  <variant name="WebContentsContextMenuPage"/>
+  <variant name="WebContentsContextMenuTextSelection"/>
   <variant name="WebContinuity"/>
   <variant name="WebDragDrop"/>
   <variant name="WhatsNew"/>
@@ -258,6 +274,30 @@ chromium-metrics-reviews@google.com.
   <variant name="Text"/>
 </variants>
 
+<histogram name="Geic.AuthTab.CloseResult.{Purpose}"
+    enum="GeicCloseAuthTabResult" expires_after="2026-12-25">
+  <owner>ssalbiz@google.com</owner>
+  <owner>glic-dev@google.com</owner>
+  <summary>
+    Records the result of a Gemini Enterprise in Chrome (GEiC) web client
+    request to close the browser tab it opened for {Purpose}. Recorded each time
+    the web client calls closeAuthTab (or the deprecated closeSignInTab).
+  </summary>
+  <token key="Purpose" variants="GeicAuthTabPurpose"/>
+</histogram>
+
+<histogram name="Geic.AuthTab.OpenResult.{Purpose}"
+    enum="GeicOpenAuthTabResult" expires_after="2026-12-25">
+  <owner>ssalbiz@google.com</owner>
+  <owner>glic-dev@google.com</owner>
+  <summary>
+    Records the result of a Gemini Enterprise in Chrome (GEiC) web client
+    request to open a browser tab for {Purpose}. Recorded each time the web
+    client calls openAuthTab (or the deprecated openSignInTab).
+  </summary>
+  <token key="Purpose" variants="GeicAuthTabPurpose"/>
+</histogram>
+
 <histogram name="Glic.ActivateTabWithConversation.CandidateTabCount"
     units="tabs" expires_after="2027-06-01">
   <owner>weiguo@google.com</owner>
@@ -294,7 +334,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Glic.Actor.ManagedUserActuationEnabled" enum="BooleanEnabled"
-    expires_after="2026-12-31">
+    expires_after="2027-03-28">
   <owner>rosiey@google.com</owner>
   <owner>sauski@google.com</owner>
   <summary>
@@ -444,7 +484,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Glic.Api.StatusCounts.Inactive" enum="GlicHostApiRequestType"
-    expires_after="2027-01-24">
+    expires_after="2027-03-28">
   <owner>carlosk@chromium.org</owner>
   <owner>harringtond@chromium.org</owner>
   <owner>birnie@google.com</owner>
@@ -545,23 +585,35 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="Glic.Contents.LoadCompleteTime" units="ms"
+<histogram name="Glic.Contents.LoadCompleteTime2" units="ms"
     expires_after="2027-03-07">
   <owner>acondor@google.com</owner>
   <owner>harringtond@google.com</owner>
   <summary>
     Measures the time it takes glic contents to load from the time the
-    navigation commits.
+    navigation commits. Recorded once on the initial primary main frame load.
   </summary>
 </histogram>
 
-<histogram name="Glic.Contents.NavigationCommitTime" units="ms"
+<histogram name="Glic.Contents.NavigationCommitTime2" units="ms"
     expires_after="2027-03-07">
   <owner>acondor@google.com</owner>
   <owner>harringtond@google.com</owner>
   <summary>
     Measures the time it takes from the Glic contents creation until the
-    navigation commits.
+    navigation commits. Recorded once on the initial committed primary main
+    frame navigation.
+  </summary>
+</histogram>
+
+<histogram name="Glic.Contents.TimeToWarmed" units="ms"
+    expires_after="2027-03-07">
+  <owner>harringtond@chromium.org</owner>
+  <owner>glic-dev@google.com</owner>
+  <summary>
+    Measures the time it takes from Glic contents creation until the web client
+    connects and enters the kWarmed state. Recorded for clean regular guest
+    navigations without auth or load errors.
   </summary>
 </histogram>
 
@@ -621,17 +673,25 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="Glic.CountryFilteringResult2" enum="GlicFilteringResult"
-    expires_after="2026-11-29">
+<histogram name="Glic.CountryFilteringResult2.{AccountType}"
+    enum="GlicFilteringResult" expires_after="2026-11-29">
   <owner>harringtond@chromium.org</owner>
   <owner>carlosk@chromium.org</owner>
   <summary>
     Records the outcome of the country filtering check for Glic enablement.
-    Recorded when GetCountryEnablement is called during profile enablement
-    checks. Country enablement results use a custom caching strategy, so there
-    will be less samples recorded than calls to
-    GlicGlobalEnabling::IsCountryEnabled.
+    Recorded when GetCountryEnablement or GetCountryMinorEnablement is called
+    during profile enablement checks. The latter is evaluated for signed-in
+    accounts as part of the account capability check, to determine whether minor
+    users are eligible in the current country, and records
+    kBlockedNotInInclusionList if kGlicMinorCountryFiltering is disabled.
+    Country enablement results use a custom caching strategy, so there will be
+    less samples recorded than calls to GlicGlobalEnabling::IsCountryEnabled and
+    GlicGlobalEnabling::IsCountryMinorEnabled.
   </summary>
+  <token key="AccountType">
+    <variant name="Adult" summary="for adult accounts"/>
+    <variant name="Minor" summary="for minor accounts"/>
+  </token>
 </histogram>
 
 <histogram name="Glic.CUI.SubmitQuery.Latency{Outcome}" units="ms"
@@ -746,7 +806,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Glic.EntryPoint.Status" enum="GlicEntryPointStatus"
-    expires_after="2027-01-31">
+    expires_after="2027-04-04">
   <owner>sanaakbani@google.com</owner>
   <owner>iwells@google.com</owner>
   <summary>
@@ -972,6 +1032,17 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="Glic.Fre.Invoked.InvocationSource" enum="GlicInvocationSource"
+    expires_after="2027-06-01">
+  <owner>perrier@chromium.org</owner>
+  <owner>glic+metrics@google.com</owner>
+  <summary>
+    Records the initial invocation source used to open a Glic instance when the
+    user has not yet consented to the FRE. Recorded when an instance is opened
+    for the first time and the FRE opt-in will be shown.
+  </summary>
+</histogram>
+
 <histogram name="Glic.Fre.NoThanks.FlowSource" enum="GlicOptInFlowSource"
     expires_after="2027-05-18">
   <owner>sauski@google.com</owner>
@@ -1101,8 +1172,17 @@ chromium-metrics-reviews@google.com.
   <token key="Suffix" variants="ProfileEnablementSuffix"/>
 </histogram>
 
+<histogram name="Glic.Host.AwakeDuration" units="ms" expires_after="2027-04-01">
+  <owner>harringtond@google.com</owner>
+  <owner>chrome-glic@google.com</owner>
+  <summary>
+    Records the time from when the Glic WebContents is created (when the Host
+    awakens) until it is destroyed (when the Host hibernates or is destroyed).
+  </summary>
+</histogram>
+
 <histogram name="Glic.Host.LoadingStageDuration.{LoadingStage}" units="ms"
-    expires_after="2027-01-31">
+    expires_after="2027-04-04">
   <owner>iwells@chromium.org</owner>
   <owner>harringtond@chromium.org</owner>
   <summary>
@@ -1393,28 +1473,6 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="Glic.Instance.LifetimeDuration" units="ms"
-    expires_after="2027-02-07">
-  <owner>birnie@google.com</owner>
-  <owner>perrier@google.com</owner>
-  <summary>
-    Records the time from when a GlicInstance is created until it is destroyed.
-    Recorded when the GlicInstance is destroyed. This histogram has a max of 24
-    hours.
-  </summary>
-</histogram>
-
-<histogram name="Glic.Instance.LifetimeDuration.Max21Days" units="ms"
-    expires_after="2027-06-01">
-  <owner>birnie@google.com</owner>
-  <owner>perrier@google.com</owner>
-  <summary>
-    Records the time from when a GlicInstance is created until it is destroyed.
-    Recorded when the GlicInstance is destroyed. This histogram has a max of 21
-    days.
-  </summary>
-</histogram>
-
 <histogram name="Glic.Instance.MaxConcurrentlyBoundTabs" units="count"
     expires_after="2027-02-07">
   <owner>birnie@google.com</owner>
@@ -1463,20 +1521,20 @@ chromium-metrics-reviews@google.com.
   <summary>
     Measures the time from when a user toggles the Glic panel to be shown until
     the web client signals that it is ready, for panels that were backgrounded
-    or closed before the client finished loading. Recorded each time an inactive
-    {EmbedderType} panel finishes loading.
+    or closed before the client finished loading. Recorded at most once per
+    instance when an inactive {EmbedderType} panel first finishes loading.
   </summary>
   <token key="EmbedderType" variants="EmbedderType"/>
 </histogram>
 
 <histogram name="Glic.Instance.PanelPresentationTime.{EmbedderType}" units="ms"
-    expires_after="2027-01-31">
+    expires_after="2027-04-04">
   <owner>birnie@google.com</owner>
   <owner>perrier@google.com</owner>
   <summary>
     Measures the time from when a user toggles the Glic panel to be shown until
-    the web client signals that it is ready. Recorded each time a {EmbedderType}
-    panel is shown.
+    the web client signals that it is ready. Recorded at most once per instance
+    when a {EmbedderType} panel first finishes loading while visible.
   </summary>
   <token key="EmbedderType" variants="EmbedderType"/>
 </histogram>
@@ -1727,7 +1785,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Glic.Instance.TimeSinceLastActive{Range}" units="ms"
-    expires_after="2027-01-24">
+    expires_after="2027-03-28">
   <owner>birnie@google.com</owner>
   <owner>perrier@google.com</owner>
   <summary>
@@ -1743,13 +1801,43 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Glic.Instance.TimeSinceLastInstanceActiveOnOpen" units="ms"
-    expires_after="2027-01-24">
+    expires_after="2027-03-28">
   <owner>birnie@google.com</owner>
   <owner>perrier@google.com</owner>
   <summary>
     Records the time elapsed since the last active Glic instance was active.
     Recorded when Glic is opened and a previous active instance exists.
   </summary>
+</histogram>
+
+<histogram name="Glic.Instance.TimeToActionable.Inactive.{EmbedderType}"
+    units="ms" expires_after="2027-08-11">
+  <owner>birnie@google.com</owner>
+  <owner>bryantchandler@chromium.org</owner>
+  <summary>
+    Measures the time from when a user toggles the Glic panel to be shown until
+    the guest web client emits its actionability performance.mark()
+    (&quot;gemini.interactive&quot;), for panels that were backgrounded before
+    that happened. Recorded at most once per guest document when an inactive
+    {EmbedderType} panel becomes actionable.
+  </summary>
+  <token key="EmbedderType" variants="EmbedderType"/>
+</histogram>
+
+<histogram name="Glic.Instance.TimeToActionable.{EmbedderType}" units="ms"
+    expires_after="2027-08-11">
+  <owner>birnie@google.com</owner>
+  <owner>bryantchandler@chromium.org</owner>
+  <summary>
+    Measures the time from when a user toggles the Glic panel to be shown until
+    the renderer submits a compositor frame after the guest WebContents is shown
+    in the panel and has emitted its actionability performance.mark()
+    (&quot;gemini.interactive&quot;). If that frame is submitted while the panel
+    is briefly hidden, the end time is when the panel is shown again. Recorded
+    at most once per guest document when a {EmbedderType} panel first presents
+    its actionable state.
+  </summary>
+  <token key="EmbedderType" variants="EmbedderType"/>
 </histogram>
 
 <histogram name="Glic.Instance.TimeToDismissWhileLoading.{EmbedderType}"
@@ -1876,7 +1964,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Glic.Instance.ZoomChangeCount" units="count"
-    expires_after="2027-01-24">
+    expires_after="2027-03-28">
   <owner>cuianthony@chromium.org</owner>
   <owner>glic-dev@google.com</owner>
   <summary>
@@ -1936,8 +2024,10 @@ chromium-metrics-reviews@google.com.
     down by {InvocationSource} that instance was created with. This histogram
     answers the question: What is the total number of times each event occurred
     across all Glic instances created via {InvocationSource}? An event is
-    recorded each time it occurs. In M151, the default invocation source was
-    fixed to no longer be the TopChromeButton.
+    recorded each time it occurs. Events that are recorded before an initial
+    invocation source is assigned are also backfilled for that invocation
+    source. In M151, the default invocation source was fixed to no longer be the
+    TopChromeButton.
   </summary>
   <token key="InvocationSource" variants="GlicInvocationSource"/>
 </histogram>
@@ -1964,8 +2054,10 @@ chromium-metrics-reviews@google.com.
     {InvocationSource} that instance was created with. This histogram answers
     the question: How many instances created via {InvocationSource} had each
     event type occur at least once? Even if an event occurs multiple times in an
-    instance, only one event is recorded per instance. In M151, the default
-    invocation source was fixed to no longer be the TopChromeButton.
+    instance, only one event is recorded per instance. Events that are recorded
+    before an initial invocation source is assigned are also backfilled for that
+    invocation source. In M151, the default invocation source was fixed to no
+    longer be the TopChromeButton.
   </summary>
   <token key="InvocationSource" variants="GlicInvocationSource"/>
 </histogram>
@@ -2087,24 +2179,28 @@ chromium-metrics-reviews@google.com.
   <token key="InvocationSource" variants="GlicInvocationSource"/>
 </histogram>
 
-<histogram name="Glic.InvokeResult" enum="GlicInvokeResult"
+<histogram name="Glic.InvokeResult2" enum="GlicInvokeResult"
     expires_after="2027-06-01">
   <owner>vollick@chromium.org</owner>
   <owner>glic-dev@google.com</owner>
   <summary>
     Records the result of a Glic invocation (success or specific error).
-    Recorded when the invocation completes successfully or fails.
+    Recorded when the invocation completes successfully or fails. Replaced
+    Glic.InvokeResult in M157, when the &quot;Instance destroyed&quot; error was
+    split by why the instance was removed.
   </summary>
 </histogram>
 
-<histogram name="Glic.InvokeResult.{InvocationSource}" enum="GlicInvokeResult"
+<histogram name="Glic.InvokeResult2.{InvocationSource}" enum="GlicInvokeResult"
     expires_after="2027-06-01">
   <owner>vollick@chromium.org</owner>
   <owner>glic-dev@google.com</owner>
   <summary>
     Records the result of a Glic invocation (success or specific error) sliced
     by the invocation source. Recorded when the invocation completes
-    successfully or fails.
+    successfully or fails. Replaced Glic.InvokeResult.{InvocationSource} in
+    M157, when the &quot;Instance destroyed&quot; error was split by why the
+    instance was removed.
   </summary>
   <token key="InvocationSource" variants="GlicInvocationSource"/>
 </histogram>
@@ -2218,11 +2314,11 @@ chromium-metrics-reviews@google.com.
   <owner>perrier@chromium.org</owner>
   <owner>glic+metrics@google.com</owner>
   <summary>
-    Records the onboarding status at the time Glic is invoked. Recorded when
-    Glic is invoked during onboarding. Invoked is defined as a new embedder
-    being shown for a tab or Floaty. Tab switching or focus events are not
-    considered invoking, but daisy chaining, conversation switching, or
-    re-opening on an already bound tab are considered invoking.
+    Records the onboarding status at the time Glic is invoked. Recorded on every
+    Glic invocation, including before and after onboarding completes. Invoked is
+    defined as a new embedder being shown for a tab or Floaty. Tab switching or
+    focus events are not considered invoking, but daisy chaining, conversation
+    switching, or re-opening on an already bound tab are considered invoking.
   </summary>
 </histogram>
 
@@ -2257,6 +2353,17 @@ chromium-metrics-reviews@google.com.
     <variant name="OptIn"/>
     <variant name="UserSubmit"/>
   </token>
+</histogram>
+
+<histogram name="Glic.Onboarding.PromptSubmitted.Status"
+    enum="GlicOnboardingStatus" expires_after="2027-06-01">
+  <owner>perrier@chromium.org</owner>
+  <owner>glic+metrics@google.com</owner>
+  <summary>
+    Records the onboarding status at the time a prompt is submitted in Glic.
+    Recorded on every prompt submission, including before and after onboarding
+    completes.
+  </summary>
 </histogram>
 
 <histogram name="Glic.Onboarding.WebUiLoadTime.{Visibility}" units="ms"
@@ -2295,6 +2402,42 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="Glic.Overlay.DisplayDuration" units="ms"
+    expires_after="2027-04-01">
+  <owner>harringtond@chromium.org</owner>
+  <owner>glic@google.com</owner>
+  <summary>
+    Measures the duration for which the Glic loading or error overlay was
+    displayed to the user.
+  </summary>
+</histogram>
+
+<histogram name="Glic.Overlay.DisplayDuration.{OverlayState}" units="ms"
+    expires_after="2027-04-01">
+  <owner>harringtond@chromium.org</owner>
+  <owner>glic@google.com</owner>
+  <summary>
+    Measures the duration for which the Glic {OverlayState} overlay was
+    displayed to the user.
+  </summary>
+  <token key="OverlayState">
+    <variant name="DisabledByAdmin"
+        summary="disabled by administrator error panel"/>
+    <variant name="Error" summary="generic or timeout error panel"/>
+    <variant name="IneligibleAccount" summary="ineligible account error panel"/>
+    <variant name="Loading"
+        summary="loading skeleton that did not finish (e.g. was closed,
+                 hidden, or timed out)"/>
+    <variant name="LoadingAndCompleted"
+        summary="loading skeleton that finished and swapped into the ready
+                 guest"/>
+    <variant name="LocationMismatch" summary="location mismatch error panel"/>
+    <variant name="Offline" summary="offline error panel"/>
+    <variant name="SignIn" summary="sign-in error panel"/>
+    <variant name="Unavailable" summary="unavailable error panel"/>
+  </token>
+</histogram>
+
 <histogram name="Glic.PageContextFetcher.GetAnnotatedPageContent" units="ms"
     expires_after="2027-02-07">
   <owner>carlosk@chromium.org</owner>
@@ -2325,6 +2468,17 @@ chromium-metrics-reviews@google.com.
   <summary>
     Recorded when a page context fails to get a screenshot. This includes any
     kind of error, including timeout. Measure the time from start.
+  </summary>
+</histogram>
+
+<histogram name="Glic.PageContextFetcher.GetEncodedScreenshot.Status"
+    enum="ScreenshotCaptureStatus" expires_after="2027-04-09">
+  <owner>linnan@chromium.org</owner>
+  <owner>chrome-intelligence-core@google.com</owner>
+  <summary>
+    Records the status (success or failure reason) of a screenshot capture
+    request in PageContextFetcher. Recorded once per screenshot capture request
+    when it completes or fails.
   </summary>
 </histogram>
 
@@ -2614,6 +2768,30 @@ chromium-metrics-reviews@google.com.
     backup. Recorded when {Event}.
   </summary>
   <token key="Event" variants="PanelEvent"/>
+</histogram>
+
+<histogram name="Glic.Preferences.HotkeyCleared" enum="GlicHotkeyCleared"
+    expires_after="2027-02-01">
+  <owner>perrier@chromium.org</owner>
+  <owner>chrome-glic@google.com</owner>
+  <summary>
+    Recorded when a non-empty Glic hotkey is cleared (set to an empty string) in
+    Glic settings. Records the user's default hotkey scope established at
+    migration and their currently active hotkey scope at the time of clearing.
+    Also records DefaultGlobalWithGlobalScope when the user has not been
+    migrated (kGlicHotkeyLocalScope disabled) and the launcher is enabled.
+  </summary>
+</histogram>
+
+<histogram name="Glic.Preferences.HotkeyScopeChange"
+    enum="GlicHotkeyScopeChange" expires_after="2027-02-01">
+  <owner>perrier@chromium.org</owner>
+  <owner>chrome-glic@google.com</owner>
+  <summary>
+    Recorded when the hotkey global scope is changed in Glic settings. Records
+    the transition from the default hotkey scope established at migration to the
+    newly selected scope.
+  </summary>
 </histogram>
 
 <histogram name="Glic.Preferences.{Preference}" enum="BooleanEnabled"
@@ -2985,20 +3163,6 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="Glic.Selection.NudgeClicked.SelectionLength.{FreState}"
-    units="characters" expires_after="2026-12-31">
-  <owner>gklassen@chromium.org</owner>
-  <owner>vollick@chromium.org</owner>
-  <summary>
-    Records the length of the selected text (in characters) when the Glic
-    selection nudge is clicked.
-  </summary>
-  <token key="FreState">
-    <variant name="PostFre" summary="User has accepted the FRE"/>
-    <variant name="PreFre" summary="User has not accepted the FRE"/>
-  </token>
-</histogram>
-
 <histogram name="Glic.Selection.RemovedDefaultBlockedSitesCount" units="sites"
     expires_after="2026-12-31">
   <owner>wusirui@google.com</owner>
@@ -3011,7 +3175,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Glic.Selection.SiteExceptionsCount" units="exceptions"
-    expires_after="2026-12-31">
+    expires_after="2027-03-28">
   <owner>wusirui@google.com</owner>
   <owner>naai-xfn@google.com</owner>
   <summary>
@@ -3226,7 +3390,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Glic.Skills.Invoke.Funnel" enum="SkillsInvokeFunnel"
-    expires_after="2027-02-01">
+    expires_after="2027-04-04">
   <owner>michelleabreo@google.com</owner>
   <owner>skills-eng@google.com</owner>
   <summary>
@@ -3238,7 +3402,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Glic.Skills.SkillBuilder.Event" enum="SkillBuilderEvent"
-    expires_after="2027-02-01">
+    expires_after="2027-04-04">
   <owner>michelleabreo@google.com</owner>
   <owner>skills-eng@google.com</owner>
   <summary>
@@ -3253,7 +3417,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Glic.Skills.WebClient.Event" enum="SkillsWebClientEvent"
-    expires_after="2027-02-01">
+    expires_after="2027-04-04">
   <owner>michelleabreo@google.com</owner>
   <owner>skills-eng@google.com</owner>
   <summary>
@@ -3300,7 +3464,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Glic.TabContext.PdfContentsRequested" enum="PdfRequestStates"
-    expires_after="2027-01-31">
+    expires_after="2027-04-04">
   <owner>carlosk@chromium.org</owner>
   <owner>harringtond@chromium.org</owner>
   <summary>
@@ -3684,7 +3848,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Glic.YoutubeSummarizeVideoZSS.Events"
-    enum="GlicYoutubeSummarizeVideoZSSResult" expires_after="2027-01-24">
+    enum="GlicYoutubeSummarizeVideoZSSResult" expires_after="2027-03-28">
   <owner>basiaz@google.com</owner>
   <owner>birnie@google.com</owner>
   <summary>
@@ -3696,7 +3860,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Glic.ZoomAction" enum="GlicZoomAction"
-    expires_after="2027-01-24">
+    expires_after="2027-03-28">
   <owner>cuianthony@chromium.org</owner>
   <owner>glic-dev@google.com</owner>
   <summary>
@@ -3721,7 +3885,7 @@ chromium-metrics-reviews@google.com.
   </token>
 </histogram>
 
-<histogram name="Glic.ZoomLevel.{Suffix}" units="%" expires_after="2027-01-31">
+<histogram name="Glic.ZoomLevel.{Suffix}" units="%" expires_after="2027-04-04">
   <owner>cuianthony@chromium.org</owner>
   <owner>glic-dev@google.com</owner>
   <summary>

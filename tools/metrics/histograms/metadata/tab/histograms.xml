@@ -28,6 +28,12 @@ chromium-metrics-reviews@google.com.
   <variant name=".PluggedIn"/>
 </variants>
 
+<variants name="HistoricalTabSaverSaveType">
+  <variant name="Bulk" summary="a bulk closure of several tabs and groups"/>
+  <variant name="Group" summary="a single tab group"/>
+  <variant name="Tab" summary="a single tab"/>
+</variants>
+
 <variants name="RecentlyClosedType">
   <variant name="Bulk" summary="RecentlyClosedBulkEvent"/>
   <variant name="Group" summary="RecentlyClosedGroup"/>
@@ -505,6 +511,22 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="Tab.Count.Isolated" units="units" expires_after="2027-03-21">
+  <owner>szpotekagata@chromium.org</owner>
+  <owner>cec-growth@google.com</owner>
+  <summary>
+    Number of open isolated tabs in each window. Recorded once a new isolated
+    tab is opened in a window and adds one to the bucket of number of isolated
+    tabs in that particular window (it does not count the total number of
+    isolated tabs in all open windows). Please note that this metric double
+    counts the lower numbers, meaning that if user opens three tabs (without
+    closing any in between), then buckets 1, 2, and 3 will all be incremented in
+    turn. The metric also overcounts the tabs that are moved from one window to
+    another as they are recorded both when they are created in the first window
+    and when they are added to the second window.
+  </summary>
+</histogram>
+
 <histogram name="Tab.Discarding.Reload.CausedByFocus" enum="Boolean"
     expires_after="2027-03-14">
   <owner>aattar@google.com</owner>
@@ -604,7 +626,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Tab.Icon.UpdateThrobber.Time" units="microseconds"
-    expires_after="2027-01-24">
+    expires_after="2027-03-28">
   <owner>gjc@google.com</owner>
   <owner>chrome-loading@google.com</owner>
   <summary>
@@ -616,7 +638,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Tab.Icon.UpdateThrobber.Time.NotCached" units="microseconds"
-    expires_after="2027-01-24">
+    expires_after="2027-03-28">
   <owner>gjc@google.com</owner>
   <owner>chrome-loading@google.com</owner>
   <summary>
@@ -734,7 +756,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Tab.RendererTermination.TotalTabCount" units="tabs"
-    expires_after="2027-01-26">
+    expires_after="2027-03-28">
   <owner>justincohen@chromium.org</owner>
   <owner>thegreenfrog@chromium.org</owner>
   <summary>
@@ -875,7 +897,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="TabGroups.CloseTabGroupsDeletedRemotely" units="groups"
-    expires_after="2027-01-24">
+    expires_after="2027-03-28">
   <owner>wylieb@google.com</owner>
   <owner>evanluo@google.com</owner>
   <owner>clank-tab-dev@google.com</owner>
@@ -1059,7 +1081,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="TabGroups.SavedTabGroupActiveCount" units="groups"
-    expires_after="2027-01-24">
+    expires_after="2027-03-28">
   <owner>dljames@chromium.org</owner>
   <owner>top-chrome-desktop-ui@google.com</owner>
   <summary>
@@ -1823,7 +1845,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="TabGroups.TabGroupDeclutter.ArchivedTabGroups" units="groups"
-    expires_after="2027-01-24">
+    expires_after="2027-03-28">
   <owner>wylieb@google.com</owner>
   <owner>evanluo@google.com</owner>
   <owner>clank-tab-dev@google.com</owner>
@@ -1833,7 +1855,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="TabGroups.TabGroupDeclutter.ArchivedTabGroupTabCount"
-    units="tabs" expires_after="2027-01-24">
+    units="tabs" expires_after="2027-03-28">
   <owner>wylieb@google.com</owner>
   <owner>evanluo@google.com</owner>
   <owner>clank-tab-dev@google.com</owner>
@@ -2056,7 +2078,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Tabs.ArchivedTabRestored.TabCount" units="count"
-    expires_after="2027-01-24">
+    expires_after="2027-03-28">
   <owner>wylieb@google.com</owner>
   <owner>clank-tab-dev@google.com</owner>
   <summary>
@@ -2076,6 +2098,46 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="Tabs.ArchivedTabs.Search.TimeToAppendResultsMs" units="ms"
+    expires_after="2027-08-01">
+  <owner>ckitagawa@chromium.org</owner>
+  <owner>wylieb@google.com</owner>
+  <owner>bjfong@google.com</owner>
+  <owner>clank-tab-dev@google.com</owner>
+  <summary>
+    (Android only) Records the incremental latency (in milliseconds)
+    specifically for deferred/asynchronous population of archived tab search
+    results when the orchestrator is initializing from disk during an active
+    search query. Measures the elapsed time from initial regular tab suggestions
+    rendering until the subsequent autocomplete refresh appends archived tab
+    results into the suggestions list (or resolves to 0 matches).
+  </summary>
+</histogram>
+
+<histogram name="Tabs.ArchivedTabs.Search.TimeToPopulateResultsMs{Mode}"
+    units="ms" expires_after="2027-08-01">
+  <owner>ckitagawa@chromium.org</owner>
+  <owner>wylieb@google.com</owner>
+  <owner>bjfong@google.com</owner>
+  <owner>clank-tab-dev@google.com</owner>
+  <summary>
+    (Android only) Records the total latency (in milliseconds) from search query
+    initiation until archived tab matches are populated into the search
+    suggestion list (or resolved to 0 matches). Emitted for all search queries
+    where archived tabs are searched. {Mode}
+  </summary>
+  <token key="Mode">
+    <variant name=".Deferred"
+        summary="Recorded on the cold/deferred path when waiting for
+                 ArchivedTabModelOrchestrator to finish disk loading before
+                 refreshing suggestions (typical latency: 1000-4000ms)."/>
+    <variant name=".Warm"
+        summary="Recorded on the fast/warm path when
+                 ArchivedTabModelOrchestrator is already resident and
+                 initialized at query start (typical latency: 5-30ms)."/>
+  </token>
+</histogram>
+
 <histogram name="Tabs.ArchivePass.DurationMs" units="ms"
     expires_after="2027-06-11">
   <owner>wylieb@google.com</owner>
@@ -2087,7 +2149,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Tabs.ArchiveSettings.ArchiveDuplicateTabsEnabled"
-    enum="Boolean" expires_after="2027-01-24">
+    enum="Boolean" expires_after="2027-03-28">
   <owner>bjfong@google.com</owner>
   <owner>wylieb@google.com</owner>
   <owner>clank-tab-dev@google.com</owner>
@@ -2114,7 +2176,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Tabs.ArchiveSettings.TimeDeltaPreference" units="days"
-    expires_after="2027-01-24">
+    expires_after="2027-03-28">
   <owner>wylieb@google.com</owner>
   <owner>clank-tab-dev@google.com</owner>
   <summary>Records when a user selects an archive time preference.</summary>
@@ -2134,7 +2196,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Tabs.CloseAllArchivedTabs.TabCount" units="tabs"
-    expires_after="2027-01-24">
+    expires_after="2027-03-28">
   <owner>wylieb@google.com</owner>
   <owner>clank-tab-dev@google.com</owner>
   <summary>
@@ -2144,7 +2206,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Tabs.CloseArchivedTabsMenuItem.TabCount" units="tabs"
-    expires_after="2027-01-24">
+    expires_after="2027-03-28">
   <owner>wylieb@google.com</owner>
   <owner>clank-tab-dev@google.com</owner>
   <summary>
@@ -2265,6 +2327,22 @@ chromium-metrics-reviews@google.com.
     appended to. Success indicates that the append succeeded. Failure indicates
     it was not possible to freeze the tab and we had to fallback to a lazy load.
   </summary>
+</histogram>
+
+<histogram
+    name="Tabs.HistoricalTabSaver.SaveDuration.{HistoricalTabSaverSaveType}"
+    units="microseconds" expires_after="2027-10-04">
+  <owner>hitarthkothari@google.com</owner>
+  <owner>ckitagawa@chromium.org</owner>
+  <summary>
+    [Android] Time spent in native code saving {HistoricalTabSaverSaveType} to
+    TabRestoreService on close, including recreating a WebContents for frozen
+    tabs. Recorded once per save attempt, whether or not an entry was stored.
+    Excludes Java-side validation. Only reported for clients with
+    high-resolution clocks.
+  </summary>
+  <token key="HistoricalTabSaverSaveType"
+      variants="HistoricalTabSaverSaveType"/>
 </histogram>
 
 <histogram name="Tabs.InactiveCountAtStartup" units="tabs"
@@ -2414,19 +2492,6 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="Tabs.PersistedTabData.Storage.Exists.File"
-    enum="BooleanSuccess" expires_after="2025-04-12">
-  <owner>yusufo@chromium.org</owner>
-  <owner>nyquist@chromium.org</owner>
-  <owner>dtrainor@chromium.org</owner>
-  <owner>davidjm@chromium.org</owner>
-  <summary>
-    FilePersistedTabData storage stores serialized PersistedTabData (metadata
-    persisted across restarts) in a file. This metric records if a delete
-    operation was found to have the file not existing.
-  </summary>
-</histogram>
-
 <histogram name="Tabs.PersistedTabData.Storage.LevelDB.OrphanedDataCount"
     units="keys" expires_after="2026-09-13">
   <owner>davidjm@chromium.org</owner>
@@ -2458,33 +2523,6 @@ chromium-metrics-reviews@google.com.
     minutes. Desktop only.
   </summary>
   <token key="TabStripMode" variants="TabStripMode"/>
-</histogram>
-
-<histogram name="Tabs.PotentialDoubleDirty.SaveQueueSize" units="tabs"
-    expires_after="2025-01-12">
-  <owner>skym@chromium.org</owner>
-  <owner>ckitagawa@chroimum.org</owner>
-  <summary>
-    On Android, when a tab becomes dirty, it is queued to be saved to disk.
-    Clients that make multiple modifications in a sequence to the same tab can
-    cause poor performance by triggering a synchronous save from the first
-    modification, and then a second one from the others. This can be manually
-    worked around by notifying the TabStateAttributes, but clients that need
-    this change need to be identified first. This histogram is trying to help
-    identify the frequency that this situation is encountered.
-
-    This histogram, only on Android, is specifically recorded when we go to
-    queue a tab's data to be saved to persistent storage, and we notice that
-    we're also currently writing the same tab to disk. This is not always a
-    problem, as there could be many pending async writes happening to various
-    tabs, when new fresh modifications come in.
-
-    The value being recorded is the number of tabs in the save queue in front of
-    the tab being added. If the number is zero, it's very likely because of a
-    client making multiple sequential modifications. On the other hand, a larger
-    number is likely just the same tab being modified asynchronously and the
-    queue is backed up with other changes.
-  </summary>
 </histogram>
 
 <histogram
@@ -2529,7 +2567,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Tabs.RestoreAllArchivedTabsMenuItem.TabCount" units="tabs"
-    expires_after="2027-01-24">
+    expires_after="2027-03-28">
   <owner>wylieb@google.com</owner>
   <owner>clank-tab-dev@google.com</owner>
   <summary>
@@ -2539,7 +2577,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Tabs.RestoreArchivedTabsMenuItem.TabCount" units="tabs"
-    expires_after="2027-01-24">
+    expires_after="2027-03-28">
   <owner>wylieb@google.com</owner>
   <owner>clank-tab-dev@google.com</owner>
   <summary>
@@ -2769,7 +2807,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Tabs.TabArchived.TabCount" units="tabs"
-    expires_after="2027-01-24">
+    expires_after="2027-03-28">
   <owner>wylieb@google.com</owner>
   <owner>clank-tab-dev@google.com</owner>
   <summary>
@@ -2801,7 +2839,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Tabs.TabAutoDeleteEligibilityCheck.AfterNDays" units="days"
-    expires_after="2027-01-24">
+    expires_after="2027-03-28">
   <owner>wylieb@google.com</owner>
   <owner>clank-tab-dev@google.com</owner>
   <summary>
@@ -2813,7 +2851,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Tabs.TabCount.SplitTabs" units="tabs"
-    expires_after="2027-01-24">
+    expires_after="2027-03-28">
   <owner>agale@chromium.org</owner>
   <owner>top-chrome-desktop-ui@google.com</owner>
   <summary>
@@ -2823,7 +2861,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Tabs.TabCount.{TabStripMode}" units="tabs"
-    expires_after="2027-01-31">
+    expires_after="2027-04-04">
   <owner>agale@chromium.org</owner>
   <owner>top-chrome-desktop-ui@google.com</owner>
   <summary>
@@ -3497,7 +3535,8 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Tabs.TabState.MigrationStatus" enum="TabStateMigrationStatus"
-    expires_after="2026-11-15">
+    expires_after="2027-11-15">
+  <owner>ckitagawa@chromium.org</owner>
   <owner>davidjm@chromium.org</owner>
   <owner>clank-tab-dev@google.com</owner>
   <summary>
@@ -3885,7 +3924,7 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="Tabs.WindowWidth2" units="DIPs" expires_after="2026-11-12">
+<histogram name="Tabs.WindowWidth2" units="DIPs" expires_after="2027-09-29">
   <owner>agale@chromium.org</owner>
   <owner>top-chrome-desktop-ui@google.com</owner>
   <summary>
@@ -3942,7 +3981,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="TabStrip.SplitView.Created" enum="SplitTabCreatedSource"
-    expires_after="2027-01-31">
+    expires_after="2027-04-04">
   <owner>agale@chromium.org</owner>
   <owner>top-chrome-desktop-ui@google.com</owner>
   <summary>
@@ -4120,7 +4159,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="TabStrip.{TabStripMode}.TabDragDestination"
-    enum="TabDragDestination" expires_after="2027-01-31">
+    enum="TabDragDestination" expires_after="2027-04-04">
   <owner>kunaldaftari@google.com</owner>
   <owner>top-chrome-desktop-ui@google.com</owner>
   <summary>
@@ -4138,7 +4177,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="TabStrip.{TabStripMode}.TabDragDuration" units="ms"
-    expires_after="2027-01-31">
+    expires_after="2027-04-04">
   <owner>kunaldaftari@google.com</owner>
   <owner>top-chrome-desktop-ui@google.com</owner>
   <summary>

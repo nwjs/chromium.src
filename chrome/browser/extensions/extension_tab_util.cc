@@ -774,7 +774,9 @@ int ExtensionTabUtil::GetSplitId(const split_tabs::SplitTabId& id) {
 
 // static
 bool ExtensionTabUtil::SupportsTabGroups(BrowserWindowInterface* browser) {
-  CHECK(browser);
+  if (!browser) {
+    return false;
+  }
 #if BUILDFLAG(IS_ANDROID)
   // Android only supports tab groups for normal browser windows.
   return browser->GetType() == BrowserWindowInterface::TYPE_NORMAL;
@@ -1251,7 +1253,9 @@ bool ExtensionTabUtil::OpenOptionsPageFromWebContents(
   const bool open_in_tab = ShouldOpenInTab(extension);
   BrowserWindowInterface* browser =
       browser_window_util::GetBrowserForTabContents(*web_contents);
-  CHECK(browser);
+  if (!browser) {
+    return false;
+  }
   return WindowControllerFromBrowser(browser)->OpenOptionsPage(extension, *url,
                                                                open_in_tab);
 }

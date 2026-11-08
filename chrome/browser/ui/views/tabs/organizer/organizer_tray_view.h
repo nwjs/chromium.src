@@ -17,7 +17,6 @@
 #include "ui/views/focus/focus_manager.h"
 #include "ui/views/focus/focus_search.h"
 #include "ui/views/layout/flex_layout_view.h"
-#include "ui/views/view_tracker.h"
 
 class BrowserView;
 class BrowserWindowInterface;
@@ -49,7 +48,7 @@ class OrganizerTrayView : public views::FlexLayoutView,
   int target_width() const { return target_width_; }
 
   // Updates the organizer panel clip if present.
-  void UpdatePanelClip();
+  void UpdatePanelClipAndShadow();
 
   // Used to enable dragging.
   bool IsPositionInWindowCaption(const gfx::Point& point);
@@ -82,7 +81,6 @@ class OrganizerTrayView : public views::FlexLayoutView,
   raw_ptr<OrganizerPanelControlsView> controls_view_ = nullptr;
   raw_ptr<ShadowFrameView> shadow_frame_ = nullptr;
   std::unique_ptr<EventObserver> event_observer_;
-  views::ViewTracker last_focused_view_before_opening_;
   gfx::Size top_leading_exclusion_;
   int target_width_ = organizer_panel::kOrganizerPanelMinWidth;
   raw_ptr<views::View> panel_view_ = nullptr;

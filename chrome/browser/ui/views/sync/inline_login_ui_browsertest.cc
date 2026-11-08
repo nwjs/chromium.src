@@ -34,7 +34,6 @@
 #include "chrome/credential_provider/common/gcp_strings.h"
 #include "chrome/test/base/chrome_test_path_utils.h"
 #include "chrome/test/base/in_process_browser_test.h"
-#include "chrome/test/base/test_browser_window.h"
 #include "chrome/test/base/test_chrome_web_ui_controller_factory.h"
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/ui_test_utils.h"
@@ -572,7 +571,7 @@ IN_PROC_BROWSER_TEST_F(InlineLoginCorrectGaiaUrlBrowserTest,
       signin_metrics::AccessPoint::kMachineLogon;
   signin_metrics::Reason reason = signin_metrics::Reason::kFetchLstOnly;
 
-  static const std::string email = "foo@gmail.com";
+  const std::string email = "foo@gmail.com";
   auto signin_url =
       signin::GetEmbeddedReauthURLWithEmail(access_point, reason, email);
 

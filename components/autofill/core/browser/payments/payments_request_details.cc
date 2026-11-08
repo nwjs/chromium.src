@@ -339,6 +339,17 @@ UpdateBnplPaymentInstrumentRequestDetails::operator=(
 UpdateBnplPaymentInstrumentRequestDetails::
     ~UpdateBnplPaymentInstrumentRequestDetails() = default;
 
+UpdateCardRequestDetails::UpdateCardRequestDetails() = default;
+UpdateCardRequestDetails::UpdateCardRequestDetails(
+    const UpdateCardRequestDetails&) = default;
+UpdateCardRequestDetails& UpdateCardRequestDetails::operator=(
+    const UpdateCardRequestDetails& other) = default;
+UpdateCardRequestDetails::UpdateCardRequestDetails(UpdateCardRequestDetails&&) =
+    default;
+UpdateCardRequestDetails& UpdateCardRequestDetails::operator=(
+    UpdateCardRequestDetails&&) = default;
+UpdateCardRequestDetails::~UpdateCardRequestDetails() = default;
+
 GetWalletReminderNoticeRequestDetails::GetWalletReminderNoticeRequestDetails() =
     default;
 GetWalletReminderNoticeRequestDetails::GetWalletReminderNoticeRequestDetails(
@@ -385,5 +396,27 @@ RecordLegalReminderAcknowledgmentRequestDetails::operator=(
     RecordLegalReminderAcknowledgmentRequestDetails&&) = default;
 RecordLegalReminderAcknowledgmentRequestDetails::
     ~RecordLegalReminderAcknowledgmentRequestDetails() = default;
+
+GetDataForAgentRequestDetails::GetDataForAgentRequestDetails() = default;
+GetDataForAgentRequestDetails::GetDataForAgentRequestDetails(
+    const GetDataForAgentRequestDetails& other) = default;
+GetDataForAgentRequestDetails& GetDataForAgentRequestDetails::operator=(
+    const GetDataForAgentRequestDetails& other) = default;
+GetDataForAgentRequestDetails::GetDataForAgentRequestDetails(
+    GetDataForAgentRequestDetails&&) = default;
+GetDataForAgentRequestDetails& GetDataForAgentRequestDetails::operator=(
+    GetDataForAgentRequestDetails&&) = default;
+GetDataForAgentRequestDetails::~GetDataForAgentRequestDetails() = default;
+
+GetDataForAgentResponseDetails::GetDataForAgentResponseDetails() = default;
+GetDataForAgentResponseDetails::GetDataForAgentResponseDetails(
+    const GetDataForAgentResponseDetails& other) = default;
+GetDataForAgentResponseDetails& GetDataForAgentResponseDetails::operator=(
+    const GetDataForAgentResponseDetails& other) = default;
+GetDataForAgentResponseDetails::GetDataForAgentResponseDetails(
+    GetDataForAgentResponseDetails&&) = default;
+GetDataForAgentResponseDetails& GetDataForAgentResponseDetails::operator=(
+    GetDataForAgentResponseDetails&&) = default;
+GetDataForAgentResponseDetails::~GetDataForAgentResponseDetails() = default;
 
 }  // namespace autofill::payments

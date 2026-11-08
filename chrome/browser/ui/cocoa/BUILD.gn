@@ -117,10 +117,7 @@ source_set("cocoa") {
     "window_size_autosaver.mm",
   ]
 
-  public_deps = [
-    "//chrome/browser:browser_public_dependencies",
-    "//chrome/browser/ui:browser_live_tab_context",
-  ]
+  public_deps = [ "//chrome/browser/ui:browser_live_tab_context" ]
 
   deps = [
     "//chrome/app:command_ids",
@@ -156,6 +153,7 @@ source_set("cocoa") {
     "//chrome/browser/ui:accelerator_utils_headers",
     "//chrome/browser/ui:browser_command_controller",
     "//chrome/browser/ui:browser_commands",
+    "//chrome/browser/ui:browser_tabstrip",
     "//chrome/browser/ui:browser_window_header",
     "//chrome/browser/ui:fullscreen_util_mac",
     "//chrome/browser/ui:recently_audible_helper",
@@ -254,13 +252,13 @@ source_set("unit_tests") {
     "//chrome/browser/history",
     "//chrome/browser/profiles",
     "//chrome/browser/profiles:profile_manager",
+    "//chrome/browser/profiles:profile_util",
     "//chrome/browser/search_engines",
     "//chrome/browser/search_engines:test_support",
     "//chrome/browser/sessions",
     "//chrome/browser/spellchecker",
     "//chrome/browser/status_icons",
     "//chrome/browser/tab_group_sync:factories",
-    "//chrome/browser/ui",
     "//chrome/browser/ui:tab_ui_helper",
     "//chrome/browser/ui:ui_features",
     "//chrome/browser/ui/autofill",
@@ -357,7 +355,7 @@ source_set("browser_tests") {
     "//chrome/browser/profiles",
     "//chrome/browser/spellchecker",
     "//chrome/browser/tab_group_sync:factories",
-    "//chrome/browser/ui",
+    "//chrome/browser/ui:browser_tabstrip",
     "//chrome/browser/ui:browser_window_header",
     "//chrome/browser/ui:ui_features",
     "//chrome/browser/ui/bookmarks",
@@ -436,7 +434,6 @@ source_set("interactive_ui_tests") {
     "//chrome/browser/notifications:test_support",
     "//chrome/browser/profiles",
     "//chrome/browser/profiles:profile_manager",
-    "//chrome/browser/ui",
     "//chrome/browser/ui:browser_window_header",
     "//chrome/browser/ui:status_bubble",
     "//chrome/browser/ui/browser_window",

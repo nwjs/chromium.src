@@ -12,8 +12,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import android.app.Activity;
-import android.view.Window;
-import android.view.WindowManager;
 
 import org.junit.After;
 import org.junit.Before;
@@ -23,7 +21,7 @@ import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
-import org.robolectric.annotation.Config;
+import org.robolectric.Robolectric;
 
 import org.chromium.base.supplier.OneshotSupplierImpl;
 import org.chromium.base.test.BaseRobolectricTestRunner;
@@ -40,12 +38,9 @@ import org.chromium.chrome.browser.tabmodel.IncognitoTabHostRegistry;
 
 /** Unit tests for {@link CustomTabIncognitoManager}. */
 @RunWith(BaseRobolectricTestRunner.class)
-@Config(manifest = Config.NONE)
 public class CustomTabIncognitoManagerUnitTest {
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
 
-    @Mock private Activity mActivity;
-    @Mock private Window mWindow;
     @Mock private CustomTabActivityNavigationController mNavigationController;
     @Mock private BrowserServicesIntentDataProvider mIntentDataProvider;
     @Mock private ActivityLifecycleDispatcher mLifecycleDispatcher;
@@ -53,6 +48,7 @@ public class CustomTabIncognitoManagerUnitTest {
     @Mock private Profile mOtrProfile;
     @Mock private ProfileManager.Natives mProfileManagerJni;
 
+    private Activity mActivity;
     private OneshotSupplierImpl<ProfileProvider> mProfileProviderSupplier;
     private CustomTabIncognitoManager mIncognitoManager;
 
@@ -61,10 +57,7 @@ public class CustomTabIncognitoManagerUnitTest {
         ProfileManagerJni.setInstanceForTesting(mProfileManagerJni);
         IncognitoTabHostRegistry.getInstance().getHosts().clear();
 
-        WindowManager.LayoutParams layoutParams = new WindowManager.LayoutParams();
-        doReturn(mWindow).when(mActivity).getWindow();
-        doReturn(layoutParams).when(mWindow).getAttributes();
-        doReturn(true).when(mActivity).isFinishing();
+        mActivity = Robolectric.buildActivity(Activity.class).get();
 
         mProfileProviderSupplier = new OneshotSupplierImpl<>();
         mProfileProviderSupplier.set(mProfileProvider);
@@ -89,6 +82,7 @@ public class CustomTabIncognitoManagerUnitTest {
     public void testOnDestroy_uniqueOtrProfile_destroysProfile() {
         doReturn(false).when(mOtrProfile).isPrimaryOtrProfile();
 
+        mActivity.finish();
         mIncognitoManager.onDestroy();
 
         verify(mProfileManagerJni).destroyWhenAppropriate(mOtrProfile);
@@ -102,6 +96,7 @@ public class CustomTabIncognitoManagerUnitTest {
         doReturn(true).when(otherHost).hasIncognitoTabs();
         IncognitoTabHostRegistry.getInstance().register(otherHost);
 
+        mActivity.finish();
         mIncognitoManager.onDestroy();
 
         verify(mProfileManagerJni, never()).destroyWhenAppropriate(any());
@@ -111,6 +106,7 @@ public class CustomTabIncognitoManagerUnitTest {
     public void testOnDestroy_primaryOtrProfile_noOtherIncognitoTabs_destroysProfile() {
         doReturn(true).when(mOtrProfile).isPrimaryOtrProfile();
 
+        mActivity.finish();
         mIncognitoManager.onDestroy();
 
         verify(mProfileManagerJni).destroyWhenAppropriate(mOtrProfile);
@@ -126,6 +122,7 @@ public class CustomTabIncognitoManagerUnitTest {
 
         assertEquals(1, IncognitoTabHostRegistry.getInstance().getHosts().size());
 
+        mActivity.finish();
         mIncognitoManager.onDestroy();
 
         assertEquals(0, IncognitoTabHostRegistry.getInstance().getHosts().size());
@@ -144,7 +141,6 @@ public class CustomTabIncognitoManagerUnitTest {
 
     @Test
     public void testOnDestroy_activityNotFinishing_doesNotDestroyProfile() {
-        doReturn(false).when(mActivity).isFinishing();
         doReturn(false).when(mOtrProfile).isPrimaryOtrProfile();
 
         mIncognitoManager.onDestroy();

@@ -7,12 +7,12 @@ import glob
 import logging
 import os
 import pathlib
+import re
 import shlex
 import shutil
 import subprocess
 import sys
 import tarfile
-import tempfile
 import time
 import urllib.request
 
@@ -113,21 +113,37 @@ def _all_files(path):
     if os.path.isfile(path):
         return [path]
     assert os.path.isdir(path), 'Not a file or dir: ' + path
-    # glob ignores dotfiles, which is what we want.
-    ret = glob.glob('**/*')
+    # glob ignores dotfiles and dot-dirs, which is what we want.
+    ret = glob.glob(os.path.join(path, '**', '*'), recursive=True)
     # Same ignore pattern is used in copy_runtime_deps().
     return [f for f in ret if os.path.isfile(f) and '__pycache__' not in f]
 
 
+def _resolve_dep_path(p):
+    if p.startswith('//'):
+        return os.path.relpath(str(_SRC_ROOT / p[2:]))
+    if os.path.isabs(p):
+        return os.path.relpath(p)
+    return p
+
+
 def _resolve_runtime_deps(runtime_deps):
+    """Returns a list of (src_path, dest_subpath) tuples.
+
+    Each entry of |runtime_deps| is either a path, or a (path, dest_subpath)
+    tuple. dest_subpath is relative to the checkout's source root (see
+    path_within_checkout()), and defaults to the path relative to //.
+    """
     ret = []
-    for p in runtime_deps:
-        if p.startswith('//'):
-            ret.append(os.path.relpath(str(_SRC_ROOT / p[2:])))
-        elif os.path.isabs(p):
-            ret.append(os.path.relpath(p))
+    for entry in runtime_deps:
+        if isinstance(entry, tuple):
+            p, dest_subpath = entry
         else:
-            ret.append(p)
+            p, dest_subpath = entry, None
+        src_path = _resolve_dep_path(p)
+        if dest_subpath is None:
+            dest_subpath = os.path.relpath(src_path, _SRC_ROOT)
+        ret.append((src_path, dest_subpath))
     return ret
 
 
@@ -136,9 +152,8 @@ def copy_runtime_deps(checkout_dir, runtime_deps):
     # will run in.
     dest_dir = os.path.join(checkout_dir, _CHECKOUT_SRC_ROOT_SUBDIR)
 
-    for src_path in _resolve_runtime_deps(runtime_deps):
-        relpath = os.path.relpath(src_path, _SRC_ROOT)
-        dest_path = os.path.join(dest_dir, relpath)
+    for src_path, dest_subpath in _resolve_runtime_deps(runtime_deps):
+        dest_path = os.path.join(dest_dir, dest_subpath)
         os.makedirs(os.path.dirname(dest_path), exist_ok=True)
         if os.path.isfile(src_path):
             shutil.copy(src_path, dest_path)
@@ -150,7 +165,7 @@ def copy_runtime_deps(checkout_dir, runtime_deps):
                 ignore=shutil.ignore_patterns('.*', '__pycache__'),
             )
     logging.info('Runtime deps:')
-    sys.stderr.write('\n'.join(_all_files(checkout_dir)) + '\n')
+    sys.stderr.write('\n'.join(_all_files(dest_dir)) + '\n')
 
 
 def download_file(url, dest):
@@ -179,7 +194,49 @@ def apply_patches(patches_dir, checkout_dir):
         run_cmd(cmd, cwd=checkout_dir)
 
 
-def main(*, do_latest, do_install, runtime_deps=(), include_deps_hash=True):
+def _copy_package_definition(pkg_def_dir, checkout_dir):
+    """Mimics the 3pp recipe's "copy package definition" step.
+
+    The recipe copies the directory containing 3pp.pb into
+    <checkout>/.3pp/<pkg_prefix>/<name> after "checkout" runs, and fails if the
+    destination already exists (e.g. if a runtime dep was copied there).
+    <name> is the basename of the directory containing the 3pp/ directory.
+    """
+    with open(os.path.join(pkg_def_dir, '3pp.pb')) as f:
+        m = re.search(r'^\s*pkg_prefix:\s*"([^"]+)"', f.read(), re.M)
+    if not m:
+        logging.warning('No pkg_prefix in 3pp.pb. Not copying package def.')
+        return
+    name = os.path.basename(os.path.dirname(pkg_def_dir))
+    dest = os.path.join(checkout_dir, '.3pp', m.group(1), name)
+    logging.info('Copying package definition to %s', dest)
+    shutil.copytree(
+        pkg_def_dir, dest, ignore=shutil.ignore_patterns('__pycache__')
+    )
+
+
+def main(
+    *,
+    do_latest,
+    do_install,
+    runtime_deps=(),
+    version_deps=None,
+    include_deps_hash=True,
+):
+    """Entry point for 3pp.py scripts.
+
+    Args:
+      do_latest: Returns the latest upstream version.
+      do_install: Builds the package. Called with parsed args.
+      runtime_deps: Paths to copy into the checkout, for use by do_install().
+          See _resolve_runtime_deps() for the format. Does not affect the
+          version.
+      version_deps: Paths (files or directories) whose contents are hashed into
+          the version (along with all loaded Python modules). Changing them
+          causes a new package to be built. Must be specified if runtime_deps
+          is specified.
+      include_deps_hash: Whether to append the hash to the version.
+    """
     # Prevent subprocess output from being out-of-order when stdout is piped.
     # Python 3.6 inside the 3pp docker container lacks sys.stdout.reconfigure.
     sys.stdout = os.fdopen(sys.stdout.fileno(), 'w', buffering=1)
@@ -188,6 +245,8 @@ def main(*, do_latest, do_install, runtime_deps=(), include_deps_hash=True):
         format='%(levelname).1s %(relativeCreated)6d %(message)s',
     )
     args = parse_args()
+    if version_deps is None:
+        assert not runtime_deps, 'Missing parameter version_deps.'
     runtime_deps = [str(_THIS_DIR)] + list(runtime_deps)
 
     if args.action == 'local-test':
@@ -206,6 +265,7 @@ def main(*, do_latest, do_install, runtime_deps=(), include_deps_hash=True):
         os.environ['_3PP_VERSION'] = version
         checkout_dir = args.checkout_dir
         run_cmd([prog, 'checkout', checkout_dir])
+        _copy_package_definition(os.path.dirname(prog), checkout_dir)
         run_cmd(
             [prog, 'install', args.output_prefix, 'UNUSED-DEPS-DIR'],
             cwd=checkout_dir,
@@ -221,8 +281,8 @@ def main(*, do_latest, do_install, runtime_deps=(), include_deps_hash=True):
         # omitted when include_deps_hash is False.
         if include_deps_hash:
             extra_paths = []
-            for p in _resolve_runtime_deps(runtime_deps):
-                extra_paths += _all_files(p)
+            for p in version_deps or []:
+                extra_paths += _all_files(_resolve_dep_path(p))
             deps_hash = scripthash.compute(extra_paths=extra_paths)
             version = f'{version}.{deps_hash}'
         print(version)

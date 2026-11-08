@@ -5,6 +5,7 @@
 #include "chrome/services/readaloud/timeline/playback_timeline.h"
 
 #include <algorithm>
+#include <iterator>
 #include <utility>
 
 #include "base/check.h"
@@ -64,26 +65,56 @@ void PlaybackTimeline::SetTextContent(
          "SetTextContent().";
   Clear();
 
-  // TODO(b/565884049): Record a UMA metric if segments.size() > 1 occurs in
-  // production.
-  if (segments.size() > 1) {
-    LOG(ERROR) << "Expected at most 1 text segment from Distiller, received "
-               << segments.size()
-               << ". Concatenating into a single document.";
-  }
-
+  // Pre-reserve the full character count so `document_text_.append()` in the
+  // loop below never reallocates and invalidates `std::u16string_view`s stored
+  // in earlier `chunks_` entries.
+  size_t total_text_size = 0;
   for (const read_aloud::mojom::TextSegmentPtr& segment : segments) {
     if (segment && !segment->text.empty()) {
-      document_text_.append(segment->text);
+      total_text_size += segment->text.size();
     }
   }
+  document_text_.reserve(total_text_size);
 
-  if (!document_text_.empty()) {
+  size_t document_offset = 0;
+  for (const read_aloud::mojom::TextSegmentPtr& segment : segments) {
+    if (!segment || segment->text.empty()) {
+      continue;
+    }
+    const size_t segment_start = document_text_.size();
+    DCHECK_LE(document_text_.size() + segment->text.size(),
+              document_text_.capacity());
+    document_text_.append(segment->text);
+    std::u16string_view segment_view =
+        std::u16string_view(document_text_)
+            .substr(segment_start, segment->text.size());
+
     // Always use ChunkingMode::kSpeed so PlaybackTimeline preserves the
     // canonical atomic sentence boundaries (0...N-1) rather than prosody
     // multi-sentence groups.
-    chunks_ = ChunkText(document_text_, ChunkingMode::kSpeed, locale_tag,
-                        /*base_offset=*/0);
+    // TODO(b/543025514): In ChunkingMode::kSpeed, handle isolated
+    // all-punctuation sentences (e.g., ellipses "...") in TextChunker so they
+    // are not sent as standalone network synthesis requests. In
+    // ChunkingMode::kQuality, retain them within paragraph groupings for
+    // natural prosody and pauses.
+    std::vector<TextChunk> sentence_chunks =
+        ChunkText(segment_view, ChunkingMode::kSpeed, locale_tag);
+    // ChunkText() counts from 0 within the segment. Shift the chunks so the
+    // document's canonical offsets continue across segments, with one
+    // separator after the previous segment's last chunk, as between any two
+    // chunks. highlighter.js depends on this; see
+    // `TextChunk::start_code_unit_offset`.
+    for (TextChunk& chunk : sentence_chunks) {
+      chunk.start_code_unit_offset += document_offset;
+      chunk.speaker = segment->speaker;
+    }
+    if (!sentence_chunks.empty()) {
+      const TextChunk& last = sentence_chunks.back();
+      document_offset = last.start_code_unit_offset + last.text.size() + 1;
+    }
+    chunks_.insert(chunks_.end(),
+                   std::make_move_iterator(sentence_chunks.begin()),
+                   std::make_move_iterator(sentence_chunks.end()));
   }
 
   base::TimeDelta cumulative_est_time;
@@ -135,6 +166,22 @@ void PlaybackTimeline::UpdateSentenceDuration(
   sentence_word_timings_[sentence_index] = std::move(word_timings);
 }
 
+base::TimeDelta PlaybackTimeline::GetTotalDuration() const {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  DCHECK_EQ(chunks_.size(), static_est_start_times_1_0x_.size());
+  DCHECK_EQ(chunks_.size(), deviations_1_0x_.size());
+  if (chunks_.empty()) {
+    return base::TimeDelta();
+  }
+  base::TimeDelta total =
+      static_est_start_times_1_0x_.back() +
+      chunks_.back().text.size() * kEstimatedDurationPerChar;
+  for (const base::TimeDelta& deviation : deviations_1_0x_) {
+    total += deviation;
+  }
+  return total;
+}
+
 uint32_t PlaybackTimeline::ResolveCharOffsetInChunk(
     size_t chunk_index,
     base::TimeDelta offset_in_chunk,
@@ -179,6 +226,44 @@ uint32_t PlaybackTimeline::ResolveCharOffsetInChunk(
   return static_cast<uint32_t>(SnapToWordStart(chunk.text, raw_char_offset));
 }
 
+base::TimeDelta PlaybackTimeline::ResolveTimeInChunkForCharOffset(
+    size_t chunk_index,
+    uint32_t char_offset_in_chunk,
+    base::TimeDelta chunk_duration) const {
+  DCHECK_LT(chunk_index, chunks_.size());
+  const TextChunk& chunk = chunks_[chunk_index];
+  if (char_offset_in_chunk == 0 || chunk.text.empty() ||
+      chunk_duration <= base::TimeDelta()) {
+    return base::TimeDelta();
+  }
+  if (char_offset_in_chunk >= chunk.text.size()) {
+    return chunk_duration;
+  }
+
+  // 1. When synthesized WordTimings are present, `ReadAloudDecoderSequencer`
+  // drops words that end at or before `min_global_char_offset` (while keeping a
+  // zero-length word anchored at `min_global_char_offset`). Return the start
+  // time of the first word that is kept, so `time.start_time` matches the audio
+  // that will actually play.
+  const std::vector<WordTiming>& timings = sentence_word_timings_[chunk_index];
+  if (!timings.empty()) {
+    const size_t min_global_offset =
+        chunk.start_code_unit_offset + char_offset_in_chunk;
+    for (const WordTiming& word : timings) {
+      if (word.end_character_offset <= min_global_offset &&
+          word.start_character_offset < min_global_offset) {
+        continue;
+      }
+      return std::clamp(word.start_time, base::TimeDelta(), chunk_duration);
+    }
+    return chunk_duration;
+  }
+
+  // 2. Fallback for unsynthesized chunks: interpolate proportionally across the
+  // chunk's estimated duration.
+  return (chunk_duration * char_offset_in_chunk) / chunk.text.size();
+}
+
 std::optional<TimelinePosition> PlaybackTimeline::ResolveSegmentOffset(
     uint32_t segment_index,
     uint32_t character_offset) const {
@@ -194,16 +279,18 @@ std::optional<TimelinePosition> PlaybackTimeline::ResolveSegmentOffset(
     return std::nullopt;
   }
 
-  base::TimeDelta accumulated_time =
+  base::TimeDelta chunk_start_time =
       static_est_start_times_1_0x_[segment_index];
   for (size_t i = 0; i < segment_index; ++i) {
-    accumulated_time += deviations_1_0x_[i];
+    chunk_start_time += deviations_1_0x_[i];
   }
-  base::TimeDelta chunk_end_time =
-      accumulated_time + GetChunkDuration(segment_index);
+  base::TimeDelta chunk_duration = GetChunkDuration(segment_index);
+  base::TimeDelta offset_in_chunk = ResolveTimeInChunkForCharOffset(
+      segment_index, character_offset, chunk_duration);
+  base::TimeDelta chunk_end_time = chunk_start_time + chunk_duration;
 
   return TimelinePosition(segment_index, chunk, character_offset,
-                          accumulated_time, chunk_end_time);
+                          chunk_start_time + offset_in_chunk, chunk_end_time);
 }
 
 std::optional<TimelinePosition> PlaybackTimeline::ResolveTimeOffset(
@@ -237,11 +324,7 @@ std::optional<TimelinePosition> PlaybackTimeline::ResolveTimeOffset(
   // Target time is at or beyond total timeline duration; clamp to end of final
   // sentence chunk.
   size_t last_idx = chunks_.size() - 1;
-  base::TimeDelta last_chunk_start =
-      static_est_start_times_1_0x_[last_idx] + cumulative_deviation -
-      deviations_1_0x_[last_idx];
-  base::TimeDelta total_duration =
-      last_chunk_start + GetChunkDuration(last_idx);
+  base::TimeDelta total_duration = GetTotalDuration();
   return TimelinePosition(
       static_cast<uint32_t>(last_idx), chunks_[last_idx],
       static_cast<uint32_t>(chunks_[last_idx].text.size()),

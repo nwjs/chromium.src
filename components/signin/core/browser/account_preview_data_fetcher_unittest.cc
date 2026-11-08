@@ -22,6 +22,7 @@
 #include "components/signin/public/identity_manager/identity_test_environment.h"
 #include "components/sync/base/data_type.h"
 #include "components/sync/base/time.h"
+#include "net/base/request_priority.h"
 #include "services/network/public/cpp/weak_wrapper_shared_url_loader_factory.h"
 #include "services/network/test/test_url_loader_factory.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -36,6 +37,12 @@ constexpr char kFetchDurationSuccessHistogram[] =
     "Signin.AccountPreviewData.FetchDuration.Success";
 constexpr char kFetchDurationFailureHistogram[] =
     "Signin.AccountPreviewData.FetchDuration.Failure";
+constexpr char kFetchDurationNetworkSuccessHistogram[] =
+    "Signin.AccountPreviewData.FetchDuration.NetworkSuccess";
+constexpr char kFetchDurationNetworkFailureHistogram[] =
+    "Signin.AccountPreviewData.FetchDuration.NetworkFailure";
+constexpr char kFetchDurationTokenSuccessHistogram[] =
+    "Signin.AccountPreviewData.FetchDuration.TokenSuccess";
 constexpr char kFetchDurationTokenFailureHistogram[] =
     "Signin.AccountPreviewData.FetchDuration.TokenFailure";
 }  // namespace
@@ -47,6 +54,7 @@ class AccountPreviewDataFetcherTest : public testing::Test {
   AccountPreviewDataFetcherTest() {
     feature_list_.InitWithFeatures(
         {switches::kEnableAccountPreviewData,
+         switches::kEnableAccountPreviewDataFetchOptimizations,
          switches::kEnableAccountPreviewEntityPreviews},
         {});
   }
@@ -57,7 +65,8 @@ class AccountPreviewDataFetcherTest : public testing::Test {
 
  protected:
   base::test::ScopedFeatureList feature_list_;
-  base::test::TaskEnvironment task_environment_;
+  base::test::TaskEnvironment task_environment_{
+      base::test::TaskEnvironment::TimeSource::MOCK_TIME};
   network::TestURLLoaderFactory test_url_loader_factory_;
   IdentityTestEnvironment identity_test_env_{&test_url_loader_factory_};
   base::HistogramTester histogram_tester_;
@@ -72,12 +81,14 @@ TEST_F(AccountPreviewDataFetcherTest, Success) {
        .last_updated = syncer::ProtoTimeToTime(123456789),
        .os_type = sync_pb::SyncEnums_OsType_OS_TYPE_WINDOWS,
        .form_factor =
-           sync_pb::SyncEnums_DeviceFormFactor_DEVICE_FORM_FACTOR_DESKTOP},
+           sync_pb::SyncEnums_DeviceFormFactor_DEVICE_FORM_FACTOR_DESKTOP,
+       .interested_data_types = {syncer::BOOKMARKS, syncer::PASSWORDS}},
       {.cache_guid = "device_2",
        .last_updated = syncer::ProtoTimeToTime(987654321),
        .os_type = sync_pb::SyncEnums_OsType_OS_TYPE_LINUX,
        .form_factor =
-           sync_pb::SyncEnums_DeviceFormFactor_DEVICE_FORM_FACTOR_DESKTOP}};
+           sync_pb::SyncEnums_DeviceFormFactor_DEVICE_FORM_FACTOR_DESKTOP,
+       .interested_data_types = {syncer::SESSIONS}}};
 
   MockSuccessfulStatsFetch(
       &test_url_loader_factory_,
@@ -111,9 +122,187 @@ TEST_F(AccountPreviewDataFetcherTest, Success) {
                                       FetchState::kEntityPreviewHasResult, 1);
   histogram_tester_.ExpectBucketCount(kFetchStateHistogram,
                                       FetchState::kCompletedWithResults, 1);
+  histogram_tester_.ExpectBucketCount(
+      kFetchStateHistogram, FetchState::kCompletedWithPartialResults, 0);
   histogram_tester_.ExpectTotalCount(kFetchStateHistogram, 4);
   histogram_tester_.ExpectTotalCount(kFetchDurationSuccessHistogram, 1);
   histogram_tester_.ExpectTotalCount(kFetchDurationFailureHistogram, 0);
+  histogram_tester_.ExpectTotalCount(kFetchDurationNetworkSuccessHistogram, 1);
+  histogram_tester_.ExpectTotalCount(kFetchDurationNetworkFailureHistogram, 0);
+  histogram_tester_.ExpectTotalCount(kFetchDurationTokenSuccessHistogram, 1);
+  histogram_tester_.ExpectTotalCount(kFetchDurationTokenFailureHistogram, 0);
+}
+
+TEST_F(AccountPreviewDataFetcherTest, FetchDurationTimingSuccess) {
+  AccountInfo account_info =
+      identity_test_env_.MakeAccountAvailable("user@gmail.com");
+  identity_test_env_.SetAutomaticIssueOfAccessTokens(false);
+
+  base::test::TestFuture<const GaiaId&, std::optional<AccountPreviewData>, bool>
+      future;
+  auto fetcher = std::make_unique<AccountPreviewDataFetcher>(
+      account_info.GetGaiaId(), identity_test_env_.identity_manager(),
+      test_url_loader_factory_.GetSafeWeakWrapper(),
+      version_info::Channel::UNKNOWN,
+      /*current_device_cache_guids=*/base::flat_set<std::string>(),
+      future.GetCallback());
+  fetcher->Start();
+
+  task_environment_.FastForwardBy(base::Milliseconds(100));
+  identity_test_env_.WaitForAccessTokenRequestIfNecessaryAndRespondWithToken(
+      account_info.GetAccountId(), "access_token", base::Time::Max());
+
+  task_environment_.FastForwardBy(base::Milliseconds(150));
+  MockSuccessfulStatsFetch(&test_url_loader_factory_, {.bookmark_count = 10});
+
+  task_environment_.FastForwardBy(base::Milliseconds(100));
+  MockSuccessfulPreviewsFetch(&test_url_loader_factory_, /*devices=*/{});
+
+  auto [gaia_id, result_data, hit_429] = future.Take();
+  ASSERT_TRUE(result_data.has_value());
+
+  histogram_tester_.ExpectUniqueTimeSample(kFetchDurationTokenSuccessHistogram,
+                                           base::Milliseconds(100), 1);
+  histogram_tester_.ExpectUniqueTimeSample(
+      kFetchDurationNetworkSuccessHistogram, base::Milliseconds(250), 1);
+  histogram_tester_.ExpectUniqueTimeSample(kFetchDurationSuccessHistogram,
+                                           base::Milliseconds(350), 1);
+  histogram_tester_.ExpectTotalCount(kFetchDurationTokenFailureHistogram, 0);
+  histogram_tester_.ExpectTotalCount(kFetchDurationNetworkFailureHistogram, 0);
+  histogram_tester_.ExpectTotalCount(kFetchDurationFailureHistogram, 0);
+}
+
+TEST_F(AccountPreviewDataFetcherTest, FetchDurationTimingFailure) {
+  AccountInfo account_info =
+      identity_test_env_.MakeAccountAvailable("user@gmail.com");
+  identity_test_env_.SetAutomaticIssueOfAccessTokens(false);
+
+  base::test::TestFuture<const GaiaId&, std::optional<AccountPreviewData>, bool>
+      future;
+  auto fetcher = std::make_unique<AccountPreviewDataFetcher>(
+      account_info.GetGaiaId(), identity_test_env_.identity_manager(),
+      test_url_loader_factory_.GetSafeWeakWrapper(),
+      version_info::Channel::UNKNOWN,
+      /*current_device_cache_guids=*/base::flat_set<std::string>(),
+      future.GetCallback());
+  fetcher->Start();
+
+  task_environment_.FastForwardBy(base::Milliseconds(100));
+  identity_test_env_.WaitForAccessTokenRequestIfNecessaryAndRespondWithToken(
+      account_info.GetAccountId(), "access_token", base::Time::Max());
+
+  task_environment_.FastForwardBy(base::Milliseconds(250));
+  MockFailedStatsFetch(&test_url_loader_factory_, net::ERR_FAILED);
+  MockFailedPreviewsFetch(&test_url_loader_factory_, net::ERR_FAILED);
+
+  auto [gaia_id, result_data, hit_429] = future.Take();
+  EXPECT_FALSE(result_data.has_value());
+
+  histogram_tester_.ExpectUniqueTimeSample(kFetchDurationTokenSuccessHistogram,
+                                           base::Milliseconds(100), 1);
+  histogram_tester_.ExpectUniqueTimeSample(
+      kFetchDurationNetworkFailureHistogram, base::Milliseconds(250), 1);
+  histogram_tester_.ExpectUniqueTimeSample(kFetchDurationFailureHistogram,
+                                           base::Milliseconds(350), 1);
+  histogram_tester_.ExpectTotalCount(kFetchDurationTokenFailureHistogram, 0);
+  histogram_tester_.ExpectTotalCount(kFetchDurationNetworkSuccessHistogram, 0);
+  histogram_tester_.ExpectTotalCount(kFetchDurationSuccessHistogram, 0);
+}
+
+TEST_F(AccountPreviewDataFetcherTest, GetRequestedDataTypes) {
+  EXPECT_EQ(GetRequestedDataTypes(),
+            base::span<const syncer::DataType>(kRequestedDataTypes));
+
+  {
+    base::test::ScopedFeatureList scoped_feature_list;
+    scoped_feature_list.InitAndEnableFeatureWithParameters(
+        switches::kEnableAccountPreviewDataFetchOptimizations,
+        {{switches::kAccountPreviewDataReducedTypes.name, "false"}});
+    EXPECT_EQ(GetRequestedDataTypes(),
+              base::span<const syncer::DataType>(kLegacyRequestedDataTypes));
+  }
+
+  {
+    base::test::ScopedFeatureList scoped_feature_list;
+    scoped_feature_list.InitAndDisableFeature(
+        switches::kEnableAccountPreviewDataFetchOptimizations);
+    EXPECT_EQ(GetRequestedDataTypes(),
+              base::span<const syncer::DataType>(kLegacyRequestedDataTypes));
+  }
+}
+
+TEST_F(AccountPreviewDataFetcherTest, RequestPriorityMedium) {
+  AccountInfo account_info =
+      identity_test_env_.MakeAccountAvailable("user@gmail.com");
+
+  auto fetcher = std::make_unique<AccountPreviewDataFetcher>(
+      account_info.GetGaiaId(), identity_test_env_.identity_manager(),
+      test_url_loader_factory_.GetSafeWeakWrapper(),
+      version_info::Channel::UNKNOWN,
+      /*current_device_cache_guids=*/base::flat_set<std::string>(),
+      base::DoNothing());
+  fetcher->Start();
+
+  ASSERT_EQ(2, test_url_loader_factory_.NumPending());
+  for (const auto& pending : *test_url_loader_factory_.pending_requests()) {
+    EXPECT_EQ(net::MEDIUM, pending.request.priority);
+  }
+}
+
+TEST_F(AccountPreviewDataFetcherTest, RequestPriorityIdleWhenParamDisabled) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeatureWithParameters(
+      switches::kEnableAccountPreviewDataFetchOptimizations,
+      {{switches::kAccountPreviewDataMediumPriority.name, "false"}});
+
+  AccountInfo account_info =
+      identity_test_env_.MakeAccountAvailable("user@gmail.com");
+
+  auto fetcher = std::make_unique<AccountPreviewDataFetcher>(
+      account_info.GetGaiaId(), identity_test_env_.identity_manager(),
+      test_url_loader_factory_.GetSafeWeakWrapper(),
+      version_info::Channel::UNKNOWN,
+      /*current_device_cache_guids=*/base::flat_set<std::string>(),
+      base::DoNothing());
+  fetcher->Start();
+
+  ASSERT_EQ(2, test_url_loader_factory_.NumPending());
+  for (const auto& pending : *test_url_loader_factory_.pending_requests()) {
+    EXPECT_EQ(net::IDLE, pending.request.priority);
+  }
+}
+
+TEST_F(AccountPreviewDataFetcherTest, SuccessWithLegacyDataTypes) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeatureWithParameters(
+      switches::kEnableAccountPreviewDataFetchOptimizations,
+      {{switches::kAccountPreviewDataReducedTypes.name, "false"}});
+
+  AccountInfo account_info =
+      identity_test_env_.MakeAccountAvailable("user@gmail.com");
+
+  MockSuccessfulStatsFetch(
+      &test_url_loader_factory_,
+      {.bookmark_count = 10, .password_count = 20, .history_count = 30});
+  MockSuccessfulPreviewsFetch(&test_url_loader_factory_, /*devices=*/{});
+
+  base::test::TestFuture<const GaiaId&, std::optional<AccountPreviewData>, bool>
+      future;
+  auto fetcher = std::make_unique<AccountPreviewDataFetcher>(
+      account_info.GetGaiaId(), identity_test_env_.identity_manager(),
+      test_url_loader_factory_.GetSafeWeakWrapper(),
+      version_info::Channel::UNKNOWN,
+      /*current_device_cache_guids=*/base::flat_set<std::string>(),
+      future.GetCallback());
+  fetcher->Start();
+
+  auto [gaia_id, result_data, hit_429] = future.Take();
+  EXPECT_EQ(account_info.GetGaiaId(), gaia_id);
+  EXPECT_FALSE(hit_429);
+  ASSERT_TRUE(result_data.has_value());
+  EXPECT_EQ(10U, result_data->counts[syncer::BOOKMARKS]);
+  EXPECT_EQ(20U, result_data->counts[syncer::PASSWORDS]);
+  EXPECT_EQ(30U, result_data->counts[syncer::HISTORY]);
 }
 
 TEST_F(AccountPreviewDataFetcherTest, SuccessWithPreviewsDisabled) {
@@ -159,9 +348,15 @@ TEST_F(AccountPreviewDataFetcherTest, SuccessWithPreviewsDisabled) {
                                       FetchState::kEntityPreviewHasResult, 0);
   histogram_tester_.ExpectBucketCount(kFetchStateHistogram,
                                       FetchState::kCompletedWithResults, 1);
+  histogram_tester_.ExpectBucketCount(
+      kFetchStateHistogram, FetchState::kCompletedWithPartialResults, 0);
   histogram_tester_.ExpectTotalCount(kFetchStateHistogram, 3);
   histogram_tester_.ExpectTotalCount(kFetchDurationSuccessHistogram, 1);
   histogram_tester_.ExpectTotalCount(kFetchDurationFailureHistogram, 0);
+  histogram_tester_.ExpectTotalCount(kFetchDurationNetworkSuccessHistogram, 1);
+  histogram_tester_.ExpectTotalCount(kFetchDurationNetworkFailureHistogram, 0);
+  histogram_tester_.ExpectTotalCount(kFetchDurationTokenSuccessHistogram, 1);
+  histogram_tester_.ExpectTotalCount(kFetchDurationTokenFailureHistogram, 0);
 }
 
 TEST_F(AccountPreviewDataFetcherTest, SuccessEmpty) {
@@ -198,9 +393,15 @@ TEST_F(AccountPreviewDataFetcherTest, SuccessEmpty) {
                                       FetchState::kEntityPreviewHasResult, 1);
   histogram_tester_.ExpectBucketCount(kFetchStateHistogram,
                                       FetchState::kCompletedWithResults, 1);
+  histogram_tester_.ExpectBucketCount(
+      kFetchStateHistogram, FetchState::kCompletedWithPartialResults, 0);
   histogram_tester_.ExpectTotalCount(kFetchStateHistogram, 4);
   histogram_tester_.ExpectTotalCount(kFetchDurationSuccessHistogram, 1);
   histogram_tester_.ExpectTotalCount(kFetchDurationFailureHistogram, 0);
+  histogram_tester_.ExpectTotalCount(kFetchDurationNetworkSuccessHistogram, 1);
+  histogram_tester_.ExpectTotalCount(kFetchDurationNetworkFailureHistogram, 0);
+  histogram_tester_.ExpectTotalCount(kFetchDurationTokenSuccessHistogram, 1);
+  histogram_tester_.ExpectTotalCount(kFetchDurationTokenFailureHistogram, 0);
   histogram_tester_.ExpectBucketCount(kFetchHit429Histogram, false, 1);
 }
 
@@ -221,6 +422,7 @@ TEST_F(AccountPreviewDataFetcherTest, AccessTokenFailure) {
       future.GetCallback());
   fetcher->Start();
 
+  task_environment_.FastForwardBy(base::Milliseconds(100));
   identity_test_env_.WaitForAccessTokenRequestIfNecessaryAndRespondWithError(
       account_info.GetAccountId(),
       GoogleServiceAuthError::FromServiceError("Service error"));
@@ -233,7 +435,11 @@ TEST_F(AccountPreviewDataFetcherTest, AccessTokenFailure) {
   histogram_tester_.ExpectTotalCount(kFetchStateHistogram, 0);
   histogram_tester_.ExpectTotalCount(kFetchDurationSuccessHistogram, 0);
   histogram_tester_.ExpectTotalCount(kFetchDurationFailureHistogram, 0);
-  histogram_tester_.ExpectTotalCount(kFetchDurationTokenFailureHistogram, 1);
+  histogram_tester_.ExpectTotalCount(kFetchDurationNetworkSuccessHistogram, 0);
+  histogram_tester_.ExpectTotalCount(kFetchDurationNetworkFailureHistogram, 0);
+  histogram_tester_.ExpectTotalCount(kFetchDurationTokenSuccessHistogram, 0);
+  histogram_tester_.ExpectUniqueTimeSample(kFetchDurationTokenFailureHistogram,
+                                           base::Milliseconds(100), 1);
 }
 
 TEST_F(AccountPreviewDataFetcherTest, StatsFailure) {
@@ -275,7 +481,15 @@ TEST_F(AccountPreviewDataFetcherTest, StatsFailure) {
                                       FetchState::kEntityPreviewHasResult, 1);
   histogram_tester_.ExpectBucketCount(kFetchStateHistogram,
                                       FetchState::kCompletedWithResults, 1);
-  histogram_tester_.ExpectTotalCount(kFetchStateHistogram, 4);
+  histogram_tester_.ExpectBucketCount(
+      kFetchStateHistogram, FetchState::kCompletedWithPartialResults, 1);
+  histogram_tester_.ExpectTotalCount(kFetchStateHistogram, 5);
+  histogram_tester_.ExpectTotalCount(kFetchDurationSuccessHistogram, 1);
+  histogram_tester_.ExpectTotalCount(kFetchDurationFailureHistogram, 0);
+  histogram_tester_.ExpectTotalCount(kFetchDurationNetworkSuccessHistogram, 1);
+  histogram_tester_.ExpectTotalCount(kFetchDurationNetworkFailureHistogram, 0);
+  histogram_tester_.ExpectTotalCount(kFetchDurationTokenSuccessHistogram, 1);
+  histogram_tester_.ExpectTotalCount(kFetchDurationTokenFailureHistogram, 0);
 }
 
 TEST_F(AccountPreviewDataFetcherTest, PreviewsFailure) {
@@ -310,9 +524,15 @@ TEST_F(AccountPreviewDataFetcherTest, PreviewsFailure) {
                                       FetchState::kEntityPreviewEmptyResult, 1);
   histogram_tester_.ExpectBucketCount(kFetchStateHistogram,
                                       FetchState::kCompletedWithResults, 1);
-  histogram_tester_.ExpectTotalCount(kFetchStateHistogram, 4);
+  histogram_tester_.ExpectBucketCount(
+      kFetchStateHistogram, FetchState::kCompletedWithPartialResults, 1);
+  histogram_tester_.ExpectTotalCount(kFetchStateHistogram, 5);
   histogram_tester_.ExpectTotalCount(kFetchDurationSuccessHistogram, 1);
   histogram_tester_.ExpectTotalCount(kFetchDurationFailureHistogram, 0);
+  histogram_tester_.ExpectTotalCount(kFetchDurationNetworkSuccessHistogram, 1);
+  histogram_tester_.ExpectTotalCount(kFetchDurationNetworkFailureHistogram, 0);
+  histogram_tester_.ExpectTotalCount(kFetchDurationTokenSuccessHistogram, 1);
+  histogram_tester_.ExpectTotalCount(kFetchDurationTokenFailureHistogram, 0);
 }
 
 TEST_F(AccountPreviewDataFetcherTest, StatsInvalidJson) {
@@ -354,9 +574,15 @@ TEST_F(AccountPreviewDataFetcherTest, StatsInvalidJson) {
                                       FetchState::kEntityPreviewHasResult, 1);
   histogram_tester_.ExpectBucketCount(kFetchStateHistogram,
                                       FetchState::kCompletedWithResults, 1);
-  histogram_tester_.ExpectTotalCount(kFetchStateHistogram, 4);
+  histogram_tester_.ExpectBucketCount(
+      kFetchStateHistogram, FetchState::kCompletedWithPartialResults, 1);
+  histogram_tester_.ExpectTotalCount(kFetchStateHistogram, 5);
   histogram_tester_.ExpectTotalCount(kFetchDurationSuccessHistogram, 1);
   histogram_tester_.ExpectTotalCount(kFetchDurationFailureHistogram, 0);
+  histogram_tester_.ExpectTotalCount(kFetchDurationNetworkSuccessHistogram, 1);
+  histogram_tester_.ExpectTotalCount(kFetchDurationNetworkFailureHistogram, 0);
+  histogram_tester_.ExpectTotalCount(kFetchDurationTokenSuccessHistogram, 1);
+  histogram_tester_.ExpectTotalCount(kFetchDurationTokenFailureHistogram, 0);
 }
 
 TEST_F(AccountPreviewDataFetcherTest, PreviewsInvalidJson) {
@@ -392,9 +618,15 @@ TEST_F(AccountPreviewDataFetcherTest, PreviewsInvalidJson) {
                                       FetchState::kEntityPreviewHasResult, 1);
   histogram_tester_.ExpectBucketCount(kFetchStateHistogram,
                                       FetchState::kCompletedWithResults, 1);
-  histogram_tester_.ExpectTotalCount(kFetchStateHistogram, 4);
+  histogram_tester_.ExpectBucketCount(
+      kFetchStateHistogram, FetchState::kCompletedWithPartialResults, 1);
+  histogram_tester_.ExpectTotalCount(kFetchStateHistogram, 5);
   histogram_tester_.ExpectTotalCount(kFetchDurationSuccessHistogram, 1);
   histogram_tester_.ExpectTotalCount(kFetchDurationFailureHistogram, 0);
+  histogram_tester_.ExpectTotalCount(kFetchDurationNetworkSuccessHistogram, 1);
+  histogram_tester_.ExpectTotalCount(kFetchDurationNetworkFailureHistogram, 0);
+  histogram_tester_.ExpectTotalCount(kFetchDurationTokenSuccessHistogram, 1);
+  histogram_tester_.ExpectTotalCount(kFetchDurationTokenFailureHistogram, 0);
 }
 
 TEST_F(AccountPreviewDataFetcherTest, BothRequestsFail) {
@@ -427,9 +659,15 @@ TEST_F(AccountPreviewDataFetcherTest, BothRequestsFail) {
                                       FetchState::kEntityPreviewEmptyResult, 1);
   histogram_tester_.ExpectBucketCount(kFetchStateHistogram,
                                       FetchState::kCompletedWithoutResults, 1);
+  histogram_tester_.ExpectBucketCount(
+      kFetchStateHistogram, FetchState::kCompletedWithPartialResults, 0);
   histogram_tester_.ExpectTotalCount(kFetchStateHistogram, 4);
   histogram_tester_.ExpectTotalCount(kFetchDurationSuccessHistogram, 0);
   histogram_tester_.ExpectTotalCount(kFetchDurationFailureHistogram, 1);
+  histogram_tester_.ExpectTotalCount(kFetchDurationNetworkSuccessHistogram, 0);
+  histogram_tester_.ExpectTotalCount(kFetchDurationNetworkFailureHistogram, 1);
+  histogram_tester_.ExpectTotalCount(kFetchDurationTokenSuccessHistogram, 1);
+  histogram_tester_.ExpectTotalCount(kFetchDurationTokenFailureHistogram, 0);
 }
 
 TEST_F(AccountPreviewDataFetcherTest, InvalidAccount) {
@@ -451,6 +689,9 @@ TEST_F(AccountPreviewDataFetcherTest, InvalidAccount) {
   histogram_tester_.ExpectTotalCount(kFetchStateHistogram, 0);
   histogram_tester_.ExpectTotalCount(kFetchDurationSuccessHistogram, 0);
   histogram_tester_.ExpectTotalCount(kFetchDurationFailureHistogram, 0);
+  histogram_tester_.ExpectTotalCount(kFetchDurationNetworkSuccessHistogram, 0);
+  histogram_tester_.ExpectTotalCount(kFetchDurationNetworkFailureHistogram, 0);
+  histogram_tester_.ExpectTotalCount(kFetchDurationTokenSuccessHistogram, 0);
   histogram_tester_.ExpectTotalCount(kFetchDurationTokenFailureHistogram, 0);
 }
 
@@ -693,6 +934,57 @@ TEST_F(AccountPreviewDataFetcherTest, FiltersCurrentDevice) {
   ASSERT_TRUE(result_data.has_value());
   ASSERT_EQ(1U, result_data->devices.size());
   EXPECT_EQ("other_device", result_data->devices[0].cache_guid);
+}
+
+TEST_F(AccountPreviewDataFetcherTest, PreviewsParsesInterestedDataTypes) {
+  AccountInfo account_info =
+      identity_test_env_.MakeAccountAvailable("user@gmail.com");
+
+  MockSuccessfulStatsFetch(&test_url_loader_factory_, {});
+
+  // 32904 = BOOKMARKS
+  // 45873 = PASSWORDS
+  // 963985 = HISTORY
+  // 47745 = NIGORI
+  // 99999999 = invalid/unknown field number (ignored)
+  std::string response_json = R"({
+    "entitiesPreviews": [
+      {
+        "specificsPreview": {
+          "deviceInfoPreview": {
+            "cacheGuid": "other_device",
+            "lastUpdatedTimestamp": "123456789",
+            "osType": 2,
+            "deviceFormFactor": 1,
+            "chromeVersionInfo": {
+              "versionNumber": "126.0.0.0"
+            },
+            "invalidationFieldsPreview": {
+              "interestedDataTypeIds": [32904, 45873, 963985, 47745, 99999999]
+            }
+          }
+        }
+      }
+    ]
+  })";
+  test_url_loader_factory_.AddResponse(GetTestPreviewsUrl(), response_json);
+
+  base::test::TestFuture<const GaiaId&, std::optional<AccountPreviewData>, bool>
+      future;
+  auto fetcher = std::make_unique<AccountPreviewDataFetcher>(
+      account_info.GetGaiaId(), identity_test_env_.identity_manager(),
+      test_url_loader_factory_.GetSafeWeakWrapper(),
+      version_info::Channel::UNKNOWN,
+      /*current_device_cache_guids=*/base::flat_set<std::string>(),
+      future.GetCallback());
+  fetcher->Start();
+
+  auto [gaia_id, result_data, hit_429] = future.Take();
+  ASSERT_TRUE(result_data.has_value());
+  ASSERT_EQ(1U, result_data->devices.size());
+  EXPECT_EQ(result_data->devices[0].interested_data_types,
+            syncer::DataTypeSet({syncer::BOOKMARKS, syncer::PASSWORDS,
+                                 syncer::HISTORY, syncer::NIGORI}));
 }
 
 TEST_F(AccountPreviewDataFetcherTest, Stats429Error) {

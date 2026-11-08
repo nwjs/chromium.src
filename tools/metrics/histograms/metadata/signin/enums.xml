@@ -222,6 +222,7 @@ chromium-metrics-reviews@google.com.
   <int value="7" label="New Incognito window clicked"/>
   <int value="8" label="Manage your Google Account clicked"/>
   <int value="9" label="Account settings clicked"/>
+  <int value="10" label="Managed account header clicked"/>
 </enum>
 
 <!-- LINT.ThenChange(//chrome/browser/ui/android/toolbar/java/src/org/chromium/chrome/browser/toolbar/account_menu/AccountMenuMediator.java:AccountMenuEvent) -->
@@ -244,8 +245,17 @@ chromium-metrics-reviews@google.com.
   <int value="2" label="EntityPreviewEmptyResult"/>
   <int value="3" label="StatisticsHasResult"/>
   <int value="4" label="StatisticsEmptyResult"/>
-  <int value="5" label="CompletedWithResults"/>
-  <int value="6" label="CompletedWithoutResults"/>
+  <int value="5" label="CompletedWithResults">
+    At least one requested endpoint succeeded (including when only partial
+    results were obtained).
+  </int>
+  <int value="6" label="CompletedWithoutResults">
+    All requested endpoints failed.
+  </int>
+  <int value="7" label="CompletedWithPartialResults">
+    Recorded in addition to CompletedWithResults when at least one requested
+    endpoint succeeded and at least one failed.
+  </int>
 </enum>
 
 <!-- LINT.ThenChange(//components/signin/core/browser/account_preview_data_fetcher.h:AccountPreviewDataFetchState) -->
@@ -258,6 +268,8 @@ chromium-metrics-reviews@google.com.
   <int value="2" label="RefreshTokenRemoved"/>
   <int value="3" label="RefreshTokenInvalidated"/>
   <int value="4" label="ExternalAppAccountUpdated"/>
+  <int value="5" label="PrimaryAccountSet"/>
+  <int value="6" label="PrimaryAccountCleared"/>
 </enum>
 
 <!-- LINT.ThenChange(//components/signin/core/browser/account_preview_data_service_impl.h:FetchTriggerCause) -->
@@ -269,6 +281,7 @@ chromium-metrics-reviews@google.com.
   <int value="1" label="Non-regular Default Account (Priority 1)"/>
   <int value="2" label="External App Primary Account (Priority 2)"/>
   <int value="3" label="Sync Data Score (Priority 3)"/>
+  <int value="4" label="No Selection: Signed in on other profile"/>
 </enum>
 
 <!-- LINT.ThenChange(//components/signin/core/browser/account_preview_heuristic.h:AccountPreviewSelectionReason) -->
@@ -333,6 +346,9 @@ chromium-metrics-reviews@google.com.
   <int value="11"
       label="Would not show: Secondary accounts missing preview data (fetch
              failed)"/>
+  <int value="12" label="Would not show: Primary account has other devices"/>
+  <int value="13"
+      label="Would not show: Secondary accounts signed in on other profile"/>
 </enum>
 
 <!-- LINT.ThenChange(//components/signin/core/browser/account_preview_heuristic.h:AccountSwitchingSelectionOutcome) -->
@@ -1009,6 +1025,7 @@ chromium-metrics-reviews@google.com.
   <int value="107" label="Tab Context Containers Service"/>
   <int value="108" label="Site Token Provider"/>
   <int value="109" label="Device Authorization Request"/>
+  <int value="110" label="CMTG Device Key Provider"/>
 </enum>
 
 <!-- LINT.ThenChange(//components/signin/public/base/oauth_consumer_id.h:OAuthConsumerId) -->
@@ -1102,6 +1119,17 @@ chromium-metrics-reviews@google.com.
 
 <!-- LINT.ThenChange(//components/signin/public/base/signin_metrics.h:ReauthAccessPoint) -->
 
+<!-- LINT.IfChange(ReauthProceedToChallengeResult) -->
+
+<enum name="ReauthProceedToChallengeResult">
+  <int value="0" label="Proceed to challenge (account in cookies)"/>
+  <int value="1"
+      label="Proceed to challenge without cookies (shows identifier page)"/>
+  <int value="2" label="Fallback to AddSession"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/browser/signin/signin_promo.h:ReauthProceedToChallengeResult) -->
+
 <enum name="ResumeBlockedRequestsTrigger">
   <int value="0" label="Cookie fresh notification"/>
   <int value="1"
@@ -1138,7 +1166,7 @@ chromium-metrics-reviews@google.com.
   <int value="7" label="(obsolete) Apps page link"/>
   <int value="8" label="Bookmark save bubble"/>
   <int value="9" label="Bookmark manager"/>
-  <int value="10" label="Profile menu (aka avatar bubble)"/>
+  <int value="10" label="(obsolete) Profile menu (aka avatar bubble)"/>
   <int value="11" label="Profile picker"/>
   <int value="12" label="(obsolete) Devices page"/>
   <int value="13" label="(obsolete) Cloud print"/>
@@ -1200,7 +1228,7 @@ chromium-metrics-reviews@google.com.
   <int value="63" label="(obsolete) NTP Identity Disc"/>
   <int value="64" label="OIDC auth redirect URI interception"/>
   <int value="65" label="WebAuthn modal dialog"/>
-  <int value="66" label="Profile menu (aka avatar bubble) with sync promo"/>
+  <int value="66" label="Profile menu primary button"/>
   <int value="67" label="Account menu: Switch account"/>
   <int value="68" label="Product Specifications"/>
   <int value="69" label="Account menu: Switch account failed"/>
@@ -1346,34 +1374,6 @@ chromium-metrics-reviews@google.com.
   <int value="1" label="Success"/>
   <int value="2" label="Failure"/>
 </enum>
-
-<!-- LINT.IfChange(SigninHybridPasskeyEngagement) -->
-
-<enum name="SigninHybridPasskeyEngagement">
-  <int value="0" label="Scan detected"/>
-  <int value="1" label="No scan detected"/>
-</enum>
-
-<!-- LINT.ThenChange(//chrome/browser/webauthn/chrome_authenticator_request_delegate.h:SigninHybridPasskeyEngagement) -->
-
-<!-- LINT.IfChange(SigninHybridPasskeyOutcome) -->
-
-<enum name="SigninHybridPasskeyOutcome">
-  <int value="0" label="Success"/>
-  <int value="1" label="Cancelled on desktop after BLE advert received"/>
-  <int value="2" label="Cancelled on desktop after phone connected to tunnel"/>
-  <int value="3" label="Cancelled on desktop while waiting for phone"/>
-  <int value="4" label="Failed after BLE advert received"/>
-  <int value="5" label="Failed after phone connected to tunnel"/>
-  <int value="6" label="Failed while waiting for phone"/>
-  <int value="7" label="Cancelled or no passkeys on phone"/>
-  <int value="8" label="Hybrid transport error"/>
-  <int value="9" label="Timed out"/>
-  <int value="10"
-      label="Another authenticator (not the phone) succeeded or failed"/>
-</enum>
-
-<!-- LINT.ThenChange(//chrome/browser/webauthn/chrome_authenticator_request_delegate.h:SigninHybridPasskeyOutcome) -->
 
 <enum name="SigninInterceptFREDialogEvent">
   <int value="0" label="FRE started"/>

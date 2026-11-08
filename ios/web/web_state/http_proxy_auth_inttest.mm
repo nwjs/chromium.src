@@ -149,6 +149,14 @@ class HttpProxyAuthTest : public WebTestWithWebState {
 
   void TearDown() override {
     if (web_state()) {
+      // Ensure no proxyConfigurations outlive these tests to avoid flake of
+      // unrelated tests.
+      if (@available(iOS 17.0, *)) {
+        WKWebsiteDataStore* data_store =
+            GetDataStoreForBrowserState(GetBrowserState());
+        data_store.proxyConfigurations = @[];
+      }
+
       web_state()->SetDelegate(nullptr);
     }
     delegate_.reset();

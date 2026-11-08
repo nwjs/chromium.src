@@ -59,6 +59,9 @@ BASE_DECLARE_FEATURE(kEnableLensInNTP);
 // Feature flag to enable the Lens "Search copied image" omnibox entrypoint.
 BASE_DECLARE_FEATURE(kEnableLensInOmniboxCopiedImage);
 
+// Feature flag to enable the Lens View Finder Unified experience
+BASE_DECLARE_FEATURE(kEnableLensViewFinderUnifiedExperience);
+
 // Whether to enable loading AIM in the lens result page.
 BASE_DECLARE_FEATURE(kLensLoadAIMInLensResultPage);
 
@@ -668,6 +671,12 @@ BASE_DECLARE_FEATURE(kComposeboxPlusButtonBottomSheet);
 // Returns true if the ComposeboxPlusButtonBottomSheet feature is enabled.
 bool IsComposeboxPlusButtonBottomSheet();
 
+// Enables the ComposeboxPlusButtonLargeCarousel feature.
+BASE_DECLARE_FEATURE(kComposeboxPlusButtonLargeCarousel);
+
+// Returns true if the ComposeboxPlusButtonLargeCarousel feature is enabled.
+bool IsComposeboxPlusButtonLargeCarousel();
+
 // Enables the ChromeNextIa feature.
 BASE_DECLARE_FEATURE(kChromeNextIa);
 
@@ -835,6 +844,24 @@ bool IsPlusButtonInFakeboxEnabled();
 // Returns true if the plus button contextual menu in NTP fakebox is enabled
 bool IsPlusButtonMenuInFakeboxEnabled();
 
+// Enables the submenu with more options in the plus menu.
+BASE_DECLARE_FEATURE(kPlusButtonMenuMoreOptionsSubmenu);
+
+// Returns true if the submenu groupping is enabled in the plus menu.
+bool IsPlusButtonMenuMoreOptionsSubmenu();
+
+// Enables the string updates in the plus button menu.
+BASE_DECLARE_FEATURE(kPlusButtonMenuStringUpdates);
+
+// Returns true if the string updates in the plus button menu.
+bool IsPlusButtonMenuStringUpdatesEnabled();
+
+// Enables the string updates in the plus button menu.
+BASE_DECLARE_FEATURE(kPlusButtonMenuVerticalListView);
+
+// Returns true if the vertical list view is enabled in the plus button menu.
+bool IsPlusButtonMenuVerticalListView();
+
 // Enables the `AssistantAimMinimizedState` feature.
 BASE_DECLARE_FEATURE(kAssistantAimMinimizedState);
 
@@ -868,12 +895,19 @@ BASE_DECLARE_FEATURE(kIdentityAwareness);
 // Returns true if the IdentityAwareness feature is enabled.
 bool IsIdentityAwarenessEnabled();
 
-// Finch experiment flag to display a ring around the avatar for users with an
-// AI subscription.
+// Finch experiment flag to display a ring around the avatar in the NTP and
+// account menu for users with an AI subscription.
 BASE_DECLARE_FEATURE(kAiSubscriptionAvatarRingIOS);
+
+// Finch experiment flag to display a ring around the avatar in the overflow
+// menu, settings and manage accounts for users with an AI subscription.
+BASE_DECLARE_FEATURE(kAiSubscriptionAvatarRingFollowupIOS);
 
 // Returns true if the AiSubscriptionAvatarRingIOS feature is enabled.
 bool IsAiSubscriptionAvatarRingIOSEnabled();
+
+// Returns true if the AiSubscriptionAvatarRingFollowupIOS feature is enabled.
+bool IsAiSubscriptionAvatarRingFollowupIOSEnabled();
 
 // Feature flag to enable the Infobar Banner Revamp (UI Refactor of the
 // Infobar/Banner Component).
@@ -920,14 +954,6 @@ BASE_DECLARE_FEATURE(kDefaultBottomOmniboxOnIOS);
 // Returns true if the DefaultBottomOmniboxOnIOS feature is enabled.
 bool IsDefaultBottomOmniboxOnIOSEnabled();
 
-// Feature flag (acting as kill switch) to clear window rootViewController after
-// disconnecting scene state to avoid UIKit focus system exceptions.
-BASE_DECLARE_FEATURE(kClearRootViewControllerAfterSceneDisconnect);
-
-// Returns true if the ClearRootViewControllerAfterSceneDisconnect feature is
-// enabled.
-bool IsClearRootViewControllerAfterSceneDisconnectEnabled();
-
 // Enables the GlassToolbar feature.
 BASE_DECLARE_FEATURE(kGlassToolbar);
 
@@ -956,7 +982,7 @@ BASE_DECLARE_FEATURE(kAimHistoryThreadsManagement);
 // Returns true if the AimHistoryThreadsManagement feature is enabled.
 bool IsAimHistoryThreadsManagementEnabled();
 
-// Enables TalkToChrome prototype.
+// Enables the TTC prototype.
 BASE_DECLARE_FEATURE(kTTCEnabled);
 
 // Returns true if the TTCEnabled feature is enabled.
@@ -984,6 +1010,24 @@ BASE_DECLARE_FEATURE(kLightAppBar);
 // Returns true if the LightAppBar feature is enabled.
 bool IsLightAppBarEnabled();
 
+// Enables the AssistantAimThreads feature.
+BASE_DECLARE_FEATURE(kAssistantAimThreads);
+
+// Returns true if the AssistantAimThreads feature is enabled.
+bool IsAssistantAimThreadsEnabled();
+
+// Enables the `kVoiceSearchEvolutionPhase1` feature.
+BASE_DECLARE_FEATURE(kVoiceSearchEvolutionPhase1);
+
+// Returns true if the `kVoiceSearchEvolutionPhase1` feature is enabled.
+bool IsVoiceSearchEvolutionPhase1Enabled();
+
+// Enables the FiveButtonAppBarLayout feature.
+BASE_DECLARE_FEATURE(kFiveButtonAppBarLayout);
+
+// Returns true if the FiveButtonAppBarLayout feature is enabled.
+bool IsFiveButtonAppBarLayoutEnabled();
+
 // Enables the `kLocationBarPerformanceImprovements` feature.
 BASE_DECLARE_FEATURE(kLocationBarPerformanceImprovements);
 
@@ -1004,5 +1048,13 @@ BASE_DECLARE_FEATURE(kAppBarDisableLongPress);
 
 // Returns true if the AppBarDisableLongPress feature is enabled.
 bool IsAppBarDisableLongPressEnabled();
+
+// Feature flag (acting as kill switch) to clear window rootViewController after
+// disconnecting scene state to avoid UIKit focus system exceptions.
+BASE_DECLARE_FEATURE(kClearRootViewControllerAfterSceneDisconnect);
+
+// Returns true if the ClearRootViewControllerAfterSceneDisconnect feature is
+// enabled.
+bool IsClearRootViewControllerAfterSceneDisconnectEnabled();
 
 #endif  // IOS_CHROME_BROWSER_SHARED_PUBLIC_FEATURES_FEATURES_H_

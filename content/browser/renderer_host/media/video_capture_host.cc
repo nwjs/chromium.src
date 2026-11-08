@@ -283,7 +283,10 @@ void VideoCaptureHost::Start(
   TRACE_EVENT0(TRACE_DISABLED_BY_DEFAULT("video_and_image_capture"),
                "VideoCaptureHost::Start");
 
-  if (!params.IsValid()) {
+  // Currently there is no use case for requesting secure capture from the
+  // renderer. Reject `params.is_secure` to prevent a compromised renderer from
+  // requesting secure capture.
+  if (!params.IsValid() || params.is_secure) {
     mojo::ReportBadMessage("Invalid video capture params.");
     return;
   }
@@ -369,7 +372,10 @@ void VideoCaptureHost::Resume(const base::UnguessableToken& device_id,
   TRACE_EVENT0(TRACE_DISABLED_BY_DEFAULT("video_and_image_capture"),
                "VideoCaptureHost::Resume");
 
-  if (!params.IsValid()) {
+  // Currently there is no use case for requesting secure capture from the
+  // renderer. Reject `params.is_secure` to prevent a compromised renderer from
+  // requesting secure capture.
+  if (!params.IsValid() || params.is_secure) {
     mojo::ReportBadMessage("Invalid video capture params.");
     return;
   }
@@ -600,13 +606,11 @@ void VideoCaptureHost::ConnectClient(
     VideoCaptureControllerID controller_id,
     const GlobalRenderFrameHostId& render_frame_host_id,
     VideoCaptureManager::DoneCB done_cb) {
-  std::optional<url::Origin> origin =
-      media_stream_manager_->GetOriginByVideoSessionId(session_id);
   bool is_allowed_on_lock_screen =
       media_stream_manager_->IsSessionAllowedOnLockScreen(session_id);
   media_stream_manager_->video_capture_manager()->ConnectClient(
       session_id, params, controller_id, render_frame_host_id, this,
-      std::move(origin), is_allowed_on_lock_screen, std::move(done_cb));
+      is_allowed_on_lock_screen, std::move(done_cb));
 }
 
 }  // namespace content

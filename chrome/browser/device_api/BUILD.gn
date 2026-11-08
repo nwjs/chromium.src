@@ -53,6 +53,7 @@ source_set("impl") {
     "//components/content_settings/core/common",
     "//components/permissions:permissions_common",
     "//components/pref_registry",
+    "//components/user_manager",
     "//components/value_store",
     "//services/network/public/cpp",
     "//third_party/blink/public:runtime_features_for_public",
@@ -69,8 +70,6 @@ source_set("impl") {
       "//chromeos/components/kiosk",
     ]
   }
-
-  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
 }
 
 source_set("unit_tests") {
@@ -83,9 +82,9 @@ source_set("unit_tests") {
     ":device_api",
     "//base/test:test_config",
     "//base/test:test_support",
+    "//chrome/browser/web_applications:isolated_web_app_test",
     "//chrome/browser/web_applications:web_app_test",
     "//chrome/browser/web_applications:web_applications_test_support",
-    "//chrome/browser/web_applications:web_applications_unit_tests",
     "//chrome/test:test_support",
     "//chrome/test/base:chrome_render_view_host_test_harness",
     "//chrome/test/base:testing_browser_process",
@@ -111,7 +110,6 @@ source_set("browser_tests") {
   deps = [
     ":device_api",
     "//base/test:test_support",
-    "//chrome/browser/ui",
     "//chrome/browser/ui/tabs:tab_strip",
     "//chrome/test:test_support_ui",
     "//content/test:test_support",

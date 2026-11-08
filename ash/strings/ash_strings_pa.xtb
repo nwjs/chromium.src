@@ -372,7 +372,6 @@
 <translation id="2079545284768500474">ਅਣਕੀਤਾ ਕਰੋ</translation>
 <translation id="2086334242442703436">ਇਮੋਜੀ ਚੋਣਕਾਰ ਖੋਲ੍ਹੋ</translation>
 <translation id="2089550919269323883">ਐਂਟਰਪ੍ਰਾਈਜ਼ ਨੀਤੀ ਦੇ ਤਹਿਤ, <ph name="VM_NAME" /> ਦੀ ਸਥਾਪਨਾ ਨੂੰ ਬਲਾਕ ਕੀਤਾ ਗਿਆ ਹੈ। ਕਿਰਪਾ ਕਰਕੇ ਸਹਾਇਤਾ ਲਈ ਆਪਣੇ ਸਿਸਟਮ ਪ੍ਰਸ਼ਾਸਕ ਨੂੰ ਸੰਪਰਕ ਕਰੋ। ਗੜਬੜ ਕੋਡ <ph name="ERROR" /> ਹੈ।</translation>
-<translation id="2093792000875799555">Chromebook ਲਈ Steam ਬਾਰੇ ਜਾਣਕਾਰੀ</translation>
 <translation id="209965399369889474">ਨੈੱਟਵਰਕ ਨਾਲ ਕਨੈਕਟ ਨਹੀਂ</translation>
 <translation id="2107581415810719320">ਹੋਰ ਬਟਨ <ph name="BUTTON_NUMBER" /></translation>
 <translation id="2107914222138020205">ਤੁਹਾਡੀ USB-C ਕੇਬਲ Thunderbolt ਦਾ ਸਮਰਥਨ ਨਹੀਂ ਕਰਦੀ ਹੈ। ਡੀਵਾਈਸ ਦੀ ਕਾਰਗੁਜ਼ਾਰੀ ਸੀਮਤ ਹੋ ਸਕਦੀ ਹੈ।</translation>
@@ -422,6 +421,7 @@
 <translation id="2293443480080733021">ਤੁਸੀਂ ਕਿਸ ਕਾਰਜ 'ਤੇ ਫੋਕਸ ਕਰਨਾ ਚਾਹੁੰਦੇ ਹੋ? ਕਾਰਜ ਸ਼ਾਮਲ ਕਰਨ ਲਈ, Enter ਦਬਾਓ।</translation>
 <translation id="229397294990920565">ਮੋਬਾਈਲ ਡਾਟਾ ਬੰਦ ਕੀਤਾ ਜਾ ਰਿਹਾ ਹੈ...</translation>
 <translation id="2295777434187870477">ਮਾਈਕ ਚਾਲੂ ਹੈ, ਟੌਗਲ ਕਰਨ 'ਤੇ ਇਨਪੁੱਟ ਮਿਊਟ ਹੋ ਜਾਵੇਗਾ।</translation>
+<translation id="2296880470921996802">ਤੁਹਾਡੇ ਆਈ.ਟੀ. ਪ੍ਰਸ਼ਾਸਕ ਵੱਲੋਂ ਕਲਿੱਪਬੋਰਡ ਇਤਿਹਾਸ ਨੂੰ ਬੰਦ ਕੀਤਾ ਗਿਆ ਸੀ</translation>
 <translation id="2302092602801625023">ਇਸ ਖਾਤੇ ਦਾ ਪ੍ਰਬੰਧਨ Family Link ਵੱਲੋਂ ਕੀਤਾ ਜਾਂਦਾ ਹੈ</translation>
 <translation id="2303600792989757991">ਵਿੰਡੋ ਰੂਪ-ਰੇਖਾ ਨੂੰ ਟੌਗਲ ਕਰੋ</translation>
 <translation id="2304702218354340897">ਕੀ ਤੁਸੀਂ ਪੱਕਾ ਫ਼ੇਸ ਕੰਟਰੋਲ ਨੂੰ ਬੰਦ ਕਰਨਾ ਚਾਹੁੰਦੇ ਹੋ?</translation>
@@ -928,7 +928,6 @@
 <translation id="3697991387880191195">ਸਕ੍ਰੀਨਸ਼ਾਟ ਸ਼ਾਰਟਕੱਟ ਨੂੰ ਦਬਾਓ</translation>
 <translation id="3702809606464356667">ਮੌਜੂਦਾ ਡੈਸਕ ਤੋਂ ਵਿੰਡੋਆਂ ਦਿਖਾਈਆਂ ਜਾ ਰਹੀਆਂ ਹਨ, ਸਾਰੇ ਡੈਸਕਾਂ ਤੋਂ ਵਿੰਡੋਆਂ ਦਿਖਾਉਣ ਲਈ ਉੱਪਰ ਤੀਰ ਵਾਲੀ ਕੁੰਜੀ ਦਬਾਓ</translation>
 <translation id="3705722231355495246">-</translation>
-<translation id="3706423975342040244">ਮਨੋਰੰਜਨ</translation>
 <translation id="370665806235115550">ਲੋਡ ਕੀਤਾ ਜਾ ਰਿਹਾ ਹੈ...</translation>
 <translation id="3707093869106077605"><ph name="UNAVAILABLE_DLC_ONE" /> ਅਤੇ <ph name="UNAVAILABLE_DLC_TWO" /> ਮੌਜੂਦ ਨਹੀਂ ਹਨ।</translation>
 <translation id="3708186454126126312">ਪਹਿਲਾਂ ਤੋਂ ਕਨੈਕਟ ਕੀਤੇ</translation>
@@ -975,7 +974,6 @@
 <translation id="3824784079442479685">ਇਸ ਨਾਲ <ph name="APP_NAME" /> ਅਤੇ ਉਨ੍ਹਾਂ ਸਾਰੀਆਂ ਐਪਾਂ ਅਤੇ ਵੈੱਬਸਾਈਟਾਂ ਨੂੰ ਕੈਮਰੇ ਤੱਕ ਪਹੁੰਚ ਕਰਨ ਦਿੱਤੀ ਜਾਂਦੀ ਹੈ, ਜਿਨ੍ਹਾਂ ਕੋਲ ਕੈਮਰਾ ਇਜਾਜ਼ਤ ਹੈ। ਤੁਹਾਨੂੰ ਵੈੱਬ ਪੰਨੇ ਨੂੰ ਰਿਫ੍ਰੈਸ਼ ਕਰਨ ਜਾਂ ਐਪ ਨੂੰ ਮੁੜ-ਸ਼ੁਰੂ ਕਰਨ ਦੀ ਲੋੜ ਪੈ ਸਕਦੀ ਹੈ।</translation>
 <translation id="3826099427150913765">ਪਾਸਵਰਡ 'ਤੇ ਬਦਲੀ ਕਰੋ</translation>
 <translation id="383058930331066723">ਬੈਟਰੀ ਸੇਵਰ ਮੋਡ ਚਾਲੂ ਹੈ</translation>
-<translation id="3831226344927851293">ਟਿਊਟੋਰੀਅਲ ਦ੍ਰਿਸ਼ ਤੋਂ ਬਾਹਰ ਜਾਓ</translation>
 <translation id="383629559565718788">ਕੀ-ਬੋਰਡ ਸੈਟਿੰਗਾਂ ਦਿਖਾਓ</translation>
 <translation id="384082539148746321">ਕੀ ਟੈਮਪਲੇਟ ਮਿਟਾਉਣਾ ਹੈ?</translation>
 <translation id="3844627820291068572"><ph name="MODIFIER_ONE" /><ph name="MODIFIER_TWO" /> ਫਿਰ <ph name="KEY_ONE" /> ਜਾਂ <ph name="KEY_TWO" /> ਜਾਂ <ph name="KEY_THREE" /> ਜਾਂ <ph name="KEY_FOUR" /></translation>
@@ -1022,6 +1020,7 @@
 <translation id="3977512764614765090">ਬੈਟਰੀ <ph name="PERCENTAGE" />% ਹੈ ਅਤੇ ਚਾਰਜ ਹੋ ਰਹੀ ਹੈ।</translation>
 <translation id="3978162107953847778">ਆਪਣੇ ਬ੍ਰਾਊਜ਼ਿੰਗ ਇਤਿਹਾਸ ਅਤੇ Google Drive ਵਰਗੀਆਂ ਥਾਵਾਂ ਤੋਂ ਲਿੰਕ ਸ਼ਾਮਲ ਕਰੋ। ਤੁਸੀਂ ਇਮੋਜੀ, ਚਿੱਤਰ ਫ਼ਾਈਲਾਂ ਅਤੇ ਹੋਰ ਚੀਜ਼ਾਂ ਵੀ ਸ਼ਾਮਲ ਕਰ ਸਕਦੇ ਹੋ। <ph name="LINK_TO_LEARN_MORE" /></translation>
 <translation id="3982013579989864579">ਕੀ ਆਡੀਓ ਆਊਟਪੁੱਟ ਨੂੰ ਸਵਿੱਚ ਕਰਨਾ ਹੈ?</translation>
+<translation id="3983903378684256134">Chromebook 'ਤੇ Steam</translation>
 <translation id="3984536049089846927">ਅਗਲਾ ਪੰਨਾ</translation>
 <translation id="3986082989454912832">ਜਵਾਬ ਦਿਓ</translation>
 <translation id="3990002060657467458">ਵਾਈ-ਫਾਈ, ਬਲੂਟੁੱਥ ਅਤੇ ਅਵਾਜ਼ ਵਰਗੇ ਅਕਸਰ ਵਰਤੇ ਜਾਣ ਵਾਲੇ ਕੰਟਰੋਲ ਤਤਕਾਲ ਸੈਟਿੰਗਾਂ ਵਿੱਚ ਹਨ। ਤੁਸੀਂ ਸਕ੍ਰੀਨਸ਼ਾਟ ਲੈਣ ਲਈ ਇੱਥੇ ਵੀ ਜਾ ਸਕਦੇ ਹੋ।</translation>
@@ -1580,10 +1579,8 @@
 <translation id="5551974246223970793">ਕਿਸੇ ਪੰਨੇ ਨੂੰ ਖੋਜਣ ਵੇਲੇ, ਖੋਜ ਲਈ ਅਗਲੇ ਮਿਲਾਨ 'ਤੇ ਜਾਓ</translation>
 <translation id="5556459405103347317">ਰੀਲੋਡ ਕਰੋ</translation>
 <translation id="5558091555391176027">'ਨਜ਼ਦੀਕੀ ਸਾਂਝ' ਉੱਚ ਦਿਖਣਯੋਗਤਾ ਨੂੰ ਟੌਗਲ ਕਰੋ</translation>
-<translation id="5558314826121965174">ਰਚਨਾਤਮਕਤਾ</translation>
 <translation id="556042886152191864">ਬਟਨ</translation>
 <translation id="5570122939431135380">ਨਵੀਂ ਇਨਕੋਗਨਿਟੋ ਵਿੰਡੋ ਵਿੱਚ ਨਵੀਂ ਟੈਬ ਖੋਲ੍ਹੋ</translation>
-<translation id="5572632238877308040">ਲੋੜੀਂਦੀਆਂ</translation>
 <translation id="5575528586625653441">ਡੈਮੋ ਰਜਿਸਟਰੇਸ਼ਨ ਬੇਨਤੀ ਵਿੱਚ ਸਮੱਸਿਆ ਆਈ।</translation>
 <translation id="557563299383177668">ਅਗਲਾ ਪੈਰਾ</translation>
 <translation id="5577082622442191756">ਬਲੂਟੁੱਥ ਨੂੰ ਟੌਗਲ ਕਰੋ। <ph name="STATE_TEXT" />.</translation>
@@ -1618,7 +1615,6 @@
 <translation id="5667546120811588575">Google Play ਸੈੱਟਅੱਪ ਕੀਤਾ ਜਾ ਰਿਹਾ ਹੈ...</translation>
 <translation id="5669267381087807207">ਸਕਿਰਿਆ ਕਰ ਰਿਹਾ ਹੈ</translation>
 <translation id="5671658447180261823"><ph name="SUGGESTION_NAME" /> ਸੁਝਾਅ ਨੂੰ ਹਟਾਓ</translation>
-<translation id="5672890847723042801">ਉਪਯੋਗਤਾਵਾਂ</translation>
 <translation id="5673434351075758678">ਤੁਹਾਡੀਆਂ ਸੈਟਿੰਗਾਂ ਨੂੰ ਸਿੰਕ ਕਰਨ ਤੋਂ ਬਾਅਦ ਭਾਸ਼ਾ "<ph name="FROM_LOCALE" />" ਤੋਂ "<ph name="TO_LOCALE" />" ਹੋਈ।</translation>
 <translation id="5675363643668471212">ਸ਼ੈਲਫ ਆਈਟਮ</translation>
 <translation id="5677022547882470786">ਖੋਜਣ ਵਾਲਾ ਖੇਤਰ ਚੁਣਨ ਲਈ ਘਸੀਟੋ ਜਾਂ Space ਦਬਾਓ</translation>
@@ -1643,6 +1639,7 @@
 <translation id="5727460725221669831">ਜੇ ਤੁਸੀਂ ਆਪਣਾ ਪਾਸਵਰਡ ਭੁੱਲ ਗਏ ਹੋ ਜਾਂ ਹਾਲ ਹੀ ਵਿੱਚ ਆਪਣਾ Google ਖਾਤਾ ਪਾਸਵਰਡ ਬਦਲਿਆ ਹੈ, ਤਾਂ ਇਸ ਵਰਤੋਂਕਾਰ ਲਈ ਇਸਨੂੰ ਮੁੜ-ਹਾਸਲ ਕਰ ਕੇ ਦੇਖੋ।</translation>
 <translation id="5733630091161562207">ਸੁਆਗਤੀ ਸੂਚਨਾ</translation>
 <translation id="573413375004481890">ਇਹ ਡੀਵਾਈਸ ਤੁਹਾਡੇ ਸਾਰੇ ਡਿਸਪਲੇਆਂ ਨੂੰ ਸਮਰਥਿਤ ਨਹੀਂ ਕਰ ਸਕੀ, ਇਸ ਲਈ ਇੱਕ ਨੂੰ ਡਿਸਕਨੈਕਟ ਕਰ ਦਿੱਤਾ ਗਿਆ ਹੈ</translation>
+<translation id="5739548907438839901"><ph name="SIZE" /> ਡਿਸਕ ਵਿੱਚ ਜਗ੍ਹਾ ਖਾਲੀ ਕੀਤੀ ਗਈ।</translation>
 <translation id="574392208103952083">ਦਰਮਿਆਨਾ</translation>
 <translation id="5745612484876805746">ਸੂਰਜ ਡੁੱਬਣ ਸਮੇਂ ਨਾਈਟ ਲਾਈਟ ਆਪਣੇ ਆਪ ਚਾਲੂ ਹੋ ਜਾਂਦੀ ਹੈ</translation>
 <translation id="5749214722697335450">ਵਰਤੋਂ ਅਤੇ ਤਸ਼ਖੀਸ ਡਾਟਾ ਭੇਜੋ। Google ਨੂੰ ਸਵੈਚਲਿਤ ਤੌਰ 'ਤੇ ਤਸ਼ਖੀਸ, ਡੀਵਾਈਸ ਅਤੇ ਐਪ ਵਰਤੋਂ ਡਾਟਾ ਭੇਜ ਕੇ ਆਪਣੇ Android ਅਨੁਭਵ ਨੂੰ ਬਿਹਤਰ ਬਣਾਉਣ ਵਿੱਚ ਮਦਦ ਕਰੋ। ਇਸ ਨਾਲ ਸਿਸਟਮ ਅਤੇ ਐਪ ਸਥਿਰਤਾ ਅਤੇ ਹੋਰ ਚੀਜ਼ਾਂ ਨੂੰ ਬਿਹਤਰ ਬਣਾਉਣ ਵਿੱਚ ਮਦਦ ਮਿਲੇਗੀ। ਇਕੱਤਰ ਕੀਤਾ ਕੁਝ ਡਾਟਾ Google ਐਪਾਂ ਅਤੇ Android Developers ਵਰਗੇ ਪਾਰਟਨਰਾਂ ਦੀ ਵੀ ਮਦਦ ਕਰੇਗਾ। ਜੇ ਤੁਹਾਡੀ ਵਧੀਕ 'ਵੈੱਬ ਅਤੇ ਐਪ ਸਰਗਰਮੀ' ਸੈਟਿੰਗ ਚਾਲੂ ਹੋਵੇ, ਤਾਂ ਇਹ ਡਾਟਾ ਤੁਹਾਡੇ Google ਖਾਤੇ ਵਿੱਚ ਰੱਖਿਅਤ ਕੀਤਾ ਜਾ ਸਕਦਾ ਹੈ। <ph name="BEGIN_LINK1" />ਮਾਪਕਾਂ ਬਾਰੇ ਹੋਰ ਜਾਣੋ<ph name="BEGIN_LINK1_END" />ਹੋਰ ਜਾਣੋ<ph name="END_LINK1" /></translation>
@@ -1794,7 +1791,6 @@
 <translation id="6127395413317891856">ਤੁਸੀਂ ਆਫ਼ਲਾਈਨ ਹੋ। ਆਪਣੇ ਕਨੈਕਸ਼ਨ ਦੀ ਜਾਂਚ ਕਰ ਕੇ ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ।</translation>
 <translation id="6129953537138746214">ਸਪੇਸ</translation>
 <translation id="6132714462430777655">ਕੀ ਸਕੂਲ ਵਿੱਚ ਦਾਖਲੇ ਦੀ ਪ੍ਰਕਿਰਿਆ ਨੂੰ ਛੱਡਣਾ ਹੈ?</translation>
-<translation id="6136872094979134163">Chromebook ਲਈ Steam ਬਾਰੇ ਜਾਣਕਾਰੀ ਨੂੰ ਮੁੜ-ਪ੍ਰਾਪਤ ਨਹੀਂ ਕੀਤਾ ਜਾ ਸਕਿਆ।</translation>
 <translation id="6137566720514957455"><ph name="USER_EMAIL_ADDRESS" /> ਲਈ 'ਹਟਾਓ' ਵਿੰਡੋ ਖੋਲ੍ਹੋ</translation>
 <translation id="6141205840878048728">ਤੁਸੀਂ ਕਿਸ ਕਾਰਜ 'ਤੇ ਫੋਕਸ ਕਰਨਾ ਚਾਹੁੰਦੇ ਹੋ?</translation>
 <translation id="6141988275892716286">ਡਾਊਨਲੋਡ ਦੀ ਪੁਸ਼ਟੀ ਕਰੋ</translation>
@@ -1874,7 +1870,6 @@
 <translation id="6348449481487610270"><ph name="MODIFIER_ONE" /><ph name="MODIFIER_TWO" /><ph name="KEY_ONE" /> ਫਿਰ <ph name="MODIFIER_THREE" /><ph name="KEY_TWO" /> ਜਾਂ <ph name="KEY_THREE" /></translation>
 <translation id="6352082849089527770">ਅਗਿਆਤ ਨੈੱਟਵਰਕ</translation>
 <translation id="6359587239691116345">ਨਵੀਨਤਮ ਵਿਸ਼ੇਸ਼ਤਾਵਾਂ ਅਤੇ ਸੁਰੱਖਿਆ ਸੰਬੰਧੀ ਸੁਧਾਰ ਪ੍ਰਾਪਤ ਕਰੋ। ਜੇ ਤੁਸੀਂ ਇਸ ਅੱਪਡੇਟ ਨੂੰ ਅਸਵੀਕਾਰ ਕਰਦੇ ਹੋ, ਤਾਂ ਤੁਹਾਡਾ ਡੀਵਾਈਸ ਸ਼ਾਇਦ ਹੁਣ ਸਹੀ ਢੰਗ ਨਾਲ ਕੰਮ ਨਾ ਕਰੇ ਅਤੇ ਤੁਹਾਨੂੰ ਸੁਰੱਖਿਆ ਅਤੇ ਕਾਰਗੁਜ਼ਾਰੀ ਸੰਬੰਧੀ ਸਮੱਸਿਆਵਾਂ ਹੋ ਸਕਦੀਆਂ ਹਨ।</translation>
-<translation id="6362833380917912748">ਆਪਣੀਆਂ ਬਿਲਟ-ਇਨ ਐਪਾਂ ਬਾਰੇ ਜਾਣੋ</translation>
 <translation id="6364386432014869981">ਬਿਲਟ-ਇਨ ਟੱਚਪੈਡ ਚਾਲੂ ਕੀਤਾ ਗਿਆ</translation>
 <translation id="6376931439017688372">ਬਲੂਟੁੱਥ ਚਾਲੂ ਹੈ</translation>
 <translation id="6378515133128829137">ਵਿੰਡੋ ਨੂੰ ਸੱਜੇ ਪਾਸੇ ਪਿੰਨ ਕਰੋ</translation>
@@ -2099,7 +2094,6 @@
 <translation id="7014684956566476813"><ph name="DEVICE_NAME" /> ਨਾਮ ਵਾਲੇ ਕਿਸੇ ਡੀਵਾਈਸ ਨਾਲ ਕਨੈਕਟ ਹੈ</translation>
 <translation id="7015766095477679451"><ph name="COME_BACK_TIME" /> ਵਜੇ ਡੀਵਾਈਸ ਦੁਬਾਰਾ ਵਰਤੋ।</translation>
 <translation id="70168403932084660">ਡੈਸਕ 6</translation>
-<translation id="702252130983202758">ਤੁਹਾਡੀਆਂ ਐਪਾਂ</translation>
 <translation id="7025533177575372252">ਆਪਣੇ ਫ਼ੋਨ ਨਾਲ ਆਪਣੇ <ph name="DEVICE_NAME" /> ਨੂੰ ਕਨੈਕਟ ਕਰੋ</translation>
 <translation id="7026338066939101231">ਘਟਾਓ</translation>
 <translation id="7029307918966275733">Crostini ਸਥਾਪਤ ਨਹੀਂ ਹੈ। ਕ੍ਰੈਡਿਟਾਂ ਨੂੰ ਦੇਖਣ ਲਈ ਕਿਰਪਾ ਕਰਕੇ Crostini ਨੂੰ ਸਥਾਪਤ ਕਰੋ।</translation>
@@ -2222,6 +2216,7 @@
 <translation id="7413851974711031813">ਬੰਦ ਕਰਨ ਲਈ escape ਬਟਨ ਦਬਾਓ</translation>
 <translation id="7416471219712049036">ਮੌਜੂਦਾ ਪੰਨੇ ਨੂੰ ਰੱਖਿਅਤ ਕਰੋ</translation>
 <translation id="742594950370306541">ਕੈਮਰਾ ਵਰਤੋਂ ਵਿੱਚ ਹੈ।</translation>
+<translation id="7430466159639897874">ਤੁਹਾਡੇ ਕੋਲ ਨਾ ਵਰਤੀ ਗਈ ਡਿਸਕ ਵਿੱਚ ਜਗ੍ਹਾ (<ph name="SIZE" />) ਹੈ, ਜੋ ਨਾਪਸੰਦ ਵਿਸ਼ੇਸ਼ਤਾ "Chromebook ਲਈ Steam" ਲਈ ਨਿਰਧਾਰਿਤ ਕੀਤੀ ਗਈ ਹੈ।</translation>
 <translation id="743058460480092004">ਕੈਮਰਾ ਅਤੇ ਮਾਈਕ੍ਰੋਫੋਨ ਵਰਤੋਂ ਵਿੱਚ ਹਨ।</translation>
 <translation id="7433708794692032816">ਆਪਣੇ <ph name="DEVICE_TYPE" /> ਨੂੰ ਵਰਤਣਾ ਜਾਰੀ ਰੱਖਣ ਲਈ ਸਮਾਰਟ ਕਾਰਡ ਸ਼ਾਮਲ ਕਰੋ</translation>
 <translation id="7440404390546433462">Google Search</translation>
@@ -2363,6 +2358,7 @@
 <translation id="7781335840981796660">ਸਾਰੇ ਵਰਤੋਂਕਾਰ ਖਾਤੇ ਅਤੇ ਸਥਾਨਕ ਡਾਟਾ ਹਟਾ ਦਿੱਤਾ ਜਾਵੇਗਾ।</translation>
 <translation id="7781829728241885113">ਕੱਲ੍ਹ</translation>
 <translation id="7787212146956232129">ਇਨਪੁੱਟ ਅਤੇ ਆਊਟਪੁੱਟ ਡੀਵਾਈਸਾਂ ਨੂੰ ਸੈੱਟ ਕੀਤਾ ਗਿਆ ਹੈ। ਤਬਦੀਲੀ ਕਰਨ ਲਈ ਸੈਟਿੰਗਾਂ 'ਤੇ ਜਾਓ।</translation>
+<translation id="7790757511772316441">ਡਿਸਕ ਵਿੱਚ ਜਗ੍ਹਾ ਖਾਲੀ ਕਰੋ</translation>
 <translation id="7792590255364786396">ਦਿਖਣਯੋਗ</translation>
 <translation id="7796735576426975947">ਨਵੀਂ ਸੂਚਨਾ ਲੁਕੀ ਹੋਈ ਹੈ</translation>
 <translation id="7798302898096527229">ਰੱਦ ਕਰਨ ਲਈ Search ਜਾਂ Shift ਦਬਾਓ।</translation>
@@ -2538,7 +2534,6 @@
 <translation id="8277261673056602147">ਆਪਣੀ ਸਕ੍ਰੀਨ 'ਤੇ ਲਿਖਤ ਨੂੰ ਉਜਾਗਰ ਕਰੋ</translation>
 <translation id="8281886186245836920">ਛੱਡੋ</translation>
 <translation id="8282784978194352587">ਤੁਸੀਂ ਇਹ ਕਰ ਦਿਖਾਇਆ ਹੈ!</translation>
-<translation id="8287009018010202411">ਉਤਪਾਦਕਤਾ</translation>
 <translation id="828708037801473432">ਬੰਦ</translation>
 <translation id="8289128870594824098">ਡਿਸਕ ਦਾ ਆਕਾਰ</translation>
 <translation id="8297006494302853456">ਕਮਜ਼ੋਰ</translation>
@@ -2633,7 +2628,6 @@
 <translation id="8598235756057743477">ਆਪਣੀਆਂ ਐਪਾਂ ਨੂੰ ਨਾਮ ਜਾਂ ਰੰਗ ਮੁਤਾਬਕ ਕ੍ਰਮ-ਬੱਧ ਕਰੋ</translation>
 <translation id="8599864823732014237">ਕੀ ਐਂਟਰਪ੍ਰਾਈਜ਼ ਦਰਜ ਕਰਨ ਦੀ ਪ੍ਰਕਿਰਿਆ ਛੱਡਣੀ ਹੈ?</translation>
 <translation id="8609384513243082612">ਨਵੀਂ ਟੈਬ ਖੋਲ੍ਹੋ</translation>
-<translation id="861045123704058818">ਐਪਾਂ ਨੂੰ ਕੁਝ ਸਮੇਂ ਲਈ ਸ਼੍ਰੇਣੀ ਮੁਤਾਬਕ ਵਿਵਸਥਿਤ ਕੀਤਾ ਗਿਆ ਹੈ</translation>
 <translation id="8612338981637220013">ਤੁਸੀਂ ਸਫਲ ਹੋਏ!</translation>
 <translation id="8613164732773110792">ਸਿਰਫ਼ ਛੋਟੇ ਅੱਖਰ, ਅੰਕ, ਅੰਡਰਸਕੋਰ ਜਾਂ ਡੈਸ਼ਾਂ</translation>
 <translation id="8614517853887502247"><ph name="APP_1_TITLE" /> ਅਤੇ <ph name="APP_2_TITLE" /> ਸੂਚਨਾਵਾਂ ਲੁਕੀਆਂ ਹੋਈਆਂ ਹਨ ਕਿਉਂਕਿ ਦੇਖਣ ਸੰਬੰਧੀ ਸੁਰੱਖਿਆ ਚਾਲੂ ਹੈ</translation>
@@ -2825,7 +2819,6 @@
 <translation id="9129245940793250979">ਪਿਛਲਾ ਬਟਨ</translation>
 <translation id="9133335900048457298">ਸੁਰੱਖਿਅਤ ਸਮੱਗਰੀ ਨੂੰ ਰਿਕਾਰਡ ਨਹੀਂ ਕੀਤਾ ਜਾ ਸਕਦਾ</translation>
 <translation id="9139720510312328767">ਅਗਲਾ ਅੱਖਰ ਮਿਟਾਓ</translation>
-<translation id="9148058034647219655">ਬਾਹਰ ਜਾਓ</translation>
 <translation id="9151906066336345901">ਸਮਾਪਤ</translation>
 <translation id="9159421884295554245">ਕਲਿੱਪਬੋਰਡ ਵਿੱਚ ਖੋਜੋ</translation>
 <translation id="9168436347345867845">ਇਸਨੂੰ ਬਾਅਦ ਵਿੱਚ ਸੈੱਟਅੱਪ ਕਰੋ</translation>

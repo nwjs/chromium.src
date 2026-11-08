@@ -17,6 +17,7 @@
 #include "gpu/command_buffer/service/shared_image/skia_gl_image_representation.h"
 #include "gpu/command_buffer/service/texture_manager.h"
 #include "ui/gl/buildflags.h"
+#include "ui/gl/gl_context.h"
 #include "ui/gl/gl_fence_egl.h"
 #include "ui/gl/gl_utils.h"
 #include "ui/gl/scoped_binders.h"
@@ -27,8 +28,22 @@
 #endif
 
 namespace gpu {
+namespace {
 
+bool EnsureGLContextCurrent() {
+  if (gl::GLContext::GetCurrent()) {
+    return true;
+  }
+  SharedContextState* shared_context_state =
+      SharedContextState::GetForCurrentThread();
+  if (!shared_context_state) {
+    LOG(ERROR) << "No GLContext or SharedContextState current on thread";
+    return false;
+  }
+  return shared_context_state->MakeCurrent(nullptr, /*needs_gl=*/true);
+}
 
+}  // namespace
 
 // Implementation of GLTextureImageRepresentation which uses GL texture
 // which is an EGLImage sibling.
@@ -163,20 +178,6 @@ class EGLImageBacking::GLTexturePassthroughEGLImageRepresentation
 };
 
 // static
-bool EGLImageBacking::SupportsPixelReadbackWithFormat(
-    viz::SharedImageFormat format) {
-  // NOTE: Using MultiPlaneFormats is okay here are this is only used with
-  // SharedMemory GMBs which correspond to specific multiplanar formats.
-  return (format.is_multi_plane() ||
-          format == viz::SinglePlaneFormat::kRGBA_8888 ||
-          format == viz::SinglePlaneFormat::kBGRA_8888 ||
-          format == viz::SinglePlaneFormat::kR_8 ||
-          format == viz::SinglePlaneFormat::kRG_88 ||
-          format == viz::SinglePlaneFormat::kRGBX_8888 ||
-          format == viz::SinglePlaneFormat::kBGRX_8888);
-}
-
-// static
 bool EGLImageBacking::SupportsPixelUploadWithFormat(
     viz::SharedImageFormat format) {
   // NOTE: Using MultiPlaneFormats is okay here are this is only used with
@@ -186,10 +187,7 @@ bool EGLImageBacking::SupportsPixelUploadWithFormat(
           format == viz::SinglePlaneFormat::kRGBA_4444 ||
           format == viz::SinglePlaneFormat::kBGRA_8888 ||
           format == viz::SinglePlaneFormat::kR_8 ||
-          format == viz::SinglePlaneFormat::kRG_88 ||
           format == viz::SinglePlaneFormat::kRGBA_F16 ||
-          format == viz::SinglePlaneFormat::kR_16 ||
-          format == viz::SinglePlaneFormat::kRG_1616 ||
           format == viz::SinglePlaneFormat::kRGBX_8888 ||
           format == viz::SinglePlaneFormat::kBGRX_8888 ||
           format == viz::SinglePlaneFormat::kRGBA_1010102 ||
@@ -554,10 +552,8 @@ EGLImageBacking::GenEGLImageSiblings(base::span<const uint8_t> pixel_data) {
   std::vector<scoped_refptr<GLTextureHolder>> texture_holders;
   texture_holders.reserve(num_planes);
   for (int plane = 0; plane < num_planes; plane++) {
-    auto plane_format = GLTextureHolder::GetPlaneFormat(format(), plane);
-    gfx::Size plane_size = format().GetPlaneSize(plane, size());
     auto holder = base::MakeRefCounted<GLTextureHolder>(
-        plane_format, plane_size, use_passthrough_, nullptr);
+        format(), plane, size(), use_passthrough_, nullptr);
 
     GLFormatDesc format_desc;
     format_desc.target = GL_TEXTURE_2D;
@@ -577,6 +573,7 @@ EGLImageBacking::GenEGLImageSiblings(base::span<const uint8_t> pixel_data) {
     } else {
       auto* texture = gles2::CreateGLES2TextureWithLightRef(service_ids[plane],
                                                             GL_TEXTURE_2D);
+      gfx::Size plane_size = format().GetPlaneSize(plane, size());
       // If the backing is already cleared, no need to clear it again.
       gfx::Rect cleared_rect;
       if (IsCleared()) {
@@ -610,6 +607,10 @@ void EGLImageBacking::MarkForDestruction() {
 }
 
 bool EGLImageBacking::UploadFromMemory(const std::vector<SkPixmap>& pixmaps) {
+  if (!EnsureGLContextCurrent()) {
+    return false;
+  }
+
   if (!BeginWrite()) {
     return false;
   }
@@ -649,6 +650,10 @@ bool EGLImageBacking::UploadFromMemory(const std::vector<SkPixmap>& pixmaps) {
 }
 
 bool EGLImageBacking::ReadbackToMemory(const std::vector<SkPixmap>& pixmaps) {
+  if (!EnsureGLContextCurrent()) {
+    return false;
+  }
+
   {
     AutoLock auto_lock(this);
     if (is_writing_) {

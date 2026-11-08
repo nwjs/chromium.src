@@ -49,7 +49,6 @@ static_library("login") {
     "//ash",
     "//ash/public/cpp",
     "//base",
-    "//chrome/browser:browser_public_dependencies",
     "//chrome/browser:primitives",
     "//chrome/browser/ash/app_mode",
     "//chrome/browser/ash/customization",
@@ -93,7 +92,6 @@ static_library("login") {
     "//chrome/app/theme:theme_resources",
     "//chrome/browser:browser_process",
     "//chrome/browser:browser_process_platform_part",
-    "//chrome/browser:browser_public_dependencies",
     "//chrome/browser:global_features",
     "//chrome/browser:renderer_preferences_util",
     "//chrome/browser:resources",
@@ -224,7 +222,6 @@ static_library("test_support") {
   ]
 
   deps = [
-    "//chrome/browser/ui",
     "//chrome/browser/ui/webui/ash/login",
     "//chrome/test:test_support",
     "//chrome/test/base:testing_browser_process",
@@ -262,11 +259,11 @@ source_set("browser_tests") {
     "//chrome/browser/ash/net",
     "//chrome/browser/ash/policy/core:test_support",
     "//chrome/browser/profiles:profile",
-    "//chrome/browser/ui",
     "//chrome/browser/ui:browser_window_header",
     "//chrome/browser/ui:chrome_pages",
     "//chrome/browser/ui/webui/ash/os_feedback_dialog",
     "//chrome/browser/ui/webui/ash/system_web_dialog",
+    "//chrome/browser/ui/webui/feedback",
     "//chrome/common:constants",
     "//chrome/test:test_support",
     "//chrome/test:test_support_ui",

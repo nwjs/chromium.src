@@ -694,13 +694,13 @@
         "autotest_name": "chromium",
         "cros_board": "betty",
         "dut_pool": "vmlab",
-        "experiment_percentage": 100,
         "module_name": "//rlz:rlz_unittests",
         "module_scheme": "gtest",
         "name": "rlz_unittests LKGM",
         "resultdb": {
           "result_format": "gtest"
         },
+        "shard_level_retries_on_ctp": 1,
         "test": "rlz_unittests",
         "test_id_prefix": "ninja://rlz:rlz_unittests/",
         "timeout_sec": 5400,
@@ -1224,13 +1224,13 @@
         "autotest_name": "chromium",
         "cros_board": "betty",
         "dut_pool": "vmlab",
-        "experiment_percentage": 100,
         "module_name": "//rlz:rlz_unittests",
         "module_scheme": "gtest",
         "name": "rlz_unittests LKGM",
         "resultdb": {
           "result_format": "gtest"
         },
+        "shard_level_retries_on_ctp": 1,
         "test": "rlz_unittests",
         "test_id_prefix": "ninja://rlz:rlz_unittests/",
         "timeout_sec": 5400,
@@ -3544,7 +3544,8 @@
       },
       {
         "args": [
-          "--git-revision=${got_revision}"
+          "--git-revision=${got_revision}",
+          "--bypass-skia-gold-functionality"
         ],
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
@@ -3783,7 +3784,8 @@
       },
       {
         "args": [
-          "--git-revision=${got_revision}"
+          "--git-revision=${got_revision}",
+          "--bypass-skia-gold-functionality"
         ],
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -5433,7 +5435,8 @@
       },
       {
         "args": [
-          "--git-revision=${got_revision}"
+          "--git-revision=${got_revision}",
+          "--bypass-skia-gold-functionality"
         ],
         "experiment_percentage": 100,
         "merge": {

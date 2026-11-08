@@ -5,35 +5,57 @@
 #ifndef CHROME_BROWSER_DEVICE_API_MANAGED_CONFIGURATION_API_H_
 #define CHROME_BROWSER_DEVICE_API_MANAGED_CONFIGURATION_API_H_
 
+#include <map>
+#include <memory>
 #include <optional>
+#include <set>
 #include <string>
+#include <vector>
 
+#include "base/feature_list.h"
 #include "base/files/file_path.h"
 #include "base/memory/raw_ptr.h"
+#include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/observer_list.h"
-#include "base/threading/sequence_bound.h"
+#include "base/scoped_observation.h"
+#include "base/task/sequenced_task_runner.h"
+#include "base/time/time.h"
 #include "base/values.h"
 #include "components/keyed_service/core/keyed_service.h"
 #include "components/prefs/pref_change_registrar.h"
+#include "services/network/public/cpp/network_connection_tracker.h"
 #include "url/origin.h"
 
 class Profile;
-class ManagedConfigurationStore;
 
 namespace user_prefs {
 class PrefRegistrySyncable;
 }
 
+namespace features {
+BASE_DECLARE_FEATURE(kManagedConfigurationRecoverFromFailedFetches);
+}  // namespace features
+
 // A keyed service responsible for the Managed Configuration API. It stores,
 // synchronizes and parses JSON key-value configurations set by the device
 // administration per origin and provides it to the callers.
-class ManagedConfigurationAPI : public KeyedService {
+class ManagedConfigurationAPI
+    : public KeyedService,
+      public network::NetworkConnectionTracker::NetworkConnectionObserver {
  public:
+  // Observer interface for configuration changes for a specific origin.
   class Observer : public base::CheckedObserver {
    public:
     virtual void OnManagedConfigurationChanged() = 0;
     virtual const url::Origin& GetOrigin() const = 0;
+  };
+
+  // Observer interface for configuration changes across any origin.
+  class AnyOriginObserver : public base::CheckedObserver {
+   public:
+    virtual void OnAnyManagedConfigurationChanged(
+        const url::Origin& origin) = 0;
   };
 
   static const char kOriginKey[];
@@ -54,8 +76,17 @@ class ManagedConfigurationAPI : public KeyedService {
       const std::vector<std::string>& keys,
       base::OnceCallback<void(std::optional<base::DictValue>)> callback);
 
+  // Tries to retrieve the full managed configuration for the |origin|. Returns
+  // a dictionary containing all key-value pairs.
+  void GetOriginPolicyConfiguration(
+      const url::Origin& origin,
+      base::OnceCallback<void(std::optional<base::DictValue>)> callback);
+
   void AddObserver(Observer* observer);
   void RemoveObserver(Observer* observer);
+
+  void AddObserver(AnyOriginObserver* observer);
+  void RemoveObserver(AnyOriginObserver* observer);
 
   // Whether this application can have managed configuration set. essentially,
   // this checks whether the application is managed.
@@ -64,29 +95,38 @@ class ManagedConfigurationAPI : public KeyedService {
   // Returns the list of all origins that have a managed configuration set.
   const std::set<url::Origin>& GetManagedOrigins() const;
 
+  // Sets the managed configuration for testing purposes without network
+  // requests.
+  void SetConfigurationForTesting(const url::Origin& origin,
+                                  base::DictValue configuration);
+
+  // Test-only overrides. They apply to origins whose state is created
+  // afterwards, so call them before policy or SetConfigurationForTesting()
+  // names the origin.
+  void SetRetryBackoffForTesting(base::TimeDelta initial_delay,
+                                 double multiply_factor);
+  void SetMaxPendingReadDelayForTesting(base::TimeDelta delay);
+  void SetStoreTaskRunnerForTesting(
+      scoped_refptr<base::SequencedTaskRunner> task_runner);
+
  private:
-  class ManagedConfigurationDownloader;
+  // Encapsulates the store, active downloader, retry backoff/timer, and queued
+  // read callbacks for a single origin so all per-origin resources are cleaned
+  // up together via RAII.
+  class OriginConfiguration;
+
+  // network::NetworkConnectionTracker::NetworkConnectionObserver:
+  void OnConnectionChanged(
+      net::NetworkChangeNotifier::ConnectionType type) override;
 
   // Tries to download the managed configuration stored at the url provided
   // by policy.
   void OnConfigurationPolicyChanged();
-  void UpdateStoredDataForOrigin(const url::Origin& origin,
-                                 const std::string& configuration_url,
-                                 const std::string& configuration_hash);
-
-  // Downloads the data from the data_url in a worker thread, and returns it in
-  // a callback.
-  void DecodeData(const url::Origin& origin,
-                  const std::string& url_hash,
-                  std::optional<std::string> data);
-
-  // Sends an operation to set the configured value on FILE thread.
-  void PostStoreConfiguration(const url::Origin& origin,
-                              base::DictValue configuration);
+  OriginConfiguration& GetOrCreateOriginConfiguration(
+      const url::Origin& origin);
   void InformObserversIfConfigurationChanged(const url::Origin& origin,
                                              bool changed);
 
-  void MaybeCreateStoreForOrigin(const url::Origin& origin);
   base::FilePath GetStoreLocation(const url::Origin& origin);
 
   // Assigns observers from |unmanaged_observers_| to a particular store if
@@ -99,21 +139,38 @@ class ManagedConfigurationAPI : public KeyedService {
   const raw_ptr<Profile> profile_;
 
   const base::FilePath stores_path_;
-  std::map<url::Origin, base::SequenceBound<ManagedConfigurationStore>>
-      store_map_;
-  // Stores current configuration downloading managers.
-  std::map<url::Origin, std::unique_ptr<ManagedConfigurationDownloader>>
-      downloaders_;
+  std::map<url::Origin, std::unique_ptr<OriginConfiguration>> origins_;
   std::map<url::Origin, base::ObserverList<Observer>> observers_;
+  base::ObserverList<AnyOriginObserver> any_origin_observers_;
 
-  // Stores the list of orrigins which have a managed configuration(may not yet
-  // loaded).
+  // Stores the list of origins which have a managed configuration (may not yet
+  // be loaded).
   std::set<url::Origin> managed_origins_;
 
   std::set<raw_ptr<Observer, SetExperimental>> unmanaged_observers_;
 
-  // Observes changes to WebAppInstallForceList.
+  // Observes changes to ManagedConfigurationPerOrigin.
   std::unique_ptr<PrefChangeRegistrar> pref_change_registrar_;
+
+  // `content::GetNetworkConnectionTracker()` returns a process-global leaky
+  // singleton (`g_network_connection_tracker` in
+  // `content/browser/network_service_instance_impl.cc`) that is never destroyed
+  // during browser execution and therefore outlives all Profile-keyed services.
+  // `base::ScopedObservation` pins the exact tracker pointer observed at
+  // construction (in case tests swap the global tracker via
+  // `content::SetNetworkConnectionTrackerForTesting()`) and unregisters `this`
+  // when `ManagedConfigurationAPI` is destroyed.
+  base::ScopedObservation<
+      network::NetworkConnectionTracker,
+      network::NetworkConnectionTracker::NetworkConnectionObserver>
+      network_connection_observation_{this};
+
+  // Test-only overrides; see the corresponding setters.
+  std::optional<base::TimeDelta> retry_initial_delay_for_testing_;
+  double retry_multiply_factor_for_testing_ = 0;
+  std::optional<base::TimeDelta> max_pending_read_delay_for_testing_;
+  scoped_refptr<base::SequencedTaskRunner> store_task_runner_for_testing_;
+
   base::WeakPtrFactory<ManagedConfigurationAPI> weak_ptr_factory_{this};
 };
 

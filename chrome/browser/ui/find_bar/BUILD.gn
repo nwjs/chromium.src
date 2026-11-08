@@ -49,7 +49,6 @@ source_set("impl") {
       "find_bar_platform_helper.cc",
       "find_bar_platform_helper.h",
     ]
-    public_deps = [ "//chrome/browser:browser_public_dependencies" ]
     deps += [
       "//chrome/browser/ui:browser_command_controller",
       "//chrome/browser/ui:browser_window_header",
@@ -90,12 +89,14 @@ if (!is_android) {
     deps = [
       ":find_bar",
       "//chrome/browser/ui:browser_commands",
+      "//chrome/browser/ui:browser_tabstrip",
       "//chrome/browser/ui:browser_window_header",
       "//chrome/browser/ui:chrome_pages",
       "//chrome/browser/ui:ui_features",
       "//chrome/browser/ui/browser_window",
       "//chrome/browser/ui/views:find_bar_views",
       "//chrome/browser/ui/views/frame:browser_view_header",
+      "//chrome/browser/ui/views/toolbar:test_support",
       "//chrome/test:test_support",
       "//chrome/test/base:browser_test_waiters",
     ]
@@ -125,6 +126,7 @@ if (!is_android && !is_chromeos_device) {
 
     if (is_mac) {
       sources += [ "find_bar_platform_helper_mac_interactive_uitest.mm" ]
+      deps += [ "//chrome/browser/ui:browser_tabstrip" ]
     }
   }
 }

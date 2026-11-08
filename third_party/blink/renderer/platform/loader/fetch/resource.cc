@@ -73,8 +73,8 @@
 
 namespace blink {
 
-// TODO(crbug.com/507483993): Enable these behaviors by default and remove the
-// feature flags after monitoring for regressions.
+// TODO(crbug.com/563000235, crbug.com/507483993): Enable these behaviors by
+// default and remove the feature flags after monitoring for regressions.
 
 // Feature that prevents an extension resource (chrome-extension://...) from
 // being fetched across isolated worlds.
@@ -84,6 +84,19 @@ BASE_FEATURE(kPreventExtensionResourceFetchAcrossIsolatedWorlds,
 // Feature that prevents resources fetched via a Service Worker from being
 // reused across different script worlds.
 BASE_FEATURE(kPreventCrossWorldServiceWorkerResourceReuse,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Feature that prevents all other remaining `WorldForCsp()` mismatch cases.
+BASE_FEATURE(kPreventAllCrossWorldForCspReuse,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Feature that prevents all `TargetWorld()` mismatch cases.
+BASE_FEATURE(kPreventAllCrossTargetWorldReuse,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Feature that prevents resources from being reused if the Service Worker skip
+// policy differs between the existing and new requests.
+BASE_FEATURE(kPreventDifferentSkipServiceWorkerResourceReuse,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 String GetAsAttributeFromResourceType(ResourceType type) {
@@ -193,18 +206,6 @@ constexpr base::MemoryConsumerTraits kResourceTraits(
     base::MemoryConsumerTraits::IsStateful::kNo,
     // Re-decoding from the encoded payload is computationally expensive.
     base::MemoryConsumerTraits::RecreateMemoryCost::kExpensive);
-
-// Returns true if `world1` and `world2` represent the same execution world.
-// A null `DOMWrapperWorld` pointer represents the default/main world.
-bool AreSameWorld(const DOMWrapperWorld* world1,
-                  const DOMWrapperWorld* world2) {
-  if (world1 == world2) {
-    return true;
-  }
-  const bool world1_is_main = !world1 || world1->IsMainWorld();
-  const bool world2_is_main = !world2 || world2->IsMainWorld();
-  return world1_is_main && world2_is_main;
-}
 
 }  // namespace
 
@@ -886,39 +887,56 @@ Resource::MatchStatus Resource::CanReuse(const FetchParameters& params) const {
   // Use GetResourceRequest to get the const resource_request_.
   const ResourceRequestHead& current_request = GetResourceRequest();
 
-  // We need two distinct checks here to prevent unexpected cross-world
-  // resource reuse.
-  //
-  // 1. The extension-specific check prevents sharing of extension
-  //    resources (chrome-extension://...) across different script worlds,
-  //    even for standard network loads.
-  //    For example, if a main world page preloads a web-accessible extension
-  //    resource, reusing that cached resource in the extension's isolated
-  //    world could bypass world-specific loader checks.
-  //    This behavior is tested in
-  //    `ResourceFetcherTest.CrossWorldExtensionResourceMismatch`.
-  if (base::FeatureList::IsEnabled(
-          kPreventExtensionResourceFetchAcrossIsolatedWorlds) &&
-      CommonSchemeRegistry::IsExtensionScheme(
-          current_request.Url().Protocol().Ascii()) &&
-      !AreSameWorld(options_.world_for_csp.Get(),
-                    new_options.world_for_csp.Get())) {
-    return MatchStatus::kCrossWorldExtensionResourceMismatch;
+  // MemoryCache/preloads isolation by `WorldForCsp()`.
+  if (options_.WorldForCsp() != new_options.WorldForCsp()) {
+    // We first check some subset of mismatch cases, governed by individual kill
+    // switches.
+
+    // 1. The extension-specific check prevents sharing of extension
+    //    resources (chrome-extension://...) across different script worlds,
+    //    even for standard network loads.
+    //    For example, if a main world page preloads a web-accessible extension
+    //    resource, reusing that cached resource in the extension's isolated
+    //    world could bypass world-specific loader checks.
+    //    This behavior is tested in
+    //    `ResourceFetcherTest.CrossWorldExtensionResourceMismatch`.
+    if (base::FeatureList::IsEnabled(
+            kPreventExtensionResourceFetchAcrossIsolatedWorlds) &&
+        CommonSchemeRegistry::IsExtensionScheme(
+            current_request.Url().Protocol().Ascii())) {
+      return MatchStatus::kCrossWorldExtensionResourceMismatch;
+    }
+
+    // 2. The Service Worker check prevents sharing of any resource that was
+    //    fetched via a Service Worker across different script worlds. This is
+    //    necessary because a Service Worker in one world (e.g., the main world)
+    //    could modify the response of a resource that is later loaded by an
+    //    isolated world (e.g., an extension, DevTools, or a userscript),
+    //    leading to unexpected code execution in that world. This behavior is
+    //    tested in `ResourceTest.CanReuseServiceWorkerResource`.
+    if (base::FeatureList::IsEnabled(
+            kPreventCrossWorldServiceWorkerResourceReuse) &&
+        GetResponse().WasFetchedViaServiceWorker()) {
+      return MatchStatus::kCrossWorldServiceWorkerResourceMismatch;
+    }
+
+    // Catch-all rejection of cross-`WorldForCsp()` reuse for comprehensive fix.
+    if (base::FeatureList::IsEnabled(kPreventAllCrossWorldForCspReuse)) {
+      return MatchStatus::kPreventAllCrossWorldForCspReuse;
+    }
   }
 
-  // 2. The Service Worker check prevents sharing of any resource that was
-  //    fetched via a Service Worker across different script worlds. This is
-  //    necessary because a Service Worker in one world (e.g., the main world)
-  //    could modify the response of a resource that is later loaded by an
-  //    isolated world (e.g., an extension, DevTools, or a userscript), leading
-  //    to unexpected code execution in that world.
-  //    This behavior is tested in `ResourceTest.CanReuseServiceWorkerResource`.
+  // Catch-all rejection for sharing across different target worlds.
+  if (options_.TargetWorld() != new_options.TargetWorld() &&
+      base::FeatureList::IsEnabled(kPreventAllCrossTargetWorldReuse)) {
+    return MatchStatus::kPreventAllCrossTargetWorldReuse;
+  }
+
   if (base::FeatureList::IsEnabled(
-          kPreventCrossWorldServiceWorkerResourceReuse) &&
-      GetResponse().WasFetchedViaServiceWorker() &&
-      !AreSameWorld(options_.world_for_csp.Get(),
-                    new_options.world_for_csp.Get())) {
-    return MatchStatus::kCrossWorldServiceWorkerResourceMismatch;
+          kPreventDifferentSkipServiceWorkerResourceReuse) &&
+      current_request.GetSkipServiceWorker() !=
+          new_request.GetSkipServiceWorker()) {
+    return MatchStatus::kSkipServiceWorkerDoesNotMatch;
   }
 
   // If credentials mode is different from the the previous request, re-fetch

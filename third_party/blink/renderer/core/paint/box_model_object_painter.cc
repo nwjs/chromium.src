@@ -29,11 +29,11 @@ Node* GetNode(const LayoutBoxModelObject& box_model) {
 }  // anonymous namespace
 
 BoxModelObjectPainter::BoxModelObjectPainter(const LayoutBoxModelObject& box)
-    : BoxPainterBase(box.GetDocument(), box.StyleRef(), GetNode(box)),
+    : BoxPainterBase(box.GetDocument(), box.Style(), GetNode(box)),
       box_model_(box) {}
 
-Node* BoxModelObjectPainter::ImageGeneratingNode() const {
-  return box_model_.GeneratingNode();
+const LayoutObject* BoxModelObjectPainter::PaintTimingLayoutObject() const {
+  return &box_model_;
 }
 
 PhysicalRect BoxModelObjectPainter::AdjustRectForScrolledContent(
@@ -66,7 +66,7 @@ BoxPainterBase::FillLayerInfo BoxModelObjectPainter::GetFillLayerInfo(
     bool is_painting_background_in_contents_space,
     PaintFlags paint_flags) const {
   return BoxPainterBase::FillLayerInfo(
-      box_model_.GetDocument(), box_model_.StyleRef(),
+      box_model_.GetDocument(), box_model_.Style(),
       box_model_.IsScrollContainer(), color, bg_layer, bleed_avoidance,
       PhysicalBoxSides(), box_model_.IsLayoutInline(),
       is_painting_background_in_contents_space, paint_flags);

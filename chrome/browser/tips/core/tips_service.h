@@ -13,6 +13,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/supports_user_data.h"
+#include "chrome/browser/notifications/scheduler/public/notification_data.h"
 #include "chrome/browser/notifications/scheduler/public/notification_scheduler_types.h"
 #include "chrome/browser/tips/core/tips_feature.h"
 #include "components/keyed_service/core/keyed_service.h"
@@ -49,7 +50,7 @@ class TipsService : public KeyedService, public base::SupportsUserData {
   static constexpr int32_t kNotificationLifeCycleEventShown = 3;
 
   using OnBestTipChosen =
-      base::OnceCallback<void(std::optional<TipsNotificationsFeatureType>)>;
+      base::OnceCallback<void(std::optional<notifications::NotificationData>)>;
 
   TipsService(
       PrefService* pref_service,
@@ -64,10 +65,15 @@ class TipsService : public KeyedService, public base::SupportsUserData {
 
   // Queries database signals for all registered features via the segmentation
   // platform and determines the best eligible tip to display.
-  virtual void DetermineBestTip(OnBestTipChosen callback);
+  // `custom_signals` provides any dynamic or runtime signals (signals that can
+  // only be retrieved in Java, e.g. from JNI/UI) that are merged into the
+  // signals map evaluated by each feature's `IsEligible` implementation.
+  virtual void DetermineBestTip(std::map<std::string, float> custom_signals,
+                                OnBestTipChosen callback);
 
  private:
   void OnFeaturesProcessed(
+      std::map<std::string, float> custom_signals,
       OnBestTipChosen callback,
       ResultStatus status,
       const segmentation_platform::ModelProvider::Request& inputs);

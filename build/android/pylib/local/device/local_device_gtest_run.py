@@ -24,7 +24,6 @@ from devil.android.ndk import abis
 from devil.android.tools import system_app
 from devil.android.sdk import version_codes
 from devil.utils import reraiser_thread
-from incremental_install import installer
 from lib.common import google_storage_helper
 from lib.proto import exception_recorder
 from lib.proto import measures
@@ -227,9 +226,6 @@ class _ApkDelegate:
         self._activity = test_instance.activity
         self._additional_apks = test_instance.additional_apks
         self._apk_helper = test_instance.apk_helper
-        self._test_apk_incremental_install_json = (
-            test_instance.test_apk_incremental_install_json
-        )
         self._package = test_instance.package
         self._runner = test_instance.runner
         self._permissions = test_instance.permissions
@@ -244,7 +240,6 @@ class _ApkDelegate:
         self._use_existing_test_data = test_instance.use_existing_test_data
 
     def GetTestDataRoot(self, device):
-        # pylint: disable=no-self-use
         return posixpath.join(
             device.GetExternalStoragePath(), 'chromium_tests_root'
         )
@@ -253,25 +248,26 @@ class _ApkDelegate:
         if self._use_existing_test_data:
             return
 
+        install_timeout = device.INSTALL_DEFAULT_TIMEOUT * math.ceil(
+            _GetDeviceTimeoutMultiplier() / 10
+        )
         for additional_apk in self._additional_apks:
-            device.Install(additional_apk, allow_downgrade=True, reinstall=True)
-
-        if self._test_apk_incremental_install_json:
-            installer.Install(
-                device,
-                self._test_apk_incremental_install_json,
-                apk=self._apk_helper,
-                permissions=self._permissions,
-            )
-        else:
             device.Install(
-                self._apk_helper,
+                additional_apk,
                 allow_downgrade=True,
                 reinstall=True,
-                permissions=self._permissions,
+                timeout=install_timeout,
             )
 
-    def ResultsDirectory(self, device):  # pylint: disable=no-self-use
+        device.Install(
+            self._apk_helper,
+            allow_downgrade=True,
+            reinstall=True,
+            permissions=self._permissions,
+            timeout=install_timeout,
+        )
+
+    def ResultsDirectory(self, device):
         return device.GetExternalStoragePath()
 
     def Run(self, test, device, flags=None, **kwargs):
@@ -435,8 +431,6 @@ class _ExeDelegate:
         self._coverage_lock = threading.Lock()
 
     def GetTestDataRoot(self, device):
-        # pylint: disable=no-self-use
-        # pylint: disable=unused-argument
         return posixpath.join(
             constants.TEST_EXECUTABLE_DIR, 'chromium_tests_root'
         )
@@ -451,8 +445,6 @@ class _ExeDelegate:
         )
 
     def ResultsDirectory(self, device):
-        # pylint: disable=no-self-use
-        # pylint: disable=unused-argument
         return constants.TEST_EXECUTABLE_DIR
 
     def Run(self, test, device, flags=None, **kwargs):
@@ -649,9 +641,7 @@ class LocalDeviceGtestRun(local_device_test_run.LocalDeviceTestRun):
                         device_openxr_runtime_path, as_root=True
                     ):
                         logging.exception(
-                            'Could not locate OpenXr runtime on device. '
-                            'Note that openxr deployment seems to fail with '
-                            'incremental_install=True'
+                            'Could not locate OpenXr runtime on device.'
                         )
                         sys.exit(1)
 
@@ -813,7 +803,7 @@ class LocalDeviceGtestRun(local_device_test_run.LocalDeviceTestRun):
                 tests = gtest_test_instance.ParseGTestListTests(raw_test_list)
                 if not tests:
                     logging.info('No tests found. Output:')
-                    for l in raw_test_list:
+                    for l in raw_test_list:  # noqa: E741
                         logging.info('  %s', l)
                 else:
                     with tempfile_ext.NamedTemporaryDirectory() as temp_dir:
@@ -1208,7 +1198,7 @@ class LocalDeviceGtestRun(local_device_test_run.LocalDeviceTestRun):
         if not self._env.skip_clear_data:
             self._delegate.Clear(device)
 
-        for l in output:
+        for l in output:  # noqa: E741
             logging.info(l)
 
         # Parse the output.

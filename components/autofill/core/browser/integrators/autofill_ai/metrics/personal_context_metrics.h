@@ -5,7 +5,11 @@
 #ifndef COMPONENTS_AUTOFILL_CORE_BROWSER_INTEGRATORS_AUTOFILL_AI_METRICS_PERSONAL_CONTEXT_METRICS_H_
 #define COMPONENTS_AUTOFILL_CORE_BROWSER_INTEGRATORS_AUTOFILL_AI_METRICS_PERSONAL_CONTEXT_METRICS_H_
 
+#include <cstddef>
+#include <optional>
+
 #include "base/time/time.h"
+#include "components/autofill/core/browser/data_model/autofill_ai/entity_instance.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_type.h"
 #include "components/autofill/core/common/dense_set.h"
 #include "components/personal_context/core/personal_context_types.h"
@@ -74,6 +78,68 @@ enum class PersonalContextPrefetchEntityValidationResult {
 };
 // LINT.ThenChange(//tools/metrics/histograms/metadata/autofill/enums.xml:AutofillAiPersonalContextPrefetchEntityValidationResult)
 
+// LINT.IfChange(AutofillAiPersonalContextDeduplicationAgainstRecordType)
+// The record type of the entity that a Personal Context entity is
+// deduplicated against. Logged to UMA.
+enum class PersonalContextDeduplicationAgainstRecordType {
+  kLocal = 0,
+  kServerWallet = 1,
+  // The Personal Context entity is not a duplicate of any entity of a
+  // different record type.
+  kNotDeduplicated = 2,
+  kMaxValue = kNotDeduplicated,
+};
+// LINT.ThenChange(//tools/metrics/histograms/metadata/autofill/enums.xml:AutofillAiPersonalContextDeduplicationAgainstRecordType)
+
+// LINT.IfChange(AutofillAiPersonalContextPrefetchEntityFunnelOutcome)
+// Represents the stage at which an entity received from Personal Context during
+// Ambient Autofill prefetch is dropped, or `kPassed` if it passes all stages.
+// Logged to UMA.
+enum class PersonalContextPrefetchEntityFunnelOutcome {
+  // The entity cannot be converted into an `EntityInstance`, e.g. because it
+  // cannot be decrypted or its entity type is unknown.
+  kParsingFailed = 0,
+  // The entity does not satisfy the requirements of Ambient Autofill, e.g.
+  // because it is missing required attributes, has expired or is of a type that
+  // was not requested.
+  kInvalid = 1,
+  // The entity is suppressed by the user.
+  kSuppressed = 2,
+  // The entity is a duplicate of a local or Wallet entity.
+  kDeduplicated = 3,
+  // The entity passes all stages.
+  kPassed = 4,
+  kMaxValue = kPassed,
+};
+// LINT.ThenChange(//tools/metrics/histograms/metadata/autofill/enums.xml:AutofillAiPersonalContextPrefetchEntityFunnelOutcome)
+
+// LINT.IfChange(AutofillAiEntitySuppressionLoadDropReason)
+// Reasons why a stored entity suppression record is dropped when loading
+// suppressions from disk. Logged to UMA.
+enum class EntitySuppressionLoadDropReason {
+  // The record could not be decrypted, e.g. because the OS encryption key
+  // changed.
+  kDecryptionFailed = 0,
+  // The decrypted record could not be parsed.
+  kParseFailed = 1,
+  // The parsed record does not describe a valid suppression entry.
+  kInvalidEntry = 2,
+  kMaxValue = kInvalidEntry,
+};
+// LINT.ThenChange(//tools/metrics/histograms/metadata/autofill/enums.xml:AutofillAiEntitySuppressionLoadDropReason)
+
+// LINT.IfChange(AutofillAiEntitySuppressionConfirmationDialogResult)
+// How the user closed the dialog asking to confirm the suppression of an
+// entity. Logged to UMA.
+enum class EntitySuppressionConfirmationDialogResult {
+  // The user confirmed the suppression.
+  kAccepted = 0,
+  // The user cancelled or dismissed the dialog.
+  kCancelled = 1,
+  kMaxValue = kCancelled,
+};
+// LINT.ThenChange(//tools/metrics/histograms/metadata/autofill/enums.xml:AutofillAiEntitySuppressionConfirmationDialogResult)
+
 // Returns the readiness state of the prefetch cache for `entity_type` when the
 // user first interacts with an Ambient Autofill supported field of that type.
 PersonalContextCacheReadinessOnFirstInteraction GetCacheReadinessState(
@@ -108,8 +174,37 @@ void LogPersonalContextPrefetchEntityValidationResult(
     EntityType type,
     PersonalContextPrefetchEntityValidationResult result);
 
+// Logs the number of valid sources attached to an entity extracted from
+// Personal Context prefetch responses for Ambient Autofill.
+void LogPersonalContextPrefetchEntitySourceCount(EntityType type, size_t count);
+
+// Logs the record type of the entity that a Personal Context entity of `type`
+// is deduplicated against, or that it is not deduplicated if `record_type` is
+// `std::nullopt`.
+void LogPersonalContextDeduplicationAgainstRecordType(
+    EntityType type,
+    std::optional<EntityInstance::RecordType> record_type);
+
+// Logs the `outcome` of an entity received from Personal Context during Ambient
+// Autofill prefetch. The per-type histogram is only logged if the `type` is
+// known, which is not the case if the entity cannot be parsed.
+void LogPersonalContextPrefetchEntityFunnelOutcome(
+    std::optional<EntityType> type,
+    PersonalContextPrefetchEntityFunnelOutcome outcome);
+
 // Logs the number of entities filtered out due to suppression during prefetch.
 void LogEntitySuppressionEntitiesFilteredPerPrefetch(size_t count);
+
+// Logs the number of stored suppression records that were dropped while
+// loading suppressions from disk.
+void LogEntitySuppressionLoadDroppedRecordCount(size_t count);
+
+// Logs why a stored suppression record was dropped while loading suppressions
+// from disk.
+void LogEntitySuppressionLoadDropReason(EntitySuppressionLoadDropReason reason);
+
+// Logs whether the user `accepted` the suppression confirmation dialog.
+void LogEntitySuppressionConfirmationDialogResult(bool accepted);
 
 }  // namespace autofill
 

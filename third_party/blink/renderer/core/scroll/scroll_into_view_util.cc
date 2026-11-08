@@ -64,6 +64,17 @@ ScrollMarkerPseudoElement* FindScrollMarkerForTargetedScroll(
     }
   }
 
+  // The target may be the scroll container that `group` belongs to, e.g.
+  // when a ::column::scroll-marker is activated the scroller itself is the
+  // box being scrolled. There is no scroll target inside the scroller to map
+  // to a scroll marker in that case. Searching backwards in layout order from
+  // the scroller must also be avoided, since it would walk into the
+  // ::scroll-marker-group box if it is laid out before the scroller and pick
+  // up its last ::scroll-marker.
+  if (target_element == &group->UltimateOriginatingElement()) {
+    return nullptr;
+  }
+
   LayoutObject* target_obj = target_element->GetLayoutObject();
   if (!target_obj) {
     return nullptr;
@@ -214,7 +225,7 @@ bool AllowedToPropagateToParent(
 // Anchor-positioned fixed boxes still need to move with the anchor when the
 // frame scrolls (https://www.w3.org/TR/css-anchor-position/#scroll).
 bool IsFixedToFrame(const LayoutBox& box) {
-  return box.StyleRef().GetPosition() == EPosition::kFixed &&
+  return box.Style().GetPosition() == EPosition::kFixed &&
          box.Container() == box.View() &&
          !box.NeedsAnchorPositionScrollAdjustmentInX() &&
          !box.NeedsAnchorPositionScrollAdjustmentInY();
@@ -377,7 +388,7 @@ BubblingScrollResult PerformBubblingScrollIntoViewWithResult(
         }
         if (ScrollMarkerPseudoElement* marker =
                 FindScrollMarkerForTargetedScroll(target_element, group)) {
-          group->PinSelectedMarker(marker);
+          group->PinSelectedMarker(marker, /*apply_snap_alignment=*/true);
         } else {
           group->UnPinSelectedMarker();
         }
@@ -600,7 +611,7 @@ bool ScrollRectToVisible(const LayoutObject& layout_object,
       params->type == mojom::blink::ScrollType::kProgrammatic;
 
   const PhysicalBoxStrut scroll_margin =
-      layout_object.StyleRef().ScrollMarginStrut();
+      layout_object.Style().ScrollMarginStrut();
   BubblingScrollResult result = PerformBubblingScrollIntoViewWithResult(
       *enclosing_box, absolute_rect_to_scroll, params, scroll_margin, container,
       from_remote_frame, include_self, resolver);
@@ -915,11 +926,11 @@ ScrollOffset GetScrollOffsetToExpose(
 mojom::blink::ScrollAlignment PhysicalAlignmentFromSnapAlignStyle(
     const LayoutObject& object,
     PhysicalAxis axis) {
-  cc::ScrollSnapAlign snap = object.StyleRef().GetScrollSnapAlign();
+  cc::ScrollSnapAlign snap = object.Style().GetScrollSnapAlign();
   return ResolveToPhysicalAlignment(
       SnapAlignmentToV8ScrollLogicalPosition(snap.alignment_inline),
       SnapAlignmentToV8ScrollLogicalPosition(snap.alignment_block), axis,
-      object.StyleRef());
+      object.Style());
 }
 
 }  // namespace scroll_into_view_util

@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <optional>
+#include <utility>
 #include <vector>
 
 #include "base/functional/callback.h"
@@ -21,13 +22,17 @@
 #include "chrome/browser/defaults.h"
 #include "chrome/browser/enterprise/browser_management/management_service_factory.h"
 #include "chrome/browser/glic/public/glic_enabling.h"
+#include "chrome/browser/glic/test_support/glic_test_environment.h"
 #include "chrome/browser/password_manager/password_manager_test_util.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/sharing_hub/sharing_hub_features.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
+#include "chrome/browser/signin/signin_browser_test_base.h"
 #include "chrome/browser/sync/send_tab_to_self_sync_service_factory.h"
 #include "chrome/browser/sync/sync_service_factory.h"
 #include "chrome/browser/ttc/core/features.h"
+#include "chrome/browser/ui/actions/chrome_action_id.h"
+#include "chrome/browser/ui/browser_actions.h"
 #include "chrome/browser/ui/global_error/global_error.h"
 #include "chrome/browser/ui/global_error/global_error_service.h"
 #include "chrome/browser/ui/global_error/global_error_service_factory.h"
@@ -36,6 +41,7 @@
 #include "chrome/browser/ui/safety_hub/safety_hub_test_util.h"
 #include "chrome/browser/ui/startup/default_browser_prompt/default_browser_prompt_manager.h"
 #include "chrome/browser/ui/tabs/recent_tabs_sub_menu_model.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/toolbar/app_menu_icon_controller.h"
 #include "chrome/browser/ui/toolbar/bookmark_sub_menu_model.h"
 #include "chrome/browser/ui/ui_features.h"
@@ -44,6 +50,10 @@
 #include "chrome/common/pref_names.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
+#include "components/contextual_tasks/public/features.h"
+#include "components/lens/lens_features.h"
+#include "components/omnibox/browser/aim_eligibility_service_features.h"
+#include "components/optimization_guide/core/feature_registry/feature_registration.h"
 #include "components/password_manager/core/browser/password_store/test_password_store.h"
 #include "components/policy/core/common/management/scoped_management_service_override_for_testing.h"
 #include "components/prefs/pref_service.h"
@@ -52,6 +62,7 @@
 #include "components/send_tab_to_self/features.h"
 #include "components/send_tab_to_self/stub_send_tab_to_self_sync_service.h"
 #include "components/signin/public/base/consent_level.h"
+#include "components/signin/public/base/signin_buildflags.h"
 #include "components/signin/public/base/signin_metrics.h"
 #include "components/signin/public/identity_manager/identity_test_utils.h"
 #include "components/skills/features.h"
@@ -59,7 +70,10 @@
 #include "components/sync/test/test_sync_service.h"
 #include "content/public/test/browser_test.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "ui/actions/actions.h"
 #include "ui/base/ui_base_features.h"
+#include "ui/views/widget/any_widget_observer.h"
+#include "ui/views/widget/widget.h"
 
 #if BUILDFLAG(IS_CHROMEOS)
 #include "chrome/browser/policy/system_features_disable_list_policy_handler.h"
@@ -516,77 +530,319 @@ IN_PROC_BROWSER_TEST_P(ExtensionsMenuModelTest, ExtensionsMenu) {
   }
 }
 
-class SkillsMenuModelTest : public AppMenuModelTest {
+class SkillsAndExtensionsMenuModelTest : public AppMenuModelTest {
  public:
-  SkillsMenuModelTest() {
+  SkillsAndExtensionsMenuModelTest() {
     feature_list_.InitWithFeatures(
-        {features::kSkillsEnabled, features::kSkillsAppMenu}, {});
+        {features::kSkillsEnabled, features::kSkillsAndExtensionsAppMenu}, {});
   }
-  ~SkillsMenuModelTest() override = default;
+  ~SkillsAndExtensionsMenuModelTest() override = default;
 
  private:
+  glic::GlicTestEnvironment glic_test_env_;
   base::test::ScopedFeatureList feature_list_;
 };
 
-IN_PROC_BROWSER_TEST_F(SkillsMenuModelTest, SkillsMenuStandalone) {
+IN_PROC_BROWSER_TEST_F(SkillsAndExtensionsMenuModelTest,
+                       SkillsAndExtensionsMenuStandalone) {
+  actions::ActionItem* root_action =
+      BrowserActions::From(browser())->root_action_item();
+  auto* skills_and_extensions_action = actions::ActionManager::Get().FindAction(
+      kActionSkillsAndExtensionsSubmenu, root_action);
+  ASSERT_NE(skills_and_extensions_action, nullptr);
+  EXPECT_TRUE(skills_and_extensions_action->GetVisible());
+
+  auto* extensions_action = actions::ActionManager::Get().FindAction(
+      kActionExtensionsSubmenu, root_action);
+  ASSERT_NE(extensions_action, nullptr);
+  EXPECT_FALSE(extensions_action->GetVisible());
+
+  auto* find_extensions_action = actions::ActionManager::Get().FindAction(
+      kActionFindExtensions, root_action);
+  ASSERT_NE(find_extensions_action, nullptr);
+  EXPECT_FALSE(find_extensions_action->GetVisible());
+
   AppMenuModel model(this, browser());
   model.Init();
 
-  ASSERT_TRUE(model.GetIndexOfCommandId(AppMenuModel::kSkillsMenuPlaceholder)
+  EXPECT_FALSE(
+      model.GetIndexOfCommandId(AppMenuModel::kExtensionsSubmenuPlaceholder)
+          .has_value());
+  EXPECT_FALSE(model.GetIndexOfCommandId(IDC_FIND_EXTENSIONS).has_value());
+
+  ASSERT_TRUE(model
+                  .GetIndexOfCommandId(
+                      AppMenuModel::kSkillsAndExtensionsMenuPlaceholder)
                   .has_value());
-  const size_t skills_index =
-      model.GetIndexOfCommandId(AppMenuModel::kSkillsMenuPlaceholder).value();
-  ui::MenuModel* skills_submenu = model.GetSubmenuModelAt(skills_index);
-  ASSERT_NE(skills_submenu, nullptr);
-  ASSERT_EQ(2ul, skills_submenu->GetItemCount());
-  EXPECT_EQ(IDC_MANAGE_SKILLS, skills_submenu->GetCommandIdAt(0));
-  EXPECT_EQ(IDC_BROWSE_SKILLS, skills_submenu->GetCommandIdAt(1));
-  EXPECT_TRUE(skills_submenu->IsEnabledAt(0));
-  EXPECT_TRUE(skills_submenu->IsEnabledAt(1));
-  EXPECT_FALSE(model.GetIconAt(skills_index).IsEmpty());
-  EXPECT_FALSE(skills_submenu->GetIconAt(0).IsEmpty());
-  EXPECT_FALSE(skills_submenu->GetIconAt(1).IsEmpty());
+  const size_t skills_and_extensions_index =
+      model
+          .GetIndexOfCommandId(
+              AppMenuModel::kSkillsAndExtensionsMenuPlaceholder)
+          .value();
+  ui::MenuModel* skills_and_extensions_submenu =
+      model.GetSubmenuModelAt(skills_and_extensions_index);
+  ASSERT_NE(skills_and_extensions_submenu, nullptr);
+  ASSERT_EQ(4ul, skills_and_extensions_submenu->GetItemCount());
+  EXPECT_EQ(IDC_EXTENSIONS_SUBMENU_MANAGE_EXTENSIONS,
+            skills_and_extensions_submenu->GetCommandIdAt(0));
+  EXPECT_EQ(IDC_MANAGE_SKILLS,
+            skills_and_extensions_submenu->GetCommandIdAt(1));
+  EXPECT_EQ(ui::MenuModel::TYPE_SEPARATOR,
+            skills_and_extensions_submenu->GetTypeAt(2));
+  EXPECT_EQ(IDC_EXTENSIONS_SUBMENU_VISIT_CHROME_WEB_STORE,
+            skills_and_extensions_submenu->GetCommandIdAt(3));
+  EXPECT_TRUE(skills_and_extensions_submenu->IsEnabledAt(0));
+  EXPECT_TRUE(skills_and_extensions_submenu->IsEnabledAt(1));
+  EXPECT_TRUE(skills_and_extensions_submenu->IsEnabledAt(3));
+  EXPECT_FALSE(model.GetIconAt(skills_and_extensions_index).IsEmpty());
+  EXPECT_FALSE(skills_and_extensions_submenu->GetIconAt(0).IsEmpty());
+  EXPECT_FALSE(skills_and_extensions_submenu->GetIconAt(1).IsEmpty());
 }
 
-class SkillsMenuModelDisabledTest : public AppMenuModelTest {
- public:
-  SkillsMenuModelDisabledTest() {
-    feature_list_.InitAndDisableFeature(features::kSkillsAppMenu);
-  }
-  ~SkillsMenuModelDisabledTest() override = default;
+IN_PROC_BROWSER_TEST_F(SkillsAndExtensionsMenuModelTest,
+                       SkillsAndExtensionsMenuHiddenWhenGlicDisabled) {
+  browser()->GetProfile()->GetPrefs()->SetInteger(
+      optimization_guide::prefs::kGeminiSettings,
+      std::to_underlying(
+          optimization_guide::prefs::GeminiSettingsPolicyState::kDisabled));
 
- private:
-  base::test::ScopedFeatureList feature_list_;
-};
+  actions::ActionItem* root_action =
+      BrowserActions::From(browser())->root_action_item();
+  auto* skills_and_extensions_action = actions::ActionManager::Get().FindAction(
+      kActionSkillsAndExtensionsSubmenu, root_action);
+  ASSERT_NE(skills_and_extensions_action, nullptr);
+  EXPECT_FALSE(skills_and_extensions_action->GetVisible());
 
-IN_PROC_BROWSER_TEST_F(SkillsMenuModelDisabledTest, SkillsMenuDisabled) {
+  auto* extensions_action = actions::ActionManager::Get().FindAction(
+      kActionExtensionsSubmenu, root_action);
+  ASSERT_NE(extensions_action, nullptr);
+  EXPECT_TRUE(extensions_action->GetVisible());
+
+  auto* find_extensions_action = actions::ActionManager::Get().FindAction(
+      kActionFindExtensions, root_action);
+  ASSERT_NE(find_extensions_action, nullptr);
+  EXPECT_TRUE(find_extensions_action->GetVisible());
+
   AppMenuModel model(this, browser());
   model.Init();
 
-  EXPECT_FALSE(model.GetIndexOfCommandId(AppMenuModel::kSkillsMenuPlaceholder)
+  EXPECT_FALSE(model
+                   .GetIndexOfCommandId(
+                       AppMenuModel::kSkillsAndExtensionsMenuPlaceholder)
                    .has_value());
+  EXPECT_TRUE(
+      model.GetIndexOfCommandId(AppMenuModel::kExtensionsSubmenuPlaceholder)
+          .has_value() ||
+      model.GetIndexOfCommandId(IDC_FIND_EXTENSIONS).has_value());
 }
 
-class SkillsMenuModelSkillsDisabledTest : public AppMenuModelTest {
+class SkillsAndExtensionsMenuModelDisabledTest : public AppMenuModelTest {
  public:
-  SkillsMenuModelSkillsDisabledTest() {
+  SkillsAndExtensionsMenuModelDisabledTest() {
+    feature_list_.InitAndDisableFeature(features::kSkillsAndExtensionsAppMenu);
+  }
+  ~SkillsAndExtensionsMenuModelDisabledTest() override = default;
+
+ private:
+  glic::GlicTestEnvironment glic_test_env_;
+  base::test::ScopedFeatureList feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_F(SkillsAndExtensionsMenuModelDisabledTest,
+                       SkillsAndExtensionsMenuDisabled) {
+  actions::ActionItem* root_action =
+      BrowserActions::From(browser())->root_action_item();
+  auto* skills_and_extensions_action = actions::ActionManager::Get().FindAction(
+      kActionSkillsAndExtensionsSubmenu, root_action);
+  ASSERT_NE(skills_and_extensions_action, nullptr);
+  EXPECT_FALSE(skills_and_extensions_action->GetVisible());
+
+  auto* extensions_action = actions::ActionManager::Get().FindAction(
+      kActionExtensionsSubmenu, root_action);
+  ASSERT_NE(extensions_action, nullptr);
+  EXPECT_TRUE(extensions_action->GetVisible());
+
+  auto* find_extensions_action = actions::ActionManager::Get().FindAction(
+      kActionFindExtensions, root_action);
+  ASSERT_NE(find_extensions_action, nullptr);
+  EXPECT_TRUE(find_extensions_action->GetVisible());
+
+  AppMenuModel model(this, browser());
+  model.Init();
+
+  EXPECT_FALSE(model
+                   .GetIndexOfCommandId(
+                       AppMenuModel::kSkillsAndExtensionsMenuPlaceholder)
+                   .has_value());
+  EXPECT_TRUE(
+      model.GetIndexOfCommandId(AppMenuModel::kExtensionsSubmenuPlaceholder)
+          .has_value() ||
+      model.GetIndexOfCommandId(IDC_FIND_EXTENSIONS).has_value());
+}
+
+class SkillsAndExtensionsMenuModelSkillsDisabledTest : public AppMenuModelTest {
+ public:
+  SkillsAndExtensionsMenuModelSkillsDisabledTest() {
     feature_list_.InitWithFeatures(
-        /*enabled_features=*/{features::kSkillsAppMenu},
+        /*enabled_features=*/{features::kSkillsAndExtensionsAppMenu},
         /*disabled_features=*/{features::kSkillsEnabled});
   }
-  ~SkillsMenuModelSkillsDisabledTest() override = default;
+  ~SkillsAndExtensionsMenuModelSkillsDisabledTest() override = default;
+
+ private:
+  glic::GlicTestEnvironment glic_test_env_;
+  base::test::ScopedFeatureList feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_F(SkillsAndExtensionsMenuModelSkillsDisabledTest,
+                       SkillsAndExtensionsMenuDisabledWhenSkillsDisabled) {
+  actions::ActionItem* root_action =
+      BrowserActions::From(browser())->root_action_item();
+  auto* skills_and_extensions_action = actions::ActionManager::Get().FindAction(
+      kActionSkillsAndExtensionsSubmenu, root_action);
+  ASSERT_NE(skills_and_extensions_action, nullptr);
+  EXPECT_FALSE(skills_and_extensions_action->GetVisible());
+
+  auto* extensions_action = actions::ActionManager::Get().FindAction(
+      kActionExtensionsSubmenu, root_action);
+  ASSERT_NE(extensions_action, nullptr);
+  EXPECT_TRUE(extensions_action->GetVisible());
+
+  auto* find_extensions_action = actions::ActionManager::Get().FindAction(
+      kActionFindExtensions, root_action);
+  ASSERT_NE(find_extensions_action, nullptr);
+  EXPECT_TRUE(find_extensions_action->GetVisible());
+
+  AppMenuModel model(this, browser());
+  model.Init();
+
+  EXPECT_FALSE(model
+                   .GetIndexOfCommandId(
+                       AppMenuModel::kSkillsAndExtensionsMenuPlaceholder)
+                   .has_value());
+  EXPECT_TRUE(
+      model.GetIndexOfCommandId(AppMenuModel::kExtensionsSubmenuPlaceholder)
+          .has_value() ||
+      model.GetIndexOfCommandId(IDC_FIND_EXTENSIONS).has_value());
+}
+
+IN_PROC_BROWSER_TEST_F(AppMenuModelTest,
+                       ContextualTasksAskGoogleDefaultDisabled) {
+  AppMenuModel model(this, browser());
+  model.Init();
+
+  EXPECT_FALSE(
+      model.GetIndexOfCommandId(IDC_ASK_GOOGLE_ABOUT_THIS_PAGE).has_value());
+  EXPECT_FALSE(
+      model.GetIndexOfCommandId(AppMenuModel::kContextualTasksMenuPlaceholder)
+          .has_value());
+}
+
+class ContextualTasksAskGoogleEnabledTest : public AppMenuModelTest {
+ public:
+  ContextualTasksAskGoogleEnabledTest() {
+    feature_list_.InitWithFeaturesAndParameters(
+        {{lens::features::kLensOverlay, {}},
+         {contextual_tasks::kContextualTasks, {}},
+         {contextual_tasks::kContextualTasksForceEntryPointEligibility, {}},
+         {lens::features::kLensSidePanelUnification, {}},
+         {contextual_tasks::kContextualTasksUpdatedEntryPoints,
+          {{"ContextualTasksContextMenuShowAskGoogle", "true"},
+           {"ContextualTasksContextMenuSubmenu", "false"}}}},
+        {omnibox::kAimServerEligibilityEnabled});
+  }
+  ~ContextualTasksAskGoogleEnabledTest() override = default;
 
  private:
   base::test::ScopedFeatureList feature_list_;
 };
 
-IN_PROC_BROWSER_TEST_F(SkillsMenuModelSkillsDisabledTest,
-                       SkillsMenuDisabledWhenSkillsDisabled) {
+IN_PROC_BROWSER_TEST_F(ContextualTasksAskGoogleEnabledTest,
+                       AskGoogleAboutThisPage) {
   AppMenuModel model(this, browser());
   model.Init();
 
-  EXPECT_FALSE(model.GetIndexOfCommandId(AppMenuModel::kSkillsMenuPlaceholder)
-                   .has_value());
+  const std::optional<size_t> ask_google_index =
+      model.GetIndexOfCommandId(IDC_ASK_GOOGLE_ABOUT_THIS_PAGE);
+  const std::optional<size_t> lens_index =
+      model.GetIndexOfCommandId(IDC_CONTENT_CONTEXT_LENS_OVERLAY);
+  ASSERT_TRUE(ask_google_index.has_value());
+  ASSERT_TRUE(lens_index.has_value());
+  EXPECT_LT(*ask_google_index, *lens_index);
+  EXPECT_TRUE(model.IsEnabledAt(*ask_google_index));
+  EXPECT_FALSE(model.GetIconAt(*ask_google_index).IsEmpty());
+  EXPECT_EQ(AppMenuModel::kAskGoogleAboutThisPageItem,
+            model.GetElementIdentifierAt(*ask_google_index));
+  EXPECT_FALSE(
+      model.GetIndexOfCommandId(AppMenuModel::kContextualTasksMenuPlaceholder)
+          .has_value());
+}
+
+IN_PROC_BROWSER_TEST_F(ContextualTasksAskGoogleEnabledTest,
+                       AskGoogleAboutThisPageLogsMetrics) {
+  base::HistogramTester histograms;
+  AppMenuModel model(this, browser());
+  model.Init();
+
+  ASSERT_TRUE(
+      model.GetIndexOfCommandId(IDC_ASK_GOOGLE_ABOUT_THIS_PAGE).has_value());
+  model.ExecuteCommand(IDC_ASK_GOOGLE_ABOUT_THIS_PAGE, 0);
+
+  histograms.ExpectUniqueSample("WrenchMenu.MenuAction",
+                                MENU_ACTION_ASK_GOOGLE_ABOUT_THIS_PAGE, 1);
+  histograms.ExpectTotalCount("WrenchMenu.TimeToAction.AskGoogleAboutThisPage",
+                              1);
+}
+
+class ContextualTasksAskGoogleSubmenuTest : public AppMenuModelTest {
+ public:
+  ContextualTasksAskGoogleSubmenuTest() {
+    feature_list_.InitWithFeaturesAndParameters(
+        {{lens::features::kLensOverlay, {}},
+         {contextual_tasks::kContextualTasks, {}},
+         {contextual_tasks::kContextualTasksForceEntryPointEligibility, {}},
+         {lens::features::kLensSidePanelUnification, {}},
+         {contextual_tasks::kContextualTasksUpdatedEntryPoints,
+          {{"ContextualTasksContextMenuShowAskGoogle", "true"},
+           {"ContextualTasksContextMenuSubmenu", "true"}}}},
+        {omnibox::kAimServerEligibilityEnabled});
+  }
+  ~ContextualTasksAskGoogleSubmenuTest() override = default;
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_F(ContextualTasksAskGoogleSubmenuTest,
+                       SearchWithGoogleSubmenu) {
+  AppMenuModel model(this, browser());
+  model.Init();
+
+  EXPECT_FALSE(
+      model.GetIndexOfCommandId(IDC_ASK_GOOGLE_ABOUT_THIS_PAGE).has_value());
+  EXPECT_FALSE(
+      model.GetIndexOfCommandId(IDC_CONTENT_CONTEXT_LENS_OVERLAY).has_value());
+
+  const std::optional<size_t> submenu_index =
+      model.GetIndexOfCommandId(AppMenuModel::kContextualTasksMenuPlaceholder);
+  ASSERT_TRUE(submenu_index.has_value());
+  EXPECT_TRUE(model.IsEnabledAt(*submenu_index));
+  EXPECT_FALSE(model.GetIconAt(*submenu_index).IsEmpty());
+  EXPECT_EQ(AppMenuModel::kContextualTasksSubmenuItem,
+            model.GetElementIdentifierAt(*submenu_index));
+
+  ui::MenuModel* submenu = model.GetSubmenuModelAt(*submenu_index);
+  ASSERT_NE(submenu, nullptr);
+  ASSERT_EQ(2ul, submenu->GetItemCount());
+  EXPECT_EQ(IDC_ASK_GOOGLE_ABOUT_THIS_PAGE, submenu->GetCommandIdAt(0));
+  EXPECT_EQ(IDC_CONTENT_CONTEXT_LENS_OVERLAY, submenu->GetCommandIdAt(1));
+  EXPECT_TRUE(submenu->IsEnabledAt(0));
+  EXPECT_TRUE(submenu->IsEnabledAt(1));
+  EXPECT_FALSE(submenu->GetIconAt(0).IsEmpty());
+  EXPECT_FALSE(submenu->GetIconAt(1).IsEmpty());
+  EXPECT_EQ(AppMenuModel::kAskGoogleAboutThisPageItem,
+            submenu->GetElementIdentifierAt(0));
+  EXPECT_EQ(AppMenuModel::kShowLensOverlay, submenu->GetElementIdentifierAt(1));
 }
 
 // Profile row does not show on ChromeOS.
@@ -774,7 +1030,7 @@ IN_PROC_BROWSER_TEST_F(AppMenuReportUnsafeSiteTest,
 
 #endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
 
-using AppMenuModelSigninPromoTest = AppMenuModelTest;
+using AppMenuModelSigninPromoTest = SigninBrowserTestBaseT<AppMenuModelTest>;
 
 IN_PROC_BROWSER_TEST_F(AppMenuModelSigninPromoTest, SignedIn) {
   base::HistogramTester histogram_tester;
@@ -813,6 +1069,63 @@ IN_PROC_BROWSER_TEST_F(AppMenuModelSigninPromoTest, SignedOut) {
       "Signin.SignIn.Offered.NewAccountNoExistingAccount",
       signin_metrics::AccessPoint::kMenu, 1);
 }
+
+#if BUILDFLAG(ENABLE_DICE_SUPPORT)
+IN_PROC_BROWSER_TEST_F(AppMenuModelSigninPromoTest, WebSignedIn) {
+  SetAccountsCookiesAndTokens({"user@example.com"});
+  base::HistogramTester histogram_tester;
+
+  AppMenuModel model(this, browser());
+  model.Init();
+  const size_t profile_menu_index =
+      model.GetIndexOfCommandId(AppMenuModel::kProfileMenuPlaceholder).value();
+  ui::SimpleMenuModel* profile_menu = static_cast<ui::SimpleMenuModel*>(
+      model.GetSubmenuModelAt(profile_menu_index));
+
+  EXPECT_FALSE(profile_menu->GetIndexOfCommandId(IDC_TURN_ON_SYNC).has_value());
+  std::optional<size_t> signin_index =
+      profile_menu->GetIndexOfCommandId(IDC_SHOW_SIGNIN);
+  ASSERT_TRUE(signin_index.has_value());
+
+  histogram_tester.ExpectUniqueSample("Signin.SignIn.Offered",
+                                      signin_metrics::AccessPoint::kMenu, 1);
+  histogram_tester.ExpectUniqueSample("Signin.SignIn.Offered.WithDefault",
+                                      signin_metrics::AccessPoint::kMenu, 1);
+
+  views::NamedWidgetShownWaiter widget_waiter(
+      views::test::AnyWidgetTestPasskey{},
+      "DiceWebSigninInterceptionBubbleView");
+  profile_menu->ActivatedAt(signin_index.value());
+  views::Widget* widget = widget_waiter.WaitIfNeededAndGet();
+  ASSERT_TRUE(widget);
+  EXPECT_TRUE(widget->IsVisible());
+  EXPECT_EQ(browser()->tab_strip_model()->count(), 1);
+  EXPECT_FALSE(
+      identity_manager()->HasPrimaryAccount(signin::ConsentLevel::kSignin));
+}
+
+IN_PROC_BROWSER_TEST_F(AppMenuModelSigninPromoTest,
+                       WebSignedIn_ActionShowSignin) {
+  SetAccountsCookiesAndTokens({"user@example.com"});
+
+  actions::ActionItem* show_signin_action =
+      actions::ActionManager::Get().FindAction(
+          kActionShowSignin,
+          BrowserActions::From(browser())->root_action_item());
+  ASSERT_TRUE(show_signin_action);
+
+  views::NamedWidgetShownWaiter widget_waiter(
+      views::test::AnyWidgetTestPasskey{},
+      "DiceWebSigninInterceptionBubbleView");
+  show_signin_action->InvokeAction();
+  views::Widget* widget = widget_waiter.WaitIfNeededAndGet();
+  ASSERT_TRUE(widget);
+  EXPECT_TRUE(widget->IsVisible());
+  EXPECT_EQ(browser()->tab_strip_model()->count(), 1);
+  EXPECT_FALSE(
+      identity_manager()->HasPrimaryAccount(signin::ConsentLevel::kSignin));
+}
+#endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
 
 class AppMenuModelBookmarkLimitExceededSyncingTest : public AppMenuModelTest {
  public:
@@ -1266,5 +1579,110 @@ IN_PROC_BROWSER_TEST_F(AppMenuModelSendTabToSelfEnhancedEnabledTest,
             save_and_share_menu->GetTypeAt(send_tab_index.value()));
   EXPECT_FALSE(save_and_share_menu->IsEnabledAt(send_tab_index.value()));
 }
+
+class AppMenuModelSendTabToSelfSigninPromosTest
+    : public AppMenuModelSendTabToSelfTest {
+ public:
+  AppMenuModelSendTabToSelfSigninPromosTest() {
+    feature_list_.InitWithFeatures(
+        {kSendTabToSelfEnhancedDesktopUIv2,
+         send_tab_to_self::kSendTabToSelfSubmenuSigninPromos,
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+         send_tab_to_self::kSendTabToSelfNoTargetDeviceQrCode
+#endif
+        },
+        {});
+  }
+};
+
+// Tests that when `kOfferSignIn` is returned and
+// `kSendTabToSelfSubmenuSigninPromos` is enabled, the "Send to your device"
+// item in the Save and Share submenu is a submenu model.
+IN_PROC_BROWSER_TEST_F(AppMenuModelSendTabToSelfSigninPromosTest,
+                       SendTabToSelfSaveAndShareOfferSignIn) {
+  auto* sync_service = static_cast<StubSendTabToSelfSyncService*>(
+      SendTabToSelfSyncServiceFactory::GetForProfile(profile()));
+  sync_service->SetEntryPointDisplayReason(
+      EntryPointDisplayReason::kOfferSignIn);
+
+  ASSERT_TRUE(
+      ui_test_utils::NavigateToURL(browser(), GURL("https://example.com")));
+
+  AppMenuModel model(this, browser());
+  model.Init();
+
+  const size_t save_and_share_index =
+      model.GetIndexOfCommandId(AppMenuModel::kSaveAndShareMenuPlaceholder)
+          .value();
+  ui::SimpleMenuModel* save_and_share_menu = static_cast<ui::SimpleMenuModel*>(
+      model.GetSubmenuModelAt(save_and_share_index));
+
+  const size_t send_tab_index =
+      save_and_share_menu->GetIndexOfCommandId(IDC_SEND_TAB_TO_SELF).value();
+  EXPECT_EQ(ui::MenuModel::TYPE_SUBMENU,
+            save_and_share_menu->GetTypeAt(send_tab_index));
+  EXPECT_NE(nullptr, save_and_share_menu->GetSubmenuModelAt(send_tab_index));
+}
+
+// Tests that when `kOfferReauth` is returned and
+// `kSendTabToSelfSubmenuSigninPromos` is enabled, the "Send to your device"
+// item in the Save and Share submenu is a submenu model.
+IN_PROC_BROWSER_TEST_F(AppMenuModelSendTabToSelfSigninPromosTest,
+                       SendTabToSelfSaveAndShareOfferReauth) {
+  auto* sync_service = static_cast<StubSendTabToSelfSyncService*>(
+      SendTabToSelfSyncServiceFactory::GetForProfile(profile()));
+  sync_service->SetEntryPointDisplayReason(
+      EntryPointDisplayReason::kOfferReauth);
+
+  ASSERT_TRUE(
+      ui_test_utils::NavigateToURL(browser(), GURL("https://example.com")));
+
+  AppMenuModel model(this, browser());
+  model.Init();
+
+  const size_t save_and_share_index =
+      model.GetIndexOfCommandId(AppMenuModel::kSaveAndShareMenuPlaceholder)
+          .value();
+  ui::SimpleMenuModel* save_and_share_menu = static_cast<ui::SimpleMenuModel*>(
+      model.GetSubmenuModelAt(save_and_share_index));
+
+  const size_t send_tab_index =
+      save_and_share_menu->GetIndexOfCommandId(IDC_SEND_TAB_TO_SELF).value();
+  EXPECT_EQ(ui::MenuModel::TYPE_SUBMENU,
+            save_and_share_menu->GetTypeAt(send_tab_index));
+  EXPECT_NE(nullptr, save_and_share_menu->GetSubmenuModelAt(send_tab_index));
+}
+
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+// Tests that when `kInformNoTargetDevice` is returned and both
+// `kSendTabToSelfSubmenuSigninPromos` and `kSendTabToSelfNoTargetDeviceQrCode`
+// are enabled, the "Send to your device" item in the Save and Share submenu is
+// a submenu model.
+IN_PROC_BROWSER_TEST_F(AppMenuModelSendTabToSelfSigninPromosTest,
+                       SendTabToSelfSaveAndShareInformNoTargetDevice) {
+  auto* sync_service = static_cast<StubSendTabToSelfSyncService*>(
+      SendTabToSelfSyncServiceFactory::GetForProfile(profile()));
+  sync_service->SetEntryPointDisplayReason(
+      EntryPointDisplayReason::kInformNoTargetDevice);
+
+  ASSERT_TRUE(
+      ui_test_utils::NavigateToURL(browser(), GURL("https://example.com")));
+
+  AppMenuModel model(this, browser());
+  model.Init();
+
+  const size_t save_and_share_index =
+      model.GetIndexOfCommandId(AppMenuModel::kSaveAndShareMenuPlaceholder)
+          .value();
+  ui::SimpleMenuModel* save_and_share_menu = static_cast<ui::SimpleMenuModel*>(
+      model.GetSubmenuModelAt(save_and_share_index));
+
+  const size_t send_tab_index =
+      save_and_share_menu->GetIndexOfCommandId(IDC_SEND_TAB_TO_SELF).value();
+  EXPECT_EQ(ui::MenuModel::TYPE_SUBMENU,
+            save_and_share_menu->GetTypeAt(send_tab_index));
+  EXPECT_NE(nullptr, save_and_share_menu->GetSubmenuModelAt(send_tab_index));
+}
+#endif
 
 }  // namespace

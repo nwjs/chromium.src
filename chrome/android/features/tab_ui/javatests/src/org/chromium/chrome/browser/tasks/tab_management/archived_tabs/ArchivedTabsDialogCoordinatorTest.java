@@ -114,8 +114,9 @@ import java.util.List;
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
 @DisableFeatures({
     "IPH_AndroidTabDeclutter",
-    ChromeFeatureList.SETTINGS_MULTI_COLUMN,
-    ChromeFeatureList.EDGE_TO_EDGE_BOTTOM_CHIN
+    ChromeFeatureList.EDGE_TO_EDGE_BOTTOM_CHIN,
+    ChromeFeatureList.SETTINGS_IN_TAB,
+    ChromeFeatureList.SETTINGS_IN_TAB_DESKTOP
 })
 @DisableIf.Device(DeviceFormFactor.DESKTOP_FREEFORM) // crbug.com/511287024
 public class ArchivedTabsDialogCoordinatorTest {
@@ -838,14 +839,16 @@ public class ArchivedTabsDialogCoordinatorTest {
 
     @Test
     @MediumTest
-    @Restriction(DeviceFormFactor.TABLET_OR_DESKTOP)
+    // Desktop can't rotate to portrait; it letterboxes the window instead.
+    @Restriction(DeviceFormFactor.ONLY_TABLET)
     @Feature({"RenderTest"})
     public void testMessageResizedOnTablet() throws IOException {
         ChromeTabbedActivity cta = mCtaTestRule.getActivity();
         ActivityTestUtils.rotateActivityToOrientation(cta, ORIENTATION_PORTRAIT);
         addArchivedTab(new GURL("https://www.google.com/"), "test 2");
 
-        TabUiTestHelper.enterTabSwitcher(mCtaTestRule.getActivity());
+        // The rotation can letterbox the window and show a popup that swallows an Espresso click.
+        TabUiTestHelper.enterTabSwitcherProgrammatically(cta);
         mRenderTestRule.render(
                 cta.findViewById(R.id.pane_frame), "archived_tabs_message_tablet_portrait");
 

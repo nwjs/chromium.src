@@ -1142,47 +1142,56 @@ AX_TEST_F(
 #endif
 `);
 
-AX_TEST_F('ChromeVoxBackgroundTest', 'MissingTableCells', async function() {
-  const mockFeedback = this.createMockFeedback();
-  const site = `
+// TODO(crbug.com/568271714): Flaky (times out) on MSan. Investigate and
+// re-enable.
+AX_TEST_F(
+    'ChromeVoxBackgroundTest', 'MAYBE_MissingTableCells', async function() {
+      const mockFeedback = this.createMockFeedback();
+      const site = `
   <table border=1>
     <tr><td>a</td><td>b</td><td>c</td></tr>
     <tr><td>d</td><td>e</td></tr>
     <tr><td>f</td></tr>
   </table>
   `;
-  const root = await this.runWithLoadedTree(site);
-  mockFeedback.call(doCmd('goToRowLastCell'))
-      .expectSpeech('c', 'row 1 column 3')
-      .call(doCmd('goToRowLastCell'))
-      .expectSpeech('c')
-      .call(doCmd('goToRowFirstCell'))
-      .expectSpeech('a', 'row 1 column 1')
-      .call(doCmd('goToRowFirstCell'))
-      .expectSpeech('a')
+      const root = await this.runWithLoadedTree(site);
+      mockFeedback.call(doCmd('goToRowLastCell'))
+          .expectSpeech('c', 'row 1 column 3')
+          .call(doCmd('goToRowLastCell'))
+          .expectSpeech('c')
+          .call(doCmd('goToRowFirstCell'))
+          .expectSpeech('a', 'row 1 column 1')
+          .call(doCmd('goToRowFirstCell'))
+          .expectSpeech('a')
 
-      .call(doCmd('nextCol'))
-      .expectSpeech('b', 'row 1 column 2')
+          .call(doCmd('nextCol'))
+          .expectSpeech('b', 'row 1 column 2')
 
-      .call(doCmd('goToColLastCell'))
-      .expectSpeech('e', 'row 2 column 2')
-      .call(doCmd('goToColLastCell'))
-      .expectSpeech('e')
-      .call(doCmd('goToColFirstCell'))
-      .expectSpeech('b', 'row 1 column 2')
-      .call(doCmd('goToColFirstCell'))
-      .expectSpeech('b')
+          .call(doCmd('goToColLastCell'))
+          .expectSpeech('e', 'row 2 column 2')
+          .call(doCmd('goToColLastCell'))
+          .expectSpeech('e')
+          .call(doCmd('goToColFirstCell'))
+          .expectSpeech('b', 'row 1 column 2')
+          .call(doCmd('goToColFirstCell'))
+          .expectSpeech('b')
 
-      .call(doCmd('goToFirstCell'))
-      .expectSpeech('a', 'row 1 column 1')
-      .call(doCmd('goToFirstCell'))
-      .expectSpeech('a')
-      .call(doCmd('goToLastCell'))
-      .expectSpeech('f', 'row 3 column 1')
-      .call(doCmd('goToLastCell'))
-      .expectSpeech('f');
-  await mockFeedback.replay();
-});
+          .call(doCmd('goToFirstCell'))
+          .expectSpeech('a', 'row 1 column 1')
+          .call(doCmd('goToFirstCell'))
+          .expectSpeech('a')
+          .call(doCmd('goToLastCell'))
+          .expectSpeech('f', 'row 3 column 1')
+          .call(doCmd('goToLastCell'))
+          .expectSpeech('f');
+      await mockFeedback.replay();
+    }, `
+#if defined(MEMORY_SANITIZER)
+#define MAYBE_MissingTableCells DISABLED_MissingTableCells
+#else
+#define MAYBE_MissingTableCells MissingTableCells
+#endif
+`);
 
 AX_TEST_F('ChromeVoxBackgroundTest', 'DisabledState', async function() {
   const mockFeedback = this.createMockFeedback();
@@ -4069,8 +4078,9 @@ AX_TEST_F(
       await mockFeedback.replay();
     });
 
+// TODO(crbug.com/566485779): Re-enable flaky test.
 AX_TEST_F(
-    'ChromeVoxBackgroundTest', 'CrossWindowNextPreviousFocus',
+    'ChromeVoxBackgroundTest', 'DISABLED_CrossWindowNextPreviousFocus',
     async function() {
       const mockFeedback = this.createMockFeedback();
       const site = `
@@ -4078,6 +4088,11 @@ AX_TEST_F(
 <div aria-label="fourth"><button>fifth</button><button>sixth</button></div>
 `;
       const root = await this.runWithLoadedTree(site);
+      // ChromeVox focuses each button as it navigates. Don't announce the
+      // resulting (async) focus events; they can arrive after the next command
+      // and move the range back, racing with the expectations below.
+      BaseAutomationHandler.announceActions = false;
+
       // Fake out the divs to be windows.
       const window1 = root.children[0];
       const window2 = root.children[1];

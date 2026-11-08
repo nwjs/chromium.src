@@ -634,7 +634,12 @@ public class FeedSurfaceMediator
     @Override
     public boolean isScrollViewInitialized() {
         RecyclerView recyclerView = mCoordinator.getRecyclerView();
-        return recyclerView != null && (!mFeedEnabled || recyclerView.getHeight() > 0);
+        if (!mFeedEnabled) return true;
+        if (recyclerView.getHeight() <= 0) return false;
+        // The Litho/xsurface renderer binds item layouts asynchronously. A RecyclerView with
+        // height but no laid-out children must not be considered initialized (otherwise it is
+        // treated as 'scrolled past the header' incorrectly).
+        return recyclerView.getChildCount() > 0;
     }
 
     @Override
@@ -909,9 +914,21 @@ public class FeedSurfaceMediator
                                     mPositionToRestore = RecyclerView.NO_POSITION;
                                     final var originalAnimator =
                                             mCoordinator.getRecyclerView().getItemAnimator();
-                                    mCoordinator
-                                            .getRecyclerView()
-                                            .setItemAnimator(new ItemAnimatorWithoutAnimation());
+                                    // Skip item animations until the restore completes. With a
+                                    // null ItemAnimator, RecyclerView skips its animation steps,
+                                    // so removed items can't be left behind as stale views, as
+                                    // happens with ItemAnimatorWithoutAnimation, which never
+                                    // reports its items as finished. See b/517926260.
+                                    if (ChromeFeatureList.isEnabled(
+                                            ChromeFeatureList
+                                                    .FEED_NULL_ITEM_ANIMATOR_ON_SCROLL_RESTORE)) {
+                                        mCoordinator.getRecyclerView().setItemAnimator(null);
+                                    } else {
+                                        mCoordinator
+                                                .getRecyclerView()
+                                                .setItemAnimator(
+                                                        new ItemAnimatorWithoutAnimation());
+                                    }
                                     final Runnable onComplete =
                                             () -> {
                                                 mGetRestoringStateSupplier.set(

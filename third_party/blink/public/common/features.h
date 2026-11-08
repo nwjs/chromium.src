@@ -492,6 +492,12 @@ BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE_PARAM(
     std::string,
     kFilteringScrollPredictionFilterParam);
 
+// Flushes the GPU channel right after a LayerTreeView is released, so that the
+// destruction of its SharedImages isn't left for the next flush, which is often
+// in the middle of the next navigation. Kill switch for crbug.com/569098933.
+BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(
+    kFlushGpuChannelOnLayerTreeViewRelease);
+
 // When enabled, FontAccessManager ensures the requesting frame is active
 // before consuming transient user activation.
 // Kill switch for crbug.com/556250086.
@@ -517,14 +523,6 @@ BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kOffscreenCanvasPropagateVisibility);
 
 // Discard WebGL back buffer when page visibility is hidden.
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kWebGLDiscardBackBuffer);
-
-// When enabled, forces ICC profile parsing to use skcms instead of the Rust
-// moxcms parser. Acts as a kill-switch for the Rust ICC parser.
-BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kForceSkcmsICCParsing);
-
-// When enabled, forces EXIF parsing to use the C++ SkExif parser instead of
-// the Rust parser. Acts as a kill-switch for the Rust EXIF parser.
-BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kForceSkExifCppParsing);
 
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kFrameMetadataObserver);
 
@@ -1279,6 +1277,8 @@ BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kNavigationPredictor);
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE_PARAM(
     int,
     kPredictorTrafficClientEnabledPercent);
+BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE_PARAM(int,
+                                               kRandomAnchorSamplingPeriod);
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(
     kNavigationPredictorNewViewportFeatures);
 
@@ -1379,39 +1379,23 @@ BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE_PARAM(
     kPreloadingEagerHoverHeuristicsDwellTime);
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kPreloadingEagerViewportHeuristics);
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE_PARAM(
+    bool,
+    kPreloadingEagerViewportHeuristicsForDevToolsEmulation);
+BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE_PARAM(
     base::TimeDelta,
     kPreloadingEagerViewportHeuristicsPresentTime);
 
-// If enabled, the machine learning model will be employed to predict the next
-// click for speculation-rule based pre-loadings.
-BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kPreloadingHeuristicsMLModel);
-BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE_PARAM(int,
-                                               kPreloadingModelTimerStartDelay);
-BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE_PARAM(int,
-                                               kPreloadingModelTimerInterval);
-BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE_PARAM(base::TimeDelta,
-                                               kPreloadingModelMaxHoverTime);
-BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE_PARAM(bool,
-                                               kPreloadingModelEnactCandidates);
-BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE_PARAM(
-    int,
-    kPreloadingModelPrefetchModerateThreshold);
-BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE_PARAM(
-    int,
-    kPreloadingModelPrerenderModerateThreshold);
-
 // If enabled, a viewport based heuristic will be used to predict the next click
 // for speculation-rule based preloading.
-// Note: To work correctly, this also needs kNavigationPredictor enabled with
-// "random_anchor_sampling_period" set to 1, and
-// kNavigationPredictorNewViewportFeatures.
-// Note: The prediction will only be preloaded if the "enact_candidates" param
-// is set to true (the default outside Android is false), otherwise it is only
-// logged for metrics purposes.
+// Predictions are only preloaded when
+// kPreloadingModerateViewportHeuristicsEnactCandidates is true.
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kPreloadingModerateViewportHeuristics);
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE_PARAM(
     bool,
     kPreloadingModerateViewportHeuristicsEnactCandidates);
+BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE_PARAM(
+    bool,
+    kPreloadingModerateViewportHeuristicsForDevToolsEmulation);
 
 // If enabled, preloading eligibility checks (e.g., data saver, battery saver)
 // are performed on the renderer side.
@@ -1490,12 +1474,23 @@ BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kLocalCompileHints);
 
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kReducedReferrerGranularity);
 
+// Kill switch for applying Region Capture (cropTo()) to a video track while
+// other tracks share its source, e.g. after clone().
+BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kRegionCaptureOfClonedTracks);
+
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(
     kReleaseResourceDecodedDataOnMemoryPressure);
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(
     kReleaseResourceStrongReferencesOnMemoryPressure);
 
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kRemoveCommitRedirectUrlsArray);
+
+// When enabled, this ensures only XHR sync requests from contexts attached to a
+// DOMWindow (as opposed to a worker) can bypass TCP Socket Pool limits.
+// When disabled, any XHR sync request can bypass TCP Socket Pool limits.
+// See crbug.com/563817431.
+BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(
+    kRequiresLoadIgnoreLimitsForDomWindowsOnly);
 
 // Allows same-document available-image reuse for no-store images.
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(

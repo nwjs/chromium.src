@@ -50,7 +50,6 @@ import java.lang.ref.WeakReference;
 public class PdfPageIphControllerUnitTest {
     @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
     @Mock private WindowAndroid mWindowAndroid;
-    @Mock private View mToolbarMenuButton;
     @Mock private AppMenuHandler mAppMenuHandler;
     @Mock private UserEducationHelper mUserEducationHelper;
     @Mock private WeakReference<Context> mWeakReferenceContext;
@@ -62,6 +61,7 @@ public class PdfPageIphControllerUnitTest {
     @Captor private ArgumentCaptor<IphCommand> mIphCommandCaptor;
 
     private final ActivityTabProvider mActivityTabProvider = new ActivityTabProvider();
+    private View mToolbarMenuButton;
     private PdfPageIphController mController;
 
     @Before
@@ -70,7 +70,7 @@ public class PdfPageIphControllerUnitTest {
         Context context = ApplicationProvider.getApplicationContext();
         doReturn(mWeakReferenceContext).when(mWindowAndroid).getContext();
         doReturn(context).when(mWeakReferenceContext).get();
-        doReturn(context).when(mToolbarMenuButton).getContext();
+        mToolbarMenuButton = new View(context);
 
         TrackerFactory.setTrackerForTests(mTracker);
         when(mTracker.wouldTriggerHelpUi(FeatureConstants.IPH_PDF_PAGE_DOWNLOAD)).thenReturn(true);

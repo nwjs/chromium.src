@@ -21,6 +21,7 @@ import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 
+import org.chromium.base.ContextUtils;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.chrome.browser.tab_ui.TabSwitcherCustomViewManager;
 import org.chromium.ui.modaldialog.DialogDismissalCause;
@@ -36,9 +37,9 @@ public class TabSwitcherIncognitoReauthCoordinatorTest {
     @Mock private Runnable mSeeOtherTabsRunnableMock;
     @Mock private Runnable mBackPressRunnableMock;
     @Mock private TabSwitcherCustomViewManager mTabSwitcherCustomViewManagerMock;
-    @Mock private View mIncognitoReauthViewMock;
     @Mock private PropertyModelChangeProcessor mPropertyModelChangeProcessorMock;
 
+    private final View mIncognitoReauthViewMock = new View(ContextUtils.getApplicationContext());
     private TabSwitcherIncognitoReauthCoordinator mTabSwitcherIncognitoReauthCoordinator;
 
     @Before

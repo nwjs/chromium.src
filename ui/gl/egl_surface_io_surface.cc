@@ -6,6 +6,7 @@
 
 #include "base/check_op.h"
 #include "base/logging.h"
+#include "base/notreached.h"
 #include "ui/gl/gl_bindings.h"
 
 // Enums for the EGL_ANGLE_iosurface_client_buffer extension
@@ -30,20 +31,27 @@ struct InternalFormatType {
 // Convert a SharedImageFormat to a (internal format, type) combination from the
 // EGL_ANGLE_iosurface_client_buffer extension spec.
 InternalFormatType SharedImageFormatToInternalFormatType(
-    viz::SharedImageFormat format) {
-  if (!format.is_single_plane()) {
-    LOG(ERROR) << "Invalid format: " << format.ToString();
-    return {GL_NONE, GL_NONE};
+    viz::SharedImageFormat format,
+    int plane) {
+  if (format.is_multi_plane()) {
+    DCHECK(format.IsValidPlaneIndex(plane));
+    // IOSurface does not support external sampler use cases.
+    int num_channels = format.NumChannelsInPlane(plane);
+    DCHECK_LE(num_channels, 2);
+    GLenum gl_format = num_channels == 2 ? GL_RG : GL_RED;
+    switch (format.channel_format()) {
+      case viz::SharedImageFormat::ChannelFormat::k8:
+        return {gl_format, GL_UNSIGNED_BYTE};
+      case viz::SharedImageFormat::ChannelFormat::k10:
+      case viz::SharedImageFormat::ChannelFormat::k16:
+      case viz::SharedImageFormat::ChannelFormat::k16F:
+        return {gl_format, GL_UNSIGNED_SHORT};
+    }
+    NOTREACHED();
   }
 
   if (format == viz::SinglePlaneFormat::kR_8) {
     return {GL_RED, GL_UNSIGNED_BYTE};
-  } else if (format == viz::SinglePlaneFormat::kR_16) {
-    return {GL_RED, GL_UNSIGNED_SHORT};
-  } else if (format == viz::SinglePlaneFormat::kRG_88) {
-    return {GL_RG, GL_UNSIGNED_BYTE};
-  } else if (format == viz::SinglePlaneFormat::kRG_1616) {
-    return {GL_RG, GL_UNSIGNED_SHORT};
   } else if (format == viz::SinglePlaneFormat::kBGRX_8888 ||
              format == viz::SinglePlaneFormat::kRGBX_8888) {
     return {GL_RGB, GL_UNSIGNED_BYTE};
@@ -144,7 +152,7 @@ bool ScopedEGLSurfaceIOSurface::CreatePBuffer(IOSurfaceRef io_surface,
   // or to transform YUV to RGB.
   if (pbuffer_ == EGL_NO_SURFACE) {
     InternalFormatType formatType =
-        SharedImageFormatToInternalFormatType(format);
+        SharedImageFormatToInternalFormatType(format, plane);
     if (formatType.format == GL_NONE || formatType.type == GL_NONE) {
       LOG(ERROR) << "Invalid resource format.";
       return false;

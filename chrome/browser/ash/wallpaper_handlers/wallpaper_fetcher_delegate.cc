@@ -7,48 +7,59 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <utility>
 
+#include "base/check.h"
+#include "base/check_deref.h"
+#include "base/types/pass_key.h"
 #include "chrome/browser/ash/wallpaper_handlers/google_photos_wallpaper_handlers.h"
-#include "chrome/browser/ash/wallpaper_handlers/sea_pen_fetcher.h"
 #include "chrome/browser/ash/wallpaper_handlers/wallpaper_handlers.h"
-#include "chrome/browser/manta/manta_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chromeos/ash/components/signin/identity_manager_provider.h"
 #include "components/account_id/account_id.h"
-#include "components/manta/manta_service.h"
-#include "components/manta/snapper_provider.h"
 #include "components/signin/public/base/consent_level.h"
 #include "components/signin/public/identity_manager/access_token_fetcher.h"
 #include "components/signin/public/identity_manager/access_token_info.h"
 #include "components/signin/public/identity_manager/primary_account_access_token_fetcher.h"
 #include "google_apis/gaia/gaia_constants.h"
+#include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "third_party/abseil-cpp/absl/memory/memory.h"
 
 namespace wallpaper_handlers {
 
-WallpaperFetcherDelegateImpl::WallpaperFetcherDelegateImpl() = default;
+WallpaperFetcherDelegateImpl::WallpaperFetcherDelegateImpl(
+    const ApplicationLocaleStorage* application_locale_storage,
+    scoped_refptr<network::SharedURLLoaderFactory> shared_url_loader_factory)
+    : application_locale_storage_(CHECK_DEREF(application_locale_storage)),
+      shared_url_loader_factory_(std::move(shared_url_loader_factory)) {
+  CHECK(shared_url_loader_factory_);
+}
 
 WallpaperFetcherDelegateImpl::~WallpaperFetcherDelegateImpl() = default;
 
 std::unique_ptr<BackdropCollectionInfoFetcher>
 WallpaperFetcherDelegateImpl::CreateBackdropCollectionInfoFetcher() const {
-  // Use `WrapUnique` to access the protected constructor.
-  return absl::WrapUnique(new BackdropCollectionInfoFetcher());
+  return std::make_unique<BackdropCollectionInfoFetcherImpl>(
+      base::PassKey<WallpaperFetcherDelegateImpl>(),
+      &application_locale_storage_.get(), shared_url_loader_factory_);
 }
 
 std::unique_ptr<BackdropImageInfoFetcher>
 WallpaperFetcherDelegateImpl::CreateBackdropImageInfoFetcher(
     const std::string& collection_id) const {
-  // Use `WrapUnique` to access the protected constructor.
-  return absl::WrapUnique(new BackdropImageInfoFetcher(collection_id));
+  return std::make_unique<BackdropImageInfoFetcherImpl>(
+      base::PassKey<WallpaperFetcherDelegateImpl>(),
+      &application_locale_storage_.get(), shared_url_loader_factory_,
+      collection_id);
 }
 
 std::unique_ptr<BackdropSurpriseMeImageFetcher>
 WallpaperFetcherDelegateImpl::CreateBackdropSurpriseMeImageFetcher(
     const std::string& collection_id) const {
-  // Use `WrapUnique` to access the protected constructor.
-  return absl::WrapUnique(
-      new BackdropSurpriseMeImageFetcher(collection_id, /*resume_token=*/""));
+  return std::make_unique<BackdropSurpriseMeImageFetcherImpl>(
+      base::PassKey<WallpaperFetcherDelegateImpl>(),
+      &application_locale_storage_.get(), shared_url_loader_factory_,
+      collection_id, /*resume_token=*/"");
 }
 
 std::unique_ptr<GooglePhotosAlbumsFetcher>
@@ -113,16 +124,6 @@ void WallpaperFetcherDelegateImpl::FetchGooglePhotosAccessToken(
         std::move(callback).Run(access_token_info.token);
       },
       std::move(fetcher), std::move(callback)));
-}
-
-std::unique_ptr<SeaPenFetcher>
-WallpaperFetcherDelegateImpl::CreateSeaPenFetcher(Profile* profile) const {
-  std::unique_ptr<manta::SnapperProvider> snapper_provider;
-  auto* manta_service = manta::MantaServiceFactory::GetForProfile(profile);
-  if (manta_service) {
-    snapper_provider = manta_service->CreateSnapperProvider();
-  }
-  return SeaPenFetcher::MakeSeaPenFetcher(std::move(snapper_provider));
 }
 
 }  // namespace wallpaper_handlers

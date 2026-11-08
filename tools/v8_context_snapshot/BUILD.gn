@@ -118,6 +118,13 @@ if (use_v8_context_snapshot) {
         ldflags = [ "-rpath", "@executable_path/." ]
       }
 
+      # NW.js: when cross-compiling for mac from a non-mac host this generator
+      # is a host (ELF) executable, but shared libraries keep the mac layout
+      # (shlib_subdir is empty for mac), so add an rpath next to the binary.
+      if (target_os == "mac" && host_os != "mac" && !is_component_build) {
+        ldflags = [ "-Wl,-rpath,\$ORIGIN" ]
+      }
+
       configs += [
         "//v8:external_startup_data",
         ":disable_icf",

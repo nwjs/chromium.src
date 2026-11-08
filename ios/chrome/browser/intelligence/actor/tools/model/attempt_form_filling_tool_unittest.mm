@@ -5,10 +5,12 @@
 #import "ios/chrome/browser/intelligence/actor/tools/model/attempt_form_filling_tool.h"
 
 #import "base/memory/raw_ptr.h"
+#import "base/test/gmock_callback_support.h"
 #import "base/test/test_future.h"
 #import "base/unguessable_token.h"
 #import "base/values.h"
 #import "components/autofill/core/browser/actor/mock_actor_form_filling_service.h"
+#import "components/autofill/core/browser/integrators/actor/actor_form_filling_types.h"
 #import "components/autofill/core/common/unique_ids.h"
 #import "components/autofill/ios/browser/autofill_util.h"
 #import "components/autofill/ios/browser/test_autofill_client_ios.h"
@@ -39,6 +41,8 @@
 #import "testing/platform_test.h"
 
 namespace {
+
+using ::base::test::RunOnceCallback;
 
 // Adds a `FormFillingRequest` proto to `action`.
 void AddFormFillingRequestToAction(
@@ -867,4 +871,182 @@ TEST_F(AttemptFormFillingToolTest, Execute_FillSuggestionsError) {
             mojom::ActionResultCode::kFormFillingUnknownAutofillError);
 }
 
+// Test that `DebugString` formats actions with zero, one, and multiple form
+// filling requests without trailing commas.
+TEST_F(AttemptFormFillingToolTest, DebugString) {
+  web::FakeWebState* web_state = CreateAndInsertWebState();
+
+  optimization_guide::proto::AttemptFormFillingAction empty_action;
+  std::unique_ptr<AttemptFormFillingTool> empty_tool =
+      CreateTool(empty_action, web_state);
+  ASSERT_TRUE(empty_tool);
+  EXPECT_EQ("AttemptFormFillingTool([])", empty_tool->DebugString());
+
+  optimization_guide::proto::AttemptFormFillingAction single_action =
+      CreateAction(/*is_address=*/true);
+  std::unique_ptr<AttemptFormFillingTool> single_tool =
+      CreateTool(single_action, web_state);
+  ASSERT_TRUE(single_tool);
+  EXPECT_EQ("AttemptFormFillingTool([kAddress])", single_tool->DebugString());
+
+  optimization_guide::proto::AttemptFormFillingAction multi_action =
+      CreateAction(/*is_address=*/true);
+  AddFormFillingRequestToAction(multi_action, /*is_address=*/false,
+                                /*use_coordinates=*/true);
+  std::unique_ptr<AttemptFormFillingTool> multi_tool =
+      CreateTool(multi_action, web_state);
+  ASSERT_TRUE(multi_tool);
+  EXPECT_EQ("AttemptFormFillingTool([kAddress, kCreditCard])",
+            multi_tool->DebugString());
+}
+
+// Test that when credit_card_opaque_token is present in the action,
+// AttemptFormFillingTool retrieves suggestions asynchronously and directly
+// fills without prompting the user.
+TEST_F(AttemptFormFillingToolTest, FillWithCreditCardOpaqueToken) {
+  web::FakeWebState* web_state = CreateAndInsertWebState();
+
+  // Set up 1 renderer ID for the trigger field.
+  base::DictValue renderer_ids_dict;
+  renderer_ids_dict.Set("resultCode", 0);
+  base::ListValue unique_ids;
+  unique_ids.Append("1");
+  renderer_ids_dict.Set("uniqueIds", std::move(unique_ids));
+  base::Value renderer_ids_result(std::move(renderer_ids_dict));
+  AddJsResultForFunctionCallToMainFrame(
+      web_state, &renderer_ids_result,
+      "attempt_form_filling.getAutofillRendererIds");
+
+  optimization_guide::proto::AttemptFormFillingAction action;
+  AddFormFillingRequestToAction(action, /*is_address=*/false,
+                                /*use_coordinates=*/true);
+  action.set_credit_card_opaque_token("opaque_token_xyz");
+
+  std::unique_ptr<AttemptFormFillingTool> tool = CreateTool(action, web_state);
+  ASSERT_TRUE(tool);
+
+  // GetSuggestions should NOT be called.
+  EXPECT_CALL(*mock_form_filling_service(), GetSuggestions).Times(0);
+
+  autofill::ActorFormFillingRequest request;
+  request.requested_data = autofill::ActorFormFillingRequestedData::kCreditCard;
+  autofill::ActorSuggestion suggestion;
+  suggestion.id = autofill::ActorSuggestionId(1);
+  suggestion.title = "Mock Card";
+  suggestion.details = "•••• 1111";
+  request.suggestions.push_back(std::move(suggestion));
+  std::vector<autofill::ActorFormFillingRequest> requests;
+  requests.push_back(std::move(request));
+
+  EXPECT_CALL(*mock_form_filling_service(),
+              RetrieveSuggestionForCreditCardOpaqueToken(
+                  testing::_, testing::_, "opaque_token_xyz", testing::_))
+      .WillOnce(RunOnceCallback<3>(std::move(requests)));
+
+  // FillForm and FillSuggestions should be directly called.
+  EXPECT_CALL(*mock_form_filling_service(),
+              FillForm(testing::_, 0, testing::_));
+
+  EXPECT_CALL(*mock_form_filling_service(), FillSuggestions)
+      .WillOnce(
+          [](autofill::AutofillClient& client,
+             base::span<const autofill::ActorFormFillingSelection>
+                 chosen_suggestions,
+             base::OnceCallback<void(
+                 base::expected<std::string, autofill::ActorFormFillingError>)>
+                 callback) { std::move(callback).Run("Success"); });
+
+  base::test::TestFuture<ToolExecutionResult> future;
+  tool->Execute(future.GetCallback());
+
+  ToolExecutionResult result = future.Get();
+  EXPECT_TRUE(result.IsOk());
+  EXPECT_FALSE(intervention_delegate().selectFromSuggestionsCalled);
+}
+
+// Test that when credit_card_opaque_token is present in the action but no
+// suggestions are retrieved, AttemptFormFillingTool handles it gracefully by
+// returning kFormFillingNoSuggestionsAvailable.
+TEST_F(AttemptFormFillingToolTest,
+       FillWithCreditCardOpaqueToken_NoSuggestions) {
+  web::FakeWebState* web_state = CreateAndInsertWebState();
+
+  // Set up 1 renderer ID for the trigger field.
+  base::DictValue renderer_ids_dict;
+  renderer_ids_dict.Set("resultCode", 0);
+  base::ListValue unique_ids;
+  unique_ids.Append("1");
+  renderer_ids_dict.Set("uniqueIds", std::move(unique_ids));
+  base::Value renderer_ids_result(std::move(renderer_ids_dict));
+  AddJsResultForFunctionCallToMainFrame(
+      web_state, &renderer_ids_result,
+      "attempt_form_filling.getAutofillRendererIds");
+
+  optimization_guide::proto::AttemptFormFillingAction action;
+  AddFormFillingRequestToAction(action, /*is_address=*/false,
+                                /*use_coordinates=*/true);
+  action.set_credit_card_opaque_token("no_suggestions");
+
+  std::unique_ptr<AttemptFormFillingTool> tool = CreateTool(action, web_state);
+  ASSERT_TRUE(tool);
+
+  // GetSuggestions should NOT be called.
+  EXPECT_CALL(*mock_form_filling_service(), GetSuggestions).Times(0);
+
+  EXPECT_CALL(*mock_form_filling_service(),
+              RetrieveSuggestionForCreditCardOpaqueToken(
+                  testing::_, testing::_, "no_suggestions", testing::_))
+      .WillOnce(RunOnceCallback<3>(
+          base::unexpected(autofill::ActorFormFillingError::kNoSuggestions)));
+
+  // FillForm and FillSuggestions should NOT be called.
+  EXPECT_CALL(*mock_form_filling_service(), FillForm).Times(0);
+  EXPECT_CALL(*mock_form_filling_service(), FillSuggestions).Times(0);
+
+  base::test::TestFuture<ToolExecutionResult> future;
+  tool->Execute(future.GetCallback());
+
+  ToolExecutionResult result = future.Get();
+  EXPECT_FALSE(result.IsOk());
+  EXPECT_EQ(result.code(),
+            mojom::ActionResultCode::kFormFillingNoSuggestionsAvailable);
+  EXPECT_FALSE(intervention_delegate().selectFromSuggestionsCalled);
+}
+
+// Test that when credit_card_opaque_token is present in the action along with
+// an address request, AttemptFormFillingTool fails with kArgumentsInvalid.
+TEST_F(AttemptFormFillingToolTest,
+       FillWithCreditCardOpaqueTokenAndAddressRejected) {
+  web::FakeWebState* web_state = CreateAndInsertWebState();
+
+  optimization_guide::proto::AttemptFormFillingAction action;
+  AddFormFillingRequestToAction(action, /*is_address=*/true,
+                                /*use_coordinates=*/true);
+  AddFormFillingRequestToAction(action, /*is_address=*/false,
+                                /*use_coordinates=*/true);
+  action.set_credit_card_opaque_token("opaque_token_xyz");
+
+  std::unique_ptr<AttemptFormFillingTool> tool = CreateTool(action, web_state);
+  ASSERT_TRUE(tool);
+
+  // GetSuggestions and RetrieveSuggestionForCreditCardOpaqueToken should NOT be
+  // called.
+  EXPECT_CALL(*mock_form_filling_service(), GetSuggestions).Times(0);
+  EXPECT_CALL(*mock_form_filling_service(),
+              RetrieveSuggestionForCreditCardOpaqueToken)
+      .Times(0);
+  EXPECT_CALL(*mock_form_filling_service(), FillForm).Times(0);
+  EXPECT_CALL(*mock_form_filling_service(), FillSuggestions).Times(0);
+
+  base::test::TestFuture<ToolExecutionResult> future;
+  tool->Validate(future.GetCallback());
+
+  ToolExecutionResult result = future.Get();
+  EXPECT_FALSE(result.IsOk());
+  EXPECT_EQ(result.code(), mojom::ActionResultCode::kArgumentsInvalid);
+  EXPECT_EQ(result.message(),
+            "Credit card opaque token cannot be combined with address "
+            "requests.");
+  EXPECT_FALSE(intervention_delegate().selectFromSuggestionsCalled);
+}
 }  // namespace actor

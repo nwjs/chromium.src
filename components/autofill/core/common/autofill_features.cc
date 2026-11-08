@@ -222,7 +222,7 @@ BASE_FEATURE_PARAM(std::string,
 // received through AUTOFILL_VALUABLE.
 // TODO(crbug.com/542468992): Clean up when launched.
 BASE_FEATURE(kAutofillAiImportConstraintsForSync,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // If enabled, Autofill AI suggestion width can be limited.
 BASE_FEATURE(kAutofillAiLimitSuggestionWidth,
@@ -250,6 +250,13 @@ BASE_FEATURE(kAutofillAiOrder, base::FEATURE_ENABLED_BY_DEFAULT);
 // metrics between the two results.
 BASE_FEATURE(kAutofillAiPrivateAiShadowMetric,
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+#if BUILDFLAG(IS_ANDROID)
+// If enabled, the Autofill AI private inference notice is shown in the Touch To
+// Fill bottom sheet instead of an Android message.
+BASE_FEATURE(kAutofillAiPrivateInferenceNoticeBottomSheet,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#endif  // BUILDFLAG(IS_ANDROID)
 
 // If enabled, AutofillAi requires re-auth when filling/viewing sensitive
 // fields. As part of this feature sensitive fields are also obfuscated during
@@ -404,6 +411,12 @@ BASE_FEATURE(kAutofillAiWalletPrivatePassesCapability,
 BASE_FEATURE(kAutofillAiWalletPrivatePassesDeepLink,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+// If enabled, Wallet management URLs (`pass_view_url`) received via sync are
+// stored on `EntityInstance::WalletRecordTypePayload` and used for deep
+// linking to Google Wallet.
+BASE_FEATURE(kAutofillAiWalletServerProvidedDeepLink,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // When enabled, orders and shipments from Google Wallet become available in
 // Autofill for filling as read-only AutofillAi entities.
 // TODO(crbug.com/542022094): Clean up when launched.
@@ -550,11 +563,6 @@ BASE_FEATURE_PARAM(base::TimeDelta,
 // encouraged to use the AtMemory feature.
 BASE_FEATURE(kAutofillAtMemoryInactivityNudge,
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Kill switch: If enabled, AtMemory fills by simulating a paste. If disabled,
-// AtMemory uses ExtendSelectionAndReplace().
-// TODO(crbug.com/553143213): Clean up when PasteText() has proved robust.
-BASE_FEATURE(kAutofillAtMemoryPasteText, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Controls whether the previously filled suggestions from AtMemory are shown.
 // Takes no effect when `kAutofillAtMemorySearchStatefulness` is disabled.
@@ -722,7 +730,6 @@ BASE_FEATURE(kAutofillEnableEntryLimitInPopup,
 // When enabled, IBAN regex pattern matching is expanded to support more
 // formats.
 BASE_FEATURE(kAutofillEnableExpandIbanRegexPattern,
-             "AutofillEnableExpandIbanRegexPattern",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables a couple of improvements to credit card expiration date handling:
@@ -841,11 +848,16 @@ BASE_FEATURE(kAutofillGmailOtpPreLaunchMetrics,
 // When enabled, Greek regexes are used for parsing in branded builds.
 BASE_FEATURE(kAutofillGreekRegexes, base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Controls whether `AutofillPopupHideHelper` ignores frame resize events
-// when the `WebContents` size is unchanged.
-// TODO(crbug.com/545556982): Remove after confirming there is no regression.
-BASE_FEATURE(kAutofillIgnoreUnchangedFrameResizes,
-             base::FEATURE_ENABLED_BY_DEFAULT);
+// When enabled, `BrowserAutofillManager` hides suggestions as soon as the
+// renderer reports that the focus moved away from the field the suggestions
+// were shown for (FocusOnFormField() for a different field or
+// FocusOnNonFormField()). Without this, hiding relies on
+// DidEndTextFieldEditing(), which Blink only sends for <input> elements, so
+// suggestions shown for <textarea> or contenteditable elements leak into the
+// keyboard accessory after the user taps away.
+// TODO(crbug.com/570488818): Remove once the experiment is over.
+BASE_FEATURE(kAutofillHideSuggestionsOnFocusChange,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // When enabled, corrects missclassification of NAME_LAST as NAME_LAST_SECOND in
 // an absence of NAME_LAST_FIRST.
@@ -940,7 +952,13 @@ BASE_FEATURE(kAutofillPaymentsFieldSwapping, base::FEATURE_DISABLED_BY_DEFAULT);
 // TODO(crbug.com/543741063): Transform to killswitch after some time.
 BASE_FEATURE(kAutofillPersonalizationAndTrustAddressSurvey,
              base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kAutofillPersonalizationAndTrustAtMemorySurvey,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kAutofillPersonalizationAndTrustAutofillAiSurvey,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kAutofillPersonalizationAndTrustCreditCardSurvey,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kAutofillPersonalizationAndTrustOneTimePasswordSurvey,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Controls whether Autofill may fill across origins.
@@ -961,13 +979,6 @@ BASE_FEATURE(kAutofillPolicyControlledFeatureAutofill,
 // TODO(crbug.com/40178859): Enable this feature.
 BASE_FEATURE(kAutofillPolicyControlledFeatureManualText,
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-// If the feature is enabled, Autofill popups perform additional check to
-// detect if they are obscured by top-level HTML form popups (e.g color picker).
-// If so, Autofill Popup won't be shown.
-// TODO(crbug.com/417052041): Remove when launched.
-BASE_FEATURE(kAutofillPopupCheckHtmlFormPopupOverlap,
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // If the feature is enabled, before triggering suggestion acceptance, the row
 // view checks that a substantial portion of its content was visible for some
@@ -997,6 +1008,13 @@ BASE_FEATURE(kAutofillReplaceFormElementObserver,
 BASE_FEATURE(kAutofillRequireFocusInFrameForSuggestions,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Kill switch: If enabled, `AutofillPopupControllerImpl` and
+// `AutofillKeyboardAccessoryControllerImpl` reset `barrier_for_accepting_` when
+// datalist values are updated via `UpdateDataListValues()`.
+// TODO(crbug.com/514074839): Clean up after Nov 3, 2026.
+BASE_FEATURE(kAutofillResetAcceptanceBarrierOnDataListUpdate,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 // TODO(crbug.com/435646513) - Clean-up after feature lands at 100% Stable.
 // Enables the new experimental server-side signatures for evaluation purposes.
 BASE_FEATURE(kAutofillServerExperimentalSignatures,
@@ -1005,6 +1023,11 @@ BASE_FEATURE(kAutofillServerExperimentalSignatures,
 // Enables uploading of more data to the Autofill server to use for computing
 // signatures: go/autofill-signatures-more-data.
 BASE_FEATURE(kAutofillServerUploadMoreData, base::FEATURE_ENABLED_BY_DEFAULT);
+
+// When enabled, autofill suggestions for one-time passwords (OTPs) from Gmail
+// are shown.
+BASE_FEATURE(kAutofillShowGmailOtpSuggestions,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // If enabled, fetch sms otp from gmscore and upload votes for sms otp.
 // TODO(crbug.com/453999673): Clean up when launched.

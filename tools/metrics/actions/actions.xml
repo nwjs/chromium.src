@@ -76,8 +76,6 @@ should be able to be added at any place in this file.
       summary="Show read anything side panel action"/>
   <variant name=".kActionSidePanelShowReadingList"
       summary="Show reading list side panel action"/>
-  <variant name=".kActionSidePanelShowTabsFromOtherDevices"
-      summary="Show tabs from other devices side panel action"/>
   <variant name=".kActionSplitTab" summary="Split view action"/>
   <variant name=".kActionTabSearch" summary="Tab search action"/>
   <variant name=".kActionTaskManager" summary="Task manager action"/>
@@ -161,6 +159,7 @@ should be able to be added at any place in this file.
 </variants>
 
 <variants name="ContextualSearchSource">
+  <variant name="ContextualCue" summary="Contextual cue"/>
   <variant name="ContextualTasks" summary="Contextual tasks"/>
   <variant name="Lens" summary="Lens"/>
   <variant name="NewTabPage" summary="New tab page"/>
@@ -256,11 +255,6 @@ should be able to be added at any place in this file.
       summary="For AddToHomescreen IPH feature using text bubble (obsolete)."/>
   <variant name="_AimActivationHint"
       summary="A hint to activate AI Mode on Android Desktop via keystrokes."/>
-  <variant name="_AndroidBottomBarAim"
-      summary="Describes the AI Mode button added in the bottom bar."/>
-  <variant name="_AndroidBottomBarAimPromoDialog"
-      summary="For the promo dialog shown to introduce AI Mode with the
-               bottom bar."/>
   <variant name="_AndroidBottomBarGlic"
       summary="Describes the GLIC button added in the bottom bar."/>
   <variant name="_AndroidBottomBarNewTab"
@@ -322,9 +316,14 @@ should be able to be added at any place in this file.
   <variant name="_BadgedTranslateManualTrigger"
       summary="For BadgedTranslateManualTrigger feature."/>
   <variant name="_BatterySaverMode" summary="For BatterySaverMode feature."/>
+  <variant name="_BlueBubbleCooldownGroup"
+      summary="Cooldown group for blue bubble IPHs on Android."/>
   <variant name="_Bookmark" summary="For Bookmark feature."/>
   <variant name="_BookmarkBarSimplified"
       summary="For bookmark bar simplified auto-hide toast."/>
+  <variant name="_BookmarkBarVisibility"
+      summary="For the IPH telling users they can show the Bookmark Bar on
+               Android"/>
   <variant name="_BookmarksBar"
       summary="For Bookmarks Bar feature. (obsolete)"/>
   <variant name="_BottomToolbarTip" summary="For BottomToolbarTip feature."/>
@@ -502,6 +501,10 @@ should be able to be added at any place in this file.
       summary="For generic always show help UI feature."/>
   <variant name="_GestureUserEducation"
       summary="For gesture user edcuation IPH feature."/>
+  <variant name="_GlassFrameOptIn"
+      summary="For GlassFrame opt-in IPH feature."/>
+  <variant name="_GlassFrameOptOut"
+      summary="For GlassFrame opt-out IPH feature."/>
   <variant name="_GlicPromo" summary="For Glic feature."/>
   <variant name="_GlicPromoAndroid" summary="For Glic promotion on Android."/>
   <variant name="_GlicTrustFirstOnboardingShortcutSnoozePromo"
@@ -536,11 +539,15 @@ should be able to be added at any place in this file.
   <variant name="_IntentChip"
       summary="In product help for opening a webpage in an app using the
                intent chip."/>
+  <variant name="_InterruptiveIphCooldownGroup"
+      summary="Cooldown group for interruptive IPHs on Android."/>
   <variant name="_iOSAddressPromoDesktop"
       summary="For iOSAddressPromoDesktop feature"/>
   <variant name="_iOSAIHubNewBadge" summary="For AI Hub New Badge feature."/>
   <variant name="_iOSBackgroundNewBadge"
       summary="For iOSBackgroundNewBadge feature"/>
+  <variant name="_iOSBottomOmniboxFeature"
+      summary="For iOSBottomOmniboxFeature feature"/>
   <variant name="_IOSBWGPromoFeature" summary="For IOSBWGPromoFeature feature"/>
   <variant name="_iOSChoiceScreen"
       summary="(obsolete) For iOSChoiceScreen feature"/>
@@ -618,6 +625,8 @@ should be able to be added at any place in this file.
       summary="For iOSPostDefaultAbandonmentPromo feature"/>
   <variant name="_iOSPriceTrackingDesktop"
       summary="For iOSPriceTrackingDesktopFeature"/>
+  <variant name="_iOSPromoAccountSwitching"
+      summary="For iOSPromoAccountSwitching feature"/>
   <variant name="_iOSPromoAllTabs"
       summary="For All Tabs default browser promo."/>
   <variant name="_iOSPromoAppStore" summary="For iOSPromoAppStore feature"/>
@@ -701,14 +710,6 @@ should be able to be added at any place in this file.
   <variant name="_iOSTabGroupsDesktop"
       summary="For iOSTabGroupsDesktopFeature"/>
   <variant name="_iOSWelcomeBack" summary="For iOSWelcomeBack feature"/>
-  <variant name="_KeyboardAccessoryAddressFilling"
-      summary="For KeyboardAccessoryAddressFilling feature."/>
-  <variant name="_KeyboardAccessoryBarSwiping"
-      summary="For KeyboardAccessoryBarSwiping feature."/>
-  <variant name="_KeyboardAccessoryPasswordFilling"
-      summary="For KeyboardAccessoryPasswordFilling feature."/>
-  <variant name="_KeyboardAccessoryPaymentFilling"
-      summary="For KeyboardAccessoryPaymentFilling feature."/>
   <variant name="_KeyboardAccessoryPaymentOffer"
       summary="For KeyboardAccessoryPaymentOffer feature."/>
   <variant name="_LauncherSearchHelpUi"
@@ -813,6 +814,10 @@ should be able to be added at any place in this file.
       summary="For ReadingListInSidePanel feature."/>
   <variant name="_ReadingListMessages"
       summary="For ReadingListMessages feature."/>
+  <variant name="_ReadingModeAiPlayback"
+      summary="For AI playback toggle in Reading Mode feature."/>
+  <variant name="_ReadingModeAiPlaybackSettings"
+      summary="For settings promo after AI playback in Reading Mode feature."/>
   <variant name="_ReadingModeKeyboardShortcut"
       summary="For reading mode keyboard shortcut feature."/>
   <variant name="_ReadingModeLineFocus"
@@ -859,16 +864,12 @@ should be able to be added at any place in this file.
   <variant name="_SharedHighlightingReceiver"
       summary="For SharedHighlightingReceiver feature."/>
   <variant name="_ShareScreenshot" summary="For ShareScreenshot feature."/>
-  <variant name="_SharingHubLinkToggle"
-      summary="For Sharing Hub link toggle feature."/>
   <variant name="_SharingHubWebnotesStylize"
       summary="For SharingHubWebnotesStylize feature."/>
   <variant name="_ShoppingCollectionFeature"
       summary="For the explanation of what the shopping collection is."/>
   <variant name="_ShoppingListMenuItem"
       summary="For ShoppingListMenuItem feature."/>
-  <variant name="_ShoppingListSaveFlow"
-      summary="For ShoppingListSaveFlow feature."/>
   <variant name="_SideBySidePinnableFeature"
       summary="For side by side split view pinning feature."/>
   <variant name="_SideBySideTabSwitchFeature"
@@ -1040,7 +1041,6 @@ should be able to be added at any place in this file.
   <variant name="ShoppingInsights" summary="shopping insights"/>
   <variant name="SidePanelDev" summary="side panel dev feature"/>
   <variant name="SideSearch" summary="side search"/>
-  <variant name="TabsFromOtherDevices" summary="tabs from other devices"/>
   <variant name="TestTabScopedEntry" summary="test tab scoped entry"/>
   <variant name="WebView" summary="web view"/>
 </variants>
@@ -1077,6 +1077,8 @@ should be able to be added at any place in this file.
   <variant name=".SyncEsbOn"
       summary="Enhanced Protection setting has been synced to On"/>
   <variant name=".Translate" summary="Translate"/>
+  <variant name=".TtcGenericError" summary="TTC generic error"/>
+  <variant name=".TtcNoMicrophoneError" summary="TTC no microphone error"/>
 </variants>
 
 <variants name="UserEducation_WhatsNew_Module_Type">
@@ -1107,6 +1109,8 @@ should be able to be added at any place in this file.
   <variant name=".SafetySafetycheck" summary="Safety Check"/>
   <variant name=".SaveTabGroups" summary="Saved Tab Groups"/>
   <variant name=".SearchBoxSuggestions" summary="Search Box Suggestions"/>
+  <variant name=".SendTabToSelfEnhancedHandoff"
+      summary="Send Tab To Self Enhanced Handoff"/>
   <variant name=".SideBySide" summary="Split View"/>
   <variant name=".SidePanelPinning" summary="Side Panel Pinning"/>
   <variant name=".SyncAccountSettings"
@@ -3944,6 +3948,31 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="Android.HistoryPage.ActorFilterSelected">
+  <owner>dullweber@chromium.org</owner>
+  <owner>chrome-browser-privacy-team@google.com</owner>
+  <description>
+    User selected an option in the history actor filter sheet.
+  </description>
+</action>
+
+<action name="Android.HistoryPage.AppFilterSelected">
+  <owner>dullweber@chromium.org</owner>
+  <owner>chrome-browser-privacy-team@google.com</owner>
+  <description>
+    User selected an app in the history app filter sheet.
+  </description>
+</action>
+
+<action name="Android.HistoryPage.ClearAllFilters">
+  <owner>dullweber@chromium.org</owner>
+  <owner>chrome-browser-privacy-team@google.com</owner>
+  <description>
+    User clicked the clear all button to reset all applied filters on the
+    Android history page.
+  </description>
+</action>
+
 <action name="Android.HistoryPage.ClearBrowsingData">
   <owner>twellington@chromium.org</owner>
   <description>
@@ -3959,6 +3988,22 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="Android.HistoryPage.DeviceFilterSelected">
+  <owner>dullweber@chromium.org</owner>
+  <owner>chrome-browser-privacy-team@google.com</owner>
+  <description>
+    User selected a device in the history device filter sheet.
+  </description>
+</action>
+
+<action name="Android.HistoryPage.HostFilterSelected">
+  <owner>dullweber@chromium.org</owner>
+  <owner>chrome-browser-privacy-team@google.com</owner>
+  <description>
+    User selected a host in the history host filter sheet.
+  </description>
+</action>
+
 <action name="Android.HistoryPage.LoadMoreOnScroll">
   <owner>twellington@chromium.org</owner>
   <description>
@@ -3967,11 +4012,38 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="Android.HistoryPage.OpenActorFilterSheet">
+  <owner>dullweber@chromium.org</owner>
+  <owner>chrome-browser-privacy-team@google.com</owner>
+  <description>
+    User opened the history actor filter sheet. Reported when user taps the
+    actor filter chip UI to bring up the sheet.
+  </description>
+</action>
+
 <action name="Android.HistoryPage.OpenAppFilterSheet">
   <owner>jinsukkim@chromium.org</owner>
   <owner>chrome-connective-tissue@google.com</owner>
   <description>
     User opened the history app filter sheet. Reported when user taps the app
+    filter chip UI to bring up the sheet.
+  </description>
+</action>
+
+<action name="Android.HistoryPage.OpenDeviceFilterSheet">
+  <owner>dullweber@chromium.org</owner>
+  <owner>chrome-browser-privacy-team@google.com</owner>
+  <description>
+    User opened the history device filter sheet. Reported when user taps the
+    device filter chip UI to bring up the sheet.
+  </description>
+</action>
+
+<action name="Android.HistoryPage.OpenHostFilterSheet">
+  <owner>dullweber@chromium.org</owner>
+  <owner>chrome-browser-privacy-team@google.com</owner>
+  <description>
+    User opened the history host filter sheet. Reported when user taps the host
     filter chip UI to bring up the sheet.
   </description>
 </action>
@@ -4258,6 +4330,24 @@ should be able to be added at any place in this file.
   <description>
     Recorded when the user opts in to crash recovery by clicking the positive
     button on the recovery dialog.
+  </description>
+</action>
+
+<action name="Android.MultiWindow.StartupRestorationCompleted">
+  <owner>aishwaryarj@google.com</owner>
+  <owner>clank-large-form-factors@google.com</owner>
+  <description>
+    Recorded when automatic multi-window restoration on startup finishes
+    creating all windows for which activity creation was initiated.
+  </description>
+</action>
+
+<action name="Android.MultiWindow.StartupRestorationInitiated">
+  <owner>aishwaryarj@google.com</owner>
+  <owner>clank-large-form-factors@google.com</owner>
+  <description>
+    Recorded when automatic multi-window restoration on cold startup initiates
+    activity creation for at least one additional window.
   </description>
 </action>
 
@@ -5928,25 +6018,6 @@ should be able to be added at any place in this file.
   <description>
     Recorded when the user clicks the link on the payment methods settings page
     to manage Google Pay payment methods.
-  </description>
-</action>
-
-<action name="Autofill.PaymentMethodsSettingsPage.ScanCardClicked">
-  <owner>darwinyang@google.com</owner>
-  <owner>chrome-payments-eng@google.com</owner>
-  <description>
-    Recorded when the user clicks the scan card button in the payment methods
-    settings card edit page.
-  </description>
-</action>
-
-<action name="Autofill.PaymentMethodsSettingsPage.ScannerCannotScan"
-    not_user_triggered="true">
-  <owner>darwinyang@google.com</owner>
-  <owner>chrome-payments-eng@google.com</owner>
-  <description>
-    Recorded when the user arrives on the payment methods settings card edit
-    page and the scanner for the scan card feature is not available.
   </description>
 </action>
 
@@ -10190,12 +10261,31 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="ContextualTasks.EphemeralToolbarButton.AutoDismissed">
+  <owner>dianaou@chromium.org</owner>
+  <owner>chrome-contextual-tasks-eng@google.com</owner>
+  <description>
+    Recorded when the ephemeral contextual tasks toolbar button is automatically
+    dismissed after its auto-dismiss timeout expires.
+  </description>
+</action>
+
 <action name="ContextualTasks.EphemeralToolbarButton.Shown">
   <owner>dianaou@chromium.org</owner>
   <owner>chrome-contextual-tasks-eng@google.com</owner>
   <description>
     Recorded when the ephemeral contextual tasks toolbar button becomes visible
     in the browser toolbar.
+  </description>
+</action>
+
+<action
+    name="ContextualTasks.EphemeralToolbarButton.UserAction.RemoveByContextMenu">
+  <owner>dianaou@chromium.org</owner>
+  <owner>chrome-contextual-tasks-eng@google.com</owner>
+  <description>
+    Recorded when the user removes the ephemeral contextual tasks toolbar button
+    for the current task via its context menu.
   </description>
 </action>
 
@@ -10208,12 +10298,49 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="ContextualTasks.LensRegionChip.Dismissed">
+  <owner>nguyenbryan@chromium.org</owner>
+  <owner>chrome-contextual-tasks-eng@google.com</owner>
+  <description>
+    Recorded when the user dismisses the Lens region chip in the Contextual
+    Tasks composebox plate.
+  </description>
+</action>
+
+<action name="ContextualTasks.LensRegionChip.Shown">
+  <owner>nguyenbryan@chromium.org</owner>
+  <owner>chrome-contextual-tasks-eng@google.com</owner>
+  <description>
+    Recorded when the Lens region chip is shown in the Contextual Tasks
+    composebox plate.
+  </description>
+</action>
+
 <action name="ContextualTasks.SidePanel.UserAction.Close.AiModeLinkClick">
   <owner>nguyenbryan@chromium.org</owner>
   <owner>chrome-contextual-tasks-eng@google.com</owner>
   <description>
     Recorded when the user closes the side panel for a session entered via an AI
     mode link click.
+  </description>
+</action>
+
+<action name="ContextualTasks.SidePanel.UserAction.Close.AskGoogle">
+  <owner>nguyenbryan@google.com</owner>
+  <owner>chrome-contextual-tasks-eng@google.com</owner>
+  <description>
+    Recorded when the user closes the side panel for a session entered via an
+    Ask Google entry point.
+  </description>
+</action>
+
+<action
+    name="ContextualTasks.SidePanel.UserAction.Close.EphemeralToolbarButton">
+  <owner>dianaou@chromium.org</owner>
+  <owner>chrome-contextual-tasks-eng@google.com</owner>
+  <description>
+    Recorded when the user closes the side panel for a session entered via the
+    ephemeral (unpinned) toolbar button.
   </description>
 </action>
 
@@ -13351,9 +13478,10 @@ should be able to be added at any place in this file.
   <description>
     This metric is currently broken. It is logged once per profile
     initialization if Glic is enabled for that profile. The only action a user
-    can take to enable Glic is to accept the FRE. Use Glic.Fre.Accept instead of
-    this metric. All other actions that might enable Glic are not user
-    initiated. And not likely to occur once the FRE has been accepted.
+    can take to enable Glic is to accept the FRE. Use
+    Glic.Onboarding.OptInAccept instead of this metric. All other actions that
+    might enable Glic are not user initiated. And not likely to occur once the
+    FRE has been accepted.
   </description>
 </action>
 
@@ -13447,12 +13575,6 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
-<action name="Glic.Fre.Accept">
-  <owner>iwells@google.com</owner>
-  <owner>erikchen@chromium.org</owner>
-  <description>Logged if the FRE is accepted.</description>
-</action>
-
 <action name="Glic.Fre.Dismissed">
   <owner>perrier@chromium.org</owner>
   <owner>sauski@google.com</owner>
@@ -13467,6 +13589,15 @@ should be able to be added at any place in this file.
   <description>
     Logged when input is submitted after accepting the FRE. Is logged for both
     automatic and user initiated input.
+  </description>
+</action>
+
+<action name="Glic.Fre.Invoked">
+  <owner>perrier@chromium.org</owner>
+  <owner>glic+metrics@google.com</owner>
+  <description>
+    Logged when a Glic instance is opened for the first time while the user has
+    not yet consented to the FRE and the FRE opt-in will be shown.
   </description>
 </action>
 
@@ -13922,14 +14053,12 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
-<action name="Glic.Onboarding.Invoked">
+<action name="Glic.Onboarding.Completed">
   <owner>perrier@google.com</owner>
   <owner>glic+metrics@google.com</owner>
   <description>
-    Logged when Glic is invoked during onboarding. Invoked is defined as a new
-    embedder being shown for a tab or Floaty. Tab switching or focus events are
-    not considered invoking, but daisy chaining, conversation switching, or
-    re-opening on an already bound tab are considered invoking.
+    Recorded when the user completes onboarding by both opting in and submitting
+    their first prompt (entering the PromptAndOptIn state).
   </description>
 </action>
 
@@ -13952,11 +14081,48 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
-<action name="Glic.Onboarding.PromptSubmitted">
-  <owner>perrier@google.com</owner>
+<action name="Glic.Overlay.IneligibleAccountHelpClicked">
+  <owner>harringtond@chromium.org</owner>
   <owner>glic+metrics@google.com</owner>
   <description>
-    Logged when a prompt is submitted by the user during onboarding.
+    Recorded when the user clicked the help button on the Glic overlay
+    ineligible account error panel.
+  </description>
+</action>
+
+<action name="Glic.Overlay.LocationMismatchHelpClicked">
+  <owner>harringtond@chromium.org</owner>
+  <owner>glic+metrics@google.com</owner>
+  <description>
+    Recorded when the user clicked the help button on the Glic overlay location
+    mismatch error panel.
+  </description>
+</action>
+
+<action name="Glic.Overlay.ProfilePickerClicked">
+  <owner>harringtond@chromium.org</owner>
+  <owner>glic+metrics@google.com</owner>
+  <description>
+    Recorded when the user clicked the switch profile button on the Glic overlay
+    unavailable error panel.
+  </description>
+</action>
+
+<action name="Glic.Overlay.RetryClicked">
+  <owner>harringtond@chromium.org</owner>
+  <owner>glic+metrics@google.com</owner>
+  <description>
+    Recorded when the user clicked the retry button on a Glic overlay error
+    panel.
+  </description>
+</action>
+
+<action name="Glic.Overlay.SignInClicked">
+  <owner>harringtond@chromium.org</owner>
+  <owner>glic+metrics@google.com</owner>
+  <description>
+    Recorded when the user clicked the sign-in button on the Glic overlay
+    sign-in error panel.
   </description>
 </action>
 
@@ -15049,6 +15215,25 @@ should be able to be added at any place in this file.
 <action name="Indent">
   <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
   <description>Please enter the description of this user action.</description>
+</action>
+
+<action name="Indigo.ContextMenu.Click">
+  <owner>jbroman@chromium.org</owner>
+  <owner>adithyas@chromium.org</owner>
+  <owner>baranerf@google.com</owner>
+  <description>
+    User clicked the Indigo item from a page or image context menu.
+  </description>
+</action>
+
+<action name="Indigo.ContextMenu.Show">
+  <owner>jbroman@chromium.org</owner>
+  <owner>adithyas@chromium.org</owner>
+  <owner>baranerf@google.com</owner>
+  <description>
+    The Indigo item was displayed in a page or image context menu (recorded at
+    most once per page load).
+  </description>
 </action>
 
 <action name="Indigo.DeleteOriginalPhoto.Complete">
@@ -16900,7 +17085,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="IOSPrivacySafeBrowsingSettingsCloseWithSwipe">
-  <owner>joemerramos@chromium.org</owner>
+  <owner>joemerramos@google.com</owner>
   <owner>ajuma@chromium.org</owner>
   <description>
     Reported when Privacy Safe Browsing Settings UI was dismissed using swipe
@@ -16941,7 +17126,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="IOSSafeBrowsingEnhancedProtectionSettingsCloseWithSwipe">
-  <owner>joemerramos@chromium.org</owner>
+  <owner>joemerramos@google.com</owner>
   <owner>ajuma@chromium.org</owner>
   <description>
     Reported when Safe Browsing Enhanced Protection Settings UI was dismissed
@@ -16950,7 +17135,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="IOSSafeBrowsingStandardProtectionSettingsCloseWithSwipe">
-  <owner>joemerramos@chromium.org</owner>
+  <owner>joemerramos@google.com</owner>
   <owner>ajuma@chromium.org</owner>
   <description>
     Reported when Safe Browsing Standard Protection Settings UI was dismissed
@@ -16972,6 +17157,35 @@ should be able to be added at any place in this file.
   <description>
     Reported when Sync Encryption Passphrase Settings UI was dismissed using
     swipe down gesture. iOS only.
+  </description>
+</action>
+
+<action name="IsolatedMode_Started_Supervised_LogSegment_Prefs_Mismatch">
+  <owner>szpotekagata@google.com</owner>
+  <owner>cec-growth@google.com</owner>
+  <description>
+    An Enterprise Isolated Mode session is started, for a user whose UMA log
+    segment is supervised but who does not have parental controls applied. This
+    is an unexpected error condition.
+  </description>
+</action>
+
+<action name="IsolatedMode_Started_Supervised_Managed">
+  <owner>szpotekagata@google.com</owner>
+  <owner>cec-growth@google.com</owner>
+  <description>
+    An Enterprise Isolated Mode session is started, for a supervised user where
+    the Isolated Mode preference is managed by an Enterprise policy.
+  </description>
+</action>
+
+<action name="IsolatedMode_Started_Supervised_Unexpected">
+  <owner>szpotekagata@google.com</owner>
+  <owner>cec-growth@google.com</owner>
+  <description>
+    An Enterprise Isolated Mode session is started, for a supervised user not
+    fitting into the definition of the two metrics above. This is an unexpected
+    error.
   </description>
 </action>
 
@@ -19195,6 +19409,14 @@ should be able to be added at any place in this file.
   <description>Reported when the user taps the New Feature Badge</description>
 </action>
 
+<action name="MobileAIModeSearchPerformed">
+  <owner>rkgibson@google.com</owner>
+  <owner>pabouchard@google.com</owner>
+  <description>
+    Recorded when a search is performed in AI Mode. iOS only.
+  </description>
+</action>
+
 <action name="MobileAutofillAndPasswordsSettingsBack">
   <owner>jsobiech@google.com</owner>
   <owner>chrome-autofill-team@google.com</owner>
@@ -19662,15 +19884,6 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
-<action name="MobileBottomBar.Aim.Clicked">
-  <owner>madhavpruthi@google.com</owner>
-  <owner>ckitagawa@chromium.org</owner>
-  <owner>polardz@google.com</owner>
-  <description>
-    Recorded when the AI Mode button in the Android Bottom Bar is clicked.
-  </description>
-</action>
-
 <action name="MobileBottomToolbarNewTabButton">
   <owner>mdjones@chromium.org</owner>
   <owner>clank-app-team@google.com</owner>
@@ -19926,6 +20139,24 @@ should be able to be added at any place in this file.
   <owner>ewannpv@chromium.org</owner>
   <description>
     User attempted to retry uploading a file after the upload failed.
+  </description>
+</action>
+
+<action name="MobileEdgeSwipeBack">
+  <owner>gambard@chromium.org</owner>
+  <owner>bling-fundamentals@google.com</owner>
+  <description>
+    User navigated back in history by swiping from the leading edge of the
+    screen. iOS only.
+  </description>
+</action>
+
+<action name="MobileEdgeSwipeForward">
+  <owner>gambard@chromium.org</owner>
+  <owner>bling-fundamentals@google.com</owner>
+  <description>
+    User navigated forward in history by swiping from the trailing edge of the
+    screen. iOS only.
   </description>
 </action>
 
@@ -20444,6 +20675,15 @@ should be able to be added at any place in this file.
   <description>
     Reported when the Chrome-side microphone permission alert is shown to the
     user for Gemini Live on iOS.
+  </description>
+</action>
+
+<action name="MobileGeminiLiveFREConsentLinkClick">
+  <owner>tarekmakkouk@google.com</owner>
+  <owner>bling-alchemy-eng@google.com</owner>
+  <description>
+    Reported when the user clicks any link on the Live Gemini FRE consent
+    screen. iOS only.
   </description>
 </action>
 
@@ -21356,7 +21596,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="MobileLockdownModeSettingsBack">
-  <owner>joemerramos@chromium.org</owner>
+  <owner>joemerramos@google.com</owner>
   <owner>ajuma@chromium.org</owner>
   <description>
     Reported when user goes back from Safe Browsing Standard Protection Settings
@@ -21365,7 +21605,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="MobileLockdownModeSettingsClose">
-  <owner>joemerramos@chromium.org</owner>
+  <owner>joemerramos@google.com</owner>
   <owner>ajuma@chromium.org</owner>
   <description>
     Reported when Safe Browsing Standard Protection Settings UI was dismissed.
@@ -23024,7 +23264,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="MobilePrivacySafeBrowsingSettingsBack">
-  <owner>joemerramos@chromium.org</owner>
+  <owner>joemerramos@google.com</owner>
   <owner>ajuma@chromium.org</owner>
   <description>
     Reported when user goes back from Privacy Safe Browsing Settings UI to root
@@ -23033,7 +23273,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="MobilePrivacySafeBrowsingSettingsClose">
-  <owner>joemerramos@chromium.org</owner>
+  <owner>joemerramos@google.com</owner>
   <owner>ajuma@chromium.org</owner>
   <description>
     Reported when Privacy Safe Browsing Settings UI was dismissed. iOS only.
@@ -23055,6 +23295,16 @@ should be able to be added at any place in this file.
   <description>
     Reported when Privacy Safe Browsing Settings UI was dismissed while No
     Protection is selected. iOS only.
+  </description>
+</action>
+
+<action name="MobilePrivacySafeBrowsingSettingsCloseWithProtection">
+  <owner>pabouchard@google.com</owner>
+  <owner>zijingl@google.com</owner>
+  <owner>bling-mony-pod@google.com</owner>
+  <description>
+    Reported when Privacy Safe Browsing Settings UI was dismissed while Enhanced
+    or Standard Protection is enabled. iOS only.
   </description>
 </action>
 
@@ -23355,7 +23605,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="MobileSafeBrowsingEnhancedProtectionSettingsBack">
-  <owner>joemerramos@chromium.org</owner>
+  <owner>joemerramos@google.com</owner>
   <owner>ajuma@chromium.org</owner>
   <description>
     Reported when user goes back from Safe Browsing Enhanced Protection Settings
@@ -23364,7 +23614,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="MobileSafeBrowsingEnhancedProtectionSettingsClose">
-  <owner>joemerramos@chromium.org</owner>
+  <owner>joemerramos@google.com</owner>
   <owner>ajuma@chromium.org</owner>
   <description>
     Reported when Safe Browsing Enhanced Protection Settings UI was dismissed.
@@ -23373,7 +23623,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="MobileSafeBrowsingStandardProtectionSettingsBack">
-  <owner>joemerramos@chromium.org</owner>
+  <owner>joemerramos@google.com</owner>
   <owner>ajuma@chromium.org</owner>
   <description>
     Reported when user goes back from Safe Browsing Standard Protection Settings
@@ -23382,7 +23632,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="MobileSafeBrowsingStandardProtectionSettingsClose">
-  <owner>joemerramos@chromium.org</owner>
+  <owner>joemerramos@google.com</owner>
   <owner>ajuma@chromium.org</owner>
   <description>
     Reported when Safe Browsing Standard Protection Settings UI was dismissed.
@@ -24591,7 +24841,8 @@ should be able to be added at any place in this file.
   <owner>huitingyu@google.com</owner>
   <owner>bling-pandamonium@google.com</owner>
   <description>
-    User in the iOS tab group edition view, confirmed the group creation.
+    User in iOS created a new tab group (e.g., from the tab group edition view,
+    drag and drop in the tab grid, or opening a link in a new group).
   </description>
 </action>
 
@@ -29145,6 +29396,12 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="PageInfo.ExtensionsMenu.Opened">
+  <owner>hujasonx@google.com</owner>
+  <owner>chrome-contextual-tasks-eng@google.com</owner>
+  <description>Extensions menu opened from PageInfo.</description>
+</action>
+
 <action name="PageInfo.ForgetSite.Cleared">
   <owner>olesiamarukhno@google.com</owner>
   <owner>dullweber@chromium.org</owner>
@@ -31514,8 +31771,6 @@ should be able to be added at any place in this file.
         summary="Pinned show search companion side panel button"/>
     <variant name=".PinnedShowTranslateButton"
         summary="Pinned show translate button"/>
-    <variant name=".PinnedTabsFromOtherDevicesButton"
-        summary="Pinned tabs from other devices button"/>
     <variant name=".PinnedTaskManagerButton"
         summary="Pinned task manager button"/>
     <variant name=".SharedTabGroupFeedbackButton"
@@ -32791,6 +33046,24 @@ should be able to be added at any place in this file.
   <owner>gambard@chromium.org</owner>
   <description>
     Reported when user navigates to Bandwidth Settings. iOS only.
+  </description>
+</action>
+
+<action name="Settings.BottomBar.Disabled">
+  <owner>madhavpruthi@google.com</owner>
+  <owner>ckitagawa@chromium.org</owner>
+  <description>
+    Logged when the user turns the bottom bar off in Appearance settings.
+    Android only.
+  </description>
+</action>
+
+<action name="Settings.BottomBar.Enabled">
+  <owner>madhavpruthi@google.com</owner>
+  <owner>ckitagawa@chromium.org</owner>
+  <description>
+    Logged when the user turns the bottom bar on in Appearance settings. Android
+    only.
   </description>
 </action>
 
@@ -35188,7 +35461,7 @@ should be able to be added at any place in this file.
   <owner>chrome-signin-mobile-team@google.com</owner>
   <description>
     Recorded when the user taps on the AI subscription chip in the account menu.
-    iOS only.
+    This chip is non-interactable, this is a no-op. iOS only.
   </description>
 </action>
 
@@ -35230,6 +35503,15 @@ should be able to be added at any place in this file.
   <description>
     Recorded when the user clicks the &quot;Personalize Google Services&quot;
     link row in the account settings page. Only on Android and iOS.
+  </description>
+</action>
+
+<action name="Signin_AccountSettings_SubscriptionChip">
+  <owner>arthurmilchior@chromium.org</owner>
+  <owner>chrome-signin-mobile-team@google.com</owner>
+  <description>
+    Recorded when the user taps the AI subscription chip in the account settings
+    page. This chip is non-interactable, this is a no-op. iOS only.
   </description>
 </action>
 
@@ -35753,14 +36035,6 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
-<action name="Signin_Impression_FromAvatarBubbleSignin"
-    not_user_triggered="true">
-  <owner>gogerald@chromium.org</owner>
-  <description>
-    Recorded when showing sign in entry in the avatar sign in bubble.
-  </description>
-</action>
-
 <action name="Signin_Impression_FromBookmarkBubble" not_user_triggered="true">
   <owner>gogerald@chromium.org</owner>
   <description>
@@ -36219,22 +36493,6 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
-<action name="Signin_Signin_FromAvatarBubbleSignin">
-  <owner>gogerald@chromium.org</owner>
-  <description>
-    Recorded on sign in start from access point
-    signin_metrics::AccessPoint::kAvatarBubbleSignIn.
-  </description>
-</action>
-
-<action name="Signin_Signin_FromAvatarBubbleSigninWithSyncPromo">
-  <owner>droger@chromium.org</owner>
-  <description>
-    Recorded on sign in start from access point
-    signin_metrics::AccessPoint::kAvatarBubbleSignInWithSyncPromo.
-  </description>
-</action>
-
 <action name="Signin_Signin_FromAvatarPillExpandPromo">
   <owner>rsult@google.com</owner>
   <owner>chrome-signin-desktop-team@google.com</owner>
@@ -36594,6 +36852,14 @@ should be able to be added at any place in this file.
   <description>
     Recorded on sign in start from access point
     signin_metrics::AccessPoint::kProductSpecifications.
+  </description>
+</action>
+
+<action name="Signin_Signin_FromProfileMenuPrimaryButton">
+  <owner>droger@chromium.org</owner>
+  <description>
+    Recorded on sign in start from access point
+    signin_metrics::AccessPoint::kProfileMenuPrimaryButton.
   </description>
 </action>
 
@@ -39278,6 +39544,15 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="TabGroup.TitleButton.EditionViewOpened">
+  <owner>achara@google.com</owner>
+  <owner>bling-meridian@google.com</owner>
+  <description>
+    User opened the TabGroup edition view by tapping the TabGroup title button.
+    iOS only.
+  </description>
+</action>
+
 <action name="TabGroupConfirmation.CloseTabFullGroup.Abort">
   <owner>skym@chromium.org</owner>
   <owner>clank-tab-dev@google.com</owner>
@@ -39712,6 +39987,15 @@ should be able to be added at any place in this file.
   <description>
     User pressed &quot;Create New Tab Group&quot; from the Everything menu in
     the bookmarks bar.
+  </description>
+</action>
+
+<action
+    name="TabGroups_SavedTabGroups_CreateNewGroupTriggeredFromOrganizerPanel">
+  <owner>agale@chromium.org</owner>
+  <owner>top-chrome-desktop-ui@google.com</owner>
+  <description>
+    User pressed &quot;Create tab group&quot; from the Organizer Panel.
   </description>
 </action>
 

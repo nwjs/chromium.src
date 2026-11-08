@@ -5,12 +5,16 @@
 #include "chrome/browser/ui/read_anything/read_anything_controller.h"
 
 #include "base/functional/callback_helpers.h"
+#include "base/i18n/language_tag.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/run_until.h"
 #include "base/test/scoped_feature_list.h"
 #include "chrome/app/chrome_command_ids.h"
+#include "chrome/browser/pdf/pdf_extension_test_util.h"
 #include "chrome/browser/renderer_context_menu/render_view_context_menu_test_util.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
+#include "chrome/browser/translate/chrome_translate_client.h"
+#include "chrome/browser/ui/browser_actions.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
@@ -51,6 +55,12 @@
 #include "components/prefs/pref_service.h"
 #include "components/search_engines/template_url.h"
 #include "components/search_engines/template_url_service.h"
+#include "components/translate/content/browser/content_translate_driver.h"
+#include "components/translate/content/common/translate.mojom.h"
+#include "components/translate/core/browser/language_state.h"
+#include "components/translate/core/browser/translate_manager.h"
+#include "components/translate/core/common/language_detection_details.h"
+#include "components/translate/core/common/translate_features.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/render_widget_host_view.h"
 #include "content/public/test/browser_test.h"
@@ -59,16 +69,27 @@
 #include "content/public/test/no_renderer_crashes_assertion.h"
 #include "content/public/test/pwn_open_url_helper.h"
 #include "content/public/test/test_navigation_observer.h"
+#include "mojo/public/cpp/bindings/pending_receiver.h"
+#include "mojo/public/cpp/bindings/pending_remote.h"
 #include "net/base/url_util.h"
+#include "pdf/buildflags.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/input/web_input_event.h"
+#include "ui/accessibility/accessibility_features.h"
 #include "ui/actions/actions.h"
 #include "ui/base/page_transition_types.h"
 #include "ui/base/window_open_disposition.h"
 #include "ui/events/keycodes/keyboard_codes.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/test/views_test_utils.h"
+
+#if BUILDFLAG(ENABLE_PDF)
+#include "chrome/browser/pdf/pdf_extension_test_util.h"
+#include "chrome/common/extensions/api/pdf_viewer_private.h"
+#include "extensions/browser/event_router.h"
+#include "extensions/browser/test_event_router_observer.h"
+#endif  // BUILDFLAG(ENABLE_PDF)
 
 using read_anything::mojom::ReadAnythingOpenTrigger;
 
@@ -220,6 +241,28 @@ class ReadAnythingControllerBrowserTest : public InProcessBrowserTest {
  private:
   base::test::ScopedFeatureList scoped_feature_list_;
 };
+
+#if BUILDFLAG(ENABLE_PDF)
+IN_PROC_BROWSER_TEST_F(ReadAnythingControllerBrowserTest,
+                       ShowSidePanelUI_PdfTranslation_DispatchesFitToWidth) {
+  content::WebContents* web_contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(
+      browser(), embedded_test_server()->GetURL("/pdf/test.pdf")));
+  ASSERT_TRUE(pdf_extension_test_util::EnsurePDFHasLoaded(web_contents));
+
+  extensions::TestEventRouterObserver observer(
+      extensions::EventRouter::Get(browser()->GetProfile()));
+
+  auto* controller = ReadAnythingController::From(
+      browser()->GetTabStripModel()->GetActiveTab());
+  ASSERT_TRUE(controller);
+  controller->ShowSidePanelUI(SidePanelOpenTrigger::kPdfTranslation);
+
+  observer.WaitForEventWithName(
+      extensions::api::pdf_viewer_private::OnShouldUpdateViewport::kEventName);
+}
+#endif  // BUILDFLAG(ENABLE_PDF)
 
 IN_PROC_BROWSER_TEST_F(ReadAnythingControllerBrowserTest,
                        ShowImmersiveUI_NotifiesObservers) {
@@ -518,7 +561,7 @@ IN_PROC_BROWSER_TEST_F(ReadAnythingControllerBrowserTest,
   AssertOverlayVisibility(/*visible=*/false);
 
   chrome::ExecuteCommandWithContext(
-      browser(), IDC_SHOW_READING_MODE_SIDE_PANEL,
+      browser(), IDC_SHOW_READING_MODE,
       actions::ActionInvocationContext::Builder()
           .SetProperty(
               kSidePanelOpenTriggerKey,
@@ -929,9 +972,10 @@ IN_PROC_BROWSER_TEST_F(ReadAnythingControllerBrowserTest,
   ASSERT_TRUE(find_tab_helper);
 
   // 4. Initiate a find request and wait for the IPC reply.
-  find_tab_helper->StartFinding(
-      u"findme", /*forward_direction=*/true, /*case_sensitive=*/false,
-      /*find_match=*/true, /*run_synchronously_for_testing=*/true);
+  find_tab_helper->StartFinding(u"findme", /*forward_direction=*/true,
+                                /*case_sensitive=*/false,
+                                /*find_match=*/true, /*scroll_to_match=*/true,
+                                /*run_synchronously_for_testing=*/true);
   ui_test_utils::FindResultWaiter observer(irm_contents);
   observer.Wait();
 
@@ -1013,8 +1057,9 @@ IN_PROC_BROWSER_TEST_F(ReadAnythingControllerBrowserTest,
   ASSERT_TRUE(controller);
 
   auto& action_manager = actions::ActionManager::Get();
-  auto* const read_anything_action =
-      action_manager.FindAction(kActionSidePanelShowReadAnything);
+  auto* const read_anything_action = action_manager.FindAction(
+      kActionSidePanelShowReadAnything,
+      BrowserActions::From(browser())->root_action_item());
   ASSERT_TRUE(read_anything_action);
 
   AssertOverlayVisibility(/*visible=*/false);
@@ -3351,3 +3396,105 @@ IN_PROC_BROWSER_TEST_F(ReadAnythingControllerBrowserTest,
         SidePanelEntryKey(SidePanelEntryId::kReadAnything));
   }));
 }
+
+#if BUILDFLAG(ENABLE_PDF)
+class ReadAnythingControllerPdfTranslationBrowserTest
+    : public ReadAnythingControllerBrowserTest {
+ public:
+  ReadAnythingControllerPdfTranslationBrowserTest()
+      : ReadAnythingControllerBrowserTest(
+            {features::kReadAnythingTranslateEntryPoint,
+             translate::kEnableTranslatePdf}) {}
+
+ protected:
+  // Navigates the active tab to a PDF and sets pending translation languages on
+  // the tab's language state. Returns the language state.
+  translate::LanguageState* NavigateToPdfWithPendingTranslation() {
+    content::WebContents* web_contents =
+        browser()->tab_strip_model()->GetActiveWebContents();
+
+    // Navigate to a PDF so IsPdfTranslation() returns true.
+    EXPECT_TRUE(ui_test_utils::NavigateToURL(
+        browser(), embedded_test_server()->GetURL("/pdf/test.pdf")));
+    EXPECT_TRUE(pdf_extension_test_util::EnsurePDFHasLoaded(web_contents));
+
+    ChromeTranslateClient* chrome_translate_client =
+        ChromeTranslateClient::FromWebContents(web_contents);
+    EXPECT_NE(chrome_translate_client, nullptr);
+    if (!chrome_translate_client) {
+      return nullptr;
+    }
+    translate::LanguageState* language_state =
+        chrome_translate_client->GetTranslateManager()->GetLanguageState();
+    language_state->SetPendingTranslationLanguages(
+        base::i18n::GetKnownLanguageTag("la"),
+        base::i18n::GetKnownLanguageTag("en"));
+
+    // Verify that they are initially set.
+    EXPECT_TRUE(language_state->pending_source_language().has_value());
+    EXPECT_TRUE(language_state->pending_target_language().has_value());
+    return language_state;
+  }
+};
+
+IN_PROC_BROWSER_TEST_F(
+    ReadAnythingControllerPdfTranslationBrowserTest,
+    OnDistillationStatus_AfterShownWithPdfTranslation_TriggersTranslation) {
+  auto* controller =
+      ReadAnythingController::From(browser()->GetActiveTabInterface());
+  ASSERT_TRUE(controller);
+  translate::LanguageState* language_state =
+      NavigateToPdfWithPendingTranslation();
+  ASSERT_TRUE(language_state);
+
+  controller->OnEntryShown(ReadAnythingOpenTrigger::kPdfTranslation);
+
+  // Register a side panel agent with the driver so side_panel_agent.is_bound()
+  // is true when MaybeTriggerPendingPdfTranslation is called.
+  content::WebContents* web_contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+  mojo::PendingRemote<translate::mojom::TranslateAgent> side_panel_agent;
+  mojo::PendingReceiver<translate::mojom::TranslateAgent>
+      side_panel_agent_receiver =
+          side_panel_agent.InitWithNewPipeAndPassReceiver();
+  translate::LanguageDetectionDetails side_panel_details;
+  side_panel_details.url =
+      GURL("chrome-untrusted://read-anything-side-panel.top-chrome/");
+  side_panel_details.adopted_language = "en";
+  side_panel_details.is_model_reliable = true;
+  ChromeTranslateClient::FromWebContents(web_contents)
+      ->translate_driver()
+      ->RegisterPage(std::move(side_panel_agent), side_panel_details, true);
+
+  // Call OnDistillationStatus with Success. This should trigger
+  // MaybeTriggerPendingPdfTranslation and clear the pending languages.
+  controller->OnDistillationStatus(
+      read_anything::mojom::DistillationStatus::kSuccess, 100);
+
+  // Verify that the pending languages are cleared.
+  EXPECT_FALSE(language_state->pending_source_language().has_value());
+  EXPECT_FALSE(language_state->pending_target_language().has_value());
+}
+
+IN_PROC_BROWSER_TEST_F(
+    ReadAnythingControllerPdfTranslationBrowserTest,
+    OnDistillationStatus_AfterShownWithPdfTranslation_FailedDoesNotTriggerTranslation) {
+  auto* controller =
+      ReadAnythingController::From(browser()->GetActiveTabInterface());
+  ASSERT_TRUE(controller);
+  translate::LanguageState* language_state =
+      NavigateToPdfWithPendingTranslation();
+  ASSERT_TRUE(language_state);
+
+  controller->OnEntryShown(ReadAnythingOpenTrigger::kPdfTranslation);
+
+  // Call OnDistillationStatus with Failed. This should NOT trigger
+  // MaybeTriggerPendingPdfTranslation.
+  controller->OnDistillationStatus(
+      read_anything::mojom::DistillationStatus::kFailure, 100);
+
+  // Verify that the pending languages are NOT cleared.
+  EXPECT_TRUE(language_state->pending_source_language().has_value());
+  EXPECT_TRUE(language_state->pending_target_language().has_value());
+}
+#endif  // BUILDFLAG(ENABLE_PDF)

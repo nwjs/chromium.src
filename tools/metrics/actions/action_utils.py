@@ -19,6 +19,7 @@ from xml.dom import minidom
 
 import setup_modules  # pylint: disable=unused-import
 
+
 import chromium_src.tools.metrics.common.xml_utils as xml_utils
 
 

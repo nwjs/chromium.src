@@ -264,7 +264,13 @@ class AutoHideStateDetector : public ShelfLayoutManagerObserver {
 
 class ShelfLayoutManagerTest : public ShelfLayoutManagerTestBase {
  public:
-  ShelfLayoutManagerTest() { set_add_default_shelf_icon(false); }
+  ShelfLayoutManagerTest() = default;
+
+  // ShelfLayoutManagerTestBase:
+  void SetUpInitParams(AshTestHelper::InitParams& init_params) override {
+    ShelfLayoutManagerTestBase::SetUpInitParams(init_params);
+    init_params.add_default_shelf_icon = false;
+  }
 
   // Sets up a Kiosk session after the app has launched.
   void SetUpKioskSession() {
@@ -4323,10 +4329,14 @@ TEST_F(ShelfLayoutManagerTest, ShelfShowsPinnedAppsOnOtherDisplays) {
 class QuickActionShowBubbleTest : public ShelfLayoutManagerTestBase,
                                   public testing::WithParamInterface<bool> {
  public:
-  QuickActionShowBubbleTest() : scoped_locale_(GetParam() ? "ar" : "") {
-    set_add_default_shelf_icon(false);
-  }
+  QuickActionShowBubbleTest() : scoped_locale_(GetParam() ? "ar" : "") {}
   ~QuickActionShowBubbleTest() override = default;
+
+  // ShelfLayoutManagerTestBase:
+  void SetUpInitParams(AshTestHelper::InitParams& init_params) override {
+    ShelfLayoutManagerTestBase::SetUpInitParams(init_params);
+    init_params.add_default_shelf_icon = false;
+  }
 
  private:
   base::test::ScopedRestoreICUDefaultLocale scoped_locale_;
@@ -5158,15 +5168,14 @@ TEST_F(ShelfLayoutManagerWithEcheTest, AutoHideShelfWithEcheHidden) {
   EXPECT_EQ(SHELF_AUTO_HIDE_HIDDEN, shelf->GetAutoHideState());
 }
 
-class LockedFullscreenShelfLayoutManagerTest
+class TrustedPinnedShelfLayoutManagerTest
     : public ShelfLayoutManagerTestBase,
       public testing::WithParamInterface<bool> {
  protected:
-  bool IsLocked() const { return GetParam(); }
+  bool IsTrustedPinned() const { return GetParam(); }
 };
 
-TEST_P(LockedFullscreenShelfLayoutManagerTest,
-       HotseatVisibilityWithPinnedWindow) {
+TEST_P(TrustedPinnedShelfLayoutManagerTest, HotseatVisibilityWithPinnedWindow) {
   TabletModeControllerTestApi().EnterTabletMode();
 
   // Create test window.
@@ -5178,14 +5187,14 @@ TEST_P(LockedFullscreenShelfLayoutManagerTest,
   ASSERT_EQ(GetShelfLayoutManager()->hotseat_state(), HotseatState::kExtended);
 
   // Verify hotseat visibility after the window is pinned.
-  PinWindow(window.get(), /*trusted=*/IsLocked());
+  PinWindow(window.get(), /*trusted=*/IsTrustedPinned());
   const HotseatState expected_hotseat_state =
-      IsLocked() ? HotseatState::kHidden : HotseatState::kExtended;
+      IsTrustedPinned() ? HotseatState::kHidden : HotseatState::kExtended;
   EXPECT_EQ(GetShelfLayoutManager()->hotseat_state(), expected_hotseat_state);
 }
 
-INSTANTIATE_TEST_SUITE_P(LockedFullscreenShelfLayoutManagerTests,
-                         LockedFullscreenShelfLayoutManagerTest,
+INSTANTIATE_TEST_SUITE_P(TrustedPinnedShelfLayoutManagerTests,
+                         TrustedPinnedShelfLayoutManagerTest,
                          testing::Bool());
 
 }  // namespace ash

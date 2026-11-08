@@ -119,6 +119,10 @@ class MockInputHandler : public InputHandler {
   }
   void set_is_scrolling_root(bool is) { is_scrolling_root_ = is; }
 
+  void set_prevent_scroll_axis_locking(bool prevent) {
+    prevent_scroll_axis_locking_ = prevent;
+  }
+
   MOCK_METHOD4(GetSnapFlingInfoAndSetAnimatingSnapTarget,
                bool(const gfx::Vector2dF& current_delta,
                     const gfx::Vector2dF& natural_displacement,
@@ -127,6 +131,13 @@ class MockInputHandler : public InputHandler {
   MOCK_METHOD1(ScrollEndForSnapFling, void(bool));
 
   bool ScrollbarScrollIsActive() override { return false; }
+
+  bool CurrentScrollNeedsFrameAlignment() const override {
+    return needs_frame_alignment_;
+  }
+  void set_needs_frame_alignment(bool needs_frame_alignment) {
+    needs_frame_alignment_ = needs_frame_alignment;
+  }
 
   void SetDeferBeginMainFrame(bool defer_begin_main_frame) const override {}
 
@@ -140,6 +151,7 @@ class MockInputHandler : public InputHandler {
 
  private:
   bool is_scrolling_root_ = true;
+  bool needs_frame_alignment_ = false;
 
   base::WeakPtrFactory<MockInputHandler> weak_ptr_factory_{this};
 };

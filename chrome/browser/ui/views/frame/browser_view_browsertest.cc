@@ -74,9 +74,11 @@
 #include "chrome/browser/ui/views/frame/toolbar_button_provider.h"
 #include "chrome/browser/ui/views/frame/top_container_view.h"
 #include "chrome/browser/ui/views/infobars/infobar_container_view.h"
+#include "chrome/browser/ui/views/interaction/browser_elements_views.h"
 #include "chrome/browser/ui/views/location_bar/location_bar_view.h"
 #include "chrome/browser/ui/views/side_panel/side_panel.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_coordinator.h"
+#include "chrome/browser/ui/views/tab_modal_confirm_dialog_views.h"
 #include "chrome/browser/ui/views/tabs/tab/tab_accessibility.h"
 #include "chrome/browser/ui/views/tabs/tab_strip.h"
 #include "chrome/browser/ui/views/toolbar/app_menu_control.h"
@@ -90,7 +92,6 @@
 #include "chrome/test/base/chrome_test_path_utils.h"
 #include "chrome/test/base/chrome_test_utils.h"
 #include "chrome/test/base/in_process_browser_test.h"
-#include "chrome/test/base/test_browser_window.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/bookmarks/common/bookmark_bar_visibility_state.h"
 #include "components/bookmarks/common/bookmark_pref_names.h"
@@ -130,6 +131,7 @@
 #include "ui/actions/action_id.h"
 #include "ui/actions/actions.h"
 #include "ui/base/accelerators/accelerator.h"
+#include "ui/base/base_window.h"
 #include "ui/base/buildflags.h"
 #include "ui/base/interaction/element_identifier.h"
 #include "ui/base/interaction/element_tracker.h"
@@ -154,6 +156,7 @@
 #include "ui/views/test/widget_activation_waiter.h"
 #include "ui/views/view_class_properties.h"
 #include "ui/views/view_utils.h"
+#include "ui/views/window/dialog_client_view.h"
 #include "url/url_constants.h"
 
 #if defined(USE_AURA)
@@ -402,19 +405,16 @@ class TestWebContentsObserver : public content::WebContentsObserver {
   raw_ptr<content::WebContents, DanglingUntriaged> other_;
 };
 
-// Waits for a different view to claim focus within a widget with the
-// specified name.
+// Waits for a view matching (or contained within) the specified
+// `ui::ElementIdentifier` in `browser` to claim focus.
 class TestFocusChangeWaiter : public views::FocusChangeListener {
  public:
-  TestFocusChangeWaiter(views::FocusManager* focus_manager,
-                        const std::string& expected_widget_name)
-      : focus_manager_(focus_manager),
-        expected_widget_name_(expected_widget_name) {
-    if (auto* current_focused_view = focus_manager->GetFocusedView()) {
-      previous_view_id_ = current_focused_view->GetID();
-    } else {
-      previous_view_id_ = -1;
-    }
+  TestFocusChangeWaiter(BrowserWindowInterface* browser,
+                        ui::ElementIdentifier expected_element_id)
+      : browser_elements_(BrowserElementsViews::From(browser)),
+        focus_manager_(
+            browser_elements_->GetPrimaryWindowWidget()->GetFocusManager()),
+        expected_element_id_(expected_element_id) {
     focus_manager_->AddFocusChangeListener(this);
   }
 
@@ -424,25 +424,40 @@ class TestFocusChangeWaiter : public views::FocusChangeListener {
     focus_manager_->RemoveFocusChangeListener(this);
   }
 
-  void Wait() { run_loop_.Run(); }
+  // Waits until a view matching or inside `expected_element_id_` is focused.
+  void Wait() {
+    // Focus may have already moved to the target element before `Wait()` is
+    // called (for example, synchronously when the dialog is created and shown),
+    // in which case `OnDidChangeFocus()` has already fired and we can return
+    // immediately without running `run_loop_`.
+    if (IsExpectedElementFocused(focus_manager_->GetFocusedView())) {
+      return;
+    }
+    run_loop_.Run();
+  }
 
  private:
+  bool IsExpectedElementFocused(views::View* focused_view) const {
+    if (!focused_view) {
+      return false;
+    }
+    views::View* expected_view =
+        browser_elements_->GetView(expected_element_id_);
+    return expected_view && expected_view->Contains(focused_view);
+  }
+
   // views::FocusChangeListener:
   void OnDidChangeFocus(views::View* focused_before,
                         views::View* focused_now) override {
-    if (focused_now && focused_now->GetID() != previous_view_id_) {
-      views::Widget* widget = focused_now->GetWidget();
-      if (widget && widget->GetName() == expected_widget_name_) {
-        run_loop_.Quit();
-      }
+    if (IsExpectedElementFocused(focused_now)) {
+      run_loop_.Quit();
     }
   }
 
+  raw_ptr<BrowserElementsViews> browser_elements_;
   raw_ptr<views::FocusManager> focus_manager_;
   base::RunLoop run_loop_;
-  int previous_view_id_;
-  std::string expected_widget_name_;
-  base::WeakPtrFactory<TestFocusChangeWaiter> weak_factory_{this};
+  ui::ElementIdentifier expected_element_id_;
 };
 
 class TestTabModalConfirmDialogDelegate : public TabModalConfirmDialogDelegate {
@@ -1049,6 +1064,42 @@ IN_PROC_BROWSER_TEST_F(BrowserViewIsolatedTest, AccessibleWindowTitleIsolated) {
                           ->GetAccessibleWindowTitle();
   EXPECT_TRUE(window_title.contains(u"Isolated"));
 }
+
+#if !BUILDFLAG(IS_MAC)
+// In Isolated mode, the New Incognito Window accelerator (Ctrl+Shift+N) opens
+// an Isolated window.
+IN_PROC_BROWSER_TEST_F(BrowserViewIsolatedTest,
+                       NewIncognitoWindowAcceleratorOpensIsolatedWindow) {
+  const ui::Accelerator kNewIncognitoWindowAccel(
+      ui::VKEY_N, ui::EF_PLATFORM_ACCELERATOR | ui::EF_SHIFT_DOWN);
+
+  ui_test_utils::BrowserCreatedObserver browser_created_observer;
+  EXPECT_TRUE(browser_view()->AcceleratorPressed(kNewIncognitoWindowAccel));
+  BrowserWindowInterface* const isolated_browser =
+      browser_created_observer.Wait();
+  ASSERT_TRUE(isolated_browser);
+  EXPECT_TRUE(
+      isolated_browser->GetProfile()->IsEnterpriseIsolatedModeProfile());
+}
+
+// Same as above, but triggered from within an Isolated window.
+IN_PROC_BROWSER_TEST_F(BrowserViewIsolatedTest,
+                       NewIncognitoWindowAcceleratorFromIsolatedWindow) {
+  BrowserWindowInterface* const isolated_browser = CreateIncognitoBrowser();
+  ASSERT_TRUE(
+      isolated_browser->GetProfile()->IsEnterpriseIsolatedModeProfile());
+  const ui::Accelerator kNewIncognitoWindowAccel(
+      ui::VKEY_N, ui::EF_PLATFORM_ACCELERATOR | ui::EF_SHIFT_DOWN);
+
+  ui_test_utils::BrowserCreatedObserver browser_created_observer;
+  EXPECT_TRUE(BrowserView::GetBrowserViewForBrowser(isolated_browser)
+                  ->AcceleratorPressed(kNewIncognitoWindowAccel));
+  BrowserWindowInterface* const new_browser = browser_created_observer.Wait();
+  ASSERT_TRUE(new_browser);
+  EXPECT_TRUE(new_browser->GetProfile()->IsEnterpriseIsolatedModeProfile());
+}
+#endif  // !BUILDFLAG(IS_MAC)
+
 IN_PROC_BROWSER_TEST_F(BrowserViewTest, WindowTitleOmitsLowMemoryUsage) {
   scoped_refptr<TabResourceUsage> tab_resource_usage =
       base::MakeRefCounted<TabResourceUsage>();
@@ -1477,10 +1528,20 @@ IN_PROC_BROWSER_TEST_F(BrowserViewTest, ShowFaviconInTab) {
 // On Mac, voiceover treats tab modal dialogs as native windows, so setting an
 // accessible title for tab-modal dialogs is not necessary.
 #if !BUILDFLAG(IS_MAC)
+class BrowserViewDesktopWidgetDisabledTest : public BrowserViewTest {
+ public:
+  BrowserViewDesktopWidgetDisabledTest() {
+    feature_list_.InitAndDisableFeature(features::kTabModalUsesDesktopWidget);
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
 
 // Open a tab-modal dialog and check that the accessibility tree only contains
 // the dialog.
-IN_PROC_BROWSER_TEST_F(BrowserViewTest, GetAccessibleTabModalDialogTree) {
+IN_PROC_BROWSER_TEST_F(BrowserViewDesktopWidgetDisabledTest,
+                       GetAccessibleTabModalDialogTree) {
   content::ScopedAccessibilityModeOverride ax_mode_override(
       ui::kAXModeComplete);
   ui::AXPlatformNode* ax_node = ui::AXPlatformNode::FromNativeViewAccessible(
@@ -1514,8 +1575,8 @@ IN_PROC_BROWSER_TEST_F(BrowserViewTest, GetAccessibleTabModalDialogTree) {
   // Waiting for the dialog to be shown should ensure that the first
   // condition is met. But we also need to wait for the focus to change
   // or the second condition flakily fails.
-  TestFocusChangeWaiter focus_waiter(browser_view()->GetFocusManager(),
-                                     "MessageBoxView");
+  TestFocusChangeWaiter focus_waiter(browser(),
+                                     views::DialogClientView::kTopViewId);
   TabModalConfirmDialog::Create(std::move(delegate), contents);
   focus_waiter.Wait();
 
@@ -1527,6 +1588,56 @@ IN_PROC_BROWSER_TEST_F(BrowserViewTest, GetAccessibleTabModalDialogTree) {
   EXPECT_NE(ui::AXPlatformNodeTestHelper::FindChildByName(ax_node, "OK"),
             nullptr);
 }
+
+class BrowserViewDesktopWidgetEnabledTest : public BrowserViewTest {
+ public:
+  BrowserViewDesktopWidgetEnabledTest() {
+    feature_list_.InitAndEnableFeature(features::kTabModalUsesDesktopWidget);
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+// Open a tab-modal dialog and check there are separate accessibility trees for
+// the browser and the dialog.
+IN_PROC_BROWSER_TEST_F(BrowserViewDesktopWidgetEnabledTest,
+                       GetAccessibleTabModalDialogTree) {
+  content::ScopedAccessibilityModeOverride ax_mode_override(
+      ui::kAXModeComplete);
+  ui::AXPlatformNode* ax_node = ui::AXPlatformNode::FromNativeViewAccessible(
+      browser_view()->GetWidget()->GetRootView()->GetNativeViewAccessible());
+// We expect this conversion to be safe on Windows, but can't guarantee that it
+// is safe on other platforms.
+#if BUILDFLAG(IS_WIN)
+  ASSERT_TRUE(ax_node);
+#else
+  if (!ax_node) {
+    return;
+  }
+#endif
+
+  content::WebContents* contents = browser_view()->GetActiveWebContents();
+  auto delegate = std::make_unique<TestTabModalConfirmDialogDelegate>(contents);
+
+  auto* dialog = static_cast<TabModalConfirmDialogViews*>(
+      TabModalConfirmDialog::Create(std::move(delegate), contents));
+  ui::AXPlatformNode* dialog_ax_node =
+      ui::AXPlatformNode::FromNativeViewAccessible(
+          dialog->GetWidget()->GetRootView()->GetNativeViewAccessible());
+  ASSERT_TRUE(dialog_ax_node);
+  // When using a desktop widget, the dialog has its own root accessibility
+  // node, while the browser's accessibility tree retains the browser UI.
+  EXPECT_NE(ui::AXPlatformNodeTestHelper::FindChildByName(
+                ax_node, l10n_util::GetStringUTF8(IDS_ACCNAME_APP)),
+            nullptr);
+  EXPECT_EQ(ui::AXPlatformNodeTestHelper::FindChildByName(
+                dialog_ax_node, l10n_util::GetStringUTF8(IDS_ACCNAME_APP)),
+            nullptr);
+  EXPECT_NE(ui::AXPlatformNodeTestHelper::FindChildByName(dialog_ax_node, "OK"),
+            nullptr);
+}
+
 #endif  // !BUILDFLAG(IS_MAC)
 
 // Tests that a content area scrim is shown when a tab modal dialog is active.

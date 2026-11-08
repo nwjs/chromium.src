@@ -121,9 +121,6 @@ source_set("browser_tests") {
       "//chrome/test/user_education:impl",
       "//components/user_education/views",
     ]
-    if (is_chrome_branded) {
-      deps += [ "//chrome/test/base:scoped_channel_override" ]
-    }
   }
 }
 
@@ -144,8 +141,8 @@ source_set("interactive_ui_tests") {
     "//chrome/browser:browser_process",
     "//chrome/browser/performance_manager/public/user_tuning",
     "//chrome/browser/resource_coordinator:utils",
-    "//chrome/browser/ui",
     "//chrome/browser/ui:browser_element_identifiers",
+    "//chrome/browser/ui:browser_tabstrip",
     "//chrome/browser/ui:browser_window_header",
     "//chrome/browser/ui:chrome_pages",
     "//chrome/browser/ui:recently_audible_helper",

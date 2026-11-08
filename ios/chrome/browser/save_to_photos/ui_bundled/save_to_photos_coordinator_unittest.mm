@@ -19,6 +19,7 @@
 #import "ios/chrome/browser/authentication/ui_bundled/continuation.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin/signin_constants.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin/signin_coordinator.h"
+#import "ios/chrome/browser/authentication/ui_bundled/signin/signin_utils.h"
 #import "ios/chrome/browser/photos/model/photos_metrics.h"
 #import "ios/chrome/browser/photos/model/photos_service_factory.h"
 #import "ios/chrome/browser/save_to_photos/ui_bundled/save_to_photos_coordinator.h"
@@ -190,7 +191,7 @@ class SaveToPhotosCoordinatorTest : public PlatformTest {
   // - `should_continue_saving_image`: Whether the coordinator is expected to
   // notify the mediator that the user successfully signed in.
   void TestSignInResultHistogram(
-      SigninCoordinatorResult simulated_signin_result,
+      SigninCoordinatorResultOrIdentity simulated_signin_result,
       SaveToPhotosSignInResult expected_histogram,
       BOOL should_continue_saving_image) {
     base::test::ScopedFeatureList scoped_feature_list;
@@ -246,8 +247,7 @@ class SaveToPhotosCoordinatorTest : public PlatformTest {
     base::HistogramTester histogram_tester;
 
     ASSERT_TRUE(signin_completion);
-    signin_completion(signin_coordinator, simulated_signin_result,
-                      fake_identity_);
+    signin_completion(signin_coordinator, simulated_signin_result);
 
     histogram_tester.ExpectUniqueSample(kSaveToPhotosSignInResultHistogram,
                                         expected_histogram, 1);
@@ -519,7 +519,7 @@ TEST_F(SaveToPhotosCoordinatorTest, ShowsAndHidesAccountPicker) {
 // Tests that the coordinator logs a success histogram when sign-in succeeds.
 TEST_F(SaveToPhotosCoordinatorTest, LogsSignInSuccessHistogram) {
   TestSignInResultHistogram(
-      /*simulated_signin_result=*/SigninCoordinatorResultSuccess,
+      /*simulated_signin_result=*/fake_identity_,
       /*expected_histogram=*/SaveToPhotosSignInResult::kSignInSuccess,
       /*should_continue_saving_image=*/YES);
 }
@@ -528,7 +528,8 @@ TEST_F(SaveToPhotosCoordinatorTest, LogsSignInSuccessHistogram) {
 // by the user.
 TEST_F(SaveToPhotosCoordinatorTest, LogsSignInCanceledHistogram) {
   TestSignInResultHistogram(
-      /*simulated_signin_result=*/SigninCoordinatorResultCanceledByUser,
+      /*simulated_signin_result=*/base::unexpected(
+          SigninCoordinatorResultCanceledByUser),
       /*expected_histogram=*/SaveToPhotosSignInResult::kSignInCanceled,
       /*should_continue_saving_image=*/NO);
 }
@@ -536,7 +537,8 @@ TEST_F(SaveToPhotosCoordinatorTest, LogsSignInCanceledHistogram) {
 // Tests that the coordinator logs a failed histogram when sign-in fails.
 TEST_F(SaveToPhotosCoordinatorTest, LogsSignInFailedHistogram) {
   TestSignInResultHistogram(
-      /*simulated_signin_result=*/SigninCoordinatorResultInterrupted,
+      /*simulated_signin_result=*/base::unexpected(
+          SigninCoordinatorResultInterrupted),
       /*expected_histogram=*/SaveToPhotosSignInResult::kSignInFailed,
       /*should_continue_saving_image=*/NO);
 }

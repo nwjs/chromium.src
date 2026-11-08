@@ -8,19 +8,32 @@
 
 #include "base/logging.h"
 #include "services/webnn/ort/environment.h"
+#include "services/webnn/ort/ort_session_options.h"
 #include "services/webnn/ort/ort_status.h"
 #include "services/webnn/ort/platform_functions_ort.h"
 #include "services/webnn/ort/trivial_model.h"
 #include "services/webnn/public/cpp/execution_providers_info.h"
+#include "services/webnn/public/mojom/webnn_tensor.mojom.h"
 #include "third_party/windows_app_sdk_headers/src/inc/abi/winml/winml/onnxruntime_c_api.h"
-#include "third_party/windows_app_sdk_headers/src/inc/abi/winml/winml/onnxruntime_session_options_config_keys.h"
 
 namespace webnn::ort {
 
 namespace {
 
-// Returns the host-accessible memory info from the EP device. Currently only
-// OpenVINO EP is supported. Returns nullptr for unsupported EPs.
+// Returns the memory info to allocate WebNN tensors from, or nullptr for an EP
+// that has no usable one.
+//
+// Which memory to ask for depends on where the EP computes, so it is chosen per
+// EP. An integrated GPU wants host-accessible memory, which the CPU and the
+// device share instead of copying. A discrete accelerator wants its own memory,
+// so tensors stay resident across executions rather than crossing PCIe on every
+// one; asking such an EP for host-accessible memory instead yields pinned host
+// memory and measurably slows decoding.
+//
+// Whether the chosen memory is CPU-reachable is a separate question, answered
+// by querying the memory info rather than assuming it from the EP.
+// TODO(crbug.com/445971854): Use device allocator to create tensors for
+// other EPs.
 const OrtMemoryInfo* GetMemoryInfo(const OrtApi* ort_api,
                                    const OrtEpDevice* ep_device,
                                    std::string_view ep_name) {
@@ -28,7 +41,20 @@ const OrtMemoryInfo* GetMemoryInfo(const OrtApi* ort_api,
     return ort_api->EpDevice_MemoryInfo(ep_device,
                                         OrtDeviceMemoryType_HOST_ACCESSIBLE);
   }
+  if (ep_name == kNvTensorRTRTXExecutionProvider) {
+    return ort_api->EpDevice_MemoryInfo(ep_device, OrtDeviceMemoryType_DEFAULT);
+  }
   return nullptr;
+}
+
+bool QueryCanAccessOnCpu(OrtAllocator* allocator) {
+  const OrtApi* ort_api = PlatformFunctions::GetInstance()->ort_api();
+
+  const OrtMemoryInfo* memory_info = nullptr;
+  CHECK_STATUS(ort_api->AllocatorGetInfo(allocator, &memory_info));
+  CHECK(memory_info);
+  return ort_api->MemoryInfoGetDeviceMemType(memory_info) ==
+         OrtDeviceMemoryType_HOST_ACCESSIBLE;
 }
 
 }  // namespace
@@ -51,24 +77,19 @@ scoped_refptr<DeviceAllocator> DeviceAllocator::Create(
   // TODO(crbug.com/519646879): Remove the trivial session once WinML ships
   // ORT 1.27+, which supports getting a shared allocator directly from
   // OrtEnv without creating a session.
-  ScopedOrtSessionOptions cloned_session_options;
-  CHECK_STATUS(ort_api->CloneSessionOptions(
-      session_options->get(),
-      ScopedOrtSessionOptions::Receiver(cloned_session_options).get()));
-  // Model compilation is normally disabled in the GPU process when
-  // `features::kWebNNCompilerProcess` is active, but `kTrivialModel` contains
-  // uncompiled operators and would fail to compile without it, so re-enable it
-  // here temporarily.
-  CHECK_STATUS(ort_api->AddSessionConfigEntry(
-      cloned_session_options.get(), kOrtSessionOptionsDisableModelCompile,
-      "0"));
+  ScopedOrtSessionOptions trivial_session_options =
+      CreateTrivialModelSessionOptions(env->get(), first_selected_device);
   ScopedOrtSession trivial_session;
-  CHECK_STATUS(ort_api->CreateSessionFromArray(
-      env->get(), kTrivialModel, sizeof(kTrivialModel),
-      cloned_session_options.get(),
-      ScopedOrtSession::Receiver(trivial_session).get()));
+  if (ORT_CALL_FAILED(ort_api->CreateSessionFromArray(
+          env->get(), kTrivialModel, sizeof(kTrivialModel),
+          trivial_session_options.get(),
+          ScopedOrtSession::Receiver(trivial_session).get()))) {
+    return nullptr;
+  }
   CHECK(trivial_session.get());
 
+  // This allocator is tied to `first_selected_device`, the device the trivial
+  // session above was created on.
   ScopedOrtAllocator device_allocator;
   if (ORT_CALL_FAILED(ort_api->CreateAllocator(
           trivial_session.get(), memory_info,
@@ -88,8 +109,18 @@ DeviceAllocator::DeviceAllocator(base::PassKey<DeviceAllocator>,
                                  ScopedOrtAllocator device_allocator)
     : env_(std::move(env)),
       trivial_session_(std::move(trivial_session)),
-      device_allocator_(std::move(device_allocator)) {}
+      device_allocator_(std::move(device_allocator)),
+      can_access_on_cpu_(QueryCanAccessOnCpu(device_allocator_.get())) {}
 
 DeviceAllocator::~DeviceAllocator() = default;
+
+bool DeviceAllocator::ShouldUse(const mojom::TensorInfo& tensor_info) const {
+  if (CanAccessOnCpu()) {
+    return true;
+  }
+
+  return !tensor_info.usage.Has(MLTensorUsageFlags::kRead) &&
+         !tensor_info.usage.Has(MLTensorUsageFlags::kWrite);
+}
 
 }  // namespace webnn::ort

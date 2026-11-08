@@ -5,26 +5,32 @@
 #ifndef CHROME_BROWSER_ASH_SYSTEM_WEB_APPS_APPS_HELP_APP_HELP_APP_UNTRUSTED_UI_CONFIG_H_
 #define CHROME_BROWSER_ASH_SYSTEM_WEB_APPS_APPS_HELP_APP_HELP_APP_UNTRUSTED_UI_CONFIG_H_
 
-#include "base/feature_list.h"
+#include "base/memory/raw_ref.h"
 #include "components/variations/service/variations_service.h"
 #include "content/public/browser/webui_config.h"
+
+class ApplicationLocaleStorage;
 
 namespace ash {
 
 class HelpAppUntrustedUIConfig : public content::WebUIConfig {
  public:
-  HelpAppUntrustedUIConfig();
+  // `application_locale_storage` must not be null and must outlive `this`.
+  explicit HelpAppUntrustedUIConfig(
+      const ApplicationLocaleStorage* application_locale_storage);
   HelpAppUntrustedUIConfig(const HelpAppUntrustedUIConfig& other) = delete;
   HelpAppUntrustedUIConfig& operator=(const HelpAppUntrustedUIConfig&) = delete;
   ~HelpAppUntrustedUIConfig() override;
 
   static bool IsCrosSwitcherEnabledForTesting(
-      base::FeatureList* feature_list,
       variations::VariationsService* variations_service);
   bool IsWebUIEnabled(content::BrowserContext* browser_context) override;
   std::unique_ptr<content::WebUIController> CreateWebUIController(
       content::WebUI* web_ui,
       const GURL& url) override;
+
+ private:
+  const raw_ref<const ApplicationLocaleStorage> application_locale_storage_;
 };
 
 }  // namespace ash

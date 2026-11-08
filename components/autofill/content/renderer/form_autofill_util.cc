@@ -1554,7 +1554,8 @@ bool IsAdIframe(const WebElement& element) {
 //
 // Note that WebElement::BoundsInWidget(), WebElement::GetClientSize(),
 // and WebElement::GetScrollSize() include the padding but do not include the
-// border and margin. BoundsInWidget() additionally scales the
+// border and margin. For text fields, GetClientSize() and GetScrollSize()
+// also leave out the inline padding. BoundsInWidget() additionally scales the
 // dimensions according to the zoom factor.
 //
 // It seems that invisible fields on websites typically have dimensions between
@@ -1710,7 +1711,7 @@ bool IsRelevantChildFrame(const WebElement& element) {
           IsVisibleIframe(element));
 }
 
-// Returns the <iframe> elements that are associated with `form_element`.
+// Returns the <iframe> elements that are owned by `form_element`.
 //
 // An iframe is owned by `form_element` iff it is in the light DOM and
 // - if `form_element` is non-null:
@@ -1720,6 +1721,7 @@ bool IsRelevantChildFrame(const WebElement& element) {
 //
 // The restriction to the light DOM is only because Blink currently does not
 // provide a shadow-including way of listing iframes.
+// See crbug.com/569934654#comment9 for possible fixes.
 std::vector<WebElement> GetIframeElements(const WebDocument& document,
                                           const WebFormElement& form_element) {
   std::vector<WebElement> relevant_iframes;
@@ -1836,10 +1838,9 @@ std::vector<SelectOption> GetDataListOptions(const WebInputElement& element) {
   return options;
 }
 
-// Returns whether `node` has a shadow-tree-including ancestor that is a
-// `<form>`.
-bool HasFormAncestor(WebNode node) {
-  node = node.ParentOrShadowHostNode();
+// Returns whether `node` is a `<form>` itself or has a shadow-tree-including
+// ancestor that is a `<form>`.
+bool HasFormInclusiveAncestor(WebNode node) {
   while (node) {
     if (HasTagName<kForm>(node)) {
       return true;
@@ -2043,15 +2044,16 @@ bool IsLikelyCaptchaIframe(const WebElement& element) {
 
 std::optional<FormData> ExtractFormDataWithFieldsAndFrames(
     const WebDocument& document,
-    const WebFormElement& form_element,
+    FormRendererId form_id,
     const FieldDataManager& field_data_manager,
     ButtonTitlesCache* button_titles_cache) {
-  LOG_IF(ERROR, form_element && form_element.GetDocument() != document)
-      << "<form> belongs to a different document";
-
-  if (form_element && !IsAccessible(form_element)) {
+  WebFormElement form_element = GetFormByRendererId(form_id);
+  if (form_id.is_null() != form_element.IsNull()) {
     return std::nullopt;
   }
+
+  LOG_IF(ERROR, form_element && form_element.GetDocument() != document)
+      << "<form> belongs to a different document";
 
   if (!IsAdmissibleUrl(document.Url())) {
     return std::nullopt;
@@ -2156,7 +2158,7 @@ std::optional<FormData> ExtractFormDataWithFieldsAndFrames(
     form.set_name(GetFormIdentifier(form_element));
     form.set_id_attribute(form_element.GetIdAttribute().Utf16());
     form.set_name_attribute(GetAttribute<kName>(form_element).Utf16());
-    form.set_renderer_id(GetFormRendererId(form_element));
+    form.set_renderer_id(form_id);
     form.set_action(GetCanonicalActionForForm(form_element));
     if (!form.action().is_valid()) {
       form.set_action(blink::WebStringToGURL(form_element.Action()));
@@ -2224,13 +2226,13 @@ std::string GetAutocompleteAttribute(const WebElement& element) {
 
 std::optional<FormData> ExtractFormData(
     const WebDocument& document,
-    const WebFormElement& form_element,
+    FormRendererId form_id,
     const FieldDataManager& field_data_manager,
     const CallTimerState& timer_state,
     ButtonTitlesCache* button_titles_cache) {
   ScopedCallTimer timer("ExtractFormData", timer_state);
   return ExtractFormDataWithFieldsAndFrames(
-      document, form_element, field_data_manager, button_titles_cache);
+      document, form_id, field_data_manager, button_titles_cache);
 }
 
 GURL GetCanonicalActionForForm(const WebFormElement& form) {
@@ -2377,7 +2379,7 @@ std::vector<WebFormControlElement> GetOwnedFormControls(
     // A form control element may be unassociated inside its Shadow DOM, but
     // owned (in the Autofill sense) by a <form> containing the shadow host.
     std::erase_if(form_controls, [](const WebFormControlElement& e) {
-      return e.OwnerShadowHost() && HasFormAncestor(e);
+      return HasFormInclusiveAncestor(e.OwnerShadowHost());
     });
   }
   std::erase_if(form_controls, std::not_fn(&IsAccessible));
@@ -2407,8 +2409,9 @@ std::optional<FormAndField> FindFormAndFieldForFormControlElement(
 
   WebDocument document = element.GetDocument();
   WebFormElement owning_form = element.GetOwningFormForAutofill();
+  FormRendererId owning_form_id = GetFormRendererId(owning_form);
   std::optional<FormData> form =
-      form_cache.GetOrExtractForm(document, owning_form, field_data_manager,
+      form_cache.GetOrExtractForm(document, owning_form_id, field_data_manager,
                                   timer_state, button_titles_cache);
   const bool extract_form_data_succeeded = form.has_value();
 
@@ -2419,7 +2422,7 @@ std::optional<FormAndField> FindFormAndFieldForFormControlElement(
     WebFormControlElementToFormField(owning_form, element,
                                      /*field_data_manager=*/nullptr, &field);
     form.emplace();
-    form->set_renderer_id(GetFormRendererId(owning_form));
+    form->set_renderer_id(owning_form_id);
     form->set_fields({std::move(field)});
   }
 

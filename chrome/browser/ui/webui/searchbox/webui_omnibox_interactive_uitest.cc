@@ -487,9 +487,10 @@ class OmniboxAimWebUiInteractiveTestBase
         InvokePageAction(kActionAiMode), WaitForAimPopupReady(),
         InAnyContext(WaitForElementToRender(kAimPopupWebView, kAimInput)),
         InAnyContext(ExecuteJsAt(
-            kAimPopupWebView, {"omnibox-aim-app"},
-            "el => { el.setSearchboxLayoutModeForTesting('TallBottomContext'); "
-            "el.setHasAllowedInputsForTesting(true); }")));
+            kAimPopupWebView, {"omnibox-aim-app", "#composebox"},
+            "el => { "
+            "el.setBaseSearchboxLayoutModeForTesting('TallBottomContext'); "
+            "el.hasAllowedInputs = true; }")));
   }
 
   // Opens the AIM popup in a new tab to ensure a clean state.
@@ -551,7 +552,7 @@ class OmniboxAimWebUiInteractiveTestBase
     DEFINE_LOCAL_CUSTOM_ELEMENT_EVENT_TYPE(kAimLayoutSettled);
     StateChange layout_settled;
     layout_settled.event = kAimLayoutSettled;
-    layout_settled.where = DeepQuery{"omnibox-aim-app"};
+    layout_settled.where = DeepQuery{"omnibox-aim-app", "#composebox"};
     layout_settled.test_function =
         "(el) => window.innerHeight > 170 || el.offsetHeight > 170";
     layout_settled.continue_across_navigation = true;
@@ -875,13 +876,16 @@ IN_PROC_BROWSER_TEST_P(OmniboxAimSearchFulfillmentTest,
           ? TriggerAimVoiceSearch(kAimPopupWebView, kVoiceSearch, query)
           : InputAimPopupText(query),
       // Submit query by pressing enter key or by clicking the submit button.
-      // Skip this step if voice search auto-submits.
+      // Skip this step if voice search auto-submits. Submitting closes the
+      // popup, which can happen before the key press step returns, so the
+      // popup is allowed to hide during the step.
       If([&]() { return !param.is_voice; },
-         Then(
-             param.submit_via_keyboard
-                 ? InAnyContext(SendKeyPress(kAimPopupWebView, ui::VKEY_RETURN))
-                 : Steps(WaitForAimPopupTallLayoutSettled(),
-                         ClickAimSubmit(kAimPopupWebView)))),
+         Then(param.submit_via_keyboard
+                  ? InAnyContext(
+                        SendKeyPress(kAimPopupWebView, ui::VKEY_RETURN)
+                            .SetMustRemainVisible(false))
+                  : Steps(WaitForAimPopupTallLayoutSettled(),
+                          ClickAimSubmit(kAimPopupWebView)))),
       // Ensure tab navigates to a Google search results page.
       WaitForGoogleSearch(kNewTab, {{"q", query}}));
 }

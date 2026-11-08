@@ -148,9 +148,10 @@ class OpenXrRenderLoop : public XRThread,
 
   // XRPresentationProvider overrides:
 #if BUILDFLAG(IS_WIN)
-  void SubmitFrameWithTextureHandle(int16_t frame_index,
-                                    mojo::PlatformHandle texture_handle,
-                                    const gpu::SyncToken& sync_token) override;
+  void SubmitFrameWithTextureHandle(
+      int16_t frame_index,
+      gpu::ExportedSharedImage exported_shared_image,
+      const gpu::SyncToken& sync_token) override;
 #endif
   void SubmitFrameMissing(
       int16_t frame_index,
@@ -169,7 +170,7 @@ class OpenXrRenderLoop : public XRThread,
 
   // ImmersiveOverlay:
   void SubmitOverlayTexture(int16_t frame_id,
-                            gfx::GpuMemoryBufferHandle texture,
+                            gpu::ExportedSharedImage exported_shared_image,
                             const gpu::SyncToken& sync_token,
                             const gfx::RectF& left_bounds,
                             const gfx::RectF& right_bounds,
@@ -281,6 +282,10 @@ class OpenXrRenderLoop : public XRThread,
   void OnWebXrTokenSignaled(int16_t frame_index,
                             std::vector<LayerId> updated_layers,
                             std::unique_ptr<gfx::GpuFence> gpu_fence);
+#if BUILDFLAG(IS_LINUX)
+  void OnWebXrWritesFlushed(int16_t frame_index,
+                            std::vector<LayerId> updated_layers);
+#endif
 
   void MaybeRejectSessionCallback();
 

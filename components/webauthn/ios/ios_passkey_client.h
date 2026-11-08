@@ -10,6 +10,7 @@
 #include <string>
 
 #import "components/autofill/core/common/unique_ids.h"
+#import "components/webauthn/core/browser/device_authorization/device_authorization_types.h"
 #import "components/webauthn/ios/passkey_types.h"
 
 @protocol IOSPasskeyClientCommands;
@@ -50,11 +51,18 @@ class IOSPasskeyClient {
   virtual void SetIOSPasskeyClientCommandsHandler(
       id<IOSPasskeyClientCommands> handler) = 0;
 
-  // Fetches the keys for the provided purpose and calls the callback with the
-  // fetched keys as input.
-  virtual void FetchKeys(ReauthenticatePurpose purpose,
-                         PasskeyUserVerificationStatus user_verification_status,
-                         FetchKeysCallback callback) = 0;
+  // Fetches the trusted vault keys for the provided `purpose` and calls
+  // `callback` with the fetched keys as input.
+  virtual void FetchTrustedVaultKeys(
+      ReauthenticatePurpose purpose,
+      PasskeyUserVerificationStatus user_verification_status,
+      FetchTrustedVaultKeysCallback callback) = 0;
+
+  // Fetches the device authorization keys, which are needed to decrypt
+  // passkeys stored in the `security_domain_encrypted` format, and calls
+  // `callback` with the result.
+  virtual void FetchDeviceAuthorizationKeys(
+      FetchDeviceAuthKeysCallback callback) = 0;
 
   // Shows the bottom sheet with passkey suggestions.
   virtual void ShowSuggestionBottomSheet(RequestInfo request_info) = 0;

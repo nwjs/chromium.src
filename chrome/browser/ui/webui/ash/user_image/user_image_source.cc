@@ -12,7 +12,6 @@
 #include "base/strings/escape.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_split.h"
-#include "chrome/browser/ash/login/users/default_user_image/default_user_images.h"
 #include "components/account_id/account_id.h"
 #include "components/user_manager/known_user.h"
 #include "components/user_manager/user_manager.h"
@@ -39,7 +38,7 @@ void ParseRequest(PrefService& local_state,
                   int* frame) {
   DCHECK(url.is_valid());
   const std::string serialized_account_id = base::UnescapeURLComponent(
-      url.GetPath().substr(1),
+      url.path().substr(1),
       base::UnescapeRule::URL_SPECIAL_CHARS_EXCEPT_PATH_SEPARATORS |
           base::UnescapeRule::PATH_SEPARATORS | base::UnescapeRule::SPACES);
   AccountId account_id(EmptyAccountId());
@@ -57,7 +56,7 @@ void ParseRequest(PrefService& local_state,
   *email = account_id.GetUserEmail();
   *frame = -1;
   base::StringPairs parameters;
-  base::SplitStringIntoKeyValuePairs(url.GetQuery(), '=', '&', &parameters);
+  base::SplitStringIntoKeyValuePairs(url.query(), '=', '&', &parameters);
   for (base::StringPairs::const_iterator iter = parameters.begin();
        iter != parameters.end(); ++iter) {
     if (iter->first == kFrameIndex) {

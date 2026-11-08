@@ -8,6 +8,7 @@
 #include <utility>
 
 #include "base/check_op.h"
+#include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/notreached.h"
@@ -18,6 +19,7 @@
 #include "components/download/public/background_service/background_download_service.h"
 #include "components/download/public/background_service/blob_context_getter_factory.h"
 #include "components/download/public/background_service/download_params.h"
+#include "components/download/public/background_service/features.h"
 #include "content/public/browser/background_fetch_description.h"
 #include "content/public/browser/background_fetch_response.h"
 #include "content/public/browser/browser_context.h"
@@ -25,11 +27,7 @@
 #include "content/public/browser/download_manager.h"
 #include "content/public/browser/download_manager_delegate.h"
 #include "content/public/browser/web_contents.h"
-#include "mojo/public/cpp/bindings/pending_remote.h"
-#include "mojo/public/cpp/bindings/remote.h"
-#include "services/network/public/mojom/data_pipe_getter.mojom.h"
 #include "third_party/blink/public/mojom/background_fetch/background_fetch.mojom.h"
-#include "third_party/blink/public/mojom/blob/blob.mojom.h"
 #include "ui/gfx/geometry/size.h"
 
 namespace background_fetch {
@@ -94,6 +92,7 @@ void BackgroundFetchDelegateBase::DownloadUrl(
     const std::string& method,
     const GURL& url,
     ::network::mojom::CredentialsMode credentials_mode,
+    ::network::mojom::RequestMode request_mode,
     const net::NetworkTrafficAnnotationTag& traffic_annotation,
     const net::HttpRequestHeaders& headers,
     bool has_request_body,
@@ -110,6 +109,11 @@ void BackgroundFetchDelegateBase::DownloadUrl(
   params.request_params.url = url;
   params.request_params.request_headers = headers;
   params.request_params.credentials_mode = credentials_mode;
+  if (base::FeatureList::IsEnabled(download::kBackgroundFetchCorsEnforcement)) {
+    CHECK(request_mode != network::mojom::RequestMode::kNoCors &&
+          request_mode != network::mojom::RequestMode::kNavigate);
+    params.request_params.fetch_request_mode = request_mode;
+  }
   params.request_params.url_loader_factory = std::move(url_loader_factory);
   params.callback =
       base::BindRepeating(&BackgroundFetchDelegateBase::OnDownloadReceived,
@@ -515,7 +519,7 @@ void BackgroundFetchDelegateBase::DidGetUploadData(
     params.isolation_info = job_details->fetch_description->isolation_info;
   }
 
-  if (!response.blob || response.blob->uuid.empty()) {
+  if (!response.data_pipe_getter) {
     std::move(callback).Run(std::move(params));
     return;
   }
@@ -527,15 +531,10 @@ void BackgroundFetchDelegateBase::DidGetUploadData(
 
   DCHECK(job_details->current_fetch_guids.count(download_guid));
   auto& request_data = job_details->current_fetch_guids.at(download_guid);
-  request_data.body_size_bytes = response.blob->size;
+  request_data.body_size_bytes = response.size.InBytes();
 
-  // Use a Data Pipe to transfer the blob.
-  mojo::PendingRemote<network::mojom::DataPipeGetter> data_pipe_getter_remote;
-  mojo::Remote<blink::mojom::Blob> blob_remote(std::move(response.blob->blob));
-  blob_remote->AsDataPipeGetter(
-      data_pipe_getter_remote.InitWithNewPipeAndPassReceiver());
   params.post_body = base::MakeRefCounted<network::ResourceRequestBody>();
-  params.post_body->AppendDataPipe(std::move(data_pipe_getter_remote));
+  params.post_body->AppendDataPipe(std::move(response.data_pipe_getter));
 
   std::move(callback).Run(std::move(params));
 }

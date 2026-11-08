@@ -81,7 +81,6 @@ public class MockTabModelSelector extends TabModelSelectorBase {
     public void initializeTabModels(
             TabModelInternal normalModel, IncognitoTabModelInternal incognitoModel) {
         destroy();
-        resetTabModelListForTesting();
         initialize(normalModel, incognitoModel);
     }
 
@@ -111,11 +110,6 @@ public class MockTabModelSelector extends TabModelSelectorBase {
     @Override
     public void requestToShowTab(Tab tab, int type) {
         throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public boolean isTabModelRestored() {
-        return true;
     }
 
     @Override

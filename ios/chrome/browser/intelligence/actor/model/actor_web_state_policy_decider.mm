@@ -3,12 +3,9 @@
 // found in the LICENSE file.
 
 #import "ios/chrome/browser/intelligence/actor/model/actor_web_state_policy_decider.h"
-
-#import "base/task/sequenced_task_runner.h"
 #import "ios/chrome/browser/intelligence/features/features.h"
 #import "ios/web/public/web_state.h"
 #import "net/base/apple/url_conversions.h"
-#import "ui/base/page_transition_types.h"
 
 namespace actor {
 
@@ -41,12 +38,15 @@ void ActorWebStatePolicyDecider::ShouldAllowRequest(
     return;
   }
 
-  // Bypass explicit navigations initiated by NavigateTool, but only for the
-  // initial request. If it redirects, we still check the redirected URL.
+  // Bypass explicit navigations initiated by NavigateTool and HistoryTool,
+  // which are already validated in Tool::Validate(), but only for the initial
+  // request. If it redirects, we still check the redirected URL.
   if (!ui::PageTransitionIsRedirect(request_info.transition_type) &&
-      ui::PageTransitionCoreTypeIs(
-          request_info.transition_type,
-          ui::PageTransition::PAGE_TRANSITION_AUTO_TOPLEVEL)) {
+      (ui::PageTransitionCoreTypeIs(
+           request_info.transition_type,
+           ui::PageTransition::PAGE_TRANSITION_AUTO_TOPLEVEL) ||
+       (request_info.transition_type &
+        ui::PageTransition::PAGE_TRANSITION_FORWARD_BACK))) {
     std::move(callback).Run(PolicyDecision::Allow());
     return;
   }
@@ -63,11 +63,11 @@ void ActorWebStatePolicyDecider::ShouldAllowRequest(
 
   // Feature is enabled: checker is required. Fail closed if missing.
   if (!gating_checker) {
-    std::move(callback).Run(PolicyDecision::Cancel());
     if (navigation_blocked_callback_) {
       navigation_blocked_callback_.Run(
           mojom::ActionResultCode::kTriggeredNavigationBlocked);
     }
+    std::move(callback).Run(PolicyDecision::Cancel());
     return;
   }
 
@@ -83,6 +83,53 @@ void ActorWebStatePolicyDecider::ShouldAllowRequest(
                      weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
 }
 
+void ActorWebStatePolicyDecider::ShouldAllowResponse(
+    NSURLResponse* response,
+    web::WebStatePolicyDecider::ResponseInfo response_info,
+    web::WebStatePolicyDecider::PolicyDecisionCallback callback) {
+  // If the feature is disabled, bypass origin gating.
+  if (!IsActorOriginGatingForImplicitNavigationEnabled()) {
+    std::move(callback).Run(PolicyDecision::Allow());
+    return;
+  }
+
+  // Only gate when the response target frame is the main frame.
+  if (!response_info.for_main_frame) {
+    std::move(callback).Run(PolicyDecision::Allow());
+    return;
+  }
+
+  const GURL destination_url = net::GURLWithNSURL(response.URL);
+  if (!destination_url.is_valid()) {
+    std::move(callback).Run(PolicyDecision::Cancel());
+    return;
+  }
+
+  origin_gating::OriginGatingChecker* gating_checker =
+      gating_service_ ? gating_service_->GetChecker(gating_checker_id_)
+                      : nullptr;
+
+  if (!gating_checker) {
+    if (navigation_blocked_callback_) {
+      navigation_blocked_callback_.Run(
+          mojom::ActionResultCode::kTriggeredNavigationBlocked);
+    }
+    std::move(callback).Run(PolicyDecision::Cancel());
+    return;
+  }
+
+  const GURL source_url =
+      web_state() ? web_state()->GetLastCommittedURL() : GURL();
+  auto context = std::make_unique<origin_gating::GatingDecisionContext>();
+
+  gating_checker->ComputeGatingDecision(
+      std::move(context),
+      origin_gating::GateableEvent(origin_gating::NavigationResponseEvent{
+          .source = source_url, .destination = destination_url}),
+      base::BindOnce(&ActorWebStatePolicyDecider::OnGatingDecisionComputed,
+                     weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
+}
+
 void ActorWebStatePolicyDecider::OnGatingDecisionComputed(
     web::WebStatePolicyDecider::PolicyDecisionCallback callback,
     std::unique_ptr<origin_gating::GatingDecisionContext> context,
@@ -92,13 +139,13 @@ void ActorWebStatePolicyDecider::OnGatingDecisionComputed(
     return;
   }
 
-  // Tell WebKit to cancel the HTTP/navigation request.
-  std::move(callback).Run(PolicyDecision::Cancel());
-
   // Notify the task/engine that the triggered navigation was blocked
   if (navigation_blocked_callback_) {
     navigation_blocked_callback_.Run(
         mojom::ActionResultCode::kTriggeredNavigationBlocked);
   }
+
+  // Tell WebKit to cancel the HTTP/navigation request.
+  std::move(callback).Run(PolicyDecision::Cancel());
 }
 }  // namespace actor

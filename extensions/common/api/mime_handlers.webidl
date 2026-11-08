@@ -8,7 +8,12 @@ dictionary MimeHandlerMimeTypeConfig {
   required DOMString handler_url;
   // Whether the handler supports being embedded in iframe/embed/object
   // elements. Defaults to false when absent.
+  // $(ref:mimeHandler.setMimeHandlerOptions) overrides this value.
   boolean can_embed;
+  // Whether the handler starts out handling this MIME type. Defaults to
+  // true when absent. $(ref:mimeHandler.setMimeHandlerOptions) overrides
+  // this value.
+  boolean enabled;
 };
 
 // `mime_types_handler` manifest key definition (dict format).

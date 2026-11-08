@@ -403,7 +403,7 @@ Try waiting a few minutes before switching accounts. If you switch accounts now,
       <message name="IDS_IOS_DEFAULT_PAGE_MODE_MOBILE_SUBTITLE" desc="The subtitle explaining what the choosen mode (here mobile, the other possible state is desktop) will do in the browser">
         This means Chrome will request the mobile site every time.
       </message>
-      <message name="IDS_IOS_DELETE_BROWSING_DATA_IN_PROGRESS_NOTICE" desc="VoiceOver text that informs the user that the deletion of Chrome's browsing data is in progress.">
+      <message name="IDS_IOS_DELETE_BROWSING_DATA_IN_PROGRESS_NOTICE" is_accessibility_with_no_ui="true" desc="VoiceOver text that informs the user that the deletion of Chrome's browsing data is in progress.">
         Deleting Chrome data…
       </message>
       <message name="IDS_IOS_DISCONNECT_DIALOG_TITLE" desc="The title of the disconnect dialog [Length: 30em].">
@@ -549,11 +549,6 @@ Things to consider:
           {THRESHOLD, plural,
             =1 {This happens when Chrome isn't used for {THRESHOLD} minute. This could include history and autofill.}
             other {This happens when Chrome isn't used for {THRESHOLD} minutes. This could include history and autofill.}}
-      </message>
-      <message name="IDS_IOS_IDLE_TIMEOUT_SUBTITLE_WITH_CLEAR_DATA_ON_SIGNOUT" desc="Subtitle of the idle timeout policy dialog explaining when the idle action usually happens. It also informs the user that data will be cleared when they are signed out.">
-          {THRESHOLD, plural,
-            =1 {This happens when Chrome isn't used for {THRESHOLD} minute. Data saved only to this device while you were signed in will be deleted. This could include history and passwords.}
-            other {This happens when Chrome isn't used for {THRESHOLD} minutes. Data saved only to this device while you were signed in will be deleted. This could include history and passwords.}}
       </message>
       <message name="IDS_IOS_IMPORT_INVALID_PASSKEY_LIST_DESCRIPTION" desc="Descriptive text showing under the title on the view that lists all invalid passkeys. [iOS only]">
         The following passkeys were not imported to Google Password Manager, because they don't match with the requirements.
@@ -1364,6 +1359,24 @@ Your data was encrypted with your passphrase on <ph name="TIME">$2<ex>Sept 1, 20
       </message>
       <message name="IDS_SEND_TAB_TO_SELF_SIGN_IN_PROMO_LABEL" desc="Text when a signed out user attempts to use send-tab-to-self, then sees a sign-in promo.">
         To send this tab to another device, sign in to Chrome on both devices.
+      </message>
+      <message name="IDS_SIGNIN_ACCOUNT_PICKER_BOTTOM_SHEET_SUBTITLE_FOR_WEB_SIGNIN_DEVICE_TYPE_BOOKMARKS" desc="This string is on a sign-in page, after the user taps to sign in to a website with their Google Account. It offers to sign the user in to both the website and to Chrome with the account. It highlights the user benefit of signing in to Chrome to get data from their other device. We want users to understand why signing in is beneficial, and click 'Continue as name' to sign in to their Google Account. The tone should be informative and lightweight.">
+        Sign in to this site and Chrome to get your bookmarks and more from <ph name="DEVICE_TYPE">$1<ex>your phone</ex></ph>
+      </message>
+      <message name="IDS_SIGNIN_ACCOUNT_PICKER_BOTTOM_SHEET_SUBTITLE_FOR_WEB_SIGNIN_DEVICE_TYPE_PASSWORDS" desc="This string is on a sign-in page, after the user taps to sign in to a website with their Google Account. It offers to sign the user in to both the website and to Chrome with the account. It highlights the user benefit of signing in to Chrome to get data from their other device. We want users to understand why signing in is beneficial, and click 'Continue as name' to sign in to their Google Account. The tone should be informative and lightweight.">
+        Sign in to this site and Chrome to get your passwords and more from <ph name="DEVICE_TYPE">$1<ex>your phone</ex></ph>
+      </message>
+      <message name="IDS_SIGNIN_ACCOUNT_PICKER_BOTTOM_SHEET_SUBTITLE_FOR_WEB_SIGNIN_DEVICE_TYPE_SAVED_INFO" desc="This string is on a sign-in page, after the user taps to sign in to a website with their Google Account. It offers to sign the user in to both the website and to Chrome with the account. It highlights the user benefit of signing in to Chrome to get data from their other device. We want users to understand why signing in is beneficial, and click 'Continue as name' to sign in to their Google Account. The tone should be informative and lightweight.">
+        Sign in to this site and Chrome to get your saved info and more from <ph name="DEVICE_TYPE">$1<ex>your phone</ex></ph>
+      </message>
+      <message name="IDS_SIGNIN_ACCOUNT_PICKER_BOTTOM_SHEET_SUBTITLE_FOR_WEB_SIGNIN_ON_ALL_DEVICES_BOOKMARKS" desc="This string is on a sign-in page, after the user taps to sign in to a website with their Google Account. It offers to sign the user in to both the website and to Chrome with the account. It highlights the overarching user benefit of signing in to Chrome to get data on all devices. We want users to understand why signing in is beneficial, and click 'Continue as name' to sign in to their Google Account. The tone should be informative and lightweight.">
+        Sign in to this site and Chrome to get your bookmarks and more on all your devices
+      </message>
+      <message name="IDS_SIGNIN_ACCOUNT_PICKER_BOTTOM_SHEET_SUBTITLE_FOR_WEB_SIGNIN_ON_ALL_DEVICES_PASSWORDS" desc="This string is on a sign-in page, after the user taps to sign in to a website with their Google Account. It offers to sign the user in to both the website and to Chrome with the account. It highlights the overarching user benefit of signing in to Chrome to get data on all devices. We want users to understand why signing in is beneficial, and click 'Continue as name' to sign in to their Google Account. The tone should be informative and lightweight.">
+        Sign in to this site and Chrome to get your passwords and more on all your devices
+      </message>
+      <message name="IDS_SIGNIN_ACCOUNT_PICKER_BOTTOM_SHEET_SUBTITLE_FOR_WEB_SIGNIN_ON_ALL_DEVICES_SAVED_INFO" desc="This string is on a sign-in page, after the user taps to sign in to a website with their Google Account. It offers to sign the user in to both the website and to Chrome with the account. It highlights the overarching user benefit of signing in to Chrome to get data on all devices. We want users to understand why signing in is beneficial, and click 'Continue as name' to sign in to their Google Account. The tone should be informative and lightweight.">
+        Sign in to this site and Chrome to get your saved info and more on all your devices
       </message>
       </messages>
   </release>

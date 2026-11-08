@@ -7,13 +7,21 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <utility>
+#include <variant>
+#include <vector>
 
+#include "base/check_op.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
 #include "base/json/json_reader.h"
 #include "base/json/json_string_value_serializer.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/task/thread_pool.h"
+#include "base/threading/sequence_bound.h"
+#include "base/time/time.h"
+#include "base/timer/timer.h"
+#include "base/types/expected.h"
 #include "base/values.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/device_api/managed_configuration_store.h"
@@ -24,15 +32,44 @@
 #include "components/prefs/pref_service.h"
 #include "components/prefs/scoped_user_pref_update.h"
 #include "content/public/browser/browser_thread.h"
+#include "content/public/browser/network_service_instance.h"
+#include "net/base/backoff_entry.h"
 #include "services/network/public/cpp/resource_request.h"
 #include "services/network/public/cpp/simple_url_loader.h"
 #include "url/origin.h"
 
+namespace features {
+BASE_FEATURE(kManagedConfigurationRecoverFromFailedFetches,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+}  // namespace features
+
 namespace {
+
+bool IsRecoveryEnabled() {
+  return base::FeatureList::IsEnabled(
+      features::kManagedConfigurationRecoverFromFailedFetches);
+}
 
 constexpr char kManagedConfigurationDirectoryName[] = "Managed Configuration";
 // Maximum configuration size is 5MB.
 constexpr int kMaxConfigurationFileSize = 5 * 1024 * 1024;
+// Per-attempt download timeout. SimpleURLLoader restarts it for each internal
+// retry and it covers the whole body, so it is sized for a 5 MB configuration
+// at ~0.7 Mbit/s. Without it, a stalled server blocks reads and all recovery.
+constexpr base::TimeDelta kDownloadAttemptTimeout = base::Seconds(60);
+// Backstop for how long a read waits for an in-flight sync before it is
+// answered from the (possibly stale) store.
+constexpr base::TimeDelta kMaxPendingReadDelay = base::Seconds(30);
+constexpr net::BackoffEntry::Policy kRetryBackoffPolicy = {
+    0,          // Number of initial errors to ignore.
+    1000,       // Initial delay in ms (1 second).
+    2.0,        // Multiply factor.
+    0.2,        // Jitter factor.
+    5 * 60000,  // Maximum backoff in ms (5 minutes).
+    -1,         // Entry lifetime.
+    false,      // Always use initial delay.
+};
+
 constexpr net::NetworkTrafficAnnotationTag kTrafficAnnotation =
     net::DefineNetworkTrafficAnnotation("managed_configuration_loader",
                                         R"(
@@ -70,15 +107,7 @@ std::string GetOriginEncoded(const url::Origin& origin) {
   return base::HexEncode(origin.Serialize());
 }
 
-}  // namespace
-
-const char ManagedConfigurationAPI::kOriginKey[] = "origin";
-const char ManagedConfigurationAPI::kManagedConfigurationUrlKey[] =
-    "managed_configuration_url";
-const char ManagedConfigurationAPI::kManagedConfigurationHashKey[] =
-    "managed_configuration_hash";
-
-class ManagedConfigurationAPI::ManagedConfigurationDownloader {
+class ManagedConfigurationDownloader {
  public:
   explicit ManagedConfigurationDownloader(const std::string& data_hash)
       : data_hash_(data_hash) {}
@@ -91,7 +120,7 @@ class ManagedConfigurationAPI::ManagedConfigurationDownloader {
   void Fetch(const std::string& data_url,
              base::OnceCallback<void(std::optional<std::string>)> callback) {
     // URLLoaders should be created at UI thread.
-    DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+    CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M161);
     auto resource_request = std::make_unique<network::ResourceRequest>();
     resource_request->url = GURL(data_url);
     resource_request->credentials_mode = network::mojom::CredentialsMode::kOmit;
@@ -103,6 +132,9 @@ class ManagedConfigurationAPI::ManagedConfigurationDownloader {
         /* max_retries=*/3,
         network::SimpleURLLoader::RETRY_ON_5XX |
             network::SimpleURLLoader::RETRY_ON_NETWORK_CHANGE);
+    if (IsRecoveryEnabled()) {
+      simple_loader_->SetTimeoutDuration(kDownloadAttemptTimeout);
+    }
 
     SystemNetworkContextManager* system_network_context_manager =
         g_browser_process->system_network_context_manager();
@@ -113,11 +145,410 @@ class ManagedConfigurationAPI::ManagedConfigurationDownloader {
                                      kMaxConfigurationFileSize);
   }
 
-  std::string hash() const { return data_hash_; }
+  const std::string& hash() const { return data_hash_; }
 
  private:
   std::unique_ptr<network::SimpleURLLoader> simple_loader_;
   const std::string data_hash_;
+};
+
+}  // namespace
+
+const char ManagedConfigurationAPI::kOriginKey[] = "origin";
+const char ManagedConfigurationAPI::kManagedConfigurationUrlKey[] =
+    "managed_configuration_url";
+const char ManagedConfigurationAPI::kManagedConfigurationHashKey[] =
+    "managed_configuration_hash";
+
+class ManagedConfigurationAPI::OriginConfiguration {
+ public:
+  using ConfigurationCallback =
+      base::OnceCallback<void(std::optional<base::DictValue>)>;
+
+  OriginConfiguration(ManagedConfigurationAPI* api,
+                      const url::Origin& origin,
+                      base::FilePath store_path)
+      : api_(api),
+        origin_(origin),
+        store_path_(std::move(store_path)),
+        retry_policy_(MakeRetryPolicy(*api)) {}
+
+  ~OriginConfiguration() {
+    for (auto& [keys, callback] : pending_reads_) {
+      std::move(callback).Run(std::nullopt);
+    }
+  }
+
+  OriginConfiguration(const OriginConfiguration&) = delete;
+  OriginConfiguration& operator=(const OriginConfiguration&) = delete;
+
+  void GetConfiguration(const std::vector<std::string>& keys,
+                        ConfigurationCallback callback) {
+    if (!IsRecoveryEnabled()) {
+      if (!store_) {
+        std::move(callback).Run(std::nullopt);
+        return;
+      }
+      store_.AsyncCall(&ManagedConfigurationStore::Get)
+          .WithArgs(keys)
+          .Then(std::move(callback));
+      return;
+    }
+
+    EnsureSynced();
+    if (IsSyncInProgress()) {
+      QueueRead(keys, std::move(callback));
+      return;
+    }
+    EnsureStoreCreated();
+    store_.AsyncCall(&ManagedConfigurationStore::Get)
+        .WithArgs(keys)
+        .Then(std::move(callback));
+  }
+
+  void GetAllConfiguration(ConfigurationCallback callback) {
+    if (!IsRecoveryEnabled()) {
+      EnsureStoreCreated();
+      store_.AsyncCall(&ManagedConfigurationStore::GetAll)
+          .Then(std::move(callback));
+      return;
+    }
+
+    EnsureSynced();
+    if (IsSyncInProgress()) {
+      QueueRead(std::nullopt, std::move(callback));
+      return;
+    }
+    EnsureStoreCreated();
+    store_.AsyncCall(&ManagedConfigurationStore::GetAll)
+        .Then(std::move(callback));
+  }
+
+  void SetConfigurationForTesting(base::DictValue configuration) {
+    PostStoreConfiguration(/*url_hash=*/std::string(),
+                           std::move(configuration));
+  }
+
+  void UpdateConfiguration(const std::string& configuration_url,
+                           const std::string& configuration_hash) {
+    if (desired_url_ != configuration_url ||
+        desired_hash_ != configuration_hash) {
+      retry_timer_.Stop();
+      retry_backoff_.Reset();
+    }
+    desired_url_ = configuration_url;
+    desired_hash_ = configuration_hash;
+    SyncStoreWithDesiredConfiguration();
+  }
+
+  void ClearConfiguration() {
+    desired_url_.clear();
+    desired_hash_.clear();
+    downloader_.reset();
+    retry_timer_.Stop();
+    retry_backoff_.Reset();
+    ScopedDictPrefUpdate update(api_->profile_->GetPrefs(),
+                                prefs::kLastManagedConfigurationHashForOrigin);
+    update->Remove(GetOriginEncoded(origin_));
+    PostStoreConfiguration(/*url_hash=*/std::string(), base::DictValue());
+  }
+
+  void EnsureSynced() {
+    EnsureStoreCreated();
+    if (!IsRecoveryEnabled()) {
+      return;
+    }
+    if (desired_url_.empty() && desired_hash_.empty()) {
+      return;
+    }
+    SyncStoreWithDesiredConfiguration();
+  }
+
+  void OnNetworkConnected() {
+    if (!IsRecoveryEnabled()) {
+      return;
+    }
+    retry_timer_.Stop();
+    retry_backoff_.Reset();
+    EnsureSynced();
+  }
+
+  bool HasStore() const { return static_cast<bool>(store_); }
+
+ private:
+  using PendingRead =
+      std::pair<std::optional<std::vector<std::string>>, ConfigurationCallback>;
+
+  bool IsSyncInProgress() const {
+    return downloader_ != nullptr || in_flight_store_writes_ > 0;
+  }
+
+  static net::BackoffEntry::Policy MakeRetryPolicy(
+      const ManagedConfigurationAPI& api) {
+    net::BackoffEntry::Policy policy = kRetryBackoffPolicy;
+    if (api.retry_initial_delay_for_testing_) {
+      policy.initial_delay_ms =
+          api.retry_initial_delay_for_testing_->InMilliseconds();
+      policy.multiply_factor = api.retry_multiply_factor_for_testing_;
+    }
+    return policy;
+  }
+
+  // Queues a read until the in-flight sync finishes, but never for longer than
+  // `kMaxPendingReadDelay`; after that the read is answered from the store and
+  // observers are notified once the fresh configuration has been stored.
+  void QueueRead(std::optional<std::vector<std::string>> keys,
+                 ConfigurationCallback callback) {
+    pending_reads_.emplace_back(std::move(keys), std::move(callback));
+    if (!pending_reads_timer_.IsRunning()) {
+      pending_reads_timer_.Start(
+          FROM_HERE,
+          api_->max_pending_read_delay_for_testing_.value_or(
+              kMaxPendingReadDelay),
+          base::BindOnce(&OriginConfiguration::FlushPendingReads,
+                         weak_ptr_factory_.GetWeakPtr()));
+    }
+  }
+
+  void ScheduleRetry() {
+    if (!IsRecoveryEnabled()) {
+      return;
+    }
+    retry_backoff_.InformOfRequest(false);
+    retry_timer_.Start(FROM_HERE, retry_backoff_.GetTimeUntilRelease(),
+                       base::BindOnce(&OriginConfiguration::EnsureSynced,
+                                      weak_ptr_factory_.GetWeakPtr()));
+  }
+
+  void EnsureStoreCreated() {
+    if (store_) {
+      return;
+    }
+    // Create the store now, and serve the cached policy until the PolicyService
+    // sends updated values. With kManagedConfigurationRecoverFromFailedFetches,
+    // `SKIP_ON_SHUTDOWN` is safe because
+    // `kLastManagedConfigurationHashForOrigin` is only committed in
+    // `OnStoreConfigurationCompleted()` after `SetCurrentPolicy()` finishes;
+    // if shutdown skips an in-flight write, the next session startup will see
+    // the uncommitted hash and re-sync.
+    scoped_refptr<base::SequencedTaskRunner> task_runner =
+        api_->store_task_runner_for_testing_;
+    if (!task_runner) {
+      task_runner = base::ThreadPool::CreateSequencedTaskRunner(
+          {base::MayBlock(), base::TaskShutdownBehavior::SKIP_ON_SHUTDOWN});
+    }
+    store_ = base::SequenceBound<ManagedConfigurationStore>(
+        std::move(task_runner), origin_, store_path_);
+  }
+
+  void SyncStoreWithDesiredConfiguration() {
+    const std::string* last_hash_value =
+        api_->profile_->GetPrefs()
+            ->GetDict(prefs::kLastManagedConfigurationHashForOrigin)
+            .FindString(GetOriginEncoded(origin_));
+
+    // Nothing to be stored here, the hash value is the same.
+    if (last_hash_value && *last_hash_value == desired_hash_) {
+      if (IsRecoveryEnabled()) {
+        downloader_.reset();
+        retry_timer_.Stop();
+        retry_backoff_.Reset();
+        EnsureStoreCreated();
+        if (!IsSyncInProgress()) {
+          FlushPendingReads();
+        }
+      }
+      return;
+    }
+
+    if (desired_url_.empty()) {
+      ClearConfiguration();
+      return;
+    }
+
+    // Check whether there is already a downloader.
+    if (downloader_) {
+      // If it downloads the same data already, do nothing.
+      if (downloader_->hash() == desired_hash_) {
+        return;
+      }
+      // Cancel it otherwise.
+      downloader_.reset();
+    }
+
+    // A queued write will commit exactly the desired hash (or schedule a retry
+    // if it fails), so downloading it again would be redundant.
+    if (IsRecoveryEnabled() && !desired_hash_.empty() &&
+        in_flight_write_hash_ == desired_hash_) {
+      return;
+    }
+
+    // Do not preempt an active backoff timer unless it was explicitly stopped
+    // by a policy change or network reconnection.
+    if (IsRecoveryEnabled() && retry_timer_.IsRunning()) {
+      return;
+    }
+
+    downloader_ =
+        std::make_unique<ManagedConfigurationDownloader>(desired_hash_);
+    downloader_->Fetch(
+        desired_url_,
+        base::BindOnce(&OriginConfiguration::DecodeData,
+                       weak_ptr_factory_.GetWeakPtr(), desired_hash_));
+  }
+
+  void DecodeData(const std::string& url_hash,
+                  std::optional<std::string> data) {
+    downloader_.reset();
+    if (!data) {
+      if (IsRecoveryEnabled() && !IsSyncInProgress()) {
+        FlushPendingReads();
+      }
+      ScheduleRetry();
+      return;
+    }
+
+    std::optional<base::DictValue> decoding_result =
+        base::JSONReader::ReadDict(*data, base::JSON_PARSE_RFC);
+    if (!decoding_result.has_value()) {
+      VLOG(1) << "Could not fetch managed configuration for app with origin = "
+              << origin_.Serialize();
+      PostStoreConfiguration(/*url_hash=*/std::string(), base::DictValue());
+      ScheduleRetry();
+      return;
+    }
+    retry_timer_.Stop();
+
+    if (!IsRecoveryEnabled()) {
+      ScopedDictPrefUpdate update(
+          api_->profile_->GetPrefs(),
+          prefs::kLastManagedConfigurationHashForOrigin);
+      update->Set(GetOriginEncoded(origin_), url_hash);
+    }
+
+    // We need to transform each value into a string.
+    base::DictValue result_dict;
+    for (auto item : *decoding_result) {
+      std::string result;
+      JSONStringValueSerializer serializer(&result);
+      serializer.Serialize(item.second);
+      if (IsRecoveryEnabled()) {
+        result_dict.Set(item.first, result);
+      } else {
+        result_dict.SetByDottedPath(item.first, result);
+      }
+    }
+
+    PostStoreConfiguration(url_hash, std::move(result_dict));
+  }
+
+  void PostStoreConfiguration(const std::string& url_hash,
+                              base::DictValue configuration) {
+    EnsureStoreCreated();
+    if (IsRecoveryEnabled()) {
+      // Drop the committed hash before the store diverges from it; it is
+      // re-committed in OnStoreConfigurationCompleted() once this write
+      // succeeded. Otherwise a superseded or failed write could leave a hash
+      // that does not match the store (e.g. policy A -> B -> A while B's write
+      // is queued).
+      ScopedDictPrefUpdate update(
+          api_->profile_->GetPrefs(),
+          prefs::kLastManagedConfigurationHashForOrigin);
+      update->Remove(GetOriginEncoded(origin_));
+    }
+    ++in_flight_store_writes_;
+    // Writes complete in order, so the latest queued write determines what the
+    // store will contain.
+    in_flight_write_hash_ = url_hash;
+    store_.AsyncCall(&ManagedConfigurationStore::SetCurrentPolicy)
+        .WithArgs(std::move(configuration))
+        .Then(
+            base::BindOnce(&OriginConfiguration::OnStoreConfigurationCompleted,
+                           weak_ptr_factory_.GetWeakPtr(), url_hash));
+  }
+
+  void OnStoreConfigurationCompleted(
+      const std::string& url_hash,
+      base::expected<bool, std::monostate> changed) {
+    CHECK_GT(in_flight_store_writes_, 0);
+    if (--in_flight_store_writes_ == 0) {
+      in_flight_write_hash_.clear();
+    }
+    if (!IsRecoveryEnabled()) {
+      api_->InformObserversIfConfigurationChanged(origin_,
+                                                  changed.value_or(false));
+      return;
+    }
+    if (!changed.has_value()) {
+      if (!IsSyncInProgress()) {
+        FlushPendingReads();
+      }
+      if (!url_hash.empty() && desired_hash_ == url_hash) {
+        ScheduleRetry();
+      }
+      return;
+    }
+    if (!url_hash.empty() && desired_hash_ == url_hash) {
+      ScopedDictPrefUpdate update(
+          api_->profile_->GetPrefs(),
+          prefs::kLastManagedConfigurationHashForOrigin);
+      update->Set(GetOriginEncoded(origin_), url_hash);
+      // Only a durably committed configuration counts as success; resetting
+      // earlier would keep the backoff from growing while writes keep failing.
+      retry_backoff_.Reset();
+    }
+    if (!IsSyncInProgress()) {
+      FlushPendingReads();
+    }
+    api_->InformObserversIfConfigurationChanged(origin_, *changed);
+  }
+
+  void FlushPendingReads() {
+    pending_reads_timer_.Stop();
+    if (pending_reads_.empty()) {
+      return;
+    }
+    std::vector<PendingRead> reads = std::exchange(pending_reads_, {});
+
+    if (!api_->CanHaveManagedStore(origin_)) {
+      for (auto& [keys, callback] : reads) {
+        std::move(callback).Run(std::nullopt);
+      }
+      return;
+    }
+
+    EnsureStoreCreated();
+    for (auto& [keys, callback] : reads) {
+      if (keys.has_value()) {
+        store_.AsyncCall(&ManagedConfigurationStore::Get)
+            .WithArgs(std::move(*keys))
+            .Then(std::move(callback));
+      } else {
+        store_.AsyncCall(&ManagedConfigurationStore::GetAll)
+            .Then(std::move(callback));
+      }
+    }
+  }
+
+  const raw_ptr<ManagedConfigurationAPI> api_;
+  const url::Origin origin_;
+  const base::FilePath store_path_;
+  const net::BackoffEntry::Policy retry_policy_;
+
+  std::string desired_url_;
+  std::string desired_hash_;
+  base::SequenceBound<ManagedConfigurationStore> store_;
+  std::unique_ptr<ManagedConfigurationDownloader> downloader_;
+  net::BackoffEntry retry_backoff_{&retry_policy_};
+  base::OneShotTimer retry_timer_;
+  int in_flight_store_writes_ = 0;
+  // Hash the most recently queued store write will commit, while any write is
+  // in flight. Empty for clears and test writes.
+  std::string in_flight_write_hash_;
+  std::vector<PendingRead> pending_reads_;
+  base::OneShotTimer pending_reads_timer_;
+
+  base::WeakPtrFactory<OriginConfiguration> weak_ptr_factory_{this};
 };
 
 ManagedConfigurationAPI::ManagedConfigurationAPI(Profile* profile)
@@ -131,6 +562,11 @@ ManagedConfigurationAPI::ManagedConfigurationAPI(Profile* profile)
       base::BindRepeating(
           &ManagedConfigurationAPI::OnConfigurationPolicyChanged,
           weak_ptr_factory_.GetWeakPtr()));
+  if (IsRecoveryEnabled()) {
+    if (auto* tracker = content::GetNetworkConnectionTracker()) {
+      network_connection_observation_.Observe(tracker);
+    }
+  }
   OnConfigurationPolicyChanged();
 }
 
@@ -152,22 +588,29 @@ void ManagedConfigurationAPI::GetOriginPolicyConfiguration(
     std::move(callback).Run(std::nullopt);
     return;
   }
-
-  if (!store_map_.contains(origin)) {
+  if (!IsRecoveryEnabled() && !origins_.contains(origin)) {
     std::move(callback).Run(std::nullopt);
     return;
   }
+  GetOrCreateOriginConfiguration(origin).GetConfiguration(keys,
+                                                          std::move(callback));
+}
 
-  store_map_[origin]
-      .AsyncCall(&ManagedConfigurationStore::Get)
-      .WithArgs(keys)
-      .Then(std::move(callback));
+void ManagedConfigurationAPI::GetOriginPolicyConfiguration(
+    const url::Origin& origin,
+    base::OnceCallback<void(std::optional<base::DictValue>)> callback) {
+  if (!CanHaveManagedStore(origin)) {
+    std::move(callback).Run(std::nullopt);
+    return;
+  }
+  GetOrCreateOriginConfiguration(origin).GetAllConfiguration(
+      std::move(callback));
 }
 
 void ManagedConfigurationAPI::AddObserver(Observer* observer) {
   url::Origin origin = observer->GetOrigin();
   if (CanHaveManagedStore(origin)) {
-    MaybeCreateStoreForOrigin(origin);
+    GetOrCreateOriginConfiguration(origin).EnsureSynced();
     observers_[origin].AddObserver(observer);
   } else {
     unmanaged_observers_.insert(observer);
@@ -184,6 +627,14 @@ void ManagedConfigurationAPI::RemoveObserver(Observer* observer) {
   observers_[observer->GetOrigin()].RemoveObserver(observer);
 }
 
+void ManagedConfigurationAPI::AddObserver(AnyOriginObserver* observer) {
+  any_origin_observers_.AddObserver(observer);
+}
+
+void ManagedConfigurationAPI::RemoveObserver(AnyOriginObserver* observer) {
+  any_origin_observers_.RemoveObserver(observer);
+}
+
 bool ManagedConfigurationAPI::CanHaveManagedStore(const url::Origin& origin) {
   return managed_origins_.contains(origin);
 }
@@ -193,11 +644,48 @@ const std::set<url::Origin>& ManagedConfigurationAPI::GetManagedOrigins()
   return managed_origins_;
 }
 
+void ManagedConfigurationAPI::SetConfigurationForTesting(
+    const url::Origin& origin,
+    base::DictValue configuration) {
+  managed_origins_.insert(origin);
+  GetOrCreateOriginConfiguration(origin).SetConfigurationForTesting(
+      std::move(configuration));
+}
+
+void ManagedConfigurationAPI::SetRetryBackoffForTesting(
+    base::TimeDelta initial_delay,
+    double multiply_factor) {
+  retry_initial_delay_for_testing_ = initial_delay;
+  retry_multiply_factor_for_testing_ = multiply_factor;
+}
+
+void ManagedConfigurationAPI::SetMaxPendingReadDelayForTesting(
+    base::TimeDelta delay) {
+  max_pending_read_delay_for_testing_ = delay;
+}
+
+void ManagedConfigurationAPI::SetStoreTaskRunnerForTesting(
+    scoped_refptr<base::SequencedTaskRunner> task_runner) {
+  store_task_runner_for_testing_ = std::move(task_runner);
+}
+
+void ManagedConfigurationAPI::OnConnectionChanged(
+    net::NetworkChangeNotifier::ConnectionType type) {
+  if (!IsRecoveryEnabled() ||
+      type == net::NetworkChangeNotifier::CONNECTION_NONE) {
+    return;
+  }
+  for (const auto& origin : managed_origins_) {
+    GetOrCreateOriginConfiguration(origin).OnNetworkConnected();
+  }
+}
+
 void ManagedConfigurationAPI::OnConfigurationPolicyChanged() {
   const base::ListValue& managed_configurations =
       profile_->GetPrefs()->GetList(prefs::kManagedConfigurationPerOrigin);
 
   std::set<url::Origin> current_origins;
+  std::set<std::string> current_encoded_origins;
 
   for (const auto& entry : managed_configurations) {
     const auto& entry_dict = entry.GetDict();
@@ -215,18 +703,42 @@ void ManagedConfigurationAPI::OnConfigurationPolicyChanged() {
     const std::string* configuration_hash =
         entry_dict.FindString(kManagedConfigurationHashKey);
     current_origins.insert(origin);
+    current_encoded_origins.insert(GetOriginEncoded(origin));
 
     if (!configuration_url || !configuration_hash) {
+      if (IsRecoveryEnabled()) {
+        if (auto it = origins_.find(origin); it != origins_.end()) {
+          it->second->ClearConfiguration();
+        }
+      }
       continue;
     }
-    UpdateStoredDataForOrigin(origin, *configuration_url, *configuration_hash);
+    GetOrCreateOriginConfiguration(origin).UpdateConfiguration(
+        *configuration_url, *configuration_hash);
   }
 
-  // We need to clean configurations for origins that got their entry removed.
-  for (const auto& store_entry : store_map_) {
-    if (!current_origins.contains(store_entry.first)) {
-      UpdateStoredDataForOrigin(store_entry.first, std::string(),
-                                std::string());
+  // Clean configurations for origins that had their entry removed.
+  for (auto& [origin, origin_configuration] : origins_) {
+    if (!current_origins.contains(origin)) {
+      if (IsRecoveryEnabled() || origin_configuration->HasStore()) {
+        origin_configuration->ClearConfiguration();
+      }
+    }
+  }
+
+  if (IsRecoveryEnabled()) {
+    // Also remove persisted hashes for origins that were removed from policy
+    // across browser sessions (and therefore are not in `origins_`).
+    ScopedDictPrefUpdate update(profile_->GetPrefs(),
+                                prefs::kLastManagedConfigurationHashForOrigin);
+    std::vector<std::string> stale_keys;
+    for (auto [encoded_origin, _] : *update) {
+      if (!current_encoded_origins.contains(encoded_origin)) {
+        stale_keys.push_back(encoded_origin);
+      }
+    }
+    for (const std::string& key : stale_keys) {
+      update->Remove(key);
     }
   }
 
@@ -234,18 +746,15 @@ void ManagedConfigurationAPI::OnConfigurationPolicyChanged() {
   PromoteObservers();
 }
 
-void ManagedConfigurationAPI::MaybeCreateStoreForOrigin(
+ManagedConfigurationAPI::OriginConfiguration&
+ManagedConfigurationAPI::GetOrCreateOriginConfiguration(
     const url::Origin& origin) {
-  if (store_map_.contains(origin)) {
-    return;
+  auto& entry = origins_[origin];
+  if (!entry) {
+    entry = std::make_unique<OriginConfiguration>(this, origin,
+                                                  GetStoreLocation(origin));
   }
-
-  // Create the store now, and serve the cached policy until the PolicyService
-  // sends updated values.
-  store_map_[origin] = base::SequenceBound<ManagedConfigurationStore>(
-      base::ThreadPool::CreateSequencedTaskRunner(
-          {base::MayBlock(), base::TaskShutdownBehavior::SKIP_ON_SHUTDOWN}),
-      origin, GetStoreLocation(origin));
+  return *entry;
 }
 
 base::FilePath ManagedConfigurationAPI::GetStoreLocation(
@@ -253,99 +762,21 @@ base::FilePath ManagedConfigurationAPI::GetStoreLocation(
   return stores_path_.AppendASCII(GetOriginEncoded(origin));
 }
 
-void ManagedConfigurationAPI::UpdateStoredDataForOrigin(
-    const url::Origin& origin,
-    const std::string& configuration_url,
-    const std::string& configuration_hash) {
-  const std::string* last_hash_value =
-      profile_->GetPrefs()
-          ->GetDict(prefs::kLastManagedConfigurationHashForOrigin)
-          .FindString(GetOriginEncoded(origin));
-
-  // Nothing to be stored here, the hash value is the same.
-  if (last_hash_value && *last_hash_value == configuration_hash) {
-    return;
-  }
-
-  if (configuration_url.empty()) {
-    ScopedDictPrefUpdate update(profile_->GetPrefs(),
-                                prefs::kLastManagedConfigurationHashForOrigin);
-    update->Remove(GetOriginEncoded(origin));
-    PostStoreConfiguration(origin, base::DictValue());
-    return;
-  }
-
-  // Check whether there is already a downloader.
-  if (downloaders_[origin]) {
-    // If it downloads the same data already, do nothing.
-    if (downloaders_[origin]->hash() == configuration_hash) {
-      return;
-    }
-    // Cancel it otherwise.
-    downloaders_[origin].reset();
-  }
-
-  downloaders_[origin] =
-      std::make_unique<ManagedConfigurationDownloader>(configuration_hash);
-  downloaders_[origin]->Fetch(
-      configuration_url, base::BindOnce(&ManagedConfigurationAPI::DecodeData,
-                                        weak_ptr_factory_.GetWeakPtr(), origin,
-                                        configuration_hash));
-}
-
-void ManagedConfigurationAPI::DecodeData(const url::Origin& origin,
-                                         const std::string& url_hash,
-                                         std::optional<std::string> data) {
-  downloaders_[origin].reset();
-  if (!data) {
-    return;
-  }
-
-  std::optional<base::DictValue> decoding_result =
-      base::JSONReader::ReadDict(*data, base::JSON_PARSE_RFC);
-  if (!decoding_result.has_value()) {
-    VLOG(1) << "Could not fetch managed configuration for app with origin = "
-            << origin.Serialize();
-    PostStoreConfiguration(origin, base::DictValue());
-    return;
-  }
-  ScopedDictPrefUpdate update(profile_->GetPrefs(),
-                              prefs::kLastManagedConfigurationHashForOrigin);
-  update->Set(GetOriginEncoded(origin), url_hash);
-
-  // We need to transform each value into a string.
-  base::DictValue result_dict;
-  for (auto item : *decoding_result) {
-    std::string result;
-    JSONStringValueSerializer serializer(&result);
-    serializer.Serialize(item.second);
-    result_dict.SetByDottedPath(item.first, result);
-  }
-
-  PostStoreConfiguration(origin, std::move(result_dict));
-}
-
-void ManagedConfigurationAPI::PostStoreConfiguration(
-    const url::Origin& origin,
-    base::DictValue configuration) {
-  MaybeCreateStoreForOrigin(origin);
-  store_map_[origin]
-      .AsyncCall(&ManagedConfigurationStore::SetCurrentPolicy)
-      .WithArgs(std::move(configuration))
-      .Then(base::BindOnce(
-          &ManagedConfigurationAPI::InformObserversIfConfigurationChanged,
-          weak_ptr_factory_.GetWeakPtr(), origin));
-}
-
 void ManagedConfigurationAPI::InformObserversIfConfigurationChanged(
     const url::Origin& origin,
     bool has_changed) {
-  if (!has_changed || !observers_.contains(origin)) {
+  if (!has_changed) {
     return;
   }
 
-  for (auto& observer : observers_[origin]) {
-    observer.OnManagedConfigurationChanged();
+  for (auto& observer : any_origin_observers_) {
+    observer.OnAnyManagedConfigurationChanged(origin);
+  }
+
+  if (observers_.contains(origin)) {
+    for (auto& observer : observers_[origin]) {
+      observer.OnManagedConfigurationChanged();
+    }
   }
 }
 

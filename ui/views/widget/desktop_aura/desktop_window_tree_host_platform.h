@@ -12,8 +12,8 @@
 #include <vector>
 
 #include "base/gtest_prod_util.h"
-#include "base/memory/advanced_memory_safety_checks.h"
 #include "base/memory/raw_ptr.h"
+#include "base/memory/sanitized_object.h"
 #include "base/memory/weak_ptr.h"
 #include "build/build_config.h"
 #include "ui/aura/window_tree_host_platform.h"
@@ -37,7 +37,7 @@ class VIEWS_EXPORT DesktopWindowTreeHostPlatform
       public DesktopWindowTreeHost,
       public ui::WorkspaceExtensionDelegate {
   // TODO(https://crbug.com/497543810): Remove this macro if the issue is fixed.
-  ADVANCED_MEMORY_SAFETY_CHECKS();
+  SANITIZED_OBJECT();
 
  public:
   DesktopWindowTreeHostPlatform(
@@ -81,6 +81,7 @@ class VIEWS_EXPORT DesktopWindowTreeHostPlatform
   void Close() override;
   void CloseNow() override;
   aura::WindowTreeHost* AsWindowTreeHost() override;
+  DesktopWindowTreeHost::WindowTreeHosts GetOwnedWindowTreeHosts() override;
   void Show(ui::mojom::WindowShowState show_state,
             const gfx::Rect& restore_bounds) override;
   bool IsVisible() const override;

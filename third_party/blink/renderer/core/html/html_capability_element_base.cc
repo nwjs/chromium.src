@@ -17,6 +17,7 @@
 #include "third_party/blink/public/strings/grit/blink_strings.h"
 #include "third_party/blink/public/strings/grit/permission_element_strings.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_permission_state.h"
+#include "third_party/blink/renderer/core/accessibility/ax_object_cache.h"
 #include "third_party/blink/renderer/core/css/css_selector.h"
 #include "third_party/blink/renderer/core/css/font_size_functions.h"
 #include "third_party/blink/renderer/core/css/properties/css_property_instances.h"
@@ -491,13 +492,37 @@ void HTMLCapabilityElementBase::SetPreciseLocation(bool is_precise_location) {
 }
 
 bool HTMLCapabilityElementBase::IsIconOnly() const {
-  if (IsHTMLInstallElement() ||
+  if (IsHTMLInstallElement() || IsHTMLUserMediaElement() ||
       !RuntimeEnabledFeatures::CapabilityElementIconOnlyModeEnabled(
           GetDocument().GetExecutionContext())) {
     return false;
   }
   return EqualIgnoringAsciiCase(FastGetAttribute(html_names::kDisplaymodeAttr),
                                 "icon-only");
+}
+
+const String& HTMLCapabilityElementBase::AccessibleLabel() const {
+  return accessible_label_;
+}
+
+void HTMLCapabilityElementBase::SetPermissionText(const String& text) {
+  bool label_changed = accessible_label_ != text;
+  accessible_label_ = text;
+  String displayed_text = IsIconOnly() ? g_empty_string : text;
+  if (permission_text_span_ &&
+      permission_text_span_->textContent() != displayed_text) {
+    permission_text_span_->setInnerText(displayed_text);
+    label_changed = true;
+  }
+  if (label_changed) {
+    if (AXObjectCache* cache = GetDocument().ExistingAXObjectCache()) {
+      if (LayoutObject* layout_object = GetLayoutObject()) {
+        cache->TextChanged(layout_object);
+      } else {
+        cache->MarkElementDirty(this);
+      }
+    }
+  }
 }
 
 void HTMLCapabilityElementBase::UpdatePermissionStatus() {
@@ -668,13 +693,25 @@ bool HTMLCapabilityElementBase::MaybeRegisterPageEmbeddedPermissionControl() {
     return false;
   }
 
+  // `CreateEmbeddedPermissionRequestDescriptor()` computes `BoundsInWidget()`,
+  // which forces a synchronous style and layout update. That update can
+  // re-entrantly register this control, detach the frame, or change whether
+  // the element is rendered, so re-verify these conditions afterwards.
+  auto descriptor = CreateEmbeddedPermissionRequestDescriptor();
+  if (embedded_permission_control_receiver_.is_bound()) {
+    return true;
+  }
+  if (!GetDocument().GetFrame() || !IsRendered()) {
+    return false;
+  }
+
   mojo::PendingRemote<EmbeddedPermissionControlClient> client;
   embedded_permission_control_receiver_.Bind(
       client.InitWithNewPipeAndPassReceiver(), GetTaskRunner());
   CHECK(embedded_permission_control_receiver_.is_bound());
   GetPermissionService()->RegisterPageEmbeddedPermissionControl(
-      mojo::Clone(permission_descriptors_),
-      CreateEmbeddedPermissionRequestDescriptor(), std::move(client));
+      mojo::Clone(permission_descriptors_), std::move(descriptor),
+      std::move(client));
   return true;
 }
 
@@ -699,7 +736,7 @@ void HTMLCapabilityElementBase::ParseAttribute(
   if (params.name == html_names::kPreciselocationAttr) {
     SetPreciseLocation(params.new_value != nullptr);
   } else if (params.name == html_names::kDisplaymodeAttr) {
-    if (!IsHTMLInstallElement() &&
+    if (!IsHTMLInstallElement() && !IsHTMLUserMediaElement() &&
         RuntimeEnabledFeatures::CapabilityElementIconOnlyModeEnabled(
             GetDocument().GetExecutionContext()) &&
         EqualIgnoringAsciiCase(params.old_value, "icon-only") !=
@@ -1108,9 +1145,15 @@ void HTMLCapabilityElementBase::RequestPageEmbededPermissions() {
   CHECK_LE(permission_descriptors_.size(), 2U);
   pending_request_created_ = base::TimeTicks::Now();
 
+  // `CreateEmbeddedPermissionRequestDescriptor()` forces a synchronous layout
+  // update, which may detach the frame or make the element unrendered.
+  auto descriptor = CreateEmbeddedPermissionRequestDescriptor();
+  if (!GetDocument().GetFrame() || !IsRendered()) {
+    return;
+  }
+
   GetPermissionService()->RequestPageEmbeddedPermission(
-      mojo::Clone(permission_descriptors_),
-      CreateEmbeddedPermissionRequestDescriptor(),
+      mojo::Clone(permission_descriptors_), std::move(descriptor),
       BindOnce(&HTMLCapabilityElementBase::OnEmbeddedPermissionsDecided,
                WrapWeakPersistent(this)));
 }
@@ -1433,10 +1476,7 @@ void HTMLCapabilityElementBase::OnIntersectionChanged(
   // bound is clipped by the viewport or styling effects). In this case, the
   // `isVisible` false means the element is occluded by something else or has
   // distorted visual effect applied.
-  // Note: It's unlikely we'll encounter an empty target rectangle (height or
-  // width is 0), but if it happens, we can consider the element as visible.
-  if (!latest_observation->isVisible() &&
-      !latest_observation->GetGeometry().TargetRect().IsEmpty()) {
+  if (!latest_observation->isVisible()) {
     new_intersection_visibility =
         latest_observation->intersectionRatio() >= kIntersectionThreshold
             ? IntersectionVisibility::kOccludedOrDistorted

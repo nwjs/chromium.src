@@ -42,12 +42,18 @@ chromium-metrics-reviews@google.com.
   <int value="1" label="Notification click (within last 5 seconds)"/>
 </enum>
 
+<!-- LINT.IfChange(IncognitoForcedStart) -->
+
 <enum name="IncognitoForcedStart">
-  <int value="0" label="No Incognito switch and not forced"/>
-  <int value="1" label="Incognito switch but not forced"/>
-  <int value="2" label="No Incognito switch but forced"/>
-  <int value="3" label="Incognito switch and forced"/>
+  <int value="0" label="No Incognito switch and Incognito not launched"/>
+  <int value="1" label="Incognito switch but Incognito not launched"/>
+  <int value="2" label="No Incognito switch but Incognito launched"/>
+  <int value="3" label="Incognito switch and Incognito launched"/>
+  <int value="4" label="Incognito switch and Isolated Mode launched"/>
+  <int value="5" label="No Incognito switch but Isolated Mode launched"/>
 </enum>
+
+<!-- LINT.ThenChange(//chrome/browser/ui/startup/startup_browser_creator.cc:IncognitoForcedStart) -->
 
 <enum name="IOSColdStartType">
   <int value="0" label="Cold start"/>
@@ -79,6 +85,7 @@ chromium-metrics-reviews@google.com.
     launches or a background launch use case that is not being properly detected
     by our startup metrics.
   </int>
+  <int value="6" label="Foreground with system suspension"/>
 </enum>
 
 <!-- LINT.ThenChange(//ios/chrome/app/application_delegate/startup_information.h:IOSLaunchReason) -->
@@ -175,6 +182,7 @@ chromium-metrics-reviews@google.com.
   <int value="7" label="VisiblePageLoaded"/>
   <int value="8" label="VisiblePageLoadingTimedOut"/>
   <int value="9" label="NoVisiblePageFound"/>
+  <int value="10" label="VisiblePagesHidden"/>
 </enum>
 
 <!-- LINT.ThenChange(//chrome/browser/after_startup_task_utils.h:StartupIsCompleteReason) -->

@@ -595,6 +595,16 @@
       milestone: 97,
     },
     {
+      name: "RTCPeerConnectionCreateDTMFSender",
+      message: "RTCPeerConnection.createDTMFSender() is deprecated and will be removed. Please use RTCRtpSender.dtmf instead.",
+      translation_note: "Warning displayed to developers when the non-standard RTCPeerConnection.createDTMFSender() method is used. Developers should use the standard RTCRtpSender.dtmf attribute instead.",
+      web_features: [
+        "kV8RTCPeerConnection_CreateDTMFSender_Method",
+      ],
+      chrome_status_feature: 5160724576993280,
+      milestone: 160,
+    },
+    {
       name: "RTCPeerConnectionGetStatsLegacyNonCompliant",
       message: "The callback-based getStats() is deprecated and will be removed. Use the spec-compliant getStats() instead.",
       translation_note: "WebRTC is set of JavaScript APIs for sending and receiving data, audio and video. getStats() is a method used to obtain network and quality metrics. There are two versions of this method, one is being deprecated because it is non-standard.",
@@ -622,15 +632,6 @@
         "kV8SharedArrayBufferConstructedWithoutIsolation",
       ],
       milestone: 106,
-    },
-    {
-      name: "SharedStorage",
-      message: "The Shared Storage API is deprecated and will be removed in a future release.",
-      translation_note: "A deprecation warning shown in the DevTools Issues tab. It's shown when one of the Shared Storage APIs like `sharedStorage.set()`, `sharedStorage.worklet.addModule()`, `sharedStorage.selectURL()`, etc., along with `<img sharedstoragewritable>`, `<iframe sharedstoragewritable>`, or `fetch(url, {sharedStorageWritable: true})` are used.",
-      web_features: [
-        "kSharedStorageAPIAll",
-      ],
-      chrome_status_feature: 5076349064708096,
     },
     {
       name: "StorageAccessAPI_requestStorageAccessFor_Method",

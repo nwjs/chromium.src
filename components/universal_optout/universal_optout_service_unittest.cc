@@ -132,6 +132,22 @@ TEST_F(UniversalOptOutServiceTest, EligibleWhenInTargetLocation) {
   EXPECT_EQ(history.FindBool(day_key), true);
 }
 
+TEST_F(UniversalOptOutServiceTest, ForceEligibleParamOverridesLocation) {
+  scoped_feature_list_.Reset();
+  scoped_feature_list_.InitWithFeaturesAndParameters(
+      /*enabled_features=*/{base::test::FeatureRefAndParams(
+          features::kUniversalOptOut,
+          {{"target_locations", "us-tx"}, {"force_eligible", "true"}})},
+      /*disabled_features=*/{});
+
+  SetGeoLevel1("us-ny");
+  auto service = CreateService();
+
+  EXPECT_TRUE(service->IsEligible());
+  // The underlying location-based eligibility is unaffected.
+  EXPECT_FALSE(pref_service_.GetBoolean(prefs::kUniversalOptOutEligible));
+}
+
 TEST_F(UniversalOptOutServiceTest, IneligibleWhenNotInTargetLocation) {
   EnableFeatureWithTargetLocations("us-tx");
 
@@ -261,7 +277,7 @@ TEST_F(UniversalOptOutServiceTest,
   EXPECT_TRUE(pref_service_.GetBoolean(prefs::kUniversalOptOutEligible));
 }
 
-TEST_F(UniversalOptOutServiceTest, RemainsEligibleWhenToggleOn) {
+TEST_F(UniversalOptOutServiceTest, BecomesIneligibleEvenWhenToggleOn) {
   EnableFeatureWithTargetLocations("us-nc");
 
   // User is currently eligible and has the toggle turned ON.
@@ -277,9 +293,9 @@ TEST_F(UniversalOptOutServiceTest, RemainsEligibleWhenToggleOn) {
   SetGeoLevel1("us-ga");
   auto service = CreateService();
 
-  // Because the toggle is enabled, the user does NOT become ineligible.
-  EXPECT_TRUE(service->IsEligible());
-  EXPECT_TRUE(pref_service_.GetBoolean(prefs::kUniversalOptOutEligible));
+  // The toggle state does not affect eligibility; the user becomes ineligible.
+  EXPECT_FALSE(service->IsEligible());
+  EXPECT_FALSE(pref_service_.GetBoolean(prefs::kUniversalOptOutEligible));
 }
 
 TEST_F(UniversalOptOutServiceTest, PrunesExpiredHistory) {

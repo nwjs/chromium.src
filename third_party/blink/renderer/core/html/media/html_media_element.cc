@@ -4210,6 +4210,19 @@ TimeRanges* HTMLMediaElement::seekable() const {
   return MakeGarbageCollected<TimeRanges>(SeekableInternal());
 }
 
+bool HTMLMediaElement::CanSeekTo(double time) const {
+  WebTimeRanges seekable_ranges = SeekableInternal();
+  // WebMediaPlayerImpl::Seekable() returns a single [0.0, 0.0] range for
+  // non-seekable finite streaming sources solely to allow looping to work.
+  // Do not treat this special [0.0, 0.0] range as seekable for user/control
+  // seeks.
+  if (seekable_ranges.size() == 1 && seekable_ranges[0].start == 0.0 &&
+      seekable_ranges[0].end == 0.0) {
+    return false;
+  }
+  return seekable_ranges.Contain(time);
+}
+
 bool HTMLMediaElement::PotentiallyPlaying() const {
   // Once we've reached the metadata state the WebMediaPlayer is ready to accept
   // play state changes.
@@ -4865,9 +4878,11 @@ void HTMLMediaElement::Trace(Visitor* visitor) const {
   visitor->Trace(media_player_receiver_set_);
   visitor->Trace(opener_document_);
   visitor->Trace(opener_context_observer_);
+  visitor->Trace(remote_playback_client_);
   Supplementable<HTMLMediaElement>::Trace(visitor);
   HTMLElement::Trace(visitor);
   ExecutionContextLifecycleStateObserver::Trace(visitor);
+  MediaPlayerClient::Trace(visitor);
 }
 
 void HTMLMediaElement::CreatePlaceholderTracksIfNecessary() {
@@ -5365,17 +5380,26 @@ void HTMLMediaElement::RequestPause(bool triggered_by_user) {
 void HTMLMediaElement::RequestSeekForward(base::TimeDelta seek_time) {
   double seconds = seek_time.InSecondsF();
   DCHECK_GE(seconds, 0) << "Attempted to seek by a negative number of seconds";
-  setCurrentTime(currentTime() + seconds);
+  double time = std::min(currentTime() + seconds, duration());
+  if (CanSeekTo(time)) {
+    setCurrentTime(time);
+  }
 }
 
 void HTMLMediaElement::RequestSeekBackward(base::TimeDelta seek_time) {
   double seconds = seek_time.InSecondsF();
   DCHECK_GE(seconds, 0) << "Attempted to seek by a negative number of seconds";
-  setCurrentTime(currentTime() - seconds);
+  double time = std::max(currentTime() - seconds, EarliestPossiblePosition());
+  if (CanSeekTo(time)) {
+    setCurrentTime(time);
+  }
 }
 
 void HTMLMediaElement::RequestSeekTo(base::TimeDelta seek_time) {
-  setCurrentTime(seek_time.InSecondsF());
+  double time = std::min(seek_time.InSecondsF(), duration());
+  if (CanSeekTo(time)) {
+    setCurrentTime(time);
+  }
 }
 
 void HTMLMediaElement::RequestMute(bool mute) {

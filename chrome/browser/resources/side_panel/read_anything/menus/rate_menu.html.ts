@@ -9,17 +9,10 @@ import {ToolbarEvent} from '../content/read_anything_types.js';
 import type {RateMenuElement} from './rate_menu.js';
 
 export function getHtml(this: RateMenuElement) {
-  // clang-format off
   return html`<!--_html_template_start_-->
-<simple-action-menu
-    id="menu"
-    class="immersive-top-level-menu"
-    label="$i18n{voiceSpeedLabel}"
-    .menuItems="${this.options_}"
-    event-name="${ToolbarEvent.RATE}"
-    current-selected-index="${this.restoredRateIndex_()}"
-    @rate-change="${this.onRateChange_}">
+<simple-action-menu id="menu" class="immersive-top-level-menu"
+    label="$i18n{voiceSpeedLabel}" .menuItems="${this.options_}"
+    event-name="${ToolbarEvent.RATE}" .selectedValue="${this.speechRate}">
 </simple-action-menu>
 <!--_html_template_end_-->`;
-  // clang-format on
 }

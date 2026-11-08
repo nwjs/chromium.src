@@ -20,18 +20,11 @@ declare_args() {
   enterprise_data_controls =
       is_win || is_mac || is_linux || is_chromeos || is_android || is_ios
 
-  # Indicates support for client certificates provisioning.
-  # iOS support is currently under development
-  enterprise_client_certificates =
-      is_win || is_mac || is_linux || is_android || is_ios || is_chromeos
-
   # Indicates support for watermark.
   enterprise_watermark =
       (is_win || is_mac || is_linux || is_chromeos || is_ios) && !is_castos
 
   enterprise_screenshot_protection = is_win || is_mac || is_ios || is_android
-
-  enterprise_telomere_reporting = is_win || is_mac || is_linux
 
   # Support on all platforms except for iOS since it uses `WKWebView` cache.
   enterprise_cache_encryption =

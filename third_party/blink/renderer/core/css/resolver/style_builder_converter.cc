@@ -28,9 +28,9 @@
 #include <algorithm>
 #include <memory>
 #include <optional>
+#include <ranges>
 #include <utility>
 
-#include "base/containers/adapters.h"
 #include "base/notreached.h"
 #include "build/build_config.h"
 #include "third_party/blink/renderer/core/css/basic_shape_functions.h"
@@ -532,7 +532,7 @@ FontDescription::FamilyDescription StyleBuilderConverterBase::ConvertFontFamily(
   scoped_refptr<SharedFontFamily> next;
   bool has_value = false;
 
-  for (auto& family : base::Reversed(To<CSSValueList>(value))) {
+  for (auto& family : std::views::reverse(To<CSSValueList>(value))) {
     AtomicString next_family_name;
     FontDescription::GenericFamilyType generic_family =
         FontDescription::kNoFamily;
@@ -3043,7 +3043,8 @@ const CSSValue& ResolveLightDarkPair(
 }
 
 bool ShouldConvertLegacyColorSpaceToSRGB(const CSSValue& value) {
-  return value.IsRelativeColorValue() || value.IsColorMixValue();
+  return value.IsRelativeColorValue() || value.IsAlphaColorValue() ||
+         value.IsColorMixValue();
 }
 
 }  // anonymous namespace
@@ -3061,7 +3062,7 @@ StyleColor ResolveColorValue(const CSSValue& value,
   StyleColor result = ResolveColorValueImpl(value, context);
   if (ShouldConvertLegacyColorSpaceToSRGB(value) && result.IsAbsoluteColor()) {
     Color color = result.GetColor();
-    if (Color::IsLegacyColorSpace(color.GetColorSpace())) {
+    if (color.IsLegacy()) {
       // Missing components can be carried forward when converting rgb(...) to
       // color(srgb, ...) since the two color spaces have analogous components.
       // For other legacy spaces, conversion to color(srgb, ...) requires

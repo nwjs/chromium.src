@@ -8,6 +8,7 @@ import argparse
 
 import setup_modules  # pylint: disable=unused-import
 
+
 import chromium_src.tools.metrics.common.presubmit_util as presubmit_util
 import chromium_src.tools.metrics.private_metrics.dwa_model as dwa_model
 

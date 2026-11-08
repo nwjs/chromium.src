@@ -76,6 +76,7 @@ import org.chromium.chrome.browser.tab_ui.TabListMode;
 import org.chromium.chrome.browser.tab_ui.TabSwitcherCustomViewManager;
 import org.chromium.chrome.browser.tab_ui.TabSwitcherGroupSuggestionService;
 import org.chromium.chrome.browser.tab_ui.TabSwitcherGroupSuggestionService.SuggestionUiEvent;
+import org.chromium.chrome.browser.tabmodel.TabGroupUtils;
 import org.chromium.chrome.browser.tabmodel.TabList;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelObserver;
@@ -268,7 +269,7 @@ public class TabSwitcherPaneCoordinator implements BackPressHandler {
      * @param snackbarManager The activity-level {@link SnackbarManager}.
      * @param modalDialogManager The modal dialog manager for the activity.
      * @param bottomSheetController The {@link BottomSheetController} for the current activity.
-     * @param dataSharingTabManager The {@link} DataSharingTabManager managing communication between
+     * @param dataSharingTabManager The {@link DataSharingTabManager} managing communication between
      *     UI and DataSharing services.
      * @param messageManager The {@link TabSwitcherMessageManager} for the message service.
      * @param parentView The view to use as a parent.
@@ -410,7 +411,7 @@ public class TabSwitcherPaneCoordinator implements BackPressHandler {
                             isVisibleSupplier,
                             isAnimatingSupplier,
                             onTabClickCallback,
-                            this::getNthTabIndexInModel,
+                            this::getIndexFromTabId,
                             bottomSheetController,
                             this::addOnLayoutChangedAfterInitialScrollListener,
                             hubSearchBoxVisibilitySupplier);
@@ -462,8 +463,7 @@ public class TabSwitcherPaneCoordinator implements BackPressHandler {
                             tabSwitcherDragHandler,
                             /* undoBarExplicitTrigger= */ null,
                             /* snackbarManager= */ null,
-                            TabListEditorCoordinator.UNLIMITED_SELECTION,
-                            false);
+                            TabListEditorCoordinator.UNLIMITED_SELECTION);
             mTabListCoordinator = tabListCoordinator;
             TabGridItemLongPressOrchestrator.OnLongPressTabItemEventListener
                     longPressItemEventListener = this::onLongPressOnTabCard;
@@ -918,11 +918,10 @@ public class TabSwitcherPaneCoordinator implements BackPressHandler {
      * Scrolls to the specified group and animates open a dialog. It is the caller's responsibility
      * to ensure that this pane is showing before calling this.
      *
-     * @param tabId The id of any tab in the group.
+     * @param tabGroupId The tab group ID of the group.
      */
-    public void requestOpenTabGroupDialog(int tabId) {
-        mMediator.scrollToTabById(tabId);
-        mMediator.openTabGroupDialog(tabId);
+    public void requestOpenTabGroupDialog(Token tabGroupId) {
+        mMediator.openTabGroupDialog(tabGroupId, /* shouldScroll= */ true);
     }
 
     /** Returns the range (inclusive) of visible view indexes. */
@@ -1048,7 +1047,7 @@ public class TabSwitcherPaneCoordinator implements BackPressHandler {
 
         TabModel tabModel = mTabModelSupplier.get();
         assumeNonNull(tabModel);
-        int tabId = tabModel.getGroupLastShownTabId(tabGroupId);
+        int tabId = TabGroupUtils.getFirstTabIdInGroup(tabModel, tabGroupId);
         if (tabId == Tab.INVALID_TAB_ID) return null;
 
         TabListCoordinator coordinator = mTabListCoordinator;
@@ -1140,19 +1139,19 @@ public class TabSwitcherPaneCoordinator implements BackPressHandler {
         updatePinnedTabsStripOnScroll(/* shouldShowSearchBox= */ true, /* forced= */ false);
     }
 
-    /** Returns the filter index of a tab from its view index. */
-    public int countOfTabCardsOrInvalid(int viewIndex) {
-        return mTabListCoordinator.indexOfTabCardsOrInvalid(viewIndex);
+    /**
+     * Returns the tab group ID of the tab group card at the given view index, or null if the card
+     * at that index is not a tab group.
+     *
+     * @param viewIndex The view index in the recycler view.
+     * @return The {@link Token} tab group ID or null.
+     */
+    @Nullable Token getTabGroupIdForIndex(int viewIndex) {
+        return mTabListCoordinator.getTabGroupIdForIndex(viewIndex);
     }
 
-    private int getNthTabIndexInModel(int filterIndex) {
-        assert mTabListCoordinator != null;
-        int indexInModel = mTabListCoordinator.getIndexOfNthTabCard(filterIndex);
-        // If the tab list coordinator doesn't contain tab data yet assume filterIndex is a
-        // sufficient approximation as the offset would be caused by message cards.
-        if (indexInModel == TabList.INVALID_TAB_INDEX) return filterIndex;
-
-        return indexInModel;
+    private int getIndexFromTabId(@TabId int tabId) {
+        return mTabListCoordinator.getIndexFromTabId(tabId);
     }
 
     private void updateBottomPadding() {

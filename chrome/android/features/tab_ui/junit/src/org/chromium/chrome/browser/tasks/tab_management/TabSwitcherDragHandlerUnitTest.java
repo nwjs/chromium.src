@@ -59,6 +59,7 @@ import java.util.Collections;
 
 /** Unit tests for {@link TabSwitcherDragHandler} and {@link AnimatedDragShadowBuilder}. */
 @RunWith(BaseRobolectricTestRunner.class)
+@SuppressWarnings("DoNotMock") // TODO(567604165): Remove mocking of Views / Activities
 public class TabSwitcherDragHandlerUnitTest {
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
 
@@ -224,37 +225,39 @@ public class TabSwitcherDragHandlerUnitTest {
                         0L,
                         /* fadeDragShadow= */ true);
 
-        // 1. Attached view provided explicitly
-        builder.update(attachedView, /* show= */ false);
-        verify(attachedView).updateDragShadow(builder);
-
-        // 2. Fallback to attached original view
-        clearInvocations(attachedView);
+        // 1. Original view is preferred over an attached view, which may be in another window.
         doReturn(true).when(originalView).isAttachedToWindow();
-        builder.update(null, /* show= */ true);
+        builder.update(attachedView, /* show= */ false);
         verify(originalView).updateDragShadow(builder);
+        verify(attachedView, never()).updateDragShadow(builder);
 
-        // 3. Fallback to original view's root view
+        // 2. Fallback to original view's root view
         doReturn(false).when(originalView).isAttachedToWindow();
         View originalRootView = spy(new View(ContextUtils.getApplicationContext()));
         doReturn(true).when(originalRootView).isAttachedToWindow();
         doReturn(originalRootView).when(originalView).getRootView();
-        builder.update(null, /* show= */ false);
+        builder.update(attachedView, /* show= */ true);
         verify(originalRootView).updateDragShadow(builder);
 
-        // 4. Fallback to attached shadow view
+        // 3. Fallback to attached shadow view
         doReturn(null).when(originalView).getRootView();
         doReturn(true).when(shadowView).isAttachedToWindow();
-        builder.update(null, /* show= */ true);
+        builder.update(attachedView, /* show= */ false);
         verify(shadowView).updateDragShadow(builder);
 
-        // 5. Fallback to shadow view's root view
+        // 4. Fallback to shadow view's root view
         doReturn(false).when(shadowView).isAttachedToWindow();
         View shadowRootView = spy(new View(ContextUtils.getApplicationContext()));
         doReturn(true).when(shadowRootView).isAttachedToWindow();
         doReturn(shadowRootView).when(shadowView).getRootView();
-        builder.update(null, /* show= */ false);
+        builder.update(attachedView, /* show= */ true);
         verify(shadowRootView).updateDragShadow(builder);
+        verify(attachedView, never()).updateDragShadow(builder);
+
+        // 5. Last resort: the explicitly provided attached view
+        doReturn(null).when(shadowView).getRootView();
+        builder.update(attachedView, /* show= */ false);
+        verify(attachedView).updateDragShadow(builder);
     }
 
     @Test
@@ -652,6 +655,7 @@ public class TabSwitcherDragHandlerUnitTest {
         TabDragHandlerBase.setDragTokenForTesting(token);
 
         View dragSourceView = mock(View.class);
+        when(dragSourceView.isAttachedToWindow()).thenReturn(true);
         mDragHandler.mDragSourceView = dragSourceView;
         when(mDragHandlerDelegate.isDragInProcess()).thenReturn(true);
 
@@ -690,5 +694,18 @@ public class TabSwitcherDragHandlerUnitTest {
 
         assertFalse(mDragHandler.handleEscPress());
         verify(mDragHandlerDelegate, never()).handleInternalDragEnd();
+    }
+
+    @Test
+    public void testDestroy_RendersHandlerInert() {
+        mDragHandler.destroy();
+
+        DragEvent dragEvent = mock(DragEvent.class);
+        when(dragEvent.getAction()).thenReturn(DragEvent.ACTION_DRAG_STARTED);
+        assertFalse(mDragHandler.onDrag(new View(ContextUtils.getApplicationContext()), dragEvent));
+
+        assertFalse(mDragHandler.handleEscPress());
+        verify(mDragHandlerDelegate, never()).handleDragStart(any(), anyFloat(), anyFloat());
+        verify(mDragHandlerDelegate, never()).isDragInProcess();
     }
 }

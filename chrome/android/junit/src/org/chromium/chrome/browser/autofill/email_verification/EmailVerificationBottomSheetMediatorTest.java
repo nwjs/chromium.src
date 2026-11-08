@@ -7,7 +7,6 @@ package org.chromium.chrome.browser.autofill.email_verification;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
@@ -19,7 +18,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import android.app.Activity;
-import android.os.Looper;
 
 import org.junit.Before;
 import org.junit.Rule;
@@ -29,7 +27,6 @@ import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.robolectric.Robolectric;
-import org.robolectric.Shadows;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.chrome.R;
@@ -38,8 +35,6 @@ import org.chromium.components.autofill.EmailVerificationPermissionUiStatus;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController.StateChangeReason;
 import org.chromium.ui.base.TestActivity;
 import org.chromium.ui.modelutil.PropertyModel;
-
-import java.util.concurrent.TimeUnit;
 
 /** Unit tests for {@link EmailVerificationBottomSheetMediator}. */
 @RunWith(BaseRobolectricTestRunner.class)
@@ -96,7 +91,7 @@ public final class EmailVerificationBottomSheetMediatorTest {
         assertNotNull(confirmCallback);
         confirmCallback.run();
 
-        verify(mDelegate).onUiDecision(EmailVerificationPermissionUiStatus.ALLOWED);
+        verify(mDelegate).onUiAccepted();
     }
 
     @Test
@@ -107,7 +102,7 @@ public final class EmailVerificationBottomSheetMediatorTest {
         assertNotNull(cancelCallback);
         cancelCallback.run();
 
-        verify(mDelegate).onUiDecision(EmailVerificationPermissionUiStatus.DECLINED);
+        verify(mDelegate).onUiDismissed(EmailVerificationPermissionUiStatus.DECLINED);
     }
 
     @Test
@@ -126,7 +121,7 @@ public final class EmailVerificationBottomSheetMediatorTest {
 
         mMediator.requestShowContent();
 
-        verify(mDelegate).onUiDecision(EmailVerificationPermissionUiStatus.OTHER);
+        verify(mDelegate).onUiDismissed(EmailVerificationPermissionUiStatus.OTHER);
     }
 
     @Test
@@ -135,7 +130,7 @@ public final class EmailVerificationBottomSheetMediatorTest {
 
         verify(mUiController, never()).removeObserver(mMediator);
         verify(mUiController, never()).hideContent(any(), anyBoolean(), anyInt());
-        verify(mDelegate).onUiDecision(EmailVerificationPermissionUiStatus.ALLOWED);
+        verify(mDelegate).onUiAccepted();
         assertTrue(
                 mMediator
                         .getModel()
@@ -150,8 +145,7 @@ public final class EmailVerificationBottomSheetMediatorTest {
                         .getModel()
                         .get(EmailVerificationBottomSheetProperties.SHOW_LOADING_STATE));
 
-        mMediator.hide(StateChangeReason.INTERACTION_COMPLETE);
-        Shadows.shadowOf(Looper.getMainLooper()).idleFor(800, TimeUnit.MILLISECONDS);
+        mMediator.hide();
 
         verify(mUiController).removeObserver(mMediator);
         verify(mUiController)
@@ -159,6 +153,7 @@ public final class EmailVerificationBottomSheetMediatorTest {
                         eq(mContent),
                         /* animate= */ eq(true),
                         eq(StateChangeReason.INTERACTION_COMPLETE));
+        verify(mDelegate).onUiDismissed(EmailVerificationPermissionUiStatus.ALLOWED);
         assertFalse(
                 mMediator
                         .getModel()
@@ -175,7 +170,7 @@ public final class EmailVerificationBottomSheetMediatorTest {
                         eq(mContent),
                         /* animate= */ eq(true),
                         eq(StateChangeReason.INTERACTION_COMPLETE));
-        verify(mDelegate).onUiDecision(EmailVerificationPermissionUiStatus.DECLINED);
+        verify(mDelegate).onUiDismissed(EmailVerificationPermissionUiStatus.DECLINED);
     }
 
     @Test
@@ -183,8 +178,7 @@ public final class EmailVerificationBottomSheetMediatorTest {
         mMediator.onSheetClosed(StateChangeReason.BACK_PRESS);
 
         verify(mUiController, never()).hideContent(any(), anyBoolean(), anyInt());
-        verify(mDelegate, times(1)).onUiDismissed();
-        verify(mDelegate).onUiDecision(EmailVerificationPermissionUiStatus.USER_ABORTED);
+        verify(mDelegate, times(1)).onUiDismissed(EmailVerificationPermissionUiStatus.USER_ABORTED);
     }
 
     @Test
@@ -192,8 +186,7 @@ public final class EmailVerificationBottomSheetMediatorTest {
         mMediator.onSheetClosed(StateChangeReason.NAVIGATION);
 
         verify(mUiController, never()).hideContent(any(), anyBoolean(), anyInt());
-        verify(mDelegate, times(1)).onUiDismissed();
-        verify(mDelegate).onUiDecision(EmailVerificationPermissionUiStatus.TAB_GONE);
+        verify(mDelegate, times(1)).onUiDismissed(EmailVerificationPermissionUiStatus.TAB_GONE);
     }
 
     @Test
@@ -201,8 +194,7 @@ public final class EmailVerificationBottomSheetMediatorTest {
         mMediator.onSheetClosed(StateChangeReason.NONE);
 
         verify(mUiController, never()).hideContent(any(), anyBoolean(), anyInt());
-        verify(mDelegate, times(1)).onUiDismissed();
-        verify(mDelegate).onUiDecision(EmailVerificationPermissionUiStatus.OTHER);
+        verify(mDelegate, times(1)).onUiDismissed(EmailVerificationPermissionUiStatus.OTHER);
     }
 
     @Test
@@ -210,29 +202,29 @@ public final class EmailVerificationBottomSheetMediatorTest {
         mMediator.onSheetClosed(StateChangeReason.INTERACTION_COMPLETE);
 
         verify(mUiController, never()).hideContent(any(), anyBoolean(), anyInt());
-        verify(mDelegate, times(1)).onUiDismissed();
-        verify(mDelegate, never()).onUiDecision(anyInt());
+        verify(mDelegate, times(1)).onUiDismissed(EmailVerificationPermissionUiStatus.OTHER);
     }
 
     @Test
-    public void testRapidClicksGuard() {
-        mMediator.onAccepted();
+    public void testDismissalOnlyNotifiedOnce() {
         mMediator.onDeclined();
-        mMediator.onAccepted();
+        mMediator.onDeclined();
+        mMediator.onSheetClosed(StateChangeReason.BACK_PRESS);
 
-        verify(mDelegate, times(1)).onUiDecision(EmailVerificationPermissionUiStatus.ALLOWED);
-        verify(mDelegate, times(0)).onUiDecision(EmailVerificationPermissionUiStatus.DECLINED);
+        verify(mDelegate, times(1)).onUiDismissed(EmailVerificationPermissionUiStatus.DECLINED);
     }
 
     @Test
-    public void testHide() {
-        mMediator.hide(StateChangeReason.BACK_PRESS);
+    public void testHide_beforeAction_dismissesOther() {
+        mMediator.hide();
 
         verify(mUiController).removeObserver(mMediator);
         verify(mUiController)
                 .hideContent(
-                        eq(mContent), /* animate= */ eq(true), eq(StateChangeReason.BACK_PRESS));
-        verify(mDelegate).onUiDecision(EmailVerificationPermissionUiStatus.USER_ABORTED);
+                        eq(mContent),
+                        /* animate= */ eq(true),
+                        eq(StateChangeReason.INTERACTION_COMPLETE));
+        verify(mDelegate).onUiDismissed(EmailVerificationPermissionUiStatus.OTHER);
         assertFalse(
                 mMediator
                         .getModel()
@@ -240,72 +232,22 @@ public final class EmailVerificationBottomSheetMediatorTest {
     }
 
     @Test
-    public void testHide_under800ms_delaysHide() {
-        mMediator.onAccepted();
-        // Simulate 200ms elapsed since loading started.
-        Shadows.shadowOf(Looper.getMainLooper()).idleFor(200, TimeUnit.MILLISECONDS);
+    public void testDestroy() {
+        mMediator.destroy();
 
-        mMediator.hide(StateChangeReason.INTERACTION_COMPLETE);
-
-        // Should not hide immediately because 600ms remaining.
-        verify(mUiController, never()).hideContent(any(), anyBoolean(), anyInt());
-        assertNotNull(mMediator.getPendingDismissRunnableForTesting());
-
-        // Fast-forward remaining 600ms.
-        Shadows.shadowOf(Looper.getMainLooper()).idleFor(600, TimeUnit.MILLISECONDS);
+        verify(mUiController).removeObserver(mMediator);
         verify(mUiController)
-                .hideContent(
-                        eq(mContent),
-                        /* animate= */ eq(true),
-                        eq(StateChangeReason.INTERACTION_COMPLETE));
-        assertNull(mMediator.getPendingDismissRunnableForTesting());
-    }
-
-    @Test
-    public void testHide_over800ms_hidesImmediately() {
-        mMediator.onAccepted();
-        // Simulate 900ms elapsed since loading started.
-        Shadows.shadowOf(Looper.getMainLooper()).idleFor(900, TimeUnit.MILLISECONDS);
-
-        mMediator.hide(StateChangeReason.INTERACTION_COMPLETE);
-
-        verify(mUiController)
-                .hideContent(
-                        eq(mContent),
-                        /* animate= */ eq(true),
-                        eq(StateChangeReason.INTERACTION_COMPLETE));
-        assertNull(mMediator.getPendingDismissRunnableForTesting());
+                .hideContent(eq(mContent), /* animate= */ eq(false), eq(StateChangeReason.NONE));
+        verify(mDelegate).onUiDismissed(EmailVerificationPermissionUiStatus.OTHER);
     }
 
     @Test
     public void testHide_multipleCalls_ignored() {
         mMediator.onAccepted();
-        Shadows.shadowOf(Looper.getMainLooper()).idleFor(100, TimeUnit.MILLISECONDS);
 
-        mMediator.hide(StateChangeReason.INTERACTION_COMPLETE);
-        Runnable firstRunnable = mMediator.getPendingDismissRunnableForTesting();
-        assertNotNull(firstRunnable);
+        mMediator.hide();
+        mMediator.hide();
 
-        mMediator.hide(StateChangeReason.INTERACTION_COMPLETE);
-        assertEquals(firstRunnable, mMediator.getPendingDismissRunnableForTesting());
-
-        Shadows.shadowOf(Looper.getMainLooper()).idleFor(700, TimeUnit.MILLISECONDS);
         verify(mUiController, times(1)).hideContent(any(), anyBoolean(), anyInt());
-    }
-
-    @Test
-    public void testOnSheetClosed_cancelsPendingDismissRunnable() {
-        mMediator.onAccepted();
-        Shadows.shadowOf(Looper.getMainLooper()).idleFor(100, TimeUnit.MILLISECONDS);
-
-        mMediator.hide(StateChangeReason.INTERACTION_COMPLETE);
-        assertNotNull(mMediator.getPendingDismissRunnableForTesting());
-
-        mMediator.onSheetClosed(StateChangeReason.BACK_PRESS);
-        assertNull(mMediator.getPendingDismissRunnableForTesting());
-        verify(mDelegate).onUiDismissed();
-
-        Shadows.shadowOf(Looper.getMainLooper()).idleFor(800, TimeUnit.MILLISECONDS);
-        verify(mUiController, never()).hideContent(any(), anyBoolean(), anyInt());
     }
 }

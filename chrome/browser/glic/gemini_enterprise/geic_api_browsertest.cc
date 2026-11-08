@@ -8,7 +8,6 @@
 #include "chrome/browser/glic/public/features.h"
 #include "chrome/browser/glic/test_support/glic_api_test.h"
 #include "chrome/browser/glic/test_support/glic_browser_test.h"
-#include "chrome/common/chrome_switches.h"
 #include "content/public/test/browser_test.h"
 
 namespace glic {
@@ -21,12 +20,10 @@ class GlicGeicApiBrowserTest : public GlicApiBrowserTest {
     feature_list_.InitAndEnableFeature(features::kGeic);
   }
 
-  void SetUpOnMainThread() override {
-    GlicApiBrowserTest::SetUpOnMainThread();
-    auto* command_line = base::CommandLine::ForCurrentProcess();
-    command_line->AppendSwitchASCII(
-        geic::kGeicGuestURLSwitch,
-        command_line->GetSwitchValueASCII(::switches::kGlicGuestURL));
+  void SetUpCommandLine(base::CommandLine* command_line) override {
+    GlicApiBrowserTest::SetUpCommandLine(command_line);
+    command_line->AppendSwitchASCII(geic::kGeicGuestURLSwitch,
+                                    GetGuestURL().spec());
   }
 
  private:
@@ -34,6 +31,11 @@ class GlicGeicApiBrowserTest : public GlicApiBrowserTest {
 };
 
 IN_PROC_BROWSER_TEST_F(GlicGeicApiBrowserTest, testGeicSignInTab) {
+  ASSERT_OK(OpenGlicForActiveTab());
+  ExecuteJsTest();
+}
+
+IN_PROC_BROWSER_TEST_F(GlicGeicApiBrowserTest, testGeicAuthTab) {
   ASSERT_OK(OpenGlicForActiveTab());
   ExecuteJsTest();
 }

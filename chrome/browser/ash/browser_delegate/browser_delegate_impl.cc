@@ -5,6 +5,7 @@
 #include "chrome/browser/ash/browser_delegate/browser_delegate_impl.h"
 
 #include "ash/wm/window_pin_util.h"
+#include "base/check.h"
 #include "base/check_deref.h"
 #include "base/check_is_test.h"
 #include "chrome/app/chrome_command_ids.h"
@@ -46,6 +47,7 @@
 #include "components/tabs/public/tab_group.h"
 #include "components/tabs/public/tab_interface.h"
 #include "ui/base/base_window.h"
+#include "ui/base/window_open_disposition.h"
 
 namespace ash {
 
@@ -141,7 +143,9 @@ content::WebContents* BrowserDelegateImpl::GetInspectedWebContents() const {
 }
 
 ui::BaseWindow* BrowserDelegateImpl::GetWindow() const {
-  return browser_->GetWindow();
+  ui::BaseWindow* window = browser_->GetWindow();
+  CHECK(window);
+  return window;
 }
 
 aura::Window* BrowserDelegateImpl::GetNativeWindow() const {
@@ -233,11 +237,24 @@ void BrowserDelegateImpl::SetSkipWarningUserOnClose(bool skip) {
   }
 }
 
-void BrowserDelegateImpl::AddTab(const GURL& url,
-                                 std::optional<size_t> index,
-                                 TabDisposition disposition) {
-  chrome::AddTabAt(&browser_.get(), url, index.has_value() ? *index : -1,
-                   disposition == TabDisposition::kForeground);
+content::WebContents* BrowserDelegateImpl::AddTab(
+    const GURL& url,
+    std::optional<size_t> index,
+    TabDisposition disposition,
+    ui::PageTransition transition) {
+  const GURL resolved_url =
+      url.is_empty() ? chrome::GetNewTabURL(&browser_.get()) : url;
+  NavigateParams params(&browser_.get(), resolved_url, transition);
+  params.disposition = disposition == TabDisposition::kForeground
+                           ? WindowOpenDisposition::NEW_FOREGROUND_TAB
+                           : WindowOpenDisposition::NEW_BACKGROUND_TAB;
+  if (index.has_value()) {
+    params.tabstrip_index = static_cast<int>(*index);
+  }
+  params.web_app_navigation_data.emplace();
+  params.web_app_navigation_data->SetNavigationCapturingForceOff(true);
+  Navigate(&params);
+  return params.navigated_or_inserted_contents;
 }
 
 void BrowserDelegateImpl::CloseWebContentsAt(size_t index,
@@ -439,10 +456,8 @@ void BrowserDelegateImpl::LeaveLockedFullscreen() {
 }
 
 bool BrowserDelegateImpl::IsLockedFullscreen() const {
-  // TODO(crbug.com/438540029): Rename WindowPinType::kLockedFullscreen to
-  // WindowPinType::kTrustedPinned.
   return ash::GetWindowPinType(GetNativeWindow()) ==
-         chromeos::WindowPinType::kLockedFullscreen;
+         chromeos::WindowPinType::kTrustedPinned;
 }
 
 void BrowserDelegateImpl::SetDevToolsCommandsEnabled(bool enabled) {

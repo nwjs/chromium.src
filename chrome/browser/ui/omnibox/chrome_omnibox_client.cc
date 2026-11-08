@@ -30,7 +30,6 @@
 #include "chrome/browser/autocomplete/autocomplete_classifier_factory.h"
 #include "chrome/browser/autocomplete/chrome_autocomplete_provider_client.h"
 #include "chrome/browser/autocomplete/chrome_autocomplete_scheme_classifier.h"
-#include "chrome/browser/autocomplete/shortcuts_backend_factory.h"
 #include "chrome/browser/bitmap_fetcher/bitmap_fetcher_service_factory.h"
 #include "chrome/browser/bookmarks/bookmark_model_factory.h"
 #include "chrome/browser/browser_process.h"
@@ -42,8 +41,7 @@
 #include "chrome/browser/history/history_service_factory.h"
 #include "chrome/browser/history_embeddings/history_embeddings_utils.h"
 #include "chrome/browser/omnibox/autocomplete_controller_emitter_factory.h"
-#include "chrome/browser/omnibox/chrome_omnibox_navigation_observer_base.h"
-#include "chrome/browser/page_load_metrics/chrome_initiator_location.h"
+#include "chrome/browser/page_load_metrics/chrome_navigation_initiator.h"
 #include "chrome/browser/predictors/autocomplete_action_predictor.h"
 #include "chrome/browser/predictors/autocomplete_action_predictor_factory.h"
 #include "chrome/browser/predictors/loading_predictor.h"
@@ -73,6 +71,7 @@
 #include "chrome/browser/ui/location_bar/location_bar.h"
 #include "chrome/browser/ui/navigator/browser_navigator.h"
 #include "chrome/browser/ui/navigator/browser_navigator_params.h"
+#include "chrome/browser/ui/omnibox/chrome_omnibox_navigation_observer.h"
 #include "chrome/browser/ui/omnibox/omnibox_next_features.h"
 #include "chrome/browser/ui/omnibox/omnibox_tab_helper.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
@@ -92,11 +91,10 @@
 #include "components/omnibox/browser/omnibox_prefs.h"
 #include "components/omnibox/browser/page_classification_functions.h"
 #include "components/omnibox/browser/search_provider.h"
-#include "components/omnibox/browser/shortcuts_backend.h"
 #include "components/omnibox/browser/zero_suggest_provider.h"
 #include "components/omnibox/common/omnibox_feature_configs.h"
 #include "components/omnibox/common/omnibox_features.h"
-#include "components/page_load_metrics/browser/navigation_handle_user_data.h"
+#include "components/page_load_metrics/browser/navigation_initiator.h"
 #include "components/profile_metrics/browser_profile_type.h"
 #include "components/safe_browsing/buildflags.h"
 #include "components/search_engines/template_url_service.h"
@@ -108,6 +106,7 @@
 #include "content/public/browser/devtools_agent_host.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_entry.h"
+#include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/render_widget_host.h"
 #include "content/public/browser/render_widget_host_view.h"
@@ -975,14 +974,17 @@ void ChromeOmniboxClient::OnAutocompleteAccept(
     auto navigation = chrome::OpenCurrentURL(browser_);
     if (navigation) {
       if (ui::PageTransitionCoreTypeIs(transition, ui::PAGE_TRANSITION_TYPED)) {
-        AttachOmniboxDirectUrlInputNavigationHandleUserData(*navigation);
+        page_load_metrics::NavigationInitiatorHolder::CreateForNavigationHandle(
+            *navigation, chrome_navigation_initiator::kOmniboxDirectUrlInput);
       } else if (ui::PageTransitionCoreTypeIs(transition,
                                               ui::PAGE_TRANSITION_GENERATED)) {
-        AttachOmniboxDefaultSearchEngineNavigationHandleUserData(*navigation);
+        page_load_metrics::NavigationInitiatorHolder::CreateForNavigationHandle(
+            *navigation,
+            chrome_navigation_initiator::kOmniboxDefaultSearchEngine);
       }
     }
-    ChromeOmniboxNavigationObserverBase::Create(
-        navigation.get(), profile_, text, match, alternative_nav_match);
+    ChromeOmniboxNavigationObserver::Create(navigation.get(), profile_, text,
+                                            match, alternative_nav_match);
     search_engines::MaybeShowSearchEngineResetNotification(browser_,
                                                            match_type);
   }
@@ -1144,18 +1146,4 @@ void ChromeOmniboxClient::DoPreconnect(const AutocompleteMatch& match) {
   // We could prefetch the alternate nav URL, if any, but because there
   // can be many of these as a user types an initial series of characters,
   // the OS DNS cache could suffer eviction problems for minimal gain.
-}
-
-// static
-void ChromeOmniboxClient::OnSuccessfulNavigation(
-    Profile* profile,
-    const std::u16string& text,
-    const AutocompleteMatch& match) {
-  auto shortcuts_backend = ShortcutsBackendFactory::GetForProfile(profile);
-  // Can be null in incognito.
-  if (!shortcuts_backend) {
-    return;
-  }
-
-  shortcuts_backend->AddOrUpdateShortcut(text, match);
 }

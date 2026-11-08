@@ -98,7 +98,6 @@ after discussions on the right group.
   </group>
   <group name="Unsorted" hidden="true">
     <sender name="Unsorted Sender">
-      <annotation id="shared_storage_worklet_module_script_downloader"/>
       <annotation id="proxy_config_windows_resolver"/>
       <annotation id="remoting_directory_delete_host"/>
       <annotation id="remoting_directory_get_host_list"/>
@@ -131,7 +130,6 @@ after discussions on the right group.
       <annotation id="download_internals_webui_source"/>
       <annotation id="downloads_dom_handler"/>
       <annotation id="cast_socket"/>
-      <annotation id="dom_distiller"/>
       <annotation id="download_manager_resume"/>
       <annotation id="parallel_download_job"/>
       <annotation id="icon_cacher"/>
@@ -175,6 +173,7 @@ after discussions on the right group.
       <annotation id="proxy_config_headless"/>
       <annotation id="certificate_verifier_url_request"/>
       <annotation id="bidirectional_stream"/>
+      <annotation id="proxy_config_linux_resolver"/>
       <annotation id="proxy_config_system"/>
       <annotation id="quic_chromium_incoming_session"/>
       <annotation id="quic_chromium_packet_writer"/>
@@ -381,7 +380,6 @@ after discussions on the right group.
       <annotation id="actor_login_permission_service"/>
       <annotation id="fetch_email_one_time_token"/>
       <annotation id="glic_private_api_prompt_fetcher"/>
-      <annotation id="glic_selection_ask_gemini_api"/>
       <annotation id="finds_model_execution"/>
       <annotation id="device_management_enrollment"/>
       <annotation id="device_management_reporting"/>
@@ -415,6 +413,7 @@ after discussions on the right group.
       <annotation id="browser_actuator_transport"/>
       <annotation id="iwa_dev_ui_web_bundle"/>
       <annotation id="ttc_model_execution"/>
+      <annotation id="cros_launcher_omnibox"/>
       <annotation id="ash_boca_gemini_get_gemini_status_request"/>
       <annotation id="ash_boca_receiver_get_kiosk_receiver_request"/>
       <annotation id="ash_boca_receiver_get_receiver_connection_info_request"/>
@@ -431,6 +430,10 @@ after discussions on the right group.
       <annotation id="data_sharing_service_block_person"/>
       <annotation id="data_sharing_service_leave_group"/>
       <annotation id="data_sharing_service_join_group"/>
+      <annotation id="search_engine_preconnect"/>
+      <annotation id="predictive_preconnect"/>
+      <annotation id="network_hints_preconnect"/>
+      <annotation id="cryptauth_cmtg_device_keys"/>
     </sender>
   </group>
   <group name="Admin Features">

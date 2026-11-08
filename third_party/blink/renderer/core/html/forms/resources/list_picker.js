@@ -94,18 +94,19 @@ class ListPicker extends Picker {
 
     this.trackingTouchId_ = null;
 
-    this.handleWindowDidHide_();
-    this.selectElement_.focus();
+    this.applyInitialLayout_();
+    // The popup has no size yet, so scrolling on focus would center the select
+    // horizontally and hide option starts if the popup ends up narrower.
+    this.selectElement_.focus({preventScroll: true});
     this.selectElement_.value = this.config_.selectedIndex;
   }
 
-  handleWindowDidHide_() {
+  applyInitialLayout_() {
     this.fixWindowSize_();
     const selectedOption =
         this.selectElement_.options[this.selectElement_.selectedIndex];
     if (selectedOption)
       selectedOption.scrollIntoView(false);
-    window.removeEventListener('didHide', this.handleWindowDidHideBound_);
   }
 
   handleWindowMessage_(event) {

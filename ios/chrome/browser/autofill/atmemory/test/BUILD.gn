@@ -11,9 +11,14 @@ source_set("eg_test_support+eg2") {
   ]
   deps = [
     "//base",
+    "//components/strings",
+    "//ios/chrome/app/strings",
     "//ios/chrome/browser/autofill/atmemory/public",
+    "//ios/chrome/common:string_util",
     "//ios/chrome/common/ui/elements:form_input_accessory",
+    "//ios/chrome/test/earl_grey:eg_test_support+eg2",
     "//ios/testing/earl_grey:eg_test_support+eg2",
+    "//ui/base",
   ]
 }
 
@@ -23,13 +28,18 @@ source_set("eg2_tests") {
   sources = [ "at_memory_egtest.mm" ]
   deps = [
     ":eg_test_support+eg2",
+    "//base",
     "//components/autofill/core/common",
-    "//components/strings",
-    "//ios/chrome/browser/autofill/atmemory/public",
-    "//ios/chrome/common/ui/elements:form_input_accessory",
+    "//components/personal_context/core:features",
+    "//components/personal_context/core:prefs",
+    "//components/signin/internal/identity_manager:capabilities",
+    "//ios/chrome/browser/authentication/test:eg_test_support+eg2",
+    "//ios/chrome/browser/autofill/ui_bundled:eg_test_support+eg2",
+    "//ios/chrome/browser/settings/ui_bundled/autofill:constants",
+    "//ios/chrome/browser/shared/model/prefs:pref_names",
+    "//ios/chrome/browser/signin/model:fake_system_identity",
     "//ios/chrome/test/earl_grey:eg_test_support+eg2",
     "//ios/testing/earl_grey:eg_test_support+eg2",
     "//net:test_support",
-    "//ui/base",
   ]
 }

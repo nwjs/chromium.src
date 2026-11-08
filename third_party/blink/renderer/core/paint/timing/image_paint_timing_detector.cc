@@ -8,9 +8,6 @@
 
 #include "base/check_deref.h"
 #include "base/feature_list.h"
-#include "cc/layers/heads_up_display_layer.h"
-#include "cc/layers/layer.h"
-#include "cc/trees/layer_tree_host.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/renderer/core/dom/dom_node_ids.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
@@ -18,11 +15,11 @@
 #include "third_party/blink/renderer/core/frame/visual_viewport.h"
 #include "third_party/blink/renderer/core/inspector/console_message.h"
 #include "third_party/blink/renderer/core/layout/layout_image_resource.h"
+#include "third_party/blink/renderer/core/layout/layout_view.h"
 #include "third_party/blink/renderer/core/layout/svg/layout_svg_image.h"
 #include "third_party/blink/renderer/core/page/chrome_client.h"
 #include "third_party/blink/renderer/core/page/page.h"
 #include "third_party/blink/renderer/core/paint/timing/effective_visual_size_result.h"
-#include "third_party/blink/renderer/core/paint/timing/image_element_timing.h"
 #include "third_party/blink/renderer/core/paint/timing/largest_contentful_paint_calculator.h"
 #include "third_party/blink/renderer/core/paint/timing/largest_contentful_paint_manager.h"
 #include "third_party/blink/renderer/core/paint/timing/paint_timing.h"
@@ -43,6 +40,11 @@ namespace blink {
 
 namespace {
 
+bool IsBodyOrDocumentElement(const LayoutObject& object) {
+  return IsA<LayoutView>(object) || object.IsBody() ||
+         object.IsDocumentElement();
+}
+
 bool IsSufficientlyLoadedForReporting(const MediaTiming& media_timing) {
   if (media_timing.IsSufficientContentLoadedForPaint()) {
     return true;
@@ -59,40 +61,6 @@ bool IsSufficientlyLoadedForReporting(const MediaTiming& media_timing) {
 ImagePaintTimingDetector::ImagePaintTimingDetector(
     PaintTimingDetector* detector)
     : paint_timing_detector_(detector) {}
-
-void ImagePaintTimingDetector::SendRectsToHud() {
-  LocalFrameView* frame_view =
-      paint_timing_detector_->GetPaintTiming().GetDocument()->View();
-  CHECK(frame_view);
-  auto* hud_layer =
-      paint_timing::GetHUDLayerIfContentfulPaintRectsEnabled(frame_view);
-
-  if (!hud_layer) {
-    return;
-  }
-
-  LocalFrame& main_frame = frame_view->GetFrame().LocalFrameRoot();
-  FrameWidget* widget = main_frame.GetWidgetForLocalRoot();
-  if (!widget) {
-    return;
-  }
-
-  for (ImageRecord* record : images_queued_for_paint_time_) {
-    cc::WebVitalMetricType type;
-
-    if (record->GetSoftNavigationContext()) {
-      type = cc::WebVitalMetricType::kInteractionContentfulPaint;
-    } else if (record->IsNeededForLargestContentfulPaint()) {
-      type = cc::WebVitalMetricType::kNavigationContentfulPaint;
-    } else {
-      continue;
-    }
-
-    hud_layer->AddWebVitalsDebugRect(
-        {type, gfx::ToEnclosedRect(
-                   widget->DIPsToBlinkSpace(record->RootVisualRect()))});
-  }
-}
 
 void ImagePaintTimingDetector::NotifyImageRemoved(
     const LayoutObject& object,
@@ -122,18 +90,32 @@ void ImagePaintTimingDetector::NotifyInteractionTriggeredVideoSrcChange(
 }
 
 void ImagePaintTimingDetector::RecordImage(
-    const LayoutObject& object,
+    const LayoutObject& image_layout_object,
     const gfx::Size& intrinsic_size,
     const MediaTiming& media_timing,
     const PropertyTreeStateOrAlias& current_paint_chunk_properties,
     const StyleImage* style_image,
     const gfx::Rect& image_border) {
-  Node* node = object.GetNode();
-  if (!node) {
+  Node* node = style_image ? image_layout_object.GeneratingNode()
+                           : image_layout_object.GetNode();
+  // `node` can have a null `LayoutObject` if `image_layout_object` is a
+  // pseudo-element (e.g. `::before` with a background image) whose originating
+  // element has `display: contents`.
+  if (!node || !node->GetLayoutObject()) {
     return;
   }
 
-  if (paint_timing::ShouldIgnoreImageContentForPaintTiming(object,
+  // Background images attached to <body> or <html> (or a pseudo-element
+  // thereof) are ignored.
+  //
+  // TODO(crbug.com/571179206): Consider moving this to
+  // `PaintTimingDetector::NotifyBackgroundImagePaint` once generating node is
+  // used for all images.
+  if (style_image && IsBodyOrDocumentElement(*node->GetLayoutObject())) {
+    return;
+  }
+
+  if (paint_timing::ShouldIgnoreImageContentForPaintTiming(image_layout_object,
                                                            &media_timing)) {
     return;
   }
@@ -154,11 +136,11 @@ void ImagePaintTimingDetector::RecordImage(
   if (PaintTimingVisualizer* visualizer =
           paint_timing_detector_->Visualizer()) {
     visualizer->DumpImageDebuggingRect(
-        object, mapped_visual_rect,
+        image_layout_object, mapped_visual_rect,
         media_timing.IsSufficientContentLoadedForPaint(), media_timing.Url());
   }
 
-  MediaRecordId record_id(&object, &media_timing);
+  MediaRecordId record_id(&image_layout_object, &media_timing);
   MediaRecordIdHash record_id_hash = record_id.GetHash();
 
   // `record` will be non-null if the first paint for the image was recorded but
@@ -184,7 +166,7 @@ void ImagePaintTimingDetector::RecordImage(
   // in that case.
   if (record && record->GetMediaTiming() != &media_timing &&
       media_timing.IsVideo()) {
-    NotifyImageRemoved(object, record->GetMediaTiming());
+    NotifyImageRemoved(image_layout_object, record->GetMediaTiming());
     record = nullptr;
   }
 
@@ -207,7 +189,7 @@ void ImagePaintTimingDetector::RecordImage(
     // Compute the effective visual size for LCP and ICP.
     EffectiveVisualSizeResult effective_visual_size_result =
         LargestContentfulPaintCalculator::ComputeEffectiveVisualSize(
-            object, media_timing, image_border, mapped_visual_rect,
+            image_layout_object, media_timing, image_border, mapped_visual_rect,
             intrinsic_size, ViewportSize(), *paint_timing_detector_);
 
     // Don't process the image yet if it is invisible, as it may later become
@@ -221,8 +203,8 @@ void ImagePaintTimingDetector::RecordImage(
     }
 
     record = MakeGarbageCollected<ImageRecord>(
-        node, &media_timing, image_border, mapped_visual_rect,
-        record_id.GetHash(), effective_visual_size_result);
+        node, &image_layout_object, &media_timing, image_border,
+        mapped_visual_rect, record_id.GetHash(), effective_visual_size_result);
 
     if (ignore_paint_depth > 0) {
       if (auto* manager = GetLargestContentfulPaintManager()) {
@@ -275,29 +257,17 @@ void ImagePaintTimingDetector::RecordImage(
   // that for filtering.
   record->SetIsSufficientlyLoadedForReporting();
   if (is_video) {
-    SetVideoFirstAnimatedFrameTime(record);
+    record->SetFirstAnimatedFrameTime(media_timing.GetFirstVideoFrameTime());
   } else {
     record->SetLoadTime(style_image ? LoadTime(*style_image)
                                     : LoadTime(record_id_hash));
   }
 
-  // Inform clients about the contentful paint and set up for measuring
-  // presentation time if any clients need the `record`.
-  ForEachPaintTimingClient([&](PaintTimingClient* client) {
-    client->OnElementLastContentfulPaint(record);
-  });
-
   // Erase the record from `pending_images_` whether or not it's needed by
   // clients since the record is now sufficiently loaded.
   pending_images_.erase(record->Hash());
 
-  // No client needs this `record`, so no need to process any further.
-  if (!record->IsNeededForPaintTiming()) {
-    return;
-  }
-
-  // Queue the record for presentation time processing since at least one client
-  // needs this `record`.
+  // Queue the record for presentation time processing.
   images_queued_for_paint_time_.push_back(record);
 }
 
@@ -337,40 +307,15 @@ void ImagePaintTimingDetector::ReportLargestIgnoredImage() {
   // Trigger FCP if it's not already set.
   paint_timing_detector_->GetPaintTiming().MarkFirstImagePaint();
 
-  // Notify clients of the first and contentful paints and set up presentation
+  // Notify clients of the first contentful paint and set up presentation
   // feedback.
   ForEachPaintTimingClient([&](PaintTimingClient* client) {
     client->OnElementFirstContentfulPaint(record);
-    client->OnElementLastContentfulPaint(record);
   });
   recorded_images_.insert(record->Hash());
 
   CHECK(record->IsSufficientlyLoadedForReporting());
   images_queued_for_paint_time_.push_back(record);
-}
-
-void ImagePaintTimingDetector::SetVideoFirstAnimatedFrameTime(
-    ImageRecord* record) {
-  CHECK(record->GetMediaTiming());
-  CHECK(!record->GetMediaTiming()->GetFirstVideoFrameTime().is_null(),
-        base::NotFatalUntil::M156);
-  record->SetFirstAnimatedFrameTime(
-      record->GetMediaTiming()->GetFirstVideoFrameTime());
-
-  // Without this feature, the paint time will be set based on the next frame.
-  if (!RuntimeEnabledFeatures::ReportFirstFrameTimeAsRenderTimeEnabled()) {
-    return;
-  }
-  base::TimeTicks paint_time = record->FirstAnimatedFrameTime();
-  // TODO(crbug.com/383568320): this timestamp it not specified, and it's
-  // not clear how it should be coarsened.
-  LocalDOMWindow* window =
-      paint_timing_detector_->GetPaintTiming().GetDocument()->domWindow();
-  DOMHighResTimeStamp dom_timestamp =
-      DOMWindowPerformance::performance(CHECK_DEREF(window))
-          ->MonotonicTimeToDOMHighResTimeStamp(paint_time);
-  record->SetPaintTime(paint_time,
-                       DOMPaintTimingInfo{dom_timestamp, dom_timestamp});
 }
 
 void ImagePaintTimingDetector::RemoveRecord(MediaRecordIdHash record_id_hash) {
@@ -436,15 +381,17 @@ void ImagePaintTimingDetector::ForEachPaintTimingClient(
 
 HeapVector<Member<ImageRecord>>
 ImagePaintTimingDetector::TakeImageRecordsOnPaintFinished() {
-  if (!images_queued_for_paint_time_.empty()) {
-    SendRectsToHud();
-  }
   return std::move(images_queued_for_paint_time_);
 }
 
 HeapVector<Member<ImageRecord>>
 ImagePaintTimingDetector::TakeAnimatedImageRecordsOnPaintFinished() {
   return std::move(animated_images_queued_for_first_frame_time_);
+}
+
+bool ImagePaintTimingDetector::HasPersistentImageStateForTest() const {
+  return !pending_images_.empty() || !recorded_images_.empty() ||
+         !image_finished_times_.empty();
 }
 
 }  // namespace blink

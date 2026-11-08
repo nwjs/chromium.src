@@ -32,7 +32,7 @@
 #include "components/update_client/update_client_errors.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
-#include "crypto/sha2.h"
+#include "crypto/hash.h"
 
 #if BUILDFLAG(IS_WIN)
 #include <windows.h>
@@ -55,7 +55,7 @@ constexpr uint8_t kSodaPublicKeySHA256[32] = {
     0x8e, 0xd0, 0x0c, 0xef, 0xa5, 0xc0, 0x97, 0x00, 0x84, 0x1c, 0x21,
     0xa6, 0xae, 0xc8, 0x1b, 0x87, 0xfb, 0x12, 0x27, 0x28, 0xb1};
 
-static_assert(std::size(kSodaPublicKeySHA256) == crypto::kSHA256Length);
+static_assert(std::size(kSodaPublicKeySHA256) == crypto::hash::kSha256Size);
 
 constexpr char kSodaManifestName[] = "SODA Library";
 
@@ -229,7 +229,7 @@ void RegisterSodaComponent(ComponentUpdateService* cus,
                            PrefService* global_prefs,
                            base::OnceClosure on_ready_callback,
                            base::OnceClosure on_registered_callback) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M161);
 
   if (captions::IsLiveCaptionFeatureSupported()) {
     auto installer = base::MakeRefCounted<ComponentInstaller>(
@@ -254,7 +254,7 @@ void RegisterSodaLanguageComponent(
     ComponentUpdateService* cus,
     std::string_view language,
     OnSodaLanguagePackComponentReadyCallback on_ready_callback) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M161);
 
   if (captions::IsLiveCaptionFeatureSupported()) {
     std::optional<speech::SodaLanguagePackComponentConfig> config =

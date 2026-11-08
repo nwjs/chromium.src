@@ -23,6 +23,7 @@
 #include "base/synchronization/lock.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/time/time.h"
+#include "components/ttc/app/public/error_codes.h"
 #include "media/base/audio_capturer_source.h"
 #include "media/base/audio_parameters.h"
 #include "media/base/audio_renderer_sink.h"
@@ -35,6 +36,7 @@ class OutputDevice;
 
 namespace media {
 class AudioBus;
+class AudioPushFifo;
 class AudioSystem;
 }  // namespace media
 
@@ -53,6 +55,7 @@ class AudioController : public media::AudioCapturerSource::CaptureCallback,
   using AudioEnergyCallback = base::RepeatingCallback<void(float energy)>;
   using PlaybackCompletionCallback =
       base::RepeatingCallback<void(int64_t sequence_number)>;
+  using ErrorCallback = base::RepeatingCallback<void(ErrorCode error_code)>;
   using AudioStreamFactoryBinder = base::RepeatingCallback<void(
       mojo::PendingReceiver<media::mojom::AudioStreamFactory>)>;
   using AudioSystemFactory =
@@ -88,6 +91,9 @@ class AudioController : public media::AudioCapturerSource::CaptureCallback,
   // Subscribes to notifications when an audio chunk sequence finishes playback.
   base::CallbackListSubscription AddPlaybackCompletionListener(
       PlaybackCompletionCallback callback);
+
+  // Subscribes to notifications when an audio capture error occurs.
+  base::CallbackListSubscription AddErrorListener(ErrorCallback callback);
 
   // --- Audio Playback (Speaker Output) ---
   // Enqueues signed PCM16 audio data to be rendered natively with specific
@@ -149,12 +155,13 @@ class AudioController : public media::AudioCapturerSource::CaptureCallback,
   void OnInputDeviceParametersReceived(
       const std::string& device_id,
       const std::optional<media::AudioParameters>& device_params);
-  // Called on the realtime capture thread.
-  void DeliverCapturedAudio(const media::AudioBus& audio_bus);
+  // Called on the realtime capture thread, from `capture_fifo_`.
+  void DeliverCapturedAudio(const media::AudioBus& audio_bus, int frame_delay);
   void OnCapturedAudioOnMainThread(std::vector<int16_t> pcm_data,
                                    media::AudioParameters params,
                                    float energy);
   void OnAudioRenderedOnMainThread(int64_t completed_sequence);
+  void OnAudioErrorOnMainThread(ErrorCode error_code);
 
   scoped_refptr<base::SequencedTaskRunner> main_task_runner_;
   AudioStreamFactoryBinder factory_binder_;
@@ -166,11 +173,13 @@ class AudioController : public media::AudioCapturerSource::CaptureCallback,
       capture_callbacks_;
   base::RepeatingCallbackList<void(float)> energy_callbacks_;
   base::RepeatingCallbackList<void(int64_t)> completion_callbacks_;
+  base::RepeatingCallbackList<void(ErrorCode)> error_callbacks_;
 
   base::RepeatingCallback<
       void(std::vector<int16_t>, media::AudioParameters, float)>
       capture_callback_runner_;
   base::RepeatingCallback<void(int64_t)> render_callback_runner_;
+  base::RepeatingCallback<void(ErrorCode)> error_callback_runner_;
 
   // True from StartCapture() until StopCapture(), including while the device
   // parameters query is in flight.
@@ -179,7 +188,11 @@ class AudioController : public media::AudioCapturerSource::CaptureCallback,
   scoped_refptr<media::AudioCapturerSource> audio_capturer_source_;
   // Created before the capture stream is started and destroyed after it is
   // stopped; only used on the realtime capture thread in between.
+  // `capture_converter_` is only needed when the audio service doesn't already
+  // deliver audio in GetBackendInputAudioParameters() format.
   std::unique_ptr<CaptureConverter> capture_converter_;
+  // Re-buffers converted audio into the chunk size delivered to listeners.
+  std::unique_ptr<media::AudioPushFifo> capture_fifo_;
 
   std::unique_ptr<audio::OutputDevice> output_device_;
 

@@ -271,6 +271,9 @@ class ContextualSearchboxHandler
   void GetSmartTabSharingActive(
       searchbox::mojom::PageHandler::GetSmartTabSharingActiveCallback callback)
       override;
+  void ResetSmartTabSharing(
+      searchbox::mojom::PageHandler::ResetSmartTabSharingCallback callback)
+      override;
 #endif
 
   // Returns the list of selected tab IDs that should be transferred.
@@ -353,14 +356,6 @@ class ContextualSearchboxHandler
 
   void set_screenshare_delegate_for_testing(
       ContextualSearchboxScreenshareController::Delegate* screenshare_delegate);
-
-#if !BUILDFLAG(IS_ANDROID)
-  bool ShouldOpenInLensSidePanelForTesting(
-      content::WebContents* active_web_contents,
-      contextual_search::ContextualSearchSessionHandle* session_handle) {
-    return ShouldOpenInLensSidePanel(active_web_contents, session_handle);
-  }
-#endif
 
   // Map of context tokens (frontend) to tab IDs (backend);
   // used for determining which tabs to underline based on frontend changes, and
@@ -448,13 +443,6 @@ class ContextualSearchboxHandler
   // Records metrics for when a tab is added to the composebox.
   void RecordTabAddedMetric(tabs::TabInterface* const tab,
                             bool is_tab_suggestion_chip);
-
-#if !BUILDFLAG(IS_ANDROID)
-  // Returns true if the query should be opened in the Lens side panel.
-  bool ShouldOpenInLensSidePanel(
-      content::WebContents* active_web_contents,
-      contextual_search::ContextualSearchSessionHandle* session_handle);
-#endif
 
   virtual void InitializeInputStateModel();
 

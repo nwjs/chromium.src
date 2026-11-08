@@ -45,16 +45,8 @@ name2
         }
         in_file = InFile(['test_basic_parse.in'], lines, defaults, None)
         expected_values = [
-            {
-                'name': 'name1',
-                'arg': 'value',
-                'arg2': ['value2', 'value3']
-            },
-            {
-                'name': 'name2',
-                'arg': None,
-                'arg2': []
-            },
+            {'name': 'name1', 'arg': 'value', 'arg2': ['value2', 'value3']},
+            {'name': 'name2', 'arg': None, 'arg2': []},
         ]
         self.assertEquals(in_file.name_dictionaries, expected_values)
 
@@ -74,10 +66,12 @@ name2
             'namespace': '',
             'fruit': False,
         }
-        in_file = InFile(['test_with_parameters.in'],
-                         lines,
-                         defaults,
-                         default_parameters=default_parameters)
+        in_file = InFile(
+            ['test_with_parameters.in'],
+            lines,
+            defaults,
+            default_parameters=default_parameters,
+        )
         expected_parameters = {
             'namespace': 'TestNamespace',
             'fruit': True,
@@ -88,10 +82,10 @@ name2
         in_files = ['some_sample_file.json']
         assertion_thrown = False
         try:
-            in_file = InFile.load_from_files(in_files, None, None, None)
+            in_file = InFile.load_from_files(in_files, None, None, None)  # noqa: F841
         except AssertionError:
             assertion_thrown = True
-        except:
+        except:  # noqa: E722
             pass
         self.assertTrue(assertion_thrown)
 

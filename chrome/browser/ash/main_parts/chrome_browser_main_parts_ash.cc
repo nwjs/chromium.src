@@ -64,12 +64,16 @@
 #include "chrome/browser/ash/bluetooth/bluetooth_log_controller.h"
 #include "chrome/browser/ash/boot_times_recorder/boot_times_recorder.h"
 #include "chrome/browser/ash/browser_delegate/browser_controller_impl.h"
+#include "chrome/browser/ash/browser_delegate/keyed_service_provider/bookmark_model_provider_impl.h"
 #include "chrome/browser/ash/browser_delegate/keyed_service_provider/consent_auditor_provider_impl.h"
 #include "chrome/browser/ash/browser_delegate/keyed_service_provider/desk_sync_service_provider_impl.h"
 #include "chrome/browser/ash/browser_delegate/keyed_service_provider/favicon_service_provider_impl.h"
 #include "chrome/browser/ash/browser_delegate/keyed_service_provider/feature_engagement_tracker_provider_impl.h"
 #include "chrome/browser/ash/browser_delegate/keyed_service_provider/history_service_provider_impl.h"
 #include "chrome/browser/ash/browser_delegate/keyed_service_provider/identity_manager_provider_impl.h"
+#include "chrome/browser/ash/browser_delegate/keyed_service_provider/manta_service_provider_impl.h"
+#include "chrome/browser/ash/browser_delegate/keyed_service_provider/media_device_salt_service_provider_impl.h"
+#include "chrome/browser/ash/browser_delegate/keyed_service_provider/password_reuse_manager_provider_impl.h"
 #include "chrome/browser/ash/browser_delegate/keyed_service_provider/supervised_user_service_provider_impl.h"
 #include "chrome/browser/ash/browser_delegate/keyed_service_provider/sync_service_provider_impl.h"
 #include "chrome/browser/ash/browser_delegate/keyed_service_provider/template_url_service_provider_impl.h"
@@ -240,7 +244,6 @@
 #include "chromeos/ash/components/network/network_cert_loader.h"
 #include "chromeos/ash/components/network/network_handler.h"
 #include "chromeos/ash/components/network/system_token_cert_db_storage.h"
-#include "chromeos/ash/components/network/traffic_counters_handler.h"
 #include "chromeos/ash/components/pcie_peripheral/ash_usb_detector.h"
 #include "chromeos/ash/components/peripheral_notification/peripheral_notification_manager.h"
 #include "chromeos/ash/components/policy/device_local_account/device_local_account_type.h"
@@ -337,7 +340,7 @@ void ChromeOSVersionCallback(const std::optional<std::string>& version) {
 }
 
 void ApplySigninProfileModifications(Profile* profile) {
-  DCHECK(ProfileHelper::IsSigninProfile(profile));
+  CHECK(ProfileHelper::IsSigninProfile(profile), base::NotFatalUntil::M161);
   auto* prefs = profile->GetPrefs();
 
   prefs->SetBoolean(::prefs::kSafeBrowsingEnabled, false);
@@ -346,14 +349,14 @@ void ApplySigninProfileModifications(Profile* profile) {
 #if !defined(USE_REAL_DBUS_CLIENTS)
 FakeSessionManagerClient* FakeSessionManagerClient() {
   auto* fake_session_manager_client = FakeSessionManagerClient::Get();
-  DCHECK(fake_session_manager_client);
+  CHECK(fake_session_manager_client, base::NotFatalUntil::M161);
   return fake_session_manager_client;
 }
 
 chromeos::FakePowerManagerClient* FakePowerManagerClient() {
   chromeos::FakePowerManagerClient* fake_power_manager_client =
       chromeos::FakePowerManagerClient::Get();
-  DCHECK(fake_power_manager_client);
+  CHECK(fake_power_manager_client, base::NotFatalUntil::M161);
   return fake_power_manager_client;
 }
 
@@ -966,6 +969,7 @@ void ChromeBrowserMainPartsAsh::PreProfileInit() {
 
   // List of instances providing KeyedService related services.
   app_service_registry_ = std::make_unique<apps::AppServiceRegistry>();
+  bookmark_model_provider_ = std::make_unique<BookmarkModelProviderImpl>();
   consent_auditor_provider_ = std::make_unique<ConsentAuditorProviderImpl>();
   desk_sync_service_provider_ = std::make_unique<DeskSyncServiceProviderImpl>();
   favicon_service_provider_ = std::make_unique<FaviconServiceProviderImpl>();
@@ -973,6 +977,11 @@ void ChromeBrowserMainPartsAsh::PreProfileInit() {
       std::make_unique<FeatureEngagementTrackerProviderImpl>();
   history_service_provider_ = std::make_unique<HistoryServiceProviderImpl>();
   identity_manager_provider_ = std::make_unique<IdentityManagerProviderImpl>();
+  manta_service_provider_ = std::make_unique<MantaServiceProviderImpl>();
+  media_device_salt_service_provider_ =
+      std::make_unique<MediaDeviceSaltServiceProviderImpl>();
+  password_reuse_manager_provider_ =
+      std::make_unique<PasswordReuseManagerProviderImpl>();
   supervised_user_service_provider_ =
       std::make_unique<SupervisedUserServiceProviderImpl>();
   sync_service_provider_ = std::make_unique<SyncServiceProviderImpl>();
@@ -1241,7 +1250,8 @@ void ChromeBrowserMainPartsAsh::PreProfileInit() {
 
 #if BUILDFLAG(USE_CUPS)
   local_printer_ = std::make_unique<LocalPrinterImpl>(
-      g_browser_process->GetFeatures()->application_locale_storage());
+      g_browser_process->GetFeatures()->application_locale_storage(),
+      g_browser_process->shared_url_loader_factory());
 #endif
 
   ash_web_ui_config_manager_ = std::make_unique<AshWebUIConfigManager>(
@@ -1362,11 +1372,6 @@ void ChromeBrowserMainPartsAsh::PostProfileInit(Profile* profile,
     // Create the service connection to CrosHealthd platform service instance.
     cros_healthd::ServiceConnection::GetInstance();
 
-    // Initialize the TrafficCountersHandler instance.
-    if (features::IsTrafficCountersEnabled()) {
-      traffic_counters::TrafficCountersHandler::Initialize();
-    }
-
     // Initialize input methods.
     input_method::InputMethodManager* manager =
         input_method::InputMethodManager::Get();
@@ -1452,9 +1457,7 @@ void ChromeBrowserMainPartsAsh::PostProfileInit(Profile* profile,
                        shill::kUseLegacyDHCPCDProperty));
 
     ash::ShillManagerClient::Get()->SetProperty(
-        shill::kEnableSingleCACertVerificationPhase1Property,
-        base::Value(base::FeatureList::IsEnabled(
-            features::kSingleCaCertVerificationPhase1)),
+        shill::kEnableSingleCACertVerificationPhase1Property, base::Value(true),
         base::DoNothing(),
         base::BindOnce(ShillSetPropertyErrorCallback,
                        shill::kEnableSingleCACertVerificationPhase1Property));
@@ -1714,9 +1717,6 @@ void ChromeBrowserMainPartsAsh::PostMainMessageLoopRun() {
   login_screen_extensions_storage_cleaner_.reset();
   debugd_notification_handler_.reset();
   shortcut_mapping_pref_service_.reset();
-  if (features::IsTrafficCountersEnabled()) {
-    traffic_counters::TrafficCountersHandler::Shutdown();
-  }
   bluetooth_pref_state_observer_.reset();
   auth_events_recorder_.reset();
 
@@ -1887,12 +1887,15 @@ void ChromeBrowserMainPartsAsh::PostMainMessageLoopRun() {
   template_url_service_provider_.reset();
   sync_service_provider_.reset();
   supervised_user_service_provider_.reset();
+  password_reuse_manager_provider_.reset();
+  media_device_salt_service_provider_.reset();
   identity_manager_provider_.reset();
   history_service_provider_.reset();
   feature_engagement_tracker_provider_.reset();
   favicon_service_provider_.reset();
   desk_sync_service_provider_.reset();
   consent_auditor_provider_.reset();
+  bookmark_model_provider_.reset();
   app_service_registry_.reset();
   services_customization_document_.reset();
   user_session_manager_.reset();

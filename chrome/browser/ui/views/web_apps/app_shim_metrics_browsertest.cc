@@ -33,9 +33,9 @@ IN_PROC_BROWSER_TEST_F(AppShimMetricsTest, Basics) {
   helper_.CheckWindowCreated();
 
   FetchHistogramsFromChildProcesses();
-  histogram_tester.ExpectTotalCount("AppShim.Launched",
+  histogram_tester.ExpectTotalCount("Apps.AppShim.Launched",
                                     /*expected_count=*/1);
-  histogram_tester.ExpectTotalCount("AppShim.WillTerminate",
+  histogram_tester.ExpectTotalCount("Apps.AppShim.WillTerminate",
                                     /*expected_count=*/0);
 
   helper_.QuitAppShim(Site::kStandalone);
@@ -43,9 +43,9 @@ IN_PROC_BROWSER_TEST_F(AppShimMetricsTest, Basics) {
 
   // After quitting we should have metrics from it.
   FetchHistogramsFromChildProcesses();
-  histogram_tester.ExpectTotalCount("AppShim.Launched",
+  histogram_tester.ExpectTotalCount("Apps.AppShim.Launched",
                                     /*expected_count=*/1);
-  histogram_tester.ExpectTotalCount("AppShim.WillTerminate",
+  histogram_tester.ExpectTotalCount("Apps.AppShim.WillTerminate",
                                     /*expected_count=*/1);
 }
 

@@ -31,10 +31,12 @@
 #include "third_party/blink/public/mojom/loader/request_context_frame_type.mojom-blink.h"
 #include "third_party/blink/public/mojom/permissions_policy/policy_value.mojom-blink-forward.h"
 #include "third_party/blink/public/platform/web_url_request.h"
+#include "third_party/blink/public/web/web_plugin.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_controller.h"
 #include "third_party/blink/renderer/bindings/core/v8/to_v8_traits.h"
 #include "third_party/blink/renderer/core/css/css_property_names.h"
 #include "third_party/blink/renderer/core/css/style_change_reason.h"
+#include "third_party/blink/renderer/core/css/style_recalc_context.h"
 #include "third_party/blink/renderer/core/display_lock/display_lock_utilities.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/events/event.h"
@@ -520,6 +522,18 @@ WebPluginContainerImpl* HTMLPlugInElement::OwnedPlugin() const {
   return nullptr;
 }
 
+void HTMLPlugInElement::ParseAttribute(
+    const AttributeModificationParams& params) {
+  HTMLFrameOwnerElement::ParseAttribute(params);
+  if (!params.name.LocalName().starts_with("data-")) {
+    return;
+  }
+  if (WebPluginContainerImpl* plugin = OwnedPlugin()) {
+    plugin->Plugin()->DidChangeDataAttribute(params.name.LocalName(),
+                                             params.new_value);
+  }
+}
+
 bool HTMLPlugInElement::IsPresentationAttribute(
     const QualifiedName& name) const {
   if (name == html_names::kWidthAttr || name == html_names::kHeightAttr ||
@@ -936,8 +950,9 @@ const ComputedStyle* HTMLPlugInElement::CustomStyleForLayoutObject(
     const StyleRecalcContext& style_recalc_context) {
   const ComputedStyle* style =
       OriginalStyleForLayoutObject(style_recalc_context);
-  if (IsImageType() && !GetLayoutObject() && style &&
-      LayoutObjectIsNeeded(*style)) {
+  // Don't attempt a load if this computed style is for EnsureComputedStyle().
+  if (!style_recalc_context.is_ensuring_style && IsImageType() &&
+      !GetLayoutObject() && style && LayoutObjectIsNeeded(*style)) {
     if (!image_loader_) {
       image_loader_ = MakeGarbageCollected<HTMLImageLoader>(this);
     }

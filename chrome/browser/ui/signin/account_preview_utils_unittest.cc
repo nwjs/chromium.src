@@ -198,8 +198,11 @@ TEST_P(AccountPreviewUtilsPromoParamTest, Subtitle) {
   AccountPreviewDataService::AccountPreviewPreference pref;
   pref.preferred_data_types.push_back({data_type, SyncDataQuartile::kAboveQ3});
   if (with_device) {
-    pref.other_device_form_factor =
-        sync_pb::SyncEnums_DeviceFormFactor_DEVICE_FORM_FACTOR_PHONE;
+    pref.other_device_info = PreferredDeviceInfo{
+        .form_factor =
+            sync_pb::SyncEnums_DeviceFormFactor_DEVICE_FORM_FACTOR_PHONE,
+        .enabled_data_types = {data_type},
+    };
     std::u16string device_str =
         l10n_util::GetStringUTF16(IDS_ACCOUNT_PREVIEW_DEVICE_PHONE);
     EXPECT_EQ(GetAccountPreviewPromoSubtitle(pref),
@@ -228,8 +231,11 @@ TEST(AccountPreviewUtilsTest, PreferenceWithExtensionsAndDesktopDevice) {
   AccountPreviewDataService::AccountPreviewPreference pref;
   pref.preferred_data_types.push_back(
       {syncer::EXTENSIONS, SyncDataQuartile::kAboveQ3});
-  pref.other_device_form_factor =
-      sync_pb::SyncEnums_DeviceFormFactor_DEVICE_FORM_FACTOR_DESKTOP;
+  pref.other_device_info = PreferredDeviceInfo{
+      .form_factor =
+          sync_pb::SyncEnums_DeviceFormFactor_DEVICE_FORM_FACTOR_DESKTOP,
+      .enabled_data_types = {syncer::EXTENSIONS},
+  };
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
   std::u16string device_str =
@@ -249,8 +255,11 @@ TEST(AccountPreviewUtilsTest, PreferenceWithExtensionsAndNonDesktopDevice) {
       {syncer::EXTENSIONS, SyncDataQuartile::kAboveQ3});
   pref.preferred_data_types.push_back(
       {syncer::PASSWORDS, SyncDataQuartile::kAboveQ3});
-  pref.other_device_form_factor =
-      sync_pb::SyncEnums_DeviceFormFactor_DEVICE_FORM_FACTOR_PHONE;
+  pref.other_device_info = PreferredDeviceInfo{
+      .form_factor =
+          sync_pb::SyncEnums_DeviceFormFactor_DEVICE_FORM_FACTOR_PHONE,
+      .enabled_data_types = {syncer::PASSWORDS},
+  };
 
   std::u16string device_str =
       l10n_util::GetStringUTF16(IDS_ACCOUNT_PREVIEW_DEVICE_PHONE);
@@ -300,8 +309,11 @@ TEST(AccountPreviewUtilsTest,
       {syncer::EXTENSIONS, SyncDataQuartile::kAboveQ3});
   pref.preferred_data_types.push_back(
       {syncer::PASSWORDS, SyncDataQuartile::kAboveQ3});
-  pref.other_device_form_factor =
-      sync_pb::SyncEnums_DeviceFormFactor_DEVICE_FORM_FACTOR_DESKTOP;
+  pref.other_device_info = PreferredDeviceInfo{
+      .form_factor =
+          sync_pb::SyncEnums_DeviceFormFactor_DEVICE_FORM_FACTOR_DESKTOP,
+      .enabled_data_types = {syncer::EXTENSIONS, syncer::PASSWORDS},
+  };
 
   std::u16string device_str =
       l10n_util::GetStringUTF16(IDS_ACCOUNT_PREVIEW_DEVICE_COMPUTER);
@@ -354,8 +366,11 @@ TEST_P(AccountPreviewUtilsProfileMenuParamTest, Subtitle) {
   AccountPreviewDataService::AccountPreviewPreference pref;
   pref.preferred_data_types.push_back({data_type, SyncDataQuartile::kAboveQ3});
   if (with_device) {
-    pref.other_device_form_factor =
-        sync_pb::SyncEnums_DeviceFormFactor_DEVICE_FORM_FACTOR_PHONE;
+    pref.other_device_info = PreferredDeviceInfo{
+        .form_factor =
+            sync_pb::SyncEnums_DeviceFormFactor_DEVICE_FORM_FACTOR_PHONE,
+        .enabled_data_types = {data_type},
+    };
     std::u16string device_str =
         l10n_util::GetStringUTF16(IDS_ACCOUNT_PREVIEW_DEVICE_PHONE);
     EXPECT_EQ(GetAccountPreviewProfileMenuSubtitle("elisa.g.beckett@gmail.com",
@@ -390,8 +405,11 @@ TEST(AccountPreviewUtilsTest,
   AccountPreviewDataService::AccountPreviewPreference pref;
   pref.preferred_data_types.push_back(
       {syncer::EXTENSIONS, SyncDataQuartile::kAboveQ3});
-  pref.other_device_form_factor =
-      sync_pb::SyncEnums_DeviceFormFactor_DEVICE_FORM_FACTOR_DESKTOP;
+  pref.other_device_info = PreferredDeviceInfo{
+      .form_factor =
+          sync_pb::SyncEnums_DeviceFormFactor_DEVICE_FORM_FACTOR_DESKTOP,
+      .enabled_data_types = {syncer::EXTENSIONS},
+  };
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
   std::u16string device_str =
@@ -444,8 +462,11 @@ TEST_P(AccountPreviewUtilsSettingsPromoParamTest, Subtitle) {
   AccountPreviewDataService::AccountPreviewPreference pref;
   pref.preferred_data_types.push_back({data_type, SyncDataQuartile::kAboveQ3});
   if (with_device) {
-    pref.other_device_form_factor =
-        sync_pb::SyncEnums_DeviceFormFactor_DEVICE_FORM_FACTOR_PHONE;
+    pref.other_device_info = PreferredDeviceInfo{
+        .form_factor =
+            sync_pb::SyncEnums_DeviceFormFactor_DEVICE_FORM_FACTOR_PHONE,
+        .enabled_data_types = {data_type},
+    };
     std::u16string device_str =
         l10n_util::GetStringUTF16(IDS_ACCOUNT_PREVIEW_DEVICE_PHONE);
     EXPECT_EQ(GetAccountPreviewSettingsPromoSubtitle(pref),
@@ -475,8 +496,11 @@ TEST(AccountPreviewUtilsTest,
   AccountPreviewDataService::AccountPreviewPreference pref;
   pref.preferred_data_types.push_back(
       {syncer::EXTENSIONS, SyncDataQuartile::kAboveQ3});
-  pref.other_device_form_factor =
-      sync_pb::SyncEnums_DeviceFormFactor_DEVICE_FORM_FACTOR_DESKTOP;
+  pref.other_device_info = PreferredDeviceInfo{
+      .form_factor =
+          sync_pb::SyncEnums_DeviceFormFactor_DEVICE_FORM_FACTOR_DESKTOP,
+      .enabled_data_types = {syncer::EXTENSIONS},
+  };
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
   std::u16string device_str =
@@ -498,8 +522,11 @@ TEST(AccountPreviewUtilsTest,
       {syncer::EXTENSIONS, SyncDataQuartile::kAboveQ3});
   pref.preferred_data_types.push_back(
       {syncer::PASSWORDS, SyncDataQuartile::kAboveQ3});
-  pref.other_device_form_factor =
-      sync_pb::SyncEnums_DeviceFormFactor_DEVICE_FORM_FACTOR_PHONE;
+  pref.other_device_info = PreferredDeviceInfo{
+      .form_factor =
+          sync_pb::SyncEnums_DeviceFormFactor_DEVICE_FORM_FACTOR_PHONE,
+      .enabled_data_types = {syncer::PASSWORDS},
+  };
 
   std::u16string device_str =
       l10n_util::GetStringUTF16(IDS_ACCOUNT_PREVIEW_DEVICE_PHONE);
@@ -550,8 +577,11 @@ TEST(AccountPreviewUtilsTest,
       {syncer::EXTENSIONS, SyncDataQuartile::kAboveQ3});
   pref.preferred_data_types.push_back(
       {syncer::PASSWORDS, SyncDataQuartile::kAboveQ3});
-  pref.other_device_form_factor =
-      sync_pb::SyncEnums_DeviceFormFactor_DEVICE_FORM_FACTOR_DESKTOP;
+  pref.other_device_info = PreferredDeviceInfo{
+      .form_factor =
+          sync_pb::SyncEnums_DeviceFormFactor_DEVICE_FORM_FACTOR_DESKTOP,
+      .enabled_data_types = {syncer::EXTENSIONS, syncer::PASSWORDS},
+  };
 
   std::u16string device_str =
       l10n_util::GetStringUTF16(IDS_ACCOUNT_PREVIEW_DEVICE_COMPUTER);
@@ -601,8 +631,11 @@ TEST(AccountPreviewUtilsTest, HistorySignedInPromoWithoutDevice) {
 
 TEST(AccountPreviewUtilsTest, HistorySignedInPromoWithPhoneDevice) {
   AccountPreviewDataService::AccountPreviewPreference pref;
-  pref.other_device_form_factor =
-      sync_pb::SyncEnums_DeviceFormFactor_DEVICE_FORM_FACTOR_PHONE;
+  pref.other_device_info = PreferredDeviceInfo{
+      .form_factor =
+          sync_pb::SyncEnums_DeviceFormFactor_DEVICE_FORM_FACTOR_PHONE,
+      .enabled_data_types = {syncer::HISTORY},
+  };
   std::u16string device_str =
       l10n_util::GetStringUTF16(IDS_ACCOUNT_PREVIEW_DEVICE_PHONE);
   EXPECT_EQ(
@@ -614,8 +647,11 @@ TEST(AccountPreviewUtilsTest, HistorySignedInPromoWithPhoneDevice) {
 
 TEST(AccountPreviewUtilsTest, HistorySignedInPromoWithTabletDevice) {
   AccountPreviewDataService::AccountPreviewPreference pref;
-  pref.other_device_form_factor =
-      sync_pb::SyncEnums_DeviceFormFactor_DEVICE_FORM_FACTOR_TABLET;
+  pref.other_device_info = PreferredDeviceInfo{
+      .form_factor =
+          sync_pb::SyncEnums_DeviceFormFactor_DEVICE_FORM_FACTOR_TABLET,
+      .enabled_data_types = {syncer::HISTORY},
+  };
   std::u16string device_str =
       l10n_util::GetStringUTF16(IDS_ACCOUNT_PREVIEW_DEVICE_TABLET);
   EXPECT_EQ(
@@ -627,8 +663,11 @@ TEST(AccountPreviewUtilsTest, HistorySignedInPromoWithTabletDevice) {
 
 TEST(AccountPreviewUtilsTest, HistorySignedInPromoWithDesktopDevice) {
   AccountPreviewDataService::AccountPreviewPreference pref;
-  pref.other_device_form_factor =
-      sync_pb::SyncEnums_DeviceFormFactor_DEVICE_FORM_FACTOR_DESKTOP;
+  pref.other_device_info = PreferredDeviceInfo{
+      .form_factor =
+          sync_pb::SyncEnums_DeviceFormFactor_DEVICE_FORM_FACTOR_DESKTOP,
+      .enabled_data_types = {syncer::HISTORY},
+  };
   std::u16string device_str =
       l10n_util::GetStringUTF16(IDS_ACCOUNT_PREVIEW_DEVICE_COMPUTER);
   EXPECT_EQ(
@@ -654,8 +693,11 @@ TEST_P(AccountPreviewUtilsHistoryPromoParamTest, Subtitle) {
   AccountPreviewDataService::AccountPreviewPreference pref;
   pref.preferred_data_types.push_back({data_type, SyncDataQuartile::kAboveQ3});
   if (with_device) {
-    pref.other_device_form_factor =
-        sync_pb::SyncEnums_DeviceFormFactor_DEVICE_FORM_FACTOR_PHONE;
+    pref.other_device_info = PreferredDeviceInfo{
+        .form_factor =
+            sync_pb::SyncEnums_DeviceFormFactor_DEVICE_FORM_FACTOR_PHONE,
+        .enabled_data_types = {syncer::HISTORY},
+    };
     std::u16string device_str =
         l10n_util::GetStringUTF16(IDS_ACCOUNT_PREVIEW_DEVICE_PHONE);
     EXPECT_EQ(GetAccountPreviewHistoryPromoSubtitle("elisa.g.beckett@gmail.com",
@@ -690,8 +732,11 @@ TEST(AccountPreviewUtilsTest,
   AccountPreviewDataService::AccountPreviewPreference pref;
   pref.preferred_data_types.push_back(
       {syncer::EXTENSIONS, SyncDataQuartile::kAboveQ3});
-  pref.other_device_form_factor =
-      sync_pb::SyncEnums_DeviceFormFactor_DEVICE_FORM_FACTOR_DESKTOP;
+  pref.other_device_info = PreferredDeviceInfo{
+      .form_factor =
+          sync_pb::SyncEnums_DeviceFormFactor_DEVICE_FORM_FACTOR_DESKTOP,
+      .enabled_data_types = {syncer::HISTORY},
+  };
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
   std::u16string device_str =
@@ -717,8 +762,11 @@ TEST(AccountPreviewUtilsTest,
       {syncer::EXTENSIONS, SyncDataQuartile::kAboveQ3});
   pref.preferred_data_types.push_back(
       {syncer::PASSWORDS, SyncDataQuartile::kAboveQ3});
-  pref.other_device_form_factor =
-      sync_pb::SyncEnums_DeviceFormFactor_DEVICE_FORM_FACTOR_PHONE;
+  pref.other_device_info = PreferredDeviceInfo{
+      .form_factor =
+          sync_pb::SyncEnums_DeviceFormFactor_DEVICE_FORM_FACTOR_PHONE,
+      .enabled_data_types = {syncer::HISTORY},
+  };
 
   std::u16string device_str =
       l10n_util::GetStringUTF16(IDS_ACCOUNT_PREVIEW_DEVICE_PHONE);
@@ -762,8 +810,11 @@ TEST(AccountPreviewUtilsTest, RecentTabsSignedInPromoWithoutDevice) {
 
 TEST(AccountPreviewUtilsTest, RecentTabsSignedInPromoWithPhoneDevice) {
   AccountPreviewDataService::AccountPreviewPreference pref;
-  pref.other_device_form_factor =
-      sync_pb::SyncEnums_DeviceFormFactor_DEVICE_FORM_FACTOR_PHONE;
+  pref.other_device_info = PreferredDeviceInfo{
+      .form_factor =
+          sync_pb::SyncEnums_DeviceFormFactor_DEVICE_FORM_FACTOR_PHONE,
+      .enabled_data_types = {syncer::SESSIONS},
+  };
   std::u16string device_str =
       l10n_util::GetStringUTF16(IDS_ACCOUNT_PREVIEW_DEVICE_PHONE);
   EXPECT_EQ(
@@ -776,8 +827,11 @@ TEST(AccountPreviewUtilsTest, RecentTabsSignedInPromoWithPhoneDevice) {
 
 TEST(AccountPreviewUtilsTest, RecentTabsSignedInPromoWithTabletDevice) {
   AccountPreviewDataService::AccountPreviewPreference pref;
-  pref.other_device_form_factor =
-      sync_pb::SyncEnums_DeviceFormFactor_DEVICE_FORM_FACTOR_TABLET;
+  pref.other_device_info = PreferredDeviceInfo{
+      .form_factor =
+          sync_pb::SyncEnums_DeviceFormFactor_DEVICE_FORM_FACTOR_TABLET,
+      .enabled_data_types = {syncer::SESSIONS},
+  };
   std::u16string device_str =
       l10n_util::GetStringUTF16(IDS_ACCOUNT_PREVIEW_DEVICE_TABLET);
   EXPECT_EQ(
@@ -790,8 +844,11 @@ TEST(AccountPreviewUtilsTest, RecentTabsSignedInPromoWithTabletDevice) {
 
 TEST(AccountPreviewUtilsTest, RecentTabsSignedInPromoWithDesktopDevice) {
   AccountPreviewDataService::AccountPreviewPreference pref;
-  pref.other_device_form_factor =
-      sync_pb::SyncEnums_DeviceFormFactor_DEVICE_FORM_FACTOR_DESKTOP;
+  pref.other_device_info = PreferredDeviceInfo{
+      .form_factor =
+          sync_pb::SyncEnums_DeviceFormFactor_DEVICE_FORM_FACTOR_DESKTOP,
+      .enabled_data_types = {syncer::SESSIONS},
+  };
   std::u16string device_str =
       l10n_util::GetStringUTF16(IDS_ACCOUNT_PREVIEW_DEVICE_COMPUTER);
   EXPECT_EQ(
@@ -816,8 +873,11 @@ TEST_P(AccountPreviewUtilsRecentTabsPromoParamTest, Subtitle) {
   AccountPreviewDataService::AccountPreviewPreference pref;
   pref.preferred_data_types.push_back({data_type, SyncDataQuartile::kAboveQ3});
   if (with_device) {
-    pref.other_device_form_factor =
-        sync_pb::SyncEnums_DeviceFormFactor_DEVICE_FORM_FACTOR_PHONE;
+    pref.other_device_info = PreferredDeviceInfo{
+        .form_factor =
+            sync_pb::SyncEnums_DeviceFormFactor_DEVICE_FORM_FACTOR_PHONE,
+        .enabled_data_types = {syncer::SESSIONS},
+    };
     std::u16string device_str =
         l10n_util::GetStringUTF16(IDS_ACCOUNT_PREVIEW_DEVICE_PHONE);
     EXPECT_EQ(GetAccountPreviewRecentTabsPromoSubtitle(pref),
@@ -848,8 +908,11 @@ TEST(AccountPreviewUtilsTest,
   AccountPreviewDataService::AccountPreviewPreference pref;
   pref.preferred_data_types.push_back(
       {syncer::EXTENSIONS, SyncDataQuartile::kAboveQ3});
-  pref.other_device_form_factor =
-      sync_pb::SyncEnums_DeviceFormFactor_DEVICE_FORM_FACTOR_DESKTOP;
+  pref.other_device_info = PreferredDeviceInfo{
+      .form_factor =
+          sync_pb::SyncEnums_DeviceFormFactor_DEVICE_FORM_FACTOR_DESKTOP,
+      .enabled_data_types = {syncer::SESSIONS},
+  };
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
   std::u16string device_str =
@@ -871,8 +934,11 @@ TEST(AccountPreviewUtilsTest,
       {syncer::EXTENSIONS, SyncDataQuartile::kAboveQ3});
   pref.preferred_data_types.push_back(
       {syncer::PASSWORDS, SyncDataQuartile::kAboveQ3});
-  pref.other_device_form_factor =
-      sync_pb::SyncEnums_DeviceFormFactor_DEVICE_FORM_FACTOR_PHONE;
+  pref.other_device_info = PreferredDeviceInfo{
+      .form_factor =
+          sync_pb::SyncEnums_DeviceFormFactor_DEVICE_FORM_FACTOR_PHONE,
+      .enabled_data_types = {syncer::SESSIONS},
+  };
 
   std::u16string device_str =
       l10n_util::GetStringUTF16(IDS_ACCOUNT_PREVIEW_DEVICE_PHONE);
@@ -914,8 +980,11 @@ TEST_P(AccountPreviewUtilsProfileSeparationParamTest, Subtitle) {
   AccountPreviewDataService::AccountPreviewPreference pref;
   pref.preferred_data_types.push_back({data_type, SyncDataQuartile::kAboveQ3});
   if (with_device) {
-    pref.other_device_form_factor =
-        sync_pb::SyncEnums_DeviceFormFactor_DEVICE_FORM_FACTOR_PHONE;
+    pref.other_device_info = PreferredDeviceInfo{
+        .form_factor =
+            sync_pb::SyncEnums_DeviceFormFactor_DEVICE_FORM_FACTOR_PHONE,
+        .enabled_data_types = {data_type},
+    };
     std::u16string device_str =
         l10n_util::GetStringUTF16(IDS_ACCOUNT_PREVIEW_DEVICE_PHONE);
     EXPECT_EQ(GetAccountPreviewProfileSeparationSubtitle(
@@ -949,8 +1018,11 @@ TEST(AccountPreviewUtilsTest, ProfileSeparationWithExtensionsAndDesktopDevice) {
   AccountPreviewDataService::AccountPreviewPreference pref;
   pref.preferred_data_types.push_back(
       {syncer::EXTENSIONS, SyncDataQuartile::kAboveQ3});
-  pref.other_device_form_factor =
-      sync_pb::SyncEnums_DeviceFormFactor_DEVICE_FORM_FACTOR_DESKTOP;
+  pref.other_device_info = PreferredDeviceInfo{
+      .form_factor =
+          sync_pb::SyncEnums_DeviceFormFactor_DEVICE_FORM_FACTOR_DESKTOP,
+      .enabled_data_types = {syncer::EXTENSIONS},
+  };
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
   std::u16string device_str =
@@ -976,8 +1048,11 @@ TEST(AccountPreviewUtilsTest,
       {syncer::EXTENSIONS, SyncDataQuartile::kAboveQ3});
   pref.preferred_data_types.push_back(
       {syncer::PASSWORDS, SyncDataQuartile::kAboveQ3});
-  pref.other_device_form_factor =
-      sync_pb::SyncEnums_DeviceFormFactor_DEVICE_FORM_FACTOR_PHONE;
+  pref.other_device_info = PreferredDeviceInfo{
+      .form_factor =
+          sync_pb::SyncEnums_DeviceFormFactor_DEVICE_FORM_FACTOR_PHONE,
+      .enabled_data_types = {syncer::PASSWORDS},
+  };
 
   std::u16string device_str =
       l10n_util::GetStringUTF16(IDS_ACCOUNT_PREVIEW_DEVICE_PHONE);
@@ -1040,8 +1115,11 @@ TEST(
       {syncer::EXTENSIONS, SyncDataQuartile::kAboveQ3});
   pref.preferred_data_types.push_back(
       {syncer::PASSWORDS, SyncDataQuartile::kAboveQ3});
-  pref.other_device_form_factor =
-      sync_pb::SyncEnums_DeviceFormFactor_DEVICE_FORM_FACTOR_DESKTOP;
+  pref.other_device_info = PreferredDeviceInfo{
+      .form_factor =
+          sync_pb::SyncEnums_DeviceFormFactor_DEVICE_FORM_FACTOR_DESKTOP,
+      .enabled_data_types = {syncer::EXTENSIONS, syncer::PASSWORDS},
+  };
 
   std::u16string device_str =
       l10n_util::GetStringUTF16(IDS_ACCOUNT_PREVIEW_DEVICE_COMPUTER);
@@ -1098,8 +1176,11 @@ TEST(AccountPreviewUtilsTest, PasswordManagerPromoTitleWithoutDevice) {
 
 TEST(AccountPreviewUtilsTest, PasswordManagerPromoTitleWithPhoneDevice) {
   AccountPreviewDataService::AccountPreviewPreference pref;
-  pref.other_device_form_factor =
-      sync_pb::SyncEnums_DeviceFormFactor_DEVICE_FORM_FACTOR_PHONE;
+  pref.other_device_info = PreferredDeviceInfo{
+      .form_factor =
+          sync_pb::SyncEnums_DeviceFormFactor_DEVICE_FORM_FACTOR_PHONE,
+      .enabled_data_types = {syncer::PASSWORDS},
+  };
   std::u16string device_str =
       l10n_util::GetStringUTF16(IDS_ACCOUNT_PREVIEW_DEVICE_PHONE);
   EXPECT_EQ(GetAccountPreviewPasswordManagerPromoTitle(pref),
@@ -1110,8 +1191,11 @@ TEST(AccountPreviewUtilsTest, PasswordManagerPromoTitleWithPhoneDevice) {
 
 TEST(AccountPreviewUtilsTest, PasswordManagerPromoTitleWithTabletDevice) {
   AccountPreviewDataService::AccountPreviewPreference pref;
-  pref.other_device_form_factor =
-      sync_pb::SyncEnums_DeviceFormFactor_DEVICE_FORM_FACTOR_TABLET;
+  pref.other_device_info = PreferredDeviceInfo{
+      .form_factor =
+          sync_pb::SyncEnums_DeviceFormFactor_DEVICE_FORM_FACTOR_TABLET,
+      .enabled_data_types = {syncer::PASSWORDS},
+  };
   std::u16string device_str =
       l10n_util::GetStringUTF16(IDS_ACCOUNT_PREVIEW_DEVICE_TABLET);
   EXPECT_EQ(GetAccountPreviewPasswordManagerPromoTitle(pref),
@@ -1122,14 +1206,149 @@ TEST(AccountPreviewUtilsTest, PasswordManagerPromoTitleWithTabletDevice) {
 
 TEST(AccountPreviewUtilsTest, PasswordManagerPromoTitleWithDesktopDevice) {
   AccountPreviewDataService::AccountPreviewPreference pref;
-  pref.other_device_form_factor =
-      sync_pb::SyncEnums_DeviceFormFactor_DEVICE_FORM_FACTOR_DESKTOP;
+  pref.other_device_info = PreferredDeviceInfo{
+      .form_factor =
+          sync_pb::SyncEnums_DeviceFormFactor_DEVICE_FORM_FACTOR_DESKTOP,
+      .enabled_data_types = {syncer::PASSWORDS},
+  };
   std::u16string device_str =
       l10n_util::GetStringUTF16(IDS_ACCOUNT_PREVIEW_DEVICE_COMPUTER);
   EXPECT_EQ(GetAccountPreviewPasswordManagerPromoTitle(pref),
             l10n_util::GetStringFUTF16(
                 IDS_PASSWORD_MANAGER_UI_SIGNIN_PROMO_CARD_TITLE_WITH_DEVICE,
                 device_str));
+}
+
+TEST(AccountPreviewUtilsTest,
+     FallsBackToGenericDeviceWhenDataTypeNotInOtherDeviceEnabledTypes) {
+  AccountPreviewDataService::AccountPreviewPreference pref;
+  pref.preferred_data_types.push_back(
+      {syncer::PASSWORDS, SyncDataQuartile::kAboveQ3});
+  pref.preferred_data_types.push_back(
+      {syncer::BOOKMARKS, SyncDataQuartile::kAboveQ3});
+  // Phone has BOOKMARKS enabled, but PASSWORDS, HISTORY, and SESSIONS disabled.
+  pref.other_device_info = PreferredDeviceInfo{
+      .form_factor =
+          sync_pb::SyncEnums_DeviceFormFactor_DEVICE_FORM_FACTOR_PHONE,
+      .enabled_data_types = {syncer::BOOKMARKS},
+  };
+
+  // Data-type promos keep the preferred type (PASSWORDS) and generalize the
+  // device rather than using "from your phone" or skipping to BOOKMARKS.
+  EXPECT_EQ(
+      GetAccountPreviewPromoSubtitle(pref),
+      l10n_util::GetStringUTF8(IDS_ACCOUNT_PREVIEW_PROMO_SUBTITLE_PASSWORDS));
+  EXPECT_EQ(
+      GetAccountPreviewProfileMenuSubtitle("elisa.g.beckett@gmail.com", pref),
+      l10n_util::GetStringFUTF8(
+          IDS_ACCOUNT_PREVIEW_PROFILE_MENU_SUBTITLE_PASSWORDS,
+          u"elisa.g.beckett@gmail.com"));
+  EXPECT_EQ(GetAccountPreviewSettingsPromoSubtitle(pref),
+            l10n_util::GetStringUTF8(
+                IDS_ACCOUNT_PREVIEW_SETTINGS_PROMO_SUBTITLE_PASSWORDS));
+  EXPECT_EQ(GetAccountPreviewProfileSeparationSubtitle(
+                "Elisa", "bob.beckett@gmail.com", pref),
+            l10n_util::GetStringFUTF8(
+                IDS_ACCOUNT_PREVIEW_PROFILE_SEPARATION_SUBTITLE_PASSWORDS,
+                u"Elisa", u"bob.beckett@gmail.com"));
+
+  // History promos require HISTORY in other_device_info.enabled_data_types.
+  EXPECT_EQ(
+      GetAccountPreviewHistorySignedInPromoSubtitle(pref),
+      l10n_util::GetStringUTF8(
+          IDS_ACCOUNT_PREVIEW_HISTORY_SIGNED_IN_HISTORY_SYNC_PROMO_SUBTITLE));
+  EXPECT_EQ(
+      GetAccountPreviewHistoryPromoSubtitle("elisa.g.beckett@gmail.com", pref),
+      l10n_util::GetStringFUTF8(
+          IDS_ACCOUNT_PREVIEW_HISTORY_PROMO_SUBTITLE_PASSWORDS,
+          u"elisa.g.beckett@gmail.com"));
+
+  // Recent Tabs promos require SESSIONS in
+  // other_device_info.enabled_data_types.
+  EXPECT_EQ(GetAccountPreviewRecentTabsSignedInPromoSubtitle(
+                "elisa.g.beckett@gmail.com", pref),
+            l10n_util::GetStringFUTF8(
+                IDS_ACCOUNT_PREVIEW_RECENT_TABS_SIGNED_IN_PROMO_SUBTITLE,
+                u"elisa.g.beckett@gmail.com"));
+  EXPECT_EQ(GetAccountPreviewRecentTabsPromoSubtitle(pref),
+            l10n_util::GetStringUTF8(
+                IDS_ACCOUNT_PREVIEW_RECENT_TABS_PROMO_SUBTITLE_PASSWORDS));
+
+  // Password Manager promo requires PASSWORDS, whereas Bookmark Manager promo
+  // requires BOOKMARKS (which is enabled on the phone).
+  EXPECT_EQ(GetAccountPreviewPasswordManagerPromoTitle(pref),
+            l10n_util::GetStringUTF16(
+                IDS_PASSWORD_MANAGER_UI_SIGNIN_PROMO_CARD_TITLE));
+  EXPECT_EQ(GetAccountPreviewBookmarkManagerPromoTitle(pref),
+            l10n_util::GetStringFUTF16(
+                IDS_BOOKMARK_MANAGER_SIGNIN_PROMO_TITLE_WITH_DEVICE,
+                l10n_util::GetStringUTF16(IDS_ACCOUNT_PREVIEW_DEVICE_PHONE)));
+}
+
+TEST(AccountPreviewUtilsTest,
+     ExtensionsOnDesktopWithoutExtensionsInEnabledTypesUsesGenericDevice) {
+  AccountPreviewDataService::AccountPreviewPreference pref;
+  pref.preferred_data_types.push_back(
+      {syncer::EXTENSIONS, SyncDataQuartile::kAboveQ3});
+  pref.preferred_data_types.push_back(
+      {syncer::PASSWORDS, SyncDataQuartile::kAboveQ3});
+  pref.other_device_info = PreferredDeviceInfo{
+      .form_factor =
+          sync_pb::SyncEnums_DeviceFormFactor_DEVICE_FORM_FACTOR_DESKTOP,
+      .enabled_data_types = {syncer::PASSWORDS},
+  };
+
+#if BUILDFLAG(ENABLE_DICE_SUPPORT)
+  EXPECT_EQ(
+      GetAccountPreviewPromoSubtitle(pref),
+      l10n_util::GetStringUTF8(IDS_ACCOUNT_PREVIEW_PROMO_SUBTITLE_EXTENSIONS));
+  EXPECT_EQ(
+      GetAccountPreviewProfileMenuSubtitle("elisa.g.beckett@gmail.com", pref),
+      l10n_util::GetStringFUTF8(
+          IDS_ACCOUNT_PREVIEW_PROFILE_MENU_SUBTITLE_EXTENSIONS,
+          u"elisa.g.beckett@gmail.com"));
+  EXPECT_EQ(GetAccountPreviewSettingsPromoSubtitle(pref),
+            l10n_util::GetStringUTF8(
+                IDS_ACCOUNT_PREVIEW_SETTINGS_PROMO_SUBTITLE_EXTENSIONS));
+  EXPECT_EQ(GetAccountPreviewProfileSeparationSubtitle(
+                "Elisa", "bob.beckett@gmail.com", pref),
+            l10n_util::GetStringFUTF8(
+                IDS_ACCOUNT_PREVIEW_PROFILE_SEPARATION_SUBTITLE_EXTENSIONS,
+                u"Elisa", u"bob.beckett@gmail.com"));
+#else
+  std::u16string device_str =
+      l10n_util::GetStringUTF16(IDS_ACCOUNT_PREVIEW_DEVICE_COMPUTER);
+  EXPECT_EQ(GetAccountPreviewPromoSubtitle(pref),
+            l10n_util::GetStringFUTF8(
+                IDS_ACCOUNT_PREVIEW_PROMO_SUBTITLE_PASSWORDS_WITH_DEVICE,
+                device_str));
+#endif
+}
+
+TEST(AccountPreviewUtilsTest,
+     ExtensionsOnNonDesktopDeviceWithoutExtensionsInEnabledTypesIsSkipped) {
+  AccountPreviewDataService::AccountPreviewPreference pref;
+  pref.preferred_data_types.push_back(
+      {syncer::EXTENSIONS, SyncDataQuartile::kAboveQ3});
+  pref.other_device_info = PreferredDeviceInfo{
+      .form_factor =
+          sync_pb::SyncEnums_DeviceFormFactor_DEVICE_FORM_FACTOR_PHONE,
+  };
+  // Phone does not have EXTENSIONS in enabled data types; EXTENSIONS should
+  // still be skipped (returning std::nullopt) rather than falling back to the
+  // generic-device EXTENSIONS string.
+  EXPECT_EQ(GetAccountPreviewPromoSubtitle(pref), std::nullopt);
+  EXPECT_EQ(
+      GetAccountPreviewProfileMenuSubtitle("elisa.g.beckett@gmail.com", pref),
+      std::nullopt);
+  EXPECT_EQ(GetAccountPreviewSettingsPromoSubtitle(pref), std::nullopt);
+  EXPECT_EQ(
+      GetAccountPreviewHistoryPromoSubtitle("elisa.g.beckett@gmail.com", pref),
+      std::nullopt);
+  EXPECT_EQ(GetAccountPreviewRecentTabsPromoSubtitle(pref), std::nullopt);
+  EXPECT_EQ(GetAccountPreviewProfileSeparationSubtitle(
+                "Elisa", "bob.beckett@gmail.com", pref),
+            std::nullopt);
 }
 
 }  // namespace signin

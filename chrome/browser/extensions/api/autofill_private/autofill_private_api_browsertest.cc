@@ -5,10 +5,13 @@
 #include "chrome/browser/extensions/api/autofill_private/autofill_private_api.h"
 
 #include <string>
+#include <utility>
 #include <vector>
 
+#include "base/base64.h"
 #include "base/functional/bind.h"
 #include "base/strings/strcat.h"
+#include "base/strings/stringprintf.h"
 #include "base/test/bind.h"
 #include "base/test/gmock_callback_support.h"
 #include "base/test/run_until.h"
@@ -50,7 +53,7 @@
 #include "components/consent_auditor/consent_auditor.h"
 #include "components/consent_auditor/fake_consent_auditor.h"
 #include "components/device_reauth/mock_device_authenticator.h"
-#include "components/one_time_tokens/core/browser/mock_one_time_token_service.h"
+#include "components/one_time_tokens/core/browser/fake_gmail_otp_backend.h"
 #include "components/one_time_tokens/core/browser/user_data_processing_consent_states.h"
 #include "components/prefs/pref_registry_simple.h"
 #include "components/prefs/pref_service.h"
@@ -463,15 +466,13 @@ IN_PROC_BROWSER_TEST_F(AutofillPrivateApiBrowserTest,
 
 IN_PROC_BROWSER_TEST_F(AutofillPrivateApiBrowserTest,
                        FetchUserDataProcessingConsent_Success) {
-  auto mock_otp_service = std::make_unique<
-      testing::NiceMock<one_time_tokens::MockOneTimeTokenService>>();
-  EXPECT_CALL(*mock_otp_service, FetchUserDataProcessingConsent)
-      .WillOnce(
-          RunOnceCallback<0>(one_time_tokens::UserDataProcessingConsentStates{
-              .comms_apps = one_time_tokens::ConsentState::kEnabled,
-              .google_apps = one_time_tokens::ConsentState::kEnabled,
-          }));
-  autofill_client()->set_one_time_token_service(std::move(mock_otp_service));
+  auto fake_backend = std::make_unique<one_time_tokens::FakeGmailOtpBackend>();
+  fake_backend->SetUserDataProcessingConsent(
+      one_time_tokens::UserDataProcessingConsentStates{
+          .comms_apps = one_time_tokens::ConsentState::kEnabled,
+          .google_apps = one_time_tokens::ConsentState::kEnabled,
+      });
+  autofill_client()->set_gmail_otp_backend(std::move(fake_backend));
 
   auto function = base::MakeRefCounted<
       extensions::AutofillPrivateFetchUserDataProcessingConsentFunction>();
@@ -491,15 +492,13 @@ IN_PROC_BROWSER_TEST_F(AutofillPrivateApiBrowserTest,
 
 IN_PROC_BROWSER_TEST_F(AutofillPrivateApiBrowserTest,
                        FetchUserDataProcessingConsent_MixedAndUnknown) {
-  auto mock_otp_service = std::make_unique<
-      testing::NiceMock<one_time_tokens::MockOneTimeTokenService>>();
-  EXPECT_CALL(*mock_otp_service, FetchUserDataProcessingConsent)
-      .WillOnce(
-          RunOnceCallback<0>(one_time_tokens::UserDataProcessingConsentStates{
-              .comms_apps = one_time_tokens::ConsentState::kDisabled,
-              .google_apps = one_time_tokens::ConsentState::kUnknown,
-          }));
-  autofill_client()->set_one_time_token_service(std::move(mock_otp_service));
+  auto fake_backend = std::make_unique<one_time_tokens::FakeGmailOtpBackend>();
+  fake_backend->SetUserDataProcessingConsent(
+      one_time_tokens::UserDataProcessingConsentStates{
+          .comms_apps = one_time_tokens::ConsentState::kDisabled,
+          .google_apps = one_time_tokens::ConsentState::kUnknown,
+      });
+  autofill_client()->set_gmail_otp_backend(std::move(fake_backend));
 
   auto function = base::MakeRefCounted<
       extensions::AutofillPrivateFetchUserDataProcessingConsentFunction>();
@@ -519,15 +518,13 @@ IN_PROC_BROWSER_TEST_F(AutofillPrivateApiBrowserTest,
 
 IN_PROC_BROWSER_TEST_F(AutofillPrivateApiBrowserTest,
                        FetchUserDataProcessingConsent_Undefined) {
-  auto mock_otp_service = std::make_unique<
-      testing::NiceMock<one_time_tokens::MockOneTimeTokenService>>();
-  EXPECT_CALL(*mock_otp_service, FetchUserDataProcessingConsent)
-      .WillOnce(
-          RunOnceCallback<0>(one_time_tokens::UserDataProcessingConsentStates{
-              .comms_apps = one_time_tokens::ConsentState::kUndefined,
-              .google_apps = one_time_tokens::ConsentState::kUndefined,
-          }));
-  autofill_client()->set_one_time_token_service(std::move(mock_otp_service));
+  auto fake_backend = std::make_unique<one_time_tokens::FakeGmailOtpBackend>();
+  fake_backend->SetUserDataProcessingConsent(
+      one_time_tokens::UserDataProcessingConsentStates{
+          .comms_apps = one_time_tokens::ConsentState::kUndefined,
+          .google_apps = one_time_tokens::ConsentState::kUndefined,
+      });
+  autofill_client()->set_gmail_otp_backend(std::move(fake_backend));
 
   auto function = base::MakeRefCounted<
       extensions::AutofillPrivateFetchUserDataProcessingConsentFunction>();
@@ -547,11 +544,9 @@ IN_PROC_BROWSER_TEST_F(AutofillPrivateApiBrowserTest,
 
 IN_PROC_BROWSER_TEST_F(AutofillPrivateApiBrowserTest,
                        FetchUserDataProcessingConsent_BackendError) {
-  auto mock_otp_service = std::make_unique<
-      testing::NiceMock<one_time_tokens::MockOneTimeTokenService>>();
-  EXPECT_CALL(*mock_otp_service, FetchUserDataProcessingConsent)
-      .WillOnce(RunOnceCallback<0>(std::nullopt));
-  autofill_client()->set_one_time_token_service(std::move(mock_otp_service));
+  auto fake_backend = std::make_unique<one_time_tokens::FakeGmailOtpBackend>();
+  fake_backend->SetUserDataProcessingConsent(std::nullopt);
+  autofill_client()->set_gmail_otp_backend(std::move(fake_backend));
 
   auto function = base::MakeRefCounted<
       extensions::AutofillPrivateFetchUserDataProcessingConsentFunction>();
@@ -567,8 +562,8 @@ IN_PROC_BROWSER_TEST_F(AutofillPrivateApiBrowserTest,
 }
 
 IN_PROC_BROWSER_TEST_F(AutofillPrivateApiBrowserTest,
-                       FetchUserDataProcessingConsent_NoService) {
-  autofill_client()->set_one_time_token_service(nullptr);
+                       FetchUserDataProcessingConsent_NoBackend) {
+  autofill_client()->set_gmail_otp_backend(nullptr);
 
   auto function = base::MakeRefCounted<
       extensions::AutofillPrivateFetchUserDataProcessingConsentFunction>();
@@ -893,18 +888,21 @@ class AutofillPrivateApiPublicPassTest : public AutofillPrivateApiBrowserTest {
 
 IN_PROC_BROWSER_TEST_F(AutofillPrivateApiPublicPassTest,
                        GetDetailsForUpsertPass_ReturnsDetailsWhenEnabled) {
+  // Include non-UTF-8 bytes (`\xff\xfe`) to verify binary `bytes` handling.
+  const std::string raw_token = "test_token_\xff\xfe";
   autofill::WalletPassAccessManager::GetDetailsForUpsertPassResponse response;
-  response.context_token = "test_token_123";
+  response.context_token = raw_token;
+  response.user_eligibility =
+      autofill::WalletPassAccessManager::UserEligibility::kEligible;
   autofill::LegalMessageLine::Links links;
   links.emplace_back(0, 10, "https://example.com/tos");
   response.legal_message_lines.push_back(
       autofill::TestLegalMessageLine("Terms link text", links));
 
   EXPECT_CALL(wallet_manager(),
-              GetDetailsForUpsertPass(
-                  Eq(autofill::EntityType(autofill::EntityTypeName::kVehicle)),
-                  testing::_))
-      .WillOnce(RunOnceCallback<1>(std::move(response)));
+              ExtractPreloadedDetailsForUpsertPass(
+                  Eq(autofill::EntityType(autofill::EntityTypeName::kVehicle))))
+      .WillOnce(Return(std::move(response)));
 
   auto function = base::MakeRefCounted<
       extensions::AutofillPrivateGetDetailsForUpsertPassFunction>();
@@ -912,11 +910,15 @@ IN_PROC_BROWSER_TEST_F(AutofillPrivateApiPublicPassTest,
 
   std::optional<base::Value> result =
       extensions::api_test_utils::RunFunctionAndReturnSingleResult(
-          function.get(), "[]", profile());
+          function.get(),
+          base::StringPrintf(
+              "[%d]", std::to_underlying(autofill::EntityTypeName::kVehicle)),
+          profile());
   EXPECT_THAT(
       result,
       Optional(AllOf(
-          DictionaryHasValue("contextToken", base::Value("test_token_123")),
+          DictionaryHasValue("contextToken",
+                             base::Value(base::Base64Encode(raw_token))),
           DictionaryHasValue("legalMessageLines", base::test::ParseJson(R"([
             {
               "links": [
@@ -934,18 +936,19 @@ IN_PROC_BROWSER_TEST_F(AutofillPrivateApiPublicPassTest,
 IN_PROC_BROWSER_TEST_F(AutofillPrivateApiPublicPassTest,
                        GetDetailsForUpsertPass_ReturnsNoArgumentsOnFailure) {
   EXPECT_CALL(wallet_manager(),
-              GetDetailsForUpsertPass(
-                  Eq(autofill::EntityType(autofill::EntityTypeName::kVehicle)),
-                  testing::_))
-      .WillOnce(RunOnceCallback<1>(base::unexpected(
-          wallet::WalletHttpClient::WalletRequestError::kGenericError)));
+              ExtractPreloadedDetailsForUpsertPass(
+                  Eq(autofill::EntityType(autofill::EntityTypeName::kVehicle))))
+      .WillOnce(Return(std::nullopt));
 
   auto function = base::MakeRefCounted<
       extensions::AutofillPrivateGetDetailsForUpsertPassFunction>();
   function->SetRenderFrameHost(GetActiveWebContents()->GetPrimaryMainFrame());
 
-  ASSERT_TRUE(
-      extensions::api_test_utils::RunFunction(function.get(), "[]", profile()));
+  ASSERT_TRUE(extensions::api_test_utils::RunFunction(
+      function.get(),
+      base::StringPrintf(
+          "[%d]", std::to_underlying(autofill::EntityTypeName::kVehicle)),
+      profile()));
   ASSERT_TRUE(function->GetResultListForTest());
   EXPECT_TRUE(function->GetResultListForTest()->empty());
 }
@@ -955,21 +958,75 @@ IN_PROC_BROWSER_TEST_F(
     GetDetailsForUpsertPass_ReturnsNoArgumentsWhenContextTokenEmpty) {
   autofill::WalletPassAccessManager::GetDetailsForUpsertPassResponse response;
   response.context_token = "";
+  response.user_eligibility =
+      autofill::WalletPassAccessManager::UserEligibility::kEligible;
 
   EXPECT_CALL(wallet_manager(),
-              GetDetailsForUpsertPass(
-                  Eq(autofill::EntityType(autofill::EntityTypeName::kVehicle)),
-                  testing::_))
-      .WillOnce(RunOnceCallback<1>(std::move(response)));
+              ExtractPreloadedDetailsForUpsertPass(
+                  Eq(autofill::EntityType(autofill::EntityTypeName::kVehicle))))
+      .WillOnce(Return(std::move(response)));
 
   auto function = base::MakeRefCounted<
       extensions::AutofillPrivateGetDetailsForUpsertPassFunction>();
   function->SetRenderFrameHost(GetActiveWebContents()->GetPrimaryMainFrame());
 
-  ASSERT_TRUE(
-      extensions::api_test_utils::RunFunction(function.get(), "[]", profile()));
+  ASSERT_TRUE(extensions::api_test_utils::RunFunction(
+      function.get(),
+      base::StringPrintf(
+          "[%d]", std::to_underlying(autofill::EntityTypeName::kVehicle)),
+      profile()));
   ASSERT_TRUE(function->GetResultListForTest());
   EXPECT_TRUE(function->GetResultListForTest()->empty());
+}
+
+IN_PROC_BROWSER_TEST_F(
+    AutofillPrivateApiPublicPassTest,
+    GetDetailsForUpsertPass_ReturnsDetailsWhenIneligibleUserWithoutToken) {
+  autofill::WalletPassAccessManager::GetDetailsForUpsertPassResponse response;
+  response.legal_message_lines = {};
+  response.context_token = "";
+  response.user_eligibility =
+      autofill::WalletPassAccessManager::UserEligibility::kIneligible;
+
+  EXPECT_CALL(wallet_manager(),
+              ExtractPreloadedDetailsForUpsertPass(
+                  Eq(autofill::EntityType(autofill::EntityTypeName::kVehicle))))
+      .WillOnce(Return(std::move(response)));
+
+  auto function = base::MakeRefCounted<
+      extensions::AutofillPrivateGetDetailsForUpsertPassFunction>();
+  function->SetRenderFrameHost(GetActiveWebContents()->GetPrimaryMainFrame());
+
+  std::optional<base::Value> result =
+      extensions::api_test_utils::RunFunctionAndReturnSingleResult(
+          function.get(),
+          base::StringPrintf(
+              "[%d]", std::to_underlying(autofill::EntityTypeName::kVehicle)),
+          profile());
+  EXPECT_THAT(result, Optional(AllOf(
+                          DictionaryHasValue("contextToken", base::Value("")),
+                          DictionaryHasValue("legalMessageLines",
+                                             base::test::ParseJson("[]")))));
+}
+
+IN_PROC_BROWSER_TEST_F(AutofillPrivateApiPublicPassTest,
+                       GetDetailsForUpsertPass_NoOpsForIneligibleEntityType) {
+  EXPECT_CALL(wallet_manager(), ExtractPreloadedDetailsForUpsertPass).Times(0);
+
+  // Test both a valid but ineligible entity type (`kPassport`) and an invalid
+  // out-of-bounds raw enum value (`-1`).
+  for (int entity_type_name :
+       {std::to_underlying(autofill::EntityTypeName::kPassport), -1}) {
+    auto function = base::MakeRefCounted<
+        extensions::AutofillPrivateGetDetailsForUpsertPassFunction>();
+    function->SetRenderFrameHost(GetActiveWebContents()->GetPrimaryMainFrame());
+
+    ASSERT_TRUE(extensions::api_test_utils::RunFunction(
+        function.get(), base::StringPrintf("[%d]", entity_type_name),
+        profile()));
+    ASSERT_TRUE(function->GetResultListForTest());
+    EXPECT_TRUE(function->GetResultListForTest()->empty());
+  }
 }
 
 IN_PROC_BROWSER_TEST_F(AutofillPrivateApiPublicPassTest,
@@ -983,8 +1040,30 @@ IN_PROC_BROWSER_TEST_F(AutofillPrivateApiPublicPassTest,
       extensions::AutofillPrivatePreloadDetailsForUpsertPassFunction>();
   function->SetRenderFrameHost(GetActiveWebContents()->GetPrimaryMainFrame());
 
-  ASSERT_TRUE(
-      extensions::api_test_utils::RunFunction(function.get(), "[]", profile()));
+  ASSERT_TRUE(extensions::api_test_utils::RunFunction(
+      function.get(),
+      base::StringPrintf(
+          "[%d]", std::to_underlying(autofill::EntityTypeName::kVehicle)),
+      profile()));
+}
+
+IN_PROC_BROWSER_TEST_F(
+    AutofillPrivateApiPublicPassTest,
+    PreloadDetailsForUpsertPass_NoOpsForIneligibleEntityType) {
+  EXPECT_CALL(wallet_manager(), PreloadDetailsForUpsertPass).Times(0);
+
+  // Test both a valid but ineligible entity type (`kPassport`) and an invalid
+  // out-of-bounds raw enum value (`-1`).
+  for (int entity_type_name :
+       {std::to_underlying(autofill::EntityTypeName::kPassport), -1}) {
+    auto function = base::MakeRefCounted<
+        extensions::AutofillPrivatePreloadDetailsForUpsertPassFunction>();
+    function->SetRenderFrameHost(GetActiveWebContents()->GetPrimaryMainFrame());
+
+    ASSERT_TRUE(extensions::api_test_utils::RunFunction(
+        function.get(), base::StringPrintf("[%d]", entity_type_name),
+        profile()));
+  }
 }
 
 IN_PROC_BROWSER_TEST_F(AutofillPrivateApiPublicPassTest,
@@ -997,7 +1076,8 @@ IN_PROC_BROWSER_TEST_F(AutofillPrivateApiPublicPassTest,
           entity_instance, "en-US", /*entity_supports_wallet_storage=*/true);
   api_entity.guid = "";
   api_entity.stored_in_wallet = true;
-  api_entity.context_token = "valid_context_token";
+  // Include non-UTF-8 bytes (`\xff\xfe`) to verify binary `bytes` handling.
+  api_entity.context_token = base::Base64Encode("valid_token_\xff\xfe");
 
   base::ListValue args;
   args.Append(api_entity.ToValue());
@@ -1188,6 +1268,13 @@ IN_PROC_BROWSER_TEST_F(AutofillPrivateApiBrowserTestWithWalletPassBranding,
       api_type_branded.add_entity_type_string,
       l10n_util::GetStringUTF8(IDS_AUTOFILL_AI_ADD_DRIVERS_LICENSE_ENTITY));
 #endif
+
+  autofill::EntityType vehicle_entity_type(autofill::EntityTypeName::kVehicle);
+  extensions::api::autofill_private::EntityType vehicle_api_type =
+      extensions::autofill_ai_util::EntityTypeToPrivateApiEntityType(
+          vehicle_entity_type, /*supports_wallet_storage=*/true);
+  EXPECT_EQ(vehicle_api_type.add_entity_type_string,
+            l10n_util::GetStringUTF8(IDS_AUTOFILL_AI_ADD_VEHICLE_ENTITY));
 }
 
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_ANDROID) || \

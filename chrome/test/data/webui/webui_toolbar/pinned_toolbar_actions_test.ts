@@ -77,6 +77,7 @@ suite('PinnedToolbarActions', function() {
     const mockTrackedElementManager = {
       startTracking: () => {},
       stopTracking: () => {},
+      notifyElementActivated: () => {},
     };
     TrackedElementManager.setInstance(mockTrackedElementManager as any);
 
@@ -94,6 +95,7 @@ suite('PinnedToolbarActions', function() {
         accessibilityText: '',
         elementId: 'action-1',
         icon: {handleId: 1n},
+        progressRing: null,
       },
       {
         action: 2,  // kShowPasswordsBubbleOrPage
@@ -104,6 +106,7 @@ suite('PinnedToolbarActions', function() {
         accessibilityText: '',
         elementId: 'action-2',
         icon: {handleId: 2n},
+        progressRing: null,
       },
       {
         action: PinnedToolbarAction.kDivider,
@@ -114,6 +117,7 @@ suite('PinnedToolbarActions', function() {
         accessibilityText: '',
         elementId: '',
         icon: {handleId: 0n},
+        progressRing: null,
       },
     ];
     await microtasksFinished();
@@ -130,6 +134,7 @@ suite('PinnedToolbarActions', function() {
         accessibilityText: '',
         elementId: 'action-1',
         icon: {handleId: 1n},
+        progressRing: null,
       },
       {
         action: PinnedToolbarAction.kDivider,
@@ -140,6 +145,7 @@ suite('PinnedToolbarActions', function() {
         accessibilityText: '',
         elementId: '',
         icon: {handleId: 0n},
+        progressRing: null,
       },
       {
         action: 3,
@@ -150,6 +156,7 @@ suite('PinnedToolbarActions', function() {
         accessibilityText: '',
         elementId: 'action-3',
         icon: {handleId: 3n},
+        progressRing: null,
       },
     ];
     await microtasksFinished();
@@ -165,6 +172,54 @@ suite('PinnedToolbarActions', function() {
     assertTrue(action3.poppedOut);
   });
 
+  test('Prevents overflow of highlighted actions', async () => {
+    const actionElements =
+        container.shadowRoot.querySelectorAll('pinned-toolbar-action');
+    assertEquals(2, actionElements.length);
+    const action1 = actionElements[0]!;
+    const action2 = actionElements[1]!;
+    assertFalse(action1.preventOverflow);
+    assertFalse(action2.preventOverflow);
+
+    // Highlight action 2, as happens when its side panel is open. It's pinned,
+    // not popped out, but should not be allowed to overflow.
+    container.states = container.states.map(
+        s => s.action === 2 ? {...s, highlighted: true} : s);
+    await microtasksFinished();
+    assertFalse(action1.preventOverflow);
+    assertFalse(action2.poppedOut);
+    assertTrue(action2.preventOverflow);
+
+    // Unhighlight it.
+    container.states = container.states.map(
+        s => s.action === 2 ? {...s, highlighted: false} : s);
+    await microtasksFinished();
+    assertFalse(action1.preventOverflow);
+    assertFalse(action2.preventOverflow);
+  });
+
+  test('Prevents overflow of tracked highlighted actions', async () => {
+    const actionElements =
+        container.shadowRoot.querySelectorAll('pinned-toolbar-action');
+    assertEquals(2, actionElements.length);
+    const action1 = actionElements[0]!;
+    const action2 = actionElements[1]!;
+    assertFalse(action1.preventOverflow);
+    assertFalse(action2.preventOverflow);
+
+    // An action highlighted via the TrackedElementManager (e.g., when anchoring
+    // a bubble) should not be allowed to overflow.
+    action2.trackedHighlighted = true;
+    await microtasksFinished();
+    assertFalse(action1.preventOverflow);
+    assertTrue(action2.preventOverflow);
+
+    action2.trackedHighlighted = false;
+    await microtasksFinished();
+    assertFalse(action1.preventOverflow);
+    assertFalse(action2.preventOverflow);
+  });
+
   test('Pops out all elements when there is no divider', async () => {
     // Without a divider, nothing is pinned, so all actions are popped out into
     // the overflow menu, and none of them may be dragged.
@@ -178,6 +233,7 @@ suite('PinnedToolbarActions', function() {
         accessibilityText: '',
         elementId: 'action-1',
         icon: {handleId: 1n},
+        progressRing: null,
       },
       {
         action: 2,
@@ -188,6 +244,7 @@ suite('PinnedToolbarActions', function() {
         accessibilityText: '',
         elementId: 'action-2',
         icon: {handleId: 2n},
+        progressRing: null,
       },
     ];
     await microtasksFinished();
@@ -244,6 +301,7 @@ suite('PinnedToolbarActions', function() {
         accessibilityText: '',
         elementId: 'action-1',
         icon: {handleId: 1n},
+        progressRing: null,
       },
       {
         action: PinnedToolbarAction.kDivider,
@@ -254,6 +312,7 @@ suite('PinnedToolbarActions', function() {
         accessibilityText: '',
         elementId: '',
         icon: {handleId: 0n},
+        progressRing: null,
       },
       {
         action: 3,
@@ -264,6 +323,7 @@ suite('PinnedToolbarActions', function() {
         accessibilityText: '',
         elementId: 'action-3',
         icon: {handleId: 3n},
+        progressRing: null,
       },
     ];
     await microtasksFinished();
@@ -347,6 +407,7 @@ suite('PinnedToolbarActions', function() {
         accessibilityText: '',
         elementId: 'action-2',
         icon: {handleId: 2n},
+        progressRing: null,
       },
       {
         action: 1,
@@ -357,6 +418,7 @@ suite('PinnedToolbarActions', function() {
         accessibilityText: '',
         elementId: 'action-1',
         icon: {handleId: 1n},
+        progressRing: null,
       },
       {
         action: PinnedToolbarAction.kDivider,
@@ -367,6 +429,7 @@ suite('PinnedToolbarActions', function() {
         accessibilityText: '',
         elementId: '',
         icon: {handleId: 0n},
+        progressRing: null,
       },
     ];
     await microtasksFinished();

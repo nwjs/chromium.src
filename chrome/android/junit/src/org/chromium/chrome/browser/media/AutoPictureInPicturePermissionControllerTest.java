@@ -18,6 +18,7 @@ import android.app.Activity;
 import android.os.Looper;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.FrameLayout;
 
 import org.junit.After;
 import org.junit.Assert;
@@ -54,12 +55,12 @@ public class AutoPictureInPicturePermissionControllerTest {
     @Mock private AutoPictureInPicturePermissionController.Natives mNativeMock;
     @Mock private UrlFormatter.Natives mUrlFormatterJniMock;
     @Mock private Tab mTab;
-    @Mock private ViewGroup mContainerView;
 
     private static final Runnable NO_OP_CALLBACK = () -> {};
 
     private ActivityController<Activity> mActivityController;
     private Activity mActivity;
+    private ViewGroup mContainerView;
     private WebContents mWebContents;
     private ViewAndroidDelegate mViewAndroidDelegate;
 
@@ -72,6 +73,7 @@ public class AutoPictureInPicturePermissionControllerTest {
 
         mActivityController = Robolectric.buildActivity(Activity.class);
         mActivity = mActivityController.setup().get();
+        mContainerView = new FrameLayout(mActivity);
 
         mWebContents =
                 mock(
@@ -127,16 +129,16 @@ public class AutoPictureInPicturePermissionControllerTest {
     public void testShowPrompt_SetsAccessibilityImportance() {
         when(mNativeMock.getPermissionStatus(mWebContents)).thenReturn(ContentSetting.ASK);
         // Simulate existing importance.
-        when(mContainerView.getImportantForAccessibility())
-                .thenReturn(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
+        mContainerView.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
 
         AutoPictureInPicturePermissionController.showPromptIfNeeded(
                 mActivity, mTab, NO_OP_CALLBACK);
 
         // Verify that the container view's accessibility importance is set to prevent
         // linear navigation.
-        verify(mContainerView)
-                .setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS);
+        Assert.assertEquals(
+                View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS,
+                mContainerView.getImportantForAccessibility());
 
         // Capture the controller instance
         AutoPictureInPicturePermissionController controller = mTabHelper.getPermissionController();
@@ -146,7 +148,9 @@ public class AutoPictureInPicturePermissionControllerTest {
         controller.dismiss();
 
         // Verify that the original accessibility importance is restored.
-        verify(mContainerView).setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
+        Assert.assertEquals(
+                View.IMPORTANT_FOR_ACCESSIBILITY_YES,
+                mContainerView.getImportantForAccessibility());
     }
 
     @Test

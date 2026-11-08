@@ -44,6 +44,7 @@
 #include "third_party/blink/public/mojom/input/focus_type.mojom-blink.h"
 #include "third_party/blink/public/mojom/scroll/scroll_into_view_params.mojom-blink.h"
 #include "third_party/blink/renderer/bindings/core/v8/frozen_array.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_highlight_type.h"
 #include "third_party/blink/renderer/core/accessibility/ax_object_cache.h"
 #include "third_party/blink/renderer/core/accessibility/ax_utilities_generated.h"
 #include "third_party/blink/renderer/core/accessibility/axid.h"
@@ -60,6 +61,7 @@
 #include "third_party/blink/renderer/core/editing/character_range_mapper.h"
 #include "third_party/blink/renderer/core/editing/editing_utilities.h"
 #include "third_party/blink/renderer/core/editing/frame_selection.h"
+#include "third_party/blink/renderer/core/editing/position_units.h"
 #include "third_party/blink/renderer/core/editing/selection_template.h"
 #include "third_party/blink/renderer/core/events/keyboard_event.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
@@ -120,6 +122,7 @@
 #include "third_party/blink/renderer/core/page/focus_controller.h"
 #include "third_party/blink/renderer/core/page/focusgroup_controller_utils.h"
 #include "third_party/blink/renderer/core/page/page.h"
+#include "third_party/blink/renderer/core/page/page_popup_client.h"
 #include "third_party/blink/renderer/core/page/scrolling/top_document_root_scroller_controller.h"
 #include "third_party/blink/renderer/core/scroll/scroll_into_view_util.h"
 #include "third_party/blink/renderer/core/style/computed_style_constants.h"
@@ -131,29 +134,26 @@
 #include "third_party/blink/renderer/core/svg/svg_title_element.h"
 #include "third_party/blink/renderer/modules/accessibility/aria_notification.h"
 #include "third_party/blink/renderer/modules/accessibility/ax_enums.h"
-#include "third_party/blink/renderer/modules/accessibility/ax_object-inl.h"
-#include "third_party/blink/renderer/modules/accessibility/ax_relation_cache.h"
-#include "third_party/blink/renderer/platform/wtf/text/atomic_string.h"
-#include "third_party/blink/renderer/platform/wtf/text/string_to_number.h"
-#if AX_FAIL_FAST_BUILD()
-#include "third_party/blink/renderer/modules/accessibility/ax_debug_utils.h"
-#endif
-#include "third_party/blink/renderer/bindings/core/v8/v8_highlight_type.h"
-#include "third_party/blink/renderer/core/page/page_popup_client.h"
 #include "third_party/blink/renderer/modules/accessibility/ax_image_map_link.h"
 #include "third_party/blink/renderer/modules/accessibility/ax_inline_text_box.h"
+#include "third_party/blink/renderer/modules/accessibility/ax_object-inl.h"
 #include "third_party/blink/renderer/modules/accessibility/ax_object_cache_impl.h"
 #include "third_party/blink/renderer/modules/accessibility/ax_range.h"
+#include "third_party/blink/renderer/modules/accessibility/ax_relation_cache.h"
 #include "third_party/blink/renderer/modules/accessibility/ax_selection.h"
 #include "third_party/blink/renderer/platform/instrumentation/tracing/trace_event.h"
 #include "third_party/blink/renderer/platform/keyboard_codes.h"
 #include "third_party/blink/renderer/platform/language.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/text/platform_locale.h"
+#include "third_party/blink/renderer/platform/text/text_break_iterator.h"
 #include "third_party/blink/renderer/platform/wtf/hash_set.h"
 #include "third_party/blink/renderer/platform/wtf/std_lib_extras.h"
+#include "third_party/blink/renderer/platform/wtf/text/atomic_string.h"
 #include "third_party/blink/renderer/platform/wtf/text/strcat.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_builder_stream.h"
+#include "third_party/blink/renderer/platform/wtf/text/string_to_number.h"
+#include "third_party/blink/renderer/platform/wtf/text/unicode.h"
 #include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
 #include "third_party/blink/renderer/platform/wtf/wtf_size_t.h"
 #include "ui/accessibility/accessibility_features.h"
@@ -168,6 +168,10 @@
 #include "ui/events/keycodes/dom/dom_code.h"
 #include "ui/events/keycodes/dom/keycode_converter.h"
 #include "ui/gfx/geometry/transform.h"
+
+#if AX_FAIL_FAST_BUILD()
+#include "third_party/blink/renderer/modules/accessibility/ax_debug_utils.h"
+#endif
 
 namespace blink {
 
@@ -2584,6 +2588,14 @@ void AXObject::SerializeUnignoredAttributes(ui::AXNodeData* node_data,
 
 void AXObject::SerializeComputedDetailsRelation(
     ui::AXNodeData* node_data) const {
+  // An interest invoker exposes that it has a rich hint, even while the hint is
+  // hidden, and regardless of whether a details relation is set below. See
+  // https://open-ui.org/components/interest-invokers.explainer/#rich-hints-aka-hovercards-or-other
+  AXObject* rich_hint = GetRichHintTargetPopover();
+  if (rich_hint) {
+    node_data->AddState(ax::mojom::blink::State::kHasInterestFor);
+  }
+
   // aria-details was used -- it may have set a relation, unless the attribute
   // value did not point to valid elements (e.g aria-details=""). Whether it
   // actually set the relation or not, the author's intent in using the
@@ -2598,16 +2610,18 @@ void AXObject::SerializeComputedDetailsRelation(
     return;
   }
 
-  // Add aria-details for a interest for.
-  if (AXObject* interest_popover = GetInterestForTargetPopover()) {
-    // Add state even if the target is hidden.
-    node_data->AddState(ax::mojom::blink::State::kHasInterestFor);
-    if (interest_popover->IsVisible()) {
-      node_data->AddIntListAttribute(
-          ax::mojom::blink::IntListAttribute::kDetailsIds,
-          {static_cast<int32_t>(interest_popover->AXObjectID())});
-      node_data->SetDetailsFrom(ax::mojom::blink::DetailsFrom::kInterestFor);
-      return;
+  // Add aria-details for an interest invoker while its rich hint is open.
+  if (rich_hint) {
+    auto* popover = To<HTMLElement>(rich_hint->GetElement());
+    if (popover->popoverOpen()) {
+      if (AXObject* details = GetPopoverForDetailsRelation(
+              *popover, /*exclude_plain_content=*/false)) {
+        node_data->AddIntListAttribute(
+            ax::mojom::blink::IntListAttribute::kDetailsIds,
+            {static_cast<int32_t>(details->AXObjectID())});
+        node_data->SetDetailsFrom(ax::mojom::blink::DetailsFrom::kInterestFor);
+        return;
+      }
     }
   }
 
@@ -2737,26 +2751,56 @@ AXObject* AXObject::GetCommandForElementForDetailsRelation() const {
   return GetPopoverForDetailsRelation(*command_for, exclude_plain_content);
 }
 
-// Interest for invoking elements (with the `interestfor` attribute) should
-// have details relationships with their target, when that interest target is
-// a) a popover, b) visible, c) is "rich", and d) not the next element in the
-// DOM (depth first search order).
-AXObject* AXObject::GetInterestForTargetPopover() const {
+// The target of an interest invoker is a rich hint if it is a popover whose
+// contents are not plain. A plain hint is used for the name or description of
+// the invoker instead. See the TextAlternativeFromTooltip function, and
+// https://open-ui.org/components/interest-invokers.explainer/#rich-hints-aka-hovercards-or-other
+AXObject* AXObject::GetRichHintTargetPopover() const {
   if (!GetElement()) {
     return nullptr;
   }
 
-  // Only return if the target is a popover.
+  // A <menuitem> that implicitly invokes its submenu is exposed as a menu item
+  // with a popup instead, so only an explicit interestfor target is used.
   HTMLElement* popover =
-      DynamicTo<HTMLElement>(GetElement()->InterestForElement());
+      DynamicTo<HTMLElement>(GetElement()->InterestForElement(
+          Element::InterestForType::kExplicitOnly));
   if (!popover || !popover->IsPopover()) {
     return nullptr;
   }
 
-  // Interest targets act as tooltips regardless of popover type.
-  // See the TextAlternativeFromTooltip function.
-  return GetPopoverForDetailsRelation(*popover,
-                                      /*exclude_plain_content=*/true);
+  // The popover may be absent from the accessibility tree, e.g. when it is
+  // display-locked and its subtree has been pruned.
+  AXObject* ax_popover = AXObjectCache().Get(popover);
+  if (!ax_popover || ax_popover->IsPlainContent()) {
+    return nullptr;
+  }
+
+  return ax_popover;
+}
+
+bool AXObject::HasRichHintMinimumRole() const {
+  auto* popover = DynamicTo<HTMLElement>(GetElement());
+  if (!popover || !popover->IsPopover()) {
+    return false;
+  }
+
+  // Only a popover with no explicit or implicit role gets a minimum role.
+  // These elements have an implicit group role, which can't be distinguished
+  // from the group minimum role of a popover by role_ alone.
+  if (HasAriaAttribute(html_names::kRoleAttr) || IsFieldset() ||
+      IsA<HTMLOptGroupElement>(popover) ||
+      popover->HasTagName(html_names::kAddressTag) ||
+      popover->HasTagName(html_names::kHgroupTag)) {
+    return false;
+  }
+
+  AXRelationCache* relation_cache = AXObjectCache().RelationCache();
+  if (!relation_cache || !relation_cache->HasInterestInvoker(*popover)) {
+    return false;
+  }
+
+  return !IsPlainContent();
 }
 
 AXObject* AXObject::GetScrollMarkerTarget() const {
@@ -3207,6 +3251,14 @@ ax::mojom::blink::Role AXObject::ComputeFinalRoleForSerialization() const {
         }
       }
     }
+  }
+
+  // A popover that is the rich hint of an interest invoker gets a minimum role
+  // of tooltip, instead of the minimum role of group used for other popovers.
+  // See
+  // https://open-ui.org/components/interest-invokers.explainer/#rich-hints-aka-hovercards-or-other
+  if (role_ == ax::mojom::blink::Role::kGroup && HasRichHintMinimumRole()) {
+    return ax::mojom::blink::Role::kTooltip;
   }
 
   // TODO(accessibility): Consider moving the image vs. image map role logic
@@ -4991,7 +5043,7 @@ const ComputedStyle* AXObject::GetComputedStyle() const {
 
   // For elements with layout objects we can get their style directly.
   if (GetLayoutObject()) {
-    return &GetLayoutObject()->StyleRef();
+    return &GetLayoutObject()->Style();
   }
   if (const Element* element = GetElement()) {
     return element->GetComputedStyle();
@@ -5035,8 +5087,7 @@ bool AXObject::ComputeIsHiddenViaStyle(const ComputedStyle* style) {
       const LayoutObject* image_layout_object =
           image ? image->GetLayoutObject() : nullptr;
       return !image_layout_object ||
-             image_layout_object->StyleRef().Visibility() !=
-                 EVisibility::kVisible;
+             image_layout_object->Style().Visibility() != EVisibility::kVisible;
     }
 
     // TODO(crbug.com/1286465): It's not consistent to only check
@@ -5167,7 +5218,7 @@ bool AXObject::IsUsedForLabelOrDescription() {
 bool AXObject::ComputeIsUsedForLabelOrDescription() {
   if (GetElement()) {
     // Return true if a <label> or the target of a naming/description
-    // relation (<aria-labelledby or aria-describedby).
+    // relation (aria-labelledby, aria-describedby or interestfor).
     if (AXObjectCache().IsLabelOrDescription(*GetElement())) {
       return true;
     }
@@ -5591,6 +5642,93 @@ void AXObject::TextCharacterOffsets(Vector<int>&) const {}
 
 void AXObject::GetWordBoundaries(Vector<int>& word_starts,
                                  Vector<int>& word_ends) const {}
+
+// static
+void AXObject::GetWordBoundariesForText(Vector<int>& word_starts,
+                                        Vector<int>& word_ends,
+                                        const String& text) {
+  if (text.empty()) {
+    return;
+  }
+
+  TextBreakIterator* it = WordBreakIterator(text);
+  if (!it) {
+    return;
+  }
+  std::optional<int> word_start;
+  for (int offset = 0;
+       offset != kTextBreakDone && offset < static_cast<int>(text.length());
+       offset = it->following(offset)) {
+    // Unlike in ICU's WordBreakIterator, a word boundary is valid only if it is
+    // before, or immediately preceded by a word break as defined by the Editing
+    // code (see `IsWordBreak`). We therefore need to filter the boundaries
+    // returned by ICU's WordBreakIterator and return a subset of them. For
+    // example we should exclude a word boundary that is between two space
+    // characters, "Hello | there".
+    //
+    // IMPORTANT: This algorithm needs to stay in sync with the one used to
+    // find the next/previous word boundary in the Editing layer. See
+    // `NextWordPositionInternal` in `position_units_word.cc` for more info.
+    // There's one noticeable difference between our implementation and the one
+    // in the Editing layer: in the Editing layer, we only skip spaces before
+    // word starts when on Windows. However, we skip spaces for accessible word
+    // offsets on all platforms because:
+    //   1. It doesn't have an impact on the screen reader user (ATs never
+    //      announce spaces).
+    //   2. The implementation is simpler.
+    if (IsWordBoundary(text[offset])) {
+      // Case 1: A new word should start before and end after a series of
+      // punctuation marks, i.e., Consecutive punctuation marks should be
+      // accumulated into a single word. For example, "|Hello|+++---|there|".
+      // Surrogate pair runs should also be collapsed.
+      //
+      // At beginning of text, or right after an alphanumeric character or a
+      // character that cannot be a word break.
+      if (offset == 0 || unicode::IsAlphanumeric(text[offset - 1]) ||
+          !IsWordBreak(text[offset - 1])) {
+        if (word_start) {
+          word_starts.push_back(*word_start);
+          word_ends.push_back(offset);
+        }
+        word_start = offset;
+      } else {
+        // Skip to the end of the punctuation/surrogate pair run.
+        continue;
+      }
+    } else if (IsWordBreak(text[offset])) {
+      // Case 2: A new word should start if `offset` is before an alphanumeric
+      // character, an underscore or a hard line break.
+      //
+      // We found a new word start or end. Append the previous word (if it
+      // exists) to the results, otherwise save this offset as a word start.
+      if (word_start) {
+        word_starts.push_back(*word_start);
+        word_ends.push_back(offset);
+      }
+      word_start = offset;
+    } else if (offset > 0) {
+      // Case 3: A word should end if `offset` is proceeded by a word break or
+      // a punctuation.
+      UChar prev_character = text[offset - 1];
+      if (IsWordBreak(prev_character) || IsWordBoundary(prev_character)) {
+        if (word_start) {
+          word_starts.push_back(*word_start);
+          word_ends.push_back(offset);
+          word_start = std::nullopt;
+        }
+      }
+    }
+  }
+
+  // Case 4: If the character at last `offset` in `text` was a word break, then
+  // it would have started a new word. We need to add its corresponding word end
+  // boundary which should be at `text`'s length.
+  if (word_start) {
+    word_starts.push_back(*word_start);
+    word_ends.push_back(text.length());
+    word_start = std::nullopt;
+  }
+}
 
 int AXObject::TextLength() const {
   if (IsAtomicTextField())
@@ -6191,9 +6329,7 @@ ax::mojom::blink::Role AXObject::DetermineAriaRole() const {
 
   ax::mojom::blink::Role role = DetermineRawAriaRoleWithContext();
 
-  if ((role == ax::mojom::blink::Role::kForm ||
-       role == ax::mojom::blink::Role::kRegion) &&
-      !IsNameFromAuthorAttribute() &&
+  if (IsNameDependentAriaRole(role) && !IsNameFromAuthorAttribute() &&
       !HasAriaAttribute(html_names::kAriaRoledescriptionAttr)) {
     // If form or region is nameless, use a valid fallback role (if present
     // in the role attribute) or the native element's role (by returning
@@ -6275,6 +6411,11 @@ ax::mojom::blink::Role AXObject::DetermineAriaRole() const {
   }
 
   return role;
+}
+
+bool AXObject::IsNameDependentAriaRole(ax::mojom::blink::Role role) {
+  return role == ax::mojom::blink::Role::kForm ||
+         role == ax::mojom::blink::Role::kRegion;
 }
 
 ax::mojom::blink::HasPopup AXObject::HasPopup() const {
@@ -7574,8 +7715,7 @@ const Node* AXObject::GetParentNodeAcrossFrames(const Node* node) {
   if (!node) {
     return nullptr;
   }
-  if (const Element* parent =
-          FlatTreeTraversal::ParentElementSkippingSlots(*node)) {
+  if (const Element* parent = FlatTreeTraversal::ParentElement(*node)) {
     return parent;
   }
   return node->GetDocument().LocalOwner();
@@ -7993,24 +8133,17 @@ bool AXObject::RequestScrollToGlobalPointAction(const gfx::Point& point) {
   return OnNativeScrollToGlobalPointAction(point);
 }
 
-bool AXObject::RequestScrollToMakeVisibleAction() {
-  return OnNativeScrollToMakeVisibleAction();
-}
-
-bool AXObject::RequestScrollToMakeVisibleWithSubFocusAction(
-    const gfx::Rect& subfocus,
-    blink::mojom::blink::ScrollAlignment horizontal_scroll_alignment,
-    blink::mojom::blink::ScrollAlignment vertical_scroll_alignment) {
+AXObject* AXObject::GetTargetForScrollAction() {
   Document* document = GetDocument();
   if (!document) {
-    return false;
+    return nullptr;
   }
   AXObjectCacheImpl& cache = AXObjectCache();
   Node* node = GetNode();
   if (!node) {
     node = GetClosestElement();
     if (!node) {
-      return false;
+      return nullptr;
     }
   }
 
@@ -8021,17 +8154,23 @@ bool AXObject::RequestScrollToMakeVisibleWithSubFocusAction(
 
   // Updating style and layout for the node can cause it to gain layout,
   // detaching the original AXNodeObject to make room for a new one with layout.
-  if (IsDetached()) {
-    AXObject* new_object = cache.Get(node);
-    return new_object
-               ? new_object->OnNativeScrollToMakeVisibleWithSubFocusAction(
-                     subfocus, horizontal_scroll_alignment,
-                     vertical_scroll_alignment)
-               : false;
-  }
+  return IsDetached() ? cache.Get(node) : this;
+}
 
-  return OnNativeScrollToMakeVisibleWithSubFocusAction(
-      subfocus, horizontal_scroll_alignment, vertical_scroll_alignment);
+bool AXObject::RequestScrollToMakeVisibleAction() {
+  AXObject* target = GetTargetForScrollAction();
+  return target ? target->OnNativeScrollToMakeVisibleAction() : false;
+}
+
+bool AXObject::RequestScrollToMakeVisibleWithSubFocusAction(
+    const gfx::Rect& target_rect,
+    blink::mojom::blink::ScrollAlignment horizontal_scroll_alignment,
+    blink::mojom::blink::ScrollAlignment vertical_scroll_alignment) {
+  AXObject* target = GetTargetForScrollAction();
+  return target ? target->OnNativeScrollToMakeVisibleWithSubFocusAction(
+                      target_rect, horizontal_scroll_alignment,
+                      vertical_scroll_alignment)
+                : false;
 }
 
 bool AXObject::RequestSetSelectedAction(bool selected) {
@@ -8246,7 +8385,7 @@ bool AXObject::RequestShowTooltipAction() {
   }
 
   // Trigger the tooltip via ChromeClient, anchoring it to the element's bounds.
-  TextDirection tooltip_direction = layout_object->StyleRef().Direction();
+  TextDirection tooltip_direction = layout_object->Style().Direction();
   document->GetPage()->GetChromeClient().UpdateTooltipFromKeyboard(
       *document->GetFrame(), tooltip_text, tooltip_direction,
       element->BoundsInWidget());
@@ -8341,32 +8480,12 @@ void AXObject::DispatchKeyboardEvent(LocalDOMWindow* local_dom_window,
       *blink::KeyboardEvent::Create(key, local_dom_window, true));
 }
 
-bool AXObject::OnNativeScrollToMakeVisibleAction() const {
-  LayoutObject* layout_object = GetLayoutObjectForNativeScrollAction();
-  if (!layout_object)
-    return false;
-  PhysicalRect target_rect(layout_object->AbsoluteBoundingBoxRect());
-  scroll_into_view_util::ScrollRectToVisible(
-      *layout_object, target_rect,
-      scroll_into_view_util::CreateScrollIntoViewParams(
-          ScrollAlignment::CenterIfNeeded(), ScrollAlignment::CenterIfNeeded(),
-          mojom::blink::ScrollType::kProgrammatic, false,
-          mojom::blink::ScrollBehavior::kAuto));
-  AXObjectCache().PostNotification(GetDocument(),
-                                   ax::mojom::blink::Event::kLocationChanged);
-  return true;
-}
-
-bool AXObject::OnNativeScrollToMakeVisibleWithSubFocusAction(
-    const gfx::Rect& rect,
+void AXObject::ScrollLayoutObjectRectToVisible(
+    const LayoutObject& target_layout_object,
+    const PhysicalRect& absolute_target_rect,
     blink::mojom::blink::ScrollAlignment horizontal_scroll_alignment,
     blink::mojom::blink::ScrollAlignment vertical_scroll_alignment) const {
-  const LayoutObject* layout_object = GetLayoutObjectForNativeScrollAction();
-  if (!layout_object)
-    return false;
-
-  PhysicalRect target_rect =
-      layout_object->LocalToAbsoluteRect(PhysicalRect(rect));
+  const LayoutObject* layout_object = &target_layout_object;
   // To scroll an element into view, we don't scroll the element itself
   // unless it is the document scrolling element.
   // TODO(crbug.com/401443093): Consider moving this logic further down
@@ -8375,7 +8494,7 @@ bool AXObject::OnNativeScrollToMakeVisibleWithSubFocusAction(
     layout_object = container;
   }
   scroll_into_view_util::ScrollRectToVisible(
-      *layout_object, target_rect,
+      *layout_object, absolute_target_rect,
       scroll_into_view_util::CreateScrollIntoViewParams(
           horizontal_scroll_alignment, vertical_scroll_alignment,
           mojom::blink::ScrollType::kProgrammatic,
@@ -8383,6 +8502,34 @@ bool AXObject::OnNativeScrollToMakeVisibleWithSubFocusAction(
           mojom::blink::ScrollBehavior::kAuto));
   AXObjectCache().PostNotification(GetDocument(),
                                    ax::mojom::blink::Event::kLocationChanged);
+}
+
+bool AXObject::OnNativeScrollToMakeVisibleAction() const {
+  const LayoutObject* layout_object = GetLayoutObjectForNativeScrollAction();
+  if (!layout_object) {
+    return false;
+  }
+  ScrollLayoutObjectRectToVisible(
+      *layout_object, PhysicalRect(layout_object->AbsoluteBoundingBoxRect()),
+      ScrollAlignment::CenterIfNeeded(), ScrollAlignment::CenterIfNeeded());
+  return true;
+}
+
+bool AXObject::OnNativeScrollToMakeVisibleWithSubFocusAction(
+    const gfx::Rect& target_rect,
+    blink::mojom::blink::ScrollAlignment horizontal_scroll_alignment,
+    blink::mojom::blink::ScrollAlignment vertical_scroll_alignment) const {
+  const LayoutObject* layout_object = GetLayoutObjectForNativeScrollAction();
+  if (!layout_object) {
+    return false;
+  }
+
+  PhysicalRect local_target_rect(target_rect);
+  local_target_rect.offset += PhysicalOffset::FromPointFRound(
+      layout_object->LocalBoundingBoxRectForAccessibility().origin());
+  ScrollLayoutObjectRectToVisible(
+      *layout_object, layout_object->LocalToAbsoluteRect(local_target_rect),
+      horizontal_scroll_alignment, vertical_scroll_alignment);
   return true;
 }
 
@@ -8488,6 +8635,7 @@ bool AXObject::IsFrame(const Node* node) {
     case FrameOwnerElementType::kIframe:
     case FrameOwnerElementType::kFrame:
     case FrameOwnerElementType::kFencedframe:
+    case FrameOwnerElementType::kPersistentwidget:
       return true;
     case FrameOwnerElementType::kObject:
     case FrameOwnerElementType::kEmbed:

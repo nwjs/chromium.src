@@ -496,7 +496,7 @@ IN_PROC_BROWSER_TEST_P(PopupViewViewsBrowsertest, SearchBarViewProvided) {
   controller().set_suggestions({SuggestionType::kAddressEntry});
   ShowAndVerifyUi(
       /*popup_has_parent=*/false,
-      AutofillPopupView::SearchBarConfig{.placeholder = u"Search",
+      AutofillPopupView::SearchBarConfig{.placeholders = {u"Search"},
                                          .initial_value = {},
                                          .no_results_message = u""});
 }
@@ -506,7 +506,7 @@ IN_PROC_BROWSER_TEST_P(PopupViewViewsBrowsertest,
   controller().set_suggestions({100, SuggestionType::kAddressEntry});
   ShowAndVerifyUi(
       /*popup_has_parent=*/false,
-      AutofillPopupView::SearchBarConfig{.placeholder = u"Search",
+      AutofillPopupView::SearchBarConfig{.placeholders = {u"Search"},
                                          .initial_value = {},
                                          .no_results_message = u""});
 }
@@ -519,7 +519,7 @@ IN_PROC_BROWSER_TEST_P(PopupViewViewsBrowsertest,
   ON_CALL(controller(), HasFilteredOutSuggestions).WillByDefault(Return(true));
   ShowAndVerifyUi(
       /*popup_has_parent=*/false, AutofillPopupView::SearchBarConfig{
-                                      .placeholder = u"Search",
+                                      .placeholders = {u"Search"},
                                       .initial_value = {},
                                       .no_results_message = u"No suggestions"});
 }
@@ -542,7 +542,7 @@ IN_PROC_BROWSER_TEST_P(PopupViewViewsBrowsertest, InvokeUi_AtMemoryFetching) {
   PrepareSuggestions({CreateAtMemoryFetchingSuggestion()});
   ShowAndVerifyUi(
       /*popup_has_parent=*/false,
-      AutofillPopupView::SearchBarConfig{.placeholder = u"Find and fill",
+      AutofillPopupView::SearchBarConfig{.placeholders = {u"Find and fill"},
                                          .initial_value = {},
                                          .no_results_message = u""});
 }
@@ -577,7 +577,7 @@ IN_PROC_BROWSER_TEST_P(PopupViewViewsBrowsertest,
                       std::move(notice_suggestion)});
   ShowAndVerifyUi(
       /*popup_has_parent=*/false,
-      AutofillPopupView::SearchBarConfig{.placeholder = u"Find and fill",
+      AutofillPopupView::SearchBarConfig{.placeholders = {u"Find and fill"},
                                          .initial_value = {},
                                          .no_results_message = u""});
 }
@@ -643,6 +643,28 @@ IN_PROC_BROWSER_TEST_P(PopupViewViewsBrowsertest,
        std::move(remove_suggestion), std::move(manage_suggestion)});
   PrepareSelectedCell(CellIndex{3, CellType::kContent});
   ShowAndVerifyUi(/*popup_has_parent=*/true);
+}
+
+IN_PROC_BROWSER_TEST_P(PopupViewViewsBrowsertest,
+                       InvokeUi_GmailOneTimePassword) {
+  Suggestion otp_suggestion(u"1234",
+                            SuggestionType::kGmailOneTimePasswordEntry);
+  otp_suggestion.icon = Suggestion::Icon::kMailAsterisk;
+  otp_suggestion.minor_texts = {Suggestion::Text(l10n_util::GetStringUTF16(
+      IDS_AUTOFILL_GMAIL_OTP_VERIFICATION_CODE_LABEL))};
+  otp_suggestion.labels = {{Suggestion::Text(l10n_util::GetStringFUTF16(
+      IDS_AUTOFILL_GMAIL_OTP_FROM_ACCOUNT_LABEL, u"elisa.becket@gmail.com"))}};
+
+  Suggestion open_gmail(
+      l10n_util::GetStringUTF16(IDS_AUTOFILL_OPEN_GMAIL_FOR_OTP),
+      SuggestionType::kOpenGmailForOtps);
+  open_gmail.icon = Suggestion::Icon::kGmail;
+  open_gmail.trailing_icon = Suggestion::Icon::kOpenInNew;
+
+  PrepareSuggestions({std::move(otp_suggestion),
+                      Suggestion(SuggestionType::kSeparator),
+                      std::move(open_gmail)});
+  ShowAndVerifyUi();
 }
 
 INSTANTIATE_TEST_SUITE_P(All,

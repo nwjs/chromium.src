@@ -49,21 +49,6 @@ class GroupedLayoutDelegate extends TabListLayoutDelegate {
     }
 
     @Override
-    boolean requiresThumbnailUpdateOnDeselect() {
-        return true;
-    }
-
-    @Override
-    boolean requiresThumbnailUpdateOnSelect() {
-        return true;
-    }
-
-    @Override
-    boolean supportsTabGroups() {
-        return true;
-    }
-
-    @Override
     boolean isChildTabRepresentedByGroupCard(Tab tab) {
         return mMediator.isTabInTabGroup(tab);
     }
@@ -95,14 +80,36 @@ class GroupedLayoutDelegate extends TabListLayoutDelegate {
         int tabIndex = TabList.INVALID_TAB_INDEX;
         TabModel tabModel = mMediator.getCurrentTabModelChecked();
 
-        // Compute the index of the tab out of all tabs in the filter (ignore tabs that are not
-        // the representative tab in a group).
-        int count = tabModel.getIndividualTabAndGroupCount();
-        for (int i = 0; i < count; i++) {
-            Tab representativeTab = tabModel.getRepresentativeTabAt(i);
-            if (representativeTab != null && tab.getId() == representativeTab.getId()) {
-                tabIndex = i;
-                break;
+        if (mUseTabGroupCardType) {
+            // Count ungrouped tabs and the first tab of each contiguous tab group. Subsequent tabs
+            // in a group share the group's card and are skipped.
+            int currentIndex = -1;
+            Token prevGroupId = null;
+            for (int i = 0, count = tabModel.getCount(); i < count; i++) {
+                Tab currentTab = tabModel.getTabAt(i);
+                if (currentTab == null) continue;
+                Token currentGroupId = currentTab.getTabGroupId();
+                if (currentGroupId == null || !currentGroupId.equals(prevGroupId)) {
+                    currentIndex++;
+                    if (currentTab.getId() == tab.getId()) {
+                        tabIndex = currentIndex;
+                        break;
+                    }
+                } else if (currentTab.getId() == tab.getId()) {
+                    break;
+                }
+                prevGroupId = currentGroupId;
+            }
+        } else {
+            // Compute the index of the tab out of all tabs in the filter (ignore tabs that are not
+            // the representative tab in a group).
+            int count = tabModel.getIndividualTabAndGroupCount();
+            for (int i = 0; i < count; i++) {
+                Tab representativeTab = tabModel.getRepresentativeTabAt(i);
+                if (representativeTab != null && tab.getId() == representativeTab.getId()) {
+                    tabIndex = i;
+                    break;
+                }
             }
         }
 
@@ -276,7 +283,7 @@ class GroupedLayoutDelegate extends TabListLayoutDelegate {
     void onTabClose(Tab tab) {
         TabModel tabModel = mMediator.getCurrentTabModelChecked();
         Token tabGroupId = tab.getTabGroupId();
-        if (tabGroupId != null && tabModel.tabGroupExists(tabGroupId)) {
+        if (tabGroupId != null && tabModel.containsTabGroup(tabGroupId)) {
             // If the tab closed was part of a tab group, update the group to reflect the
             // closure instead of closing the tab.
             if (mUseTabGroupCardType) {
@@ -468,7 +475,7 @@ class GroupedLayoutDelegate extends TabListLayoutDelegate {
     }
 
     @Override
-    public void didMoveTabGroup(Token tabGroupId, int tabModelOldIndex, int tabModelNewIndex) {
+    public void onTabGroupMoved(Token tabGroupId, int tabModelOldIndex, int tabModelNewIndex) {
         if (tabModelOldIndex == tabModelNewIndex) return;
 
         TabModel tabModel = mMediator.getCurrentTabModelChecked();

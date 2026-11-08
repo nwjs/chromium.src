@@ -21,15 +21,13 @@ static_library("sharesheet") {
     "sharesheet_util.h",
   ]
 
-  public_deps = [
-    "//chrome/browser:browser_public_dependencies",
-    "//chrome/browser/sharesheet",
-  ]
+  public_deps = [ "//chrome/browser/sharesheet" ]
 
   deps = [
     "//ash",
     "//ash/public/cpp",
     "//base",
+    "//chrome/app:generated_resources",
     "//chrome/app/vector_icons",
     "//chrome/browser:flags",
     "//chrome/browser/apps/app_service",
@@ -85,7 +83,6 @@ source_set("browser_tests") {
     "//chrome/browser/profiles:profile",
     "//chrome/browser/sharesheet",
     "//chrome/browser/sharesheet:test_support",
-    "//chrome/browser/ui",
     "//chrome/browser/ui/views/frame:browser_view_header",
     "//chrome/test:test_support_ui",
     "//chromeos/components/sharesheet:constants",

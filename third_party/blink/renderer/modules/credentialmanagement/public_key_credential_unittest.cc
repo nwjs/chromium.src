@@ -35,6 +35,7 @@
 #include "third_party/blink/renderer/bindings/modules/v8/v8_public_key_credential_user_entity_js_on.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/testing/dummy_page_holder.h"
+#include "third_party/blink/renderer/core/typed_arrays/dom_array_buffer_util.h"
 #include "third_party/blink/renderer/modules/credentialmanagement/json.h"
 #include "third_party/blink/renderer/platform/bindings/script_state.h"
 #include "third_party/blink/renderer/platform/testing/task_environment.h"
@@ -283,12 +284,11 @@ Matcher<Member<T>> MemberField(Matcher<T*> matcher) {
   return Property("Get", &Member<T>::Get, matcher);
 }
 
-// Matches the Base64URL-encoding of the byte contents of a DOMArrayPiece.
+// Matches the Base64URL-encoding of the byte contents of a buffer source.
 MATCHER_P(Base64URL, matcher, "") {
-  const DOMArrayPiece buffer(arg);
   // WebAuthn Base64URL encoding is always unpadded.
-  String encoded =
-      Base64UrlEncode(buffer.ByteSpan(), Base64UrlEncodePolicy::kOmitPadding);
+  String encoded = Base64UrlEncode(AsSpan<SharedBufferPolicy::kDisallow>(*arg),
+                                   Base64UrlEncodePolicy::kOmitPadding);
   return ExplainMatchResult(matcher, encoded, result_listener);
 }
 
@@ -834,8 +834,7 @@ void ExpectExtensionsJSONMatch(
                       .ToLocal(&blob_val));
       ASSERT_TRUE(blob_val->IsString());
       EXPECT_EQ(ToCoreString(isolate, blob_val.As<v8::String>()),
-                WebAuthnBase64UrlEncode(
-                    DOMArrayBuffer::Create(*values.large_blob_data)));
+                WebAuthnBase64UrlEncode(*values.large_blob_data));
     }
     if (values.large_blob_written) {
       v8::Local<v8::Value> written_val;
@@ -856,9 +855,8 @@ void ExpectExtensionsJSONMatch(
   }
   if (values.get_cred_blob) {
     ASSERT_TRUE(extensions.hasGetCredBlob());
-    EXPECT_EQ(
-        extensions.getCredBlob(),
-        WebAuthnBase64UrlEncode(DOMArrayBuffer::Create(*values.get_cred_blob)));
+    EXPECT_EQ(extensions.getCredBlob(),
+              WebAuthnBase64UrlEncode(*values.get_cred_blob));
   } else {
     EXPECT_FALSE(extensions.hasGetCredBlob());
   }
@@ -897,8 +895,7 @@ void ExpectExtensionsJSONMatch(
                       .ToLocal(&first_val));
       ASSERT_TRUE(first_val->IsString());
       EXPECT_EQ(ToCoreString(isolate, first_val.As<v8::String>()),
-                WebAuthnBase64UrlEncode(
-                    DOMArrayBuffer::Create(*values.prf_eval->first)));
+                WebAuthnBase64UrlEncode(*values.prf_eval->first));
 
       if (values.prf_eval->second) {
         v8::Local<v8::Value> second_val;
@@ -906,8 +903,7 @@ void ExpectExtensionsJSONMatch(
                         .ToLocal(&second_val));
         ASSERT_TRUE(second_val->IsString());
         EXPECT_EQ(ToCoreString(isolate, second_val.As<v8::String>()),
-                  WebAuthnBase64UrlEncode(
-                      DOMArrayBuffer::Create(*values.prf_eval->second)));
+                  WebAuthnBase64UrlEncode(*values.prf_eval->second));
       }
     } else {
       v8::Local<v8::Value> results_val;
@@ -925,14 +921,12 @@ void ExpectExtensionsJSONMatch(
     if (values.cmtg_key_data) {
       ASSERT_TRUE(cmtg_key->hasCmtgKey());
       EXPECT_EQ(cmtg_key->cmtgKey(),
-                WebAuthnBase64UrlEncode(
-                    DOMArrayBuffer::Create(*values.cmtg_key_data)));
+                WebAuthnBase64UrlEncode(*values.cmtg_key_data));
     }
     if (values.cmtg_key_sig) {
       ASSERT_TRUE(cmtg_key->hasSignature());
       EXPECT_EQ(cmtg_key->signature(),
-                WebAuthnBase64UrlEncode(
-                    DOMArrayBuffer::Create(*values.cmtg_key_sig)));
+                WebAuthnBase64UrlEncode(*values.cmtg_key_sig));
     }
   } else {
     EXPECT_FALSE(extensions.hasCmtgKey());

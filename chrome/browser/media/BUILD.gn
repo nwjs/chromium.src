@@ -242,7 +242,6 @@ source_set("browser_tests") {
       "//chrome/browser/profiles:profile",
       "//chrome/browser/speech",
       "//chrome/browser/tab_group_sync",
-      "//chrome/browser/ui",
       "//chrome/browser/ui:browser_commands",
       "//chrome/browser/ui:recently_audible_helper",
       "//chrome/browser/ui/tabs:tab_strip",
@@ -409,17 +408,17 @@ source_set("impl") {
     "unified_autoplay_config.cc",
   ]
 
-  public_deps = [
-    ":media",
-    "//chrome/browser:browser_public_dependencies",
-  ]
+  public_deps = [ ":media" ]
 
   deps = [
     ":media_engagement_preload_proto",
+    "//chrome/app:generated_resources",
+    "//chrome/app/theme:theme_resources",
     "//chrome/browser:browser_process",
     "//chrome/browser/content_settings:content_settings_factory",
     "//chrome/browser/history",
     "//chrome/browser/media/webrtc",
+    "//chrome/browser/policy",
     "//chrome/browser/preloading/prefetch/no_state_prefetch",
     "//chrome/browser/ui:recently_audible_helper",
     "//chrome/browser/ui:ui_features",

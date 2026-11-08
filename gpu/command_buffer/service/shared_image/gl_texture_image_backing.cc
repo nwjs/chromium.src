@@ -237,7 +237,6 @@ bool GLTextureImageBacking::SupportsPixelReadbackWithFormat(
           format == viz::SinglePlaneFormat::kRGBA_8888 ||
           format == viz::SinglePlaneFormat::kBGRA_8888 ||
           format == viz::SinglePlaneFormat::kR_8 ||
-          format == viz::SinglePlaneFormat::kRG_88 ||
           format == viz::SinglePlaneFormat::kRGBX_8888 ||
           format == viz::SinglePlaneFormat::kBGRX_8888);
 }
@@ -253,10 +252,7 @@ bool GLTextureImageBacking::SupportsPixelUploadWithFormat(
           format == viz::SinglePlaneFormat::kRGBA_4444 ||
           format == viz::SinglePlaneFormat::kBGRA_8888 ||
           format == viz::SinglePlaneFormat::kR_8 ||
-          format == viz::SinglePlaneFormat::kRG_88 ||
           format == viz::SinglePlaneFormat::kRGBA_F16 ||
-          format == viz::SinglePlaneFormat::kR_16 ||
-          format == viz::SinglePlaneFormat::kRG_1616 ||
           format == viz::SinglePlaneFormat::kRGBX_8888 ||
           format == viz::SinglePlaneFormat::kBGRX_8888 ||
           format == viz::SinglePlaneFormat::kRGBA_1010102 ||
@@ -516,10 +512,8 @@ void GLTextureImageBacking::InitializeGLTexture(
   int num_planes = format().NumberOfPlanes();
   textures_.reserve(num_planes);
   for (int plane = 0; plane < num_planes; ++plane) {
-    auto plane_format = GLTextureHolder::GetPlaneFormat(format(), plane);
     textures_.push_back(base::MakeRefCounted<GLTextureHolder>(
-        plane_format, format().GetPlaneSize(plane, size()), is_passthrough_,
-        progress_reporter));
+        format(), plane, size(), is_passthrough_, progress_reporter));
     textures_[plane]->Initialize(format_info[plane],
                                  framebuffer_attachment_angle, pixel_data,
                                  debug_label);

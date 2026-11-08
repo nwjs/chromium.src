@@ -3398,6 +3398,135 @@ TEST_F(AXPositionTest, LowestCommonAncestor) {
   EXPECT_EQ(kLine1AndBreakLength, test_position->text_offset());
 }
 
+TEST_F(AXPositionTest, GetTextOffsetInAncestor) {
+  const auto position =
+      CreateTextPosition(inline_box2_, 2, ax::mojom::TextAffinity::kDownstream);
+  for (const auto direction : {ax::mojom::MoveDirection::kForward,
+                               ax::mojom::MoveDirection::kBackward}) {
+    EXPECT_EQ(2, position->GetTextOffsetInAncestor(GetNode(inline_box2_.id),
+                                                   direction));
+    EXPECT_EQ(2, position->GetTextOffsetInAncestor(GetNode(static_text2_.id),
+                                                   direction));
+    EXPECT_EQ(
+        kLine1AndBreakLength + 2,
+        position->GetTextOffsetInAncestor(GetNode(text_field_.id), direction));
+    EXPECT_EQ(std::nullopt, position->GetTextOffsetInAncestor(
+                                GetNode(static_text1_.id), direction));
+    EXPECT_EQ(std::nullopt,
+              position->GetTextOffsetInAncestor(nullptr, direction));
+    EXPECT_EQ(std::nullopt,
+              AXNodePosition::CreateNullPosition()->GetTextOffsetInAncestor(
+                  GetNode(text_field_.id), direction));
+    EXPECT_EQ(
+        0, CreateTreePosition(inline_box2_, AXNodePosition::BEFORE_TEXT)
+               ->GetTextOffsetInAncestor(GetNode(static_text2_.id), direction));
+  }
+}
+
+TEST_F(AXPositionTest, GetNonemptyInlineTextBoxParent) {
+  const auto position =
+      CreateTextPosition(inline_box1_, 1, ax::mojom::TextAffinity::kDownstream);
+  EXPECT_EQ(GetNode(static_text1_.id),
+            position->GetNonemptyInlineTextBoxParent());
+  EXPECT_EQ(GetNode(static_text1_.id),
+            CreateTreePosition(inline_box1_, AXNodePosition::BEFORE_TEXT)
+                ->GetNonemptyInlineTextBoxParent());
+  EXPECT_EQ(nullptr, CreateTextPosition(static_text1_, 1,
+                                        ax::mojom::TextAffinity::kDownstream)
+                         ->GetNonemptyInlineTextBoxParent());
+  EXPECT_EQ(
+      nullptr,
+      AXNodePosition::CreateNullPosition()->GetNonemptyInlineTextBoxParent());
+
+  inline_box1_.SetName("");
+  AXTreeUpdate update;
+  update.nodes = {inline_box1_};
+  ASSERT_TRUE(ax_tree()->Unserialize(update)) << ax_tree()->error();
+  EXPECT_EQ(nullptr, position->GetNonemptyInlineTextBoxParent());
+
+  inline_box1_.SetName("Line 1");
+  inline_box1_.AddState(ax::mojom::State::kIgnored);
+  update.nodes = {inline_box1_};
+  ASSERT_TRUE(ax_tree()->Unserialize(update)) << ax_tree()->error();
+  EXPECT_EQ(nullptr, position->GetNonemptyInlineTextBoxParent());
+
+  inline_box1_.RemoveState(ax::mojom::State::kIgnored);
+  static_text1_.role = ax::mojom::Role::kGenericContainer;
+  update.nodes = {static_text1_, inline_box1_};
+  ASSERT_TRUE(ax_tree()->Unserialize(update)) << ax_tree()->error();
+  EXPECT_EQ(nullptr, position->GetNonemptyInlineTextBoxParent());
+}
+
+TEST_F(AXPositionTest, IsBeforeInDisjointTextAnchors) {
+  const auto start = CreateTextPosition(static_text1_, 1,
+                                        ax::mojom::TextAffinity::kDownstream);
+  const auto end = CreateTextPosition(static_text2_, 2,
+                                      ax::mojom::TextAffinity::kDownstream);
+  EXPECT_TRUE(start->IsBeforeInDisjointTextAnchors(*end));
+  EXPECT_FALSE(end->IsBeforeInDisjointTextAnchors(*start));
+  EXPECT_FALSE(start->IsBeforeInDisjointTextAnchors(*start));
+  EXPECT_FALSE(start->IsBeforeInDisjointTextAnchors(*CreateTextPosition(
+      static_text1_, 3, ax::mojom::TextAffinity::kDownstream)));
+  EXPECT_FALSE(
+      start->CreatePositionAtEndOfAnchor()->IsBeforeInDisjointTextAnchors(
+          *end));
+  EXPECT_FALSE(start->IsBeforeInDisjointTextAnchors(
+      *end->CreatePositionAtStartOfAnchor()));
+  EXPECT_FALSE(start->IsBeforeInDisjointTextAnchors(
+      *AXNodePosition::CreateNullPosition()));
+  EXPECT_FALSE(
+      AXNodePosition::CreateNullPosition()->IsBeforeInDisjointTextAnchors(
+          *end));
+
+  static_text2_.AddState(ax::mojom::State::kIgnored);
+  inline_box2_.AddState(ax::mojom::State::kIgnored);
+  AXTreeUpdate update;
+  update.nodes = {static_text2_, inline_box2_};
+  ASSERT_TRUE(ax_tree()->Unserialize(update)) << ax_tree()->error();
+  EXPECT_FALSE(start->IsBeforeInDisjointTextAnchors(*end));
+}
+
+TEST_F(AXPositionTest, IsBeforeInDisjointSiblingTextAnchors) {
+  AXNodeData root;
+  root.id = 1;
+  root.role = ax::mojom::Role::kRootWebArea;
+  root.child_ids = {2};
+
+  AXNodeData static_text;
+  static_text.id = 2;
+  static_text.role = ax::mojom::Role::kStaticText;
+  static_text.SetName("firstsecond");
+  static_text.child_ids = {3, 4};
+
+  AXNodeData first_inline_box;
+  first_inline_box.id = 3;
+  first_inline_box.role = ax::mojom::Role::kInlineTextBox;
+  first_inline_box.SetName("first");
+
+  AXNodeData second_inline_box;
+  second_inline_box.id = 4;
+  second_inline_box.role = ax::mojom::Role::kInlineTextBox;
+  second_inline_box.SetName("second");
+
+  SetTree(
+      CreateAXTree({root, static_text, first_inline_box, second_inline_box}));
+  const auto start = CreateTextPosition(first_inline_box, 1,
+                                        ax::mojom::TextAffinity::kDownstream);
+  const auto end = CreateTextPosition(second_inline_box, 2,
+                                      ax::mojom::TextAffinity::kDownstream);
+  ASSERT_EQ(start->GetAnchor()->GetParent(), end->GetAnchor()->GetParent());
+  EXPECT_TRUE(start->IsBeforeInDisjointTextAnchors(*end));
+  EXPECT_FALSE(end->IsBeforeInDisjointTextAnchors(*start));
+  EXPECT_FALSE(start->IsBeforeInDisjointTextAnchors(*start));
+  EXPECT_FALSE(start->IsBeforeInDisjointTextAnchors(*CreateTextPosition(
+      first_inline_box, 3, ax::mojom::TextAffinity::kDownstream)));
+  EXPECT_FALSE(
+      start->CreatePositionAtEndOfAnchor()->IsBeforeInDisjointTextAnchors(
+          *end));
+  EXPECT_FALSE(start->IsBeforeInDisjointTextAnchors(
+      *end->CreatePositionAtStartOfAnchor()));
+}
+
 TEST_F(AXPositionTest, AsTreePositionWithNullPosition) {
   TestPositionType null_position = AXNodePosition::CreateNullPosition();
   ASSERT_NE(nullptr, null_position);
@@ -4818,6 +4947,62 @@ TEST_F(AXPositionTest,
   EXPECT_EQ(&anchor, result->GetAnchor());
   EXPECT_EQ(3, result->text_offset());
   EXPECT_EQ(ax::mojom::TextAffinity::kDownstream, result->affinity());
+
+  // With kCheckInitialPosition, keep the position before the generated newline.
+  const AXMovementOptions check_options{
+      AXBoundaryBehavior::kStopAtAnchorBoundary,
+      AXBoundaryDetection::kCheckInitialPosition};
+  for (int offset : {1, 2}) {
+    position =
+        CreateTextPosition(anchor, offset, ax::mojom::TextAffinity::kUpstream);
+    result = position->CreatePositionAtTextBoundary(
+        ax::mojom::TextBoundary::kCharacter, ax::mojom::MoveDirection::kForward,
+        check_options);
+    EXPECT_EQ(&anchor, result->GetAnchor());
+    EXPECT_EQ(offset, result->text_offset());
+    EXPECT_EQ(ax::mojom::TextAffinity::kUpstream, result->affinity());
+  }
+}
+
+TEST_F(AXPositionTest,
+       CreatePreviousCharacterBoundaryStaysAfterGeneratedNewline) {
+  ScopedAXEmbeddedObjectBehaviorSetter ax_embedded_object_behavior(
+      AXEmbeddedObjectBehavior::kExposeCharacterForHypertext);
+
+  // ++kRootWebArea
+  // ++++kParagraph "Z"
+  // ++++kGenericContainer (anchor)
+  // ++++++kIframe (empty)  offset 0
+  // ++++++kParagraph "A"   offset 1, right after a generated newline
+  // ++++++kIframe (empty)  offset 2
+  // ++++++kParagraph "B"   offset 3, right after a generated newline
+  TestAXTreeUpdateNode paragraph1(ax::mojom::Role::kParagraph,
+                                  {TestAXTreeUpdateNode("Z")});
+  paragraph1.data.AddBoolAttribute(
+      ax::mojom::BoolAttribute::kIsLineBreakingObject, true);
+  TestAXTreeUpdateNode paragraph2 = paragraph1;
+  paragraph2.children[0].data.SetName("A");
+  TestAXTreeUpdateNode paragraph3 = paragraph1;
+  paragraph3.children[0].data.SetName("B");
+  TestAXTreeUpdateNode iframe(ax::mojom::Role::kIframe, {});
+  Init(TestAXTreeUpdate({ax::mojom::Role::kRootWebArea,
+                         {paragraph1,
+                          {ax::mojom::Role::kGenericContainer,
+                           {iframe, paragraph2, iframe, paragraph3}}}}));
+  const AXNode& anchor = *GetTree()->root()->children()[1];
+  const AXMovementOptions options{AXBoundaryBehavior::kStopAtAnchorBoundary,
+                                  AXBoundaryDetection::kCheckInitialPosition};
+
+  // With kCheckInitialPosition, keep the position after the generated newline.
+  for (int offset : {1, 3}) {
+    auto position = CreateTextPosition(anchor, offset,
+                                       ax::mojom::TextAffinity::kDownstream);
+    auto result = position->CreatePositionAtTextBoundary(
+        ax::mojom::TextBoundary::kCharacter,
+        ax::mojom::MoveDirection::kBackward, options);
+    EXPECT_EQ(&anchor, result->GetAnchor());
+    EXPECT_EQ(offset, result->text_offset());
+  }
 }
 
 TEST_F(AXPositionTest, CreatePositionAtInvalidGraphemeBoundary) {
@@ -10206,6 +10391,48 @@ TEST_F(AXPositionTest, CreateNextCharacterPositionIncludingGeneratedNewlines) {
   EXPECT_EQ(0, test_position->text_offset());
 }
 
+// Regression test for crbug.com/417503353.
+TEST_F(AXPositionTest,
+       CreatePreviousCharacterPositionAfterGeneratedNewlineAtStartOfContent) {
+  ScopedAXEmbeddedObjectBehaviorSetter ax_embedded_object_behavior(
+      AXEmbeddedObjectBehavior::kExposeCharacterForHypertext);
+
+  // ++kRootWebArea
+  // ++++kGenericContainer
+  // ++++++kIframe (empty)    start of content
+  // ++++++kParagraph (line-breaking)
+  // ++++++++kStaticText "A"  right after a generated newline
+  TestAXTreeUpdateNode paragraph(ax::mojom::Role::kParagraph,
+                                 {TestAXTreeUpdateNode("A")});
+  paragraph.data.AddBoolAttribute(
+      ax::mojom::BoolAttribute::kIsLineBreakingObject, true);
+  Init(TestAXTreeUpdate(
+      {ax::mojom::Role::kRootWebArea,
+       {{ax::mojom::Role::kGenericContainer,
+         {TestAXTreeUpdateNode(ax::mojom::Role::kIframe, {}), paragraph}}}}));
+  const AXNode& container = *GetTree()->root()->children()[0];
+  const AXNode& iframe = *container.children()[0];
+  const AXNode& text = *container.children()[1]->children()[0];
+
+  // Without an anchor with text before the newline, stepping back over it from
+  // the start of "A" reaches the start of content.
+  auto position =
+      CreateTextPosition(text, 0, ax::mojom::TextAffinity::kDownstream);
+  auto result = position->CreatePreviousCharacterPosition(
+      {AXBoundaryBehavior::kCrossBoundary,
+       AXBoundaryDetection::kDontCheckInitialPosition});
+  EXPECT_EQ(&iframe, result->GetAnchor());
+  EXPECT_EQ(0, result->text_offset());
+
+  // The next character position from the start of content is right after the
+  // same newline, at the start of "A".
+  result = result->CreateNextCharacterPosition(
+      {AXBoundaryBehavior::kCrossBoundary,
+       AXBoundaryDetection::kDontCheckInitialPosition});
+  EXPECT_EQ(&text, result->GetAnchor());
+  EXPECT_EQ(0, result->text_offset());
+}
+
 TEST_F(AXPositionTest, CreatePreviousCharacterPosition) {
   TestPositionType text_position = CreateTextPosition(
       inline_box2_, 5 /* text_offset */, ax::mojom::TextAffinity::kDownstream);
@@ -11082,6 +11309,134 @@ TEST_F(AXPositionTest, OperatorEqualsTextPositionsInSearchBox) {
 
   EXPECT_EQ(*button_position, *static_text_position);
   EXPECT_EQ(*static_text_position, *button_position);
+}
+
+TEST_F(AXPositionTest, CompareToEmptyObjectAfterParagraphEnd) {
+  // On platforms that suppress the embedded object character, an unignored
+  // empty object contributes no text. A position at its start is thus at the
+  // same text offset as the end of the text before it, but a generated newline
+  // is reported after that text when the next text starts a new paragraph.
+  // The two positions should still compare as equal, as they do with
+  // `SlowCompareTo`, and not as if the empty object's position had crossed
+  // the generated newline. This is the shape of a search box followed by an
+  // empty offscreen container (e.g. a live region) and a button.
+  ScopedAXEmbeddedObjectBehaviorSetter ax_embedded_object_behavior(
+      AXEmbeddedObjectBehavior::kSuppressCharacter);
+
+  // ++1 kRootWebArea
+  // ++++2 kGenericContainer
+  // ++++++3 kTextField editable "Hello"
+  // ++++++++4 kStaticText editable "Hello"
+  // ++++++++++5 kInlineTextBox "Hello"
+  // ++++++6 kGenericContainer (empty)
+  // ++++++7 kButton
+  // ++++++++8 kStaticText "Go"
+  // ++++++++++9 kInlineTextBox "Go"
+  AXNodeData root_1;
+  AXNodeData container_2;
+  AXNodeData text_field_3;
+  AXNodeData static_text_4;
+  AXNodeData inline_box_5;
+  AXNodeData empty_container_6;
+  AXNodeData button_7;
+  AXNodeData static_text_8;
+  AXNodeData inline_box_9;
+
+  root_1.id = 1;
+  container_2.id = 2;
+  text_field_3.id = 3;
+  static_text_4.id = 4;
+  inline_box_5.id = 5;
+  empty_container_6.id = 6;
+  button_7.id = 7;
+  static_text_8.id = 8;
+  inline_box_9.id = 9;
+
+  root_1.role = ax::mojom::Role::kRootWebArea;
+  root_1.AddBoolAttribute(ax::mojom::BoolAttribute::kIsLineBreakingObject,
+                          true);
+  root_1.child_ids = {container_2.id};
+
+  container_2.role = ax::mojom::Role::kGenericContainer;
+  container_2.AddBoolAttribute(ax::mojom::BoolAttribute::kIsLineBreakingObject,
+                               true);
+  container_2.child_ids = {text_field_3.id, empty_container_6.id, button_7.id};
+
+  text_field_3.role = ax::mojom::Role::kTextField;
+  text_field_3.AddState(ax::mojom::State::kEditable);
+  text_field_3.AddBoolAttribute(ax::mojom::BoolAttribute::kIsLineBreakingObject,
+                                true);
+  text_field_3.SetValue("Hello");
+  text_field_3.child_ids = {static_text_4.id};
+
+  static_text_4.role = ax::mojom::Role::kStaticText;
+  static_text_4.AddState(ax::mojom::State::kEditable);
+  static_text_4.SetName("Hello");
+  static_text_4.child_ids = {inline_box_5.id};
+
+  inline_box_5.role = ax::mojom::Role::kInlineTextBox;
+  inline_box_5.AddState(ax::mojom::State::kEditable);
+  inline_box_5.SetName("Hello");
+
+  empty_container_6.role = ax::mojom::Role::kGenericContainer;
+  empty_container_6.AddBoolAttribute(
+      ax::mojom::BoolAttribute::kIsLineBreakingObject, true);
+
+  button_7.role = ax::mojom::Role::kButton;
+  button_7.AddBoolAttribute(ax::mojom::BoolAttribute::kIsLineBreakingObject,
+                            true);
+  button_7.child_ids = {static_text_8.id};
+
+  static_text_8.role = ax::mojom::Role::kStaticText;
+  static_text_8.SetName("Go");
+  static_text_8.child_ids = {inline_box_9.id};
+
+  inline_box_9.role = ax::mojom::Role::kInlineTextBox;
+  inline_box_9.SetName("Go");
+
+  SetTree(CreateAXTree({root_1, container_2, text_field_3, static_text_4,
+                        inline_box_5, empty_container_6, button_7,
+                        static_text_8, inline_box_9}));
+
+  // TextPosition anchor_id=5 text_offset=5 annotated_text=Hello<>
+  TestPositionType end_of_text_field = CreateTextPosition(
+      inline_box_5, 5 /* text_offset */, ax::mojom::TextAffinity::kDownstream);
+  ASSERT_NE(nullptr, end_of_text_field);
+  ASSERT_TRUE(end_of_text_field->IsFollowedByGeneratedNewline());
+
+  // TextPosition anchor_id=6 text_offset=0 annotated_text=<>
+  TestPositionType empty_container_position =
+      CreateTextPosition(empty_container_6, 0 /* text_offset */,
+                         ax::mojom::TextAffinity::kDownstream);
+  ASSERT_NE(nullptr, empty_container_position);
+  ASSERT_TRUE(empty_container_position->IsInUnignoredEmptyObject());
+
+  EXPECT_EQ(0, *end_of_text_field->SlowCompareTo(*empty_container_position));
+  EXPECT_EQ(0, *end_of_text_field->CompareTo(*empty_container_position));
+  EXPECT_EQ(0, *empty_container_position->CompareTo(*end_of_text_field));
+  EXPECT_EQ(*end_of_text_field, *empty_container_position);
+  EXPECT_LE(*end_of_text_field, *empty_container_position);
+  EXPECT_GE(*end_of_text_field, *empty_container_position);
+
+  // The same, with the end of the text field expressed on the text field
+  // itself, as the caret would be.
+  TestPositionType end_of_text_field_value = CreateTextPosition(
+      text_field_3, 5 /* text_offset */, ax::mojom::TextAffinity::kDownstream);
+  ASSERT_NE(nullptr, end_of_text_field_value);
+  EXPECT_EQ(0,
+            *end_of_text_field_value->SlowCompareTo(*empty_container_position));
+  EXPECT_EQ(0, *end_of_text_field_value->CompareTo(*empty_container_position));
+  EXPECT_EQ(0, *empty_container_position->CompareTo(*end_of_text_field_value));
+
+  // Text that follows the empty object is still after the end of the text
+  // field, and after the empty object.
+  TestPositionType start_of_button = CreateTextPosition(
+      inline_box_9, 0 /* text_offset */, ax::mojom::TextAffinity::kDownstream);
+  ASSERT_NE(nullptr, start_of_button);
+  EXPECT_LT(*end_of_text_field, *start_of_button);
+  EXPECT_LT(*empty_container_position, *start_of_button);
+  EXPECT_GT(*start_of_button, *end_of_text_field);
+  EXPECT_GT(*start_of_button, *empty_container_position);
 }
 
 TEST_F(AXPositionTest, OperatorsTreePositionsAroundEmbeddedCharacter) {

@@ -37,6 +37,7 @@ source_set("features") {
 component("client") {
   output_name = "gwp_asan_client"
   sources = [
+    "decaying_bloom_filter.h",
     "guarded_page_allocator.cc",
     "guarded_page_allocator.h",
     "gwp_asan.cc",
@@ -59,7 +60,7 @@ component("client") {
     sources += [ "guarded_page_allocator_posix.cc" ]
   }
 
-  if (use_allocator_shim) {
+  if (use_partition_alloc_as_malloc) {
     sources += [
       "extreme_lightweight_detector_malloc_shims.cc",
       "extreme_lightweight_detector_malloc_shims.h",
@@ -88,9 +89,10 @@ component("client") {
     "//build/config/compiler:wglobal_constructors",
   ]
 
+  public_deps = [ ":features" ]
+
   deps = [
     ":export",
-    ":features",
     "//base",
     "//base/allocator:buildflags",
     "//components/crash/core/common:crash_key",
@@ -108,13 +110,14 @@ component("client") {
 source_set("unit_tests") {
   testonly = true
   sources = [
+    "decaying_bloom_filter_unittest.cc",
     "guarded_page_allocator_unittest.cc",
     "gwp_asan_unittest.cc",
     "lightweight_detector/poison_metadata_recorder_unittest.cc",
     "sampling_helpers_unittest.cc",
   ]
 
-  if (use_allocator_shim && !is_ios) {
+  if (use_partition_alloc_as_malloc && !is_ios) {
     sources += [
       "extreme_lightweight_detector_malloc_shims_unittest.cc",
       "extreme_lightweight_detector_quarantine_unittest.cc",

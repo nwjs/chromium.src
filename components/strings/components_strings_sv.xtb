@@ -23,7 +23,6 @@
 <translation id="1038106730571050514">Visa förslag</translation>
 <translation id="1038168778161626396">Endast chiffrering</translation>
 <translation id="1038842779957582377">okänt namn</translation>
-<translation id="1039767473048604223"><ph name="DEVICE_NAME" /> <ph name="MODEL" /></translation>
 <translation id="1041998700806130099">Meddelande på arbetsorder</translation>
 <translation id="1044897699341250361">Vad innebär det?</translation>
 <translation id="1049837829250301306">Det gick inte att klistra in innehållet på grund av organisationens policyer</translation>
@@ -79,7 +78,6 @@
 <translation id="112840717907525620">Cacheminnet för policyn är OK</translation>
 <translation id="1131264053432022307">Bilden som du kopierade</translation>
 <translation id="1132735979845538847"><ph name="ORIGIN" /> – Dra från toppen och tryck på bakåtknappen för att avsluta helskärmsläget</translation>
-<translation id="1133418583142946603">Lägg till aktuell flik</translation>
 <translation id="1138458427267715730">Få aviseringar när priset sänks på någon webbplats på webben</translation>
 <translation id="1142713751288681188">Papperstyp</translation>
 <translation id="1142965388643537393">Reseinformation</translation>
@@ -289,7 +287,6 @@ Annars blockeras detta av integritetsinställningarna. Om du tillåter detta kan
 <translation id="1462951478840426066">Använd fonterna på datorn så att du kan skapa innehåll av hög kvalitet</translation>
 <translation id="1465457928007067810">IBAN har sparats i ditt Google-konto</translation>
 <translation id="1467432559032391204">Vänster</translation>
-<translation id="1471514598850585811">Laptop</translation>
 <translation id="1472675084647422956">Visa fler</translation>
 <translation id="1473183651233018052">JIS B10</translation>
 <translation id="1473495410389165587">Ange tre eller fler ord för att få hjälp med att skriva</translation>
@@ -303,7 +300,6 @@ Annars blockeras detta av integritetsinställningarna. Om du tillåter detta kan
 <translation id="1486096554574027028">Sök efter lösenord</translation>
 <translation id="1492194039220927094">Skicka principer:</translation>
 <translation id="1495677929897281669">Tillbaka till flik</translation>
-<translation id="1496318738909526466">Hantera förbättrad autofyll</translation>
 <translation id="1500286806237135498">Kameror (<ph name="CAMERAS_COUNT" />)</translation>
 <translation id="1504042622576912555">Vågor</translation>
 <translation id="1507202001669085618">&lt;p&gt;Felmeddelandet visas om du använder en wifi-portal där du måste logga in innan du kommer ut på internet.&lt;/p&gt;
@@ -452,7 +448,6 @@ Annars blockeras detta av integritetsinställningarna. Om du tillåter detta kan
 <translation id="1734864079702812349">Amex</translation>
 <translation id="1734878702283171397">Kontakta systemadministratören.</translation>
 <translation id="1736163675982669961"><ph name="CARD_NICKNAME" />, <ph name="CARD_NETWORK_NAME" />, <ph name="CARD_LAST_FOUR_DIGITS" />, löper ut <ph name="CARD_EXPIRATION" /></translation>
-<translation id="1736420071277903564">Dator</translation>
 <translation id="1739364174357629566">Uppdatera ditt Known Traveler Number</translation>
 <translation id="1740404923954980840">Dra från toppen och tryck på bakåtknappen för att avsluta helskärmsläget</translation>
 <translation id="1741474054575634405">Hantera stamkundskort …</translation>
@@ -495,6 +490,7 @@ Annars blockeras detta av integritetsinställningarna. Om du tillåter detta kan
 <translation id="18139523105317219">EDI-partsnamn</translation>
 <translation id="1816436748874040213">Får begära åtkomst till att scrolla och zooma på delade flikar</translation>
 <translation id="1816707915923025275">Skriv @historik för att söka i webbhistoriken</translation>
+<translation id="1816771466809215784">Spara kortinnehavarens namn för det här kortet i Google Wallet om du vill att det ska fyllas i automatiskt i kassan</translation>
 <translation id="1817364650920811003">Roll: Chrome-tips. Tillgänglighetsetikett: <ph name="CHROME_TIP" /></translation>
 <translation id="182139138257690338">automatiska nedladdningar</translation>
 <translation id="1821930232296380041">Begäran eller parametrar i begäran var ogiltiga</translation>
@@ -652,6 +648,7 @@ Annars blockeras detta av integritetsinställningarna. Om du tillåter detta kan
 <translation id="2102495993840063010">Android-appar</translation>
 <translation id="2103210856015238101">Tillgängliga stamkundskort vars uppgifter kan fyllas i med ett tryck har öppnats över hela skärmen.</translation>
 <translation id="2104739941682874393">Förbättrad autofyll förstår formulär bättre och kan autofylla dem snabbare åt dig</translation>
+<translation id="2105237910269166838">Fråga om denna sida</translation>
 <translation id="2107021941795971877">Skriva ut underlag</translation>
 <translation id="2108755909498034140">Starta om datorn</translation>
 <translation id="2109845311767915560">Delad flikgrupp</translation>
@@ -668,8 +665,10 @@ Annars blockeras detta av integritetsinställningarna. Om du tillåter detta kan
 <translation id="2126374524350484896">PDF-källa:</translation>
 <translation id="2127090458081644412">Lösenordet har sparats på den här enheten</translation>
 <translation id="2127747486437921899">Kursiv</translation>
+<translation id="2129163794581571479">Drivs av Gemini med Personlig intelligens. Dina begäranden, sidrubriker och webbadresser kan granskas för att göra förbättrad autofyll ännu bättre. <ph name="BEGIN_LINK" />Hantera inställningar<ph name="END_LINK" /></translation>
 <translation id="2130448033692577677">Det går inte att tillämpa de angivna mallarna eftersom principen DnsOverHttpsMode inte har ställts in.</translation>
 <translation id="2130699163006053678">A3 x 7</translation>
+<translation id="2131006834960167560">Aktivering av autofyll för betalningar har öppnats över hela skärmen.</translation>
 <translation id="2131511685263818470"><ph name="SEARCH_ENGINE_NAME" />. <ph name="MARKETING_SNIPPET" /></translation>
 <translation id="2132825047782982803">Dessa visas i slumpmässig ordning. Du kan när som helst ändra standardinställningen.</translation>
 <translation id="2134584557120247184">Flygbiljett</translation>
@@ -864,6 +863,7 @@ Annars blockeras detta av integritetsinställningarna. Om du tillåter detta kan
 <translation id="2436186046335138073">Vill du tillåta att <ph name="HANDLER_HOSTNAME" /> öppnar alla <ph name="PROTOCOL" />-länkar?</translation>
 <translation id="243815215670139125">Kortet kunde inte sparas i ditt Google-konto. Det har sparats i Chrome på den här enheten i stället.</translation>
 <translation id="2438874542388153331">Fyra hål till höger</translation>
+<translation id="2442033148418774391">Meddelande om smartare autofyll som hålls privat har stängts</translation>
 <translation id="2442865686365739754">Följande sparas <ph name="BEGIN_EMPHASIS" />inte<ph name="END_EMPHASIS" /> i Chrome:
         <ph name="BEGIN_LIST" />
           <ph name="LIST_ITEM" />din webbhistorik
@@ -876,13 +876,13 @@ Annars blockeras detta av integritetsinställningarna. Om du tillåter detta kan
 <translation id="2451607499823206582">Spårning</translation>
 <translation id="2452837234288608067">Det gick inte att hjälpa till med det. Försök igen.</translation>
 <translation id="2453045048779611513">Organisationen begränsar vad du kan spara</translation>
+<translation id="2456490423293803882">Meddelande om smartare autofyll som hålls privat har öppnats över hela skärmen</translation>
 <translation id="2459882793359532780">Tillämpade webbläsarpolicyer (dator- och profilpolicyer)</translation>
 <translation id="2461385121573678775">Med Chrome Enterprise Core får du ett centraliserat verktyg för att konfigurera webbläsarprinciper från molnet</translation>
 <translation id="2461822463642141190">Nuvarande</translation>
 <translation id="2462724976360937186">Nyckel-ID för certifikatutfärdare</translation>
 <translation id="2465688316154986572">Häftning</translation>
 <translation id="2465914000209955735">Hantera filer du har laddat ned i Chrome</translation>
-<translation id="2466682894498377850">Fliken skickades från din <ph name="DEVICE_NAME" /></translation>
 <translation id="2467272921457885625">Enhetens hårdvaruspecifikation och statistik som historiken över CPU-/RAM-användning</translation>
 <translation id="2467421459221956357">Vill du använda sensorer?</translation>
 <translation id="2467694685043708798"><ph name="BEGIN_LINK" />att köra nätverksdiagnostik<ph name="END_LINK" /></translation>
@@ -924,7 +924,6 @@ Annars blockeras detta av integritetsinställningarna. Om du tillåter detta kan
 <translation id="2524962131655207565"><ph name="BEGIN_BOLD" />Innehåll från kassasidan delas med Google för att erbjuda dessa alternativ.<ph name="END_BOLD" /> Kvalificering krävs för betalningsplaner. Gå till <ph name="BEGIN_LINK" />betalningsinställningarna<ph name="END_LINK" /> om du vill dölja alternativen för att betala senare.</translation>
 <translation id="2526062290525841862">Aktivera utvecklarläget för isolerade webbappar igen om du vill köra appen</translation>
 <translation id="2526280916094749336">Du kan använda sparade adresser i Googles produkter. Den här adressen sparas i ditt Google-konto, <ph name="ACCOUNT" />.</translation>
-<translation id="2526590354069164005">Skrivbord</translation>
 <translation id="2527451058878391043">CVC-koden finns på framsidan av kortet. Det är den fyrsiffriga koden uppe till höger ovanför kortnumret.</translation>
 <translation id="2529899080962247600">Fältet får ha högst <ph name="MAX_ITEMS_LIMIT" /> poster. Alla poster utöver det ignoreras.</translation>
 <translation id="2530042584066815841">Låsa och använda musen</translation>
@@ -953,6 +952,7 @@ Annars blockeras detta av integritetsinställningarna. Om du tillåter detta kan
 <translation id="2556173336856001120"><ph name="USER_GIVEN_NAME" /> • <ph name="DEVICE_NAME" /></translation>
 <translation id="2556876185419854533">&amp;Ånga Redigera</translation>
 <translation id="2559566667529177711">Flera lager</translation>
+<translation id="2561224416042784023">Visa inställningar</translation>
 <translation id="2570734079541893434">Hantera inställningar</translation>
 <translation id="257136025287118539">Administratören flyttar dina filer till <ph name="CLOUD_PROVIDER" />. Du kan ändra filerna när uppladdningen är klar.</translation>
 <translation id="2571488850200220306">Av säkerhetsskäl kan den även se enhetens operativsystem, webbläsarversion och vilken programvara som är installerad</translation>
@@ -1056,7 +1056,7 @@ Annars blockeras detta av integritetsinställningarna. Om du tillåter detta kan
 <translation id="2734797989819862638">Kopiera inte</translation>
 <translation id="2738771556149464852">Inte efter</translation>
 <translation id="2740531572673183784">OK</translation>
-<translation id="275259155159336003">Drivs av Personlig intelligens med Gemini. Dina begäranden, sidrubriker och webbadresser kan granskas för att göra förbättrad autofyll ännu bättre. <ph name="BEGIN_LINK" />Hantera inställningar<ph name="END_LINK" /></translation>
+<translation id="2750602117850059078">{COUNT,plural, =0{Inga}=1{1 färdighet}other{# färdigheter}}</translation>
 <translation id="2757727729385895652">Laddar upp <ph name="COUNT" /> filer till Google Drive</translation>
 <translation id="2759299890026163685">Kontrollera att du har en stabil internetanslutning innan du försöker igen</translation>
 <translation id="2759825833388495838">fylla i ditt lösenord i <ph name="APP_NAME" /></translation>
@@ -1097,7 +1097,6 @@ Annars blockeras detta av integritetsinställningarna. Om du tillåter detta kan
 <translation id="2858134430383535011">200 x 300 mm</translation>
 <translation id="2859383374160668142">Du kan när som helst se prissänkningar för produkter du bevakar.</translation>
 <translation id="2859806420264540918">Påträngande eller vilseledande annonser visas på den här webbplatsen.</translation>
-<translation id="2864493683872263351">Koda, skriv eller skapa presentationer</translation>
 <translation id="2873317327342476681">Dino-spelet: Tryck på dinosaurien eller på blanksteg för att spela</translation>
 <translation id="287387905105155974">Hjälpbubbla</translation>
 <translation id="2875109558992200904">När säkerhetshändelser flaggas av Chrome skickas relevant data om händelserna till administratören. Exempel på sådan data är webbadresser och titlar på sidor du besöker i Chrome, webbadresser till sidor du har kopierat data från, filnamn eller metadata, IP-adresser, webbläsar- eller flikkrascher och användarnamnet du loggar in med i webbaserade appar, på dina enheter och i Chrome.</translation>
@@ -1106,6 +1105,7 @@ Annars blockeras detta av integritetsinställningarna. Om du tillåter detta kan
 <translation id="2878197950673342043">Korsfalsning</translation>
 <translation id="2878424575911748999">A1</translation>
 <translation id="2879694782644540289">fylla i lösenord med skärmlåset.</translation>
+<translation id="2880119244122776372">Bygg och koda</translation>
 <translation id="2881276955470682203">Vill du spara kortet?</translation>
 <translation id="2882280148032777436">Radera ditt Known Traveler Number</translation>
 <translation id="2882949212241984732">Altarskåpsfalsning</translation>
@@ -1205,6 +1205,7 @@ Annars blockeras detta av integritetsinställningarna. Om du tillåter detta kan
 <translation id="3041176923638368519">Se villkoren för kortförmåner</translation>
 <translation id="3041584414879052436">Listan över Köp nu, betala senare-utfärdare har stängts.</translation>
 <translation id="3041612393474885105">Certifikatinformation</translation>
+<translation id="3041835740069544003">Chrome kan nu identifiera och fylla i fler formulär med Smartare formulärförståelse. För att göra detta kan sidinnehåll och webbadresser behandlas i ett privat utrymme i molnet. Du hanterar detta i inställningarna.</translation>
 <translation id="3047054686095898948">Spara dina uppgifter i <ph name="IDS_AUTOFILL_GOOGLE_WALLET_TITLE_1" /> så att du kan få saker gjorda snabbare, till exempel fylla i formulär i Googles produkter. Du kan <ph name="BEGIN_LINK" />hantera dina uppgifter<ph name="END_LINK" /> i <ph name="IDS_AUTOFILL_GOOGLE_WALLET_TITLE_2" /> för <ph name="ACCOUNT" />.</translation>
 <translation id="305162504811187366">Historik för Chrome Remote Desktop, bland annat tidsstämplar, värdar och id:n för klientsessioner</translation>
 <translation id="3052868890529250114">Du ansluter vanligtvis till webbplatser på ett säkert sätt, men den här gången kunde inte Chrome använda en säker anslutning. Det kan hända att en angripare försöker avlyssna eller ändra din nätverksanslutning. <ph name="BEGIN_LEARN_MORE_LINK" />Läs mer om den här varningen<ph name="END_LEARN_MORE_LINK" /></translation>
@@ -1242,7 +1243,6 @@ Gå till <ph name="BEGIN_LINK" />betalningsinställningarna<ph name="END_LINK" /
 <translation id="3109788962812161063">Profilhantering</translation>
 <translation id="3112892588078695695">Telefonnummer: <ph name="PHONE" />.</translation>
 <translation id="3113284927548439113">tredje skiftet</translation>
-<translation id="3113930177999394798">Skriv @historik för att söka i webbhistoriken, baserat på AI</translation>
 <translation id="3114040155724590991">Uppdaterar Android-systemet
     Det kan ta längre tid än vanligt att starta appen.</translation>
 <translation id="3114197119223448048">ny aktivitet</translation>
@@ -1364,6 +1364,7 @@ Gå till <ph name="BEGIN_LINK" />betalningsinställningarna<ph name="END_LINK" /
 <translation id="3289578402369490638">Från andra butiker på webben</translation>
 <translation id="3293642807462928945">Läs mer om principen <ph name="POLICY_NAME" /></translation>
 <translation id="3295444047715739395">Visa och hantera dina lösenord i inställningarna för Chrome</translation>
+<translation id="3296595523896103792">Aktivering av autofyll för betalningar har stängts.</translation>
 <translation id="3299098170013242198">Windows Hello är aktiverat för att fylla i lösenord</translation>
 <translation id="3299197721044635447">Det gick inte att klistra in innehållet utanför det hanterade Chrome-sammanhanget på grund av organisationens policyer</translation>
 <translation id="3299720788264079132">Något gick fel när <ph name="FEATURE_NAME" /> skulle användas</translation>
@@ -1422,7 +1423,6 @@ Gå till <ph name="BEGIN_LINK" />betalningsinställningarna<ph name="END_LINK" /
 <translation id="3413466783792948876">Det är säkrast att besöka webbplatsen senare om du använder ett offentligt nätverk. Det finns mindre risk med ett betrott nätverk, som wifi-nätverket hemma eller på jobbet.</translation>
 <translation id="3414952576877147120">Storlek:</translation>
 <translation id="341513675006332771">Knappen Spela Chrome Dino-spelet: aktivera om du vill spela Dino Run i Chrome</translation>
-<translation id="3415471717466570460">Dina sökningar, dina bästa matchningar och deras sidinnehåll skickas till Google och kan ses av mänskliga granskare för att förbättra den här funktionen. Det här är en experimentell funktion som inte alltid fungerar som den ska.</translation>
 <translation id="3417390269491141648">Jämför mina vårdförsäkringsalternativ och förklara de viktigaste skillnaderna mellan dem</translation>
 <translation id="3421387094817716717">Offentlig nyckel vid kryptering med elliptisk kurva</translation>
 <translation id="3422248202833853650">Testa att stänga andra program för att frigöra minne.</translation>
@@ -1436,7 +1436,6 @@ Gå till <ph name="BEGIN_LINK" />betalningsinställningarna<ph name="END_LINK" /
 <translation id="3432601291244612633">Stäng sidan</translation>
 <translation id="3434025015623587566">Google Lösenordshantering behöver mer åtkomst</translation>
 <translation id="343474037147570563">Filer som du laddar upp eller bifogar skickas till Google Cloud eller tredje part för analys. De kan till exempel genomsökas i syfte att upptäcka känsliga uppgifter eller skadlig kod, och de kan lagras i enlighet med företagspolicyer och är synliga för administratören.</translation>
-<translation id="3435267628744367511">Tryck på Ctrl två gånger i valfritt formulär för att hitta och fylla i information utan att byta flik</translation>
 <translation id="3435557549311968410">Kontinuerlig (kort)</translation>
 <translation id="3435738964857648380">Säkerhet</translation>
 <translation id="3436125638121079308">Vill du automatiskt dela relevanta flikar för att få bättre svar i den här tråden?</translation>
@@ -1577,6 +1576,7 @@ Gå till <ph name="BEGIN_LINK" />betalningsinställningarna<ph name="END_LINK" /
 <translation id="3655670868607891010">Om du ser detta ofta provar du <ph name="HELP_LINK" />.</translation>
 <translation id="3658742229777143148">Version</translation>
 <translation id="3659521826520353662">Vilka administratörsdefinierade webbplatser som besöks och när: <ph name="ALLOWLISTED_WEBSITES" /></translation>
+<translation id="3663760610864720538">Drivs av Gemini med Personlig intelligens. <ph name="BEGIN_LINK" />Hantera inställningar<ph name="END_LINK" /></translation>
 <translation id="3664479564786885722">Sök efter fler köpalternativ från andra butiker som säljer produkten.</translation>
 <translation id="3664782872746246217">Sökord:</translation>
 <translation id="3670030362669914947">Nummer</translation>
@@ -1597,6 +1597,7 @@ Gå till <ph name="BEGIN_LINK" />betalningsinställningarna<ph name="END_LINK" /
 <translation id="3693516565203081475">Välj betalningsmetod</translation>
 <translation id="3698353241727597930">Administratören har ställt in att <ph name="FILES" /> ska sparas i ditt företagshanterade lagringsutrymme på <ph name="CLOUD_STORAGE" />. Dessa filer kan övervakas, granskas och behållas när du raderar dem.</translation>
 <translation id="3698629142018988477">Knappen Skapa webbplats: aktivera om du snabbt vill skapa en ny webbplats i Google Sites</translation>
+<translation id="3698708128812719147">Tryck på Ctrl två gånger var som helst på webben för att hitta och fylla i mer information</translation>
 <translation id="3700094625653511150">Gå till <ph name="IDS_AUTOFILL_CARD_BNPL_SELECT_PROVIDER_FOOTNOTE_HIDE_OPTION_PAYMENT_SETTINGS_LINK_TEXT" /> om du vill dölja alternativen för att betala senare</translation>
 <translation id="3700966190175650601">Du använder ditt fingeravtryck för att fylla i lösenord</translation>
 <translation id="3701427423622901115">Återställning bekräftad.</translation>
@@ -1733,7 +1734,6 @@ Gå till <ph name="BEGIN_LINK" />betalningsinställningarna<ph name="END_LINK" /
 <translation id="3905894480064208252">{0,plural, =1{Filen har blockerats från att överföras}other{<ph name="FILE_COUNT" /> filer har blockerats från att överföras}}</translation>
 <translation id="3906022360148923497">Ikon för betalningsmetod</translation>
 <translation id="3906234161316839040">Övriga beställningar</translation>
-<translation id="3906954721959377182">Surfplatta</translation>
 <translation id="3909695131102177774"><ph name="LABEL" /> <ph name="ERROR" /></translation>
 <translation id="3910231615117880630">Läs mer om inbäddat innehåll</translation>
 <translation id="3920504717067627103">Certifikatpolicyer</translation>
@@ -1883,7 +1883,6 @@ Gå till <ph name="BEGIN_LINK" />betalningsinställningarna<ph name="END_LINK" /
 <translation id="4153446078232988116"><ph name="SITE" /> har inte stöd för en säker anslutning med HTTPS</translation>
 <translation id="4153858337812834972">Senaste flikarna</translation>
 <translation id="4154277373259957087">Nu verifierar Chrome din identitet innan betalningsmetoder fylls i. Du kan uppdatera detta när som helst i <ph name="IDS_AUTOFILL_MANDATORY_REAUTH_CONFIRMATION_SETTINGS_LINK" />.</translation>
-<translation id="4157273919218514718">Drivs av Personlig intelligens med Gemini. <ph name="BEGIN_LINK" />Hantera inställningar<ph name="END_LINK" /></translation>
 <translation id="4157469997675439324">Uppdatera körkortet på ett säkert sätt</translation>
 <translation id="4159784952369912983">Lila</translation>
 <translation id="4165422751765527461">Öppnar en hjälpcenterartikel på en ny flik</translation>
@@ -1901,8 +1900,8 @@ Gå till <ph name="BEGIN_LINK" />betalningsinställningarna<ph name="END_LINK" /
 <translation id="4179515394835346607"><ph name="ROW_NAME" /> <ph name="ROW_CONTENT" /></translation>
 <translation id="4185037616931963178">Uppdatera ditt redress number på ett säkert sätt</translation>
 <translation id="4186035307311647330">Ta bort prisbevakning</translation>
-<translation id="4190446002599583608">Historiksökning med hjälp av AI</translation>
 <translation id="4191334393248735295">Längd</translation>
+<translation id="4192770747482479191">Tryck på ⌘ två gånger var som helst på webben för att hitta och fylla i mer information</translation>
 <translation id="4195459680867822611">Knappen Visa tips om Chrome: aktivera om du vill läsa mer om funktioner i Chrome</translation>
 <translation id="4195643157523330669">Öppna i ny flik</translation>
 <translation id="4196861286325780578">&amp;Gör om Flytta</translation>
@@ -1948,7 +1947,6 @@ Gå till <ph name="BEGIN_LINK" />betalningsinställningarna<ph name="END_LINK" /
 <translation id="424063167283213501">Spara ditt Known Traveler Number</translation>
 <translation id="4241830393007970744">Angripare på webbplatsen som du försökte besöka kan lura dig att installera mjukvara eller avslöja sådant som lösenord, telefon- eller kreditkortsnummer.</translation>
 <translation id="4242380780309416996">Kuvert (tungvikt)</translation>
-<translation id="4242981939686657948">Om du vill söka i webbhistoriken på ett effektivare sätt aktiverar du</translation>
 <translation id="4244926541863471678">Film</translation>
 <translation id="42481816218163154">Skapa en morgonrutin på 15 minuter som gör att mina morgnar flyter på bättre. Se till att den innehåller en mindfulnessövning</translation>
 <translation id="4250343410682686342">Felskärmen för Köp nu, betala senare har öppnats över hela skärmen.</translation>
@@ -2153,7 +2151,6 @@ Gå till <ph name="BEGIN_LINK" />betalningsinställningarna<ph name="END_LINK" /
 <translation id="4599572944836204718">Betala snabbare med Google Pay när du har sparat kortet. Kortuppgifterna krypteras i Google Wallet.</translation>
 <translation id="4603727370377253901">Flygbokningar</translation>
 <translation id="4607608436550361748">Visa tips om Chrome</translation>
-<translation id="4607879293515681409">Förbättrad autofyll kan nu hitta och fylla i information, som flygnummer och mötestider, från appar som Gmail och Foto</translation>
 <translation id="460848736049414407">Blockeras av administratören</translation>
 <translation id="4610279718074907952">Den här webbplatsen ingår i en grupp som definierats av <ph name="SET_OWNER" /> och som kan se din aktivitet</translation>
 <translation id="4612631413844865947">Det gick inte att behandla beställningen på <ph name="MERCHANT_ORIGIN" /> via <ph name="PAYMENT_APP_ORIGIN" />.</translation>
@@ -2804,7 +2801,6 @@ Gå till <ph name="BEGIN_LINK" />betalningsinställningarna<ph name="END_LINK" /
 <translation id="5649053991847567735">Automatiska nedladdningar</translation>
 <translation id="5651323159439184939">Traktormatning</translation>
 <translation id="5653681867130739344">Uppdatera id-kortet säkert i Google Wallet</translation>
-<translation id="5653744563415531641">Spara dina uppgifter så att du kan få saker gjorda snabbare, till exempel fylla i formulär i Googles produkter. Du kan <ph name="MANAGE_WALLET_SETTINGS_LINK" /> för <ph name="ACCOUNT" />.</translation>
 <translation id="5654927323611874862">Uppladdat kraschrapport-id:</translation>
 <translation id="5654965123204121933">Webbadressen innehåller inte den obligatoriska ersättningssträngen <ph name="SEARCH_TERMS_REPLACEMENT" />: <ph name="SEARCH_URL" /></translation>
 <translation id="5659593005791499971">E-post</translation>
@@ -2854,6 +2850,7 @@ Gå till <ph name="BEGIN_LINK" />betalningsinställningarna<ph name="END_LINK" /
 <translation id="573974402615125334">Om du vill dela, gå med i och samarbeta i flikgrupper måste du synkronisera din historik och dina flikar</translation>
 <translation id="5740911612628596808">C9-kuvert</translation>
 <translation id="574392208103952083">Medelstark</translation>
+<translation id="5744350700955456407">Förbättrad autofyll kan nu hitta och fylla i information, som ordernummer och bekräftelsekoder för flyg, från appar som Gmail och Foto</translation>
 <translation id="5745586894920491759">Chrome behandlar sidtitlar och webbadresser i molnet</translation>
 <translation id="5745733273847572235">Får fråga om din plats</translation>
 <translation id="5750869797196646528">Handspårning</translation>
@@ -2929,7 +2926,6 @@ Gå till <ph name="BEGIN_LINK" />betalningsinställningarna<ph name="END_LINK" /
 <translation id="5884465125445718607">Kinesiskt nr 6-kuvert</translation>
 <translation id="5887400589839399685">Kortet har sparats</translation>
 <translation id="5887687176710214216">Besöktes senast i går</translation>
-<translation id="5887791684215121787">Tryck på ⌘ ⌘ i valfritt formulär för att hitta och fylla i information utan att byta flik</translation>
 <translation id="5889251770650310375">Om du vill få tillgång till historiken på dina andra enheter måste du verifiera din identitet och synkronisera din historik och dina flikar. Du kan sluta synkronisera när som helst i inställningarna. Google kan anpassa Sök och andra tjänster utifrån din historik.</translation>
 <translation id="5895138241574237353">Starta om</translation>
 <translation id="5895187275912066135">Utfärdat</translation>
@@ -3256,7 +3252,6 @@ Gå till <ph name="BEGIN_LINK" />betalningsinställningarna<ph name="END_LINK" /
 <translation id="6410264514553301377">Ange utgångsdatum och CVC-kod för <ph name="CREDIT_CARD" /></translation>
 <translation id="6411107829285739505">A4 x 8</translation>
 <translation id="6412543105195503444">Dialogruta för föräldragodkännande</translation>
-<translation id="6413532517183895572">hantera dina Wallet-inställningar</translation>
 <translation id="6415778972515849510">Du kan skydda Google-kontot genom att byta lösenord.</translation>
 <translation id="6416877227920300343">EDP</translation>
 <translation id="6418199314628742460">Se till att alla viktiga företags- och personuppgifter lagras externt.</translation>
@@ -3425,7 +3420,6 @@ Gå till <ph name="BEGIN_LINK" />betalningsinställningarna<ph name="END_LINK" /
 <translation id="671076103358959139">Registreringstoken:</translation>
 <translation id="6711464428925977395">Något är fel med proxyservern eller så är adressen felaktig.</translation>
 <translation id="6711700233707023861">Variantsträngen har kopierats till urklipp</translation>
-<translation id="6712003214447962889">Smartare och snabbare svar</translation>
 <translation id="6712343563085762261">Uppflyttat</translation>
 <translation id="6716039223770814796">Jämför <ph name="COMPARE_SET_NAME" /> · <ph name="ITEMS" /> objekt</translation>
 <translation id="6716672519412350405"><ph name="URL" /> skapa en 3D-karta över dina omgivningar och registrera kamerans position</translation>
@@ -3547,7 +3541,6 @@ Gå till <ph name="BEGIN_LINK" />betalningsinställningarna<ph name="END_LINK" /
 <translation id="6936976777388162184">Det här är en paketerad enhet som inte kan registreras för kiosk- och skyltuppgraderingar.</translation>
 <translation id="6942444979237658241">Kommentarer: <ph name="GROUP_NAME" /></translation>
 <translation id="6944692733090228304">Du har angett ditt lösenord på en webbplats som inte hanteras av <ph name="BEGIN_BOLD" /><ph name="ORG_NAME" /><ph name="END_BOLD" />. Skydda kontot genom att inte återanvända lösenordet i andra appar och webbplatser.</translation>
-<translation id="6946949206576443118">Söka på webben i Chrome</translation>
 <translation id="6948051842255602737">Spelet är slut, du fick <ph name="SCORE" /> poäng.</translation>
 <translation id="6948223029286835408">Visa Pix som alternativ när du gör köp i Chrome</translation>
 <translation id="6948701128805548767">Välj en adress för att visa alternativ för utlämning och krav</translation>
@@ -3637,6 +3630,7 @@ Gå till <ph name="BEGIN_LINK" />betalningsinställningarna<ph name="END_LINK" /
 <translation id="7083258188081898530">Fack 9</translation>
 <translation id="70846382339153529">OpenDocument Text</translation>
 <translation id="7086090958708083563">Uppladdningsbegäran från användare</translation>
+<translation id="7089745480771070611">Öppnas i sidopanelen</translation>
 <translation id="7090698782953528257">Hjälp mig att rita en graf till en funktion för att visualisera den matematiska ekvationen och se kurvans form</translation>
 <translation id="7092087596499105699">Administratören har konfigurerat den säkra gateway-anslutaren för att skydda åtkomsten till organisationens privata webbappar. Den kan använda data från din jobbprofil för att verifiera åtkomst.</translation>
 <translation id="7095139009144195559"><ph name="MANAGE_SITE_SETTINGS_FOCUSED_FRIENDLY_MATCH_TEXT" />, tryck på Tabb och sedan på Retur om du vill hantera behörigheter och data som lagras på olika webbplatser i inställningarna för Chrome</translation>
@@ -3764,7 +3758,6 @@ Mer information.
 <translation id="7308436126008021607">synkronisering i bakgrunden</translation>
 <translation id="7310392214323165548">Enheten startas om inom kort</translation>
 <translation id="7311244614769792472">Inga resultat hittades</translation>
-<translation id="7311565174465466858"><ph name="TAB_KEY" /> Tryck på Tabb och sedan på Retur för att fråga <ph name="AI_ENGINE_NAME" /></translation>
 <translation id="7313107491291103073">Organisationen har flaggat den här webbplatsen eftersom den kan bryta mot en policy.</translation>
 <translation id="7315372670898739748">Länkningen misslyckades. Försök igen senare.</translation>
 <translation id="7316521168101843192">Sparar filen i Microsoft OneDrive</translation>
@@ -3870,7 +3863,6 @@ Mer information.
 <translation id="7470854469646445678">Ange orsak till kopiering (obligatoriskt)</translation>
 <translation id="7471007961486718967">Ange anledning till överföring (obligatoriskt)</translation>
 <translation id="7473033553872550521">Du kan också kontakta webbplatsens ägare och föreslå att de uppgraderar till HTTPS. <ph name="LEARN_MORE" /></translation>
-<translation id="7473555040328423550">Lägg till flik</translation>
 <translation id="7473891865547856676">Nej tack</translation>
 <translation id="7475618719385705713">Den här sidan har blockerats</translation>
 <translation id="7481312909269577407">Framåt</translation>
@@ -3912,6 +3904,7 @@ Mer information.
 <translation id="753713322968419914">Vill du ta bort hemadressen från Autofyll i Chrome?</translation>
 <translation id="753714465667062283">Logga in för att spara fotot</translation>
 <translation id="7537536606612762813">Obligatorisk</translation>
+<translation id="7540924742308928499">Brainstorma och sammanfatta</translation>
 <translation id="7543525346216957623">Fråga en förälder</translation>
 <translation id="7546409722674205727">Startar <ph name="APP_NAME" /></translation>
 <translation id="7548892272833184391">Åtgärda anslutningsproblem</translation>
@@ -4022,6 +4015,7 @@ Mer information.
 <translation id="7696107855583699585">Redigera ditt Known Traveler Number</translation>
 <translation id="7698864304447945242">Vill du uppdatera Google Play-tjänster för AR?</translation>
 <translation id="7699509138503320152">Skriv om mitt e-postmeddelande så att det blir mer övertygande</translation>
+<translation id="7700664778039213995">{COUNT,plural, =0{Inga}=1{1 färdighet (synkroniserad)}other{# färdigheter (synkroniserad)}}</translation>
 <translation id="7701040980221191251">Inga</translation>
 <translation id="7704050614460855821"><ph name="BEGIN_LINK" />Fortsätt till <ph name="SITE" /> (osäkert)<ph name="END_LINK" /></translation>
 <translation id="7705085181312584869">Hjälp mig skriva</translation>
@@ -4171,6 +4165,7 @@ Mer information.
 <translation id="7955105108888461311">Fråga själv</translation>
 <translation id="7956713633345437162">Bokmärken i mobilen</translation>
 <translation id="7961015016161918242">Aldrig</translation>
+<translation id="7961493403319780137">Läs mer om funktionen för att autofylla verifieringskoder från Gmail</translation>
 <translation id="7962467575542381659">Plattformsdator</translation>
 <translation id="796439090588610411">Chrome slutar att automatiskt bekräfta den här e-postadressen på webbplatser som stöds.</translation>
 <translation id="7966803981046576691">Kontotyp för utskriften</translation>
@@ -4263,6 +4258,7 @@ Mer information.
 <translation id="813024282736408069">Aktivera ett virtuellt kort för autofyll</translation>
 <translation id="8131740175452115882">Bekräfta</translation>
 <translation id="8135546115396015134">vänstertangent</translation>
+<translation id="8136385032646505126">Vill du spara kortinnehavarens namn?</translation>
 <translation id="8137185688006450980">Jämför olika sjukförsäkringar</translation>
 <translation id="8138591088112729119">Drivs av Personlig intelligens</translation>
 <translation id="814071672416123670">Det gick inte att kopiera innehållet på grund av organisationens policyer</translation>
@@ -4537,6 +4533,7 @@ Mer information:
 <translation id="8622864575115813231">Kontaktar ditt finansinstitut …</translation>
 <translation id="8632584659860846053">Webbhistorik, cookies och webbplatsdata, cacheminne och information som anges i formulär raderas när du stänger alla isolerade fönster</translation>
 <translation id="8634957317623797170">54 x 86 mm</translation>
+<translation id="8635822281281406185">Lägg till upp till tio filer, flikar eller bilder</translation>
 <translation id="8637362707224133343">Chrome har inbyggda säkerhetsfunktioner som skyddar dig när du surfar, till exempel Google Säker webbsökning, som <ph name="BEGIN_LINK" />nyligen hittade nätfiske<ph name="END_LINK" /> på webbplatsen du försökte besöka. Webbplatser för nätfiske imiterar andra webbplatser i syfte att lura dig.<ph name="NEW_LINE" />Även webbplatser som vanligtvis är säkra utsätts ibland för angripare. <ph name="BEGIN_ERROR_LINK" />Kontakta oss<ph name="END_ERROR_LINK" /> om du anser att detta är ett misstag och att webbplatsen inte utgör en fara.</translation>
 <translation id="8640996933372643759">Om du vill dela flikar och samarbeta med andra måste du kunna logga in i Chrome</translation>
 <translation id="8641131559425911240">Kuvert (bond)</translation>
@@ -4910,7 +4907,6 @@ Mer information:
 <translation id="961930410699694996">Plats tillåts den här gången</translation>
 <translation id="962484866189421427">Bedrägliga appar som inte gör vad de påstås göra eller insamling av data som används för att spåra dig skulle kunna installeras via innehållet. <ph name="BEGIN_LINK" />Visa ändå<ph name="END_LINK" /></translation>
 <translation id="963734905955638680">Enligt lagen i din region ber Chromium dig att välja en standardsökmotor. Dessa sökmotorer är populära i din region och visas i slumpmässig ordning.</translation>
-<translation id="963837307749850257">Alla användare</translation>
 <translation id="963988220224168636">Lägg till ett redress number i Google Wallet på ett säkert sätt</translation>
 <translation id="964050462028070434">Hantera lösenord och nycklar …</translation>
 <translation id="964681140808832181">Ja, jag vill avbryta</translation>

@@ -14,6 +14,7 @@
 #include "base/memory/weak_ptr.h"
 #include "base/observer_list.h"
 #include "base/observer_list_types.h"
+#include "base/time/time.h"
 #include "chrome/browser/glic/glic_enums.h"
 #include "chrome/browser/glic/host/context/glic_sharing_manager_provider.h"
 #include "chrome/browser/glic/host/glic.mojom.h"
@@ -43,6 +44,7 @@ class GlicPinCandidateProvider;
 class GlicSkillsManager;
 class GlicExperimentalTriggeringManager;
 class GlicWebClientAccess;
+class ScopedModalDialogManagerDelegate;
 
 // The host owns the WebUI that contains the main glic UI and the web client.
 // TODO(crbug.com/409332639): Better encapsulate details here.
@@ -274,6 +276,10 @@ class Host : public GlicSharingManagerProvider {
   // Returns the WebUI web contents. May be null.
   content::WebContents* webui_contents() const;
 
+  // Attaches `delegate` to all WebContents managed by this host.
+  void AttachModalDialogManagerDelegate(
+      ScopedModalDialogManagerDelegate& delegate);
+
   // Sets the visibility override of the WebUI web contents.
   void SetWebContentsVisibilityOverride(
       std::optional<content::Visibility> visibility_override);
@@ -290,6 +296,7 @@ class Host : public GlicSharingManagerProvider {
   // Returns the list of page handlers for glic WebUI pages.
   std::vector<GlicPageHandler*> GetPageHandlersForTesting();
   GlicPageHandler* GetPrimaryPageHandlerForTesting();
+  GlicWebClientManager* GetWebClientManagerForTesting();
 
   // TODO(b/409332639): Hide direct access to the web client.
   // TODO(harringtond): Rename to GetWebClient() if we can't remove this.
@@ -427,7 +434,6 @@ class Host : public GlicSharingManagerProvider {
 
   void NotifyActorTaskListRowClicked(int32_t task_id);
 
-
   virtual void Invoke(mojom::InvokeOptionsPtr options,
                       base::OnceClosure callback);
   void InvokeWithAutoSubmit(InvokeWithAutoSubmitPasskey auto_submit_passkey,
@@ -436,6 +442,15 @@ class Host : public GlicSharingManagerProvider {
 
   void WebUIPageHandlerAdded(GlicPageHandler* page_handler);
   void WebUIPageHandlerRemoved(GlicPageHandler* page_handler);
+
+  class Metrics {
+   public:
+    void OnContentsCreated();
+    void OnContentsDestroyed();
+
+   private:
+    base::TimeTicks contents_creation_time_;
+  };
 
  private:
   friend class GlicWebClientManager;
@@ -496,6 +511,8 @@ class Host : public GlicSharingManagerProvider {
   std::optional<mojom::PanelState> pending_panel_state_;
   ClientState client_state_;
   bool drag_resize_enabled_ = false;
+
+  Metrics metrics_;
 
   void OnActiveWebContentsChanged(content::WebContents* new_contents);
 

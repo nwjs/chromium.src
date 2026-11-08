@@ -72,6 +72,7 @@
 #import "ios/chrome/browser/autofill/model/autofill_log_router_factory.h"
 #import "ios/chrome/browser/autofill/model/autofill_policy_service_factory.h"
 #import "ios/chrome/browser/autofill/model/bottom_sheet/autofill_bottom_sheet_tab_helper.h"
+#import "ios/chrome/browser/autofill/model/features.h"
 #import "ios/chrome/browser/autofill/model/ios_autofill_ai_model_cache_factory.h"
 #import "ios/chrome/browser/autofill/model/ios_autofill_ai_model_executor_factory.h"
 #import "ios/chrome/browser/autofill/model/ios_autofill_ai_personal_context_access_manager_factory.h"
@@ -102,6 +103,7 @@
 #import "ios/chrome/browser/personal_context/model/ios_personal_context_first_run_service_factory.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/public/commands/autofill_commands.h"
+#import "ios/chrome/browser/shared/public/commands/form_input_accessory_commands.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/signin/model/authentication_service.h"
 #import "ios/chrome/browser/signin/model/authentication_service_factory.h"
@@ -183,7 +185,15 @@ ChromeAutofillClientIOS::ChromeAutofillClientIOS(
                                            features::kAutofillAmbientAutofill)
                                    ? GetEntityDataManager()
                                    : nullptr) {
-    edm->SetReauthAvailability(SupportsDeviceReauth());
+    if (base::FeatureList::IsEnabled(kAutofillAiAsyncReauthAvailability)) {
+      if (std::unique_ptr<IOSDeviceAuthenticator> authenticator =
+              GetIOSDeviceAuthenticator("")) {
+        authenticator->CanAuthenticateWithBiometricOrScreenLock(base::BindOnce(
+            &EntityDataManager::SetReauthAvailability, edm->GetWeakPtr()));
+      }
+    } else {
+      edm->SetReauthAvailability(SupportsDeviceReauth());
+    }
   }
 
   if (web_state) {
@@ -195,12 +205,6 @@ ChromeAutofillClientIOS::ChromeAutofillClientIOS(
                   &ChromeAutofillClientIOS::OnActorTaskStateChange,
                   weak_ptr_factory_.GetWeakPtr()));
     }
-  }
-
-  if (autofill::IsAutofillAtMemorySearchUIEnabled(this)) {
-    at_memory_manager_ = std::make_unique<AtMemoryManager>(
-        this, ios::HistoryServiceFactory::GetForProfile(
-                  profile_, ServiceAccessType::EXPLICIT_ACCESS));
   }
 }
 
@@ -312,8 +316,12 @@ void ChromeAutofillClientIOS::GetAiPageContent(
 
   base::OnceCallback<void(PageContextWrapperCallbackResponse)>
       page_context_completion_callback = base::BindOnce(
-          [](GetAiPageContentCallback inner_callback,
+          [](base::WeakPtr<ChromeAutofillClientIOS> weak_self,
+             GetAiPageContentCallback inner_callback,
              PageContextWrapperCallbackResponse response) {
+            if (weak_self) {
+              weak_self->page_context_wrapper_ = nil;
+            }
             if (!response.has_value()) {
               std::move(inner_callback).Run(std::nullopt);
               return;
@@ -322,13 +330,18 @@ void ChromeAutofillClientIOS::GetAiPageContent(
             std::move(inner_callback)
                 .Run((*response)->annotated_page_content());
           },
-          std::move(callback));
+          weak_ptr_factory_.GetWeakPtr(), std::move(callback));
+
+  PageContextWrapperConfigBuilder config_builder;
+  config_builder.SetDefaultRichExtraction(true)
+      .SetExtractAutofill(true)
+      .SetUseRichExtractionWithActionable(base::FeatureList::IsEnabled(
+          features::kAutofillActionableAIPageContent));
 
   // Populate the PageContext proto and then execute the query.
-  // TODO(crbug.com/519079870): Make sure that geometry information is
-  // extracted.
   page_context_wrapper_ = [[PageContextWrapper alloc]
         initWithWebState:web_state()
+                  config:config_builder.Build()
       completionCallback:std::move(page_context_completion_callback)];
   [page_context_wrapper_ setShouldGetAnnotatedPageContent:YES];
   [page_context_wrapper_ setShouldGetSnapshot:NO];
@@ -362,7 +375,15 @@ ChromeAutofillClientIOS::GetRemoteModelExecutor() {
   return OptimizationGuideServiceFactory::GetForProfile(profile_);
 }
 
-autofill::AtMemoryManager* ChromeAutofillClientIOS::GetAtMemoryManager() {
+AtMemoryManager* ChromeAutofillClientIOS::GetAtMemoryManager() {
+  if (!IsAutofillAtMemorySearchUIEnabled(this)) {
+    return nullptr;
+  }
+  if (!at_memory_manager_) {
+    at_memory_manager_ = std::make_unique<AtMemoryManager>(
+        this, ios::HistoryServiceFactory::GetForProfile(
+                  profile_, ServiceAccessType::EXPLICIT_ACCESS));
+  }
   return at_memory_manager_.get();
 }
 
@@ -623,7 +644,8 @@ void ChromeAutofillClientIOS::HideSuggestions(
   current_field_id_ = {};
   [bridge_ hideAutofillPopup];
   if (reason == SuggestionHidingReason::kAcceptSuggestion) {
-    [commands_handler_ legacyResetAutofillSuggestionsLoadingStates];
+    [form_input_accessory_commands_handler_
+        resetAutofillSuggestionsLoadingStates];
   }
 }
 
@@ -735,14 +757,20 @@ bool ChromeAutofillClientIOS::ShouldFormatForLargeKeyboardAccessory() const {
   return YES;
 }
 
-std::unique_ptr<device_reauth::DeviceAuthenticator>
-ChromeAutofillClientIOS::GetDeviceAuthenticator(std::string histogram) const {
+std::unique_ptr<IOSDeviceAuthenticator>
+ChromeAutofillClientIOS::GetIOSDeviceAuthenticator(
+    std::string histogram) const {
   device_reauth::DeviceAuthParams params(
       base::Seconds(60), device_reauth::DeviceAuthSource::kAutofill, std::move(histogram));
   id<ReauthenticationProtocol> reauthModule =
       ReauthenticationServiceFactory::GetForProfile(profile_)
           ->GetReauthModule();
   return CreateIOSDeviceAuthenticator(reauthModule, profile_, params);
+}
+
+std::unique_ptr<device_reauth::DeviceAuthenticator>
+ChromeAutofillClientIOS::GetDeviceAuthenticator(std::string histogram) const {
+  return GetIOSDeviceAuthenticator(std::move(histogram));
 }
 
 std::optional<std::u16string> ChromeAutofillClientIOS::GetUserEmail() {

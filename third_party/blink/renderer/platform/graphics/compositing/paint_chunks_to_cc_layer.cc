@@ -4,7 +4,8 @@
 
 #include "third_party/blink/renderer/platform/graphics/compositing/paint_chunks_to_cc_layer.h"
 
-#include "base/containers/adapters.h"
+#include <ranges>
+
 #include "base/feature_list.h"
 #include "base/logging.h"
 #include "base/memory/raw_ptr_exclusion.h"
@@ -38,13 +39,13 @@ namespace blink {
 
 namespace {
 
-bool IsInCanvasChild(const EffectPaintPropertyNodeOrAlias& starting_effect) {
+bool IsInCanvasDrawable(const EffectPaintPropertyNodeOrAlias& starting_effect) {
   for (const auto* effect = &starting_effect.Unalias(); effect;
        effect = effect->UnaliasedParent()) {
-    // Compositing is disabled under canvas children, so we can stop once the
+    // Compositing is disabled under canvas drawables, so we can stop once the
     // first effect node with compositing reasons is found.
     if (effect->HasDirectCompositingReasons()) {
-      return effect->RequiresCompositingForCanvasChild();
+      return effect->RequiresCompositingForCanvasDrawable();
     }
   }
   return false;
@@ -669,7 +670,7 @@ ScrollTranslationAction ConversionContext<Result>::SwitchToEffect(
   }
 
   // Step 3: Now apply the list of effects in top-down order.
-  for (const auto& sub_effect : base::Reversed(pending_effects)) {
+  for (const auto& sub_effect : std::views::reverse(pending_effects)) {
 #if DCHECK_IS_ON()
     if (!has_effect_hierarchy_issue)
       DCHECK_EQ(current_effect_, sub_effect->UnaliasedParent());
@@ -752,29 +753,41 @@ ScrollTranslationAction ConversionContext<Result>::StartEffect(
   bool has_filter = !!effect.Filter();
   bool has_backdrop_filter = !!effect.BackdropFilter();
   bool has_opacity = effect.Opacity() != 1.f;
-  bool has_other_effects = effect.BlendMode() != SkBlendMode::kSrcOver;
+  bool has_mask = effect.BlendMode() == SkBlendMode::kDstIn;
+  bool has_other_effects =
+      (effect.BlendMode() != SkBlendMode::kSrcOver && !has_mask);
   // We always create separate effect nodes for normal effects and filter
   // effects, so we can handle them separately.
-  DCHECK(!has_filter ||
-         !(has_opacity || has_other_effects || has_backdrop_filter));
+  DCHECK(!has_filter || !(has_opacity || has_mask || has_other_effects ||
+                          has_backdrop_filter));
 
   // Apply effects.
   size_t save_layer_id = kNotFound;
   result_.StartPaint();
   if (!has_filter) {
-    if (has_other_effects) {
+    // Do not save an additional layer for blending mixed with backdrop filter
+    // if the blend mode represents a mask, because the mask will be implemented
+    // with a clip on the layer associated with the backdrop filter.
+    if (has_backdrop_filter) {
+      cc::PaintFlags flags;
+      flags.setAlphaf(effect.Opacity());
+      if (has_mask) {
+        // Masking relies on the blend mode being present on the backdrop layer.
+        flags.setBlendMode(effect.BlendMode());
+      }
+      save_layer_id = EmitBackdropFilter(effect, flags);
+      if (has_other_effects) {
+        // Skia does not apply the backdrop filter when a blend mode is also
+        // present in the flags, so save another layer for the blend.
+        cc::PaintFlags blend_flags;
+        blend_flags.setBlendMode(effect.BlendMode());
+        save_layer_id = push<cc::SaveLayerOp>(blend_flags);
+      }
+    } else if (has_other_effects || has_mask) {
       cc::PaintFlags flags;
       flags.setBlendMode(effect.BlendMode());
       flags.setAlphaf(effect.Opacity());
-      if (has_backdrop_filter) {
-        save_layer_id = EmitBackdropFilter(effect, flags);
-      } else {
-        save_layer_id = push<cc::SaveLayerOp>(flags);
-      }
-    } else if (has_backdrop_filter) {
-      cc::PaintFlags flags;
-      flags.setAlphaf(effect.Opacity());
-      save_layer_id = EmitBackdropFilter(effect, flags);
+      save_layer_id = push<cc::SaveLayerOp>(flags);
     } else {
       save_layer_id = push<cc::SaveLayerAlphaOp>(effect.Opacity());
     }
@@ -1043,7 +1056,7 @@ ConversionContext<cc::DisplayItemList>::ComputeScrollTranslationAction(
     return {};
   }
 
-  if (IsInCanvasChild(chunk_to_layer_mapper_.ChunkState().Effect()) &&
+  if (IsInCanvasDrawable(chunk_to_layer_mapper_.ChunkState().Effect()) &&
       target_scroll_translation.ScrollNode() &&
       target_scroll_translation.ScrollNode()
               ->GetCompositedScrollingPreference() ==
@@ -1427,22 +1440,7 @@ void LayerPropertiesUpdater::UpdateScrollHitTestData(const PaintChunk& chunk) {
       }
     }
 
-    auto scroll_element_id = scroll_node->GetCompositorElementId();
-    if (!RuntimeEnabledFeatures::
-            ScrollingContentsCullRectOnScrollNodeEnabled()) {
-      auto& scroll_tree =
-          layer_.layer_tree_host()->property_trees()->scroll_tree_mutable();
-      if (hit_test_data.scrolling_contents_cull_rect == InfiniteIntRect() ||
-          hit_test_data.scrolling_contents_cull_rect.Contains(
-              scroll_node->ContentsRect())) {
-        scroll_tree.ClearScrollingContentsCullRect(scroll_element_id);
-      } else {
-        scroll_tree.SetScrollingContentsCullRect(
-            scroll_element_id, hit_test_data.scrolling_contents_cull_rect);
-      }
-    }
-
-    if (layer_.element_id() == scroll_element_id) {
+    if (layer_.element_id() == scroll_node->GetCompositorElementId()) {
       // layer_ is the composited layer of the scroll hit test chunk.
       return;
     }
@@ -1450,7 +1448,7 @@ void LayerPropertiesUpdater::UpdateScrollHitTestData(const PaintChunk& chunk) {
 
   if (RuntimeEnabledFeatures::RasterInducingScrollEnabled() &&
       hit_test_data.scroll_translation) {
-    if (!IsInCanvasChild(chunk.properties.Effect()) ||
+    if (!IsInCanvasDrawable(chunk.properties.Effect()) ||
         hit_test_data.scroll_translation->ScrollNode()
                 ->GetCompositedScrollingPreference() !=
             CompositedScrollingPreference::kNotPreferred) {
@@ -1543,7 +1541,8 @@ void LayerPropertiesUpdater::UpdatePreviousNonCompositedScrolls(
     // intersecting with the new chunk will need main thread hit test.
     gfx::Rect chunk_hit_test_rect =
         chunk_to_layer_mapper_.MapVisualRect(chunk.bounds);
-    for (auto& previous_scroll : base::Reversed(top_non_composited_scrolls_)) {
+    for (auto& previous_scroll :
+         std::views::reverse(top_non_composited_scrolls_)) {
       if (previous_scroll.layer_hit_test_rect.Intersects(chunk_hit_test_rect)) {
         previous_scroll.hit_test_opaqueness = cc::HitTestOpaqueness::kMixed;
       }
@@ -1565,7 +1564,8 @@ void LayerPropertiesUpdater::UpdatePreviousNonCompositedScrolls(
   // Find the scroller. Normally the loop runs only one iteration, unless the
   // scrolling contents of the scroller interlace with other scrollers.
   NonCompositedScroll* non_composited_scroll = nullptr;
-  for (auto& previous_scroll : base::Reversed(top_non_composited_scrolls_)) {
+  for (auto& previous_scroll :
+       std::views::reverse(top_non_composited_scrolls_)) {
     if (previous_scroll.scroll_translation == scroll_translation) {
       non_composited_scroll = &previous_scroll;
       break;
@@ -1598,7 +1598,8 @@ void LayerPropertiesUpdater::UpdatePreviousNonCompositedScrolls(
   // stops at scroll_translation. Normally this loop is no-op, unless the
   // scrolling contents of the scroller interlace with other scrollers
   // (which will be tested overlap with the hit_test_rect).
-  for (auto& previous_scroll : base::Reversed(top_non_composited_scrolls_)) {
+  for (auto& previous_scroll :
+       std::views::reverse(top_non_composited_scrolls_)) {
     if (previous_scroll.scroll_translation == scroll_translation) {
       break;
     }

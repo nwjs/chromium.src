@@ -6,11 +6,15 @@ package org.chromium.chrome.browser.tabbed_mode;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import android.content.Context;
@@ -37,7 +41,6 @@ import org.chromium.base.supplier.SettableMonotonicObservableSupplier;
 import org.chromium.base.supplier.SettableNullableObservableSupplier;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.RobolectricUtil;
-import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
@@ -294,9 +297,8 @@ public class TabbedNavigationBarColorControllerUnitTest {
     }
 
     @Test
-    @EnableFeatures({ChromeFeatureList.EDGE_TO_EDGE_EVERYWHERE})
     @Config(sdk = 30) // Min version needed for e2e everywhere
-    public void testNavBarColorAnimationsEdgeToEdgeEverywhere() {
+    public void testNavBarColorAnimations() {
         when(mTab.getBackgroundColor()).thenReturn(Color.BLUE);
         when(mLayoutManager.getActiveLayoutType()).thenReturn(LayoutType.BROWSING);
 
@@ -318,8 +320,8 @@ public class TabbedNavigationBarColorControllerUnitTest {
     }
 
     @Test
-    @DisableFeatures({ChromeFeatureList.EDGE_TO_EDGE_EVERYWHERE})
-    public void testNavBarColorAnimationsEdgeToEdgeBottomChin() {
+    @Config(sdk = 29)
+    public void testNavBarColorAnimations_Legacy() {
         mNavColorController.setIsBottomChinEnabledForTesting(true);
         when(mTab.getBackgroundColor()).thenReturn(Color.BLUE);
         when(mLayoutManager.getActiveLayoutType()).thenReturn(LayoutType.BROWSING);
@@ -342,7 +344,6 @@ public class TabbedNavigationBarColorControllerUnitTest {
     }
 
     @Test
-    @DisableFeatures({ChromeFeatureList.EDGE_TO_EDGE_EVERYWHERE})
     public void testHideNavBarDuringOmniboxSwipe() {
         mNavColorController.setIsBottomChinEnabledForTesting(true);
         Mockito.clearInvocations(mEdgeToEdgeSystemBarColorHelper);
@@ -364,6 +365,37 @@ public class TabbedNavigationBarColorControllerUnitTest {
     }
 
     @Test
+    @EnableFeatures(ChromeFeatureList.BOTTOM_CONTROLS_JANK_IMPROVEMENT)
+    public void testNavBarDuringOmniboxSwipe_withBottomAttachedUi() {
+        mNavColorController.setIsBottomChinEnabledForTesting(true);
+        mNavColorController.onBottomAttachedColorChanged(
+                Color.GRAY, /* forceShowDivider= */ false, /* disableAnimation= */ true);
+        runColorUpdateAnimation();
+
+        Mockito.clearInvocations(mEdgeToEdgeSystemBarColorHelper);
+
+        ArgumentCaptor<LayoutStateObserver> argumentCaptor =
+                ArgumentCaptor.forClass(LayoutStateObserver.class);
+        verify(mLayoutManager).addObserver(argumentCaptor.capture());
+        LayoutStateObserver layoutStateObserver = argumentCaptor.getValue();
+
+        // Simulate omnibox swipe.
+        layoutStateObserver.onStartedShowing(LayoutType.TOOLBAR_SWIPE);
+        runColorUpdateAnimation();
+
+        assertEquals(Color.GRAY, mNavColorController.getNavigationBarColor());
+        verifyNoInteractions(mEdgeToEdgeSystemBarColorHelper);
+
+        // Simulate swipe commit to browsing layout with a new tab color.
+        when(mTab.getBackgroundColor()).thenReturn(Color.RED);
+        layoutStateObserver.onFinishedShowing(LayoutType.BROWSING);
+
+        assertEquals(Color.GRAY, mNavColorController.getNavigationBarColor());
+        assertNull(mNavColorController.getNavbarColorTransitionAnimationForTesting());
+        verify(mEdgeToEdgeSystemBarColorHelper, never()).setNavigationBarColor(eq(Color.RED));
+    }
+
+    @Test
     public void testOverviewColorEnabled() {
         mNavColorController.enableOverviewMode();
 
@@ -374,7 +406,7 @@ public class TabbedNavigationBarColorControllerUnitTest {
     }
 
     @Test
-    public void testOverviewModeDisabled() {
+    public void testOverviewModeDisabled_ignoresLateHubColorUpdates() {
         when(mTab.getBackgroundColor()).thenReturn(Color.LTGRAY);
         when(mLayoutManager.getActiveLayoutType()).thenReturn(LayoutType.BROWSING);
         mNavColorController.updateActiveTabForTesting();
@@ -385,10 +417,12 @@ public class TabbedNavigationBarColorControllerUnitTest {
 
         Mockito.clearInvocations(mEdgeToEdgeSystemBarColorHelper);
 
+        // Late emissions from the fading-out Hub are ignored. The reset to the tab color is
+        // driven by LayoutStateObserver#onStartedHiding instead, see
+        // testLayoutStateObserver_onStartedHiding_swappedOrder.
         mNavColorController.disableOverviewMode();
         mOverviewColorSupplier.set(Color.RED);
-        // Color should reset to the tab background color.
-        verify(mEdgeToEdgeSystemBarColorHelper).setNavigationBarColor(eq(Color.LTGRAY));
+        verify(mEdgeToEdgeSystemBarColorHelper, never()).setNavigationBarColor(anyInt());
     }
 
     @Test
@@ -432,6 +466,50 @@ public class TabbedNavigationBarColorControllerUnitTest {
         observer.onStartedHiding(LayoutType.HUB);
 
         verify(mEdgeToEdgeSystemBarColorHelper).setNavigationBarColor(eq(Color.LTGRAY));
+    }
+
+    @Test
+    public void testOverviewColorChangeWhileHubHiding_doesNotCancelColorTransition() {
+        mNavColorController.setIsBottomChinEnabledForTesting(true);
+        // Tab color is RED and Hub color is BLUE to match verifyColorAnimationSteps().
+        when(mTab.getBackgroundColor()).thenReturn(Color.RED);
+        when(mLayoutManager.getActiveLayoutType()).thenReturn(LayoutType.BROWSING);
+        mNavColorController.updateActiveTabForTesting();
+        runColorUpdateAnimation();
+
+        ArgumentCaptor<LayoutStateObserver> captor =
+                ArgumentCaptor.forClass(LayoutStateObserver.class);
+        verify(mLayoutManager).addObserver(captor.capture());
+        LayoutStateObserver observer = captor.getValue();
+
+        // Enter the Hub and take on its color.
+        observer.onStartedShowing(LayoutType.HUB);
+        mOverviewColorSupplier.set(Color.BLUE);
+        runColorUpdateAnimation();
+        verify(mEdgeToEdgeSystemBarColorHelper, atLeastOnce())
+                .setNavigationBarColor(eq(Color.BLUE));
+
+        Mockito.clearInvocations(mEdgeToEdgeSystemBarColorHelper);
+
+        // Start hiding the Hub. This clears overview mode and starts animating back to the tab
+        // color.
+        observer.onStartedHiding(LayoutType.HUB);
+
+        // The Hub is still fading out and keeps pushing colors. These must be ignored; otherwise
+        // the transition started above is ended early and the color snaps to its final value.
+        mOverviewColorSupplier.set(Color.GREEN);
+        mOverviewColorSupplier.set(Color.TRANSPARENT);
+
+        assertTrue(
+                "The Hub -> browsing color transition should still be running.",
+                mNavColorController.getNavbarColorTransitionAnimationForTesting().isRunning());
+
+        runColorUpdateAnimation();
+
+        ArgumentCaptor<Integer> colorsArgumentCaptor = ArgumentCaptor.forClass(Integer.class);
+        verify(mEdgeToEdgeSystemBarColorHelper, atLeastOnce())
+                .setNavigationBarColor(colorsArgumentCaptor.capture());
+        verifyColorAnimationSteps(colorsArgumentCaptor.getAllValues());
     }
 
     private void runColorUpdateAnimation() {

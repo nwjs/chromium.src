@@ -54,7 +54,7 @@ action_with_pydeps("generate_sandboxed_service_srcjar") {
   _rebased_srcjar_path = rebase_path(_srcjar_path, root_build_dir)
 
   args = [
-    "40",
+    "2",
     _rebased_srcjar_path,
   ]
   outputs = [ _srcjar_path ]
@@ -418,6 +418,7 @@ android_library("content_full_java") {
     "java/src/org/chromium/content_public/browser/NavigationEntry.java",
     "java/src/org/chromium/content_public/browser/NavigationHandle.java",
     "java/src/org/chromium/content_public/browser/NavigationHistory.java",
+    "java/src/org/chromium/content_public/browser/NavigationResult.java",
     "java/src/org/chromium/content_public/browser/NavigationState.java",
     "java/src/org/chromium/content_public/browser/Page.java",
     "java/src/org/chromium/content_public/browser/PageState.java",
@@ -567,6 +568,7 @@ generate_jni("content_jni_headers") {
     "java/src/org/chromium/content_public/browser/LoadCommittedDetails.java",
     "java/src/org/chromium/content_public/browser/LoadUrlParams.java",
     "java/src/org/chromium/content_public/browser/NavigationHandle.java",
+    "java/src/org/chromium/content_public/browser/NavigationResult.java",
     "java/src/org/chromium/content_public/browser/SharedArrayBuffer.java",
   ]
 
@@ -742,6 +744,7 @@ robolectric_binary("content_junit_tests") {
     "junit/src/org/chromium/content/browser/GestureListenerManagerImplUnitTest.java",
     "junit/src/org/chromium/content/browser/ScreenOrientationProviderImplTest.java",
     "junit/src/org/chromium/content/browser/SpareChildConnectionTest.java",
+    "junit/src/org/chromium/content/browser/SpeechRecognitionImplTest.java",
     "junit/src/org/chromium/content/browser/WindowEventObserverManagerTest.java",
     "junit/src/org/chromium/content/browser/accessibility/AccessibilityNodeInfoBuilderTest.java",
     "junit/src/org/chromium/content/browser/accessibility/AccessibilityNodeInfoUtilsUnitTest.java",
@@ -795,6 +798,7 @@ robolectric_binary("content_junit_tests") {
     "//content/public/common:common_java",
     "//content/public/test/android:content_java_test_support",
     "//media/mojo/mojom:mojom_java",
+    "//media/mojo/mojom:web_speech_recognition_java",
     "//mojo/public/java:base_java",
     "//mojo/public/java:bindings_java",
     "//mojo/public/mojom/base:base_java",

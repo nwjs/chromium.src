@@ -31,7 +31,8 @@
 #include "ui/views/widget/widget.h"
 
 SplitTabView::SplitTabView(TabCollectionNode* collection_node)
-    : collection_node_(collection_node),
+    : orientation_(collection_node->orientation()),
+      collection_node_(collection_node),
       hover_controller_(gfx::Animation::ShouldRenderRichAnimation()
                             ? std::make_unique<GlowHoverController>(
                                   this,
@@ -118,22 +119,28 @@ void SplitTabView::OnPaint(gfx::Canvas* canvas) {
 
 views::ProposedLayout SplitTabView::CalculateProposedLayout(
     const views::SizeBounds& size_bounds) const {
-  if (collection_node_ &&
-      collection_node_->orientation() == TabStripOrientation::kHorizontal) {
+  if (orientation_ == TabStripOrientation::kHorizontal) {
     return CalculateHorizontalLayout(size_bounds);
   }
   return CalculateVerticalLayout(size_bounds);
 }
 
 gfx::Size SplitTabView::GetMinimumSize() const {
-  if (collection_node_ &&
-      collection_node_->orientation() == TabStripOrientation::kHorizontal) {
+  if (orientation_ == TabStripOrientation::kHorizontal) {
+    const auto children = collection_node_
+                              ? collection_node_->GetDirectChildren()
+                              : TabCollectionNode::ChildViews();
+    if (children.empty()) {
+      return gfx::Size(0, 0);
+    }
     int min_width = 0;
-    for (views::View* child : children()) {
+    for (views::View* child : children) {
       min_width += child->GetMinimumSize().width();
     }
     const int tab_overlap = TabStyle::Get()->GetTabOverlap();
-    return gfx::Size(std::max(0, min_width - tab_overlap),
+    const int total_overlap =
+        static_cast<int>(children.size() - 1) * tab_overlap;
+    return gfx::Size(std::max(0, min_width - total_overlap),
                      TabStyle::Get()->GetStandardHeight());
   }
   return views::View::GetMinimumSize();
@@ -246,7 +253,7 @@ views::ProposedLayout SplitTabView::CalculateHorizontalLayout(
   views::ProposedLayout layouts;
   const auto children = collection_node_ ? collection_node_->GetDirectChildren()
                                          : TabCollectionNode::ChildViews();
-  if (children.size() != 2) {
+  if (children.empty()) {
     layouts.host_size = gfx::Size(0, 0);
     return layouts;
   }
@@ -265,9 +272,13 @@ views::ProposedLayout SplitTabView::CalculateHorizontalLayout(
 
     // Fill available width evenly if bounded.
     if (size_bounds.width().is_bounded()) {
-      const int available_width = size_bounds.width().value() + tab_overlap;
-      bounds.set_width(i == 0 ? std::floor(available_width / 2)
-                              : available_width - first_child_width);
+      if (children.size() == 1) {
+        bounds.set_width(size_bounds.width().value());
+      } else {
+        const int available_width = size_bounds.width().value() + tab_overlap;
+        bounds.set_width(i == 0 ? std::floor(available_width / 2)
+                                : available_width - first_child_width);
+      }
     }
     first_child_width = bounds.width();
     if (i < children.size() - 1) {

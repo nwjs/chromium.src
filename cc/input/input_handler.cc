@@ -159,6 +159,14 @@ InputHandler::ScrollStatus InputHandler::ScrollBegin(ScrollState* scroll_state,
     }
   }
 
+  // A snap fling constraint is valid only for the fling that set it. The
+  // cleanup in ScrollEnd() is deferred while a snap animation runs, so a new
+  // gesture can begin before that cleanup happens. Reset the constraint here so
+  // that it cannot clamp the scroll updates of the new gesture.
+  snap_fling_state_ = kNoFling;
+  fling_snap_constrain_x_ = std::nullopt;
+  fling_snap_constrain_y_ = std::nullopt;
+
   // This allows re-latch to an existing `CurrentlyScrollNode()`, if it is the
   // same scroll type - and animations / snaps have not yet been resolved on it.
   if (CurrentlyScrollingNode() && type == latched_scroll_type_ &&
@@ -360,7 +368,15 @@ InputHandlerScrollResult InputHandler::ScrollUpdate(
     AdjustScrollDeltaForScrollbarSnap(scroll_state);
   }
 
-  bool use_unconstrained = prevent_scroll_axis_locking_.value();
+  // TODO(crbug.com/535432422): Delete unconstrained deltas once
+  // kApplyScrollRailingInRenderer is launched and the legacy path is removed.
+  // When kApplyScrollRailingInRenderer is enabled, the browser will not rail
+  // the deltas so delta_x/delta_y will contain unconstrained values when
+  // necessary (i.e. when axis locking is prevented). Otherwise, explicitly fall
+  // back to unconstrained deltas when axis locking is prevented.
+  bool use_unconstrained =
+      !base::FeatureList::IsEnabled(features::kApplyScrollRailingInRenderer) &&
+      prevent_scroll_axis_locking_;
   float delta_x = use_unconstrained ? scroll_state.delta_x_unconstrained()
                                     : scroll_state.delta_x();
   float delta_y = use_unconstrained ? scroll_state.delta_y_unconstrained()
@@ -2388,8 +2404,13 @@ ScrollNode* InputHandler::FindNodeToLatch(ScrollState* scroll_state,
 }
 
 void InputHandler::UpdateRootLayerStateForSynchronousInputHandler() {
-  if (!input_handler_client_)
+  // If the active tree doesn't have an inner viewport scroll node yet, the
+  // compositor is uninitialized/unactivated and page scale factor defaults to
+  // 1.0. Avoid sending premature scale updates to the client until the root
+  // viewport scroll node is ready.
+  if (!input_handler_client_ || !ActiveTree().InnerViewportScrollNode()) {
     return;
+  }
   input_handler_client_->UpdateRootLayerStateForSynchronousInputHandler(
       ActiveTree().TotalScrollOffset(), ActiveTree().TotalMaxScrollOffset(),
       ActiveTree().ScrollableSize(), ActiveTree().current_page_scale_factor(),
@@ -2410,7 +2431,7 @@ void InputHandler::DidLatchToScroller(const ScrollState& scroll_state,
   latched_scroll_type_ = type;
   last_scroll_begin_state_ = scroll_state;
   prevent_scroll_axis_locking_ =
-      !!CurrentlyScrollingNode()->prevent_scroll_axis_locking;
+      CurrentlyScrollingNode()->prevent_scroll_axis_locking;
 
   ClearAnimatingSnapTargetsForElement(last_latched_scroller_);
 
@@ -2584,7 +2605,7 @@ void InputHandler::ClearCurrentlyScrollingNode() {
   delta_consumed_for_scroll_gesture_ = false;
   // TODO(crbug.com/479472367): Combine optional field related to latched node
   // into single struct.
-  prevent_scroll_axis_locking_.reset();
+  prevent_scroll_axis_locking_ = false;
   latched_scroll_type_.reset();
   last_scroll_update_state_.reset();
   last_scroll_begin_state_.reset();

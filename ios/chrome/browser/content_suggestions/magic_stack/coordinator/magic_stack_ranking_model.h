@@ -25,11 +25,13 @@ class AuthenticationService;
 enum class ContentSuggestionsModuleType;
 class LevelUpService;
 @protocol HomeStartDataSource;
+@protocol LevelUpCommands;
 @class MagicStackModule;
 @protocol MagicStackRankingModelDelegate;
 class PrefService;
 class TemplateURLService;
 class TipsManagerIOS;
+class HomeBackgroundCustomizationService;
 
 // Manages the Magic Stack module ranking fetch and returns the
 @interface MagicStackRankingModel : NSObject
@@ -40,21 +42,27 @@ class TipsManagerIOS;
 // Data Source for the Home Start state.
 @property(nonatomic, weak) id<HomeStartDataSource> homeStartDataSource;
 
+// Handler for Level Up commands.
+@property(nonatomic, weak) id<LevelUpCommands> levelUpHandler;
+
 // Default initializer with the module mediators passed in through
 // `moduleMediators`.
 - (instancetype)
-    initWithSegmentationService:
-        (segmentation_platform::SegmentationPlatformService*)segmentationService
-                shoppingService:(commerce::ShoppingService*)shoppingService
-                    authService:(AuthenticationService*)authenticationService
-                    prefService:(PrefService*)prefService
-                     localState:(PrefService*)localState
-                moduleMediators:(NSArray*)moduleMediators
-                    tipsManager:(TipsManagerIOS*)tipsManager
-             templateURLService:(TemplateURLService*)templateURLService
-          appStoreBundleService:(AppStoreBundleService*)appStoreBundleService
-                  bookmarkModel:(bookmarks::BookmarkModel*)bookmarkModel
-                 levelUpService:(LevelUpService*)levelUpService
+       initWithSegmentationService:
+           (segmentation_platform::SegmentationPlatformService*)
+               segmentationService
+                   shoppingService:(commerce::ShoppingService*)shoppingService
+                       authService:(AuthenticationService*)authenticationService
+                       prefService:(PrefService*)prefService
+                        localState:(PrefService*)localState
+                   moduleMediators:(NSArray*)moduleMediators
+                       tipsManager:(TipsManagerIOS*)tipsManager
+                templateURLService:(TemplateURLService*)templateURLService
+             appStoreBundleService:(AppStoreBundleService*)appStoreBundleService
+                     bookmarkModel:(bookmarks::BookmarkModel*)bookmarkModel
+                    levelUpService:(LevelUpService*)levelUpService
+    backgroundCustomizationService:
+        (HomeBackgroundCustomizationService*)backgroundCustomizationService
     NS_DESIGNATED_INITIALIZER;
 
 - (instancetype)init NS_UNAVAILABLE;

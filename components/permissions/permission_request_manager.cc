@@ -13,6 +13,7 @@
 #include "base/auto_reset.h"
 #include "base/check_op.h"
 #include "base/command_line.h"
+#include "base/containers/flat_set.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/logging.h"
@@ -58,6 +59,7 @@
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/web_contents.h"
+#include "third_party/blink/public/mojom/devtools/inspector_issue.mojom.h"
 #include "ui/base/window_open_disposition_utils.h"
 #include "ui/display/screen.h"
 #include "ui/display/types/display_constants.h"
@@ -273,7 +275,18 @@ void PermissionRequestManager::AddRequest(
     return;
   }
 
+  // Cancel all requests if the WebContents does not support permission
+  // requests at all. This takes priority over
+  // `allowlist_for_permission_requests_`.
   if (!web_contents_supports_permission_requests_) {
+    request->Cancelled();
+    return;
+  }
+
+  // If the WebContents only supports specific permission types, cancel any
+  // request not in the allowlist.
+  if (allowlist_for_permission_requests_.has_value() &&
+      !allowlist_for_permission_requests_->contains(request->request_type())) {
     request->Cancelled();
     return;
   }
@@ -346,6 +359,9 @@ void PermissionRequestManager::AddRequest(
   // the frame is navigated, we still record the correct source_id.
   request->set_ukm_source_id(source_frame->GetPageUkmSourceId());
 
+  MaybeReportGeolocationPromptWithoutUserGestureInspectorIssue(request.get(),
+                                                               source_frame);
+
   QueueRequest(source_frame, std::move(request));
 
   if (!IsRequestInProgress()) {
@@ -354,6 +370,59 @@ void PermissionRequestManager::AddRequest(
   }
 
   ReprioritizeCurrentRequestIfNeeded();
+}
+
+void PermissionRequestManager::
+    MaybeReportGeolocationPromptWithoutUserGestureInspectorIssue(
+        const PermissionRequest* request,
+        content::RenderFrameHost* source_frame) {
+  if (request->request_type() == RequestType::kGeolocation &&
+      !request->IsEmbeddedPermissionElementInitiated() &&
+      request->GetGestureType() == PermissionRequestGestureType::NO_GESTURE &&
+      !had_same_origin_navigation_) {
+    auto details = blink::mojom::InspectorIssueDetails::New();
+    auto generic_issue_details = blink::mojom::GenericIssueDetails::New();
+    generic_issue_details->error_type = blink::mojom::GenericIssueErrorType::
+        kGeolocationPromptWithoutUserGesture;
+    generic_issue_details->frame_id =
+        source_frame->GetDevToolsFrameToken().ToString();
+    details->generic_issue_details = std::move(generic_issue_details);
+    auto issue_info = blink::mojom::InspectorIssueInfo::New(
+        blink::mojom::InspectorIssueCode::kGenericIssue, std::move(details));
+    source_frame->ReportInspectorIssue(std::move(issue_info));
+  }
+}
+
+void PermissionRequestManager::CancelAllRequestsWithType(
+    RequestType request_type) {
+  std::vector<PermissionRequest*> pending_to_cancel;
+  for (const base::circular_deque<std::unique_ptr<PermissionRequest>>&
+           request_list : pending_permission_requests_) {
+    for (const std::unique_ptr<PermissionRequest>& request : request_list) {
+      if (request->request_type() == request_type) {
+        pending_to_cancel.push_back(request.get());
+      }
+    }
+  }
+  for (PermissionRequest* request : pending_to_cancel) {
+    if (pending_permission_requests_.Contains(request)) {
+      std::erase(validated_requests_, *request);
+      request_sources_map_.erase(
+          base::raw_ref<PermissionRequest>::from_ptr(request));
+      CancelRequestIncludingDuplicates(request);
+      FinishRequestIncludingDuplicates(request);
+      pending_permission_requests_.Erase(request);
+    }
+  }
+
+  if (can_preempt_current_request_ &&
+      std::ranges::any_of(
+          requests_,
+          [request_type](const std::unique_ptr<PermissionRequest>& element) {
+            return element->request_type() == request_type;
+          })) {
+    Ignore(/*prompt_options=*/std::monostate());
+  }
 }
 
 bool PermissionRequestManager::ReprioritizeCurrentRequestIfNeeded() {

@@ -1637,8 +1637,7 @@ void LayerTreeImpl::DidUpdatePageScale() {
     if (host_impl_->recycle_tree())
       host_impl_->recycle_tree()->DidUpdatePageScale();
 
-    if (settings().scrollbar_flash_once_after_scroll_update ||
-        settings().scrollbar_flash_after_any_scroll_update) {
+    if (settings().scrollbar_flash_once_after_scroll_update) {
       host_impl_->OnPageScaleUpdated();
     } else if (auto* scroll_node = host_impl_->OuterViewportScrollNode()) {
       if (ScrollbarAnimationController* controller =
@@ -1902,12 +1901,13 @@ bool LayerTreeImpl::UpdateDrawProperties(
   occlusion_tracker.set_minimum_tracking_size(
       settings().minimum_occlusion_tracking_size);
 
-  for (EffectTreeLayerListIterator it(this);
-       it.state() != EffectTreeLayerListIterator::State::kEnd; ++it) {
-    occlusion_tracker.EnterLayer(it);
+  for (EffectTreeLayerListIterator it(*this);
+       it.state() != EffectTreeLayerListIterator::State::kEnd;
+       it.Advance(*this)) {
+    occlusion_tracker.EnterLayer(it, *this);
 
     if (it.state() == EffectTreeLayerListIterator::State::kLayer) {
-      LayerImpl* layer = it.current_layer();
+      LayerImpl* layer = it.CurrentLayer(*this);
       layer->draw_properties().occlusion_in_content_space =
           occlusion_tracker.GetCurrentOcclusionForLayer(layer->DrawTransform());
     }
@@ -1919,7 +1919,7 @@ bool LayerTreeImpl::UpdateDrawProperties(
       const RenderSurfaceImpl* occlusion_surface =
           occlusion_tracker.OcclusionSurfaceForContributingSurface();
       gfx::Transform draw_transform;
-      RenderSurfaceImpl* render_surface = it.current_render_surface();
+      RenderSurfaceImpl* render_surface = it.CurrentRenderSurface(*this);
       if (occlusion_surface) {
         // We are calculating transform between two render surfaces. So, we
         // need to apply the surface contents scale at target and remove the
@@ -1941,7 +1941,7 @@ bool LayerTreeImpl::UpdateDrawProperties(
       render_surface->set_occlusion_in_content_space(occlusion);
     }
 
-    occlusion_tracker.LeaveLayer(it);
+    occlusion_tracker.LeaveLayer(it, *this);
   }
 
   unoccluded_screen_space_region_ =
@@ -2281,8 +2281,9 @@ void LayerTreeImpl::AsValueInto(base::trace_event::TracedValue* state) const {
 
   state->BeginArray("render_surface_layer_list");
   for (auto* layer : base::Reversed(*this)) {
-    if (layer->contributes_to_drawn_render_surface())
+    if (!layer->contributes_to_drawn_render_surface()) {
       continue;
+    }
     viz::TracedValue::AppendIDRef(viz::TracedValue::Id(layer), state);
   }
   state->EndArray();
@@ -3358,13 +3359,6 @@ bool LayerTreeImpl::IsAnimatingHUDContents() const {
 base::flat_set<blink::ViewTransitionToken>
 LayerTreeImpl::GetCaptureViewTransitionTokens() const {
   base::flat_set<blink::ViewTransitionToken> result;
-  // This effectively disables the new mode, since none of the capture tokens
-  // will apply.
-  if (!base::FeatureList::IsEnabled(
-          features::kViewTransitionCaptureAndDisplay)) {
-    return result;
-  }
-
   for (const auto& request : view_transition_requests_) {
     if (request->type() == ViewTransitionRequest::Type::kSave) {
       result.insert(request->token());

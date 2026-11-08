@@ -24,6 +24,10 @@ class MockActorUiStateManager : public ActorUiStateManagerInterface {
 #if !BUILDFLAG(IS_ANDROID)
   MOCK_METHOD(void, LazyInitTabTracker, (), (override));
 #endif
+  MOCK_METHOD(base::WeakPtr<ActorNavigationThrottle::Delegate>,
+              GetNavigationDelegate,
+              (),
+              (override));
 };
 
 }  // namespace actor::ui

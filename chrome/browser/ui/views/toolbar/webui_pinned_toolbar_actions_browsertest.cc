@@ -4,10 +4,13 @@
 
 #include "chrome/browser/ui/views/toolbar/webui_pinned_toolbar_actions.h"
 
+#include <algorithm>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
 
+#include "base/functional/function_ref.h"
 #include "base/memory/raw_ref.h"
 #include "base/run_loop.h"
 #include "base/scoped_observation.h"
@@ -26,6 +29,7 @@
 #include "chrome/browser/ui/side_panel/side_panel_ui.h"
 #include "chrome/browser/ui/toolbar/pinned_toolbar/pinned_toolbar_actions_model.h"
 #include "chrome/browser/ui/ui_features.h"
+#include "chrome/browser/ui/views/toolbar/download_button.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
 #include "chrome/browser/ui/views/toolbar/webui_pinned_toolbar_actions_test_base.h"
 #include "chrome/browser/ui/views/toolbar/webui_test_utils.h"
@@ -41,7 +45,8 @@
 #include "net/test/embedded_test_server/embedded_test_server.h"
 #include "ui/accessibility/ax_enums.mojom.h"
 #include "ui/accessibility/ax_node_data.h"
-#include "ui/accessibility/platform/ax_platform_node_delegate.h"
+#include "ui/accessibility/ax_node_id_forward.h"
+#include "ui/accessibility/ax_tree_update.h"
 #include "ui/actions/actions.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/models/image_model.h"
@@ -121,10 +126,59 @@ class AXAnnouncementObserver : public views::AXUpdateObserver {
       observation_{this};
 };
 
+// Returns a copy of the first node in the accessibility tree of `web_contents`
+// that satisfies `predicate`, or std::nullopt if there is none. A copy is
+// returned so that callers can keep it across accessibility tree updates.
+std::optional<ui::AXNodeData> FindAccessibilityNodeData(
+    content::WebContents* web_contents,
+    base::FunctionRef<bool(const ui::AXNodeData&)> predicate) {
+  ui::AXTreeUpdate snapshot =
+      content::GetAccessibilityTreeSnapshot(web_contents);
+  auto it = std::ranges::find_if(snapshot.nodes, predicate);
+  if (it == snapshot.nodes.end()) {
+    return std::nullopt;
+  }
+  return *it;
+}
+
 }  // namespace
 
 class WebUIPinnedToolbarActionsBrowserTest
-    : public WebUIPinnedToolbarActionsTestBase {};
+    : public WebUIPinnedToolbarActionsTestBase {
+ protected:
+  // Polls the accessibility tree of `web_contents` until the node with
+  // `node_id` is a toggle button exposing `expected_name`,
+  // `expected_description`, and `expected_checked_state`.
+  testing::AssertionResult WaitForButtonAccessibleState(
+      content::WebContents* web_contents,
+      ui::AXNodeID node_id,
+      std::string_view expected_name,
+      std::string_view expected_description,
+      ax::mojom::CheckedState expected_checked_state =
+          ax::mojom::CheckedState::kFalse) {
+    std::optional<ui::AXNodeData> node;
+    if (base::test::RunUntil([&]() {
+          node = FindAccessibilityNodeData(
+              web_contents, [node_id](const ui::AXNodeData& data) {
+                return data.id == node_id;
+              });
+          return node && node->role == ax::mojom::Role::kToggleButton &&
+                 node->GetStringAttribute(ax::mojom::StringAttribute::kName) ==
+                     expected_name &&
+                 node->GetStringAttribute(
+                     ax::mojom::StringAttribute::kDescription) ==
+                     expected_description &&
+                 node->GetCheckedState() == expected_checked_state;
+        })) {
+      return testing::AssertionSuccess();
+    }
+    return testing::AssertionFailure()
+           << "Expected name=\"" << expected_name << "\" description=\""
+           << expected_description
+           << "\" checked_state=" << expected_checked_state
+           << ". Actual: " << (node ? node->ToString() : "<missing>");
+  }
+};
 
 IN_PROC_BROWSER_TEST_F(WebUIPinnedToolbarActionsBrowserTest,
                        PinUnpinIndividually) {
@@ -146,7 +200,6 @@ IN_PROC_BROWSER_TEST_F(WebUIPinnedToolbarActionsBrowserTest, PinAllTogether) {
 }
 
 IN_PROC_BROWSER_TEST_F(WebUIPinnedToolbarActionsBrowserTest, RouteMediaIcons) {
-  auto* web_contents = GetWebContents();
   auto* action_item = static_cast<actions::StatefulImageActionItem*>(
       actions::ActionManager::Get().FindAction(
           kActionRouteMedia,
@@ -195,15 +248,15 @@ IN_PROC_BROWSER_TEST_F(WebUIPinnedToolbarActionsBrowserTest, RouteMediaIcons) {
     PinAction(kActionRouteMedia, mojom_action);
 
     // Make sure the icon got wired through.
-    EXPECT_EQ(test.expected_icon,
-              EvalJsOnPinnedButton(
-                  web_contents, mojom_action,
-                  "return btn?.getAttribute('iron-icon') || '(null)'"));
+    EXPECT_EQ(
+        test.expected_icon,
+        EvalJsOnPinnedAction(
+            mojom_action, "return btn?.getAttribute('iron-icon') || '(null)'"));
 
     // And the color.
     EXPECT_EQ(
         "--cr-icon-button-fill-color: rgba(255, 0, 255, 1.00);",
-        EvalJsOnPinnedButton(web_contents, mojom_action,
+        EvalJsOnPinnedAction(mojom_action,
                              "return btn?.getAttribute('style') || '(null)'"));
 
     UnpinAction(kActionRouteMedia, mojom_action);
@@ -212,7 +265,6 @@ IN_PROC_BROWSER_TEST_F(WebUIPinnedToolbarActionsBrowserTest, RouteMediaIcons) {
 
 IN_PROC_BROWSER_TEST_F(WebUIPinnedToolbarActionsBrowserTest,
                        PasswordManagerIcon) {
-  auto* web_contents = GetWebContents();
   auto* action_item = static_cast<actions::StatefulImageActionItem*>(
       actions::ActionManager::Get().FindAction(
           kActionRouteMedia,
@@ -227,25 +279,19 @@ IN_PROC_BROWSER_TEST_F(WebUIPinnedToolbarActionsBrowserTest,
   EXPECT_EQ(features::IsRoundedIconsEnabled()
                 ? "webui-toolbar:password_manager"
                 : "webui-toolbar:password_manager_old",
-            EvalJsOnPinnedButton(
-                web_contents,
+            EvalJsOnPinnedAction(
                 toolbar_ui_api::mojom::PinnedToolbarAction::
                     kShowPasswordsBubbleOrPage,
                 "return btn?.getAttribute('iron-icon') || '(null)'"));
 }
 
 IN_PROC_BROWSER_TEST_F(WebUIPinnedToolbarActionsBrowserTest, SidePanelToggle) {
-  WebUIToolbarWebView* webui_toolbar_view = GetWebUIToolbarWebView(browser());
-  views::WebView* web_view = webui_toolbar_view->GetWebViewForTesting();
-  content::WebContents* web_contents = web_view->GetWebContents();
-
   actions::ActionId action_id = kActionSidePanelShowCustomizeChrome;
   auto mojom_action =
       toolbar_ui_api::mojom::PinnedToolbarAction::kSidePanelShowCustomizeChrome;
 
   model_->UpdatePinnedState(action_id, true);
-  ASSERT_TRUE(base::test::RunUntil(
-      [&]() { return IsPinnedButtonVisible(web_contents, mojom_action); }));
+  ASSERT_TRUE(WaitForPinnedActionVisible(mojom_action));
 
   auto* side_panel_ui = SidePanelUI::From(browser());
   auto is_any_side_panel_showing = [&]() {
@@ -253,20 +299,16 @@ IN_PROC_BROWSER_TEST_F(WebUIPinnedToolbarActionsBrowserTest, SidePanelToggle) {
   };
 
   // Show side panel.
-  EXPECT_TRUE(ClickPinnedButton(web_contents, mojom_action));
+  EXPECT_TRUE(ClickPinnedAction(mojom_action));
   ASSERT_TRUE(base::test::RunUntil(is_any_side_panel_showing));
 
   // Dismiss side panel.
-  EXPECT_TRUE(ClickPinnedButton(web_contents, mojom_action));
+  EXPECT_TRUE(ClickPinnedAction(mojom_action));
   ASSERT_TRUE(
       base::test::RunUntil([&]() { return !is_any_side_panel_showing(); }));
 }
 
 IN_PROC_BROWSER_TEST_F(WebUIPinnedToolbarActionsBrowserTest, InvokeActions) {
-  WebUIToolbarWebView* webui_toolbar_view = GetWebUIToolbarWebView(browser());
-  views::WebView* web_view = webui_toolbar_view->GetWebViewForTesting();
-  content::WebContents* web_contents = web_view->GetWebContents();
-
   // QR code generator and translate actions only work with a legitimate
   // non-chrome:// URL
   net::EmbeddedTestServer https_server(net::EmbeddedTestServer::TYPE_HTTPS);
@@ -286,21 +328,17 @@ IN_PROC_BROWSER_TEST_F(WebUIPinnedToolbarActionsBrowserTest, InvokeActions) {
             actions::ActionInvocationContext context) { invoked = true; }));
 
     model_->UpdatePinnedState(action_id, true);
-    ASSERT_TRUE(base::test::RunUntil(
-        [&]() { return IsPinnedButtonVisible(web_contents, mojom_action); }));
+    ASSERT_TRUE(WaitForPinnedActionVisible(mojom_action));
 
-    EXPECT_TRUE(ClickPinnedButton(web_contents, mojom_action));
+    EXPECT_TRUE(ClickPinnedAction(mojom_action));
     ASSERT_TRUE(base::test::RunUntil([&]() { return invoked; }));
     model_->UpdatePinnedState(action_id, false);
-    ASSERT_TRUE(base::test::RunUntil(
-        [&]() { return !IsPinnedButtonVisible(web_contents, mojom_action); }));
+    ASSERT_TRUE(WaitForPinnedActionHidden(mojom_action));
   }
 }
 
 IN_PROC_BROWSER_TEST_F(WebUIPinnedToolbarActionsBrowserTest, EphemeralActions) {
   WebUIToolbarWebView* webui_toolbar_view = GetWebUIToolbarWebView(browser());
-  views::WebView* web_view = webui_toolbar_view->GetWebViewForTesting();
-  content::WebContents* web_contents = web_view->GetWebContents();
 
   actions::ActionId action_id = kActionPrint;
   toolbar_ui_api::mojom::PinnedToolbarAction mojom_action =
@@ -308,34 +346,36 @@ IN_PROC_BROWSER_TEST_F(WebUIPinnedToolbarActionsBrowserTest, EphemeralActions) {
 
   // Initially not pinned and not visible.
   ASSERT_FALSE(model_->Contains(action_id));
-  ASSERT_FALSE(IsPinnedButtonVisible(web_contents, mojom_action));
+  ASSERT_FALSE(IsPinnedActionVisible(mojom_action));
 
   // Show ephemerally.
   webui_toolbar_view->GetPinnedToolbarActions()->ShowActionEphemerallyInToolbar(
       action_id, true);
 
-  ASSERT_TRUE(base::test::RunUntil(
-      [&]() { return IsPinnedButtonVisible(web_contents, mojom_action); }));
+  ASSERT_TRUE(WaitForPinnedActionVisible(mojom_action));
 
-  // Verify it's highlighted.
-  EXPECT_TRUE(EvalJsOnPinnedButton(web_contents, mojom_action,
+  // Verify it's not highlighted.
+  EXPECT_TRUE(EvalJsOnPinnedAction(mojom_action,
                                    "return !!btn && "
-                                   "btn.hasAttribute('is-menu-open');")
+                                   "!btn.hasAttribute('is-menu-open');")
+                  .ExtractBool());
+
+  // Verify it's popped out and not prevented from overflowing.
+  EXPECT_TRUE(EvalJsOnPinnedAction(
+                  mojom_action,
+                  "return actionEl.poppedOut && !actionEl.preventOverflow;")
                   .ExtractBool());
 
   // Hide ephemerally.
   webui_toolbar_view->GetPinnedToolbarActions()->ShowActionEphemerallyInToolbar(
       action_id, false);
 
-  ASSERT_TRUE(base::test::RunUntil(
-      [&]() { return !IsPinnedButtonVisible(web_contents, mojom_action); }));
+  ASSERT_TRUE(WaitForPinnedActionHidden(mojom_action));
 }
 
 IN_PROC_BROWSER_TEST_F(WebUIPinnedToolbarActionsBrowserTest,
                        UpdateActionState) {
   WebUIToolbarWebView* webui_toolbar_view = GetWebUIToolbarWebView(browser());
-  views::WebView* web_view = webui_toolbar_view->GetWebViewForTesting();
-  content::WebContents* web_contents = web_view->GetWebContents();
 
   actions::ActionId action_id = kActionPrint;
   toolbar_ui_api::mojom::PinnedToolbarAction mojom_action =
@@ -343,38 +383,39 @@ IN_PROC_BROWSER_TEST_F(WebUIPinnedToolbarActionsBrowserTest,
 
   // Initially not pinned and not visible.
   ASSERT_FALSE(model_->Contains(action_id));
-  ASSERT_FALSE(IsPinnedButtonVisible(web_contents, mojom_action));
+  ASSERT_FALSE(IsPinnedActionVisible(mojom_action));
 
   // Activate action.
   webui_toolbar_view->GetPinnedToolbarActions()->UpdateActionState(action_id,
                                                                    true);
 
-  ASSERT_TRUE(base::test::RunUntil(
-      [&]() { return IsPinnedButtonVisible(web_contents, mojom_action); }));
+  ASSERT_TRUE(WaitForPinnedActionVisible(mojom_action));
 
   // Verify it's highlighted.
-  EXPECT_TRUE(EvalJsOnPinnedButton(web_contents, mojom_action,
-                                   "return !!btn && "
-                                   "btn.hasAttribute('is-menu-open');")
-                  .ExtractBool());
+  EXPECT_TRUE(
+      EvalJsOnPinnedAction(mojom_action,
+                           "return !!btn && "
+                           "btn.hasAttribute('is-menu-open') && "
+                           "btn.getAttribute('aria-pressed') === 'true';")
+          .ExtractBool());
 
   // Deactivate action.
   webui_toolbar_view->GetPinnedToolbarActions()->UpdateActionState(action_id,
                                                                    false);
 
-  ASSERT_TRUE(base::test::RunUntil(
-      [&]() { return !IsPinnedButtonVisible(web_contents, mojom_action); }));
+  ASSERT_TRUE(WaitForPinnedActionHidden(mojom_action));
 
   model_->UpdatePinnedState(action_id, true);
 
-  ASSERT_TRUE(base::test::RunUntil(
-      [&]() { return IsPinnedButtonVisible(web_contents, mojom_action); }));
+  ASSERT_TRUE(WaitForPinnedActionVisible(mojom_action));
 
   // Verify it's not highlighted.
-  EXPECT_TRUE(EvalJsOnPinnedButton(web_contents, mojom_action,
-                                   "return !!btn && "
-                                   "!btn.hasAttribute('is-menu-open');")
-                  .ExtractBool());
+  EXPECT_TRUE(
+      EvalJsOnPinnedAction(mojom_action,
+                           "return !!btn && "
+                           "!btn.hasAttribute('is-menu-open') && "
+                           "btn.getAttribute('aria-pressed') === 'false';")
+          .ExtractBool());
 
   // Activate action.
   webui_toolbar_view->GetPinnedToolbarActions()->UpdateActionState(action_id,
@@ -382,26 +423,42 @@ IN_PROC_BROWSER_TEST_F(WebUIPinnedToolbarActionsBrowserTest,
 
   // Verify it's highlighted.
   EXPECT_TRUE(base::test::RunUntil([&]() {
-    return EvalJsOnPinnedButton(web_contents, mojom_action,
+    return EvalJsOnPinnedAction(mojom_action,
                                 "return !!btn && "
-                                "btn.hasAttribute('is-menu-open');")
+                                "btn.hasAttribute('is-menu-open') && "
+                                "btn.getAttribute('aria-pressed') === 'true';")
+        .ExtractBool();
+  }));
+
+  // Verify the action is prevented from overflowing, even though it's pinned
+  // rather than popped out.
+  EXPECT_TRUE(EvalJsOnPinnedAction(mojom_action,
+                                   "return !actionEl.poppedOut && "
+                                   "actionEl.state.highlighted && "
+                                   "actionEl.preventOverflow;")
+                  .ExtractBool());
+
+  // Deactivate action.
+  webui_toolbar_view->GetPinnedToolbarActions()->UpdateActionState(action_id,
+                                                                   false);
+
+  // Verify it may overflow again.
+  EXPECT_TRUE(base::test::RunUntil([&]() {
+    return EvalJsOnPinnedAction(mojom_action,
+                                "return !actionEl.state.highlighted && "
+                                "!actionEl.preventOverflow;")
         .ExtractBool();
   }));
 }
 
 IN_PROC_BROWSER_TEST_F(WebUIPinnedToolbarActionsBrowserTest,
                        ButtonEnabledState) {
-  WebUIToolbarWebView* webui_toolbar_view = GetWebUIToolbarWebView(browser());
-  views::WebView* web_view = webui_toolbar_view->GetWebViewForTesting();
-  content::WebContents* web_contents = web_view->GetWebContents();
-
   actions::ActionId action_id = kActionPrint;
   toolbar_ui_api::mojom::PinnedToolbarAction mojom_action =
       toolbar_ui_api::mojom::PinnedToolbarAction::kPrint;
 
   model_->UpdatePinnedState(action_id, true);
-  ASSERT_TRUE(base::test::RunUntil(
-      [&]() { return IsPinnedButtonVisible(web_contents, mojom_action); }));
+  ASSERT_TRUE(WaitForPinnedActionVisible(mojom_action));
 
   auto* action_item = actions::ActionManager::Get().FindAction(
       action_id, BrowserActions::From(browser())->root_action_item());
@@ -412,52 +469,63 @@ IN_PROC_BROWSER_TEST_F(WebUIPinnedToolbarActionsBrowserTest,
 
   // Verify button is disabled in WebUI.
   ASSERT_TRUE(base::test::RunUntil([&]() {
-    return EvalJsOnPinnedButton(web_contents, mojom_action,
-                                "return !!btn && btn.disabled;")
+    return EvalJsOnPinnedAction(mojom_action, "return !!btn && btn.disabled;")
         .ExtractBool();
   }));
 
   // Re-enable.
   action_item->SetEnabled(true);
   ASSERT_TRUE(base::test::RunUntil([&]() {
-    return !EvalJsOnPinnedButton(web_contents, mojom_action,
-                                 "return !!btn && btn.disabled;")
+    return !EvalJsOnPinnedAction(mojom_action, "return !!btn && btn.disabled;")
                 .ExtractBool();
   }));
 }
 
 IN_PROC_BROWSER_TEST_F(WebUIPinnedToolbarActionsBrowserTest, PinUnpinnable) {
-  WebUIToolbarWebView* webui_toolbar_view = GetWebUIToolbarWebView(browser());
-  views::WebView* web_view = webui_toolbar_view->GetWebViewForTesting();
-  content::WebContents* web_contents = web_view->GetWebContents();
-
   actions::ActionId action_id = kActionPrint;
   toolbar_ui_api::mojom::PinnedToolbarAction mojom_action =
       toolbar_ui_api::mojom::PinnedToolbarAction::kPrint;
 
   model_->UpdatePinnedState(action_id, true);
-  ASSERT_TRUE(base::test::RunUntil(
-      [&]() { return IsPinnedButtonVisible(web_contents, mojom_action); }));
+  ASSERT_TRUE(WaitForPinnedActionVisible(mojom_action));
 
   // Make unpinnable.
   SetPinnableProperty(action_id, false);
-  ASSERT_TRUE(base::test::RunUntil(
-      [&]() { return !IsPinnedButtonVisible(web_contents, mojom_action); }));
+  ASSERT_TRUE(WaitForPinnedActionHidden(mojom_action));
   // Make sure it's still pinned.
   ASSERT_TRUE(model_->Contains(action_id));
 
   // Make pinnable.
   SetPinnableProperty(action_id, true);
-  ASSERT_TRUE(base::test::RunUntil(
-      [&]() { return IsPinnedButtonVisible(web_contents, mojom_action); }));
+  ASSERT_TRUE(WaitForPinnedActionVisible(mojom_action));
+}
+
+IN_PROC_BROWSER_TEST_F(WebUIPinnedToolbarActionsBrowserTest, ButtonVisibility) {
+  actions::ActionId action_id = kActionShowTranslate;
+  toolbar_ui_api::mojom::PinnedToolbarAction mojom_action =
+      toolbar_ui_api::mojom::PinnedToolbarAction::kShowTranslate;
+
+  model_->UpdatePinnedState(action_id, true);
+  ASSERT_TRUE(WaitForPinnedActionVisible(mojom_action));
+
+  auto* action_item = actions::ActionManager::Get().FindAction(
+      action_id, BrowserActions::From(browser())->root_action_item());
+  ASSERT_TRUE(action_item);
+
+  // Hide the action item and verify it is no longer seen in the toolbar.
+  action_item->SetVisible(false);
+  ASSERT_TRUE(WaitForPinnedActionHidden(mojom_action));
+  EXPECT_TRUE(model_->Contains(action_id));
+  EXPECT_NO_FATAL_FAILURE(VerifyPinnedToolbarWidth());
+
+  // Make the action item visible again and verify it reappears.
+  action_item->SetVisible(true);
+  ASSERT_TRUE(WaitForPinnedActionVisible(mojom_action));
+  EXPECT_NO_FATAL_FAILURE(VerifyPinnedToolbarWidth());
 }
 
 IN_PROC_BROWSER_TEST_F(WebUIPinnedToolbarActionsBrowserTest,
                        ActivatedRendering) {
-  WebUIToolbarWebView* webui_toolbar_view = GetWebUIToolbarWebView(browser());
-  views::WebView* web_view = webui_toolbar_view->GetWebViewForTesting();
-  content::WebContents* web_contents = web_view->GetWebContents();
-
   actions::ActionId action_id = kActionPrint;
   toolbar_ui_api::mojom::PinnedToolbarAction mojom_action =
       toolbar_ui_api::mojom::PinnedToolbarAction::kPrint;
@@ -466,8 +534,8 @@ IN_PROC_BROWSER_TEST_F(WebUIPinnedToolbarActionsBrowserTest,
 
   auto verify_activated = [&](bool expected) {
     ASSERT_TRUE(base::test::RunUntil([&]() {
-      return EvalJsOnPinnedButton(
-                 web_contents, mojom_action,
+      return EvalJsOnPinnedAction(
+                 mojom_action,
                  base::StringPrintf(
                      "const indicator = "
                      "actionEl.shadowRoot.querySelector('.status-indicator'); "
@@ -494,6 +562,69 @@ IN_PROC_BROWSER_TEST_F(WebUIPinnedToolbarActionsBrowserTest,
                   BrowserActions::From(browser())->root_action_item())
       ->SetProperty(kActionItemUnderlineIndicatorKey, false);
   verify_activated(false);
+}
+
+IN_PROC_BROWSER_TEST_F(WebUIPinnedToolbarActionsBrowserTest,
+                       ProgressRingRendering) {
+  actions::ActionId action_id = kActionShowDownloads;
+  toolbar_ui_api::mojom::PinnedToolbarAction mojom_action =
+      toolbar_ui_api::mojom::PinnedToolbarAction::kShowDownloads;
+
+  PinAction(action_id, mojom_action);
+
+  DownloadButton* download_button = GetWebUIToolbarWebView(browser())
+                                        ->GetPinnedToolbarActions()
+                                        ->GetDownloadButton();
+  ASSERT_TRUE(download_button);
+
+  // Describes the rendered ring as "<status>:<percent filled in>", or "none"
+  // if no ring is rendered at all.
+  auto verify_ring = [&](std::string_view expected) {
+    ASSERT_TRUE(base::test::RunUntil([&]() {
+      return EvalJsOnPinnedAction(
+                 mojom_action,
+                 "const ring = "
+                 "    actionEl.shadowRoot.querySelector('.progress-ring'); "
+                 "if (!ring) { return 'none'; } "
+                 "const fill = ring.querySelector('.fill'); "
+                 "return ring.getAttribute('status') + ':' + "
+                 "    (parseFloat(fill.style.strokeDasharray) || 0);")
+                 .ExtractString() == expected;
+    }));
+  };
+
+  // No ring is rendered while idle.
+  verify_ring("none");
+
+  download_button->UpdateProgressRing(
+      ActionItemProgressRingStatus::kDownloading, 40);
+  verify_ring("downloading:40");
+
+  // The percentage doesn't apply to indeterminate rings.
+  download_button->UpdateProgressRing(ActionItemProgressRingStatus::kScanning,
+                                      40);
+  verify_ring("scanning:0");
+
+  download_button->UpdateProgressRing(ActionItemProgressRingStatus::kDormant,
+                                      40);
+  verify_ring("dormant:0");
+
+  // Going back to idle removes the ring.
+  download_button->UpdateProgressRing(ActionItemProgressRingStatus::kIdle, 0);
+  verify_ring("none");
+
+  // Unpinning the downloads button also resets the progress ring.
+  download_button->UpdateProgressRing(
+      ActionItemProgressRingStatus::kDownloading, 40);
+  verify_ring("downloading:40");
+  UnpinAction(action_id, mojom_action);
+  PinAction(action_id, mojom_action);
+  verify_ring("none");
+  EXPECT_EQ(GetWebUIToolbarWebView(browser())
+                ->GetPinnedToolbarActions()
+                ->GetDownloadButton()
+                ->GetProgressRingStatusForTesting(),
+            ActionItemProgressRingStatus::kIdle);
 }
 
 IN_PROC_BROWSER_TEST_F(WebUIPinnedToolbarActionsBrowserTest, StateAccessors) {
@@ -531,14 +662,8 @@ IN_PROC_BROWSER_TEST_F(WebUIPinnedToolbarActionsBrowserTest, StateAccessors) {
   EXPECT_FALSE(view->IsActionPoppedOut(kActionPrint));
 }
 
-// TODO(crbug.com/545042573): Re-enable on Mac.
-#if BUILDFLAG(IS_MAC)
-#define MAYBE_TextAndAriaLabelAttributes DISABLED_TextAndAriaLabelAttributes
-#else
-#define MAYBE_TextAndAriaLabelAttributes TextAndAriaLabelAttributes
-#endif
 IN_PROC_BROWSER_TEST_F(WebUIPinnedToolbarActionsBrowserTest,
-                       MAYBE_TextAndAriaLabelAttributes) {
+                       TextAndAriaLabelAttributes) {
   content::ScopedAccessibilityModeOverride mode_override(ui::kAXModeComplete);
   WebUIToolbarWebView* webui_toolbar_view = GetWebUIToolbarWebView(browser());
   views::WebView* web_view = webui_toolbar_view->GetWebViewForTesting();
@@ -554,8 +679,7 @@ IN_PROC_BROWSER_TEST_F(WebUIPinnedToolbarActionsBrowserTest,
 
   // Pin it so it renders.
   model_->UpdatePinnedState(action_id, true);
-  ASSERT_TRUE(base::test::RunUntil(
-      [&]() { return IsPinnedButtonVisible(web_contents, mojom_action); }));
+  ASSERT_TRUE(WaitForPinnedActionVisible(mojom_action));
 
   // Test the default appropriate values are set for the tooltip and ax text.
   std::string default_name =
@@ -565,61 +689,54 @@ IN_PROC_BROWSER_TEST_F(WebUIPinnedToolbarActionsBrowserTest,
   std::string default_description =
       base::UTF16ToUTF8(action_item->GetTooltipText());
 
-  content::WaitForAccessibilityTreeToContainNodeWithName(web_contents,
-                                                         default_name);
-  content::FindAccessibilityNodeCriteria find_criteria;
-  find_criteria.role = ax::mojom::Role::kButton;
-  find_criteria.name = default_name;
-  ui::AXPlatformNodeDelegate* print_node =
-      content::FindAccessibilityNode(web_contents, find_criteria);
-  ASSERT_TRUE(print_node);
+  // Locate the print button once by its default name and remember its AX node
+  // id. Later lookups use the id rather than the name, since an empty name
+  // would match unrelated nodes and would not prove the update has landed.
+  std::optional<ui::AXNodeData> print_node;
+  ASSERT_TRUE(base::test::RunUntil([&]() {
+    print_node = FindAccessibilityNodeData(
+        web_contents, [&](const ui::AXNodeData& data) {
+          return data.role == ax::mojom::Role::kToggleButton &&
+                 data.GetStringAttribute(ax::mojom::StringAttribute::kName) ==
+                     default_name;
+        });
+    return print_node.has_value();
+  })) << "No toggle button named \""
+      << default_name << "\" found.";
+  const ui::AXNodeID print_node_id = print_node->id;
 
-  EXPECT_EQ(default_name,
-            print_node->GetStringAttribute(ax::mojom::StringAttribute::kName));
-  EXPECT_EQ(default_description, print_node->GetStringAttribute(
-                                     ax::mojom::StringAttribute::kDescription));
+  ASSERT_TRUE(WaitForButtonAccessibleState(web_contents, print_node_id,
+                                           default_name, default_description,
+                                           ax::mojom::CheckedState::kFalse));
+
+  // Verify checked state updates when highlighted.
+  webui_toolbar_view->GetPinnedToolbarActions()->UpdateActionState(action_id,
+                                                                   true);
+  ASSERT_TRUE(WaitForButtonAccessibleState(web_contents, print_node_id,
+                                           default_name, default_description,
+                                           ax::mojom::CheckedState::kTrue));
+
+  webui_toolbar_view->GetPinnedToolbarActions()->UpdateActionState(action_id,
+                                                                   false);
+  ASSERT_TRUE(WaitForButtonAccessibleState(web_contents, print_node_id,
+                                           default_name, default_description,
+                                           ax::mojom::CheckedState::kFalse));
 
   // Test all values are provided.
   action_item->SetTooltipText(u"tooltip");
   action_item->SetAccessibleName(u"accessible_name");
-
-  content::WaitForAccessibilityTreeToChange(web_contents);
-  content::WaitForAccessibilityTreeToContainNodeWithName(web_contents,
-                                                         "accessible_name");
-  find_criteria.name = "accessible_name";
-  print_node = content::FindAccessibilityNode(web_contents, find_criteria);
-  ASSERT_TRUE(print_node);
-  EXPECT_EQ("accessible_name",
-            print_node->GetStringAttribute(ax::mojom::StringAttribute::kName));
-  EXPECT_EQ("tooltip", print_node->GetStringAttribute(
-                           ax::mojom::StringAttribute::kDescription));
+  ASSERT_TRUE(WaitForButtonAccessibleState(web_contents, print_node_id,
+                                           "accessible_name", "tooltip"));
 
   // Test accessible_name is empty (Fallback to Tooltip).
   action_item->SetAccessibleName(u"");
-
-  content::WaitForAccessibilityTreeToChange(web_contents);
-  content::WaitForAccessibilityTreeToContainNodeWithName(web_contents,
-                                                         "tooltip");
-  find_criteria.name = "tooltip";
-  print_node = content::FindAccessibilityNode(web_contents, find_criteria);
-  ASSERT_TRUE(print_node);
-  EXPECT_EQ("tooltip",
-            print_node->GetStringAttribute(ax::mojom::StringAttribute::kName));
-  EXPECT_EQ("tooltip", print_node->GetStringAttribute(
-                           ax::mojom::StringAttribute::kDescription));
+  ASSERT_TRUE(WaitForButtonAccessibleState(web_contents, print_node_id,
+                                           "tooltip", "tooltip"));
 
   // Test tooltip and accessible_name are empty.
   action_item->SetTooltipText(u"");
-
-  content::WaitForAccessibilityTreeToChange(web_contents);
-  content::WaitForAccessibilityTreeToContainNodeWithName(web_contents, "");
-  find_criteria.name = "";
-  print_node = content::FindAccessibilityNode(web_contents, find_criteria);
-  ASSERT_TRUE(print_node);
-  EXPECT_EQ("",
-            print_node->GetStringAttribute(ax::mojom::StringAttribute::kName));
-  EXPECT_EQ("", print_node->GetStringAttribute(
-                    ax::mojom::StringAttribute::kDescription));
+  ASSERT_TRUE(
+      WaitForButtonAccessibleState(web_contents, print_node_id, "", ""));
 }
 
 IN_PROC_BROWSER_TEST_F(WebUIPinnedToolbarActionsBrowserTest, ToolbarDivider) {
@@ -760,10 +877,6 @@ IN_PROC_BROWSER_TEST_F(WebUIPinnedToolbarActionsBrowserTest,
 
 IN_PROC_BROWSER_TEST_F(WebUIPinnedToolbarActionsBrowserTest,
                        AboutThisSiteIcon) {
-  auto* webui_toolbar_view = GetWebUIToolbarWebView(browser());
-  views::WebView* web_view = webui_toolbar_view->GetWebViewForTesting();
-  content::WebContents* web_contents = web_view->GetWebContents();
-
   // Pin "About This Site" action.
   PinAction(
       kActionSidePanelShowAboutThisSite,
@@ -781,8 +894,7 @@ IN_PROC_BROWSER_TEST_F(WebUIPinnedToolbarActionsBrowserTest,
 
   // Verify iron-icon attribute in WebUI.
   EXPECT_TRUE(base::test::RunUntil([&]() {
-    return EvalJsOnPinnedButton(web_contents,
-                                toolbar_ui_api::mojom::PinnedToolbarAction::
+    return EvalJsOnPinnedAction(toolbar_ui_api::mojom::PinnedToolbarAction::
                                     kSidePanelShowAboutThisSite,
                                 "return btn?.getAttribute('iron-icon') || '';")
                .ExtractString() == expected_icon;
@@ -791,10 +903,6 @@ IN_PROC_BROWSER_TEST_F(WebUIPinnedToolbarActionsBrowserTest,
 
 IN_PROC_BROWSER_TEST_F(WebUIPinnedToolbarActionsBrowserTest,
                        LensOverlayResultsIcon) {
-  auto* webui_toolbar_view = GetWebUIToolbarWebView(browser());
-  views::WebView* web_view = webui_toolbar_view->GetWebViewForTesting();
-  content::WebContents* web_contents = web_view->GetWebContents();
-
   // Pin "Lens Overlay Results" action.
   PinAction(kActionSidePanelShowLensOverlayResults,
             toolbar_ui_api::mojom::PinnedToolbarAction::
@@ -812,8 +920,7 @@ IN_PROC_BROWSER_TEST_F(WebUIPinnedToolbarActionsBrowserTest,
 
   // Verify iron-icon attribute in WebUI.
   EXPECT_TRUE(base::test::RunUntil([&]() {
-    return EvalJsOnPinnedButton(web_contents,
-                                toolbar_ui_api::mojom::PinnedToolbarAction::
+    return EvalJsOnPinnedAction(toolbar_ui_api::mojom::PinnedToolbarAction::
                                     kSidePanelShowLensOverlayResults,
                                 "return btn?.getAttribute('iron-icon') || '';")
                .ExtractString() == expected_icon;

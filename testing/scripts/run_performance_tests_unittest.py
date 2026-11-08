@@ -19,7 +19,6 @@ import run_performance_tests
 from run_performance_tests import TelemetryCommandGenerator
 
 # Protected access is allowed for unittests.
-# pylint: disable=protected-access
 
 # The path where the output of a wpt run was written. This is the file that
 # gets processed by BaseWptScriptAdapter.
@@ -154,7 +153,6 @@ class TelemetryCommandGeneratorTest(unittest.TestCase):
     self.assertEqual(content['foo'], 1)
     mock_copy_map_file_to_out_dir.assert_called_with(mock.ANY, 'dir')
 
-  # pylint: disable=no-self-use
   @mock.patch.object(os.path, 'exists')
   @mock.patch.object(shutil, 'copyfile')
   def testCopyMapFileToOutDirSuccess(self, mock_copyfile, mock_exists):
@@ -164,8 +162,6 @@ class TelemetryCommandGeneratorTest(unittest.TestCase):
     mock_copyfile.assert_called_with(
       'file', str(pathlib.Path('dir/benchmarks_shard_map.json'))
     )
-
-  # pylint: enable=no-self-use
 
   @mock.patch.object(
     run_performance_tests.CrossbenchTest, 'execute_benchmark', return_value=0
@@ -509,6 +505,30 @@ class TelemetryCommandGeneratorTest(unittest.TestCase):
     expected_browser = crossbench_test.CHROME_BROWSER % expected_hjson
     self.assertEqual(crossbench_test.browser, expected_browser)
 
+  @mock.patch.object(run_performance_tests.browser_finder, 'FindBrowser')
+  def testCrossbenchAndroidDefaultPowerMode(self, _):
+    fake_args = _create_crossbench_args('android-chrome-bundle')
+    options = run_performance_tests.parse_arguments(fake_args)
+
+    crossbench_test = run_performance_tests.CrossbenchTest(options, 'dir')
+
+    self.assertEqual(
+      crossbench_test.env, ['--env={"cpu_power_mode":"performance"}']
+    )
+
+  @mock.patch.object(run_performance_tests.browser_finder, 'FindBrowser')
+  def testCrossbenchAndroidWebPowerUsesSchedPixel(self, _):
+    fake_args = _create_crossbench_args(
+      'android-chrome-bundle', benchmarks='web-power'
+    )
+    options = run_performance_tests.parse_arguments(fake_args)
+
+    crossbench_test = run_performance_tests.CrossbenchTest(options, 'dir')
+
+    self.assertEqual(
+      crossbench_test.env, ['--env={"cpu_power_mode":"sched_pixel"}']
+    )
+
   def testCrossbenchOfficialBrowser(self):
     fake_args = _create_crossbench_args()
     fake_args.append('--official-browser=chrome-stable-1.2.3.4')
@@ -547,11 +567,11 @@ class TelemetryCommandGeneratorTest(unittest.TestCase):
     self.assertEqual(command_list[pos + 1 :], expected_list)
 
 
-def _create_crossbench_args(browser='./chrome'):
+def _create_crossbench_args(browser='./chrome', benchmarks='speedometer_3.0'):
   return [
     './cb.py',
     '--isolated-script-test-output=output',
-    '--benchmarks=speedometer_3.0',
+    f'--benchmarks={benchmarks}',
     '--benchmark-display-name=speedometer3.crossbench',
     f'--browser={browser}',
   ]

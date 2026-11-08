@@ -9,6 +9,7 @@
 #include <utility>
 
 #include "base/check_op.h"
+#include "base/containers/flat_set.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/metrics/histogram_functions.h"
@@ -26,6 +27,7 @@
 #include "chrome/browser/ui/browser_window/public/profile_browser_collection.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/layout_constants.h"
+#include "chrome/browser/ui/tabs/alert/child_tab_alert_helper.h"
 #include "chrome/browser/ui/views/bubble/webui_bubble_reopen_suppressor.h"
 #include "chrome/browser/ui/views/chrome_typography.h"
 #include "chrome/browser/ui/views/location_bar/location_icon_view.h"
@@ -52,6 +54,7 @@
 #include "components/permissions/request_type.h"
 #include "components/security_state/core/security_state.h"
 #include "components/strings/grit/components_strings.h"
+#include "components/tabs/public/tab_alert.h"
 #include "components/tabs/public/tab_interface.h"
 #include "components/url_formatter/elide_url.h"
 #include "components/vector_icons/vector_icons.h"
@@ -65,6 +68,7 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_user_data.h"
 #include "content/public/common/content_constants.h"
+#include "services/network/public/mojom/permissions_policy/permissions_policy_feature.mojom-shared.h"
 #include "third_party/blink/public/mojom/mediastream/media_stream.mojom.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -320,9 +324,6 @@ void PaymentHandlerWebFlowViewController::FillContentView(
   // permissions function within the Payment Handler window. Security state
   // is computed on demand by chrome_security_state (see
   // chrome/browser/ssl/chrome_security_state_util.h) and needs no helper.
-  //
-  // TODO(crbug.com/539998580): Restrict non-camera permission requests in
-  // Payment Handler windows via Permissions-Policy enforcement.
   if (base::FeatureList::IsEnabled(features::kPaymentHandlerCameraAccessUx)) {
     indicator_observation_.Reset();
     if (scoped_refptr<MediaStreamCaptureIndicator> indicator =
@@ -330,19 +331,21 @@ void PaymentHandlerWebFlowViewController::FillContentView(
                 ->GetMediaStreamCaptureIndicator()) {
       indicator_observation_.Observe(indicator.get());
     }
-    OneTimePermissionsTrackerHelper::CreateForWebContents(web_contents());
+    one_time_permissions_tracker_helper_ =
+        std::make_unique<OneTimePermissionsTrackerHelper>(web_contents());
     permissions::PermissionRequestManager::CreateForWebContents(web_contents());
     permissions::PermissionRecoverySuccessRateTracker::CreateForWebContents(
         web_contents());
     permission_indicators_tab_data_ =
         std::make_unique<permissions::PermissionIndicatorsTabData>(
             web_contents());
+    auto* permission_request_manager =
+        permissions::PermissionRequestManager::FromWebContents(web_contents());
+    permission_request_manager->set_allowlist_for_permission_requests(
+        base::flat_set<permissions::RequestType>{
+            permissions::RequestType::kCameraStream});
     permission_request_manager_observation_.Reset();
-    permission_request_manager_observation_.Observe(
-        permissions::PermissionRequestManager::FromWebContents(web_contents()));
-  } else if (base::FeatureList::IsEnabled(
-                 features::kPaymentHandlerCameraAccess)) {
-    OneTimePermissionsTrackerHelper::CreateForWebContents(web_contents());
+    permission_request_manager_observation_.Observe(permission_request_manager);
   }
 
   // Enable modal dialogs for web-based payment handlers.
@@ -446,6 +449,7 @@ bool PaymentHandlerWebFlowViewController::CanContentViewBeScrollable() {
 }
 
 void PaymentHandlerWebFlowViewController::Stop() {
+  video_recording_tab_alert_.RunAndReset();
   chip_model_.reset();
   delay_prompt_timer_.Stop();
   indicator_chip_collapse_timer_.Stop();
@@ -533,8 +537,7 @@ void PaymentHandlerWebFlowViewController::RequestMediaAccessPermission(
     content::WebContents* web_contents,
     const content::MediaStreamRequest& request,
     content::MediaResponseCallback callback) {
-  // Currently we allow only video camera access (no audio), behind a
-  // default-disabled flag until we have appropriate UX to inform the user.
+  // Only allow video camera access (no audio).
   //
   // Note that this check assumes that content::MediaStreamRequest will not add
   // new 'types' in the future, as they will not be blocked by default. That
@@ -543,9 +546,8 @@ void PaymentHandlerWebFlowViewController::RequestMediaAccessPermission(
   if (request.video_type !=
           blink::mojom::MediaStreamType::DEVICE_VIDEO_CAPTURE ||
       request.audio_type != blink::mojom::MediaStreamType::NO_SERVICE ||
-      !(base::FeatureList::IsEnabled(features::kPaymentHandlerCameraAccess) ||
-        base::FeatureList::IsEnabled(
-            features::kPaymentHandlerCameraAccessUx))) {
+      request.request_pan_tilt_zoom_permission ||
+      !base::FeatureList::IsEnabled(features::kPaymentHandlerCameraAccessUx)) {
     base::UmaHistogramBoolean("PaymentRequest.Camera.AccessRequested", false);
     std::move(callback).Run(
         blink::mojom::StreamDevicesSet(),
@@ -555,6 +557,22 @@ void PaymentHandlerWebFlowViewController::RequestMediaAccessPermission(
   }
 
   base::UmaHistogramBoolean("PaymentRequest.Camera.AccessRequested", true);
+
+  content::RenderFrameHost* render_frame_host =
+      content::RenderFrameHost::FromID(request.render_process_id,
+                                       request.render_frame_id);
+  if (!(render_frame_host &&
+        render_frame_host->IsFeatureEnabled(
+            network::mojom::PermissionsPolicyFeature::kCamera))) {
+    base::UmaHistogramEnumeration("PaymentRequest.Camera.RequestOutcome",
+                                  blink::mojom::MediaStreamRequestResult::
+                                      PERMISSION_DENIED_BY_CONTROLLER);
+    std::move(callback).Run(
+        blink::mojom::StreamDevicesSet(),
+        blink::mojom::MediaStreamRequestResult::PERMISSION_DENIED_BY_CONTROLLER,
+        /*ui=*/nullptr);
+    return;
+  }
 
   MediaCaptureDevicesDispatcher::GetInstance()->ProcessMediaAccessRequest(
       web_contents, request,
@@ -569,9 +587,7 @@ bool PaymentHandlerWebFlowViewController::CheckMediaAccessPermission(
     const url::Origin& security_origin,
     blink::mojom::MediaStreamType type) {
   if (type != blink::mojom::MediaStreamType::DEVICE_VIDEO_CAPTURE ||
-      !(base::FeatureList::IsEnabled(features::kPaymentHandlerCameraAccess) ||
-        base::FeatureList::IsEnabled(
-            features::kPaymentHandlerCameraAccessUx))) {
+      !base::FeatureList::IsEnabled(features::kPaymentHandlerCameraAccessUx)) {
     return false;
   }
   return MediaCaptureDevicesDispatcher::GetInstance()
@@ -771,8 +787,13 @@ void PaymentHandlerWebFlowViewController::OnIsCapturingVideoChanged(
   }
 
   if (is_capturing_video) {
+    video_recording_tab_alert_ =
+        tabs::ChildTabAlertHelper::From(
+            tabs::TabInterface::GetFromContents(state()->GetWebContents()))
+            ->CreateChildMediaAlert(tabs::TabAlert::kVideoRecording);
     ShowInUseCameraIndicator();
   } else {
+    video_recording_tab_alert_.RunAndReset();
     media_capture_stop_time_ = base::TimeTicks::Now();
     HideInUseCameraIndicator();
   }

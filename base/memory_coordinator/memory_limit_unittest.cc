@@ -32,11 +32,6 @@ TEST(MemoryLimitTest, Factories) {
   EXPECT_DOUBLE_EQ(limit_percent.ratio(), 0.75);
 }
 
-TEST(MemoryLimitTest, ImplicitConstructionFromInt) {
-  MemoryLimit limit = 40;
-  EXPECT_EQ(limit.percent(), 40);
-}
-
 TEST(MemoryLimitTest, Comparisons) {
   constexpr MemoryLimit limit_50 = MemoryLimit::FromPercent(50);
   constexpr MemoryLimit limit_100 = MemoryLimit::FromPercent(100);
@@ -76,9 +71,13 @@ TEST(MemoryLimitTest, ScaleByteSize) {
   EXPECT_EQ(limit_50.Scale(KiB(100)), KiB(50));
 }
 
+TEST(MemoryLimitTest, PrintTo) {
+  EXPECT_EQ(testing::PrintToString(MemoryLimit::FromPercent(50)), "50%");
+}
+
 #if defined(GTEST_HAS_DEATH_TEST)
 TEST(MemoryLimitTest, NegativePercentDeathTest) {
-  EXPECT_CHECK_DEATH({ MemoryLimit(-1); });
+  EXPECT_CHECK_DEATH({ MemoryLimit::FromPercent(-1); });
 }
 #endif
 

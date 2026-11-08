@@ -200,6 +200,7 @@ class AwContentBrowserClient : public content::ContentBrowserClient {
       const GURL& url,
       scoped_refptr<net::HttpResponseHeaders> response_headers,
       bool first_auth_attempt,
+      bool do_not_prompt_for_login,
       content::GuestPageHolder* guest,
       content::LoginDelegate::LoginAuthRequiredCallback auth_required_callback)
       override;
@@ -288,7 +289,6 @@ class AwContentBrowserClient : public content::ContentBrowserClient {
       content::BrowserContext* browser_context) override;
   bool ShouldPreconnectNavigation(
       content::RenderFrameHost* render_frame_host) override;
-  void OnDisplayInsecureContent(content::WebContents* web_contents) override;
   blink::mojom::OriginTrialsSettingsPtr GetOriginTrialsSettings() override;
   bool IsFullCookieAccessAllowed(
       content::BrowserContext* browser_context,
@@ -306,6 +306,8 @@ class AwContentBrowserClient : public content::ContentBrowserClient {
       const url::Origin& origin) override;
 
   bool IsAndroidAdvancedProtectionEnabled() override;
+  bool IsClipboardPasteAllowed(
+      content::RenderFrameHost* render_frame_host) override;
 
   AwFeatureListCreator* aw_feature_list_creator() {
     return aw_feature_list_creator_;

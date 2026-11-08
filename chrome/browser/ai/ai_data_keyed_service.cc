@@ -9,9 +9,9 @@
 #include <optional>
 #include <utility>
 
-#include "base/barrier_callback.h"
 #include "base/base64.h"
 #include "base/command_line.h"
+#include "base/containers/fixed_flat_set.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
@@ -29,7 +29,6 @@
 #include "base/time/time.h"
 #include "base/trace_event/trace_event.h"
 #include "base/unguessable_token.h"
-#include "chrome/browser/history_embeddings/history_embeddings_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/common/chrome_switches.h"
@@ -41,7 +40,6 @@
 #include "components/autofill/core/common/unique_ids.h"
 #include "components/compose/buildflags.h"
 #include "components/content_extraction/content/browser/inner_text.h"
-#include "components/history_embeddings/content/history_embeddings_service.h"
 #include "components/optimization_guide/content/browser/page_content_proto_provider.h"
 #include "components/optimization_guide/core/optimization_guide_proto_util.h"
 #include "components/optimization_guide/proto/features/actions_data.pb.h"
@@ -80,6 +78,8 @@
 #endif  // BUILDFLAG(ENABLE_PDF)
 
 namespace {
+
+constexpr char kApcDebuggingExtensionId[] = "bbnmkciocedkjdlapchelmdflhahacpa";
 
 #if BUILDFLAG(ENABLE_PDF)
 constexpr size_t kBytesPerMegabyte = 1'000'000;
@@ -172,7 +172,7 @@ void GetInnerTextForModelPrototyping(
     content::WebContents* web_contents,
     AiDataKeyedService::AiDataCallback continue_callback) {
   TRACE_EVENT0("browser", "GetInnerTextForModelPrototyping");
-  DCHECK(web_contents);
+  CHECK(web_contents, base::NotFatalUntil::M161);
   // If the tab has not actually navigated, then the remote interfaces will be
   // null, just leave off inner text in this case.
   if (!web_contents->GetPrimaryMainFrame() ||
@@ -186,76 +186,6 @@ void GetInnerTextForModelPrototyping(
           base::BindOnce(&OnGetInnerTextForModelPrototyping,
                          std::move(continue_callback)),
           nullptr));
-}
-
-void OnHistorySearchCompleted(
-    AiDataKeyedService::AiDataCallback ai_data_callback,
-    std::vector<history_embeddings::SearchResult> search_results) {
-  AiDataKeyedService::AiData data =
-      std::make_optional<AiDataKeyedService::BrowserData>();
-  for (const auto& search_result : search_results) {
-    // Skip search result if empty;
-    if (search_result.scored_url_rows.empty()) {
-      continue;
-    }
-
-    auto* history_result = data->add_history_query_result();
-    auto* query = history_result->mutable_query();
-    query->set_query(search_result.query);
-    query->set_num_history_visits(search_result.count);
-    if (search_result.time_range_start) {
-      query->mutable_history_search_time_range()
-          ->mutable_start_time()
-          ->set_seconds((int64_t)(search_result.time_range_start
-                                      ->InSecondsFSinceUnixEpoch()));
-    }
-    for (auto& scored_url_row : search_result.scored_url_rows) {
-      optimization_guide::proto::HistoryVisitItem* visit_item =
-          history_result->mutable_history_data()->add_visit_item();
-      visit_item->set_page_title(base::UTF16ToUTF8(scored_url_row.row.title()));
-      visit_item->set_page_url(scored_url_row.row.url().spec());
-      visit_item->mutable_visit_time()->set_seconds(static_cast<int64_t>(
-          scored_url_row.scored_url.visit_time.InSecondsFSinceUnixEpoch()));
-      for (const std::string& passage :
-           scored_url_row.url_data.passages.passages()) {
-        visit_item->add_passages(passage);
-      }
-    }
-  }
-
-  std::move(ai_data_callback).Run(data);
-}
-
-void GetHistoryQueryResultForModelPrototyping(
-    content::WebContents* web_contents,
-    const optimization_guide::proto::HistoryQuerySpecifiers& history_specifiers,
-    AiDataKeyedService::AiDataCallback continue_callback) {
-  history_embeddings::HistoryEmbeddingsService* history_embeddings_service =
-      HistoryEmbeddingsServiceFactory::GetForProfile(
-          Profile::FromBrowserContext(web_contents->GetBrowserContext()));
-
-  const auto history_search_callback =
-      base::BarrierCallback<history_embeddings::SearchResult>(
-          history_specifiers.history_queries_size(),
-          base::BindOnce(&OnHistorySearchCompleted,
-                         std::move(continue_callback)));
-
-  for (const auto& history_query : history_specifiers.history_queries()) {
-    // Skip empty queries by returning an empty result.
-    if (history_query.query().empty()) {
-      history_search_callback.Run(history_embeddings::SearchResult());
-      continue;
-    }
-
-    history_embeddings_service->Search(
-        /*previous_search_result=*/nullptr, history_query.query(),
-        base::Time::FromSecondsSinceUnixEpoch(
-            (double)(history_query.history_search_time_range()
-                         .start_time()
-                         .seconds())),
-        history_query.num_history_visits(),
-        /*skip_answering=*/true, /*url_id_filter=*/{}, history_search_callback);
-  }
 }
 
 // Fills an AiData proto with information from RequestAXTreeSnapshot. If no
@@ -280,7 +210,7 @@ void RequestAxTreeSnapshotForModelPrototyping(
     content::WebContents* web_contents,
     AiDataKeyedService::AiDataCallback continue_callback) {
   TRACE_EVENT0("browser", "RequestAxTreeSnapshotForModelPrototyping");
-  DCHECK(web_contents);
+  CHECK(web_contents, base::NotFatalUntil::M161);
   ui::AXTreeUpdate update;
   web_contents->RequestAXTreeSnapshot(
       mojo::WrapCallbackWithDefaultInvokeIfNotRun(
@@ -328,7 +258,7 @@ void RequestPdfBytesForModelPrototyping(
     content::WebContents* web_contents,
     AiDataKeyedService::AiDataCallback continue_callback) {
   TRACE_EVENT0("browser", "RequestPdfBytesForModelPrototyping");
-  DCHECK(web_contents);
+  CHECK(web_contents, base::NotFatalUntil::M161);
 
   pdf::PDFDocumentHelper* pdf_helper = MaybeGetFullPagePdfHelper(web_contents);
   if (!pdf_helper) {
@@ -353,7 +283,7 @@ void OnDataCollectionsComplete(AiDataKeyedService::AiDataCallback callback,
                                AiDataKeyedService::AiData data,
                                std::vector<AiDataKeyedService::AiData> datas) {
   TRACE_EVENT0("browser", "OnDataCollectionsComplete");
-  DCHECK(data);
+  CHECK(data, base::NotFatalUntil::M161);
   for (const auto& data_slice : datas) {
     if (!data_slice) {
       // Return an empty data to indicate an error.
@@ -390,7 +320,7 @@ void FillTabInfo(content::WebContents* web_contents,
                  std::string title,
                  std::string url) {
   TRACE_EVENT0("browser", "FillTabInfo");
-  DCHECK(web_contents);
+  CHECK(web_contents, base::NotFatalUntil::M161);
   // If the tab has not actually navigated, then the remote interfaces will be
   // null, just leave off inner text in this case.
   if (!web_contents->GetPrimaryMainFrame() ||
@@ -408,7 +338,7 @@ void FillTabInfo(content::WebContents* web_contents,
 
 // Create an AiData with the tab and tab group information.
 void GetTabDataForModelPrototyping(
-    int tabs_for_inner_text,
+    int max_tabs_for_text_collection,
     content::WebContents* web_contents,
     base::ConcurrentCallbacks<AiDataKeyedService::AiData>& concurrent) {
   TRACE_EVENT0("browser", "GetTabDataForModelPrototyping");
@@ -430,7 +360,7 @@ void GetTabDataForModelPrototyping(
         tab_strip_model->GetWebContentsAt(index);
     auto title = base::UTF16ToUTF8(tab_web_contents->GetTitle());
     auto url = tab_web_contents->GetLastCommittedURL().spec();
-    if (index >= tabs_for_inner_text) {
+    if (index >= max_tabs_for_text_collection) {
       OnGetTabInnerText(index, std::move(title), std::move(url),
                         concurrent.CreateCallback(), nullptr);
     } else {
@@ -603,7 +533,7 @@ void GetModelPrototypingAiData(AiDataKeyedService::AiDataSpecifier specifiers,
                                content::WebContents* web_contents,
                                AiDataKeyedService::AiDataCallback callback) {
   TRACE_EVENT0("browser", "GetModelPrototypingAiData");
-  DCHECK(web_contents);
+  CHECK(web_contents, base::NotFatalUntil::M161);
 
   // Fill data with synchronous information.
   AiDataKeyedService::BrowserData data;
@@ -639,15 +569,6 @@ void GetModelPrototypingAiData(AiDataKeyedService::AiDataSpecifier specifiers,
     GetTabScreenshotForModelPrototyping(web_contents,
                                         concurrent.CreateCallback());
   }
-
-  if (specifiers.browser_data_collection_specifier()
-          .has_history_query_specifiers()) {
-    GetHistoryQueryResultForModelPrototyping(
-        web_contents,
-        specifiers.browser_data_collection_specifier()
-            .history_query_specifiers(),
-        concurrent.CreateCallback());
-  }
 #if !BUILDFLAG(IS_ANDROID)
   // TODO(https://crbug.com/385777825): generalize this logic and support other
   // page contexts for tabs.
@@ -657,11 +578,11 @@ void GetModelPrototypingAiData(AiDataKeyedService::AiDataSpecifier specifiers,
     // All tabs metadata is collected, but the tab limit is only used to
     // determine if inner text should be collected.
     auto general_tab_specifier = tab_specifier.general_tab_specifier();
-    int tabs_for_inner_text =
+    int max_tabs_for_text_collection =
         general_tab_specifier.page_context_specifier().inner_text()
             ? general_tab_specifier.tab_limit()
             : 0;
-    GetTabDataForModelPrototyping(tabs_for_inner_text, web_contents,
+    GetTabDataForModelPrototyping(max_tabs_for_text_collection, web_contents,
                                   concurrent);
   }
   if (page_context_specifier.has_field_global_id()) {
@@ -728,7 +649,7 @@ void AiDataKeyedService::GetAiData(int dom_node_id,
                                    content::WebContents* web_contents,
                                    std::string user_input,
                                    AiDataCallback callback,
-                                   int tabs_for_inner_text) {
+                                   int max_tabs_for_text_collection) {
   TRACE_EVENT0("browser", "AiDataKeyedService::GetAiData");
   // Configure a default set of specifier.
   AiDataSpecifier specifier;
@@ -743,7 +664,7 @@ void AiDataKeyedService::GetAiData(int dom_node_id,
           ->mutable_general_tab_specifier();
   general_tabs_context_specifier->mutable_page_context_specifier()
       ->set_inner_text(true);
-  general_tabs_context_specifier->set_tab_limit(tabs_for_inner_text);
+  general_tabs_context_specifier->set_tab_limit(max_tabs_for_text_collection);
 
   browser_data_collection_specifier->set_site_engagement(true);
   browser_data_collection_specifier->set_tab_groups(true);
@@ -770,22 +691,28 @@ bool AiDataKeyedService::IsExtensionAllowlistedForData(
     return false;
   }
 
-  static const base::NoDestructor<std::vector<std::string>>
-      kHardcodedAllowlistedExtensions({// https://issues.chromium.org/373645534
-                                       "hpkopmikdojpadgmioifjjodbmnjjjca",
-                                       // https://issues.chromium.org/377129777
-                                       "bgbpcgpcobgjpnpiginpidndjpggappi",
-                                       // https://issues.chromium.org/376699519
-                                       "eefninhhiifgcimjkmkongegpoaikmhm",
-                                       // https://issues.chromium.org/393435942
-                                       "fjhpgileahdpnmfmaggobehbipojhlce",
-                                       // https://issues.chromium.org/403366603
-                                       "abdciamfdmknaeggbnmafmbdfdmhfgfa",
-                                       // https://issues.chromium.org/414437025
-                                       "fiamdfnbelfkjlacoaeiclobkdmckaoa",
-                                       // https://issues.chromium.org/427296150
-                                       "mofldjifenhadohlkkngamgbifiofbnd"});
-  if (std::ranges::contains(*kHardcodedAllowlistedExtensions, extension_id)) {
+  static constexpr auto kHardcodedAllowlistedExtensions =
+      base::MakeFixedFlatSet<std::string_view>(
+          {// https://issues.chromium.org/373645534
+           "hpkopmikdojpadgmioifjjodbmnjjjca",
+           // https://issues.chromium.org/377129777
+           "bgbpcgpcobgjpnpiginpidndjpggappi",
+           // https://issues.chromium.org/376699519
+           "eefninhhiifgcimjkmkongegpoaikmhm",
+           // https://issues.chromium.org/393435942
+           "fjhpgileahdpnmfmaggobehbipojhlce",
+           // https://issues.chromium.org/403366603
+           "abdciamfdmknaeggbnmafmbdfdmhfgfa",
+           // https://issues.chromium.org/414437025
+           "fiamdfnbelfkjlacoaeiclobkdmckaoa",
+           // https://issues.chromium.org/427296150
+           "mofldjifenhadohlkkngamgbifiofbnd",
+           // APC Debugging Extension.
+           // https://issues.chromium.org/555303047
+           kApcDebuggingExtensionId,
+           // https://issues.chromium.org/566080608
+           "akhddpkcbapcpnggmmkmgncjndcfjnko"});
+  if (kHardcodedAllowlistedExtensions.contains(extension_id)) {
     return true;
   }
 
@@ -830,7 +757,12 @@ bool AiDataKeyedService::IsExtensionAllowlistedForActions(
 
 bool AiDataKeyedService::IsExtensionAllowlistedForStable(
     const std::string& extension_id) {
-  // Stable channel always requires --experimental-ai-stable-channel flag.
+  // APC debugging must work on the same Stable pages that users encounter.
+  if (extension_id == kApcDebuggingExtensionId) {
+    return true;
+  }
+
+  // Other extensions still require --experimental-ai-stable-channel.
   auto* command_line = base::CommandLine::ForCurrentProcess();
   if (!command_line->HasSwitch(::switches::kExperimentalAiStableChannel)) {
     return false;

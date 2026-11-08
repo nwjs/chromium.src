@@ -441,6 +441,8 @@ inline constexpr char kInvalidInputComponents[] =
     "Invalid value for 'input_components'";
 inline constexpr char16_t kInvalidInputComponents16[] =
     u"Invalid value for 'input_components'";
+inline constexpr char kInvalidInputComponentId[] =
+    "Invalid value for 'input_components[*].id";
 inline constexpr char kInvalidInputComponentLayoutName[] =
     "Invalid value for 'input_components[*].layouts[*]";
 inline constexpr char kInvalidInputComponentName[] =

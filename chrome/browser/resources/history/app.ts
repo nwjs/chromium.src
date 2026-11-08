@@ -176,10 +176,11 @@ export class HistoryAppElement extends HistoryAppElementBase {
       nonEmbeddingsResultClicked_: {type: Boolean},
       numCharsTypedInSearch_: {type: Number},
       historyEmbeddingsDisclaimerLinkClicked_: {type: Boolean},
+      devices_: {type: Array},
       includeActorVisits_: {type: Boolean},
       includeUserVisits_: {type: Boolean},
-      isBrowsingHistoryActorIntegrationM3Enabled_: {type: Boolean},
       isGlicWebActuationAvailable_: {type: Boolean},
+      isBrowsingHistoryFilterByDeviceEnabled_: {type: Boolean},
     };
   }
 
@@ -248,12 +249,15 @@ export class HistoryAppElement extends HistoryAppElementBase {
   protected accessor tabContentScrollOffset_: number = 0;
   protected accessor numCharsTypedInSearch_: number = 0;
   protected accessor nonEmbeddingsResultClicked_: boolean = false;
+  // TODO(b:570141282): Replace mock devices with the actual ones.
+  protected accessor devices_: Array<{name: string}> =
+      [{name: 'device 1'}, {name: 'device 2'}];
   protected accessor includeActorVisits_: boolean = true;
   protected accessor includeUserVisits_: boolean = true;
-  protected accessor isBrowsingHistoryActorIntegrationM3Enabled_: boolean =
-      loadTimeData.getBoolean('isBrowsingHistoryActorIntegrationM3Enabled');
   protected accessor isGlicWebActuationAvailable_: boolean =
       loadTimeData.getBoolean('isGlicWebActuationAvailable');
+  protected accessor isBrowsingHistoryFilterByDeviceEnabled_: boolean =
+      loadTimeData.getBoolean('isBrowsingHistoryFilterByDeviceEnabled');
 
   private callbackRouter_: PageCallbackRouter;
   private foreignSessionCallbackRouter_: ForeignSessionPageCallbackRouter;
@@ -538,6 +542,13 @@ export class HistoryAppElement extends HistoryAppElementBase {
     if (document.body.classList.contains('loading')) {
       document.body.classList.remove('loading');
       this.onFirstRender_();
+      if (document.visibilityState === 'visible') {
+        requestAnimationFrame(() => {
+          BrowserProxyImpl.getInstance().recordTime(
+              'HistoryPage.TimeToFirstVisibleContent',
+              Math.round(performance.now()));
+        });
+      }
     }
   }
 
@@ -983,9 +994,22 @@ export class HistoryAppElement extends HistoryAppElementBase {
     });
   }
 
+  protected showActorFilter_(): boolean {
+    return this.isGlicWebActuationAvailable_;
+  }
+
+  protected showDeviceFilter_(): boolean {
+    return this.isBrowsingHistoryFilterByDeviceEnabled_ &&
+        this.devices_.length > 1;
+  }
+
   protected showFilterChips_(): boolean {
-    return this.isBrowsingHistoryActorIntegrationM3Enabled_ &&
-        this.isGlicWebActuationAvailable_ && !this.getShowResultsByGroup_();
+    return (this.showActorFilter_() || this.showDeviceFilter_()) &&
+        !this.getShowResultsByGroup_();
+  }
+
+  setDevicesForTesting(devices: Array<{name: string}>) {
+    this.devices_ = devices;
   }
 
   // TODO(crub.com/509908129): Add static stylesheet in history.html

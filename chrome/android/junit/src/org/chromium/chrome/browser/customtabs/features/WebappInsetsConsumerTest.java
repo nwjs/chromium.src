@@ -24,6 +24,7 @@ import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.robolectric.annotation.Config;
 
+import org.chromium.base.ContextUtils;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.ui.insets.InsetObserver;
 import org.chromium.ui.insets.InsetObserver.WindowInsetsConsumer.InsetConsumerSource;
@@ -40,7 +41,7 @@ public class WebappInsetsConsumerTest {
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
 
     @Mock private InsetObserver mInsetObserver;
-    @Mock private View mView;
+    private final View mView = new View(ContextUtils.getApplicationContext());
 
     private WebappInsetsConsumer mConsumer;
     private WindowInsetsCompat mWindowInsets;

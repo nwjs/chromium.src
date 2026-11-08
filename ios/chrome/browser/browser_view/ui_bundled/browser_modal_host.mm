@@ -65,7 +65,6 @@
 #import "ios/chrome/browser/file_upload_panel/coordinator/file_upload_panel_coordinator.h"
 #import "ios/chrome/browser/fullscreen/ui_bundled/fullscreen_controller.h"
 #import "ios/chrome/browser/google_one/coordinator/google_one_coordinator.h"
-#import "ios/chrome/browser/home_customization/coordinator/home_customization_ephemeral_theme_promo_coordinator.h"
 #import "ios/chrome/browser/intelligence/actor/coordinator/actor_overlay_coordinator.h"
 #import "ios/chrome/browser/intelligence/enhanced_calendar/coordinator/enhanced_calendar_coordinator.h"
 #import "ios/chrome/browser/intelligence/enhanced_calendar/model/enhanced_calendar_configuration.h"
@@ -78,7 +77,6 @@
 #import "ios/chrome/browser/passwords/bottom_sheet/coordinator/passkey_creation_bottom_sheet_coordinator.h"
 #import "ios/chrome/browser/passwords/password_breach/coordinator/password_breach_coordinator.h"
 #import "ios/chrome/browser/passwords/password_breach/coordinator/password_protection_coordinator.h"
-#import "ios/chrome/browser/passwords/password_breach/coordinator/password_protection_coordinator_delegate.h"
 #import "ios/chrome/browser/passwords/password_suggestion/coordinator/password_suggestion_coordinator.h"
 #import "ios/chrome/browser/phone_number/ui_bundled/add_contacts_coordinator.h"
 #import "ios/chrome/browser/phone_number/ui_bundled/country_code_picker_coordinator.h"
@@ -126,7 +124,6 @@
 #import "ios/chrome/browser/shared/public/commands/drive_file_picker_commands.h"
 #import "ios/chrome/browser/shared/public/commands/enhanced_calendar_commands.h"
 #import "ios/chrome/browser/shared/public/commands/enterprise_commands.h"
-#import "ios/chrome/browser/shared/public/commands/ephemeral_theme_promo_commands.h"
 #import "ios/chrome/browser/shared/public/commands/file_upload_panel_commands.h"
 #import "ios/chrome/browser/shared/public/commands/fullscreen_commands.h"
 #import "ios/chrome/browser/shared/public/commands/google_one_commands.h"
@@ -221,8 +218,6 @@ const char kContextPanelDismissedHistogram[] =
                                 DriveFilePickerCommands,
                                 EnhancedCalendarCommands,
                                 EnterpriseCommands,
-                                EnterprisePromptCoordinatorDelegate,
-                                EphemeralThemePromoCommands,
                                 FileUploadPanelCommands,
                                 GoogleOneCommands,
                                 IOSPasskeyClientCommands,
@@ -236,7 +231,6 @@ const char kContextPanelDismissedHistogram[] =
                                 PasskeyWelcomeScreenCoordinatorDelegate,
                                 PasswordBreachCommands,
                                 PasswordProtectionCommands,
-                                PasswordProtectionCoordinatorDelegate,
                                 PasswordSuggestionCommands,
                                 PictureInPictureCommands,
                                 PolicyChangeCommands,
@@ -304,8 +298,6 @@ const char kContextPanelDismissedHistogram[] =
   EnhancedCalendarCoordinator* _enhancedCalendarCoordinator;
   EnterpriseDialogCoordinator* _enterpriseDialogCoordinator;
   EnterprisePromptCoordinator* _enterprisePromptCoordinator;
-  HomeCustomizationEphemeralThemePromoCoordinator*
-      _ephemeralThemePromoCoordinator;
   API_AVAILABLE(ios(18.4))
   FileUploadPanelCoordinator* _fileUploadPanelCoordinator;
   GoogleOneCoordinator* _googleOneCoordinator;
@@ -408,8 +400,7 @@ const char kContextPanelDismissedHistogram[] =
   [self hideDriveFilePicker];
   [self hideEnhancedCalendarBottomSheet];
   [self dismissEnterpriseWarningDialog];
-  [self stopEnterprisePromptCoordinator];
-  [self hideEphemeralThemePromo];
+  [self hideEnterprisePrompt];
   if (@available(iOS 18.4, *)) {
     [self hideFileUploadPanel];
   }
@@ -423,7 +414,7 @@ const char kContextPanelDismissedHistogram[] =
   [self stopPasskeyWelcomeScreenCoordinator];
   [self dismissPasskeyIncognitoInterstitial];
   [self stopPasswordBreach];
-  [self stopPasswordProtectionCoordinator];
+  [self dismissPasswordProtectionWarning];
   [self closePasswordSuggestion];
   [self dismissPictureInPicture];
   [self hideMiniMap];
@@ -477,13 +468,6 @@ const char kContextPanelDismissedHistogram[] =
   _sendTabToSelfCoordinator = nil;
 }
 
-// Stops the Enterprise Prompt coordinator.
-- (void)stopEnterprisePromptCoordinator {
-  [_enterprisePromptCoordinator stop];
-  _enterprisePromptCoordinator.delegate = nil;
-  _enterprisePromptCoordinator = nil;
-}
-
 // Stops the sharing sheet.
 - (void)stopSharingSheet {
   [_sharingCoordinator stop];
@@ -503,12 +487,6 @@ const char kContextPanelDismissedHistogram[] =
   _passwordBreachCoordinator = nil;
 }
 
-// Stops the password protection coordinator.
-- (void)stopPasswordProtectionCoordinator {
-  [_passwordProtectionCoordinator stop];
-  _passwordProtectionCoordinator.delegate = nil;
-  _passwordProtectionCoordinator = nil;
-}
 
 // Stops the reminder notifications coordinator.
 - (void)stopReminderNotificationsCoordinator {
@@ -665,7 +643,6 @@ const char kContextPanelDismissedHistogram[] =
     @protocol(DriveFilePickerCommands),
     @protocol(EnhancedCalendarCommands),
     @protocol(EnterpriseCommands),
-    @protocol(EphemeralThemePromoCommands),
     @protocol(FileUploadPanelCommands),
     @protocol(GoogleOneCommands),
     @protocol(IOSPasskeyClientCommands),
@@ -1029,12 +1006,6 @@ const char kContextPanelDismissedHistogram[] =
   [_autofillEditProfileCoordinator stop];
   _autofillEditProfileCoordinator = nil;
   _editProfileBottomSheetHandler = nil;
-}
-
-- (void)legacyResetAutofillSuggestionsLoadingStates {
-  // TODO(crbug.com/543386292): Remove this.
-  [HandlerForProtocol(self.dispatcher, BrowserCoordinatorCommands)
-      resetAutofillSuggestionsLoadingStates];
 }
 
 - (void)showAutofillErrorDialog:
@@ -1530,25 +1501,6 @@ const char kContextPanelDismissedHistogram[] =
   _enterpriseDialogCoordinator = nil;
 }
 
-#pragma mark - EphemeralThemePromoCommands
-
-- (void)showEphemeralThemePromo {
-  if (_ephemeralThemePromoCoordinator) {
-    return;
-  }
-  _ephemeralThemePromoCoordinator =
-      [[HomeCustomizationEphemeralThemePromoCoordinator alloc]
-          initWithBaseViewController:_baseViewController
-                             browser:_browser];
-  _ephemeralThemePromoCoordinator.promosUIHandler = _promosManagerCoordinator;
-  [_ephemeralThemePromoCoordinator start];
-}
-
-- (void)hideEphemeralThemePromo {
-  [_ephemeralThemePromoCoordinator stop];
-  _ephemeralThemePromoCoordinator = nil;
-}
-
 #pragma mark - FileUploadPanelCommands
 
 - (void)showFileUploadPanel API_AVAILABLE(ios(18.4)) {
@@ -1901,22 +1853,18 @@ const char kContextPanelDismissedHistogram[] =
 - (void)showPasswordProtectionWarning:(NSString*)warningText
                            completion:(void (^)(safe_browsing::WarningAction))
                                           completion {
-  [self stopPasswordProtectionCoordinator];
+  [self dismissPasswordProtectionWarning];
   _passwordProtectionCoordinator = [[PasswordProtectionCoordinator alloc]
       initWithBaseViewController:_baseViewController
                          browser:_browser
                      warningText:warningText];
-  _passwordProtectionCoordinator.delegate = self;
   [_passwordProtectionCoordinator startWithCompletion:completion];
 }
 
-#pragma mark - PasswordProtectionCoordinatorDelegate
-
-- (void)passwordProtectionCoordinatorWantsToBeStopped:
-    (PasswordProtectionCoordinator*)coordinator {
-  // TODO(crbug.com/543366924): Remove this.
-  CHECK_EQ(_passwordProtectionCoordinator, coordinator);
-  [self stopPasswordProtectionCoordinator];
+- (void)dismissPasswordProtectionWarning {
+  PasswordProtectionCoordinator* coordinator = _passwordProtectionCoordinator;
+  _passwordProtectionCoordinator = nil;
+  [coordinator stop];
 }
 
 #pragma mark - PasswordSuggestionCommands
@@ -1987,7 +1935,6 @@ const char kContextPanelDismissedHistogram[] =
         initWithBaseViewController:_baseViewController
                            browser:_browser
                         promptType:EnterprisePromptTypeForceSignOut];
-    _enterprisePromptCoordinator.delegate = self;
   }
   [_enterprisePromptCoordinator start];
 }
@@ -2000,7 +1947,6 @@ const char kContextPanelDismissedHistogram[] =
         initWithBaseViewController:_baseViewController
                            browser:_browser
                         promptType:EnterprisePromptTypeSyncDisabled];
-    _enterprisePromptCoordinator.delegate = self;
   }
   [_enterprisePromptCoordinator start];
 }
@@ -2016,7 +1962,6 @@ const char kContextPanelDismissedHistogram[] =
                              browser:_browser
                           promptType:
                               EnterprisePromptTypeRestrictAccountSignedOut];
-      _enterprisePromptCoordinator.delegate = self;
     }
     [_enterprisePromptCoordinator start];
   } else {
@@ -2031,11 +1976,9 @@ const char kContextPanelDismissedHistogram[] =
   }
 }
 
-#pragma mark - EnterprisePromptCoordinatorDelegate
-
-- (void)hideEnterprisePrompForLearnMore:(BOOL)learnMore {
-  // TODO(crbug.com/545535699): Use a command instead of a delegate.
-  [self stopEnterprisePromptCoordinator];
+- (void)hideEnterprisePrompt {
+  [_enterprisePromptCoordinator stop];
+  _enterprisePromptCoordinator = nil;
 }
 
 #pragma mark - PriceTrackedItemsCommands
@@ -2161,9 +2104,9 @@ const char kContextPanelDismissedHistogram[] =
   __weak __typeof(_promosManagerCoordinator) weakPromosManagerCoordinator =
       _promosManagerCoordinator;
   [HandlerForProtocol(self.dispatcher, SceneSignInCommands)
-      showFullscreenSigninPromoWithCompletion:^(SigninCoordinator* coordinator,
-                                                SigninCoordinatorResult result,
-                                                id<SystemIdentity>) {
+      showFullscreenSigninPromoWithCompletion:^(
+          SigninCoordinator* coordinator,
+          SigninCoordinatorResultOrIdentity result) {
         [weakPromosManagerCoordinator promoWasDismissed];
       }];
 }
@@ -2426,7 +2369,7 @@ const char kContextPanelDismissedHistogram[] =
 - (void)sendTabToSelfCoordinatorWantsToBeStopped:
     (SendTabToSelfCoordinator*)coordinator {
   // TODO(crbug.com/545567389): Use a command instead of a delegate here.
-  CHECK_EQ(_sendTabToSelfCoordinator, coordinator, base::NotFatalUntil::M150);
+  CHECK_EQ(_sendTabToSelfCoordinator, coordinator);
   [self stopSendTabToSelf];
 }
 

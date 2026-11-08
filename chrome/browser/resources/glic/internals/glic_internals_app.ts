@@ -6,6 +6,8 @@ import '//resources/cr_elements/cr_button/cr_button.js';
 import '//resources/cr_elements/cr_checkbox/cr_checkbox.js';
 import '//resources/cr_elements/cr_tabs/cr_tabs.js';
 
+import type {CrCheckboxElement} from '//resources/cr_elements/cr_checkbox/cr_checkbox.js';
+import {EventTracker} from '//resources/js/event_tracker.js';
 import {loadTimeData} from '//resources/js/load_time_data.js';
 import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
 
@@ -32,6 +34,15 @@ import type {                                   //
 import {getCss} from './glic_internals_app.css.js';
 import {getHtml} from './glic_internals_app.html.js';
 
+const TAB_GENERAL = 0;
+const TAB_DEBUG = 1;
+const DEFAULT_TAB_HASH = '#general';
+
+const TAB_HASH_MAP: Record<number, string> = {
+  [TAB_GENERAL]: DEFAULT_TAB_HASH,
+  [TAB_DEBUG]: '#debug',
+};
+
 function getEnumEntries<E extends Record<string, unknown>>(enumObj: E):
     Array<{name: string, value: number}> {
   return Object.entries(enumObj)
@@ -57,7 +68,7 @@ export class GlicInternalsAppElement extends CrLitElement {
   static override get properties() {
     return {
       data_: {type: Object},
-      invokePrompt_: {type: String},
+      invokePrompts_: {type: Array},
       invokeAutoSubmit_: {type: Boolean},
       invokeFreOverride_: {type: Number},
       invokeFeatureMode_: {type: Number},
@@ -95,9 +106,12 @@ export class GlicInternalsAppElement extends CrLitElement {
 
   protected accessor copyButtonText_: string = 'Copy Diagnostics';
   private copyResetTimeoutId_: number|null = null;
+  private eventTracker_: EventTracker = new EventTracker();
+  private highlightTimeoutId_: number|null = null;
+  private currentHighlightedElement_: HTMLElement|null = null;
 
   protected accessor data_: InternalsDataPayload|undefined;
-  protected accessor invokePrompt_: string = '';
+  protected accessor invokePrompts_: string[] = [''];
   protected accessor invokeAutoSubmit_: boolean = true;
   protected accessor invokeFreOverride_: FreOverride = FreOverride.kUnspecified;
   protected accessor invokeFeatureMode_: FeatureMode = FeatureMode.kUnspecified;
@@ -145,15 +159,32 @@ export class GlicInternalsAppElement extends CrLitElement {
 
   override connectedCallback() {
     super.connectedCallback();
+    this.eventTracker_.add(window, 'hashchange', () => this.onHashChanged_());
     this.fetchInternalsData_();
-
     this.refreshOpenTabs_();
+    this.onHashChanged_();
+  }
+
+  override disconnectedCallback() {
+    super.disconnectedCallback();
+    this.eventTracker_.removeAll();
+    if (this.highlightTimeoutId_ !== null) {
+      window.clearTimeout(this.highlightTimeoutId_);
+      this.highlightTimeoutId_ = null;
+    }
   }
 
   private fetchInternalsData_() {
     this.browserProxy_.handler.getInternalsDataPayload().then(
-        ({internalsData}: {internalsData: InternalsDataPayload}) => {
+        async ({internalsData}: {internalsData: InternalsDataPayload}) => {
           this.data_ = internalsData;
+          if (window.location.hash) {
+            await this.updateComplete;
+            const {elementId} = this.resolveTargetHash_(window.location.hash);
+            if (elementId) {
+              this.scrollToElement_(elementId);
+            }
+          }
         });
   }
 
@@ -196,6 +227,16 @@ export class GlicInternalsAppElement extends CrLitElement {
       this.browserProxy_.handler.revokeExperimentalTriggeringConsent();
       this.fetchInternalsData_();
     }
+  }
+
+  protected onHotkeyGlobalScopeMigratedChange_(
+      e: CustomEvent<{value: boolean}>) {
+    const checked = (e.target as CrCheckboxElement).checked;
+    if (this.data_) {
+      this.data_.hotkeyGlobalScopeMigratedV2 = checked;
+    }
+    this.browserProxy_.handler.setHotkeyGlobalScopeMigratedV2(checked);
+    this.fetchInternalsData_();
   }
 
   protected onAutopushInputChange(e: Event) {
@@ -555,7 +596,25 @@ export class GlicInternalsAppElement extends CrLitElement {
   }
 
   protected onInvokePromptInput_(e: Event) {
-    this.invokePrompt_ = (e.target as HTMLInputElement).value;
+    const input = e.target as HTMLInputElement;
+    const index = Number(input.dataset['index']);
+    const newPrompts = [...this.invokePrompts_];
+    newPrompts[index] = input.value;
+    this.invokePrompts_ = newPrompts;
+  }
+
+  protected onAddPromptClick_() {
+    this.invokePrompts_ = [...this.invokePrompts_, ''];
+  }
+
+  protected onRemovePromptClick_(e: Event) {
+    if (this.invokePrompts_.length <= 1) {
+      return;
+    }
+    const button = e.currentTarget as HTMLElement;
+    const indexToRemove = Number(button.dataset['index']);
+    this.invokePrompts_ =
+        this.invokePrompts_.filter((_, index) => index !== indexToRemove);
   }
 
   protected onInvokeAutoSubmitChange_(e: Event) {
@@ -709,7 +768,7 @@ export class GlicInternalsAppElement extends CrLitElement {
 
     const options: TriggerInvokeFromInternalsOptions = {
       invocationSource: this.invokeInvocationSource_,
-      prompts: this.invokePrompt_ ? [this.invokePrompt_] : [],
+      prompts: this.invokePrompts_.filter(prompt => prompt.length > 0),
       conversation: conversationSelection,
       featureMode: this.invokeFeatureMode_,
       disableZss: false,
@@ -949,7 +1008,145 @@ export class GlicInternalsAppElement extends CrLitElement {
 
   protected onSelectedTabIndexSelectedChanged_(
       e: CustomEvent<{value: number}>) {
-    this.selectedTabIndex_ = e.detail.value;
+    const newIndex = e.detail.value;
+    if (this.selectedTabIndex_ === newIndex) {
+      return;
+    }
+    this.selectedTabIndex_ = newIndex;
+    const targetHash = TAB_HASH_MAP[newIndex] ?? DEFAULT_TAB_HASH;
+    const currentHash = window.location.hash;
+    if (currentHash !== targetHash &&
+        !currentHash.startsWith(targetHash + '.')) {
+      window.location.hash = targetHash;
+    }
+  }
+
+  protected onTabsClick_(e: MouseEvent) {
+    const tab = e.composedPath().find(
+                    el => el instanceof HTMLElement &&
+                        el.classList.contains('tab')) as HTMLElement |
+        undefined;
+    if (!tab || tab.dataset['index'] === undefined) {
+      return;
+    }
+    const clickedIndex = Number(tab.dataset['index']);
+    const targetHash = TAB_HASH_MAP[clickedIndex] ?? DEFAULT_TAB_HASH;
+    if (window.location.hash !== targetHash) {
+      window.location.hash = targetHash;
+    }
+  }
+
+  protected onSectionLinkClick_(e: MouseEvent) {
+    if (e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) {
+      return;
+    }
+    e.preventDefault();
+
+    const anchor = (e.currentTarget as HTMLElement)
+                       .closest<HTMLAnchorElement>('a.section-link');
+    const targetHash = anchor?.getAttribute('href');
+    if (!targetHash) {
+      return;
+    }
+
+    if (window.location.hash !== targetHash) {
+      window.location.hash = targetHash;
+    } else {
+      const id = targetHash.startsWith('#') ? targetHash.slice(1) : targetHash;
+      this.scrollToElement_(id);
+    }
+  }
+
+  private resolveTargetHash_(rawHash: string): {
+    targetHash: string,
+    tabIndex: number,
+    elementId?: string,
+  } {
+    let hash = rawHash.trim().toLowerCase();
+    if (!hash || hash === '#') {
+      return {
+        targetHash: DEFAULT_TAB_HASH,
+        tabIndex: TAB_GENERAL,
+      };
+    }
+    if (!hash.startsWith('#')) {
+      hash = '#' + hash;
+    }
+
+    for (const [indexStr, tabHash] of Object.entries(TAB_HASH_MAP)) {
+      const tabIndex = Number(indexStr);
+      if (hash === tabHash) {
+        return {targetHash: tabHash, tabIndex};
+      }
+      if (hash.startsWith(tabHash + '.')) {
+        return {
+          targetHash: hash,
+          tabIndex,
+          elementId: hash.slice(1),
+        };
+      }
+    }
+
+    return {
+      targetHash: DEFAULT_TAB_HASH,
+      tabIndex: TAB_GENERAL,
+    };
+  }
+
+  private async onHashChanged_() {
+    const {targetHash, tabIndex, elementId} =
+        this.resolveTargetHash_(window.location.hash);
+
+    if (this.selectedTabIndex_ !== tabIndex) {
+      this.selectedTabIndex_ = tabIndex;
+    }
+
+    await this.updateComplete;
+
+    if (elementId) {
+      this.scrollToElement_(elementId);
+    } else if (Object.values(TAB_HASH_MAP).includes(targetHash)) {
+      window.scrollTo({top: 0, behavior: 'smooth'});
+    }
+  }
+
+  private scrollToElement_(elementId: string) {
+    if (!this.shadowRoot) {
+      return;
+    }
+
+    const element = this.shadowRoot.getElementById(elementId);
+    if (!element) {
+      return;
+    }
+
+    element.scrollIntoView({behavior: 'smooth', block: 'start'});
+
+    // Clear any pending timeout and remove highlight from any previously
+    // highlighted element.
+    if (this.highlightTimeoutId_ !== null) {
+      window.clearTimeout(this.highlightTimeoutId_);
+      this.highlightTimeoutId_ = null;
+    }
+    if (this.currentHighlightedElement_) {
+      this.currentHighlightedElement_.classList.remove('highlight-target');
+    }
+
+    // Trigger pulse animation. Removing and re-adding the class with a forced
+    // reflow (by reading offsetWidth) restarts the CSS animation if the element
+    // was already highlighted.
+    element.classList.remove('highlight-target');
+    void element.offsetWidth;
+    element.classList.add('highlight-target');
+    this.currentHighlightedElement_ = element;
+
+    this.highlightTimeoutId_ = window.setTimeout(() => {
+      element.classList.remove('highlight-target');
+      if (this.currentHighlightedElement_ === element) {
+        this.currentHighlightedElement_ = null;
+      }
+      this.highlightTimeoutId_ = null;
+    }, 1500);
   }
 }
 

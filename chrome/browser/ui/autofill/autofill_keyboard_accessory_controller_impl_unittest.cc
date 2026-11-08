@@ -22,6 +22,7 @@
 #include "components/autofill/core/browser/data_model/addresses/autofill_profile_test_api.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_instance.h"
 #include "components/autofill/core/browser/integrators/autofill_ai/autofill_ai_labels.h"
+#include "components/autofill/core/browser/integrators/autofill_ai/metrics/personal_context_metrics.h"
 #include "components/autofill/core/browser/suggestions/suggestion_hiding_reason.h"
 #include "components/autofill/core/browser/suggestions/suggestion_type.h"
 #include "components/autofill/core/browser/test_utils/entity_data_test_util.h"
@@ -228,6 +229,37 @@ TEST_F(AutofillKeyboardAccessoryControllerImplTest,
       /*was_obscured=*/false);
 
   // After waiting again, suggestions become acceptable.
+  task_environment()->FastForwardBy(base::Milliseconds(500));
+  check.Call();
+  client().suggestion_controller(manager()).AcceptSuggestion(
+      /*index=*/0, AutofillMetrics::SuggestionAcceptedMethod::kTap,
+      /*was_obscured=*/false);
+}
+
+// Tests that updating datalist values resets the accept threshold.
+TEST_F(AutofillKeyboardAccessoryControllerImplTest,
+       AcceptSuggestionTimeoutIsUpdatedOnDataListUpdate) {
+  base::test::ScopedFeatureList scoped_feature_list{
+      features::kAutofillResetAcceptanceBarrierOnDataListUpdate};
+  MockFunction<void()> check;
+  {
+    InSequence s;
+    EXPECT_CALL(check, Call);
+    EXPECT_CALL(manager().external_delegate(), DidAcceptSuggestion);
+  }
+
+  ShowSuggestions(manager(), {SuggestionType::kDatalistEntry,
+                              SuggestionType::kAddressEntry});
+  task_environment()->FastForwardBy(base::Milliseconds(500));
+
+  // Mutating the datalist shifts the address entry to index 0 and must reset
+  // the acceptance barrier.
+  client().suggestion_controller(manager()).UpdateDataListValues({});
+  client().suggestion_controller(manager()).AcceptSuggestion(
+      /*index=*/0, AutofillMetrics::SuggestionAcceptedMethod::kTap,
+      /*was_obscured=*/false);
+
+  // After waiting 500ms again, suggestions become acceptable.
   task_environment()->FastForwardBy(base::Milliseconds(500));
   check.Call();
   client().suggestion_controller(manager()).AcceptSuggestion(
@@ -514,8 +546,12 @@ TEST_F(AutofillKeyboardAccessoryControllerImplTest,
   EXPECT_CALL(manager().external_delegate(), RemoveSuggestion(suggestion))
       .WillOnce(Return(true));
 
+  base::HistogramTester histogram_tester;
   EXPECT_TRUE(suggestion_controller().ShowAutofillAiSuggestionDetails(0));
   EXPECT_TRUE(suggestion_controller().GetSuggestions().empty());
+  histogram_tester.ExpectUniqueSample(
+      "Autofill.Ai.Suppression.ConfirmationDialogResult",
+      EntitySuppressionConfirmationDialogResult::kAccepted, 1);
 }
 
 TEST_F(AutofillKeyboardAccessoryControllerImplTest,
@@ -658,7 +694,11 @@ TEST_F(AutofillKeyboardAccessoryControllerImplTest,
       .WillOnce(RunOnceCallback<5>(/*confirmed=*/false));
   EXPECT_CALL(manager().external_delegate(), RemoveSuggestion).Times(0);
 
+  base::HistogramTester histogram_tester;
   EXPECT_TRUE(suggestion_controller().ShowAutofillAiSuggestionDetails(0));
+  histogram_tester.ExpectUniqueSample(
+      "Autofill.Ai.Suppression.ConfirmationDialogResult",
+      EntitySuppressionConfirmationDialogResult::kCancelled, 1);
 }
 
 TEST_F(AutofillKeyboardAccessoryControllerImplTest,
@@ -1383,7 +1423,7 @@ TEST_F(AutofillKeyboardAccessoryControllerImplTest,
 
   auto& controller = client().suggestion_controller(manager());
 
-  EXPECT_CALL(*manual_filling_view(), NavigateSuggestions).Times(0);
+  EXPECT_CALL(*manual_filling_view(), Navigate).Times(0);
   EXPECT_FALSE(test_api(controller)
                    .HandleKeyPressEvent(CreateKeyPressEvent(ui::VKEY_RIGHT)));
   EXPECT_FALSE(test_api(controller)
@@ -1406,8 +1446,7 @@ TEST_F(AutofillKeyboardAccessoryControllerImplTest,
   auto& controller = client().suggestion_controller(manager());
 
   // Arrow Down enters the navigation mode and selects the first suggestion.
-  EXPECT_CALL(*manual_filling_view(),
-              NavigateSuggestions(NavigationDirection::kForward))
+  EXPECT_CALL(*manual_filling_view(), Navigate(NavigationAction::kForward))
       .WillOnce(testing::Return(true));
   EXPECT_TRUE(test_api(controller)
                   .HandleKeyPressEvent(CreateKeyPressEvent(ui::VKEY_DOWN)));
@@ -1417,7 +1456,7 @@ TEST_F(AutofillKeyboardAccessoryControllerImplTest,
                   .HandleKeyPressEvent(CreateKeyPressEvent(ui::VKEY_UP)));
 
   // Arrow Left/Right are not handled anymore.
-  EXPECT_CALL(*manual_filling_view(), NavigateSuggestions).Times(0);
+  EXPECT_CALL(*manual_filling_view(), Navigate).Times(0);
   EXPECT_FALSE(test_api(controller)
                    .HandleKeyPressEvent(CreateKeyPressEvent(ui::VKEY_RIGHT)));
 }
@@ -1437,20 +1476,17 @@ TEST_F(AutofillKeyboardAccessoryControllerImplTest,
   auto& controller = client().suggestion_controller(manager());
 
   // Enter the suggestion navigation mode.
-  EXPECT_CALL(*manual_filling_view(),
-              NavigateSuggestions(NavigationDirection::kForward))
+  EXPECT_CALL(*manual_filling_view(), Navigate(NavigationAction::kForward))
       .WillOnce(testing::Return(true));
   EXPECT_TRUE(test_api(controller)
                   .HandleKeyPressEvent(CreateKeyPressEvent(ui::VKEY_DOWN)));
 
-  EXPECT_CALL(*manual_filling_view(),
-              NavigateSuggestions(NavigationDirection::kForward))
+  EXPECT_CALL(*manual_filling_view(), Navigate(NavigationAction::kForward))
       .WillOnce(testing::Return(true));
   EXPECT_TRUE(test_api(controller)
                   .HandleKeyPressEvent(CreateKeyPressEvent(ui::VKEY_RIGHT)));
 
-  EXPECT_CALL(*manual_filling_view(),
-              NavigateSuggestions(NavigationDirection::kBackward))
+  EXPECT_CALL(*manual_filling_view(), Navigate(NavigationAction::kBackward))
       .WillOnce(testing::Return(true));
   EXPECT_TRUE(test_api(controller)
                   .HandleKeyPressEvent(CreateKeyPressEvent(ui::VKEY_LEFT)));
@@ -1469,15 +1505,14 @@ TEST_F(AutofillKeyboardAccessoryControllerImplTest,
 
   auto& controller = client().suggestion_controller(manager());
 
-  EXPECT_CALL(*manual_filling_view(),
-              NavigateSuggestions(NavigationDirection::kForward))
+  EXPECT_CALL(*manual_filling_view(), Navigate(NavigationAction::kForward))
       .WillOnce(testing::Return(false));
   EXPECT_FALSE(test_api(controller)
                    .HandleKeyPressEvent(CreateKeyPressEvent(ui::VKEY_DOWN)));
 
   // Since the navigation mode was not entered, arrow Left/Right still move the
   // text caret.
-  EXPECT_CALL(*manual_filling_view(), NavigateSuggestions).Times(0);
+  EXPECT_CALL(*manual_filling_view(), Navigate).Times(0);
   EXPECT_FALSE(test_api(controller)
                    .HandleKeyPressEvent(CreateKeyPressEvent(ui::VKEY_RIGHT)));
 }
@@ -1667,8 +1702,7 @@ TEST_F(AutofillKeyboardAccessoryControllerImplTest,
 
   controller.SelectSuggestion(1);
 
-  EXPECT_CALL(*manual_filling_view(),
-              NavigateSuggestions(NavigationDirection::kForward))
+  EXPECT_CALL(*manual_filling_view(), Navigate(NavigationAction::kForward))
       .WillOnce(testing::Return(true));
   EXPECT_TRUE(test_api(controller)
                   .HandleKeyPressEvent(CreateKeyPressEvent(ui::VKEY_RIGHT)));
@@ -1677,7 +1711,7 @@ TEST_F(AutofillKeyboardAccessoryControllerImplTest,
   // text caret again.
   controller.UnselectSuggestion();
 
-  EXPECT_CALL(*manual_filling_view(), NavigateSuggestions).Times(0);
+  EXPECT_CALL(*manual_filling_view(), Navigate).Times(0);
   EXPECT_FALSE(test_api(controller)
                    .HandleKeyPressEvent(CreateKeyPressEvent(ui::VKEY_RIGHT)));
 }

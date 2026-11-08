@@ -5,8 +5,11 @@
 package org.chromium.chrome.browser.toolbar.account_menu;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
@@ -14,6 +17,8 @@ import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+
+import static org.chromium.ui.test.util.MockitoHelper.doCallback;
 
 import android.app.Activity;
 import android.content.Context;
@@ -26,15 +31,21 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
+import org.robolectric.Robolectric;
 
+import org.chromium.base.Callback;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.build.annotations.Nullable;
+import org.chromium.chrome.browser.enterprise.util.ManagedBrowserUtils;
+import org.chromium.chrome.browser.enterprise.util.ManagedBrowserUtilsJni;
 import org.chromium.chrome.browser.incognito.IncognitoUtils;
 import org.chromium.chrome.browser.multiwindow.MultiInstanceManager.NewWindowAppSource;
 import org.chromium.chrome.browser.multiwindow.MultiInstanceOrchestrator;
@@ -63,6 +74,7 @@ import org.chromium.chrome.browser.ui.signin.SigninAndHistorySyncActivityLaunche
 import org.chromium.chrome.test.util.browser.signin.AccountManagerTestRule;
 import org.chromium.components.browser_ui.settings.SettingsNavigation;
 import org.chromium.components.browser_ui.settings.SettingsNavigation.SettingsFragment;
+import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.components.signin.SigninFeatures;
 import org.chromium.components.signin.base.AccountInfo;
 import org.chromium.components.signin.metrics.SigninAccessPoint;
@@ -83,16 +95,17 @@ import java.lang.ref.WeakReference;
     SigninFeatures.MAKE_IDENTITY_MANAGER_SOURCE_OF_ACCOUNTS,
     SigninFeatures.ENABLE_ACTIVITYLESS_SIGNIN_ALL_ENTRY_POINT
 })
+@DisableFeatures(SigninFeatures.SIGNIN_BUTTON_PROFILE_MENU_REFINEMENTS)
 public class AccountMenuMediatorTest {
     @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
 
     @Rule
     public final AccountManagerTestRule mAccountManagerTestRule = new AccountManagerTestRule();
 
-    @Mock private Activity mActivity;
     @Mock private WindowAndroid mWindowAndroid;
     @Mock private @Nullable Profile mProfile;
     @Mock private TabCreator mIncognitoTabCreator;
+    @Mock private TabCreator mRegularTabCreator;
     @Mock private TabModelSelector mTabModelSelector;
     @Mock private TabCreatorManager mTabCreatorManager;
     @Mock private MultiInstanceOrchestrator mOrchestrator;
@@ -104,13 +117,18 @@ public class AccountMenuMediatorTest {
     @Mock private BottomSheetSigninAndHistorySyncCoordinator mSigninCoordinator;
     @Mock private SigninAndHistorySyncActivityLauncher mSigninLauncher;
     @Mock private SigninMetricsUtils.Natives mSigninMetricsUtilsNativeMock;
+    @Mock private ManagedBrowserUtils.Natives mManagedBrowserUtilsNatives;
+    @Captor private ArgumentCaptor<Callback<Boolean>> mCallbackCaptor;
 
+    private Activity mActivity;
     private Context mContext;
     private ModelList mModelList;
     private AccountMenuMediator mMediator;
 
     @Before
     public void setUp() {
+        mActivity = Robolectric.buildActivity(Activity.class).get();
+        ManagedBrowserUtilsJni.setInstanceForTesting(mManagedBrowserUtilsNatives);
         mContext = ApplicationProvider.getApplicationContext();
         SettingsNavigationFactory.setInstanceForTesting(mSettingsNavigation);
         IdentityServicesProvider.setInstanceForTests(mIdentityServicesProvider);
@@ -126,6 +144,7 @@ public class AccountMenuMediatorTest {
         TabModelSelectorSupplier.setInstanceForTesting(mTabModelSelector);
         doReturn(mTabCreatorManager).when(mTabModelSelector).getTabCreatorManager();
         doReturn(mIncognitoTabCreator).when(mTabCreatorManager).getTabCreator(true);
+        doReturn(mRegularTabCreator).when(mTabCreatorManager).getTabCreator(false);
 
         IncognitoUtils.setEnabledForTesting(true);
 
@@ -149,20 +168,14 @@ public class AccountMenuMediatorTest {
         SettingsNavigationFactory.setInstanceForTesting(null);
         IdentityServicesProvider.setInstanceForTests(null);
         SyncServiceFactory.setInstanceForTesting(null);
+        ManagedBrowserUtilsJni.setInstanceForTesting(null);
     }
 
     @Test
     @DisableFeatures(SigninFeatures.ENABLE_ACTIVITYLESS_SIGNIN_ALL_ENTRY_POINT)
     public void testSignedOut_showsPromoCardAndSigninsOnClick() {
         assertEquals(4, mModelList.size());
-        ListItem item = mModelList.get(0);
-        assertEquals(ItemType.PROMO_CARD, item.type);
-
-        OnClickListener onSigninClick =
-                item.model.get(PromoCardProperties.ON_SIGNIN_CLICK_LISTENER);
-        assertNotNull(onSigninClick);
-
-        onSigninClick.onClick(null);
+        clickPromoSigninButton();
 
         verify(mDismissCallback).run();
         verify(mSigninLauncher)
@@ -177,14 +190,7 @@ public class AccountMenuMediatorTest {
     @EnableFeatures(SigninFeatures.ENABLE_ACTIVITYLESS_SIGNIN_ALL_ENTRY_POINT)
     public void testSignedOut_activitylessSigninOnClick() {
         assertEquals(4, mModelList.size());
-        ListItem item = mModelList.get(0);
-        assertEquals(ItemType.PROMO_CARD, item.type);
-
-        OnClickListener onSigninClick =
-                item.model.get(PromoCardProperties.ON_SIGNIN_CLICK_LISTENER);
-        assertNotNull(onSigninClick);
-
-        onSigninClick.onClick(null);
+        clickPromoSigninButton();
 
         verify(mDismissCallback).run();
         verify(mSigninCoordinator).startSigninFlow(any());
@@ -205,18 +211,12 @@ public class AccountMenuMediatorTest {
     @Test
     public void testAutofillItemClick_dismissesAndOpensAutofillSettings() {
         assertEquals(4, mModelList.size());
-        ListItem item = mModelList.get(1);
-        assertEquals(ItemType.MENU_ITEM, item.type);
-
-        PropertyModel model = item.model;
+        PropertyModel model = mModelList.get(1).model;
         assertEquals(R.string.menu_passwords_and_autofill, model.get(MenuItemProperties.TITLE_ID));
         assertEquals(
                 R.drawable.ic_password_manager_24dp, model.get(MenuItemProperties.START_ICON_ID));
 
-        OnClickListener clickListener = model.get(MenuItemProperties.CLICK_LISTENER);
-        assertNotNull(clickListener);
-
-        clickListener.onClick(null);
+        clickMenuItem(/* index= */ 1);
 
         verify(mDismissCallback).run();
         verify(mSettingsNavigation)
@@ -225,24 +225,16 @@ public class AccountMenuMediatorTest {
 
     @Test
     public void testAccountSettingsItemClick_dismissesAndOpensAccountSettings() {
-        mAccountManagerTestRule.addAccount(TestAccounts.ACCOUNT1);
-        mAccountManagerTestRule.getIdentityManager().setPrimaryAccount(TestAccounts.ACCOUNT1);
-        mMediator.updateMenuItems(/* recordShownMetrics= */ false);
+        signInAndUpdateMenu();
 
         assertEquals(6, mModelList.size());
-        ListItem item = mModelList.get(3);
-        assertEquals(ItemType.MENU_ITEM, item.type);
-
-        PropertyModel model = item.model;
+        PropertyModel model = mModelList.get(3).model;
         assertEquals(
                 R.string.profile_menu_account_settings_button,
                 model.get(MenuItemProperties.TITLE_ID));
         assertEquals(R.drawable.settings_cog, model.get(MenuItemProperties.START_ICON_ID));
 
-        OnClickListener clickListener = model.get(MenuItemProperties.CLICK_LISTENER);
-        assertNotNull(clickListener);
-
-        clickListener.onClick(null);
+        clickMenuItem(/* index= */ 3);
 
         verify(mDismissCallback).run();
         verify(mSettingsNavigation).startSettings(mContext, SettingsFragment.MAIN);
@@ -258,15 +250,12 @@ public class AccountMenuMediatorTest {
         assertEquals(4, mModelList.size());
         assertEquals(ItemType.DIVIDER, mModelList.get(2).type);
         ListItem item = mModelList.get(3);
-        assertEquals(ItemType.MENU_ITEM, item.type);
         assertEquals(
                 R.string.menu_new_incognito_window, item.model.get(MenuItemProperties.TITLE_ID));
         assertEquals(
                 R.drawable.ic_incognito_24dp, item.model.get(MenuItemProperties.START_ICON_ID));
 
-        OnClickListener clickListener = item.model.get(MenuItemProperties.CLICK_LISTENER);
-        assertNotNull(clickListener);
-        clickListener.onClick(null);
+        clickMenuItem(/* index= */ 3);
 
         verify(mDismissCallback).run();
         verify(mOrchestrator)
@@ -285,12 +274,9 @@ public class AccountMenuMediatorTest {
 
         assertEquals(4, mModelList.size());
         ListItem item = mModelList.get(3);
-        assertEquals(ItemType.MENU_ITEM, item.type);
         assertEquals(R.string.menu_new_incognito_tab, item.model.get(MenuItemProperties.TITLE_ID));
 
-        OnClickListener clickListener = item.model.get(MenuItemProperties.CLICK_LISTENER);
-        assertNotNull(clickListener);
-        clickListener.onClick(null);
+        clickMenuItem(/* index= */ 3);
 
         verify(mDismissCallback).run();
         verify(mIncognitoTabCreator).launchNtp(TabLaunchType.FROM_CHROME_UI);
@@ -311,10 +297,7 @@ public class AccountMenuMediatorTest {
 
     @Test
     public void testSignedIn_showsIdentityCard() {
-        mAccountManagerTestRule.addAccount(TestAccounts.ACCOUNT1);
-        mAccountManagerTestRule.getIdentityManager().setPrimaryAccount(TestAccounts.ACCOUNT1);
-
-        mMediator.updateMenuItems(/* recordShownMetrics= */ false);
+        signInAndUpdateMenu();
 
         assertEquals(6, mModelList.size());
         ListItem item = mModelList.get(0);
@@ -323,14 +306,101 @@ public class AccountMenuMediatorTest {
         assertNotNull(profileData);
         assertEquals(TestAccounts.ACCOUNT1.getFullName(), profileData.getFullName());
         assertEquals(TestAccounts.ACCOUNT1.getEmail(), profileData.getAccountEmail());
+        assertFalse(item.model.get(IdentityCardProperties.SHOULD_DISPLAY_MANAGED_HEADER));
+        assertNull(item.model.get(IdentityCardProperties.MANAGED_HEADER_CLICK_LISTENER));
+    }
+
+    @Test
+    @EnableFeatures(SigninFeatures.SIGNIN_BUTTON_PROFILE_MENU_REFINEMENTS)
+    public void testSignedIn_managedProfile_showsManagedHeader() {
+        doReturn(true).when(mManagedBrowserUtilsNatives).isProfileManaged(mProfile);
+        signInAndUpdateMenu();
+
+        assertEquals(5, mModelList.size());
+        clickManagedHeaderButton();
+
+        verify(mDismissCallback).run();
+        verify(mRegularTabCreator)
+                .launchUrl(UrlConstants.MANAGEMENT_URL, TabLaunchType.FROM_CHROME_UI);
+    }
+
+    @Test
+    @EnableFeatures(SigninFeatures.SIGNIN_BUTTON_PROFILE_MENU_REFINEMENTS)
+    public void testSignedIn_managedAccount_showsManagedHeader() {
+        doReturn(false).when(mManagedBrowserUtilsNatives).isProfileManaged(mProfile);
+        setAccountManaged(TestAccounts.MANAGED_ACCOUNT, true);
+        signInAndUpdateMenu(TestAccounts.MANAGED_ACCOUNT);
+
+        assertEquals(5, mModelList.size());
+        clickManagedHeaderButton();
+
+        verify(mDismissCallback).run();
+        verify(mRegularTabCreator)
+                .launchUrl(UrlConstants.MANAGEMENT_URL, TabLaunchType.FROM_CHROME_UI);
+    }
+
+    @Test
+    @EnableFeatures(SigninFeatures.SIGNIN_BUTTON_PROFILE_MENU_REFINEMENTS)
+    public void testSignedIn_managedAccountCallbackAfterAccountChange_ignoresStaleCallback() {
+        doReturn(false).when(mManagedBrowserUtilsNatives).isProfileManaged(mProfile);
+        signInAndUpdateMenu(TestAccounts.MANAGED_ACCOUNT);
+
+        verify(mSigninManager)
+                .isAccountManaged(eq(TestAccounts.MANAGED_ACCOUNT), mCallbackCaptor.capture());
+
+        // Switch primary account before the first account's callback resolves.
+        mAccountManagerTestRule.getIdentityManager().setPrimaryAccount(null);
+        signInAndUpdateMenu(TestAccounts.ACCOUNT1);
+
+        mCallbackCaptor.getValue().onResult(true);
+
+        ListItem item = mModelList.get(0);
+        assertEquals(ItemType.IDENTITY_CARD, item.type);
+        assertFalse(item.model.get(IdentityCardProperties.SHOULD_DISPLAY_MANAGED_HEADER));
+        assertNull(item.model.get(IdentityCardProperties.MANAGED_HEADER_CLICK_LISTENER));
+    }
+
+    @Test
+    @EnableFeatures(SigninFeatures.SIGNIN_BUTTON_PROFILE_MENU_REFINEMENTS)
+    public void testSignedOut_setsSectionBoundaries() {
+        mMediator.updateMenuItems(/* recordShownMetrics= */ false);
+
+        assertEquals(3, mModelList.size());
+        assertEquals(ItemType.PROMO_CARD, mModelList.get(0).type);
+
+        // First section: Autofill (single item when signed out, so both top and bottom).
+        assertTrue(mModelList.get(1).model.get(MenuItemProperties.IS_SECTION_TOP));
+        assertTrue(mModelList.get(1).model.get(MenuItemProperties.IS_SECTION_BOTTOM));
+
+        // Second section: Incognito (single item, so both top and bottom).
+        assertTrue(mModelList.get(2).model.get(MenuItemProperties.IS_SECTION_TOP));
+        assertTrue(mModelList.get(2).model.get(MenuItemProperties.IS_SECTION_BOTTOM));
+    }
+
+    @Test
+    @EnableFeatures(SigninFeatures.SIGNIN_BUTTON_PROFILE_MENU_REFINEMENTS)
+    public void testSignedIn_setsSectionBoundaries() {
+        signInAndUpdateMenu();
+
+        assertEquals(5, mModelList.size());
+        assertEquals(ItemType.IDENTITY_CARD, mModelList.get(0).type);
+
+        // First section: Autofill (top), Manage account (middle), Account settings (bottom).
+        assertTrue(mModelList.get(1).model.get(MenuItemProperties.IS_SECTION_TOP));
+        assertFalse(mModelList.get(1).model.get(MenuItemProperties.IS_SECTION_BOTTOM));
+        assertFalse(mModelList.get(2).model.get(MenuItemProperties.IS_SECTION_TOP));
+        assertFalse(mModelList.get(2).model.get(MenuItemProperties.IS_SECTION_BOTTOM));
+        assertFalse(mModelList.get(3).model.get(MenuItemProperties.IS_SECTION_TOP));
+        assertTrue(mModelList.get(3).model.get(MenuItemProperties.IS_SECTION_BOTTOM));
+
+        // Second section: Incognito (single item, so both top and bottom).
+        assertTrue(mModelList.get(4).model.get(MenuItemProperties.IS_SECTION_TOP));
+        assertTrue(mModelList.get(4).model.get(MenuItemProperties.IS_SECTION_BOTTOM));
     }
 
     @Test
     public void testProfileDataUpdated_updatesIdentityCard() {
-        mAccountManagerTestRule.addAccount(TestAccounts.ACCOUNT1);
-        mAccountManagerTestRule.getIdentityManager().setPrimaryAccount(TestAccounts.ACCOUNT1);
-
-        mMediator.updateMenuItems(/* recordShownMetrics= */ false);
+        signInAndUpdateMenu();
 
         ListItem item = mModelList.get(0);
         assertEquals(ItemType.IDENTITY_CARD, item.type);
@@ -343,7 +413,12 @@ public class AccountMenuMediatorTest {
         // When profile data updates for another account, identity card is not updated.
         mAccountManagerTestRule.addAccount(TestAccounts.ACCOUNT2);
         mAccountManagerTestRule.updateAccount(TestAccounts.ACCOUNT2);
-        assertEquals(initialProfileData, item.model.get(IdentityCardProperties.PROFILE_DATA));
+        DisplayableProfileData profileData = item.model.get(IdentityCardProperties.PROFILE_DATA);
+        // TODO(crbug.com/485508396): Instead assert that the instance is unchanged once adding an
+        // account no longer regenerates DisplayableProfileData for other accounts.
+        assertEquals(initialProfileData.getAccountId(), profileData.getAccountId());
+        assertEquals(initialProfileData.getFullName(), profileData.getFullName());
+        assertEquals(initialProfileData.getAccountEmail(), profileData.getAccountEmail());
 
         // When profile data updates for the primary account, identity card is updated.
         AccountInfo updatedAccount =
@@ -388,21 +463,14 @@ public class AccountMenuMediatorTest {
 
     @Test
     public void testManageGoogleAccountItemClick_opensMyAccount() {
-        mAccountManagerTestRule.addAccount(TestAccounts.ACCOUNT1);
-        mAccountManagerTestRule.getIdentityManager().setPrimaryAccount(TestAccounts.ACCOUNT1);
-
-        mMediator.updateMenuItems(/* recordShownMetrics= */ false);
+        signInAndUpdateMenu();
 
         assertEquals(6, mModelList.size());
         ListItem item = mModelList.get(2);
-        assertEquals(ItemType.MENU_ITEM, item.type);
-        assertNotNull(item);
         assertEquals(
                 R.string.manage_your_google_account, item.model.get(MenuItemProperties.TITLE_ID));
-        OnClickListener clickListener = item.model.get(MenuItemProperties.CLICK_LISTENER);
-        assertNotNull(clickListener);
 
-        clickListener.onClick(null);
+        clickMenuItem(/* index= */ 2);
 
         verify(mDismissCallback).run();
         verify(mSigninLauncher).openManageGoogleAccount(eq(mContext));
@@ -411,21 +479,6 @@ public class AccountMenuMediatorTest {
     @Test
     public void testSignedOut_doesNotDisplayManageGoogleAccountItem() {
         // The FakeIdentityManager from `mAccountManagerTestRule` has no primary account by default.
-        mMediator.updateMenuItems(/* recordShownMetrics= */ false);
-
-        for (ListItem item : mModelList) {
-            if (item.type == ItemType.MENU_ITEM) {
-                assertNotEquals(
-                        R.string.manage_your_google_account,
-                        item.model.get(MenuItemProperties.TITLE_ID));
-            }
-        }
-    }
-
-    @Test
-    public void testIncognitoProfile_doesNotDisplayManageGoogleAccountItem() {
-        doReturn(true).when(mProfile).isOffTheRecord();
-
         mMediator.updateMenuItems(/* recordShownMetrics= */ false);
 
         for (ListItem item : mModelList) {
@@ -492,12 +545,7 @@ public class AccountMenuMediatorTest {
     public void testRecordEvent_signinPromo() {
         HistogramWatcher watcher = expectEvent(Event.SIGNIN_PROMO_CLICKED);
 
-        ListItem item = mModelList.get(0);
-        assertEquals(ItemType.PROMO_CARD, item.type);
-        OnClickListener onSigninClick =
-                item.model.get(PromoCardProperties.ON_SIGNIN_CLICK_LISTENER);
-        assertNotNull(onSigninClick);
-        onSigninClick.onClick(null);
+        clickPromoSigninButton();
 
         watcher.assertExpected();
     }
@@ -536,9 +584,7 @@ public class AccountMenuMediatorTest {
 
     @Test
     public void testRecordEvent_manageGoogleAccount() {
-        mAccountManagerTestRule.addAccount(TestAccounts.ACCOUNT1);
-        mAccountManagerTestRule.getIdentityManager().setPrimaryAccount(TestAccounts.ACCOUNT1);
-        mMediator.updateMenuItems(/* recordShownMetrics= */ false);
+        signInAndUpdateMenu();
         HistogramWatcher watcher = expectEvent(Event.MANAGE_GOOGLE_ACCOUNT_CLICKED);
 
         clickMenuItem(/* index= */ 2);
@@ -548,14 +594,53 @@ public class AccountMenuMediatorTest {
 
     @Test
     public void testRecordEvent_accountSettings() {
-        mAccountManagerTestRule.addAccount(TestAccounts.ACCOUNT1);
-        mAccountManagerTestRule.getIdentityManager().setPrimaryAccount(TestAccounts.ACCOUNT1);
-        mMediator.updateMenuItems(/* recordShownMetrics= */ false);
+        signInAndUpdateMenu();
         HistogramWatcher watcher = expectEvent(Event.ACCOUNT_SETTINGS_CLICKED);
 
         clickMenuItem(/* index= */ 3);
 
         watcher.assertExpected();
+    }
+
+    @Test
+    @EnableFeatures(SigninFeatures.SIGNIN_BUTTON_PROFILE_MENU_REFINEMENTS)
+    public void testRecordEvent_managedHeader() {
+        doReturn(true).when(mManagedBrowserUtilsNatives).isProfileManaged(mProfile);
+        signInAndUpdateMenu();
+        HistogramWatcher watcher = expectEvent(Event.MANAGED_HEADER_CLICKED);
+
+        clickManagedHeaderButton();
+
+        watcher.assertExpected();
+    }
+
+    private void signInAndUpdateMenu() {
+        signInAndUpdateMenu(TestAccounts.ACCOUNT1);
+    }
+
+    private void signInAndUpdateMenu(AccountInfo account) {
+        mAccountManagerTestRule.addAccount(account);
+        mAccountManagerTestRule.getIdentityManager().setPrimaryAccount(account);
+        mMediator.updateMenuItems(/* recordShownMetrics= */ false);
+    }
+
+    private void clickPromoSigninButton() {
+        ListItem item = mModelList.get(0);
+        assertEquals(ItemType.PROMO_CARD, item.type);
+        OnClickListener onSigninClick =
+                item.model.get(PromoCardProperties.ON_SIGNIN_CLICK_LISTENER);
+        assertNotNull(onSigninClick);
+        onSigninClick.onClick(null);
+    }
+
+    private void clickManagedHeaderButton() {
+        ListItem item = mModelList.get(0);
+        assertEquals(ItemType.IDENTITY_CARD, item.type);
+        assertTrue(item.model.get(IdentityCardProperties.SHOULD_DISPLAY_MANAGED_HEADER));
+        OnClickListener clickListener =
+                item.model.get(IdentityCardProperties.MANAGED_HEADER_CLICK_LISTENER);
+        assertNotNull(clickListener);
+        clickListener.onClick(null);
     }
 
     private void clickMenuItem(int index) {
@@ -564,6 +649,12 @@ public class AccountMenuMediatorTest {
         OnClickListener clickListener = item.model.get(MenuItemProperties.CLICK_LISTENER);
         assertNotNull(clickListener);
         clickListener.onClick(null);
+    }
+
+    private void setAccountManaged(AccountInfo account, boolean isManaged) {
+        doCallback(1, (Callback<Boolean> callback) -> callback.onResult(isManaged))
+                .when(mSigninManager)
+                .isAccountManaged(eq(account), any());
     }
 
     /** Expects the given event to be recorded once. */

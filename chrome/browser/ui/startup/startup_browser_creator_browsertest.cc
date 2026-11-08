@@ -559,6 +559,77 @@ IN_PROC_BROWSER_TEST_F(StartupBrowserCreatorTest,
   EXPECT_EQ(urls[2], tab_strip->GetWebContentsAt(2)->GetVisibleURL());
 }
 
+IN_PROC_BROWSER_TEST_F(StartupBrowserCreatorTest,
+                       OpenInBackgroundSwitchKeepsActiveTab) {
+  std::vector<GURL> urls;
+  urls.push_back(chrome_test_utils::GetTestUrl(
+      base::FilePath(base::FilePath::kCurrentDirectory),
+      base::FilePath(FILE_PATH_LITERAL("title1.html"))));
+  urls.push_back(chrome_test_utils::GetTestUrl(
+      base::FilePath(base::FilePath::kCurrentDirectory),
+      base::FilePath(FILE_PATH_LITERAL("title2.html"))));
+
+  DisableWhatsNewPage();
+
+  ui_test_utils::NavigateToURLWithDisposition(
+      browser(), GURL("http://localhost"), WindowOpenDisposition::CURRENT_TAB,
+      ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
+  TabStripModel* tab_strip = browser()->GetTabStripModel();
+  ASSERT_EQ(1, tab_strip->count());
+  const GURL active_url = tab_strip->GetActiveWebContents()->GetVisibleURL();
+
+  base::CommandLine command_line(base::CommandLine::NO_PROGRAM);
+  command_line.AppendSwitch(switches::kOpenInBackground);
+  command_line.AppendArg(urls[0].spec());
+  command_line.AppendArg(urls[1].spec());
+
+  ASSERT_TRUE(StartupBrowserCreator().ProcessCmdLineImpl(
+      command_line, base::FilePath(), chrome::startup::IsProcessStartup::kNo,
+      {browser()->GetProfile(), StartupProfileMode::kBrowserWindow}, {}));
+
+  // Both URLs are appended, and neither of them steals the active tab.
+  EXPECT_EQ(3, tab_strip->count());
+  EXPECT_EQ(urls[0], tab_strip->GetWebContentsAt(1)->GetVisibleURL());
+  EXPECT_EQ(urls[1], tab_strip->GetWebContentsAt(2)->GetVisibleURL());
+  EXPECT_EQ(0, tab_strip->active_index());
+  EXPECT_EQ(active_url, tab_strip->GetActiveWebContents()->GetVisibleURL());
+}
+
+IN_PROC_BROWSER_TEST_F(StartupBrowserCreatorTest,
+                       OpenInBackgroundSwitchActivatesFirstTabOfNewWindow) {
+  std::vector<GURL> urls;
+  urls.push_back(chrome_test_utils::GetTestUrl(
+      base::FilePath(base::FilePath::kCurrentDirectory),
+      base::FilePath(FILE_PATH_LITERAL("title1.html"))));
+  urls.push_back(chrome_test_utils::GetTestUrl(
+      base::FilePath(base::FilePath::kCurrentDirectory),
+      base::FilePath(FILE_PATH_LITERAL("title2.html"))));
+
+  DisableWhatsNewPage();
+
+  base::CommandLine command_line(base::CommandLine::NO_PROGRAM);
+  command_line.AppendSwitch(switches::kOpenInNewWindow);
+  command_line.AppendSwitch(switches::kOpenInBackground);
+  command_line.AppendArg(urls[0].spec());
+  command_line.AppendArg(urls[1].spec());
+
+  ASSERT_TRUE(StartupBrowserCreator().ProcessCmdLineImpl(
+      command_line, base::FilePath(), chrome::startup::IsProcessStartup::kNo,
+      {browser()->GetProfile(), StartupProfileMode::kBrowserWindow}, {}));
+
+  BrowserWindowInterface* const new_browser =
+      ui_test_utils::GetBrowserNotInSet({browser()});
+  ASSERT_TRUE(new_browser);
+
+  // A window had to be created, so there is nothing to preserve: the first tab
+  // is still activated.
+  TabStripModel* const new_tab_strip = new_browser->GetTabStripModel();
+  ASSERT_EQ(2, new_tab_strip->count());
+  EXPECT_EQ(urls[0], new_tab_strip->GetWebContentsAt(0)->GetVisibleURL());
+  EXPECT_EQ(urls[1], new_tab_strip->GetWebContentsAt(1)->GetVisibleURL());
+  EXPECT_EQ(0, new_tab_strip->active_index());
+}
+
 IN_PROC_BROWSER_TEST_F(StartupBrowserCreatorTest, OpenAppUrlIncognitoShortcut) {
   // Add --app=<url> and --incognito to the command line. Tests launching
   // legacy apps which may have been created by "Add to Desktop" in old versions
@@ -3837,10 +3908,21 @@ INSTANTIATE_TEST_SUITE_P(
 // `switches::kNoStartupWindow` command line switch.
 class StartupBrowserCreatorInfobarsWithoutStartupWindowTest
     : public InProcessBrowserTest,
-      public ::testing::WithParamInterface<StartupBrowserCreatorFlagTypeValue> {
+      public ::testing::WithParamInterface<
+          std::tuple<StartupBrowserCreatorFlagTypeValue, bool>> {
  public:
   StartupBrowserCreatorInfobarsWithoutStartupWindowTest()
-      : flag_type_(GetParam()) {}
+      : flag_type_(std::get<0>(GetParam())),
+        use_migration_(std::get<1>(GetParam())) {
+    if (use_migration_) {
+      feature_list_.InitAndEnableFeatureWithParameters(
+          infobars::kCentralizedInfoBarFramework,
+          {{"MigratedBadFlags", "true"}});
+    } else {
+      feature_list_.InitAndDisableFeature(
+          infobars::kCentralizedInfoBarFramework);
+    }
+  }
 
  protected:
   void SetUpCommandLine(base::CommandLine* command_line) override {
@@ -3871,6 +3953,10 @@ class StartupBrowserCreatorInfobarsWithoutStartupWindowTest
   }
 
   const StartupBrowserCreatorFlagTypeValue flag_type_;
+  const bool use_migration_;
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
 };
 
 IN_PROC_BROWSER_TEST_P(StartupBrowserCreatorInfobarsWithoutStartupWindowTest,
@@ -3906,19 +3992,23 @@ IN_PROC_BROWSER_TEST_P(StartupBrowserCreatorInfobarsWithoutStartupWindowTest,
 INSTANTIATE_TEST_SUITE_P(
     All,
     StartupBrowserCreatorInfobarsWithoutStartupWindowTest,
-    ::testing::Values(
-        StartupBrowserCreatorFlagTypeValue{
-            switches::kEnableAutomation,
-            infobars::InfoBarDelegate::AUTOMATION_INFOBAR_DELEGATE, true},
-        // Test one of the flags from |bad_flags_prompt.cc|. Any of the
-        // flags should have the same behavior.
-        StartupBrowserCreatorFlagTypeValue{
-            switches::kDisableWebSecurity,
-            infobars::InfoBarDelegate::BAD_FLAGS_INFOBAR_DELEGATE, false}),
+    ::testing::Combine(
+        ::testing::Values(
+            StartupBrowserCreatorFlagTypeValue{
+                switches::kEnableAutomation,
+                infobars::InfoBarDelegate::AUTOMATION_INFOBAR_DELEGATE, true},
+            // Test one of the flags from |bad_flags_prompt.cc|. Any of the
+            // flags should have the same behavior.
+            StartupBrowserCreatorFlagTypeValue{
+                switches::kDisableWebSecurity,
+                infobars::InfoBarDelegate::BAD_FLAGS_INFOBAR_DELEGATE, false}),
+        ::testing::Bool()),
     [](const testing::TestParamInfo<
         StartupBrowserCreatorInfobarsWithoutStartupWindowTest::ParamType>&
            info) {
-      std::string name = info.param.flag;
+      std::string migrationState =
+          std::get<1>(info.param) ? "migrated" : "legacy";
+      std::string name = std::get<0>(info.param).flag + "_" + migrationState;
       std::replace_if(
           name.begin(), name.end(),
           [](unsigned char c) { return !absl::ascii_isalnum(c); }, '_');

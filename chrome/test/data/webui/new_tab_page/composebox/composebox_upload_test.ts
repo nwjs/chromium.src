@@ -7,6 +7,8 @@ import type {CrA11yAnnouncerMessagesSentEvent} from 'chrome://new-tab-page/new_t
 import {$$} from 'chrome://new-tab-page/new_tab_page.js';
 import {ComposeboxFile, ContextualSearchInputStateDeletionType} from 'chrome://resources/cr_components/composebox/common.js';
 import {ContextUploadErrorType, ContextUploadStatus, InputType, ToolMode} from 'chrome://resources/cr_components/composebox/composebox_query.mojom-webui.js';
+import type {ErrorScrimElement} from 'chrome://resources/cr_components/composebox/error_scrim.js';
+import type {ComposeboxFileCarouselElement} from 'chrome://resources/cr_components/composebox/file_carousel.js';
 import {createAutocompleteResultForTesting, createSearchMatchForTesting} from 'chrome://resources/cr_components/searchbox/searchbox_browser_proxy.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {PromiseResolver} from 'chrome://resources/js/promise_resolver.js';
@@ -51,8 +53,11 @@ suite('NewTabPageComposeboxUploadFileTest', () => {
         id, ContextUploadStatus.kUploadSuccessful, null);
 
     // Delete the uploaded file.
-    const deletedId = testProxy.element.$.carousel.files[0]!.uuid;
-    testProxy.element.$.carousel.fire('delete-file', {
+    const carousel =
+        testProxy.element.shadowRoot
+            .querySelector<ComposeboxFileCarouselElement>('#carousel')!;
+    const deletedId = carousel.files[0]!.uuid;
+    carousel.fire('delete-file', {
       uuid: deletedId,
     });
 
@@ -205,8 +210,11 @@ suite('NewTabPageComposeboxUploadFileTest', () => {
 
         // Deleting the file: queryAutocomplete should only be called once.
         testProxy.searchboxHandler.resetResolver('queryAutocomplete');
-        const deletedId = testProxy.element.$.carousel.files[0]!.uuid;
-        testProxy.element.$.carousel.fire('delete-file', {
+        const carousel =
+            testProxy.element.shadowRoot
+                .querySelector<ComposeboxFileCarouselElement>('#carousel')!;
+        const deletedId = carousel.files[0]!.uuid;
+        carousel.fire('delete-file', {
           uuid: deletedId,
         });
         await microtasksFinished();
@@ -447,7 +455,9 @@ suite('NewTabPageComposeboxUploadFileTest', () => {
           if (fileUploadErrorType !== null) {
             assertEquals(
                 loadTimeData.getString('composeFileTypesAllowedError'),
-                testProxy.element.$.errorScrim.errorMessage);
+                testProxy.element.shadowRoot
+                    .querySelector<ErrorScrimElement>(
+                        '#errorScrim')!.errorMessage);
           }
         });
   });
@@ -518,16 +528,19 @@ suite('NewTabPageComposeboxUploadFileTest', () => {
     const dataTransfer = new DataTransfer();
     const file = new File(['foo'], 'foo.pdf', {type: 'application/pdf'});
     dataTransfer.items.add(file);
-    testProxy.element.$.fileInputs.$.fileInput.files = dataTransfer.files;
-    testProxy.element.$.fileInputs.$.fileInput.dispatchEvent(
-        new Event('change'));
+    const fileInput = testProxy.element.$.fileInputs.shadowRoot
+                          .querySelector<HTMLInputElement>('#fileInput')!;
+    fileInput.files = dataTransfer.files;
+    fileInput.dispatchEvent(new Event('change'));
 
     await testProxy.searchboxHandler.whenCalled(
         testSupport.ADD_FILE_CONTEXT_FN);
     await microtasksFinished();
 
     // Assert one pdf file.
-    const files = testProxy.element.$.carousel.files;
+    const files =
+        testProxy.element.shadowRoot
+            .querySelector<ComposeboxFileCarouselElement>('#carousel')!.files;
     assertEquals(files.length, 1);
     assertEquals(files[0]!.type, 'application/pdf');
     assertEquals(files[0]!.name, 'foo.pdf');
@@ -581,25 +594,30 @@ suite('NewTabPageComposeboxUploadFileTest', () => {
 
     // Since the `onFileChange_` method checks the event target when
     // creating the `objectUrl`, we have to mock it here.
+    const fileInput = testProxy.element.$.fileInputs.shadowRoot
+                          .querySelector<HTMLInputElement>('#fileInput')!;
     const mockFileChange = new Event('change', {bubbles: true});
     Object.defineProperty(mockFileChange, 'target', {
       writable: false,
-      value: testProxy.element.$.fileInputs.$.fileInput,
+      value: fileInput,
     });
 
-    testProxy.element.$.fileInputs.$.fileInput.files = dataTransfer.files;
-    testProxy.element.$.fileInputs.$.fileInput.dispatchEvent(mockFileChange);
+    fileInput.files = dataTransfer.files;
+    fileInput.dispatchEvent(mockFileChange);
 
     await testSupport.waitForAddFileCallCount(testProxy.searchboxHandler, 2);
     await testProxy.element.updateComplete;
     await microtasksFinished();
 
     // Assert two files are present initially.
-    assertEquals(testProxy.element.$.carousel.files.length, 2);
+    const carousel =
+        testProxy.element.shadowRoot
+            .querySelector<ComposeboxFileCarouselElement>('#carousel')!;
+    assertEquals(carousel.files.length, 2);
 
     // Act.
-    const deletedId = testProxy.element.$.carousel.files[0]!.uuid;
-    testProxy.element.$.carousel.fire('delete-file', {
+    const deletedId = carousel.files[0]!.uuid;
+    carousel.fire('delete-file', {
       uuid: deletedId,
       fromUserAction: true,
     });
@@ -607,7 +625,7 @@ suite('NewTabPageComposeboxUploadFileTest', () => {
     await microtasksFinished();
 
     // Assert.
-    assertEquals(testProxy.element.$.carousel.files.length, 1);
+    assertEquals(carousel.files.length, 1);
     assertEquals(testProxy.searchboxHandler.getCallCount('deleteContext'), 1);
     const [idArg, fromChip] =
         testProxy.searchboxHandler.getArgs('deleteContext')[0];
@@ -627,10 +645,12 @@ suite('NewTabPageComposeboxUploadFileTest', () => {
     const uuid = await testSupport.addTab(testProxy);
 
     // Act.
-    testProxy.element.$.carousel.fire('delete-file', {
-      uuid: uuid,
-      fromUserAction: true,
-    });
+    testProxy.element.shadowRoot
+        .querySelector<ComposeboxFileCarouselElement>('#carousel')!.fire(
+            'delete-file', {
+              uuid: uuid,
+              fromUserAction: true,
+            });
 
     await microtasksFinished();
 
@@ -890,7 +910,8 @@ suite('NewTabPageComposeboxUploadFileTest', () => {
     });
     testSupport.createComposeboxElement(testProxy);
     let clickCalled = false;
-    testProxy.element.$.fileInputs.$.imageInput.click = () => {
+    testProxy.element.$.fileInputs.shadowRoot
+        .querySelector<HTMLInputElement>('#imageInput')!.click = () => {
       clickCalled = true;
     };
     const contextEntrypoint = $$(testProxy.element, '#contextEntrypoint');
@@ -908,7 +929,8 @@ suite('NewTabPageComposeboxUploadFileTest', () => {
     });
     testSupport.createComposeboxElement(testProxy);
     let clickCalled = false;
-    testProxy.element.$.fileInputs.$.fileInput.click = () => {
+    testProxy.element.$.fileInputs.shadowRoot
+        .querySelector<HTMLInputElement>('#fileInput')!.click = () => {
       clickCalled = true;
     };
     const contextEntrypoint = $$(testProxy.element, '#contextEntrypoint');
@@ -919,78 +941,6 @@ suite('NewTabPageComposeboxUploadFileTest', () => {
     // Assert.
     assertTrue(clickCalled);
   });
-
-  test(
-      'upload button should not be disabled except when upload is in progress',
-      async () => {
-        const testInputState = {
-          ...new testSupport.MockInputState(),
-          maxInputsByType: {
-            [InputType.kBrowserTab]: 1,
-            [InputType.kLensImage]: 1,
-            [InputType.kLensFile]: 1,
-          },
-          maxTotalInputs: 1,
-        };
-        testSupport.createComposeboxElement(testProxy);
-        testProxy.searchboxCallbackRouterRemote.onInputStateChanged(
-            testInputState);
-        await microtasksFinished();
-
-        testProxy.searchboxHandler.setPromiseResolveFor(
-            testSupport.ADD_FILE_CONTEXT_FN,
-            {token: {low: BigInt(1), high: BigInt(2)}});
-
-        // Upload a PDF file.
-        const pdfFile = new File(['foo'], 'foo.pdf', {type: 'application/pdf'});
-        const dataTransfer = new DataTransfer();
-        dataTransfer.items.add(pdfFile);
-        testProxy.element.$.fileInputs.$.fileInput.files = dataTransfer.files;
-        testProxy.element.$.fileInputs.$.fileInput.dispatchEvent(
-            new Event('change'));
-
-        await testProxy.searchboxHandler.whenCalled(
-            testSupport.ADD_FILE_CONTEXT_FN);
-        await microtasksFinished();
-        assertFalse(testProxy.element['uploadButtonDisabled']);
-
-        // Delete the file. `uploadButtonDisabled` should be false.
-        const deletedId = testProxy.element.$.carousel.files[0]!.uuid;
-        testProxy.element.$.carousel.fire('delete-file', {uuid: deletedId});
-        await microtasksFinished();
-        assertFalse(testProxy.element['uploadButtonDisabled']);
-        testProxy.searchboxHandler.resetResolver(
-            testSupport.ADD_FILE_CONTEXT_FN);
-        testProxy.searchboxHandler.setPromiseResolveFor(
-            testSupport.ADD_FILE_CONTEXT_FN,
-            {token: {low: BigInt(3), high: BigInt(4)}});
-
-        // Upload an image file. `uploadButtonDisabled` should be false.
-        const imageFile = new File(['foo'], 'foo.png', {type: 'image/png'});
-        const dataTransfer2 = new DataTransfer();
-        dataTransfer2.items.add(imageFile);
-
-        const imageInput = testProxy.element.$.fileInputs.$.imageInput;
-        imageInput.files = dataTransfer2.files;
-        imageInput.dispatchEvent(new Event('change'));
-
-        await testProxy.searchboxHandler.whenCalled(
-            testSupport.ADD_FILE_CONTEXT_FN);
-        await microtasksFinished();
-        assertFalse(testProxy.element['uploadButtonDisabled']);
-
-        // Enter create image mode.
-        testProxy.searchboxCallbackRouterRemote.onInputStateChanged(
-            {...testInputState, activeTool: ToolMode.kImageGen});
-        await testProxy.element.updateComplete;
-        assertFalse(testProxy.element['uploadButtonDisabled']);
-
-        // Exit create image mode. `uploadButtonDisabled` should be false.
-        testProxy.searchboxCallbackRouterRemote.onInputStateChanged(
-            {...testInputState, activeTool: ToolMode.kUnspecified});
-        await testProxy.element.updateComplete;
-        assertFalse(testProxy.element['uploadButtonDisabled']);
-      });
 
   test(
       'uploading drive file hides dropdown and does not query autocomplete',
@@ -1175,7 +1125,8 @@ suite('NewTabPageComposeboxUploadPasteTest', () => {
     // Check whether the right error would show up.
     assertEquals(
         loadTimeData.getString('maxImagesReachedError'),
-        testProxy.element.$.errorScrim.errorMessage);
+        testProxy.element.shadowRoot
+            .querySelector<ErrorScrimElement>('#errorScrim')!.errorMessage);
   });
 
   test('pasting unsupported files fires validation error', async () => {
@@ -1199,7 +1150,8 @@ suite('NewTabPageComposeboxUploadPasteTest', () => {
     // Check that the correct error event was fired.
     assertEquals(
         loadTimeData.getString('composeFileTypesAllowedError'),
-        testProxy.element.$.errorScrim.errorMessage);
+        testProxy.element.shadowRoot
+            .querySelector<ErrorScrimElement>('#errorScrim')!.errorMessage);
 
     // Check that the paste event was prevented.
     assertTrue(pasteEvent.defaultPrevented);
@@ -1277,7 +1229,9 @@ suite('NewTabPageComposeboxUploadPasteTest', () => {
     });
 
     // Act.
-    testProxy.element.getInputElement().$.input.dispatchEvent(pasteEvent);
+    testProxy.element.getInputElement()
+        .shadowRoot.querySelector<HTMLElement>('#input')!.dispatchEvent(
+            pasteEvent);
 
     // Wait for both files to be processed (addFileContext called twice).
     await testSupport.waitForAddFileCallCount(testProxy.searchboxHandler, 2);
@@ -1285,7 +1239,9 @@ suite('NewTabPageComposeboxUploadPasteTest', () => {
 
     // Assert.
     // Check if the Carousel received 2 files.
-    const files = testProxy.element.$.carousel.files;
+    const files =
+        testProxy.element.shadowRoot
+            .querySelector<ComposeboxFileCarouselElement>('#carousel')!.files;
     assertEquals(files.length, 2);
 
     //  Check if the image was identified as an image.
@@ -1346,18 +1302,25 @@ suite('NewTabPageComposeboxUploadPasteTest', () => {
         });
 
         // Act.
-        testProxy.element.getInputElement().$.input.dispatchEvent(pasteEvent);
+        testProxy.element.getInputElement()
+            .shadowRoot.querySelector<HTMLElement>('#input')!.dispatchEvent(
+                pasteEvent);
 
         await testSupport.waitForAddFileCallCount(
             testProxy.searchboxHandler, 5);
         await microtasksFinished();
 
         // Assert.
-        assertEquals(5, testProxy.element.$.carousel.files.length);
+        assertEquals(
+            5,
+            testProxy.element.shadowRoot
+                .querySelector<ComposeboxFileCarouselElement>(
+                    '#carousel')!.files.length);
 
         assertEquals(
             loadTimeData.getString('maxImagesReachedError'),
-            testProxy.element.$.errorScrim.errorMessage);
+            testProxy.element.shadowRoot
+                .querySelector<ErrorScrimElement>('#errorScrim')!.errorMessage);
 
         assertEquals(
             1,
@@ -1410,18 +1373,25 @@ suite('NewTabPageComposeboxUploadPasteTest', () => {
         });
 
         // Act.
-        testProxy.element.getInputElement().$.input.dispatchEvent(pasteEvent);
+        testProxy.element.getInputElement()
+            .shadowRoot.querySelector<HTMLElement>('#input')!.dispatchEvent(
+                pasteEvent);
 
         await testSupport.waitForAddFileCallCount(
             testProxy.searchboxHandler, 3);
         await microtasksFinished();
 
         // Assert.
-        assertEquals(3, testProxy.element.$.carousel.files.length);
+        assertEquals(
+            3,
+            testProxy.element.shadowRoot
+                .querySelector<ComposeboxFileCarouselElement>(
+                    '#carousel')!.files.length);
 
         assertEquals(
             loadTimeData.getString('maxFilesReachedError'),
-            testProxy.element.$.errorScrim.errorMessage);
+            testProxy.element.shadowRoot
+                .querySelector<ErrorScrimElement>('#errorScrim')!.errorMessage);
 
         assertEquals(
             1,
@@ -1458,20 +1428,24 @@ suite('NewTabPageComposeboxUploadPasteTest', () => {
           composed: true,
         });
 
-        testProxy.element.getInputElement().$.input.dispatchEvent(pasteEvent);
+        testProxy.element.getInputElement()
+            .shadowRoot.querySelector<HTMLElement>('#input')!.dispatchEvent(
+                pasteEvent);
 
         await testSupport.waitForAddFileCallCount(
             testProxy.searchboxHandler, 1);
         await microtasksFinished();
 
-        assertEquals(1, testProxy.element.$.carousel.files.length);
-        assertEquals(
-
-            'image.png', testProxy.element.$.carousel.files[0]!.name);
+        const carousel =
+            testProxy.element.shadowRoot
+                .querySelector<ComposeboxFileCarouselElement>('#carousel')!;
+        assertEquals(1, carousel.files.length);
+        assertEquals('image.png', carousel.files[0]!.name);
 
         assertEquals(
             loadTimeData.getString('composeFileTypesAllowedError'),
-            testProxy.element.$.errorScrim.errorMessage);
+            testProxy.element.shadowRoot
+                .querySelector<ErrorScrimElement>('#errorScrim')!.errorMessage);
       });
 });
 
@@ -1543,10 +1517,10 @@ suite('NewTabPageComposeboxUploadToolModeTest', () => {
         testProxy.element, testProxy.searchboxCallbackRouterRemote));
 
     // Query autocomplete with image present to get verbatim match.
-    (testProxy.element.getInputElement().$.input as HTMLTextAreaElement).value =
-        'T';
-    testProxy.element.getInputElement().$.input.dispatchEvent(
-        new Event('input'));
+    const input = testProxy.element.getInputElement()
+                      .shadowRoot.querySelector<HTMLTextAreaElement>('#input')!;
+    input.value = 'T';
+    input.dispatchEvent(new Event('input'));
     await microtasksFinished();
     assertEquals(
         testProxy.searchboxHandler.getCallCount('queryAutocomplete'), 2);
@@ -1567,9 +1541,10 @@ suite('NewTabPageComposeboxUploadToolModeTest', () => {
     const dataTransfer = new DataTransfer();
     const file = new File(['foo'], 'foo.pdf', {type: 'application/pdf'});
     dataTransfer.items.add(file);
-    testProxy.element.$.fileInputs.$.fileInput.files = dataTransfer.files;
-    testProxy.element.$.fileInputs.$.fileInput.dispatchEvent(
-        new Event('change'));
+    const fileInput = testProxy.element.$.fileInputs.shadowRoot
+                          .querySelector<HTMLInputElement>('#fileInput')!;
+    fileInput.files = dataTransfer.files;
+    fileInput.dispatchEvent(new Event('change'));
 
     await testProxy.searchboxHandler.whenCalled(
         testSupport.ADD_FILE_CONTEXT_FN);
@@ -1580,7 +1555,8 @@ suite('NewTabPageComposeboxUploadToolModeTest', () => {
 
     assertEquals(
         loadTimeData.getString('composeboxFileUploadFailed'),
-        testProxy.element.$.errorScrim.errorMessage);
+        testProxy.element.shadowRoot
+            .querySelector<ErrorScrimElement>('#errorScrim')!.errorMessage);
   });
 
   test('composebox does not open match when only file present', async () => {

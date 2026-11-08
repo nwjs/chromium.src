@@ -184,6 +184,7 @@ class ReadAnythingAppController
   void OnReadabilityDistillationStateChanged(
       read_anything::mojom::ReadAnythingDistillationState new_state) override;
   void OnMainFrameSameDocumentNavigation(const GURL& url) override;
+  void OnTranslationStateChanged(bool is_translated) override;
 
 #if BUILDFLAG(IS_CHROMEOS)
   void OnDeviceLocked() override;
@@ -299,6 +300,8 @@ class ReadAnythingAppController
   bool IsSpeechTreeInitialized();
   bool ShouldBold(ui::AXNodeID ax_node_id) const;
   bool IsOverline(ui::AXNodeID ax_node_id) const;
+  bool IsSuperscript(ui::AXNodeID ax_node_id) const;
+  bool IsSubscript(ui::AXNodeID ax_node_id) const;
   bool IsLeafNode(ui::AXNodeID ax_node_id) const;
   bool IsReadAnythingPinned() const;
   void OnConnected();
@@ -318,9 +321,11 @@ class ReadAnythingAppController
   v8::Local<v8::Value> GetAXMapping(int index);
   bool IsGoogleDocs() const;
   bool IsPdf() const;
+  bool IsContentTranslated() const;
   bool IsImprovedReadAloudEnabled() const;
   bool IsReadAnythingImprovedUiEnabled() const;
   bool IsReadAnythingTranslateEntryPointEnabled() const;
+  bool IsTranslatePdfEnabled() const;
   bool IsReadAnythingReadAloudExperimentalPlaybackUiEnabled() const;
   bool IsTsTextSegmentationEnabled() const;
   bool IsReadabilityEnabled() const;
@@ -347,6 +352,7 @@ class ReadAnythingAppController
   v8::Local<v8::Value> GetImageBitmap(ui::AXNodeID node_id);
   void OnIsSpeechActiveChanged(bool is_speech_active);
   void OnIsAudioCurrentlyPlayingChanged(bool is_audio_currently_playing);
+  void OnAiPlaybackStateChanged(bool enabled);
   std::string GetValidatedFontName(const std::string& font) const;
   std::vector<std::string> GetAllFonts() const;
   void OnNoTextContent();
@@ -449,14 +455,15 @@ class ReadAnythingAppController
   // Initiates distillation by ensuring the active distiller matches the
   // model's next distillation method and dispatching the `request`.
   // DOM-based engines (Readability) that distill in the browser process do not
-  // need an AXTree and omit `request`; tree-based engines (Screen2x) must
-  // supply a populated `request`.
-  void ExecuteDistillation(
-      std::optional<DistillationRequest> request = std::nullopt);
+  // need an AXTree and only read `request.reason`; tree-based engines
+  // (Screen2x) require a populated `request.tree`.
+  void ExecuteDistillation(const DistillationRequest& request);
 
-  // Forwards a Readability distillation request to the browser process via
-  // `page_handler_`. Passed as a callback to ReadAnythingDistillerFactory.
+  // Forwards a Readability distillation request, and the reason for it, to the
+  // browser process via `page_handler_`. Passed as a callback to
+  // ReadAnythingDistillerFactory.
   void RequestReadabilityDistillation(
+      read_anything::mojom::ReadabilityDistillationReason reason,
       read_anything::mojom::UntrustedPageHandler::
           RequestReadabilityDistillationCallback callback);
 
@@ -471,15 +478,17 @@ class ReadAnythingAppController
   // preparation for a new content distillation.
   void PrepareForNewContentDistillation();
 
-  // Returns the initial distillation method state based on feature flags and
-  // page type (e.g. if it's PDF).
-  ReadAnythingAppModel::DistillationMethod GetInitialDistillationMethod(
-      bool is_pdf) const;
+  // Returns the initial distillation method based on feature flags and the
+  // active tree's page type (e.g. if it's a PDF).
+  ReadAnythingAppModel::DistillationMethod GetInitialDistillationMethod() const;
 
   void ExecuteJavaScript(const std::string& script);
 
   // Returns true if a draw occurred.
   bool PostProcessSelection();
+
+  // Handles the browser's reply to a selection request from the side panel.
+  void OnSelectionRequestHandled(bool applied);
 
   // Signals that the side panel has finished loading and it's safe to show
   // the UI to avoid loading artifacts.

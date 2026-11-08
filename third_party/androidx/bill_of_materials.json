@@ -127,217 +127,217 @@
     {
         "name": "collection",
         "group": "androidx.collection",
-        "version": "1.7.0-SNAPSHOT"
+        "version": "1.7.0"
     },
     {
         "name": "collection-jvm",
         "group": "androidx.collection",
-        "version": "1.7.0-SNAPSHOT"
+        "version": "1.7.0"
     },
     {
         "name": "collection-ktx",
         "group": "androidx.collection",
-        "version": "1.7.0-SNAPSHOT"
+        "version": "1.7.0"
     },
     {
         "name": "animation",
         "group": "androidx.compose.animation",
-        "version": "1.13.0-SNAPSHOT"
+        "version": "1.14.0-SNAPSHOT"
     },
     {
         "name": "animation-android",
         "group": "androidx.compose.animation",
-        "version": "1.13.0-SNAPSHOT"
+        "version": "1.14.0-SNAPSHOT"
     },
     {
         "name": "animation-core",
         "group": "androidx.compose.animation",
-        "version": "1.13.0-SNAPSHOT"
+        "version": "1.14.0-SNAPSHOT"
     },
     {
         "name": "animation-core-android",
         "group": "androidx.compose.animation",
-        "version": "1.13.0-SNAPSHOT"
+        "version": "1.14.0-SNAPSHOT"
     },
     {
         "name": "foundation",
         "group": "androidx.compose.foundation",
-        "version": "1.13.0-SNAPSHOT"
+        "version": "1.14.0-SNAPSHOT"
     },
     {
         "name": "foundation-android",
         "group": "androidx.compose.foundation",
-        "version": "1.13.0-SNAPSHOT"
+        "version": "1.14.0-SNAPSHOT"
     },
     {
         "name": "foundation-layout",
         "group": "androidx.compose.foundation",
-        "version": "1.13.0-SNAPSHOT"
+        "version": "1.14.0-SNAPSHOT"
     },
     {
         "name": "foundation-layout-android",
         "group": "androidx.compose.foundation",
-        "version": "1.13.0-SNAPSHOT"
+        "version": "1.14.0-SNAPSHOT"
     },
     {
         "name": "material3",
         "group": "androidx.compose.material3",
-        "version": "1.5.0-SNAPSHOT"
+        "version": "1.6.0-SNAPSHOT"
     },
     {
         "name": "material3-android",
         "group": "androidx.compose.material3",
-        "version": "1.5.0-SNAPSHOT"
+        "version": "1.6.0-SNAPSHOT"
     },
     {
         "name": "material3-ripple",
         "group": "androidx.compose.material3",
-        "version": "1.5.0-SNAPSHOT"
+        "version": "1.6.0-SNAPSHOT"
     },
     {
         "name": "material3-ripple-android",
         "group": "androidx.compose.material3",
-        "version": "1.5.0-SNAPSHOT"
+        "version": "1.6.0-SNAPSHOT"
     },
     {
         "name": "material-ripple",
         "group": "androidx.compose.material",
-        "version": "1.13.0-SNAPSHOT"
+        "version": "1.14.0-SNAPSHOT"
     },
     {
         "name": "material-ripple-android",
         "group": "androidx.compose.material",
-        "version": "1.13.0-SNAPSHOT"
+        "version": "1.14.0-SNAPSHOT"
     },
     {
         "name": "runtime",
         "group": "androidx.compose.runtime",
-        "version": "1.13.0-SNAPSHOT"
+        "version": "1.14.0-SNAPSHOT"
     },
     {
         "name": "runtime-android",
         "group": "androidx.compose.runtime",
-        "version": "1.13.0-SNAPSHOT"
+        "version": "1.14.0-SNAPSHOT"
     },
     {
         "name": "runtime-annotation",
         "group": "androidx.compose.runtime",
-        "version": "1.13.0-SNAPSHOT"
+        "version": "1.14.0-SNAPSHOT"
     },
     {
         "name": "runtime-annotation-android",
         "group": "androidx.compose.runtime",
-        "version": "1.13.0-SNAPSHOT"
+        "version": "1.14.0-SNAPSHOT"
     },
     {
         "name": "runtime-retain",
         "group": "androidx.compose.runtime",
-        "version": "1.13.0-SNAPSHOT"
+        "version": "1.14.0-SNAPSHOT"
     },
     {
         "name": "runtime-retain-android",
         "group": "androidx.compose.runtime",
-        "version": "1.13.0-SNAPSHOT"
+        "version": "1.14.0-SNAPSHOT"
     },
     {
         "name": "runtime-saveable",
         "group": "androidx.compose.runtime",
-        "version": "1.13.0-SNAPSHOT"
+        "version": "1.14.0-SNAPSHOT"
     },
     {
         "name": "runtime-saveable-android",
         "group": "androidx.compose.runtime",
-        "version": "1.13.0-SNAPSHOT"
+        "version": "1.14.0-SNAPSHOT"
     },
     {
         "name": "ui",
         "group": "androidx.compose.ui",
-        "version": "1.13.0-SNAPSHOT"
+        "version": "1.14.0-SNAPSHOT"
     },
     {
         "name": "ui-android",
         "group": "androidx.compose.ui",
-        "version": "1.13.0-SNAPSHOT"
+        "version": "1.14.0-SNAPSHOT"
     },
     {
         "name": "ui-geometry",
         "group": "androidx.compose.ui",
-        "version": "1.13.0-SNAPSHOT"
+        "version": "1.14.0-SNAPSHOT"
     },
     {
         "name": "ui-geometry-android",
         "group": "androidx.compose.ui",
-        "version": "1.13.0-SNAPSHOT"
+        "version": "1.14.0-SNAPSHOT"
     },
     {
         "name": "ui-graphics",
         "group": "androidx.compose.ui",
-        "version": "1.13.0-SNAPSHOT"
+        "version": "1.14.0-SNAPSHOT"
     },
     {
         "name": "ui-graphics-android",
         "group": "androidx.compose.ui",
-        "version": "1.13.0-SNAPSHOT"
+        "version": "1.14.0-SNAPSHOT"
     },
     {
         "name": "ui-test",
         "group": "androidx.compose.ui",
-        "version": "1.13.0-SNAPSHOT"
+        "version": "1.14.0-SNAPSHOT"
     },
     {
         "name": "ui-test-android",
         "group": "androidx.compose.ui",
-        "version": "1.13.0-SNAPSHOT"
+        "version": "1.14.0-SNAPSHOT"
     },
     {
         "name": "ui-test-junit4",
         "group": "androidx.compose.ui",
-        "version": "1.13.0-SNAPSHOT"
+        "version": "1.14.0-SNAPSHOT"
     },
     {
         "name": "ui-test-junit4-android",
         "group": "androidx.compose.ui",
-        "version": "1.13.0-SNAPSHOT"
+        "version": "1.14.0-SNAPSHOT"
     },
     {
         "name": "ui-test-manifest",
         "group": "androidx.compose.ui",
-        "version": "1.13.0-SNAPSHOT"
+        "version": "1.14.0-SNAPSHOT"
     },
     {
         "name": "ui-text",
         "group": "androidx.compose.ui",
-        "version": "1.13.0-SNAPSHOT"
+        "version": "1.14.0-SNAPSHOT"
     },
     {
         "name": "ui-text-android",
         "group": "androidx.compose.ui",
-        "version": "1.13.0-SNAPSHOT"
+        "version": "1.14.0-SNAPSHOT"
     },
     {
         "name": "ui-text-google-fonts",
         "group": "androidx.compose.ui",
-        "version": "1.13.0-SNAPSHOT"
+        "version": "1.14.0-SNAPSHOT"
     },
     {
         "name": "ui-unit",
         "group": "androidx.compose.ui",
-        "version": "1.13.0-SNAPSHOT"
+        "version": "1.14.0-SNAPSHOT"
     },
     {
         "name": "ui-unit-android",
         "group": "androidx.compose.ui",
-        "version": "1.13.0-SNAPSHOT"
+        "version": "1.14.0-SNAPSHOT"
     },
     {
         "name": "ui-util",
         "group": "androidx.compose.ui",
-        "version": "1.13.0-SNAPSHOT"
+        "version": "1.14.0-SNAPSHOT"
     },
     {
         "name": "ui-util-android",
         "group": "androidx.compose.ui",
-        "version": "1.13.0-SNAPSHOT"
+        "version": "1.14.0-SNAPSHOT"
     },
     {
         "name": "concurrent-futures",
@@ -522,7 +522,7 @@
     {
         "name": "exifinterface",
         "group": "androidx.exifinterface",
-        "version": "1.4.2"
+        "version": "1.5.0-SNAPSHOT"
     },
     {
         "name": "fragment",
@@ -897,22 +897,22 @@
     {
         "name": "navigationevent",
         "group": "androidx.navigationevent",
-        "version": "1.2.0-SNAPSHOT"
+        "version": "1.2.0"
     },
     {
         "name": "navigationevent-android",
         "group": "androidx.navigationevent",
-        "version": "1.2.0-SNAPSHOT"
+        "version": "1.2.0"
     },
     {
         "name": "navigationevent-compose",
         "group": "androidx.navigationevent",
-        "version": "1.2.0-SNAPSHOT"
+        "version": "1.2.0"
     },
     {
         "name": "navigationevent-compose-android",
         "group": "androidx.navigationevent",
-        "version": "1.2.0-SNAPSHOT"
+        "version": "1.2.0"
     },
     {
         "name": "paging-common",
@@ -1477,22 +1477,22 @@
     {
         "name": "okio",
         "group": "com.squareup.okio",
-        "version": "3.17.0"
+        "version": "3.18.2"
     },
     {
         "name": "okio-jvm",
         "group": "com.squareup.okio",
-        "version": "3.17.0"
+        "version": "3.18.2"
     },
     {
         "name": "wire-runtime",
         "group": "com.squareup.wire",
-        "version": "6.4.7"
+        "version": "7.0.3"
     },
     {
         "name": "wire-runtime-jvm",
         "group": "com.squareup.wire",
-        "version": "6.4.7"
+        "version": "7.0.3"
     },
     {
         "name": "javawriter",
@@ -1611,16 +1611,6 @@
     },
     {
         "name": "kotlinx-serialization-core-jvm",
-        "group": "org.jetbrains.kotlinx",
-        "version": "1.7.3"
-    },
-    {
-        "name": "kotlinx-serialization-json",
-        "group": "org.jetbrains.kotlinx",
-        "version": "1.7.3"
-    },
-    {
-        "name": "kotlinx-serialization-json-jvm",
         "group": "org.jetbrains.kotlinx",
         "version": "1.7.3"
     },

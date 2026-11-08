@@ -12,8 +12,6 @@ source_set("search") {
     "search_api.h",
   ]
 
-  configs += [ "//build/config/compiler:wexit_time_destructors" ]
-
   public_deps = [ "//extensions/browser" ]
 
   deps = [
@@ -21,7 +19,6 @@ source_set("search") {
     "//chrome/browser/extensions",
     "//chrome/browser/profiles:profile",
     "//chrome/browser/search_engines",
-    "//chrome/browser/ui",
     "//chrome/browser/ui/browser_window",
     "//chrome/browser/ui/navigator",
     "//chrome/common/extensions/api",

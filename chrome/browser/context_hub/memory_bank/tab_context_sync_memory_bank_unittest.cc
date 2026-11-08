@@ -11,48 +11,26 @@
 
 #include "base/containers/span.h"
 #include "base/functional/callback_helpers.h"
+#include "base/scoped_observation.h"
+#include "base/test/gmock_callback_support.h"
 #include "base/test/test_future.h"
 #include "base/uuid.h"
+#include "chrome/browser/context_hub/memory_bank/mock_memory_bank_observer.h"
 #include "chrome/browser/context_hub/prefs.h"
 #include "components/prefs/testing_pref_service.h"
+#include "components/sync_tab_context/mock_tab_context_sync_service.h"
 #include "components/sync_tab_context/tab_context_sync_service.h"
+#include "components/sync_tab_context/upload_outcome.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace context_hub {
 namespace {
 
+using ::base::test::RunOnceCallback;
+using ::base::test::RunOnceCallbackRepeatedly;
 using ::testing::_;
 using ::testing::Return;
-
-class MockTabContextSyncService
-    : public sync_tab_context::TabContextSyncService {
- public:
-  MOCK_METHOD(std::optional<sync_tab_context::ContainerId>,
-              CreateContainer,
-              (),
-              (override));
-  MOCK_METHOD(bool,
-              UploadPageContext,
-              (const sync_tab_context::ContainerId&,
-               const std::string&,
-               std::string),
-              (override));
-  MOCK_METHOD(void,
-              GetContainerAccessToken,
-              (const sync_tab_context::ContainerId&,
-               base::OnceCallback<void(std::optional<std::string>)>),
-              (override));
-  MOCK_METHOD(base::WeakPtr<syncer::DataTypeControllerDelegate>,
-              GetSyncControllerDelegateForContainer,
-              (),
-              (override));
-  MOCK_METHOD(base::WeakPtr<syncer::DataTypeControllerDelegate>,
-              GetSyncControllerDelegateForItem,
-              (),
-              (override));
-  MOCK_METHOD(bool, IsActiveForTesting, (), (const, override));
-};
 
 class TabContextSyncMemoryBankTest : public testing::Test {
  public:
@@ -67,7 +45,8 @@ class TabContextSyncMemoryBankTest : public testing::Test {
   }
 
   TestingPrefServiceSimple pref_service_;
-  testing::NiceMock<MockTabContextSyncService> mock_sync_service_;
+  testing::NiceMock<sync_tab_context::MockTabContextSyncService>
+      mock_sync_service_;
   std::unique_ptr<TabContextSyncMemoryBank> memory_bank_;
 };
 
@@ -79,8 +58,9 @@ TEST_F(TabContextSyncMemoryBankTest,
   EXPECT_CALL(mock_sync_service_, CreateContainer())
       .WillOnce(Return(kExpectedContainerId));
   EXPECT_CALL(mock_sync_service_,
-              UploadPageContext(kExpectedContainerId, _, apc_data))
-      .WillOnce(Return(true));
+              UploadPageContext(kExpectedContainerId, _, apc_data, _))
+      .WillOnce(
+          RunOnceCallback<3>(sync_tab_context::UploadOutcome::kSucceeded));
 
   base::test::TestFuture<bool> save_future;
   MemoryBankEntry entry(MemoryBankType::kTab, GURL("https://example.com"),
@@ -103,8 +83,9 @@ TEST_F(TabContextSyncMemoryBankTest, InMemoryDebugEntryCachePopulatedOnSave) {
   EXPECT_CALL(mock_sync_service_, CreateContainer())
       .WillOnce(Return(kExpectedContainerId));
   EXPECT_CALL(mock_sync_service_,
-              UploadPageContext(kExpectedContainerId, _, apc_data))
-      .WillOnce(Return(true));
+              UploadPageContext(kExpectedContainerId, _, apc_data, _))
+      .WillOnce(
+          RunOnceCallback<3>(sync_tab_context::UploadOutcome::kSucceeded));
 
   base::test::TestFuture<bool> save_future;
   MemoryBankEntry entry(MemoryBankType::kTab, GURL("https://example.com"),
@@ -132,8 +113,9 @@ TEST_F(TabContextSyncMemoryBankTest, ReusesExistingContainerIdFromPrefs) {
   // CreateContainer should NOT be called.
   EXPECT_CALL(mock_sync_service_, CreateContainer()).Times(0);
   EXPECT_CALL(mock_sync_service_,
-              UploadPageContext(kExistingContainerId, _, apc_data))
-      .WillOnce(Return(true));
+              UploadPageContext(kExistingContainerId, _, apc_data, _))
+      .WillOnce(
+          RunOnceCallback<3>(sync_tab_context::UploadOutcome::kSucceeded));
 
   base::test::TestFuture<bool> save_future;
   MemoryBankEntry entry(MemoryBankType::kTextSelection,
@@ -147,7 +129,7 @@ TEST_F(TabContextSyncMemoryBankTest, ReusesExistingContainerIdFromPrefs) {
 TEST_F(TabContextSyncMemoryBankTest, ReturnsFalseWhenContainerCreationFails) {
   EXPECT_CALL(mock_sync_service_, CreateContainer())
       .WillOnce(Return(std::nullopt));
-  EXPECT_CALL(mock_sync_service_, UploadPageContext(_, _, _)).Times(0);
+  EXPECT_CALL(mock_sync_service_, UploadPageContext(_, _, _, _)).Times(0);
 
   base::test::TestFuture<bool> save_future;
   MemoryBankEntry entry(MemoryBankType::kTab, GURL("https://example.com"),
@@ -163,8 +145,8 @@ TEST_F(TabContextSyncMemoryBankTest, ReturnsFalseWhenUploadFails) {
       base::Uuid::GenerateRandomV4());
   EXPECT_CALL(mock_sync_service_, CreateContainer())
       .WillOnce(Return(kContainerId));
-  EXPECT_CALL(mock_sync_service_, UploadPageContext(kContainerId, _, _))
-      .WillOnce(Return(false));
+  EXPECT_CALL(mock_sync_service_, UploadPageContext(kContainerId, _, _, _))
+      .WillOnce(RunOnceCallback<3>(sync_tab_context::UploadOutcome::kFailed));
 
   base::test::TestFuture<bool> save_future;
   MemoryBankEntry entry(MemoryBankType::kTab, GURL("https://example.com"),
@@ -180,8 +162,9 @@ TEST_F(TabContextSyncMemoryBankTest, DeletesEntriesFromCache) {
       base::Uuid::GenerateRandomV4());
   EXPECT_CALL(mock_sync_service_, CreateContainer())
       .WillOnce(Return(kContainerId));
-  EXPECT_CALL(mock_sync_service_, UploadPageContext(kContainerId, _, _))
-      .WillOnce(Return(true));
+  EXPECT_CALL(mock_sync_service_, UploadPageContext(kContainerId, _, _, _))
+      .WillOnce(
+          RunOnceCallback<3>(sync_tab_context::UploadOutcome::kSucceeded));
   const int64_t entry_id = 12345;
 
   MemoryBankEntry entry(MemoryBankType::kTab, GURL("https://example.com"),
@@ -208,8 +191,9 @@ TEST_F(TabContextSyncMemoryBankTest, GetAllTagsAndCollections) {
       base::Uuid::GenerateRandomV4());
   EXPECT_CALL(mock_sync_service_, CreateContainer())
       .WillOnce(Return(kContainerId));
-  EXPECT_CALL(mock_sync_service_, UploadPageContext(kContainerId, _, _))
-      .WillRepeatedly(Return(true));
+  EXPECT_CALL(mock_sync_service_, UploadPageContext(kContainerId, _, _, _))
+      .WillRepeatedly(RunOnceCallbackRepeatedly<3>(
+          sync_tab_context::UploadOutcome::kSucceeded));
 
   MemoryBankEntry entry1;
   entry1.id = 1;
@@ -247,8 +231,9 @@ TEST_F(TabContextSyncMemoryBankTest, UpdateEntryAnnotations_Success) {
       base::Uuid::GenerateRandomV4());
   EXPECT_CALL(mock_sync_service_, CreateContainer())
       .WillOnce(Return(kContainerId));
-  EXPECT_CALL(mock_sync_service_, UploadPageContext(kContainerId, _, _))
-      .WillOnce(Return(true));
+  EXPECT_CALL(mock_sync_service_, UploadPageContext(kContainerId, _, _, _))
+      .WillOnce(
+          RunOnceCallback<3>(sync_tab_context::UploadOutcome::kSucceeded));
   const int64_t entry_id = 12345;
 
   MemoryBankEntry entry(MemoryBankType::kTab, GURL("https://example.com"),
@@ -278,6 +263,51 @@ TEST_F(TabContextSyncMemoryBankTest, UpdateEntryAnnotations_Success) {
   EXPECT_THAT(entries[0].tags,
               testing::ElementsAre("new_tag1", "new_tag2"));
   EXPECT_EQ(entries[0].tab_title, "Title");
+}
+
+TEST_F(TabContextSyncMemoryBankTest, ObserverNotifiedOnMutations) {
+  const sync_tab_context::ContainerId kContainerId(
+      base::Uuid::GenerateRandomV4());
+  EXPECT_CALL(mock_sync_service_, CreateContainer())
+      .WillOnce(Return(kContainerId));
+  EXPECT_CALL(mock_sync_service_, UploadPageContext(kContainerId, _, _, _))
+      .WillOnce(
+          RunOnceCallback<3>(sync_tab_context::UploadOutcome::kSucceeded));
+
+  MockMemoryBankObserver observer;
+  base::ScopedObservation<MemoryBank, MemoryBank::Observer> observation(
+      &observer);
+  observation.Observe(memory_bank_.get());
+
+  const int64_t entry_id = 12345;
+  MemoryBankEntry entry(MemoryBankType::kTab, GURL("https://example.com"),
+                        "Title", "Data");
+  entry.id = entry_id;
+
+  EXPECT_CALL(observer,
+              OnMemoryBankEntryAdded(testing::AllOf(
+                  testing::Field(&MemoryBankEntry::id, entry_id),
+                  testing::Field(&MemoryBankEntry::tab_title, "Title"))));
+  base::test::TestFuture<bool> save_future;
+  memory_bank_->SaveMemoryBankEntry(std::move(entry),
+                                    save_future.GetCallback());
+  ASSERT_TRUE(save_future.Get());
+
+  EXPECT_CALL(observer, OnMemoryBankEntryUpdated(
+                            entry_id, testing::ElementsAre("tag1"),
+                            testing::Optional(std::string("Note")),
+                            testing::Optional(std::string("Collection"))));
+  base::test::TestFuture<bool> update_future;
+  memory_bank_->UpdateEntryAnnotations(entry_id, {"tag1"}, "Note", "Collection",
+                                       update_future.GetCallback());
+  EXPECT_TRUE(update_future.Get());
+
+  EXPECT_CALL(observer,
+              OnMemoryBankEntriesDeleted(testing::ElementsAre(entry_id)));
+  base::test::TestFuture<bool> delete_future;
+  memory_bank_->DeleteEntries(base::span_from_ref(entry_id),
+                              delete_future.GetCallback());
+  EXPECT_TRUE(delete_future.Get());
 }
 
 }  // namespace

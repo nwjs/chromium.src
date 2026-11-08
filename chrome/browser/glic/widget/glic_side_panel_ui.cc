@@ -73,8 +73,8 @@ GlicSidePanelUi::GlicSidePanelUi(Profile* profile,
 
   // Add capability to show web modal dialogs (e.g. Data Controls Dialogs for
   // enterprise users) via constrained_window APIs.
-  scoped_modal_dialog_delegate_.SetWebContents(
-      delegate_->host().webui_contents());
+  delegate_->host().AttachModalDialogManagerDelegate(
+      scoped_modal_dialog_delegate_);
   host_observation_.Observe(&delegate_->host());
   panel_state_.kind = mojom::PanelStateKind::kAttached;
 }
@@ -102,6 +102,7 @@ std::unique_ptr<views::View> GlicSidePanelUi::CreateView(Profile* profile) {
 }
 
 GlicSidePanelUi::~GlicSidePanelUi() {
+  scoped_modal_dialog_delegate_.Reset();
   if (glic_view_) {
     glic_view_->SetWebContents(nullptr);
   }
@@ -193,6 +194,8 @@ void GlicSidePanelUi::Show(const ShowOptions& options) {
   if (!glic_side_panel_coordinator) {
     return;
   }
+  delegate_->host().AttachModalDialogManagerDelegate(
+      scoped_modal_dialog_delegate_);
   panel_state_.kind = mojom::PanelStateKind::kAttached;
   delegate_->UpdatePanelState();
   delegate_->host().FloatingPanelCanAttachChanged(false);
@@ -218,11 +221,11 @@ void GlicSidePanelUi::ClosePanel() {
 }
 
 void GlicSidePanelUi::OnReload() {
-  content::WebContents* web_contents = delegate_->host().webui_contents();
-  if (web_contents && glic_view_) {
-    glic_view_->SetWebContents(web_contents);
+  if (glic_view_) {
+    glic_view_->SetWebContents(delegate_->host().webui_contents());
   }
-  scoped_modal_dialog_delegate_.SetWebContents(web_contents);
+  delegate_->host().AttachModalDialogManagerDelegate(
+      scoped_modal_dialog_delegate_);
 }
 
 void GlicSidePanelUi::ActiveWebContentsChanged(
@@ -230,7 +233,9 @@ void GlicSidePanelUi::ActiveWebContentsChanged(
   if (glic_view_) {
     glic_view_->SetWebContents(new_contents);
   }
-  scoped_modal_dialog_delegate_.SetWebContents(new_contents);
+  if (new_contents) {
+    scoped_modal_dialog_delegate_.AddWebContents(new_contents);
+  }
 }
 
 std::unique_ptr<GlicUiEmbedder> GlicSidePanelUi::CreateInactiveEmbedder()
@@ -293,8 +298,10 @@ base::WeakPtr<views::View> GlicSidePanelUi::GetView() {
 web_modal::WebContentsModalDialogHost*
 GlicSidePanelUi::GetWebContentsModalDialogHost(
     content::WebContents* web_contents) {
-  return tab_->GetBrowserWindowInterface()
-      ->GetWebContentsModalDialogHostForWindow();
+  if (auto* bwi = GetBrowserWindowInterface()) {
+    return bwi->GetWebContentsModalDialogHostForWindow();
+  }
+  return nullptr;
 }
 
 void GlicSidePanelUi::OnBrowserWindowActivated(BrowserWindowInterface* bwi) {

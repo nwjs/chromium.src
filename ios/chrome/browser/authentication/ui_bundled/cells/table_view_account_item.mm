@@ -12,6 +12,7 @@
 #import "ios/chrome/browser/shared/ui/table_view/content_configuration/image_content_configuration.h"
 #import "ios/chrome/browser/shared/ui/table_view/content_configuration/table_view_cell_content_configuration.h"
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
+#import "ios/chrome/browser/signin/ui/avatar/ai_tier_avatar_content_configuration.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
 #import "ios/chrome/common/ui/table_view/table_view_cells_constants.h"
 #import "ios/chrome/common/ui/util/constraints_ui_util.h"
@@ -52,15 +53,7 @@ constexpr CGFloat kEnterpriseIconPointSize = 20;
   configuration.subtitleNumberOfLines = 1;
   configuration.subtitleLineBreakMode = NSLineBreakByTruncatingTail;
 
-  CHECK(self.image);
-  ImageContentConfiguration* imageConfiguration =
-      [[ImageContentConfiguration alloc] init];
-  imageConfiguration.image = self.image;
-  imageConfiguration.imageSize =
-      CGSizeMake(kTableViewIconImageSize, kTableViewIconImageSize);
-  imageConfiguration.imageCornerRadius = kTableViewIconImageSize / 2.0;
-  configuration.leadingConfiguration = imageConfiguration;
-
+  BOOL showsAITierRing = NO;
   switch (self.detailImage) {
     case TableViewAccountDetailImage::kNone:
       break;
@@ -85,8 +78,20 @@ constexpr CGFloat kEnterpriseIconPointSize = 20;
       configuration.trailingConfiguration = trailingImageConfiguration;
       break;
     }
+    case TableViewAccountDetailImage::kAITierRing:
+      showsAITierRing = YES;
+      break;
   }
 
+  CHECK(self.image);
+  AITierAvatarContentConfiguration* avatarConfiguration =
+      [[AITierAvatarContentConfiguration alloc]
+          initWithAvatarImage:self.image
+                     diameter:kTableViewIconImageSize
+                     sizeType:AITierAvatarSizeType::kFullView
+              showsAITierRing:showsAITierRing];
+
+  configuration.leadingConfiguration = avatarConfiguration;
   cell.contentConfiguration = configuration;
 
   cell.userInteractionEnabled = self.mode == TableViewAccountModeEnabled;
@@ -125,6 +130,26 @@ constexpr CGFloat kEnterpriseIconPointSize = 20;
   [TableViewCellContentConfiguration legacyRegisterCellForTableView:tableView];
   return
       [TableViewCellContentConfiguration legacyDequeueTableViewCell:tableView];
+}
+
+#pragma mark - Private
+
+// Returns the main text to display in the item. The name if available otherwise
+// the email.
+- (NSString*)text {
+  if (self.name) {
+    return self.name;
+  }
+  return self.email;
+}
+
+// Returns the secondary text to display in the item if any. That is, the email
+// if there is a name, otherwise nothing.
+- (NSString*)detailText {
+  if (self.name) {
+    return self.email;
+  }
+  return nil;
 }
 
 @end
